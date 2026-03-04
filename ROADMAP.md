@@ -29,10 +29,10 @@ The foundation is built: a working analysis engine, polished UI, and solid infra
 
 | Phase | Completion | Dev-months | With 3 devs | With 5 devs | Full AI gen (dev-months) |
 |---|---|---|---|---|---|
-| **Phase 1**: one-code design tool | ~25% | 7-10 | 3-4 months | 2-3 months | 4-5 |
+| **Phase 1**: one-code design tool + plates/shells | ~25% | 9-13 | 3-5 months | 2-3 months | 5-7 |
 | **Phase 2**: connections + server + enterprise | ~5% | 12-18 | 4-6 months | 3-4 months | 6-9 |
 | **Phase 3**: second code + timber + prestressed | 0% | 8-11 | 3-4 months | 2-3 months | 4-6 |
-| **Phase 4**: full platform | 0% | 25-36 | 8-12 months | 5-7 months | 14-21 |
+| **Phase 4**: full platform | 0% | 23-33 | 8-11 months | 5-7 months | 13-19 |
 | **Phase 5**: global codes + CBFEM | 0% | 12-20 | 4-7 months | 3-4 months | 7-11 |
 
 ### Cumulative timeline
@@ -41,9 +41,9 @@ The foundation is built: a working analysis engine, polished UI, and solid infra
 
 | Milestone | 3 devs | 5 devs | 10 devs |
 |---|---|---|---|
-| Phase 1 ships (first revenue) | Month 4 | Month 3 | Month 2 |
-| Phase 2 ships | Month 10 | Month 7 | Month 4 |
-| Phase 3 ships | Month 14 | Month 10 | Month 6 |
+| Phase 1 ships (first revenue) | Month 5 | Month 3 | Month 2 |
+| Phase 2 ships | Month 11 | Month 7 | Month 4 |
+| Phase 3 ships | Month 15 | Month 10 | Month 6 |
 | Phase 4 ships | Month 24 | Month 16 | Month 10 |
 | Phase 5 ships (full platform, ~90% coverage) | Month 30 | Month 20 | Month 13 |
 
@@ -51,7 +51,7 @@ The foundation is built: a working analysis engine, polished UI, and solid infra
 
 | Milestone | 3 devs | 5 devs | 10 devs |
 |---|---|---|---|
-| Phase 1 ships (first revenue) | Month 2 | Month 1 | Month 1 |
+| Phase 1 ships (first revenue) | Month 3 | Month 2 | Month 1 |
 | Phase 2 ships | Month 5 | Month 3 | Month 2 |
 | Phase 3 ships | Month 7 | Month 5 | Month 3 |
 | Phase 4 ships | Month 13 | Month 9 | Month 5 |
@@ -100,7 +100,7 @@ Structural engineering software is a $7-12B global market. Incumbents charge $2,
 
 Browser-based competitors are small and growing: SkyCiv ($69-179/month, ~$1.7M ARR), ClearCalcs ($79-149/month, ~$793K ARR). Neither covers the full pipeline.
 
-**83-94% of structural engineering firms have fewer than 20 employees.** These firms cannot afford $50,000-150,000/year in software licenses. A 10-person firm switching from incumbents to Dedaliano All-in-One ($99/month = $1,188/year) saves $30,000-80,000/year.
+**83-94% of structural engineering firms have fewer than 20 employees.** These firms cannot afford $50,000-150,000/year in software licenses. A 10-person firm switching from incumbents to Dedaliano Pro ($50/month = $600/year per seat) saves $44,000-144,000/year.
 
 ### Vertical ownership thesis
 
@@ -148,21 +148,16 @@ These features are trivial to add in a browser-based, AI-native architecture. Th
 
 | Tier | Price | Includes |
 |---|---|---|
-| **Free** | $0 | Full analysis (browser-only, small models), section properties, basic load calculator |
-| **Pro** | $49/month | Server compute for large models, reports, full load calculator, AI assistant, unit toggle |
-| **Steel** | +$39/month | Steel connection design |
-| **Concrete** | +$29/month | Concrete design suite |
-| **All-in-One** | $99/month | Everything: analysis + all design modules + AI features + server compute |
-| **Education** | $50-100/student/yr | University site license with auto-grading and LMS integration |
-| **API** | Pay-per-solve | HTTP solver endpoint for developers and integrations |
+| **Free** | $0 | Full analysis (browser-only, small models), section properties, load calculator, DSM wizard |
+| **Pro** | $50/month | Everything: all design modules (steel, concrete, timber, connections), server compute, reports, AI assistant, unit toggle, API access, education features |
 
-| **Enterprise** | Custom | SSO/SAML, admin dashboard, usage reporting, audit trail, priority support, SLA |
+Two tiers. No add-ons, no per-module pricing, no enterprise negotiation. Every Pro user gets the full platform. This eliminates purchase friction ("which modules do I need?") and simplifies the sales conversation to one question: free or $50/month.
 
-**Revenue model**: free tier drives adoption; $99/month All-in-One is the target conversion. At $1,188/year vs $5,000-15,000/year for incumbents, the price objection disappears. Revenue scales with users, not with per-seat licenses.
+**Revenue model**: free tier drives adoption and SEO traffic; $50/month Pro is the single conversion target. At $600/year vs $5,000-15,000/year for incumbents, the price objection disappears. A 10-person firm switching from ETABS to Dedaliano saves $44,000-144,000/year. Revenue scales with users, not with per-seat licenses.
 
 **Freemium conversion mechanics:**
 - Free tier: up to 50 elements, 3 load cases, 1 load combination, no code checks, no reports, no server compute. Enough to evaluate the tool and teach students, not enough to run a real project
-- Pro paywall triggers: model exceeds 50 elements, user requests code checks, user generates a report, user needs imperial units. These are natural boundaries — the engineer hits them when they need Dedaliano for real work
+- Pro paywall triggers: model exceeds 50 elements, user requests code checks, user generates a report, user needs server compute. These are natural boundaries — the engineer hits them when they need Dedaliano for real work
 - No time limits or trial periods. The free tier is permanent. This removes the "I'll try it later" objection and keeps the tool installed/bookmarked
 
 **Churn prevention:**
@@ -195,7 +190,7 @@ Engineers are conservative. They will not switch from SAP2000/ETABS unless they 
 **Marquee clients:**
 - Partner with 5-10 well-known structural engineering firms for beta testing
 - Their public endorsement ("we verified Dedaliano against our SAP2000 models and results match within 0.1%") is worth more than any marketing campaign
-- Offer free All-in-One for 1 year in exchange for a published case study
+- Offer free Pro for 1 year in exchange for a published case study
 
 **Open source advantage:**
 - The solver code is AGPL-3.0 and publicly readable. Any engineer can inspect the stiffness matrix assembly, the eigenvalue solver, the design code check formulas
@@ -264,16 +259,16 @@ Every calculation type in the app becomes a public landing page with a live calc
 
 | Timeframe | Users | MRR | Primary driver |
 |---|---|---|---|
-| Month 6-12 | 50-200 | $5-20K | Early adopters, freelancers, students via free tier and SEO landing pages |
-| Month 12-24 | 200-1,000 | $20-100K | Word of mouth, education partnerships, first firm-wide adoptions |
-| Month 24-36 | 1,000-3,000 | $100-300K | Second code (Eurocode) opens Europe, enterprise features land mid-size firms |
-| Month 36-48 | 3,000-10,000 | $300K-1M | Global codes open India, LATAM, East Asia, API integrations with BIM tools |
+| Month 6-12 | 50-200 | $2.5-10K | Early adopters, freelancers, students via free tier and SEO landing pages |
+| Month 12-24 | 200-1,000 | $10-50K | Word of mouth, education partnerships, first firm-wide adoptions |
+| Month 24-36 | 1,000-3,000 | $50-150K | Second code (Eurocode) opens Europe, enterprise features land mid-size firms |
+| Month 36-48 | 3,000-10,000 | $150-500K | Global codes open India, LATAM, East Asia, API integrations with BIM tools |
 
 **Benchmarks from the space:**
 - SkyCiv: ~$1.7M ARR after ~8-10 years. No AI, no PLG, incomplete pipeline coverage.
 - ClearCalcs: ~$793K ARR. Better UX than incumbents but still limited scope.
 
-Dedaliano's structural advantages: 10x cheaper than incumbents, AI-native architecture, full vertical pipeline coverage from loads to reports. Realistic targets: **$1M ARR in 18-24 months**, **$5M ARR in 36-48 months**. The constraint is not demand — it is trust. Every benchmark must pass before engineers will stamp calculations from the software.
+Dedaliano's structural advantages: 10-30x cheaper than incumbents, AI-native architecture, full vertical pipeline coverage from loads to reports. Realistic targets: **$1M ARR (~1,700 paying users) in 18-24 months**, **$5M ARR (~8,300 paying users) in 36-48 months**. The constraint is not demand — it is trust. Every benchmark must pass before engineers will stamp calculations from the software.
 
 ### Professional liability and disclaimers
 
@@ -330,15 +325,15 @@ The technical roadmap is ordered by business impact, not by technical difficulty
 2. **Adoption barriers second**: Phase 2 removes the biggest objections (no connections, no collaboration, can't import my ETABS model, no enterprise features)
 3. **Market expansion third**: Phases 3-5 double and redouble the addressable market
 4. **Strategically important tech is pulled forward**: AI features ship in Phase 1 (not Phase 4) because they are the competitive moat. Offline PWA ships in Phase 1 because "what if I lose internet" kills browser adoption. Incumbent importers ship in Phase 2 because switching cost is the #1 sales objection
-5. **Hard-but-not-urgent tech is pushed back**: plates/shells, solid elements, nonlinear analysis, and CBFEM are technically important but only matter after the core platform is generating revenue and funding the team
+5. **Hard-but-not-urgent tech is pushed back**: solid elements, nonlinear analysis, and CBFEM are technically important but only matter after the core platform is generating revenue and funding the team. Exception: plates/shells are pulled into Phase 1 because slab and wall analysis is essential for a complete design tool
 
 ---
 
-## Phase 1 — Complete design tool for one market (months 1-4, 2-3 devs)
+## Phase 1 — Complete design tool for one market (months 1-5, 2-3 devs)
 
 **Business goal:** ship a sellable product. Pick US (AISC 360 + ACI 318) or EU (Eurocode 2 + 3). Build the full pipeline for steel and concrete buildings in that code system. This is the minimum product that replaces incumbent software for the most common use cases.
 
-**Total: 6-8 dev-months.**
+**Total: 9-13 dev-months.**
 
 ### 1.1 3D solver parity
 
@@ -490,9 +485,24 @@ These are high-impact, low-risk AI applications. The AI suggests; the engineer r
 
 Estimated effort: 1 dev-month.
 
+### 1.10 Plates and shells
+
+Triangular and quadrilateral plate/shell elements for floor slabs, walls, tanks, and shell structures. The Discrete Kirchhoff Triangle (DKT) for bending combined with the Constant Strain Triangle (CST) for membrane action.
+
+Without plate elements, engineers cannot model concrete slabs, shear walls, or steel deck — these are present in virtually every building project. A "complete design tool" that only handles frame elements forces the engineer back to another program for anything involving a slab or wall. Pulling plates/shells into Phase 1 eliminates this gap.
+
+**Scope:**
+- DKT+CST triangular elements (bending + membrane)
+- Quadrilateral elements via compatible subdivision
+- 2D mesh generator (Delaunay triangulation or advancing front)
+- Concrete slab design, steel deck design, shear wall analysis, foundation mat analysis
+- Post-processing: stress contours, displacement fields, result extraction along section cuts
+
+Estimated effort: 2-3 dev-months. New element formulations and mesh generation are the hardest items in Phase 1.
+
 ---
 
-## Phase 2 — Connections, server, performance (months 4-8, 3-4 devs)
+## Phase 2 — Connections, server, performance (months 5-11, 3-4 devs)
 
 **Business goal:** close the design loop with connections. Enable server-side computation and collaboration. Open the API and education markets.
 
@@ -674,7 +684,7 @@ Large firms (AECOM, WSP, Thornton Tomasetti, 500+ engineers) buy through procure
 - **Data residency**: option to host project data in specific regions (EU firms may require EU data storage for GDPR)
 - **Priority support and SLA**: guaranteed response times, dedicated support contact
 
-Enterprise deals are high-value: a 200-person firm at $99/month/seat = $237,600/year. Worth the investment.
+Enterprise deals are high-value: a 200-person firm at $50/month/seat = $120,000/year. Worth the investment.
 
 Estimated effort: 1.5-2 dev-months.
 
@@ -708,7 +718,7 @@ Estimated effort: 1-1.5 dev-months.
 
 ---
 
-## Phase 3 — Second market, more materials (months 8-14, 4-5 devs)
+## Phase 3 — Second market, more materials (months 11-15, 4-5 devs)
 
 **Business goal:** double the addressable market with the second code system. Expand to timber and prestressed concrete — underserved niches with high willingness to pay.
 
@@ -766,11 +776,11 @@ Estimated effort: 1-1.5 dev-months.
 
 ---
 
-## Phase 4 — Full platform (months 14-22, 5-8 devs)
+## Phase 4 — Full platform (months 15-24, 5-8 devs)
 
 **Business goal:** cover every common structural material and analysis type. Revenue from Phases 1-3 funds the team. After this phase, Dedaliano handles ~80-85% of everything a structural engineer does (the remaining ~15-20% is construction drawings — Revit/Tekla territory).
 
-**Total: 25-36 dev-months.**
+**Total: 23-33 dev-months.**
 
 ### 4.1 Cold-formed steel
 
@@ -796,17 +806,9 @@ Scope: flexural capacity of grouted/ungrouted walls, shear capacity (in-plane an
 
 Estimated effort: 0.5-1 dev-months per code.
 
-### 4.4 Plates and shells
+### 4.4 Solid (3D continuum) finite elements
 
-Triangular and quadrilateral plate/shell elements for floor slabs, walls, tanks, and shell structures. The Discrete Kirchhoff Triangle (DKT) for bending combined with the Constant Strain Triangle (CST) for membrane action.
-
-This is the single largest expansion in scope. Plate analysis covers reinforced concrete slab design, steel deck design, shear wall analysis, and foundation mat analysis. Requires a 2D mesh generator (Delaunay triangulation or advancing front).
-
-Estimated effort: 2-3 dev-months. Hardest item — new element formulations and mesh generation.
-
-### 4.5 Solid (3D continuum) finite elements
-
-Tetrahedral and hexahedral elements for volumetric stress analysis. Extends the plate/shell capability (4.4) into the third dimension.
+Tetrahedral and hexahedral elements for volumetric stress analysis. Extends the plate/shell capability (Phase 1, section 1.10) into the third dimension.
 
 **Use cases:**
 - Thick concrete structures: transfer beams, pile caps, deep beams where beam theory breaks down
@@ -822,7 +824,7 @@ Tetrahedral and hexahedral elements for volumetric stress analysis. Extends the 
 - Post-processing: 3D stress contours (Von Mises, principal stresses), isosurfaces, section cuts through solid regions
 - Mixed models: frame elements + shell elements + solid elements in the same model (transition elements at interfaces)
 
-Shares mesh generation infrastructure with plates/shells (4.4). The element stiffness formulations are well-documented in every FEA textbook (Hughes, Bathe, Zienkiewicz).
+Shares mesh generation infrastructure with plates/shells (1.10). The element stiffness formulations are well-documented in every FEA textbook (Hughes, Bathe, Zienkiewicz).
 
 Estimated effort: 3-4 dev-months. Hard — 3D meshing and mixed-dimensional coupling are complex.
 
@@ -1007,7 +1009,7 @@ Estimated effort: 1-2 dev-months per code pair (steel + concrete). Faster with e
 Component-Based Finite Element Method — the approach IDEA StatiCa uses. Instead of predefined connection types (Phase 2's 20 types), CBFEM meshes every plate, bolt, and weld in a connection with shell/solid finite elements and solves for stresses directly. This handles ANY connection geometry, no matter how unusual.
 
 **Why this kills IDEA StatiCa ($1,990-5,250/yr):**
-- IDEA StatiCa's entire business is CBFEM connections. If Dedaliano includes this at $99/month All-in-One, there is no reason to buy IDEA StatiCa separately
+- IDEA StatiCa's entire business is CBFEM connections. If Dedaliano includes this at $50/month Pro, there is no reason to buy IDEA StatiCa separately
 - "Any connection, any geometry" is a strong marketing message — engineers hit the limits of predefined connection types regularly
 
 **Implementation:**
@@ -1017,7 +1019,7 @@ Component-Based Finite Element Method — the approach IDEA StatiCa uses. Instea
 - Post-processing: stress contours on each plate, bolt force distribution, weld utilization along length, plastic strain for ductility assessment
 - Code checks: equivalent stress check per AISC 360 / Eurocode 3 at every point in the connection, not just at predefined failure modes
 
-**Prerequisites:** plates/shells (4.4) and solid elements (4.5) must be working first. The connection geometry modeler (3D plate/bolt/weld placement UI) is the hardest part — this is where IDEA StatiCa invested years of development.
+**Prerequisites:** plates/shells (1.10) and solid elements (4.4) must be working first. The connection geometry modeler (3D plate/bolt/weld placement UI) is the hardest part — this is where IDEA StatiCa invested years of development.
 
 Estimated effort: 4-6 dev-months. Very Hard — the geometry modeler and auto-meshing are the challenging parts, not the FEA solver.
 
@@ -1083,7 +1085,7 @@ When Dedaliano gains traction, incumbents will respond. Anticipate and prepare:
 
 **CSI (ETABS/SAP2000) moving to cloud:** CSI has been slowly building web interfaces. Their advantage is 30 years of verified analysis and design. Their disadvantage is a monolithic C/C++ codebase that is extremely difficult to port to the browser. Our response: move faster. By the time they ship a browser version, we should have feature parity on the design code coverage they offer.
 
-**Dlubal (RFEM) price drops:** Dlubal already has aggressive pricing in some markets. They may match our $99/month. Our response: the free tier. If they match our price, we still have a free tier they can't match without destroying their business model. Also: our AI features create value they cannot replicate without rewriting their software.
+**Dlubal (RFEM) price drops:** Dlubal already has aggressive pricing in some markets. They may match our $50/month. Our response: the free tier. If they match our price, we still have a free tier they can't match without destroying their business model. Also: our AI features create value they cannot replicate without rewriting their software.
 
 **Autodesk bundling:** Autodesk may bundle Robot Structural Analysis more aggressively with their AEC Collection. Our response: Robot is widely considered the weakest analysis tool. Bundling a weak product doesn't make it stronger. Focus on being the best tool, not the bundled tool.
 
@@ -1099,10 +1101,10 @@ All estimates assume AI-generated code with human review on every PR and commit 
 
 | Category | Dev-months |
 |---|---|
-| Phase 1: one-code design tool + AI assistant + offline | 7-10 |
+| Phase 1: one-code design tool + AI assistant + offline + plates/shells | 9-13 |
 | Phase 2: connections + server + collaboration + enterprise + migration | 12-18 |
 | Phase 3: second code + timber + prestressed | 8-11 |
-| Phase 4: full platform (all materials + advanced analysis + solid elements) | 25-36 |
+| Phase 4: full platform (all materials + advanced analysis + solid elements) | 23-33 |
 | Phase 5: global codes + CBFEM connections | 12-20 |
 | **Total** | **60-95** |
 
@@ -1112,7 +1114,7 @@ All estimates assume AI-generated code with human review on every PR and commit 
 | 5 developers + reviewers | 10-15 months | 12-19 months |
 | 10 developers + reviewers | 5-8 months | 7-10 months |
 
-Phase 1 alone (sellable product) with 3 developers: **2-3 months**.
+Phase 1 alone (sellable product) with 3 developers: **3-5 months**.
 
 ### Accelerated estimates (full AI generation)
 
@@ -1122,21 +1124,21 @@ The baseline estimates assume developers write code with AI assistance (~3x prod
 
 | Phase | Baseline (dev-months) | Full AI gen (dev-months) |
 |---|---|---|
-| Phase 1: one-code design tool | 7-10 | 4-5 |
+| Phase 1: one-code design tool + plates/shells | 9-13 | 5-7 |
 | Phase 2: connections + server + enterprise | 12-18 | 6-9 |
 | Phase 3: second code + timber + prestressed | 8-11 | 4-6 |
-| Phase 4: full platform | 25-36 | 14-21 |
+| Phase 4: full platform | 23-33 | 13-19 |
 | Phase 5: global codes + CBFEM | 12-20 | 7-11 |
 | **Total** | **64-95** | **35-52** |
 
-Phases 1-3 see the largest reduction (~50%) because the work is predominantly formula translation from published standards — well-specified inputs, deterministic outputs, testable against published worked examples (AISC design examples, Eurocode worked examples). Phases 4-5 compress less (~40-45%) because they include nonlinear solvers, mesh generation, and novel element formulations where iterative numerical debugging dominates, plus CBFEM connection modeling which is R&D-intensive with limited prior art.
+Phases 2-3 see the largest reduction (~50%) because the work is predominantly formula translation from published standards — well-specified inputs, deterministic outputs, testable against published worked examples (AISC design examples, Eurocode worked examples). Phase 1 compresses slightly less (~45%) because it now includes plates/shells (DKT+CST element formulations, mesh generation), which requires iterative numerical validation. Phases 4-5 compress least (~40-45%) because they include nonlinear solvers, novel element formulations, and CBFEM connection modeling which is R&D-intensive with limited prior art.
 
 **Calendar milestones (cumulative, full AI generation):**
 
 | Team size | Phase 1 | Phase 2 | Phase 3 | Phase 4 | Phase 5 |
 |---|---|---|---|---|---|
-| 3 developers + reviewers | Month 2 | Month 5 | Month 7 | Month 13 | Month 17 |
-| 5 developers + reviewers | Month 1 | Month 3 | Month 5 | Month 9 | Month 12 |
+| 3 developers + reviewers | Month 3 | Month 5 | Month 7 | Month 13 | Month 17 |
+| 5 developers + reviewers | Month 2 | Month 3 | Month 5 | Month 9 | Month 12 |
 | 10 developers + reviewers | Month 1 | Month 2 | Month 3 | Month 5 | Month 7 |
 
 **Rate-limiting factors.** Four constraints prevent acceleration beyond ~50%, regardless of AI capability:
@@ -1152,9 +1154,9 @@ Under this model, the binding constraint is the number of qualified reviewers (s
 
 | Milestone | When | Revenue potential |
 |---|---|---|
-| Phase 1 ships | Month 4 | First paying customers. $99/month All-in-One. Target: 50-100 users = $5,000-10,000/month |
-| Phase 2 ships | Month 8 | Connection design adds upsell. Education platform. API. Target: 200-500 users = $20,000-50,000/month |
-| Phase 3 ships | Month 14 | Second code doubles TAM. Timber captures residential market. Target: 500-1,000 users = $50,000-100,000/month |
+| Phase 1 ships | Month 5 | First paying customers. $50/month Pro. Target: 50-100 users = $2,500-5,000/month |
+| Phase 2 ships | Month 9 | Connection design adds upsell. Education platform. API. Target: 200-500 users = $10,000-25,000/month |
+| Phase 3 ships | Month 15 | Second code doubles TAM. Timber captures residential market. Target: 500-1,000 users = $25,000-50,000/month |
 | Phase 4 ships | Month 22 | Full platform. Competes with ETABS/SAP2000 head-on. Target: 1,000-5,000 users |
 | Phase 5 ships | Month 30 | Global coverage. India and China markets open. Target: 5,000-20,000 users |
 
@@ -1214,7 +1216,7 @@ Every feature rated by implementation difficulty. Easy = well-defined formulas o
 | Cable/tension structures | 4 | 1 | Hard | Large-displacement geometric nonlinearity, form-finding |
 | Staged construction | 4 | 1-1.5 | Hard | Creep/shrinkage/relaxation across stages, changing geometry |
 | Performance-based design | 4 | 1.5-2 | Hard | Fragility functions, loss estimation, requires nonlinear TH |
-| Plates and shells | 4 | 2-3 | Hard | New element formulations (DKT+CST), mesh generation |
+| Plates and shells | 1 | 2-3 | Hard | New element formulations (DKT+CST), mesh generation |
 | Solid (3D continuum) elements | 4 | 3-4 | Hard | 3D meshing, mixed-dimensional coupling, volumetric stress |
 | CBFEM arbitrary connections | 5 | 4-6 | Very Hard | Connection geometry modeler, auto-meshing, contact mechanics |
 
@@ -1227,7 +1229,7 @@ Every feature rated by implementation difficulty. Easy = well-defined formulas o
 | Hard | 9 | ~15-21 | Numerical methods, distributed systems, convergence, 3D meshing |
 | Very Hard | 1 | ~4-6 | CBFEM geometry modeler — the core IP that kills IDEA StatiCa |
 
-All Easy and Medium items are in Phases 1-3 (the first sellable product through second market). The Hard items cluster in Phase 4 — by then, revenue funds the team and the hardest problems can be tackled with experienced hires.
+All Easy and Medium items are in Phases 1-3 (the first sellable product through second market). Most Hard items cluster in Phase 4 — by then, revenue funds the team and the hardest problems can be tackled with experienced hires. The exception is plates/shells, which is Hard but pulled into Phase 1 because slab and wall analysis is essential for a complete design tool.
 
 **The hardest things are not technical — they are business:**
 
