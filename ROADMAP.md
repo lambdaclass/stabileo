@@ -223,6 +223,19 @@ This approach reduces development timelines by roughly 3x compared to traditiona
 
 ---
 
+## Execution phases
+
+The technical roadmap is ordered by business impact, not by technical difficulty. Each phase is designed to generate revenue or remove a critical adoption barrier. No phase exists for purely technical reasons — every item earns its place by serving a business need.
+
+**Ordering principles:**
+1. **Revenue first**: Phase 1 ships a sellable product. Everything before revenue is minimized
+2. **Adoption barriers second**: Phase 2 removes the biggest objections (no connections, no collaboration, can't import my ETABS model, no enterprise features)
+3. **Market expansion third**: Phases 3-5 double and redouble the addressable market
+4. **Strategically important tech is pulled forward**: AI features ship in Phase 1 (not Phase 4) because they are the competitive moat. Offline PWA ships in Phase 1 because "what if I lose internet" kills browser adoption. Incumbent importers ship in Phase 2 because switching cost is the #1 sales objection
+5. **Hard-but-not-urgent tech is pushed back**: plates/shells, solid elements, nonlinear analysis, and CBFEM are technically important but only matter after the core platform is generating revenue and funding the team
+
+---
+
 ## Phase 1 — Complete design tool for one market (months 1-4, 2-3 devs)
 
 **Business goal:** ship a sellable product. Pick US (AISC 360 + ACI 318) or EU (Eurocode 2 + 3). Build the full pipeline for steel and concrete buildings in that code system. This is the minimum product that replaces incumbent software for the most common use cases.
@@ -659,7 +672,7 @@ Estimated effort: 1-1.5 dev-months.
 
 **Business goal:** cover every common structural material and analysis type. Revenue from Phases 1-3 funds the team. After this phase, Dedaliano handles ~80-85% of everything a structural engineer does (the remaining ~15-20% is construction drawings — Revit/Tekla territory).
 
-**Total: 22-32 dev-months.**
+**Total: 25-36 dev-months.**
 
 ### 4.1 Cold-formed steel
 
@@ -693,7 +706,29 @@ This is the single largest expansion in scope. Plate analysis covers reinforced 
 
 Estimated effort: 2-3 dev-months. Hardest item — new element formulations and mesh generation.
 
-### 4.5 Advanced analysis types
+### 4.5 Solid (3D continuum) finite elements
+
+Tetrahedral and hexahedral elements for volumetric stress analysis. Extends the plate/shell capability (4.4) into the third dimension.
+
+**Use cases:**
+- Thick concrete structures: transfer beams, pile caps, deep beams where beam theory breaks down
+- Anchorage zones in post-tensioned concrete: local stress concentrations around tendon anchors
+- Steel casting nodes: complex 3D joints in architecturally exposed steel structures
+- Dam sections, machine foundations, nuclear containment walls
+- Any situation where the structure is too thick or too complex for plate/shell idealization
+
+**Implementation:**
+- 10-node quadratic tetrahedral elements (robust, meshes any geometry)
+- 20-node hexahedral elements (more accurate for regular geometries)
+- 3D mesh generator: integrate TetGen (open source, Delaunay-based) or implement advancing front. Automatic meshing from boundary surfaces
+- Post-processing: 3D stress contours (Von Mises, principal stresses), isosurfaces, section cuts through solid regions
+- Mixed models: frame elements + shell elements + solid elements in the same model (transition elements at interfaces)
+
+Shares mesh generation infrastructure with plates/shells (4.4). The element stiffness formulations are well-documented in every FEA textbook (Hughes, Bathe, Zienkiewicz).
+
+Estimated effort: 3-4 dev-months. Hard — 3D meshing and mixed-dimensional coupling are complex.
+
+### 4.6 Advanced analysis types
 
 Features that advanced users and seismic engineers expect:
 
@@ -710,7 +745,7 @@ Features that advanced users and seismic engineers expect:
 
 Estimated effort: 3-4 dev-months total.
 
-### 4.6 Bridge design
+### 4.7 Bridge design
 
 AASHTO LRFD (US), Eurocode 1-2 (EU). Bridge load rating for existing bridges, permit load analysis. Government infrastructure market with reliable budgets.
 
@@ -718,7 +753,7 @@ Scope: HL-93 live load model (lane + truck/tandem), distribution factors, fatigu
 
 Estimated effort: 1.5-2 dev-months.
 
-### 4.7 Fire design
+### 4.8 Fire design
 
 Structural fire engineering. Temperature-dependent material properties, fire resistance verification per ISO 834 fire curves. Eurocode fire parts (EN 1992-1-2 for concrete, EN 1993-1-2 for steel, EN 1995-1-2 for timber).
 
@@ -726,7 +761,7 @@ Growing regulatory requirement. Critical for timber/mass timber buildings where 
 
 Estimated effort: 1-1.5 dev-months.
 
-### 4.8 Seismic retrofit and rehabilitation
+### 4.9 Seismic retrofit and rehabilitation
 
 Existing building assessment and retrofit design. Huge market — millions of buildings worldwide need seismic upgrades.
 
@@ -739,7 +774,7 @@ Existing building assessment and retrofit design. Huge market — millions of bu
 
 Estimated effort: 1.5-2 dev-months.
 
-### 4.9 Geotechnical analysis
+### 4.10 Geotechnical analysis
 
 Slope stability (method of slices: Bishop, Janbu, Spencer) and retaining wall design (gravity walls, cantilever walls, sheet pile walls). 2D problems that fit Dedaliano's existing 2D viewport.
 
@@ -749,7 +784,7 @@ Deep foundations: single piles (axial capacity from SPT/CPT), pile groups (group
 
 Estimated effort: 1-1.5 dev-months for slope stability, 1-1.5 for deep foundations.
 
-### 4.10 Progressive collapse analysis
+### 4.11 Progressive collapse analysis
 
 Required by GSA (US General Services Administration) for federal buildings and DoD (UFC 4-023-03) for military facilities. Increasingly required by local jurisdictions for important buildings.
 
@@ -763,7 +798,7 @@ Relatively simple to implement once the nonlinear solver exists — the main wor
 
 Estimated effort: 0.5-1 dev-months.
 
-### 4.11 Soil-structure interaction
+### 4.12 Soil-structure interaction
 
 Beyond simple Winkler springs at the base. For seismic design of important structures, the foundation flexibility affects the entire building's response.
 
@@ -778,7 +813,7 @@ This bridges the structural and geotechnical modules (4.9) — the pile design f
 
 Estimated effort: 1-1.5 dev-months.
 
-### 4.12 Thermal loads
+### 4.13 Thermal loads
 
 Temperature effects on long buildings, bridges, parking garages, and industrial structures. Missing from the load determination section but required for many structure types.
 
@@ -792,7 +827,7 @@ Technically straightforward — thermal loads produce equivalent forces that fee
 
 Estimated effort: 0.5 dev-months.
 
-### 4.13 Performance-based seismic design
+### 4.14 Performance-based seismic design
 
 FEMA P-58 / ASCE 41 performance-based engineering. This is where the industry is heading — especially for tall buildings in high-seismic regions (Los Angeles, San Francisco, Seattle, Tokyo, Istanbul).
 
@@ -807,13 +842,13 @@ This is the most advanced analysis capability in the roadmap. It requires nonlin
 
 Estimated effort: 1.5-2 dev-months (builds on 4.5 nonlinear analysis).
 
-### 4.14 Fatigue analysis
+### 4.15 Fatigue analysis
 
 For bridges, crane girders, offshore structures, wind turbine towers. S-N curves, Miner's rule cumulative damage, stress range counting (rainflow method). AISC 360 Appendix 3, Eurocode 3-1-9.
 
 Estimated effort: 0.5-1 dev-months.
 
-### 4.15 Floor vibration and serviceability
+### 4.16 Floor vibration and serviceability
 
 Footfall analysis, vibration from equipment or pedestrian traffic. Required for hospitals, labs, offices with sensitive equipment. SCI P354 (UK), AISC Design Guide 11 (US).
 
@@ -821,7 +856,7 @@ Natural frequency calculation (already in modal analysis), damping estimation, r
 
 Estimated effort: 0.5 dev-months.
 
-### 4.16 Scaffolding and temporary works
+### 4.17 Scaffolding and temporary works
 
 Formwork, shoring, scaffolding design. Required on every construction site. Usually done poorly or with rules of thumb. High liability. No good browser tool.
 
@@ -829,7 +864,7 @@ Covers: falsework design for concrete pours, scaffold load capacity, bracing req
 
 Estimated effort: 0.5-1 dev-months.
 
-### 4.17 Detailing (partial)
+### 4.18 Detailing (partial)
 
 Full construction drawings are out of scope (CAD engine). Two feasible slices:
 
@@ -867,7 +902,28 @@ Four code families (AISC/ACI + Eurocode) cover the US, EU, and most countries th
 
 Estimated effort: 1-2 dev-months per code pair (steel + concrete). Faster with each additional code as the pattern is established.
 
-**Total: 8-14 dev-months for 4-5 additional code families.**
+**Total: 8-14 dev-months for code families.**
+
+### 5.2 CBFEM for arbitrary connections
+
+Component-Based Finite Element Method — the approach IDEA StatiCa uses. Instead of predefined connection types (Phase 2's 20 types), CBFEM meshes every plate, bolt, and weld in a connection with shell/solid finite elements and solves for stresses directly. This handles ANY connection geometry, no matter how unusual.
+
+**Why this kills IDEA StatiCa ($1,990-5,250/yr):**
+- IDEA StatiCa's entire business is CBFEM connections. If Dedaliano includes this at $99/month All-in-One, there is no reason to buy IDEA StatiCa separately
+- "Any connection, any geometry" is a strong marketing message — engineers hit the limits of predefined connection types regularly
+
+**Implementation:**
+- Connection geometry modeler: 3D UI for placing plates (stiffeners, end plates, gussets), bolt patterns, and weld paths on steel sections. Users define arbitrary geometries, not just the 20 predefined types
+- Auto-meshing: generate shell element mesh for each plate component, contact elements between plates and bolts, weld elements along weld paths
+- Solver: reuses the plate/shell solver (4.4) and solid elements (4.5) — the connection model is a small FEA problem (typically 500-5,000 DOFs)
+- Post-processing: stress contours on each plate, bolt force distribution, weld utilization along length, plastic strain for ductility assessment
+- Code checks: equivalent stress check per AISC 360 / Eurocode 3 at every point in the connection, not just at predefined failure modes
+
+**Prerequisites:** plates/shells (4.4) and solid elements (4.5) must be working first. The connection geometry modeler (3D plate/bolt/weld placement UI) is the hardest part — this is where IDEA StatiCa invested years of development.
+
+Estimated effort: 4-6 dev-months. Very Hard — the geometry modeler and auto-meshing are the challenging parts, not the FEA solver.
+
+**Total Phase 5: 12-20 dev-months.**
 
 ---
 
@@ -948,15 +1004,15 @@ All estimates assume AI-generated code with human review on every PR and commit 
 | Phase 1: one-code design tool + AI assistant + offline | 7-10 |
 | Phase 2: connections + server + collaboration + enterprise + migration | 12-18 |
 | Phase 3: second code + timber + prestressed | 8-11 |
-| Phase 4: full platform (all materials + advanced analysis + SSI + PBSD) | 22-32 |
-| Phase 5: global code expansion (4-5 additional code families) | 8-14 |
-| **Total** | **57-85** |
+| Phase 4: full platform (all materials + advanced analysis + solid elements) | 25-36 |
+| Phase 5: global codes + CBFEM connections | 12-20 |
+| **Total** | **60-95** |
 
 | Team size | Time to Phase 4 complete | Time to Phase 5 complete |
 |---|---|---|
-| 3 developers + reviewers | 17-24 months | 20-28 months |
-| 5 developers + reviewers | 10-14 months | 12-17 months |
-| 10 developers + reviewers | 5-7 months | 6-9 months |
+| 3 developers + reviewers | 17-25 months | 21-32 months |
+| 5 developers + reviewers | 10-15 months | 12-19 months |
+| 10 developers + reviewers | 5-8 months | 7-10 months |
 
 Phase 1 alone (sellable product) with 3 developers: **2-3 months**.
 
@@ -1027,6 +1083,8 @@ Every feature rated by implementation difficulty. Easy = well-defined formulas o
 | Staged construction | 4 | 1-1.5 | Hard | Creep/shrinkage/relaxation across stages, changing geometry |
 | Performance-based design | 4 | 1.5-2 | Hard | Fragility functions, loss estimation, requires nonlinear TH |
 | Plates and shells | 4 | 2-3 | Hard | New element formulations (DKT+CST), mesh generation |
+| Solid (3D continuum) elements | 4 | 3-4 | Hard | 3D meshing, mixed-dimensional coupling, volumetric stress |
+| CBFEM arbitrary connections | 5 | 4-6 | Very Hard | Connection geometry modeler, auto-meshing, contact mechanics |
 
 **Summary:**
 
@@ -1034,7 +1092,8 @@ Every feature rated by implementation difficulty. Easy = well-defined formulas o
 |---|---|---|---|
 | Easy | 11 | ~7-10 | Formula translation, standard web engineering, LLM wrappers |
 | Medium | 24 | ~30-45 | Bulk of the roadmap — substantial but predictable work |
-| Hard | 8 | ~12-17 | Numerical methods, distributed systems, convergence problems |
+| Hard | 9 | ~15-21 | Numerical methods, distributed systems, convergence, 3D meshing |
+| Very Hard | 1 | ~4-6 | CBFEM geometry modeler — the core IP that kills IDEA StatiCa |
 
 All Easy and Medium items are in Phases 1-3 (the first sellable product through second market). The Hard items cluster in Phase 4 — by then, revenue funds the team and the hardest problems can be tackled with experienced hires.
 
@@ -1052,4 +1111,4 @@ All Easy and Medium items are in Phases 1-3 (the first sellable product through 
 
 **Construction drawings (Revit/Tekla territory):** generating plans, sections, and shop drawings requires a full CAD/BIM engine with drafting tools, dimensioning, annotation, sheet management, and print layout. This is a separate product category worth billions of dollars and decades of development. We integrate with these tools via IFC round-trip and live link plugins — we do not replace them. The boundary is clear: Dedaliano does engineering calculations, Revit/Tekla does construction documents.
 
-This means Dedaliano covers ~80-85% of what a structural engineer does. The remaining ~15-20% is BIM modeling and drafting, which we connect to rather than replace. No single tool covers 100% — but owning the engineering calculation pipeline from loads to report is where the intellectual value and the revenue are.
+With solid elements and CBFEM connections, Dedaliano covers ~90% of what a structural engineer does. The remaining ~10% is BIM modeling and drafting, which we connect to rather than replace. No single tool covers 100% — but owning the engineering calculation pipeline from loads to report is where the intellectual value and the revenue are.
