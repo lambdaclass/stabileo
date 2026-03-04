@@ -1,0 +1,31 @@
+[package]
+name = "dedaliano-engine"
+version = "0.1.0"
+edition = "2021"
+authors = ["Dedaliano Team"]
+description = "High-performance 2D structural analysis engine"
+
+[lib]
+crate-type = ["cdylib", "rlib"]
+
+[features]
+default = ["console_error_panic_hook"]
+
+[dependencies]
+wasm-bindgen = "0.2"
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+serde-wasm-bindgen = "0.6"
+
+# Better panic messages in WASM
+console_error_panic_hook = { version = "0.1", optional = true }
+
+# For JS console logging
+web-sys = { version = "0.3", features = ["console"] }
+
+[dev-dependencies]
+wasm-bindgen-test = "0.3"
+
+[profile.release]
+opt-level = 3
+lto = true

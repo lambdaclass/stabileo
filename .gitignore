@@ -1,0 +1,25 @@
+# Dependencies
+node_modules/
+
+# Build output
+web/dist/
+
+# IDE / OS
+.DS_Store
+*.swp
+*.swo
+.vscode/
+.idea/
+
+# Env
+.env
+.env.local
+.dev.vars
+
+# Claude internal
+.claude/
+
+# Rust / Wasm engine build artifacts
+engine/target/
+engine/pkg/
+web/src/lib/wasm/

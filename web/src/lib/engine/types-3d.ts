@@ -1,0 +1,224 @@
+// 3D Structural Analysis Types
+// Phase 1: Engine Core — types for 3D frame/truss solver (6 DOF/node)
+
+import type { SolverMaterial } from './types';
+export type { SolverMaterial };
+
+// ─── Geometry ────────────────────────────────────────────────────
+
+export interface SolverNode3D {
+  id: number;
+  x: number;  // m (global X)
+  y: number;  // m (global Y — up)
+  z: number;  // m (global Z)
+}
+
+// ─── Section ─────────────────────────────────────────────────────
+
+export interface SolverSection3D {
+  id: number;
+  name?: string;
+  a: number;   // m² — cross-section area
+  iy: number;  // m⁴ — moment of inertia about Y axis (horizontal) → controls Z-displacement bending (w, θy)
+  iz: number;  // m⁴ — moment of inertia about Z axis (vertical) → controls Y-displacement bending (v, θz)
+  j: number;   // m⁴ — torsional constant (Saint-Venant)
+}
+
+// ─── Elements ────────────────────────────────────────────────────
+
+export interface SolverElement3D {
+  id: number;
+  type: 'frame' | 'truss';
+  nodeI: number;
+  nodeJ: number;
+  materialId: number;
+  sectionId: number;
+  hingeStart: boolean;
+  hingeEnd: boolean;
+  // Optional orientation vector for local Y axis (perpendicular to element).
+  // If not provided, computed automatically from global Y (or Z for vertical elements).
+  localYx?: number;
+  localYy?: number;
+  localYz?: number;
+  // Roll angle: rotation of local Y/Z around local X (degrees, 0/90/180/270)
+  rollAngle?: number;
+}
+
+// ─── Supports ────────────────────────────────────────────────────
+
+export interface SolverSupport3D {
+  nodeId: number;
+  // Which DOFs are restrained (true = fixed, false = free)
+  rx: boolean;   // translation X
+  ry: boolean;   // translation Y
+  rz: boolean;   // translation Z
+  rrx: boolean;  // rotation about X (torsion)
+  rry: boolean;  // rotation about Y
+  rrz: boolean;  // rotation about Z
+  // Spring stiffnesses (kN/m or kN·m/rad). 0 or undefined = no spring.
+  kx?: number;
+  ky?: number;
+  kz?: number;
+  krx?: number;
+  kry?: number;
+  krz?: number;
+  // Prescribed displacements (m or rad). Only for restrained DOFs.
+  dx?: number;
+  dy?: number;
+  dz?: number;
+  drx?: number;
+  dry?: number;
+  drz?: number;
+  // Inclined support: normal vector of the constraint plane.
+  // When isInclined=true, displacement is restrained along this normal direction
+  // using the penalty method. The translational DOFs (rx,ry,rz) should be false
+  // so the penalty stiffness acts on free DOFs.
+  normalX?: number;
+  normalY?: number;
+  normalZ?: number;
+  isInclined?: boolean;
+}
+
+// ─── Loads ────────────────────────────────────────────────────────
+
+export interface SolverNodalLoad3D {
+  nodeId: number;
+  fx: number;  // kN (global X)
+  fy: number;  // kN (global Y)
+  fz: number;  // kN (global Z)
+  mx: number;  // kN·m (about global X)
+  my: number;  // kN·m (about global Y)
+  mz: number;  // kN·m (about global Z)
+}
+
+export interface SolverDistributedLoad3D {
+  elementId: number;
+  qYI: number;  // kN/m in local Y at node I
+  qYJ: number;  // kN/m in local Y at node J
+  qZI: number;  // kN/m in local Z at node I
+  qZJ: number;  // kN/m in local Z at node J
+  a?: number;   // start position from node I (m). Default: 0
+  b?: number;   // end position from node I (m). Default: L
+}
+
+export interface SolverPointLoad3D {
+  elementId: number;
+  a: number;   // distance from node I (m)
+  py: number;  // kN in local Y
+  pz: number;  // kN in local Z
+}
+
+export interface SolverThermalLoad3D {
+  elementId: number;
+  dtUniform: number;    // °C → axial (E·A·α·ΔT)
+  dtGradientY: number;  // °C → My (E·Iy·α·ΔTy/hy)
+  dtGradientZ: number;  // °C → Mz (E·Iz·α·ΔTz/hz)
+}
+
+export type SolverLoad3D =
+  | { type: 'nodal'; data: SolverNodalLoad3D }
+  | { type: 'distributed'; data: SolverDistributedLoad3D }
+  | { type: 'pointOnElement'; data: SolverPointLoad3D }
+  | { type: 'thermal'; data: SolverThermalLoad3D };
+
+// ─── Input ───────────────────────────────────────────────────────
+
+export interface SolverInput3D {
+  nodes: Map<number, SolverNode3D>;
+  materials: Map<number, SolverMaterial>;
+  sections: Map<number, SolverSection3D>;
+  elements: Map<number, SolverElement3D>;
+  supports: Map<number, SolverSupport3D>;
+  loads: SolverLoad3D[];
+  leftHand?: boolean;  // Terna izquierda: negate ey in local axes
+}
+
+// ─── Results ─────────────────────────────────────────────────────
+
+export interface Displacement3D {
+  nodeId: number;
+  ux: number;  // m
+  uy: number;  // m
+  uz: number;  // m
+  rx: number;  // rad (rotation about global X)
+  ry: number;  // rad (rotation about global Y)
+  rz: number;  // rad (rotation about global Z)
+}
+
+export interface Reaction3D {
+  nodeId: number;
+  fx: number;  // kN
+  fy: number;  // kN
+  fz: number;  // kN
+  mx: number;  // kN·m
+  my: number;  // kN·m
+  mz: number;  // kN·m
+}
+
+export interface ElementForces3D {
+  elementId: number;
+  length: number;  // m
+  // Axial force (+ = tension)
+  nStart: number;
+  nEnd: number;
+  // Shear in local Y
+  vyStart: number;
+  vyEnd: number;
+  // Shear in local Z
+  vzStart: number;
+  vzEnd: number;
+  // Torsion (about local X)
+  mxStart: number;
+  mxEnd: number;
+  // Bending about local Y (weak axis)
+  myStart: number;
+  myEnd: number;
+  // Bending about local Z (strong axis)
+  mzStart: number;
+  mzEnd: number;
+  // Hinge flags
+  hingeStart: boolean;
+  hingeEnd: boolean;
+  // Loads on this element (for diagram/deformed shape computation)
+  // Y-plane (strong axis: Mz, Vy bending)
+  qYI: number;      // kN/m full-length equivalent at node I (local Y)
+  qYJ: number;      // kN/m full-length equivalent at node J (local Y)
+  distributedLoadsY: Array<{ qI: number; qJ: number; a: number; b: number }>;
+  pointLoadsY: Array<{ a: number; p: number }>;
+  // Z-plane (weak axis: My, Vz bending)
+  qZI: number;
+  qZJ: number;
+  distributedLoadsZ: Array<{ qI: number; qJ: number; a: number; b: number }>;
+  pointLoadsZ: Array<{ a: number; p: number }>;
+}
+
+export interface AnalysisResults3D {
+  displacements: Displacement3D[];
+  reactions: Reaction3D[];
+  elementForces: ElementForces3D[];
+}
+
+// ─── Envelope types for 3D load combinations ─────────────────
+
+export interface ElementEnvelopeDiagram3D {
+  elementId: number;
+  tPositions: number[];
+  posValues: number[];
+  negValues: number[];
+}
+
+export interface EnvelopeDiagramData3D {
+  kind: 'momentY' | 'momentZ' | 'shearY' | 'shearZ' | 'axial' | 'torsion';
+  elements: ElementEnvelopeDiagram3D[];
+  globalMax: number;
+}
+
+export interface FullEnvelope3D {
+  momentY: EnvelopeDiagramData3D;
+  momentZ: EnvelopeDiagramData3D;
+  shearY: EnvelopeDiagramData3D;
+  shearZ: EnvelopeDiagramData3D;
+  axial: EnvelopeDiagramData3D;
+  torsion: EnvelopeDiagramData3D;
+  maxAbsResults3D: AnalysisResults3D;
+}

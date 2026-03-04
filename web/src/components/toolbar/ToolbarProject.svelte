@@ -1,0 +1,284 @@
+<script lang="ts">
+  import { uiStore, resultsStore, modelStore, tabManager } from '../../lib/store';
+  import { saveProject, loadProject, loadFile, saveSession, downloadResultsCSV, downloadDXF, downloadSVG, downloadExcel, openPDFReport } from '../../lib/store/file';
+  import { generateShareURL, loadFromShareLink, MAX_URL_SAFE } from '../../lib/utils/url-sharing';
+
+  let fileInput: HTMLInputElement;
+
+  let showProject = $state(false);
+  let showProjectExtras = $state(false);
+
+  // Listen for tour events to auto-open/close project section
+  $effect(() => {
+    const openProject = () => { showProject = true; };
+    const closeProject = () => { showProject = false; };
+    window.addEventListener('dedaliano-open-project', openProject);
+    window.addEventListener('dedaliano-close-project', closeProject);
+    return () => {
+      window.removeEventListener('dedaliano-open-project', openProject);
+      window.removeEventListener('dedaliano-close-project', closeProject);
+    };
+  });
+
+  async function handleCopyShareLink() {
+    const result = generateShareURL();
+    if (!result) { uiStore.toast('Modelo vacío', 'error'); return; }
+    if (result.length > MAX_URL_SAFE) {
+      uiStore.toast(`Enlace largo (${result.length} chars) — puede no funcionar en todos los navegadores`, 'info');
+    }
+    await navigator.clipboard.writeText(result.url);
+    uiStore.toast('Enlace copiado al portapapeles', 'success');
+  }
+
+  async function handlePasteShareLink() {
+    try {
+      const text = await navigator.clipboard.readText();
+      if (!text || !text.includes('#data=') && !text.includes('#embed=')) {
+        uiStore.toast('No se encontró un enlace de Dedaliano en el portapapeles', 'error');
+        return;
+      }
+      // Create a new tab and load the shared model into it
+      tabManager.createTab();
+      const ok = loadFromShareLink(text);
+      if (!ok) {
+        uiStore.toast('No se pudo cargar el enlace — formato inválido', 'error');
+        return;
+      }
+      // Sync tab name with the restored model name
+      tabManager.syncActiveTabName();
+      uiStore.toast('Enlace cargado en nueva pestaña', 'success');
+    } catch {
+      uiStore.toast('No se pudo leer el portapapeles — verificá los permisos del navegador', 'error');
+    }
+  }
+
+  function handleNew() {
+    tabManager.createTab();
+  }
+
+  async function handleLoadFile(e: Event) {
+    const input = e.target as HTMLInputElement;
+    const file = input.files?.[0];
+    if (!file) return;
+    try {
+      const result = await loadFile(file);
+      if (result.type === 'session') {
+        uiStore.showToast(`Sesión restaurada: ${result.count} pestañas`, 'success');
+      }
+    } catch (err: any) {
+      alert(err.message || 'Error al cargar el archivo');
+    }
+    input.value = ''; // reset so same file can be loaded again
+  }
+
+  function handleExportPNG() {
+    // Dispatch custom event — App.svelte handles it with canvas ref
+    window.dispatchEvent(new CustomEvent('dedaliano-export-png'));
+  }
+</script>
+
+<div class="toolbar-section" data-tour="project-section">
+  <button class="section-toggle" onclick={() => showProject = !showProject}>
+    {showProject ? '▾' : '▸'} Proyecto
+  </button>
+  {#if showProject}
+  <div class="file-grid">
+    <button class="file-btn" onclick={saveProject} title="Guarda todos los datos 2D y 3D de la pestaña actual como archivo .ded (Ctrl+S)">
+      Guardar Pestaña
+    </button>
+    <button class="file-btn" onclick={saveSession} title="Guarda todos los datos de todas las pestañas abiertas en un solo archivo">
+      Guardar Sesión
+    </button>
+    <button class="file-btn" onclick={() => fileInput?.click()} title="Abre un archivo guardado — reconoce si es una sola pestaña o una sesión completa (Ctrl+O)">
+      Abrir
+    </button>
+  </div>
+  <button class="sub-section-toggle" onclick={() => showProjectExtras = !showProjectExtras}>
+    {showProjectExtras ? '▾' : '▸'} Exportar / Importar
+  </button>
+  {#if showProjectExtras}
+    <div class="sub-section-content">
+      <span class="file-sub-header">Exportar</span>
+      <div class="file-grid">
+        <button
+          class="file-btn"
+          onclick={downloadExcel}
+          title="Exportar reporte Excel con todas las hojas (modelo + resultados)"
+        >
+          Excel
+        </button>
+        <button class="file-btn" onclick={openPDFReport} title="Generar reporte PDF imprimible">
+          PDF
+        </button>
+        <button class="file-btn" onclick={downloadDXF} disabled={uiStore.analysisMode === '3d'} title={uiStore.analysisMode === '3d' ? 'En desarrollo para 3D' : 'Exportar a AutoCAD DXF con diagramas'}>
+          DXF
+        </button>
+        <button class="file-btn" onclick={downloadSVG} disabled={uiStore.analysisMode === '3d'} title={uiStore.analysisMode === '3d' ? 'En desarrollo para 3D' : 'Exportar gráfico vectorial SVG'}>
+          SVG
+        </button>
+        <button class="file-btn" onclick={handleExportPNG} title="Exportar captura de pantalla PNG">
+          PNG
+        </button>
+        <button
+          class="file-btn"
+          onclick={downloadResultsCSV}
+          disabled={!resultsStore.results && !resultsStore.results3D}
+          title="Exportar tabla de resultados en CSV"
+        >
+          CSV
+        </button>
+      </div>
+      <span class="file-sub-header">Importar</span>
+      <div class="file-grid">
+        <button class="file-btn" onclick={() => fileInput?.click()} title="Abrir archivo de proyecto (.ded / .json)">
+          Abrir .ded
+        </button>
+        <button class="file-btn" onclick={() => window.dispatchEvent(new Event('dedaliano-import-dxf'))} disabled={uiStore.analysisMode === '3d'} title={uiStore.analysisMode === '3d' ? 'En desarrollo para 3D' : 'Importar geometría desde archivo AutoCAD DXF'}>
+          Abrir DXF
+        </button>
+        <button class="file-btn" onclick={() => window.dispatchEvent(new Event('dedaliano-import-ifc'))} title="Importar modelo estructural desde archivo IFC (BIM)">
+          Abrir IFC
+        </button>
+        <button class="file-btn" onclick={() => window.dispatchEvent(new Event('dedaliano-import-coords'))} title="Importar nodos pegando coordenadas X,Y(,Z)">
+          Pegar coords
+        </button>
+        <button class="file-btn" onclick={() => window.dispatchEvent(new Event('dedaliano-open-template'))} title="Generar geometría desde plantilla paramétrica">
+          Generador
+        </button>
+      </div>
+      <span class="file-sub-header">Compartir</span>
+      <div class="file-grid">
+        <button class="file-btn" onclick={handleCopyShareLink} title="Copiar enlace que contiene todo el modelo y configuración — cualquier persona puede abrirlo para ver su copia idéntica">
+          Copiar enlace
+        </button>
+        <button class="file-btn" onclick={handlePasteShareLink} title="Pegar un enlace compartido y abrirlo en una nueva pestaña de Dedaliano">
+          Pegar enlace
+        </button>
+      </div>
+    </div>
+  {/if}
+  {/if}
+</div>
+
+<input
+  bind:this={fileInput}
+  type="file"
+  accept=".ded,.json"
+  style="display:none"
+  onchange={handleLoadFile}
+/>
+
+<style>
+  .toolbar-section {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+  }
+
+  .section-toggle {
+    width: 100%;
+    padding: 0.4rem 0.5rem;
+    background: none;
+    border: 1px solid #333;
+    border-radius: 4px;
+    color: #aaa;
+    cursor: pointer;
+    font-size: 0.75rem;
+    font-weight: 600;
+    text-align: left;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    transition: all 0.2s;
+  }
+
+  .section-toggle:hover {
+    background: #1a1a2e;
+    color: #ccc;
+    border-color: #555;
+  }
+
+  .sub-section-toggle {
+    width: 100%;
+    padding: 0.25rem 0.4rem;
+    background: none;
+    border: 1px solid #2a2a3a;
+    border-radius: 3px;
+    color: #777;
+    cursor: pointer;
+    font-size: 0.65rem;
+    font-weight: 600;
+    text-align: left;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    transition: all 0.2s;
+    margin-left: 0.25rem;
+  }
+
+  .sub-section-toggle:hover {
+    background: #1a1a2e;
+    color: #aaa;
+    border-color: #444;
+  }
+
+  .sub-section-content {
+    margin-left: 0.25rem;
+    padding-left: 0.4rem;
+    border-left: 2px solid #2a2a3a;
+  }
+
+  .file-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 0.25rem;
+  }
+
+  .file-btn {
+    padding: 0.35rem 0.4rem;
+    background: #0f3460;
+    border: 1px solid #1a4a7a;
+    border-radius: 4px;
+    color: #ccc;
+    cursor: pointer;
+    font-size: 0.75rem;
+    text-align: center;
+    transition: all 0.2s;
+  }
+
+  .file-btn:hover:not(:disabled) {
+    background: #1a4a7a;
+    color: white;
+  }
+
+  .file-btn:disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+  }
+
+  .file-sub-header {
+    font-size: 0.65rem;
+    text-transform: uppercase;
+    color: #666;
+    letter-spacing: 0.05em;
+    margin-top: 0.25rem;
+  }
+
+  .small-btn {
+    padding: 0.1rem 0.4rem;
+    border: 1px solid #555;
+    border-radius: 3px;
+    background: #2a2a2a;
+    color: #ccc;
+    font-size: 0.7rem;
+    cursor: pointer;
+  }
+
+  .small-btn:hover:not(:disabled) {
+    background: #3a3a3a;
+    color: white;
+  }
+
+  .small-btn:disabled {
+    opacity: 0.4;
+    cursor: default;
+  }
+</style>
