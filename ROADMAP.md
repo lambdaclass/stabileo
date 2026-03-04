@@ -203,17 +203,45 @@ Engineers are conservative. They will not switch from SAP2000/ETABS unless they 
 
 ### Distribution and go-to-market
 
-**Content marketing (primary channel):**
-- Technical blog posts solving real structural engineering problems with Dedaliano (SEO for "how to design a steel moment frame", "AISC 360 beam design example", etc.)
-- Video tutorials comparing Dedaliano workflow vs ETABS/SAP2000 for the same problem
-- Every benchmark verification document doubles as a long-form content piece
-- Engineers spend 25-35% of time on documentation — content showing how Dedaliano automates this resonates immediately
+**SEO landing pages (primary acquisition channel):**
+
+Every calculation type in the app becomes a public landing page with a live calculator that works without signup. The engineer googles a specific problem, runs the check, sees the result match their hand calculation, and hits the paywall when they need the full report or want to save the project. This is the top-of-funnel.
+
+| App feature | Target search queries | Landing page format | Phase |
+|---|---|---|---|
+| Cross-section properties | "W12x26 section properties", "moment of inertia calculator", "steel section database" | Live section picker with computed A, I, S, Z, r. Free, no signup. | Already built |
+| DSM educational wizard | "direct stiffness method tutorial", "stiffness matrix example", "structural analysis step by step" | Interactive 9-step walkthrough with KaTeX matrices. Free. | Already built |
+| 2D/3D analysis | "beam analysis online", "continuous beam calculator", "portal frame analysis free", "truss calculator" | Pre-loaded example models. Run analysis, see results. Signup to save. | Already built |
+| Steel member design | "AISC 360 beam design example", "steel column design calculator", "W shape selection tool", "compact section check" | One page per check type (flexure, shear, compression, combined). Input section + loads, get utilization ratio + governing clause. | Phase 1 |
+| Concrete member design | "ACI 318 beam design", "concrete column interaction diagram online", "crack width calculation Eurocode 2" | One page per check. Show reinforcement layout and P-M diagram. | Phase 1 |
+| Load determination | "ASCE 7 wind load calculator", "seismic base shear calculator", "snow load by zip code", "IBC load combinations" | Enter location + building geometry, get all applicable loads and combinations. | Phase 1 |
+| Calculation reports | "structural calculation report template", "engineering calculation sheet" | Sample report PDF for a common problem. Full reports require Pro. | Phase 1 |
+| Connection design | "steel moment connection design", "shear tab design AISC", "base plate design calculator" | One page per connection type. Input forces + geometry, get pass/fail + bolt/weld sizes. | Phase 2 |
+| Unit conversion | "kip to kN", "psi to MPa", "structural unit converter" | Converter widget. Light page, high volume, low intent — links to deeper tools. | Phase 1 |
+| Quantity takeoff | "steel tonnage calculator", "concrete quantity estimate" | Enter model summary, get material quantities and cost estimate. | Phase 1 |
+| Timber design | "NDS timber beam design", "wood column design calculator", "adjustment factors NDS" | Same pattern as steel: one page per check type. | Phase 3 |
+| Eurocode design checks | "Eurocode 3 beam design online", "Eurocode 2 column design", "EN 1993 section classification" | Mirrors AISC/ACI pages for European market. | Phase 3 |
+| Bridge design | "AASHTO LRFD girder design", "bridge load rating calculator" | Specialized pages for distribution factors, rating factors. | Phase 4 |
+| Foundation design | "spread footing design calculator", "bearing capacity calculator" | Input soil + loads, get footing size and reinforcement. | Phase 2 |
+
+**SEO implementation principles:**
+- Every page has a canonical URL: `dedaliano.com/tools/{category}/{specific-check}` (e.g., `/tools/steel/aisc-360-flexure`)
+- Every page includes the exact code clause referenced, the formula used, and intermediate calculation values — this is what engineers search for and what builds trust
+- Every page runs the real calculation engine, not a simplified version. Results must match the full app exactly
+- Pages interlink: a beam design page links to the load determination page, which links to the analysis page. The engineer naturally moves deeper into the tool
+- Verification documents (benchmark results) are published as companion pages — engineers searching for "AISC design example 1" find both the worked example and the live calculator
+
+**Content marketing:**
+- Technical blog posts solving real structural engineering problems end-to-end (modeling → analysis → design → report) with Dedaliano
+- Video tutorials comparing Dedaliano workflow vs ETABS/SAP2000 for the same problem — emphasize speed and price
+- Every benchmark verification document doubles as long-form content that ranks for the specific problem it solves
+- Engineers spend 25-35% of time on documentation — content showing how Dedaliano automates report generation resonates immediately
 
 **University partnerships:**
 - Target structural analysis and steel/concrete design courses
 - Professors get free accounts. Students learn on Dedaliano. After graduation, they bring it to their firms
-- Dedaliano's DSM wizard already exists and is ideal for teaching — expand to design code teaching modules
-- This is the long-term flywheel: every graduating class creates new potential customers
+- The DSM wizard already exists and is ideal for teaching — expand to design code teaching modules
+- Long-term flywheel: every graduating class creates new potential customers
 
 **Industry conferences:**
 - Present at NASCC (steel), ACI Convention (concrete), SEAOC (seismic), ASCE Structures Congress
@@ -231,6 +259,21 @@ Engineers are conservative. They will not switch from SAP2000/ETABS unless they 
 - Publish benchmark comparison papers in ASCE Journal of Structural Engineering, Engineering Structures, etc.
 - Academic credibility translates directly to practitioner trust
 - "Peer-reviewed verification" is the gold standard in engineering
+
+### Growth projections
+
+| Timeframe | Users | MRR | Primary driver |
+|---|---|---|---|
+| Month 6-12 | 50-200 | $5-20K | Early adopters, freelancers, students via free tier and SEO landing pages |
+| Month 12-24 | 200-1,000 | $20-100K | Word of mouth, education partnerships, first firm-wide adoptions |
+| Month 24-36 | 1,000-3,000 | $100-300K | Second code (Eurocode) opens Europe, enterprise features land mid-size firms |
+| Month 36-48 | 3,000-10,000 | $300K-1M | Global codes open India, LATAM, East Asia, API integrations with BIM tools |
+
+**Benchmarks from the space:**
+- SkyCiv: ~$1.7M ARR after ~8-10 years. No AI, no PLG, incomplete pipeline coverage.
+- ClearCalcs: ~$793K ARR. Better UX than incumbents but still limited scope.
+
+Dedaliano's structural advantages: 10x cheaper than incumbents, AI-native architecture, full vertical pipeline coverage from loads to reports. Realistic targets: **$1M ARR in 18-24 months**, **$5M ARR in 36-48 months**. The constraint is not demand — it is trust. Every benchmark must pass before engineers will stamp calculations from the software.
 
 ### Professional liability and disclaimers
 
