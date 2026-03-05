@@ -12,10 +12,19 @@ import initWasm, {
   solve_spectral_2d as wasmSolveSpectral2d,
   solve_plastic_2d as wasmSolvePlastic2d,
   solve_moving_loads_2d as wasmSolveMovingLoads2d,
+  analyze_kinematics_2d as wasmAnalyzeKinematics2d,
+  analyze_kinematics_3d as wasmAnalyzeKinematics3d,
+  combine_results_2d as wasmCombineResults2d,
+  combine_results_3d as wasmCombineResults3d,
+  compute_envelope_2d as wasmComputeEnvelope2d,
+  compute_envelope_3d as wasmComputeEnvelope3d,
+  compute_influence_line as wasmComputeInfluenceLine,
+  compute_section_stress_2d as wasmComputeSectionStress2d,
+  compute_section_stress_3d as wasmComputeSectionStress3d,
 } from '../wasm/dedaliano_engine';
 
-import type { SolverInput, AnalysisResults } from './types';
-import type { SolverInput3D, AnalysisResults3D } from './types-3d';
+import type { SolverInput, AnalysisResults, FullEnvelope } from './types';
+import type { SolverInput3D, AnalysisResults3D, FullEnvelope3D } from './types-3d';
 
 let wasmReady = false;
 let wasmInitPromise: Promise<void> | null = null;
@@ -39,7 +48,7 @@ export function isSolverReady(): boolean {
 // ─── Serialization helpers ──────────────────────────────────────
 
 /** Convert Map<number, T> to { "key": T } for JSON serialization. */
-function mapToObj<T>(map: Map<number, T>): Record<string, T> {
+export function mapToObj<T>(map: Map<number, T>): Record<string, T> {
   const obj: Record<string, T> = {};
   for (const [k, v] of map) {
     obj[String(k)] = v;
@@ -213,4 +222,118 @@ export function solveMovingLoads(config: {
   });
   const resultJson = wasmSolveMovingLoads2d(payload);
   return JSON.parse(resultJson);
+}
+
+// ─── Kinematic analysis ──────────────────────────────────────────
+
+/** Analyze 2D kinematic stability via WASM. */
+export function analyzeKinematics(input: SolverInput) {
+  if (!wasmReady) throw new Error('WASM solver not initialized.');
+  const json = serializeInput2D(input);
+  return JSON.parse(wasmAnalyzeKinematics2d(json));
+}
+
+/** Analyze 3D kinematic stability via WASM. */
+export function analyzeKinematics3D(input: SolverInput3D) {
+  if (!wasmReady) throw new Error('WASM solver not initialized.');
+  const json = serializeInput3D(input);
+  return JSON.parse(wasmAnalyzeKinematics3d(json));
+}
+
+// ─── Combinations & Envelope ─────────────────────────────────────
+
+/** Combine 2D results with factors via WASM. */
+export function combineResults(
+  factors: Array<{ caseId: number; factor: number }>,
+  perCase: Map<number, AnalysisResults>,
+): AnalysisResults | null {
+  if (!wasmReady) throw new Error('WASM solver not initialized.');
+  const cases = factors
+    .filter(f => perCase.has(f.caseId))
+    .map(f => ({ caseId: f.caseId, results: perCase.get(f.caseId)! }));
+  if (cases.length === 0) return null;
+  const payload = JSON.stringify({ factors, cases });
+  const result = wasmCombineResults2d(payload);
+  return JSON.parse(result);
+}
+
+/** Combine 3D results with factors via WASM. */
+export function combineResults3D(
+  factors: Array<{ caseId: number; factor: number }>,
+  perCase: Map<number, AnalysisResults3D>,
+): AnalysisResults3D | null {
+  if (!wasmReady) throw new Error('WASM solver not initialized.');
+  const cases = factors
+    .filter(f => perCase.has(f.caseId))
+    .map(f => ({ caseId: f.caseId, results: perCase.get(f.caseId)! }));
+  if (cases.length === 0) return null;
+  const payload = JSON.stringify({ factors, cases });
+  const result = wasmCombineResults3d(payload);
+  return JSON.parse(result);
+}
+
+/** Compute 2D envelope via WASM. */
+export function computeEnvelope(results: AnalysisResults[]): FullEnvelope | null {
+  if (!wasmReady) throw new Error('WASM solver not initialized.');
+  if (results.length === 0) return null;
+  const payload = JSON.stringify({ results });
+  return JSON.parse(wasmComputeEnvelope2d(payload));
+}
+
+/** Compute 3D envelope via WASM. */
+export function computeEnvelope3D(results: AnalysisResults3D[]): FullEnvelope3D | null {
+  if (!wasmReady) throw new Error('WASM solver not initialized.');
+  if (results.length === 0) return null;
+  const payload = JSON.stringify({ results });
+  return JSON.parse(wasmComputeEnvelope3d(payload));
+}
+
+// ─── Influence Lines ─────────────────────────────────────────────
+
+/** Compute influence line via WASM. Takes a pre-built InfluenceLineInput object. */
+export function computeInfluenceLineWasm(ilInput: {
+  solver: SolverInput;
+  quantity: string;
+  targetNodeId?: number;
+  targetElementId?: number;
+  targetPosition?: number;
+  nPointsPerElement?: number;
+}) {
+  if (!wasmReady) throw new Error('WASM solver not initialized.');
+  const payload = JSON.stringify({
+    solver: {
+      nodes: mapToObj(ilInput.solver.nodes),
+      materials: mapToObj(ilInput.solver.materials),
+      sections: mapToObj(ilInput.solver.sections),
+      elements: mapToObj(ilInput.solver.elements),
+      supports: mapToObj(ilInput.solver.supports),
+      loads: ilInput.solver.loads,
+    },
+    quantity: ilInput.quantity,
+    targetNodeId: ilInput.targetNodeId,
+    targetElementId: ilInput.targetElementId,
+    targetPosition: ilInput.targetPosition ?? 0.5,
+    nPointsPerElement: ilInput.nPointsPerElement ?? 20,
+  });
+  return JSON.parse(wasmComputeInfluenceLine(payload));
+}
+
+// ─── Section Stress ──────────────────────────────────────────────
+
+/** Compute 2D section stress via WASM. Takes pre-resolved geometry. */
+export function computeSectionStress2D(input: {
+  elementForces: any;
+  section: any;
+  fy?: number | null;
+  t: number;
+  yFiber?: number | null;
+}) {
+  if (!wasmReady) throw new Error('WASM solver not initialized.');
+  return JSON.parse(wasmComputeSectionStress2d(JSON.stringify(input)));
+}
+
+/** Compute 3D section stress via WASM. Takes pre-resolved geometry. */
+export function computeSectionStress3D(input: any) {
+  if (!wasmReady) throw new Error('WASM solver not initialized.');
+  return JSON.parse(wasmComputeSectionStress3d(JSON.stringify(input)));
 }

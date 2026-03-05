@@ -1,24 +1,11 @@
 // Solver service — pure functions extracted from model.svelte.ts
 // Each function takes a ModelData parameter instead of accessing reactive store state.
 
-import { solve as solveStructureWasm, solve3D as solve3DWasm, isSolverReady } from './wasm-solver';
-import { solve as solveStructureJs, analyzeKinematics, type KinematicResult } from './solver-js';
+import { solve as solveStructure, solve3D as solve3DEngine, analyzeKinematics, combineResults, combineResults3D, computeEnvelope, computeEnvelope3D } from './wasm-solver';
 import type { SolverInput, FullEnvelope, AnalysisResults } from './types';
-import { solve3D as solve3DJs, computeLocalAxes3D } from './solver-3d';
+import { computeLocalAxes3D } from './solver-3d';
 import type { SolverInput3D, SolverLoad3D, AnalysisResults3D, FullEnvelope3D } from './types-3d';
-
-/** Use WASM solver if available, fallback to JS. */
-function solveStructure(input: SolverInput): AnalysisResults {
-  if (isSolverReady()) return solveStructureWasm(input);
-  return solveStructureJs(input);
-}
-
-/** Use WASM solver if available, fallback to JS. */
-function solve3DEngine(input: SolverInput3D): AnalysisResults3D | string {
-  if (isSolverReady()) return solve3DWasm(input);
-  return solve3DJs(input);
-}
-import { combineResults, combineResults3D, computeEnvelope, computeEnvelope3D } from './combinations-service';
+import type { KinematicResult } from './kinematic-2d';
 
 import type {
   Node, Element, Support, Load, Material, Section,

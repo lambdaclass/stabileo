@@ -77,6 +77,7 @@ pub struct FullEnvelope3D {
     pub shear_z: EnvelopeDiagramData,
     pub axial: EnvelopeDiagramData,
     pub torsion: EnvelopeDiagramData,
+    #[serde(rename = "maxAbsResults3D")]
     pub max_abs_results_3d: AnalysisResults3D,
 }
 
