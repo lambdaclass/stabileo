@@ -100,6 +100,23 @@ Structural engineering software is a $7-12B global market. Incumbents charge $2,
 
 Browser-based competitors are small and growing: SkyCiv ($69-179/month, ~$1.7M ARR), ClearCalcs ($79-149/month, ~$793K ARR). Neither covers the full pipeline.
 
+**Competitive displacement by phase:**
+
+| Incumbent | Phase 1 | Phase 2 | Phase 3 | Phase 4 | Phase 5 |
+|---|---|---|---|---|---|
+| **ETABS** | Replaces for single-code steel/concrete building design + slab analysis. No connections, no enterprise. | File importer removes switching cost. Enterprise features open firm-wide deals. | Second code covers their other market. | Head-to-head: all materials, advanced analysis, nonlinear. Full replacement. | Global codes match their international coverage. |
+| **SAP2000** | Same as ETABS for buildings. SAP2000 users doing bridges or general structures still need more. | Same as ETABS. API enables automation workflows SAP2000 lacks. | — | Bridge design, cable structures, staged construction close remaining gaps. | Full parity. |
+| **RFEM** (Dlubal) | Replaces for single-code design. RFEM's add-on pricing ($1,150-2,950 per module) makes Dedaliano's $50/mo flat rate devastating. | Connections + collaboration match RFEM's team features. | Second code matches their multi-code support. | Full platform parity. | Global codes + CBFEM exceed RFEM's connection capabilities. |
+| **STAAD.Pro** | Direct replacement for basic building analysis + design. STAAD's UI is widely criticized — low switching resistance. | Enterprise features match Bentley's strength. Importers ease migration. | — | Advanced analysis types STAAD lacks (nonlinear, plates/shells already in Phase 1). | — |
+| **Robot** (Autodesk) | Replaces for building design. Robot is considered the weakest analysis tool — easiest displacement. | Revit live link matches Robot's only real advantage (Autodesk ecosystem). | — | Exceeds Robot on every axis. | — |
+| **IDEA StatiCa** | No overlap — IDEA StatiCa is connections only. | First 10 connection types start eating their market at 1/40th the price. | 20 connection types cover most common cases. | — | CBFEM arbitrary connections is the kill shot. Any geometry, $50/mo vs $5,250/yr. |
+| **RISA** | Replaces for single-code steel/concrete. RISA's strength is ease of use — must match or beat UX. | — | Second code. RISA is US-only — Eurocode support is a non-compete advantage. | Cold-formed steel (RISA's niche strength) closes the last gap. | — |
+| **ADAPT** (Trimble) | No overlap — ADAPT is prestressed concrete only. | — | Prestressed concrete module directly competes. At $50/mo vs $5,000+/yr. | — | — |
+| **SkyCiv** | Superset: same browser-native approach but with plates/shells, AI features, and lower price ($50 vs $69-179). | Connections, collaboration, enterprise — features SkyCiv lacks. | Second code + timber. SkyCiv's timber calculators are their top traffic — match and exceed. | Full platform far beyond SkyCiv's scope. | — |
+| **ClearCalcs** | Different model (calculators vs full analysis) but SEO landing pages compete for the same search traffic. | — | Timber module competes with their most popular calculators. | — | — |
+| **Spreadsheets** | Load determination and code checks replace the #1 use of spreadsheets in structural engineering. Reports eliminate manual documentation. | Foundation design replaces another common spreadsheet use case. | — | — | — |
+| **Mathcad/Tedds** | Calculation reports replace Mathcad/Tedds for documentation. Live calculations inside the model beat disconnected calculation sheets. | — | — | — | — |
+
 **83-94% of structural engineering firms have fewer than 20 employees.** These firms cannot afford $50,000-150,000/year in software licenses. A 10-person firm switching from incumbents to Dedaliano Pro ($50/month = $600/year per seat) saves $44,000-144,000/year.
 
 ### Vertical ownership thesis
