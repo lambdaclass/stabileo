@@ -29,7 +29,7 @@ The foundation is built: a working analysis engine, polished UI, and solid infra
 
 | Phase | Completion | Dev-months | With 3 devs | With 5 devs | Full AI gen (dev-months) |
 |---|---|---|---|---|---|
-| **Phase 1**: one-code design tool + plates/shells | ~25% | 9-13 | 3-5 months | 2-3 months | 5-7 |
+| **Phase 1**: one-code design tool + plates/shells + i18n | ~25% | 10-14 | 3-5 months | 2-3 months | 6-8 |
 | **Phase 2**: connections + server + enterprise | ~5% | 12-18 | 4-6 months | 3-4 months | 6-9 |
 | **Phase 3**: second code + timber + prestressed | 0% | 8-11 | 3-4 months | 2-3 months | 4-6 |
 | **Phase 4**: full platform | 0% | 23-33 | 8-11 months | 5-7 months | 13-19 |
@@ -167,8 +167,9 @@ These features are trivial to add in a browser-based, AI-native architecture. Th
 |---|---|---|
 | **Free** | $0 | Full analysis (unlimited elements, all analysis types), steel + concrete design checks, load determination, plates/shells, section properties, DSM wizard, unit toggle, local storage (localStorage/IndexedDB), 3 reports/month (models ≤50 elements), 1 AI query per project, JSON/DXF export, public project gallery |
 | **Pro** | $50/month | Everything in Free without limits + unlimited reports (PDF/LaTeX), server compute for large models, full AI assistant, cloud storage + sync, private projects, connections (Phase 2), collaboration (Phase 2), API access |
+| **Pro Annual** | $500/year | Same as Pro, 2 months free. Most engineering firms budget annually — this is the natural billing cycle. |
 
-Two tiers. No add-ons, no per-module pricing, no enterprise negotiation. Every Pro user gets the full platform. This eliminates purchase friction ("which modules do I need?") and simplifies the sales conversation to one question: free or $50/month.
+Two tiers, two billing options. No add-ons, no per-module pricing, no enterprise negotiation. Every Pro user gets the full platform. This eliminates purchase friction ("which modules do I need?") and simplifies the sales conversation to one question: free or $50/month.
 
 The free tier is deliberately generous — more capable than what most competitors charge for. The goal is maximum adoption: every structural engineer in the world should be able to run a full analysis, check every member against the design code, and determine all loads without paying anything. This makes every SEO landing page a fully functional tool, not a teaser.
 
@@ -202,6 +203,12 @@ The free tier is deliberately generous — more capable than what most competito
 - Team knowledge: standard connection details, preferred sections, office design standards embedded in the tool
 - The more a firm invests in Dedaliano-specific workflows, the harder it is to leave. This is the same lock-in strategy that keeps firms on ETABS for decades — but earned through value, not licensing
 
+**Referral program:**
+- Referrer gets 1 free month of Pro. Referee gets 1 free month of Pro. Both sides are incentivized.
+- Structural engineering is a trust-driven profession — engineers recommend tools to other engineers. A referral from a colleague carries more weight than any ad. This is the cheapest acquisition channel.
+- Referral link is embedded in every shared public project and every exported report footer: "Designed with Dedaliano — try it free."
+- Track referral chains: if one engineer refers 10 colleagues, that's 10 months of free Pro — worth it, because each referred user has a high probability of converting independently.
+
 ### Trust and credibility strategy
 
 Engineers are conservative. They will not switch from SAP2000/ETABS unless they trust the results. Trust is earned, not claimed.
@@ -217,6 +224,13 @@ Engineers are conservative. They will not switch from SAP2000/ETABS unless they 
 - Run every ACI 318 worked example from PCA and other publishers
 - Run NAFEMS standard benchmark problems for FEA validation
 - Publish results publicly with pass/fail status and numerical comparison
+
+**Automated benchmark CI:**
+- Every commit and PR runs the full benchmark suite automatically. No code merges unless all benchmarks pass.
+- Public live dashboard at `dedaliano.com/benchmarks` showing real-time status: "1,247 benchmarks passing, 0 failing, last run: 3 minutes ago." Updated on every push.
+- Each benchmark shows: problem description, expected result (from published source), Dedaliano result, percent difference, pass/fail threshold, and a link to run the same problem live in the app.
+- This is both a quality assurance tool (prevents regressions) and the most powerful marketing asset for an engineering tool. No incumbent publishes live, automated verification results. "Don't trust our marketing — check our benchmarks" is an unbeatable message for skeptical engineers.
+- Benchmark count grows with every phase: Phase 1 adds AISC/ACI design examples, Phase 2 adds connection verification, Phase 3 adds Eurocode/timber, Phase 4 adds NAFEMS FEA benchmarks.
 
 **Third-party validation:**
 - Submit the software for review by independent structural engineering professors
@@ -290,6 +304,13 @@ Every calculation type in the app becomes a public landing page with a live calc
 - Publish benchmark comparison papers in ASCE Journal of Structural Engineering, Engineering Structures, etc.
 - Academic credibility translates directly to practitioner trust
 - "Peer-reviewed verification" is the gold standard in engineering
+
+**Community forum + showcase:**
+- Community forum at `dedaliano.com/community` — engineers asking and answering questions about structural design, not just about the tool. "How do I model a tapered haunch?" gets an answer with a link to a runnable Dedaliano model. Think Stack Overflow for structural engineering, but every answer is interactive.
+- Ties into the public project gallery: the showcase is the gallery, curated by community upvotes. Best models rise to the top. "Most popular steel moment frame design" becomes a canonical reference that ranks on Google.
+- Community-contributed templates: standard building types (4-story office, warehouse portal frame, residential wood frame) as one-click starting points. New users don't start from a blank canvas.
+- Moderation by structural engineers on the team. Quality control matters — bad engineering advice is a liability risk. Every featured model must be reviewed.
+- The forum is a massive SEO surface: every question and answer is a unique page targeting long-tail engineering queries that no competitor owns.
 
 ### Growth projections
 
@@ -369,7 +390,7 @@ The technical roadmap is ordered by business impact, not by technical difficulty
 
 **Business goal:** ship a sellable product. Pick US (AISC 360 + ACI 318) or EU (Eurocode 2 + 3). Build the full pipeline for steel and concrete buildings in that code system. This is the minimum product that replaces incumbent software for the most common use cases.
 
-**Total: 9-13 dev-months.**
+**Total: 10-14 dev-months.**
 
 ### 1.1 3D solver parity
 
@@ -535,6 +556,21 @@ Without plate elements, engineers cannot model concrete slabs, shear walls, or s
 - Post-processing: stress contours, displacement fields, result extraction along section cuts
 
 Estimated effort: 2-3 dev-months. New element formulations and mesh generation are the hardest items in Phase 1.
+
+### 1.11 Localization (i18n)
+
+The UI must ship in multiple languages from Phase 1 — not as a Phase 5 afterthought. Engineers in Latin America, India, China, and Japan will not adopt an English-only tool, and these are exactly the price-sensitive markets where $50/month vs $5,000+/year is most compelling.
+
+**Phase 1 languages:** English, Spanish, Portuguese, Chinese (Simplified), Hindi, Japanese. These six languages cover ~70% of the global structural engineering market.
+
+**Implementation:**
+- Extract all UI strings into i18n resource files (JSON per locale)
+- AI generates initial translations; native-speaking structural engineers review terminology. Engineering terms must be domain-correct — "momento flector" not "momento de flexión" in Spanish, "曲げモーメント" not "曲がるモーメント" in Japanese.
+- Right-to-left (RTL) support for Arabic deferred to Phase 5 (requires layout changes)
+- Design code terminology stays in the original language of the code (e.g., AISC references stay in English even in the Spanish UI — engineers read the code in English)
+- SEO landing pages in each language: `dedaliano.com/es/tools/...`, `dedaliano.com/pt/tools/...`. Each localized page targets local search queries.
+
+Estimated effort: 0.5-1 dev-months. Mostly string extraction and review — the translation itself is AI-generated and fast.
 
 ---
 
@@ -1137,12 +1173,12 @@ All estimates assume AI-generated code with human review on every PR and commit 
 
 | Category | Dev-months |
 |---|---|
-| Phase 1: one-code design tool + AI assistant + offline + plates/shells | 9-13 |
+| Phase 1: one-code design tool + AI assistant + offline + plates/shells + i18n | 10-14 |
 | Phase 2: connections + server + collaboration + enterprise + migration | 12-18 |
 | Phase 3: second code + timber + prestressed | 8-11 |
 | Phase 4: full platform (all materials + advanced analysis + solid elements) | 23-33 |
 | Phase 5: global codes + CBFEM connections | 12-20 |
-| **Total** | **60-95** |
+| **Total** | **61-96** |
 
 | Team size | Time to Phase 4 complete | Time to Phase 5 complete |
 |---|---|---|
@@ -1160,12 +1196,12 @@ The baseline estimates assume developers write code with AI assistance (~3x prod
 
 | Phase | Baseline (dev-months) | Full AI gen (dev-months) |
 |---|---|---|
-| Phase 1: one-code design tool + plates/shells | 9-13 | 5-7 |
+| Phase 1: one-code design tool + plates/shells + i18n | 10-14 | 6-8 |
 | Phase 2: connections + server + enterprise | 12-18 | 6-9 |
 | Phase 3: second code + timber + prestressed | 8-11 | 4-6 |
 | Phase 4: full platform | 23-33 | 13-19 |
 | Phase 5: global codes + CBFEM | 12-20 | 7-11 |
-| **Total** | **64-95** | **35-52** |
+| **Total** | **65-96** | **36-53** |
 
 Phases 2-3 see the largest reduction (~50%) because the work is predominantly formula translation from published standards — well-specified inputs, deterministic outputs, testable against published worked examples (AISC design examples, Eurocode worked examples). Phase 1 compresses slightly less (~45%) because it now includes plates/shells (DKT+CST element formulations, mesh generation), which requires iterative numerical validation. Phases 4-5 compress least (~40-45%) because they include nonlinear solvers, novel element formulations, and CBFEM connection modeling which is R&D-intensive with limited prior art.
 
