@@ -161,6 +161,7 @@ fn is_dof_restrained_2d(sup: &SolverSupport, local_dof: usize) -> bool {
         "pinned" => local_dof == 0 || local_dof == 1, // ux, uy fixed; rz free
         "rollerX" => local_dof == 1,  // uy fixed (free to slide in X)
         "rollerY" => local_dof == 0,  // ux fixed (free to slide in Y)
+        "guidedX" => local_dof == 1 || local_dof == 2, // uy+rz fixed, ux free (sliding clamp)
         "inclinedRoller" => local_dof == 1, // Constrained normal to surface
         "spring" => false,  // All spring DOFs are free (stiffness added to K)
         _ => false,

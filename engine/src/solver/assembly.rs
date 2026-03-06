@@ -142,7 +142,7 @@ pub fn assemble_2d(input: &SolverInput, dof_num: &DofNumbering) -> AssemblyResul
         // Nodes with rotational restraint from supports
         let mut rot_restrained: std::collections::HashSet<usize> = std::collections::HashSet::new();
         for sup in input.supports.values() {
-            if sup.support_type == "fixed" {
+            if sup.support_type == "fixed" || sup.support_type == "guidedX" {
                 rot_restrained.insert(sup.node_id);
             }
             if sup.support_type == "spring" {
@@ -532,7 +532,7 @@ pub fn assemble_sparse_2d(input: &SolverInput, dof_num: &DofNumbering) -> Sparse
         }
         let mut rot_restrained: std::collections::HashSet<usize> = std::collections::HashSet::new();
         for sup in input.supports.values() {
-            if sup.support_type == "fixed" { rot_restrained.insert(sup.node_id); }
+            if sup.support_type == "fixed" || sup.support_type == "guidedX" { rot_restrained.insert(sup.node_id); }
             if sup.support_type == "spring" && sup.kz.unwrap_or(0.0) > 0.0 { rot_restrained.insert(sup.node_id); }
         }
         for (&node_id, &hinges) in &node_hinge_count {

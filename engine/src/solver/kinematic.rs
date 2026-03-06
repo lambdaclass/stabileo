@@ -37,6 +37,7 @@ fn count_support_restraints_2d(sup: &SolverSupport) -> (i32, bool) {
         "fixed" => { r = 3; has_rot = true; }
         "pinned" => { r = 2; }
         "rollerX" | "rollerY" | "inclinedRoller" => { r = 1; }
+        "guidedX" => { r = 2; has_rot = true; }
         "spring" => {
             if sup.kx.unwrap_or(0.0) > 0.0 { r += 1; }
             if sup.ky.unwrap_or(0.0) > 0.0 { r += 1; }
@@ -174,7 +175,7 @@ pub fn analyze_kinematics_2d(input: &SolverInput) -> KinematicResult {
         let mut rot_restrained = std::collections::HashSet::new();
         for sup in input.supports.values() {
             match sup.support_type.as_str() {
-                "fixed" => { rot_restrained.insert(sup.node_id); }
+                "fixed" | "guidedX" => { rot_restrained.insert(sup.node_id); }
                 _ => {
                     if sup.kz.unwrap_or(0.0) > 0.0 {
                         rot_restrained.insert(sup.node_id);
