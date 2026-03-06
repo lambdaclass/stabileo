@@ -1,0 +1,61 @@
+{
+  "displacements": [
+    {
+      "nodeId": 1,
+      "ux": 0,
+      "uy": 0,
+      "uz": 0,
+      "rx": 0,
+      "ry": 0,
+      "rz": 0
+    },
+    {
+      "nodeId": 2,
+      "ux": 0,
+      "uy": -0.035999999999999956,
+      "uz": -0.017999999999999978,
+      "rx": 0,
+      "ry": 0.004499999999999994,
+      "rz": -0.008999999999999987
+    }
+  ],
+  "reactions": [
+    {
+      "nodeId": 1,
+      "fx": 0,
+      "fy": 9.999999999999996,
+      "fz": 4.999999999999998,
+      "mx": 0,
+      "my": -29.999999999999964,
+      "mz": 59.99999999999993
+    }
+  ],
+  "elementForces": [
+    {
+      "elementId": 1,
+      "length": 6,
+      "nStart": 0,
+      "nEnd": 0,
+      "vyStart": 4.999999999999998,
+      "vyEnd": 4.999999999999998,
+      "vzStart": -9.999999999999996,
+      "vzEnd": -9.999999999999996,
+      "mxStart": 0,
+      "mxEnd": 0,
+      "myStart": 59.99999999999993,
+      "myEnd": -1.4210854715202004e-14,
+      "mzStart": 29.999999999999964,
+      "mzEnd": -7.105427357601002e-15,
+      "hingeStart": false,
+      "hingeEnd": false,
+      "qYI": 0,
+      "qYJ": 0,
+      "distributedLoadsY": [],
+      "pointLoadsY": [],
+      "qZI": 0,
+      "qZJ": 0,
+      "distributedLoadsZ": [],
+      "pointLoadsZ": []
+    }
+  ]
+}

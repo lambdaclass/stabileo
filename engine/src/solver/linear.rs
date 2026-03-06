@@ -75,8 +75,10 @@ pub fn solve_2d(input: &SolverInput) -> Result<AnalysisResults, String> {
 
     // Build results
     let displacements = build_displacements_2d(&dof_num, &u_full);
-    let reactions = build_reactions_2d(input, &dof_num, &reactions_vec, &f_r, nf);
-    let element_forces = compute_internal_forces_2d(input, &dof_num, &u_full);
+    let mut reactions = build_reactions_2d(input, &dof_num, &reactions_vec, &f_r, nf);
+    reactions.sort_by_key(|r| r.node_id);
+    let mut element_forces = compute_internal_forces_2d(input, &dof_num, &u_full);
+    element_forces.sort_by_key(|ef| ef.element_id);
 
     Ok(AnalysisResults {
         displacements,
@@ -140,8 +142,10 @@ pub fn solve_3d(input: &SolverInput3D) -> Result<AnalysisResults3D, String> {
     let reactions_vec = mat_vec_rect(&k_rf, &u_f, nr, nf);
 
     let displacements = build_displacements_3d(&dof_num, &u_full);
-    let reactions = build_reactions_3d(input, &dof_num, &reactions_vec, &f_r, nf);
-    let element_forces = compute_internal_forces_3d(input, &dof_num, &u_full);
+    let mut reactions = build_reactions_3d(input, &dof_num, &reactions_vec, &f_r, nf);
+    reactions.sort_by_key(|r| r.node_id);
+    let mut element_forces = compute_internal_forces_3d(input, &dof_num, &u_full);
+    element_forces.sort_by_key(|ef| ef.element_id);
 
     Ok(AnalysisResults3D {
         displacements,
