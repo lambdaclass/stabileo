@@ -220,6 +220,8 @@ fn scale_results(results: &AnalysisResults, factor: f64) -> AnalysisResults {
             distributed_loads: ef.distributed_loads.clone(),
             hinge_start: ef.hinge_start,
             hinge_end: ef.hinge_end,
+            thermal_n_fef: ef.thermal_n_fef * factor,
+            thermal_mz_fef: ef.thermal_mz_fef * factor,
         }).collect(),
     }
 }

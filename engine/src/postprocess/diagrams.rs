@@ -74,20 +74,23 @@ fn build_sampling_positions(
 // ==================== FEF correction ====================
 
 /// The Rust solver stores element forces as f = K*u + FEF, but the diagram formula
-/// expects f = K*u - FEF (TS convention). Compute the FEF contribution at the start
-/// so we can correct: f_corrected = f_stored - 2*FEF.
-fn compute_fef_start(ef: &ElementForces) -> (f64, f64) {
+/// expects f = K*u - FEF (TS convention). Compute the FEF contributions so we can
+/// correct: f_corrected = f_stored - 2*FEF (for V, M) or + 2*FEF (for N, sign differs).
+/// Returns (fef_n_i, fef_v_i, fef_m_i, fef_n_j).
+fn compute_fef_start(ef: &ElementForces) -> (f64, f64, f64, f64) {
     let l = ef.length;
-    let (mut fef_v, mut fef_m) = (0.0, 0.0);
+    let hs = ef.hinge_start;
+    let he = ef.hinge_end;
+
+    // Accumulate all FEF into a single 6-component vector, then adjust for hinges once
+    let mut fef_total = [0.0f64; 6];
 
     // Legacy full-span distributed load
     let use_legacy_q = ef.distributed_loads.is_empty()
         && (ef.q_i.abs() > 1e-10 || ef.q_j.abs() > 1e-10);
     if use_legacy_q {
-        let q_uniform = ef.q_i;
-        let q_tri = ef.q_j - ef.q_i;
-        fef_v += q_uniform * l / 2.0 + 3.0 * q_tri * l / 20.0;
-        fef_m += q_uniform * l * l / 12.0 + q_tri * l * l / 30.0;
+        let fef = crate::element::fef_distributed_2d(ef.q_i, ef.q_j, l);
+        for i in 0..6 { fef_total[i] += fef[i]; }
     }
 
     // Partial/full distributed loads
@@ -97,17 +100,12 @@ fn compute_fef_start(ef: &ElementForces) -> (f64, f64) {
         let span = b - a;
         if span < 1e-12 { continue; }
         let is_full = a.abs() < 1e-12 && (b - l).abs() < 1e-12;
-        if is_full {
-            let q_uniform = dl.q_i;
-            let q_tri = dl.q_j - dl.q_i;
-            fef_v += q_uniform * l / 2.0 + 3.0 * q_tri * l / 20.0;
-            fef_m += q_uniform * l * l / 12.0 + q_tri * l * l / 30.0;
+        let fef = if is_full {
+            crate::element::fef_distributed_2d(dl.q_i, dl.q_j, l)
         } else {
-            // For partial distributed loads, use the FEF function
-            let fef = crate::element::fef_partial_distributed_2d(dl.q_i, dl.q_j, a, b, l);
-            fef_v += fef[1];
-            fef_m += fef[2];
-        }
+            crate::element::fef_partial_distributed_2d(dl.q_i, dl.q_j, a, b, l)
+        };
+        for i in 0..6 { fef_total[i] += fef[i]; }
     }
 
     // Point loads on element
@@ -119,11 +117,21 @@ fn compute_fef_start(ef: &ElementForces) -> (f64, f64) {
             pl.a,
             l,
         );
-        fef_v += fef[1];
-        fef_m += fef[2];
+        for i in 0..6 { fef_total[i] += fef[i]; }
     }
 
-    (fef_v, fef_m)
+    // Thermal FEF: [+nTherm, 0, +mz, -nTherm, 0, -mz]
+    if ef.thermal_n_fef.abs() > 1e-15 || ef.thermal_mz_fef.abs() > 1e-15 {
+        fef_total[0] += ef.thermal_n_fef;
+        fef_total[2] += ef.thermal_mz_fef;
+        fef_total[3] -= ef.thermal_n_fef;
+        fef_total[5] -= ef.thermal_mz_fef;
+    }
+
+    // Apply hinge adjustment
+    crate::element::adjust_fef_for_hinges(&mut fef_total, l, hs, he);
+
+    (fef_total[0], fef_total[1], fef_total[2], fef_total[3])
 }
 
 // ==================== Diagram Value At ====================
@@ -137,7 +145,7 @@ pub fn compute_diagram_value_at(
     let xi = t * ef.length;
 
     // Correct end forces from Rust convention (K*u + FEF) to diagram convention (K*u - FEF)
-    let (fef_v, fef_m) = compute_fef_start(ef);
+    let (fef_n_i, fef_v, fef_m, fef_n_j) = compute_fef_start(ef);
     let v_start = ef.v_start - 2.0 * fef_v;
     let m_start = ef.m_start - 2.0 * fef_m;
 
@@ -214,7 +222,11 @@ pub fn compute_diagram_value_at(
             value
         }
         "axial" => {
-            let mut value = ef.n_start + t * (ef.n_end - ef.n_start);
+            // Correct axial: n_start = -f[0], so correction is +2*fef[0]
+            // n_end = f[3], so correction is -2*fef[3]
+            let n_start = ef.n_start + 2.0 * fef_n_i;
+            let n_end = ef.n_end - 2.0 * fef_n_j;
+            let mut value = n_start + t * (n_end - n_start);
             let mut sorted_pl = ef.point_loads.clone();
             sorted_pl.sort_by(|a, b| a.a.partial_cmp(&b.a).unwrap());
             for pl in &sorted_pl {

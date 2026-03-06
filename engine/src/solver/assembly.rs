@@ -8,6 +8,7 @@ pub struct AssemblyResult {
     pub k: Vec<f64>,       // n_total × n_total stiffness matrix
     pub f: Vec<f64>,       // n_total force vector
     pub max_diag_k: f64,   // Maximum diagonal element (for artificial stiffness)
+    pub artificial_dofs: Vec<usize>, // DOFs with artificial stiffness added
 }
 
 /// Assemble global stiffness matrix and force vector for 2D.
@@ -117,17 +118,64 @@ pub fn assemble_2d(input: &SolverInput, dof_num: &DofNumbering) -> AssemblyResul
         max_diag = max_diag.max(k_global[i * n + i].abs());
     }
 
+    // Add artificial rotational stiffness at nodes where ALL connected frame
+    // elements are hinged at that node — prevents singular matrix.
+    let mut artificial_dofs = Vec::new();
+    if dof_num.dofs_per_node >= 3 {
+        let artificial_k = if max_diag > 0.0 { max_diag * 1e-10 } else { 1e-6 };
+
+        let mut node_hinge_count: std::collections::HashMap<usize, usize> = std::collections::HashMap::new();
+        let mut node_frame_count: std::collections::HashMap<usize, usize> = std::collections::HashMap::new();
+        for elem in input.elements.values() {
+            if elem.elem_type != "frame" { continue; }
+            *node_frame_count.entry(elem.node_i).or_insert(0) += 1;
+            *node_frame_count.entry(elem.node_j).or_insert(0) += 1;
+            if elem.hinge_start {
+                *node_hinge_count.entry(elem.node_i).or_insert(0) += 1;
+            }
+            if elem.hinge_end {
+                *node_hinge_count.entry(elem.node_j).or_insert(0) += 1;
+            }
+        }
+
+        // Nodes with rotational restraint from supports
+        let mut rot_restrained: std::collections::HashSet<usize> = std::collections::HashSet::new();
+        for sup in input.supports.values() {
+            if sup.support_type == "fixed" {
+                rot_restrained.insert(sup.node_id);
+            }
+            if sup.support_type == "spring" {
+                if sup.kz.unwrap_or(0.0) > 0.0 {
+                    rot_restrained.insert(sup.node_id);
+                }
+            }
+        }
+
+        for (&node_id, &hinges) in &node_hinge_count {
+            let frames = *node_frame_count.get(&node_id).unwrap_or(&0);
+            if hinges >= frames && frames >= 1 && !rot_restrained.contains(&node_id) {
+                if let Some(&idx) = dof_num.map.get(&(node_id, 2)) {
+                    if idx < dof_num.n_free {
+                        k_global[idx * n + idx] += artificial_k;
+                        artificial_dofs.push(idx);
+                    }
+                }
+            }
+        }
+    }
+
     AssemblyResult {
         k: k_global,
         f: f_global,
         max_diag_k: max_diag,
+        artificial_dofs,
     }
 }
 
 fn assemble_element_loads_2d(
     input: &SolverInput,
     elem: &SolverElement,
-    k_local: &[f64],
+    _k_local: &[f64],
     t: &[f64],
     l: f64,
     e: f64,
@@ -151,7 +199,7 @@ fn assemble_element_loads_2d(
                 };
 
                 // Adjust for hinges
-                adjust_fef_for_hinges(&mut fef, k_local, elem.hinge_start, elem.hinge_end);
+                adjust_fef_for_hinges(&mut fef, l, elem.hinge_start, elem.hinge_end);
 
                 // Transform to global and add
                 let fef_global = transform_force(&fef, t, 6);
@@ -164,7 +212,7 @@ fn assemble_element_loads_2d(
                 let mz = pl.mz.unwrap_or(0.0);
                 let mut fef = fef_point_load_2d(pl.p, px, mz, pl.a, l);
 
-                adjust_fef_for_hinges(&mut fef, k_local, elem.hinge_start, elem.hinge_end);
+                adjust_fef_for_hinges(&mut fef, l, elem.hinge_start, elem.hinge_end);
 
                 let fef_global = transform_force(&fef, t, 6);
                 for (i, &dof) in elem_dofs.iter().enumerate() {
@@ -173,13 +221,13 @@ fn assemble_element_loads_2d(
             }
             SolverLoad::Thermal(tl) if tl.element_id == elem.id => {
                 let alpha = 12e-6; // Steel default
-                let h = 0.5; // TODO: get from section
+                let h = if sec.a > 1e-15 { (12.0 * sec.iz / sec.a).sqrt() } else { 0.1 };
                 let mut fef = fef_thermal_2d(
                     e, sec.a, sec.iz, l,
                     tl.dt_uniform, tl.dt_gradient, alpha, h,
                 );
 
-                adjust_fef_for_hinges(&mut fef, k_local, elem.hinge_start, elem.hinge_end);
+                adjust_fef_for_hinges(&mut fef, l, elem.hinge_start, elem.hinge_end);
 
                 let fef_global = transform_force(&fef, t, 6);
                 for (i, &dof) in elem_dofs.iter().enumerate() {
@@ -302,6 +350,7 @@ pub fn assemble_3d(input: &SolverInput3D, dof_num: &DofNumbering) -> AssemblyRes
         k: k_global,
         f: f_global,
         max_diag_k: max_diag,
+        artificial_dofs: Vec::new(),
     }
 }
 

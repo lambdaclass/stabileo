@@ -267,6 +267,8 @@ fn test_rect_pure_bending_normal_stress() {
         distributed_loads: vec![],
         hinge_start: false,
         hinge_end: false,
+        thermal_n_fef: 0.0,
+        thermal_mz_fef: 0.0,
     };
 
     let input = SectionStressInput {
@@ -323,6 +325,8 @@ fn test_rect_pure_shear_parabolic_tau() {
         distributed_loads: vec![],
         hinge_start: false,
         hinge_end: false,
+        thermal_n_fef: 0.0,
+        thermal_mz_fef: 0.0,
     };
 
     let input = SectionStressInput {
@@ -376,6 +380,8 @@ fn test_failure_check_exists() {
         distributed_loads: vec![],
         hinge_start: false,
         hinge_end: false,
+        thermal_n_fef: 0.0,
+        thermal_mz_fef: 0.0,
     };
 
     let input = SectionStressInput {

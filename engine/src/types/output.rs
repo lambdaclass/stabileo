@@ -1,5 +1,7 @@
 use serde::{Deserialize, Serialize};
 
+fn is_zero(v: &f64) -> bool { *v == 0.0 }
+
 // ==================== 2D Output Types ====================
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -61,6 +63,12 @@ pub struct ElementForces {
     pub distributed_loads: Vec<DistributedLoadInfo>,
     pub hinge_start: bool,
     pub hinge_end: bool,
+    /// Thermal axial FEF at node I: E*A*alpha*dt_uniform (positive = tension)
+    #[serde(default, skip_serializing_if = "is_zero")]
+    pub thermal_n_fef: f64,
+    /// Thermal moment FEF at node I: E*Iz*alpha*dt_gradient/h
+    #[serde(default, skip_serializing_if = "is_zero")]
+    pub thermal_mz_fef: f64,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

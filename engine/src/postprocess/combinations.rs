@@ -116,6 +116,7 @@ pub fn combine_results(input: &CombinationInput) -> Option<AnalysisResults> {
             point_loads: Vec::new(),
             distributed_loads: Vec::new(),
             hinge_start: f.hinge_start, hinge_end: f.hinge_end,
+            thermal_n_fef: 0.0, thermal_mz_fef: 0.0,
         })
         .collect();
 

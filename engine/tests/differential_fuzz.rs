@@ -609,100 +609,13 @@ example_2d_parity_test!(test_ex_truss, "ex-truss");
 example_2d_parity_test!(test_ex_warren_truss, "ex-warren-truss");
 example_2d_parity_test!(test_ex_howe_truss, "ex-howe-truss");
 
-// ─── Known parity gaps (tests pass but log differences) ─────────
-// These examples use features where the TS and Rust solvers differ:
-// - Spring supports: Rust solver doesn't report spring reactions
-// - Prescribed displacements (settlement): Rust solver handles differently
-// - Thermal loads: Rust uses hardcoded h=0.5 vs TS computes from section
-// - Gerber beam (double-hinge element): numerical precision with hinge adjustment
+// ─── Previously known parity gaps — now fixed ───────────────────
 
-/// Helper for known-gap tests: attempt parity, log result, never fail.
-fn try_2d_parity(fixture_name: &str, known_issue: &str) {
-    if !fixture_exists(&format!("{}-input", fixture_name)) {
-        eprintln!("Skipping {}: fixture not found", fixture_name);
-        return;
-    }
-    let input_json = load_fixture(&format!("{}-input", fixture_name)).unwrap();
-    let expected_json = load_fixture(&format!("{}-results", fixture_name)).unwrap();
-    let input: SolverInput = serde_json::from_str(&input_json).unwrap();
-    let expected: AnalysisResults = serde_json::from_str(&expected_json).unwrap();
-
-    match solve_2d(&input) {
-        Ok(actual) => {
-            // Check displacements and reactions, report any differences
-            let disp_ok = std::panic::catch_unwind(|| {
-                compare_displacements(fixture_name, &actual, &expected);
-            });
-            let react_ok = std::panic::catch_unwind(|| {
-                compare_reactions(fixture_name, &actual, &expected);
-            });
-            let forces_ok = std::panic::catch_unwind(|| {
-                compare_element_forces_via_diagrams(fixture_name, &actual, &expected);
-            });
-            if disp_ok.is_err() || react_ok.is_err() || forces_ok.is_err() {
-                eprintln!(
-                    "NOTE: {} has known parity gap ({}). Disp={} React={} Forces={}",
-                    fixture_name,
-                    known_issue,
-                    if disp_ok.is_ok() { "OK" } else { "DIFF" },
-                    if react_ok.is_ok() { "OK" } else { "DIFF" },
-                    if forces_ok.is_ok() { "OK" } else { "DIFF" },
-                );
-            }
-        }
-        Err(e) => {
-            eprintln!("NOTE: Rust solver fails on {} ({}): {}", fixture_name, known_issue, e);
-        }
-    }
-}
-
-#[test]
-fn test_ex_spring_support() {
-    try_2d_parity("ex-spring-support", "spring reaction reporting");
-}
-
-#[test]
-fn test_ex_settlement() {
-    try_2d_parity("ex-settlement", "prescribed displacement handling");
-}
-
-#[test]
-fn test_ex_thermal() {
-    try_2d_parity("ex-thermal", "hardcoded h=0.5 vs computed section height");
-}
-
-#[test]
-fn test_ex_gerber_beam() {
-    try_2d_parity("ex-gerber-beam", "double-hinge element moment residual");
-}
-
-// Three-hinge arch: Rust solver detects as mechanism due to multiple hinge topology.
-// The TS solver has more robust numerical handling for this edge case.
-#[test]
-fn test_ex_three_hinge_arch() {
-    let fixture_name = "ex-three-hinge-arch";
-    if !fixture_exists(&format!("{}-input", fixture_name)) {
-        eprintln!("Skipping {}: fixture not found", fixture_name);
-        return;
-    }
-    let input_json = load_fixture(&format!("{}-input", fixture_name)).unwrap();
-    let expected_json = load_fixture(&format!("{}-results", fixture_name)).unwrap();
-    let input: SolverInput = serde_json::from_str(&input_json).unwrap();
-    let expected: AnalysisResults = serde_json::from_str(&expected_json).unwrap();
-    match solve_2d(&input) {
-        Ok(actual) => {
-            compare_displacements(fixture_name, &actual, &expected);
-            compare_reactions(fixture_name, &actual, &expected);
-            compare_element_forces_via_diagrams(fixture_name, &actual, &expected);
-        }
-        Err(e) => {
-            eprintln!(
-                "NOTE: Rust solver fails on {}: {} (known limitation with many-hinge topologies)",
-                fixture_name, e
-            );
-        }
-    }
-}
+example_2d_parity_test!(test_ex_spring_support, "ex-spring-support");
+example_2d_parity_test!(test_ex_settlement, "ex-settlement");
+example_2d_parity_test!(test_ex_thermal, "ex-thermal");
+example_2d_parity_test!(test_ex_gerber_beam, "ex-gerber-beam");
+example_2d_parity_test!(test_ex_three_hinge_arch, "ex-three-hinge-arch");
 
 // ─── Example model parity (2D multi-case) ───────────────────────
 // Tests per-case solve + combination + envelope for models with load cases.

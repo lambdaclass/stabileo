@@ -15,12 +15,41 @@ pub fn solve_2d(input: &SolverInput) -> Result<AnalysisResults, String> {
     let n = dof_num.n_total;
     let nf = dof_num.n_free;
 
-    // Extract Kff and Ff
-    let free_idx: Vec<usize> = (0..nf).collect();
-    let k_ff = extract_submatrix(&asm.k, n, &free_idx, &free_idx);
-    let f_f = extract_subvec(&asm.f, &free_idx);
+    // Build prescribed displacement vector u_r for restrained DOFs
+    let nr = n - nf;
+    let mut u_r = vec![0.0; nr];
+    for sup in input.supports.values() {
+        if sup.support_type == "spring" { continue; } // spring DOFs are free
+        let prescribed: [(usize, Option<f64>); 3] = [
+            (0, sup.dx), (1, sup.dy), (2, sup.drz),
+        ];
+        for &(local_dof, val) in &prescribed {
+            if let Some(v) = val {
+                if v.abs() > 1e-15 {
+                    if let Some(&d) = dof_num.map.get(&(sup.node_id, local_dof)) {
+                        if d >= nf {
+                            u_r[d - nf] = v;
+                        }
+                    }
+                }
+            }
+        }
+    }
 
-    // Solve Kff * u_f = Ff
+    // Extract Kff and Ff, modify Ff for prescribed displacement coupling
+    let free_idx: Vec<usize> = (0..nf).collect();
+    let rest_idx: Vec<usize> = (nf..n).collect();
+    let k_ff = extract_submatrix(&asm.k, n, &free_idx, &free_idx);
+    let mut f_f = extract_subvec(&asm.f, &free_idx);
+
+    // F_f_modified = F_f - K_fr * u_r
+    let k_fr = extract_submatrix(&asm.k, n, &free_idx, &rest_idx);
+    let k_fr_ur = mat_vec_rect(&k_fr, &u_r, nf, nr);
+    for i in 0..nf {
+        f_f[i] -= k_fr_ur[i];
+    }
+
+    // Solve Kff * u_f = Ff_modified
     let u_f = {
         let mut k_work = k_ff.clone();
         match cholesky_solve(&mut k_work, &f_f, nf) {
@@ -40,42 +69,36 @@ pub fn solve_2d(input: &SolverInput) -> Result<AnalysisResults, String> {
     for i in 0..nf {
         u_full[i] = u_f[i];
     }
+    for i in 0..nr {
+        u_full[nf + i] = u_r[i];
+    }
 
-    // Handle prescribed displacements
-    for sup in input.supports.values() {
-        if let Some(dx) = sup.dx {
-            if let Some(&d) = dof_num.map.get(&(sup.node_id, 0)) {
-                if d >= nf {
-                    u_full[d] = dx;
-                }
-            }
-        }
-        if let Some(dy) = sup.dy {
-            if let Some(&d) = dof_num.map.get(&(sup.node_id, 1)) {
-                if d >= nf {
-                    u_full[d] = dy;
-                }
-            }
-        }
-        if let Some(drz) = sup.drz {
-            if let Some(&d) = dof_num.map.get(&(sup.node_id, 2)) {
-                if d >= nf {
-                    u_full[d] = drz;
-                }
+    // Check artificial DOFs for mechanism (absurd rotations)
+    if !asm.artificial_dofs.is_empty() {
+        for &idx in &asm.artificial_dofs {
+            if idx < nf && u_f[idx].abs() > 100.0 {
+                return Err(
+                    "Local mechanism detected: a node with all elements hinged has \
+                     excessive rotation, indicating local instability.".to_string()
+                );
             }
         }
     }
 
     // Compute reactions: R = K_rf * u_f + K_rr * u_r - F_r
-    let nr = n - nf;
-    let rest_idx: Vec<usize> = (nf..n).collect();
     let k_rf = extract_submatrix(&asm.k, n, &rest_idx, &free_idx);
+    let k_rr = extract_submatrix(&asm.k, n, &rest_idx, &rest_idx);
     let f_r = extract_subvec(&asm.f, &rest_idx);
-    let reactions_vec = mat_vec_rect(&k_rf, &u_f, nr, nf);
+    let k_rf_uf = mat_vec_rect(&k_rf, &u_f, nr, nf);
+    let k_rr_ur = mat_vec_rect(&k_rr, &u_r, nr, nr);
+    let mut reactions_vec = vec![0.0; nr];
+    for i in 0..nr {
+        reactions_vec[i] = k_rf_uf[i] + k_rr_ur[i] - f_r[i];
+    }
 
     // Build results
     let displacements = build_displacements_2d(&dof_num, &u_full);
-    let mut reactions = build_reactions_2d(input, &dof_num, &reactions_vec, &f_r, nf);
+    let mut reactions = build_reactions_2d(input, &dof_num, &reactions_vec, &f_r, nf, &u_full);
     reactions.sort_by_key(|r| r.node_id);
     let mut element_forces = compute_internal_forces_2d(input, &dof_num, &u_full);
     element_forces.sort_by_key(|ef| ef.element_id);
@@ -99,9 +122,35 @@ pub fn solve_3d(input: &SolverInput3D) -> Result<AnalysisResults3D, String> {
     let n = dof_num.n_total;
     let nf = dof_num.n_free;
 
+    // Build prescribed displacement vector u_r for restrained DOFs
+    let nr = n - nf;
+    let mut u_r = vec![0.0; nr];
+    for sup in input.supports.values() {
+        let prescribed = [sup.dx, sup.dy, sup.dz, sup.drx, sup.dry, sup.drz];
+        for (i, pd) in prescribed.iter().enumerate() {
+            if let Some(val) = pd {
+                if val.abs() > 1e-15 {
+                    if let Some(&d) = dof_num.map.get(&(sup.node_id, i)) {
+                        if d >= nf {
+                            u_r[d - nf] = *val;
+                        }
+                    }
+                }
+            }
+        }
+    }
+
     let free_idx: Vec<usize> = (0..nf).collect();
+    let rest_idx: Vec<usize> = (nf..n).collect();
     let k_ff = extract_submatrix(&asm.k, n, &free_idx, &free_idx);
-    let f_f = extract_subvec(&asm.f, &free_idx);
+    let mut f_f = extract_subvec(&asm.f, &free_idx);
+
+    // F_f_modified = F_f - K_fr * u_r
+    let k_fr = extract_submatrix(&asm.k, n, &free_idx, &rest_idx);
+    let k_fr_ur = mat_vec_rect(&k_fr, &u_r, nf, nr);
+    for i in 0..nf {
+        f_f[i] -= k_fr_ur[i];
+    }
 
     let u_f = {
         let mut k_work = k_ff.clone();
@@ -120,29 +169,23 @@ pub fn solve_3d(input: &SolverInput3D) -> Result<AnalysisResults3D, String> {
     for i in 0..nf {
         u_full[i] = u_f[i];
     }
-
-    // Prescribed displacements for 3D
-    for sup in input.supports.values() {
-        let prescribed = [sup.dx, sup.dy, sup.dz, sup.drx, sup.dry, sup.drz];
-        for (i, pd) in prescribed.iter().enumerate() {
-            if let Some(val) = pd {
-                if let Some(&d) = dof_num.map.get(&(sup.node_id, i)) {
-                    if d >= nf {
-                        u_full[d] = *val;
-                    }
-                }
-            }
-        }
+    for i in 0..nr {
+        u_full[nf + i] = u_r[i];
     }
 
-    let nr = n - nf;
-    let rest_idx: Vec<usize> = (nf..n).collect();
+    // Compute reactions: R = K_rf * u_f + K_rr * u_r - F_r
     let k_rf = extract_submatrix(&asm.k, n, &rest_idx, &free_idx);
+    let k_rr = extract_submatrix(&asm.k, n, &rest_idx, &rest_idx);
     let f_r = extract_subvec(&asm.f, &rest_idx);
-    let reactions_vec = mat_vec_rect(&k_rf, &u_f, nr, nf);
+    let k_rf_uf = mat_vec_rect(&k_rf, &u_f, nr, nf);
+    let k_rr_ur = mat_vec_rect(&k_rr, &u_r, nr, nr);
+    let mut reactions_vec = vec![0.0; nr];
+    for i in 0..nr {
+        reactions_vec[i] = k_rf_uf[i] + k_rr_ur[i] - f_r[i];
+    }
 
     let displacements = build_displacements_3d(&dof_num, &u_full);
-    let mut reactions = build_reactions_3d(input, &dof_num, &reactions_vec, &f_r, nf);
+    let mut reactions = build_reactions_3d(input, &dof_num, &reactions_vec, &f_r, nf, &u_full);
     reactions.sort_by_key(|r| r.node_id);
     let mut element_forces = compute_internal_forces_3d(input, &dof_num, &u_full);
     element_forces.sort_by_key(|ef| ef.element_id);
@@ -184,8 +227,9 @@ pub(crate) fn build_reactions_2d(
     input: &SolverInput,
     dof_num: &DofNumbering,
     reactions_vec: &[f64],
-    f_r: &[f64],
+    _f_r: &[f64],
     nf: usize,
+    u_full: &[f64],
 ) -> Vec<Reaction> {
     let mut reactions = Vec::new();
     for sup in input.supports.values() {
@@ -193,23 +237,56 @@ pub(crate) fn build_reactions_2d(
         let mut ry = 0.0;
         let mut mz = 0.0;
 
-        if let Some(&d) = dof_num.map.get(&(sup.node_id, 0)) {
-            if d >= nf {
-                let idx = d - nf;
-                rx = reactions_vec[idx] - f_r[idx];
+        if sup.support_type == "spring" {
+            // Spring reaction: R = -k * u
+            let ux = dof_num.global_dof(sup.node_id, 0).map(|d| u_full[d]).unwrap_or(0.0);
+            let uy = dof_num.global_dof(sup.node_id, 1).map(|d| u_full[d]).unwrap_or(0.0);
+            let rz_disp = if dof_num.dofs_per_node >= 3 {
+                dof_num.global_dof(sup.node_id, 2).map(|d| u_full[d]).unwrap_or(0.0)
+            } else { 0.0 };
+
+            let kx = sup.kx.unwrap_or(0.0);
+            let ky = sup.ky.unwrap_or(0.0);
+            let kz = sup.kz.unwrap_or(0.0);
+
+            if let Some(angle) = sup.angle {
+                if angle.abs() > 1e-15 && (kx > 0.0 || ky > 0.0) {
+                    let s = angle.sin();
+                    let c = angle.cos();
+                    let k_xx = kx * c * c + ky * s * s;
+                    let k_yy = kx * s * s + ky * c * c;
+                    let k_xy = (kx - ky) * s * c;
+                    rx = -(k_xx * ux + k_xy * uy);
+                    ry = -(k_xy * ux + k_yy * uy);
+                } else {
+                    rx = -kx * ux;
+                    ry = -ky * uy;
+                }
+            } else {
+                rx = -kx * ux;
+                ry = -ky * uy;
             }
-        }
-        if let Some(&d) = dof_num.map.get(&(sup.node_id, 1)) {
-            if d >= nf {
-                let idx = d - nf;
-                ry = reactions_vec[idx] - f_r[idx];
-            }
-        }
-        if dof_num.dofs_per_node >= 3 {
-            if let Some(&d) = dof_num.map.get(&(sup.node_id, 2)) {
+            mz = -kz * rz_disp;
+        } else {
+            // Rigid support: reaction from restrained partition
+            if let Some(&d) = dof_num.map.get(&(sup.node_id, 0)) {
                 if d >= nf {
                     let idx = d - nf;
-                    mz = reactions_vec[idx] - f_r[idx];
+                    rx = reactions_vec[idx];
+                }
+            }
+            if let Some(&d) = dof_num.map.get(&(sup.node_id, 1)) {
+                if d >= nf {
+                    let idx = d - nf;
+                    ry = reactions_vec[idx];
+                }
+            }
+            if dof_num.dofs_per_node >= 3 {
+                if let Some(&d) = dof_num.map.get(&(sup.node_id, 2)) {
+                    if d >= nf {
+                        let idx = d - nf;
+                        mz = reactions_vec[idx];
+                    }
                 }
             }
         }
@@ -226,20 +303,44 @@ fn build_reactions_3d(
     input: &SolverInput3D,
     dof_num: &DofNumbering,
     reactions_vec: &[f64],
-    f_r: &[f64],
+    _f_r: &[f64],
     nf: usize,
+    u_full: &[f64],
 ) -> Vec<Reaction3D> {
     let mut reactions = Vec::new();
     for sup in input.supports.values() {
         let mut vals = [0.0f64; 6];
-        for i in 0..6.min(dof_num.dofs_per_node) {
-            if let Some(&d) = dof_num.map.get(&(sup.node_id, i)) {
-                if d >= nf {
-                    let idx = d - nf;
-                    vals[i] = reactions_vec[idx] - f_r[idx];
+
+        // Check if this is a spring support (all DOFs free with spring stiffness)
+        let spring_stiffs = [sup.kx, sup.ky, sup.kz, sup.krx, sup.kry, sup.krz];
+        let is_spring = spring_stiffs.iter().any(|k| k.map_or(false, |v| v > 0.0))
+            && !(0..6.min(dof_num.dofs_per_node)).any(|i| {
+                let restrained = match i {
+                    0 => sup.rx, 1 => sup.ry, 2 => sup.rz,
+                    3 => sup.rrx, 4 => sup.rry, 5 => sup.rrz,
+                    _ => false,
+                };
+                restrained
+            });
+
+        if is_spring {
+            // Spring reaction: R = -k * u
+            for i in 0..6.min(dof_num.dofs_per_node) {
+                let u = dof_num.global_dof(sup.node_id, i).map(|d| u_full[d]).unwrap_or(0.0);
+                let k = spring_stiffs[i].unwrap_or(0.0);
+                vals[i] = -k * u;
+            }
+        } else {
+            for i in 0..6.min(dof_num.dofs_per_node) {
+                if let Some(&d) = dof_num.map.get(&(sup.node_id, i)) {
+                    if d >= nf {
+                        let idx = d - nf;
+                        vals[i] = reactions_vec[idx];
+                    }
                 }
             }
         }
+
         reactions.push(Reaction3D {
             node_id: sup.node_id,
             fx: vals[0], fy: vals[1], fz: vals[2],
@@ -297,6 +398,8 @@ pub(crate) fn compute_internal_forces_2d(
                 distributed_loads: Vec::new(),
                 hinge_start: false,
                 hinge_end: false,
+                thermal_n_fef: 0.0,
+                thermal_mz_fef: 0.0,
             });
         } else {
             // Frame: transform displacements to local, compute k*u + FEF
@@ -322,6 +425,7 @@ pub(crate) fn compute_internal_forces_2d(
             let (mut total_qi, mut total_qj) = (0.0, 0.0);
             let mut point_loads_info = Vec::new();
             let mut dist_loads_info = Vec::new();
+            let (mut thermal_n_fef, mut thermal_mz_fef) = (0.0, 0.0);
 
             for load in &input.loads {
                 match load {
@@ -330,11 +434,13 @@ pub(crate) fn compute_internal_forces_2d(
                         let b = dl.b.unwrap_or(l);
                         let is_full = (a.abs() < 1e-12) && ((b - l).abs() < 1e-12);
 
-                        let fef = if is_full {
+                        let mut fef = if is_full {
                             crate::element::fef_distributed_2d(dl.q_i, dl.q_j, l)
                         } else {
                             crate::element::fef_partial_distributed_2d(dl.q_i, dl.q_j, a, b, l)
                         };
+
+                        crate::element::adjust_fef_for_hinges(&mut fef, l, elem.hinge_start, elem.hinge_end);
 
                         for i in 0..6 {
                             f_local[i] += fef[i];
@@ -354,7 +460,8 @@ pub(crate) fn compute_internal_forces_2d(
                     SolverLoad::PointOnElement(pl) if pl.element_id == elem.id => {
                         let px = pl.px.unwrap_or(0.0);
                         let mz = pl.mz.unwrap_or(0.0);
-                        let fef = crate::element::fef_point_load_2d(pl.p, px, mz, pl.a, l);
+                        let mut fef = crate::element::fef_point_load_2d(pl.p, px, mz, pl.a, l);
+                        crate::element::adjust_fef_for_hinges(&mut fef, l, elem.hinge_start, elem.hinge_end);
                         for i in 0..6 {
                             f_local[i] += fef[i];
                         }
@@ -367,11 +474,15 @@ pub(crate) fn compute_internal_forces_2d(
                     }
                     SolverLoad::Thermal(tl) if tl.element_id == elem.id => {
                         let alpha = 12e-6;
-                        let h = 0.5;
-                        let fef = crate::element::fef_thermal_2d(
+                        let h = if sec.a > 1e-15 { (12.0 * sec.iz / sec.a).sqrt() } else { 0.1 };
+                        let mut fef = crate::element::fef_thermal_2d(
                             e, sec.a, sec.iz, l,
                             tl.dt_uniform, tl.dt_gradient, alpha, h,
                         );
+                        // Store raw thermal FEF at node I before hinge adjustment
+                        thermal_n_fef += fef[0];
+                        thermal_mz_fef += fef[2];
+                        crate::element::adjust_fef_for_hinges(&mut fef, l, elem.hinge_start, elem.hinge_end);
                         for i in 0..6 {
                             f_local[i] += fef[i];
                         }
@@ -396,6 +507,8 @@ pub(crate) fn compute_internal_forces_2d(
                 distributed_loads: dist_loads_info,
                 hinge_start: elem.hinge_start,
                 hinge_end: elem.hinge_end,
+                thermal_n_fef,
+                thermal_mz_fef,
             });
         }
     }

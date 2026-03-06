@@ -140,7 +140,7 @@ pub fn fef_thermal_2d(
     alpha: f64,
     h: f64,
 ) -> [f64; 6] {
-    let fx = -e * a * alpha * dt_uniform; // Axial (compressive for positive ΔT)
+    let fx = e * a * alpha * dt_uniform; // Thermal equivalent nodal load (matching TS convention)
     let mz = if h > 1e-12 {
         e * iz * alpha * dt_gradient / h
     } else {
@@ -151,47 +151,35 @@ pub fn fef_thermal_2d(
 }
 
 /// Adjust fixed-end forces for hinges (2D).
-/// Redistributes FEF when moment releases are present.
-pub fn adjust_fef_for_hinges(fef: &mut [f64; 6], k_local: &[f64], hinge_start: bool, hinge_end: bool) {
+/// Uses explicit condensation formulas matching the TS solver.
+/// FEF layout: [fx_i, fy_i, mz_i, fx_j, fy_j, mz_j]
+pub fn adjust_fef_for_hinges(fef: &mut [f64; 6], l: f64, hinge_start: bool, hinge_end: bool) {
     if !hinge_start && !hinge_end {
         return;
     }
 
-    if hinge_start && hinge_end {
-        // Both hinges: set moments to zero, adjust shear
-        let total_load = fef[1] + fef[4]; // Total vertical load
-        // Simply supported distribution
-        fef[2] = 0.0;
-        fef[5] = 0.0;
-        // Shear adjusted to maintain equilibrium (already correct for nodal loads)
-        // For element loads, need to recalculate from equilibrium
-        let _ = total_load; // Already handled by FEF formulas
-        fef[2] = 0.0;
-        fef[5] = 0.0;
-        return;
-    }
+    let vi = fef[1];
+    let mi = fef[2];
+    let vj = fef[4];
+    let mj = fef[5];
 
-    if hinge_start {
-        // M_i must be zero. Redistribute using condensation ratio.
-        // The ratio comes from the stiffness: k22 (4EI/L) and k25 (2EI/L)
-        // Condensation: release DOF 2, adjust forces
-        let k22 = k_local[2 * 6 + 2];
-        if k22.abs() > 1e-20 {
-            let ratio = fef[2] / k22;
-            for j in 0..6 {
-                fef[j] -= ratio * k_local[2 * 6 + j];
-            }
-        }
+    if hinge_start && hinge_end {
+        // Both hinged (simply supported): moments zero, shears redistribute
+        fef[1] = vi - (mi + mj) / l;
         fef[2] = 0.0;
-    } else if hinge_end {
-        // M_j must be zero
-        let k55 = k_local[5 * 6 + 5];
-        if k55.abs() > 1e-20 {
-            let ratio = fef[5] / k55;
-            for j in 0..6 {
-                fef[j] -= ratio * k_local[5 * 6 + j];
-            }
-        }
+        fef[4] = vj + (mi + mj) / l;
+        fef[5] = 0.0;
+    } else if hinge_start {
+        // Release moment at start using condensation ratios
+        fef[1] = vi - (3.0 / (2.0 * l)) * mi;
+        fef[2] = 0.0;
+        fef[4] = vj + (3.0 / (2.0 * l)) * mi;
+        fef[5] = mj - 0.5 * mi;
+    } else {
+        // hinge_end only
+        fef[1] = vi - (3.0 / (2.0 * l)) * mj;
+        fef[2] = mi - 0.5 * mj;
+        fef[4] = vj + (3.0 / (2.0 * l)) * mj;
         fef[5] = 0.0;
     }
 }
