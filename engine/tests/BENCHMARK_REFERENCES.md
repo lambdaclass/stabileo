@@ -124,16 +124,110 @@
 
 ---
 
+## Modal Analysis Properties
+
+### Modal Orthogonality
+- **Source**: Bathe, *Finite Element Procedures*, 2014, Ch. 10; Clough & Penzien, *Dynamics of Structures*
+- **Property**: φᵢᵀ·M·φⱼ = 0 for i≠j (mass orthogonality)
+- **Property**: φᵢᵀ·K·φⱼ = 0 for i≠j (stiffness orthogonality)
+- **Test**: Reconstruct eigenvectors from modal displacements, compute cross products
+
+### Rayleigh Quotient Upper Bound
+- **Source**: Hughes, *The Finite Element Method*, 2000, Ch. 10
+- **Property**: FE eigenvalues are upper bounds: ω_FE ≥ ω_exact
+- **Property**: Monotonic convergence from above with mesh refinement
+- **Cantilever exact**: ω₁ = (1.8751)² × √(EI/(ρAL⁴))
+
+### Mass Conservation
+- **Property**: total_mass from modal = Σ(ρ·A·L)/1000 (engine units)
+- **Property**: Σ(m_eff) ≤ total_mass for all modes
+
+---
+
+## Convergence and Accuracy
+
+### h-Convergence Rate
+- **Source**: Bathe (2014), Hughes (2000)
+- **Property**: Displacement error ∝ h² for cubic Hermite elements with UDL
+- **Property**: Point loads at nodes are captured exactly by cubic elements
+- **Test**: Measure error at n=2,4,8,16 and verify rate > 1.5
+
+### Newmark Period Elongation
+- **Source**: Newmark (1959); Chopra, *Dynamics of Structures*, Ch. 5
+- **Property**: Average acceleration (β=0.25, γ=0.5) introduces period elongation: ΔT/T ≈ (π²/12)·(Δt/T)²
+- **Test**: Impulse → free vibration, measure period from zero crossings
+
+### Richardson Extrapolation
+- **Property**: f_exact ≈ f(h/2) + (f(h/2) - f(h)) / (2^p - 1) for O(h^p) convergence
+- **Test**: Extrapolated value should be closer to exact than either mesh
+
+---
+
+## Patch Tests
+
+### MacNeal-Harder Standard Set
+- **Source**: MacNeal & Harder, "A Proposed Standard Set of Problems to Test FEM Accuracy", FEM, 1985
+- **Straight cantilever**: δ = PL³/(3EI), θ = PL²/(2EI) — should be exact for cubic elements
+- **Tip moment**: δ = ML²/(2EI), θ = ML/(EI)
+
+### Argyris-Kelsey Frame Patch Test
+- **Source**: Argyris & Kelsey, "Energy Theorems and Structural Analysis", 1960
+- **Property**: Irregular mesh should reproduce constant-stress states exactly
+- **Test**: Axial load through irregular node spacing → constant N, zero V, zero M
+
+---
+
+## Pushover and Nonlinear
+
+### Elastic Stiffness Checks
+- **Cantilever**: k = 3EI/L³
+- **Portal frame**: k_sway between 2×3EI/h³ (cantilever columns) and 24EI/h³ (rigid beam)
+
+### P-Delta Amplification
+- **Formula**: AF ≈ 1/(1 - P/P_cr)
+- **Property**: Lateral displacement increases under axial compression
+- **Near-critical**: AF > 2 at P/P_cr = 0.7
+
+---
+
+## Regulatory Features
+
+### Inter-Story Drift (ASCE 7 §12.8.6)
+- **Formula**: Δ = (δᵢ - δᵢ₋₁)/h
+- **Test**: 3-story frame under lateral loads, verify positive drifts
+
+### Superposition Principle
+- **Property**: u(αF₁ + βF₂) = α·u(F₁) + β·u(F₂) for linear analysis
+- **Property**: 2×P → 2×δ (load scaling linearity)
+
+### Multi-Directional Seismic (EN 1998-1 §4.3.3.5)
+- **Rule**: 100% in primary direction + 30% in orthogonal direction
+- **Test**: Combined loading gives reasonable results vs individual directions
+
+---
+
 ## Benchmark Status Summary
 
 | Benchmark | Category | Solver Feature | Status | Notes |
 |-----------|----------|----------------|--------|-------|
-| Navier SS plate | Plates | DKT+CST | CAPABILITY → need 8×8 mesh, <5% | α=0.00406 |
-| Roark ring | Curved beams | 3D curved expansion | NEW | Full ring needed |
-| VM18 quarter-circle | Curved beams | 3D curved expansion | CAPABILITY → tighten | R=100in, δ=-2.648 |
-| Plastic collapse 8Mp/L | Nonlinear material | Bilinear N-R | CAPABILITY → tighten | Fixed-fixed, central P |
-| VM14 eccentric column | Co-rotational | Large displacement | NEW | δ=0.1086in |
-| Mattiasson elastica | Co-rotational | Large displacement | NEW | Need paper values |
-| SDOF DAF=2.0 | Time history | Newmark | CAPABILITY → tighten | Chopra Ch.4 |
-| Newmark energy | Time history | Newmark | CAPABILITY → tighten | β=1/4, γ=1/2 |
-| NAFEMS LE5 Z-section | Warping torsion | 7th DOF | BLOCKED | Assembly not wired |
+| Navier SS plate | Plates | DKT+CST | CAPABILITY | α=0.00406, need 8×8, <5% |
+| Roark ring | Curved beams | 3D curved | NEW | Full ring needed |
+| VM18 quarter-circle | Curved beams | 3D curved | CAPABILITY | R=100in, δ=-2.648 |
+| Plastic collapse 8Mp/L | Nonlinear | Bilinear N-R | CAPABILITY | Fixed-fixed, central P |
+| VM14 eccentric column | Co-rotational | Large disp. | NEW | δ=0.1086in |
+| Mattiasson elastica | Co-rotational | Large disp. | NEW | Need paper values |
+| NAFEMS LE5 Z-section | Warping | 7th DOF | BLOCKED | Assembly not wired |
+| Modal orthogonality | Mathematical | Eigensolver | DONE | φᵢᵀMφⱼ=0 verified |
+| Rayleigh upper bound | Mathematical | Eigensolver | DONE | ω_FE ≥ ω_exact verified |
+| Mass conservation | Mathematical | Mass matrix | DONE | ρAL/1000 verified |
+| h-convergence O(h²) | Numerical | Linear solver | DONE | Rate > 1.5 verified |
+| Newmark period elongation | Numerical | Time integration | DONE | <5% at Δt/T=0.02 |
+| Richardson extrapolation | Numerical | Linear solver | DONE | Consistent results |
+| MacNeal-Harder straight | Patch test | Frame elements | DONE | Exact for n=1 |
+| Argyris-Kelsey frame | Patch test | Frame elements | DONE | Irregular mesh OK |
+| Superposition principle | Linearity | Linear solver | DONE | u(F1+F2)=u(F1)+u(F2) |
+| Inter-story drift | Regulatory | Linear solver | DONE | 3-story frame verified |
+| RSA base shear bound | RSA | Spectral solver | DONE | V ≤ m·Sa·g |
+| SRSS vs CQC | RSA | Spectral solver | DONE | Similar for separated modes |
+| P-delta amplification | Nonlinear | P-delta solver | DONE | AF ≈ 1/(1-P/Pcr) |
+| Corotational convergence | Nonlinear | Corotational | DONE | Large displacement OK |
