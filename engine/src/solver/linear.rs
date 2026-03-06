@@ -3,6 +3,9 @@ use crate::linalg::*;
 use super::dof::DofNumbering;
 use super::assembly::*;
 
+/// Free DOFs threshold: use sparse solver when n_free >= this.
+const SPARSE_THRESHOLD: usize = 64;
+
 /// Solve a 2D linear static analysis.
 pub fn solve_2d(input: &SolverInput) -> Result<AnalysisResults, String> {
     let dof_num = DofNumbering::build_2d(input);
@@ -50,12 +53,24 @@ pub fn solve_2d(input: &SolverInput) -> Result<AnalysisResults, String> {
     }
 
     // Solve Kff * u_f = Ff_modified
-    let u_f = {
+    let u_f = if nf >= SPARSE_THRESHOLD {
+        // Sparse path
+        let k_ff_sparse = CscMatrix::from_dense_symmetric(&k_ff, nf);
+        match sparse_cholesky_solve_full(&k_ff_sparse, &f_f) {
+            Some(u) => u,
+            None => {
+                // Fallback to dense LU
+                let mut k_work = k_ff;
+                let mut f_work = f_f.clone();
+                lu_solve(&mut k_work, &mut f_work, nf)
+                    .ok_or_else(|| "Singular stiffness matrix — structure is a mechanism".to_string())?
+            }
+        }
+    } else {
         let mut k_work = k_ff.clone();
         match cholesky_solve(&mut k_work, &f_f, nf) {
             Some(u) => u,
             None => {
-                // Fallback to LU
                 let mut k_work = k_ff;
                 let mut f_work = f_f.clone();
                 lu_solve(&mut k_work, &mut f_work, nf)
@@ -152,7 +167,18 @@ pub fn solve_3d(input: &SolverInput3D) -> Result<AnalysisResults3D, String> {
         f_f[i] -= k_fr_ur[i];
     }
 
-    let u_f = {
+    let u_f = if nf >= SPARSE_THRESHOLD {
+        let k_ff_sparse = CscMatrix::from_dense_symmetric(&k_ff, nf);
+        match sparse_cholesky_solve_full(&k_ff_sparse, &f_f) {
+            Some(u) => u,
+            None => {
+                let mut k_work = k_ff;
+                let mut f_work = f_f.clone();
+                lu_solve(&mut k_work, &mut f_work, nf)
+                    .ok_or_else(|| "Singular stiffness matrix — structure is a mechanism".to_string())?
+            }
+        }
+    } else {
         let mut k_work = k_ff.clone();
         match cholesky_solve(&mut k_work, &f_f, nf) {
             Some(u) => u,
@@ -210,7 +236,7 @@ pub(crate) fn build_displacements_2d(dof_num: &DofNumbering, u: &[f64]) -> Vec<D
     }).collect()
 }
 
-fn build_displacements_3d(dof_num: &DofNumbering, u: &[f64]) -> Vec<Displacement3D> {
+pub(crate) fn build_displacements_3d(dof_num: &DofNumbering, u: &[f64]) -> Vec<Displacement3D> {
     dof_num.node_order.iter().map(|&node_id| {
         let vals: Vec<f64> = (0..6).map(|i| {
             dof_num.global_dof(node_id, i).map(|d| u[d]).unwrap_or(0.0)
@@ -299,7 +325,7 @@ pub(crate) fn build_reactions_2d(
     reactions
 }
 
-fn build_reactions_3d(
+pub(crate) fn build_reactions_3d(
     input: &SolverInput3D,
     dof_num: &DofNumbering,
     reactions_vec: &[f64],
@@ -508,7 +534,7 @@ pub(crate) fn compute_internal_forces_2d(
     forces
 }
 
-fn compute_internal_forces_3d(
+pub(crate) fn compute_internal_forces_3d(
     input: &SolverInput3D,
     dof_num: &DofNumbering,
     u: &[f64],

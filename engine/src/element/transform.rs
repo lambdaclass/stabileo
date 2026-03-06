@@ -133,9 +133,12 @@ pub fn frame_transform_3d(ex: &[f64; 3], ey: &[f64; 3], ez: &[f64; 3]) -> Vec<f6
 }
 
 fn default_ey_ref(ex: &[f64; 3]) -> [f64; 3] {
-    // Default: global Y up, unless element is nearly vertical
+    // Standard textbook convention:
+    //   ez = ex × ref, ey = ez × ex
+    // ref = global Y [0,1,0] for non-vertical elements
+    // ref = global Z [0,0,1] for vertical elements (|ex·Y| ≈ 1)
+    // This produces: local Y ≈ global Y, local Z ≈ global Z for horizontal elements.
     if (ex[1].abs() - 1.0).abs() < 0.01 {
-        // Nearly vertical → use global Z as reference
         [0.0, 0.0, 1.0]
     } else {
         [0.0, 1.0, 0.0]

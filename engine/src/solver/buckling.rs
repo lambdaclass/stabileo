@@ -74,6 +74,7 @@ pub fn solve_buckling_2d(
     // 4. Solve generalized eigenvalue: (-Kg)·φ = μ·K·φ  (K is SPD)
     //    Then λ = 1/μ are the critical load factors.
     //    We swap A=-Kg, B=K because K is SPD (required for Cholesky).
+    //    Use dense solver: buckling needs all eigenvalues to find positive μ values.
     let result = solve_generalized_eigen(&neg_kg_ff, &k_ff, nf, 200)
         .ok_or_else(|| "Eigenvalue decomposition failed — stiffness matrix issue".to_string())?;
 

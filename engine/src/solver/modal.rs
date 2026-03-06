@@ -71,7 +71,7 @@ pub fn solve_modal_2d(
     let m_ff = extract_submatrix(&m_full, n, &free_idx, &free_idx);
 
     // Solve K·φ = λ·M·φ where λ = ω²
-    let result = solve_generalized_eigen(&k_ff, &m_ff, nf, 200)
+    let result = lanczos_generalized_eigen(&k_ff, &m_ff, nf, num_modes, 0.0)
         .ok_or_else(|| "Eigenvalue decomposition failed".to_string())?;
 
     let num_modes = num_modes.min(nf);
@@ -94,7 +94,8 @@ pub fn solve_modal_2d(
     let mut cum_mrx = 0.0;
     let mut cum_mry = 0.0;
 
-    for idx in 0..nf {
+    let n_converged = result.values.len();
+    for idx in 0..n_converged {
         let eigenvalue = result.values[idx];
         if eigenvalue <= 1e-10 || modes.len() >= num_modes {
             continue;
@@ -104,8 +105,8 @@ pub fn solve_modal_2d(
         let freq = omega / (2.0 * std::f64::consts::PI);
         let period = if freq > 1e-20 { 1.0 / freq } else { f64::INFINITY };
 
-        // Extract eigenvector (column idx)
-        let phi: Vec<f64> = (0..nf).map(|i| result.vectors[i * nf + idx]).collect();
+        // Extract eigenvector (column idx from n×k matrix)
+        let phi: Vec<f64> = (0..nf).map(|i| result.vectors[i * n_converged + idx]).collect();
 
         // Compute φᵀ·M·φ
         let m_phi = mat_vec_sub(&m_ff, &phi, nf);
