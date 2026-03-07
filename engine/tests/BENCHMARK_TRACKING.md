@@ -1,6 +1,6 @@
 # Benchmark Validation Test Tracking
 
-> Master list of all industry-standard benchmarks.
+> Master list of all industry-standard benchmarks and validation tests.
 > Status: DONE = reproduces published benchmark with tight tolerance (<5%),
 > CAPABILITY = solver feature exists with smoke/capability tests but benchmark not yet reproduced exactly,
 > BLOCKED = needs new solver features.
@@ -11,413 +11,338 @@
 
 | Category | Done | Capability | Blocked | Total |
 |----------|------|------------|---------|-------|
-| Tier 1: Must-Have Standards | 19 | 0 | 1 | 20 |
-| Tier 2: Textbook Classics | 107 | 0 | 0 | 107 |
-| Tier 3: Cross-Validation | 44 | 5 | 1 | 50 |
-| Tier 4: Research & Advanced | 15 | 0 | 1 | 16 |
-| Tier 5: Mathematical Properties | 60 | 0 | 0 | 60 |
-| **Total** | **245** | **5** | **3** | **253** |
+| Industry Standards & Design Codes | 169 | 0 | 0 | 169 |
+| Commercial Software Cross-Validation | 81 | 5 | 1 | 87 |
+| Textbook Classics | 1050 | 0 | 0 | 1050 |
+| Mathematical Properties & Numerical Methods | 115 | 0 | 0 | 115 |
+| FEM Quality & Convergence | 30 | 0 | 0 | 30 |
+| Known Bugs (ignored) | 0 | 0 | 6 | 6 |
+| Placeholders | 0 | 3 | 0 | 3 |
+| **Total** | **1445** | **8** | **7** | **1460** |
 
-**391 validation tests across 54 files. 644 total tests (including unit + diff fuzz). All passing.**
-
-> **DONE** tests check against published reference answers with <5% tolerance.
-> **CAPABILITY** tests verify the solver feature works (convergence, sign, equilibrium, symmetry) but do not reproduce the specific benchmark problem with its exact parameters and reference answer.
-
----
-
-## Tier 1: Must-Have Standards
-
-### 1.1 AISC 360-22 Chapter C Stability (6 DONE)
-
-**File:** `validation_aisc_stability.rs`
-**Reference:** AISC 360-22 Commentary, Cases 1 & 2
-
-| # | Test | Status |
-|---|------|--------|
-| 1 | Case 1: Braced column B1 amplification (W14x48) | DONE |
-| 2 | Case 2: Unbraced cantilever B2 sway | DONE |
-| 3 | B1 grows as P→Pe1 (3 load levels) | DONE |
-| 4 | Zero lateral: P-delta = linear | DONE |
-| 5 | Equilibrium after P-delta | DONE |
-| 6 | Convergence < 10 iterations | DONE |
-
-### 1.2 Eurocode 3 α_cr Elastic Critical Buckling (6 DONE)
-
-**File:** `validation_eurocode3_buckling.rs`
-**Reference:** EN 1993-1-1 §5.2.1
-
-| # | Test | Status |
-|---|------|--------|
-| 1 | Portal α_cr: eigenvalue vs Horne's method | DONE |
-| 2 | Pinned-base portal: α_cr lower than fixed | DONE |
-| 3 | Multi-story sway frame α_cr | DONE |
-| 4 | α_cr consistent with P-delta amplification | DONE |
-| 5 | Braced frame: high α_cr | DONE |
-| 6 | Gravity-only vs lateral: α_cr comparison | DONE |
-
-### 1.3 EN 1993/EC8/ASCE 7 Code Provisions (7 DONE)
-
-**File:** `validation_code_provisions.rs`
-**Reference:** EN 1993-1-1 §5.2, EN 1998-1 §4.3.3.3, ASCE 7-22 §12.9
-
-| # | Test | Status |
-|---|------|--------|
-| 1 | EN 1993 §5.2: α_cr > 10 → first-order OK | DONE |
-| 2 | EN 1993 §5.2: α_cr ∈ [3,10] → second-order needed | DONE |
-| 3 | EN 1993: P-delta amplification ≈ 1/(1-1/α_cr) | DONE |
-| 4 | EC8 §4.3.3.3: cumulative mass participation ≥ 90% | DONE |
-| 5 | ASCE 7 §12.9: spectral base shear > 0 | DONE |
-| 6 | ASCE 7: importance factor scaling (I×2 → V×2) | DONE |
-| 7 | EC8: modal mass ratios non-negative | DONE |
-
-### 1.4 NAFEMS LE5: Z-Section Cantilever (BLOCKED)
-
-| # | Test | Status | Notes |
-|---|------|--------|-------|
-| 1 | Z-section cantilever, σ=-108 MPa | BLOCKED | 14×14 warping math exists; assembly routing not yet wired |
+**1587 validation test functions across 205 files. 1834 total tests (including unit + diff fuzz). All passing (6 ignored known bugs).**
 
 ---
 
-## Tier 2: Textbook Classics
+## Industry Standards & Design Codes
 
-### 2.1 Euler-Bernoulli Exact Solutions (14 DONE)
+### AISC 360-22 (46 tests across 5 files)
 
-**File:** `validation_beam_formulas.rs` — Timoshenko *Strength of Materials*
+| File | Tests | Reference | Topics |
+|------|-------|-----------|--------|
+| `validation_aisc_stability.rs` | 6 | AISC 360-22 Commentary Cases 1 & 2 | B1 braced, B2 sway amplification, convergence, equilibrium |
+| `validation_effective_length.rs` | 8 | AISC Manual Commentary C2 | K=1.0/0.5/0.7/2.0, braced vs unbraced, stiffness ranking |
+| `validation_frame_classification.rs` | 8 | AISC 360-22 Ch.C, EN 1993-1-1 §5.2 | Sway/non-sway, braced/unbraced, fixed vs pinned base |
+| `validation_notional_loads.rs` | 8 | AISC 360-22 §C2, EC3 §5.3, CSA S16 §8.4 | Notional 0.2-0.5% gravity, proportionality, multi-story |
+| `validation_braced_frame.rs` | 8 | AISC 360-16 Ch.C, McCormac 6th | X-brace, K-brace, chevron, diagonal force=H/cos(θ) |
+| `validation_braced_frames.rs` | 8 | AISC 360-16 Ch.C, Salmon/Johnson 5th | Stiffness increase, sway reduction, multi-story drift |
 
-SS beam (UDL δ, M; point load δ), cantilever (UDL, tip load), fixed-fixed (UDL δ, M_end), propped cantilever + additional checks.
+### Eurocode 3 — EN 1993-1-1 (28 tests across 4 files)
 
-### 2.2 Euler Column Buckling — 4 BCs (16 DONE)
+| File | Tests | Reference | Topics |
+|------|-------|-----------|--------|
+| `validation_eurocode3_buckling.rs` | 6 | EN 1993-1-1 §5.2.1 | alpha_cr vs Horne, fixed vs pinned base, multi-story, braced |
+| `validation_code_provisions.rs` | 7 | EN 1993-1-1 §5.2, EN 1998-1 §4.3.3.3, ASCE 7 §12.9 | alpha_cr thresholds, P-delta amplification, mass participation |
+| `validation_deflection_limits.rs` | 8 | AISC Table 3-23, EC3 §7.2, Roark's | L/360, L/180, L/240, ranking |
+| `validation_serviceability_checks.rs` | 8 | AISC 360-22 App.L, IBC 2021, EC3 §7, AS 4100 | Floor beam L/360, cantilever L/180, portal drift H/400 |
 
-**File:** `validation_euler_buckling.rs` — Timoshenko & Gere
+### Eurocode 8 — EN 1998-1 (26 tests across 4 files)
 
-Pinned-pinned, fixed-free, fixed-pinned, fixed-fixed × 4 mesh densities.
+| File | Tests | Reference | Topics |
+|------|-------|-----------|--------|
+| `validation_biggs_extended.rs` | 4 | Biggs, Chopra, EC8 Type 1 | Design spectrum, shear building forces, overturning |
+| `validation_seismic_design.rs` | 8 | Chopra 5th, EC8, ASCE 7 | Base shear, inverted triangle, effective mass, modal ordering |
+| `validation_3d_spectral.rs` | 6 | Chopra 5th, ASCE 7 §12.9, EC8 §4.3.3.3 | 3D RSA, SRSS vs CQC, reduction factor, X vs Y direction |
+| `validation_regulatory_features.rs` | 8 | ASCE 7 §12.8.6, EC8 §4.3.3.5 | Inter-story drift, multi-directional 100%+30%, superposition |
 
-### 2.3 Beam Natural Frequencies (16 DONE)
+### ASCE 7-22 (47 tests across 5 files)
 
-**File:** `validation_modal_frequencies.rs` — Blevins
+| File | Tests | Reference | Topics |
+|------|-------|-----------|--------|
+| `validation_drift_verification.rs` | 8 | ASCE 7 §12.8.6, AISC 360 App.7, IBC 2021 | Cantilever/fixed drift, inter-story, H³ dependence |
+| `validation_wind_load_analysis.rs` | 8 | ASCE 7 Ch.27, EC1 Part 1-4, Taranath | Base shear, triangular profile, story shear, drift |
+| `validation_multi_story_lateral.rs` | 8 | ASCE 7 §12.8.6, AISC 360 App.7, Taranath | Two-story shear, two-bay sharing, soft-story detection |
+| `validation_load_combination_envelope.rs` | 8 | ASCE 7-22 Ch.2, AISC 360-22 Ch.B, EC0 | 1.2D+1.6L, Dead+Wind, pattern, factored superposition |
+| `validation_combinations.rs` | 8 | EN 1990 §6.4.3.2 | ULS 1.35DL+1.50LL+0.9Wind, negative factor, 3D biaxial |
 
-SS beam, cantilever, fixed-fixed × 4 modes + participation factors.
+### AASHTO HL-93 (16 tests across 2 files)
 
-### 2.4 Przemieniecki Stiffness Matrices (10 DONE)
+| File | Tests | Reference | Topics |
+|------|-------|-----------|--------|
+| `validation_moving_loads.rs` | 8 | Kassimali, AASHTO HL-93 | Single axle, 2-axle, HL-93 truck, continuous negative moment |
+| `validation_moving_load_bridges.rs` | 7 | AASHTO LRFD 9th, EN 1991-2 LM1/LM2 | Axle spacing, shear envelope, mesh convergence |
 
-**Files:** `validation_3d_analysis.rs`, `validation_przemieniecki_extended.rs`
-**Reference:** Przemieniecki *Theory of Matrix Structural Analysis*
+### GSA / EN 1991-1-7 / FEMA (12 tests across 2 files)
 
-12×12 stiffness matrix symmetry, positive diagonals, patch test, combined bending+torsion, coordinate transformation, hinges.
+| File | Tests | Reference | Topics |
+|------|-------|-----------|--------|
+| `validation_progressive_collapse.rs` | 6 | GSA 2013, EN 1991-1-7, Starossek | Member removal, alternate paths, redundancy |
+| `validation_pushover.rs` | 6 | FEMA 356, ATC-40, EC8 Annex B | Pushover curves, P-delta stiffness, near-critical |
 
-### 2.5 MASTAN2 / Ziemian 22 Benchmark Frames (15 DONE)
+---
+
+## Commercial Software Cross-Validation
+
+### ANSYS Verification Manual (33 DONE, 5 CAPABILITY)
+
+| File | Tests | Benchmarks |
+|------|-------|------------|
+| `validation_ansys_vm.rs` | 7 | VM1 (3-bar truss), VM2 (overhangs), VM4 (V-truss), VM10 (eccentric), VM12 (3D biaxial) |
+| `validation_ansys_vm_extended.rs` | 18 | VM3 (stepped), VM5/6 (thermal), VM7 (gradient), VM8 (truss), VM9 (space truss), VM13 (portal), VM14 (cantilever), VM21 (tie rod), VM156 (P-delta) |
+| `validation_ansys_vm_additional.rs` | 8 | VM11 (plate), VM15 (nonlinear), VM16 (Euler), VM17, VM20, VM25 (2-span), VM44 (ring) |
+
+**CAPABILITY** (not yet exact match): VM11 (plate mesh), VM14a (large deflection), VM15 (material nonlinear), VM18 (semicircular arch), VM44 (circular ring).
+
+### SAP2000 / CSI (10 DONE)
+
+**File:** `validation_sap2000.rs`
+Simple beam, continuous, portal, 2-story modal, braced+leaning column, end releases, springs, prescribed displacement, P-delta, cantilever stiffness.
+
+### Code_Aster SSLL (9 DONE)
+
+**File:** `validation_code_aster.rs`
+SSLL010 (lattice), SSLL012 (bar loads), SSLL014 (portal), SSLL100 (L-frame), SSLL102 (clamped beam), SSLL103 (Euler), SSLL105 (L-structure), SSLL110 (self-weight), SSLL400 (variable section).
+
+### NAFEMS (14 DONE)
+
+| File | Tests | Benchmarks |
+|------|-------|------------|
+| `validation_nafems.rs` | 6 | FV2 (axial), FV12 (cantilever vibration), FV32 (SS UDL), T3 (thermal), LE5 (Z-section 3D), FV52 (pin-jointed cross) |
+| `validation_nafems_extended.rs` | 8 | FV1 (SS center), FV13 (SS vibration), FV31 (cantilever tip), FV51 (portal vibration), LE10 (3D bending+torsion), T1 (thermal gradient), FV41 (lumped mass), R0031 (3D truss) |
+
+### MASTAN2 / Ziemian 22 (20 DONE)
 
 **File:** `validation_mastan2_frames.rs`
 **Reference:** Ziemian & Ziemian (2021), *J. Constr. Steel Res.* 186
 
-5 representative frames × (α_cr + P-delta) + ranking/consistency/equilibrium checks.
-
-### 2.6 Kassimali (10 DONE)
-
-**Files:** `validation_continuous_beams.rs`, `validation_frames.rs`, `validation_moving_loads.rs`, `validation_kassimali_extended.rs`
-**Reference:** Kassimali *Structural Analysis*
-
-Continuous beams, portal frames, moving loads (HL-93), influence lines, settlements.
-
-### 2.7 Biggs / Chopra Dynamic/Spectral (12 DONE)
-
-**Files:** `validation_spectral_response.rs`, `validation_biggs_extended.rs`
-
-SRSS vs CQC, importance/reduction factor scaling, EC8 design spectrum, multi-DOF shear building.
-
-### 2.8 Matrix Structural Analysis Textbooks (8 DONE)
-
-**File:** `validation_matrix_textbooks.rs`
-**References:** Przemieniecki (1968), Weaver & Gere (1990), McGuire et al. (2000), Hibbeler, Kassimali (2012)
-
-| # | Test | Status |
-|---|------|--------|
-| 1 | Przemieniecki: axial truss δ = FL/(EA) | DONE |
-| 2 | Weaver-Gere: L-shaped frame equilibrium | DONE |
-| 3 | McGuire: 2-span continuous beam R = 5qL/4 | DONE |
-| 4 | Hibbeler: propped cantilever R_B = 5P/16 | DONE |
-| 5 | Kassimali: portal frame lateral load | DONE |
-| 6 | Kassimali: frame combined loads | DONE |
-| 7 | Przemieniecki: Warren truss zero shear | DONE |
-| 8 | Weaver-Gere: fixed beam UDL δ = qL⁴/(384EI) | DONE |
-
-### 2.9 Chopra Dynamics (6 DONE)
-
-**File:** `validation_chopra_dynamics.rs`
-**Reference:** Chopra, *Dynamics of Structures*, 5th Ed
-
-| # | Test | Status |
-|---|------|--------|
-| 1 | SDOF undamped period T = 2π/ω | DONE |
-| 2 | SDOF step load DAF ≈ 2.0 | DONE |
-| 3 | Rayleigh damping: amplitude decay | DONE |
-| 4 | 2-story shear building: 2 modes | DONE |
-| 5 | Newmark energy conservation | DONE |
-| 6 | HHT numerical dissipation | DONE |
-
-### 2.10 Progressive Collapse / Redundancy (6 DONE)
-
-**File:** `validation_progressive_collapse.rs`
-**References:** GSA 2013, EN 1991-1-7, Starossek (2009)
-
-| # | Test | Status |
-|---|------|--------|
-| 1 | Statically determinate truss classification | DONE |
-| 2 | Hyperstatic frame classification | DONE |
-| 3 | Redundant truss: alternate load path | DONE |
-| 4 | Continuous beam: support removal | DONE |
-| 5 | Frame redundancy increases with bays | DONE |
-| 6 | GSA: load redistribution after member removal | DONE |
+Simple portals (alpha_cr~3-8), multi-bay (alpha_cr~4-10), multi-story braced (alpha_cr>10), unbraced (alpha_cr~1.5-4). Each frame: alpha_cr from eigenvalue + P-delta drift amplification.
 
 ---
 
-## Tier 3: Cross-Validation with Commercial Software
+## Textbook Classics (~1050 tests)
 
-### 3.1 ANSYS Verification Manual (25 DONE, 5 CAPABILITY)
+### Beam Theory (15 files, ~110 tests)
+- `validation_beam_formulas.rs` (14) — Timoshenko: SS, cantilever, fixed-fixed, propped cantilever
+- `validation_beam_deflections.rs` (8) — Timoshenko & Gere, Gere & Goodno, Beer & Johnston
+- `validation_beam_rotation.rs` (8) — End rotation formulas
+- `validation_beam_fixed_end_forces.rs` (8) — AISC Table 3-23, Przemieniecki Table 4.3
+- `validation_fixed_end_moments.rs` (8) — FEM formulas, carryover factor 0.5
+- `validation_elastic_curve.rs` (8) — EI·y''=M(x) governing equation
+- `validation_triangular_load.rs` (8) — Hibbeler, Ghali/Neville, Roark
+- `validation_propped_cantilever.rs` (8) — Timoshenko & Gere, Roark 8th
+- `validation_partial_loads.rs` (8) — Half-span, trapezoidal, convergence
+- `validation_roark_formulas.rs` (8) — Roark's Table 8.1 Cases 1a/1e/2a/2e/3a/2c/1c
+- `validation_stepped_beam.rs` (8) — Ghali/Neville, Pilkey, Roark
+- `validation_nonprismatic_members.rs` (7) — Haunched, tapered, composite
+- `validation_shear_deformation.rs` (8) — Timoshenko vs EB comparison
+- `validation_span_to_depth_effects.rs` (8) — L/d ratio effects, section efficiency
+- `validation_cantilever_variations.rs` (8) — Intermediate load, superposition, stiffness ratio
 
-**Files:** `validation_ansys_vm.rs`, `validation_ansys_vm_extended.rs`, `validation_plates.rs`, `validation_material_nonlinear.rs`, `validation_curved_beams.rs`, `validation_corotational.rs`
+### Internal Forces (14 files, ~110 tests)
+- `validation_internal_forces.rs` (8) — V=qL/2, M=qL²/8
+- `validation_shear_force_diagrams.rs` (8) — dV/dx=-q, dM/dx=V
+- `validation_moment_gradient.rs` (8) — Constant/linear shear → M shape
+- `validation_element_local_forces.rs` (8) — f_local = k_local*T*u_elem - FEF
+- `validation_equilibrium_path.rs` (8) — dV/dx=-q(x), dM/dx=V
+- `validation_internal_releases.rs` (8) — Midspan hinge, Gerber beam
+- `validation_point_on_element.rs` (8) — PointOnElement load type
+- `validation_load_types.rs` (8) — Point, partial, trapezoidal, moment, axial
+- `validation_point_of_contraflexure.rs` (8) — Fixed-fixed inflection points
+- `validation_contraflexure.rs` (8) — Propped cantilever, portal
+- `validation_reaction_checks.rs` (8) — SS/cantilever/propped/continuous/portal
+- `validation_reaction_patterns.rs` (8) — Determinate, indeterminate, symmetric
+- `validation_nodal_equilibrium.rs` (8) — ΣF=0 at every node
+- `validation_load_path.rs` (8) — Direct/indirect path, truss flow
 
-| # | VM | Test | Status |
-|---|-----|------|--------|
-| 1 | VM1 | Statically indeterminate 3-bar truss | DONE |
-| 2 | VM2 | Beam with overhangs | DONE |
-| 3 | VM3 | Stepped cantilever (2 sections) | DONE |
-| 4 | VM4 | Hinged V-truss | DONE |
-| 5 | VM5 | Combined thermal + axial | DONE |
-| 6 | VM6 | Constrained thermal expansion | DONE |
-| 7 | VM7 | Thermal gradient bending | DONE |
-| 8 | VM8 | Planar truss triangle | DONE |
-| 9 | VM9 | 3D space truss (tripod) | DONE |
-| 10 | VM10 | SS beam eccentric load | DONE |
-| 11 | VM11 | SS square plate under pressure | CAPABILITY |
-| 12 | VM12 | 3D cantilever biaxial bending | DONE |
-| 13 | VM13 | Indeterminate portal | DONE |
-| 14 | VM14 | Cantilever moment load | DONE |
-| 15 | VM14a | Large deflection cantilever | CAPABILITY |
-| 16 | VM15 | Material nonlinearity | CAPABILITY |
-| 17 | VM18 | Semicircular arch | CAPABILITY |
-| 18 | VM21 | Tie rod tension stiffening | DONE |
-| 19 | VM44 | Circular ring | CAPABILITY |
-| 20 | VM156 | Beam-column P-delta | DONE |
+### Continuous Beams (4 files, ~30 tests)
+- `validation_continuous_beams.rs` (6) — 2-span, 3-span, Ghali/Neville
+- `validation_three_moment_equation.rs` (8) — Clapeyron (1857)
+- `validation_continuous_patterns.rs` (8) — ACI 318 §6.4, EC2 §5.1.3 checkerboard
+- `validation_moment_redistribution.rs` (8) — Cross (1930), adding supports
 
-### 3.2 SAP2000 / CSI Test Problems (10 DONE)
+### Indeterminate Methods (14 files, ~110 tests)
+- `validation_slope_deflection.rs` (8) + `validation_slope_deflection_method.rs` (8)
+- `validation_moment_distribution.rs` (8) + `validation_hardy_cross.rs` (8)
+- `validation_force_method.rs` (8) + `validation_flexibility_method.rs` (8)
+- `validation_flexibility_stiffness_duality.rs` (8)
+- `validation_matrix_methods.rs` (8) + `validation_matrix_textbooks.rs` (8)
+- `validation_matrix_condensation.rs` (8)
+- `validation_member_stiffness.rs` (8) + `validation_stiffness_matrix.rs` (8)
+- `validation_stiffness_ratio_effects.rs` (8)
 
-**File:** `validation_sap2000.rs`
+### Energy Methods (8 files, ~64 tests)
+- `validation_fundamental_theorems.rs` (12) — Maxwell-Betti, Clapeyron, Castigliano
+- `validation_energy_methods.rs` (8) — Castigliano (1879), Maxwell (1864), Betti (1872)
+- `validation_castigliano.rs` (8) — δ=∂U/∂P
+- `validation_reciprocal_theorem.rs` (8) + `validation_reciprocal_theorems.rs` (8)
+- `validation_virtual_work.rs` (8) — δ=∫Mm/EI dx
+- `validation_unit_load_deflections.rs` (8)
+- `validation_superposition.rs` (8)
 
-Simple beam, continuous beam, portal frame, 2-story modal, braced frame, hinges, springs, settlement, P-delta, stiffness.
+### Classical Methods (5 files, ~40 tests)
+- `validation_conjugate_beam.rs` (8) — Mohr's theorems
+- `validation_moment_area.rs` (8) — Mohr's theorems
+- `validation_transfer_matrix.rs` (8) — Pestel & Leckie (1963)
+- `validation_portal_cantilever_methods.rs` (8)
+- `validation_approximate_methods.rs` (8) — Portal/cantilever methods
 
-### 3.3 Code_Aster SSLL Beam Benchmarks (9 DONE)
+### Frames (16 files, ~130 tests)
+- `validation_frames.rs` (7) — Portal, Gerber, settlement, spring
+- `validation_frame_stiffness.rs` (8) — Sway stiffness, load sharing
+- `validation_frame_deflection_patterns.rs` (8)
+- `validation_frame_joint_rigidity.rs` (8) — Rigid vs hinge
+- `validation_gable_frame.rs` (8) — Gable, A-frame, knee braces
+- `validation_vierendeel_frame.rs` (8) + `validation_vierendeel_frames.rs` (8)
+- `validation_multi_story_frames.rs` (8) + `validation_multi_story_frame.rs` (8)
+- `validation_multi_bay_frames.rs` (8)
+- `validation_arch_structures.rs` (8) + `validation_arch_action.rs` (8)
+- `validation_grillage.rs` (8) — Hambly bridge deck
+- `validation_combined_loading.rs` (8)
 
-**File:** `validation_code_aster.rs`
+### Trusses (8 files, ~64 tests)
+- `validation_trusses.rs` (6) — Equilateral, Warren, Pratt, indeterminate
+- `validation_truss_methods.rs` (8) — Joints, sections, zero-force members
+- `validation_truss_method_of_joints.rs` (8)
+- `validation_truss_topology.rs` (8) — Warren, Pratt, Howe, K-truss
+- `validation_truss_benchmarks.rs` (8) — Thermal, settlement, space truss
+- `validation_cable_truss_structures.rs` (8) — V-shape, fan, deep vs shallow
+- `validation_cable_truss_tension.rs` (8)
+- `validation_3d_truss_structures.rs` (8) — Tetrahedral, tower, bridge
 
-SSLL010, SSLL012, SSLL014, SSLL100, SSLL102, SSLL103, SSLL105, SSLL110, SSLL400.
+### 3D Analysis (24 files, ~180 tests)
+- `validation_3d_analysis.rs` (10) — Biaxial, torsion, space truss, equilibrium
+- `validation_3d_beam_bending.rs` (8) + `validation_3d_biaxial_bending.rs` (8)
+- `validation_3d_cantilever_benchmarks.rs` (8) + `validation_3d_cantilever_loading.rs` (8)
+- `validation_3d_continuous_beam.rs` (8)
+- `validation_3d_distributed_loads.rs` (7) + `validation_3d_equilibrium.rs` (8) + `validation_3d_equilibrium_checks.rs` (8)
+- `validation_3d_frame_analysis.rs` (8) + `validation_3d_frame_behavior.rs` (8) + `validation_3d_frame_benchmarks.rs` (8) + `validation_3d_frame_stability.rs` (8)
+- `validation_3d_grid_structures.rs` (8)
+- `validation_3d_moment_distribution.rs` (8) + `validation_3d_moment_relationships.rs` (8)
+- `validation_3d_skew_beam.rs` (8)
+- `validation_3d_space_truss.rs` (8)
+- `validation_3d_supports.rs` (7) + `validation_3d_inclined_supports.rs` (4)
+- `validation_3d_torsion_benchmarks.rs` (8) + `validation_3d_torsion_effects.rs` (8)
+- `validation_space_frame_geometry.rs` (8)
+- `validation_stress_3d.rs` (6)
 
----
+### Buckling & Stability (16 files, ~130 tests)
+- `validation_euler_buckling.rs` (16) — 4 BCs × 4 mesh densities
+- `validation_timoshenko_stability.rs` (8)
+- `validation_eurocode3_buckling.rs` (6) — alpha_cr
+- `validation_aisc_stability.rs` (6) — B1/B2
+- `validation_pdelta_stability.rs` (8) + `validation_pdelta_benchmarks.rs` (8)
+- `validation_second_order_effects.rs` (8) — AISC 360-22 App.8
+- `validation_stability_advanced.rs` (8) — Timoshenko exact, imperfections
+- `validation_geometric_stiffness.rs` (8)
+- `validation_mastan2_frames.rs` (20) — Ziemian 22 benchmark frames
+- `validation_column_buckling_modes.rs` (8)
+- `validation_effective_length.rs` (8) + `validation_notional_loads.rs` (8)
+- `validation_3d_buckling.rs` (7) + `validation_3d_pdelta.rs` (7)
+- `validation_beam_column_interaction.rs` (8)
 
-## Tier 4: Research & Advanced
+### Dynamic Analysis (14 files, ~100 tests)
+- `validation_modal_frequencies.rs` (16) — 4 BCs × (exact + convergence + higher + 3D)
+- `validation_damping_frequency.rs` (8) — Chopra, Clough & Penzien
+- `validation_modal_properties.rs` (8) — Orthogonality, Rayleigh, effective mass
+- `validation_time_history.rs` (4) — Newmark, HHT
+- `validation_chopra_dynamics.rs` (6) — SDOF, step load, Rayleigh damping
+- `validation_dynamic_mdof.rs` (6) — 2-story, ground motion, base shear
+- `validation_dynamic_advanced.rs` (8) — Impulse, resonance, DAF
+- `validation_spectral_response.rs` (8) — SRSS vs CQC, importance, reduction
+- `validation_rsa_crosscheck.rs` (4) — RSA vs time-history
+- `validation_3d_spectral.rs` (6) + `validation_3d_modal_dynamic.rs` (8)
+- `validation_seismic_design.rs` (8)
+- `validation_biggs_extended.rs` (4)
 
-### 4.1 Zubydan / Ziemian 22 Steel Frames (15 DONE)
+### Plastic & Nonlinear (9 files, ~55 tests)
+- `validation_plastic_collapse.rs` (8) — Neal: exact collapse loads
+- `validation_plastic_mechanisms.rs` (8) — Mechanism types, EN 1993-1-1 §5.6
+- `validation_plastic_hinge_sequence.rs` (8)
+- `validation_material_nonlinear.rs` (3) + `validation_material_nonlinear_benchmarks.rs` (8)
+- `validation_pushover.rs` (6) — FEMA 356, ATC-40
+- `validation_corotational.rs` (4) + `validation_corotational_benchmarks.rs` (5) + `validation_advanced_corotational.rs` (4)
 
-Covered by `validation_mastan2_frames.rs` (same dataset as Tier 2.5).
+### Thermal, Settlement, Springs, Foundation (9 files, ~68 tests)
+- `validation_thermal_settlement.rs` (10) + `validation_thermal_effects.rs` (8)
+- `validation_prescribed_displacements.rs` (8) + `validation_prescribed_settlement.rs` (8)
+- `validation_settlement_effects.rs` (8) + `validation_support_settlement_effects.rs` (8)
+- `validation_spring_supports.rs` (8)
+- `validation_winkler_foundation.rs` (4) + `validation_foundation_interaction.rs` (8)
 
-### 4.2 NAFEMS R0024: Large-Displacement 3D Beam (BLOCKED)
+### Influence Lines & Moving Loads (4 files, ~32 tests)
+- `validation_influence_lines.rs` (8) + `validation_muller_breslau.rs` (8)
+- `validation_moving_loads.rs` (8) + `validation_moving_load_bridges.rs` (7)
 
-| # | Test | Status | Notes |
-|---|------|--------|-------|
-| 1 | 3D beam large displacement | BLOCKED | Co-rotational solver is 2D only |
+### Stress Analysis (2 files, ~16 tests)
+- `validation_section_stress.rs` (8) — Navier, Jourawski, Mohr, Von Mises, Tresca
+- `validation_stress_3d.rs` (6) — 3D Navier, biaxial, torsion, Von Mises
 
----
-
-## Tier 5: Mathematical Properties & Numerical Methods
-
-### 5.1 Modal Orthogonality & Mass Conservation (8 DONE)
-
-**File:** `validation_modal_properties.rs`
-**References:** Bathe (2014), Clough & Penzien, Hughes (2000)
-
-| # | Test | Status |
-|---|------|--------|
-| 1 | φᵢᵀ·M·φⱼ = 0 for i≠j (M-orthogonality) | DONE |
-| 2 | φᵢᵀ·K·φⱼ = 0 for i≠j (K-orthogonality) | DONE |
-| 3 | Mass conservation: total_mass = ρAL/1000 (beam) | DONE |
-| 4 | Mass conservation: portal frame | DONE |
-| 5 | Rayleigh upper bound: ω_FE ≥ ω_exact | DONE |
-| 6 | Monotonic convergence from above | DONE |
-| 7 | Effective mass sum ≤ total mass | DONE |
-| 8 | Rayleigh quotient: ω² = φᵀKφ / φᵀMφ | DONE |
-
-### 5.2 h-Convergence & Numerical Accuracy (7 DONE)
-
-**File:** `validation_convergence.rs`
-**References:** Bathe (2014), Hughes (2000), Newmark (1959)
-
-| # | Test | Status |
-|---|------|--------|
-| 1 | h-convergence: cantilever tip deflection | DONE |
-| 2 | h-convergence: SS beam UDL midspan | DONE |
-| 3 | h-convergence: reaction forces | DONE |
-| 4 | h-convergence: fixed beam end moment | DONE |
-| 5 | Newmark period elongation characterization | DONE |
-| 6 | Newmark energy conservation | DONE |
-| 7 | Richardson extrapolation consistency | DONE |
-
-### 5.3 Patch Tests & Element Quality (8 DONE)
-
-**File:** `validation_patch_tests.rs`
-**References:** MacNeal & Harder (1985), Argyris & Kelsey (1960), Irons & Razzaque (1972)
-
-| # | Test | Status |
-|---|------|--------|
-| 1 | Truss patch test: uniform axial strain | DONE |
-| 2 | Frame patch test: axial only (zero V, M) | DONE |
-| 3 | Beam patch test: pure bending (zero V) | DONE |
-| 4 | Rigid body mode: zero strain energy | DONE |
-| 5 | MacNeal-Harder: straight cantilever | DONE |
-| 6 | MacNeal-Harder: tip moment | DONE |
-| 7 | Argyris-Kelsey: irregular mesh frame patch | DONE |
-| 8 | Zero load → zero response | DONE |
-
-### 5.4 Fundamental Theorems (12 DONE)
-
-**File:** `validation_fundamental_theorems.rs`
-**References:** Betti, Maxwell, Castigliano
-
-Betti reciprocal theorem, Maxwell reciprocal displacements, Castigliano energy method, virtual work principle, stiffness matrix symmetry.
-
-### 5.5 Stiffness Matrix Properties (7 DONE)
-
-**File:** `validation_stiffness_properties.rs`
-**References:** Bathe (2014), Przemieniecki (1968)
-
-Positive semi-definite, symmetry, spectral radius bounds, Bathe convergence rate.
-
-### 5.6 NAFEMS Standard Tests (6 DONE)
-
-**File:** `validation_nafems.rs`
-**References:** NAFEMS LE1, LE10, FV12, FV32, FV52
-
-Cantilever frequency, stress recovery, Euler buckling, 3D axial frequency, dynamic response.
-
-### 5.7 RSA Cross-Validation (4 DONE)
-
-**File:** `validation_rsa_crosscheck.rs`
-**References:** Chopra (2017), ASCE 7-22, EN 1998-1
-
-| # | Test | Status |
-|---|------|--------|
-| 1 | RSA tip displacement > 0 (cantilever) | DONE |
-| 2 | RSA base shear ≤ total_mass × Sa × g | DONE |
-| 3 | SRSS ≈ CQC for well-separated modes | DONE |
-| 4 | Reduction factor scaling (R=3 → V/3) | DONE |
-
-### 5.8 Pushover & Nonlinear (6 DONE)
-
-**File:** `validation_pushover.rs`
-**References:** FEMA 356, ATC-40, EN 1998-1 Annex B
-
-| # | Test | Status |
-|---|------|--------|
-| 1 | Cantilever elastic stiffness k = 3EI/L³ | DONE |
-| 2 | P-delta stiffness reduction (2 load levels) | DONE |
-| 3 | Corotational large displacement cantilever | DONE |
-| 4 | Portal frame sway stiffness bounds | DONE |
-| 5 | P-delta near critical: large amplification | DONE |
-| 6 | Load reversal symmetry | DONE |
-
-### 5.9 Regulatory & Feature Coverage (8 DONE)
-
-**File:** `validation_regulatory_features.rs`
-**References:** ASCE 7-22 §12.8.6, EN 1998-1 §4.3.3.5, EN 1992-1-1
-
-| # | Test | Status |
-|---|------|--------|
-| 1 | Partial distributed load (half-span) | DONE |
-| 2 | Partial load with a,b parameters | DONE |
-| 3 | Prescribed displacement (settlement) | DONE |
-| 4 | Prescribed rotation | DONE |
-| 5 | Inter-story drift (3-story frame) | DONE |
-| 6 | Multi-directional loading (100% + 30%) | DONE |
-| 7 | Superposition principle | DONE |
-| 8 | Load scaling linearity | DONE |
-
----
-
-## All Validation Test Files
-
-| File | Tests | Reference |
-|------|-------|-----------|
-| `validation_3d_analysis.rs` | 10 | Przemieniecki |
-| `validation_3d_inclined_supports.rs` | 4 | Custom inclined support tests |
-| `validation_3d_supports.rs` | 7 | 3D support conditions |
-| `validation_advanced_corotational.rs` | 4 | Crisfield, Williams toggle |
-| `validation_aisc_stability.rs` | 6 | AISC 360-22 |
-| `validation_ansys_vm.rs` | 7 | ANSYS VM |
-| `validation_ansys_vm_extended.rs` | 18 | ANSYS VM (VM3-VM156) |
-| `validation_beam_formulas.rs` | 14 | Timoshenko, Gere |
-| `validation_biggs_extended.rs` | 4 | Biggs, Chopra, EC8 |
-| `validation_chopra_dynamics.rs` | 6 | Chopra *Dynamics of Structures* |
-| `validation_code_aster.rs` | 9 | Code_Aster SSLL |
-| `validation_code_provisions.rs` | 7 | EN 1993, EC8, ASCE 7 |
-| `validation_combinations.rs` | 8 | Load combination tests |
-| `validation_continuous_beams.rs` | 6 | Various |
-| `validation_convergence.rs` | 7 | Bathe, Hughes, Newmark |
-| `validation_corotational.rs` | 4 | Crisfield, McGuire/Gallagher/Ziemian |
-| `validation_curved_beams.rs` | 5 | Timoshenko, Roark |
-| `validation_dynamic_mdof.rs` | 6 | Multi-DOF dynamics |
-| `validation_euler_buckling.rs` | 16 | Euler, Timoshenko & Gere |
-| `validation_eurocode3_buckling.rs` | 6 | EN 1993-1-1 §5.2.1 |
-| `validation_frames.rs` | 7 | Various |
-| `validation_fundamental_theorems.rs` | 12 | Betti, Maxwell, Castigliano |
-| `validation_guided_y.rs` | 3 | guidedY support tests |
-| `validation_influence_lines.rs` | 8 | Müller-Breslau |
-| `validation_kassimali_extended.rs` | 6 | Kassimali |
-| `validation_kinematic.rs` | 6 | Ghali/Neville |
-| `validation_mastan2_frames.rs` | 15 | Ziemian & Ziemian (2021) |
-| `validation_material_nonlinear.rs` | 3 | Neal, Chen/Sohal |
-| `validation_matrix_textbooks.rs` | 8 | Przemieniecki, Weaver, McGuire, Hibbeler |
-| `validation_modal_frequencies.rs` | 16 | Blevins |
-| `validation_modal_properties.rs` | 8 | Bathe, Clough & Penzien |
-| `validation_moving_loads.rs` | 8 | Kassimali, AASHTO |
-| `validation_nafems.rs` | 6 | NAFEMS LE/FV benchmarks |
-| `validation_patch_tests.rs` | 8 | MacNeal-Harder, Argyris-Kelsey |
-| `validation_pdelta_stability.rs` | 8 | Timoshenko, Chen/Lui |
-| `validation_plastic_collapse.rs` | 8 | Neal |
-| `validation_plates.rs` | 4 | Timoshenko & Woinowsky-Krieger |
-| `validation_pressure_loads.rs` | 4 | 3D pressure loads |
-| `validation_progressive_collapse.rs` | 6 | GSA 2013, EN 1991-1-7 |
-| `validation_przemieniecki_extended.rs` | 6 | Przemieniecki |
-| `validation_pushover.rs` | 6 | FEMA 356, ATC-40 |
-| `validation_regulatory_features.rs` | 8 | ASCE 7, EN 1998 |
-| `validation_rsa_crosscheck.rs` | 4 | Chopra, ASCE 7, EN 1998 |
-| `validation_sap2000.rs` | 10 | CSI/SAP2000 |
-| `validation_scordelis_lo.rs` | 3 | Scordelis-Lo, MacNeal-Harder |
-| `validation_section_stress.rs` | 8 | Navier, Jourawski |
-| `validation_spectral_response.rs` | 8 | Chopra, Biggs |
-| `validation_stiffness_properties.rs` | 7 | Bathe, Przemieniecki |
-| `validation_stress_3d.rs` | 6 | 3D stress analysis |
-| `validation_thermal_settlement.rs` | 10 | Various |
-| `validation_time_history.rs` | 4 | Clough/Penzien, Chopra, Newmark |
-| `validation_trusses.rs` | 6 | Various |
-| `validation_warping_torsion.rs` | 3 | Vlasov, Trahair |
-| `validation_winkler_foundation.rs` | 4 | Hetényi |
-| **Total** | **391** | **54 files** |
+### Other Specialized (misc files)
+- `validation_curved_beams.rs` (5) — Quarter-circle, Roark ring, parabolic arch
+- `validation_plates.rs` (4) + `validation_scordelis_lo.rs` (3) + `validation_pressure_loads.rs` (4)
+- `validation_guided_y.rs` (3) — GuidedY support type
+- `validation_kinematic.rs` (6) + `validation_3d_kinematic.rs` (7) — Mechanism detection
+- `validation_rigid_body_modes.rs` (8) — Insufficient restraints
+- `validation_composite_action.rs` (8) + `validation_composite_structures.rs` (8) + `validation_semirigid_connections.rs` (8)
+- `validation_combined_loading.rs` (8) + `validation_load_combination_effects.rs` (8)
+- `validation_deformation_compatibility.rs` (8) + `validation_symmetry_antisymmetry.rs` (8)
+- `validation_indeterminacy_effects.rs` (8)
+- `validation_relative_displacement.rs` (8)
+- `validation_hibbeler_problems.rs` (8)
+- `validation_progressive_collapse.rs` (6)
 
 ---
 
-## Remaining CAPABILITY (5 items)
+## Known Bugs (6 ignored tests)
+
+**File:** `validation_3d_bugs.rs`
+
+| # | Bug | Tests | Impact |
+|---|-----|-------|--------|
+| 1 | 3D thermal loads dropped in assembly.rs (`_ => {}` wildcard) | 2 | 3D thermal analysis gives zero displacement |
+| 2 | 3D partial distributed loads ignore a/b parameters | 2 | Partial loads on 3D elements behave as full-span |
+| 3 | Plate mass not assembled in mass_matrix.rs | 2 | Modal analysis of plate+beam models incorrect |
+
+## Incomplete Features (3 placeholder tests)
+
+**File:** `validation_warping_torsion.rs`
+
+| # | Feature | Status |
+|---|---------|--------|
+| 1 | Warping torsion cantilever (I-section) | 14x14 math exists, assembly not wired |
+| 2 | Z-section torsion | Same |
+| 3 | Mixed warping + non-warping model | Same |
+
+## CAPABILITY Items (5 tests)
 
 | Benchmark | File | What's Needed |
 |-----------|------|---------------|
-| VM11 SS plate | `validation_plates.rs` | Refine mesh to 8×8+, tight tolerance |
+| VM11 SS plate | `validation_plates.rs` | Refine mesh to 8x8+, tight tolerance |
 | VM14a large deflection | `validation_corotational.rs` | Match Mattiasson elastica reference |
 | VM15 material nonlinear | `validation_material_nonlinear.rs` | Match exact VM15 problem |
-| VM18 semicircular arch | `validation_curved_beams.rs` | Tight tolerance on δ_B |
-| VM44 circular ring | `validation_curved_beams.rs` | Model full ring, not cantilever |
+| VM18 semicircular arch | `validation_curved_beams.rs` | Tight tolerance on delta_B |
+| VM44 circular ring | `validation_curved_beams.rs` | Model full ring geometry |
 
-## Remaining BLOCKED (3 items)
+---
 
-| Benchmark | Why Blocked | What's Needed |
-|-----------|-------------|---------------|
-| NAFEMS LE5 (Z-section) | 14×14 warping math exists but assembly not wired | Wire warping in assembly + 7-DOF nodes |
-| NAFEMS R0024 (3D large disp.) | Co-rotational solver is 2D only | Extend to 3D |
-| ANSYS VM44 (ring) | Test models wrong problem | Rewrite with full ring geometry |
+## Not Yet Covered
+
+These are areas important to structural engineering practice that need implementation:
+
+| Topic | Difficulty | Impact |
+|-------|-----------|--------|
+| Timoshenko beam element (shear deformation) | Medium | Deep beams, short members |
+| Cable/catenary elements | Medium | Suspension bridges, cable stays |
+| Prestressed / post-tensioned concrete | Hard | Bridge design, concrete structures |
+| Cracked concrete section | Medium | Reinforced concrete analysis |
+| Creep, shrinkage, time-dependent effects | Hard | Long-term concrete behavior |
+| Soil-structure interaction (p-y curves) | Medium | Foundation design |
+| Dynamic wind / buffeting / vortex shedding | Hard | Tall buildings, bridges |
+| Fatigue / cumulative damage | Medium | Steel connections, bridges |
+| Connection design (bolt/weld capacity) | Medium | Steel design |
+| Fire resistance | Hard | Temperature-dependent materials |
+| Construction staging | Hard | Sequential construction |
+| Fiber-based plasticity | Hard | Advanced nonlinear concrete/steel |
+| Eurocode 2 (concrete) | Hard | Cracked section, effective width, creep |
+| Eurocode 4 (composite) | Hard | Shear connectors, composite beams |
+| ACI 318 (concrete) | Hard | US concrete design |
