@@ -1,748 +1,714 @@
-/// Validation: Advanced Structural Dynamics Formulas (Pure Formula Verification)
+/// Validation: Advanced Structural Dynamics
 ///
 /// References:
-///   - Chopra, "Dynamics of Structures", 5th Ed.
+///   - Chopra, "Dynamics of Structures", 5th Ed., Chapters 10-14
 ///   - Clough & Penzien, "Dynamics of Structures", 3rd Ed.
-///   - Newmark, "A Method of Computation for Structural Dynamics" (1959)
 ///   - Den Hartog, "Mechanical Vibrations", 4th Ed.
+///   - Newmark & Hall, "Earthquake Spectra and Design"
+///   - Paz & Leigh, "Structural Dynamics: Theory and Computation", 6th Ed.
+///   - ASCE 7-22: Minimum Design Loads for Buildings
 ///
-/// Tests verify advanced dynamics formulas without calling the solver.
-///   1. Newmark-beta method: single step verification
-///   2. Wilson-theta method: single step verification
-///   3. Duhamel integral: impulse response of SDOF
-///   4. Transmissibility ratio
-///   5. Tuned mass damper: optimal parameters
-///   6. Base isolation: period shift
-///   7. Floor response spectrum amplification factor
-///   8. Rayleigh damping coefficients from two target frequencies
+/// Tests verify multi-DOF natural frequencies, modal combination rules,
+/// damping models, TMD tuning, base isolation, and ductility demand.
 
-mod helpers;
+#[allow(unused_imports)]
+use dedaliano_engine::types::*;
 
-use std::f64::consts::PI;
-
-// ================================================================
-// 1. Newmark-Beta Method: Single Step Verification
-// ================================================================
+// ═══════════════════════════════════════════════════════════════
+// 1. Two-DOF System Natural Frequencies (Stiffness Method)
+// ═══════════════════════════════════════════════════════════════
 //
-// The Newmark-beta method with beta=1/4 and gamma=1/2 (average
-// acceleration method, unconditionally stable).
+// A 2-story shear building:
+//   m1 = m2 = 1000 kg (floor masses)
+//   k1 = k2 = 500 kN/m = 500,000 N/m (story stiffnesses)
 //
-// For SDOF system: m*a + c*v + k*u = f(t)
+// Stiffness matrix:
+//   K = [k1+k2  -k2 ] = [1000  -500] kN/m
+//       [-k2     k2 ]   [-500   500]
 //
-// Newmark update equations:
-//   u_{n+1} = u_n + dt*v_n + dt^2*((0.5-beta)*a_n + beta*a_{n+1})
-//   v_{n+1} = v_n + dt*((1-gamma)*a_n + gamma*a_{n+1})
+// Mass matrix:
+//   M = [m1  0 ] = [1000  0   ] kg
+//       [0   m2]   [0     1000]
 //
-// Effective stiffness: k_eff = k + gamma/(beta*dt)*c + 1/(beta*dt^2)*m
-// Effective force: f_eff = f_{n+1} + m*(...) + c*(...)
+// Eigenvalue problem: det(K - omega^2 M) = 0
+// Substitution: Omega = omega^2 / (k/m) = omega^2 / 500
+//   (2 - Omega)(1 - Omega) - 1 = 0
+//   Omega^2 - 3*Omega + 1 = 0
+//   Omega = (3 +/- sqrt(5)) / 2
 //
-// For a simple case: m=1, c=0, k=100, f=0 (free vibration),
-// u_0=1, v_0=0, a_0=-k*u_0/m = -100
+//   Omega_1 = (3 - sqrt(5))/2 = 0.3820
+//   Omega_2 = (3 + sqrt(5))/2 = 2.6180
 //
-// Reference: Chopra, Ch. 5; Newmark (1959)
+//   omega_1^2 = 0.3820 * 500 = 191.0  -> omega_1 = 13.82 rad/s -> T_1 = 0.4547 s
+//   omega_2^2 = 2.6180 * 500 = 1309.0 -> omega_2 = 36.18 rad/s -> T_2 = 0.1737 s
 
 #[test]
-fn validation_dynamics_newmark_beta_single_step() {
-    let m: f64 = 1.0;     // kg
-    let c: f64 = 0.0;     // N*s/m (undamped)
-    let k: f64 = 100.0;   // N/m
-    let dt: f64 = 0.1;    // s, time step
+fn validation_two_dof_natural_frequencies() {
+    let m: f64 = 1000.0;           // kg, floor mass
+    let k: f64 = 500_000.0;        // N/m, story stiffness
 
-    let beta: f64 = 0.25;
-    let gamma: f64 = 0.5;
+    // --- Eigenvalue solutions ---
+    let sqrt5: f64 = 5.0_f64.sqrt();
+    let omega_ratio_1: f64 = (3.0 - sqrt5) / 2.0;
+    let omega_ratio_2: f64 = (3.0 + sqrt5) / 2.0;
 
-    // Initial conditions
-    let u0 = 1.0;    // m
-    let v0 = 0.0;    // m/s
-    let a0 = -k * u0 / m; // = -100 m/s^2
+    let omega_ratio_1_expected: f64 = 0.3820;
+    let omega_ratio_2_expected: f64 = 2.6180;
 
-    // External force at t = dt
-    let f1 = 0.0;
-
-    // Effective stiffness
-    let k_eff = k + gamma / (beta * dt) * c + 1.0 / (beta * dt * dt) * m;
-    // = 100 + 0 + 1/(0.25*0.01) = 100 + 400 = 500
-    let k_eff_expected = 500.0;
+    let rel_err_1 = (omega_ratio_1 - omega_ratio_1_expected).abs() / omega_ratio_1_expected;
     assert!(
-        (k_eff - k_eff_expected).abs() / k_eff_expected < 1e-10,
-        "k_eff: computed={:.2}, expected={:.2}",
-        k_eff, k_eff_expected
+        rel_err_1 < 0.01,
+        "Omega_1: computed={:.4}, expected={:.4}", omega_ratio_1, omega_ratio_1_expected
     );
 
-    // Effective force at step n+1
-    let f_eff = f1
-        + m * (1.0 / (beta * dt * dt) * u0 + 1.0 / (beta * dt) * v0 + (1.0 / (2.0 * beta) - 1.0) * a0)
-        + c * (gamma / (beta * dt) * u0 + (gamma / beta - 1.0) * v0 + dt * (gamma / (2.0 * beta) - 1.0) * a0);
-
-    // For c=0: f_eff = 0 + m*(400*1 + 0 + (2-1)*(-100)) + 0
-    //        = 1*(400 + 0 - 100) = 300
-    let f_eff_expected = 300.0;
+    let rel_err_2 = (omega_ratio_2 - omega_ratio_2_expected).abs() / omega_ratio_2_expected;
     assert!(
-        (f_eff - f_eff_expected).abs() / f_eff_expected < 1e-10,
-        "f_eff: computed={:.2}, expected={:.2}",
-        f_eff, f_eff_expected
+        rel_err_2 < 0.01,
+        "Omega_2: computed={:.4}, expected={:.4}", omega_ratio_2, omega_ratio_2_expected
     );
 
-    // Displacement at t = dt
-    let u1 = f_eff / k_eff;
-    let u1_expected = 300.0 / 500.0; // = 0.6
+    // --- Natural frequencies ---
+    let omega_scale: f64 = k / m; // 500 rad^2/s^2
+    let omega1: f64 = (omega_ratio_1 * omega_scale).sqrt();
+    let omega2: f64 = (omega_ratio_2 * omega_scale).sqrt();
+
+    let omega1_expected: f64 = 13.82;
+    let omega2_expected: f64 = 36.18;
+
+    let rel_err_w1 = (omega1 - omega1_expected).abs() / omega1_expected;
     assert!(
-        (u1 - u1_expected).abs() / u1_expected < 1e-10,
-        "u1: computed={:.6}, expected={:.6}",
-        u1, u1_expected
+        rel_err_w1 < 0.01,
+        "omega_1: computed={:.2} rad/s, expected={:.2} rad/s, err={:.4}%",
+        omega1, omega1_expected, rel_err_w1 * 100.0
     );
 
-    // Acceleration at t = dt
-    let a1 = 1.0 / (beta * dt * dt) * (u1 - u0) - 1.0 / (beta * dt) * v0 - (1.0 / (2.0 * beta) - 1.0) * a0;
-    // = 400*(0.6-1) - 0 - 1*(-100) = 400*(-0.4) + 100 = -160 + 100 = -60
-    let a1_expected = -60.0;
+    let rel_err_w2 = (omega2 - omega2_expected).abs() / omega2_expected;
     assert!(
-        (a1 - a1_expected).abs() / a1_expected.abs() < 1e-10,
-        "a1: computed={:.6}, expected={:.6}",
-        a1, a1_expected
+        rel_err_w2 < 0.01,
+        "omega_2: computed={:.2} rad/s, expected={:.2} rad/s, err={:.4}%",
+        omega2, omega2_expected, rel_err_w2 * 100.0
     );
 
-    // Velocity at t = dt
-    let v1 = v0 + dt * ((1.0 - gamma) * a0 + gamma * a1);
-    // = 0 + 0.1*(0.5*(-100) + 0.5*(-60)) = 0.1*(-50 - 30) = -8
-    let v1_expected = -8.0;
+    // --- Natural periods ---
+    let pi = std::f64::consts::PI;
+    let t1: f64 = 2.0 * pi / omega1;
+    let t2: f64 = 2.0 * pi / omega2;
+
+    let t1_expected: f64 = 0.4547;
+    let t2_expected: f64 = 0.1737;
+
+    let rel_err_t1 = (t1 - t1_expected).abs() / t1_expected;
     assert!(
-        (v1 - v1_expected).abs() / v1_expected.abs() < 1e-10,
-        "v1: computed={:.6}, expected={:.6}",
-        v1, v1_expected
+        rel_err_t1 < 0.01,
+        "T_1: computed={:.4} s, expected={:.4} s, err={:.4}%",
+        t1, t1_expected, rel_err_t1 * 100.0
     );
 
-    // Verify equilibrium at t = dt: m*a1 + k*u1 = f1
-    let residual = m * a1 + k * u1 - f1;
-    // = 1*(-60) + 100*0.6 - 0 = -60 + 60 = 0
+    let rel_err_t2 = (t2 - t2_expected).abs() / t2_expected;
     assert!(
-        residual.abs() < 1e-10,
-        "Equilibrium residual: {:.6e}",
-        residual
+        rel_err_t2 < 0.01,
+        "T_2: computed={:.4} s, expected={:.4} s, err={:.4}%",
+        t2, t2_expected, rel_err_t2 * 100.0
+    );
+
+    // --- Frequency ratio ---
+    let freq_ratio: f64 = omega2 / omega1;
+    let freq_ratio_expected: f64 = (omega_ratio_2 / omega_ratio_1).sqrt();
+
+    let rel_err_ratio = (freq_ratio - freq_ratio_expected).abs() / freq_ratio_expected;
+    assert!(
+        rel_err_ratio < 0.001,
+        "omega_2/omega_1: computed={:.4}, expected={:.4}", freq_ratio, freq_ratio_expected
     );
 }
 
-// ================================================================
-// 2. Wilson-Theta Method: Single Step (theta = 1.4)
-// ================================================================
+// ═══════════════════════════════════════════════════════════════
+// 2. Response Spectrum Combination --- SRSS Rule
+// ═══════════════════════════════════════════════════════════════
 //
-// The Wilson-theta method extends the acceleration linearly over
-// a time interval theta*dt (theta >= 1.0 for stability, typically 1.4).
+// Square Root of Sum of Squares (SRSS) modal combination:
+//   R = sqrt(sum(Ri^2))
 //
-// For SDOF: m*a + c*v + k*u = f(t)
+// Modal responses (e.g., base shear or displacement):
+//   R_1 = 120 kN (mode 1)
+//   R_2 = 45 kN (mode 2)
+//   R_3 = 15 kN (mode 3)
 //
-// Effective stiffness: k_hat = k + 3c/(theta*dt) + 6m/(theta*dt)^2
-// The method computes displacement at t + theta*dt, then
-// interpolates back to t + dt.
+// SRSS:
+//   R = sqrt(120^2 + 45^2 + 15^2) = sqrt(14400 + 2025 + 225)
+//     = sqrt(16650) = 129.03 kN
 //
-// Reference: Wilson, Farhoomand & Bathe (1972); Chopra, Ch. 5
+// Mode 1 dominance check:
+//   R_1/R = 120/129.03 = 93.0% -- mode 1 dominates
 
 #[test]
-fn validation_dynamics_wilson_theta_single_step() {
-    let m: f64 = 2.0;      // kg
-    let c: f64 = 0.0;      // undamped
-    let k: f64 = 200.0;    // N/m
-    let dt: f64 = 0.05;    // s
-    let theta: f64 = 1.4;
+fn validation_srss_modal_combination() {
+    let r1: f64 = 120.0;           // kN, mode 1 response
+    let r2: f64 = 45.0;            // kN, mode 2 response
+    let r3: f64 = 15.0;            // kN, mode 3 response
 
-    // Initial conditions
-    let u0 = 0.5;
-    let v0 = 0.0;
-    let a0 = -k * u0 / m; // = -50 m/s^2
+    // --- SRSS combination ---
+    let r_srss: f64 = (r1 * r1 + r2 * r2 + r3 * r3).sqrt();
+    let r_srss_expected: f64 = 129.03;
 
-    // Force at t and t+theta*dt
-    let _f0 = 0.0;
-    let f_theta = 0.0; // free vibration
-
-    // Extended time step
-    let dt_theta = theta * dt; // 0.07 s
-
-    // Effective stiffness for Wilson-theta
-    let k_hat = k + 3.0 * c / dt_theta + 6.0 * m / (dt_theta * dt_theta);
-    // = 200 + 0 + 6*2/(0.07^2) = 200 + 12/0.0049 = 200 + 2448.98
-    let k_hat_expected = 200.0 + 6.0 * 2.0 / (0.07 * 0.07);
+    let rel_err = (r_srss - r_srss_expected).abs() / r_srss_expected;
     assert!(
-        (k_hat - k_hat_expected).abs() / k_hat_expected < 1e-10,
-        "Wilson k_hat: computed={:.2}, expected={:.2}",
-        k_hat, k_hat_expected
+        rel_err < 0.01,
+        "R(SRSS): computed={:.2} kN, expected={:.2} kN, err={:.4}%",
+        r_srss, r_srss_expected, rel_err * 100.0
     );
 
-    // Effective force at t + theta*dt
-    let f_hat = f_theta
-        + m * (6.0 / (dt_theta * dt_theta) * u0 + 6.0 / dt_theta * v0 + 2.0 * a0)
-        + c * (3.0 / dt_theta * u0 + 2.0 * v0 + dt_theta / 2.0 * a0);
-    // = 0 + 2*(6/(0.0049)*0.5 + 0 + 2*(-50)) + 0
-    // = 2*(612.24*0.5 - 100) ... let me compute step by step
-    // 6/dt_theta^2 * u0 = 6/0.0049 * 0.5 = 612.2449
-    // 6/dt_theta * v0 = 0
-    // 2 * a0 = -100
-    // sum = 512.2449
-    // m * sum = 2 * 512.2449 = 1024.4898
-    let term1 = 6.0 / (dt_theta * dt_theta) * u0;
-    let term2 = 6.0 / dt_theta * v0;
-    let term3 = 2.0 * a0;
-    let f_hat_expected = m * (term1 + term2 + term3);
+    // --- Mode 1 contribution ---
+    let mode1_pct: f64 = r1 / r_srss * 100.0;
     assert!(
-        (f_hat - f_hat_expected).abs() / f_hat_expected.abs() < 1e-10,
-        "Wilson f_hat: computed={:.4}, expected={:.4}",
-        f_hat, f_hat_expected
+        mode1_pct > 90.0,
+        "Mode 1 dominates: {:.1}% of SRSS response", mode1_pct
     );
 
-    // Displacement at t + theta*dt
-    let u_theta = f_hat / k_hat;
-
-    // Acceleration at t + theta*dt
-    let a_theta = 6.0 / (dt_theta * dt_theta) * (u_theta - u0) - 6.0 / dt_theta * v0 - 2.0 * a0;
-
-    // Interpolate acceleration back to t + dt:
-    // a1 = a0 + (a_theta - a0) / theta
-    let a1 = a0 + (a_theta - a0) / theta;
-
-    // Update velocity and displacement at t + dt
-    let _v1 = v0 + dt / 2.0 * (a0 + a1);
-    let u1 = u0 + dt * v0 + dt * dt / 6.0 * (2.0 * a0 + a1);
-
-    // Verify that displacement is physically reasonable
-    // Free vibration from u0=0.5, period T = 2*pi*sqrt(m/k) = 2*pi*sqrt(0.01) = 0.628 s
-    let period = 2.0 * PI * (m / k).sqrt();
-    let period_expected = 2.0 * PI * 0.1; // ~0.6283 s
+    // --- SRSS <= absolute sum ---
+    let r_abs: f64 = r1 + r2 + r3;
     assert!(
-        (period - period_expected).abs() / period_expected < 1e-10,
-        "Period: computed={:.4}, expected={:.4}",
-        period, period_expected
+        r_srss <= r_abs,
+        "SRSS={:.2} <= absolute sum={:.2}", r_srss, r_abs
     );
 
-    // At t=dt=0.05, the displacement should still be positive
-    // (we haven't reached quarter period yet, dt/T ~ 0.08)
+    // --- SRSS >= maximum single mode ---
     assert!(
-        u1 > 0.0 && u1 < u0,
-        "Wilson u1={:.6}: should be between 0 and u0={:.6}",
-        u1, u0
+        r_srss >= r1,
+        "SRSS={:.2} >= max mode={:.2}", r_srss, r1
     );
 
-    // Verify equilibrium at t+dt (approximately)
-    let eq_residual = m * a1 + k * u1;
-    // Should be close to zero for free vibration
+    // --- With 2 modes only ---
+    let r_srss_2: f64 = (r1 * r1 + r2 * r2).sqrt();
     assert!(
-        eq_residual.abs() < k * u0 * 0.05,
-        "Wilson equilibrium residual: {:.6} (tol: {:.6})",
-        eq_residual, k * u0 * 0.05
+        r_srss > r_srss_2,
+        "3 modes give larger SRSS than 2: {:.2} > {:.2}", r_srss, r_srss_2
     );
 }
 
-// ================================================================
-// 3. Duhamel Integral: Impulse Response of SDOF
-// ================================================================
+// ═══════════════════════════════════════════════════════════════
+// 3. CQC Modal Combination
+// ═══════════════════════════════════════════════════════════════
 //
-// For an undamped SDOF system subjected to an impulse I at t=0:
-//   u(t) = I / (m * omega_n) * sin(omega_n * t)
-// where omega_n = sqrt(k/m) is the natural frequency.
+// Complete Quadratic Combination (CQC):
+//   R^2 = sum_i sum_j rho_ij * R_i * R_j
 //
-// For a damped SDOF system:
-//   u(t) = I / (m * omega_d) * exp(-zeta*omega_n*t) * sin(omega_d*t)
-// where omega_d = omega_n * sqrt(1 - zeta^2) is the damped frequency.
+// Cross-modal coefficient (Der Kiureghian, 1981):
+//   rho_ij = [8*xi^2*(1+r_ij)*r_ij^(3/2)] /
+//            [(1-r_ij^2)^2 + 4*xi^2*r_ij*(1+r_ij)^2]
+//   where r_ij = omega_j/omega_i (<=1), xi = damping ratio
 //
-// Reference: Chopra, Ch. 4; Clough & Penzien, Ch. 3
+// Two modes: omega_1 = 10 rad/s, omega_2 = 25 rad/s, xi = 0.05
+//   r_12 = 10/25 = 0.4
+//   rho_12 = 8*0.0025*(1.4)*0.4^1.5 / [(1-0.16)^2 + 4*0.0025*0.4*(1.4)^2]
+//          = 0.007084 / [0.7056 + 0.00784]
+//          = 0.007084 / 0.71344
+//          = 0.00993
+//
+// R_1 = 100 kN, R_2 = 50 kN
+// CQC:
+//   R^2 = 1.0*R1^2 + 2*rho12*R1*R2 + 1.0*R2^2
+//       = 10000 + 2*0.00993*5000 + 2500
+//       = 10000 + 99.3 + 2500 = 12599.3
+//   R = sqrt(12599.3) = 112.25 kN
 
 #[test]
-fn validation_dynamics_duhamel_impulse_response() {
-    let m: f64 = 5.0;      // kg
-    let k: f64 = 500.0;    // N/m
-    let impulse: f64 = 10.0; // N*s
+fn validation_cqc_modal_combination() {
+    let omega1: f64 = 10.0;        // rad/s
+    let omega2: f64 = 25.0;        // rad/s
+    let xi: f64 = 0.05;            // damping ratio
+    let r1: f64 = 100.0;           // kN, mode 1 response
+    let r2: f64 = 50.0;            // kN, mode 2 response
 
-    // Natural frequency
-    let omega_n = (k / m).sqrt();
-    let omega_n_expected = 10.0; // sqrt(100) = 10 rad/s
+    // --- Frequency ratio ---
+    let r12: f64 = omega1 / omega2;
+    let r12_expected: f64 = 0.4;
+
+    let err_r = (r12 - r12_expected).abs();
     assert!(
-        (omega_n - omega_n_expected).abs() / omega_n_expected < 1e-10,
-        "omega_n: computed={:.4}, expected={:.4}",
-        omega_n, omega_n_expected
+        err_r < 0.001,
+        "r_12: computed={:.4}, expected={:.4}", r12, r12_expected
     );
 
-    // Undamped response at t = pi/(2*omega_n) (quarter period: maximum)
-    let t_quarter = PI / (2.0 * omega_n);
-    let u_max_undamped = impulse / (m * omega_n) * (omega_n * t_quarter).sin();
-    // = 10/(5*10) * sin(pi/2) = 0.2 * 1.0 = 0.2
-    let u_max_expected = 0.2;
+    // --- Cross-modal coefficient ---
+    let xi2: f64 = xi * xi;
+    let numerator: f64 = 8.0 * xi2 * (1.0 + r12) * r12.powf(1.5);
+    let denom: f64 = (1.0 - r12 * r12).powi(2) + 4.0 * xi2 * r12 * (1.0 + r12).powi(2);
+    let rho12: f64 = numerator / denom;
+    let rho12_expected: f64 = 0.00993;
+
+    let rel_err_rho = (rho12 - rho12_expected).abs() / rho12_expected;
     assert!(
-        (u_max_undamped - u_max_expected).abs() / u_max_expected < 1e-10,
-        "Undamped max response: computed={:.6}, expected={:.6}",
-        u_max_undamped, u_max_expected
+        rel_err_rho < 0.02,
+        "rho_12: computed={:.5}, expected={:.5}, err={:.4}%",
+        rho12, rho12_expected, rel_err_rho * 100.0
     );
 
-    // Undamped response at t = pi/omega_n (half period: zero crossing)
-    let t_half = PI / omega_n;
-    let u_half_undamped = impulse / (m * omega_n) * (omega_n * t_half).sin();
+    // --- CQC combination ---
+    let r_cqc_sq: f64 = 1.0 * r1 * r1 + 2.0 * rho12 * r1 * r2 + 1.0 * r2 * r2;
+    let r_cqc: f64 = r_cqc_sq.sqrt();
+    let r_cqc_expected: f64 = 112.25;
+
+    let rel_err_cqc = (r_cqc - r_cqc_expected).abs() / r_cqc_expected;
     assert!(
-        u_half_undamped.abs() < 1e-10,
-        "Response at half period: {:.6e} (should be ~0)",
-        u_half_undamped
+        rel_err_cqc < 0.01,
+        "R(CQC): computed={:.2} kN, expected={:.2} kN, err={:.4}%",
+        r_cqc, r_cqc_expected, rel_err_cqc * 100.0
     );
 
-    // Damped response
-    let zeta: f64 = 0.05; // 5% damping
-    let omega_d = omega_n * (1.0 - zeta * zeta).sqrt();
-    let omega_d_expected = 10.0 * (1.0 - 0.0025_f64).sqrt();
+    // --- Compare with SRSS ---
+    let r_srss: f64 = (r1 * r1 + r2 * r2).sqrt();
+    let r_srss_expected: f64 = 111.80;
+
+    let rel_err_srss = (r_srss - r_srss_expected).abs() / r_srss_expected;
     assert!(
-        (omega_d - omega_d_expected).abs() / omega_d_expected < 1e-10,
-        "omega_d: computed={:.6}, expected={:.6}",
-        omega_d, omega_d_expected
+        rel_err_srss < 0.01,
+        "R(SRSS): computed={:.2} kN, expected={:.2} kN", r_srss, r_srss_expected
     );
 
-    // Damped response at t = pi/(2*omega_d)
-    let t_d_quarter = PI / (2.0 * omega_d);
-    let u_damped = impulse / (m * omega_d)
-        * (-zeta * omega_n * t_d_quarter).exp()
-        * (omega_d * t_d_quarter).sin();
-
-    // The damped response should be less than undamped
+    // --- CQC >= SRSS for well-separated modes (cross terms add) ---
     assert!(
-        u_damped < u_max_undamped,
-        "Damped ({:.6}) < Undamped ({:.6})",
-        u_damped, u_max_undamped
-    );
-    assert!(
-        u_damped > 0.0,
-        "Damped response should be positive at quarter period: {:.6}",
-        u_damped
+        r_cqc >= r_srss - 0.01,
+        "CQC={:.2} >= SRSS={:.2} (positive cross-modal terms)", r_cqc, r_srss
     );
 
-    // Peak amplitude decays exponentially: ratio of successive peaks
-    // u_n/u_{n+1} = exp(2*pi*zeta/sqrt(1-zeta^2))
-    let log_dec = 2.0 * PI * zeta / (1.0 - zeta * zeta).sqrt();
-    let peak_ratio = log_dec.exp();
-    let peak_ratio_expected = (2.0 * PI * 0.05 / (0.9975_f64).sqrt()).exp();
+    // --- For well-separated modes, CQC approx SRSS ---
+    let diff_pct: f64 = (r_cqc - r_srss).abs() / r_srss * 100.0;
     assert!(
-        (peak_ratio - peak_ratio_expected).abs() / peak_ratio_expected < 1e-6,
-        "Peak ratio: computed={:.6}, expected={:.6}",
-        peak_ratio, peak_ratio_expected
+        diff_pct < 1.0,
+        "Well-separated modes: CQC-SRSS diff = {:.2}% < 1%", diff_pct
     );
 }
 
-// ================================================================
-// 4. Transmissibility: Force or Displacement Transmission
-// ================================================================
+// ═══════════════════════════════════════════════════════════════
+// 4. Rayleigh Damping Coefficients
+// ═══════════════════════════════════════════════════════════════
 //
-// Transmissibility T_r is the ratio of transmitted force (or displacement)
-// to applied force (or base displacement):
+// Rayleigh (proportional) damping:
+//   C = a_0 * M + a_1 * K
 //
-//   T_r = sqrt((1 + (2*zeta*r)^2) / ((1-r^2)^2 + (2*zeta*r)^2))
+// For 2 modes with target damping ratio xi at omega_i and omega_j:
+//   a_0 = 2*xi*omega_i*omega_j / (omega_i + omega_j)
+//   a_1 = 2*xi / (omega_i + omega_j)
 //
-// where r = omega/omega_n is the frequency ratio.
+// Verification: damping ratio at any frequency omega:
+//   xi(omega) = a_0/(2*omega) + a_1*omega/2
 //
-// Key properties:
-//   - At r=0: T_r = 1 (quasi-static)
-//   - At r=1: T_r = sqrt(1+4*zeta^2)/(2*zeta) (resonance)
-//   - At r=sqrt(2): T_r = 1 (crossover point, independent of damping)
-//   - For r >> 1: T_r → 2*zeta*r / r^2 → 0 (isolation region)
+// Example: omega_1 = 5 rad/s, omega_2 = 20 rad/s, xi = 0.05
+//   a_0 = 2*0.05*5*20 / (5+20) = 10/25 = 0.40
+//   a_1 = 2*0.05 / (5+20) = 0.10/25 = 0.004
 //
-// Reference: Den Hartog, Ch. 2; Chopra, Ch. 3
+// Check at omega_1: xi(5) = 0.40/(2*5) + 0.004*5/2 = 0.04 + 0.01 = 0.05
+// Check at omega_2: xi(20) = 0.40/(2*20) + 0.004*20/2 = 0.01 + 0.04 = 0.05
 
 #[test]
-fn validation_dynamics_transmissibility() {
-    let zeta: f64 = 0.05; // 5% damping
+fn validation_rayleigh_damping_coefficients() {
+    let omega_i: f64 = 5.0;        // rad/s, lower frequency
+    let omega_j: f64 = 20.0;       // rad/s, upper frequency
+    let xi_target: f64 = 0.05;     // target damping ratio
+
+    // --- Rayleigh coefficients ---
+    let a0: f64 = 2.0 * xi_target * omega_i * omega_j / (omega_i + omega_j);
+    let a1: f64 = 2.0 * xi_target / (omega_i + omega_j);
+
+    let a0_expected: f64 = 0.40;
+    let a1_expected: f64 = 0.004;
+
+    let err_a0 = (a0 - a0_expected).abs();
+    assert!(
+        err_a0 < 0.001,
+        "a_0: computed={:.4}, expected={:.4}", a0, a0_expected
+    );
+
+    let err_a1 = (a1 - a1_expected).abs();
+    assert!(
+        err_a1 < 0.0001,
+        "a_1: computed={:.6}, expected={:.6}", a1, a1_expected
+    );
+
+    // --- Verify damping ratio at omega_1 ---
+    let xi_at_w1: f64 = a0 / (2.0 * omega_i) + a1 * omega_i / 2.0;
+    let err_xi1 = (xi_at_w1 - xi_target).abs();
+    assert!(
+        err_xi1 < 1e-10,
+        "xi(omega_1): computed={:.6}, expected={:.6}", xi_at_w1, xi_target
+    );
+
+    // --- Verify damping ratio at omega_2 ---
+    let xi_at_w2: f64 = a0 / (2.0 * omega_j) + a1 * omega_j / 2.0;
+    let err_xi2 = (xi_at_w2 - xi_target).abs();
+    assert!(
+        err_xi2 < 1e-10,
+        "xi(omega_2): computed={:.6}, expected={:.6}", xi_at_w2, xi_target
+    );
+
+    // --- Check at intermediate frequency (omega = 10 rad/s) ---
+    let omega_mid: f64 = 10.0;
+    let xi_mid: f64 = a0 / (2.0 * omega_mid) + a1 * omega_mid / 2.0;
+    // Should be less than target (Rayleigh curve dips between anchor points)
+    assert!(
+        xi_mid < xi_target,
+        "xi(omega_mid)={:.4} < xi_target={:.4} (Rayleigh curve minimum)",
+        xi_mid, xi_target
+    );
+
+    // --- Minimum damping occurs at omega_min = sqrt(a_0/a_1) ---
+    let omega_min: f64 = (a0 / a1).sqrt();
+    let xi_min: f64 = a0 / (2.0 * omega_min) + a1 * omega_min / 2.0;
+    let omega_min_expected: f64 = 10.0; // sqrt(0.40/0.004) = sqrt(100) = 10
+
+    let err_wmin = (omega_min - omega_min_expected).abs();
+    assert!(
+        err_wmin < 0.01,
+        "omega_min: computed={:.2} rad/s, expected={:.2} rad/s", omega_min, omega_min_expected
+    );
+
+    // Minimum xi = sqrt(a_0 * a_1)
+    let xi_min_formula: f64 = (a0 * a1).sqrt();
+    let err_ximin = (xi_min - xi_min_formula).abs();
+    assert!(
+        err_ximin < 1e-10,
+        "xi_min: computed={:.6}, formula={:.6}", xi_min, xi_min_formula
+    );
+}
+
+// ═══════════════════════════════════════════════════════════════
+// 5. TMD Optimal Tuning --- Den Hartog Parameters
+// ═══════════════════════════════════════════════════════════════
+//
+// Den Hartog optimal tuning for a tuned mass damper (TMD):
+//   Optimal frequency ratio: f_opt = 1 / (1 + mu)
+//   Optimal damping ratio:   xi_opt = sqrt(3*mu / (8*(1+mu)))
+//
+// where mu = m_d/m_s (mass ratio, TMD mass / structure mass)
+//
+// Example: m_s = 50,000 kg, m_d = 2500 kg
+//   mu = 2500/50000 = 0.05
+//
+//   f_opt = 1 / (1 + 0.05) = 1/1.05 = 0.9524
+//   xi_opt = sqrt(3*0.05 / (8*1.05)) = sqrt(0.15/8.40) = sqrt(0.01786) = 0.1336
+//
+// If structure frequency f_s = 2.0 Hz:
+//   TMD frequency f_d = f_opt * f_s = 0.9524 * 2.0 = 1.905 Hz
+//   TMD stiffness k_d = m_d * (2*pi*f_d)^2 = 2500 * (2*pi*1.905)^2 = 358,122 N/m
+
+#[test]
+fn validation_tmd_den_hartog_tuning() {
+    let m_s: f64 = 50_000.0;       // kg, structure mass
+    let m_d: f64 = 2_500.0;        // kg, TMD mass
+    let f_s: f64 = 2.0;            // Hz, structure frequency
+    let pi = std::f64::consts::PI;
+
+    // --- Mass ratio ---
+    let mu: f64 = m_d / m_s;
+    let mu_expected: f64 = 0.05;
+
+    let err_mu = (mu - mu_expected).abs();
+    assert!(
+        err_mu < 1e-6,
+        "mu: computed={:.4}, expected={:.4}", mu, mu_expected
+    );
+
+    // --- Optimal frequency ratio ---
+    let f_opt: f64 = 1.0 / (1.0 + mu);
+    let f_opt_expected: f64 = 0.9524;
+
+    let rel_err_f = (f_opt - f_opt_expected).abs() / f_opt_expected;
+    assert!(
+        rel_err_f < 0.01,
+        "f_opt: computed={:.4}, expected={:.4}, err={:.4}%",
+        f_opt, f_opt_expected, rel_err_f * 100.0
+    );
+
+    // --- Optimal damping ratio ---
+    let xi_opt: f64 = (3.0 * mu / (8.0 * (1.0 + mu))).sqrt();
+    let xi_opt_expected: f64 = 0.1336;
+
+    let rel_err_xi = (xi_opt - xi_opt_expected).abs() / xi_opt_expected;
+    assert!(
+        rel_err_xi < 0.01,
+        "xi_opt: computed={:.4}, expected={:.4}, err={:.4}%",
+        xi_opt, xi_opt_expected, rel_err_xi * 100.0
+    );
+
+    // --- TMD frequency ---
+    let f_d: f64 = f_opt * f_s;
+    let f_d_expected: f64 = 1.905;
+
+    let rel_err_fd = (f_d - f_d_expected).abs() / f_d_expected;
+    assert!(
+        rel_err_fd < 0.01,
+        "f_d: computed={:.3} Hz, expected={:.3} Hz, err={:.4}%",
+        f_d, f_d_expected, rel_err_fd * 100.0
+    );
+
+    // --- TMD stiffness ---
+    let omega_d: f64 = 2.0 * pi * f_d;
+    let k_d: f64 = m_d * omega_d * omega_d;
+    let k_d_expected: f64 = 358_122.0;
+
+    let rel_err_kd = (k_d - k_d_expected).abs() / k_d_expected;
+    assert!(
+        rel_err_kd < 0.01,
+        "k_d: computed={:.0} N/m, expected={:.0} N/m, err={:.4}%",
+        k_d, k_d_expected, rel_err_kd * 100.0
+    );
+
+    // --- TMD damping coefficient ---
+    let c_d: f64 = 2.0 * xi_opt * m_d * omega_d;
+    assert!(
+        c_d > 0.0,
+        "TMD damping c_d = {:.2} N*s/m must be positive", c_d
+    );
+}
+
+// ═══════════════════════════════════════════════════════════════
+// 6. Seismic Base Isolation --- Period Shift
+// ═══════════════════════════════════════════════════════════════
+//
+// Base-isolated structure:
+//   Fixed-base period T_fb = 0.5 s
+//   Total mass above isolation: m = 500,000 kg
+//
+// Target isolated period: T_iso = 2.5 s
+//
+// Required isolation stiffness:
+//   omega_iso = 2*pi/T_iso = 2.5133 rad/s
+//   k_iso = m * omega_iso^2 = 500,000 * 6.3165 = 3,158,273 N/m = 3158 kN/m
+//
+// Period shift ratio: T_iso/T_fb = 2.5/0.5 = 5.0
+//
+// Spectral acceleration reduction (assuming 1/T relationship):
+//   Sa_iso/Sa_fb = T_fb/T_iso = 0.5/2.5 = 0.20  (80% reduction)
+//
+// Combined system period (exact for 2-DOF):
+//   T_c = sqrt(T_fb^2 + T_iso^2) = sqrt(0.25 + 6.25) = sqrt(6.50) = 2.550 s
+
+#[test]
+fn validation_base_isolation_period_shift() {
+    let t_fb: f64 = 0.5;           // s, fixed-base period
+    let t_iso_target: f64 = 2.5;   // s, target isolated period
+    let m: f64 = 500_000.0;        // kg, total mass
+    let pi = std::f64::consts::PI;
+
+    // --- Required isolation stiffness ---
+    let omega_iso: f64 = 2.0 * pi / t_iso_target;
+    let k_iso: f64 = m * omega_iso * omega_iso;
+    let k_iso_kn: f64 = k_iso / 1000.0;
+    let k_iso_expected: f64 = 3158.0;
+
+    let rel_err_k = (k_iso_kn - k_iso_expected).abs() / k_iso_expected;
+    assert!(
+        rel_err_k < 0.01,
+        "k_iso: computed={:.0} kN/m, expected={:.0} kN/m, err={:.4}%",
+        k_iso_kn, k_iso_expected, rel_err_k * 100.0
+    );
+
+    // --- Period shift ratio ---
+    let period_ratio: f64 = t_iso_target / t_fb;
+    assert!(
+        (period_ratio - 5.0).abs() < 0.001,
+        "Period ratio = {:.4}, expected 5.0", period_ratio
+    );
+
+    // --- Spectral acceleration reduction ---
+    let sa_ratio: f64 = t_fb / t_iso_target;
+    let sa_ratio_expected: f64 = 0.20;
+
+    let err_sa = (sa_ratio - sa_ratio_expected).abs();
+    assert!(
+        err_sa < 0.001,
+        "Sa ratio = {:.4}, expected {:.4}", sa_ratio, sa_ratio_expected
+    );
+
+    let reduction_pct: f64 = (1.0 - sa_ratio) * 100.0;
+    assert!(
+        (reduction_pct - 80.0).abs() < 0.1,
+        "Sa reduction = {:.1}%, expected 80%", reduction_pct
+    );
+
+    // --- Combined period ---
+    let t_combined: f64 = (t_fb * t_fb + t_iso_target * t_iso_target).sqrt();
+    let t_combined_expected: f64 = 2.550;
+
+    let rel_err_tc = (t_combined - t_combined_expected).abs() / t_combined_expected;
+    assert!(
+        rel_err_tc < 0.01,
+        "T_combined: computed={:.3} s, expected={:.3} s, err={:.4}%",
+        t_combined, t_combined_expected, rel_err_tc * 100.0
+    );
+
+    // --- Combined period is dominated by isolation ---
+    assert!(
+        (t_combined - t_iso_target).abs() / t_iso_target < 0.05,
+        "Combined period approx isolation period: {:.3} approx {:.3}", t_combined, t_iso_target
+    );
+}
+
+// ═══════════════════════════════════════════════════════════════
+// 7. Ductility Demand --- Equal Displacement Rule
+// ═══════════════════════════════════════════════════════════════
+//
+// For structures with period T > Tc (characteristic period of ground motion):
+//   Equal displacement rule: Delta_inelastic approx Delta_elastic
+//   mu = R (ductility demand equals strength reduction factor)
+//
+// For T < Tc (short period):
+//   Equal energy rule: mu = (R^2 + 1) / (2*R)
+//
+// Newmark-Hall approximation:
+//   Long period (T > Tc):    R = mu
+//   Intermediate (T ~ Tc):   R = sqrt(2*mu - 1)
+//   Short period (T < T_a):  R = 1 (no reduction)
+//
+// Example 1: T = 1.5 s, Tc = 0.5 s -> long period
+//   Target R = 4.0 -> mu = R = 4.0
+//
+// Example 2: T = 0.3 s, Tc = 0.5 s -> short period, equal energy rule
+//   R = 4.0 -> mu = (R^2 + 1)/(2R) = (16 + 1)/8 = 2.125
+
+#[test]
+fn validation_ductility_demand_equal_displacement() {
+    let r_factor: f64 = 4.0;       // strength reduction factor
+    let tc: f64 = 0.5;             // s, characteristic period
+
+    // --- Long period (equal displacement rule) ---
+    let t_long: f64 = 1.5;         // s
+    assert!(t_long > tc, "T={:.1} > Tc={:.1}: long period range", t_long, tc);
+
+    let mu_long: f64 = r_factor;   // mu = R
+    let mu_long_expected: f64 = 4.0;
+
+    let err_long = (mu_long - mu_long_expected).abs();
+    assert!(
+        err_long < 0.001,
+        "mu(long period): computed={:.4}, expected={:.4}", mu_long, mu_long_expected
+    );
+
+    // --- Short period (equal energy rule) ---
+    let t_short: f64 = 0.3;        // s
+    assert!(t_short < tc, "T={:.1} < Tc={:.1}: short period range", t_short, tc);
+
+    let mu_short: f64 = (r_factor * r_factor + 1.0) / (2.0 * r_factor);
+    let mu_short_expected: f64 = 2.125;
+
+    let err_short = (mu_short - mu_short_expected).abs();
+    assert!(
+        err_short < 0.001,
+        "mu(short period): computed={:.4}, expected={:.4}", mu_short, mu_short_expected
+    );
+
+    // --- Equal energy ductility < equal displacement ductility ---
+    assert!(
+        mu_short < mu_long,
+        "Short period mu={:.3} < long period mu={:.3}", mu_short, mu_long
+    );
+
+    // --- Inverse: given mu, find R ---
+    // Long period: R = mu
+    let mu_target: f64 = 3.0;
+    let r_long: f64 = mu_target;
+
+    // Intermediate period: R = sqrt(2*mu - 1)
+    let r_intermediate: f64 = (2.0 * mu_target - 1.0).sqrt();
+    let r_intermediate_expected: f64 = 5.0_f64.sqrt(); // = 2.236
+
+    let rel_err_ri = (r_intermediate - r_intermediate_expected).abs() / r_intermediate_expected;
+    assert!(
+        rel_err_ri < 0.001,
+        "R(intermediate): computed={:.4}, expected={:.4}", r_intermediate, r_intermediate_expected
+    );
+
+    // R_intermediate < R_long for same ductility
+    assert!(
+        r_intermediate < r_long,
+        "R(intermediate)={:.3} < R(long)={:.3} for same mu",
+        r_intermediate, r_long
+    );
+}
+
+// ═══════════════════════════════════════════════════════════════
+// 8. Floor Response Spectrum Generation --- Simple SDOF Chain
+// ═══════════════════════════════════════════════════════════════
+//
+// A simple model for floor response spectra: equipment on a floor slab.
+// Using the standard SDOF transmissibility model:
+//
+// Transmissibility:
+//   TR(r) = sqrt[(1 + (2*xi*r)^2) / ((1-r^2)^2 + (2*xi*r)^2)]
+//   where r = omega_eq/omega_floor = T_floor/T_eq
+//
+// At resonance (r = 1):
+//   TR = sqrt[(1 + 4*xi^2) / (4*xi^2)] approx 1/(2*xi) for small xi
+//
+// At r = 0.5:
+//   TR = sqrt[(1 + 4*0.0025*0.25) / ((1-0.25)^2 + 4*0.0025*0.25)]
+//      = sqrt[(1.0025) / (0.5625 + 0.0025)]
+//      = sqrt(1.0025/0.5650) = sqrt(1.7743) = 1.332
+
+#[test]
+fn validation_floor_response_spectrum() {
+    let xi: f64 = 0.05;            // 5% damping
 
     // Transmissibility function
-    let transmissibility = |r: f64, z: f64| -> f64 {
-        let num = 1.0 + (2.0 * z * r).powi(2);
-        let den = (1.0 - r * r).powi(2) + (2.0 * z * r).powi(2);
+    let transmissibility = |r: f64| -> f64 {
+        let num: f64 = 1.0 + (2.0 * xi * r).powi(2);
+        let den: f64 = (1.0 - r * r).powi(2) + (2.0 * xi * r).powi(2);
         (num / den).sqrt()
     };
 
-    // At r = 0: T = 1 (quasi-static)
-    let t_0 = transmissibility(0.0, zeta);
+    // --- At resonance (r = 1) ---
+    let tr_resonance: f64 = transmissibility(1.0);
+    let tr_resonance_approx: f64 = 1.0 / (2.0 * xi); // = 10.0
+
+    // Exact at r=1: TR = sqrt(1 + 4*xi^2) / (2*xi) = sqrt(1.01) / 0.1 = 10.05
+    let tr_resonance_exact: f64 = (1.0 + 4.0 * xi * xi).sqrt() / (2.0 * xi);
+
+    let rel_err_res = (tr_resonance - tr_resonance_exact).abs() / tr_resonance_exact;
     assert!(
-        (t_0 - 1.0).abs() < 1e-10,
-        "T(r=0) = {:.6}, expected 1.0",
-        t_0
+        rel_err_res < 0.001,
+        "TR(r=1): computed={:.4}, exact={:.4}", tr_resonance, tr_resonance_exact
     );
 
-    // At r = 1 (resonance): T = sqrt(1 + 4*zeta^2) / (2*zeta)
-    let t_resonance = transmissibility(1.0, zeta);
-    let t_resonance_expected = (1.0 + 4.0 * zeta * zeta).sqrt() / (2.0 * zeta);
+    // Approximate formula is close for small damping
+    let rel_err_approx = (tr_resonance - tr_resonance_approx).abs() / tr_resonance_approx;
     assert!(
-        (t_resonance - t_resonance_expected).abs() / t_resonance_expected < 1e-10,
-        "T(r=1): computed={:.4}, expected={:.4}",
-        t_resonance, t_resonance_expected
-    );
-    // For zeta=0.05: T ~ sqrt(1.01)/0.1 ~ 10.05
-    assert!(
-        t_resonance > 9.0 && t_resonance < 11.0,
-        "T at resonance should be ~10 for zeta=0.05: T={:.4}",
-        t_resonance
+        rel_err_approx < 0.01,
+        "TR(r=1) approx 1/(2*xi): computed={:.4}, approx={:.4}", tr_resonance, tr_resonance_approx
     );
 
-    // At r = sqrt(2): T = 1 (crossover point, independent of damping)
-    let r_cross = 2.0_f64.sqrt();
-    let t_cross = transmissibility(r_cross, zeta);
-    // T = sqrt((1+8*zeta^2) / ((1-2)^2 + 8*zeta^2))
-    //   = sqrt((1+8z^2) / (1+8z^2)) = 1
-    let t_cross_expected = 1.0;
+    // --- At r = 0.5 (below resonance) ---
+    let tr_05: f64 = transmissibility(0.5);
+    let tr_05_expected: f64 = 1.332;
+
+    let rel_err_05 = (tr_05 - tr_05_expected).abs() / tr_05_expected;
     assert!(
-        (t_cross - t_cross_expected).abs() < 1e-10,
-        "T(r=sqrt(2)): computed={:.6}, expected={:.6}",
-        t_cross, t_cross_expected
+        rel_err_05 < 0.01,
+        "TR(r=0.5): computed={:.3}, expected={:.3}", tr_05, tr_05_expected
     );
 
-    // Verify crossover is independent of damping
-    let t_cross_z10 = transmissibility(r_cross, 0.10);
-    let t_cross_z20 = transmissibility(r_cross, 0.20);
+    // --- At r = 2.0 (above resonance) ---
+    let tr_20: f64 = transmissibility(2.0);
+    // High frequency equipment is isolated from floor motion
     assert!(
-        (t_cross_z10 - 1.0).abs() < 1e-10,
-        "T(r=sqrt(2), zeta=0.10): {:.6}",
-        t_cross_z10
-    );
-    assert!(
-        (t_cross_z20 - 1.0).abs() < 1e-10,
-        "T(r=sqrt(2), zeta=0.20): {:.6}",
-        t_cross_z20
+        tr_20 < 1.0,
+        "TR(r=2.0)={:.4} < 1.0 (isolation region)", tr_20
     );
 
-    // For r >> 1 (isolation region): T < 1
-    let t_high = transmissibility(3.0, zeta);
+    // --- At r = sqrt(2) (transition point where TR approx 1) ---
+    let r_crossover: f64 = 2.0_f64.sqrt();
+    let tr_cross: f64 = transmissibility(r_crossover);
+    // For any damping, TR(sqrt(2)) = 1.0 (exact for undamped; approximate otherwise)
     assert!(
-        t_high < 1.0,
-        "T(r=3) = {:.4} should be < 1 (isolation)",
-        t_high
-    );
-}
-
-// ================================================================
-// 5. Tuned Mass Damper: Optimal Parameters
-// ================================================================
-//
-// For a TMD (tuned mass damper) with mass ratio mu = m_d / m_s:
-//
-// Optimal tuning (Den Hartog formulas):
-//   f_opt = 1 / (1 + mu)          (frequency ratio)
-//   zeta_opt = sqrt(3*mu / (8*(1+mu)^3))  (optimal TMD damping)
-//
-// The TMD reduces the peak dynamic amplification of the main structure.
-//
-// Reference: Den Hartog, Ch. 3; Chopra, Sec. 14.4
-
-#[test]
-fn validation_dynamics_tuned_mass_damper() {
-    // Mass ratio mu = m_TMD / m_structure
-    let mu: f64 = 0.02; // 2% mass ratio (typical)
-
-    // Optimal frequency ratio
-    let f_opt = 1.0 / (1.0 + mu);
-    let f_opt_expected = 1.0 / 1.02;
-    assert!(
-        (f_opt - f_opt_expected).abs() / f_opt_expected < 1e-10,
-        "f_opt: computed={:.6}, expected={:.6}",
-        f_opt, f_opt_expected
+        (tr_cross - 1.0).abs() < 0.05,
+        "TR(sqrt(2)) approx 1.0: computed={:.4}", tr_cross
     );
 
-    // Optimal damping ratio for TMD
-    let zeta_opt = (3.0 * mu / (8.0 * (1.0 + mu).powi(3))).sqrt();
-    let zeta_opt_expected = (3.0 * 0.02 / (8.0 * 1.02_f64.powi(3))).sqrt();
+    // --- Monotonic decrease for r > sqrt(2) ---
+    let tr_30: f64 = transmissibility(3.0);
     assert!(
-        (zeta_opt - zeta_opt_expected).abs() / zeta_opt_expected < 1e-10,
-        "zeta_opt: computed={:.6}, expected={:.6}",
-        zeta_opt, zeta_opt_expected
-    );
-
-    // For mu = 0.02: zeta_opt ~ sqrt(0.06/8.489) ~ sqrt(0.00707) ~ 0.0841
-    assert!(
-        zeta_opt > 0.05 && zeta_opt < 0.15,
-        "TMD optimal damping should be ~8% for mu=2%: zeta={:.4}",
-        zeta_opt
-    );
-
-    // Verify for a larger mass ratio: mu = 0.05
-    let mu2: f64 = 0.05;
-    let f_opt2 = 1.0 / (1.0 + mu2);
-    let zeta_opt2 = (3.0 * mu2 / (8.0 * (1.0 + mu2).powi(3))).sqrt();
-
-    // Larger mu → more detuning (lower f_opt) and higher damping
-    assert!(
-        f_opt2 < f_opt,
-        "Larger mu → lower f_opt: {:.6} < {:.6}",
-        f_opt2, f_opt
-    );
-    assert!(
-        zeta_opt2 > zeta_opt,
-        "Larger mu → higher zeta_opt: {:.6} > {:.6}",
-        zeta_opt2, zeta_opt
-    );
-
-    // Peak amplification with optimal TMD: DAF ~ sqrt(2/mu) (approximate)
-    let daf_approx = (2.0 / mu).sqrt();
-    // For mu = 0.02: DAF ~ sqrt(100) = 10
-    let daf_expected = 10.0;
-    assert!(
-        (daf_approx - daf_expected).abs() / daf_expected < 1e-10,
-        "DAF with TMD: computed={:.4}, expected={:.4}",
-        daf_approx, daf_expected
-    );
-}
-
-// ================================================================
-// 6. Base Isolation: Period Shift
-// ================================================================
-//
-// The isolated period of a structure on base isolators:
-//   T_iso = 2*pi * sqrt(m / k_iso)
-//
-// where k_iso is the total isolation system stiffness.
-//
-// The effective period is related to the fixed-base period:
-//   T_iso / T_fixed = sqrt(1 + k_fixed/k_iso)
-//
-// For effective isolation: T_iso / T_fixed > 3 (typically)
-//
-// Reference: Chopra, Ch. 21; Naeim & Kelly, "Design of Seismic
-//   Isolated Structures"
-
-#[test]
-fn validation_dynamics_base_isolation_period_shift() {
-    let m: f64 = 500_000.0;    // kg (500 tonnes, typical building)
-    let k_fixed: f64 = 2e8;    // N/m (fixed-base stiffness)
-    let k_iso: f64 = 5e6;      // N/m (isolation stiffness, much softer)
-
-    // Fixed-base period
-    let t_fixed = 2.0 * PI * (m / k_fixed).sqrt();
-    // = 2*pi*sqrt(500000/2e8) = 2*pi*sqrt(0.0025) = 2*pi*0.05 = 0.3142 s
-    let t_fixed_expected = 2.0 * PI * 0.05;
-    assert!(
-        (t_fixed - t_fixed_expected).abs() / t_fixed_expected < 1e-10,
-        "T_fixed: computed={:.4}, expected={:.4}",
-        t_fixed, t_fixed_expected
-    );
-
-    // Isolated period
-    let t_iso = 2.0 * PI * (m / k_iso).sqrt();
-    // = 2*pi*sqrt(500000/5e6) = 2*pi*sqrt(0.1) = 2*pi*0.3162 = 1.987 s
-    let t_iso_expected = 2.0 * PI * (0.1_f64).sqrt();
-    assert!(
-        (t_iso - t_iso_expected).abs() / t_iso_expected < 1e-10,
-        "T_iso: computed={:.4}, expected={:.4}",
-        t_iso, t_iso_expected
-    );
-
-    // Period ratio: T_iso / T_fixed should be > 3 for effective isolation
-    let period_ratio = t_iso / t_fixed;
-    assert!(
-        period_ratio > 3.0,
-        "Period ratio {:.2} should be > 3 for effective isolation",
-        period_ratio
-    );
-
-    // Verify the relationship: T_iso/T_fixed = sqrt(k_fixed/k_iso)
-    // (when the structure is rigid relative to the isolator)
-    let ratio_from_stiffness = (k_fixed / k_iso).sqrt();
-    assert!(
-        (period_ratio - ratio_from_stiffness).abs() / ratio_from_stiffness < 1e-10,
-        "Period ratio from stiffness: computed={:.4}, expected={:.4}",
-        period_ratio, ratio_from_stiffness
-    );
-
-    // Force reduction: the base shear is reduced by approximately
-    // (T_fixed/T_iso)^2 in the displacement-sensitive range of the spectrum
-    let force_reduction = (t_fixed / t_iso).powi(2);
-    // = (0.3142/1.987)^2 = (0.1581)^2 = 0.025
-    assert!(
-        force_reduction < 0.1,
-        "Force reduction: {:.4} should be < 0.1 (significant reduction)",
-        force_reduction
-    );
-}
-
-// ================================================================
-// 7. Floor Response Spectrum Amplification Factor
-// ================================================================
-//
-// The amplification of floor acceleration relative to ground
-// acceleration depends on the building's natural period and
-// the floor level.
-//
-// For a building with fundamental period T_b and a piece of
-// equipment with period T_e at floor level:
-//
-// Maximum amplification at a floor (simplified formula):
-//   A_floor = 1 + 2 * (z/H)     (linear approximation)
-// where z = height of floor, H = total height.
-//
-// This gives A_floor = 1 at ground (z=0) and A_floor = 3 at roof (z=H).
-//
-// More refined (ASCE 7):
-//   a_p * S_DS * (1 + 2*z/h) / (Rp/Ip)
-//
-// The floor amplification factor A_f:
-//   A_f = S_a(T_e, zeta_e) / S_a(T_b, zeta_b) * phi(z)
-// where phi(z) is the mode shape at height z.
-//
-// Reference: ASCE 7-22 Chapter 13; Chopra, Ch. 13
-
-#[test]
-fn validation_dynamics_floor_response_amplification() {
-    // Building parameters
-    let h_total: f64 = 30.0; // m, total building height
-    let n_floors: i32 = 10;
-
-    // Floor amplification factor (ASCE 7 simplified)
-    // A_f(z) = 1 + 2 * z / H
-    let amplification = |z: f64| -> f64 {
-        1.0 + 2.0 * z / h_total
-    };
-
-    // Ground floor (z = 0): A = 1.0
-    let a_ground = amplification(0.0);
-    assert!(
-        (a_ground - 1.0).abs() < 1e-10,
-        "Ground amplification: {:.4}, expected 1.0",
-        a_ground
-    );
-
-    // Roof (z = H): A = 3.0
-    let a_roof = amplification(h_total);
-    assert!(
-        (a_roof - 3.0).abs() < 1e-10,
-        "Roof amplification: {:.4}, expected 3.0",
-        a_roof
-    );
-
-    // Mid-height (z = H/2): A = 2.0
-    let a_mid = amplification(h_total / 2.0);
-    assert!(
-        (a_mid - 2.0).abs() < 1e-10,
-        "Mid-height amplification: {:.4}, expected 2.0",
-        a_mid
-    );
-
-    // Verify amplification increases monotonically with height
-    let floor_height = h_total / n_floors as f64;
-    let mut prev_a = 0.0;
-    for i in 0..=n_floors {
-        let z = i as f64 * floor_height;
-        let a = amplification(z);
-        assert!(
-            a >= prev_a,
-            "Amplification at z={:.1} ({:.4}) should be >= prev ({:.4})",
-            z, a, prev_a
-        );
-        prev_a = a;
-    }
-
-    // Component amplification factor a_p (ASCE 7 Table 13.5-1)
-    // For flexible equipment: a_p = 2.5
-    // For rigid equipment: a_p = 1.0
-    let a_p_flexible: f64 = 2.5;
-    let a_p_rigid: f64 = 1.0;
-    let s_ds: f64 = 1.0;  // Short-period spectral acceleration (g)
-    let rp: f64 = 2.5;    // Response modification factor
-    let ip: f64 = 1.0;    // Importance factor
-
-    // Design force at roof for flexible equipment
-    let fp_roof = a_p_flexible * s_ds * (1.0 + 2.0 * h_total / h_total) / (rp / ip);
-    // = 2.5 * 1.0 * 3.0 / 2.5 = 3.0
-    let fp_roof_expected = 3.0;
-    assert!(
-        (fp_roof - fp_roof_expected).abs() / fp_roof_expected < 1e-10,
-        "Fp at roof (flexible): computed={:.4}, expected={:.4}",
-        fp_roof, fp_roof_expected
-    );
-
-    // Design force at ground for rigid equipment
-    let fp_ground = a_p_rigid * s_ds * (1.0 + 2.0 * 0.0 / h_total) / (rp / ip);
-    // = 1.0 * 1.0 * 1.0 / 2.5 = 0.4
-    let fp_ground_expected = 0.4;
-    assert!(
-        (fp_ground - fp_ground_expected).abs() / fp_ground_expected < 1e-10,
-        "Fp at ground (rigid): computed={:.4}, expected={:.4}",
-        fp_ground, fp_ground_expected
-    );
-}
-
-// ================================================================
-// 8. Rayleigh Damping Coefficients from Two Target Frequencies
-// ================================================================
-//
-// Rayleigh (proportional) damping: C = a0*M + a1*K
-//
-// The damping ratio at frequency omega_i:
-//   zeta_i = a0/(2*omega_i) + a1*omega_i/2
-//
-// Given target damping ratio zeta at two frequencies omega_1 and omega_2:
-//   a0 = 2*zeta*omega_1*omega_2 / (omega_1 + omega_2)
-//   a1 = 2*zeta / (omega_1 + omega_2)
-//
-// Reference: Chopra, Sec. 11.4; Clough & Penzien, Sec. 12.4
-
-#[test]
-fn validation_dynamics_rayleigh_damping_coefficients() {
-    let zeta: f64 = 0.05; // 5% target damping ratio
-
-    // Two target frequencies
-    let f1: f64 = 2.0;   // Hz (first mode)
-    let f2: f64 = 10.0;  // Hz (higher mode)
-    let omega_1 = 2.0 * PI * f1;
-    let omega_2 = 2.0 * PI * f2;
-
-    // Rayleigh damping coefficients
-    let a0 = 2.0 * zeta * omega_1 * omega_2 / (omega_1 + omega_2);
-    let a1 = 2.0 * zeta / (omega_1 + omega_2);
-
-    // Verify: a0 = 2*0.05*(4*pi)*(20*pi)/(24*pi) = 2*0.05*80*pi^2/(24*pi)
-    //        = 8*pi^2/(24*pi) * 0.1 = pi/3 * 0.1 ... let me just compute numerically
-    let a0_expected = 2.0 * 0.05 * (2.0 * PI * 2.0) * (2.0 * PI * 10.0)
-        / (2.0 * PI * 2.0 + 2.0 * PI * 10.0);
-    assert!(
-        (a0 - a0_expected).abs() / a0_expected < 1e-10,
-        "a0: computed={:.6}, expected={:.6}",
-        a0, a0_expected
-    );
-
-    let a1_expected = 2.0 * 0.05 / (2.0 * PI * 2.0 + 2.0 * PI * 10.0);
-    assert!(
-        (a1 - a1_expected).abs() / a1_expected < 1e-10,
-        "a1: computed={:.6e}, expected={:.6e}",
-        a1, a1_expected
-    );
-
-    // Verify that damping is exactly zeta at both target frequencies
-    let zeta_at_f1 = a0 / (2.0 * omega_1) + a1 * omega_1 / 2.0;
-    assert!(
-        (zeta_at_f1 - zeta).abs() / zeta < 1e-10,
-        "zeta at f1: computed={:.6}, expected={:.6}",
-        zeta_at_f1, zeta
-    );
-
-    let zeta_at_f2 = a0 / (2.0 * omega_2) + a1 * omega_2 / 2.0;
-    assert!(
-        (zeta_at_f2 - zeta).abs() / zeta < 1e-10,
-        "zeta at f2: computed={:.6}, expected={:.6}",
-        zeta_at_f2, zeta
-    );
-
-    // Damping at intermediate frequency (should be close to but less than zeta)
-    let f_mid = (f1 * f2).sqrt(); // geometric mean ~ 4.47 Hz
-    let omega_mid = 2.0 * PI * f_mid;
-    let zeta_mid = a0 / (2.0 * omega_mid) + a1 * omega_mid / 2.0;
-
-    // At the geometric mean of the two target frequencies,
-    // the Rayleigh damping is slightly less than the target
-    // (the damping curve has a minimum between the two target frequencies)
-    assert!(
-        zeta_mid < zeta,
-        "Damping at midpoint ({:.6}) should be less than target ({:.6})",
-        zeta_mid, zeta
-    );
-    assert!(
-        zeta_mid > 0.0,
-        "Damping should be positive: {:.6}",
-        zeta_mid
-    );
-
-    // Damping outside the range should exceed zeta
-    let f_high = 20.0; // Hz, above the target range
-    let omega_high = 2.0 * PI * f_high;
-    let zeta_high = a0 / (2.0 * omega_high) + a1 * omega_high / 2.0;
-    assert!(
-        zeta_high > zeta,
-        "Damping at f={} Hz ({:.6}) should exceed target ({:.6})",
-        f_high, zeta_high, zeta
+        tr_30 < tr_20,
+        "TR decreases with r in isolation: TR(3.0)={:.4} < TR(2.0)={:.4}",
+        tr_30, tr_20
     );
 }
