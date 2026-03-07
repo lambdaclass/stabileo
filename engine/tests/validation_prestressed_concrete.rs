@@ -1,404 +1,416 @@
-/// Validation: Prestressed / Post-Tensioned Concrete
+/// Validation: Prestressed Concrete Design
 ///
 /// References:
-///   - ACI 318-19 Ch.25: Prestressed concrete
-///   - EN 1992-1-1:2004 (EC2) §5.10: Prestressing
-///   - PCI Design Handbook 8th Ed.
-///   - Naaman: "Prestressed Concrete Analysis and Design" 3rd ed. (2012)
-///   - Lin & Burns: "Design of Prestressed Concrete Structures" 3rd ed.
+///   - ACI 318-19: Building Code Requirements for Structural Concrete
+///   - EN 1992-1-1:2004 (EC2): Design of concrete structures
+///   - PCI Design Handbook 8th ed. (2017)
+///   - Nawy: "Prestressed Concrete: A Fundamental Approach" 5th ed.
 ///   - Collins & Mitchell: "Prestressed Concrete Structures" (1991)
+///   - Lin & Burns: "Design of Prestressed Concrete Structures" 3rd ed.
 ///
-/// Tests verify prestress losses, stress checks at transfer and service,
-/// tendon geometry, and ultimate moment capacity.
+/// Tests verify prestress losses, flexural capacity, allowable stresses,
+/// partial prestressing, anchorage zone, and deflection.
 
 mod helpers;
 
-// ================================================================
-// 1. Elastic Shortening Loss (ACI 318 / EC2)
-// ================================================================
+// ═══════════════════════════════════════════════════════════════
+// 1. Prestress Losses — Elastic Shortening (ACI 318 §20.3.2.6)
+// ═══════════════════════════════════════════════════════════════
 //
-// Δfp_ES = (n_p * f_cgp)
-// n_p = Ep/Ec = modular ratio
-// f_cgp = concrete stress at tendon CG due to prestress + self-weight
+// For pretensioned members:
+//   Δf_ES = n × (Pi/A + Pi·e²/I) = n × Pi × (1/A + e²/I)
+//   where Pi = initial prestress force, e = eccentricity
+//   n = Ep/Ec (modular ratio)
+//
+// Example: I-beam, A = 250,000 mm², I = 12.5×10⁹ mm⁴
+//   e = 300 mm, Pi = 2,000 kN, Ep = 196,000 MPa, Ec = 35,000 MPa
+//   n = 196,000/35,000 = 5.6
+//   f_cgp = 2,000,000/250,000 + 2,000,000×300²/12.5×10⁹ = 8.0 + 14.4 = 22.4 MPa
+//   Δf_ES = 5.6 × 22.4 = 125.4 MPa
 
 #[test]
-fn prestress_elastic_shortening() {
-    let f_pi: f64 = 1395.0;   // MPa, initial prestress (0.75*fpu for 1860 strand)
-    let a_ps: f64 = 1400e-6;  // m² (1400 mm²), strand area
-    let e_p: f64 = 195_000.0; // MPa, strand modulus
-    let e_c: f64 = 32_000.0;  // MPa, concrete modulus at transfer
-    let a_c: f64 = 0.18;      // m², concrete cross-section area
-    let i_c: f64 = 5.4e-3;    // m⁴, concrete moment of inertia
-    let e_tendon: f64 = 0.20;  // m, tendon eccentricity from centroid
+fn prestress_elastic_shortening_loss() {
+    let a_c: f64 = 250_000.0;
+    let i_c: f64 = 12.5e9;
+    let e: f64 = 300.0;
+    let pi: f64 = 2_000_000.0;
+    let ep: f64 = 196_000.0;
+    let ec: f64 = 35_000.0;
 
-    let n_p: f64 = e_p / e_c;
-    let n_p_expected: f64 = 6.094;
+    let n: f64 = ep / ec;
+    assert!((n - 5.6).abs() / 5.6 < 0.001, "n = {:.2}, expected 5.6", n);
 
+    let f_cgp: f64 = pi / a_c + pi * e * e / i_c;
+    let f_cgp_expected: f64 = 22.4;
     assert!(
-        (n_p - n_p_expected).abs() / n_p_expected < 0.01,
-        "Modular ratio: {:.3}, expected {:.3}", n_p, n_p_expected
+        (f_cgp - f_cgp_expected).abs() / f_cgp_expected < 0.01,
+        "f_cgp = {:.2} MPa, expected {:.2}", f_cgp, f_cgp_expected
     );
 
-    // Initial prestress force
-    let _p_i: f64 = f_pi * a_ps * 1e6; // Convert: MPa * m² * 1e6 = N → but we keep in MPa*m² = MN
-    // Actually: f_pi (MPa) * A_ps (m²) = force in MN; let's work in kN
-    let p_i_kn: f64 = f_pi * 1000.0 * a_ps; // MPa = N/mm², * mm² → N → /1000 → kN
-    // = 1395 * 1400 = 1,953,000 N = 1953 kN
-    let p_i_expected: f64 = 1953.0; // kN
-
+    let delta_es: f64 = n * f_cgp;
+    let delta_es_expected: f64 = 125.44;
     assert!(
-        (p_i_kn - p_i_expected).abs() / p_i_expected < 0.01,
-        "Initial prestress: {:.0} kN, expected {:.0}", p_i_kn, p_i_expected
+        (delta_es - delta_es_expected).abs() / delta_es_expected < 0.01,
+        "Δf_ES = {:.2} MPa, expected {:.2}", delta_es, delta_es_expected
     );
 
-    // Concrete stress at tendon CG (assuming midspan, self-weight moment small)
-    // f_cgp = Pi/Ac + Pi*e²/Ic (no external moment for simplicity)
-    let f_cgp: f64 = p_i_kn / (a_c * 1000.0) + p_i_kn * e_tendon * e_tendon / (i_c * 1000.0);
-    // = 1953/(180) + 1953*0.04/(5.4) = 10.85 + 14.47 = 25.32 MPa (approx, units adjusted)
-
-    // Elastic shortening loss
-    let delta_fp_es: f64 = n_p * f_cgp;
-
-    // Should be ~5-10% of initial prestress
-    let loss_ratio: f64 = delta_fp_es / f_pi;
+    let fpi: f64 = pi / 1_400.0;
+    let loss_pct: f64 = delta_es / fpi * 100.0;
     assert!(
-        loss_ratio > 0.01 && loss_ratio < 0.15,
-        "ES loss ratio: {:.3}, expected 0.05-0.10", loss_ratio
+        loss_pct > 5.0 && loss_pct < 20.0,
+        "Elastic shortening loss = {:.1}% of initial stress", loss_pct
     );
 }
 
-// ================================================================
-// 2. Friction Loss in Post-Tensioning (ACI 318 / EC2)
-// ================================================================
+// ═══════════════════════════════════════════════════════════════
+// 2. Long-Term Losses — Creep, Shrinkage, Relaxation (PCI Method)
+// ═══════════════════════════════════════════════════════════════
 //
-// fp(x) = fp_jack * e^(-(μα + κx))
-// μ = friction coefficient (0.15-0.25 for ducts)
-// κ = wobble coefficient (0.0005-0.002 /m)
-// α = total angle change
+// PCI simplified method:
+//   Δf_CR = n × f_cgp × Cu  (creep), Cu = 1.6
+//   Δf_SH = ε_sh × Ep       (shrinkage), ε_sh = 500×10⁻⁶
+//   Δf_RE = 0.04 × fpi      (relaxation, low-relax strand simplified)
+//
+// Example:
+//   Δf_CR = 5.6 × 22.4 × 1.6 = 200.7 MPa
+//   Δf_SH = 500×10⁻⁶ × 196,000 = 98.0 MPa
+//   Δf_RE = 0.04 × 1428.6 = 57.1 MPa
+//   Total ≈ 125.4 + 200.7 + 98.0 + 57.1 = 481.2 MPa
 
 #[test]
-fn prestress_friction_loss() {
-    let fp_jack: f64 = 1488.0; // MPa, jacking stress (0.80*fpu)
-    let mu: f64 = 0.20;        // friction coefficient
-    let kappa: f64 = 0.001;    // wobble coefficient (1/m)
-    let alpha: f64 = 0.15;     // radians, total angular change over 20m
-    let x: f64 = 20.0;         // m, distance from jack
+fn prestress_long_term_losses() {
+    let ep: f64 = 196_000.0;
+    let ec: f64 = 35_000.0;
+    let n: f64 = ep / ec;
+    let f_cgp: f64 = 22.4;
+    let delta_es: f64 = n * f_cgp;
 
-    // Stress after friction
-    let fp_x: f64 = fp_jack * (-(mu * alpha + kappa * x)).exp();
-
-    // exponent = -(0.20*0.15 + 0.001*20) = -(0.03 + 0.02) = -0.05
-    // fp(x) = 1488 * e^(-0.05) = 1488 * 0.9512 = 1415.4
-    let fp_expected: f64 = 1488.0 * (-0.05_f64).exp();
-
+    let cu: f64 = 1.6;
+    let delta_cr: f64 = n * f_cgp * cu;
+    let delta_cr_expected: f64 = 200.7;
     assert!(
-        (fp_x - fp_expected).abs() / fp_expected < 0.01,
-        "Stress at {}m: {:.1} MPa, expected {:.1}", x, fp_x, fp_expected
+        (delta_cr - delta_cr_expected).abs() / delta_cr_expected < 0.02,
+        "Δf_CR = {:.1} MPa, expected {:.1}", delta_cr, delta_cr_expected
     );
 
-    // Loss percentage
-    let friction_loss_pct: f64 = (1.0 - fp_x / fp_jack) * 100.0;
-    let loss_expected_pct: f64 = (1.0 - (-0.05_f64).exp()) * 100.0;
-
+    let eps_sh: f64 = 500e-6;
+    let delta_sh: f64 = eps_sh * ep;
     assert!(
-        (friction_loss_pct - loss_expected_pct).abs() < 0.1,
-        "Friction loss: {:.1}%, expected {:.1}%", friction_loss_pct, loss_expected_pct
+        (delta_sh - 98.0).abs() / 98.0 < 0.01,
+        "Δf_SH = {:.1} MPa, expected 98.0", delta_sh
     );
 
-    // For longer tendons, loss increases
-    let x_long: f64 = 40.0;
-    let alpha_long: f64 = 0.30;
-    let fp_long: f64 = fp_jack * (-(mu * alpha_long + kappa * x_long)).exp();
+    let aps: f64 = 1_400.0;
+    let pi: f64 = 2_000_000.0;
+    let fpi: f64 = pi / aps;
+    let delta_re: f64 = 0.04 * fpi;
     assert!(
-        fp_long < fp_x,
-        "Longer tendon: {:.1} < {:.1} MPa", fp_long, fp_x
+        (delta_re - 57.1).abs() / 57.1 < 0.02,
+        "Δf_RE = {:.1} MPa, expected 57.1", delta_re
+    );
+
+    let total_losses: f64 = delta_es + delta_cr + delta_sh + delta_re;
+    let total_expected: f64 = 481.2;
+    assert!(
+        (total_losses - total_expected).abs() / total_expected < 0.02,
+        "Total losses = {:.1} MPa, expected {:.1}", total_losses, total_expected
+    );
+
+    let loss_pct: f64 = total_losses / fpi * 100.0;
+    assert!(
+        loss_pct > 20.0 && loss_pct < 50.0,
+        "Total losses = {:.1}% of fpi", loss_pct
     );
 }
 
-// ================================================================
-// 3. Time-Dependent Losses — Lump Sum (ACI 318 §20.3.2.6)
-// ================================================================
+// ═══════════════════════════════════════════════════════════════
+// 3. Flexural Capacity of Prestressed Section (ACI 318 §22.3)
+// ═══════════════════════════════════════════════════════════════
 //
-// ACI approximate lump sum losses for normal weight concrete:
-// Total losses ≈ 241 MPa (35 ksi) for pretensioned
-// Total losses ≈ 228 MPa (33 ksi) for post-tensioned
+// fps = fpu × (1 − γp/β₁ × ρp × fpu/f'c)
+// γp = 0.28 for fpy/fpu ≥ 0.9 (low-relax strand)
+// ρp = Aps / (b·dp)
+//
+// Example: b=400, dp=550, Aps=1000, fpu=1860, f'c=40, β₁=0.76
+//   ρp = 1000/(400×550) = 0.004545
+//   fps = 1860×(1 − 0.28/0.76 × 0.004545 × 1860/40) = 1715.1 MPa
+//   a = 1000×1715.1/(0.85×40×400) = 126.3 mm
+//   Mn = 1000×1715.1×(550−63.1) = 835.2 kN·m
 
 #[test]
-fn prestress_aci_lump_sum_losses() {
-    let fpu: f64 = 1860.0;    // MPa, strand ultimate strength
-    let fpi: f64 = 0.75 * fpu; // = 1395 MPa, initial prestress
+fn prestress_flexural_capacity() {
+    let b: f64 = 400.0;
+    let dp: f64 = 550.0;
+    let aps: f64 = 1_000.0;
+    let fpu: f64 = 1_860.0;
+    let fc_prime: f64 = 40.0;
+    let beta1: f64 = 0.76;
+    let gamma_p: f64 = 0.28;
 
-    // ACI lump sum: pretensioned
-    let loss_pretensioned: f64 = 241.0; // MPa
-    let fpe_pre: f64 = fpi - loss_pretensioned;
-    let fpe_pre_expected: f64 = 1154.0; // MPa
-
+    let rho_p: f64 = aps / (b * dp);
     assert!(
-        (fpe_pre - fpe_pre_expected).abs() < 1.0,
-        "Effective pretensioned: {:.0} MPa, expected {:.0}", fpe_pre, fpe_pre_expected
+        (rho_p - 0.004545).abs() / 0.004545 < 0.01,
+        "ρp = {:.6}", rho_p
     );
 
-    // Loss ratio
-    let ratio_pre: f64 = loss_pretensioned / fpi;
-    // = 241/1395 = 0.173 (about 17%)
+    let fps: f64 = fpu * (1.0 - (gamma_p / beta1) * rho_p * fpu / fc_prime);
+    let fps_expected: f64 = 1_715.1;
     assert!(
-        ratio_pre > 0.15 && ratio_pre < 0.20,
-        "Pretensioned loss ratio: {:.3}", ratio_pre
+        (fps - fps_expected).abs() / fps_expected < 0.01,
+        "fps = {:.1} MPa, expected {:.1}", fps, fps_expected
     );
 
-    // ACI lump sum: post-tensioned
-    let loss_posttensioned: f64 = 228.0; // MPa
-    let fpe_post: f64 = fpi - loss_posttensioned;
-    let fpe_post_expected: f64 = 1167.0;
-
+    let a: f64 = aps * fps / (0.85 * fc_prime * b);
     assert!(
-        (fpe_post - fpe_post_expected).abs() < 1.0,
-        "Effective post-tensioned: {:.0} MPa, expected {:.0}", fpe_post, fpe_post_expected
+        (a - 126.3).abs() / 126.3 < 0.02,
+        "a = {:.1} mm", a
     );
 
-    // Post-tensioned has lower total loss (no elastic shortening at jacking end)
+    let mn: f64 = aps * fps * (dp - a / 2.0) / 1.0e6;
     assert!(
-        loss_posttensioned < loss_pretensioned,
-        "PT loss ({:.0}) < pretensioned loss ({:.0})", loss_posttensioned, loss_pretensioned
+        (mn - 835.2).abs() / 835.2 < 0.02,
+        "Mn = {:.1} kN·m, expected 835.2", mn
     );
+
+    let c: f64 = a / beta1;
+    assert!(c / dp < 0.42, "c/dp = {:.3} < 0.42 (ductility OK)", c / dp);
 }
 
-// ================================================================
-// 4. Stress Check at Transfer (ACI 318 §24.5.3)
-// ================================================================
+// ═══════════════════════════════════════════════════════════════
+// 4. Allowable Stresses at Transfer and Service (ACI 318 §24.5)
+// ═══════════════════════════════════════════════════════════════
 //
-// At transfer, check:
-// Compression: f_ci ≤ 0.60*f'ci
-// Tension: f_ti ≤ 0.25*√f'ci (MPa) without bonded reinforcement
-// or f_ti ≤ 0.50*√f'ci with bonded reinforcement
+// At transfer (f'ci): Comp ≤ 0.60·f'ci, Tens ≤ 0.25·√f'ci
+// At service (f'c):  Comp_sust ≤ 0.45·f'c, Comp_total ≤ 0.60·f'c
+//                    Tens ≤ 0.62·√f'c (Class U)
+//
+// Example: f'c=45, f'ci=32
+//   Transfer: comp ≤ 19.2, tens ≤ 1.414 MPa
+//   Service: comp_sust ≤ 20.25, comp_total ≤ 27.0, tens ≤ 4.16 MPa
 
 #[test]
-fn prestress_stress_at_transfer() {
-    let fci: f64 = 45.0;      // MPa, concrete at transfer
-    let pi: f64 = 1800.0;     // kN, prestress force at transfer
-    let a_c: f64 = 180_000.0; // mm², concrete area
-    let s_top: f64 = 1.5e7;   // mm³, section modulus (top)
-    let s_bot: f64 = 1.5e7;   // mm³, section modulus (bottom)
-    let e: f64 = 200.0;       // mm, tendon eccentricity (below centroid)
-    let m_sw: f64 = 120.0;    // kN·m, self-weight moment at midspan
+fn prestress_allowable_stresses() {
+    let fc_prime: f64 = 45.0;
+    let fci_prime: f64 = 32.0;
 
-    // Top fiber stress at midspan (transfer): compression check
-    // f_top = -Pi/Ac + Pi*e/S_top - Msw/S_top
-    let f_top: f64 = -pi * 1000.0 / a_c + pi * 1000.0 * e / s_top - m_sw * 1e6 / s_top;
-    // = -10.0 + 24.0 - 8.0 = 6.0 MPa (tension) — top is in tension at transfer
+    let comp_transfer: f64 = 0.60 * fci_prime;
+    assert!((comp_transfer - 19.2).abs() < 0.01, "Transfer comp = {:.1}", comp_transfer);
 
-    // Bottom fiber: compression
-    let f_bot: f64 = -pi * 1000.0 / a_c - pi * 1000.0 * e / s_bot + m_sw * 1e6 / s_bot;
-    // = -10.0 - 24.0 + 8.0 = -26.0 MPa (compression)
-
-    // ACI limits
-    let f_comp_limit: f64 = -0.60 * fci; // = -21.0 MPa
-    let f_tens_limit: f64 = 0.50 * fci.sqrt(); // = 2.96 MPa (with bonded reinforcement)
-
-    // Check bottom compression
+    let tens_transfer: f64 = 0.25 * fci_prime.sqrt();
     assert!(
-        f_bot > f_comp_limit, // more negative = more compression
-        "Bottom stress {:.1} MPa should be less compressive than limit {:.1}",
-        f_bot, f_comp_limit
+        (tens_transfer - 1.414).abs() / 1.414 < 0.01,
+        "Transfer tens = {:.3} MPa", tens_transfer
     );
 
-    // If top tension exceeds limit, bonded reinforcement needed
-    if f_top > f_tens_limit {
-        // Needs non-prestressed reinforcement in tension zone
-        assert!(
-            f_top > 0.0,
-            "Top fiber in tension at transfer: {:.1} MPa", f_top
-        );
-    }
+    let tens_bonded: f64 = 0.50 * fci_prime.sqrt();
+    assert!(tens_bonded > tens_transfer, "Bonded {:.3} > basic {:.3}", tens_bonded, tens_transfer);
+
+    let comp_sustained: f64 = 0.45 * fc_prime;
+    assert!((comp_sustained - 20.25).abs() < 0.01, "Sustained comp = {:.2}", comp_sustained);
+
+    let comp_total: f64 = 0.60 * fc_prime;
+    assert!((comp_total - 27.0).abs() < 0.01, "Total comp = {:.1}", comp_total);
+
+    let tens_service: f64 = 0.62 * fc_prime.sqrt();
+    assert!(
+        (tens_service - 4.16).abs() / 4.16 < 0.01,
+        "Service tens = {:.2} MPa", tens_service
+    );
+
+    assert!(comp_sustained < comp_total, "Sustained < total compression");
+    assert!(tens_transfer < tens_service, "Transfer < service tension");
 }
 
-// ================================================================
-// 5. Ultimate Moment Capacity (ACI 318 §22.3)
-// ================================================================
+// ═══════════════════════════════════════════════════════════════
+// 5. Ultimate Moment with Bonded Tendons (Strain Compatibility)
+// ═══════════════════════════════════════════════════════════════
 //
-// fps = fpu * (1 - (γp/β₁) * (ρp*fpu/f'c))  — bonded tendons
-// Mn = Aps * fps * (dp - a/2)
-// a = Aps * fps / (0.85*f'c*b)
+// εps = εce + εdecomp + Δεps
+// εce = fse/Ep, εdecomp = fce/Ec, Δεps = εcu×(dp−c)/c
+//
+// Example: fse=1100, Ep=196000, Ec=32000, f'c=40
+//   dp=500, Aps=800, b=350, fpu=1860
+//   εce = 0.005612, εdecomp = 0.000313
+//   With c=120: Δεps = 0.003×380/120 = 0.0095
+//   εps = 0.01543 → fps = min(εps×Ep, fpu) → fpu governs
 
 #[test]
-fn prestress_ultimate_moment() {
-    let fpu: f64 = 1860.0;    // MPa, strand ultimate
-    let a_ps: f64 = 1400.0;   // mm², strand area
-    let fc: f64 = 45.0;       // MPa, concrete compressive strength
-    let b: f64 = 400.0;       // mm, flange width
-    let dp: f64 = 650.0;      // mm, depth to tendon centroid
-    let gamma_p: f64 = 0.28;  // for fpy/fpu ≥ 0.90 (low-relaxation)
-    let _beta_1: f64 = 0.783;  // for f'c = 45 MPa: 0.85 - 0.05*(45-28)/7 = 0.729?
-    // Actually β₁ = 0.85 - 0.05*(f'c - 28)/7 for f'c > 28, min 0.65
-    // β₁ = 0.85 - 0.05*(45-28)/7 = 0.85 - 0.121 = 0.729
-    let beta_1_calc: f64 = (0.85 - 0.05 * (fc - 28.0) / 7.0).max(0.65);
+fn prestress_ultimate_moment_strain_compatibility() {
+    let fse: f64 = 1_100.0;
+    let ep: f64 = 196_000.0;
+    let ec: f64 = 32_000.0;
+    let dp: f64 = 500.0;
+    let aps: f64 = 800.0;
+    let b: f64 = 350.0;
+    let fpu: f64 = 1_860.0;
+    let fce: f64 = 10.0;
+    let eps_cu: f64 = 0.003;
+    let beta1: f64 = 0.76;
 
-    // Stress in prestressing steel at ultimate
-    let rho_p: f64 = a_ps / (b * dp);
-    let fps: f64 = fpu * (1.0 - (gamma_p / beta_1_calc) * (rho_p * fpu / fc));
+    let eps_ce: f64 = fse / ep;
+    assert!((eps_ce - 0.005612).abs() < 0.0001, "εce = {:.6}", eps_ce);
 
-    // fps = 1860 * (1 - (0.28/0.729) * (0.005385 * 1860/45))
-    //     = 1860 * (1 - 0.384 * 0.2223)
-    //     = 1860 * (1 - 0.0854) = 1860 * 0.9146 = 1701
-    assert!(
-        fps > 0.5 * fpu && fps < fpu,
-        "fps = {:.0} MPa should be between 930 and 1860", fps
-    );
+    let eps_decomp: f64 = fce / ec;
+    assert!((eps_decomp - 0.000313).abs() < 0.0001, "εdecomp = {:.6}", eps_decomp);
 
-    // Depth of compression block
-    let a: f64 = a_ps * fps / (0.85 * fc * b);
-    // = 1400 * 1701 / (0.85 * 45 * 400) = 2,381,400 / 15,300 = 155.6 mm
+    let c: f64 = 120.0;
+    let delta_eps: f64 = eps_cu * (dp - c) / c;
+    let eps_ps: f64 = eps_ce + eps_decomp + delta_eps;
+    assert!(eps_ps > 0.01, "Total strain = {:.6} > 0.01", eps_ps);
 
-    // Nominal moment capacity
-    let mn: f64 = a_ps * fps * (dp - a / 2.0) / 1e6; // kN·m
-    // = 1400 * 1701 * (650 - 77.8) / 1e6 = 1400 * 1701 * 572.2 / 1e6 = 1362 kN·m
+    let fps_raw: f64 = eps_ps * ep;
+    let fps: f64 = fps_raw.min(fpu);
+    assert!((fps - fpu).abs() < 0.01, "fps = fpu = {:.0} MPa (capped)", fps);
 
-    assert!(
-        mn > 500.0 && mn < 2000.0,
-        "Nominal moment: {:.0} kN·m", mn
-    );
+    let a: f64 = beta1 * c;
+    let compression: f64 = 0.85 * 40.0 * a * b;
+    let tension: f64 = aps * fps;
+    let ratio: f64 = tension / compression;
+    assert!(ratio > 0.5 && ratio < 2.0, "T/C = {:.3}", ratio);
 
-    // Design moment: φMn where φ = 0.90 for tension-controlled
-    let phi: f64 = 0.90;
-    let phi_mn: f64 = phi * mn;
-    assert!(
-        phi_mn > 0.85 * mn,
-        "φMn = {:.0} kN·m", phi_mn
-    );
+    let a_bal: f64 = aps * fpu / (0.85 * 40.0 * b);
+    let mn: f64 = aps * fpu * (dp - a_bal / 2.0) / 1.0e6;
+    assert!(mn > 500.0 && mn < 1000.0, "Mn = {:.1} kN·m", mn);
 }
 
-// ================================================================
-// 6. EC2 — Tendon Profile (Parabolic)
-// ================================================================
+// ═══════════════════════════════════════════════════════════════
+// 6. Partial Prestressing Ratio (PPR)
+// ═══════════════════════════════════════════════════════════════
 //
-// Parabolic drape: y(x) = 4*e*(x/L)*(1 - x/L)
-// where e = midspan eccentricity, x measured from left end
+// PPR = Aps×fps / (Aps×fps + As×fy)
+//
+// Example: Aps=800, fps=1700, As=1200, fy=420
+//   PPR = 1,360,000 / 1,864,000 = 0.730
 
 #[test]
-fn prestress_parabolic_profile() {
-    let l: f64 = 20.0;   // m, span
-    let e_mid: f64 = 0.30; // m, midspan eccentricity (below centroid)
+fn prestress_partial_prestressing_ratio() {
+    let aps: f64 = 800.0;
+    let fps: f64 = 1_700.0;
+    let as_mild: f64 = 1_200.0;
+    let fy: f64 = 420.0;
 
-    // Profile at quarter span
-    let x: f64 = 5.0; // L/4
-    let y_quarter: f64 = 4.0 * e_mid * (x / l) * (1.0 - x / l);
-    let y_quarter_expected: f64 = 4.0 * 0.30 * 0.25 * 0.75; // = 0.225 m
-
+    let f_ps: f64 = aps * fps;
+    let f_mild: f64 = as_mild * fy;
+    let ppr: f64 = f_ps / (f_ps + f_mild);
     assert!(
-        (y_quarter - y_quarter_expected).abs() < 0.001,
-        "y(L/4) = {:.3} m, expected {:.3}", y_quarter, y_quarter_expected
+        (ppr - 0.730).abs() / 0.730 < 0.01,
+        "PPR = {:.3}, expected 0.730", ppr
     );
+    assert!(ppr > 0.0 && ppr < 1.0, "Partially prestressed");
 
-    // At midspan
-    let x_mid: f64 = 10.0;
-    let y_mid: f64 = 4.0 * e_mid * (x_mid / l) * (1.0 - x_mid / l);
-    assert!(
-        (y_mid - e_mid).abs() < 0.001,
-        "y(L/2) = {:.3}, should equal e_mid = {:.3}", y_mid, e_mid
-    );
+    let ppr_full: f64 = f_ps / (f_ps + 0.0);
+    assert!((ppr_full - 1.0).abs() < 1e-10, "Fully prestressed PPR=1");
 
-    // Slope at support: dy/dx|₀ = 4*e/L
-    let slope_support: f64 = 4.0 * e_mid / l;
-    let slope_expected: f64 = 0.06; // rad
-    assert!(
-        (slope_support - slope_expected).abs() < 0.001,
-        "Slope at support: {:.4} rad, expected {:.4}", slope_support, slope_expected
-    );
+    let ppr_rc: f64 = 0.0_f64 / (0.0 + f_mild);
+    assert!(ppr_rc.abs() < 1e-10, "Pure RC: PPR=0");
 
-    // Angle change over half span = 2 * slope_support
-    let alpha_half: f64 = 2.0 * slope_support;
-    let alpha_expected: f64 = 0.12;
-    assert!(
-        (alpha_half - alpha_expected).abs() < 0.001,
-        "Angle change: {:.3} rad, expected {:.3}", alpha_half, alpha_expected
-    );
+    let aps2: f64 = 1_200.0;
+    let as2: f64 = 600.0;
+    let ppr2: f64 = (aps2 * fps) / (aps2 * fps + as2 * fy);
+    assert!(ppr2 > ppr, "More prestress: PPR={:.3} > {:.3}", ppr2, ppr);
 }
 
-// ================================================================
-// 7. Anchorage Zone — Bursting Force (EC2 / AASHTO)
-// ================================================================
+// ═══════════════════════════════════════════════════════════════
+// 7. Anchorage Zone Bursting Force — Guyon Formula
+// ═══════════════════════════════════════════════════════════════
 //
-// Gergely-Sozen: T_burst = 0.25 * P * (1 - a/h)
-// where a = bearing plate dimension, h = member depth
-// This checks the splitting tensile force in the anchorage zone.
+// Tburst = 0.25 × P × (1 − a/h)
+// dburst = 0.5 × (h − 2e) [concentric: 0.5h]
+//
+// Example: P=2000 kN, h=800 mm, plate 200 mm
+//   Tburst = 0.25×2000×(1−200/800) = 375 kN
+//   As = 375,000/(0.75×420) = 1190.5 mm²
 
 #[test]
-fn prestress_anchorage_bursting() {
-    let p: f64 = 2000.0;  // kN, prestress force per tendon
-    let a_plate: f64 = 250.0;  // mm, bearing plate size
-    let h: f64 = 800.0;        // mm, member depth
+fn prestress_anchorage_zone_bursting_guyon() {
+    let p: f64 = 2_000.0;
+    let h: f64 = 800.0;
+    let a_plate: f64 = 200.0;
+    let fy: f64 = 420.0;
+    let phi: f64 = 0.75;
 
-    // Bursting force (Gergely-Sozen)
     let t_burst: f64 = 0.25 * p * (1.0 - a_plate / h);
-    let t_burst_expected: f64 = 0.25 * 2000.0 * (1.0 - 0.3125);
-    // = 500 * 0.6875 = 343.75 kN
-
     assert!(
-        (t_burst - t_burst_expected).abs() / t_burst_expected < 0.01,
-        "Bursting force: {:.1} kN, expected {:.1}", t_burst, t_burst_expected
+        (t_burst - 375.0).abs() / 375.0 < 0.001,
+        "Tburst = {:.1} kN", t_burst
     );
 
-    // Required steel area (fy = 420 MPa, at 0.60fy per ACI)
-    let fy: f64 = 420.0;  // MPa
-    let as_burst: f64 = t_burst * 1000.0 / (0.60 * fy); // mm²
-    // = 343750 / 252 = 1364 mm²
+    let d_burst: f64 = 0.5 * h;
+    assert!((d_burst - 400.0).abs() < 0.01, "dburst = {:.0} mm", d_burst);
 
+    let as_req: f64 = t_burst * 1000.0 / (phi * fy);
     assert!(
-        as_burst > 1000.0,
-        "Bursting reinforcement: {:.0} mm² (substantial)", as_burst
+        (as_req - 1190.5).abs() / 1190.5 < 0.01,
+        "As = {:.0} mm²", as_req
     );
 
-    // Larger plate → smaller bursting force
-    let a_large: f64 = 400.0;
-    let t_large: f64 = 0.25 * p * (1.0 - a_large / h);
-    assert!(
-        t_large < t_burst,
-        "Larger plate: {:.1} kN < {:.1} kN", t_large, t_burst
-    );
+    let t_large: f64 = 0.25 * p * (1.0 - 400.0 / h);
+    assert!(t_large < t_burst, "Larger plate → less burst");
+
+    let t_full: f64 = 0.25 * p * (1.0 - h / h);
+    assert!(t_full.abs() < 0.001, "Full plate → zero burst");
 }
 
-// ================================================================
-// 8. Load Balancing Method
-// ================================================================
+// ═══════════════════════════════════════════════════════════════
+// 8. Deflection of Prestressed Beam (Effective Moment of Inertia)
+// ═══════════════════════════════════════════════════════════════
 //
-// Equivalent load from parabolic tendon: w_bal = 8*P*e/L²
-// At balanced load, beam behaves as if no external load acts
-// (uniform axial compression only).
+// Branson's equation: Ie = (Mcr/Ma)³·Ig + [1−(Mcr/Ma)³]·Icr ≤ Ig
+// Mcr = (fr + fce − fd) × Sb
+// fr = 0.62√f'c, Sb = I/yb
+//
+// Example: L=12m, w=25 kN/m, Ig=12.5e9, Icr=6e9
+//   Mcr = 459.3 kN·m, Ma(25kN/m) = 450 kN·m → uncracked
+//   Ma(30kN/m) = 540 kN·m → cracked → Ie between Icr and Ig
 
 #[test]
-fn prestress_load_balancing() {
-    let p_eff: f64 = 1600.0;  // kN, effective prestress force
-    let e: f64 = 0.25;        // m, midspan eccentricity
-    let l: f64 = 16.0;        // m, span
+fn prestress_deflection_effective_inertia() {
+    let fc_prime: f64 = 40.0;
+    let l: f64 = 12_000.0;
+    let w_dead: f64 = 15.0;
+    let ig: f64 = 12.5e9;
+    let icr: f64 = 6.0e9;
+    let yb: f64 = 350.0;
+    let pe: f64 = 1_500_000.0;
+    let e_tendon: f64 = 250.0;
+    let a_c: f64 = 250_000.0;
 
-    // Equivalent upward load from parabolic tendon
-    let w_bal: f64 = 8.0 * p_eff * e / (l * l);
-    let w_bal_expected: f64 = 8.0 * 1600.0 * 0.25 / 256.0;
-    // = 3200 / 256 = 12.5 kN/m
+    let sb: f64 = ig / yb;
 
+    let fr: f64 = 0.62 * fc_prime.sqrt();
+    assert!((fr - 3.92).abs() / 3.92 < 0.01, "fr = {:.2}", fr);
+
+    let fce: f64 = pe / a_c + pe * e_tendon / sb;
+    assert!((fce - 16.5).abs() / 16.5 < 0.02, "fce = {:.1}", fce);
+
+    let l_m: f64 = l / 1000.0;
+    let md: f64 = w_dead * l_m * l_m / 8.0;
+    let fd: f64 = md * 1.0e6 / sb;
+    assert!((fd - 7.56).abs() / 7.56 < 0.02, "fd = {:.2}", fd);
+
+    let mcr: f64 = (fr + fce - fd) * sb / 1.0e6;
+    assert!((mcr - 459.3).abs() / 459.3 < 0.02, "Mcr = {:.1}", mcr);
+
+    let w_total: f64 = 25.0;
+    let ma: f64 = w_total * l_m * l_m / 8.0;
+    assert!((ma - 450.0).abs() / 450.0 < 0.001, "Ma = {:.1}", ma);
+
+    // Uncracked: Mcr > Ma
+    assert!(mcr > ma, "Mcr={:.1} > Ma={:.1} → uncracked", mcr, ma);
+
+    let ratio3: f64 = (mcr / ma).powi(3);
+    let ie: f64 = (ratio3 * ig + (1.0 - ratio3) * icr).min(ig);
+    assert!((ie - ig).abs() / ig < 0.001, "Ie = Ig (uncracked)");
+
+    // Heavier load → cracked
+    let w_heavy: f64 = 30.0;
+    let ma_heavy: f64 = w_heavy * l_m * l_m / 8.0;
+    assert!(ma_heavy > mcr, "Heavy load cracks section");
+
+    let ratio3_h: f64 = (mcr / ma_heavy).powi(3);
+    let ie_h: f64 = (ratio3_h * ig + (1.0 - ratio3_h) * icr).min(ig);
     assert!(
-        (w_bal - w_bal_expected).abs() / w_bal_expected < 0.01,
-        "Balanced load: {:.2} kN/m, expected {:.2}", w_bal, w_bal_expected
-    );
-
-    // If applied load = w_bal, net moment = 0
-    // Net moment for applied load w > w_bal:
-    let w_applied: f64 = 18.0; // kN/m
-    let w_net: f64 = w_applied - w_bal;
-    let m_net: f64 = w_net * l * l / 8.0;
-    let m_net_expected: f64 = 5.5 * 256.0 / 8.0; // = 176 kN·m
-
-    assert!(
-        (m_net - m_net_expected).abs() / m_net_expected < 0.01,
-        "Net moment: {:.1} kN·m, expected {:.1}", m_net, m_net_expected
-    );
-
-    // At balanced state: beam has only axial stress = P/A
-    let a_c: f64 = 0.15; // m²
-    let f_axial: f64 = p_eff / (a_c * 1000.0); // MPa (kN / (m² * 1000 mm²/m²))
-    // = 1600 / 150 = 10.67 MPa
-    assert!(
-        f_axial > 5.0 && f_axial < 20.0,
-        "Axial stress at balance: {:.1} MPa", f_axial
+        ie_h > icr && ie_h < ig,
+        "Cracked Ie={:.2e} between Icr and Ig", ie_h
     );
 }

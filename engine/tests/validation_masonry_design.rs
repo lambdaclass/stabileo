@@ -1,375 +1,578 @@
-/// Validation: Masonry Design
+/// Validation: Masonry Structural Design
 ///
 /// References:
-///   - TMS 402/602-22: Building Code Requirements for Masonry Structures
+///   - TMS 402/602-16: Building Code Requirements for Masonry Structures
 ///   - EN 1996-1-1:2005 (EC6): Design of masonry structures
-///   - Drysdale, Hamid & Baker: "Masonry Structures: Behavior and Design" 3rd ed.
-///   - ACI 530-13/ASCE 5-13: Building Code Requirements for Masonry Structures
-///   - Hendry, Sinha & Davies: "Design of Masonry Structures" 3rd ed. (2004)
+///   - Drysdale & Hamid: "Masonry Structures: Behavior and Design" 3rd ed.
+///   - Hendry, Sinha & Davies: "Design of Masonry Structures" 3rd ed.
+///   - Mainstone: "On the stiffness and strength of infilled frames" (1971)
 ///
-/// Tests verify compressive, flexural, and shear capacity of masonry
-/// walls using both ASD and strength design methods.
+/// Tests verify compressive strength, wall capacity, flexure, shear,
+/// eccentricity, infill strut, arching, and bed-joint reinforcement.
 
 mod helpers;
 
-// ================================================================
-// 1. Masonry Compressive Strength (TMS 402 / EC6)
-// ================================================================
+// ═══════════════════════════════════════════════════════════════
+// 1. Compressive Strength from Unit and Mortar (EC6 §3.6.1.2)
+// ═══════════════════════════════════════════════════════════════
 //
-// TMS: f'm from unit strength and mortar type (prism test)
-// EC6: f_k = K * f_b^0.7 * f_m^0.3
+// Characteristic compressive strength of masonry (EC6 Eq. 3.1):
+//   fk = K × fb^α × fm^β
+//   where fb = normalized unit strength, fm = mortar strength
+//   K = 0.55 (Group 1 units with general purpose mortar)
+//   α = 0.7, β = 0.3
+//
+// Example: Solid clay brick fb = 20 MPa, mortar M10 (fm = 10 MPa)
+//   fk = 0.55 × 20^0.7 × 10^0.3
+//      = 0.55 × 8.143 × 1.995
+//      = 8.93 MPa
+//
+// Design strength: fd = fk / γM, with γM = 2.3 (Category II, Class 2)
+//   fd = 8.93 / 2.3 = 3.88 MPa
 
 #[test]
-fn masonry_compressive_strength_ec6() {
-    let k: f64 = 0.55;      // K factor for Group 1 units with general purpose mortar
-    let f_b: f64 = 20.0;    // MPa, normalized unit compressive strength
-    let f_m: f64 = 10.0;    // MPa, mortar compressive strength
+fn masonry_ec6_compressive_strength() {
+    let fb: f64 = 20.0;     // MPa, normalized unit compressive strength
+    let fm: f64 = 10.0;     // MPa, mortar compressive strength
+    let k: f64 = 0.55;      // Group 1 units, general purpose mortar
+    let alpha: f64 = 0.7;
+    let beta: f64 = 0.3;
+    let gamma_m: f64 = 2.3;  // partial safety factor
 
-    // Characteristic compressive strength (EC6 §3.6.1.2)
-    let f_k: f64 = k * f_b.powf(0.7) * f_m.powf(0.3);
-
-    // = 0.55 * 20^0.7 * 10^0.3
-    // = 0.55 * 9.518 * 1.995 = 10.43 MPa
-    let f_k_expected: f64 = 0.55 * 20.0_f64.powf(0.7) * 10.0_f64.powf(0.3);
-
+    // Characteristic compressive strength
+    let fk: f64 = k * fb.powf(alpha) * fm.powf(beta);
+    let fk_expected: f64 = 8.93;
     assert!(
-        (f_k - f_k_expected).abs() / f_k_expected < 0.01,
-        "f_k: {:.2} MPa, expected {:.2}", f_k, f_k_expected
+        (fk - fk_expected).abs() / fk_expected < 0.02,
+        "fk = {:.2} MPa, expected {:.2}", fk, fk_expected
     );
 
-    // Design strength: fd = fk / γM
-    let gamma_m: f64 = 2.5; // partial factor (EC6 Table 2.3, Category B)
-    let f_d: f64 = f_k / gamma_m;
-
+    // Design strength
+    let fd: f64 = fk / gamma_m;
+    let fd_expected: f64 = 3.88;
     assert!(
-        f_d > 2.0 && f_d < 10.0,
-        "Design strength: {:.2} MPa", f_d
+        (fd - fd_expected).abs() / fd_expected < 0.02,
+        "fd = {:.2} MPa, expected {:.2}", fd, fd_expected
+    );
+
+    // Weaker mortar → lower fk
+    let fm_weak: f64 = 5.0;
+    let fk_weak: f64 = k * fb.powf(alpha) * fm_weak.powf(beta);
+    assert!(
+        fk_weak < fk,
+        "Weaker mortar: fk={:.2} < {:.2}", fk_weak, fk
+    );
+
+    // Stronger units → higher fk
+    let fb_strong: f64 = 40.0;
+    let fk_strong: f64 = k * fb_strong.powf(alpha) * fm.powf(beta);
+    assert!(
+        fk_strong > fk,
+        "Stronger units: fk={:.2} > {:.2}", fk_strong, fk
     );
 }
 
-// ================================================================
-// 2. Masonry Wall — Axial Capacity (TMS 402)
-// ================================================================
+// ═══════════════════════════════════════════════════════════════
+// 2. Unreinforced Wall Axial Capacity with Slenderness (EC6 §6.1.2.1)
+// ═══════════════════════════════════════════════════════════════
 //
-// Strength design: φPn = φ * 0.80 * f'm * An * [1 - (h/(140*r))²]
-// where h = effective height, r = radius of gyration, An = net area
-// For h/r ≤ 99 (short wall)
+// Design resistance: NRd = Φ × t × fd
+// where Φ = capacity reduction factor for slenderness and eccentricity
+//
+// Φi = 1 − 2·ei/t (at top/bottom of wall)
+// Φm = A1 × e^(-u²/2) (at mid-height)
+//   where u = (hef/tef − 2) / (23 − 37·em/t)
+//   A1 = 1 − 2·em/t
+//   em = max(M/N, 0.05t)  eccentricity at mid-height
+//   ei = M/N + h_ef/450    eccentricity at top/bottom
+//
+// Example: t = 200 mm, hef = 3000 mm, fd = 3.88 MPa
+//   em/t = 0.05 (minimum), ei/t = 0.05 + 3000/(450×200) = 0.05 + 0.0333 = 0.0833
+//   Φi = 1 − 2×0.0833 = 0.833
+//   hef/tef = 3000/200 = 15
+//   u = (15 − 2)/(23 − 37×0.05) = 13/21.15 = 0.6147
+//   A1 = 1 − 2×0.05 = 0.90
+//   Φm = 0.90 × e^(−0.6147²/2) = 0.90 × e^(−0.1890) = 0.90 × 0.8278 = 0.745
+//   Φ = min(Φi, Φm) = 0.745
+//   NRd = 0.745 × 200 × 3.88 = 578.1 kN/m (per m length)
 
 #[test]
-fn masonry_axial_capacity_tms() {
-    let f_m: f64 = 10.3;      // MPa (1500 psi), masonry prism strength
-    let t: f64 = 0.190;       // m (7.625"), nominal wall thickness
-    let b: f64 = 1.0;         // m, unit width
-    let h: f64 = 3.0;         // m, effective height
-    let grouting: f64 = 0.55; // fraction of cells grouted
+fn masonry_unreinforced_wall_axial_capacity() {
+    let t: f64 = 200.0;       // mm, wall thickness
+    let hef: f64 = 3_000.0;   // mm, effective height
+    let fd: f64 = 3.88;       // MPa, design masonry strength
+    let em_ratio: f64 = 0.05; // em/t, minimum eccentricity ratio
 
-    // Net area per meter of wall length
-    let a_n: f64 = t * b * grouting; // approximate grouted area
-    let a_n_expected: f64 = 0.1045;  // m²
-
+    // Eccentricity at top/bottom
+    let ei_ratio: f64 = em_ratio + hef / (450.0 * t);
+    let ei_ratio_expected: f64 = 0.0833;
     assert!(
-        (a_n - a_n_expected).abs() / a_n_expected < 0.01,
-        "Net area: {:.4} m², expected {:.4}", a_n, a_n_expected
+        (ei_ratio - ei_ratio_expected).abs() / ei_ratio_expected < 0.01,
+        "ei/t = {:.4}, expected {:.4}", ei_ratio, ei_ratio_expected
     );
 
-    // Radius of gyration (rectangular: r = t/√12)
-    let r: f64 = t / 12.0_f64.sqrt();
-    let r_expected: f64 = 0.0549; // m
-
+    // Capacity reduction at top/bottom
+    let phi_i: f64 = 1.0 - 2.0 * ei_ratio;
+    let phi_i_expected: f64 = 0.833;
     assert!(
-        (r - r_expected).abs() / r_expected < 0.02,
-        "Radius of gyration: {:.4} m, expected {:.4}", r, r_expected
+        (phi_i - phi_i_expected).abs() / phi_i_expected < 0.01,
+        "Φi = {:.3}, expected {:.3}", phi_i, phi_i_expected
     );
 
-    // Slenderness ratio
-    let h_r: f64 = h / r;
+    // Capacity reduction at mid-height
+    let slenderness: f64 = hef / t;
+    let u: f64 = (slenderness - 2.0) / (23.0 - 37.0 * em_ratio);
+    let u_expected: f64 = 0.6147;
     assert!(
-        h_r < 99.0,
-        "h/r = {:.1} — short wall (< 99)", h_r
+        (u - u_expected).abs() / u_expected < 0.01,
+        "u = {:.4}, expected {:.4}", u, u_expected
     );
 
-    // Nominal capacity (short wall equation)
-    let phi: f64 = 0.60; // strength reduction factor (compression)
-    let slenderness_reduction: f64 = 1.0 - (h / (140.0 * r)).powi(2);
-    let phi_pn: f64 = phi * 0.80 * (f_m * 1000.0) * a_n * slenderness_reduction; // kN
-
+    let a1: f64 = 1.0 - 2.0 * em_ratio;
+    let phi_m: f64 = a1 * (-u * u / 2.0).exp();
+    let phi_m_expected: f64 = 0.745;
     assert!(
-        phi_pn > 100.0,
-        "Axial capacity: {:.0} kN (per meter of wall)", phi_pn
+        (phi_m - phi_m_expected).abs() / phi_m_expected < 0.02,
+        "Φm = {:.3}, expected {:.3}", phi_m, phi_m_expected
+    );
+
+    // Governing reduction factor
+    let phi: f64 = phi_i.min(phi_m);
+    assert!(
+        (phi - phi_m).abs() < 0.001,
+        "Φ = Φm = {:.3} (mid-height governs)", phi
+    );
+
+    // Design resistance per metre length
+    let _nrd: f64 = phi * t * fd / 1000.0; // kN/m (per 1000 mm length)
+    // = 0.745 × 200 × 3.88 / 1000 × 1000 = 578.1 kN/m
+    let nrd_per_m: f64 = phi * t * fd;  // kN per m run (fd in N/mm², t in mm → N/mm → ×1000/1000)
+    let nrd_expected: f64 = 578.1;
+    assert!(
+        (nrd_per_m - nrd_expected).abs() / nrd_expected < 0.02,
+        "NRd = {:.1} kN/m, expected {:.1}", nrd_per_m, nrd_expected
     );
 }
 
-// ================================================================
-// 3. Masonry Flexural Strength (EC6 / TMS 402)
-// ================================================================
+// ═══════════════════════════════════════════════════════════════
+// 3. Reinforced Masonry Flexural Capacity (TMS 402 §9.3.3)
+// ═══════════════════════════════════════════════════════════════
 //
-// Out-of-plane bending of unreinforced masonry:
-// MRd = f_xk1 * Z / γM (parallel to bed joints)
-// MRd = f_xk2 * Z / γM (perpendicular to bed joints)
+// Similar to RC: a = As·fy / (0.80·f'm·b)
+//   Note: TMS uses 0.80 for equivalent stress block (not 0.85 like ACI)
+//   Mn = As·fy·(d − a/2)
+//
+// Example: Reinforced CMU wall, 200 mm nominal (actual = 194 mm)
+//   b = 1000 mm (per metre), d = 97 mm (half thickness − cover issues)
+//   Actually for a grouted wall: d = 97 mm to bar center
+//   As = 645 mm² (#5 @ 400 mm → 200 mm²/bar × 1000/400 × 1.29)
+//   Wait, let's use: As = 500 mm²/m, fy = 420 MPa, f'm = 10.3 MPa
+//
+//   a = 500 × 420 / (0.80 × 10.3 × 1000) = 210,000 / 8,240 = 25.49 mm
+//   Mn = 500 × 420 × (97 − 25.49/2) / 10⁶ = 500 × 420 × 84.26 / 10⁶
+//      = 17.69 kN·m/m
 
 #[test]
-fn masonry_flexural_strength() {
-    let f_xk1: f64 = 0.10;   // MPa, flexural strength parallel to bed
-    let f_xk2: f64 = 0.40;   // MPa, flexural strength perpendicular
-    let t: f64 = 0.215;      // m, wall thickness
-    let b: f64 = 1.0;        // m, unit width
-    let gamma_m: f64 = 2.5;  // partial factor
+fn masonry_reinforced_flexural_capacity() {
+    let as_steel: f64 = 500.0;    // mm²/m, reinforcement area per metre
+    let fy: f64 = 420.0;          // MPa, yield strength
+    let fm_prime: f64 = 10.3;     // MPa, masonry compressive strength
+    let b: f64 = 1_000.0;         // mm, unit width (per metre)
+    let d: f64 = 97.0;            // mm, effective depth to reinforcement
 
-    // Section modulus per meter
-    let z: f64 = b * t * t / 6.0;
-    let z_expected: f64 = 0.00770; // m³/m
-
+    // Stress block depth (TMS uses 0.80 factor)
+    let a: f64 = as_steel * fy / (0.80 * fm_prime * b);
+    let a_expected: f64 = 25.49;
     assert!(
-        (z - z_expected).abs() / z_expected < 0.02,
-        "Section modulus: {:.5} m³/m, expected {:.5}", z, z_expected
+        (a - a_expected).abs() / a_expected < 0.01,
+        "a = {:.2} mm, expected {:.2}", a, a_expected
     );
 
-    // Design moment resistance parallel to bed joints
-    let mrd_parallel: f64 = f_xk1 * 1000.0 * z / gamma_m; // kN·m/m
-    // = 0.10 * 1000 * 0.00770 / 2.5 = 0.308 kN·m/m
-
-    // Design moment resistance perpendicular
-    let mrd_perp: f64 = f_xk2 * 1000.0 * z / gamma_m;
-    // = 0.40 * 1000 * 0.00770 / 2.5 = 1.232 kN·m/m
-
+    // Nominal moment per metre
+    let mn: f64 = as_steel * fy * (d - a / 2.0) / 1.0e6; // kN·m/m
+    let mn_expected: f64 = 17.69;
     assert!(
-        mrd_perp > mrd_parallel,
-        "Perpendicular {:.3} > parallel {:.3} kN·m/m", mrd_perp, mrd_parallel
+        (mn - mn_expected).abs() / mn_expected < 0.02,
+        "Mn = {:.2} kN·m/m, expected {:.2}", mn, mn_expected
     );
 
-    // Ratio should be f_xk2/f_xk1
-    let ratio: f64 = mrd_perp / mrd_parallel;
-    let expected_ratio: f64 = f_xk2 / f_xk1;
+    // Verify stress block is within wall thickness
     assert!(
-        (ratio - expected_ratio).abs() / expected_ratio < 0.01,
-        "Strength ratio: {:.1}, expected {:.1}", ratio, expected_ratio
+        a < d,
+        "Stress block a={:.1}mm < effective depth d={:.0}mm", a, d
+    );
+
+    // Reinforcement ratio
+    let rho: f64 = as_steel / (b * d);
+    assert!(
+        rho > 0.001 && rho < 0.05,
+        "ρ = {:.4} — typical masonry range", rho
     );
 }
 
-// ================================================================
-// 4. Reinforced Masonry Beam — Flexural Capacity
-// ================================================================
+// ═══════════════════════════════════════════════════════════════
+// 4. Shear Strength of Masonry Wall (TMS 402 §9.3.4.1.2)
+// ═══════════════════════════════════════════════════════════════
 //
-// Similar to RC: Mn = As * fy * (d - a/2)
-// a = As * fy / (0.80 * f'm * b)
+// Nominal shear strength: Vn = Vm + Vs
+// Masonry contribution:
+//   Vm = [4.0 − 1.75×(Mu/(Vu·dv))] × An × √f'm + 0.25×P
+//   (TMS simplified; all in lb,in units — we convert to SI)
+//
+// Simplified SI version (TMS §9.3.4.1.2 adapted):
+//   Vm = 0.083 × [4.0 − 1.75×(M/(V·dv))] × An × √f'm + 0.25×P
+//   where An = net shear area, P = axial compression
+//
+// Steel contribution: Vs = 0.5 × (Av/s) × fy × dv
+//
+// Example: Wall 3000 mm long × 200 mm thick, f'm = 10.3 MPa
+//   dv = 0.8 × 3000 = 2400 mm, An = 3000 × 200 = 600,000 mm²
+//   M/(V·dv) = 1.0 (moderate shear ratio), P = 200 kN
+//   Vm = 0.083 × (4.0−1.75×1.0) × 600,000 × √10.3 + 0.25 × 200,000
+//      = 0.083 × 2.25 × 600,000 × 3.209 + 50,000
+//      = 0.1868 × 600,000 × 3.209 + 50,000 (wait — units)
+//
+// Let me use a cleaner formulation. Vm (N) = Cm × An × √f'm + 0.25×P
+// where Cm accounts for M/Vdv ratio.
+// Simpler: use fv_m = 0.166√f'm for low M/Vd (shear-controlled)
+//   Vm = fv_m × An = 0.166 × √10.3 × 600,000 = 0.5327 × 600,000 = 319.6 kN
+//   Plus axial: Vm_total = 319.6 + 0.25 × 200 = 369.6 kN
 
 #[test]
-fn masonry_reinforced_flexure() {
-    let a_s: f64 = 600.0;     // mm², steel area (#5 bars × 3)
-    let fy: f64 = 420.0;      // MPa, steel yield strength
-    let f_m: f64 = 10.3;      // MPa, masonry compressive strength
-    let b_w: f64 = 190.0;     // mm, wall thickness
-    let d: f64 = 500.0;       // mm, effective depth
+fn masonry_shear_strength() {
+    let l_w: f64 = 3_000.0;     // mm, wall length
+    let t: f64 = 200.0;         // mm, wall thickness
+    let fm_prime: f64 = 10.3;   // MPa
+    let p: f64 = 200_000.0;     // N, axial compression (200 kN)
+    let fy: f64 = 420.0;        // MPa, shear reinforcement yield
+    let av_s: f64 = 0.5;        // mm²/mm, horizontal rebar area/spacing
 
-    // Depth of compression block
-    let a: f64 = a_s * fy / (0.80 * f_m * b_w);
-    // = 600 * 420 / (0.80 * 10.3 * 190) = 252000 / 1565.6 = 160.9 mm
+    // Net shear area
+    let an: f64 = l_w * t;  // 600,000 mm²
 
+    // Effective shear depth
+    let dv: f64 = 0.8 * l_w;  // 2,400 mm
+
+    // Masonry shear contribution (simplified, shear-controlled)
+    let fv_m: f64 = 0.166 * fm_prime.sqrt(); // MPa
+    let vm: f64 = fv_m * an + 0.25 * p;      // N
+    let vm_kn: f64 = vm / 1000.0;
+
+    // Check masonry contribution
     assert!(
-        a > 0.0 && a < d,
-        "Compression block: {:.1} mm (< d = {:.0})", a, d
+        fv_m > 0.0 && fv_m < 1.0,
+        "Masonry shear stress fv_m = {:.3} MPa", fv_m
     );
 
-    // Nominal moment capacity
-    let mn: f64 = a_s * fy * (d - a / 2.0) / 1e6; // kN·m
-    // = 600 * 420 * (500 - 80.5) / 1e6 = 252000 * 419.5 / 1e6 = 105.7 kN·m
-
-    // Design moment: φMn
-    let phi: f64 = 0.90; // for tension-controlled
-    let phi_mn: f64 = phi * mn;
-
+    // Steel contribution
+    let vs: f64 = 0.5 * av_s * fy * dv;  // N
+    let vs_kn: f64 = vs / 1000.0;
     assert!(
-        phi_mn > 50.0,
-        "Design moment capacity: {:.1} kN·m", phi_mn
+        vs_kn > 0.0,
+        "Steel shear contribution = {:.1} kN", vs_kn
+    );
+
+    // Total nominal shear
+    let vn: f64 = vm + vs;
+    let vn_kn: f64 = vn / 1000.0;
+    assert!(
+        vn_kn > vm_kn,
+        "Total Vn={:.1} > masonry Vm={:.1} kN", vn_kn, vm_kn
+    );
+
+    // Axial compression improves shear capacity
+    let vm_no_axial: f64 = fv_m * an / 1000.0;
+    assert!(
+        vm_kn > vm_no_axial,
+        "Axial load increases shear: {:.1} > {:.1} kN", vm_kn, vm_no_axial
     );
 }
 
-// ================================================================
-// 5. Masonry Shear Strength (TMS 402 / EC6)
-// ================================================================
+// ═══════════════════════════════════════════════════════════════
+// 5. Effective Eccentricity from Lateral Loads (EC6 §6.1.2.2)
+// ═══════════════════════════════════════════════════════════════
 //
-// TMS: Vn = Vnm + Vns
-// Vnm = [4.0 - 1.75(Mu/(Vu*dv))] * An * √f'm + 0.25*Pu (ASD, in psi)
-// EC6: fvk = fvk0 + 0.4*σd (≤ 0.065*fb or fvlt)
+// Mid-height eccentricity:
+//   emk = em + ek
+//   em = (M1 + M2) / (2·N)  (first-order eccentricity)
+//   ek = hef² / (2000·t)    (creep eccentricity, EC6 §A.2)
+//
+// Minimum eccentricity: emk ≥ 0.05t
+//
+// Example: N = 500 kN/m, M_top = 20 kN·m/m, M_bot = 10 kN·m/m
+//   t = 300 mm, hef = 4000 mm
+//   em = (20 + 10)/(2×500) = 0.030 m = 30 mm
+//   ek = 4000²/(2000×300) = 16,000,000/600,000 = 26.67 mm
+//   emk = 30 + 26.67 = 56.67 mm
+//   0.05t = 15 mm → emk = 56.67 mm (governs)
+//   emk/t = 0.189
 
 #[test]
-fn masonry_shear_strength_ec6() {
-    let f_vk0: f64 = 0.20;    // MPa, initial shear strength (mortar M5+)
-    let sigma_d: f64 = 0.50;  // MPa, design compressive stress
-    let f_b: f64 = 15.0;      // MPa, unit strength
+fn masonry_effective_eccentricity() {
+    let n: f64 = 500.0;      // kN/m, axial load per metre
+    let m_top: f64 = 20.0;   // kN·m/m, moment at top
+    let m_bot: f64 = 10.0;   // kN·m/m, moment at bottom
+    let t: f64 = 300.0;      // mm, wall thickness
+    let hef: f64 = 4_000.0;  // mm, effective height
 
-    // Characteristic shear strength
-    let f_vk: f64 = f_vk0 + 0.4 * sigma_d;
-    let f_vk_expected: f64 = 0.40; // MPa
-
+    // First-order eccentricity
+    let em: f64 = (m_top + m_bot) / (2.0 * n) * 1000.0;  // mm
+    let em_expected: f64 = 30.0;
     assert!(
-        (f_vk - f_vk_expected).abs() / f_vk_expected < 0.01,
-        "f_vk: {:.2} MPa, expected {:.2}", f_vk, f_vk_expected
+        (em - em_expected).abs() / em_expected < 0.001,
+        "em = {:.1} mm, expected {:.1}", em, em_expected
     );
 
-    // Upper limit: 0.065 * fb
-    let f_vk_limit: f64 = 0.065 * f_b;
-    // = 0.975 MPa
-
+    // Creep eccentricity
+    let ek: f64 = hef * hef / (2000.0 * t);
+    let ek_expected: f64 = 26.67;
     assert!(
-        f_vk < f_vk_limit,
-        "f_vk = {:.2} < limit {:.3} — OK", f_vk, f_vk_limit
+        (ek - ek_expected).abs() / ek_expected < 0.01,
+        "ek = {:.2} mm, expected {:.2}", ek, ek_expected
     );
 
-    // Design shear resistance per unit length
-    let t: f64 = 0.215;     // m, wall thickness
-    let b: f64 = 1.0;       // m, unit length
-    let gamma_m: f64 = 2.5;
-    let vrd: f64 = f_vk * 1000.0 * t * b / gamma_m; // kN/m
-    // = 0.40 * 1000 * 0.215 / 2.5 = 34.4 kN/m
+    // Total mid-height eccentricity
+    let emk: f64 = em + ek;
+    let emk_min: f64 = 0.05 * t;  // minimum = 15 mm
+    let emk_design: f64 = emk.max(emk_min);
 
     assert!(
-        vrd > 20.0,
-        "Design shear: {:.1} kN/m", vrd
+        emk > emk_min,
+        "emk = {:.2} > minimum {:.1} mm", emk, emk_min
+    );
+    assert!(
+        (emk_design - 56.67).abs() / 56.67 < 0.01,
+        "emk = {:.2} mm, expected 56.67", emk_design
+    );
+
+    // Eccentricity ratio
+    let emk_ratio: f64 = emk_design / t;
+    assert!(
+        (emk_ratio - 0.189).abs() / 0.189 < 0.01,
+        "emk/t = {:.3}, expected 0.189", emk_ratio
+    );
+
+    // Higher wall → more creep eccentricity
+    let hef2: f64 = 6_000.0;
+    let ek2: f64 = hef2 * hef2 / (2000.0 * t);
+    assert!(ek2 > ek, "Taller wall: ek={:.1} > {:.1} mm", ek2, ek);
+}
+
+// ═══════════════════════════════════════════════════════════════
+// 6. Masonry Infill Strut Width — Mainstone Formula (1971)
+// ═══════════════════════════════════════════════════════════════
+//
+// Equivalent diagonal strut width (Mainstone):
+//   w = 0.175 × (λ1 × h)^(-0.4) × d_inf
+//   where λ1 = [Em·t_inf·sin(2θ) / (4·Ef·Ic·h_inf)]^(1/4)
+//   d_inf = diagonal length of infill panel
+//   θ = arctan(h_inf / l_inf)
+//   h = column height, h_inf = infill clear height
+//   Em = masonry E, Ef = frame E, Ic = column I, t_inf = infill thickness
+//
+// Example: Frame 4m × 6m, column 300×300 (Ic = 6.75×10⁸ mm⁴)
+//   Infill: h_inf = 3500 mm, l_inf = 5500 mm, t_inf = 150 mm
+//   Em = 5,000 MPa, Ef = 25,000 MPa (concrete frame)
+//   θ = atan(3500/5500) = 0.5667 rad (32.5°)
+//   d_inf = √(3500² + 5500²) = √(12,250,000 + 30,250,000) = 6519 mm
+//   sin(2θ) = sin(1.1334) = 0.9076
+//   λ1 = [5000×150×0.9076/(4×25000×6.75×10⁸×3500)]^0.25
+//      = [681,195,000 / 2.3625×10¹⁴]^0.25
+//      = [2.883×10⁻⁶]^0.25 = 0.04122
+//   λ1·h = 0.04122 × 4000 = 164.9
+//   w = 0.175 × 164.9^(-0.4) × 6519
+//     = 0.175 × 0.09667 × 6519 = 110.3 mm (? let me recalculate)
+//   164.9^0.4 → log(164.9) = 5.106, 0.4×5.106 = 2.042, e^2.042 = 7.706
+//   164.9^(-0.4) = 1/7.706 = 0.1298
+//   w = 0.175 × 0.1298 × 6519 = 147.9 mm
+//   w/d_inf = 147.9 / 6519 = 0.0227 (~2.3% of diagonal — typical)
+
+#[test]
+fn masonry_infill_strut_mainstone() {
+    let h: f64 = 4_000.0;       // mm, column height (story height)
+    let h_inf: f64 = 3_500.0;   // mm, clear infill height
+    let l_inf: f64 = 5_500.0;   // mm, clear infill length
+    let t_inf: f64 = 150.0;     // mm, infill thickness
+    let em: f64 = 5_000.0;      // MPa, masonry modulus
+    let ef: f64 = 25_000.0;     // MPa, frame modulus (concrete)
+    let ic: f64 = 6.75e8;       // mm⁴, column moment of inertia
+
+    // Geometry
+    let theta: f64 = (h_inf / l_inf).atan();  // rad
+    let d_inf: f64 = (h_inf * h_inf + l_inf * l_inf).sqrt();
+    let d_inf_expected: f64 = 6_519.2;
+    assert!(
+        (d_inf - d_inf_expected).abs() / d_inf_expected < 0.01,
+        "d_inf = {:.1} mm", d_inf
+    );
+
+    // Relative stiffness parameter λ1
+    let sin2theta: f64 = (2.0 * theta).sin();
+    let lambda1: f64 = (em * t_inf * sin2theta / (4.0 * ef * ic * h_inf)).powf(0.25);
+
+    // Equivalent strut width (Mainstone)
+    let lam_h: f64 = lambda1 * h;
+    let w: f64 = 0.175 * lam_h.powf(-0.4) * d_inf;
+
+    // Strut width should be reasonable (typically 3-15% of diagonal)
+    let w_ratio: f64 = w / d_inf;
+    assert!(
+        w_ratio > 0.01 && w_ratio < 0.15,
+        "w/d_inf = {:.4} — typical range 1-15%", w_ratio
+    );
+
+    // Strut width should be positive and smaller than panel dimension
+    assert!(w > 0.0 && w < l_inf, "Strut width = {:.1} mm", w);
+
+    // Thicker infill (larger t_inf) → wider strut (stiffer infill panel)
+    let t_inf_thick: f64 = 250.0;
+    let lambda1_thick: f64 = (em * t_inf_thick * sin2theta / (4.0 * ef * ic * h_inf)).powf(0.25);
+    let w_thick: f64 = 0.175 * (lambda1_thick * h).powf(-0.4) * d_inf;
+    // Higher λ1 → larger λ1*h → smaller (λ1*h)^{-0.4} → but the λ1 increase is modest
+    // The net effect in Mainstone's formula is that stiffer infill → narrower strut
+    // because λ1*h appears with a negative exponent
+    assert!(
+        w_thick < w,
+        "Thicker infill: w={:.1} < {:.1} mm (higher λ1·h → narrower strut)", w_thick, w
     );
 }
 
-// ================================================================
-// 6. Masonry Wall Under Combined Loading
-// ================================================================
+// ═══════════════════════════════════════════════════════════════
+// 7. Arching Action in Confined Masonry Panels (McDowell et al.)
+// ═══════════════════════════════════════════════════════════════
 //
-// Unity check: NEd/NRd + MEd/MRd ≤ 1.0
-// For eccentrically loaded wall (EC6 §6.1)
+// For laterally loaded masonry panels confined by rigid frame,
+// arching action develops, significantly increasing out-of-plane capacity.
+//
+// One-way arching capacity (McDowell 1956):
+//   q_arch = 4 × f'm × t² × r / (L²)
+//   where r = (1 − (Δ/t)) and Δ = t − √(t² − L²/(4R²)·t²)
+//   Simplified for rigid supports:
+//   q_arch = 0.85 × f'm × (t/L)² × 8  (simplified arch thrust)
+//
+// More practical (Canadian code approach):
+//   w_arch = 0.8 × f'm × (t²/L²)
+//
+// Example: Panel 3000×200 mm, f'm = 10 MPa, confined by frame
+//   w_arch = 0.8 × 10 × (200²/3000²) = 0.8 × 10 × 0.004444 = 0.0356 MPa
+//   = 35.6 kPa (lateral pressure)
+//
+// Compare to simple flexure (unreinforced, no arching):
+//   w_flex = 2 × ft × t² / (3 × L²)  where ft ≈ 0.3 MPa
+//   w_flex = 2 × 0.3 × 200² / (3 × 3000²) = 24,000 / 27,000,000 = 0.889 kPa
+//   → Arching provides ~40× increase
 
 #[test]
-fn masonry_combined_loading() {
-    let n_ed: f64 = 200.0;   // kN/m, design axial load
-    let m_ed: f64 = 5.0;     // kN·m/m, design moment (eccentricity)
-    let t: f64 = 0.215;      // m, wall thickness
-    let f_d: f64 = 4.0;      // MPa, design compressive strength (f_k/γM)
+fn masonry_arching_action() {
+    let fm_prime: f64 = 10.0;    // MPa, masonry compressive strength
+    let t: f64 = 200.0;          // mm, panel thickness
+    let l: f64 = 3_000.0;        // mm, span
+    let ft: f64 = 0.3;           // MPa, tensile strength (for comparison)
 
-    // Eccentricity
-    let e_load: f64 = m_ed / n_ed; // = 0.025 m
+    // Arching capacity (simplified Canadian approach)
+    let w_arch: f64 = 0.8 * fm_prime * (t * t) / (l * l);  // MPa
+    let w_arch_kpa: f64 = w_arch * 1000.0;                   // kPa
+    let w_arch_expected: f64 = 35.56;
     assert!(
-        e_load < t / 3.0,
-        "Eccentricity {:.3}m < t/3 = {:.3}m — compression zone > half", e_load, t / 3.0
+        (w_arch_kpa - w_arch_expected).abs() / w_arch_expected < 0.02,
+        "w_arch = {:.2} kPa, expected {:.2}", w_arch_kpa, w_arch_expected
     );
 
-    // Capacity reduction factor for eccentricity (EC6 simplified)
-    // Φ = 1 - 2*e/t
-    let phi_ec: f64 = 1.0 - 2.0 * e_load / t;
-    let phi_ec_expected: f64 = 0.767;
+    // Flexural capacity without arching (unreinforced)
+    let w_flex: f64 = 2.0 * ft * (t * t) / (3.0 * l * l);  // MPa
+    let w_flex_kpa: f64 = w_flex * 1000.0;
 
+    // Arching provides massive increase
+    let ratio: f64 = w_arch_kpa / w_flex_kpa;
     assert!(
-        (phi_ec - phi_ec_expected).abs() / phi_ec_expected < 0.02,
-        "Eccentricity factor: {:.3}, expected {:.3}", phi_ec, phi_ec_expected
+        ratio > 10.0,
+        "Arching/flexure ratio = {:.1}× (arching dominates)", ratio
     );
 
-    // Design resistance
-    let n_rd: f64 = phi_ec * t * 1.0 * f_d * 1000.0; // kN/m
-    // = 0.767 * 0.215 * 4000 = 659.6 kN/m
-
-    // Unity check
-    let unity: f64 = n_ed / n_rd;
+    // Thicker panel → higher arching capacity (proportional to t²)
+    let t2: f64 = 300.0;
+    let w_arch2: f64 = 0.8 * fm_prime * (t2 * t2) / (l * l) * 1000.0;
     assert!(
-        unity < 1.0,
-        "Unity check: {:.3} < 1.0 — OK", unity
+        w_arch2 > w_arch_kpa,
+        "Thicker panel: {:.1} > {:.1} kPa", w_arch2, w_arch_kpa
+    );
+
+    // Longer span → lower capacity (inversely proportional to L²)
+    let l2: f64 = 5_000.0;
+    let w_arch3: f64 = 0.8 * fm_prime * (t * t) / (l2 * l2) * 1000.0;
+    assert!(
+        w_arch3 < w_arch_kpa,
+        "Longer span: {:.1} < {:.1} kPa", w_arch3, w_arch_kpa
     );
 }
 
-// ================================================================
-// 7. Masonry Lintel Design
-// ================================================================
+// ═══════════════════════════════════════════════════════════════
+// 8. Bed-Joint Reinforcement Contribution to Shear (TMS 402 §9.3.4.1.2)
+// ═══════════════════════════════════════════════════════════════
 //
-// Lintel over opening: carries triangular (arching) or rectangular load.
-// For arching action (45° spread): w = γ * t * h_tri
-// h_tri = min(L/2, H_above)
+// Shear reinforcement contribution in masonry walls:
+//   Vs = 0.5 × (Av/s) × fy × dv
+//
+// where Av = area of shear reinforcement at spacing s
+//       dv = effective shear depth = 0.8 × Lw (or d for beams)
+//
+// Bed-joint reinforcement: typical #4 (12.7mm) bars at specific courses
+//   Course height = 200 mm (standard CMU + mortar)
+//   If rebar every other course: s = 400 mm
+//   Av = 2 × 127 = 254 mm² (2 legs of #4)
+//
+// Example: Lw = 4000 mm, #4 @ every other course
+//   dv = 0.8 × 4000 = 3200 mm
+//   Av/s = 254/400 = 0.635 mm²/mm
+//   Vs = 0.5 × 0.635 × 420 × 3200 = 427,056 N = 427.1 kN
+//
+// Maximum shear limit: Vs ≤ Vs_max (TMS provisions)
 
 #[test]
-fn masonry_lintel_design() {
-    let l_opening: f64 = 2.4;   // m, opening span
-    let t: f64 = 0.215;         // m, wall thickness
-    let gamma: f64 = 20.0;      // kN/m³, masonry unit weight
-    let h_above: f64 = 3.0;     // m, masonry above lintel
+fn masonry_bed_joint_reinforcement_shear() {
+    let lw: f64 = 4_000.0;     // mm, wall length
+    let av: f64 = 254.0;       // mm², 2 legs of #4 bar (2 × 127 mm²)
+    let s: f64 = 400.0;        // mm, spacing (every other course)
+    let fy: f64 = 420.0;       // MPa
 
-    // Triangular load height (45° arching)
-    let h_tri: f64 = (l_opening / 2.0).min(h_above);
+    // Effective shear depth
+    let dv: f64 = 0.8 * lw;
     assert!(
-        (h_tri - 1.2).abs() < 0.01,
-        "Triangle height: {:.1} m", h_tri
+        (dv - 3200.0).abs() < 0.01,
+        "dv = {:.0} mm", dv
     );
 
-    // Total load on lintel (triangular): W = 0.5 * γ * t * h_tri * L
-    let w_total: f64 = 0.5 * gamma * t * h_tri * l_opening;
-    // = 0.5 * 20 * 0.215 * 1.2 * 2.4 = 6.192 kN
-
-    let w_expected: f64 = 0.5 * 20.0 * 0.215 * 1.2 * 2.4;
+    // Reinforcement ratio
+    let av_s: f64 = av / s;
+    let av_s_expected: f64 = 0.635;
     assert!(
-        (w_total - w_expected).abs() / w_expected < 0.01,
-        "Lintel load: {:.3} kN, expected {:.3}", w_total, w_expected
+        (av_s - av_s_expected).abs() / av_s_expected < 0.01,
+        "Av/s = {:.3} mm²/mm", av_s
     );
 
-    // Equivalent UDL for design: w_eq = 2*W/(3*L) (triangular → UDL equivalent for max moment)
-    // Max moment under triangular load: M = W*L/6
-    let m_max: f64 = w_total * l_opening / 6.0;
-
+    // Steel shear contribution
+    let vs: f64 = 0.5 * av_s * fy * dv / 1000.0;  // kN
+    let vs_expected: f64 = 427.1;
     assert!(
-        m_max > 0.0,
-        "Lintel moment: {:.3} kN·m", m_max
+        (vs - vs_expected).abs() / vs_expected < 0.01,
+        "Vs = {:.1} kN, expected {:.1}", vs, vs_expected
     );
 
-    // Max shear: V = W/2
-    let v_max: f64 = w_total / 2.0;
+    // Closer spacing → more shear capacity
+    let s2: f64 = 200.0;  // every course
+    let vs2: f64 = 0.5 * (av / s2) * fy * dv / 1000.0;
     assert!(
-        v_max > 0.0,
-        "Lintel shear: {:.3} kN", v_max
-    );
-}
-
-// ================================================================
-// 8. Masonry Thermal Movement
-// ================================================================
-//
-// Masonry has different thermal expansion than RC frame.
-// Movement joint spacing: typically 6-9m for clay brick, 6m for concrete block.
-// Differential movement: Δ = (α_masonry - α_frame) * ΔT * L
-
-#[test]
-fn masonry_thermal_movement() {
-    let alpha_clay: f64 = 5e-6;      // 1/°C, clay brick
-    let alpha_concrete: f64 = 10e-6;  // 1/°C, concrete block
-    let alpha_frame: f64 = 12e-6;     // 1/°C, concrete frame
-    let delta_t: f64 = 40.0;          // °C, temperature range
-    let l: f64 = 8.0;                 // m, panel length
-
-    // Clay brick movement
-    let delta_clay: f64 = alpha_clay * delta_t * l * 1000.0; // mm
-    let delta_clay_expected: f64 = 5e-6 * 40.0 * 8.0 * 1000.0; // = 1.6 mm
-
-    assert!(
-        (delta_clay - delta_clay_expected).abs() / delta_clay_expected < 0.01,
-        "Clay brick movement: {:.2} mm, expected {:.2}", delta_clay, delta_clay_expected
+        vs2 > vs,
+        "Closer spacing: Vs={:.1} > {:.1} kN", vs2, vs
     );
 
-    // Concrete block movement
-    let delta_block: f64 = alpha_concrete * delta_t * l * 1000.0;
-    let delta_block_expected: f64 = 3.2; // mm
-
+    // Check that shear capacity scales linearly with wall length
+    let lw2: f64 = 2_000.0;
+    let dv2: f64 = 0.8 * lw2;
+    let vs_short: f64 = 0.5 * av_s * fy * dv2 / 1000.0;
+    let ratio: f64 = vs_short / vs;
     assert!(
-        (delta_block - delta_block_expected).abs() / delta_block_expected < 0.01,
-        "Concrete block: {:.2} mm, expected {:.2}", delta_block, delta_block_expected
-    );
-
-    // Differential movement (masonry in RC frame)
-    let diff_clay: f64 = (alpha_frame - alpha_clay) * delta_t * l * 1000.0;
-    // = 7e-6 * 40 * 8 * 1000 = 2.24 mm
-    let diff_block: f64 = (alpha_frame - alpha_concrete) * delta_t * l * 1000.0;
-    // = 2e-6 * 40 * 8 * 1000 = 0.64 mm
-
-    assert!(
-        diff_clay > diff_block,
-        "Clay differential {:.2}mm > block {:.2}mm", diff_clay, diff_block
-    );
-
-    // Movement joint gap should accommodate total movement
-    let joint_gap: f64 = 10.0; // mm, typical movement joint
-    assert!(
-        diff_clay < joint_gap,
-        "Differential {:.2}mm < joint gap {:.0}mm — OK", diff_clay, joint_gap
+        (ratio - 0.5).abs() < 0.01,
+        "Half wall length → half Vs: ratio = {:.3}", ratio
     );
 }
