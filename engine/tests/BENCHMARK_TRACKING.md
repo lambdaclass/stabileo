@@ -16,7 +16,7 @@
 | Textbook Classics | 1050 | 0 | 0 | 1050 |
 | Mathematical Properties & Numerical Methods | 115 | 0 | 0 | 115 |
 | FEM Quality & Convergence | 30 | 0 | 0 | 30 |
-| Known Bugs (ignored) | 0 | 0 | 6 | 6 |
+| Fixed Bugs (regression) | 6 | 0 | 0 | 6 |
 | Placeholders | 0 | 3 | 0 | 3 |
 | **Total** | **1445** | **8** | **7** | **1460** |
 
@@ -293,15 +293,15 @@ Simple portals (alpha_cr~3-8), multi-bay (alpha_cr~4-10), multi-story braced (al
 
 ---
 
-## Known Bugs (6 ignored tests)
+## Fixed Bugs (6 regression tests)
 
-**File:** `validation_3d_bugs.rs`
+**File:** `validation_3d_bugs.rs` — All bugs fixed, tests now pass without `#[ignore]`.
 
-| # | Bug | Tests | Impact |
-|---|-----|-------|--------|
-| 1 | 3D thermal loads dropped in assembly.rs (`_ => {}` wildcard) | 2 | 3D thermal analysis gives zero displacement |
-| 2 | 3D partial distributed loads ignore a/b parameters | 2 | Partial loads on 3D elements behave as full-span |
-| 3 | Plate mass not assembled in mass_matrix.rs | 2 | Modal analysis of plate+beam models incorrect |
+| # | Bug (Fixed) | Tests | Fix |
+|---|-------------|-------|-----|
+| 1 | 3D thermal loads dropped in assembly.rs | 2 | Added `SolverLoad3D::Thermal` match arm in all 3 assembly functions |
+| 2 | 3D partial distributed loads ignore a/b | 2 | Added `fef_partial_distributed_3d()` and conditional dispatch |
+| 3 | Plate mass not assembled in mass_matrix.rs | 2 | Added plate mass loop + rotational inertia in `plate_consistent_mass` |
 
 ## Incomplete Features (3 placeholder tests)
 
@@ -329,20 +329,40 @@ Simple portals (alpha_cr~3-8), multi-bay (alpha_cr~4-10), multi-story braced (al
 
 These are areas important to structural engineering practice that need implementation:
 
-| Topic | Difficulty | Impact |
-|-------|-----------|--------|
-| Timoshenko beam element (shear deformation) | Medium | Deep beams, short members |
-| Cable/catenary elements | Medium | Suspension bridges, cable stays |
-| Prestressed / post-tensioned concrete | Hard | Bridge design, concrete structures |
-| Cracked concrete section | Medium | Reinforced concrete analysis |
-| Creep, shrinkage, time-dependent effects | Hard | Long-term concrete behavior |
-| Soil-structure interaction (p-y curves) | Medium | Foundation design |
-| Dynamic wind / buffeting / vortex shedding | Hard | Tall buildings, bridges |
-| Fatigue / cumulative damage | Medium | Steel connections, bridges |
-| Connection design (bolt/weld capacity) | Medium | Steel design |
-| Fire resistance | Hard | Temperature-dependent materials |
-| Construction staging | Hard | Sequential construction |
-| Fiber-based plasticity | Hard | Advanced nonlinear concrete/steel |
-| Eurocode 2 (concrete) | Hard | Cracked section, effective width, creep |
-| Eurocode 4 (composite) | Hard | Shear connectors, composite beams |
-| ACI 318 (concrete) | Hard | US concrete design |
+### Priority 1 — Can Test with Existing Solver
+
+| Topic | Difficulty | Impact | Reference Codes |
+|-------|-----------|--------|-----------------|
+| Cross-section classification (EC3) | Easy | Steel design | EN 1993-1-1 §5.5, AISC 360 Table B4.1b |
+| Lateral-torsional buckling (LTB) | Medium | Steel beam design | EN 1993-1-1 §6.3.2, AISC 360-22 Ch.F |
+| Steel connections — bolt groups | Medium | Steel joints | AISC 360-22 Ch.J, EC3-1-8 |
+| Steel connections — weld groups | Medium | Steel joints | AISC 360-22 Ch.J, EC3-1-8 |
+| Serviceability — vibration | Medium | Floor design | AISC DG11, EC3-1-1 §7.2, SCI P354 |
+| CIRSOC 102 wind loading | Medium | Argentine wind design | CIRSOC 102-2005, CIRSOC 102-2018 |
+| Timber design | Medium | Timber structures | NDS 2024, EN 1995-1-1, CIRSOC 601 |
+| Fatigue / S-N curves / Miner's rule | Medium | Steel bridges, connections | EC3-1-9, AISC 360-22 App.3, AASHTO |
+| Foundation — spread footings | Medium | Foundation design | ACI 318-19 Ch.13, EC2-1-1, EC7 |
+| Foundation — pile groups | Medium | Deep foundations | AASHTO LRFD, EC7 §7 |
+| Seismic detailing | Medium | Ductile design | ACI 318-19 Ch.18, EC8-1 §5, CIRSOC 103 |
+| Progressive collapse — full analysis | Medium | Robustness | GSA 2016, DoD UFC 4-023-03, EN 1991-1-7 |
+
+### Priority 2 — Needs New Solver Features
+
+| Topic | Difficulty | Impact | Reference Codes |
+|-------|-----------|--------|-----------------|
+| Timoshenko beam element (shear deformation) | Medium | Deep beams, short members | Timoshenko & Gere |
+| Cable / catenary elements | Medium | Bridges, cable stays | EC3-1-11, ASCE 19 |
+| Concrete sections (RC analysis) | Medium | Cracked section, MN interaction | ACI 318-19, EC2-1-1, CIRSOC 201 |
+| RC design — reinforcement & crack control | Hard | Concrete structures | ACI 318-19 §24, EC2 §7.3, CIRSOC 201 |
+| Composite sections (steel-concrete) | Hard | Composite construction | AISC 360-22 Ch.I, EC4, CIRSOC 301+201 |
+| Prestressed / post-tensioned concrete | Hard | Bridge design | ACI 318-19 Ch.25, EC2 §5.10 |
+| Creep & shrinkage (time-dependent) | Hard | Long-term concrete | ACI 209, EC2 §3.1.4, fib MC2010 |
+| Fire resistance | Hard | Temperature-dependent properties | EC2-1-2, EC3-1-2, CIRSOC fire annex |
+| Soil-structure interaction (p-y curves) | Medium | Foundation analysis | API RP 2A, AASHTO, EC7 |
+| Dynamic time-history (earthquake records) | Medium | Performance-based design | ASCE 7 §16, EC8 §3.2.3, CIRSOC 103 |
+| Dynamic wind / buffeting / vortex shedding | Hard | Tall buildings, bridges | CIRSOC 102, EC1-1-4, ASCE 7 Ch.26 |
+| Plate / shell advanced elements | Hard | Complex structures | NAFEMS, Bathe |
+| Construction staging | Hard | Sequential construction | AASHTO LRFD §5.12 |
+| Fiber-based plasticity | Hard | Advanced nonlinear | OpenSees framework |
+| Nonlinear material — concrete damage | Hard | Concrete cracking | Mazars, CDP, EC2 |
+| Nonlinear material — steel hardening | Medium | Ductile analysis | EC3-1-5 Annex C |
