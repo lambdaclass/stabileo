@@ -731,6 +731,467 @@ fn compute_reactions_at_state(
     reactions
 }
 
+// ============================================================================
+// 3D Time History Analysis
+// ============================================================================
+
+/// Solve a 3D linear time-history analysis.
+///
+/// Supports Newmark-beta (default: average acceleration) and HHT-alpha methods
+/// with tri-directional ground acceleration and 3D force histories.
+/// Uses a single factorization of the effective stiffness matrix with
+/// back-substitution at each time step for efficiency.
+pub fn solve_time_history_3d(
+    input: &TimeHistoryInput3D,
+) -> Result<TimeHistoryResult3D, String> {
+    let dof_num = DofNumbering::build_3d(&input.solver);
+    let n = dof_num.n_total;
+    let nf = dof_num.n_free;
+
+    if nf == 0 {
+        return Err("No free DOFs -- all nodes are fully restrained".into());
+    }
+
+    // 1. Assemble K and F_static
+    let asm = assembly::assemble_3d(&input.solver, &dof_num);
+
+    // 2. Assemble mass matrix M
+    let m_full = mass_matrix::assemble_mass_matrix_3d(&input.solver, &dof_num, &input.densities);
+
+    // 3. Extract free-DOF partitions
+    let free_idx: Vec<usize> = (0..nf).collect();
+    let k_ff = extract_submatrix(&asm.k, n, &free_idx, &free_idx);
+    let m_ff = extract_submatrix(&m_full, n, &free_idx, &free_idx);
+    let f_static = extract_subvec(&asm.f, &free_idx);
+
+    // 4. Compute damping matrix C_ff
+    let c_ff = compute_damping_matrix(&k_ff, &m_ff, nf, input.damping_xi);
+
+    // 5. Determine method parameters
+    let dt = input.time_step;
+    if dt <= 0.0 {
+        return Err("Time step must be positive".into());
+    }
+
+    let (beta, gamma) = if let Some(alpha) = input.alpha {
+        let b = (1.0 - alpha) * (1.0 - alpha) / 4.0;
+        let g = 0.5 - alpha;
+        (b, g)
+    } else {
+        (input.beta, input.gamma)
+    };
+
+    if beta <= 0.0 {
+        return Err("Newmark beta must be positive".into());
+    }
+
+    // 6. Form effective stiffness
+    let dt2 = dt * dt;
+    let c1 = 1.0 / (beta * dt2);
+    let c2 = gamma / (beta * dt);
+    let mut k_eff = vec![0.0; nf * nf];
+    for i in 0..nf * nf {
+        k_eff[i] = k_ff[i] + c2 * c_ff[i] + c1 * m_ff[i];
+    }
+
+    // 7. Factor K_eff once
+    let factored = factor_effective_stiffness(&k_eff, nf)?;
+
+    // 8. Initialize state vectors
+    let mut u = vec![0.0; nf];
+    let mut v = vec![0.0; nf];
+    let mut a_vec = vec![0.0; nf];
+
+    let f_0 = compute_force_at_step_3d(input, &dof_num, nf, &m_ff, &f_static, 0, dt);
+    compute_initial_acceleration(&m_ff, &c_ff, &k_ff, &u, &v, &f_0, nf, &mut a_vec);
+
+    // 9. Prepare history storage
+    let tracked_nodes: Vec<usize> = dof_num.node_order.clone();
+    let n_out = input.n_steps + 1;
+    let dpn = dof_num.dofs_per_node;
+
+    let mut histories: Vec<NodeTimeHistory3DBuilder> = tracked_nodes.iter().map(|&node_id| {
+        NodeTimeHistory3DBuilder {
+            node_id,
+            ux: Vec::with_capacity(n_out),
+            uy: Vec::with_capacity(n_out),
+            uz: Vec::with_capacity(n_out),
+            rx: Vec::with_capacity(n_out),
+            ry: Vec::with_capacity(n_out),
+            rz: Vec::with_capacity(n_out),
+            vx: Vec::with_capacity(n_out),
+            vy: Vec::with_capacity(n_out),
+            vz: Vec::with_capacity(n_out),
+            ax: Vec::with_capacity(n_out),
+            ay: Vec::with_capacity(n_out),
+            az: Vec::with_capacity(n_out),
+        }
+    }).collect();
+
+    let mut time_steps = Vec::with_capacity(n_out);
+
+    // Record initial state
+    time_steps.push(0.0);
+    record_state_3d(&dof_num, &tracked_nodes, &u, &v, &a_vec, nf, dpn, &mut histories);
+
+    let mut peak_disp_norm = 0.0_f64;
+    let mut u_at_peak = u.clone();
+    let mut f_prev = f_0;
+
+    // 10. Time stepping loop
+    for step in 0..input.n_steps {
+        let t_next = (step + 1) as f64 * dt;
+
+        let f_next = compute_force_at_step_3d(input, &dof_num, nf, &m_ff, &f_static, step + 1, dt);
+
+        let f_eff = compute_effective_load(
+            &f_next, &f_prev, &m_ff, &c_ff, &u, &v, &a_vec, nf,
+            beta, gamma, dt, input.alpha,
+        );
+
+        let u_new = solve_with_factored(&factored, &f_eff, nf);
+
+        let mut a_new = vec![0.0; nf];
+        let inv_beta_dt2 = 1.0 / (beta * dt2);
+        let inv_beta_dt = 1.0 / (beta * dt);
+        let half_beta_m1 = 1.0 / (2.0 * beta) - 1.0;
+        for i in 0..nf {
+            a_new[i] = inv_beta_dt2 * (u_new[i] - u[i]) - inv_beta_dt * v[i] - half_beta_m1 * a_vec[i];
+        }
+
+        let mut v_new = vec![0.0; nf];
+        for i in 0..nf {
+            v_new[i] = v[i] + dt * ((1.0 - gamma) * a_vec[i] + gamma * a_new[i]);
+        }
+
+        u = u_new;
+        v = v_new;
+        a_vec = a_new;
+        f_prev = f_next;
+
+        time_steps.push(t_next);
+        record_state_3d(&dof_num, &tracked_nodes, &u, &v, &a_vec, nf, dpn, &mut histories);
+
+        let disp_norm: f64 = u.iter().map(|x| x * x).sum::<f64>().sqrt();
+        if disp_norm > peak_disp_norm {
+            peak_disp_norm = disp_norm;
+            u_at_peak = u.clone();
+        }
+    }
+
+    // 11. Build results
+    let node_histories: Vec<NodeTimeHistory3D> = histories.into_iter().map(|h| {
+        NodeTimeHistory3D {
+            node_id: h.node_id,
+            ux: h.ux, uy: h.uy, uz: h.uz,
+            rx: h.rx, ry: h.ry, rz: h.rz,
+            vx: h.vx, vy: h.vy, vz: h.vz,
+            ax: h.ax, ay: h.ay, az: h.az,
+        }
+    }).collect();
+
+    let peak_displacements = build_peak_displacements_3d(&node_histories);
+
+    let peak_reactions = compute_reactions_at_state_3d(
+        &input.solver, &dof_num, &asm.k, &asm.f, &u_at_peak, nf, n,
+    );
+
+    let method_name = if input.alpha.is_some() {
+        format!("HHT-alpha (alpha={:.3})", input.alpha.unwrap())
+    } else {
+        format!("Newmark (beta={:.4}, gamma={:.4})", beta, gamma)
+    };
+
+    Ok(TimeHistoryResult3D {
+        time_steps,
+        node_histories,
+        peak_displacements,
+        peak_reactions,
+        n_steps: input.n_steps,
+        method: method_name,
+    })
+}
+
+// ============================================================================
+// 3D Internal helpers
+// ============================================================================
+
+/// Compute force vector at a given step for 3D time history.
+fn compute_force_at_step_3d(
+    input: &TimeHistoryInput3D,
+    dof_num: &DofNumbering,
+    nf: usize,
+    m_ff: &[f64],
+    f_static: &[f64],
+    step: usize,
+    dt: f64,
+) -> Vec<f64> {
+    let t = step as f64 * dt;
+    let mut f = vec![0.0; nf];
+    let dpn = dof_num.dofs_per_node;
+
+    let has_ground = input.ground_accel_x.is_some()
+        || input.ground_accel_y.is_some()
+        || input.ground_accel_z.is_some();
+
+    // Tri-directional ground acceleration: F_ground = -M * r * a_g(t)
+    if has_ground {
+        let accel_dirs: [(Option<&Vec<f64>>, usize); 3] = [
+            (input.ground_accel_x.as_ref(), 0), // X → local DOF 0
+            (input.ground_accel_y.as_ref(), 1), // Y → local DOF 1
+            (input.ground_accel_z.as_ref(), 2), // Z → local DOF 2
+        ];
+
+        for (accel_opt, local_dof) in &accel_dirs {
+            if let Some(accel_data) = accel_opt {
+                let a_g = if step < accel_data.len() { accel_data[step] } else { 0.0 };
+                if a_g.abs() < 1e-30 { continue; }
+
+                let mut r = vec![0.0; nf];
+                for &node_id in &dof_num.node_order {
+                    if let Some(&d) = dof_num.map.get(&(node_id, *local_dof)) {
+                        if d < nf {
+                            r[d] = 1.0;
+                        }
+                    }
+                }
+
+                let m_r = mat_vec(m_ff, &r, nf);
+                for i in 0..nf {
+                    f[i] -= m_r[i] * a_g;
+                }
+            }
+        }
+    }
+
+    // Force history
+    if let Some(ref force_history) = input.force_history {
+        let f_interp = interpolate_force_history_3d(force_history, dof_num, nf, dpn, t);
+        for i in 0..nf {
+            f[i] += f_interp[i];
+        }
+    }
+
+    // Static loads as fallback
+    if !has_ground && input.force_history.is_none() {
+        for i in 0..nf {
+            f[i] += f_static[i];
+        }
+    }
+
+    f
+}
+
+/// Interpolate 3D force history at time t.
+fn interpolate_force_history_3d(
+    force_history: &[TimeForceRecord3D],
+    dof_num: &DofNumbering,
+    nf: usize,
+    dpn: usize,
+    t: f64,
+) -> Vec<f64> {
+    let mut f = vec![0.0; nf];
+
+    if force_history.is_empty() {
+        return f;
+    }
+
+    if t <= force_history[0].time {
+        if force_history[0].time.abs() < 1e-15 {
+            assemble_force_record_3d(&force_history[0], dof_num, nf, dpn, &mut f, 1.0);
+        } else {
+            let frac = (t / force_history[0].time).max(0.0);
+            assemble_force_record_3d(&force_history[0], dof_num, nf, dpn, &mut f, frac);
+        }
+        return f;
+    }
+
+    if t >= force_history.last().unwrap().time {
+        assemble_force_record_3d(force_history.last().unwrap(), dof_num, nf, dpn, &mut f, 1.0);
+        return f;
+    }
+
+    for i in 0..force_history.len() - 1 {
+        let t0 = force_history[i].time;
+        let t1 = force_history[i + 1].time;
+        if t >= t0 && t <= t1 {
+            let dt_rec = t1 - t0;
+            if dt_rec.abs() < 1e-15 {
+                assemble_force_record_3d(&force_history[i], dof_num, nf, dpn, &mut f, 1.0);
+            } else {
+                let alpha = (t - t0) / dt_rec;
+                let mut f0 = vec![0.0; nf];
+                let mut f1 = vec![0.0; nf];
+                assemble_force_record_3d(&force_history[i], dof_num, nf, dpn, &mut f0, 1.0);
+                assemble_force_record_3d(&force_history[i + 1], dof_num, nf, dpn, &mut f1, 1.0);
+                for j in 0..nf {
+                    f[j] = (1.0 - alpha) * f0[j] + alpha * f1[j];
+                }
+            }
+            return f;
+        }
+    }
+
+    f
+}
+
+/// Assemble a single 3D force record into the free-DOF force vector.
+fn assemble_force_record_3d(
+    record: &TimeForceRecord3D,
+    dof_num: &DofNumbering,
+    nf: usize,
+    dpn: usize,
+    f: &mut [f64],
+    scale: f64,
+) {
+    for load in &record.loads {
+        let forces = [load.fx, load.fy, load.fz, load.mx, load.my, load.mz];
+        for (local_dof, &force) in forces.iter().enumerate() {
+            if local_dof >= dpn { break; }
+            if let Some(&d) = dof_num.map.get(&(load.node_id, local_dof)) {
+                if d < nf {
+                    f[d] += force * scale;
+                }
+            }
+        }
+        // Bimoment (DOF 6) for warping elements
+        if dpn >= 7 {
+            if let Some(bw) = load.bw {
+                if let Some(&d) = dof_num.map.get(&(load.node_id, 6)) {
+                    if d < nf {
+                        f[d] += bw * scale;
+                    }
+                }
+            }
+        }
+    }
+}
+
+/// Builder for 3D node time histories.
+struct NodeTimeHistory3DBuilder {
+    node_id: usize,
+    ux: Vec<f64>, uy: Vec<f64>, uz: Vec<f64>,
+    rx: Vec<f64>, ry: Vec<f64>, rz: Vec<f64>,
+    vx: Vec<f64>, vy: Vec<f64>, vz: Vec<f64>,
+    ax: Vec<f64>, ay: Vec<f64>, az: Vec<f64>,
+}
+
+/// Record current 3D state into history builders.
+fn record_state_3d(
+    dof_num: &DofNumbering,
+    tracked_nodes: &[usize],
+    u: &[f64], v: &[f64], a: &[f64],
+    nf: usize,
+    dpn: usize,
+    histories: &mut [NodeTimeHistory3DBuilder],
+) {
+    for (idx, &node_id) in tracked_nodes.iter().enumerate() {
+        let get_val = |vec: &[f64], local_dof: usize| -> f64 {
+            if local_dof >= dpn { return 0.0; }
+            dof_num.map.get(&(node_id, local_dof))
+                .map(|&d| if d < nf { vec[d] } else { 0.0 })
+                .unwrap_or(0.0)
+        };
+
+        histories[idx].ux.push(get_val(u, 0));
+        histories[idx].uy.push(get_val(u, 1));
+        histories[idx].uz.push(get_val(u, 2));
+        histories[idx].rx.push(get_val(u, 3));
+        histories[idx].ry.push(get_val(u, 4));
+        histories[idx].rz.push(get_val(u, 5));
+        histories[idx].vx.push(get_val(v, 0));
+        histories[idx].vy.push(get_val(v, 1));
+        histories[idx].vz.push(get_val(v, 2));
+        histories[idx].ax.push(get_val(a, 0));
+        histories[idx].ay.push(get_val(a, 1));
+        histories[idx].az.push(get_val(a, 2));
+    }
+}
+
+/// Build peak displacement results for 3D.
+fn build_peak_displacements_3d(
+    node_histories: &[NodeTimeHistory3D],
+) -> Vec<Displacement3D> {
+    node_histories.iter().map(|h| {
+        Displacement3D {
+            node_id: h.node_id,
+            ux: find_peak_with_sign(&h.ux),
+            uy: find_peak_with_sign(&h.uy),
+            uz: find_peak_with_sign(&h.uz),
+            rx: find_peak_with_sign(&h.rx),
+            ry: find_peak_with_sign(&h.ry),
+            rz: find_peak_with_sign(&h.rz),
+            warping: None,
+        }
+    }).collect()
+}
+
+/// Compute reactions at peak displacement for 3D.
+fn compute_reactions_at_state_3d(
+    solver_input: &SolverInput3D,
+    dof_num: &DofNumbering,
+    k_full: &[f64],
+    f_full: &[f64],
+    u_free: &[f64],
+    nf: usize,
+    n: usize,
+) -> Vec<Reaction3D> {
+    let nr = n - nf;
+    if nr == 0 {
+        return Vec::new();
+    }
+
+    let mut u_full = vec![0.0; n];
+    for i in 0..nf {
+        u_full[i] = u_free[i];
+    }
+
+    let free_idx: Vec<usize> = (0..nf).collect();
+    let rest_idx: Vec<usize> = (nf..n).collect();
+    let k_rf = extract_submatrix(k_full, n, &rest_idx, &free_idx);
+    let f_r = extract_subvec(f_full, &rest_idx);
+    let k_rf_uf = mat_vec_rect(&k_rf, u_free, nr, nf);
+
+    let mut reactions_vec = vec![0.0; nr];
+    for i in 0..nr {
+        reactions_vec[i] = k_rf_uf[i] - f_r[i];
+    }
+
+    let dpn = dof_num.dofs_per_node;
+    let mut reactions = Vec::new();
+    for sup in solver_input.supports.values() {
+        let mut fx = 0.0;
+        let mut fy = 0.0;
+        let mut fz = 0.0;
+        let mut mx = 0.0;
+        let mut my = 0.0;
+        let mut mz = 0.0;
+
+        let dof_labels = [
+            (&mut fx, 0), (&mut fy, 1), (&mut fz, 2),
+            (&mut mx, 3), (&mut my, 4), (&mut mz, 5),
+        ];
+
+        for (val, local_dof) in dof_labels {
+            if local_dof >= dpn { continue; }
+            if let Some(&d) = dof_num.map.get(&(sup.node_id, local_dof)) {
+                if d >= nf {
+                    *val = reactions_vec[d - nf];
+                }
+            }
+        }
+
+        reactions.push(Reaction3D {
+            node_id: sup.node_id,
+            fx, fy, fz, mx, my, mz,
+            bimoment: None,
+        });
+    }
+
+    reactions.sort_by_key(|r| r.node_id);
+    reactions
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

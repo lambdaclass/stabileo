@@ -650,6 +650,46 @@ pub struct TimeForceRecord {
     pub loads: Vec<SolverNodalLoad>,
 }
 
+// ==================== 3D Time History ====================
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct TimeHistoryInput3D {
+    pub solver: SolverInput3D,
+    pub densities: HashMap<String, f64>,
+    pub time_step: f64,
+    pub n_steps: usize,
+    #[serde(default = "default_method")]
+    pub method: String,
+    #[serde(default = "default_newmark_beta")]
+    pub beta: f64,
+    #[serde(default = "default_newmark_gamma")]
+    pub gamma: f64,
+    #[serde(default)]
+    pub alpha: Option<f64>,
+    #[serde(default)]
+    pub damping_xi: Option<f64>,
+    /// Ground acceleration time series for X direction
+    #[serde(default)]
+    pub ground_accel_x: Option<Vec<f64>>,
+    /// Ground acceleration time series for Y direction
+    #[serde(default)]
+    pub ground_accel_y: Option<Vec<f64>>,
+    /// Ground acceleration time series for Z direction
+    #[serde(default)]
+    pub ground_accel_z: Option<Vec<f64>>,
+    /// Time-varying applied forces
+    #[serde(default)]
+    pub force_history: Option<Vec<TimeForceRecord3D>>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct TimeForceRecord3D {
+    pub time: f64,
+    pub loads: Vec<SolverNodalLoad3D>,
+}
+
 // ==================== Construction Staging + Prestress ====================
 
 use super::output::{AnalysisResults, AnalysisResults3D};

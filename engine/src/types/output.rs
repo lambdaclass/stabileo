@@ -271,3 +271,32 @@ pub struct NodeTimeHistory {
     pub ax: Vec<f64>,
     pub ay: Vec<f64>,
 }
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct TimeHistoryResult3D {
+    pub time_steps: Vec<f64>,
+    pub node_histories: Vec<NodeTimeHistory3D>,
+    pub peak_displacements: Vec<Displacement3D>,
+    pub peak_reactions: Vec<Reaction3D>,
+    pub n_steps: usize,
+    pub method: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct NodeTimeHistory3D {
+    pub node_id: usize,
+    pub ux: Vec<f64>,
+    pub uy: Vec<f64>,
+    pub uz: Vec<f64>,
+    pub rx: Vec<f64>,
+    pub ry: Vec<f64>,
+    pub rz: Vec<f64>,
+    pub vx: Vec<f64>,
+    pub vy: Vec<f64>,
+    pub vz: Vec<f64>,
+    pub ax: Vec<f64>,
+    pub ay: Vec<f64>,
+    pub az: Vec<f64>,
+}

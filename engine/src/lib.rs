@@ -206,6 +206,17 @@ pub fn solve_time_history_2d(json: &str) -> Result<String, JsValue> {
         .map_err(|e| JsValue::from_str(&format!("Serialize error: {}", e)))
 }
 
+/// Solve 3D linear time-history analysis. JSON in → JSON out.
+#[wasm_bindgen]
+pub fn solve_time_history_3d(json: &str) -> Result<String, JsValue> {
+    let input: types::TimeHistoryInput3D = serde_json::from_str(json)
+        .map_err(|e| JsValue::from_str(&format!("Parse error: {}", e)))?;
+    let results = solver::time_integration::solve_time_history_3d(&input)
+        .map_err(|e| JsValue::from_str(&e))?;
+    serde_json::to_string(&results)
+        .map_err(|e| JsValue::from_str(&format!("Serialize error: {}", e)))
+}
+
 // ==================== Staged Construction Analysis ====================
 
 /// Solve 2D staged construction analysis. JSON in → JSON out.
