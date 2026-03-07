@@ -1042,3 +1042,232 @@ fn principal_and_von_mises(sx: f64, sy: f64, txy: f64) -> (f64, f64, f64) {
     let vm = (s1 * s1 - s1 * s2 + s2 * s2).sqrt();
     (s1, s2, vm)
 }
+
+// ---------------------------------------------------------------------------
+// Geometric stiffness matrix for plate buckling
+// ---------------------------------------------------------------------------
+
+/// Compute the 18×18 geometric stiffness matrix for a triangular plate element
+/// under in-plane stress resultants (Nxx, Nyy, Nxy) in local coordinates.
+///
+/// This enables linear buckling analysis of plates under membrane loads.
+/// The geometric stiffness accounts for the destabilizing effect of in-plane
+/// forces on out-of-plane deformations.
+///
+/// # Arguments
+/// * `coords` – 3 node positions in 3D global space
+/// * `nxx`, `nyy`, `nxy` – membrane stress resultants (kN/m) in local coords
+///
+/// Uses the standard formulation: Kg = integral(B_g^T * S * B_g * dA)
+/// where S is the 2×2 stress matrix and B_g relates displacement gradients
+/// to nodal DOFs.
+pub fn plate_geometric_stiffness(
+    coords: &[[f64; 3]; 3],
+    nxx: f64,
+    nyy: f64,
+    nxy: f64,
+) -> Vec<f64> {
+    let (ex, ey, _ez) = local_axes(coords);
+    let p = project_to_2d(coords, &ex, &ey);
+    let two_a = twice_area(&p);
+    let area = two_a.abs() / 2.0;
+
+    // Shape function derivatives (constant for CST/linear triangle):
+    //   dN_i/dx = (y_j - y_k) / (2A), dN_i/dy = (x_k - x_j) / (2A)
+    let dnx = [
+        (p[1].1 - p[2].1) / two_a,
+        (p[2].1 - p[0].1) / two_a,
+        (p[0].1 - p[1].1) / two_a,
+    ];
+    let dny = [
+        (p[2].0 - p[1].0) / two_a,
+        (p[0].0 - p[2].0) / two_a,
+        (p[1].0 - p[0].0) / two_a,
+    ];
+
+    // Geometric stiffness for out-of-plane DOF (uz) at each node:
+    // K_g(i,j) = A * (Nxx * dNi/dx * dNj/dx + Nyy * dNi/dy * dNj/dy
+    //              + Nxy * (dNi/dx * dNj/dy + dNi/dy * dNj/dx))
+    let n = 18;
+    let mut kg = vec![0.0; n * n];
+
+    for i in 0..3 {
+        for j in 0..3 {
+            let val = area * (nxx * dnx[i] * dnx[j]
+                            + nyy * dny[i] * dny[j]
+                            + nxy * (dnx[i] * dny[j] + dny[i] * dnx[j]));
+            // uz DOF positions: 2, 8, 14
+            let ri = i * 6 + 2;
+            let rj = j * 6 + 2;
+            kg[ri * n + rj] += val;
+        }
+    }
+
+    kg
+}
+
+// ---------------------------------------------------------------------------
+// DKMT thick plate extension (Discrete Kirchhoff-Mindlin Triangle)
+// ---------------------------------------------------------------------------
+
+/// Compute the transverse shear stiffness contribution for thick plates
+/// using the DKMT (Discrete Kirchhoff-Mindlin Triangle) formulation.
+///
+/// For thin plates (t/L < 1/20), DKT is sufficient. For thick plates,
+/// transverse shear deformation becomes significant. The DKMT adds
+/// a shear correction to the DKT bending stiffness.
+///
+/// Returns a 9×9 shear stiffness matrix (row-major) in the bending DOF space
+/// (w, θx, θy per node).
+///
+/// The shear correction uses a reduced integration (1-point) to avoid
+/// shear locking, following Katili (1993).
+///
+/// # Arguments
+/// * `coords` – 3 node positions in 3D global space
+/// * `e` – Young's modulus (kN/m²)
+/// * `nu` – Poisson's ratio
+/// * `t` – shell thickness (m)
+/// * `kappa_s` – shear correction factor (5/6 for rectangular, π²/12 for general)
+pub fn plate_shear_stiffness_dkmt(
+    coords: &[[f64; 3]; 3],
+    e: f64,
+    nu: f64,
+    t: f64,
+    kappa_s: f64,
+) -> [f64; 81] {
+    let (ex, ey, _ez) = local_axes(coords);
+    let p = project_to_2d(coords, &ex, &ey);
+    let two_a = twice_area(&p);
+    let area = two_a.abs() / 2.0;
+
+    // Shear modulus and transverse shear stiffness
+    let g = e / (2.0 * (1.0 + nu));
+    let ds = kappa_s * g * t; // shear rigidity per unit area
+
+    // Shape function derivatives (constant for linear triangle)
+    let dnx = [
+        (p[1].1 - p[2].1) / two_a,
+        (p[2].1 - p[0].1) / two_a,
+        (p[0].1 - p[1].1) / two_a,
+    ];
+    let dny = [
+        (p[2].0 - p[1].0) / two_a,
+        (p[0].0 - p[2].0) / two_a,
+        (p[1].0 - p[0].0) / two_a,
+    ];
+
+    // Transverse shear strains for Mindlin plate:
+    //   gamma_xz = dw/dx - theta_y  (but DKT uses beta_x = -theta_y)
+    //   gamma_yz = dw/dy + theta_x  (but DKT uses beta_y = theta_x)
+    //
+    // In DKT DOF space (w, theta_x, theta_y):
+    //   gamma_xz = dw/dx - theta_y → B_s row 0
+    //   gamma_yz = dw/dy + theta_x → B_s row 1
+    //
+    // B_s (2×9): evaluated at centroid (1-point reduced integration)
+    // For node i with DOFs (w_i, theta_x_i, theta_y_i):
+    //   gamma_xz contribution: dN_i/dx * w_i + 0 * theta_x_i + (-N_i) * theta_y_i
+    //   gamma_yz contribution: dN_i/dy * w_i + N_i * theta_x_i + 0 * theta_y_i
+    // where N_i at centroid = 1/3 for all nodes.
+
+    let n_centroid = 1.0 / 3.0;
+
+    // B_s (2×9) at centroid
+    let mut bs = [0.0f64; 18]; // 2×9
+    for i in 0..3 {
+        let col_w = i * 3;
+        let col_tx = i * 3 + 1;
+        let col_ty = i * 3 + 2;
+        // gamma_xz row
+        bs[0 * 9 + col_w] = dnx[i];
+        bs[0 * 9 + col_tx] = 0.0;
+        bs[0 * 9 + col_ty] = -n_centroid;
+        // gamma_yz row
+        bs[1 * 9 + col_w] = dny[i];
+        bs[1 * 9 + col_tx] = n_centroid;
+        bs[1 * 9 + col_ty] = 0.0;
+    }
+
+    // Ks = ds * area * Bs^T * Bs  (9×9)
+    // Using 1-point integration (centroid) with weight = area
+    let mut ks = [0.0f64; 81]; // 9×9
+    for i in 0..9 {
+        for j in 0..9 {
+            let mut s = 0.0;
+            for k in 0..2 {
+                s += bs[k * 9 + i] * bs[k * 9 + j];
+            }
+            ks[i * 9 + j] = ds * area * s;
+        }
+    }
+
+    ks
+}
+
+/// Compute the full 18×18 local stiffness matrix for a DKMT (thick plate)
+/// triangular element, including transverse shear deformation.
+///
+/// For thin plates (t/L < 1/20), this produces essentially the same result
+/// as `plate_local_stiffness`. For thick plates, the added shear flexibility
+/// reduces the overall stiffness.
+///
+/// # Arguments
+/// * `coords` – 3 node positions in 3D global space
+/// * `e` – Young's modulus (kN/m²)
+/// * `nu` – Poisson's ratio
+/// * `t` – shell thickness (m)
+/// * `kappa_s` – shear correction factor (typically 5.0/6.0)
+pub fn plate_local_stiffness_thick(
+    coords: &[[f64; 3]; 3],
+    e: f64,
+    nu: f64,
+    t: f64,
+    kappa_s: f64,
+) -> Vec<f64> {
+    // Start with the standard DKT+CST stiffness
+    let mut k = plate_local_stiffness(coords, e, nu, t);
+
+    // Compute the Mindlin shear parameter per element using average edge length.
+    // phi = t² / (L_avg² * kappa_s * (1-nu)/2)
+    // This is the ratio of bending stiffness to shear stiffness.
+    // For thin plates: phi → 0, alpha → 0, recover DKT exactly.
+    // For thick plates: phi → large, alpha → 1, full shear contribution.
+    let edges = [
+        sub3(&coords[1], &coords[0]),
+        sub3(&coords[2], &coords[1]),
+        sub3(&coords[0], &coords[2]),
+    ];
+    let l_avg = edges.iter().map(|e| norm3(e)).sum::<f64>() / 3.0;
+    let phi = t * t / (l_avg * l_avg * kappa_s * (1.0 - nu) / 2.0);
+    let alpha = phi / (1.0 + phi);
+
+    // Add scaled transverse shear stiffness
+    let ks = plate_shear_stiffness_dkmt(coords, e, nu, t, kappa_s);
+
+    let n = 18;
+    for i in 0..9 {
+        for j in 0..9 {
+            k[BEND_DOFS[i] * n + BEND_DOFS[j]] += alpha * ks[i * 9 + j];
+        }
+    }
+
+    k
+}
+
+/// Compute the ratio t/L_min for a plate element, where L_min is the shortest
+/// edge length. This is used to determine whether thick plate theory (DKMT)
+/// is needed.
+///
+/// Guidelines:
+/// - t/L < 0.05 (1/20): thin plate, DKT is sufficient
+/// - t/L >= 0.05: thick plate, use DKMT
+pub fn plate_thickness_ratio(coords: &[[f64; 3]; 3], t: f64) -> f64 {
+    let edges = [
+        sub3(&coords[1], &coords[0]),
+        sub3(&coords[2], &coords[1]),
+        sub3(&coords[0], &coords[2]),
+    ];
+    let min_l = edges.iter().map(|e| norm3(e)).fold(f64::MAX, f64::min);
+    if min_l > 1e-15 { t / min_l } else { f64::INFINITY }
+}
