@@ -1,90 +1,260 @@
-/// Validation: Plastic Analysis Formulas (Pure Formula Verification)
+/// Validation: Plastic Analysis Methods (Pure Formula Verification)
 ///
 /// References:
 ///   - Neal, "The Plastic Methods of Structural Analysis", 3rd Ed.
 ///   - Horne, "Plastic Theory of Structures", 2nd Ed.
 ///   - Baker & Heyman, "Plastic Design of Frames"
-///   - Bruneau, Uang, Sabelli: "Ductile Design of Steel Structures", 2nd Ed.
+///   - Bruneau, Uang, Sabelli, "Ductile Design of Steel Structures", 2nd Ed.
+///   - EN 1992-1-1 (Eurocode 2), ACI 318-19
 ///
 /// Tests verify plastic analysis formulas without calling the solver.
-///   1. Plastic moment: Mp = fy * Zx
-///   2. Shape factor: f = Zx/Sx for various sections
-///   3. Fixed beam collapse load: w_p = 16Mp/L^2
-///   4. Propped cantilever collapse: P_p = 6*Mp/L (load at midspan)
-///   5. Portal frame beam mechanism collapse load
-///   6. Combined mechanism: beam + sway for portal frame
-///   7. Upper bound theorem: virtual work method
-///   8. Reduced plastic moment with axial load: Mpr = Mp(1-(N/Np)^2)
+///   1. Plastic moment capacity (Z_p * f_y) for various sections
+///   2. Upper bound theorem (mechanism method) for beam
+///   3. Lower bound theorem (equilibrium method) for beam
+///   4. Shape factor for common sections (rectangle, circle, I-section)
+///   5. Plastic hinge formation sequence in propped cantilever
+///   6. Collapse load factor for fixed beam under UDL
+///   7. Moment redistribution limits (EC2 and ACI provisions)
+///   8. Portal frame plastic collapse (beam, sway, combined mechanisms)
 
 mod helpers;
+use helpers::*;
 
 use std::f64::consts::PI;
 
 // ================================================================
-// 1. Plastic Moment: Mp = fy * Zx
+// 1. Plastic Moment Capacity: Mp = fy * Zp
 // ================================================================
 //
-// The plastic moment capacity is the product of yield stress and
-// the plastic section modulus.
+// The plastic moment capacity is the yield stress times the plastic
+// section modulus Zp. For different cross-sections:
 //
-// For a rectangular section b x h:
-//   Zx = b * h^2 / 4
-//   Mp = fy * Zx
+// Rectangular (b x h):         Zp = b*h^2/4
+// Circular (diameter d):       Zp = d^3/6
+// Hollow circular (D, d):      Zp = (D^3 - d^3)/6
 //
-// Reference: Neal, Ch. 2
+// Reference: Neal, Ch. 2; AISC Steel Construction Manual
 
 #[test]
 fn validation_plastic_moment_capacity() {
-    let fy: f64 = 250.0; // MPa
+    let fy: f64 = 250.0; // MPa (mild steel)
 
     // Rectangular section: 150 mm x 300 mm
     let b: f64 = 150.0;
     let h: f64 = 300.0;
-    let zx_rect: f64 = b * h * h / 4.0;
-    let zx_rect_expected: f64 = 3_375_000.0; // mm^3
+    let zp_rect: f64 = b * h * h / 4.0_f64;
+    let zp_rect_expected: f64 = 3_375_000.0; // mm^3
     assert!(
-        (zx_rect - zx_rect_expected).abs() / zx_rect_expected < 1e-10,
-        "Rectangular Zx: computed={:.0}, expected={:.0}",
-        zx_rect, zx_rect_expected
+        (zp_rect - zp_rect_expected).abs() < 1e-6_f64,
+        "Rectangular Zp: {:.0} mm^3, expected {:.0}",
+        zp_rect, zp_rect_expected
     );
 
-    let mp_rect: f64 = fy * zx_rect; // N*mm
-    let mp_rect_kn_m: f64 = mp_rect / 1e6; // kN*m
-    let mp_rect_expected: f64 = 843.75; // kN*m
+    let mp_rect: f64 = fy * zp_rect / 1e6_f64; // kN*m
+    let mp_rect_expected: f64 = 843.75;
     assert!(
-        (mp_rect_kn_m - mp_rect_expected).abs() / mp_rect_expected < 1e-10,
-        "Rectangular Mp: computed={:.2} kN*m, expected={:.2} kN*m",
-        mp_rect_kn_m, mp_rect_expected
+        (mp_rect - mp_rect_expected).abs() / mp_rect_expected < 1e-10_f64,
+        "Rectangular Mp: {:.2} kN*m, expected {:.2}",
+        mp_rect, mp_rect_expected
     );
 
     // Circular section: diameter 200 mm
-    let d: f64 = 200.0;
-    let zx_circ: f64 = d * d * d / 6.0;
-    let zx_circ_expected: f64 = 8_000_000.0 / 6.0; // mm^3
+    let d_circ: f64 = 200.0;
+    let zp_circ: f64 = d_circ.powi(3) / 6.0_f64;
+    let mp_circ: f64 = fy * zp_circ / 1e6_f64;
+    let mp_circ_expected: f64 = fy * 200.0_f64.powi(3) / 6.0_f64 / 1e6_f64;
     assert!(
-        (zx_circ - zx_circ_expected).abs() / zx_circ_expected < 1e-6,
-        "Circular Zx: computed={:.1}, expected={:.1}",
-        zx_circ, zx_circ_expected
+        (mp_circ - mp_circ_expected).abs() / mp_circ_expected < 1e-10_f64,
+        "Circular Mp: {:.4} kN*m",
+        mp_circ
     );
 
-    let mp_circ_kn_m: f64 = fy * zx_circ / 1e6;
-    let mp_circ_expected: f64 = 250.0 * 8_000_000.0 / 6.0 / 1e6;
+    // Hollow circular: D=200 mm, d=160 mm
+    let d_outer: f64 = 200.0;
+    let d_inner: f64 = 160.0;
+    let zp_hollow: f64 = (d_outer.powi(3) - d_inner.powi(3)) / 6.0_f64;
+    let mp_hollow: f64 = fy * zp_hollow / 1e6_f64;
+    // Hollow should have less capacity than solid
     assert!(
-        (mp_circ_kn_m - mp_circ_expected).abs() / mp_circ_expected < 1e-6,
-        "Circular Mp: computed={:.3} kN*m, expected={:.3} kN*m",
-        mp_circ_kn_m, mp_circ_expected
+        mp_hollow < mp_circ,
+        "Hollow Mp ({:.4}) < Solid Mp ({:.4})",
+        mp_hollow, mp_circ
+    );
+    // But more than zero
+    assert!(mp_hollow > 0.0_f64, "Hollow Mp must be positive");
+}
+
+// ================================================================
+// 2. Upper Bound Theorem (Mechanism Method)
+// ================================================================
+//
+// The upper bound theorem states: any kinematically admissible
+// collapse mechanism gives a load factor >= the true collapse
+// load factor.
+//
+// For a simply supported beam with central point load:
+//   True collapse: P_p = 4*Mp/L
+//
+// A non-optimal mechanism (hinge at L/3) gives P_upper > P_true.
+//
+// Reference: Neal, Ch. 5; Horne, Ch. 3
+
+#[test]
+fn validation_plastic_upper_bound_theorem() {
+    let mp: f64 = 600.0; // kN*m
+    let l: f64 = 10.0;   // m
+
+    // True collapse: hinge at midspan under load
+    // Virtual work: P * delta = Mp * (2*theta_left + 2*theta_right)
+    // For midspan: delta = theta * L/2, so P * theta * L/2 = Mp * 2*theta
+    // P_true = 4*Mp/L
+    let p_true: f64 = 4.0_f64 * mp / l;
+    let p_true_expected: f64 = 240.0;
+    assert!(
+        (p_true - p_true_expected).abs() < 1e-10_f64,
+        "P_true: {:.2} kN, expected {:.2}",
+        p_true, p_true_expected
+    );
+
+    // Non-optimal mechanism: hinge at L/3 instead of under load at L/2
+    // If load is at L/2 but hinge forms at L/3:
+    //   Left rotation alpha at L/3, right rotation beta
+    //   Compatibility: alpha * L/3 = beta * 2L/3 => alpha = 2*beta
+    //   Load displacement: delta_P = beta * L/2 (from the right segment)
+    //   ... Actually, properly:
+    //   Hinge at x = L/3. Beam rotates: left segment angle = alpha, right segment angle = beta
+    //   alpha * (L/3) = beta * (2L/3) => alpha = 2*beta
+    //   Displacement at load (L/2): delta_load = alpha * L/3 ... wait, L/2 > L/3, so:
+    //   delta_load = beta * (2L/3 - (2L/3 - L/2)) = ... let's do it properly.
+    //
+    //   With hinge at L/3: left part rotates by alpha, right part by beta (opposite sense).
+    //   At hinge: alpha * L/3 = beta * 2L/3 => alpha = 2*beta
+    //   Deflection at P (at L/2, which is in the right part):
+    //     delta_P = beta * (L - L/2) = beta * L/2 (measuring from right support)
+    //   Wait: the right part spans from L/3 to L. Point at L/2 is at distance (L/2 - L/3) = L/6 from hinge.
+    //   delta_P = beta * (L/6) ... no. Let me think again.
+    //
+    //   Actually from the right support: the right segment goes from x=L/3 to x=L (length 2L/3).
+    //   The right support is at x=L. The displacement at any point x in the right segment is:
+    //     w(x) = beta * (L - x) for x in [L/3, L]
+    //   At x = L/2: delta_P = beta * (L - L/2) = beta * L/2
+    //
+    //   Internal work: Mp * (alpha + beta) = Mp * (2*beta + beta) = 3*Mp*beta
+    //   External work: P * delta_P = P * beta * L/2
+    //   Equating: P_upper = 3*Mp*beta / (beta*L/2) = 6*Mp/L
+
+    let p_upper_l3: f64 = 6.0_f64 * mp / l;
+    let p_upper_expected: f64 = 360.0;
+    assert!(
+        (p_upper_l3 - p_upper_expected).abs() < 1e-10_f64,
+        "P_upper (hinge at L/3): {:.2} kN, expected {:.2}",
+        p_upper_l3, p_upper_expected
+    );
+
+    // Upper bound must be >= true collapse
+    assert!(
+        p_upper_l3 >= p_true,
+        "Upper bound ({:.2}) >= true ({:.2})",
+        p_upper_l3, p_true
+    );
+
+    // Optimal mechanism (hinge at L/2) recovers exact
+    let p_upper_mid: f64 = 4.0_f64 * mp / l;
+    assert!(
+        (p_upper_mid - p_true).abs() < 1e-10_f64,
+        "Optimal upper bound = true: {:.2} = {:.2}",
+        p_upper_mid, p_true
     );
 }
 
 // ================================================================
-// 2. Shape Factor: f = Zx / Sx for Various Sections
+// 3. Lower Bound Theorem (Equilibrium Method)
 // ================================================================
 //
-// The shape factor is the ratio of plastic to elastic section modulus.
+// The lower bound theorem states: any statically admissible stress
+// distribution that nowhere exceeds Mp gives a load factor <= the
+// true collapse load factor.
 //
-// Rectangular:  f = 1.5   (Zx = bh^2/4, Sx = bh^2/6)
-// Circular:     f = 16/(3*pi) ~ 1.698
-// I-section:    f ~ 1.12 to 1.18 (depends on proportions)
+// For a fixed-fixed beam with central load P:
+//   Elastic moment at supports: M_sup = PL/8
+//   Elastic moment at midspan: M_mid = PL/8
+//
+//   If we limit moment to Mp everywhere:
+//     PL/8 <= Mp => P <= 8*Mp/L (elastic limit, lower bound)
+//     True collapse: P_p = 8*Mp/L (hinges at both ends and midspan)
+//     ... wait, that's a degenerate case.
+//
+// Better example: propped cantilever with central load
+//   Elastic: M_fixed = 3PL/16, M_midspan = 5PL/32
+//   Lower bound: max(3PL/16, 5PL/32) <= Mp
+//     3P*L/16 <= Mp => P <= 16*Mp/(3L)  (lower bound from support)
+//     True collapse: P_p = 6*Mp/L
+//
+// Reference: Neal, Ch. 5; Baker & Heyman, Ch. 2
+
+#[test]
+fn validation_plastic_lower_bound_theorem() {
+    let mp: f64 = 400.0; // kN*m
+    let l: f64 = 6.0;    // m
+
+    // Propped cantilever with P at midspan
+    // Elastic moments:
+    //   M_fixed_end = 3*P*L/16  (at fixed support)
+    //   M_midspan   = 5*P*L/32  (at load point)
+
+    // Lower bound from fixed end: 3*P*L/16 <= Mp
+    // => P_lower_1 = 16*Mp/(3*L)
+    let p_lower_1: f64 = 16.0_f64 * mp / (3.0_f64 * l);
+    // = 16*400/18 = 355.56 kN
+
+    // Lower bound from midspan: 5*P*L/32 <= Mp
+    // => P_lower_2 = 32*Mp/(5*L)
+    let p_lower_2: f64 = 32.0_f64 * mp / (5.0_f64 * l);
+    // = 32*400/30 = 426.67 kN
+
+    // The governing lower bound is the smaller value
+    let p_lower = p_lower_1.min(p_lower_2);
+    assert!(
+        (p_lower - p_lower_1).abs() < 1e-10_f64,
+        "Fixed end governs: P_lower = {:.2} kN",
+        p_lower
+    );
+
+    // True collapse load (from mechanism method)
+    let p_true: f64 = 6.0_f64 * mp / l;
+    let p_true_expected: f64 = 400.0;
+    assert!(
+        (p_true - p_true_expected).abs() < 1e-10_f64,
+        "P_true: {:.2} kN",
+        p_true
+    );
+
+    // Lower bound must be <= true collapse
+    assert!(
+        p_lower <= p_true,
+        "Lower bound ({:.2}) <= true ({:.2})",
+        p_lower, p_true
+    );
+
+    // Verify ratio: the gap between lower and upper bounds
+    let ratio = p_lower / p_true;
+    assert!(
+        ratio > 0.5_f64 && ratio <= 1.0_f64,
+        "Lower/true ratio: {:.4} should be between 0.5 and 1.0",
+        ratio
+    );
+}
+
+// ================================================================
+// 4. Shape Factor for Common Sections
+// ================================================================
+//
+// The shape factor f = Zp/Se relates plastic to elastic section modulus.
+//
+// Rectangular: f = 1.5    (Zp = bh^2/4, Se = bh^2/6)
+// Circular:    f = 16/(3*pi) ~ 1.698
+// Diamond:     f = 2.0
+// I-section:   f ~ 1.12-1.18 (typical for standard I-beams)
 //
 // Reference: Neal, Ch. 2, Table 2.1
 
@@ -93,388 +263,373 @@ fn validation_plastic_shape_factors() {
     // Rectangular section
     let b: f64 = 100.0;
     let h: f64 = 200.0;
-    let zx_rect: f64 = b * h * h / 4.0;
-    let sx_rect: f64 = b * h * h / 6.0;
-    let f_rect: f64 = zx_rect / sx_rect;
+    let zp_rect: f64 = b * h * h / 4.0_f64;
+    let se_rect: f64 = b * h * h / 6.0_f64;
+    let f_rect: f64 = zp_rect / se_rect;
     assert!(
-        (f_rect - 1.5).abs() < 1e-10,
-        "Rectangular shape factor: computed={:.4}, expected=1.5",
+        (f_rect - 1.5_f64).abs() < 1e-12_f64,
+        "Rectangular shape factor: {:.6}, expected 1.5",
         f_rect
     );
 
     // Circular section (solid)
     let d: f64 = 150.0;
-    let zx_circ: f64 = d * d * d / 6.0;
-    let sx_circ: f64 = PI * d * d * d / 32.0;
-    let f_circ: f64 = zx_circ / sx_circ;
-    let f_circ_expected: f64 = 16.0 / (3.0 * PI);
+    let zp_circ: f64 = d.powi(3) / 6.0_f64;
+    let se_circ: f64 = PI * d.powi(3) / 32.0_f64;
+    let f_circ: f64 = zp_circ / se_circ;
+    let f_circ_expected: f64 = 16.0_f64 / (3.0_f64 * PI);
     assert!(
-        (f_circ - f_circ_expected).abs() / f_circ_expected < 1e-6,
-        "Circular shape factor: computed={:.4}, expected={:.4}",
+        (f_circ - f_circ_expected).abs() / f_circ_expected < 1e-10_f64,
+        "Circular shape factor: {:.6}, expected {:.6}",
         f_circ, f_circ_expected
     );
+    // Should be approximately 1.698
+    assert!(
+        (f_circ - 1.698_f64).abs() < 0.001_f64,
+        "Circular f ~ 1.698: got {:.4}",
+        f_circ
+    );
 
-    // I-section approximation:
-    // bf=200, tf=15, d=300, tw=10
+    // Diamond (rhombus): b x h oriented as diamond
+    // Se = bh^2/12 (for diamond loaded along diagonal)
+    // Zp = bh^2/6
+    // Shape factor = 2.0
+    let f_diamond: f64 = 2.0_f64;
+    // Verify: for a diamond section with diagonal lengths d1 and d2:
+    // I = d1 * d2^3 / 48 (about horizontal axis through center)
+    // Se = I / (d2/2) = d1 * d2^2 / 24
+    // Zp = d1 * d2^2 / 12
+    // f = Zp/Se = (d1*d2^2/12) / (d1*d2^2/24) = 2.0
+    let d1: f64 = 100.0;
+    let d2: f64 = 200.0;
+    let se_diamond: f64 = d1 * d2 * d2 / 24.0_f64;
+    let zp_diamond: f64 = d1 * d2 * d2 / 12.0_f64;
+    let f_diamond_calc: f64 = zp_diamond / se_diamond;
+    assert!(
+        (f_diamond_calc - f_diamond).abs() < 1e-12_f64,
+        "Diamond shape factor: {:.6}, expected 2.0",
+        f_diamond_calc
+    );
+
+    // I-section: bf=200, tf=15, d=300, tw=10
     let bf: f64 = 200.0;
     let tf: f64 = 15.0;
     let d_total: f64 = 300.0;
     let tw: f64 = 10.0;
+    let hw: f64 = d_total - 2.0_f64 * tf;
 
-    // Elastic section modulus via moment of inertia
-    let i_flanges: f64 = 2.0 * (bf * tf * tf * tf / 12.0
-        + bf * tf * ((d_total - tf) / 2.0).powi(2));
-    let hw: f64 = d_total - 2.0 * tf;
-    let i_web: f64 = tw * hw * hw * hw / 12.0;
+    let i_flanges: f64 = 2.0_f64 * (bf * tf.powi(3) / 12.0_f64
+        + bf * tf * ((d_total - tf) / 2.0_f64).powi(2));
+    let i_web: f64 = tw * hw.powi(3) / 12.0_f64;
     let i_total: f64 = i_flanges + i_web;
-    let sx_i: f64 = i_total / (d_total / 2.0);
+    let se_i: f64 = i_total / (d_total / 2.0_f64);
 
-    // Plastic section modulus
-    let zx_i: f64 = bf * tf * (d_total - tf) + tw * hw * hw / 4.0;
-
-    let f_i: f64 = zx_i / sx_i;
+    let zp_i: f64 = bf * tf * (d_total - tf) + tw * hw * hw / 4.0_f64;
+    let f_i: f64 = zp_i / se_i;
     assert!(
-        f_i > 1.10 && f_i < 1.25,
-        "I-section shape factor: computed={:.4}, expected ~1.12-1.18",
+        f_i > 1.10_f64 && f_i < 1.25_f64,
+        "I-section shape factor: {:.4}, expected 1.12-1.18",
         f_i
     );
 }
 
 // ================================================================
-// 3. Fixed Beam Collapse Load: w_p = 16Mp / L^2
+// 5. Plastic Hinge Formation Sequence in Propped Cantilever
 // ================================================================
 //
-// A fixed-fixed beam under UDL collapses when plastic hinges
-// form at both fixed ends and at midspan (3 hinges -> mechanism).
+// A propped cantilever (fixed at A, roller at B) under UDL:
+//   - First hinge forms at the fixed end (elastic M_max = wL^2/8)
+//   - Second hinge forms in the span, creating a mechanism
 //
-// Virtual work: w_p * L^2 / 4 = 4 * Mp  =>  w_p = 16*Mp/L^2
+// The first yield load: w_y = 8*Mp/L^2 (elastic moment at support = Mp)
+// The collapse load:    w_p = (6+4*sqrt(2))*Mp/L^2 ~ 11.657*Mp/L^2
+//
+// The hinge in the span forms at x = L*(sqrt(2)-1) from the roller end.
 //
 // Reference: Neal, Ch. 4; Horne, Ch. 3
 
 #[test]
-fn validation_plastic_fixed_beam_collapse_load() {
+fn validation_plastic_hinge_formation_sequence() {
     let mp: f64 = 500.0; // kN*m
     let l: f64 = 8.0;    // m
 
-    // Collapse load for fixed beam under UDL
-    let w_p: f64 = 16.0 * mp / (l * l);
-    let w_p_expected: f64 = 125.0; // kN/m
+    // First yield: elastic moment at fixed end = wL^2/8
+    // wL^2/8 = Mp => w_y = 8*Mp/L^2
+    let w_first_yield: f64 = 8.0_f64 * mp / (l * l);
+    let w_fy_expected: f64 = 62.5; // kN/m
     assert!(
-        (w_p - w_p_expected).abs() / w_p_expected < 1e-10,
-        "Fixed beam collapse load: computed={:.2}, expected={:.2}",
-        w_p, w_p_expected
+        (w_first_yield - w_fy_expected).abs() / w_fy_expected < 1e-10_f64,
+        "First yield load: {:.2} kN/m, expected {:.2}",
+        w_first_yield, w_fy_expected
     );
 
-    // Compare with elastic maximum moment: M_max = wL^2/12 (at supports)
-    // At collapse: w_fy * L^2/12 = Mp => w_first_yield = 12*Mp/L^2
-    let w_fy: f64 = 12.0 * mp / (l * l);
-    let w_fy_expected: f64 = 93.75; // kN/m
+    // Collapse load: w_p = (6 + 4*sqrt(2)) * Mp / L^2
+    let coeff: f64 = 6.0_f64 + 4.0_f64 * 2.0_f64.sqrt();
+    let w_collapse: f64 = coeff * mp / (l * l);
+    // coeff ~ 11.657
     assert!(
-        (w_fy - w_fy_expected).abs() / w_fy_expected < 1e-10,
-        "First yield load: computed={:.2}, expected={:.2}",
-        w_fy, w_fy_expected
+        (coeff - 11.6569_f64).abs() < 0.001_f64,
+        "Collapse coefficient: {:.4}, expected ~11.657",
+        coeff
     );
 
-    // Ratio of collapse to first yield = 16/12 = 4/3
-    let ratio: f64 = w_p / w_fy;
-    let ratio_expected: f64 = 16.0 / 12.0;
+    // Location of span hinge: x_h = L*(sqrt(2)-1) from roller end
+    // (or equivalently, x = L*(2 - sqrt(2)) from fixed end)
+    let x_hinge_from_roller: f64 = l * (2.0_f64.sqrt() - 1.0_f64);
+    let x_hinge_from_fixed: f64 = l - x_hinge_from_roller;
+
+    // x_hinge_from_fixed = L*(2-sqrt(2)) ≈ 0.5858*L, so between L/2 and 2L/3
     assert!(
-        (ratio - ratio_expected).abs() / ratio_expected < 1e-10,
-        "Collapse/yield ratio: computed={:.4}, expected={:.4}",
-        ratio, ratio_expected
+        x_hinge_from_fixed > l / 2.0_f64 && x_hinge_from_fixed < 2.0_f64 * l / 3.0_f64,
+        "Span hinge at {:.4} m from fixed end, should be in ({:.2}, {:.2})",
+        x_hinge_from_fixed, l / 2.0_f64, 2.0_f64 * l / 3.0_f64
+    );
+
+    // Redistribution ratio: w_collapse / w_first_yield
+    let redistribution_ratio: f64 = w_collapse / w_first_yield;
+    let ratio_expected: f64 = coeff / 8.0_f64;
+    assert!(
+        (redistribution_ratio - ratio_expected).abs() / ratio_expected < 1e-10_f64,
+        "Redistribution ratio: {:.4}, expected {:.4}",
+        redistribution_ratio, ratio_expected
+    );
+    // Should be about 1.457
+    assert!(
+        (redistribution_ratio - 1.457_f64).abs() < 0.01_f64,
+        "Ratio ~ 1.457: got {:.4}",
+        redistribution_ratio
     );
 }
 
 // ================================================================
-// 4. Propped Cantilever Collapse: P_p at Midspan
+// 6. Collapse Load Factor for Fixed Beam Under UDL
 // ================================================================
 //
-// A propped cantilever (fixed at A, roller at B) with a point load
-// P at midspan. Hinges form at fixed end and under the load.
+// A fixed-fixed beam under UDL collapses when 3 hinges form:
+//   both ends + midspan.
 //
 // Virtual work:
-//   Internal work = Mp * 2*delta/L + Mp * 4*delta/L = 6*Mp*delta/L
-//   External work = P * delta
-//   P_p = 6*Mp/L
+//   External: w_p * L * (L/4) * theta = w_p * L^2 * theta / 4
+//   Internal: 2*Mp*theta + 2*Mp*theta = 4*Mp*theta (2 end hinges + midspan)
 //
-// For UDL: w_p = (6 + 4*sqrt(2)) * Mp / L^2  (exact)
+// Wait: correct derivation:
+//   Each end hinge rotates by theta. Midspan hinge rotates by 2*theta.
+//   Internal work = Mp*theta + Mp*theta + Mp*2*theta = 4*Mp*theta
+//   Actually: each end rotates theta, midspan also has theta from left and theta from right
+//   Internal work = Mp*theta (left end) + Mp*theta (right end) + Mp*2*theta (midspan) = 4*Mp*theta
+//   External work = w_p * integral of deflection = w_p * L * (L/4*theta)/2 * 2 = w_p * L^2 * theta / 4
+//
+// w_p = 16*Mp/L^2
 //
 // Reference: Neal, Ch. 4; Horne, Ch. 3
 
 #[test]
-fn validation_plastic_propped_cantilever_collapse() {
-    let mp: f64 = 400.0; // kN*m
+fn validation_plastic_collapse_load_factor() {
+    let mp: f64 = 300.0; // kN*m
     let l: f64 = 6.0;    // m
 
-    // Collapse load with P at midspan
-    let p_p_midspan: f64 = 6.0 * mp / l;
-    let p_p_midspan_expected: f64 = 400.0; // kN
+    // Fixed beam under UDL
+    let w_collapse: f64 = 16.0_f64 * mp / (l * l);
+    // = 16*300/36 = 133.33 kN/m
+    let w_collapse_expected: f64 = 16.0_f64 * 300.0_f64 / 36.0_f64;
     assert!(
-        (p_p_midspan - p_p_midspan_expected).abs() / p_p_midspan_expected < 1e-10,
-        "Propped cantilever P_p (midspan): computed={:.2}, expected={:.2}",
-        p_p_midspan, p_p_midspan_expected
+        (w_collapse - w_collapse_expected).abs() < 1e-10_f64,
+        "w_collapse: {:.4} kN/m",
+        w_collapse
     );
 
-    // For UDL on propped cantilever:
-    //   w_p = (6 + 4*sqrt(2)) * Mp / L^2
-    let coeff: f64 = 6.0 + 4.0 * 2.0_f64.sqrt();
-    let w_p_udl: f64 = coeff * mp / (l * l);
-    let w_p_udl_expected: f64 = coeff * 400.0 / 36.0;
+    // Elastic maximum moment (at supports): w*L^2/12
+    // First yield: w_y * L^2/12 = Mp => w_y = 12*Mp/L^2
+    let w_first_yield: f64 = 12.0_f64 * mp / (l * l);
+
+    // Load factor = w_collapse / w_first_yield = 16/12 = 4/3
+    let load_factor: f64 = w_collapse / w_first_yield;
+    let lf_expected: f64 = 4.0_f64 / 3.0_f64;
     assert!(
-        (w_p_udl - w_p_udl_expected).abs() / w_p_udl_expected < 1e-10,
-        "Propped cantilever w_p (UDL): computed={:.4}, expected={:.4}",
-        w_p_udl, w_p_udl_expected
+        (load_factor - lf_expected).abs() / lf_expected < 1e-10_f64,
+        "Load factor: {:.6}, expected {:.6}",
+        load_factor, lf_expected
     );
 
-    // Verify coefficient value ~ 11.657
+    // Fixed beam with central point load: P_p = 8*Mp/L
+    let p_collapse: f64 = 8.0_f64 * mp / l;
+    let p_collapse_expected: f64 = 400.0;
     assert!(
-        (coeff - 11.6569).abs() < 0.001,
-        "UDL coefficient: computed={:.4}, expected ~11.657",
-        coeff
+        (p_collapse - p_collapse_expected).abs() < 1e-10_f64,
+        "P_collapse (fixed beam): {:.2} kN, expected {:.2}",
+        p_collapse, p_collapse_expected
+    );
+
+    // Compare with SS beam: P_p_ss = 4*Mp/L
+    let p_ss: f64 = 4.0_f64 * mp / l;
+    // Fixed beam carries twice the SS beam collapse load
+    assert!(
+        (p_collapse / p_ss - 2.0_f64).abs() < 1e-10_f64,
+        "Fixed/SS ratio: {:.4}, expected 2.0",
+        p_collapse / p_ss
     );
 }
 
 // ================================================================
-// 5. Portal Frame Beam Mechanism Collapse Load
+// 7. Moment Redistribution Limits (EC2 and ACI)
 // ================================================================
 //
-// For a portal frame with fixed bases, span L, height h:
+// Both Eurocode 2 (EN 1992-1-1) and ACI 318 limit the amount of
+// moment redistribution allowed in continuous beams.
 //
-// Beam mechanism under UDL: w_p = 16*Mp / L^2
-// Sway mechanism under H:   H_p = 4 * Mp / h
-// Beam mechanism under P at midspan: P_p = 8*Mp/L
+// EC2 (cl. 5.5):
+//   delta >= 0.44 + 1.25*(xu/d) for Class A/B reinforcement
+//   where delta = redistributed moment / elastic moment
+//   Typical limit: 20-30% redistribution (delta >= 0.7-0.8)
+//
+// ACI 318-19 (8.4.1):
+//   Max redistribution = 1000 * epsilon_t percent
+//   where epsilon_t >= 0.0075 for redistribution (i.e., max ~7.5%)
+//   But effectively limited to about 20%
+//
+// Reference: EN 1992-1-1:2004 cl. 5.5; ACI 318-19 cl. 8.4
+
+#[test]
+fn validation_plastic_moment_redistribution_limits() {
+    // EC2 redistribution limit
+    // delta = redistributed_moment / elastic_moment
+    // Must have delta >= k1 + k2*(xu/d)
+    // For Class B/C reinforcement and fck <= 50 MPa:
+    //   k1 = 0.44, k2 = 1.25
+    let k1_ec2: f64 = 0.44;
+    let k2_ec2: f64 = 1.25;
+
+    // Example: xu/d = 0.25 (typical)
+    let xu_d: f64 = 0.25;
+    let delta_min_ec2: f64 = k1_ec2 + k2_ec2 * xu_d;
+    // = 0.44 + 1.25*0.25 = 0.44 + 0.3125 = 0.7525
+    let delta_min_expected: f64 = 0.7525;
+    assert!(
+        (delta_min_ec2 - delta_min_expected).abs() < 1e-10_f64,
+        "EC2 delta_min: {:.4}, expected {:.4}",
+        delta_min_ec2, delta_min_expected
+    );
+
+    // Maximum redistribution percentage
+    let max_redist_ec2: f64 = (1.0_f64 - delta_min_ec2) * 100.0_f64;
+    // = (1 - 0.7525)*100 = 24.75%
+    let max_redist_expected: f64 = 24.75;
+    assert!(
+        (max_redist_ec2 - max_redist_expected).abs() < 1e-10_f64,
+        "EC2 max redistribution: {:.2}%, expected {:.2}%",
+        max_redist_ec2, max_redist_expected
+    );
+
+    // ACI 318-19 redistribution limit
+    // Max redistribution = 1000 * epsilon_t percent
+    // where epsilon_t is net tensile strain
+    let epsilon_t: f64 = 0.0075; // minimum for redistribution
+    let max_redist_aci: f64 = 1000.0_f64 * epsilon_t;
+    // = 7.5%
+    assert!(
+        (max_redist_aci - 7.5_f64).abs() < 1e-10_f64,
+        "ACI min redistribution: {:.1}%",
+        max_redist_aci
+    );
+
+    // With a typical epsilon_t = 0.02 (tension-controlled)
+    let epsilon_t_typical: f64 = 0.02;
+    let redist_aci_typical: f64 = 1000.0_f64 * epsilon_t_typical;
+    // = 20%
+    assert!(
+        (redist_aci_typical - 20.0_f64).abs() < 1e-10_f64,
+        "ACI typical redistribution: {:.1}%",
+        redist_aci_typical
+    );
+
+    // EC2 allows more redistribution than ACI for typical sections
+    assert!(
+        max_redist_ec2 > max_redist_aci,
+        "EC2 ({:.2}%) > ACI ({:.1}%) for typical xu/d",
+        max_redist_ec2, max_redist_aci
+    );
+}
+
+// ================================================================
+// 8. Portal Frame Plastic Collapse
+// ================================================================
+//
+// Fixed-base portal frame with span L, height h, Mp same for all.
+//
+// Three possible mechanisms:
+//   (a) Beam mechanism: w_p = 16*Mp/L^2 (or P_p = 8*Mp/L for point load)
+//   (b) Sway mechanism: H_p = 4*Mp/h
+//   (c) Combined (beam+sway): lambda from virtual work
+//
+// The governing mechanism gives the lowest collapse load factor.
 //
 // Reference: Horne, "Plastic Theory of Structures", Ch. 5
 
 #[test]
-fn validation_plastic_portal_beam_mechanism() {
-    let mp: f64 = 300.0; // kN*m
-    let l: f64 = 10.0;   // m, beam span
-    let h: f64 = 4.0;    // m, column height
+fn validation_plastic_portal_frame_collapse() {
+    let mp: f64 = 200.0; // kN*m (all members)
+    let l: f64 = 8.0;    // m (beam span)
+    let h: f64 = 4.0;    // m (column height)
+    let w: f64 = 20.0;   // kN/m (vertical UDL on beam, reference)
+    let h_force: f64 = 50.0; // kN (horizontal at beam level, reference)
 
-    // Beam mechanism under UDL
-    let w_beam: f64 = 16.0 * mp / (l * l);
-    let w_beam_expected: f64 = 48.0; // kN/m
-    assert!(
-        (w_beam - w_beam_expected).abs() / w_beam_expected < 1e-10,
-        "Beam mechanism w_p: computed={:.2}, expected={:.2}",
-        w_beam, w_beam_expected
-    );
-
-    // Sway mechanism under horizontal load H at beam level
-    let h_sway: f64 = 4.0 * mp / h;
-    let h_sway_expected: f64 = 300.0; // kN
-    assert!(
-        (h_sway - h_sway_expected).abs() / h_sway_expected < 1e-10,
-        "Sway mechanism H_p: computed={:.2}, expected={:.2}",
-        h_sway, h_sway_expected
-    );
-
-    // Beam mechanism under concentrated load P at midspan
-    let p_beam: f64 = 8.0 * mp / l;
-    let p_beam_expected: f64 = 240.0; // kN
-    assert!(
-        (p_beam - p_beam_expected).abs() / p_beam_expected < 1e-10,
-        "Beam mechanism P_p: computed={:.2}, expected={:.2}",
-        p_beam, p_beam_expected
-    );
-}
-
-// ================================================================
-// 6. Combined Mechanism: Beam + Sway for Portal Frame
-// ================================================================
-//
-// When both vertical and horizontal loads act on a portal frame,
-// the combined mechanism (beam + sway) may govern.
-//
-// Combined mechanism:
-//   Internal work = 6*Mp*theta
-//   External work = lambda * (w*L^2/4 + H*h) * theta
-//   lambda_combined = 6*Mp / (w*L^2/4 + H*h)
-//
-// Reference: Baker & Heyman, Ch. 5
-
-#[test]
-fn validation_plastic_combined_mechanism() {
-    let mp: f64 = 200.0; // kN*m (same for all members)
-    let l: f64 = 8.0;    // m, beam span
-    let h: f64 = 4.0;    // m, column height
-    let w: f64 = 20.0;   // kN/m, vertical UDL on beam
-    let h_force: f64 = 50.0; // kN, horizontal force at beam level
-
-    // Beam mechanism load factor
-    let lambda_beam: f64 = 4.0 * mp / (w * l * l / 4.0);
+    // (a) Beam mechanism:
+    // 4 hinges (both beam-column joints + midspan)
+    // Internal work: 2*Mp*theta + 2*Mp*theta = 4*Mp*theta (joints)
+    //              + Mp*2*theta (midspan) ... wait:
+    // Actually for beam mechanism in portal with fixed bases:
+    //   Hinges at both ends of beam + midspan = 4*Mp*theta
+    //   (each end hinge: Mp*theta, midspan: Mp*2*theta => total 4*Mp*theta)
+    //   External work: lambda*w*L^2/4 * theta
+    //   lambda_beam = 4*Mp / (w*L^2/4) = 16*Mp/(w*L^2)
+    let lambda_beam: f64 = 16.0_f64 * mp / (w * l * l);
+    // But we want it in terms of a load factor on w=20:
+    // lambda_beam = 16*200/(20*64) = 3200/1280 = 2.5
     let lambda_beam_expected: f64 = 2.5;
     assert!(
-        (lambda_beam - lambda_beam_expected).abs() / lambda_beam_expected < 1e-10,
-        "Beam mechanism lambda: computed={:.4}, expected={:.4}",
+        (lambda_beam - lambda_beam_expected).abs() / lambda_beam_expected < 1e-10_f64,
+        "Beam mechanism lambda: {:.4}, expected {:.4}",
         lambda_beam, lambda_beam_expected
     );
 
-    // Sway mechanism load factor
-    let lambda_sway: f64 = 4.0 * mp / (h_force * h);
+    // (b) Sway mechanism:
+    // 4 hinges at column tops and bottoms
+    // Internal work: 4*Mp*theta
+    // External work: lambda*H*h*theta
+    let lambda_sway: f64 = 4.0_f64 * mp / (h_force * h);
+    // = 800/200 = 4.0
     let lambda_sway_expected: f64 = 4.0;
     assert!(
-        (lambda_sway - lambda_sway_expected).abs() / lambda_sway_expected < 1e-10,
-        "Sway mechanism lambda: computed={:.4}, expected={:.4}",
+        (lambda_sway - lambda_sway_expected).abs() / lambda_sway_expected < 1e-10_f64,
+        "Sway mechanism lambda: {:.4}, expected {:.4}",
         lambda_sway, lambda_sway_expected
     );
 
-    // Combined mechanism (beam + sway - overlap):
-    // Internal work = 6*Mp, External work = w*L^2/4 + H*h
-    let lambda_combined: f64 = 6.0 * mp / (w * l * l / 4.0 + h_force * h);
-    let lambda_combined_expected: f64 = 1200.0 / 520.0;
+    // (c) Combined mechanism (beam + sway):
+    // 6 hinges: 2 at column bases + midspan + 1 at beam-column joint
+    // Actually: combine beam+sway, remove overlapping hinges
+    // Internal work: 6*Mp*theta
+    // External work: lambda*(w*L^2/4 + H*h)*theta
+    let ext_work_unit: f64 = w * l * l / 4.0_f64 + h_force * h;
+    // = 20*64/4 + 50*4 = 320 + 200 = 520
+    let lambda_combined: f64 = 6.0_f64 * mp / ext_work_unit;
+    // = 1200/520 = 2.3077
+    let lambda_combined_expected: f64 = 1200.0_f64 / 520.0_f64;
     assert!(
-        (lambda_combined - lambda_combined_expected).abs() / lambda_combined_expected < 1e-10,
-        "Combined mechanism lambda: computed={:.6}, expected={:.6}",
+        (lambda_combined - lambda_combined_expected).abs() / lambda_combined_expected < 1e-10_f64,
+        "Combined mechanism lambda: {:.6}, expected {:.6}",
         lambda_combined, lambda_combined_expected
     );
 
-    // The true collapse load factor is the minimum of all mechanisms
-    let lambda_collapse: f64 = lambda_beam.min(lambda_sway).min(lambda_combined);
+    // Governing mechanism is the minimum lambda
+    let lambda_governing = lambda_beam.min(lambda_sway).min(lambda_combined);
     assert!(
-        (lambda_collapse - lambda_combined).abs() < 1e-10,
-        "Combined mechanism governs: lambda={:.4}",
-        lambda_collapse
-    );
-}
-
-// ================================================================
-// 7. Upper Bound Theorem: Virtual Work Method
-// ================================================================
-//
-// The upper bound theorem states that any mechanism gives a load
-// factor >= the true collapse load factor.
-//
-// For SS beam with central point load:
-//   True collapse: P_p = 4*Mp/L
-//   Non-optimal mechanism (hinge at L/3): P_upper = 6*Mp/L
-//   Optimal mechanism (hinge at L/2): P_upper = 4*Mp/L = P_true
-//
-// Reference: Neal, Ch. 5
-
-#[test]
-fn validation_plastic_upper_bound_virtual_work() {
-    let mp: f64 = 600.0; // kN*m
-    let l: f64 = 10.0;   // m
-
-    // True collapse load (hinge at midspan under load)
-    let p_true: f64 = 4.0 * mp / l;
-    let p_true_expected: f64 = 240.0; // kN
-    assert!(
-        (p_true - p_true_expected).abs() / p_true_expected < 1e-10,
-        "SS beam P_p: computed={:.2}, expected={:.2}",
-        p_true, p_true_expected
+        (lambda_governing - lambda_combined).abs() < 1e-10_f64,
+        "Combined mechanism governs: lambda = {:.4}",
+        lambda_governing
     );
 
-    // Upper bound: assume hinge at L/3 (not optimal)
-    // Deflection at load (L/2) from right segment: delta_P = beta * L/2
-    // Internal work = Mp * (alpha + beta) = Mp * 3*beta
-    // External work = P * beta * L/2
-    // P_upper = 6*Mp/L
-    let p_upper_l3: f64 = 6.0 * mp / l;
-    let p_upper_l3_expected: f64 = 360.0; // kN
-    assert!(
-        (p_upper_l3 - p_upper_l3_expected).abs() / p_upper_l3_expected < 1e-10,
-        "Upper bound (hinge at L/3): computed={:.2}, expected={:.2}",
-        p_upper_l3, p_upper_l3_expected
-    );
-
-    // Upper bound must be >= true collapse load
-    assert!(
-        p_upper_l3 >= p_true,
-        "Upper bound ({:.2}) must be >= true ({:.2})",
-        p_upper_l3, p_true
-    );
-
-    // Upper bound with hinge at midspan (optimal for this case)
-    let p_upper_mid: f64 = 4.0 * mp / l;
-    assert!(
-        (p_upper_mid - p_true).abs() / p_true < 1e-10,
-        "Optimal upper bound equals true: P_upper={:.2}, P_true={:.2}",
-        p_upper_mid, p_true
-    );
-
-    // Any mechanism gives an upper bound
-    assert!(
-        p_upper_l3 >= p_upper_mid,
-        "Non-optimal ({:.2}) >= optimal ({:.2})",
-        p_upper_l3, p_upper_mid
-    );
-}
-
-// ================================================================
-// 8. Reduced Plastic Moment with Axial Load
-// ================================================================
-//
-// For a rectangular section:
-//   Mpr = Mp * (1 - (N/Np)^2)
-// where Np = fy * A is the squash load.
-//
-// Reference: Neal, Ch. 6; AISC 360-22 H1.1
-
-#[test]
-fn validation_plastic_reduced_moment_axial() {
-    let fy: f64 = 350.0; // MPa
-
-    // Rectangular section: 200 mm x 400 mm
-    let b: f64 = 200.0;
-    let h: f64 = 400.0;
-    let a_sec: f64 = b * h; // mm^2 = 80000
-
-    let np: f64 = fy * a_sec; // N, squash load
-    let np_kn: f64 = np / 1000.0;
-    let np_expected: f64 = 28000.0; // kN
-    assert!(
-        (np_kn - np_expected).abs() / np_expected < 1e-10,
-        "Squash load: computed={:.0} kN, expected={:.0} kN",
-        np_kn, np_expected
-    );
-
-    let zx: f64 = b * h * h / 4.0; // mm^3
-    let mp: f64 = fy * zx / 1e6; // kN*m
-    let mp_expected: f64 = 350.0 * 8_000_000.0 / 1e6; // = 2800 kN*m
-    assert!(
-        (mp - mp_expected).abs() / mp_expected < 1e-10,
-        "Mp: computed={:.2}, expected={:.2}",
-        mp, mp_expected
-    );
-
-    // Case 1: N = 0 => Mpr = Mp
-    let n1: f64 = 0.0;
-    let mpr1: f64 = mp * (1.0 - (n1 / np_kn).powi(2));
-    assert!(
-        (mpr1 - mp).abs() < 1e-10,
-        "Mpr at N=0: computed={:.2}, expected={:.2}",
-        mpr1, mp
-    );
-
-    // Case 2: N = Np/2 => Mpr = 0.75*Mp
-    let n2: f64 = np_kn / 2.0;
-    let mpr2: f64 = mp * (1.0 - (n2 / np_kn).powi(2));
-    let mpr2_expected: f64 = 0.75 * mp;
-    assert!(
-        (mpr2 - mpr2_expected).abs() / mpr2_expected < 1e-10,
-        "Mpr at N=Np/2: computed={:.2}, expected={:.2}",
-        mpr2, mpr2_expected
-    );
-
-    // Case 3: N = Np => Mpr = 0 (pure axial)
-    let n3: f64 = np_kn;
-    let mpr3: f64 = mp * (1.0 - (n3 / np_kn).powi(2));
-    assert!(
-        mpr3.abs() < 1e-10,
-        "Mpr at N=Np: computed={:.6}, expected=0",
-        mpr3
-    );
-
-    // Verify at N = 0.3*Np
-    let n4: f64 = 0.3 * np_kn;
-    let mpr4: f64 = mp * (1.0 - (n4 / np_kn).powi(2));
-    let mpr4_expected: f64 = mp * (1.0 - 0.09); // = 0.91 * Mp
-    assert!(
-        (mpr4 - mpr4_expected).abs() / mpr4_expected < 1e-10,
-        "Mpr at N=0.3Np: computed={:.2}, expected={:.2}",
-        mpr4, mpr4_expected
-    );
+    // Verify ordering: combined < beam < sway
+    assert!(lambda_combined < lambda_beam, "combined < beam");
+    assert!(lambda_beam < lambda_sway, "beam < sway");
 }

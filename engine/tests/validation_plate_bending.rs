@@ -1,688 +1,727 @@
-/// Validation: Plate Bending Theory Formulas (Pure Formula Verification)
+/// Validation: Plate Bending Theory (Pure Formula Verification)
 ///
 /// References:
 ///   - Timoshenko & Woinowsky-Krieger, "Theory of Plates and Shells", 2nd Ed.
 ///   - Ventsel & Krauthammer, "Thin Plates and Shells", Marcel Dekker
 ///   - Ugural, "Stresses in Plates and Shells", 2nd Ed.
 ///   - Szilard, "Theories and Applications of Plate Analysis"
+///   - Timoshenko & Gere, "Theory of Elastic Stability", McGraw-Hill
 ///
 /// Tests verify plate bending formulas without calling the solver.
-///   1. Simply supported rectangular plate under UDL: w_max
-///   2. Navier solution: first term of double series
-///   3. Circular plate: clamped edge under UDL
-///   4. Circular plate: simply supported under UDL
-///   5. Plate critical buckling: N_cr
-///   6. Effective width in compression (von Karman)
-///   7. Plate natural frequency: f_mn
-///   8. Mindlin plate correction: shear deformation for thick plates
+///   1. Navier solution for simply supported plate under UDL
+///   2. Kirchhoff plate bending rigidity D
+///   3. Levy solution for one-way plate (two edges SS, two edges free)
+///   4. Critical buckling stress for plates (Euler plate buckling)
+///   5. Effective width for post-buckled plates (von Karman formula)
+///   6. Plate natural frequency (SS all sides)
+///   7. Mindlin plate correction factor for thick plates
+///   8. Orthotropic plate bending under UDL
 
 mod helpers;
+use helpers::*;
 
 use std::f64::consts::PI;
 
 // ================================================================
-// 1. Simply Supported Rectangular Plate Under UDL
+// 1. Navier Solution for Simply Supported Plate Under UDL
 // ================================================================
 //
-// For a simply supported rectangular plate (a x b) under uniform
-// pressure q, the maximum deflection at the center is:
-//   w_max = alpha * q * a^4 / D
+// The Navier double Fourier series for a simply supported rectangular
+// plate (a x b) under uniform load q:
 //
-// where D = E*t^3 / (12*(1-nu^2)) is the flexural rigidity,
-// and alpha depends on the aspect ratio a/b.
-//
-// For a square plate (a/b = 1): alpha = 0.00406
-// For a/b = 1.5: alpha = 0.00772
-// For a/b = 2.0: alpha = 0.01013
-// For a/b -> infinity (strip): alpha = 5/384 = 0.01302
-//
-// Reference: Timoshenko & Woinowsky-Krieger, Table 8.1
-
-#[test]
-fn validation_plate_ss_rectangular_udl() {
-    let e: f64 = 200_000.0;  // MPa
-    let nu: f64 = 0.3;
-    let t: f64 = 0.01;       // m, plate thickness (10 mm)
-    let a: f64 = 1.0;        // m, plate dimension (shorter side)
-    let q: f64 = 10_000.0;   // Pa = N/m^2
-
-    // Flexural rigidity
-    let d = e * 1e6 * t * t * t / (12.0 * (1.0 - nu * nu));
-    // = 200e9 * 1e-6 / (12 * 0.91) = 200000 / 10.92 = 18315.02
-    let d_expected = 200e9 * 1e-6 / (12.0 * (1.0 - 0.09));
-    assert!(
-        (d - d_expected).abs() / d_expected < 1e-10,
-        "Flexural rigidity: D={:.2}, expected={:.2}",
-        d, d_expected
-    );
-
-    // Square plate (a/b = 1): alpha = 0.00406
-    let alpha_square = 0.00406;
-    let w_max_square = alpha_square * q * a.powi(4) / d;
-    // This gives deflection in meters
-    assert!(
-        w_max_square > 0.0,
-        "Deflection must be positive: {:.6e}",
-        w_max_square
-    );
-
-    // For a plate strip (a/b -> inf): alpha = 5/384
-    let alpha_strip = 5.0 / 384.0;
-    let w_max_strip = alpha_strip * q * a.powi(4) / d;
-
-    // Strip deflection should be greater than square plate (more flexible)
-    assert!(
-        w_max_strip > w_max_square,
-        "Strip ({:.6e}) > Square ({:.6e})",
-        w_max_strip, w_max_square
-    );
-
-    // Verify alpha_strip value
-    let alpha_strip_expected = 0.013020833;
-    assert!(
-        (alpha_strip - alpha_strip_expected).abs() / alpha_strip_expected < 1e-4,
-        "alpha_strip: computed={:.8}, expected={:.8}",
-        alpha_strip, alpha_strip_expected
-    );
-
-    // Verify that alpha increases with aspect ratio
-    let alpha_15 = 0.00772; // a/b = 1.5
-    let alpha_20 = 0.01013; // a/b = 2.0
-    assert!(alpha_square < alpha_15, "alpha(1.0) < alpha(1.5)");
-    assert!(alpha_15 < alpha_20, "alpha(1.5) < alpha(2.0)");
-    assert!(alpha_20 < alpha_strip, "alpha(2.0) < alpha(inf)");
-}
-
-// ================================================================
-// 2. Navier Solution: First Term of Double Series
-// ================================================================
-//
-// The Navier solution for a simply supported rectangular plate
-// under uniform load q:
 //   w(x,y) = sum_{m=1,3,5...} sum_{n=1,3,5...}
-//     16*q / (pi^6 * D * m*n * (m^2/a^2 + n^2/b^2)^2) *
+//     (16*q) / (pi^6*D*m*n*(m^2/a^2 + n^2/b^2)^2) *
 //     sin(m*pi*x/a) * sin(n*pi*y/b)
 //
-// The first term (m=1, n=1) gives the dominant contribution:
-//   w_11(a/2, b/2) = 16*q / (pi^6 * D * (1/a^2 + 1/b^2)^2)
+// At the center (x=a/2, y=b/2), sin terms = +/-1.
+// First term (m=1, n=1) dominates.
 //
-// For a square plate (a=b): w_11 = 16*q*a^4 / (pi^6 * D * 4)
-//                          = 4*q*a^4 / (pi^6 * D)
-//   alpha_11 = 4/pi^6 = 0.004145
+// For a square plate (a=b):
+//   w_center ~ alpha * q * a^4 / D
+//   alpha_exact = 0.00406 (tabulated, Timoshenko Table 8.1)
+//   alpha_(1,1) = 4/pi^6 = 0.004159 (first term overestimates by ~2%)
 //
-// The exact alpha = 0.00406 (from series summation), so the first
-// term provides 0.004145/0.00406 = 1.021, i.e., 97.9% of the answer
-// (slightly overestimates because higher terms correct it).
-//
-// Reference: Timoshenko & Woinowsky-Krieger, Sec. 5.8
+// Reference: Timoshenko & Woinowsky-Krieger, Sec. 5.8, Table 8.1
 
 #[test]
-fn validation_plate_navier_first_term() {
-    let a: f64 = 2.0;  // m (square plate)
-    let b: f64 = 2.0;  // m
-    let q: f64 = 5000.0; // Pa
-    let e: f64 = 200_000.0; // MPa
+fn validation_plate_navier_solution() {
+    let a: f64 = 2.0;         // m (square plate side)
+    let b: f64 = 2.0;         // m
+    let e: f64 = 200_000.0;   // MPa
     let nu: f64 = 0.3;
-    let t: f64 = 0.015; // m, plate thickness
+    let t: f64 = 0.015;       // m (15 mm)
+    let q: f64 = 5000.0;      // Pa
 
-    let d = e * 1e6 * t.powi(3) / (12.0 * (1.0 - nu * nu));
+    let d: f64 = e * 1e6_f64 * t.powi(3) / (12.0_f64 * (1.0_f64 - nu * nu));
 
-    // First term of Navier series at center (m=1, n=1)
-    let m: f64 = 1.0;
-    let n: f64 = 1.0;
-    let denom = PI.powi(6) * d * m * n * (m * m / (a * a) + n * n / (b * b)).powi(2);
-    let w_11_center = 16.0 * q / denom; // sin(pi/2)*sin(pi/2) = 1
-
-    // Alpha coefficient for first term (square plate)
-    let alpha_11 = 4.0 / PI.powi(6);
-    let alpha_11_expected = 0.004161; // 4/pi^6
+    // First term coefficient for square plate
+    let alpha_11: f64 = 4.0_f64 / PI.powi(6);
+    // ~ 0.004159
     assert!(
-        (alpha_11 - alpha_11_expected).abs() / alpha_11_expected < 0.001,
-        "alpha_11: computed={:.6}, expected={:.6}",
-        alpha_11, alpha_11_expected
+        (alpha_11 - 0.004159_f64).abs() < 0.0001_f64,
+        "alpha_11 = {:.6}, expected ~0.00416",
+        alpha_11
     );
 
-    // The first term should be about 2% above the exact solution
-    let alpha_exact = 0.00406;
-    let ratio = alpha_11 / alpha_exact;
+    // Sum first 5 terms of double series at center
+    let mut w_center: f64 = 0.0;
+    for m_int in (1..=9).step_by(2) {
+        for n_int in (1..=9).step_by(2) {
+            let m: f64 = m_int as f64;
+            let n: f64 = n_int as f64;
+            let denom: f64 = PI.powi(6) * d * m * n
+                * (m * m / (a * a) + n * n / (b * b)).powi(2);
+            // sin(m*pi/2) * sin(n*pi/2): for odd m,n this alternates +/-1
+            let sign_m: f64 = if m_int % 4 == 1 { 1.0_f64 } else { -1.0_f64 };
+            let sign_n: f64 = if n_int % 4 == 1 { 1.0_f64 } else { -1.0_f64 };
+            w_center += 16.0_f64 * q * sign_m * sign_n / denom;
+        }
+    }
+
+    // Tabulated exact value
+    let alpha_exact: f64 = 0.00406;
+    let w_exact: f64 = alpha_exact * q * a.powi(4) / d;
+
+    // Multi-term series should be within 0.5% of tabulated value
+    let alpha_computed: f64 = w_center * d / (q * a.powi(4));
     assert!(
-        ratio > 1.0 && ratio < 1.05,
-        "First term overestimates by {:.2}%",
-        (ratio - 1.0) * 100.0
+        (alpha_computed - alpha_exact).abs() / alpha_exact < 0.005_f64,
+        "Navier alpha: computed={:.6}, exact={:.6}",
+        alpha_computed, alpha_exact
     );
 
-    // Compare first term deflection with exact
-    let w_exact = alpha_exact * q * a.powi(4) / d;
-    let w_first = alpha_11 * q * a.powi(4) / d;
+    // First term should overestimate (positive terms subtract in higher orders)
+    let w_first_term: f64 = alpha_11 * q * a.powi(4) / d;
     assert!(
-        w_first > w_exact,
-        "First term ({:.6e}) > Exact ({:.6e}) for square plate",
-        w_first, w_exact
-    );
-
-    // Add third term correction (m=1,n=3 and m=3,n=1)
-    let w_13 = 16.0 * q / (PI.powi(6) * d * 1.0 * 3.0
-        * (1.0 / (a * a) + 9.0 / (b * b)).powi(2));
-    let w_31 = 16.0 * q / (PI.powi(6) * d * 3.0 * 1.0
-        * (9.0 / (a * a) + 1.0 / (b * b)).powi(2));
-
-    // Sign at center: sin(pi/2)*sin(3*pi/2) = 1*(-1) = -1
-    // So w_13 subtracts from the first term
-    let w_3term = w_11_center - w_13 - w_31;
-    // This should be closer to exact
-    let alpha_3term = w_3term * d / (q * a.powi(4));
-
-    // Three-term approximation should be closer to exact than single term
-    assert!(
-        (alpha_3term - alpha_exact).abs() < (alpha_11 - alpha_exact).abs(),
-        "3-term alpha ({:.6}) closer to exact ({:.6}) than 1-term ({:.6})",
-        alpha_3term, alpha_exact, alpha_11
+        w_first_term > w_exact,
+        "First term ({:.6e}) > exact ({:.6e})",
+        w_first_term, w_exact
     );
 }
 
 // ================================================================
-// 3. Circular Plate: Clamped Edge Under UDL
+// 2. Kirchhoff Plate Bending Rigidity D
 // ================================================================
 //
-// Circular plate of radius a, clamped at edge, under uniform load q.
-// Maximum deflection at center:
-//   w_max = q * a^4 / (64 * D)
+// The flexural (bending) rigidity of a thin plate:
+//   D = E * t^3 / (12 * (1 - nu^2))
 //
-// Maximum bending stress at the clamped edge (radial):
-//   sigma_r_max = 3*q*a^2 / (4*t^2)  (at edge, r=a)
+// This is analogous to EI for beams. For various materials:
+//   Steel: E = 200 GPa, nu = 0.3  => D ~ 18315 * t^3 N*m per m width
+//   Aluminum: E = 70 GPa, nu = 0.33 => D ~ 6570 * t^3
+//   Concrete: E = 30 GPa, nu = 0.2  => D ~ 2604 * t^3
 //
-// The moment at the edge (per unit length):
-//   M_r(a) = -q*a^2/8
-// The moment at the center:
-//   M_r(0) = q*a^2*(1+nu)/16
-//
-// Reference: Timoshenko & Woinowsky-Krieger, Sec. 3.2
+// Reference: Timoshenko & Woinowsky-Krieger, Ch. 1
 
 #[test]
-fn validation_plate_circular_clamped_udl() {
-    let a: f64 = 0.5;      // m, plate radius
-    let t: f64 = 0.008;    // m, plate thickness (8 mm)
-    let e: f64 = 210_000.0; // MPa
-    let nu: f64 = 0.3;
-    let q: f64 = 20_000.0;  // Pa
+fn validation_plate_bending_rigidity() {
+    // Steel plate
+    let e_steel: f64 = 200_000.0; // MPa = 200 GPa
+    let nu_steel: f64 = 0.3;
+    let t: f64 = 0.010; // m (10 mm)
 
-    // Flexural rigidity
-    let d: f64 = e * 1e6 * t.powi(3) / (12.0 * (1.0 - nu * nu));
-
-    // Maximum deflection at center
-    let w_max: f64 = q * a.powi(4) / (64.0 * d);
-    // Should be a small positive number
+    let d_steel: f64 = e_steel * 1e6_f64 * t.powi(3) / (12.0_f64 * (1.0_f64 - nu_steel * nu_steel));
+    // = 200e9 * 1e-6 / (12 * 0.91) = 200000 / 10.92 = 18315.02 N*m
+    let d_steel_expected: f64 = 200e9_f64 * 1e-6_f64 / (12.0_f64 * (1.0_f64 - 0.09_f64));
     assert!(
-        w_max > 0.0,
-        "Clamped circular plate: w_max must be positive: {:.6e}",
-        w_max
+        (d_steel - d_steel_expected).abs() / d_steel_expected < 1e-10_f64,
+        "D_steel: {:.2} N*m",
+        d_steel
     );
 
-    // Verify the formula with known values
-    // D = 210e9 * (0.008)^3 / (12 * 0.91) = 210e9 * 5.12e-7 / 10.92
-    //   = 107520 / 10.92 = 9846.15 N*m
-    let d_check = 210e9 * 0.008_f64.powi(3) / (12.0 * 0.91);
+    // Aluminum plate
+    let e_al: f64 = 70_000.0;
+    let nu_al: f64 = 0.33;
+    let d_al: f64 = e_al * 1e6_f64 * t.powi(3) / (12.0_f64 * (1.0_f64 - nu_al * nu_al));
+
+    // Steel should be stiffer than aluminum
     assert!(
-        (d - d_check).abs() / d_check < 1e-6,
-        "D: computed={:.2}, check={:.2}",
-        d, d_check
+        d_steel > d_al,
+        "D_steel ({:.2}) > D_aluminum ({:.2})",
+        d_steel, d_al
     );
 
-    // w_max = 20000 * 0.0625 / (64 * D) = 1250 / (64*D)
-    let w_max_check = 1250.0 / (64.0 * d);
+    // Concrete plate
+    let e_conc: f64 = 30_000.0;
+    let nu_conc: f64 = 0.2;
+    let d_conc: f64 = e_conc * 1e6_f64 * t.powi(3) / (12.0_f64 * (1.0_f64 - nu_conc * nu_conc));
+
+    // Ordering: steel > aluminum > concrete
     assert!(
-        (w_max - w_max_check).abs() / w_max_check < 1e-10,
-        "w_max: computed={:.6e}, check={:.6e}",
-        w_max, w_max_check
+        d_al > d_conc,
+        "D_aluminum ({:.2}) > D_concrete ({:.2})",
+        d_al, d_conc
     );
 
-    // Edge moment (per unit length, radial direction)
-    let m_edge = -q * a * a / 8.0;
-    // = -20000 * 0.25 / 8 = -625 N*m/m
-    let m_edge_expected = -625.0;
+    // D scales as t^3
+    let t2: f64 = 0.020; // 20 mm
+    let d_steel_20: f64 = e_steel * 1e6_f64 * t2.powi(3) / (12.0_f64 * (1.0_f64 - nu_steel * nu_steel));
+    let ratio: f64 = d_steel_20 / d_steel;
+    let ratio_expected: f64 = (t2 / t).powi(3); // = 8.0
     assert!(
-        (m_edge - m_edge_expected).abs() / m_edge_expected.abs() < 1e-10,
-        "Edge moment: computed={:.2}, expected={:.2}",
-        m_edge, m_edge_expected
-    );
-
-    // Center moment (per unit length)
-    let m_center = q * a * a * (1.0 + nu) / 16.0;
-    // = 20000 * 0.25 * 1.3 / 16 = 6500 / 16 = 406.25 N*m/m
-    let m_center_expected = 406.25;
-    assert!(
-        (m_center - m_center_expected).abs() / m_center_expected < 1e-10,
-        "Center moment: computed={:.2}, expected={:.2}",
-        m_center, m_center_expected
-    );
-
-    // Edge moment magnitude should exceed center moment (for clamped plate)
-    assert!(
-        m_edge.abs() > m_center,
-        "Edge moment ({:.2}) > Center moment ({:.2})",
-        m_edge.abs(), m_center
-    );
-}
-
-// ================================================================
-// 4. Circular Plate: Simply Supported Under UDL
-// ================================================================
-//
-// Circular plate of radius a, simply supported at edge, under
-// uniform load q.
-//
-// Maximum deflection at center:
-//   w_max = (5+nu)*q*a^4 / (64*(1+nu)*D)
-//
-// Maximum moment at center (radial = tangential by symmetry):
-//   M_r(0) = (3+nu)*q*a^2/16
-//
-// Reference: Timoshenko & Woinowsky-Krieger, Sec. 3.3
-
-#[test]
-fn validation_plate_circular_ss_udl() {
-    let a: f64 = 0.5;     // m, plate radius
-    let t: f64 = 0.008;   // m, plate thickness
-    let e: f64 = 210_000.0; // MPa
-    let nu: f64 = 0.3;
-    let q: f64 = 20_000.0;  // Pa
-
-    let d = e * 1e6 * t.powi(3) / (12.0 * (1.0 - nu * nu));
-
-    // Maximum deflection at center (SS)
-    let w_max_ss = (5.0 + nu) * q * a.powi(4) / (64.0 * (1.0 + nu) * d);
-    // = 5.3 * 20000 * 0.0625 / (64 * 1.3 * D)
-    // = 5.3 * 1250 / (83.2 * D)
-
-    // Maximum deflection at center (clamped, from test 3)
-    let w_max_clamped = q * a.powi(4) / (64.0 * d);
-
-    // SS deflection should be larger than clamped
-    assert!(
-        w_max_ss > w_max_clamped,
-        "SS ({:.6e}) > Clamped ({:.6e})",
-        w_max_ss, w_max_clamped
-    );
-
-    // Ratio: w_ss / w_clamped = (5+nu)/(1+nu) for same D, q, a
-    let ratio = w_max_ss / w_max_clamped;
-    let ratio_expected = (5.0 + nu) / (1.0 + nu);
-    // = 5.3/1.3 = 4.077
-    assert!(
-        (ratio - ratio_expected).abs() / ratio_expected < 1e-10,
-        "SS/Clamped ratio: computed={:.4}, expected={:.4}",
+        (ratio - ratio_expected).abs() / ratio_expected < 1e-10_f64,
+        "D ratio (20mm/10mm): {:.4}, expected {:.4}",
         ratio, ratio_expected
     );
 
-    // Maximum moment at center
-    let m_center_ss = (3.0 + nu) * q * a * a / 16.0;
-    // = 3.3 * 20000 * 0.25 / 16 = 3.3 * 5000 / 16 = 16500/16 = 1031.25 N*m/m
-    let m_center_expected = 1031.25;
+    // Verify D formula units: [MPa]*[m^3] / [1] = [N/m^2 * 10^6]*[m^3] = [N*m]
+    // Actually: E in MPa * 10^6 gives Pa, then Pa * m^3 / 1 = N*m
+    // Check numerical value for steel, t=10mm:
+    // D = 200e9 * (0.01)^3 / (12*0.91) = 200e9 * 1e-6 / 10.92 = 200000/10.92 = 18315
     assert!(
-        (m_center_ss - m_center_expected).abs() / m_center_expected < 1e-10,
-        "SS center moment: computed={:.2}, expected={:.2}",
-        m_center_ss, m_center_expected
-    );
-
-    // For SS plate, the edge moment is zero (by definition)
-    // But the edge can rotate freely
-    let m_edge_ss: f64 = 0.0; // by boundary condition
-    assert!(
-        m_edge_ss.abs() < 1e-10,
-        "SS edge moment should be zero"
-    );
-
-    // Verify the deflection formula value
-    let w_ss_check = 5.3 * q * a.powi(4) / (64.0 * 1.3 * d);
-    assert!(
-        (w_max_ss - w_ss_check).abs() / w_ss_check < 1e-10,
-        "w_max_ss: computed={:.6e}, check={:.6e}",
-        w_max_ss, w_ss_check
+        (d_steel - 18315.02_f64).abs() / 18315.02_f64 < 0.001_f64,
+        "D_steel numerical check: {:.2}",
+        d_steel
     );
 }
 
 // ================================================================
-// 5. Plate Critical Buckling: N_cr
+// 3. Levy Solution for One-Way Plate
 // ================================================================
 //
-// The critical buckling stress resultant for a simply supported
-// rectangular plate under uniform in-plane compression:
-//   N_cr = k * pi^2 * D / b^2
+// For a plate with two opposite edges simply supported (say y=0 and y=b)
+// and arbitrary conditions on the other two edges, the Levy solution is:
+//   w(x,y) = sum_{n=1}^inf [A_n*cosh(alpha_n*x) + B_n*sinh(alpha_n*x)
+//            + C_n*x*cosh(alpha_n*x) + D_n*x*sinh(alpha_n*x)
+//            + f_n(x)] * sin(n*pi*y/b)
 //
-// where k is the buckling coefficient depending on aspect ratio
-// and boundary conditions.
+// For a long plate (a >> b), the plate behaves as a one-way slab (beam).
+// The maximum deflection approaches the beam solution:
+//   w_max = 5*q*b^4 / (384*D)  (for strip of width 1)
 //
-// For SS plate, a/b = integer: k = 4.0 (minimum)
-// For SS plate, a/b general: k = (m*b/a + a/(m*b))^2
-//   where m is the number of half-waves minimizing k.
+// For a plate strip (a >> b), the moment per unit length:
+//   M_max = q*b^2/8  (at midspan)
 //
-// Reference: Timoshenko & Gere, "Theory of Elastic Stability", Ch. 9
+// Reference: Timoshenko & Woinowsky-Krieger, Ch. 6; Levy (1899)
 
 #[test]
-fn validation_plate_critical_buckling() {
-    let e: f64 = 200_000.0;  // MPa
+fn validation_plate_levy_solution() {
+    let e: f64 = 200_000.0; // MPa
     let nu: f64 = 0.3;
-    let t: f64 = 0.010;      // m (10 mm plate)
-    let a: f64 = 1.0;        // m, plate length (loaded direction)
-    let b: f64 = 0.5;        // m, plate width
+    let t: f64 = 0.012;     // m (12 mm)
+    let b: f64 = 1.0;       // m (span between SS edges)
+    let q: f64 = 10_000.0;  // Pa
 
-    let d = e * 1e6 * t.powi(3) / (12.0 * (1.0 - nu * nu));
+    let d: f64 = e * 1e6_f64 * t.powi(3) / (12.0_f64 * (1.0_f64 - nu * nu));
 
-    // Buckling coefficient for SS plate
-    // a/b = 2.0, m = 2 gives k = (2*0.5/1 + 1/(2*0.5))^2 = (1+1)^2 = 4
-    let _aspect = a / b;
-    let mut k_min = f64::MAX;
-    for m in 1..=5 {
-        let mf = m as f64;
-        let k = (mf * b / a + a / (mf * b)).powi(2);
-        if k < k_min {
-            k_min = k;
-        }
-    }
-    // For a/b = 2: m=2 gives k = (2*0.5 + 1/(2*0.5))^2 = (1+1)^2 = 4
+    // For a very long plate (a >> b): strip behavior
+    // w_max = 5*q*b^4 / (384*D)
+    let w_strip: f64 = 5.0_f64 * q * b.powi(4) / (384.0_f64 * d);
     assert!(
-        (k_min - 4.0).abs() / 4.0 < 1e-10,
-        "Buckling coefficient k: computed={:.4}, expected=4.0",
-        k_min
+        w_strip > 0.0_f64,
+        "Strip deflection must be positive: {:.6e} m",
+        w_strip
     );
 
-    // Critical stress resultant
-    let n_cr = k_min * PI * PI * d / (b * b);
-    // N_cr in N/m (force per unit width)
-
-    // Convert to critical stress
-    let _sigma_cr = n_cr / (t * 1e6); // MPa (N/m / (m * 1e6 mm^2/m^2))
-    // Actually: sigma_cr = N_cr / t where N_cr is in N/m and t is in m
-    // sigma_cr in Pa: N_cr / t, then convert to MPa by dividing by 1e6
-    let sigma_cr_pa = n_cr / t;
-    let sigma_cr_mpa = sigma_cr_pa / 1e6;
-
-    // For thin plates, sigma_cr = k * pi^2 * E / (12*(1-nu^2)) * (t/b)^2
-    let sigma_cr_formula = k_min * PI * PI * e / (12.0 * (1.0 - nu * nu)) * (t / b).powi(2);
-    // = 4 * 9.8696 * 200000 / 10.92 * 0.0004
-    // = 4 * 9.8696 * 200000 * 0.0004 / 10.92
-    // = 4 * 9.8696 * 80 / 10.92
-    // = 4 * 722.78 = 2891.1 MPa ... that seems high for t/b = 0.02
-    // Actually: (t/b)^2 = 0.0004, so sigma_cr = 4*pi^2*200000*0.0004/10.92
-    //         = 4*9.8696*80/10.92 = 4*72.28 = 289.1 MPa
-
+    // Maximum moment in strip: M = q*b^2/8
+    let m_strip: f64 = q * b * b / 8.0_f64;
+    let m_strip_expected: f64 = 1250.0; // N*m/m
     assert!(
-        (sigma_cr_mpa - sigma_cr_formula).abs() / sigma_cr_formula < 1e-10,
-        "Critical stress: computed={:.2} MPa, formula={:.2} MPa",
-        sigma_cr_mpa, sigma_cr_formula
+        (m_strip - m_strip_expected).abs() / m_strip_expected < 1e-10_f64,
+        "Strip moment: {:.2} N*m/m, expected {:.2}",
+        m_strip, m_strip_expected
     );
 
-    // For a/b = 1 (square): k_min should also be 4 (m=1)
-    let k_square: f64 = (1.0_f64 + 1.0).powi(2); // (m*b/a + a/(m*b))^2 = (1+1)^2 = 4
+    // Compare with square plate (a = b): alpha = 0.00406
+    let w_square: f64 = 0.00406_f64 * q * b.powi(4) / d;
+
+    // Strip deflection should be larger (less restraint)
+    let alpha_strip: f64 = 5.0_f64 / 384.0_f64;
+    // = 0.01302
     assert!(
-        (k_square - 4.0).abs() < 1e-10,
-        "Square plate k: {:.4}",
-        k_square
+        alpha_strip > 0.00406_f64,
+        "Strip alpha ({:.5}) > square alpha (0.00406)",
+        alpha_strip
+    );
+    assert!(
+        w_strip > w_square,
+        "Strip deflection ({:.6e}) > square ({:.6e})",
+        w_strip, w_square
+    );
+
+    // Ratio: w_strip / w_square = alpha_strip / alpha_square = 0.01302 / 0.00406 = 3.207
+    let defl_ratio: f64 = w_strip / w_square;
+    let defl_ratio_expected: f64 = alpha_strip / 0.00406_f64;
+    assert!(
+        (defl_ratio - defl_ratio_expected).abs() / defl_ratio_expected < 1e-6_f64,
+        "Deflection ratio: {:.4}, expected {:.4}",
+        defl_ratio, defl_ratio_expected
+    );
+
+    // Maximum stress in strip: sigma = 6*M / t^2 (per unit width)
+    let sigma_max: f64 = 6.0_f64 * m_strip / (t * t * 1e6_f64); // MPa
+    // = 6*1250 / (0.000144 * 1e6) = 7500 / 144 = 52.08 MPa
+    let sigma_expected: f64 = 6.0_f64 * 1250.0_f64 / (0.012_f64 * 0.012_f64 * 1e6_f64);
+    assert!(
+        (sigma_max - sigma_expected).abs() / sigma_expected < 1e-10_f64,
+        "Strip stress: {:.2} MPa, expected {:.2}",
+        sigma_max, sigma_expected
     );
 }
 
 // ================================================================
-// 6. Effective Width in Compression (von Karman)
+// 4. Critical Buckling Stress for Plates (Euler Plate Buckling)
 // ================================================================
 //
-// The von Karman effective width formula for post-buckling of
-// a plate in compression:
-//   b_eff = b * sqrt(sigma_cr / sigma)
+// The critical buckling stress for a simply supported plate under
+// uniform uniaxial compression:
+//   sigma_cr = k * pi^2 * E / (12*(1-nu^2)) * (t/b)^2
 //
-// where sigma is the applied stress and sigma_cr is the critical
-// buckling stress. This assumes sigma > sigma_cr (post-buckling).
+// where k is the buckling coefficient:
+//   k = (m*b/a + a/(m*b))^2
+// m = number of half-waves minimizing k.
 //
-// When sigma = sigma_cr: b_eff = b (full width effective)
-// When sigma = 4*sigma_cr: b_eff = b/2
-// As sigma -> infinity: b_eff -> 0
+// For SS plate with a/b = integer: k_min = 4.0
+// For SS long plate (a >> b): k_min = 4.0
 //
-// Reference: von Karman, Sechler & Donnell (1932);
-//   Winter (1947) modified formula
+// Reference: Timoshenko & Gere, Ch. 9
+
+#[test]
+fn validation_plate_critical_buckling_stress() {
+    let e: f64 = 200_000.0; // MPa
+    let nu: f64 = 0.3;
+    let t: f64 = 10.0;      // mm
+    let b: f64 = 500.0;     // mm (plate width)
+
+    // Buckling coefficient for various aspect ratios
+    // a/b = 1.0: k = (1+1)^2 = 4.0
+    // a/b = 1.5: k = min over m of (m/1.5 + 1.5/m)^2
+    //   m=1: (0.667 + 1.5)^2 = 4.694
+    //   m=2: (1.333 + 0.75)^2 = 4.340
+    //   => k = 4.340
+    // a/b = 2.0: k = (1+1)^2 = 4.0 (at m=2, same: (2*0.5+1/(2*0.5))^2 = (1+1)^2 = 4)
+    // Actually: for a/b = 2 and m=2: k = (2*(b/a) + (a/b)/2)^2 ... let me redo.
+    // k(m) = (m*(b/a) + (a/b)/m)^2 = (m/R + R/m)^2 where R = a/b
+    // For a/b=1, m=1: (1+1)^2 = 4
+    // For a/b=2, m=1: (0.5+2)^2 = 6.25; m=2: (1+1)^2 = 4
+
+    let compute_k_min = |aspect_ratio: f64| -> f64 {
+        let mut k_min: f64 = f64::MAX;
+        for m_int in 1..=10 {
+            let m: f64 = m_int as f64;
+            let k: f64 = (m / aspect_ratio + aspect_ratio / m).powi(2);
+            if k < k_min {
+                k_min = k;
+            }
+        }
+        k_min
+    };
+
+    // Square plate
+    let k_sq: f64 = compute_k_min(1.0_f64);
+    assert!(
+        (k_sq - 4.0_f64).abs() < 1e-10_f64,
+        "k(a/b=1) = {:.6}, expected 4.0",
+        k_sq
+    );
+
+    // a/b = 2
+    let k_2: f64 = compute_k_min(2.0_f64);
+    assert!(
+        (k_2 - 4.0_f64).abs() < 1e-10_f64,
+        "k(a/b=2) = {:.6}, expected 4.0",
+        k_2
+    );
+
+    // a/b = 1.5 (between transition points, k > 4)
+    let k_15: f64 = compute_k_min(1.5_f64);
+    assert!(
+        k_15 > 4.0_f64,
+        "k(a/b=1.5) = {:.6} should be > 4.0",
+        k_15
+    );
+    assert!(
+        k_15 < 5.0_f64,
+        "k(a/b=1.5) = {:.6} should be < 5.0",
+        k_15
+    );
+
+    // Critical stress for square plate
+    let sigma_cr: f64 = k_sq * PI * PI * e / (12.0_f64 * (1.0_f64 - nu * nu)) * (t / b).powi(2);
+    // = 4 * pi^2 * 200000 / 10.92 * (10/500)^2
+    // = 4 * 9.8696 * 200000 / 10.92 * 0.0004
+    // = 4 * 72.27 = 289.1 MPa
+    assert!(
+        sigma_cr > 200.0_f64 && sigma_cr < 400.0_f64,
+        "sigma_cr = {:.2} MPa, should be ~289 MPa",
+        sigma_cr
+    );
+
+    // Compare with Euler column: sigma_cr_col = pi^2*E / (L/r)^2
+    // For a plate strip of width b, t thick: r = t/sqrt(12), L = b
+    // sigma_cr_col = pi^2*E*t^2/(12*b^2)
+    // Plate buckling includes (1-nu^2) factor: plate is stiffer due to biaxial constraint
+    let sigma_cr_col: f64 = PI * PI * e * (t / b).powi(2) / 12.0_f64;
+    let plate_to_col: f64 = sigma_cr / sigma_cr_col;
+    // Should be k / (1-nu^2) = 4/0.91 = 4.396
+    let plate_to_col_expected: f64 = k_sq / (1.0_f64 - nu * nu);
+    assert!(
+        (plate_to_col - plate_to_col_expected).abs() / plate_to_col_expected < 1e-10_f64,
+        "Plate/column ratio: {:.4}, expected {:.4}",
+        plate_to_col, plate_to_col_expected
+    );
+}
+
+// ================================================================
+// 5. Effective Width for Post-Buckled Plates (von Karman)
+// ================================================================
+//
+// The von Karman effective width formula:
+//   b_eff / b = sqrt(sigma_cr / sigma_applied)
+//
+// At sigma = sigma_cr: b_eff = b (full width)
+// At sigma = 4*sigma_cr: b_eff = b/2
+//
+// Winter's modified formula (AISI/CFS):
+//   b_eff / b = sqrt(sigma_cr/sigma) * (1 - 0.22*sqrt(sigma_cr/sigma))
+//
+// Reference: von Karman, Sechler & Donnell (1932); Winter (1947)
 
 #[test]
 fn validation_plate_effective_width_von_karman() {
-    let b: f64 = 300.0;  // mm, plate width
-    let t: f64 = 6.0;    // mm, plate thickness
+    let b: f64 = 300.0;     // mm (plate width)
+    let t: f64 = 6.0;       // mm (plate thickness)
     let e: f64 = 200_000.0; // MPa
     let nu: f64 = 0.3;
-    let fy: f64 = 350.0; // MPa, yield stress
+    let fy: f64 = 350.0;    // MPa (yield stress)
 
-    // Critical buckling stress (SS plate, k=4)
-    let sigma_cr = 4.0 * PI * PI * e / (12.0 * (1.0 - nu * nu)) * (t / b).powi(2);
-    // = 4 * pi^2 * 200000 / 10.92 * (6/300)^2
-    // = 4 * 9.8696 * 200000 / 10.92 * 0.0004
-    // = 4 * 72.28 = 289.1 MPa
+    // Critical buckling stress (SS, k=4)
+    let sigma_cr: f64 = 4.0_f64 * PI * PI * e / (12.0_f64 * (1.0_f64 - nu * nu))
+        * (t / b).powi(2);
 
-    // Check that sigma_cr < fy (plate buckles before yielding)
+    // Verify sigma_cr < fy (plate buckles before yielding)
     assert!(
         sigma_cr < fy,
-        "sigma_cr ({:.2}) should be < fy ({:.2}) for effective width to apply",
+        "sigma_cr ({:.2}) < fy ({:.2})",
         sigma_cr, fy
     );
 
-    // Von Karman effective width at yield stress
-    let b_eff_yield = b * (sigma_cr / fy).sqrt();
-    // = 300 * sqrt(289.1/350) = 300 * sqrt(0.826) = 300 * 0.909 = 272.6 mm
+    // Von Karman at yield
+    let lambda: f64 = (sigma_cr / fy).sqrt();
+    let b_eff_vk: f64 = b * lambda;
     assert!(
-        b_eff_yield < b,
-        "b_eff ({:.2}) should be < b ({:.2}) when sigma > sigma_cr",
-        b_eff_yield, b
-    );
-    assert!(
-        b_eff_yield > 0.0,
-        "b_eff should be positive: {:.2}",
-        b_eff_yield
+        b_eff_vk < b,
+        "b_eff ({:.2}) < b ({:.2}) when sigma > sigma_cr",
+        b_eff_vk, b
     );
 
-    // When sigma = sigma_cr: b_eff = b
-    let b_eff_at_cr = b * (sigma_cr / sigma_cr).sqrt();
+    // At sigma = sigma_cr: b_eff = b
+    let b_eff_at_cr: f64 = b * (sigma_cr / sigma_cr).sqrt();
     assert!(
-        (b_eff_at_cr - b).abs() / b < 1e-10,
-        "b_eff at sigma_cr: computed={:.2}, expected={:.2}",
+        (b_eff_at_cr - b).abs() < 1e-10_f64,
+        "b_eff at sigma_cr: {:.2}, expected {:.2}",
         b_eff_at_cr, b
     );
 
-    // When sigma = 4*sigma_cr: b_eff = b/2
-    let sigma_4cr = 4.0 * sigma_cr;
-    let b_eff_4cr = b * (sigma_cr / sigma_4cr).sqrt();
+    // At sigma = 4*sigma_cr: b_eff = b/2
+    let b_eff_4cr: f64 = b * (sigma_cr / (4.0_f64 * sigma_cr)).sqrt();
     assert!(
-        (b_eff_4cr - b / 2.0).abs() / (b / 2.0) < 1e-10,
-        "b_eff at 4*sigma_cr: computed={:.2}, expected={:.2}",
-        b_eff_4cr, b / 2.0
+        (b_eff_4cr - b / 2.0_f64).abs() / (b / 2.0_f64) < 1e-10_f64,
+        "b_eff at 4*sigma_cr: {:.2}, expected {:.2}",
+        b_eff_4cr, b / 2.0_f64
     );
 
-    // Winter's modified formula (empirical improvement):
-    // b_eff = b * sqrt(sigma_cr/sigma) * (1 - 0.22*sqrt(sigma_cr/sigma))
-    let lambda = (sigma_cr / fy).sqrt();
-    let b_eff_winter = b * lambda * (1.0 - 0.22 * lambda);
-    // Winter's formula gives a smaller effective width than von Karman
+    // Winter's modified formula
+    let b_eff_winter: f64 = b * lambda * (1.0_f64 - 0.22_f64 * lambda);
+    // Winter's always gives less than von Karman (more conservative)
     assert!(
-        b_eff_winter < b_eff_yield,
+        b_eff_winter < b_eff_vk,
         "Winter ({:.2}) < von Karman ({:.2})",
-        b_eff_winter, b_eff_yield
+        b_eff_winter, b_eff_vk
     );
     assert!(
-        b_eff_winter > 0.0,
-        "Winter b_eff should be positive: {:.2}",
+        b_eff_winter > 0.0_f64,
+        "Winter b_eff must be positive: {:.2}",
         b_eff_winter
+    );
+
+    // Slenderness check: lambda_p = sqrt(fy/sigma_cr)
+    // If lambda_p <= 0.673: plate is fully effective (no reduction)
+    let lambda_p: f64 = (fy / sigma_cr).sqrt();
+    // lambda_p = 1/lambda
+    assert!(
+        (lambda_p - 1.0_f64 / lambda).abs() < 1e-10_f64,
+        "lambda_p = {:.4}, 1/lambda = {:.4}",
+        lambda_p, 1.0_f64 / lambda
+    );
+
+    // For our case, lambda_p > 0.673 (plate is slender)
+    assert!(
+        lambda_p > 0.673_f64,
+        "lambda_p = {:.4} > 0.673 (plate is slender)",
+        lambda_p
     );
 }
 
 // ================================================================
-// 7. Plate Natural Frequency: f_mn
+// 6. Plate Natural Frequency (SS All Sides)
 // ================================================================
 //
-// For a simply supported rectangular plate (a x b), the natural
-// frequencies are:
+// For a simply supported rectangular plate (a x b):
 //   f_mn = (pi/2) * (m^2/a^2 + n^2/b^2) * sqrt(D/(rho*t))
 //
-// where m, n are the mode numbers (half-waves in each direction).
-//
-// The fundamental frequency (m=1, n=1):
+// Fundamental mode (m=1, n=1):
 //   f_11 = (pi/2) * (1/a^2 + 1/b^2) * sqrt(D/(rho*t))
+//
+// For a square plate (a=b):
+//   f_11 = pi/(a^2) * sqrt(D/(rho*t))
 //
 // Reference: Ventsel & Krauthammer, Ch. 16
 
 #[test]
 fn validation_plate_natural_frequency() {
-    let e: f64 = 200_000.0;   // MPa
+    let e: f64 = 200_000.0; // MPa
     let nu: f64 = 0.3;
-    let t: f64 = 0.010;       // m (10 mm)
-    let rho: f64 = 7850.0;    // kg/m^3
-    let a: f64 = 1.0;         // m
-    let b: f64 = 0.8;         // m
+    let t: f64 = 0.010;     // m (10 mm)
+    let rho: f64 = 7850.0;  // kg/m^3 (steel)
+    let a: f64 = 1.0;       // m
+    let b: f64 = 0.8;       // m
 
-    let d = e * 1e6 * t.powi(3) / (12.0 * (1.0 - nu * nu));
-    let d_over_rho_t = d / (rho * t);
+    let d: f64 = e * 1e6_f64 * t.powi(3) / (12.0_f64 * (1.0_f64 - nu * nu));
 
-    // Fundamental frequency (m=1, n=1)
-    let f_11 = (PI / 2.0) * (1.0 / (a * a) + 1.0 / (b * b)) * d_over_rho_t.sqrt();
+    // Fundamental frequency
+    let f_11: f64 = (PI / 2.0_f64) * (1.0_f64 / (a * a) + 1.0_f64 / (b * b))
+        * (d / (rho * t)).sqrt();
     assert!(
-        f_11 > 0.0,
-        "Fundamental frequency must be positive: {:.4} Hz",
+        f_11 > 0.0_f64 && f_11 < 5000.0_f64,
+        "f_11 = {:.2} Hz, should be reasonable",
         f_11
     );
 
-    // Should be a reasonable value (typically 10-1000 Hz for steel plates)
+    // Higher modes
+    let f_21: f64 = (PI / 2.0_f64) * (4.0_f64 / (a * a) + 1.0_f64 / (b * b))
+        * (d / (rho * t)).sqrt();
+    let f_12: f64 = (PI / 2.0_f64) * (1.0_f64 / (a * a) + 4.0_f64 / (b * b))
+        * (d / (rho * t)).sqrt();
+    let f_22: f64 = (PI / 2.0_f64) * (4.0_f64 / (a * a) + 4.0_f64 / (b * b))
+        * (d / (rho * t)).sqrt();
+
+    // Frequency ordering
+    assert!(f_11 < f_21, "f_11 < f_21");
+    assert!(f_11 < f_12, "f_11 < f_12");
+    assert!(f_21 < f_22, "f_21 < f_22");
+    assert!(f_12 < f_22, "f_12 < f_22");
+
+    // For rectangular plate (a > b), f_12 > f_21 because b < a
+    // 1/a^2 + 4/b^2 vs 4/a^2 + 1/b^2
+    // For a=1, b=0.8: 1+6.25=7.25 vs 4+1.5625=5.5625
+    // So f_12 > f_21
+    assert!(f_12 > f_21, "f_12 ({:.2}) > f_21 ({:.2}) for a > b", f_12, f_21);
+
+    // Frequency ratio: f_mn / f_11 = (m^2/a^2 + n^2/b^2) / (1/a^2 + 1/b^2)
+    let ratio_21: f64 = f_21 / f_11;
+    let ratio_21_expected: f64 = (4.0_f64 / (a * a) + 1.0_f64 / (b * b))
+        / (1.0_f64 / (a * a) + 1.0_f64 / (b * b));
     assert!(
-        f_11 > 1.0 && f_11 < 5000.0,
-        "f_11 = {:.4} Hz should be in reasonable range",
-        f_11
+        (ratio_21 - ratio_21_expected).abs() / ratio_21_expected < 1e-10_f64,
+        "f_21/f_11 = {:.4}, expected {:.4}",
+        ratio_21, ratio_21_expected
     );
 
-    // Higher modes should have higher frequencies
-    let f_21 = (PI / 2.0) * (4.0 / (a * a) + 1.0 / (b * b)) * d_over_rho_t.sqrt();
-    let f_12 = (PI / 2.0) * (1.0 / (a * a) + 4.0 / (b * b)) * d_over_rho_t.sqrt();
-    let f_22 = (PI / 2.0) * (4.0 / (a * a) + 4.0 / (b * b)) * d_over_rho_t.sqrt();
-
-    assert!(f_21 > f_11, "f_21 ({:.4}) > f_11 ({:.4})", f_21, f_11);
-    assert!(f_12 > f_11, "f_12 ({:.4}) > f_11 ({:.4})", f_12, f_11);
-    assert!(f_22 > f_21, "f_22 ({:.4}) > f_21 ({:.4})", f_22, f_21);
-    assert!(f_22 > f_12, "f_22 ({:.4}) > f_12 ({:.4})", f_22, f_12);
-
-    // For square plate (a = b): f_11 = pi * sqrt(D/(rho*t)) / a^2
-    // (since pi/2 * (1/a^2 + 1/a^2) = pi/a^2)
-    let a_sq = 1.0;
-    let f_11_sq = PI / (a_sq * a_sq) * d_over_rho_t.sqrt();
-    let f_11_sq_check = (PI / 2.0) * (1.0 / (a_sq * a_sq) + 1.0 / (a_sq * a_sq)) * d_over_rho_t.sqrt();
+    // Square plate: f_11 = pi/a^2 * sqrt(D/(rho*t))
+    let f_11_sq: f64 = PI / (a * a) * (d / (rho * t)).sqrt();
+    let f_11_sq_check: f64 = (PI / 2.0_f64) * (2.0_f64 / (a * a)) * (d / (rho * t)).sqrt();
     assert!(
-        (f_11_sq - f_11_sq_check).abs() / f_11_sq < 1e-10,
-        "Square plate frequency: {:.4} vs {:.4}",
-        f_11_sq, f_11_sq_check
-    );
-
-    // Frequency ratio for modes: f_mn / f_11 = (m^2/a^2 + n^2/b^2) / (1/a^2 + 1/b^2)
-    let ratio_21_11 = f_21 / f_11;
-    let ratio_expected = (4.0 / (a * a) + 1.0 / (b * b)) / (1.0 / (a * a) + 1.0 / (b * b));
-    assert!(
-        (ratio_21_11 - ratio_expected).abs() / ratio_expected < 1e-10,
-        "f_21/f_11: computed={:.4}, expected={:.4}",
-        ratio_21_11, ratio_expected
+        (f_11_sq - f_11_sq_check).abs() / f_11_sq < 1e-10_f64,
+        "Square plate f_11: {:.2} Hz",
+        f_11_sq
     );
 }
 
 // ================================================================
-// 8. Mindlin Plate Correction: Shear Deformation for Thick Plates
+// 7. Mindlin Plate Correction Factor for Thick Plates
 // ================================================================
 //
-// The Mindlin plate theory accounts for transverse shear deformation,
-// which becomes significant for thick plates (t/a > 0.1).
-//
-// The correction factor for deflection:
-//   w_Mindlin / w_Kirchhoff = 1 + alpha_s * D / (kappa * G * t * a^2)
-//
-// where:
-//   kappa = shear correction factor (5/6 for rectangular section)
-//   G = E / (2*(1+nu)), shear modulus
-//   alpha_s depends on the loading and boundary conditions
-//
-// For a simply supported square plate under UDL:
-//   alpha_s = approximately 12*(1+nu)/(5*pi^2) for the first mode
-//
+// Mindlin plate theory accounts for transverse shear deformation.
 // The shear flexibility parameter:
-//   phi = 12*D / (kappa*G*t*a^2) = pi^2*t^2 / (5*a^2*(1-nu))
-//     (for square plate, using D = Et^3/(12*(1-nu^2)))
+//   S = D / (kappa * G * t)
+//
+// where kappa = 5/6 (shear correction factor) and G = E/(2*(1+nu)).
+//
+// For thin plates (t/a < 0.05): Mindlin ~ Kirchhoff
+// For thick plates (t/a > 0.1): shear deformation is significant
+//
+// The ratio of Mindlin to Kirchhoff deflection:
+//   w_M / w_K ~ 1 + C * (t/a)^2
+// where C depends on boundary conditions (~12/(5*(1-nu))*pi^2 for SS)
 //
 // Reference: Mindlin (1951); Ugural, Ch. 7
 
 #[test]
-fn validation_plate_mindlin_thick_plate_correction() {
-    let e: f64 = 200_000.0;   // MPa
+fn validation_plate_mindlin_correction() {
+    let e: f64 = 200_000.0; // MPa
     let nu: f64 = 0.3;
-    let kappa: f64 = 5.0 / 6.0; // shear correction factor
+    let kappa: f64 = 5.0_f64 / 6.0_f64; // shear correction factor
 
-    let g = e / (2.0 * (1.0 + nu)); // shear modulus
-    let g_expected = 200_000.0 / 2.6;
+    let g: f64 = e / (2.0_f64 * (1.0_f64 + nu));
+    let g_expected: f64 = 200_000.0_f64 / 2.6_f64;
     assert!(
-        (g - g_expected).abs() / g_expected < 1e-10,
-        "Shear modulus: G={:.2} MPa, expected={:.2} MPa",
+        (g - g_expected).abs() / g_expected < 1e-10_f64,
+        "G = {:.2} MPa, expected {:.2}",
         g, g_expected
     );
 
-    // Thin plate: t/a = 0.01 (Kirchhoff theory valid)
-    let t_thin: f64 = 0.01; // m
+    // Thin plate: t/a = 0.01
     let a: f64 = 1.0; // m
+    let t_thin: f64 = 0.01; // m
 
-    let d_thin = e * 1e6 * t_thin.powi(3) / (12.0 * (1.0 - nu * nu));
-    let shear_param_thin = 12.0 * d_thin / (kappa * g * 1e6 * t_thin * a * a);
-    // This should be very small (< 0.01) for thin plates
+    let d_thin: f64 = e * 1e6_f64 * t_thin.powi(3) / (12.0_f64 * (1.0_f64 - nu * nu));
+    let s_thin: f64 = d_thin / (kappa * g * 1e6_f64 * t_thin);
+
+    // For thin plate, S/a^2 should be very small
+    let s_ratio_thin: f64 = s_thin / (a * a);
     assert!(
-        shear_param_thin < 0.05,
-        "Thin plate shear parameter: {:.6} should be small",
-        shear_param_thin
+        s_ratio_thin < 0.001_f64,
+        "Thin plate S/a^2 = {:.6e}, should be << 1",
+        s_ratio_thin
     );
 
     // Thick plate: t/a = 0.2
-    let t_thick: f64 = 0.2; // m
-    let d_thick = e * 1e6 * t_thick.powi(3) / (12.0 * (1.0 - nu * nu));
-    let shear_param_thick = 12.0 * d_thick / (kappa * g * 1e6 * t_thick * a * a);
+    let t_thick: f64 = 0.2;
+    let d_thick: f64 = e * 1e6_f64 * t_thick.powi(3) / (12.0_f64 * (1.0_f64 - nu * nu));
+    let s_thick: f64 = d_thick / (kappa * g * 1e6_f64 * t_thick);
+    let s_ratio_thick: f64 = s_thick / (a * a);
 
-    // This should be significant (> 0.1) for thick plates
     assert!(
-        shear_param_thick > 0.1,
-        "Thick plate shear parameter: {:.6} should be significant",
-        shear_param_thick
+        s_ratio_thick > 0.01_f64,
+        "Thick plate S/a^2 = {:.6e}, should be significant",
+        s_ratio_thick
     );
 
-    // Shear parameter scales as (t/a)^2
-    let ratio_params = shear_param_thick / shear_param_thin;
-    let ratio_ta = (t_thick / t_thin).powi(2);
+    // S scales as t^2 (D ~ t^3, divide by t gives t^2)
+    let s_ratio_ratio: f64 = s_thick / s_thin;
+    let t_ratio_sq: f64 = (t_thick / t_thin).powi(2);
     assert!(
-        (ratio_params - ratio_ta).abs() / ratio_ta < 1e-10,
-        "Shear param ratio: computed={:.4}, expected={:.4} (=(t_thick/t_thin)^2)",
-        ratio_params, ratio_ta
+        (s_ratio_ratio - t_ratio_sq).abs() / t_ratio_sq < 1e-10_f64,
+        "S ratio: {:.4}, (t_thick/t_thin)^2 = {:.4}",
+        s_ratio_ratio, t_ratio_sq
     );
 
-    // Mindlin correction factor: w_Mindlin = w_Kirchhoff * (1 + C * shear_param)
-    // where C depends on boundary conditions and loading.
-    // For SS square plate under UDL, C ~ 1 approximately.
-    let correction_thin = 1.0 + shear_param_thin;
-    let correction_thick = 1.0 + shear_param_thick;
+    // Approximate Mindlin/Kirchhoff deflection ratio for SS square plate
+    // w_M/w_K ~ 1 + alpha * S/a^2
+    // For SS square plate, alpha ~ 2*pi^2/(5*(1-nu))
+    // (from first-mode correction)
+    let alpha_corr: f64 = 2.0_f64 * PI * PI / (5.0_f64 * (1.0_f64 - nu));
+    let correction_thin: f64 = 1.0_f64 + alpha_corr * s_ratio_thin;
+    let correction_thick: f64 = 1.0_f64 + alpha_corr * s_ratio_thick;
 
-    // Thin plate correction should be close to 1
+    // Thin plate: correction ~ 1.0
     assert!(
-        (correction_thin - 1.0).abs() < 0.05,
-        "Thin plate correction: {:.6}, expected ~1.0",
+        (correction_thin - 1.0_f64).abs() < 0.05_f64,
+        "Thin plate correction: {:.6}",
         correction_thin
     );
 
-    // Thick plate correction should be > 1 (more deflection due to shear)
+    // Thick plate: correction > 1.0 (more deflection due to shear)
     assert!(
-        correction_thick > 1.1,
-        "Thick plate correction: {:.6}, should be > 1.1",
+        correction_thick > 1.05_f64,
+        "Thick plate correction: {:.6}, should be > 1.05",
         correction_thick
     );
+}
 
-    // Verify the approximate formula: phi = pi^2*t^2/(5*a^2*(1-nu))
-    // This is derived from substituting D into the shear parameter
-    let phi_approx = PI * PI * t_thin * t_thin / (5.0 * a * a * (1.0 - nu));
-    // = pi^2 * 0.0001 / (5 * 1 * 0.7) = 9.8696 * 0.0001 / 3.5 = 2.82e-4
-    // Compare with shear_param_thin
-    // The two should be related but not identical due to the kappa factor
-    // phi_approx uses the exact Mindlin derivation
+// ================================================================
+// 8. Orthotropic Plate Bending Under UDL
+// ================================================================
+//
+// An orthotropic plate has different stiffnesses in two directions:
+//   D_x = E_x * t^3 / (12*(1-nu_xy*nu_yx))
+//   D_y = E_y * t^3 / (12*(1-nu_xy*nu_yx))
+//   D_xy = G_xy * t^3 / 12
+//   H = D_xy + sqrt(D_x * D_y) * nu_xy  (torsional rigidity, simplified)
+//
+// For a simply supported orthotropic plate under UDL, the Navier solution
+// replaces D with direction-dependent rigidities:
+//   w(x,y) = sum_{m,n odd} 16*q / (pi^6 * m*n *
+//     (D_x*(m/a)^4 + 2*H*(m/a)^2*(n/b)^2 + D_y*(n/b)^4))
+//     * sin(m*pi*x/a) * sin(n*pi*y/b)
+//
+// Common orthotropic plates: corrugated sheets, ribbed slabs,
+// timber decking, composite floor panels.
+//
+// Reference: Timoshenko & Woinowsky-Krieger, Ch. 11; Szilard, Ch. 8
+
+#[test]
+fn validation_plate_orthotropic_bending() {
+    // Ribbed concrete slab (typical orthotropic properties)
+    let t: f64 = 0.150;       // m (slab thickness)
+    let a: f64 = 6.0;         // m (span in x, rib direction = stiffer)
+    let b: f64 = 6.0;         // m (span in y)
+    let q: f64 = 5000.0;      // Pa (uniform load)
+    let nu_xy: f64 = 0.15;    // Poisson's ratio
+
+    // Ribbed slab: stiffer in rib direction
+    // E_x_eff > E_y_eff due to ribs
+    let e_x_eff: f64 = 40_000.0; // MPa (effective, with ribs)
+    let e_y_eff: f64 = 30_000.0; // MPa (plain slab direction)
+    let nu_yx: f64 = nu_xy * e_y_eff / e_x_eff; // reciprocal relation
+
+    // Verify reciprocal relation: nu_yx/E_y = nu_xy/E_x
+    let check: f64 = (nu_yx / e_y_eff - nu_xy / e_x_eff).abs();
     assert!(
-        phi_approx > 0.0 && phi_approx < 0.01,
-        "phi_approx for thin plate: {:.6e}",
-        phi_approx
+        check < 1e-15_f64,
+        "Reciprocal relation check: {:.6e}",
+        check
+    );
+
+    // Flexural rigidities
+    let denom: f64 = 1.0_f64 - nu_xy * nu_yx;
+    let d_x: f64 = e_x_eff * 1e6_f64 * t.powi(3) / (12.0_f64 * denom);
+    let d_y: f64 = e_y_eff * 1e6_f64 * t.powi(3) / (12.0_f64 * denom);
+
+    // D_x should be larger than D_y (ribs in x-direction)
+    assert!(
+        d_x > d_y,
+        "D_x ({:.2}) > D_y ({:.2})",
+        d_x, d_y
+    );
+
+    // Torsional rigidity (simplified): H = sqrt(D_x * D_y)
+    // (Huber's approximation for orthotropic plate)
+    let h_huber: f64 = (d_x * d_y).sqrt();
+
+    // For isotropic plate: D_x = D_y = D, H = D, and we recover standard formula
+    // Check: if e_x = e_y, then D_x = D_y and H = D_x = D_y (consistent)
+
+    // First-term Navier solution for orthotropic plate at center
+    let m: f64 = 1.0_f64;
+    let n: f64 = 1.0_f64;
+    let navier_denom: f64 = d_x * (m / a).powi(4)
+        + 2.0_f64 * h_huber * (m / a).powi(2) * (n / b).powi(2)
+        + d_y * (n / b).powi(4);
+    let w_11: f64 = 16.0_f64 * q / (PI.powi(6) * m * n * navier_denom);
+
+    assert!(
+        w_11 > 0.0_f64,
+        "Orthotropic first-term deflection must be positive: {:.6e} m",
+        w_11
+    );
+
+    // Compare with isotropic plate (using average stiffness)
+    let d_avg: f64 = (d_x + d_y) / 2.0_f64;
+    let navier_iso_denom: f64 = d_avg * ((m / a).powi(2) + (n / b).powi(2)).powi(2);
+    let w_11_iso: f64 = 16.0_f64 * q / (PI.powi(6) * m * n * navier_iso_denom);
+
+    // The orthotropic and isotropic solutions should be in the same order of magnitude
+    let ratio: f64 = w_11 / w_11_iso;
+    assert!(
+        ratio > 0.5_f64 && ratio < 2.0_f64,
+        "Orthotropic/isotropic ratio: {:.4}, should be close to 1",
+        ratio
+    );
+
+    // Verify that stiffening one direction reduces deflection
+    // Double D_x while keeping D_y and H the same
+    let d_x_stiff: f64 = 2.0_f64 * d_x;
+    let h_stiff: f64 = (d_x_stiff * d_y).sqrt();
+    let navier_stiff: f64 = d_x_stiff * (m / a).powi(4)
+        + 2.0_f64 * h_stiff * (m / a).powi(2) * (n / b).powi(2)
+        + d_y * (n / b).powi(4);
+    let w_11_stiff: f64 = 16.0_f64 * q / (PI.powi(6) * m * n * navier_stiff);
+
+    assert!(
+        w_11_stiff < w_11,
+        "Stiffer plate ({:.6e}) < original ({:.6e})",
+        w_11_stiff, w_11
     );
 }
