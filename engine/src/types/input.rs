@@ -609,3 +609,125 @@ pub struct TimeForceRecord {
     pub time: f64,
     pub loads: Vec<SolverNodalLoad>,
 }
+
+// ==================== Construction Staging + Prestress ====================
+
+use super::output::{AnalysisResults, AnalysisResults3D};
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ConstructionStage {
+    pub name: String,
+    #[serde(default)]
+    pub elements_added: Vec<usize>,
+    #[serde(default)]
+    pub elements_removed: Vec<usize>,
+    #[serde(default)]
+    pub load_indices: Vec<usize>,
+    #[serde(default)]
+    pub supports_added: Vec<usize>,
+    #[serde(default)]
+    pub supports_removed: Vec<usize>,
+    #[serde(default)]
+    pub prestress_loads: Vec<PrestressLoad>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct PrestressLoad {
+    pub element_id: usize,
+    pub force: f64,
+    pub eccentricity_i: f64,
+    pub eccentricity_j: f64,
+    #[serde(default)]
+    pub profile: TendonProfile,
+    #[serde(default)]
+    pub mu: Option<f64>,
+    #[serde(default)]
+    pub kappa: Option<f64>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub enum TendonProfile {
+    #[serde(rename = "straight")]
+    Straight,
+    #[serde(rename = "parabolic")]
+    Parabolic { e_mid: f64 },
+}
+
+impl Default for TendonProfile {
+    fn default() -> Self { TendonProfile::Straight }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct StagedInput {
+    pub nodes: HashMap<String, SolverNode>,
+    pub materials: HashMap<String, SolverMaterial>,
+    pub sections: HashMap<String, SolverSection>,
+    pub elements: HashMap<String, SolverElement>,
+    pub supports: HashMap<String, SolverSupport>,
+    pub loads: Vec<SolverLoad>,
+    pub stages: Vec<ConstructionStage>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct StagedInput3D {
+    pub nodes: HashMap<String, SolverNode3D>,
+    pub materials: HashMap<String, SolverMaterial>,
+    pub sections: HashMap<String, SolverSection3D>,
+    pub elements: HashMap<String, SolverElement3D>,
+    pub supports: HashMap<String, SolverSupport3D>,
+    pub loads: Vec<SolverLoad3D>,
+    pub stages: Vec<ConstructionStage3D>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ConstructionStage3D {
+    pub name: String,
+    #[serde(default)]
+    pub elements_added: Vec<usize>,
+    #[serde(default)]
+    pub elements_removed: Vec<usize>,
+    #[serde(default)]
+    pub load_indices: Vec<usize>,
+    #[serde(default)]
+    pub supports_added: Vec<usize>,
+    #[serde(default)]
+    pub supports_removed: Vec<usize>,
+    #[serde(default)]
+    pub prestress_loads: Vec<PrestressLoad>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct StageResult {
+    pub stage_name: String,
+    pub stage_index: usize,
+    pub results: AnalysisResults,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct StagedAnalysisResults {
+    pub stages: Vec<StageResult>,
+    pub final_results: AnalysisResults,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct StageResult3D {
+    pub stage_name: String,
+    pub stage_index: usize,
+    pub results: AnalysisResults3D,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct StagedAnalysisResults3D {
+    pub stages: Vec<StageResult3D>,
+    pub final_results: AnalysisResults3D,
+}

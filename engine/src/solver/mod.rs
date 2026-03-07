@@ -14,6 +14,8 @@ pub mod corotational;
 pub mod material_nonlinear;
 pub mod damping;
 pub mod time_integration;
+pub mod prestress;
+pub mod staged;
 
 pub use dof::*;
 pub use assembly::*;

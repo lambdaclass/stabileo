@@ -275,7 +275,7 @@ pub fn assemble_2d(input: &SolverInput, dof_num: &DofNumbering) -> AssemblyResul
     }
 }
 
-fn assemble_element_loads_2d(
+pub fn assemble_element_loads_2d(
     input: &SolverInput,
     elem: &SolverElement,
     _k_local: &[f64],
