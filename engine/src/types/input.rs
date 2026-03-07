@@ -578,6 +578,21 @@ pub struct Axle {
     pub weight: f64,
 }
 
+/// 3D moving loads analysis input.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct MovingLoadInput3D {
+    pub solver: SolverInput3D,
+    pub train: LoadTrain,
+    #[serde(default)]
+    pub step: Option<f64>,
+    #[serde(default)]
+    pub path_element_ids: Option<Vec<usize>>,
+    /// Gravity direction: "z" (default, -Z) or "y" (-Y).
+    #[serde(default)]
+    pub gravity_direction: Option<String>,
+}
+
 // ==================== Nonlinear Material Analysis ====================
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
