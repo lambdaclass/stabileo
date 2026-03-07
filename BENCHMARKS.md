@@ -45,9 +45,9 @@ Status definitions used here:
 | Load combinations / envelopes | Strong | `postprocess/combinations.rs`, `validation_combinations.rs`, `validation_load_combination_envelope.rs` | Mostly product/workflow polish |
 | Diagrams / section forces / deformed shape | Strong | `postprocess/diagrams.rs`, `postprocess/diagrams_3d.rs`, `postprocess/section_stress*.rs` | Minor completeness and UX, not core formulation |
 | 2D P-Delta | Strong | `solver/pdelta.rs`, `validation_pdelta_*`, AISC/EC stability tests | More nonlinear robustness and path-following |
-| 3D P-Delta | Good | `solver/pdelta.rs`, `validation_3d_pdelta.rs` | More validation breadth, tougher nonlinear cases |
+| 3D P-Delta | Strong | `solver/pdelta.rs`, `validation_3d_pdelta.rs`, `validation_3d_buckling.rs` | More difficult nonlinear frame/shell coupling cases |
 | 2D buckling | Strong | `solver/buckling.rs`, `validation_euler_buckling.rs`, `validation_column_buckling_modes.rs` | Post-buckling / imperfection workflows |
-| 3D buckling | Good | `solver/buckling.rs`, `validation_3d_buckling.rs` | More difficult frame / torsion / shell coupling cases |
+| 3D buckling | Strong | `solver/buckling.rs`, `validation_3d_buckling.rs` | More difficult frame / torsion / shell coupling cases |
 | 2D modal | Strong | `solver/modal.rs`, `validation_modal_frequencies.rs`, `validation_modal_properties.rs` | Mainly larger mixed-element coverage |
 | 3D modal | Strong | `solver/modal.rs`, `validation_3d_modal_dynamic.rs` | More plate/shell/mixed-model maturity |
 | 2D response spectrum | Strong | `solver/spectral.rs`, `validation_spectral_response.rs`, `validation_rsa_crosscheck.rs` | Mainly code-specific workflows |
@@ -55,21 +55,22 @@ Status definitions used here:
 | 2D time history | Good | `solver/time_integration.rs`, `validation_time_history.rs`, `validation_dynamic_mdof.rs` | Stronger nonlinear coupling, more integrators/controls |
 | 3D time history | Gap | No solver entry point | Full implementation needed |
 | 2D geometric nonlinear (corotational) | Good | `solver/corotational.rs`, `validation_corotational*.rs` | Arc-length, limit points, stronger benchmark parity |
-| 3D geometric nonlinear | Gap | No `solve_corotational_3d` path | Full implementation needed |
-| 2D material nonlinear | Partial | `solver/material_nonlinear.rs`, benchmark/capability tests | Currently simplified end-yield / stiffness-reduction approach |
-| 3D material nonlinear | Gap | No solver path | Full implementation needed |
+| 3D geometric nonlinear | Good | `solver/corotational.rs`, `integration_corotational_3d.rs` | Needs broader benchmark depth, stronger controls, tougher convergence cases |
+| 2D material nonlinear | Partial | `solver/material_nonlinear.rs`, benchmark/capability tests | Present but still simplified relative to fiber/section-based nonlinear solvers |
+| 3D material nonlinear | Partial | `solver/material_nonlinear.rs`, `integration_material_nonlinear_3d.rs` | New implementation; needs broad validation and tougher benchmark parity |
 | Plastic collapse / hinge sequencing | Good | `solver/plastic.rs`, `validation_plastic_*` | Not a full general nonlinear plasticity framework |
 | 2D frame / truss elements | Strong | `element/frame.rs`, `element/truss` behavior via linear solver/tests | Mostly shear deformation and nonlinear upgrades |
 | 3D frame / truss elements | Strong | `element/frame.rs`, broad `validation_3d_*` coverage | Warping completion, nonlinear upgrades |
-| Plate / shell triangles | Good | `element/plate.rs`, `validation_plates.rs`, `validation_scordelis_lo.rs` | Higher fidelity shell behavior, load vectors, convergence quality |
+| Plate / shell triangles | Good | `element/plate.rs`, `validation_plates.rs`, `validation_scordelis_lo.rs`, recent drilling/nodal-stress/thermal upgrades | Higher fidelity shell behavior, convergence quality, more benchmark depth |
 | Curved beams | Partial | `element/curved_beam.rs`, `validation_curved_beams.rs` | Current approach is segmented expansion, not native high-end formulation |
-| Timoshenko beam / shear deformation | Gap | `validation_shear_deformation.rs` explicitly notes EB-only solver | New element formulation required |
-| Cable / catenary element | Gap | `validation_catenary_cable.rs` uses truss approximations | New nonlinear cable element required |
+| Timoshenko beam / shear deformation | Good | `element/frame.rs`, shear-area fields in `types/input.rs`, `validation_timoshenko_solver.rs` | Needs broader production validation across all solver modes |
+| Cable / catenary element | Good | `element/cable.rs`, `solver/cable.rs`, `integration_cable_solver.rs` | Needs broader bridge/cable-net/staged benchmark depth |
 | Warping torsion / 7th DOF | Partial | 14-DOF plumbing in `assembly.rs`, `linear.rs`, placeholder tests in `validation_warping_torsion.rs` | Finish assembly, loads, supports, postprocessing, and validation |
 | Thermal loads / settlements / springs | Strong | `validation_thermal_*`, `validation_prescribed_*`, `validation_spring_supports.rs` | More coupled / 3D edge cases |
 | Pressure loads on plates | Good | `SolverLoad3D::Pressure`, plate validation files | Better load vectors and shell-quality convergence |
-| Prestress / post-tension FE analysis | Gap | Existing PT tests are engineering calculations, not tendon-enabled FE analysis | Add initial strain/load state modeling and staged workflows |
-| Construction staging | Gap | `validation_construction_staging.rs` is calculation/process validation only | Add staged activation/deactivation solver infrastructure |
+| Plate thermal loads / stress recovery | Good | `element/plate.rs`, recent plate integration tests | More benchmark depth and smoothing/quality validation |
+| Prestress / post-tension FE analysis | Partial | `solver/prestress.rs`, `solver/staged.rs`, `integration_staged_analysis.rs` | Real 2D prestress/staged support exists; not yet a full general PT analysis framework |
+| Construction staging | Partial | `solver/staged.rs`, `integration_staged_analysis.rs` | Real 2D staged solver exists; 3D staging path is not implemented |
 | Creep / shrinkage / relaxation response | Gap | Formula-level tests exist, no coupled structural response solver | Time-dependent constitutive / load-history implementation |
 | Kinematic / mechanism diagnostics | Strong | `solver/kinematic.rs`, `validation_kinematic.rs`, `validation_3d_kinematic.rs` | Better diagnostics/reporting, not major formulation gap |
 
@@ -86,7 +87,7 @@ Trying to be "best in every category" is not a single roadmap. It is at least fo
 4. **Specialized structure solver**
    Cables, cable nets, tensegrity, bridge staging, time-dependent effects, soil-structure interaction.
 
-Today the engine is already competitive in the first program's linear and second-order core, but not yet in the later programs.
+Today the engine is already competitive in the first program's linear and second-order core, and it has now entered the nonlinear, cable, staging, and improved plate/shell categories. It is still clearly behind top-tier solvers in advanced shells, lifecycle effects, warping completion, and the deepest nonlinear mechanics.
 
 ---
 
@@ -404,11 +405,11 @@ These are the largest gaps between the current engine and a top-tier structural 
 |-------|-----------|---------------|----------------|
 | Timoshenko beam element (shear deformation) | Medium | Gap | Required for deep beams, short members, and better dynamic/buckling fidelity |
 | Warping torsion (7th DOF) completion | Medium | Partial | Needed for thin-walled open sections and serious torsion claims |
-| Cable / catenary elements | Medium | Gap | Required for stays, suspension behavior, sag-dependent stiffness |
-| 3D geometric nonlinear (corotational) | Hard | Gap | Core requirement for top-tier nonlinear frame analysis |
-| 3D material nonlinear | Hard | Gap | Needed for serious inelastic 3D analysis |
-| Prestress / post-tension FE behavior | Hard | Gap | Essential for bridge/PT concrete workflows |
-| Construction staging | Hard | Gap | Essential for segmental, erection, and phased-load problems |
+| Cable / catenary elements | Medium | Good | Implemented, but needs broader benchmark maturity and specialized behavior depth |
+| 3D geometric nonlinear (corotational) | Hard | Good | Implemented, but needs stronger controls and benchmark breadth |
+| 3D material nonlinear | Hard | Partial | Implemented, but still early relative to top-tier inelastic solvers |
+| Prestress / post-tension FE behavior | Hard | Partial | 2D prestress/staged support exists, but not full PT solver depth |
+| Construction staging | Hard | Partial | 2D implementation exists; 3D and broader workflows remain open |
 | Creep & shrinkage response | Hard | Gap | Essential for long-term concrete/PT behavior |
 | Plate / shell advanced elements and load vectors | Hard | Good | Needed to move shells from "works" to "top-tier" |
 | Fiber-based plasticity / section-level nonlinear response | Hard | Gap | Needed for advanced nonlinear building analysis |
