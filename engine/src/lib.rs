@@ -182,6 +182,17 @@ pub fn solve_nonlinear_material_2d(json: &str) -> Result<String, JsValue> {
         .map_err(|e| JsValue::from_str(&format!("Serialize error: {}", e)))
 }
 
+/// Solve 3D nonlinear material analysis. JSON in → JSON out.
+#[wasm_bindgen]
+pub fn solve_nonlinear_material_3d(json: &str) -> Result<String, JsValue> {
+    let input: types::NonlinearMaterialInput3D = serde_json::from_str(json)
+        .map_err(|e| JsValue::from_str(&format!("Parse error: {}", e)))?;
+    let results = solver::material_nonlinear::solve_nonlinear_material_3d(&input)
+        .map_err(|e| JsValue::from_str(&e))?;
+    serde_json::to_string(&results)
+        .map_err(|e| JsValue::from_str(&format!("Serialize error: {}", e)))
+}
+
 // ==================== Time History Analysis ====================
 
 /// Solve 2D time-history analysis. JSON in → JSON out.

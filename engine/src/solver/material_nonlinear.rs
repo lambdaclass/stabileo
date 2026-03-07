@@ -698,3 +698,680 @@ fn build_element_status(
     statuses.sort_by_key(|s| s.element_id);
     statuses
 }
+
+// ===========================================================================
+// 3D Nonlinear Material Analysis
+// ===========================================================================
+
+/// Per-element state tracking for 3D nonlinear material analysis.
+#[derive(Clone)]
+struct ElementState3D {
+    yielded_start: bool,
+    yielded_end: bool,
+    alpha: f64,
+}
+
+/// Solve a 3D nonlinear material analysis using incremental load-stepping
+/// with Newton-Raphson equilibrium iterations at each increment.
+///
+/// The yield criterion is a resultant-based biaxial interaction:
+///   (N/Np)^2 + (My/Mpy)^2 + (Mz/Mpz)^2 <= 1.0
+///
+/// When an element yields at an end, its flexural stiffness is reduced to
+/// alpha * EI (bilinear hardening).
+pub fn solve_nonlinear_material_3d(
+    input: &NonlinearMaterialInput3D,
+) -> Result<NonlinearMaterialResult3D, String> {
+    let solver = &input.solver;
+    let dof_num = DofNumbering::build_3d(solver);
+
+    if dof_num.n_free == 0 {
+        return Err("No free DOFs -- all nodes are fully restrained".into());
+    }
+
+    let n = dof_num.n_total;
+    let nf = dof_num.n_free;
+    let free_idx: Vec<usize> = (0..nf).collect();
+    let rest_idx: Vec<usize> = (nf..n).collect();
+    let nr = n - nf;
+
+    // Full elastic assembly for total external load vector.
+    let asm = super::assembly::assemble_3d(solver, &dof_num);
+    let f_total = asm.f.clone();
+
+    // Prescribed displacements (from settlement supports).
+    let mut u_r = vec![0.0; nr];
+    for sup in solver.supports.values() {
+        let prescribed: [(usize, Option<f64>); 6] = [
+            (0, sup.dx), (1, sup.dy), (2, sup.dz),
+            (3, sup.drx), (4, sup.dry), (5, sup.drz),
+        ];
+        for &(local_dof, val) in &prescribed {
+            if let Some(v) = val {
+                if v.abs() > 1e-15 {
+                    if let Some(&d) = dof_num.map.get(&(sup.node_id, local_dof)) {
+                        if d >= nf {
+                            u_r[d - nf] = v;
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    // Initialize element states: all elastic.
+    let mut states: Vec<(usize, ElementState3D)> = solver
+        .elements
+        .values()
+        .map(|elem| {
+            let alpha = lookup_alpha_3d(input, elem);
+            (
+                elem.id,
+                ElementState3D {
+                    yielded_start: false,
+                    yielded_end: false,
+                    alpha,
+                },
+            )
+        })
+        .collect();
+    states.sort_by_key(|&(id, _)| id);
+
+    let n_increments = input.n_increments;
+    let max_iter = input.max_iter;
+    let tolerance = input.tolerance;
+
+    let mut u_full = vec![0.0; n];
+    let mut load_displacement: Vec<[f64; 2]> = Vec::with_capacity(n_increments);
+    let mut total_nr_iterations: usize = 0;
+    let mut converged_global = true;
+
+    for inc in 1..=n_increments {
+        let load_factor = inc as f64 / n_increments as f64;
+
+        let f_ext: Vec<f64> = f_total.iter().map(|&f| load_factor * f).collect();
+        let f_ext_free = extract_subvec(&f_ext, &free_idx);
+        let f_ext_norm = vec_norm_l2(&f_ext_free);
+
+        let mut converged_increment = false;
+
+        for _nr_iter in 0..max_iter {
+            total_nr_iterations += 1;
+
+            let k_t = assemble_tangent_stiffness_3d(solver, &dof_num, &states);
+            let f_int = compute_global_internal_forces_3d(solver, &dof_num, &u_full, &states);
+
+            let mut residual = vec![0.0; n];
+            for i in 0..n {
+                residual[i] = f_ext[i] - f_int[i];
+            }
+            let r_free = extract_subvec(&residual, &free_idx);
+
+            let r_norm = vec_norm_l2(&r_free);
+            let ref_norm = if f_ext_norm > 1e-20 { f_ext_norm } else { 1.0 };
+            if r_norm < tolerance * ref_norm {
+                converged_increment = true;
+                break;
+            }
+
+            let k_ff = extract_submatrix(&k_t, n, &free_idx, &free_idx);
+            let k_fr = extract_submatrix(&k_t, n, &free_idx, &rest_idx);
+            let k_fr_ur = mat_vec_rect(&k_fr, &u_r, nf, nr);
+            let mut rhs = r_free.clone();
+            for i in 0..nf {
+                rhs[i] -= k_fr_ur[i];
+            }
+
+            let delta_u_f = solve_system(k_ff, rhs, nf)?;
+
+            for i in 0..nf {
+                u_full[i] += delta_u_f[i];
+            }
+            for i in 0..nr {
+                u_full[nf + i] = load_factor * u_r[i];
+            }
+
+            update_element_states_3d(solver, input, &dof_num, &u_full, &mut states);
+        }
+
+        if !converged_increment {
+            converged_global = false;
+        }
+
+        let max_disp = compute_max_displacement_3d_nl(&dof_num, &u_full);
+        load_displacement.push([load_factor, max_disp]);
+    }
+
+    // Build final results.
+    let displacements = super::linear::build_displacements_3d(&dof_num, &u_full);
+
+    let k_final = assemble_tangent_stiffness_3d(solver, &dof_num, &states);
+    let f_final = f_total.clone();
+    let mut reactions_vec = vec![0.0; nr];
+    for i in 0..nr {
+        let row = nf + i;
+        let mut ku = 0.0;
+        for j in 0..n {
+            ku += k_final[row * n + j] * u_full[j];
+        }
+        reactions_vec[i] = ku - f_final[row];
+    }
+
+    let reactions = build_reactions_3d_nl(solver, &dof_num, &reactions_vec, nf);
+
+    let mut element_forces = super::linear::compute_internal_forces_3d(solver, &dof_num, &u_full);
+    element_forces.sort_by_key(|ef| ef.element_id);
+
+    let element_status = build_element_status_3d(solver, input, &dof_num, &u_full, &states);
+
+    Ok(NonlinearMaterialResult3D {
+        results: AnalysisResults3D {
+            displacements,
+            reactions,
+            element_forces,
+            plate_stresses: Vec::new(),
+        },
+        converged: converged_global,
+        iterations: total_nr_iterations,
+        load_factor: if n_increments > 0 { 1.0 } else { 0.0 },
+        element_status,
+        load_displacement,
+    })
+}
+
+// ---------------------------------------------------------------------------
+// 3D helper: look up hardening ratio alpha for a 3D element.
+// ---------------------------------------------------------------------------
+
+fn lookup_alpha_3d(input: &NonlinearMaterialInput3D, elem: &SolverElement3D) -> f64 {
+    let mat = input
+        .solver
+        .materials
+        .values()
+        .find(|m| m.id == elem.material_id);
+    if let Some(mat) = mat {
+        let mat_key = mat.id.to_string();
+        if let Some(model) = input.material_models.get(&mat_key) {
+            return model.alpha.unwrap_or(DEFAULT_ALPHA);
+        }
+    }
+    DEFAULT_ALPHA
+}
+
+// ---------------------------------------------------------------------------
+// 3D helper: look up section capacities (Np, Mpy, Mpz).
+// ---------------------------------------------------------------------------
+
+fn lookup_capacities_3d(input: &NonlinearMaterialInput3D, elem: &SolverElement3D) -> (f64, f64, f64) {
+    let sec_key = elem.section_id.to_string();
+    if let Some(cap) = input.section_capacities.get(&sec_key) {
+        (cap.np, cap.mpy, cap.mpz)
+    } else {
+        (f64::INFINITY, f64::INFINITY, f64::INFINITY)
+    }
+}
+
+// ---------------------------------------------------------------------------
+// 3D tangent stiffness assembly with reduced EI for yielded elements.
+// ---------------------------------------------------------------------------
+
+fn assemble_tangent_stiffness_3d(
+    solver: &SolverInput3D,
+    dof_num: &DofNumbering,
+    states: &[(usize, ElementState3D)],
+) -> Vec<f64> {
+    let n = dof_num.n_total;
+    let mut k_global = vec![0.0; n * n];
+    let left_hand = solver.left_hand.unwrap_or(false);
+
+    for elem in solver.elements.values() {
+        let node_i = solver.nodes.values().find(|nd| nd.id == elem.node_i).unwrap();
+        let node_j = solver.nodes.values().find(|nd| nd.id == elem.node_j).unwrap();
+        let mat = solver.materials.values().find(|m| m.id == elem.material_id).unwrap();
+        let sec = solver.sections.values().find(|s| s.id == elem.section_id).unwrap();
+
+        let dx = node_j.x - node_i.x;
+        let dy = node_j.y - node_i.y;
+        let dz = node_j.z - node_i.z;
+        let l = (dx * dx + dy * dy + dz * dz).sqrt();
+        let e = mat.e * 1000.0;
+        let g = e / (2.0 * (1.0 + mat.nu));
+
+        let elem_dofs = dof_num.element_dofs(elem.node_i, elem.node_j);
+
+        if elem.elem_type == "truss" || elem.elem_type == "cable" {
+            let dir = [dx / l, dy / l, dz / l];
+            let ea_l = e * sec.a / l;
+            let truss_dofs = [
+                dof_num.global_dof(elem.node_i, 0).unwrap(),
+                dof_num.global_dof(elem.node_i, 1).unwrap(),
+                dof_num.global_dof(elem.node_i, 2).unwrap(),
+                dof_num.global_dof(elem.node_j, 0).unwrap(),
+                dof_num.global_dof(elem.node_j, 1).unwrap(),
+                dof_num.global_dof(elem.node_j, 2).unwrap(),
+            ];
+            for i in 0..3 {
+                for j in 0..3 {
+                    let kij = ea_l * dir[i] * dir[j];
+                    k_global[truss_dofs[i] * n + truss_dofs[j]] += kij;
+                    k_global[truss_dofs[i + 3] * n + truss_dofs[j + 3]] += kij;
+                    k_global[truss_dofs[i] * n + truss_dofs[j + 3]] -= kij;
+                    k_global[truss_dofs[i + 3] * n + truss_dofs[j]] -= kij;
+                }
+            }
+        } else {
+            // Determine effective IY, IZ based on yield state.
+            let state = states.iter().find(|&&(id, _)| id == elem.id);
+            let (iy_eff, iz_eff) = match state {
+                Some(&(_, ref st)) => {
+                    if st.yielded_start || st.yielded_end {
+                        (st.alpha * sec.iy, st.alpha * sec.iz)
+                    } else {
+                        (sec.iy, sec.iz)
+                    }
+                }
+                None => (sec.iy, sec.iz),
+            };
+
+            let (ex, ey, ez) = compute_local_axes_3d(
+                node_i.x, node_i.y, node_i.z,
+                node_j.x, node_j.y, node_j.z,
+                elem.local_yx, elem.local_yy, elem.local_yz,
+                elem.roll_angle, left_hand,
+            );
+
+            let has_cw = sec.cw.map_or(false, |cw| cw > 0.0);
+            let (phi_y, phi_z) = if sec.as_y.is_some() || sec.as_z.is_some() {
+                let l2 = l * l;
+                let py = sec.as_y.map(|ay| 12.0 * e * iy_eff / (g * ay * l2)).unwrap_or(0.0);
+                let pz = sec.as_z.map(|az| 12.0 * e * iz_eff / (g * az * l2)).unwrap_or(0.0);
+                (py, pz)
+            } else {
+                (0.0, 0.0)
+            };
+
+            if has_cw && dof_num.dofs_per_node >= 7 {
+                let t = frame_transform_3d_warping(&ex, &ey, &ez);
+                let k_local = frame_local_stiffness_3d_warping(
+                    e, sec.a, iy_eff, iz_eff, sec.j, sec.cw.unwrap(), l, g,
+                    elem.hinge_start, elem.hinge_end, phi_y, phi_z,
+                );
+                let k_glob = transform_stiffness(&k_local, &t, 14);
+                let ndof = elem_dofs.len();
+                for i in 0..ndof {
+                    for j in 0..ndof {
+                        k_global[elem_dofs[i] * n + elem_dofs[j]] += k_glob[i * ndof + j];
+                    }
+                }
+            } else {
+                let t = frame_transform_3d(&ex, &ey, &ez);
+                let k_local = frame_local_stiffness_3d(
+                    e, sec.a, iy_eff, iz_eff, sec.j, l, g,
+                    elem.hinge_start, elem.hinge_end, phi_y, phi_z,
+                );
+                let k_glob = transform_stiffness(&k_local, &t, 12);
+                let ndof = elem_dofs.len();
+                for i in 0..ndof {
+                    for j in 0..ndof {
+                        k_global[elem_dofs[i] * n + elem_dofs[j]] += k_glob[i * ndof + j];
+                    }
+                }
+            }
+        }
+    }
+
+    // Add spring stiffness contributions.
+    for sup in solver.supports.values() {
+        let spring_dofs: [(usize, Option<f64>); 6] = [
+            (0, sup.kx), (1, sup.ky), (2, sup.kz),
+            (3, sup.krx), (4, sup.kry), (5, sup.krz),
+        ];
+        for &(local_dof, k_val) in &spring_dofs {
+            if let Some(k) = k_val {
+                if k > 0.0 {
+                    if let Some(&d) = dof_num.map.get(&(sup.node_id, local_dof)) {
+                        k_global[d * n + d] += k;
+                    }
+                }
+            }
+        }
+    }
+
+    k_global
+}
+
+// ---------------------------------------------------------------------------
+// 3D global internal force vector.
+// ---------------------------------------------------------------------------
+
+fn compute_global_internal_forces_3d(
+    solver: &SolverInput3D,
+    dof_num: &DofNumbering,
+    u: &[f64],
+    states: &[(usize, ElementState3D)],
+) -> Vec<f64> {
+    let n = dof_num.n_total;
+    let mut f_int = vec![0.0; n];
+    let left_hand = solver.left_hand.unwrap_or(false);
+
+    for elem in solver.elements.values() {
+        let node_i = solver.nodes.values().find(|nd| nd.id == elem.node_i).unwrap();
+        let node_j = solver.nodes.values().find(|nd| nd.id == elem.node_j).unwrap();
+        let mat = solver.materials.values().find(|m| m.id == elem.material_id).unwrap();
+        let sec = solver.sections.values().find(|s| s.id == elem.section_id).unwrap();
+
+        let dx = node_j.x - node_i.x;
+        let dy = node_j.y - node_i.y;
+        let dz = node_j.z - node_i.z;
+        let l = (dx * dx + dy * dy + dz * dz).sqrt();
+        let e = mat.e * 1000.0;
+        let g = e / (2.0 * (1.0 + mat.nu));
+
+        if elem.elem_type == "truss" || elem.elem_type == "cable" {
+            let dir = [dx / l, dy / l, dz / l];
+            let ea_l = e * sec.a / l;
+            let truss_dofs = [
+                dof_num.global_dof(elem.node_i, 0).unwrap(),
+                dof_num.global_dof(elem.node_i, 1).unwrap(),
+                dof_num.global_dof(elem.node_i, 2).unwrap(),
+                dof_num.global_dof(elem.node_j, 0).unwrap(),
+                dof_num.global_dof(elem.node_j, 1).unwrap(),
+                dof_num.global_dof(elem.node_j, 2).unwrap(),
+            ];
+            let u_elem: Vec<f64> = truss_dofs.iter().map(|&d| u[d]).collect();
+            // Axial displacement in local direction
+            let delta: f64 = (0..3).map(|i| (u_elem[i + 3] - u_elem[i]) * dir[i]).sum();
+            let n_axial = ea_l * delta;
+            // Distribute to global DOFs
+            for i in 0..3 {
+                f_int[truss_dofs[i]] -= n_axial * dir[i];
+                f_int[truss_dofs[i + 3]] += n_axial * dir[i];
+            }
+        } else {
+            let state = states.iter().find(|&&(id, _)| id == elem.id);
+            let (iy_eff, iz_eff) = match state {
+                Some(&(_, ref st)) => {
+                    if st.yielded_start || st.yielded_end {
+                        (st.alpha * sec.iy, st.alpha * sec.iz)
+                    } else {
+                        (sec.iy, sec.iz)
+                    }
+                }
+                None => (sec.iy, sec.iz),
+            };
+
+            let (ex, ey, ez) = compute_local_axes_3d(
+                node_i.x, node_i.y, node_i.z,
+                node_j.x, node_j.y, node_j.z,
+                elem.local_yx, elem.local_yy, elem.local_yz,
+                elem.roll_angle, left_hand,
+            );
+
+            let elem_dofs = dof_num.element_dofs(elem.node_i, elem.node_j);
+            let u_global: Vec<f64> = elem_dofs.iter().map(|&d| u[d]).collect();
+
+            let has_cw = sec.cw.map_or(false, |cw| cw > 0.0);
+            let (phi_y, phi_z) = if sec.as_y.is_some() || sec.as_z.is_some() {
+                let l2 = l * l;
+                let py = sec.as_y.map(|ay| 12.0 * e * iy_eff / (g * ay * l2)).unwrap_or(0.0);
+                let pz = sec.as_z.map(|az| 12.0 * e * iz_eff / (g * az * l2)).unwrap_or(0.0);
+                (py, pz)
+            } else {
+                (0.0, 0.0)
+            };
+
+            let (f_local, ndof_elem) = if has_cw && dof_num.dofs_per_node >= 7 {
+                let t = frame_transform_3d_warping(&ex, &ey, &ez);
+                let u_local = transform_displacement(&u_global, &t, 14);
+                let k_local = frame_local_stiffness_3d_warping(
+                    e, sec.a, iy_eff, iz_eff, sec.j, sec.cw.unwrap(), l, g,
+                    elem.hinge_start, elem.hinge_end, phi_y, phi_z,
+                );
+                let mut fl = vec![0.0; 14];
+                for i in 0..14 {
+                    for j in 0..14 {
+                        fl[i] += k_local[i * 14 + j] * u_local[j];
+                    }
+                }
+                let f_global_elem = transform_force(&fl, &t, 14);
+                (f_global_elem, 14)
+            } else {
+                let t = frame_transform_3d(&ex, &ey, &ez);
+                let u_local = transform_displacement(&u_global, &t, 12);
+                let k_local = frame_local_stiffness_3d(
+                    e, sec.a, iy_eff, iz_eff, sec.j, l, g,
+                    elem.hinge_start, elem.hinge_end, phi_y, phi_z,
+                );
+                let mut fl = vec![0.0; 12];
+                for i in 0..12 {
+                    for j in 0..12 {
+                        fl[i] += k_local[i * 12 + j] * u_local[j];
+                    }
+                }
+                let f_global_elem = transform_force(&fl, &t, 12);
+                (f_global_elem, 12)
+            };
+
+            let ndof = elem_dofs.len().min(ndof_elem);
+            for i in 0..ndof {
+                f_int[elem_dofs[i]] += f_local[i];
+            }
+        }
+    }
+
+    // Add spring force contributions.
+    for sup in solver.supports.values() {
+        let spring_dofs: [(usize, Option<f64>); 6] = [
+            (0, sup.kx), (1, sup.ky), (2, sup.kz),
+            (3, sup.krx), (4, sup.kry), (5, sup.krz),
+        ];
+        for &(local_dof, k_val) in &spring_dofs {
+            if let Some(k) = k_val {
+                if k > 0.0 {
+                    if let Some(&d) = dof_num.map.get(&(sup.node_id, local_dof)) {
+                        f_int[d] += k * u[d];
+                    }
+                }
+            }
+        }
+    }
+
+    f_int
+}
+
+// ---------------------------------------------------------------------------
+// 3D yield interaction criterion: (N/Np)^2 + (My/Mpy)^2 + (Mz/Mpz)^2
+// ---------------------------------------------------------------------------
+
+fn yield_utilization_3d(n: f64, my: f64, mz: f64, np: f64, mpy: f64, mpz: f64) -> f64 {
+    let axial_ratio = if np > 1e-20 { n / np } else { 0.0 };
+    let my_ratio = if mpy > 1e-20 { my / mpy } else { 0.0 };
+    let mz_ratio = if mpz > 1e-20 { mz / mpz } else { 0.0 };
+    axial_ratio * axial_ratio + my_ratio * my_ratio + mz_ratio * mz_ratio
+}
+
+// ---------------------------------------------------------------------------
+// 3D: update element yield states from current displacement field.
+// ---------------------------------------------------------------------------
+
+fn update_element_states_3d(
+    solver: &SolverInput3D,
+    input: &NonlinearMaterialInput3D,
+    dof_num: &DofNumbering,
+    u: &[f64],
+    states: &mut Vec<(usize, ElementState3D)>,
+) {
+    let element_forces = super::linear::compute_internal_forces_3d(solver, dof_num, u);
+
+    for ef in &element_forces {
+        let elem = match solver.elements.values().find(|e| e.id == ef.element_id) {
+            Some(e) => e,
+            None => continue,
+        };
+
+        if elem.elem_type == "truss" || elem.elem_type == "cable" {
+            continue;
+        }
+
+        let (np, mpy, mpz) = lookup_capacities_3d(input, elem);
+        if np >= f64::INFINITY && mpy >= f64::INFINITY && mpz >= f64::INFINITY {
+            continue;
+        }
+
+        let util_start = yield_utilization_3d(
+            ef.n_start, ef.my_start, ef.mz_start, np, mpy, mpz,
+        );
+        let util_end = yield_utilization_3d(
+            ef.n_end, ef.my_end, ef.mz_end, np, mpy, mpz,
+        );
+
+        if let Some(state_entry) = states.iter_mut().find(|s| s.0 == ef.element_id) {
+            state_entry.1.yielded_start = util_start > 1.0;
+            state_entry.1.yielded_end = util_end > 1.0;
+        }
+    }
+}
+
+// ---------------------------------------------------------------------------
+// 3D: compute maximum displacement.
+// ---------------------------------------------------------------------------
+
+fn compute_max_displacement_3d_nl(dof_num: &DofNumbering, u: &[f64]) -> f64 {
+    let mut max_disp = 0.0f64;
+    for &node_id in &dof_num.node_order {
+        let ux = dof_num.global_dof(node_id, 0).map(|d| u[d]).unwrap_or(0.0);
+        let uy = dof_num.global_dof(node_id, 1).map(|d| u[d]).unwrap_or(0.0);
+        let uz = dof_num.global_dof(node_id, 2).map(|d| u[d]).unwrap_or(0.0);
+        let disp = (ux * ux + uy * uy + uz * uz).sqrt();
+        if disp > max_disp {
+            max_disp = disp;
+        }
+    }
+    max_disp
+}
+
+// ---------------------------------------------------------------------------
+// 3D: build reactions from reaction forces.
+// ---------------------------------------------------------------------------
+
+fn build_reactions_3d_nl(
+    solver: &SolverInput3D,
+    dof_num: &DofNumbering,
+    r_vec: &[f64],
+    nf: usize,
+) -> Vec<Reaction3D> {
+    let mut reactions = Vec::new();
+    for sup in solver.supports.values() {
+        let mut rx = 0.0;
+        let mut ry = 0.0;
+        let mut rz = 0.0;
+        let mut mrx = 0.0;
+        let mut mry = 0.0;
+        let mut mrz = 0.0;
+
+        let fields: [(usize, bool, &mut f64); 6] = [
+            (0, sup.rx, &mut rx),
+            (1, sup.ry, &mut ry),
+            (2, sup.rz, &mut rz),
+            (3, sup.rrx, &mut mrx),
+            (4, sup.rry, &mut mry),
+            (5, sup.rrz, &mut mrz),
+        ];
+        for (local_dof, restrained, target) in fields {
+            if restrained {
+                if let Some(&d) = dof_num.map.get(&(sup.node_id, local_dof)) {
+                    if d >= nf {
+                        *target = r_vec[d - nf];
+                    }
+                }
+            }
+        }
+
+        reactions.push(Reaction3D {
+            node_id: sup.node_id,
+            fx: rx, fy: ry, fz: rz, mx: mrx, my: mry, mz: mrz,
+            bimoment: None,
+        });
+    }
+    reactions.sort_by_key(|r| r.node_id);
+    reactions
+}
+
+// ---------------------------------------------------------------------------
+// 3D: build element plastic status.
+// ---------------------------------------------------------------------------
+
+fn build_element_status_3d(
+    solver: &SolverInput3D,
+    input: &NonlinearMaterialInput3D,
+    dof_num: &DofNumbering,
+    u: &[f64],
+    states: &[(usize, ElementState3D)],
+) -> Vec<ElementPlasticStatus3D> {
+    let element_forces = super::linear::compute_internal_forces_3d(solver, dof_num, u);
+    let mut statuses = Vec::new();
+
+    for ef in &element_forces {
+        let elem = match solver.elements.values().find(|e| e.id == ef.element_id) {
+            Some(e) => e,
+            None => continue,
+        };
+
+        let (np, mpy, mpz) = lookup_capacities_3d(input, elem);
+        let util_start = yield_utilization_3d(
+            ef.n_start, ef.my_start, ef.mz_start, np, mpy, mpz,
+        );
+        let util_end = yield_utilization_3d(
+            ef.n_end, ef.my_end, ef.mz_end, np, mpy, mpz,
+        );
+        let utilization = util_start.max(util_end);
+
+        let state = states.iter().find(|&&(id, _)| id == ef.element_id);
+        let (yielded_start, yielded_end) = match state {
+            Some(&(_, ref st)) => (st.yielded_start, st.yielded_end),
+            None => (false, false),
+        };
+
+        let state_str = if yielded_start && yielded_end {
+            "fully_yielded"
+        } else if yielded_start || yielded_end {
+            "partially_yielded"
+        } else {
+            "elastic"
+        };
+
+        let alpha = match state {
+            Some(&(_, ref st)) => st.alpha,
+            None => DEFAULT_ALPHA,
+        };
+
+        // Estimate plastic rotations.
+        let (pr_start_y, pr_start_z) = if yielded_start {
+            let ry = dof_num.global_dof(elem.node_i, 4).map(|d| u[d]).unwrap_or(0.0);
+            let rz = dof_num.global_dof(elem.node_i, 5).map(|d| u[d]).unwrap_or(0.0);
+            ((1.0 - alpha) * ry.abs(), (1.0 - alpha) * rz.abs())
+        } else {
+            (0.0, 0.0)
+        };
+        let (pr_end_y, pr_end_z) = if yielded_end {
+            let ry = dof_num.global_dof(elem.node_j, 4).map(|d| u[d]).unwrap_or(0.0);
+            let rz = dof_num.global_dof(elem.node_j, 5).map(|d| u[d]).unwrap_or(0.0);
+            ((1.0 - alpha) * ry.abs(), (1.0 - alpha) * rz.abs())
+        } else {
+            (0.0, 0.0)
+        };
+
+        statuses.push(ElementPlasticStatus3D {
+            element_id: ef.element_id,
+            state: state_str.to_string(),
+            utilization,
+            plastic_rotation_start_y: pr_start_y,
+            plastic_rotation_start_z: pr_start_z,
+            plastic_rotation_end_y: pr_end_y,
+            plastic_rotation_end_z: pr_end_z,
+        });
+    }
+
+    statuses.sort_by_key(|s| s.element_id);
+    statuses
+}

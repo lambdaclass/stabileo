@@ -218,6 +218,30 @@ pub struct ElementPlasticStatus {
     pub plastic_rotation_end: f64,
 }
 
+/// 3D nonlinear material analysis result.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct NonlinearMaterialResult3D {
+    pub results: AnalysisResults3D,
+    pub converged: bool,
+    pub iterations: usize,
+    pub load_factor: f64,
+    pub element_status: Vec<ElementPlasticStatus3D>,
+    pub load_displacement: Vec<[f64; 2]>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ElementPlasticStatus3D {
+    pub element_id: usize,
+    pub state: String,
+    pub utilization: f64,
+    pub plastic_rotation_start_y: f64,
+    pub plastic_rotation_start_z: f64,
+    pub plastic_rotation_end_y: f64,
+    pub plastic_rotation_end_z: f64,
+}
+
 // ==================== Time History Output ====================
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

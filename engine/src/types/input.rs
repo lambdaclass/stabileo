@@ -572,6 +572,32 @@ pub struct SectionCapacity {
     pub zp: Option<f64>,
 }
 
+/// 3D nonlinear material analysis input.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct NonlinearMaterialInput3D {
+    pub solver: SolverInput3D,
+    pub material_models: HashMap<String, MaterialModel>,
+    pub section_capacities: HashMap<String, SectionCapacity3D>,
+    #[serde(default = "default_max_iter")]
+    pub max_iter: usize,
+    #[serde(default = "default_tolerance")]
+    pub tolerance: f64,
+    #[serde(default = "default_n_increments")]
+    pub n_increments: usize,
+}
+
+/// 3D section capacity with biaxial bending.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct SectionCapacity3D {
+    pub np: f64,
+    pub mpy: f64,
+    pub mpz: f64,
+    #[serde(default)]
+    pub mpx: Option<f64>, // Torsional plastic moment
+}
+
 // ==================== Time History Analysis ====================
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
