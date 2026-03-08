@@ -546,6 +546,18 @@ pub fn analyze_section(json: &str) -> Result<String, JsValue> {
         .map_err(|e| JsValue::from_str(&format!("Serialize error: {}", e)))
 }
 
+// ==================== Steel Design Check ====================
+
+/// Check steel members per AISC 360 (LRFD). JSON: SteelCheckInput
+#[wasm_bindgen]
+pub fn check_steel_members(json: &str) -> Result<String, JsValue> {
+    let input: postprocess::steel_check::SteelCheckInput = serde_json::from_str(json)
+        .map_err(|e| JsValue::from_str(&format!("Parse error: {}", e)))?;
+    let results = postprocess::steel_check::check_steel_members(&input);
+    serde_json::to_string(&results)
+        .map_err(|e| JsValue::from_str(&format!("Serialize error: {}", e)))
+}
+
 #[cfg(test)]
 mod tests {
     use super::types::*;
