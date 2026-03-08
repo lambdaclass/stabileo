@@ -653,6 +653,17 @@ pub fn solve_fiber_nonlinear_3d(json: &str) -> Result<String, JsValue> {
         .map_err(|e| JsValue::from_str(&format!("Serialize error: {}", e)))
 }
 
+/// Solve time-dependent 2D analysis with creep and shrinkage. JSON in → JSON out.
+#[wasm_bindgen]
+pub fn solve_creep_shrinkage_2d(json: &str) -> Result<String, JsValue> {
+    let input: solver::creep_shrinkage::CreepShrinkageInput = serde_json::from_str(json)
+        .map_err(|e| JsValue::from_str(&format!("Parse error: {}", e)))?;
+    let results = solver::creep_shrinkage::solve_creep_shrinkage_2d(&input)
+        .map_err(|e| JsValue::from_str(&e))?;
+    serde_json::to_string(&results)
+        .map_err(|e| JsValue::from_str(&format!("Serialize error: {}", e)))
+}
+
 // ==================== Section Analysis ====================
 
 /// Compute cross-section properties from polygon geometry. JSON: SectionInput
