@@ -20,7 +20,55 @@
 | Placeholders | 0 | 3 | 0 | 3 |
 | **Total** | **1445** | **8** | **7** | **1460** |
 
-**1587 validation test functions across 205 files. 1834 total tests (including unit + diff fuzz). All passing (6 ignored known bugs).**
+The table above is the curated benchmark-status ledger. It is narrower than the full automated test inventory shown below, because many validation/unit/integration tests are support checks, regression tests, or formula verifications rather than one benchmark row per test.
+
+**3030 validation test functions across 385 validation files. 3475 total registered tests across 423 Rust test files.**
+
+Current measured inventory for this pass:
+
+- `385` files matching `engine/tests/validation_*.rs`
+- `3030` `#[test]` functions inside validation files
+- `25` files matching `engine/tests/integration_*.rs`
+- `3475` total registered tests from `cargo test -- --list`
+
+### Recent Session Additions
+
+All newly added modules and tests from this session are passing with zero failures.
+
+#### Design Check Modules Implemented This Session
+
+| Module | Code | Tests | Description |
+|--------|------|-------|-------------|
+| `connection_check` | AISC 360 | 8 integration tests | Bolt-group and weld-group elastic method checks |
+| `foundation_check` | ACI 318 | 8 integration tests | Spread footings: bearing, overturning, sliding, and punching shear |
+| `cfs_check` | AISI S100 | 8 integration tests | Cold-formed steel: compression, LTB, shear, and distortional buckling |
+| `ec2_check` | EN 1992-1-1 | 8 integration tests | Eurocode 2 concrete: parabolic stress block and variable-strut shear |
+| `cirsoc201_check` | CIRSOC 201-05 | 8 integration tests | Argentine concrete: Whitney block and ACI-style shear |
+| `ec3_check` | EN 1993-1-1 | 8 integration tests | Eurocode 3 steel: buckling curves a-d, LTB, and interaction checks |
+| `masonry_check` | TMS 402 | 8 integration tests | Masonry: axial with slenderness, flexure, and shear |
+
+#### New Validation Files Added This Session
+
+| File | Coverage |
+|------|----------|
+| `validation_fracture_mechanics.rs` | SIF, J-integral, Paris law, MTS, FAD |
+| `validation_laminate_plate_theory.rs` | CLT, Tsai-Wu, rule of mixtures, laminate invariants |
+| `validation_hydrodynamic_loading.rs` | Morison loading, wave theory, VIV-related formulas |
+| `validation_plate_shell_buckling.rs` | Donnell, Von Karman, Winter, EC3-style shell buckling formulas |
+| `validation_structural_damping_models.rs` | Rayleigh damping, half-power bandwidth, Eurocode 8 damping correction |
+| `validation_thermal_stress_analysis.rs` | Restrained thermal stress, thermal buckling, bimetallic-strip behavior |
+| `validation_finite_element_convergence.rs` | h-refinement, p-refinement, patch-style consistency, Richardson extrapolation |
+
+#### Bug Fixes Included in This Session
+
+- ACI 318 phi-factor unit-test threshold
+- Fracture mechanics MTS initial guess and FAD test point
+- Laminate plate theory invariant assertion and Halpin-Tsai bound
+
+#### Current Postprocess Footprint
+
+- `17` postprocess modules in `engine/src/postprocess/mod.rs`
+- `82` unit tests and `25` integration test files across the postprocess/design-check surface
 
 ---
 
@@ -90,12 +138,15 @@ Status definitions used here:
 | 2D response spectrum | Strong | `solver/spectral.rs`, `validation_spectral_response.rs`, `validation_rsa_crosscheck.rs` | Mainly code-specific workflows |
 | 3D response spectrum | Strong | `solver/spectral.rs`, `validation_3d_spectral.rs` | More production-grade load-direction / combination workflows |
 | 2D time history | Good | `solver/time_integration.rs`, `validation_time_history.rs`, `validation_dynamic_mdof.rs` | Stronger nonlinear coupling, more integrators/controls |
-| 3D time history | Gap | No solver entry point | Full implementation needed |
+| 3D time history | Good | `solver/time_integration.rs`, `integration_time_history_3d.rs` | Needs broader benchmark depth and stronger nonlinear/damping coverage |
+| Harmonic response (2D/3D) | Good | `solver/harmonic.rs`, `integration_harmonic.rs` | Needs broader benchmark depth, damping depth, and larger-model coverage |
 | 2D geometric nonlinear (corotational) | Good | `solver/corotational.rs`, `validation_corotational*.rs` | Arc-length, limit points, stronger benchmark parity |
 | 3D geometric nonlinear | Good | `solver/corotational.rs`, `integration_corotational_3d.rs` | Needs broader benchmark depth, stronger controls, tougher convergence cases |
 | 2D material nonlinear | Partial | `solver/material_nonlinear.rs`, benchmark/capability tests | Present but still simplified relative to fiber/section-based nonlinear solvers |
 | 3D material nonlinear | Partial | `solver/material_nonlinear.rs`, `integration_material_nonlinear_3d.rs` | New implementation; needs broad validation and tougher benchmark parity |
-| Plastic collapse / hinge sequencing | Good | `solver/plastic.rs`, `validation_plastic_*` | Not a full general nonlinear plasticity framework |
+| Plastic collapse / hinge sequencing | Good | `solver/plastic.rs`, `validation_plastic_*`, `integration_plastic_3d.rs` | Not a full general nonlinear plasticity framework |
+| Moving loads / influence workflows (2D/3D) | Good | `solver/moving_loads.rs`, `validation_moving_loads.rs`, `integration_moving_loads_3d.rs`, `postprocess/influence.rs` | Needs deeper bridge/special-vehicle benchmark coverage |
+| Multi-case load solving / envelopes (2D/3D) | Good | `solver/load_cases.rs`, `postprocess/combinations.rs`, `validation_load_combination_envelope.rs` | Needs larger workflow coverage and richer product-facing load management |
 | 2D frame / truss elements | Strong | `element/frame.rs`, `element/truss` behavior via linear solver/tests | Mostly shear deformation and nonlinear upgrades |
 | 3D frame / truss elements | Strong | `element/frame.rs`, broad `validation_3d_*` coverage | Warping completion, nonlinear upgrades |
 | Plate / shell triangles | Good | `element/plate.rs`, `validation_plates.rs`, `validation_scordelis_lo.rs`, recent drilling/nodal-stress/thermal upgrades | Higher fidelity shell behavior, convergence quality, more benchmark depth |
@@ -104,12 +155,14 @@ Status definitions used here:
 | Cable / catenary element | Good | `element/cable.rs`, `solver/cable.rs`, `integration_cable_solver.rs` | Needs broader bridge/cable-net/staged benchmark depth |
 | Warping torsion / 7th DOF | Partial | 14-DOF plumbing in `assembly.rs`, `linear.rs`, placeholder tests in `validation_warping_torsion.rs` | Finish assembly, loads, supports, postprocessing, and validation |
 | Thermal loads / settlements / springs | Strong | `validation_thermal_*`, `validation_prescribed_*`, `validation_spring_supports.rs` | More coupled / 3D edge cases |
+| Winkler foundation solvers (2D/3D) | Good | `solver/winkler.rs`, `integration_winkler.rs`, `validation_foundation_interaction.rs` | Broader SSI families beyond Winkler and tougher benchmark parity |
 | Pressure loads on plates | Good | `SolverLoad3D::Pressure`, plate validation files | Better load vectors and shell-quality convergence |
 | Plate thermal loads / stress recovery | Good | `element/plate.rs`, recent plate integration tests | More benchmark depth and smoothing/quality validation |
-| Prestress / post-tension FE analysis | Partial | `solver/prestress.rs`, `solver/staged.rs`, `integration_staged_analysis.rs` | Real 2D prestress/staged support exists; not yet a full general PT analysis framework |
-| Construction staging | Partial | `solver/staged.rs`, `integration_staged_analysis.rs` | Real 2D staged solver exists; 3D staging path is not implemented |
+| Prestress / post-tension FE analysis | Partial | `solver/prestress.rs`, `solver/staged.rs`, `integration_staged_analysis.rs`, `integration_staged_3d.rs` | Real prestress/staged support exists, but not yet a full general PT analysis framework |
+| Construction staging | Good | `solver/staged.rs`, `integration_staged_analysis.rs`, `integration_staged_3d.rs` | 2D and 3D staged solvers exist; broader workflow depth and time-dependent coupling remain open |
 | Creep / shrinkage / relaxation response | Gap | Formula-level tests exist, no coupled structural response solver | Time-dependent constitutive / load-history implementation |
 | Kinematic / mechanism diagnostics | Strong | `solver/kinematic.rs`, `validation_kinematic.rs`, `validation_3d_kinematic.rs` | Better diagnostics/reporting, not major formulation gap |
+| Section analysis / section properties | Good | `section/mod.rs`, `integration_section.rs`, `validation_section_stress.rs` | Needs richer section libraries and tighter integration with nonlinear/design workflows |
 
 ### Suggested Competition Scope
 
@@ -133,6 +186,39 @@ Today the engine is already competitive in the first program's linear and second
 The sections below describe current capability and current gaps. This section answers a different question:
 
 - If the current gap list were completed, what solver-layer capabilities would still matter to become truly world-class?
+
+### Solver-First Priority Stack
+
+This is the solver-core ordering to use when the goal is technical leadership rather than short-term product breadth.
+
+#### Must Do Before Claiming Top-Tier
+
+| Priority | Topic | Why It Matters |
+|----------|-------|----------------|
+| 1 | Warping torsion completion | The 7th-DOF path is still not fully closed. Until this is finished, torsion capability claims should remain conservative |
+| 2 | Nonlinear solution controls | Arc-length, displacement control, line search, adaptive stepping, and divergence recovery are required for serious nonlinear robustness |
+| 3 | Constraint technology | MPCs, rigid links, diaphragms, eccentric connectivity, and connector elements are required for real structural models |
+| 4 | Fiber / section-based beam-column elements | A major dividing line between basic member nonlinearity and elite nonlinear frame analysis |
+| 5 | Initial imperfections / initial state modeling | Out-of-plumbness, residual stress, prestrain/preload, and initial stress fields are essential for realistic stability and nonlinear work |
+| 6 | Shell upgrade | Better shell families, stronger distortion tolerance, and broader shell reliability are needed for top-tier shell capability |
+| 7 | Performance / scale engineering | Large-model reliability, sparse performance, conditioning, and eigensolver robustness are part of solver quality, not just implementation detail |
+
+#### Important For Parity
+
+| Priority | Topic | Why It Matters |
+|----------|-------|----------------|
+| 8 | Contact / gap / compression-only / tension-only elements | Important for uplift, bearings, staged support behavior, and practical nonlinear modeling |
+| 9 | More complete prestress / post-tension behavior | Important for PT concrete, bridges, and staged-construction workflows |
+| 10 | Better soil-structure interaction | Beyond Winkler: p-y, t-z, q-z, nonlinear spring families, and stronger foundation coupling |
+| 11 | Benchmark hardening on newest features | Especially 3D corotational, 3D material nonlinear, 3D time history, 3D staging, cable, and upgraded plate/shell behavior |
+
+#### Later / Specialization
+
+| Priority | Topic | Why It Matters |
+|----------|-------|----------------|
+| 12 | Creep / shrinkage / relaxation coupled response | Important, but narrower than the core solver-class gaps above |
+| 13 | Lifecycle / degradation effects | Fire, fatigue, cyclic degradation, hysteretic damage, and related durability behavior |
+| 14 | Specialized structure families | Cable nets, membranes, advanced bridge-specific nonlinear workflows, and related domain expansion |
 
 ### Tier 1 — Must-Have for World-Class Solver Status
 
@@ -498,49 +584,55 @@ These are the largest gaps between the current engine and a top-tier structural 
 
 | Topic | Difficulty | Current State | Why It Matters |
 |-------|-----------|---------------|----------------|
-| Timoshenko beam element (shear deformation) | Medium | Gap | Required for deep beams, short members, and better dynamic/buckling fidelity |
 | Warping torsion (7th DOF) completion | Medium | Partial | Needed for thin-walled open sections and serious torsion claims |
 | Cable / catenary elements | Medium | Good | Implemented, but needs broader benchmark maturity and specialized behavior depth |
 | 3D geometric nonlinear (corotational) | Hard | Good | Implemented, but needs stronger controls and benchmark breadth |
 | 3D material nonlinear | Hard | Partial | Implemented, but still early relative to top-tier inelastic solvers |
 | Prestress / post-tension FE behavior | Hard | Partial | 2D prestress/staged support exists, but not full PT solver depth |
-| Construction staging | Hard | Partial | 2D implementation exists; 3D and broader workflows remain open |
+| Construction staging | Hard | Partial | 2D and 3D implementations exist; broader workflow depth and prestress/time-dependent coupling remain open |
 | Creep & shrinkage response | Hard | Gap | Essential for long-term concrete/PT behavior |
 | Plate / shell advanced elements and load vectors | Hard | Good | Needed to move shells from "works" to "top-tier" |
 | Fiber-based plasticity / section-level nonlinear response | Hard | Gap | Needed for advanced nonlinear building analysis |
 | Nonlinear solution controls (arc-length, displacement control, stronger line search) | Hard | Partial | Required for robust post-buckling and difficult equilibrium paths |
 
-### Engineering / Design Gaps
+### Engineering / Design Coverage and Gaps
 
 These are important to structural engineering practice, but they are not the same as solver-core parity.
 
-#### Priority 1 — Can Test with Existing Solver
+#### Current Implemented Coverage
+
+| Topic | Current State | Evidence in Code / Tests | Remaining Gap |
+|-------|---------------|--------------------------|---------------|
+| Steel member checks | Good | `postprocess/steel_check.rs`, `integration_steel_check.rs`, `validation_cross_section_classification.rs` | Broader design-code depth and more connection/joint coupling |
+| RC member checks | Good | `postprocess/rc_check.rs`, `integration_rc_check.rs`, `validation_reinforced_concrete_design.rs` | Cracked-section depth, detailing breadth, and time-dependent coupling |
+| EC2 concrete checks | Good | `postprocess/ec2_check.rs`, `integration_ec2_check.rs`, `validation_concrete_design.rs`, `validation_concrete_detailing.rs` | Broader detailing, crack-control, and lifecycle coupling |
+| CIRSOC 201 concrete checks | Good | `postprocess/cirsoc201_check.rs`, `integration_cirsoc201_check.rs`, `validation_concrete_design.rs` | Broader code breadth and workflow integration |
+| EC3 steel checks | Good | `postprocess/ec3_check.rs`, `integration_ec3_check.rs`, `validation_eurocode3_buckling.rs`, `validation_cross_section_classification.rs` | Broader clause coverage and more design workflows |
+| Timber design checks | Good | `postprocess/timber_check.rs`, `integration_timber_check.rs`, `validation_timber_design.rs`, `validation_timber_connections.rs` | Broader species/detailing/connectors coverage |
+| Serviceability checks | Good | `postprocess/serviceability.rs`, `integration_serviceability.rs`, `validation_serviceability_checks.rs`, `validation_serviceability_vibration.rs` | Broader office workflows and more building-level checks |
+| Connection checks | Good | `postprocess/connection_check.rs`, `integration_connection_check.rs`, `validation_connection_design.rs`, `validation_connection_mechanics.rs` | Broader joint families and detailing depth |
+| Foundation checks | Good | `postprocess/foundation_check.rs`, `integration_foundation_check.rs`, `validation_foundation_design.rs`, `validation_foundation_interaction.rs` | Deeper SSI coupling and broader footing/pile workflows |
+| Cold-formed steel checks | Good | `postprocess/cfs_check.rs`, `integration_cfs_check.rs`, `validation_cold_formed_steel.rs` | Broader AISI/EC3-1-3 clause coverage |
+| Masonry checks | Good | `postprocess/masonry_check.rs`, `integration_masonry_check.rs`, `validation_masonry_design.rs`, `validation_masonry_arches.rs` | Broader masonry design workflows and code breadth |
+
+#### Remaining Gaps — Can Test with Existing Solver
 
 | Topic | Difficulty | Impact | Reference Codes |
 |-------|-----------|--------|-----------------|
-| Cross-section classification (EC3) | Easy | Steel design | EN 1993-1-1 §5.5, AISC 360 Table B4.1b |
 | Lateral-torsional buckling (LTB) | Medium | Steel beam design | EN 1993-1-1 §6.3.2, AISC 360-22 Ch.F |
-| Steel connections — bolt groups | Medium | Steel joints | AISC 360-22 Ch.J, EC3-1-8 |
-| Steel connections — weld groups | Medium | Steel joints | AISC 360-22 Ch.J, EC3-1-8 |
-| Serviceability — vibration | Medium | Floor design | AISC DG11, EC3-1-1 §7.2, SCI P354 |
 | CIRSOC 102 wind loading | Medium | Argentine wind design | CIRSOC 102-2005, CIRSOC 102-2018 |
-| Timber design | Medium | Timber structures | NDS 2024, EN 1995-1-1, CIRSOC 601 |
 | Fatigue / S-N curves / Miner's rule | Medium | Steel bridges, connections | EC3-1-9, AISC 360-22 App.3, AASHTO |
-| Foundation — spread footings | Medium | Foundation design | ACI 318-19 Ch.13, EC2-1-1, EC7 |
-| Foundation — pile groups | Medium | Deep foundations | AASHTO LRFD, EC7 §7 |
 | Seismic detailing | Medium | Ductile design | ACI 318-19 Ch.18, EC8-1 §5, CIRSOC 103 |
 | Progressive collapse — full analysis | Medium | Robustness | GSA 2016, DoD UFC 4-023-03, EN 1991-1-7 |
 
-#### Priority 2 — Needs New Solver Features
+#### Remaining Gaps — Needs New Solver Features
 
 | Topic | Difficulty | Impact | Reference Codes |
 |-------|-----------|--------|-----------------|
-| Concrete sections (RC analysis) | Medium | Cracked section, MN interaction | ACI 318-19, EC2-1-1, CIRSOC 201 |
 | RC design — reinforcement & crack control | Hard | Concrete structures | ACI 318-19 §24, EC2 §7.3, CIRSOC 201 |
 | Composite sections (steel-concrete) | Hard | Composite construction | AISC 360-22 Ch.I, EC4, CIRSOC 301+201 |
 | Fire resistance | Hard | Temperature-dependent properties | EC2-1-2, EC3-1-2, CIRSOC fire annex |
 | Soil-structure interaction (p-y curves) | Medium | Foundation analysis | API RP 2A, AASHTO, EC7 |
-| Dynamic time-history (earthquake records) | Medium | Performance-based design | ASCE 7 §16, EC8 §3.2.3, CIRSOC 103 |
 | Dynamic wind / buffeting / vortex shedding | Hard | Tall buildings, bridges | CIRSOC 102, EC1-1-4, ASCE 7 Ch.26 |
 | Nonlinear material — concrete damage | Hard | Concrete cracking | Mazars, CDP, EC2 |
 | Nonlinear material — steel hardening | Medium | Ductile analysis | EC3-1-5 Annex C |
