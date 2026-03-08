@@ -5,29 +5,35 @@ High-performance 2D/3D structural analysis engine in Rust, implementing the Dire
 ## Analysis Types
 
 - **Linear static** (2D & 3D): direct stiffness method, sparse Cholesky solver
-- **P-Delta** (2D): second-order geometric nonlinearity with iterative convergence
-- **Corotational** (2D): large-displacement nonlinear analysis (Newton-Raphson)
+- **P-Delta** (2D & 3D): second-order geometric nonlinearity with iterative convergence
+- **Corotational** (2D & 3D): large-displacement nonlinear analysis (Newton-Raphson)
 - **Buckling** (2D & 3D): linearized eigenvalue buckling (Lanczos eigensolver)
 - **Modal** (2D & 3D): natural frequencies and mode shapes via consistent mass matrix
 - **Spectral** (2D & 3D): response spectrum analysis with SRSS/CQC combination
-- **Time history** (2D): Newmark-beta and HHT-alpha direct integration
-- **Moving loads** (2D): load envelope by stepping axle groups across the structure
-- **Influence lines** (2D): Muller-Breslau virtual unit load method
-- **Plastic collapse** (2D): incremental hinge formation to mechanism
+- **Time history** (2D & 3D): Newmark-beta and HHT-alpha direct integration
+- **Moving loads** (2D & 3D): load envelope by stepping axle groups across the structure
+- **Influence lines** (2D & 3D): Muller-Breslau-style influence workflows and envelopes
+- **Plastic collapse** (2D & 3D): incremental hinge formation to mechanism
 - **Kinematic analysis** (2D & 3D): mechanism detection, degree of indeterminacy, rank check
-- **Plate/shell** (3D): DKT triangular plate element with pressure loads
+- **Construction staging** (2D & 3D): phased activation, support changes, staged loads, prestress hooks
+- **Harmonic response** (2D & 3D): frequency-response analysis with modal damping input
+- **Winkler foundation** (2D & 3D): beams/frames on elastic foundation
+- **Multi-case solve** (2D & 3D): case-by-case analysis, combinations, envelopes
+- **Cable solver** (2D): tension-only cable/catenary-style solve with iterative update
+- **Plate/shell** (3D): DKT/DKMT triangular plate element with pressure, drilling stabilization, and thermal support
+- **Section analysis**: polygon-based cross-section properties and section metrics
 
 ## Running Tests
 
 ```bash
-cd engine && cargo test              # full suite (3500+ tests)
-cd engine && cargo test validation_  # validation tests only (3080+ tests across 390+ files)
+cd engine && cargo test              # full suite (3529+ tests)
+cd engine && cargo test validation_  # validation tests only (3084+ tests across 390+ files)
 cd engine && cargo test diff_fuzz    # differential fuzz tests (90 tests)
 ```
 
 ## Validation Test Suite
 
-**3,080+ validation tests across 390+ files**, verified against published analytical solutions, industry codes, and commercial software results. See [`../BENCHMARKS.md`](../BENCHMARKS.md) for detailed status of each benchmark.
+**3,084+ validation tests across 390+ files**, verified against published analytical solutions, industry codes, and commercial software results. See [`../BENCHMARKS.md`](../BENCHMARKS.md) for detailed status of each benchmark.
 
 ### Industry Standards and Design Codes
 
@@ -47,11 +53,15 @@ cd engine && cargo test diff_fuzz    # differential fuzz tests (90 tests)
 
 | Source | Files | Tests | What it covers |
 |--------|-------|-------|----------------|
-| **ANSYS VM** | `ansys_vm`, `ansys_vm_extended`, `ansys_vm_additional` | 33 | VM1-VM156: trusses, beams, thermal, torsion, space frames, stepped beams, P-delta |
-| **SAP2000/CSI** | `sap2000` | 10 | Beam, continuous, portal, modal, leaning column, springs, P-delta |
-| **Code_Aster SSLL** | `code_aster` | 9 | SSLL010-SSLL400: trusses, frames, buckling, variable section |
-| **NAFEMS** | `nafems`, `nafems_extended` | 14 | FV1/2/12/13/31/32/41/51/52, LE5/10, T1/3, R0031: axial, vibration, stress, thermal, 3D |
-| **MASTAN2** | `mastan2_frames` | 20 | Ziemian 22 benchmark frames: simple portals, multi-bay, braced, unbraced, irregular |
+| **ANSYS VM** | `ansys_vm`, `ansys_vm_extended`, `ansys_vm_additional`, `ansys_vm_benchmarks` | 41 | VM1-VM156 plus extended truss, beam, thermal, torsion, space-frame, stepped-beam, and P-delta cases |
+| **SAP2000/CSI** | `sap2000`, `sap2000_extended` | 18 | Beam, continuous, portal, modal, leaning column, springs, P-delta, settlement, 3D frame extensions |
+| **Code_Aster SSLL** | `code_aster`, `code_aster_extended` | 17 | SSLL truss, frame, buckling, variable-section, and extended reference cases |
+| **NAFEMS** | `nafems`, `nafems_extended`, `nafems_benchmarks` | 22 | FV/LE/T/R benchmark coverage across axial, vibration, stress, thermal, and 3D cases |
+| **MASTAN2** | `mastan2_frames`, `mastan2_extended` | 42 | Ziemian benchmark frames plus extended buckling and P-delta frame checks |
+| **OpenSees** | `opensees_crosscheck` | 8 | Beam, portal, truss, cantilever, 2-span, 2-story, 3D truss, P-delta cross-checks |
+| **Robot Structural** | `robot_structural` | 8 | Beam, portal, braced frame, biaxial 3D, Warren truss cross-checks |
+| **STAAD.Pro** | `staad_pro` | 8 | Cantilever, UDL, continuous beam, truss, portal, Gerber, spring support cross-checks |
+| **Strand7 / LUSAS** | `strand7_lusas` | 8 | Beam, thermal, truss, settlement, torsion, Euler buckling cross-checks |
 
 ### Textbook References
 
@@ -119,7 +129,7 @@ cd engine && cargo test diff_fuzz    # differential fuzz tests (90 tests)
 | Feature | Status | Reference |
 |---------|--------|-----------|
 | Warping torsion (7th DOF) | 14x14 math exists, assembly not wired | Vlasov, Trahair |
-| 3D corotational | 2D only | Crisfield |
+| 3D corotational | Implemented, needs deeper benchmark hardening | Crisfield |
 | Higher-order plate elements | DKT only, limited convergence | — |
 
 ### Not Yet Covered
@@ -128,22 +138,22 @@ These are areas important to structural engineering practice that the engine doe
 
 | Topic | Notes |
 |-------|-------|
-| Timoshenko beam element (shear deformation) | Only Euler-Bernoulli; deep beams diverge |
-| Cable/catenary elements | No geometric nonlinear cable element |
-| Prestressed / post-tensioned concrete | Not modeled |
+| Timoshenko beam element (shear deformation) | Implemented; broader benchmark maturity still needed |
+| Cable/catenary elements | 2D cable solver exists; broader bridge/cable-net depth remains open |
+| Prestressed / post-tensioned concrete | Partial staged/prestress support exists; not a full PT workflow |
 | Cracked concrete section analysis | Not modeled |
 | Creep, shrinkage, time-dependent effects | Not modeled |
 | Soil-structure interaction beyond Winkler | No p-y curves, pile groups |
 | Dynamic wind / gust response | Wind is static lateral loads only |
 | Fatigue / cumulative damage | Not modeled |
-| Connection design (bolt/weld capacity) | Not modeled |
+| Connection design (bolt/weld capacity) | Basic postprocess connection checks exist; broader joint families remain open |
 | Fire resistance analysis | No temperature-dependent material properties |
-| Construction staging | No sequential construction analysis |
+| Construction staging | 2D and 3D staged analysis exist; broader lifecycle/time-dependent workflows remain open |
 | Fiber-based cross-section plasticity | Only simplified plastic-hinge collapse |
 
 ## Differential Fuzz Tests
 
-90 tests comparing the Rust engine output against the TypeScript reference solver across random seeds, validating:
+90 tests comparing multiple solver paths and locked fixtures across random seeds, validating:
 - Displacements, reactions, element forces
 - Internal force diagrams at 9 interior points per element
 - Support for all element types, load patterns, and boundary conditions

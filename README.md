@@ -200,7 +200,7 @@ The bending planes are uncoupled in local coordinates. The local coordinate syst
 
 ### Testing
 
-The solver is verified against known analytical solutions across 390+ validation test files with over 3,500 test cases (3,080+ validation + 90 differential fuzz + unit tests). Every test checks equilibrium (sum of forces = 0, sum of moments = 0) in addition to comparing against the expected solution. See the [engine README](engine/README.md) for the full test inventory.
+The solver is verified against known analytical solutions across 390+ validation test files with over 3,500 test cases (3,084+ validation + 90 differential fuzz + unit tests). Every test checks equilibrium (sum of forces = 0, sum of moments = 0) in addition to comparing against the expected solution. See the [engine README](engine/README.md) for the full test inventory.
 
 **Canonical benchmarks:**
 
@@ -222,7 +222,7 @@ Additional test categories: 3D orientation vectors and roll angles, 2D/3D consis
 
 ### Rust / WebAssembly
 
-There is a [Rust implementation](engine/) of the solver core in the `engine/` directory with 3,500+ passing tests (3,080+ validation tests verified against AISC 360, Eurocode 3/8, ASCE 7, AASHTO, NAFEMS, ANSYS VM, SAP2000, Code_Aster, MASTAN2, OpenSees, STAAD.Pro, Strand7, LUSAS, Robot Structural, NDS, EC5, EC7, EC4, CIRSOC 102/103/201, ACI 318, TMS 402, AISI S100, and 30+ textbook references). The intent is to compile it to WebAssembly via [wasm-pack](https://rustwasm.github.io/wasm-pack/) for near-native performance in the browser.
+There is a [Rust implementation](engine/) of the solver core in the `engine/` directory with 3,500+ passing tests (3,084+ validation tests verified against AISC 360, Eurocode 3/8, ASCE 7, AASHTO, NAFEMS, ANSYS VM, SAP2000, Code_Aster, MASTAN2, OpenSees, STAAD.Pro, Strand7, LUSAS, Robot Structural, NDS, EC5, EC7, EC4, CIRSOC 102/103/201, ACI 318, TMS 402, AISI S100, and 30+ textbook references). The intent is to compile it to WebAssembly via [wasm-pack](https://rustwasm.github.io/wasm-pack/) for near-native performance in the browser.
 
 ---
 
