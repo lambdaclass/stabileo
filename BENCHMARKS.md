@@ -12,25 +12,25 @@
 | Category | Done | Capability | Blocked | Total |
 |----------|------|------------|---------|-------|
 | Industry Standards & Design Codes | 345 | 0 | 0 | 345 |
-| Commercial Software Cross-Validation | 167 | 5 | 1 | 173 |
-| Textbook Classics | 1800 | 0 | 0 | 1800 |
+| Commercial Software Cross-Validation | 199 | 5 | 1 | 205 |
+| Textbook Classics | 1832 | 0 | 0 | 1832 |
 | Mathematical Properties & Numerical Methods | 179 | 0 | 0 | 179 |
 | FEM Quality & Convergence | 62 | 0 | 0 | 62 |
 | Engineering Practice & Specialized Structures | 624 | 0 | 0 | 624 |
 | Fixed Bugs (regression) | 6 | 0 | 0 | 6 |
 | Placeholders | 0 | 3 | 0 | 3 |
-| **Total** | **3183** | **3** | **1** | **3187** |
+| **Total** | **3247** | **3** | **1** | **3251** |
 
 The table above is the curated benchmark-status ledger. It is narrower than the full automated test inventory shown below, because many validation/unit/integration tests are support checks, regression tests, or formula verifications rather than one benchmark row per test.
 
-**3249 validation test functions across 411 validation files. 3694 total registered tests across 467 Rust test files.**
+**3305 validation test functions across 418 validation files. 3750 total registered tests across 474 Rust test files.**
 
 Current measured inventory:
 
-- `411` files matching `engine/tests/validation_*.rs`
-- `3249` `#[test]` functions inside validation files
+- `418` files matching `engine/tests/validation_*.rs`
+- `3305` `#[test]` functions inside validation files
 - `25` files matching `engine/tests/integration_*.rs` (181 integration test functions)
-- `3694` total registered tests from `cargo test -- --list`
+- `3750` total registered tests from `cargo test -- --list`
 
 ### Design Check Modules (17 postprocess modules, 82 unit tests + 25 integration test files)
 
@@ -457,7 +457,7 @@ This order improves solver class faster than expanding sideways into more specia
 
 ## Commercial Software Cross-Validation
 
-### ANSYS Verification Manual (46 DONE)
+### ANSYS Verification Manual (54 DONE)
 
 | File | Tests | Benchmarks |
 |------|-------|------------|
@@ -465,28 +465,32 @@ This order improves solver class faster than expanding sideways into more specia
 | `validation_ansys_vm_extended.rs` | 18 | VM3 (stepped), VM5/6 (thermal), VM7 (gradient), VM8 (truss), VM9 (space truss), VM13 (portal), VM14 (cantilever), VM21 (tie rod), VM156 (P-delta) |
 | `validation_ansys_vm_additional.rs` | 8 | VM11 (plate), VM15 (nonlinear), VM16 (Euler), VM17, VM20, VM25 (2-span), VM44 (ring) |
 | `validation_ansys_vm_benchmarks.rs` | 8 | VM22 (axial+bending cantilever), VM23 (Winkler), VM26 (2-span partial UDL), VM27 (thermal gradient), VM30 (3D space truss), VM33 (3-bar truss), VM34 (thermal 2-bar), VM40 (large deflection) |
+| `validation_ansys_vm_additional.rs` | 8 | VM29 (SS beam frequencies), VM31 (free-free beam), VM35 (tension stiffening), VM36 (cantilever buckling), VM37 (moving load), VM38 (symmetric loads), VM39 (partial UDL), VM41 (3D L-frame) |
 
-### SAP2000 / CSI (18 DONE)
+### SAP2000 / CSI (26 DONE)
 
 | File | Tests | Benchmarks |
 |------|-------|------------|
 | `validation_sap2000.rs` | 10 | Simple beam, continuous, portal, 2-story modal, braced+leaning column, end releases, springs, prescribed displacement, P-delta, cantilever stiffness |
 | `validation_sap2000_extended.rs` | 8 | Three-span continuous UDL, two-story two-bay frame, Warren truss, Gerber beam with hinge, 3D L-frame torsion, 3-story shear building modal, P-delta amplified portal, beam with settlement |
+| `validation_sap2000_additional.rs` | 8 | Multi-story gravity+lateral, two-bay portal sway, pattern loading envelope, P-delta column, 3-story modal, 3D space frame torsion, Warren truss bridge, propped cantilever settlement |
 
-### Code_Aster SSLL (17 DONE)
+### Code_Aster SSLL (25 DONE)
 
 | File | Tests | Benchmarks |
 |------|-------|------------|
 | `validation_code_aster.rs` | 9 | SSLL010 (lattice), SSLL012 (bar loads), SSLL014 (portal), SSLL100 (L-frame), SSLL102 (clamped beam), SSLL103 (Euler), SSLL105 (L-structure), SSLL110 (self-weight), SSLL400 (variable section) |
 | `validation_code_aster_extended.rs` | 8 | SSLL101 (clamped-pinned UDL), SSLL104 (SS point load at L/3), SSLL106 (3-span continuous UDL), SSLL107 (propped cantilever midspan), SSLL108 (portal combined), SSLL111 (thermal 2-bar), SSLL112 (spring support), SSLL113 (fixed-fixed partial UDL) |
+| `validation_code_aster_additional.rs` | 8 | SSLL101a (SS point load), SSLL101b (cantilever UDL), SSLL102a (3-span continuous), SSLL105a (portal sway), SSLL106a (truss), SSLL107a (Winkler), SSLL110a (thermal), SSLL116a (modal cantilever) |
 
-### NAFEMS (22 DONE)
+### NAFEMS (30 DONE)
 
 | File | Tests | Benchmarks |
 |------|-------|------------|
 | `validation_nafems.rs` | 6 | FV2 (axial), FV12 (cantilever vibration), FV32 (SS UDL), T3 (thermal), LE5 (Z-section 3D), FV52 (pin-jointed cross) |
 | `validation_nafems_extended.rs` | 8 | FV1 (SS center), FV13 (SS vibration), FV31 (cantilever tip), FV51 (portal vibration), LE10 (3D bending+torsion), T1 (thermal gradient), FV41 (lumped mass), R0031 (3D truss) |
 | `validation_nafems_benchmarks.rs` | 8 | LE1 (load distribution), FV22 (cantilever ~1.03 Hz), FV42 (SS beam 3 modes), FV72 (free-free beam), T2 (thermal expansion), R0001 (SS beam UDL), R0015 (3-bar truss), R0024 (portal lateral) |
+| `validation_nafems_additional.rs` | 8 | LE1 (grid equilibrium), FV2 (SS beam frequencies), FV4 (cantilever modes), FV12 (free-free frequencies), FV32 (laminate vibration), T1 (thermal bar), LE10 (grillage bending), R0031 (3D beam) |
 
 ### MASTAN2 / Ziemian 22 (42 DONE)
 
@@ -711,13 +715,14 @@ This order improves solver class faster than expanding sideways into more specia
 - `validation_clough_penzien_dynamics.rs` (8) — Cantilever fundamental, SS beam 3 modes, portal sway, Newmark impulse, spectral
 - `validation_dynamic_integration.rs` (8) — Free vibration period, step load DAF=2, damped decay, harmonic resonance, Newmark energy, HHT-alpha, multi-DOF modes
 
-### Plastic & Nonlinear (12 files, ~79 tests)
+### Plastic & Nonlinear (13 files, ~87 tests)
 - `validation_plastic_collapse.rs` (8) — Neal: exact collapse loads
 - `validation_plastic_mechanisms.rs` (8) — Mechanism types, EN 1993-1-1 §5.6
 - `validation_plastic_hinge_sequence.rs` (8)
 - `validation_material_nonlinear.rs` (3) + `validation_material_nonlinear_benchmarks.rs` (8)
 - `validation_pushover.rs` (6) — FEMA 356, ATC-40
 - `validation_corotational.rs` (4) + `validation_corotational_benchmarks.rs` (5) + `validation_advanced_corotational.rs` (4)
+- `validation_corotational_extended.rs` (8) — Williams toggle, large rotation cantilever, Lee frame, arch snap-through, shallow arch, elastica, post-buckling, 2-bar truss
 - `validation_plastic_analysis.rs` (8) — Plastic moment, upper/lower bound theorems, shape factors
 - `validation_plastic_analysis_theorems.rs` (8) — SS Mp, fixed collapse, portal sway, combined mechanism
 - `validation_neal_plastic_extended.rs` (8) — SS beam Pc=4Mp/L, fixed 16Mp/L², propped cantilever, portal combined, 2-span UDL, sway mechanism, upper/lower bound
@@ -759,24 +764,27 @@ This order improves solver class faster than expanding sideways into more specia
 - `validation_plate_theory.rs` (8) — Kirchhoff-Navier, plate buckling, circular, natural frequency
 - `validation_shell_membrane_theory.rs` (8) — Spherical vessel, cylindrical shell, conical, edge bending
 
-### Cables (5 files, ~40 tests)
+### Cables (6 files, ~48 tests)
 - `validation_cable_structures.rs` (8) — Catenary thrust, parabolic sag, cable length, concentrated load
 - `validation_cable_suspension_analysis.rs` (8) — Catenary sag, parabolic profile, support tension
 - `validation_cable_analysis_advanced.rs` (8) — Ernst equivalent modulus, Irvine parameter
 - `validation_cable_net_structures.rs` (8) — Orthogonal net, spoke-wheel, pretension
 - `validation_cable_stayed_bridges.rs` (8) — Fan arrangement, Ernst modulus, tower compression
+- `validation_cable_extended.rs` (8) — Catenary sag, point load parabolic, cable net, prestressed, cable-stayed beam, multi-segment, temperature, vibration frequency
 
-### Plates & Shells (4 files, ~19 tests)
+### Plates & Shells (5 files, ~27 tests)
 - `validation_curved_beams.rs` (5) — Quarter-circle, Roark ring, parabolic arch
 - `validation_plates.rs` (4) + `validation_scordelis_lo.rs` (3) + `validation_pressure_loads.rs` (4)
 - `validation_shell_theory.rs` (8) — Spherical vessel, cylindrical, conical, edge bending
 - `validation_thin_shell_structures.rs` (8) — Dome membrane, cylindrical roof, hypar, buckling
+- `validation_plates_extended.rs` (8) — Timoshenko SS/clamped plate, rectangular/center load, mesh convergence, cantilever strip, patch test, modal frequency
 
 ### Other Textbook (misc files, ~98 tests)
 - `validation_guided_y.rs` (3) — GuidedY support type
 - `validation_kinematic.rs` (6) + `validation_3d_kinematic.rs` (7) — Mechanism detection
 - `validation_rigid_body_modes.rs` (8) — Insufficient restraints
 - `validation_composite_action.rs` (8) + `validation_composite_structures.rs` (8) + `validation_semirigid_connections.rs` (8)
+- `validation_composite_extended.rs` (8) — Transformed section, full vs partial composite, effective width, column axial, two-material truss, mixed frame drift, temperature
 - `validation_combined_loading.rs` (8) + `validation_load_combination_effects.rs` (8)
 - `validation_deformation_compatibility.rs` (8) + `validation_symmetry_antisymmetry.rs` (8)
 - `validation_indeterminacy_effects.rs` (8)
