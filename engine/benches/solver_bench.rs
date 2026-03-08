@@ -1,5 +1,16 @@
 use criterion::{criterion_group, criterion_main, BenchmarkId, Criterion};
-use dedaliano_engine::solver::{buckling, linear, modal, pdelta, plastic};
+use dedaliano_engine::element::fiber_beam::{rectangular_fiber_section, FiberMaterial};
+use dedaliano_engine::solver::constraints::{self, ConstrainedInput};
+use dedaliano_engine::solver::contact::{self, ContactInput};
+use dedaliano_engine::solver::creep_shrinkage::{
+    self, ConcreteCreepParams, CreepShrinkageInput, TimeStep,
+};
+use dedaliano_engine::solver::fiber_nonlinear::{self, FiberNonlinearInput};
+use dedaliano_engine::solver::staged;
+use dedaliano_engine::solver::winkler::{self, FoundationSpring, WinklerInput};
+use dedaliano_engine::solver::{
+    buckling, cable, corotational, linear, material_nonlinear, modal, moving_loads, pdelta, plastic,
+};
 use dedaliano_engine::types::*;
 use std::collections::HashMap;
 
@@ -23,7 +34,7 @@ fn make_input(
     }
     let mut secs_map = HashMap::new();
     for (id, a, iz) in secs {
-        secs_map.insert(id.to_string(), SolverSection { id, a, iz });
+        secs_map.insert(id.to_string(), SolverSection { id, a, iz, as_y: None });
     }
     let mut elems_map = HashMap::new();
     for (id, t, ni, nj, mi, si, hs, he) in elems {
@@ -239,7 +250,7 @@ fn make_input_3d(
     for (id, a, iy, iz, j) in secs {
         secs_map.insert(
             id.to_string(),
-            SolverSection3D { id, name: None, a, iy, iz, j, cw: None },
+            SolverSection3D { id, name: None, a, iy, iz, j, cw: None, as_y: None, as_z: None },
         );
     }
     let mut elems_map = HashMap::new();
@@ -628,6 +639,509 @@ fn bench_pdelta_3d(c: &mut Criterion) {
     group.finish();
 }
 
+// ─── Moving Loads benchmarks ─────────────────────────────────
+
+fn bench_moving_loads(c: &mut Criterion) {
+    let mut group = c.benchmark_group("moving_loads");
+    group.sample_size(20);
+
+    for n in [16, 64, 200, 500] {
+        let solver = make_ss_beam(n);
+        let input = MovingLoadInput {
+            solver,
+            train: LoadTrain {
+                name: "HL93".to_string(),
+                axles: vec![
+                    Axle { offset: 0.0, weight: 35.0 },
+                    Axle { offset: 4.3, weight: 145.0 },
+                    Axle { offset: 8.6, weight: 145.0 },
+                ],
+            },
+            step: None,
+            path_element_ids: None,
+        };
+        group.bench_with_input(BenchmarkId::from_parameter(n), &input, |b, input| {
+            b.iter(|| moving_loads::solve_moving_loads_2d(input).unwrap());
+        });
+    }
+    group.finish();
+}
+
+// ─── Cable benchmarks ────────────────────────────────────────
+
+fn bench_cable(c: &mut Criterion) {
+    let mut group = c.benchmark_group("cable");
+    group.sample_size(20);
+
+    let densities = make_densities();
+    for n in [4, 16, 32] {
+        let l = 20.0;
+        let sag = l / 8.0; // 2.5m sag for 20m span
+        let elem_len = l / n as f64;
+
+        let mut nodes = Vec::new();
+        for i in 0..=n {
+            let x = i as f64 * elem_len;
+            let y = -4.0 * sag * x * (l - x) / (l * l);
+            nodes.push((i + 1, x, y));
+        }
+        let mut elems = Vec::new();
+        for i in 0..n {
+            elems.push((i + 1, "truss", i + 1, i + 2, 1, 1, false, false));
+        }
+        let sups = vec![(1, 1, "pinned"), (2, n + 1, "pinned")];
+        let mut loads = Vec::new();
+        for i in 1..n {
+            loads.push(SolverLoad::Nodal(SolverNodalLoad {
+                node_id: i + 1,
+                fx: 0.0,
+                fy: -5.0,
+                mz: 0.0,
+            }));
+        }
+        let input = make_input(
+            nodes,
+            vec![(1, 200_000.0, 0.3)],
+            vec![(1, 0.005, 1e-8)],  // larger cable area
+            elems,
+            sups,
+            loads,
+        );
+        group.bench_with_input(
+            BenchmarkId::from_parameter(n),
+            &(input, densities.clone()),
+            |b, (input, dens)| {
+                b.iter(|| cable::solve_cable_2d(input, dens, 50, 1e-6).unwrap());
+            },
+        );
+    }
+    group.finish();
+}
+
+// ─── Constraints benchmarks ──────────────────────────────────
+
+fn bench_constraints(c: &mut Criterion) {
+    let mut group = c.benchmark_group("constraints");
+
+    for &(stories, bays) in &[(5, 3), (10, 4), (20, 5)] {
+        let solver = make_frame(stories, bays);
+        let cols = bays + 1;
+        let mut cons = Vec::new();
+        for j in 1..=stories {
+            let master = j * cols + 1;
+            for i in 1..=bays {
+                let slave = j * cols + i + 1;
+                cons.push(Constraint::RigidLink(RigidLinkConstraint {
+                    master_node: master,
+                    slave_node: slave,
+                    dofs: vec![0],
+                }));
+            }
+        }
+        let input = ConstrainedInput { solver, constraints: cons };
+        let label = format!("{}s_{}b", stories, bays);
+        group.bench_with_input(BenchmarkId::new("solve", &label), &input, |b, input| {
+            b.iter(|| constraints::solve_constrained_2d(input).unwrap());
+        });
+    }
+    group.finish();
+}
+
+// ─── Winkler benchmarks ─────────────────────────────────────
+
+fn bench_winkler(c: &mut Criterion) {
+    let mut group = c.benchmark_group("winkler");
+
+    for n in [16, 64, 200, 500] {
+        let solver = make_ss_beam(n);
+        let springs: Vec<FoundationSpring> = (1..=n)
+            .map(|id| FoundationSpring {
+                element_id: id,
+                kf: 1000.0,
+            })
+            .collect();
+        let input = WinklerInput {
+            solver,
+            foundation_springs: springs,
+        };
+        group.bench_with_input(BenchmarkId::from_parameter(n), &input, |b, input| {
+            b.iter(|| winkler::solve_winkler_2d(input).unwrap());
+        });
+    }
+    group.finish();
+}
+
+// ─── Creep & Shrinkage benchmarks ───────────────────────────
+
+fn bench_creep_shrinkage(c: &mut Criterion) {
+    let mut group = c.benchmark_group("creep_shrinkage");
+    group.sample_size(20);
+
+    for n in [16, 64, 200] {
+        let l = 10.0;
+        let elem_len = l / n as f64;
+        let mut nodes = Vec::new();
+        for i in 0..=n {
+            nodes.push((i + 1, i as f64 * elem_len, 0.0));
+        }
+        let mut elems = Vec::new();
+        for i in 0..n {
+            elems.push((i + 1, "frame", i + 1, i + 2, 1, 1, false, false));
+        }
+        let sups = vec![(1, 1, "pinned"), (2, n + 1, "rollerX")];
+        let mut loads = Vec::new();
+        for i in 0..n {
+            loads.push(SolverLoad::Distributed(SolverDistributedLoad {
+                element_id: i + 1,
+                q_i: -10.0,
+                q_j: -10.0,
+                a: None,
+                b: None,
+            }));
+        }
+        let solver = make_input(
+            nodes,
+            vec![(1, 30_000.0, 0.2)],
+            vec![(1, 0.3, 6.75e-4)],
+            elems,
+            sups,
+            loads,
+        );
+        let mut creep_params = HashMap::new();
+        creep_params.insert(
+            "1".to_string(),
+            ConcreteCreepParams {
+                fc: 40.0,
+                rh: 70.0,
+                h0: 300.0,
+                t0: 28.0,
+                cement_class: "N".to_string(),
+            },
+        );
+        let input = CreepShrinkageInput {
+            solver,
+            creep_params,
+            time_steps: vec![
+                TimeStep { t_days: 100.0, additional_loads: vec![] },
+                TimeStep { t_days: 365.0, additional_loads: vec![] },
+                TimeStep { t_days: 1000.0, additional_loads: vec![] },
+                TimeStep { t_days: 10000.0, additional_loads: vec![] },
+            ],
+            aging_coefficient: 0.8,
+        };
+        group.bench_with_input(BenchmarkId::from_parameter(n), &input, |b, input| {
+            b.iter(|| creep_shrinkage::solve_creep_shrinkage_2d(input).unwrap());
+        });
+    }
+    group.finish();
+}
+
+// ─── Corotational benchmarks ────────────────────────────────
+
+fn bench_corotational(c: &mut Criterion) {
+    let mut group = c.benchmark_group("corotational");
+    group.sample_size(10);
+
+    for n in [4, 16, 64] {
+        let l = 5.0;
+        let elem_len = l / n as f64;
+        let mut nodes = Vec::new();
+        for i in 0..=n {
+            nodes.push((i + 1, i as f64 * elem_len, 0.0));
+        }
+        let mut elems = Vec::new();
+        for i in 0..n {
+            elems.push((i + 1, "frame", i + 1, i + 2, 1, 1, false, false));
+        }
+        let input = make_input(
+            nodes,
+            vec![(1, 200_000.0, 0.3)],
+            vec![(1, 0.01, 1e-4)],
+            elems,
+            vec![(1, 1, "fixed")],
+            vec![SolverLoad::Nodal(SolverNodalLoad {
+                node_id: n + 1,
+                fx: 0.0,
+                fy: -50.0,
+                mz: 0.0,
+            })],
+        );
+        group.bench_with_input(BenchmarkId::from_parameter(n), &input, |b, input| {
+            b.iter(|| corotational::solve_corotational_2d(input, 20, 1e-6, 10).unwrap());
+        });
+    }
+    group.finish();
+}
+
+// ─── Material Nonlinear benchmarks ──────────────────────────
+
+fn bench_material_nonlinear(c: &mut Criterion) {
+    let mut group = c.benchmark_group("material_nonlinear");
+    group.sample_size(10);
+
+    for &(stories, bays) in &[(3, 2), (5, 3), (10, 4)] {
+        let solver = make_frame(stories, bays);
+        let mut material_models = HashMap::new();
+        material_models.insert(
+            "1".to_string(),
+            MaterialModel {
+                model_type: "bilinear".to_string(),
+                fy: 250.0,
+                alpha: Some(0.01),
+            },
+        );
+        let mut section_capacities = HashMap::new();
+        for key in solver.elements.keys() {
+            section_capacities.insert(
+                key.clone(),
+                SectionCapacity {
+                    np: 2500.0,
+                    mp: 50.0,
+                    zp: Some(2e-4),
+                },
+            );
+        }
+        let input = NonlinearMaterialInput {
+            solver,
+            material_models,
+            section_capacities,
+            max_iter: 30,
+            tolerance: 1e-4,
+            n_increments: 5,
+        };
+        let label = format!("{}s_{}b", stories, bays);
+        group.bench_with_input(BenchmarkId::new("solve", &label), &input, |b, input| {
+            b.iter(|| material_nonlinear::solve_nonlinear_material_2d(input).unwrap());
+        });
+    }
+    group.finish();
+}
+
+// ─── Fiber Nonlinear benchmarks ─────────────────────────────
+
+fn bench_fiber_nonlinear(c: &mut Criterion) {
+    let mut group = c.benchmark_group("fiber_nonlinear");
+    group.sample_size(10);
+
+    let bw: f64 = 0.1;
+    let hw: f64 = 0.2;
+    let a_area = bw * hw;
+    let iz_val = bw * hw.powi(3) / 12.0;
+
+    for n in [4, 16] {
+        let l = 5.0;
+        let elem_len = l / n as f64;
+        let mut nodes = Vec::new();
+        for i in 0..=n {
+            nodes.push((i + 1, i as f64 * elem_len, 0.0));
+        }
+        let mut elems = Vec::new();
+        for i in 0..n {
+            elems.push((i + 1, "frame", i + 1, i + 2, 1, 1, false, false));
+        }
+        let solver = make_input(
+            nodes,
+            vec![(1, 200_000.0, 0.3)],
+            vec![(1, a_area, iz_val)],
+            elems,
+            vec![(1, 1, "fixed")],
+            vec![SolverLoad::Nodal(SolverNodalLoad {
+                node_id: n + 1,
+                fx: 0.0,
+                fy: -20.0,
+                mz: 0.0,
+            })],
+        );
+        let section = rectangular_fiber_section(
+            bw,
+            hw,
+            10,
+            FiberMaterial::SteelBilinear {
+                e: 200_000.0,
+                fy: 250.0,
+                hardening_ratio: 0.01,
+            },
+        );
+        let mut fiber_sections = HashMap::new();
+        fiber_sections.insert("1".to_string(), section);
+        let input = FiberNonlinearInput {
+            solver,
+            fiber_sections,
+            n_integration_points: 5,
+            max_iter: 30,
+            tolerance: 1e-6,
+            n_increments: 5,
+        };
+        group.bench_with_input(BenchmarkId::from_parameter(n), &input, |b_iter, input| {
+            b_iter.iter(|| fiber_nonlinear::solve_fiber_nonlinear_2d(input).unwrap());
+        });
+    }
+    group.finish();
+}
+
+// ─── Contact benchmarks ──────────────────────────────────────
+
+fn bench_contact(c: &mut Criterion) {
+    let mut group = c.benchmark_group("contact");
+    group.sample_size(20);
+
+    for &(stories, bays) in &[(5, 3), (10, 4), (20, 5)] {
+        let mut solver = make_frame(stories, bays);
+        let cols = bays + 1;
+        let mut eid = solver.elements.len() + 1;
+        let mut behaviors = HashMap::new();
+
+        // Add tension-only diagonal braces in each bay
+        for j in 0..stories {
+            for i in 0..bays {
+                let ni = j * cols + i + 1;
+                let nj = (j + 1) * cols + i + 2;
+                solver.elements.insert(
+                    eid.to_string(),
+                    SolverElement {
+                        id: eid,
+                        elem_type: "truss".to_string(),
+                        node_i: ni,
+                        node_j: nj,
+                        material_id: 1,
+                        section_id: 1,
+                        hinge_start: false,
+                        hinge_end: false,
+                    },
+                );
+                behaviors.insert(eid.to_string(), "tension_only".to_string());
+                eid += 1;
+            }
+        }
+
+        let input = ContactInput {
+            solver,
+            element_behaviors: behaviors,
+            gap_elements: vec![],
+            uplift_supports: vec![],
+            max_iter: Some(30),
+            tolerance: Some(1e-6),
+            augmented_lagrangian: None,
+            max_flips: None,
+        };
+        let label = format!("{}s_{}b", stories, bays);
+        group.bench_with_input(BenchmarkId::new("solve", &label), &input, |b, input| {
+            b.iter(|| contact::solve_contact_2d(input).unwrap());
+        });
+    }
+    group.finish();
+}
+
+// ─── Staged Construction benchmarks ──────────────────────────
+
+fn bench_staged(c: &mut Criterion) {
+    let mut group = c.benchmark_group("staged");
+    group.sample_size(20);
+
+    for n in [16, 64, 200] {
+        let l = 10.0;
+        let elem_len = l / n as f64;
+        let half = n / 2;
+
+        let mut nodes = HashMap::new();
+        for i in 0..=n {
+            nodes.insert(
+                (i + 1).to_string(),
+                SolverNode { id: i + 1, x: i as f64 * elem_len, y: 0.0 },
+            );
+        }
+        let mut materials = HashMap::new();
+        materials.insert("1".to_string(), SolverMaterial { id: 1, e: 200_000.0, nu: 0.3 });
+        let mut sections = HashMap::new();
+        sections.insert(
+            "1".to_string(),
+            SolverSection { id: 1, a: 0.01, iz: 1e-4, as_y: None },
+        );
+        let mut elements = HashMap::new();
+        for i in 0..n {
+            elements.insert(
+                (i + 1).to_string(),
+                SolverElement {
+                    id: i + 1,
+                    elem_type: "frame".to_string(),
+                    node_i: i + 1,
+                    node_j: i + 2,
+                    material_id: 1,
+                    section_id: 1,
+                    hinge_start: false,
+                    hinge_end: false,
+                },
+            );
+        }
+        let mut supports = HashMap::new();
+        supports.insert(
+            "1".to_string(),
+            SolverSupport {
+                id: 1, node_id: 1, support_type: "pinned".to_string(),
+                kx: None, ky: None, kz: None, dx: None, dy: None, drz: None, angle: None,
+            },
+        );
+        supports.insert(
+            "2".to_string(),
+            SolverSupport {
+                id: 2, node_id: half + 1, support_type: "rollerX".to_string(),
+                kx: None, ky: None, kz: None, dx: None, dy: None, drz: None, angle: None,
+            },
+        );
+        supports.insert(
+            "3".to_string(),
+            SolverSupport {
+                id: 3, node_id: n + 1, support_type: "rollerX".to_string(),
+                kx: None, ky: None, kz: None, dx: None, dy: None, drz: None, angle: None,
+            },
+        );
+
+        let mut loads = Vec::new();
+        for i in 0..n {
+            loads.push(SolverLoad::Distributed(SolverDistributedLoad {
+                element_id: i + 1,
+                q_i: -10.0,
+                q_j: -10.0,
+                a: None,
+                b: None,
+            }));
+        }
+
+        let input = StagedInput {
+            nodes,
+            materials,
+            sections,
+            elements,
+            supports,
+            loads,
+            stages: vec![
+                ConstructionStage {
+                    name: "Phase 1".to_string(),
+                    elements_added: (1..=half).collect(),
+                    elements_removed: vec![],
+                    load_indices: (0..half).collect(),
+                    supports_added: vec![1, 2],
+                    supports_removed: vec![],
+                    prestress_loads: vec![],
+                },
+                ConstructionStage {
+                    name: "Phase 2".to_string(),
+                    elements_added: (half + 1..=n).collect(),
+                    elements_removed: vec![],
+                    load_indices: (half..n).collect(),
+                    supports_added: vec![3],
+                    supports_removed: vec![],
+                    prestress_loads: vec![],
+                },
+            ],
+        };
+        group.bench_with_input(BenchmarkId::from_parameter(n), &input, |b, input| {
+            b.iter(|| staged::solve_staged_2d(input).unwrap());
+        });
+    }
+    group.finish();
+}
+
 criterion_group!(
     benches,
     bench_json_roundtrip,
@@ -642,5 +1156,15 @@ criterion_group!(
     bench_linear_frame_3d,
     bench_modal_3d,
     bench_pdelta_3d,
+    bench_moving_loads,
+    bench_cable,
+    bench_constraints,
+    bench_winkler,
+    bench_creep_shrinkage,
+    bench_corotational,
+    bench_material_nonlinear,
+    bench_fiber_nonlinear,
+    bench_contact,
+    bench_staged,
 );
 criterion_main!(benches);
