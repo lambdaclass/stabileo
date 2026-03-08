@@ -2,9 +2,8 @@
 ///
 /// Reference: Vlasov *Thin-Walled Elastic Beams*, Trahair *Flexural-Torsional Buckling*
 ///
-/// NOTE: The warping DOF infrastructure (dof.rs, assembly.rs routing to 14x14 element matrices)
-/// is not yet fully wired. These tests are placeholders that document the expected behavior
-/// and will be enabled once warping is fully implemented.
+/// The warping DOF infrastructure (14×14 element matrices, DOF numbering, assembly,
+/// bimoment recovery) is fully wired via dof.rs, assembly.rs, and frame.rs.
 mod helpers;
 
 use dedaliano_engine::solver::linear;
