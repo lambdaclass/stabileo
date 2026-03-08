@@ -684,6 +684,89 @@ pub struct SectionCapacity3D {
     pub mpx: Option<f64>, // Torsional plastic moment
 }
 
+// ==================== Initial Imperfections & Residual Stress ====================
+
+/// Geometric imperfection: offset a node from its ideal position.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct NodeImperfection {
+    pub node_id: usize,
+    /// Offset in X (m)
+    #[serde(default)]
+    pub dx: f64,
+    /// Offset in Y (m)
+    #[serde(default)]
+    pub dy: f64,
+    /// Offset in Z (m) (3D only)
+    #[serde(default)]
+    pub dz: f64,
+}
+
+/// Equivalent notional load from out-of-plumbness (code-based approach).
+/// Converts geometric imperfection ratio to lateral loads proportional to gravity.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct NotionalLoadDef {
+    /// Imperfection ratio (e.g., 1/200 = 0.005 per AISC, 1/200 per EC3)
+    pub ratio: f64,
+    /// Direction: 0=X, 1=Y, 2=Z
+    #[serde(default)]
+    pub direction: usize,
+    /// Gravity axis: 0=X, 1=Y, 2=Z (default 1=Y for vertical)
+    #[serde(default = "default_gravity_axis")]
+    pub gravity_axis: usize,
+}
+
+fn default_gravity_axis() -> usize { 1 }
+
+/// Residual stress pattern for fiber sections.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(tag = "type", rename_all = "camelCase")]
+pub enum ResidualStressPattern {
+    /// ECCS residual stress for hot-rolled I-sections.
+    /// Linear variation: +0.3fy at flange tips, -0.3fy at flange center.
+    #[serde(rename = "eccs_hot_rolled")]
+    EccsHotRolled {
+        /// Yield stress (MPa)
+        fy: f64,
+        /// Fraction of fy (default 0.3)
+        #[serde(default = "default_residual_fraction")]
+        fraction: f64,
+    },
+    /// Uniform residual stress over all fibers.
+    #[serde(rename = "uniform")]
+    Uniform {
+        /// Stress value (MPa, positive = tension)
+        stress: f64,
+    },
+    /// Per-fiber residual stresses (indexed by fiber order in section).
+    #[serde(rename = "custom")]
+    Custom {
+        /// Stress per fiber (MPa)
+        stresses: Vec<f64>,
+    },
+}
+
+fn default_residual_fraction() -> f64 { 0.3 }
+
+/// Initial imperfection input for nonlinear analysis.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ImperfectionInput {
+    /// Node position offsets
+    #[serde(default)]
+    pub node_imperfections: Vec<NodeImperfection>,
+    /// Notional loads from out-of-plumbness
+    #[serde(default)]
+    pub notional_loads: Vec<NotionalLoadDef>,
+    /// Residual stress patterns per section ID
+    #[serde(default)]
+    pub residual_stresses: HashMap<String, ResidualStressPattern>,
+    /// Initial displacements from previous analysis (node_id → [ux, uy, rz])
+    #[serde(default)]
+    pub initial_displacements: HashMap<String, Vec<f64>>,
+}
+
 // ==================== Time History Analysis ====================
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

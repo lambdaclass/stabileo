@@ -28,6 +28,7 @@ pub mod ssi;
 pub mod constraints;
 pub mod arc_length;
 pub mod fiber_nonlinear;
+pub mod imperfections;
 
 pub use dof::*;
 pub use assembly::*;
