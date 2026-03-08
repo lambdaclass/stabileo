@@ -200,7 +200,7 @@ The bending planes are uncoupled in local coordinates. The local coordinate syst
 
 ### Testing
 
-The solver is verified against known analytical solutions across 390+ validation test files with over 3,500 test cases (3,084+ validation + 90 differential fuzz + unit tests). Every test checks equilibrium (sum of forces = 0, sum of moments = 0) in addition to comparing against the expected solution. See the [engine README](engine/README.md) for the full test inventory.
+The solver is verified against known analytical solutions across 395+ validation test files with over 3,500 test cases (3,121+ validation + 90 differential fuzz + unit tests). Every test checks equilibrium (sum of forces = 0, sum of moments = 0) in addition to comparing against the expected solution. See the [engine README](engine/README.md) for the full test inventory.
 
 **Canonical benchmarks:**
 
@@ -222,7 +222,7 @@ Additional test categories: 3D orientation vectors and roll angles, 2D/3D consis
 
 ### Rust / WebAssembly
 
-There is a [Rust implementation](engine/) of the solver core in the `engine/` directory with 3,500+ passing tests (3,084+ validation tests verified against AISC 360, Eurocode 3/8, ASCE 7, AASHTO, NAFEMS, ANSYS VM, SAP2000, Code_Aster, MASTAN2, OpenSees, STAAD.Pro, Strand7, LUSAS, Robot Structural, NDS, EC5, EC7, EC4, CIRSOC 102/103/201, ACI 318, TMS 402, AISI S100, and 30+ textbook references). The intent is to compile it to WebAssembly via [wasm-pack](https://rustwasm.github.io/wasm-pack/) for near-native performance in the browser.
+There is a [Rust implementation](engine/) of the solver core in the `engine/` directory with 3,566+ passing tests (3,121+ validation tests verified against AISC 360, Eurocode 3/8, ASCE 7, AASHTO, NAFEMS, ANSYS VM, SAP2000, Code_Aster, MASTAN2, OpenSees, STAAD.Pro, Strand7, LUSAS, Robot Structural, NDS, EC5, EC7, EC4, CIRSOC 102/103/201, ACI 318, TMS 402, AISI S100, and 30+ textbook references). The intent is to compile it to WebAssembly via [wasm-pack](https://rustwasm.github.io/wasm-pack/) for near-native performance in the browser.
 
 ---
 
@@ -372,7 +372,7 @@ The application uses **Svelte 5 runes** exclusively for state management. No ext
 | **CAD import/export** | [dxf-parser 1.1](https://github.com/gdsestimating/dxf-parser) + custom DXF R12 writer |
 | **Spreadsheets** | [SheetJS 0.18](https://sheetjs.com) for Excel export |
 | **URL compression** | [LZ-string 1.5](https://github.com/pieroxy/lz-string) |
-| **Testing** | [Vitest 3.2](https://vitest.dev) (1,050+ TS tests) + [Cargo test](https://doc.rust-lang.org/cargo/commands/cargo-test.html) (3,500+ Rust tests across 390+ validation files) |
+| **Testing** | [Vitest 3.2](https://vitest.dev) (1,050+ TS tests) + [Cargo test](https://doc.rust-lang.org/cargo/commands/cargo-test.html) (3,500+ Rust tests across 394 validation files) |
 | **Hosting** | [Cloudflare Pages](https://pages.cloudflare.com) + [GitHub Pages](https://lambdaclass.github.io/dedaliano) |
 
 ---

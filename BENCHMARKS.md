@@ -12,25 +12,25 @@
 | Category | Done | Capability | Blocked | Total |
 |----------|------|------------|---------|-------|
 | Industry Standards & Design Codes | 345 | 0 | 0 | 345 |
-| Commercial Software Cross-Validation | 135 | 5 | 1 | 141 |
+| Commercial Software Cross-Validation | 172 | 0 | 1 | 173 |
 | Textbook Classics | 1688 | 0 | 0 | 1688 |
 | Mathematical Properties & Numerical Methods | 179 | 0 | 0 | 179 |
 | FEM Quality & Convergence | 54 | 0 | 0 | 54 |
 | Engineering Practice & Specialized Structures | 616 | 0 | 0 | 616 |
 | Fixed Bugs (regression) | 6 | 0 | 0 | 6 |
 | Placeholders | 0 | 3 | 0 | 3 |
-| **Total** | **3023** | **8** | **1** | **3032** |
+| **Total** | **3060** | **3** | **1** | **3064** |
 
 The table above is the curated benchmark-status ledger. It is narrower than the full automated test inventory shown below, because many validation/unit/integration tests are support checks, regression tests, or formula verifications rather than one benchmark row per test.
 
-**3084 validation test functions across 390 validation files. 3529 total registered tests across 446 Rust test files.**
+**3121 validation test functions across 395 validation files. 3566 total registered tests across 451 Rust test files.**
 
 Current measured inventory:
 
-- `390` files matching `engine/tests/validation_*.rs`
-- `3084` `#[test]` functions inside validation files
+- `395` files matching `engine/tests/validation_*.rs`
+- `3121` `#[test]` functions inside validation files
 - `25` files matching `engine/tests/integration_*.rs` (181 integration test functions)
-- `3529` total registered tests from `cargo test -- --list`
+- `3566` total registered tests from `cargo test -- --list`
 
 ### Design Check Modules (17 postprocess modules, 82 unit tests + 25 integration test files)
 
@@ -457,7 +457,7 @@ This order improves solver class faster than expanding sideways into more specia
 
 ## Commercial Software Cross-Validation
 
-### ANSYS Verification Manual (41 DONE, 5 CAPABILITY)
+### ANSYS Verification Manual (46 DONE)
 
 | File | Tests | Benchmarks |
 |------|-------|------------|
@@ -465,8 +465,7 @@ This order improves solver class faster than expanding sideways into more specia
 | `validation_ansys_vm_extended.rs` | 18 | VM3 (stepped), VM5/6 (thermal), VM7 (gradient), VM8 (truss), VM9 (space truss), VM13 (portal), VM14 (cantilever), VM21 (tie rod), VM156 (P-delta) |
 | `validation_ansys_vm_additional.rs` | 8 | VM11 (plate), VM15 (nonlinear), VM16 (Euler), VM17, VM20, VM25 (2-span), VM44 (ring) |
 | `validation_ansys_vm_benchmarks.rs` | 8 | VM22 (axial+bending cantilever), VM23 (Winkler), VM26 (2-span partial UDL), VM27 (thermal gradient), VM30 (3D space truss), VM33 (3-bar truss), VM34 (thermal 2-bar), VM40 (large deflection) |
-
-**CAPABILITY** (not yet exact match): VM11 (plate mesh), VM14a (large deflection), VM15 (material nonlinear), VM18 (semicircular arch), VM44 (circular ring).
+| `validation_capability_upgrades.rs` | 5 | VM11 (cantilever triangular load <2%), VM14a (Mattiasson elastica corotational <10%), VM15 (plastic collapse Pc=8Mp/L), VM18 (quarter-circle 32 segments <5%), VM44 (Roark ring 64 segments <5%) |
 
 ### SAP2000 / CSI (18 DONE)
 
@@ -498,6 +497,30 @@ This order improves solver class faster than expanding sideways into more specia
 | `validation_mastan2_extended.rs` | 22 | 8 Ziemian-style benchmark frames (E1-E8): leaning column, unequal story heights, fixed vs pinned base, three-bay unequal widths, unequal column stiffness, X-braced, diagonal brace, three-story sway + 4 batch tests |
 
 **Reference:** Ziemian & Ziemian (2021), *J. Constr. Steel Res.* 186
+
+### OpenSees Cross-Check (8 DONE)
+
+| File | Tests | Benchmarks |
+|------|-------|------------|
+| `validation_opensees_crosscheck.rs` | 8 | SS beam point load, portal frame lateral, 3-bar truss, cantilever tip load, 2-span continuous, 2-story frame, 3D space truss, P-delta column |
+
+### Robot Structural Cross-Check (8 DONE)
+
+| File | Tests | Benchmarks |
+|------|-------|------------|
+| `validation_robot_structural.rs` | 8 | SS beam midspan, fixed-fixed UDL, propped cantilever, 2-bay portal, 3-span continuous, braced frame diagonal, 3D cantilever biaxial, Warren truss bridge |
+
+### STAAD.Pro Cross-Check (8 DONE)
+
+| File | Tests | Benchmarks |
+|------|-------|------------|
+| `validation_staad_pro.rs` | 8 | V1 cantilever, V2 SS UDL, V3 continuous beam, V4 plane truss, V5 space truss, V6 portal sway, V7 Gerber hinge, V8 spring support |
+
+### Strand7 / LUSAS Cross-Check (8 DONE)
+
+| File | Tests | Benchmarks |
+|------|-------|------------|
+| `validation_strand7_lusas.rs` | 8 | BM1-4 (Strand7): SS beam, cantilever UDL, fixed-fixed thermal, Pratt truss. BM1-4 (LUSAS): 2-story lateral, settlement, 3D torsion, Euler buckling |
 
 ---
 
