@@ -416,6 +416,15 @@ pub fn solve_contact_3d(input: &ContactInput3D) -> Result<ContactResult3D, Strin
         }
     }
 
+    // Track gap statuses
+    let mut gap_status: Vec<ContactStatus> = vec![ContactStatus::Inactive; input.gap_elements.len()];
+
+    // Track uplift support statuses
+    let mut uplift_status: HashMap<usize, ContactStatus> = HashMap::new();
+    for &nid in &input.uplift_supports {
+        uplift_status.insert(nid, ContactStatus::Active);
+    }
+
     let mut u_full = vec![0.0; n];
     let mut converged = false;
     let mut total_iters = 0;
@@ -443,7 +452,6 @@ pub fn solve_contact_3d(input: &ContactInput3D) -> Result<ContactResult3D, Strin
                         let ea_l = e * sec.a / l;
                         let dir = [dx / l, dy / l, dz / l];
 
-                        // Subtract truss stiffness
                         element::scatter_truss_3d(
                             &mut asm.k, n, -ea_l, &dir,
                             elem.node_i, elem.node_j, &dof_num.map,
@@ -453,10 +461,20 @@ pub fn solve_contact_3d(input: &ContactInput3D) -> Result<ContactResult3D, Strin
             }
         }
 
-        // Add gap stiffness
+        // Add gap element stiffness for closed gaps
         for (gi, gap) in input.gap_elements.iter().enumerate() {
-            // For 3D, gaps not yet supported in full — skip
-            let _ = (gi, gap);
+            if gap_status[gi] == ContactStatus::Active {
+                let dir = gap.direction.min(2); // 3D: 0=X, 1=Y, 2=Z
+                if let (Some(&di), Some(&dj)) = (
+                    dof_num.map.get(&(gap.node_i, dir)),
+                    dof_num.map.get(&(gap.node_j, dir)),
+                ) {
+                    asm.k[di * n + di] += gap.stiffness;
+                    asm.k[dj * n + dj] += gap.stiffness;
+                    asm.k[di * n + dj] -= gap.stiffness;
+                    asm.k[dj * n + di] -= gap.stiffness;
+                }
+            }
         }
 
         // Solve
@@ -479,7 +497,7 @@ pub fn solve_contact_3d(input: &ContactInput3D) -> Result<ContactResult3D, Strin
 
         for i in 0..nf { u_full[i] = u_f[i]; }
 
-        // Check element forces
+        // Check element forces and update statuses
         let mut any_change = false;
 
         for (eid_str, behavior) in &input.element_behaviors {
@@ -528,13 +546,32 @@ pub fn solve_contact_3d(input: &ContactInput3D) -> Result<ContactResult3D, Strin
             }
         }
 
+        // Check gap elements
+        for (gi, gap) in input.gap_elements.iter().enumerate() {
+            let dir = gap.direction.min(2);
+            let u_i = dof_num.global_dof(gap.node_i, dir).map(|d| u_full[d]).unwrap_or(0.0);
+            let u_j = dof_num.global_dof(gap.node_j, dir).map(|d| u_full[d]).unwrap_or(0.0);
+            let relative_disp = u_j - u_i;
+
+            let new_status = if relative_disp < -gap.initial_gap {
+                ContactStatus::Active
+            } else {
+                ContactStatus::Inactive
+            };
+
+            if gap_status[gi] != new_status {
+                any_change = true;
+                gap_status[gi] = new_status;
+            }
+        }
+
         if !any_change && iter > 0 {
             converged = true;
             break;
         }
     }
 
-    // Build results from the linear solver with final u
+    // Build results
     let displacements = linear::build_displacements_3d(&dof_num, &u_full);
     let element_forces = linear::compute_internal_forces_3d(&input.solver, &dof_num, &u_full);
 
@@ -558,11 +595,31 @@ pub fn solve_contact_3d(input: &ContactInput3D) -> Result<ContactResult3D, Strin
         })
         .collect();
 
+    let gap_info: Vec<GapContactInfo> = input.gap_elements.iter().enumerate()
+        .map(|(gi, gap)| {
+            let dir = gap.direction.min(2);
+            let u_i = dof_num.global_dof(gap.node_i, dir).map(|d| u_full[d]).unwrap_or(0.0);
+            let u_j = dof_num.global_dof(gap.node_j, dir).map(|d| u_full[d]).unwrap_or(0.0);
+            let relative_disp = u_j - u_i;
+            let force = if gap_status[gi] == ContactStatus::Active {
+                gap.stiffness * (relative_disp + gap.initial_gap)
+            } else {
+                0.0
+            };
+            GapContactInfo {
+                id: gap.id,
+                status: if gap_status[gi] == ContactStatus::Active { "closed".into() } else { "open".into() },
+                displacement: relative_disp,
+                force,
+            }
+        })
+        .collect();
+
     Ok(ContactResult3D {
         results,
         iterations: total_iters,
         converged,
         element_status: element_status_info,
-        gap_status: vec![],
+        gap_status: gap_info,
     })
 }
