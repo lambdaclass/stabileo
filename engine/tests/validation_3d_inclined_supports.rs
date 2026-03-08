@@ -46,20 +46,6 @@ fn make_fixed_3d(node_id: usize) -> SolverSupport3D {
     }
 }
 
-fn make_pinned_3d(node_id: usize) -> SolverSupport3D {
-    SolverSupport3D {
-        node_id,
-        rx: true, ry: true, rz: true,
-        rrx: false, rry: false, rrz: false,
-        kx: None, ky: None, kz: None,
-        krx: None, kry: None, krz: None,
-        dx: None, dy: None, dz: None,
-        drx: None, dry: None, drz: None,
-        normal_x: None, normal_y: None, normal_z: None,
-        is_inclined: None,
-        rw: None, kw: None,
-    }
-}
 
 // ================================================================
 // 1. Beam on 45° inclined roller — reaction direction = normal

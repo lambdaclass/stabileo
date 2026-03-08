@@ -18,7 +18,6 @@
 ///   8. Portal frame plastic collapse (beam, sway, combined mechanisms)
 
 mod helpers;
-use helpers::*;
 
 use std::f64::consts::PI;
 

@@ -219,7 +219,6 @@ fn validation_settlement_no_external_loads() {
     let l = 6.0;
     let n = 6;
     let delta = 0.01;
-    let e_eff = E * 1000.0;
 
     let mut nodes = std::collections::HashMap::new();
     for i in 0..=n {

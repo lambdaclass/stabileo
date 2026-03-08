@@ -6,7 +6,7 @@
 mod helpers;
 
 use dedaliano_engine::solver::kinematic;
-use dedaliano_engine::types::*;
+
 #[allow(unused_imports)]
 use helpers::*;
 

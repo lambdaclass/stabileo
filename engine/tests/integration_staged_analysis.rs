@@ -302,7 +302,6 @@ fn prestress_parabolic_tendon() {
     // Parabolic tendon: e=0 at supports, e_mid = 0.2m at midspan
     let p = 1000.0; // 1000 kN
     let e_mid = 0.2;
-    let l_total = 10.0;
 
     let mut prestress_loads = Vec::new();
     let elem_ids: Vec<usize> = (1..=10).collect();

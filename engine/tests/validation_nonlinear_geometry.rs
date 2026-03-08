@@ -18,7 +18,6 @@
 ///   8. Geometric stiffness matrix properties
 
 mod helpers;
-use helpers::*;
 
 use std::f64::consts::PI;
 
@@ -260,9 +259,6 @@ fn validation_nonlinear_pdelta_moments() {
 
     // Total moment at base
     let m_total: f64 = m1 + m_pdelta;
-
-    // Alternative: M_total = M1 * AF (direct formula)
-    let m_total_alt: f64 = m1 * af;
 
     // These should be approximately equal (exact for rigid column)
     // For elastic column, the P-delta formula gives slightly different
@@ -749,9 +745,7 @@ fn validation_nonlinear_geometric_stiffness_properties() {
 
     // Property 5: For compression (P < 0), K_G subtracts from K_E (softens)
     let p_comp: f64 = -100.0;
-    let trace_comp: f64 = (6.0_f64/5.0_f64 + 2.0_f64*l*l/15.0_f64/l
-        + 6.0_f64/5.0_f64 + 2.0_f64*l*l/15.0_f64/l) * p_comp / l;
-    // Actually: recompute trace directly
+    // Compute trace directly
     let p_c_l: f64 = p_comp / l;
     let trace_comp_v2: f64 = 6.0_f64/5.0_f64 * p_c_l + 2.0_f64*l*l/15.0_f64 * p_c_l
         + 6.0_f64/5.0_f64 * p_c_l + 2.0_f64*l*l/15.0_f64 * p_c_l;

@@ -18,7 +18,6 @@
 ///   8. Static condensation accuracy vs full solution
 
 mod helpers;
-use helpers::*;
 
 use std::f64::consts::PI;
 

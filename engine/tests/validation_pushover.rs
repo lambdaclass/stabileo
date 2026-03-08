@@ -35,8 +35,6 @@ fn validation_pushover_cantilever_stiffness() {
     let ei = E * 1000.0 * IZ;
 
     let k_exact = 3.0 * ei / length.powi(3);
-    let delta_exact = p / k_exact;
-
     let input = make_beam(
         n, length, E, A, IZ, "fixed", None,
         vec![SolverLoad::Nodal(SolverNodalLoad {
@@ -67,7 +65,6 @@ fn validation_pushover_cantilever_stiffness() {
 fn validation_pushover_pdelta_stiffness_reduction() {
     let length: f64 = 4.0;
     let h_load: f64 = 5.0;
-    let n = 8;
     let ei = E * 1000.0 * IZ;
 
     // Euler critical load for cantilever: P_cr = π²EI/(4L²)

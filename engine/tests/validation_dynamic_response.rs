@@ -17,7 +17,6 @@
 ///   8. Modal superposition accuracy for 2-DOF system
 
 mod helpers;
-use helpers::*;
 
 use std::f64::consts::PI;
 
@@ -92,8 +91,6 @@ fn validation_dynamic_sdof_free_vibration() {
 
     // Damped response: zeta = 5%
     let zeta: f64 = 0.05;
-    let omega_d: f64 = omega_n * (1.0_f64 - zeta * zeta).sqrt();
-
     // After one period, amplitude decays by exp(-zeta*omega_n*T_n)
     let decay_factor: f64 = (-zeta * omega_n * t_n).exp();
     // = exp(-0.05 * 6.3246 * 0.9934) = exp(-0.3142) ~ 0.730
@@ -245,7 +242,6 @@ fn validation_dynamic_newmark_beta_accuracy() {
     let mut a: f64 = f0 / m; // initial acceleration from F0
 
     // Newmark constants
-    let a1: f64 = 1.0_f64 / (beta * dt * dt) * m + gamma / (beta * dt) * 0.0_f64 + k;
     // For undamped: c = 0
     let k_eff: f64 = k + m / (beta * dt * dt);
 

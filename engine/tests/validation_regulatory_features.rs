@@ -16,7 +16,6 @@ mod helpers;
 use dedaliano_engine::solver::linear;
 use dedaliano_engine::types::*;
 use helpers::*;
-use std::collections::HashMap;
 
 const E: f64 = 200_000.0;
 const A: f64 = 0.01;
@@ -192,7 +191,6 @@ fn validation_prescribed_rotation() {
     let mut input = make_beam(n, length, E, A, IZ, "fixed", Some("fixed"), vec![]);
 
     // Prescribe rotation at right support
-    let n_sup = input.supports.len();
     for sup in input.supports.values_mut() {
         if sup.node_id == n + 1 {
             sup.drz = Some(theta);
@@ -207,8 +205,6 @@ fn validation_prescribed_rotation() {
         assert!(r.mz.abs() > 1e-10, "Prescribed rotation should produce moment reaction");
     }
 
-    // Equilibrium must hold: ΣM = 0 about any point
-    let sum_mz: f64 = results.reactions.iter().map(|r| r.mz).sum();
     // Net moment should account for couples from vertical reactions
     // Just check it's bounded
     assert!(
@@ -319,7 +315,7 @@ fn validation_multi_directional_loading() {
 
     // Y-direction (gravity) only
     let input_y = make_portal_frame(h, bay, E, A, IZ, 0.0, -p);
-    let res_y = linear::solve_2d(&input_y).unwrap();
+    linear::solve_2d(&input_y).unwrap();
 
     // Combined: 100% X + 30% Y
     let input_combo = make_portal_frame(h, bay, E, A, IZ, p, -0.3 * p);

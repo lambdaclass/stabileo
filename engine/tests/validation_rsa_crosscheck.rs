@@ -12,7 +12,7 @@
 ///   - Eurocode 8 (EN 1998-1), Section 4.3.3.3
 mod helpers;
 
-use dedaliano_engine::solver::{modal, spectral, time_integration};
+use dedaliano_engine::solver::{modal, spectral};
 use dedaliano_engine::types::*;
 use helpers::*;
 use std::collections::HashMap;

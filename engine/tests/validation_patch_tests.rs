@@ -83,7 +83,6 @@ fn validation_truss_patch_test_uniform_strain() {
 
 #[test]
 fn validation_frame_patch_test_axial_only() {
-    let length = 4.0;
     let f: f64 = 20.0;
 
     // Frame elements, axial load only
@@ -230,8 +229,6 @@ fn validation_macneal_harder_straight_cantilever() {
     let ei = E * 1000.0 * IZ;
 
     let delta_exact = p.abs() * length.powi(3) / (3.0 * ei);
-    let theta_exact = p.abs() * length.powi(2) / (2.0 * ei);
-
     for &n in &[1, 2, 4, 8] {
         let input = make_beam(
             n, length, E, A, IZ, "fixed", None,
