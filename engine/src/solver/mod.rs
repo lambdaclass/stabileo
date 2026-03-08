@@ -30,6 +30,7 @@ pub mod arc_length;
 pub mod fiber_nonlinear;
 pub mod imperfections;
 pub mod creep_shrinkage;
+pub mod reduction;
 
 pub use dof::*;
 pub use assembly::*;

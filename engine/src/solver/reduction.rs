@@ -1,0 +1,497 @@
+/// Model reduction / substructuring.
+///
+/// Implements:
+/// - Guyan (static) condensation: eliminates interior DOFs using K partitioning
+/// - Craig-Bampton: retains boundary DOFs + interior modal DOFs
+///
+/// References:
+/// - Guyan, R.J. (1965). "Reduction of stiffness and mass matrices"
+/// - Craig & Bampton (1968). "Coupling of substructures for dynamic analyses"
+
+use crate::types::*;
+use crate::linalg::*;
+use super::dof::DofNumbering;
+use super::assembly;
+
+use serde::{Serialize, Deserialize};
+
+/// Guyan reduction input.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct GuyanInput {
+    pub solver: SolverInput,
+    /// Boundary (retained) node IDs
+    pub boundary_nodes: Vec<usize>,
+}
+
+/// Guyan reduction input (3D).
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct GuyanInput3D {
+    pub solver: SolverInput3D,
+    pub boundary_nodes: Vec<usize>,
+}
+
+/// Result of Guyan reduction.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct GuyanResult {
+    /// Condensed stiffness matrix (n_boundary × n_boundary, row-major)
+    pub k_condensed: Vec<f64>,
+    /// Condensed force vector (n_boundary)
+    pub f_condensed: Vec<f64>,
+    /// Condensed mass matrix (n_boundary × n_boundary, row-major), if mass available
+    #[serde(default)]
+    pub m_condensed: Vec<f64>,
+    /// Boundary DOF count
+    pub n_boundary: usize,
+    /// Interior DOF count (eliminated)
+    pub n_interior: usize,
+    /// Boundary DOF indices in original numbering
+    pub boundary_dofs: Vec<usize>,
+    /// Full solution (all DOFs) recovered from condensed solve
+    pub displacements: Vec<Displacement>,
+    pub reactions: Vec<Reaction>,
+    pub element_forces: Vec<ElementForces>,
+}
+
+/// Craig-Bampton input.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct CraigBamptonInput {
+    pub solver: SolverInput,
+    pub boundary_nodes: Vec<usize>,
+    /// Number of interior modes to retain
+    #[serde(default = "default_n_modes")]
+    pub n_modes: usize,
+    /// Material densities per material_id for mass matrix
+    pub densities: std::collections::HashMap<String, f64>,
+}
+
+fn default_n_modes() -> usize { 10 }
+
+/// Craig-Bampton result.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct CraigBamptonResult {
+    /// Reduced stiffness matrix (n_reduced × n_reduced)
+    pub k_reduced: Vec<f64>,
+    /// Reduced mass matrix (n_reduced × n_reduced)
+    pub m_reduced: Vec<f64>,
+    /// n_reduced = n_boundary + n_modes_kept
+    pub n_reduced: usize,
+    pub n_boundary: usize,
+    pub n_modes_kept: usize,
+    /// Interior mode frequencies (Hz)
+    pub interior_frequencies: Vec<f64>,
+    /// Boundary DOF indices
+    pub boundary_dofs: Vec<usize>,
+}
+
+/// Solve K_II^{-1} * rhs using lu_solve (clones K_II since lu_solve mutates it).
+fn solve_kii(k_ii: &[f64], rhs: &[f64], ni: usize) -> Result<Vec<f64>, String> {
+    let mut k_work = k_ii.to_vec();
+    let mut b_work = rhs.to_vec();
+    lu_solve(&mut k_work, &mut b_work, ni)
+        .ok_or_else(|| "K_II is singular — cannot condense".to_string())
+}
+
+/// Perform Guyan (static) condensation on a 2D model.
+///
+/// Partitions free DOFs into boundary (B) and interior (I):
+///   K = [K_BB  K_BI]    F = [F_B]
+///       [K_IB  K_II]        [F_I]
+///
+/// Condensed: K_c = K_BB - K_BI * K_II^{-1} * K_IB
+///            F_c = F_B  - K_BI * K_II^{-1} * F_I
+///
+/// Recovery: u_I = K_II^{-1} * (F_I - K_IB * u_B)
+pub fn guyan_reduce_2d(input: &GuyanInput) -> Result<GuyanResult, String> {
+    let dof_num = DofNumbering::build_2d(&input.solver);
+    let nf = dof_num.n_free;
+    let n = dof_num.n_total;
+
+    if nf == 0 { return Err("No free DOFs".into()); }
+
+    let asm = assembly::assemble_2d(&input.solver, &dof_num);
+
+    // Classify free DOFs into boundary and interior
+    let mut boundary_dofs = Vec::new();
+    let mut interior_dofs = Vec::new();
+
+    for i in 0..nf {
+        let is_boundary = dof_num.map.iter().any(|(&(nid, _), &gdof)| {
+            gdof == i && input.boundary_nodes.contains(&nid)
+        });
+        if is_boundary {
+            boundary_dofs.push(i);
+        } else {
+            interior_dofs.push(i);
+        }
+    }
+
+    let nb = boundary_dofs.len();
+    let ni = interior_dofs.len();
+
+    if nb == 0 { return Err("No boundary DOFs found".into()); }
+    if ni == 0 { return Err("No interior DOFs to condense".into()); }
+
+    // Extract submatrices
+    let k_bb = extract_submatrix(&asm.k, n, &boundary_dofs, &boundary_dofs);
+    let k_bi = extract_submatrix(&asm.k, n, &boundary_dofs, &interior_dofs);
+    let k_ib = extract_submatrix(&asm.k, n, &interior_dofs, &boundary_dofs);
+    let k_ii = extract_submatrix(&asm.k, n, &interior_dofs, &interior_dofs);
+
+    let f_b: Vec<f64> = boundary_dofs.iter().map(|&d| asm.f[d]).collect();
+    let f_i: Vec<f64> = interior_dofs.iter().map(|&d| asm.f[d]).collect();
+
+    // Solve K_II^{-1} * F_I
+    let kii_inv_fi = solve_kii(&k_ii, &f_i, ni)?;
+
+    // Solve K_II^{-1} * K_IB column by column
+    let mut kii_inv_kib = vec![0.0; ni * nb]; // ni × nb
+    for j in 0..nb {
+        let col: Vec<f64> = (0..ni).map(|i| k_ib[i * nb + j]).collect();
+        let sol = solve_kii(&k_ii, &col, ni)?;
+        for i in 0..ni {
+            kii_inv_kib[i * nb + j] = sol[i];
+        }
+    }
+
+    // K_condensed = K_BB - K_BI * (K_II^{-1} * K_IB)
+    let mut k_condensed = k_bb.clone();
+    for i in 0..nb {
+        for j in 0..nb {
+            let mut sum = 0.0;
+            for p in 0..ni {
+                sum += k_bi[i * ni + p] * kii_inv_kib[p * nb + j];
+            }
+            k_condensed[i * nb + j] -= sum;
+        }
+    }
+
+    // F_condensed = F_B - K_BI * (K_II^{-1} * F_I)
+    let mut f_condensed = f_b.clone();
+    for i in 0..nb {
+        let mut sum = 0.0;
+        for p in 0..ni {
+            sum += k_bi[i * ni + p] * kii_inv_fi[p];
+        }
+        f_condensed[i] -= sum;
+    }
+
+    // Solve condensed system: K_c * u_B = F_c
+    let u_b = {
+        let mut k_work = k_condensed.clone();
+        let mut f_work = f_condensed.clone();
+        lu_solve(&mut k_work, &mut f_work, nb)
+            .ok_or("Condensed system is singular")?
+    };
+
+    // Recover interior DOFs: u_I = K_II^{-1} * (F_I - K_IB * u_B)
+    let mut rhs_i = f_i;
+    for i in 0..ni {
+        let mut sum = 0.0;
+        for j in 0..nb {
+            sum += k_ib[i * nb + j] * u_b[j];
+        }
+        rhs_i[i] -= sum;
+    }
+    let u_i = solve_kii(&k_ii, &rhs_i, ni)?;
+
+    // Reconstruct full displacement vector
+    let mut u_full = vec![0.0; n];
+    for (local, &global) in boundary_dofs.iter().enumerate() {
+        u_full[global] = u_b[local];
+    }
+    for (local, &global) in interior_dofs.iter().enumerate() {
+        u_full[global] = u_i[local];
+    }
+
+    // Build results
+    let displacements = super::linear::build_displacements_2d(&dof_num, &u_full);
+    let element_forces = super::linear::compute_internal_forces_2d(&input.solver, &dof_num, &u_full);
+
+    // Compute reactions: R = K_rf * u_f + K_rr * u_r - F_r
+    let nr = n - nf;
+    let free_idx: Vec<usize> = (0..nf).collect();
+    let rest_idx: Vec<usize> = (nf..n).collect();
+    let u_f: Vec<f64> = free_idx.iter().map(|&i| u_full[i]).collect();
+    let u_r = vec![0.0; nr]; // no prescribed displacements in reduction
+    let k_rf = extract_submatrix(&asm.k, n, &rest_idx, &free_idx);
+    let k_rr = extract_submatrix(&asm.k, n, &rest_idx, &rest_idx);
+    let f_r = extract_subvec(&asm.f, &rest_idx);
+    let k_rf_uf = mat_vec_rect(&k_rf, &u_f, nr, nf);
+    let k_rr_ur = mat_vec_rect(&k_rr, &u_r, nr, nr);
+    let mut reactions_vec = vec![0.0; nr];
+    for i in 0..nr {
+        reactions_vec[i] = k_rf_uf[i] + k_rr_ur[i] - f_r[i];
+    }
+    let reactions = super::linear::build_reactions_2d(
+        &input.solver, &dof_num, &reactions_vec, &f_r, nf, &u_full,
+    );
+
+    Ok(GuyanResult {
+        k_condensed,
+        f_condensed,
+        m_condensed: vec![],
+        n_boundary: nb,
+        n_interior: ni,
+        boundary_dofs,
+        displacements,
+        reactions,
+        element_forces,
+    })
+}
+
+/// Perform Craig-Bampton reduction on a 2D model.
+///
+/// The reduced system has DOFs: [u_B, q_m] where
+///   u_B = boundary DOF displacements
+///   q_m = interior modal coordinates (first n_modes)
+///
+/// Transformation: u = [I       0   ] [u_B]
+///                     [Ψ_s    Φ_m  ] [q_m]
+/// where Ψ_s = -K_II^{-1} K_IB (constraint modes)
+///       Φ_m = first n_modes eigenvectors of K_II with respect to M_II
+pub fn craig_bampton_2d(input: &CraigBamptonInput) -> Result<CraigBamptonResult, String> {
+    let dof_num = DofNumbering::build_2d(&input.solver);
+    let nf = dof_num.n_free;
+    let n = dof_num.n_total;
+
+    if nf == 0 { return Err("No free DOFs".into()); }
+
+    let asm = assembly::assemble_2d(&input.solver, &dof_num);
+
+    // Build mass matrix
+    let m_full = super::mass_matrix::assemble_mass_matrix_2d(&input.solver, &dof_num, &input.densities);
+
+    // Classify DOFs
+    let mut boundary_dofs = Vec::new();
+    let mut interior_dofs = Vec::new();
+
+    for i in 0..nf {
+        let is_boundary = dof_num.map.iter().any(|(&(nid, _), &gdof)| {
+            gdof == i && input.boundary_nodes.contains(&nid)
+        });
+        if is_boundary {
+            boundary_dofs.push(i);
+        } else {
+            interior_dofs.push(i);
+        }
+    }
+
+    let nb = boundary_dofs.len();
+    let ni = interior_dofs.len();
+
+    if nb == 0 { return Err("No boundary DOFs".into()); }
+    if ni == 0 { return Err("No interior DOFs".into()); }
+
+    let n_modes = input.n_modes.min(ni);
+
+    // Extract submatrices
+    let k_bb = extract_submatrix(&asm.k, n, &boundary_dofs, &boundary_dofs);
+    let k_bi = extract_submatrix(&asm.k, n, &boundary_dofs, &interior_dofs);
+    let k_ib = extract_submatrix(&asm.k, n, &interior_dofs, &boundary_dofs);
+    let k_ii = extract_submatrix(&asm.k, n, &interior_dofs, &interior_dofs);
+
+    let m_bb = extract_submatrix(&m_full, n, &boundary_dofs, &boundary_dofs);
+    let m_bi = extract_submatrix(&m_full, n, &boundary_dofs, &interior_dofs);
+    let m_ib = extract_submatrix(&m_full, n, &interior_dofs, &boundary_dofs);
+    let m_ii = extract_submatrix(&m_full, n, &interior_dofs, &interior_dofs);
+
+    // Compute constraint modes: Ψ_s = -K_II^{-1} * K_IB (ni × nb)
+    let mut psi_s = vec![0.0; ni * nb];
+    for j in 0..nb {
+        let col: Vec<f64> = (0..ni).map(|i| k_ib[i * nb + j]).collect();
+        let sol = solve_kii(&k_ii, &col, ni)?;
+        for i in 0..ni {
+            psi_s[i * nb + j] = -sol[i];
+        }
+    }
+
+    // Interior eigenproblem: K_II * φ = ω² * M_II * φ
+    let eigen = solve_generalized_eigen(&k_ii, &m_ii, ni, 200)
+        .ok_or("Interior eigenvalue decomposition failed")?;
+
+    // Extract first n_modes positive eigenvalues and vectors
+    let mut mode_pairs: Vec<(f64, usize)> = Vec::new();
+    for (idx, &val) in eigen.values.iter().enumerate() {
+        if val > 1e-12 {
+            mode_pairs.push((val, idx));
+        }
+    }
+    mode_pairs.sort_by(|a, b| a.0.partial_cmp(&b.0).unwrap());
+    let n_modes = n_modes.min(mode_pairs.len());
+
+    // Φ_m: ni × n_modes
+    let mut phi_m = vec![0.0; ni * n_modes];
+    let mut frequencies = Vec::new();
+
+    for (m, &(eigenval, idx)) in mode_pairs.iter().take(n_modes).enumerate() {
+        let freq = eigenval.sqrt() / (2.0 * std::f64::consts::PI);
+        frequencies.push(freq);
+
+        // Normalize eigenvector
+        let mut max_val = 0.0f64;
+        for i in 0..ni {
+            let v = eigen.vectors[i * ni + idx].abs();
+            if v > max_val { max_val = v; }
+        }
+        for i in 0..ni {
+            phi_m[i * n_modes + m] = if max_val > 1e-20 {
+                eigen.vectors[i * ni + idx] / max_val
+            } else {
+                0.0
+            };
+        }
+    }
+
+    // Build reduced matrices
+    // T = [I       0   ]  (nb+ni) × (nb+n_modes)
+    //     [Ψ_s    Φ_m  ]
+    //
+    // K_reduced = T^T * K * T
+    // M_reduced = T^T * M * T
+
+    let nr = nb + n_modes;
+
+    // K_II * Φ_m (ni × n_modes)
+    let mut k_ii_phi = vec![0.0; ni * n_modes];
+    for i in 0..ni {
+        for m in 0..n_modes {
+            let mut s = 0.0;
+            for p in 0..ni {
+                s += k_ii[i * ni + p] * phi_m[p * n_modes + m];
+            }
+            k_ii_phi[i * n_modes + m] = s;
+        }
+    }
+
+    // K_II * Ψ_s (ni × nb)
+    let mut k_ii_psi = vec![0.0; ni * nb];
+    for i in 0..ni {
+        for j in 0..nb {
+            let mut s = 0.0;
+            for p in 0..ni {
+                s += k_ii[i * ni + p] * psi_s[p * nb + j];
+            }
+            k_ii_psi[i * nb + j] = s;
+        }
+    }
+
+    let mut k_reduced = vec![0.0; nr * nr];
+
+    // BB block: K_BB + K_BI*Ψ_s + Ψ_s^T*K_IB + Ψ_s^T*K_II*Ψ_s
+    for i in 0..nb {
+        for j in 0..nb {
+            let mut val = k_bb[i * nb + j];
+            for p in 0..ni {
+                val += k_bi[i * ni + p] * psi_s[p * nb + j];
+                val += psi_s[p * nb + i] * k_ib[p * nb + j];
+            }
+            for p in 0..ni {
+                val += psi_s[p * nb + i] * k_ii_psi[p * nb + j];
+            }
+            k_reduced[i * nr + j] = val;
+        }
+    }
+
+    // BM block: K_BI*Φ_m + Ψ_s^T*K_II*Φ_m
+    for i in 0..nb {
+        for m in 0..n_modes {
+            let mut val = 0.0;
+            for p in 0..ni {
+                val += k_bi[i * ni + p] * phi_m[p * n_modes + m];
+                val += psi_s[p * nb + i] * k_ii_phi[p * n_modes + m];
+            }
+            k_reduced[i * nr + (nb + m)] = val;
+            k_reduced[(nb + m) * nr + i] = val; // symmetric
+        }
+    }
+
+    // MM block: Φ_m^T * K_II * Φ_m (should be diagonal = eigenvalues)
+    for m1 in 0..n_modes {
+        for m2 in 0..n_modes {
+            let mut val = 0.0;
+            for p in 0..ni {
+                val += phi_m[p * n_modes + m1] * k_ii_phi[p * n_modes + m2];
+            }
+            k_reduced[(nb + m1) * nr + (nb + m2)] = val;
+        }
+    }
+
+    // Same for mass matrix
+    let mut m_ii_phi = vec![0.0; ni * n_modes];
+    for i in 0..ni {
+        for m in 0..n_modes {
+            let mut s = 0.0;
+            for p in 0..ni {
+                s += m_ii[i * ni + p] * phi_m[p * n_modes + m];
+            }
+            m_ii_phi[i * n_modes + m] = s;
+        }
+    }
+
+    let mut m_ii_psi = vec![0.0; ni * nb];
+    for i in 0..ni {
+        for j in 0..nb {
+            let mut s = 0.0;
+            for p in 0..ni {
+                s += m_ii[i * ni + p] * psi_s[p * nb + j];
+            }
+            m_ii_psi[i * nb + j] = s;
+        }
+    }
+
+    let mut m_reduced = vec![0.0; nr * nr];
+
+    // BB block
+    for i in 0..nb {
+        for j in 0..nb {
+            let mut val = m_bb[i * nb + j];
+            for p in 0..ni {
+                val += m_bi[i * ni + p] * psi_s[p * nb + j];
+                val += psi_s[p * nb + i] * m_ib[p * nb + j];
+            }
+            for p in 0..ni {
+                val += psi_s[p * nb + i] * m_ii_psi[p * nb + j];
+            }
+            m_reduced[i * nr + j] = val;
+        }
+    }
+
+    // BM block
+    for i in 0..nb {
+        for m in 0..n_modes {
+            let mut val = 0.0;
+            for p in 0..ni {
+                val += m_bi[i * ni + p] * phi_m[p * n_modes + m];
+                val += psi_s[p * nb + i] * m_ii_phi[p * n_modes + m];
+            }
+            m_reduced[i * nr + (nb + m)] = val;
+            m_reduced[(nb + m) * nr + i] = val;
+        }
+    }
+
+    // MM block (should be identity if modes are M-orthonormalized)
+    for m1 in 0..n_modes {
+        for m2 in 0..n_modes {
+            let mut val = 0.0;
+            for p in 0..ni {
+                val += phi_m[p * n_modes + m1] * m_ii_phi[p * n_modes + m2];
+            }
+            m_reduced[(nb + m1) * nr + (nb + m2)] = val;
+        }
+    }
+
+    Ok(CraigBamptonResult {
+        k_reduced,
+        m_reduced,
+        n_reduced: nr,
+        n_boundary: nb,
+        n_modes_kept: n_modes,
+        interior_frequencies: frequencies,
+        boundary_dofs,
+    })
+}

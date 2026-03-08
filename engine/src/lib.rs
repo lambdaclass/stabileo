@@ -863,6 +863,30 @@ pub fn solve_creep_shrinkage_3d(json: &str) -> Result<String, JsValue> {
         .map_err(|e| JsValue::from_str(&format!("Serialize error: {}", e)))
 }
 
+// ==================== Model Reduction ====================
+
+/// Guyan (static) condensation of a 2D model. JSON in → JSON out.
+#[wasm_bindgen]
+pub fn guyan_reduce_2d(json: &str) -> Result<String, JsValue> {
+    let input: solver::reduction::GuyanInput = serde_json::from_str(json)
+        .map_err(|e| JsValue::from_str(&format!("Parse error: {}", e)))?;
+    let results = solver::reduction::guyan_reduce_2d(&input)
+        .map_err(|e| JsValue::from_str(&e))?;
+    serde_json::to_string(&results)
+        .map_err(|e| JsValue::from_str(&format!("Serialize error: {}", e)))
+}
+
+/// Craig-Bampton reduction of a 2D model. JSON in → JSON out.
+#[wasm_bindgen]
+pub fn craig_bampton_2d(json: &str) -> Result<String, JsValue> {
+    let input: solver::reduction::CraigBamptonInput = serde_json::from_str(json)
+        .map_err(|e| JsValue::from_str(&format!("Parse error: {}", e)))?;
+    let results = solver::reduction::craig_bampton_2d(&input)
+        .map_err(|e| JsValue::from_str(&e))?;
+    serde_json::to_string(&results)
+        .map_err(|e| JsValue::from_str(&format!("Serialize error: {}", e)))
+}
+
 #[cfg(test)]
 mod tests {
     use super::types::*;
