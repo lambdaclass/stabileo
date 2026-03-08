@@ -1,413 +1,509 @@
-/// Validation: Structural Optimization Fundamentals
+/// Validation: Structural Optimization Theory — Pure-Math Formulas
 ///
 /// References:
-///   - Haftka & Gürdal: "Elements of Structural Optimization" 3rd ed. (1992)
-///   - Bendsøe & Sigmund: "Topology Optimization" (2003)
-///   - Christensen & Klarbring: "An Introduction to Structural Optimization" (2009)
-///   - Arora: "Introduction to Optimum Design" 4th ed. (2016)
-///   - Michell (1904): "The Limits of Economy of Material in Frame Structures"
-///   - Dorn, Gomory & Greenberg (1964): Ground Structure Method
+///   - Bendsoe & Sigmund, "Topology Optimization", 2nd ed. (2003)
+///   - Haftka & Gurdal, "Elements of Structural Optimization", 3rd ed. (1992)
+///   - Michell, "The limits of economy of material in frame-structures", Phil. Mag. (1904)
+///   - Rozvany, "Structural Design via Optimality Criteria", Springer (1989)
+///   - Svanberg, "The method of moving asymptotes", IJNME (1987)
+///   - Christensen & Klarbring, "An Introduction to Structural Optimization", Springer (2009)
+///   - Arora, "Introduction to Optimum Design", 4th ed. (2017)
+///   - Kirsch, "Structural Optimization", Springer (1993)
 ///
-/// Tests verify fully stressed design, Michell truss, shape optimization,
-/// cross-section optimization, weight minimization, and topology concepts.
+/// Tests verify structural optimization formulas with hand-computed expected values.
+/// No solver calls — pure arithmetic verification of analytical expressions.
 
-mod helpers;
+use std::f64::consts::PI;
 
 // ================================================================
-// 1. Fully Stressed Design (FSD) -- Sizing
+// Tolerance helper
+// ================================================================
+
+fn assert_close(got: f64, expected: f64, tol: f64, label: &str) {
+    let err: f64 = if expected.abs() < 1e-12 {
+        got.abs()
+    } else {
+        (got - expected).abs() / expected.abs()
+    };
+    assert!(
+        err < tol,
+        "{}: got {:.6e}, expected {:.6e}, rel err = {:.4}%",
+        label, got, expected, err * 100.0
+    );
+}
+
+// ================================================================
+// 1. Fully Stressed Design Iteration Convergence
 // ================================================================
 //
-// Iterative resizing: scale each member area proportional to stress ratio.
-// A_new = A_old × σ_actual / σ_allowable
-// Converges for statically determinate structures in one step.
+// In a fully stressed design (FSD), each member area is resized so
+// that stress equals the allowable stress:
+//   A_new = A_old * (sigma_actual / sigma_allow)
+//
+// For a statically determinate structure, member forces do not change
+// with area, so FSD converges in a single iteration.
+//
+// For an indeterminate structure the iteration is:
+//   A_new_i = F_i(A) / sigma_allow
+// where F_i depends on the stiffness distribution. We demonstrate
+// convergence for a two-bar truss where equilibrium is determinate.
+//
+// Ref: Haftka & Gurdal (1992), Ch. 2
 
 #[test]
-fn optim_fully_stressed_design() {
+fn validation_fsd_convergence() {
     let sigma_allow: f64 = 250.0; // MPa
-    let forces: [f64; 3] = [100.0, 200.0, 150.0]; // kN, member forces
-    let areas_initial: [f64; 3] = [1000.0, 1000.0, 1000.0]; // mm², initial areas
+    let alpha: f64 = PI / 4.0; // 45 degrees
 
-    // Initial stresses
-    let stresses: Vec<f64> = forces.iter().zip(areas_initial.iter())
-        .map(|(f, a)| f * 1000.0 / a)
-        .collect();
+    // Symmetric two-bar truss: vertical load P at apex
+    // Each bar force = P / (2*sin(alpha))
+    let p_load: f64 = 100_000.0; // N (100 kN)
+    let f_bar = p_load / (2.0 * alpha.sin());
+    let f_expected = p_load * 2.0_f64.sqrt() / 2.0;
+    assert_close(f_bar, f_expected, 1e-12, "bar force in symmetric truss");
 
-    // FSD iteration (for determinate: one step)
-    let areas_fsd: Vec<f64> = forces.iter()
-        .map(|f| f * 1000.0 / sigma_allow)
-        .collect();
+    // Optimal area: A = F / sigma_allow
+    let a_optimal = f_bar / sigma_allow;
 
-    // All members now at allowable stress
-    for (i, a) in areas_fsd.iter().enumerate() {
-        let sigma: f64 = forces[i] * 1000.0 / a;
-        assert!(
-            (sigma - sigma_allow).abs() < 1.0,
-            "Member {}: σ = {:.1} ≈ σ_allow = {:.1}", i, sigma, sigma_allow
-        );
-    }
+    // FSD iteration from arbitrary initial guess A0 = 1000 mm^2
+    // For determinate truss: forces unchanged, so one iteration suffices.
+    let a_0: f64 = 1000.0;
+    let sigma_0 = f_bar / a_0;
+    let a_1 = a_0 * (sigma_0 / sigma_allow);
+    // a_1 = a_0 * (F/a_0) / sigma_allow = F / sigma_allow = a_optimal
+    assert_close(a_1, a_optimal, 1e-12, "FSD converges in one step (determinate)");
 
-    // Weight reduction
-    let w_initial: f64 = areas_initial.iter().sum::<f64>();
-    let w_optimized: f64 = areas_fsd.iter().sum::<f64>();
+    // Verify stress at optimum
+    let sigma_opt = f_bar / a_optimal;
+    assert_close(sigma_opt, sigma_allow, 1e-12, "stress at FSD optimum");
 
-    assert!(
-        w_optimized < w_initial,
-        "Weight: {:.0} < {:.0} mm² (total)", w_optimized, w_initial
-    );
+    // Bar length: L = h / sin(alpha), with h = 1000 mm
+    let h: f64 = 1000.0;
+    let bar_length = h / alpha.sin();
+    assert_close(bar_length, h * 2.0_f64.sqrt(), 1e-12, "bar length at 45 deg");
 
-    let _stresses = stresses;
+    // Total volume (proportional to weight): V = 2 * A * L
+    let volume = 2.0 * a_optimal * bar_length;
+    let v_expected = 2.0 * (f_expected / sigma_allow) * h * 2.0_f64.sqrt();
+    assert_close(volume, v_expected, 1e-12, "FSD total volume");
+
+    let _ = PI;
 }
 
 // ================================================================
-// 2. Michell Truss -- Theoretical Minimum Weight
+// 2. Lagrangian Multiplier for Weight Minimization
 // ================================================================
 //
-// Michell (1904): for a given load and two support points,
-// minimum-weight truss has members aligned with principal stress trajectories.
-// Volume = F × L / σ (theoretical minimum for single load case).
-
-#[test]
-fn optim_michell_truss() {
-    let f: f64 = 100.0;         // kN, applied load
-    let l: f64 = 5.0;           // m, span
-    let sigma_allow: f64 = 250.0; // MPa, both tension & compression
-
-    // Theoretical minimum volume (Michell bound)
-    // V_min = F × L / σ × C (where C depends on geometry)
-    // For cantilever with point load: C ≈ 1.0 (simplest case)
-    let v_michell: f64 = f * 1000.0 * l * 1000.0 / sigma_allow; // mm³
-    // = 100000 × 5000 / 250 = 2,000,000 mm³
-
-    assert!(
-        v_michell > 1e6,
-        "Michell volume: {:.0} mm³", v_michell
-    );
-
-    // Any practical truss will weigh more
-    // Simple Warren truss for same problem
-    let n_members: usize = 5;
-    let avg_length: f64 = l / 2.0 * 1000.0; // mm
-    let avg_force: f64 = f * 1000.0 * 0.8;  // N (average member force, approximate)
-    let avg_area: f64 = avg_force / sigma_allow;
-    let v_warren: f64 = n_members as f64 * avg_area * avg_length;
-
-    // Warren volume > Michell bound
-    assert!(
-        v_warren > v_michell,
-        "Warren {:.0} > Michell {:.0} mm³", v_warren, v_michell
-    );
-
-    // Efficiency
-    let efficiency: f64 = v_michell / v_warren;
-    assert!(
-        efficiency < 1.0 && efficiency > 0.3,
-        "Efficiency: {:.1}%", efficiency * 100.0
-    );
-}
-
-// ================================================================
-// 3. Cross-Section Optimization -- Minimum Weight Beam
-// ================================================================
+// Minimize weight W = sum(A_i * L_i) subject to displacement constraint:
+//   delta = sum(F_i^2 * L_i / (E * A_i)) <= delta_allow
 //
-// For given moment capacity: minimize weight.
-// I-beam is optimal for bending: most material at flanges.
-// Optimal flange thickness: balance local buckling vs. weight.
-
-#[test]
-fn optim_beam_cross_section() {
-    let m_design: f64 = 500.0;  // kN·m
-    let fy: f64 = 355.0;        // MPa
-    let l: f64 = 8.0;           // m, span
-
-    // Required section modulus
-    let w_required: f64 = m_design * 1e6 / fy; // mm³
-
-    assert!(
-        w_required > 1e6,
-        "Required W: {:.0} mm³", w_required
-    );
-
-    // Compare rectangular vs I-section
-    // Rectangular: b×d, W = b*d²/6
-    let d_rect: f64 = 500.0;    // mm
-    let b_rect: f64 = 6.0 * w_required / (d_rect * d_rect);
-    let a_rect: f64 = b_rect * d_rect;
-
-    // I-section: flanges carry bending
-    let d_i: f64 = 500.0;       // mm, total depth
-    let tf: f64 = 20.0;         // mm, flange thickness
-    let bf: f64 = 200.0;        // mm, flange width
-    let tw: f64 = 10.0;         // mm, web thickness
-    let hw: f64 = d_i - 2.0 * tf;
-
-    // I-section modulus (approximate)
-    let i_x: f64 = 2.0 * bf * tf * (d_i / 2.0 - tf / 2.0).powi(2)
-        + tw * hw.powi(3) / 12.0;
-    let w_i: f64 = i_x / (d_i / 2.0);
-
-    let a_i: f64 = 2.0 * bf * tf + hw * tw;
-
-    // I-section is much lighter for same W
-    assert!(
-        a_i < a_rect,
-        "I-section {:.0} < rect {:.0} mm²", a_i, a_rect
-    );
-
-    // Weight saving
-    let saving: f64 = (1.0 - a_i / a_rect) * 100.0;
-    assert!(
-        saving > 20.0,
-        "Weight saving: {:.0}%", saving
-    );
-
-    let _l = l;
-    let _w_i = w_i;
-}
-
-// ================================================================
-// 4. Shape Optimization -- Constant Stress Arch
-// ================================================================
+// Lagrangian: L = sum(A_i * L_i) + lambda * [sum(F_i^2*L_i/(E*A_i)) - delta_allow]
+// Stationarity: dL/dA_i = L_i - lambda*F_i^2*L_i/(E*A_i^2) = 0
+//   => A_i = |F_i| * sqrt(lambda/E)
 //
-// Optimal arch shape for uniform load: parabolic.
-// Optimal arch shape for self-weight: catenary.
-// No bending in optimal arch → minimum material.
-
-#[test]
-fn optim_arch_shape() {
-    let l: f64 = 30.0;          // m, span
-    let f_rise: f64 = 10.0;     // m, rise
-    let w: f64 = 20.0;          // kN/m, uniform load
-
-    // Parabolic arch: y(x) = 4f*x*(L-x)/L²
-    // Horizontal thrust: H = w*L²/(8f)
-    let h: f64 = w * l * l / (8.0 * f_rise);
-
-    // Maximum axial force (at support)
-    let v_support: f64 = w * l / 2.0;
-    let n_max: f64 = (h * h + v_support * v_support).sqrt();
-
-    assert!(
-        n_max > h,
-        "N_max = {:.0} > H = {:.0} kN", n_max, h
-    );
-
-    // Bending moment in parabolic arch under uniform load = 0
-    // (arch shape matches pressure line)
-    let m_arch: f64 = 0.0;
-
-    // Compare with circular arch (non-optimal)
-    // Circular arch has bending moments under uniform load
-    let r_circ: f64 = (l * l / 4.0 + f_rise * f_rise) / (2.0 * f_rise);
-    // Moment at crown (approximate): M ≈ H × (f_parabola - f_circle)
-    // At quarter point the difference is noticeable
-    let x_quarter: f64 = l / 4.0;
-    let y_parabola: f64 = 4.0 * f_rise * x_quarter * (l - x_quarter) / (l * l);
-    let y_circle: f64 = f_rise - (r_circ - (r_circ * r_circ - (x_quarter - l / 2.0).powi(2)).sqrt());
-    let m_circular: f64 = (h * (y_parabola - y_circle)).abs();
-
-    assert!(
-        m_circular > m_arch,
-        "Circular M = {:.1} > parabolic M = {:.1} kN·m (parabolic optimal)", m_circular, m_arch
-    );
-}
-
-// ================================================================
-// 5. Weight Minimization -- Stress Constraints
-// ================================================================
+// Substituting back: delta_allow = sum(|F_i|*L_i) / sqrt(lambda*E)
+//   => sqrt(lambda*E) = sum(|F_i|*L_i) / delta_allow
 //
-// min Σ(ρ × Ai × Li)
-// s.t. σi ≤ σ_allow for all members
-// For determinate truss: analytical solution = FSD.
+// Ref: Haftka & Gurdal (1992), Ch. 4; Arora (2017), Ch. 7
 
 #[test]
-fn optim_weight_minimization() {
-    let rho: f64 = 7850.0;      // kg/m³, steel density
-    let sigma_allow_t: f64 = 250.0; // MPa, tension
-    let sigma_allow_c: f64 = 150.0; // MPa, compression (reduced for buckling)
+fn validation_lagrangian_weight_minimization() {
+    let e_mod: f64 = 200_000.0; // MPa
+    let delta_allow: f64 = 10.0; // mm
 
-    // 3-bar truss problem (classic optimization benchmark)
-    let f_applied: f64 = 100.0; // kN
-    let bar_lengths: [f64; 3] = [1000.0, 1414.0, 1000.0]; // mm
-    let bar_forces: [f64; 3] = [70.7, -100.0, 70.7]; // kN (tension, compression, tension)
+    // Three-bar truss with known forces and lengths
+    let forces = [50_000.0_f64, 80_000.0, 30_000.0]; // N
+    let lengths = [1000.0_f64, 1500.0, 1200.0]; // mm
 
-    // Optimal areas (FSD for determinate structure)
-    let mut total_weight: f64 = 0.0;
+    // sum(|F_i| * L_i)
+    let sum_fl: f64 = forces.iter().zip(lengths.iter())
+        .map(|(f, l)| f.abs() * l)
+        .sum();
+    // = 50000*1000 + 80000*1500 + 30000*1200 = 5e7 + 1.2e8 + 3.6e7 = 2.06e8
+
+    // Lagrange multiplier: lambda = [sum(|Fi|*Li)]^2 / (E * delta_allow^2)
+    let lambda = sum_fl * sum_fl / (e_mod * delta_allow * delta_allow);
+
+    // Optimal areas: A_i = |F_i| * sqrt(lambda/E) = |F_i| * sum_fl / (E * delta_allow)
+    let scale = sum_fl / (e_mod * delta_allow);
+    let a_opt: Vec<f64> = forces.iter().map(|f| f.abs() * scale).collect();
+
+    // Verify constraint is active
+    let delta_check: f64 = forces.iter().zip(lengths.iter()).zip(a_opt.iter())
+        .map(|((f, l), a)| f * f * l / (e_mod * a))
+        .sum();
+    assert_close(delta_check, delta_allow, 1e-10, "displacement constraint active");
+
+    // Verify KKT stationarity: L_i - lambda * F_i^2 * L_i / (E * A_i^2) = 0
+    // Equivalently: lambda * F_i^2 / (E * A_i^2) = 1 for all i
     for i in 0..3 {
-        let sigma_limit: f64 = if bar_forces[i] > 0.0 { sigma_allow_t } else { sigma_allow_c };
-        let a_opt: f64 = bar_forces[i].abs() * 1000.0 / sigma_limit;
-        let weight: f64 = rho * a_opt * 1e-6 * bar_lengths[i] * 1e-3; // kg
-
-        total_weight += weight;
+        let kkt_val = lambda * forces[i] * forces[i] / (e_mod * a_opt[i] * a_opt[i]);
+        assert_close(kkt_val, 1.0, 1e-10,
+            &format!("KKT optimality bar {}", i + 1));
     }
 
-    assert!(
-        total_weight > 0.0,
-        "Total weight: {:.2} kg", total_weight
-    );
+    // Minimum weight (volume): W = sum(A_i * L_i) = sum_fl^2 / (E * delta_allow)
+    let w_min: f64 = a_opt.iter().zip(lengths.iter()).map(|(a, l)| a * l).sum();
+    let w_expected = sum_fl * sum_fl / (e_mod * delta_allow);
+    assert_close(w_min, w_expected, 1e-10, "minimum weight");
 
-    // Compare with uniform sizing
-    let a_uniform: f64 = f_applied * 1000.0 / sigma_allow_c; // sized for worst member
-    let weight_uniform: f64 = rho * a_uniform * 1e-6
-        * bar_lengths.iter().sum::<f64>() * 1e-3;
-
-    assert!(
-        total_weight < weight_uniform,
-        "Optimal {:.2} < uniform {:.2} kg", total_weight, weight_uniform
-    );
+    assert!(lambda > 0.0, "Lagrange multiplier positive for active constraint");
 }
 
 // ================================================================
-// 6. Topology Indicator -- SIMP Method Concept
+// 3. Topology Optimization SIMP Penalty Interpolation
 // ================================================================
 //
-// SIMP: Solid Isotropic Material with Penalization.
-// E(x) = x^p × E0, where x ∈ [0,1] is density variable, p ≥ 3.
-// Penalization drives intermediate densities to 0 or 1.
+// SIMP (Solid Isotropic Material with Penalization):
+//   E(x) = E_min + x^p * (E_0 - E_min)
+//
+// where x in [0,1] is the density variable, p >= 1 is the penalty.
+//   x=0 => E = E_min (void)
+//   x=1 => E = E_0 (solid)
+//   dE/dx = p * x^(p-1) * (E_0 - E_min)
+//
+// Ref: Bendsoe & Sigmund (2003), Ch. 1-2
 
 #[test]
-fn optim_simp_concept() {
-    let e0: f64 = 210_000.0;    // MPa, solid steel modulus
-    let p: f64 = 3.0;           // penalization exponent
+fn validation_simp_penalty_interpolation() {
+    let e_0: f64 = 200_000.0; // MPa
+    let e_min: f64 = 1.0; // MPa (numerical stabilization)
+    let de: f64 = e_0 - e_min;
+    let p: f64 = 3.0;
 
-    // Density-stiffness relationship
-    let densities: [f64; 5] = [0.0, 0.25, 0.50, 0.75, 1.0];
+    // Boundary values
+    let e_at_0 = e_min + 0.0_f64.powf(p) * de;
+    assert_close(e_at_0, e_min, 1e-12, "SIMP E at x=0");
 
-    let mut prev_e: f64 = -1.0;
-    for &x in &densities {
-        let e_x: f64 = x.powf(p) * e0;
+    let e_at_1 = e_min + 1.0_f64.powf(p) * de;
+    assert_close(e_at_1, e_0, 1e-12, "SIMP E at x=1");
 
-        assert!(
-            e_x >= prev_e,
-            "E({:.2}) = {:.0} MPa (monotonic)", x, e_x
-        );
-        prev_e = e_x;
+    // Intermediate: x=0.5, p=3 => x^p = 0.125
+    let x_half: f64 = 0.5;
+    let e_half = e_min + x_half.powf(p) * de;
+    let expected_half = e_min + 0.125 * de;
+    assert_close(e_half, expected_half, 1e-12, "SIMP E at x=0.5, p=3");
 
-        // Penalization effect: at x=0.5, E = 0.125*E0 (not 0.5*E0)
-        if (x - 0.5).abs() < 0.01 {
-            let ratio: f64 = e_x / e0;
-            assert!(
-                ratio < 0.2,
-                "SIMP penalization: E/E0 = {:.3} at x=0.5 (< linear 0.5)", ratio
-            );
+    // Without penalization (p=1): E is linear in x
+    let e_linear = e_min + x_half * de;
+    let expected_linear = e_min + 0.5 * de;
+    assert_close(e_linear, expected_linear, 1e-12, "SIMP E at x=0.5, p=1");
+
+    // Penalization drives intermediate densities toward 0 or 1
+    assert!(e_half < e_linear,
+        "p=3 penalizes intermediate: {:.0} < {:.0}", e_half, e_linear);
+
+    // Derivative: dE/dx at x=0.5 with p=3
+    let de_dx = p * x_half.powf(p - 1.0) * de;
+    let expected_deriv = 3.0 * 0.25 * de;
+    assert_close(de_dx, expected_deriv, 1e-12, "SIMP dE/dx at x=0.5");
+
+    // RAMP comparison: E(x) = E_min + x/(1+q*(1-x)) * (E_0 - E_min)
+    let q: f64 = 3.0;
+    let e_ramp = e_min + x_half / (1.0 + q * (1.0 - x_half)) * de;
+    // = E_min + 0.5/2.5 * de = E_min + 0.2 * de
+    let expected_ramp = e_min + 0.2 * de;
+    assert_close(e_ramp, expected_ramp, 1e-12, "RAMP E at x=0.5, q=3");
+
+    // Both penalization methods give less stiffness than linear at x=0.5
+    assert!(e_ramp < e_linear, "RAMP also penalizes intermediate densities");
+}
+
+// ================================================================
+// 4. Compliance Minimization Sensitivity Analysis
+// ================================================================
+//
+// For compliance c = F^T u = u^T K u:
+//   dc/dx_e = -u_e^T (dK_e/dx_e) u_e
+//
+// With SIMP: K_e(x_e) = x_e^p * K_e0
+//   dc/dx_e = -p * x_e^(p-1) * u_e^T K_e0 u_e = -p * x_e^(p-1) * c_e0
+//
+// OC update: x_new = x_old * (-dc/dx / (lambda * dV/dx))^eta
+//
+// Ref: Bendsoe & Sigmund (2003), Ch. 1.3
+
+#[test]
+fn validation_compliance_sensitivity() {
+    let p_pen: f64 = 3.0;
+    let e_mod: f64 = 200_000.0;
+    let area: f64 = 100.0; // mm^2
+    let length: f64 = 1000.0; // mm
+
+    // Full-density bar stiffness k_0 = EA/L
+    let k_0 = e_mod * area / length;
+
+    // Hypothetical element displacement
+    let u_e: f64 = 0.5; // mm
+
+    // Full-density element compliance: c_e0 = k_0 * u_e^2
+    let c_e0 = k_0 * u_e * u_e;
+
+    // At density x = 0.7
+    let x_e: f64 = 0.7;
+    let c_e = x_e.powf(p_pen) * c_e0;
+    let c_e_expected = 0.7_f64.powf(3.0) * c_e0;
+    assert_close(c_e, c_e_expected, 1e-12, "element compliance with SIMP");
+
+    // Sensitivity: dc/dx_e = -p * x^(p-1) * c_e0
+    let dc_dx = -p_pen * x_e.powf(p_pen - 1.0) * c_e0;
+    let expected_sens = -3.0 * 0.7_f64.powi(2) * c_e0;
+    assert_close(dc_dx, expected_sens, 1e-12, "compliance sensitivity");
+
+    // Must be negative: adding material reduces compliance
+    assert!(dc_dx < 0.0, "sensitivity must be negative");
+
+    // OC update with eta=0.5: x_new = x * (-dc/dx / (lambda * V_e))^0.5
+    let v_e = area * length;
+    let lambda_oc: f64 = (-dc_dx) / v_e * 1.5; // arbitrary multiplier for balance
+    let eta: f64 = 0.5;
+    let x_new = (x_e * ((-dc_dx) / (lambda_oc * v_e)).powf(eta)).min(1.0).max(0.001);
+    assert!(x_new > 0.0 && x_new <= 1.0, "OC update in valid range");
+
+    // Volume sensitivity: dV/dx_e = V_e
+    // At KKT optimality: dc/dx_e + lambda* dV/dx_e = 0
+    // => lambda = -dc/dx_e / V_e
+    let lambda_star = -dc_dx / v_e;
+    assert!(lambda_star > 0.0, "optimal lambda positive");
+
+    // Verify: at optimality all elements have same -dc/dx / (lambda* dV/dx)
+    // For uniform mesh: this means all c_e0 * p * x^(p-1) are equal
+    let be_val = -dc_dx / (lambda_star * v_e);
+    assert_close(be_val, 1.0, 1e-12, "optimality condition B_e = 1");
+}
+
+// ================================================================
+// 5. Shape Optimization Gradient Verification (Finite Difference)
+// ================================================================
+//
+// Cantilever beam: delta = P*L^3 / (3*E*I), I = b*h^3/12
+//   delta = 4*P*L^3 / (E*b*h^3)
+//   d(delta)/dh = -12*P*L^3 / (E*b*h^4) = -3*delta/h
+//
+// Verified by central finite difference.
+//
+// Ref: Haftka & Gurdal (1992), Ch. 6
+
+#[test]
+fn validation_shape_optimization_gradient() {
+    let p_load: f64 = 10_000.0; // N (10 kN)
+    let l: f64 = 2000.0; // mm
+    let e_mod: f64 = 200_000.0; // MPa
+    let b: f64 = 100.0; // mm (width)
+    let h: f64 = 300.0; // mm (depth)
+
+    let i_val = b * h.powi(3) / 12.0;
+    let delta = p_load * l.powi(3) / (3.0 * e_mod * i_val);
+
+    // Analytical gradient: d(delta)/dh = -3*delta/h
+    let grad_analytical = -3.0 * delta / h;
+
+    // Central finite difference
+    let eps: f64 = 0.1; // mm
+    let i_plus = b * (h + eps).powi(3) / 12.0;
+    let i_minus = b * (h - eps).powi(3) / 12.0;
+    let delta_plus = p_load * l.powi(3) / (3.0 * e_mod * i_plus);
+    let delta_minus = p_load * l.powi(3) / (3.0 * e_mod * i_minus);
+    let grad_fd = (delta_plus - delta_minus) / (2.0 * eps);
+
+    assert_close(grad_fd, grad_analytical, 1e-5, "shape gradient: FD vs analytical");
+
+    // Gradient is negative (increasing depth reduces deflection)
+    assert!(grad_analytical < 0.0, "d(delta)/dh < 0");
+
+    // Second derivative: d^2(delta)/dh^2 = 12*delta/h^2
+    let grad2_analytical = 12.0 * delta / (h * h);
+    let grad2_fd = (delta_plus - 2.0 * delta + delta_minus) / (eps * eps);
+    assert_close(grad2_fd, grad2_analytical, 1e-4, "shape 2nd derivative");
+
+    // Verify the formula equivalence: delta = 4PL^3/(Ebh^3)
+    let delta_alt = 4.0 * p_load * l.powi(3) / (e_mod * b * h.powi(3));
+    assert_close(delta, delta_alt, 1e-12, "deflection formula equivalence");
+}
+
+// ================================================================
+// 6. Pareto Front Multi-Objective (Weight vs Deflection)
+// ================================================================
+//
+// Simply supported beam with UDL q, square section of side s:
+//   A = s^2, I = s^4/12
+//   Weight: W = rho * s^2 * L
+//   Deflection: delta = 5qL^4 / (384EI) = 5qL^4*12 / (384*E*s^4)
+//
+// Pareto invariant: delta * A^2 = constant for given q, L, E.
+// No design is simultaneously lighter and less deflected.
+//
+// Ref: Christensen & Klarbring (2009), Ch. 8
+
+#[test]
+fn validation_pareto_front_weight_deflection() {
+    let q: f64 = 10.0; // N/mm
+    let l: f64 = 5000.0; // mm
+    let e_mod: f64 = 200_000.0; // MPa
+    let rho: f64 = 7.85e-6; // kg/mm^3
+
+    let sides = [50.0_f64, 100.0, 150.0, 200.0, 250.0];
+    let mut weights: Vec<f64> = Vec::new();
+    let mut deflections: Vec<f64> = Vec::new();
+
+    for &s in &sides {
+        let i_val = s.powi(4) / 12.0;
+        let w = rho * s * s * l;
+        let d = 5.0 * q * l.powi(4) / (384.0 * e_mod * i_val);
+        weights.push(w);
+        deflections.push(d);
+    }
+
+    // Monotonicity: weight up, deflection down
+    for i in 1..weights.len() {
+        assert!(weights[i] > weights[i - 1], "weight increases with section");
+        assert!(deflections[i] < deflections[i - 1], "deflection decreases");
+    }
+
+    // Pareto invariant: delta * (s^2)^2 = delta * s^4 = constant
+    let a_0 = sides[0] * sides[0];
+    let invariant = deflections[0] * a_0 * a_0;
+    for (idx, &s) in sides.iter().enumerate() {
+        let a = s * s;
+        let product = deflections[idx] * a * a;
+        assert_close(product, invariant, 1e-10,
+            &format!("Pareto invariant for s={}", s));
+    }
+
+    // Equivalence: 5qL^4/(384*E*I) = 5qL^4/(32*E*A^2) for square section
+    let s_test: f64 = 120.0;
+    let i_test = s_test.powi(4) / 12.0;
+    let a_test = s_test * s_test;
+    let d_from_i = 5.0 * q * l.powi(4) / (384.0 * e_mod * i_test);
+    let d_from_a = 5.0 * q * l.powi(4) / (32.0 * e_mod * a_test * a_test);
+    assert_close(d_from_i, d_from_a, 1e-10, "deflection formula equivalence");
+
+    let _rho = rho;
+}
+
+// ================================================================
+// 7. Stress Constraint KKT Conditions
+// ================================================================
+//
+// min W = sum(A_i * L_i) subject to sigma_i = F_i/A_i <= sigma_allow
+//
+// KKT stationarity: L_i - mu_i * F_i / A_i^2 = 0
+// Complementary slackness: mu_i * (sigma_i - sigma_allow) = 0
+// At active constraint: A_i = F_i / sigma_allow
+//   => mu_i = L_i * A_i^2 / F_i = L_i * F_i / sigma_allow^2
+//
+// Ref: Arora (2017), Ch. 4; Kirsch (1993), Ch. 2
+
+#[test]
+fn validation_stress_constraint_kkt() {
+    let sigma_allow: f64 = 250.0; // MPa
+    let a_min: f64 = 100.0; // mm^2 minimum gauge
+
+    // Three tension bars
+    let forces = [120_000.0_f64, 80_000.0, 15_000.0]; // N
+    let lengths = [2000.0_f64, 3000.0, 1500.0]; // mm
+
+    // Optimal areas: A_i = max(F_i / sigma_allow, A_min)
+    let areas: Vec<f64> = forces.iter()
+        .map(|f| (f / sigma_allow).max(a_min))
+        .collect();
+    // areas: [480, 320, 100(min gauge)]
+
+    // Verify stress constraints
+    for i in 0..3 {
+        let sigma = forces[i] / areas[i];
+        assert!(sigma <= sigma_allow + 1e-6,
+            "bar {} stress {:.1} <= {:.1}", i, sigma, sigma_allow);
+
+        if areas[i] > a_min + 1e-6 {
+            // Active stress constraint
+            assert_close(sigma, sigma_allow, 1e-10,
+                &format!("bar {} at allowable stress", i));
         }
     }
 
-    // Volume constraint check
-    let n_elements: usize = 100;
-    let volume_fraction: f64 = 0.40; // keep 40% of material
-    let max_volume: f64 = volume_fraction * n_elements as f64;
+    // KKT multipliers for active stress constraints
+    for i in 0..3 {
+        if areas[i] > a_min + 1e-6 {
+            // mu_i = L_i * F_i / sigma_allow^2
+            let mu_i = lengths[i] * forces[i] / (sigma_allow * sigma_allow);
+            assert!(mu_i > 0.0, "KKT mu_{} > 0", i);
 
-    // Optimal topology assigns x=1 or x=0
-    let n_solid: usize = (volume_fraction * n_elements as f64) as usize;
-    let n_void: usize = n_elements - n_solid;
+            // Verify stationarity: L_i - mu_i * F_i / A_i^2 = 0
+            let residual = lengths[i] - mu_i * forces[i] / (areas[i] * areas[i]);
+            assert_close(residual, 0.0, 1e-10,
+                &format!("KKT stationarity bar {}", i));
+        }
+    }
 
-    assert!(
-        n_solid as f64 <= max_volume,
-        "Solid elements: {} ≤ volume limit {:.0}", n_solid, max_volume
-    );
-
-    assert!(
-        n_void > n_solid,
-        "Void {} > solid {} (60% removed)", n_void, n_solid
-    );
+    // Weight comparison: optimal vs uniform
+    let w_opt: f64 = areas.iter().zip(lengths.iter()).map(|(a, l)| a * l).sum();
+    let a_uniform = forces.iter().cloned().fold(0.0_f64, f64::max) / sigma_allow;
+    let w_uniform: f64 = lengths.iter().map(|l| a_uniform * l).sum();
+    assert!(w_opt < w_uniform, "optimized weight < uniform weight");
 }
 
 // ================================================================
-// 7. Compliance Minimization -- Stiffness Maximization
+// 8. Michell Truss Analytic Optimal Topology
 // ================================================================
 //
-// Minimize compliance C = F^T × u (= 2 × strain energy)
-// Subject to volume constraint.
-// Equivalent to maximizing stiffness.
-
-#[test]
-fn optim_compliance_minimization() {
-    // Simple beam: compare two cross-section distributions
-    let l: f64 = 6.0;           // m, span
-    let p: f64 = 50.0;          // kN, midpoint load
-    let e: f64 = 210_000.0;     // MPa
-
-    // Uniform beam
-    let i_uniform: f64 = 5e7;   // mm⁴, constant along span
-    let delta_uniform: f64 = p * 1000.0 * (l * 1000.0).powi(3) / (48.0 * e * i_uniform);
-
-    // Compliance (uniform)
-    let c_uniform: f64 = p * 1000.0 * delta_uniform; // N·mm
-
-    // Optimized beam (deeper at midspan, thinner at ends)
-    // Varying I: parabolic, I(x) = I_max × (1 - (2x/L - 1)²)
-    // Average I ≈ 2/3 × I_max
-    let i_max: f64 = 1.5 * i_uniform; // same total material
-    // Deflection of variable section (approximate): ~70% of uniform
-    let delta_opt: f64 = delta_uniform * 0.70;
-
-    // Compliance (optimized)
-    let c_opt: f64 = p * 1000.0 * delta_opt;
-
-    assert!(
-        c_opt < c_uniform,
-        "Optimized C = {:.0} < uniform C = {:.0} N·mm", c_opt, c_uniform
-    );
-
-    // Stiffness improvement
-    let improvement: f64 = (1.0 - c_opt / c_uniform) * 100.0;
-    assert!(
-        improvement > 10.0,
-        "Compliance reduction: {:.0}%", improvement
-    );
-
-    let _i_max = i_max;
-}
-
-// ================================================================
-// 8. Multi-Load Optimization -- Weighted Compliance
-// ================================================================
+// Michell (1904): minimum-weight structure transmitting a force between
+// two points. For equal tension/compression allowable stress sigma:
 //
-// Real structures have multiple load cases.
-// Minimize: C_total = Σ(wi × Ci) (weighted sum)
-// Different load cases favor different topologies → compromise needed.
+// Direct tie: V = P*d / sigma (collinear case, absolute minimum)
+//
+// Hemp (1973): half-plane cantilever with angle theta = pi/2:
+//   V = P*R*(pi/2 + 1) / sigma
+//
+// Any feasible design must have V >= Michell lower bound.
+//
+// Ref: Michell (1904); Hemp, "Optimum Structures", 1973; Rozvany (1989)
 
 #[test]
-fn optim_multi_load() {
-    // Two load cases with weights
-    let w1: f64 = 0.6;          // weight for load case 1
-    let w2: f64 = 0.4;          // weight for load case 2
+fn validation_michell_truss_optimal_topology() {
+    let sigma_allow: f64 = 250.0; // MPa
 
-    // Compliance of each design for each load case
-    // Design A: optimized for LC1
-    let c_a_lc1: f64 = 100.0;   // good for LC1
-    let c_a_lc2: f64 = 300.0;   // poor for LC2
+    // Direct tie: P applied at distance d from support, collinear
+    let p_load: f64 = 100_000.0; // N
+    let d: f64 = 5000.0; // mm
 
-    // Design B: optimized for LC2
-    let c_b_lc1: f64 = 250.0;   // poor for LC1
-    let c_b_lc2: f64 = 120.0;   // good for LC2
+    // Michell lower bound for collinear case: V = P*d / sigma
+    let v_michell = p_load * d / sigma_allow;
+    // = 100000 * 5000 / 250 = 2,000,000 mm^3
+    assert_close(v_michell, 2_000_000.0, 1e-12, "Michell bound collinear");
 
-    // Design C: balanced
-    let c_c_lc1: f64 = 150.0;
-    let c_c_lc2: f64 = 180.0;
+    // Direct tie matches the bound exactly
+    let a_tie = p_load / sigma_allow;
+    let v_tie = a_tie * d;
+    assert_close(v_tie, v_michell, 1e-12, "direct tie = Michell bound");
 
-    // Weighted compliance
-    let c_total_a: f64 = w1 * c_a_lc1 + w2 * c_a_lc2;
-    let c_total_b: f64 = w1 * c_b_lc1 + w2 * c_b_lc2;
-    let c_total_c: f64 = w1 * c_c_lc1 + w2 * c_c_lc2;
+    // Two-bar V-truss: bars at angle theta from horizontal
+    // F_bar = P / (2*sin(theta)), L_bar = h / sin(theta) for vertical h
+    let h: f64 = 3000.0; // mm vertical offset
+    let l_horiz: f64 = 4000.0; // mm horizontal half-span
+    let l_bar = (h * h + l_horiz * l_horiz).sqrt();
+    let sin_theta = h / l_bar;
+    let f_bar = p_load / (2.0 * sin_theta);
+    let a_bar = f_bar / sigma_allow;
+    let v_two_bar = 2.0 * a_bar * l_bar;
 
-    // Balanced design may be best overall
-    assert!(
-        c_total_c < c_total_a || c_total_c < c_total_b,
-        "Balanced design C_total = {:.0} competes with specialized", c_total_c
-    );
+    // V = P * (h^2 + L^2) / (sigma * h)
+    let v_expected = p_load * (h * h + l_horiz * l_horiz) / (sigma_allow * h);
+    assert_close(v_two_bar, v_expected, 1e-10, "two-bar truss volume");
 
-    // Verify weights sum to 1
-    assert!(
-        (w1 + w2 - 1.0).abs() < 0.01,
-        "Weights: {:.1} + {:.1} = 1.0", w1, w2
-    );
+    // Must exceed Michell bound: V >= P * L_horiz / sigma
+    // (the horizontal projection sets the lower bound for non-collinear case)
+    let v_bound = p_load * l_horiz / sigma_allow;
+    assert!(v_two_bar > v_bound, "two-bar exceeds horizontal projection bound");
 
-    // Pareto optimality check
-    // A dominates B if better in ALL objectives
-    let a_dominates_b: bool = c_a_lc1 < c_b_lc1 && c_a_lc2 < c_b_lc2;
-    assert!(
-        !a_dominates_b,
-        "Neither dominates the other (Pareto front)"
-    );
+    // Hemp's result: half-plane cantilever, V = P*R*(pi/2 + 1) / sigma
+    let r_val: f64 = 3000.0; // mm
+    let v_hemp = p_load * r_val * (PI / 2.0 + 1.0) / sigma_allow;
+    let v_simple = p_load * r_val / sigma_allow;
+    let ratio = v_hemp / v_simple;
+    assert_close(ratio, PI / 2.0 + 1.0, 1e-12, "Hemp factor pi/2 + 1");
+
+    // The Hemp factor > 1 means the optimal curved layout uses more material
+    // than a hypothetical direct path (which cannot exist in the half-plane geometry)
+    assert!(ratio > 2.5 && ratio < 2.6, "Hemp factor ~ 2.571");
 }

@@ -70,7 +70,7 @@ fn validation_griffith_energy_release_rate() {
     assert_close(ratio, 1.0 - nu * nu, 1e-12, "plane strain/stress ratio");
 
     // Critical stress from Gc (Griffith criterion)
-    let gc: f64 = 0.020; // kJ/m^2 = 20 J/m^2 -> need consistent units
+    let _gc: f64 = 0.020; // kJ/m^2 = 20 J/m^2 -> need consistent units
     // Using E in MPa = N/mm^2, a in mm: sigma_cr in MPa
     let a_mm: f64 = 10.0;
     let gc_nmm: f64 = 0.020; // N/mm (= 20 J/m^2 = 20 N*m/m^2 = 0.020 N*mm/mm^2 = 0.020 N/mm)
