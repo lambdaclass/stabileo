@@ -3,6 +3,7 @@ pub mod linalg;
 pub mod element;
 pub mod solver;
 pub mod postprocess;
+pub mod section;
 
 use wasm_bindgen::prelude::*;
 
@@ -527,6 +528,19 @@ pub fn solve_winkler_3d(json: &str) -> Result<String, JsValue> {
     let input: solver::winkler::WinklerInput3D = serde_json::from_str(json)
         .map_err(|e| JsValue::from_str(&format!("Parse error: {}", e)))?;
     let result = solver::winkler::solve_winkler_3d(&input)
+        .map_err(|e| JsValue::from_str(&e))?;
+    serde_json::to_string(&result)
+        .map_err(|e| JsValue::from_str(&format!("Serialize error: {}", e)))
+}
+
+// ==================== Section Analysis ====================
+
+/// Compute cross-section properties from polygon geometry. JSON: SectionInput
+#[wasm_bindgen]
+pub fn analyze_section(json: &str) -> Result<String, JsValue> {
+    let input: section::SectionInput = serde_json::from_str(json)
+        .map_err(|e| JsValue::from_str(&format!("Parse error: {}", e)))?;
+    let result = section::analyze_section(&input)
         .map_err(|e| JsValue::from_str(&e))?;
     serde_json::to_string(&result)
         .map_err(|e| JsValue::from_str(&format!("Serialize error: {}", e)))
