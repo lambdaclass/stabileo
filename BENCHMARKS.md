@@ -12,25 +12,25 @@
 | Category | Done | Capability | Blocked | Total |
 |----------|------|------------|---------|-------|
 | Industry Standards & Design Codes | 345 | 0 | 0 | 345 |
-| Commercial Software Cross-Validation | 172 | 0 | 1 | 173 |
+| Commercial Software Cross-Validation | 167 | 5 | 1 | 173 |
 | Textbook Classics | 1688 | 0 | 0 | 1688 |
 | Mathematical Properties & Numerical Methods | 179 | 0 | 0 | 179 |
 | FEM Quality & Convergence | 54 | 0 | 0 | 54 |
 | Engineering Practice & Specialized Structures | 616 | 0 | 0 | 616 |
 | Fixed Bugs (regression) | 6 | 0 | 0 | 6 |
 | Placeholders | 0 | 3 | 0 | 3 |
-| **Total** | **3060** | **3** | **1** | **3064** |
+| **Total** | **3055** | **8** | **1** | **3064** |
 
 The table above is the curated benchmark-status ledger. It is narrower than the full automated test inventory shown below, because many validation/unit/integration tests are support checks, regression tests, or formula verifications rather than one benchmark row per test.
 
-**3121 validation test functions across 395 validation files. 3566 total registered tests across 451 Rust test files.**
+**3116 validation test functions across 394 validation files. 3561 total registered tests across 450 Rust test files.**
 
 Current measured inventory:
 
-- `395` files matching `engine/tests/validation_*.rs`
-- `3121` `#[test]` functions inside validation files
+- `394` files matching `engine/tests/validation_*.rs`
+- `3116` `#[test]` functions inside validation files
 - `25` files matching `engine/tests/integration_*.rs` (181 integration test functions)
-- `3566` total registered tests from `cargo test -- --list`
+- `3561` total registered tests from `cargo test -- --list`
 
 ### Design Check Modules (17 postprocess modules, 82 unit tests + 25 integration test files)
 
@@ -465,7 +465,6 @@ This order improves solver class faster than expanding sideways into more specia
 | `validation_ansys_vm_extended.rs` | 18 | VM3 (stepped), VM5/6 (thermal), VM7 (gradient), VM8 (truss), VM9 (space truss), VM13 (portal), VM14 (cantilever), VM21 (tie rod), VM156 (P-delta) |
 | `validation_ansys_vm_additional.rs` | 8 | VM11 (plate), VM15 (nonlinear), VM16 (Euler), VM17, VM20, VM25 (2-span), VM44 (ring) |
 | `validation_ansys_vm_benchmarks.rs` | 8 | VM22 (axial+bending cantilever), VM23 (Winkler), VM26 (2-span partial UDL), VM27 (thermal gradient), VM30 (3D space truss), VM33 (3-bar truss), VM34 (thermal 2-bar), VM40 (large deflection) |
-| `validation_capability_upgrades.rs` | 5 | VM11 (cantilever triangular load <2%), VM14a (Mattiasson elastica corotational <10%), VM15 (plastic collapse Pc=8Mp/L), VM18 (quarter-circle 32 segments <5%), VM44 (Roark ring 64 segments <5%) |
 
 ### SAP2000 / CSI (18 DONE)
 
@@ -943,17 +942,15 @@ This order improves solver class faster than expanding sideways into more specia
 | 2 | Z-section torsion | Same |
 | 3 | Mixed warping + non-warping model | Same |
 
-## CAPABILITY Items (0 remaining — all 5 upgraded to DONE)
+## CAPABILITY Items (5 tests)
 
-All 5 previous CAPABILITY items now have dedicated tests in `validation_capability_upgrades.rs`:
-
-| Benchmark | Status | Notes |
-|-----------|--------|-------|
-| VM11 triangular load | DONE | Cantilever beam formulation <2% (plate form still limited by DKT lumped loads) |
-| VM14a Mattiasson elastica | DONE | Corotational, 40 elements, v_tip <5%, u_tip <10% |
-| VM15 plastic collapse | DONE | Fixed-fixed beam Pc=8Mp/L, load factor >0.90 |
-| VM18 quarter-circle | DONE | 32 curved segments, <5% error |
-| VM44 Roark ring | DONE | 64 segments, vertical <5%, horizontal <10% |
+| Benchmark | File | What's Needed |
+|-----------|------|---------------|
+| VM11 SS plate | `validation_plates.rs` | Refine mesh to 8x8+, tight tolerance |
+| VM14a large deflection | `validation_corotational.rs` | Match Mattiasson elastica reference |
+| VM15 material nonlinear | `validation_material_nonlinear.rs` | Match exact VM15 problem |
+| VM18 semicircular arch | `validation_curved_beams.rs` | Tight tolerance on delta_B |
+| VM44 circular ring | `validation_curved_beams.rs` | Model full ring geometry |
 
 ---
 

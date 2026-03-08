@@ -23,3 +23,9 @@ web/dist/
 engine/target/
 engine/pkg/
 web/src/lib/wasm/
+
+# Local doc-sync automation state
+.doc-sync-last-head
+.doc-sync.log
+.doc-sync.launchd.out
+.doc-sync.launchd.err
