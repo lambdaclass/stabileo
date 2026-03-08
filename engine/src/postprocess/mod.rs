@@ -9,3 +9,5 @@ pub mod rc_check;
 pub mod timber_check;
 pub mod serviceability;
 pub mod connection_check;
+pub mod foundation_check;
+pub mod cfs_check;

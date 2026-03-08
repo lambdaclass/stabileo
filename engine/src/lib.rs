@@ -603,6 +603,24 @@ pub fn check_weld_groups(json: &str) -> Result<String, JsValue> {
         .map_err(|e| JsValue::from_str(&format!("Serialize error: {}", e)))
 }
 
+#[wasm_bindgen]
+pub fn check_cfs_members(json: &str) -> Result<String, JsValue> {
+    let input: postprocess::cfs_check::CfsCheckInput = serde_json::from_str(json)
+        .map_err(|e| JsValue::from_str(&format!("Parse error: {}", e)))?;
+    let results = postprocess::cfs_check::check_cfs_members(&input);
+    serde_json::to_string(&results)
+        .map_err(|e| JsValue::from_str(&format!("Serialize error: {}", e)))
+}
+
+#[wasm_bindgen]
+pub fn check_spread_footings(json: &str) -> Result<String, JsValue> {
+    let input: postprocess::foundation_check::SpreadFootingInput = serde_json::from_str(json)
+        .map_err(|e| JsValue::from_str(&format!("Parse error: {}", e)))?;
+    let results = postprocess::foundation_check::check_spread_footings(&input);
+    serde_json::to_string(&results)
+        .map_err(|e| JsValue::from_str(&format!("Serialize error: {}", e)))
+}
+
 #[cfg(test)]
 mod tests {
     use super::types::*;
