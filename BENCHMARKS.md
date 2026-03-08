@@ -23,14 +23,14 @@
 
 The table above is the curated benchmark-status ledger. It is narrower than the full automated test inventory shown below, because many validation/unit/integration tests are support checks, regression tests, or formula verifications rather than one benchmark row per test.
 
-**3689 validation test functions across 466 validation files. 4134 total registered tests across 522 Rust test files.**
+**4065 validation test functions across 510 validation files. 4454+ total registered tests across 535+ Rust test files.**
 
 Current measured inventory:
 
-- `466` files matching `engine/tests/validation_*.rs`
-- `3689` `#[test]` functions inside validation files
+- `510` files matching `engine/tests/validation_*.rs`
+- `4065` `#[test]` functions inside validation files
 - `25` files matching `engine/tests/integration_*.rs` (181 integration test functions)
-- `4134` total registered tests from `cargo test -- --list`
+- `4454` total registered tests from `cargo test -- --list`
 
 ### Design Check Modules (17 postprocess modules, 82 unit tests + 25 integration test files)
 
@@ -1034,6 +1034,75 @@ This order improves solver class faster than expanding sideways into more specia
 - `validation_masonry_extended.rs` (8) — TMS 402 flexural capacity, axial compression, shear capacity, P-M interaction, slenderness effects, grout contribution, reinforcement limits, wall lateral capacity
 - `validation_serviceability_extended.rs` (8) — Floor beam L/360, cantilever L/180, portal drift H/400, vibration frequency, long-term deflection ACI, ponding check, interstory drift, camber requirement
 - `validation_eurocode_extended.rs` — see wave 8 above (already listed)
+
+### Extended Validation — Wave 10 (8 files, 64 tests)
+- `validation_virtual_work_extended.rs` (8) — Unit load cantilever, SS beam UDL, frame lateral, truss bar, Maxwell reciprocal, Castigliano, superposition, real vs virtual work
+- `validation_plastic_analysis_extended.rs` (8) — Shape factor, plastic moment, fixed beam collapse, portal sway, combined mechanism, propped cantilever, upper/lower bound, 2-span UDL
+- `validation_dynamic_mdof_extended.rs` (8) — 2-DOF frequencies, SRSS vs CQC, Rayleigh damping, modal superposition, base shear distribution, effective modal mass, orthogonality, stiffness matrix
+- `validation_impact_loading_extended.rs` (8) — Falling weight, sudden load DLF=2, vehicle collision, dropped object, impulse-momentum, rebound factor, energy absorption, progressive deformation
+- `validation_shear_deformation_extended.rs` (8) — Timoshenko vs Euler-Bernoulli, L/d effect, shear area, cantilever deep beam, SS deep beam, fixed beam, aspect ratio, convergence
+- `validation_column_buckling_extended.rs` (8) — Euler pin-pin, fixed-free K=2, fixed-pin K=0.7, fixed-fixed K=0.5, inelastic buckling, AISC column curve, eccentrically loaded, stepped column
+- `validation_lateral_torsional_buckling_extended.rs` (8) — SS uniform moment, Cb modification, unbraced length, cantilever Cb, moment gradient, fixed-fixed, load height effect, compact vs noncompact
+- `validation_soil_dynamics_extended.rs` (8) — Site amplification, liquefaction CRR, Rayleigh wave, Newmark sliding block, 1D response amplification, surface wave dispersion, soil impedance, damping ratio
+
+### Extended Validation — Wave 11 (7 files, 56 tests)
+- `validation_fracture_mechanics_extended.rs` (8) — Griffith energy, SIF, Paris law, J-integral, CTOD, BS 7910 FAD, transition temperature, leak-before-break
+- `validation_performance_based_extended.rs` (8) — ASCE 41 target displacement, FEMA P-58 fragility, acceptance criteria, EAL, IDA scaling, pushover bilinear, damage state, risk category
+- `validation_structural_optimization_extended.rs` (8) — FSD, minimum weight truss, SIMP penalty, compliance sensitivity, Lagrangian, shape optimization, topology, buckling constraint
+- `validation_matrix_methods_extended.rs` (8) — Element stiffness, transformation, assembly, bandwidth, condition number, partitioning, eigenvalue, sparse structure
+- `validation_retaining_walls_extended.rs` (8) — Gravity wall, cantilever, counterfort, sheet pile, Mononobe-Okabe, toe/heel moment, stem design, global stability
+- `validation_plate_girder_extended.rs` (8) — Web shear buckling, flange proportioning, TFA, stiffener design, hybrid girder, fatigue detail, lateral bracing, deflection
+- `validation_curved_beams_extended.rs` (8) — Winkler-Bach, ring load, arch thrust, Castigliano, circular arch tributary width, ring boundary conditions, parabolic arch, curvature effect
+
+### Extended Validation — Wave 12 (8 files, 64 tests)
+- `validation_earthquake_engineering_extended.rs` (8) — ASCE 7 ELF, response modification R, story drift, torsional irregularity, P-delta stability, CQC/SRSS, vertical distribution, period estimation
+- `validation_stability_design_extended.rs` (8) — Euler four BCs, alignment chart, inelastic buckling, plate buckling, shell buckling, effective length eigenvalue, DAM, B1/B2 amplification
+- `validation_concrete_mechanics_extended.rs` (8) — Whitney block, modulus of rupture, ACI shear Vc, Branson Ie, development length, balanced reinforcement, T-beam, cracking moment
+- `validation_structural_dynamics_extended.rs` (8) — Rayleigh quotient, Dunkerley lower bound, DAF, logarithmic decrement, TMD Den Hartog, half-power bandwidth, beating frequency, base isolation
+- `validation_structural_health_monitoring_extended.rs` (8) — Frequency change detection, MAC correlation, load rating, strain-displacement, stiffness degradation, damage index, natural frequency shift, mode shape curvature
+- `validation_shell_theory_extended.rs` (8) — Cylindrical membrane, spherical vessel, dome hoop stress, conical shell, shell buckling, ring stiffener, edge bending, pressure vessel combined
+- `validation_footfall_vibration_extended.rs` (8) — AISC DG11, SCI P354 response factor, Murray criterion, ISO 10137, walking frequency harmonics, resonance build-up, continuous vibration, footbridge
+- `validation_reinforcement_detailing_extended.rs` (8) — ACI 318 development length, standard hooks, lap splice, crack control, bar spacing, cover requirements, bundled bars, Class B splice
+
+### Extended Validation — Wave 13 (8 files, 64 tests)
+- `validation_beam_column_extended.rs` (8) — AISC H1-1 interaction, moment amplification B1/B2, secant formula, EC3 interaction, biaxial bending, braced vs sway, slenderness effect, plastic interaction
+- `validation_stainless_steel_extended.rs` (8) — Ramberg-Osgood, CSM strain, cold-formed properties, fire performance, duplex grades, proof stress, austenitic buckling, weld reduction
+- `validation_vibration_isolation_extended.rs` (8) — Transmissibility curve, rubber bearing, TMD Den Hartog, machine foundation, viscous damper, base isolation period, multi-DOF isolation, frequency ratio effect
+- `validation_wind_loading_extended.rs` (8) — ASCE 7 velocity pressure qz, Kz exposure, gust effect factor, MWFRS, vortex shedding, topographic Kzt, internal pressure, directional Kd
+- `validation_foundation_engineering_extended.rs` (8) — Terzaghi bearing, Meyerhof shape/depth, pile skin friction, pile end bearing, settlement elastic, consolidation, lateral earth pressure, deep foundation group
+- `validation_truss_methods_extended.rs` (8) — Warren truss, Pratt truss, Howe truss, virtual work deflection, influence line, space truss, K-truss, compound truss
+- `validation_timber_connections_extended.rs` (8) — NDS bolt capacity, nail lateral, lag screw withdrawal, split ring, EC5 Johansen, group action, geometry factor, connection ductility
+- `validation_moment_distribution_extended.rs` (8) — Two-span symmetric, three-span UDL, portal sway, settlement effect, non-prismatic member, non-sway unequal columns, multiple cycles, combined load
+
+### Extended Validation — Wave 14 (8 files, 64 tests)
+- `validation_grillage_extended.rs` (8) — Bridge deck grillage, torsional stiffness, load distribution, skew effect, edge stiffening, mesh convergence, concentrated load sharing, composite action
+- `validation_elastic_curve_extended.rs` (8) — SS beam UDL quartic, cantilever cubic, fixed-fixed, propped cantilever, point load, overhanging beam, double integration, boundary conditions
+- `validation_seismic_detailing_extended.rs` (8) — Strong-column weak-beam, capacity design, confinement reinforcement, SCBF brace, shear wall boundary, special moment frame, beam-column joint, drift capacity
+- `validation_steel_deck_extended.rs` (8) — Section properties, composite slab strength, construction stage deflection, diaphragm shear, shear stud, partial composite, ponding check, ILB deflection
+- `validation_geometric_stiffness_extended.rs` (8) — Geometric stiffness matrix entries, string stiffness, P-delta amplification B2, stability functions, effective length eigenvalue, tension stiffening, leaning column, notional load
+- `validation_load_combination_extended.rs` (8) — ASCE 7 LRFD governing, ASD combinations, EN 1990 fundamental, pattern loading, envelope max/min, counteracting uplift, companion action factors, thermal combination
+- `validation_slab_design_extended.rs` (8) — One-way ACI thickness, two-way direct design, punching shear, yield line, Hillerborg strip, flat plate reinforcement, waffle slab, post-tensioned
+- `validation_stress_analysis_extended2.rs` (8) — Pressure vessel, stress concentration, Mohr's circle, combined bending-torsion, von Mises yield, Tresca yield, beam stress distribution, stress transformation
+
+### Extended Validation — Wave 15 (8 files, 64 tests)
+- `validation_slope_deflection_extended.rs` (8) — Fixed-end FEM, propped cantilever 3EI/L, two-span interior moment, portal sway shear, settlement 6EIΔ/L², carry-over factor, unequal distribution, symmetric no-sway
+- `validation_approximate_methods_extended.rs` (8) — Portal method two-story, cantilever method axial, two-moment approximation, fixed beam wL²/12, portal knee moment, multi-bay sharing, inflection point, ACI gravity coefficients
+- `validation_suspension_bridges_extended.rs` (8) — Parabolic cable H=wL²/(8f), cable-stayed bending reduction, stiffening girder hangers, cable tension T=H/cos(θ), hanger distribution, multi-span continuity, asymmetric load, stiffened vs unstiffened
+- `validation_blast_resistant_extended.rs` (8) — Friedlander waveform, SDOF DLF=2, reflected pressure, triangular pulse DLF, impulse-to-static, column deformation, section resistance, scaled distance
+- `validation_crane_loading_extended.rs` (8) — Wheel loads, 25% impact factor, 20% lateral, two-wheel critical, bracket eccentricity, fatigue stress range, multiple cranes, L/600 deflection
+- `validation_vierendeel_extended.rs` (8) — Single-panel moment transfer, multi-panel gravity, double vs single chord, web opening, lateral sway, panel point loading, reversed curvature, stiffness ratio effect
+- `validation_multi_story_extended.rs` (8) — Two-story story shear, three-story drift, soft story, two-bay interior column, gravity axial accumulation, drift ratio, portal method moments, base shear equilibrium
+- `validation_gable_frame_extended.rs` (8) — Symmetric gravity, lateral load, ridge point load, unbalanced snow, rafter thrust, knee brace effect, pitch angle effect, fixed vs pinned base
+
+### Extended Validation — Wave 16 (8 files, 64 tests)
+- `validation_marine_offshore_extended.rs` (8) — Morison force, hydrostatic pressure, jacket structure, monopile lateral, wave-current combination, buoyancy, deck load path, environmental combination
+- `validation_dam_engineering_extended.rs` (8) — Gravity sliding FOS, overturning stability, hydrostatic cantilever, uplift pressure, arch ring thrust, buttress sharing, spillway pier, Westergaard added mass
+- `validation_tunnel_lining_extended.rs` (8) — Overburden pressure, Curtis solution, box culvert, ground reaction, segmental ring thrust, surcharge, rectangular tunnel, lining thickness
+- `validation_chimney_stack_extended.rs` (8) — Along-wind triangular, vortex shedding, self-weight axial, combined loading, temperature gradient, tapered stepped, guy wire, P-delta amplification
+- `validation_silo_tank_extended.rs` (8) — Janssen equation, hydrostatic wall, wind buckling, ring beam, hopper support ring, sloshing frequency, foundation ring, combined loading
+- `validation_storage_rack_extended.rs` (8) — Upright column, pallet beam moment, frame sway, semi-rigid connector, down-aisle stability, cross-aisle bracing, base plate, progressive collapse
+- `validation_glass_structures_extended.rs` (8) — Glass fin deflection, laminated effective thickness, column buckling, post-breakage, balustrade cantilever, thermal stress, facade wind, aspect ratio
+- `validation_nuclear_containment_extended.rs` (8) — Internal pressure, DBA pressure, dome membrane, liner strain, thermal gradient, seismic cantilever, penetration reinforcement, combined loads
 
 ---
 
