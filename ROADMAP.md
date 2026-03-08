@@ -57,7 +57,7 @@ The foundation is built: a working analysis engine, polished UI, and solid infra
 | Phase 4 ships | Month 13 | Month 9 | Month 5 |
 | Phase 5 ships (full platform, ~90% coverage) | Month 17 | Month 12 | Month 7 |
 
-The foundation (solver, rendering, import/export) is the hardest part to get right and it's done. What remains is mostly formula translation (design codes), SaaS infrastructure (collaboration, enterprise), and AI integration — exactly what AI-assisted development is best at.
+The foundation is strong, but the remaining work is not just formula translation and SaaS infrastructure. Several advanced solver features now exist in code and need the next layer of integration, hardening, and public-surface work before the solver can credibly claim top-tier status.
 
 ### Solver-first priority roadmap
 
@@ -67,45 +67,45 @@ This section is intentionally separate from the product and revenue roadmap belo
 - This section optimizes for solver quality and technical credibility.
 - Detailed current capability and validation status live in [`BENCHMARKS.md`](/Users/unbalancedparen/projects/dedaliano/BENCHMARKS.md), not here.
 
-If the goal is "best structural solver", the next solver-core work should be read in this order:
+If the goal is "best structural solver", the next solver-core work is now mostly integration and hardening rather than filling the old major feature gaps:
 
 #### 0-3 months
 
 | Priority | Topic | Why now |
 |---|---|---|
-| 1 | Warping torsion completion | The plumbing exists already. This is the cheapest remaining high-leverage solver gap. |
-| 2 | Initial imperfections / initial state basics | Adds realism to stability and nonlinear analysis without requiring a whole new solver family. |
-| 3 | Prestress / post-tension depth improvements | Extends existing staged/prestress support rather than inventing a new architecture. |
-| 4 | Winkler / SSI incremental improvements | Practical value, moderate complexity, and builds toward stronger foundation workflows. |
-| 5 | Benchmark hardening on newest solver families | Raises trust fastest for 3D nonlinear, harmonic, staged, cable, and upgraded shell paths. |
+| 1 | Public API exposure for new solver families | Constraints, contact, SSI, arc-length/displacement control, and fiber nonlinear now exist internally but still need clean public entry points. |
+| 2 | MITC4 integration into the standard model path | The quadrilateral shell element exists, but it still needs standard input and assembly integration. |
+| 3 | Benchmark hardening on newest solver families | The newest solver modules need deeper benchmark parity faster than they need more feature count. |
+| 4 | Initial imperfections / initial state basics | Adds realism to stability and nonlinear analysis without requiring a whole new solver family. |
+| 5 | Legacy validation cleanup | Some older placeholder validation files no longer match the current code surface. |
 
 #### 3-6 months
 
 | Priority | Topic | Why now |
 |---|---|---|
-| 6 | Constraint technology | MPCs, rigid links, diaphragms, and eccentric connectivity unlock more realistic building models. |
-| 7 | Nonlinear solution controls | Adaptive stepping, line search, displacement control, and better diagnostics are required for serious nonlinear robustness. |
-| 8 | Basic contact / gap elements | Compression-only, tension-only, uplift, and support-gap behavior close important practical nonlinear gaps. |
-| 9 | Better shell reliability | Focus on load vectors, convergence behavior, distortion tolerance, and benchmark maturity before chasing exotic shell breadth. |
+| 6 | 3D fiber beam-columns | 2D distributed plasticity exists; extending it to 3D is the biggest remaining nonlinear formulation gap. |
+| 7 | 3D contact maturity | Contact now exists, but the 3D path still has explicitly incomplete cases. |
+| 8 | Better shell reliability and MITC4 hardening | After wiring MITC4 into the main path, shell quality and mixed-model behavior become the next leverage point. |
+| 9 | Performance and scale engineering | The solver is broad enough that large-model robustness and sparse performance now matter more. |
 
 #### 12 months+
 
 | Priority | Topic | Why later |
 |---|---|---|
-| 10 | Fiber / section-based beam-column elements | This is a major jump in nonlinear sophistication and should follow better controls and constraints. |
+| 10 | Coupled creep / shrinkage / relaxation response | The main long-term concrete/PT solver gap is now time-dependent response, not prestress existence. |
 | 11 | Advanced contact | Full contact logic is much harder than unilateral gap/support behavior and brings heavy convergence cost. |
-| 12 | Top-tier shell technology | Commercial-grade quads, thick shells, curved shells, and mixed interpolation are a real solver program, not a quick feature. |
-| 13 | Elite nonlinear robustness at scale | This is the long refinement cycle that separates "has the feature" from "works on ugly real models every day". |
+| 12 | Top-tier shell breadth | Curved shells, broader mixed interpolation, and production shell workflows remain a real solver program. |
+| 13 | Model reduction / substructuring | Valuable once the core nonlinear and shell stack is fully integrated and hardened. |
 
 #### Recommended implementation order
 
-1. Warping torsion completion
-2. Constraint technology
-3. Initial imperfections / initial state
-4. Nonlinear solution controls
-5. Basic contact / gap
-6. Fiber / section-based beam-column elements
-7. Shell upgrade
+1. Public API exposure for new solver families
+2. MITC4 integration into the standard model path
+3. Benchmark hardening on newest solver families
+4. Initial imperfections / initial state
+5. 3D fiber beam-columns
+6. 3D contact maturity
+7. Shell upgrade and performance hardening
 
 This order is not the easiest order. It is the order with the best solver-quality payoff per unit of engineering risk.
 
@@ -118,34 +118,39 @@ This is the approximate implementation difficulty ordering for the remaining sol
 | Topic | Status | Why |
 |---|---|---|
 | Staged truss/cable force handling | Completed | This was a contained staged/result-reconstruction cleanup, not a new solver family. |
-| Warping torsion completion | Open | The hard part is consistency, but the plumbing already exists. |
-| Full PT depth improvements | Open | Extends current staged/prestress support instead of inventing it from zero. |
+| Warping torsion core implementation | Completed | The core 14-DOF implementation now exists; the remaining work is validation cleanup and hardening. |
+| Full PT depth improvements | Completed | Prestress/PT depth has moved from clear gap to implemented-but-still-hardening. |
+| Public API exposure for new solver families | Open | Mostly integration work rather than new mechanics. |
+| Legacy validation cleanup | Open | Some old placeholder files, especially warping, no longer match the code. |
 
 ##### Medium
 
 | Topic | Status | Why |
 |---|---|---|
-| SSI beyond Winkler | Open | If scoped to spring-family models like `p-y`, `t-z`, and `q-z`, this is manageable. |
-| Constraint technology | Open | MPCs, rigid links, diaphragms, and eccentric connectivity are conceptually straightforward, but invasive across DOF handling, assembly, supports, and postprocessing. |
+| SSI beyond Winkler | Completed | `p-y`, `t-z`, and `q-z` support now exists; remaining work is integration and hardening. |
+| Constraint technology | Completed | MPCs, rigid links, diaphragms, and equal-DOF support now exist; remaining work is workflow/API integration. |
+| MITC4 integration into the main model path | Open | The element exists, but standard input/assembly integration still needs to happen. |
+| Initial imperfections / initial state basics | Open | Conceptually clean, but needs main-path input and solver integration. |
 
 ##### Medium to High
 
 | Topic | Status | Why |
 |---|---|---|
-| Nonlinear solution controls | Open | Line search and adaptive stepping are moderate-to-hard; arc-length and displacement control are materially harder because they affect solver architecture and debugging. |
-| Contact / gap basics | Open | Compression-only, tension-only, and uplift-style supports are feasible; full contact behavior is much harder. |
+| Nonlinear solution controls | Completed | Line search, adaptive stepping, arc-length, and displacement control now exist; remaining work is broader hardening. |
+| Contact / gap basics | Completed | Basic unilateral/contact capability now exists; remaining work is deeper 3D maturity and harder contact cases. |
+| 3D contact maturity | Open | The 3D path exists but still has explicit incomplete cases. |
 
 ##### High
 
 | Topic | Status | Why |
 |---|---|---|
-| Fiber / section-based beam-column elements | Open | This is a real jump in nonlinear sophistication touching element formulation, section integration, constitutive response, convergence, and benchmarks. |
+| 3D fiber / section-based beam-column elements | Open | 2D distributed plasticity now exists; 3D remains the major remaining formulation jump. |
 
 ##### Very High
 
 | Topic | Status | Why |
 |---|---|---|
-| Advanced shell technology | Open | Going from “plates/shells exist” to “commercial-grade shell robustness” is a long solver program, not a feature patch. |
+| Advanced shell technology | Open | MITC4 is now present, but broader shell families, curved-shell workflows, and production robustness remain a long solver program. |
 
 ### Competitive displacement by phase
 
