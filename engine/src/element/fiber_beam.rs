@@ -469,6 +469,162 @@ pub fn wide_flange_fiber_section(
     }
 }
 
+// ==================== 3D Fiber Section & Element ====================
+
+/// Compute 3D section response given section deformations.
+///
+/// Deformations = [ε₀, κy, κz] (axial strain, curvature about Y, curvature about Z)
+/// Returns: ([N, My, Mz], 3×3 tangent stiffness)
+///
+/// Fiber strain: ε = ε₀ + κy*z - κz*y
+/// Torsion is handled elastically (GJ/L), not through fibers.
+pub fn section_response_3d(
+    section: &FiberSectionDef,
+    deformations: &[f64; 3],
+    state: &mut SectionState,
+) -> ([f64; 3], [f64; 9]) {
+    let eps_0 = deformations[0];
+    let kappa_y = deformations[1];
+    let kappa_z = deformations[2];
+
+    let mut n = 0.0;
+    let mut my = 0.0;
+    let mut mz = 0.0;
+
+    // Tangent: 3×3 [EA, ES_z, -ES_y; ES_z, EI_zz, -EI_yz; -ES_y, -EI_yz, EI_yy]
+    let mut ea = 0.0;
+    let mut es_y = 0.0;   // Σ E_t * A * y
+    let mut es_z = 0.0;   // Σ E_t * A * z
+    let mut ei_yy = 0.0;  // Σ E_t * A * y²
+    let mut ei_zz = 0.0;  // Σ E_t * A * z²
+    let mut ei_yz = 0.0;  // Σ E_t * A * y * z
+
+    for (i, fiber) in section.fibers.iter().enumerate() {
+        let eps = eps_0 + kappa_y * fiber.z - kappa_z * fiber.y;
+        let mat = &section.materials[fiber.material_idx];
+        let (sigma, e_tan) = material_response(mat, eps, &mut state.fiber_states[i]);
+
+        let a = fiber.area;
+        n += sigma * a;
+        my += sigma * a * fiber.z;
+        mz -= sigma * a * fiber.y;
+
+        let et_a = e_tan * a;
+        ea += et_a;
+        es_y += et_a * fiber.y;
+        es_z += et_a * fiber.z;
+        ei_yy += et_a * fiber.y * fiber.y;
+        ei_zz += et_a * fiber.z * fiber.z;
+        ei_yz += et_a * fiber.y * fiber.z;
+    }
+
+    let scale = 1000.0; // MPa → kN/m²
+    let forces = [n * scale, my * scale, mz * scale];
+    let tangent = [
+        ea * scale,    es_z * scale,   -es_y * scale,
+        es_z * scale,  ei_zz * scale,  -ei_yz * scale,
+        -es_y * scale, -ei_yz * scale,  ei_yy * scale,
+    ];
+
+    (forces, tangent)
+}
+
+/// B-matrix for 3D beam: maps element DOFs [u1,v1,w1,θx1,θy1,θz1, u2,v2,w2,θx2,θy2,θz2]
+/// to section deformations [ε₀, κy, κz] at position x along element.
+///
+/// 3×12 matrix (row-major, stored as [36] array).
+fn b_matrix_3d(x: f64, l: f64) -> [f64; 36] {
+    let xi = x / l;
+    let mut b = [0.0; 36]; // 3 rows × 12 cols
+
+    // Row 0: Axial strain ε₀ = du/dx = (-u1 + u2)/L
+    b[0] = -1.0 / l;  // ∂ε₀/∂u1
+    b[6] = 1.0 / l;   // ∂ε₀/∂u2
+
+    // Row 1: Curvature κy = d²w/dx² (bending about Y via w and θy)
+    // w(x) uses Hermite cubics: w1, θy1, w2, θy2 → DOFs 2, 4, 8, 10
+    // Note: θy = dw/dx with appropriate sign convention
+    b[12 + 2] = (12.0 * xi - 6.0) / (l * l);      // ∂κy/∂w1
+    b[12 + 4] = (6.0 * xi - 4.0) / l;               // ∂κy/∂θy1
+    b[12 + 8] = (-12.0 * xi + 6.0) / (l * l);       // ∂κy/∂w2
+    b[12 + 10] = (6.0 * xi - 2.0) / l;              // ∂κy/∂θy2
+
+    // Row 2: Curvature κz = d²v/dx² (bending about Z via v and θz)
+    // v(x) uses Hermite cubics: v1, θz1, v2, θz2 → DOFs 1, 5, 7, 11
+    b[24 + 1] = (12.0 * xi - 6.0) / (l * l);      // ∂κz/∂v1
+    b[24 + 5] = (6.0 * xi - 4.0) / l;               // ∂κz/∂θz1
+    b[24 + 7] = (-12.0 * xi + 6.0) / (l * l);       // ∂κz/∂v2
+    b[24 + 11] = (6.0 * xi - 2.0) / l;              // ∂κz/∂θz2
+
+    b
+}
+
+/// Compute 3D fiber element tangent stiffness and internal force vector.
+///
+/// Torsion is handled elastically: K_torsion = GJ/L standard stiffness on DOFs 3, 9.
+/// Returns (f_elem[12], k_elem[144]) in local coordinates.
+pub fn fiber_element_response_3d(
+    u_local: &[f64; 12],
+    l: f64,
+    section: &FiberSectionDef,
+    states: &mut Vec<SectionState>,
+    n_ip: usize,
+    gj: f64,
+) -> ([f64; 12], Vec<f64>) {
+    let points = gauss_lobatto_points(n_ip, l);
+    let mut f_elem = [0.0; 12];
+    let mut k_elem = vec![0.0; 144];
+
+    let n_sec = 3; // Section deformation DOFs: ε₀, κy, κz
+
+    for (ip, &(x, w)) in points.iter().enumerate() {
+        let b = b_matrix_3d(x, l);
+
+        // Section deformations: d = B * u_local
+        let mut deform = [0.0; 3];
+        for s in 0..n_sec {
+            for d in 0..12 {
+                deform[s] += b[s * 12 + d] * u_local[d];
+            }
+        }
+
+        let (forces, tangent) = section_response_3d(section, &deform, &mut states[ip]);
+
+        // f_elem += w * B^T * forces
+        for d in 0..12 {
+            for s in 0..n_sec {
+                f_elem[d] += w * b[s * 12 + d] * forces[s];
+            }
+        }
+
+        // k_elem += w * B^T * D * B
+        for i in 0..12 {
+            for j in 0..12 {
+                let mut val = 0.0;
+                for s in 0..n_sec {
+                    for t in 0..n_sec {
+                        val += b[s * 12 + i] * tangent[s * n_sec + t] * b[t * 12 + j];
+                    }
+                }
+                k_elem[i * 12 + j] += w * val;
+            }
+        }
+    }
+
+    // Add elastic torsion: GJ/L on DOFs (3, 3), (3, 9), (9, 3), (9, 9)
+    let gj_l = gj / l;
+    k_elem[3 * 12 + 3] += gj_l;
+    k_elem[3 * 12 + 9] += -gj_l;
+    k_elem[9 * 12 + 3] += -gj_l;
+    k_elem[9 * 12 + 9] += gj_l;
+
+    // Torsional internal force: f = K_torsion * u_torsion
+    f_elem[3] += gj_l * (u_local[3] - u_local[9]);
+    f_elem[9] += gj_l * (u_local[9] - u_local[3]);
+
+    (f_elem, k_elem)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

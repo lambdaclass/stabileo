@@ -11,7 +11,7 @@ use serde::{Serialize, Deserialize};
 use crate::types::*;
 use crate::linalg::*;
 use crate::element::fiber_beam::*;
-use crate::element::frame_transform_2d;
+use crate::element::{frame_transform_2d, compute_local_axes_3d, frame_transform_3d};
 use super::dof::DofNumbering;
 use super::assembly;
 
@@ -413,6 +413,330 @@ fn add_springs(
                         f_int[d] += k * u_full[d];
                     }
                 }
+            }
+        }
+    }
+}
+
+// ==================== 3D Fiber Nonlinear Solver ====================
+
+/// Fiber nonlinear analysis input (3D).
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct FiberNonlinearInput3D {
+    pub solver: SolverInput3D,
+    pub fiber_sections: HashMap<String, FiberSectionDef>,
+    #[serde(default = "default_n_ip")]
+    pub n_integration_points: usize,
+    #[serde(default = "default_max_iter")]
+    pub max_iter: usize,
+    #[serde(default = "default_tol")]
+    pub tolerance: f64,
+    #[serde(default = "default_n_inc")]
+    pub n_increments: usize,
+}
+
+/// Fiber nonlinear result (3D).
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct FiberNonlinearResult3D {
+    pub results: AnalysisResults3D,
+    pub iterations: usize,
+    pub converged: bool,
+    pub n_increments: usize,
+    pub fiber_status: Vec<FiberElementStatus>,
+}
+
+/// Solve a 3D fiber nonlinear problem.
+pub fn solve_fiber_nonlinear_3d(input: &FiberNonlinearInput3D) -> Result<FiberNonlinearResult3D, String> {
+    let dof_num = DofNumbering::build_3d(&input.solver);
+    if dof_num.n_free == 0 {
+        return Err("No free DOFs".into());
+    }
+
+    let n = dof_num.n_total;
+    let nf = dof_num.n_free;
+    let n_ip = input.n_integration_points.max(2).min(7);
+
+    let asm = assembly::assemble_3d(&input.solver, &dof_num);
+    let f_total = asm.f.clone();
+
+    // Initialize per-element fiber states
+    let mut elem_states: HashMap<usize, ElementFiberState> = HashMap::new();
+    for elem in input.solver.elements.values() {
+        let sec_key = elem.section_id.to_string();
+        if let Some(sec) = input.fiber_sections.get(&sec_key) {
+            let n_fibers = sec.fibers.len();
+            let states = (0..n_ip)
+                .map(|_| SectionState::new(n_fibers))
+                .collect();
+            elem_states.insert(elem.id, ElementFiberState {
+                _section_id: sec_key,
+                section_states: states,
+            });
+        }
+    }
+
+    let mut u_full = vec![0.0; n];
+    let mut total_iters = 0;
+    let mut converged = true;
+
+    for inc in 1..=input.n_increments {
+        let load_factor = inc as f64 / input.n_increments as f64;
+        let f_ext: Vec<f64> = f_total.iter().map(|&f| load_factor * f).collect();
+
+        let mut nr_converged = false;
+
+        for _iter in 0..input.max_iter {
+            total_iters += 1;
+
+            let mut f_int = vec![0.0; n];
+            let mut k_t = vec![0.0; n * n];
+
+            assemble_fiber_elements_3d(
+                &input.solver, &input.fiber_sections, &dof_num,
+                &u_full, &mut elem_states, n_ip,
+                &mut f_int, &mut k_t,
+            );
+
+            assemble_elastic_elements_3d(
+                &input.solver, &input.fiber_sections, &dof_num,
+                &u_full, &mut f_int, &mut k_t,
+            );
+
+            // Residual
+            let mut residual = vec![0.0; n];
+            for i in 0..n {
+                residual[i] = f_ext[i] - f_int[i];
+            }
+
+            let mut r_norm_sq = 0.0;
+            let mut f_norm_sq = 0.0;
+            for i in 0..nf {
+                r_norm_sq += residual[i] * residual[i];
+                f_norm_sq += f_ext[i] * f_ext[i];
+            }
+            let rel_error = if f_norm_sq > 1e-30 {
+                r_norm_sq.sqrt() / f_norm_sq.sqrt()
+            } else {
+                r_norm_sq.sqrt()
+            };
+
+            if rel_error < input.tolerance {
+                nr_converged = true;
+                break;
+            }
+
+            let free_idx: Vec<usize> = (0..nf).collect();
+            let k_ff = extract_submatrix(&k_t, n, &free_idx, &free_idx);
+            let r_f: Vec<f64> = residual[..nf].to_vec();
+
+            let delta_u_f = {
+                let mut k_work = k_ff.clone();
+                match cholesky_solve(&mut k_work, &r_f, nf) {
+                    Some(u) => u,
+                    None => {
+                        let mut k_work = k_ff;
+                        let mut f_work = r_f.clone();
+                        lu_solve(&mut k_work, &mut f_work, nf)
+                            .ok_or("Singular tangent stiffness in 3D fiber N-R")?
+                    }
+                }
+            };
+
+            for i in 0..nf {
+                u_full[i] += delta_u_f[i];
+            }
+        }
+
+        if !nr_converged {
+            converged = false;
+            break;
+        }
+    }
+
+    // Build results
+    let displacements = super::linear::build_displacements_3d(&dof_num, &u_full);
+    let element_forces = super::linear::compute_internal_forces_3d(&input.solver, &dof_num, &u_full);
+
+    let mut fiber_status = Vec::new();
+    for elem in input.solver.elements.values() {
+        if let Some(es) = elem_states.get(&elem.id) {
+            let mut max_strain = 0.0_f64;
+            let mut max_stress = 0.0_f64;
+            let mut yielded = false;
+            for ss in &es.section_states {
+                for fs in &ss.fiber_states {
+                    max_strain = max_strain.max(fs.strain.abs());
+                    max_stress = max_stress.max(fs.stress.abs());
+                    if fs.plastic_strain.abs() > 1e-10 || fs.cracked {
+                        yielded = true;
+                    }
+                }
+            }
+            fiber_status.push(FiberElementStatus {
+                element_id: elem.id,
+                yielded,
+                max_strain,
+                max_stress,
+            });
+        }
+    }
+
+    Ok(FiberNonlinearResult3D {
+        results: AnalysisResults3D {
+            displacements,
+            reactions: vec![],
+            element_forces,
+            plate_stresses: vec![],
+        },
+        iterations: total_iters,
+        converged,
+        n_increments: input.n_increments,
+        fiber_status,
+    })
+}
+
+/// Assemble 3D fiber element contributions.
+fn assemble_fiber_elements_3d(
+    solver: &SolverInput3D,
+    fiber_sections: &HashMap<String, FiberSectionDef>,
+    dof_num: &DofNumbering,
+    u_full: &[f64],
+    elem_states: &mut HashMap<usize, ElementFiberState>,
+    n_ip: usize,
+    f_int: &mut [f64],
+    k_t: &mut [f64],
+) {
+    let n = dof_num.n_total;
+
+    for elem in solver.elements.values() {
+        if elem.elem_type == "truss" || elem.elem_type == "cable" { continue; }
+
+        let sec_key = elem.section_id.to_string();
+        let section = match fiber_sections.get(&sec_key) {
+            Some(s) => s,
+            None => continue,
+        };
+
+        let es = match elem_states.get_mut(&elem.id) {
+            Some(s) => s,
+            None => continue,
+        };
+
+        let node_i = solver.nodes.values().find(|nd| nd.id == elem.node_i).unwrap();
+        let node_j = solver.nodes.values().find(|nd| nd.id == elem.node_j).unwrap();
+
+        let dx = node_j.x - node_i.x;
+        let dy = node_j.y - node_i.y;
+        let dz = node_j.z - node_i.z;
+        let l = (dx * dx + dy * dy + dz * dz).sqrt();
+
+        // Get GJ for torsion
+        let mat = solver.materials.values().find(|m| m.id == elem.material_id).unwrap();
+        let sec3d = solver.sections.values().find(|s| s.id == elem.section_id).unwrap();
+        let e_val = mat.e * 1000.0;
+        let g = e_val / (2.0 * (1.0 + mat.nu));
+        let gj = g * sec3d.j;
+
+        let dofs = dof_num.element_dofs(elem.node_i, elem.node_j);
+        if dofs.len() < 12 { continue; }
+
+        // Extract element displacements
+        let mut u_global = [0.0; 12];
+        for i in 0..12 {
+            u_global[i] = u_full[dofs[i]];
+        }
+
+        // Transform to local
+        let (ex, ey, ez) = compute_local_axes_3d(
+            node_i.x, node_i.y, node_i.z,
+            node_j.x, node_j.y, node_j.z,
+            elem.local_yx, elem.local_yy, elem.local_yz,
+            elem.roll_angle, false,
+        );
+        let t = frame_transform_3d(&ex, &ey, &ez);
+        let mut u_local = [0.0; 12];
+        for i in 0..12 {
+            for j in 0..12 {
+                u_local[i] += t[i * 12 + j] * u_global[j];
+            }
+        }
+
+        let (f_local, k_local) = fiber_element_response_3d(
+            &u_local, l, section, &mut es.section_states, n_ip, gj,
+        );
+
+        let k_global = transform_stiffness(&k_local, &t, 12);
+        let mut f_global = [0.0; 12];
+        for i in 0..12 {
+            for j in 0..12 {
+                f_global[i] += t[j * 12 + i] * f_local[j];
+            }
+        }
+
+        for i in 0..12 {
+            f_int[dofs[i]] += f_global[i];
+            for j in 0..12 {
+                k_t[dofs[i] * n + dofs[j]] += k_global[i * 12 + j];
+            }
+        }
+    }
+}
+
+/// Assemble elastic (non-fiber) 3D frame elements.
+fn assemble_elastic_elements_3d(
+    solver: &SolverInput3D,
+    fiber_sections: &HashMap<String, FiberSectionDef>,
+    dof_num: &DofNumbering,
+    u_full: &[f64],
+    f_int: &mut [f64],
+    k_t: &mut [f64],
+) {
+    let n = dof_num.n_total;
+
+    for elem in solver.elements.values() {
+        let sec_key = elem.section_id.to_string();
+
+        // Skip fiber elements (handled separately)
+        if fiber_sections.contains_key(&sec_key) && elem.elem_type != "truss" && elem.elem_type != "cable" {
+            continue;
+        }
+
+        let node_i = solver.nodes.values().find(|nd| nd.id == elem.node_i).unwrap();
+        let node_j = solver.nodes.values().find(|nd| nd.id == elem.node_j).unwrap();
+        let mat = solver.materials.values().find(|m| m.id == elem.material_id).unwrap();
+        let sec = solver.sections.values().find(|s| s.id == elem.section_id).unwrap();
+
+        let e_val = mat.e * 1000.0;
+        let g = e_val / (2.0 * (1.0 + mat.nu));
+        let dx = node_j.x - node_i.x;
+        let dy = node_j.y - node_i.y;
+        let dz = node_j.z - node_i.z;
+        let l = (dx * dx + dy * dy + dz * dz).sqrt();
+
+        let k_local = crate::element::frame_local_stiffness_3d(
+            e_val, sec.a, sec.iy, sec.iz, sec.j, l, g,
+            elem.hinge_start, elem.hinge_end, 0.0, 0.0,
+        );
+
+        let (ex, ey, ez) = compute_local_axes_3d(
+            node_i.x, node_i.y, node_i.z,
+            node_j.x, node_j.y, node_j.z,
+            elem.local_yx, elem.local_yy, elem.local_yz,
+            elem.roll_angle, false,
+        );
+        let t = frame_transform_3d(&ex, &ey, &ez);
+
+        let k_global = transform_stiffness(&k_local, &t, 12);
+
+        let dofs = dof_num.element_dofs(elem.node_i, elem.node_j);
+        if dofs.len() < 12 { continue; }
+
+        for i in 0..12 {
+            for j in 0..12 {
+                k_t[dofs[i] * n + dofs[j]] += k_global[i * 12 + j];
+                f_int[dofs[i]] += k_global[i * 12 + j] * u_full[dofs[j]];
             }
         }
     }

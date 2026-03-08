@@ -642,6 +642,17 @@ pub fn solve_fiber_nonlinear_2d(json: &str) -> Result<String, JsValue> {
         .map_err(|e| JsValue::from_str(&format!("Serialize error: {}", e)))
 }
 
+/// Solve 3D fiber beam-column nonlinear analysis. JSON in → JSON out.
+#[wasm_bindgen]
+pub fn solve_fiber_nonlinear_3d(json: &str) -> Result<String, JsValue> {
+    let input: solver::fiber_nonlinear::FiberNonlinearInput3D = serde_json::from_str(json)
+        .map_err(|e| JsValue::from_str(&format!("Parse error: {}", e)))?;
+    let results = solver::fiber_nonlinear::solve_fiber_nonlinear_3d(&input)
+        .map_err(|e| JsValue::from_str(&e))?;
+    serde_json::to_string(&results)
+        .map_err(|e| JsValue::from_str(&format!("Serialize error: {}", e)))
+}
+
 // ==================== Section Analysis ====================
 
 /// Compute cross-section properties from polygon geometry. JSON: SectionInput
