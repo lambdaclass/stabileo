@@ -604,6 +604,25 @@ pub fn check_weld_groups(json: &str) -> Result<String, JsValue> {
 }
 
 #[wasm_bindgen]
+pub fn check_cirsoc201_members(json: &str) -> Result<String, JsValue> {
+    let input: postprocess::cirsoc201_check::Cirsoc201CheckInput =
+        serde_json::from_str(json)
+            .map_err(|e| JsValue::from_str(&format!("Parse error: {}", e)))?;
+    let results = postprocess::cirsoc201_check::check_cirsoc201_members(&input);
+    serde_json::to_string(&results)
+        .map_err(|e| JsValue::from_str(&format!("Serialize error: {}", e)))
+}
+
+#[wasm_bindgen]
+pub fn check_ec2_members(json: &str) -> Result<String, JsValue> {
+    let input: postprocess::ec2_check::Ec2CheckInput = serde_json::from_str(json)
+        .map_err(|e| JsValue::from_str(&format!("Parse error: {}", e)))?;
+    let results = postprocess::ec2_check::check_ec2_members(&input);
+    serde_json::to_string(&results)
+        .map_err(|e| JsValue::from_str(&format!("Serialize error: {}", e)))
+}
+
+#[wasm_bindgen]
 pub fn check_cfs_members(json: &str) -> Result<String, JsValue> {
     let input: postprocess::cfs_check::CfsCheckInput = serde_json::from_str(json)
         .map_err(|e| JsValue::from_str(&format!("Parse error: {}", e)))?;
