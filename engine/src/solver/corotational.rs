@@ -1238,6 +1238,7 @@ fn build_final_results_3d(
         reactions,
         element_forces,
         plate_stresses: Vec::new(),
+        quad_stresses: vec![],
     })
 }
 

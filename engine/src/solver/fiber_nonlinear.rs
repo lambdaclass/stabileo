@@ -589,6 +589,7 @@ pub fn solve_fiber_nonlinear_3d(input: &FiberNonlinearInput3D) -> Result<FiberNo
             reactions: vec![],
             element_forces,
             plate_stresses: vec![],
+            quad_stresses: vec![],
         },
         iterations: total_iters,
         converged,

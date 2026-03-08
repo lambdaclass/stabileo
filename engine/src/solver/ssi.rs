@@ -316,6 +316,7 @@ pub fn solve_ssi_3d(input: &SSIInput3D) -> Result<SSIResult3D, String> {
             reactions: vec![],
             element_forces,
             plate_stresses: vec![],
+            quad_stresses: vec![],
         },
         iterations: total_iters,
         converged,

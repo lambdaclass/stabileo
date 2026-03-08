@@ -540,6 +540,7 @@ pub fn solve_constrained_3d(input: &ConstrainedInput3D) -> Result<AnalysisResult
         reactions: vec![],
         element_forces,
         plate_stresses: vec![],
+        quad_stresses: vec![],
     })
 }
 

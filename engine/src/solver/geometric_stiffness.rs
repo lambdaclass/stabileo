@@ -317,7 +317,64 @@ pub fn build_kg_from_forces_3d(
             }
         }
     }
+    // Add quad shell geometric stiffness (from membrane stress resultants)
+    // Requires displacement vector to compute stresses
+    // Note: quad_stresses are computed from linear solution displacements
+    // For buckling, we recompute stresses here from the linear solution
     k_g
+}
+
+/// Add quad geometric stiffness to a pre-built Kg matrix, given displacements.
+/// Used by P-delta and other displacement-based geometric stiffness computations.
+pub fn add_quad_geometric_stiffness_3d(
+    input: &SolverInput3D,
+    dof_num: &DofNumbering,
+    u: &[f64],
+    k_g: &mut [f64],
+) {
+    let n = dof_num.n_total;
+
+    for quad in input.quads.values() {
+        let mat = input.materials.values().find(|m| m.id == quad.material_id).unwrap();
+        let e = mat.e * 1000.0;
+        let nu = mat.nu;
+
+        let n0 = input.nodes.values().find(|nd| nd.id == quad.nodes[0]).unwrap();
+        let n1 = input.nodes.values().find(|nd| nd.id == quad.nodes[1]).unwrap();
+        let n2 = input.nodes.values().find(|nd| nd.id == quad.nodes[2]).unwrap();
+        let n3 = input.nodes.values().find(|nd| nd.id == quad.nodes[3]).unwrap();
+        let coords = [
+            [n0.x, n0.y, n0.z],
+            [n1.x, n1.y, n1.z],
+            [n2.x, n2.y, n2.z],
+            [n3.x, n3.y, n3.z],
+        ];
+
+        // Get element displacements
+        let quad_dofs = dof_num.quad_element_dofs(&quad.nodes);
+        let u_global: Vec<f64> = quad_dofs.iter().map(|&d| u[d]).collect();
+        let t_quad = crate::element::quad::quad_transform_3d(&coords);
+        let u_local_vec = transform_displacement(&u_global, &t_quad, 24);
+        let mut u_local = [0.0; 24];
+        u_local.copy_from_slice(&u_local_vec);
+
+        // Compute membrane stress resultants (force/length = stress × thickness)
+        let s = crate::element::quad::quad_stresses(&coords, &u_local, e, nu, quad.thickness);
+        let nxx = s.sigma_xx * quad.thickness;
+        let nyy = s.sigma_yy * quad.thickness;
+        let nxy = s.tau_xy * quad.thickness;
+
+        // Build local geometric stiffness
+        let kg_local = crate::element::quad::quad_geometric_stiffness(&coords, nxx, nyy, nxy);
+        let kg_global = transform_stiffness(&kg_local, &t_quad, 24);
+
+        let ndof = quad_dofs.len();
+        for i in 0..ndof {
+            for j in 0..ndof {
+                k_g[quad_dofs[i] * n + quad_dofs[j]] += kg_global[i * ndof + j];
+            }
+        }
+    }
 }
 
 /// Add 3D geometric stiffness from current displacements.

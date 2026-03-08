@@ -870,6 +870,7 @@ pub fn solve_nonlinear_material_3d(
             reactions,
             element_forces,
             plate_stresses: Vec::new(),
+            quad_stresses: vec![],
         },
         converged: converged_global,
         iterations: total_nr_iterations,

@@ -250,12 +250,14 @@ pub fn solve_3d(input: &SolverInput3D) -> Result<AnalysisResults3D, String> {
     element_forces.sort_by_key(|ef| ef.element_id);
 
     let plate_stresses = compute_plate_stresses(input, &dof_num, &u_full);
+    let quad_stresses = compute_quad_stresses(input, &dof_num, &u_full);
 
     Ok(AnalysisResults3D {
         displacements,
         reactions,
         element_forces,
         plate_stresses,
+        quad_stresses,
     })
 }
 
@@ -1025,6 +1027,58 @@ pub(crate) fn compute_plate_stresses(
             mxy: s.mxy,
             sigma_1: s.sigma_1,
             sigma_2: s.sigma_2,
+            von_mises: s.von_mises,
+            nodal_von_mises: nodal_vm,
+        });
+    }
+
+    stresses
+}
+
+pub(crate) fn compute_quad_stresses(
+    input: &SolverInput3D,
+    dof_num: &DofNumbering,
+    u: &[f64],
+) -> Vec<QuadStress> {
+    let mut stresses = Vec::new();
+
+    for quad in input.quads.values() {
+        let mat = input.materials.values().find(|m| m.id == quad.material_id).unwrap();
+        let e = mat.e * 1000.0;
+        let nu = mat.nu;
+
+        let n0 = input.nodes.values().find(|nd| nd.id == quad.nodes[0]).unwrap();
+        let n1 = input.nodes.values().find(|nd| nd.id == quad.nodes[1]).unwrap();
+        let n2 = input.nodes.values().find(|nd| nd.id == quad.nodes[2]).unwrap();
+        let n3 = input.nodes.values().find(|nd| nd.id == quad.nodes[3]).unwrap();
+        let coords = [
+            [n0.x, n0.y, n0.z],
+            [n1.x, n1.y, n1.z],
+            [n2.x, n2.y, n2.z],
+            [n3.x, n3.y, n3.z],
+        ];
+
+        let quad_dofs = dof_num.quad_element_dofs(&quad.nodes);
+        let u_global: Vec<f64> = quad_dofs.iter().map(|&d| u[d]).collect();
+
+        let t_quad = crate::element::quad::quad_transform_3d(&coords);
+        let u_local_vec = crate::linalg::transform_displacement(&u_global, &t_quad, 24);
+        let mut u_local = [0.0; 24];
+        u_local.copy_from_slice(&u_local_vec);
+
+        let s = crate::element::quad::quad_stresses(&coords, &u_local, e, nu, quad.thickness);
+
+        // Nodal stresses at 4 Gauss-extrapolated points
+        let nodal_vm = crate::element::quad::quad_nodal_von_mises(&coords, &u_local, e, nu, quad.thickness);
+
+        stresses.push(QuadStress {
+            element_id: quad.id,
+            sigma_xx: s.sigma_xx,
+            sigma_yy: s.sigma_yy,
+            tau_xy: s.tau_xy,
+            mx: s.mx,
+            my: s.my,
+            mxy: s.mxy,
             von_mises: s.von_mises,
             nodal_von_mises: nodal_vm,
         });

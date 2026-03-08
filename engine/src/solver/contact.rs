@@ -580,6 +580,7 @@ pub fn solve_contact_3d(input: &ContactInput3D) -> Result<ContactResult3D, Strin
         reactions: vec![],
         element_forces,
         plate_stresses: vec![],
+        quad_stresses: vec![],
     };
 
     let element_status_info: Vec<ElementContactInfo> = input.element_behaviors.iter()

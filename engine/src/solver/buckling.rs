@@ -199,7 +199,24 @@ pub fn solve_buckling_3d(
 
     if nf == 0 { return Err("No free DOFs".into()); }
 
-    let kg_full = build_kg_from_forces_3d(input, &dof_num, &linear.element_forces);
+    let mut kg_full = build_kg_from_forces_3d(input, &dof_num, &linear.element_forces);
+
+    // Add quad shell geometric stiffness from membrane stress resultants
+    if !input.quads.is_empty() {
+        // Reconstruct displacement vector from linear results
+        let mut u_full = vec![0.0; n];
+        for d in &linear.displacements {
+            let vals = [d.ux, d.uy, d.uz, d.rx, d.ry, d.rz];
+            for (i, &v) in vals.iter().enumerate() {
+                if let Some(&dof) = dof_num.map.get(&(d.node_id, i)) {
+                    u_full[dof] = v;
+                }
+            }
+        }
+        super::geometric_stiffness::add_quad_geometric_stiffness_3d(
+            input, &dof_num, &u_full, &mut kg_full,
+        );
+    }
 
     let free_idx: Vec<usize> = (0..nf).collect();
     let asm = assemble_3d(input, &dof_num);

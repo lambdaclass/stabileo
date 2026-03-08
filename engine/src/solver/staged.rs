@@ -830,6 +830,7 @@ pub fn solve_staged_3d(input: &StagedInput3D) -> Result<StagedAnalysisResults3D,
             reactions: vec![],
             element_forces: vec![],
             plate_stresses: vec![],
+            quad_stresses: vec![],
         });
 
     Ok(StagedAnalysisResults3D {
@@ -1161,5 +1162,6 @@ fn build_results_from_u_3d(
         reactions,
         element_forces,
         plate_stresses,
+        quad_stresses: vec![],
     }
 }

@@ -198,7 +198,7 @@ pub fn solve_winkler_3d(input: &WinklerInput3D) -> Result<AnalysisResults3D, Str
     element_forces.sort_by_key(|ef| ef.element_id);
 
     Ok(AnalysisResults3D {
-        displacements, reactions, element_forces, plate_stresses: vec![],
+        displacements, reactions, element_forces, plate_stresses: vec![], quad_stresses: vec![],
     })
 }
 

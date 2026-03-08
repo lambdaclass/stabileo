@@ -585,6 +585,260 @@ pub fn quad_pressure_load(coords: &[[f64; 3]; 4], pressure: f64) -> Vec<f64> {
     f
 }
 
+/// Compute von Mises stress at each of the 4 nodes by evaluating at Gauss points
+/// and extrapolating (bilinear extrapolation from 2×2 Gauss points to corners).
+pub fn quad_nodal_von_mises(
+    coords: &[[f64; 3]; 4],
+    u_local: &[f64; 24],
+    e: f64,
+    nu: f64,
+    _t: f64,
+) -> Vec<f64> {
+    let (ex, ey, _) = quad_local_axes(coords);
+    let pts = project_to_2d(coords, &ex, &ey);
+    let gauss = gauss_2x2();
+
+    // Evaluate von Mises at each Gauss point
+    let mut gp_vm = [0.0; 4];
+    for (gp, &((xi, eta), _)) in gauss.iter().enumerate() {
+        let (_, inv_j, _) = jacobian_2d(&pts, xi, eta);
+        let (dn_dxi, dn_deta) = shape_derivatives(xi, eta);
+
+        let mut dn_dx = [0.0; 4];
+        let mut dn_dy = [0.0; 4];
+        for i in 0..4 {
+            dn_dx[i] = inv_j[0][0] * dn_dxi[i] + inv_j[0][1] * dn_deta[i];
+            dn_dy[i] = inv_j[1][0] * dn_dxi[i] + inv_j[1][1] * dn_deta[i];
+        }
+
+        let mut eps_xx = 0.0;
+        let mut eps_yy = 0.0;
+        let mut gamma_xy = 0.0;
+        for i in 0..4 {
+            let ux = u_local[i * 6];
+            let uy = u_local[i * 6 + 1];
+            eps_xx += dn_dx[i] * ux;
+            eps_yy += dn_dy[i] * uy;
+            gamma_xy += dn_dy[i] * ux + dn_dx[i] * uy;
+        }
+
+        let c = e / (1.0 - nu * nu);
+        let sxx = c * (eps_xx + nu * eps_yy);
+        let syy = c * (nu * eps_xx + eps_yy);
+        let txy = c * (1.0 - nu) / 2.0 * gamma_xy;
+        gp_vm[gp] = (sxx * sxx - sxx * syy + syy * syy + 3.0 * txy * txy).sqrt();
+    }
+
+    // Bilinear extrapolation from Gauss points to corner nodes
+    // Gauss points are at ±1/√3; extrapolation factor = √3
+    let s = 3.0_f64.sqrt();
+    let corner_xi = [(-1.0, -1.0), (1.0, -1.0), (1.0, 1.0), (-1.0, 1.0)];
+    let mut nodal = vec![0.0; 4];
+    for (ni, &(xi_n, eta_n)) in corner_xi.iter().enumerate() {
+        // Evaluate bilinear interpolation of GP values at node location (scaled)
+        let xi_s = xi_n * s;
+        let eta_s = eta_n * s;
+        let n = shape_functions(xi_s, eta_s);
+        for gp in 0..4 {
+            nodal[ni] += n[gp] * gp_vm[gp];
+        }
+        // Clamp to non-negative
+        if nodal[ni] < 0.0 { nodal[ni] = 0.0; }
+    }
+    nodal
+}
+
+/// Thermal load vector for quad element (24-DOF).
+///
+/// `dt_uniform`: uniform temperature change (membrane expansion).
+/// `dt_gradient`: through-thickness temperature gradient (bending).
+pub fn quad_thermal_load(
+    coords: &[[f64; 3]; 4],
+    e: f64,
+    nu: f64,
+    t: f64,
+    alpha: f64,
+    dt_uniform: f64,
+    dt_gradient: f64,
+) -> Vec<f64> {
+    let (ex, ey, _ez) = quad_local_axes(coords);
+    let pts = project_to_2d(coords, &ex, &ey);
+    let ndof = 24;
+    let mut f = vec![0.0; ndof];
+
+    // Membrane thermal resultant: N_T = E*α*ΔT*t / (1-ν)
+    let n_t = e * alpha * dt_uniform * t / (1.0 - nu);
+    // Bending thermal moment: M_T = E*α*ΔT_grad*t² / (12*(1-ν))
+    let m_t = e * alpha * dt_gradient * t * t / (12.0 * (1.0 - nu));
+
+    let gauss = gauss_2x2();
+
+    for &((xi, eta), w_g) in &gauss {
+        let (_, inv_j, det_j) = jacobian_2d(&pts, xi, eta);
+        let (dn_dxi, dn_deta) = shape_derivatives(xi, eta);
+        let dv = det_j.abs() * w_g;
+
+        let mut dn_dx = [0.0; 4];
+        let mut dn_dy = [0.0; 4];
+        for i in 0..4 {
+            dn_dx[i] = inv_j[0][0] * dn_dxi[i] + inv_j[0][1] * dn_deta[i];
+            dn_dy[i] = inv_j[1][0] * dn_dxi[i] + inv_j[1][1] * dn_deta[i];
+        }
+
+        for i in 0..4 {
+            let di = i * 6;
+            // Membrane: f = ∫ B_m^T * N_T * {1, 1, 0} dA
+            // ux: dN/dx * N_T, uy: dN/dy * N_T
+            f[di]     += dv * dn_dx[i] * n_t;
+            f[di + 1] += dv * dn_dy[i] * n_t;
+
+            // Bending: f = ∫ B_b^T * M_T * {1, 1, 0} dA
+            // κxx = -∂θy/∂x → ry gets -dN/dx * M_T
+            // κyy = ∂θx/∂y  → rx gets dN/dy * M_T
+            f[di + 3] += dv * dn_dy[i] * m_t;   // rx
+            f[di + 4] -= dv * dn_dx[i] * m_t;   // ry
+        }
+    }
+
+    // Transform from local to global
+    let t_mat = quad_transform_3d(coords);
+    let mut f_global = vec![0.0; ndof];
+    for i in 0..ndof {
+        for j in 0..ndof {
+            f_global[i] += t_mat[i * ndof + j] * f[j];
+        }
+    }
+    f_global
+}
+
+/// Consistent edge load vector for quad element (24-DOF).
+///
+/// `edge`: edge index 0-3 (0=nodes 0→1, 1=nodes 1→2, 2=nodes 2→3, 3=nodes 3→0).
+/// `qn`: normal pressure on edge (force/length), positive = outward from element.
+/// `qt`: tangential traction along edge (force/length).
+pub fn quad_edge_load(
+    coords: &[[f64; 3]; 4],
+    edge: usize,
+    qn: f64,
+    qt: f64,
+) -> Vec<f64> {
+    let (_ex, _ey, ez) = quad_local_axes(coords);
+    let ndof = 24;
+    let mut f = vec![0.0; ndof];
+
+    // Edge node indices
+    let edge_nodes: [(usize, usize); 4] = [(0, 1), (1, 2), (2, 3), (3, 0)];
+    let (ni, nj) = edge_nodes[edge.min(3)];
+
+    // Edge vector and length
+    let edge_vec = sub3(&coords[nj], &coords[ni]);
+    let l_edge = norm3(&edge_vec);
+    if l_edge < 1e-15 { return f; }
+
+    // Edge tangent (along edge)
+    let et = [edge_vec[0] / l_edge, edge_vec[1] / l_edge, edge_vec[2] / l_edge];
+    // Edge in-plane normal (perpendicular to edge, in shell plane)
+    let en = cross3(&ez, &et);
+
+    // Distributed load in global = qn * en + qt * et (force per length)
+    let qx = qn * en[0] + qt * et[0];
+    let qy = qn * en[1] + qt * et[1];
+    let qz = qn * en[2] + qt * et[2];
+
+    // Consistent nodal forces: uniform load → L/2 per node
+    let half_l = l_edge / 2.0;
+    f[ni * 6]     += qx * half_l;
+    f[ni * 6 + 1] += qy * half_l;
+    f[ni * 6 + 2] += qz * half_l;
+    f[nj * 6]     += qx * half_l;
+    f[nj * 6 + 1] += qy * half_l;
+    f[nj * 6 + 2] += qz * half_l;
+
+    f
+}
+
+/// Mesh quality metrics for a quad element.
+#[derive(Debug, Clone)]
+pub struct QuadQualityMetrics {
+    /// Aspect ratio (longest edge / shortest edge). Ideal = 1.0.
+    pub aspect_ratio: f64,
+    /// Maximum skew angle deviation from 90° (degrees). Ideal = 0.
+    pub max_skew: f64,
+    /// Warping factor: max distance of corners from best-fit plane / diagonal length.
+    /// 0 for planar quads.
+    pub warping: f64,
+    /// Minimum Jacobian determinant ratio (min/max over Gauss points). Ideal = 1.0.
+    pub jacobian_ratio: f64,
+}
+
+/// Compute mesh quality metrics for a quad element.
+pub fn quad_quality_metrics(coords: &[[f64; 3]; 4]) -> QuadQualityMetrics {
+    // Edge lengths
+    let edges = [
+        norm3(&sub3(&coords[1], &coords[0])),
+        norm3(&sub3(&coords[2], &coords[1])),
+        norm3(&sub3(&coords[3], &coords[2])),
+        norm3(&sub3(&coords[0], &coords[3])),
+    ];
+    let max_edge = edges.iter().cloned().fold(0.0_f64, f64::max);
+    let min_edge = edges.iter().cloned().fold(f64::INFINITY, f64::min);
+    let aspect_ratio = if min_edge > 1e-15 { max_edge / min_edge } else { f64::INFINITY };
+
+    // Skew: angle at each corner
+    let mut max_skew = 0.0_f64;
+    for i in 0..4 {
+        let prev = (i + 3) % 4;
+        let next = (i + 1) % 4;
+        let v1 = sub3(&coords[prev], &coords[i]);
+        let v2 = sub3(&coords[next], &coords[i]);
+        let l1 = norm3(&v1);
+        let l2 = norm3(&v2);
+        if l1 > 1e-15 && l2 > 1e-15 {
+            let cos_a = dot3(&v1, &v2) / (l1 * l2);
+            let angle = cos_a.clamp(-1.0, 1.0).acos().to_degrees();
+            let skew = (angle - 90.0).abs();
+            max_skew = max_skew.max(skew);
+        }
+    }
+
+    // Warping: distance from best-fit plane
+    let (_, _, ez) = quad_local_axes(coords);
+    let center = [
+        0.25 * (coords[0][0] + coords[1][0] + coords[2][0] + coords[3][0]),
+        0.25 * (coords[0][1] + coords[1][1] + coords[2][1] + coords[3][1]),
+        0.25 * (coords[0][2] + coords[1][2] + coords[2][2] + coords[3][2]),
+    ];
+    let mut max_dist = 0.0_f64;
+    for c in coords {
+        let d = sub3(c, &center);
+        let dist = dot3(&d, &ez).abs();
+        max_dist = max_dist.max(dist);
+    }
+    let diag = norm3(&sub3(&coords[2], &coords[0]));
+    let warping = if diag > 1e-15 { max_dist / diag } else { 0.0 };
+
+    // Jacobian ratio
+    let (ex, ey, _) = quad_local_axes(coords);
+    let pts = project_to_2d(coords, &ex, &ey);
+    let gauss = gauss_2x2();
+    let mut min_det = f64::INFINITY;
+    let mut max_det = 0.0_f64;
+    for &((xi, eta), _) in &gauss {
+        let (_, _, det) = jacobian_2d(&pts, xi, eta);
+        let d = det.abs();
+        min_det = min_det.min(d);
+        max_det = max_det.max(d);
+    }
+    let jacobian_ratio = if max_det > 1e-15 { min_det / max_det } else { 0.0 };
+
+    QuadQualityMetrics {
+        aspect_ratio,
+        max_skew,
+        warping,
+        jacobian_ratio,
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

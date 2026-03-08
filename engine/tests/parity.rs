@@ -29,7 +29,7 @@ fn test_envelope_3d_json_field_name() {
         max_abs_results_3d: AnalysisResults3D {
             displacements: vec![],
             reactions: vec![],
-            element_forces: vec![], plate_stresses: vec![] },
+            element_forces: vec![], plate_stresses: vec![], quad_stresses: vec![] },
     };
 
     let json = serde_json::to_string(&env).unwrap();

@@ -605,6 +605,57 @@ pub fn assemble_3d(input: &SolverInput3D, dof_num: &DofNumbering) -> AssemblyRes
                 }
             }
         }
+        // Quad thermal loads
+        if let SolverLoad3D::QuadThermal(tl) = load {
+            if let Some(quad) = input.quads.values().find(|q| q.id == tl.element_id) {
+                let mat = input.materials.values().find(|m| m.id == quad.material_id).unwrap();
+                let e = mat.e * 1000.0;
+                let nu = mat.nu;
+                let alpha = tl.alpha.unwrap_or(1.2e-5);
+                let n0 = input.nodes.values().find(|nd| nd.id == quad.nodes[0]).unwrap();
+                let n1 = input.nodes.values().find(|nd| nd.id == quad.nodes[1]).unwrap();
+                let n2 = input.nodes.values().find(|nd| nd.id == quad.nodes[2]).unwrap();
+                let n3 = input.nodes.values().find(|nd| nd.id == quad.nodes[3]).unwrap();
+                let coords = [
+                    [n0.x, n0.y, n0.z],
+                    [n1.x, n1.y, n1.z],
+                    [n2.x, n2.y, n2.z],
+                    [n3.x, n3.y, n3.z],
+                ];
+                let f_th = crate::element::quad::quad_thermal_load(
+                    &coords, e, nu, quad.thickness, alpha,
+                    tl.dt_uniform, tl.dt_gradient,
+                );
+                let quad_dofs = dof_num.quad_element_dofs(&quad.nodes);
+                for (i, &dof) in quad_dofs.iter().enumerate() {
+                    if i < f_th.len() {
+                        f_global[dof] += f_th[i];
+                    }
+                }
+            }
+        }
+        // Quad edge loads
+        if let SolverLoad3D::QuadEdge(el) = load {
+            if let Some(quad) = input.quads.values().find(|q| q.id == el.element_id) {
+                let n0 = input.nodes.values().find(|nd| nd.id == quad.nodes[0]).unwrap();
+                let n1 = input.nodes.values().find(|nd| nd.id == quad.nodes[1]).unwrap();
+                let n2 = input.nodes.values().find(|nd| nd.id == quad.nodes[2]).unwrap();
+                let n3 = input.nodes.values().find(|nd| nd.id == quad.nodes[3]).unwrap();
+                let coords = [
+                    [n0.x, n0.y, n0.z],
+                    [n1.x, n1.y, n1.z],
+                    [n2.x, n2.y, n2.z],
+                    [n3.x, n3.y, n3.z],
+                ];
+                let f_edge = crate::element::quad::quad_edge_load(&coords, el.edge, el.qn, el.qt);
+                let quad_dofs = dof_num.quad_element_dofs(&quad.nodes);
+                for (i, &dof) in quad_dofs.iter().enumerate() {
+                    if i < f_edge.len() {
+                        f_global[dof] += f_edge[i];
+                    }
+                }
+            }
+        }
     }
 
     // Add 3D spring stiffness

@@ -353,7 +353,7 @@ pub fn solve_pdelta_3d(
     let reactions = compute_reactions_from_u_3d(input, &dof_num, &asm, &u_current);
 
     Ok(PDeltaResult3D {
-        results: AnalysisResults3D { displacements, reactions, element_forces, plate_stresses: vec![] },
+        results: AnalysisResults3D { displacements, reactions, element_forces, plate_stresses: vec![], quad_stresses: vec![] },
         iterations,
         converged,
         is_stable: converged && max_ratio < 100.0,

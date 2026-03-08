@@ -303,6 +303,25 @@ pub enum SolverLoad3D {
     Bimoment(SolverBimomentLoad),
     #[serde(rename = "quadPressure")]
     QuadPressure(SolverPressureLoad),
+    #[serde(rename = "quadThermal")]
+    QuadThermal(SolverPlateThermalLoad),
+    #[serde(rename = "quadEdge")]
+    QuadEdge(SolverQuadEdgeLoad),
+}
+
+/// Edge load on a quad element.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct SolverQuadEdgeLoad {
+    pub element_id: usize,
+    /// Edge index 0-3 (0=nodes 0→1, 1=1→2, 2=2→3, 3=3→0)
+    pub edge: usize,
+    /// Normal pressure on edge (force/length), positive = outward
+    #[serde(default)]
+    pub qn: f64,
+    /// Tangential traction along edge (force/length)
+    #[serde(default)]
+    pub qt: f64,
 }
 
 /// Concentrated bimoment load applied to a node (warping torsion).

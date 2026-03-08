@@ -153,6 +153,26 @@ pub struct AnalysisResults3D {
     pub element_forces: Vec<ElementForces3D>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub plate_stresses: Vec<PlateStress>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub quad_stresses: Vec<QuadStress>,
+}
+
+// ==================== Quad Stress Output ====================
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct QuadStress {
+    pub element_id: usize,
+    pub sigma_xx: f64,
+    pub sigma_yy: f64,
+    pub tau_xy: f64,
+    pub mx: f64,
+    pub my: f64,
+    pub mxy: f64,
+    pub von_mises: f64,
+    /// Nodal von Mises stresses (4 values, one per node).
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub nodal_von_mises: Vec<f64>,
 }
 
 // ==================== Plate Stress Output ====================

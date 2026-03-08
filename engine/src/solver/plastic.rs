@@ -553,5 +553,6 @@ fn scale_results_3d(results: &AnalysisResults3D, factor: f64) -> AnalysisResults
             bimoment_end: ef.bimoment_end.map(|b| b * factor),
         }).collect(),
         plate_stresses: results.plate_stresses.clone(),
+        quad_stresses: vec![],
     }
 }

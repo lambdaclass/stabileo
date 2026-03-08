@@ -332,7 +332,7 @@ pub fn combine_results_3d(input: &CombinationInput3D) -> Option<AnalysisResults3
         }
     }
 
-    Some(AnalysisResults3D { displacements, reactions, element_forces, plate_stresses: vec![] })
+    Some(AnalysisResults3D { displacements, reactions, element_forces, plate_stresses: vec![], quad_stresses: vec![] })
 }
 
 // ==================== 3D Envelope ====================
@@ -386,7 +386,7 @@ pub fn compute_envelope_3d(results: &[AnalysisResults3D]) -> Option<FullEnvelope
         }
     }
 
-    let max_abs_results_3d = AnalysisResults3D { displacements, reactions, element_forces, plate_stresses: vec![] };
+    let max_abs_results_3d = AnalysisResults3D { displacements, reactions, element_forces, plate_stresses: vec![], quad_stresses: vec![] };
 
     fn compute_env_3d(kind: &str, results: &[AnalysisResults3D]) -> EnvelopeDiagramData {
         let first = &results[0];
