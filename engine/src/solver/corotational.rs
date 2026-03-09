@@ -126,7 +126,7 @@ pub fn solve_corotational_2d(
     let max_displacement = compute_max_displacement(&dof_num, &u_full);
 
     // Build final results using existing infrastructure
-    let results = build_final_results(input, &dof_num, &u_full)?;
+    let results = build_final_results(input, &dof_num, &u_full, &cs)?;
 
     Ok(CorotationalResult {
         results,
@@ -557,6 +557,7 @@ fn build_final_results(
     input: &SolverInput,
     dof_num: &DofNumbering,
     u_full: &[f64],
+    cs: &Option<FreeConstraintSystem>,
 ) -> Result<AnalysisResults, String> {
     let n = dof_num.n_total;
     let nf = dof_num.n_free;
@@ -586,11 +587,25 @@ fn build_final_results(
     let mut element_forces = compute_corotational_forces(input, dof_num, u_full);
     element_forces.sort_by_key(|ef| ef.element_id);
 
+    // Compute constraint forces if constraints are active
+    let constraint_forces = if let Some(ref fcs) = cs {
+        let mut k_ff = vec![0.0; nf * nf];
+        for i in 0..nf {
+            for j in 0..nf {
+                k_ff[i * nf + j] = k_dummy[i * n + j];
+            }
+        }
+        let raw = fcs.compute_constraint_forces(&k_ff, &u_full[..nf], &asm.f[..nf]);
+        super::constraints::map_dof_forces_to_constraint_forces(&raw, dof_num)
+    } else {
+        vec![]
+    };
+
     Ok(AnalysisResults {
         displacements,
         reactions,
         element_forces,
-        constraint_forces: vec![],
+        constraint_forces,
     })
 }
 
@@ -857,7 +872,7 @@ pub fn solve_corotational_3d(
     }
 
     let max_displacement = compute_max_displacement_3d(&dof_num, &u_full);
-    let results = build_final_results_3d(input, &dof_num, &u_full, left_hand)?;
+    let results = build_final_results_3d(input, &dof_num, &u_full, left_hand, &cs)?;
 
     Ok(CorotationalResult3D {
         results,
@@ -1266,6 +1281,7 @@ fn build_final_results_3d(
     dof_num: &DofNumbering,
     u_full: &[f64],
     left_hand: bool,
+    cs: &Option<FreeConstraintSystem>,
 ) -> Result<AnalysisResults3D, String> {
     let n = dof_num.n_total;
     let nf = dof_num.n_free;
@@ -1295,13 +1311,27 @@ fn build_final_results_3d(
     let mut element_forces = compute_corotational_forces_3d(input, dof_num, u_full, left_hand);
     element_forces.sort_by_key(|ef| ef.element_id);
 
+    // Compute constraint forces if constraints are active
+    let constraint_forces = if let Some(ref fcs) = cs {
+        let mut k_ff = vec![0.0; nf * nf];
+        for i in 0..nf {
+            for j in 0..nf {
+                k_ff[i * nf + j] = k_dummy[i * n + j];
+            }
+        }
+        let raw = fcs.compute_constraint_forces(&k_ff, &u_full[..nf], &asm.f[..nf]);
+        super::constraints::map_dof_forces_to_constraint_forces(&raw, dof_num)
+    } else {
+        vec![]
+    };
+
     Ok(AnalysisResults3D {
         displacements,
         reactions,
         element_forces,
         plate_stresses: super::linear::compute_plate_stresses(input, dof_num, u_full),
         quad_stresses: super::linear::compute_quad_stresses(input, dof_num, u_full),
-        constraint_forces: vec![],
+        constraint_forces,
     })
 }
 

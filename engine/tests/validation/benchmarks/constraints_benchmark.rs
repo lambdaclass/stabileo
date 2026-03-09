@@ -8,6 +8,7 @@
 ///   - OpenSees documentation: equalDOF, rigidDiaphragm, rigidLink
 
 use dedaliano_engine::solver::linear;
+use dedaliano_engine::solver::corotational;
 use dedaliano_engine::types::*;
 use crate::common::*;
 
@@ -685,4 +686,62 @@ fn benchmark_connector_3d_bearing() {
     eprintln!("3D bearing equilibrium: Σfx={:.4}, Σfy={:.4}", sum_fx, sum_fy);
     assert!((sum_fx + 10.0).abs() < 0.5, "X equilibrium: Σfx={:.4}", sum_fx);
     assert!((sum_fy + 5.0).abs() < 0.5, "Y equilibrium: Σfy={:.4}", sum_fy);
+}
+
+// ================================================================
+// 10. Corotational Constraint Forces
+// ================================================================
+//
+// Portal frame with rigid diaphragm (2D) under lateral load.
+// Corotational solve should produce non-empty constraint_forces.
+
+#[test]
+fn benchmark_corotational_constraint_forces() {
+    let h = 3.0;
+    let w = 6.0;
+
+    // Portal frame: 4 nodes, 3 beams. Floor beam has diaphragm.
+    let nodes = vec![
+        (1, 0.0, 0.0), (2, 0.0, h),
+        (3, w, h),      (4, w, 0.0),
+    ];
+    let elems = vec![
+        (1, "frame", 1, 2, 1, 1, false, false), // left column
+        (2, "frame", 2, 3, 1, 1, false, false), // floor beam
+        (3, "frame", 4, 3, 1, 1, false, false), // right column
+    ];
+    let sups = vec![(1, 1, "fixed"), (4, 4, "fixed")];
+    let loads = vec![SolverLoad::Nodal(SolverNodalLoad {
+        node_id: 3, fx: 20.0, fy: 0.0, mz: 0.0,
+    })];
+
+    let mut input = make_input(nodes, vec![(1, E, 0.3)], vec![(1, A, IZ)], elems, sups, loads);
+
+    // Diaphragm on floor nodes: master=2, slave=3
+    input.constraints.push(Constraint::Diaphragm(DiaphragmConstraint {
+        master_node: 2,
+        slave_nodes: vec![3],
+        plane: "XY".to_string(),
+    }));
+
+    let result = corotational::solve_corotational_2d(&input, 10, 1e-6, 5)
+        .expect("Corotational solve failed");
+    assert!(result.converged, "Corotational solve did not converge");
+
+    eprintln!("Corotational constraint forces: {:?}", result.results.constraint_forces);
+
+    // Constraint forces should be non-empty (diaphragm enforces kinematics)
+    assert!(
+        !result.results.constraint_forces.is_empty(),
+        "Corotational solver should produce constraint forces with diaphragm"
+    );
+
+    // The forces should be physically reasonable (not NaN/Inf)
+    for cf in &result.results.constraint_forces {
+        assert!(cf.force.is_finite(), "Constraint force should be finite: {:?}", cf);
+    }
+
+    // Displacements should be nonzero (structure responds to lateral load)
+    let d2 = result.results.displacements.iter().find(|d| d.node_id == 2).unwrap();
+    assert!(d2.ux.abs() > 1e-10, "Floor node should sway laterally");
 }

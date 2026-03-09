@@ -395,7 +395,7 @@ pub fn build_constraint_transform(
 }
 
 /// Map raw (global_dof, force) pairs to ConstraintForce structs with node_id and dof name.
-fn map_dof_forces_to_constraint_forces(
+pub(super) fn map_dof_forces_to_constraint_forces(
     raw: &[(usize, f64)],
     dof_num: &DofNumbering,
 ) -> Vec<ConstraintForce> {
