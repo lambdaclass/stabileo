@@ -1272,8 +1272,8 @@ fn build_final_results_3d(
         displacements,
         reactions,
         element_forces,
-        plate_stresses: Vec::new(),
-        quad_stresses: vec![],
+        plate_stresses: super::linear::compute_plate_stresses(input, dof_num, u_full),
+        quad_stresses: super::linear::compute_quad_stresses(input, dof_num, u_full),
     })
 }
 

@@ -4,9 +4,11 @@ use crate::solver::dof::DofNumbering;
 use crate::solver::assembly::*;
 use crate::solver::linear::{build_displacements_2d, compute_internal_forces_2d,
                              build_reactions_2d, build_displacements_3d,
-                             compute_internal_forces_3d, build_reactions_3d};
+                             compute_internal_forces_3d, build_reactions_3d,
+                             compute_plate_stresses, compute_quad_stresses};
 use crate::linalg::*;
 use serde::{Deserialize, Serialize};
+use super::constraints::FreeConstraintSystem;
 
 // ==================== Types ====================
 
@@ -94,17 +96,31 @@ pub fn solve_winkler_2d(input: &WinklerInput) -> Result<AnalysisResults, String>
     let k_fr_ur = mat_vec_rect(&k_fr, &u_r, nf, nr);
     for i in 0..nf { f_f[i] -= k_fr_ur[i]; }
 
-    let u_f = {
-        let mut k_work = k_ff.clone();
-        match cholesky_solve(&mut k_work, &f_f, nf) {
+    // Constraint reduction
+    let cs = FreeConstraintSystem::build_2d(&input.solver.constraints, &dof_num, &input.solver.nodes);
+    let (k_solve, f_solve, ns) = if let Some(ref cs) = cs {
+        (cs.reduce_matrix(&k_ff), cs.reduce_vector(&f_f), cs.n_free_indep)
+    } else {
+        (k_ff, f_f.clone(), nf)
+    };
+
+    let u_indep = {
+        let mut k_work = k_solve.clone();
+        match cholesky_solve(&mut k_work, &f_solve, ns) {
             Some(u) => u,
             None => {
-                let mut k_work = k_ff;
-                let mut f_work = f_f.clone();
-                lu_solve(&mut k_work, &mut f_work, nf)
+                let mut k_work = k_solve;
+                let mut f_work = f_solve;
+                lu_solve(&mut k_work, &mut f_work, ns)
                     .ok_or_else(|| "Singular stiffness matrix".to_string())?
             }
         }
+    };
+
+    let u_f = if let Some(ref cs) = cs {
+        cs.expand_solution(&u_indep)
+    } else {
+        u_indep
     };
 
     let mut u_full = vec![0.0; n];
@@ -179,17 +195,31 @@ pub fn solve_winkler_3d(input: &WinklerInput3D) -> Result<AnalysisResults3D, Str
     let k_fr_ur = mat_vec_rect(&k_fr, &u_r, nf, nr);
     for i in 0..nf { f_f[i] -= k_fr_ur[i]; }
 
-    let u_f = {
-        let mut k_work = k_ff.clone();
-        match cholesky_solve(&mut k_work, &f_f, nf) {
+    // Constraint reduction
+    let cs = FreeConstraintSystem::build_3d(&input.solver.constraints, &dof_num, &input.solver.nodes);
+    let (k_solve, f_solve, ns) = if let Some(ref cs) = cs {
+        (cs.reduce_matrix(&k_ff), cs.reduce_vector(&f_f), cs.n_free_indep)
+    } else {
+        (k_ff, f_f.clone(), nf)
+    };
+
+    let u_indep = {
+        let mut k_work = k_solve.clone();
+        match cholesky_solve(&mut k_work, &f_solve, ns) {
             Some(u) => u,
             None => {
-                let mut k_work = k_ff;
-                let mut f_work = f_f.clone();
-                lu_solve(&mut k_work, &mut f_work, nf)
+                let mut k_work = k_solve;
+                let mut f_work = f_solve;
+                lu_solve(&mut k_work, &mut f_work, ns)
                     .ok_or_else(|| "Singular stiffness matrix".to_string())?
             }
         }
+    };
+
+    let u_f = if let Some(ref cs) = cs {
+        cs.expand_solution(&u_indep)
+    } else {
+        u_indep
     };
 
     let mut u_full = vec![0.0; n];
@@ -211,7 +241,9 @@ pub fn solve_winkler_3d(input: &WinklerInput3D) -> Result<AnalysisResults3D, Str
     element_forces.sort_by_key(|ef| ef.element_id);
 
     Ok(AnalysisResults3D {
-        displacements, reactions, element_forces, plate_stresses: vec![], quad_stresses: vec![],
+        displacements, reactions, element_forces,
+        plate_stresses: compute_plate_stresses(&input.solver, &dof_num, &u_full),
+        quad_stresses: compute_quad_stresses(&input.solver, &dof_num, &u_full),
     })
 }
 

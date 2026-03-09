@@ -6,6 +6,7 @@ use super::dof::DofNumbering;
 use super::assembly;
 use super::mass_matrix;
 use super::damping;
+use super::constraints::FreeConstraintSystem;
 
 /// Solve a 2D linear time-history analysis.
 ///
@@ -35,8 +36,17 @@ pub fn solve_time_history_2d(
     let m_ff = extract_submatrix(&m_full, n, &free_idx, &free_idx);
     let f_static = extract_subvec(&asm.f, &free_idx);
 
-    // 4. Compute damping matrix C_ff
-    let c_ff = compute_damping_matrix(&k_ff, &m_ff, nf, input.damping_xi);
+    // 3b. Constraint reduction: reduce K, M to independent DOF space
+    let cs = FreeConstraintSystem::build_2d(&input.solver.constraints, &dof_num, &input.solver.nodes);
+    let ns = cs.as_ref().map_or(nf, |c| c.n_free_indep);
+    let (k_s, m_s) = if let Some(ref cs) = cs {
+        (cs.reduce_matrix(&k_ff), cs.reduce_matrix(&m_ff))
+    } else {
+        (k_ff.clone(), m_ff.clone())
+    };
+
+    // 4. Compute damping matrix in reduced space
+    let c_s = compute_damping_matrix(&k_s, &m_s, ns, input.damping_xi);
 
     // 5. Determine method parameters
     let dt = input.time_step;
@@ -61,23 +71,24 @@ pub fn solve_time_history_2d(
     let dt2 = dt * dt;
     let c1 = 1.0 / (beta * dt2);         // coefficient for M
     let c2 = gamma / (beta * dt);         // coefficient for C
-    let mut k_eff = vec![0.0; nf * nf];
-    for i in 0..nf * nf {
-        k_eff[i] = k_ff[i] + c2 * c_ff[i] + c1 * m_ff[i];
+    let mut k_eff = vec![0.0; ns * ns];
+    for i in 0..ns * ns {
+        k_eff[i] = k_s[i] + c2 * c_s[i] + c1 * m_s[i];
     }
 
     // 7. Factor K_eff once (Cholesky with LU fallback)
-    let factored = factor_effective_stiffness(&k_eff, nf)?;
+    let factored = factor_effective_stiffness(&k_eff, ns)?;
 
-    // 8. Initialize state vectors (all zero at t=0)
-    let mut u = vec![0.0; nf];   // displacement
-    let mut v = vec![0.0; nf];   // velocity
-    let mut a_vec = vec![0.0; nf]; // acceleration
+    // 8. Initialize state vectors in reduced space (all zero at t=0)
+    let mut u = vec![0.0; ns];   // displacement (reduced)
+    let mut v = vec![0.0; ns];   // velocity (reduced)
+    let mut a_vec = vec![0.0; ns]; // acceleration (reduced)
 
     // Compute initial acceleration from M*a0 = F0 - C*v0 - K*u0
-    // Since u0=v0=0, a0 = M^{-1} * F0 (if there's an initial force)
-    let f_0 = compute_force_at_step(input, &dof_num, nf, &m_ff, &f_static, 0, dt);
-    compute_initial_acceleration(&m_ff, &c_ff, &k_ff, &u, &v, &f_0, nf, &mut a_vec);
+    // Force is computed in nf space then reduced
+    let f_0_nf = compute_force_at_step(input, &dof_num, nf, &m_ff, &f_static, 0, dt);
+    let f_0 = if let Some(ref cs) = cs { cs.reduce_vector(&f_0_nf) } else { f_0_nf };
+    compute_initial_acceleration(&m_s, &c_s, &k_s, &u, &v, &f_0, ns, &mut a_vec);
 
     // 9. Prepare history storage -- track all nodes
     let tracked_nodes: Vec<usize> = dof_num.node_order.clone();
@@ -98,63 +109,75 @@ pub fn solve_time_history_2d(
 
     let mut time_steps = Vec::with_capacity(n_out);
 
-    // Record initial state (t=0)
+    // Helper: expand reduced-space vector to nf-space for recording
+    let expand = |v_s: &[f64]| -> Vec<f64> {
+        if let Some(ref cs) = cs { cs.expand_solution(v_s) } else { v_s.to_vec() }
+    };
+
+    // Record initial state (t=0) — expand from ns to nf for recording
     time_steps.push(0.0);
-    record_state(&dof_num, &tracked_nodes, &u, &v, &a_vec, nf, &mut histories);
+    let u_nf = expand(&u);
+    let v_nf = expand(&v);
+    let a_nf = expand(&a_vec);
+    record_state(&dof_num, &tracked_nodes, &u_nf, &v_nf, &a_nf, nf, &mut histories);
 
-    // Track peak displacement for reaction computation
+    // Track peak displacement for reaction computation (in nf space)
     let mut peak_disp_norm = 0.0_f64;
-    let mut u_at_peak = u.clone();
+    let mut u_at_peak = u_nf;
 
-    // Store F_prev for HHT
+    // Store F_prev for HHT (in ns space)
     let mut f_prev = f_0;
 
     // 10. Time stepping loop
     for step in 0..input.n_steps {
         let t_next = (step + 1) as f64 * dt;
 
-        // Compute F_{n+1}
-        let f_next = compute_force_at_step(input, &dof_num, nf, &m_ff, &f_static, step + 1, dt);
+        // Compute F_{n+1} in nf space, then reduce to ns
+        let f_next_nf = compute_force_at_step(input, &dof_num, nf, &m_ff, &f_static, step + 1, dt);
+        let f_next = if let Some(ref cs) = cs { cs.reduce_vector(&f_next_nf) } else { f_next_nf };
 
-        // Compute effective load
+        // Compute effective load (all in ns space)
         let f_eff = compute_effective_load(
-            &f_next, &f_prev, &m_ff, &c_ff, &u, &v, &a_vec, nf,
+            &f_next, &f_prev, &m_s, &c_s, &u, &v, &a_vec, ns,
             beta, gamma, dt, input.alpha,
         );
 
-        // Solve K_eff * u_{n+1} = F_eff
-        let u_new = solve_with_factored(&factored, &f_eff, nf);
+        // Solve K_eff * u_{n+1} = F_eff (ns space)
+        let u_new = solve_with_factored(&factored, &f_eff, ns);
 
-        // Update acceleration: a_{n+1} = 1/(beta*dt^2)*(u_{n+1}-u_n) - 1/(beta*dt)*v_n - (1/(2*beta)-1)*a_n
-        let mut a_new = vec![0.0; nf];
+        // Update acceleration (ns space)
+        let mut a_new = vec![0.0; ns];
         let inv_beta_dt2 = 1.0 / (beta * dt2);
         let inv_beta_dt = 1.0 / (beta * dt);
         let half_beta_m1 = 1.0 / (2.0 * beta) - 1.0;
-        for i in 0..nf {
+        for i in 0..ns {
             a_new[i] = inv_beta_dt2 * (u_new[i] - u[i]) - inv_beta_dt * v[i] - half_beta_m1 * a_vec[i];
         }
 
-        // Update velocity: v_{n+1} = v_n + dt*((1-gamma)*a_n + gamma*a_{n+1})
-        let mut v_new = vec![0.0; nf];
-        for i in 0..nf {
+        // Update velocity (ns space)
+        let mut v_new = vec![0.0; ns];
+        for i in 0..ns {
             v_new[i] = v[i] + dt * ((1.0 - gamma) * a_vec[i] + gamma * a_new[i]);
         }
 
-        // Update state
+        // Update state (ns space)
         u = u_new;
         v = v_new;
         a_vec = a_new;
         f_prev = f_next;
 
-        // Record history
+        // Record history — expand to nf for recording
         time_steps.push(t_next);
-        record_state(&dof_num, &tracked_nodes, &u, &v, &a_vec, nf, &mut histories);
+        let u_nf = expand(&u);
+        let v_nf = expand(&v);
+        let a_nf = expand(&a_vec);
+        record_state(&dof_num, &tracked_nodes, &u_nf, &v_nf, &a_nf, nf, &mut histories);
 
-        // Track peak displacement
-        let disp_norm: f64 = u.iter().map(|x| x * x).sum::<f64>().sqrt();
+        // Track peak displacement (nf space)
+        let disp_norm: f64 = u_nf.iter().map(|x| x * x).sum::<f64>().sqrt();
         if disp_norm > peak_disp_norm {
             peak_disp_norm = disp_norm;
-            u_at_peak = u.clone();
+            u_at_peak = u_nf;
         }
     }
 
@@ -175,7 +198,7 @@ pub fn solve_time_history_2d(
     // Peak displacements: max absolute values over all time steps
     let peak_displacements = build_peak_displacements(&dof_num, &node_histories);
 
-    // Peak reactions: compute at the peak displacement time step
+    // Peak reactions: compute at the peak displacement time step (u_at_peak is nf-space)
     let peak_reactions = compute_reactions_at_state(
         &input.solver, &dof_num, &asm.k, &asm.f, &u_at_peak, nf, n,
     );
@@ -764,8 +787,17 @@ pub fn solve_time_history_3d(
     let m_ff = extract_submatrix(&m_full, n, &free_idx, &free_idx);
     let f_static = extract_subvec(&asm.f, &free_idx);
 
-    // 4. Compute damping matrix C_ff
-    let c_ff = compute_damping_matrix(&k_ff, &m_ff, nf, input.damping_xi);
+    // 3b. Constraint reduction
+    let cs3 = FreeConstraintSystem::build_3d(&input.solver.constraints, &dof_num, &input.solver.nodes);
+    let ns = cs3.as_ref().map_or(nf, |c| c.n_free_indep);
+    let (k_s, m_s) = if let Some(ref cs) = cs3 {
+        (cs.reduce_matrix(&k_ff), cs.reduce_matrix(&m_ff))
+    } else {
+        (k_ff.clone(), m_ff.clone())
+    };
+
+    // 4. Compute damping matrix in reduced space
+    let c_s = compute_damping_matrix(&k_s, &m_s, ns, input.damping_xi);
 
     // 5. Determine method parameters
     let dt = input.time_step;
@@ -785,25 +817,27 @@ pub fn solve_time_history_3d(
         return Err("Newmark beta must be positive".into());
     }
 
-    // 6. Form effective stiffness
+    // 6. Form effective stiffness in reduced space
     let dt2 = dt * dt;
     let c1 = 1.0 / (beta * dt2);
     let c2 = gamma / (beta * dt);
-    let mut k_eff = vec![0.0; nf * nf];
-    for i in 0..nf * nf {
-        k_eff[i] = k_ff[i] + c2 * c_ff[i] + c1 * m_ff[i];
+    let mut k_eff = vec![0.0; ns * ns];
+    for i in 0..ns * ns {
+        k_eff[i] = k_s[i] + c2 * c_s[i] + c1 * m_s[i];
     }
 
     // 7. Factor K_eff once
-    let factored = factor_effective_stiffness(&k_eff, nf)?;
+    let factored = factor_effective_stiffness(&k_eff, ns)?;
 
-    // 8. Initialize state vectors
-    let mut u = vec![0.0; nf];
-    let mut v = vec![0.0; nf];
-    let mut a_vec = vec![0.0; nf];
+    // 8. Initialize state vectors in reduced space
+    let mut u = vec![0.0; ns];
+    let mut v = vec![0.0; ns];
+    let mut a_vec = vec![0.0; ns];
 
-    let f_0 = compute_force_at_step_3d(input, &dof_num, nf, &m_ff, &f_static, 0, dt);
-    compute_initial_acceleration(&m_ff, &c_ff, &k_ff, &u, &v, &f_0, nf, &mut a_vec);
+    // Force computed in nf space, then reduced
+    let f_0_nf = compute_force_at_step_3d(input, &dof_num, nf, &m_ff, &f_static, 0, dt);
+    let f_0 = if let Some(ref cs) = cs3 { cs.reduce_vector(&f_0_nf) } else { f_0_nf };
+    compute_initial_acceleration(&m_s, &c_s, &k_s, &u, &v, &f_0, ns, &mut a_vec);
 
     // 9. Prepare history storage
     let tracked_nodes: Vec<usize> = dof_num.node_order.clone();
@@ -830,37 +864,47 @@ pub fn solve_time_history_3d(
 
     let mut time_steps = Vec::with_capacity(n_out);
 
-    // Record initial state
+    // Helper: expand reduced-space vector to nf-space
+    let expand3 = |v_s: &[f64]| -> Vec<f64> {
+        if let Some(ref cs) = cs3 { cs.expand_solution(v_s) } else { v_s.to_vec() }
+    };
+
+    // Record initial state — expand from ns to nf
     time_steps.push(0.0);
-    record_state_3d(&dof_num, &tracked_nodes, &u, &v, &a_vec, nf, dpn, &mut histories);
+    let u_nf = expand3(&u);
+    let v_nf = expand3(&v);
+    let a_nf = expand3(&a_vec);
+    record_state_3d(&dof_num, &tracked_nodes, &u_nf, &v_nf, &a_nf, nf, dpn, &mut histories);
 
     let mut peak_disp_norm = 0.0_f64;
-    let mut u_at_peak = u.clone();
+    let mut u_at_peak = u_nf;
     let mut f_prev = f_0;
 
     // 10. Time stepping loop
     for step in 0..input.n_steps {
         let t_next = (step + 1) as f64 * dt;
 
-        let f_next = compute_force_at_step_3d(input, &dof_num, nf, &m_ff, &f_static, step + 1, dt);
+        // Force in nf space, then reduce
+        let f_next_nf = compute_force_at_step_3d(input, &dof_num, nf, &m_ff, &f_static, step + 1, dt);
+        let f_next = if let Some(ref cs) = cs3 { cs.reduce_vector(&f_next_nf) } else { f_next_nf };
 
         let f_eff = compute_effective_load(
-            &f_next, &f_prev, &m_ff, &c_ff, &u, &v, &a_vec, nf,
+            &f_next, &f_prev, &m_s, &c_s, &u, &v, &a_vec, ns,
             beta, gamma, dt, input.alpha,
         );
 
-        let u_new = solve_with_factored(&factored, &f_eff, nf);
+        let u_new = solve_with_factored(&factored, &f_eff, ns);
 
-        let mut a_new = vec![0.0; nf];
+        let mut a_new = vec![0.0; ns];
         let inv_beta_dt2 = 1.0 / (beta * dt2);
         let inv_beta_dt = 1.0 / (beta * dt);
         let half_beta_m1 = 1.0 / (2.0 * beta) - 1.0;
-        for i in 0..nf {
+        for i in 0..ns {
             a_new[i] = inv_beta_dt2 * (u_new[i] - u[i]) - inv_beta_dt * v[i] - half_beta_m1 * a_vec[i];
         }
 
-        let mut v_new = vec![0.0; nf];
-        for i in 0..nf {
+        let mut v_new = vec![0.0; ns];
+        for i in 0..ns {
             v_new[i] = v[i] + dt * ((1.0 - gamma) * a_vec[i] + gamma * a_new[i]);
         }
 
@@ -869,13 +913,17 @@ pub fn solve_time_history_3d(
         a_vec = a_new;
         f_prev = f_next;
 
+        // Expand and record
         time_steps.push(t_next);
-        record_state_3d(&dof_num, &tracked_nodes, &u, &v, &a_vec, nf, dpn, &mut histories);
+        let u_nf = expand3(&u);
+        let v_nf = expand3(&v);
+        let a_nf = expand3(&a_vec);
+        record_state_3d(&dof_num, &tracked_nodes, &u_nf, &v_nf, &a_nf, nf, dpn, &mut histories);
 
-        let disp_norm: f64 = u.iter().map(|x| x * x).sum::<f64>().sqrt();
+        let disp_norm: f64 = u_nf.iter().map(|x| x * x).sum::<f64>().sqrt();
         if disp_norm > peak_disp_norm {
             peak_disp_norm = disp_norm;
-            u_at_peak = u.clone();
+            u_at_peak = u_nf;
         }
     }
 
@@ -892,6 +940,7 @@ pub fn solve_time_history_3d(
 
     let peak_displacements = build_peak_displacements_3d(&node_histories);
 
+    // u_at_peak is in nf space
     let peak_reactions = compute_reactions_at_state_3d(
         &input.solver, &dof_num, &asm.k, &asm.f, &u_at_peak, nf, n,
     );

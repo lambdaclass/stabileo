@@ -1023,6 +1023,10 @@ fn bench_contact(c: &mut Criterion) {
             tolerance: Some(1e-6),
             augmented_lagrangian: None,
             max_flips: None,
+            damping_coefficient: None,
+            al_max_iter: None,
+            contact_type: contact::ContactType::default(),
+            node_to_surface_pairs: vec![],
         };
         let label = format!("{}s_{}b", stories, bays);
         group.bench_with_input(BenchmarkId::new("solve", &label), &input, |b, input| {
@@ -1134,6 +1138,7 @@ fn bench_staged(c: &mut Criterion) {
                     prestress_loads: vec![],
                 },
             ],
+            constraints: vec![],
         };
         group.bench_with_input(BenchmarkId::from_parameter(n), &input, |b, input| {
             b.iter(|| staged::solve_staged_2d(input).unwrap());

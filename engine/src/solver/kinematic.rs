@@ -2,6 +2,7 @@ use crate::types::*;
 use crate::linalg::*;
 use super::dof::DofNumbering;
 use super::assembly::*;
+use super::constraints::FreeConstraintSystem;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
@@ -144,15 +145,31 @@ pub fn analyze_kinematics_2d(input: &SolverInput) -> KinematicResult {
     let free_idx: Vec<usize> = (0..nf).collect();
     let k_ff = extract_submatrix(&asm.k, n, &free_idx, &free_idx);
 
-    // LU rank analysis
+    // Apply constraint reduction if constraints present
+    let cs = FreeConstraintSystem::build_2d(&input.constraints, &dof_num, &input.nodes);
+    let ns = cs.as_ref().map_or(nf, |c| c.n_free_indep);
+    let k_s = if let Some(ref cs) = cs {
+        cs.reduce_matrix(&k_ff)
+    } else {
+        k_ff
+    };
+
+    // LU rank analysis (on reduced system if constraints present)
     let tol = {
         let mut max_diag = 0.0f64;
-        for i in 0..nf {
-            max_diag = max_diag.max(k_ff[i * nf + i].abs());
+        for i in 0..ns {
+            max_diag = max_diag.max(k_s[i * ns + i].abs());
         }
         (1e-10f64).max(max_diag * 1e-10)
     };
-    let (_rank, zero_pivot_dofs) = lu_rank(&k_ff, nf, tol);
+    let (_rank, zero_pivot_dofs_reduced) = lu_rank(&k_s, ns, tol);
+
+    // Map zero-pivot DOFs back to physical free DOFs
+    let zero_pivot_dofs = if let Some(ref cs) = cs {
+        map_reduced_dofs_to_physical(&zero_pivot_dofs_reduced, cs)
+    } else {
+        zero_pivot_dofs_reduced
+    };
 
     // Filter expected zero-stiffness DOFs at valid pin joints
     let mut expected_zero = std::collections::HashSet::new();
@@ -373,14 +390,30 @@ pub fn analyze_kinematics_3d(input: &SolverInput3D) -> KinematicResult {
     let free_idx: Vec<usize> = (0..nf).collect();
     let k_ff = extract_submatrix(&asm.k, n, &free_idx, &free_idx);
 
+    // Apply constraint reduction if constraints present
+    let cs = FreeConstraintSystem::build_3d(&input.constraints, &dof_num, &input.nodes);
+    let ns = cs.as_ref().map_or(nf, |c| c.n_free_indep);
+    let k_s = if let Some(ref cs) = cs {
+        cs.reduce_matrix(&k_ff)
+    } else {
+        k_ff
+    };
+
     let tol = {
         let mut max_diag = 0.0f64;
-        for i in 0..nf {
-            max_diag = max_diag.max(k_ff[i * nf + i].abs());
+        for i in 0..ns {
+            max_diag = max_diag.max(k_s[i * ns + i].abs());
         }
         (1e-10f64).max(max_diag * 1e-10)
     };
-    let (_rank, zero_pivot_dofs) = lu_rank(&k_ff, nf, tol);
+    let (_rank, zero_pivot_dofs_reduced) = lu_rank(&k_s, ns, tol);
+
+    // Map zero-pivot DOFs back to physical free DOFs
+    let zero_pivot_dofs = if let Some(ref cs) = cs {
+        map_reduced_dofs_to_physical(&zero_pivot_dofs_reduced, cs)
+    } else {
+        zero_pivot_dofs_reduced
+    };
 
     // Filter expected zero-stiffness DOFs
     let mut expected_zero = std::collections::HashSet::new();
@@ -496,6 +529,16 @@ pub fn analyze_kinematics_3d(input: &SolverInput3D) -> KinematicResult {
         diagnosis,
         is_solvable,
     }
+}
+
+// ==================== Helpers ====================
+
+/// Map reduced-space zero-pivot DOF indices back to physical free DOF indices.
+fn map_reduced_dofs_to_physical(reduced_dofs: &[usize], cs: &FreeConstraintSystem) -> Vec<usize> {
+    let rmap = cs.map_reduced_to_physical();
+    reduced_dofs.iter()
+        .filter_map(|&rd| rmap.get(rd).copied())
+        .collect()
 }
 
 // ==================== Diagnosis Builder ====================

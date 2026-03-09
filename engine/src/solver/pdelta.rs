@@ -3,7 +3,8 @@ use crate::linalg::*;
 use super::dof::DofNumbering;
 use super::assembly::*;
 use super::linear::{build_displacements_2d, compute_internal_forces_2d,
-    build_displacements_3d, compute_internal_forces_3d};
+    build_displacements_3d, compute_internal_forces_3d,
+    compute_plate_stresses, compute_quad_stresses};
 use super::constraints::FreeConstraintSystem;
 
 /// Free DOFs threshold for sparse path in P-Delta iterations.
@@ -393,7 +394,7 @@ pub fn solve_pdelta_3d(
     let reactions = compute_reactions_from_u_3d(input, &dof_num, &asm, &u_current);
 
     Ok(PDeltaResult3D {
-        results: AnalysisResults3D { displacements, reactions, element_forces, plate_stresses: vec![], quad_stresses: vec![] },
+        results: AnalysisResults3D { displacements, reactions, element_forces, plate_stresses: compute_plate_stresses(input, &dof_num, &u_current), quad_stresses: compute_quad_stresses(input, &dof_num, &u_current) },
         iterations,
         converged,
         is_stable: converged && max_ratio < 100.0,

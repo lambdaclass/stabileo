@@ -234,6 +234,78 @@ pub fn build_constraint_transform(
                 }
             }
 
+            Constraint::EccentricConnection(ec) => {
+                // Like RigidLink but with explicit offset and optional releases
+                let (dx, dy, dz) = (ec.offset_x, ec.offset_y, ec.offset_z);
+                let dpn = dof_num.dofs_per_node;
+
+                let all_dofs: Vec<usize> = (0..dpn.min(if dpn <= 3 { 3 } else { 6 })).collect();
+                for &dof in &all_dofs {
+                    // Check if this DOF is released
+                    let released = ec.releases.get(dof).copied().unwrap_or(false);
+                    if released { continue; }
+
+                    if let Some(&slave_global) = dof_num.map.get(&(ec.slave_node, dof)) {
+                        let mut terms = Vec::new();
+
+                        if dpn <= 3 {
+                            // 2D eccentric connection
+                            if let Some(&master_dof) = dof_num.map.get(&(ec.master_node, dof)) {
+                                terms.push((master_dof, 1.0));
+                            }
+                            if dof == 0 {
+                                if let Some(&rz) = dof_num.map.get(&(ec.master_node, 2)) {
+                                    if dy.abs() > 1e-15 { terms.push((rz, -dy)); }
+                                }
+                            } else if dof == 1 {
+                                if let Some(&rz) = dof_num.map.get(&(ec.master_node, 2)) {
+                                    if dx.abs() > 1e-15 { terms.push((rz, dx)); }
+                                }
+                            }
+                        } else {
+                            // 3D eccentric connection
+                            if let Some(&master_dof) = dof_num.map.get(&(ec.master_node, dof)) {
+                                terms.push((master_dof, 1.0));
+                            }
+                            match dof {
+                                0 => {
+                                    if let Some(&ry) = dof_num.map.get(&(ec.master_node, 4)) {
+                                        if dz.abs() > 1e-15 { terms.push((ry, -dz)); }
+                                    }
+                                    if let Some(&rz) = dof_num.map.get(&(ec.master_node, 5)) {
+                                        if dy.abs() > 1e-15 { terms.push((rz, dy)); }
+                                    }
+                                }
+                                1 => {
+                                    if let Some(&rx) = dof_num.map.get(&(ec.master_node, 3)) {
+                                        if dz.abs() > 1e-15 { terms.push((rx, dz)); }
+                                    }
+                                    if let Some(&rz) = dof_num.map.get(&(ec.master_node, 5)) {
+                                        if dx.abs() > 1e-15 { terms.push((rz, -dx)); }
+                                    }
+                                }
+                                2 => {
+                                    if let Some(&rx) = dof_num.map.get(&(ec.master_node, 3)) {
+                                        if dy.abs() > 1e-15 { terms.push((rx, -dy)); }
+                                    }
+                                    if let Some(&ry) = dof_num.map.get(&(ec.master_node, 4)) {
+                                        if dx.abs() > 1e-15 { terms.push((ry, dx)); }
+                                    }
+                                }
+                                3 | 4 | 5 => {
+                                    // Rotational DOFs: slave rotation = master rotation
+                                }
+                                _ => {}
+                            }
+                        }
+
+                        if !terms.is_empty() {
+                            dep_equations.insert(slave_global, terms);
+                        }
+                    }
+                }
+            }
+
             Constraint::LinearMPC(mpc) => {
                 // General MPC: Σ(coeff_i × u_i) = 0
                 // First term with largest coefficient becomes dependent
@@ -281,16 +353,35 @@ pub fn build_constraint_transform(
         c[d * n_indep + i] = 1.0;
     }
 
-    // Dependent DOFs: C[dep_dof, :] = Σ(coeff * C[master_dof, :])
-    // Since masters are independent, C[master_dof, indep_idx_of_master] = 1
-    for (&dep_dof, terms) in &dep_equations {
-        for &(master_dof, coeff) in terms {
-            if let Some(&indep_idx) = indep_map.get(&master_dof) {
-                c[dep_dof * n_indep + indep_idx] += coeff;
+    // Resolve chained dependencies (master-of-master) via multi-pass substitution.
+    //
+    // For each dependent DOF: C[dep, :] = Σ(coeff_k * C[master_k, :])
+    // If a master is independent, its C row is a unit vector (already set).
+    // If a master is also dependent, we substitute its C row transitively.
+    //
+    // Process: rebuild each dependent row from scratch each pass, using current C rows
+    // of its masters. Iterate until stable (max 10 passes).
+    for _pass in 0..10 {
+        let mut max_change = 0.0f64;
+
+        for (&dep_dof, terms) in &dep_equations {
+            // Recompute row from scratch: C[dep, :] = Σ(coeff * C[master, :])
+            let mut new_row = vec![0.0; n_indep];
+            for &(master_dof, coeff) in terms {
+                for j in 0..n_indep {
+                    new_row[j] += coeff * c[master_dof * n_indep + j];
+                }
             }
-            // If master is also dependent, we'd need recursive resolution.
-            // For now, assume no chained dependencies (master of master).
+
+            // Check convergence
+            for j in 0..n_indep {
+                let diff = (new_row[j] - c[dep_dof * n_indep + j]).abs();
+                if diff > max_change { max_change = diff; }
+                c[dep_dof * n_indep + j] = new_row[j];
+            }
         }
+
+        if max_change < 1e-14 { break; }
     }
 
     ConstraintTransform {
@@ -647,6 +738,85 @@ impl FreeConstraintSystem {
     /// Expand solution: u_f = C_ff * u_indep
     pub fn expand_solution(&self, u_indep: &[f64]) -> Vec<f64> {
         c_times_u(&self.c_ff, u_indep, self.nf, self.n_free_indep)
+    }
+
+    /// Map reduced-space DOF indices back to physical free DOF indices.
+    ///
+    /// For each column `j` of C_ff, find which physical DOF `i` has C_ff[i,j]=1
+    /// (i.e., which physical DOF is the j-th independent DOF).
+    pub fn map_reduced_to_physical(&self) -> Vec<usize> {
+        let mut map = vec![0usize; self.n_free_indep];
+        for j in 0..self.n_free_indep {
+            for i in 0..self.nf {
+                if (self.c_ff[i * self.n_free_indep + j] - 1.0).abs() < 1e-14 {
+                    // Verify it's an identity row
+                    let others_zero = (0..self.n_free_indep)
+                        .filter(|&k| k != j)
+                        .all(|k| self.c_ff[i * self.n_free_indep + k].abs() < 1e-14);
+                    if others_zero {
+                        map[j] = i;
+                        break;
+                    }
+                }
+            }
+        }
+        map
+    }
+
+    /// Map a free DOF index to its position in the reduced (independent) space.
+    /// Returns None if the DOF is dependent (constrained away).
+    ///
+    /// An independent DOF at position `i` in the unreduced system maps to
+    /// column `j` in C_ff where C_ff[i, j] == 1. We find this by scanning row i.
+    pub fn map_dof_to_reduced(&self, free_dof: usize) -> Option<usize> {
+        if free_dof >= self.nf { return None; }
+        let row_start = free_dof * self.n_free_indep;
+        // An independent DOF has exactly one 1.0 in its row
+        for j in 0..self.n_free_indep {
+            if (self.c_ff[row_start + j] - 1.0).abs() < 1e-14 {
+                // Check this is the only nonzero in the row (independent DOF pattern)
+                let others_zero = (0..self.n_free_indep)
+                    .filter(|&k| k != j)
+                    .all(|k| self.c_ff[row_start + k].abs() < 1e-14);
+                if others_zero {
+                    return Some(j);
+                }
+            }
+        }
+        None // DOF is dependent
+    }
+
+    /// Compute constraint forces at dependent (constrained) DOFs.
+    ///
+    /// Constraint force = K_ff * u_f - F_f at dependent DOFs.
+    /// These are the forces required to enforce the constraints.
+    pub fn compute_constraint_forces(
+        &self,
+        k_ff: &[f64],
+        u_f: &[f64],
+        f_f: &[f64],
+    ) -> Vec<(usize, f64)> {
+        // Residual = K_ff * u_f - F_f
+        let mut residual = vec![0.0; self.nf];
+        for i in 0..self.nf {
+            let mut ku = 0.0;
+            for j in 0..self.nf {
+                ku += k_ff[i * self.nf + j] * u_f[j];
+            }
+            residual[i] = ku - f_f[i];
+        }
+
+        // Identify dependent DOFs (those not in the identity pattern of C_ff)
+        let mut forces = Vec::new();
+        for i in 0..self.nf {
+            // Check if this is a dependent DOF (not a unit row in C_ff)
+            if self.map_dof_to_reduced(i).is_none() {
+                if residual[i].abs() > 1e-15 {
+                    forces.push((i, residual[i]));
+                }
+            }
+        }
+        forces
     }
 }
 

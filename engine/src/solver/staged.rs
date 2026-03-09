@@ -18,6 +18,7 @@ use super::linear::{
     compute_plate_stresses,
 };
 use super::prestress::prestress_fef_2d;
+use super::constraints::FreeConstraintSystem;
 use crate::element::cable::cable_self_weight;
 
 /// Solve a 2D staged construction analysis.
@@ -45,6 +46,10 @@ pub fn solve_staged_2d(input: &StagedInput) -> Result<StagedAnalysisResults, Str
     let n = dof_num.n_total;
     let nf = dof_num.n_free;
     let nr = n - nf;
+
+    // Build constraint system once (shared across all stages)
+    let cs = FreeConstraintSystem::build_2d(&input.constraints, &dof_num, &input.nodes);
+    let ns = cs.as_ref().map_or(nf, |c| c.n_free_indep);
 
     // Track cumulative state
     let mut cumulative_u = vec![0.0; n];
@@ -128,21 +133,35 @@ pub fn solve_staged_2d(input: &StagedInput) -> Result<StagedAnalysisResults, Str
             continue;
         }
 
-        // Solve for incremental displacements
-        let u_f_inc = {
-            let mut k_work = k_ff.clone();
-            match cholesky_solve(&mut k_work, &f_f, nf) {
+        // Reduce with constraint system if present
+        let (k_s, f_s) = if let Some(ref cs) = cs {
+            (cs.reduce_matrix(&k_ff), cs.reduce_vector(&f_f))
+        } else {
+            (k_ff, f_f)
+        };
+
+        // Solve for incremental displacements in (possibly reduced) space
+        let u_s_inc = {
+            let mut k_work = k_s.clone();
+            match cholesky_solve(&mut k_work, &f_s, ns) {
                 Some(u) => u,
                 None => {
-                    let mut k_work = k_ff;
-                    let mut f_work = f_f.clone();
-                    lu_solve(&mut k_work, &mut f_work, nf)
+                    let mut k_work = k_s;
+                    let mut f_work = f_s.clone();
+                    lu_solve(&mut k_work, &mut f_work, ns)
                         .ok_or_else(|| format!(
                             "Singular stiffness at stage '{}' — structure is a mechanism",
                             stage.name
                         ))?
                 }
             }
+        };
+
+        // Expand back to full free DOFs
+        let u_f_inc = if let Some(ref cs) = cs {
+            cs.expand_solution(&u_s_inc)
+        } else {
+            u_s_inc
         };
 
         // Accumulate displacements
@@ -200,7 +219,7 @@ fn staged_to_full_solver_input(input: &StagedInput) -> SolverInput {
         elements: input.elements.clone(),
         supports: input.supports.clone(),
         loads: input.loads.clone(),
-        constraints: vec![],
+        constraints: input.constraints.clone(),
     }
 }
 
@@ -232,7 +251,7 @@ fn build_stage_solver_input(
         elements,
         supports,
         loads,
-        constraints: vec![],
+        constraints: input.constraints.clone(),
     }
 }
 
@@ -724,6 +743,10 @@ pub fn solve_staged_3d(input: &StagedInput3D) -> Result<StagedAnalysisResults3D,
     let nf = dof_num.n_free;
     let nr = n - nf;
 
+    // Build constraint system once (shared across all stages)
+    let cs = FreeConstraintSystem::build_3d(&input.constraints, &dof_num, &input.nodes);
+    let ns = cs.as_ref().map_or(nf, |c| c.n_free_indep);
+
     // Track cumulative state
     let mut cumulative_u = vec![0.0; n];
     let mut active_elements: HashSet<usize> = HashSet::new();
@@ -799,21 +822,35 @@ pub fn solve_staged_3d(input: &StagedInput3D) -> Result<StagedAnalysisResults3D,
             continue;
         }
 
-        // Solve for incremental displacements
-        let u_f_inc = {
-            let mut k_work = k_ff.clone();
-            match cholesky_solve(&mut k_work, &f_f, nf) {
+        // Reduce with constraint system if present
+        let (k_s, f_s) = if let Some(ref cs) = cs {
+            (cs.reduce_matrix(&k_ff), cs.reduce_vector(&f_f))
+        } else {
+            (k_ff, f_f)
+        };
+
+        // Solve for incremental displacements in (possibly reduced) space
+        let u_s_inc = {
+            let mut k_work = k_s.clone();
+            match cholesky_solve(&mut k_work, &f_s, ns) {
                 Some(u) => u,
                 None => {
-                    let mut k_work = k_ff;
-                    let mut f_work = f_f.clone();
-                    lu_solve(&mut k_work, &mut f_work, nf)
+                    let mut k_work = k_s;
+                    let mut f_work = f_s.clone();
+                    lu_solve(&mut k_work, &mut f_work, ns)
                         .ok_or_else(|| format!(
                             "Singular stiffness at stage '{}' — structure is a mechanism",
                             stage.name
                         ))?
                 }
             }
+        };
+
+        // Expand back to full free DOFs
+        let u_f_inc = if let Some(ref cs) = cs {
+            cs.expand_solution(&u_s_inc)
+        } else {
+            u_s_inc
         };
 
         // Accumulate displacements
@@ -859,7 +896,7 @@ fn staged_to_full_solver_input_3d(input: &StagedInput3D) -> SolverInput3D {
         elements: input.elements.clone(),
         supports: input.supports.clone(),
         loads: input.loads.clone(),
-        constraints: vec![],
+        constraints: input.constraints.clone(),
         left_hand: None,
         plates: HashMap::new(),
         quads: HashMap::new(),
@@ -895,7 +932,7 @@ fn build_stage_solver_input_3d(
         elements,
         supports,
         loads,
-        constraints: vec![],
+        constraints: input.constraints.clone(),
         left_hand: None,
         plates: HashMap::new(),
         quads: HashMap::new(),

@@ -545,8 +545,8 @@ pub fn solve_cable_3d(
         displacements,
         reactions,
         element_forces,
-        plate_stresses: Vec::new(),
-        quad_stresses: vec![],
+        plate_stresses: linear::compute_plate_stresses(input, &dof_num, &u_full),
+        quad_stresses: linear::compute_quad_stresses(input, &dof_num, &u_full),
     };
 
     let cable_forces = cables.iter().map(|ci| {

@@ -71,6 +71,15 @@ pub struct AnalysisResults {
     pub element_forces: Vec<ElementForces>,
 }
 
+/// Forces at constrained DOFs due to constraint enforcement.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ConstraintForce {
+    pub node_id: usize,
+    pub dof: String,
+    pub force: f64,
+}
+
 // ==================== 3D Output Types ====================
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

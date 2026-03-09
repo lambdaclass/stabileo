@@ -926,6 +926,8 @@ pub struct StagedInput {
     pub supports: HashMap<String, SolverSupport>,
     pub loads: Vec<SolverLoad>,
     pub stages: Vec<ConstructionStage>,
+    #[serde(default)]
+    pub constraints: Vec<Constraint>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -938,6 +940,8 @@ pub struct StagedInput3D {
     pub supports: HashMap<String, SolverSupport3D>,
     pub loads: Vec<SolverLoad3D>,
     pub stages: Vec<ConstructionStage3D>,
+    #[serde(default)]
+    pub constraints: Vec<Constraint>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -1006,6 +1010,9 @@ pub enum Constraint {
     /// Equal DOF: slave DOFs equal master DOFs.
     #[serde(rename = "equalDOF")]
     EqualDOF(EqualDOFConstraint),
+    /// Eccentric connection: rigid link with explicit offset and optional releases.
+    #[serde(rename = "eccentricConnection")]
+    EccentricConnection(EccentricConnectionConstraint),
 }
 
 /// Rigid link: slave node follows master node with rigid-body offset.
@@ -1054,4 +1061,57 @@ pub struct EqualDOFConstraint {
     pub master_node: usize,
     pub slave_node: usize,
     pub dofs: Vec<usize>,
+}
+
+/// Connector element: spring/dashpot between two nodes.
+///
+/// Provides point-to-point stiffness (and damping) in specified directions.
+/// Useful for bearings, isolators, soil springs, joints, etc.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ConnectorElement {
+    pub id: usize,
+    pub node_i: usize,
+    pub node_j: usize,
+    /// Axial stiffness (along connector axis)
+    #[serde(default)]
+    pub k_axial: f64,
+    /// Shear stiffness (2D: perpendicular in-plane; 3D: local Y)
+    #[serde(default)]
+    pub k_shear: f64,
+    /// Rotational stiffness (2D: about Z; 3D: torsional about X)
+    #[serde(default)]
+    pub k_moment: f64,
+    /// 3D only: shear stiffness in local Z direction
+    #[serde(default)]
+    pub k_shear_z: f64,
+    /// 3D only: bending stiffness about local Y
+    #[serde(default)]
+    pub k_bend_y: f64,
+    /// 3D only: bending stiffness about local Z
+    #[serde(default)]
+    pub k_bend_z: f64,
+}
+
+/// Eccentric connection: rigid link with explicit offset vector and optional releases.
+///
+/// Unlike RigidLink (which computes offset from node positions), this allows specifying
+/// the eccentricity explicitly. Releases allow hinges at the connection point.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct EccentricConnectionConstraint {
+    pub master_node: usize,
+    pub slave_node: usize,
+    /// Offset from master to connection point: (dx, dy) in 2D, (dx, dy, dz) in 3D.
+    #[serde(default)]
+    pub offset_x: f64,
+    #[serde(default)]
+    pub offset_y: f64,
+    #[serde(default)]
+    pub offset_z: f64,
+    /// DOF releases at the connection (true = released/hinged).
+    /// For 2D: [ux, uy, rz]. For 3D: [ux, uy, uz, rx, ry, rz].
+    /// Released DOFs are NOT constrained (slave is free in that DOF).
+    #[serde(default)]
+    pub releases: Vec<bool>,
 }

@@ -18,6 +18,7 @@ use super::dof::DofNumbering;
 use super::assembly;
 use super::linear;
 use super::soil_curves::{SoilCurve, evaluate_soil_curve};
+use super::constraints::FreeConstraintSystem;
 
 /// Soil spring attached to a node along a pile.
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -112,6 +113,10 @@ pub fn solve_ssi_2d(input: &SSIInput) -> Result<SSIResult, String> {
         })
         .collect();
 
+    // Constraint system (built once before iteration)
+    let cs = FreeConstraintSystem::build_2d(&input.solver.constraints, &dof_num, &input.solver.nodes);
+    let ns = cs.as_ref().map_or(nf, |c| c.n_free_indep);
+
     let mut u_full = vec![0.0; n];
     let mut converged = false;
     let mut total_iters = 0;
@@ -135,17 +140,29 @@ pub fn solve_ssi_2d(input: &SSIInput) -> Result<SSIResult, String> {
         let k_ff = extract_submatrix(&k_global, n, &free_idx, &free_idx);
         let f_f: Vec<f64> = f_global[..nf].to_vec();
 
-        let u_f = {
-            let mut k_work = k_ff.clone();
-            match cholesky_solve(&mut k_work, &f_f, nf) {
+        let (k_s, f_s) = if let Some(ref cs) = cs {
+            (cs.reduce_matrix(&k_ff), cs.reduce_vector(&f_f))
+        } else {
+            (k_ff, f_f)
+        };
+
+        let u_indep = {
+            let mut k_work = k_s.clone();
+            match cholesky_solve(&mut k_work, &f_s, ns) {
                 Some(u) => u,
                 None => {
-                    let mut k_work = k_ff;
-                    let mut f_work = f_f;
-                    lu_solve(&mut k_work, &mut f_work, nf)
+                    let mut k_work = k_s;
+                    let mut f_work = f_s;
+                    lu_solve(&mut k_work, &mut f_work, ns)
                         .ok_or("Singular stiffness in SSI iteration")?
                 }
             }
+        };
+
+        let u_f = if let Some(ref cs) = cs {
+            cs.expand_solution(&u_indep)
+        } else {
+            u_indep
         };
 
         for i in 0..nf { u_full[i] = u_f[i]; }
@@ -221,6 +238,10 @@ pub fn solve_ssi_3d(input: &SSIInput3D) -> Result<SSIResult3D, String> {
 
     let base_asm = assembly::assemble_3d(&input.solver, &dof_num);
 
+    // Constraint system (built once before iteration)
+    let cs = FreeConstraintSystem::build_3d(&input.solver.constraints, &dof_num, &input.solver.nodes);
+    let ns = cs.as_ref().map_or(nf, |c| c.n_free_indep);
+
     let mut spring_k: Vec<f64> = input.soil_springs.iter()
         .map(|s| {
             let (_, k0) = evaluate_soil_curve(&s.curve, 1e-8);
@@ -249,17 +270,29 @@ pub fn solve_ssi_3d(input: &SSIInput3D) -> Result<SSIResult3D, String> {
         let k_ff = extract_submatrix(&k_global, n, &free_idx, &free_idx);
         let f_f: Vec<f64> = f_global[..nf].to_vec();
 
-        let u_f = {
-            let mut k_work = k_ff.clone();
-            match cholesky_solve(&mut k_work, &f_f, nf) {
+        let (k_s, f_s) = if let Some(ref cs) = cs {
+            (cs.reduce_matrix(&k_ff), cs.reduce_vector(&f_f))
+        } else {
+            (k_ff, f_f)
+        };
+
+        let u_indep = {
+            let mut k_work = k_s.clone();
+            match cholesky_solve(&mut k_work, &f_s, ns) {
                 Some(u) => u,
                 None => {
-                    let mut k_work = k_ff;
-                    let mut f_work = f_f;
-                    lu_solve(&mut k_work, &mut f_work, nf)
+                    let mut k_work = k_s;
+                    let mut f_work = f_s;
+                    lu_solve(&mut k_work, &mut f_work, ns)
                         .ok_or("Singular stiffness in 3D SSI iteration")?
                 }
             }
+        };
+
+        let u_f = if let Some(ref cs) = cs {
+            cs.expand_solution(&u_indep)
+        } else {
+            u_indep
         };
 
         for i in 0..nf { u_full[i] = u_f[i]; }
@@ -314,8 +347,8 @@ pub fn solve_ssi_3d(input: &SSIInput3D) -> Result<SSIResult3D, String> {
             displacements,
             reactions: vec![],
             element_forces,
-            plate_stresses: vec![],
-            quad_stresses: vec![],
+            plate_stresses: linear::compute_plate_stresses(&input.solver, &dof_num, &u_full),
+            quad_stresses: linear::compute_quad_stresses(&input.solver, &dof_num, &u_full),
         },
         iterations: total_iters,
         converged,

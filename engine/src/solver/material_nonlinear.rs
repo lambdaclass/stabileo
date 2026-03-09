@@ -3,6 +3,7 @@ use crate::linalg::*;
 use crate::element::*;
 use super::dof::DofNumbering;
 use super::assembly;
+use super::linear::{compute_plate_stresses, compute_quad_stresses};
 use super::constraints::FreeConstraintSystem;
 
 /// Free DOFs threshold: use sparse solver when n_free >= this.
@@ -911,8 +912,8 @@ pub fn solve_nonlinear_material_3d(
             displacements,
             reactions,
             element_forces,
-            plate_stresses: Vec::new(),
-            quad_stresses: vec![],
+            plate_stresses: compute_plate_stresses(solver, &dof_num, &u_full),
+            quad_stresses: compute_quad_stresses(solver, &dof_num, &u_full),
         },
         converged: converged_global,
         iterations: total_nr_iterations,

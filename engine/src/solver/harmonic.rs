@@ -6,6 +6,7 @@ use super::dof::DofNumbering;
 use super::assembly::*;
 use super::mass_matrix::*;
 use super::damping::*;
+use super::constraints::FreeConstraintSystem;
 
 // ==================== Types ====================
 
@@ -89,9 +90,27 @@ pub fn solve_harmonic_2d(input: &HarmonicInput) -> Result<HarmonicResult, String
     let m_ff = extract_submatrix(&m_full, n, &free_idx, &free_idx);
     let f_ff: Vec<f64> = asm.f[..nf].to_vec();
 
+    // Apply constraint reduction if constraints present
+    let cs = FreeConstraintSystem::build_2d(&input.solver.constraints, &dof_num, &input.solver.nodes);
+    let ns = cs.as_ref().map_or(nf, |c| c.n_free_indep);
+
+    let (k_s, m_s, f_s) = if let Some(ref cs) = cs {
+        (cs.reduce_matrix(&k_ff), cs.reduce_matrix(&m_ff), cs.reduce_vector(&f_ff))
+    } else {
+        (k_ff, m_ff, f_ff)
+    };
+
+    // Map target_dof to reduced space
+    let _target_s = if let Some(ref cs) = cs {
+        cs.map_dof_to_reduced(target_dof)
+            .ok_or("Target DOF is dependent (constrained)")?
+    } else {
+        target_dof
+    };
+
     // Compute Rayleigh damping from first two natural frequencies (approximate)
-    let (a0, a1) = compute_rayleigh_from_stiffness_mass(&k_ff, &m_ff, nf, input.damping_ratio);
-    let c_ff = rayleigh_damping_matrix(&m_ff, &k_ff, nf, a0, a1);
+    let (a0, a1) = compute_rayleigh_from_stiffness_mass(&k_s, &m_s, ns, input.damping_ratio);
+    let c_s = rayleigh_damping_matrix(&m_s, &k_s, ns, a0, a1);
 
     // Sweep frequencies
     let mut response_points = Vec::new();
@@ -100,7 +119,14 @@ pub fn solve_harmonic_2d(input: &HarmonicInput) -> Result<HarmonicResult, String
 
     for &freq in &input.frequencies {
         let omega = 2.0 * std::f64::consts::PI * freq;
-        let (u_real, u_imag) = solve_complex_system(&k_ff, &m_ff, &c_ff, &f_ff, nf, omega)?;
+        let (u_real_s, u_imag_s) = solve_complex_system(&k_s, &m_s, &c_s, &f_s, ns, omega)?;
+
+        // Expand to full free DOFs if constrained
+        let (u_real, u_imag) = if let Some(ref cs) = cs {
+            (cs.expand_solution(&u_real_s), cs.expand_solution(&u_imag_s))
+        } else {
+            (u_real_s, u_imag_s)
+        };
 
         let re = u_real[target_dof];
         let im = u_imag[target_dof];
@@ -153,8 +179,26 @@ pub fn solve_harmonic_3d(input: &HarmonicInput3D) -> Result<HarmonicResult, Stri
     let m_ff = extract_submatrix(&m_full, n, &free_idx, &free_idx);
     let f_ff: Vec<f64> = asm.f[..nf].to_vec();
 
-    let (a0, a1) = compute_rayleigh_from_stiffness_mass(&k_ff, &m_ff, nf, input.damping_ratio);
-    let c_ff = rayleigh_damping_matrix(&m_ff, &k_ff, nf, a0, a1);
+    // Apply constraint reduction if constraints present
+    let cs = FreeConstraintSystem::build_3d(&input.solver.constraints, &dof_num, &input.solver.nodes);
+    let ns = cs.as_ref().map_or(nf, |c| c.n_free_indep);
+
+    let (k_s, m_s, f_s) = if let Some(ref cs) = cs {
+        (cs.reduce_matrix(&k_ff), cs.reduce_matrix(&m_ff), cs.reduce_vector(&f_ff))
+    } else {
+        (k_ff, m_ff, f_ff)
+    };
+
+    // Map target_dof to reduced space
+    let _target_s = if let Some(ref cs) = cs {
+        cs.map_dof_to_reduced(target_dof)
+            .ok_or("Target DOF is dependent (constrained)")?
+    } else {
+        target_dof
+    };
+
+    let (a0, a1) = compute_rayleigh_from_stiffness_mass(&k_s, &m_s, ns, input.damping_ratio);
+    let c_s = rayleigh_damping_matrix(&m_s, &k_s, ns, a0, a1);
 
     let mut response_points = Vec::new();
     let mut peak_freq: f64 = 0.0;
@@ -162,7 +206,14 @@ pub fn solve_harmonic_3d(input: &HarmonicInput3D) -> Result<HarmonicResult, Stri
 
     for &freq in &input.frequencies {
         let omega = 2.0 * std::f64::consts::PI * freq;
-        let (u_real, u_imag) = solve_complex_system(&k_ff, &m_ff, &c_ff, &f_ff, nf, omega)?;
+        let (u_real_s, u_imag_s) = solve_complex_system(&k_s, &m_s, &c_s, &f_s, ns, omega)?;
+
+        // Expand to full free DOFs if constrained
+        let (u_real, u_imag) = if let Some(ref cs) = cs {
+            (cs.expand_solution(&u_real_s), cs.expand_solution(&u_imag_s))
+        } else {
+            (u_real_s, u_imag_s)
+        };
 
         let re = u_real[target_dof];
         let im = u_imag[target_dof];
