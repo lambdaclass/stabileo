@@ -32,6 +32,7 @@ This document should stay focused on the engine surface, analysis families, and 
 - **Nonlinear SSI** (2D & 3D): `p-y`, `t-z`, and `q-z` spring-family soil interaction
 - **Contact / gap** (2D & 3D): unilateral support/contact behavior, uplift, and gap elements
 - **Constraints** (2D & 3D): rigid links, diaphragms, equal-DOF constraints, and general linear MPCs
+- **Connector elements** (2D & 3D): spring connectors, semi-rigid joints, and eccentric connections with constraint force output
 - **Imperfections / residual stress**: initial geometric imperfections and residual-stress-aware nonlinear workflows
 - **Multi-case solve** (2D & 3D): case-by-case analysis, combinations, envelopes
 - **Cable solver** (2D): tension-only cable/catenary-style solve with iterative update
@@ -44,14 +45,25 @@ This document should stay focused on the engine surface, analysis families, and 
 ## Running Tests
 
 ```bash
-cd engine && cargo test              # full suite
-cd engine && cargo test validation_  # validation tests only
-cd engine && cargo test diff_fuzz    # differential fuzz tests (90 tests)
+cd engine && cargo test                # full suite
+cd engine && cargo test --test core    # core solver tests (92 tests)
+cd engine && cargo test --test property # differential fuzz tests (90 tests)
+cd engine && cargo test --test integration # integration tests (185 tests)
+cd engine && cargo test --test validation  # validation tests (5755+ tests)
 ```
 
 ## Validation Test Suite
 
-**5737 validation tests across 722 files**, verified against published analytical solutions, industry codes, and commercial software results. See [`../BENCHMARKS.md`](/Users/unbalancedparen/projects/dedaliano/BENCHMARKS.md) for detailed status of each benchmark.
+Latest reported full-suite status: **5755+ passing tests, 0 failures**.
+
+The engine is backed by:
+
+- a validation suite measured in the high `5000+` range
+- `25` integration test files
+- dedicated property / differential fuzz coverage
+- benchmark-gate suites for constraints, contact, shells, reduction, and sparse / conditioning paths
+
+See [`../BENCHMARKS.md`](/Users/unbalancedparen/projects/dedaliano/BENCHMARKS.md) for detailed status of each benchmark family and current maturity.
 
 ### Industry Standards and Design Codes
 
@@ -123,7 +135,7 @@ cd engine && cargo test diff_fuzz    # differential fuzz tests (90 tests)
 | **Dynamic analysis** | 14 | ~100 | Modal frequencies, time history (Newmark/HHT), spectral response, SRSS/CQC, seismic design |
 | **Plastic analysis** | 6 | ~42 | Collapse loads, mechanism formation, hinge sequences, pushover |
 | **Corotational / large displacement** | 3 | ~13 | ANSYS VM14 elastica, snap-through, Williams toggle |
-| **Plates & shells** | 3 | ~11 | DKT element, patch tests, pressure loads, Scordelis-Lo |
+| **Plates & shells** | 5 | ~25 | DKT element, patch tests, pressure loads, Scordelis-Lo, MITC4 quads, shell benchmark gates |
 | **Thermal & settlement** | 6 | ~52 | Uniform/gradient thermal, prescribed displacements, settlement-induced moments |
 | **Spring supports & foundations** | 3 | ~20 | Winkler foundation, spring stiffness, rotational springs |
 | **Load combinations & serviceability** | 5 | ~40 | LRFD factors, EN 1990 ULS, envelopes, drift limits, deflection checks |
@@ -136,14 +148,13 @@ cd engine && cargo test diff_fuzz    # differential fuzz tests (90 tests)
 
 ### Current Engine Frontier
 
-The main remaining engine work is no longer basic solver coverage. It is:
+Phase 2 is complete — constraint unification, contact refinement, connector elements, eccentric connections, benchmark gate suites, and performance architecture are all in place. The main remaining engine work is:
 
-- benchmark hardening on the newest nonlinear, contact, fiber, shell, and warping paths
-- performance and scale
-- broader shell maturity and workflow depth
-- advanced contact variants and harder nonlinear convergence cases
-- verification hardening: invariants, property-based tests, fuzzing, and real-model acceptance
-- deeper staged/PT coupling and model-reduction workflow maturity
+- real-model acceptance tests and full-workflow performance benchmarks
+- deeper shell maturity (mixed mesh, folded plates, convergence studies)
+- advanced contact variants (friction cycles, multi-gap mixed states)
+- CI hardening and release-grade benchmark gates
+- performance at scale and production solver polish
 
 For the detailed gap inventory and benchmark status, use [`../BENCHMARKS.md`](/Users/unbalancedparen/projects/dedaliano/BENCHMARKS.md).
 
@@ -153,3 +164,15 @@ For the detailed gap inventory and benchmark status, use [`../BENCHMARKS.md`](/U
 - Displacements, reactions, element forces
 - Internal force diagrams at 9 interior points per element
 - Support for all element types, load patterns, and boundary conditions
+
+## Benchmark Gate Suites
+
+Compact must-pass suites validating the newest solver families:
+
+| Suite | File | Coverage |
+|-------|------|----------|
+| Constraints | `benchmarks/constraints_benchmark.rs` | Rigid links, diaphragms, equal-DOF, eccentric connections, constraint forces |
+| Contact | `benchmarks/contact_benchmark.rs` | Gap elements, tension/compression-only, friction, augmented Lagrangian |
+| Shells | `benchmarks/shell_benchmark.rs` | MITC4 quads, membrane/bending, thermal, mesh quality, mixed frame+shell |
+| Reduction | `benchmarks/reduction_benchmark.rs` | Guyan condensation, Craig-Bampton, substructuring workflows |
+| Sparse | `benchmarks/sparse_benchmark.rs` | Sparse assembly, sparse Cholesky, conditioning diagnostics |

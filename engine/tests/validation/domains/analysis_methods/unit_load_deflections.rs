@@ -298,7 +298,8 @@ fn validation_unit_load_overhang() {
 
     let input = SolverInput {
         nodes, materials: mats, sections: secs,
-        elements: elems, supports: sups, loads, constraints: vec![], };
+        elements: elems, supports: sups, loads, constraints: vec![],
+        connectors: std::collections::HashMap::new(), };
     let results = linear::solve_2d(&input).unwrap();
 
     let tip = results.displacements.iter().find(|d| d.node_id == n + 1).unwrap();

@@ -53,7 +53,7 @@ The foundation is no longer a partial prototype. The current repo already has:
 | Phase 4 ships | Month 13 | Month 9 | Month 5 |
 | Phase 5 ships (full platform, ~90% coverage) | Month 17 | Month 12 | Month 7 |
 
-The remaining work is not basic solver coverage. It is productization, hardening, verification, performance, shell maturity, and the workflow depth needed to turn a broad solver into a durable structural engineering platform.
+The remaining work is not basic solver coverage. It is productization, hardening, verification, benchmark-gated release discipline, performance, shell maturity, and the workflow depth needed to turn a broad solver into a durable structural engineering platform.
 
 ### Solver-first priority roadmap
 
@@ -69,12 +69,12 @@ If the goal is "best structural solver", the next solver-core work is now mostly
 
 | Priority | Topic | Why now |
 |---|---|---|
-| 1 | Benchmark hardening on newest solver families | The newest solver modules need deeper benchmark parity faster than they need more feature count. |
-| 2 | Performance and scale engineering | The solver is broad enough that large-model robustness and sparse performance now matter more. |
+| 1 | Benchmark hardening on newest solver families | The newest solver modules now have gate suites; the next step is to expand them into release-quality benchmark discipline. |
+| 2 | Constraint-system reuse and workflow maturity | Reusable constrained reductions now exist; the next step is consistent use across the remaining solver families. |
 | 3 | Better shell reliability and workflow depth | Shell quality and mixed-model behavior are now a bigger differentiator than basic shell presence. |
-| 4 | Advanced contact variants | Basic contact exists; the next layer is richer unilateral/contact behavior and harder convergence cases. |
-| 5 | Verification hardening | Expand invariants, property-based tests, fuzzing, and selective proof-oriented checks around the newest solver families. |
-| 6 | Legacy validation cleanup | Some older placeholder validation files still need to be brought in line with the current code surface. |
+| 4 | Performance and scale engineering | Sparse assembly, conditioning diagnostics, and parallel paths now exist; the next step is full-model performance wins. |
+| 5 | Advanced contact variants | Basic contact exists; the next layer is richer unilateral/contact behavior and harder convergence cases. |
+| 6 | Verification hardening | Expand invariants, property-based tests, fuzzing, benchmark gates, and acceptance models around the newest solver families. |
 
 #### 3-6 months
 
@@ -97,13 +97,14 @@ If the goal is "best structural solver", the next solver-core work is now mostly
 #### Recommended implementation order
 
 1. Benchmark hardening on newest solver families
-2. Verification hardening: invariants, property-based tests, fuzzing, selective proof-oriented checks
-3. Performance and scale engineering
+2. Constraint-system reuse and workflow maturity
+3. Verification hardening: invariants, property-based tests, fuzzing, selective proof-oriented checks
 4. Shell upgrade and shell workflow hardening
-5. Advanced contact variants
-6. Model reduction / substructuring
-7. Deeper prestress / staged time-dependent coupling
-8. Specialized domain expansion
+5. Performance and scale engineering
+6. Advanced contact variants
+7. Model reduction / substructuring
+8. Deeper prestress / staged time-dependent coupling
+9. Specialized domain expansion
 
 This order is not the easiest order. It is the order with the best solver-quality payoff per unit of engineering risk.
 
@@ -195,6 +196,7 @@ The current solver is much further along than the original product roadmap assum
 - performance and scale
 - shell workflow maturity
 - advanced contact variants
+- broader constraint-system reuse across solver families
 - deeper staged / prestress / time-dependent coupling
 - reports, collaboration, and higher-value product layers on top of the solver
 

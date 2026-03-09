@@ -302,6 +302,7 @@ pub fn solve_arc_length(input: &ArcLengthInput) -> Result<ArcLengthResult, Strin
             displacements,
             reactions: vec![],
             element_forces,
+            constraint_forces: vec![],
         },
         steps,
         final_load_factor: lambda,
@@ -433,6 +434,7 @@ pub fn solve_displacement_control(input: &DisplacementControlInput) -> Result<Di
             displacements,
             reactions: vec![],
             element_forces,
+            constraint_forces: vec![],
         },
         steps,
         final_load_factor: lambda,
@@ -525,6 +527,7 @@ mod tests {
                 node_id: 1, fx: 0.0, fy: -10.0, mz: 0.0,
             })],
             constraints: vec![],
+            connectors: HashMap::new(),
         }
     }
 

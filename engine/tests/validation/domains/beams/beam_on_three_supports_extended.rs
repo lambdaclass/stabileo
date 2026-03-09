@@ -694,7 +694,8 @@ fn different_stiffness_per_span_deflection() {
         sections: secs_map,
         elements: elems_map,
         supports: sups_map,
-        loads, constraints: vec![], };
+        loads, constraints: vec![],
+        connectors: HashMap::new(), };
 
     let results = linear::solve_2d(&input).unwrap();
 

@@ -236,6 +236,7 @@ pub fn solve_fiber_nonlinear_2d(input: &FiberNonlinearInput) -> Result<FiberNonl
             displacements,
             reactions: vec![],
             element_forces,
+            constraint_forces: vec![],
         },
         iterations: total_iters,
         converged,
@@ -623,6 +624,7 @@ pub fn solve_fiber_nonlinear_3d(input: &FiberNonlinearInput3D) -> Result<FiberNo
             element_forces,
             plate_stresses: super::linear::compute_plate_stresses(&input.solver, &dof_num, &u_full),
             quad_stresses: super::linear::compute_quad_stresses(&input.solver, &dof_num, &u_full),
+            constraint_forces: vec![],
         },
         iterations: total_iters,
         converged,
@@ -817,6 +819,7 @@ mod tests {
                 node_id: 1, fx: 0.0, fy: -50.0, mz: 0.0,
             })],
             constraints: vec![],
+            connectors: HashMap::new(),
         };
 
         // 0.2m × 0.4m rectangular section

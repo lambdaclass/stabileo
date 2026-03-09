@@ -229,7 +229,8 @@ fn validation_force_method_three_support() {
 
     let input = SolverInput {
         nodes: nodes_map, materials: mats, sections: secs,
-        elements: elems, supports: sups, loads, constraints: vec![], };
+        elements: elems, supports: sups, loads, constraints: vec![],
+        connectors: std::collections::HashMap::new(), };
     let results = linear::solve_2d(&input).unwrap();
 
     let r_mid = results.reactions.iter()

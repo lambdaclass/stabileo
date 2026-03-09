@@ -68,6 +68,7 @@ fn make_input(
         supports: sups_map,
         loads,
         constraints: vec![],
+        connectors: HashMap::new(),
     }
 }
 
@@ -115,7 +116,7 @@ fn make_ss_beam(n_elem: usize) -> SolverInput {
 fn bench_assembly(c: &mut Criterion) {
     let mut group = c.benchmark_group("assembly");
 
-    for &n_elem in &[10, 100] {
+    for &n_elem in &[10, 100, 500, 1000] {
         let input = make_ss_beam(n_elem);
         let dof_num = DofNumbering::build_2d(&input);
 
@@ -189,7 +190,7 @@ fn bench_conditioning(c: &mut Criterion) {
 fn bench_linear_solve(c: &mut Criterion) {
     let mut group = c.benchmark_group("linear_solve");
 
-    for &n_elem in &[10, 100] {
+    for &n_elem in &[10, 100, 500, 1000] {
         let input = make_ss_beam(n_elem);
 
         group.bench_with_input(
@@ -204,10 +205,58 @@ fn bench_linear_solve(c: &mut Criterion) {
     group.finish();
 }
 
+// ─── Dense vs Sparse Solve Comparison ────────────────────
+
+fn bench_dense_vs_sparse_solve(c: &mut Criterion) {
+    use dedaliano_engine::linalg::*;
+
+    let mut group = c.benchmark_group("dense_vs_sparse_solve");
+    group.sample_size(20);
+
+    for &n_elem in &[200, 500] {
+        let input = make_ss_beam(n_elem);
+        let dof_num = DofNumbering::build_2d(&input);
+        let nf = dof_num.n_free;
+
+        // Dense assembly + Cholesky
+        group.bench_with_input(
+            BenchmarkId::new("dense_cholesky", n_elem),
+            &n_elem,
+            |b, _| {
+                let asm = assembly::assemble_2d(&input, &dof_num);
+                let n = dof_num.n_total;
+                let free_idx: Vec<usize> = (0..nf).collect();
+                let k_ff = extract_submatrix(&asm.k, n, &free_idx, &free_idx);
+                let f_f = extract_subvec(&asm.f, &free_idx);
+                b.iter(|| {
+                    let mut k = k_ff.clone();
+                    cholesky_solve(&mut k, &f_f, nf)
+                });
+            },
+        );
+
+        // Sparse assembly + sparse Cholesky
+        group.bench_with_input(
+            BenchmarkId::new("sparse_cholesky", n_elem),
+            &n_elem,
+            |b, _| {
+                let sasm = assembly::assemble_sparse_2d(&input, &dof_num);
+                let f_f = extract_subvec(&sasm.f, &(0..nf).collect::<Vec<_>>());
+                b.iter(|| {
+                    sparse_cholesky_solve_full(&sasm.k_ff, &f_f)
+                });
+            },
+        );
+    }
+
+    group.finish();
+}
+
 criterion_group!(
     benches,
     bench_assembly,
     bench_conditioning,
     bench_linear_solve,
+    bench_dense_vs_sparse_solve,
 );
 criterion_main!(benches);

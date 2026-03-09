@@ -149,7 +149,8 @@ fn validation_vib_iso_ext_single_dof_transmissibility() {
 
     let input = SolverInput {
         nodes, materials: mats, sections: secs, elements: elems,
-        supports: sups, loads, constraints: vec![], };
+        supports: sups, loads, constraints: vec![],
+        connectors: HashMap::new(), };
     let results = linear::solve_2d(&input).unwrap();
 
     let tip = results.displacements.iter().find(|d| d.node_id == 2).unwrap();
@@ -343,7 +344,8 @@ fn validation_vib_iso_ext_rubber_bearing_stiffness() {
 
     let input = SolverInput {
         nodes, materials: mats, sections: secs, elements: elems,
-        supports: sups, loads, constraints: vec![], };
+        supports: sups, loads, constraints: vec![],
+        connectors: HashMap::new(), };
     let results = linear::solve_2d(&input).unwrap();
 
     let tip = results.displacements.iter().find(|d| d.node_id == 2).unwrap();
@@ -469,7 +471,8 @@ fn validation_vib_iso_ext_steel_spring_isolator() {
 
     let input = SolverInput {
         nodes, materials: mats, sections: secs, elements: elems,
-        supports: sups, loads, constraints: vec![], };
+        supports: sups, loads, constraints: vec![],
+        connectors: HashMap::new(), };
     let results = linear::solve_2d(&input).unwrap();
 
     let tip = results.displacements.iter().find(|d| d.node_id == 2).unwrap();
@@ -611,7 +614,8 @@ fn validation_vib_iso_ext_inertia_block_foundation() {
 
     let input = SolverInput {
         nodes, materials: mats, sections: secs, elements: elems,
-        supports: sups, loads, constraints: vec![], };
+        supports: sups, loads, constraints: vec![],
+        connectors: HashMap::new(), };
     let results = linear::solve_2d(&input).unwrap();
 
     let tip = results.displacements.iter().find(|d| d.node_id == 2).unwrap();
@@ -746,7 +750,8 @@ fn validation_vib_iso_ext_viscoelastic_damper() {
 
     let input = SolverInput {
         nodes, materials: mats, sections: secs, elements: elems,
-        supports: sups, loads, constraints: vec![], };
+        supports: sups, loads, constraints: vec![],
+        connectors: HashMap::new(), };
     let results = linear::solve_2d(&input).unwrap();
 
     let tip = results.displacements.iter().find(|d| d.node_id == 2).unwrap();

@@ -141,7 +141,7 @@ pub fn solve_winkler_2d(input: &WinklerInput) -> Result<AnalysisResults, String>
     let mut element_forces = compute_internal_forces_2d(&input.solver, &dof_num, &u_full);
     element_forces.sort_by_key(|ef| ef.element_id);
 
-    Ok(AnalysisResults { displacements, reactions, element_forces })
+    Ok(AnalysisResults { displacements, reactions, element_forces, constraint_forces: vec![] })
 }
 
 // ==================== 3D Winkler Solver ====================
@@ -244,6 +244,7 @@ pub fn solve_winkler_3d(input: &WinklerInput3D) -> Result<AnalysisResults3D, Str
         displacements, reactions, element_forces,
         plate_stresses: compute_plate_stresses(&input.solver, &dof_num, &u_full),
         quad_stresses: compute_quad_stresses(&input.solver, &dof_num, &u_full),
+        constraint_forces: vec![],
     })
 }
 

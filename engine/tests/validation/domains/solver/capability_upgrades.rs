@@ -533,6 +533,7 @@ fn capability_vm18_quarter_circle_out_of_plane() {
         constraints: vec![], left_hand: None,
         plates: HashMap::new(), quads: HashMap::new(),
         curved_beams,
+        connectors: HashMap::new(),
     };
 
     let results = linear::solve_3d(&input).unwrap();
@@ -773,6 +774,7 @@ fn capability_vm44_roark_circular_ring() {
         constraints: vec![], left_hand: None,
         plates: HashMap::new(), quads: HashMap::new(),
         curved_beams,
+        connectors: HashMap::new(),
     };
 
     let results = linear::solve_3d(&input).unwrap();

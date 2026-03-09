@@ -103,6 +103,7 @@ fn make_warping_beam(
         constraints: vec![], left_hand: None,
         plates: HashMap::new(), quads: HashMap::new(),
         curved_beams: vec![],
+        connectors: HashMap::new(),
     }
 }
 
@@ -279,6 +280,7 @@ fn validation_warping_mixed_model() {
         constraints: vec![], left_hand: None,
         plates: HashMap::new(), quads: HashMap::new(),
         curved_beams: vec![],
+        connectors: HashMap::new(),
     };
 
     let results = linear::solve_3d(&input).unwrap();

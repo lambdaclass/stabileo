@@ -180,6 +180,13 @@ pub fn assemble_2d(input: &SolverInput, dof_num: &DofNumbering) -> AssemblyResul
         }
     }
 
+    // Assemble connector elements
+    if !input.connectors.is_empty() {
+        crate::element::connector::assemble_connectors_2d(
+            &input.connectors, &input.nodes, dof_num, &mut k_global, n,
+        );
+    }
+
     // Assemble nodal loads
     for load in &input.loads {
         if let SolverLoad::Nodal(nl) = load {
@@ -526,6 +533,13 @@ pub fn assemble_3d(input: &SolverInput3D, dof_num: &DofNumbering) -> AssemblyRes
                 k_global[quad_dofs[i] * n + quad_dofs[j]] += k_glob[i * ndof + j];
             }
         }
+    }
+
+    // Assemble 3D connector elements
+    if !input.connectors.is_empty() {
+        crate::element::connector::assemble_connectors_3d(
+            &input.connectors, &input.nodes, dof_num, &mut k_global, n,
+        );
     }
 
     // Assemble 3D nodal loads
@@ -1036,6 +1050,37 @@ pub fn assemble_sparse_2d(input: &SolverInput, dof_num: &DofNumbering) -> Sparse
         }
     }
 
+    // Connector elements (sparse path)
+    for conn in input.connectors.values() {
+        let node_map_2d: std::collections::HashMap<usize, &SolverNode> =
+            input.nodes.values().map(|nd| (nd.id, nd)).collect();
+        let ni = match node_map_2d.get(&conn.node_i) { Some(n) => n, None => continue };
+        let nj = match node_map_2d.get(&conn.node_j) { Some(n) => n, None => continue };
+        let dx = nj.x - ni.x;
+        let dy = nj.y - ni.y;
+        let l = (dx * dx + dy * dy).sqrt();
+        let (cos, sin) = if l > 1e-15 { (dx / l, dy / l) } else { (1.0, 0.0) };
+        let ke = crate::element::connector::connector_stiffness_2d(
+            conn.k_axial, conn.k_shear, conn.k_moment, cos, sin,
+        );
+        let dofs = dof_num.element_dofs(conn.node_i, conn.node_j);
+        let ndof = dofs.len();
+        for i in 0..ndof {
+            if dofs[i] >= nf { continue; }
+            for j in 0..ndof {
+                if dofs[j] >= nf { continue; }
+                let gi = dofs[i];
+                let gj = dofs[j];
+                if gi >= gj {
+                    trip_rows.push(gi);
+                    trip_cols.push(gj);
+                    trip_vals.push(ke[i * 6 + j]);
+                }
+            }
+            diag_vals[dofs[i]] += ke[i * 6 + i];
+        }
+    }
+
     // Nodal loads
     for load in &input.loads {
         if let SolverLoad::Nodal(nl) = load {
@@ -1235,6 +1280,35 @@ pub fn assemble_sparse_3d(input: &SolverInput3D, dof_num: &DofNumbering) -> Spar
                 }
                 assemble_element_loads_3d(input, elem, &t, l, e, sec, &elem_dofs, &mut f_global);
             }
+        }
+    }
+
+    // 3D connector elements (sparse path)
+    for conn in input.connectors.values() {
+        let ni = match node_map.get(&conn.node_i) { Some(n) => n, None => continue };
+        let nj_node = match node_map.get(&conn.node_j) { Some(n) => n, None => continue };
+        let dx = nj_node.x - ni.x;
+        let dy = nj_node.y - ni.y;
+        let dz = nj_node.z - ni.z;
+        let l = (dx * dx + dy * dy + dz * dz).sqrt();
+        let dir = if l > 1e-15 { [dx / l, dy / l, dz / l] } else { [1.0, 0.0, 0.0] };
+        let ke = crate::element::connector::connector_stiffness_3d(
+            conn.k_axial, conn.k_shear, conn.k_shear_z,
+            conn.k_moment, conn.k_bend_y, conn.k_bend_z, dir,
+        );
+        let dofs = dof_num.element_dofs(conn.node_i, conn.node_j);
+        let ndof = dofs.len();
+        for i in 0..ndof {
+            if dofs[i] >= nf { continue; }
+            for j in 0..ndof {
+                if dofs[j] >= nf { continue; }
+                let gi = dofs[i];
+                let gj = dofs[j];
+                if gi >= gj {
+                    trip_rows.push(gi); trip_cols.push(gj); trip_vals.push(ke[i * 12 + j]);
+                }
+            }
+            diag_vals[dofs[i]] += ke[i * 12 + i];
         }
     }
 

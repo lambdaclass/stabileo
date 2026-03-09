@@ -61,6 +61,7 @@ fn cantilever_3d(
     SolverInput3D {
         nodes, materials, sections, elements, supports, loads,
         constraints: vec![], left_hand: None, plates: HashMap::new(), quads: HashMap::new(), curved_beams: Vec::new(),
+        connectors: HashMap::new(),
     }
 }
 
@@ -147,6 +148,7 @@ fn corotational_3d_axial_truss() {
     let input = SolverInput3D {
         nodes, materials, sections, elements, supports, loads,
         constraints: vec![], left_hand: None, plates: HashMap::new(), quads: HashMap::new(), curved_beams: Vec::new(),
+        connectors: HashMap::new(),
     };
 
     let corot = solve_corotational_3d(&input, 50, 1e-8, 1).unwrap();
@@ -218,6 +220,7 @@ fn corotational_3d_l_frame() {
     let input = SolverInput3D {
         nodes, materials, sections, elements, supports, loads,
         constraints: vec![], left_hand: None, plates: HashMap::new(), quads: HashMap::new(), curved_beams: Vec::new(),
+        connectors: HashMap::new(),
     };
 
     let corot = solve_corotational_3d(&input, 100, 1e-6, 5).unwrap();
@@ -295,6 +298,7 @@ fn corotational_3d_no_free_dofs_error() {
     let input = SolverInput3D {
         nodes, materials, sections, elements, supports,
         loads: vec![], constraints: vec![], left_hand: None, plates: HashMap::new(), quads: HashMap::new(), curved_beams: Vec::new(),
+        connectors: HashMap::new(),
     };
 
     let result = solve_corotational_3d(&input, 50, 1e-8, 1);

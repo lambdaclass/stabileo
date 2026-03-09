@@ -203,7 +203,8 @@ fn validation_settlement_ss_roller() {
 
     let input = SolverInput {
         nodes: nodes_map, materials: mats_map, sections: secs_map,
-        elements: elems_map, supports: sups_map, loads: vec![], constraints: vec![], };
+        elements: elems_map, supports: sups_map, loads: vec![], constraints: vec![],
+        connectors: HashMap::new(), };
     let results = linear::solve_2d(&input).unwrap();
 
     // Isostatic: zero internal forces
@@ -253,7 +254,8 @@ fn validation_settlement_propped_cantilever() {
 
     let input = SolverInput {
         nodes: nodes_map, materials: mats_map, sections: secs_map,
-        elements: elems_map, supports: sups_map, loads: vec![], constraints: vec![], };
+        elements: elems_map, supports: sups_map, loads: vec![], constraints: vec![],
+        connectors: HashMap::new(), };
     let results = linear::solve_2d(&input).unwrap();
 
     let r1 = results.reactions.iter().find(|r| r.node_id == 1).unwrap();
@@ -314,7 +316,8 @@ fn validation_settlement_fixed_fixed() {
 
     let input = SolverInput {
         nodes: nodes_map, materials: mats_map, sections: secs_map,
-        elements: elems_map, supports: sups_map, loads: vec![], constraints: vec![], };
+        elements: elems_map, supports: sups_map, loads: vec![], constraints: vec![],
+        connectors: HashMap::new(), };
     let results = linear::solve_2d(&input).unwrap();
 
     let r1 = results.reactions.iter().find(|r| r.node_id == 1).unwrap();
@@ -407,7 +410,8 @@ fn validation_thermal_settlement_superposition() {
         });
 
         SolverInput { nodes: nodes_map, materials: mats_map, sections: secs_map,
-                       elements: elems_map, supports: sups_map, loads, constraints: vec![], }
+                       elements: elems_map, supports: sups_map, loads, constraints: vec![],
+                       connectors: HashMap::new(), }
     };
 
     let r_thermal = linear::solve_2d(&build(true, false)).unwrap();

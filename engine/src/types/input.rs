@@ -133,6 +133,8 @@ pub struct SolverInput {
     pub loads: Vec<SolverLoad>,
     #[serde(default)]
     pub constraints: Vec<Constraint>,
+    #[serde(default)]
+    pub connectors: HashMap<String, ConnectorElement>,
 }
 
 // ==================== 3D Input Types ====================
@@ -363,6 +365,8 @@ pub struct SolverInput3D {
     pub quads: HashMap<String, SolverQuadElement>,
     #[serde(default)]
     pub curved_beams: Vec<CurvedBeamInput>,
+    #[serde(default)]
+    pub connectors: HashMap<String, ConnectorElement>,
 }
 
 // ==================== Plate / Curved Beam Input Types ====================

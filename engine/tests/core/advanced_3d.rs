@@ -60,7 +60,8 @@ fn make_3d_input(
     }
     SolverInput3D {
         nodes: nodes_map, materials: mats_map, sections: secs_map,
-        elements: elems_map, supports: sups_map, loads, constraints: vec![], left_hand: None, plates: HashMap::new(), quads: HashMap::new(), curved_beams: vec![],    }
+        elements: elems_map, supports: sups_map, loads, constraints: vec![], left_hand: None, plates: HashMap::new(), quads: HashMap::new(), curved_beams: vec![],
+        connectors: HashMap::new(),    }
 }
 
 /// Build a 3D column along X-axis with n_elem elements.

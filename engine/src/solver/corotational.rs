@@ -584,6 +584,7 @@ fn build_final_results(
         displacements,
         reactions,
         element_forces,
+        constraint_forces: vec![],
     })
 }
 
@@ -1274,6 +1275,7 @@ fn build_final_results_3d(
         element_forces,
         plate_stresses: super::linear::compute_plate_stresses(input, dof_num, u_full),
         quad_stresses: super::linear::compute_quad_stresses(input, dof_num, u_full),
+        constraint_forces: vec![],
     })
 }
 
@@ -1521,7 +1523,7 @@ mod tests {
             }),
         ];
 
-        SolverInput { nodes, materials, sections, elements, supports, loads, constraints: vec![] }
+        SolverInput { nodes, materials, sections, elements, supports, loads, constraints: vec![] , connectors: HashMap::new() }
     }
 
     #[test]
@@ -1617,7 +1619,7 @@ mod tests {
             }),
         ];
 
-        let input = SolverInput { nodes, materials, sections, elements, supports, loads, constraints: vec![] };
+        let input = SolverInput { nodes, materials, sections, elements, supports, loads, constraints: vec![] , connectors: HashMap::new() };
         let corot = solve_corotational_2d(&input, 50, 1e-8, 1).unwrap();
 
         assert!(corot.converged);
@@ -1669,6 +1671,7 @@ mod tests {
             nodes, materials, sections, elements, supports,
             loads: vec![],
             constraints: vec![],
+            connectors: HashMap::new(),
         };
 
         let result = solve_corotational_2d(&input, 50, 1e-8, 1);
@@ -1718,7 +1721,7 @@ mod tests {
             }),
         ];
 
-        let input = SolverInput { nodes, materials, sections, elements, supports, loads, constraints: vec![] };
+        let input = SolverInput { nodes, materials, sections, elements, supports, loads, constraints: vec![] , connectors: HashMap::new() };
         let corot = solve_corotational_2d(&input, 100, 1e-6, 5).unwrap();
         assert!(corot.converged, "Two-element frame should converge");
         assert_eq!(corot.results.element_forces.len(), 2);

@@ -306,6 +306,7 @@ fn scale_results(results: &AnalysisResults, factor: f64) -> AnalysisResults {
             hinge_start: ef.hinge_start,
             hinge_end: ef.hinge_end,
         }).collect(),
+        constraint_forces: vec![],
     }
 }
 
@@ -566,5 +567,6 @@ fn scale_results_3d(results: &AnalysisResults3D, factor: f64) -> AnalysisResults
         }).collect(),
         plate_stresses: results.plate_stresses.clone(),
         quad_stresses: vec![],
+        constraint_forces: vec![],
     }
 }

@@ -136,6 +136,7 @@ pub fn solve_2d(input: &SolverInput) -> Result<AnalysisResults, String> {
         displacements,
         reactions,
         element_forces,
+        constraint_forces: vec![],
     })
 }
 
@@ -258,6 +259,7 @@ pub fn solve_3d(input: &SolverInput3D) -> Result<AnalysisResults3D, String> {
         element_forces,
         plate_stresses,
         quad_stresses,
+        constraint_forces: vec![],
     })
 }
 

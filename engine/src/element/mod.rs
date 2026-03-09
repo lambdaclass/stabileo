@@ -16,3 +16,4 @@ pub use transform::*;
 pub use cable::*;
 pub use curved_beam::*;
 pub use plate::*;
+pub use connector::*;

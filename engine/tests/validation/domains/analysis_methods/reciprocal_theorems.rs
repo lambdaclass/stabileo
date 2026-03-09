@@ -151,7 +151,8 @@ fn validation_reciprocal_maxwell_frame() {
 
     let input = SolverInput {
         nodes, materials: mats, sections: secs,
-        elements: elems, supports: sups, loads, constraints: vec![], };
+        elements: elems, supports: sups, loads, constraints: vec![],
+        connectors: std::collections::HashMap::new(), };
     let d2_from3 = linear::solve_2d(&input).unwrap()
         .displacements.iter().find(|d| d.node_id == 2).unwrap().ux;
 

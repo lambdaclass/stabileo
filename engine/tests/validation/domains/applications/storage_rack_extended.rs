@@ -324,6 +324,7 @@ fn validation_rack_semirigid_connector() {
         supports: sups,
         loads: loads_semi,
     constraints: vec![],
+    connectors: HashMap::new(),
     };
     let res_semi = linear::solve_2d(&input_semi).expect("solve semi-rigid");
 
@@ -664,6 +665,7 @@ fn validation_rack_base_plate_semirigid() {
         supports: sups_sr,
         loads: loads_sr,
     constraints: vec![],
+    connectors: HashMap::new(),
     };
     let res_semi = linear::solve_2d(&input_semi).expect("solve semi-rigid base");
     let drift_semi: f64 = res_semi

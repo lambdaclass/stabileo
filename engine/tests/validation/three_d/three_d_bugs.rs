@@ -291,6 +291,7 @@ fn bug_3d_plate_mass_contributes_to_modal() {
         constraints: vec![], left_hand: None,
         plates: plates_map, quads: HashMap::new(),
         curved_beams: vec![],
+        connectors: HashMap::new(),
     };
 
     let mut densities = HashMap::new();

@@ -121,6 +121,7 @@ fn three_span_beam() -> SolverInput {
             SolverLoad::Nodal(SolverNodalLoad { node_id: 2, fx: 0.0, fy: -50.0, mz: 0.0 }),
         ],
         constraints: vec![],
+        connectors: HashMap::new(),
     }
 }
 
@@ -151,6 +152,7 @@ fn five_node_cantilever() -> SolverInput {
             SolverLoad::Nodal(SolverNodalLoad { node_id: 5, fx: 0.0, fy: -100.0, mz: 0.0 }),
         ],
         constraints: vec![],
+        connectors: HashMap::new(),
     }
 }
 
@@ -200,6 +202,7 @@ fn six_node_beam() -> SolverInput {
             }),
         ],
         constraints: vec![],
+        connectors: HashMap::new(),
     }
 }
 

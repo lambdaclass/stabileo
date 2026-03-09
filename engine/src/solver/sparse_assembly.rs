@@ -556,6 +556,7 @@ mod tests {
             supports,
             loads,
             constraints: vec![],
+            connectors: HashMap::new(),
         }
     }
 

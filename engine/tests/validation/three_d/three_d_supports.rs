@@ -99,6 +99,7 @@ fn validation_3d_prescribed_settlement() {
         nodes: nodes_map, materials: mats_map, sections: secs_map,
         elements: elems_map, supports: sups_map, loads: vec![],
         constraints: vec![], left_hand: None, plates: HashMap::new(), quads: HashMap::new(), curved_beams: vec![],
+        connectors: HashMap::new(),
     };
 
     let results = linear::solve_3d(&input).unwrap();
@@ -242,6 +243,7 @@ fn validation_3d_differential_settlement() {
         nodes: nodes_map, materials: mats_map, sections: secs_map,
         elements: elems_map, supports: sups_map, loads: vec![],
         constraints: vec![], left_hand: None, plates: HashMap::new(), quads: HashMap::new(), curved_beams: vec![],
+        connectors: HashMap::new(),
     };
 
     let results = linear::solve_3d(&input).unwrap();

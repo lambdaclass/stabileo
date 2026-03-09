@@ -69,6 +69,8 @@ pub struct AnalysisResults {
     pub displacements: Vec<Displacement>,
     pub reactions: Vec<Reaction>,
     pub element_forces: Vec<ElementForces>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub constraint_forces: Vec<ConstraintForce>,
 }
 
 /// Forces at constrained DOFs due to constraint enforcement.
@@ -164,6 +166,8 @@ pub struct AnalysisResults3D {
     pub plate_stresses: Vec<PlateStress>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub quad_stresses: Vec<QuadStress>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub constraint_forces: Vec<ConstraintForce>,
 }
 
 // ==================== Quad Stress Output ====================

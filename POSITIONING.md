@@ -19,6 +19,12 @@ The stronger current claim is:
 
 `Dedaliano is becoming one of the strongest open structural solvers, with a broader product surface than most solver-first projects.`
 
+That claim is now supported by more than raw category count:
+
+- latest reported full-suite status of `5755` passing tests and `0` failures
+- explicit benchmark-gate suites for constraints, contact, shells, reduction, and sparse / conditioning paths
+- solver-core work that now includes constraints, shells, contact, SSI, fiber nonlinear analysis, imperfections, creep / shrinkage, and reduction
+
 ## What It Is Not
 
 Dedaliano is not:
@@ -63,6 +69,8 @@ The next differentiators are less about adding whole new solver categories and m
 - performance at scale
 - benchmark credibility on the newest solver families
 - shell and nonlinear workflow maturity
+- consistent solver-path behavior across constrained and unconstrained workflows
+- benchmark-gated release discipline on the newest solver families
 - scale-oriented workflow maturity such as reduction/substructuring and large-model solve discipline
 - productizing the full solver surface cleanly across app, API, and downstream tools
 

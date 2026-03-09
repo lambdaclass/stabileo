@@ -63,6 +63,7 @@ fn cantilever_3d_nl(
     let solver = SolverInput3D {
         nodes, materials, sections, elements, supports, loads,
         constraints: vec![], left_hand: None, plates: HashMap::new(), quads: HashMap::new(), curved_beams: Vec::new(),
+        connectors: HashMap::new(),
     };
 
     let mut material_models = HashMap::new();
@@ -263,6 +264,7 @@ fn nonlinear_material_3d_no_free_dofs_error() {
     let solver = SolverInput3D {
         nodes, materials, sections, elements, supports,
         loads: vec![], constraints: vec![], left_hand: None, plates: HashMap::new(), quads: HashMap::new(), curved_beams: Vec::new(),
+        connectors: HashMap::new(),
     };
 
     let input = NonlinearMaterialInput3D {
@@ -337,6 +339,7 @@ fn nonlinear_material_3d_l_frame() {
     let solver = SolverInput3D {
         nodes, materials, sections, elements, supports, loads,
         constraints: vec![], left_hand: None, plates: HashMap::new(), quads: HashMap::new(), curved_beams: Vec::new(),
+        connectors: HashMap::new(),
     };
 
     let mut material_models = HashMap::new();

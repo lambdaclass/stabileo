@@ -394,6 +394,36 @@ pub fn build_constraint_transform(
     }
 }
 
+/// Map raw (global_dof, force) pairs to ConstraintForce structs with node_id and dof name.
+fn map_dof_forces_to_constraint_forces(
+    raw: &[(usize, f64)],
+    dof_num: &DofNumbering,
+) -> Vec<ConstraintForce> {
+    // Build reverse map: global_dof → (node_id, local_dof)
+    let mut reverse: HashMap<usize, (usize, usize)> = HashMap::new();
+    for (&(node_id, local_dof), &global_dof) in &dof_num.map {
+        reverse.insert(global_dof, (node_id, local_dof));
+    }
+
+    let dof_names_2d = ["ux", "uy", "rz"];
+    let dof_names_3d = ["ux", "uy", "uz", "rx", "ry", "rz", "warping"];
+
+    raw.iter().filter_map(|&(gdof, force)| {
+        reverse.get(&gdof).map(|&(node_id, local_dof)| {
+            let dof_name = if dof_num.dofs_per_node <= 3 {
+                dof_names_2d.get(local_dof).unwrap_or(&"?")
+            } else {
+                dof_names_3d.get(local_dof).unwrap_or(&"?")
+            };
+            ConstraintForce {
+                node_id,
+                dof: dof_name.to_string(),
+                force,
+            }
+        })
+    }).collect()
+}
+
 /// Solve a 2D constrained analysis.
 pub fn solve_constrained_2d(input: &ConstrainedInput) -> Result<AnalysisResults, String> {
     if input.constraints.is_empty() {
@@ -517,10 +547,16 @@ pub fn solve_constrained_2d(input: &ConstrainedInput) -> Result<AnalysisResults,
     );
     element_forces.sort_by_key(|ef| ef.element_id);
 
+    // Compute constraint forces at dependent DOFs
+    let fcs = FreeConstraintSystem { c_ff, n_free_indep, nf };
+    let raw_forces = fcs.compute_constraint_forces(&k_ff, &u_f, &f_f);
+    let constraint_forces = map_dof_forces_to_constraint_forces(&raw_forces, &dof_num);
+
     Ok(AnalysisResults {
         displacements,
         reactions,
         element_forces,
+        constraint_forces,
     })
 }
 
@@ -634,12 +670,18 @@ pub fn solve_constrained_3d(input: &ConstrainedInput3D) -> Result<AnalysisResult
     let displacements = linear::build_displacements_3d(&dof_num, &u_full);
     let element_forces = linear::compute_internal_forces_3d(&input.solver, &dof_num, &u_full);
 
+    // Compute constraint forces at dependent DOFs
+    let fcs = FreeConstraintSystem { c_ff, n_free_indep, nf };
+    let raw_forces = fcs.compute_constraint_forces(&k_ff, &u_f, &f_f);
+    let constraint_forces = map_dof_forces_to_constraint_forces(&raw_forces, &dof_num);
+
     Ok(AnalysisResults3D {
         displacements,
         reactions: vec![],
         element_forces,
         plate_stresses: vec![],
         quad_stresses: vec![],
+        constraint_forces,
     })
 }
 
@@ -916,6 +958,7 @@ mod tests {
                 node_id: 2, fx: 0.0, fy: -10.0, mz: 0.0,
             })],
             constraints: vec![],
+            connectors: HashMap::new(),
         }
     }
 
@@ -1058,6 +1101,7 @@ mod tests {
                 node_id: 1, fx: 10.0, fy: 0.0, mz: 0.0,
             })],
             constraints: vec![],
+            connectors: HashMap::new(),
         };
 
         let input = ConstrainedInput {

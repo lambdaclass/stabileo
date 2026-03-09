@@ -37,13 +37,26 @@ jobs:
         with:
           workspaces: engine
 
-      - name: Unit tests (120 tests)
+      - name: Unit tests
         working-directory: engine
         run: cargo test --lib
 
-      - name: Differential fuzz tests (90 tests)
+      - name: Core solver tests (92 tests)
         working-directory: engine
-        run: cargo test --test differential_fuzz
+        run: cargo test --test core
+
+      - name: Property / differential fuzz tests (90 tests)
+        working-directory: engine
+        run: cargo test --test property
+
+      - name: Integration tests
+        working-directory: engine
+        run: cargo test --test integration
+
+      - name: Validation tests (includes benchmark gates)
+        working-directory: engine
+        run: cargo test --test validation
+        timeout-minutes: 10
 
       - name: Benchmarks compile
         working-directory: engine

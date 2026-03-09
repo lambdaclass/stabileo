@@ -504,6 +504,7 @@ fn chimney_guy_wire_spring_support() {
         nodes: nodes_map, materials: mats_map, sections: secs_map,
         elements: elems_map, supports: sups_map, loads: loads_guyed,
     constraints: vec![],
+    connectors: HashMap::new(),
     };
     let res_guyed = linear::solve_2d(&input_guyed).expect("solve guyed");
 
