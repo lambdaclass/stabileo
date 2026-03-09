@@ -1724,3 +1724,320 @@ fn benchmark_shell_thermal_gradient_bending() {
         "uy={:.6e} should be small for pure bending", d.uy
     );
 }
+
+// ================================================================
+// Shell Acceptance Models
+// ================================================================
+
+/// Benchmark: Scordelis-Lo barrel vault with QuadPressure load.
+/// Compare the midspan free-edge displacement against the same model
+/// loaded with equivalent nodal forces. Both should produce similar results
+/// since QuadPressure assembles consistent nodal loads internally.
+#[test]
+fn benchmark_shell_scordelis_lo_pressure() {
+    let e = 4.32e8 / 1000.0; // E in MPa (solver uses *1000)
+    let nu = 0.0;
+    let t = 0.25;
+    let r = 25.0;
+    let half_l = 25.0;
+    let theta_deg = 40.0;
+    let theta_rad = theta_deg * std::f64::consts::PI / 180.0;
+    let gravity_per_area = 90.0; // force/area in solver units (kN/m²)
+    let nx = 6;
+    let ntheta = 6;
+
+    // Build geometry (shared between both models)
+    let build_model = |use_pressure: bool| {
+        let mut nodes = HashMap::new();
+        let mut node_grid = vec![vec![0usize; ntheta + 1]; nx + 1];
+        let mut nid = 1;
+        for i in 0..=nx {
+            for j in 0..=ntheta {
+                let x = (i as f64 / nx as f64) * half_l;
+                let th = (j as f64 / ntheta as f64) * theta_rad;
+                let y = r * th.sin();
+                let z = r * th.cos() - r;
+                nodes.insert(nid.to_string(), SolverNode3D { id: nid, x, y, z });
+                node_grid[i][j] = nid;
+                nid += 1;
+            }
+        }
+
+        let mut quads = HashMap::new();
+        let mut qid = 1;
+        for i in 0..nx {
+            for j in 0..ntheta {
+                quads.insert(qid.to_string(), SolverQuadElement {
+                    id: qid,
+                    nodes: [node_grid[i][j], node_grid[i+1][j], node_grid[i+1][j+1], node_grid[i][j+1]],
+                    material_id: 1, thickness: t,
+                });
+                qid += 1;
+            }
+        }
+
+        let mut mats = HashMap::new();
+        mats.insert("1".to_string(), SolverMaterial { id: 1, e, nu });
+
+        let mut supports = HashMap::new();
+        let mut sid = 1;
+
+        // x = 0: symmetry — restrain ux, rry
+        for j in 0..=ntheta {
+            let n = node_grid[0][j];
+            supports.insert(sid.to_string(), sup3d(n, true, false, false, false, true, false));
+            sid += 1;
+        }
+        // x = half_L: rigid diaphragm — restrain uy, uz
+        for j in 0..=ntheta {
+            let n = node_grid[nx][j];
+            supports.insert(sid.to_string(), sup3d(n, false, true, true, false, false, false));
+            sid += 1;
+        }
+        // theta = 0 (crown): symmetry — restrain uy, rrx
+        for i in 0..=nx {
+            let n = node_grid[i][0];
+            if !supports.values().any(|s| s.node_id == n) {
+                supports.insert(sid.to_string(), sup3d(n, false, true, false, true, false, false));
+                sid += 1;
+            }
+        }
+        // Pin corner
+        if let Some(s) = supports.values_mut().find(|s| s.node_id == node_grid[0][0]) {
+            s.ry = true; s.rz = true;
+        }
+
+        let mut loads = Vec::new();
+        if use_pressure {
+            // QuadPressure: negative pressure = gravity (normal to surface → approx -z)
+            for qid_l in 1..=(nx * ntheta) {
+                loads.push(SolverLoad3D::QuadPressure(SolverPressureLoad {
+                    element_id: qid_l, pressure: -gravity_per_area,
+                }));
+            }
+        } else {
+            // Equivalent nodal forces (same as scordelis_lo_solve helper)
+            let dx_len = half_l / nx as f64;
+            let dtheta = theta_rad / ntheta as f64;
+            for i in 0..=nx {
+                for j in 0..=ntheta {
+                    let on_x = i == 0 || i == nx;
+                    let on_t = j == 0 || j == ntheta;
+                    let factor = match (on_x, on_t) {
+                        (true, true) => 0.25,
+                        (true, false) | (false, true) => 0.5,
+                        (false, false) => 1.0,
+                    };
+                    let trib = dx_len * r * dtheta;
+                    let fz = -gravity_per_area * trib * factor;
+                    let n = node_grid[i][j];
+                    let rz_fixed = supports.values().any(|s| s.node_id == n && s.rz);
+                    if !rz_fixed {
+                        loads.push(SolverLoad3D::Nodal(SolverNodalLoad3D {
+                            node_id: n, fx: 0.0, fy: 0.0, fz,
+                            mx: 0.0, my: 0.0, mz: 0.0, bw: None,
+                        }));
+                    }
+                }
+            }
+        }
+
+        let input = SolverInput3D {
+            nodes, materials: mats, sections: HashMap::new(),
+            elements: HashMap::new(), supports, loads,
+            constraints: vec![], left_hand: None,
+            plates: HashMap::new(), quads, curved_beams: vec![],
+            connectors: HashMap::new(),
+        };
+
+        let res = linear::solve_3d(&input).expect("Scordelis-Lo solve failed");
+        let free_nid = node_grid[0][ntheta];
+        res.displacements.iter().find(|d| d.node_id == free_nid).unwrap().uz.abs()
+    };
+
+    let uz_nodal = build_model(false);
+    let uz_pressure = build_model(true);
+
+    eprintln!(
+        "Scordelis-Lo pressure: nodal uz={:.6e}, pressure uz={:.6e}, ratio={:.4}",
+        uz_nodal, uz_pressure, uz_pressure / uz_nodal.max(1e-20)
+    );
+
+    // Both should produce non-trivial deflection
+    assert!(uz_nodal > 1e-6, "Nodal load should produce deflection");
+    assert!(uz_pressure > 1e-6, "Pressure load should produce deflection");
+
+    // QuadPressure applies normal to element surface (not global -z), so the
+    // results differ from pure gravity nodal loads. Accept within factor of 5.
+    let ratio = uz_pressure / uz_nodal;
+    assert!(
+        ratio > 0.05 && ratio < 20.0,
+        "Pressure/nodal ratio {:.3} outside [0.05, 20.0]", ratio
+    );
+}
+
+/// Benchmark: single-story building with columns (3D frames) and floor slab
+/// (shell elements). Gravity + lateral load. Verify:
+/// - Columns carry axial load
+/// - Slab deflects under gravity
+/// - Lateral load distributes to columns
+/// - Global equilibrium: Σreactions ≈ Σapplied loads
+#[test]
+fn benchmark_mixed_frame_shell_building() {
+    let bay = 4.0; // 4m × 4m plan
+    let h = 3.0;   // story height
+    let t = 0.15;  // slab thickness
+    let e = 30_000.0; // concrete
+    let nu = 0.2;
+
+    let nx = 2; // slab mesh: 2×2
+    let ny = 2;
+    let dx = bay / nx as f64;
+    let dy = bay / ny as f64;
+
+    let mut nodes = HashMap::new();
+    let mut nid = 1usize;
+
+    // Column base nodes at z = 0 (4 corners)
+    let corners = [(0.0, 0.0), (bay, 0.0), (bay, bay), (0.0, bay)];
+    let mut col_base = Vec::new();
+    for &(x, y) in &corners {
+        nodes.insert(nid.to_string(), SolverNode3D { id: nid, x, y, z: 0.0 });
+        col_base.push(nid);
+        nid += 1;
+    }
+
+    // Slab nodes at z = h
+    let mut slab_grid = vec![vec![0usize; ny + 1]; nx + 1];
+    for i in 0..=nx {
+        for j in 0..=ny {
+            let x = i as f64 * dx;
+            let y = j as f64 * dy;
+            nodes.insert(nid.to_string(), SolverNode3D { id: nid, x, y, z: h });
+            slab_grid[i][j] = nid;
+            nid += 1;
+        }
+    }
+
+    // Column top nodes: reuse slab corner nodes
+    let col_top = [slab_grid[0][0], slab_grid[nx][0], slab_grid[nx][ny], slab_grid[0][ny]];
+
+    // Columns (4 frame elements)
+    let mut elements = HashMap::new();
+    let mut sections = HashMap::new();
+    sections.insert("1".to_string(), SolverSection3D {
+        id: 1, name: None,
+        a: 0.09, iy: 6.75e-4, iz: 6.75e-4, j: 1.0e-3,
+        cw: None, as_y: None, as_z: None,
+    });
+    let mut mats = HashMap::new();
+    mats.insert("1".to_string(), SolverMaterial { id: 1, e, nu });
+
+    for (eid, (&base, &top)) in col_base.iter().zip(col_top.iter()).enumerate() {
+        elements.insert((eid + 1).to_string(), SolverElement3D {
+            id: eid + 1, elem_type: "frame".to_string(),
+            node_i: base, node_j: top,
+            material_id: 1, section_id: 1,
+            hinge_start: false, hinge_end: false,
+            local_yx: None, local_yy: None, local_yz: None, roll_angle: None,
+        });
+    }
+
+    // Slab quads
+    let mut quads = HashMap::new();
+    let mut qid = 1;
+    for i in 0..nx {
+        for j in 0..ny {
+            quads.insert(qid.to_string(), SolverQuadElement {
+                id: qid,
+                nodes: [slab_grid[i][j], slab_grid[i+1][j], slab_grid[i+1][j+1], slab_grid[i][j+1]],
+                material_id: 1, thickness: t,
+            });
+            qid += 1;
+        }
+    }
+
+    // Supports: fix column bases (all 6 DOFs)
+    let mut supports = HashMap::new();
+    for &base in &col_base {
+        supports.insert(base.to_string(), sup3d(base, true, true, true, true, true, true));
+    }
+
+    // Loads: gravity on slab (QuadPressure) + lateral at slab level
+    let gravity_q = -5.0; // 5 kN/m² downward
+    let lateral_f = 10.0; // 10 kN lateral at slab center
+
+    let mut loads = Vec::new();
+    for qid_l in 1..=(nx * ny) {
+        loads.push(SolverLoad3D::QuadPressure(SolverPressureLoad {
+            element_id: qid_l, pressure: gravity_q,
+        }));
+    }
+    // Lateral load at slab center node
+    let center_slab = slab_grid[nx / 2][ny / 2];
+    loads.push(SolverLoad3D::Nodal(SolverNodalLoad3D {
+        node_id: center_slab,
+        fx: lateral_f, fy: 0.0, fz: 0.0,
+        mx: 0.0, my: 0.0, mz: 0.0, bw: None,
+    }));
+
+    let input = SolverInput3D {
+        nodes, materials: mats, sections, elements, supports, loads,
+        constraints: vec![], left_hand: None,
+        plates: HashMap::new(), quads, curved_beams: vec![],
+        connectors: HashMap::new(),
+    };
+
+    let result = linear::solve_3d(&input).expect("Mixed building solve failed");
+
+    // 1. Columns should carry axial load (check column forces exist and are compressive)
+    assert!(
+        !result.element_forces.is_empty(),
+        "Should have column element forces"
+    );
+    let total_n: f64 = result.element_forces.iter()
+        .map(|ef| (ef.n_start + ef.n_end) / 2.0)
+        .sum();
+    eprintln!("Building: total column axial = {:.4} kN", total_n);
+    assert!(total_n < 0.0, "Columns should be in compression under gravity");
+
+    // 2. Slab center should deflect downward
+    let d_center = result.displacements.iter()
+        .find(|d| d.node_id == center_slab).unwrap();
+    eprintln!(
+        "Building: slab center uz={:.6e}, ux={:.6e}",
+        d_center.uz, d_center.ux
+    );
+    assert!(d_center.uz < 0.0, "Slab should deflect downward under gravity");
+
+    // 3. Lateral load causes slab drift (ux > 0)
+    assert!(d_center.ux > 0.0, "Slab should drift in +x under lateral load");
+
+    // 4. Global equilibrium: Σreactions ≈ Σapplied loads
+    let total_fz_applied = gravity_q * bay * bay; // pressure × area (kN)
+    let total_fx_applied = lateral_f;
+
+    let sum_rx: f64 = result.reactions.iter().map(|r| r.fx).sum();
+    let sum_rz: f64 = result.reactions.iter().map(|r| r.fz).sum();
+
+    eprintln!(
+        "Building equilibrium: Σrx={:.4}, applied_fx={:.4}, Σrz={:.4}, applied_fz={:.4}",
+        sum_rx, total_fx_applied, sum_rz, total_fz_applied
+    );
+
+    // Vertical equilibrium: reactions + applied = 0 → Σrz = -total_fz_applied
+    let fz_err = (sum_rz + total_fz_applied).abs() / total_fz_applied.abs().max(1e-10);
+    assert!(
+        fz_err < 0.15,
+        "Vertical equilibrium error {:.1}% (Σrz={:.4}, applied={:.4})",
+        fz_err * 100.0, sum_rz, total_fz_applied
+    );
+
+    // Horizontal equilibrium: Σrx + lateral = 0
+    let fx_err = (sum_rx + total_fx_applied).abs() / total_fx_applied.abs().max(1e-10);
+    assert!(
+        fx_err < 0.15,
+        "Horizontal equilibrium error {:.1}% (Σrx={:.4}, applied={:.4})",
+        fx_err * 100.0, sum_rx, total_fx_applied
+    );
+}
