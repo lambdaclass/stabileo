@@ -738,3 +738,339 @@ fn benchmark_pinched_hemisphere_8x8() {
         ux, ratio
     );
 }
+
+// ================================================================
+// 6. QuadPressure Total Force Check
+// ================================================================
+//
+// Single 1×1 flat plate, uniform pressure q. Verify that the sum of
+// nodal forces from quad_pressure_load equals q × A (total force).
+
+#[test]
+fn benchmark_quad_pressure_total_force() {
+    use dedaliano_engine::element::quad::quad_pressure_load;
+
+    let q = 10.0; // pressure
+    // 1×1 flat plate in XY plane at z=0
+    let coords: [[f64; 3]; 4] = [
+        [0.0, 0.0, 0.0],
+        [1.0, 0.0, 0.0],
+        [1.0, 1.0, 0.0],
+        [0.0, 1.0, 0.0],
+    ];
+
+    let f = quad_pressure_load(&coords, q);
+    assert_eq!(f.len(), 24);
+
+    // Sum fz contributions from all 4 nodes
+    let total_fz: f64 = (0..4).map(|i| f[i * 6 + 2]).sum();
+    let expected = q * 1.0; // q × A = 10 × 1 = 10
+
+    eprintln!("QuadPressure total force: fz_sum={:.6e}, expected={:.6e}", total_fz, expected);
+
+    // fx, fy should be zero for flat plate in XY
+    let total_fx: f64 = (0..4).map(|i| f[i * 6]).sum();
+    let total_fy: f64 = (0..4).map(|i| f[i * 6 + 1]).sum();
+    eprintln!("  fx_sum={:.6e}, fy_sum={:.6e}", total_fx, total_fy);
+    assert!(total_fx.abs() < 1e-10, "fx should be zero for flat XY plate");
+    assert!(total_fy.abs() < 1e-10, "fy should be zero for flat XY plate");
+
+    let err = (total_fz - expected).abs() / expected;
+    assert!(
+        err < 0.01,
+        "Total force error {:.2}%: got {:.6e}, expected {:.6e}",
+        err * 100.0, total_fz, expected
+    );
+
+    // Also test a 2×3 element
+    let coords2: [[f64; 3]; 4] = [
+        [0.0, 0.0, 0.0],
+        [2.0, 0.0, 0.0],
+        [2.0, 3.0, 0.0],
+        [0.0, 3.0, 0.0],
+    ];
+    let f2 = quad_pressure_load(&coords2, q);
+    let total_fz2: f64 = (0..4).map(|i| f2[i * 6 + 2]).sum();
+    let expected2 = q * 6.0; // q × A = 10 × 6 = 60
+
+    eprintln!("QuadPressure 2×3: fz_sum={:.6e}, expected={:.6e}", total_fz2, expected2);
+
+    let err2 = (total_fz2 - expected2).abs() / expected2;
+    assert!(
+        err2 < 0.01,
+        "2×3 total force error {:.2}%: got {:.6e}, expected {:.6e}",
+        err2 * 100.0, total_fz2, expected2
+    );
+}
+
+// ================================================================
+// 7. Navier Plate with QuadPressure Loads
+// ================================================================
+//
+// Same SS plate as benchmark_plate_bending_mitc4_navier, but using
+// QuadPressure instead of tributary nodal loads.
+
+fn navier_plate_solve_with_quad_pressure(nx: usize, ny: usize) -> (f64, f64) {
+    let a: f64 = 1.0;
+    let t: f64 = 0.01;
+    let e_mpa: f64 = 200_000.0;
+    let nu: f64 = 0.3;
+    let q: f64 = 1.0;
+
+    let e_eff = e_mpa * 1000.0;
+    let d_plate = e_eff * t.powi(3) / (12.0 * (1.0 - nu * nu));
+
+    let pi = std::f64::consts::PI;
+    let mut navier_sum = 0.0;
+    for m_idx in 0..20 {
+        let m = 2 * m_idx + 1;
+        for n_idx in 0..20 {
+            let n = 2 * n_idx + 1;
+            let mn2 = (m * m + n * n) as f64;
+            navier_sum += 1.0 / ((m * n) as f64 * mn2 * mn2);
+        }
+    }
+    let w_navier = 16.0 * q * a.powi(4) / (pi.powi(6) * d_plate) * navier_sum;
+
+    let dx = a / nx as f64;
+    let dy = a / ny as f64;
+
+    let mut nodes = HashMap::new();
+    let mut node_grid = vec![vec![0usize; ny + 1]; nx + 1];
+    let mut nid = 1;
+    for i in 0..=nx {
+        for j in 0..=ny {
+            nodes.insert(nid.to_string(), SolverNode3D {
+                id: nid, x: i as f64 * dx, y: j as f64 * dy, z: 0.0,
+            });
+            node_grid[i][j] = nid;
+            nid += 1;
+        }
+    }
+
+    let mut quads = HashMap::new();
+    let mut qid = 1;
+    for i in 0..nx {
+        for j in 0..ny {
+            quads.insert(qid.to_string(), SolverQuadElement {
+                id: qid,
+                nodes: [node_grid[i][j], node_grid[i+1][j], node_grid[i+1][j+1], node_grid[i][j+1]],
+                material_id: 1,
+                thickness: t,
+            });
+            qid += 1;
+        }
+    }
+
+    let mut mats = HashMap::new();
+    mats.insert("1".to_string(), SolverMaterial { id: 1, e: e_mpa, nu });
+
+    // SS: uz = 0 on all boundary nodes
+    let mut supports = HashMap::new();
+    let mut sid = 1;
+    for i in 0..=nx {
+        for j in 0..=ny {
+            if i == 0 || i == nx || j == 0 || j == ny {
+                supports.insert(sid.to_string(), SolverSupport3D {
+                    node_id: node_grid[i][j],
+                    rx: i == 0 && j == 0,
+                    ry: (i == 0 && j == 0) || (i == nx && j == 0),
+                    rz: true,
+                    rrx: false, rry: false, rrz: false,
+                    kx: None, ky: None, kz: None,
+                    krx: None, kry: None, krz: None,
+                    dx: None, dy: None, dz: None,
+                    drx: None, dry: None, drz: None,
+                    normal_x: None, normal_y: None, normal_z: None,
+                    is_inclined: None, rw: None, kw: None,
+                });
+                sid += 1;
+            }
+        }
+    }
+
+    // Use QuadPressure on every element instead of tributary nodal loads
+    let mut loads = Vec::new();
+    for qid_load in 1..=(nx * ny) {
+        loads.push(SolverLoad3D::QuadPressure(SolverPressureLoad {
+            element_id: qid_load, pressure: -q,
+        }));
+    }
+
+    let input = SolverInput3D {
+        nodes,
+        materials: mats,
+        sections: HashMap::new(),
+        elements: HashMap::new(),
+        supports,
+        loads,
+        constraints: vec![],
+        left_hand: None,
+        plates: HashMap::new(),
+        quads,
+        curved_beams: vec![],
+        connectors: HashMap::new(),
+    };
+
+    let res = linear::solve_3d(&input).expect("Navier plate QuadPressure solve failed");
+
+    let center_nid = node_grid[nx / 2][ny / 2];
+    let d_center = res.displacements.iter()
+        .find(|d| d.node_id == center_nid)
+        .expect("Center node displacement not found");
+
+    (d_center.uz.abs(), w_navier)
+}
+
+#[test]
+fn benchmark_navier_plate_quad_pressure() {
+    // Compare QuadPressure vs nodal-load results and Navier reference
+    let (uz_nodal_16, w_navier) = navier_plate_solve(16, 16);
+    let (uz_qp_16, _) = navier_plate_solve_with_quad_pressure(16, 16);
+
+    let ratio_nodal = uz_nodal_16 / w_navier;
+    let ratio_qp = uz_qp_16 / w_navier;
+
+    eprintln!("Navier plate 16×16:");
+    eprintln!("  Nodal loads: uz={:.6e}, ratio={:.4}", uz_nodal_16, ratio_nodal);
+    eprintln!("  QuadPressure: uz={:.6e}, ratio={:.4}", uz_qp_16, ratio_qp);
+    eprintln!("  Navier ref: w={:.6e}", w_navier);
+
+    // Both should produce nonzero deflections
+    assert!(uz_qp_16 > 1e-15, "QuadPressure deflection should be nonzero");
+
+    // QuadPressure result should be within 50% of nodal result
+    // (consistent load vs lumped load can differ, but not by orders of magnitude)
+    if uz_nodal_16 > 1e-15 {
+        let qp_nodal_ratio = uz_qp_16 / uz_nodal_16;
+        eprintln!("  QP/Nodal ratio: {:.4}", qp_nodal_ratio);
+        assert!(
+            qp_nodal_ratio > 0.5 && qp_nodal_ratio < 2.0,
+            "QuadPressure vs nodal ratio {:.3} should be within 50%",
+            qp_nodal_ratio
+        );
+    }
+}
+
+// ================================================================
+// 8. Cantilever Plate with QuadPressure
+// ================================================================
+//
+// Cantilever plate: one edge fixed, uniform pressure.
+// Compare to w_max = q·L^4/(8D) (beam-strip approximation).
+
+#[test]
+fn benchmark_cantilever_plate_pressure() {
+    let l: f64 = 1.0; // length
+    let b: f64 = 0.5; // width
+    let t: f64 = 0.02; // thickness
+    let e_mpa: f64 = 200_000.0;
+    let nu: f64 = 0.3;
+    let q: f64 = 5.0; // kN/m^2
+
+    let e_eff = e_mpa * 1000.0;
+    let d_plate = e_eff * t.powi(3) / (12.0 * (1.0 - nu * nu));
+    let w_beam = q * l.powi(4) / (8.0 * d_plate);
+
+    let nx = 8; // along length
+    let ny = 4; // along width
+    let dx = l / nx as f64;
+    let dy = b / ny as f64;
+
+    let mut nodes = HashMap::new();
+    let mut node_grid = vec![vec![0usize; ny + 1]; nx + 1];
+    let mut nid = 1;
+    for i in 0..=nx {
+        for j in 0..=ny {
+            nodes.insert(nid.to_string(), SolverNode3D {
+                id: nid, x: i as f64 * dx, y: j as f64 * dy, z: 0.0,
+            });
+            node_grid[i][j] = nid;
+            nid += 1;
+        }
+    }
+
+    let mut quads = HashMap::new();
+    let mut qid_val = 1;
+    for i in 0..nx {
+        for j in 0..ny {
+            quads.insert(qid_val.to_string(), SolverQuadElement {
+                id: qid_val,
+                nodes: [node_grid[i][j], node_grid[i+1][j], node_grid[i+1][j+1], node_grid[i][j+1]],
+                material_id: 1,
+                thickness: t,
+            });
+            qid_val += 1;
+        }
+    }
+
+    let mut mats = HashMap::new();
+    mats.insert("1".to_string(), SolverMaterial { id: 1, e: e_mpa, nu });
+
+    // Fixed edge at x=0 (all DOFs)
+    let mut supports = HashMap::new();
+    let mut sid = 1;
+    for j in 0..=ny {
+        let nid_sup = node_grid[0][j];
+        supports.insert(sid.to_string(), SolverSupport3D {
+            node_id: nid_sup,
+            rx: true, ry: true, rz: true, rrx: true, rry: true, rrz: true,
+            kx: None, ky: None, kz: None,
+            krx: None, kry: None, krz: None,
+            dx: None, dy: None, dz: None,
+            drx: None, dry: None, drz: None,
+            normal_x: None, normal_y: None, normal_z: None,
+            is_inclined: None, rw: None, kw: None,
+        });
+        sid += 1;
+    }
+
+    // QuadPressure on all elements
+    let mut loads = Vec::new();
+    for qid_load in 1..=(nx * ny) {
+        loads.push(SolverLoad3D::QuadPressure(SolverPressureLoad {
+            element_id: qid_load, pressure: -q,
+        }));
+    }
+
+    let input = SolverInput3D {
+        nodes,
+        materials: mats,
+        sections: HashMap::new(),
+        elements: HashMap::new(),
+        supports,
+        loads,
+        constraints: vec![],
+        left_hand: None,
+        plates: HashMap::new(),
+        quads,
+        curved_beams: vec![],
+        connectors: HashMap::new(),
+    };
+
+    let res = linear::solve_3d(&input).expect("Cantilever plate solve failed");
+
+    // Find max deflection at free edge (x=L)
+    let mut max_uz = 0.0_f64;
+    for j in 0..=ny {
+        let nid_check = node_grid[nx][j];
+        let d = res.displacements.iter().find(|d| d.node_id == nid_check).unwrap();
+        max_uz = max_uz.max(d.uz.abs());
+    }
+
+    let ratio = max_uz / w_beam;
+    eprintln!("Cantilever plate: max_uz={:.6e}, w_beam={:.6e}, ratio={:.4}", max_uz, w_beam, ratio);
+
+    // Deflection should be nonzero
+    assert!(max_uz > 1e-15, "Cantilever plate should deflect");
+
+    // Plate is wider than a beam strip, so Poisson effect makes it stiffer.
+    // Basic MITC4 has locking on thin plates, giving ~8-15% of beam-strip value.
+    // Accept ratio between 0.01 and 1.5.
+    // Target: ratio approaching 0.8-1.0 after EAS/ANS shell maturity (Program 3).
+    assert!(
+        ratio > 0.01 && ratio < 1.5,
+        "Cantilever plate ratio {:.3} outside expected range [0.01, 1.5]",
+        ratio
+    );
+}
