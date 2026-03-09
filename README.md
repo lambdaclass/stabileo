@@ -40,8 +40,10 @@ Use the docs by question:
 
 - [`BENCHMARKS.md`](/Users/unbalancedparen/projects/dedaliano/BENCHMARKS.md)
   source of truth for solver capability, validation coverage, benchmark status, and remaining solver gaps
-- [`ROADMAP.md`](/Users/unbalancedparen/projects/dedaliano/ROADMAP.md)
-  product roadmap plus solver-first priority ordering and difficulty ladder
+- [`SOLVER_ROADMAP.md`](/Users/unbalancedparen/projects/dedaliano/SOLVER_ROADMAP.md)
+  solver roadmap: mechanics, validation, diagnostics, and performance sequencing
+- [`PRODUCT_ROADMAP.md`](/Users/unbalancedparen/projects/dedaliano/PRODUCT_ROADMAP.md)
+  product roadmap: app, workflow, delivery, and market sequencing
 - [`POSITIONING.md`](/Users/unbalancedparen/projects/dedaliano/POSITIONING.md)
   product/business framing, adjacent markets, and platform direction
 - [`CHANGELOG.md`](/Users/unbalancedparen/projects/dedaliano/CHANGELOG.md)
@@ -60,9 +62,10 @@ Dedaliano is an `open-source structural solver` with a growing structural engine
 
 Latest reported milestone:
 
-- `6336` tests passing, `0` failures
+- `6344` tests passing, `0` failures
 - explicit CI gate stages for shell benchmarks, shell acceptance, and constraint benchmarks ahead of the full suite
 - major recent work in constraint-system unification, shell stress recovery, shell diagnostics, contact refinement, performance architecture, and shell benchmark hardening
+- diagnostics now propagate through solver result types; the main remaining product-side gap is surfacing them cleanly in the app/API
 
 What exists today at a high level:
 

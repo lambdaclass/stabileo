@@ -7,7 +7,8 @@ High-performance 2D/3D structural analysis engine in Rust, implementing the Dire
 This file is the engine-facing overview.
 
 - For full benchmark status and solver gap tracking, see [`../BENCHMARKS.md`](/Users/unbalancedparen/projects/dedaliano/BENCHMARKS.md).
-- For repo-level product and execution priorities, see [`../ROADMAP.md`](/Users/unbalancedparen/projects/dedaliano/ROADMAP.md).
+- For repo-level solver priorities, see [`../SOLVER_ROADMAP.md`](/Users/unbalancedparen/projects/dedaliano/SOLVER_ROADMAP.md).
+- For app and workflow priorities, see [`../PRODUCT_ROADMAP.md`](/Users/unbalancedparen/projects/dedaliano/PRODUCT_ROADMAP.md).
 - For business framing and market position, see [`../POSITIONING.md`](/Users/unbalancedparen/projects/dedaliano/POSITIONING.md).
 
 This document should stay focused on the engine surface, analysis families, and engine-facing validation summary.
@@ -57,7 +58,7 @@ It also runs explicit gate steps for shell benchmarks, shell acceptance models, 
 
 ## Validation Test Suite
 
-Latest reported full-suite status: **6336 passing tests, 0 failures**.
+Latest reported full-suite status: **6344 passing tests, 0 failures**.
 
 The engine is backed by:
 

@@ -21,7 +21,7 @@ The stronger current claim is:
 
 That claim is now supported by more than raw category count:
 
-- latest reported full-suite status of `6336` passing tests and `0` failures
+- latest reported full-suite status of `6344` passing tests and `0` failures
 - explicit benchmark-gate suites for constraints, contact, shells, reduction, and sparse / conditioning paths
 - solver-core work that now includes constraints, shells, contact, SSI, fiber nonlinear analysis, imperfections, creep / shrinkage, and reduction
 
@@ -178,5 +178,7 @@ This is why solver quality should stay the center of the company narrative.
   engine-facing overview and analysis surface
 - [`BENCHMARKS.md`](/Users/unbalancedparen/projects/dedaliano/BENCHMARKS.md)
   validation status, solver capability matrix, and benchmark ledger
-- [`ROADMAP.md`](/Users/unbalancedparen/projects/dedaliano/ROADMAP.md)
-  execution order, product roadmap, and solver-first priorities
+- [`SOLVER_ROADMAP.md`](/Users/unbalancedparen/projects/dedaliano/SOLVER_ROADMAP.md)
+  solver mechanics, validation sequencing, and technical priorities
+- [`PRODUCT_ROADMAP.md`](/Users/unbalancedparen/projects/dedaliano/PRODUCT_ROADMAP.md)
+  app, workflow, and market sequencing
