@@ -5,7 +5,6 @@
 /// distributed plasticity along beam length and across cross-section.
 ///
 /// Reference: Spacone, Filippou & Taucer (1996)
-
 use std::collections::HashMap;
 use serde::{Serialize, Deserialize};
 use crate::types::*;

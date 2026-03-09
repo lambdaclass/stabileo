@@ -4,6 +4,7 @@
     type ProfileFamily, type SteelProfile,
   } from '../lib/data/steel-profiles';
   import { crossSectionPath } from '../lib/utils/section-drawing';
+  import { t } from '../lib/i18n';
 
   interface Props {
     open: boolean;
@@ -45,11 +46,11 @@
 </script>
 
 {#if open}
-  <div class="profile-overlay" role="dialog" aria-label="Selector de perfil" onkeydown={handleKeydown}>
+  <div class="profile-overlay" role="dialog" aria-label={t('dialog.profileSelector')} onkeydown={handleKeydown}>
     <div class="profile-backdrop" onclick={onclose}></div>
     <div class="profile-modal">
       <div class="profile-header">
-        <h2>Perfiles de Acero</h2>
+        <h2>{t('dialog.steelProfiles')}</h2>
         <button class="profile-close" onclick={onclose}>&#x2715;</button>
       </div>
 
@@ -83,7 +84,7 @@
       <div class="profile-search">
         <input
           type="text"
-          placeholder="Buscar perfil..."
+          placeholder={t('search.profile')}
           bind:value={searchQuery}
         />
       </div>
@@ -92,7 +93,7 @@
         <table class="profile-table">
           <thead>
             <tr>
-              <th>Perfil</th>
+              <th>{t('table.profile')}</th>
               <th>h (mm)</th>
               <th>b (mm)</th>
               <th>A (cm&#178;)</th>
@@ -114,7 +115,7 @@
               </tr>
             {/each}
             {#if filtered.length === 0}
-              <tr><td colspan="7" class="no-results">Sin resultados</td></tr>
+              <tr><td colspan="7" class="no-results">{t('search.noResults')}</td></tr>
             {/if}
           </tbody>
         </table>

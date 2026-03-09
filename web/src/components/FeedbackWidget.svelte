@@ -1,6 +1,7 @@
 <script lang="ts">
   import { generateShareURL } from '../lib/utils/url-sharing';
   import { uiStore } from '../lib/store';
+  import { t } from '../lib/i18n';
   import { LEADERBOARD, LAST_UPDATED } from '../lib/data/leaderboard';
 
   // Turnstile site keys: test key for localhost, real key for production
@@ -117,11 +118,11 @@
 
   async function submitFeedback() {
     if (!feedbackText.trim()) {
-      uiStore.toast('Escribi una descripcion del problema o sugerencia', 'error');
+      uiStore.toast(t('feedback.toastEmptyText'), 'error');
       return;
     }
     if (!turnstileToken && !turnstileFailed) {
-      uiStore.toast('Esperando verificacion de seguridad...', 'error');
+      uiStore.toast(t('feedback.toastSecurityWait'), 'error');
       return;
     }
 
@@ -147,16 +148,16 @@
 
       if (res.ok && data.success) {
         submitResult = { success: true, issueNumber: data.issueNumber, url: data.url };
-        uiStore.toast(`Reporte #${data.issueNumber} creado — gracias!`, 'success');
+        uiStore.toast(t('feedback.toastCreated').replace('{n}', String(data.issueNumber)), 'success');
         feedbackText = '';
         feedbackName = '';
       } else {
-        submitResult = { success: false, error: data.error || 'Error desconocido' };
-        uiStore.toast(data.error || 'No se pudo enviar el reporte', 'error');
+        submitResult = { success: false, error: data.error || t('error.unknown') };
+        uiStore.toast(data.error || t('feedback.toastError'), 'error');
       }
     } catch (err) {
-      submitResult = { success: false, error: 'Error de conexion' };
-      uiStore.toast('Error de conexion — intenta de nuevo', 'error');
+      submitResult = { success: false, error: t('feedback.toastConnectionError') };
+      uiStore.toast(t('feedback.toastConnectionError'), 'error');
     } finally {
       isSending = false;
       // Reset turnstile for next submission
@@ -170,7 +171,7 @@
   function copyLink() {
     if (shareLink) {
       navigator.clipboard.writeText(shareLink);
-      uiStore.toast('Enlace copiado', 'success');
+      uiStore.toast(t('feedback.toastLinkCopied'), 'success');
     }
   }
 </script>
@@ -185,34 +186,34 @@
         <!-- Bug report form -->
         <div class="feedback-form">
           <div class="form-header">
-            <span class="form-title">Reportar / Sugerir</span>
+            <span class="form-title">{t('feedback.reportSuggest')}</span>
             <button class="form-close" onclick={closeBugForm}>&times;</button>
           </div>
 
           {#if submitResult?.success}
             <div class="success-message">
               <span class="success-icon">&#10003;</span>
-              <span>Reporte #{submitResult.issueNumber} creado</span>
+              <span>{t('feedback.reportCreated').replace('{n}', String(submitResult.issueNumber))}</span>
             </div>
-            <button class="form-submit" onclick={closeBugForm}>Cerrar</button>
+            <button class="form-submit" onclick={closeBugForm}>{t('feedback.close')}</button>
           {:else}
             <select class="form-select" bind:value={feedbackType}>
-              <option value="bug">Bug / Error</option>
-              <option value="sugerencia">Sugerencia</option>
-              <option value="otro">Otro</option>
+              <option value="bug">{t('feedback.bugError')}</option>
+              <option value="sugerencia">{t('feedback.suggestion')}</option>
+              <option value="otro">{t('feedback.other')}</option>
             </select>
 
             <input
               class="form-input"
               type="text"
-              placeholder="Tu nombre o alias (opcional)"
+              placeholder={t('feedback.namePlaceholder')}
               bind:value={feedbackName}
               maxlength={50}
             />
 
             <textarea
               class="form-textarea"
-              placeholder="Describi el problema o sugerencia..."
+              placeholder={t('feedback.textPlaceholder')}
               bind:value={feedbackText}
               rows="4"
             ></textarea>
@@ -220,8 +221,8 @@
             {#if shareLink}
               <div class="auto-link">
                 <span class="link-icon">&#128206;</span>
-                <span class="link-label">Se adjuntara un enlace a tu estructura</span>
-                <button class="link-copy" onclick={copyLink} title="Copiar enlace">Copiar</button>
+                <span class="link-label">{t('feedback.linkAttached')}</span>
+                <button class="link-copy" onclick={copyLink} title={t('feedback.toastLinkCopied')}>{t('feedback.copy')}</button>
               </div>
             {/if}
 
@@ -236,7 +237,7 @@
               onclick={submitFeedback}
               disabled={isSending || !feedbackText.trim() || (!turnstileToken && !turnstileFailed)}
             >
-              {isSending ? 'Enviando...' : 'Enviar reporte'}
+              {isSending ? t('feedback.sending') : t('feedback.submitReport')}
             </button>
           {/if}
         </div>
@@ -244,48 +245,48 @@
         <!-- Leaderboard view -->
         <div class="feedback-form">
           <div class="form-header">
-            <span class="form-title">Leaderboard de Colaboradores</span>
+            <span class="form-title">{t('feedback.leaderboardTitle')}</span>
             <button class="form-close" onclick={closeLeaderboard}>&times;</button>
           </div>
-          <p class="lb-description">Usuarios que reportaron bugs reales o enviaron sugerencias que fueron implementadas.</p>
+          <p class="lb-description">{t('feedback.leaderboardDesc')}</p>
           {#if LEADERBOARD.filter(e => e.feedbacks > 0).length > 0}
             <div class="leaderboard-list">
               {#each LEADERBOARD.filter(e => e.feedbacks > 0) as entry}
                 <div class="leaderboard-entry">
                   <span class="lb-badge">{entry.badge}</span>
                   <span class="lb-name">{entry.name}</span>
-                  <span class="lb-count">{entry.feedbacks} reporte{entry.feedbacks !== 1 ? 's' : ''}</span>
+                  <span class="lb-count">{entry.feedbacks !== 1 ? t('feedback.reportCountPlural').replace('{n}', String(entry.feedbacks)) : t('feedback.reportCount').replace('{n}', String(entry.feedbacks))}</span>
                 </div>
               {/each}
             </div>
           {:else}
-            <p class="lb-empty">Todavía no hay contribuciones registradas. ¡Sé el primero en enviar feedback con tu nombre!</p>
+            <p class="lb-empty">{t('feedback.leaderboardEmpty')}</p>
           {/if}
-          <div class="lb-updated">Actualizado: {LAST_UPDATED}</div>
+          <div class="lb-updated">{t('feedback.leaderboardUpdated').replace('{date}', LAST_UPDATED)}</div>
         </div>
       {:else}
         <!-- Menu options -->
         <button class="menu-item" onclick={openBugForm}>
           <span class="menu-icon">&#128027;</span>
-          <span>Reportar Bug / Sugerencia</span>
+          <span>{t('feedback.reportBug')}</span>
         </button>
 
         <button class="menu-item" onclick={openLeaderboard}>
           <span class="menu-icon">&#127942;</span>
-          <span>Leaderboard de Colaboradores</span>
+          <span>{t('feedback.leaderboardTitle')}</span>
         </button>
 
         {#if SHOW_TELEGRAM}
           <a class="menu-item" href={TELEGRAM_URL} target="_blank" rel="noopener noreferrer">
             <span class="menu-icon">&#128172;</span>
-            <span>Comunidad Telegram</span>
+            <span>{t('feedback.communityTelegram')}</span>
           </a>
         {/if}
 
         {#if SHOW_CAFECITO}
           <a class="menu-item" href={CAFECITO_URL} target="_blank" rel="noopener noreferrer">
             <span class="menu-icon">&#9749;</span>
-            <span>Invitame un cafecito</span>
+            <span>{t('feedback.buyCoffee')}</span>
           </a>
         {/if}
       {/if}

@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { t } from '../../lib/i18n';
   let {
     matrix = [],
     rowLabels = [],
@@ -129,7 +130,7 @@
                   <span class="quiz-auto">·</span>
                 {:else if feedback[i]?.[j] !== null}
                   <span class="quiz-answer">{answers[i]?.[j]}</span>
-                  <span class="quiz-expected" title="Valor esperado: {fmt(cell)}">{feedback[i]?.[j] === 'correct' ? '' : fmt(cell)}</span>
+                  <span class="quiz-expected" title="{t('dsm.expectedValue')}: {fmt(cell)}">{feedback[i]?.[j] === 'correct' ? '' : fmt(cell)}</span>
                 {:else}
                   <input
                     type="text"

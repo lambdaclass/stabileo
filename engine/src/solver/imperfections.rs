@@ -5,7 +5,6 @@
 /// - Notional loads: equivalent lateral loads from out-of-plumbness
 /// - Residual stresses: initial fiber stress states
 /// - Initial state import: displacements from previous analysis
-
 use crate::types::*;
 use crate::element::fiber_beam::{FiberSectionDef, SectionState, material_response};
 

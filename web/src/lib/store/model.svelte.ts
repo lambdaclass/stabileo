@@ -7,6 +7,7 @@ import { load2DExample } from './model-examples-2d';
 import { load3DExample } from './model-examples-3d';
 import type { ExampleAPI3D } from './model-examples-3d';
 import { inferLoadCaseType } from '../engine/combinations-service';
+import { t } from '../i18n';
 import { validateAndSolve2D, buildSolverInput2D, validateAndSolve3D, buildSolverInput3D as buildSolverInput3DFn, solveCombinations2D, solveCombinations3D as solveCombinations3DFn } from '../engine/solver-service';
 import { computeInfluenceLine as computeInfluenceLineFn } from '../engine/influence-service';
 
@@ -221,7 +222,7 @@ export interface InfluenceLineResult {
 
 function createModelStore() {
   let model = $state<StructureModel>({
-    name: 'Nueva Estructura',
+    name: t('tabBar.newStructure'),
     nodes: new Map(),
     materials: new Map(),
     sections: new Map(),
@@ -715,7 +716,7 @@ function createModelStore() {
 
     clear(): void {
       if (!_undoBatching) _pushUndo?.();
-      model.name = 'Nueva Estructura';
+      model.name = t('tabBar.newStructure');
       model.nodes = new Map();
       model.elements = new Map();
       model.supports = new Map();

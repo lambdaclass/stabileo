@@ -7,7 +7,6 @@
 /// References:
 /// - Guyan, R.J. (1965). "Reduction of stiffness and mass matrices"
 /// - Craig & Bampton (1968). "Coupling of substructures for dynamic analyses"
-
 use crate::types::*;
 use crate::linalg::*;
 use super::dof::DofNumbering;

@@ -1,6 +1,5 @@
 /// Unified frame element stiffness matrix.
 /// Works for both 2D (6×6, dofs_per_node=3) and 3D (12×12, dofs_per_node=6).
-
 /// 2D frame local stiffness matrix (6×6).
 /// DOFs: [u1, v1, θ1, u2, v2, θ2]
 /// E in kN/m², A in m², Iz in m⁴, L in m.

@@ -1,6 +1,5 @@
 /// Dense matrix stored as row-major Vec<f64>.
 /// Element (i,j) is at index i*n + j.
-
 /// Matrix-vector multiply: y = A*x (square n×n matrix)
 pub fn mat_vec(a: &[f64], x: &[f64], n: usize) -> Vec<f64> {
     let mut y = vec![0.0; n];

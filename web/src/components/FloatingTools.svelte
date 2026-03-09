@@ -1,5 +1,6 @@
 <script lang="ts">
   import { uiStore, resultsStore, modelStore } from '../lib/store';
+  import { t } from '../lib/i18n';
   import ToolSelectOptions from './floating-tools/ToolSelectOptions.svelte';
   import ToolNodeOptions from './floating-tools/ToolNodeOptions.svelte';
   import ToolElementOptions from './floating-tools/ToolElementOptions.svelte';
@@ -15,12 +16,12 @@
   });
 
   const tools = [
-    { id: 'pan', icon: '✋', label: 'Mover', key: 'H' },
-    { id: 'select', icon: '↖', label: 'Seleccionar', key: 'V' },
-    { id: 'node', icon: '●', label: 'Nodo', key: 'N' },
-    { id: 'element', icon: '—', label: 'Elemento', key: 'E' },
-    { id: 'support', icon: '▽', label: 'Apoyo', key: 'S' },
-    { id: 'load', icon: '↓', label: 'Carga', key: 'L' },
+    { id: 'pan', icon: '✋', labelKey: 'float.pan', key: 'H' },
+    { id: 'select', icon: '↖', labelKey: 'float.select', key: 'V' },
+    { id: 'node', icon: '●', labelKey: 'float.node', key: 'N' },
+    { id: 'element', icon: '—', labelKey: 'float.element', key: 'E' },
+    { id: 'support', icon: '▽', labelKey: 'float.support', key: 'S' },
+    { id: 'load', icon: '↓', labelKey: 'float.load', key: 'L' },
   ] as const;
 
   // Check if current tool has options
@@ -59,16 +60,16 @@
           class="ft-btn"
           class:active={uiStore.currentTool === tool.id}
           onclick={() => uiStore.currentTool = tool.id}
-          title="{tool.label} ({tool.key})"
+          title="{t(tool.labelKey)} ({tool.key})"
         >
           <span class="ft-icon">{tool.icon}</span>
-          <span class="ft-label">{tool.label}</span>
+          <span class="ft-label">{t(tool.labelKey)}</span>
         </button>
       {/each}
       <button
         class="ft-close"
         onclick={() => uiStore.showFloatingTools = false}
-        title="Ocultar barra (usar atajos de teclado)"
+        title={t('float.hideBar')}
       >✕</button>
     </div>
 
@@ -96,18 +97,18 @@
 
         {#if uiStore.currentTool === 'influenceLine'}
           <span class="ft-il-group">
-            <span class="ft-il-label">Reacciones:</span>
-            <button class="ft-opt-btn" class:active={uiStore.ilQuantity === 'Ry'} onclick={() => uiStore.ilQuantity = 'Ry'}>Ry vertical</button>
-            <button class="ft-opt-btn" class:active={uiStore.ilQuantity === 'Rx'} onclick={() => uiStore.ilQuantity = 'Rx'}>Rx horiz.</button>
-            <button class="ft-opt-btn" class:active={uiStore.ilQuantity === 'Mz'} onclick={() => uiStore.ilQuantity = 'Mz'}>Mz apoyo</button>
+            <span class="ft-il-label">{t('float.reactions')}</span>
+            <button class="ft-opt-btn" class:active={uiStore.ilQuantity === 'Ry'} onclick={() => uiStore.ilQuantity = 'Ry'}>{t('float.ryVertical')}</button>
+            <button class="ft-opt-btn" class:active={uiStore.ilQuantity === 'Rx'} onclick={() => uiStore.ilQuantity = 'Rx'}>{t('float.rxHoriz')}</button>
+            <button class="ft-opt-btn" class:active={uiStore.ilQuantity === 'Mz'} onclick={() => uiStore.ilQuantity = 'Mz'}>{t('float.mzSupport')}</button>
           </span>
           <span class="ft-sep">|</span>
           <span class="ft-il-group">
-            <span class="ft-il-label">Internas:</span>
-            <button class="ft-opt-btn" class:active={uiStore.ilQuantity === 'M'} onclick={() => uiStore.ilQuantity = 'M'}>M momento</button>
-            <button class="ft-opt-btn" class:active={uiStore.ilQuantity === 'V'} onclick={() => uiStore.ilQuantity = 'V'}>V corte</button>
+            <span class="ft-il-label">{t('float.internal')}</span>
+            <button class="ft-opt-btn" class:active={uiStore.ilQuantity === 'M'} onclick={() => uiStore.ilQuantity = 'M'}>{t('float.mMoment')}</button>
+            <button class="ft-opt-btn" class:active={uiStore.ilQuantity === 'V'} onclick={() => uiStore.ilQuantity = 'V'}>{t('float.vShear')}</button>
           </span>
-          <span class="ft-hint">Clickea un nodo (reacciones) o una barra (M/V internos)</span>
+          <span class="ft-hint">{t('float.ilHint')}</span>
         {/if}
       </div>
     {/if}
@@ -118,7 +119,7 @@
   <button
     class="ft-reopen"
     onclick={() => uiStore.showFloatingTools = true}
-    title="Mostrar herramientas"
+    title={t('float.showTools')}
   >↖</button>
 {/if}
 

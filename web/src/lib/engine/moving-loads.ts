@@ -3,6 +3,7 @@
 import type { SolverInput, AnalysisResults, ElementForces, FullEnvelope, ElementEnvelopeDiagram, EnvelopeDiagramData } from './types';
 import { solve } from './solver-js';
 import { computeDiagramValueAt } from './diagrams';
+import { t } from '../i18n';
 
 /** A single axle in a load train */
 export interface Axle {
@@ -18,7 +19,32 @@ export interface LoadTrain {
   axles: Axle[];
 }
 
-/** Predefined load trains */
+/** Predefined load trains (function to pick up current locale) */
+export function getPredefinedTrains(): LoadTrain[] {
+  return [
+    {
+      name: t('train.pointLoad100'),
+      axles: [{ offset: 0, weight: 100 }],
+    },
+    {
+      name: t('train.hl93Truck'),
+      axles: [
+        { offset: 0, weight: 35 },
+        { offset: 4.3, weight: 145 },
+        { offset: 8.6, weight: 145 },
+      ],
+    },
+    {
+      name: t('train.tandem'),
+      axles: [
+        { offset: 0, weight: 110 },
+        { offset: 1.2, weight: 110 },
+      ],
+    },
+  ];
+}
+
+/** @deprecated Use getPredefinedTrains() instead */
 export const PREDEFINED_TRAINS: LoadTrain[] = [
   {
     name: 'Carga puntual (100 kN)',
@@ -173,7 +199,7 @@ export function solveMovingLoads(
   const step = config.step ?? 0.25;
   const path = buildPath(baseInput, config.pathElementIds);
 
-  if (path.length === 0) return 'No se encontró un camino continuo de elementos';
+  if (path.length === 0) return t('train.noPathFound');
 
   const totalLength = path[path.length - 1].cumStart + path[path.length - 1].length;
   const maxAxleOffset = Math.max(...config.train.axles.map(a => a.offset));
@@ -265,7 +291,7 @@ export function solveMovingLoads(
     }
   }
 
-  if (positions.length === 0) return 'No se pudo resolver ninguna posición de carga';
+  if (positions.length === 0) return t('train.noPositionSolved');
 
   // Compute pointwise envelope for dual-curve rendering
   const allResults = positions.map(p => p.results);
@@ -295,7 +321,7 @@ export async function solveMovingLoadsAsync(
   const step = config.step ?? 0.25;
   const path = buildPath(baseInput, config.pathElementIds);
 
-  if (path.length === 0) return 'No se encontró un camino continuo de elementos';
+  if (path.length === 0) return t('train.noPathFound');
 
   const totalLength = path[path.length - 1].cumStart + path[path.length - 1].length;
   const maxAxleOffset = Math.max(...config.train.axles.map(a => a.offset));
@@ -325,7 +351,7 @@ export async function solveMovingLoadsAsync(
 
   for (let idx = 0; idx < total; idx++) {
     // Check cancellation
-    if (signal?.aborted) return 'Análisis cancelado';
+    if (signal?.aborted) return t('train.analysisCancelled');
 
     const refPos = refPositions[idx];
 
@@ -397,8 +423,8 @@ export async function solveMovingLoadsAsync(
     await new Promise(r => setTimeout(r, 0));
   }
 
-  if (signal?.aborted) return 'Análisis cancelado';
-  if (positions.length === 0) return 'No se pudo resolver ninguna posición de carga';
+  if (signal?.aborted) return t('train.analysisCancelled');
+  if (positions.length === 0) return t('train.noPositionSolved');
 
   // Compute pointwise envelope for dual-curve rendering
   const allResults = positions.map(p => p.results);

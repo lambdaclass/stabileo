@@ -9,7 +9,6 @@
 /// After solving for u_independent, recover u_full = C * u_independent.
 ///
 /// Reference: Cook et al., "Concepts and Applications of Finite Element Analysis", Ch. 9
-
 use std::collections::{HashMap, HashSet};
 use serde::{Serialize, Deserialize};
 use crate::types::*;

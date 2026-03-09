@@ -1,5 +1,6 @@
 <script lang="ts">
   import { onMount } from 'svelte';
+  import { t } from '../lib/i18n';
   import { modelStore, uiStore, resultsStore, historyStore, dsmStepsStore } from '../lib/store';
   import { drawDiagrams, drawEnvelopeDiagrams, computeDiagramGlobalMax, setDiagramUnitSystem, type DiagramKind } from '../lib/canvas/draw-diagrams';
   import { computeDiagramValueAt, computeDisplacementAt } from '../lib/engine/diagrams';
@@ -621,6 +622,7 @@
       const dt = resultsStore.diagramType;
       setDiagramUnitSystem(uiStore.unitSystem);
 
+      const lh = uiStore.axisConvention3D === 'leftHand';
       if (dt === 'deformed') {
         const baseScale = resultsStore.deformedScale;
         const animScale = resultsStore.animateDeformed
@@ -638,7 +640,7 @@
           const envData = dkind === 'moment' ? envSrc.moment
                         : dkind === 'shear'  ? envSrc.shear
                         :                       envSrc.axial;
-          drawEnvelopeDiagrams(envData, makeDrawContext(), resultsStore.diagramScale, resultsStore.showDiagramValues);
+          drawEnvelopeDiagrams(envData, makeDrawContext(), resultsStore.diagramScale, resultsStore.showDiagramValues, lh);
           // Draw envelope legend
           ctx.save();
           ctx.font = '11px sans-serif';
@@ -649,11 +651,11 @@
           ctx.lineWidth = 3;
           ctx.beginPath(); ctx.moveTo(legendX, legendY); ctx.lineTo(legendX + 20, legendY); ctx.stroke();
           ctx.fillStyle = '#ccc';
-          ctx.fillText('Env +', legendX + 24, legendY + 4);
+          ctx.fillText(t('viewport.envPlus'), legendX + 24, legendY + 4);
           // Negative line
           ctx.strokeStyle = dkind === 'moment' ? '#E15041' : dkind === 'shear' ? '#CD3232' : '#D35565';
           ctx.beginPath(); ctx.moveTo(legendX, legendY + 16); ctx.lineTo(legendX + 20, legendY + 16); ctx.stroke();
-          ctx.fillText('Env \u2212', legendX + 24, legendY + 20);
+          ctx.fillText(t('viewport.envMinus'), legendX + 24, legendY + 20);
           ctx.restore();
         } else {
           // Normal mode: overlay + main diagram
@@ -664,10 +666,10 @@
               computeDiagramGlobalMax(resultsStore.overlayResults, dkind),
             );
             const overlayColors = { fill: 'rgba(255, 165, 0, 0.12)', stroke: 'rgba(255, 165, 0, 0.5)', text: 'rgba(255, 165, 0, 0.6)' };
-            drawDiagrams(resultsStore.overlayResults, dkind, makeDrawContext(), resultsStore.diagramScale, false, overlayColors, sharedMax);
-            drawDiagrams(resultsStore.results, dkind, makeDrawContext(), resultsStore.diagramScale, resultsStore.showDiagramValues, undefined, sharedMax);
+            drawDiagrams(resultsStore.overlayResults, dkind, makeDrawContext(), resultsStore.diagramScale, false, overlayColors, sharedMax, lh);
+            drawDiagrams(resultsStore.results, dkind, makeDrawContext(), resultsStore.diagramScale, resultsStore.showDiagramValues, undefined, sharedMax, lh);
           } else {
-            drawDiagrams(resultsStore.results, dkind, makeDrawContext(), resultsStore.diagramScale, resultsStore.showDiagramValues);
+            drawDiagrams(resultsStore.results, dkind, makeDrawContext(), resultsStore.diagramScale, resultsStore.showDiagramValues, undefined, undefined, lh);
           }
         }
       } else if (dt === 'influenceLine' && resultsStore.influenceLine) {
@@ -716,7 +718,7 @@
           ctx.fillStyle = 'rgba(255, 165, 0, 0.7)';
           ctx.font = 'bold 11px sans-serif';
           ctx.textAlign = 'left';
-          ctx.fillText(`Overlay: ${resultsStore.overlayLabel}`, 10, height - 15);
+          ctx.fillText(t('viewport.overlay').replace('{label}', resultsStore.overlayLabel), 10, height - 15);
           ctx.textAlign = 'left';
         }
       }
@@ -750,23 +752,23 @@
         ctx.fillText('0%', lx + lw + 4, ly + lh + 3);
         ctx.font = 'bold 10px sans-serif';
         ctx.fillStyle = '#aaa';
-        ctx.fillText('Resistencia', lx, ly - 16);
+        ctx.fillText(t('viewport.resistance'), lx, ly - 16);
       } else if (resultsStore.diagramType === 'axialColor') {
         const lx = 12, ly = height - 80;
         ctx.font = '10px sans-serif';
         ctx.textAlign = 'left';
         ctx.fillStyle = '#aaa';
         ctx.font = 'bold 10px sans-serif';
-        ctx.fillText('Axil', lx, ly);
+        ctx.fillText(t('viewport.axial'), lx, ly);
         ctx.font = '10px sans-serif';
         ctx.fillStyle = 'rgb(255,40,40)';
         ctx.fillRect(lx, ly + 6, 12, 12);
         ctx.fillStyle = '#ccc';
-        ctx.fillText('Tracción (+)', lx + 16, ly + 16);
+        ctx.fillText(t('viewport.tension'), lx + 16, ly + 16);
         ctx.fillStyle = 'rgb(40,80,255)';
         ctx.fillRect(lx, ly + 22, 12, 12);
         ctx.fillStyle = '#ccc';
-        ctx.fillText('Compresión (−)', lx + 16, ly + 32);
+        ctx.fillText(t('viewport.compression'), lx + 16, ly + 32);
       }
     }
 
@@ -888,7 +890,7 @@
     if (uiStore.currentTool === 'select' && !boxSelect && draggedNodeId === null && !diagramHover && !diagramQuery) {
       const hoverNode = findNearestNode(uiStore.worldX, uiStore.worldY, 0.3);
       if (hoverNode) {
-        const lines: string[] = [`Nodo ${hoverNode.id}`];
+        const lines: string[] = [t('viewport.nodeTooltip').replace('{id}', String(hoverNode.id))];
         lines.push(`(${hoverNode.x.toFixed(2)}, ${hoverNode.y.toFixed(2)}) m`);
         // Show displacement if results exist
         if (resultsStore.results) {
@@ -901,7 +903,7 @@
       } else {
         const hoverElem = findNearestElement(uiStore.worldX, uiStore.worldY, 0.3);
         if (hoverElem) {
-          const lines: string[] = [`Elem ${hoverElem.id} (${hoverElem.type})`];
+          const lines: string[] = [t('viewport.elemTooltip').replace('{id}', String(hoverElem.id)).replace('{type}', hoverElem.type)];
           const L = modelStore.getElementLength(hoverElem.id);
           lines.push(`L: ${L.toFixed(3)} m`);
           if (resultsStore.results) {
@@ -1034,7 +1036,7 @@
             });
             resultsStore.clear();
             uiStore.selectNode(nearNode.id);
-            uiStore.toast(anyRigid ? 'Nodo articulado' : 'Articulaciones removidas', 'info');
+            uiStore.toast(anyRigid ? t('viewport.nodeHinged') : t('viewport.hingesRemoved'), 'info');
           }
           // Stay in hinge mode to continue articulating other nodes
         } else {
@@ -1055,7 +1057,7 @@
                 modelStore.toggleHinge(result.elemB, 'start');
                 resultsStore.clear();
                 uiStore.selectNode(result.nodeId);
-                uiStore.toast('Barra dividida con articulación', 'info');
+                uiStore.toast(t('viewport.barSubdividedWithHinge'), 'info');
               }
             }
           }
@@ -1221,7 +1223,7 @@
         result = modelStore.computeInfluenceLine('M', undefined, nearElem.id, 0.5);
         uiStore.ilQuantity = 'M';
       } else {
-        uiStore.toast('Click sobre un nodo (Ry/Rx/Mz) o un elemento (M/V)', 'info');
+        uiStore.toast(t('viewport.ilClickHint'), 'info');
       }
 
       if (result) {
@@ -1229,7 +1231,7 @@
           uiStore.toast(result, 'error');
         } else {
           resultsStore.setInfluenceLine(result);
-          uiStore.toast('Línea de influencia calculada', 'success');
+          uiStore.toast(t('viewport.ilCalculated'), 'success');
         }
       }
     } else if (uiStore.currentTool === 'select') {
@@ -1854,7 +1856,7 @@
     <button onclick={() => {
       if (modelStore.nodes.size === 0) return;
       uiStore.zoomToFit(modelStore.nodes.values(), canvas.width, canvas.height);
-    }} title="Zoom to Fit (F)">⊞</button>
+    }} title={t('viewport.zoomToFit')}>⊞</button>
   </div>
 </div>
 

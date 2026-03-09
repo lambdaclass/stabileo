@@ -1,5 +1,6 @@
 <script lang="ts">
   import { onMount } from 'svelte';
+  import { t } from '../lib/i18n';
   import * as THREE from 'three';
   import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
   import { modelStore, uiStore, resultsStore, historyStore, dsmStepsStore } from '../lib/store';
@@ -69,21 +70,31 @@
   let hoverTooltip = $state<{ text: string; x: number; y: number } | null>(null);
 
   // ─── Diagram legend (overlay) ────────────────────────────────
-  const DIAGRAM_LABELS: Record<string, { name: string; color: string }> = {
-    momentZ: { name: 'Momento Z (Mz)', color: '#4488ff' },
-    momentY: { name: 'Momento Y (My)', color: '#44bbaa' },
-    shearY:  { name: 'Corte Y (Vy)',   color: '#44bb44' },
-    shearZ:  { name: 'Corte Z (Vz)',   color: '#66aa66' },
-    axial:   { name: 'Axil (N)',        color: '#aa66dd' },
-    torsion: { name: 'Torsión (Mx)',    color: '#ee8844' },
-    deformed:{ name: 'Deformada',       color: '#ff8800' },
+  const DIAGRAM_COLORS: Record<string, string> = {
+    momentZ: '#4488ff',
+    momentY: '#44bbaa',
+    shearY:  '#44bb44',
+    shearZ:  '#66aa66',
+    axial:   '#aa66dd',
+    torsion: '#ee8844',
+    deformed:'#ff8800',
+  };
+  const DIAGRAM_LABEL_KEYS: Record<string, string> = {
+    momentZ: 'viewport3d.momentZ',
+    momentY: 'viewport3d.momentY',
+    shearY:  'viewport3d.shearY',
+    shearZ:  'viewport3d.shearZ',
+    axial:   'viewport3d.axial',
+    torsion: 'viewport3d.torsion',
+    deformed:'viewport3d.deformed',
   };
   const diagramLegend = $derived.by(() => {
     const dt = resultsStore.diagramType;
     if (dt === 'none' || dt === 'axialColor' || dt === 'colorMap') return null;
-    const label = DIAGRAM_LABELS[dt];
-    if (!label) return null;
-    return label;
+    const color = DIAGRAM_COLORS[dt];
+    const key = DIAGRAM_LABEL_KEYS[dt];
+    if (!color || !key) return null;
+    return { name: t(key), color };
   });
 
   // ─── Tool interaction state ─────────────────────────────────
@@ -109,7 +120,7 @@
     historyStore.pushState();
     const id = modelStore.addNode(x, y, z);
     uiStore.selectNode(id, false);
-    uiStore.toast(`Nodo ${id} creado en (${x}, ${y}, ${z})`, 'success');
+    uiStore.toast(t('viewport3d.nodeCreatedAt').replace('{id}', String(id)).replace('{x}', String(x)).replace('{y}', String(y)).replace('{z}', String(z)), 'success');
     showCoordDialog = false;
   }
 
@@ -678,7 +689,7 @@
     historyStore.pushState();
     const id = modelStore.addNode(snapped.x, snapped.y, snapped.z);
     uiStore.selectNode(id, false);
-    uiStore.toast(`Nodo ${id} creado`, 'success');
+    uiStore.toast(t('viewport3d.nodeCreated').replace('{id}', String(id)), 'success');
   }
 
   function handleElementTool(e: MouseEvent) {
@@ -697,7 +708,7 @@
       // Highlight node I
       const mesh = nodeMeshes.get(nodeId);
       if (mesh) setMeshColor(mesh, 0x00ff00);
-      uiStore.toast(`Nodo I: ${nodeId} — click en Nodo J`, 'info');
+      uiStore.toast(t('viewport3d.nodeIClickJ').replace('{id}', String(nodeId)), 'info');
     } else {
       // Second click → create element
       if (nodeId === pendingElementNodeI) return; // same node
@@ -705,7 +716,7 @@
       historyStore.pushState();
       const elemId = modelStore.addElement(pendingElementNodeI, nodeId, uiStore.elementCreateType);
       uiStore.selectElement(elemId, false);
-      uiStore.toast(`Elemento ${elemId} creado`, 'success');
+      uiStore.toast(t('viewport3d.elementCreated').replace('{id}', String(elemId)), 'success');
 
       // Clean up
       cancelPendingElement();
@@ -774,7 +785,7 @@
       const opts: any = { dofRestraints, dofFrame: uiStore.supportFrame3D };
       const supId = modelStore.addSupport(nodeId, type, springs, opts);
       uiStore.selectSupport(supId, false);
-      uiStore.toast(`Apoyo ${supId} creado en nodo ${nodeId}`, 'success');
+      uiStore.toast(t('viewport3d.supportCreated').replace('{id}', String(supId)).replace('{nid}', String(nodeId)), 'success');
     } else {
       // 2D support creation (unchanged)
       const type = toSupportType(uiStore.supportType, uiStore.supportDirection);
@@ -790,7 +801,7 @@
       if (uiStore.supportDrz !== 0) opts.drz = uiStore.supportDrz;
       const supId = modelStore.addSupport(nodeId, type as any, springs, opts);
       uiStore.selectSupport(supId, false);
-      uiStore.toast(`Apoyo ${supId} creado en nodo ${nodeId}`, 'success');
+      uiStore.toast(t('viewport3d.supportCreated').replace('{id}', String(supId)).replace('{nid}', String(nodeId)), 'success');
     }
   }
 
@@ -822,7 +833,7 @@
         const mz = dir === 'mz' ? val : 0;
         modelStore.addNodalLoad(nodeId, fx, fy, mz, uiStore.activeLoadCaseId);
       }
-      uiStore.toast(`Carga puntual aplicada en nodo ${nodeId}`, 'success');
+      uiStore.toast(t('viewport3d.pointLoadApplied').replace('{id}', String(nodeId)), 'success');
     } else if (uiStore.loadType === 'distributed') {
       const elemId = findElementHit(e);
       if (elemId === null) return;
@@ -835,7 +846,7 @@
       } else {
         modelStore.addDistributedLoad(elemId, uiStore.loadValue, uiStore.loadValueJ, undefined, undefined, uiStore.activeLoadCaseId);
       }
-      uiStore.toast(`Carga distribuida aplicada en elem ${elemId}`, 'success');
+      uiStore.toast(t('viewport3d.distLoadApplied').replace('{id}', String(elemId)), 'success');
     }
   }
 
@@ -986,7 +997,7 @@
       measureGroup.add(label);
 
       // Toast with distance
-      uiStore.toast(`Distancia: ${dist.toFixed(3)} m`, 'info');
+      uiStore.toast(t('viewport3d.distance').replace('{dist}', dist.toFixed(3)), 'info');
     }
   }
 
@@ -1241,13 +1252,13 @@
       let tooltipText = '';
       if (newHover.type === 'node') {
         const n = modelStore.nodes.get(newHover.id);
-        if (n) tooltipText = `Nodo ${n.id} (${n.x.toFixed(2)}, ${n.y.toFixed(2)}, ${(n.z ?? 0).toFixed(2)})`;
+        if (n) tooltipText = t('viewport3d.nodeTooltip').replace('{id}', String(n.id)).replace('{x}', n.x.toFixed(2)).replace('{y}', n.y.toFixed(2)).replace('{z}', (n.z ?? 0).toFixed(2));
       } else if (newHover.type === 'element') {
         const el = modelStore.elements.get(newHover.id);
         if (el) tooltipText = `Elem ${el.id} [${el.type}] ${el.nodeI}→${el.nodeJ}`;
       } else if (newHover.type === 'support') {
         const s = modelStore.supports.get(newHover.id);
-        if (s) tooltipText = `Apoyo ${s.id} [${s.type}]`;
+        if (s) tooltipText = t('viewport3d.supportTooltip').replace('{id}', String(s.id)).replace('{type}', s.type);
       }
       if (tooltipText) {
         hoverTooltip = { text: tooltipText, x: e.clientX - rect.left + 15, y: e.clientY - rect.top - 10 };
@@ -1553,26 +1564,26 @@
 >
   <!-- Camera preset buttons -->
   <div class="camera-controls" style="top: {uiStore.floatingToolsTopOffset}px">
-    <button onclick={zoomToFit} title="Zoom to Fit">⊞</button>
-    <button onclick={() => setView('top')} title="Top View">⊤</button>
-    <button onclick={() => setView('front')} title="Front View">⊡</button>
-    <button onclick={() => setView('side')} title="Side View">⊟</button>
+    <button onclick={zoomToFit} title={t('viewport3d.zoomToFit')}>⊞</button>
+    <button onclick={() => setView('top')} title={t('viewport3d.topView')}>⊤</button>
+    <button onclick={() => setView('front')} title={t('viewport3d.frontView')}>⊡</button>
+    <button onclick={() => setView('side')} title={t('viewport3d.sideView')}>⊟</button>
     <button
       onclick={toggleCameraMode}
-      title={uiStore.cameraMode3D === 'perspective' ? 'Switch to Orthographic' : 'Switch to Perspective'}
+      title={uiStore.cameraMode3D === 'perspective' ? t('viewport3d.switchToOrtho') : t('viewport3d.switchToPersp')}
     >
       {uiStore.cameraMode3D === 'perspective' ? 'P' : 'O'}
     </button>
     <button
       onclick={() => { uiStore.clippingEnabled = !uiStore.clippingEnabled; }}
-      title={uiStore.clippingEnabled ? 'Disable Clipping' : 'Enable Clipping Plane'}
+      title={uiStore.clippingEnabled ? t('viewport3d.disableClipping') : t('viewport3d.enableClipping')}
       class:active-cam={uiStore.clippingEnabled}
     >
       ✂
     </button>
     <button
       onclick={() => { uiStore.measureMode = !uiStore.measureMode; }}
-      title={uiStore.measureMode ? 'Disable Measure Tool' : 'Measure Distance'}
+      title={uiStore.measureMode ? t('viewport3d.disableMeasure') : t('viewport3d.enableMeasure')}
       class:active-cam={uiStore.measureMode}
     >
       📏
@@ -1608,7 +1619,7 @@
     <!-- svelte-ignore a11y_no_static_element_interactions -->
     <div class="coord-dialog-overlay" onkeydown={(e) => { if (e.key === 'Escape') cancelCoordDialog(); }}>
       <div class="coord-dialog">
-        <div class="coord-title">Crear nodo en coordenadas</div>
+        <div class="coord-title">{t('viewport3d.createNodeCoords')}</div>
         <div class="coord-row">
           <label>X</label>
           <!-- svelte-ignore a11y_autofocus -->
@@ -1629,8 +1640,8 @@
           />
         </div>
         <div class="coord-actions">
-          <button class="coord-btn-ok" onclick={submitCoordDialog}>Crear</button>
-          <button class="coord-btn-cancel" onclick={cancelCoordDialog}>Cancelar</button>
+          <button class="coord-btn-ok" onclick={submitCoordDialog}>{t('viewport3d.create')}</button>
+          <button class="coord-btn-cancel" onclick={cancelCoordDialog}>{t('viewport3d.cancel')}</button>
         </div>
       </div>
     </div>
@@ -1641,16 +1652,16 @@
     <div class="diagram-legend">
       {#if resultsStore.isEnvelopeActive && resultsStore.fullEnvelope3D}
         <span class="legend-color" style="background: #4169E1;"></span>
-        <span class="legend-text">Env +</span>
+        <span class="legend-text">{t('viewport3d.envPlus')}</span>
         <span class="legend-color" style="background: #E15041; margin-left: 8px;"></span>
-        <span class="legend-text">Env −</span>
+        <span class="legend-text">{t('viewport3d.envMinus')}</span>
       {:else}
         <span class="legend-color" style="background: {diagramLegend.color};"></span>
         <span class="legend-text">{diagramLegend.name}</span>
       {/if}
       {#if resultsStore.overlayResults3D && resultsStore.overlayLabel}
         <span class="legend-color" style="background: #FFA500; margin-left: 8px;"></span>
-        <span class="legend-text">Overlay: {resultsStore.overlayLabel}</span>
+        <span class="legend-text">{t('viewport3d.overlay').replace('{label}', resultsStore.overlayLabel)}</span>
       {/if}
     </div>
   {/if}

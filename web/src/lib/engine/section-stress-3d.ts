@@ -8,6 +8,7 @@
 
 import type { ElementForces3D } from './types-3d';
 import type { Section } from '../store/model.svelte';
+import { t } from '../i18n';
 import {
   resolveSectionGeometry,
   computeMohrCircle,
@@ -743,17 +744,17 @@ export function suggestCriticalSections3D(ef: ElementForces3D): Array<{ t: numbe
   const sections: Array<{ t: number; reason: string }> = [];
 
   // Start and end
-  sections.push({ t: 0, reason: 'Nodo I' });
-  sections.push({ t: 1, reason: 'Nodo J' });
+  sections.push({ t: 0, reason: t('stress.endI') });
+  sections.push({ t: 1, reason: t('stress.endJ') });
 
   // Midspan
-  sections.push({ t: 0.5, reason: 'Centro' });
+  sections.push({ t: 0.5, reason: t('stress.midspan') });
 
   // Where Vy = 0 (max Mz)
   if (Math.abs(ef.vyStart) > 1e-6 && Math.abs(ef.vyEnd) > 1e-6 && ef.vyStart * ef.vyEnd < 0) {
     const tVy0 = ef.vyStart / (ef.vyStart - ef.vyEnd);
     if (tVy0 > 0.01 && tVy0 < 0.99) {
-      sections.push({ t: tVy0, reason: 'Vy=0 (Mz máx)' });
+      sections.push({ t: tVy0, reason: 'Vy=0 (Mz max)' });
     }
   }
 
@@ -761,7 +762,7 @@ export function suggestCriticalSections3D(ef: ElementForces3D): Array<{ t: numbe
   if (Math.abs(ef.vzStart) > 1e-6 && Math.abs(ef.vzEnd) > 1e-6 && ef.vzStart * ef.vzEnd < 0) {
     const tVz0 = ef.vzStart / (ef.vzStart - ef.vzEnd);
     if (tVz0 > 0.01 && tVz0 < 0.99) {
-      sections.push({ t: tVz0, reason: 'Vz=0 (My máx)' });
+      sections.push({ t: tVz0, reason: 'Vz=0 (My max)' });
     }
   }
 
@@ -769,13 +770,13 @@ export function suggestCriticalSections3D(ef: ElementForces3D): Array<{ t: numbe
   for (const pl of ef.pointLoadsY) {
     const tp = pl.a / ef.length;
     if (tp > 0.01 && tp < 0.99) {
-      sections.push({ t: tp, reason: 'Carga puntual Y' });
+      sections.push({ t: tp, reason: t('stress.pointLoadY') });
     }
   }
   for (const pl of ef.pointLoadsZ) {
     const tp = pl.a / ef.length;
     if (tp > 0.01 && tp < 0.99) {
-      sections.push({ t: tp, reason: 'Carga puntual Z' });
+      sections.push({ t: tp, reason: t('stress.pointLoadZ') });
     }
   }
 

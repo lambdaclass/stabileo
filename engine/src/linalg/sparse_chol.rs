@@ -2,7 +2,6 @@
 ///
 /// Two-phase: symbolic (AMD + elimination tree + column counts) then numeric.
 /// Symbolic phase can be reused when sparsity pattern is unchanged (P-Delta).
-
 use super::sparse::CscMatrix;
 use super::amd::{amd_order, inverse_perm};
 

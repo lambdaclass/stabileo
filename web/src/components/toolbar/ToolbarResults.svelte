@@ -3,17 +3,18 @@
   import { unitLabel } from '../../lib/utils/units';
   import { solveDetailed } from '../../lib/engine/solver-detailed';
   import { solveDetailed3D } from '../../lib/engine/solver-detailed-3d';
+  import { t } from '../../lib/i18n';
 
   // ─── Educational Tooltips (subset used by Results) ─────────────
   const HELP_TEXTS: Record<string, { title: string; desc: string }> = {
-    'solve':          { title: 'Calcular', desc: 'Resuelve la estructura por el Método de la Rigidez Directa (DSM). Necesitás nodos, barras, apoyos y cargas.' },
-    'diag-none':      { title: 'Sin Diagrama', desc: 'Oculta todos los diagramas de resultados. Solo se ve la estructura.' },
-    'diag-deformed':  { title: 'Deformada', desc: 'Muestra la forma deformada amplificada. Útil para verificar que el comportamiento es razonable.' },
-    'diag-moment':    { title: 'Momento Flector (M)', desc: 'Diagrama del momento que genera flexión en cada barra. Se dibuja del lado traccionado por convención.' },
-    'diag-shear':     { title: 'Corte (V)', desc: 'Diagrama de la fuerza de corte a lo largo de cada barra. Cambios bruscos indican cargas puntuales.' },
-    'diag-axial':     { title: 'Axil (N)', desc: 'Diagrama de la fuerza axial. Positivo = tracción (la barra se estira), negativo = compresión.' },
-    'diag-axialColor':{ title: 'Color Axil (N±)', desc: 'Colorea las barras según axil: rojo = tracción, azul = compresión. Grosor proporcional a la magnitud.' },
-    'diag-colorMap':  { title: 'Mapa de Color', desc: 'Colorea las barras según el esfuerzo elegido (momento, corte, axil o ratio σ/fy) usando una escala de colores.' },
+    'solve':          { title: 'tooltip.solve.title', desc: 'tooltip.solve.desc' },
+    'diag-none':      { title: 'tooltip.diagNone.title', desc: 'tooltip.diagNone.desc' },
+    'diag-deformed':  { title: 'tooltip.diagDeformed.title', desc: 'tooltip.diagDeformed.desc' },
+    'diag-moment':    { title: 'tooltip.diagMoment.title', desc: 'tooltip.diagMoment.desc' },
+    'diag-shear':     { title: 'tooltip.diagShear.title', desc: 'tooltip.diagShear.desc' },
+    'diag-axial':     { title: 'tooltip.diagAxial.title', desc: 'tooltip.diagAxial.desc' },
+    'diag-axialColor':{ title: 'tooltip.diagAxialColor.title', desc: 'tooltip.diagAxialColor.desc' },
+    'diag-colorMap':  { title: 'tooltip.diagColorMap.title', desc: 'tooltip.diagColorMap.desc' },
   };
 
   function tooltip(node: HTMLElement, key: string) {
@@ -27,7 +28,7 @@
       timer = setTimeout(() => {
         el = document.createElement('div');
         el.className = 'edu-tooltip';
-        el.innerHTML = `<strong>${info.title}</strong><br/><span>${info.desc}</span>`;
+        el.innerHTML = `<strong>${t(info.title)}</strong><br/><span>${t(info.desc)}</span>`;
         document.body.appendChild(el);
         // Position to the right of the element
         const rect = node.getBoundingClientRect();
@@ -94,7 +95,7 @@
       // Validate results aren't degenerate
       const hasNaN = results.displacements.some(d => !isFinite(d.ux) || !isFinite(d.uy) || !isFinite(d.rz));
       if (hasNaN) {
-        uiStore.toast('Error numérico: la estructura puede ser inestable (mecanismo)', 'error');
+        uiStore.toast(t('results.numericError'), 'error');
         return;
       }
       resultsStore.setResults(results);
@@ -102,8 +103,8 @@
       const kin = modelStore.kinematicResult;
       let classText = '';
       if (kin) {
-        if (kin.classification === 'isostatic') classText = ' — Isostática';
-        else if (kin.classification === 'hyperstatic') classText = ` — Hiperestática (grado ${kin.degree})`;
+        if (kin.classification === 'isostatic') classText = t('toast.isostatic');
+        else if (kin.classification === 'hyperstatic') classText = t('toast.hyperstatic').replace('{degree}', String(kin.degree));
       }
       // Auto-solve combinations if they exist
       let comboText = '';
@@ -111,12 +112,12 @@
         const comboResult = modelStore.solveCombinations(uiStore.includeSelfWeight);
         if (comboResult && typeof comboResult !== 'string') {
           resultsStore.setCombinationResults(comboResult.perCase, comboResult.perCombo, comboResult.envelope);
-          comboText = ` + ${comboResult.perCombo.size} combinaciones`;
+          comboText = t('toast.plusCombinations').replace('{n}', String(comboResult.perCombo.size));
         }
       }
-      uiStore.toast(`Cálculo exitoso${classText} — ${results.elementForces.length} barras, ${results.reactions.length} reacciones${comboText}`, 'success');
+      uiStore.toast(`${t('results.calcSuccess')}${classText} — ${results.elementForces.length} ${t('results.bars')}, ${results.reactions.length} ${t('results.reactions')}${comboText}`, 'success');
     } else {
-      uiStore.toast('Modelo vacío o error inesperado', 'error');
+      uiStore.toast(t('results.emptyModelError'), 'error');
     }
     // Auto-close drawer on mobile after solve, show floating results panel
     if (uiStore.isMobile) {
@@ -135,7 +136,7 @@
         (d: { ux: number; uy: number; uz: number }) => !isFinite(d.ux) || !isFinite(d.uy) || !isFinite(d.uz)
       );
       if (hasNaN) {
-        uiStore.toast('Error numérico 3D: la estructura puede ser inestable (mecanismo)', 'error');
+        uiStore.toast(t('results.numericError3d'), 'error');
         return;
       }
       resultsStore.setResults3D(results);
@@ -145,15 +146,15 @@
         const comboResult = modelStore.solveCombinations3D(uiStore.includeSelfWeight, uiStore.axisConvention3D === 'leftHand');
         if (comboResult && typeof comboResult !== 'string') {
           resultsStore.setCombinationResults3D(comboResult.perCase, comboResult.perCombo, comboResult.envelope);
-          comboText = ` + ${comboResult.perCombo.size} combinaciones`;
+          comboText = t('toast.plusCombinations').replace('{n}', String(comboResult.perCombo.size));
         }
       }
       uiStore.toast(
-        `Análisis 3D exitoso — ${results.elementForces.length} barras, ${results.reactions.length} reacciones${comboText}`,
+        `${t('results.analysis3dSuccess')} — ${results.elementForces.length} ${t('results.bars')}, ${results.reactions.length} ${t('results.reactions')}${comboText}`,
         'success',
       );
     } else {
-      uiStore.toast('Modelo vacío o error inesperado', 'error');
+      uiStore.toast(t('results.emptyModelError'), 'error');
     }
     if (uiStore.isMobile) {
       uiStore.leftDrawerOpen = false;
@@ -170,7 +171,7 @@
         resultsStore.setCombinationResults3D(result.perCase, result.perCombo, result.envelope);
         const nCombos = result.perCombo.size;
         const nCases = result.perCase.size;
-        uiStore.toast(`${nCombos} combinaciones 3D calculadas (${nCases} casos de carga).`, 'success');
+        uiStore.toast(t('toast.combinations3dSuccess').replace('{n}', String(nCombos)).replace('{cases}', String(nCases)), 'success');
       }
       return;
     }
@@ -181,7 +182,7 @@
       resultsStore.setCombinationResults(result.perCase, result.perCombo, result.envelope);
       const nCombos = result.perCombo.size;
       const nCases = result.perCase.size;
-      uiStore.toast(`${nCombos} combinaciones calculadas (${nCases} casos de carga). Usá "Principal" en diagramas M/V/N para ver Envolvente o combos individuales.`, 'success');
+      uiStore.toast(t('toast.combinationsSuccess').replace('{n}', String(nCombos)).replace('{cases}', String(nCases)), 'success');
     }
   }
 
@@ -194,62 +195,62 @@
 </script>
 
 <div class="toolbar-section">
-  <h3>Calcular</h3>
-  <button class="solve-btn" data-tour="calcular-btn" class:ready={modelReady} onclick={handleSolve} use:tooltip={'solve'} title={uiStore.analysisMode === '3d' ? 'Análisis 3D (6 DOF/nodo)' : ''}>
-    {uiStore.analysisMode === '3d' ? 'Calcular 3D' : 'Calcular'}
+  <h3>{t('results.solve')}</h3>
+  <button class="solve-btn" data-tour="calcular-btn" class:ready={modelReady} onclick={handleSolve} use:tooltip={'solve'} title={uiStore.analysisMode === '3d' ? t('results.analysis3dTooltip') : ''}>
+    {uiStore.analysisMode === '3d' ? t('results.solve3d') : t('results.solve')}
   </button>
 </div>
 
 <div class="toolbar-section" data-tour="results-section">
   <button class="section-toggle" onclick={() => showResultsPanel = !showResultsPanel}>
-    {showResultsPanel ? '▾' : '▸'} Resultados
+    {showResultsPanel ? '▾' : '▸'} {t('results.results')}
   </button>
   {#if showResultsPanel}
     {#if resultsStore.results || resultsStore.results3D || resultsStore.influenceLine}
       <div class="diagram-grid">
-        <button class="diagram-btn" class:active={resultsStore.diagramType === 'none'} onclick={() => resultsStore.diagramType = 'none'} title="Sin diagrama (0)" use:tooltip={'diag-none'}>Ninguno</button>
-        <button class="diagram-btn" class:active={resultsStore.diagramType === 'deformed'} onclick={() => resultsStore.diagramType = 'deformed'} title="Deformada amplificada (4)" use:tooltip={'diag-deformed'}>Deformada</button>
+        <button class="diagram-btn" class:active={resultsStore.diagramType === 'none'} onclick={() => resultsStore.diagramType = 'none'} title={t('results.noDiagramTooltip')} use:tooltip={'diag-none'}>{t('results.none')}</button>
+        <button class="diagram-btn" class:active={resultsStore.diagramType === 'deformed'} onclick={() => resultsStore.diagramType = 'deformed'} title={t('results.deformedTooltip')} use:tooltip={'diag-deformed'}>{t('results.deformed')}</button>
         {#if uiStore.analysisMode !== '3d'}
-          <button class="diagram-btn" class:active={resultsStore.diagramType === 'moment'} onclick={() => resultsStore.diagramType = 'moment'} title="Diagrama de momento flector (1)" use:tooltip={'diag-moment'}>Momento</button>
-          <button class="diagram-btn" class:active={resultsStore.diagramType === 'shear'} onclick={() => resultsStore.diagramType = 'shear'} title="Diagrama de corte (2)" use:tooltip={'diag-shear'}>Corte</button>
-          <button class="diagram-btn" class:active={resultsStore.diagramType === 'axial'} onclick={() => resultsStore.diagramType = 'axial'} title="Diagrama de fuerza axil (3)" use:tooltip={'diag-axial'}>Axil</button>
-          <button class="diagram-btn" class:active={resultsStore.diagramType === 'axialColor'} onclick={() => resultsStore.diagramType = 'axialColor'} title="Color por axil: rojo=tracción, azul=compresión (7)" use:tooltip={'diag-axialColor'}>Axil colores</button>
+          <button class="diagram-btn" class:active={resultsStore.diagramType === 'moment'} onclick={() => resultsStore.diagramType = 'moment'} title={t('results.momentTooltip')} use:tooltip={'diag-moment'}>{t('results.moment')}</button>
+          <button class="diagram-btn" class:active={resultsStore.diagramType === 'shear'} onclick={() => resultsStore.diagramType = 'shear'} title={t('results.shearTooltip')} use:tooltip={'diag-shear'}>{t('results.shear')}</button>
+          <button class="diagram-btn" class:active={resultsStore.diagramType === 'axial'} onclick={() => resultsStore.diagramType = 'axial'} title={t('results.axialTooltip')} use:tooltip={'diag-axial'}>{t('results.axial')}</button>
+          <button class="diagram-btn" class:active={resultsStore.diagramType === 'axialColor'} onclick={() => resultsStore.diagramType = 'axialColor'} title={t('results.axialColorTooltip')} use:tooltip={'diag-axialColor'}>{t('results.axialColors')}</button>
         {:else}
-          <button class="diagram-btn" class:active={resultsStore.diagramType === 'shearZ'} onclick={() => resultsStore.diagramType = 'shearZ'} title="Corte en Z (Vz)">Corte Z</button>
-          <button class="diagram-btn" class:active={resultsStore.diagramType === 'momentY'} onclick={() => resultsStore.diagramType = 'momentY'} title="Momento eje débil (My)">Momento Y</button>
-          <button class="diagram-btn" class:active={resultsStore.diagramType === 'shearY'} onclick={() => resultsStore.diagramType = 'shearY'} title="Corte en Y (Vy)">Corte Y</button>
-          <button class="diagram-btn" class:active={resultsStore.diagramType === 'momentZ'} onclick={() => resultsStore.diagramType = 'momentZ'} title="Momento eje fuerte (Mz)">Momento Z</button>
-          <button class="diagram-btn" class:active={resultsStore.diagramType === 'axial'} onclick={() => resultsStore.diagramType = 'axial'} title="Fuerza axil (N)">Axil</button>
-          <button class="diagram-btn" class:active={resultsStore.diagramType === 'torsion'} onclick={() => resultsStore.diagramType = 'torsion'} title="Momento torsor (Mx)">Torsor</button>
-          <button class="diagram-btn" class:active={resultsStore.diagramType === 'axialColor'} onclick={() => resultsStore.diagramType = 'axialColor'} title="Color por axil: rojo=tracción, azul=compresión">Axil colores</button>
-          <button class="diagram-btn" class:active={resultsStore.diagramType === 'colorMap'} onclick={() => resultsStore.diagramType = 'colorMap'} title="Mapa de color por esfuerzo">Color map</button>
+          <button class="diagram-btn" class:active={resultsStore.diagramType === 'shearZ'} onclick={() => resultsStore.diagramType = 'shearZ'} title={t('results.shearZTooltip')}>{t('results.shearZ')}</button>
+          <button class="diagram-btn" class:active={resultsStore.diagramType === 'momentY'} onclick={() => resultsStore.diagramType = 'momentY'} title={t('results.momentYTooltip')}>{t('results.momentY')}</button>
+          <button class="diagram-btn" class:active={resultsStore.diagramType === 'shearY'} onclick={() => resultsStore.diagramType = 'shearY'} title={t('results.shearYTooltip')}>{t('results.shearY')}</button>
+          <button class="diagram-btn" class:active={resultsStore.diagramType === 'momentZ'} onclick={() => resultsStore.diagramType = 'momentZ'} title={t('results.momentZTooltip')}>{t('results.momentZ')}</button>
+          <button class="diagram-btn" class:active={resultsStore.diagramType === 'axial'} onclick={() => resultsStore.diagramType = 'axial'} title={t('results.axialNTooltip')}>{t('results.axial')}</button>
+          <button class="diagram-btn" class:active={resultsStore.diagramType === 'torsion'} onclick={() => resultsStore.diagramType = 'torsion'} title={t('results.torsionTooltip')}>{t('results.torsion')}</button>
+          <button class="diagram-btn" class:active={resultsStore.diagramType === 'axialColor'} onclick={() => resultsStore.diagramType = 'axialColor'} title={t('results.axialColor3dTooltip')}>{t('results.axialColors')}</button>
+          <button class="diagram-btn" class:active={resultsStore.diagramType === 'colorMap'} onclick={() => resultsStore.diagramType = 'colorMap'} title={t('results.colorMapTooltip')}>{t('results.colorMap')}</button>
         {/if}
       </div>
       {#if resultsStore.diagramType === 'deformed'}
         <div class="input-group">
-          <label>Escala diagrama:</label>
-          <button class="scale-step-btn" onclick={() => resultsStore.deformedScale = Math.max(1, resultsStore.deformedScale - (resultsStore.deformedScale <= 10 ? 1 : resultsStore.deformedScale <= 100 ? 5 : 50))} title="Reducir escala">◀</button>
+          <label>{t('results.diagramScale')}:</label>
+          <button class="scale-step-btn" onclick={() => resultsStore.deformedScale = Math.max(1, resultsStore.deformedScale - (resultsStore.deformedScale <= 10 ? 1 : resultsStore.deformedScale <= 100 ? 5 : 50))} title={t('results.decreaseScale')}>◀</button>
           <input type="range" min="1" max="1000" step="1" bind:value={resultsStore.deformedScale} style="width: 80px" />
-          <button class="scale-step-btn" onclick={() => resultsStore.deformedScale = Math.min(1000, resultsStore.deformedScale + (resultsStore.deformedScale < 10 ? 1 : resultsStore.deformedScale < 100 ? 5 : 50))} title="Aumentar escala">▶</button>
+          <button class="scale-step-btn" onclick={() => resultsStore.deformedScale = Math.min(1000, resultsStore.deformedScale + (resultsStore.deformedScale < 10 ? 1 : resultsStore.deformedScale < 100 ? 5 : 50))} title={t('results.increaseScale')}>▶</button>
           <span style="font-size: 0.7rem; color: #888">{resultsStore.deformedScale}x</span>
         </div>
       {:else if resultsStore.diagramType !== 'none' && resultsStore.diagramType !== 'colorMap' && resultsStore.diagramType !== 'axialColor'}
         <div class="input-group">
-          <label>Escala diagrama:</label>
-          <button class="scale-step-btn" onclick={() => resultsStore.diagramScale = Math.max(0.1, +(resultsStore.diagramScale - 0.1).toFixed(1))} title="Reducir escala">◀</button>
+          <label>{t('results.diagramScale')}:</label>
+          <button class="scale-step-btn" onclick={() => resultsStore.diagramScale = Math.max(0.1, +(resultsStore.diagramScale - 0.1).toFixed(1))} title={t('results.decreaseScale')}>◀</button>
           <input type="range" min="0.1" max="5" step="0.1" bind:value={resultsStore.diagramScale} style="width: 80px" />
-          <button class="scale-step-btn" onclick={() => resultsStore.diagramScale = Math.min(5, +(resultsStore.diagramScale + 0.1).toFixed(1))} title="Aumentar escala">▶</button>
+          <button class="scale-step-btn" onclick={() => resultsStore.diagramScale = Math.min(5, +(resultsStore.diagramScale + 0.1).toFixed(1))} title={t('results.increaseScale')}>▶</button>
           <span style="font-size: 0.7rem; color: #888">{resultsStore.diagramScale.toFixed(1)}x</span>
         </div>
       {/if}
       {#if resultsStore.diagramType === 'deformed'}
         <label class="checkbox-item">
           <input type="checkbox" bind:checked={resultsStore.animateDeformed} />
-          <span>Animar</span>
+          <span>{t('results.animate')}</span>
         </label>
         {#if resultsStore.animateDeformed}
           <div class="input-group">
-            <label>Velocidad:</label>
+            <label>{t('results.speed')}:</label>
             <input type="range" min="0.25" max="3" step="0.25" bind:value={resultsStore.animSpeed} style="width: 80px" />
             <span style="font-size: 0.7rem; color: #888">{resultsStore.animSpeed.toFixed(2)}x</span>
           </div>
@@ -258,11 +259,11 @@
       {#if resultsStore.diagramType === 'influenceLine' && resultsStore.influenceLine}
         <label class="checkbox-item">
           <input type="checkbox" bind:checked={resultsStore.ilAnimating} />
-          <span>Animar carga</span>
+          <span>{t('results.animateLoad')}</span>
         </label>
         {#if resultsStore.ilAnimating}
           <div class="input-group">
-            <label>Velocidad:</label>
+            <label>{t('results.speed')}:</label>
             <input type="range" min="0.25" max="3" step="0.25" bind:value={resultsStore.ilAnimSpeed} style="width: 80px" />
             <span style="font-size: 0.7rem; color: #888">{resultsStore.ilAnimSpeed.toFixed(2)}x</span>
           </div>
@@ -270,12 +271,12 @@
       {/if}
       {#if resultsStore.diagramType === 'colorMap'}
         <div class="input-group">
-          <label>Variable:</label>
+          <label>{t('results.variable')}:</label>
           <select bind:value={resultsStore.colorMapKind}>
-            <option value="moment">Momento</option>
-            <option value="shear">Corte</option>
-            <option value="axial">Axil</option>
-            <option value="stressRatio">Resistencia (σ/fy)</option>
+            <option value="moment">{t('results.moment')}</option>
+            <option value="shear">{t('results.shear')}</option>
+            <option value="axial">{t('results.axial')}</option>
+            <option value="stressRatio">{t('results.resistance')}</option>
           </select>
         </div>
       {/if}
@@ -285,13 +286,13 @@
         {@const comboKeys = is3D ? [...resultsStore.perCombo3D.keys()] : [...resultsStore.perCombo.keys()]}
         {@const hasEnvelope = is3D ? resultsStore.fullEnvelope3D !== null : resultsStore.fullEnvelope !== null}
         <button class="sub-toggle" onclick={() => showResultsViewSub = !showResultsViewSub}>
-          {showResultsViewSub ? '▾' : '▸'} Cambiar resultados a visualizar
+          {showResultsViewSub ? '▾' : '▸'} {t('results.changeResultsView')}
         </button>
         {#if showResultsViewSub}
           <div class="sub-content">
             {#if uiStore.showPrimarySelector}
               <div class="input-group">
-                <label>Principal:</label>
+                <label>{t('results.primary')}:</label>
                 <select value={resultsStore.activeView === 'envelope' ? 'envelope'
                              : resultsStore.activeCaseId !== null ? `case_${resultsStore.activeCaseId}`
                              : resultsStore.activeView === 'combo' ? `combo_${resultsStore.activeComboId ?? ''}`
@@ -316,36 +317,36 @@
                       resultsStore.activeComboId = Number(val.replace('combo_', ''));
                     }
                   }}>
-                  <option value="single">Cargas simples</option>
+                  <option value="single">{t('results.simpleLoads')}</option>
                   {#each caseKeys as caseId}
                     {@const lc = modelStore.model.loadCases.find(c => c.id === caseId)}
-                    <option value={`case_${caseId}`}>{lc?.name ?? `Caso ${caseId}`}</option>
+                    <option value={`case_${caseId}`}>{lc?.name ?? `${t('results.caseFallback')} ${caseId}`}</option>
                   {/each}
                   {#each comboKeys as comboId}
                     {@const combo = modelStore.model.combinations.find(c => c.id === comboId)}
-                    <option value={`combo_${comboId}`}>{combo?.name ?? `Combinación ${comboId}`}</option>
+                    <option value={`combo_${comboId}`}>{combo?.name ?? `${t('results.comboFallback')} ${comboId}`}</option>
                   {/each}
-                  <option value="envelope">Envolvente (+/−)</option>
+                  <option value="envelope">{t('results.envelope')}</option>
                 </select>
               </div>
               {#if uiStore.showSecondarySelector}
                 <div class="input-group">
-                  <label>Comparar:</label>
+                  <label>{t('results.compare')}:</label>
                   <select onchange={(e) => {
                     const val = (e.target as HTMLSelectElement).value;
                     if (val === 'none') {
                       if (is3D) resultsStore.setOverlay3D(null);
                       else resultsStore.setOverlay(null);
                     } else if (val === 'single') {
-                      if (is3D) resultsStore.setOverlay3D(resultsStore.singleResults3D, 'Cargas simples');
-                      else resultsStore.setOverlay(resultsStore.singleResults, 'Cargas simples');
+                      if (is3D) resultsStore.setOverlay3D(resultsStore.singleResults3D, t('results.simpleLoads'));
+                      else resultsStore.setOverlay(resultsStore.singleResults, t('results.simpleLoads'));
                     } else if (val === 'envelope') {
-                      if (is3D) resultsStore.setOverlay3D(resultsStore.fullEnvelope3D?.maxAbsResults3D ?? null, 'Envolvente');
-                      else resultsStore.setOverlay(resultsStore.fullEnvelope?.maxAbsResults ?? null, 'Envolvente');
+                      if (is3D) resultsStore.setOverlay3D(resultsStore.fullEnvelope3D?.maxAbsResults3D ?? null, t('results.envelope'));
+                      else resultsStore.setOverlay(resultsStore.fullEnvelope?.maxAbsResults ?? null, t('results.envelope'));
                     } else if (val.startsWith('case_')) {
                       const id = Number(val.replace('case_', ''));
                       const lc = modelStore.model.loadCases.find(c => c.id === id);
-                      const label = lc?.name ?? `Caso ${id}`;
+                      const label = lc?.name ?? `${t('results.caseFallback')} ${id}`;
                       if (is3D) {
                         const r3d = resultsStore.perCase3D.get(id);
                         if (r3d) resultsStore.setOverlay3D(r3d, label);
@@ -356,7 +357,7 @@
                     } else if (val.startsWith('combo_')) {
                       const id = Number(val.replace('combo_', ''));
                       const combo = modelStore.model.combinations.find(c => c.id === id);
-                      const label = combo?.name ?? `Combinación ${id}`;
+                      const label = combo?.name ?? `${t('results.comboFallback')} ${id}`;
                       if (is3D) {
                         const r3d = resultsStore.perCombo3D.get(id);
                         if (r3d) resultsStore.setOverlay3D(r3d, label);
@@ -366,18 +367,18 @@
                       }
                     }
                   }}>
-                    <option value="none">Sin comparación</option>
-                    <option value="single">Cargas simples</option>
+                    <option value="none">{t('results.noComparison')}</option>
+                    <option value="single">{t('results.simpleLoads')}</option>
                     {#each caseKeys as caseId}
                       {@const lc = modelStore.model.loadCases.find(c => c.id === caseId)}
-                      <option value={`case_${caseId}`}>{lc?.name ?? `Caso ${caseId}`}</option>
+                      <option value={`case_${caseId}`}>{lc?.name ?? `${t('results.caseFallback')} ${caseId}`}</option>
                     {/each}
                     {#each comboKeys as comboId}
                       {@const combo = modelStore.model.combinations.find(c => c.id === comboId)}
-                      <option value={`combo_${comboId}`}>{combo?.name ?? `Combinación ${comboId}`}</option>
+                      <option value={`combo_${comboId}`}>{combo?.name ?? `${t('results.comboFallback')} ${comboId}`}</option>
                     {/each}
                     {#if hasEnvelope}
-                      <option value="envelope">Envolvente (+/−)</option>
+                      <option value="envelope">{t('results.envelope')}</option>
                     {/if}
                   </select>
                 </div>
@@ -388,7 +389,7 @@
       {/if}
 
     {:else}
-      <p class="no-results-msg">Calculá la estructura para ver diagramas, deformada, reacciones y más.</p>
+      <p class="no-results-msg">{t('results.noResultsMsg')}</p>
     {/if}
   {/if}
 </div>

@@ -1,11 +1,12 @@
 <script lang="ts">
   import { modelStore, uiStore, resultsStore } from '../../lib/store';
+  import { t } from '../../lib/i18n';
 </script>
 
 <div class="combos-section">
-  <h4>Casos de Carga</h4>
+  <h4>{t('combos.loadCases')}</h4>
   <table>
-    <thead><tr><th>ID</th><th>Tipo</th><th>Nombre</th><th></th></tr></thead>
+    <thead><tr><th>ID</th><th>{t('table.type')}</th><th>{t('table.name')}</th><th></th></tr></thead>
     <tbody>
       {#each modelStore.loadCases as lc}
         <tr>
@@ -18,12 +19,12 @@
     </tbody>
   </table>
   <div class="table-footer">
-    <button class="add-btn" onclick={() => modelStore.addLoadCase('')}>+ Agregar Caso</button>
+    <button class="add-btn" onclick={() => modelStore.addLoadCase('')}>{t('combos.addCase')}</button>
   </div>
 
-  <h4>Combinaciones</h4>
+  <h4>{t('combos.combinations')}</h4>
   <table>
-    <thead><tr><th>ID</th><th>Nombre</th><th>Factores</th><th></th></tr></thead>
+    <thead><tr><th>ID</th><th>{t('table.name')}</th><th>{t('table.factors')}</th><th></th></tr></thead>
     <tbody>
       {#each modelStore.combinations as combo}
         <tr>
@@ -52,14 +53,14 @@
   <div class="table-footer">
     <button class="add-btn" onclick={() => {
       const factors = modelStore.loadCases.map(c => ({ caseId: c.id, factor: 1.0 }));
-      modelStore.addCombination('Nueva Combinaci\u00f3n', factors);
+      modelStore.addCombination(t('combos.newCombo'), factors);
       if (resultsStore.hasCombinations) resultsStore.combinationsDirty = true;
-    }}>+ Agregar Combinaci&oacute;n</button>
+    }}>{t('combos.addCombo')}</button>
   </div>
 
   {#if resultsStore.combinationsDirty}
     <div class="combo-warning">
-      &#9888; Hay que recalcular combinaciones
+      &#9888; {t('combos.needsRecalc')}
     </div>
   {/if}
   <div class="table-footer">
@@ -70,7 +71,7 @@
           uiStore.toast(result, 'error');
         } else if (result) {
           resultsStore.setCombinationResults3D(result.perCase, result.perCombo, result.envelope);
-          uiStore.toast('Combinaciones 3D calculadas', 'success');
+          uiStore.toast(t('combos.solved3d'), 'success');
         }
       } else {
         const result = modelStore.solveCombinations(uiStore.includeSelfWeight);
@@ -78,10 +79,10 @@
           uiStore.toast(result, 'error');
         } else if (result) {
           resultsStore.setCombinationResults(result.perCase, result.perCombo, result.envelope);
-          uiStore.toast('Combinaciones calculadas', 'success');
+          uiStore.toast(t('combos.solved'), 'success');
         }
       }
-    }}>Resolver Combinaciones</button>
+    }}>{t('combos.solve')}</button>
   </div>
 </div>
 

@@ -6,6 +6,7 @@ import type { SolverInput, FullEnvelope, AnalysisResults } from './types';
 import { computeLocalAxes3D } from './solver-3d';
 import type { SolverInput3D, SolverLoad3D, AnalysisResults3D, FullEnvelope3D } from './types-3d';
 import type { KinematicResult } from './kinematic-2d';
+import { t } from '../i18n';
 
 import type {
   Node, Element, Support, Load, Material, Section,
@@ -119,10 +120,10 @@ export function validateAndSolve2D(
   onKinematic?: (k: KinematicResult | null) => void,
 ): AnalysisResults | string | null {
   if (model.nodes.size < 2 || model.elements.size < 1) {
-    return 'Necesita al menos 2 nodos y 1 elemento';
+    return t('svc.needNodesAndElements');
   }
   if (model.supports.size < 1) {
-    return 'Necesita al menos 1 apoyo';
+    return t('svc.needSupport');
   }
 
   // Check for disconnected nodes (nodes not connected to any element)
@@ -133,7 +134,7 @@ export function validateAndSolve2D(
   }
   for (const nodeId of model.nodes.keys()) {
     if (!connectedNodes.has(nodeId)) {
-      return `Nodo ${nodeId} no está conectado a ningún elemento. Elimínelo o conéctelo.`;
+      return t('svc.disconnectedNode').replace('{n}', String(nodeId));
     }
   }
 
@@ -146,9 +147,9 @@ export function validateAndSolve2D(
       if (L2d < 1e-6) {
         const dz = Math.abs((nj.z ?? 0) - (ni.z ?? 0));
         if (dz > 1e-6) {
-          return `Elemento ${elem.id} tiene longitud cero en 2D pero sus nodos difieren en Z (${dz.toFixed(3)} m). Este modelo es 3D — cambie a Dedaliano 3D para analizarlo.`;
+          return t('svc.zeroLength2dButZ').replace('{n}', String(elem.id)).replace('{dz}', dz.toFixed(3));
         }
-        return `Elemento ${elem.id} tiene longitud cero (nodos ${elem.nodeI} y ${elem.nodeJ} coinciden).`;
+        return t('svc.zeroLengthElement').replace('{n}', String(elem.id)).replace('{ni}', String(elem.nodeI)).replace('{nj}', String(elem.nodeJ));
       }
     }
   }
@@ -158,11 +159,11 @@ export function validateAndSolve2D(
     const types3D = new Set(['fixed3d', 'pinned3d', 'spring3d', 'rollerXZ', 'rollerXY', 'rollerYZ']);
     const sup3D = [...model.supports.values()].find(s => types3D.has(s.type));
     if (sup3D) {
-      return `Este modelo usa apoyos 3D (${sup3D.type}) que no son compatibles con el análisis 2D. Cambie a Dedaliano 3D para analizarlo.`;
+      return t('svc.model3dSupport').replace('{n}', sup3D.type);
     }
     const hasZCoords = [...model.nodes.values()].some(n => n.z !== undefined && Math.abs(n.z) > 1e-10);
     if (hasZCoords) {
-      return `Este modelo tiene nodos con coordenada Z (geometría 3D). Cambie a Dedaliano 3D para analizarlo.`;
+      return t('svc.model3dZCoords');
     }
   }
 
@@ -179,7 +180,7 @@ export function validateAndSolve2D(
     } else constrainedDOFs += 1; // roller
   }
   if (constrainedDOFs < 3) {
-    return `Estructura hipostática: solo ${constrainedDOFs} grados de libertad restringidos (mínimo 3 para equilibrio en 2D). Es un mecanismo.`;
+    return t('svc.hypostaticDofs').replace('{n}', String(constrainedDOFs));
   }
 
   // ── External stability: reaction equilibrium matrix rank check ──
@@ -240,10 +241,10 @@ export function validateAndSolve2D(
         const hasRy = cols.some(c => Math.abs(c[1]) > 1e-12);
         const hasMoment = cols.some(c => Math.abs(c[2]) > 1e-12);
 
-        if (!hasRx) return 'Estructura hipostática (mecanismo): no hay restricción horizontal en ningún apoyo.';
-        if (!hasRy) return 'Estructura hipostática (mecanismo): no hay restricción vertical en ningún apoyo.';
-        if (!hasMoment) return 'Estructura hipostática (mecanismo): las reacciones de apoyo no pueden resistir momentos — son paralelas, colineales o concurrentes. Revisá la disposición de apoyos.';
-        return 'Estructura hipostática (mecanismo): las reacciones de apoyo no forman un sistema estáticamente estable. Sus líneas de acción son concurrentes o paralelas.';
+        if (!hasRx) return t('svc.hypostaticNoHoriz');
+        if (!hasRy) return t('svc.hypostaticNoVert');
+        if (!hasMoment) return t('svc.hypostaticNoMoment');
+        return t('svc.hypostaticUnstable');
       }
     }
   }
@@ -273,7 +274,7 @@ export function validateAndSolve2D(
     }
     if (visited.size < connectedNodes.size) {
       const disconnected = [...connectedNodes].filter(n => !visited.has(n));
-      return `Estructura no conexa: los nodos ${disconnected.join(', ')} están desconectados del resto. Una todos los tramos.`;
+      return t('svc.disconnectedGraph').replace('{ids}', disconnected.join(', '));
     }
   }
 
@@ -301,17 +302,17 @@ export function validateAndSolve2D(
       const onlyRollersY = [...model.supports.values()].every(s => s.type === 'rollerY');
 
       if (onlyRollersX) {
-        return 'Estructura inestable: todos los apoyos son rodillos horizontales (sin restricción en X).';
+        return t('svc.unstableAllRollersX');
       }
       if (onlyRollersY) {
-        return 'Estructura inestable: todos los apoyos son rodillos verticales (sin restricción en Y).';
+        return t('svc.unstableAllRollersY');
       }
 
       if (allCollinear) {
         const types = [...model.supports.values()].map(s => s.type);
         const allRollers = types.every(t => isRollerType(t));
         if (allRollers) {
-          return 'Estructura inestable: todos los apoyos son colineales y tipo rodillo — no hay restricción suficiente.';
+          return t('svc.unstableCollinearRollers');
         }
       }
     }
@@ -364,7 +365,7 @@ export function validateAndSolve2D(
           }
         }
         if (allCollinearHere) {
-          return `Mecanismo en nodo ${nodeId}: todos los elementos (${elems}) son colineales y tienen articulación en ese nodo — no hay transferencia de momento ni estabilidad lateral.`;
+          return t('svc.mechCollinearHinge').replace('{n}', String(nodeId)).replace('{elems}', String(elems));
         }
       }
     }
@@ -393,10 +394,10 @@ export function validateAndSolve2D(
       const supType = supportMap2.get(nodeId);
       const hasRotSupport = supType === 'fixed' || supType === 'spring';
       if (dblCount >= frames && frames >= 2 && !supType) {
-        return `Mecanismo en nodo ${nodeId}: todos los elementos (${frames}) tienen articulación en ambos extremos — solo transmiten axil, sin rigidez lateral ni a flexión.`;
+        return t('svc.mechDoubleHinged').replace('{n}', String(nodeId)).replace('{elems}', String(frames));
       }
       if (hinges >= frames && frames >= 2 && dblCount > 0 && !hasRotSupport) {
-        return `Mecanismo en nodo ${nodeId}: todos los ${frames} elementos tienen articulación en ese nodo y ${dblCount} son biarticulados — rigidez insuficiente.`;
+        return t('svc.mechInsufficientStiffness').replace('{n}', String(nodeId)).replace('{elems}', String(frames)).replace('{dbl}', String(dblCount));
       }
     }
   }
@@ -405,19 +406,19 @@ export function validateAndSolve2D(
   for (const l of model.loads) {
     if (l.type === 'nodal') {
       if (!model.nodes.has(l.data.nodeId)) {
-        return `Carga nodal referencia al nodo ${l.data.nodeId} que no existe.`;
+        return t('svc.loadRefNodeMissing').replace('{n}', String(l.data.nodeId));
       }
     } else if (l.type === 'distributed') {
       if (!model.elements.has((l.data as DistributedLoad).elementId)) {
-        return `Carga distribuida referencia al elemento ${(l.data as DistributedLoad).elementId} que no existe.`;
+        return t('svc.loadRefDistMissing').replace('{n}', String((l.data as DistributedLoad).elementId));
       }
     } else if (l.type === 'pointOnElement') {
       if (!model.elements.has((l.data as PointLoadOnElement).elementId)) {
-        return `Carga puntual referencia al elemento ${(l.data as PointLoadOnElement).elementId} que no existe.`;
+        return t('svc.loadRefPointMissing').replace('{n}', String((l.data as PointLoadOnElement).elementId));
       }
     } else if (l.type === 'thermal') {
       if (!model.elements.has((l.data as ThermalLoad).elementId)) {
-        return `Carga térmica referencia al elemento ${(l.data as ThermalLoad).elementId} que no existe.`;
+        return t('svc.loadRefThermalMissing').replace('{n}', String((l.data as ThermalLoad).elementId));
       }
     }
   }
@@ -517,7 +518,7 @@ export function validateAndSolve2D(
     return results;
   } catch (err: any) {
     console.error('Solver error:', err);
-    return `Error al resolver: ${err.message}`;
+    return t('svc.solverError').replace('{n}', err.message);
   }
 }
 
@@ -693,9 +694,9 @@ export function solveCombinations2D(
   combinations: LoadCombination[],
   includeSelfWeight = false,
 ): { perCase: Map<number, AnalysisResults>; perCombo: Map<number, AnalysisResults>; envelope: FullEnvelope } | string | null {
-  if (model.nodes.size < 2 || model.elements.size < 1) return 'Necesita al menos 2 nodos y 1 elemento';
-  if (model.supports.size < 1) return 'Necesita al menos 1 apoyo';
-  if (combinations.length === 0) return 'Defina al menos una combinación de carga';
+  if (model.nodes.size < 2 || model.elements.size < 1) return t('svc.needNodesAndElements');
+  if (model.supports.size < 1) return t('svc.needSupport');
+  if (combinations.length === 0) return t('svc.needCombination');
 
   const perCase = new Map<number, AnalysisResults>();
 
@@ -704,12 +705,12 @@ export function solveCombinations2D(
     const caseModel: ModelData = { ...model, loads: model.loads.filter(l => (l.data.caseId ?? 1) === lc.id) };
     const result = validateAndSolve2D(caseModel, includeSelfWeight && lc.type === 'D');
     if (typeof result === 'string') {
-      return `Error en caso "${lc.name}": ${result}`;
+      return t('svc.errorInCase').replace('{n}', lc.name).replace('{err}', result);
     }
     if (result) perCase.set(lc.id, result);
   }
 
-  if (perCase.size === 0) return 'Ningún caso de carga tiene cargas aplicadas';
+  if (perCase.size === 0) return t('svc.noLoadsApplied');
 
   const perCombo = new Map<number, AnalysisResults>();
 
@@ -721,7 +722,7 @@ export function solveCombinations2D(
   const allComboResults = Array.from(perCombo.values());
   const envelope = computeEnvelope(allComboResults);
 
-  if (!envelope) return 'No se pudieron calcular envolventes';
+  if (!envelope) return t('svc.envelopeError');
   return { perCase, perCombo, envelope };
 }
 
@@ -1017,10 +1018,10 @@ export function buildSolverInput3D(model: ModelData, includeSelfWeight = false, 
 /** Solve the current model using the 3D solver. Returns results or error string. */
 export function validateAndSolve3D(model: ModelData, includeSelfWeight = false, leftHand = false): AnalysisResults3D | string | null {
   if (model.nodes.size < 2 || model.elements.size < 1) {
-    return 'Necesita al menos 2 nodos y 1 elemento';
+    return t('svc.needNodesAndElements');
   }
   if (model.supports.size < 1) {
-    return 'Necesita al menos 1 apoyo';
+    return t('svc.needSupport');
   }
 
   // Check for disconnected nodes
@@ -1031,7 +1032,7 @@ export function validateAndSolve3D(model: ModelData, includeSelfWeight = false, 
   }
   for (const nodeId of model.nodes.keys()) {
     if (!connectedNodes.has(nodeId)) {
-      return `Nodo ${nodeId} no está conectado a ningún elemento. Elimínelo o conéctelo.`;
+      return t('svc.disconnectedNode').replace('{n}', String(nodeId));
     }
   }
 
@@ -1043,7 +1044,7 @@ export function validateAndSolve3D(model: ModelData, includeSelfWeight = false, 
       const dx = nj.x - ni.x, dy = nj.y - ni.y, dz = (nj.z ?? 0) - (ni.z ?? 0);
       const L = Math.sqrt(dx * dx + dy * dy + dz * dz);
       if (L < 1e-6) {
-        return `Elemento ${elem.id} tiene longitud cero (nodos ${elem.nodeI} y ${elem.nodeJ} coinciden).`;
+        return t('svc.zeroLengthElement').replace('{n}', String(elem.id)).replace('{ni}', String(elem.nodeI)).replace('{nj}', String(elem.nodeJ));
       }
     }
   }
@@ -1067,11 +1068,11 @@ export function validateAndSolve3D(model: ModelData, includeSelfWeight = false, 
   }
   if (visited.size < connectedNodes.size) {
     const disconnected = [...connectedNodes].filter(n => !visited.has(n));
-    return `Estructura no conexa: los nodos ${disconnected.join(', ')} están desconectados del resto.`;
+    return t('svc.disconnectedGraph').replace('{ids}', disconnected.join(', '));
   }
 
   const input = buildSolverInput3D(model, includeSelfWeight, leftHand);
-  if (!input) return 'Modelo vacío';
+  if (!input) return t('svc.emptyModel');
 
   try {
     const t0 = performance.now();
@@ -1085,7 +1086,7 @@ export function validateAndSolve3D(model: ModelData, includeSelfWeight = false, 
     return results;
   } catch (err: any) {
     console.error('Solver 3D error:', err);
-    return `Error al resolver 3D: ${err.message}`;
+    return t('svc.solver3dError').replace('{n}', err.message);
   }
 }
 
@@ -1098,9 +1099,9 @@ export function solveCombinations3D(
   includeSelfWeight = false,
   leftHand = false,
 ): { perCase: Map<number, AnalysisResults3D>; perCombo: Map<number, AnalysisResults3D>; envelope: FullEnvelope3D } | string | null {
-  if (model.nodes.size < 2 || model.elements.size < 1) return 'Necesita al menos 2 nodos y 1 elemento';
-  if (model.supports.size < 1) return 'Necesita al menos 1 apoyo';
-  if (combinations.length === 0) return 'Defina al menos una combinación de carga';
+  if (model.nodes.size < 2 || model.elements.size < 1) return t('svc.needNodesAndElements');
+  if (model.supports.size < 1) return t('svc.needSupport');
+  if (combinations.length === 0) return t('svc.needCombination');
 
   const perCase = new Map<number, AnalysisResults3D>();
 
@@ -1109,12 +1110,12 @@ export function solveCombinations3D(
     const caseModel: ModelData = { ...model, loads: model.loads.filter(l => (l.data.caseId ?? 1) === lc.id) };
     const result = validateAndSolve3D(caseModel, includeSelfWeight && lc.type === 'D', leftHand);
     if (typeof result === 'string') {
-      return `Error en caso 3D "${lc.name}": ${result}`;
+      return t('svc.errorInCase3d').replace('{n}', lc.name).replace('{err}', result);
     }
     if (result) perCase.set(lc.id, result);
   }
 
-  if (perCase.size === 0) return 'Ningún caso de carga tiene cargas aplicadas';
+  if (perCase.size === 0) return t('svc.noLoadsApplied');
 
   const perCombo = new Map<number, AnalysisResults3D>();
   for (const combo of combinations) {
@@ -1125,6 +1126,6 @@ export function solveCombinations3D(
   const allComboResults = Array.from(perCombo.values());
   const envelope = computeEnvelope3D(allComboResults);
 
-  if (!envelope) return 'No se pudieron calcular envolventes 3D';
+  if (!envelope) return t('svc.envelopeError3d');
   return { perCase, perCombo, envelope };
 }

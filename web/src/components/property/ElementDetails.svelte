@@ -1,5 +1,6 @@
 <script lang="ts">
   import { modelStore, uiStore, resultsStore } from '../../lib/store';
+  import { t } from '../../lib/i18n';
   import { computeElementStress } from '../../lib/store/results.svelte';
   import { toDisplay, unitLabel } from '../../lib/utils/units';
   import SectionChanger from '../SectionChanger.svelte';
@@ -98,7 +99,7 @@
 </script>
 
 <div class="panel-section">
-  <h3>Elemento Seleccionado</h3>
+  <h3>{t('prop.selectedElement')}</h3>
   {#each uiStore.selectedElements as elemId}
     {#if modelStore.elements.get(elemId)}
       {@const elem = modelStore.elements.get(elemId)!}
@@ -110,11 +111,11 @@
         <span>{elem.id}</span>
       </div>
       <div class="property-row">
-        <span>Tipo:</span>
+        <span>{t('prop.type')}:</span>
         <span>{elem.type === 'frame' ? 'Frame' : 'Truss'}</span>
       </div>
       <div class="property-row">
-        <span>Nodos:</span>
+        <span>{t('prop.nodes')}:</span>
         <span>{elem.nodeI} → {elem.nodeJ}</span>
       </div>
       <div class="property-row">
@@ -122,58 +123,58 @@
         <span>{dv(L, 'length').toFixed(3)} {ul('length')}</span>
       </div>
       <div class="property-row">
-        <span>Material:</span>
+        <span>{t('prop.material')}:</span>
         <div class="inline-select">
           <select value={elem.materialId} onchange={(e) => { modelStore.updateElementMaterial(elemId, Number(e.currentTarget.value)); resultsStore.clear(); }}>
             {#each [...modelStore.materials] as [id, m]}
               <option value={id}>{m.name}</option>
             {/each}
           </select>
-          <button class="icon-btn profile-icon-btn" onclick={() => { materialPresetTargetElemId = elemId; showMaterialPresetSelector = true; }} title="Elegir material predefinido">&#9783;</button>
-          <button class="icon-btn" onclick={() => { uiStore.editingMaterialId = elem.materialId; }} title="Editar material">&#9998;</button>
-          <button class="icon-btn" onclick={() => { const newId = modelStore.addMaterial({ name: 'Nuevo material', e: 200e6, nu: 0.3, rho: 78.5 }); uiStore.editingMaterialId = newId; }} title="Nuevo material">+</button>
+          <button class="icon-btn profile-icon-btn" onclick={() => { materialPresetTargetElemId = elemId; showMaterialPresetSelector = true; }} title={t('table.chooseMaterial')}>&#9783;</button>
+          <button class="icon-btn" onclick={() => { uiStore.editingMaterialId = elem.materialId; }} title={t('prop.editMaterial')}>&#9998;</button>
+          <button class="icon-btn" onclick={() => { const newId = modelStore.addMaterial({ name: t('table.newMaterial'), e: 200e6, nu: 0.3, rho: 78.5 }); uiStore.editingMaterialId = newId; }} title={t('prop.newMaterial')}>+</button>
         </div>
       </div>
       <div class="property-row">
-        <span>Sección:</span>
+        <span>{t('prop.section')}:</span>
         <div class="inline-select">
           <select value={elem.sectionId} onchange={(e) => { modelStore.updateElementSection(elemId, Number(e.currentTarget.value)); resultsStore.clear(); }}>
             {#each [...modelStore.sections] as [id, s]}
               <option value={id}>{s.name}</option>
             {/each}
           </select>
-          <button class="icon-btn profile-icon-btn" onclick={() => { sectionChangerTargetElemId = elemId; showSectionChanger = true; }} title="Cambiar sección">&#9783;</button>
-          <button class="icon-btn" onclick={() => { uiStore.editingSectionId = elem.sectionId; }} title="Editar sección">&#9998;</button>
-          <button class="icon-btn" onclick={() => { const newId = modelStore.addSection({ name: 'Nueva sección', a: 0.01, iz: 0.000025, iy: 0.0001 }); uiStore.editingSectionId = newId; }} title="Nueva sección">+</button>
+          <button class="icon-btn profile-icon-btn" onclick={() => { sectionChangerTargetElemId = elemId; showSectionChanger = true; }} title={t('table.changeSection')}>&#9783;</button>
+          <button class="icon-btn" onclick={() => { uiStore.editingSectionId = elem.sectionId; }} title={t('prop.editSection')}>&#9998;</button>
+          <button class="icon-btn" onclick={() => { const newId = modelStore.addSection({ name: t('table.newSection'), a: 0.01, iz: 0.000025, iy: 0.0001 }); uiStore.editingSectionId = newId; }} title={t('prop.newSection')}>+</button>
         </div>
       </div>
       <div class="property-row">
-        <span>Articulaciones:</span>
+        <span>{t('prop.hinges')}:</span>
         <div class="hinge-toggles">
           <button
             class="hinge-btn"
             class:active={elem.hingeStart}
             onclick={() => { modelStore.toggleHinge(elemId, 'start'); resultsStore.clear(); }}
-            title={elem.hingeStart ? 'Quitar articulación en nodo I' : 'Agregar articulación en nodo I'}
+            title={elem.hingeStart ? t('prop.removeHingeI') : t('prop.addHingeI')}
           >
             <span class="hinge-icon">{elem.hingeStart ? '\u25CB' : '\u25CF'}</span>
-            Nodo I
+            {t('prop.nodeI')}
           </button>
           <button
             class="hinge-btn"
             class:active={elem.hingeEnd}
             onclick={() => { modelStore.toggleHinge(elemId, 'end'); resultsStore.clear(); }}
-            title={elem.hingeEnd ? 'Quitar articulación en nodo J' : 'Agregar articulación en nodo J'}
+            title={elem.hingeEnd ? t('prop.removeHingeJ') : t('prop.addHingeJ')}
           >
             <span class="hinge-icon">{elem.hingeEnd ? '\u25CB' : '\u25CF'}</span>
-            Nodo J
+            {t('prop.nodeJ')}
           </button>
         </div>
       </div>
 
       {#if uiStore.analysisMode === '3d' && elem.type === 'frame'}
         <div class="property-row" style="flex-direction: column; align-items: flex-start; gap: 4px;">
-          <span style="font-weight: 600;">Eje local Y:</span>
+          <span style="font-weight: 600;">{t('prop.localAxisY')}</span>
           <div style="display: flex; gap: 4px; align-items: center; width: 100%;">
             <label style="display:flex; gap:2px; align-items:center; font-size:0.7rem;">
               Yx: <input type="number" step="0.1" value={elem.localYx ?? ''} style="width: 50px; font-size: 0.7rem;"
@@ -211,7 +212,7 @@
                   resultsStore.clear();
                 }} />
             </label>
-            <button class="btn-small" style="font-size: 0.6rem; padding: 2px 6px;" onclick={() => { modelStore.updateElementLocalY(elemId, undefined, undefined, undefined); resultsStore.clear(); }} title="Auto-detectar eje local Y">Auto</button>
+            <button class="btn-small" style="font-size: 0.6rem; padding: 2px 6px;" onclick={() => { modelStore.updateElementLocalY(elemId, undefined, undefined, undefined); resultsStore.clear(); }} title={t('prop.autoDetectLocalY')}>Auto</button>
           </div>
         </div>
       {/if}
@@ -220,7 +221,7 @@
         {#if uiStore.analysisMode === '3d' && resultsStore.results3D}
           {@const forces3D = resultsStore.getElementForces3D(elemId)}
           {#if forces3D}
-            <h4>Fuerzas Internas 3D</h4>
+            <h4>{t('prop.internalForces3d')}</h4>
             <div class="property-row">
               <span>N_i:</span>
               <span>{dv(forces3D.nStart, 'force').toFixed(2)} {ul('force')}</span>
@@ -245,7 +246,7 @@
               <span>Vz_j:</span>
               <span>{dv(forces3D.vzEnd, 'force').toFixed(2)} {ul('force')}</span>
             </div>
-            <h4>Momentos 3D</h4>
+            <h4>{t('prop.moments3d')}</h4>
             <div class="property-row">
               <span>Mx_i:</span>
               <span>{dv(-forces3D.mxStart, 'moment').toFixed(2)} {ul('moment')}</span>
@@ -274,7 +275,7 @@
         {:else}
           {@const forces = resultsStore.getElementForces(elemId)}
           {#if forces}
-            <h4>Fuerzas Internas</h4>
+            <h4>{t('prop.internalForces')}</h4>
             <div class="property-row">
               <span>M_i:</span>
               <span>{dv(-forces.mStart, 'moment').toFixed(2)} {ul('moment')}</span>
@@ -302,7 +303,7 @@
 
             {#if sec && mat}
               {@const stress = computeElementStress(forces, sec, mat)}
-              <h4>Tensiones</h4>
+              <h4>{t('prop.stresses')}</h4>
               <div class="property-row">
                 <span>σ_max:</span>
                 <span>{dv(Math.max(stress.sigmaStart, stress.sigmaEnd), 'stress').toFixed(1)} {ul('stress')}</span>
@@ -327,7 +328,7 @@
       {/if}
 
       <button class="btn-small btn-danger" onclick={() => modelStore.removeElement(elemId)}>
-        Eliminar elemento
+        {t('prop.deleteElement')}
       </button>
     {/if}
   {/each}

@@ -1,5 +1,6 @@
 <script lang="ts">
   import { modelStore, uiStore, resultsStore } from '../../lib/store';
+  import { t } from '../../lib/i18n';
   import type { SupportType } from '../../lib/store/model.svelte.ts';
 
   let { supId, sup }: { supId: number; sup: any } = $props();
@@ -36,7 +37,7 @@
   }
 </script>
 
-<h4>Apoyo</h4>
+<h4>{t('prop.support')}</h4>
 {#if uiStore.analysisMode === '3d'}
   <!-- 3D per-DOF editing -->
   {@const dofs = sup.dofRestraints ?? { tx: true, ty: true, tz: true, rx: true, ry: true, rz: true }}
@@ -82,7 +83,7 @@
 {:else}
   <!-- 2D support editing -->
   <div class="property-row">
-    <span>Tipo:</span>
+    <span>{t('prop.type')}:</span>
     <select value={sup.type === 'rollerX' || sup.type === 'rollerY' ? 'roller' : sup.type}
       onchange={(e) => {
         const val = e.currentTarget.value;
@@ -92,28 +93,28 @@
           changeSupportType(supId, val);
         }
       }}>
-      <option value="fixed">Empotrado</option>
-      <option value="pinned">Articulado</option>
-      <option value="roller">Móvil</option>
-      <option value="spring">Resorte</option>
+      <option value="fixed">{t('table.fixed')}</option>
+      <option value="pinned">{t('table.pinned')}</option>
+      <option value="roller">{t('prop.roller')}</option>
+      <option value="spring">{t('table.spring')}</option>
     </select>
   </div>
   {#if sup.type === 'rollerX' || sup.type === 'rollerY'}
     <div class="property-row">
-      <span>Dir:</span>
+      <span>{t('prop.direction')}:</span>
       <button class="btn-small" class:active={sup.type === 'rollerX'} onclick={() => changeSupportType(supId, 'rollerX')}
       >{sup.isGlobal !== false ? 'X' : 'i'}</button>
       <button class="btn-small" class:active={sup.type === 'rollerY'} onclick={() => changeSupportType(supId, 'rollerY')}
       >{sup.isGlobal !== false ? 'Y' : 'j'}</button>
     </div>
     <div class="property-row">
-      <span>Ejes:</span>
+      <span>{t('prop.axes')}:</span>
       <button class="btn-small" class:active={sup.isGlobal !== false} onclick={() => updateSpringField(supId, 'isGlobal', '1')}
       >Gl</button>
       <button class="btn-small" class:active={sup.isGlobal === false} onclick={() => updateSpringField(supId, 'isGlobal', '0')}
       >Loc</button>
     </div>
-    <div class="property-row" title="Desplazamiento impuesto en la dirección restringida del apoyo móvil">
+    <div class="property-row" title={t('prop.imposedDispRollerTitle')}>
       <span>di:</span>
       <input type="number" step="0.001" value={sup.dx ?? 0} class="prop-input" onchange={(e) => updateSpringField(supId, 'dx', e.currentTarget.value)} />
       <span>m</span>
@@ -140,11 +141,11 @@
       <span>kN·m/rad</span>
     </div>
     <div class="property-row">
-      <span>Ejes:</span>
+      <span>{t('prop.axes')}:</span>
       <button class="btn-small" class:active={sup.isGlobal !== false} onclick={() => updateSpringField(supId, 'isGlobal', '1')}
-        title="Ejes globales: kx en horizontal, ky en vertical">Gl</button>
+        title={t('prop.globalAxesTitle')}>Gl</button>
       <button class="btn-small" class:active={sup.isGlobal === false} onclick={() => updateSpringField(supId, 'isGlobal', '0')}
-        title="Ejes locales: kx paralelo a la barra, ky perpendicular">Loc</button>
+        title={t('prop.localAxesTitle')}>Loc</button>
     </div>
     <div class="property-row">
       <span>α:</span>
@@ -152,27 +153,27 @@
       <span>°</span>
     </div>
   {:else}
-    <h4>Desplaz. Impuestos</h4>
+    <h4>{t('prop.imposedDisp')}</h4>
     {#if sup.type === 'fixed' || sup.type === 'pinned'}
-      <div class="property-row" title="Desplazamiento horizontal impuesto (positivo = hacia la derecha)">
+      <div class="property-row" title={t('prop.imposedDxTitle')}>
         <span>dx:</span>
         <input type="number" step="0.001" value={sup.dx ?? 0} class="prop-input" onchange={(e) => updateSpringField(supId, 'dx', e.currentTarget.value)} />
         <span>m</span>
       </div>
-      <div class="property-row" title="Desplazamiento vertical impuesto (positivo = hacia arriba)">
+      <div class="property-row" title={t('prop.imposedDyTitle')}>
         <span>dy:</span>
         <input type="number" step="0.001" value={sup.dy ?? 0} class="prop-input" onchange={(e) => updateSpringField(supId, 'dy', e.currentTarget.value)} />
         <span>m</span>
       </div>
     {/if}
     {#if sup.type === 'fixed'}
-      <div class="property-row" title="Rotación impuesta (positivo = antihorario)">
+      <div class="property-row" title={t('prop.imposedDrzTitle')}>
         <span>dθz:</span>
         <input type="number" step="0.001" value={sup.drz ?? 0} class="prop-input" onchange={(e) => updateSpringField(supId, 'drz', e.currentTarget.value)} />
         <span>rad</span>
       </div>
     {/if}
-    <div class="property-row" title="Ángulo de rotación visual del apoyo (solo afecta la visualización)">
+    <div class="property-row" title={t('prop.visualAngleTitle')}>
       <span>α:</span>
       <input type="number" step="5" value={sup.angle ?? 0} class="prop-input" onchange={(e) => updateSpringField(supId, 'angle', e.currentTarget.value)} />
       <span>°</span>
@@ -180,7 +181,7 @@
   {/if}
 {/if}
 <button class="btn-small btn-secondary" onclick={() => removeSupport(supId)}>
-  Quitar apoyo
+  {t('prop.removeSupport')}
 </button>
 
 <style>

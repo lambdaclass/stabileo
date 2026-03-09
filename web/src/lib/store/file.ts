@@ -8,6 +8,7 @@ import type { ModelSnapshot } from './history.svelte';
 import { exportToExcel } from '../export/excel';
 import { tabManager } from './tabs.svelte';
 import type { TabState } from './tabs.svelte';
+import { t } from '../i18n';
 
 // ─── File Format ────────────────────────────────────────────────
 
@@ -90,7 +91,7 @@ function validateDedalFile(data: unknown): data is DedalFile {
 
 export function saveProject(): void {
   const json = serializeProject();
-  const safeName = modelStore.model.name.replace(/[^a-zA-Z0-9áéíóúñÁÉÍÓÚÑ _-]/g, '').trim() || 'proyecto';
+  const safeName = modelStore.model.name.replace(/[^a-zA-Z0-9áéíóúñÁÉÍÓÚÑ _-]/g, '').trim() || t('file.defaultProject');
   downloadText(json, `${safeName}.ded`, 'application/json');
 }
 
@@ -100,11 +101,11 @@ export async function loadProject(file: File): Promise<void> {
   try {
     data = JSON.parse(text);
   } catch {
-    throw new Error('El archivo no es JSON válido');
+    throw new Error(t('file.invalidJson'));
   }
 
   if (!validateDedalFile(data)) {
-    throw new Error('Formato de archivo inválido. Verificá que sea un archivo .ded de Dedaliano.');
+    throw new Error(t('file.invalidFormat'));
   }
 
   historyStore.pushState();
@@ -127,7 +128,7 @@ export function saveSession(): void {
   };
   const json = JSON.stringify(session, null, 2);
   const tabCount = session.tabs.length;
-  downloadText(json, `sesión-${tabCount}-pestañas.ded`, 'application/json');
+  downloadText(json, `${t('file.session')}-${tabCount}-${t('file.tabs')}.ded`, 'application/json');
 }
 
 function isSessionFile(data: unknown): data is DedalSessionFile {
@@ -143,7 +144,7 @@ export async function loadFile(file: File): Promise<{ type: 'tab' | 'session'; c
   try {
     data = JSON.parse(text);
   } catch {
-    throw new Error('El archivo no es JSON válido');
+    throw new Error(t('file.invalidJson'));
   }
 
   if (isSessionFile(data)) {
@@ -158,7 +159,7 @@ export async function loadFile(file: File): Promise<{ type: 'tab' | 'session'; c
     resultsStore.clear();
     return { type: 'tab', count: 1 };
   } else {
-    throw new Error('Formato de archivo inválido. Verificá que sea un archivo .ded de Dedaliano.');
+    throw new Error(t('file.invalidFormat'));
   }
 }
 
@@ -172,54 +173,54 @@ export function exportResultsCSV(): string {
   if (!r3d && !r2d) return '';
 
   const lines: string[] = [];
-  lines.push(`# Dedaliano — Resultados ${is3D ? '3D' : '2D'}`);
-  lines.push(`# Proyecto: ${modelStore.model.name}`);
-  lines.push(`# Fecha: ${new Date().toLocaleString()}`);
+  lines.push(`# Dedaliano — ${t('file.csvResults')} ${is3D ? '3D' : '2D'}`);
+  lines.push(`# ${t('file.csvProject')}: ${modelStore.model.name}`);
+  lines.push(`# ${t('file.csvDate')}: ${new Date().toLocaleString()}`);
   lines.push('');
 
   if (is3D && r3d) {
     // 3D Displacements
-    lines.push('# Desplazamientos');
-    lines.push('Nodo,ux (m),uy (m),uz (m),rx (rad),ry (rad),rz (rad)');
+    lines.push(`# ${t('file.displacements')}`);
+    lines.push(`${t('file.node')},ux (m),uy (m),uz (m),rx (rad),ry (rad),rz (rad)`);
     for (const d of r3d.displacements) {
       lines.push(`${d.nodeId},${d.ux.toExponential(6)},${d.uy.toExponential(6)},${d.uz.toExponential(6)},${d.rx.toExponential(6)},${d.ry.toExponential(6)},${d.rz.toExponential(6)}`);
     }
     lines.push('');
 
     // 3D Reactions
-    lines.push('# Reacciones');
-    lines.push('Nodo,Fx (kN),Fy (kN),Fz (kN),Mx (kN·m),My (kN·m),Mz (kN·m)');
+    lines.push(`# ${t('file.reactions')}`);
+    lines.push(`${t('file.node')},Fx (kN),Fy (kN),Fz (kN),Mx (kN·m),My (kN·m),Mz (kN·m)`);
     for (const r of r3d.reactions) {
       lines.push(`${r.nodeId},${r.fx.toFixed(4)},${r.fy.toFixed(4)},${r.fz.toFixed(4)},${(-r.mx).toFixed(4)},${(-r.my).toFixed(4)},${(-r.mz).toFixed(4)}`);
     }
     lines.push('');
 
     // 3D Element forces
-    lines.push('# Fuerzas Internas');
-    lines.push('Elemento,L (m),Ni,Nj,Vyi,Vyj,Vzi,Vzj,Mxi,Mxj,Myi,Myj,Mzi,Mzj');
+    lines.push(`# ${t('file.internalForces')}`);
+    lines.push(`${t('file.element')},L (m),Ni,Nj,Vyi,Vyj,Vzi,Vzj,Mxi,Mxj,Myi,Myj,Mzi,Mzj`);
     for (const f of r3d.elementForces) {
       lines.push(`${f.elementId},${f.length.toFixed(4)},${f.nStart.toFixed(4)},${f.nEnd.toFixed(4)},${f.vyStart.toFixed(4)},${f.vyEnd.toFixed(4)},${f.vzStart.toFixed(4)},${f.vzEnd.toFixed(4)},${(-f.mxStart).toFixed(4)},${(-f.mxEnd).toFixed(4)},${(-f.myStart).toFixed(4)},${(-f.myEnd).toFixed(4)},${(-f.mzStart).toFixed(4)},${(-f.mzEnd).toFixed(4)}`);
     }
   } else if (r2d) {
     // 2D Displacements
-    lines.push('# Desplazamientos');
-    lines.push('Nodo,ux (m),uy (m),rz (rad)');
+    lines.push(`# ${t('file.displacements')}`);
+    lines.push(`${t('file.node')},ux (m),uy (m),rz (rad)`);
     for (const d of r2d.displacements) {
       lines.push(`${d.nodeId},${d.ux.toExponential(6)},${d.uy.toExponential(6)},${d.rz.toExponential(6)}`);
     }
     lines.push('');
 
     // 2D Reactions
-    lines.push('# Reacciones');
-    lines.push('Nodo,Rx (kN),Ry (kN),Mz (kN·m)');
+    lines.push(`# ${t('file.reactions')}`);
+    lines.push(`${t('file.node')},Rx (kN),Ry (kN),Mz (kN·m)`);
     for (const r of r2d.reactions) {
       lines.push(`${r.nodeId},${r.rx.toFixed(4)},${r.ry.toFixed(4)},${(-r.mz).toFixed(4)}`);
     }
     lines.push('');
 
     // 2D Element forces
-    lines.push('# Fuerzas Internas');
-    lines.push('Elemento,N_i (kN),N_j (kN),V_i (kN),V_j (kN),M_i (kN·m),M_j (kN·m),L (m),qI (kN/m),qJ (kN/m)');
+    lines.push(`# ${t('file.internalForces')}`);
+    lines.push(`${t('file.element')},N_i (kN),N_j (kN),V_i (kN),V_j (kN),M_i (kN·m),M_j (kN·m),L (m),qI (kN/m),qJ (kN/m)`);
     for (const f of r2d.elementForces) {
       lines.push(`${f.elementId},${f.nStart.toFixed(4)},${f.nEnd.toFixed(4)},${f.vStart.toFixed(4)},${f.vEnd.toFixed(4)},${(-f.mStart).toFixed(4)},${(-f.mEnd).toFixed(4)},${f.length.toFixed(4)},${f.qI.toFixed(4)},${f.qJ.toFixed(4)}`);
     }
@@ -231,8 +232,8 @@ export function exportResultsCSV(): string {
 export function downloadResultsCSV(): void {
   const csv = exportResultsCSV();
   if (!csv) return;
-  const safeName = modelStore.model.name.replace(/[^a-zA-Z0-9áéíóúñÁÉÍÓÚÑ _-]/g, '').trim() || 'resultados';
-  downloadText(csv, `${safeName}_resultados.csv`, 'text/csv');
+  const safeName = modelStore.model.name.replace(/[^a-zA-Z0-9áéíóúñÁÉÍÓÚÑ _-]/g, '').trim() || t('file.defaultResults');
+  downloadText(csv, `${safeName}_${t('file.defaultResults')}.csv`, 'text/csv');
 }
 
 // ─── Export PNG ─────────────────────────────────────────────────
@@ -240,7 +241,7 @@ export function downloadResultsCSV(): void {
 export function downloadCanvasPNG(canvas: HTMLCanvasElement): void {
   canvas.toBlob((blob) => {
     if (!blob) return;
-    const safeName = modelStore.model.name.replace(/[^a-zA-Z0-9áéíóúñÁÉÍÓÚÑ _-]/g, '').trim() || 'estructura';
+    const safeName = modelStore.model.name.replace(/[^a-zA-Z0-9áéíóúñÁÉÍÓÚÑ _-]/g, '').trim() || t('file.defaultStructure');
     downloadBlob(blob, `${safeName}.png`);
   }, 'image/png');
 }
@@ -261,7 +262,7 @@ export function exportDXF(): string {
 
 export function downloadDXF(): void {
   const dxf = exportDXF();
-  const safeName = modelStore.model.name.replace(/[^a-zA-Z0-9áéíóúñÁÉÍÓÚÑ _-]/g, '').trim() || 'estructura';
+  const safeName = modelStore.model.name.replace(/[^a-zA-Z0-9áéíóúñÁÉÍÓÚÑ _-]/g, '').trim() || t('file.defaultStructure');
   downloadText(dxf, `${safeName}.dxf`, 'application/dxf');
 }
 
@@ -387,14 +388,14 @@ function escapeXml(s: string): string {
 export function downloadSVG(): void {
   const svg = exportSVG();
   if (!svg) return;
-  const safeName = modelStore.model.name.replace(/[^a-zA-Z0-9áéíóúñÁÉÍÓÚÑ _-]/g, '').trim() || 'estructura';
+  const safeName = modelStore.model.name.replace(/[^a-zA-Z0-9áéíóúñÁÉÍÓÚÑ _-]/g, '').trim() || t('file.defaultStructure');
   downloadText(svg, `${safeName}.svg`, 'image/svg+xml');
 }
 
 // ─── Export Excel ────────────────────────────────────────────────
 
 export function downloadExcel(): void {
-  const safeName = modelStore.model.name.replace(/[^a-zA-Z0-9áéíóúñÁÉÍÓÚÑ _-]/g, '').trim() || 'analisis';
+  const safeName = modelStore.model.name.replace(/[^a-zA-Z0-9áéíóúñÁÉÍÓÚÑ _-]/g, '').trim() || t('file.defaultAnalysis');
   exportToExcel({ filename: `${safeName}.xlsx` });
 }
 
@@ -408,11 +409,11 @@ function fmtNum(v: number, dec = 4): string {
 
 function supportLabel(type: string): string {
   switch (type) {
-    case 'fixed': return 'Empotrado';
-    case 'pinned': return 'Articulado';
-    case 'rollerX': return 'Móvil X';
-    case 'rollerY': return 'Móvil Y';
-    case 'spring': return 'Resorte';
+    case 'fixed': return t('file.supportFixed');
+    case 'pinned': return t('file.supportPinned');
+    case 'rollerX': return t('file.supportRollerX');
+    case 'rollerY': return t('file.supportRollerY');
+    case 'spring': return t('file.supportSpring');
     default: return type;
   }
 }
@@ -427,10 +428,10 @@ export function generateReportHTML(): string {
   const svg = exportSVG();
 
   let html = `<!DOCTYPE html>
-<html lang="es">
+<html lang="${t('file.htmlLang')}">
 <head>
 <meta charset="UTF-8">
-<title>Reporte — ${name}</title>
+<title>${t('file.report')} — ${name}</title>
 <style>
   * { margin: 0; padding: 0; box-sizing: border-box; }
   body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; font-size: 11px; color: #222; padding: 20mm 15mm; }
@@ -462,7 +463,7 @@ export function generateReportHTML(): string {
 <div class="header">
   <div>
     <h1>${name}</h1>
-    <div style="color:#666;font-size:10px">Reporte de Análisis Estructural</div>
+    <div style="color:#666;font-size:10px">${t('file.structuralAnalysisReport')}</div>
   </div>
   <div class="header-info">
     <div>Dedaliano</div>
@@ -473,10 +474,10 @@ export function generateReportHTML(): string {
   // Summary cards
   html += `
 <div class="summary-grid">
-  <div class="summary-card"><div class="num">${m.nodes.size}</div><div class="lbl">Nodos</div></div>
-  <div class="summary-card"><div class="num">${m.elements.size}</div><div class="lbl">Elementos</div></div>
-  <div class="summary-card"><div class="num">${m.supports.size}</div><div class="lbl">Apoyos</div></div>
-  <div class="summary-card"><div class="num">${m.model.loads.length}</div><div class="lbl">Cargas</div></div>
+  <div class="summary-card"><div class="num">${m.nodes.size}</div><div class="lbl">${t('file.nodes')}</div></div>
+  <div class="summary-card"><div class="num">${m.elements.size}</div><div class="lbl">${t('file.elements')}</div></div>
+  <div class="summary-card"><div class="num">${m.supports.size}</div><div class="lbl">${t('file.supports')}</div></div>
+  <div class="summary-card"><div class="num">${m.model.loads.length}</div><div class="lbl">${t('file.loads')}</div></div>
 </div>`;
 
   // Structure SVG
@@ -486,16 +487,16 @@ export function generateReportHTML(): string {
 
   // Nodes table
   const is3D = uiStore.analysisMode === '3d';
-  html += `<h2>Geometría</h2>`;
+  html += `<h2>${t('file.geometry')}</h2>`;
   if (is3D) {
-    html += `<h3>Nodos</h3>
+    html += `<h3>${t('file.nodes')}</h3>
 <table><thead><tr><th>ID</th><th>X (m)</th><th>Y (m)</th><th>Z (m)</th></tr></thead><tbody>`;
     for (const [, node] of m.nodes) {
       html += `<tr><td>${node.id}</td><td>${fmtNum(node.x, 3)}</td><td>${fmtNum(node.y, 3)}</td><td>${fmtNum(node.z ?? 0, 3)}</td></tr>`;
     }
     html += `</tbody></table>`;
   } else {
-    html += `<h3>Nodos</h3>
+    html += `<h3>${t('file.nodes')}</h3>
 <table><thead><tr><th>ID</th><th>X (m)</th><th>Y (m)</th></tr></thead><tbody>`;
     for (const [, node] of m.nodes) {
       html += `<tr><td>${node.id}</td><td>${fmtNum(node.x, 3)}</td><td>${fmtNum(node.y, 3)}</td></tr>`;
@@ -504,35 +505,35 @@ export function generateReportHTML(): string {
   }
 
   // Elements table
-  html += `<h3>Elementos</h3>
-<table><thead><tr><th>ID</th><th>Tipo</th><th>Nodo I</th><th>Nodo J</th><th>Material</th><th>Sección</th><th>Art. I</th><th>Art. J</th></tr></thead><tbody>`;
+  html += `<h3>${t('file.elements')}</h3>
+<table><thead><tr><th>ID</th><th>${t('file.type')}</th><th>${t('file.nodeI')}</th><th>${t('file.nodeJ')}</th><th>${t('file.material')}</th><th>${t('file.section')}</th><th>${t('file.hingeI')}</th><th>${t('file.hingeJ')}</th></tr></thead><tbody>`;
   for (const [, elem] of m.elements) {
     const mat = m.materials.get(elem.materialId);
     const sec = m.sections.get(elem.sectionId);
-    html += `<tr><td>${elem.id}</td><td>${elem.type}</td><td>${elem.nodeI}</td><td>${elem.nodeJ}</td><td>${mat ? escapeXml(mat.name) : elem.materialId}</td><td>${sec ? escapeXml(sec.name) : elem.sectionId}</td><td>${elem.hingeStart ? 'Si' : '-'}</td><td>${elem.hingeEnd ? 'Si' : '-'}</td></tr>`;
+    html += `<tr><td>${elem.id}</td><td>${elem.type}</td><td>${elem.nodeI}</td><td>${elem.nodeJ}</td><td>${mat ? escapeXml(mat.name) : elem.materialId}</td><td>${sec ? escapeXml(sec.name) : elem.sectionId}</td><td>${elem.hingeStart ? t('file.yes') : '-'}</td><td>${elem.hingeEnd ? t('file.yes') : '-'}</td></tr>`;
   }
   html += `</tbody></table>`;
 
   // Materials
-  html += `<h3>Materiales</h3>
-<table><thead><tr><th>ID</th><th>Nombre</th><th>E (MPa)</th><th>ν</th><th>ρ (kN/m³)</th></tr></thead><tbody>`;
+  html += `<h3>${t('file.materials')}</h3>
+<table><thead><tr><th>ID</th><th>${t('file.name')}</th><th>E (MPa)</th><th>ν</th><th>ρ (kN/m³)</th></tr></thead><tbody>`;
   for (const [, mat] of m.materials) {
     html += `<tr><td>${mat.id}</td><td style="text-align:left">${escapeXml(mat.name)}</td><td>${fmtNum(mat.e, 0)}</td><td>${fmtNum(mat.nu, 2)}</td><td>${fmtNum(mat.rho, 1)}</td></tr>`;
   }
   html += `</tbody></table>`;
 
   // Sections
-  html += `<h3>Secciones</h3>
-<table><thead><tr><th>ID</th><th>Nombre</th><th>A (m²)</th><th>Iy (m⁴)</th><th>Iz (m⁴)</th></tr></thead><tbody>`;
+  html += `<h3>${t('file.sections')}</h3>
+<table><thead><tr><th>ID</th><th>${t('file.name')}</th><th>A (m²)</th><th>Iy (m⁴)</th><th>Iz (m⁴)</th></tr></thead><tbody>`;
   for (const [, sec] of m.sections) {
     html += `<tr><td>${sec.id}</td><td style="text-align:left">${escapeXml(sec.name)}</td><td>${fmtNum(sec.a)}</td><td>${fmtNum(sec.iy ?? sec.iz)}</td><td>${fmtNum(sec.iz)}</td></tr>`;
   }
   html += `</tbody></table>`;
 
   // Supports
-  html += `<h2>Condiciones de Borde</h2>`;
-  html += `<h3>Apoyos</h3>
-<table><thead><tr><th>ID</th><th>Nodo</th><th>Tipo</th><th>Detalles</th></tr></thead><tbody>`;
+  html += `<h2>${t('file.boundaryConditions')}</h2>`;
+  html += `<h3>${t('file.supports')}</h3>
+<table><thead><tr><th>ID</th><th>${t('file.node')}</th><th>${t('file.type')}</th><th>${t('file.details')}</th></tr></thead><tbody>`;
   for (const [, sup] of m.supports) {
     let details = '';
     if (sup.type === 'spring') {
@@ -553,36 +554,36 @@ export function generateReportHTML(): string {
   html += `</tbody></table>`;
 
   // Loads
-  html += `<h3>Cargas</h3>
-<table><thead><tr><th>#</th><th>Tipo</th><th>Destino</th><th>Valores</th></tr></thead><tbody>`;
+  html += `<h3>${t('file.loads')}</h3>
+<table><thead><tr><th>#</th><th>${t('file.type')}</th><th>${t('file.target')}</th><th>${t('file.values')}</th></tr></thead><tbody>`;
   for (let i = 0; i < m.model.loads.length; i++) {
     const load = m.model.loads[i];
     let tipo = '', destino = '', valores = '';
     switch (load.type) {
       case 'nodal': {
         const d = load.data;
-        tipo = 'Nodal';
-        destino = `Nodo ${d.nodeId}`;
+        tipo = t('file.loadNodal');
+        destino = `${t('file.node')} ${d.nodeId}`;
         valores = `Fx=${fmtNum(d.fx)} kN, Fy=${fmtNum(d.fy)} kN, Mz=${fmtNum(d.mz)} kN·m`;
         break;
       }
       case 'distributed': {
         const d = load.data;
-        tipo = 'Distribuida';
+        tipo = t('file.loadDistributed');
         destino = `Elem ${d.elementId}`;
         valores = d.qI === d.qJ ? `q=${fmtNum(d.qI)} kN/m` : `qI=${fmtNum(d.qI)}, qJ=${fmtNum(d.qJ)} kN/m`;
         break;
       }
       case 'pointOnElement': {
         const d = load.data;
-        tipo = 'Puntual (barra)';
+        tipo = t('file.loadPointOnElement');
         destino = `Elem ${d.elementId}`;
         valores = `P=${fmtNum(d.p)} kN, a=${fmtNum(d.a)} m`;
         break;
       }
       case 'thermal': {
         const d = load.data;
-        tipo = 'Térmica';
+        tipo = t('file.loadThermal');
         destino = `Elem ${d.elementId}`;
         valores = `ΔT=${fmtNum(d.dtUniform)} °C, ΔTg=${fmtNum(d.dtGradient)} °C`;
         break;
@@ -595,64 +596,64 @@ export function generateReportHTML(): string {
   // Results
   const r3D = resultsStore.results3D;
   if (is3D && r3D) {
-    html += `<h2>Resultados 3D</h2>`;
+    html += `<h2>${t('file.results')} 3D</h2>`;
 
     // 3D Displacements
-    html += `<h3>Desplazamientos</h3>
-<table><thead><tr><th>Nodo</th><th>ux (m)</th><th>uy (m)</th><th>uz (m)</th><th>θx (rad)</th><th>θy (rad)</th><th>θz (rad)</th></tr></thead><tbody>`;
+    html += `<h3>${t('file.displacements')}</h3>
+<table><thead><tr><th>${t('file.node')}</th><th>ux (m)</th><th>uy (m)</th><th>uz (m)</th><th>θx (rad)</th><th>θy (rad)</th><th>θz (rad)</th></tr></thead><tbody>`;
     for (const d of r3D.displacements) {
       html += `<tr><td>${d.nodeId}</td><td>${fmtNum(d.ux)}</td><td>${fmtNum(d.uy)}</td><td>${fmtNum(d.uz)}</td><td>${fmtNum(d.rx)}</td><td>${fmtNum(d.ry)}</td><td>${fmtNum(d.rz)}</td></tr>`;
     }
     html += `</tbody></table>`;
 
     // 3D Reactions
-    html += `<h3>Reacciones</h3>
-<table><thead><tr><th>Nodo</th><th>Fx (kN)</th><th>Fy (kN)</th><th>Fz (kN)</th><th>Mx (kN·m)</th><th>My (kN·m)</th><th>Mz (kN·m)</th></tr></thead><tbody>`;
+    html += `<h3>${t('file.reactions')}</h3>
+<table><thead><tr><th>${t('file.node')}</th><th>Fx (kN)</th><th>Fy (kN)</th><th>Fz (kN)</th><th>Mx (kN·m)</th><th>My (kN·m)</th><th>Mz (kN·m)</th></tr></thead><tbody>`;
     for (const rx of r3D.reactions) {
       html += `<tr><td>${rx.nodeId}</td><td>${fmtNum(rx.fx)}</td><td>${fmtNum(rx.fy)}</td><td>${fmtNum(rx.fz)}</td><td>${fmtNum(-rx.mx)}</td><td>${fmtNum(-rx.my)}</td><td>${fmtNum(-rx.mz)}</td></tr>`;
     }
     html += `</tbody></table>`;
 
     // 3D Internal forces
-    html += `<h3>Fuerzas Internas</h3>
+    html += `<h3>${t('file.internalForces')}</h3>
 <table style="font-size:9px"><thead><tr><th>Elem</th><th>L (m)</th><th>N_i</th><th>N_j</th><th>Vy_i</th><th>Vy_j</th><th>Vz_i</th><th>Vz_j</th><th>Mx_i</th><th>Mx_j</th><th>My_i</th><th>My_j</th><th>Mz_i</th><th>Mz_j</th></tr></thead><tbody>`;
     for (const f of r3D.elementForces) {
       html += `<tr><td>${f.elementId}</td><td>${fmtNum(f.length, 3)}</td><td>${fmtNum(f.nStart)}</td><td>${fmtNum(f.nEnd)}</td><td>${fmtNum(f.vyStart)}</td><td>${fmtNum(f.vyEnd)}</td><td>${fmtNum(f.vzStart)}</td><td>${fmtNum(f.vzEnd)}</td><td>${fmtNum(-f.mxStart)}</td><td>${fmtNum(-f.mxEnd)}</td><td>${fmtNum(-f.myStart)}</td><td>${fmtNum(-f.myEnd)}</td><td>${fmtNum(-f.mzStart)}</td><td>${fmtNum(-f.mzEnd)}</td></tr>`;
     }
     html += `</tbody></table>`;
   } else if (r) {
-    html += `<h2>Resultados</h2>`;
+    html += `<h2>${t('file.results')}</h2>`;
 
     // Displacements
-    html += `<h3>Desplazamientos</h3>
-<table><thead><tr><th>Nodo</th><th>ux (m)</th><th>uy (m)</th><th>θz (rad)</th></tr></thead><tbody>`;
+    html += `<h3>${t('file.displacements')}</h3>
+<table><thead><tr><th>${t('file.node')}</th><th>ux (m)</th><th>uy (m)</th><th>θz (rad)</th></tr></thead><tbody>`;
     for (const d of r.displacements) {
       html += `<tr><td>${d.nodeId}</td><td>${fmtNum(d.ux)}</td><td>${fmtNum(d.uy)}</td><td>${fmtNum(d.rz)}</td></tr>`;
     }
     html += `</tbody></table>`;
 
     // Reactions
-    html += `<h3>Reacciones</h3>
-<table><thead><tr><th>Nodo</th><th>Rx (kN)</th><th>Ry (kN)</th><th>Mz (kN·m)</th></tr></thead><tbody>`;
+    html += `<h3>${t('file.reactions')}</h3>
+<table><thead><tr><th>${t('file.node')}</th><th>Rx (kN)</th><th>Ry (kN)</th><th>Mz (kN·m)</th></tr></thead><tbody>`;
     for (const rx of r.reactions) {
       html += `<tr><td>${rx.nodeId}</td><td>${fmtNum(rx.rx)}</td><td>${fmtNum(rx.ry)}</td><td>${fmtNum(-rx.mz)}</td></tr>`;
     }
     html += `</tbody></table>`;
 
     // Internal forces
-    html += `<h3>Fuerzas Internas</h3>
+    html += `<h3>${t('file.internalForces')}</h3>
 <table><thead><tr><th>Elem</th><th>L (m)</th><th>N_i (kN)</th><th>N_j (kN)</th><th>V_i (kN)</th><th>V_j (kN)</th><th>M_i (kN·m)</th><th>M_j (kN·m)</th></tr></thead><tbody>`;
     for (const f of r.elementForces) {
       html += `<tr><td>${f.elementId}</td><td>${fmtNum(f.length, 3)}</td><td>${fmtNum(f.nStart)}</td><td>${fmtNum(f.nEnd)}</td><td>${fmtNum(f.vStart)}</td><td>${fmtNum(f.vEnd)}</td><td>${fmtNum(-f.mStart)}</td><td>${fmtNum(-f.mEnd)}</td></tr>`;
     }
     html += `</tbody></table>`;
   } else {
-    html += `<h2>Resultados</h2><p class="no-results">No se ha ejecutado el análisis. Presione F5 para calcular.</p>`;
+    html += `<h2>${t('file.results')}</h2><p class="no-results">${t('file.noResultsMsg')}</p>`;
   }
 
   html += `
 <div style="margin-top:20px;padding-top:8px;border-top:1px solid #ddd;color:#999;font-size:9px;text-align:center">
-  Generado con Dedaliano — Análisis Estructural ${is3D ? '3D' : '2D'}
+  ${t('file.generatedWith')} ${is3D ? '3D' : '2D'}
 </div>
 </body></html>`;
 

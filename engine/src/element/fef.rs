@@ -1,7 +1,6 @@
 /// Fixed-end forces for various load types on beam elements.
 /// All forces are in local coordinates.
 /// Convention: positive transverse load = positive local y direction.
-
 /// Fixed-end forces for full-length trapezoidal distributed load (2D).
 /// qI at node I, qJ at node J, L = element length.
 /// Returns [fx_i, fy_i, mz_i, fx_j, fy_j, mz_j] in local coords.

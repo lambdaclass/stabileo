@@ -1,6 +1,7 @@
 // Tour step definitions for the /demo guided walkthrough
 import type { TourStep, TourActionButton } from '../store/tour.svelte';
 import { uiStore, modelStore, resultsStore } from '../store';
+import { t } from '../i18n';
 
 /** Load an example and clean up results (same logic as ToolbarExamples) */
 function loadExampleAndZoom(exampleId: string) {
@@ -23,11 +24,8 @@ export function buildTourSteps(): TourStep[] {
     {
       id: 'welcome',
       target: 'none',
-      title: 'Bienvenido a Dedaliano',
-      description:
-        'Un programa de cálculo estructural gratuito.' +
-        '<br/><br/>' +
-        'En esta guía rápida vas a aprender a armar y calcular una estructura en pocos pasos.',
+      title: t('tour.welcomeTitle'),
+      description: t('tour.welcomeDesc'),
       position: 'center',
     },
 
@@ -35,13 +33,8 @@ export function buildTourSteps(): TourStep[] {
     {
       id: 'mode-toggle',
       target: '[data-tour="mode-toggle"]',
-      title: 'Elegí tu modo de análisis',
-      description:
-        '<strong>2D</strong> — Pórticos, vigas y reticulados planos.' +
-        '<br/>' +
-        '<strong>3D</strong> — Estructuras espaciales con 6 grados de libertad por nodo.' +
-        '<br/><br/>' +
-        'Hacé click en el que prefieras, o usá los botones de abajo.',
+      title: t('tour.modeToggleTitle'),
+      description: t('tour.modeToggleDesc'),
       position: 'bottom',
       allowInteraction: true,
       multiAction: [
@@ -62,17 +55,8 @@ export function buildTourSteps(): TourStep[] {
     {
       id: 'build-options',
       target: '[data-tour="floating-tools"]',
-      title: 'Armá tu estructura',
-      description:
-        'Tenés tres formas de crear un modelo:' +
-        '<br/><br/>' +
-        '&#x2022; <strong>Herramientas</strong> — Dibujá nodos, barras, apoyos y cargas como en Paint' +
-        '<br/>' +
-        '&#x2022; <strong>Panel lateral derecho</strong> — Ingresá datos numéricos directamente' +
-        '<br/>' +
-        '&#x2022; <strong>Ejemplos precargados</strong> — La forma más rápida de empezar' +
-        '<br/><br/>' +
-        'Te recomendamos arrancar con un ejemplo. Vamos a eso &#x2192;',
+      title: t('tour.buildOptionsTitle'),
+      description: t('tour.buildOptionsDesc'),
       position: 'bottom',
       highlightPadding: 4,
       onEnter: () => {
@@ -84,30 +68,18 @@ export function buildTourSteps(): TourStep[] {
     {
       id: 'examples',
       target: '[data-tour="examples-section"]',
-      title: 'Cargá un ejemplo',
+      title: t('tour.examplesTitle'),
       get description() {
         if (is3D()) {
-          return (
-            'Elegí cualquier ejemplo para cargarlo al instante.' +
-            '<br/><br/>' +
-            'Podés calcular todos los modelos que tiene Dedaliano 2D (menos los reticulados).' +
-            '<br/><br/>' +
-            'Y también hay <strong>Ejemplos 3D</strong> para aprovechar las tres dimensiones.' +
-            '<br/><br/>' +
-            'O usá el botón de abajo para cargar el recomendado.'
-          );
+          return t('tour.examplesDesc3D');
         }
-        return (
-          'Elegí cualquier ejemplo para cargarlo al instante.' +
-          '<br/><br/>' +
-          'O usá el botón de abajo para cargar el recomendado.'
-        );
+        return t('tour.examplesDesc2D');
       },
       position: 'right',
       allowInteraction: true,
       get actionButton(): TourActionButton {
         return {
-          label: is3D() ? 'Pórtico 3D' : 'Ejemplo Pórtico',
+          label: is3D() ? t('tour.examplesBtn3D') : t('tour.examplesBtn2D'),
           action: () => loadExampleAndZoom(is3D() ? '3d-portal-frame' : 'portal-frame'),
           advanceAfter: true,
         };
@@ -133,21 +105,21 @@ export function buildTourSteps(): TourStep[] {
     {
       id: 'manual-tools',
       target: '[data-tour="floating-tools"]',
-      title: 'Creación manual',
+      title: t('tour.manualToolsTitle'),
       get description() {
         const m = uiStore.isMobile;
         return (
-          'Si preferís armar todo a mano, seguí este orden:' +
+          t('tour.manualToolsIntro') +
           '<br/><br/>' +
-          `<strong>1.</strong> ${m ? '● ' : ''}Nodo${m ? '' : ' (N)'} — Colocá puntos en el lienzo` +
+          `<strong>1.</strong> ${m ? '● ' : ''}${t('tour.manualToolsNode')}${m ? '' : ' (N)'} — ${t('tour.manualToolsNodeDesc')}` +
           '<br/>' +
-          `<strong>2.</strong> ${m ? '— ' : ''}Elemento${m ? '' : ' (E)'} — Conectá dos nodos con una barra` +
+          `<strong>2.</strong> ${m ? '— ' : ''}${t('tour.manualToolsElement')}${m ? '' : ' (E)'} — ${t('tour.manualToolsElementDesc')}` +
           '<br/>' +
-          `<strong>3.</strong> ${m ? '▽ ' : ''}Apoyo${m ? '' : ' (S)'} — Restringí los movimientos de un nodo` +
+          `<strong>3.</strong> ${m ? '▽ ' : ''}${t('tour.manualToolsSupport')}${m ? '' : ' (S)'} — ${t('tour.manualToolsSupportDesc')}` +
           '<br/>' +
-          `<strong>4.</strong> ${m ? '↓ ' : ''}Carga${m ? '' : ' (L)'} — Aplicá fuerzas o cargas distribuidas` +
+          `<strong>4.</strong> ${m ? '↓ ' : ''}${t('tour.manualToolsLoad')}${m ? '' : ' (L)'} — ${t('tour.manualToolsLoadDesc')}` +
           '<br/><br/>' +
-          'También podés cambiar <strong>materiales</strong> y <strong>secciones</strong> desde el panel lateral derecho.'
+          t('tour.manualToolsMaterials')
         );
       },
       position: 'bottom',
@@ -163,27 +135,8 @@ export function buildTourSteps(): TourStep[] {
     {
       id: 'right-panel',
       target: '[data-tour="right-sidebar"]',
-      title: 'Panel lateral derecho',
-      description:
-        'Acá podés ver y editar todos los datos del modelo:' +
-        '<br/><br/>' +
-        '&#x2022; <strong>Nodos</strong> — Coordenadas de cada punto' +
-        '<br/>' +
-        '&#x2022; <strong>Elementos</strong> — Barras con su material y sección' +
-        '<br/>' +
-        '&#x2022; <strong>Materiales</strong> — Propiedades como E, ν, fy' +
-        '<br/>' +
-        '&#x2022; <strong>Secciones</strong> — Elegí un perfil comercial o armá tu propia sección a medida' +
-        '<br/>' +
-        '&#x2022; <strong>Apoyos</strong> — Tipo y restricciones de cada apoyo' +
-        '<br/>' +
-        '&#x2022; <strong>Cargas</strong> — Fuerzas y cargas distribuidas aplicadas' +
-        '<br/>' +
-        '&#x2022; <strong>Combinaciones</strong> — Combinaciones de carga' +
-        '<br/>' +
-        '&#x2022; <strong>Resultados</strong> — Aparece después de calcular' +
-        '<br/><br/>' +
-        'Hacé click en cualquier campo para editarlo directamente.',
+      title: t('tour.rightPanelTitle'),
+      description: t('tour.rightPanelDesc'),
       position: 'left',
       highlightPadding: 4,
       allowInteraction: true,
@@ -208,18 +161,13 @@ export function buildTourSteps(): TourStep[] {
     {
       id: 'calcular',
       target: '[data-tour="calcular-btn"]',
-      title: '¡Calculá!',
-      description:
-        'Cuando la estructura tenga nodos, barras, apoyos y al menos una carga, presioná <strong>Calcular</strong>.' +
-        '<br/><br/>' +
-        'Resuelve por el <strong>Método de las Rigideces</strong>.' +
-        '<br/><br/>' +
-        'Usá el botón de abajo o el de la barra lateral.',
+      title: t('tour.solveTitle'),
+      description: t('tour.solveDesc'),
       position: 'right',
       allowInteraction: true,
       autoAdvance: true,
       actionButton: {
-        label: 'Calcular',
+        label: t('tour.solveBtn'),
         action: () => triggerSolve(),
         advanceAfter: false, // autoAdvance handles it when results arrive
       },
@@ -242,19 +190,8 @@ export function buildTourSteps(): TourStep[] {
     {
       id: 'results',
       target: '[data-tour="results-section"]',
-      title: 'Resultados',
-      description:
-        'Acá podés ver los resultados del cálculo:' +
-        '<br/><br/>' +
-        '<strong>Deformada</strong> — Forma deformada amplificada de la estructura' +
-        '<br/>' +
-        '<strong>Momento / Corte / Axil</strong> — Diagramas de esfuerzos característicos en cada barra' +
-        '<br/>' +
-        '<strong>Axil colores</strong> — Tracción (rojo) vs compresión (azul), útil para reticulados' +
-        '<br/>' +
-        '<strong>Color map</strong> — Mapa de calor según la intensidad de cada esfuerzo' +
-        '<br/><br/>' +
-        'Probá cambiar entre ellos para explorar.',
+      title: t('tour.resultsTitle'),
+      description: t('tour.resultsDesc'),
       position: 'right',
       allowInteraction: true,
       highlightPadding: 4,
@@ -273,29 +210,19 @@ export function buildTourSteps(): TourStep[] {
     {
       id: 'navigate-model',
       target: 'none',
-      title: 'Navegá el modelo',
+      title: t('tour.navigateTitle'),
       get description() {
         const m = uiStore.isMobile;
         let text: string;
         if (m) {
-          text =
-            'Usá dos dedos para <strong>moverte</strong> y hacer <strong>zoom</strong>.' +
-            '<br/><br/>' +
-            'Arriba a la derecha podés tocar <strong>&#x229E;</strong> para encuadrar el modelo en tu pantalla.' +
-            '<br/><br/>' +
-            'Presioná el botón <strong>📊</strong> arriba a la izquierda para abrir un panel flotante con los resultados y diagramas.';
+          text = t('tour.navigateDescMobile');
         } else {
-          text =
-            'Con la herramienta <strong>Mover</strong> arrastrá el mouse para moverte por el lienzo.' +
-            '<br/>' +
-            'Usá la rueda para hacer zoom.' +
-            '<br/><br/>' +
-            'Arriba a la derecha podés clickear en <strong>&#x229E;</strong> para encuadrar el modelo en tu pantalla.';
+          text = t('tour.navigateDescDesktop');
         }
         if (is3D()) {
           text +=
             '<br/><br/>' +
-            'Debajo de esa opción hay más herramientas: vistas predefinidas (planta, frente, lateral), perspectiva/ortográfica, plano de corte y medición.';
+            t('tour.navigateDesc3DExtra');
         }
         return text;
       },
@@ -307,7 +234,7 @@ export function buildTourSteps(): TourStep[] {
         if (uiStore.isMobile) {
           uiStore.leftDrawerOpen = false;
           uiStore.rightDrawerOpen = false;
-          // Show the minimized results button (📊) so user sees it
+          // Show the minimized results button so user sees it
           uiStore.mobileResultsPanelOpen = false;
         }
         // Set pan tool so user can explore freely
@@ -319,20 +246,12 @@ export function buildTourSteps(): TourStep[] {
     {
       id: 'query-results',
       target: '[data-tour="floating-tools"]',
-      title: 'Consultá resultados puntuales',
+      title: t('tour.queryResultsTitle'),
       get description() {
         if (uiStore.isMobile) {
-          return (
-            'Activá la herramienta <strong>↖ Seleccionar</strong> en modo <strong>Tensiones</strong> para ver los esfuerzos al tocar una barra.' +
-            '<br/><br/>' +
-            'O simplemente acercá el dedo a un diagrama para ver el valor puntual.'
-          );
+          return t('tour.queryResultsDescMobile');
         }
-        return (
-          'Activá la herramienta <strong>Seleccionar</strong> en modo <strong>Tensiones</strong> para ver los esfuerzos completos al clickear en una barra.' +
-          '<br/><br/>' +
-          'O simplemente acercá el mouse a un diagrama para ver el valor puntual.'
-        );
+        return t('tour.queryResultsDescDesktop');
       },
       position: 'auto',
       overlayOpacity: 0.25,
@@ -357,19 +276,15 @@ export function buildTourSteps(): TourStep[] {
     {
       id: 'advanced',
       target: '[data-tour="advanced-section"]',
-      title: 'Análisis Avanzado',
+      title: t('tour.advancedTitle'),
       get description() {
-        let text =
-          'Herramientas para ir más allá del cálculo de barras.' +
-          '<br/><br/>' +
-          'Podés clickear en <strong>(?)</strong> a la derecha de cada una para ver qué hace.';
+        let text = t('tour.advancedDesc');
         if (is3D()) {
-          text +=
-            ' Como dato, Dedaliano 2D cuenta con muchas más funciones avanzadas actualmente.';
+          text += t('tour.advancedDesc3DExtra');
         }
         text +=
           '<br/><br/>' +
-          'Tené en cuenta que estas funciones siguen en desarrollo. Se agradece reportar bugs/errores.';
+          t('tour.advancedDescBeta');
         return text;
       },
       position: 'right',
@@ -400,14 +315,9 @@ export function buildTourSteps(): TourStep[] {
     {
       id: 'config-project',
       target: '[data-tour="config-project-section"]',
-      title: 'Configuración y Proyecto',
+      title: t('tour.configProjectTitle'),
       mobileCardMaxHeight: '35vh',
-      description:
-        '<strong>Configuración</strong> — Opciones de visualización: grilla, etiquetas, unidades y <strong>Cálculo en tiempo real</strong> (recalcula automáticamente al editar la estructura).' +
-        '<br/><br/>' +
-        '<strong>Proyecto</strong> — Guardá tu trabajo, compartí un link para que cualquiera vea tu estructura, y exportá reportes (Excel, PDF, PNG, CSV).' +
-        '<br/><br/>' +
-        'Las herramientas de exportar/importar DXF y SVG están en desarrollo.',
+      description: t('tour.configProjectDesc'),
       position: 'right',
       allowInteraction: true,
       onEnter: () => {
@@ -430,15 +340,10 @@ export function buildTourSteps(): TourStep[] {
     {
       id: 'feedback',
       target: '[data-tour="feedback-widget"]',
-      title: 'Reportá bugs o sugerí mejoras',
+      title: t('tour.feedbackTitle'),
       mobileCardMaxHeight: '25vh',
       mobileCardBottom: '64px',
-      description:
-        '¿Encontraste un error o tenés una idea?' +
-        '<br/>' +
-        'Presioná este botón para enviarme un reporte.' +
-        '<br/><br/>' +
-        'Se incluye automáticamente el estado de tu modelo para que pueda reproducir tu problema.',
+      description: t('tour.feedbackDesc'),
       position: 'left',
       highlightPadding: 12,
       onEnter: () => {
@@ -453,13 +358,8 @@ export function buildTourSteps(): TourStep[] {
     {
       id: 'goodbye',
       target: 'none',
-      title: 'Gracias por usar Dedaliano :)',
-      description:
-        'Espero que sea útil para aprender y calcular estructuras.' +
-        '<br/><br/>' +
-        'Si te gusta, compartí el link con colegas y amigos.' +
-        '<br/><br/>' +
-        '<em style="color:#4ecdc4; font-style:normal">Bauti</em>',
+      title: t('tour.goodbyeTitle'),
+      description: t('tour.goodbyeDesc'),
       position: 'center',
     },
   ];

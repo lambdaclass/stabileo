@@ -6,7 +6,6 @@
 ///
 /// Reference: Crisfield, "Non-linear Finite Element Analysis of Solids
 ///            and Structures" Vol. 1, Ch. 9
-
 use serde::{Serialize, Deserialize};
 use crate::types::*;
 use crate::linalg::*;

@@ -11,6 +11,7 @@
  */
 
 import { modelStore, resultsStore, uiStore } from '../store';
+import { t } from '../i18n';
 
 // ─── Helpers ──────────────────────────────────────────────────────────────
 
@@ -44,7 +45,7 @@ export function runLiveCalc(analysisMode: string, axisConvention3D: string, prev
       liveCalc2D(prevDiagram);
     }
   } catch (err: any) {
-    uiStore.liveCalcError = err.message ?? 'Error desconocido';
+    uiStore.liveCalcError = err.message ?? t('error.unknown');
   }
 }
 
@@ -57,7 +58,7 @@ function liveCalc3D(axisConvention: string, prevDiagram: string): void {
   if (!r) return;
 
   if (hasNaN3D(r.displacements as any)) {
-    uiStore.liveCalcError = 'Error numérico 3D: estructura inestable (mecanismo)';
+    uiStore.liveCalcError = t('results.numericError3d');
     return;
   }
 
@@ -76,7 +77,7 @@ function liveCalc2D(prevDiagram: string): void {
   if (!r) return;
 
   if (hasNaN2D(r.displacements as any)) {
-    uiStore.liveCalcError = 'Error numérico: estructura inestable (mecanismo)';
+    uiStore.liveCalcError = t('results.numericError');
     return;
   }
 
@@ -113,7 +114,8 @@ export function runGlobalSolve(): void {
 /** Detect if an error message is mechanism/hipostatic-related */
 function isMechanismError(msg: string): boolean {
   const lc = msg.toLowerCase();
-  return lc.includes('mecanismo') || lc.includes('hipostática') || lc.includes('singular') || lc.includes('inestable');
+  return lc.includes('mecanismo') || lc.includes('hipostática') || lc.includes('singular') || lc.includes('inestable')
+    || lc.includes('mechanism') || lc.includes('hypostatic') || lc.includes('unstable');
 }
 
 function globalSolve3D(): void {
@@ -125,11 +127,11 @@ function globalSolve3D(): void {
     resultsStore.setResults3D(r);
     if (uiStore.isMobile) uiStore.mobileResultsPanelOpen = true;
     uiStore.toast(
-      `Análisis 3D exitoso — ${r.elementForces.length} barras, ${r.reactions.length} reacciones`,
+      `${t('results.analysis3dSuccess')} — ${r.elementForces.length} ${t('results.bars')}, ${r.reactions.length} ${t('results.reactions')}`,
       'success',
     );
   } else {
-    uiStore.toast('Modelo vacío o error inesperado', 'error');
+    uiStore.toast(t('results.emptyModelError'), 'error');
   }
 }
 
@@ -140,12 +142,12 @@ function globalSolve2D(): void {
     return;
   }
   if (!r) {
-    uiStore.toast('Modelo vacío o error inesperado', 'error');
+    uiStore.toast(t('results.emptyModelError'), 'error');
     return;
   }
 
   if (hasNaN2D(r.displacements as any)) {
-    uiStore.toast('Error numérico: la estructura puede ser inestable (mecanismo)', 'error', 'kinematic');
+    uiStore.toast(t('results.numericError'), 'error', 'kinematic');
     return;
   }
 
@@ -154,8 +156,8 @@ function globalSolve2D(): void {
   const kin = modelStore.kinematicResult;
   let classText = '';
   if (kin) {
-    if (kin.classification === 'isostatic') classText = ' — Isostática';
-    else if (kin.classification === 'hyperstatic') classText = ` — Hiperestática (grado ${kin.degree})`;
+    if (kin.classification === 'isostatic') classText = ` — ${t('results.isostatic')}`;
+    else if (kin.classification === 'hyperstatic') classText = ` — ${t('results.hyperstatic')} (${t('results.degree')} ${kin.degree})`;
   }
 
   // Auto-solve combinations if defined
@@ -164,13 +166,13 @@ function globalSolve2D(): void {
     const comboResult = modelStore.solveCombinations(uiStore.includeSelfWeight);
     if (comboResult && typeof comboResult !== 'string') {
       resultsStore.setCombinationResults(comboResult.perCase, comboResult.perCombo, comboResult.envelope);
-      comboText = ` + ${comboResult.perCombo.size} combinaciones`;
+      comboText = ` + ${comboResult.perCombo.size} ${t('results.combinations')}`;
     }
   }
 
   if (uiStore.isMobile) uiStore.mobileResultsPanelOpen = true;
   uiStore.toast(
-    `Cálculo exitoso${classText} — ${r.elementForces.length} barras, ${r.reactions.length} reacciones${comboText}`,
+    `${t('results.calcSuccess')}${classText} — ${r.elementForces.length} ${t('results.bars')}, ${r.reactions.length} ${t('results.reactions')}${comboText}`,
     'success',
   );
 }

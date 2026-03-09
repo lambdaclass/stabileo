@@ -11,7 +11,6 @@
 /// 4. Evaluate soil curves at computed displacements
 /// 5. Update secant stiffnesses
 /// 6. Repeat until convergence
-
 use serde::{Serialize, Deserialize};
 use crate::types::*;
 use crate::linalg::*;

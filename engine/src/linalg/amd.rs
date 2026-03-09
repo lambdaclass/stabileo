@@ -2,7 +2,6 @@
 ///
 /// Takes lower-triangle CSC format. Returns permutation that reduces fill-in
 /// during Cholesky factorization.
-
 /// Compute AMD ordering. Returns perm where perm[new] = old.
 pub fn amd_order(n: usize, col_ptr: &[usize], row_idx: &[usize]) -> Vec<usize> {
     if n <= 1 {

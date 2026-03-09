@@ -1,5 +1,6 @@
 <script lang="ts">
   import { modelStore, uiStore, historyStore, resultsStore } from '../../lib/store';
+  import { t } from '../../lib/i18n';
   import type { DistributedLoad, PointLoadOnElement, NodalLoad, ThermalLoad, NodalLoad3D, DistributedLoad3D } from '../../lib/store/model.svelte.ts';
 
   const nodesArr = $derived([...modelStore.nodes.values()]);
@@ -45,13 +46,13 @@
   }
 </script>
 
-<label class="selfweight-row" title="Incluir peso propio autom&aacute;ticamente usando densidad y &aacute;rea de secci&oacute;n">
+<label class="selfweight-row" title={t('table.selfWeightTooltip')}>
   <input type="checkbox" bind:checked={uiStore.includeSelfWeight} />
-  <span>Peso propio</span>
+  <span>{t('table.selfWeight')}</span>
 </label>
 <table>
   <thead>
-    <tr><th>#</th><th>Caso</th><th>Tipo</th><th>Destino</th><th>Valores</th><th></th></tr>
+    <tr><th>#</th><th>{t('table.case')}</th><th>{t('table.type')}</th><th>{t('table.target')}</th><th>{t('table.values')}</th><th></th></tr>
   </thead>
   <tbody>
     {#each modelStore.loads as load, i}
@@ -64,20 +65,20 @@
             {/each}
           </select>
         </td>
-        <td class="type-cell">{load.type === 'nodal' ? 'Punt.' : load.type === 'nodal3d' ? 'Punt.3D' : load.type === 'distributed' ? 'Dist.' : load.type === 'distributed3d' ? 'Dist.3D' : load.type === 'thermal' ? 'T\u00e9rm.' : 'P.Elem'}</td>
+        <td class="type-cell">{load.type === 'nodal' ? t('table.typePoint') : load.type === 'nodal3d' ? t('table.typePoint3d') : load.type === 'distributed' ? t('table.typeDist') : load.type === 'distributed3d' ? t('table.typeDist3d') : load.type === 'thermal' ? t('table.typeThermal') : t('table.typeBarPoint')}</td>
         <td>
           {#if load.type === 'nodal'}
-            Nodo {(load.data as NodalLoad).nodeId}
+            {t('table.nodeLabel')} {(load.data as NodalLoad).nodeId}
           {:else if load.type === 'nodal3d'}
-            Nodo {(load.data as NodalLoad3D).nodeId}
+            {t('table.nodeLabel')} {(load.data as NodalLoad3D).nodeId}
           {:else if load.type === 'distributed'}
-            Elem {(load.data as DistributedLoad).elementId}
+            {t('table.elemLabel')} {(load.data as DistributedLoad).elementId}
           {:else if load.type === 'distributed3d'}
-            Elem {(load.data as DistributedLoad3D).elementId}
+            {t('table.elemLabel')} {(load.data as DistributedLoad3D).elementId}
           {:else if load.type === 'thermal'}
-            Elem {(load.data as ThermalLoad).elementId}
+            {t('table.elemLabel')} {(load.data as ThermalLoad).elementId}
           {:else}
-            Elem {(load.data as PointLoadOnElement).elementId}
+            {t('table.elemLabel')} {(load.data as PointLoadOnElement).elementId}
           {/if}
         </td>
         <td class="load-values">
@@ -125,20 +126,20 @@
   <div class="add-row">
     <select bind:value={newLoadType} class="add-input add-input-wide">
       {#if uiStore.analysisMode === '3d'}
-        <option value="nodal3d">Puntual 3D</option>
-        <option value="distributed3d">Distribuida 3D</option>
+        <option value="nodal3d">{t('table.pointLoad3d')}</option>
+        <option value="distributed3d">{t('table.distLoad3d')}</option>
       {:else}
-        <option value="nodal">Puntual</option>
-        <option value="distributed">Distribuida</option>
-        <option value="pointOnElement">Punt. barra</option>
-        <option value="thermal">T&eacute;rmica</option>
+        <option value="nodal">{t('table.pointLoad')}</option>
+        <option value="distributed">{t('table.distLoad')}</option>
+        <option value="pointOnElement">{t('table.pointBarLoad')}</option>
+        <option value="thermal">{t('table.thermalLoad')}</option>
       {/if}
     </select>
-    <span class="add-label">Caso:</span>
+    <span class="add-label">{t('table.loadCase')}:</span>
     <select bind:value={newLoadCaseId} class="add-input">
       {#each modelStore.loadCases as lc}<option value={lc.id}>{lc.type || lc.name}</option>{/each}
     </select>
-    <span class="add-label">{newLoadType === 'nodal' || newLoadType === 'nodal3d' ? 'Nodo' : 'Elem'}:</span>
+    <span class="add-label">{newLoadType === 'nodal' || newLoadType === 'nodal3d' ? t('table.nodeLabel') : t('table.elemLabel')}:</span>
     <select bind:value={newLoadTargetId} class="add-input">
       {#if newLoadType === 'nodal' || newLoadType === 'nodal3d'}
         {#each nodesArr as n}<option value={n.id}>{n.id}</option>{/each}
@@ -146,7 +147,7 @@
         {#each elementsArr as e}<option value={e.id}>{e.id}</option>{/each}
       {/if}
     </select>
-    <button class="add-btn" onclick={addLoad}>+ Carga</button>
+    <button class="add-btn" onclick={addLoad}>{t('table.addLoad')}</button>
   </div>
 </div>
 

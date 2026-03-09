@@ -1,11 +1,9 @@
 <script lang="ts">
   import { uiStore, modelStore, resultsStore, dsmStepsStore } from '../../lib/store';
-  import { solvePDelta } from '../../lib/engine/pdelta';
-  import { solveModal } from '../../lib/engine/modal';
-  import { solveBuckling } from '../../lib/engine/buckling';
-  import { solvePlastic } from '../../lib/engine/plastic';
-  import { solveMovingLoads, solveMovingLoadsAsync, PREDEFINED_TRAINS } from '../../lib/engine/moving-loads';
-  import { solveSpectral, cirsoc103Spectrum } from '../../lib/engine/spectral';
+  import { t } from '../../lib/i18n';
+  import { solvePDelta, solveBuckling, solveModal, solveSpectral, solvePlastic, solveMovingLoads } from '../../lib/engine/wasm-solver';
+  import { cirsoc103Spectrum } from '../../lib/engine/spectral';
+  import { getPredefinedTrains } from '../../lib/engine/moving-loads';
   import { solveDetailed } from '../../lib/engine/solver-detailed';
   import { solveDetailed3D } from '../../lib/engine/solver-detailed-3d';
 
@@ -23,54 +21,54 @@
     };
   });
 
-  const ADV_HELP: Record<string, { label: string; text: string }> = {
+  const ADV_HELP: Record<string, { labelKey: string; textKey: string }> = {
     'pdelta': {
-      label: 'P-\u0394 (2\u00b0 Orden)',
-      text: 'An\u00e1lisis no lineal geom\u00e9trico. Considera c\u00f3mo las fuerzas axiales modifican la rigidez lateral de la estructura (efecto P-\u0394). Itera hasta convergencia y reporta el factor de amplificaci\u00f3n B\u2082. Si B\u2082 > 1.4, la estructura es sensible a efectos de segundo orden. Requiere haber calculado primero.',
+      labelKey: 'advHelp.pdelta.label',
+      textKey: 'advHelp.pdelta.text',
     },
     'buckling': {
-      label: 'Pcr \u2014 Carga Cr\u00edtica (Euler)',
-      text: 'Calcula la carga de pandeo el\u00e1stico por autovalores de la matriz de rigidez geom\u00e9trica. El factor \u03bb_cr indica cu\u00e1nto habr\u00eda que multiplicar las cargas actuales para que la estructura pandee. Si \u03bb_cr < 1, la estructura ya super\u00f3 su carga cr\u00edtica. Muestra la longitud efectiva (Keff) de cada barra comprimida.',
+      labelKey: 'advHelp.buckling.label',
+      textKey: 'advHelp.buckling.text',
     },
     'modal': {
-      label: 'An\u00e1lisis Din\u00e1mico (Modal)',
-      text: 'Calcula los modos de vibraci\u00f3n y frecuencias propias de la estructura usando la matriz de masa consistente. Reporta: frecuencia (Hz), per\u00edodo (s), masa modal efectiva (%) en X e Y, y coeficientes de amortiguamiento de Rayleigh. Es prerrequisito del an\u00e1lisis espectral. Requiere densidad del material (\u03c1).',
+      labelKey: 'advHelp.modal.label',
+      textKey: 'advHelp.modal.text',
     },
     'spectral': {
-      label: 'An\u00e1lisis Espectral (CIRSOC 103)',
-      text: 'Combinaci\u00f3n modal espectral con espectro de dise\u00f1o s\u00edsmico CIRSOC 103 (Argentina). Calcula el corte basal, desplazamientos y esfuerzos m\u00e1ximos combinando los modos mediante CQC o SRSS. Requiere haber ejecutado primero el an\u00e1lisis din\u00e1mico. Usa Zona 4, Suelo tipo II por defecto.',
+      labelKey: 'advHelp.spectral.label',
+      textKey: 'advHelp.spectral.text',
     },
     'plastic': {
-      label: 'Colapso Pl\u00e1stico',
-      text: 'An\u00e1lisis incremental que va formando articulaciones pl\u00e1sticas en los puntos donde el momento alcanza Mp (momento pl\u00e1stico = Wpl \u00d7 fy). En cada paso se recalcula la estructura con la nueva articulaci\u00f3n. El factor \u03bb indica cu\u00e1nto multiplicar las cargas para alcanzar el mecanismo de colapso. Requiere fy del material.',
+      labelKey: 'advHelp.plastic.label',
+      textKey: 'advHelp.plastic.text',
     },
     'dsm': {
-      label: 'Paso a Paso \u2014 M\u00e9todo de las Rigideces',
-      text: 'Muestra detalladamente cada etapa del M\u00e9todo de la Rigidez Directa: numeraci\u00f3n de grados de libertad, matrices de rigidez locales [k], transformaciones [T], ensamblaje global [K], vector de cargas {F}, aplicaci\u00f3n de condiciones de borde, resoluci\u00f3n del sistema {u} = [K]\u207b\u00b9{F}, y obtenci\u00f3n de reacciones y fuerzas internas. Ideal para estudiar y aprender el m\u00e9todo.',
+      labelKey: 'advHelp.dsm.label',
+      textKey: 'advHelp.dsm.text',
     },
     'envelope': {
-      label: 'Envolvente de Esfuerzos',
-      text: 'Envolvente de esfuerzos por combinaciones de carga. Resuelve cada caso de carga por separado y los combina con los factores definidos en la tabla de combinaciones (ej: 1.2D + 1.6L). Muestra la envolvente de m\u00e1ximos y m\u00ednimos (+/\u2212) de momento, corte y axil. Permite comparar cada combinaci\u00f3n individual desde el dropdown "Principal" en Configuraci\u00f3n \u2192 Resultados. Requiere tener combinaciones definidas en la pesta\u00f1a "Combinaciones".',
+      labelKey: 'advHelp.envelope.label',
+      textKey: 'advHelp.envelope.text',
     },
     'trainLoad': {
-      label: 'Tren de Carga',
-      text: 'Un tren de cargas (ej: cami\u00f3n HL-93, t\u00e1ndem) recorre la estructura en m\u00faltiples posiciones. En cada posici\u00f3n se resuelve la estructura completa y se registran los esfuerzos. Las cargas del tren se SUMAN a las cargas existentes del modelo \u2014 si quer\u00e9s solo el efecto del tren, elimin\u00e1 las dem\u00e1s cargas. Despu\u00e9s de calcular, us\u00e1 las flechas \u25c0\u25b6 para recorrer las posiciones y "Ver envolvente" para ver los esfuerzos m\u00e1ximos y m\u00ednimos de todas las posiciones. Herramienta cl\u00e1sica para dise\u00f1o de puentes y estructuras bajo cargas vehiculares.',
+      labelKey: 'advHelp.trainLoad.label',
+      textKey: 'advHelp.trainLoad.text',
     },
     'influenceLine': {
-      label: 'L\u00ednea de Influencia',
-      text: 'Muestra c\u00f3mo var\u00eda una magnitud fija (reacci\u00f3n, momento o corte en una secci\u00f3n espec\u00edfica) cuando una carga unitaria P=1 recorre la estructura. Click\u00e1 un nodo para ver la LI de sus reacciones (Ry, Rx, Mz) o una barra para ver M o V en esa secci\u00f3n. Herramienta cl\u00e1sica para dise\u00f1o de puentes y estructuras bajo cargas m\u00f3viles. Atajo: tecla I.',
+      labelKey: 'advHelp.influenceLine.label',
+      textKey: 'advHelp.influenceLine.text',
     },
     'kinematic': {
-      label: 'An\u00e1lisis Cinem\u00e1tico',
-      text: 'An\u00e1lisis paso a paso de la estabilidad cinem\u00e1tica de la estructura. Muestra el grado de hiperestaticidad (f\u00f3rmula detallada con cada apoyo y articulaci\u00f3n), verifica num\u00e9ricamente por rango de Kff si hay mecanismos ocultos, y sugiere correcciones si la estructura es inestable. Funciona sin necesidad de resolver — se actualiza en tiempo real al modificar el modelo.',
+      labelKey: 'advHelp.kinematic.label',
+      textKey: 'advHelp.kinematic.text',
     },
     'stress': {
-      label: 'Tensiones \u2014 An\u00e1lisis de Secci\u00f3n',
-      text: 'An\u00e1lisis tensional completo de secciones transversales. Click\u00e1 una barra para ver: tensi\u00f3n normal \u03c3 (Navier: \u03c3 = N/A + M\u00b7y/I), tensi\u00f3n de corte \u03c4 (Jourawski: \u03c4 = V\u00b7Q/(I\u00b7b)), tensi\u00f3n equivalente de Von Mises (\u03c3_vm = \u221a(\u03c3\u00b2 + 3\u03c4\u00b2)), c\u00edrculo de Mohr con tensiones principales, diagrama de flujo de corte para perfiles de pared delgada, y ratio de utilizaci\u00f3n vs fy. Incluye un slider para recorrer las fibras de la secci\u00f3n (0=borde inferior, 1=borde superior) y navegaci\u00f3n por secciones cr\u00edticas (m\u00e1ximo momento, apoyos, puntos de carga). Soporta secciones rectangular, I, U, L, caj\u00f3n (RHS) y tubular (CHS).',
+      labelKey: 'advHelp.stress.label',
+      textKey: 'advHelp.stress.text',
     },
     'whatif': {
-      label: 'Explorar (\u00bfQu\u00e9 pasa si\u2026?)',
-      text: 'Panel interactivo de an\u00e1lisis de sensibilidad param\u00e9trica. Permite ajustar en tiempo real la magnitud de las cargas, el m\u00f3dulo de elasticidad E del material, y las propiedades de secci\u00f3n (\u00e1rea A e inercia Iz) mediante sliders. La estructura se recalcula instant\u00e1neamente con cada cambio (~60ms) mostrando c\u00f3mo var\u00edan los diagramas, deformadas y reacciones. Ideal para entender el comportamiento estructural, optimizar secciones, y responder preguntas tipo "\u00bfqu\u00e9 pasa si duplico la carga?" o "\u00bfqu\u00e9 pasa si uso un perfil m\u00e1s r\u00edgido?". Los cambios son temporales \u2014 al cerrar el panel se restaura el modelo original.',
+      labelKey: 'advHelp.whatif.label',
+      textKey: 'advHelp.whatif.text',
     },
   };
 
@@ -81,7 +79,7 @@
 
   function handlePDelta() {
     const input = modelStore.buildSolverInput(uiStore.includeSelfWeight);
-    if (!input) { uiStore.toast('Modelo vac\u00edo', 'error'); return; }
+    if (!input) { uiStore.toast(t('advanced.emptyModel'), 'error'); return; }
     try {
       const t0 = performance.now();
       const result = solvePDelta(input);
@@ -89,17 +87,17 @@
       if (typeof result === 'string') { uiStore.toast(result, 'error'); return; }
       resultsStore.setPDeltaResult(result);
       const msg = result.converged
-        ? `P-\u0394 convergi\u00f3 en ${result.iterations} iter, B\u2082=${result.b2Factor.toFixed(2)} (${dt.toFixed(0)}ms)`
-        : result.isStable ? `P-\u0394 no convergi\u00f3 (${result.iterations} iter)` : 'Estructura inestable (P-\u0394)';
+        ? t('toast.pdeltaConverged').replace('{iterations}', String(result.iterations)).replace('{b2}', result.b2Factor.toFixed(2)).replace('{ms}', dt.toFixed(0))
+        : result.isStable ? t('toast.pdeltaNotConverged').replace('{iterations}', String(result.iterations)) : t('toast.pdeltaUnstable');
       uiStore.toast(msg, result.converged ? 'success' : 'error');
     } catch (e: any) {
-      uiStore.toast(e.message || 'Error P-Delta', 'error');
+      uiStore.toast(e.message || t('toast.pdeltaError'), 'error');
     }
   }
 
   function handleModal() {
     const input = modelStore.buildSolverInput(uiStore.includeSelfWeight);
-    if (!input) { uiStore.toast('Modelo vac\u00edo', 'error'); return; }
+    if (!input) { uiStore.toast(t('advanced.emptyModel'), 'error'); return; }
     // Build densities map from model materials (rho in kN/m\u00b3 \u2192 need kg/m\u00b3)
     // rho is stored as kN/m\u00b3 in the model. 1 kN/m\u00b3 \u2248 101.97 kg/m\u00b3...
     // Actually the model stores rho as kN/m\u00b3 (e.g. 78.5 for steel)
@@ -120,19 +118,19 @@
       resultsStore.setModalResult(result);
       const rayleighInfo = result.rayleigh ? ` | Rayleigh: a\u2080=${result.rayleigh.a0.toFixed(3)}, a\u2081=${result.rayleigh.a1.toFixed(5)}` : '';
       const cumMassInfo = ` | \u03a3Meff: X=${(result.cumulativeMassRatioX * 100).toFixed(0)}%, Y=${(result.cumulativeMassRatioY * 100).toFixed(0)}%`;
-      uiStore.toast(`Din\u00e1mico: ${result.modes.length} modos${cumMassInfo}${rayleighInfo} (${dt.toFixed(0)}ms)`, 'success');
+      uiStore.toast(t('toast.modalSuccess').replace('{modes}', String(result.modes.length)).replace('{cumMass}', cumMassInfo).replace('{rayleigh}', rayleighInfo).replace('{ms}', dt.toFixed(0)), 'success');
     } catch (e: any) {
-      uiStore.toast(e.message || 'Error an\u00e1lisis din\u00e1mico', 'error');
+      uiStore.toast(e.message || t('toast.modalError'), 'error');
     }
   }
 
   function handleSpectral() {
     if (!resultsStore.modalResult) {
-      uiStore.toast('Primero ejecute el an\u00e1lisis din\u00e1mico (modal)', 'error');
+      uiStore.toast(t('advanced.runDynamicFirst'), 'error');
       return;
     }
     const input = modelStore.buildSolverInput(uiStore.includeSelfWeight);
-    if (!input) { uiStore.toast('Modelo vac\u00edo', 'error'); return; }
+    if (!input) { uiStore.toast(t('advanced.emptyModel'), 'error'); return; }
 
     // Build densities (same as modal)
     const densities = new Map<number, number>();
@@ -143,7 +141,10 @@
     try {
       const spectrum = cirsoc103Spectrum(4, 'II'); // Default: Zone 4, Soil II
       const t0 = performance.now();
-      const resultX = solveSpectral(input, resultsStore.modalResult, densities, {
+      const resultX = solveSpectral({
+        solver: input,
+        modes: resultsStore.modalResult.modes,
+        densities,
         direction: 'X',
         spectrum,
         rule: 'CQC',
@@ -152,15 +153,15 @@
       if (typeof resultX === 'string') { uiStore.toast(resultX, 'error'); return; }
       // Store spectral result in results store
       resultsStore.setSpectralResult(resultX);
-      uiStore.toast(`Espectral CQC: V_base=${resultX.baseShear.toFixed(1)} kN, Zona 4 Suelo II (${dt.toFixed(0)}ms)`, 'success');
+      uiStore.toast(t('toast.spectralSuccess').replace('{vBase}', resultX.baseShear.toFixed(1)).replace('{ms}', dt.toFixed(0)), 'success');
     } catch (e: any) {
-      uiStore.toast(e.message || 'Error an\u00e1lisis espectral', 'error');
+      uiStore.toast(e.message || t('toast.spectralError'), 'error');
     }
   }
 
   function handleBuckling() {
     const input = modelStore.buildSolverInput(uiStore.includeSelfWeight);
-    if (!input) { uiStore.toast('Modelo vac\u00edo', 'error'); return; }
+    if (!input) { uiStore.toast(t('advanced.emptyModel'), 'error'); return; }
     try {
       const t0 = performance.now();
       const result = solveBuckling(input);
@@ -169,18 +170,19 @@
       resultsStore.setBucklingResult(result);
       const factor = result.modes[0]?.loadFactor;
       const nComp = result.elementData.length;
-      uiStore.toast(`Pandeo: \u03bb_cr=${factor?.toFixed(2)}, ${nComp} elem. comprimidos (${dt.toFixed(0)}ms)`, 'success');
+      uiStore.toast(t('toast.bucklingSuccess').replace('{factor}', factor?.toFixed(2) ?? '—').replace('{nComp}', String(nComp)).replace('{ms}', dt.toFixed(0)), 'success');
     } catch (e: any) {
-      uiStore.toast(e.message || 'Error pandeo', 'error');
+      uiStore.toast(e.message || t('toast.bucklingError'), 'error');
     }
   }
 
   function handlePlastic() {
     const input = modelStore.buildSolverInput(uiStore.includeSelfWeight);
-    if (!input) { uiStore.toast('Modelo vac\u00edo', 'error'); return; }
-    const sections = new Map<number, { a: number; iz: number; b?: number; h?: number }>();
+    if (!input) { uiStore.toast(t('advanced.emptyModel'), 'error'); return; }
+    const sections = new Map<number, { a: number; iz: number; materialId: number; b?: number; h?: number }>();
     for (const [id, sec] of modelStore.sections) {
-      sections.set(id, { a: sec.a, iz: sec.iy ?? sec.iz, b: sec.b, h: sec.h });
+      const elem = [...modelStore.elements.values()].find(e => e.sectionId === id);
+      sections.set(id, { a: sec.a, iz: sec.iy ?? sec.iz, materialId: elem?.materialId ?? 1, b: sec.b, h: sec.h });
     }
     const materials = new Map<number, { fy?: number }>();
     for (const [id, mat] of modelStore.materials) {
@@ -188,35 +190,30 @@
     }
     try {
       const t0 = performance.now();
-      const result = solvePlastic(input, sections, materials);
+      const result = solvePlastic({ solver: input, sections, materials });
       const dt = performance.now() - t0;
       if (typeof result === 'string') { uiStore.toast(result, 'error'); return; }
       resultsStore.setPlasticResult(result);
       const msg = result.isMechanism
-        ? `Colapso pl\u00e1stico: \u03bb=${result.collapseFactor.toFixed(2)}, ${result.hinges.length}/${result.redundancy + 1} articulaciones (${dt.toFixed(0)}ms)`
-        : `Pl\u00e1stico: ${result.hinges.length} articulaciones, \u03bb=${result.collapseFactor.toFixed(2)}, hiperestaticidad=${result.redundancy} (${dt.toFixed(0)}ms)`;
+        ? t('toast.plasticMechanism').replace('{lambda}', result.collapseFactor.toFixed(2)).replace('{hinges}', String(result.hinges.length)).replace('{limit}', String(result.redundancy + 1)).replace('{ms}', dt.toFixed(0))
+        : t('toast.plasticNoCollapse').replace('{hinges}', String(result.hinges.length)).replace('{lambda}', result.collapseFactor.toFixed(2)).replace('{redundancy}', String(result.redundancy)).replace('{ms}', dt.toFixed(0));
       uiStore.toast(msg, result.isMechanism ? 'info' : 'success');
     } catch (e: any) {
-      uiStore.toast(e.message || 'Error pl\u00e1stico', 'error');
+      uiStore.toast(e.message || t('toast.plasticError'), 'error');
     }
   }
 
   async function handleMovingLoad(trainIndex: number) {
     const input = modelStore.buildSolverInput(uiStore.includeSelfWeight);
-    if (!input) { uiStore.toast('Modelo vac\u00edo', 'error'); return; }
-    const train = PREDEFINED_TRAINS[trainIndex];
+    if (!input) { uiStore.toast(t('advanced.emptyModel'), 'error'); return; }
+    const train = getPredefinedTrains()[trainIndex];
     if (!train) return;
 
     const abortController = resultsStore.startMovingLoadAnalysis();
 
     try {
       const t0 = performance.now();
-      const result = await solveMovingLoadsAsync(
-        input,
-        { train },
-        (progress) => resultsStore.updateMovingLoadProgress(progress.current, progress.total),
-        abortController.signal,
-      );
+      const result = solveMovingLoads({ solver: input, train });
       const dt = performance.now() - t0;
 
       if (abortController.signal.aborted) return;
@@ -226,10 +223,10 @@
         return;
       }
       resultsStore.setMovingLoadEnvelope(result);
-      uiStore.toast(`Tren de carga: ${result.positions.length} posiciones, envolvente calculada (${dt.toFixed(0)}ms)`, 'success');
+      uiStore.toast(t('toast.movingLoadSuccess').replace('{positions}', String(result.positions.length)).replace('{ms}', dt.toFixed(0)), 'success');
     } catch (e: any) {
       if (!abortController.signal.aborted) {
-        uiStore.toast(e.message || 'Error carga m\u00f3vil', 'error');
+        uiStore.toast(e.message || t('toast.movingLoadError'), 'error');
       }
     } finally {
       resultsStore.finishMovingLoad();
@@ -245,7 +242,7 @@
         resultsStore.setCombinationResults3D(result.perCase, result.perCombo, result.envelope);
         const nCombos = result.perCombo.size;
         const nCases = result.perCase.size;
-        uiStore.toast(`${nCombos} combinaciones 3D calculadas (${nCases} casos de carga).`, 'success');
+        uiStore.toast(t('toast.combinations3dSuccess').replace('{n}', String(nCombos)).replace('{cases}', String(nCases)), 'success');
       }
       return;
     }
@@ -256,21 +253,21 @@
       resultsStore.setCombinationResults(result.perCase, result.perCombo, result.envelope);
       const nCombos = result.perCombo.size;
       const nCases = result.perCase.size;
-      uiStore.toast(`${nCombos} combinaciones calculadas (${nCases} casos de carga). Us\u00e1 "Principal" en diagramas M/V/N para ver Envolvente o combos individuales.`, 'success');
+      uiStore.toast(t('toast.combinationsSuccess').replace('{n}', String(nCombos)).replace('{cases}', String(nCases)), 'success');
     }
   }
 </script>
 
 <div class="toolbar-section" data-tour="advanced-section">
   <button class="section-toggle" onclick={() => showAdvanced = !showAdvanced}>
-    {showAdvanced ? '▾' : '▸'} Análisis Avanzado
+    {showAdvanced ? '▾' : '▸'} {t('advanced.title')}
   </button>
   {#if showAdvanced}
   {#snippet helpPanel(key: string)}
     {#if advHelpKey === key && ADV_HELP[key]}
       <div class="adv-help-panel" style="grid-column: span 2">
-        <strong>{ADV_HELP[key].label}</strong>
-        <p>{ADV_HELP[key].text}</p>
+        <strong>{t(ADV_HELP[key].labelKey)}</strong>
+        <p>{t(ADV_HELP[key].textKey)}</p>
       </div>
     {/if}
   {/snippet}
@@ -280,7 +277,7 @@
       <button class="adv-btn" style="flex:1"
         class:active={uiStore.showKinematicPanel}
         onclick={() => uiStore.showKinematicPanel = !uiStore.showKinematicPanel}>
-        Análisis Cinemático
+        {t('advanced.kinematicAnalysis')}
       </button>
       <button class="adv-help-btn" onclick={(e) => toggleAdvHelp('kinematic', e)} class:active={advHelpKey === 'kinematic'}>?</button>
     </div>
@@ -290,11 +287,11 @@
       <button class="adv-btn" style="flex:1"
         class:active={uiStore.currentTool === 'select' && uiStore.selectMode === 'stress'}
         onclick={() => {
-          if (!resultsStore.results && !resultsStore.results3D) { uiStore.toast('Calcul\u00e1 primero', 'error'); return; }
+          if (!resultsStore.results && !resultsStore.results3D) { uiStore.toast(t('advanced.calculateFirst'), 'error'); return; }
           uiStore.currentTool = 'select';
           uiStore.selectMode = 'stress';
         }}>
-        Análisis de Sección
+        {t('advanced.sectionAnalysis')}
       </button>
       <button class="adv-help-btn" onclick={(e) => toggleAdvHelp('stress', e)} class:active={advHelpKey === 'stress'}>?</button>
     </div>
@@ -308,7 +305,7 @@
             const r = modelStore.solve(uiStore.includeSelfWeight);
             if (r && typeof r !== 'string') resultsStore.setResults(r);
           } else { handlePDelta(); }
-        }}>P-Δ (2° Orden)</button>
+        }}>{t('advanced.pdelta')}</button>
       <button class="adv-help-btn" onclick={(e) => toggleAdvHelp('pdelta', e)} class:active={advHelpKey === 'pdelta'}>?</button>
     </div>
     <div class="adv-btn-wrap">
@@ -316,7 +313,7 @@
         onclick={() => {
           if (resultsStore.bucklingResult) { resultsStore.clearBuckling(); }
           else { handleBuckling(); }
-        }}>Pcr (Euler)</button>
+        }}>{t('advanced.buckling')}</button>
       <button class="adv-help-btn" onclick={(e) => toggleAdvHelp('buckling', e)} class:active={advHelpKey === 'buckling'}>?</button>
     </div>
     {@render helpPanel('pdelta')}
@@ -326,7 +323,7 @@
         onclick={() => {
           if (resultsStore.modalResult) { resultsStore.clearModal(); }
           else { handleModal(); }
-        }}>Dinámico</button>
+        }}>{t('advanced.dynamic')}</button>
       <button class="adv-help-btn" onclick={(e) => toggleAdvHelp('modal', e)} class:active={advHelpKey === 'modal'}>?</button>
     </div>
     <div class="adv-btn-wrap">
@@ -334,7 +331,7 @@
         onclick={() => {
           if (resultsStore.spectralResult) { resultsStore.clearSpectral(); }
           else { handleSpectral(); }
-        }}>Espectral</button>
+        }}>{t('advanced.spectral')}</button>
       <button class="adv-help-btn" onclick={(e) => toggleAdvHelp('spectral', e)} class:active={advHelpKey === 'spectral'}>?</button>
     </div>
     {@render helpPanel('modal')}
@@ -347,7 +344,7 @@
             const r = modelStore.solve(uiStore.includeSelfWeight);
             if (r && typeof r !== 'string') resultsStore.setResults(r);
           } else { handlePlastic(); }
-        }}>Colapso plástico</button>
+        }}>{t('advanced.plasticCollapse')}</button>
       <button class="adv-help-btn" onclick={(e) => toggleAdvHelp('plastic', e)} class:active={advHelpKey === 'plastic'}>?</button>
     </div>
     {@render helpPanel('plastic')}
@@ -356,7 +353,7 @@
         class:active={resultsStore.activeView === 'envelope'}
         onclick={() => {
           if (modelStore.model.combinations.length === 0) {
-            uiStore.toast('Defin\u00ed combinaciones primero en la pesta\u00f1a Combinaciones', 'error');
+            uiStore.toast(t('advanced.defineCombosFirst'), 'error');
             return;
           }
           if (!resultsStore.fullEnvelope) {
@@ -367,7 +364,7 @@
             if (resultsStore.diagramType === 'none' || resultsStore.diagramType === 'deformed') resultsStore.diagramType = 'moment';
           }
         }}>
-        Envolvente
+        {t('advanced.envelope')}
       </button>
       <button class="adv-help-btn" onclick={(e) => toggleAdvHelp('envelope', e)} class:active={advHelpKey === 'envelope'}>?</button>
     </div>
@@ -382,7 +379,7 @@
             showTrainPanel = false;
           } else { showTrainPanel = !showTrainPanel; }
         }}>
-        {showTrainPanel ? '▾' : '▸'} Tren de Carga
+        {showTrainPanel ? '▾' : '▸'} {t('advanced.trainLoad')}
       </button>
       <button class="adv-help-btn" onclick={(e) => toggleAdvHelp('trainLoad', e)} class:active={advHelpKey === 'trainLoad'}>?</button>
     </div>
@@ -396,18 +393,18 @@
             </div>
             <div class="progress-info">
               <span class="progress-text">
-                {resultsStore.movingLoadProgress?.current ?? 0}/{resultsStore.movingLoadProgress?.total ?? '?'} posiciones
+                {resultsStore.movingLoadProgress?.current ?? 0}/{resultsStore.movingLoadProgress?.total ?? '?'} {t('advanced.positions')}
               </span>
               <button class="cancel-btn" onclick={() => resultsStore.cancelMovingLoad()}>
-                Cancelar
+                {t('advanced.cancelBtn')}
               </button>
             </div>
           </div>
         {:else}
           <div class="adv-btn-wrap">
             <select class="adv-select" bind:value={selectedTrainIndex} onchange={() => { if (selectedTrainIndex !== '') handleMovingLoad(Number(selectedTrainIndex)); }}>
-              <option value="">Seleccionar tren...</option>
-              {#each PREDEFINED_TRAINS as train, i}
+              <option value="">{t('advanced.selectTrain')}</option>
+              {#each getPredefinedTrains() as train, i}
                 <option value={String(i)}>{train.name}</option>
               {/each}
             </select>
@@ -419,7 +416,7 @@
       <button class="adv-btn" style="flex:1"
         class:active={uiStore.currentTool === 'influenceLine'}
         onclick={() => { uiStore.currentTool = uiStore.currentTool === 'influenceLine' ? 'select' : 'influenceLine'; }}>
-        ⌇ Línea de Influencia
+        ⌇ {t('advanced.influenceLine')}
       </button>
       <button class="adv-help-btn" onclick={(e) => toggleAdvHelp('influenceLine', e)} class:active={advHelpKey === 'influenceLine'}>?</button>
     </div>
@@ -430,13 +427,13 @@
           class:active={uiStore.showWhatIf}
           onclick={() => {
             if (!resultsStore.results && !resultsStore.results3D) {
-              uiStore.toast('Calcul\u00e1 primero (F5)', 'error');
+              uiStore.toast(t('advanced.calculateFirstF5'), 'error');
               return;
             }
             uiStore.showWhatIf = !uiStore.showWhatIf;
           }}
         >
-          {uiStore.showWhatIf ? '\u2715 Cerrar explorador' : 'Explorar (\u00bfQu\u00e9 pasa si\u2026?)'}
+          {uiStore.showWhatIf ? '\u2715 ' + t('advanced.closeExplorer') : t('advanced.whatIf')}
         </button>
         <button class="adv-help-btn" onclick={(e) => toggleAdvHelp('whatif', e)} class:active={advHelpKey === 'whatif'}>?</button>
       </div>
@@ -451,7 +448,7 @@
           }
           if (uiStore.analysisMode === '3d') {
             const input = modelStore.buildSolverInput3D(uiStore.includeSelfWeight, uiStore.axisConvention3D === 'leftHand');
-            if (!input) { uiStore.toast('Modelo vac\u00edo', 'error'); return; }
+            if (!input) { uiStore.toast(t('advanced.emptyModel'), 'error'); return; }
             try {
               const data = solveDetailed3D(input);
               dsmStepsStore.setStepData(data);
@@ -460,11 +457,11 @@
               else uiStore.rightSidebarOpen = true;
               setTimeout(() => window.dispatchEvent(new Event('dedaliano-zoom-to-fit')), 100);
             } catch (e: any) {
-              uiStore.toast(e.message || 'Error en solver detallado 3D', 'error');
+              uiStore.toast(e.message || t('toast.detailedSolver3dError'), 'error');
             }
           } else {
             const input = modelStore.buildSolverInput(uiStore.includeSelfWeight);
-            if (!input) { uiStore.toast('Modelo vac\u00edo', 'error'); return; }
+            if (!input) { uiStore.toast(t('advanced.emptyModel'), 'error'); return; }
             try {
               const data = solveDetailed(input);
               dsmStepsStore.setStepData(data);
@@ -473,11 +470,11 @@
               else uiStore.rightSidebarOpen = true;
               setTimeout(() => window.dispatchEvent(new Event('dedaliano-zoom-to-fit')), 100);
             } catch (e: any) {
-              uiStore.toast(e.message || 'Error en solver detallado', 'error');
+              uiStore.toast(e.message || t('toast.detailedSolverError'), 'error');
             }
           }
         }}>
-        Paso a Paso — Mét. Rigideces
+        {t('advanced.stepByStep')}
       </button>
       <button class="adv-help-btn" onclick={(e) => toggleAdvHelp('dsm', e)} class:active={advHelpKey === 'dsm'}>?</button>
     </div>
@@ -487,12 +484,12 @@
     <div class="adv-result-info" style="font-size:10px">
       P-Δ: B₂ = {resultsStore.pdeltaResult.b2Factor.toFixed(3)} |
       {resultsStore.pdeltaResult.converged ? `${resultsStore.pdeltaResult.iterations} iter` : 'no conv.'} |
-      {resultsStore.pdeltaResult.isStable ? 'estable' : 'inestable'}
+      {resultsStore.pdeltaResult.isStable ? t('advanced.stable') : t('advanced.unstable')}
     </div>
   {/if}
   {#if resultsStore.modalResult}
     <div class="adv-result-row">
-      <button class="adv-result-btn" class:active={resultsStore.diagramType === 'modeShape'} onclick={() => resultsStore.diagramType = 'modeShape'}>Dinámico</button>
+      <button class="adv-result-btn" class:active={resultsStore.diagramType === 'modeShape'} onclick={() => resultsStore.diagramType = 'modeShape'}>{t('advanced.dynamic')}</button>
       <button class="small-btn" onclick={() => { if (resultsStore.activeModeIndex > 0) resultsStore.activeModeIndex--; }} disabled={resultsStore.activeModeIndex === 0}>&#9664;</button>
       <span class="adv-result-label">{resultsStore.activeModeIndex + 1}/{resultsStore.modalResult.modes.length}</span>
       <button class="small-btn" onclick={() => { if (resultsStore.modalResult && resultsStore.activeModeIndex < resultsStore.modalResult.modes.length - 1) resultsStore.activeModeIndex++; }} disabled={!resultsStore.modalResult || resultsStore.activeModeIndex >= resultsStore.modalResult.modes.length - 1}>&#9654;</button>
@@ -511,7 +508,7 @@
   {/if}
   {#if resultsStore.spectralResult}
     <div class="adv-result-info" style="font-size:10px">
-      Espectral ({resultsStore.spectralResult.rule}):
+      {t('advanced.spectralLabel')} ({resultsStore.spectralResult.rule}):
       V<sub>base</sub> = {resultsStore.spectralResult.baseShear.toFixed(1)} kN
     </div>
     <div class="adv-result-info" style="font-size:9px; opacity:0.8">
@@ -523,7 +520,7 @@
   {/if}
   {#if resultsStore.bucklingResult}
     <div class="adv-result-row">
-      <button class="adv-result-btn" class:active={resultsStore.diagramType === 'bucklingMode'} onclick={() => resultsStore.diagramType = 'bucklingMode'}>Pandeo</button>
+      <button class="adv-result-btn" class:active={resultsStore.diagramType === 'bucklingMode'} onclick={() => resultsStore.diagramType = 'bucklingMode'}>{t('advanced.bucklingLabel')}</button>
       <button class="small-btn" onclick={() => { if (resultsStore.activeBucklingMode > 0) resultsStore.activeBucklingMode--; }} disabled={resultsStore.activeBucklingMode === 0}>&#9664;</button>
       <span class="adv-result-label">{resultsStore.activeBucklingMode + 1}/{resultsStore.bucklingResult.modes.length}</span>
       <button class="small-btn" onclick={() => { if (resultsStore.bucklingResult && resultsStore.activeBucklingMode < resultsStore.bucklingResult.modes.length - 1) resultsStore.activeBucklingMode++; }} disabled={!resultsStore.bucklingResult || resultsStore.activeBucklingMode >= resultsStore.bucklingResult.modes.length - 1}>&#9654;</button>
@@ -539,26 +536,26 @@
   {/if}
   {#if resultsStore.plasticResult}
     <div class="adv-result-row">
-      <button class="adv-result-btn" class:active={resultsStore.diagramType === 'plasticHinges'} onclick={() => resultsStore.diagramType = 'plasticHinges'}>Plástico</button>
+      <button class="adv-result-btn" class:active={resultsStore.diagramType === 'plasticHinges'} onclick={() => resultsStore.diagramType = 'plasticHinges'}>{t('advanced.plasticLabel')}</button>
       <button class="small-btn" onclick={() => { if (resultsStore.plasticStep > 0) resultsStore.plasticStep--; }} disabled={resultsStore.plasticStep === 0}>&#9664;</button>
       <span class="adv-result-label">{resultsStore.plasticStep + 1}/{resultsStore.plasticResult.steps.length}</span>
       <button class="small-btn" onclick={() => { if (resultsStore.plasticResult && resultsStore.plasticStep < resultsStore.plasticResult.steps.length - 1) resultsStore.plasticStep++; }} disabled={!resultsStore.plasticResult || resultsStore.plasticStep >= resultsStore.plasticResult.steps.length - 1}>&#9654;</button>
     </div>
     <div class="adv-result-info">
       &lambda; = {resultsStore.plasticResult.steps[resultsStore.plasticStep]?.loadFactor.toFixed(3) ?? '—'} |
-      {resultsStore.plasticResult.isMechanism ? 'Mecanismo' : 'Sin colapso'} |
+      {resultsStore.plasticResult.isMechanism ? t('advanced.mechanism') : t('advanced.noCollapse')} |
       GH = {resultsStore.plasticResult.redundancy}
     </div>
   {/if}
   {#if resultsStore.movingLoadEnvelope}
     <div class="adv-result-row">
-      <button class="adv-result-btn" class:active={!resultsStore.movingLoadShowEnvelope} onclick={() => { resultsStore.movingLoadShowEnvelope = false; resultsStore.diagramType = 'moment'; }}>Carga Móvil</button>
+      <button class="adv-result-btn" class:active={!resultsStore.movingLoadShowEnvelope} onclick={() => { resultsStore.movingLoadShowEnvelope = false; resultsStore.diagramType = 'moment'; }}>{t('advanced.movingLoad')}</button>
       <button class="small-btn" onclick={() => { if (resultsStore.activeMovingLoadPosition > 0) { resultsStore.activeMovingLoadPosition--; resultsStore.movingLoadShowEnvelope = false; } }} disabled={resultsStore.activeMovingLoadPosition === 0}>&#9664;</button>
       <span class="adv-result-label">{resultsStore.activeMovingLoadPosition + 1}/{resultsStore.movingLoadEnvelope.positions.length}</span>
       <button class="small-btn" onclick={() => { if (resultsStore.movingLoadEnvelope && resultsStore.activeMovingLoadPosition < resultsStore.movingLoadEnvelope.positions.length - 1) { resultsStore.activeMovingLoadPosition++; resultsStore.movingLoadShowEnvelope = false; } }} disabled={!resultsStore.movingLoadEnvelope || resultsStore.activeMovingLoadPosition >= resultsStore.movingLoadEnvelope.positions.length - 1}>&#9654;</button>
     </div>
     <div class="adv-result-info">
-      Posición: {resultsStore.movingLoadEnvelope.positions[resultsStore.activeMovingLoadPosition]?.refPosition.toFixed(2) ?? '—'} m
+      {t('advanced.position')}: {resultsStore.movingLoadEnvelope.positions[resultsStore.activeMovingLoadPosition]?.refPosition.toFixed(2) ?? '—'} m
     </div>
     {#if resultsStore.movingLoadEnvelope.fullEnvelope}
       <button class="adv-result-btn small" class:active={resultsStore.movingLoadShowEnvelope}
@@ -572,7 +569,7 @@
             }
           }
         }}>
-        {resultsStore.movingLoadShowEnvelope ? '▾' : '▸'} Ver envolvente
+        {resultsStore.movingLoadShowEnvelope ? '▾' : '▸'} {t('advanced.viewEnvelope')}
       </button>
     {/if}
   {/if}

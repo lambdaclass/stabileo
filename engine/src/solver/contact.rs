@@ -11,7 +11,6 @@
 /// 2. Solve
 /// 3. Check element forces → update status
 /// 4. Repeat until no status changes
-
 use std::collections::HashMap;
 use crate::types::*;
 use crate::element;

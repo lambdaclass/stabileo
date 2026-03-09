@@ -1,5 +1,6 @@
 <script lang="ts">
   import { uiStore, resultsStore, modelStore } from '../lib/store';
+  import { t } from '../lib/i18n';
 
   const is3D = $derived(uiStore.analysisMode === '3d');
   const hasResults = $derived(resultsStore.results !== null || resultsStore.results3D !== null);
@@ -34,7 +35,7 @@
     class="mrp-reopen"
     style="top: {uiStore.floatingToolsTopOffset}px"
     onclick={() => uiStore.mobileResultsPanelOpen = true}
-    title="Resultados y calcular"
+    title={t('mobile.resultsAndSolve')}
   >
     <svg viewBox="0 0 24 24" width="20" height="20" fill="none">
       <line x1="2" y1="17" x2="22" y2="17" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"/>
@@ -47,42 +48,42 @@
 {#if uiStore.isMobile && uiStore.mobileResultsPanelOpen}
   <div class="mrp-panel" style="top: {uiStore.floatingToolsTopOffset}px">
     <div class="mrp-header">
-      <span class="mrp-title">Resultados</span>
+      <span class="mrp-title">{t('mobile.results')}</span>
       <button class="mrp-close" onclick={() => uiStore.mobileResultsPanelOpen = false}>&times;</button>
     </div>
     <div class="mrp-body">
-      <!-- Calcular button — always present -->
+      <!-- Solve button — always present -->
       <button class="mrp-solve" onclick={handleSolve} disabled={!hasModel}>
-        {is3D ? 'Calcular 3D' : 'Calcular'}
+        {is3D ? t('results.solve3d') : t('results.solve')}
       </button>
 
       {#if hasResults}
         <!-- Diagram type grid -->
         <div class="mrp-grid">
-          <button class="mrp-btn" class:active={resultsStore.diagramType === 'none'} onclick={() => resultsStore.diagramType = 'none'}>Ninguno</button>
-          <button class="mrp-btn" class:active={resultsStore.diagramType === 'deformed'} onclick={() => resultsStore.diagramType = 'deformed'}>Deformada</button>
+          <button class="mrp-btn" class:active={resultsStore.diagramType === 'none'} onclick={() => resultsStore.diagramType = 'none'}>{t('results.none')}</button>
+          <button class="mrp-btn" class:active={resultsStore.diagramType === 'deformed'} onclick={() => resultsStore.diagramType = 'deformed'}>{t('results.deformed')}</button>
           {#if !is3D}
-            <button class="mrp-btn" class:active={resultsStore.diagramType === 'moment'} onclick={() => resultsStore.diagramType = 'moment'}>Momento</button>
-            <button class="mrp-btn" class:active={resultsStore.diagramType === 'shear'} onclick={() => resultsStore.diagramType = 'shear'}>Corte</button>
-            <button class="mrp-btn" class:active={resultsStore.diagramType === 'axial'} onclick={() => resultsStore.diagramType = 'axial'}>Axil</button>
-            <button class="mrp-btn" class:active={resultsStore.diagramType === 'axialColor'} onclick={() => resultsStore.diagramType = 'axialColor'}>Axil colores</button>
-            <button class="mrp-btn" class:active={resultsStore.diagramType === 'colorMap'} onclick={() => resultsStore.diagramType = 'colorMap'}>Color map</button>
+            <button class="mrp-btn" class:active={resultsStore.diagramType === 'moment'} onclick={() => resultsStore.diagramType = 'moment'}>{t('results.moment')}</button>
+            <button class="mrp-btn" class:active={resultsStore.diagramType === 'shear'} onclick={() => resultsStore.diagramType = 'shear'}>{t('results.shear')}</button>
+            <button class="mrp-btn" class:active={resultsStore.diagramType === 'axial'} onclick={() => resultsStore.diagramType = 'axial'}>{t('results.axial')}</button>
+            <button class="mrp-btn" class:active={resultsStore.diagramType === 'axialColor'} onclick={() => resultsStore.diagramType = 'axialColor'}>{t('results.axialColors')}</button>
+            <button class="mrp-btn" class:active={resultsStore.diagramType === 'colorMap'} onclick={() => resultsStore.diagramType = 'colorMap'}>{t('results.colorMap')}</button>
           {:else}
-            <button class="mrp-btn" class:active={resultsStore.diagramType === 'shearZ'} onclick={() => resultsStore.diagramType = 'shearZ'}>Corte Z</button>
-            <button class="mrp-btn" class:active={resultsStore.diagramType === 'momentY'} onclick={() => resultsStore.diagramType = 'momentY'}>Momento Y</button>
-            <button class="mrp-btn" class:active={resultsStore.diagramType === 'shearY'} onclick={() => resultsStore.diagramType = 'shearY'}>Corte Y</button>
-            <button class="mrp-btn" class:active={resultsStore.diagramType === 'momentZ'} onclick={() => resultsStore.diagramType = 'momentZ'}>Momento Z</button>
-            <button class="mrp-btn" class:active={resultsStore.diagramType === 'axial'} onclick={() => resultsStore.diagramType = 'axial'}>Axil</button>
-            <button class="mrp-btn" class:active={resultsStore.diagramType === 'torsion'} onclick={() => resultsStore.diagramType = 'torsion'}>Torsor</button>
-            <button class="mrp-btn" class:active={resultsStore.diagramType === 'axialColor'} onclick={() => resultsStore.diagramType = 'axialColor'}>Axil colores</button>
-            <button class="mrp-btn" class:active={resultsStore.diagramType === 'colorMap'} onclick={() => resultsStore.diagramType = 'colorMap'}>Color map</button>
+            <button class="mrp-btn" class:active={resultsStore.diagramType === 'shearZ'} onclick={() => resultsStore.diagramType = 'shearZ'}>{t('results.shearZ')}</button>
+            <button class="mrp-btn" class:active={resultsStore.diagramType === 'momentY'} onclick={() => resultsStore.diagramType = 'momentY'}>{t('results.momentY')}</button>
+            <button class="mrp-btn" class:active={resultsStore.diagramType === 'shearY'} onclick={() => resultsStore.diagramType = 'shearY'}>{t('results.shearY')}</button>
+            <button class="mrp-btn" class:active={resultsStore.diagramType === 'momentZ'} onclick={() => resultsStore.diagramType = 'momentZ'}>{t('results.momentZ')}</button>
+            <button class="mrp-btn" class:active={resultsStore.diagramType === 'axial'} onclick={() => resultsStore.diagramType = 'axial'}>{t('results.axial')}</button>
+            <button class="mrp-btn" class:active={resultsStore.diagramType === 'torsion'} onclick={() => resultsStore.diagramType = 'torsion'}>{t('results.torsion')}</button>
+            <button class="mrp-btn" class:active={resultsStore.diagramType === 'axialColor'} onclick={() => resultsStore.diagramType = 'axialColor'}>{t('results.axialColors')}</button>
+            <button class="mrp-btn" class:active={resultsStore.diagramType === 'colorMap'} onclick={() => resultsStore.diagramType = 'colorMap'}>{t('results.colorMap')}</button>
           {/if}
         </div>
 
         <!-- Scale controls -->
         {#if resultsStore.diagramType === 'deformed'}
           <div class="mrp-scale">
-            <span class="mrp-scale-label">Escala</span>
+            <span class="mrp-scale-label">{t('mobile.scale')}</span>
             <button class="mrp-step" onclick={() => stepDeformedScale(-1)}>◀</button>
             <input type="range" min="1" max="1000" step="1" bind:value={resultsStore.deformedScale} />
             <button class="mrp-step" onclick={() => stepDeformedScale(1)}>▶</button>
@@ -90,18 +91,18 @@
           </div>
           <label class="mrp-check">
             <input type="checkbox" bind:checked={resultsStore.animateDeformed} />
-            <span>Animar</span>
+            <span>{t('results.animate')}</span>
           </label>
           {#if resultsStore.animateDeformed}
             <div class="mrp-scale">
-              <span class="mrp-scale-label">Velocidad</span>
+              <span class="mrp-scale-label">{t('results.speed')}</span>
               <input type="range" min="0.25" max="3" step="0.25" bind:value={resultsStore.animSpeed} />
               <span class="mrp-scale-val">{resultsStore.animSpeed.toFixed(2)}x</span>
             </div>
           {/if}
         {:else if isDiagramWithScale}
           <div class="mrp-scale">
-            <span class="mrp-scale-label">Escala</span>
+            <span class="mrp-scale-label">{t('mobile.scale')}</span>
             <button class="mrp-step" onclick={() => stepDiagramScale(-1)}>◀</button>
             <input type="range" min="0.1" max="5" step="0.1" bind:value={resultsStore.diagramScale} />
             <button class="mrp-step" onclick={() => stepDiagramScale(1)}>▶</button>
@@ -112,12 +113,12 @@
         <!-- Color map variable -->
         {#if resultsStore.diagramType === 'colorMap'}
           <div class="mrp-select-row">
-            <span class="mrp-scale-label">Variable</span>
+            <span class="mrp-scale-label">{t('results.variable')}</span>
             <select bind:value={resultsStore.colorMapKind}>
-              <option value="moment">Momento</option>
-              <option value="shear">Corte</option>
-              <option value="axial">Axil</option>
-              <option value="stressRatio">Resistencia</option>
+              <option value="moment">{t('results.moment')}</option>
+              <option value="shear">{t('results.shear')}</option>
+              <option value="axial">{t('results.axial')}</option>
+              <option value="stressRatio">{t('results.resistance')}</option>
             </select>
           </div>
         {/if}
@@ -125,10 +126,10 @@
         <!-- Show values toggle -->
         <label class="mrp-check">
           <input type="checkbox" bind:checked={resultsStore.showDiagramValues} />
-          <span>Valores</span>
+          <span>{t('mobile.values')}</span>
         </label>
       {:else}
-        <p class="mrp-hint">Armá la estructura y presioná Calcular.</p>
+        <p class="mrp-hint">{t('mobile.buildAndSolve')}</p>
       {/if}
     </div>
   </div>
@@ -221,7 +222,7 @@
     gap: 6px;
   }
 
-  /* Calcular button inside panel */
+  /* Solve button inside panel */
   .mrp-solve {
     width: 100%;
     padding: 8px;

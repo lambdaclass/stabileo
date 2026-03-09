@@ -1,27 +1,9 @@
 /**
  * WASM solver wrapper — replaces the pure-TS solver pipeline.
  * Serializes SolverInput (with Maps) → JSON → Rust/WASM → JSON → AnalysisResults.
+ *
+ * Uses dynamic imports so the app works without the WASM build (falls back to JS solver).
  */
-
-import initWasm, {
-  solve_2d as wasmSolve2d,
-  solve_3d as wasmSolve3d,
-  solve_pdelta_2d as wasmSolvePdelta2d,
-  solve_buckling_2d as wasmSolveBuckling2d,
-  solve_modal_2d as wasmSolveModal2d,
-  solve_spectral_2d as wasmSolveSpectral2d,
-  solve_plastic_2d as wasmSolvePlastic2d,
-  solve_moving_loads_2d as wasmSolveMovingLoads2d,
-  analyze_kinematics_2d as wasmAnalyzeKinematics2d,
-  analyze_kinematics_3d as wasmAnalyzeKinematics3d,
-  combine_results_2d as wasmCombineResults2d,
-  combine_results_3d as wasmCombineResults3d,
-  compute_envelope_2d as wasmComputeEnvelope2d,
-  compute_envelope_3d as wasmComputeEnvelope3d,
-  compute_influence_line as wasmComputeInfluenceLine,
-  compute_section_stress_2d as wasmComputeSectionStress2d,
-  compute_section_stress_3d as wasmComputeSectionStress3d,
-} from '../wasm/dedaliano_engine';
 
 import type { SolverInput, AnalysisResults, FullEnvelope } from './types';
 import type { SolverInput3D, AnalysisResults3D, FullEnvelope3D } from './types-3d';
@@ -29,12 +11,33 @@ import type { SolverInput3D, AnalysisResults3D, FullEnvelope3D } from './types-3
 let wasmReady = false;
 let wasmInitPromise: Promise<void> | null = null;
 
+// Dynamically loaded WASM functions
+let wasmSolve2d: ((json: string) => string) | null = null;
+let wasmSolve3d: ((json: string) => string) | null = null;
+let wasmSolvePdelta2d: ((json: string, maxIter: number, tolerance: number) => string) | null = null;
+let wasmSolveBuckling2d: ((json: string, numModes: number) => string) | null = null;
+let wasmSolveModal2d: ((json: string, numModes: number) => string) | null = null;
+let wasmSolveSpectral2d: ((json: string) => string) | null = null;
+let wasmSolvePlastic2d: ((json: string) => string) | null = null;
+let wasmSolveMovingLoads2d: ((json: string) => string) | null = null;
+
 /** Initialize the WASM module. Call once at app startup. */
 export async function initSolver(): Promise<void> {
   if (wasmReady) return;
   if (wasmInitPromise) return wasmInitPromise;
   wasmInitPromise = (async () => {
-    await initWasm();
+    // Use a variable path so Rollup/Vite doesn't try to resolve at build time
+    const wasmPath = '../wasm/dedaliano_engine';
+    const wasm = await import(/* @vite-ignore */ wasmPath);
+    await wasm.default();
+    wasmSolve2d = wasm.solve_2d;
+    wasmSolve3d = wasm.solve_3d;
+    wasmSolvePdelta2d = wasm.solve_pdelta_2d;
+    wasmSolveBuckling2d = wasm.solve_buckling_2d;
+    wasmSolveModal2d = wasm.solve_modal_2d;
+    wasmSolveSpectral2d = wasm.solve_spectral_2d;
+    wasmSolvePlastic2d = wasm.solve_plastic_2d;
+    wasmSolveMovingLoads2d = wasm.solve_moving_loads_2d;
     wasmReady = true;
   })();
   return wasmInitPromise;
@@ -77,7 +80,6 @@ function serializeInput3D(input: SolverInput3D): string {
     elements: mapToObj(input.elements),
     supports: mapToObj(input.supports),
     loads: input.loads,
-    leftHand: (input as any).leftHand,
   });
 }
 
@@ -85,7 +87,7 @@ function serializeInput3D(input: SolverInput3D): string {
 
 /** Solve 2D linear static analysis via WASM. */
 export function solve(input: SolverInput): AnalysisResults {
-  if (!wasmReady) throw new Error('WASM solver not initialized. Call initSolver() first.');
+  if (!wasmReady || !wasmSolve2d) throw new Error('WASM solver not initialized. Call initSolver() first.');
   const json = serializeInput2D(input);
   const resultJson = wasmSolve2d(json);
   return JSON.parse(resultJson);
@@ -93,7 +95,7 @@ export function solve(input: SolverInput): AnalysisResults {
 
 /** Solve 3D linear static analysis via WASM. */
 export function solve3D(input: SolverInput3D): AnalysisResults3D {
-  if (!wasmReady) throw new Error('WASM solver not initialized. Call initSolver() first.');
+  if (!wasmReady || !wasmSolve3d) throw new Error('WASM solver not initialized. Call initSolver() first.');
   const json = serializeInput3D(input);
   const resultJson = wasmSolve3d(json);
   return JSON.parse(resultJson);
@@ -101,7 +103,7 @@ export function solve3D(input: SolverInput3D): AnalysisResults3D {
 
 /** Solve 2D P-Delta analysis via WASM. */
 export function solvePDelta(input: SolverInput, maxIter = 20, tolerance = 1e-4) {
-  if (!wasmReady) throw new Error('WASM solver not initialized.');
+  if (!wasmReady || !wasmSolvePdelta2d) throw new Error('WASM solver not initialized.');
   const json = serializeInput2D(input);
   const resultJson = wasmSolvePdelta2d(json, maxIter, tolerance);
   return JSON.parse(resultJson);
@@ -109,7 +111,7 @@ export function solvePDelta(input: SolverInput, maxIter = 20, tolerance = 1e-4) 
 
 /** Solve 2D buckling analysis via WASM. */
 export function solveBuckling(input: SolverInput, numModes = 4) {
-  if (!wasmReady) throw new Error('WASM solver not initialized.');
+  if (!wasmReady || !wasmSolveBuckling2d) throw new Error('WASM solver not initialized.');
   const json = serializeInput2D(input);
   const resultJson = wasmSolveBuckling2d(json, numModes);
   return JSON.parse(resultJson);
@@ -121,7 +123,7 @@ export function solveModal(
   densities: Map<number, number>,
   numModes = 6,
 ) {
-  if (!wasmReady) throw new Error('WASM solver not initialized.');
+  if (!wasmReady || !wasmSolveModal2d) throw new Error('WASM solver not initialized.');
   const payload = JSON.stringify({
     solver: {
       nodes: mapToObj(input.nodes),
@@ -149,7 +151,7 @@ export function solveSpectral(config: {
   importanceFactor?: number;
   reductionFactor?: number;
 }) {
-  if (!wasmReady) throw new Error('WASM solver not initialized.');
+  if (!wasmReady) throw new Error('WASM solver not available.');
   const payload = JSON.stringify({
     solver: {
       nodes: mapToObj(config.solver.nodes),
@@ -168,6 +170,7 @@ export function solveSpectral(config: {
     importanceFactor: config.importanceFactor,
     reductionFactor: config.reductionFactor,
   });
+  if (!wasmSolveSpectral2d) throw new Error('WASM solver not available.');
   const resultJson = wasmSolveSpectral2d(payload);
   return JSON.parse(resultJson);
 }
@@ -180,7 +183,7 @@ export function solvePlastic(config: {
   maxHinges?: number;
   mpOverrides?: Map<number, number>;
 }) {
-  if (!wasmReady) throw new Error('WASM solver not initialized.');
+  if (!wasmReady) throw new Error('WASM solver not available.');
   const payload = JSON.stringify({
     solver: {
       nodes: mapToObj(config.solver.nodes),
@@ -195,6 +198,7 @@ export function solvePlastic(config: {
     maxHinges: config.maxHinges,
     mpOverrides: config.mpOverrides ? mapToObj(config.mpOverrides) : undefined,
   });
+  if (!wasmSolvePlastic2d) throw new Error('WASM solver not available.');
   const resultJson = wasmSolvePlastic2d(payload);
   return JSON.parse(resultJson);
 }
@@ -206,7 +210,7 @@ export function solveMovingLoads(config: {
   step?: number;
   pathElementIds?: number[];
 }) {
-  if (!wasmReady) throw new Error('WASM solver not initialized.');
+  if (!wasmReady) throw new Error('WASM solver not available.');
   const payload = JSON.stringify({
     solver: {
       nodes: mapToObj(config.solver.nodes),
@@ -220,6 +224,7 @@ export function solveMovingLoads(config: {
     step: config.step,
     pathElementIds: config.pathElementIds,
   });
+  if (!wasmSolveMovingLoads2d) throw new Error('WASM solver not available.');
   const resultJson = wasmSolveMovingLoads2d(payload);
   return JSON.parse(resultJson);
 }

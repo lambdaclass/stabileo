@@ -2,6 +2,7 @@
 // This mapper is independent of web-ifc and operates on pre-parsed data.
 
 import { searchProfiles, profileToSectionFull } from '../data/steel-profiles';
+import { t } from '../i18n';
 
 // ─── Types ────────────────────────────────────────────────────
 
@@ -154,10 +155,10 @@ export function mapIfcToModel(
           name, a, iz, h, b, t,
           shape: t ? 'RHS' : 'rect',
         });
-        warnings.push(`Perfil "${name}" estimado de dimensiones`);
+        warnings.push(t('ifc.profileEstimated').replace('{n}', name));
       } else {
         // Fallback: generic rectangular 200x200
-        warnings.push(`Perfil "${name}" no reconocido — usando genérico 200x200mm`);
+        warnings.push(t('ifc.profileUnknown').replace('{n}', name));
         sections.push({
           name,
           a: 0.04,     // 200mm x 200mm

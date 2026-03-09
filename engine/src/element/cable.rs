@@ -5,7 +5,6 @@
 ///   - Ernst, "Der E-Modul von Seilen" (1965), Der Stahlbau 34(11)
 ///   - Gimsing & Georgakis, "Cable Supported Bridges" 3rd Ed.
 ///   - EN 1993-1-11:2006 Tension components
-
 /// Exact catenary ordinate y(x) for a cable spanning from (0,0) to (L,h)
 /// under self-weight w per unit horizontal length.
 ///

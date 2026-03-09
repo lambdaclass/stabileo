@@ -11,7 +11,6 @@
 ///   - Bathe & Dvorkin (1986): "A formulation of general shell elements"
 ///   - Hughes & Brezzi (1989): Drilling rotations formulation
 ///   - Cook et al.: "Concepts and Applications of FEA", Ch. 13
-
 use serde::{Serialize, Deserialize};
 
 /// Stress results at a quad element (centroid averages).

@@ -12,6 +12,7 @@
   } from '../../lib/engine/section-stress-3d';
   import { crossSectionPath } from '../../lib/utils/section-drawing';
   import type { SectionShape } from '../../lib/data/steel-profiles';
+  import { t } from '../../lib/i18n';
   import { fmt, stressColor } from './fmt';
 
   interface Props {
@@ -85,7 +86,7 @@
 <!-- Cross section -->
 <button class="ssp-section-toggle" onclick={() => showCrossSection = !showCrossSection}>
   <span class="ssp-chevron">{showCrossSection ? '▾' : '▸'}</span>
-  Sección transversal
+  {t('stress.crossSection')}
 </button>
 {#if showCrossSection && resolved}
   <!-- Toggle toolbar — outside SVG to avoid overlap with diagram labels -->
@@ -94,20 +95,20 @@
       class="ssp-svg-toggle ssp-toggle-sigma"
       class:active={showSigma}
       onclick={() => showSigma = !showSigma}
-      title={showSigma ? 'Cambiar a: ocultar distribución de σ' : 'Cambiar a: mostrar distribución de tensiones normales σ'}
+      title={showSigma ? t('stress.sigmaOn') : t('stress.sigmaOff')}
     >σ</button>
     <button
       class="ssp-svg-toggle"
       class:active={showShearOnDrawing}
       onclick={() => showShearOnDrawing = !showShearOnDrawing}
-      title={showShearOnDrawing ? 'Cambiar a: ocultar τ (Jourawski)' : 'Cambiar a: mostrar τ (Jourawski: V·Q/(I·b))'}
+      title={showShearOnDrawing ? t('stress.tauOn') : t('stress.tauOff')}
     >τ</button>
     <button
       class="ssp-svg-toggle"
       class:active={showTotalSigma}
       class:disabled={!showSigma}
       onclick={() => { if (showSigma) showTotalSigma = !showTotalSigma; }}
-      title={!showSigma ? 'Activar σ primero' : showTotalSigma ? 'Cambiar a: solo flexión (Navier: M·y/I)' : 'Cambiar a: σ total (Navier: N/A + M·y/I)'}
+      title={!showSigma ? t('stress.activateSigmaFirst') : showTotalSigma ? t('stress.totalSigmaOn') : t('stress.totalSigmaOff')}
     >σ<sub>{showTotalSigma ? 'T' : 'M'}</sub></button>
     {#if hasBending3D || hasBending2D}
       <button
@@ -115,30 +116,30 @@
         class:active={showPerpNA}
         class:disabled={!showSigma}
         onclick={() => { if (showSigma) showPerpNA = !showPerpNA; }}
-        title={!showSigma ? 'Activar σ primero' : showPerpNA
-          ? (is3D ? 'Cambiar a: ocultar distribución ⊥ EN' : 'Cambiar a: ocultar eje neutro')
+        title={!showSigma ? t('stress.activateSigmaFirst') : showPerpNA
+          ? (is3D ? t('stress.perpNA3dOn') : t('stress.perpNA2dOn'))
           : (is3D
-            ? 'Cambiar a: distribución σ perpendicular al eje neutro (solo momentos, EN por baricentro)'
-            : 'Cambiar a: mostrar eje neutro (con σ total: se desplaza por efecto de N)')}
+            ? t('stress.perpNA3dOff')
+            : t('stress.perpNA2dOff'))}
       >EN</button>
     {/if}
     <button
       class="ssp-svg-toggle"
       class:active={showCentralCore}
       onclick={() => showCentralCore = !showCentralCore}
-      title={showCentralCore ? 'Cambiar a: ocultar núcleo central' : 'Cambiar a: mostrar núcleo central (lugar geométrico de N sin cambio de signo en σ)'}
+      title={showCentralCore ? t('stress.centralCoreOn') : t('stress.centralCoreOff')}
     >NC</button>
     <button
       class="ssp-svg-toggle ssp-toggle-cp"
       class:active={showPressureCenter}
       onclick={() => showPressureCenter = !showPressureCenter}
-      title={showPressureCenter ? 'Cambiar a: ocultar centro de presiones' : 'Cambiar a: mostrar centro de presiones (punto donde N produce el mismo efecto que N+M). Si cae en el NC → σ del mismo signo.'}
+      title={showPressureCenter ? t('stress.pressureCenterOn') : t('stress.pressureCenterOff')}
     >CP</button>
     <button
       class="ssp-svg-toggle ssp-toggle-scale"
       class:active={useGlobalScale}
       onclick={() => useGlobalScale = !useGlobalScale}
-      title={useGlobalScale ? 'Cambiar a: escala local (diagramas escalados al máximo de esta sección)' : 'Cambiar a: escala global (diagramas escalados al máximo del elemento, útil con slider X/L)'}
+      title={useGlobalScale ? t('stress.scaleGlobalOn') : t('stress.scaleGlobalOff')}
     >{useGlobalScale ? 'G' : 'L'}</button>
   </div>
   <div class="ssp-svg-container">
@@ -191,7 +192,7 @@
           <text x={clampX + 8} y={clampY + 4} fill="#4caf50" font-size="3.5" text-anchor="start">en NC: &sigma; mismo signo</text>
         {/if}
         {#if isClamped}
-          <text x={clampX + 8} y={clampY + (pressureCenter.insideCore ? 11 : 4)} fill="#e040fb" font-size="3" text-anchor="start" opacity="0.7">(fuera de vista)</text>
+          <text x={clampX + 8} y={clampY + (pressureCenter.insideCore ? 11 : 4)} fill="#e040fb" font-size="3" text-anchor="start" opacity="0.7">({t('stress.outOfView')})</text>
         {/if}
       {/if}
 
@@ -788,7 +789,7 @@
             <text x={rs2.b / 2 * sc2 + 36} y="-60" fill="#ccc" font-size="8" text-anchor="start">&sigma;</text>
           {/if}
           {#if showShearOnDrawing}
-            <text x={-(rs2.b / 2 * sc2 + 6)} y="-68" fill="#e94560" font-size="6" text-anchor="end">{isMassive ? 'τ(y) Jourawski' : 'flujo de corte'}</text>
+            <text x={-(rs2.b / 2 * sc2 + 6)} y="-68" fill="#e94560" font-size="6" text-anchor="end">{isMassive ? 'τ(y) Jourawski' : t('stress.shearFlow')}</text>
           {/if}
         {/if}
       {/if}
@@ -799,7 +800,7 @@
   <!-- Fiber sliders -->
   {#if is3D && analysis3D}
     <div class="ssp-fiber-row">
-      <span class="ssp-fiber-label">Fibra y:</span>
+      <span class="ssp-fiber-label">{t('stress.fiberY')}</span>
       <input
         type="range"
         class="ssp-range"
@@ -809,7 +810,7 @@
       <span class="ssp-fiber-val">{fmt((-analysis3D.resolved.h / 2 + fiberRatioY * analysis3D.resolved.h) * 1000, 1)} mm</span>
     </div>
     <div class="ssp-fiber-row">
-      <span class="ssp-fiber-label">Fibra z:</span>
+      <span class="ssp-fiber-label">{t('stress.fiberZ')}</span>
       <input
         type="range"
         class="ssp-range ssp-range-z"
@@ -817,11 +818,11 @@
         bind:value={fiberRatioZ}
       />
       <span class="ssp-fiber-val">{fmt((-analysis3D.resolved.b / 2 + fiberRatioZ * analysis3D.resolved.b) * 1000, 1)} mm</span>
-      <span class="ssp-help" title="Posición en los ejes Y y Z de la sección donde se evalúan las tensiones.&#10;Y = eje fuerte (altura, flexión por Mz).&#10;Z = eje débil (ancho, flexión por My).&#10;El punto amarillo muestra la fibra seleccionada.">?</span>
+      <span class="ssp-help" title={t('stress.fiberYZ3dHelp')}>?</span>
     </div>
   {:else if analysis2D}
     <div class="ssp-fiber-row">
-      <span class="ssp-fiber-label">Fibra y:</span>
+      <span class="ssp-fiber-label">{t('stress.fiberY')}</span>
       <input
         type="range"
         class="ssp-range"
@@ -829,7 +830,7 @@
         bind:value={fiberRatioY}
       />
       <span class="ssp-fiber-val">{fmt((analysis2D.resolved.yMin + fiberRatioY * (analysis2D.resolved.yMax - analysis2D.resolved.yMin)) * 1000, 1)} mm</span>
-      <span class="ssp-help" title="Altura dentro de la sección donde se evalúan las tensiones.&#10;y = 0 es el centro (eje neutro si N=0).&#10;Mover el slider para recorrer desde la fibra inferior a la superior.&#10;En los extremos las tensiones normales son máximas y el corte es mínimo.">?</span>
+      <span class="ssp-help" title={t('stress.fiberY2dHelp')}>?</span>
     </div>
   {/if}
 {/if}

@@ -1,6 +1,7 @@
 // 3D Example structures for Dedaliano
 import type { ExampleAPI } from './model-examples-2d';
 import type { LoadCaseType } from './model.svelte';
+import { t } from '../i18n';
 
 /** Extended API for 3D examples (adds 3D load methods) */
 export interface ExampleAPI3D extends ExampleAPI {
@@ -12,7 +13,7 @@ export interface ExampleAPI3D extends ExampleAPI {
 export function load3DExample(name: string, api: ExampleAPI3D): boolean {
   switch (name) {
     case '3d-portal-frame': {
-      api.model.name = 'Pórtico 3D';
+      api.model.name = t('ex.3d-portal-frame');
       // 2 porticos en plano XY separados 4m en Z, conectados por vigas transversales
       // Base nodes (Y=0)
       const pf1 = api.addNode(0, 0, 0);
@@ -49,7 +50,7 @@ export function load3DExample(name: string, api: ExampleAPI3D): boolean {
     }
 
     case '3d-space-truss': {
-      api.model.name = 'Reticulado Espacial';
+      api.model.name = t('ex.3d-space-truss');
       // Reticulado Warren espacial: cordon inferior y superior con diagonales
       // 4 tramos de 2m en X, ancho 2m en Z, altura 1.5m en Y
       const span = 2;  // largo de cada tramo
@@ -132,7 +133,7 @@ export function load3DExample(name: string, api: ExampleAPI3D): boolean {
     }
 
     case '3d-cantilever-load': {
-      api.model.name = 'Ménsula con carga biaxial';
+      api.model.name = t('ex.3d-cantilever-load');
       // Ménsula 3m en dirección X — barra única
       const cl1 = api.addNode(0, 0, 0);
       const cl2 = api.addNode(3, 0, 0);
@@ -145,7 +146,7 @@ export function load3DExample(name: string, api: ExampleAPI3D): boolean {
     }
 
     case '3d-grid-slab': {
-      api.model.name = 'Emparrillado';
+      api.model.name = t('ex.gridBeams');
       // Grilla 3x3 de vigas en plano XZ a Y=0
       const gNodes: number[][] = [];
       for (let iz = 0; iz <= 3; iz++) {
@@ -180,7 +181,7 @@ export function load3DExample(name: string, api: ExampleAPI3D): boolean {
     }
 
     case '3d-tower': {
-      api.model.name = 'Torre 3D';
+      api.model.name = t('ex.tower3D_2');
       // 3 niveles: Y=0, Y=3, Y=6. Base 2m x 2m
       const tw: number[][] = []; // [level][corner 0-3]
       for (let lev = 0; lev < 3; lev++) {
@@ -233,7 +234,7 @@ export function load3DExample(name: string, api: ExampleAPI3D): boolean {
     }
 
     case '3d-torsion-beam': {
-      api.model.name = 'Viga con torsión';
+      api.model.name = t('ex.3d-torsion-beam');
       // Viga biapoyada 4m con carga excéntrica que genera torsión
       const tb1 = api.addNode(0, 0, 0);
       const tb2 = api.addNode(2, 0, 0);
@@ -254,7 +255,7 @@ export function load3DExample(name: string, api: ExampleAPI3D): boolean {
       // Columnas reticuladas, cabriadas Pratt, viga carrilera,
       // contraviento lateral/frontal, correas y arriostramiento
       // ══════════════════════════════════════════════════════════════
-      api.model.name = 'Nave Industrial';
+      api.model.name = t('ex.3d-nave-industrial');
 
       // ─── Parámetros ───
       const NB = 5;            // vanos longitudinales
@@ -280,10 +281,10 @@ export function load3DExample(name: string, api: ExampleAPI3D): boolean {
       const sTC = api.addSection({ name: 'Cab cord 2L100', a: 0.0019, iz: 1.2e-6, iy: 1.2e-6, j: 1.5e-7 });
       const sTD = api.addSection({ name: 'Cab diag L60', a: 0.00069, iz: 2e-7, iy: 2e-7 });
       const sCR = api.addSection({
-        name: 'Carrilera IPN300', a: 0.00588, iz: 9.8e-5, iy: 4.5e-6,
-        j: 1.2e-6, b: 0.125, h: 0.300, shape: 'I',
+        name: 'Carrilera IPN500', a: 0.0179, iz: 6.874e-4, iy: 2.48e-5,
+        j: 3.3e-6, b: 0.185, h: 0.500, shape: 'I',
       });
-      const sPR = api.addSection({ name: 'Correa L40', a: 0.0003, iz: 5e-8, iy: 5e-8 });
+      const sPR = api.addSection({ name: 'Correa UPN160', a: 0.00240, iz: 9.25e-6, iy: 8.5e-7, j: 5e-8 });
       const sBR = api.addSection({ name: 'Tirante Ø16', a: 0.000201, iz: 3.2e-9, iy: 3.2e-9 });
 
       // ─── Helpers ───
@@ -360,22 +361,31 @@ export function load3DExample(name: string, api: ExampleAPI3D): boolean {
       // ═══════════════════════════════════════════════
       // 2. CONEXIONES LONGITUDINALES
       // ═══════════════════════════════════════════════
+      // Guardamos IDs de elementos para aplicar cargas distribuidas
+      const roofPurlinIds: number[] = [];   // correas de techo (cordón superior)
+      const eaveStrutIds: number[] = [];    // montantes de alero
+      const wallGirtIdsL: number[][] = [];  // largueros pared Z=0 [bay][level]
+      const wallGirtIdsR: number[][] = [];  // largueros pared Z=SP [bay][level]
+      const craneRailIdsL: number[] = [];   // carrileras izq
+      const craneRailIdsR: number[] = [];   // carrileras der
+
       for (let f = 0; f < NB; f++) {
-        // Montantes de alero (eave struts)
-        niT(cL[f][NCS].o, cL[f + 1][NCS].o, sPR);
-        niT(cR[f][NCS].o, cR[f + 1][NCS].o, sPR);
-        // Correas en cordón superior
-        for (let p = 1; p < NTP; p++) niT(tT[f][p], tT[f + 1][p], sPR);
-        // Atados en cordón inferior (todos los paneles)
+        // Montantes de alero (eave struts) — frame para tomar momento
+        eaveStrutIds.push(niF(cL[f][NCS].o, cL[f + 1][NCS].o, sPR));
+        eaveStrutIds.push(niF(cR[f][NCS].o, cR[f + 1][NCS].o, sPR));
+        // Correas en cordón superior — frame para tomar momento por carga distribuida
+        for (let p = 1; p < NTP; p++) roofPurlinIds.push(niF(tT[f][p], tT[f + 1][p], sPR));
+        // Atados en cordón inferior (arriostramientos, trabajan a axial)
         for (let p = 1; p < NTP; p++) niT(tB[f][p], tB[f + 1][p], sPR);
-        // Montantes de pared (wall girts) en niveles intermedios de columnas
+        // Largueros de pared (wall girts) — frame para tomar momento por viento
+        wallGirtIdsL[f] = []; wallGirtIdsR[f] = [];
         for (let lv = 1; lv < NCS; lv++) {
-          niT(cL[f][lv].o, cL[f + 1][lv].o, sPR);
-          niT(cR[f][lv].o, cR[f + 1][lv].o, sPR);
+          wallGirtIdsL[f].push(niF(cL[f][lv].o, cL[f + 1][lv].o, sPR));
+          wallGirtIdsR[f].push(niF(cR[f][lv].o, cR[f + 1][lv].o, sPR));
         }
         // Vigas carrileras (frame) en cordón interior a nivel de grúa
-        niF(cL[f][crLv].i, cL[f + 1][crLv].i, sCR);
-        niF(cR[f][crLv].i, cR[f + 1][crLv].i, sCR);
+        craneRailIdsL.push(niF(cL[f][crLv].i, cL[f + 1][crLv].i, sCR));
+        craneRailIdsR.push(niF(cR[f][crLv].i, cR[f + 1][crLv].i, sCR));
       }
 
       // ═══════════════════════════════════════════════
@@ -429,28 +439,88 @@ export function load3DExample(name: string, api: ExampleAPI3D): boolean {
       }
 
       // ═══════════════════════════════════════════════
-      // 5. CARGAS
+      // 5. CASOS DE CARGA
       // ═══════════════════════════════════════════════
-      // Peso propio cubierta: 0.5 kN/m² → nodal en cordón superior
+      api.model.loadCases = [
+        { id: 1, type: 'D' as LoadCaseType, name: t('ex.deadLoad') },
+        { id: 2, type: 'Lr' as LoadCaseType, name: t('ex.liveLoad') },
+        { id: 3, type: 'W' as LoadCaseType, name: t('ex.windX') },
+      ];
+      api.nextId.loadCase = 4;
+
+      // ─── Ejes locales para elementos horizontales en dirección X ───
+      // ex = (1,0,0), refEz = (0,-1,0)
+      // ey = refEz × ex = (0,0,+1)  → +Z global
+      // ez = ex × ey    = (0,-1,0)  → -Y global (abajo)
+      // Entonces: gravedad (-Y global) = +ez → +qZ
+      //           viento  (+Z global) = +ey → +qY
+      //           succión (+Y global) = -ez → -qZ
+
+      // ─── D (Peso propio): 0.5 kN/m² cubierta → nodal en cordón superior ───
+      // (Carga tributaria por nodo para que la cabriada trabaje directamente)
       for (let f = 0; f < NF; f++) {
         const tribX = f === 0 || f === NF - 1 ? BL / 2 : BL;
         for (let p = 0; p <= NTP; p++) {
           const tribZ = p === 0 || p === NTP ? panW / 2 : panW;
-          api.addNodalLoad3D(tT[f][p], 0, -0.5 * tribX * tribZ, 0, 0, 0, 0);
+          api.addNodalLoad3D(tT[f][p], 0, -0.5 * tribX * tribZ, 0, 0, 0, 0, 1);
         }
       }
-      // Carga de grúa: 50 kN por rueda en pórticos 2 y 3
-      for (const f of [2, 3]) {
-        api.addNodalLoad3D(cL[f][crLv].i, 0, -50, 0, 0, 0, 0);
-        api.addNodalLoad3D(cR[f][crLv].i, 0, -50, 0, 0, 0, 0);
+      // Peso propio carrileras (IPN500 ≈ 1.41 kN/m) → distribuido
+      for (const eid of [...craneRailIdsL, ...craneRailIdsR]) {
+        api.addDistributedLoad3D(eid, 0, 0, 1.41, 1.41, undefined, undefined, 1);
       }
-      // Viento lateral: 0.6 kN/m² en fachada Z=0
+
+      // ─── Lr (Sobrecarga cubierta + grúa) ───
+      // 0.3 kN/m² → nodal en cordón superior
       for (let f = 0; f < NF; f++) {
         const tribX = f === 0 || f === NF - 1 ? BL / 2 : BL;
-        for (let lv = 1; lv <= NCS; lv++) {
-          const tribY = lv === NCS ? segH / 2 : segH;
-          api.addNodalLoad3D(cL[f][lv].o, 0, 0, 0.6 * tribX * tribY, 0, 0, 0);
+        for (let p = 0; p <= NTP; p++) {
+          const tribZ = p === 0 || p === NTP ? panW / 2 : panW;
+          api.addNodalLoad3D(tT[f][p], 0, -0.3 * tribX * tribZ, 0, 0, 0, 0, 2);
         }
+      }
+      // Carga de grúa: 120 kN por rueda en pórticos 2 y 3 (puente grúa ~20 ton)
+      for (const f of [2, 3]) {
+        api.addNodalLoad3D(cL[f][crLv].i, 0, -120, 0, 0, 0, 0, 2);
+        api.addNodalLoad3D(cR[f][crLv].i, 0, -120, 0, 0, 0, 0, 2);
+      }
+
+      // ─── W (Viento transversal +Z): presión/succión en paredes y techo ───
+      // Barlovento Z=0: Cp=+0.7 → 0.6 × 0.7 = 0.42 kN/m² (empuja en +Z)
+      // Sotavento Z=SP: Cp=-0.5 → 0.6 × 0.5 = 0.30 kN/m² (succiona en +Z)
+      // Techo: succión hacia arriba (-qZ local)
+
+      // Presión en largueros de pared Z=0 (barlovento, empuja en +Z global = +qY local)
+      // Tributaria vertical = segH = 2m, Cp=+0.7, q=0.6 kN/m² → 0.25 kN/m² neto
+      const qWindWall = 0.25 * segH; // 0.50 kN/m
+      for (let f = 0; f < NB; f++) {
+        for (const eid of wallGirtIdsL[f]) {
+          api.addDistributedLoad3D(eid, qWindWall, qWindWall, 0, 0, undefined, undefined, 3);
+        }
+      }
+      // Succión en largueros de pared Z=SP (sotavento, jala en +Z global = +qY local)
+      const qWindLee = 0.15 * segH; // 0.30 kN/m
+      for (let f = 0; f < NB; f++) {
+        for (const eid of wallGirtIdsR[f]) {
+          api.addDistributedLoad3D(eid, qWindLee, qWindLee, 0, 0, undefined, undefined, 3);
+        }
+      }
+      // Succión de techo en correas (hacia arriba = +Y global = -qZ local)
+      const midP = NTP / 2; // = 4
+      const qRoofWindward = 0.20 * panW;  // 0.50 kN/m (succión barlovento)
+      const qRoofLeeward  = 0.10 * panW;  // 0.25 kN/m (succión sotavento)
+      for (let f = 0; f < NB; f++) {
+        for (let p = 1; p < NTP; p++) {
+          const idx = f * (NTP - 1) + (p - 1);
+          const eid = roofPurlinIds[idx];
+          const q = p < midP ? qRoofWindward : qRoofLeeward;
+          api.addDistributedLoad3D(eid, 0, 0, -q, -q, undefined, undefined, 3);
+        }
+      }
+      // Viento en aleros (presión en nodos tope de columna, +Z global directo)
+      for (let f = 0; f < NF; f++) {
+        const tribX = f === 0 || f === NF - 1 ? BL / 2 : BL;
+        api.addNodalLoad3D(cL[f][NCS].o, 0, 0, 0.42 * tribX * segH / 2, 0, 0, 0, 3);
       }
 
       return true;
@@ -461,7 +531,7 @@ export function load3DExample(name: string, api: ExampleAPI3D): boolean {
       // EDIFICIO 5 PISOS — Estructura mixta H.A./acero con cargas
       // completas: D, L, W, E y combinaciones CIRSOC 201
       // ======================================================================
-      api.model.name = 'Edificio 5 Pisos (D+L+W+E)';
+      api.model.name = t('ex.3d-building');
 
       // -- Geometria --
       const nFloors = 5;
@@ -558,10 +628,10 @@ export function load3DExample(name: string, api: ExampleAPI3D): boolean {
 
       // === CASOS DE CARGA ===
       api.model.loadCases = [
-        { id: 1, type: 'D' as LoadCaseType, name: 'Carga muerta' },
-        { id: 2, type: 'L' as LoadCaseType, name: 'Carga viva' },
-        { id: 3, type: 'W' as LoadCaseType, name: 'Viento +X' },
-        { id: 4, type: 'E' as LoadCaseType, name: 'Sismo +X' },
+        { id: 1, type: 'D' as LoadCaseType, name: t('ex.deadLoad') },
+        { id: 2, type: 'L' as LoadCaseType, name: t('ex.liveLoad') },
+        { id: 3, type: 'W' as LoadCaseType, name: t('ex.windX') },
+        { id: 4, type: 'E' as LoadCaseType, name: t('ex.seismicX') },
       ];
       api.nextId.loadCase = 5;
 

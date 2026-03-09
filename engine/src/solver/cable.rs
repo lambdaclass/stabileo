@@ -13,7 +13,6 @@
 ///   - Irvine, "Cable Structures" (1981)
 ///   - Ernst, "Der E-Modul von Seilen" (1965)
 ///   - Buchholdt, "An Introduction to Cable Roof Structures" (1999)
-
 use std::collections::HashMap;
 use crate::types::*;
 use crate::element;

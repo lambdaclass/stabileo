@@ -1,7 +1,8 @@
 <script lang="ts">
   import { uiStore, modelStore, resultsStore } from '../lib/store';
-  import { solve } from '../lib/engine/solver-js';
+  import { solve } from '../lib/engine/wasm-solver';
   import type { ModelSnapshot } from '../lib/store/history.svelte';
+  import { t } from '../lib/i18n';
 
   let baseline: ModelSnapshot | null = $state(null);
   let debounceTimer: number | undefined;
@@ -168,7 +169,7 @@
 
   function loadLabel(i: number): string {
     const l = baseline?.loads[i];
-    if (!l) return `Carga ${i + 1}`;
+    if (!l) return t('whatif.loadFallback').replace('{n}', String(i + 1));
     if (l.type === 'nodal') {
       const d = l.data as { fx: number; fy: number; mz: number };
       const parts: string[] = [];
@@ -186,7 +187,7 @@
       return `P=${d.p}`;
     }
     if (l.type === 'thermal') {
-      return `Termica`;
+      return t('whatif.thermal');
     }
     if (l.type === 'nodal3d') {
       const d = l.data as { nodeId: number; fx: number; fy: number; fz: number };
@@ -200,7 +201,7 @@
       const d = l.data as { elementId: number; qYI: number; qYJ: number; qZI: number; qZJ: number };
       return `Dist3D E${d.elementId}`;
     }
-    return `Carga ${i + 1}`;
+    return t('whatif.loadFallback').replace('{n}', String(i + 1));
   }
 
   function formatSci(v: number): string {
@@ -212,15 +213,15 @@
 {#if uiStore.showWhatIf}
   <div class="wif-panel">
     <div class="wif-header">
-      <span class="wif-title">Explorar</span>
-      <button class="wif-reset" onclick={resetAll} title="Restaurar valores originales">Reset</button>
-      <button class="wif-close" onclick={close} title="Cerrar y restaurar modelo original">✕</button>
+      <span class="wif-title">{t('whatif.title')}</span>
+      <button class="wif-reset" onclick={resetAll} title={t('whatif.restoreOriginals')}>Reset</button>
+      <button class="wif-close" onclick={close} title={t('whatif.closeAndRestore')}>✕</button>
     </div>
 
     <div class="wif-body">
       <!-- Load factors -->
       <div class="wif-section">
-        <div class="wif-section-title">Cargas</div>
+        <div class="wif-section-title">{t('whatif.loads')}</div>
         {#each loadFactors as factor, i}
           <div class="wif-slider-row">
             <label class="wif-label" title={loadLabel(i)}>{loadLabel(i)}</label>
@@ -238,7 +239,7 @@
 
       <!-- Material -->
       <div class="wif-section">
-        <div class="wif-section-title">Material</div>
+        <div class="wif-section-title">{t('whatif.material')}</div>
         <div class="wif-slider-row">
           <label class="wif-label">E</label>
           <input
@@ -255,7 +256,7 @@
 
       <!-- Section -->
       <div class="wif-section">
-        <div class="wif-section-title">Seccion</div>
+        <div class="wif-section-title">{t('whatif.section')}</div>
         <div class="wif-slider-row">
           <label class="wif-label">A</label>
           <input

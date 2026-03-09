@@ -1,5 +1,6 @@
 <script lang="ts">
   import { tourStore } from '../lib/store/tour.svelte';
+  import { t } from '../lib/i18n';
   import { onMount, onDestroy } from 'svelte';
 
   const PADDING_DEFAULT = 8;
@@ -255,18 +256,18 @@
       <div class="tour-footer">
         {#if !tourStore.isLastStep}
           <button class="tour-skip" onclick={() => tourStore.end()}>
-            Saltar tour
+            {t('tour.skip')}
           </button>
         {/if}
         <div class="tour-nav">
           {#if !tourStore.isFirstStep}
             <button class="tour-prev" onclick={() => tourStore.prev()}>
-              ← Anterior
+              {t('tour.prev')}
             </button>
           {/if}
           {#if tourStore.isLastStep}
             <button class="tour-finish" onclick={() => tourStore.end()}>
-              Finalizar ✓
+              {t('tour.finish')}
             </button>
           {:else if step.waitFor && !tourStore.canAdvance && step.actionButton}
             <!-- Action button replaces "Esperando..." when available -->
@@ -304,7 +305,7 @@
               onclick={() => tourStore.next()}
               disabled={step.waitFor ? !tourStore.canAdvance : false}
             >
-              {step.waitFor && !tourStore.canAdvance ? 'Esperando...' : 'Siguiente →'}
+              {step.waitFor && !tourStore.canAdvance ? t('tour.waiting') : t('tour.next')}
             </button>
           {/if}
         </div>

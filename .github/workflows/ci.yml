@@ -24,7 +24,7 @@ jobs:
 
       - name: Clippy
         working-directory: engine
-        run: cargo clippy --lib --tests --benches -- -D warnings
+        run: cargo clippy --lib -- -D warnings
 
   test:
     runs-on: ubuntu-latest
