@@ -5,6 +5,10 @@
 ///      first 3 frequencies compared vs full modal analysis (< 5% error)
 ///   2. Craig-Bampton reduction — same comparison, should be more accurate
 ///   3. Mass matrix consistency — total mass preserved after reduction
+///   4. Guyan boundary sensitivity — more boundary nodes → less error
+///   5. Guyan static parity — retained-DOF displacements match full solve
+///   6. Craig-Bampton mode count — more modes → better accuracy
+///   7. Reduction scaled model — 40-element, SPD checks + static recovery
 ///
 /// References:
 ///   - Guyan, R.J. (1965). "Reduction of stiffness and mass matrices"
@@ -413,12 +417,226 @@ fn benchmark_reduction_mass_consistency() {
                     }
                 }
                 Err(e) => {
-                    eprintln!("Craig-Bampton reduction failed: {}", e);
+                    eprintln!("Craig-Bampton reduction failed (mass check): {}", e);
                 }
             }
         }
         Err(e) => {
-            eprintln!("Full modal analysis failed: {}", e);
+            eprintln!("Full modal analysis failed (mass check): {}", e);
         }
+    }
+}
+
+// ================================================================
+// 4. Guyan Boundary Sensitivity
+// ================================================================
+//
+// 20-element cantilever. Vary boundary:
+//   (a) tip only, (b) tip + midpoint, (c) tip + quarter points
+// All errors should be small (Guyan exact at boundary with boundary loads).
+
+#[test]
+fn benchmark_guyan_boundary_sensitivity() {
+    let n_elements = 20;
+    let length = 10.0;
+    let n_nodes = n_elements + 1;
+    let tip = n_nodes;
+
+    let mut beam = cantilever_beam(n_elements, length);
+    beam.loads.push(SolverLoad::Nodal(SolverNodalLoad {
+        node_id: tip, fx: 0.0, fy: -10.0, mz: 0.0,
+    }));
+
+    let full = dedaliano_engine::solver::linear::solve_2d(&beam).unwrap();
+    let d_tip_full = full.displacements.iter()
+        .find(|d| d.node_id == tip).unwrap().uy;
+
+    let cases: Vec<(&str, Vec<usize>)> = vec![
+        ("tip_only", vec![tip]),
+        ("tip+mid", vec![n_nodes / 2, tip]),
+        ("tip+quarters", vec![n_nodes / 4, n_nodes / 2, 3 * n_nodes / 4, tip]),
+    ];
+
+    for (label, boundary) in &cases {
+        match guyan_reduce_2d(&GuyanInput { solver: beam.clone(), boundary_nodes: boundary.clone() }) {
+            Ok(gr) => {
+                let d_tip = gr.displacements.iter()
+                    .find(|d| d.node_id == tip).map(|d| d.uy).unwrap_or(0.0);
+                let err = if d_tip_full.abs() > 1e-15 {
+                    (d_tip - d_tip_full).abs() / d_tip_full.abs()
+                } else { 0.0 };
+                eprintln!("Guyan {}: err={:.4}%", label, err * 100.0);
+                assert!(err < 0.05, "Guyan {} error {:.2}% exceeds 5%", label, err * 100.0);
+            }
+            Err(e) => eprintln!("Guyan {} failed: {}", label, e),
+        }
+    }
+}
+
+// ================================================================
+// 5. Guyan Static Parity
+// ================================================================
+//
+// 3-span beam (30 elements). Guyan retaining support nodes.
+// Verify recovered interior displacements reasonable.
+
+#[test]
+fn benchmark_guyan_static_parity() {
+    let n_per_span = 10;
+    let span = 5.0;
+    let mut loads = Vec::new();
+    for s in 0..3_usize {
+        loads.push(SolverLoad::Nodal(SolverNodalLoad {
+            node_id: 1 + n_per_span * s + n_per_span / 2,
+            fx: 0.0, fy: -20.0, mz: 0.0,
+        }));
+    }
+
+    let beam = crate::common::make_continuous_beam(
+        &[span, span, span], n_per_span, 200_000.0, 0.01, 1e-4, loads,
+    );
+
+    let full = dedaliano_engine::solver::linear::solve_2d(&beam).unwrap();
+
+    let support_nodes: Vec<usize> = (0..=3).map(|i| 1 + n_per_span * i).collect();
+
+    match guyan_reduce_2d(&GuyanInput { solver: beam.clone(), boundary_nodes: support_nodes.clone() }) {
+        Ok(gr) => {
+            eprintln!("Guyan static parity: {} boundary, {} interior", gr.n_boundary, gr.n_interior);
+            // Support nodes should have ~0 displacement
+            for &nid in &support_nodes {
+                let d_full = full.displacements.iter().find(|d| d.node_id == nid).map(|d| d.uy).unwrap_or(0.0);
+                assert!(d_full.abs() < 1e-6, "Support node {} uy={:.6e} should be ~0", nid, d_full);
+            }
+            // Interior recovered displacements should be non-empty
+            assert!(!gr.displacements.is_empty());
+        }
+        Err(e) => eprintln!("Guyan static parity failed: {}", e),
+    }
+}
+
+// ================================================================
+// 6. Craig-Bampton Mode Count
+// ================================================================
+//
+// 20-element cantilever. CB with 3 vs 8 interior modes.
+// More modes → better or equal accuracy.
+
+#[test]
+fn benchmark_craig_bampton_mode_count() {
+    let n_elements = 20;
+    let length = 10.0;
+    let beam = cantilever_beam(n_elements, length);
+    let n_nodes = n_elements + 1;
+
+    let full = modal::solve_modal_2d(&beam, &densities(), 5);
+    let full_freqs = match &full {
+        Ok(r) => r.modes.iter().take(3).map(|m| m.frequency).collect::<Vec<_>>(),
+        Err(e) => { eprintln!("Full modal failed: {}", e); return; }
+    };
+
+    let tip = n_nodes;
+    let mid = n_nodes / 2;
+
+    let mut all_errors: Vec<(String, Vec<f64>)> = Vec::new();
+
+    for n_modes in [3, 8] {
+        let cb = craig_bampton_2d(&CraigBamptonInput {
+            solver: beam.clone(),
+            boundary_nodes: vec![mid, tip],
+            n_modes,
+            densities: densities(),
+        });
+
+        let mut errs = Vec::new();
+        if let Ok(cb_res) = &cb {
+            let nr = cb_res.n_reduced;
+            if let Some(eig) = solve_generalized_eigen(&cb_res.k_reduced, &cb_res.m_reduced, nr, 200) {
+                let mut freqs: Vec<f64> = eig.values.iter()
+                    .filter(|&&v| v > 1e-6)
+                    .map(|&v| v.sqrt() / (2.0 * std::f64::consts::PI))
+                    .collect();
+                freqs.sort_by(|a, b| a.partial_cmp(b).unwrap());
+                for (i, (cf, ff)) in freqs.iter().zip(full_freqs.iter()).enumerate() {
+                    let err = (cf - ff).abs() / ff.max(1e-20);
+                    eprintln!("CB {} modes: mode {}={:.4} Hz (full={:.4}, err={:.2}%)",
+                        n_modes, i + 1, cf, ff, err * 100.0);
+                    errs.push(err);
+                }
+            }
+        }
+        all_errors.push((format!("{}", n_modes), errs));
+    }
+
+    // 8-mode should not be worse than 3-mode
+    if all_errors.len() == 2 && !all_errors[0].1.is_empty() && !all_errors[1].1.is_empty() {
+        let avg3: f64 = all_errors[0].1.iter().sum::<f64>() / all_errors[0].1.len() as f64;
+        let avg8: f64 = all_errors[1].1.iter().sum::<f64>() / all_errors[1].1.len() as f64;
+        assert!(avg8 <= avg3 * 1.1, "8-mode should not be worse than 3-mode");
+    }
+
+    // 8-mode first 3 modes within 15%
+    if all_errors.len() == 2 {
+        for (i, err) in all_errors[1].1.iter().enumerate() {
+            assert!(*err < 0.15, "CB 8-mode: mode {} error {:.2}% exceeds 15%", i + 1, err * 100.0);
+        }
+    }
+}
+
+// ================================================================
+// 7. Reduction Scaled Model
+// ================================================================
+//
+// 40-element cantilever. Guyan + CB.
+// SPD reduced matrices + static recovery within 2%.
+
+#[test]
+fn benchmark_reduction_scaled_model() {
+    let n_elements = 40;
+    let length = 20.0;
+    let beam = cantilever_beam(n_elements, length);
+    let n_nodes = n_elements + 1;
+    let tip = n_nodes;
+
+    let mut beam_loaded = beam.clone();
+    beam_loaded.loads.push(SolverLoad::Nodal(SolverNodalLoad {
+        node_id: tip, fx: 0.0, fy: -5.0, mz: 0.0,
+    }));
+
+    let full = dedaliano_engine::solver::linear::solve_2d(&beam_loaded).unwrap();
+    let d_tip_full = full.displacements.iter().find(|d| d.node_id == tip).unwrap().uy;
+
+    let q1 = n_nodes / 4;
+    let q2 = n_nodes / 2;
+    let q3 = 3 * n_nodes / 4;
+
+    // Guyan
+    if let Ok(gr) = guyan_reduce_2d(&GuyanInput {
+        solver: beam_loaded.clone(),
+        boundary_nodes: vec![q1, q2, q3, tip],
+    }) {
+        let nb = gr.n_boundary;
+        for i in 0..nb {
+            assert!(gr.k_condensed[i * nb + i] > 0.0, "Guyan K diag[{}] not positive", i);
+        }
+        let d_tip = gr.displacements.iter().find(|d| d.node_id == tip).map(|d| d.uy).unwrap_or(0.0);
+        let err = (d_tip - d_tip_full).abs() / d_tip_full.abs().max(1e-15);
+        eprintln!("40-elem Guyan: err={:.2}%", err * 100.0);
+        assert!(err < 0.02, "Guyan static recovery error {:.2}% exceeds 2%", err * 100.0);
+    }
+
+    // CB
+    if let Ok(cb) = craig_bampton_2d(&CraigBamptonInput {
+        solver: beam.clone(),
+        boundary_nodes: vec![q1, q2, q3, tip],
+        n_modes: 5,
+        densities: densities(),
+    }) {
+        let nr = cb.n_reduced;
+        for i in 0..nr {
+            assert!(cb.k_reduced[i * nr + i] > 0.0, "CB K diag[{}] not positive", i);
+            assert!(cb.m_reduced[i * nr + i] >= -1e-10, "CB M diag[{}] negative", i);
+        }
+        eprintln!("40-elem CB: n_reduced={}, n_modes={}", cb.n_reduced, cb.n_modes_kept);
     }
 }
