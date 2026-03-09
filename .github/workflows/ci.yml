@@ -37,30 +37,14 @@ jobs:
         with:
           workspaces: engine
 
-      - name: Unit tests
-        working-directory: engine
-        run: cargo test --lib
+      - name: Install mold linker
+        run: sudo apt-get install -y mold
 
-      - name: Core solver tests (92 tests)
-        working-directory: engine
-        run: cargo test --test core
+      - uses: taiki-e/install-action@nextest
 
-      - name: Property / differential fuzz tests (90 tests)
+      - name: Run all tests
         working-directory: engine
-        run: cargo test --test property
-
-      - name: Integration tests
-        working-directory: engine
-        run: cargo test --test integration
-
-      - name: Acceptance gates (multi-feature models)
-        working-directory: engine
-        run: cargo test --test validation acceptance_ -- --test-threads=1
-        timeout-minutes: 2
-
-      - name: Validation tests (includes benchmark gates)
-        working-directory: engine
-        run: cargo test --test validation
+        run: cargo nextest run --profile ci
         timeout-minutes: 10
 
       - name: Benchmarks compile
