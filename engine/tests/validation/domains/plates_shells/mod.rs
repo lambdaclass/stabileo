@@ -1,0 +1,14 @@
+mod laminate_plate_extended;
+mod laminate_plate_theory;
+mod plate_bending;
+mod plate_girder_design;
+mod plate_girder_extended;
+mod plate_theory;
+mod plates;
+mod plates_extended;
+mod quad_shell;
+mod shell_membrane_theory;
+mod shell_theory;
+mod shell_theory_extended;
+mod slab_design_extended;
+mod thin_shell_structures;
