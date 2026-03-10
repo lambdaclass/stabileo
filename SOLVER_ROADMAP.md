@@ -28,7 +28,7 @@ Historical progress belongs in [`CHANGELOG.md`](/Users/unbalancedparen/projects/
 
 The main remaining work is no longer missing basic solver categories. It is:
 
-- shell workflow maturity
+- shell family maturity and workflow maturity
 - solver-path consistency
 - diagnostics and explainability
 - verification hardening
@@ -41,7 +41,7 @@ The main remaining work is no longer missing basic solver categories. It is:
 Based on the comparison against projects like OpenSees, Code_Aster, and Kratos, the remaining gaps are not “missing the basics.” They are:
 
 1. `Shell endgame maturity`
-   Strong MITC4 coverage now exists, but broader curved-shell workflows, distortion robustness, and the remaining non-planar shell formulation boundary still separate Dedaliano from the strongest mature shell stacks.
+   Strong MITC4 coverage now exists, and MITC9 has started to open a broader shell-family path. Broader curved-shell workflows, distortion robustness, MITC9 maturity, and the remaining non-planar shell formulation boundary still separate Dedaliano from the strongest mature shell stacks.
 
 2. `Long-tail nonlinear maturity`
    More years of hardened edge cases are still needed in mixed nonlinear workflows:
@@ -72,7 +72,8 @@ If the goal is `best open structural solver`, the current priority order is:
    - curved-shell validation
    - distortion robustness
    - shell workflow completeness
-   - clear decision on whether the remaining curved/non-planar shell gap justifies a broader shell family
+   - MITC9 maturity across postprocessing, mass, geometric stiffness, and validation
+   - clear decision on whether MITC9 is sufficient or whether an even broader shell family is justified later
 
 2. `Performance and scale`
    Turn sparse-first 3D and current performance infrastructure into real large-model runtime wins.
@@ -114,7 +115,7 @@ If the goal is `best open structural solver`, the current priority order is:
 The current near-term sequence is:
 
 1. `Shell benchmark and acceptance gates`
-   Make shell benchmark and shell acceptance suites explicit release gates.
+   Keep shell benchmark and shell acceptance suites as explicit release gates, now covering both MITC4 and the emerging MITC9 path.
 
 2. `Shell-driven mechanics fixes`
    Use those gates to drive targeted fixes in:
@@ -123,6 +124,7 @@ The current near-term sequence is:
    - distortion tolerance
    - mixed tri/quad and beam-shell workflows
    - stress-recovery consistency
+   - MITC9 postprocessing/dynamics/stability maturity
 
 3. `Full-model performance work`
    Use acceptance models and workflow benchmarks to drive sparse, parallel, conditioning, and memory improvements on representative models.
@@ -160,22 +162,27 @@ Focus:
 - shell modal and buckling consistency
 - distortion tolerance
 - shell stress recovery consistency
+- MITC9 maturity and comparative validation against MITC4 boundaries
 
 Current remaining shell backlog:
 - curved-shell workflow validation (broader: folded plates, conical, hyperbolic)
 - broader shell modal, buckling, and dynamic reference cases
 - better shell diagnostics and output semantics in solver results
+- MITC9 postprocessing, mass, geometric stiffness, and validation maturity
+- MITC9-vs-MITC4 benchmark comparisons on curved/non-planar shell cases
 
 Known formulation boundary:
 - MITC4 with ANS and EAS-7 is now materially stronger and benchmark-gated
-- the pinched hemisphere, Raasch hook, and twisted beam remain known curved/non-planar shell limits
+- the pinched hemisphere, Raasch hook, and twisted beam remain known curved/non-planar shell limits for the MITC4 family
+- MITC9 is now the active next shell-family candidate and should be treated as `implemented and validating` until the benchmark pack is green
 - the next decision is whether to:
-  - stop at a well-bounded MITC4 path
-  - or introduce a broader shell family later
+  - stop at a well-bounded `MITC4 + MITC9` shell stack
+  - or introduce an even broader shell family later
 
 Recommended shell order:
 1. broader curved-shell validation (beyond Scordelis-Lo and pinched cylinder)
-2. only then decide whether the remaining curved/non-planar shell gap justifies a broader shell family
+2. MITC9 validation and maturity on the curved/non-planar cases MITC4 bounds out on
+3. only then decide whether the remaining shell gap justifies a broader shell family beyond MITC9
 
 Why it matters:
 Shell quality is one of the clearest separators between a strong structural solver and a top-tier one.
@@ -247,7 +254,8 @@ Done means:
 - curved-shell validation sets are in place and passing
 - distortion and warp studies are gated and bounded
 - shell workflow completeness cases are covered
-- the `bounded MITC4+EAS-7 vs broader shell family` decision is explicitly documented
+- MITC9 is either benchmarked and accepted as part of the production shell stack, or its remaining gap is explicitly documented
+- the `bounded MITC4/MITC9 stack vs broader shell family` decision is explicitly documented
 
 ### Performance and scale
 
