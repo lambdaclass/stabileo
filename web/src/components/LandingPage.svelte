@@ -209,7 +209,7 @@
       <div class="feature-row reveal">
         <div class="feature-img-wrap">
           <div class="browser-frame compact"><div class="browser-bar sm"><div class="browser-dots"><span class="dot r"></span><span class="dot y"></span><span class="dot g"></span></div></div>
-            <div class="browser-content"><img src="/screenshots/hero-2d.png" alt={t('landing.modeEduTitle')} loading="lazy" /></div>
+            <div class="browser-content"><img src="/screenshots/edu-exercise.png" alt={t('landing.modeEduTitle')} loading="lazy" /></div>
           </div>
         </div>
         <div class="feature-text">
@@ -240,7 +240,7 @@
       <div class="feature-row reverse reveal">
         <div class="feature-img-wrap">
           <div class="browser-frame compact"><div class="browser-bar sm"><div class="browser-dots"><span class="dot r"></span><span class="dot y"></span><span class="dot g"></span></div></div>
-            <div class="browser-content"><img src="/screenshots/hero-2d-solved.png" alt={t('landing.modeProTitle')} loading="lazy" /></div>
+            <div class="browser-content"><img src="/screenshots/pro-results.png" alt={t('landing.modeProTitle')} loading="lazy" /></div>
           </div>
         </div>
         <div class="feature-text">
