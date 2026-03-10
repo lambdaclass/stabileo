@@ -44,6 +44,37 @@
 - **Reference**: u_z = 0.3024 at midspan free edge
 - **Status**: Implemented with MITC4 ANS shear tying. 6×6 mesh: 80% of reference, converging with refinement.
 
+### Hemisphere with 18° Hole (NAFEMS LE3)
+- **Source**: NAFEMS, "The Standard NAFEMS Benchmarks" (TNSB), Rev 3, 1990, Test LE3
+- **Problem**: Hemisphere R=10, t=0.04, 18° hole at apex. Quarter model with symmetry. Diametral point loads F=2 at equator.
+- **Material**: E=68.25, ν=0.3 (same as MacNeal-Harder hemisphere)
+- **Reference Answer**: u_x = 0.185 at equator point A (x-axis)
+- **Value**: Same physics as pinched hemisphere (R/t=250) but avoids pole singularity, improving mesh quality.
+- **Status**: Self-convergence test at 4×4, 8×8, 16×16. Membrane locking expected at this R/t.
+
+### Partly Clamped Hyperbolic Paraboloid (Chapelle-Bathe)
+- **Source**: Chapelle & Bathe, "The Finite Element Analysis of Shells", 2003; also Bathe & Iosilevich (2000)
+- **Problem**: z = x² − y², domain [−0.5, 0.5]², t=0.01, one edge clamped (x=−0.5), uniform vertical pressure f=8t
+- **Material**: E=2.0×10¹¹ Pa (200 GPa), ν=0.3
+- **Reference**: No closed-form. Self-convergence study (32×32 as reference).
+- **Value**: Bending-dominated, negative Gaussian curvature. Strong membrane locking discriminator.
+- **Status**: Self-convergence test at 4×4, 8×8, 16×16, 32×32.
+
+### Shallow Spherical Cap Under Uniform Pressure
+- **Source**: Timoshenko & Woinowsky-Krieger, "Theory of Plates and Shells", Ch. 16
+- **Problem**: Spherical cap R=100, t=1 (R/t=100), half-angle α=10°, clamped base, uniform external pressure p=1.0
+- **Material**: E=200 GPa, ν=0.3
+- **Reference**: Plate approximation w ≈ p·a⁴/(64·D). Self-convergence study (32×32 as reference).
+- **Value**: Moderate R/t=100, axisymmetric loading. Tests the "comfortable" zone for MITC4+EAS-7.
+- **Status**: Self-convergence test at 4×4, 8×8, 16×16, 32×32.
+
+### Pinched Hemisphere R/t Parameter Sweep
+- **Source**: MacNeal & Harder (1985), varying thickness to map R/t boundary
+- **Problem**: Same pinched hemisphere as standard test, R=10 fixed, t varied for R/t = 10, 25, 50, 100, 250, 500
+- **Reference**: Analytical scaling u ∝ (R/t)² from known u=0.0924 at R/t=250
+- **Value**: Maps exact MITC4+EAS-7 capability boundary. Key deliverable for element selection.
+- **Status**: Sweep at 16×16 mesh.
+
 ---
 
 ## Nonlinear Material / Plastic Collapse
