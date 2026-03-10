@@ -3,7 +3,7 @@
   import type { LoadCaseType } from '../../lib/store/model.svelte';
   import { t } from '../../lib/i18n';
 
-  type LoadKind = 'nodal' | 'distributed' | 'point';
+  type LoadKind = 'nodal' | 'distributed' | 'point' | 'surface';
 
   let loadKind = $state<LoadKind>('nodal');
   let activeCaseId = $state(1); // default to first load case
@@ -30,6 +30,10 @@
   let plPy = $state('');
   let plPz = $state('');
 
+  // Surface load fields
+  let slQuadId = $state('');
+  let slQ = $state('');
+
   // New load case fields
   let newCaseName = $state('');
   let newCaseType = $state<LoadCaseType>('');
@@ -46,6 +50,7 @@
   const nodalLoads = $derived(caseLoads.filter(l => l.type === 'nodal3d'));
   const distLoads = $derived(caseLoads.filter(l => l.type === 'distributed3d'));
   const pointLoads = $derived(caseLoads.filter(l => l.type === 'pointOnElement3d'));
+  const surfaceLoads = $derived(caseLoads.filter(l => l.type === 'surface3d'));
 
   const caseTypeLabels = $derived<Record<string, string>>({
     'D': t('pro.caseTypeD'),
@@ -92,6 +97,15 @@
     if (isNaN(a) || a < 0 || (py === 0 && pz === 0)) return;
     modelStore.addPointLoadOnElement3D(elemId, a, py, pz, activeCaseId);
     plElemId = ''; plA = ''; plPy = ''; plPz = '';
+  }
+
+  function addSurfaceLoad() {
+    const quadId = parseInt(slQuadId);
+    if (isNaN(quadId) || !modelStore.model.quads.has(quadId)) return;
+    const q = parseFloat(slQ) || 0;
+    if (q === 0) return;
+    modelStore.addSurfaceLoad3D(quadId, q, activeCaseId);
+    slQuadId = ''; slQ = '';
   }
 
   function removeLoad(loadId: number) {
@@ -221,6 +235,7 @@
       <button class="pro-type-btn" class:active={loadKind === 'nodal'} onclick={() => loadKind = 'nodal'}>{t('pro.nodal')}</button>
       <button class="pro-type-btn" class:active={loadKind === 'distributed'} onclick={() => loadKind = 'distributed'}>{t('pro.distributed')}</button>
       <button class="pro-type-btn" class:active={loadKind === 'point'} onclick={() => loadKind = 'point'}>{t('pro.pointLoad')}</button>
+      <button class="pro-type-btn" class:active={loadKind === 'surface'} onclick={() => loadKind = 'surface'}>{t('pro.surfaceLoad')}</button>
     </div>
 
     {#if loadKind === 'nodal'}
@@ -255,7 +270,7 @@
         </div>
         <button class="pro-btn" onclick={addDistLoad}>{t('pro.addDistLoad')}</button>
       </div>
-    {:else}
+    {:else if loadKind === 'point'}
       <div class="pro-load-inputs">
         <div class="pro-load-row">
           <label>Elemento: <input type="text" bind:value={plElemId} placeholder="ID" class="inp-sm" /></label>
@@ -266,6 +281,14 @@
           <label>Pz: <input type="text" bind:value={plPz} placeholder="kN" class="inp-num" /></label>
         </div>
         <button class="pro-btn" onclick={addPointLoad}>{t('pro.addPointLoad')}</button>
+      </div>
+    {:else}
+      <div class="pro-load-inputs">
+        <div class="pro-load-row">
+          <label>{t('pro.slab')}: <input type="text" bind:value={slQuadId} placeholder="ID" class="inp-sm" /></label>
+          <label>q: <input type="text" bind:value={slQ} placeholder="kN/m²" class="inp-num" /></label>
+        </div>
+        <button class="pro-btn" onclick={addSurfaceLoad}>{t('pro.addSurfaceLoad')}</button>
       </div>
     {/if}
   </div>
@@ -326,6 +349,23 @@
               <td class="col-num">{fmtNum(l.data.a)}</td>
               <td class="col-num">{fmtNum(l.data.py ?? 0)}</td>
               <td class="col-num">{fmtNum(l.data.pz ?? 0)}</td>
+              <td><button class="pro-delete-btn" onclick={() => removeLoad(l.data.id)}>×</button></td>
+            </tr>
+          {/each}
+        </tbody>
+      </table>
+    {/if}
+
+    {#if surfaceLoads.length > 0}
+      <div class="pro-load-section-title">{t('pro.surfaceLoads')}</div>
+      <table class="pro-loads-table">
+        <thead><tr><th>ID</th><th>{t('pro.slab')}</th><th>q (kN/m²)</th><th></th></tr></thead>
+        <tbody>
+          {#each surfaceLoads as l}
+            <tr>
+              <td class="col-id">{l.data.id}</td>
+              <td class="col-num">{l.data.quadId}</td>
+              <td class="col-num">{fmtNum(l.data.q)}</td>
               <td><button class="pro-delete-btn" onclick={() => removeLoad(l.data.id)}>×</button></td>
             </tr>
           {/each}

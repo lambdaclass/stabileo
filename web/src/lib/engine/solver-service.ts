@@ -13,7 +13,7 @@ import type {
   Node, Element, Support, Load, Material, Section,
   LoadCase, LoadCombination,
   DistributedLoad, PointLoadOnElement, ThermalLoad,
-  NodalLoad3D, DistributedLoad3D, PointLoadOnElement3D,
+  NodalLoad3D, DistributedLoad3D, PointLoadOnElement3D, SurfaceLoad3D,
 } from '../store/model.svelte';
 
 // ─── ModelData interface ──────────────────────────────────────────
@@ -892,6 +892,29 @@ export function buildSolverInput3D(model: ModelData, includeSelfWeight = false, 
         type: 'pointOnElement',
         data: { elementId: d.elementId, a: d.a, py: d.py, pz: d.pz },
       });
+    } else if (l.type === 'surface3d') {
+      // Convert surface pressure on quad → nodal loads (q × area / 4 per corner)
+      const d = l.data as SurfaceLoad3D;
+      const quad = model.quads?.get(d.quadId);
+      if (quad) {
+        const ns = quad.nodes.map(nid => model.nodes.get(nid));
+        if (ns.every(n => n)) {
+          const [p0, p1, p2, p3] = ns as [Node, Node, Node, Node];
+          function triArea(a: Node, b: Node, c: Node): number {
+            const ex = b.x - a.x, ey = b.y - a.y, ez = (b.z ?? 0) - (a.z ?? 0);
+            const fx = c.x - a.x, fy = c.y - a.y, fz = (c.z ?? 0) - (a.z ?? 0);
+            return 0.5 * Math.sqrt((ey * fz - ez * fy) ** 2 + (ez * fx - ex * fz) ** 2 + (ex * fy - ey * fx) ** 2);
+          }
+          const area = triArea(p0, p1, p2) + triArea(p0, p2, p3);
+          const F = -d.q * area / 4; // negative Y = downward
+          for (const nid of quad.nodes) {
+            solverLoads.push({
+              type: 'nodal',
+              data: { nodeId: nid, fx: 0, fy: F, fz: 0, mx: 0, my: 0, mz: 0 },
+            });
+          }
+        }
+      }
     } else if (l.type === 'thermal') {
       const d = l.data as ThermalLoad;
       solverLoads.push({

@@ -167,6 +167,13 @@ export interface PointLoadOnElement3D {
   caseId?: number;
 }
 
+export interface SurfaceLoad3D {
+  id: number;
+  quadId: number;
+  q: number;    // kN/m² (positive = downward, applied as -Y global)
+  caseId?: number;
+}
+
 export type Load =
   | { type: 'nodal'; data: NodalLoad }
   | { type: 'distributed'; data: DistributedLoad }
@@ -174,7 +181,8 @@ export type Load =
   | { type: 'thermal'; data: ThermalLoad }
   | { type: 'nodal3d'; data: NodalLoad3D }
   | { type: 'distributed3d'; data: DistributedLoad3D }
-  | { type: 'pointOnElement3d'; data: PointLoadOnElement3D };
+  | { type: 'pointOnElement3d'; data: PointLoadOnElement3D }
+  | { type: 'surface3d'; data: SurfaceLoad3D };
 
 export type LoadCaseType = string;
 
@@ -582,6 +590,15 @@ function createModelStore() {
       const data: PointLoadOnElement3D = { id, elementId, a, py, pz };
       if (caseId !== undefined) data.caseId = caseId;
       model.loads = [...model.loads, { type: 'pointOnElement3d', data }];
+      return id;
+    },
+
+    addSurfaceLoad3D(quadId: number, q: number, caseId?: number): number {
+      if (!_undoBatching) _pushUndo?.();
+      const id = nextId.load++;
+      const data: SurfaceLoad3D = { id, quadId, q };
+      if (caseId !== undefined) data.caseId = caseId;
+      model.loads = [...model.loads, { type: 'surface3d', data }];
       return id;
     },
 

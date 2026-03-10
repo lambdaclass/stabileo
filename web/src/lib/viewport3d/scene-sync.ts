@@ -321,6 +321,24 @@ export function syncLoads(ctx: SceneSyncContext): void {
         loadGrp.add(grpZ);
       }
     }
+    // surface3d: render as a downward arrow at the quad centroid
+    else if (load.type === 'surface3d') {
+      const quad = modelStore.model.quads.get(load.data.quadId);
+      if (!quad) continue;
+      const ns = quad.nodes.map(nid => modelStore.nodes.get(nid));
+      if (ns.some(n => !n)) continue;
+      const cx = ns.reduce((s, n) => s + n!.x, 0) / 4;
+      const cy = ns.reduce((s, n) => s + n!.y, 0) / 4;
+      const cz = ns.reduce((s, n) => s + (n!.z ?? 0), 0) / 4;
+      const totalForce = load.data.q * 1; // representative 1 m² for arrow sizing
+      const arrow = createNodalLoadArrow(
+        { x: cx, y: cy, z: cz },
+        0, -Math.abs(totalForce), 0,
+        0, 0, 0,
+        maxForce, i,
+      );
+      loadGrp.add(arrow);
+    }
     // pointOnElement and pointOnElement3d: simplified as nodal for now
     else if (load.type === 'pointOnElement') {
       const elem = modelStore.elements.get(load.data.elementId);
