@@ -39,10 +39,9 @@
   import LandingPage from './components/LandingPage.svelte';
   import { authStore } from './lib/store/auth.svelte';
 
-  const authRequired = !!import.meta.env.VITE_GOOGLE_CLIENT_ID;
   const isEmbedDemo = new URLSearchParams(location.search).has('embed');
   if (isEmbedDemo) authStore.setReady();
-  const needsLogin = $derived(authRequired && !authStore.isLoggedIn && !isEmbedDemo);
+  const needsLogin = $derived(!authStore.ready && !isEmbedDemo);
 
   let showTemplateDialog = $state(false);
   let showDxfImport = $state(false);
@@ -251,7 +250,7 @@
         <button class:active={uiStore.appMode === 'basico'} onclick={() => { if (uiStore.analysisMode !== '2d' && uiStore.analysisMode !== '3d') uiStore.analysisMode = '2d'; }}>
           {t('app.modeBasic')}
         </button>
-        <button class:active={uiStore.appMode === 'educativo'} class="edu-mode-btn" onclick={() => uiStore.analysisMode = 'edu'}>{t('app.modeEdu')}<span class="demo-badge">DEMO</span></button>
+        <button class:active={uiStore.appMode === 'educativo'} class="edu-mode-btn" onclick={() => { uiStore.analysisMode = 'edu'; resultsStore.showReactions = false; resultsStore.diagramType = 'none'; }}>{t('app.modeEdu')}<span class="demo-badge">DEMO</span></button>
         <button class:active={uiStore.appMode === 'pro'} class="pro-mode-btn" onclick={() => uiStore.analysisMode = 'pro'}>{t('app.modePro')}<span class="demo-badge">DEMO</span></button>
       </div>
     </div>

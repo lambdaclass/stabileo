@@ -390,6 +390,12 @@ export function buildTourSteps(): TourStep[] {
       title: t('tour.goodbyeTitle'),
       description: t('tour.goodbyeDesc'),
       position: 'center',
+      onExit: () => {
+        // If running inside the landing page iframe, open the full app
+        if (isEmbed) {
+          try { window.parent.postMessage('dedaliano-enter-app', '*'); } catch { /* cross-origin */ }
+        }
+      },
     },
   ];
 }

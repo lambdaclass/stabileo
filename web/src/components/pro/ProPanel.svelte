@@ -3,8 +3,10 @@
   import { modelStore, resultsStore, uiStore } from '../../lib/store';
   import { openReport } from '../../lib/engine/pro-report';
   import type { ReportData } from '../../lib/engine/pro-report';
-  import type { ElementVerification } from '../../lib/engine/codes/argentina/cirsoc201';
+  import { verifyElement, classifyElement, computeJointPsiFromModel } from '../../lib/engine/codes/argentina/cirsoc201';
+  import type { ElementVerification, VerificationInput } from '../../lib/engine/codes/argentina/cirsoc201';
   import { computeQuantities } from '../../lib/engine/quantity-takeoff';
+  import { runGlobalSolve } from '../../lib/engine/live-calc';
   import ProNodesTab from './ProNodesTab.svelte';
   import ProElementsTab from './ProElementsTab.svelte';
   import ProMaterialsTab from './ProMaterialsTab.svelte';
@@ -67,7 +69,6 @@
   let advancedResultsRef = $state<Record<string, any>>({});
   let tabError = $state<string | null>(null);
 
-  const hasResults = $derived(resultsStore.results3D !== null);
   const diagCount = $derived(resultsStore.diagnostics3D.filter((d: SolverDiagnostic) => d.severity === 'error' || d.severity === 'warning').length);
 
   // Counts for badges
@@ -75,9 +76,87 @@
   const elemCount = $derived(modelStore.elements.size);
   const loadCount = $derived(modelStore.loads.length);
 
+  /** Auto-run CIRSOC verification on current results */
+  function autoVerify(): ElementVerification[] {
+    const results = resultsStore.results3D;
+    if (!results) return [];
+    const verifs: ElementVerification[] = [];
+    const rebarFy = 420, cover = 0.025, stirrupDia = 8;
+
+    for (const ef of results.elementForces) {
+      const elem = modelStore.elements.get(ef.elementId);
+      if (!elem) continue;
+      const nodeI = modelStore.nodes.get(elem.nodeI);
+      const nodeJ = modelStore.nodes.get(elem.nodeJ);
+      if (!nodeI || !nodeJ) continue;
+      const section = modelStore.sections.get(elem.sectionId);
+      const material = modelStore.materials.get(elem.materialId);
+      if (!section || !material) continue;
+      if (!section.b || !section.h) continue;
+      const fc = material.fy;
+      if (!fc || fc > 80) continue;
+
+      const dx = nodeJ.x - nodeI.x, dy = nodeJ.y - nodeI.y, dz = (nodeJ.z ?? 0) - (nodeI.z ?? 0);
+      const L = Math.sqrt(dx * dx + dy * dy + dz * dz);
+      const elemType = classifyElement(nodeI.x, nodeI.y, nodeI.z ?? 0, nodeJ.x, nodeJ.y, nodeJ.z ?? 0, section.b, section.h);
+      const MuMax = Math.max(Math.abs(ef.mzStart), Math.abs(ef.mzEnd));
+      const VuMax = Math.max(Math.abs(ef.vyStart), Math.abs(ef.vyEnd));
+      const NuMax = Math.max(Math.abs(ef.nStart), Math.abs(ef.nEnd));
+      const MuyMax = Math.max(Math.abs(ef.myStart), Math.abs(ef.myEnd));
+      const VzMax = Math.max(Math.abs(ef.vzStart), Math.abs(ef.vzEnd));
+      const TuMax = Math.max(Math.abs(ef.mxStart), Math.abs(ef.mxEnd));
+      const isVertical = elemType === 'column' || elemType === 'wall';
+
+      let M1: number | undefined, M2: number | undefined;
+      if (isVertical) {
+        if (Math.abs(ef.mzStart) >= Math.abs(ef.mzEnd)) {
+          M2 = Math.abs(ef.mzStart);
+          M1 = Math.sign(ef.mzStart) === Math.sign(ef.mzEnd) ? Math.abs(ef.mzEnd) : -Math.abs(ef.mzEnd);
+        } else {
+          M2 = Math.abs(ef.mzEnd);
+          M1 = Math.sign(ef.mzStart) === Math.sign(ef.mzEnd) ? Math.abs(ef.mzStart) : -Math.abs(ef.mzStart);
+        }
+      }
+
+      let psiA: number | undefined, psiB: number | undefined;
+      if (isVertical) {
+        const psi = computeJointPsiFromModel(
+          ef.elementId,
+          modelStore.nodes as any, modelStore.elements as any,
+          modelStore.sections as any, modelStore.materials as any,
+          modelStore.supports as any,
+        );
+        psiA = psi.psiA;
+        psiB = psi.psiB;
+      }
+
+      const input: VerificationInput = {
+        elementId: ef.elementId, elementType: elemType,
+        Mu: MuMax, Vu: VuMax, Nu: NuMax,
+        b: section.b, h: section.h, fc, fy: rebarFy, cover, stirrupDia,
+        Muy: isVertical ? MuyMax : undefined,
+        Vz: VzMax > 0.01 ? VzMax : undefined,
+        Tu: TuMax > 0.001 ? TuMax : undefined,
+        Lu: isVertical ? L : undefined, M1, M2, psiA, psiB,
+      };
+      verifs.push(verifyElement(input));
+    }
+    return verifs;
+  }
+
   function exportReport() {
+    // Auto-solve if no results yet
+    if (!resultsStore.results3D) {
+      if (modelStore.nodes.size === 0) { uiStore.toast(t('pro.solveFirst'), 'error'); return; }
+      runGlobalSolve();
+    }
     const results = resultsStore.results3D;
     if (!results) return;
+
+    // Auto-verify CIRSOC if not already done
+    if (verificationsRef.length === 0) {
+      verificationsRef = autoVerify();
+    }
 
     let screenshot: string | undefined;
     const canvas = document.querySelector('canvas');
@@ -176,7 +255,7 @@
     <button class="pro-example-btn" onclick={() => { uiStore.showLoads3D = false; modelStore.loadExample('pro-edificio-7p'); uiStore.includeSelfWeight = true; uiStore.showGrid3D = false; uiStore.showAxes3D = false; setTimeout(() => window.dispatchEvent(new Event('dedaliano-zoom-to-fit')), 100); }} title={t('pro.exampleTitle')}>
       {t('pro.exampleBtn')}
     </button>
-    <button class="pro-report-btn" onclick={exportReport} disabled={!hasResults} title={t('pro.reportTitle')}>
+    <button class="pro-report-btn" onclick={exportReport} disabled={modelStore.nodes.size === 0} title={t('pro.reportTitle')}>
       {t('pro.reportBtn')}
     </button>
   </div>

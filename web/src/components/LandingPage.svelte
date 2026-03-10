@@ -3,11 +3,6 @@
   import { authStore } from '../lib/store/auth.svelte';
   import { t, i18n, setLocale } from '../lib/i18n';
 
-  const GOOGLE_CLIENT_ID = import.meta.env.VITE_GOOGLE_CLIENT_ID || '';
-
-  let googleBtnNavRef: HTMLDivElement;
-  let googleBtnBottomRef: HTMLDivElement;
-  let gsiError = $state(false);
   let landingEl: HTMLDivElement;
   let demoLoaded = $state(false);
 
@@ -65,29 +60,13 @@
     }, { threshold: 0.1, root: landingEl });
     for (const el of landingEl.querySelectorAll('.reveal')) observer.observe(el);
 
-    // GSI
-    if (!GOOGLE_CLIENT_ID) {
-      authStore.setReady();
-    } else {
-      const initGsi = () => {
-        if (typeof google === 'undefined' || !google.accounts?.id) { setTimeout(initGsi, 200); return; }
-        try {
-          google.accounts.id.initialize({
-            client_id: GOOGLE_CLIENT_ID,
-            callback: (response: any) => authStore.handleCredential(response.credential),
-            auto_select: true,
-          });
-          for (const ref of [googleBtnNavRef, googleBtnBottomRef]) {
-            if (ref) google.accounts.id.renderButton(ref, { theme: 'filled_black', size: 'large', width: 280, text: 'signin_with', shape: 'pill', logo_alignment: 'left' });
-          }
-          google.accounts.id.prompt();
-        } catch (e) { console.error('GSI init error:', e); gsiError = true; }
-        authStore.setReady();
-      };
-      initGsi();
-    }
+    // Listen for demo iframe tour completion → enter full app
+    const onMessage = (e: MessageEvent) => {
+      if (e.data === 'dedaliano-enter-app') authStore.setReady();
+    };
+    window.addEventListener('message', onMessage);
 
-    return () => { observer.disconnect(); clearInterval(slideIv); landingEl?.removeEventListener('scroll', onScroll); };
+    return () => { observer.disconnect(); clearInterval(slideIv); landingEl?.removeEventListener('scroll', onScroll); window.removeEventListener('message', onMessage); };
   });
 
   function scrollTo(id: string) { document.getElementById(id)?.scrollIntoView({ behavior: 'smooth' }); }
@@ -124,11 +103,7 @@
           <option value="ja">JA</option><option value="ko">KO</option><option value="ru">RU</option>
           <option value="ar">AR</option><option value="id">ID</option>
         </select>
-        {#if GOOGLE_CLIENT_ID}
-          <div class="nav-signin" bind:this={googleBtnNavRef}></div>
-        {:else}
-          <button class="btn-primary sm" onclick={() => authStore.setReady()}>{t('landing.tryDemo')}</button>
-        {/if}
+        <button class="btn-primary sm" onclick={() => authStore.setReady()}>{t('landing.tryDemo')}</button>
       </div>
     </div>
   </nav>
@@ -142,14 +117,10 @@
       <h1>{t('landing.heroTitle')}</h1>
       <p class="hero-sub">{t('landing.heroSub')}</p>
       <div class="hero-ctas">
-        {#if GOOGLE_CLIENT_ID}
-          <div bind:this={googleBtnNavRef}></div>
-        {:else}
-          <button class="btn-primary" onclick={() => authStore.setReady()}>{t('landing.tryDemo')}</button>
-        {/if}
+        <button class="btn-primary" onclick={() => authStore.setReady()}>{t('landing.tryDemo')}</button>
         <button class="btn-secondary" onclick={() => scrollTo('features')}>{t('landing.features')} ↓</button>
       </div>
-      {#if gsiError}<p class="hero-error">{t('auth.error')}</p>{/if}
+      <p class="hero-status">{t('landing.statusNote')}</p>
     </div>
 
     <div class="hero-visual">
@@ -176,84 +147,116 @@
     <div class="metric"><span class="metric-num">$0</span><span class="metric-label">{t('landing.metricFree')}</span></div>
   </section>
 
-  <!-- ═══ FEATURES (alternating rows with real screenshots) ═══ -->
+  <!-- ═══ FEATURES ═══ -->
   <section class="features" id="features">
     <div class="section-inner">
-      <div class="section-header reveal"><h2>{t('landing.featuresTitle')}</h2></div>
 
-      <!-- Row 1: Diagrams -->
+      <!-- ── MODO BÁSICO ── -->
+      <div class="mode-header reveal">
+        <div class="mode-badge mode-badge-basic">{t('landing.modeBasicBadge')}</div>
+        <h2>{t('landing.modeBasicTitle')}</h2>
+        <p class="section-sub">{t('landing.modeBasicSub')}</p>
+      </div>
+
+      <!-- 2D Analysis -->
       <div class="feature-row reveal">
         <div class="feature-img-wrap">
           <div class="browser-frame compact"><div class="browser-bar sm"><div class="browser-dots"><span class="dot r"></span><span class="dot y"></span><span class="dot g"></span></div></div>
-            <div class="browser-content"><img src="/screenshots/diagrams.png" alt={t('landing.feat3Title')} loading="lazy" /></div>
+            <div class="browser-content"><img src="/screenshots/diagrams.png" alt={t('landing.basic2dTitle')} loading="lazy" /></div>
           </div>
         </div>
         <div class="feature-text">
-          <div class="feature-tag">{t('landing.tagAnalysis')}</div>
-          <h3>{t('landing.feat3Title')}</h3>
-          <p>{t('landing.feat3Desc')}</p>
+          <div class="feature-tag">{t('landing.tagAnalysis2D')}</div>
+          <h3>{t('landing.basic2dTitle')}</h3>
+          <p>{t('landing.basic2dDesc')}</p>
           <ul class="feature-list">
-            <li>{t('landing.feat3Item1')}</li>
-            <li>{t('landing.feat3Item2')}</li>
-            <li>{t('landing.feat3Item3')}</li>
-            <li>{t('landing.feat3Item4')}</li>
+            <li>{t('landing.basic2d1')}</li>
+            <li>{t('landing.basic2d2')}</li>
+            <li>{t('landing.basic2d3')}</li>
+            <li>{t('landing.basic2d4')}</li>
+            <li>{t('landing.basic2d5')}</li>
           </ul>
         </div>
       </div>
 
-      <!-- Row 2: 3D -->
+      <!-- 3D Analysis -->
       <div class="feature-row reverse reveal">
         <div class="feature-img-wrap">
           <div class="browser-frame compact"><div class="browser-bar sm"><div class="browser-dots"><span class="dot r"></span><span class="dot y"></span><span class="dot g"></span></div></div>
-            <div class="browser-content"><img src="/screenshots/hero-3d.png" alt={t('landing.preview3dTitle')} loading="lazy" /></div>
+            <div class="browser-content"><img src="/screenshots/hero-3d.png" alt={t('landing.basic3dTitle')} loading="lazy" /></div>
           </div>
         </div>
         <div class="feature-text">
-          <div class="feature-tag teal">{t('landing.tag3D')}</div>
-          <h3>{t('landing.preview3dTitle')}</h3>
-          <p>{t('landing.preview3dDesc')}</p>
+          <div class="feature-tag teal">{t('landing.tagAnalysis3D')}</div>
+          <h3>{t('landing.basic3dTitle')}</h3>
+          <p>{t('landing.basic3dDesc')}</p>
           <ul class="feature-list">
-            <li>{t('landing.preview3d1')}</li>
-            <li>{t('landing.preview3d2')}</li>
-            <li>{t('landing.preview3d3')}</li>
-            <li>{t('landing.preview3d4')}</li>
+            <li>{t('landing.basic3d1')}</li>
+            <li>{t('landing.basic3d2')}</li>
+            <li>{t('landing.basic3d3')}</li>
+            <li>{t('landing.basic3d4')}</li>
           </ul>
         </div>
       </div>
 
-      <!-- Row 3: Modeling -->
+      <!-- ── MODO EDUCATIVO ── -->
+      <div class="mode-header reveal">
+        <div class="mode-badge mode-badge-edu">{t('landing.modeEduBadge')}</div>
+        <h2>{t('landing.modeEduTitle')}</h2>
+        <p class="section-sub">{t('landing.modeEduSub')}</p>
+      </div>
+
       <div class="feature-row reveal">
         <div class="feature-img-wrap">
           <div class="browser-frame compact"><div class="browser-bar sm"><div class="browser-dots"><span class="dot r"></span><span class="dot y"></span><span class="dot g"></span></div></div>
-            <div class="browser-content"><img src="/screenshots/hero-2d.png" alt={t('landing.preview2dTitle')} loading="lazy" /></div>
+            <div class="browser-content"><img src="/screenshots/hero-2d.png" alt={t('landing.modeEduTitle')} loading="lazy" /></div>
           </div>
         </div>
         <div class="feature-text">
-          <div class="feature-tag yellow">{t('landing.tagModeling')}</div>
-          <h3>{t('landing.preview2dTitle')}</h3>
-          <p>{t('landing.preview2dDesc')}</p>
+          <div class="feature-tag green">{t('landing.tagEdu')}</div>
+          <h3>{t('landing.eduNowTitle')}</h3>
+          <p>{t('landing.eduNowDesc')}</p>
           <ul class="feature-list">
-            <li>{t('landing.preview2d1')}</li>
-            <li>{t('landing.preview2d2')}</li>
-            <li>{t('landing.preview2d3')}</li>
-            <li>{t('landing.preview2d4')}</li>
+            <li>{t('landing.eduNow1')}</li>
+            <li>{t('landing.eduNow2')}</li>
+            <li>{t('landing.eduNow3')}</li>
+          </ul>
+          <h3 class="coming-soon-h3">{t('landing.eduSoonTitle')}</h3>
+          <ul class="feature-list coming-soon-list">
+            <li>{t('landing.eduSoon1')}</li>
+            <li>{t('landing.eduSoon2')}</li>
+            <li>{t('landing.eduSoon3')}</li>
           </ul>
         </div>
       </div>
-    </div>
-  </section>
 
-  <!-- ═══ FEATURE CARDS ═══ -->
-  <section class="cards-section reveal">
-    <div class="section-inner">
-      <div class="cards-grid">
-        <div class="card"><div class="card-icon ci-teal"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg></div><h4>{t('landing.feat1Title')}</h4><p>{t('landing.feat1Desc')}</p></div>
-        <div class="card"><div class="card-icon ci-red"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M3 6h18M3 12h18M3 18h18"/><circle cx="7" cy="6" r="2" fill="currentColor" opacity="0.2"/><circle cx="14" cy="12" r="2" fill="currentColor" opacity="0.2"/></svg></div><h4>{t('landing.feat2Title')}</h4><p>{t('landing.feat2Desc')}</p></div>
-        <div class="card"><div class="card-icon ci-yellow"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"/></svg></div><h4>{t('landing.feat4Title')}</h4><p>{t('landing.feat4Desc')}</p></div>
-        <div class="card"><div class="card-icon ci-green"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1M12 4v12M8 8l4-4 4 4"/></svg></div><h4>{t('landing.feat5Title')}</h4><p>{t('landing.feat5Desc')}</p></div>
-        <div class="card"><div class="card-icon ci-purple"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="12" cy="12" r="10"/><path d="M2 12h20M12 2a15 15 0 014 10 15 15 0 01-4 10A15 15 0 018 12 15 15 0 0112 2z"/></svg></div><h4>{t('landing.feat6Title')}</h4><p>{t('landing.feat6Desc')}</p></div>
-        <div class="card oss-card"><div class="card-icon ci-white"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M9 19c-5 1.5-5-2.5-7-3m14 6v-3.87a3.37 3.37 0 00-.94-2.61c3.14-.35 6.44-1.54 6.44-7A5.44 5.44 0 0020 4.77 5.07 5.07 0 0019.91 1S18.73.65 16 2.48a13.38 13.38 0 00-7 0C6.27.65 5.09 1 5.09 1A5.07 5.07 0 005 4.77a5.44 5.44 0 00-1.5 3.78c0 5.42 3.3 6.61 6.44 7A3.37 3.37 0 009 18.13V22"/></svg></div><h4>{t('landing.openSource')}</h4><p>{t('landing.openSourceDesc')}</p><a href="https://github.com/Batuis/dedaliano" target="_blank" rel="noopener" class="card-link">{t('landing.viewOnGithub')} →</a></div>
+      <!-- ── MODO PRO ── -->
+      <div class="mode-header reveal">
+        <div class="mode-badge mode-badge-pro">{t('landing.modeProBadge')}</div>
+        <h2>{t('landing.modeProTitle')}</h2>
+        <p class="section-sub">{t('landing.modeProSub')}</p>
       </div>
+
+      <div class="feature-row reverse reveal">
+        <div class="feature-img-wrap">
+          <div class="browser-frame compact"><div class="browser-bar sm"><div class="browser-dots"><span class="dot r"></span><span class="dot y"></span><span class="dot g"></span></div></div>
+            <div class="browser-content"><img src="/screenshots/hero-2d-solved.png" alt={t('landing.modeProTitle')} loading="lazy" /></div>
+          </div>
+        </div>
+        <div class="feature-text">
+          <div class="feature-tag pro-tag">{t('landing.tagPro')}</div>
+          <h3>{t('landing.proTitle')}</h3>
+          <p>{t('landing.proDesc')}</p>
+          <ul class="feature-list">
+            <li>{t('landing.pro1')}</li>
+            <li>{t('landing.pro2')}</li>
+            <li>{t('landing.pro3')}</li>
+            <li>{t('landing.pro4')}</li>
+            <li>{t('landing.pro5')}</li>
+          </ul>
+        </div>
+      </div>
+
     </div>
   </section>
 
@@ -316,9 +319,7 @@
           <div class="price-amount">$0</div>
           <p class="price-period">{t('landing.priceForever')}</p>
           <ul><li>{t('landing.priceFree1')}</li><li>{t('landing.priceFree2')}</li><li>{t('landing.priceFree3')}</li><li>{t('landing.priceFree4')}</li><li>{t('landing.priceFree5')}</li><li>{t('landing.priceFree6')}</li></ul>
-          {#if !GOOGLE_CLIENT_ID}
-            <button class="btn-primary card-cta" onclick={() => authStore.setReady()}>{t('landing.tryDemo')}</button>
-          {/if}
+          <button class="btn-primary card-cta" onclick={() => authStore.setReady()}>{t('landing.tryDemo')}</button>
         </div>
         <div class="price-card featured">
           <div class="price-ribbon">{t('landing.comingSoon')}</div>
@@ -373,11 +374,7 @@
     <div class="section-inner">
       <h2>{t('landing.ctaTitle')}</h2>
       <p>{t('landing.ctaSub')}</p>
-      {#if GOOGLE_CLIENT_ID}
-        <div class="final-google-btn" bind:this={googleBtnBottomRef}></div>
-      {:else}
-        <button class="btn-primary large" onclick={() => authStore.setReady()}>{t('landing.tryDemo')}</button>
-      {/if}
+      <button class="btn-primary large" onclick={() => authStore.setReady()}>{t('landing.tryDemo')}</button>
     </div>
   </section>
 
@@ -391,9 +388,7 @@
 
   <!-- Mobile sticky CTA -->
   <div class="mobile-sticky">
-    {#if !GOOGLE_CLIENT_ID}
-      <button class="btn-primary" onclick={() => authStore.setReady()}>{t('landing.stickyCtaMobile')}</button>
-    {/if}
+    <button class="btn-primary" onclick={() => authStore.setReady()}>{t('landing.tryDemo')}</button>
   </div>
 </div>
 
@@ -460,7 +455,7 @@
   .hero h1 { font-size: clamp(2.4rem,5vw,3.6rem); font-weight: 800; line-height: 1.1; margin: 0 0 1.1rem; background: linear-gradient(135deg, #ffffff 0%, #c0c6d4 100%); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text; }
   .hero-sub { font-size: clamp(0.95rem,2vw,1.1rem); color: #8891a5; line-height: 1.65; margin: 0 0 2rem; }
   .hero-ctas { display: flex; gap: 0.75rem; justify-content: center; flex-wrap: wrap; }
-  .hero-error { color: #e94560; font-size: 0.8rem; margin-top: 1rem; }
+  .hero-status { color: #5c6480; font-size: 0.78rem; margin-top: 1.2rem; line-height: 1.5; }
 
   /* ═══ BROWSER FRAMES ═══ */
   .hero-visual { position: relative; width: 100%; max-width: 960px; z-index: 1; }
@@ -500,6 +495,17 @@
   .feature-tag { display: inline-block; font-size: 0.65rem; font-weight: 600; color: #e94560; background: rgba(233,69,96,0.08); border: 1px solid rgba(233,69,96,0.15); padding: 0.2rem 0.6rem; border-radius: 4px; margin-bottom: 0.75rem; text-transform: uppercase; letter-spacing: 0.06em; }
   .feature-tag.teal { color: #5eeadb; background: rgba(94,234,219,0.07); border-color: rgba(94,234,219,0.15); }
   .feature-tag.yellow { color: #fbbf24; background: rgba(251,191,36,0.07); border-color: rgba(251,191,36,0.12); }
+  .feature-tag.green { color: #34d399; background: rgba(52,211,153,0.07); border-color: rgba(52,211,153,0.15); }
+  .feature-tag.pro-tag { color: #f0a500; background: rgba(240,165,0,0.08); border-color: rgba(240,165,0,0.15); }
+  .mode-header { text-align: center; margin-bottom: 2.5rem; margin-top: 2rem; }
+  .mode-badge { display: inline-block; font-size: 0.62rem; font-weight: 700; padding: 0.25rem 0.8rem; border-radius: 20px; margin-bottom: 1rem; letter-spacing: 0.07em; text-transform: uppercase; }
+  .mode-badge-basic { color: #e94560; background: rgba(233,69,96,0.08); border: 1px solid rgba(233,69,96,0.2); }
+  .mode-badge-edu { color: #34d399; background: rgba(52,211,153,0.08); border: 1px solid rgba(52,211,153,0.2); }
+  .mode-badge-pro { color: #f0a500; background: rgba(240,165,0,0.08); border: 1px solid rgba(240,165,0,0.2); }
+  .coming-soon-h3 { margin-top: 1.2rem !important; color: #8891a5 !important; font-size: 1rem !important; }
+  .coming-soon-list li { color: #5c6480; }
+  .coming-soon-list li::before { color: #5c6480; content: '◇'; }
+  .dev-note { display: inline-block; font-size: 0.65rem; color: #5c6480; background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.06); padding: 0.2rem 0.6rem; border-radius: 4px; margin-top: 0.5rem; }
   .feature-text h3 { color: #eef0f6; font-size: 1.4rem; font-weight: 700; margin: 0 0 0.6rem; line-height: 1.25; }
   .feature-text p { color: #8891a5; font-size: 0.88rem; line-height: 1.6; margin: 0 0 1rem; }
   .feature-list { list-style: none; padding: 0; margin: 0; }
@@ -581,7 +587,6 @@
   .final-cta { text-align: center; padding: 6rem 1.5rem; background: linear-gradient(180deg, transparent, rgba(233,69,96,0.04)); }
   .final-cta h2 { margin-bottom: 0.6rem; }
   .final-cta p { color: #8891a5; margin-bottom: 2rem; font-size: 0.95rem; }
-  .final-google-btn { display: flex; justify-content: center; }
 
   /* ═══ FOOTER ═══ */
   .lp-footer { border-top: 1px solid rgba(255,255,255,0.04); padding: 1.5rem; background: rgba(28,33,51,0.4); }
