@@ -670,6 +670,30 @@ pub fn assemble_3d(input: &SolverInput3D, dof_num: &DofNumbering) -> AssemblyRes
                 }
             }
         }
+        // Quad self-weight loads
+        if let SolverLoad3D::QuadSelfWeight(sw) = load {
+            if let Some(&quad) = quad_map.get(&sw.element_id) {
+                let n0 = node_map[&quad.nodes[0]];
+                let n1 = node_map[&quad.nodes[1]];
+                let n2 = node_map[&quad.nodes[2]];
+                let n3 = node_map[&quad.nodes[3]];
+                let coords = [
+                    [n0.x, n0.y, n0.z],
+                    [n1.x, n1.y, n1.z],
+                    [n2.x, n2.y, n2.z],
+                    [n3.x, n3.y, n3.z],
+                ];
+                let f_sw = crate::element::quad::quad_self_weight_load(
+                    &coords, sw.density, quad.thickness, sw.gx, sw.gy, sw.gz,
+                );
+                let quad_dofs = dof_num.quad_element_dofs(&quad.nodes);
+                for (i, &dof) in quad_dofs.iter().enumerate() {
+                    if i < f_sw.len() {
+                        f_global[dof] += f_sw[i];
+                    }
+                }
+            }
+        }
         // Quad edge loads
         if let SolverLoad3D::QuadEdge(el) = load {
             if let Some(&quad) = quad_map.get(&el.element_id) {

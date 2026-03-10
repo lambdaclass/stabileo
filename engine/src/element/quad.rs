@@ -1018,6 +1018,40 @@ pub fn quad_thermal_load(
     f_global
 }
 
+/// Consistent body force (self-weight) load vector for quad element (24-DOF).
+///
+/// Integrates `f_i = (rho / 1000) * t * N_i * [gx, gy, gz] * dA` over the element.
+/// Division by 1000 converts N to kN (solver force unit) since rho is kg/m³ and g is m/s².
+pub fn quad_self_weight_load(
+    coords: &[[f64; 3]; 4],
+    rho: f64,
+    t: f64,
+    gx: f64,
+    gy: f64,
+    gz: f64,
+) -> Vec<f64> {
+    let (ex, ey, _) = quad_local_axes(coords);
+    let pts = project_to_2d(coords, &ex, &ey);
+
+    let mut f = vec![0.0; 24];
+    let gauss = gauss_2x2();
+
+    for &((xi, eta), w_g) in &gauss {
+        let (_, _, det_j) = jacobian_2d(&pts, xi, eta);
+        let n = shape_functions(xi, eta);
+        let dv = det_j.abs() * w_g;
+
+        for i in 0..4 {
+            let w = (rho / 1000.0) * t * n[i] * dv;
+            f[i * 6]     += w * gx;
+            f[i * 6 + 1] += w * gy;
+            f[i * 6 + 2] += w * gz;
+        }
+    }
+
+    f
+}
+
 /// Consistent edge load vector for quad element (24-DOF).
 ///
 /// `edge`: edge index 0-3 (0=nodes 0→1, 1=nodes 1→2, 2=nodes 2→3, 3=nodes 3→0).

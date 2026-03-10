@@ -309,6 +309,24 @@ pub enum SolverLoad3D {
     QuadThermal(SolverPlateThermalLoad),
     #[serde(rename = "quadEdge")]
     QuadEdge(SolverQuadEdgeLoad),
+    #[serde(rename = "quadSelfWeight")]
+    QuadSelfWeight(SolverQuadSelfWeightLoad),
+}
+
+/// Body force (self-weight) load on a quad element.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct SolverQuadSelfWeightLoad {
+    pub element_id: usize,
+    /// Mass density (kg/m³)
+    pub density: f64,
+    /// Gravity acceleration components (m/s²), global coordinates
+    #[serde(default)]
+    pub gx: f64,
+    #[serde(default)]
+    pub gy: f64,
+    #[serde(default)]
+    pub gz: f64,
 }
 
 /// Edge load on a quad element.
