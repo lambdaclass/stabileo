@@ -14,6 +14,7 @@ pub struct AssemblyResult {
     pub max_diag_k: f64,   // Maximum diagonal element (for artificial stiffness)
     pub artificial_dofs: Vec<usize>, // DOFs with artificial stiffness added
     pub inclined_transforms: Vec<InclinedTransformData>, // Data for reversing inclined support rotations
+    pub diagnostics: Vec<crate::types::AssemblyDiagnostic>, // Element quality warnings
 }
 
 /// Data needed to reverse the inclined support rotation after solving.
@@ -180,6 +181,13 @@ pub fn assemble_2d(input: &SolverInput, dof_num: &DofNumbering) -> AssemblyResul
         }
     }
 
+    // Assemble connector elements
+    if !input.connectors.is_empty() {
+        crate::element::connector::assemble_connectors_2d(
+            &input.connectors, &input.nodes, dof_num, &mut k_global, n,
+        );
+    }
+
     // Assemble nodal loads
     for load in &input.loads {
         if let SolverLoad::Nodal(nl) = load {
@@ -280,6 +288,7 @@ pub fn assemble_2d(input: &SolverInput, dof_num: &DofNumbering) -> AssemblyResul
         max_diag_k: max_diag,
         artificial_dofs,
         inclined_transforms: Vec::new(),
+        diagnostics: Vec::new(),
     }
 }
 
@@ -528,6 +537,13 @@ pub fn assemble_3d(input: &SolverInput3D, dof_num: &DofNumbering) -> AssemblyRes
         }
     }
 
+    // Assemble 3D connector elements
+    if !input.connectors.is_empty() {
+        crate::element::connector::assemble_connectors_3d(
+            &input.connectors, &input.nodes, dof_num, &mut k_global, n,
+        );
+    }
+
     // Assemble 3D nodal loads
     for load in &input.loads {
         if let SolverLoad3D::Nodal(nl) = load {
@@ -748,12 +764,92 @@ pub fn assemble_3d(input: &SolverInput3D, dof_num: &DofNumbering) -> AssemblyRes
         }
     }
 
+    // Element quality diagnostics
+    let mut diagnostics = Vec::new();
+
+    for plate in input.plates.values() {
+        let n0 = node_map[&plate.nodes[0]];
+        let n1 = node_map[&plate.nodes[1]];
+        let n2 = node_map[&plate.nodes[2]];
+        let coords = [
+            [n0.x, n0.y, n0.z],
+            [n1.x, n1.y, n1.z],
+            [n2.x, n2.y, n2.z],
+        ];
+        let (aspect_ratio, _skew, min_angle) = crate::element::plate_element_quality(&coords);
+        if aspect_ratio > 10.0 {
+            diagnostics.push(crate::types::AssemblyDiagnostic {
+                element_id: plate.id,
+                element_type: "plate".into(),
+                metric: "aspect_ratio".into(),
+                value: aspect_ratio,
+                threshold: 10.0,
+                message: format!("Plate {} aspect ratio {:.1} exceeds 10", plate.id, aspect_ratio),
+            });
+        }
+        if min_angle < 10.0 {
+            diagnostics.push(crate::types::AssemblyDiagnostic {
+                element_id: plate.id,
+                element_type: "plate".into(),
+                metric: "min_angle".into(),
+                value: min_angle,
+                threshold: 10.0,
+                message: format!("Plate {} min angle {:.1}° below 10°", plate.id, min_angle),
+            });
+        }
+    }
+
+    for quad in input.quads.values() {
+        let qn0 = node_map[&quad.nodes[0]];
+        let qn1 = node_map[&quad.nodes[1]];
+        let qn2 = node_map[&quad.nodes[2]];
+        let qn3 = node_map[&quad.nodes[3]];
+        let coords = [
+            [qn0.x, qn0.y, qn0.z],
+            [qn1.x, qn1.y, qn1.z],
+            [qn2.x, qn2.y, qn2.z],
+            [qn3.x, qn3.y, qn3.z],
+        ];
+        let qm = crate::element::quad::quad_quality_metrics(&coords);
+        if qm.aspect_ratio > 10.0 {
+            diagnostics.push(crate::types::AssemblyDiagnostic {
+                element_id: quad.id,
+                element_type: "quad".into(),
+                metric: "aspect_ratio".into(),
+                value: qm.aspect_ratio,
+                threshold: 10.0,
+                message: format!("Quad {} aspect ratio {:.1} exceeds 10", quad.id, qm.aspect_ratio),
+            });
+        }
+        if qm.warping > 0.1 {
+            diagnostics.push(crate::types::AssemblyDiagnostic {
+                element_id: quad.id,
+                element_type: "quad".into(),
+                metric: "warping".into(),
+                value: qm.warping,
+                threshold: 0.1,
+                message: format!("Quad {} warping {:.3} exceeds 0.1", quad.id, qm.warping),
+            });
+        }
+        if qm.jacobian_ratio < 0.1 {
+            diagnostics.push(crate::types::AssemblyDiagnostic {
+                element_id: quad.id,
+                element_type: "quad".into(),
+                metric: "jacobian_ratio".into(),
+                value: qm.jacobian_ratio,
+                threshold: 0.1,
+                message: format!("Quad {} jacobian ratio {:.3} below 0.1", quad.id, qm.jacobian_ratio),
+            });
+        }
+    }
+
     AssemblyResult {
         k: k_global,
         f: f_global,
         max_diag_k: max_diag,
         artificial_dofs: artificial_dofs_3d,
         inclined_transforms,
+        diagnostics,
     }
 }
 
@@ -1036,6 +1132,37 @@ pub fn assemble_sparse_2d(input: &SolverInput, dof_num: &DofNumbering) -> Sparse
         }
     }
 
+    // Connector elements (sparse path)
+    for conn in input.connectors.values() {
+        let node_map_2d: std::collections::HashMap<usize, &SolverNode> =
+            input.nodes.values().map(|nd| (nd.id, nd)).collect();
+        let ni = match node_map_2d.get(&conn.node_i) { Some(n) => n, None => continue };
+        let nj = match node_map_2d.get(&conn.node_j) { Some(n) => n, None => continue };
+        let dx = nj.x - ni.x;
+        let dy = nj.y - ni.y;
+        let l = (dx * dx + dy * dy).sqrt();
+        let (cos, sin) = if l > 1e-15 { (dx / l, dy / l) } else { (1.0, 0.0) };
+        let ke = crate::element::connector::connector_stiffness_2d(
+            conn.k_axial, conn.k_shear, conn.k_moment, cos, sin,
+        );
+        let dofs = dof_num.element_dofs(conn.node_i, conn.node_j);
+        let ndof = dofs.len();
+        for i in 0..ndof {
+            if dofs[i] >= nf { continue; }
+            for j in 0..ndof {
+                if dofs[j] >= nf { continue; }
+                let gi = dofs[i];
+                let gj = dofs[j];
+                if gi >= gj {
+                    trip_rows.push(gi);
+                    trip_cols.push(gj);
+                    trip_vals.push(ke[i * 6 + j]);
+                }
+            }
+            diag_vals[dofs[i]] += ke[i * 6 + i];
+        }
+    }
+
     // Nodal loads
     for load in &input.loads {
         if let SolverLoad::Nodal(nl) = load {
@@ -1235,6 +1362,35 @@ pub fn assemble_sparse_3d(input: &SolverInput3D, dof_num: &DofNumbering) -> Spar
                 }
                 assemble_element_loads_3d(input, elem, &t, l, e, sec, &elem_dofs, &mut f_global);
             }
+        }
+    }
+
+    // 3D connector elements (sparse path)
+    for conn in input.connectors.values() {
+        let ni = match node_map.get(&conn.node_i) { Some(n) => n, None => continue };
+        let nj_node = match node_map.get(&conn.node_j) { Some(n) => n, None => continue };
+        let dx = nj_node.x - ni.x;
+        let dy = nj_node.y - ni.y;
+        let dz = nj_node.z - ni.z;
+        let l = (dx * dx + dy * dy + dz * dz).sqrt();
+        let dir = if l > 1e-15 { [dx / l, dy / l, dz / l] } else { [1.0, 0.0, 0.0] };
+        let ke = crate::element::connector::connector_stiffness_3d(
+            conn.k_axial, conn.k_shear, conn.k_shear_z,
+            conn.k_moment, conn.k_bend_y, conn.k_bend_z, dir,
+        );
+        let dofs = dof_num.element_dofs(conn.node_i, conn.node_j);
+        let ndof = dofs.len();
+        for i in 0..ndof {
+            if dofs[i] >= nf { continue; }
+            for j in 0..ndof {
+                if dofs[j] >= nf { continue; }
+                let gi = dofs[i];
+                let gj = dofs[j];
+                if gi >= gj {
+                    trip_rows.push(gi); trip_cols.push(gj); trip_vals.push(ke[i * 12 + j]);
+                }
+            }
+            diag_vals[dofs[i]] += ke[i * 12 + i];
         }
     }
 

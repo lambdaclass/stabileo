@@ -127,10 +127,27 @@ export interface ElementForces {
   hingeEnd: boolean;
 }
 
+export interface ConstraintForce {
+  nodeId: number;
+  dof: string;   // "ux", "uy", "rz", etc.
+  force: number; // kN or kN·m
+}
+
+export interface AssemblyDiagnostic {
+  elementId: number;
+  elementType: string;
+  metric: string;
+  value: number;
+  threshold: number;
+  message: string;
+}
+
 export interface AnalysisResults {
   displacements: Displacement[];
   reactions: Reaction[];
   elementForces: ElementForces[];
+  constraintForces?: ConstraintForce[];
+  diagnostics?: AssemblyDiagnostic[];
 }
 
 /** Envolvente puntual pre-computada para un elemento */

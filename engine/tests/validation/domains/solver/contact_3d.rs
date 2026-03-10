@@ -125,6 +125,7 @@ fn build_solver_input_3d(
         plates: HashMap::new(),
         quads: HashMap::new(),
         curved_beams: vec![],
+        connectors: HashMap::new(),
     }
 }
 

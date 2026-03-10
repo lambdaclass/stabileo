@@ -69,6 +69,10 @@ pub struct AnalysisResults {
     pub displacements: Vec<Displacement>,
     pub reactions: Vec<Reaction>,
     pub element_forces: Vec<ElementForces>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub constraint_forces: Vec<ConstraintForce>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub diagnostics: Vec<AssemblyDiagnostic>,
 }
 
 /// Forces at constrained DOFs due to constraint enforcement.
@@ -78,6 +82,20 @@ pub struct ConstraintForce {
     pub node_id: usize,
     pub dof: String,
     pub force: f64,
+}
+
+// ==================== Assembly Diagnostics ====================
+
+/// Warning emitted when an element exceeds quality thresholds during assembly.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct AssemblyDiagnostic {
+    pub element_id: usize,
+    pub element_type: String,
+    pub metric: String,
+    pub value: f64,
+    pub threshold: f64,
+    pub message: String,
 }
 
 // ==================== 3D Output Types ====================
@@ -164,6 +182,12 @@ pub struct AnalysisResults3D {
     pub plate_stresses: Vec<PlateStress>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub quad_stresses: Vec<QuadStress>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub quad_nodal_stresses: Vec<QuadNodalStress>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub constraint_forces: Vec<ConstraintForce>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub diagnostics: Vec<AssemblyDiagnostic>,
 }
 
 // ==================== Quad Stress Output ====================
@@ -182,6 +206,20 @@ pub struct QuadStress {
     /// Nodal von Mises stresses (4 values, one per node).
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub nodal_von_mises: Vec<f64>,
+}
+
+/// Full stress tensor at a quad element node (extrapolated from Gauss points).
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct QuadNodalStress {
+    pub node_index: usize,
+    pub sigma_xx: f64,
+    pub sigma_yy: f64,
+    pub tau_xy: f64,
+    pub mx: f64,
+    pub my: f64,
+    pub mxy: f64,
+    pub von_mises: f64,
 }
 
 // ==================== Plate Stress Output ====================

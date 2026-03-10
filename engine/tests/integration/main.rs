@@ -6,6 +6,7 @@ mod cfs_check;
 mod cirsoc201_check;
 mod connection_check;
 mod corotational_3d;
+mod eccentric_connections;
 mod ec2_check;
 mod ec3_check;
 mod foundation_check;

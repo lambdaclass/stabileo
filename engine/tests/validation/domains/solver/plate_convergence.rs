@@ -102,6 +102,7 @@ fn make_plate_input(
         plates,
         quads: HashMap::new(),
         curved_beams: vec![],
+        connectors: HashMap::new(),
     }
 }
 
@@ -721,6 +722,7 @@ fn convergence_plate_modal_fundamental_frequency() {
         plates,
         quads: HashMap::new(),
         curved_beams: vec![],
+        connectors: HashMap::new(),
     };
 
     let mut densities = HashMap::new();

@@ -76,7 +76,8 @@ fn make_input(
         sections: secs_map,
         elements: elems_map,
         supports: sups_map,
-        loads, constraints: vec![], }
+        loads, constraints: vec![],
+        connectors: HashMap::new(), }
 }
 
 /// Multi-element simply-supported beam with UDL.
@@ -296,7 +297,8 @@ fn make_input_3d(
         elements: elems_map,
         supports: sups_map,
         loads,
-        constraints: vec![], left_hand: None, plates: HashMap::new(), quads: HashMap::new(), curved_beams: vec![],    }
+        constraints: vec![], left_hand: None, plates: HashMap::new(), quads: HashMap::new(), curved_beams: vec![],
+        connectors: HashMap::new(),    }
 }
 
 /// 3D cantilever beam along X-axis with tip load in Z.

@@ -136,6 +136,8 @@ pub fn solve_2d(input: &SolverInput) -> Result<AnalysisResults, String> {
         displacements,
         reactions,
         element_forces,
+        constraint_forces: vec![],
+        diagnostics: vec![],
     })
 }
 
@@ -258,6 +260,9 @@ pub fn solve_3d(input: &SolverInput3D) -> Result<AnalysisResults3D, String> {
         element_forces,
         plate_stresses,
         quad_stresses,
+        quad_nodal_stresses: compute_quad_nodal_stresses(input, &dof_num, &u_full),
+        constraint_forces: vec![],
+        diagnostics: asm.diagnostics,
     })
 }
 
@@ -1109,6 +1114,53 @@ pub(crate) fn compute_quad_stresses(
             von_mises: s.von_mises,
             nodal_von_mises: nodal_vm,
         });
+    }
+
+    stresses
+}
+
+pub(crate) fn compute_quad_nodal_stresses(
+    input: &SolverInput3D,
+    dof_num: &DofNumbering,
+    u: &[f64],
+) -> Vec<QuadNodalStress> {
+    let mut stresses = Vec::new();
+
+    let node_map: std::collections::HashMap<usize, &SolverNode3D> =
+        input.nodes.values().map(|n| (n.id, n)).collect();
+    let mat_map: std::collections::HashMap<usize, &SolverMaterial> =
+        input.materials.values().map(|m| (m.id, m)).collect();
+
+    for quad in input.quads.values() {
+        let mat = mat_map[&quad.material_id];
+        let e = mat.e * 1000.0;
+        let nu = mat.nu;
+
+        let n0 = node_map[&quad.nodes[0]];
+        let n1 = node_map[&quad.nodes[1]];
+        let n2 = node_map[&quad.nodes[2]];
+        let n3 = node_map[&quad.nodes[3]];
+        let coords = [
+            [n0.x, n0.y, n0.z],
+            [n1.x, n1.y, n1.z],
+            [n2.x, n2.y, n2.z],
+            [n3.x, n3.y, n3.z],
+        ];
+
+        let quad_dofs = dof_num.quad_element_dofs(&quad.nodes);
+        let u_global: Vec<f64> = quad_dofs.iter().map(|&d| u[d]).collect();
+
+        let t_quad = crate::element::quad::quad_transform_3d(&coords);
+        let u_local_vec = crate::linalg::transform_displacement(&u_global, &t_quad, 24);
+        let mut u_local = [0.0; 24];
+        u_local.copy_from_slice(&u_local_vec);
+
+        let nodal = crate::element::quad::quad_stress_at_nodes(&coords, &u_local, e, nu, quad.thickness);
+        for mut ns in nodal {
+            // Map local corner index to global node ID
+            ns.node_index = quad.nodes[ns.node_index];
+            stresses.push(ns);
+        }
     }
 
     stresses

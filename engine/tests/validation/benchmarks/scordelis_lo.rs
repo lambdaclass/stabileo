@@ -122,6 +122,7 @@ fn validation_plate_simply_supported_uniform_pressure() {
     let input = SolverInput3D {
         nodes, materials: mats, sections: HashMap::new(), elements: HashMap::new(),
         supports, loads, constraints: vec![], left_hand: None, plates, quads: HashMap::new(), curved_beams: vec![],
+        connectors: HashMap::new(),
     };
 
     let results = linear::solve_3d(&input).unwrap();
@@ -197,6 +198,7 @@ fn validation_cantilever_plate_tip_load() {
     let input = SolverInput3D {
         nodes, materials: mats, sections: HashMap::new(), elements: HashMap::new(),
         supports, loads, constraints: vec![], left_hand: None, plates, quads: HashMap::new(), curved_beams: vec![],
+        connectors: HashMap::new(),
     };
 
     let results = linear::solve_3d(&input).unwrap();
@@ -273,6 +275,7 @@ fn validation_plate_patch_test() {
     let input = SolverInput3D {
         nodes, materials: mats, sections: HashMap::new(), elements: HashMap::new(),
         supports, loads, constraints: vec![], left_hand: None, plates, quads: HashMap::new(), curved_beams: vec![],
+        connectors: HashMap::new(),
     };
 
     let results = linear::solve_3d(&input).unwrap();

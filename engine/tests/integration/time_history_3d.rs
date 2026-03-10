@@ -58,6 +58,7 @@ fn make_3d_cantilever() -> TimeHistoryInput3D {
         constraints: vec![], left_hand: None,
         plates: HashMap::new(), quads: HashMap::new(),
         curved_beams: vec![],
+        connectors: HashMap::new(),
     };
 
     let mut densities = HashMap::new();

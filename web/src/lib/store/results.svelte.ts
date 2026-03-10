@@ -1,7 +1,7 @@
 // Results store
 
 import type { AnalysisResults, InfluenceLineResult, Section, Material } from './model.svelte';
-import type { ElementForces, FullEnvelope } from '../engine/types';
+import type { ElementForces, FullEnvelope, ConstraintForce, AssemblyDiagnostic } from '../engine/types';
 import type { AnalysisResults3D, Displacement3D, Reaction3D, ElementForces3D, FullEnvelope3D } from '../engine/types-3d';
 import type { MovingLoadEnvelope } from '../engine/moving-loads';
 import type { PDeltaResult } from '../engine/pdelta';
@@ -586,6 +586,12 @@ function createResultsStore() {
         Math.max(Math.abs(f.vStart), Math.abs(f.vEnd))
       ));
     },
+
+    // Constraint forces & diagnostics (2D + 3D)
+    get constraintForces(): ConstraintForce[] { return results?.constraintForces ?? []; },
+    get diagnostics(): AssemblyDiagnostic[] { return results?.diagnostics ?? []; },
+    get constraintForces3D(): ConstraintForce[] { return results3D?.constraintForces ?? []; },
+    get diagnostics3D(): AssemblyDiagnostic[] { return results3D?.diagnostics ?? []; },
 
     get maxDisplacement(): number {
       if (!results) return 0;

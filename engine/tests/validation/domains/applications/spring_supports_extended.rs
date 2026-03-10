@@ -81,7 +81,7 @@ fn make_beam_with_springs(
         sid += 1;
     }
 
-    SolverInput { nodes, materials: mats, sections: secs, elements: elems, supports: sups, loads, constraints: vec![], }
+    SolverInput { nodes, materials: mats, sections: secs, elements: elems, supports: sups, loads, constraints: vec![],  connectors: HashMap::new() }
 }
 
 // ================================================================
@@ -323,7 +323,8 @@ fn validation_spring_rotational_sweep() {
 
         let input = SolverInput {
             nodes, materials: mats, sections: secs,
-            elements: elems, supports: sups, loads, constraints: vec![], };
+            elements: elems, supports: sups, loads, constraints: vec![],
+            connectors: HashMap::new(), };
         let results = linear::solve_2d(&input).unwrap();
         let tip = results.displacements.iter().find(|d| d.node_id == n + 1).unwrap();
         let deflection = tip.uy.abs();
@@ -570,7 +571,8 @@ fn validation_spring_opposing_free_beam() {
 
     let input = SolverInput {
         nodes, materials: mats, sections: secs,
-        elements: elems, supports: sups, loads, constraints: vec![], };
+        elements: elems, supports: sups, loads, constraints: vec![],
+        connectors: HashMap::new(), };
     let results = linear::solve_2d(&input).unwrap();
 
     // Global equilibrium: sum of spring reactions = P

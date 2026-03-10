@@ -525,7 +525,8 @@ fn validation_found_ext_mat_foundation_winkler() {
         ];
         SolverInput {
             nodes: nodes_map, materials: mats_map, sections: secs_map,
-            elements: elems_map, supports: sups_map, loads, constraints: vec![], }
+            elements: elems_map, supports: sups_map, loads, constraints: vec![],
+            connectors: HashMap::new(), }
     };
 
     // --- Rigid mat (very high Iz) ---

@@ -154,6 +154,7 @@ fn validation_composite_tapered_beam() {
         nodes, materials: mats, sections: secs,
         elements: elems, supports: sups, loads: loads_t,
     constraints: vec![],
+    connectors: std::collections::HashMap::new(),
     };
     let d_tapered = linear::solve_2d(&input_t).unwrap()
         .displacements.iter().find(|d| d.node_id == n + 1).unwrap().uy.abs();

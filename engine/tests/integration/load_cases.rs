@@ -52,7 +52,8 @@ fn make_beam_2d() -> SolverInput {
 
     SolverInput {
         nodes, materials, sections, elements, supports,
-        loads: vec![], constraints: vec![], }
+        loads: vec![], constraints: vec![],
+        connectors: HashMap::new(), }
 }
 
 fn make_beam_3d() -> SolverInput3D {
@@ -121,6 +122,7 @@ fn make_beam_3d() -> SolverInput3D {
         constraints: vec![], left_hand: None,
         plates: HashMap::new(), quads: HashMap::new(),
         curved_beams: vec![],
+        connectors: HashMap::new(),
     }
 }
 

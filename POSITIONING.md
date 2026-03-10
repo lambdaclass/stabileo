@@ -19,6 +19,12 @@ The stronger current claim is:
 
 `Dedaliano is becoming one of the strongest open structural solvers, with a broader product surface than most solver-first projects.`
 
+That claim is now supported by more than raw category count:
+
+- latest reported full-suite status of `6344` passing tests and `0` failures
+- explicit benchmark-gate suites for constraints, contact, shells, reduction, and sparse / conditioning paths
+- solver-core work that now includes constraints, shells, contact, SSI, fiber nonlinear analysis, imperfections, creep / shrinkage, and reduction
+
 ## What It Is Not
 
 Dedaliano is not:
@@ -63,6 +69,8 @@ The next differentiators are less about adding whole new solver categories and m
 - performance at scale
 - benchmark credibility on the newest solver families
 - shell and nonlinear workflow maturity
+- consistent solver-path behavior across constrained and unconstrained workflows
+- benchmark-gated release discipline on the newest solver families
 - scale-oriented workflow maturity such as reduction/substructuring and large-model solve discipline
 - productizing the full solver surface cleanly across app, API, and downstream tools
 
@@ -170,5 +178,7 @@ This is why solver quality should stay the center of the company narrative.
   engine-facing overview and analysis surface
 - [`BENCHMARKS.md`](/Users/unbalancedparen/projects/dedaliano/BENCHMARKS.md)
   validation status, solver capability matrix, and benchmark ledger
-- [`ROADMAP.md`](/Users/unbalancedparen/projects/dedaliano/ROADMAP.md)
-  execution order, product roadmap, and solver-first priorities
+- [`SOLVER_ROADMAP.md`](/Users/unbalancedparen/projects/dedaliano/SOLVER_ROADMAP.md)
+  solver mechanics, validation sequencing, and technical priorities
+- [`PRODUCT_ROADMAP.md`](/Users/unbalancedparen/projects/dedaliano/PRODUCT_ROADMAP.md)
+  app, workflow, and market sequencing

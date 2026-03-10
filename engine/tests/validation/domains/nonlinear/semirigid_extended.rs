@@ -82,7 +82,7 @@ fn make_semirigid_beam(
         dx: None, dy: None, drz: None, angle: None,
     });
 
-    SolverInput { nodes, materials: mats, sections: secs, elements: elems, supports: sups, loads, constraints: vec![], }
+    SolverInput { nodes, materials: mats, sections: secs, elements: elems, supports: sups, loads, constraints: vec![],  connectors: HashMap::new() }
 }
 
 // ================================================================
@@ -363,7 +363,8 @@ fn validation_sr_ext_4_portal_sway_semi_rigid() {
 
     let input_semi = SolverInput {
         nodes, materials: mats, sections: secs, elements: elems,
-        supports: sups, loads, constraints: vec![], };
+        supports: sups, loads, constraints: vec![],
+        connectors: HashMap::new(), };
     let res_semi = linear::solve_2d(&input_semi).unwrap();
     let sway_semi: f64 = res_semi.displacements.iter()
         .find(|d| d.node_id == 2).unwrap().ux.abs();
@@ -587,7 +588,8 @@ fn validation_sr_ext_7_effective_length() {
         supports: sups_soft,
         loads: vec![SolverLoad::Nodal(SolverNodalLoad {
             node_id: n + 1, fx: f, fy: 0.0, mz: 0.0,
-        })], constraints: vec![], };
+        })], constraints: vec![],
+        connectors: HashMap::new(), };
     let res_soft = linear::solve_2d(&input_soft).unwrap();
     let sway_soft: f64 = res_soft.displacements.iter()
         .find(|d| d.node_id == n + 1).unwrap().ux.abs();
@@ -605,7 +607,8 @@ fn validation_sr_ext_7_effective_length() {
         supports: sups_semi,
         loads: vec![SolverLoad::Nodal(SolverNodalLoad {
             node_id: n + 1, fx: f, fy: 0.0, mz: 0.0,
-        })], constraints: vec![], };
+        })], constraints: vec![],
+        connectors: HashMap::new(), };
     let res_semi = linear::solve_2d(&input_semi).unwrap();
     let sway_semi: f64 = res_semi.displacements.iter()
         .find(|d| d.node_id == n + 1).unwrap().ux.abs();

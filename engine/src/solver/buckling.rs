@@ -3,7 +3,7 @@ use crate::types::*;
 use crate::linalg::*;
 use super::dof::DofNumbering;
 use super::assembly::*;
-use super::geometric_stiffness::{build_kg_from_forces_2d, build_kg_from_forces_3d};
+use super::geometric_stiffness::{build_kg_from_forces_2d, build_kg_from_forces_3d, add_plate_geometric_stiffness_3d};
 use super::constraints::FreeConstraintSystem;
 
 /// Buckling analysis result.
@@ -244,6 +244,22 @@ pub fn solve_buckling_3d(
         );
     }
 
+    // Add plate (DKT triangle) geometric stiffness from membrane stress resultants
+    if !input.plates.is_empty() {
+        let mut u_full = vec![0.0; n];
+        for d in &linear.displacements {
+            let vals = [d.ux, d.uy, d.uz, d.rx, d.ry, d.rz];
+            for (i, &v) in vals.iter().enumerate() {
+                if let Some(&dof) = dof_num.map.get(&(d.node_id, i)) {
+                    u_full[dof] = v;
+                }
+            }
+        }
+        add_plate_geometric_stiffness_3d(
+            input, &dof_num, &u_full, &mut kg_full,
+        );
+    }
+
     let free_idx: Vec<usize> = (0..nf).collect();
     let asm = assemble_3d(input, &dof_num);
     let k_ff = extract_submatrix(&asm.k, n, &free_idx, &free_idx);
@@ -260,10 +276,13 @@ pub fn solve_buckling_3d(
         (k_ff, neg_kg_ff, nf)
     };
 
-    let has_compression = linear.element_forces.iter().any(|ef| {
+    let has_frame_compression = linear.element_forces.iter().any(|ef| {
         (ef.n_start + ef.n_end) / 2.0 < -1e-6
     });
-    if !has_compression {
+    // Also check if shell geometric stiffness has non-trivial entries
+    let has_shell_kg = (!input.quads.is_empty() || !input.plates.is_empty())
+        && neg_kg_solve.iter().any(|&v| v.abs() > 1e-15);
+    if !has_frame_compression && !has_shell_kg {
         return Err("No compressed elements — buckling not applicable".into());
     }
 

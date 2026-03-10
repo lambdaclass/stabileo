@@ -87,7 +87,7 @@ fn single_stage_matches_normal_solve() {
 
     // Normal solve
     let normal_input = SolverInput {
-        nodes, materials, sections, elements, supports, loads, constraints: vec![], };
+        nodes, materials, sections, elements, supports, loads, constraints: vec![],  connectors: HashMap::new() };
     let normal_results = dedaliano_engine::solver::linear::solve_2d(&normal_input).unwrap();
 
     // Compare midspan deflection (node 2)
@@ -559,6 +559,7 @@ fn staged_braced_frame_matches_linear_results() {
         supports: supports.clone(),
         loads: loads.clone(),
     constraints: vec![],
+    connectors: HashMap::new(),
     };
     let normal = solve_2d(&normal_input).unwrap();
 

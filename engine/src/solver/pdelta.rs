@@ -176,11 +176,22 @@ pub fn solve_pdelta_2d(
     // Compute reactions from K * u - F for restrained DOFs
     let reactions = compute_reactions_from_u(input, &dof_num, &asm, &u_current);
 
+    // Compute constraint forces if constraints are active
+    let constraint_forces = if let Some(ref fcs) = cs {
+        let k_ff = extract_submatrix(&asm.k, n, &free_idx, &free_idx);
+        let raw = fcs.compute_constraint_forces(&k_ff, &u_current[..nf], &asm.f[..nf]);
+        super::constraints::map_dof_forces_to_constraint_forces(&raw, &dof_num)
+    } else {
+        vec![]
+    };
+
     Ok(PDeltaResult {
         results: AnalysisResults {
             displacements,
             reactions,
             element_forces,
+            constraint_forces,
+            diagnostics: vec![],
         },
         iterations,
         converged,
@@ -393,8 +404,17 @@ pub fn solve_pdelta_3d(
     let element_forces = compute_internal_forces_3d(input, &dof_num, &u_current);
     let reactions = compute_reactions_from_u_3d(input, &dof_num, &asm, &u_current);
 
+    // Compute constraint forces if constraints are active
+    let constraint_forces = if let Some(ref fcs) = cs {
+        let k_ff = extract_submatrix(&asm.k, n, &free_idx, &free_idx);
+        let raw = fcs.compute_constraint_forces(&k_ff, &u_current[..nf], &asm.f[..nf]);
+        super::constraints::map_dof_forces_to_constraint_forces(&raw, &dof_num)
+    } else {
+        vec![]
+    };
+
     Ok(PDeltaResult3D {
-        results: AnalysisResults3D { displacements, reactions, element_forces, plate_stresses: compute_plate_stresses(input, &dof_num, &u_current), quad_stresses: compute_quad_stresses(input, &dof_num, &u_current) },
+        results: AnalysisResults3D { displacements, reactions, element_forces, plate_stresses: compute_plate_stresses(input, &dof_num, &u_current), quad_stresses: compute_quad_stresses(input, &dof_num, &u_current), quad_nodal_stresses: vec![], constraint_forces, diagnostics: vec![] },
         iterations,
         converged,
         is_stable: converged && max_ratio < 100.0,

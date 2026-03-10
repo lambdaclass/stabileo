@@ -196,6 +196,8 @@ export interface AnalysisResults3D {
   displacements: Displacement3D[];
   reactions: Reaction3D[];
   elementForces: ElementForces3D[];
+  constraintForces?: import('./types').ConstraintForce[];
+  diagnostics?: import('./types').AssemblyDiagnostic[];
 }
 
 // ─── Envelope types for 3D load combinations ─────────────────

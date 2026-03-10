@@ -220,7 +220,8 @@ fn validation_fixed_fixed_settlement() {
 
     let input = SolverInput {
         nodes: nodes_map, materials: mats_map, sections: secs_map,
-        elements: elems_map, supports: sups_map, loads: vec![], constraints: vec![], };
+        elements: elems_map, supports: sups_map, loads: vec![], constraints: vec![],
+        connectors: std::collections::HashMap::new(), };
 
     let results = linear::solve_2d(&input).unwrap();
 
@@ -303,7 +304,8 @@ fn validation_cantilever_tip_spring() {
 
     let input = SolverInput {
         nodes: nodes_map, materials: mats_map, sections: secs_map,
-        elements: elems_map, supports: sups_map, loads, constraints: vec![], };
+        elements: elems_map, supports: sups_map, loads, constraints: vec![],
+        connectors: std::collections::HashMap::new(), };
 
     let results = linear::solve_2d(&input).unwrap();
 

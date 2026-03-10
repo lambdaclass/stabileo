@@ -58,6 +58,7 @@ fn make_plastic_cantilever_3d() -> PlasticInput3D {
         constraints: vec![], left_hand: None,
         plates: HashMap::new(), quads: HashMap::new(),
         curved_beams: vec![],
+        connectors: HashMap::new(),
     };
 
     let mut plastic_sections = HashMap::new();
@@ -159,6 +160,7 @@ fn plastic_3d_fixed_beam_two_hinges() {
         left_hand: None,
         plates: HashMap::new(), quads: HashMap::new(),
         curved_beams: vec![],
+        connectors: HashMap::new(),
     };
 
     let mut plastic_sections = HashMap::new();
@@ -321,6 +323,7 @@ fn plastic_3d_portal_frame_mechanism() {
         left_hand: None,
         plates: HashMap::new(), quads: HashMap::new(),
         curved_beams: vec![],
+        connectors: HashMap::new(),
     };
 
     let mut plastic_sections = HashMap::new();

@@ -72,6 +72,7 @@ fn make_ss_beam_3d() -> SolverInput3D {
         constraints: vec![], left_hand: None,
         plates: HashMap::new(), quads: HashMap::new(),
         curved_beams: vec![],
+        connectors: HashMap::new(),
     }
 }
 
@@ -250,6 +251,7 @@ fn influence_3d_multispan() {
         constraints: vec![], left_hand: None,
         plates: HashMap::new(), quads: HashMap::new(),
         curved_beams: vec![],
+        connectors: HashMap::new(),
     };
 
     // Influence line for interior support reaction (node 2)

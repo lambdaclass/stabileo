@@ -307,10 +307,21 @@ pub fn solve_cable_2d(
     let mut element_forces = linear::compute_internal_forces_2d(input, &dof_num, &u_full);
     element_forces.sort_by_key(|ef| ef.element_id);
 
+    // Compute constraint forces if constraints are active
+    let constraint_forces = if let Some(ref fcs) = cs {
+        let k_ff = extract_submatrix(&base_asm.k, n, &free_idx, &free_idx);
+        let raw = fcs.compute_constraint_forces(&k_ff, &u_full[..nf], &base_asm.f[..nf]);
+        super::constraints::map_dof_forces_to_constraint_forces(&raw, &dof_num)
+    } else {
+        vec![]
+    };
+
     let results = AnalysisResults {
         displacements,
         reactions,
         element_forces,
+        constraint_forces,
+        diagnostics: vec![],
     };
 
     // Cable-specific results
@@ -541,12 +552,24 @@ pub fn solve_cable_3d(
     let mut element_forces = linear::compute_internal_forces_3d(input, &dof_num, &u_full);
     element_forces.sort_by_key(|ef| ef.element_id);
 
+    // Compute constraint forces if constraints are active
+    let constraint_forces = if let Some(ref fcs) = cs {
+        let k_ff = extract_submatrix(&base_asm.k, n, &free_idx, &free_idx);
+        let raw = fcs.compute_constraint_forces(&k_ff, &u_full[..nf], &base_asm.f[..nf]);
+        super::constraints::map_dof_forces_to_constraint_forces(&raw, &dof_num)
+    } else {
+        vec![]
+    };
+
     let results = AnalysisResults3D {
         displacements,
         reactions,
         element_forces,
         plate_stresses: linear::compute_plate_stresses(input, &dof_num, &u_full),
         quad_stresses: linear::compute_quad_stresses(input, &dof_num, &u_full),
+        quad_nodal_stresses: vec![],
+        constraint_forces,
+        diagnostics: vec![],
     };
 
     let cable_forces = cables.iter().map(|ci| {

@@ -388,6 +388,57 @@ pub fn add_quad_geometric_stiffness_3d(
     }
 }
 
+/// Add plate (DKT triangle) geometric stiffness to a pre-built Kg matrix, given displacements.
+/// Mirrors `add_quad_geometric_stiffness_3d` but for triangular plate elements.
+pub fn add_plate_geometric_stiffness_3d(
+    input: &SolverInput3D,
+    dof_num: &DofNumbering,
+    u: &[f64],
+    k_g: &mut [f64],
+) {
+    let n = dof_num.n_total;
+    let mat_by_id: std::collections::HashMap<usize, &SolverMaterial> = input.materials.values().map(|m| (m.id, m)).collect();
+    let node_by_id: std::collections::HashMap<usize, &SolverNode3D> = input.nodes.values().map(|n| (n.id, n)).collect();
+
+    for plate in input.plates.values() {
+        let mat = mat_by_id[&plate.material_id];
+        let e = mat.e * 1000.0;
+        let nu = mat.nu;
+
+        let n0 = node_by_id[&plate.nodes[0]];
+        let n1 = node_by_id[&plate.nodes[1]];
+        let n2 = node_by_id[&plate.nodes[2]];
+        let coords = [
+            [n0.x, n0.y, n0.z],
+            [n1.x, n1.y, n1.z],
+            [n2.x, n2.y, n2.z],
+        ];
+
+        // Get element displacements
+        let plate_dofs = dof_num.plate_element_dofs(&plate.nodes);
+        let u_global: Vec<f64> = plate_dofs.iter().map(|&d| u[d]).collect();
+        let t_plate = crate::element::plate_transform_3d(&coords);
+        let u_local_vec = transform_displacement(&u_global, &t_plate, 18);
+
+        // Compute membrane stress resultants via plate stress recovery
+        let s = crate::element::plate_stress_recovery(&coords, e, nu, plate.thickness, &u_local_vec);
+        let nxx = s.sigma_xx * plate.thickness;
+        let nyy = s.sigma_yy * plate.thickness;
+        let nxy = s.tau_xy * plate.thickness;
+
+        // Build local geometric stiffness and transform to global
+        let kg_local = crate::element::plate_geometric_stiffness(&coords, nxx, nyy, nxy);
+        let kg_global = transform_stiffness(&kg_local, &t_plate, 18);
+
+        let ndof = plate_dofs.len();
+        for i in 0..ndof {
+            for j in 0..ndof {
+                k_g[plate_dofs[i] * n + plate_dofs[j]] += kg_global[i * ndof + j];
+            }
+        }
+    }
+}
+
 /// Add 3D geometric stiffness from current displacements.
 pub fn add_geometric_stiffness_3d(
     input: &SolverInput3D,

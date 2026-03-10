@@ -40,10 +40,14 @@ Use the docs by question:
 
 - [`BENCHMARKS.md`](/Users/unbalancedparen/projects/dedaliano/BENCHMARKS.md)
   source of truth for solver capability, validation coverage, benchmark status, and remaining solver gaps
-- [`ROADMAP.md`](/Users/unbalancedparen/projects/dedaliano/ROADMAP.md)
-  product roadmap plus solver-first priority ordering and difficulty ladder
+- [`SOLVER_ROADMAP.md`](/Users/unbalancedparen/projects/dedaliano/SOLVER_ROADMAP.md)
+  solver roadmap: mechanics, validation, diagnostics, and performance sequencing
+- [`PRODUCT_ROADMAP.md`](/Users/unbalancedparen/projects/dedaliano/PRODUCT_ROADMAP.md)
+  product roadmap: app, workflow, delivery, and market sequencing
 - [`POSITIONING.md`](/Users/unbalancedparen/projects/dedaliano/POSITIONING.md)
   product/business framing, adjacent markets, and platform direction
+- [`CHANGELOG.md`](/Users/unbalancedparen/projects/dedaliano/CHANGELOG.md)
+  milestone-oriented project updates and solver progress highlights
 - [`engine/README.md`](/Users/unbalancedparen/projects/dedaliano/engine/README.md)
   Rust solver engine surface, analysis types, and engine-focused validation summary
 - [`VERIFICATION.md`](/Users/unbalancedparen/projects/dedaliano/VERIFICATION.md)
@@ -55,6 +59,13 @@ It should explain what Dedaliano is and where to read next, not duplicate the be
 ## Current state
 
 Dedaliano is an `open-source structural solver` with a growing structural engineering platform around it.
+
+Latest reported milestone:
+
+- `6344` tests passing, `0` failures
+- explicit CI gate stages for shell benchmarks, shell acceptance, and constraint benchmarks ahead of the full suite
+- major recent work in constraint-system unification, shell stress recovery, shell diagnostics, contact refinement, performance architecture, and shell benchmark hardening
+- diagnostics now propagate through solver result types; the main remaining product-side gap is surfacing them cleanly in the app/API
 
 What exists today at a high level:
 
@@ -85,6 +96,7 @@ The main remaining differentiators are:
 - performance at scale
 - benchmark credibility
 - shell maturity and workflow quality
+- consistent solver-path behavior across constrained and unconstrained workflows
 
 A reasonable description today is:
 
@@ -106,7 +118,7 @@ At a high level, the current solver supports:
 - plastic analysis, staged construction, prestress / post-tension workflows, cable analysis, contact / gap behavior, and nonlinear SSI
 - initial imperfections / residual stress modeling and time-dependent creep / shrinkage workflows
 - frame, truss, cable, plate, and shell formulations, including Timoshenko beams, warping torsion, triangular plates, and MITC4 quadrilateral shells
-- constraints including rigid links, diaphragms, equal-DOF constraints, and general linear MPCs
+- constraints including rigid links, diaphragms, equal-DOF constraints, general linear MPCs, and reusable constrained-solver reduction/expansion paths
 - 2D and 3D fiber beam-column nonlinear solvers
 - model reduction and substructuring workflows including Guyan and Craig-Bampton reduction
 - section analysis, stress recovery, load combinations, envelopes, and kinematic diagnostics

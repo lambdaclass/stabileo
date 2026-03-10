@@ -214,11 +214,23 @@ pub fn solve_ssi_2d(input: &SSIInput) -> Result<SSIResult, String> {
         })
         .collect();
 
+    // Compute constraint forces if constraints are active
+    let constraint_forces = if let Some(ref fcs) = cs {
+        let free_idx: Vec<usize> = (0..nf).collect();
+        let k_ff = extract_submatrix(&base_asm.k, n, &free_idx, &free_idx);
+        let raw = fcs.compute_constraint_forces(&k_ff, &u_full[..nf], &base_asm.f[..nf]);
+        super::constraints::map_dof_forces_to_constraint_forces(&raw, &dof_num)
+    } else {
+        vec![]
+    };
+
     Ok(SSIResult {
         results: AnalysisResults {
             displacements,
             reactions: vec![],
             element_forces,
+            constraint_forces,
+            diagnostics: vec![],
         },
         iterations: total_iters,
         converged,
@@ -342,6 +354,16 @@ pub fn solve_ssi_3d(input: &SSIInput3D) -> Result<SSIResult3D, String> {
         })
         .collect();
 
+    // Compute constraint forces if constraints are active
+    let constraint_forces = if let Some(ref fcs) = cs {
+        let free_idx: Vec<usize> = (0..nf).collect();
+        let k_ff = extract_submatrix(&base_asm.k, n, &free_idx, &free_idx);
+        let raw = fcs.compute_constraint_forces(&k_ff, &u_full[..nf], &base_asm.f[..nf]);
+        super::constraints::map_dof_forces_to_constraint_forces(&raw, &dof_num)
+    } else {
+        vec![]
+    };
+
     Ok(SSIResult3D {
         results: AnalysisResults3D {
             displacements,
@@ -349,6 +371,9 @@ pub fn solve_ssi_3d(input: &SSIInput3D) -> Result<SSIResult3D, String> {
             element_forces,
             plate_stresses: linear::compute_plate_stresses(&input.solver, &dof_num, &u_full),
             quad_stresses: linear::compute_quad_stresses(&input.solver, &dof_num, &u_full),
+            quad_nodal_stresses: vec![],
+            constraint_forces,
+            diagnostics: vec![],
         },
         iterations: total_iters,
         converged,

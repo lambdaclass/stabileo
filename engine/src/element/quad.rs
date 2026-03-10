@@ -647,6 +647,118 @@ pub fn quad_nodal_von_mises(
     nodal
 }
 
+/// Compute full stress tensor at each of the 4 nodes by evaluating at Gauss points
+/// and extrapolating (bilinear extrapolation from 2×2 Gauss points to corners).
+///
+/// Returns a Vec of 4 `QuadNodalStress` structs, one per corner node, with
+/// membrane stresses (sigma_xx, sigma_yy, tau_xy), bending moments (mx, my, mxy),
+/// and von Mises stress.
+pub fn quad_stress_at_nodes(
+    coords: &[[f64; 3]; 4],
+    u_local: &[f64; 24],
+    e: f64,
+    nu: f64,
+    t: f64,
+) -> Vec<crate::types::QuadNodalStress> {
+    let (ex, ey, _) = quad_local_axes(coords);
+    let pts = project_to_2d(coords, &ex, &ey);
+    let gauss = gauss_2x2();
+
+    // Evaluate full stress tensor at each Gauss point
+    let c = e / (1.0 - nu * nu);
+    let cb = e * t * t / (12.0 * (1.0 - nu * nu));
+
+    let mut gp_sxx = [0.0; 4];
+    let mut gp_syy = [0.0; 4];
+    let mut gp_txy = [0.0; 4];
+    let mut gp_mx  = [0.0; 4];
+    let mut gp_my  = [0.0; 4];
+    let mut gp_mxy = [0.0; 4];
+
+    for (gp, &((xi, eta), _)) in gauss.iter().enumerate() {
+        let (_, inv_j, _) = jacobian_2d(&pts, xi, eta);
+        let (dn_dxi, dn_deta) = shape_derivatives(xi, eta);
+
+        let mut dn_dx = [0.0; 4];
+        let mut dn_dy = [0.0; 4];
+        for i in 0..4 {
+            dn_dx[i] = inv_j[0][0] * dn_dxi[i] + inv_j[0][1] * dn_deta[i];
+            dn_dy[i] = inv_j[1][0] * dn_dxi[i] + inv_j[1][1] * dn_deta[i];
+        }
+
+        let mut eps_xx = 0.0;
+        let mut eps_yy = 0.0;
+        let mut gamma_xy = 0.0;
+        for i in 0..4 {
+            let ux = u_local[i * 6];
+            let uy = u_local[i * 6 + 1];
+            eps_xx += dn_dx[i] * ux;
+            eps_yy += dn_dy[i] * uy;
+            gamma_xy += dn_dy[i] * ux + dn_dx[i] * uy;
+        }
+
+        let mut kappa_xx = 0.0;
+        let mut kappa_yy = 0.0;
+        let mut kappa_xy = 0.0;
+        for i in 0..4 {
+            let rx = u_local[i * 6 + 3];
+            let ry = u_local[i * 6 + 4];
+            kappa_xx += -dn_dx[i] * ry;
+            kappa_yy += dn_dy[i] * rx;
+            kappa_xy += dn_dx[i] * rx - dn_dy[i] * ry;
+        }
+
+        gp_sxx[gp] = c * (eps_xx + nu * eps_yy);
+        gp_syy[gp] = c * (nu * eps_xx + eps_yy);
+        gp_txy[gp] = c * (1.0 - nu) / 2.0 * gamma_xy;
+        gp_mx[gp]  = cb * (kappa_xx + nu * kappa_yy);
+        gp_my[gp]  = cb * (nu * kappa_xx + kappa_yy);
+        gp_mxy[gp] = cb * (1.0 - nu) / 2.0 * kappa_xy;
+    }
+
+    // Bilinear extrapolation from Gauss points to corner nodes
+    let s = 3.0_f64.sqrt();
+    let corner_xi = [(-1.0, -1.0), (1.0, -1.0), (1.0, 1.0), (-1.0, 1.0)];
+    let mut result = Vec::with_capacity(4);
+
+    for (ni, &(xi_n, eta_n)) in corner_xi.iter().enumerate() {
+        let xi_s = xi_n * s;
+        let eta_s = eta_n * s;
+        let n = shape_functions(xi_s, eta_s);
+
+        let mut sxx = 0.0;
+        let mut syy = 0.0;
+        let mut txy = 0.0;
+        let mut mx  = 0.0;
+        let mut my  = 0.0;
+        let mut mxy = 0.0;
+
+        for gp in 0..4 {
+            sxx += n[gp] * gp_sxx[gp];
+            syy += n[gp] * gp_syy[gp];
+            txy += n[gp] * gp_txy[gp];
+            mx  += n[gp] * gp_mx[gp];
+            my  += n[gp] * gp_my[gp];
+            mxy += n[gp] * gp_mxy[gp];
+        }
+
+        let vm = (sxx * sxx - sxx * syy + syy * syy + 3.0 * txy * txy).sqrt();
+
+        result.push(crate::types::QuadNodalStress {
+            node_index: ni,
+            sigma_xx: sxx,
+            sigma_yy: syy,
+            tau_xy: txy,
+            mx,
+            my,
+            mxy,
+            von_mises: vm.max(0.0),
+        });
+    }
+
+    result
+}
+
 /// Thermal load vector for quad element (24-DOF).
 ///
 /// `dt_uniform`: uniform temperature change (membrane expansion).

@@ -1280,6 +1280,7 @@ mod tests {
             nodes, materials, sections, elements, supports,
             loads: vec![],
             constraints: vec![],
+            connectors: HashMap::new(),
         };
 
         let mut densities = HashMap::new();

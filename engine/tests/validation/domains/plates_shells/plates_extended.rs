@@ -102,6 +102,7 @@ fn make_plate_input(
         plates,
         quads: HashMap::new(),
         curved_beams: vec![],
+        connectors: HashMap::new(),
     }
 }
 
@@ -745,6 +746,7 @@ fn validation_plate_ss_modal_first_frequency() {
         plates,
         quads: HashMap::new(),
         curved_beams: vec![],
+        connectors: HashMap::new(),
     };
 
     let mut densities = HashMap::new();

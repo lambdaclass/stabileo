@@ -99,6 +99,7 @@ fn cantilever_fiber_2d(
         supports,
         loads,
         constraints: vec![],
+        connectors: HashMap::new(),
     };
 
     let mut fiber_sections = HashMap::new();
@@ -456,6 +457,7 @@ fn symmetric_section_symmetric_response() {
     let solver = SolverInput {
         nodes, materials, sections, elements, supports, loads,
         constraints: vec![],
+        connectors: HashMap::new(),
     };
 
     let mut fiber_sections = HashMap::new();

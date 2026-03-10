@@ -90,6 +90,7 @@ fn make_plate_input(
         constraints: vec![], left_hand: None,
         plates: plates_map, quads: HashMap::new(),
         curved_beams: vec![],
+        connectors: HashMap::new(),
     }
 }
 

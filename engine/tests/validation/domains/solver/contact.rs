@@ -83,6 +83,7 @@ fn test_tension_only_bar_goes_slack() {
             SolverLoad::Nodal(SolverNodalLoad { node_id: 3, fx: 100.0, fy: 0.0, mz: 0.0 }),
         ],
         constraints: vec![],
+        connectors: HashMap::new(),
     };
 
     let mut behaviors = HashMap::new();
@@ -136,6 +137,7 @@ fn test_gap_closes_under_compression() {
             SolverLoad::Nodal(SolverNodalLoad { node_id: 2, fx: 500.0, fy: 0.0, mz: 0.0 }),
         ],
         constraints: vec![],
+        connectors: HashMap::new(),
     };
 
     let gap = GapElement {
@@ -199,6 +201,7 @@ fn test_compression_only_element() {
             SolverLoad::Nodal(SolverNodalLoad { node_id: 3, fx: 0.0, fy: -50.0, mz: 0.0 }),
         ],
         constraints: vec![],
+        connectors: HashMap::new(),
     };
 
     let mut behaviors = HashMap::new();
@@ -247,6 +250,7 @@ fn test_oscillation_damping() {
             SolverLoad::Nodal(SolverNodalLoad { node_id: 2, fx: 500.0, fy: 0.0, mz: 0.0 }),
         ],
         constraints: vec![],
+        connectors: HashMap::new(),
     };
 
     // Very stiff gap → chattering expected
@@ -303,6 +307,7 @@ fn test_gap_friction_coulomb_limit() {
             SolverLoad::Nodal(SolverNodalLoad { node_id: 2, fx: 10.0, fy: 500.0, mz: 0.0 }),
         ],
         constraints: vec![],
+        connectors: HashMap::new(),
     };
 
     // EI/L^3 for vertical beam: 200e3 * 1e-4 / 0.5^3 = 160 kN/m (bending)
@@ -380,6 +385,7 @@ fn test_multiple_gaps_mixed_states() {
             SolverLoad::Nodal(SolverNodalLoad { node_id: 2, fx: 500.0, fy: 0.0, mz: 0.0 }),
         ],
         constraints: vec![],
+        connectors: HashMap::new(),
     };
 
     let gaps = vec![
@@ -437,6 +443,7 @@ fn test_augmented_lagrangian_reduces_penetration() {
                 SolverLoad::Nodal(SolverNodalLoad { node_id: 2, fx: 500.0, fy: 0.0, mz: 0.0 }),
             ],
             constraints: vec![],
+            connectors: HashMap::new(),
         };
 
         ContactInput {
@@ -500,6 +507,7 @@ fn test_convergence_stable_problem() {
             SolverLoad::Nodal(SolverNodalLoad { node_id: 3, fx: 100.0, fy: 0.0, mz: 0.0 }),
         ],
         constraints: vec![],
+        connectors: HashMap::new(),
     };
 
     let mut behaviors = HashMap::new();

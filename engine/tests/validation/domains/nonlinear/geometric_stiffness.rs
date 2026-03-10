@@ -210,7 +210,8 @@ fn validation_geom_weakest_governs() {
     ];
     let input_weak = SolverInput {
         nodes: nodes_map, materials: mats, sections: secs,
-        elements: elems, supports: sups, loads, constraints: vec![], };
+        elements: elems, supports: sups, loads, constraints: vec![],
+        connectors: std::collections::HashMap::new(), };
     let d_weak = pdelta::solve_pdelta_2d(&input_weak, 20, 1e-6).unwrap()
         .results.displacements.iter()
         .find(|d| d.node_id == 2).unwrap().ux;

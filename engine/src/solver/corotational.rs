@@ -66,20 +66,27 @@ pub fn solve_corotational_2d(
                 residual[i] = f_ext[i] - f_int[i];
             }
 
-            // Check convergence on free DOFs only
-            let mut r_free_norm_sq = 0.0;
-            let mut f_ext_free_norm_sq = 0.0;
-            for i in 0..nf {
-                r_free_norm_sq += residual[i] * residual[i];
-                f_ext_free_norm_sq += f_ext[i] * f_ext[i];
-            }
-            let r_free_norm = r_free_norm_sq.sqrt();
-            let f_ext_free_norm = f_ext_free_norm_sq.sqrt();
-
-            let rel_error = if f_ext_free_norm > 1e-30 {
-                r_free_norm / f_ext_free_norm
+            // Reduce residual and check convergence on independent DOFs
+            let r_f: Vec<f64> = residual[..nf].to_vec();
+            let r_check = if let Some(ref cs) = cs {
+                cs.reduce_vector(&r_f)
             } else {
-                r_free_norm
+                r_f.clone()
+            };
+            let f_ext_f: Vec<f64> = f_ext[..nf].to_vec();
+            let f_check = if let Some(ref cs) = cs {
+                cs.reduce_vector(&f_ext_f)
+            } else {
+                f_ext_f
+            };
+
+            let r_norm: f64 = r_check.iter().map(|v| v * v).sum::<f64>().sqrt();
+            let f_norm: f64 = f_check.iter().map(|v| v * v).sum::<f64>().sqrt();
+
+            let rel_error = if f_norm > 1e-30 {
+                r_norm / f_norm
+            } else {
+                r_norm
             };
 
             if rel_error < tolerance {
@@ -90,7 +97,6 @@ pub fn solve_corotational_2d(
             // Solve K_T * delta_u = R for free DOFs
             let free_idx: Vec<usize> = (0..nf).collect();
             let k_ff = extract_submatrix(&k_t, n, &free_idx, &free_idx);
-            let r_f: Vec<f64> = residual[..nf].to_vec();
             let (k_s, r_s) = if let Some(ref cs) = cs {
                 (cs.reduce_matrix(&k_ff), cs.reduce_vector(&r_f))
             } else {
@@ -120,7 +126,7 @@ pub fn solve_corotational_2d(
     let max_displacement = compute_max_displacement(&dof_num, &u_full);
 
     // Build final results using existing infrastructure
-    let results = build_final_results(input, &dof_num, &u_full)?;
+    let results = build_final_results(input, &dof_num, &u_full, &cs)?;
 
     Ok(CorotationalResult {
         results,
@@ -551,6 +557,7 @@ fn build_final_results(
     input: &SolverInput,
     dof_num: &DofNumbering,
     u_full: &[f64],
+    cs: &Option<FreeConstraintSystem>,
 ) -> Result<AnalysisResults, String> {
     let n = dof_num.n_total;
     let nf = dof_num.n_free;
@@ -580,10 +587,26 @@ fn build_final_results(
     let mut element_forces = compute_corotational_forces(input, dof_num, u_full);
     element_forces.sort_by_key(|ef| ef.element_id);
 
+    // Compute constraint forces if constraints are active
+    let constraint_forces = if let Some(ref fcs) = cs {
+        let mut k_ff = vec![0.0; nf * nf];
+        for i in 0..nf {
+            for j in 0..nf {
+                k_ff[i * nf + j] = k_dummy[i * n + j];
+            }
+        }
+        let raw = fcs.compute_constraint_forces(&k_ff, &u_full[..nf], &asm.f[..nf]);
+        super::constraints::map_dof_forces_to_constraint_forces(&raw, dof_num)
+    } else {
+        vec![]
+    };
+
     Ok(AnalysisResults {
         displacements,
         reactions,
         element_forces,
+        constraint_forces,
+        diagnostics: vec![],
     })
 }
 
@@ -768,6 +791,10 @@ pub fn solve_corotational_3d(
     let nf = dof_num.n_free;
     let left_hand = input.left_hand.unwrap_or(false);
 
+    // Build constraint system (if constraints present)
+    let cs = FreeConstraintSystem::build_3d(&input.constraints, &dof_num, &input.nodes);
+    let ns = cs.as_ref().map_or(nf, |c| c.n_free_indep);
+
     // Reference load vector from linear assembly
     let asm = assembly::assemble_3d(input, &dof_num);
     let f_total = asm.f.clone();
@@ -796,15 +823,22 @@ pub fn solve_corotational_3d(
                 residual[i] = f_ext[i] - f_int[i];
             }
 
-            // Convergence check on free DOFs
-            let mut r_norm_sq = 0.0;
-            let mut f_norm_sq = 0.0;
-            for i in 0..nf {
-                r_norm_sq += residual[i] * residual[i];
-                f_norm_sq += f_ext[i] * f_ext[i];
-            }
-            let r_norm = r_norm_sq.sqrt();
-            let f_norm = f_norm_sq.sqrt();
+            // Reduce residual and check convergence on independent DOFs
+            let r_f: Vec<f64> = residual[..nf].to_vec();
+            let r_check = if let Some(ref cs) = cs {
+                cs.reduce_vector(&r_f)
+            } else {
+                r_f.clone()
+            };
+            let f_ext_f: Vec<f64> = f_ext[..nf].to_vec();
+            let f_check = if let Some(ref cs) = cs {
+                cs.reduce_vector(&f_ext_f)
+            } else {
+                f_ext_f
+            };
+
+            let r_norm: f64 = r_check.iter().map(|v| v * v).sum::<f64>().sqrt();
+            let f_norm: f64 = f_check.iter().map(|v| v * v).sum::<f64>().sqrt();
             let ref_val = if f_norm > 1e-30 { f_norm } else { 1.0 };
 
             if r_norm / ref_val < tolerance {
@@ -812,11 +846,20 @@ pub fn solve_corotational_3d(
                 break;
             }
 
-            // Solve K_T * delta_u = R
+            // Solve K_T * delta_u = R (with constraint reduction if present)
             let free_idx: Vec<usize> = (0..nf).collect();
             let k_ff = extract_submatrix(&k_t, n, &free_idx, &free_idx);
-            let r_f: Vec<f64> = residual[..nf].to_vec();
-            let delta_u = solve_free_dofs(&k_ff, &r_f, nf)?;
+            let (k_s, r_s) = if let Some(ref cs) = cs {
+                (cs.reduce_matrix(&k_ff), cs.reduce_vector(&r_f))
+            } else {
+                (k_ff, r_f)
+            };
+            let delta_u_indep = solve_free_dofs(&k_s, &r_s, ns)?;
+            let delta_u = if let Some(ref cs) = cs {
+                cs.expand_solution(&delta_u_indep)
+            } else {
+                delta_u_indep
+            };
 
             for i in 0..nf {
                 u_full[i] += delta_u[i];
@@ -830,7 +873,7 @@ pub fn solve_corotational_3d(
     }
 
     let max_displacement = compute_max_displacement_3d(&dof_num, &u_full);
-    let results = build_final_results_3d(input, &dof_num, &u_full, left_hand)?;
+    let results = build_final_results_3d(input, &dof_num, &u_full, left_hand, &cs)?;
 
     Ok(CorotationalResult3D {
         results,
@@ -1239,6 +1282,7 @@ fn build_final_results_3d(
     dof_num: &DofNumbering,
     u_full: &[f64],
     left_hand: bool,
+    cs: &Option<FreeConstraintSystem>,
 ) -> Result<AnalysisResults3D, String> {
     let n = dof_num.n_total;
     let nf = dof_num.n_free;
@@ -1268,12 +1312,29 @@ fn build_final_results_3d(
     let mut element_forces = compute_corotational_forces_3d(input, dof_num, u_full, left_hand);
     element_forces.sort_by_key(|ef| ef.element_id);
 
+    // Compute constraint forces if constraints are active
+    let constraint_forces = if let Some(ref fcs) = cs {
+        let mut k_ff = vec![0.0; nf * nf];
+        for i in 0..nf {
+            for j in 0..nf {
+                k_ff[i * nf + j] = k_dummy[i * n + j];
+            }
+        }
+        let raw = fcs.compute_constraint_forces(&k_ff, &u_full[..nf], &asm.f[..nf]);
+        super::constraints::map_dof_forces_to_constraint_forces(&raw, dof_num)
+    } else {
+        vec![]
+    };
+
     Ok(AnalysisResults3D {
         displacements,
         reactions,
         element_forces,
         plate_stresses: super::linear::compute_plate_stresses(input, dof_num, u_full),
         quad_stresses: super::linear::compute_quad_stresses(input, dof_num, u_full),
+        quad_nodal_stresses: vec![],
+        constraint_forces,
+        diagnostics: vec![],
     })
 }
 
@@ -1521,7 +1582,7 @@ mod tests {
             }),
         ];
 
-        SolverInput { nodes, materials, sections, elements, supports, loads, constraints: vec![] }
+        SolverInput { nodes, materials, sections, elements, supports, loads, constraints: vec![] , connectors: HashMap::new() }
     }
 
     #[test]
@@ -1617,7 +1678,7 @@ mod tests {
             }),
         ];
 
-        let input = SolverInput { nodes, materials, sections, elements, supports, loads, constraints: vec![] };
+        let input = SolverInput { nodes, materials, sections, elements, supports, loads, constraints: vec![] , connectors: HashMap::new() };
         let corot = solve_corotational_2d(&input, 50, 1e-8, 1).unwrap();
 
         assert!(corot.converged);
@@ -1669,6 +1730,7 @@ mod tests {
             nodes, materials, sections, elements, supports,
             loads: vec![],
             constraints: vec![],
+            connectors: HashMap::new(),
         };
 
         let result = solve_corotational_2d(&input, 50, 1e-8, 1);
@@ -1718,7 +1780,7 @@ mod tests {
             }),
         ];
 
-        let input = SolverInput { nodes, materials, sections, elements, supports, loads, constraints: vec![] };
+        let input = SolverInput { nodes, materials, sections, elements, supports, loads, constraints: vec![] , connectors: HashMap::new() };
         let corot = solve_corotational_2d(&input, 100, 1e-6, 5).unwrap();
         assert!(corot.converged, "Two-element frame should converge");
         assert_eq!(corot.results.element_forces.len(), 2);
