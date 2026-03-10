@@ -4,6 +4,11 @@
 
 This document is the `product roadmap`.
 
+Read next:
+- current snapshot: [`CURRENT_STATUS.md`](/Users/unbalancedparen/projects/dedaliano/CURRENT_STATUS.md)
+- solver execution order: [`SOLVER_ROADMAP.md`](/Users/unbalancedparen/projects/dedaliano/SOLVER_ROADMAP.md)
+- market framing: [`POSITIONING.md`](/Users/unbalancedparen/projects/dedaliano/POSITIONING.md)
+
 It is for:
 - app and workflow features
 - market sequencing
@@ -13,6 +18,9 @@ It is for:
 
 It is not the solver mechanics roadmap.
 For that, see [`SOLVER_ROADMAP.md`](/Users/unbalancedparen/projects/dedaliano/SOLVER_ROADMAP.md).
+
+This document should stay forward-looking.
+Historical progress belongs in [`CHANGELOG.md`](/Users/unbalancedparen/projects/dedaliano/CHANGELOG.md).
 
 ## Product Thesis
 

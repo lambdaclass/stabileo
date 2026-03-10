@@ -5,7 +5,20 @@
 > CAPABILITY = solver feature exists with smoke/capability tests but benchmark not yet reproduced exactly,
 > BLOCKED = needs new solver features.
 
+Read next:
+- current snapshot: [`CURRENT_STATUS.md`](/Users/unbalancedparen/projects/dedaliano/CURRENT_STATUS.md)
+- next solver priorities: [`SOLVER_ROADMAP.md`](/Users/unbalancedparen/projects/dedaliano/SOLVER_ROADMAP.md)
+- verification method: [`VERIFICATION.md`](/Users/unbalancedparen/projects/dedaliano/VERIFICATION.md)
+
 ---
+
+This document is the `status and proof` document.
+It should answer:
+- what is implemented
+- what is benchmarked or gated
+- what is still unproven or immature
+
+It should not be the main roadmap or the historical archive.
 
 ## Summary
 
@@ -46,6 +59,44 @@ This document is about solver capability, validation, and benchmark evidence.
 It should not carry the repo’s full business narrative or become the primary product roadmap.
 
 ## Current Coverage Snapshot
+
+### What We Have Today
+
+At a high level, the current engine already has:
+
+- broad 2D and 3D structural analysis coverage
+- second-order, buckling, modal, spectrum, time history, and harmonic workflows
+- nonlinear frame, fiber, contact, SSI, staged, prestress, imperfections, and creep/shrinkage support
+- triangular plate and MITC4 quadrilateral shell support
+- constraint systems, reduction/substructuring, and broad postprocessing/design modules
+- benchmark gates, acceptance models, integration tests, property/differential fuzz coverage, and a large validation surface
+
+In short:
+
+`the core solver surface is already broad and serious`
+
+The rest of this document explains how proven each part of that surface is.
+
+### What We Still Need
+
+The main remaining needs are no longer basic feature categories. They are:
+
+- stronger shell endgame maturity
+  curved-shell workflows, distortion robustness, and a clear decision around the remaining hemisphere / membrane-locking limit
+- performance and scale maturity
+  especially broader sparse-path wins, runtime discipline, and large-model reliability
+- verification depth
+  more invariants, property-based testing, fuzzing, and acceptance-model discipline around the newest solver families
+- long-tail nonlinear hardening
+  especially mixed contact/nonlinear/staged/shell cases
+- solver-path consistency
+  dense vs sparse, constrained vs unconstrained, and mixed shell/frame workflows
+- broader external-reference proof
+  especially for contact, fiber 3D, SSI, creep/shrinkage, and advanced shell workflows
+
+In short:
+
+`what remains is mostly proof, hardening, scale, and endgame shell/nonlinear maturity`
 
 ### Design Check Modules (17 postprocess modules, 82 unit tests + 25 integration test files)
 

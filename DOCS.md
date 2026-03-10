@@ -11,6 +11,27 @@ If you only read three documents, read them in this order:
 3. [`SOLVER_ROADMAP.md`](/Users/unbalancedparen/projects/dedaliano/SOLVER_ROADMAP.md)
    What to build next and in what order.
 
+## Doc Roles
+
+- [`README.md`](/Users/unbalancedparen/projects/dedaliano/README.md)
+  Entry point.
+- [`CURRENT_STATUS.md`](/Users/unbalancedparen/projects/dedaliano/CURRENT_STATUS.md)
+  Current snapshot.
+- [`BENCHMARKS.md`](/Users/unbalancedparen/projects/dedaliano/BENCHMARKS.md)
+  Capability and proof.
+- [`SOLVER_ROADMAP.md`](/Users/unbalancedparen/projects/dedaliano/SOLVER_ROADMAP.md)
+  Solver execution order.
+- [`PRODUCT_ROADMAP.md`](/Users/unbalancedparen/projects/dedaliano/PRODUCT_ROADMAP.md)
+  Product execution order.
+- [`CHANGELOG.md`](/Users/unbalancedparen/projects/dedaliano/CHANGELOG.md)
+  Historical record.
+- [`VERIFICATION.md`](/Users/unbalancedparen/projects/dedaliano/VERIFICATION.md)
+  Verification method.
+- [`POSITIONING.md`](/Users/unbalancedparen/projects/dedaliano/POSITIONING.md)
+  Market and strategy framing.
+- [`research/`](/Users/unbalancedparen/projects/dedaliano/research)
+  Comparative and external research.
+
 ## By Question
 
 - `What is this project?`
@@ -42,6 +63,13 @@ If you only read three documents, read them in this order:
 
 - `How do we compare with other open-source solvers?`
   See [`research/open_source_solver_comparison.md`](/Users/unbalancedparen/projects/dedaliano/research/open_source_solver_comparison.md).
+
+## Research
+
+- [`research/README.md`](/Users/unbalancedparen/projects/dedaliano/research/README.md)
+  research folder entry point
+- [`research/open_source_solver_comparison.md`](/Users/unbalancedparen/projects/dedaliano/research/open_source_solver_comparison.md)
+  comparison against OpenSees, Code_Aster, and Kratos
 
 ## Role Of Each Document
 

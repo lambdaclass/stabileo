@@ -1,5 +1,10 @@
 # Dedaliano Positioning
 
+Read next:
+- entry point: [`README.md`](/Users/unbalancedparen/projects/dedaliano/README.md)
+- current snapshot: [`CURRENT_STATUS.md`](/Users/unbalancedparen/projects/dedaliano/CURRENT_STATUS.md)
+- product execution: [`PRODUCT_ROADMAP.md`](/Users/unbalancedparen/projects/dedaliano/PRODUCT_ROADMAP.md)
+
 ## What Dedaliano Is
 
 Dedaliano is an `open-source structural solver` and an emerging `structural engineering platform`.
@@ -82,6 +87,7 @@ That credibility should be built visibly. The strongest long-term trust program 
 - selective proof-oriented rigor on small critical kernels
 
 This document is about market framing, not the full solver inventory.
+Use [`BENCHMARKS.md`](/Users/unbalancedparen/projects/dedaliano/BENCHMARKS.md) for capability/proof and [`SOLVER_ROADMAP.md`](/Users/unbalancedparen/projects/dedaliano/SOLVER_ROADMAP.md) for execution order.
 
 ## Best Competitive Wedge
 

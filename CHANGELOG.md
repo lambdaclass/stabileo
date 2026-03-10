@@ -1,5 +1,12 @@
 # Changelog
 
+Read next:
+- current snapshot: [`CURRENT_STATUS.md`](/Users/unbalancedparen/projects/dedaliano/CURRENT_STATUS.md)
+- benchmark/proof status: [`BENCHMARKS.md`](/Users/unbalancedparen/projects/dedaliano/BENCHMARKS.md)
+
+This file is the historical record.
+It should capture what changed, not what should be built next.
+
 ## Unreleased
 
 ### Added

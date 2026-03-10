@@ -4,6 +4,11 @@
 
 This document is the `solver roadmap`.
 
+Read next:
+- current snapshot: [`CURRENT_STATUS.md`](/Users/unbalancedparen/projects/dedaliano/CURRENT_STATUS.md)
+- current proof and capability status: [`BENCHMARKS.md`](/Users/unbalancedparen/projects/dedaliano/BENCHMARKS.md)
+- verification method: [`VERIFICATION.md`](/Users/unbalancedparen/projects/dedaliano/VERIFICATION.md)
+
 It is for:
 - solver mechanics
 - numerical robustness
@@ -15,6 +20,9 @@ It is not the product, market, or revenue roadmap.
 For that, see [`PRODUCT_ROADMAP.md`](/Users/unbalancedparen/projects/dedaliano/PRODUCT_ROADMAP.md).
 
 For current capability and validation status, see [`BENCHMARKS.md`](/Users/unbalancedparen/projects/dedaliano/BENCHMARKS.md).
+
+This document should stay forward-looking.
+Historical progress belongs in [`CHANGELOG.md`](/Users/unbalancedparen/projects/dedaliano/CHANGELOG.md).
 
 ## Current Frontier
 
@@ -139,44 +147,7 @@ The current near-term sequence is:
    - constrained vs unconstrained parity hardening
    - remaining constraint deepening
    - advanced contact maturity
-   - diagnostics surfaced in the app/API
-
-## Priority Stack
-
-### 0-3 months
-
-| Priority | Topic | Why now |
-|---|---|---|
-| 1 | Shell release gates and workflow hardening | MITC4 with ANS plus EAS-4 now produces credible results (Scordelis-Lo 80%, Navier 93%, buckling 102%, modal 99.9%). Shell benchmark gates are expanded and tightened. Next: curved-shell workflows, distortion studies, and deciding whether the remaining hemisphere gap justifies EAS-7 or a broader shell family. |
-| 2 | Performance and scale engineering | Sparse assembly, conditioning diagnostics, and parallel paths now exist; the next step is full-model runtime wins and broader sparse-path maturity. |
-| 3 | Verification hardening | Expand invariants, property-based tests, fuzzing, benchmark gates, and acceptance models around the newest solver families. |
-| 4 | Long-tail nonlinear maturity | The biggest remaining gap versus the deepest open solvers is robustness on hard nonlinear mixed workflows, not missing whole categories. |
-| 5 | Solver-path consistency | Dense vs sparse, constrained vs unconstrained, and mixed shell/frame workflows must keep converging to the same behavior. |
-| 6 | Constraint-system maturity | Reusable constrained reductions now exist; the next step is consistent use across solver families plus the last remaining workflow gaps. |
-| 7 | Advanced contact maturity | Basic and advanced contact are present; the next layer is harder convergence cases, richer contact laws, and broader benchmark depth. |
-| 8 | Failure diagnostics, health checks, and explainability | Better warnings, pre-solve checks, conditioning/reporting, and solve visibility can make the solver materially more mature in practice. |
-
-### 3-6 months
-
-| Priority | Topic | Why now |
-|---|---|---|
-| 9 | Reference benchmark expansion | Keep extending external-reference coverage as new solver paths and deeper shell/contact/fiber/SSI workflows land; this is the main moat against stronger mature open solvers. |
-| 10 | Acceptance-model expansion | Grow the acceptance suite carefully around the hardest workflows and use it as a release discipline layer. |
-| 11 | Model reduction / substructuring workflow maturity | Valuable once the core nonlinear and shell stack is hardened. |
-| 12 | Deeper prestress / staged time-dependent coupling | Prestress exists; long-term staged PT workflows still need more coupling depth. |
-| 13 | Specialized shell breadth | Curved shells, broader mixed interpolation, folded-plate workflows, and wider production shell coverage remain a real solver program after the current shell stabilization pass. |
-| 14 | Deterministic behavior and numerical robustness policy | Convergence criteria, warnings, fallback behavior, and solver-path consistency should become standardized across the engine. |
-| 15 | Golden acceptance-model suite | A very small flagship set of public must-pass models should become part of the trust story. |
-| 16 | Result explainability and solve progress | Engineers need clearer iteration/progress visibility, active-set/yield reporting, and balance diagnostics on hard models. |
-
-### 12 months+
-
-| Priority | Topic | Why later |
-|---|---|---|
-| 17 | Fire / fatigue / specialized lifecycle domains | Important, but no longer core to claiming an elite mainstream structural solver. |
-| 18 | Membranes / cable nets / specialized tensile structures | Valuable for long-span specialty markets rather than mainstream parity. |
-| 19 | Bridge-specific advanced workflows | High-value specialization once the core solver is fully hardened. |
-| 20 | Broader domain expansion | Additional specialty areas should come after the mainstream structural core is clearly dominant. |
+   - clearer solver-side diagnostics and output semantics
 
 ## Active Programs
 
@@ -193,7 +164,7 @@ Focus:
 Current remaining shell backlog:
 - curved-shell workflow validation (broader: folded plates, conical, hyperbolic)
 - broader shell modal, buckling, and dynamic reference cases
-- better shell diagnostics and output visibility in the product
+- better shell diagnostics and output semantics in solver results
 
 Known formulation boundary:
 - MITC4 with ANS and EAS-4 is now materially stronger and benchmark-gated
@@ -269,18 +240,81 @@ Focus:
 Why it matters:
 This is the main remaining place where mature open solvers still have more years of hardened behavior than Dedaliano.
 
-## Ten Next Tasks
+## Exit Criteria
 
-1. Make shell benchmark and shell acceptance suites hard CI/release gates.
-2. Fix shell issues exposed by those gates.
-3. Use workflow and criterion models to drive sparse 3D runtime wins.
-4. Expand invariants, property tests, fuzzing, and acceptance models around the newest solver paths.
-5. Harden long-tail nonlinear mixed workflows.
-6. Keep dense vs sparse and constrained vs unconstrained paths aligned.
-7. Finish remaining constraint deepening.
-8. Deepen advanced contact behavior and benchmark depth.
-9. Expand external-reference validation for contact, fiber 3D, SSI, and creep/shrinkage.
-10. Improve diagnostics, model health checks, and hard-solve explainability.
+### Shell endgame maturity
+
+Done means:
+- curved-shell validation sets are in place and passing
+- distortion and warp studies are gated and bounded
+- shell workflow completeness cases are covered
+- the `EAS-7 vs broader shell family` decision is explicitly documented
+
+### Performance and scale
+
+Done means:
+- sparse 3D shows repeatable runtime wins on representative full models
+- ordering is no longer an obvious known bottleneck
+- large-model memory/runtime baselines are tracked
+- sparse-path behavior is reliable on the intended 3D workflows
+
+### Verification hardening
+
+Done means:
+- benchmark gates exist for the newest advanced solver families
+- acceptance models cover the hardest production-style workflows
+- invariants, property tests, and fuzzing exist for sparse/shell/contact/constraint paths
+- benchmark discipline is part of release quality, not just local testing
+
+### Long-tail nonlinear hardening
+
+Done means:
+- hard mixed nonlinear regressions exist and stay green
+- convergence behavior is predictable on difficult reference cases
+- failure modes are clearer and less solver-path-specific
+
+### Solver-path consistency
+
+Done means:
+- dense vs sparse parity is explicitly covered on representative models
+- constrained vs unconstrained parity is stable
+- mixed frame/shell workflows do not diverge by solver path
+- result outputs remain consistent across linear and advanced solver families
+
+## Must-Have Vs Later
+
+### Must-have to become the best open structural solver
+
+- shell endgame maturity
+- performance and scale
+- verification hardening
+- long-tail nonlinear hardening
+- solver-path consistency
+- constraint-system maturity
+
+### Important after the core claim is secure
+
+- advanced contact maturity
+- broader reference benchmark expansion
+- model reduction / substructuring workflow maturity
+- deeper prestress / staged time-dependent coupling
+- specialized shell breadth
+- deterministic-behavior and explainability refinement
+
+### Later specialization
+
+- fire / fatigue / specialized lifecycle domains
+- membranes / cable nets / specialized tensile structures
+- bridge-specific advanced workflows
+- broader domain expansion
+
+## Non-Goals Right Now
+
+- no broad multiphysics expansion
+- no new specialty domains before shell, scale, verification, and nonlinear hardening are tighter
+- no solver-scope expansion driven by product/UI convenience
+- no feature-count work ahead of validation, robustness, and scale
+- no roadmap drift into a changelog or benchmark ledger
 
 ## Related Docs
 

@@ -4,6 +4,11 @@ High-performance 2D/3D structural analysis engine in Rust, implementing the Dire
 
 ## Document scope
 
+Read next:
+- doc map: [`../DOCS.md`](/Users/unbalancedparen/projects/dedaliano/DOCS.md)
+- current snapshot: [`../CURRENT_STATUS.md`](/Users/unbalancedparen/projects/dedaliano/CURRENT_STATUS.md)
+- detailed proof and benchmark status: [`../BENCHMARKS.md`](/Users/unbalancedparen/projects/dedaliano/BENCHMARKS.md)
+
 This file is the engine-facing overview.
 
 - For full benchmark status and solver gap tracking, see [`../BENCHMARKS.md`](/Users/unbalancedparen/projects/dedaliano/BENCHMARKS.md).

@@ -66,13 +66,12 @@ Dedaliano is an `open-source structural solver` with a growing structural engine
 
 Latest reported milestone:
 
-- `6371` tests passing, `0` failures
 - broad 2D and 3D structural analysis coverage, including staged, contact, SSI, fiber nonlinear, imperfections, and creep/shrinkage workflows
 - shell maturity now includes MITC4 ANS plus EAS-4, explicit shell CI gates, curved/distorted workflow studies, self-weight, edge loads, and thermal convergence coverage
 - sparse-first 3D assembly and solve path is live, with dense-vs-sparse parity coverage and large memory wins on shell models
 - benchmark gates, acceptance models, integration tests, property/differential fuzz coverage, and a large public benchmark program back the solver-quality story
 
-For the concise current snapshot, see [`CURRENT_STATUS.md`](/Users/unbalancedparen/projects/dedaliano/CURRENT_STATUS.md).
+For the concise current snapshot and canonical test-count status, see [`CURRENT_STATUS.md`](/Users/unbalancedparen/projects/dedaliano/CURRENT_STATUS.md).
 
 A reasonable description today is:
 
