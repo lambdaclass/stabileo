@@ -164,8 +164,8 @@ pub fn numeric_cholesky(sym: &SymbolicCholesky, a: &CscMatrix) -> Option<Numeric
     // Dense column accumulator
     let mut x = vec![0.0f64; n];
 
-    // Row index lookup for L: for column j, l_row_to_pos[row] = position in l_values
-    // We build this lazily per column.
+    // Track maximum diagonal for relative pivot threshold
+    let mut max_diag = 0.0f64;
 
     for j in 0..n {
         // Clear accumulator for rows in L[:,j]
@@ -211,8 +211,15 @@ pub fn numeric_cholesky(sym: &SymbolicCholesky, a: &CscMatrix) -> Option<Numeric
 
         // Compute L[j,j] = sqrt(x[j])
         let diag = x[j];
-        if diag <= 1e-15 {
-            return None; // Not SPD
+        if j == 0 {
+            max_diag = diag;
+        } else if diag > max_diag {
+            max_diag = diag;
+        }
+        // Relative pivot threshold: reject if diag is negligible relative to largest seen
+        let threshold = 1e-12 * max_diag;
+        if diag <= threshold {
+            return None; // Not SPD or near-singular
         }
         let ljj = diag.sqrt();
 

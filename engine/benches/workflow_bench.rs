@@ -456,10 +456,114 @@ fn bench_contact_e2e(c: &mut Criterion) {
     group.finish();
 }
 
+// ─── 3D Shell End-to-End ─────────────────────────────────────────────
+
+fn make_flat_plate_3d(nx: usize, ny: usize) -> SolverInput3D {
+    let lx = 10.0;
+    let ly = 10.0;
+    let t = 0.1;
+    let e = 200_000.0;
+    let nu = 0.3;
+
+    let mut nodes = HashMap::new();
+    let mut grid = vec![vec![0usize; ny + 1]; nx + 1];
+    let mut nid = 1;
+    for i in 0..=nx {
+        for j in 0..=ny {
+            let x = (i as f64 / nx as f64) * lx;
+            let y = (j as f64 / ny as f64) * ly;
+            nodes.insert(nid.to_string(), SolverNode3D { id: nid, x, y, z: 0.0 });
+            grid[i][j] = nid;
+            nid += 1;
+        }
+    }
+
+    let mut quads = HashMap::new();
+    let mut qid = 1;
+    for i in 0..nx {
+        for j in 0..ny {
+            quads.insert(qid.to_string(), SolverQuadElement {
+                id: qid,
+                nodes: [grid[i][j], grid[i+1][j], grid[i+1][j+1], grid[i][j+1]],
+                material_id: 1,
+                thickness: t,
+            });
+            qid += 1;
+        }
+    }
+
+    let mut mats = HashMap::new();
+    mats.insert("1".to_string(), SolverMaterial { id: 1, e, nu });
+
+    let mut supports = HashMap::new();
+    let mut sid = 1;
+    let mut boundary = Vec::new();
+    for j in 0..=ny { boundary.push(grid[0][j]); boundary.push(grid[nx][j]); }
+    for i in 0..=nx { boundary.push(grid[i][0]); boundary.push(grid[i][ny]); }
+    boundary.sort();
+    boundary.dedup();
+    for &n in &boundary {
+        supports.insert(sid.to_string(), SolverSupport3D {
+            node_id: n, rx: false, ry: false, rz: true,
+            rrx: false, rry: false, rrz: false,
+            kx: None, ky: None, kz: None,
+            krx: None, kry: None, krz: None,
+            dx: None, dy: None, dz: None,
+            drx: None, dry: None, drz: None,
+            normal_x: None, normal_y: None, normal_z: None,
+            is_inclined: None, rw: None, kw: None,
+        });
+        sid += 1;
+    }
+    supports.insert(sid.to_string(), SolverSupport3D {
+        node_id: grid[0][0], rx: true, ry: true, rz: true,
+        rrx: false, rry: false, rrz: false,
+        kx: None, ky: None, kz: None,
+        krx: None, kry: None, krz: None,
+        dx: None, dy: None, dz: None,
+        drx: None, dry: None, drz: None,
+        normal_x: None, normal_y: None, normal_z: None,
+        is_inclined: None, rw: None, kw: None,
+    });
+
+    let n_quads = quads.len();
+    let loads: Vec<SolverLoad3D> = (1..=n_quads).map(|eid| {
+        SolverLoad3D::QuadPressure(SolverPressureLoad { element_id: eid, pressure: -1.0 })
+    }).collect();
+
+    SolverInput3D {
+        nodes, materials: mats, sections: HashMap::new(),
+        elements: HashMap::new(), supports, loads,
+        constraints: vec![], left_hand: None,
+        plates: HashMap::new(), quads,
+        curved_beams: vec![], connectors: HashMap::new(),
+    }
+}
+
+fn bench_e2e_3d_shell(c: &mut Criterion) {
+    let mut group = c.benchmark_group("e2e_3d_shell");
+    group.sample_size(10);
+
+    for &(nx, ny) in &[(6, 6), (10, 10), (15, 15)] {
+        let input = make_flat_plate_3d(nx, ny);
+        let json = serde_json::to_string(&input).unwrap();
+        let label = format!("{}x{}", nx, ny);
+        group.bench_with_input(BenchmarkId::new("workflow", &label), &json, |b, json| {
+            b.iter(|| {
+                let input: SolverInput3D = serde_json::from_str(json).unwrap();
+                let result = linear::solve_3d(&input).unwrap();
+                serde_json::to_string(&result).unwrap()
+            });
+        });
+    }
+    group.finish();
+}
+
 criterion_group!(
     benches,
     bench_e2e_2d,
     bench_e2e_3d,
+    bench_e2e_3d_shell,
     bench_dense_vs_sparse,
     bench_corotational_e2e,
     bench_contact_e2e,

@@ -54,18 +54,18 @@ cd engine && cargo test --test validation  # validation crate
 ```
 
 CI now runs `cargo nextest run --profile ci`, with engine-local nextest configuration and a Linux-only `mold` linker setup for faster test builds.
-It also runs explicit gate steps for shell benchmarks, shell acceptance models, and constraint benchmarks before the full suite.
+It also runs explicit gate steps for shell benchmarks, shell acceptance models, constraint benchmarks, and sparse 3D parity before the full suite.
 
 ## Validation Test Suite
 
-Latest reported full-suite status: **5856 passing tests, 0 failures**.
+Latest reported full-suite status: **6371 passing tests, 0 failures**.
 
 The engine is backed by:
 
-- a validation suite measured in the `5800+` range
+- a validation suite measured in the `6300+` range
 - `25` integration test files
 - dedicated property / differential fuzz coverage
-- benchmark-gate suites for constraints, contact, shells, reduction, and sparse / conditioning paths
+- benchmark-gate suites for constraints, contact, shells, reduction, sparse / conditioning paths, and sparse 3D parity
 - explicit CI gate stages for shell benchmarks, shell acceptance models, and constraint benchmarks
 
 See [`../BENCHMARKS.md`](/Users/unbalancedparen/projects/dedaliano/BENCHMARKS.md) for detailed status of each benchmark family and current maturity.
@@ -182,3 +182,6 @@ Compact must-pass suites validating the newest solver families:
 | Shells | `benchmarks/shell_benchmark.rs` | MITC4 quads, membrane/bending, thermal, mesh quality, mixed frame+shell, distortion robustness, pinched cylinder, self-weight, edge loads, warped elements |
 | Reduction | `benchmarks/reduction_benchmark.rs` | Guyan condensation, Craig-Bampton, substructuring workflows |
 | Sparse | `benchmarks/sparse_benchmark.rs` | Sparse assembly, sparse Cholesky, conditioning diagnostics |
+| Sparse 3D Parity | `benchmarks/sparse_3d_parity.rs` | Dense-vs-sparse assembly/solve parity for shells, frames, prescribed displacements, inclined supports |
+| Sparse 3D Benchmark | `benchmarks/sparse_3d_benchmark.rs` | Wall-clock and memory comparison, 11-22x memory reduction |
+| Sparse 3D Drilling | `benchmarks/sparse_3d_drilling_regression.rs` | Drilling DOF regularization, Cholesky silent-failure regression |

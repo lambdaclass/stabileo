@@ -2,6 +2,15 @@
 
 ## Unreleased
 
+### Sparse-first 3D assembly and solve
+
+- completed sparse 3D assembly for plates, quads, inclined supports, and diagnostics
+- wired sparse path into `solve_3d()` for models with 64+ free DOFs
+- added residual-checked Cholesky fallback: if ||Kff*u - f||/||f|| > 1e-6, falls back to dense LU
+- 11-22x memory reduction on shell models (10×10 to 15×15 quad meshes)
+- 13 new validation tests: 8 dense-vs-sparse parity, 2 performance benchmarks, 3 drilling regression
+- latest reported full-suite status reached `6371` passing tests with `0` failures
+
 ### Shell validation and hardening
 
 - added `QuadSelfWeight` body force load type (density, gx, gy, gz) with consistent Gauss integration, wired into assembly
@@ -10,7 +19,7 @@
 - added edge load validation: normal (in-plane) and tangential (axial extension) against beam theory
 - added thermal gradient convergence sweep: 4×4, 8×8, 16×16 with monotonic convergence and tightened tolerances
 - added warped element accuracy study: cantilever strip at 0%, 5%, 10%, 20% warp with graceful degradation tracking
-- 11 new shell benchmark tests; full suite at 5856 tests, 0 failures
+- 11 new shell benchmark tests; full suite at 6371 tests, 0 failures
 
 ### MITC4 shell element: Bathe-Dvorkin ANS shear tying
 
@@ -23,7 +32,7 @@
 - added moderate warping diagnostics (0.01-0.1 range) in assembly
 - added dedicated thin-plate locking test (a/t = 1000) to prevent regression
 - expanded CI shell benchmark gate to cover plate bending, Navier convergence, Scordelis-Lo, cantilever, hemisphere, and thin-plate tests
-- latest reported full-suite status reached `6347` passing tests with `0` failures
+- latest reported full-suite status reached `6371` passing tests with `0` failures
 - EAS-4 is mathematically correct and stable, but pinched hemisphere remains a known membrane-locking limit; that boundary is now documented explicitly
 
 ### Solver quality milestone

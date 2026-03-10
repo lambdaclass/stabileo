@@ -13,10 +13,10 @@ The benchmark ledger below is curated. It is narrower than the full automated te
 
 Current measured inventory:
 
-- latest reported full-suite status: `6347` passing tests, `0` failures
+- latest reported full-suite status: `6371` passing tests, `0` failures
 - `25` integration test files (`182` integration test functions)
 - dedicated property / differential fuzz coverage (`90` passing tests)
-- explicit benchmark-gate suites for constraints, contact, shells, reduction, and sparse / conditioning paths
+- explicit benchmark-gate suites for constraints, contact, shells, reduction, sparse / conditioning paths, and sparse 3D parity
 - explicit CI gate stages for shell benchmarks, shell acceptance models, and constraint benchmarks
 - the benchmark ledger below is curated and intentionally narrower than the full automated suite
 

@@ -190,6 +190,18 @@ Focus:
 - conditioning diagnostics
 - memory and runtime discipline on representative full models
 
+Current status:
+- sparse-first 3D assembly is live for plates, quads, and frames (models with 64+ free DOFs)
+- residual-checked Cholesky fallback to dense LU catches silent ill-conditioning failures
+- memory benchmarks show 11-22x reduction on representative 10×10 to 15×15 shell models
+- relative pivot threshold in sparse Cholesky catches near-singular matrices earlier
+
+Next steps:
+- runtime criterion benchmarks for dense-vs-sparse 3D wall-clock comparison
+- better AMD ordering (consider external crate or improved heuristic)
+- parallel element loop for sparse 3D assembly (rayon behind `parallel` feature flag)
+- sparse extraction for buckling/modal 3D solvers (extend sparse path beyond linear solve)
+
 Why it matters:
 A solver is not elite if it only works well on small clean examples.
 
