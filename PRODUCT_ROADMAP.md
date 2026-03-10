@@ -47,10 +47,15 @@ Already present:
 - Rust solver in the main app flow through WASM
 - broad results, postprocessing, and design-check coverage
 - benchmark and validation story strong enough to support a product-quality narrative
+- diagnostics and solver warnings surfaced in the results flow
+- results-store support for constraint forces, assembly diagnostics, and solver diagnostics
+- results-table diagnostics sub-tab and solve-time warning toasts for important issues such as negative Jacobians
 
 Still productizing:
 
-- diagnostics surfaced cleanly in the app/API
+- richer diagnostics UX in the app/API
+- constraint-force presentation in the results experience
+- click-to-focus and visual highlighting for problematic elements
 - report and deliverable workflows
 - broader workflow packaging around the full solver surface
 - deeper collaboration and firm-facing features
@@ -62,32 +67,33 @@ Still productizing:
 
 | Priority | Topic | Why now |
 |---|---|---|
-| 1 | Surface solver diagnostics in the app/API | The solver already produces diagnostics; showing them clearly gives immediate user value and makes the newest solver work visible. |
-| 2 | Results UX for diagnostics and constraint forces | Add a diagnostics tab, warnings panel, and clean result presentation before richer canvas integrations. |
-| 3 | Shell/contact/constrained workflow usability | Turn the newest solver capabilities into practical workflows that feel coherent in the app. |
-| 4 | Report and calculation-document foundations | Solver trust converts into revenue more easily when firms can produce deliverables. |
-| 5 | Public benchmark and acceptance-model presentation | Make the trust story legible to users, customers, and evaluators. |
-| 6 | Performance feedback in the UI | Progress, iteration counts, and slow-phase visibility make large-model solves feel much more mature. |
+| 1 | Richer diagnostics UX | Diagnostics are now in the app flow; the next step is better grouping, filtering, and visibility rather than first-time surfacing. |
+| 2 | Constraint-force presentation | Constraint forces now exist end-to-end; users need them presented coherently alongside reactions and solver diagnostics. |
+| 3 | Click-to-focus and visual highlighting | The next high-value usability step is linking diagnostics and warnings to the affected elements in the viewport. |
+| 4 | Shell/contact/constrained workflow usability | Turn the newest solver capabilities into practical workflows that feel coherent in the app. |
+| 5 | Report and calculation-document foundations | Solver trust converts into revenue more easily when firms can produce deliverables. |
+| 6 | Public benchmark and acceptance-model presentation | Make the trust story legible to users, customers, and evaluators. |
+| 7 | Performance feedback in the UI | Progress, iteration counts, and slow-phase visibility make large-model solves feel much more mature. |
 
 ### 3-6 months
 
 | Priority | Topic | Why now |
 |---|---|---|
-| 7 | Code-check packaging and workflow polish | The solver already supports a broad design-check layer; the next step is turning it into a cleaner end-user workflow. |
-| 8 | Connections and foundations productization | These are natural downstream layers on top of solver outputs. |
-| 9 | Interoperability and import/export improvements | Lower switching friction and fit existing office workflows. |
-| 10 | Project, template, and repeatable workflow support | Help firms standardize how they use the solver. |
-| 11 | Education and benchmark-explorer product surface | A strong distribution and trust channel with minimal solver rework. |
-| 12 | API packaging | The engine is reusable; packaging it cleanly opens additional product and enterprise paths. |
+| 8 | Code-check packaging and workflow polish | The solver already supports a broad design-check layer; the next step is turning it into a cleaner end-user workflow. |
+| 9 | Connections and foundations productization | These are natural downstream layers on top of solver outputs. |
+| 10 | Interoperability and import/export improvements | Lower switching friction and fit existing office workflows. |
+| 11 | Project, template, and repeatable workflow support | Help firms standardize how they use the solver. |
+| 12 | Education and benchmark-explorer product surface | A strong distribution and trust channel with minimal solver rework. |
+| 13 | API packaging | The engine is reusable; packaging it cleanly opens additional product and enterprise paths. |
 
 ### 12 months+
 
 | Priority | Topic | Why later |
 |---|---|---|
-| 13 | Collaboration and server-backed project workflows | High value, but should build on a stable single-user core. |
-| 14 | Enterprise permissions, audit, and administration | Useful once adoption grows inside firms. |
-| 15 | Optimization and AI-assisted workflow layer | Best added after solver trust and core workflow maturity are strong. |
-| 16 | Broader structural platform expansion | Additional downstream tools should follow a strong core product, not lead it. |
+| 14 | Collaboration and server-backed project workflows | High value, but should build on a stable single-user core. |
+| 15 | Enterprise permissions, audit, and administration | Useful once adoption grows inside firms. |
+| 16 | Optimization and AI-assisted workflow layer | Best added after solver trust and core workflow maturity are strong. |
+| 17 | Broader structural platform expansion | Additional downstream tools should follow a strong core product, not lead it. |
 
 ## Delivery Phases
 
@@ -95,8 +101,9 @@ Still productizing:
 
 Focus:
 - trustworthy browser-native analysis
-- visible diagnostics
-- clean results surface
+- visible diagnostics and warnings
+- clean results and constraint-force surface
+- actionable diagnostics tied back to the model
 - benchmark-backed trust story
 
 Goal:
