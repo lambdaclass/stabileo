@@ -41,7 +41,7 @@ The main remaining work is no longer missing basic solver categories. It is:
 Based on the comparison against projects like OpenSees, Code_Aster, and Kratos, the remaining gaps are not “missing the basics.” They are:
 
 1. `Shell endgame maturity`
-   Strong MITC4 coverage now exists, but broader curved-shell workflows, distortion robustness, and the hemisphere / membrane-locking decision still separate Dedaliano from the strongest mature shell stacks.
+   Strong MITC4 coverage now exists, but broader curved-shell workflows, distortion robustness, and the remaining non-planar shell formulation boundary still separate Dedaliano from the strongest mature shell stacks.
 
 2. `Long-tail nonlinear maturity`
    More years of hardened edge cases are still needed in mixed nonlinear workflows:
@@ -72,7 +72,7 @@ If the goal is `best open structural solver`, the current priority order is:
    - curved-shell validation
    - distortion robustness
    - shell workflow completeness
-   - clear decision on whether the hemisphere gap justifies `EAS-7` or a broader shell family
+   - clear decision on whether the remaining curved/non-planar shell gap justifies a broader shell family
 
 2. `Performance and scale`
    Turn sparse-first 3D and current performance infrastructure into real large-model runtime wins.
@@ -167,16 +167,15 @@ Current remaining shell backlog:
 - better shell diagnostics and output semantics in solver results
 
 Known formulation boundary:
-- MITC4 with ANS and EAS-4 is now materially stronger and benchmark-gated
-- the pinched hemisphere remains a known membrane-locking limit
+- MITC4 with ANS and EAS-7 is now materially stronger and benchmark-gated
+- the pinched hemisphere, Raasch hook, and twisted beam remain known curved/non-planar shell limits
 - the next decision is whether to:
   - stop at a well-bounded MITC4 path
-  - add `EAS-7`
   - or introduce a broader shell family later
 
 Recommended shell order:
 1. broader curved-shell validation (beyond Scordelis-Lo and pinched cylinder)
-2. only then decide whether the hemisphere gap justifies `EAS-7` or a new shell family
+2. only then decide whether the remaining curved/non-planar shell gap justifies a broader shell family
 
 Why it matters:
 Shell quality is one of the clearest separators between a strong structural solver and a top-tier one.
@@ -248,7 +247,7 @@ Done means:
 - curved-shell validation sets are in place and passing
 - distortion and warp studies are gated and bounded
 - shell workflow completeness cases are covered
-- the `EAS-7 vs broader shell family` decision is explicitly documented
+- the `bounded MITC4+EAS-7 vs broader shell family` decision is explicitly documented
 
 ### Performance and scale
 

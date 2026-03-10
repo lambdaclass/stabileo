@@ -17,7 +17,7 @@ Read next:
 
 Latest reported status:
 
-- `6371` passing tests, `0` failures
+- `5872` passing tests, `0` failures
 - explicit CI gate stages for shell benchmarks, shell acceptance models, and constraint benchmarks
 - broad 2D and 3D structural analysis coverage
 - nonlinear, staged, contact, SSI, fiber, imperfections, and creep/shrinkage support
@@ -36,7 +36,7 @@ At a high level, Dedaliano already has:
 - broad structural analysis coverage
 - unusually visible benchmark and validation discipline
 - strong product surface for an open solver project
-- shell maturity that is now benchmark-gated rather than merely present
+- shell maturity that is benchmark-gated and now includes MITC4 ANS plus EAS-7
 - sparse-first 3D path with dense-vs-sparse parity coverage and significant memory reduction on shell models
 
 ## Main Remaining Gaps
@@ -44,7 +44,7 @@ At a high level, Dedaliano already has:
 The biggest remaining gaps are no longer basic solver categories. They are:
 
 - shell endgame maturity
-  curved-shell workflows, distortion endgame, and the `EAS-7 vs broader shell family` decision
+  curved-shell workflows, distortion endgame, and the `broader shell family vs bounded MITC4+EAS-7` decision
 - performance and scale
   broader sparse-path runtime wins and large-model discipline
 - verification depth

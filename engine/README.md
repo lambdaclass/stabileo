@@ -44,7 +44,7 @@ This document should stay focused on the engine surface, analysis families, and 
 - **Cable solver** (2D): tension-only cable/catenary-style solve with iterative update
 - **Fiber nonlinear beam-columns** (2D & 3D): distributed plasticity / section-integration solvers
 - **Creep / shrinkage**: time-dependent structural response with EC2-style models
-- **Plate/shell** (3D): DKT/DKMT triangular plates and MITC4 quadrilateral shells with ANS shear tying, EAS-4 membrane softening, pressure, drilling stabilization, and thermal support
+- **Plate/shell** (3D): DKT/DKMT triangular plates and MITC4 quadrilateral shells with ANS shear tying, EAS-7 membrane enhancement, pressure, drilling stabilization, and thermal support
 - **Model reduction / substructuring**: Guyan condensation and Craig-Bampton reduction for larger-model workflows
 - **Section analysis**: polygon-based cross-section properties and section metrics
 
@@ -63,7 +63,7 @@ It also runs explicit gate steps for shell benchmarks, shell acceptance models, 
 
 ## Validation Test Suite
 
-Latest reported full-suite status: **6371 passing tests, 0 failures**.
+Latest reported full-suite status: **5872 passing tests, 0 failures**.
 
 The engine is backed by:
 
@@ -162,7 +162,7 @@ Phase 2 is complete — constraint unification, contact refinement, connector el
 
 - shell release-gating and shell-driven fixes from the newest benchmark/acceptance suites
 - real-model acceptance tests and full-workflow performance benchmarks
-- deeper shell maturity (broader curved-shell families, hemisphere/membrane-locking limit decisions, folded plates)
+- deeper shell maturity (broader curved-shell families, non-planar shell-boundary decisions, folded plates)
 - advanced contact variants (friction cycles, multi-gap mixed states)
 - CI hardening and release-grade benchmark gates
 - performance at scale and production solver polish

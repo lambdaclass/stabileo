@@ -67,7 +67,7 @@ Dedaliano is an `open-source structural solver` with a growing structural engine
 Latest reported milestone:
 
 - broad 2D and 3D structural analysis coverage, including staged, contact, SSI, fiber nonlinear, imperfections, and creep/shrinkage workflows
-- shell maturity now includes MITC4 ANS plus EAS-4, explicit shell CI gates, curved/distorted workflow studies, self-weight, edge loads, and thermal convergence coverage
+- shell maturity now includes MITC4 ANS plus EAS-7, explicit shell CI gates, curved/distorted workflow studies, self-weight, edge loads, thermal convergence coverage, and broader shell benchmark tracking
 - sparse-first 3D assembly and solve path is live, with dense-vs-sparse parity coverage and large memory wins on shell models
 - benchmark gates, acceptance models, integration tests, property/differential fuzz coverage, and a large public benchmark program back the solver-quality story
 
@@ -92,7 +92,7 @@ At a high level, the current solver supports:
 - 2D and 3D corotational and material nonlinear analysis
 - plastic analysis, staged construction, prestress / post-tension workflows, cable analysis, contact / gap behavior, and nonlinear SSI
 - initial imperfections / residual stress modeling and time-dependent creep / shrinkage workflows
-- frame, truss, cable, plate, and shell formulations, including Timoshenko beams, warping torsion, triangular plates, and MITC4 quadrilateral shells with Bathe-Dvorkin ANS shear tying and EAS-4 membrane softening
+- frame, truss, cable, plate, and shell formulations, including Timoshenko beams, warping torsion, triangular plates, and MITC4 quadrilateral shells with Bathe-Dvorkin ANS shear tying and EAS-7 membrane enhancement
 - constraints including rigid links, diaphragms, equal-DOF constraints, general linear MPCs, and reusable constrained-solver reduction/expansion paths
 - 2D and 3D fiber beam-column nonlinear solvers
 - model reduction and substructuring workflows including Guyan and Craig-Bampton reduction

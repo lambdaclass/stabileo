@@ -76,6 +76,13 @@ It should capture what changed, not what should be built next.
 - expanded CI shell benchmark gate to cover plate bending, Navier convergence, Scordelis-Lo, cantilever, hemisphere, and thin-plate tests
 - EAS-4 is mathematically correct and stable, but pinched hemisphere remains a known membrane-locking limit; that boundary is now documented explicitly
 
+#### MITC4 shell element: EAS-7 upgrade and curved-shell tracking
+
+- replaced the 4-mode membrane enhancement with EAS-7 using a generic small-matrix inverse and 7 enhanced membrane modes
+- Scordelis-Lo improved further to roughly 0.84 of reference with no regressions on Navier, buckling, modal, or existing shell gates
+- added new shell tracking benchmarks for Raasch hook and twisted beam as explicit non-planar / curved-shell formulation-limit indicators
+- clarified that the remaining shell decision is no longer `EAS-4 vs EAS-7`; it is `bounded MITC4+EAS-7 vs broader shell family`
+
 ### Fixed
 
 #### Solver quality milestone
@@ -86,4 +93,4 @@ It should capture what changed, not what should be built next.
 
 ### Validation
 
-- latest reported full-suite status reached `6371` passing tests with `0` failures
+- latest reported full-suite status reached `5872` passing tests with `0` failures

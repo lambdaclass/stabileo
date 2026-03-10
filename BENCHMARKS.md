@@ -26,7 +26,7 @@ The benchmark ledger below is curated. It is narrower than the full automated te
 
 Current measured inventory:
 
-- latest reported full-suite status: `6371` passing tests, `0` failures
+- latest reported full-suite status: `5872` passing tests, `0` failures
 - `25` integration test files (`182` integration test functions)
 - dedicated property / differential fuzz coverage (`90` passing tests)
 - explicit benchmark-gate suites for constraints, contact, shells, reduction, sparse / conditioning paths, and sparse 3D parity
@@ -41,7 +41,7 @@ Current measured inventory:
 | Dynamics (modal / spectrum / time history / harmonic) | Yes | Yes | Partial | more mixed shell/frame and nonlinear depth |
 | Nonlinear frames / fiber / staged | Yes | Yes | Partial | harder mixed nonlinear workflows and convergence edge cases |
 | Contact / SSI | Yes | Yes | Partial | tougher mixed cases and more long-tail reference coverage |
-| Shells / plates | Yes | Yes | Yes | curved-shell workflows, distortion endgame, hemisphere decision |
+| Shells / plates | Yes | Yes | Yes | curved-shell workflows, distortion endgame, and the broader-shell-family decision |
 | Constraints / reduction | Yes | Yes | Yes | chained-constraint maturity and broader solver-path consistency |
 | Sparse / conditioning paths | Yes | Yes | Yes | runtime wins, ordering quality, broader sparse-path reuse |
 | Design-check / postprocess stack | Yes | Yes | No | workflow/product packaging rather than core mechanics |
@@ -98,7 +98,7 @@ The rest of this document explains how proven each part of that surface is.
 The main remaining needs are no longer basic feature categories. They are:
 
 - stronger shell endgame maturity
-  curved-shell workflows, distortion robustness, and a clear decision around the remaining hemisphere / membrane-locking limit
+  curved-shell workflows, distortion robustness, and a clear decision around the remaining curved/non-planar shell formulation limits
 - performance and scale maturity
   especially broader sparse-path wins, runtime discipline, and large-model reliability
 - verification depth
@@ -222,7 +222,7 @@ Status definitions used here:
 | 2D frame / truss elements | Strong | `element/frame.rs`, `element/truss` behavior via linear solver/tests | Mostly shear deformation and nonlinear upgrades |
 | 3D frame / truss elements | Strong | `element/frame.rs`, broad `validation_3d_*` coverage | More difficult mixed nonlinear / shell-coupled cases and warping hardening |
 | Plate / shell triangles | Good | `element/plate.rs`, `validation_plates.rs`, `validation_scordelis_lo.rs`, recent drilling/nodal-stress/thermal upgrades | Higher fidelity shell behavior, convergence quality, and more benchmark depth |
-| MITC4 quadrilateral shell element | Strong | `element/quad.rs` with Bathe-Dvorkin (1986) ANS shear tying plus EAS-4 membrane softening, integrated through standard input and assembly, nonlinear 3D stress recovery, full nodal stress tensor recovery, shell-quality diagnostics, and Jacobian/warping detection. Scordelis-Lo 80%, Navier plate 93%, buckling 102%, modal 99.9% of reference. | Pinched hemisphere still shows a formulation-limit membrane-locking gap; broader curved-shell workflow maturity and distortion studies remain |
+| MITC4 quadrilateral shell element | Strong | `element/quad.rs` with Bathe-Dvorkin (1986) ANS shear tying plus EAS-7 membrane enhancement, integrated through standard input and assembly, nonlinear 3D stress recovery, full nodal stress tensor recovery, shell-quality diagnostics, and Jacobian/warping detection. Scordelis-Lo 84%, Navier plate 93%, buckling 102%, modal 99.9% of reference. | Extreme non-planar shell cases like the pinched hemisphere, Raasch hook, and twisted beam still expose formulation limits; broader curved-shell workflow maturity and shell-family decisions remain |
 | Curved beams | Partial | `element/curved_beam.rs`, `validation_curved_beams.rs` | Current approach is segmented expansion, not native high-end formulation |
 | Timoshenko beam / shear deformation | Good | `element/frame.rs`, shear-area fields in `types/input.rs`, `validation_timoshenko_solver.rs` | Needs broader production validation across all solver modes |
 | Cable / catenary element | Good | `element/cable.rs`, `solver/cable.rs`, `integration_cable_solver.rs` | Needs broader bridge/cable-net/staged benchmark depth |
@@ -273,7 +273,7 @@ The sections below describe current capability and current gaps. This section an
 Based on the current code, tests, and benchmark surface, the remaining differences are no longer about missing the basics. They are:
 
 1. `Shell endgame maturity`
-   MITC4 with ANS plus EAS-4 is now strong, but curved-shell workflows, broader shell breadth, and the hemisphere membrane-locking decision still separate Dedaliano from the strongest mature shell stacks.
+   MITC4 with ANS plus EAS-7 is now strong, but curved-shell workflows, broader shell breadth, and the curved/non-planar shell formulation decision still separate Dedaliano from the strongest mature shell stacks.
 
 2. `Long-tail nonlinear maturity`
    More years of hardened mixed nonlinear edge cases are still needed, especially around contact + nonlinear + staging and shell + nonlinear interaction.
@@ -315,7 +315,7 @@ This is the solver-core ordering to use when the goal is technical leadership ra
 
 | Priority | Topic | Why now |
 |----------|-------|---------|
-| 1 | Shell release gates and workflow hardening | Shell benchmark hardening is materially complete; the next step is to turn it into a clean endgame program around curved-shell workflows, distortion robustness, and the hemisphere decision. |
+| 1 | Shell release gates and workflow hardening | Shell benchmark hardening is materially complete; the next step is to turn it into a clean endgame program around curved-shell workflows, distortion robustness, and the broader non-planar shell decision. |
 | 2 | Performance and scale engineering | Sparse 3D is now real; the next step is large-model runtime wins, better ordering, and broader sparse-path reuse. |
 | 3 | Verification hardening | Expand invariants, property-based tests, fuzzing, benchmark gates, and acceptance models around the newest solver families. |
 | 4 | Long-tail nonlinear hardening | The biggest remaining gap versus the deepest open solvers is robustness on hard nonlinear mixed workflows. |
@@ -350,7 +350,7 @@ This is the solver-core ordering to use when the goal is technical leadership ra
 
 | Priority | Topic | Why It Matters |
 |----------|-------|----------------|
-| 1 | Shell workflow and reliability hardening | MITC4 with ANS plus EAS-4 now produces credible results including distortion robustness, pinched cylinder, self-weight, edge loads, thermal convergence, and warped element studies; the remaining gaps are broader curved-shell families and deciding whether the hemisphere limit justifies EAS-7 |
+| 1 | Shell workflow and reliability hardening | MITC4 with ANS plus EAS-7 now produces credible results including distortion robustness, pinched cylinder, self-weight, edge loads, thermal convergence, and warped element studies; the remaining gaps are broader curved-shell families and deciding whether the remaining non-planar shell limits justify a broader shell family |
 | 2 | Performance / scale engineering | Large-model reliability, sparse performance, conditioning, and eigensolver robustness are part of solver quality, not implementation detail |
 | 3 | Verification hardening on newest solver families | The remaining differentiator is now proof and hardening, not only additional categories |
 | 4 | Long-tail nonlinear maturity | Hard mixed workflows and difficult convergence behavior are where the deepest open solvers still have more years of hardened edge cases |
@@ -390,7 +390,7 @@ This is the approximate implementation difficulty ordering for the remaining sol
 |---|---|---|
 | SSI beyond Winkler | Completed | `p-y`, `t-z`, and `q-z` support now exists; remaining work is hardening. |
 | Constraint technology | Completed | MPCs, rigid links, diaphragms, and equal-DOF support now exist in the main solver flow. |
-| MITC4 integration into the main model path | Completed | The quadrilateral shell element is wired into standard input and assembly with Bathe-Dvorkin ANS shear tying plus EAS-4 membrane softening. |
+| MITC4 integration into the main model path | Completed | The quadrilateral shell element is wired into standard input and assembly with Bathe-Dvorkin ANS shear tying plus EAS-7 membrane enhancement. |
 | Initial imperfections / initial state basics | Completed | Initial geometric imperfections and residual-stress inputs now exist; remaining work is hardening and benchmark depth. |
 
 #### Medium to High
@@ -413,7 +413,7 @@ This is the approximate implementation difficulty ordering for the remaining sol
 
 | Topic | Status | Why |
 |---|---|---|
-| Advanced shell technology | Open | MITC4 with ANS plus EAS-4 produces credible results on the main standard shell benchmarks. Shell workflow maturity now covers distortion robustness, pinched cylinder, self-weight loading, edge loads, thermal convergence, and warped element degradation. Remaining: the hemisphere membrane-locking limit, broader curved-shell families, and production robustness. |
+| Advanced shell technology | Open | MITC4 with ANS plus EAS-7 produces credible results on the main standard shell benchmarks. Shell workflow maturity now covers distortion robustness, pinched cylinder, self-weight loading, edge loads, thermal convergence, and warped element degradation. Remaining: extreme non-planar shell limits, broader curved-shell families, and production robustness. |
 
 ---
 
@@ -1352,7 +1352,7 @@ These are the largest gaps between the current engine and a top-tier structural 
 | Prestress / post-tension FE behavior | Hard | Good | Real PT depth exists now, but full time-dependent coupling and workflow breadth remain open |
 | Construction staging | Hard | Good | 2D and 3D implementations exist; broader workflow depth and prestress/time-dependent coupling remain open |
 | Creep & shrinkage response | Hard | Good | Core time-dependent response now exists; the remaining gap is broader staged/PT coupling and long-term benchmark depth |
-| Plate / shell advanced elements and load vectors | Hard | Strong | Triangles and MITC4 with ANS plus EAS-4 now exist with credible benchmark results including distortion robustness, pinched cylinder, self-weight, edge loads, thermal convergence, and warped element studies. Remaining: hemisphere-limit decisions and broader curved-shell production workflows |
+| Plate / shell advanced elements and load vectors | Hard | Strong | Triangles and MITC4 with ANS plus EAS-7 now exist with credible benchmark results including distortion robustness, pinched cylinder, self-weight, edge loads, thermal convergence, and warped element studies. Remaining: broader curved/non-planar shell decisions and broader curved-shell production workflows |
 | Advanced contact variants | Hard | Good | Contact exists, but richer contact laws and harder convergence cases remain open |
 | Nonlinear solution controls and path-following hardening | Hard | Good | Controls now exist; what remains is hard-path validation and broader integration |
 | Model reduction / substructuring | Medium | Good | Core capability exists; the remaining work is workflow integration, reduction choices, and larger-model validation |
