@@ -118,6 +118,26 @@ impl CscMatrix {
         self.col_ptr[self.n]
     }
 
+    /// Remove entries with absolute value below threshold and compact the CSC.
+    /// Matches the filtering behavior of `from_dense_symmetric` (threshold 1e-30).
+    pub fn drop_below_threshold(&mut self, threshold: f64) {
+        let mut new_rows = Vec::with_capacity(self.nnz());
+        let mut new_vals = Vec::with_capacity(self.nnz());
+        let mut new_col_ptr = vec![0usize; self.n + 1];
+        for j in 0..self.n {
+            for k in self.col_ptr[j]..self.col_ptr[j + 1] {
+                if self.values[k].abs() >= threshold {
+                    new_rows.push(self.row_idx[k]);
+                    new_vals.push(self.values[k]);
+                }
+            }
+            new_col_ptr[j + 1] = new_rows.len();
+        }
+        self.col_ptr = new_col_ptr;
+        self.row_idx = new_rows;
+        self.values = new_vals;
+    }
+
     /// Symmetric matrix-vector product: y = A*x where A is stored as lower triangle.
     pub fn sym_mat_vec(&self, x: &[f64]) -> Vec<f64> {
         assert_eq!(x.len(), self.n);
@@ -249,6 +269,28 @@ impl CscMatrix {
             }
         }
         CscMatrix::from_triplets(n, &rows, &cols, &vals)
+    }
+    /// Compute y[i] += K[i, j] * x[j] for i < nf, j >= nf (cross-block mat-vec).
+    /// K is symmetric lower-triangle CSC of dimension n. Extracts the free×restrained
+    /// block contribution for prescribed displacement handling.
+    pub fn sparse_cross_block_matvec(&self, x_rest: &[f64], nf: usize) -> Vec<f64> {
+        let mut y = vec![0.0; nf];
+        for j in 0..self.n {
+            for k in self.col_ptr[j]..self.col_ptr[j + 1] {
+                let i = self.row_idx[k];
+                let v = self.values[k];
+                // Lower triangle: i >= j always.
+                // We want (free, restrained) pairs:
+                //   stored (i,j) with i < nf, j >= nf  → i is free, j is restrained
+                //   stored (i,j) with i >= nf, j < nf  → j is free, i is restrained (symmetric)
+                if i < nf && j >= nf {
+                    y[i] += v * x_rest[j - nf];
+                } else if i >= nf && j < nf {
+                    y[j] += v * x_rest[i - nf];
+                }
+            }
+        }
+        y
     }
 }
 

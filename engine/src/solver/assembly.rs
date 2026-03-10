@@ -1096,6 +1096,17 @@ pub struct SparseAssemblyResult {
     pub artificial_dofs: Vec<usize>,
 }
 
+/// Sparse 3D assembly result with full-K for reactions and inclined support data.
+pub struct SparseAssemblyResult3D {
+    pub k_ff: CscMatrix,
+    pub k_full: CscMatrix,
+    pub f: Vec<f64>,
+    pub max_diag_k: f64,
+    pub artificial_dofs: Vec<usize>,
+    pub inclined_transforms: Vec<InclinedTransformData>,
+    pub diagnostics: Vec<crate::types::AssemblyDiagnostic>,
+}
+
 /// Assemble sparse Kff for 2D. Returns CSC lower-triangle of the free-DOF block.
 pub fn assemble_sparse_2d(input: &SolverInput, dof_num: &DofNumbering) -> SparseAssemblyResult {
     let n = dof_num.n_total;
@@ -1281,8 +1292,72 @@ pub fn assemble_sparse_2d(input: &SolverInput, dof_num: &DofNumbering) -> Sparse
     SparseAssemblyResult { k_ff, f: f_global, max_diag_k: max_diag, artificial_dofs }
 }
 
-/// Assemble sparse Kff for 3D. Returns CSC lower-triangle of the free-DOF block.
-pub fn assemble_sparse_3d(input: &SolverInput3D, dof_num: &DofNumbering) -> SparseAssemblyResult {
+/// Apply inclined support rotation to COO triplets and force vector.
+/// Equivalent to the dense `apply_inclined_transform` but operates on triplet arrays.
+fn apply_inclined_transform_triplets(
+    trip_rows: &mut Vec<usize>, trip_cols: &mut Vec<usize>, trip_vals: &mut Vec<f64>,
+    f_global: &mut [f64], dofs: &[usize; 3], r: &[[f64; 3]; 3],
+) {
+    let dof_local: std::collections::HashMap<usize, usize> =
+        dofs.iter().enumerate().map(|(i, &d)| (d, i)).collect();
+
+    // Collect entries touching inclined DOFs, zero originals
+    let mut block = [[0.0; 3]; 3];
+    let mut cross_row: std::collections::HashMap<usize, [f64; 3]> = Default::default();
+    let mut cross_col: std::collections::HashMap<usize, [f64; 3]> = Default::default();
+
+    for idx in 0..trip_rows.len() {
+        let ri = trip_rows[idx];
+        let ci = trip_cols[idx];
+        let v = trip_vals[idx];
+        let r_loc = dof_local.get(&ri).copied();
+        let c_loc = dof_local.get(&ci).copied();
+        match (r_loc, c_loc) {
+            (Some(a), Some(b)) => { block[a][b] += v; trip_vals[idx] = 0.0; }
+            (Some(a), None)    => { cross_col.entry(ci).or_insert([0.0; 3])[a] += v; trip_vals[idx] = 0.0; }
+            (None, Some(b))    => { cross_row.entry(ri).or_insert([0.0; 3])[b] += v; trip_vals[idx] = 0.0; }
+            (None, None)       => {}
+        }
+    }
+
+    // Rotated block: R * block * R^T
+    for a in 0..3 {
+        for b in 0..3 {
+            let mut s = 0.0;
+            for c in 0..3 { for d in 0..3 { s += r[a][c] * block[c][d] * r[b][d]; } }
+            if s.abs() > 1e-30 {
+                trip_rows.push(dofs[a]); trip_cols.push(dofs[b]); trip_vals.push(s);
+            }
+        }
+    }
+    // Cross-row: K'[i, dofs[a]] = sum_b K[i, dofs[b]] * R[a][b]
+    for (&i, v3) in &cross_row {
+        for a in 0..3 {
+            let s: f64 = (0..3).map(|b| v3[b] * r[a][b]).sum();
+            if s.abs() > 1e-30 {
+                trip_rows.push(i); trip_cols.push(dofs[a]); trip_vals.push(s);
+            }
+        }
+    }
+    // Cross-col: K'[dofs[a], j] = sum_b R[a][b] * K[dofs[b], j]
+    for (&j, v3) in &cross_col {
+        for a in 0..3 {
+            let s: f64 = (0..3).map(|b| r[a][b] * v3[b]).sum();
+            if s.abs() > 1e-30 {
+                trip_rows.push(dofs[a]); trip_cols.push(j); trip_vals.push(s);
+            }
+        }
+    }
+    // Rotate force: F'[dofs[a]] = sum_b R[a][b] * F[dofs[b]]
+    let fv = [f_global[dofs[0]], f_global[dofs[1]], f_global[dofs[2]]];
+    for a in 0..3 {
+        f_global[dofs[a]] = r[a][0] * fv[0] + r[a][1] * fv[1] + r[a][2] * fv[2];
+    }
+}
+
+/// Assemble sparse full-K for 3D. Returns CSC of Kff and full K, plus force vector.
+/// Collects all triplets for the full n×n K, then filters for Kff at the end.
+pub fn assemble_sparse_3d(input: &SolverInput3D, dof_num: &DofNumbering) -> SparseAssemblyResult3D {
     let n = dof_num.n_total;
     let nf = dof_num.n_free;
     let mut f_global = vec![0.0; n];
@@ -1301,7 +1376,28 @@ pub fn assemble_sparse_3d(input: &SolverInput3D, dof_num: &DofNumbering) -> Spar
         input.materials.values().map(|m| (m.id, m)).collect();
     let sec_map: std::collections::HashMap<usize, &SolverSection3D> =
         input.sections.values().map(|s| (s.id, s)).collect();
+    let plate_map: std::collections::HashMap<usize, &SolverPlateElement> =
+        input.plates.values().map(|p| (p.id, p)).collect();
+    let quad_map: std::collections::HashMap<usize, &SolverQuadElement> =
+        input.quads.values().map(|q| (q.id, q)).collect();
 
+    // Helper: scatter element stiffness into triplets (full K, lower triangle)
+    macro_rules! scatter {
+        ($k_glob:expr, $dofs:expr, $ndof:expr) => {
+            for i in 0..$ndof {
+                let gi = $dofs[i];
+                for j in 0..$ndof {
+                    let gj = $dofs[j];
+                    if gi >= gj {
+                        trip_rows.push(gi); trip_cols.push(gj); trip_vals.push($k_glob[i * $ndof + j]);
+                    }
+                }
+                if gi < nf { diag_vals[gi] += $k_glob[i * $ndof + i]; }
+            }
+        };
+    }
+
+    // Frame and truss elements
     for elem in input.elements.values() {
         let node_i = node_map[&elem.node_i];
         let node_j = node_map[&elem.node_j];
@@ -1329,11 +1425,11 @@ pub fn assemble_sparse_3d(input: &SolverInput3D, dof_num: &DofNumbering) -> Spar
                                 dof_num.map.get(&(node_a, i)),
                                 dof_num.map.get(&(node_b, j)),
                             ) {
-                                if da < nf && db < nf && da >= db {
+                                if da >= db {
                                     let val = sign * ea_l * dir[i] * dir[j];
                                     trip_rows.push(da); trip_cols.push(db); trip_vals.push(val);
-                                    if da == db { diag_vals[da] += val; }
                                 }
+                                if da == db && da < nf { diag_vals[da] += sign * ea_l * dir[i] * dir[j]; }
                             }
                         }
                     }
@@ -1347,70 +1443,55 @@ pub fn assemble_sparse_3d(input: &SolverInput3D, dof_num: &DofNumbering) -> Spar
             let elem_dofs = dof_num.element_dofs(elem.node_i, elem.node_j);
             let has_cw = sec.cw.map_or(false, |cw| cw > 0.0);
 
+            let (phi_y, phi_z) = if sec.as_y.is_some() || sec.as_z.is_some() {
+                let l2 = l * l;
+                let py = sec.as_y.map(|ay| 12.0 * e * sec.iy / (g * ay * l2)).unwrap_or(0.0);
+                let pz = sec.as_z.map(|az| 12.0 * e * sec.iz / (g * az * l2)).unwrap_or(0.0);
+                (py, pz)
+            } else {
+                (0.0, 0.0)
+            };
+
             if has_cw && dof_num.dofs_per_node >= 7 {
                 let k_local = frame_local_stiffness_3d_warping(
                     e, sec.a, sec.iy, sec.iz, sec.j, sec.cw.unwrap(), l, g,
-                    elem.hinge_start, elem.hinge_end, 0.0, 0.0,
+                    elem.hinge_start, elem.hinge_end, phi_y, phi_z,
                 );
                 let t = frame_transform_3d_warping(&ex, &ey, &ez);
                 let k_glob = transform_stiffness(&k_local, &t, 14);
                 let ndof = elem_dofs.len();
-
-                for i in 0..ndof {
-                    if elem_dofs[i] >= nf { continue; }
-                    for j in 0..ndof {
-                        if elem_dofs[j] >= nf { continue; }
-                        let gi = elem_dofs[i];
-                        let gj = elem_dofs[j];
-                        if gi >= gj {
-                            trip_rows.push(gi); trip_cols.push(gj); trip_vals.push(k_glob[i * ndof + j]);
-                        }
-                    }
-                    diag_vals[elem_dofs[i]] += k_glob[i * ndof + i];
-                }
+                scatter!(k_glob, elem_dofs, ndof);
                 assemble_element_loads_3d_warping(input, elem, &t, l, e, sec, &elem_dofs, &mut f_global);
             } else if dof_num.dofs_per_node >= 7 {
-                let k_local = frame_local_stiffness_3d(e, sec.a, sec.iy, sec.iz, sec.j, l, g, elem.hinge_start, elem.hinge_end, 0.0, 0.0);
+                let k_local = frame_local_stiffness_3d(e, sec.a, sec.iy, sec.iz, sec.j, l, g,
+                    elem.hinge_start, elem.hinge_end, phi_y, phi_z);
                 let t = frame_transform_3d(&ex, &ey, &ez);
                 let k_glob = transform_stiffness(&k_local, &t, 12);
-
+                // Map 12-DOF to 14-DOF positions
                 for i in 0..12 {
                     let gi = elem_dofs[DOF_MAP_12_TO_14[i]];
-                    if gi >= nf { continue; }
                     for j in 0..12 {
                         let gj = elem_dofs[DOF_MAP_12_TO_14[j]];
-                        if gj >= nf { continue; }
                         if gi >= gj {
                             trip_rows.push(gi); trip_cols.push(gj); trip_vals.push(k_glob[i * 12 + j]);
                         }
                     }
-                    diag_vals[gi] += k_glob[i * 12 + i];
+                    if gi < nf { diag_vals[gi] += k_glob[i * 12 + i]; }
                 }
                 assemble_element_loads_3d_mapped(input, elem, &t, l, e, sec, &elem_dofs, &mut f_global);
             } else {
-                let k_local = frame_local_stiffness_3d(e, sec.a, sec.iy, sec.iz, sec.j, l, g, elem.hinge_start, elem.hinge_end, 0.0, 0.0);
+                let k_local = frame_local_stiffness_3d(e, sec.a, sec.iy, sec.iz, sec.j, l, g,
+                    elem.hinge_start, elem.hinge_end, phi_y, phi_z);
                 let t = frame_transform_3d(&ex, &ey, &ez);
                 let k_glob = transform_stiffness(&k_local, &t, 12);
                 let ndof = elem_dofs.len();
-
-                for i in 0..ndof {
-                    if elem_dofs[i] >= nf { continue; }
-                    for j in 0..ndof {
-                        if elem_dofs[j] >= nf { continue; }
-                        let gi = elem_dofs[i];
-                        let gj = elem_dofs[j];
-                        if gi >= gj {
-                            trip_rows.push(gi); trip_cols.push(gj); trip_vals.push(k_glob[i * ndof + j]);
-                        }
-                    }
-                    diag_vals[elem_dofs[i]] += k_glob[i * ndof + i];
-                }
+                scatter!(k_glob, elem_dofs, ndof);
                 assemble_element_loads_3d(input, elem, &t, l, e, sec, &elem_dofs, &mut f_global);
             }
         }
     }
 
-    // 3D connector elements (sparse path)
+    // Connector elements
     for conn in input.connectors.values() {
         let ni = match node_map.get(&conn.node_i) { Some(n) => n, None => continue };
         let nj_node = match node_map.get(&conn.node_j) { Some(n) => n, None => continue };
@@ -1426,20 +1507,53 @@ pub fn assemble_sparse_3d(input: &SolverInput3D, dof_num: &DofNumbering) -> Spar
         let dofs = dof_num.element_dofs(conn.node_i, conn.node_j);
         let ndof = dofs.len();
         for i in 0..ndof {
-            if dofs[i] >= nf { continue; }
+            let gi = dofs[i];
             for j in 0..ndof {
-                if dofs[j] >= nf { continue; }
-                let gi = dofs[i];
                 let gj = dofs[j];
                 if gi >= gj {
                     trip_rows.push(gi); trip_cols.push(gj); trip_vals.push(ke[i * 12 + j]);
                 }
             }
-            diag_vals[dofs[i]] += ke[i * 12 + i];
+            if gi < nf { diag_vals[gi] += ke[i * 12 + i]; }
         }
     }
 
-    // 3D nodal loads
+    // Plate elements (DKT+CST, 18 DOFs per element)
+    for plate in input.plates.values() {
+        let mat = mat_map[&plate.material_id];
+        let e = mat.e * 1000.0;
+        let nu = mat.nu;
+        let n0 = node_map[&plate.nodes[0]];
+        let n1 = node_map[&plate.nodes[1]];
+        let n2 = node_map[&plate.nodes[2]];
+        let coords = [[n0.x, n0.y, n0.z], [n1.x, n1.y, n1.z], [n2.x, n2.y, n2.z]];
+        let k_local = crate::element::plate_local_stiffness(&coords, e, nu, plate.thickness);
+        let t_plate = crate::element::plate_transform_3d(&coords);
+        let k_glob = transform_stiffness(&k_local, &t_plate, 18);
+        let plate_dofs = dof_num.plate_element_dofs(&plate.nodes);
+        let ndof = plate_dofs.len();
+        scatter!(k_glob, plate_dofs, ndof);
+    }
+
+    // Quad elements (MITC4 shell, 24 DOFs per element)
+    for quad in input.quads.values() {
+        let mat = mat_map[&quad.material_id];
+        let e = mat.e * 1000.0;
+        let nu = mat.nu;
+        let n0 = node_map[&quad.nodes[0]];
+        let n1 = node_map[&quad.nodes[1]];
+        let n2 = node_map[&quad.nodes[2]];
+        let n3 = node_map[&quad.nodes[3]];
+        let coords = [[n0.x, n0.y, n0.z], [n1.x, n1.y, n1.z], [n2.x, n2.y, n2.z], [n3.x, n3.y, n3.z]];
+        let k_local = crate::element::quad::mitc4_local_stiffness(&coords, e, nu, quad.thickness);
+        let t_quad = crate::element::quad::quad_transform_3d(&coords);
+        let k_glob = transform_stiffness(&k_local, &t_quad, 24);
+        let quad_dofs = dof_num.quad_element_dofs(&quad.nodes);
+        let ndof = quad_dofs.len();
+        scatter!(k_glob, quad_dofs, ndof);
+    }
+
+    // All loads (nodal, bimoment, plate pressure/thermal, quad pressure/thermal/self-weight/edge)
     for load in &input.loads {
         if let SolverLoad3D::Nodal(nl) = load {
             let forces = [nl.fx, nl.fy, nl.fz, nl.mx, nl.my, nl.mz];
@@ -1448,49 +1562,118 @@ pub fn assemble_sparse_3d(input: &SolverInput3D, dof_num: &DofNumbering) -> Spar
                     if let Some(&d) = dof_num.map.get(&(nl.node_id, i)) { f_global[d] += f; }
                 }
             }
-            // Bimoment load (warping DOF 6)
             if let Some(bw) = nl.bw {
                 if bw.abs() > 1e-15 {
-                    if let Some(&d) = dof_num.map.get(&(nl.node_id, 6)) {
-                        f_global[d] += bw;
-                    }
+                    if let Some(&d) = dof_num.map.get(&(nl.node_id, 6)) { f_global[d] += bw; }
                 }
             }
         }
-        // Standalone bimoment load (warping DOF 6) — sparse path
         if let SolverLoad3D::Bimoment(bl) = load {
             if bl.bimoment.abs() > 1e-15 {
-                if let Some(&d) = dof_num.map.get(&(bl.node_id, 6)) {
-                    f_global[d] += bl.bimoment;
+                if let Some(&d) = dof_num.map.get(&(bl.node_id, 6)) { f_global[d] += bl.bimoment; }
+            }
+        }
+        if let SolverLoad3D::Pressure(pl) = load {
+            if let Some(&plate) = plate_map.get(&pl.element_id) {
+                let n0 = node_map[&plate.nodes[0]];
+                let n1 = node_map[&plate.nodes[1]];
+                let n2 = node_map[&plate.nodes[2]];
+                let coords = [[n0.x, n0.y, n0.z], [n1.x, n1.y, n1.z], [n2.x, n2.y, n2.z]];
+                let f_press = crate::element::plate_pressure_load(&coords, pl.pressure);
+                let plate_dofs = dof_num.plate_element_dofs(&plate.nodes);
+                for (i, &dof) in plate_dofs.iter().enumerate() {
+                    if i < f_press.len() { f_global[dof] += f_press[i]; }
+                }
+            }
+        }
+        if let SolverLoad3D::PlateThermal(tl) = load {
+            if let Some(&plate) = plate_map.get(&tl.element_id) {
+                let n0 = node_map[&plate.nodes[0]];
+                let n1 = node_map[&plate.nodes[1]];
+                let n2 = node_map[&plate.nodes[2]];
+                let coords = [[n0.x, n0.y, n0.z], [n1.x, n1.y, n1.z], [n2.x, n2.y, n2.z]];
+                let mat = mat_map[&plate.material_id];
+                let e = mat.e * 1000.0;
+                let nu = mat.nu;
+                let alpha = tl.alpha.unwrap_or(12e-6);
+                let f_th = crate::element::plate_thermal_load(
+                    &coords, e, nu, plate.thickness, alpha, tl.dt_uniform, tl.dt_gradient,
+                );
+                let plate_dofs = dof_num.plate_element_dofs(&plate.nodes);
+                for (i, &dof) in plate_dofs.iter().enumerate() {
+                    if i < f_th.len() { f_global[dof] += f_th[i]; }
+                }
+            }
+        }
+        if let SolverLoad3D::QuadPressure(pl) = load {
+            if let Some(&quad) = quad_map.get(&pl.element_id) {
+                let coords = quad_coords(&node_map, quad);
+                let f_press = crate::element::quad::quad_pressure_load(&coords, pl.pressure);
+                let quad_dofs = dof_num.quad_element_dofs(&quad.nodes);
+                for (i, &dof) in quad_dofs.iter().enumerate() {
+                    if i < f_press.len() { f_global[dof] += f_press[i]; }
+                }
+            }
+        }
+        if let SolverLoad3D::QuadThermal(tl) = load {
+            if let Some(&quad) = quad_map.get(&tl.element_id) {
+                let mat = mat_map[&quad.material_id];
+                let e = mat.e * 1000.0;
+                let nu = mat.nu;
+                let alpha = tl.alpha.unwrap_or(1.2e-5);
+                let coords = quad_coords(&node_map, quad);
+                let f_th = crate::element::quad::quad_thermal_load(
+                    &coords, e, nu, quad.thickness, alpha, tl.dt_uniform, tl.dt_gradient,
+                );
+                let quad_dofs = dof_num.quad_element_dofs(&quad.nodes);
+                for (i, &dof) in quad_dofs.iter().enumerate() {
+                    if i < f_th.len() { f_global[dof] += f_th[i]; }
+                }
+            }
+        }
+        if let SolverLoad3D::QuadSelfWeight(sw) = load {
+            if let Some(&quad) = quad_map.get(&sw.element_id) {
+                let coords = quad_coords(&node_map, quad);
+                let f_sw = crate::element::quad::quad_self_weight_load(
+                    &coords, sw.density, quad.thickness, sw.gx, sw.gy, sw.gz,
+                );
+                let quad_dofs = dof_num.quad_element_dofs(&quad.nodes);
+                for (i, &dof) in quad_dofs.iter().enumerate() {
+                    if i < f_sw.len() { f_global[dof] += f_sw[i]; }
+                }
+            }
+        }
+        if let SolverLoad3D::QuadEdge(el) = load {
+            if let Some(&quad) = quad_map.get(&el.element_id) {
+                let coords = quad_coords(&node_map, quad);
+                let f_edge = crate::element::quad::quad_edge_load(&coords, el.edge, el.qn, el.qt);
+                let quad_dofs = dof_num.quad_element_dofs(&quad.nodes);
+                for (i, &dof) in quad_dofs.iter().enumerate() {
+                    if i < f_edge.len() { f_global[dof] += f_edge[i]; }
                 }
             }
         }
     }
 
-    // 3D spring stiffness
+    // Spring stiffness
     for sup in input.supports.values() {
         let springs = [sup.kx, sup.ky, sup.kz, sup.krx, sup.kry, sup.krz];
         for (i, ks) in springs.iter().enumerate() {
             if let Some(k) = ks {
                 if *k > 0.0 && i < dof_num.dofs_per_node {
                     if let Some(&d) = dof_num.map.get(&(sup.node_id, i)) {
-                        if d < nf {
-                            trip_rows.push(d); trip_cols.push(d); trip_vals.push(*k);
-                            diag_vals[d] += *k;
-                        }
+                        trip_rows.push(d); trip_cols.push(d); trip_vals.push(*k);
+                        if d < nf { diag_vals[d] += *k; }
                     }
                 }
             }
         }
-        // Warping spring (DOF 6)
         if dof_num.dofs_per_node >= 7 {
             if let Some(kw) = sup.kw {
                 if kw > 0.0 {
                     if let Some(&d) = dof_num.map.get(&(sup.node_id, 6)) {
-                        if d < nf {
-                            trip_rows.push(d); trip_cols.push(d); trip_vals.push(kw);
-                            diag_vals[d] += kw;
-                        }
+                        trip_rows.push(d); trip_cols.push(d); trip_vals.push(kw);
+                        if d < nf { diag_vals[d] += kw; }
                     }
                 }
             }
@@ -1499,7 +1682,7 @@ pub fn assemble_sparse_3d(input: &SolverInput3D, dof_num: &DofNumbering) -> Spar
 
     for d in &diag_vals[..nf] { max_diag = max_diag.max(d.abs()); }
 
-    // Artificial stiffness at floating warping DOFs in sparse path
+    // Artificial stiffness at floating warping DOFs
     let mut artificial_dofs_3d = Vec::new();
     if dof_num.dofs_per_node >= 7 {
         let artificial_k = if max_diag > 0.0 { max_diag * 1e-10 } else { 1e-6 };
@@ -1513,6 +1696,142 @@ pub fn assemble_sparse_3d(input: &SolverInput3D, dof_num: &DofNumbering) -> Spar
         }
     }
 
-    let k_ff = CscMatrix::from_triplets(nf, &trip_rows, &trip_cols, &trip_vals);
-    SparseAssemblyResult { k_ff, f: f_global, max_diag_k: max_diag, artificial_dofs: artificial_dofs_3d }
+    // Inclined support transforms (applied to triplets before CSC conversion)
+    let mut inclined_transforms = Vec::new();
+    for sup in input.supports.values() {
+        if sup.is_inclined.unwrap_or(false) {
+            if let (Some(nx), Some(ny), Some(nz)) = (sup.normal_x, sup.normal_y, sup.normal_z) {
+                let n_len = (nx * nx + ny * ny + nz * nz).sqrt();
+                if n_len > 1e-12 {
+                    let r = inclined_rotation_matrix(nx, ny, nz);
+                    if let (Some(&d0), Some(&d1), Some(&d2)) = (
+                        dof_num.map.get(&(sup.node_id, 0)),
+                        dof_num.map.get(&(sup.node_id, 1)),
+                        dof_num.map.get(&(sup.node_id, 2)),
+                    ) {
+                        let dofs = [d0, d1, d2];
+                        apply_inclined_transform_triplets(
+                            &mut trip_rows, &mut trip_cols, &mut trip_vals,
+                            &mut f_global, &dofs, &r,
+                        );
+                        inclined_transforms.push(InclinedTransformData { node_id: sup.node_id, dofs, r });
+                    }
+                }
+            }
+        }
+    }
+
+    // Compact zeroed-out triplets left by inclined support transforms
+    if !inclined_transforms.is_empty() {
+        let mut w = 0;
+        for r in 0..trip_rows.len() {
+            if trip_vals[r] != 0.0 {
+                trip_rows[w] = trip_rows[r];
+                trip_cols[w] = trip_cols[r];
+                trip_vals[w] = trip_vals[r];
+                w += 1;
+            }
+        }
+        trip_rows.truncate(w);
+        trip_cols.truncate(w);
+        trip_vals.truncate(w);
+    }
+
+    // Element quality diagnostics
+    let mut diagnostics = Vec::new();
+    for plate in input.plates.values() {
+        let n0 = node_map[&plate.nodes[0]];
+        let n1 = node_map[&plate.nodes[1]];
+        let n2 = node_map[&plate.nodes[2]];
+        let coords = [[n0.x, n0.y, n0.z], [n1.x, n1.y, n1.z], [n2.x, n2.y, n2.z]];
+        let (aspect_ratio, _skew, min_angle) = crate::element::plate_element_quality(&coords);
+        if aspect_ratio > 10.0 {
+            diagnostics.push(crate::types::AssemblyDiagnostic {
+                element_id: plate.id, element_type: "plate".into(), metric: "aspect_ratio".into(),
+                value: aspect_ratio, threshold: 10.0,
+                message: format!("Plate {} aspect ratio {:.1} exceeds 10", plate.id, aspect_ratio),
+            });
+        }
+        if min_angle < 10.0 {
+            diagnostics.push(crate::types::AssemblyDiagnostic {
+                element_id: plate.id, element_type: "plate".into(), metric: "min_angle".into(),
+                value: min_angle, threshold: 10.0,
+                message: format!("Plate {} min angle {:.1}° below 10°", plate.id, min_angle),
+            });
+        }
+    }
+    for quad in input.quads.values() {
+        let qn0 = node_map[&quad.nodes[0]];
+        let qn1 = node_map[&quad.nodes[1]];
+        let qn2 = node_map[&quad.nodes[2]];
+        let qn3 = node_map[&quad.nodes[3]];
+        let coords = [[qn0.x, qn0.y, qn0.z], [qn1.x, qn1.y, qn1.z], [qn2.x, qn2.y, qn2.z], [qn3.x, qn3.y, qn3.z]];
+        let qm = crate::element::quad::quad_quality_metrics(&coords);
+        let (_, _, has_neg_j) = crate::element::quad::quad_check_jacobian(&coords);
+        if has_neg_j {
+            diagnostics.push(crate::types::AssemblyDiagnostic {
+                element_id: quad.id, element_type: "quad".into(), metric: "negative_jacobian".into(),
+                value: -1.0, threshold: 0.0,
+                message: format!("Quad {} has negative Jacobian determinant (inverted element)", quad.id),
+            });
+        }
+        if qm.aspect_ratio > 10.0 {
+            diagnostics.push(crate::types::AssemblyDiagnostic {
+                element_id: quad.id, element_type: "quad".into(), metric: "aspect_ratio".into(),
+                value: qm.aspect_ratio, threshold: 10.0,
+                message: format!("Quad {} aspect ratio {:.1} exceeds 10", quad.id, qm.aspect_ratio),
+            });
+        }
+        if qm.warping > 0.01 && qm.warping <= 0.1 {
+            diagnostics.push(crate::types::AssemblyDiagnostic {
+                element_id: quad.id, element_type: "quad".into(), metric: "warping_moderate".into(),
+                value: qm.warping, threshold: 0.01,
+                message: format!("Quad {} moderate warping {:.3} (0.01-0.1 range)", quad.id, qm.warping),
+            });
+        }
+        if qm.warping > 0.1 {
+            diagnostics.push(crate::types::AssemblyDiagnostic {
+                element_id: quad.id, element_type: "quad".into(), metric: "warping".into(),
+                value: qm.warping, threshold: 0.1,
+                message: format!("Quad {} warping {:.3} exceeds 0.1", quad.id, qm.warping),
+            });
+        }
+        if qm.jacobian_ratio < 0.1 {
+            diagnostics.push(crate::types::AssemblyDiagnostic {
+                element_id: quad.id, element_type: "quad".into(), metric: "jacobian_ratio".into(),
+                value: qm.jacobian_ratio, threshold: 0.1,
+                message: format!("Quad {} jacobian ratio {:.3} below 0.1", quad.id, qm.jacobian_ratio),
+            });
+        }
+    }
+
+    // Build full-K CSC from all triplets, then filter for Kff
+    let k_full = CscMatrix::from_triplets(n, &trip_rows, &trip_cols, &trip_vals);
+
+    let mut ff_rows = Vec::new();
+    let mut ff_cols = Vec::new();
+    let mut ff_vals = Vec::new();
+    for i in 0..trip_rows.len() {
+        if trip_rows[i] < nf && trip_cols[i] < nf {
+            ff_rows.push(trip_rows[i]); ff_cols.push(trip_cols[i]); ff_vals.push(trip_vals[i]);
+        }
+    }
+    let mut k_ff = CscMatrix::from_triplets(nf, &ff_rows, &ff_cols, &ff_vals);
+    // Drop tiny entries to match from_dense_symmetric behavior — prevents
+    // spurious near-zero entries from making Cholesky succeed on singular matrices.
+    k_ff.drop_below_threshold(1e-30);
+
+    SparseAssemblyResult3D {
+        k_ff, k_full, f: f_global, max_diag_k: max_diag,
+        artificial_dofs: artificial_dofs_3d, inclined_transforms, diagnostics,
+    }
+}
+
+/// Helper to extract quad node coordinates.
+fn quad_coords(node_map: &std::collections::HashMap<usize, &SolverNode3D>, quad: &SolverQuadElement) -> [[f64; 3]; 4] {
+    let n0 = node_map[&quad.nodes[0]];
+    let n1 = node_map[&quad.nodes[1]];
+    let n2 = node_map[&quad.nodes[2]];
+    let n3 = node_map[&quad.nodes[3]];
+    [[n0.x, n0.y, n0.z], [n1.x, n1.y, n1.z], [n2.x, n2.y, n2.z], [n3.x, n3.y, n3.z]]
 }
