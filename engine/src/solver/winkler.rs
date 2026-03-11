@@ -266,6 +266,7 @@ pub fn solve_winkler_3d(input: &WinklerInput3D) -> Result<AnalysisResults3D, Str
         constraint_forces,
         diagnostics: vec![],
         solver_diagnostics: vec![],
+        timings: None,
     })
 }
 

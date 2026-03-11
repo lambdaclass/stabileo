@@ -25,7 +25,7 @@ pub struct InclinedTransformData {
 }
 
 /// Build rotation matrix that maps global to local frame where ê₁ = normal.
-fn inclined_rotation_matrix(nx: f64, ny: f64, nz: f64) -> [[f64; 3]; 3] {
+pub fn inclined_rotation_matrix(nx: f64, ny: f64, nz: f64) -> [[f64; 3]; 3] {
     let n_len = (nx * nx + ny * ny + nz * nz).sqrt();
     let e1 = [nx / n_len, ny / n_len, nz / n_len];
     // Choose reference vector not parallel to e1
@@ -555,6 +555,40 @@ pub fn assemble_3d(input: &SolverInput3D, dof_num: &DofNumbering) -> AssemblyRes
         }
     }
 
+    // Assemble solid-shell element stiffness matrices
+    for ss in input.solid_shells.values() {
+        let mat = mat_map[&ss.material_id];
+        let e = mat.e * 1000.0;
+        let nu = mat.nu;
+        let coords = solid_shell_coords(&node_map, ss);
+        let k_elem = crate::element::solid_shell::solid_shell_stiffness(&coords, e, nu);
+        let ss_dofs = dof_num.solid_shell_element_dofs(&ss.nodes);
+        let ndof = ss_dofs.len();
+        for i in 0..ndof {
+            for j in 0..ndof {
+                k_global[ss_dofs[i] * n + ss_dofs[j]] += k_elem[i * ndof + j];
+            }
+        }
+    }
+
+    // Assemble curved shell element stiffness matrices (degenerated continuum)
+    for cs in input.curved_shells.values() {
+        let mat = mat_map[&cs.material_id];
+        let e = mat.e * 1000.0;
+        let nu = mat.nu;
+        let coords = curved_shell_coords(&node_map, cs);
+        let dirs = cs.normals.unwrap_or_else(|| crate::element::curved_shell::compute_element_directors(&coords));
+        let k_elem = crate::element::curved_shell::curved_shell_stiffness(&coords, &dirs, e, nu, cs.thickness);
+        // No transform needed — stiffness is directly in global coordinates
+        let cs_dofs = dof_num.quad_element_dofs(&cs.nodes);
+        let ndof = cs_dofs.len();
+        for i in 0..ndof {
+            for j in 0..ndof {
+                k_global[cs_dofs[i] * n + cs_dofs[j]] += k_elem[i * ndof + j];
+            }
+        }
+    }
+
     // Assemble 3D connector elements
     if !input.connectors.is_empty() {
         crate::element::connector::assemble_connectors_3d(
@@ -785,6 +819,94 @@ pub fn assemble_3d(input: &SolverInput3D, dof_num: &DofNumbering) -> AssemblyRes
                 let dofs = dof_num.quad9_element_dofs(&q9.nodes);
                 for (i, &dof) in dofs.iter().enumerate() {
                     if i < f_edge.len() { f_global[dof] += f_edge[i]; }
+                }
+            }
+        }
+    }
+
+    // Solid-shell load dispatch — dense path
+    let ss_map: std::collections::HashMap<usize, &SolverSolidShellElement> =
+        input.solid_shells.values().map(|s| (s.id, s)).collect();
+    for load in &input.loads {
+        if let SolverLoad3D::SolidShellPressure(pl) = load {
+            if let Some(&ss) = ss_map.get(&pl.element_id) {
+                let coords = solid_shell_coords(&node_map, ss);
+                let f_p = crate::element::solid_shell::solid_shell_pressure_load(&coords, pl.pressure);
+                let dofs = dof_num.solid_shell_element_dofs(&ss.nodes);
+                for (i, &dof) in dofs.iter().enumerate() {
+                    if i < f_p.len() { f_global[dof] += f_p[i]; }
+                }
+            }
+        }
+        if let SolverLoad3D::SolidShellSelfWeight(sw) = load {
+            if let Some(&ss) = ss_map.get(&sw.element_id) {
+                let coords = solid_shell_coords(&node_map, ss);
+                let f_sw = crate::element::solid_shell::solid_shell_self_weight_load(
+                    &coords, sw.density, sw.gx, sw.gy, sw.gz,
+                );
+                let dofs = dof_num.solid_shell_element_dofs(&ss.nodes);
+                for (i, &dof) in dofs.iter().enumerate() {
+                    if i < f_sw.len() { f_global[dof] += f_sw[i]; }
+                }
+            }
+        }
+    }
+
+    // Curved shell load dispatch — dense path
+    let cs_map: std::collections::HashMap<usize, &SolverCurvedShellElement> =
+        input.curved_shells.values().map(|s| (s.id, s)).collect();
+    for load in &input.loads {
+        if let SolverLoad3D::CurvedShellPressure(pl) = load {
+            if let Some(&cs) = cs_map.get(&pl.element_id) {
+                let coords = curved_shell_coords(&node_map, cs);
+                let dirs = cs.normals.unwrap_or_else(|| crate::element::curved_shell::compute_element_directors(&coords));
+                let f_p = crate::element::curved_shell::curved_shell_pressure_load(&coords, &dirs, cs.thickness, pl.pressure);
+                let dofs = dof_num.quad_element_dofs(&cs.nodes);
+                for (i, &dof) in dofs.iter().enumerate() {
+                    if i < f_p.len() { f_global[dof] += f_p[i]; }
+                }
+            }
+        }
+        if let SolverLoad3D::CurvedShellThermal(tl) = load {
+            if let Some(&cs) = cs_map.get(&tl.element_id) {
+                let mat = mat_map[&cs.material_id];
+                let e = mat.e * 1000.0;
+                let nu = mat.nu;
+                let alpha = tl.alpha.unwrap_or(1.2e-5);
+                let coords = curved_shell_coords(&node_map, cs);
+                let dirs = cs.normals.unwrap_or_else(|| crate::element::curved_shell::compute_element_directors(&coords));
+                let f_th = crate::element::curved_shell::curved_shell_thermal_load(
+                    &coords, &dirs, e, nu, cs.thickness, alpha, tl.dt_uniform, tl.dt_gradient,
+                );
+                let dofs = dof_num.quad_element_dofs(&cs.nodes);
+                for (i, &dof) in dofs.iter().enumerate() {
+                    if i < f_th.len() { f_global[dof] += f_th[i]; }
+                }
+            }
+        }
+        if let SolverLoad3D::CurvedShellSelfWeight(sw) = load {
+            if let Some(&cs) = cs_map.get(&sw.element_id) {
+                let coords = curved_shell_coords(&node_map, cs);
+                let dirs = cs.normals.unwrap_or_else(|| crate::element::curved_shell::compute_element_directors(&coords));
+                let f_sw = crate::element::curved_shell::curved_shell_self_weight_load(
+                    &coords, &dirs, sw.density, cs.thickness, sw.gx, sw.gy, sw.gz,
+                );
+                let dofs = dof_num.quad_element_dofs(&cs.nodes);
+                for (i, &dof) in dofs.iter().enumerate() {
+                    if i < f_sw.len() { f_global[dof] += f_sw[i]; }
+                }
+            }
+        }
+        if let SolverLoad3D::CurvedShellEdge(el) = load {
+            if let Some(&cs) = cs_map.get(&el.element_id) {
+                let coords = curved_shell_coords(&node_map, cs);
+                let dirs = cs.normals.unwrap_or_else(|| crate::element::curved_shell::compute_element_directors(&coords));
+                let f_e = crate::element::curved_shell::curved_shell_edge_load(
+                    &coords, &dirs, cs.thickness, el.edge, el.qn, el.qt,
+                );
+                let dofs = dof_num.quad_element_dofs(&cs.nodes);
+                for (i, &dof) in dofs.iter().enumerate() {
+                    if i < f_e.len() { f_global[dof] += f_e[i]; }
                 }
             }
         }
@@ -1379,7 +1501,7 @@ pub fn assemble_sparse_2d(input: &SolverInput, dof_num: &DofNumbering) -> Sparse
 
 /// Apply inclined support rotation to COO triplets and force vector.
 /// Equivalent to the dense `apply_inclined_transform` but operates on triplet arrays.
-fn apply_inclined_transform_triplets(
+pub fn apply_inclined_transform_triplets(
     trip_rows: &mut Vec<usize>, trip_cols: &mut Vec<usize>, trip_vals: &mut Vec<f64>,
     f_global: &mut [f64], dofs: &[usize; 3], r: &[[f64; 3]; 3],
 ) {
@@ -1652,6 +1774,31 @@ pub fn assemble_sparse_3d(input: &SolverInput3D, dof_num: &DofNumbering) -> Spar
         scatter!(k_glob, q9_dofs, ndof);
     }
 
+    // Solid-shell elements (8 nodes × 3 DOFs = 24 DOFs per element)
+    for ss in input.solid_shells.values() {
+        let mat = mat_map[&ss.material_id];
+        let e = mat.e * 1000.0;
+        let nu = mat.nu;
+        let coords = solid_shell_coords(&node_map, ss);
+        let k_elem = crate::element::solid_shell::solid_shell_stiffness(&coords, e, nu);
+        let ss_dofs = dof_num.solid_shell_element_dofs(&ss.nodes);
+        let ndof = ss_dofs.len();
+        scatter!(k_elem, ss_dofs, ndof);
+    }
+
+    // Curved shell elements (degenerated continuum, 4 nodes × 6 DOFs = 24 DOFs)
+    for cs in input.curved_shells.values() {
+        let mat = mat_map[&cs.material_id];
+        let e = mat.e * 1000.0;
+        let nu = mat.nu;
+        let coords = curved_shell_coords(&node_map, cs);
+        let dirs = cs.normals.unwrap_or_else(|| crate::element::curved_shell::compute_element_directors(&coords));
+        let k_elem = crate::element::curved_shell::curved_shell_stiffness(&coords, &dirs, e, nu, cs.thickness);
+        let cs_dofs = dof_num.quad_element_dofs(&cs.nodes);
+        let ndof = cs_dofs.len();
+        scatter!(k_elem, cs_dofs, ndof);
+    }
+
     // All loads (nodal, bimoment, plate pressure/thermal, quad pressure/thermal/self-weight/edge)
     for load in &input.loads {
         if let SolverLoad3D::Nodal(nl) = load {
@@ -1798,6 +1945,84 @@ pub fn assemble_sparse_3d(input: &SolverInput3D, dof_num: &DofNumbering) -> Spar
                 let dofs = dof_num.quad9_element_dofs(&q9.nodes);
                 for (i, &dof) in dofs.iter().enumerate() {
                     if i < f_edge.len() { f_global[dof] += f_edge[i]; }
+                }
+            }
+        }
+        // Solid-shell load dispatch — sparse path
+        if let SolverLoad3D::SolidShellPressure(pl) = load {
+            if let Some(ss) = input.solid_shells.values().find(|s| s.id == pl.element_id) {
+                let coords = solid_shell_coords(&node_map, ss);
+                let f_p = crate::element::solid_shell::solid_shell_pressure_load(&coords, pl.pressure);
+                let dofs = dof_num.solid_shell_element_dofs(&ss.nodes);
+                for (i, &dof) in dofs.iter().enumerate() {
+                    if i < f_p.len() { f_global[dof] += f_p[i]; }
+                }
+            }
+        }
+        if let SolverLoad3D::SolidShellSelfWeight(sw) = load {
+            if let Some(ss) = input.solid_shells.values().find(|s| s.id == sw.element_id) {
+                let coords = solid_shell_coords(&node_map, ss);
+                let f_sw = crate::element::solid_shell::solid_shell_self_weight_load(
+                    &coords, sw.density, sw.gx, sw.gy, sw.gz,
+                );
+                let dofs = dof_num.solid_shell_element_dofs(&ss.nodes);
+                for (i, &dof) in dofs.iter().enumerate() {
+                    if i < f_sw.len() { f_global[dof] += f_sw[i]; }
+                }
+            }
+        }
+        // Curved shell loads (sparse path)
+        if let SolverLoad3D::CurvedShellPressure(pl) = load {
+            if let Some(cs) = input.curved_shells.values().find(|s| s.id == pl.element_id) {
+                let coords = curved_shell_coords(&node_map, cs);
+                let dirs = cs.normals.unwrap_or_else(|| crate::element::curved_shell::compute_element_directors(&coords));
+                let f_p = crate::element::curved_shell::curved_shell_pressure_load(&coords, &dirs, cs.thickness, pl.pressure);
+                let dofs = dof_num.quad_element_dofs(&cs.nodes);
+                for (i, &dof) in dofs.iter().enumerate() {
+                    if i < f_p.len() { f_global[dof] += f_p[i]; }
+                }
+            }
+        }
+        if let SolverLoad3D::CurvedShellThermal(tl) = load {
+            if let Some(cs) = input.curved_shells.values().find(|s| s.id == tl.element_id) {
+                let mat = mat_map[&cs.material_id];
+                let e = mat.e * 1000.0;
+                let nu = mat.nu;
+                let alpha = tl.alpha.unwrap_or(1.2e-5);
+                let coords = curved_shell_coords(&node_map, cs);
+                let dirs = cs.normals.unwrap_or_else(|| crate::element::curved_shell::compute_element_directors(&coords));
+                let f_th = crate::element::curved_shell::curved_shell_thermal_load(
+                    &coords, &dirs, e, nu, cs.thickness, alpha, tl.dt_uniform, tl.dt_gradient,
+                );
+                let dofs = dof_num.quad_element_dofs(&cs.nodes);
+                for (i, &dof) in dofs.iter().enumerate() {
+                    if i < f_th.len() { f_global[dof] += f_th[i]; }
+                }
+            }
+        }
+        if let SolverLoad3D::CurvedShellSelfWeight(sw) = load {
+            if let Some(cs) = input.curved_shells.values().find(|s| s.id == sw.element_id) {
+                let coords = curved_shell_coords(&node_map, cs);
+                let dirs = cs.normals.unwrap_or_else(|| crate::element::curved_shell::compute_element_directors(&coords));
+                let f_sw = crate::element::curved_shell::curved_shell_self_weight_load(
+                    &coords, &dirs, sw.density, cs.thickness, sw.gx, sw.gy, sw.gz,
+                );
+                let dofs = dof_num.quad_element_dofs(&cs.nodes);
+                for (i, &dof) in dofs.iter().enumerate() {
+                    if i < f_sw.len() { f_global[dof] += f_sw[i]; }
+                }
+            }
+        }
+        if let SolverLoad3D::CurvedShellEdge(el) = load {
+            if let Some(cs) = input.curved_shells.values().find(|s| s.id == el.element_id) {
+                let coords = curved_shell_coords(&node_map, cs);
+                let dirs = cs.normals.unwrap_or_else(|| crate::element::curved_shell::compute_element_directors(&coords));
+                let f_e = crate::element::curved_shell::curved_shell_edge_load(
+                    &coords, &dirs, cs.thickness, el.edge, el.qn, el.qt,
+                );
+                let dofs = dof_num.quad_element_dofs(&cs.nodes);
+                for (i, &dof) in dofs.iter().enumerate() {
+                    if i < f_e.len() { f_global[dof] += f_e[i]; }
                 }
             }
         }
@@ -2001,6 +2226,25 @@ fn quad_coords(node_map: &std::collections::HashMap<usize, &SolverNode3D>, quad:
 fn quad9_coords(node_map: &std::collections::HashMap<usize, &SolverNode3D>, q9: &SolverQuad9Element) -> [[f64; 3]; 9] {
     let mut coords = [[0.0; 3]; 9];
     for (i, &nid) in q9.nodes.iter().enumerate() {
+        let n = node_map[&nid];
+        coords[i] = [n.x, n.y, n.z];
+    }
+    coords
+}
+
+/// Helper to extract solid-shell node coordinates.
+fn solid_shell_coords(node_map: &std::collections::HashMap<usize, &SolverNode3D>, ss: &SolverSolidShellElement) -> [[f64; 3]; 8] {
+    let mut coords = [[0.0; 3]; 8];
+    for (i, &nid) in ss.nodes.iter().enumerate() {
+        let n = node_map[&nid];
+        coords[i] = [n.x, n.y, n.z];
+    }
+    coords
+}
+
+fn curved_shell_coords(node_map: &std::collections::HashMap<usize, &SolverNode3D>, cs: &SolverCurvedShellElement) -> [[f64; 3]; 4] {
+    let mut coords = [[0.0; 3]; 4];
+    for (i, &nid) in cs.nodes.iter().enumerate() {
         let n = node_map[&nid];
         coords[i] = [n.x, n.y, n.z];
     }

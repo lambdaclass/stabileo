@@ -109,7 +109,7 @@ fn build_flat_shell_drilling_model(nx: usize, ny: usize) -> SolverInput3D {
         nodes, materials: mats, sections: HashMap::new(),
         elements: HashMap::new(), supports, loads,
         constraints: vec![], left_hand: None,
-        plates: HashMap::new(), quads, quad9s: HashMap::new(),
+        plates: HashMap::new(), quads, quad9s: HashMap::new(), solid_shells: HashMap::new(), curved_shells: HashMap::new(),
         curved_beams: vec![], connectors: HashMap::new(),
     }
 }

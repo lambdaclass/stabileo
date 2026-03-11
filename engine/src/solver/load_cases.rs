@@ -196,6 +196,8 @@ pub fn solve_multi_case_3d(input: &MultiCaseInput3D) -> Result<MultiCaseResult3D
             plates: input.solver.plates.clone(),
             quads: input.solver.quads.clone(),
             quad9s: input.solver.quad9s.clone(),
+            solid_shells: input.solver.solid_shells.clone(),
+            curved_shells: input.solver.curved_shells.clone(),
             curved_beams: input.solver.curved_beams.clone(),
             constraints: input.solver.constraints.clone(),
             connectors: HashMap::new(),

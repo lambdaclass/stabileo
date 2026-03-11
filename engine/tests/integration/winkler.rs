@@ -116,7 +116,8 @@ fn make_3d_beam_on_foundation(
 
     let solver = SolverInput3D {
         nodes, materials, sections, elements, supports, loads,
-        constraints: vec![], left_hand: None, plates: HashMap::new(), quads: HashMap::new(), quad9s: HashMap::new(), curved_beams: vec![],
+        constraints: vec![], left_hand: None, plates: HashMap::new(), quads: HashMap::new(), quad9s: HashMap::new(), solid_shells: HashMap::new(), curved_beams: vec![],
+            curved_shells: HashMap::new(),
         connectors: HashMap::new(),
     };
 

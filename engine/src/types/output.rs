@@ -111,6 +111,27 @@ pub struct SolverDiagnostic {
     pub severity: String,   // "info", "warning", "error"
 }
 
+// ==================== Solve Timings ====================
+
+/// Per-phase wall-clock timings from solve_3d (microseconds).
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct SolveTimings {
+    pub assembly_us: u64,
+    pub conditioning_us: u64,
+    pub symbolic_us: u64,
+    pub numeric_us: u64,
+    pub solve_us: u64,
+    pub residual_us: u64,
+    pub dense_fallback_us: u64,
+    pub reactions_us: u64,
+    pub stress_recovery_us: u64,
+    pub total_us: u64,
+    pub n_free: usize,
+    pub nnz_kff: usize,
+    pub nnz_l: usize,
+}
+
 // ==================== 3D Output Types ====================
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -203,6 +224,8 @@ pub struct AnalysisResults3D {
     pub diagnostics: Vec<AssemblyDiagnostic>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub solver_diagnostics: Vec<SolverDiagnostic>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub timings: Option<SolveTimings>,
 }
 
 // ==================== Quad Stress Output ====================

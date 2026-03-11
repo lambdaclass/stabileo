@@ -160,7 +160,7 @@ fn make_3d_continuous_beam(
         supports: sups_map,
         loads,
         constraints: vec![], left_hand: None,
-        plates: HashMap::new(), quads: HashMap::new(), quad9s: HashMap::new(),
+        plates: HashMap::new(), quads: HashMap::new(), quad9s: HashMap::new(), solid_shells: HashMap::new(), curved_shells: HashMap::new(),
         curved_beams: vec![],
         connectors: HashMap::new(),
     }
@@ -496,7 +496,7 @@ fn validation_3d_continuous_elastic_support() {
         supports: sups_map,
         loads: loads_spring,
         constraints: vec![], left_hand: None,
-        plates: HashMap::new(), quads: HashMap::new(), quad9s: HashMap::new(),
+        plates: HashMap::new(), quads: HashMap::new(), quad9s: HashMap::new(), solid_shells: HashMap::new(), curved_shells: HashMap::new(),
         curved_beams: vec![],
         connectors: HashMap::new(),
     };
@@ -745,7 +745,7 @@ fn validation_3d_continuous_moment_ei_proportionality() {
         supports: sups_map,
         loads: loads_2ei,
         constraints: vec![], left_hand: None,
-        plates: HashMap::new(), quads: HashMap::new(), quad9s: HashMap::new(),
+        plates: HashMap::new(), quads: HashMap::new(), quad9s: HashMap::new(), solid_shells: HashMap::new(), curved_shells: HashMap::new(),
         curved_beams: vec![],
         connectors: HashMap::new(),
     };

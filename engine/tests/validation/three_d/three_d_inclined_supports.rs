@@ -98,7 +98,7 @@ fn validation_inclined_roller_45_degrees() {
 
     let input = SolverInput3D {
         nodes, materials: mats, sections: secs, elements: elems,
-        supports: sups, loads, constraints: vec![], left_hand: None, plates: HashMap::new(), quads: HashMap::new(), quad9s: HashMap::new(),
+        supports: sups, loads, constraints: vec![], left_hand: None, plates: HashMap::new(), quads: HashMap::new(), quad9s: HashMap::new(), solid_shells: HashMap::new(), curved_shells: HashMap::new(),
         curved_beams: vec![],
         connectors: HashMap::new(),
     };
@@ -186,13 +186,13 @@ fn validation_inclined_roller_normal_y_is_standard_roller() {
     let input1 = SolverInput3D {
         nodes: nodes.clone(), materials: mats.clone(), sections: secs.clone(),
         elements: elems.clone(), supports: sups1, loads: loads.clone(),
-        constraints: vec![], left_hand: None, plates: HashMap::new(), quads: HashMap::new(), quad9s: HashMap::new(), curved_beams: vec![],
+        constraints: vec![], left_hand: None, plates: HashMap::new(), quads: HashMap::new(), quad9s: HashMap::new(), solid_shells: HashMap::new(), curved_shells: HashMap::new(), curved_beams: vec![],
         connectors: HashMap::new(),
     };
     let input2 = SolverInput3D {
         nodes, materials: mats, sections: secs,
         elements: elems, supports: sups2, loads,
-        constraints: vec![], left_hand: None, plates: HashMap::new(), quads: HashMap::new(), quad9s: HashMap::new(), curved_beams: vec![],
+        constraints: vec![], left_hand: None, plates: HashMap::new(), quads: HashMap::new(), quad9s: HashMap::new(), solid_shells: HashMap::new(), curved_shells: HashMap::new(), curved_beams: vec![],
         connectors: HashMap::new(),
     };
 
@@ -261,7 +261,7 @@ fn validation_inclined_support_global_equilibrium() {
 
     let input = SolverInput3D {
         nodes, materials: mats, sections: secs, elements: elems,
-        supports: sups, loads, constraints: vec![], left_hand: None, plates: HashMap::new(), quads: HashMap::new(), quad9s: HashMap::new(),
+        supports: sups, loads, constraints: vec![], left_hand: None, plates: HashMap::new(), quads: HashMap::new(), quad9s: HashMap::new(), solid_shells: HashMap::new(), curved_shells: HashMap::new(),
         curved_beams: vec![],
         connectors: HashMap::new(),
     };
@@ -341,7 +341,7 @@ fn validation_inclined_support_displacement_direction() {
 
     let input = SolverInput3D {
         nodes, materials: mats, sections: secs, elements: elems,
-        supports: sups, loads, constraints: vec![], left_hand: None, plates: HashMap::new(), quads: HashMap::new(), quad9s: HashMap::new(),
+        supports: sups, loads, constraints: vec![], left_hand: None, plates: HashMap::new(), quads: HashMap::new(), quad9s: HashMap::new(), solid_shells: HashMap::new(), curved_shells: HashMap::new(),
         curved_beams: vec![],
         connectors: HashMap::new(),
     };

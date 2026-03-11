@@ -62,7 +62,8 @@ fn cantilever_3d_nl(
 
     let solver = SolverInput3D {
         nodes, materials, sections, elements, supports, loads,
-        constraints: vec![], left_hand: None, plates: HashMap::new(), quads: HashMap::new(), quad9s: HashMap::new(), curved_beams: Vec::new(),
+        constraints: vec![], left_hand: None, plates: HashMap::new(), quads: HashMap::new(), quad9s: HashMap::new(), solid_shells: HashMap::new(), curved_beams: Vec::new(),
+            curved_shells: HashMap::new(),
         connectors: HashMap::new(),
     };
 
@@ -263,7 +264,8 @@ fn nonlinear_material_3d_no_free_dofs_error() {
 
     let solver = SolverInput3D {
         nodes, materials, sections, elements, supports,
-        loads: vec![], constraints: vec![], left_hand: None, plates: HashMap::new(), quads: HashMap::new(), quad9s: HashMap::new(), curved_beams: Vec::new(),
+        loads: vec![], constraints: vec![], left_hand: None, plates: HashMap::new(), quads: HashMap::new(), quad9s: HashMap::new(), solid_shells: HashMap::new(), curved_beams: Vec::new(),
+            curved_shells: HashMap::new(),
         connectors: HashMap::new(),
     };
 
@@ -338,7 +340,8 @@ fn nonlinear_material_3d_l_frame() {
 
     let solver = SolverInput3D {
         nodes, materials, sections, elements, supports, loads,
-        constraints: vec![], left_hand: None, plates: HashMap::new(), quads: HashMap::new(), quad9s: HashMap::new(), curved_beams: Vec::new(),
+        constraints: vec![], left_hand: None, plates: HashMap::new(), quads: HashMap::new(), quad9s: HashMap::new(), solid_shells: HashMap::new(), curved_beams: Vec::new(),
+            curved_shells: HashMap::new(),
         connectors: HashMap::new(),
     };
 

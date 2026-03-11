@@ -11,6 +11,35 @@ It should capture what changed, not what should be built next.
 
 ### Added
 
+#### Parallel 3D element assembly
+
+- added `assemble_sparse_3d_parallel()` behind `#[cfg(feature = "parallel")]` using rayon
+- unified all 8 element families (frame, truss, plate, quad, quad9, solid-shell, curved-shell, connector) into a single `AnyElement3D` enum for one `par_iter()` work pool
+- pre-built element-id load index reduces load dispatch from O(elem × loads) to O(elem + loads)
+- serial fallback via `#[cfg(not(feature = "parallel"))]` delegates to the existing `assemble_sparse_3d()`
+- wired parallel path into `solve_3d()` as the default sparse assembly call
+- added parity tests: flat-plate (4×4) and mixed frame+slab (4 columns + 16 quads + nodal + pressure loads)
+- added criterion benchmarks: flat-plate up to 50×50 (2500 quads, ~15k DOFs) and mixed frame+slab up to 8-storey 8×8
+- measured 2-6% speedup on MITC4 flat plates (lightweight per-element cost); stronger scaling expected on quad9/curved-shell models
+- made `inclined_rotation_matrix` and `apply_inclined_transform_triplets` public for reuse
+- fixed pre-existing `transform_force` scope issue in the 2D parallel path
+
+#### Curved shell family and corrected hemisphere interpretation
+
+- integrated the curved-shell family into the solver narrative as a production shell option for genuinely curved geometry
+- established that the old hemisphere extremes were partly inflated by an `E` unit issue in the benchmark setup, and corrected that interpretation across the shell benchmark story
+- added curved-shell benchmark coverage showing near-reference hemisphere behavior while preserving credible flat-shell and barrel-vault performance
+- clarified that the shell stack is now `MITC4 + MITC9 + SHB8-ANS + curved shell`, with the remaining work focused on family guidance, workflow hardening, and shell-adjacent breadth
+
+#### MITC9 and SHB8-ANS shell-family expansion
+
+- integrated the `MITC9` 9-node quadrilateral shell through the full solver stack: dense+sparse assembly, mass, geometric stiffness, buckling, stress recovery, and all shell load types
+- added `MITC9` acceptance/workflow models covering cantilever shell response, mixed beam+slab building workflow, cylindrical tank wall behavior, and modal plate extraction
+- integrated the `SHB8-ANS` solid-shell family as a new shell path for the curved/non-planar frontier
+- added shell-family frontier gates and comparative benchmarks across `MITC4`, `MITC9`, and `SHB8-ANS`
+- established explicit shell selection guidance instead of treating shell support as a single undifferentiated element family
+- shifted the shell roadmap from “add more shell breadth” to “harden and guide the multi-family shell stack”
+
 #### Sparse-first 3D assembly and solve
 
 - completed sparse 3D assembly for plates, quads, inclined supports, and diagnostics
@@ -93,4 +122,4 @@ It should capture what changed, not what should be built next.
 
 ### Validation
 
-- latest reported full-suite status reached `5872` passing tests with `0` failures
+- latest reported full-suite status reached `5906` passing tests with `0` failures

@@ -682,6 +682,7 @@ pub fn solve_fiber_nonlinear_3d(input: &FiberNonlinearInput3D) -> Result<FiberNo
             constraint_forces,
             diagnostics: vec![],
             solver_diagnostics: vec![],
+            timings: None,
         },
         iterations: total_iters,
         converged,

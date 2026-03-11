@@ -8,6 +8,8 @@ pub mod plate;
 pub mod fiber_beam;
 pub mod quad;
 pub mod quad9;
+pub mod solid_shell;
+pub mod curved_shell;
 pub mod connector;
 
 pub use frame::*;

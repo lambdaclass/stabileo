@@ -75,6 +75,7 @@ Still productizing:
 - richer diagnostics UX in the app/API
 - constraint-force presentation in the results experience
 - click-to-focus and visual highlighting for problematic elements
+- shell-family recommendation and automatic default selection in modeling workflows
 - stronger onboarding and first-solve success
 - report and deliverable workflows
 - broader workflow packaging around the full solver surface
@@ -84,7 +85,7 @@ Still productizing:
 ## Product Layers By User Need
 
 - `Engineers and firms`
-  diagnostics, code checks, reports, connections, foundations, templates, interoperability
+  diagnostics, code checks, reports, connections, foundations, templates, interoperability, and explainable element-family defaults
 - `Education`
   first-solve success, examples, benchmark explorer, explanatory views
 - `Design-build / temporary works`
@@ -102,24 +103,25 @@ Still productizing:
 |---|---|---|
 | 1 | Onboarding and first-solve success | The fastest way to grow usage is to make the first successful solve easy, obvious, and low-friction. |
 | 2 | Richer diagnostics UX | Diagnostics are now in the app flow; the next step is better grouping, filtering, and visibility rather than first-time surfacing. |
-| 3 | Constraint-force presentation | Constraint forces now exist end-to-end; users need them presented coherently alongside reactions and solver diagnostics. |
-| 4 | Click-to-focus and visual highlighting | The next high-value usability step is linking diagnostics and warnings to the affected elements in the viewport. |
-| 5 | Report and calculation-document foundations | Solver trust converts into revenue more easily when firms can produce deliverables. |
-| 6 | Public benchmark and acceptance-model presentation | Make the trust story legible to users, customers, and evaluators. |
-| 7 | Shell/contact/constrained workflow usability | Turn the newest solver capabilities into practical workflows that feel coherent in the app. |
-| 8 | Performance feedback in the UI | Progress, iteration counts, and slow-phase visibility make large-model solves feel much more mature. |
+| 3 | Shell-family recommendation and automatic defaults | The solver now has multiple shell families; the product should recommend `MITC4`, `MITC9`, `SHB8-ANS`, or triangular shells automatically, explain why, and allow safe override. |
+| 4 | Constraint-force presentation | Constraint forces now exist end-to-end; users need them presented coherently alongside reactions and solver diagnostics. |
+| 5 | Click-to-focus and visual highlighting | The next high-value usability step is linking diagnostics and warnings to the affected elements in the viewport. |
+| 6 | Report and calculation-document foundations | Solver trust converts into revenue more easily when firms can produce deliverables. |
+| 7 | Public benchmark and acceptance-model presentation | Make the trust story legible to users, customers, and evaluators. |
+| 8 | Shell/contact/constrained workflow usability | Turn the newest solver capabilities into practical workflows that feel coherent in the app. |
+| 9 | Performance feedback in the UI | Progress, iteration counts, and slow-phase visibility make large-model solves feel much more mature. |
 
 ### 3-6 months
 
 | Priority | Topic | Why now |
 |---|---|---|
-| 9 | Code-check packaging and workflow polish | The solver already supports a broad design-check layer; the next step is turning it into a cleaner end-user workflow. |
-| 10 | Connections and foundations productization | These are natural downstream layers on top of solver outputs. |
-| 11 | Interoperability and import/export improvements | Lower switching friction and fit existing office workflows. |
-| 12 | Project, template, and repeatable workflow support | Help firms standardize how they use the solver. |
-| 13 | Education and benchmark-explorer product surface | A strong distribution and trust channel with minimal solver rework. |
-| 14 | API packaging | The engine is reusable; packaging it cleanly opens additional product and enterprise paths. |
-| 15 | Conceptual structural mode for architects | Valuable as a later product layer for early-stage structural feedback, but only after the core engineering workflow is stronger. |
+| 10 | Code-check packaging and workflow polish | The solver already supports a broad design-check layer; the next step is turning it into a cleaner end-user workflow. |
+| 11 | Connections and foundations productization | These are natural downstream layers on top of solver outputs. |
+| 12 | Interoperability and import/export improvements | Lower switching friction and fit existing office workflows. |
+| 13 | Project, template, and repeatable workflow support | Help firms standardize how they use the solver. |
+| 14 | Education and benchmark-explorer product surface | A strong distribution and trust channel with minimal solver rework. |
+| 15 | API packaging | The engine is reusable; packaging it cleanly opens additional product and enterprise paths. |
+| 16 | Conceptual structural mode for architects | Valuable as a later product layer for early-stage structural feedback, but only after the core engineering workflow is stronger. |
 
 ### 12 months+
 
@@ -140,6 +142,7 @@ Focus:
 - visible diagnostics and warnings
 - clean results and constraint-force surface
 - actionable diagnostics tied back to the model
+- shell-family recommendations with explainable defaults and safe override
 - benchmark-backed trust story
 
 Goal:

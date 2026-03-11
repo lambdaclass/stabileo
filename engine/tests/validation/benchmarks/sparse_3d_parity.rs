@@ -138,7 +138,7 @@ fn make_shell_input(
         left_hand: None,
         plates: HashMap::new(),
         quads,
-        quad9s: HashMap::new(),
+        quad9s: HashMap::new(), solid_shells: HashMap::new(), curved_shells: HashMap::new(),
         curved_beams: vec![],
         connectors: HashMap::new(),
     }
@@ -499,7 +499,7 @@ fn sparse_3d_parity_prescribed_displacements() {
     let input = SolverInput3D {
         nodes, materials: mats, sections: secs, elements: elems,
         supports, loads, constraints: vec![], left_hand: None,
-        plates: HashMap::new(), quads: HashMap::new(), quad9s: HashMap::new(),
+        plates: HashMap::new(), quads: HashMap::new(), quad9s: HashMap::new(), solid_shells: HashMap::new(), curved_shells: HashMap::new(),
         curved_beams: vec![], connectors: HashMap::new(),
     };
 
@@ -617,7 +617,7 @@ fn sparse_3d_parity_inclined_supports() {
     let input = SolverInput3D {
         nodes, materials: mats, sections: secs, elements: elems,
         supports, loads, constraints: vec![], left_hand: None,
-        plates: HashMap::new(), quads: HashMap::new(), quad9s: HashMap::new(),
+        plates: HashMap::new(), quads: HashMap::new(), quad9s: HashMap::new(), solid_shells: HashMap::new(), curved_shells: HashMap::new(),
         curved_beams: vec![], connectors: HashMap::new(),
     };
 
@@ -694,7 +694,7 @@ fn sparse_3d_parity_mixed_beam_shell() {
     let input = SolverInput3D {
         nodes, materials: mats, sections: secs, elements: elems,
         supports, loads, constraints: vec![], left_hand: None,
-        plates: HashMap::new(), quads, quad9s: HashMap::new(),
+        plates: HashMap::new(), quads, quad9s: HashMap::new(), solid_shells: HashMap::new(), curved_shells: HashMap::new(),
         curved_beams: vec![], connectors: HashMap::new(),
     };
 

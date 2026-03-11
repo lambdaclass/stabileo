@@ -1209,6 +1209,7 @@ pub fn solve_contact_3d(input: &ContactInput3D) -> Result<ContactResult3D, Strin
         constraint_forces: vec![],
         diagnostics: vec![],
         solver_diagnostics: vec![],
+        timings: None,
     };
 
     let element_status_info: Vec<ElementContactInfo> = input.element_behaviors.iter()

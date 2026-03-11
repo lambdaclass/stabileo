@@ -581,5 +581,6 @@ fn scale_results_3d(results: &AnalysisResults3D, factor: f64) -> AnalysisResults
         }).collect(),
         diagnostics: vec![],
         solver_diagnostics: vec![],
+        timings: None,
     }
 }

@@ -100,7 +100,7 @@ fn make_plate_input(
         loads,
         constraints: vec![], left_hand: None,
         plates,
-        quads: HashMap::new(), quad9s: HashMap::new(),
+        quads: HashMap::new(), quad9s: HashMap::new(), solid_shells: HashMap::new(), curved_shells: HashMap::new(),
         curved_beams: vec![],
         connectors: HashMap::new(),
     }
@@ -720,7 +720,7 @@ fn convergence_plate_modal_fundamental_frequency() {
         loads: vec![],
         constraints: vec![], left_hand: None,
         plates,
-        quads: HashMap::new(), quad9s: HashMap::new(),
+        quads: HashMap::new(), quad9s: HashMap::new(), solid_shells: HashMap::new(), curved_shells: HashMap::new(),
         curved_beams: vec![],
         connectors: HashMap::new(),
     };

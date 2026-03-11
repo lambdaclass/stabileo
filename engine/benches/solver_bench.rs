@@ -297,7 +297,8 @@ fn make_input_3d(
         elements: elems_map,
         supports: sups_map,
         loads,
-        constraints: vec![], left_hand: None, plates: HashMap::new(), quads: HashMap::new(), quad9s: HashMap::new(), curved_beams: vec![],
+        constraints: vec![], left_hand: None, plates: HashMap::new(), quads: HashMap::new(), quad9s: HashMap::new(),
+        solid_shells: HashMap::new(), curved_shells: HashMap::new(), curved_beams: vec![],
         connectors: HashMap::new(),    }
 }
 

@@ -56,7 +56,7 @@ fn make_plastic_cantilever_3d() -> PlasticInput3D {
         nodes, materials, sections, elements, supports,
         loads: vec![],
         constraints: vec![], left_hand: None,
-        plates: HashMap::new(), quads: HashMap::new(), quad9s: HashMap::new(),
+        plates: HashMap::new(), quads: HashMap::new(), quad9s: HashMap::new(), solid_shells: HashMap::new(), curved_shells: HashMap::new(),
         curved_beams: vec![],
         connectors: HashMap::new(),
     };
@@ -158,7 +158,7 @@ fn plastic_3d_fixed_beam_two_hinges() {
         })],
         constraints: vec![],
         left_hand: None,
-        plates: HashMap::new(), quads: HashMap::new(), quad9s: HashMap::new(),
+        plates: HashMap::new(), quads: HashMap::new(), quad9s: HashMap::new(), solid_shells: HashMap::new(), curved_shells: HashMap::new(),
         curved_beams: vec![],
         connectors: HashMap::new(),
     };
@@ -321,7 +321,7 @@ fn plastic_3d_portal_frame_mechanism() {
         ],
         constraints: vec![],
         left_hand: None,
-        plates: HashMap::new(), quads: HashMap::new(), quad9s: HashMap::new(),
+        plates: HashMap::new(), quads: HashMap::new(), quad9s: HashMap::new(), solid_shells: HashMap::new(), curved_shells: HashMap::new(),
         curved_beams: vec![],
         connectors: HashMap::new(),
     };

@@ -913,6 +913,7 @@ pub fn solve_staged_3d(input: &StagedInput3D) -> Result<StagedAnalysisResults3D,
             constraint_forces: vec![],
             diagnostics: vec![],
             solver_diagnostics: vec![],
+            timings: None,
         });
 
     Ok(StagedAnalysisResults3D {
@@ -935,6 +936,8 @@ fn staged_to_full_solver_input_3d(input: &StagedInput3D) -> SolverInput3D {
         plates: HashMap::new(),
         quads: HashMap::new(),
         quad9s: HashMap::new(),
+        solid_shells: HashMap::new(),
+        curved_shells: HashMap::new(),
         curved_beams: vec![],
         connectors: HashMap::new(),
     }
@@ -973,6 +976,8 @@ fn build_stage_solver_input_3d(
         plates: HashMap::new(),
         quads: HashMap::new(),
         quad9s: HashMap::new(),
+        solid_shells: HashMap::new(),
+        curved_shells: HashMap::new(),
         curved_beams: vec![],
         connectors: HashMap::new(),
     }
@@ -1259,5 +1264,6 @@ fn build_results_from_u_3d(
         constraint_forces: vec![],
         diagnostics: vec![],
         solver_diagnostics: vec![],
+        timings: None,
     }
 }

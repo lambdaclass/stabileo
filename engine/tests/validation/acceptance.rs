@@ -427,7 +427,7 @@ fn acceptance_3e_mixed_frame_shell() {
         loads,
         constraints: vec![],
         plates: HashMap::new(),
-        quads, quad9s: HashMap::new(),
+        quads, quad9s: HashMap::new(), solid_shells: HashMap::new(), curved_shells: HashMap::new(),
         left_hand: None,
         curved_beams: vec![],
         connectors: HashMap::new(),
@@ -740,7 +740,7 @@ fn acceptance_4b_frame_quad_slab() {
 
     let input = SolverInput3D {
         nodes: nodes_map, materials, sections, elements, supports, loads,
-        constraints: vec![], plates: HashMap::new(), quads, quad9s: HashMap::new(),
+        constraints: vec![], plates: HashMap::new(), quads, quad9s: HashMap::new(), solid_shells: HashMap::new(), curved_shells: HashMap::new(),
         left_hand: None, curved_beams: vec![], connectors: HashMap::new(),
     };
 
@@ -1198,7 +1198,7 @@ fn acceptance_4f_shell_cantilever() {
         nodes: nodes_map, materials,
         sections: HashMap::new(), elements: HashMap::new(),
         supports, loads,
-        constraints: vec![], plates: HashMap::new(), quads, quad9s: HashMap::new(),
+        constraints: vec![], plates: HashMap::new(), quads, quad9s: HashMap::new(), solid_shells: HashMap::new(), curved_shells: HashMap::new(),
         left_hand: None, curved_beams: vec![], connectors: HashMap::new(),
     };
 
@@ -1492,7 +1492,7 @@ fn acceptance_4h_mixed_frame_shell_diaphragm() {
                 plane: "XY".into(),
             }),
         ],
-        plates: HashMap::new(), quads, quad9s: HashMap::new(),
+        plates: HashMap::new(), quads, quad9s: HashMap::new(), solid_shells: HashMap::new(), curved_shells: HashMap::new(),
         left_hand: None, curved_beams: vec![], connectors: HashMap::new(),
     };
 
@@ -2837,7 +2837,7 @@ fn acceptance_6a_q9_shell_cantilever() {
         sections: HashMap::new(), elements: HashMap::new(),
         supports, loads,
         constraints: vec![], plates: HashMap::new(),
-        quads: HashMap::new(), quad9s,
+        quads: HashMap::new(), quad9s, solid_shells: HashMap::new(), curved_shells: HashMap::new(),
         left_hand: None, curved_beams: vec![], connectors: HashMap::new(),
     };
 
@@ -3016,7 +3016,7 @@ fn acceptance_6b_mixed_beam_q9_slab() {
     let input = SolverInput3D {
         nodes: nodes_map, materials, sections, elements, supports, loads,
         constraints: vec![],
-        plates: HashMap::new(), quads: HashMap::new(), quad9s,
+        plates: HashMap::new(), quads: HashMap::new(), quad9s, solid_shells: HashMap::new(), curved_shells: HashMap::new(),
         left_hand: None, curved_beams: vec![], connectors: HashMap::new(),
     };
 
@@ -3144,7 +3144,7 @@ fn acceptance_6c_q9_cylindrical_tank() {
         sections: HashMap::new(), elements: HashMap::new(),
         supports, loads,
         constraints: vec![], plates: HashMap::new(),
-        quads: HashMap::new(), quad9s,
+        quads: HashMap::new(), quad9s, solid_shells: HashMap::new(), curved_shells: HashMap::new(),
         left_hand: None, curved_beams: vec![], connectors: HashMap::new(),
     };
 
@@ -3249,7 +3249,7 @@ fn acceptance_6d_q9_modal_plate() {
         sections: HashMap::new(), elements: HashMap::new(),
         supports, loads: vec![],
         constraints: vec![], plates: HashMap::new(),
-        quads: HashMap::new(), quad9s,
+        quads: HashMap::new(), quad9s, solid_shells: HashMap::new(), curved_shells: HashMap::new(),
         left_hand: None, curved_beams: vec![], connectors: HashMap::new(),
     };
 

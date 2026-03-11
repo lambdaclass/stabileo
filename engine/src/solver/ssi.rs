@@ -376,6 +376,7 @@ pub fn solve_ssi_3d(input: &SSIInput3D) -> Result<SSIResult3D, String> {
             constraint_forces,
             diagnostics: vec![],
             solver_diagnostics: vec![],
+            timings: None,
         },
         iterations: total_iters,
         converged,

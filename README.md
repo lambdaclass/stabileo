@@ -56,6 +56,8 @@ Use the docs by question:
   Rust solver engine surface, analysis types, and engine-focused validation summary
 - [`VERIFICATION.md`](/Users/unbalancedparen/projects/dedaliano/VERIFICATION.md)
   verification philosophy, testing layers, fuzzing, invariants, and proof-oriented rigor
+- [`research/`](/Users/unbalancedparen/projects/dedaliano/research)
+  competitor comparisons, shell-family research, and element-selection notes
 
 This README is intentionally the short repo-level entry point.
 It should explain what Dedaliano is and where to read next, not duplicate the benchmark ledger, roadmap tables, or market strategy in full.
@@ -67,7 +69,7 @@ Dedaliano is an `open-source structural solver` with a growing structural engine
 Latest reported milestone:
 
 - broad 2D and 3D structural analysis coverage, including staged, contact, SSI, fiber nonlinear, imperfections, and creep/shrinkage workflows
-- shell maturity now includes MITC4 ANS plus EAS-7, explicit shell CI gates, curved/distorted workflow studies, self-weight, edge loads, thermal convergence coverage, and broader shell benchmark tracking
+- shell maturity now includes a multi-family shell stack: MITC4 (ANS + EAS-7), MITC9, SHB8-ANS solid-shell, and curved shells, with explicit shell CI gates, curved/distorted workflow studies, self-weight, edge loads, thermal convergence coverage, frontier benchmark tracking, and shell-family selection guidance
 - sparse-first 3D assembly and solve path is live, with dense-vs-sparse parity coverage and large memory wins on shell models
 - benchmark gates, acceptance models, integration tests, property/differential fuzz coverage, and a large public benchmark program back the solver-quality story
 
@@ -92,14 +94,16 @@ At a high level, the current solver supports:
 - 2D and 3D corotational and material nonlinear analysis
 - plastic analysis, staged construction, prestress / post-tension workflows, cable analysis, contact / gap behavior, and nonlinear SSI
 - initial imperfections / residual stress modeling and time-dependent creep / shrinkage workflows
-- frame, truss, cable, plate, and shell formulations, including Timoshenko beams, warping torsion, triangular plates, and MITC4 quadrilateral shells with Bathe-Dvorkin ANS shear tying and EAS-7 membrane enhancement
+- frame, truss, cable, plate, and shell formulations, including Timoshenko beams, warping torsion, triangular plates, MITC4 quadrilateral shells with Bathe-Dvorkin ANS shear tying and EAS-7 membrane enhancement, MITC9 higher-order quadrilateral shells, SHB8-ANS solid-shells, and curved shell elements
 - constraints including rigid links, diaphragms, equal-DOF constraints, general linear MPCs, and reusable constrained-solver reduction/expansion paths
 - 2D and 3D fiber beam-column nonlinear solvers
 - model reduction and substructuring workflows including Guyan and Craig-Bampton reduction
 - section analysis, stress recovery, load combinations, envelopes, and kinematic diagnostics
 - design-check and postprocess modules for steel, concrete, timber, masonry, cold-formed steel, serviceability, connections, and foundations
+- explicit shell-family research and selection guidance for `DKT/DKMT`, `MITC4`, `MITC9`, `SHB8-ANS`, and curved shells
 
 For the detailed engine surface and current maturity by category, see [`engine/README.md`](/Users/unbalancedparen/projects/dedaliano/engine/README.md) and [`BENCHMARKS.md`](/Users/unbalancedparen/projects/dedaliano/BENCHMARKS.md).
+For shell-family comparison and selection notes, see [`research/shell_family_selection.md`](/Users/unbalancedparen/projects/dedaliano/research/shell_family_selection.md) and [`research/competitor_element_families.md`](/Users/unbalancedparen/projects/dedaliano/research/competitor_element_families.md).
 
 ## Supported codes and validation references
 
@@ -127,6 +131,7 @@ The solver and postprocess stack are validated against analytical solutions and 
 - textbook and closed-form structural mechanics references
 
 For exact benchmark families, validation files, and current status, see [`BENCHMARKS.md`](/Users/unbalancedparen/projects/dedaliano/BENCHMARKS.md).
+For competitor and shell-family comparison research, see [`research/open_source_solver_comparison.md`](/Users/unbalancedparen/projects/dedaliano/research/open_source_solver_comparison.md) and [`research/competitor_element_families.md`](/Users/unbalancedparen/projects/dedaliano/research/competitor_element_families.md).
 
 ## What is structural analysis
 
@@ -170,6 +175,7 @@ At the repo level, the most important feature groups are:
 
 - interactive 2D and 3D modeling, visualization, and direct-stiffness educational tooling
 - broad solver coverage across linear, second-order, buckling, dynamic, staged, contact, SSI, nonlinear, shell, fiber, and time-dependent workflows
+- a multi-family shell stack with documented selection guidance and frontier benchmarks
 - section analysis, stress recovery, load combinations, envelopes, and design-check modules
 - import/export and model-sharing workflows
 

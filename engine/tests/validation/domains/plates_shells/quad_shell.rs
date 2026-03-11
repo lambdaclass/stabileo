@@ -89,7 +89,8 @@ fn make_base_input(
         sections: HashMap::new(), elements: HashMap::new(),
         supports: HashMap::new(), loads: vec![],
         constraints: vec![], plates: HashMap::new(),
-        quads, quad9s: HashMap::new(), left_hand: None, curved_beams: vec![],
+        quads, quad9s: HashMap::new(), solid_shells: HashMap::new(), left_hand: None, curved_beams: vec![],
+            curved_shells: HashMap::new(),
         connectors: HashMap::new(),
     }
 }
@@ -416,7 +417,8 @@ fn test_quad_scordelis_lo_barrel_vault() {
         sections: HashMap::new(), elements: HashMap::new(),
         supports: HashMap::new(), loads: vec![],
         constraints: vec![], plates: HashMap::new(),
-        quads, quad9s: HashMap::new(), left_hand: None, curved_beams: vec![],
+        quads, quad9s: HashMap::new(), solid_shells: HashMap::new(), left_hand: None, curved_beams: vec![],
+            curved_shells: HashMap::new(),
         connectors: HashMap::new(),
     };
 

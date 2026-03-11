@@ -123,7 +123,7 @@ fn build_solver_input_3d(
         constraints: vec![],
         left_hand: None,
         plates: HashMap::new(),
-        quads: HashMap::new(), quad9s: HashMap::new(),
+        quads: HashMap::new(), quad9s: HashMap::new(), solid_shells: HashMap::new(), curved_shells: HashMap::new(),
         curved_beams: vec![],
         connectors: HashMap::new(),
     }

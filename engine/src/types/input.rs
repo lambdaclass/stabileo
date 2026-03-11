@@ -319,6 +319,18 @@ pub enum SolverLoad3D {
     Quad9Edge(SolverQuadEdgeLoad),
     #[serde(rename = "quad9SelfWeight")]
     Quad9SelfWeight(SolverQuadSelfWeightLoad),
+    #[serde(rename = "solidShellPressure")]
+    SolidShellPressure(SolverPressureLoad),
+    #[serde(rename = "solidShellSelfWeight")]
+    SolidShellSelfWeight(SolverSolidShellSelfWeightLoad),
+    #[serde(rename = "curvedShellPressure")]
+    CurvedShellPressure(SolverPressureLoad),
+    #[serde(rename = "curvedShellThermal")]
+    CurvedShellThermal(SolverPlateThermalLoad),
+    #[serde(rename = "curvedShellEdge")]
+    CurvedShellEdge(SolverQuadEdgeLoad),
+    #[serde(rename = "curvedShellSelfWeight")]
+    CurvedShellSelfWeight(SolverQuadSelfWeightLoad),
 }
 
 /// Body force (self-weight) load on a quad element.
@@ -392,6 +404,10 @@ pub struct SolverInput3D {
     #[serde(default)]
     pub quad9s: HashMap<String, SolverQuad9Element>,
     #[serde(default)]
+    pub solid_shells: HashMap<String, SolverSolidShellElement>,
+    #[serde(default)]
+    pub curved_shells: HashMap<String, SolverCurvedShellElement>,
+    #[serde(default)]
     pub curved_beams: Vec<CurvedBeamInput>,
     #[serde(default)]
     pub connectors: HashMap<String, ConnectorElement>,
@@ -424,6 +440,41 @@ pub struct SolverQuad9Element {
     pub nodes: [usize; 9],
     pub material_id: usize,
     pub thickness: f64,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct SolverSolidShellElement {
+    pub id: usize,
+    pub nodes: [usize; 8],
+    pub material_id: usize,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct SolverCurvedShellElement {
+    pub id: usize,
+    pub nodes: [usize; 4],
+    pub material_id: usize,
+    pub thickness: f64,
+    /// Optional per-node director vectors (shell normals). Auto-computed if None.
+    #[serde(default)]
+    pub normals: Option<[[f64; 3]; 4]>,
+}
+
+/// Self-weight load for solid-shell elements.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct SolverSolidShellSelfWeightLoad {
+    pub element_id: usize,
+    /// Mass density (kg/m³)
+    pub density: f64,
+    #[serde(default)]
+    pub gx: f64,
+    #[serde(default)]
+    pub gy: f64,
+    #[serde(default)]
+    pub gz: f64,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

@@ -942,6 +942,7 @@ pub fn solve_nonlinear_material_3d(
             constraint_forces,
             diagnostics: vec![],
             solver_diagnostics: vec![],
+            timings: None,
         },
         converged: converged_global,
         iterations: total_nr_iterations,

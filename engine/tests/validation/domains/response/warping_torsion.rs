@@ -101,7 +101,7 @@ fn make_warping_beam(
         supports: sups_map,
         loads,
         constraints: vec![], left_hand: None,
-        plates: HashMap::new(), quads: HashMap::new(), quad9s: HashMap::new(),
+        plates: HashMap::new(), quads: HashMap::new(), quad9s: HashMap::new(), solid_shells: HashMap::new(), curved_shells: HashMap::new(),
         curved_beams: vec![],
         connectors: HashMap::new(),
     }
@@ -278,7 +278,7 @@ fn validation_warping_mixed_model() {
         supports: sups_map,
         loads,
         constraints: vec![], left_hand: None,
-        plates: HashMap::new(), quads: HashMap::new(), quad9s: HashMap::new(),
+        plates: HashMap::new(), quads: HashMap::new(), quad9s: HashMap::new(), solid_shells: HashMap::new(), curved_shells: HashMap::new(),
         curved_beams: vec![],
         connectors: HashMap::new(),
     };

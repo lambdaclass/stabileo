@@ -56,7 +56,7 @@ fn make_3d_cantilever() -> TimeHistoryInput3D {
         nodes, materials, sections, elements, supports,
         loads: vec![],
         constraints: vec![], left_hand: None,
-        plates: HashMap::new(), quads: HashMap::new(), quad9s: HashMap::new(),
+        plates: HashMap::new(), quads: HashMap::new(), quad9s: HashMap::new(), solid_shells: HashMap::new(), curved_shells: HashMap::new(),
         curved_beams: vec![],
         connectors: HashMap::new(),
     };

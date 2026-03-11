@@ -86,7 +86,7 @@ fn build_large_plate(nx: usize, ny: usize) -> SolverInput3D {
         nodes, materials: mats, sections: HashMap::new(),
         elements: HashMap::new(), supports, loads,
         constraints: vec![], left_hand: None,
-        plates: HashMap::new(), quads, quad9s: HashMap::new(),
+        plates: HashMap::new(), quads, quad9s: HashMap::new(), solid_shells: HashMap::new(), curved_shells: HashMap::new(),
         curved_beams: vec![], connectors: HashMap::new(),
     }
 }
@@ -100,7 +100,7 @@ fn benchmark_sparse_3d_large_shell() {
     let n = dof_num.n_total;
 
     eprintln!("=== Sparse 3D Large Shell Benchmark ===");
-    eprintln!("  Mesh: 10×10 quads, quad9s: HashMap::new(), {} nodes, {} total DOFs, {} free DOFs",
+    eprintln!("  Mesh: 10×10 quads, quad9s: HashMap::new(), solid_shells: HashMap::new(), {} nodes, {} total DOFs, {} free DOFs",
         input.nodes.len(), n, nf);
 
     // ── Dense assembly + solve ──
@@ -165,7 +165,7 @@ fn benchmark_sparse_3d_larger_shell() {
     let n = dof_num.n_total;
 
     eprintln!("=== Sparse 3D Larger Shell Benchmark ===");
-    eprintln!("  Mesh: 15×15 quads, quad9s: HashMap::new(), {} nodes, {} total DOFs, {} free DOFs",
+    eprintln!("  Mesh: 15×15 quads, quad9s: HashMap::new(), solid_shells: HashMap::new(), {} nodes, {} total DOFs, {} free DOFs",
         input.nodes.len(), n, nf);
 
     // Dense path timing

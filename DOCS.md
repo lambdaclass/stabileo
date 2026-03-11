@@ -70,6 +70,10 @@ If you only read three documents, read them in this order:
   research folder entry point
 - [`research/open_source_solver_comparison.md`](/Users/unbalancedparen/projects/dedaliano/research/open_source_solver_comparison.md)
   comparison against OpenSees, Code_Aster, and Kratos
+- [`research/competitor_element_families.md`](/Users/unbalancedparen/projects/dedaliano/research/competitor_element_families.md)
+  competitor shell/element-family matrix and gap analysis
+- [`research/shell_family_selection.md`](/Users/unbalancedparen/projects/dedaliano/research/shell_family_selection.md)
+  shell-family selection rules, defaults, and product guidance
 
 ## Role Of Each Document
 
