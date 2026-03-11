@@ -28,7 +28,9 @@ Historical progress belongs in [`CHANGELOG.md`](/Users/unbalancedparen/projects/
 
 The main remaining work is no longer missing basic solver categories. It is:
 
-- shell family maturity and workflow maturity
+- shell-family workflow maturity and selection guidance
+- shell-adjacent workflow breadth (layered shells, axisymmetric workflows, nonlinear shell depth)
+- shell-family automatic selection policy for product defaults
 - solver-path consistency
 - diagnostics and explainability
 - verification hardening
@@ -40,8 +42,8 @@ The main remaining work is no longer missing basic solver categories. It is:
 
 Based on the comparison against projects like OpenSees, Code_Aster, and Kratos, the remaining gaps are not “missing the basics.” They are:
 
-1. `Shell hardening — curved/non-planar frontier`
-   MITC4+EAS-7 and MITC9 are both implemented, benchmark-validated (15 benchmarks), and acceptance-covered (4 workflow models). The shell stack is no longer experimental. The remaining gap is the curved/non-planar frontier: twisted beam, Raasch hook, and hemisphere all expose flat-faceted formulation limits in both elements. The next decision is whether to stop at the well-bounded MITC4+MITC9 stack or introduce a curved/solid-shell formulation.
+1. `Performance / scale maturity`
+   Sparse-first 3D is real, but the solver still needs stronger large-model runtime discipline, ordering quality, and broader sparse-path reuse.
 
 2. `Long-tail nonlinear maturity`
    More years of hardened edge cases are still needed in mixed nonlinear workflows:
@@ -49,14 +51,14 @@ Based on the comparison against projects like OpenSees, Code_Aster, and Kratos, 
    - shell + nonlinear interaction
    - difficult convergence cases
 
-3. `Performance / scale maturity`
-   Sparse-first 3D is now real, but the solver still needs stronger large-model runtime discipline, ordering quality, and broader sparse-path reuse.
-
-4. `Full solver-path consistency`
+3. `Full solver-path consistency`
    Dense vs sparse, constrained vs unconstrained, shell vs frame-shell mixed, and advanced nonlinear paths must keep converging to the same behavior.
 
-5. `Benchmark moat expansion`
+4. `Benchmark moat expansion`
    Dedaliano is already strong here, but broader external-reference proof is also the most realistic path to becoming the best open structural solver.
+
+5. `Shell-family workflow maturity`
+   `MITC4 + MITC9 + SHB8-ANS` now form a real production shell stack. The remaining shell work is no longer basic shell breadth, but shell-family guidance, frontier benchmarking, workflow hardening, and the next important shell-adjacent capabilities competitors still expose clearly.
 
 This changes the strategic target:
 
@@ -67,17 +69,10 @@ This changes the strategic target:
 
 If the goal is `best open structural solver`, the current priority order is:
 
-1. `Shell hardening — curved/non-planar frontier`
-   The MITC4+MITC9 stack is implemented and acceptance-covered. Remaining:
-   - curved/non-planar frontier (twisted beam, Raasch hook, hemisphere — all flat-faceted limited)
-   - decide: stop at bounded MITC4+MITC9 or introduce curved/solid-shell
-   - MITC9 corotational extension (deferred)
-   - distortion robustness
-
-2. `Performance and scale`
+1. `Performance and scale`
    Turn sparse-first 3D and current performance infrastructure into real large-model runtime wins.
 
-3. `Verification hardening`
+2. `Verification hardening`
    Keep building the proof moat with:
    - benchmark gates
    - acceptance models
@@ -85,50 +80,44 @@ If the goal is `best open structural solver`, the current priority order is:
    - property-based tests
    - fuzzing
 
-4. `Long-tail nonlinear hardening`
+3. `Long-tail nonlinear hardening`
    Harden the hardest mixed workflows:
    - contact + nonlinear + staging
    - shell + nonlinear interaction
    - difficult convergence edge cases
 
-5. `Solver-path consistency`
+4. `Solver-path consistency`
    Keep dense vs sparse, constrained vs unconstrained, and mixed shell/frame workflows converging to the same behavior.
 
-6. `Constraint-system maturity`
+5. `Constraint-system maturity`
    Finish chained constraints, connector depth, eccentric workflow polish, and remaining parity gaps.
 
-7. `Advanced contact maturity`
+6. `Advanced contact maturity`
    Push harder convergence, richer contact laws, and tougher mixed contact states.
 
-8. `Diagnostics, model health checks, and explainability`
+7. `Diagnostics, model health checks, and explainability`
    Make failures clearer, model issues easier to detect, and hard solves easier to understand.
 
-9. `Reference benchmark expansion`
+8. `Reference benchmark expansion`
    Keep growing external-reference proof for contact, fiber 3D, SSI, creep/shrinkage, and broader shell workflows.
 
-10. `Reduction, staged/PT coupling, and other second-tier depth`
+9. `Shell-family workflow maturity`
+   Keep the shell-family selection guidance current, maintain the frontier-gate benchmarks, and only reopen shell-family expansion if the current stack proves insufficient on practical workflows.
+
+10. `Shell-family automatic selection policy`
+   Turn shell-family guidance into explicit rules the UI and model layer can use for automatic defaults, explainable recommendations, and safe override behavior.
+
+11. `Reduction, staged/PT coupling, and other second-tier depth`
     Mature the scale-oriented and long-term workflow layers after the core solver-quality gaps above are tighter.
 
 ## Current Sequence
 
 The current near-term sequence is:
 
-1. `Shell benchmark and acceptance gates`
-   Keep shell benchmark and shell acceptance suites as explicit release gates, now covering both MITC4 and the implemented MITC9 path (6 MITC9 benchmarks passing).
-
-2. `Shell-driven mechanics fixes`
-   Use those gates to drive targeted fixes in:
-   - load vectors
-   - modal/buckling consistency
-   - distortion tolerance
-   - mixed tri/quad and beam-shell workflows
-   - stress-recovery consistency
-   - MITC9 hardening on extended curved/non-planar benchmarks
-
-3. `Full-model performance work`
+1. `Full-model performance work`
    Use acceptance models and workflow benchmarks to drive sparse, parallel, conditioning, and memory improvements on representative models.
 
-4. `Verification hardening`
+2. `Verification hardening`
    Expand:
    - benchmark gates
    - acceptance models
@@ -136,13 +125,13 @@ The current near-term sequence is:
    - property-based tests
    - fuzzing
 
-5. `Long-tail nonlinear hardening`
+3. `Long-tail nonlinear hardening`
    Focus on the hardest mixed cases:
    - contact + nonlinear + staging
    - shell + nonlinear interaction
    - difficult convergence edge cases
 
-6. `Solver-path consistency and remaining maturity work`
+4. `Solver-path consistency and remaining maturity work`
    Finish:
    - dense vs sparse parity hardening
    - constrained vs unconstrained parity hardening
@@ -150,44 +139,56 @@ The current near-term sequence is:
    - advanced contact maturity
    - clearer solver-side diagnostics and output semantics
 
+5. `Shell-family workflow guidance and frontier tracking`
+   Keep the shell-family selection guidance current, maintain the frontier-gate benchmarks, and only reopen shell-family expansion if the current `MITC4 / MITC9 / SHB8-ANS` stack proves insufficient.
+
+6. `Shell-family automatic selection policy`
+   Encode shell-family selection rules based on geometry, curvature, topology, distortion, thickness regime, and analysis type so the product can pick defaults automatically and still allow manual override.
+
 ## Active Programs
 
-### 1. Shell Maturity
+### 1. Shell-Family Maturity
 
 Focus:
-- release-gated shell benchmarks (MITC4 and MITC9)
+- release-gated shell benchmarks (`MITC4`, `MITC9`, and `SHB8-ANS`)
 - shell load vectors
 - mixed tri/quad and beam-shell workflows
 - shell modal and buckling consistency
 - distortion tolerance
 - shell stress recovery consistency
-- MITC9 hardening on extended curved/non-planar benchmarks
-- MITC4-vs-MITC9 comparative benchmark tables
+- shell-family comparative benchmark tables and selection guidance
+- shell-family automatic-selection rules for default product behavior
 
 Current status:
-- MITC9 is **implemented, benchmark-validated, and acceptance-covered**
-- 15 MITC9 benchmarks passing (patch test, Navier, Scordelis-Lo, hemisphere, spherical cap, hypar, twisted beam A+B, Raasch hook, hemisphere R/t sweep)
-- 4 acceptance/workflow models passing (cantilever, mixed beam+slab, cylindrical tank, modal plate)
-- MITC9 outperforms MITC4 on standard benchmarks at lower mesh density (Navier 2×2: 0.98 vs MITC4 4×4: 0.93; Scordelis-Lo 2×2: 0.96 vs MITC4 6×6: 0.84)
+- MITC4+EAS-7, MITC9, and SHB8-ANS are all implemented, benchmarked, and part of the production shell stack
+- shell-family frontier gates now exist across MITC4, MITC9, and SHB8-ANS
+- the shell question is no longer “do we have enough shell breadth?” but “how do we harden and guide the multi-family stack?”
 
 Current remaining shell backlog:
-- curved/non-planar frontier: twisted beam, Raasch hook, and hemisphere all still locked in both elements (~0.1% ratio)
-- broader curved-shell workflow validation (folded plates, conical, hyperbolic)
-- broader shell modal, buckling, and dynamic reference cases with MITC9
+- shell-family selection guidance and explicit “use / avoid” rules for MITC4, MITC9, and SHB8-ANS
+- a rule-based shell-family selector for automatic defaults and explainable recommendations
+- broader curved/non-planar workflow validation with the multi-family shell stack
+- broader shell modal, buckling, and dynamic reference cases across the multi-family shell stack
 - better shell diagnostics and output semantics in solver results
 - MITC9 corotational extension (deferred)
+- layered / laminated shell workflows
+- axisymmetric workflows for shells of revolution
+- nonlinear / corotational shell workflow depth across the multi-family stack
 
 Known formulation boundary:
-- MITC4+EAS-7: accurate for R/t < ~100 and flat/mildly curved shells
-- MITC9: quadratic elements converge faster, extend the envelope for curved shells
-- twisted beam (~0.1%), Raasch hook (~0.01%), and hemisphere (~35×) expose the flat-faceted limit in **both** elements — this is a formulation wall, not a bug
-- the next decision is whether to:
-  - stop at the well-bounded `MITC4 + MITC9` shell stack (likely sufficient for most structural engineering)
-  - or introduce solid-shell later for composites/contact/extreme curvature
+- MITC4+EAS-7: efficient for flat and mildly curved shells
+- MITC9: higher-order shell path with better accuracy on standard shell benchmarks at lower mesh density
+- SHB8-ANS: current answer for the curved/non-planar frontier where flat-faceted shell families are weakest
+- shell breadth is no longer the open gap; the remaining shell work is hardening, guidance, and performance across the multi-family stack
 
 Recommended shell order:
-1. decide whether the curved/non-planar frontier justifies a new element family (solid-shell or MITC with curved geometry)
-2. if not, document the bounded capability and shift attention to performance/scale
+1. keep the shell-family selection guidance and frontier gates current
+2. add the most important shell-adjacent workflow breadth competitors still expose:
+   - layered / laminated shell workflows
+   - axisymmetric workflows
+   - nonlinear / corotational shell depth
+3. turn shell-family guidance into an explicit automatic selection policy for the product layer
+4. only reopen shell-family expansion if the current MITC4 / MITC9 / SHB8-ANS stack proves insufficient on practical workflows
 
 Why it matters:
 Shell quality is one of the clearest separators between a strong structural solver and a top-tier one.
@@ -253,16 +254,20 @@ This is the main remaining place where mature open solvers still have more years
 
 ## Exit Criteria
 
-### Shell hardening — curved/non-planar frontier
+### Shell-family maturity
 
 Already done:
-- MITC9 benchmarked (15 tests) and acceptance-covered (4 workflow models)
-- MITC9 accepted as part of the production shell stack
+- MITC4+EAS-7, MITC9, and SHB8-ANS are all accepted as part of the production shell stack
 - curved/non-planar benchmarks written and running (twisted beam, Raasch hook, hemisphere R/t sweep) — results document the flat-faceted limit
 
 Remaining to close:
-- the `bounded MITC4/MITC9 stack vs curved/solid-shell` decision is explicitly documented
+- the shell-family selection guidance and frontier boundaries are explicitly documented
+- shell-family selection policy is explicit enough for automatic defaults plus manual override
 - distortion and warp studies are gated and bounded
+- the highest-value shell-adjacent workflow gaps are closed:
+  - layered / laminated shell workflows
+  - axisymmetric workflows
+  - nonlinear / corotational shell depth
 
 ### Performance and scale
 
