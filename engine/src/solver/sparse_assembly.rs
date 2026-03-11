@@ -507,10 +507,12 @@ use super::assembly::{InclinedTransformData, apply_inclined_transform_triplets, 
 #[cfg(feature = "parallel")]
 const DOF_MAP_12_TO_14: [usize; 12] = [0, 1, 2, 3, 4, 5, 7, 8, 9, 10, 11, 12];
 
-/// Per-element output from the parallel phase.
+/// Per-element output from the parallel phase (SoA layout for fast merge).
 #[cfg(feature = "parallel")]
 struct ElementContribution3D {
-    triplets: Vec<(usize, usize, f64)>,
+    trip_rows: Vec<usize>,
+    trip_cols: Vec<usize>,
+    trip_vals: Vec<f64>,
     diag_contributions: Vec<(usize, f64)>,
     force_contributions: Vec<(usize, f64)>,
     diagnostics: Vec<AssemblyDiagnostic>,
@@ -560,11 +562,13 @@ fn build_load_index_3d<'a>(loads: &'a [SolverLoad3D]) -> std::collections::HashM
     index
 }
 
-/// Helper: scatter lower-triangle triplets + diag from element stiffness.
+/// Helper: scatter lower-triangle triplets + diag from element stiffness (SoA layout).
 #[cfg(feature = "parallel")]
 fn scatter_triplets(
     k: &[f64], dofs: &[usize], ndof: usize, nf: usize,
-    triplets: &mut Vec<(usize, usize, f64)>,
+    rows: &mut Vec<usize>,
+    cols: &mut Vec<usize>,
+    vals: &mut Vec<f64>,
     diag: &mut Vec<(usize, f64)>,
 ) {
     for i in 0..ndof {
@@ -572,7 +576,9 @@ fn scatter_triplets(
         for j in 0..ndof {
             let gj = dofs[j];
             if gi >= gj {
-                triplets.push((gi, gj, k[i * ndof + j]));
+                rows.push(gi);
+                cols.push(gj);
+                vals.push(k[i * ndof + j]);
             }
         }
         if gi < nf { diag.push((gi, k[i * ndof + i])); }
@@ -615,7 +621,9 @@ pub fn assemble_sparse_3d_parallel(input: &SolverInput3D, dof_num: &DofNumbering
 
     // Parallel phase: compute element stiffness + scatter triplets
     let contributions: Vec<ElementContribution3D> = all_elements.par_iter().map(|any_elem| {
-        let mut triplets = Vec::new();
+        let mut trip_rows = Vec::new();
+        let mut trip_cols = Vec::new();
+        let mut trip_vals = Vec::new();
         let mut diag = Vec::new();
         let mut forces = Vec::new();
         let mut diagnostics = Vec::new();
@@ -649,7 +657,7 @@ pub fn assemble_sparse_3d_parallel(input: &SolverInput3D, dof_num: &DofNumbering
                                     ) {
                                         if da >= db {
                                             let val = sign * ea_l * dir[i] * dir[j];
-                                            triplets.push((da, db, val));
+                                            trip_rows.push(da); trip_cols.push(db); trip_vals.push(val);
                                         }
                                         if da == db && da < nf { diag.push((da, sign * ea_l * dir[i] * dir[j])); }
                                     }
@@ -682,7 +690,7 @@ pub fn assemble_sparse_3d_parallel(input: &SolverInput3D, dof_num: &DofNumbering
                         let t = element::frame_transform_3d_warping(&ex, &ey, &ez);
                         let k_glob = transform_stiffness(&k_local, &t, 14);
                         let ndof = elem_dofs.len();
-                        scatter_triplets(&k_glob, &elem_dofs, ndof, nf, &mut triplets, &mut diag);
+                        scatter_triplets(&k_glob, &elem_dofs, ndof, nf, &mut trip_rows, &mut trip_cols, &mut trip_vals, &mut diag);
                         // Warping element loads
                         if let Some(elem_loads) = load_index.get(&elem.id) {
                             for load in elem_loads {
@@ -738,7 +746,7 @@ pub fn assemble_sparse_3d_parallel(input: &SolverInput3D, dof_num: &DofNumbering
                             for j in 0..12 {
                                 let gj = elem_dofs[DOF_MAP_12_TO_14[j]];
                                 if gi >= gj {
-                                    triplets.push((gi, gj, k_glob[i * 12 + j]));
+                                    trip_rows.push(gi); trip_cols.push(gj); trip_vals.push(k_glob[i * 12 + j]);
                                 }
                             }
                             if gi < nf { diag.push((gi, k_glob[i * 12 + i])); }
@@ -790,7 +798,7 @@ pub fn assemble_sparse_3d_parallel(input: &SolverInput3D, dof_num: &DofNumbering
                         let t = element::frame_transform_3d(&ex, &ey, &ez);
                         let k_glob = transform_stiffness(&k_local, &t, 12);
                         let ndof = elem_dofs.len();
-                        scatter_triplets(&k_glob, &elem_dofs, ndof, nf, &mut triplets, &mut diag);
+                        scatter_triplets(&k_glob, &elem_dofs, ndof, nf, &mut trip_rows, &mut trip_cols, &mut trip_vals, &mut diag);
                         // Standard 12-DOF element loads
                         if let Some(elem_loads) = load_index.get(&elem.id) {
                             for load in elem_loads {
@@ -835,8 +843,8 @@ pub fn assemble_sparse_3d_parallel(input: &SolverInput3D, dof_num: &DofNumbering
             }
 
             AnyElement3D::Connector(conn) => {
-                let ni = match node_map.get(&conn.node_i) { Some(n) => n, None => return ElementContribution3D { triplets, diag_contributions: diag, force_contributions: forces, diagnostics } };
-                let nj_node = match node_map.get(&conn.node_j) { Some(n) => n, None => return ElementContribution3D { triplets, diag_contributions: diag, force_contributions: forces, diagnostics } };
+                let ni = match node_map.get(&conn.node_i) { Some(n) => n, None => return ElementContribution3D { trip_rows, trip_cols, trip_vals, diag_contributions: diag, force_contributions: forces, diagnostics } };
+                let nj_node = match node_map.get(&conn.node_j) { Some(n) => n, None => return ElementContribution3D { trip_rows, trip_cols, trip_vals, diag_contributions: diag, force_contributions: forces, diagnostics } };
                 let dx = nj_node.x - ni.x;
                 let dy = nj_node.y - ni.y;
                 let dz = nj_node.z - ni.z;
@@ -852,7 +860,7 @@ pub fn assemble_sparse_3d_parallel(input: &SolverInput3D, dof_num: &DofNumbering
                     let gi = dofs[i];
                     for j in 0..ndof {
                         let gj = dofs[j];
-                        if gi >= gj { triplets.push((gi, gj, ke[i * 12 + j])); }
+                        if gi >= gj { trip_rows.push(gi); trip_cols.push(gj); trip_vals.push(ke[i * 12 + j]); }
                     }
                     if gi < nf { diag.push((gi, ke[i * 12 + i])); }
                 }
@@ -871,7 +879,7 @@ pub fn assemble_sparse_3d_parallel(input: &SolverInput3D, dof_num: &DofNumbering
                 let k_glob = transform_stiffness(&k_local, &t_plate, 18);
                 let plate_dofs = dof_num.plate_element_dofs(&plate.nodes);
                 let ndof = plate_dofs.len();
-                scatter_triplets(&k_glob, &plate_dofs, ndof, nf, &mut triplets, &mut diag);
+                scatter_triplets(&k_glob, &plate_dofs, ndof, nf, &mut trip_rows, &mut trip_cols, &mut trip_vals, &mut diag);
                 // Plate loads
                 if let Some(elem_loads) = load_index.get(&plate.id) {
                     for load in elem_loads {
@@ -925,7 +933,7 @@ pub fn assemble_sparse_3d_parallel(input: &SolverInput3D, dof_num: &DofNumbering
                 let k_glob = transform_stiffness(&k_local, &t_quad, 24);
                 let quad_dofs = dof_num.quad_element_dofs(&quad.nodes);
                 let ndof = quad_dofs.len();
-                scatter_triplets(&k_glob, &quad_dofs, ndof, nf, &mut triplets, &mut diag);
+                scatter_triplets(&k_glob, &quad_dofs, ndof, nf, &mut trip_rows, &mut trip_cols, &mut trip_vals, &mut diag);
                 // Quad loads
                 if let Some(elem_loads) = load_index.get(&quad.id) {
                     for load in elem_loads {
@@ -1009,7 +1017,7 @@ pub fn assemble_sparse_3d_parallel(input: &SolverInput3D, dof_num: &DofNumbering
                 let k_glob = transform_stiffness(&k_local, &t_q9, 54);
                 let q9_dofs = dof_num.quad9_element_dofs(&q9.nodes);
                 let ndof = q9_dofs.len();
-                scatter_triplets(&k_glob, &q9_dofs, ndof, nf, &mut triplets, &mut diag);
+                scatter_triplets(&k_glob, &q9_dofs, ndof, nf, &mut trip_rows, &mut trip_cols, &mut trip_vals, &mut diag);
                 // Quad9 loads
                 if let Some(elem_loads) = load_index.get(&q9.id) {
                     for load in elem_loads {
@@ -1063,7 +1071,7 @@ pub fn assemble_sparse_3d_parallel(input: &SolverInput3D, dof_num: &DofNumbering
                 let k_elem = element::solid_shell::solid_shell_stiffness(&coords, e, nu);
                 let ss_dofs = dof_num.solid_shell_element_dofs(&ss.nodes);
                 let ndof = ss_dofs.len();
-                scatter_triplets(&k_elem, &ss_dofs, ndof, nf, &mut triplets, &mut diag);
+                scatter_triplets(&k_elem, &ss_dofs, ndof, nf, &mut trip_rows, &mut trip_cols, &mut trip_vals, &mut diag);
                 // Solid-shell loads
                 if let Some(elem_loads) = load_index.get(&ss.id) {
                     for load in elem_loads {
@@ -1095,7 +1103,7 @@ pub fn assemble_sparse_3d_parallel(input: &SolverInput3D, dof_num: &DofNumbering
                 let k_elem = element::curved_shell::curved_shell_stiffness(&coords, &dirs, e, nu, cs.thickness);
                 let cs_dofs = dof_num.quad_element_dofs(&cs.nodes);
                 let ndof = cs_dofs.len();
-                scatter_triplets(&k_elem, &cs_dofs, ndof, nf, &mut triplets, &mut diag);
+                scatter_triplets(&k_elem, &cs_dofs, ndof, nf, &mut trip_rows, &mut trip_cols, &mut trip_vals, &mut diag);
                 // Curved shell loads
                 if let Some(elem_loads) = load_index.get(&cs.id) {
                     for load in elem_loads {
@@ -1133,7 +1141,9 @@ pub fn assemble_sparse_3d_parallel(input: &SolverInput3D, dof_num: &DofNumbering
         }
 
         ElementContribution3D {
-            triplets,
+            trip_rows,
+            trip_cols,
+            trip_vals,
             diag_contributions: diag,
             force_contributions: forces,
             diagnostics,
@@ -1142,18 +1152,19 @@ pub fn assemble_sparse_3d_parallel(input: &SolverInput3D, dof_num: &DofNumbering
 
     // ── Sequential merge phase ──
 
-    let mut trip_rows = Vec::new();
-    let mut trip_cols = Vec::new();
-    let mut trip_vals = Vec::new();
+    let total_triplets: usize = contributions.iter().map(|c| c.trip_rows.len()).sum();
+    let mut trip_rows = Vec::with_capacity(total_triplets + 256);
+    let mut trip_cols = Vec::with_capacity(total_triplets + 256);
+    let mut trip_vals = Vec::with_capacity(total_triplets + 256);
     let mut f_global = vec![0.0; n];
     let mut diag_vals = vec![0.0f64; nf];
     let mut max_diag = 0.0f64;
     let mut diagnostics = Vec::new();
 
     for contrib in &contributions {
-        for &(r, c, v) in &contrib.triplets {
-            trip_rows.push(r); trip_cols.push(c); trip_vals.push(v);
-        }
+        trip_rows.extend_from_slice(&contrib.trip_rows);
+        trip_cols.extend_from_slice(&contrib.trip_cols);
+        trip_vals.extend_from_slice(&contrib.trip_vals);
         for &(d, v) in &contrib.diag_contributions {
             diag_vals[d] += v;
         }
@@ -1270,9 +1281,10 @@ pub fn assemble_sparse_3d_parallel(input: &SolverInput3D, dof_num: &DofNumbering
     // Build full-K CSC from all triplets, then filter for Kff
     let k_full = CscMatrix::from_triplets(n, &trip_rows, &trip_cols, &trip_vals);
 
-    let mut ff_rows = Vec::new();
-    let mut ff_cols = Vec::new();
-    let mut ff_vals = Vec::new();
+    let ff_cap = trip_rows.len(); // upper bound
+    let mut ff_rows = Vec::with_capacity(ff_cap);
+    let mut ff_cols = Vec::with_capacity(ff_cap);
+    let mut ff_vals = Vec::with_capacity(ff_cap);
     for i in 0..trip_rows.len() {
         if trip_rows[i] < nf && trip_cols[i] < nf {
             ff_rows.push(trip_rows[i]); ff_cols.push(trip_cols[i]); ff_vals.push(trip_vals[i]);

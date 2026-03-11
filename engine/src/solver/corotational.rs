@@ -1337,6 +1337,7 @@ fn build_final_results_3d(
         constraint_forces,
         diagnostics: vec![],
         solver_diagnostics: vec![],
+        timings: None,
     })
 }
 

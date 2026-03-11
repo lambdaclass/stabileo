@@ -687,6 +687,7 @@ pub fn solve_constrained_3d(input: &ConstrainedInput3D) -> Result<AnalysisResult
         constraint_forces,
         diagnostics: vec![],
         solver_diagnostics: vec![],
+        timings: None,
     })
 }
 

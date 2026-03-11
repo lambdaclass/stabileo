@@ -185,10 +185,17 @@ pub fn solve_3d(input: &SolverInput3D) -> Result<AnalysisResults3D, String> {
 
     if nf >= SPARSE_THRESHOLD {
         // ── Sparse path: O(nnz) assembly, no dense n×n matrix ──
+        use std::time::Instant;
+        let t_total = Instant::now();
+
+        let t0 = Instant::now();
         let asm = super::sparse_assembly::assemble_sparse_3d_parallel(input, &dof_num);
+        let assembly_us = t0.elapsed().as_micros() as u64;
+
         let mut solver_diags: Vec<SolverDiagnostic> = Vec::new();
 
         // Sparse diagonal conditioning check
+        let t0 = Instant::now();
         let cond = sparse_diagonal_conditioning(&asm.k_ff);
         if cond > 1e12 {
             solver_diags.push(SolverDiagnostic {
@@ -203,6 +210,7 @@ pub fn solve_3d(input: &SolverInput3D) -> Result<AnalysisResults3D, String> {
                 severity: "warning".into(),
             });
         }
+        let conditioning_us = t0.elapsed().as_micros() as u64;
 
         // F_f modified for prescribed displacements: F_f -= K_fr * u_r
         let mut f_f: Vec<f64> = asm.f[..nf].to_vec();
@@ -226,10 +234,25 @@ pub fn solve_3d(input: &SolverInput3D) -> Result<AnalysisResults3D, String> {
                 .ok_or_else(|| "Singular stiffness matrix — structure is a mechanism".to_string())
         };
 
-        // Solve Kff * u_f = f_f
-        let u_f = match sparse_cholesky_solve_full(&asm.k_ff, &f_f) {
-            Some(u) => {
+        // Solve Kff * u_f = f_f (split into symbolic → numeric → solve)
+        let t0 = Instant::now();
+        let sym = symbolic_cholesky(&asm.k_ff);
+        let symbolic_us = t0.elapsed().as_micros() as u64;
+        let nnz_kff = asm.k_ff.col_ptr[nf]; // total nnz in lower triangle
+        let nnz_l = sym.l_nnz;
+
+        let t0 = Instant::now();
+        let num_result = numeric_cholesky(&sym, &asm.k_ff);
+        let numeric_us = t0.elapsed().as_micros() as u64;
+
+        let (u_f, solve_us, residual_us) = match num_result {
+            Some(num) => {
+                let t0 = Instant::now();
+                let u = sparse_cholesky_solve(&num, &f_f);
+                let s_us = t0.elapsed().as_micros() as u64;
+
                 // Verify Cholesky solution quality via residual check.
+                let t0 = Instant::now();
                 let ku = asm.k_ff.sym_mat_vec(&u);
                 let mut res_norm2 = 0.0f64;
                 let mut f_norm2 = 0.0f64;
@@ -238,13 +261,15 @@ pub fn solve_3d(input: &SolverInput3D) -> Result<AnalysisResults3D, String> {
                     f_norm2 += f_f[i].powi(2);
                 }
                 let rel_residual = res_norm2.sqrt() / f_norm2.sqrt().max(1e-30);
+                let r_us = t0.elapsed().as_micros() as u64;
+
                 if rel_residual < 1e-6 {
                     solver_diags.push(SolverDiagnostic {
                         category: "solver_path".into(),
                         message: format!("Sparse Cholesky solver ({} free DOFs)", nf),
                         severity: "info".into(),
                     });
-                    u
+                    (u, s_us, r_us)
                 } else {
                     solver_diags.push(SolverDiagnostic {
                         category: "fallback".into(),
@@ -254,7 +279,7 @@ pub fn solve_3d(input: &SolverInput3D) -> Result<AnalysisResults3D, String> {
                         ),
                         severity: "warning".into(),
                     });
-                    dense_lu_fallback()?
+                    (dense_lu_fallback()?, s_us, r_us)
                 }
             }
             None => {
@@ -263,7 +288,7 @@ pub fn solve_3d(input: &SolverInput3D) -> Result<AnalysisResults3D, String> {
                     message: "Sparse Cholesky failed (likely drilling DOFs), fell back to dense LU".into(),
                     severity: "warning".into(),
                 });
-                dense_lu_fallback()?
+                (dense_lu_fallback()?, 0, 0)
             }
         };
 
@@ -273,6 +298,7 @@ pub fn solve_3d(input: &SolverInput3D) -> Result<AnalysisResults3D, String> {
         for i in 0..nr { u_full[nf + i] = u_r[i]; }
 
         // Reactions via full-K sym_mat_vec: R[i] = (K*u)[i] - F[i] for restrained DOFs
+        let t0 = Instant::now();
         let ku = asm.k_full.sym_mat_vec(&u_full);
         let mut reactions_vec = vec![0.0; nr];
         let f_r: Vec<f64> = asm.f[nf..].to_vec();
@@ -292,9 +318,29 @@ pub fn solve_3d(input: &SolverInput3D) -> Result<AnalysisResults3D, String> {
         reactions.sort_by_key(|r| r.node_id);
         let mut element_forces = compute_internal_forces_3d(input, &dof_num, &u_full);
         element_forces.sort_by_key(|ef| ef.element_id);
+        let reactions_us = t0.elapsed().as_micros() as u64;
 
+        let t0 = Instant::now();
         let plate_stresses = compute_plate_stresses(input, &dof_num, &u_full);
         let quad_stresses = compute_quad_stresses(input, &dof_num, &u_full);
+        let stress_recovery_us = t0.elapsed().as_micros() as u64;
+
+        let total_us = t_total.elapsed().as_micros() as u64;
+
+        let timings = SolveTimings {
+            assembly_us,
+            conditioning_us,
+            symbolic_us,
+            numeric_us,
+            solve_us,
+            residual_us,
+            reactions_us,
+            stress_recovery_us,
+            total_us,
+            n_free: nf,
+            nnz_kff,
+            nnz_l,
+        };
 
         Ok(AnalysisResults3D {
             displacements,
@@ -306,6 +352,7 @@ pub fn solve_3d(input: &SolverInput3D) -> Result<AnalysisResults3D, String> {
             constraint_forces: vec![],
             diagnostics: asm.diagnostics,
             solver_diagnostics: solver_diags,
+            timings: Some(timings),
         })
     } else {
         // ── Dense path: small models (nf < 64) ──
@@ -392,6 +439,7 @@ pub fn solve_3d(input: &SolverInput3D) -> Result<AnalysisResults3D, String> {
             constraint_forces: vec![],
             diagnostics: asm.diagnostics,
             solver_diagnostics: solver_diags,
+            timings: None,
         })
     }
 }

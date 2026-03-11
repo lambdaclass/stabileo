@@ -562,7 +562,7 @@ fn bench_assembly_3d_large(c: &mut Criterion) {
     let mut group = c.benchmark_group("assembly_3d_large");
     group.sample_size(10);
 
-    for &(nx, ny) in &[(20, 20), (30, 30), (50, 50)] {
+    for &(nx, ny) in &[(20, 20), (30, 30), (50, 50), (100, 100)] {
         let input = make_flat_plate_3d(nx, ny);
         let dof_num = DN::build_3d(&input);
         let label = format!("{}x{}", nx, ny);
@@ -621,6 +621,387 @@ fn bench_assembly_3d_mixed(c: &mut Criterion) {
     group.finish();
 }
 
+// ─── Quad9 Mesh Generator ───────────────────────────────
+
+/// Flat plate meshed with 9-node serendipity quads, SS on all edges.
+fn make_flat_plate_quad9(nx: usize, ny: usize) -> SolverInput3D {
+    let lx = 10.0;
+    let ly = 10.0;
+    let t = 0.1;
+    let e = 200_000.0;
+    let nu = 0.3;
+
+    // Node grid: (2*nx+1) x (2*ny+1)
+    let gx = 2 * nx + 1;
+    let gy = 2 * ny + 1;
+    let mut nodes = HashMap::new();
+    let mut grid = vec![vec![0usize; gy]; gx];
+    let mut nid = 1;
+    for i in 0..gx {
+        for j in 0..gy {
+            let x = (i as f64 / (gx - 1) as f64) * lx;
+            let y = (j as f64 / (gy - 1) as f64) * ly;
+            nodes.insert(nid.to_string(), SolverNode3D { id: nid, x, y, z: 0.0 });
+            grid[i][j] = nid;
+            nid += 1;
+        }
+    }
+
+    // Each quad9 element picks 9 nodes from its 2x2 sub-grid
+    let mut quad9s = HashMap::new();
+    let mut qid = 1;
+    for i in 0..nx {
+        for j in 0..ny {
+            let gi = 2 * i;
+            let gj = 2 * j;
+            // 4 corners, 4 midside, 1 center
+            let q9_nodes: [usize; 9] = [
+                grid[gi][gj], grid[gi+2][gj], grid[gi+2][gj+2], grid[gi][gj+2],    // corners
+                grid[gi+1][gj], grid[gi+2][gj+1], grid[gi+1][gj+2], grid[gi][gj+1], // midside
+                grid[gi+1][gj+1],                                                     // center
+            ];
+            quad9s.insert(qid.to_string(), SolverQuad9Element {
+                id: qid,
+                nodes: q9_nodes,
+                material_id: 1,
+                thickness: t,
+            });
+            qid += 1;
+        }
+    }
+
+    let mut mats = HashMap::new();
+    mats.insert("1".to_string(), SolverMaterial { id: 1, e, nu });
+
+    // Simply-supported on all edges + pin one corner
+    let mut supports = HashMap::new();
+    let mut sid = 1;
+    let mut boundary = Vec::new();
+    for j in 0..gy { boundary.push(grid[0][j]); boundary.push(grid[gx-1][j]); }
+    for i in 0..gx { boundary.push(grid[i][0]); boundary.push(grid[i][gy-1]); }
+    boundary.sort();
+    boundary.dedup();
+    for &n in &boundary {
+        supports.insert(sid.to_string(), SolverSupport3D {
+            node_id: n, rx: false, ry: false, rz: true,
+            rrx: false, rry: false, rrz: false,
+            kx: None, ky: None, kz: None,
+            krx: None, kry: None, krz: None,
+            dx: None, dy: None, dz: None,
+            drx: None, dry: None, drz: None,
+            normal_x: None, normal_y: None, normal_z: None,
+            is_inclined: None, rw: None, kw: None,
+        });
+        sid += 1;
+    }
+    supports.insert(sid.to_string(), SolverSupport3D {
+        node_id: grid[0][0], rx: true, ry: true, rz: true,
+        rrx: false, rry: false, rrz: false,
+        kx: None, ky: None, kz: None,
+        krx: None, kry: None, krz: None,
+        dx: None, dy: None, dz: None,
+        drx: None, dry: None, drz: None,
+        normal_x: None, normal_y: None, normal_z: None,
+        is_inclined: None, rw: None, kw: None,
+    });
+
+    let n_quads = quad9s.len();
+    let loads: Vec<SolverLoad3D> = (1..=n_quads).map(|eid| {
+        SolverLoad3D::Quad9Pressure(SolverPressureLoad { element_id: eid, pressure: -1.0 })
+    }).collect();
+
+    SolverInput3D {
+        nodes, materials: mats, sections: HashMap::new(),
+        elements: HashMap::new(), supports, loads,
+        constraints: vec![], left_hand: None,
+        plates: HashMap::new(), quads: HashMap::new(), quad9s,
+        solid_shells: HashMap::new(), curved_shells: HashMap::new(),
+        curved_beams: vec![], connectors: HashMap::new(),
+    }
+}
+
+// ─── Hemisphere Curved-Shell Generator ──────────────────
+
+/// Quarter-hemisphere meshed with curved-shell elements, radial normals.
+fn make_hemisphere_curved_shell(n: usize) -> SolverInput3D {
+    let r = 10.0;
+    let t = 0.04;
+    let e = 68_250.0; // MPa
+    let nu = 0.3;
+
+    // Map (i,j) ∈ [0,n]² to octant of hemisphere
+    // θ = i/n * π/2, φ = j/n * π/2
+    let np = n + 1;
+    let mut nodes = HashMap::new();
+    let mut grid = vec![vec![0usize; np]; np];
+    let mut nid = 1;
+    for i in 0..np {
+        for j in 0..np {
+            let theta = (i as f64 / n as f64) * std::f64::consts::FRAC_PI_2;
+            let phi = (j as f64 / n as f64) * std::f64::consts::FRAC_PI_2;
+            let x = r * theta.sin() * phi.cos();
+            let y = r * theta.sin() * phi.sin();
+            let z = r * theta.cos();
+            nodes.insert(nid.to_string(), SolverNode3D { id: nid, x, y, z });
+            grid[i][j] = nid;
+            nid += 1;
+        }
+    }
+
+    let mut curved_shells = HashMap::new();
+    let mut eid = 1;
+    for i in 0..n {
+        for j in 0..n {
+            let n0 = grid[i][j];
+            let n1 = grid[i+1][j];
+            let n2 = grid[i+1][j+1];
+            let n3 = grid[i][j+1];
+            // Compute radial normals for each node
+            let mut normals = [[0.0f64; 3]; 4];
+            for (k, &nid_k) in [n0, n1, n2, n3].iter().enumerate() {
+                let node = &nodes[&nid_k.to_string()];
+                let len = (node.x * node.x + node.y * node.y + node.z * node.z).sqrt();
+                if len > 1e-12 {
+                    normals[k] = [node.x / len, node.y / len, node.z / len];
+                } else {
+                    normals[k] = [0.0, 0.0, 1.0];
+                }
+            }
+            curved_shells.insert(eid.to_string(), SolverCurvedShellElement {
+                id: eid,
+                nodes: [n0, n1, n2, n3],
+                material_id: 1,
+                thickness: t,
+                normals: Some(normals),
+            });
+            eid += 1;
+        }
+    }
+
+    let mut mats = HashMap::new();
+    mats.insert("1".to_string(), SolverMaterial { id: 1, e, nu });
+
+    // Symmetry BCs: fix UX on θ=0 plane, UY on φ=0 plane
+    let mut supports = HashMap::new();
+    let mut sid = 1;
+    // Bottom edge (i=0): constrain UZ (pole region)
+    for j in 0..np {
+        supports.insert(sid.to_string(), SolverSupport3D {
+            node_id: grid[0][j], rx: false, ry: false, rz: true,
+            rrx: false, rry: false, rrz: false,
+            kx: None, ky: None, kz: None,
+            krx: None, kry: None, krz: None,
+            dx: None, dy: None, dz: None,
+            drx: None, dry: None, drz: None,
+            normal_x: None, normal_y: None, normal_z: None,
+            is_inclined: None, rw: None, kw: None,
+        });
+        sid += 1;
+    }
+    // Left edge (j=0): constrain UY (symmetry)
+    for i in 1..np {
+        supports.insert(sid.to_string(), SolverSupport3D {
+            node_id: grid[i][0], rx: false, ry: true, rz: false,
+            rrx: false, rry: false, rrz: false,
+            kx: None, ky: None, kz: None,
+            krx: None, kry: None, krz: None,
+            dx: None, dy: None, dz: None,
+            drx: None, dry: None, drz: None,
+            normal_x: None, normal_y: None, normal_z: None,
+            is_inclined: None, rw: None, kw: None,
+        });
+        sid += 1;
+    }
+    // Right edge (j=n): constrain UX (symmetry)
+    for i in 1..np {
+        supports.insert(sid.to_string(), SolverSupport3D {
+            node_id: grid[i][n], rx: true, ry: false, rz: false,
+            rrx: false, rry: false, rrz: false,
+            kx: None, ky: None, kz: None,
+            krx: None, kry: None, krz: None,
+            dx: None, dy: None, dz: None,
+            drx: None, dry: None, drz: None,
+            normal_x: None, normal_y: None, normal_z: None,
+            is_inclined: None, rw: None, kw: None,
+        });
+        sid += 1;
+    }
+    // Pin pole node
+    supports.insert(sid.to_string(), SolverSupport3D {
+        node_id: grid[0][0], rx: true, ry: true, rz: true,
+        rrx: false, rry: false, rrz: false,
+        kx: None, ky: None, kz: None,
+        krx: None, kry: None, krz: None,
+        dx: None, dy: None, dz: None,
+        drx: None, dry: None, drz: None,
+        normal_x: None, normal_y: None, normal_z: None,
+        is_inclined: None, rw: None, kw: None,
+    });
+
+    // Point load at equator node
+    let equator_node = grid[n][0];
+    let loads = vec![SolverLoad3D::Nodal(SolverNodalLoad3D {
+        node_id: equator_node,
+        fx: 1.0, fy: 0.0, fz: 0.0,
+        mx: 0.0, my: 0.0, mz: 0.0, bw: None,
+    })];
+
+    SolverInput3D {
+        nodes, materials: mats, sections: HashMap::new(),
+        elements: HashMap::new(), supports, loads,
+        constraints: vec![], left_hand: None,
+        plates: HashMap::new(), quads: HashMap::new(), quad9s: HashMap::new(),
+        solid_shells: HashMap::new(), curved_shells,
+        curved_beams: vec![], connectors: HashMap::new(),
+    }
+}
+
+// ─── Quad9 Assembly: Serial vs Parallel ─────────────────
+
+fn bench_assembly_3d_quad9(c: &mut Criterion) {
+    use dedaliano_engine::solver::dof::DofNumbering as DN;
+
+    let mut group = c.benchmark_group("assembly_3d_quad9");
+    group.sample_size(10);
+
+    for &(nx, ny) in &[(10, 10), (20, 20), (30, 30)] {
+        let input = make_flat_plate_quad9(nx, ny);
+        let dof_num = DN::build_3d(&input);
+        let label = format!("{}x{}", nx, ny);
+
+        group.bench_with_input(
+            BenchmarkId::new("serial_quad9", &label),
+            &(&input, &dof_num),
+            |b, (inp, dn)| {
+                b.iter(|| assembly::assemble_sparse_3d(inp, dn));
+            },
+        );
+
+        group.bench_with_input(
+            BenchmarkId::new("parallel_quad9", &label),
+            &(&input, &dof_num),
+            |b, (inp, dn)| {
+                b.iter(|| sparse_assembly::assemble_sparse_3d_parallel(inp, dn));
+            },
+        );
+    }
+
+    group.finish();
+}
+
+// ─── Curved Shell Assembly: Serial vs Parallel ──────────
+
+fn bench_assembly_3d_curved_shell(c: &mut Criterion) {
+    use dedaliano_engine::solver::dof::DofNumbering as DN;
+
+    let mut group = c.benchmark_group("assembly_3d_curved_shell");
+    group.sample_size(10);
+
+    for &n in &[8, 16, 32] {
+        let input = make_hemisphere_curved_shell(n);
+        let dof_num = DN::build_3d(&input);
+        let label = format!("{}x{}", n, n);
+
+        group.bench_with_input(
+            BenchmarkId::new("serial_curved", &label),
+            &(&input, &dof_num),
+            |b, (inp, dn)| {
+                b.iter(|| assembly::assemble_sparse_3d(inp, dn));
+            },
+        );
+
+        group.bench_with_input(
+            BenchmarkId::new("parallel_curved", &label),
+            &(&input, &dof_num),
+            |b, (inp, dn)| {
+                b.iter(|| sparse_assembly::assemble_sparse_3d_parallel(inp, dn));
+            },
+        );
+    }
+
+    group.finish();
+}
+
+// ─── Full 3D Solve Benchmark ────────────────────────────
+
+fn bench_full_solve_3d(c: &mut Criterion) {
+    let mut group = c.benchmark_group("full_solve_3d");
+    group.sample_size(10);
+
+    for &(nx, ny) in &[(20, 20), (50, 50)] {
+        let input = make_flat_plate_3d(nx, ny);
+        let label = format!("{}x{}", nx, ny);
+
+        group.bench_with_input(
+            BenchmarkId::new("solve_3d", &label),
+            &input,
+            |b, inp| {
+                b.iter(|| linear::solve_3d(inp).unwrap());
+            },
+        );
+    }
+
+    group.finish();
+}
+
+// ─── Solve Phase Breakdown ──────────────────────────────
+
+fn bench_solve_phases(c: &mut Criterion) {
+    use dedaliano_engine::solver::dof::DofNumbering as DN;
+    use dedaliano_engine::linalg::*;
+
+    let mut group = c.benchmark_group("solve_phases");
+    group.sample_size(10);
+
+    for &(nx, ny) in &[(20, 20), (50, 50)] {
+        let input = make_flat_plate_3d(nx, ny);
+        let dof_num = DN::build_3d(&input);
+        let nf = dof_num.n_free;
+        let label = format!("{}x{}", nx, ny);
+
+        // Assembly phase
+        group.bench_with_input(
+            BenchmarkId::new("assembly", &label),
+            &(&input, &dof_num),
+            |b, (inp, dn)| {
+                b.iter(|| sparse_assembly::assemble_sparse_3d_parallel(inp, dn));
+            },
+        );
+
+        // Factor phases: build assembly once, then benchmark symbolic + numeric + solve
+        let asm = sparse_assembly::assemble_sparse_3d_parallel(&input, &dof_num);
+        let f_f: Vec<f64> = asm.f[..nf].to_vec();
+
+        group.bench_with_input(
+            BenchmarkId::new("symbolic_cholesky", &label),
+            &asm.k_ff,
+            |b, kff| {
+                b.iter(|| symbolic_cholesky(kff));
+            },
+        );
+
+        let sym = symbolic_cholesky(&asm.k_ff);
+        group.bench_with_input(
+            BenchmarkId::new("numeric_cholesky", &label),
+            &(&sym, &asm.k_ff),
+            |b, (s, kff)| {
+                b.iter(|| numeric_cholesky(s, kff));
+            },
+        );
+
+        let num = numeric_cholesky(&sym, &asm.k_ff).unwrap();
+        group.bench_with_input(
+            BenchmarkId::new("triangular_solve", &label),
+            &(&num, &f_f),
+            |b, (factor, rhs)| {
+                b.iter(|| sparse_cholesky_solve(factor, rhs));
+            },
+        );
+    }
+
+    group.finish();
+}
+
 criterion_group!(
     benches,
     bench_assembly,
@@ -631,5 +1012,9 @@ criterion_group!(
     bench_solve_3d_shell,
     bench_assembly_3d_large,
     bench_assembly_3d_mixed,
+    bench_assembly_3d_quad9,
+    bench_assembly_3d_curved_shell,
+    bench_full_solve_3d,
+    bench_solve_phases,
 );
 criterion_main!(benches);

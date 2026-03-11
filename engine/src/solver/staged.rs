@@ -913,6 +913,7 @@ pub fn solve_staged_3d(input: &StagedInput3D) -> Result<StagedAnalysisResults3D,
             constraint_forces: vec![],
             diagnostics: vec![],
             solver_diagnostics: vec![],
+            timings: None,
         });
 
     Ok(StagedAnalysisResults3D {
@@ -1263,5 +1264,6 @@ fn build_results_from_u_3d(
         constraint_forces: vec![],
         diagnostics: vec![],
         solver_diagnostics: vec![],
+        timings: None,
     }
 }
