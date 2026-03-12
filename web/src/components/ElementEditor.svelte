@@ -1,5 +1,6 @@
 <script lang="ts">
   import { modelStore, uiStore, historyStore } from '../lib/store';
+  import { t } from '../lib/i18n';
 
   const elemId = $derived(uiStore.editingElementId);
   const elem = $derived(elemId !== null ? modelStore.elements.get(elemId) : undefined);
@@ -80,10 +81,10 @@
   <!-- svelte-ignore a11y_no_static_element_interactions -->
   <div class="backdrop" onclick={close}></div>
   <div class="editor" bind:this={editorEl} style="left: {pos.x}px; top: {pos.y}px;" onkeydown={handleKeydown}>
-    <div class="title">Elemento {elemId}</div>
+    <div class="title">{t('editor.element')} {elemId}</div>
 
     <div class="field">
-      <span>Material:</span>
+      <span>{t('editor.material')}:</span>
       <select bind:value={materialId}>
         {#each Array.from(modelStore.materials.values()) as mat}
           <option value={mat.id}>{mat.name}</option>
@@ -92,7 +93,7 @@
     </div>
 
     <div class="field">
-      <span>Sección:</span>
+      <span>{t('editor.section')}:</span>
       <select bind:value={sectionId}>
         {#each Array.from(modelStore.sections.values()) as sec}
           <option value={sec.id}>{sec.name}</option>
@@ -103,25 +104,25 @@
     <div class="field">
       <label>
         <input type="checkbox" bind:checked={hingeStart} />
-        Articulación inicio
+        {t('editor.hingeStart')}
       </label>
     </div>
 
     <div class="field">
       <label>
         <input type="checkbox" bind:checked={hingeEnd} />
-        Articulación fin
+        {t('editor.hingeEnd')}
       </label>
     </div>
 
     <div class="info">
-      Nodos: {elem.nodeI} → {elem.nodeJ}
+      {t('editor.nodesLabel')}: {elem.nodeI} → {elem.nodeJ}
       | L = {modelStore.getElementLength(elemId!).toFixed(3)} m
     </div>
 
     <div class="buttons">
       <button class="btn-ok" onclick={confirm}>OK</button>
-      <button class="btn-cancel" onclick={close}>Cancelar</button>
+      <button class="btn-cancel" onclick={close}>{t('editor.cancel')}</button>
     </div>
   </div>
 {/if}

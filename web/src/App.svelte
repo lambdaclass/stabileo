@@ -11,6 +11,7 @@
   import SectionEditor from './components/SectionEditor.svelte';
   import DataTable from './components/DataTable.svelte';
   import { modelStore, uiStore, resultsStore, dsmStepsStore, tabManager, historyStore } from './lib/store';
+  import { t, i18n, setLocale } from './lib/i18n';
   import StepWizard from './components/dsm/StepWizard.svelte';
   import {
     loadFromLocalStorage, saveToLocalStorage, clearLocalStorage,
@@ -33,6 +34,19 @@
   import { tourStore } from './lib/store/tour.svelte';
   import { buildTourSteps } from './lib/tour/tour-steps';
   import { runLiveCalc, runGlobalSolve } from './lib/engine/live-calc';
+  import LandingPage from './components/LandingPage.svelte';
+
+  const isEmbedDemo = new URLSearchParams(location.search).has('embed');
+  let showLanding = $state(!isEmbedDemo);
+
+  function enterApp() {
+    showLanding = false;
+  }
+
+  // Listen for enter-app event from LandingPage "Try Demo" buttons
+  if (typeof window !== 'undefined') {
+    window.addEventListener('dedaliano-enter-app', enterApp);
+  }
 
   let showTemplateDialog = $state(false);
   let showDxfImport = $state(false);
@@ -49,6 +63,11 @@
   let importText = $state('');
   let autosaveData = $state<ReturnType<typeof loadFromLocalStorage>>(null);
   let autosaveInterval: ReturnType<typeof setInterval> | null = null;
+
+  // Keep <html lang> in sync with selected locale
+  $effect(() => {
+    document.documentElement.lang = t('file.htmlLang');
+  });
 
   function restoreAutosave() {
     if (autosaveData) {
@@ -80,10 +99,10 @@
     // Auto-connect consecutive nodes if format has connectivity (3+ columns: x,y,connect)
     // or just create elements between consecutive pairs if requested
     if (created > 0) {
-      uiStore.toast(`${created} nodos importados`, 'success');
+      uiStore.toast(t('app.nodesImported').replace('{n}', String(created)), 'success');
       resultsStore.clear();
     } else {
-      uiStore.toast('No se encontraron coordenadas válidas', 'error');
+      uiStore.toast(t('app.noValidCoords'), 'error');
     }
     showImportDialog = false;
     importText = '';
@@ -193,21 +212,17 @@
   // Reactive auto-clear results + live calculation on model changes
   let prevModelVersion = -1;
   let prevAnalysisMode = '';
-  let prevAxisConvention = '';
-
   $effect(() => {
     const _v = modelStore.modelVersion;
     const _lc = uiStore.liveCalc;
     const _mode = uiStore.analysisMode;
-    const _conv = uiStore.axisConvention3D;
 
     untrack(() => {
       if (tabManager.isTabSwitching) return;
 
-      const modelChanged = _v !== prevModelVersion || _mode !== prevAnalysisMode || _conv !== prevAxisConvention;
+      const modelChanged = _v !== prevModelVersion || _mode !== prevAnalysisMode;
       prevModelVersion = _v;
       prevAnalysisMode = _mode;
-      prevAxisConvention = _conv;
 
       const prevDiagram = resultsStore.diagramType;
       uiStore.liveCalcError = null;
@@ -221,13 +236,17 @@
 
       // If live calc is ON, auto-solve
       if (_lc) {
-        runLiveCalc(_mode, _conv, prevDiagram);
+        runLiveCalc(_mode, uiStore.axisConvention3D, prevDiagram);
       }
     });
   });
 </script>
 
-<div class="app-container" class:embed-mode={uiStore.embedMode}>
+{#if showLanding}
+  <LandingPage />
+{/if}
+
+<div class="app-container" class:embed-mode={uiStore.embedMode} class:hidden-behind-landing={showLanding}>
   <header class="app-header">
     <div class="logo">
       <span class="logo-icon">△</span>
@@ -240,24 +259,33 @@
     <span class="separator">|</span>
     <TabBar />
     <div class="header-actions">
-      <!-- Help panel button hidden for now — demo tour supersedes it -->
-      <!-- <button
-        class="btn btn-toggle"
-        class:active={uiStore.showHelpPanel}
-        onclick={() => uiStore.showHelpPanel = !uiStore.showHelpPanel}
-        title={uiStore.showHelpPanel ? 'Ocultar panel de ayuda' : 'Mostrar panel de ayuda'}
-      >?!</button> -->
-      <button class="btn btn-help" onclick={() => uiStore.showHelp = true} title="Atajos de teclado (?)">
+      <button class="btn btn-help" onclick={() => uiStore.showHelp = true} title={t('app.keyboardShortcuts')}>
         ?
       </button>
+      <select class="lang-select" value={i18n.locale} onchange={(e) => { setLocale((e.currentTarget as HTMLSelectElement).value); tabManager.updateDefaultNames(); }}>
+        <option value="es">{t('lang.es')}</option>
+        <option value="en">{t('lang.en')}</option>
+        <option value="pt">{t('lang.pt')}</option>
+        <option value="de">{t('lang.de')}</option>
+        <option value="fr">{t('lang.fr')}</option>
+        <option value="it">{t('lang.it')}</option>
+        <option value="tr">{t('lang.tr')}</option>
+        <option value="hi">{t('lang.hi')}</option>
+        <option value="zh">{t('lang.zh')}</option>
+        <option value="ja">{t('lang.ja')}</option>
+        <option value="ko">{t('lang.ko')}</option>
+        <option value="ru">{t('lang.ru')}</option>
+        <option value="ar">{t('lang.ar')}</option>
+        <option value="id">{t('lang.id')}</option>
+      </select>
     </div>
   </header>
 
   {#if showAutosaveBanner}
     <div class="autosave-banner">
-      <span>Se encontró un proyecto guardado: <strong>{autosaveData?.name}</strong></span>
-      <button class="banner-btn restore" onclick={restoreAutosave}>Restaurar</button>
-      <button class="banner-btn discard" onclick={discardAutosave}>Descartar</button>
+      <span>{t('app.autosaveFound')} <strong>{autosaveData?.name}</strong></span>
+      <button class="banner-btn restore" onclick={restoreAutosave}>{t('app.restore')}</button>
+      <button class="banner-btn discard" onclick={discardAutosave}>{t('app.discard')}</button>
     </div>
   {/if}
 
@@ -268,7 +296,7 @@
           <Toolbar />
         </aside>
       {/if}
-      <button class="sidebar-toggle-btn left-toggle" class:sidebar-closed={!uiStore.leftSidebarOpen} onclick={() => uiStore.leftSidebarOpen = !uiStore.leftSidebarOpen} title={uiStore.leftSidebarOpen ? 'Ocultar panel izquierdo' : 'Mostrar panel izquierdo'}>
+      <button class="sidebar-toggle-btn left-toggle" class:sidebar-closed={!uiStore.leftSidebarOpen} onclick={() => uiStore.leftSidebarOpen = !uiStore.leftSidebarOpen} title={uiStore.leftSidebarOpen ? t('app.hideLeftPanel') : t('app.showLeftPanel')}>
         {uiStore.leftSidebarOpen ? '◂' : '▸'}
       </button>
     {/if}
@@ -289,7 +317,7 @@
     </div>
 
     {#if !uiStore.isMobile}
-      <button class="sidebar-toggle-btn right-toggle" class:sidebar-closed={!uiStore.rightSidebarOpen} onclick={() => uiStore.rightSidebarOpen = !uiStore.rightSidebarOpen} title={uiStore.rightSidebarOpen ? 'Ocultar panel derecho' : 'Mostrar panel derecho'}>
+      <button class="sidebar-toggle-btn right-toggle" class:sidebar-closed={!uiStore.rightSidebarOpen} onclick={() => uiStore.rightSidebarOpen = !uiStore.rightSidebarOpen} title={uiStore.rightSidebarOpen ? t('app.hideRightPanel') : t('app.showRightPanel')}>
         {uiStore.rightSidebarOpen ? '▸' : '◂'}
       </button>
       {#if uiStore.rightSidebarOpen}
@@ -298,7 +326,7 @@
             <StepWizard />
           {:else}
             <button class="datatable-toggle" onclick={() => uiStore.showDataTable = !uiStore.showDataTable}>
-              {uiStore.showDataTable ? '▾' : '▸'} Datos del Modelo
+              {uiStore.showDataTable ? '▾' : '▸'} {t('app.modelData')}
             </button>
             {#if uiStore.showDataTable}
               <div class="data-table-sidebar">
@@ -332,7 +360,7 @@
       {:else}
         <PropertyPanel {showResults} />
         <button class="datatable-toggle" onclick={() => uiStore.showDataTable = !uiStore.showDataTable}>
-          {uiStore.showDataTable ? '▾' : '▸'} Datos del Modelo
+          {uiStore.showDataTable ? '▾' : '▸'} {t('app.modelData')}
         </button>
         {#if uiStore.showDataTable}
           <div class="data-table-sidebar">
@@ -346,10 +374,10 @@
   <!-- Mobile bottom bar -->
   {#if uiStore.isMobile}
     <nav class="mobile-bottom-bar">
-      <button class="mobile-bar-btn" onclick={() => uiStore.leftDrawerOpen = !uiStore.leftDrawerOpen} title="Herramientas">
+      <button class="mobile-bar-btn" onclick={() => uiStore.leftDrawerOpen = !uiStore.leftDrawerOpen} title={t('app.tools')}>
         ☰
       </button>
-      <button class="mobile-bar-btn" onclick={() => uiStore.rightDrawerOpen = !uiStore.rightDrawerOpen} title="Propiedades">
+      <button class="mobile-bar-btn" onclick={() => uiStore.rightDrawerOpen = !uiStore.rightDrawerOpen} title={t('app.properties')}>
         ⚙
       </button>
     </nav>
@@ -368,8 +396,8 @@
       <div class="toast toast-{toast.type}">
         <span>{toast.message}</span>
         {#if toast.actionId === 'kinematic'}
-          <button class="toast-action" onclick={() => { uiStore.showKinematicPanel = true; const idx = uiStore.toasts.findIndex(t => t.id === toast.id); if (idx >= 0) uiStore.toasts.splice(idx, 1); }}>
-            Ver Análisis Cinemático
+          <button class="toast-action" onclick={() => { uiStore.showKinematicPanel = true; const idx = uiStore.toasts.findIndex(tt => tt.id === toast.id); if (idx >= 0) uiStore.toasts.splice(idx, 1); }}>
+            {t('app.viewKinematic')}
           </button>
         {/if}
       </div>
@@ -381,9 +409,9 @@
   <div class="live-calc-error">
     <span class="live-calc-error-msg">{uiStore.liveCalcError}</span>
     <span class="live-calc-error-actions">
-      <button onclick={() => { uiStore.liveCalc = false; uiStore.liveCalcError = null; uiStore.toast('Cálculo en tiempo real desactivado — reactivar desde Configuración', 'info'); }}>Desactivar Cálculo en tiempo real</button>
+      <button onclick={() => { uiStore.liveCalc = false; uiStore.liveCalcError = null; uiStore.toast(t('app.liveCalcDisabledMsg'), 'info'); }}>{t('app.disableLiveCalc')}</button>
       <span class="live-calc-error-sep">·</span>
-      <button onclick={() => { historyStore.undo(); }}>Deshacer última acción</button>
+      <button onclick={() => { historyStore.undo(); }}>{t('app.undoLastAction')}</button>
     </span>
   </div>
 {/if}
@@ -428,15 +456,15 @@
 />
 
 {#if showImportDialog}
-  <div class="help-overlay" role="dialog" aria-label="Importar coordenadas">
+  <div class="help-overlay" role="dialog" aria-label={t('app.importCoordinates')}>
     <div class="help-backdrop" onclick={() => showImportDialog = false}></div>
     <div class="help-content" style="max-width: 500px">
       <div class="help-header">
-        <h2>Importar Coordenadas</h2>
+        <h2>{t('app.importCoordinates')}</h2>
         <button class="help-close" onclick={() => showImportDialog = false}>✕</button>
       </div>
       <p style="font-size: 0.85rem; color: #aaa; margin: 0.5rem 0">
-        Pegá coordenadas X,Y (una por línea). Separador: coma, tab, espacio o punto y coma.
+        {t('app.importCoordDesc')}
       </p>
       <textarea
         class="import-textarea"
@@ -445,15 +473,16 @@
         rows="10"
       ></textarea>
       <div style="display: flex; gap: 0.5rem; margin-top: 0.5rem">
-        <button class="btn btn-primary" onclick={handleImportCoordinates}>Importar</button>
-        <button class="btn btn-secondary" onclick={() => showImportDialog = false}>Cancelar</button>
+        <button class="btn btn-primary" onclick={handleImportCoordinates}>{t('app.import')}</button>
+        <button class="btn btn-secondary" onclick={() => showImportDialog = false}>{t('app.cancel')}</button>
       </div>
     </div>
   </div>
 {/if}
 
 {#if !uiStore.embedMode}
-  <FeedbackWidget />
+  <!-- FeedbackWidget disabled — will be reimplemented professionally -->
+  <!-- <FeedbackWidget /> -->
 {/if}
 
 <TourOverlay />
@@ -478,6 +507,12 @@
     height: 100dvh;
     background: #1a1a2e;
     color: #eee;
+  }
+
+  .hidden-behind-landing {
+    pointer-events: none;
+    filter: blur(4px);
+    opacity: 0.3;
   }
 
   .app-header {
@@ -658,6 +693,25 @@
   .btn-help:hover {
     border-color: #4ecdc4;
     color: #4ecdc4;
+  }
+
+  .lang-select {
+    background: transparent;
+    border: 1px solid #555;
+    border-radius: 4px;
+    color: #aaa;
+    font-size: 0.75rem;
+    padding: 0.2rem 0.3rem;
+    cursor: pointer;
+    height: 32px;
+  }
+  .lang-select:hover {
+    border-color: #4ecdc4;
+    color: #4ecdc4;
+  }
+  .lang-select option {
+    background: #16213e;
+    color: #eee;
   }
 
   .btn-toggle {

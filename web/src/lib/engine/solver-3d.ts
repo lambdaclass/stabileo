@@ -19,6 +19,7 @@ import type {
 } from './types-3d';
 import { choleskySolve } from './matrix-utils';
 import { computeStaticDegree3D, analyzeKinematics3D } from './kinematic-3d';
+import { t } from '../i18n';
 
 // ─── DOF Numbering ───────────────────────────────────────────────
 
@@ -166,7 +167,7 @@ export function computeLocalAxes3D(
   const L = Math.sqrt(dx * dx + dy * dy + dz * dz);
 
   if (L < 1e-10) {
-    throw new Error(`Elemento con longitud cero entre nodos (${nodeI.x},${nodeI.y},${nodeI.z}) y (${nodeJ.x},${nodeJ.y},${nodeJ.z})`);
+    throw new Error(t('solver.elemZeroLength3D').replace('{coordI}', `(${nodeI.x},${nodeI.y},${nodeI.z})`).replace('{coordJ}', `(${nodeJ.x},${nodeJ.y},${nodeJ.z})`));
   }
 
   const ex: [number, number, number] = [dx / L, dy / L, dz / L];
@@ -183,7 +184,7 @@ export function computeLocalAxes3D(
     let ezz = ex[0] * ref[1] - ex[1] * ref[0];
     const ezLen = Math.sqrt(ezx * ezx + ezy * ezy + ezz * ezz);
     if (ezLen < 1e-10) {
-      throw new Error(`Vector de orientación local Y paralelo al eje del elemento`);
+      throw new Error(t('solver.localYParallel'));
     }
     ezx /= ezLen; ezy /= ezLen; ezz /= ezLen;
     ez = [ezx, ezy, ezz];
@@ -212,7 +213,7 @@ export function computeLocalAxes3D(
     let eyz = refEz[0] * ex[1] - refEz[1] * ex[0];
     const eyLen = Math.sqrt(eyx * eyx + eyy * eyy + eyz * eyz);
     if (eyLen < 1e-10) {
-      throw new Error(`Error al calcular ejes locales: refEz paralelo a ex`);
+      throw new Error(t('solver.localAxesError'));
     }
     eyx /= eyLen; eyy /= eyLen; eyz /= eyLen;
     ey = [eyx, eyy, eyz];
@@ -954,7 +955,7 @@ function solveLU3D(A: Float64Array, b: Float64Array, n: number): Float64Array {
     }
 
     if (maxVal < singularityTol) {
-      throw new Error(`Matriz singular 3D (mecanismo). La estructura no tiene suficientes restricciones.`);
+      throw new Error(t('solver.singularMatrix3D'));
     }
 
     if (maxRow !== k) {
@@ -974,7 +975,7 @@ function solveLU3D(A: Float64Array, b: Float64Array, n: number): Float64Array {
   }
 
   if (Math.abs(a[(n - 1) * n + (n - 1)]) < singularityTol) {
-    throw new Error('Matriz singular 3D (mecanismo). La estructura es hipostática.');
+    throw new Error(t('solver.singularHypostatic3D'));
   }
 
   const x = new Float64Array(n);
@@ -988,7 +989,7 @@ function solveLU3D(A: Float64Array, b: Float64Array, n: number): Float64Array {
 
   for (let i = 0; i < n; i++) {
     if (!isFinite(x[i])) {
-      throw new Error(`Resultado inválido 3D (mecanismo).`);
+      throw new Error(t('solver.invalidResult3D'));
     }
   }
 
@@ -1253,40 +1254,40 @@ export function solve3D(input: SolverInput3D): AnalysisResults3D | string {
 
 function solve3DInternal(input: SolverInput3D): AnalysisResults3D {
   // Validate
-  if (input.nodes.size < 2) throw new Error('Se necesitan al menos 2 nodos');
-  if (input.elements.size < 1) throw new Error('Se necesita al menos 1 elemento');
-  if (input.supports.size < 1) throw new Error('Se necesita al menos 1 apoyo');
+  if (input.nodes.size < 2) throw new Error(t('solver.minNodes'));
+  if (input.elements.size < 1) throw new Error(t('solver.minElements'));
+  if (input.supports.size < 1) throw new Error(t('solver.minSupports'));
 
   // Validate element references
   for (const elem of input.elements.values()) {
     if (!input.nodes.has(elem.nodeI) || !input.nodes.has(elem.nodeJ)) {
-      throw new Error(`Elemento ${elem.id}: nodos no encontrados`);
+      throw new Error(t('solver.elemNodesNotFound').replace('{id}', String(elem.id)));
     }
     if (!input.materials.has(elem.materialId)) {
-      throw new Error(`Elemento ${elem.id}: material ${elem.materialId} no encontrado`);
+      throw new Error(t('solver.elemMaterialNotFound').replace('{id}', String(elem.id)).replace('{matId}', String(elem.materialId)));
     }
     if (!input.sections.has(elem.sectionId)) {
-      throw new Error(`Elemento ${elem.id}: sección ${elem.sectionId} no encontrada`);
+      throw new Error(t('solver.elemSectionNotFound').replace('{id}', String(elem.id)).replace('{secId}', String(elem.sectionId)));
     }
     const ni = input.nodes.get(elem.nodeI)!;
     const nj = input.nodes.get(elem.nodeJ)!;
     const dx = nj.x - ni.x, dy = nj.y - ni.y, dz = nj.z - ni.z;
     if (Math.sqrt(dx * dx + dy * dy + dz * dz) < 1e-10) {
-      throw new Error(`Elemento ${elem.id}: longitud cero`);
+      throw new Error(t('solver.elemZeroLengthById').replace('{id}', String(elem.id)));
     }
   }
 
   // Validate material properties
   for (const mat of input.materials.values()) {
-    if (mat.e <= 0) throw new Error(`Material ${mat.id}: módulo de elasticidad E debe ser > 0`);
+    if (mat.e <= 0) throw new Error(t('solver.matInvalidE').replace('{id}', String(mat.id)));
   }
 
   // Validate sections
   for (const sec of input.sections.values()) {
-    if (sec.a <= 0) throw new Error(`Sección ${sec.id}: área A debe ser > 0`);
-    if (sec.iz <= 0) throw new Error(`Sección ${sec.id}: Iz debe ser > 0`);
-    if (sec.iy <= 0) throw new Error(`Sección ${sec.id}: Iy debe ser > 0`);
-    if (sec.j <= 0) throw new Error(`Sección ${sec.id}: J debe ser > 0`);
+    if (sec.a <= 0) throw new Error(t('solver.secInvalidA3D').replace('{id}', String(sec.id)));
+    if (sec.iz <= 0) throw new Error(t('solver.secInvalidIz3D').replace('{id}', String(sec.id)));
+    if (sec.iy <= 0) throw new Error(t('solver.secInvalidIy3D').replace('{id}', String(sec.id)));
+    if (sec.j <= 0) throw new Error(t('solver.secInvalidJ3D').replace('{id}', String(sec.id)));
   }
 
   // Kinematic analysis — check for mechanisms before solving
@@ -1319,7 +1320,7 @@ function solve3DInternal(input: SolverInput3D): AnalysisResults3D {
   }
 
   if (dofNum.nFree === 0 && !hasPrescribed && input.loads.length === 0) {
-    throw new Error('No hay grados de libertad libres — la estructura está completamente restringida');
+    throw new Error(t('solver.noFreeDofs'));
   }
 
   // Assemble
@@ -1396,9 +1397,7 @@ function solve3DInternal(input: SolverInput3D): AnalysisResults3D {
   if (artificialDofs.size > 0) {
     for (const idx of artificialDofs) {
       if (idx < nf && Math.abs(uf[idx]) > 100) {
-        throw new Error(
-          'Mecanismo local 3D detectado: rotación excesiva en un nodo con barras articuladas.'
-        );
+        throw new Error(t('solver.localMechanismRotation3D'));
       }
     }
   }

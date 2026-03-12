@@ -354,6 +354,7 @@ Cada feedback incluye automáticamente:
 - DXF export/import: disabled for 3D ("En desarrollo para 3D")
 - SVG export: disabled for 3D
 - Overlay comparison (Comparar selector): only works in 2D. In 3D, switching loads/combos works but overlay rendering is not yet implemented.
-- Influence lines: 2D only
-- Moving loads: 2D only
-- P-Delta, Buckling, Modal, Plastic, Spectral: 2D only (3D versions planned)
+- Influence lines: 2D only (3D WASM available but no 3D renderer yet)
+- Moving loads: available in both 2D and 3D
+- Plastic collapse: 2D only (3D not yet implemented in WASM/JS engine)
+- P-Delta, Buckling, Modal, Spectral: available in both 2D and 3D

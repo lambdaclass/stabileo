@@ -324,3 +324,61 @@ export function createReactionArrow(
 
   return group;
 }
+
+const CONSTRAINT_COLOR = 0xf0a500;
+
+const DOF_DIR: Record<string, THREE.Vector3> = {
+  ux: new THREE.Vector3(1, 0, 0),
+  uy: new THREE.Vector3(0, 1, 0),
+  uz: new THREE.Vector3(0, 0, 1),
+  rx: new THREE.Vector3(1, 0, 0),
+  ry: new THREE.Vector3(0, 1, 0),
+  rz: new THREE.Vector3(0, 0, 1),
+};
+
+/**
+ * Create an arrow for a constraint force at a node.
+ * Similar to reaction arrows but with a distinct orange color.
+ */
+export function createConstraintForceArrow(
+  pos: { x: number; y: number; z: number },
+  dof: string,
+  force: number,
+  maxForce: number,
+): THREE.Group {
+  const group = new THREE.Group();
+  const origin = new THREE.Vector3(pos.x, pos.y, pos.z);
+  const baseDir = DOF_DIR[dof];
+  if (!baseDir || Math.abs(force) < 1e-10) return group;
+
+  const isRotational = dof.startsWith('r');
+
+  if (isRotational) {
+    // Moment-type constraint force — show as label only (like reaction moments)
+    const axisName = dof.toUpperCase().replace('R', 'M'); // rx -> MX
+    const label = createTextSprite(`${axisName}=${force.toFixed(2)} kN·m`, '#f0a500', 22);
+    label.position.copy(origin).add(baseDir.clone().multiplyScalar(0.5));
+    group.add(label);
+  } else {
+    // Translational constraint force — show as arrow
+    const dir = baseDir.clone();
+    if (force < 0) dir.negate();
+    const len = arrowLength(force, maxForce) * 0.8;
+
+    // Arrow starts away from node and points TOWARD the node (tip = node)
+    const farEnd = origin.clone().sub(dir.clone().multiplyScalar(len));
+    const arrow = new THREE.ArrowHelper(
+      dir, farEnd, len,
+      CONSTRAINT_COLOR, ARROW_HEAD_LENGTH, ARROW_HEAD_WIDTH,
+    );
+    group.add(arrow);
+
+    // Label at the far end of the arrow
+    const unit = 'kN';
+    const label = createTextSprite(`${force.toFixed(2)} ${unit}`, '#f0a500', 24);
+    label.position.copy(farEnd).sub(dir.clone().multiplyScalar(0.2));
+    group.add(label);
+  }
+
+  return group;
+}

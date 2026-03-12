@@ -1,5 +1,6 @@
 <script lang="ts">
   import { modelStore, uiStore, historyStore, resultsStore } from '../../lib/store';
+  import { t } from '../../lib/i18n';
 
   const nodesArr = $derived([...modelStore.nodes.values()]);
 
@@ -80,7 +81,7 @@
       <span class="add-label">Z:</span>
       <input type="number" step="0.5" bind:value={newNodeZ} class="add-input" />
     {/if}
-    <button class="add-btn" onclick={addNode}>+ Nodo</button>
+    <button class="add-btn" onclick={addNode}>{t('table.addNode')}</button>
   </div>
 </div>
 

@@ -4,6 +4,7 @@
   import { mapDxfToModel, parseSectionText, parseMaterialText } from '../lib/dxf/mapper';
   import { searchProfiles, profileToSection } from '../lib/data/steel-profiles';
   import type { DxfParseResult, DxfMappingResult, DxfUnit } from '../lib/dxf/types';
+  import { t } from '../lib/i18n';
 
   let { open = false, file = null as File | null, onclose = () => {} } = $props();
 
@@ -30,13 +31,13 @@
         parseResult = parseDxf(text);
         remapModel();
       } catch (e: any) {
-        error = e.message || 'Error al parsear el archivo DXF';
+        error = e.message || t('dxf.parseError');
         parseResult = null;
         mappingResult = null;
       }
     };
     reader.onerror = () => {
-      error = 'Error al leer el archivo';
+      error = t('dxf.readError');
     };
     reader.readAsText(file);
   });
@@ -47,7 +48,7 @@
       mappingResult = mapDxfToModel(parseResult, { unit, snapTolerance });
       error = null;
     } catch (e: any) {
-      error = e.message || 'Error al mapear el modelo';
+      error = e.message || t('dxf.mapError');
       mappingResult = null;
     }
   }
@@ -139,8 +140,7 @@
       if (elemId != null) modelStore.toggleHinge(elemId, h.end);
     }
 
-    const count = `${m.nodes.length} nodos, ${m.elements.length} elementos`;
-    uiStore.toast(`DXF importado: ${count}`, 'success');
+    uiStore.toast(t('dxf.imported').replace('{n}', String(m.nodes.length)).replace('{e}', String(m.elements.length)), 'success');
 
     // Zoom to fit after a tick
     setTimeout(() => {
@@ -165,7 +165,7 @@
     <div class="dxf-backdrop" onclick={onclose}></div>
     <div class="dxf-dialog">
       <div class="dxf-header">
-        <h2>Importar DXF</h2>
+        <h2>{t('dxf.title')}</h2>
         <button class="dxf-close" onclick={onclose}>&#10005;</button>
       </div>
 
@@ -180,22 +180,22 @@
       <div class="dxf-body">
         <div class="dxf-options">
           <div class="dxf-field">
-            <label>Unidades del DXF:</label>
+            <label>{t('dxf.units')}</label>
             <select value={unit} onchange={handleUnitChange}>
-              <option value="m">Metros (m)</option>
-              <option value="cm">Centimetros (cm)</option>
-              <option value="mm">Milimetros (mm)</option>
+              <option value="m">{t('dxf.meters')}</option>
+              <option value="cm">{t('dxf.centimeters')}</option>
+              <option value="mm">{t('dxf.millimeters')}</option>
             </select>
           </div>
           <div class="dxf-field">
-            <label>Tolerancia snap (m):</label>
+            <label>{t('dxf.snapTolerance')}</label>
             <input type="number" step="0.001" min="0.001" value={snapTolerance} onchange={handleToleranceChange} />
           </div>
         </div>
 
         {#if parseResult}
           <div class="dxf-preview">
-            <h3>Layers detectados</h3>
+            <h3>{t('dxf.layersDetected')}</h3>
             <div class="dxf-layers">
               {#each parseResult.layers as layer}
                 <span class="dxf-layer" class:known={KNOWN_LAYERS.has(layer.toUpperCase())}>
@@ -203,40 +203,40 @@
                 </span>
               {/each}
               {#if parseResult.layers.length === 0}
-                <span class="dxf-muted">Sin layers definidos</span>
+                <span class="dxf-muted">{t('dxf.noLayers')}</span>
               {/if}
             </div>
 
-            <h3>Entidades parseadas</h3>
+            <h3>{t('dxf.parsedEntities')}</h3>
             <div class="dxf-stats">
-              <span>{parseResult.lines.length} lineas</span>
-              <span>{parseResult.texts.length} textos</span>
-              <span>{parseResult.points.length} puntos</span>
-              <span>{parseResult.inserts.length} bloques</span>
-              <span>{parseResult.circles.length} circulos</span>
+              <span>{parseResult.lines.length} {t('dxf.lines')}</span>
+              <span>{parseResult.texts.length} {t('dxf.texts')}</span>
+              <span>{parseResult.points.length} {t('dxf.points')}</span>
+              <span>{parseResult.inserts.length} {t('dxf.blocks')}</span>
+              <span>{parseResult.circles.length} {t('dxf.circles')}</span>
             </div>
           </div>
         {/if}
 
         {#if mappingResult}
           <div class="dxf-preview">
-            <h3>Modelo resultante</h3>
+            <h3>{t('dxf.resultModel')}</h3>
             <div class="dxf-stats dxf-stats-main">
-              <span><strong>{mappingResult.nodes.length}</strong> nodos</span>
-              <span><strong>{mappingResult.elements.length}</strong> elementos</span>
-              <span><strong>{mappingResult.supports.length}</strong> apoyos</span>
-              <span><strong>{mappingResult.nodalLoads.length + mappingResult.distributedLoads.length + mappingResult.pointLoads.length}</strong> cargas</span>
-              <span><strong>{mappingResult.hinges.length}</strong> articulaciones</span>
+              <span><strong>{mappingResult.nodes.length}</strong> {t('dxf.nodes')}</span>
+              <span><strong>{mappingResult.elements.length}</strong> {t('dxf.elements')}</span>
+              <span><strong>{mappingResult.supports.length}</strong> {t('dxf.supports')}</span>
+              <span><strong>{mappingResult.nodalLoads.length + mappingResult.distributedLoads.length + mappingResult.pointLoads.length}</strong> {t('dxf.loads')}</span>
+              <span><strong>{mappingResult.hinges.length}</strong> {t('dxf.hinges')}</span>
             </div>
             {#if mappingResult.sectionName}
-              <div class="dxf-info">Seccion: {mappingResult.sectionName}</div>
+              <div class="dxf-info">{t('dxf.section')}: {mappingResult.sectionName}</div>
             {/if}
             {#if mappingResult.materialName}
-              <div class="dxf-info">Material: {mappingResult.materialName}</div>
+              <div class="dxf-info">{t('dxf.material')}: {mappingResult.materialName}</div>
             {/if}
 
             {#if mappingResult.warnings.length > 0}
-              <h3>Advertencias</h3>
+              <h3>{t('dxf.warnings')}</h3>
               <div class="dxf-warnings">
                 {#each mappingResult.warnings as w}
                   <div class="dxf-warning">{w}</div>
@@ -253,9 +253,9 @@
           onclick={handleImport}
           disabled={!mappingResult || mappingResult.elements.length === 0}
         >
-          Importar
+          {t('dxf.import')}
         </button>
-        <button class="btn btn-secondary" onclick={onclose}>Cancelar</button>
+        <button class="btn btn-secondary" onclick={onclose}>{t('dxf.cancel')}</button>
       </div>
     </div>
   </div>

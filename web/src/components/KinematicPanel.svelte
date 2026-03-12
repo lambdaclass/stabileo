@@ -1,6 +1,7 @@
 <script lang="ts">
   import { modelStore, uiStore } from '../lib/store';
   import { generateKinematicReport, type KinematicReport } from '../lib/engine/kinematic-report';
+  import { t } from '../lib/i18n';
 
   // Collapsible sections
   let showStep1 = $state(true);
@@ -76,97 +77,97 @@
 {#if uiStore.showKinematicPanel}
   <div class="kp-panel">
     <div class="kp-header">
-      <span class="kp-title">Análisis Cinemático</span>
+      <span class="kp-title">{t('kinematic.title')}</span>
       <div class="kp-header-actions">
         <button
           class="kp-quick-btn"
           class:kp-quick-active={is3D ? uiStore.showNodeLabels3D : uiStore.showNodeLabels}
-          title="Mostrar/ocultar IDs de nodos"
+          title={t('kinematic.toggleNodeIds')}
           onclick={() => { if (is3D) uiStore.showNodeLabels3D = !uiStore.showNodeLabels3D; else uiStore.showNodeLabels = !uiStore.showNodeLabels; }}>
           N
         </button>
         <button
           class="kp-quick-btn"
           class:kp-quick-active={is3D ? uiStore.showElementLabels3D : uiStore.showElementLabels}
-          title="Mostrar/ocultar IDs de elementos"
+          title={t('kinematic.toggleElementIds')}
           onclick={() => { if (is3D) uiStore.showElementLabels3D = !uiStore.showElementLabels3D; else uiStore.showElementLabels = !uiStore.showElementLabels; }}>
           E
         </button>
         <button
           class="kp-quick-btn"
           class:kp-quick-active={is3D ? uiStore.showLoads3D : uiStore.showLoads}
-          title="Mostrar/ocultar cargas"
+          title={t('kinematic.toggleLoads')}
           onclick={() => { if (is3D) uiStore.showLoads3D = !uiStore.showLoads3D; else uiStore.showLoads = !uiStore.showLoads; }}>
           Q
         </button>
-        <button class="kp-close" onclick={close} title="Cerrar (Esc)">&times;</button>
+        <button class="kp-close" onclick={close} title={t('kinematic.close')}>&times;</button>
       </div>
     </div>
 
     {#if !report}
       <div class="kp-body">
-        <p class="kp-empty">Dibujá al menos 2 nodos y 1 elemento para analizar.</p>
+        <p class="kp-empty">{t('kinematic.empty')}</p>
       </div>
     {:else}
       <div class="kp-body">
 
         {#if isStale}
           <button class="kp-stale-btn" onclick={recompute}>
-            Estructura modificada — clickeá aquí para actualizar
+            {t('kinematic.stale')}
           </button>
         {/if}
 
         <!-- ═══ PASO 1: Resumen ═══ -->
         <button class="kp-section-toggle" onclick={() => showStep1 = !showStep1}>
           <span class="kp-chevron">{showStep1 ? '▾' : '▸'}</span>
-          Paso 1 — Datos de la Estructura
+          {t('kinematic.step1Title')}
         </button>
         {#if showStep1}
           <div class="kp-section">
-            <div class="kp-explanation" style="margin-bottom:0.3rem">Variables que se usan en la ecuación del Paso 2:</div>
+            <div class="kp-explanation" style="margin-bottom:0.3rem">{t('kinematic.step1Vars')}</div>
             <div class="kp-row">
-              <span class="kp-label"><strong>n</strong> — Nodos</span>
+              <span class="kp-label"><strong>n</strong> {t('kinematic.nodes')}</span>
               <span class="kp-value">{report.nNodes}</span>
             </div>
             {#if report.nFrames > 0}
               <div class="kp-row">
-                <span class="kp-label"><strong>{report.nTrusses > 0 ? 'm_p' : 'm'}</strong> — Barras rígidas</span>
+                <span class="kp-label"><strong>{report.nTrusses > 0 ? 'm_p' : 'm'}</strong> {t('kinematic.rigidBars')}</span>
                 <span class="kp-value">{report.nFrames}</span>
               </div>
             {/if}
             {#if report.nTrusses > 0}
               <div class="kp-row">
-                <span class="kp-label"><strong>{report.isPureTruss ? 'm' : 'm_r'}</strong> — Barras articuladas</span>
+                <span class="kp-label"><strong>{report.isPureTruss ? 'm' : 'm_r'}</strong> {t('kinematic.trussBars')}</span>
                 <span class="kp-value">{report.nTrusses}</span>
               </div>
             {/if}
 
             {#if report.supportDetails.length > 0}
               <div class="kp-row" style="margin-top:0.2rem">
-                <span class="kp-label"><strong>r</strong> — Reacciones de apoyo</span>
+                <span class="kp-label"><strong>r</strong> {t('kinematic.supportReactions')}</span>
                 <span class="kp-value">{report.totalR}</span>
               </div>
               {#each report.supportDetails as sup}
                 <div class="kp-detail">
-                  Nodo {sup.nodeId}: {sup.type} → {sup.dofs} reac. ({sup.restrainedDofs})
+                  {t('kinematic.nodeDetail').replace('{id}', String(sup.nodeId)).replace('{type}', sup.type).replace('{dofs}', String(sup.dofs)).replace('{restrained}', sup.restrainedDofs)}
                 </div>
               {/each}
             {:else}
-              <div class="kp-detail kp-danger-text">Sin apoyos definidos — la estructura es libre.</div>
+              <div class="kp-detail kp-danger-text">{t('kinematic.noSupports')}</div>
             {/if}
 
             {#if report.hingeDetails.length > 0}
               <div class="kp-row" style="margin-top:0.2rem">
-                <span class="kp-label"><strong>c</strong> — Condiciones internas (articulaciones)</span>
+                <span class="kp-label"><strong>c</strong> {t('kinematic.internalConditions')}</span>
                 <span class="kp-value">{report.totalC}</span>
               </div>
               {#each report.hingeDetails as hinge}
                 <div class="kp-detail">
-                  Nodo {hinge.nodeId}: {hinge.explanation}
+                  {t('kinematic.nodeHingeDetail').replace('{id}', String(hinge.nodeId)).replace('{explanation}', hinge.explanation)}
                 </div>
               {/each}
             {:else if !report.isPureTruss}
-              <div class="kp-detail kp-muted">Sin articulaciones internas (c = 0)</div>
+              <div class="kp-detail kp-muted">{t('kinematic.noHinges')}</div>
             {/if}
           </div>
         {/if}
@@ -174,7 +175,7 @@
         <!-- ═══ PASO 2: Fórmula ═══ -->
         <button class="kp-section-toggle" onclick={() => showStep2 = !showStep2}>
           <span class="kp-chevron">{showStep2 ? '▾' : '▸'}</span>
-          Paso 2 — Grado de Hiperestaticidad
+          {t('kinematic.step2Title')}
         </button>
         {#if showStep2}
           <div class="kp-section">
@@ -192,36 +193,36 @@
         <!-- ═══ PASO 3: Verificación numérica ═══ -->
         <button class="kp-section-toggle" onclick={() => showStep3 = !showStep3}>
           <span class="kp-chevron">{showStep3 ? '▾' : '▸'}</span>
-          Paso 3 — Verificación con la Matriz de Rigidez
+          {t('kinematic.step3Title')}
         </button>
         {#if showStep3}
           <div class="kp-section">
             <div class="kp-explanation">
-              Dedaliano resuelve estructuras armando una <strong style="color:#ddd">matriz de rigidez global</strong>. Acá se analiza esa matriz ({report.nFreeDofs}×{report.nFreeDofs}) para detectar mecanismos que la ecuación del Paso 2 no detecta — por ejemplo, cuando los apoyos están mal distribuidos o hay articulaciones que generan inestabilidades locales.
+              {@html t('kinematic.matrixExplanation').replaceAll('{n}', String(report.nFreeDofs))}
             </div>
 
             {#if report.mechanismModes === 0}
               <div class="kp-result kp-ok-bg">
-                ✓ No se detectaron mecanismos. La estructura es estable.
+                {t('kinematic.noMechanisms')}
               </div>
             {:else if report.hasHiddenMechanism}
               <div class="kp-result kp-danger-bg">
-                ✗ Se detectaron {report.mechanismModes} modo{report.mechanismModes > 1 ? 's' : ''} de mecanismo a pesar de que g = {report.degree} ≥ 0.
+                {t('kinematic.hiddenMechanism').replace('{n}', String(report.mechanismModes)).replace('{s}', report.mechanismModes > 1 ? 's' : '').replace('{degree}', String(report.degree))}
               </div>
               <div class="kp-explanation">
-                La ecuación del Paso 2 cuenta restricciones de forma global, pero no verifica dónde están ubicadas. En este caso, una zona de la estructura tiene restricciones de sobra mientras otra no tiene las suficientes.
+                {t('kinematic.hiddenMechanismExplanation')}
               </div>
             {:else}
               <div class="kp-result kp-danger-bg">
-                ✗ Se detectaron {report.mechanismModes} modo{report.mechanismModes > 1 ? 's' : ''} de mecanismo.
+                {t('kinematic.mechanismDetected').replace('{n}', String(report.mechanismModes)).replace('{s}', report.mechanismModes > 1 ? 's' : '')}
               </div>
             {/if}
 
             {#if report.unconstrainedDofs.length > 0}
-              <div class="kp-sub-title">Movimientos libres detectados:</div>
+              <div class="kp-sub-title">{t('kinematic.freeMovements')}</div>
               {#each report.unconstrainedDofs as ud}
                 <div class="kp-unconstrained">
-                  <span class="kp-dof-badge">Nodo {ud.nodeId} — {ud.dofName}</span>
+                  <span class="kp-dof-badge">{t('kinematic.nodeDof').replace('{id}', String(ud.nodeId)).replace('{dofName}', ud.dofName)}</span>
                   <div class="kp-dof-explanation">{ud.explanation}</div>
                 </div>
               {/each}
@@ -231,7 +232,7 @@
             {#if report.elementAnalysis.length > 0}
               <button class="kp-sub-toggle" onclick={() => showBarAnalysis = !showBarAnalysis}>
                 <span class="kp-chevron">{showBarAnalysis ? '▾' : '▸'}</span>
-                Análisis barra por barra
+                {t('kinematic.barByBarAnalysis')}
               </button>
               {#if showBarAnalysis}
                 <div class="kp-sub-section">
@@ -243,13 +244,13 @@
                       <button class="kp-elem-toggle" onclick={() => toggleElem(ea.elemId)}>
                         <span class="kp-elem-toggle-left">
                           <span class="kp-chevron">{expandedElems.has(ea.elemId) ? '▾' : '▸'}</span>
-                          Barra {ea.elemId} <span class="kp-elem-type">({ea.type === 'frame' ? 'rígida' : 'articulada'})</span>
+                          {t('kinematic.bar').replace('{id}', String(ea.elemId))} <span class="kp-elem-type">({ea.type === 'frame' ? t('kinematic.rigid') : t('kinematic.truss')})</span>
                         </span>
                         <span class="kp-elem-badge"
                           class:kp-elem-badge-ok={ea.status === 'isostatic'}
                           class:kp-elem-badge-hyper={ea.status === 'hyperstatic'}
                           class:kp-elem-badge-mech={ea.status === 'mechanism'}>
-                          {ea.status === 'isostatic' ? 'Isostática' : ea.status === 'hyperstatic' ? 'Hiperestática' : 'Mecanismo'}
+                          {ea.status === 'isostatic' ? t('kinematic.statusIsostatic') : ea.status === 'hyperstatic' ? t('kinematic.statusHyperstatic') : t('kinematic.statusMechanism')}
                         </span>
                       </button>
                       {#if expandedElems.has(ea.elemId)}
@@ -258,7 +259,7 @@
                             <div class="kp-dof-line" class:kp-dof-free={line.sources.length === 0}>
                               <span class="kp-dof-label">{line.dof}</span>
                               {#if line.sources.length === 0}
-                                <span class="kp-dof-none">⚠ sin restricción</span>
+                                <span class="kp-dof-none">{t('kinematic.noRestriction')}</span>
                               {:else}
                                 <span class="kp-dof-arrow">←</span>
                                 <span class="kp-dof-sources">{line.displayText}</span>
@@ -280,7 +281,7 @@
         {#if report.suggestions.length > 0}
           <button class="kp-section-toggle" onclick={() => showStep4 = !showStep4}>
             <span class="kp-chevron">{showStep4 ? '▾' : '▸'}</span>
-            Paso 4 — Sugerencias
+            {t('kinematic.step4Title')}
           </button>
           {#if showStep4}
             <div class="kp-section">
@@ -296,9 +297,9 @@
         <!-- ═══ Resultado final ═══ -->
         <div class="kp-footer">
           {#if report.isSolvable}
-            <span class="kp-status kp-ok-text">✓ Estructura estable — se puede resolver</span>
+            <span class="kp-status kp-ok-text">{t('kinematic.stableResult')}</span>
           {:else}
-            <span class="kp-status kp-danger-text">✗ Mecanismo — no se puede resolver</span>
+            <span class="kp-status kp-danger-text">{t('kinematic.mechanismResult')}</span>
           {/if}
         </div>
       </div>

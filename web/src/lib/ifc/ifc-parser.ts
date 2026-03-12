@@ -2,6 +2,7 @@
 // This module requires the web-ifc WASM to be available at /web-ifc.wasm
 
 import type { IfcMember } from './ifc-mapper';
+import { t } from '../i18n';
 
 // IFC entity type constants
 const IFCBEAM = 753729222;
@@ -230,7 +231,7 @@ export async function parseIfc(data: ArrayBuffer): Promise<IfcParseResult> {
   api.CloseModel(modelID);
 
   if (members.length === 0) {
-    warnings.push('No se encontraron miembros estructurales (IfcBeam, IfcColumn, IfcMember)');
+    warnings.push(t('ifc.noMembers'));
   }
 
   return { members, warnings };

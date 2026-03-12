@@ -3,6 +3,7 @@
 
 import type { ModelSnapshot } from '../store/history.svelte';
 import { computeLocalAxes3D } from '../engine/solver-3d';
+import { t } from '../i18n';
 
 // Default material and section
 const DEFAULT_MATERIAL = { id: 1, name: 'Acero S235', e: 210000000, nu: 0.3, rho: 78.5 }; // kN/m² for E
@@ -426,6 +427,73 @@ export interface TemplateParam {
   integer?: boolean;
 }
 
+export function getTemplateCatalog(): TemplateInfo[] {
+  return [
+    {
+      id: 'simpleBeam', name: t('tmpl.simpleBeam'), category: t('tmpl.catBeams'),
+      params: [
+        { key: 'L', label: t('tmpl.span'), unit: 'm', default: 6, min: 1, max: 50, step: 0.5 },
+        { key: 'q', label: t('tmpl.load'), unit: 'kN/m', default: -10, min: -100, max: 100, step: 1 },
+        { key: 'nDiv', label: t('tmpl.divisions'), unit: '', default: 4, min: 1, max: 20, step: 1, integer: true },
+      ],
+    },
+    {
+      id: 'cantilever', name: t('tmpl.cantilever'), category: t('tmpl.catBeams'),
+      params: [
+        { key: 'L', label: t('tmpl.length'), unit: 'm', default: 3, min: 1, max: 30, step: 0.5 },
+        { key: 'P', label: t('tmpl.pointLoad'), unit: 'kN', default: -15, min: -200, max: 200, step: 1 },
+        { key: 'nDiv', label: t('tmpl.divisions'), unit: '', default: 3, min: 1, max: 20, step: 1, integer: true },
+      ],
+    },
+    {
+      id: 'continuousBeam', name: t('tmpl.continuousBeam'), category: t('tmpl.catBeams'),
+      params: [
+        { key: 'nSpans', label: t('tmpl.spans'), unit: '', default: 3, min: 2, max: 10, step: 1, integer: true },
+        { key: 'spanLength', label: t('tmpl.spanLength'), unit: 'm', default: 5, min: 1, max: 30, step: 0.5 },
+        { key: 'q', label: t('tmpl.load'), unit: 'kN/m', default: -10, min: -100, max: 100, step: 1 },
+        { key: 'nDivPerSpan', label: t('tmpl.divPerSpan'), unit: '', default: 4, min: 1, max: 10, step: 1, integer: true },
+      ],
+    },
+    {
+      id: 'portalFrame', name: t('tmpl.portalFrame'), category: t('tmpl.catFrames'),
+      params: [
+        { key: 'width', label: t('tmpl.width'), unit: 'm', default: 6, min: 2, max: 30, step: 0.5 },
+        { key: 'height', label: t('tmpl.height'), unit: 'm', default: 4, min: 2, max: 20, step: 0.5 },
+        { key: 'qBeam', label: t('tmpl.beamLoad'), unit: 'kN/m', default: -15, min: -100, max: 100, step: 1 },
+        { key: 'Hlateral', label: t('tmpl.lateralLoad'), unit: 'kN', default: 10, min: -100, max: 100, step: 1 },
+      ],
+    },
+    {
+      id: 'multiStory', name: t('tmpl.multiStory'), category: t('tmpl.catFrames'),
+      params: [
+        { key: 'nBays', label: t('tmpl.bays'), unit: '', default: 2, min: 1, max: 6, step: 1, integer: true },
+        { key: 'nFloors', label: t('tmpl.floors'), unit: '', default: 3, min: 1, max: 10, step: 1, integer: true },
+        { key: 'bayWidth', label: t('tmpl.bayWidth'), unit: 'm', default: 5, min: 2, max: 15, step: 0.5 },
+        { key: 'floorHeight', label: t('tmpl.floorHeight'), unit: 'm', default: 3, min: 2, max: 6, step: 0.5 },
+        { key: 'qBeam', label: t('tmpl.beamLoad'), unit: 'kN/m', default: -20, min: -100, max: 100, step: 1 },
+        { key: 'Hlateral', label: t('tmpl.lateralPerFloor'), unit: 'kN', default: 10, min: -100, max: 100, step: 1 },
+      ],
+    },
+    {
+      id: 'prattTruss', name: t('tmpl.prattTruss'), category: t('tmpl.catTrusses'),
+      params: [
+        { key: 'span', label: t('tmpl.span'), unit: 'm', default: 12, min: 4, max: 60, step: 1 },
+        { key: 'height', label: t('tmpl.height'), unit: 'm', default: 2, min: 0.5, max: 10, step: 0.5 },
+        { key: 'nPanels', label: t('tmpl.panels'), unit: '', default: 6, min: 4, max: 20, step: 2, integer: true },
+      ],
+    },
+    {
+      id: 'warrenTruss', name: t('tmpl.warrenTruss'), category: t('tmpl.catTrusses'),
+      params: [
+        { key: 'span', label: t('tmpl.span'), unit: 'm', default: 12, min: 4, max: 60, step: 1 },
+        { key: 'height', label: t('tmpl.height'), unit: 'm', default: 2, min: 0.5, max: 10, step: 0.5 },
+        { key: 'nPanels', label: t('tmpl.panels'), unit: '', default: 6, min: 4, max: 20, step: 2, integer: true },
+      ],
+    },
+  ];
+}
+
+/** @deprecated Use getTemplateCatalog() instead */
 export const TEMPLATE_CATALOG: TemplateInfo[] = [
   {
     id: 'simpleBeam', name: 'Viga biarticulada', category: 'Vigas',
@@ -834,83 +902,88 @@ export interface TemplateInfo3D {
   generate: (store: ModelStore, paramValues?: Record<string, number>) => void;
 }
 
-export const TEMPLATE_CATALOG_3D: TemplateInfo3D[] = [
-  {
-    id: 'hingedArch3D',
-    name: 'Arco Articulado 3D',
-    desc: 'Arco parabólico con articulaciones en cuartos de luz',
-    params: [
-      { key: 'span', label: 'Luz', unit: 'm', default: 12, min: 4, max: 60, step: 1 },
-      { key: 'rise', label: 'Flecha', unit: 'm', default: 4, min: 0.5, max: 15, step: 0.5 },
-      { key: 'nSegments', label: 'Segmentos', unit: '', default: 12, min: 4, max: 40, step: 2, integer: true },
-      { key: 'q', label: 'Carga', unit: 'kN/m', default: -8, min: -100, max: 100, step: 1 },
-    ],
+export function getTemplateCatalog3D(): TemplateInfo3D[] {
+  return [
+    {
+      id: 'hingedArch3D',
+      name: t('tmpl3d.hingedArch'),
+      desc: t('tmpl3d.hingedArchDesc'),
+      params: [
+        { key: 'span', label: t('tmpl.span'), unit: 'm', default: 12, min: 4, max: 60, step: 1 },
+        { key: 'rise', label: t('tmpl.rise'), unit: 'm', default: 4, min: 0.5, max: 15, step: 0.5 },
+        { key: 'nSegments', label: t('tmpl.segments'), unit: '', default: 12, min: 4, max: 40, step: 2, integer: true },
+        { key: 'q', label: t('tmpl.load'), unit: 'kN/m', default: -8, min: -100, max: 100, step: 1 },
+      ],
     generate: (s, p) => generate3DHingedArch(s, {
       span: p?.span ?? 12, rise: p?.rise ?? 4, nSegments: p?.nSegments ?? 12, q: p?.q ?? -8,
     }),
   },
-  {
-    id: 'gridBeams',
-    name: 'Emparrillado',
-    desc: 'Grilla de vigas en plano XZ con apoyos en esquinas',
-    params: [
-      { key: 'Lx', label: 'Largo X', unit: 'm', default: 8, min: 2, max: 30, step: 0.5 },
-      { key: 'Lz', label: 'Largo Z', unit: 'm', default: 8, min: 2, max: 30, step: 0.5 },
-      { key: 'nDivX', label: 'Divisiones X', unit: '', default: 4, min: 2, max: 10, step: 1, integer: true },
-      { key: 'nDivZ', label: 'Divisiones Z', unit: '', default: 4, min: 2, max: 10, step: 1, integer: true },
-      { key: 'q', label: 'Carga nodos', unit: 'kN', default: -20, min: -100, max: 100, step: 1 },
-    ],
-    generate: (s, p) => generateGridBeams(s, {
-      Lx: p?.Lx ?? 8, Lz: p?.Lz ?? 8, nDivX: p?.nDivX ?? 4, nDivZ: p?.nDivZ ?? 4, q: p?.q ?? -20,
-    }),
-  },
-  {
-    id: 'spaceFrame3D',
-    name: 'Pórtico Espacial',
-    desc: 'Pórtico espacial con vigas y columnas',
-    params: [
-      { key: 'nBaysX', label: 'Vanos X', unit: '', default: 2, min: 1, max: 6, step: 1, integer: true },
-      { key: 'nBaysY', label: 'Vanos Z', unit: '', default: 2, min: 1, max: 6, step: 1, integer: true },
-      { key: 'nFloors', label: 'Pisos', unit: '', default: 2, min: 1, max: 10, step: 1, integer: true },
-      { key: 'bayWidth', label: 'Ancho vano', unit: 'm', default: 5, min: 2, max: 15, step: 0.5 },
-      { key: 'storyHeight', label: 'Alto piso', unit: 'm', default: 3, min: 2, max: 6, step: 0.5 },
-      { key: 'q', label: 'Carga vigas', unit: 'kN/m', default: -10, min: -100, max: 100, step: 1 },
-    ],
-    generate: (s, p) => generateSpaceFrame3D(s, {
-      nBaysX: p?.nBaysX ?? 2, nBaysY: p?.nBaysY ?? 2, nFloors: p?.nFloors ?? 2,
-      bayWidth: p?.bayWidth ?? 5, storyHeight: p?.storyHeight ?? 3, q: p?.q ?? -10,
-    }),
-  },
-  {
-    id: 'tower3D_2',
-    name: 'Torre 2 pisos',
-    desc: 'Torre arriostrada con 4 columnas',
-    params: [
-      { key: 'H', label: 'Altura', unit: 'm', default: 6, min: 3, max: 30, step: 0.5 },
-      { key: 'nLevels', label: 'Niveles', unit: '', default: 2, min: 1, max: 10, step: 1, integer: true },
-      { key: 'baseWidth', label: 'Ancho base', unit: 'm', default: 3, min: 1, max: 10, step: 0.5 },
-      { key: 'topWidth', label: 'Ancho arriba', unit: 'm', default: 2.5, min: 0.5, max: 10, step: 0.5 },
-      { key: 'lateralLoad', label: 'Carga lateral', unit: 'kN', default: 10, min: 0, max: 100, step: 1 },
-    ],
-    generate: (s, p) => generateTower3D(s, {
-      H: p?.H ?? 6, nLevels: p?.nLevels ?? 2, baseWidth: p?.baseWidth ?? 3,
-      topWidth: p?.topWidth ?? 2.5, withBracing: true, lateralLoad: p?.lateralLoad ?? 10,
-    }),
-  },
-  {
-    id: 'tower3D_4',
-    name: 'Torre 4 pisos',
-    desc: 'Torre arriostrada con estrechamiento',
-    params: [
-      { key: 'H', label: 'Altura', unit: 'm', default: 12, min: 4, max: 40, step: 0.5 },
-      { key: 'nLevels', label: 'Niveles', unit: '', default: 4, min: 2, max: 10, step: 1, integer: true },
-      { key: 'baseWidth', label: 'Ancho base', unit: 'm', default: 3, min: 1, max: 10, step: 0.5 },
-      { key: 'topWidth', label: 'Ancho arriba', unit: 'm', default: 2, min: 0.5, max: 10, step: 0.5 },
-      { key: 'lateralLoad', label: 'Carga lateral', unit: 'kN', default: 10, min: 0, max: 100, step: 1 },
-    ],
-    generate: (s, p) => generateTower3D(s, {
-      H: p?.H ?? 12, nLevels: p?.nLevels ?? 4, baseWidth: p?.baseWidth ?? 3,
-      topWidth: p?.topWidth ?? 2, withBracing: true, lateralLoad: p?.lateralLoad ?? 10,
-    }),
-  },
-];
+    {
+      id: 'gridBeams',
+      name: t('tmpl3d.gridBeams'),
+      desc: t('tmpl3d.gridBeamsDesc'),
+      params: [
+        { key: 'Lx', label: t('tmpl.lengthX'), unit: 'm', default: 8, min: 2, max: 30, step: 0.5 },
+        { key: 'Lz', label: t('tmpl.lengthZ'), unit: 'm', default: 8, min: 2, max: 30, step: 0.5 },
+        { key: 'nDivX', label: t('tmpl.divisionsX'), unit: '', default: 4, min: 2, max: 10, step: 1, integer: true },
+        { key: 'nDivZ', label: t('tmpl.divisionsZ'), unit: '', default: 4, min: 2, max: 10, step: 1, integer: true },
+        { key: 'q', label: t('tmpl.nodeLoad'), unit: 'kN', default: -20, min: -100, max: 100, step: 1 },
+      ],
+      generate: (s, p) => generateGridBeams(s, {
+        Lx: p?.Lx ?? 8, Lz: p?.Lz ?? 8, nDivX: p?.nDivX ?? 4, nDivZ: p?.nDivZ ?? 4, q: p?.q ?? -20,
+      }),
+    },
+    {
+      id: 'spaceFrame3D',
+      name: t('tmpl3d.spaceFrame'),
+      desc: t('tmpl3d.spaceFrameDesc'),
+      params: [
+        { key: 'nBaysX', label: t('tmpl.baysX'), unit: '', default: 2, min: 1, max: 6, step: 1, integer: true },
+        { key: 'nBaysY', label: t('tmpl.baysZ'), unit: '', default: 2, min: 1, max: 6, step: 1, integer: true },
+        { key: 'nFloors', label: t('tmpl.floors'), unit: '', default: 2, min: 1, max: 10, step: 1, integer: true },
+        { key: 'bayWidth', label: t('tmpl.bayWidth'), unit: 'm', default: 5, min: 2, max: 15, step: 0.5 },
+        { key: 'storyHeight', label: t('tmpl.floorHeight'), unit: 'm', default: 3, min: 2, max: 6, step: 0.5 },
+        { key: 'q', label: t('tmpl.beamLoad'), unit: 'kN/m', default: -10, min: -100, max: 100, step: 1 },
+      ],
+      generate: (s, p) => generateSpaceFrame3D(s, {
+        nBaysX: p?.nBaysX ?? 2, nBaysY: p?.nBaysY ?? 2, nFloors: p?.nFloors ?? 2,
+        bayWidth: p?.bayWidth ?? 5, storyHeight: p?.storyHeight ?? 3, q: p?.q ?? -10,
+      }),
+    },
+    {
+      id: 'tower3D_2',
+      name: t('tmpl3d.tower2'),
+      desc: t('tmpl3d.tower2Desc'),
+      params: [
+        { key: 'H', label: t('tmpl.totalHeight'), unit: 'm', default: 6, min: 3, max: 30, step: 0.5 },
+        { key: 'nLevels', label: t('tmpl.levels'), unit: '', default: 2, min: 1, max: 10, step: 1, integer: true },
+        { key: 'baseWidth', label: t('tmpl.baseWidth'), unit: 'm', default: 3, min: 1, max: 10, step: 0.5 },
+        { key: 'topWidth', label: t('tmpl.topWidth'), unit: 'm', default: 2.5, min: 0.5, max: 10, step: 0.5 },
+        { key: 'lateralLoad', label: t('tmpl.lateralLoad'), unit: 'kN', default: 10, min: 0, max: 100, step: 1 },
+      ],
+      generate: (s, p) => generateTower3D(s, {
+        H: p?.H ?? 6, nLevels: p?.nLevels ?? 2, baseWidth: p?.baseWidth ?? 3,
+        topWidth: p?.topWidth ?? 2.5, withBracing: true, lateralLoad: p?.lateralLoad ?? 10,
+      }),
+    },
+    {
+      id: 'tower3D_4',
+      name: t('tmpl3d.tower4'),
+      desc: t('tmpl3d.tower4Desc'),
+      params: [
+        { key: 'H', label: t('tmpl.totalHeight'), unit: 'm', default: 12, min: 4, max: 40, step: 0.5 },
+        { key: 'nLevels', label: t('tmpl.levels'), unit: '', default: 4, min: 2, max: 10, step: 1, integer: true },
+        { key: 'baseWidth', label: t('tmpl.baseWidth'), unit: 'm', default: 3, min: 1, max: 10, step: 0.5 },
+        { key: 'topWidth', label: t('tmpl.topWidth'), unit: 'm', default: 2, min: 0.5, max: 10, step: 0.5 },
+        { key: 'lateralLoad', label: t('tmpl.lateralLoad'), unit: 'kN', default: 10, min: 0, max: 100, step: 1 },
+      ],
+      generate: (s, p) => generateTower3D(s, {
+        H: p?.H ?? 12, nLevels: p?.nLevels ?? 4, baseWidth: p?.baseWidth ?? 3,
+        topWidth: p?.topWidth ?? 2, withBracing: true, lateralLoad: p?.lateralLoad ?? 10,
+      }),
+    },
+  ];
+}
+
+/** @deprecated Use getTemplateCatalog3D() instead */
+export const TEMPLATE_CATALOG_3D = getTemplateCatalog3D();

@@ -176,6 +176,22 @@ export interface EnvelopeDiagramData {
   globalMax: number;
 }
 
+// ─── Diagnostics ───────────────────────────────────────────────
+
+export type DiagnosticSeverity = 'error' | 'warning' | 'info';
+
+/** A single diagnostic message from the solver, verifier, or post-processor */
+export interface SolverDiagnostic {
+  severity: DiagnosticSeverity;
+  code: string;                    // machine-readable: 'VERIF_FAIL_SHEAR', 'PDELTA_NOT_CONVERGED', etc.
+  message: string;                 // i18n key or pre-translated string
+  elementIds?: number[];
+  nodeIds?: number[];
+  source: 'solver' | 'assembly' | 'kinematic' | 'verification' | 'serviceability' | 'stability' | 'model';
+  details?: Record<string, unknown>;
+}
+
+
 /** Envolvente completa con datos puntuales para M, V, N */
 export interface FullEnvelope {
   moment: EnvelopeDiagramData;

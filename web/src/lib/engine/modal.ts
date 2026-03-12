@@ -5,6 +5,7 @@ import type { DofNumbering } from './solver-js';
 import { buildDofNumbering, assemble } from './solver-js';
 import { assembleMassMatrix } from './mass-matrix';
 import { solveGeneralizedEigen, matVec } from './matrix-utils';
+import { t } from '../i18n';
 
 export interface ModeShape {
   /** Natural frequency (Hz) */
@@ -73,8 +74,8 @@ export function solveModal(
   const dofNum = buildDofNumbering(input);
   const nf = dofNum.nFree;
 
-  if (nf === 0) return 'No hay grados de libertad libres';
-  if (nf > 500) return 'Modelo demasiado grande para análisis modal (máx ~500 DOFs libres)';
+  if (nf === 0) return t('modal.noFreeDofs');
+  if (nf > 500) return t('modal.modelTooLarge');
 
   // Validate that at least one material has density assigned
   const materialsUsed = new Set<number>();
@@ -85,7 +86,7 @@ export function solveModal(
     if (d === undefined || d <= 0) missingDensity.push(matId);
   }
   if (missingDensity.length === materialsUsed.size) {
-    return 'Ningún material tiene densidad asignada. Asigne densidad (kg/m³) a los materiales para el análisis modal.';
+    return t('modal.noDensity');
   }
 
   // Assemble stiffness (we only need Kff)
@@ -115,11 +116,11 @@ export function solveModal(
   // Check that mass matrix is not zero
   let massNorm = 0;
   for (let i = 0; i < nf * nf; i++) massNorm += Mff[i] * Mff[i];
-  if (massNorm < 1e-20) return 'Matriz de masa es cero — asigne densidad a los materiales';
+  if (massNorm < 1e-20) return t('modal.zeroMassMatrix');
 
   // Solve generalized eigenvalue problem: Kff·φ = λ·Mff·φ where λ = ω²
   const eigenResult = solveGeneralizedEigen(Kff, Mff, nf);
-  if (!eigenResult) return 'Fallo en descomposición de Cholesky de la matriz de masa';
+  if (!eigenResult) return t('modal.choleskyError');
 
   const nModes = Math.min(numModes ?? 6, nf);
   const modes: ModeShape[] = [];
@@ -220,7 +221,7 @@ export function solveModal(
     });
   }
 
-  if (modes.length === 0) return 'No se encontraron modos válidos';
+  if (modes.length === 0) return t('modal.noModesFound');
 
   // Compute Rayleigh damping coefficients (Chopra §11.4)
   // C = a₀·M + a₁·K, with ξ = a₀/(2ω) + a₁·ω/2

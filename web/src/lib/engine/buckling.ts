@@ -5,6 +5,7 @@ import type { SolverInput } from './types';
 import { buildDofNumbering, assemble, solveLU, computeInternalForces, nodeDistance } from './solver-js';
 import { assembleKg } from './geometric-stiffness';
 import { solveGeneralizedEigen, choleskySolve } from './matrix-utils';
+import { t } from '../i18n';
 
 export interface BucklingMode {
   /** Critical load factor (multiply applied loads by this to get buckling) */
@@ -52,8 +53,8 @@ export function solveBuckling(
   const nf = dofNum.nFree;
   const nt = dofNum.nTotal;
 
-  if (nf === 0) return 'No hay grados de libertad libres';
-  if (nf > 500) return 'Modelo demasiado grande para análisis de pandeo (máx ~500 DOFs libres)';
+  if (nf === 0) return t('buckling.noFreeDofs');
+  if (nf > 500) return t('buckling.modelTooLarge');
 
   // Step 1: Linear solve
   const { K, F } = assemble(input, dofNum);
@@ -73,7 +74,7 @@ export function solveBuckling(
     uFree = choleskySolve(new Float64Array(Kff), new Float64Array(Ff), nf)
           ?? solveLU(new Float64Array(Kff), new Float64Array(Ff), nf);
   } catch {
-    return 'Error en resolución lineal';
+    return t('buckling.linearSolveError');
   }
 
   // Build full displacement vector
@@ -87,7 +88,7 @@ export function solveBuckling(
   // Check Kg is not zero
   let kgNorm = 0;
   for (let i = 0; i < nf * nf; i++) kgNorm += Kg[i] * Kg[i];
-  if (kgNorm < 1e-20) return 'No hay fuerzas axiales de compresión en la estructura — el análisis de pandeo (Euler) requiere elementos comprimidos. Verifique que las cargas generen compresión axial.';
+  if (kgNorm < 1e-20) return t('buckling.noCompression');
 
   // Step 3: Generalized eigenvalue problem
   // K·φ = λ·(-Kg)·φ  →  (-Kg)·φ = μ·K·φ  where μ = 1/λ
@@ -97,7 +98,7 @@ export function solveBuckling(
   for (let i = 0; i < nf * nf; i++) negKg[i] = -Kg[i];
 
   const eigen = solveGeneralizedEigen(negKg, Kff, nf);
-  if (!eigen) return 'Error en descomposición de Cholesky de la matriz de rigidez';
+  if (!eigen) return t('buckling.choleskyError');
 
   // eigenvalues μ satisfy (-Kg)·φ = μ·K·φ → K·φ = (1/μ)·(-Kg)·φ → λ = 1/μ
   // We want positive λ (from positive μ): smallest λ = largest positive μ
@@ -144,7 +145,7 @@ export function solveBuckling(
     modes.push({ loadFactor: lambdaCr, displacements });
   }
 
-  if (modes.length === 0) return 'No se encontraron modos de pandeo';
+  if (modes.length === 0) return t('buckling.noModesFound');
 
   // Compute per-element buckling data using the first (critical) mode
   const lambdaCr1 = modes[0].loadFactor;

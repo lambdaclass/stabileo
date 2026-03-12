@@ -7,6 +7,7 @@ import type {
 } from './types';
 import { unitScale } from './types';
 import { searchProfiles, profileToSection } from '../data/steel-profiles';
+import { t } from '../i18n';
 
 export interface MapperOptions {
   unit: DxfUnit;
@@ -64,14 +65,14 @@ export function mapDxfToModel(
       if (!isElement) continue;
       const ni = findOrAddNode(line.start.x, line.start.y);
       const nj = findOrAddNode(line.end.x, line.end.y);
-      if (ni === nj) { warnings.push('Linea de longitud cero ignorada'); continue; }
+      if (ni === nj) { warnings.push(t('dxf.warnZeroLengthLine')); continue; }
       const type = TRUSS_LAYERS.has(line.layer) ? 'truss' as const : 'frame' as const;
       elements.push({ nodeI: ni, nodeJ: nj, type });
     }
   } else {
     // Fallback: treat all lines as frame elements
     if (parsed.lines.length > 0) {
-      warnings.push('No se detectaron capas BARRAS/ELEMENTOS. Se usan todas las lineas como elementos.');
+      warnings.push(t('dxf.warnNoElementLayers'));
     }
     for (const line of parsed.lines) {
       const ni = findOrAddNode(line.start.x, line.start.y);
@@ -89,13 +90,13 @@ export function mapDxfToModel(
 
   for (const st of supportTexts) {
     const nodeId = findNearestNode(st.position, nodes, scale, tol);
-    if (nodeId < 0) { warnings.push(`Apoyo "${st.value}" no coincide con ningun nodo`); continue; }
+    if (nodeId < 0) { warnings.push(`${t('dxf.warnSupportNoNode')} "${st.value}"`); continue; }
     supports.push({ nodeId, type: parseSupportType(st.value) });
   }
 
   for (const si of supportInserts) {
     const nodeId = findNearestNode(si.position, nodes, scale, tol);
-    if (nodeId < 0) { warnings.push(`Bloque apoyo "${si.blockName}" no coincide con ningun nodo`); continue; }
+    if (nodeId < 0) { warnings.push(`${t('dxf.warnSupportBlockNoNode')} "${si.blockName}"`); continue; }
     supports.push({ nodeId, type: parseSupportType(si.blockName) });
   }
 
@@ -121,7 +122,7 @@ export function mapDxfToModel(
         distributedLoads.push({ elementIndex: idx, q: parseFloat(qMatch[1]) });
         matched = true;
       } else {
-        warnings.push(`Carga distribuida q=${qMatch[1]} no asociada a ningun elemento`);
+        warnings.push(`${t('dxf.warnDistLoadNoElement')} q=${qMatch[1]}`);
       }
     }
 
@@ -137,7 +138,7 @@ export function mapDxfToModel(
           nodalLoads.push({ nodeId, fx: 0, fy: parseFloat(pMatch[1]), mz: 0 });
           matched = true;
         } else {
-          warnings.push(`Carga puntual P=${pMatch[1]} no asociada a ningun elemento o nodo`);
+          warnings.push(`${t('dxf.warnPointLoadNoElement')} P=${pMatch[1]}`);
         }
       }
     }
@@ -153,12 +154,12 @@ export function mapDxfToModel(
         });
         matched = true;
       } else {
-        warnings.push(`Carga nodal "${val}" no asociada a ningun nodo`);
+        warnings.push(`${t('dxf.warnNodalLoadNoNode')} "${val}"`);
       }
     }
 
     if (!matched && !qMatch && !pMatch && !fxMatch && !fyMatch && !mMatch) {
-      warnings.push(`Texto de carga no reconocido: "${val}"`);
+      warnings.push(`${t('dxf.warnUnrecognizedLoadText')} "${val}"`);
     }
   }
 
@@ -240,16 +241,16 @@ export function parseSectionText(text: string): { name: string; a: number; iz: n
 }
 
 export function parseMaterialText(text: string): { name: string; e: number; nu: number; rho: number; fy?: number } | null {
-  const t = text.trim().toUpperCase();
+  const txt = text.trim().toUpperCase();
 
-  if (t.includes('HA') || t.includes('HORMIG') || t.includes('CONCRET')) {
-    return { name: 'Hormigón', e: 30000, nu: 0.2, rho: 25 };
+  if (txt.includes('HA') || txt.includes('HORMIG') || txt.includes('CONCRET')) {
+    return { name: t('dxf.materialConcrete'), e: 30000, nu: 0.2, rho: 25 };
   }
-  if (t.includes('ACERO') || t.includes('STEEL') || t.includes('A36')) {
-    return { name: 'Acero A36', e: 200000, nu: 0.3, rho: 78.5, fy: 250 };
+  if (txt.includes('ACERO') || txt.includes('STEEL') || txt.includes('A36')) {
+    return { name: t('dxf.materialSteelA36'), e: 200000, nu: 0.3, rho: 78.5, fy: 250 };
   }
-  if (t.includes('MADERA') || t.includes('WOOD')) {
-    return { name: 'Madera', e: 12000, nu: 0.3, rho: 6 };
+  if (txt.includes('MADERA') || txt.includes('WOOD')) {
+    return { name: t('dxf.materialWood'), e: 12000, nu: 0.3, rho: 6 };
   }
 
   // Try explicit E=X (MPa)
@@ -264,13 +265,13 @@ export function parseMaterialText(text: string): { name: string; e: number; nu: 
 // ─── Helpers ───────────────────────────────────────────────────
 
 function parseSupportType(text: string): MappedSupport['type'] {
-  const t = text.toUpperCase();
-  if (t.includes('EMPOT') || t.includes('FIXED') || t === 'E') return 'fixed';
-  if (t.includes('MOVIL') || t.includes('ROLLER')) {
-    return t.includes('Y') ? 'rollerY' : 'rollerX';
+  const txt = text.toUpperCase();
+  if (txt.includes('EMPOT') || txt.includes('FIXED') || txt === 'E') return 'fixed';
+  if (txt.includes('MOVIL') || txt.includes('ROLLER')) {
+    return txt.includes('Y') ? 'rollerY' : 'rollerX';
   }
-  if (t === 'R' || t === 'RX') return 'rollerX';
-  if (t === 'RY') return 'rollerY';
+  if (txt === 'R' || txt === 'RX') return 'rollerX';
+  if (txt === 'RY') return 'rollerY';
   // Default: pinned
   return 'pinned';
 }

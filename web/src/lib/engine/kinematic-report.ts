@@ -9,6 +9,7 @@
 
 import type { SolverInput } from './types';
 import { computeStaticDegree, analyzeKinematics } from './kinematic-2d';
+import { t } from '../i18n';
 
 // ─── Public interfaces ─────────────────────────────────────────
 
@@ -122,33 +123,40 @@ export interface KinematicReport {
 
 // ─── Support type labels ────────────────────────────────────────
 
-const SUPPORT_LABELS: Record<string, { label: string; dofs: number; restrained: string }> = {
-  fixed:    { label: 'Empotramiento', dofs: 3, restrained: 'ux, uy, θz' },
-  pinned:   { label: 'Articulación fija', dofs: 2, restrained: 'ux, uy' },
-  rollerX:  { label: 'Roller horizontal', dofs: 1, restrained: 'uy' },
-  rollerY:  { label: 'Roller vertical', dofs: 1, restrained: 'ux' },
-  inclinedRoller: { label: 'Roller inclinado', dofs: 1, restrained: 'u_n' },
-};
+function getSupportLabels(): Record<string, { label: string; dofs: number; restrained: string }> {
+  return {
+    fixed:    { label: t('kin.supFixed'), dofs: 3, restrained: 'ux, uy, θz' },
+    pinned:   { label: t('kin.supPinned'), dofs: 2, restrained: 'ux, uy' },
+    rollerX:  { label: t('kin.supRollerX'), dofs: 1, restrained: 'uy' },
+    rollerY:  { label: t('kin.supRollerY'), dofs: 1, restrained: 'ux' },
+    inclinedRoller: { label: t('kin.supInclinedRoller'), dofs: 1, restrained: 'u_n' },
+  };
+}
 
-const DOF_NAMES: Record<string, string> = {
-  ux: 'desplazamiento horizontal',
-  uy: 'desplazamiento vertical',
-  rz: 'rotación',
-};
+function getDofNames(): Record<string, string> {
+  return {
+    ux: t('kin.dofHorizontal'),
+    uy: t('kin.dofVertical'),
+    rz: t('kin.dofRotation'),
+  };
+}
 
 // ─── Per-DOF support mapping ────────────────────────────────────
 
-const SUPPORT_DOFS: Record<string, ReadonlySet<DofLabel>> = {
-  Empotramiento:       new Set<DofLabel>(['ux', 'uy', 'θz']),
-  'Articulación fija': new Set<DofLabel>(['ux', 'uy']),
-  'Roller horizontal': new Set<DofLabel>(['uy']),
-  'Roller vertical':   new Set<DofLabel>(['ux']),
-  'Roller inclinado':  new Set<DofLabel>(['uy']),   // simplification: u_n ≈ uy
-};
+function getSupportDofs(): Record<string, ReadonlySet<DofLabel>> {
+  return {
+    [t('kin.supFixed')]:          new Set<DofLabel>(['ux', 'uy', 'θz']),
+    [t('kin.supPinned')]:         new Set<DofLabel>(['ux', 'uy']),
+    [t('kin.supRollerX')]:        new Set<DofLabel>(['uy']),
+    [t('kin.supRollerY')]:        new Set<DofLabel>(['ux']),
+    [t('kin.supInclinedRoller')]: new Set<DofLabel>(['uy']),   // simplification: u_n ≈ uy
+  };
+}
 
 /** Parse a SupportDetail into the set of DofLabels it constrains */
 function parseSupportDofs(sup: SupportDetail): Set<DofLabel> {
-  const preset = SUPPORT_DOFS[sup.type];
+  const supportDofs = getSupportDofs();
+  const preset = supportDofs[sup.type];
   if (preset) return new Set(preset);
   // Spring or unknown: parse from restrainedDofs string
   const dofs = new Set<DofLabel>();
@@ -184,9 +192,10 @@ export function generateKinematicReport(input: SolverInput): KinematicReport | n
   // Support details
   const supportDetails: SupportDetail[] = [];
   let totalR = 0;
+  const supLabels = getSupportLabels();
   for (const sup of input.supports.values()) {
-    const t = sup.type as string;
-    const preset = SUPPORT_LABELS[t];
+    const st = sup.type as string;
+    const preset = supLabels[st];
     if (preset) {
       supportDetails.push({
         nodeId: sup.nodeId,
@@ -195,7 +204,7 @@ export function generateKinematicReport(input: SolverInput): KinematicReport | n
         restrainedDofs: preset.restrained,
       });
       totalR += preset.dofs;
-    } else if (t === 'spring') {
+    } else if (st === 'spring') {
       const parts: string[] = [];
       let d = 0;
       if (sup.kx && sup.kx > 0) { parts.push('ux'); d++; }
@@ -203,9 +212,9 @@ export function generateKinematicReport(input: SolverInput): KinematicReport | n
       if (sup.kz && sup.kz > 0) { parts.push('θz'); d++; }
       supportDetails.push({
         nodeId: sup.nodeId,
-        type: 'Resorte',
+        type: t('kin.supSpring'),
         dofs: d,
-        restrainedDofs: parts.join(', ') || '(sin rigidez)',
+        restrainedDofs: parts.join(', ') || t('kin.noStiffness'),
       });
       totalR += d;
     }
@@ -247,13 +256,13 @@ export function generateKinematicReport(input: SolverInput): KinematicReport | n
 
     if (k <= 1) {
       ci = 0;
-      explanation = `${elemList} — extremo libre, no genera condición interna`;
+      explanation = `${elemList} — ${t('kin.hingeFreeEnd')}`;
     } else if (hasRot) {
       ci = j;
-      explanation = `${elemList} — nodo con restricción rotacional → c = ${j}`;
+      explanation = `${elemList} — ${t('kin.hingeRotRestraint').replace('{c}', String(j))}`;
     } else {
       ci = Math.min(j, k - 1);
-      explanation = `${elemList} — ${k} elementos frame, ${j} articulaciones → c = min(${j}, ${k}−1) = ${ci}`;
+      explanation = `${elemList} — ${t('kin.hingeFormula').replace('{k}', String(k)).replace('{j}', String(j)).replace('{ci}', String(ci))}`;
     }
 
     if (j > 0) {
@@ -307,33 +316,31 @@ export function generateKinematicReport(input: SolverInput): KinematicReport | n
   let classificationText: string;
   if (degree < 0) {
     classification = 'hypostatic';
-    classificationText = `Hipostática — faltan ${Math.abs(degree)} restricción${Math.abs(degree) > 1 ? 'es' : ''}. La estructura es un mecanismo.`;
+    classificationText = t('kin.classHypostatic').replace('{n}', String(Math.abs(degree))).replace('{s}', Math.abs(degree) > 1 ? t('kin.plural_s') : '');
   } else if (hasHiddenMechanism) {
     // g ≥ 0 but rank analysis reveals mechanism → override classification
     classification = 'hypostatic';
     if (degree === 0) {
-      classificationText = `La fórmula da g = 0 (condición necesaria para isostática), pero NO suficiente. ` +
-        `La verificación numérica (Paso 3) detectó ${mechanismModes} modo${mechanismModes > 1 ? 's' : ''} de mecanismo. ` +
-        `Esto ocurre cuando las restricciones están mal distribuidas: una zona tiene restricciones de sobra y otra zona no tiene las suficientes.`;
+      classificationText = t('kin.classHiddenMechZero').replace('{modes}', String(mechanismModes)).replace('{s}', mechanismModes > 1 ? t('kin.plural_s') : '');
     } else {
-      classificationText = `La fórmula da g = ${degree} > 0 (aparenta ser hiperestática), pero la verificación numérica (Paso 3) detectó ${mechanismModes} modo${mechanismModes > 1 ? 's' : ''} de mecanismo. ` +
-        `Esto ocurre cuando las restricciones están mal distribuidas: una zona es hiperestática (tiene restricciones de sobra) mientras otra es hipostática (le faltan restricciones). El exceso de una zona no compensa el déficit de otra.`;
+      classificationText = t('kin.classHiddenMechPos').replace('{degree}', String(degree)).replace('{modes}', String(mechanismModes)).replace('{s}', mechanismModes > 1 ? t('kin.plural_s') : '');
     }
   } else if (degree === 0) {
     classification = 'isostatic';
-    classificationText = 'Isostática — la cantidad de restricciones es exactamente la necesaria. No hay redundancia.';
+    classificationText = t('kin.classIsostatic');
   } else {
     classification = 'hyperstatic';
-    classificationText = `Hiperestática de grado ${degree} — hay ${degree} ecuación${degree > 1 ? 'es' : ''} de equilibrio más de las necesarias para garantizar estabilidad.`;
+    classificationText = t('kin.classHyperstatic').replace('{degree}', String(degree)).replace('{s}', degree > 1 ? t('kin.plural_s') : '');
   }
 
   // Build detailed unconstrained DOF explanations
+  const dofNames = getDofNames();
   const unconstrainedDofs: UnconstrainedDofDetail[] = [];
   for (const ud of kinResult.unconstrainedDofs) {
     unconstrainedDofs.push({
       nodeId: ud.nodeId,
       dof: ud.dof,
-      dofName: DOF_NAMES[ud.dof] ?? ud.dof,
+      dofName: dofNames[ud.dof] ?? ud.dof,
       explanation: explainUnconstrainedDof(ud.nodeId, ud.dof, input),
     });
   }
@@ -627,7 +634,7 @@ function buildDofBreakdown(
       for (const dof of effective) {
         end.acc[dof].push({
           fromNodeId: end.nId,
-          label: `${end.info.support.type} en Nodo ${end.nId}`,
+          label: `${end.info.support.type} ${t('kin.atNode')} ${end.nId}`,
           viaElems: [],
         });
       }
@@ -643,7 +650,7 @@ function buildDofBreakdown(
         for (const dof of res.effectiveDofs) {
           end.acc[dof].push({
             fromNodeId: end.nId,
-            label: `${res.support.type} en Nodo ${res.support.nodeId}`,
+            label: `${res.support.type} ${t('kin.atNode')} ${res.support.nodeId}`,
             viaElems: res.chain,
           });
         }
@@ -668,7 +675,7 @@ function buildDofBreakdown(
   // Format a source as text (label + chain path)
   const fmtSrc = (s: DofConstraintSource): string => {
     const via = s.viaElems.length > 0
-      ? ` (vía ${s.viaElems.map(id => `Barra ${id}`).join(' → ')})`
+      ? ` (${t('kin.via')} ${s.viaElems.map(id => `${t('kin.member')} ${id}`).join(' → ')})`
       : '';
     return s.label + via;
   };
@@ -678,7 +685,7 @@ function buildDofBreakdown(
   // All other supports (pin, rollers) only provide translational restraint;
   // their θz contribution comes from the moment arm (couple) effect.
   const isDirectThzLabel = (label: string): boolean =>
-    label.startsWith('Empotramiento') || label.startsWith('Resorte');
+    label.startsWith(t('kin.supFixed')) || label.startsWith(t('kin.supSpring'));
 
   // Build a "cupla" explanation: θz is constrained by the force couple formed
   // between translational reactions at both ends of the element (or chain).
@@ -698,12 +705,12 @@ function buildDofBreakdown(
     const descsI = dedup(allTransI);
     const descsJ = dedup(allTransJ);
     if (descsI.length > 0 && descsJ.length > 0) {
-      return `Cupla: ${descsI.join(', ')} ↔ ${descsJ.join(', ')}`;
+      return `${t('kin.couple')}: ${descsI.join(', ')} ↔ ${descsJ.join(', ')}`;
     }
     // Fallback: only one end has translational sources
     const available = descsI.length > 0 ? descsI : descsJ;
-    if (available.length > 0) return `${available.join(', ')} (brazo de palanca)`;
-    return 'Equilibrio de momento';
+    if (available.length > 0) return `${available.join(', ')} (${t('kin.leverArm')})`;
+    return t('kin.momentEquilibrium');
   };
 
   // θz implicit: if frame, no direct/virtual θz sources, but both nodes have translational restraint
@@ -729,7 +736,7 @@ function buildDofBreakdown(
     const sources = combined[dof];
     let displayText: string;
     if (sources.length === 0) {
-      displayText = '⚠ sin restricción';
+      displayText = '⚠ ' + t('kin.noConstraint');
     } else if (dof === 'θz') {
       // θz display: distinguish direct θz (from fixed/spring that directly restrains rotation)
       // from moment arm θz (from translational supports forming a couple).
@@ -751,7 +758,7 @@ function buildDofBreakdown(
         // Implicit already carries the couple text from buildCoupleText()
         parts.push(...implicitSources.map(s => s.label));
       }
-      displayText = parts.length > 0 ? parts.join(' · ') : '⚠ sin restricción';
+      displayText = parts.length > 0 ? parts.join(' · ') : '⚠ ' + t('kin.noConstraint');
     } else {
       displayText = sources.map(fmtSrc).join(' · ');
     }
@@ -770,19 +777,19 @@ function buildDofBreakdown(
   let summary: string;
   if (status === 'mechanism') {
     if (freeDofs.length > 0) {
-      summary = `mecanismo — falta restricción en ${freeDofs.join(', ')}.`;
+      summary = t('kin.summMechMissing').replace('{dofs}', freeDofs.join(', '));
     } else {
-      summary = 'mecanismo.';
+      summary = t('kin.summMech');
     }
   } else if (status === 'hyperstatic') {
     const overDofs = lines.filter(l => l.sources.length > 1 && !l.sources.every(s => s.implicit)).map(l => l.dof);
     if (overDofs.length > 0) {
-      summary = `hiperestática — restricción de más en ${overDofs.join(', ')}.`;
+      summary = t('kin.summHyperOver').replace('{dofs}', overDofs.join(', '));
     } else {
-      summary = 'hiperestática — restricciones de más.';
+      summary = t('kin.summHyper');
     }
   } else {
-    summary = 'isostática — vinculación justa.';
+    summary = t('kin.summIso');
   }
 
   return { lines, totalConstraints, needed, summary };
@@ -804,15 +811,16 @@ function generatePerElementAnalysis(
   // Pre-build support lookup by nodeId
   const supportByNode = new Map<number, SupportDetail>();
   const supportedNodes = new Set<number>();
+  const supLabels2 = getSupportLabels();
   for (const sup of input.supports.values()) {
-    const t = sup.type as string;
-    const preset = SUPPORT_LABELS[t];
+    const st = sup.type as string;
+    const preset = supLabels2[st];
     if (preset) {
       supportByNode.set(sup.nodeId, {
         nodeId: sup.nodeId, type: preset.label, dofs: preset.dofs, restrainedDofs: preset.restrained,
       });
       supportedNodes.add(sup.nodeId);
-    } else if (t === 'spring') {
+    } else if (st === 'spring') {
       const parts: string[] = [];
       let d = 0;
       if (sup.kx && sup.kx > 0) { parts.push('ux'); d++; }
@@ -820,7 +828,7 @@ function generatePerElementAnalysis(
       if (sup.kz && sup.kz > 0) { parts.push('\u03b8z'); d++; }
       if (d > 0) {
         supportByNode.set(sup.nodeId, {
-          nodeId: sup.nodeId, type: 'Resorte', dofs: d, restrainedDofs: parts.join(', '),
+          nodeId: sup.nodeId, type: t('kin.supSpring'), dofs: d, restrainedDofs: parts.join(', '),
         });
         supportedNodes.add(sup.nodeId);
       }
@@ -865,7 +873,7 @@ function generatePerElementAnalysis(
       if (nodeJMech) mechNodeIds.push(elem.nodeJ);
       const dofDetails = mechNodeIds.map(nid => {
         const dofs = unconstrainedByNode.get(nid);
-        return dofs ? `Nodo ${nid}: ${dofs.join(', ')} sin restringir` : `Nodo ${nid}: inestable`;
+        return dofs ? `${t('kin.node')} ${nid}: ${dofs.join(', ')} ${t('kin.unconstrained')}` : `${t('kin.node')} ${nid}: ${t('kin.unstable')}`;
       }).join('. ');
       explanation = `${dofDetails}.`;
     } else if (globalClassification === 'isostatic') {
@@ -979,38 +987,38 @@ function buildConstraintDescription(
     const upDescs = upstream.map(ce => {
       // Find which support this element chain reaches
       const reachedSup = findReachableSupport(ce.elemId, nodeId, thisElemId, nodeElems, supportByNode);
-      const typeLabel = ce.type === 'frame' ? 'rígida' : 'articulada';
-      const hingeNote = ce.hingedAtNode ? ', con articulación' : '';
-      const supNote = reachedSup ? ` \u2192 llega a ${reachedSup.type.toLowerCase()} en Nodo ${reachedSup.nodeId}` : '';
-      return `Barra ${ce.elemId} (${typeLabel}${hingeNote})${supNote}`;
+      const typeLabel = ce.type === 'frame' ? t('kin.connRigid') : t('kin.connHinged');
+      const hingeNote = ce.hingedAtNode ? ', ' + t('kin.withHinge') : '';
+      const supNote = reachedSup ? ` \u2192 ${t('kin.reachesSupport').replace('{type}', reachedSup.type.toLowerCase()).replace('{node}', String(reachedSup.nodeId))}` : '';
+      return `${t('kin.member')} ${ce.elemId} (${typeLabel}${hingeNote})${supNote}`;
     });
     if (support) {
-      parts.push(`+ vinculación de ${upDescs.join('; ')}`);
+      parts.push(`+ ${t('kin.constraintFrom')} ${upDescs.join('; ')}`);
     } else {
-      parts.push(`Vinculación virtual de ${upDescs.join('; ')}`);
+      parts.push(`${t('kin.virtualConstraint')} ${upDescs.join('; ')}`);
     }
   }
 
   // Describe downstream elements (they depend on this bar, not the other way around)
   if (downstream.length > 0) {
-    const downIds = downstream.map(ce => `Barra ${ce.elemId}`).join(', ');
+    const downIds = downstream.map(ce => `${t('kin.member')} ${ce.elemId}`).join(', ');
     if (support || upstream.length > 0) {
-      parts.push(`(${downIds} depende${downstream.length > 1 ? 'n' : ''} de esta cadena)`);
+      parts.push(`(${downIds} ${t('kin.dependsOnChain').replace('{s}', downstream.length > 1 ? t('kin.plural_n') : '')})`);
     }
     // If there's nothing else, these downstream elements don't help
   }
 
   // No support and no upstream connections
   if (!support && upstream.length === 0 && downstream.length === 0) {
-    parts.push('Extremo libre');
+    parts.push(t('kin.freeEnd'));
   } else if (!support && upstream.length === 0 && downstream.length > 0) {
-    const downIds = downstream.map(ce => `Barra ${ce.elemId}`).join(', ');
-    parts.push(`Sin apoyo propio. ${downIds} conectada${downstream.length > 1 ? 's' : ''} pero sin apoyo independiente`);
+    const downIds = downstream.map(ce => `${t('kin.member')} ${ce.elemId}`).join(', ');
+    parts.push(`${t('kin.noOwnSupport')} ${downIds} ${t('kin.connectedNoSupport').replace('{s}', downstream.length > 1 ? t('kin.plural_s') : '')}`);
   }
 
   // Hinge note
   if (isHingedEnd && elemType === 'frame') {
-    parts.push('\u2014 articulación (libera momento)');
+    parts.push('\u2014 ' + t('kin.hingeReleasesMoment'));
   }
 
   return parts.join(' ');
@@ -1081,16 +1089,16 @@ function buildElementExplanation(
   // Build per-node summary
   const descNode = (info: NodeConstraintInfo, c: number): string => {
     if (info.support && info.connectedElems.some(ce => ce.reachesSupport)) {
-      return `${info.support.type.toLowerCase()} + vinculación de barras conectadas`;
+      return `${info.support.type.toLowerCase()} + ${t('kin.constraintFromMembers')}`;
     }
     if (info.support) {
-      return `${info.support.type.toLowerCase()} (${info.support.dofs} reac.)`;
+      return `${info.support.type.toLowerCase()} (${info.support.dofs} ${t('kin.reactions')})`;
     }
     const upstreams = info.connectedElems.filter(ce => ce.reachesSupport);
     if (upstreams.length > 0) {
-      return `vinculación virtual (${c} restr. efectivas)`;
+      return `${t('kin.virtualConstraintShort')} (${c} ${t('kin.effectiveRestr')})`;
     }
-    return 'sin restricciones directas';
+    return t('kin.noDirectConstraints');
   };
 
   const nI = descNode(nodeIInfo, cI);
@@ -1098,11 +1106,11 @@ function buildElementExplanation(
 
   if (status === 'hyperstatic') {
     const excess = total - needed;
-    return `Nodo ${nodeIInfo.nodeId}: ${nI}. Nodo ${nodeJInfo.nodeId}: ${nJ}. Total: ${total} restricciones efectivas para ${needed} GDL \u2014 ${excess} de más.`;
+    return `${t('kin.node')} ${nodeIInfo.nodeId}: ${nI}. ${t('kin.node')} ${nodeJInfo.nodeId}: ${nJ}. ${t('kin.totalEffective').replace('{total}', String(total)).replace('{needed}', String(needed)).replace('{excess}', String(excess))}`;
   }
 
   // isostatic
-  return `Nodo ${nodeIInfo.nodeId}: ${nI}. Nodo ${nodeJInfo.nodeId}: ${nJ}. Vinculación justa para ${needed} GDL \u2014 no sobra ni falta.`;
+  return `${t('kin.node')} ${nodeIInfo.nodeId}: ${nI}. ${t('kin.node')} ${nodeJInfo.nodeId}: ${nJ}. ${t('kin.justRight').replace('{needed}', String(needed))}`;
 }
 
 // ─── Helpers ────────────────────────────────────────────────────
@@ -1160,7 +1168,7 @@ function explainUnconstrainedDof(nodeId: number, dof: string, input: SolverInput
   const supportedNodes = new Set(Array.from(input.supports.values()).map(s => s.nodeId));
 
   if (connectedElems.length === 0) {
-    return `El nodo ${nodeId} no está conectado a ningún elemento.`;
+    return t('kin.nodeNotConnected').replace('{node}', String(nodeId));
   }
 
   // Check if all elements at node are hinged
@@ -1171,20 +1179,20 @@ function explainUnconstrainedDof(nodeId: number, dof: string, input: SolverInput
   // Rotation DOF unconstrained
   if (dof === 'rz') {
     if (allHinged && !support) {
-      return `Todas las barras en el nodo ${nodeId} tienen articulación — no hay transferencia de momento. ` +
-        `Elementos: ${frameElems.map(e => `Elem. ${e.id}`).join(', ')}.`;
+      return t('kin.allHingedNoMoment').replace('{node}', String(nodeId)).replace('{elems}', frameElems.map(e => `Elem. ${e.id}`).join(', '));
     }
     if (allHinged && support && support.type !== 'fixed') {
-      return `Todas las barras en el nodo ${nodeId} están articuladas y el apoyo (${SUPPORT_LABELS[support.type as string]?.label ?? support.type}) no restringe rotación.`;
+      const supLabel = getSupportLabels()[support.type as string]?.label ?? support.type;
+      return t('kin.allHingedSupportNoRot').replace('{node}', String(nodeId)).replace('{support}', supLabel);
     }
-    return `El nodo ${nodeId} no tiene suficiente restricción rotacional.`;
+    return t('kin.insufficientRotConstraint').replace('{node}', String(nodeId));
   }
 
   // Translation DOF (ux or uy) unconstrained
-  const direction = dof === 'ux' ? 'horizontal' : 'vertical';
+  const direction = dof === 'ux' ? t('kin.dirHorizontal') : t('kin.dirVertical');
 
   if (!support && connectedElems.length === 1) {
-    return `El nodo ${nodeId} es un extremo libre — solo conectado al Elem. ${connectedElems[0].id}, sin apoyo.`;
+    return t('kin.nodeFreeEnd').replace('{node}', String(nodeId)).replace('{elem}', String(connectedElems[0].id));
   }
 
   // Check for bi-articulated elements (only transmit axial)
@@ -1207,10 +1215,10 @@ function explainUnconstrainedDof(nodeId: number, dof: string, input: SolverInput
     });
 
     if (dof === 'ux' && biArtVertical.length === biArticulated.length && biArticulated.length === connectedElems.length) {
-      return `Los elementos conectados al nodo ${nodeId} (${biArtIds}) son bi-articulados y verticales — solo transmiten fuerza axial vertical, sin rigidez ${direction}.`;
+      return t('kin.biArtVertical').replace('{node}', String(nodeId)).replace('{elems}', biArtIds).replace('{dir}', direction);
     }
     if (dof === 'uy' && biArtHorizontal.length === biArticulated.length && biArticulated.length === connectedElems.length) {
-      return `Los elementos conectados al nodo ${nodeId} (${biArtIds}) son bi-articulados y horizontales — solo transmiten fuerza axial horizontal, sin rigidez ${direction}.`;
+      return t('kin.biArtHorizontal').replace('{node}', String(nodeId)).replace('{elems}', biArtIds).replace('{dir}', direction);
     }
   }
 
@@ -1231,7 +1239,7 @@ function explainUnconstrainedDof(nodeId: number, dof: string, input: SolverInput
       }
     }
     if (allCollinear) {
-      return `Los elementos en el nodo ${nodeId} son colineales y todos están articulados — pueden deslizar perpendicularmente sin resistencia.`;
+      return t('kin.collinearHinged').replace('{node}', String(nodeId));
     }
   }
 
@@ -1245,15 +1253,15 @@ function explainUnconstrainedDof(nodeId: number, dof: string, input: SolverInput
     });
 
     if (!hasPathToSupport && allHinged) {
-      return `El nodo ${nodeId} no tiene apoyo y todas sus barras están articuladas — no recibe rigidez ${direction} de ningún elemento.`;
+      return t('kin.noSupportAllHinged').replace('{node}', String(nodeId)).replace('{dir}', direction);
     }
     if (!hasPathToSupport) {
-      return `El nodo ${nodeId} no tiene restricción ${direction} suficiente. Revisar apoyos y articulaciones de los elementos conectados.`;
+      return t('kin.insufficientDirConstraint').replace('{node}', String(nodeId)).replace('{dir}', direction);
     }
   }
 
   // Generic fallback
-  return `El nodo ${nodeId} tiene el GDL "${DOF_NAMES[dof] ?? dof}" sin restringir. La combinación de apoyos y articulaciones no alcanza para estabilizarlo en esa dirección.`;
+  return t('kin.genericUnconstrained').replace('{node}', String(nodeId)).replace('{dof}', getDofNames()[dof] ?? dof);
 }
 
 /**
@@ -1276,11 +1284,11 @@ function generateSuggestions(
       if (!seen.has(key)) {
         seen.add(key);
         if (ud.dof === 'rz') {
-          suggestions.push(`Agregar un empotramiento en el nodo ${ud.nodeId} para restringir la rotación.`);
+          suggestions.push(t('kin.sugAddFixed').replace('{node}', String(ud.nodeId)));
         } else if (ud.dof === 'ux') {
-          suggestions.push(`Agregar un apoyo que restrinja el desplazamiento horizontal en el nodo ${ud.nodeId} (articulación fija, empotramiento o roller vertical).`);
+          suggestions.push(t('kin.sugAddHorizSupport').replace('{node}', String(ud.nodeId)));
         } else {
-          suggestions.push(`Agregar un apoyo que restrinja el desplazamiento vertical en el nodo ${ud.nodeId} (articulación fija, empotramiento o roller horizontal).`);
+          suggestions.push(t('kin.sugAddVertSupport').replace('{node}', String(ud.nodeId)));
         }
       }
     }
@@ -1292,7 +1300,7 @@ function generateSuggestions(
         const key = `upgrade-${ud.nodeId}`;
         if (!seen.has(key)) {
           seen.add(key);
-          suggestions.push(`Cambiar el apoyo en nodo ${ud.nodeId} de ${SUPPORT_LABELS[sup.type as string]?.label ?? sup.type} a empotramiento para restringir rotación.`);
+          suggestions.push(t('kin.sugUpgradeSupport').replace('{node}', String(ud.nodeId)).replace('{type}', getSupportLabels()[sup.type as string]?.label ?? sup.type));
         }
       }
     }
@@ -1307,7 +1315,7 @@ function generateSuggestions(
       const key = `remove-hinge-${ud.nodeId}`;
       if (!seen.has(key)) {
         seen.add(key);
-        suggestions.push(`Quitar la articulación del Elem. ${hingesHere[0].elemId} (extremo ${hingesHere[0].end}) en el nodo ${ud.nodeId} para permitir transferencia de momento.`);
+        suggestions.push(t('kin.sugRemoveHinge').replace('{elem}', String(hingesHere[0].elemId)).replace('{end}', hingesHere[0].end).replace('{node}', String(ud.nodeId)));
       }
     }
   }
@@ -1325,14 +1333,14 @@ function generateSuggestions(
       const key = 'global-horizontal';
       if (!seen.has(key)) {
         seen.add(key);
-        suggestions.push('La estructura carece de restricción horizontal global. Verificar que al menos un apoyo restrinja desplazamiento horizontal (articulación fija, empotramiento, o roller vertical).');
+        suggestions.push(t('kin.sugGlobalHorizontal'));
       }
     }
   }
 
   // If no specific suggestions yet, add a generic one
   if (suggestions.length === 0) {
-    suggestions.push('Revisar la combinación de apoyos y articulaciones. La estructura necesita más restricciones para ser estable.');
+    suggestions.push(t('kin.sugGeneric'));
   }
 
   return suggestions;

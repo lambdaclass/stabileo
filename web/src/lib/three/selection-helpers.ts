@@ -95,6 +95,19 @@ export function heatmapColor(norm: number): number {
 }
 
 /**
+ * Verification status color: ok → green, warn → yellow, fail → red.
+ * Ratio-based: uses continuous gradient from green(0) → yellow(0.8) → red(1.2+).
+ */
+export function verificationColor(ratio: number | null): number {
+  if (ratio === null) return 0x888888; // no verification → gray
+  if (ratio <= 0.5) return 0x22cc66;     // green (safe)
+  if (ratio <= 0.9) return 0x88cc22;     // yellow-green
+  if (ratio <= 1.0) return 0xddaa00;     // amber (near limit)
+  if (ratio <= 1.1) return 0xff6600;     // orange (marginal fail)
+  return 0xee2222;                        // red (fail)
+}
+
+/**
  * Axial force color: tension (positive) → red, compression (negative) → blue, ~zero → gray
  */
 export function axialForceColor(nAvg: number): number {

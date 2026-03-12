@@ -14,6 +14,7 @@
 
 import * as XLSX from 'xlsx';
 import { modelStore, resultsStore, uiStore } from '../store';
+import { t } from '../i18n';
 
 interface ExcelExportOptions {
   filename?: string;
@@ -35,18 +36,18 @@ function createSummarySheet(): XLSX.WorkSheet {
   const r2d = resultsStore.results;
   const data: (string | number)[][] = [];
 
-  data.push([`ANÁLISIS ESTRUCTURAL ${is3D ? '3D' : '2D'} - RESUMEN`]);
+  data.push([`${t('excel.structuralAnalysis')} ${is3D ? '3D' : '2D'} - ${t('excel.summary')}`]);
   data.push([]);
 
-  data.push(['MODELO']);
-  data.push(['Nodos', modelStore.nodes.size]);
-  data.push(['Elementos', modelStore.elements.size]);
-  data.push(['Apoyos', modelStore.supports.size]);
-  data.push(['Cargas', modelStore.loads.length]);
+  data.push([t('excel.model')]);
+  data.push([t('excel.nodes'), modelStore.nodes.size]);
+  data.push([t('excel.elements'), modelStore.elements.size]);
+  data.push([t('excel.supports'), modelStore.supports.size]);
+  data.push([t('excel.loads'), modelStore.loads.length]);
   data.push([]);
 
   if (is3D && r3d) {
-    data.push(['RESULTADOS MÁXIMOS']);
+    data.push([t('excel.maxResults')]);
     let maxDisp = 0, maxN = 0, maxVy = 0, maxVz = 0, maxMy = 0, maxMz = 0, maxMx = 0;
     for (const d of r3d.displacements) {
       const mag = Math.sqrt(d.ux ** 2 + d.uy ** 2 + d.uz ** 2);
@@ -60,13 +61,13 @@ function createSummarySheet(): XLSX.WorkSheet {
       maxMy = Math.max(maxMy, Math.abs(ef.myStart), Math.abs(ef.myEnd));
       maxMz = Math.max(maxMz, Math.abs(ef.mzStart), Math.abs(ef.mzEnd));
     }
-    data.push(['Desplazamiento máximo', (maxDisp * 1000).toFixed(4), 'mm']);
-    data.push(['|N| máximo', maxN.toFixed(2), 'kN']);
-    data.push(['|Vy| máximo', maxVy.toFixed(2), 'kN']);
-    data.push(['|Vz| máximo', maxVz.toFixed(2), 'kN']);
-    data.push(['|Mx| máximo', maxMx.toFixed(2), 'kN·m']);
-    data.push(['|My| máximo', maxMy.toFixed(2), 'kN·m']);
-    data.push(['|Mz| máximo', maxMz.toFixed(2), 'kN·m']);
+    data.push([t('excel.maxDisplacement'), (maxDisp * 1000).toFixed(4), 'mm']);
+    data.push([t('excel.maxN'), maxN.toFixed(2), 'kN']);
+    data.push([t('excel.maxVy'), maxVy.toFixed(2), 'kN']);
+    data.push([t('excel.maxVz'), maxVz.toFixed(2), 'kN']);
+    data.push([t('excel.maxMx'), maxMx.toFixed(2), 'kN·m']);
+    data.push([t('excel.maxMy'), maxMy.toFixed(2), 'kN·m']);
+    data.push([t('excel.maxMz'), maxMz.toFixed(2), 'kN·m']);
     data.push([]);
 
     let sumFx = 0, sumFy = 0, sumFz = 0, sumMx2 = 0, sumMy2 = 0, sumMz2 = 0;
@@ -74,7 +75,7 @@ function createSummarySheet(): XLSX.WorkSheet {
       sumFx += r.fx; sumFy += r.fy; sumFz += r.fz;
       sumMx2 += r.mx; sumMy2 += r.my; sumMz2 += r.mz;
     }
-    data.push(['VERIFICACIÓN DE EQUILIBRIO']);
+    data.push([t('excel.equilibriumCheck')]);
     data.push(['ΣFx', sumFx.toFixed(4), 'kN']);
     data.push(['ΣFy', sumFy.toFixed(4), 'kN']);
     data.push(['ΣFz', sumFz.toFixed(4), 'kN']);
@@ -82,23 +83,23 @@ function createSummarySheet(): XLSX.WorkSheet {
     data.push(['ΣMy', sumMy2.toFixed(4), 'kN·m']);
     data.push(['ΣMz', sumMz2.toFixed(4), 'kN·m']);
   } else if (r2d) {
-    data.push(['RESULTADOS MÁXIMOS']);
-    data.push(['Desplazamiento máximo', (resultsStore.maxDisplacement * 1000).toFixed(4), 'mm']);
-    data.push(['Momento máximo', resultsStore.maxMoment.toFixed(2), 'kN·m']);
-    data.push(['Corte máximo', resultsStore.maxShear.toFixed(2), 'kN']);
+    data.push([t('excel.maxResults')]);
+    data.push([t('excel.maxDisplacement'), (resultsStore.maxDisplacement * 1000).toFixed(4), 'mm']);
+    data.push([t('excel.maxMoment'), resultsStore.maxMoment.toFixed(2), 'kN·m']);
+    data.push([t('excel.maxShear'), resultsStore.maxShear.toFixed(2), 'kN']);
 
     let maxAxial = 0;
     for (const ef of r2d.elementForces) {
       maxAxial = Math.max(maxAxial, Math.abs(ef.nStart), Math.abs(ef.nEnd));
     }
-    data.push(['Axil máximo', maxAxial.toFixed(2), 'kN']);
+    data.push([t('excel.maxAxial'), maxAxial.toFixed(2), 'kN']);
     data.push([]);
 
     let sumRx = 0, sumRy = 0, sumMz = 0;
     for (const r of r2d.reactions) {
       sumRx += r.rx; sumRy += r.ry; sumMz += r.mz;
     }
-    data.push(['VERIFICACIÓN DE EQUILIBRIO']);
+    data.push([t('excel.equilibriumCheck')]);
     data.push(['ΣRx', sumRx.toFixed(4), 'kN']);
     data.push(['ΣRy', sumRy.toFixed(4), 'kN']);
     data.push(['ΣMz', sumMz.toFixed(4), 'kN·m']);
@@ -116,12 +117,12 @@ function createElementsSheet(): XLSX.WorkSheet {
   const hasResults = is3D ? !!r3d : !!r2d;
 
   const headers = [
-    'ID', 'Tipo', 'Nodo I', 'Nodo J', 'L (m)',
-    'Material', 'E (MPa)',
-    'Sección', 'A (m²)', 'Iy (m⁴)',
+    'ID', t('excel.type'), t('excel.nodeI'), t('excel.nodeJ'), 'L (m)',
+    t('excel.material'), 'E (MPa)',
+    t('excel.section'), 'A (m²)', 'Iy (m⁴)',
   ];
   if (is3D) headers.push('Iz (m⁴)', 'J (m⁴)');
-  headers.push('Art. I', 'Art. J');
+  headers.push(t('excel.hingeI'), t('excel.hingeJ'));
 
   if (hasResults && is3D) {
     headers.push(
@@ -157,7 +158,7 @@ function createElementsSheet(): XLSX.WorkSheet {
       sec?.name ?? '-', sec?.a ?? 0, sec?.iy ?? sec?.iz ?? 0,
     ];
     if (is3D) row.push(sec?.iz ?? 0, sec?.j ?? 0);
-    row.push(elem.hingeStart ? 'Sí' : 'No', elem.hingeEnd ? 'Sí' : 'No');
+    row.push(elem.hingeStart ? t('excel.yes') : t('excel.no'), elem.hingeEnd ? t('excel.yes') : t('excel.no'));
 
     if (hasResults && is3D && r3d) {
       const f = r3d.elementForces.find(f => f.elementId === elem.id);
@@ -260,11 +261,11 @@ function createReactionsSheet(): XLSX.WorkSheet {
   const r2d = resultsStore.results;
 
   if (!r3d && !r2d) {
-    return XLSX.utils.aoa_to_sheet([['Sin resultados - calcular primero']]);
+    return XLSX.utils.aoa_to_sheet([[t('excel.noResults')]]);
   }
 
   if (is3D && r3d) {
-    const headers = ['Nodo', 'Tipo', 'Fx (kN)', 'Fy (kN)', 'Fz (kN)', 'Mx (kN·m)', 'My (kN·m)', 'Mz (kN·m)'];
+    const headers = [t('excel.node'), t('excel.type'), 'Fx (kN)', 'Fy (kN)', 'Fz (kN)', 'Mx (kN·m)', 'My (kN·m)', 'Mz (kN·m)'];
     const data: (string | number)[][] = [headers];
 
     for (const r of r3d.reactions) {
@@ -282,7 +283,7 @@ function createReactionsSheet(): XLSX.WorkSheet {
     );
     data.push([]);
     data.push([
-      'TOTAL', '',
+      t('excel.total'), '',
       Number(totals.fx.toFixed(4)), Number(totals.fy.toFixed(4)), Number(totals.fz.toFixed(4)),
       Number(totals.mx.toFixed(4)), Number(totals.my.toFixed(4)), Number(totals.mz.toFixed(4)),
     ]);
@@ -293,14 +294,14 @@ function createReactionsSheet(): XLSX.WorkSheet {
   }
 
   // 2D fallback
-  const headers = ['Nodo', 'Tipo Apoyo', 'Rx (kN)', 'Ry (kN)', 'Mz (kN·m)'];
+  const headers = [t('excel.node'), t('excel.supportType'), 'Rx (kN)', 'Ry (kN)', 'Mz (kN·m)'];
   const data: (string | number)[][] = [headers];
 
   for (const r of r2d!.reactions) {
     const sup = [...modelStore.supports.values()].find(s => s.nodeId === r.nodeId);
     const supType = sup ? {
-      fixed: 'Empotrado', pinned: 'Articulado',
-      rollerX: 'Móvil X', rollerY: 'Móvil Y', spring: 'Resorte',
+      fixed: t('excel.fixed'), pinned: t('excel.pinned'),
+      rollerX: t('excel.rollerX'), rollerY: t('excel.rollerY'), spring: t('excel.spring'),
     }[sup.type] ?? sup.type : '-';
 
     data.push([
@@ -314,7 +315,7 @@ function createReactionsSheet(): XLSX.WorkSheet {
     { rx: 0, ry: 0, mz: 0 }
   );
   data.push([]);
-  data.push(['TOTAL', '', Number(totals.rx.toFixed(4)), Number(totals.ry.toFixed(4)), Number(totals.mz.toFixed(4))]);
+  data.push([t('excel.total'), '', Number(totals.rx.toFixed(4)), Number(totals.ry.toFixed(4)), Number(totals.mz.toFixed(4))]);
 
   const ws = XLSX.utils.aoa_to_sheet(data);
   ws['!cols'] = [{ wch: 8 }, { wch: 14 }, { wch: 12 }, { wch: 12 }, { wch: 14 }];
@@ -322,7 +323,7 @@ function createReactionsSheet(): XLSX.WorkSheet {
 }
 
 function createMaterialsSheet(): XLSX.WorkSheet {
-  const headers = ['ID', 'Nombre', 'E (MPa)', 'ν', 'ρ (kN/m³)', 'fy (MPa)'];
+  const headers = ['ID', t('excel.name'), 'E (MPa)', 'ν', 'ρ (kN/m³)', 'fy (MPa)'];
   const data: (string | number)[][] = [headers];
 
   for (const mat of modelStore.materials.values()) {
@@ -336,7 +337,7 @@ function createMaterialsSheet(): XLSX.WorkSheet {
 
 function createSectionsSheet(): XLSX.WorkSheet {
   const is3D = uiStore.analysisMode === '3d';
-  const headers = ['ID', 'Nombre', 'Forma', 'A (m²)', 'Iy (m⁴)'];
+  const headers = ['ID', t('excel.name'), t('excel.shape'), 'A (m²)', 'Iy (m⁴)'];
   if (is3D) headers.push('Iz (m⁴)', 'J (m⁴)');
   headers.push('b (m)', 'h (m)', 'tw (m)', 'tf (m)');
 
@@ -365,16 +366,16 @@ export function exportToExcel(options: ExcelExportOptions = {}): void {
 
   const wb = XLSX.utils.book_new();
 
-  XLSX.utils.book_append_sheet(wb, createSummarySheet(), 'Resumen');
-  XLSX.utils.book_append_sheet(wb, createElementsSheet(), 'Elementos');
-  XLSX.utils.book_append_sheet(wb, createNodesSheet(), 'Nodos');
+  XLSX.utils.book_append_sheet(wb, createSummarySheet(), t('excel.sheetSummary'));
+  XLSX.utils.book_append_sheet(wb, createElementsSheet(), t('excel.sheetElements'));
+  XLSX.utils.book_append_sheet(wb, createNodesSheet(), t('excel.sheetNodes'));
 
   if (includeResults && hasResults) {
-    XLSX.utils.book_append_sheet(wb, createReactionsSheet(), 'Reacciones');
+    XLSX.utils.book_append_sheet(wb, createReactionsSheet(), t('excel.sheetReactions'));
   }
 
-  XLSX.utils.book_append_sheet(wb, createMaterialsSheet(), 'Materiales');
-  XLSX.utils.book_append_sheet(wb, createSectionsSheet(), 'Secciones');
+  XLSX.utils.book_append_sheet(wb, createMaterialsSheet(), t('excel.sheetMaterials'));
+  XLSX.utils.book_append_sheet(wb, createSectionsSheet(), t('excel.sheetSections'));
 
   XLSX.writeFile(wb, filename);
 }

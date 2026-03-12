@@ -1,5 +1,6 @@
 <script lang="ts">
   import type { DSMStepData } from '../../lib/engine/solver-detailed';
+  import { t } from '../../lib/i18n';
   import { dsmStepsStore } from '../../lib/store';
   import MathEquation from './MathEquation.svelte';
   import MatrixDisplay from './MatrixDisplay.svelte';
@@ -23,14 +24,14 @@
 
 <div class="step">
   <div class="explanation">
-    <p>La <strong>matriz de transformación</strong> [T] rota las coordenadas locales del elemento al sistema global.</p>
-    <p>Luego se obtiene la rigidez global del elemento:</p>
+    <p>{@html t('dsm.step3.explanation')}</p>
+    <p>{@html t('dsm.step3.thenGlobal')}</p>
   </div>
 
   <MathEquation equation="[K]_e = [T]^T \\cdot [k] \\cdot [T]" displayMode />
 
   <div class="elem-selector">
-    <label for="elem-select-3">Elemento:</label>
+    <label for="elem-select-3">{t('dsm.step3.element')}</label>
     <select id="elem-select-3" onchange={(e) => dsmStepsStore.selectElement(Number((e.target as HTMLSelectElement).value))}>
       {#each data.elements as el}
         <option value={el.elementId} selected={el.elementId === dsmStepsStore.selectedElemForStep}>
@@ -43,8 +44,7 @@
   {#if elem}
     {#if is3D}
       <div class="angle-info">
-        En 3D, [T] se construye con la <strong>matriz de cosenos directores</strong> R = [eₓ; eᵧ; e_z] del sistema local del elemento.
-        Tamaño: {elem.T.length}×{elem.T[0]?.length}
+        {@html t('dsm.step3.cosinesNote').replace('{rows}', String(elem.T.length)).replace('{cols}', String(elem.T[0]?.length))}
       </div>
     {:else}
       <div class="angle-info">
@@ -59,7 +59,7 @@
     {/if}
 
     <MatrixDisplay
-      title="[T] — Transformación"
+      title={t('dsm.step3.transformation')}
       matrix={elem.T}
       precision={4}
       compact
@@ -69,7 +69,7 @@
     <div class="separator"></div>
 
     <MatrixDisplay
-      title="[K]ₑ = [T]ᵀ·[k]·[T] — Rigidez global del elemento"
+      title={t('dsm.step3.globalStiffness')}
       matrix={elem.kGlobal}
       rowLabels={elem.dofLabels}
       colLabels={elem.dofLabels}
@@ -78,7 +78,7 @@
     />
 
     <div class="dof-mapping">
-      <span class="map-label">GDL del elemento:</span>
+      <span class="map-label">{t('dsm.step3.dofMapping')}</span>
       {#each elem.dofIndices as dofIdx, i}
         <span class="dof-chip">{elem.dofLabels[i]} → [{dofIdx}]</span>
       {/each}

@@ -1,5 +1,6 @@
 <script lang="ts">
   import { uiStore, resultsStore, modelStore } from '../../lib/store';
+  import { t } from '../../lib/i18n';
   import type { NodalLoad, DistributedLoad, PointLoadOnElement, NodalLoad3D, DistributedLoad3D } from '../../lib/store/model.svelte.ts';
 
   function updateLoadField(loadId: number, field: string, val: string | boolean) {
@@ -58,19 +59,19 @@
     resultsStore.clear();
   }
 
-  const supTypeLabels: Record<string, string> = {
-    fixed: 'Empotrado',
-    pinned: 'Articulado',
-    rollerX: 'Móvil',
-    rollerY: 'Móvil',
-    spring: 'Resorte',
-    fixed3d: 'Empotrado 3D',
-    pinned3d: 'Articulado 3D',
-    rollerXZ: 'Móvil XZ',
-    rollerXY: 'Móvil XY',
-    rollerYZ: 'Móvil YZ',
-    spring3d: 'Resorte 3D',
-    custom3d: 'Personalizado 3D',
+  const supTypeLabelKeys: Record<string, string> = {
+    fixed: 'selEntity.supFixed',
+    pinned: 'selEntity.supPinned',
+    rollerX: 'selEntity.supRoller',
+    rollerY: 'selEntity.supRoller',
+    spring: 'selEntity.supSpring',
+    fixed3d: 'selEntity.supFixed3d',
+    pinned3d: 'selEntity.supPinned3d',
+    rollerXZ: 'selEntity.supRollerXZ',
+    rollerXY: 'selEntity.supRollerXY',
+    rollerYZ: 'selEntity.supRollerYZ',
+    spring3d: 'selEntity.supSpring3d',
+    custom3d: 'selEntity.supCustom3d',
   };
 
   function isRollerType(type: string): boolean {
@@ -82,10 +83,10 @@
   }
 
   const supportTypes = [
-    { id: 'fixed', label: 'Empot.', icon: '▣', svg: false },
-    { id: 'pinned', label: 'Artic.', icon: '△', svg: false },
-    { id: 'roller', label: 'Móvil', icon: '', svg: true },
-    { id: 'spring', label: 'Resorte', icon: '⌇', svg: false },
+    { id: 'fixed', key: 'float.supportFixedShort', icon: '▣', svg: false },
+    { id: 'pinned', key: 'float.supportPinnedShort', icon: '△', svg: false },
+    { id: 'roller', key: 'float.supportRoller', icon: '', svg: true },
+    { id: 'spring', key: 'float.supportSpring', icon: '⌇', svg: false },
   ] as const;
 
   // Get the single selected load (for inline edit)
@@ -105,12 +106,12 @@
 
 {#if selectedLoad}
   <div class="ft-load-edit">
-    <span class="ft-load-tag">Editando carga:</span>
+    <span class="ft-load-tag">{t('selEntity.editingLoad')}</span>
     <span class="ft-case-dot" style="background: {modelStore.getLoadCaseColor((selectedLoad.data as any).caseId ?? 1)}"></span>
     <select class="ft-case-select"
       value={String((selectedLoad.data as any).caseId ?? 1)}
       onchange={(e) => { updateLoadField(selectedLoad.data.id, 'caseId', e.currentTarget.value); }}
-      title="Caso de carga">
+      title={t('selEntity.loadCase')}>
       {#each modelStore.loadCases as lc}
         <option value={String(lc.id)}>{lc.type || lc.name}</option>
       {/each}
@@ -157,8 +158,8 @@
         <span class="ft-unit">m</span>
       </label>
       <span class="ft-sep">|</span>
-      <button class="ft-opt-btn ft-coord-btn" class:active={dl.isGlobal === true} onclick={() => updateLoadField(dl.id, 'isGlobal', true)} title="Eje global Y">Y</button>
-      <button class="ft-opt-btn ft-coord-btn" class:active={!dl.isGlobal} onclick={() => updateLoadField(dl.id, 'isGlobal', false)} title="Perpendicular a la barra">⊥</button>
+      <button class="ft-opt-btn ft-coord-btn" class:active={dl.isGlobal === true} onclick={() => updateLoadField(dl.id, 'isGlobal', true)} title={t('float.loadGlobalYDir')}>Y</button>
+      <button class="ft-opt-btn ft-coord-btn" class:active={!dl.isGlobal} onclick={() => updateLoadField(dl.id, 'isGlobal', false)} title={t('float.loadPerpDir')}>⊥</button>
       <label class="ft-input-group">
         <span>α:</span>
         <input type="number" step="5" value={dl.angle ?? 0} onchange={(e) => updateLoadField(dl.id, 'angle', e.currentTarget.value)} />
@@ -188,8 +189,8 @@
         <span class="ft-unit">kN·m</span>
       </label>
       <span class="ft-sep">|</span>
-      <button class="ft-opt-btn ft-coord-btn" class:active={pl.isGlobal === true} onclick={() => updateLoadField(pl.id, 'isGlobal', true)} title="Eje global Y">Y</button>
-      <button class="ft-opt-btn ft-coord-btn" class:active={!pl.isGlobal} onclick={() => updateLoadField(pl.id, 'isGlobal', false)} title="Perpendicular a la barra">⊥</button>
+      <button class="ft-opt-btn ft-coord-btn" class:active={pl.isGlobal === true} onclick={() => updateLoadField(pl.id, 'isGlobal', true)} title={t('float.loadGlobalYDir')}>Y</button>
+      <button class="ft-opt-btn ft-coord-btn" class:active={!pl.isGlobal} onclick={() => updateLoadField(pl.id, 'isGlobal', false)} title={t('float.loadPerpDir')}>⊥</button>
       <label class="ft-input-group">
         <span>α:</span>
         <input type="number" step="5" value={pl.angle ?? 0} onchange={(e) => updateLoadField(pl.id, 'angle', e.currentTarget.value)} />
@@ -222,20 +223,20 @@
       <label class="ft-input-group"><span>qZI:</span><input type="number" step="1" value={dl3.qZI} onchange={(e) => updateLoadField(dl3.id, 'qZI', e.currentTarget.value)} /><span class="ft-unit">kN/m</span></label>
       <label class="ft-input-group"><span>qZJ:</span><input type="number" step="1" value={dl3.qZJ} onchange={(e) => updateLoadField(dl3.id, 'qZJ', e.currentTarget.value)} /><span class="ft-unit">kN/m</span></label>
     {/if}
-    <button class="ft-load-delete" onclick={deleteSelectedLoads} title="Eliminar carga">🗑</button>
-    <button class="ft-load-done" onclick={() => { uiStore.clearSelectedLoads(); uiStore.currentTool = 'load'; }} title="Deseleccionar y volver a modo carga">✓</button>
+    <button class="ft-load-delete" onclick={deleteSelectedLoads} title={t('selEntity.deleteLoad')}>🗑</button>
+    <button class="ft-load-done" onclick={() => { uiStore.clearSelectedLoads(); uiStore.currentTool = 'load'; }} title={t('selEntity.deselectBack')}>✓</button>
   </div>
 {:else if uiStore.selectedLoads.size > 1}
   <div class="ft-load-edit">
-    <span class="ft-load-tag">{uiStore.selectedLoads.size} cargas seleccionadas</span>
-    <button class="ft-load-delete" onclick={deleteSelectedLoads} title="Eliminar cargas seleccionadas">🗑 Eliminar</button>
-    <button class="ft-load-done" onclick={() => uiStore.clearSelectedLoads()} title="Deseleccionar">✓</button>
+    <span class="ft-load-tag">{t('selEntity.loadsSelected').replace('{n}', String(uiStore.selectedLoads.size))}</span>
+    <button class="ft-load-delete" onclick={deleteSelectedLoads} title={t('selEntity.deleteSelectedLoads')}>🗑 {t('selEntity.deleteBtn')}</button>
+    <button class="ft-load-done" onclick={() => uiStore.clearSelectedLoads()} title={t('selEntity.deselect')}>✓</button>
   </div>
 {/if}
 
 {#if selectedSup}
   <div class="ft-load-edit">
-    <span class="ft-load-tag">Apoyo: {supTypeLabels[selectedSup.type] ?? selectedSup.type}</span>
+    <span class="ft-load-tag">{t('selEntity.support')} {t(supTypeLabelKeys[selectedSup.type] ?? '') || selectedSup.type}</span>
     <span class="ft-sep">|</span>
     {#if is3DSupport(selectedSup.type)}
       <!-- 3D per-DOF editing for selected support -->
@@ -320,7 +321,7 @@
         class="ft-opt-btn ft-sup-btn"
         class:active={st.id === 'roller' ? isRollerType(selectedSup.type) : selectedSup.type === st.id}
         onclick={() => changeSupportType(selectedSup.id, st.id === 'roller' ? 'rollerX' : st.id)}
-        title={st.label}
+        title={t(st.key)}
       >
         {#if st.id === 'roller'}
           <svg class="ft-sup-svg" viewBox="0 0 20 20" width="14" height="14">
@@ -338,23 +339,23 @@
       <span class="ft-sep">|</span>
       <button class="ft-opt-btn ft-dir-btn" class:active={selectedSup.type === 'rollerX'}
         onclick={() => changeSupportType(selectedSup.id, 'rollerX')}
-        title={selectedSup.isGlobal !== false ? 'Restringe Y (reacción vertical)' : 'Restringe eje j (perpendicular)'}
+        title={selectedSup.isGlobal !== false ? t('float.rollerRestrictsYGlobal') : t('float.rollerRestrictsJLocal')}
       >{selectedSup.isGlobal !== false ? 'X' : 'i'}</button>
       <button class="ft-opt-btn ft-dir-btn" class:active={selectedSup.type === 'rollerY'}
         onclick={() => changeSupportType(selectedSup.id, 'rollerY')}
-        title={selectedSup.isGlobal !== false ? 'Restringe X (reacción horizontal)' : 'Restringe eje i (paralelo)'}
+        title={selectedSup.isGlobal !== false ? t('float.rollerRestrictsXGlobal') : t('float.rollerRestrictsILocal')}
       >{selectedSup.isGlobal !== false ? 'Y' : 'j'}</button>
       <span class="ft-sep">|</span>
       <button class="ft-opt-btn ft-coord-btn" class:active={selectedSup.isGlobal !== false} onclick={() => updateSupportField(selectedSup.id, 'isGlobal', true)}
-        title="Ejes globales">Gl</button>
+        title={t('float.rollerGlobalLabel')}>Gl</button>
       <button class="ft-opt-btn ft-coord-btn" class:active={selectedSup.isGlobal === false} onclick={() => updateSupportField(selectedSup.id, 'isGlobal', false)}
-        title="Ejes locales">Loc</button>
-      <label class="ft-input-group" title="Desplazamiento impuesto en la dirección restringida del apoyo móvil">
+        title={t('float.rollerLocalLabel')}>Loc</button>
+      <label class="ft-input-group" title={t('float.prescribedRollerDisp')}>
         <span>di:</span>
         <input type="number" step="0.001" value={selectedSup.dx ?? 0} onchange={(e) => updateSupportField(selectedSup.id, 'dx', e.currentTarget.value)} />
         <span class="ft-unit">m</span>
       </label>
-      <label class="ft-input-group" title="Ángulo de inclinación del plano del apoyo (afecta la dirección de la reacción)">
+      <label class="ft-input-group" title={t('float.supportAngle')}>
         <span>α:</span>
         <input type="number" step="5" value={selectedSup.angle ?? 0} onchange={(e) => updateSupportField(selectedSup.id, 'angle', e.currentTarget.value)} />
         <span class="ft-unit">°</span>
@@ -375,10 +376,10 @@
       </label>
       <span class="ft-sep">|</span>
       <button class="ft-opt-btn ft-coord-btn" class:active={selectedSup.isGlobal !== false} onclick={() => updateSupportField(selectedSup.id, 'isGlobal', true)}
-        title="Ejes globales: kx en horizontal, ky en vertical">Gl</button>
+        title={t('float.supportGlobalAxes')}>Gl</button>
       <button class="ft-opt-btn ft-coord-btn" class:active={selectedSup.isGlobal === false} onclick={() => updateSupportField(selectedSup.id, 'isGlobal', false)}
-        title="Ejes locales: kx paralelo a la barra, ky perpendicular">Loc</button>
-      <label class="ft-input-group" title="Ángulo de rotación del resorte (afecta la dirección de las rigideces)">
+        title={t('float.supportLocalAxes')}>Loc</button>
+      <label class="ft-input-group" title={t('float.supportAngle')}>
         <span>α:</span>
         <input type="number" step="5" value={selectedSup.angle ?? 0} onchange={(e) => updateSupportField(selectedSup.id, 'angle', e.currentTarget.value)} />
         <span class="ft-unit">°</span>
@@ -386,35 +387,35 @@
     {:else if selectedSup.type === 'fixed' || selectedSup.type === 'pinned'}
       <span class="ft-sep">|</span>
       {#if selectedSup.type === 'fixed' || selectedSup.type === 'pinned'}
-        <label class="ft-input-group" title="Desplazamiento horizontal impuesto (positivo = hacia la derecha)">
+        <label class="ft-input-group" title={t('float.prescribedDx')}>
           <span>dx:</span>
           <input type="number" step="0.001" value={selectedSup.dx ?? 0} onchange={(e) => updateSupportField(selectedSup.id, 'dx', e.currentTarget.value)} />
         </label>
-        <label class="ft-input-group" title="Desplazamiento vertical impuesto (positivo = hacia arriba)">
+        <label class="ft-input-group" title={t('float.prescribedDy')}>
           <span>dy:</span>
           <input type="number" step="0.001" value={selectedSup.dy ?? 0} onchange={(e) => updateSupportField(selectedSup.id, 'dy', e.currentTarget.value)} />
         </label>
       {/if}
       {#if selectedSup.type === 'fixed'}
-        <label class="ft-input-group" title="Rotación impuesta (positivo = antihorario)">
+        <label class="ft-input-group" title={t('float.prescribedDrz')}>
           <span>dθz:</span>
           <input type="number" step="0.001" value={selectedSup.drz ?? 0} onchange={(e) => updateSupportField(selectedSup.id, 'drz', e.currentTarget.value)} />
         </label>
       {/if}
-      <label class="ft-input-group" title="Ángulo de rotación visual del apoyo (solo afecta la visualización)">
+      <label class="ft-input-group" title={t('float.supportAngleVisual')}>
         <span>α:</span>
         <input type="number" step="5" value={selectedSup.angle ?? 0} onchange={(e) => updateSupportField(selectedSup.id, 'angle', e.currentTarget.value)} />
         <span class="ft-unit">°</span>
       </label>
     {/if}
-    <button class="ft-load-delete" onclick={deleteSelectedSupports} title="Eliminar apoyo">🗑</button>
-    <button class="ft-load-done" onclick={() => uiStore.clearSelectedSupports()} title="Deseleccionar">✓</button>
+    <button class="ft-load-delete" onclick={deleteSelectedSupports} title={t('selEntity.deleteSupport')}>🗑</button>
+    <button class="ft-load-done" onclick={() => uiStore.clearSelectedSupports()} title={t('selEntity.deselect')}>✓</button>
   </div>
 {:else if uiStore.selectedSupports.size > 1}
   <div class="ft-load-edit">
-    <span class="ft-load-tag">{uiStore.selectedSupports.size} apoyos seleccionados</span>
-    <button class="ft-load-delete" onclick={deleteSelectedSupports} title="Eliminar apoyos seleccionados">🗑 Eliminar</button>
-    <button class="ft-load-done" onclick={() => uiStore.clearSelectedSupports()} title="Deseleccionar">✓</button>
+    <span class="ft-load-tag">{t('selEntity.supportsSelected').replace('{n}', String(uiStore.selectedSupports.size))}</span>
+    <button class="ft-load-delete" onclick={deleteSelectedSupports} title={t('selEntity.deleteSelectedSupports')}>🗑 {t('selEntity.deleteBtn')}</button>
+    <button class="ft-load-done" onclick={() => uiStore.clearSelectedSupports()} title={t('selEntity.deselect')}>✓</button>
   </div>
 {/if}
 

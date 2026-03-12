@@ -7,6 +7,7 @@ import type { Section } from '../store/model.svelte';
 import { ALL_PROFILES, familyToShape, type SteelProfile, type SectionShape } from '../data/steel-profiles';
 import type { ElementForces } from './types';
 import { computeDiagramValueAt } from './diagrams';
+import { t } from '../i18n';
 
 // ─── Types ────────────────────────────────────────────────────────────
 
@@ -909,8 +910,8 @@ export function suggestCriticalSections(ef: ElementForces): CriticalSection[] {
   const L = ef.length;
 
   // Always include ends
-  sections.push({ t: 0, reason: 'Extremo I' });
-  sections.push({ t: 1, reason: 'Extremo J' });
+  sections.push({ t: 0, reason: t('stress.endI') });
+  sections.push({ t: 1, reason: t('stress.endJ') });
 
   // Find where V = 0 (M is maximum)
   // V(x) = Vs + q_i·x + (q_j - q_i)·x²/(2L) + Σ(point loads before x)
@@ -926,7 +927,7 @@ export function suggestCriticalSections(ef: ElementForces): CriticalSection[] {
       const x0 = -Vs / qi;
       const t0 = x0 / L;
       if (t0 > 0.01 && t0 < 0.99) {
-        sections.push({ t: t0, reason: 'M máx (V=0)' });
+        sections.push({ t: t0, reason: 'M max (V=0)' });
       }
     } else if (Math.abs(qj - qi) > 1e-10) {
       // Trapezoidal: V(x) = Vs + qi·x + (qj-qi)·x²/(2L) = 0
@@ -940,7 +941,7 @@ export function suggestCriticalSections(ef: ElementForces): CriticalSection[] {
         for (const x0 of [(-b + sqrtDisc) / (2 * a), (-b - sqrtDisc) / (2 * a)]) {
           const t0 = x0 / L;
           if (t0 > 0.01 && t0 < 0.99) {
-            sections.push({ t: t0, reason: 'M máx (V=0)' });
+            sections.push({ t: t0, reason: 'M max (V=0)' });
           }
         }
       }
@@ -952,14 +953,14 @@ export function suggestCriticalSections(ef: ElementForces): CriticalSection[] {
     for (const pl of ef.pointLoads) {
       const tPl = pl.a / L;
       if (tPl > 0.01 && tPl < 0.99) {
-        sections.push({ t: tPl, reason: `Carga puntual` });
+        sections.push({ t: tPl, reason: t('stress.pointLoadReason') });
       }
     }
   }
 
   // Midpoint (useful for uniform loads)
   if (sections.every(s => Math.abs(s.t - 0.5) > 0.05)) {
-    sections.push({ t: 0.5, reason: 'Mitad' });
+    sections.push({ t: 0.5, reason: t('stress.midspan') });
   }
 
   // Sort by t and deduplicate (merge close ones)

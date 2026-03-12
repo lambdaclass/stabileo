@@ -1,5 +1,6 @@
 <script lang="ts">
   import { modelStore, uiStore, historyStore, resultsStore } from '../../lib/store';
+  import { t } from '../../lib/i18n';
   import type { SupportType } from '../../lib/store/model.svelte.ts';
 
   const nodesArr = $derived([...modelStore.nodes.values()]);
@@ -93,9 +94,9 @@
 <table>
   <thead>
     {#if uiStore.analysisMode === '3d'}
-      <tr><th>ID</th><th>Nodo</th><th>GdL restringidos</th><th>Rigidez (k)</th><th></th></tr>
+      <tr><th>ID</th><th>{t('table.nodeLabel')}</th><th>{t('table.dofRestrained')}</th><th>{t('table.stiffness')}</th><th></th></tr>
     {:else}
-      <tr><th>ID</th><th>Nodo</th><th>Tipo</th><th>Rigidez</th><th></th></tr>
+      <tr><th>ID</th><th>{t('table.nodeLabel')}</th><th>{t('table.type')}</th><th>{t('table.stiffness')}</th><th></th></tr>
     {/if}
   </thead>
   <tbody>
@@ -107,12 +108,12 @@
           <!-- 3D: per-DOF checkboxes -->
           {@const dofs = sup.dofRestraints ?? defaultDofs(sup.type)}
           <td class="load-values">
-            <label class="dof-chk" title="Traslaci&oacute;n X"><input type="checkbox" checked={dofs.tx} onchange={() => toggleDofRestraint(sup.id, sup, 'tx')} />Fx</label>
-            <label class="dof-chk" title="Traslaci&oacute;n Y"><input type="checkbox" checked={dofs.ty} onchange={() => toggleDofRestraint(sup.id, sup, 'ty')} />Fy</label>
-            <label class="dof-chk" title="Traslaci&oacute;n Z"><input type="checkbox" checked={dofs.tz} onchange={() => toggleDofRestraint(sup.id, sup, 'tz')} />Fz</label>
-            <label class="dof-chk" title="Rotaci&oacute;n X"><input type="checkbox" checked={dofs.rx} onchange={() => toggleDofRestraint(sup.id, sup, 'rx')} />Mx</label>
-            <label class="dof-chk" title="Rotaci&oacute;n Y"><input type="checkbox" checked={dofs.ry} onchange={() => toggleDofRestraint(sup.id, sup, 'ry')} />My</label>
-            <label class="dof-chk" title="Rotaci&oacute;n Z"><input type="checkbox" checked={dofs.rz} onchange={() => toggleDofRestraint(sup.id, sup, 'rz')} />Mz</label>
+            <label class="dof-chk" title={t('table.translationX')}><input type="checkbox" checked={dofs.tx} onchange={() => toggleDofRestraint(sup.id, sup, 'tx')} />Fx</label>
+            <label class="dof-chk" title={t('table.translationY')}><input type="checkbox" checked={dofs.ty} onchange={() => toggleDofRestraint(sup.id, sup, 'ty')} />Fy</label>
+            <label class="dof-chk" title={t('table.translationZ')}><input type="checkbox" checked={dofs.tz} onchange={() => toggleDofRestraint(sup.id, sup, 'tz')} />Fz</label>
+            <label class="dof-chk" title={t('table.rotationX')}><input type="checkbox" checked={dofs.rx} onchange={() => toggleDofRestraint(sup.id, sup, 'rx')} />Mx</label>
+            <label class="dof-chk" title={t('table.rotationY')}><input type="checkbox" checked={dofs.ry} onchange={() => toggleDofRestraint(sup.id, sup, 'ry')} />My</label>
+            <label class="dof-chk" title={t('table.rotationZ')}><input type="checkbox" checked={dofs.rz} onchange={() => toggleDofRestraint(sup.id, sup, 'rz')} />Mz</label>
           </td>
           <td class="load-values">
             {#if !dofs.tx}
@@ -138,11 +139,11 @@
           <!-- 2D: type dropdown -->
           <td>
             <select value={sup.type} onchange={(e) => changeSupportType(sup.id, e.currentTarget.value)}>
-              <option value="fixed">Empotrado</option>
-              <option value="pinned">Articulado</option>
-              <option value="rollerX">M&oacute;vil X</option>
-              <option value="rollerY">M&oacute;vil Y</option>
-              <option value="spring">Resorte</option>
+              <option value="fixed">{t('table.fixed')}</option>
+              <option value="pinned">{t('table.pinned')}</option>
+              <option value="rollerX">{t('table.rollerX')}</option>
+              <option value="rollerY">{t('table.rollerY')}</option>
+              <option value="spring">{t('table.spring')}</option>
             </select>
           </td>
           <td class="load-values">
@@ -164,7 +165,7 @@
 </table>
 <div class="table-footer">
   <div class="add-row" style={uiStore.analysisMode === '3d' ? 'flex-wrap:nowrap;gap:0.15rem;' : ''}>
-    <span class="add-label">Nodo:</span>
+    <span class="add-label">{t('table.nodeLabel')}:</span>
     <select bind:value={newSupportNodeId} class="add-input" style={uiStore.analysisMode === '3d' ? 'width:40px;' : ''}>
       {#each nodesArr as n}<option value={n.id}>{n.id}</option>{/each}
     </select>
@@ -176,18 +177,18 @@
       <label class="dof-chk"><input type="checkbox" bind:checked={uiStore.sup3dRx} />Mx</label>
       <label class="dof-chk"><input type="checkbox" bind:checked={uiStore.sup3dRy} />My</label>
       <label class="dof-chk"><input type="checkbox" bind:checked={uiStore.sup3dRz} />Mz</label>
-      <button class="add-btn" style="padding:1px 3px;font-size:0.55rem;" onclick={() => uiStore.setSupport3DPreset('fixed')} title="Empotrado: 6 GdL">&#9635;</button>
-      <button class="add-btn" style="padding:1px 3px;font-size:0.55rem;" onclick={() => uiStore.setSupport3DPreset('pinned')} title="Articulado: 3 traslaciones">&#9651;</button>
+      <button class="add-btn" style="padding:1px 3px;font-size:0.55rem;" onclick={() => uiStore.setSupport3DPreset('fixed')} title={t('table.fixed6dof')}>&#9635;</button>
+      <button class="add-btn" style="padding:1px 3px;font-size:0.55rem;" onclick={() => uiStore.setSupport3DPreset('pinned')} title={t('table.pinned3trans')}>&#9651;</button>
     {:else}
       <select bind:value={newSupportType} class="add-input add-input-wide">
-        <option value="fixed">Empotrado</option>
-        <option value="pinned">Articulado</option>
-        <option value="rollerX">M&oacute;vil X</option>
-        <option value="rollerY">M&oacute;vil Y</option>
-        <option value="spring">Resorte</option>
+        <option value="fixed">{t('table.fixed')}</option>
+        <option value="pinned">{t('table.pinned')}</option>
+        <option value="rollerX">{t('table.rollerX')}</option>
+        <option value="rollerY">{t('table.rollerY')}</option>
+        <option value="spring">{t('table.spring')}</option>
       </select>
     {/if}
-    <button class="add-btn" onclick={addSupport}>+ Apoyo</button>
+    <button class="add-btn" onclick={addSupport}>{t('table.addSupport')}</button>
   </div>
 </div>
 

@@ -4,16 +4,19 @@
 // Exports:
 //   - ResultsSyncContext (interface)
 //   - DIAGRAM_3D_TYPES (constant)
-//   - syncDeformed(), syncDiagrams3D(), syncColorMap3D(), syncReactions(), syncLabels3D()
+//   - syncDeformed(), syncDiagrams3D(), syncColorMap3D(), syncVerificationLabels(), syncReactions(), syncConstraintForces(), syncLabels3D()
 
 import * as THREE from 'three';
 import { modelStore, uiStore, resultsStore } from '../store';
 import { createDeformedLines, type ElementEI } from '../three/deformed-shape-3d';
 import { createDiagramGroup3D, createEnvelopeDiagramGroup3D } from '../three/diagram-render-3d';
-import { COLORS, setGroupColor, disposeObject, heatmapColor, axialForceColor, createTextSprite } from '../three/selection-helpers';
-import { createReactionArrow } from '../three/create-load-arrow';
+import { COLORS, setGroupColor, disposeObject, heatmapColor, axialForceColor, verificationColor, createTextSprite } from '../three/selection-helpers';
+import { verificationStore } from '../store/verification.svelte';
+import { createReactionArrow, createConstraintForceArrow } from '../three/create-load-arrow';
 import { computeElementStress3D } from '../engine/section-stress-3d';
 import type { Diagram3DKind } from '../engine/diagrams-3d';
+import type { Displacement3D } from '../engine/types-3d';
+import { sampleElementValues, createHeatmapCylinder, orientHeatmapMesh, applyShellVertexColors, type HeatmapVariable } from '../three/stress-heatmap';
 
 export const DIAGRAM_3D_TYPES: Set<string> = new Set(['momentY', 'momentZ', 'shearY', 'shearZ', 'axial', 'torsion']);
 
@@ -31,14 +34,19 @@ export interface ResultsSyncContext {
   // Element groups (needed for color map + deformed opacity)
   elementGroups: Map<number, THREE.Group>;
 
+  // Shell groups (needed for shell stress heatmap) — key: "p{id}" or "q{id}"
+  shellGroups: Map<string, THREE.Group>;
+
   // Results groups (replaced on each sync)
   deformedGroup: THREE.Group | null;
   diagramGroup: THREE.Group | null;
   overlayDiagramGroup: THREE.Group | null;
   reactionGroup: THREE.Group | null;
+  constraintForcesGroup: THREE.Group | null;
   nodeLabelsGroup: THREE.Group | null;
   elementLabelsGroup: THREE.Group | null;
   lengthLabelsGroup: THREE.Group | null;
+  verificationLabelsGroup: THREE.Group | null;
 
   // Mutable state flags
   lastDeformedAnimScale: number | null;
@@ -57,12 +65,16 @@ export function syncDeformed(ctx: ResultsSyncContext, scaleOverride?: number): v
     ctx.deformedGroup = null;
   }
 
+  const dt = resultsStore.diagramType;
+  const isDeformedLike = dt === 'deformed' || dt === 'modeShape' || dt === 'bucklingMode';
+
   // Restore element opacity when not showing deformed shape
-  const showingDeformed = resultsStore.results3D && resultsStore.diagramType === 'deformed';
+  const showingDeformed = resultsStore.results3D && isDeformedLike;
   for (const group of ctx.elementGroups.values()) {
     group.traverse((child) => {
-      // Skip invisible picking helpers — they must stay transparent
+      // Skip picking helpers and heatmap overlays — they manage their own state
       if (child.userData?.pickingHelper) return;
+      if (child.userData?.heatmapMesh) return;
       if ((child as THREE.Mesh).material) {
         const mat = (child as THREE.Mesh).material as THREE.Material;
         if (showingDeformed) {
@@ -76,37 +88,83 @@ export function syncDeformed(ctx: ResultsSyncContext, scaleOverride?: number): v
     });
   }
 
+  // Determine displacements source: static deformed, modal mode, or buckling mode
+  let displacements: Displacement3D[] | null = null;
+  let scale = scaleOverride ?? resultsStore.deformedScale;
+  let modeColor: number | null = null;
+
+  if (dt === 'deformed') {
+    const r3d = resultsStore.results3D;
+    if (!r3d) return;
+    displacements = r3d.displacements;
+  } else if (dt === 'modeShape') {
+    const modal = resultsStore.modalResult3D;
+    if (!modal || !modal.modes.length) return;
+    const mode = modal.modes[resultsStore.activeModeIndex];
+    if (!mode) return;
+    // Animated sinusoidal oscillation for mode shapes
+    scale = scale * Math.sin(performance.now() / 500);
+    displacements = mode.displacements;
+    modeColor = 0x4ecdc4; // cyan
+  } else if (dt === 'bucklingMode') {
+    const buckling = resultsStore.bucklingResult3D;
+    if (!buckling || !buckling.modes.length) return;
+    const mode = buckling.modes[resultsStore.activeBucklingMode];
+    if (!mode) return;
+    // Animated sinusoidal oscillation for buckling modes
+    scale = scale * Math.sin(performance.now() / 500);
+    displacements = mode.displacements;
+    modeColor = 0xe96941; // orange-red
+  } else {
+    return;
+  }
+
+  if (!displacements) return;
+
+  // Build EI map for particular solution (only for static deformed — modes don't need it)
+  let eiMap: Map<number, ElementEI> | undefined;
   const r3d = resultsStore.results3D;
-  if (!r3d || resultsStore.diagramType !== 'deformed') return;
-
-  // Use override scale (from animation loop) or store scale (from slider)
-  const scale = scaleOverride ?? resultsStore.deformedScale;
-
-  // Build EI map for particular solution (intra-element deflection from loads)
-  // Direct mapping: EIy = E·Iy (about Y horizontal), EIz = E·Iz (about Z vertical)
-  const eiMap = new Map<number, ElementEI>();
-  for (const [id, elem] of modelStore.elements) {
-    const mat = modelStore.materials.get(elem.materialId);
-    const sec = modelStore.sections.get(elem.sectionId);
-    if (mat && sec) {
-      const E = mat.e * 1000; // MPa → kN/m²
-      const modelIy = sec.iy ?? (sec.b && sec.h ? (sec.b * sec.h ** 3) / 12 : sec.iz);
-      eiMap.set(id, {
-        EIy: E * modelIy,    // Iy (about Y horizontal) → Z-plane bending (w, θy)
-        EIz: E * sec.iz,     // Iz (about Z vertical) → Y-plane bending (v, θz)
-      });
+  if (dt === 'deformed') {
+    eiMap = new Map<number, ElementEI>();
+    for (const [id, elem] of modelStore.elements) {
+      const mat = modelStore.materials.get(elem.materialId);
+      const sec = modelStore.sections.get(elem.sectionId);
+      if (mat && sec) {
+        const E = mat.e * 1000; // MPa → kN/m²
+        const modelIy = sec.iy ?? (sec.b && sec.h ? (sec.b * sec.h ** 3) / 12 : sec.iz);
+        eiMap.set(id, {
+          EIy: E * modelIy,    // Iy (about Y horizontal) → Z-plane bending (w, θy)
+          EIz: E * sec.iz,     // Iz (about Z vertical) → Y-plane bending (v, θz)
+        });
+      }
     }
   }
 
   ctx.deformedGroup = createDeformedLines(
     modelStore.elements,
     modelStore.nodes,
-    r3d.displacements,
-    r3d.elementForces,
+    displacements,
+    dt === 'deformed' && r3d ? r3d.elementForces : [],
     scale,
     eiMap,
     uiStore.axisConvention3D === 'leftHand',
   );
+
+  // Tint mode shapes with their distinctive color
+  if (modeColor !== null) {
+    const color = new THREE.Color(modeColor);
+    ctx.deformedGroup.traverse((child) => {
+      if ((child as THREE.Line).isLine && (child as THREE.Line).material) {
+        const mat = (child as THREE.Line).material as THREE.LineBasicMaterial;
+        mat.color.copy(color);
+      } else if ((child as THREE.Mesh).isMesh && (child as THREE.Mesh).material) {
+        const mat = (child as THREE.Mesh).material as THREE.MeshBasicMaterial;
+        if (!mat.color) return;
+        mat.color.copy(color);
+      }
+    });
+  }
+
   ctx.resultsParent.add(ctx.deformedGroup);
 }
 
@@ -203,15 +261,18 @@ export function syncColorMap3D(ctx: ResultsSyncContext): void {
   const r3d = resultsStore.results3D;
   const dt = resultsStore.diagramType;
 
-  // Restore default colors if not in color mode
-  if (!r3d || (dt !== 'axialColor' && dt !== 'colorMap')) {
+  // Restore default state if not in color mode
+  if (!r3d || (dt !== 'axialColor' && dt !== 'colorMap' && dt !== 'verification')) {
     if (ctx.colorMapApplied) {
+      clearHeatmapMeshes(ctx);
       for (const [id, group] of ctx.elementGroups) {
+        showOriginalMeshes(group, true);
         const elem = modelStore.elements.get(id);
         const baseColor = elem?.type === 'truss' ? COLORS.truss : COLORS.frame;
         const selected = uiStore.selectedElements.has(id);
         setGroupColor(group, selected ? COLORS.elementSelected : baseColor);
       }
+      resetShellColors(ctx);
       ctx.colorMapApplied = false;
     }
     return;
@@ -224,63 +285,276 @@ export function syncColorMap3D(ctx: ResultsSyncContext): void {
   }
 
   if (dt === 'axialColor') {
-    // Color by axial force: tension=red, compression=blue
+    clearHeatmapMeshes(ctx);
     for (const [id, group] of ctx.elementGroups) {
+      showOriginalMeshes(group, true);
       const ef = forcesMap.get(id);
       if (!ef) continue;
       const nAvg = (ef.nStart + ef.nEnd) / 2;
       setGroupColor(group, axialForceColor(nAvg));
     }
+    resetShellColors(ctx);
     ctx.colorMapApplied = true;
   } else if (dt === 'colorMap') {
-    // Color by selected variable (moment, shear, axial, stressRatio)
     const cmKind = resultsStore.colorMapKind;
 
-    // Compute values for normalization
-    const values = new Map<number, number>();
-    let maxVal = 0;
-
-    for (const [id] of ctx.elementGroups) {
-      const ef = forcesMap.get(id);
-      if (!ef) continue;
-
-      let val: number;
-      switch (cmKind) {
-        case 'moment':
-          val = Math.max(Math.abs(ef.mzStart), Math.abs(ef.mzEnd),
-                        Math.abs(ef.myStart), Math.abs(ef.myEnd));
-          break;
-        case 'shear':
-          val = Math.max(Math.abs(ef.vyStart), Math.abs(ef.vyEnd),
-                        Math.abs(ef.vzStart), Math.abs(ef.vzEnd));
-          break;
-        case 'axial':
-          val = Math.max(Math.abs(ef.nStart), Math.abs(ef.nEnd));
-          break;
-        case 'stressRatio': {
-          const elem = modelStore.elements.get(id);
-          if (!elem) { val = 0; break; }
-          const sec = modelStore.sections.get(elem.sectionId);
-          if (!sec) { val = 0; break; }
-          const stress = computeElementStress3D(
-            ef, sec.a, sec.iz, sec.iy ?? sec.iz,
-            sec.h ?? 0, sec.b ?? 0,
-          );
-          val = stress.max.ratio;
-          break;
-        }
+    if (cmKind === 'shellVonMises') {
+      // Shell-only mode: restore frame elements, apply shell heatmap
+      clearHeatmapMeshes(ctx);
+      for (const [id, group] of ctx.elementGroups) {
+        showOriginalMeshes(group, true);
+        setGroupColor(group, 0x888888); // dim frames
       }
-      values.set(id, val);
-      if (val > maxVal) maxVal = val;
+      applyShellHeatmap(ctx, r3d);
+    } else {
+      // Continuous heatmap on frame elements
+      resetShellColors(ctx);
+      applyFrameHeatmap(ctx, forcesMap, cmKind as HeatmapVariable);
     }
 
-    // Apply colors (neutral gray when all values are ~0, e.g. moment on truss-only models)
-    for (const [id, group] of ctx.elementGroups) {
-      const val = values.get(id) ?? 0;
-      const norm = maxVal > 1e-10 ? val / maxVal : 0;
-      setGroupColor(group, maxVal > 1e-10 ? heatmapColor(norm) : 0x888888);
-    }
     ctx.colorMapApplied = true;
+  } else if (dt === 'verification') {
+    // Verification status color map: flat per-element colors based on CIRSOC ratio
+    clearHeatmapMeshes(ctx);
+    for (const [id, group] of ctx.elementGroups) {
+      showOriginalMeshes(group, true);
+      const ratio = verificationStore.getMaxRatio(id);
+      setGroupColor(group, verificationColor(ratio));
+    }
+    resetShellColors(ctx);
+    ctx.colorMapApplied = true;
+  }
+}
+
+// ─── Verification ratio labels ────────────────────────────────
+
+/**
+ * Show floating ratio labels (e.g. "0.87") on each element at its midpoint.
+ * Only visible when diagramType === 'verification'.
+ */
+export function syncVerificationLabels(ctx: ResultsSyncContext): void {
+  if (!ctx.initialized) return;
+
+  // Remove old labels
+  if (ctx.verificationLabelsGroup) {
+    ctx.resultsParent.remove(ctx.verificationLabelsGroup);
+    disposeObject(ctx.verificationLabelsGroup);
+    ctx.verificationLabelsGroup = null;
+  }
+
+  if (resultsStore.diagramType !== 'verification' || !verificationStore.hasResults) return;
+
+  const group = new THREE.Group();
+  group.name = 'verification-labels';
+
+  for (const [id] of ctx.elementGroups) {
+    const ratio = verificationStore.getMaxRatio(id);
+    if (ratio === null) continue;
+
+    const elem = modelStore.elements.get(id);
+    if (!elem) continue;
+    const nI = modelStore.nodes.get(elem.nodeI);
+    const nJ = modelStore.nodes.get(elem.nodeJ);
+    if (!nI || !nJ) continue;
+
+    // Position at element midpoint
+    const mx = (nI.x + nJ.x) / 2;
+    const my = (nI.y + nJ.y) / 2;
+    const mz = ((nI.z ?? 0) + (nJ.z ?? 0)) / 2;
+
+    // Color based on status
+    const status = verificationStore.getStatus(id);
+    const textColor = status === 'fail' ? '#ff4444' : status === 'warn' ? '#ffaa00' : '#44ff88';
+
+    const sprite = createTextSprite(ratio.toFixed(2), textColor, 32);
+    sprite.position.set(mx, my + 0.15, mz); // offset slightly above element
+    sprite.scale.set(0.45, 0.45, 1);
+    group.add(sprite);
+  }
+
+  ctx.verificationLabelsGroup = group;
+  ctx.resultsParent.add(group);
+}
+
+// ─── Heatmap helpers ─────────────────────────────────────────
+
+const SHELL_DEFAULT_COLOR = 0x4ecdc4;
+
+/** Remove all heatmap overlay meshes from element groups */
+function clearHeatmapMeshes(ctx: ResultsSyncContext): void {
+  for (const [, group] of ctx.elementGroups) {
+    const toRemove: THREE.Object3D[] = [];
+    group.traverse((child) => {
+      if (child.userData?.heatmapMesh) toRemove.push(child);
+    });
+    for (const obj of toRemove) {
+      group.remove(obj);
+      disposeObject(obj);
+    }
+  }
+}
+
+/** Show or hide original (non-heatmap) meshes in an element group */
+function showOriginalMeshes(group: THREE.Group, visible: boolean): void {
+  group.traverse((child) => {
+    if (child === group) return;
+    if (child.userData?.heatmapMesh) return;
+    if (child.userData?.pickingHelper) return;
+    child.visible = visible;
+  });
+}
+
+/** Reset shell meshes to default teal */
+function resetShellColors(ctx: ResultsSyncContext): void {
+  for (const [, group] of ctx.shellGroups) {
+    group.traverse((child) => {
+      if (child instanceof THREE.Mesh) {
+        const geo = child.geometry;
+        if (geo.hasAttribute('color')) geo.deleteAttribute('color');
+        const mat = child.material as THREE.MeshStandardMaterial;
+        mat.vertexColors = false;
+        mat.color.setHex(SHELL_DEFAULT_COLOR);
+        mat.needsUpdate = true;
+      }
+    });
+  }
+}
+
+/** Build section props for an element */
+function getSectionProps(elemId: number) {
+  const elem = modelStore.elements.get(elemId);
+  if (!elem) return null;
+  const sec = modelStore.sections.get(elem.sectionId);
+  if (!sec) return null;
+  const mat = modelStore.materials.get(elem.materialId);
+  return {
+    A: sec.a,
+    Iz: sec.iz,
+    Iy: sec.iy ?? sec.iz,
+    h: sec.h ?? 0,
+    b: sec.b ?? 0,
+    fy: mat?.fy ?? 355_000,
+  };
+}
+
+/**
+ * Apply continuous per-vertex heatmap on frame elements.
+ * Creates overlay cylinder meshes with color gradients along length.
+ */
+function applyFrameHeatmap(
+  ctx: ResultsSyncContext,
+  forcesMap: Map<number, import('../engine/types-3d').ElementForces3D>,
+  variable: HeatmapVariable,
+): void {
+  // Remove old heatmap meshes first
+  clearHeatmapMeshes(ctx);
+
+  // Pass 1: sample values for all elements and find global max
+  const elemSamples = new Map<number, number[]>();
+  let globalMax = 0;
+
+  for (const [id] of ctx.elementGroups) {
+    const ef = forcesMap.get(id);
+    if (!ef) continue;
+    const sec = getSectionProps(id);
+    if (!sec) continue;
+    const values = sampleElementValues(ef, variable, sec);
+    elemSamples.set(id, values);
+    for (const v of values) {
+      if (v > globalMax) globalMax = v;
+    }
+  }
+
+  // For stressRatio, fix scale at 1.0 (100% of fy)
+  if (variable === 'stressRatio') globalMax = Math.max(globalMax, 1.0);
+
+  // Pass 2: create heatmap meshes (or restore visibility for skipped elements)
+  for (const [id, group] of ctx.elementGroups) {
+    const values = elemSamples.get(id);
+    if (!values) {
+      // Element has no sampled data — ensure originals stay visible (dimmed)
+      showOriginalMeshes(group, true);
+      setGroupColor(group, 0x555555);
+      continue;
+    }
+    const ef = forcesMap.get(id);
+    if (!ef) {
+      showOriginalMeshes(group, true);
+      setGroupColor(group, 0x555555);
+      continue;
+    }
+
+    // Get node positions
+    const elem = modelStore.elements.get(id);
+    if (!elem) { showOriginalMeshes(group, true); setGroupColor(group, 0x555555); continue; }
+    const nI = modelStore.nodes.get(elem.nodeI);
+    const nJ = modelStore.nodes.get(elem.nodeJ);
+    if (!nI || !nJ) { showOriginalMeshes(group, true); setGroupColor(group, 0x555555); continue; }
+
+    // Hide original mesh, show heatmap overlay
+    showOriginalMeshes(group, false);
+
+    const heatMesh = createHeatmapCylinder(ef.length, values, globalMax);
+    // Node.z is optional (undefined when z===0), must default to 0
+    orientHeatmapMesh(heatMesh,
+      { x: nI.x, y: nI.y, z: nI.z ?? 0 },
+      { x: nJ.x, y: nJ.y, z: nJ.z ?? 0 },
+    );
+    heatMesh.renderOrder = 2;
+    group.add(heatMesh);
+  }
+}
+
+/** Apply Von Mises heatmap on plates and quads */
+function applyShellHeatmap(
+  ctx: ResultsSyncContext,
+  r3d: NonNullable<typeof resultsStore.results3D>,
+): void {
+  let globalMax = 0;
+  const plateMap = new Map<number, number[]>();
+  const quadMap = new Map<number, number[]>();
+
+  if (r3d.plateStresses) {
+    for (const ps of r3d.plateStresses) {
+      // Use nodal values if available, otherwise uniform centroidal vonMises
+      const nvm = ps.nodalVonMises?.length ? [...ps.nodalVonMises] : [ps.vonMises, ps.vonMises, ps.vonMises];
+      plateMap.set(ps.elementId, nvm);
+      for (const v of nvm) if (v > globalMax) globalMax = v;
+    }
+  }
+  if (r3d.quadStresses) {
+    for (const qs of r3d.quadStresses) {
+      const nvm = qs.nodalVonMises?.length ? [...qs.nodalVonMises] : [qs.vonMises, qs.vonMises, qs.vonMises, qs.vonMises];
+      quadMap.set(qs.elementId, nvm);
+      for (const v of nvm) if (v > globalMax) globalMax = v;
+    }
+  }
+
+  if (globalMax < 1e-10) {
+    for (const [, group] of ctx.shellGroups) {
+      group.traverse((child) => {
+        if (child instanceof THREE.Mesh) {
+          const mat = child.material as THREE.MeshStandardMaterial;
+          mat.vertexColors = false;
+          mat.color.setHex(0x888888);
+          mat.needsUpdate = true;
+        }
+      });
+    }
+    return;
+  }
+
+  for (const [key, group] of ctx.shellGroups) {
+    const isPlate = key.startsWith('p');
+    const id = parseInt(key.substring(1));
+    const nodalVM = isPlate ? plateMap.get(id) : quadMap.get(id);
+    if (!nodalVM) continue;
+
+    group.traverse((child) => {
+      if (child instanceof THREE.Mesh) {
+        applyShellVertexColors(child, nodalVM, globalMax, !isPlate);
+      }
+    });
   }
 }
 
@@ -321,6 +595,54 @@ export function syncReactions(ctx: ResultsSyncContext): void {
   }
 
   ctx.resultsParent.add(ctx.reactionGroup);
+}
+
+// ─── Constraint Forces ───────────────────────────────────────
+
+export function syncConstraintForces(ctx: ResultsSyncContext): void {
+  if (!ctx.initialized) return;
+
+  if (ctx.constraintForcesGroup) {
+    ctx.resultsParent.remove(ctx.constraintForcesGroup);
+    disposeObject(ctx.constraintForcesGroup);
+    ctx.constraintForcesGroup = null;
+  }
+
+  const forces = resultsStore.constraintForces3D;
+  if (!forces || forces.length === 0 || !resultsStore.showConstraintForces) return;
+
+  ctx.constraintForcesGroup = new THREE.Group();
+  ctx.constraintForcesGroup.name = 'constraintForces';
+
+  // Max force for scaling (translational only)
+  let maxF = 0;
+  for (const cf of forces) {
+    if (!cf.dof.startsWith('r')) {
+      maxF = Math.max(maxF, Math.abs(cf.force));
+    }
+  }
+  if (maxF < 1e-10) maxF = 10;
+
+  // Group by nodeId so arrows at same node are positioned together
+  const byNode = new Map<number, typeof forces>();
+  for (const cf of forces) {
+    let arr = byNode.get(cf.nodeId);
+    if (!arr) { arr = []; byNode.set(cf.nodeId, arr); }
+    arr.push(cf);
+  }
+
+  for (const [nodeId, cfs] of byNode) {
+    const node = modelStore.nodes.get(nodeId);
+    if (!node) continue;
+    const pos = { x: node.x, y: node.y, z: node.z ?? 0 };
+
+    for (const cf of cfs) {
+      const arrow = createConstraintForceArrow(pos, cf.dof, cf.force, maxF);
+      ctx.constraintForcesGroup.add(arrow);
+    }
+  }
+
+  ctx.resultsParent.add(ctx.constraintForcesGroup);
 }
 
 // ─── Labels (node/element IDs, lengths) ─────────────────────

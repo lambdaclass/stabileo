@@ -1,6 +1,7 @@
 <script lang="ts">
   import type { SectionStressResult } from '../../lib/engine/section-stress';
   import type { SectionStressResult3D } from '../../lib/engine/section-stress-3d';
+  import { t } from '../../lib/i18n';
   import { fmt } from './fmt';
 
   interface Props {
@@ -17,7 +18,7 @@
 <!-- Stress state -->
 <button class="ssp-section-toggle" onclick={() => showTensional = !showTensional}>
   <span class="ssp-chevron">{showTensional ? '▾' : '▸'}</span>
-  Estado tensional
+  {t('stress.stressState')}
 </button>
 {#if showTensional}
   <div class="ssp-stress-detail">
@@ -28,17 +29,17 @@
         <span class="ssp-stress-val" class:tension={analysis3D.sigmaAtFiber > 0} class:compression={analysis3D.sigmaAtFiber < 0}>
           {fmt(analysis3D.sigmaAtFiber)} MPa
         </span>
-        <span class="ssp-help" title="Tensión normal biaxial (Navier):&#10;&sigma; = N/A + Mz&middot;y/Iz - My&middot;z/Iy&#10;&#10;Positiva = tracción (rojo)&#10;Negativa = compresión (azul)&#10;&#10;Depende de la fibra (y, z) seleccionada.">?</span>
+        <span class="ssp-help" title={t('stress.sigmaBiaxHelp')}>?</span>
       </div>
       <div class="ssp-stress-row">
         <span>&tau;<sub>Vy</sub> =</span>
         <span class="ssp-stress-val">{fmt(analysis3D.tauVyAtFiber)} MPa</span>
-        <span class="ssp-stress-hint">(Jourawski, plano XY)</span>
+        <span class="ssp-stress-hint">(Jourawski, {t('stress.planeXY')})</span>
       </div>
       <div class="ssp-stress-row">
         <span>&tau;<sub>Vz</sub> =</span>
         <span class="ssp-stress-val">{fmt(analysis3D.tauVzAtFiber)} MPa</span>
-        <span class="ssp-stress-hint">(Jourawski, plano XZ)</span>
+        <span class="ssp-stress-hint">(Jourawski, {t('stress.planeXZ')})</span>
       </div>
       {#if Math.abs(analysis3D.tauTorsion) > 0.001}
         <div class="ssp-stress-row">
@@ -50,7 +51,7 @@
       <div class="ssp-stress-row">
         <span>&tau;<sub>total</sub> =</span>
         <span class="ssp-stress-val">{fmt(analysis3D.tauTotal)} MPa</span>
-        <span class="ssp-help" title="Tensión tangencial total combinada:&#10;&tau; = &radic;(&tau;Vy² + &tau;Vz² + &tau;T²)&#10;&#10;Incluye corte por Vy (plano XY), Vz (plano XZ) y torsión.">?</span>
+        <span class="ssp-help" title={t('stress.tauTotalHelp')}>?</span>
       </div>
       <div class="ssp-divider"></div>
       <div class="ssp-stress-row">
@@ -61,7 +62,7 @@
             ({(analysis3D.failure.ratioVM * 100).toFixed(1)}% f<sub>y</sub>)
           </span>
         {/if}
-        <span class="ssp-help" title="Criterio de Von Mises (energía de distorsión):&#10;&sigma;vm = &radic;(&sigma;² + 3&tau;²)&#10;&#10;Preferido para acero y metales dúctiles.&#10;El porcentaje indica uso de la capacidad fy.">?</span>
+        <span class="ssp-help" title={t('stress.vonMisesHelp')}>?</span>
       </div>
       <div class="ssp-stress-row">
         <span>Tresca:</span>
@@ -71,7 +72,7 @@
             ({(analysis3D.failure.ratioTresca * 100).toFixed(1)}% f<sub>y</sub>)
           </span>
         {/if}
-        <span class="ssp-help" title="Criterio de Tresca (máxima tensión tangencial):&#10;&tau;max = &radic;((&sigma;/2)² + &tau;²)&#10;&#10;Conservador ~15% respecto a Von Mises.&#10;Equivalente: 2&tau;max &le; fy">?</span>
+        <span class="ssp-help" title={t('stress.trescaHelp')}>?</span>
       </div>
       <div class="ssp-stress-row">
         <span>Rankine:</span>
@@ -81,7 +82,7 @@
             ({(analysis3D.failure.ratioRankine * 100).toFixed(1)}% f<sub>y</sub>)
           </span>
         {/if}
-        <span class="ssp-help" title="Criterio de Rankine (máxima tensión normal):&#10;max(|&sigma;₁|, |&sigma;₃|) &le; fy&#10;&#10;Apropiado para materiales frágiles (hormigón, roca).&#10;Para acero, preferir Von Mises.">?</span>
+        <span class="ssp-help" title={t('stress.rankineHelp')}>?</span>
       </div>
       {#if analysis3D.failure.fy}
         <div class="ssp-fy-bar">
@@ -101,7 +102,7 @@
       {#if analysis3D.neutralAxis.exists}
         <div class="ssp-divider"></div>
         <div class="ssp-stress-row">
-          <span>Eje neutro:</span>
+          <span>{t('stress.neutralAxis')}</span>
           {#if analysis3D.neutralAxis.slope === Infinity}
             <span class="ssp-stress-val">vertical (z = {fmt(analysis3D.neutralAxis.intercept * 1000)} mm)</span>
           {:else if Math.abs(analysis3D.neutralAxis.slope) < 0.001}
@@ -109,7 +110,7 @@
           {:else}
             <span class="ssp-stress-val">&theta; = {(analysis3D.neutralAxis.angle * 180 / Math.PI).toFixed(1)}&deg;</span>
           {/if}
-          <span class="ssp-help" title="Eje neutro combinado donde &sigma;=0.&#10;Con flexion biaxial (Mz y My), el eje neutro puede ser oblicuo.&#10;&theta; es el angulo respecto al eje Z (horizontal).">?</span>
+          <span class="ssp-help" title={t('stress.neutralAxis3dHelp')}>?</span>
         </div>
       {/if}
     {:else if analysis2D}
@@ -119,29 +120,26 @@
         <span class="ssp-stress-val" class:tension={analysis2D.sigmaAtY > 0} class:compression={analysis2D.sigmaAtY < 0}>
           {fmt(analysis2D.sigmaAtY)} MPa
         </span>
-        <span class="ssp-help" title="Tension normal (formula de Navier):&#10;&sigma; = N/A + M&middot;y/I&#10;&#10;Positiva = traccion (rojo)&#10;Negativa = compresion (azul)&#10;&#10;Depende de la fibra seleccionada (y).">?</span>
+        <span class="ssp-help" title={t('stress.sigma2dHelp')}>?</span>
       </div>
       <div class="ssp-stress-row">
         <span>&tau;<sub>xy</sub> =</span>
         <span class="ssp-stress-val">{fmt(analysis2D.tauAtY)} MPa</span>
-        <span class="ssp-help" title={isMassive
-          ? "Tension tangencial (Jourawski):\nτ = V·Q(y) / (I·b)\n\nQ(y) = momento estático del área por encima de y.\nMáxima en el eje neutro, nula en bordes libres.\nDistribucion parabólica en secciones rectangulares.\n\nHipótesis: τ uniforme en el ancho b.\nPara secciones anchas (b ≈ h) es una aproximación;\nel valor real varía en z (máximo en el centro)."
-          : "Tension tangencial (Jourawski):\nτ = V·Q(y) / (I·b)\n\nQ(y) = momento estático del área por encima de y.\nMáxima en el eje neutro, nula en bordes libres.\n\nEn perfiles de pared delgada la hipótesis de\nτ uniforme en el espesor es muy precisa."
-        }>?</span>
+        <span class="ssp-help" title={isMassive ? t('stress.tauMassiveHelp') : t('stress.tauThinHelp')}>?</span>
       </div>
       {#if Math.max(...analysis2D.distribution.map(p => Math.abs(p.tau))) > 0.01}
         {@const maxAbsTau = Math.max(...analysis2D.distribution.map(p => Math.abs(p.tau)))}
         <div class="ssp-stress-row ssp-tau-note">
           <span>&tau;<sub>max</sub> =</span>
           <span class="ssp-stress-val">{fmt(maxAbsTau)} MPa</span>
-          <span class="ssp-stress-hint">(eje neutro)</span>
+          <span class="ssp-stress-hint">({t('stress.neutralAxisLabel')})</span>
         </div>
       {/if}
       <div class="ssp-stress-row ssp-2d-note">
-        <span>Analisis 2D: solo &tau;<sub>xy</sub> por corte V</span>
+        <span>{t('stress.note2dTauOnly')}</span>
       </div>
       <div class="ssp-stress-row ssp-2d-note">
-        <span>Sin torsion (T=0) ni corte fuera de plano (V<sub>z</sub>=0)</span>
+        <span>{t('stress.note2dNoTorsion')}</span>
       </div>
       <div class="ssp-divider"></div>
       <div class="ssp-stress-row">
@@ -152,7 +150,7 @@
             ({(analysis2D.failure.ratioVM * 100).toFixed(1)}% f<sub>y</sub>)
           </span>
         {/if}
-        <span class="ssp-help" title="Criterio de Von Mises (energía de distorsión):&#10;&sigma;vm = &radic;(&sigma;² + 3&tau;²)&#10;&#10;Preferido para acero y metales dúctiles.&#10;El porcentaje indica uso de la capacidad fy.">?</span>
+        <span class="ssp-help" title={t('stress.vonMisesHelp')}>?</span>
       </div>
       <div class="ssp-stress-row">
         <span>Tresca:</span>
@@ -162,7 +160,7 @@
             ({(analysis2D.failure.ratioTresca * 100).toFixed(1)}% f<sub>y</sub>)
           </span>
         {/if}
-        <span class="ssp-help" title="Criterio de Tresca (máx. tensión tangencial):&#10;&tau;max = &radic;((&sigma;/2)² + &tau;²)&#10;&#10;Conservador ~15% respecto a Von Mises.&#10;Equivalente: 2&tau;max &le; fy">?</span>
+        <span class="ssp-help" title={t('stress.trescaHelp')}>?</span>
       </div>
       <div class="ssp-stress-row">
         <span>Rankine:</span>
@@ -172,7 +170,7 @@
             ({(analysis2D.failure.ratioRankine * 100).toFixed(1)}% f<sub>y</sub>)
           </span>
         {/if}
-        <span class="ssp-help" title="Criterio de Rankine (máx. tensión normal):&#10;max(|&sigma;₁|, |&sigma;₃|) &le; fy&#10;&#10;Apropiado para materiales frágiles (hormigón, roca).&#10;Para acero, preferir Von Mises.">?</span>
+        <span class="ssp-help" title={t('stress.rankineHelp')}>?</span>
       </div>
       {#if analysis2D.failure.fy}
         <div class="ssp-fy-bar">
@@ -192,9 +190,9 @@
       {#if analysis2D.neutralAxisY !== null}
         <div class="ssp-divider"></div>
         <div class="ssp-stress-row">
-          <span>Eje neutro:</span>
+          <span>{t('stress.neutralAxis')}</span>
           <span class="ssp-stress-val">y = {fmt(analysis2D.neutralAxisY * 1000, 1)} mm</span>
-          <span class="ssp-help" title="Eje neutro (σ = 0):&#10;y_EN = -N·Iz / (A·M)&#10;&#10;Posición donde la tensión normal se anula.&#10;Positivo = por encima del baricentro.&#10;Si N=0, el EN pasa por el baricentro (y=0).">?</span>
+          <span class="ssp-help" title={t('stress.neutralAxis2dHelp')}>?</span>
         </div>
       {/if}
     {/if}

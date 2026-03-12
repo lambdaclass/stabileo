@@ -1,5 +1,6 @@
 <script lang="ts">
   import type { MohrCircle } from '../../lib/engine/section-stress';
+  import { t } from '../../lib/i18n';
   import { fmt } from './fmt';
 
   interface Props {
@@ -14,8 +15,8 @@
 
 <button class="ssp-section-toggle" onclick={() => showMohr = !showMohr}>
   <span class="ssp-chevron">{showMohr ? '▾' : '▸'}</span>
-  Circulo de Mohr
-  <span class="ssp-help ssp-help-inline" title="Representacion grafica del estado tensional en todos los planos.&#10;&#10;El circulo muestra como varian &sigma; y &tau; al rotar el plano de analisis.&#10;El punto rojo es el estado actual (&sigma;, &tau;).&#10;Los puntos donde el circulo toca el eje &sigma; son las tensiones principales (&sigma;1, &sigma;2) donde &tau;=0.&#10;El radio del circulo es &tau;max (Tresca).">?</span>
+  {t('stress.mohrCircle')}
+  <span class="ssp-help ssp-help-inline" title={t('stress.mohrCircleHelp')}>?</span>
 </button>
 {#if showMohr && mohrData}
   {@const m = mohrData}
@@ -112,7 +113,7 @@
     <div class="ssp-mohr-row">
       <span class="ssp-mohr-label">&sigma;<sub>1</sub></span>
       <span class="ssp-mohr-val">{fmt(mohrData.sigma1)} MPa</span>
-      <span class="ssp-help" title="Tension principal maxima.&#10;Plano donde el corte es nulo y la tension normal es maxima.&#10;Si es positiva = traccion, negativa = compresion.">?</span>
+      <span class="ssp-help" title={t('stress.sigma1Help')}>?</span>
     </div>
     <div class="ssp-mohr-row">
       <span class="ssp-mohr-label">&sigma;<sub>2</sub></span>
@@ -121,7 +122,7 @@
     <div class="ssp-mohr-row">
       <span class="ssp-mohr-label">&theta;<sub>p</sub></span>
       <span class="ssp-mohr-val">{(mohrData.thetaP * 180 / Math.PI).toFixed(1)}&deg;</span>
-      <span class="ssp-help" title="Angulo del plano principal respecto al eje del elemento.&#10;Es la rotacion necesaria para encontrar el plano donde actuan &sigma;1 y &sigma;2 (sin corte).">?</span>
+      <span class="ssp-help" title={t('stress.thetaPHelp')}>?</span>
     </div>
   </div>
 {/if}

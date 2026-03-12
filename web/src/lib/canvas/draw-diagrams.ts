@@ -3,6 +3,7 @@
 import type { AnalysisResults, EnvelopeDiagramData } from '../engine/types';
 import {
   computeMomentDiagram, computeShearDiagram, computeAxialDiagram,
+  computeDiagramValueAt,
   type ElementDiagram,
 } from '../engine/diagrams';
 import { toDisplay, unitLabel, type UnitSystem } from '../utils/units';
@@ -28,32 +29,21 @@ const DIAGRAM_COLORS: Record<DiagramKind, { fill: string; stroke: string; text: 
  */
 export function computeDiagramGlobalMax(results: AnalysisResults, kind: DiagramKind): number {
   let globalMax = 0;
+  const N = 20;
   for (const ef of results.elementForces) {
-    if (kind === 'moment') {
-      globalMax = Math.max(globalMax, Math.abs(ef.mStart), Math.abs(ef.mEnd));
-      if (Math.abs(ef.qI) > 1e-10 || Math.abs(ef.qJ) > 1e-10) {
-        for (let i = 1; i < 10; i++) {
-          const xi = (i / 10) * ef.length;
-          const dq = ef.qJ - ef.qI;
-          const m = ef.mStart - ef.vStart * xi - ef.qI * xi * xi / 2 - dq * xi * xi * xi / (6 * ef.length);
-          globalMax = Math.max(globalMax, Math.abs(m));
-        }
-      }
-      for (const pl of ef.pointLoads ?? []) {
-        const dq = ef.qJ - ef.qI;
-        const mAtA = ef.mStart - ef.vStart * pl.a - ef.qI * pl.a * pl.a / 2 - dq * pl.a * pl.a * pl.a / (6 * ef.length);
-        globalMax = Math.max(globalMax, Math.abs(mAtA));
-      }
-    } else if (kind === 'shear') {
-      globalMax = Math.max(globalMax, Math.abs(ef.vStart), Math.abs(ef.vEnd));
-      for (let i = 1; i < 10; i++) {
-        const xi = (i / 10) * ef.length;
-        const dq = ef.qJ - ef.qI;
-        const v = ef.vStart + ef.qI * xi + dq * xi * xi / (2 * ef.length);
-        globalMax = Math.max(globalMax, Math.abs(v));
-      }
-    } else {
-      globalMax = Math.max(globalMax, Math.abs(ef.nStart), Math.abs(ef.nEnd));
+    // Sample the full diagram (including point load effects) at N+1 points,
+    // plus extra points around each point load to capture discontinuities.
+    const sampleTs: number[] = [];
+    for (let i = 0; i <= N; i++) sampleTs.push(i / N);
+    for (const pl of ef.pointLoads ?? []) {
+      const tPl = pl.a / ef.length;
+      if (tPl > 1e-6) sampleTs.push(tPl - 1e-6);
+      sampleTs.push(tPl);
+      if (tPl < 1 - 1e-6) sampleTs.push(tPl + 1e-6);
+    }
+    for (const t of sampleTs) {
+      const val = Math.abs(computeDiagramValueAt(kind, t, ef));
+      if (val > globalMax) globalMax = val;
     }
   }
   return globalMax;

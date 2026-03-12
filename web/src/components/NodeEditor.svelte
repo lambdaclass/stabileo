@@ -1,5 +1,6 @@
 <script lang="ts">
   import { modelStore, uiStore, historyStore, resultsStore } from '../lib/store';
+  import { t } from '../lib/i18n';
 
   let inputX = $state<HTMLInputElement | null>(null);
   let inputY = $state<HTMLInputElement | null>(null);
@@ -55,7 +56,7 @@
   <!-- svelte-ignore a11y_no_static_element_interactions -->
   <div class="backdrop" onclick={close}></div>
   <div class="editor" style="left: {pos.x}px; top: {pos.y}px;">
-    <div class="title">Nodo {nodeId}</div>
+    <div class="title">{t('editor.node')} {nodeId}</div>
     <div class="field">
       <span>X (m):</span>
       <input
@@ -78,7 +79,7 @@
     </div>
     <div class="buttons">
       <button class="btn-ok" onclick={confirm}>OK</button>
-      <button class="btn-cancel" onclick={close}>Cancelar</button>
+      <button class="btn-cancel" onclick={close}>{t('editor.cancel')}</button>
     </div>
   </div>
 {/if}

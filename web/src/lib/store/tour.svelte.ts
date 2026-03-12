@@ -26,6 +26,7 @@ export interface TourStep {
   mobileCardBottom?: string;     // CSS bottom override for mobile (e.g. '64px')
   actionButton?: TourActionButton;     // In-card action button (replaces "Esperando..." when waitFor not met)
   multiAction?: TourActionButton[];    // Multiple action buttons shown alongside "Siguiente →"
+  skip?: () => boolean;                // If returns true, step is skipped (next/prev jump over it)
 }
 
 function createTourStore() {
@@ -68,7 +69,10 @@ function createTourStore() {
       if (_isTransitioning || _currentStepIndex >= _steps.length - 1) return;
       _isTransitioning = true;
       _steps[_currentStepIndex]?.onExit?.();
-      _currentStepIndex++;
+      // Skip steps whose skip() returns true
+      let next = _currentStepIndex + 1;
+      while (next < _steps.length - 1 && _steps[next]?.skip?.()) next++;
+      _currentStepIndex = next;
       _steps[_currentStepIndex]?.onEnter?.();
       requestAnimationFrame(() => {
         this.updateTargetRect();
@@ -80,7 +84,10 @@ function createTourStore() {
       if (_isTransitioning || _currentStepIndex <= 0) return;
       _isTransitioning = true;
       _steps[_currentStepIndex]?.onExit?.();
-      _currentStepIndex--;
+      // Skip steps whose skip() returns true
+      let prev = _currentStepIndex - 1;
+      while (prev > 0 && _steps[prev]?.skip?.()) prev--;
+      _currentStepIndex = prev;
       _steps[_currentStepIndex]?.onEnter?.();
       requestAnimationFrame(() => {
         this.updateTargetRect();

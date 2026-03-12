@@ -1,13 +1,14 @@
 // Model store - manages the structural model
 import type { KinematicResult } from '../engine/solver-js';
 import type { SolverInput, FullEnvelope, AnalysisResults } from '../engine/types';
-import type { SolverInput3D, AnalysisResults3D, FullEnvelope3D } from '../engine/types-3d';
+import type { SolverInput3D, AnalysisResults3D, FullEnvelope3D, Constraint3D } from '../engine/types-3d';
 import type { ModelSnapshot } from './history.svelte';
 import { load2DExample } from './model-examples-2d';
 import { load3DExample } from './model-examples-3d';
 import type { ExampleAPI3D } from './model-examples-3d';
 import { inferLoadCaseType } from '../engine/combinations-service';
-import { validateAndSolve2D, buildSolverInput2D, validateAndSolve3D, buildSolverInput3D as buildSolverInput3DFn, solveCombinations2D, solveCombinations3D as solveCombinations3DFn } from '../engine/solver-service';
+import { t } from '../i18n';
+import { validateAndSolve2D, buildSolverInput2D, validateAndSolve3D, buildSolverInput3D as buildSolverInput3DFn, solveCombinations2D, solveCombinations3D as solveCombinations3DFn, solveCombinations3DParallel as solveCombinations3DParallelFn } from '../engine/solver-service';
 import { computeInfluenceLine as computeInfluenceLineFn } from '../engine/influence-service';
 
 export interface Node {
@@ -166,6 +167,21 @@ export interface PointLoadOnElement3D {
   caseId?: number;
 }
 
+export interface SurfaceLoad3D {
+  id: number;
+  quadId: number;
+  q: number;    // kN/m² (positive = downward, applied as -Y global)
+  caseId?: number;
+}
+
+export interface ThermalLoadQuad3D {
+  id: number;
+  quadId: number;
+  dtUniform: number;  // °C uniform temperature change
+  dtGradient: number; // °C gradient through thickness
+  caseId?: number;
+}
+
 export type Load =
   | { type: 'nodal'; data: NodalLoad }
   | { type: 'distributed'; data: DistributedLoad }
@@ -173,7 +189,9 @@ export type Load =
   | { type: 'thermal'; data: ThermalLoad }
   | { type: 'nodal3d'; data: NodalLoad3D }
   | { type: 'distributed3d'; data: DistributedLoad3D }
-  | { type: 'pointOnElement3d'; data: PointLoadOnElement3D };
+  | { type: 'pointOnElement3d'; data: PointLoadOnElement3D }
+  | { type: 'surface3d'; data: SurfaceLoad3D }
+  | { type: 'thermalQuad3d'; data: ThermalLoadQuad3D };
 
 export type LoadCaseType = string;
 
@@ -189,6 +207,22 @@ export interface LoadCombination {
   factors: Array<{ caseId: number; factor: number }>;
 }
 
+export interface Plate {
+  id: number;
+  nodes: [number, number, number];
+  materialId: number;
+  thickness: number;
+  shellFamily?: import('../engine/types-3d').ShellFamily;
+}
+
+export interface Quad {
+  id: number;
+  nodes: [number, number, number, number];
+  materialId: number;
+  thickness: number;
+  shellFamily?: import('../engine/types-3d').ShellFamily;
+}
+
 export interface StructureModel {
   name: string;
   nodes: Map<number, Node>;
@@ -199,6 +233,9 @@ export interface StructureModel {
   loads: Load[];
   loadCases: LoadCase[];
   combinations: LoadCombination[];
+  plates: Map<number, Plate>;
+  quads: Map<number, Quad>;
+  constraints: Constraint3D[];
 }
 
 export type { AnalysisResults };
@@ -221,7 +258,7 @@ export interface InfluenceLineResult {
 
 function createModelStore() {
   let model = $state<StructureModel>({
-    name: 'Nueva Estructura',
+    name: t('tabBar.newStructure'),
     nodes: new Map(),
     materials: new Map(),
     sections: new Map(),
@@ -240,6 +277,9 @@ function createModelStore() {
       { id: 3, name: '1.2D + L + 1.6W', factors: [{ caseId: 1, factor: 1.2 }, { caseId: 2, factor: 1.0 }, { caseId: 3, factor: 1.6 }] },
       { id: 4, name: '1.2D + L + E', factors: [{ caseId: 1, factor: 1.2 }, { caseId: 2, factor: 1.0 }, { caseId: 4, factor: 1.0 }] },
     ],
+    plates: new Map(),
+    quads: new Map(),
+    constraints: [],
   });
 
   let lastKinematicResult = $state<KinematicResult | null>(null);
@@ -254,6 +294,8 @@ function createModelStore() {
     load: 1,
     loadCase: 5,
     combination: 5,
+    plate: 1,
+    quad: 1,
   });
 
 
@@ -323,6 +365,9 @@ function createModelStore() {
     get sections() { return model.sections; },
     get loadCases() { return model.loadCases; },
     get combinations() { return model.combinations; },
+    get plates() { return model.plates; },
+    get quads() { return model.quads; },
+    get constraints() { return model.constraints; },
     get kinematicResult() { return lastKinematicResult; },
 
     snapshot(): ModelSnapshot {
@@ -344,6 +389,9 @@ function createModelStore() {
         loads: snap.loads as ModelSnapshot['loads'],
         loadCases: snap.loadCases as ModelSnapshot['loadCases'],
         combinations: snap.combinations as ModelSnapshot['combinations'],
+        plates: Array.from(snap.plates.entries()) as ModelSnapshot['plates'],
+        quads: Array.from(snap.quads.entries()) as ModelSnapshot['quads'],
+        constraints: snap.constraints as ModelSnapshot['constraints'],
         nextId: snapId as ModelSnapshot['nextId'],
       };
       return result;
@@ -393,6 +441,9 @@ function createModelStore() {
       model.combinations = s.combinations
         ? s.combinations.map(c => ({ ...c, factors: c.factors.map(f => ({ ...f })) }))
         : [];
+      model.plates = s.plates ? new Map(s.plates.map(([k, v]) => [k, { ...v }] as [number, Plate])) : new Map();
+      model.quads = s.quads ? new Map(s.quads.map(([k, v]) => [k, { ...v }] as [number, Quad])) : new Map();
+      model.constraints = (s as any).constraints ? (s as any).constraints.map((c: Constraint3D) => ({ ...c })) : [];
       nextId.node = s.nextId.node;
       nextId.material = s.nextId.material;
       nextId.section = s.nextId.section;
@@ -401,6 +452,8 @@ function createModelStore() {
       nextId.load = s.nextId.load;
       nextId.loadCase = s.nextId.loadCase ?? 3;
       nextId.combination = s.nextId.combination ?? 1;
+      nextId.plate = s.nextId.plate ?? 1;
+      nextId.quad = s.nextId.quad ?? 1;
     },
 
     addNode(x: number, y: number, z?: number): number {
@@ -551,6 +604,24 @@ function createModelStore() {
       return id;
     },
 
+    addSurfaceLoad3D(quadId: number, q: number, caseId?: number): number {
+      if (!_undoBatching) _pushUndo?.();
+      const id = nextId.load++;
+      const data: SurfaceLoad3D = { id, quadId, q };
+      if (caseId !== undefined) data.caseId = caseId;
+      model.loads = [...model.loads, { type: 'surface3d', data }];
+      return id;
+    },
+
+    addThermalLoadQuad3D(quadId: number, dtUniform: number, dtGradient: number = 0, caseId?: number): number {
+      if (!_undoBatching) _pushUndo?.();
+      const id = nextId.load++;
+      const data: ThermalLoadQuad3D = { id, quadId, dtUniform, dtGradient };
+      if (caseId !== undefined) data.caseId = caseId;
+      model.loads = [...model.loads, { type: 'thermalQuad3d', data }];
+      return id;
+    },
+
     removeNode(id: number): void {
       if (!_undoBatching) _pushUndo?.();
       model.nodes.delete(id);
@@ -581,6 +652,49 @@ function createModelStore() {
           || l.type === 'distributed3d' || l.type === 'pointOnElement3d') &&
           (l.data as any).elementId === id)
       );
+    },
+
+    addPlate(nodes: [number, number, number], materialId: number, thickness: number): number {
+      if (!_undoBatching) _pushUndo?.();
+      const id = nextId.plate++;
+      model.plates.set(id, { id, nodes, materialId, thickness });
+      model.plates = new Map(model.plates);
+      return id;
+    },
+
+    removePlate(id: number): void {
+      if (!_undoBatching) _pushUndo?.();
+      model.plates.delete(id);
+      model.plates = new Map(model.plates);
+    },
+
+    addQuad(nodes: [number, number, number, number], materialId: number, thickness: number): number {
+      if (!_undoBatching) _pushUndo?.();
+      const id = nextId.quad++;
+      model.quads.set(id, { id, nodes, materialId, thickness });
+      model.quads = new Map(model.quads);
+      return id;
+    },
+
+    removeQuad(id: number): void {
+      if (!_undoBatching) _pushUndo?.();
+      model.quads.delete(id);
+      model.quads = new Map(model.quads);
+    },
+
+    addConstraint(c: Constraint3D): void {
+      if (!_undoBatching) _pushUndo?.();
+      model.constraints = [...model.constraints, { ...c }];
+    },
+
+    removeConstraint(index: number): void {
+      if (!_undoBatching) _pushUndo?.();
+      model.constraints = model.constraints.filter((_, i) => i !== index);
+    },
+
+    clearConstraints(): void {
+      if (!_undoBatching) _pushUndo?.();
+      model.constraints = [];
     },
 
     removeLoad(loadId: number): void {
@@ -715,11 +829,14 @@ function createModelStore() {
 
     clear(): void {
       if (!_undoBatching) _pushUndo?.();
-      model.name = 'Nueva Estructura';
+      model.name = t('tabBar.newStructure');
       model.nodes = new Map();
       model.elements = new Map();
       model.supports = new Map();
       model.loads = [];
+      model.plates = new Map();
+      model.quads = new Map();
+      model.constraints = [];
       // Reset materials/sections to defaults
       model.materials = new Map([[1, { ...defaultMaterial }]]);
       model.sections = new Map([[1, { ...defaultSection }]]);
@@ -743,6 +860,8 @@ function createModelStore() {
       nextId.load = 1;
       nextId.loadCase = 5;
       nextId.combination = 5;
+      nextId.plate = 1;
+      nextId.quad = 1;
       lastKinematicResult = null;
     },
 
@@ -1259,25 +1378,46 @@ function createModelStore() {
     buildSolverInput3D(includeSelfWeight = false, leftHand = false): SolverInput3D | null {
       return buildSolverInput3DFn(
         { nodes: model.nodes, elements: model.elements, supports: model.supports,
-          loads: model.loads, materials: model.materials, sections: model.sections },
+          loads: model.loads, materials: model.materials, sections: model.sections,
+          plates: model.plates, quads: model.quads },
         includeSelfWeight, leftHand,
       );
     },
 
-    /** Solve the current model using the 3D solver. Returns results or error string. */
-    solve3D(includeSelfWeight = false, leftHand = false): AnalysisResults3D | string | null {
+    /** Solve the current model using the 3D solver. Returns results or error string.
+     *  Shell elements (plates/quads) are only included when isPro=true to keep Basic 3D clean. */
+    solve3D(includeSelfWeight = false, leftHand = false, isPro = false): AnalysisResults3D | string | null {
       return validateAndSolve3D(
         { nodes: model.nodes, elements: model.elements, supports: model.supports,
-          loads: model.loads, materials: model.materials, sections: model.sections },
+          loads: model.loads, materials: model.materials, sections: model.sections,
+          plates: isPro ? model.plates : undefined,
+          quads: isPro ? model.quads : undefined,
+          constraints: isPro ? model.constraints : undefined },
         includeSelfWeight, leftHand,
       );
     },
 
-    /** Solve load combinations for 3D analysis (mirrors 2D solveCombinations) */
-    solveCombinations3D(includeSelfWeight = false, leftHand = false): { perCase: Map<number, AnalysisResults3D>; perCombo: Map<number, AnalysisResults3D>; envelope: FullEnvelope3D } | string | null {
+    /** Solve load combinations for 3D analysis (mirrors 2D solveCombinations).
+     *  Shell elements are only included when isPro=true. */
+    solveCombinations3D(includeSelfWeight = false, leftHand = false, isPro = false): { perCase: Map<number, AnalysisResults3D>; perCombo: Map<number, AnalysisResults3D>; envelope: FullEnvelope3D } | string | null {
       return solveCombinations3DFn(
         { nodes: model.nodes, elements: model.elements, supports: model.supports,
-          loads: model.loads, materials: model.materials, sections: model.sections },
+          loads: model.loads, materials: model.materials, sections: model.sections,
+          plates: isPro ? model.plates : undefined,
+          quads: isPro ? model.quads : undefined,
+          constraints: isPro ? model.constraints : undefined },
+        model.loadCases, model.combinations, includeSelfWeight, leftHand,
+      );
+    },
+
+    /** Async parallel version of solveCombinations3D — uses Web Workers for parallel solving. */
+    async solveCombinations3DParallel(includeSelfWeight = false, leftHand = false, isPro = false): Promise<{ perCase: Map<number, AnalysisResults3D>; perCombo: Map<number, AnalysisResults3D>; envelope: FullEnvelope3D } | string | null> {
+      return solveCombinations3DParallelFn(
+        { nodes: model.nodes, elements: model.elements, supports: model.supports,
+          loads: model.loads, materials: model.materials, sections: model.sections,
+          plates: isPro ? model.plates : undefined,
+          quads: isPro ? model.quads : undefined,
+          constraints: isPro ? model.constraints : undefined },
         model.loadCases, model.combinations, includeSelfWeight, leftHand,
       );
     },
@@ -1321,6 +1461,10 @@ function createModelStore() {
         toggleHinge: this.toggleHinge.bind(this),
         addDistributedLoad3D: this.addDistributedLoad3D.bind(this),
         addNodalLoad3D: this.addNodalLoad3D.bind(this),
+        addSurfaceLoad3D: this.addSurfaceLoad3D.bind(this),
+        addPlate: this.addPlate.bind(this),
+        addQuad: this.addQuad.bind(this),
+        addConstraint: this.addConstraint.bind(this),
         model,
         nextId,
       };
