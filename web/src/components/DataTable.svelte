@@ -1,5 +1,6 @@
 <script lang="ts">
   import { modelStore, resultsStore } from '../lib/store';
+  import { t } from '../lib/i18n';
   import NodesTable from './tables/NodesTable.svelte';
   import ElementsTable from './tables/ElementsTable.svelte';
   import SupportsTable from './tables/SupportsTable.svelte';
@@ -20,29 +21,29 @@
 <div class="data-table" onkeydown={handleKeydown} role="region">
   <div class="tabs">
     <button class:active={activeTab === 'nodes'} onclick={() => activeTab = 'nodes'}>
-      Nodos ({modelStore.nodes.size})
+      {t('data.nodes')} ({modelStore.nodes.size})
     </button>
     <button class:active={activeTab === 'elements'} onclick={() => activeTab = 'elements'}>
-      Elementos ({modelStore.elements.size})
+      {t('data.elements')} ({modelStore.elements.size})
     </button>
     <button class:active={activeTab === 'supports'} onclick={() => activeTab = 'supports'}>
-      Apoyos ({modelStore.supports.size})
+      {t('data.supports')} ({modelStore.supports.size})
     </button>
     <button class:active={activeTab === 'loads'} onclick={() => activeTab = 'loads'}>
-      Cargas ({modelStore.loads.length})
+      {t('data.loads')} ({modelStore.loads.length})
     </button>
     <button class:active={activeTab === 'materials'} onclick={() => activeTab = 'materials'}>
-      Materiales ({modelStore.materials.size})
+      {t('data.materials')} ({modelStore.materials.size})
     </button>
     <button class:active={activeTab === 'sections'} onclick={() => activeTab = 'sections'}>
-      Secciones ({modelStore.sections.size})
+      {t('data.sections')} ({modelStore.sections.size})
     </button>
     <button class:active={activeTab === 'combos'} onclick={() => activeTab = 'combos'}>
-      Combinaciones
+      {t('data.combinations')}
     </button>
     {#if resultsStore.results || resultsStore.results3D}
       <button class="results-tab" class:active={activeTab === 'results'} onclick={() => activeTab = 'results'}>
-        Resultados
+        {t('data.results')}
       </button>
     {/if}
   </div>

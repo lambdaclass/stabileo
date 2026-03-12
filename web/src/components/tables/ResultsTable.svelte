@@ -1,21 +1,41 @@
 <script lang="ts">
   import { modelStore, uiStore, resultsStore } from '../../lib/store';
+  import { t } from '../../lib/i18n';
 
-  let resultsSubTab = $state<'displacements' | 'reactions' | 'forces'>('displacements');
+  let resultsSubTab = $state<'displacements' | 'reactions' | 'forces' | 'diagnostics'>('displacements');
+
+  // Merge assembly + solver diagnostics into a single list
+  const allDiagnostics = $derived((() => {
+    const items: Array<{ source: string; type: string; message: string; severity: string }> = [];
+    const asmDiags = uiStore.analysisMode === '3d' ? resultsStore.diagnostics3D : resultsStore.diagnostics;
+    for (const d of asmDiags) {
+      items.push({ source: `Elem ${d.elementId} (${d.elementType})`, type: d.metric, message: d.message, severity: 'warning' });
+    }
+    const solverDiags = uiStore.analysisMode === '3d' ? resultsStore.solverDiagnostics3D : resultsStore.solverDiagnostics;
+    for (const d of solverDiags) {
+      items.push({ source: d.category, type: d.category, message: d.message, severity: d.severity });
+    }
+    return items;
+  })());
 </script>
 
 {#if resultsStore.hasCombinations}
   <div class="results-sub-tabs combo-view-tabs">
-    <button class:active={resultsStore.activeView === 'envelope'} onclick={() => { resultsStore.activeView = 'envelope'; }}>Envolvente</button>
+    <button class:active={resultsStore.activeView === 'envelope'} onclick={() => { resultsStore.activeView = 'envelope'; }}>{t('resultsTable.envelope')}</button>
     {#each modelStore.combinations as combo}
       <button class:active={resultsStore.activeView === 'combo' && resultsStore.activeComboId === combo.id} onclick={() => { resultsStore.activeView = 'combo'; resultsStore.activeComboId = combo.id; }}>{combo.name}</button>
     {/each}
   </div>
 {/if}
 <div class="results-sub-tabs">
-  <button class:active={resultsSubTab === 'displacements'} onclick={() => resultsSubTab = 'displacements'}>Desplazamientos</button>
-  <button class:active={resultsSubTab === 'reactions'} onclick={() => resultsSubTab = 'reactions'}>Reacciones</button>
-  <button class:active={resultsSubTab === 'forces'} onclick={() => resultsSubTab = 'forces'}>Fuerzas Internas</button>
+  <button class:active={resultsSubTab === 'displacements'} onclick={() => resultsSubTab = 'displacements'}>{t('resultsTable.displacements')}</button>
+  <button class:active={resultsSubTab === 'reactions'} onclick={() => resultsSubTab = 'reactions'}>{t('resultsTable.reactions')}</button>
+  <button class:active={resultsSubTab === 'forces'} onclick={() => resultsSubTab = 'forces'}>{t('resultsTable.internalForces')}</button>
+  {#if allDiagnostics.length > 0}
+    <button class:active={resultsSubTab === 'diagnostics'} onclick={() => resultsSubTab = 'diagnostics'}>
+      {t('resultsTable.diagnostics')} ({allDiagnostics.length})
+    </button>
+  {/if}
 </div>
 
 <div class="results-content">
@@ -24,7 +44,7 @@
     {#if resultsSubTab === 'displacements'}
       <table>
         <thead>
-          <tr><th>Nodo</th><th>ux (mm)</th><th>uy (mm)</th><th>uz (mm)</th><th>rx (mrad)</th><th>ry (mrad)</th><th>rz (mrad)</th></tr>
+          <tr><th>{t('table.nodeLabel')}</th><th>ux (mm)</th><th>uy (mm)</th><th>uz (mm)</th><th>rx (mrad)</th><th>ry (mrad)</th><th>rz (mrad)</th></tr>
         </thead>
         <tbody>
           {#each resultsStore.results3D.displacements as d}
@@ -44,7 +64,7 @@
     {:else if resultsSubTab === 'reactions'}
       <table>
         <thead>
-          <tr><th>Nodo</th><th>Rx (kN)</th><th>Ry (kN)</th><th>Rz (kN)</th><th>Mx (kN&middot;m)</th><th>My (kN&middot;m)</th><th>Mz (kN&middot;m)</th></tr>
+          <tr><th>{t('table.nodeLabel')}</th><th>Rx (kN)</th><th>Ry (kN)</th><th>Rz (kN)</th><th>Mx (kN&middot;m)</th><th>My (kN&middot;m)</th><th>Mz (kN&middot;m)</th></tr>
         </thead>
         <tbody>
           {#each resultsStore.results3D.reactions as r}
@@ -64,7 +84,7 @@
     {:else if resultsSubTab === 'forces'}
       <table>
         <thead>
-          <tr><th>Elem</th><th>Ni</th><th>Nj</th><th>Vyi</th><th>Vyj</th><th>Vzi</th><th>Vzj</th><th>Mxi</th><th>Mxj</th><th>Myi</th><th>Myj</th><th>Mzi</th><th>Mzj</th></tr>
+          <tr><th>{t('table.elemLabel')}</th><th>Ni</th><th>Nj</th><th>Vyi</th><th>Vyj</th><th>Vzi</th><th>Vzj</th><th>Mxi</th><th>Mxj</th><th>Myi</th><th>Myj</th><th>Mzi</th><th>Mzj</th></tr>
         </thead>
         <tbody>
           {#each resultsStore.results3D.elementForces as ef}
@@ -93,7 +113,7 @@
     {#if resultsSubTab === 'displacements'}
       <table>
         <thead>
-          <tr><th>Nodo</th><th>ux (mm)</th><th>uy (mm)</th><th>&theta;z (mrad)</th></tr>
+          <tr><th>{t('table.nodeLabel')}</th><th>ux (mm)</th><th>uy (mm)</th><th>&theta;z (mrad)</th></tr>
         </thead>
         <tbody>
           {#each resultsStore.results.displacements as d}
@@ -110,7 +130,7 @@
     {:else if resultsSubTab === 'reactions'}
       <table>
         <thead>
-          <tr><th>Nodo</th><th>Rx (kN)</th><th>Ry (kN)</th><th>Mz (kN&middot;m)</th></tr>
+          <tr><th>{t('table.nodeLabel')}</th><th>Rx (kN)</th><th>Ry (kN)</th><th>Mz (kN&middot;m)</th></tr>
         </thead>
         <tbody>
           {#each resultsStore.results.reactions as r}
@@ -127,7 +147,7 @@
     {:else if resultsSubTab === 'forces'}
       <table>
         <thead>
-          <tr><th>Elem</th><th>Ni (kN)</th><th>Nj (kN)</th><th>Vi (kN)</th><th>Vj (kN)</th><th>Mi (kN&middot;m)</th><th>Mj (kN&middot;m)</th></tr>
+          <tr><th>{t('table.elemLabel')}</th><th>Ni (kN)</th><th>Nj (kN)</th><th>Vi (kN)</th><th>Vj (kN)</th><th>Mi (kN&middot;m)</th><th>Mj (kN&middot;m)</th></tr>
         </thead>
         <tbody>
           {#each resultsStore.results.elementForces as ef}
@@ -144,6 +164,24 @@
         </tbody>
       </table>
     {/if}
+  {/if}
+
+  {#if resultsSubTab === 'diagnostics' && allDiagnostics.length > 0}
+    <table>
+      <thead>
+        <tr><th>Fuente</th><th>Tipo</th><th>Mensaje</th><th>Severidad</th></tr>
+      </thead>
+      <tbody>
+        {#each allDiagnostics as d}
+          <tr>
+            <td class="id-cell">{d.source}</td>
+            <td>{d.type}</td>
+            <td>{d.message}</td>
+            <td class={d.severity === 'warning' ? 'severity-warn' : d.severity === 'error' ? 'severity-err' : ''}>{d.severity}</td>
+          </tr>
+        {/each}
+      </tbody>
+    </table>
   {/if}
 </div>
 
@@ -225,4 +263,7 @@
     flex: 1;
     overflow: auto;
   }
+
+  .severity-warn { color: #e9c46a; font-weight: 600; }
+  .severity-err { color: #e94560; font-weight: 600; }
 </style>

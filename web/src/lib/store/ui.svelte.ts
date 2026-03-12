@@ -190,8 +190,8 @@ function createUIStore() {
   let liveCalc = $state(typeof localStorage !== 'undefined' && localStorage.getItem('liveCalc') === 'true');
   let liveCalcError = $state<string | null>(null);
 
-  // Analysis mode: 2D (current) or 3D (new)
-  let analysisMode = $state<'2d' | '3d'>('2d');
+  // Analysis mode: 2D, 3D, PRO or EDU (educational)
+  let analysisMode = $state<'2d' | '3d' | 'pro' | 'edu'>('2d');
 
   // === 3D-specific state ===
   // 3D load direction (6 DOF)
@@ -519,7 +519,14 @@ function createUIStore() {
     set liveCalcError(v: string | null) { liveCalcError = v; },
 
     get analysisMode() { return analysisMode; },
-    set analysisMode(v: '2d' | '3d') { analysisMode = v; },
+    set analysisMode(v: '2d' | '3d' | 'pro' | 'edu') { analysisMode = v; },
+
+    /** Top-level app mode derived from analysisMode */
+    get appMode(): 'basico' | 'educativo' | 'pro' {
+      if (analysisMode === 'pro') return 'pro';
+      if (analysisMode === 'edu') return 'educativo';
+      return 'basico';
+    },
 
     // 3D-specific getters/setters
     get nodalLoadDir3D() { return nodalLoadDir3D; },

@@ -1,5 +1,6 @@
 <script lang="ts">
   import { uiStore, modelStore, resultsStore, historyStore } from '../lib/store';
+  import { t } from '../lib/i18n';
 
   let subdivCount = $state(2);
 
@@ -68,21 +69,21 @@
   <div class="ctx-menu" style="left: {uiStore.contextMenu.x}px; top: {uiStore.contextMenu.y}px">
     {#if uiStore.contextMenu.nodeId != null}
       {@const ctxNodeSup = [...modelStore.supports.values()].find(s => s.nodeId === uiStore.contextMenu!.nodeId)}
-      <button class="ctx-item" onclick={() => handleContextAction('select-node')}>Seleccionar nodo</button>
-      <button class="ctx-item" onclick={() => handleContextAction('edit-node')}>Editar nodo</button>
-      <button class="ctx-item" onclick={() => handleContextAction('add-support')}>Agregar apoyo</button>
-      <button class="ctx-item" onclick={() => handleContextAction('add-load')}>Agregar carga</button>
+      <button class="ctx-item" onclick={() => handleContextAction('select-node')}>{t('ctx.selectNode')}</button>
+      <button class="ctx-item" onclick={() => handleContextAction('edit-node')}>{t('ctx.editNode')}</button>
+      <button class="ctx-item" onclick={() => handleContextAction('add-support')}>{t('ctx.addSupport')}</button>
+      <button class="ctx-item" onclick={() => handleContextAction('add-load')}>{t('ctx.addLoad')}</button>
       {#if ctxNodeSup}
-        <button class="ctx-item ctx-danger" onclick={() => handleContextAction('delete-support')}>Eliminar apoyo</button>
+        <button class="ctx-item ctx-danger" onclick={() => handleContextAction('delete-support')}>{t('ctx.deleteSupport')}</button>
       {/if}
       <div class="ctx-divider"></div>
-      <button class="ctx-item ctx-danger" onclick={() => handleContextAction('delete-node')}>Eliminar nodo</button>
+      <button class="ctx-item ctx-danger" onclick={() => handleContextAction('delete-node')}>{t('ctx.deleteNode')}</button>
     {:else if uiStore.contextMenu.elementId != null}
-      <button class="ctx-item" onclick={() => handleContextAction('select-element')}>Seleccionar elemento</button>
-      <button class="ctx-item" onclick={() => handleContextAction('edit-element')}>Editar elemento</button>
+      <button class="ctx-item" onclick={() => handleContextAction('select-element')}>{t('ctx.selectElement')}</button>
+      <button class="ctx-item" onclick={() => handleContextAction('edit-element')}>{t('ctx.editElement')}</button>
       <div class="ctx-divider"></div>
       <div class="ctx-subdivide-row">
-        <span class="ctx-label">Dividir en:</span>
+        <span class="ctx-label">{t('ctx.subdivide')}</span>
         <input type="number" min="2" max="20" bind:value={subdivCount}
           class="ctx-subdiv-input"
           onkeydown={(e: KeyboardEvent) => { if (e.key === 'Enter') doSubdivide(); }} />
@@ -90,19 +91,19 @@
       </div>
       {#if uiStore.analysisMode === '3d'}
         <div class="ctx-divider"></div>
-        <button class="ctx-item" onclick={() => handleContextAction('rotate-local-axes')}>Rotar barra 90°</button>
+        <button class="ctx-item" onclick={() => handleContextAction('rotate-local-axes')}>{t('ctx.rotateBar90')}</button>
       {/if}
       <div class="ctx-divider"></div>
-      <button class="ctx-item ctx-danger" onclick={() => handleContextAction('delete-element')}>Eliminar elemento</button>
+      <button class="ctx-item ctx-danger" onclick={() => handleContextAction('delete-element')}>{t('ctx.deleteElement')}</button>
     {:else}
       {#if uiStore.selectedNodes.size > 0}
-        <span class="ctx-label">Transformar selección ({uiStore.selectedNodes.size} nodos)</span>
-        <button class="ctx-item" onclick={() => handleContextAction('mirror-x')}>Espejo ↔ (eje X)</button>
-        <button class="ctx-item" onclick={() => handleContextAction('mirror-y')}>Espejo ↕ (eje Y)</button>
-        <button class="ctx-item" onclick={() => handleContextAction('rotate-90')}>Rotar 90° ↺</button>
-        <button class="ctx-item" onclick={() => handleContextAction('rotate-neg90')}>Rotar 90° ↻</button>
+        <span class="ctx-label">{t('ctx.transformSelection')} ({uiStore.selectedNodes.size})</span>
+        <button class="ctx-item" onclick={() => handleContextAction('mirror-x')}>{t('ctx.mirrorX')}</button>
+        <button class="ctx-item" onclick={() => handleContextAction('mirror-y')}>{t('ctx.mirrorY')}</button>
+        <button class="ctx-item" onclick={() => handleContextAction('rotate-90')}>{t('ctx.rotate90cw')}</button>
+        <button class="ctx-item" onclick={() => handleContextAction('rotate-neg90')}>{t('ctx.rotate90ccw')}</button>
       {:else}
-        <button class="ctx-item" disabled>Sin elementos aquí</button>
+        <button class="ctx-item" disabled>{t('ctx.noElements')}</button>
       {/if}
     {/if}
   </div>

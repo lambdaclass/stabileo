@@ -1,5 +1,6 @@
 <script lang="ts">
   import type { CentralCore, ResolvedSection } from '../../lib/engine/section-stress';
+  import { t } from '../../lib/i18n';
   import { fmt } from './fmt';
 
   interface Props {
@@ -13,13 +14,13 @@
   const shapeLabel = $derived.by((): string => {
     if (!resolved) return '';
     switch (resolved.shape) {
-      case 'rect': return 'Rectangular';
-      case 'I': case 'H': return 'Doble T (I/H)';
-      case 'CHS': return 'Circular hueca (CHS)';
-      case 'RHS': return 'Rectangular hueca (RHS)';
-      case 'T': return 'T';
-      case 'L': return 'L (ángulo)';
-      case 'C': return 'C (canal)';
+      case 'rect': return t('stress.shapeRect');
+      case 'I': case 'H': return t('stress.shapeIH');
+      case 'CHS': return t('stress.shapeCHS');
+      case 'RHS': return t('stress.shapeRHS');
+      case 'T': return t('stress.shapeT');
+      case 'L': return t('stress.shapeL');
+      case 'C': return t('stress.shapeC');
       default: return resolved.shape;
     }
   });
@@ -27,68 +28,49 @@
   const coreShape = $derived.by((): string => {
     if (!resolved) return '';
     switch (resolved.shape) {
-      case 'CHS': return 'Circular';
-      case 'I': case 'H': return 'Hexagonal';
-      default: return 'Rombo (diamante)';
+      case 'CHS': return t('stress.coreCircular');
+      case 'I': case 'H': return t('stress.coreHexagonal');
+      default: return t('stress.coreDiamond');
     }
   });
 </script>
 
 <button class="ssp-section-toggle" onclick={() => showCentralCoreInfo = !showCentralCoreInfo}>
   <span class="ssp-chevron">{showCentralCoreInfo ? '▾' : '▸'}</span>
-  Nucleo central
-  <span class="ssp-help ssp-help-inline" title="El NC es una propiedad geométrica de la sección.&#10;Define dónde puede actuar N sin cambio de signo en σ.&#10;Activar el botón NC en la sección transversal para visualizarlo.">?</span>
+  {t('stress.centralCore')}
+  <span class="ssp-help ssp-help-inline" title={t('stress.centralCoreHelp')}>?</span>
 </button>
 {#if showCentralCoreInfo && centralCore && resolved}
   <div class="nc-detail">
-    <p class="nc-desc">
-      El <strong>núcleo central</strong> es una propiedad geométrica de la sección transversal,
-      independiente de las cargas aplicadas.
-    </p>
-    <p class="nc-desc">
-      Define la región alrededor del baricentro donde puede actuar una fuerza normal N
-      sin producir cambio de signo en las tensiones normales &sigma;.
-      Si el centro de presiones cae dentro del NC, toda la sección está en tracción o en compresión pura.
-    </p>
+    <p class="nc-desc">{@html t('stress.ccDesc1')}</p>
+    <p class="nc-desc">{t('stress.ccDesc2')}</p>
 
     <div class="nc-divider"></div>
 
-    <div class="nc-eq-title">Ecuaciones</div>
-    <p class="nc-eq">
-      Para cada fibra extrema a distancia <em>d</em> del baricentro, el vértice del NC está a:
-    </p>
+    <div class="nc-eq-title">{t('stress.ccEquations')}</div>
+    <p class="nc-eq">{@html t('stress.ccEqDesc')}</p>
     <div class="nc-formula">e = W / A = I / (A · d)</div>
-    <p class="nc-eq">
-      donde W = módulo resistente, A = área, I = momento de inercia, d = distancia al extremo.
-    </p>
+    <p class="nc-eq">{t('stress.ccEqWhere')}</p>
 
     <div class="nc-divider"></div>
 
     <div class="nc-row">
-      <span class="nc-label">Sección:</span>
+      <span class="nc-label">{t('stress.sectionLabel')}</span>
       <span class="nc-val">{shapeLabel}</span>
     </div>
     <div class="nc-row">
-      <span class="nc-label">Forma del NC:</span>
+      <span class="nc-label">{t('stress.ccShapeLabel')}</span>
       <span class="nc-val">{coreShape}</span>
     </div>
 
     {#if resolved.shape === 'rect'}
-      <p class="nc-eq nc-shape-note">
-        Rombo con semi-ejes e<sub>y</sub> = h/6 y e<sub>z</sub> = b/6
-      </p>
+      <p class="nc-eq nc-shape-note">{@html t('stress.ccRectNote')}</p>
     {:else if resolved.shape === 'I' || resolved.shape === 'H'}
-      <p class="nc-eq nc-shape-note">
-        Hexágono: vértices en (0, ±I<sub>z</sub>/(A·h/2)) y (±I<sub>y</sub>/(A·b/2), ±I<sub>z</sub>/(A·y<sub>alma</sub>))
-      </p>
+      <p class="nc-eq nc-shape-note">{@html t('stress.ccIHNote')}</p>
     {:else if resolved.shape === 'CHS'}
-      <p class="nc-eq nc-shape-note">
-        Círculo de radio R<sub>nc</sub> = I<sub>z</sub>/(A·R) = R/4 (sección maciza)
-      </p>
+      <p class="nc-eq nc-shape-note">{@html t('stress.ccCHSNote')}</p>
     {:else}
-      <p class="nc-eq nc-shape-note">
-        Rombo con e<sub>y</sub> = I<sub>z</sub>/(A·y<sub>max</sub>) y e<sub>z</sub> = I<sub>y</sub>/(A·z<sub>max</sub>)
-      </p>
+      <p class="nc-eq nc-shape-note">{@html t('stress.ccDefaultNote')}</p>
     {/if}
 
     <div class="nc-divider"></div>

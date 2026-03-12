@@ -11,6 +11,7 @@
   import SectionEditor from './components/SectionEditor.svelte';
   import DataTable from './components/DataTable.svelte';
   import { modelStore, uiStore, resultsStore, dsmStepsStore, tabManager, historyStore } from './lib/store';
+  import { t, i18n, setLocale } from './lib/i18n';
   import StepWizard from './components/dsm/StepWizard.svelte';
   import {
     loadFromLocalStorage, saveToLocalStorage, clearLocalStorage,
@@ -27,12 +28,56 @@
   import TabBar from './components/TabBar.svelte';
   import FeedbackWidget from './components/FeedbackWidget.svelte';
   import MobileResultsPanel from './components/MobileResultsPanel.svelte';
+  import ProPanel from './components/pro/ProPanel.svelte';
+  import EducativePanel from './components/edu/EducativePanel.svelte';
   import TourOverlay from './components/TourOverlay.svelte';
   import HelpOverlay from './components/HelpOverlay.svelte';
   import ContextMenu from './components/ContextMenu.svelte';
   import { tourStore } from './lib/store/tour.svelte';
   import { buildTourSteps } from './lib/tour/tour-steps';
   import { runLiveCalc, runGlobalSolve } from './lib/engine/live-calc';
+  import LandingPage from './components/LandingPage.svelte';
+  import { authStore } from './lib/store/auth.svelte';
+
+  const isEmbedDemo = new URLSearchParams(location.search).has('embed');
+  if (isEmbedDemo) authStore.setReady();
+  const needsLogin = $derived(!authStore.ready && !isEmbedDemo);
+
+  // ─── Per-mode model persistence ───
+  // When switching between básico/edu/pro, save the current model and restore
+  // the target mode's model (or start empty if first visit to that mode).
+  import type { ModelSnapshot } from './lib/store/history.svelte';
+  type AppMode = 'basico' | 'educativo' | 'pro';
+  const modeSnapshots = new Map<AppMode, ModelSnapshot>();
+  let currentAppMode: AppMode = 'basico';
+
+  function switchAppMode(target: AppMode) {
+    const prev = currentAppMode;
+    if (target === prev) return;
+    // Save current model into the mode we're leaving
+    modeSnapshots.set(prev, modelStore.snapshot());
+    // Clear results + UI state
+    resultsStore.clear();
+    resultsStore.showReactions = false;
+    resultsStore.diagramType = 'none';
+    historyStore.clear();
+    // Restore target mode's model or start empty
+    const saved = modeSnapshots.get(target);
+    if (saved) {
+      modelStore.restore(saved);
+    } else {
+      modelStore.clear();
+    }
+    // Set the actual analysis mode
+    if (target === 'basico') {
+      uiStore.analysisMode = '2d';
+    } else if (target === 'educativo') {
+      uiStore.analysisMode = 'edu';
+    } else {
+      uiStore.analysisMode = 'pro';
+    }
+    currentAppMode = target;
+  }
 
   let showTemplateDialog = $state(false);
   let showDxfImport = $state(false);
@@ -49,6 +94,11 @@
   let importText = $state('');
   let autosaveData = $state<ReturnType<typeof loadFromLocalStorage>>(null);
   let autosaveInterval: ReturnType<typeof setInterval> | null = null;
+
+  // Keep <html lang> in sync with selected locale
+  $effect(() => {
+    document.documentElement.lang = t('file.htmlLang');
+  });
 
   function restoreAutosave() {
     if (autosaveData) {
@@ -80,10 +130,10 @@
     // Auto-connect consecutive nodes if format has connectivity (3+ columns: x,y,connect)
     // or just create elements between consecutive pairs if requested
     if (created > 0) {
-      uiStore.toast(`${created} nodos importados`, 'success');
+      uiStore.toast(t('app.nodesImported').replace('{n}', String(created)), 'success');
       resultsStore.clear();
     } else {
-      uiStore.toast('No se encontraron coordenadas válidas', 'error');
+      uiStore.toast(t('app.noValidCoords'), 'error');
     }
     showImportDialog = false;
     importText = '';
@@ -193,21 +243,17 @@
   // Reactive auto-clear results + live calculation on model changes
   let prevModelVersion = -1;
   let prevAnalysisMode = '';
-  let prevAxisConvention = '';
-
   $effect(() => {
     const _v = modelStore.modelVersion;
     const _lc = uiStore.liveCalc;
     const _mode = uiStore.analysisMode;
-    const _conv = uiStore.axisConvention3D;
 
     untrack(() => {
       if (tabManager.isTabSwitching) return;
 
-      const modelChanged = _v !== prevModelVersion || _mode !== prevAnalysisMode || _conv !== prevAxisConvention;
+      const modelChanged = _v !== prevModelVersion || _mode !== prevAnalysisMode;
       prevModelVersion = _v;
       prevAnalysisMode = _mode;
-      prevAxisConvention = _conv;
 
       const prevDiagram = resultsStore.diagramType;
       uiStore.liveCalcError = null;
@@ -219,68 +265,97 @@
         }
       }
 
-      // If live calc is ON, auto-solve
-      if (_lc) {
-        runLiveCalc(_mode, _conv, prevDiagram);
+      // If live calc is ON, auto-solve (skip in PRO/EDU mode — manual solve only)
+      if (_lc && _mode !== 'pro' && _mode !== 'edu') {
+        runLiveCalc(_mode, uiStore.axisConvention3D, prevDiagram);
       }
     });
   });
 </script>
 
-<div class="app-container" class:embed-mode={uiStore.embedMode}>
+{#if needsLogin}
+  <LandingPage />
+{/if}
+
+<div class="app-container" class:embed-mode={uiStore.embedMode} class:hidden-behind-login={needsLogin}>
   <header class="app-header">
     <div class="logo">
       <span class="logo-icon">△</span>
       <span class="logo-text">Dedaliano</span>
       <div class="mode-toggle" data-tour="mode-toggle">
-        <button class:active={uiStore.analysisMode === '2d'} onclick={() => uiStore.analysisMode = '2d'}>2D</button>
-        <button class:active={uiStore.analysisMode === '3d'} onclick={() => uiStore.analysisMode = '3d'}>3D</button>
+        <button class:active={uiStore.appMode === 'basico'} onclick={() => switchAppMode('basico')}>
+          {t('app.modeBasic')}
+        </button>
+        <button class:active={uiStore.appMode === 'educativo'} class="edu-mode-btn" onclick={() => switchAppMode('educativo')}>{t('app.modeEdu')}<span class="demo-badge">DEMO</span></button>
+        <button class:active={uiStore.appMode === 'pro'} class="pro-mode-btn" onclick={() => switchAppMode('pro')}>{t('app.modePro')}<span class="demo-badge">DEMO</span></button>
       </div>
     </div>
     <span class="separator">|</span>
     <TabBar />
     <div class="header-actions">
-      <!-- Help panel button hidden for now — demo tour supersedes it -->
-      <!-- <button
-        class="btn btn-toggle"
-        class:active={uiStore.showHelpPanel}
-        onclick={() => uiStore.showHelpPanel = !uiStore.showHelpPanel}
-        title={uiStore.showHelpPanel ? 'Ocultar panel de ayuda' : 'Mostrar panel de ayuda'}
-      >?!</button> -->
-      <button class="btn btn-help" onclick={() => uiStore.showHelp = true} title="Atajos de teclado (?)">
+      <button class="btn btn-help" onclick={() => uiStore.showHelp = true} title={t('app.keyboardShortcuts')}>
         ?
       </button>
+      <select class="lang-select" value={i18n.locale} onchange={(e) => { setLocale((e.currentTarget as HTMLSelectElement).value); tabManager.updateDefaultNames(); }}>
+        <option value="es">{t('lang.es')}</option>
+        <option value="en">{t('lang.en')}</option>
+        <option value="pt">{t('lang.pt')}</option>
+        <option value="de">{t('lang.de')}</option>
+        <option value="fr">{t('lang.fr')}</option>
+        <option value="it">{t('lang.it')}</option>
+        <option value="tr">{t('lang.tr')}</option>
+        <option value="hi">{t('lang.hi')}</option>
+        <option value="zh">{t('lang.zh')}</option>
+        <option value="ja">{t('lang.ja')}</option>
+        <option value="ko">{t('lang.ko')}</option>
+        <option value="ru">{t('lang.ru')}</option>
+        <option value="ar">{t('lang.ar')}</option>
+        <option value="id">{t('lang.id')}</option>
+      </select>
+      {#if authStore.isLoggedIn}
+        <button class="btn-user" onclick={() => authStore.logout()} title={t('auth.logout')}>
+          {#if authStore.user?.picture}
+            <img src={authStore.user.picture} alt="" class="user-avatar" referrerpolicy="no-referrer" />
+          {:else}
+            <span class="user-initial">{authStore.user?.name?.[0] ?? '?'}</span>
+          {/if}
+        </button>
+      {/if}
     </div>
   </header>
 
   {#if showAutosaveBanner}
     <div class="autosave-banner">
-      <span>Se encontró un proyecto guardado: <strong>{autosaveData?.name}</strong></span>
-      <button class="banner-btn restore" onclick={restoreAutosave}>Restaurar</button>
-      <button class="banner-btn discard" onclick={discardAutosave}>Descartar</button>
+      <span>{t('app.autosaveFound')} <strong>{autosaveData?.name}</strong></span>
+      <button class="banner-btn restore" onclick={restoreAutosave}>{t('app.restore')}</button>
+      <button class="banner-btn discard" onclick={discardAutosave}>{t('app.discard')}</button>
     </div>
   {/if}
 
   <div class="app-body">
-    {#if !uiStore.isMobile}
-      {#if uiStore.leftSidebarOpen}
-        <aside class="sidebar left">
-          <Toolbar />
-        </aside>
+    {#if uiStore.appMode === 'basico'}
+      {#if !uiStore.isMobile}
+        {#if uiStore.leftSidebarOpen}
+          <aside class="sidebar left">
+            <Toolbar />
+          </aside>
+        {/if}
+        <button class="sidebar-toggle-btn left-toggle" class:sidebar-closed={!uiStore.leftSidebarOpen} onclick={() => uiStore.leftSidebarOpen = !uiStore.leftSidebarOpen} title={uiStore.leftSidebarOpen ? t('app.hideLeftPanel') : t('app.showLeftPanel')}>
+          {uiStore.leftSidebarOpen ? '◂' : '▸'}
+        </button>
       {/if}
-      <button class="sidebar-toggle-btn left-toggle" class:sidebar-closed={!uiStore.leftSidebarOpen} onclick={() => uiStore.leftSidebarOpen = !uiStore.leftSidebarOpen} title={uiStore.leftSidebarOpen ? 'Ocultar panel izquierdo' : 'Mostrar panel izquierdo'}>
-        {uiStore.leftSidebarOpen ? '◂' : '▸'}
-      </button>
     {/if}
 
     <div class="main-area">
       <main class="viewport-container">
-        {#if uiStore.analysisMode === '2d'}
-          <Viewport {showResults} />
+        {#if uiStore.analysisMode === '2d' || uiStore.analysisMode === 'edu'}
+          <Viewport showResults={uiStore.analysisMode === '2d' && showResults} />
         {:else}
           <Viewport3D />
         {/if}
-        <FloatingTools />
+        {#if uiStore.appMode === 'basico'}
+          <FloatingTools />
+        {/if}
         <WhatIfPanel />
         <SectionStressPanel />
         <KinematicPanel />
@@ -289,24 +364,34 @@
     </div>
 
     {#if !uiStore.isMobile}
-      <button class="sidebar-toggle-btn right-toggle" class:sidebar-closed={!uiStore.rightSidebarOpen} onclick={() => uiStore.rightSidebarOpen = !uiStore.rightSidebarOpen} title={uiStore.rightSidebarOpen ? 'Ocultar panel derecho' : 'Mostrar panel derecho'}>
-        {uiStore.rightSidebarOpen ? '▸' : '◂'}
-      </button>
-      {#if uiStore.rightSidebarOpen}
-        <aside class="sidebar right" data-tour="right-sidebar" class:wizard-open={dsmStepsStore.isOpen}>
-          {#if dsmStepsStore.isOpen}
-            <StepWizard />
-          {:else}
-            <button class="datatable-toggle" onclick={() => uiStore.showDataTable = !uiStore.showDataTable}>
-              {uiStore.showDataTable ? '▾' : '▸'} Datos del Modelo
-            </button>
-            {#if uiStore.showDataTable}
-              <div class="data-table-sidebar">
-                <DataTable />
-              </div>
-            {/if}
-          {/if}
+      {#if uiStore.appMode === 'pro'}
+        <aside class="sidebar right pro-sidebar">
+          <ProPanel />
         </aside>
+      {:else if uiStore.appMode === 'educativo'}
+        <aside class="sidebar right edu-sidebar">
+          <EducativePanel />
+        </aside>
+      {:else}
+        <button class="sidebar-toggle-btn right-toggle" class:sidebar-closed={!uiStore.rightSidebarOpen} onclick={() => uiStore.rightSidebarOpen = !uiStore.rightSidebarOpen} title={uiStore.rightSidebarOpen ? t('app.hideRightPanel') : t('app.showRightPanel')}>
+          {uiStore.rightSidebarOpen ? '▸' : '◂'}
+        </button>
+        {#if uiStore.rightSidebarOpen}
+          <aside class="sidebar right" data-tour="right-sidebar" class:wizard-open={dsmStepsStore.isOpen}>
+            {#if dsmStepsStore.isOpen}
+              <StepWizard />
+            {:else}
+              <button class="datatable-toggle" onclick={() => uiStore.showDataTable = !uiStore.showDataTable}>
+                {uiStore.showDataTable ? '▾' : '▸'} {t('app.modelData')}
+              </button>
+              {#if uiStore.showDataTable}
+                <div class="data-table-sidebar">
+                  <DataTable />
+                </div>
+              {/if}
+            {/if}
+          </aside>
+        {/if}
       {/if}
     {/if}
   </div>
@@ -318,7 +403,7 @@
   {/if}
 
   <!-- Mobile drawers (overlay on top of canvas) -->
-  {#if uiStore.isMobile && uiStore.leftDrawerOpen}
+  {#if uiStore.isMobile && uiStore.leftDrawerOpen && uiStore.appMode === 'basico'}
     <div class="drawer-backdrop" onclick={() => uiStore.leftDrawerOpen = false}></div>
     <aside class="drawer drawer-left">
       <Toolbar />
@@ -332,7 +417,7 @@
       {:else}
         <PropertyPanel {showResults} />
         <button class="datatable-toggle" onclick={() => uiStore.showDataTable = !uiStore.showDataTable}>
-          {uiStore.showDataTable ? '▾' : '▸'} Datos del Modelo
+          {uiStore.showDataTable ? '▾' : '▸'} {t('app.modelData')}
         </button>
         {#if uiStore.showDataTable}
           <div class="data-table-sidebar">
@@ -346,10 +431,10 @@
   <!-- Mobile bottom bar -->
   {#if uiStore.isMobile}
     <nav class="mobile-bottom-bar">
-      <button class="mobile-bar-btn" onclick={() => uiStore.leftDrawerOpen = !uiStore.leftDrawerOpen} title="Herramientas">
+      <button class="mobile-bar-btn" onclick={() => uiStore.leftDrawerOpen = !uiStore.leftDrawerOpen} title={t('app.tools')}>
         ☰
       </button>
-      <button class="mobile-bar-btn" onclick={() => uiStore.rightDrawerOpen = !uiStore.rightDrawerOpen} title="Propiedades">
+      <button class="mobile-bar-btn" onclick={() => uiStore.rightDrawerOpen = !uiStore.rightDrawerOpen} title={t('app.properties')}>
         ⚙
       </button>
     </nav>
@@ -368,8 +453,8 @@
       <div class="toast toast-{toast.type}">
         <span>{toast.message}</span>
         {#if toast.actionId === 'kinematic'}
-          <button class="toast-action" onclick={() => { uiStore.showKinematicPanel = true; const idx = uiStore.toasts.findIndex(t => t.id === toast.id); if (idx >= 0) uiStore.toasts.splice(idx, 1); }}>
-            Ver Análisis Cinemático
+          <button class="toast-action" onclick={() => { uiStore.showKinematicPanel = true; const idx = uiStore.toasts.findIndex(tt => tt.id === toast.id); if (idx >= 0) uiStore.toasts.splice(idx, 1); }}>
+            {t('app.viewKinematic')}
           </button>
         {/if}
       </div>
@@ -381,9 +466,9 @@
   <div class="live-calc-error">
     <span class="live-calc-error-msg">{uiStore.liveCalcError}</span>
     <span class="live-calc-error-actions">
-      <button onclick={() => { uiStore.liveCalc = false; uiStore.liveCalcError = null; uiStore.toast('Cálculo en tiempo real desactivado — reactivar desde Configuración', 'info'); }}>Desactivar Cálculo en tiempo real</button>
+      <button onclick={() => { uiStore.liveCalc = false; uiStore.liveCalcError = null; uiStore.toast(t('app.liveCalcDisabledMsg'), 'info'); }}>{t('app.disableLiveCalc')}</button>
       <span class="live-calc-error-sep">·</span>
-      <button onclick={() => { historyStore.undo(); }}>Deshacer última acción</button>
+      <button onclick={() => { historyStore.undo(); }}>{t('app.undoLastAction')}</button>
     </span>
   </div>
 {/if}
@@ -428,15 +513,15 @@
 />
 
 {#if showImportDialog}
-  <div class="help-overlay" role="dialog" aria-label="Importar coordenadas">
+  <div class="help-overlay" role="dialog" aria-label={t('app.importCoordinates')}>
     <div class="help-backdrop" onclick={() => showImportDialog = false}></div>
     <div class="help-content" style="max-width: 500px">
       <div class="help-header">
-        <h2>Importar Coordenadas</h2>
+        <h2>{t('app.importCoordinates')}</h2>
         <button class="help-close" onclick={() => showImportDialog = false}>✕</button>
       </div>
       <p style="font-size: 0.85rem; color: #aaa; margin: 0.5rem 0">
-        Pegá coordenadas X,Y (una por línea). Separador: coma, tab, espacio o punto y coma.
+        {t('app.importCoordDesc')}
       </p>
       <textarea
         class="import-textarea"
@@ -445,15 +530,16 @@
         rows="10"
       ></textarea>
       <div style="display: flex; gap: 0.5rem; margin-top: 0.5rem">
-        <button class="btn btn-primary" onclick={handleImportCoordinates}>Importar</button>
-        <button class="btn btn-secondary" onclick={() => showImportDialog = false}>Cancelar</button>
+        <button class="btn btn-primary" onclick={handleImportCoordinates}>{t('app.import')}</button>
+        <button class="btn btn-secondary" onclick={() => showImportDialog = false}>{t('app.cancel')}</button>
       </div>
     </div>
   </div>
 {/if}
 
 {#if !uiStore.embedMode}
-  <FeedbackWidget />
+  <!-- FeedbackWidget disabled — will be reimplemented professionally -->
+  <!-- <FeedbackWidget /> -->
 {/if}
 
 <TourOverlay />
@@ -514,24 +600,28 @@
   }
 
   .mode-toggle {
-    display: flex;
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr;
     gap: 0;
     border-radius: 4px;
     overflow: hidden;
     border: 1px solid #334;
     margin-left: 0.25rem;
+    min-width: 180px;
   }
 
   .mode-toggle button {
     background: transparent;
     border: none;
     color: #888;
-    font-size: 0.75rem;
+    font-size: 0.68rem;
     font-weight: 600;
-    padding: 0.2rem 0.5rem;
+    padding: 0.2rem 0.35rem;
     cursor: pointer;
     transition: background 0.15s, color 0.15s;
-    letter-spacing: 0.05em;
+    letter-spacing: 0.03em;
+    text-align: center;
+    white-space: nowrap;
   }
 
   .mode-toggle button:hover {
@@ -542,6 +632,57 @@
   .mode-toggle button.active {
     background: #e94560;
     color: white;
+  }
+
+  .mode-toggle button.edu-mode-btn {
+    background: linear-gradient(135deg, #1a1a3a, #0f1a30);
+    color: #4ecdc4;
+    border-left: 1px solid #334;
+  }
+
+  .mode-toggle button.edu-mode-btn.active {
+    background: linear-gradient(135deg, #2a8a7a, #1a6a5a);
+    color: white;
+  }
+
+  .mode-toggle button.pro-mode-btn {
+    background: linear-gradient(135deg, #1a1a3a, #0f1a30);
+    color: #f0a500;
+    border-left: 1px solid #334;
+  }
+
+  .mode-toggle button.pro-mode-btn.active {
+    background: linear-gradient(135deg, #e94560, #c73e54);
+    color: white;
+  }
+
+  .demo-badge {
+    font-size: 0.45rem;
+    font-weight: 700;
+    letter-spacing: 0.06em;
+    background: rgba(255,255,255,0.15);
+    color: rgba(255,255,255,0.7);
+    padding: 0.05rem 0.3rem;
+    border-radius: 3px;
+    margin-left: 0.3rem;
+    vertical-align: middle;
+  }
+
+  .mode-toggle button.active .demo-badge {
+    background: rgba(255,255,255,0.2);
+    color: rgba(255,255,255,0.85);
+  }
+
+  .pro-sidebar {
+    width: 540px;
+    min-width: 540px;
+    max-width: 540px;
+  }
+
+  .edu-sidebar {
+    width: 420px;
+    min-width: 420px;
+    max-width: 420px;
   }
 
   .project-name {
@@ -658,6 +799,60 @@
   .btn-help:hover {
     border-color: #4ecdc4;
     color: #4ecdc4;
+  }
+
+  .lang-select {
+    background: transparent;
+    border: 1px solid #555;
+    border-radius: 4px;
+    color: #aaa;
+    font-size: 0.75rem;
+    padding: 0.2rem 0.3rem;
+    cursor: pointer;
+    height: 32px;
+  }
+  .lang-select:hover {
+    border-color: #4ecdc4;
+    color: #4ecdc4;
+  }
+  .lang-select option {
+    background: #16213e;
+    color: #eee;
+  }
+
+  .hidden-behind-login {
+    pointer-events: none;
+    filter: blur(4px);
+    opacity: 0.3;
+  }
+
+  .btn-user {
+    background: transparent;
+    border: 1px solid #555;
+    border-radius: 50%;
+    width: 32px;
+    height: 32px;
+    padding: 0;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    overflow: hidden;
+    transition: border-color 0.2s;
+  }
+  .btn-user:hover {
+    border-color: #e94560;
+  }
+  .user-avatar {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    border-radius: 50%;
+  }
+  .user-initial {
+    color: #aaa;
+    font-size: 0.8rem;
+    font-weight: 600;
   }
 
   .btn-toggle {

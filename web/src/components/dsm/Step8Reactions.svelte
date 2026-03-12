@@ -1,5 +1,6 @@
 <script lang="ts">
   import type { DSMStepData } from '../../lib/engine/solver-detailed';
+  import { t } from '../../lib/i18n';
   import MathEquation from './MathEquation.svelte';
   import VectorDisplay from './VectorDisplay.svelte';
 
@@ -20,13 +21,13 @@
 
 <div class="step">
   <div class="explanation">
-    <p>Las <strong>reacciones</strong> en los apoyos se calculan a partir de los desplazamientos obtenidos.</p>
+    <p>{@html t('dsm.step8.explanation')}</p>
   </div>
 
   <MathEquation equation={eqReactions} displayMode />
 
   <VectorDisplay
-    title={`{R} — Reacciones (${nr} GDL restringidos)`}
+    title={t('dsm.step8.reactions').replace('{n}', String(nr))}
     vector={data.reactionsRaw}
     labels={data.restrDofLabels}
     highlightIndices={nonZero}
@@ -39,9 +40,9 @@
     <table class="reactions-table">
       <thead>
         <tr>
-          <th>GDL</th>
-          <th>Label</th>
-          <th>Reacción</th>
+          <th>{t('dsm.step8.dof')}</th>
+          <th>{t('dsm.step8.label')}</th>
+          <th>{t('dsm.step8.reaction')}</th>
         </tr>
       </thead>
       <tbody>

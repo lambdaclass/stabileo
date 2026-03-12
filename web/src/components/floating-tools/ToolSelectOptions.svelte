@@ -1,12 +1,13 @@
 <script lang="ts">
   import { uiStore } from '../../lib/store';
+  import { t } from '../../lib/i18n';
 
   const selectModes = [
-    { id: 'nodes', label: 'Nodos' },
-    { id: 'elements', label: 'Elementos' },
-    { id: 'supports', label: 'Apoyos' },
-    { id: 'loads', label: 'Cargas' },
-    { id: 'stress', label: 'Tensiones' },
+    { id: 'nodes', key: 'float.selectNodes' },
+    { id: 'elements', key: 'float.selectElements' },
+    { id: 'supports', key: 'float.selectSupports' },
+    { id: 'loads', key: 'float.selectLoads' },
+    { id: 'stress', key: 'float.selectStress' },
   ] as const;
 </script>
 
@@ -15,16 +16,16 @@
     class="ft-opt-btn"
     class:active={uiStore.selectMode === sm.id}
     onclick={() => uiStore.selectMode = sm.id}
-  >{sm.label}</button>
+  >{t(sm.key)}</button>
 {/each}
 {#if uiStore.selectMode === 'nodes'}
-  <span class="ft-hint">Click en un nodo para ver articulaciones</span>
+  <span class="ft-hint">{t('float.selectNodesHint')}</span>
 {:else if uiStore.selectMode === 'elements'}
-  <span class="ft-hint">Click para seleccionar nodos/barras</span>
+  <span class="ft-hint">{t('float.selectElementsHint')}</span>
 {:else if uiStore.selectMode === 'loads'}
-  <span class="ft-hint">Click en una carga para seleccionarla</span>
+  <span class="ft-hint">{t('float.selectLoadsHint')}</span>
 {:else if uiStore.selectMode === 'supports'}
-  <span class="ft-hint">Click en un apoyo para seleccionarlo</span>
+  <span class="ft-hint">{t('float.selectSupportsHint')}</span>
 {/if}
 
 <style>

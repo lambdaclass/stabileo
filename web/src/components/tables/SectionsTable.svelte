@@ -1,5 +1,6 @@
 <script lang="ts">
   import { modelStore, uiStore, resultsStore } from '../../lib/store';
+  import { t } from '../../lib/i18n';
   import SectionChanger from '../SectionChanger.svelte';
   import type { SteelProfile } from '../../lib/data/steel-profiles';
   import { profileToSectionFull } from '../../lib/data/steel-profiles';
@@ -20,7 +21,7 @@
   let showSectionChanger = $state(false);
 
   function addSection() {
-    modelStore.addSection({ name: 'Nueva Secci\u00f3n', a: 0.005, iz: 0.00002, iy: 0.00008 });
+    modelStore.addSection({ name: t('table.newSection'), a: 0.005, iz: 0.00002, iy: 0.00008 });
   }
 
   function updateSectionField(id: number, field: string, val: string) {
@@ -40,7 +41,7 @@
 
   function deleteSection(id: number) {
     const ok = modelStore.removeSection(id);
-    if (!ok) alert('No se puede eliminar: hay elementos usando esta secci\u00f3n.');
+    if (!ok) alert(t('table.cannotDeleteSection'));
   }
 
   // Apply a standard profile to an EXISTING section (update in place) -- via SectionChanger
@@ -109,7 +110,7 @@
 
 <table>
   <thead>
-    <tr><th>ID</th><th>Nombre</th><th>A (cm&sup2;)</th><th>Iy (cm&#8308;)</th><th>Iz (cm&#8308;)</th>{#if is3D}<th>J (cm&#8308;)</th>{/if}<th>Rot&deg;</th><th></th></tr>
+    <tr><th>ID</th><th>{t('table.name')}</th><th>A (cm&sup2;)</th><th>Iy (cm&#8308;)</th><th>Iz (cm&#8308;)</th>{#if is3D}<th>J (cm&#8308;)</th>{/if}<th>{t('table.rotation')}</th><th></th></tr>
   </thead>
   <tbody>
     {#each sectionsArr as sec}
@@ -118,7 +119,7 @@
         <td class="id-cell">{sec.id}</td>
         <td class="name-with-action">
           <input type="text" value={sec.name} onchange={(e) => updateSectionField(sec.id, 'name', e.currentTarget.value)} />
-          <button class="row-action-btn" title="Cambiar secci&oacute;n" onclick={() => { sectionChangerTargetSecId = sec.id; showSectionChanger = true; }}>&#9783;</button>
+          <button class="row-action-btn" title={t('table.changeSection')} onclick={() => { sectionChangerTargetSecId = sec.id; showSectionChanger = true; }}>&#9783;</button>
         </td>
         {#if hasShape}
           <td><span class="ro-val">{fmtA(sec.a)}</span></td>
@@ -144,7 +145,7 @@
   </tbody>
 </table>
 <div class="table-footer">
-  <button class="add-btn" onclick={addSection}>+ Agregar Secci&oacute;n (manual)</button>
+  <button class="add-btn" onclick={addSection}>{t('table.addSectionManual')}</button>
 </div>
 <SectionChanger
   open={showSectionChanger}

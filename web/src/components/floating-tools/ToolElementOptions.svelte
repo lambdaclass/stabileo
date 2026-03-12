@@ -1,17 +1,18 @@
 <script lang="ts">
   import { uiStore } from '../../lib/store';
+  import { t } from '../../lib/i18n';
 </script>
 
 <label class="ft-opt-radio">
   <input type="radio" name="ft-elemType" value="frame" checked={uiStore.elementCreateType === 'frame'} onchange={() => uiStore.elementCreateType = 'frame'} />
-  <span>Rigida (frame)</span>
+  <span>{t('float.elementRigid')}</span>
 </label>
 <label class="ft-opt-radio">
   <input type="radio" name="ft-elemType" value="truss" checked={uiStore.elementCreateType === 'truss'} onchange={() => uiStore.elementCreateType = 'truss'} />
-  <span>Articulada (truss)</span>
+  <span>{t('float.elementTruss')}</span>
 </label>
 <span class="ft-sep">|</span>
-<span class="ft-hint">Click en dos nodos para crear una barra</span>
+<span class="ft-hint">{t('float.elementHint')}</span>
 
 <style>
   .ft-opt-radio {

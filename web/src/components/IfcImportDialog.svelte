@@ -1,6 +1,7 @@
 <script lang="ts">
   import { modelStore, uiStore, resultsStore, historyStore } from '../lib/store';
   import { mapIfcToModel, type IfcMember, type IfcMappingResult } from '../lib/ifc/ifc-mapper';
+  import { t } from '../lib/i18n';
 
   let { open = false, file = null as File | null, onclose = () => {} } = $props();
 
@@ -36,7 +37,7 @@
         parseWarnings = result.warnings;
         remapModel();
       } catch (e: any) {
-        error = e.message || 'Error al parsear el archivo IFC';
+        error = e.message || t('ifc.parseError');
         members = [];
         mappingResult = null;
       } finally {
@@ -44,7 +45,7 @@
       }
     };
     reader.onerror = () => {
-      error = 'Error al leer el archivo';
+      error = t('ifc.readError');
       loading = false;
     };
     reader.readAsArrayBuffer(file);
@@ -59,7 +60,7 @@
       mappingResult = mapIfcToModel(members, { snapTolerance });
       error = null;
     } catch (e: any) {
-      error = e.message || 'Error al mapear el modelo';
+      error = e.message || t('ifc.mapError');
       mappingResult = null;
     }
   }
@@ -132,8 +133,7 @@
     // Switch to 3D mode
     uiStore.analysisMode = '3d';
 
-    const count = `${m.nodes.length} nodos, ${m.elements.length} elementos`;
-    uiStore.toast(`IFC importado: ${count}`, 'success');
+    uiStore.toast(t('ifc.imported').replace('{n}', String(m.nodes.length)).replace('{e}', String(m.elements.length)), 'success');
 
     onclose();
   }
@@ -144,7 +144,7 @@
     <div class="ifc-backdrop" onclick={onclose}></div>
     <div class="ifc-dialog">
       <div class="ifc-header">
-        <h2>Importar IFC</h2>
+        <h2>{t('ifc.title')}</h2>
         <button class="ifc-close" onclick={onclose}>&#10005;</button>
       </div>
 
@@ -160,39 +160,39 @@
         {#if loading}
           <div class="ifc-loading">
             <span class="ifc-spinner"></span>
-            Cargando WASM y parseando IFC...
+            {t('ifc.loading')}
           </div>
         {:else}
           <div class="ifc-options">
             <div class="ifc-field">
-              <label>Tolerancia snap (m):</label>
+              <label>{t('ifc.snapTolerance')}</label>
               <input type="number" step="0.001" min="0.001" value={snapTolerance} onchange={handleToleranceChange} />
             </div>
           </div>
 
           {#if members.length > 0}
             <div class="ifc-preview">
-              <h3>Miembros encontrados</h3>
+              <h3>{t('ifc.membersFound')}</h3>
               <div class="ifc-stats">
-                <span>Vigas: {members.filter(m => m.type === 'beam').length}</span>
-                <span>Columnas: {members.filter(m => m.type === 'column').length}</span>
-                <span>Arriostramientos: {members.filter(m => m.type === 'brace').length}</span>
+                <span>{t('ifc.beams')}: {members.filter(m => m.type === 'beam').length}</span>
+                <span>{t('ifc.columns')}: {members.filter(m => m.type === 'column').length}</span>
+                <span>{t('ifc.braces')}: {members.filter(m => m.type === 'brace').length}</span>
               </div>
             </div>
           {/if}
 
           {#if mappingResult}
             <div class="ifc-preview">
-              <h3>Modelo a importar</h3>
+              <h3>{t('ifc.modelToImport')}</h3>
               <div class="ifc-stats">
-                <span>Nodos: {mappingResult.nodes.length}</span>
-                <span>Elementos: {mappingResult.elements.length}</span>
-                <span>Materiales: {mappingResult.materials.length}</span>
-                <span>Secciones: {mappingResult.sections.length}</span>
+                <span>{t('ifc.nodes')}: {mappingResult.nodes.length}</span>
+                <span>{t('ifc.elements')}: {mappingResult.elements.length}</span>
+                <span>{t('ifc.materials')}: {mappingResult.materials.length}</span>
+                <span>{t('ifc.sections')}: {mappingResult.sections.length}</span>
               </div>
               {#if mappingResult.sections.length > 0}
                 <div class="ifc-sections">
-                  <h4>Secciones:</h4>
+                  <h4>{t('ifc.sectionsLabel')}</h4>
                   {#each mappingResult.sections as sec}
                     <span class="ifc-tag">{sec.name}</span>
                   {/each}
@@ -200,7 +200,7 @@
               {/if}
               {#if mappingResult.materials.length > 0}
                 <div class="ifc-sections">
-                  <h4>Materiales:</h4>
+                  <h4>{t('ifc.materialsLabel')}</h4>
                   {#each mappingResult.materials as mat}
                     <span class="ifc-tag">{mat.name} (E={mat.e} MPa)</span>
                   {/each}
@@ -211,7 +211,7 @@
 
           {#if parseWarnings.length > 0 || (mappingResult?.warnings.length ?? 0) > 0}
             <div class="ifc-warnings">
-              <h4>Advertencias</h4>
+              <h4>{t('ifc.warnings')}</h4>
               <ul>
                 {#each parseWarnings as w}
                   <li>{w}</li>
@@ -226,13 +226,13 @@
       </div>
 
       <div class="ifc-footer">
-        <button class="ifc-btn-cancel" onclick={onclose}>Cancelar</button>
+        <button class="ifc-btn-cancel" onclick={onclose}>{t('ifc.cancel')}</button>
         <button
           class="ifc-btn-import"
           disabled={!mappingResult || mappingResult.elements.length === 0}
           onclick={handleImport}
         >
-          Importar modelo
+          {t('ifc.importModel')}
         </button>
       </div>
     </div>

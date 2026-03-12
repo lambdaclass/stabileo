@@ -1,5 +1,6 @@
 <script lang="ts">
   import { modelStore, uiStore } from '../lib/store';
+  import { t } from '../lib/i18n';
   import ProfileSelector from './ProfileSelector.svelte';
   import type { SteelProfile } from '../lib/data/steel-profiles';
   import { profileToSectionFull } from '../lib/data/steel-profiles';
@@ -113,12 +114,12 @@
   <!-- svelte-ignore a11y_no_static_element_interactions -->
   <div class="backdrop" onclick={close}></div>
   <div class="editor">
-    <div class="title">Sección {secId}</div>
+    <div class="title">{t('secEdit.title').replace('{id}', String(secId))}</div>
     <button class="btn-profile" onclick={() => showProfileSelector = true}>
-      Elegir perfil...
+      {t('secEdit.chooseProfile')}
     </button>
     <div class="field">
-      <span>Nombre:</span>
+      <span>{t('secEdit.name')}</span>
       <input
         bind:this={inputName}
         type="text"
@@ -136,7 +137,7 @@
       />
     </div>
     <div class="field">
-      <span>Iz (m⁴):</span>
+      <span>{t('secEdit.iz')}</span>
       <input
         type="number"
         step="0.000001"
@@ -144,7 +145,7 @@
         onkeydown={handleKeydown}
       />
     </div>
-    <div class="separator">Rectangular (auto A, Iz)</div>
+    <div class="separator">{t('secEdit.rectangular')}</div>
     <div class="field">
       <span>b (m):</span>
       <input
@@ -165,9 +166,9 @@
         oninput={recalcFromBH}
       />
     </div>
-    <div class="separator">Rotaci&oacute;n del perfil</div>
+    <div class="separator">{t('secEdit.profileRotation')}</div>
     <div class="field">
-      <span>Rot (&deg;):</span>
+      <span>{t('secEdit.rotation')}</span>
       <input
         type="number"
         step="1"
@@ -179,7 +180,7 @@
     </div>
     <div class="buttons">
       <button class="btn-ok" onclick={confirm}>OK</button>
-      <button class="btn-cancel" onclick={close}>Cancelar</button>
+      <button class="btn-cancel" onclick={close}>{t('secEdit.cancel')}</button>
     </div>
   </div>
 

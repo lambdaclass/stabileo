@@ -1,5 +1,6 @@
 <script lang="ts">
   import type { DSMStepData } from '../../lib/engine/solver-detailed';
+  import { t } from '../../lib/i18n';
   import { dsmStepsStore } from '../../lib/store';
   import MathEquation from './MathEquation.svelte';
   import MatrixDisplay from './MatrixDisplay.svelte';
@@ -20,11 +21,11 @@
 
 <div class="step">
   <div class="explanation">
-    <p>Para cada elemento se calcula la <strong>matriz de rigidez local</strong> [k] en su sistema de coordenadas propio.</p>
+    <p>{@html t('dsm.step2.explanation')}</p>
   </div>
 
   <div class="elem-selector">
-    <label for="elem-select">Elemento:</label>
+    <label for="elem-select">{t('dsm.step2.element')}</label>
     <select id="elem-select" onchange={(e) => dsmStepsStore.selectElement(Number((e.target as HTMLSelectElement).value))}>
       {#each data.elements as el}
         <option value={el.elementId} selected={el.elementId === dsmStepsStore.selectedElemForStep}>
@@ -36,7 +37,7 @@
 
   {#if elem}
     <div class="props-row">
-      <div class="prop"><span class="prop-label">Tipo</span><span class="prop-val">{elem.type}</span></div>
+      <div class="prop"><span class="prop-label">{t('dsm.step2.type')}</span><span class="prop-val">{elem.type}</span></div>
       <div class="prop"><span class="prop-label">L</span><span class="prop-val">{elem.length.toFixed(4)} m</span></div>
       {#if !is3D}
         <div class="prop"><span class="prop-label">θ</span><span class="prop-val">{angleDeg(elem.angle)}°</span></div>
@@ -57,11 +58,11 @@
     {#if is3D}
       {#if elem.type === 'frame'}
         <div class="formula-note">
-          Matriz 12×12 con rigidez axial (EA/L), flexión en dos planos (EIy, EIz) y torsión (GJ/L).
+          {t('dsm.step2.frameNote3d')}
         </div>
       {:else}
         <div class="formula-note">
-          Matriz 6×6 (truss 3D): solo rigidez axial EA/L en las diagonales u₁,u₂.
+          {t('dsm.step2.trussNote3d')}
         </div>
       {/if}
     {:else}
@@ -73,7 +74,7 @@
     {/if}
 
     <MatrixDisplay
-      title="[k] — Matriz local ({elem.kLocal.length}×{elem.kLocal[0]?.length})"
+      title={t('dsm.step2.localMatrix').replace('{rows}', String(elem.kLocal.length)).replace('{cols}', String(elem.kLocal[0]?.length))}
       matrix={elem.kLocal}
       rowLabels={elem.dofLabels.map((_l, i) => `${i}`)}
       colLabels={elem.dofLabels.map((_l, i) => `${i}`)}

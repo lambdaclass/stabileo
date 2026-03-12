@@ -2,6 +2,7 @@
   import { uiStore, resultsStore, modelStore, historyStore, tabManager } from '../lib/store';
   import { saveProject, loadFile, saveSession } from '../lib/store/file';
   import type { ClipboardData } from '../lib/store/ui.svelte.ts';
+  import { t } from '../lib/i18n';
 
   import ToolbarResults from './toolbar/ToolbarResults.svelte';
   import ToolbarAdvanced from './toolbar/ToolbarAdvanced.svelte';
@@ -12,34 +13,28 @@
   let fileInput: HTMLInputElement;
 
   // ─── Educational Tooltips ─────────────────────────────────
-  const HELP_TEXTS: Record<string, { title: string; desc: string }> = {
-    'tool-select':    { title: 'Seleccionar (V)', desc: 'Tiene 5 sub-modos: Nodos, Elementos, Apoyos, Cargas y Tensiones. Cambiá en la barra flotante.' },
-    'tool-node':      { title: 'Crear Nodo (N)', desc: 'Click en el lienzo para colocar un punto de unión. Los nodos son donde se conectan las barras y se aplican cargas.' },
-    'tool-element':   { title: 'Crear Elemento (E)', desc: 'Click en un nodo de inicio, luego en uno de fin. Se crea una barra entre ambos. Frame = rígida, Truss = articulada.' },
-    'tool-support':   { title: 'Crear Apoyo (S)', desc: 'Click en un nodo para colocar un apoyo. El tipo de apoyo determina qué movimientos están restringidos.' },
-    'tool-load':      { title: 'Aplicar Carga (L)', desc: 'Click en un nodo (puntual) o barra (distribuida) para aplicar una fuerza. Valores negativos = hacia abajo.' },
-    'tool-influenceLine': { title: 'Línea de Influencia (I)', desc: 'Muestra cómo varía una reacción o esfuerzo cuando una carga unitaria recorre la estructura.' },
-    'tool-pan':       { title: 'Mover Vista (H)', desc: 'Arrastrá para desplazar la vista. También podés usar click medio o Ctrl+arrastrar.' },
-    'solve':          { title: 'Calcular', desc: 'Resuelve la estructura por el Método de la Rigidez Directa (DSM). Necesitás nodos, barras, apoyos y cargas.' },
-    'selfweight':     { title: 'Peso Propio', desc: 'Agrega automáticamente cargas distribuidas por gravedad usando la densidad del material y el área de la sección.' },
-    'adv-pdelta':     { title: 'Pandeo — 2° Orden (P-Δ)', desc: 'Análisis no lineal geométrico iterativo. Amplifica desplazamientos y esfuerzos considerando el efecto de las fuerzas axiales sobre la rigidez lateral. Reporta factor de amplificación B₂.' },
-    'adv-modal':      { title: 'Análisis Dinámico', desc: 'Calcula modos de vibración, frecuencias propias, masa modal efectiva, factores de participación y amortiguamiento de Rayleigh. Esencial para diseño sismorresistente. Requiere densidad del material.' },
-    'adv-spectral':   { title: 'Análisis Espectral', desc: 'Combinación modal espectral (SRSS/CQC) con espectro de diseño CIRSOC 103. Calcula corte basal, desplazamientos y esfuerzos pico. Requiere análisis dinámico previo.' },
-    'adv-buckling':   { title: 'Pandeo — Carga Crítica (Euler)', desc: 'Calcula la carga crítica de pandeo elástico por autovalores. λ_cr indica cuánto multiplicar las cargas para alcanzar la inestabilidad. Reporta longitud efectiva Keff por elemento.' },
-    'adv-plastic':    { title: 'Colapso Plástico', desc: 'Análisis incremental hasta formación de mecanismo plástico. Muestra la secuencia de articulaciones plásticas y el factor de carga de colapso λ. Requiere fy del material.' },
-    'adv-dsm':        { title: 'Paso a Paso — Método de las Rigideces', desc: 'Muestra cada paso del Método de la Rigidez Directa: matrices locales, ensamblaje, resolución y fuerzas internas. Ideal para estudiar cómo funciona el método.' },
-    'diag-none':      { title: 'Sin Diagrama', desc: 'Oculta todos los diagramas de resultados. Solo se ve la estructura.' },
-    'diag-deformed':  { title: 'Deformada', desc: 'Muestra la forma deformada amplificada. Útil para verificar que el comportamiento es razonable.' },
-    'diag-moment':    { title: 'Momento Flector (M)', desc: 'Diagrama del momento que genera flexión en cada barra. Se dibuja del lado traccionado por convención.' },
-    'diag-shear':     { title: 'Corte (V)', desc: 'Diagrama de la fuerza de corte a lo largo de cada barra. Cambios bruscos indican cargas puntuales.' },
-    'diag-axial':     { title: 'Axil (N)', desc: 'Diagrama de la fuerza axial. Positivo = tracción (la barra se estira), negativo = compresión.' },
-    'diag-axialColor':{ title: 'Color Axil (N±)', desc: 'Colorea las barras según axil: rojo = tracción, azul = compresión. Grosor proporcional a la magnitud.' },
-    'diag-colorMap':  { title: 'Mapa de Color', desc: 'Colorea las barras según el esfuerzo elegido (momento, corte, axil o ratio σ/fy) usando una escala de colores.' },
-    'sup-fixed':      { title: 'Empotrado', desc: 'Restringe desplazamiento horizontal (ux), vertical (uy) y giro (θ). No permite ningún movimiento.' },
-    'sup-pinned':     { title: 'Articulado', desc: 'Restringe ux y uy, pero permite el giro. La barra puede rotar libremente en este punto.' },
-    'sup-rollerX':    { title: 'Móvil en X', desc: 'Solo restringe uy (vertical). Permite movimiento horizontal y giro. Típico apoyo "sobre ruedas".' },
-    'sup-rollerY':    { title: 'Móvil en Y', desc: 'Solo restringe ux (horizontal). Permite movimiento vertical y giro.' },
-    'sup-spring':     { title: 'Resorte', desc: 'Apoyo elástico con rigidez configurable en cada dirección (kx, ky, kθ). Modela suelo o conexiones flexibles.' },
+  const HELP_TEXTS: Record<string, { titleKey: string; descKey: string }> = {
+    select: { titleKey: 'tooltip.toolSelect.title', descKey: 'tooltip.toolSelect.desc' },
+    node: { titleKey: 'tooltip.toolNode.title', descKey: 'tooltip.toolNode.desc' },
+    element: { titleKey: 'tooltip.toolElement.title', descKey: 'tooltip.toolElement.desc' },
+    support: { titleKey: 'tooltip.toolSupport.title', descKey: 'tooltip.toolSupport.desc' },
+    load: { titleKey: 'tooltip.toolLoad.title', descKey: 'tooltip.toolLoad.desc' },
+    influence: { titleKey: 'tooltip.toolInfluence.title', descKey: 'tooltip.toolInfluence.desc' },
+    pan: { titleKey: 'tooltip.toolPan.title', descKey: 'tooltip.toolPan.desc' },
+    solve: { titleKey: 'tooltip.solve.title', descKey: 'tooltip.solve.desc' },
+    selfweight: { titleKey: 'tooltip.selfweight.title', descKey: 'tooltip.selfweight.desc' },
+    diagNone: { titleKey: 'tooltip.diagNone.title', descKey: 'tooltip.diagNone.desc' },
+    diagDeformed: { titleKey: 'tooltip.diagDeformed.title', descKey: 'tooltip.diagDeformed.desc' },
+    diagMoment: { titleKey: 'tooltip.diagMoment.title', descKey: 'tooltip.diagMoment.desc' },
+    diagShear: { titleKey: 'tooltip.diagShear.title', descKey: 'tooltip.diagShear.desc' },
+    diagAxial: { titleKey: 'tooltip.diagAxial.title', descKey: 'tooltip.diagAxial.desc' },
+    diagAxialColor: { titleKey: 'tooltip.diagAxialColor.title', descKey: 'tooltip.diagAxialColor.desc' },
+    diagColorMap: { titleKey: 'tooltip.diagColorMap.title', descKey: 'tooltip.diagColorMap.desc' },
+    supFixed: { titleKey: 'tooltip.supFixed.title', descKey: 'tooltip.supFixed.desc' },
+    supPinned: { titleKey: 'tooltip.supPinned.title', descKey: 'tooltip.supPinned.desc' },
+    supRollerX: { titleKey: 'tooltip.supRollerX.title', descKey: 'tooltip.supRollerX.desc' },
+    supRollerY: { titleKey: 'tooltip.supRollerY.title', descKey: 'tooltip.supRollerY.desc' },
+    supSpring: { titleKey: 'tooltip.supSpring.title', descKey: 'tooltip.supSpring.desc' },
   };
 
   function tooltip(node: HTMLElement, key: string) {
@@ -53,7 +48,7 @@
       timer = setTimeout(() => {
         el = document.createElement('div');
         el.className = 'edu-tooltip';
-        el.innerHTML = `<strong>${info.title}</strong><br/><span>${info.desc}</span>`;
+        el.innerHTML = `<strong>${t(info.titleKey)}</strong><br/><span>${t(info.descKey)}</span>`;
         document.body.appendChild(el);
         // Position to the right of the element
         const rect = node.getBoundingClientRect();
@@ -91,12 +86,12 @@
   }
 
   const tools = [
-    { id: 'pan', icon: '✋', label: 'Mover (pan)', key: 'A' },
-    { id: 'select', icon: '↖', label: 'Seleccionar', key: 'V' },
-    { id: 'node', icon: '●', label: 'Nodo', key: 'N' },
-    { id: 'element', icon: '—', label: 'Elemento', key: 'E' },
-    { id: 'support', icon: '▽', label: 'Apoyo', key: 'S' },
-    { id: 'load', icon: '↓', label: 'Carga', key: 'L' },
+    { id: 'pan', icon: '✋', labelKey: 'toolbar.pan', key: 'A' },
+    { id: 'select', icon: '↖', labelKey: 'toolbar.select', key: 'V' },
+    { id: 'node', icon: '●', labelKey: 'toolbar.node', key: 'N' },
+    { id: 'element', icon: '—', labelKey: 'toolbar.element', key: 'E' },
+    { id: 'support', icon: '▽', labelKey: 'toolbar.support', key: 'S' },
+    { id: 'load', icon: '↓', labelKey: 'toolbar.load', key: 'L' },
   ] as const;
 
   // Pulse the Solve button when model is ready but not yet solved
@@ -120,7 +115,7 @@
       // Validate results aren't degenerate
       const hasNaN = results.displacements.some(d => !isFinite(d.ux) || !isFinite(d.uy) || !isFinite(d.rz));
       if (hasNaN) {
-        uiStore.toast('Error numérico: la estructura puede ser inestable (mecanismo)', 'error');
+        uiStore.toast(t('results.numericError'), 'error');
         return;
       }
       resultsStore.setResults(results);
@@ -128,8 +123,8 @@
       const kin = modelStore.kinematicResult;
       let classText = '';
       if (kin) {
-        if (kin.classification === 'isostatic') classText = ' — Isostática';
-        else if (kin.classification === 'hyperstatic') classText = ` — Hiperestática (grado ${kin.degree})`;
+        if (kin.classification === 'isostatic') classText = t('toast.isostatic');
+        else if (kin.classification === 'hyperstatic') classText = t('toast.hyperstatic').replace('{degree}', String(kin.degree));
       }
       // Auto-solve combinations if they exist
       let comboText = '';
@@ -137,12 +132,14 @@
         const comboResult = modelStore.solveCombinations(uiStore.includeSelfWeight);
         if (comboResult && typeof comboResult !== 'string') {
           resultsStore.setCombinationResults(comboResult.perCase, comboResult.perCombo, comboResult.envelope);
-          comboText = ` + ${comboResult.perCombo.size} combinaciones`;
+          comboText = t('toast.plusCombinations').replace('{n}', String(comboResult.perCombo.size));
         }
       }
-      uiStore.toast(`Cálculo exitoso${classText} — ${results.elementForces.length} barras, ${results.reactions.length} reacciones${comboText}`, 'success');
+      uiStore.toast(`${t('results.calcSuccess')}${classText} — ${results.elementForces.length} ${t('results.bars')}, ${results.reactions.length} ${t('results.reactions')}${comboText}`, 'success');
+      // Show diagnostics toast if any issues were found
+      showDiagnosticsToast(false);
     } else {
-      uiStore.toast('Modelo vacío o error inesperado', 'error');
+      uiStore.toast(t('results.emptyModelError'), 'error');
     }
     // Auto-close drawer on mobile after solve, show floating results panel
     if (uiStore.isMobile) {
@@ -151,8 +148,19 @@
     }
   }
 
+  function showDiagnosticsToast(is3D: boolean) {
+    const diags = is3D ? resultsStore.diagnostics3D : resultsStore.diagnostics;
+    if (diags.length === 0) return;
+    const errors = diags.filter(d => d.severity === 'error').length;
+    const warnings = diags.filter(d => d.severity === 'warning').length;
+    if (errors === 0 && warnings === 0) return;
+    const msg = t('diag.toastSummary').replace('{errors}', String(errors)).replace('{warnings}', String(warnings));
+    uiStore.toast(msg, errors > 0 ? 'error' : 'warning');
+  }
+
   function handleSolve3D() {
-    const results = modelStore.solve3D(uiStore.includeSelfWeight, uiStore.axisConvention3D === 'leftHand');
+    const isPro = uiStore.analysisMode === 'pro';
+    const results = modelStore.solve3D(uiStore.includeSelfWeight, uiStore.axisConvention3D === 'leftHand', isPro);
     if (typeof results === 'string') {
       uiStore.toast(results, 'error');
     } else if (results) {
@@ -161,25 +169,27 @@
         (d: { ux: number; uy: number; uz: number }) => !isFinite(d.ux) || !isFinite(d.uy) || !isFinite(d.uz)
       );
       if (hasNaN) {
-        uiStore.toast('Error numérico 3D: la estructura puede ser inestable (mecanismo)', 'error');
+        uiStore.toast(t('results.numericError3d'), 'error');
         return;
       }
       resultsStore.setResults3D(results);
       // Auto-solve 3D combinations if they exist
       let comboText = '';
       if (modelStore.model.combinations.length > 0) {
-        const comboResult = modelStore.solveCombinations3D(uiStore.includeSelfWeight, uiStore.axisConvention3D === 'leftHand');
+        const comboResult = modelStore.solveCombinations3D(uiStore.includeSelfWeight, uiStore.axisConvention3D === 'leftHand', isPro);
         if (comboResult && typeof comboResult !== 'string') {
           resultsStore.setCombinationResults3D(comboResult.perCase, comboResult.perCombo, comboResult.envelope);
-          comboText = ` + ${comboResult.perCombo.size} combinaciones`;
+          comboText = t('toast.plusCombinations').replace('{n}', String(comboResult.perCombo.size));
         }
       }
       uiStore.toast(
-        `Análisis 3D exitoso — ${results.elementForces.length} barras, ${results.reactions.length} reacciones${comboText}`,
+        `${t('results.analysis3dSuccess')} — ${results.elementForces.length} ${t('results.bars')}, ${results.reactions.length} ${t('results.reactions')}${comboText}`,
         'success',
       );
+      // Show diagnostics toast if any issues were found
+      showDiagnosticsToast(true);
     } else {
-      uiStore.toast('Modelo vacío o error inesperado', 'error');
+      uiStore.toast(t('results.emptyModelError'), 'error');
     }
     if (uiStore.isMobile) {
       uiStore.leftDrawerOpen = false;
@@ -294,10 +304,10 @@
     try {
       const result = await loadFile(file);
       if (result.type === 'session') {
-        uiStore.showToast(`Sesión restaurada: ${result.count} pestañas`, 'success');
+        uiStore.showToast(t('toast.sessionRestored').replace('{n}', String(result.count)), 'success');
       }
     } catch (err: any) {
-      alert(err.message || 'Error al cargar el archivo');
+      alert(err.message || t('toast.loadFileError'));
     }
     input.value = ''; // reset so same file can be loaded again
   }
@@ -401,7 +411,7 @@
     }
 
     // Tool shortcuts (only without Ctrl/Meta to avoid conflicts with Ctrl+A, etc.)
-    const tool = !e.ctrlKey && !e.metaKey ? tools.find(t => t.key === key) : undefined;
+    const tool = !e.ctrlKey && !e.metaKey ? tools.find(tl => tl.key === key) : undefined;
     if (tool) {
       e.preventDefault();
       uiStore.currentTool = tool.id;
@@ -510,16 +520,26 @@
         class="undo-redo-btn"
         onclick={() => historyStore.undo()}
         disabled={!historyStore.canUndo}
-        title={uiStore.isMobile ? 'Deshacer' : 'Deshacer (Ctrl+Z)'}
-      >↶ Deshacer</button>
+        title={uiStore.isMobile ? t('toolbar.undo') : `${t('toolbar.undo')} (Ctrl+Z)`}
+      >↶ {t('toolbar.undo')}</button>
       <button
         class="undo-redo-btn"
         onclick={() => historyStore.redo()}
         disabled={!historyStore.canRedo}
-        title={uiStore.isMobile ? 'Rehacer' : 'Rehacer (Ctrl+Y)'}
-      >↷ Rehacer</button>
+        title={uiStore.isMobile ? t('toolbar.redo') : `${t('toolbar.redo')} (Ctrl+Y)`}
+      >↷ {t('toolbar.redo')}</button>
     </div>
   </div>
+
+  <!-- 2D/3D dimension toggle (only in Básico mode) -->
+  {#if uiStore.appMode === 'basico'}
+    <div class="toolbar-section dim-toggle-section">
+      <div class="dim-toggle">
+        <button class:active={uiStore.analysisMode === '2d'} onclick={() => uiStore.analysisMode = '2d'}>2D</button>
+        <button class:active={uiStore.analysisMode === '3d'} onclick={() => uiStore.analysisMode = '3d'}>3D</button>
+      </div>
+    </div>
+  {/if}
 
   <ToolbarResults />
   <ToolbarAdvanced />
@@ -587,6 +607,46 @@
   .undo-redo-btn:disabled {
     opacity: 0.4;
     cursor: not-allowed;
+  }
+
+  .dim-toggle-section {
+    padding-top: 0 !important;
+    padding-bottom: 0 !important;
+  }
+
+  .dim-toggle {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 0;
+    border-radius: 4px;
+    overflow: hidden;
+    border: 1px solid #1a4a7a;
+  }
+
+  .dim-toggle button {
+    background: #0a1a30;
+    border: none;
+    color: #778;
+    font-size: 0.75rem;
+    font-weight: 700;
+    padding: 0.3rem 0;
+    cursor: pointer;
+    transition: background 0.15s, color 0.15s;
+    text-align: center;
+  }
+
+  .dim-toggle button:first-child {
+    border-right: 1px solid #1a4a7a;
+  }
+
+  .dim-toggle button:hover {
+    background: #1a3860;
+    color: #ccc;
+  }
+
+  .dim-toggle button.active {
+    background: #e94560;
+    color: white;
   }
 
   .solve-btn {
