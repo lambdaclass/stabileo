@@ -658,6 +658,62 @@ pub fn lanczos_generalized_eigen_sparse(
     lanczos_generalized_eigen(&k_dense, m_ff, n, k, sigma)
 }
 
+/// Solve buckling eigenproblem (-Kg)*φ = μ*K*φ where K is sparse SPD
+/// and -Kg is dense indefinite. Returns μ eigenvalues (caller does λ = 1/μ).
+///
+/// For small n: dense Jacobi with `solve_generalized_eigen(-Kg, K)` (Cholesky on K, SPD).
+/// For large n: sparse shift-invert Lanczos finds largest μ = eigenvalues of K⁻¹(-Kg).
+pub fn lanczos_buckling_eigen_sparse(
+    k_ff: &CscMatrix,
+    neg_kg: &[f64],
+    n: usize,
+    k: usize,
+) -> Option<EigenResult> {
+    let k = k.min(n);
+
+    // For small problems, use dense Jacobi: (-Kg)*φ = μ*K*φ
+    // solve_generalized_eigen(A, B) solves A*x = λ*B*x by Cholesky-decomposing B.
+    // Here B = K (SPD) which is safe.
+    // Return ALL eigenvalues — caller filters for positive μ.
+    if n <= 200 || k >= n / 2 {
+        let k_dense = k_ff.to_dense_symmetric();
+        return solve_generalized_eigen(neg_kg, &k_dense, n, 200);
+    }
+
+    // Large n: sparse shift-invert Lanczos.
+    // Operator: K⁻¹·(-Kg)·x — largest eigenvalues are the largest μ.
+    if let Some(si_op) = SparseShiftInvertOp::new(k_ff, neg_kg, n) {
+        let params = LanczosParams {
+            max_iter: 300,
+            tol: 1e-10,
+            subspace_dim: Some((4 * k).max(40).min(n)),
+        };
+
+        if let Some(mut result) = lanczos_irlm(&si_op, k, true, &params) {
+            // No back-transform needed: θ = μ directly (eigenvalues of K⁻¹(-Kg)).
+            // Sort descending by μ (largest μ = smallest λ = most critical buckling mode).
+            let nk = result.values.len();
+            let mut pairs: Vec<(f64, usize)> = result.values.iter().copied()
+                .enumerate().map(|(i, v)| (v, i)).collect();
+            pairs.sort_by(|a, b| b.0.partial_cmp(&a.0).unwrap()); // descending
+            let sorted_vals: Vec<f64> = pairs.iter().map(|(v, _)| *v).collect();
+            let mut sorted_vecs = vec![0.0; n * nk];
+            for (new_col, &(_, old_col)) in pairs.iter().enumerate() {
+                for row in 0..n {
+                    sorted_vecs[row * nk + new_col] = result.vectors[row * nk + old_col];
+                }
+            }
+            result.values = sorted_vals;
+            result.vectors = sorted_vecs;
+            return Some(result);
+        }
+    }
+
+    // Fallback to dense Jacobi — return ALL eigenvalues so caller can find positive μ
+    let k_dense = k_ff.to_dense_symmetric();
+    solve_generalized_eigen(neg_kg, &k_dense, n, 200)
+}
+
 // ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------

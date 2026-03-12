@@ -20,4 +20,4 @@ pub use sparse_chol::{
     sparse_cholesky_solve, sparse_cholesky_solve_full,
     sparse_condition_estimate,
 };
-pub use lanczos::{lanczos_eigen, lanczos_generalized_eigen, lanczos_generalized_eigen_sparse};
+pub use lanczos::{lanczos_eigen, lanczos_generalized_eigen, lanczos_generalized_eigen_sparse, lanczos_buckling_eigen_sparse};

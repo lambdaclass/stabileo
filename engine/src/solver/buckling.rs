@@ -297,21 +297,26 @@ pub fn solve_buckling_3d(
         return Err("No compressed elements — buckling not applicable".into());
     }
 
-    // Solve eigenproblem: (-Kg)*φ = μ*K*φ (Jacobi), then λ = 1/μ.
-    // Sparse path avoids to_dense_symmetric for K_ff when possible.
-    // For large nf without constraints, use sparse shift-invert Lanczos on K*φ=λ*(-Kg)*φ.
-    // For small nf or constraints, use dense Jacobi on (-Kg)*φ=μ*K*φ.
-    let k_ff = sasm.k_ff.to_dense_symmetric();
-    let (k_solve, neg_kg_solve, ns) = if let Some(ref cs) = cs {
-        (cs.reduce_matrix(&k_ff), cs.reduce_matrix(&neg_kg_ff), cs.n_free_indep)
+    // Solve eigenproblem: (-Kg)*φ = μ*K*φ, then λ = 1/μ.
+    // No-constraint path: sparse shift-invert Lanczos (K⁻¹(-Kg)x, K factorized by sparse Cholesky).
+    // Constraint path: dense Jacobi (needs dense K for reduce_matrix).
+    let (result, ns) = if cs.is_none() {
+        let r = lanczos_buckling_eigen_sparse(&sasm.k_ff, &neg_kg_ff, nf, num_modes)
+            .ok_or_else(|| "Eigenvalue decomposition failed".to_string())?;
+        (r, nf)
     } else {
-        (k_ff, neg_kg_ff, nf)
+        let k_ff = sasm.k_ff.to_dense_symmetric();
+        let cs_ref = cs.as_ref().unwrap();
+        let k_solve = cs_ref.reduce_matrix(&k_ff);
+        let neg_kg_solve = cs_ref.reduce_matrix(&neg_kg_ff);
+        let ns = cs_ref.n_free_indep;
+        let r = solve_generalized_eigen(&neg_kg_solve, &k_solve, ns, 200)
+            .ok_or_else(|| "Eigenvalue decomposition failed".to_string())?;
+        (r, ns)
     };
 
-    let result = solve_generalized_eigen(&neg_kg_solve, &k_solve, ns, 200)
-        .ok_or_else(|| "Eigenvalue decomposition failed".to_string())?;
-
     let num_modes = num_modes.min(ns);
+    let n_converged = result.values.len();
     let mut mode_pairs: Vec<(f64, usize)> = Vec::new();
     for (idx, &mu) in result.values.iter().enumerate() {
         if mu > 1e-12 {
@@ -322,7 +327,7 @@ pub fn solve_buckling_3d(
 
     let mut modes = Vec::new();
     for &(lambda, idx) in mode_pairs.iter().take(num_modes) {
-        let phi_s: Vec<f64> = (0..ns).map(|i| result.vectors[i * ns + idx]).collect();
+        let phi_s: Vec<f64> = (0..ns).map(|i| result.vectors[i * n_converged + idx]).collect();
         let phi_f = if let Some(ref cs) = cs {
             cs.expand_solution(&phi_s)
         } else {

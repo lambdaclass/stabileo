@@ -1,7 +1,7 @@
 //! Benchmark gate tests: ensure sparse Cholesky survives shell matrices,
 //! fill ratio stays bounded, and sparse/dense results match.
 
-use dedaliano_engine::solver::{linear, modal};
+use dedaliano_engine::solver::{linear, modal, buckling};
 use dedaliano_engine::solver::assembly::{assemble_sparse_3d, assemble_3d};
 use dedaliano_engine::solver::dof::DofNumbering;
 use dedaliano_engine::linalg::{symbolic_cholesky, symbolic_cholesky_with, numeric_cholesky, CholOrdering, cholesky_solve, extract_submatrix, extract_subvec, lu_solve, mat_vec_rect};
@@ -560,6 +560,150 @@ fn sparse_modal_parity() {
             rel_err < 1e-2,
             "Mode {} frequency mismatch: sparse={:.6}, dense={:.6}, rel_err={:.2e}",
             i, sparse_freqs[i], dense_freqs[i], rel_err
+        );
+    }
+}
+
+/// Build an nx×ny compressed MITC4 plate for buckling analysis.
+fn make_compressed_plate(nx: usize, ny: usize) -> SolverInput3D {
+    let a = 1.0;
+    let t = 0.01;
+    let e = 200_000.0;
+    let nu = 0.3;
+    let dx = a / nx as f64;
+    let dy = a / ny as f64;
+
+    let mut nodes = HashMap::new();
+    let mut grid = vec![vec![0usize; ny + 1]; nx + 1];
+    let mut nid = 1;
+    for i in 0..=nx {
+        for j in 0..=ny {
+            nodes.insert(nid.to_string(), SolverNode3D { id: nid, x: i as f64 * dx, y: j as f64 * dy, z: 0.0 });
+            grid[i][j] = nid;
+            nid += 1;
+        }
+    }
+
+    let mut quads = HashMap::new();
+    let mut qid = 1;
+    for i in 0..nx {
+        for j in 0..ny {
+            quads.insert(qid.to_string(), SolverQuadElement {
+                id: qid,
+                nodes: [grid[i][j], grid[i + 1][j], grid[i + 1][j + 1], grid[i][j + 1]],
+                material_id: 1, thickness: t,
+            });
+            qid += 1;
+        }
+    }
+
+    let mut mats = HashMap::new();
+    mats.insert("1".to_string(), SolverMaterial { id: 1, e, nu });
+
+    // SS edges: uz=0 on all boundary, ux=0 at x=0, uy=0 at y=0
+    let mut supports = HashMap::new();
+    let mut sid = 1;
+    for i in 0..=nx {
+        for j in 0..=ny {
+            if i == 0 || i == nx || j == 0 || j == ny {
+                supports.insert(sid.to_string(), SolverSupport3D {
+                    node_id: grid[i][j],
+                    rx: i == 0, ry: j == 0, rz: true,
+                    rrx: false, rry: false, rrz: false,
+                    kx: None, ky: None, kz: None,
+                    krx: None, kry: None, krz: None,
+                    dx: None, dy: None, dz: None,
+                    drx: None, dry: None, drz: None,
+                    normal_x: None, normal_y: None, normal_z: None,
+                    is_inclined: None, rw: None, kw: None,
+                });
+                sid += 1;
+            }
+        }
+    }
+
+    // Uniform compression along x: nodal forces at x=a edge
+    let mut loads = Vec::new();
+    for j in 0..=ny {
+        let trib = if j == 0 || j == ny { dy / 2.0 } else { dy };
+        loads.push(SolverLoad3D::Nodal(SolverNodalLoad3D {
+            node_id: grid[nx][j], fx: -1.0 * trib, fy: 0.0, fz: 0.0,
+            mx: 0.0, my: 0.0, mz: 0.0, bw: None,
+        }));
+    }
+
+    SolverInput3D {
+        nodes, materials: mats, sections: HashMap::new(),
+        elements: HashMap::new(), supports, loads,
+        constraints: vec![], left_hand: None,
+        plates: HashMap::new(), quads, quad9s: HashMap::new(),
+        solid_shells: HashMap::new(), curved_shells: HashMap::new(),
+        curved_beams: vec![], connectors: HashMap::new(),
+    }
+}
+
+/// Gate: Sparse buckling eigenvalues match dense buckling eigenvalues.
+#[test]
+fn sparse_buckling_parity() {
+    let input = make_compressed_plate(8, 8);
+    let num_modes = 3;
+
+    // Sparse path (current default for no-constraint models)
+    let result_sparse = buckling::solve_buckling_3d(&input, num_modes)
+        .expect("Sparse buckling solve failed");
+
+    // Dense path: manually build dense K_ff, compute eigenvalues
+    let dof_num = dedaliano_engine::solver::dof::DofNumbering::build_3d(&input);
+    let nf = dof_num.n_free;
+    let n = dof_num.n_total;
+
+    // Get linear forces for geometric stiffness
+    let lin = linear::solve_3d(&input).unwrap();
+    let mut kg_full = dedaliano_engine::solver::geometric_stiffness::build_kg_from_forces_3d(&input, &dof_num, &lin.element_forces);
+    if !input.quads.is_empty() {
+        let mut u_full = vec![0.0; n];
+        for d in &lin.displacements {
+            let vals = [d.ux, d.uy, d.uz, d.rx, d.ry, d.rz];
+            for (i, &v) in vals.iter().enumerate() {
+                if let Some(&dof) = dof_num.map.get(&(d.node_id, i)) { u_full[dof] = v; }
+            }
+        }
+        dedaliano_engine::solver::geometric_stiffness::add_quad_geometric_stiffness_3d(&input, &dof_num, &u_full, &mut kg_full);
+    }
+
+    let free_idx: Vec<usize> = (0..nf).collect();
+    let sasm = assemble_sparse_3d(&input, &dof_num, false);
+    let k_ff_dense = sasm.k_ff.to_dense_symmetric();
+    let kg_ff = extract_submatrix(&kg_full, n, &free_idx, &free_idx);
+    let mut neg_kg = vec![0.0; nf * nf];
+    for i in 0..nf * nf { neg_kg[i] = -kg_ff[i]; }
+
+    let dense_result = dedaliano_engine::linalg::solve_generalized_eigen(&neg_kg, &k_ff_dense, nf, 200)
+        .expect("Dense Jacobi failed");
+
+    // Extract dense load factors (λ = 1/μ for positive μ)
+    let mut dense_lambdas: Vec<f64> = dense_result.values.iter()
+        .filter(|&&mu| mu > 1e-12)
+        .map(|&mu| 1.0 / mu)
+        .collect();
+    dense_lambdas.sort_by(|a, b| a.partial_cmp(b).unwrap());
+
+    let sparse_lambdas: Vec<f64> = result_sparse.modes.iter().map(|m| m.load_factor).collect();
+
+    // Compare only first 2 modes — higher modes can differ due to eigenvalue clustering
+    // and Lanczos vs Jacobi convergence differences on indefinite -Kg
+    let n_compare = sparse_lambdas.len().min(dense_lambdas.len()).min(2);
+    assert!(n_compare > 0, "No buckling modes to compare");
+    for i in 0..n_compare {
+        let rel_err = (sparse_lambdas[i] - dense_lambdas[i]).abs() / dense_lambdas[i].max(1e-20);
+        println!("Buckling mode {}: sparse={:.6}, dense={:.6}, rel_err={:.2e}",
+            i, sparse_lambdas[i], dense_lambdas[i], rel_err);
+        // Buckling eigenproblems with indefinite -Kg have larger Lanczos vs Jacobi
+        // discrepancies than modal (SPD M). 5% tolerance is appropriate.
+        assert!(
+            rel_err < 5e-2,
+            "Buckling mode {} load factor mismatch: sparse={:.6}, dense={:.6}, rel_err={:.2e}",
+            i, sparse_lambdas[i], dense_lambdas[i], rel_err
         );
     }
 }
