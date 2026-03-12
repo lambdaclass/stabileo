@@ -68,7 +68,7 @@ fn make_2d_beam_on_foundation(
     let mut sections = HashMap::new();
     sections.insert("0".to_string(), SolverSection { id: 0, a: 0.01, iz: 1e-4, as_y: None });
 
-    let solver = SolverInput { nodes, materials, sections, elements, supports, loads, constraints: vec![], };
+    let solver = SolverInput { nodes, materials, sections, elements, supports, loads, constraints: vec![],  connectors: HashMap::new() };
 
     let foundation_springs: Vec<FoundationSpring> = (0..n_elements)
         .map(|i| FoundationSpring { element_id: i, kf })
@@ -116,7 +116,9 @@ fn make_3d_beam_on_foundation(
 
     let solver = SolverInput3D {
         nodes, materials, sections, elements, supports, loads,
-        constraints: vec![], left_hand: None, plates: HashMap::new(), quads: HashMap::new(), curved_beams: vec![],
+        constraints: vec![], left_hand: None, plates: HashMap::new(), quads: HashMap::new(), quad9s: HashMap::new(), solid_shells: HashMap::new(), curved_beams: vec![],
+            curved_shells: HashMap::new(),
+        connectors: HashMap::new(),
     };
 
     let foundation_springs: Vec<FoundationSpring3D> = (0..n_elements)

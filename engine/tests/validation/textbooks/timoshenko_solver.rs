@@ -115,7 +115,8 @@ fn make_timoshenko_beam(
         sections: secs_map,
         elements: elems_map,
         supports: sups_map,
-        loads, constraints: vec![], }
+        loads, constraints: vec![],
+        connectors: HashMap::new(), }
 }
 
 // ================================================================
@@ -461,8 +462,9 @@ fn validation_timoshenko_3d_deep_beam() {
         supports: sups_map,
         loads,
         constraints: vec![], left_hand: None,
-        plates: HashMap::new(), quads: HashMap::new(),
+        plates: HashMap::new(), quads: HashMap::new(), quad9s: HashMap::new(), solid_shells: HashMap::new(), curved_shells: HashMap::new(),
         curved_beams: vec![],
+        connectors: HashMap::new(),
     };
 
     let results = linear::solve_3d(&input).unwrap();

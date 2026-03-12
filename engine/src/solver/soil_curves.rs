@@ -11,7 +11,6 @@
 ///   - API RP 2A (2000): Sand and stiff clay p-y curves
 ///   - Reese & Van Impe (2001): Comprehensive pile analysis
 ///   - Mosher (1984): t-z curves
-
 use serde::{Serialize, Deserialize};
 
 /// Soil curve type definition.

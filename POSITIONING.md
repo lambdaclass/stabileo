@@ -1,5 +1,10 @@
 # Dedaliano Positioning
 
+Read next:
+- entry point: [`README.md`](/Users/unbalancedparen/projects/dedaliano/README.md)
+- current snapshot: [`CURRENT_STATUS.md`](/Users/unbalancedparen/projects/dedaliano/CURRENT_STATUS.md)
+- product execution: [`PRODUCT_ROADMAP.md`](/Users/unbalancedparen/projects/dedaliano/PRODUCT_ROADMAP.md)
+
 ## What Dedaliano Is
 
 Dedaliano is an `open-source structural solver` and an emerging `structural engineering platform`.
@@ -18,6 +23,13 @@ The cleanest short description is:
 The stronger current claim is:
 
 `Dedaliano is becoming one of the strongest open structural solvers, with a broader product surface than most solver-first projects.`
+
+That claim is now supported by more than raw category count:
+
+- latest reported full-suite status of `5896` passing tests and `0` failures
+- explicit benchmark-gate suites for constraints, contact, shells, reduction, sparse / conditioning paths, and sparse 3D parity
+- solver-core work that now includes constraints, shells, contact, SSI, fiber nonlinear analysis, imperfections, creep / shrinkage, and reduction
+- an explicit multi-family shell story (`MITC4`, `MITC9`, `SHB8-ANS`, and curved shells) with research-driven selection guidance instead of opaque defaults
 
 ## What It Is Not
 
@@ -63,8 +75,18 @@ The next differentiators are less about adding whole new solver categories and m
 - performance at scale
 - benchmark credibility on the newest solver families
 - shell and nonlinear workflow maturity
+- consistent solver-path behavior across constrained and unconstrained workflows
+- benchmark-gated release discipline on the newest solver families
 - scale-oriented workflow maturity such as reduction/substructuring and large-model solve discipline
 - productizing the full solver surface cleanly across app, API, and downstream tools
+
+If the goal is to become `the best open structural solver by far`, the winning path is now clear:
+
+- dominate runtime and scale on real structural models
+- build the deepest visible proof moat in the category
+- make solver behavior deterministic and explainable
+- harden the ugly mixed nonlinear workflows competitors still win on
+- turn the multi-family shell stack into a coherent default workflow instead of a hidden expert feature
 
 That credibility should be built visibly. The strongest long-term trust program is not one technique in isolation, but a stack:
 
@@ -74,6 +96,7 @@ That credibility should be built visibly. The strongest long-term trust program 
 - selective proof-oriented rigor on small critical kernels
 
 This document is about market framing, not the full solver inventory.
+Use [`BENCHMARKS.md`](/Users/unbalancedparen/projects/dedaliano/BENCHMARKS.md) for capability/proof and [`SOLVER_ROADMAP.md`](/Users/unbalancedparen/projects/dedaliano/SOLVER_ROADMAP.md) for execution order.
 
 ## Best Competitive Wedge
 
@@ -141,6 +164,7 @@ Good adjacent markets:
 - structural education
 - engineering automation and report generation
 - structural optimization and design review
+- architect-friendly conceptual structural analysis as a later, guardrailed product layer
 
 Bad adjacent markets for now:
 
@@ -170,5 +194,7 @@ This is why solver quality should stay the center of the company narrative.
   engine-facing overview and analysis surface
 - [`BENCHMARKS.md`](/Users/unbalancedparen/projects/dedaliano/BENCHMARKS.md)
   validation status, solver capability matrix, and benchmark ledger
-- [`ROADMAP.md`](/Users/unbalancedparen/projects/dedaliano/ROADMAP.md)
-  execution order, product roadmap, and solver-first priorities
+- [`SOLVER_ROADMAP.md`](/Users/unbalancedparen/projects/dedaliano/SOLVER_ROADMAP.md)
+  solver mechanics, validation sequencing, and technical priorities
+- [`PRODUCT_ROADMAP.md`](/Users/unbalancedparen/projects/dedaliano/PRODUCT_ROADMAP.md)
+  app, workflow, and market sequencing

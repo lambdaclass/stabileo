@@ -2,6 +2,7 @@ mod arc_length;
 mod capability_upgrades;
 mod contact;
 mod contact_3d;
+mod contact_real_cases;
 mod convergence;
 mod convergence_extended;
 mod fiber_nonlinear;

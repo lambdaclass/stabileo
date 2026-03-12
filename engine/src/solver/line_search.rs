@@ -8,7 +8,6 @@
 /// where E(u) = 0.5 * ||R(u)||².
 ///
 /// Reference: Nocedal & Wright, "Numerical Optimization" Ch. 3
-
 /// Compute the energy (squared residual norm) for a displacement vector.
 /// Only considers free DOFs (indices 0..nf).
 pub fn residual_energy(residual: &[f64], nf: usize) -> f64 {

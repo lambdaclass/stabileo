@@ -700,7 +700,8 @@ fn validation_staad_v8_beam_spring_support() {
         sections: secs_map,
         elements: elems_map,
         supports: sups_map,
-        loads, constraints: vec![], };
+        loads, constraints: vec![],
+        connectors: HashMap::new(), };
 
     let results = linear::solve_2d(&input).unwrap();
 

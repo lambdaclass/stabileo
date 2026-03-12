@@ -1,6 +1,5 @@
 /// Pre-processing utility that subdivides a circular arc (defined by 3 points)
 /// into N straight frame elements, analogous to SAP2000's auto-mesh for curved frames.
-
 use crate::types::CurvedBeamInput;
 
 /// Result of expanding a single curved beam into straight segments.

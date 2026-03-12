@@ -82,6 +82,7 @@ fn make_cantilever(l: f64, fy: f64) -> SolverInput {
             node_id: 1, fx: 0.0, fy: fy, mz: 0.0,
         })],
         constraints: vec![],
+        connectors: HashMap::new(),
     }
 }
 
@@ -116,6 +117,7 @@ fn make_portal_frame(w: f64, h: f64, fx: f64) -> SolverInput {
             node_id: 2, fx: fx, fy: 0.0, mz: 0.0,
         })],
         constraints: vec![],
+        connectors: HashMap::new(),
     }
 }
 
@@ -149,6 +151,7 @@ fn make_toggle_frame(half_span: f64, rise: f64, p: f64) -> SolverInput {
             node_id: 3, fx: 0.0, fy: -p, mz: 0.0,
         })],
         constraints: vec![],
+        connectors: HashMap::new(),
     }
 }
 

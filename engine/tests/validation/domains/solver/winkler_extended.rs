@@ -109,7 +109,8 @@ fn make_winkler_beam(
         sections: secs_map,
         elements: elems_map,
         supports: sups_map,
-        loads, constraints: vec![], }
+        loads, constraints: vec![],
+        connectors: HashMap::new(), }
 }
 
 /// Helper: solve a Winkler beam and return the vertical displacement at a given node.

@@ -48,7 +48,7 @@ pub fn make_input(
             dx: None, dy: None, drz: None, angle: None,
         });
     }
-    SolverInput { nodes: nodes_map, materials: mats_map, sections: secs_map, elements: elems_map, supports: sups_map, loads, constraints: vec![] }
+    SolverInput { nodes: nodes_map, materials: mats_map, sections: secs_map, elements: elems_map, supports: sups_map, loads, constraints: vec![] , connectors: HashMap::new() }
 }
 
 /// Build a multi-element column along X for buckling/modal tests.
@@ -301,7 +301,9 @@ pub fn make_3d_input(
     }
     SolverInput3D {
         nodes: nodes_map, materials: mats_map, sections: secs_map,
-        elements: elems_map, supports: sups_map, loads, constraints: vec![], left_hand: None, plates: HashMap::new(), quads: HashMap::new(), curved_beams: vec![],    }
+        elements: elems_map, supports: sups_map, loads, constraints: vec![], left_hand: None, plates: HashMap::new(), quads: HashMap::new(), quad9s: HashMap::new(), solid_shells: HashMap::new(), curved_beams: vec![],
+            curved_shells: HashMap::new(),
+        connectors: HashMap::new(),    }
 }
 
 /// Build a 3D beam along X-axis with given supports and loads.

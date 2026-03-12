@@ -111,7 +111,8 @@ fn test_fixed_fixed_beam_support_settlement() {
 
     let input = SolverInput {
         nodes: nodes_map, materials: mats_map, sections: secs_map,
-        elements: elems_map, supports: sups_map, loads: vec![], constraints: vec![], };
+        elements: elems_map, supports: sups_map, loads: vec![], constraints: vec![],
+        connectors: HashMap::new(), };
     let results = linear::solve_2d(&input).unwrap();
 
     // Expected values
@@ -176,7 +177,8 @@ fn test_propped_cantilever_roller_settlement() {
 
     let input = SolverInput {
         nodes: nodes_map, materials: mats_map, sections: secs_map,
-        elements: elems_map, supports: sups_map, loads: vec![], constraints: vec![], };
+        elements: elems_map, supports: sups_map, loads: vec![], constraints: vec![],
+        connectors: HashMap::new(), };
     let results = linear::solve_2d(&input).unwrap();
 
     // M_fixed = 3EI*delta/L^2
@@ -266,7 +268,8 @@ fn test_two_span_interior_support_settlement() {
 
     let input = SolverInput {
         nodes: nodes_map, materials: mats_map, sections: secs_map,
-        elements: elems_map, supports: sups_map, loads: vec![], constraints: vec![], };
+        elements: elems_map, supports: sups_map, loads: vec![], constraints: vec![],
+        connectors: HashMap::new(), };
     let results = linear::solve_2d(&input).unwrap();
 
     // Equilibrium: sum Ry = 0
@@ -340,7 +343,8 @@ fn test_portal_frame_differential_settlement() {
 
     let input = SolverInput {
         nodes: nodes_map, materials: mats_map, sections: secs_map,
-        elements: elems_map, supports: sups_map, loads: vec![], constraints: vec![], };
+        elements: elems_map, supports: sups_map, loads: vec![], constraints: vec![],
+        connectors: HashMap::new(), };
     let results = linear::solve_2d(&input).unwrap();
 
     // Global equilibrium (no external loads): sum Ry = 0, sum Rx = 0
@@ -416,7 +420,8 @@ fn test_fixed_beam_prescribed_rotation() {
 
     let input = SolverInput {
         nodes: nodes_map, materials: mats_map, sections: secs_map,
-        elements: elems_map, supports: sups_map, loads: vec![], constraints: vec![], };
+        elements: elems_map, supports: sups_map, loads: vec![], constraints: vec![],
+        connectors: HashMap::new(), };
     let results = linear::solve_2d(&input).unwrap();
 
     // M_near (at B) = 4EI*theta/L
@@ -477,7 +482,8 @@ fn test_ss_beam_equal_settlement_zero_forces() {
 
     let input = SolverInput {
         nodes: nodes_map, materials: mats_map, sections: secs_map,
-        elements: elems_map, supports: sups_map, loads: vec![], constraints: vec![], };
+        elements: elems_map, supports: sups_map, loads: vec![], constraints: vec![],
+        connectors: HashMap::new(), };
     let results = linear::solve_2d(&input).unwrap();
 
     // All internal forces should be zero (rigid body translation)
@@ -595,7 +601,8 @@ fn test_continuous_beam_middle_settlement_symmetry() {
 
     let input = SolverInput {
         nodes: nodes_map, materials: mats_map, sections: secs_map,
-        elements: elems_map, supports: sups_map, loads: vec![], constraints: vec![], };
+        elements: elems_map, supports: sups_map, loads: vec![], constraints: vec![],
+        connectors: HashMap::new(), };
     let results = linear::solve_2d(&input).unwrap();
 
     // Symmetry: R_A (ry) should equal R_C (ry) in magnitude
@@ -670,7 +677,8 @@ fn test_fixed_fixed_equal_settlement_zero_forces() {
 
     let input = SolverInput {
         nodes: nodes_map, materials: mats_map, sections: secs_map,
-        elements: elems_map, supports: sups_map, loads: vec![], constraints: vec![], };
+        elements: elems_map, supports: sups_map, loads: vec![], constraints: vec![],
+        connectors: HashMap::new(), };
     let results = linear::solve_2d(&input).unwrap();
 
     // All internal forces should be zero

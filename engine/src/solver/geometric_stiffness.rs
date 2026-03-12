@@ -388,6 +388,190 @@ pub fn add_quad_geometric_stiffness_3d(
     }
 }
 
+/// Add plate (DKT triangle) geometric stiffness to a pre-built Kg matrix, given displacements.
+/// Mirrors `add_quad_geometric_stiffness_3d` but for triangular plate elements.
+pub fn add_plate_geometric_stiffness_3d(
+    input: &SolverInput3D,
+    dof_num: &DofNumbering,
+    u: &[f64],
+    k_g: &mut [f64],
+) {
+    let n = dof_num.n_total;
+    let mat_by_id: std::collections::HashMap<usize, &SolverMaterial> = input.materials.values().map(|m| (m.id, m)).collect();
+    let node_by_id: std::collections::HashMap<usize, &SolverNode3D> = input.nodes.values().map(|n| (n.id, n)).collect();
+
+    for plate in input.plates.values() {
+        let mat = mat_by_id[&plate.material_id];
+        let e = mat.e * 1000.0;
+        let nu = mat.nu;
+
+        let n0 = node_by_id[&plate.nodes[0]];
+        let n1 = node_by_id[&plate.nodes[1]];
+        let n2 = node_by_id[&plate.nodes[2]];
+        let coords = [
+            [n0.x, n0.y, n0.z],
+            [n1.x, n1.y, n1.z],
+            [n2.x, n2.y, n2.z],
+        ];
+
+        // Get element displacements
+        let plate_dofs = dof_num.plate_element_dofs(&plate.nodes);
+        let u_global: Vec<f64> = plate_dofs.iter().map(|&d| u[d]).collect();
+        let t_plate = crate::element::plate_transform_3d(&coords);
+        let u_local_vec = transform_displacement(&u_global, &t_plate, 18);
+
+        // Compute membrane stress resultants via plate stress recovery
+        let s = crate::element::plate_stress_recovery(&coords, e, nu, plate.thickness, &u_local_vec);
+        let nxx = s.sigma_xx * plate.thickness;
+        let nyy = s.sigma_yy * plate.thickness;
+        let nxy = s.tau_xy * plate.thickness;
+
+        // Build local geometric stiffness and transform to global
+        let kg_local = crate::element::plate_geometric_stiffness(&coords, nxx, nyy, nxy);
+        let kg_global = transform_stiffness(&kg_local, &t_plate, 18);
+
+        let ndof = plate_dofs.len();
+        for i in 0..ndof {
+            for j in 0..ndof {
+                k_g[plate_dofs[i] * n + plate_dofs[j]] += kg_global[i * ndof + j];
+            }
+        }
+    }
+}
+
+/// Add quad9 (MITC9) geometric stiffness to a pre-built Kg matrix, given displacements.
+pub fn add_quad9_geometric_stiffness_3d(
+    input: &SolverInput3D,
+    dof_num: &DofNumbering,
+    u: &[f64],
+    k_g: &mut [f64],
+) {
+    let n = dof_num.n_total;
+    let mat_by_id: std::collections::HashMap<usize, &SolverMaterial> = input.materials.values().map(|m| (m.id, m)).collect();
+    let node_by_id: std::collections::HashMap<usize, &SolverNode3D> = input.nodes.values().map(|n| (n.id, n)).collect();
+
+    for quad9 in input.quad9s.values() {
+        let mat = mat_by_id[&quad9.material_id];
+        let e = mat.e * 1000.0;
+        let nu = mat.nu;
+
+        let mut coords = [[0.0f64; 3]; 9];
+        for (i, &nid) in quad9.nodes.iter().enumerate() {
+            let nd = node_by_id[&nid];
+            coords[i] = [nd.x, nd.y, nd.z];
+        }
+
+        // Get element displacements
+        let q9_dofs = dof_num.quad9_element_dofs(&quad9.nodes);
+        let u_global: Vec<f64> = q9_dofs.iter().map(|&d| u[d]).collect();
+        let t_q9 = crate::element::quad9::quad9_transform_3d(&coords);
+        let u_local_vec = transform_displacement(&u_global, &t_q9, 54);
+        let mut u_local = [0.0; 54];
+        u_local.copy_from_slice(&u_local_vec);
+
+        // Compute membrane stress resultants (force/length = stress × thickness)
+        let s = crate::element::quad9::quad9_stresses(&coords, &u_local, e, nu, quad9.thickness);
+        let nxx = s.sigma_xx * quad9.thickness;
+        let nyy = s.sigma_yy * quad9.thickness;
+        let nxy = s.tau_xy * quad9.thickness;
+
+        // Build local geometric stiffness
+        let kg_local = crate::element::quad9::quad9_geometric_stiffness(&coords, nxx, nyy, nxy);
+        let kg_global = transform_stiffness(&kg_local, &t_q9, 54);
+
+        let ndof = q9_dofs.len();
+        for i in 0..ndof {
+            for j in 0..ndof {
+                k_g[q9_dofs[i] * n + q9_dofs[j]] += kg_global[i * ndof + j];
+            }
+        }
+    }
+}
+
+/// Add solid-shell geometric stiffness to a pre-built Kg matrix, given displacements.
+pub fn add_solid_shell_geometric_stiffness_3d(
+    input: &SolverInput3D,
+    dof_num: &DofNumbering,
+    u: &[f64],
+    k_g: &mut [f64],
+) {
+    let n = dof_num.n_total;
+    let mat_by_id: std::collections::HashMap<usize, &SolverMaterial> = input.materials.values().map(|m| (m.id, m)).collect();
+    let node_by_id: std::collections::HashMap<usize, &SolverNode3D> = input.nodes.values().map(|n| (n.id, n)).collect();
+
+    for ss in input.solid_shells.values() {
+        let mat = mat_by_id[&ss.material_id];
+        let e = mat.e * 1000.0;
+        let nu = mat.nu;
+
+        let mut coords = [[0.0f64; 3]; 8];
+        for (i, &nid) in ss.nodes.iter().enumerate() {
+            let nd = node_by_id[&nid];
+            coords[i] = [nd.x, nd.y, nd.z];
+        }
+
+        let ss_dofs = dof_num.solid_shell_element_dofs(&ss.nodes);
+        let u_elem: Vec<f64> = ss_dofs.iter().map(|&d| u[d]).collect();
+
+        // Compute average stress at centroid
+        let stress = crate::element::solid_shell::solid_shell_avg_stress(&coords, &u_elem, e, nu);
+
+        // Build geometric stiffness
+        let kg_elem = crate::element::solid_shell::solid_shell_geometric_stiffness(&coords, &stress);
+
+        let ndof = ss_dofs.len();
+        for i in 0..ndof {
+            for j in 0..ndof {
+                k_g[ss_dofs[i] * n + ss_dofs[j]] += kg_elem[i * ndof + j];
+            }
+        }
+    }
+}
+
+/// Add curved shell geometric stiffness to a pre-built Kg matrix.
+pub fn add_curved_shell_geometric_stiffness_3d(
+    input: &SolverInput3D,
+    dof_num: &DofNumbering,
+    u: &[f64],
+    k_g: &mut [f64],
+) {
+    let n = dof_num.n_total;
+    let mat_by_id: std::collections::HashMap<usize, &SolverMaterial> = input.materials.values().map(|m| (m.id, m)).collect();
+    let node_by_id: std::collections::HashMap<usize, &SolverNode3D> = input.nodes.values().map(|n| (n.id, n)).collect();
+
+    for cs in input.curved_shells.values() {
+        let mat = mat_by_id[&cs.material_id];
+        let e = mat.e * 1000.0;
+        let nu = mat.nu;
+
+        let mut coords = [[0.0; 3]; 4];
+        for (i, &nid) in cs.nodes.iter().enumerate() {
+            let n = node_by_id[&nid];
+            coords[i] = [n.x, n.y, n.z];
+        }
+        let dirs = cs.normals.unwrap_or_else(|| crate::element::curved_shell::compute_element_directors(&coords));
+
+        let cs_dofs = dof_num.quad_element_dofs(&cs.nodes);
+        let u_elem: Vec<f64> = cs_dofs.iter().map(|&d| u[d]).collect();
+        let mut u_arr = [0.0; 24];
+        u_arr.copy_from_slice(&u_elem);
+
+        let s = crate::element::curved_shell::curved_shell_stresses(&coords, &dirs, &u_arr, e, nu, cs.thickness);
+        let nxx = s.sigma_xx * cs.thickness;
+        let nyy = s.sigma_yy * cs.thickness;
+        let nxy = s.tau_xy * cs.thickness;
+
+        let kg_elem = crate::element::curved_shell::curved_shell_geometric_stiffness(&coords, &dirs, cs.thickness, nxx, nyy, nxy);
+
+        let ndof = cs_dofs.len();
+        for i in 0..ndof {
+            for j in 0..ndof {
+                k_g[cs_dofs[i] * n + cs_dofs[j]] += kg_elem[i * ndof + j];
+            }
+        }
+    }
+}
+
 /// Add 3D geometric stiffness from current displacements.
 pub fn add_geometric_stiffness_3d(
     input: &SolverInput3D,

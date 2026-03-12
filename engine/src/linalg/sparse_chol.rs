@@ -2,9 +2,9 @@
 ///
 /// Two-phase: symbolic (AMD + elimination tree + column counts) then numeric.
 /// Symbolic phase can be reused when sparsity pattern is unchanged (P-Delta).
-
 use super::sparse::CscMatrix;
 use super::amd::{amd_order, inverse_perm};
+use super::rcm::rcm_order;
 
 /// Symbolic factorization result — reusable for same sparsity pattern.
 #[derive(Debug, Clone)]
@@ -23,112 +23,92 @@ pub struct SymbolicCholesky {
 pub struct NumericCholesky {
     pub symbolic: SymbolicCholesky,
     pub l_values: Vec<f64>,
+    pub pivot_perturbations: usize,   // how many pivots were perturbed
+    pub max_perturbation: f64,        // largest perturbation applied
+}
+
+/// Ordering strategy for symbolic Cholesky factorization.
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub enum CholOrdering {
+    /// Approximate Minimum Degree — good for general sparse.
+    Amd,
+    /// Reverse Cuthill-McKee — good for structured 2D/3D meshes.
+    Rcm,
 }
 
 /// Compute symbolic Cholesky factorization (AMD ordering + structure of L).
 pub fn symbolic_cholesky(a: &CscMatrix) -> SymbolicCholesky {
+    symbolic_cholesky_with(a, CholOrdering::Amd)
+}
+
+/// Compute symbolic Cholesky factorization with explicit ordering choice.
+pub fn symbolic_cholesky_with(a: &CscMatrix, ordering: CholOrdering) -> SymbolicCholesky {
     let n = a.n;
 
-    // AMD ordering
-    let perm = amd_order(n, &a.col_ptr, &a.row_idx);
+    let perm = match ordering {
+        CholOrdering::Amd => amd_order(n, &a.col_ptr, &a.row_idx),
+        CholOrdering::Rcm => rcm_order(n, &a.col_ptr, &a.row_idx),
+    };
     let iperm = inverse_perm(&perm);
 
     // Apply permutation
     let pa = a.permute_symmetric(&perm);
 
-    // Compute elimination tree via path compression (Davis Algorithm 4.1)
-    let mut parent = vec![-1isize; n];
-    let mut ancestor = vec![0usize; n]; // for path compression
+    // Direct left-looking symbolic factorization.
+    // For each column j, the nonzero rows of L[:,j] are determined by:
+    //   1. rows from A[:,j] with row > j (original entries)
+    //   2. rows from L[:,k] for each k < j where L[j,k] != 0 (fill-in from updates)
+    // This is O(nnz(L)²) worst case but guaranteed correct.
 
-    for j in 0..n {
-        ancestor[j] = j;
-        for k in pa.col_ptr[j]..pa.col_ptr[j + 1] {
-            let i = pa.row_idx[k];
-            if i == j {
-                continue;
-            }
-            // Walk from i up to root of its subtree
-            let mut node = i;
-            while ancestor[node] != node {
-                let next = ancestor[node];
-                ancestor[node] = j; // path compression
-                node = next;
-            }
-            if node != j {
-                parent[node] = j as isize;
-                ancestor[node] = j;
-            }
-        }
-    }
-
-    // Compute column counts of L using row subtree traversal
-    let mut col_count = vec![1usize; n]; // diagonal always present
-    // For each row i and each (i,j) in A with j < i, mark the path from j to lca(j, i)
-    let mut mark = vec![0usize; n]; // last column that marked this node
-    for j in 0..n {
-        mark[j] = j;
-        for k in pa.col_ptr[j]..pa.col_ptr[j + 1] {
-            let i = pa.row_idx[k];
-            if i <= j {
-                continue;
-            }
-            // Walk from j up the etree, counting new entries for column j in row i
-            let mut node = j;
-            while mark[node] != i {
-                mark[node] = i;
-                if node != j {
-                    col_count[node] += 1;
-                }
-                if parent[node] < 0 {
-                    break;
-                }
-                node = parent[node] as usize;
-            }
-            // The entry (i, j) itself
-            col_count[j] += 1;
-        }
-    }
-
-    // Fix col_count: simpler approach — compute structure of L directly
-    // The row subtree traversal above may overcount. Use direct symbolic factorization.
     let mut l_col_ptr = vec![0usize; n + 1];
     let mut l_row_idx_build: Vec<Vec<usize>> = vec![Vec::new(); n];
 
-    // For each column j, the nonzero rows of L[:,j] are {j} ∪ (reachable from A[:,j] via etree)
-    for j in 0..n {
-        l_row_idx_build[j].push(j); // diagonal
+    // For efficient lookup: row_to_cols[i] = list of columns k < i where L[i,k] != 0
+    let mut row_to_cols: Vec<Vec<usize>> = vec![Vec::new(); n];
 
-        // Collect all rows i > j from A[:,j]
-        let mut row_set: Vec<usize> = Vec::new();
+    for j in 0..n {
+        // Start with rows from A[:,j]
+        let mut col_set = Vec::new();
+        col_set.push(j); // diagonal
+
         for k in pa.col_ptr[j]..pa.col_ptr[j + 1] {
             let i = pa.row_idx[k];
             if i > j {
-                row_set.push(i);
+                col_set.push(i);
             }
         }
 
-        // Also include rows from updates by previous columns
-        // (left-looking: for each nonzero L[j,k] with k < j, merge L[j+1:,k])
-        // This is the symbolic left-looking approach
-        // Actually, let's use the simpler approach: walk etree paths from each row
-        // For correct sparse Cholesky structure, we compute the column j of L as
-        // the union of paths from each nonzero row in A[:,j] up to j in the etree
-        for &i in &row_set {
-            let mut node = i;
-            while node > j {
-                if l_row_idx_build[j].contains(&node) {
-                    break; // already have this and everything above
+        // Merge rows from previous columns k where L[j,k] != 0
+        for &k in &row_to_cols[j] {
+            // Add all rows > j from column k
+            for &row in &l_row_idx_build[k] {
+                if row > j {
+                    col_set.push(row);
                 }
-                l_row_idx_build[j].push(node);
-                if parent[node] < 0 {
-                    break;
-                }
-                node = parent[node] as usize;
             }
         }
 
-        l_row_idx_build[j].sort_unstable();
-        l_row_idx_build[j].dedup();
+        col_set.sort_unstable();
+        col_set.dedup();
+        l_row_idx_build[j] = col_set;
+
+        // Register this column in row_to_cols for future columns
+        for &row in &l_row_idx_build[j] {
+            if row > j {
+                row_to_cols[row].push(j);
+            }
+        }
+    }
+
+    // Build elimination tree from the computed structure (parent[j] = min row > j in L[:,j])
+    let mut parent = vec![-1isize; n];
+    for j in 0..n {
+        for &row in &l_row_idx_build[j] {
+            if row > j {
+                parent[j] = row as isize;
+                break; // first row > j (sorted)
+            }
+        }
     }
 
     // Build compressed l_row_idx and l_col_ptr
@@ -152,8 +132,19 @@ pub fn symbolic_cholesky(a: &CscMatrix) -> SymbolicCholesky {
 }
 
 /// Compute numeric Cholesky factorization given symbolic structure.
-/// Returns None if matrix is not SPD.
+/// Returns None if matrix is not SPD (strict mode — no perturbation).
 pub fn numeric_cholesky(sym: &SymbolicCholesky, a: &CscMatrix) -> Option<NumericCholesky> {
+    numeric_cholesky_inner(sym, a, false)
+}
+
+/// Compute numeric Cholesky factorization with pivot perturbation.
+/// Perturbs small/negative pivots (from shell drilling DOFs) instead of failing.
+/// Always returns Some — caller must verify solution quality via residual check.
+pub fn numeric_cholesky_perturbed(sym: &SymbolicCholesky, a: &CscMatrix) -> NumericCholesky {
+    numeric_cholesky_inner(sym, a, true).unwrap()
+}
+
+fn numeric_cholesky_inner(sym: &SymbolicCholesky, a: &CscMatrix, perturb: bool) -> Option<NumericCholesky> {
     let n = sym.n;
 
     // Apply permutation to get numeric values
@@ -164,59 +155,99 @@ pub fn numeric_cholesky(sym: &SymbolicCholesky, a: &CscMatrix) -> Option<Numeric
     // Dense column accumulator
     let mut x = vec![0.0f64; n];
 
-    // Row index lookup for L: for column j, l_row_to_pos[row] = position in l_values
-    // We build this lazily per column.
+    // Compute max diagonal of the ORIGINAL (permuted) matrix for stable thresholds.
+    let mut max_diag = 0.0f64;
+    for j in 0..n {
+        for k in pa.col_ptr[j]..pa.col_ptr[j + 1] {
+            if pa.row_idx[k] == j {
+                if pa.values[k] > max_diag {
+                    max_diag = pa.values[k];
+                }
+                break;
+            }
+        }
+    }
+
+    // Pivot perturbation tracking
+    let mut n_perturbations = 0usize;
+    let mut max_perturbation_val = 0.0f64;
+
+    // Strict mode threshold: use absolute threshold like dense Cholesky.
+    // Previous 1e-12 * max_diag was too aggressive for shell matrices where
+    // drilling DOF pivots are naturally 4+ orders smaller than membrane pivots.
+    let strict_threshold = 1e-15;
+    // Perturbed mode threshold
+    let soft_threshold = 1e-8 * max_diag;
+
+    // Precompute nonzero-column lists: for each row j, which columns k < j have L[j,k] != 0.
+    let mut nz_cols_for_row: Vec<Vec<(usize, usize)>> = vec![Vec::new(); n];
+    for k in 0..n {
+        for p in sym.l_col_ptr[k]..sym.l_col_ptr[k + 1] {
+            let i = sym.l_row_idx[p];
+            if i > k {
+                nz_cols_for_row[i].push((k, p));
+            }
+        }
+    }
 
     for j in 0..n {
-        // Clear accumulator for rows in L[:,j]
         let l_start = sym.l_col_ptr[j];
         let l_end = sym.l_col_ptr[j + 1];
         for k in l_start..l_end {
             x[sym.l_row_idx[k]] = 0.0;
         }
 
-        // Scatter A[:,j] into accumulator
+        // Scatter A[:,j] into accumulator and record original diagonal
+        let mut original_diag = 0.0f64;
         for k in pa.col_ptr[j]..pa.col_ptr[j + 1] {
             x[pa.row_idx[k]] = pa.values[k];
+            if pa.row_idx[k] == j {
+                original_diag = pa.values[k];
+            }
         }
 
-        // Left-looking updates: for each k < j where L[j,k] != 0
-        // subtract L[j:,k] * L[j,k] from x
-        for k in 0..j {
-            let lk_start = sym.l_col_ptr[k];
-            let lk_end = sym.l_col_ptr[k + 1];
-
-            // Find L[j,k] — search for row j in column k of L
-            let mut ljk = 0.0;
-            let mut found = false;
-            for p in lk_start..lk_end {
-                if sym.l_row_idx[p] == j {
-                    ljk = l_values[p];
-                    found = true;
-                    break;
-                }
-            }
-            if !found || ljk.abs() < 1e-30 {
+        // Left-looking updates
+        for &(k, pos_jk) in &nz_cols_for_row[j] {
+            let ljk = l_values[pos_jk];
+            if ljk.abs() < 1e-30 {
                 continue;
             }
-
-            // Update: x[i] -= L[i,k] * L[j,k] for all i >= j in L[:,k]
-            for p in lk_start..lk_end {
+            let lk_end = sym.l_col_ptr[k + 1];
+            for p in pos_jk..lk_end {
                 let i = sym.l_row_idx[p];
-                if i >= j {
-                    x[i] -= l_values[p] * ljk;
-                }
+                x[i] -= l_values[p] * ljk;
             }
         }
 
-        // Compute L[j,j] = sqrt(x[j])
         let diag = x[j];
-        if diag <= 1e-15 {
-            return None; // Not SPD
-        }
-        let ljj = diag.sqrt();
 
-        // Store L[:,j]: diagonal then off-diagonal divided by L[j,j]
+        if perturb {
+            // Perturbed mode: replace small/negative pivots with a fraction of the
+            // original diagonal. This preserves natural DOF scale and avoids cascading
+            // failures from inflated pivots. Caller must verify via residual check.
+            if diag <= soft_threshold {
+                // Use the full original diagonal: this acts as if the left-looking
+                // updates didn't reduce this pivot, preserving the natural DOF scale.
+                let target = if original_diag > soft_threshold {
+                    original_diag
+                } else {
+                    1e-6 * max_diag
+                };
+                let target = target.max(1e-12 * max_diag);
+                let perturbation = if diag.is_finite() { (target - diag).abs() } else { f64::MAX };
+                x[j] = target;
+                n_perturbations += 1;
+                max_perturbation_val = max_perturbation_val.max(perturbation);
+            }
+        } else {
+            // Strict mode: fail on non-SPD
+            if diag <= strict_threshold {
+                return None;
+            }
+        }
+
+        let ljj = x[j].sqrt();
+
         for k in l_start..l_end {
             let i = sym.l_row_idx[k];
             if i == j {
@@ -230,6 +261,8 @@ pub fn numeric_cholesky(sym: &SymbolicCholesky, a: &CscMatrix) -> Option<Numeric
     Some(NumericCholesky {
         symbolic: sym.clone(),
         l_values,
+        pivot_perturbations: n_perturbations,
+        max_perturbation: max_perturbation_val,
     })
 }
 

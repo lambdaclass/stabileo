@@ -7,7 +7,6 @@
 ///
 /// Reference: Crisfield, "Non-linear Finite Element Analysis of Solids
 ///            and Structures" Vol. 1, Ch. 9
-
 /// Adaptive load stepper that manages increment sizes.
 pub struct AdaptiveStepper {
     /// Current load factor λ ∈ [0, 1]

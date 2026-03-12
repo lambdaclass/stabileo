@@ -111,6 +111,7 @@ pub fn solve_multi_case_2d(input: &MultiCaseInput) -> Result<MultiCaseResult, St
             supports: input.solver.supports.clone(),
             loads: lc.loads.clone(),
             constraints: vec![],
+            connectors: HashMap::new(),
         };
 
         let results = solve_2d(&case_input)
@@ -194,8 +195,12 @@ pub fn solve_multi_case_3d(input: &MultiCaseInput3D) -> Result<MultiCaseResult3D
                         left_hand: input.solver.left_hand,
             plates: input.solver.plates.clone(),
             quads: input.solver.quads.clone(),
+            quad9s: input.solver.quad9s.clone(),
+            solid_shells: input.solver.solid_shells.clone(),
+            curved_shells: input.solver.curved_shells.clone(),
             curved_beams: input.solver.curved_beams.clone(),
             constraints: input.solver.constraints.clone(),
+            connectors: HashMap::new(),
         };
 
         let results = solve_3d(&case_input)

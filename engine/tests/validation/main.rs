@@ -1,6 +1,7 @@
 #[path = "../common/mod.rs"]
 mod common;
 
+mod acceptance;
 mod benchmarks;
 mod commercial;
 mod domains;

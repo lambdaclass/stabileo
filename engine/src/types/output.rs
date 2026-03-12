@@ -69,6 +69,12 @@ pub struct AnalysisResults {
     pub displacements: Vec<Displacement>,
     pub reactions: Vec<Reaction>,
     pub element_forces: Vec<ElementForces>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub constraint_forces: Vec<ConstraintForce>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub diagnostics: Vec<AssemblyDiagnostic>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub solver_diagnostics: Vec<SolverDiagnostic>,
 }
 
 /// Forces at constrained DOFs due to constraint enforcement.
@@ -78,6 +84,54 @@ pub struct ConstraintForce {
     pub node_id: usize,
     pub dof: String,
     pub force: f64,
+}
+
+// ==================== Assembly Diagnostics ====================
+
+/// Warning emitted when an element exceeds quality thresholds during assembly.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct AssemblyDiagnostic {
+    pub element_id: usize,
+    pub element_type: String,
+    pub metric: String,
+    pub value: f64,
+    pub threshold: f64,
+    pub message: String,
+}
+
+// ==================== Solver Diagnostics ====================
+
+/// Diagnostic emitted by the solver (path choice, conditioning, fallbacks).
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct SolverDiagnostic {
+    pub category: String,   // "solver_path", "conditioning", "fallback"
+    pub message: String,
+    pub severity: String,   // "info", "warning", "error"
+}
+
+// ==================== Solve Timings ====================
+
+/// Per-phase wall-clock timings from solve_3d (microseconds).
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct SolveTimings {
+    pub assembly_us: u64,
+    pub conditioning_us: u64,
+    pub symbolic_us: u64,
+    pub numeric_us: u64,
+    pub solve_us: u64,
+    pub residual_us: u64,
+    pub dense_fallback_us: u64,
+    pub reactions_us: u64,
+    pub stress_recovery_us: u64,
+    pub total_us: u64,
+    pub n_free: usize,
+    pub nnz_kff: usize,
+    pub nnz_l: usize,
+    pub pivot_perturbations: usize,
+    pub max_perturbation: f64,
 }
 
 // ==================== 3D Output Types ====================
@@ -164,6 +218,16 @@ pub struct AnalysisResults3D {
     pub plate_stresses: Vec<PlateStress>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub quad_stresses: Vec<QuadStress>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub quad_nodal_stresses: Vec<QuadNodalStress>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub constraint_forces: Vec<ConstraintForce>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub diagnostics: Vec<AssemblyDiagnostic>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub solver_diagnostics: Vec<SolverDiagnostic>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub timings: Option<SolveTimings>,
 }
 
 // ==================== Quad Stress Output ====================
@@ -182,6 +246,20 @@ pub struct QuadStress {
     /// Nodal von Mises stresses (4 values, one per node).
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub nodal_von_mises: Vec<f64>,
+}
+
+/// Full stress tensor at a quad element node (extrapolated from Gauss points).
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct QuadNodalStress {
+    pub node_index: usize,
+    pub sigma_xx: f64,
+    pub sigma_yy: f64,
+    pub tau_xy: f64,
+    pub mx: f64,
+    pub my: f64,
+    pub mxy: f64,
+    pub von_mises: f64,
 }
 
 // ==================== Plate Stress Output ====================

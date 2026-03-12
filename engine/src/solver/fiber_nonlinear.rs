@@ -5,7 +5,6 @@
 /// distributed plasticity along beam length and across cross-section.
 ///
 /// Reference: Spacone, Filippou & Taucer (1996)
-
 use std::collections::HashMap;
 use serde::{Serialize, Deserialize};
 use crate::types::*;
@@ -143,18 +142,22 @@ pub fn solve_fiber_nonlinear_2d(input: &FiberNonlinearInput) -> Result<FiberNonl
                 residual[i] = f_ext[i] - f_int[i];
             }
 
-            // Check convergence
-            let mut r_norm_sq = 0.0;
-            let mut f_norm_sq = 0.0;
-            for i in 0..nf {
-                r_norm_sq += residual[i] * residual[i];
-                f_norm_sq += f_ext[i] * f_ext[i];
-            }
-            let rel_error = if f_norm_sq > 1e-30 {
-                r_norm_sq.sqrt() / f_norm_sq.sqrt()
+            // Check convergence on independent (reduced) DOFs
+            let r_f: Vec<f64> = residual[..nf].to_vec();
+            let r_check = if let Some(ref cs) = cs {
+                cs.reduce_vector(&r_f)
             } else {
-                r_norm_sq.sqrt()
+                r_f.clone()
             };
+            let f_ext_f: Vec<f64> = f_ext[..nf].to_vec();
+            let f_check = if let Some(ref cs) = cs {
+                cs.reduce_vector(&f_ext_f)
+            } else {
+                f_ext_f
+            };
+            let r_norm: f64 = r_check.iter().map(|v| v * v).sum::<f64>().sqrt();
+            let f_norm: f64 = f_check.iter().map(|v| v * v).sum::<f64>().sqrt();
+            let rel_error = if f_norm > 1e-30 { r_norm / f_norm } else { r_norm };
 
             if rel_error < input.tolerance {
                 nr_converged = true;
@@ -164,7 +167,6 @@ pub fn solve_fiber_nonlinear_2d(input: &FiberNonlinearInput) -> Result<FiberNonl
             // Solve
             let free_idx: Vec<usize> = (0..nf).collect();
             let k_ff = extract_submatrix(&k_t, n, &free_idx, &free_idx);
-            let r_f: Vec<f64> = residual[..nf].to_vec();
             let (k_s, r_s) = if let Some(ref cs) = cs {
                 (cs.reduce_matrix(&k_ff), cs.reduce_vector(&r_f))
             } else {
@@ -231,11 +233,38 @@ pub fn solve_fiber_nonlinear_2d(input: &FiberNonlinearInput) -> Result<FiberNonl
         }
     }
 
+    // Compute constraint forces if constraints are active
+    let constraint_forces = if let Some(ref fcs) = cs {
+        // Rebuild final tangent stiffness for constraint force computation
+        let mut f_int_final = vec![0.0; n];
+        let mut k_t_final = vec![0.0; n * n];
+        let mut elem_states_copy = elem_states;
+        assemble_fiber_elements(
+            &input.solver, &input.fiber_sections, &dof_num,
+            &u_full, &mut elem_states_copy, n_ip,
+            &mut f_int_final, &mut k_t_final,
+        );
+        assemble_elastic_elements(
+            &input.solver, &input.fiber_sections, &dof_num,
+            &u_full, &mut f_int_final, &mut k_t_final,
+        );
+        add_springs(&input.solver, &dof_num, &u_full, &mut f_int_final, &mut k_t_final);
+        let free_idx: Vec<usize> = (0..nf).collect();
+        let k_ff = extract_submatrix(&k_t_final, n, &free_idx, &free_idx);
+        let raw = fcs.compute_constraint_forces(&k_ff, &u_full[..nf], &f_total[..nf]);
+        super::constraints::map_dof_forces_to_constraint_forces(&raw, &dof_num)
+    } else {
+        vec![]
+    };
+
     Ok(FiberNonlinearResult {
         results: AnalysisResults {
             displacements,
             reactions: vec![],
             element_forces,
+            constraint_forces,
+            diagnostics: vec![],
+            solver_diagnostics: vec![],
         },
         iterations: total_iters,
         converged,
@@ -533,17 +562,22 @@ pub fn solve_fiber_nonlinear_3d(input: &FiberNonlinearInput3D) -> Result<FiberNo
                 residual[i] = f_ext[i] - f_int[i];
             }
 
-            let mut r_norm_sq = 0.0;
-            let mut f_norm_sq = 0.0;
-            for i in 0..nf {
-                r_norm_sq += residual[i] * residual[i];
-                f_norm_sq += f_ext[i] * f_ext[i];
-            }
-            let rel_error = if f_norm_sq > 1e-30 {
-                r_norm_sq.sqrt() / f_norm_sq.sqrt()
+            // Check convergence on independent (reduced) DOFs
+            let r_f: Vec<f64> = residual[..nf].to_vec();
+            let r_check = if let Some(ref cs) = cs {
+                cs.reduce_vector(&r_f)
             } else {
-                r_norm_sq.sqrt()
+                r_f.clone()
             };
+            let f_ext_f: Vec<f64> = f_ext[..nf].to_vec();
+            let f_check = if let Some(ref cs) = cs {
+                cs.reduce_vector(&f_ext_f)
+            } else {
+                f_ext_f
+            };
+            let r_norm: f64 = r_check.iter().map(|v| v * v).sum::<f64>().sqrt();
+            let f_norm: f64 = f_check.iter().map(|v| v * v).sum::<f64>().sqrt();
+            let rel_error = if f_norm > 1e-30 { r_norm / f_norm } else { r_norm };
 
             if rel_error < input.tolerance {
                 nr_converged = true;
@@ -552,7 +586,6 @@ pub fn solve_fiber_nonlinear_3d(input: &FiberNonlinearInput3D) -> Result<FiberNo
 
             let free_idx: Vec<usize> = (0..nf).collect();
             let k_ff = extract_submatrix(&k_t, n, &free_idx, &free_idx);
-            let r_f: Vec<f64> = residual[..nf].to_vec();
             let (k_s, r_s) = if let Some(ref cs) = cs {
                 (cs.reduce_matrix(&k_ff), cs.reduce_vector(&r_f))
             } else {
@@ -616,6 +649,28 @@ pub fn solve_fiber_nonlinear_3d(input: &FiberNonlinearInput3D) -> Result<FiberNo
         }
     }
 
+    // Compute constraint forces if constraints are active
+    let constraint_forces = if let Some(ref fcs) = cs {
+        let mut f_int_final = vec![0.0; n];
+        let mut k_t_final = vec![0.0; n * n];
+        let mut elem_states_copy = elem_states;
+        assemble_fiber_elements_3d(
+            &input.solver, &input.fiber_sections, &dof_num,
+            &u_full, &mut elem_states_copy, n_ip,
+            &mut f_int_final, &mut k_t_final,
+        );
+        assemble_elastic_elements_3d(
+            &input.solver, &input.fiber_sections, &dof_num,
+            &u_full, &mut f_int_final, &mut k_t_final,
+        );
+        let free_idx: Vec<usize> = (0..nf).collect();
+        let k_ff = extract_submatrix(&k_t_final, n, &free_idx, &free_idx);
+        let raw = fcs.compute_constraint_forces(&k_ff, &u_full[..nf], &f_total[..nf]);
+        super::constraints::map_dof_forces_to_constraint_forces(&raw, &dof_num)
+    } else {
+        vec![]
+    };
+
     Ok(FiberNonlinearResult3D {
         results: AnalysisResults3D {
             displacements,
@@ -623,6 +678,11 @@ pub fn solve_fiber_nonlinear_3d(input: &FiberNonlinearInput3D) -> Result<FiberNo
             element_forces,
             plate_stresses: super::linear::compute_plate_stresses(&input.solver, &dof_num, &u_full),
             quad_stresses: super::linear::compute_quad_stresses(&input.solver, &dof_num, &u_full),
+            quad_nodal_stresses: vec![],
+            constraint_forces,
+            diagnostics: vec![],
+            solver_diagnostics: vec![],
+            timings: None,
         },
         iterations: total_iters,
         converged,
@@ -817,6 +877,7 @@ mod tests {
                 node_id: 1, fx: 0.0, fy: -50.0, mz: 0.0,
             })],
             constraints: vec![],
+            connectors: HashMap::new(),
         };
 
         // 0.2m × 0.4m rectangular section

@@ -7,7 +7,6 @@
 /// References:
 /// - Guyan, R.J. (1965). "Reduction of stiffness and mass matrices"
 /// - Craig & Bampton (1968). "Coupling of substructures for dynamic analyses"
-
 use crate::types::*;
 use crate::linalg::*;
 use super::dof::DofNumbering;
@@ -56,6 +55,22 @@ pub struct GuyanResult {
     pub element_forces: Vec<ElementForces>,
 }
 
+/// Result of 3D Guyan reduction.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct GuyanResult3D {
+    pub k_condensed: Vec<f64>,
+    pub f_condensed: Vec<f64>,
+    #[serde(default)]
+    pub m_condensed: Vec<f64>,
+    pub n_boundary: usize,
+    pub n_interior: usize,
+    pub boundary_dofs: Vec<usize>,
+    pub displacements: Vec<Displacement3D>,
+    pub reactions: Vec<Reaction3D>,
+    pub element_forces: Vec<ElementForces3D>,
+}
+
 /// Craig-Bampton input.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -100,12 +115,20 @@ pub struct CraigBamptonResult {
     pub boundary_dofs: Vec<usize>,
 }
 
-/// Solve K_II^{-1} * rhs using lu_solve (clones K_II since lu_solve mutates it).
-fn solve_kii(k_ii: &[f64], rhs: &[f64], ni: usize) -> Result<Vec<f64>, String> {
-    let mut k_work = k_ii.to_vec();
-    let mut b_work = rhs.to_vec();
-    lu_solve(&mut k_work, &mut b_work, ni)
-        .ok_or_else(|| "K_II is singular — cannot condense".to_string())
+/// Factorize K_II via Cholesky (K_II is SPD for interior stiffness of constrained structures).
+/// Returns the L factor in-place in the cloned array.
+fn factorize_kii(k_ii: &[f64], ni: usize) -> Result<Vec<f64>, String> {
+    let mut l = k_ii.to_vec();
+    if !cholesky_decompose(&mut l, ni) {
+        return Err("K_II is not positive definite".into());
+    }
+    Ok(l)
+}
+
+/// Solve L*L^T * x = rhs using pre-computed Cholesky factor L.
+fn chol_solve(l: &[f64], rhs: &[f64], n: usize) -> Vec<f64> {
+    let y = forward_solve(l, rhs, n);
+    back_solve(l, &y, n)
 }
 
 /// Perform Guyan (static) condensation on a 2D model.
@@ -175,14 +198,17 @@ pub fn guyan_reduce_2d(input: &GuyanInput) -> Result<GuyanResult, String> {
     let f_b: Vec<f64> = boundary_dofs.iter().map(|&d| f_f[d]).collect();
     let f_i: Vec<f64> = interior_dofs.iter().map(|&d| f_f[d]).collect();
 
-    // Solve K_II^{-1} * F_I
-    let kii_inv_fi = solve_kii(&k_ii, &f_i, ni)?;
+    // Factorize K_II once via Cholesky (K_II is SPD)
+    let l_ii = factorize_kii(&k_ii, ni)?;
 
-    // Solve K_II^{-1} * K_IB column by column
+    // Solve K_II^{-1} * F_I
+    let kii_inv_fi = chol_solve(&l_ii, &f_i, ni);
+
+    // Solve K_II^{-1} * K_IB column by column (reuses factorization)
     let mut kii_inv_kib = vec![0.0; ni * nb]; // ni × nb
     for j in 0..nb {
         let col: Vec<f64> = (0..ni).map(|i| k_ib[i * nb + j]).collect();
-        let sol = solve_kii(&k_ii, &col, ni)?;
+        let sol = chol_solve(&l_ii, &col, ni);
         for i in 0..ni {
             kii_inv_kib[i * nb + j] = sol[i];
         }
@@ -227,7 +253,7 @@ pub fn guyan_reduce_2d(input: &GuyanInput) -> Result<GuyanResult, String> {
         }
         rhs_i[i] -= sum;
     }
-    let u_i = solve_kii(&k_ii, &rhs_i, ni)?;
+    let u_i = chol_solve(&l_ii, &rhs_i, ni);
 
     // Reconstruct reduced DOF displacement vector
     let mut u_reduced = vec![0.0; ns];
@@ -356,47 +382,50 @@ pub fn craig_bampton_2d(input: &CraigBamptonInput) -> Result<CraigBamptonResult,
     let m_ib = extract_submatrix(&m_ff, ns, &interior_dofs, &boundary_dofs);
     let m_ii = extract_submatrix(&m_ff, ns, &interior_dofs, &interior_dofs);
 
+    // Factorize K_II once via Cholesky (K_II is SPD)
+    let l_ii = factorize_kii(&k_ii, ni)?;
+
     // Compute constraint modes: Ψ_s = -K_II^{-1} * K_IB (ni × nb)
     let mut psi_s = vec![0.0; ni * nb];
     for j in 0..nb {
         let col: Vec<f64> = (0..ni).map(|i| k_ib[i * nb + j]).collect();
-        let sol = solve_kii(&k_ii, &col, ni)?;
+        let sol = chol_solve(&l_ii, &col, ni);
         for i in 0..ni {
             psi_s[i * nb + j] = -sol[i];
         }
     }
 
     // Interior eigenproblem: K_II * φ = ω² * M_II * φ
-    let eigen = solve_generalized_eigen(&k_ii, &m_ii, ni, 200)
+    // Use Lanczos shift-invert (factorizes K_II, not M_II) — works even if M_II is singular
+    let eigen = lanczos_generalized_eigen(&k_ii, &m_ii, ni, n_modes, 0.0)
         .ok_or("Interior eigenvalue decomposition failed")?;
 
-    // Extract first n_modes positive eigenvalues and vectors
-    let mut mode_pairs: Vec<(f64, usize)> = Vec::new();
-    for (idx, &val) in eigen.values.iter().enumerate() {
-        if val > 1e-12 {
-            mode_pairs.push((val, idx));
-        }
-    }
-    mode_pairs.sort_by(|a, b| a.0.partial_cmp(&b.0).unwrap());
-    let n_modes = n_modes.min(mode_pairs.len());
+    // Lanczos returns eigenvalues sorted ascending, already filtered to n_modes
+    let n_modes = n_modes.min(eigen.values.len());
+    let nk = eigen.values.len();
 
     // Φ_m: ni × n_modes
     let mut phi_m = vec![0.0; ni * n_modes];
     let mut frequencies = Vec::new();
 
-    for (m, &(eigenval, idx)) in mode_pairs.iter().take(n_modes).enumerate() {
-        let freq = eigenval.sqrt() / (2.0 * std::f64::consts::PI);
+    for m in 0..n_modes {
+        let eigenval = eigen.values[m];
+        let freq = if eigenval > 1e-12 {
+            eigenval.sqrt() / (2.0 * std::f64::consts::PI)
+        } else {
+            0.0
+        };
         frequencies.push(freq);
 
         // Normalize eigenvector
         let mut max_val = 0.0f64;
         for i in 0..ni {
-            let v = eigen.vectors[i * ni + idx].abs();
+            let v = eigen.vectors[i * nk + m].abs();
             if v > max_val { max_val = v; }
         }
         for i in 0..ni {
             phi_m[i * n_modes + m] = if max_val > 1e-20 {
-                eigen.vectors[i * ni + idx] / max_val
+                eigen.vectors[i * nk + m] / max_val
             } else {
                 0.0
             };
@@ -555,19 +584,16 @@ pub fn craig_bampton_2d(input: &CraigBamptonInput) -> Result<CraigBamptonResult,
 // ==================== 3D Guyan Reduction ====================
 
 /// Perform Guyan (static) condensation on a 3D model.
-pub fn guyan_reduce_3d(input: &GuyanInput3D) -> Result<GuyanResult, String> {
+pub fn guyan_reduce_3d(input: &GuyanInput3D) -> Result<GuyanResult3D, String> {
     let dof_num = DofNumbering::build_3d(&input.solver);
     let nf = dof_num.n_free;
     let n = dof_num.n_total;
 
     if nf == 0 { return Err("No free DOFs".into()); }
 
-    let asm = assembly::assemble_3d(&input.solver, &dof_num);
-
-    // Extract free-free matrices
-    let free_idx: Vec<usize> = (0..nf).collect();
-    let k_ff_raw = extract_submatrix(&asm.k, n, &free_idx, &free_idx);
-    let f_f_raw: Vec<f64> = asm.f[..nf].to_vec();
+    let sasm = assembly::assemble_sparse_3d(&input.solver, &dof_num, false);
+    let k_ff_raw = sasm.k_ff.to_dense_symmetric();
+    let f_f_raw: Vec<f64> = sasm.f[..nf].to_vec();
 
     // Apply constraint reduction
     let cs = FreeConstraintSystem::build_3d(&input.solver.constraints, &dof_num, &input.solver.nodes);
@@ -610,14 +636,17 @@ pub fn guyan_reduce_3d(input: &GuyanInput3D) -> Result<GuyanResult, String> {
     let f_b: Vec<f64> = boundary_dofs.iter().map(|&d| f_f[d]).collect();
     let f_i: Vec<f64> = interior_dofs.iter().map(|&d| f_f[d]).collect();
 
-    // Solve K_II^{-1} * F_I
-    let kii_inv_fi = solve_kii(&k_ii, &f_i, ni)?;
+    // Factorize K_II once via Cholesky (K_II is SPD)
+    let l_ii = factorize_kii(&k_ii, ni)?;
 
-    // Solve K_II^{-1} * K_IB column by column
+    // Solve K_II^{-1} * F_I
+    let kii_inv_fi = chol_solve(&l_ii, &f_i, ni);
+
+    // Solve K_II^{-1} * K_IB column by column (reuses factorization)
     let mut kii_inv_kib = vec![0.0; ni * nb];
     for j in 0..nb {
         let col: Vec<f64> = (0..ni).map(|i| k_ib[i * nb + j]).collect();
-        let sol = solve_kii(&k_ii, &col, ni)?;
+        let sol = chol_solve(&l_ii, &col, ni);
         for i in 0..ni {
             kii_inv_kib[i * nb + j] = sol[i];
         }
@@ -662,7 +691,7 @@ pub fn guyan_reduce_3d(input: &GuyanInput3D) -> Result<GuyanResult, String> {
         }
         rhs_i[i] -= sum;
     }
-    let u_i = solve_kii(&k_ii, &rhs_i, ni)?;
+    let u_i = chol_solve(&l_ii, &rhs_i, ni);
 
     // Reconstruct reduced DOF vector
     let mut u_reduced = vec![0.0; ns];
@@ -683,11 +712,35 @@ pub fn guyan_reduce_3d(input: &GuyanInput3D) -> Result<GuyanResult, String> {
     let mut u_full = vec![0.0; n];
     for i in 0..nf { u_full[i] = u_f[i]; }
 
-    // Build results (reuse 2D result struct — displacements & reactions not populated for 3D)
-    let displacements = super::linear::build_displacements_2d(&dof_num, &u_full);
-    let element_forces = Vec::new(); // 3D internal forces computed separately
+    // Build 3D results
+    let displacements = super::linear::build_displacements_3d(&dof_num, &u_full);
 
-    Ok(GuyanResult {
+    // Compute reactions: R = K_rf * u_f - F_r
+    let sasm_full = assembly::assemble_sparse_3d(&input.solver, &dof_num, true);
+    let nr = n - nf;
+    let reactions = if nr > 0 {
+        if let Some(ref k_full) = sasm_full.k_full {
+            let k_full_dense = k_full.to_dense_symmetric();
+            let free_idx2: Vec<usize> = (0..nf).collect();
+            let rest_idx: Vec<usize> = (nf..n).collect();
+            let k_rf = extract_submatrix(&k_full_dense, n, &rest_idx, &free_idx2);
+            let f_r = extract_subvec(&sasm_full.f, &rest_idx);
+            let k_rf_uf = mat_vec_rect(&k_rf, &u_f, nr, nf);
+            let mut reactions_vec = vec![0.0; nr];
+            for i in 0..nr {
+                reactions_vec[i] = k_rf_uf[i] - f_r[i];
+            }
+            super::linear::build_reactions_3d(
+                &input.solver, &dof_num, &reactions_vec, &f_r, nf, &u_full,
+            )
+        } else {
+            vec![]
+        }
+    } else {
+        vec![]
+    };
+
+    Ok(GuyanResult3D {
         k_condensed,
         f_condensed,
         m_condensed: vec![],
@@ -695,8 +748,8 @@ pub fn guyan_reduce_3d(input: &GuyanInput3D) -> Result<GuyanResult, String> {
         n_interior: ni,
         boundary_dofs,
         displacements,
-        reactions: vec![],
-        element_forces,
+        reactions,
+        element_forces: vec![],
     })
 }
 
@@ -710,12 +763,12 @@ pub fn craig_bampton_3d(input: &CraigBamptonInput3D) -> Result<CraigBamptonResul
 
     if nf == 0 { return Err("No free DOFs".into()); }
 
-    let asm = assembly::assemble_3d(&input.solver, &dof_num);
+    let sasm = assembly::assemble_sparse_3d(&input.solver, &dof_num, false);
+    let k_ff_raw = sasm.k_ff.to_dense_symmetric();
     let m_full = super::mass_matrix::assemble_mass_matrix_3d(&input.solver, &dof_num, &input.densities);
 
     // Extract free-free matrices
     let free_idx: Vec<usize> = (0..nf).collect();
-    let k_ff_raw = extract_submatrix(&asm.k, n, &free_idx, &free_idx);
     let m_ff_raw = extract_submatrix(&m_full, n, &free_idx, &free_idx);
 
     // Apply constraint reduction
@@ -763,45 +816,48 @@ pub fn craig_bampton_3d(input: &CraigBamptonInput3D) -> Result<CraigBamptonResul
     let m_ib = extract_submatrix(&m_ff, ns, &interior_dofs, &boundary_dofs);
     let m_ii = extract_submatrix(&m_ff, ns, &interior_dofs, &interior_dofs);
 
-    // Constraint modes: Ψ_s = -K_II^{-1} * K_IB
+    // Factorize K_II once via Cholesky (K_II is SPD)
+    let l_ii = factorize_kii(&k_ii, ni)?;
+
+    // Constraint modes: Ψ_s = -K_II^{-1} * K_IB (reuses factorization)
     let mut psi_s = vec![0.0; ni * nb];
     for j in 0..nb {
         let col: Vec<f64> = (0..ni).map(|i| k_ib[i * nb + j]).collect();
-        let sol = solve_kii(&k_ii, &col, ni)?;
+        let sol = chol_solve(&l_ii, &col, ni);
         for i in 0..ni {
             psi_s[i * nb + j] = -sol[i];
         }
     }
 
     // Interior eigenproblem: K_II * φ = ω² * M_II * φ
-    let eigen = solve_generalized_eigen(&k_ii, &m_ii, ni, 200)
+    // Use Lanczos shift-invert (factorizes K_II, not M_II) — works even if M_II is singular
+    let eigen = lanczos_generalized_eigen(&k_ii, &m_ii, ni, n_modes, 0.0)
         .ok_or("Interior eigenvalue decomposition failed")?;
 
-    let mut mode_pairs: Vec<(f64, usize)> = Vec::new();
-    for (idx, &val) in eigen.values.iter().enumerate() {
-        if val > 1e-12 {
-            mode_pairs.push((val, idx));
-        }
-    }
-    mode_pairs.sort_by(|a, b| a.0.partial_cmp(&b.0).unwrap());
-    let n_modes = n_modes.min(mode_pairs.len());
+    let n_modes = n_modes.min(eigen.values.len());
+    let nk = eigen.values.len();
 
     // Φ_m: ni × n_modes
     let mut phi_m = vec![0.0; ni * n_modes];
     let mut frequencies = Vec::new();
 
-    for (m, &(eigenval, idx)) in mode_pairs.iter().take(n_modes).enumerate() {
-        let freq = eigenval.sqrt() / (2.0 * std::f64::consts::PI);
+    for m in 0..n_modes {
+        let eigenval = eigen.values[m];
+        let freq = if eigenval > 1e-12 {
+            eigenval.sqrt() / (2.0 * std::f64::consts::PI)
+        } else {
+            0.0
+        };
         frequencies.push(freq);
 
         let mut max_val = 0.0f64;
         for i in 0..ni {
-            let v = eigen.vectors[i * ni + idx].abs();
+            let v = eigen.vectors[i * nk + m].abs();
             if v > max_val { max_val = v; }
         }
         for i in 0..ni {
             phi_m[i * n_modes + m] = if max_val > 1e-20 {
-                eigen.vectors[i * ni + idx] / max_val
+                eigen.vectors[i * nk + m] / max_val
             } else {
                 0.0
             };

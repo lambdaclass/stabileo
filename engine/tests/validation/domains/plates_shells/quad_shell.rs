@@ -9,11 +9,10 @@
 ///   6. Thermal load — uniform ΔT membrane expansion
 ///   7. Scordelis-Lo barrel vault — solver runs, displacements non-trivial
 ///   8. Stiffness symmetry and positive definiteness
+///   9. Thin plate locking test — verify ANS eliminates shear locking
 ///
-/// Note: The current element uses standard Mindlin shear interpolation (not yet
-/// MITC assumed shear strain tying). This means thin plate benchmarks (L/t > 20)
-/// exhibit shear locking. Tests use thick plates (L/t ≤ 10) where the element
-/// performs well.
+/// The element uses MITC4 Bathe-Dvorkin (1986) assumed natural strain (ANS)
+/// tying for transverse shear, eliminating shear locking for thin plates.
 
 use dedaliano_engine::solver::linear;
 use dedaliano_engine::types::*;
@@ -90,7 +89,9 @@ fn make_base_input(
         sections: HashMap::new(), elements: HashMap::new(),
         supports: HashMap::new(), loads: vec![],
         constraints: vec![], plates: HashMap::new(),
-        quads, left_hand: None, curved_beams: vec![],
+        quads, quad9s: HashMap::new(), solid_shells: HashMap::new(), left_hand: None, curved_beams: vec![],
+            curved_shells: HashMap::new(),
+        connectors: HashMap::new(),
     }
 }
 
@@ -178,17 +179,15 @@ fn test_quad_cantilever_thick_strip() {
     let tip = result.displacements.iter().find(|d| d.node_id == tip_nid).unwrap();
     let w_computed = tip.uz.abs();
 
-    // Shell model will differ from beam theory due to Poisson effects and plate behavior
-    // For thick plate strips, allow 40% difference
+    // With ANS, shell model matches beam theory well for thick strips (L/t=4)
     let error = (w_computed - w_total).abs() / w_total;
     assert!(
-        error < 0.50,
+        error < 0.40,
         "Thick cantilever: w = {:.6e}, Timoshenko beam = {:.6e}, error = {:.1}%",
         w_computed, w_total, error * 100.0
     );
-    // At minimum, verify deflection is in the right ballpark (same order of magnitude)
     assert!(
-        w_computed > w_total * 0.1,
+        w_computed > w_total * 0.5,
         "Deflection too small: {:.6e} vs expected {:.6e}", w_computed, w_total
     );
 }
@@ -287,15 +286,14 @@ fn test_quad_thick_ss_plate() {
         .find(|d| d.node_id == center_nid).unwrap();
     let w_computed = center_disp.uz.abs();
 
-    // For thick plate (a/t=10), Mindlin gives more deflection than Kirchhoff
-    // Accept within factor of 3 (element has some locking even at a/t=10)
+    // With ANS, thick plate (a/t=10) should be close to Kirchhoff+shear correction
     assert!(
-        w_computed > w_kirchhoff * 0.1,
+        w_computed > w_kirchhoff * 0.5,
         "Thick SS plate: w = {:.6e}, Kirchhoff = {:.6e}, ratio = {:.2}×",
         w_computed, w_kirchhoff, w_computed / w_kirchhoff
     );
     assert!(
-        w_computed < w_kirchhoff * 5.0,
+        w_computed < w_kirchhoff * 3.0,
         "Thick SS plate: deflection unreasonably large: w = {:.6e}", w_computed
     );
 }
@@ -419,7 +417,9 @@ fn test_quad_scordelis_lo_barrel_vault() {
         sections: HashMap::new(), elements: HashMap::new(),
         supports: HashMap::new(), loads: vec![],
         constraints: vec![], plates: HashMap::new(),
-        quads, left_hand: None, curved_beams: vec![],
+        quads, quad9s: HashMap::new(), solid_shells: HashMap::new(), left_hand: None, curved_beams: vec![],
+            curved_shells: HashMap::new(),
+        connectors: HashMap::new(),
     };
 
     // Symmetry at x=0
@@ -487,4 +487,80 @@ fn test_quad_stiffness_symmetry_positive() {
     for i in 0..24 {
         assert!(k[i * 24 + i] >= 0.0, "Negative diagonal at DOF {}: {}", i, k[i * 24 + i]);
     }
+}
+
+// ==================== Test 9: Thin Plate Locking Test ====================
+
+#[test]
+fn test_quad_thin_plate_no_locking() {
+    // Thin simply-supported plate: a=1, t=0.001 (a/t = 1000, very thin)
+    // Without ANS, displacement-based shear causes severe locking (~1-5% of reference).
+    // With ANS, the element should recover >50% of the Kirchhoff analytical value.
+    let a: f64 = 1.0;
+    let t: f64 = 0.001; // a/t = 1000
+    let q: f64 = 1.0;
+    let e_kpa = E * 1000.0;
+    let d_plate = e_kpa * t.powi(3) / (12.0 * (1.0 - NU * NU));
+
+    // Navier series for SS plate
+    let pi = std::f64::consts::PI;
+    let mut navier_sum = 0.0;
+    for m_idx in 0..20 {
+        let m = 2 * m_idx + 1;
+        for n_idx in 0..20 {
+            let n = 2 * n_idx + 1;
+            let mn2 = (m * m + n * n) as f64;
+            navier_sum += 1.0 / ((m * n) as f64 * mn2 * mn2);
+        }
+    }
+    let w_navier = 16.0 * q * a.powi(4) / (pi.powi(6) * d_plate) * navier_sum;
+
+    let nx = 8;
+    let ny = 8;
+    let (nodes, quads, grid) = make_quad_mesh(nx, ny, a, a, t);
+    let mut input = make_base_input(nodes, quads);
+
+    // SS: all edges fixed in z, plus in-plane constraints
+    for i in 0..=nx {
+        for j in 0..=ny {
+            let nid = grid[i][j];
+            let on_edge = i == 0 || i == nx || j == 0 || j == ny;
+            if on_edge {
+                let fix_x = i == 0 || i == nx;
+                let fix_y = j == 0 || j == ny;
+                input.supports.insert(nid.to_string(), sup3d(nid, fix_x, fix_y, true, false, false, true));
+            }
+        }
+    }
+
+    // QuadPressure on all elements
+    for (_key, quad_el) in &input.quads.clone() {
+        input.loads.push(SolverLoad3D::QuadPressure(SolverPressureLoad {
+            element_id: quad_el.id, pressure: q,
+        }));
+    }
+
+    let result = linear::solve_3d(&input).unwrap();
+
+    let center_nid = grid[nx / 2][ny / 2];
+    let center_disp = result.displacements.iter()
+        .find(|d| d.node_id == center_nid).unwrap();
+    let w_computed = center_disp.uz.abs();
+
+    let ratio = w_computed / w_navier;
+    eprintln!(
+        "Thin plate a/t=1000: w={:.6e}, Navier={:.6e}, ratio={:.4}",
+        w_computed, w_navier, ratio
+    );
+
+    // ANS eliminates shear locking: ratio should be >50% at 8×8 for a/t=1000
+    assert!(
+        ratio > 0.5,
+        "Thin plate locking! ratio={:.4} — ANS should prevent this (got {:.6e}, ref {:.6e})",
+        ratio, w_computed, w_navier
+    );
+    assert!(
+        ratio < 2.0,
+        "Thin plate: deflection too large, ratio={:.4}", ratio
+    );
 }

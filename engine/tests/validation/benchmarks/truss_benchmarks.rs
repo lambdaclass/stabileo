@@ -360,6 +360,7 @@ fn validation_truss_settlement_effect() {
         nodes: nodes_map, materials: mats_map, sections: secs_map,
         elements: elems_map, supports: sups_map, loads: loads_settle,
     constraints: vec![],
+    connectors: std::collections::HashMap::new(),
     };
     let res_settle = linear::solve_2d(&input_settle).unwrap();
 

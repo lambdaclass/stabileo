@@ -39,6 +39,13 @@ harness = false
 name = "assembly_bench"
 harness = false
 
+[[bench]]
+name = "workflow_bench"
+harness = false
+
 [profile.release]
 opt-level = 3
 lto = true
+
+[profile.test]
+opt-level = 1

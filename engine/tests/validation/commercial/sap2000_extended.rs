@@ -790,7 +790,8 @@ fn validation_sap_ext_beam_settlement() {
 
     let input = SolverInput {
         nodes: nodes_map, materials: mats_map, sections: secs_map,
-        elements: elems_map, supports: sups_map, loads: vec![], constraints: vec![], };
+        elements: elems_map, supports: sups_map, loads: vec![], constraints: vec![],
+        connectors: HashMap::new(), };
 
     let results = linear::solve_2d(&input).unwrap();
 

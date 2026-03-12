@@ -55,6 +55,7 @@ pub fn solve_staged_2d(input: &StagedInput) -> Result<StagedAnalysisResults, Str
     let mut cumulative_u = vec![0.0; n];
     let mut active_elements: HashSet<usize> = HashSet::new();
     let mut active_supports: HashSet<usize> = HashSet::new();
+    let mut cumulative_loads: Vec<SolverLoad> = Vec::new();
     let mut stage_results = Vec::new();
 
     for (stage_idx, stage) in input.stages.iter().enumerate() {
@@ -75,6 +76,11 @@ pub fn solve_staged_2d(input: &StagedInput) -> Result<StagedAnalysisResults, Str
         // Build a SolverInput for this stage with only active elements/supports/loads
         let stage_solver_input = build_stage_solver_input(
             input, &active_elements, &active_supports, stage,
+        );
+
+        // Accumulate loads across stages for correct FEF in internal force recovery
+        cumulative_loads.extend(
+            stage.load_indices.iter().filter_map(|&idx| input.loads.get(idx).cloned())
         );
 
         // Assemble stiffness for active elements
@@ -118,14 +124,18 @@ pub fn solve_staged_2d(input: &StagedInput) -> Result<StagedAnalysisResults, Str
         // Check if K_ff has any non-zero diagonal (structure might be a mechanism at this stage)
         let max_diag: f64 = (0..nf).map(|i| k_ff[i * nf + i].abs()).fold(0.0, f64::max);
         if max_diag < 1e-30 {
-            // No stiffness at this stage — skip (e.g., stage only adds loads to non-existent elements)
+            // No stiffness at this stage — skip
+            let cumulative_solver_input = SolverInput {
+                loads: cumulative_loads.clone(),
+                ..stage_solver_input.clone()
+            };
             stage_results.push(StageResult {
                 stage_name: stage.name.clone(),
                 stage_index: stage_idx,
                 results: build_results_from_u(
                     &cumulative_u,
                     &dof_num,
-                    &stage_solver_input,
+                    &cumulative_solver_input,
                     &vec![0.0; nr],
                     nf,
                 ),
@@ -182,6 +192,17 @@ pub fn solve_staged_2d(input: &StagedInput) -> Result<StagedAnalysisResults, Str
             );
         }
 
+        // Build cumulative input for correct FEF subtraction in internal force recovery.
+        let cumulative_solver_input = SolverInput {
+            loads: cumulative_loads.clone(),
+            ..stage_solver_input.clone()
+        };
+
+        // Reassemble with cumulative loads for correct reaction F_r.
+        let cumulative_asm = assemble_staged_2d(
+            &cumulative_solver_input, &dof_num, &input, &active_elements, stage,
+        );
+
         // Build results for this stage
         stage_results.push(StageResult {
             stage_name: stage.name.clone(),
@@ -189,8 +210,8 @@ pub fn solve_staged_2d(input: &StagedInput) -> Result<StagedAnalysisResults, Str
             results: build_results_from_u(
                 &cumulative_u,
                 &dof_num,
-                &stage_solver_input,
-                &compute_stage_reactions_vec(&asm, n, nf, nr, &cumulative_u, &u_r),
+                &cumulative_solver_input,
+                &compute_stage_reactions_vec(&cumulative_asm, n, nf, nr, &cumulative_u, &u_r),
                 nf,
             ),
         });
@@ -202,6 +223,9 @@ pub fn solve_staged_2d(input: &StagedInput) -> Result<StagedAnalysisResults, Str
             displacements: vec![],
             reactions: vec![],
             element_forces: vec![],
+            constraint_forces: vec![],
+            diagnostics: vec![],
+            solver_diagnostics: vec![],
         });
 
     Ok(StagedAnalysisResults {
@@ -220,6 +244,7 @@ fn staged_to_full_solver_input(input: &StagedInput) -> SolverInput {
         supports: input.supports.clone(),
         loads: input.loads.clone(),
         constraints: input.constraints.clone(),
+        connectors: HashMap::new(),
     }
 }
 
@@ -252,6 +277,7 @@ fn build_stage_solver_input(
         supports,
         loads,
         constraints: input.constraints.clone(),
+        connectors: HashMap::new(),
     }
 }
 
@@ -477,6 +503,7 @@ fn assemble_staged_2d(
         max_diag_k: max_diag,
         artificial_dofs,
         inclined_transforms: vec![],
+        diagnostics: vec![],
     }
 }
 
@@ -498,6 +525,9 @@ fn build_results_from_u(
         displacements,
         reactions,
         element_forces,
+        constraint_forces: vec![],
+        diagnostics: vec![],
+        solver_diagnostics: vec![],
     }
 }
 
@@ -879,6 +909,11 @@ pub fn solve_staged_3d(input: &StagedInput3D) -> Result<StagedAnalysisResults3D,
             element_forces: vec![],
             plate_stresses: vec![],
             quad_stresses: vec![],
+            quad_nodal_stresses: vec![],
+            constraint_forces: vec![],
+            diagnostics: vec![],
+            solver_diagnostics: vec![],
+            timings: None,
         });
 
     Ok(StagedAnalysisResults3D {
@@ -900,7 +935,11 @@ fn staged_to_full_solver_input_3d(input: &StagedInput3D) -> SolverInput3D {
         left_hand: None,
         plates: HashMap::new(),
         quads: HashMap::new(),
+        quad9s: HashMap::new(),
+        solid_shells: HashMap::new(),
+        curved_shells: HashMap::new(),
         curved_beams: vec![],
+        connectors: HashMap::new(),
     }
 }
 
@@ -936,7 +975,11 @@ fn build_stage_solver_input_3d(
         left_hand: None,
         plates: HashMap::new(),
         quads: HashMap::new(),
+        quad9s: HashMap::new(),
+        solid_shells: HashMap::new(),
+        curved_shells: HashMap::new(),
         curved_beams: vec![],
+        connectors: HashMap::new(),
     }
 }
 
@@ -1217,5 +1260,10 @@ fn build_results_from_u_3d(
         element_forces,
         plate_stresses,
         quad_stresses: vec![],
+        quad_nodal_stresses: vec![],
+        constraint_forces: vec![],
+        diagnostics: vec![],
+        solver_diagnostics: vec![],
+        timings: None,
     }
 }

@@ -109,7 +109,8 @@ fn make_winkler_beam(
         sections: secs_map,
         elements: elems_map,
         supports: sups_map,
-        loads, constraints: vec![], }
+        loads, constraints: vec![],
+        connectors: HashMap::new(), }
 }
 
 /// Build a portal frame with spring supports at the bases instead of fixed.
@@ -172,7 +173,8 @@ fn make_portal_spring_base(
         sections: secs_map,
         elements: elems_map,
         supports: sups_map,
-        loads, constraints: vec![], }
+        loads, constraints: vec![],
+        connectors: HashMap::new(), }
 }
 
 // ================================================================
@@ -458,7 +460,8 @@ fn validation_ssi_pile_group_cap_beam() {
         sections: secs_map,
         elements: elems_map,
         supports: sups_map,
-        loads, constraints: vec![], };
+        loads, constraints: vec![],
+        connectors: HashMap::new(), };
 
     let results = linear::solve_2d(&input).unwrap();
 
@@ -648,7 +651,8 @@ fn validation_ssi_lateral_earth_pressure() {
         sections: secs_map,
         elements: elems_map,
         supports: sups_map,
-        loads, constraints: vec![], };
+        loads, constraints: vec![],
+        connectors: HashMap::new(), };
 
     let results = linear::solve_2d(&input).unwrap();
 

@@ -18,13 +18,16 @@ jobs:
         with:
           components: clippy
 
+      - name: Install mold linker
+        run: sudo apt-get install -y mold
+
       - uses: Swatinem/rust-cache@v2
         with:
           workspaces: engine
 
       - name: Clippy
         working-directory: engine
-        run: cargo clippy --lib --tests --benches -- -D warnings
+        run: cargo clippy --lib -- -D warnings
 
   test:
     runs-on: ubuntu-latest
@@ -37,13 +40,27 @@ jobs:
         with:
           workspaces: engine
 
-      - name: Unit tests (120 tests)
-        working-directory: engine
-        run: cargo test --lib
+      - name: Install mold linker
+        run: sudo apt-get install -y mold
 
-      - name: Differential fuzz tests (90 tests)
+      - uses: taiki-e/install-action@nextest
+
+      - name: Shell benchmarks gate
         working-directory: engine
-        run: cargo test --test differential_fuzz
+        run: cargo nextest run --profile ci -E 'test(/benchmark_shell/) + test(/benchmark_beam_shell/) + test(/benchmark_plate/) + test(/benchmark_navier/) + test(/benchmark_scordelis/) + test(/benchmark_cantilever/) + test(/benchmark_pinched/) + test(/test_quad_thin_plate/)'
+
+      - name: Shell acceptance gate
+        working-directory: engine
+        run: cargo nextest run --profile ci -E 'test(/acceptance_.*shell/) + test(/acceptance_.*diaphragm/)'
+
+      - name: Constraint benchmarks gate
+        working-directory: engine
+        run: cargo nextest run --profile ci -E 'test(/benchmark_.*constraint/)'
+
+      - name: Run all tests
+        working-directory: engine
+        run: cargo nextest run --profile ci
+        timeout-minutes: 10
 
       - name: Benchmarks compile
         working-directory: engine

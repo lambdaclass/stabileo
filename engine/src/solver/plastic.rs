@@ -306,6 +306,13 @@ fn scale_results(results: &AnalysisResults, factor: f64) -> AnalysisResults {
             hinge_start: ef.hinge_start,
             hinge_end: ef.hinge_end,
         }).collect(),
+        constraint_forces: results.constraint_forces.iter().map(|cf| ConstraintForce {
+            node_id: cf.node_id,
+            dof: cf.dof.clone(),
+            force: cf.force * factor,
+        }).collect(),
+        diagnostics: vec![],
+        solver_diagnostics: vec![],
     }
 }
 
@@ -566,5 +573,14 @@ fn scale_results_3d(results: &AnalysisResults3D, factor: f64) -> AnalysisResults
         }).collect(),
         plate_stresses: results.plate_stresses.clone(),
         quad_stresses: vec![],
+        quad_nodal_stresses: vec![],
+        constraint_forces: results.constraint_forces.iter().map(|cf| ConstraintForce {
+            node_id: cf.node_id,
+            dof: cf.dof.clone(),
+            force: cf.force * factor,
+        }).collect(),
+        diagnostics: vec![],
+        solver_diagnostics: vec![],
+        timings: None,
     }
 }

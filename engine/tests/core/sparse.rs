@@ -38,7 +38,7 @@ fn make_input(
             kx: None, ky: None, kz: None, dx: None, dy: None, drz: None, angle: None,
         });
     }
-    SolverInput { nodes: nodes_map, materials: mats_map, sections: secs_map, elements: elems_map, supports: sups_map, loads, constraints: vec![], }
+    SolverInput { nodes: nodes_map, materials: mats_map, sections: secs_map, elements: elems_map, supports: sups_map, loads, constraints: vec![],  connectors: std::collections::HashMap::new() }
 }
 
 fn assert_results_close(a: &AnalysisResults, b: &AnalysisResults, tol: f64) {

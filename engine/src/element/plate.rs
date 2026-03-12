@@ -454,7 +454,6 @@ fn dkt_stiffness(p: &[(f64, f64); 3], e: f64, nu: f64, t: f64) -> [f64; 81] {
 /// DOF index within the 18-DOF element vector.
 /// Per node: [ux(0), uy(1), uz(2), rx(3), ry(4), rz(5)]
 /// Node offsets: node0 → 0, node1 → 6, node2 → 12.
-
 /// Membrane (CST) DOF positions: ux, uy for each of the 3 nodes.
 const MEM_DOFS: [usize; 6] = [0, 1, 6, 7, 12, 13];
 /// Bending (DKT) DOF positions: uz, rx, ry for each of the 3 nodes.

@@ -222,11 +222,23 @@ pub fn solve_nonlinear_material_2d(
 
     let final_load_factor = if n_increments > 0 { 1.0 } else { 0.0 };
 
+    // Compute constraint forces if constraints are active
+    let constraint_forces = if let Some(ref fcs) = cs {
+        let k_ff = extract_submatrix(&asm.k, n, &free_idx, &free_idx);
+        let raw = fcs.compute_constraint_forces(&k_ff, &u_full[..nf], &asm.f[..nf]);
+        super::constraints::map_dof_forces_to_constraint_forces(&raw, &dof_num)
+    } else {
+        vec![]
+    };
+
     Ok(NonlinearMaterialResult {
         results: AnalysisResults {
             displacements,
             reactions,
             element_forces,
+            constraint_forces,
+            diagnostics: vec![],
+            solver_diagnostics: vec![],
         },
         converged: converged_global,
         iterations: total_nr_iterations,
@@ -778,6 +790,9 @@ pub fn solve_nonlinear_material_3d(
     let asm = super::assembly::assemble_3d(solver, &dof_num);
     let f_total = asm.f.clone();
 
+    // Build constraint system (if constraints present)
+    let cs = FreeConstraintSystem::build_3d(&solver.constraints, &dof_num, &solver.nodes);
+
     // Prescribed displacements (from settlement supports).
     let mut u_r = vec![0.0; nr];
     for sup in solver.supports.values() {
@@ -907,6 +922,15 @@ pub fn solve_nonlinear_material_3d(
 
     let element_status = build_element_status_3d(solver, input, &dof_num, &u_full, &states);
 
+    // Compute constraint forces if constraints are active
+    let constraint_forces = if let Some(ref fcs) = cs {
+        let k_ff = extract_submatrix(&asm.k, n, &free_idx, &free_idx);
+        let raw = fcs.compute_constraint_forces(&k_ff, &u_full[..nf], &asm.f[..nf]);
+        super::constraints::map_dof_forces_to_constraint_forces(&raw, &dof_num)
+    } else {
+        vec![]
+    };
+
     Ok(NonlinearMaterialResult3D {
         results: AnalysisResults3D {
             displacements,
@@ -914,6 +938,11 @@ pub fn solve_nonlinear_material_3d(
             element_forces,
             plate_stresses: compute_plate_stresses(solver, &dof_num, &u_full),
             quad_stresses: compute_quad_stresses(solver, &dof_num, &u_full),
+            quad_nodal_stresses: vec![],
+            constraint_forces,
+            diagnostics: vec![],
+            solver_diagnostics: vec![],
+            timings: None,
         },
         converged: converged_global,
         iterations: total_nr_iterations,

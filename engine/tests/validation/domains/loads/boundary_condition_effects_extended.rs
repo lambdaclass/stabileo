@@ -81,7 +81,8 @@ fn validation_bce_settlement_moment() {
     });
     let input = SolverInput {
         nodes, materials: mats, sections: secs,
-        elements: elems, supports: sups, loads: vec![], constraints: vec![], };
+        elements: elems, supports: sups, loads: vec![], constraints: vec![],
+        connectors: HashMap::new(), };
     let results = linear::solve_2d(&input).unwrap();
 
     // M = 6EIδ/L²

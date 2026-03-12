@@ -121,7 +121,8 @@ fn validation_prz_patch_test_axial() {
 
     let input = SolverInput {
         nodes: nodes_map, materials: mats_map, sections: secs_map,
-        elements: elems_map, supports: sups_map, loads: vec![], constraints: vec![], };
+        elements: elems_map, supports: sups_map, loads: vec![], constraints: vec![],
+        connectors: std::collections::HashMap::new(), };
 
     let results = linear::solve_2d(&input).unwrap();
 

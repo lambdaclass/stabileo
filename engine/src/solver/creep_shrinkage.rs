@@ -11,7 +11,6 @@
 /// - Bazant, Z.P. (1972). "Prediction of concrete creep effects..."
 /// - Gilbert & Ranzi (2011). "Time-Dependent Behaviour of Concrete Structures"
 /// - EN 1992-1-1 (EC2) Annex B: Creep and shrinkage
-
 use std::collections::HashMap;
 use serde::{Serialize, Deserialize};
 use crate::types::*;

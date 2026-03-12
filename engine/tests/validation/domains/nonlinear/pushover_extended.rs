@@ -867,7 +867,8 @@ fn validation_pushover_ext_weak_story_mechanism() {
         sections: secs_map,
         elements: elems_map,
         supports: sups_map,
-        loads, constraints: vec![], };
+        loads, constraints: vec![],
+        connectors: HashMap::new(), };
 
     let plastic_input = wrap_plastic_multi_section(
         solver,

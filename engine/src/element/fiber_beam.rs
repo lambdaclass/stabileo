@@ -10,7 +10,6 @@
 /// References:
 ///   - Spacone, Filippou & Taucer (1996): fiber beam-column formulation
 ///   - OpenSees: force-based beam-column implementation
-
 use serde::{Serialize, Deserialize};
 
 // ==================== Material Models ====================

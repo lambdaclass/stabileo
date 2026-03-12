@@ -292,6 +292,80 @@ pub fn assemble_mass_matrix_3d(
         }
     }
 
+    // Assemble quad9 (MITC9 shell) element masses
+    for quad9 in input.quad9s.values() {
+        let density = densities.get(&quad9.material_id.to_string()).copied().unwrap_or(0.0);
+        if density <= 0.0 { continue; }
+
+        let mut coords = [[0.0f64; 3]; 9];
+        for (i, &nid) in quad9.nodes.iter().enumerate() {
+            let nd = node_by_id[&nid];
+            coords[i] = [nd.x, nd.y, nd.z];
+        }
+
+        let m_local = crate::element::quad9::quad9_consistent_mass(&coords, density / 1000.0, quad9.thickness);
+
+        let q9_dofs = dof_num.quad9_element_dofs(&quad9.nodes);
+        for i in 0..54 {
+            for j in 0..54 {
+                let val = m_local[i * 54 + j];
+                if val.abs() > 1e-30 {
+                    m_global[q9_dofs[i] * n + q9_dofs[j]] += val;
+                }
+            }
+        }
+    }
+
+    // Assemble solid-shell element masses
+    for ss in input.solid_shells.values() {
+        let density = densities.get(&ss.material_id.to_string()).copied().unwrap_or(0.0);
+        if density <= 0.0 { continue; }
+
+        let mut coords = [[0.0f64; 3]; 8];
+        for (i, &nid) in ss.nodes.iter().enumerate() {
+            let nd = node_by_id[&nid];
+            coords[i] = [nd.x, nd.y, nd.z];
+        }
+
+        // density is in kg/m³, divide by 1000 to get tonnes/m³ (consistent with kN units)
+        let m_local = crate::element::solid_shell::solid_shell_consistent_mass(&coords, density / 1000.0);
+
+        let ss_dofs = dof_num.solid_shell_element_dofs(&ss.nodes);
+        for i in 0..24 {
+            for j in 0..24 {
+                let val = m_local[i * 24 + j];
+                if val.abs() > 1e-30 {
+                    m_global[ss_dofs[i] * n + ss_dofs[j]] += val;
+                }
+            }
+        }
+    }
+
+    // Assemble curved shell element masses
+    for cs in input.curved_shells.values() {
+        let density = densities.get(&cs.material_id.to_string()).copied().unwrap_or(0.0);
+        if density <= 0.0 { continue; }
+
+        let mut coords = [[0.0f64; 3]; 4];
+        for (i, &nid) in cs.nodes.iter().enumerate() {
+            let nd = node_by_id[&nid];
+            coords[i] = [nd.x, nd.y, nd.z];
+        }
+        let dirs = cs.normals.unwrap_or_else(|| crate::element::curved_shell::compute_element_directors(&coords));
+
+        let m_local = crate::element::curved_shell::curved_shell_consistent_mass(&coords, &dirs, density / 1000.0, cs.thickness);
+
+        let cs_dofs = dof_num.quad_element_dofs(&cs.nodes);
+        for i in 0..24 {
+            for j in 0..24 {
+                let val = m_local[i * 24 + j];
+                if val.abs() > 1e-30 {
+                    m_global[cs_dofs[i] * n + cs_dofs[j]] += val;
+                }
+            }
+        }
+    }
+
     m_global
 }
 
@@ -411,6 +485,114 @@ pub fn compute_total_mass_3d(
         ];
         let area = (cross[0] * cross[0] + cross[1] * cross[1] + cross[2] * cross[2]).sqrt() / 2.0;
         total += density * area * plate.thickness / 1000.0;
+    }
+
+    // Add quad (MITC4 shell) element masses
+    for quad in input.quads.values() {
+        let density = densities.get(&quad.material_id.to_string()).copied().unwrap_or(0.0);
+        if density <= 0.0 { continue; }
+
+        let n0 = node_by_id[&quad.nodes[0]];
+        let n1 = node_by_id[&quad.nodes[1]];
+        let n2 = node_by_id[&quad.nodes[2]];
+        let n3 = node_by_id[&quad.nodes[3]];
+
+        // Approximate quad area using two triangles (diagonal split)
+        let tri1_v1 = [n1.x - n0.x, n1.y - n0.y, n1.z - n0.z];
+        let tri1_v2 = [n3.x - n0.x, n3.y - n0.y, n3.z - n0.z];
+        let c1 = [
+            tri1_v1[1] * tri1_v2[2] - tri1_v1[2] * tri1_v2[1],
+            tri1_v1[2] * tri1_v2[0] - tri1_v1[0] * tri1_v2[2],
+            tri1_v1[0] * tri1_v2[1] - tri1_v1[1] * tri1_v2[0],
+        ];
+        let a1 = (c1[0] * c1[0] + c1[1] * c1[1] + c1[2] * c1[2]).sqrt() / 2.0;
+
+        let tri2_v1 = [n1.x - n2.x, n1.y - n2.y, n1.z - n2.z];
+        let tri2_v2 = [n3.x - n2.x, n3.y - n2.y, n3.z - n2.z];
+        let c2 = [
+            tri2_v1[1] * tri2_v2[2] - tri2_v1[2] * tri2_v2[1],
+            tri2_v1[2] * tri2_v2[0] - tri2_v1[0] * tri2_v2[2],
+            tri2_v1[0] * tri2_v2[1] - tri2_v1[1] * tri2_v2[0],
+        ];
+        let a2 = (c2[0] * c2[0] + c2[1] * c2[1] + c2[2] * c2[2]).sqrt() / 2.0;
+
+        total += density * (a1 + a2) * quad.thickness / 1000.0;
+    }
+
+    // Add quad9 (MITC9 shell) element masses
+    for quad9 in input.quad9s.values() {
+        let density = densities.get(&quad9.material_id.to_string()).copied().unwrap_or(0.0);
+        if density <= 0.0 { continue; }
+
+        let n0 = node_by_id[&quad9.nodes[0]];
+        let n1 = node_by_id[&quad9.nodes[1]];
+        let n2 = node_by_id[&quad9.nodes[2]];
+        let n3 = node_by_id[&quad9.nodes[3]];
+
+        let tri1_v1 = [n1.x - n0.x, n1.y - n0.y, n1.z - n0.z];
+        let tri1_v2 = [n3.x - n0.x, n3.y - n0.y, n3.z - n0.z];
+        let c1 = [
+            tri1_v1[1] * tri1_v2[2] - tri1_v1[2] * tri1_v2[1],
+            tri1_v1[2] * tri1_v2[0] - tri1_v1[0] * tri1_v2[2],
+            tri1_v1[0] * tri1_v2[1] - tri1_v1[1] * tri1_v2[0],
+        ];
+        let a1 = (c1[0] * c1[0] + c1[1] * c1[1] + c1[2] * c1[2]).sqrt() / 2.0;
+
+        let tri2_v1 = [n1.x - n2.x, n1.y - n2.y, n1.z - n2.z];
+        let tri2_v2 = [n3.x - n2.x, n3.y - n2.y, n3.z - n2.z];
+        let c2 = [
+            tri2_v1[1] * tri2_v2[2] - tri2_v1[2] * tri2_v2[1],
+            tri2_v1[2] * tri2_v2[0] - tri2_v1[0] * tri2_v2[2],
+            tri2_v1[0] * tri2_v2[1] - tri2_v1[1] * tri2_v2[0],
+        ];
+        let a2 = (c2[0] * c2[0] + c2[1] * c2[1] + c2[2] * c2[2]).sqrt() / 2.0;
+
+        total += density * (a1 + a2) * quad9.thickness / 1000.0;
+    }
+
+    // Add solid-shell element masses (volumetric — no thickness field)
+    for ss in input.solid_shells.values() {
+        let density = densities.get(&ss.material_id.to_string()).copied().unwrap_or(0.0);
+        if density <= 0.0 { continue; }
+
+        let mut coords = [[0.0f64; 3]; 8];
+        for (i, &nid) in ss.nodes.iter().enumerate() {
+            let nd = node_by_id[&nid];
+            coords[i] = [nd.x, nd.y, nd.z];
+        }
+        let vol = crate::element::solid_shell::solid_shell_volume(&coords);
+        total += density * vol / 1000.0;
+    }
+
+    // Add curved shell element masses
+    for cs in input.curved_shells.values() {
+        let density = densities.get(&cs.material_id.to_string()).copied().unwrap_or(0.0);
+        if density <= 0.0 { continue; }
+
+        let n0 = node_by_id[&cs.nodes[0]];
+        let n1 = node_by_id[&cs.nodes[1]];
+        let n2 = node_by_id[&cs.nodes[2]];
+        let n3 = node_by_id[&cs.nodes[3]];
+
+        let tri1_v1 = [n1.x - n0.x, n1.y - n0.y, n1.z - n0.z];
+        let tri1_v2 = [n3.x - n0.x, n3.y - n0.y, n3.z - n0.z];
+        let c1 = [
+            tri1_v1[1] * tri1_v2[2] - tri1_v1[2] * tri1_v2[1],
+            tri1_v1[2] * tri1_v2[0] - tri1_v1[0] * tri1_v2[2],
+            tri1_v1[0] * tri1_v2[1] - tri1_v1[1] * tri1_v2[0],
+        ];
+        let a1 = (c1[0] * c1[0] + c1[1] * c1[1] + c1[2] * c1[2]).sqrt() / 2.0;
+
+        let tri2_v1 = [n1.x - n2.x, n1.y - n2.y, n1.z - n2.z];
+        let tri2_v2 = [n3.x - n2.x, n3.y - n2.y, n3.z - n2.z];
+        let c2 = [
+            tri2_v1[1] * tri2_v2[2] - tri2_v1[2] * tri2_v2[1],
+            tri2_v1[2] * tri2_v2[0] - tri2_v1[0] * tri2_v2[2],
+            tri2_v1[0] * tri2_v2[1] - tri2_v1[1] * tri2_v2[0],
+        ];
+        let a2 = (c2[0] * c2[0] + c2[1] * c2[1] + c2[2] * c2[2]).sqrt() / 2.0;
+
+        total += density * (a1 + a2) * cs.thickness / 1000.0;
     }
 
     total

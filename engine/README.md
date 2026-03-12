@@ -4,22 +4,28 @@ High-performance 2D/3D structural analysis engine in Rust, implementing the Dire
 
 ## Document scope
 
+Read next:
+- doc map: [`../DOCS.md`](/Users/unbalancedparen/projects/dedaliano/DOCS.md)
+- current snapshot: [`../CURRENT_STATUS.md`](/Users/unbalancedparen/projects/dedaliano/CURRENT_STATUS.md)
+- detailed proof and benchmark status: [`../BENCHMARKS.md`](/Users/unbalancedparen/projects/dedaliano/BENCHMARKS.md)
+
 This file is the engine-facing overview.
 
 - For full benchmark status and solver gap tracking, see [`../BENCHMARKS.md`](/Users/unbalancedparen/projects/dedaliano/BENCHMARKS.md).
-- For repo-level product and execution priorities, see [`../ROADMAP.md`](/Users/unbalancedparen/projects/dedaliano/ROADMAP.md).
+- For repo-level solver priorities, see [`../SOLVER_ROADMAP.md`](/Users/unbalancedparen/projects/dedaliano/SOLVER_ROADMAP.md).
+- For app and workflow priorities, see [`../PRODUCT_ROADMAP.md`](/Users/unbalancedparen/projects/dedaliano/PRODUCT_ROADMAP.md).
 - For business framing and market position, see [`../POSITIONING.md`](/Users/unbalancedparen/projects/dedaliano/POSITIONING.md).
 
 This document should stay focused on the engine surface, analysis families, and engine-facing validation summary.
 
 ## Analysis Types
 
-- **Linear static** (2D & 3D): direct stiffness method, sparse Cholesky solver
+- **Linear static** (2D & 3D): direct stiffness method, sparse Cholesky solver, parallel element assembly (rayon)
 - **P-Delta** (2D & 3D): second-order geometric nonlinearity with iterative convergence
 - **Corotational** (2D & 3D): large-displacement nonlinear analysis (Newton-Raphson)
 - **Arc-length / displacement control**: Riks-style path following and displacement-controlled nonlinear solve
-- **Buckling** (2D & 3D): linearized eigenvalue buckling (Lanczos eigensolver)
-- **Modal** (2D & 3D): natural frequencies and mode shapes via consistent mass matrix
+- **Buckling** (2D & 3D): linearized eigenvalue buckling (Lanczos eigensolver); 3D path now sparse-assembles `K_ff` before dense eigensolve
+- **Modal** (2D & 3D): natural frequencies and mode shapes via consistent mass matrix; 3D path now sparse-assembles `K_ff` before dense eigensolve
 - **Spectral** (2D & 3D): response spectrum analysis with SRSS/CQC combination
 - **Time history** (2D & 3D): Newmark-beta and HHT-alpha direct integration
 - **Moving loads** (2D & 3D): load envelope by stepping axle groups across the structure
@@ -27,31 +33,47 @@ This document should stay focused on the engine surface, analysis families, and 
 - **Plastic collapse** (2D & 3D): incremental hinge formation to mechanism
 - **Kinematic analysis** (2D & 3D): mechanism detection, degree of indeterminacy, rank check
 - **Construction staging** (2D & 3D): phased activation, support changes, staged loads, prestress hooks
-- **Harmonic response** (2D & 3D): frequency-response analysis with modal damping input
+- **Harmonic response** (2D & 3D): frequency-response analysis with modal damping input; 3D path now sparse-assembles `K_ff`
 - **Winkler foundation** (2D & 3D): beams/frames on elastic foundation
 - **Nonlinear SSI** (2D & 3D): `p-y`, `t-z`, and `q-z` spring-family soil interaction
 - **Contact / gap** (2D & 3D): unilateral support/contact behavior, uplift, and gap elements
 - **Constraints** (2D & 3D): rigid links, diaphragms, equal-DOF constraints, and general linear MPCs
+- **Connector elements** (2D & 3D): spring connectors, semi-rigid joints, and eccentric connections with constraint force output
 - **Imperfections / residual stress**: initial geometric imperfections and residual-stress-aware nonlinear workflows
 - **Multi-case solve** (2D & 3D): case-by-case analysis, combinations, envelopes
 - **Cable solver** (2D): tension-only cable/catenary-style solve with iterative update
 - **Fiber nonlinear beam-columns** (2D & 3D): distributed plasticity / section-integration solvers
 - **Creep / shrinkage**: time-dependent structural response with EC2-style models
-- **Plate/shell** (3D): DKT/DKMT triangular plates and MITC4 quadrilateral shells with pressure, drilling stabilization, and thermal support
-- **Model reduction / substructuring**: Guyan condensation and Craig-Bampton reduction for larger-model workflows
+- **Plate/shell** (3D): DKT/DKMT triangular plates, MITC4 quadrilateral shells (ANS shear tying, EAS-7 membrane), MITC9 9-node quadrilateral shells (ANS shear tying, Bucalem & Bathe 1993), SHB8-ANS solid-shells, and curved-shell elements, with pressure, self-weight, thermal, and edge loading
+- **Model reduction / substructuring**: Guyan condensation and Craig-Bampton reduction for larger-model workflows; 3D reduction paths now sparse-assemble before dense reduced-system work
 - **Section analysis**: polygon-based cross-section properties and section metrics
 
 ## Running Tests
 
 ```bash
-cd engine && cargo test              # full suite
-cd engine && cargo test validation_  # validation tests only
-cd engine && cargo test diff_fuzz    # differential fuzz tests (90 tests)
+cd engine && cargo nextest run         # default full-suite runner
+cd engine && cargo test --test core    # core solver tests
+cd engine && cargo test --test property # differential fuzz tests
+cd engine && cargo test --test integration # integration tests
+cd engine && cargo test --test validation  # validation crate
 ```
+
+CI now runs `cargo nextest run --profile ci`, with engine-local nextest configuration and a Linux-only `mold` linker setup for faster test builds.
+It also runs explicit gate steps for shell benchmarks, shell acceptance models, constraint benchmarks, and sparse 3D parity before the full suite.
 
 ## Validation Test Suite
 
-**5737 validation tests across 722 files**, verified against published analytical solutions, industry codes, and commercial software results. See [`../BENCHMARKS.md`](/Users/unbalancedparen/projects/dedaliano/BENCHMARKS.md) for detailed status of each benchmark.
+Latest reported full-suite status: **5906 passing tests, 0 failures**.
+
+The engine is backed by:
+
+- a validation suite measured in the `6300+` range
+- `25` integration test files
+- dedicated property / differential fuzz coverage
+- benchmark-gate suites for constraints, contact, shells, reduction, sparse / conditioning paths, and sparse 3D parity
+- explicit CI gate stages for shell benchmarks, shell acceptance models, and constraint benchmarks
+
+See [`../BENCHMARKS.md`](/Users/unbalancedparen/projects/dedaliano/BENCHMARKS.md) for detailed status of each benchmark family and current maturity.
 
 ### Industry Standards and Design Codes
 
@@ -123,7 +145,7 @@ cd engine && cargo test diff_fuzz    # differential fuzz tests (90 tests)
 | **Dynamic analysis** | 14 | ~100 | Modal frequencies, time history (Newmark/HHT), spectral response, SRSS/CQC, seismic design |
 | **Plastic analysis** | 6 | ~42 | Collapse loads, mechanism formation, hinge sequences, pushover |
 | **Corotational / large displacement** | 3 | ~13 | ANSYS VM14 elastica, snap-through, Williams toggle |
-| **Plates & shells** | 3 | ~11 | DKT element, patch tests, pressure loads, Scordelis-Lo |
+| **Plates & shells** | 5 | ~25 | DKT element, patch tests, pressure loads, Scordelis-Lo, MITC4 quads, shell benchmark gates |
 | **Thermal & settlement** | 6 | ~52 | Uniform/gradient thermal, prescribed displacements, settlement-induced moments |
 | **Spring supports & foundations** | 3 | ~20 | Winkler foundation, spring stiffness, rotational springs |
 | **Load combinations & serviceability** | 5 | ~40 | LRFD factors, EN 1990 ULS, envelopes, drift limits, deflection checks |
@@ -136,14 +158,13 @@ cd engine && cargo test diff_fuzz    # differential fuzz tests (90 tests)
 
 ### Current Engine Frontier
 
-The main remaining engine work is no longer basic solver coverage. It is:
+Phase 2 is complete — constraint unification, contact refinement, connector elements, eccentric connections, benchmark gate suites, performance architecture, shell benchmark hardening, shell diagnostics, quad nodal stress recovery, MITC9 integration, SHB8-ANS solid-shell integration, curved-shell integration, and parallel element assembly are all in place. The main remaining engine work is:
 
-- benchmark hardening on the newest nonlinear, contact, fiber, shell, and warping paths
-- performance and scale
-- broader shell maturity and workflow depth
-- advanced contact variants and harder nonlinear convergence cases
-- verification hardening: invariants, property-based tests, fuzzing, and real-model acceptance
-- deeper staged/PT coupling and model-reduction workflow maturity
+- performance and scale: sparse assembly runtime, ordering quality, deeper sparse eigensolver reuse, full-workflow performance discipline
+- shell-family workflow maturity and selection guidance across `MITC4`, `MITC9`, `SHB8-ANS`, and curved shells
+- advanced contact variants (friction cycles, multi-gap mixed states)
+- CI hardening and release-grade benchmark gates
+- long-tail nonlinear and solver-path consistency hardening
 
 For the detailed gap inventory and benchmark status, use [`../BENCHMARKS.md`](/Users/unbalancedparen/projects/dedaliano/BENCHMARKS.md).
 
@@ -153,3 +174,18 @@ For the detailed gap inventory and benchmark status, use [`../BENCHMARKS.md`](/U
 - Displacements, reactions, element forces
 - Internal force diagrams at 9 interior points per element
 - Support for all element types, load patterns, and boundary conditions
+
+## Benchmark Gate Suites
+
+Compact must-pass suites validating the newest solver families:
+
+| Suite | File | Coverage |
+|-------|------|----------|
+| Constraints | `benchmarks/constraints_benchmark.rs` | Rigid links, diaphragms, equal-DOF, eccentric connections, constraint forces |
+| Contact | `benchmarks/contact_benchmark.rs` | Gap elements, tension/compression-only, friction, augmented Lagrangian |
+| Shells | `benchmarks/shell_benchmark.rs` | MITC4 quads, MITC9 quad9s, SHB8-ANS solid-shells, curved shells, membrane/bending, thermal, mesh quality, mixed frame+shell, distortion robustness, pinched cylinder, self-weight, edge loads, warped elements, Navier/Scordelis-Lo/spherical-cap/hypar/hemisphere/twisted-beam/Raasch-hook coverage |
+| Reduction | `benchmarks/reduction_benchmark.rs` | Guyan condensation, Craig-Bampton, substructuring workflows |
+| Sparse | `benchmarks/sparse_benchmark.rs` | Sparse assembly, sparse Cholesky, conditioning diagnostics |
+| Sparse 3D Parity | `benchmarks/sparse_3d_parity.rs` | Dense-vs-sparse assembly/solve parity for shells, frames, prescribed displacements, inclined supports |
+| Sparse 3D Benchmark | `benchmarks/sparse_3d_benchmark.rs` | Wall-clock and memory comparison, 11-22x memory reduction |
+| Sparse 3D Drilling | `benchmarks/sparse_3d_drilling_regression.rs` | Drilling DOF regularization, Cholesky silent-failure regression |

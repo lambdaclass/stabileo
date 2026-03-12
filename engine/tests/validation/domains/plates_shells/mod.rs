@@ -8,6 +8,7 @@ mod plates;
 mod plates_extended;
 mod quad_shell;
 mod shell_membrane_theory;
+mod shell_real_cases;
 mod shell_theory;
 mod shell_theory_extended;
 mod slab_design_extended;

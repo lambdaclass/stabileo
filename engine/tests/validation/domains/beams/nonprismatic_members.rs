@@ -101,7 +101,7 @@ fn validation_nonprismatic_stepped_beam() {
         }))
         .collect();
 
-    let input_s = SolverInput { nodes, materials: mats, sections: secs, elements: elems, supports: sups, loads: loads_s, constraints: vec![] };
+    let input_s = SolverInput { nodes, materials: mats, sections: secs, elements: elems, supports: sups, loads: loads_s, constraints: vec![] , connectors: std::collections::HashMap::new() };
     let d_s = linear::solve_2d(&input_s).unwrap()
         .displacements.iter().find(|d| d.node_id == n / 2 + 1).unwrap().uy;
 
@@ -169,7 +169,7 @@ fn validation_nonprismatic_tapered_cantilever() {
     })];
 
     let input = SolverInput {
-        nodes, materials: mats, sections: secs, elements: elems, supports: sups, loads, constraints: vec![], };
+        nodes, materials: mats, sections: secs, elements: elems, supports: sups, loads, constraints: vec![],  connectors: std::collections::HashMap::new() };
     let results = linear::solve_2d(&input).unwrap();
 
     let tip = results.displacements.iter()
@@ -255,7 +255,7 @@ fn validation_nonprismatic_haunched() {
         .collect();
 
     let input = SolverInput {
-        nodes, materials: mats, sections: secs, elements: elems, supports: sups, loads, constraints: vec![], };
+        nodes, materials: mats, sections: secs, elements: elems, supports: sups, loads, constraints: vec![],  connectors: std::collections::HashMap::new() };
     let d_haunch = linear::solve_2d(&input).unwrap()
         .displacements.iter().find(|d| d.node_id == n / 2 + 1).unwrap().uy;
 
@@ -326,7 +326,7 @@ fn validation_nonprismatic_convergence() {
         })];
 
         let input = SolverInput {
-            nodes, materials: mats, sections: secs, elements: elems, supports: sups, loads, constraints: vec![], };
+            nodes, materials: mats, sections: secs, elements: elems, supports: sups, loads, constraints: vec![],  connectors: std::collections::HashMap::new() };
         let d = linear::solve_2d(&input).unwrap()
             .displacements.iter().find(|d| d.node_id == n + 1).unwrap().uy;
         deflections.push(d);
@@ -404,7 +404,8 @@ fn validation_nonprismatic_stepped_column() {
 
     let input = SolverInput {
         nodes: nodes_map, materials: mats, sections: secs,
-        elements: elems_map, supports: sups_map, loads, constraints: vec![], };
+        elements: elems_map, supports: sups_map, loads, constraints: vec![],
+        connectors: std::collections::HashMap::new(), };
     let d_stepped = linear::solve_2d(&input).unwrap()
         .displacements.iter().find(|d| d.node_id == total_n + 1).unwrap().ux;
 
@@ -552,6 +553,7 @@ fn validation_nonprismatic_composite_materials() {
         nodes: nodes_map, materials: mats, sections: secs,
         elements: elems_map, supports: sups, loads: loads_c,
     constraints: vec![],
+    connectors: std::collections::HashMap::new(),
     };
     let d_composite = linear::solve_2d(&input_c).unwrap()
         .displacements.iter().find(|d| d.node_id == mid_node).unwrap().uy;
@@ -622,6 +624,7 @@ fn validation_nonprismatic_gradual_vs_abrupt() {
         nodes: nodes1, materials: mats1, sections: secs1,
         elements: elems1, supports: sups1, loads: loads1,
     constraints: vec![],
+    connectors: std::collections::HashMap::new(),
     };
     let d_abrupt = linear::solve_2d(&input1).unwrap()
         .displacements.iter().find(|d| d.node_id == n / 2 + 1).unwrap().uy;

@@ -28,7 +28,7 @@ fn test_envelope_3d_json_field_name() {
         max_abs_results_3d: AnalysisResults3D {
             displacements: vec![],
             reactions: vec![],
-            element_forces: vec![], plate_stresses: vec![], quad_stresses: vec![] },
+            element_forces: vec![], plate_stresses: vec![], quad_stresses: vec![], quad_nodal_stresses: vec![], constraint_forces: vec![], diagnostics: vec![], solver_diagnostics: vec![], timings: None },
     };
 
     let json = serde_json::to_string(&env).unwrap();
@@ -62,6 +62,9 @@ fn test_envelope_2d_json_field_names() {
             displacements: vec![],
             reactions: vec![],
             element_forces: vec![],
+            constraint_forces: vec![],
+            diagnostics: vec![],
+            solver_diagnostics: vec![],
         },
     };
 
@@ -496,7 +499,9 @@ fn test_parity_3d_envelope_json_roundtrip() {
         nodes, materials, sections, elements, supports,
         loads: vec![SolverLoad3D::Nodal(SolverNodalLoad3D {
             node_id: 2, fx: 0.0, fy: -10.0, fz: 0.0, mx: 0.0, my: 0.0, mz: 0.0, bw: None })],
-        constraints: vec![], left_hand: None, plates: HashMap::new(), quads: HashMap::new(), curved_beams: vec![],    };
+        constraints: vec![], left_hand: None, plates: HashMap::new(), quads: HashMap::new(), quad9s: HashMap::new(), solid_shells: HashMap::new(), curved_beams: vec![],
+            curved_shells: HashMap::new(),
+        connectors: HashMap::new(),    };
 
     let results = solve_3d(&input).unwrap();
 
@@ -553,7 +558,7 @@ fn test_parity_3d_combination_superposition() {
             normal_x: None, normal_y: None, normal_z: None, is_inclined: None, rw: None, kw: None,
             });
 
-        SolverInput3D { nodes, materials, sections, elements, supports, loads, constraints: vec![], left_hand: None, plates: HashMap::new(), quads: HashMap::new(), curved_beams: vec![] }
+        SolverInput3D { nodes, materials, sections, elements, supports, loads, constraints: vec![], left_hand: None, plates: HashMap::new(), quads: HashMap::new(), quad9s: HashMap::new(), solid_shells: HashMap::new(), curved_shells: HashMap::new(), curved_beams: vec![] , connectors: HashMap::new() }
     };
 
     // Case 1: Fy = -10 kN at tip

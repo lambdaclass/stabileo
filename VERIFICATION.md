@@ -7,7 +7,8 @@ This document explains how Dedaliano should build solver trust.
 It is not the benchmark ledger and it is not the product roadmap.
 
 - Use [`BENCHMARKS.md`](/Users/unbalancedparen/projects/dedaliano/BENCHMARKS.md) for benchmark status and solver maturity.
-- Use [`ROADMAP.md`](/Users/unbalancedparen/projects/dedaliano/ROADMAP.md) for sequencing and implementation order.
+- Use [`SOLVER_ROADMAP.md`](/Users/unbalancedparen/projects/dedaliano/SOLVER_ROADMAP.md) for solver sequencing and implementation order.
+- Use [`PRODUCT_ROADMAP.md`](/Users/unbalancedparen/projects/dedaliano/PRODUCT_ROADMAP.md) for app and workflow sequencing.
 - Use [`POSITIONING.md`](/Users/unbalancedparen/projects/dedaliano/POSITIONING.md) for the business meaning of solver trust.
 
 ## Goal
@@ -62,7 +63,7 @@ Use closed-form and textbook references for:
 
 This is the first public proof layer for structural mechanics correctness.
 
-### 3. Published Benchmark Reproduction
+### 3. Reference Benchmark Validation
 
 Use published benchmark families and solver cross-checks such as:
 

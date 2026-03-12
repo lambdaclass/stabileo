@@ -124,8 +124,9 @@ fn solve_ss_plate(nx: usize) -> f64 {
         supports: sups_map,
         loads,
         constraints: vec![], left_hand: None,
-        plates: plates_map, quads: HashMap::new(),
+        plates: plates_map, quads: HashMap::new(), quad9s: HashMap::new(), solid_shells: HashMap::new(), curved_shells: HashMap::new(),
         curved_beams: vec![],
+        connectors: HashMap::new(),
     };
 
     let results = linear::solve_3d(&input).unwrap();
@@ -240,8 +241,9 @@ fn validation_plate_cantilever_strip_beam_theory() {
         supports: sups_map,
         loads,
         constraints: vec![], left_hand: None,
-        plates: plates_map, quads: HashMap::new(),
+        plates: plates_map, quads: HashMap::new(), quad9s: HashMap::new(), solid_shells: HashMap::new(), curved_shells: HashMap::new(),
         curved_beams: vec![],
+        connectors: HashMap::new(),
     };
 
     let results = linear::solve_3d(&input).unwrap();
@@ -363,8 +365,9 @@ fn validation_plate_pressure_stresses_populated() {
         supports: sups_map,
         loads,
         constraints: vec![], left_hand: None,
-        plates: plates_map, quads: HashMap::new(),
+        plates: plates_map, quads: HashMap::new(), quad9s: HashMap::new(), solid_shells: HashMap::new(), curved_shells: HashMap::new(),
         curved_beams: vec![],
+        connectors: HashMap::new(),
     };
 
     let results = linear::solve_3d(&input).unwrap();

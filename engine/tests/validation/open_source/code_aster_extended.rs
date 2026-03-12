@@ -539,7 +539,8 @@ fn validation_ca_ssll112_beam_elastic_support() {
 
     let input = SolverInput {
         nodes: nodes_map, materials: mats_map, sections: secs_map,
-        elements: elems_map, supports: sups_map, loads, constraints: vec![], };
+        elements: elems_map, supports: sups_map, loads, constraints: vec![],
+        connectors: HashMap::new(), };
     let results = linear::solve_2d(&input).unwrap();
 
     // Midspan deflection: delta = P / (k_beam + k_spring)

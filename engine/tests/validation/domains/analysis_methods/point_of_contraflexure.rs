@@ -43,17 +43,47 @@ fn inflection_elements(
     elem_range: std::ops::RangeInclusive<usize>,
 ) -> Vec<(usize, f64)> {
     let dx = l / n as f64;
-    let mut pts = Vec::new();
-    for i in elem_range {
+    let m_max = results.element_forces.iter()
+        .map(|ef| ef.m_start.abs().max(ef.m_end.abs()))
+        .fold(0.0f64, f64::max);
+    let noise = m_max * 1e-8;
+
+    let range_start = *elem_range.start();
+    let range_end = *elem_range.end();
+
+    // Build nodal moment profile. Each node gets the moment from the
+    // element end touching it. At interior nodes, m_end[i] ≈ m_start[i+1].
+    let mut node_moments: Vec<(f64, f64)> = Vec::new(); // (x, moment)
+    for i in range_start..=range_end {
         if let Some(ef) = results.element_forces.iter().find(|e| e.element_id == i) {
-            if ef.m_start * ef.m_end < 0.0 {
-                // linear interpolation within element to locate zero crossing
-                let x_start = (i - 1) as f64 * dx;
-                let frac = ef.m_start.abs() / (ef.m_start.abs() + ef.m_end.abs());
-                pts.push((i, x_start + frac * dx));
+            if i == range_start {
+                node_moments.push(((i - 1) as f64 * dx, ef.m_start));
             }
+            node_moments.push((i as f64 * dx, ef.m_end));
         }
     }
+
+    // Find sign changes, skipping nodes where moment is noise-level.
+    // Track the last "significant" moment and check for sign changes.
+    let mut pts = Vec::new();
+    let mut last_significant: Option<(usize, f64, f64)> = None; // (index, x, moment)
+
+    for (idx, &(x, m)) in node_moments.iter().enumerate() {
+        if m.abs() <= noise { continue; } // skip noise-level values
+        if let Some((_, last_x, last_m)) = last_significant {
+            if last_m * m < 0.0 {
+                // Sign change between last_significant and current node.
+                // Interpolate to find zero crossing.
+                let x_zero = last_x + (x - last_x) * last_m.abs() / (last_m.abs() + m.abs());
+                // Find which element contains this crossing
+                let elem_id = (x_zero / dx).floor() as usize + range_start;
+                let elem_id = elem_id.min(range_end);
+                pts.push((elem_id, x_zero));
+            }
+        }
+        last_significant = Some((idx, x, m));
+    }
+
     pts
 }
 
