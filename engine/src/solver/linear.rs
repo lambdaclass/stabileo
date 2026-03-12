@@ -189,7 +189,7 @@ pub fn solve_3d(input: &SolverInput3D) -> Result<AnalysisResults3D, String> {
         let t_total = Instant::now();
 
         let t0 = Instant::now();
-        let asm = super::sparse_assembly::assemble_sparse_3d_parallel(input, &dof_num);
+        let asm = super::sparse_assembly::assemble_sparse_3d_parallel(input, &dof_num, true);
         let assembly_us = t0.elapsed().as_micros() as u64;
 
         let mut solver_diags: Vec<SolverDiagnostic> = Vec::new();
@@ -217,7 +217,7 @@ pub fn solve_3d(input: &SolverInput3D) -> Result<AnalysisResults3D, String> {
         let mut f_f: Vec<f64> = asm.f[..nf].to_vec();
         let has_prescribed = u_r.iter().any(|v| v.abs() > 1e-15);
         if has_prescribed {
-            let kfr_ur = asm.k_full.sparse_cross_block_matvec(&u_r, nf);
+            let kfr_ur = asm.k_full.as_ref().unwrap().sparse_cross_block_matvec(&u_r, nf);
             for i in 0..nf { f_f[i] -= kfr_ur[i]; }
         }
 
@@ -242,61 +242,161 @@ pub fn solve_3d(input: &SolverInput3D) -> Result<AnalysisResults3D, String> {
         let nnz_kff = asm.k_ff.col_ptr[nf]; // total nnz in lower triangle
         let nnz_l = sym.l_nnz;
 
+        // Try strict Cholesky first; if it fails (shell drilling DOFs),
+        // regularize K_ff with a diagonal shift and retry.
         let t0 = Instant::now();
         let num_result = numeric_cholesky(&sym, &asm.k_ff);
         let numeric_us = t0.elapsed().as_micros() as u64;
 
-        let (u_f, solve_us, residual_us) = match num_result {
-            Some(num) => {
-                let t0 = Instant::now();
-                let u = sparse_cholesky_solve(&num, &f_f);
-                let s_us = t0.elapsed().as_micros() as u64;
+        let mut pivot_perturbations = 0usize;
+        let mut max_perturbation_val = 0.0f64;
 
-                // Verify Cholesky solution quality via residual check.
-                let t0 = Instant::now();
-                let ku = asm.k_ff.sym_mat_vec(&u);
-                let mut res_norm2 = 0.0f64;
-                let mut f_norm2 = 0.0f64;
-                for i in 0..nf {
-                    res_norm2 += (ku[i] - f_f[i]).powi(2);
-                    f_norm2 += f_f[i].powi(2);
+        let num = if let Some(n) = num_result {
+            n
+        } else {
+            // Regularize: clone K_ff and add a diagonal shift to make it SPD.
+            // Try increasing shifts until Cholesky succeeds.
+            let max_d = asm.max_diag_k;
+            let mut factored = None;
+            let mut shift = 0.0;
+            for &alpha in &[1e-6, 1e-4, 1e-2, 1e-1, 1.0, 10.0] {
+                shift = alpha * max_d;
+                let mut k_reg = asm.k_ff.clone();
+                for j in 0..nf {
+                    for p in k_reg.col_ptr[j]..k_reg.col_ptr[j + 1] {
+                        if k_reg.row_idx[p] == j {
+                            k_reg.values[p] += shift;
+                            break;
+                        }
+                    }
                 }
-                let rel_residual = res_norm2.sqrt() / f_norm2.sqrt().max(1e-30);
-                let r_us = t0.elapsed().as_micros() as u64;
-
-                if rel_residual < 1e-6 {
+                if let Some(n) = numeric_cholesky(&sym, &k_reg) {
+                    factored = Some(n);
+                    break;
+                }
+            }
+            match factored {
+                Some(n) => {
+                    pivot_perturbations = nf;
+                    max_perturbation_val = shift;
                     solver_diags.push(SolverDiagnostic {
                         category: "solver_path".into(),
-                        message: format!("Sparse Cholesky solver ({} free DOFs)", nf),
+                        message: format!(
+                            "Regularized K_ff with diagonal shift {:.2e} (drilling DOF stabilization)",
+                            shift
+                        ),
                         severity: "info".into(),
                     });
-                    (u, s_us, r_us)
-                } else {
+                    n
+                }
+                None => {
+                    // All shifts failed — fall back to dense LU
                     solver_diags.push(SolverDiagnostic {
                         category: "fallback".into(),
-                        message: format!(
-                            "Sparse Cholesky residual too large ({:.2e}), fell back to dense LU",
-                            rel_residual
-                        ),
+                        message: "Sparse Cholesky failed even with regularization, fell back to dense LU".into(),
                         severity: "warning".into(),
                     });
                     let t0 = Instant::now();
                     let u_fb = dense_lu_fallback()?;
                     dense_fb_us = t0.elapsed().as_micros() as u64;
-                    (u_fb, s_us, r_us)
+                    // Jump to timings construction
+                    let total_us = t_total.elapsed().as_micros() as u64;
+                    let timings = SolveTimings {
+                        assembly_us, conditioning_us, symbolic_us, numeric_us,
+                        solve_us: 0, residual_us: 0, dense_fallback_us: dense_fb_us,
+                        reactions_us: 0, stress_recovery_us: 0, total_us,
+                        n_free: nf, nnz_kff, nnz_l,
+                        pivot_perturbations: 0, max_perturbation: 0.0,
+                    };
+                    // Build full solution and return early
+                    let mut u_full = vec![0.0; n];
+                    u_full[..nf].copy_from_slice(&u_fb);
+                    for i in 0..nr { u_full[nf + i] = u_r[i]; }
+                    let ku_full = asm.k_full.as_ref().unwrap().sym_mat_vec(&u_full);
+                    let mut reactions_vec = vec![0.0; nr];
+                    let f_r: Vec<f64> = asm.f[nf..].to_vec();
+                    for i in 0..nr { reactions_vec[i] = ku_full[nf + i] - f_r[i]; }
+                    for it in &asm.inclined_transforms {
+                        reverse_inclined_transform(&mut u_full, &it.dofs, &it.r);
+                    }
+                    let displacements = build_displacements_3d(&dof_num, &u_full);
+                    let mut reactions = build_reactions_3d_inclined(
+                        input, &dof_num, &reactions_vec, &f_r, nf, &u_full, &asm.inclined_transforms,
+                    );
+                    reactions.sort_by_key(|r| r.node_id);
+                    let mut element_forces = compute_internal_forces_3d(input, &dof_num, &u_full);
+                    element_forces.sort_by_key(|ef| ef.element_id);
+                    let plate_stresses = compute_plate_stresses(input, &dof_num, &u_full);
+                    let quad_stresses = compute_quad_stresses(input, &dof_num, &u_full);
+                    return Ok(AnalysisResults3D {
+                        displacements, reactions, element_forces, plate_stresses, quad_stresses,
+                        quad_nodal_stresses: compute_quad_nodal_stresses(input, &dof_num, &u_full),
+                        constraint_forces: vec![], diagnostics: asm.diagnostics,
+                        solver_diagnostics: solver_diags, timings: Some(timings),
+                    });
                 }
             }
-            None => {
-                solver_diags.push(SolverDiagnostic {
-                    category: "fallback".into(),
-                    message: "Sparse Cholesky failed (likely drilling DOFs), fell back to dense LU".into(),
-                    severity: "warning".into(),
-                });
-                let t0 = Instant::now();
-                let u_fb = dense_lu_fallback()?;
-                dense_fb_us = t0.elapsed().as_micros() as u64;
-                (u_fb, 0, 0)
+        };
+
+        let t0 = Instant::now();
+        let mut u = sparse_cholesky_solve(&num, &f_f);
+
+        // Iterative refinement against the ORIGINAL K_ff to correct for
+        // the regularization shift. Up to 5 steps of residual correction.
+        if pivot_perturbations > 0 {
+            for _ in 0..5 {
+                let ku = asm.k_ff.sym_mat_vec(&u);
+                let mut residual: Vec<f64> = vec![0.0; nf];
+                let mut res2 = 0.0f64;
+                let mut f2 = 0.0f64;
+                for i in 0..nf {
+                    residual[i] = f_f[i] - ku[i];
+                    res2 += residual[i] * residual[i];
+                    f2 += f_f[i] * f_f[i];
+                }
+                if res2.sqrt() / f2.sqrt().max(1e-30) < 1e-10 {
+                    break;
+                }
+                let du = sparse_cholesky_solve(&num, &residual);
+                for i in 0..nf {
+                    u[i] += du[i];
+                }
             }
+        }
+        let s_us = t0.elapsed().as_micros() as u64;
+
+        // Verify final solution quality via residual check.
+        let t0 = Instant::now();
+        let ku = asm.k_ff.sym_mat_vec(&u);
+        let mut res_norm2 = 0.0f64;
+        let mut f_norm2 = 0.0f64;
+        for i in 0..nf {
+            res_norm2 += (ku[i] - f_f[i]).powi(2);
+            f_norm2 += f_f[i].powi(2);
+        }
+        let rel_residual = res_norm2.sqrt() / f_norm2.sqrt().max(1e-30);
+        let r_us = t0.elapsed().as_micros() as u64;
+
+        let (u_f, solve_us, residual_us) = if rel_residual < 1e-6 {
+            solver_diags.push(SolverDiagnostic {
+                category: "solver_path".into(),
+                message: format!("Sparse Cholesky solver ({} free DOFs)", nf),
+                severity: "info".into(),
+            });
+            (u, s_us, r_us)
+        } else {
+            solver_diags.push(SolverDiagnostic {
+                category: "fallback".into(),
+                message: format!(
+                    "Sparse Cholesky residual too large ({:.2e}), fell back to dense LU",
+                    rel_residual
+                ),
+                severity: "warning".into(),
+            });
+            let t0 = Instant::now();
+            let u_fb = dense_lu_fallback()?;
+            dense_fb_us = t0.elapsed().as_micros() as u64;
+            (u_fb, s_us, r_us)
         };
 
         // Build full displacement vector
@@ -306,7 +406,7 @@ pub fn solve_3d(input: &SolverInput3D) -> Result<AnalysisResults3D, String> {
 
         // Reactions via full-K sym_mat_vec: R[i] = (K*u)[i] - F[i] for restrained DOFs
         let t0 = Instant::now();
-        let ku = asm.k_full.sym_mat_vec(&u_full);
+        let ku = asm.k_full.as_ref().unwrap().sym_mat_vec(&u_full);
         let mut reactions_vec = vec![0.0; nr];
         let f_r: Vec<f64> = asm.f[nf..].to_vec();
         for i in 0..nr {
@@ -348,6 +448,8 @@ pub fn solve_3d(input: &SolverInput3D) -> Result<AnalysisResults3D, String> {
             n_free: nf,
             nnz_kff,
             nnz_l,
+            pivot_perturbations,
+            max_perturbation: max_perturbation_val,
         };
 
         Ok(AnalysisResults3D {

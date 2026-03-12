@@ -122,7 +122,7 @@ fn benchmark_sparse_3d_large_shell() {
 
     // ── Sparse assembly + solve ──
     let t0 = Instant::now();
-    let sparse_asm = assembly::assemble_sparse_3d(&input, &dof_num);
+    let sparse_asm = assembly::assemble_sparse_3d(&input, &dof_num, true);
     let t_sparse_asm = t0.elapsed();
 
     let t0 = Instant::now();
@@ -131,7 +131,7 @@ fn benchmark_sparse_3d_large_shell() {
     let t_sparse_solve = t0.elapsed();
 
     let sparse_kff_nnz = sparse_asm.k_ff.nnz();
-    let sparse_kfull_nnz = sparse_asm.k_full.nnz();
+    let sparse_kfull_nnz = sparse_asm.k_full.as_ref().unwrap().nnz();
     let sparse_bytes = (sparse_kff_nnz + sparse_kfull_nnz) * 16; // row_idx + val per entry
 
     eprintln!("  Dense:  assembly {:?}, solve {:?}, K memory {} KB",
@@ -176,9 +176,9 @@ fn benchmark_sparse_3d_larger_shell() {
 
     // Sparse path timing
     let t0 = Instant::now();
-    let sparse_asm = assembly::assemble_sparse_3d(&input, &dof_num);
+    let sparse_asm = assembly::assemble_sparse_3d(&input, &dof_num, true);
     let t_sparse = t0.elapsed();
-    let sparse_bytes = (sparse_asm.k_ff.nnz() + sparse_asm.k_full.nnz()) * 16;
+    let sparse_bytes = (sparse_asm.k_ff.nnz() + sparse_asm.k_full.as_ref().unwrap().nnz()) * 16;
 
     let memory_ratio = dense_k_bytes as f64 / sparse_bytes.max(1) as f64;
 

@@ -22,9 +22,12 @@ impl DofNumbering {
         let mut node_ids: Vec<usize> = input.nodes.values().map(|n| n.id).collect();
         node_ids.sort();
 
-        // Build support lookup: node_id → support
+        // Build support lookup: node_id → support, sorted by ID for determinism.
+        // When multiple supports target the same node, the last (highest ID) wins.
+        let mut sorted_supports_2d: Vec<&SolverSupport> = input.supports.values().collect();
+        sorted_supports_2d.sort_by_key(|s| s.id);
         let mut support_map: HashMap<usize, &SolverSupport> = HashMap::new();
-        for s in input.supports.values() {
+        for s in &sorted_supports_2d {
             support_map.insert(s.node_id, s);
         }
 
@@ -78,9 +81,30 @@ impl DofNumbering {
         let mut node_ids: Vec<usize> = input.nodes.values().map(|n| n.id).collect();
         node_ids.sort();
 
+        // Merge supports: when multiple supports target the same node,
+        // OR their constraint flags together (any support restraining a DOF
+        // makes that DOF restrained). Sort supports by ID for determinism.
+        let mut sorted_supports: Vec<&SolverSupport3D> = input.supports.values().collect();
+        sorted_supports.sort_by_key(|s| {
+            // Sort by node_id (primary), then by number of restrained DOFs descending
+            // so the most-restrained support is last (wins on overwrite)
+            let n_restrained = [s.rx, s.ry, s.rz, s.rrx, s.rry, s.rrz]
+                .iter().filter(|&&b| b).count();
+            (s.node_id, n_restrained)
+        });
         let mut support_map: HashMap<usize, &SolverSupport3D> = HashMap::new();
-        for s in input.supports.values() {
+        for s in &sorted_supports {
             support_map.insert(s.node_id, s);
+        }
+
+        // Build per-node restrained DOF set, merging all supports for the same node
+        let mut node_restrained: HashMap<usize, [bool; 7]> = HashMap::new();
+        for s in &sorted_supports {
+            let entry = node_restrained.entry(s.node_id).or_insert([false; 7]);
+            let flags = [s.rx, s.ry, s.rz, s.rrx, s.rry, s.rrz, s.rw.unwrap_or(false)];
+            for i in 0..7 {
+                entry[i] = entry[i] || flags[i];
+            }
         }
 
         let mut free_dofs = Vec::new();
@@ -89,7 +113,27 @@ impl DofNumbering {
         for &node_id in &node_ids {
             for local_dof in 0..dofs_per_node {
                 let is_fixed = if let Some(sup) = support_map.get(&node_id) {
-                    is_dof_restrained_3d(sup, local_dof)
+                    if sup.is_inclined.unwrap_or(false) {
+                        // Inclined supports use the existing function
+                        is_dof_restrained_3d(sup, local_dof)
+                    } else if let Some(flags) = node_restrained.get(&node_id) {
+                        // Check spring stiffness first (springs make DOF free)
+                        let has_spring = match local_dof {
+                            0 => sup.kx.unwrap_or(0.0) > 0.0,
+                            1 => sup.ky.unwrap_or(0.0) > 0.0,
+                            2 => sup.kz.unwrap_or(0.0) > 0.0,
+                            3 => sup.krx.unwrap_or(0.0) > 0.0,
+                            4 => sup.kry.unwrap_or(0.0) > 0.0,
+                            5 => sup.krz.unwrap_or(0.0) > 0.0,
+                            6 => sup.kw.unwrap_or(0.0) > 0.0,
+                            _ => false,
+                        };
+                        if has_spring { false }
+                        else if local_dof < 7 { flags[local_dof] }
+                        else { false }
+                    } else {
+                        false
+                    }
                 } else {
                     false
                 };

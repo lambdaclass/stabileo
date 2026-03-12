@@ -171,13 +171,13 @@ pub fn solve_harmonic_3d(input: &HarmonicInput3D) -> Result<HarmonicResult, Stri
         return Err("Target DOF is restrained".into());
     }
 
-    let asm = assemble_3d(&input.solver, &dof_num);
+    let sasm = assemble_sparse_3d(&input.solver, &dof_num, false);
+    let k_ff = sasm.k_ff.to_dense_symmetric();
+    let f_ff: Vec<f64> = sasm.f[..nf].to_vec();
     let m_full = assemble_mass_matrix_3d(&input.solver, &dof_num, &input.densities);
 
     let free_idx: Vec<usize> = (0..nf).collect();
-    let k_ff = extract_submatrix(&asm.k, n, &free_idx, &free_idx);
     let m_ff = extract_submatrix(&m_full, n, &free_idx, &free_idx);
-    let f_ff: Vec<f64> = asm.f[..nf].to_vec();
 
     // Apply constraint reduction if constraints present
     let cs = FreeConstraintSystem::build_3d(&input.solver.constraints, &dof_num, &input.solver.nodes);

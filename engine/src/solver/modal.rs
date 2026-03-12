@@ -266,11 +266,11 @@ pub fn solve_modal_3d(
         return Err("No mass assigned — set material densities".into());
     }
 
-    let asm = assemble_3d(input, &dof_num);
+    let sasm = assemble_sparse_3d(input, &dof_num, false);
+    let k_ff = sasm.k_ff.to_dense_symmetric();
     let m_full = assemble_mass_matrix_3d(input, &dof_num, densities);
 
     let free_idx: Vec<usize> = (0..nf).collect();
-    let k_ff = extract_submatrix(&asm.k, n, &free_idx, &free_idx);
     let m_ff = extract_submatrix(&m_full, n, &free_idx, &free_idx);
 
     // Apply constraint transform if present

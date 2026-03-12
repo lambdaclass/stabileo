@@ -19,11 +19,23 @@ struct Triplet {
 
 impl CscMatrix {
     /// Build CSC from COO triplets (lower triangle only). Duplicates are summed.
+    ///
+    /// Algorithm: global sort by (col, row) then single-pass CSC build.
+    /// Complexity: O(nnz log nnz) for sort + O(nnz) for build.
     pub fn from_triplets(n: usize, rows: &[usize], cols: &[usize], vals: &[f64]) -> Self {
         assert_eq!(rows.len(), cols.len());
         assert_eq!(rows.len(), vals.len());
 
-        // Ensure lower triangle: swap if row < col
+        if rows.is_empty() {
+            return CscMatrix {
+                n,
+                col_ptr: vec![0; n + 1],
+                row_idx: vec![],
+                values: vec![],
+            };
+        }
+
+        // Build triplets with lower-triangle enforcement
         let mut triplets: Vec<Triplet> = Vec::with_capacity(rows.len());
         for i in 0..rows.len() {
             let (r, c) = if rows[i] >= cols[i] {
@@ -34,83 +46,36 @@ impl CscMatrix {
             triplets.push(Triplet { row: r, col: c, val: vals[i] });
         }
 
-        // Count entries per column
-        let mut col_counts = vec![0usize; n];
-        for t in &triplets {
-            col_counts[t.col] += 1;
-        }
+        // Global sort by (col, row)
+        triplets.sort_unstable_by_key(|t| (t.col, t.row));
 
-        // Build col_ptr
+        // Single-pass CSC build with duplicate summing
         let mut col_ptr = vec![0usize; n + 1];
+        let mut row_idx = Vec::with_capacity(triplets.len());
+        let mut values = Vec::with_capacity(triplets.len());
+
+        let mut i = 0;
+        while i < triplets.len() {
+            let col = triplets[i].col;
+            let row = triplets[i].row;
+            let mut val = triplets[i].val;
+            i += 1;
+            // Sum adjacent duplicates (same col, same row)
+            while i < triplets.len() && triplets[i].col == col && triplets[i].row == row {
+                val += triplets[i].val;
+                i += 1;
+            }
+            row_idx.push(row);
+            values.push(val);
+            col_ptr[col + 1] += 1;
+        }
+
+        // Cumulative sum for col_ptr
         for j in 0..n {
-            col_ptr[j + 1] = col_ptr[j] + col_counts[j];
-        }
-        let nnz = col_ptr[n];
-
-        // Fill row_idx and values (unsorted within each column)
-        let mut row_idx = vec![0usize; nnz];
-        let mut values = vec![0.0f64; nnz];
-        let mut offsets = col_ptr[..n].to_vec();
-
-        for t in &triplets {
-            let pos = offsets[t.col];
-            row_idx[pos] = t.row;
-            values[pos] = t.val;
-            offsets[t.col] += 1;
+            col_ptr[j + 1] += col_ptr[j];
         }
 
-        // Sort each column by row index and sum duplicates
-        let mut result = CscMatrix { n, col_ptr, row_idx, values };
-        result.sort_and_sum_duplicates();
-        result
-    }
-
-    fn sort_and_sum_duplicates(&mut self) {
-        for j in 0..self.n {
-            let start = self.col_ptr[j];
-            let end = self.col_ptr[j + 1];
-            if start == end {
-                continue;
-            }
-
-            // Sort by row index within this column
-            let mut pairs: Vec<(usize, f64)> = (start..end)
-                .map(|k| (self.row_idx[k], self.values[k]))
-                .collect();
-            pairs.sort_by_key(|p| p.0);
-
-            // Write back, summing duplicates
-            let mut write = start;
-            let mut k = 0;
-            while k < pairs.len() {
-                let row = pairs[k].0;
-                let mut val = pairs[k].1;
-                k += 1;
-                while k < pairs.len() && pairs[k].0 == row {
-                    val += pairs[k].1;
-                    k += 1;
-                }
-                self.row_idx[write] = row;
-                self.values[write] = val;
-                write += 1;
-            }
-
-            // If duplicates were merged, we have fewer entries — compact
-            if write < end {
-                // Shift subsequent data
-                let removed = end - write;
-                let total = self.row_idx.len();
-                // Remove the gap
-                self.row_idx.copy_within(end..total, write);
-                self.row_idx.truncate(total - removed);
-                self.values.copy_within(end..total, write);
-                self.values.truncate(total - removed);
-                // Update col_ptr for subsequent columns
-                for jj in (j + 1)..=self.n {
-                    self.col_ptr[jj] -= removed;
-                }
-            }
-        }
+        CscMatrix { n, col_ptr, row_idx, values }
     }
 
     /// Number of stored non-zeros.

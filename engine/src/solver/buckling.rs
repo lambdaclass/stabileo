@@ -278,8 +278,8 @@ pub fn solve_buckling_3d(
     }
 
     let free_idx: Vec<usize> = (0..nf).collect();
-    let asm = assemble_3d(input, &dof_num);
-    let k_ff = extract_submatrix(&asm.k, n, &free_idx, &free_idx);
+    let sasm = assemble_sparse_3d(input, &dof_num, false);
+    let k_ff = sasm.k_ff.to_dense_symmetric();
 
     let kg_ff_raw = extract_submatrix(&kg_full, n, &free_idx, &free_idx);
     let mut neg_kg_ff = vec![0.0; nf * nf];

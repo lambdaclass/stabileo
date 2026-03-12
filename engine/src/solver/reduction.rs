@@ -561,12 +561,9 @@ pub fn guyan_reduce_3d(input: &GuyanInput3D) -> Result<GuyanResult, String> {
 
     if nf == 0 { return Err("No free DOFs".into()); }
 
-    let asm = assembly::assemble_3d(&input.solver, &dof_num);
-
-    // Extract free-free matrices
-    let free_idx: Vec<usize> = (0..nf).collect();
-    let k_ff_raw = extract_submatrix(&asm.k, n, &free_idx, &free_idx);
-    let f_f_raw: Vec<f64> = asm.f[..nf].to_vec();
+    let sasm = assembly::assemble_sparse_3d(&input.solver, &dof_num, false);
+    let k_ff_raw = sasm.k_ff.to_dense_symmetric();
+    let f_f_raw: Vec<f64> = sasm.f[..nf].to_vec();
 
     // Apply constraint reduction
     let cs = FreeConstraintSystem::build_3d(&input.solver.constraints, &dof_num, &input.solver.nodes);
@@ -709,12 +706,12 @@ pub fn craig_bampton_3d(input: &CraigBamptonInput3D) -> Result<CraigBamptonResul
 
     if nf == 0 { return Err("No free DOFs".into()); }
 
-    let asm = assembly::assemble_3d(&input.solver, &dof_num);
+    let sasm = assembly::assemble_sparse_3d(&input.solver, &dof_num, false);
+    let k_ff_raw = sasm.k_ff.to_dense_symmetric();
     let m_full = super::mass_matrix::assemble_mass_matrix_3d(&input.solver, &dof_num, &input.densities);
 
     // Extract free-free matrices
     let free_idx: Vec<usize> = (0..nf).collect();
-    let k_ff_raw = extract_submatrix(&asm.k, n, &free_idx, &free_idx);
     let m_ff_raw = extract_submatrix(&m_full, n, &free_idx, &free_idx);
 
     // Apply constraint reduction

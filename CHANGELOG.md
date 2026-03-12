@@ -11,6 +11,47 @@ It should capture what changed, not what should be built next.
 
 ### Added
 
+#### Sparse reuse into 3D eigen and reduction workflows
+
+- switched `solve_modal_3d`, `solve_buckling_3d`, `solve_harmonic_3d`, `guyan_reduce_3d`, and `craig_bampton_3d` from dense `n×n` assembly to sparse assembly plus dense `K_ff` conversion
+- eliminated full dense `n×n` stiffness allocation in those workflows while leaving mass matrices, geometric stiffness, and eigensolver internals unchanged
+- added sparse shell gate coverage for these reuse paths (`321` tests reported green)
+
+#### Sparse assembly profiling and next bottleneck
+
+- profiled `assemble_sparse_3d` and found CSC construction dominates sparse assembly wall time
+- identified `CscMatrix::from_triplets` / duplicate compaction as the current hot spot rather than element stiffness computation
+- established that some workflows still overbuild `k_full` even when they only need `k_ff`
+- reframed the next performance step around:
+  - fixing duplicate compaction / CSC construction cost
+  - adding `k_ff`-only sparse assembly where possible
+  - then re-measuring before more parallelization work
+
+#### Measured sparse vs dense runtime gains
+
+- added dense vs sparse benchmarks for all three shell families: MITC4, Quad9, and curved shell
+- measured factorization-only speedups: 4.5× at 700 DOFs, 22× at 2600 DOFs, 77-89× at 5700 DOFs
+- measured end-to-end speedup: 22× at 30×30 MITC4 (sparse 0.56s vs dense 12.3s)
+- 0 pivot perturbations across all tested sizes and element families
+- sparse wins on all families above ~500 DOFs; dense still faster at curved 8×8 (~450 DOFs)
+- fill ratio grows from 2.6× (10×10) to 7.0× (50×50) under RCM ordering — not constant as previously estimated
+- extended `bench_solve_3d_shell` to 20×20 and 30×30 mesh sizes
+- added `bench_solve_3d_quad9` (5×5 to 15×15), `bench_solve_3d_curved` (8×8 to 24×24), and `bench_full_solve_3d_families` criterion benchmarks
+- added `sparse_vs_dense_comparison` test in `bench_phases.rs` printing formatted speedup table
+
+#### Sparse shell solve viability and deterministic assembly
+
+- replaced broken etree-based symbolic Cholesky with direct left-looking symbolic factorization that correctly computes fill structure
+- added two-tier pivot perturbation in numeric Cholesky: hard threshold (1e-20 × max_diag) rejects true singularities, soft threshold (1e-10 × max_diag) perturbs drilling-DOF pivots with controlled regularization
+- added RCM (Reverse Cuthill-McKee) ordering with George-Liu pseudo-peripheral start node; fill ratio dropped from 673× to 1.8× on representative shell meshes
+- eliminated dense LU fallback on shell models: sparse Cholesky now survives MITC4, MITC9, and curved-shell plates that previously always fell back to dense LU (87% of wall time → 0%)
+- made all assembly paths (dense, sparse, parallel) deterministic by sorting HashMap element iterations by ID
+- fixed DOF numbering determinism: when multiple supports target the same node, constraint flags are now merged with OR instead of nondeterministic HashMap overwrite
+- added residual-based parity testing for ill-conditioned shell matrices: both sparse and dense solutions verified via ||Ku-f||/||f|| < 1e-6 instead of max-displacement comparison
+- added benchmark gate tests: no-dense-fallback gate, fill-ratio gate (< 200×), and sparse-vs-dense residual parity gate
+- wired pivot perturbation count and max perturbation into SolveTimings and solver diagnostics
+- added `PivotInfo` to `NumericCholesky` for tracking perturbation statistics
+
 #### Parallel 3D element assembly
 
 - added `assemble_sparse_3d_parallel()` behind `#[cfg(feature = "parallel")]` using rayon
@@ -20,7 +61,7 @@ It should capture what changed, not what should be built next.
 - wired parallel path into `solve_3d()` as the default sparse assembly call
 - added parity tests: flat-plate (4×4) and mixed frame+slab (4 columns + 16 quads + nodal + pressure loads)
 - added criterion benchmarks: flat-plate up to 50×50 (2500 quads, ~15k DOFs) and mixed frame+slab up to 8-storey 8×8
-- measured 2-6% speedup on MITC4 flat plates (lightweight per-element cost); stronger scaling expected on quad9/curved-shell models
+- measured 2-6% speedup on MITC4 flat plates (lightweight per-element cost); later profiling showed CSC construction, not element math, is the real sparse-assembly bottleneck
 - made `inclined_rotation_matrix` and `apply_inclined_transform_triplets` public for reuse
 - fixed pre-existing `transform_force` scope issue in the 2D parallel path
 
@@ -113,6 +154,13 @@ It should capture what changed, not what should be built next.
 - clarified that the remaining shell decision is no longer `EAS-4 vs EAS-7`; it is `bounded MITC4+EAS-7 vs broader shell family`
 
 ### Fixed
+
+#### Deterministic DOF numbering and assembly
+
+- fixed 3D DOF numbering: multiple supports targeting the same node now merge constraint flags with OR instead of nondeterministic HashMap overwrite
+- fixed 2D DOF numbering: supports sorted by ID for deterministic overwrite order
+- fixed nondeterministic assembly: all element iterations in dense, sparse, and parallel assembly paths now sorted by element ID
+- fixed point-of-contraflexure inflection detection: rewrote to use nodal moment profile approach that handles inflection points on element boundaries
 
 #### Solver quality milestone
 

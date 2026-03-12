@@ -497,7 +497,7 @@ fn bench_assembly_3d_shell(c: &mut Criterion) {
             BenchmarkId::new("sparse_3d_assembly", &label),
             &(&input, &dof_num),
             |b, (inp, dn)| {
-                b.iter(|| assembly::assemble_sparse_3d(inp, dn));
+                b.iter(|| assembly::assemble_sparse_3d(inp, dn, false));
             },
         );
     }
@@ -514,7 +514,7 @@ fn bench_solve_3d_shell(c: &mut Criterion) {
     let mut group = c.benchmark_group("solve_3d_shell");
     group.sample_size(10);
 
-    for &(nx, ny) in &[(6, 6), (10, 10), (15, 15)] {
+    for &(nx, ny) in &[(6, 6), (10, 10), (15, 15), (20, 20), (30, 30)] {
         let input = make_flat_plate_3d(nx, ny);
         let dof_num = DN::build_3d(&input);
         let nf = dof_num.n_free;
@@ -542,7 +542,7 @@ fn bench_solve_3d_shell(c: &mut Criterion) {
             BenchmarkId::new("sparse_cholesky_3d", &label),
             &(&input, &dof_num),
             |b, (inp, dn)| {
-                let sasm = assembly::assemble_sparse_3d(inp, dn);
+                let sasm = assembly::assemble_sparse_3d(inp, dn, false);
                 let f_f: Vec<f64> = sasm.f[..nf].to_vec();
                 b.iter(|| {
                     sparse_cholesky_solve_full(&sasm.k_ff, &f_f)
@@ -571,7 +571,7 @@ fn bench_assembly_3d_large(c: &mut Criterion) {
             BenchmarkId::new("serial_3d", &label),
             &(&input, &dof_num),
             |b, (inp, dn)| {
-                b.iter(|| assembly::assemble_sparse_3d(inp, dn));
+                b.iter(|| assembly::assemble_sparse_3d(inp, dn, false));
             },
         );
 
@@ -579,7 +579,7 @@ fn bench_assembly_3d_large(c: &mut Criterion) {
             BenchmarkId::new("parallel_3d", &label),
             &(&input, &dof_num),
             |b, (inp, dn)| {
-                b.iter(|| sparse_assembly::assemble_sparse_3d_parallel(inp, dn));
+                b.iter(|| sparse_assembly::assemble_sparse_3d_parallel(inp, dn, false));
             },
         );
     }
@@ -605,7 +605,7 @@ fn bench_assembly_3d_mixed(c: &mut Criterion) {
             BenchmarkId::new("serial_mixed", &label),
             &(&input, &dof_num),
             |b, (inp, dn)| {
-                b.iter(|| assembly::assemble_sparse_3d(inp, dn));
+                b.iter(|| assembly::assemble_sparse_3d(inp, dn, false));
             },
         );
 
@@ -613,7 +613,7 @@ fn bench_assembly_3d_mixed(c: &mut Criterion) {
             BenchmarkId::new("parallel_mixed", &label),
             &(&input, &dof_num),
             |b, (inp, dn)| {
-                b.iter(|| sparse_assembly::assemble_sparse_3d_parallel(inp, dn));
+                b.iter(|| sparse_assembly::assemble_sparse_3d_parallel(inp, dn, false));
             },
         );
     }
@@ -873,7 +873,7 @@ fn bench_assembly_3d_quad9(c: &mut Criterion) {
             BenchmarkId::new("serial_quad9", &label),
             &(&input, &dof_num),
             |b, (inp, dn)| {
-                b.iter(|| assembly::assemble_sparse_3d(inp, dn));
+                b.iter(|| assembly::assemble_sparse_3d(inp, dn, false));
             },
         );
 
@@ -881,7 +881,7 @@ fn bench_assembly_3d_quad9(c: &mut Criterion) {
             BenchmarkId::new("parallel_quad9", &label),
             &(&input, &dof_num),
             |b, (inp, dn)| {
-                b.iter(|| sparse_assembly::assemble_sparse_3d_parallel(inp, dn));
+                b.iter(|| sparse_assembly::assemble_sparse_3d_parallel(inp, dn, false));
             },
         );
     }
@@ -906,7 +906,7 @@ fn bench_assembly_3d_curved_shell(c: &mut Criterion) {
             BenchmarkId::new("serial_curved", &label),
             &(&input, &dof_num),
             |b, (inp, dn)| {
-                b.iter(|| assembly::assemble_sparse_3d(inp, dn));
+                b.iter(|| assembly::assemble_sparse_3d(inp, dn, false));
             },
         );
 
@@ -914,7 +914,7 @@ fn bench_assembly_3d_curved_shell(c: &mut Criterion) {
             BenchmarkId::new("parallel_curved", &label),
             &(&input, &dof_num),
             |b, (inp, dn)| {
-                b.iter(|| sparse_assembly::assemble_sparse_3d_parallel(inp, dn));
+                b.iter(|| sparse_assembly::assemble_sparse_3d_parallel(inp, dn, false));
             },
         );
     }
@@ -964,12 +964,12 @@ fn bench_solve_phases(c: &mut Criterion) {
             BenchmarkId::new("assembly", &label),
             &(&input, &dof_num),
             |b, (inp, dn)| {
-                b.iter(|| sparse_assembly::assemble_sparse_3d_parallel(inp, dn));
+                b.iter(|| sparse_assembly::assemble_sparse_3d_parallel(inp, dn, false));
             },
         );
 
         // Factor phases: build assembly once, then benchmark symbolic + numeric + solve
-        let asm = sparse_assembly::assemble_sparse_3d_parallel(&input, &dof_num);
+        let asm = sparse_assembly::assemble_sparse_3d_parallel(&input, &dof_num, false);
         let f_f: Vec<f64> = asm.f[..nf].to_vec();
 
         group.bench_with_input(
@@ -1002,6 +1002,146 @@ fn bench_solve_phases(c: &mut Criterion) {
     group.finish();
 }
 
+// ─── Quad9 Solve Benchmark (dense LU vs sparse Cholesky) ─
+
+fn bench_solve_3d_quad9(c: &mut Criterion) {
+    use dedaliano_engine::solver::dof::DofNumbering as DN;
+    use dedaliano_engine::linalg::*;
+
+    let mut group = c.benchmark_group("solve_3d_quad9");
+    group.sample_size(10);
+
+    for &(nx, ny) in &[(5, 5), (10, 10), (15, 15)] {
+        let input = make_flat_plate_quad9(nx, ny);
+        let dof_num = DN::build_3d(&input);
+        let nf = dof_num.n_free;
+        let n = dof_num.n_total;
+        let label = format!("{}x{}", nx, ny);
+
+        // Dense LU baseline
+        group.bench_with_input(
+            BenchmarkId::new("dense_lu_quad9", &label),
+            &(&input, &dof_num),
+            |b, (inp, dn)| {
+                let asm = assembly::assemble_3d(inp, dn);
+                let free_idx: Vec<usize> = (0..nf).collect();
+                let k_ff = extract_submatrix(&asm.k, n, &free_idx, &free_idx);
+                let f_f = extract_subvec(&asm.f, &free_idx);
+                b.iter(|| {
+                    let mut k = k_ff.clone();
+                    lu_solve(&mut k, &mut f_f.clone(), nf)
+                });
+            },
+        );
+
+        // Sparse Cholesky
+        group.bench_with_input(
+            BenchmarkId::new("sparse_cholesky_quad9", &label),
+            &(&input, &dof_num),
+            |b, (inp, dn)| {
+                let sasm = assembly::assemble_sparse_3d(inp, dn, false);
+                let f_f: Vec<f64> = sasm.f[..nf].to_vec();
+                b.iter(|| {
+                    sparse_cholesky_solve_full(&sasm.k_ff, &f_f)
+                });
+            },
+        );
+    }
+
+    group.finish();
+}
+
+// ─── Curved Shell Solve Benchmark (dense LU vs sparse Cholesky) ─
+
+fn bench_solve_3d_curved(c: &mut Criterion) {
+    use dedaliano_engine::solver::dof::DofNumbering as DN;
+    use dedaliano_engine::linalg::*;
+
+    let mut group = c.benchmark_group("solve_3d_curved");
+    group.sample_size(10);
+
+    for &n_mesh in &[8, 16, 24] {
+        let input = make_hemisphere_curved_shell(n_mesh);
+        let dof_num = DN::build_3d(&input);
+        let nf = dof_num.n_free;
+        let n = dof_num.n_total;
+        let label = format!("{}x{}", n_mesh, n_mesh);
+
+        // Dense LU baseline
+        group.bench_with_input(
+            BenchmarkId::new("dense_lu_curved", &label),
+            &(&input, &dof_num),
+            |b, (inp, dn)| {
+                let asm = assembly::assemble_3d(inp, dn);
+                let free_idx: Vec<usize> = (0..nf).collect();
+                let k_ff = extract_submatrix(&asm.k, n, &free_idx, &free_idx);
+                let f_f = extract_subvec(&asm.f, &free_idx);
+                b.iter(|| {
+                    let mut k = k_ff.clone();
+                    lu_solve(&mut k, &mut f_f.clone(), nf)
+                });
+            },
+        );
+
+        // Sparse Cholesky
+        group.bench_with_input(
+            BenchmarkId::new("sparse_cholesky_curved", &label),
+            &(&input, &dof_num),
+            |b, (inp, dn)| {
+                let sasm = assembly::assemble_sparse_3d(inp, dn, false);
+                let f_f: Vec<f64> = sasm.f[..nf].to_vec();
+                b.iter(|| {
+                    sparse_cholesky_solve_full(&sasm.k_ff, &f_f)
+                });
+            },
+        );
+    }
+
+    group.finish();
+}
+
+// ─── Full solve_3d Across Element Families ──────────────
+
+fn bench_full_solve_3d_families(c: &mut Criterion) {
+    let mut group = c.benchmark_group("full_solve_3d_families");
+    group.sample_size(10);
+
+    // MITC4
+    for &(nx, ny) in &[(10, 10), (20, 20), (30, 30)] {
+        let input = make_flat_plate_3d(nx, ny);
+        let label = format!("mitc4_{}x{}", nx, ny);
+        group.bench_with_input(
+            BenchmarkId::new("solve_3d", &label),
+            &input,
+            |b, inp| { b.iter(|| linear::solve_3d(inp).unwrap()); },
+        );
+    }
+
+    // Quad9
+    for &(nx, ny) in &[(5, 5), (10, 10), (15, 15)] {
+        let input = make_flat_plate_quad9(nx, ny);
+        let label = format!("quad9_{}x{}", nx, ny);
+        group.bench_with_input(
+            BenchmarkId::new("solve_3d", &label),
+            &input,
+            |b, inp| { b.iter(|| linear::solve_3d(inp).unwrap()); },
+        );
+    }
+
+    // Curved shell
+    for &n_mesh in &[8, 16, 24] {
+        let input = make_hemisphere_curved_shell(n_mesh);
+        let label = format!("curved_{}x{}", n_mesh, n_mesh);
+        group.bench_with_input(
+            BenchmarkId::new("solve_3d", &label),
+            &input,
+            |b, inp| { b.iter(|| linear::solve_3d(inp).unwrap()); },
+        );
+    }
+
+    group.finish();
+}
+
 criterion_group!(
     benches,
     bench_assembly,
@@ -1016,5 +1156,8 @@ criterion_group!(
     bench_assembly_3d_curved_shell,
     bench_full_solve_3d,
     bench_solve_phases,
+    bench_solve_3d_quad9,
+    bench_solve_3d_curved,
+    bench_full_solve_3d_families,
 );
 criterion_main!(benches);

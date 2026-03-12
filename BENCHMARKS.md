@@ -43,7 +43,7 @@ Current measured inventory:
 | Contact / SSI | Yes | Yes | Partial | tougher mixed cases and more long-tail reference coverage |
 | Shells / plates | Yes | Yes | Yes | MITC4+MITC9+SHB8-ANS+curved-shell multi-family stack implemented and acceptance-covered; remaining work is shell-family guidance, workflow hardening, and shell-adjacent breadth |
 | Constraints / reduction | Yes | Yes | Yes | chained-constraint maturity and broader solver-path consistency |
-| Sparse / conditioning paths | Yes | Yes | Yes | parallel assembly live (2-6% on MITC4, stronger scaling expected on heavier elements); remaining work is ordering quality and broader sparse-path reuse |
+| Sparse / conditioning paths | Yes | Yes | Yes | sparse Cholesky measured: 22-89× factorization speedup over dense LU, 0 perturbations, fill 2.6-7.0× (grows with mesh size); sparse reuse is partly done in modal/buckling/harmonic/reduction; next blockers are sparse assembly runtime, duplicate-compaction overhead, `k_ff`-only assembly, and ordering/fill control |
 | Design-check / postprocess stack | Yes | Yes | No | workflow/product packaging rather than core mechanics |
 
 Use this table first.
@@ -100,7 +100,7 @@ The main remaining needs are no longer basic feature categories. They are:
 - shell-family hardening
   MITC4+MITC9+SHB8-ANS+curved-shell multi-family stack is implemented and acceptance-covered; remaining work is selection guidance, workflow hardening, and shell-adjacent breadth rather than missing core shell families
 - performance and scale maturity
-  sparse-first 3D and parallel element assembly are live; remaining work is ordering quality, heavier-element parallelism, and full-workflow performance discipline
+  sparse Cholesky runtime gains are now measured (22-89× factorization speedup, 22× end-to-end, 0 perturbations); sparse reuse is partly done into modal/buckling/harmonic/reduction, and the remaining work is cutting sparse assembly runtime (`from_triplets` / duplicate compaction, `k_ff`-only assembly where possible), controlling fill-ratio growth (2.6-7.0× with mesh size), and eigensolver cleanup
 - verification depth
   more invariants, property-based testing, fuzzing, and acceptance-model discipline around the newest solver families
 - long-tail nonlinear hardening
@@ -299,7 +299,7 @@ Based on the current code, tests, and benchmark surface, the remaining differenc
    More years of hardened mixed nonlinear edge cases are still needed, especially around contact + nonlinear + staging and shell + nonlinear interaction.
 
 3. `Performance / scale maturity`
-   Sparse-first 3D and parallel element assembly (rayon) are now live. Measured 2-6% speedup on MITC4 flat plates (lightweight per-element cost); stronger scaling expected on quad9/curved-shell models. Next steps are ordering quality, heavier-element parallelism, and broader sparse-path reuse.
+   Sparse Cholesky runtime gains are now measured across all three shell families: 4.5× at 700 DOFs → 22× at 2600 DOFs → 77-89× at 5700 DOFs (factorization only), 22× end-to-end at 30×30 MITC4, 0 perturbations. Fill ratio grows from 2.6× to 7.0× with mesh size (RCM ordering). Next steps are extending sparse-path reuse into modal/buckling/harmonic/reduction solvers, investigating AMD ordering for fill control, and heavier-element parallel scaling.
 
 4. `Full solver-path consistency`
    Dense vs sparse, constrained vs unconstrained, shell vs frame-shell mixed, and advanced nonlinear paths must keep converging to the same behavior.
@@ -318,16 +318,18 @@ This is the solver-core ordering to use when the goal is technical leadership ra
 
 #### Ranked Order
 
-1. `Shell endgame maturity`
-2. `Performance and scale`
-3. `Verification hardening`
-4. `Long-tail nonlinear hardening`
-5. `Solver-path consistency`
-6. `Constraint-system maturity`
-7. `Advanced contact maturity`
-8. `Diagnostics, health checks, and explainability`
-9. `Reference benchmark expansion`
-10. `Reduction, staged/PT coupling, and other second-tier depth`
+1. ~~`Measure real runtime gains`~~ — DONE (22-89× factorization speedup, 22× end-to-end)
+2. `Broader sparse-path reuse`
+3. `Fill-ratio investigation` (AMD ordering, grows 2.6-7.0× with mesh size)
+4. `Verification hardening around the new sparse path`
+5. `Long-tail nonlinear hardening`
+6. `Product surfacing`
+7. `Solver-path consistency`
+8. `Constraint-system maturity`
+9. `Advanced contact maturity`
+10. `Shell-family workflow maturity`
+11. `Reference benchmark expansion`
+12. `Reduction, staged/PT coupling, and other second-tier depth`
 
 #### Time-Bucketed View
 
@@ -335,7 +337,7 @@ This is the solver-core ordering to use when the goal is technical leadership ra
 
 | Priority | Topic | Why now |
 |----------|-------|---------|
-| 1 | Performance and scale engineering | Sparse 3D and parallel element assembly are live (2-6% on MITC4, stronger scaling expected on heavier elements). Next: ordering quality, heavier-element parallelism, and full-workflow performance discipline. |
+| 1 | Performance and scale engineering | Sparse runtime gains measured (22-89× factorization, 22× end-to-end, 0 perturbations). Next: extend sparse path into modal/buckling/harmonic/reduction solvers, investigate AMD ordering for fill control (2.6-7.0× grows with mesh size), eigensolver cleanup. |
 | 2 | Verification hardening | Expand invariants, property-based tests, fuzzing, benchmark gates, and acceptance models around the newest sparse, shell, and nonlinear solver paths. |
 | 3 | Solver-path consistency | Dense vs sparse, constrained vs unconstrained, and mixed shell/frame workflows must keep converging to the same behavior. |
 | 4 | Long-tail nonlinear hardening | The biggest remaining gap versus the deepest open solvers is robustness on hard nonlinear mixed workflows. |
@@ -370,7 +372,7 @@ This is the solver-core ordering to use when the goal is technical leadership ra
 
 | Priority | Topic | Why It Matters |
 |----------|-------|----------------|
-| 1 | Performance / scale engineering | Parallel element assembly and sparse-first 3D are live. Large-model reliability, ordering quality, heavier-element parallelism, and eigensolver robustness are the next performance steps. |
+| 1 | Performance / scale engineering | Sparse runtime gains measured (22-89× factorization, 22× end-to-end). Broader sparse-path reuse (modal/buckling/harmonic/reduction), fill-ratio control (AMD ordering), heavier-element parallelism, and eigensolver robustness are the next steps. |
 | 2 | Verification hardening on newest solver families | The remaining differentiator is now proof and hardening, not only additional categories. |
 | 3 | Long-tail nonlinear maturity | Hard mixed workflows and difficult convergence behavior are where the deepest open solvers still have more years of hardened edge cases. |
 | 4 | Solver-path consistency | Dense/sparse, constrained/unconstrained, and shell/mixed-model parity all matter for trust. |

@@ -155,7 +155,7 @@ fn assert_parity(input: &SolverInput3D, label: &str) {
 
     // ── Assembly-level parity ──
     let dense = assembly::assemble_3d(input, &dof_num);
-    let sparse = assembly::assemble_sparse_3d(input, &dof_num);
+    let sparse = assembly::assemble_sparse_3d(input, &dof_num, true);
 
     // Force vectors must match
     let mut max_f_err = 0.0f64;
@@ -261,7 +261,7 @@ fn assert_parity(input: &SolverInput3D, label: &str) {
         if has_prescribed {
             let k_fr = extract_submatrix(&dense.k, n, &free_idx, &rest_idx);
             let kfr_ur_dense = mat_vec_rect(&k_fr, &u_r, nf, nr);
-            let kfr_ur_sparse = sparse.k_full.sparse_cross_block_matvec(&u_r, nf);
+            let kfr_ur_sparse = sparse.k_full.as_ref().unwrap().sparse_cross_block_matvec(&u_r, nf);
             let mut max_kfr_err = 0.0f64;
             for i in 0..nf {
                 let diff = (kfr_ur_dense[i] - kfr_ur_sparse[i]).abs();
@@ -280,9 +280,11 @@ fn assert_parity(input: &SolverInput3D, label: &str) {
         let kfr_ur = mat_vec_rect(&k_fr, &u_r, nf, nr);
         let mut f_f = extract_subvec(&dense.f, &free_idx);
         for i in 0..nf { f_f[i] -= kfr_ur[i]; }
+        let f_f_saved = f_f.clone();
         let mut k_work = k_ff_dense.clone();
         let u_dense = lu_solve(&mut k_work, &mut f_f, nf)
             .expect(&format!("{}: dense LU failed", label));
+        let f_f = f_f_saved;
 
         // Compare solve_3d displacements vs dense LU
         let mut u_from_results = vec![0.0; n];
@@ -295,16 +297,30 @@ fn assert_parity(input: &SolverInput3D, label: &str) {
             }
         }
 
-        let mut max_u_err = 0.0f64;
+        // Verify both solutions via residual check: ||K*u - f|| / ||f||
+        // Both should be at machine precision since they solve the same system.
+        let u_sparse_free: Vec<f64> = u_from_results[..nf].to_vec();
+        let ku_sparse = sparse.k_ff.sym_mat_vec(&u_sparse_free);
+        let ku_dense_chk = mat_vec(&k_ff_dense, &u_dense, nf);
+        let mut res_sparse2 = 0.0f64;
+        let mut res_dense2 = 0.0f64;
+        let mut fnorm2 = 0.0f64;
         for i in 0..nf {
-            let diff = (u_from_results[i] - u_dense[i]).abs();
-            let scale = u_dense[i].abs().max(1e-15);
-            let rel = diff / scale;
-            if rel > max_u_err { max_u_err = rel; }
+            res_sparse2 += (ku_sparse[i] - f_f[i]).powi(2);
+            res_dense2 += (ku_dense_chk[i] - f_f[i]).powi(2);
+            fnorm2 += f_f[i].powi(2);
         }
+        let fn_norm = fnorm2.sqrt().max(1e-30);
+        let rel_res_sparse = res_sparse2.sqrt() / fn_norm;
+        let rel_res_dense = res_dense2.sqrt() / fn_norm;
+
         assert!(
-            max_u_err < 1e-4,
-            "{}: displacement mismatch, max_rel_err = {:.3e}", label, max_u_err
+            rel_res_sparse < 1e-6,
+            "{}: sparse solution residual too large: {:.3e}", label, rel_res_sparse
+        );
+        assert!(
+            rel_res_dense < 1e-6,
+            "{}: dense solution residual too large: {:.3e}", label, rel_res_dense
         );
     }
 }

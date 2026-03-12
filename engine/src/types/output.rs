@@ -130,6 +130,8 @@ pub struct SolveTimings {
     pub n_free: usize,
     pub nnz_kff: usize,
     pub nnz_l: usize,
+    pub pivot_perturbations: usize,
+    pub max_perturbation: f64,
 }
 
 // ==================== 3D Output Types ====================

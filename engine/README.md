@@ -24,8 +24,8 @@ This document should stay focused on the engine surface, analysis families, and 
 - **P-Delta** (2D & 3D): second-order geometric nonlinearity with iterative convergence
 - **Corotational** (2D & 3D): large-displacement nonlinear analysis (Newton-Raphson)
 - **Arc-length / displacement control**: Riks-style path following and displacement-controlled nonlinear solve
-- **Buckling** (2D & 3D): linearized eigenvalue buckling (Lanczos eigensolver)
-- **Modal** (2D & 3D): natural frequencies and mode shapes via consistent mass matrix
+- **Buckling** (2D & 3D): linearized eigenvalue buckling (Lanczos eigensolver); 3D path now sparse-assembles `K_ff` before dense eigensolve
+- **Modal** (2D & 3D): natural frequencies and mode shapes via consistent mass matrix; 3D path now sparse-assembles `K_ff` before dense eigensolve
 - **Spectral** (2D & 3D): response spectrum analysis with SRSS/CQC combination
 - **Time history** (2D & 3D): Newmark-beta and HHT-alpha direct integration
 - **Moving loads** (2D & 3D): load envelope by stepping axle groups across the structure
@@ -33,7 +33,7 @@ This document should stay focused on the engine surface, analysis families, and 
 - **Plastic collapse** (2D & 3D): incremental hinge formation to mechanism
 - **Kinematic analysis** (2D & 3D): mechanism detection, degree of indeterminacy, rank check
 - **Construction staging** (2D & 3D): phased activation, support changes, staged loads, prestress hooks
-- **Harmonic response** (2D & 3D): frequency-response analysis with modal damping input
+- **Harmonic response** (2D & 3D): frequency-response analysis with modal damping input; 3D path now sparse-assembles `K_ff`
 - **Winkler foundation** (2D & 3D): beams/frames on elastic foundation
 - **Nonlinear SSI** (2D & 3D): `p-y`, `t-z`, and `q-z` spring-family soil interaction
 - **Contact / gap** (2D & 3D): unilateral support/contact behavior, uplift, and gap elements
@@ -45,7 +45,7 @@ This document should stay focused on the engine surface, analysis families, and 
 - **Fiber nonlinear beam-columns** (2D & 3D): distributed plasticity / section-integration solvers
 - **Creep / shrinkage**: time-dependent structural response with EC2-style models
 - **Plate/shell** (3D): DKT/DKMT triangular plates, MITC4 quadrilateral shells (ANS shear tying, EAS-7 membrane), MITC9 9-node quadrilateral shells (ANS shear tying, Bucalem & Bathe 1993), SHB8-ANS solid-shells, and curved-shell elements, with pressure, self-weight, thermal, and edge loading
-- **Model reduction / substructuring**: Guyan condensation and Craig-Bampton reduction for larger-model workflows
+- **Model reduction / substructuring**: Guyan condensation and Craig-Bampton reduction for larger-model workflows; 3D reduction paths now sparse-assemble before dense reduced-system work
 - **Section analysis**: polygon-based cross-section properties and section metrics
 
 ## Running Tests
@@ -160,7 +160,7 @@ See [`../BENCHMARKS.md`](/Users/unbalancedparen/projects/dedaliano/BENCHMARKS.md
 
 Phase 2 is complete — constraint unification, contact refinement, connector elements, eccentric connections, benchmark gate suites, performance architecture, shell benchmark hardening, shell diagnostics, quad nodal stress recovery, MITC9 integration, SHB8-ANS solid-shell integration, curved-shell integration, and parallel element assembly are all in place. The main remaining engine work is:
 
-- performance and scale: heavier-element parallelism, ordering quality, full-workflow performance discipline
+- performance and scale: sparse assembly runtime, ordering quality, deeper sparse eigensolver reuse, full-workflow performance discipline
 - shell-family workflow maturity and selection guidance across `MITC4`, `MITC9`, `SHB8-ANS`, and curved shells
 - advanced contact variants (friction cycles, multi-gap mixed states)
 - CI hardening and release-grade benchmark gates

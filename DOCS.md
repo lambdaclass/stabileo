@@ -74,6 +74,8 @@ If you only read three documents, read them in this order:
   competitor shell/element-family matrix and gap analysis
 - [`research/shell_family_selection.md`](/Users/unbalancedparen/projects/dedaliano/research/shell_family_selection.md)
   shell-family selection rules, defaults, and product guidance
+- [`research/numerical_methods_gap_analysis.md`](/Users/unbalancedparen/projects/dedaliano/research/numerical_methods_gap_analysis.md)
+  numerical-methods gap analysis and corrected priority order for large-model solver work
 
 ## Role Of Each Document
 
