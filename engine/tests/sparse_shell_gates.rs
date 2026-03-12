@@ -565,6 +565,123 @@ fn sparse_modal_parity() {
     }
 }
 
+/// Gate: Harmonic modal path matches direct path within tolerance.
+#[test]
+fn harmonic_modal_parity() {
+    let nx = 8;
+    let ny = 8;
+    let damping_ratio = 0.05;
+    let n_freq = 20;
+
+    let input = make_ss_plate(nx, ny);
+    let dof_num = DofNumbering::build_3d(&input);
+    let nf = dof_num.n_free;
+    let n = dof_num.n_total;
+
+    let mut densities = HashMap::new();
+    densities.insert("1".to_string(), 7850.0);
+
+    // Pick center node
+    let center_node = ((nx / 2) * (ny + 1) + ny / 2) + 1;
+
+    let frequencies: Vec<f64> = (0..n_freq)
+        .map(|i| 0.5 + 99.5 * i as f64 / (n_freq - 1) as f64)
+        .collect();
+
+    // Build matrices
+    let sasm = assemble_sparse_3d(&input, &dof_num, false);
+    let k_ff = sasm.k_ff.to_dense_symmetric();
+    let f_ff: Vec<f64> = sasm.f[..nf].to_vec();
+    let m_full = dedaliano_engine::solver::mass_matrix::assemble_mass_matrix_3d(&input, &dof_num, &densities);
+    let free_idx: Vec<usize> = (0..nf).collect();
+    let m_ff = extract_submatrix(&m_full, n, &free_idx, &free_idx);
+
+    // Get target DOF for z at center node
+    let target_dof = *dof_num.map.get(&(center_node, 2)).expect("Center node z DOF not found");
+    assert!(target_dof < nf, "Target DOF is restrained");
+
+    // === Modal path (what solve_harmonic_3d now uses) ===
+    let harmonic_input = dedaliano_engine::solver::harmonic::HarmonicInput3D {
+        solver: input,
+        densities: densities.clone(),
+        frequencies: frequencies.clone(),
+        damping_ratio,
+        response_node_id: center_node,
+        response_dof: "z".to_string(),
+    };
+    let modal_result = dedaliano_engine::solver::harmonic::solve_harmonic_3d(&harmonic_input)
+        .expect("Harmonic modal solve failed");
+
+    // === Direct path (explicit block LU per frequency) ===
+    let ns = nf; // no constraints
+    let (a0, a1) = {
+        let eigen = dedaliano_engine::linalg::lanczos_generalized_eigen(&k_ff, &m_ff, ns, 2, 0.0);
+        if let Some(ref res) = eigen {
+            let positive: Vec<f64> = res.values.iter().copied().filter(|&v| v > 1e-10).collect();
+            if positive.len() >= 2 {
+                dedaliano_engine::solver::damping::rayleigh_coefficients(positive[0].sqrt(), positive[1].sqrt(), damping_ratio)
+            } else {
+                (0.0, 0.0)
+            }
+        } else {
+            (0.0, 0.0)
+        }
+    };
+    let c_s = dedaliano_engine::solver::damping::rayleigh_damping_matrix(&m_ff, &k_ff, ns, a0, a1);
+
+    let mut direct_amps = Vec::new();
+    let mut direct_peak_amp = 0.0f64;
+    let mut direct_peak_freq = 0.0f64;
+    for &freq in &frequencies {
+        let omega = 2.0 * std::f64::consts::PI * freq;
+        let (u_real, u_imag) = dedaliano_engine::solver::harmonic::solve_complex_system(
+            &k_ff, &m_ff, &c_s, &f_ff, ns, omega,
+        ).expect("Direct solve failed");
+        let re = u_real[target_dof];
+        let im = u_imag[target_dof];
+        let amp = (re * re + im * im).sqrt();
+        if amp > direct_peak_amp {
+            direct_peak_amp = amp;
+            direct_peak_freq = freq;
+        }
+        direct_amps.push(amp);
+    }
+
+    // Compare peak frequency
+    let peak_freq_err = (modal_result.peak_frequency - direct_peak_freq).abs()
+        / direct_peak_freq.max(1e-20);
+    println!("Peak freq: modal={:.4} Hz, direct={:.4} Hz, rel_err={:.2e}",
+        modal_result.peak_frequency, direct_peak_freq, peak_freq_err);
+
+    // Compare amplitude at each frequency using absolute-or-relative check.
+    // Modal truncation is accurate near resonances but loses accuracy at high
+    // frequencies where amplitudes are very small — use peak amplitude as scale.
+    let scale = direct_peak_amp.max(1e-30);
+    let mut max_norm_err = 0.0f64;
+    for (i, &freq) in frequencies.iter().enumerate() {
+        let modal_amp = modal_result.response_points[i].amplitude;
+        let direct_amp = direct_amps[i];
+        let abs_err = (modal_amp - direct_amp).abs();
+        // Normalized error: absolute difference / peak amplitude
+        let norm_err = abs_err / scale;
+        if norm_err > max_norm_err {
+            max_norm_err = norm_err;
+        }
+        if norm_err > 0.01 {
+            println!("  freq={:.2} Hz: modal={:.6e}, direct={:.6e}, norm_err={:.2e}",
+                freq, modal_amp, direct_amp, norm_err);
+        }
+    }
+    println!("Max normalized error (vs peak): {:.2e}", max_norm_err);
+
+    // 5% of peak amplitude is a tight enough tolerance for modal superposition
+    assert!(
+        max_norm_err < 0.05,
+        "Modal vs direct max normalized error = {:.2e} (exceeds 5% of peak)",
+        max_norm_err
+    );
+}
+
 /// Build an nx×ny SS plate and return the node grid for boundary node selection.
 fn make_ss_plate_with_grid(nx: usize, ny: usize) -> (SolverInput3D, Vec<Vec<usize>>) {
     let lx = 10.0;

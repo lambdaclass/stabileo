@@ -1195,3 +1195,83 @@ fn craig_bampton_phase_breakdown() {
         }
     }
 }
+
+/// Harmonic 3D: modal vs direct timing comparison.
+/// The modal path eigensolves once then sweeps at O(p) per step;
+/// the direct path does a full 2n×2n LU per frequency step.
+#[test]
+fn harmonic_modal_vs_direct_timing() {
+    let nx = 20;
+    let ny = 20;
+    let n_freq = 50;
+    let damping_ratio = 0.05;
+
+    let (input, grid) = make_flat_plate_with_grid(nx, ny);
+    let center_node = grid[nx / 2][ny / 2];
+
+    let frequencies: Vec<f64> = (0..n_freq)
+        .map(|i| 0.1 + (100.0 - 0.1) * i as f64 / (n_freq - 1) as f64)
+        .collect();
+
+    let mut densities = HashMap::new();
+    densities.insert("1".to_string(), 7850.0);
+
+    println!("\n=== Harmonic Modal vs Direct ({}x{} MITC4, {} freq steps) ===", nx, ny, n_freq);
+
+    // Modal path (via solve_harmonic_3d which now uses modal superposition)
+    let harmonic_input = HarmonicInput3D {
+        solver: input.clone(),
+        densities: densities.clone(),
+        frequencies: frequencies.clone(),
+        damping_ratio,
+        response_node_id: center_node,
+        response_dof: "z".to_string(),
+    };
+    let t0 = Instant::now();
+    let modal_result = dedaliano_engine::solver::harmonic::solve_harmonic_3d(&harmonic_input)
+        .expect("Modal harmonic solve failed");
+    let modal_us = t0.elapsed().as_micros() as u64;
+
+    // Direct path: manual assembly + block LU per frequency
+    let dof_num = DofNumbering::build_3d(&input);
+    let nf = dof_num.n_free;
+    let n = dof_num.n_total;
+    let sasm = assembly::assemble_sparse_3d(&input, &dof_num, false);
+    let k_ff = sasm.k_ff.to_dense_symmetric();
+    let f_ff: Vec<f64> = sasm.f[..nf].to_vec();
+    let m_full = assemble_mass_matrix_3d(&input, &dof_num, &densities);
+    let free_idx: Vec<usize> = (0..nf).collect();
+    let m_ff = extract_submatrix(&m_full, n, &free_idx, &free_idx);
+
+    let (a0, a1) = {
+        let eigen = lanczos_generalized_eigen(&k_ff, &m_ff, nf, 2, 0.0);
+        if let Some(ref res) = eigen {
+            let positive: Vec<f64> = res.values.iter().copied().filter(|&v| v > 1e-10).collect();
+            if positive.len() >= 2 {
+                rayleigh_coefficients(positive[0].sqrt(), positive[1].sqrt(), damping_ratio)
+            } else {
+                (0.0, 0.0)
+            }
+        } else {
+            (0.0, 0.0)
+        }
+    };
+    let c_s = rayleigh_damping_matrix(&m_ff, &k_ff, nf, a0, a1);
+
+    let t0 = Instant::now();
+    for &freq in &frequencies {
+        let omega = 2.0 * std::f64::consts::PI * freq;
+        let _ = dedaliano_engine::solver::harmonic::solve_complex_system(
+            &k_ff, &m_ff, &c_s, &f_ff, nf, omega,
+        );
+    }
+    let direct_sweep_us = t0.elapsed().as_micros() as u64;
+
+    let speedup = if modal_us > 0 { direct_sweep_us as f64 / modal_us as f64 } else { 0.0 };
+
+    println!("  nf = {}", nf);
+    println!("  Modal (full solve_harmonic_3d): {} us", modal_us);
+    println!("  Direct (sweep only, {} steps):  {} us", n_freq, direct_sweep_us);
+    println!("  Speedup: {:.1}x", speedup);
+    println!("  Modal peak: {:.4} Hz, amp={:.6e}", modal_result.peak_frequency, modal_result.peak_amplitude);
+}

@@ -100,19 +100,24 @@ pub fn solve_harmonic_2d(input: &HarmonicInput) -> Result<HarmonicResult, String
         (k_ff, m_ff, f_ff)
     };
 
-    // Map target_dof to reduced space
-    let _target_s = if let Some(ref cs) = cs {
+    // Try modal superposition first (much faster for many frequency steps)
+    let target_s = if let Some(ref cs) = cs {
         cs.map_dof_to_reduced(target_dof)
             .ok_or("Target DOF is dependent (constrained)")?
     } else {
         target_dof
     };
 
-    // Compute Rayleigh damping from first two natural frequencies (approximate)
+    if let Some((response_points, peak_frequency, peak_amplitude)) =
+        solve_harmonic_modal(&k_s, &m_s, &f_s, ns, &input.frequencies, input.damping_ratio, target_s)
+    {
+        return Ok(HarmonicResult { response_points, peak_frequency, peak_amplitude });
+    }
+
+    // Fallback: direct 2n×2n block LU per frequency
     let (a0, a1) = compute_rayleigh_from_stiffness_mass(&k_s, &m_s, ns, input.damping_ratio);
     let c_s = rayleigh_damping_matrix(&m_s, &k_s, ns, a0, a1);
 
-    // Sweep frequencies
     let mut response_points = Vec::new();
     let mut peak_freq: f64 = 0.0;
     let mut peak_amp: f64 = 0.0;
@@ -121,7 +126,6 @@ pub fn solve_harmonic_2d(input: &HarmonicInput) -> Result<HarmonicResult, String
         let omega = 2.0 * std::f64::consts::PI * freq;
         let (u_real_s, u_imag_s) = solve_complex_system(&k_s, &m_s, &c_s, &f_s, ns, omega)?;
 
-        // Expand to full free DOFs if constrained
         let (u_real, u_imag) = if let Some(ref cs) = cs {
             (cs.expand_solution(&u_real_s), cs.expand_solution(&u_imag_s))
         } else {
@@ -190,13 +194,21 @@ pub fn solve_harmonic_3d(input: &HarmonicInput3D) -> Result<HarmonicResult, Stri
     };
 
     // Map target_dof to reduced space
-    let _target_s = if let Some(ref cs) = cs {
+    let target_s = if let Some(ref cs) = cs {
         cs.map_dof_to_reduced(target_dof)
             .ok_or("Target DOF is dependent (constrained)")?
     } else {
         target_dof
     };
 
+    // Try modal superposition first (much faster for many frequency steps)
+    if let Some((response_points, peak_frequency, peak_amplitude)) =
+        solve_harmonic_modal(&k_s, &m_s, &f_s, ns, &input.frequencies, input.damping_ratio, target_s)
+    {
+        return Ok(HarmonicResult { response_points, peak_frequency, peak_amplitude });
+    }
+
+    // Fallback: direct 2n×2n block LU per frequency
     let (a0, a1) = compute_rayleigh_from_stiffness_mass(&k_s, &m_s, ns, input.damping_ratio);
     let c_s = rayleigh_damping_matrix(&m_s, &k_s, ns, a0, a1);
 
@@ -208,7 +220,6 @@ pub fn solve_harmonic_3d(input: &HarmonicInput3D) -> Result<HarmonicResult, Stri
         let omega = 2.0 * std::f64::consts::PI * freq;
         let (u_real_s, u_imag_s) = solve_complex_system(&k_s, &m_s, &c_s, &f_s, ns, omega)?;
 
-        // Expand to full free DOFs if constrained
         let (u_real, u_imag) = if let Some(ref cs) = cs {
             (cs.expand_solution(&u_real_s), cs.expand_solution(&u_imag_s))
         } else {
@@ -242,13 +253,159 @@ pub fn solve_harmonic_3d(input: &HarmonicInput3D) -> Result<HarmonicResult, Stri
     })
 }
 
+// ==================== Modal Frequency Response ====================
+
+/// Modal superposition harmonic solver.
+///
+/// Instead of building and factoring a 2n×2n block system per frequency,
+/// this eigensolves K*φ = ω²*M*φ once, then evaluates the scalar transfer
+/// function per mode per frequency at O(p) cost.
+///
+/// Returns None if the eigensolve fails or produces no usable modes.
+fn solve_harmonic_modal(
+    k: &[f64], m: &[f64], f: &[f64], n: usize,
+    frequencies: &[f64], damping_ratio: f64,
+    target_dof: usize,
+) -> Option<(Vec<HarmonicResponsePoint>, f64, f64)> {
+    use crate::linalg::lanczos_generalized_eigen;
+
+    if frequencies.is_empty() || n == 0 {
+        return None;
+    }
+
+    // Determine number of modes from max frequency
+    let f_max = frequencies.iter().cloned().fold(0.0f64, f64::max);
+    let omega_max = 2.0 * std::f64::consts::PI * f_max;
+    // Request modes up to 2 × f_max (in omega² space)
+    let omega_cutoff_sq = (2.0 * omega_max) * (2.0 * omega_max);
+    let n_modes = 100.min(n / 2).max(2);
+
+    // Eigensolve: K*φ = λ*M*φ where λ = ω²
+    let eigen = lanczos_generalized_eigen(k, m, n, n_modes, 0.0)?;
+
+    // Filter to positive eigenvalues (physical modes)
+    let nk = eigen.values.len();
+    let mut mode_indices: Vec<usize> = Vec::new();
+    for j in 0..nk {
+        let lam = eigen.values[j];
+        if lam > 1e-10 && lam < omega_cutoff_sq * 4.0 {
+            mode_indices.push(j);
+        }
+    }
+
+    if mode_indices.is_empty() {
+        return None;
+    }
+
+    let p = mode_indices.len();
+
+    // Compute modal quantities for each kept mode
+    // Modal mass: m_j = φ_j^T * M * φ_j
+    // Modal force: f_j = φ_j^T * F
+    // Target participation: phi_target_j = φ_j[target_dof]
+    let mut omega_j = Vec::with_capacity(p);
+    let mut modal_mass = Vec::with_capacity(p);
+    let mut modal_force = Vec::with_capacity(p);
+    let mut phi_target = Vec::with_capacity(p);
+
+    for &j in &mode_indices {
+        let lam = eigen.values[j];
+        omega_j.push(lam.sqrt());
+
+        // φ_j column: vectors[row * nk + j]
+        let mut mj = 0.0;
+        let mut fj = 0.0;
+        for i in 0..n {
+            let phi_i = eigen.vectors[i * nk + j];
+            fj += phi_i * f[i];
+            // m_j = φ^T M φ (dense symmetric M)
+            let mut m_phi_i = 0.0;
+            for q in 0..n {
+                m_phi_i += m[i * n + q] * eigen.vectors[q * nk + j];
+            }
+            mj += phi_i * m_phi_i;
+        }
+
+        modal_mass.push(mj);
+        modal_force.push(fj);
+        phi_target.push(eigen.vectors[target_dof * nk + j]);
+    }
+
+    // Rayleigh damping: ξ_j = a₀/(2ω_j) + a₁·ω_j/2
+    let (a0, a1) = if omega_j.len() >= 2 {
+        rayleigh_coefficients(omega_j[0], omega_j[1], damping_ratio)
+    } else {
+        rayleigh_coefficients(omega_j[0], 3.0 * omega_j[0], damping_ratio)
+    };
+
+    // Precompute per-mode participation: p_j = φ_j[target] * f_j / m_j
+    let mut participation = Vec::with_capacity(p);
+    let mut xi_j = Vec::with_capacity(p);
+    for i in 0..p {
+        let mj = modal_mass[i];
+        if mj.abs() < 1e-30 {
+            participation.push(0.0);
+        } else {
+            participation.push(phi_target[i] * modal_force[i] / mj);
+        }
+        xi_j.push(a0 / (2.0 * omega_j[i]) + a1 * omega_j[i] / 2.0);
+    }
+
+    // Frequency sweep: O(p) per step
+    let mut response_points = Vec::with_capacity(frequencies.len());
+    let mut peak_freq = 0.0f64;
+    let mut peak_amp = 0.0f64;
+
+    for &freq in frequencies {
+        let omega = 2.0 * std::f64::consts::PI * freq;
+        let omega2 = omega * omega;
+
+        // Sum modal contributions: u(ω) = Σ_j p_j / (ω_j² - ω² + 2i·ξ_j·ω_j·ω)
+        let mut re_sum = 0.0;
+        let mut im_sum = 0.0;
+        for i in 0..p {
+            let wj2 = omega_j[i] * omega_j[i];
+            let real_denom = wj2 - omega2;
+            let imag_denom = 2.0 * xi_j[i] * omega_j[i] * omega;
+            let denom_sq = real_denom * real_denom + imag_denom * imag_denom;
+            if denom_sq < 1e-60 {
+                continue;
+            }
+            let pj = participation[i];
+            // H_j(ω) = p_j / (real_denom + i*imag_denom)
+            //         = p_j * (real_denom - i*imag_denom) / denom_sq
+            re_sum += pj * real_denom / denom_sq;
+            im_sum -= pj * imag_denom / denom_sq;
+        }
+
+        let amplitude = (re_sum * re_sum + im_sum * im_sum).sqrt();
+        let phase = im_sum.atan2(re_sum);
+
+        if amplitude > peak_amp {
+            peak_amp = amplitude;
+            peak_freq = freq;
+        }
+
+        response_points.push(HarmonicResponsePoint {
+            frequency: freq,
+            omega,
+            amplitude,
+            phase,
+            real: re_sum,
+            imag: im_sum,
+        });
+    }
+
+    Some((response_points, peak_freq, peak_amp))
+}
+
 // ==================== Helpers ====================
 
 /// Solve (K - omega^2*M + i*omega*C) * u = F
 /// Convert to real 2n×2n system:
 /// [K_d, -omega*C] [u_r]   [F]
 /// [omega*C, K_d ] [u_i] = [0]
-fn solve_complex_system(
+pub fn solve_complex_system(
     k: &[f64], m: &[f64], c: &[f64], f: &[f64], n: usize, omega: f64,
 ) -> Result<(Vec<f64>, Vec<f64>), String> {
     let omega2 = omega * omega;
