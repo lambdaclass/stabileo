@@ -80,6 +80,14 @@ The next differentiators are less about adding whole new solver categories and m
 - scale-oriented workflow maturity such as reduction/substructuring and large-model solve discipline
 - productizing the full solver surface cleanly across app, API, and downstream tools
 
+If the goal is to become `the best open structural solver by far`, the winning path is now clear:
+
+- dominate runtime and scale on real structural models
+- build the deepest visible proof moat in the category
+- make solver behavior deterministic and explainable
+- harden the ugly mixed nonlinear workflows competitors still win on
+- turn the multi-family shell stack into a coherent default workflow instead of a hidden expert feature
+
 That credibility should be built visibly. The strongest long-term trust program is not one technique in isolation, but a stack:
 
 - public benchmark and cross-validation coverage

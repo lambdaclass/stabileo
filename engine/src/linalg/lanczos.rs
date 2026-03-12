@@ -182,6 +182,130 @@ fn lanczos_tridiag(
 // Tridiagonal QR eigenvalue solver (implicit shifts, Wilkinson)
 // ---------------------------------------------------------------------------
 
+/// Implicit symmetric QR algorithm for tridiagonal eigenvalues.
+///
+/// Diagonal d[0..m] and off-diagonal e[0..m-1] (e[i] = T[i,i+1]).
+/// Eigenvalues are returned in d, sorted ascending.
+/// If z is Some, accumulates Givens rotations into z (m×m row-major, starts as identity).
+///
+/// Reference: Golub & Van Loan, Algorithm 8.3.3 (implicit symmetric QR step with Wilkinson shift).
+fn tridiag_qr_impl(d: &mut [f64], e: &mut [f64], m: usize, mut z: Option<&mut [f64]>) {
+    let max_iter = 30 * m;
+    let mut iter = 0;
+
+    // l_end tracks the bottom of the current unreduced block
+    let mut l_end = m;
+    while l_end > 1 && iter < max_iter {
+        // Find the largest l_end such that e[l_end-2] is negligible
+        let mut found_zero = false;
+        for i in (0..l_end - 1).rev() {
+            let tst = d[i].abs() + d[i + 1].abs();
+            if e[i].abs() <= 1e-14 * tst.max(1e-30) {
+                e[i] = 0.0;
+                if i == l_end - 2 {
+                    // Bottom element deflated
+                    l_end -= 1;
+                    found_zero = true;
+                    break;
+                }
+            }
+        }
+        if found_zero { continue; }
+        if l_end <= 1 { break; }
+
+        // Find the start of the unreduced block [l_start..l_end)
+        let mut l_start = l_end - 2;
+        while l_start > 0 {
+            let tst = d[l_start - 1].abs() + d[l_start].abs();
+            if e[l_start - 1].abs() <= 1e-14 * tst.max(1e-30) {
+                e[l_start - 1] = 0.0;
+                break;
+            }
+            l_start -= 1;
+        }
+
+        iter += 1;
+
+        // Wilkinson shift: eigenvalue of trailing 2×2 closer to d[l_end-1]
+        let n1 = l_end - 1;
+        let n2 = l_end - 2;
+        let dd = (d[n2] - d[n1]) * 0.5;
+        let ee = e[n2] * e[n2];
+        let mut mu = d[n1];
+        if dd.abs() > 1e-30 || ee > 1e-30 {
+            let r = (dd * dd + ee).sqrt();
+            mu -= ee / (dd + if dd >= 0.0 { r } else { -r });
+        }
+
+        // Implicit QR step: chase the bulge from l_start to l_end-2
+        let mut x = d[l_start] - mu;
+        let mut y = e[l_start];
+
+        for k in l_start..l_end - 1 {
+            // Compute Givens rotation to zero y
+            let (c, s) = if y.abs() > 1e-300 {
+                let r = (x * x + y * y).sqrt();
+                (x / r, -y / r)
+            } else {
+                (1.0, 0.0)
+            };
+
+            // Apply rotation to tridiagonal entries
+            if k > l_start {
+                e[k - 1] = (x * x + y * y).sqrt();
+            }
+
+            let d_k = d[k];
+            let d_k1 = d[k + 1];
+            let e_k = e[k];
+
+            let w1 = c * d_k - s * e_k;
+            let w2 = c * e_k - s * d_k1;
+            d[k] = c * w1 - s * w2;
+            let w3 = s * d_k + c * e_k;
+            let w4 = s * e_k + c * d_k1;
+            d[k + 1] = s * w3 + c * w4;
+            e[k] = c * w3 - s * w4;
+
+            // Accumulate rotation into eigenvector matrix
+            if let Some(zz) = z.as_deref_mut() {
+                for i in 0..m {
+                    let z_ik  = zz[i * m + k];
+                    let z_ik1 = zz[i * m + k + 1];
+                    zz[i * m + k]     =  c * z_ik - s * z_ik1;
+                    zz[i * m + k + 1] =  s * z_ik + c * z_ik1;
+                }
+            }
+
+            // Set up for next rotation
+            if k + 2 < l_end {
+                x = e[k];
+                y = -s * e[k + 1];
+                e[k + 1] *= c;
+            }
+        }
+    }
+
+    // Sort eigenvalues ascending (selection sort, O(m²) but m is small)
+    for i in 0..m {
+        let mut min_idx = i;
+        for j in i + 1..m {
+            if d[j] < d[min_idx] { min_idx = j; }
+        }
+        if min_idx != i {
+            d.swap(i, min_idx);
+            if let Some(zz) = z.as_deref_mut() {
+                // Swap columns i and min_idx
+                for row in 0..m {
+                    let a = row * m + i;
+                    let b = row * m + min_idx;
+                    zz.swap(a, b);
+                }
+            }
+        }
+    }
+}
+
 /// Solve eigenvalues of symmetric tridiagonal matrix T (diagonal alpha, off-diagonal beta).
 /// beta[0] is unused; beta[i] is T[i, i-1] for i >= 1.
 /// Returns eigenvalues sorted ascending.
@@ -192,99 +316,27 @@ pub fn tridiag_eigen(alpha: &[f64], beta: &[f64], m: usize) -> Vec<f64> {
     let mut d = alpha[..m].to_vec();
     let mut e = vec![0.0; m];
     for i in 1..m { e[i - 1] = beta[i]; }
-    // e[i] = off-diagonal between i and i+1
 
-    // QL algorithm with implicit shifts (LAPACK-style)
-    for l in 0..m {
-        let mut iter_count = 0;
-        loop {
-            // Find small subdiagonal element
-            let mut mm = l;
-            for i in l..m - 1 {
-                let tst = d[i].abs() + d[i + 1].abs();
-                if e[i].abs() <= 1e-15 * tst.max(1e-30) {
-                    mm = i;
-                    break;
-                }
-                mm = i + 1;
-            }
-            if mm == l { break; } // Converged
-
-            iter_count += 1;
-            if iter_count > 60 { break; } // Safety
-
-            // Wilkinson shift from bottom of block
-            let g = (d[l + 1] - d[l]) / (2.0 * e[l]);
-            let r = (g * g + 1.0).sqrt();
-            let g_shift = d[mm] - d[l] + e[l] / (g + if g >= 0.0 { r } else { -r });
-
-            let mut s = 1.0;
-            let mut c = 1.0;
-            let mut p = 0.0;
-
-            for i in (l..mm).rev() {
-                let f = s * e[i];
-                let b = c * e[i];
-
-                // Givens rotation
-                let r = (f * f + g_shift * g_shift).sqrt();
-                e[i + 1] = r;
-                if r.abs() < 1e-30 {
-                    // Underflow recovery
-                    d[i + 1] -= p;
-                    e[mm] = 0.0;
-                    break;
-                }
-                s = f / r;
-                c = g_shift / r;
-                let g_new = d[i + 1] - p;
-                let r2 = (d[i] - g_new) * s + 2.0 * c * b;
-                p = s * r2;
-                d[i + 1] = g_new + p;
-                let g_shift_new = c * r2 - b;
-                // This variable is used as g_shift in next iteration
-                let _ = g_shift_new;
-                // Reassign for loop
-                // Actually, we need to set g_shift for next i
-                // In QL, we propagate through the loop
-            }
-            // The QL iteration: apply accumulated shift
-            // Simpler: just use the Jacobi fallback for tridiagonal
-            // Actually let me use a cleaner QL implementation
-
-            // Reset and use clean QL step
-            break;
-        }
-    }
-
-    // The above QL is tricky to get right. Use Jacobi on the dense tridiagonal instead.
-    // This is O(m²) per sweep which is fine since m is small (typically 20-100).
-    let mut t = vec![0.0; m * m];
-    for i in 0..m {
-        t[i * m + i] = alpha[i];
-        if i > 0 {
-            t[i * m + (i - 1)] = beta[i];
-            t[(i - 1) * m + i] = beta[i];
-        }
-    }
-    let result = jacobi_eigen(&t, m, 200);
-    result.values
+    tridiag_qr_impl(&mut d, &mut e, m, None);
+    d
 }
 
 /// Solve eigenvalues AND eigenvectors of symmetric tridiagonal matrix.
 /// Returns (eigenvalues sorted ascending, eigenvectors as m×m row-major).
 fn tridiag_eigen_vecs(alpha: &[f64], beta: &[f64], m: usize) -> (Vec<f64>, Vec<f64>) {
-    // Build dense tridiagonal matrix and use Jacobi
-    let mut t = vec![0.0; m * m];
-    for i in 0..m {
-        t[i * m + i] = alpha[i];
-        if i > 0 {
-            t[i * m + (i - 1)] = beta[i];
-            t[(i - 1) * m + i] = beta[i];
-        }
-    }
-    let result = jacobi_eigen(&t, m, 200);
-    (result.values, result.vectors)
+    if m == 0 { return (vec![], vec![]); }
+    if m == 1 { return (vec![alpha[0]], vec![1.0]); }
+
+    let mut d = alpha[..m].to_vec();
+    let mut e = vec![0.0; m];
+    for i in 1..m { e[i - 1] = beta[i]; }
+
+    // Initialize Z = I
+    let mut z = vec![0.0; m * m];
+    for i in 0..m { z[i * m + i] = 1.0; }
+
+    tridiag_qr_impl(&mut d, &mut e, m, Some(&mut z));
+    (d, z)
 }
 
 // ---------------------------------------------------------------------------
@@ -939,6 +991,104 @@ mod tests {
             assert!(rel_err < 1e-6,
                 "eigenvalue {}: got {:.10}, expected {:.10}, rel_err={:.2e}",
                 j, result.values[j], expected, rel_err);
+        }
+    }
+
+    #[test]
+    fn test_tridiag_qr_vs_jacobi_10x10() {
+        // Random SPD tridiagonal: QR eigenvalues must match Jacobi
+        let m = 10;
+        let mut alpha = vec![0.0; m];
+        let mut beta = vec![0.0; m];
+        let mut seed: u64 = 77;
+        for i in 0..m {
+            seed = seed.wrapping_mul(6364136223846793005).wrapping_add(1);
+            alpha[i] = (seed >> 33) as f64 / (1u64 << 31) as f64 + m as f64;
+            if i > 0 {
+                seed = seed.wrapping_mul(6364136223846793005).wrapping_add(1);
+                beta[i] = (seed >> 33) as f64 / (1u64 << 31) as f64 - 0.5;
+            }
+        }
+
+        let qr_vals = tridiag_eigen(&alpha, &beta, m);
+
+        // Jacobi reference
+        let mut t = vec![0.0; m * m];
+        for i in 0..m {
+            t[i * m + i] = alpha[i];
+            if i > 0 {
+                t[i * m + (i - 1)] = beta[i];
+                t[(i - 1) * m + i] = beta[i];
+            }
+        }
+        let jac = jacobi_eigen(&t, m, 200);
+
+        for i in 0..m {
+            assert!((qr_vals[i] - jac.values[i]).abs() < 1e-10,
+                "eigenvalue {}: qr={}, jacobi={}", i, qr_vals[i], jac.values[i]);
+        }
+    }
+
+    #[test]
+    fn test_tridiag_qr_eigenvec_orthogonality_20x20() {
+        // 20×20 1-2-1 tridiagonal: check V^T V = I
+        let m = 20;
+        let alpha = vec![2.0; m];
+        let mut beta = vec![0.0; m];
+        for i in 1..m { beta[i] = 1.0; }
+
+        let (vals, vecs) = tridiag_eigen_vecs(&alpha, &beta, m);
+        assert_eq!(vals.len(), m);
+
+        // V^T * V should be identity
+        for i in 0..m {
+            for j in 0..m {
+                let mut dot_val = 0.0;
+                for r in 0..m {
+                    dot_val += vecs[r * m + i] * vecs[r * m + j];
+                }
+                let expected = if i == j { 1.0 } else { 0.0 };
+                assert!((dot_val - expected).abs() < 1e-10,
+                    "V^T*V[{},{}] = {}, expected {}", i, j, dot_val, expected);
+            }
+        }
+    }
+
+    #[test]
+    fn test_tridiag_qr_reconstruction_15x15() {
+        // Verify V * diag(λ) * V^T reconstructs the original tridiagonal
+        let m = 15;
+        let mut alpha = vec![0.0; m];
+        let mut beta = vec![0.0; m];
+        let mut seed: u64 = 123;
+        for i in 0..m {
+            seed = seed.wrapping_mul(6364136223846793005).wrapping_add(1);
+            alpha[i] = (seed >> 33) as f64 / (1u64 << 31) as f64 + 5.0;
+            if i > 0 {
+                seed = seed.wrapping_mul(6364136223846793005).wrapping_add(1);
+                beta[i] = (seed >> 33) as f64 / (1u64 << 31) as f64;
+            }
+        }
+
+        let (vals, vecs) = tridiag_eigen_vecs(&alpha, &beta, m);
+
+        // Reconstruct: T_recon = V * diag(λ) * V^T
+        for i in 0..m {
+            for j in 0..m {
+                let mut sum = 0.0;
+                for k in 0..m {
+                    sum += vecs[i * m + k] * vals[k] * vecs[j * m + k];
+                }
+                let expected = if i == j {
+                    alpha[i]
+                } else if j == i + 1 || i == j + 1 {
+                    beta[i.max(j)]
+                } else {
+                    0.0
+                };
+                assert!((sum - expected).abs() < 1e-8,
+                    "T_recon[{},{}] = {}, expected {}", i, j, sum, expected);
+            }
         }
     }
 }

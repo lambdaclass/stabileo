@@ -55,6 +55,22 @@ pub struct GuyanResult {
     pub element_forces: Vec<ElementForces>,
 }
 
+/// Result of 3D Guyan reduction.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct GuyanResult3D {
+    pub k_condensed: Vec<f64>,
+    pub f_condensed: Vec<f64>,
+    #[serde(default)]
+    pub m_condensed: Vec<f64>,
+    pub n_boundary: usize,
+    pub n_interior: usize,
+    pub boundary_dofs: Vec<usize>,
+    pub displacements: Vec<Displacement3D>,
+    pub reactions: Vec<Reaction3D>,
+    pub element_forces: Vec<ElementForces3D>,
+}
+
 /// Craig-Bampton input.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -568,7 +584,7 @@ pub fn craig_bampton_2d(input: &CraigBamptonInput) -> Result<CraigBamptonResult,
 // ==================== 3D Guyan Reduction ====================
 
 /// Perform Guyan (static) condensation on a 3D model.
-pub fn guyan_reduce_3d(input: &GuyanInput3D) -> Result<GuyanResult, String> {
+pub fn guyan_reduce_3d(input: &GuyanInput3D) -> Result<GuyanResult3D, String> {
     let dof_num = DofNumbering::build_3d(&input.solver);
     let nf = dof_num.n_free;
     let n = dof_num.n_total;
@@ -696,11 +712,35 @@ pub fn guyan_reduce_3d(input: &GuyanInput3D) -> Result<GuyanResult, String> {
     let mut u_full = vec![0.0; n];
     for i in 0..nf { u_full[i] = u_f[i]; }
 
-    // Build results (reuse 2D result struct — displacements & reactions not populated for 3D)
-    let displacements = super::linear::build_displacements_2d(&dof_num, &u_full);
-    let element_forces = Vec::new(); // 3D internal forces computed separately
+    // Build 3D results
+    let displacements = super::linear::build_displacements_3d(&dof_num, &u_full);
 
-    Ok(GuyanResult {
+    // Compute reactions: R = K_rf * u_f - F_r
+    let sasm_full = assembly::assemble_sparse_3d(&input.solver, &dof_num, true);
+    let nr = n - nf;
+    let reactions = if nr > 0 {
+        if let Some(ref k_full) = sasm_full.k_full {
+            let k_full_dense = k_full.to_dense_symmetric();
+            let free_idx2: Vec<usize> = (0..nf).collect();
+            let rest_idx: Vec<usize> = (nf..n).collect();
+            let k_rf = extract_submatrix(&k_full_dense, n, &rest_idx, &free_idx2);
+            let f_r = extract_subvec(&sasm_full.f, &rest_idx);
+            let k_rf_uf = mat_vec_rect(&k_rf, &u_f, nr, nf);
+            let mut reactions_vec = vec![0.0; nr];
+            for i in 0..nr {
+                reactions_vec[i] = k_rf_uf[i] - f_r[i];
+            }
+            super::linear::build_reactions_3d(
+                &input.solver, &dof_num, &reactions_vec, &f_r, nf, &u_full,
+            )
+        } else {
+            vec![]
+        }
+    } else {
+        vec![]
+    };
+
+    Ok(GuyanResult3D {
         k_condensed,
         f_condensed,
         m_condensed: vec![],
@@ -708,8 +748,8 @@ pub fn guyan_reduce_3d(input: &GuyanInput3D) -> Result<GuyanResult, String> {
         n_interior: ni,
         boundary_dofs,
         displacements,
-        reactions: vec![],
-        element_forces,
+        reactions,
+        element_forces: vec![],
     })
 }
 

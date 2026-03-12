@@ -1115,3 +1115,65 @@ fn craig_bampton_deterministic() {
         );
     }
 }
+
+/// Gate: Guyan 3D displacements match full linear solve (mathematically exact for static).
+#[test]
+fn guyan_3d_vs_linear_parity() {
+    let nx = 8;
+    let ny = 8;
+    let (input, grid) = make_ss_plate_with_grid(nx, ny);
+    let boundary_nodes = perimeter_nodes(&grid, nx, ny);
+
+    // Full linear solve
+    let linear_result = linear::solve_3d(&input).expect("Linear solve failed");
+
+    // Guyan reduction
+    let guyan_input = GuyanInput3D { solver: input, boundary_nodes };
+    let guyan_result = dedaliano_engine::solver::reduction::guyan_reduce_3d(&guyan_input)
+        .expect("Guyan reduction failed");
+
+    // Compare displacements: Guyan should be exact for static problems
+    assert_eq!(
+        guyan_result.displacements.len(), linear_result.displacements.len(),
+        "Displacement count mismatch"
+    );
+
+    let mut max_rel_err = 0.0f64;
+    let max_disp = linear_result.displacements.iter()
+        .flat_map(|d| vec![d.ux.abs(), d.uy.abs(), d.uz.abs(), d.rx.abs(), d.ry.abs(), d.rz.abs()])
+        .fold(0.0f64, f64::max);
+
+    for ld in &linear_result.displacements {
+        let gd = guyan_result.displacements.iter()
+            .find(|d| d.node_id == ld.node_id)
+            .expect(&format!("Missing node {} in Guyan result", ld.node_id));
+
+        for &(lv, gv, _name) in &[
+            (ld.ux, gd.ux, "ux"), (ld.uy, gd.uy, "uy"), (ld.uz, gd.uz, "uz"),
+            (ld.rx, gd.rx, "rx"), (ld.ry, gd.ry, "ry"), (ld.rz, gd.rz, "rz"),
+        ] {
+            let err = (lv - gv).abs() / max_disp.max(1e-20);
+            if err > max_rel_err {
+                max_rel_err = err;
+            }
+        }
+    }
+
+    println!("Guyan 3D vs linear: max_rel_err={:.2e}, max_disp={:.6e}", max_rel_err, max_disp);
+
+    assert!(
+        max_rel_err < 1e-6,
+        "Guyan 3D vs linear parity: max relative error {:.2e} exceeds 1e-6",
+        max_rel_err
+    );
+
+    // Verify the result has proper 3D displacement fields (uz should be nonzero for a plate)
+    let max_uz = guyan_result.displacements.iter()
+        .map(|d| d.uz.abs())
+        .fold(0.0f64, f64::max);
+    assert!(
+        max_uz > 1e-10,
+        "Guyan 3D uz should be nonzero for a loaded plate (max_uz={:.6e})",
+        max_uz
+    );
+}
