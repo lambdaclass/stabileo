@@ -1,0 +1,23 @@
+{
+  "viewport.zoomToFit": "Ajuster la vue (F)",
+  "viewport3d.zoomToFit": "Ajuster la vue",
+  "viewport3d.topView": "Vue de dessus",
+  "viewport3d.frontView": "Vue de face",
+  "viewport3d.sideView": "Vue latérale",
+  "viewport3d.switchToOrtho": "Passer en orthographique",
+  "viewport3d.switchToPersp": "Passer en perspective",
+  "viewport3d.disableClipping": "Désactiver le découpage",
+  "viewport3d.enableClipping": "Activer le plan de coupe",
+  "viewport3d.disableMeasure": "Désactiver l'outil de mesure",
+  "viewport3d.enableMeasure": "Mesurer la distance",
+  "table.frame": "Portique",
+  "table.truss": "Treillis",
+  "config.unitSI": "SI (kN, m)",
+  "config.unitImperial": "Impérial (kip, ft)",
+  "matEdit.optional": "optionnel",
+  "dsm.expectedValue": "Valeur attendue",
+  "influence.unitLoad": "P=1",
+  "influence.label": "LI",
+  "influence.node": "Nœud",
+  "influence.elem": "Élém"
+}
