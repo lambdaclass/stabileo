@@ -686,6 +686,7 @@ fn modal_sparse_vs_dense_timing() {
 
 /// Harmonic 3D phase breakdown: measure wall time of each phase in solve_harmonic_3d.
 #[test]
+#[ignore] // ~600s on CI runners — run locally with `cargo test -- --ignored`
 fn harmonic_phase_breakdown() {
     let nx = 20;
     let ny = 20;
@@ -1200,6 +1201,7 @@ fn craig_bampton_phase_breakdown() {
 /// The modal path eigensolves once then sweeps at O(p) per step;
 /// the direct path does a full 2n×2n LU per frequency step.
 #[test]
+#[ignore] // ~600s on CI runners — run locally with `cargo test -- --ignored`
 fn harmonic_modal_vs_direct_timing() {
     let nx = 20;
     let ny = 20;
