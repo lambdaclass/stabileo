@@ -267,7 +267,6 @@ pub fn solve_modal_3d(
     }
 
     let sasm = assemble_sparse_3d(input, &dof_num, false);
-    let k_ff = sasm.k_ff.to_dense_symmetric();
     let m_full = assemble_mass_matrix_3d(input, &dof_num, densities);
 
     let free_idx: Vec<usize> = (0..nf).collect();
@@ -275,14 +274,26 @@ pub fn solve_modal_3d(
 
     // Apply constraint transform if present
     let cs = FreeConstraintSystem::build_3d(&input.constraints, &dof_num, &input.nodes);
-    let (k_solve, m_solve, ns) = if let Some(ref cs) = cs {
-        (cs.reduce_matrix(&k_ff), cs.reduce_matrix(&m_ff), cs.n_free_indep)
+    let result = if cs.is_none() {
+        // Sparse path: skip to_dense_symmetric entirely
+        lanczos_generalized_eigen_sparse(&sasm.k_ff, &m_ff, nf, num_modes, 0.0)
+            .ok_or_else(|| "Eigenvalue decomposition failed".to_string())?
     } else {
-        (k_ff.clone(), m_ff, nf)
+        // Constraint path: needs dense K for reduce_matrix
+        let k_ff = sasm.k_ff.to_dense_symmetric();
+        let cs = cs.as_ref().unwrap();
+        let k_solve = cs.reduce_matrix(&k_ff);
+        let m_solve = cs.reduce_matrix(&m_ff);
+        let ns = cs.n_free_indep;
+        lanczos_generalized_eigen(&k_solve, &m_solve, ns, num_modes, 0.0)
+            .ok_or_else(|| "Eigenvalue decomposition failed".to_string())?
     };
-
-    let result = lanczos_generalized_eigen(&k_solve, &m_solve, ns, num_modes, 0.0)
-        .ok_or_else(|| "Eigenvalue decomposition failed".to_string())?;
+    let ns = cs.as_ref().map_or(nf, |c| c.n_free_indep);
+    let m_solve = if let Some(ref cs) = cs {
+        cs.reduce_matrix(&m_ff)
+    } else {
+        m_ff
+    };
 
     let num_modes = num_modes.min(ns);
 

@@ -1,5 +1,7 @@
 use super::cholesky::{cholesky_decompose, forward_solve, back_solve};
 use super::jacobi::{jacobi_eigen, solve_generalized_eigen, EigenResult};
+use super::sparse::CscMatrix;
+use super::sparse_chol::{symbolic_cholesky, numeric_cholesky, sparse_cholesky_solve};
 
 /// Parameters for Lanczos iteration.
 pub struct LanczosParams {
@@ -526,6 +528,190 @@ pub fn lanczos_generalized_eigen(
         }
     }
     Some(EigenResult { values, vectors })
+}
+
+// ---------------------------------------------------------------------------
+// Sparse operators for CscMatrix
+// ---------------------------------------------------------------------------
+
+/// Sparse symmetric matrix-vector: y = A*x using lower-triangle CSC.
+pub struct SparseSymMatVec<'a> {
+    pub csc: &'a CscMatrix,
+}
+
+impl<'a> MatVecOp for SparseSymMatVec<'a> {
+    fn mul_vec(&self, x: &[f64], y: &mut [f64]) {
+        let result = self.csc.sym_mat_vec(x);
+        y[..self.csc.n].copy_from_slice(&result);
+    }
+    fn dim(&self) -> usize { self.csc.n }
+}
+
+/// Sparse shift-invert operator: y = K⁻¹ M x (for σ=0).
+/// Factorizes K once with sparse Cholesky; each Lanczos iteration does
+/// dense M×x then sparse triangular solve.
+pub struct SparseShiftInvertOp {
+    factor: super::sparse_chol::NumericCholesky,
+    m_dense: Vec<f64>,
+    n: usize,
+}
+
+impl SparseShiftInvertOp {
+    /// Build from sparse K_ff (SPD) and dense M_ff (row-major nf×nf).
+    /// Returns None if sparse Cholesky fails.
+    pub fn new(k_csc: &CscMatrix, m_dense: &[f64], n: usize) -> Option<Self> {
+        let sym = symbolic_cholesky(k_csc);
+        let factor = numeric_cholesky(&sym, k_csc)?;
+        Some(Self { factor, m_dense: m_dense.to_vec(), n })
+    }
+}
+
+impl MatVecOp for SparseShiftInvertOp {
+    fn mul_vec(&self, x: &[f64], y: &mut [f64]) {
+        let n = self.n;
+        // tmp = M * x (dense)
+        let mut tmp = vec![0.0; n];
+        for i in 0..n {
+            let mut s = 0.0;
+            for j in 0..n { s += self.m_dense[i * n + j] * x[j]; }
+            tmp[i] = s;
+        }
+        // y = K⁻¹ tmp (sparse Cholesky solve)
+        let result = sparse_cholesky_solve(&self.factor, &tmp);
+        y[..n].copy_from_slice(&result);
+    }
+    fn dim(&self) -> usize { self.n }
+}
+
+/// Compute k smallest eigenvalues of generalized problem A*x = λ*B*x
+/// where A is sparse (CscMatrix) and B is dense (row-major).
+/// Uses sparse shift-invert Lanczos with σ=0 (K⁻¹ M x).
+/// Falls back to dense for small problems, non-zero sigma, or on failure.
+pub fn lanczos_generalized_eigen_sparse(
+    k_ff: &CscMatrix,
+    m_ff: &[f64],
+    n: usize,
+    k: usize,
+    sigma: f64,
+) -> Option<EigenResult> {
+    let k = k.min(n);
+
+    // For small problems or large fraction of eigenvalues, use dense path
+    if n <= 80 || k >= n / 2 {
+        let k_dense = k_ff.to_dense_symmetric();
+        return solve_generalized_eigen(&k_dense, m_ff, n, 200).map(|full| {
+            let nk = k.min(full.values.len());
+            let values = full.values[..nk].to_vec();
+            let mut vectors = vec![0.0; n * nk];
+            for col in 0..nk {
+                for row in 0..n {
+                    vectors[row * nk + col] = full.vectors[row * n + col];
+                }
+            }
+            EigenResult { values, vectors }
+        });
+    }
+
+    // Non-zero sigma: fall back to dense Lanczos (requires building K - σM)
+    if sigma.abs() > 1e-30 {
+        let k_dense = k_ff.to_dense_symmetric();
+        return lanczos_generalized_eigen(&k_dense, m_ff, n, k, sigma);
+    }
+
+    // Build sparse shift-invert operator: y = K⁻¹ M x
+    if let Some(si_op) = SparseShiftInvertOp::new(k_ff, m_ff, n) {
+        let params = LanczosParams {
+            max_iter: 300,
+            tol: 1e-10,
+            subspace_dim: Some((4 * k).max(40).min(n)),
+        };
+
+        if let Some(mut result) = lanczos_irlm(&si_op, k, true, &params) {
+            // Back-transform: λ = 1/θ (σ=0)
+            for val in result.values.iter_mut() {
+                if val.abs() > 1e-30 {
+                    *val = 1.0 / *val;
+                } else {
+                    *val = f64::INFINITY;
+                }
+            }
+            // Sort ascending
+            let nk = result.values.len();
+            let mut pairs: Vec<(f64, usize)> = result.values.iter().copied()
+                .enumerate().map(|(i, v)| (v, i)).collect();
+            pairs.sort_by(|a, b| a.0.partial_cmp(&b.0).unwrap());
+            let sorted_vals: Vec<f64> = pairs.iter().map(|(v, _)| *v).collect();
+            let mut sorted_vecs = vec![0.0; n * nk];
+            for (new_col, &(_, old_col)) in pairs.iter().enumerate() {
+                for row in 0..n {
+                    sorted_vecs[row * nk + new_col] = result.vectors[row * nk + old_col];
+                }
+            }
+            result.values = sorted_vals;
+            result.vectors = sorted_vecs;
+            return Some(result);
+        }
+    }
+
+    // Fallback to dense
+    let k_dense = k_ff.to_dense_symmetric();
+    lanczos_generalized_eigen(&k_dense, m_ff, n, k, sigma)
+}
+
+/// Solve buckling eigenproblem (-Kg)*φ = μ*K*φ where K is sparse SPD
+/// and -Kg is dense indefinite. Returns μ eigenvalues (caller does λ = 1/μ).
+///
+/// For small n: dense Jacobi with `solve_generalized_eigen(-Kg, K)` (Cholesky on K, SPD).
+/// For large n: sparse shift-invert Lanczos finds largest μ = eigenvalues of K⁻¹(-Kg).
+pub fn lanczos_buckling_eigen_sparse(
+    k_ff: &CscMatrix,
+    neg_kg: &[f64],
+    n: usize,
+    k: usize,
+) -> Option<EigenResult> {
+    let k = k.min(n);
+
+    // For small problems, use dense Jacobi: (-Kg)*φ = μ*K*φ
+    // solve_generalized_eigen(A, B) solves A*x = λ*B*x by Cholesky-decomposing B.
+    // Here B = K (SPD) which is safe.
+    // Return ALL eigenvalues — caller filters for positive μ.
+    if n <= 200 || k >= n / 2 {
+        let k_dense = k_ff.to_dense_symmetric();
+        return solve_generalized_eigen(neg_kg, &k_dense, n, 200);
+    }
+
+    // Large n: sparse shift-invert Lanczos.
+    // Operator: K⁻¹·(-Kg)·x — largest eigenvalues are the largest μ.
+    if let Some(si_op) = SparseShiftInvertOp::new(k_ff, neg_kg, n) {
+        let params = LanczosParams {
+            max_iter: 300,
+            tol: 1e-10,
+            subspace_dim: Some((4 * k).max(40).min(n)),
+        };
+
+        if let Some(mut result) = lanczos_irlm(&si_op, k, true, &params) {
+            // No back-transform needed: θ = μ directly (eigenvalues of K⁻¹(-Kg)).
+            // Sort descending by μ (largest μ = smallest λ = most critical buckling mode).
+            let nk = result.values.len();
+            let mut pairs: Vec<(f64, usize)> = result.values.iter().copied()
+                .enumerate().map(|(i, v)| (v, i)).collect();
+            pairs.sort_by(|a, b| b.0.partial_cmp(&a.0).unwrap()); // descending
+            let sorted_vals: Vec<f64> = pairs.iter().map(|(v, _)| *v).collect();
+            let mut sorted_vecs = vec![0.0; n * nk];
+            for (new_col, &(_, old_col)) in pairs.iter().enumerate() {
+                for row in 0..n {
+                    sorted_vecs[row * nk + new_col] = result.vectors[row * nk + old_col];
+                }
+            }
+            result.values = sorted_vals;
+            result.vectors = sorted_vecs;
+            return Some(result);
+        }
+    }
+
+    // Fallback to dense Jacobi — return ALL eigenvalues so caller can find positive μ
+    let k_dense = k_ff.to_dense_symmetric();
+    solve_generalized_eigen(neg_kg, &k_dense, n, 200)
 }
 
 // ---------------------------------------------------------------------------

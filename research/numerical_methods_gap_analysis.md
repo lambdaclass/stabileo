@@ -20,6 +20,12 @@ The current solver already has:
 - deterministic DOF numbering (merged support constraints)
 - residual-based parity testing (sparse vs dense verified via residual norm)
 - benchmark gates (no-dense-fallback, fill-ratio, parity)
+- global-sort single-pass CSC construction (`from_triplets`) instead of per-column duplicate-compaction memmoves
+- `k_ff`-only sparse assembly where full reactions are not needed
+- sparse assembly reuse in modal, buckling, harmonic, Guyan, and Craig-Bampton workflows
+- sparse modal 3D eigensolver path in the common unconstrained case
+- sparse buckling 3D eigensolver path in the common unconstrained case
+- measured AMD vs RCM fill comparison on shell meshes
 - line search
 - adaptive stepping
 - arc-length / displacement control
@@ -32,7 +38,7 @@ The current solver does **not** yet have:
 - quasi-Newton updates (`BFGS`, `L-BFGS`, `Broyden`, `SR1`)
 - a finished tridiagonal eigensolver in the Lanczos path
 - a true sparse shift-invert eigensolver path
-- sparse-path reuse in modal, buckling, harmonic, and reduction solvers
+- end-to-end sparse eigensolver depth across harmonic and reduction, plus broader sparse eigensolver maturity beyond the common unconstrained modal/buckling cases
 
 ## Corrected Priority Order
 
@@ -51,17 +57,17 @@ These are now complete:
 3. ~~`Add no-fallback / fill-ratio benchmark gates`~~ — DONE
    Benchmark gates now verify: no dense fallback on representative shell models, fill ratio < 200×, sparse-vs-dense residual parity < 1e-6.
 
-### P0.5: Measure Real Runtime Gains (current focus)
+### P0.5: Measure Real Runtime Gains — DONE
 
-The sparse path is healthy. Now prove it matters:
+The sparse path is healthy and measured:
 
-4. `Measure real full-model runtime and memory wins`
-   End-to-end benchmarks on representative models, not just phase-breakdown diagnostics.
+4. ~~`Measure real full-model runtime and memory wins`~~ — DONE
+   Factorization gains of `22-89×`, `22×` end-to-end at `30×30 MITC4`, and sparse modal `11.8×` faster at `20×20 MITC4` are now measured.
 
-### P1: Broader Sparse-Path Reuse
+### P1: Deeper Sparse Eigensolver Integration
 
-5. `Extend sparse path into modal, buckling, harmonic, and reduction solvers`
-   These solver families currently still use dense assembly. The healthy sparse path should now be reused.
+5. `Deepen sparse eigensolver integration`
+   Sparse assembly reuse is partly done, and modal 3D plus buckling 3D already have sparse eigensolver paths in the common unconstrained case. The next step is to reduce remaining dense eigensolver internals in harmonic and reduction workflows and broaden sparse eigensolver maturity further.
 
 6. `Fix the tridiagonal eigensolver`
    The current Lanczos tridiagonal step still falls back to dense Jacobi on the tridiagonal matrix. That is real debt and should be corrected.
@@ -69,19 +75,22 @@ The sparse path is healthy. Now prove it matters:
 7. `Sparse shift-invert eigensolver path`
    Large modal and buckling problems should not stay on a dense shift-invert bottleneck.
 
+8. `Measure sparse runtime on the newly sparse workflows`
+   Modal is now measured. Buckling, harmonic, Guyan, and Craig-Bampton should get the same measured runtime/memory treatment.
+
 ### P2: Scalable Iterative Solve Infrastructure
 
-After broader sparse-path reuse:
+After deeper sparse eigensolver integration:
 
-8. `Iterative refinement`
+9. `Iterative refinement`
    Low effort, useful as a quality backstop.
 
-9. `PCG with simple preconditioning`
+10. `PCG with simple preconditioning`
    Start with:
    - `PCG`
    - diagonal / Jacobi preconditioning
 
-10. `Preconditioner infrastructure`
+11. `Preconditioner infrastructure`
     Then add:
     - `IC(0)`
     - `SSOR`
@@ -106,25 +115,27 @@ These claims are substantially correct:
 - no modified Newton or quasi-Newton variants
 - tridiagonal eigensolver path is unfinished and falls back to dense Jacobi
 - sparse shift-invert eigensolver path is still underdeveloped
-- sparse path not yet reused in modal, buckling, harmonic, and reduction solvers
+- sparse eigensolver depth is still incomplete across harmonic and reduction workflows, and still needs broader maturity around modal/buckling edge cases
 
 These claims are now resolved:
 - ~~dense LU fallback on shell models~~ — eliminated via direct left-looking symbolic Cholesky + two-tier pivot perturbation
 - ~~catastrophic fill on shell meshes~~ — fixed via RCM ordering (673× → 1.8×)
 - ~~nondeterministic assembly and DOF numbering~~ — fixed via sorted iterations and merged support constraints
+- ~~duplicate-compaction memmove bottleneck in sparse CSC construction~~ — fixed via global sort + single-pass `from_triplets`
+- ~~unconditional `k_full` construction in workflows that only need `k_ff`~~ — fixed where sparse assembly reuse is now in place
 
 ## What Was Overstated
 
 These points need qualification:
 
 - `PCG is the single largest gap`
-  Still not the top priority. The sparse direct path is healthy now; next focus is measuring real runtime gains and broader sparse-path reuse.
+  Still not the top priority. The sparse direct path is healthy now; next focus is deeper sparse eigensolver integration, runtime measurement on the newly sparse workflows, and eigensolver cleanup.
 
 - `All structural stiffness matrices are SPD`
   Too broad. Shell drilling DOFs require controlled perturbation. Two-tier pivot perturbation handles this.
 
 - `Modified Newton is the top missing feature`
-  High ROI, yes. But still behind runtime measurement, sparse-path reuse, and eigensolver cleanup.
+  High ROI, yes. But still behind sparse eigensolver depth, runtime measurement on the newly sparse workflows, and eigensolver cleanup.
 
 ## Recommended Roadmap Integration
 
@@ -132,12 +143,13 @@ Use this order in the solver roadmap:
 
 1. ~~sparse shell solve viability~~ — DONE
 2. ~~fill-reducing ordering quality~~ — DONE (RCM, 1.8× fill)
-3. measure real full-model runtime gains (current focus)
-4. extend sparse path into modal, buckling, harmonic, and reduction solvers
-5. tridiagonal eigensolver fix
-6. sparse shift-invert eigensolver
-7. iterative refinement
-8. PCG + Jacobi
-9. preconditioner stack
-10. modified Newton
-11. quasi-Newton variants
+3. ~~measure real full-model runtime gains~~ — DONE
+4. deeper sparse eigensolver integration
+5. measure runtime on the newly sparse modal/buckling/harmonic/reduction workflows
+6. tridiagonal eigensolver fix
+7. sparse shift-invert eigensolver
+8. iterative refinement
+9. PCG + Jacobi
+10. preconditioner stack
+11. modified Newton
+12. quasi-Newton variants

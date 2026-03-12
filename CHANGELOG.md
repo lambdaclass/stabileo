@@ -11,21 +11,36 @@ It should capture what changed, not what should be built next.
 
 ### Added
 
+#### Sparse buckling eigensolver milestone
+
+- added `lanczos_buckling_eigen_sparse` in `engine/src/linalg/lanczos.rs`
+- wired `solve_buckling_3d` to use the sparse buckling eigensolver path directly in the common unconstrained case, while keeping a dense path for small models and conservative fallback behavior
+- added sparse shell gate coverage for sparse buckling parity
+- confirmed the sparse buckling path handles the generalized `K phi = lambda (-Kg) phi` case by factorizing `K` and applying `K^{-1}(-Kg)` as the operator
+
+#### Sparse modal eigensolver milestone
+
+- added sparse Lanczos operators in `engine/src/linalg/lanczos.rs`, including sparse symmetric mat-vec and sparse shift-invert helpers
+- wired `solve_modal_3d` to use the sparse eigensolver path directly in the common unconstrained case, skipping dense `K_ff` reconstruction there
+- added sparse shell gate coverage for:
+  - sparse faster than dense at representative shell size
+  - deterministic sparse assembly
+  - fill-ratio regression bounds
+  - sparse modal parity
+- added measured modal sparse-vs-dense timing coverage, including an `11.8×` speedup at `20×20 MITC4`
+- measured AMD vs RCM fill behavior and confirmed AMD wins materially on larger shell meshes
+
 #### Sparse reuse into 3D eigen and reduction workflows
 
 - switched `solve_modal_3d`, `solve_buckling_3d`, `solve_harmonic_3d`, `guyan_reduce_3d`, and `craig_bampton_3d` from dense `n×n` assembly to sparse assembly plus dense `K_ff` conversion
 - eliminated full dense `n×n` stiffness allocation in those workflows while leaving mass matrices, geometric stiffness, and eigensolver internals unchanged
 - added sparse shell gate coverage for these reuse paths (`321` tests reported green)
 
-#### Sparse assembly profiling and next bottleneck
+#### Sparse assembly bottlenecks resolved
 
-- profiled `assemble_sparse_3d` and found CSC construction dominates sparse assembly wall time
-- identified `CscMatrix::from_triplets` / duplicate compaction as the current hot spot rather than element stiffness computation
-- established that some workflows still overbuild `k_full` even when they only need `k_ff`
-- reframed the next performance step around:
-  - fixing duplicate compaction / CSC construction cost
-  - adding `k_ff`-only sparse assembly where possible
-  - then re-measuring before more parallelization work
+- rewrote `from_triplets` from per-column duplicate compaction to global sort + single-pass CSC build, eliminating the memmove-heavy hotspot
+- added `k_ff`-only sparse assembly where full reactions are not needed
+- sparse assembly on representative shell models moved from major regression to runtime win after those fixes
 
 #### Measured sparse vs dense runtime gains
 

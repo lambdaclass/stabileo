@@ -279,7 +279,6 @@ pub fn solve_buckling_3d(
 
     let free_idx: Vec<usize> = (0..nf).collect();
     let sasm = assemble_sparse_3d(input, &dof_num, false);
-    let k_ff = sasm.k_ff.to_dense_symmetric();
 
     let kg_ff_raw = extract_submatrix(&kg_full, n, &free_idx, &free_idx);
     let mut neg_kg_ff = vec![0.0; nf * nf];
@@ -287,26 +286,37 @@ pub fn solve_buckling_3d(
 
     // Apply constraint transform if present
     let cs = FreeConstraintSystem::build_3d(&input.constraints, &dof_num, &input.nodes);
-    let (k_solve, neg_kg_solve, ns) = if let Some(ref cs) = cs {
-        (cs.reduce_matrix(&k_ff), cs.reduce_matrix(&neg_kg_ff), cs.n_free_indep)
-    } else {
-        (k_ff, neg_kg_ff, nf)
-    };
 
     let has_frame_compression = linear.element_forces.iter().any(|ef| {
         (ef.n_start + ef.n_end) / 2.0 < -1e-6
     });
     // Also check if shell geometric stiffness has non-trivial entries
     let has_shell_kg = (!input.quads.is_empty() || !input.plates.is_empty() || !input.quad9s.is_empty() || !input.solid_shells.is_empty())
-        && neg_kg_solve.iter().any(|&v| v.abs() > 1e-15);
+        && neg_kg_ff.iter().any(|&v| v.abs() > 1e-15);
     if !has_frame_compression && !has_shell_kg {
         return Err("No compressed elements — buckling not applicable".into());
     }
 
-    let result = solve_generalized_eigen(&neg_kg_solve, &k_solve, ns, 200)
-        .ok_or_else(|| "Eigenvalue decomposition failed".to_string())?;
+    // Solve eigenproblem: (-Kg)*φ = μ*K*φ, then λ = 1/μ.
+    // No-constraint path: sparse shift-invert Lanczos (K⁻¹(-Kg)x, K factorized by sparse Cholesky).
+    // Constraint path: dense Jacobi (needs dense K for reduce_matrix).
+    let (result, ns) = if cs.is_none() {
+        let r = lanczos_buckling_eigen_sparse(&sasm.k_ff, &neg_kg_ff, nf, num_modes)
+            .ok_or_else(|| "Eigenvalue decomposition failed".to_string())?;
+        (r, nf)
+    } else {
+        let k_ff = sasm.k_ff.to_dense_symmetric();
+        let cs_ref = cs.as_ref().unwrap();
+        let k_solve = cs_ref.reduce_matrix(&k_ff);
+        let neg_kg_solve = cs_ref.reduce_matrix(&neg_kg_ff);
+        let ns = cs_ref.n_free_indep;
+        let r = solve_generalized_eigen(&neg_kg_solve, &k_solve, ns, 200)
+            .ok_or_else(|| "Eigenvalue decomposition failed".to_string())?;
+        (r, ns)
+    };
 
     let num_modes = num_modes.min(ns);
+    let n_converged = result.values.len();
     let mut mode_pairs: Vec<(f64, usize)> = Vec::new();
     for (idx, &mu) in result.values.iter().enumerate() {
         if mu > 1e-12 {
@@ -317,7 +327,7 @@ pub fn solve_buckling_3d(
 
     let mut modes = Vec::new();
     for &(lambda, idx) in mode_pairs.iter().take(num_modes) {
-        let phi_s: Vec<f64> = (0..ns).map(|i| result.vectors[i * ns + idx]).collect();
+        let phi_s: Vec<f64> = (0..ns).map(|i| result.vectors[i * n_converged + idx]).collect();
         let phi_f = if let Some(ref cs) = cs {
             cs.expand_solution(&phi_s)
         } else {

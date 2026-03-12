@@ -76,6 +76,8 @@ If you only read three documents, read them in this order:
   shell-family selection rules, defaults, and product guidance
 - [`research/numerical_methods_gap_analysis.md`](/Users/unbalancedparen/projects/dedaliano/research/numerical_methods_gap_analysis.md)
   numerical-methods gap analysis and corrected priority order for large-model solver work
+- [`research/webgpu_solver_renderer_analysis.md`](/Users/unbalancedparen/projects/dedaliano/research/webgpu_solver_renderer_analysis.md)
+  WebGPU fit analysis for renderer vs solver work
 
 ## Role Of Each Document
 
