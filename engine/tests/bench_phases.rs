@@ -2,7 +2,11 @@
 //! Run with: cargo test --release --test bench_phases -- --nocapture
 
 use dedaliano_engine::solver::{linear, modal, assembly, dof::DofNumbering};
-use dedaliano_engine::linalg::{extract_submatrix, extract_subvec, lu_solve, symbolic_cholesky_with, CholOrdering};
+use dedaliano_engine::solver::harmonic::{HarmonicInput3D};
+use dedaliano_engine::solver::reduction::{GuyanInput3D, CraigBamptonInput3D};
+use dedaliano_engine::solver::mass_matrix::assemble_mass_matrix_3d;
+use dedaliano_engine::solver::damping::{rayleigh_coefficients, rayleigh_damping_matrix};
+use dedaliano_engine::linalg::{extract_submatrix, extract_subvec, lu_solve, symbolic_cholesky_with, CholOrdering, lanczos_generalized_eigen, cholesky_decompose, forward_solve, back_solve};
 use dedaliano_engine::types::*;
 use std::collections::HashMap;
 use std::time::Instant;
@@ -419,6 +423,119 @@ fn mitc4_element_cost() {
     println!("This means element computation is ~{:.0}% of dense assembly", per_elem_us / 16.7 * 100.0);
 }
 
+/// Like `make_flat_plate` but also returns the `grid[ix][iy] -> node_id` mapping.
+fn make_flat_plate_with_grid(nx: usize, ny: usize) -> (SolverInput3D, Vec<Vec<usize>>) {
+    let lx = 10.0;
+    let ly = 10.0;
+    let t = 0.1;
+    let e = 200_000.0;
+    let nu = 0.3;
+
+    let mut nodes = HashMap::new();
+    let mut grid = vec![vec![0usize; ny + 1]; nx + 1];
+    let mut nid = 1;
+    for i in 0..=nx {
+        for j in 0..=ny {
+            let x = (i as f64 / nx as f64) * lx;
+            let y = (j as f64 / ny as f64) * ly;
+            nodes.insert(nid.to_string(), SolverNode3D { id: nid, x, y, z: 0.0 });
+            grid[i][j] = nid;
+            nid += 1;
+        }
+    }
+
+    let mut quads = HashMap::new();
+    let mut qid = 1;
+    for i in 0..nx {
+        for j in 0..ny {
+            quads.insert(
+                qid.to_string(),
+                SolverQuadElement {
+                    id: qid,
+                    nodes: [grid[i][j], grid[i + 1][j], grid[i + 1][j + 1], grid[i][j + 1]],
+                    material_id: 1,
+                    thickness: t,
+                },
+            );
+            qid += 1;
+        }
+    }
+
+    let mut mats = HashMap::new();
+    mats.insert("1".to_string(), SolverMaterial { id: 1, e, nu });
+
+    let mut supports = HashMap::new();
+    let mut sid = 1;
+    let mut boundary = Vec::new();
+    for j in 0..=ny {
+        boundary.push(grid[0][j]);
+        boundary.push(grid[nx][j]);
+    }
+    for i in 0..=nx {
+        boundary.push(grid[i][0]);
+        boundary.push(grid[i][ny]);
+    }
+    boundary.sort();
+    boundary.dedup();
+    for &n in &boundary {
+        supports.insert(
+            sid.to_string(),
+            SolverSupport3D {
+                node_id: n,
+                rx: false, ry: false, rz: true,
+                rrx: false, rry: false, rrz: false,
+                kx: None, ky: None, kz: None,
+                krx: None, kry: None, krz: None,
+                dx: None, dy: None, dz: None,
+                drx: None, dry: None, drz: None,
+                normal_x: None, normal_y: None, normal_z: None,
+                is_inclined: None, rw: None, kw: None,
+            },
+        );
+        sid += 1;
+    }
+    // Pin one corner fully
+    supports.insert(
+        sid.to_string(),
+        SolverSupport3D {
+            node_id: grid[0][0],
+            rx: true, ry: true, rz: true,
+            rrx: false, rry: false, rrz: false,
+            kx: None, ky: None, kz: None,
+            krx: None, kry: None, krz: None,
+            dx: None, dy: None, dz: None,
+            drx: None, dry: None, drz: None,
+            normal_x: None, normal_y: None, normal_z: None,
+            is_inclined: None, rw: None, kw: None,
+        },
+    );
+
+    let n_quads = quads.len();
+    let loads: Vec<SolverLoad3D> = (1..=n_quads)
+        .map(|eid| SolverLoad3D::QuadPressure(SolverPressureLoad { element_id: eid, pressure: -1.0 }))
+        .collect();
+
+    let input = SolverInput3D {
+        nodes,
+        materials: mats,
+        sections: HashMap::new(),
+        elements: HashMap::new(),
+        supports,
+        loads,
+        constraints: vec![],
+        left_hand: None,
+        plates: HashMap::new(),
+        quads,
+        quad9s: HashMap::new(),
+        solid_shells: HashMap::new(),
+        curved_shells: HashMap::new(),
+        curved_beams: vec![],
+        connectors: HashMap::new(),
+    };
+
+    (input, grid)
+}
+
 /// Dense LU solve timing for a single model. Returns elapsed microseconds,
 /// or None if nf > max_nf (too expensive).
 fn dense_solve_us(input: &SolverInput3D, max_nf: usize) -> Option<u64> {
@@ -563,4 +680,518 @@ fn modal_sparse_vs_dense_timing() {
         println!("  Speedup: {:.1}x", dense_us as f64 / sparse_us.max(1) as f64);
     }
     println!("  Sparse modes: {:?}", result_sparse.modes.iter().map(|m| m.frequency).collect::<Vec<_>>());
+}
+
+// ==================== Phase Breakdown Benchmarks ====================
+
+/// Harmonic 3D phase breakdown: measure wall time of each phase in solve_harmonic_3d.
+#[test]
+fn harmonic_phase_breakdown() {
+    let nx = 20;
+    let ny = 20;
+    let n_freq = 50;
+    let damping_ratio = 0.05;
+
+    let (input, grid) = make_flat_plate_with_grid(nx, ny);
+    let dof_num = DofNumbering::build_3d(&input);
+    let nf = dof_num.n_free;
+    let n = dof_num.n_total;
+
+    // Center node for response target
+    let center_node = grid[nx / 2][ny / 2];
+
+    // Frequency list: 0.1 to 100 Hz in n_freq steps
+    let frequencies: Vec<f64> = (0..n_freq)
+        .map(|i| 0.1 + (100.0 - 0.1) * i as f64 / (n_freq - 1) as f64)
+        .collect();
+
+    let mut densities = HashMap::new();
+    densities.insert("1".to_string(), 7850.0);
+
+    println!("\n=== Harmonic 3D Phase Breakdown ({}x{} MITC4, {} freq steps) ===", nx, ny, n_freq);
+    println!("  nf={}  n_freq={}", nf, n_freq);
+
+    // Phase 1: sparse assembly
+    let t0 = Instant::now();
+    let sasm = assembly::assemble_sparse_3d(&input, &dof_num, false);
+    let sparse_asm_us = t0.elapsed().as_micros() as u64;
+
+    // Phase 2: dense conversion
+    let t0 = Instant::now();
+    let k_ff = sasm.k_ff.to_dense_symmetric();
+    let dense_conv_us = t0.elapsed().as_micros() as u64;
+
+    let f_ff: Vec<f64> = sasm.f[..nf].to_vec();
+
+    // Phase 3: mass matrix assembly + extraction
+    let t0 = Instant::now();
+    let m_full = assemble_mass_matrix_3d(&input, &dof_num, &densities);
+    let free_idx: Vec<usize> = (0..nf).collect();
+    let m_ff = extract_submatrix(&m_full, n, &free_idx, &free_idx);
+    let mass_matrix_us = t0.elapsed().as_micros() as u64;
+
+    // No constraints in this model → k_s = k_ff, m_s = m_ff, f_s = f_ff
+    let ns = nf;
+
+    // Phase 4: Rayleigh eigen (2 modes for damping coefficients)
+    let t0 = Instant::now();
+    let eigen_result = lanczos_generalized_eigen(&k_ff, &m_ff, ns, 2, 0.0);
+    let (a0, a1) = if let Some(ref res) = eigen_result {
+        let positive: Vec<f64> = res.values.iter().copied().filter(|&v| v > 1e-10).collect();
+        if positive.len() >= 2 {
+            rayleigh_coefficients(positive[0].sqrt(), positive[1].sqrt(), damping_ratio)
+        } else if positive.len() == 1 {
+            rayleigh_coefficients(positive[0].sqrt(), 3.0 * positive[0].sqrt(), damping_ratio)
+        } else {
+            (0.0, 0.0)
+        }
+    } else {
+        (0.0, 0.0)
+    };
+    let rayleigh_eigen_us = t0.elapsed().as_micros() as u64;
+
+    // Phase 5: damping matrix
+    let t0 = Instant::now();
+    let c_s = rayleigh_damping_matrix(&m_ff, &k_ff, ns, a0, a1);
+    let damping_us = t0.elapsed().as_micros() as u64;
+
+    // Phase 6: frequency sweep
+    // Replicate solve_complex_system inline: (K - ω²M + iωC)u = F → 2n×2n real block LU
+    let t0 = Instant::now();
+    for &freq in &frequencies {
+        let omega = 2.0 * std::f64::consts::PI * freq;
+        let omega2 = omega * omega;
+        let n2 = 2 * ns;
+        let mut a = vec![0.0; n2 * n2];
+        let mut rhs = vec![0.0; n2];
+
+        for i in 0..ns {
+            for j in 0..ns {
+                let kd = k_ff[i * ns + j] - omega2 * m_ff[i * ns + j];
+                let wc = omega * c_s[i * ns + j];
+                a[i * n2 + j] = kd;
+                a[i * n2 + (ns + j)] = -wc;
+                a[(ns + i) * n2 + j] = wc;
+                a[(ns + i) * n2 + (ns + j)] = kd;
+            }
+        }
+        for i in 0..ns {
+            rhs[i] = f_ff[i];
+        }
+
+        let _ = lu_solve(&mut a, &mut rhs, n2);
+    }
+    let freq_sweep_us = t0.elapsed().as_micros() as u64;
+
+    let sum_phases = sparse_asm_us + dense_conv_us + mass_matrix_us + rayleigh_eigen_us + damping_us + freq_sweep_us;
+
+    println!("  sparse_asm:      {:>8} us", sparse_asm_us);
+    println!("  dense_conv:      {:>8} us", dense_conv_us);
+    println!("  mass_matrix:     {:>8} us", mass_matrix_us);
+    println!("  rayleigh_eigen:  {:>8} us", rayleigh_eigen_us);
+    println!("  damping:         {:>8} us", damping_us);
+    println!("  freq_sweep:      {:>8} us  ({} us/step)", freq_sweep_us, freq_sweep_us / n_freq as u64);
+    println!("  --------------------------------");
+    println!("  sum_phases:      {:>8} us", sum_phases);
+
+    // Full solver for comparison
+    let harmonic_input = HarmonicInput3D {
+        solver: input,
+        densities,
+        frequencies,
+        damping_ratio,
+        response_node_id: center_node,
+        response_dof: "z".to_string(),
+    };
+    let t0 = Instant::now();
+    let _result = dedaliano_engine::solver::harmonic::solve_harmonic_3d(&harmonic_input)
+        .expect("Harmonic solve failed");
+    let full_solver_us = t0.elapsed().as_micros() as u64;
+
+    println!("  full_solver:     {:>8} us", full_solver_us);
+}
+
+/// Guyan 3D phase breakdown: measure wall time of each phase in guyan_reduce_3d.
+#[test]
+fn guyan_phase_breakdown() {
+    let nx = 20;
+    let ny = 20;
+
+    let (input, grid) = make_flat_plate_with_grid(nx, ny);
+    let dof_num = DofNumbering::build_3d(&input);
+    let nf = dof_num.n_free;
+
+    // Boundary nodes = all perimeter nodes
+    let mut boundary_nodes = Vec::new();
+    for j in 0..=ny {
+        boundary_nodes.push(grid[0][j]);
+        boundary_nodes.push(grid[nx][j]);
+    }
+    for i in 0..=nx {
+        boundary_nodes.push(grid[i][0]);
+        boundary_nodes.push(grid[i][ny]);
+    }
+    boundary_nodes.sort();
+    boundary_nodes.dedup();
+
+    println!("\n=== Guyan 3D Phase Breakdown ({}x{} MITC4) ===", nx, ny);
+    println!("  nf={}  boundary_nodes={}", nf, boundary_nodes.len());
+
+    // Phase 1: sparse assembly
+    let t0 = Instant::now();
+    let sasm = assembly::assemble_sparse_3d(&input, &dof_num, false);
+    let sparse_asm_us = t0.elapsed().as_micros() as u64;
+
+    // Phase 2: dense conversion
+    let t0 = Instant::now();
+    let k_ff = sasm.k_ff.to_dense_symmetric();
+    let dense_conv_us = t0.elapsed().as_micros() as u64;
+
+    let f_f: Vec<f64> = sasm.f[..nf].to_vec();
+
+    // No constraints → ns = nf
+    let ns = nf;
+
+    // Phase 3: DOF partition
+    let t0 = Instant::now();
+    let mut boundary_dofs = Vec::new();
+    let mut interior_dofs = Vec::new();
+    for i in 0..ns {
+        let is_boundary = dof_num.map.iter().any(|(&(nid, _), &gdof)| {
+            gdof == i && boundary_nodes.contains(&nid)
+        });
+        if is_boundary {
+            boundary_dofs.push(i);
+        } else {
+            interior_dofs.push(i);
+        }
+    }
+    let nb = boundary_dofs.len();
+    let ni = interior_dofs.len();
+    let dof_partition_us = t0.elapsed().as_micros() as u64;
+
+    println!("  nb={}  ni={}", nb, ni);
+
+    // Phase 4: block extraction
+    let t0 = Instant::now();
+    let k_bb = extract_submatrix(&k_ff, ns, &boundary_dofs, &boundary_dofs);
+    let k_bi = extract_submatrix(&k_ff, ns, &boundary_dofs, &interior_dofs);
+    let k_ib = extract_submatrix(&k_ff, ns, &interior_dofs, &boundary_dofs);
+    let k_ii = extract_submatrix(&k_ff, ns, &interior_dofs, &interior_dofs);
+    let f_b: Vec<f64> = boundary_dofs.iter().map(|&d| f_f[d]).collect();
+    let f_i: Vec<f64> = interior_dofs.iter().map(|&d| f_f[d]).collect();
+    let block_extract_us = t0.elapsed().as_micros() as u64;
+
+    // Phase 5: interior solves (Cholesky factorize-once + nb+1 back-substitutions)
+    let t0 = Instant::now();
+    let mut l_ii = k_ii.clone();
+    assert!(cholesky_decompose(&mut l_ii, ni), "K_II not SPD");
+    let chol_factor_us = t0.elapsed().as_micros() as u64;
+
+    let t0 = Instant::now();
+    let y = forward_solve(&l_ii, &f_i, ni);
+    let _kii_inv_fi = back_solve(&l_ii, &y, ni);
+
+    let mut kii_inv_kib = vec![0.0; ni * nb];
+    for j in 0..nb {
+        let col: Vec<f64> = (0..ni).map(|i| k_ib[i * nb + j]).collect();
+        let y = forward_solve(&l_ii, &col, ni);
+        let sol = back_solve(&l_ii, &y, ni);
+        for i in 0..ni {
+            kii_inv_kib[i * nb + j] = sol[i];
+        }
+    }
+    let back_subs_us = t0.elapsed().as_micros() as u64;
+    let interior_solves_us = chol_factor_us + back_subs_us;
+
+    // Phase 6: condensed assembly (K_c = K_BB - K_BI * Ψ)
+    let t0 = Instant::now();
+    let mut k_condensed = k_bb.clone();
+    for i in 0..nb {
+        for j in 0..nb {
+            let mut sum = 0.0;
+            for p in 0..ni {
+                sum += k_bi[i * ni + p] * kii_inv_kib[p * nb + j];
+            }
+            k_condensed[i * nb + j] -= sum;
+        }
+    }
+    let mut f_condensed = f_b.clone();
+    for i in 0..nb {
+        let mut sum = 0.0;
+        for p in 0..ni {
+            sum += k_bi[i * ni + p] * _kii_inv_fi[p];
+        }
+        f_condensed[i] -= sum;
+    }
+    let condensed_asm_us = t0.elapsed().as_micros() as u64;
+
+    // Phase 7: condensed solve + interior recovery
+    let t0 = Instant::now();
+    let mut k_work = k_condensed.clone();
+    let mut f_work = f_condensed.clone();
+    let u_b = lu_solve(&mut k_work, &mut f_work, nb).expect("Condensed singular");
+
+    let mut rhs_i = f_i;
+    for i in 0..ni {
+        let mut sum = 0.0;
+        for j in 0..nb {
+            sum += k_ib[i * nb + j] * u_b[j];
+        }
+        rhs_i[i] -= sum;
+    }
+    let mut k_work = k_ii;
+    let mut b_work = rhs_i;
+    let _u_i = lu_solve(&mut k_work, &mut b_work, ni).expect("K_II singular (recovery)");
+    let condensed_solve_us = t0.elapsed().as_micros() as u64;
+
+    let sum_phases = sparse_asm_us + dense_conv_us + dof_partition_us + block_extract_us
+        + interior_solves_us + condensed_asm_us + condensed_solve_us;
+
+    println!("  sparse_asm:      {:>8} us", sparse_asm_us);
+    println!("  dense_conv:      {:>8} us", dense_conv_us);
+    println!("  dof_partition:   {:>8} us", dof_partition_us);
+    println!("  block_extract:   {:>8} us", block_extract_us);
+    println!("  interior_solves: {:>8} us  (Cholesky {}us + {} back-subs {}us on {}x{} K_II)", interior_solves_us, chol_factor_us, nb + 1, back_subs_us, ni, ni);
+    println!("  condensed_asm:   {:>8} us", condensed_asm_us);
+    println!("  condensed_solve: {:>8} us", condensed_solve_us);
+    println!("  --------------------------------");
+    println!("  sum_phases:      {:>8} us", sum_phases);
+
+    // Full solver for comparison
+    let guyan_input = GuyanInput3D {
+        solver: input,
+        boundary_nodes,
+    };
+    let t0 = Instant::now();
+    let _result = dedaliano_engine::solver::reduction::guyan_reduce_3d(&guyan_input)
+        .expect("Guyan solve failed");
+    let full_solver_us = t0.elapsed().as_micros() as u64;
+
+    println!("  full_solver:     {:>8} us", full_solver_us);
+}
+
+/// Craig-Bampton 3D phase breakdown: measure wall time of each phase in craig_bampton_3d.
+#[test]
+fn craig_bampton_phase_breakdown() {
+    let nx = 20;
+    let ny = 20;
+    let n_modes = 10;
+
+    let (input, grid) = make_flat_plate_with_grid(nx, ny);
+    let dof_num = DofNumbering::build_3d(&input);
+    let nf = dof_num.n_free;
+    let n = dof_num.n_total;
+
+    let mut densities = HashMap::new();
+    densities.insert("1".to_string(), 7850.0);
+
+    // Boundary nodes = perimeter
+    let mut boundary_nodes = Vec::new();
+    for j in 0..=ny {
+        boundary_nodes.push(grid[0][j]);
+        boundary_nodes.push(grid[nx][j]);
+    }
+    for i in 0..=nx {
+        boundary_nodes.push(grid[i][0]);
+        boundary_nodes.push(grid[i][ny]);
+    }
+    boundary_nodes.sort();
+    boundary_nodes.dedup();
+
+    println!("\n=== Craig-Bampton 3D Phase Breakdown ({}x{} MITC4, {} modes) ===", nx, ny, n_modes);
+    println!("  nf={}  boundary_nodes={}", nf, boundary_nodes.len());
+
+    // Phase 1: sparse assembly
+    let t0 = Instant::now();
+    let sasm = assembly::assemble_sparse_3d(&input, &dof_num, false);
+    let sparse_asm_us = t0.elapsed().as_micros() as u64;
+
+    // Phase 2: dense conversion
+    let t0 = Instant::now();
+    let k_ff = sasm.k_ff.to_dense_symmetric();
+    let dense_conv_us = t0.elapsed().as_micros() as u64;
+
+    // Phase 3: mass matrix assembly + extraction
+    let t0 = Instant::now();
+    let m_full = assemble_mass_matrix_3d(&input, &dof_num, &densities);
+    let free_idx: Vec<usize> = (0..nf).collect();
+    let m_ff = extract_submatrix(&m_full, n, &free_idx, &free_idx);
+    let mass_matrix_us = t0.elapsed().as_micros() as u64;
+
+    let ns = nf;
+
+    // Phase 4: DOF partition
+    let t0 = Instant::now();
+    let mut boundary_dofs = Vec::new();
+    let mut interior_dofs = Vec::new();
+    for i in 0..ns {
+        let is_boundary = dof_num.map.iter().any(|(&(nid, _), &gdof)| {
+            gdof == i && boundary_nodes.contains(&nid)
+        });
+        if is_boundary {
+            boundary_dofs.push(i);
+        } else {
+            interior_dofs.push(i);
+        }
+    }
+    let nb = boundary_dofs.len();
+    let ni = interior_dofs.len();
+    let dof_partition_us = t0.elapsed().as_micros() as u64;
+
+    println!("  nb={}  ni={}", nb, ni);
+
+    // Phase 5: block extraction (K and M)
+    let t0 = Instant::now();
+    let k_bb = extract_submatrix(&k_ff, ns, &boundary_dofs, &boundary_dofs);
+    let k_bi = extract_submatrix(&k_ff, ns, &boundary_dofs, &interior_dofs);
+    let k_ib = extract_submatrix(&k_ff, ns, &interior_dofs, &boundary_dofs);
+    let k_ii = extract_submatrix(&k_ff, ns, &interior_dofs, &interior_dofs);
+    let _m_bb = extract_submatrix(&m_ff, ns, &boundary_dofs, &boundary_dofs);
+    let _m_bi = extract_submatrix(&m_ff, ns, &boundary_dofs, &interior_dofs);
+    let _m_ib = extract_submatrix(&m_ff, ns, &interior_dofs, &boundary_dofs);
+    let m_ii = extract_submatrix(&m_ff, ns, &interior_dofs, &interior_dofs);
+    let block_extract_us = t0.elapsed().as_micros() as u64;
+
+    // Phase 6: constraint modes (Cholesky factorize-once + nb back-subs)
+    let t0 = Instant::now();
+    let mut l_ii = k_ii.clone();
+    assert!(cholesky_decompose(&mut l_ii, ni), "K_II not SPD");
+    let cb_chol_factor_us = t0.elapsed().as_micros() as u64;
+
+    let t0 = Instant::now();
+    let mut psi_s = vec![0.0; ni * nb];
+    for j in 0..nb {
+        let col: Vec<f64> = (0..ni).map(|i| k_ib[i * nb + j]).collect();
+        let y = forward_solve(&l_ii, &col, ni);
+        let sol = back_solve(&l_ii, &y, ni);
+        for i in 0..ni {
+            psi_s[i * nb + j] = -sol[i];
+        }
+    }
+    let cb_back_subs_us = t0.elapsed().as_micros() as u64;
+    let constraint_modes_us = cb_chol_factor_us + cb_back_subs_us;
+
+    // Phase 7: interior eigenproblem (K_II φ = ω² M_II φ) via Lanczos shift-invert
+    // Lanczos factorizes K_II (SPD), not M_II — works even if M_II has zero-mass DOFs
+    let t0 = Instant::now();
+    let eigen_opt = lanczos_generalized_eigen(&k_ii, &m_ii, ni, n_modes, 0.0);
+    let interior_eigen_us = t0.elapsed().as_micros() as u64;
+
+    let (n_modes_kept, reduced_asm_us) = if let Some(eigen) = eigen_opt {
+        let n_modes_kept = n_modes.min(eigen.values.len());
+        let nk = eigen.values.len();
+
+        let mut phi_m = vec![0.0; ni * n_modes_kept];
+        for m in 0..n_modes_kept {
+            let mut max_val = 0.0f64;
+            for i in 0..ni {
+                let v = eigen.vectors[i * nk + m].abs();
+                if v > max_val { max_val = v; }
+            }
+            for i in 0..ni {
+                phi_m[i * n_modes_kept + m] = if max_val > 1e-20 {
+                    eigen.vectors[i * nk + m] / max_val
+                } else {
+                    0.0
+                };
+            }
+        }
+
+        // Phase 8: reduced assembly (T^T K T and T^T M T)
+        let t0 = Instant::now();
+        let nr = nb + n_modes_kept;
+
+        let mut k_ii_phi = vec![0.0; ni * n_modes_kept];
+        for i in 0..ni {
+            for m in 0..n_modes_kept {
+                let mut s = 0.0;
+                for p in 0..ni { s += k_ii[i * ni + p] * phi_m[p * n_modes_kept + m]; }
+                k_ii_phi[i * n_modes_kept + m] = s;
+            }
+        }
+        let mut k_ii_psi = vec![0.0; ni * nb];
+        for i in 0..ni {
+            for j in 0..nb {
+                let mut s = 0.0;
+                for p in 0..ni { s += k_ii[i * ni + p] * psi_s[p * nb + j]; }
+                k_ii_psi[i * nb + j] = s;
+            }
+        }
+        let mut _k_reduced = vec![0.0; nr * nr];
+        for i in 0..nb {
+            for j in 0..nb {
+                let mut val = k_bb[i * nb + j];
+                for p in 0..ni {
+                    val += k_bi[i * ni + p] * psi_s[p * nb + j];
+                    val += psi_s[p * nb + i] * k_ib[p * nb + j];
+                }
+                for p in 0..ni { val += psi_s[p * nb + i] * k_ii_psi[p * nb + j]; }
+                _k_reduced[i * nr + j] = val;
+            }
+        }
+        for i in 0..nb {
+            for m in 0..n_modes_kept {
+                let mut val = 0.0;
+                for p in 0..ni {
+                    val += k_bi[i * ni + p] * phi_m[p * n_modes_kept + m];
+                    val += psi_s[p * nb + i] * k_ii_phi[p * n_modes_kept + m];
+                }
+                _k_reduced[i * nr + (nb + m)] = val;
+                _k_reduced[(nb + m) * nr + i] = val;
+            }
+        }
+        for m1 in 0..n_modes_kept {
+            for m2 in 0..n_modes_kept {
+                let mut val = 0.0;
+                for p in 0..ni { val += phi_m[p * n_modes_kept + m1] * k_ii_phi[p * n_modes_kept + m2]; }
+                _k_reduced[(nb + m1) * nr + (nb + m2)] = val;
+            }
+        }
+        let reduced_asm_us = t0.elapsed().as_micros() as u64;
+        (n_modes_kept, reduced_asm_us)
+    } else {
+        (0, 0)
+    };
+
+    let sum_phases = sparse_asm_us + dense_conv_us + mass_matrix_us + dof_partition_us
+        + block_extract_us + constraint_modes_us + interior_eigen_us + reduced_asm_us;
+
+    println!("  sparse_asm:       {:>8} us", sparse_asm_us);
+    println!("  dense_conv:       {:>8} us", dense_conv_us);
+    println!("  mass_matrix:      {:>8} us", mass_matrix_us);
+    println!("  dof_partition:    {:>8} us", dof_partition_us);
+    println!("  block_extract:    {:>8} us", block_extract_us);
+    println!("  constraint_modes: {:>8} us  (Cholesky {}us + {} back-subs {}us on {}x{} K_II)", constraint_modes_us, cb_chol_factor_us, nb, cb_back_subs_us, ni, ni);
+    let eigen_ok = n_modes_kept > 0;
+    if eigen_ok {
+        println!("  interior_eigen:   {:>8} us  (Lanczos {} modes from {}x{})", interior_eigen_us, n_modes_kept, ni, ni);
+        println!("  reduced_asm:      {:>8} us  (K only, {}x{} reduced)", reduced_asm_us, nb + n_modes_kept, nb + n_modes_kept);
+    } else {
+        println!("  interior_eigen:   {:>8} us  (FAILED — Lanczos failed, {}x{})", interior_eigen_us, ni, ni);
+        println!("  reduced_asm:      {:>8}", "N/A");
+    }
+    println!("  --------------------------------");
+    println!("  sum_phases:       {:>8} us", sum_phases);
+
+    // Full solver for comparison
+    let cb_input = CraigBamptonInput3D {
+        solver: input,
+        boundary_nodes,
+        n_modes,
+        densities,
+    };
+    let t0 = Instant::now();
+    let result = dedaliano_engine::solver::reduction::craig_bampton_3d(&cb_input);
+    let full_solver_us = t0.elapsed().as_micros() as u64;
+
+    match result {
+        Ok(r) => {
+            println!("  full_solver:      {:>8} us", full_solver_us);
+            println!("  interior freqs:   {:?}", r.interior_frequencies);
+        }
+        Err(e) => {
+            println!("  full_solver:      {:>8} us  (FAILED: {})", full_solver_us, e);
+        }
+    }
 }
