@@ -332,7 +332,7 @@
 <div class="pro-panel">
   <!-- Action bar -->
   <div class="pro-actions">
-    <button class="pro-example-btn" onclick={() => { modelStore.loadExample('pro-edificio-7p'); uiStore.includeSelfWeight = true; uiStore.showGrid3D = false; uiStore.showAxes3D = false; setTimeout(() => window.dispatchEvent(new Event('dedaliano-zoom-to-fit')), 100); }} title={t('pro.exampleTitle')}>
+    <button class="pro-example-btn" onclick={() => { modelStore.loadExample('pro-edificio-7p'); uiStore.includeSelfWeight = true; uiStore.showGrid3D = false; uiStore.showAxes3D = false; setTimeout(() => window.dispatchEvent(new Event('stabileo-zoom-to-fit')), 100); }} title={t('pro.exampleTitle')}>
       {t('pro.exampleBtn')}
     </button>
     <button class="pro-solve-btn" onclick={handleSolve} disabled={!hasModel || solving}>

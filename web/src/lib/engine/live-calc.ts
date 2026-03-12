@@ -3,7 +3,7 @@
  *
  * Provides two functions:
  *  - runLiveCalc()    — called inside the reactive $effect when liveCalc is ON
- *  - runGlobalSolve() — called from the 'dedaliano-solve' global event (manual solve)
+ *  - runGlobalSolve() — called from the 'stabileo-solve' global event (manual solve)
  *
  * Both delegate to modelStore.solve / solve3D but encapsulate NaN-checking,
  * combination solving, diagram-type restoration and error handling so App.svelte
@@ -101,7 +101,7 @@ export async function runGlobalSolve(): Promise<void> {
   } else if (uiStore.analysisMode === 'edu') {
     // Edu mode handles its own solve via edu-solver.ts (registered listener).
     // This branch is a no-op safety fallback — the edu module's listener
-    // fires first on the same 'dedaliano-solve' event.
+    // fires first on the same 'stabileo-solve' event.
     return;
   } else {
     globalSolve2D();

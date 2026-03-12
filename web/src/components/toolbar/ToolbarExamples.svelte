@@ -182,7 +182,7 @@
   {#if showExamples}
     <div class="examples-list">
       {#each examplesPro as ex}
-        <button class="example-item" onclick={() => { modelStore.loadExample(ex.id); resultsStore.clear(); resultsStore.clear3D(); if (uiStore.isMobile) uiStore.leftDrawerOpen = false; setTimeout(() => window.dispatchEvent(new Event('dedaliano-zoom-to-fit')), 50); }}>
+        <button class="example-item" onclick={() => { modelStore.loadExample(ex.id); resultsStore.clear(); resultsStore.clear3D(); if (uiStore.isMobile) uiStore.leftDrawerOpen = false; setTimeout(() => window.dispatchEvent(new Event('stabileo-zoom-to-fit')), 50); }}>
           <span class="example-name">{t(ex.nameKey)}</span>
           <span class="example-desc">{t(ex.descKey)}</span>
         </button>
@@ -201,7 +201,7 @@
   {#if showExamples}
     <div class="examples-list">
       {#each examples.filter(ex => !['truss','warren-truss','howe-truss'].includes(ex.id)) as ex}
-        <button class="example-item" onclick={() => { modelStore.loadExample(ex.id); resultsStore.clear(); resultsStore.clear3D(); if (uiStore.isMobile) uiStore.leftDrawerOpen = false; setTimeout(() => window.dispatchEvent(new Event('dedaliano-zoom-to-fit')), 50); }}>
+        <button class="example-item" onclick={() => { modelStore.loadExample(ex.id); resultsStore.clear(); resultsStore.clear3D(); if (uiStore.isMobile) uiStore.leftDrawerOpen = false; setTimeout(() => window.dispatchEvent(new Event('stabileo-zoom-to-fit')), 50); }}>
           <span class="example-name">{t(ex.nameKey)}</span>
           <span class="example-desc">{t(ex.descKey)}</span>
         </button>
@@ -217,7 +217,7 @@
   {#if showExamples3D}
     <div class="examples-list">
       {#each examples3D as ex}
-        <button class="example-item" onclick={() => { if (ex.generate) { ex.generate(modelStore); } else { modelStore.loadExample(ex.id); } resultsStore.clear(); resultsStore.clear3D(); if (uiStore.isMobile) uiStore.leftDrawerOpen = false; setTimeout(() => window.dispatchEvent(new Event('dedaliano-zoom-to-fit')), 50); }}>
+        <button class="example-item" onclick={() => { if (ex.generate) { ex.generate(modelStore); } else { modelStore.loadExample(ex.id); } resultsStore.clear(); resultsStore.clear3D(); if (uiStore.isMobile) uiStore.leftDrawerOpen = false; setTimeout(() => window.dispatchEvent(new Event('stabileo-zoom-to-fit')), 50); }}>
           <span class="example-name">{t(ex.nameKey)}</span>
           <span class="example-desc">{t(ex.descKey)}</span>
         </button>
@@ -236,7 +236,7 @@
   {#if showExamples}
     <div class="examples-list">
       {#each examples as ex}
-        <button class="example-item" onclick={() => { modelStore.loadExample(ex.id); resultsStore.clear(); resultsStore.clear3D(); if (uiStore.isMobile) uiStore.leftDrawerOpen = false; setTimeout(() => window.dispatchEvent(new Event('dedaliano-zoom-to-fit')), 50); }}>
+        <button class="example-item" onclick={() => { modelStore.loadExample(ex.id); resultsStore.clear(); resultsStore.clear3D(); if (uiStore.isMobile) uiStore.leftDrawerOpen = false; setTimeout(() => window.dispatchEvent(new Event('stabileo-zoom-to-fit')), 50); }}>
           <span class="example-name">{t(ex.nameKey)}</span>
           <span class="example-desc">{t(ex.descKey)}</span>
         </button>
@@ -254,7 +254,7 @@
   {#if showExamples}
     <div class="examples-list">
       {#each examples as ex}
-        <button class="example-item" onclick={() => { modelStore.loadExample(ex.id); resultsStore.clear(); resultsStore.clear3D(); if (uiStore.isMobile) uiStore.leftDrawerOpen = false; setTimeout(() => window.dispatchEvent(new Event('dedaliano-zoom-to-fit')), 50); }}>
+        <button class="example-item" onclick={() => { modelStore.loadExample(ex.id); resultsStore.clear(); resultsStore.clear3D(); if (uiStore.isMobile) uiStore.leftDrawerOpen = false; setTimeout(() => window.dispatchEvent(new Event('stabileo-zoom-to-fit')), 50); }}>
           <span class="example-name">{t(ex.nameKey)}</span>
           <span class="example-desc">{t(ex.descKey)}</span>
         </button>

@@ -219,7 +219,7 @@ function createTabManager() {
       uiStore.cameraTarget3D = { ...state.cameraTarget3D };
       // Notify 3D viewport to update its Three.js camera
       queueMicrotask(() => {
-        window.dispatchEvent(new Event('dedaliano-restore-camera-3d'));
+        window.dispatchEvent(new Event('stabileo-restore-camera-3d'));
       });
     } catch (err) {
       console.error('Tab restore failed:', err);
@@ -232,7 +232,7 @@ function createTabManager() {
       // Defer solve to let the model restore propagate
       setTimeout(() => {
         if (signal.aborted) return;
-        window.dispatchEvent(new Event('dedaliano-solve'));
+        window.dispatchEvent(new Event('stabileo-solve'));
         // After solve, restore diagram type
         setTimeout(() => {
           if (signal.aborted) return;

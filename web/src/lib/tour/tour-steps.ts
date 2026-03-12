@@ -8,12 +8,12 @@ function loadExampleAndZoom(exampleId: string) {
   modelStore.loadExample(exampleId);
   resultsStore.clear();
   resultsStore.clear3D();
-  setTimeout(() => window.dispatchEvent(new Event('dedaliano-zoom-to-fit')), 50);
+  setTimeout(() => window.dispatchEvent(new Event('stabileo-zoom-to-fit')), 50);
 }
 
 /** Trigger the solve flow via the global event (same as Enter key / mobile panel) */
 function triggerSolve() {
-  window.dispatchEvent(new Event('dedaliano-solve'));
+  window.dispatchEvent(new Event('stabileo-solve'));
 }
 
 const isEmbed = typeof window !== 'undefined' && window !== window.parent;
@@ -312,7 +312,7 @@ export function buildTourSteps(): TourStep[] {
         }
         // Re-solve in 3D so there are results to see
         setTimeout(() => triggerSolve(), 300);
-        setTimeout(() => window.dispatchEvent(new Event('dedaliano-zoom-to-fit')), 600);
+        setTimeout(() => window.dispatchEvent(new Event('stabileo-zoom-to-fit')), 600);
       },
       onExit: () => {
         // Return to 2D for the rest of the tour
@@ -348,7 +348,7 @@ export function buildTourSteps(): TourStep[] {
         // before dispatching the event that opens the Advanced section
         const delay = uiStore.isMobile ? 350 : 0;
         setTimeout(() => {
-          window.dispatchEvent(new Event('dedaliano-open-advanced'));
+          window.dispatchEvent(new Event('stabileo-open-advanced'));
           setTimeout(() => {
             safeScrollIntoView('[data-tour="advanced-section"]');
           }, 150);
@@ -370,8 +370,8 @@ export function buildTourSteps(): TourStep[] {
       allowInteraction: true,
       onEnter: () => {
         // Ensure sections are closed so spotlight covers both collapsed headers
-        window.dispatchEvent(new Event('dedaliano-close-config'));
-        window.dispatchEvent(new Event('dedaliano-close-project'));
+        window.dispatchEvent(new Event('stabileo-close-config'));
+        window.dispatchEvent(new Event('stabileo-close-project'));
         if (uiStore.isMobile) {
           uiStore.leftDrawerOpen = true;
         } else if (!uiStore.leftSidebarOpen) {
@@ -393,7 +393,7 @@ export function buildTourSteps(): TourStep[] {
       onExit: () => {
         // If running inside the landing page iframe, open the full app
         if (isEmbed) {
-          try { window.parent.postMessage('dedaliano-enter-app', '*'); } catch { /* cross-origin */ }
+          try { window.parent.postMessage('stabileo-enter-app', '*'); } catch { /* cross-origin */ }
         }
       },
     },

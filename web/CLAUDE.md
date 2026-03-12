@@ -1,11 +1,11 @@
-# Dedaliano — Structural Analysis Web App
+# Stabileo — Structural Analysis Web App
 
 Interactive 2D + 3D structural analysis application using the Direct Stiffness Method (DSM).
 Educational tool with step-by-step solver visualization for civil/structural engineering.
 
 ## URLs
 
-- **Producción**: https://dedaliano.com (y https://dedaliano.pages.dev — mismo deploy)
+- **Producción**: https://stabileo.com (y https://stabileo.pages.dev — mismo deploy)
 - **Dev local**: http://localhost:4000 (`npm run dev`)
 - **Repo**: https://github.com/Batuis/dedaliano (privado)
 
@@ -293,7 +293,7 @@ Key test patterns:
 
 ## Feedback System
 
-Los usuarios pueden enviar feedback desde dedaliano.com usando el widget flotante (botón rojo abajo a la derecha).
+Los usuarios pueden enviar feedback desde stabileo.com usando el widget flotante (botón rojo abajo a la derecha).
 
 ### Dónde se almacenan los feedbacks
 

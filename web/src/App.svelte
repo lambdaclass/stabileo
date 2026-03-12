@@ -179,7 +179,7 @@
         uiStore.pendingSolveFromURL = null;
         setTimeout(() => {
           // Dispatch global solve event (same as clicking Calcular)
-          window.dispatchEvent(new Event('dedaliano-solve'));
+          window.dispatchEvent(new Event('stabileo-solve'));
           // After solve completes, set the diagram type from the share link
           setTimeout(() => {
             if (resultsStore.results !== null || resultsStore.results3D !== null) {
@@ -207,36 +207,36 @@
     window.addEventListener('resize', onResize);
 
     // Listen for PNG export event from Toolbar
-    window.addEventListener('dedaliano-export-png', handleExportPNG);
+    window.addEventListener('stabileo-export-png', handleExportPNG);
     const handleImportEvent = () => { showImportDialog = true; };
-    window.addEventListener('dedaliano-import-coords', handleImportEvent);
+    window.addEventListener('stabileo-import-coords', handleImportEvent);
     const handleTemplateEvent = () => { showTemplateDialog = true; };
-    window.addEventListener('dedaliano-open-template', handleTemplateEvent);
+    window.addEventListener('stabileo-open-template', handleTemplateEvent);
     const handleDxfImportEvent = () => { dxfFileInput?.click(); };
-    window.addEventListener('dedaliano-import-dxf', handleDxfImportEvent);
+    window.addEventListener('stabileo-import-dxf', handleDxfImportEvent);
     const handleDxfDropEvent = (e: Event) => {
       const ce = e as CustomEvent<File>;
       dxfImportFile = ce.detail;
       showDxfImport = true;
     };
-    window.addEventListener('dedaliano-dxf-drop', handleDxfDropEvent);
+    window.addEventListener('stabileo-dxf-drop', handleDxfDropEvent);
     const handleIfcImportEvent = () => { ifcFileInput?.click(); };
-    window.addEventListener('dedaliano-import-ifc', handleIfcImportEvent);
+    window.addEventListener('stabileo-import-ifc', handleIfcImportEvent);
 
     // Global solve event — always mounted (mobile bottom bar dispatches this)
     const handleGlobalSolve = () => runGlobalSolve();
-    window.addEventListener('dedaliano-solve', handleGlobalSolve);
+    window.addEventListener('stabileo-solve', handleGlobalSolve);
 
     return () => {
       if (autosaveInterval) clearInterval(autosaveInterval);
       window.removeEventListener('resize', onResize);
-      window.removeEventListener('dedaliano-export-png', handleExportPNG);
-      window.removeEventListener('dedaliano-import-coords', handleImportEvent);
-      window.removeEventListener('dedaliano-open-template', handleTemplateEvent);
-      window.removeEventListener('dedaliano-import-dxf', handleDxfImportEvent);
-      window.removeEventListener('dedaliano-dxf-drop', handleDxfDropEvent);
-      window.removeEventListener('dedaliano-import-ifc', handleIfcImportEvent);
-      window.removeEventListener('dedaliano-solve', handleGlobalSolve);
+      window.removeEventListener('stabileo-export-png', handleExportPNG);
+      window.removeEventListener('stabileo-import-coords', handleImportEvent);
+      window.removeEventListener('stabileo-open-template', handleTemplateEvent);
+      window.removeEventListener('stabileo-import-dxf', handleDxfImportEvent);
+      window.removeEventListener('stabileo-dxf-drop', handleDxfDropEvent);
+      window.removeEventListener('stabileo-import-ifc', handleIfcImportEvent);
+      window.removeEventListener('stabileo-solve', handleGlobalSolve);
     };
   });
 
@@ -281,7 +281,7 @@
   <header class="app-header">
     <div class="logo">
       <span class="logo-icon">△</span>
-      <span class="logo-text">Dedaliano</span>
+      <span class="logo-text">Stabileo</span>
       <div class="mode-toggle" data-tour="mode-toggle">
         <button class:active={uiStore.appMode === 'basico'} onclick={() => switchAppMode('basico')}>
           {t('app.modeBasic')}

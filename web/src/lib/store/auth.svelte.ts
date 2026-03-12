@@ -12,7 +12,15 @@ export interface AuthUser {
   exp: number; // token expiration (unix seconds)
 }
 
-const STORAGE_KEY = 'dedaliano-auth-user';
+// Migrate old storage key
+if (typeof localStorage !== 'undefined') {
+  if (localStorage.getItem('dedaliano-auth-user') !== null && localStorage.getItem('stabileo-auth-user') === null) {
+    localStorage.setItem('stabileo-auth-user', localStorage.getItem('dedaliano-auth-user')!);
+    localStorage.removeItem('dedaliano-auth-user');
+  }
+}
+
+const STORAGE_KEY = 'stabileo-auth-user';
 
 function loadUser(): AuthUser | null {
   if (typeof localStorage === 'undefined') return null;

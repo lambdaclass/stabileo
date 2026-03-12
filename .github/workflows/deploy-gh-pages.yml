@@ -37,7 +37,7 @@ jobs:
         working-directory: web
         run: npm run build
         env:
-          BASE_PATH: /dedaliano
+          BASE_PATH: /stabileo
 
       - uses: actions/configure-pages@v5
 

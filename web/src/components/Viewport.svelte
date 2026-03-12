@@ -150,7 +150,7 @@
       if (modelStore.nodes.size === 0) return;
       uiStore.zoomToFit(modelStore.nodes.values(), canvas.width, canvas.height);
     };
-    window.addEventListener('dedaliano-zoom-to-fit', handleZoomToFitEvent);
+    window.addEventListener('stabileo-zoom-to-fit', handleZoomToFitEvent);
 
     // Render loop
     let raf: number;
@@ -164,7 +164,7 @@
       cancelAnimationFrame(raf);
       ro.disconnect();
       if (resizeTimer) clearTimeout(resizeTimer);
-      window.removeEventListener('dedaliano-zoom-to-fit', handleZoomToFitEvent);
+      window.removeEventListener('stabileo-zoom-to-fit', handleZoomToFitEvent);
     };
   });
 
@@ -1847,7 +1847,7 @@
       e.preventDefault();
       const file = e.dataTransfer?.files[0];
       if (file && file.name.toLowerCase().endsWith('.dxf')) {
-        window.dispatchEvent(new CustomEvent('dedaliano-dxf-drop', { detail: file }));
+        window.dispatchEvent(new CustomEvent('stabileo-dxf-drop', { detail: file }));
       }
     }}
     style="cursor: {getCursor()}"

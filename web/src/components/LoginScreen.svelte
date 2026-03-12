@@ -62,7 +62,7 @@
   <div class="login-card">
     <div class="login-logo">
       <span class="login-icon">△</span>
-      <span class="login-title">Dedaliano</span>
+      <span class="login-title">Stabileo</span>
     </div>
     <p class="login-subtitle">{t('auth.subtitle')}</p>
 

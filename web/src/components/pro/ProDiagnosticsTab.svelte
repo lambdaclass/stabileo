@@ -97,11 +97,11 @@
     if (diag.elementIds && diag.elementIds.length > 0) {
       uiStore.selectedElements = new Set(diag.elementIds);
       uiStore.selectedNodes = new Set();
-      window.dispatchEvent(new Event('dedaliano-zoom-to-fit'));
+      window.dispatchEvent(new Event('stabileo-zoom-to-fit'));
     } else if (diag.nodeIds && diag.nodeIds.length > 0) {
       uiStore.selectedNodes = new Set(diag.nodeIds);
       uiStore.selectedElements = new Set();
-      window.dispatchEvent(new Event('dedaliano-zoom-to-fit'));
+      window.dispatchEvent(new Event('stabileo-zoom-to-fit'));
     }
   }
 

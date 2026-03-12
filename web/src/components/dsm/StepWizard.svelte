@@ -23,7 +23,7 @@
     else if (e.key === 'ArrowLeft' || e.key === 'ArrowUp') { e.preventDefault(); dsmStepsStore.prevStep(); }
     else if (e.key === 'Escape') {
       dsmStepsStore.close();
-      setTimeout(() => window.dispatchEvent(new Event('dedaliano-zoom-to-fit')), 100);
+      setTimeout(() => window.dispatchEvent(new Event('stabileo-zoom-to-fit')), 100);
     }
   }
 </script>
@@ -43,7 +43,7 @@
     </button>
     <button class="close-btn" onclick={() => {
       dsmStepsStore.close();
-      setTimeout(() => window.dispatchEvent(new Event('dedaliano-zoom-to-fit')), 100);
+      setTimeout(() => window.dispatchEvent(new Event('stabileo-zoom-to-fit')), 100);
     }}>✕</button>
   </div>
 

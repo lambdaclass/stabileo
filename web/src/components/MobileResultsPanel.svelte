@@ -15,7 +15,7 @@
   );
 
   function handleSolve() {
-    window.dispatchEvent(new Event('dedaliano-solve'));
+    window.dispatchEvent(new Event('stabileo-solve'));
   }
 
   function stepDeformedScale(delta: number) {

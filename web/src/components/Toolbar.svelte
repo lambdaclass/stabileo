@@ -403,7 +403,7 @@
     // F: Zoom to fit
     if (key === 'F') {
       if (uiStore.analysisMode === '3d') {
-        window.dispatchEvent(new Event('dedaliano-zoom-to-fit'));
+        window.dispatchEvent(new Event('stabileo-zoom-to-fit'));
       } else {
         zoomToFit();
       }
