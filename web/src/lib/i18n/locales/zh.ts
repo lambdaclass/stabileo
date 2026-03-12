@@ -2,11 +2,6 @@ import type { Translations } from '../types';
 
 const zh: Translations = {
   // ─── Auth / Login ───
-  'auth.subtitle': '交互式结构分析',
-  'auth.error': '初始化 Google 登录失败。请刷新页面。',
-  'auth.devMode': '开发模式 — 登录已禁用（未配置 VITE_GOOGLE_CLIENT_ID）',
-  'auth.footer': '使用您的 Google 账户登录以访问应用。您的信息仅用于标识会话。',
-  'auth.logout': '退出登录',
 
   // ─── Landing Page ───
   'landing.features': '功能',

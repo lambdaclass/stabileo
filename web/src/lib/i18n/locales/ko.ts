@@ -2,11 +2,6 @@ import type { Translations } from '../types';
 
 const ko: Translations = {
   // ─── Auth / Login ───
-  'auth.subtitle': '대화형 구조 해석',
-  'auth.error': 'Google 로그인 초기화에 실패했습니다. 페이지를 새로고침하세요.',
-  'auth.devMode': '개발 모드 — 로그인 비활성화 (VITE_GOOGLE_CLIENT_ID 미설정)',
-  'auth.footer': 'Google 계정으로 로그인하여 애플리케이션에 접근하세요. 귀하의 정보는 세션 식별 목적으로만 사용됩니다.',
-  'auth.logout': '로그아웃',
 
   // ─── Landing Page ───
   'landing.features': '기능',

@@ -1,11 +1,6 @@
 import type { Translations } from '../types';
 const hi: Translations = {
   // ─── Auth / Login ───
-  'auth.subtitle': 'इंटरैक्टिव संरचनात्मक विश्लेषण',
-  'auth.error': 'Google साइन-इन प्रारंभ करने में विफल। कृपया पृष्ठ पुनः लोड करें।',
-  'auth.devMode': 'विकास मोड — लॉगिन अक्षम (VITE_GOOGLE_CLIENT_ID सेट नहीं है)',
-  'auth.footer': 'एप्लिकेशन तक पहुँचने के लिए अपने Google खाते से साइन इन करें। आपकी जानकारी केवल आपके सत्र की पहचान के लिए उपयोग की जाती है।',
-  'auth.logout': 'लॉग आउट',
 
   // ─── Landing Page ───
   'landing.features': 'विशेषताएँ',

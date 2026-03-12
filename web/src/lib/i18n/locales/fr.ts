@@ -1,11 +1,6 @@
 import type { Translations } from '../types';
 const fr: Translations = {
   // ─── Auth / Login ───
-  'auth.subtitle': 'Analyse structurelle',
-  'auth.error': 'Code d\'accès invalide',
-  'auth.devMode': 'Mode développeur actif — authentification ignorée',
-  'auth.footer': 'Outil éducatif d\'analyse structurelle',
-  'auth.logout': 'Déconnexion',
 
   // ─── Landing Page ───
   'landing.features': 'Fonctionnalités',

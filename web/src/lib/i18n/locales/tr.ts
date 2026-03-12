@@ -1,11 +1,6 @@
 import type { Translations } from '../types';
 const tr: Translations = {
   // ─── Auth / Login ───
-  'auth.subtitle': 'Etkileşimli yapı analizi',
-  'auth.error': 'Google Oturum Açma başlatılamadı. Lütfen sayfayı yenileyin.',
-  'auth.devMode': 'Geliştirme modu — giriş devre dışı (VITE_GOOGLE_CLIENT_ID ayarlanmamış)',
-  'auth.footer': 'Uygulamaya erişmek için Google hesabınızla oturum açın. Bilgileriniz yalnızca oturumunuzu tanımlamak için kullanılır.',
-  'auth.logout': 'Çıkış yap',
 
   // ─── Landing Page ───
   'landing.features': 'Özellikler',

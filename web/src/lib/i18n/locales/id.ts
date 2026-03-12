@@ -2,11 +2,6 @@ import type { Translations } from '../types';
 
 const id: Translations = {
   // ─── Auth / Login ───
-  'auth.subtitle': 'Analisis struktur interaktif',
-  'auth.error': 'Gagal menginisialisasi Google Sign-In. Muat ulang halaman.',
-  'auth.devMode': 'Mode pengembangan — login dinonaktifkan (VITE_GOOGLE_CLIENT_ID tidak dikonfigurasi)',
-  'auth.footer': 'Masuk dengan akun Google Anda untuk mengakses aplikasi. Informasi Anda hanya digunakan untuk mengidentifikasi sesi Anda.',
-  'auth.logout': 'Keluar',
 
   // ─── Landing Page ───
   'landing.features': 'Fitur',

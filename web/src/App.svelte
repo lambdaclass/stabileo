@@ -36,12 +36,7 @@
   import { tourStore } from './lib/store/tour.svelte';
   import { buildTourSteps } from './lib/tour/tour-steps';
   import { runLiveCalc, runGlobalSolve } from './lib/engine/live-calc';
-  import LandingPage from './components/LandingPage.svelte';
-  import { authStore } from './lib/store/auth.svelte';
-
   const isEmbedDemo = new URLSearchParams(location.search).has('embed');
-  if (isEmbedDemo) authStore.setReady();
-  const needsLogin = $derived(!authStore.ready && !isEmbedDemo);
 
   // ─── Per-mode model persistence ───
   // When switching between básico/edu/pro, save the current model and restore
@@ -273,11 +268,7 @@
   });
 </script>
 
-{#if needsLogin}
-  <LandingPage />
-{/if}
-
-<div class="app-container" class:embed-mode={uiStore.embedMode} class:hidden-behind-login={needsLogin}>
+<div class="app-container" class:embed-mode={uiStore.embedMode}>
   <header class="app-header">
     <div class="logo">
       <span class="logo-icon">△</span>
@@ -312,15 +303,6 @@
         <option value="ar">{t('lang.ar')}</option>
         <option value="id">{t('lang.id')}</option>
       </select>
-      {#if authStore.isLoggedIn}
-        <button class="btn-user" onclick={() => authStore.logout()} title={t('auth.logout')}>
-          {#if authStore.user?.picture}
-            <img src={authStore.user.picture} alt="" class="user-avatar" referrerpolicy="no-referrer" />
-          {:else}
-            <span class="user-initial">{authStore.user?.name?.[0] ?? '?'}</span>
-          {/if}
-        </button>
-      {/if}
     </div>
   </header>
 
@@ -818,41 +800,6 @@
   .lang-select option {
     background: #16213e;
     color: #eee;
-  }
-
-  .hidden-behind-login {
-    pointer-events: none;
-    filter: blur(4px);
-    opacity: 0.3;
-  }
-
-  .btn-user {
-    background: transparent;
-    border: 1px solid #555;
-    border-radius: 50%;
-    width: 32px;
-    height: 32px;
-    padding: 0;
-    cursor: pointer;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    overflow: hidden;
-    transition: border-color 0.2s;
-  }
-  .btn-user:hover {
-    border-color: #e94560;
-  }
-  .user-avatar {
-    width: 100%;
-    height: 100%;
-    object-fit: cover;
-    border-radius: 50%;
-  }
-  .user-initial {
-    color: #aaa;
-    font-size: 0.8rem;
-    font-weight: 600;
   }
 
   .btn-toggle {

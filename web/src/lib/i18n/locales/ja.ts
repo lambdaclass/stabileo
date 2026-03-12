@@ -2,11 +2,6 @@ import type { Translations } from '../types';
 
 const ja: Translations = {
   // ─── Auth / Login ───
-  'auth.subtitle': 'インタラクティブ構造解析',
-  'auth.error': 'Google Sign-Inの初期化に失敗しました。ページを再読み込みしてください。',
-  'auth.devMode': '開発モード — ログイン無効（VITE_GOOGLE_CLIENT_ID未設定）',
-  'auth.footer': 'Googleアカウントでサインインしてアプリにアクセスします。情報はセッション識別にのみ使用されます。',
-  'auth.logout': 'ログアウト',
 
   // ─── Landing Page ───
   'landing.features': '機能',

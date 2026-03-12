@@ -2,11 +2,6 @@ import type { Translations } from '../types';
 
 const ru: Translations = {
   // ─── Auth / Login ───
-  'auth.subtitle': 'Интерактивный расчёт конструкций',
-  'auth.error': 'Ошибка при инициализации Google Sign-In. Перезагрузите страницу.',
-  'auth.devMode': 'Режим разработки — авторизация отключена (VITE_GOOGLE_CLIENT_ID не задан)',
-  'auth.footer': 'Войдите с аккаунтом Google для доступа к приложению. Ваша информация используется только для идентификации сеанса.',
-  'auth.logout': 'Выйти',
 
   // ─── Landing Page ───
   'landing.features': 'Возможности',

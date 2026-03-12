@@ -2,11 +2,6 @@ import type { Translations } from '../types';
 
 const ar: Translations = {
   // ─── Auth / Login ───
-  'auth.subtitle': 'تحليل إنشائي تفاعلي',
-  'auth.error': 'خطأ في تهيئة تسجيل الدخول بـ Google. أعد تحميل الصفحة.',
-  'auth.devMode': 'وضع التطوير — تسجيل الدخول معطّل (VITE_GOOGLE_CLIENT_ID غير مُعيَّن)',
-  'auth.footer': 'سجّل الدخول بحسابك في Google للوصول إلى التطبيق. تُستخدم معلوماتك فقط لتعريف جلستك.',
-  'auth.logout': 'تسجيل الخروج',
 
   // ─── Landing Page ───
   'landing.features': 'الميزات',

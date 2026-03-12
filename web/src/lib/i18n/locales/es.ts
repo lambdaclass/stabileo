@@ -1,10 +1,5 @@
 const es: Record<string, string> = {
   // ─── Auth / Login ───
-  'auth.subtitle': 'Análisis estructural interactivo',
-  'auth.error': 'Error al inicializar Google Sign-In. Recargá la página.',
-  'auth.devMode': 'Modo desarrollo — login deshabilitado (VITE_GOOGLE_CLIENT_ID no configurado)',
-  'auth.footer': 'Iniciá sesión con tu cuenta de Google para acceder a la aplicación. Tu información se usa únicamente para identificar tu sesión.',
-  'auth.logout': 'Cerrar sesión',
 
   // ─── Landing Page ───
   'landing.features': 'Características',

@@ -1,11 +1,6 @@
 import type { Translations } from '../types';
 const pt: Translations = {
   // ─── Auth / Login ───
-  'auth.subtitle': 'Análise estrutural interativa',
-  'auth.error': 'Falha ao inicializar Google Sign-In. Recarregue a página.',
-  'auth.devMode': 'Modo de desenvolvimento — login desabilitado (VITE_GOOGLE_CLIENT_ID não definido)',
-  'auth.footer': 'Faça login com sua conta Google para acessar a aplicação. Suas informações são usadas apenas para identificar sua sessão.',
-  'auth.logout': 'Sair',
 
   // ─── Landing Page ───
   'landing.features': 'Recursos',
