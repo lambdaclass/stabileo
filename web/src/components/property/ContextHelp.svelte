@@ -1,53 +1,54 @@
 <script lang="ts">
   import { modelStore, uiStore, resultsStore } from '../../lib/store';
+  import { t } from '../../lib/i18n';
 
-  const CONTEXTUAL_HELP: Record<string, { title: string; steps: string[]; tip: string }> = {
+  const CONTEXTUAL_HELP = $derived.by(() => ({
     'no-model': {
-      title: 'Primeros pasos',
-      steps: ['1. Creá nodos', '2. Conectalos con barras', '3. Agregá apoyos', '4. Aplicá cargas', '5. Presioná Calcular', '6. Explorá los diagramas'],
-      tip: 'Probá cargando un ejemplo del menú "Ejemplos" en el panel izquierdo.',
+      title: t('ctxHelp.firstSteps'),
+      steps: [t('ctxHelp.step.createNodes'), t('ctxHelp.step.connectBars'), t('ctxHelp.step.addSupports'), t('ctxHelp.step.applyLoads'), t('ctxHelp.step.pressCalculate'), t('ctxHelp.step.exploreDiagrams')],
+      tip: t('ctxHelp.tip.loadExample'),
     },
     'node': {
-      title: 'Crear Nodos',
-      steps: ['Click en el lienzo para colocar un nodo', 'Los nodos se ubican en la grilla si snap está activo', 'Cada nodo tiene 3 grados de libertad: ux, uy, θz'],
-      tip: 'Tip: Usá la grilla (G) para alinear nodos. Doble click en un nodo para editar coordenadas.',
+      title: t('ctxHelp.createNodes'),
+      steps: [t('ctxHelp.createNodes.step1'), t('ctxHelp.createNodes.step2'), t('ctxHelp.createNodes.step3')],
+      tip: t('ctxHelp.createNodes.tip'),
     },
     'element': {
-      title: 'Crear Elementos',
-      steps: ['Click en el nodo de inicio', 'Click en el nodo de fin', 'Se crea una barra entre ambos'],
-      tip: 'Frame = barra rígida (transmite momento). Truss = articulada (solo axil). Podés cambiar después.',
+      title: t('ctxHelp.createElements'),
+      steps: [t('ctxHelp.createElements.step1'), t('ctxHelp.createElements.step2'), t('ctxHelp.createElements.step3')],
+      tip: t('ctxHelp.createElements.tip'),
     },
     'support': {
-      title: 'Crear Apoyos',
-      steps: ['Elegí el tipo de apoyo en el panel', 'Click en un nodo para colocarlo'],
-      tip: 'Empotrado: bloquea todo. Articulado: permite giro. Móvil: permite desplazamiento en una dirección.',
+      title: t('ctxHelp.createSupports'),
+      steps: [t('ctxHelp.createSupports.step1'), t('ctxHelp.createSupports.step2')],
+      tip: t('ctxHelp.createSupports.tip'),
     },
     'load': {
-      title: 'Aplicar Cargas',
-      steps: ['Elegí el tipo de carga', 'Configurá el valor (negativo = hacia abajo)', 'Click en nodo o barra según el tipo'],
-      tip: 'Distribuida: se aplica sobre una barra. Puntual en barra: se aplica en un punto intermedio.',
+      title: t('ctxHelp.applyLoads'),
+      steps: [t('ctxHelp.applyLoads.step1'), t('ctxHelp.applyLoads.step2'), t('ctxHelp.applyLoads.step3')],
+      tip: t('ctxHelp.applyLoads.tip'),
     },
     'select': {
-      title: 'Seleccionar',
-      steps: ['Click en un nodo o barra para seleccionar', 'Shift+click para agregar a la selección', 'Arrastrá un nodo para moverlo'],
-      tip: 'Delete o Backspace para eliminar lo seleccionado. Ctrl+A selecciona todo.',
+      title: t('ctxHelp.selectTool'),
+      steps: [t('ctxHelp.selectTool.step1'), t('ctxHelp.selectTool.step2'), t('ctxHelp.selectTool.step3')],
+      tip: t('ctxHelp.selectTool.tip'),
     },
     'influenceLine': {
-      title: 'Línea de Influencia',
-      steps: ['Elegí la magnitud a analizar (Ry, M, V...)', 'Click en el nodo o sección de interés', 'Se dibuja la línea de influencia'],
-      tip: 'Muestra cómo varía la magnitud cuando una carga unitaria recorre la estructura.',
+      title: t('ctxHelp.influenceLine'),
+      steps: [t('ctxHelp.influenceLine.step1'), t('ctxHelp.influenceLine.step2'), t('ctxHelp.influenceLine.step3')],
+      tip: t('ctxHelp.influenceLine.tip'),
     },
     'pan': {
-      title: 'Mover Vista',
-      steps: ['Arrastrá para desplazar', '+/- para zoom', 'F para encuadrar todo'],
-      tip: 'También podés hacer zoom con la rueda del mouse y pan con click medio.',
+      title: t('ctxHelp.panView'),
+      steps: [t('ctxHelp.panView.step1'), t('ctxHelp.panView.step2'), t('ctxHelp.panView.step3')],
+      tip: t('ctxHelp.panView.tip'),
     },
     'results': {
-      title: 'Resultados',
-      steps: ['Elegí un diagrama: M, V, N, deformada...', 'Seleccioná nodos o barras para ver valores', 'Ajustá la escala del diagrama'],
-      tip: 'Usá los números 0-5 como atajos para cambiar de diagrama rápidamente.',
+      title: t('ctxHelp.results'),
+      steps: [t('ctxHelp.results.step1'), t('ctxHelp.results.step2'), t('ctxHelp.results.step3'), t('ctxHelp.results.step4')],
+      tip: t('ctxHelp.results.tip'),
     },
-  };
+  }));
 
   const helpContext = $derived.by(() => {
     const n = modelStore.nodes.size;

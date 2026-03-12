@@ -12,6 +12,7 @@ import { createSupportGizmo } from '../three/create-support-gizmo';
 import type { SupportGizmoType } from '../three/create-support-gizmo';
 import { createNodalLoadArrow, createDistributedLoadGroup } from '../three/create-load-arrow';
 import { COLORS, setMeshColor, setGroupColor, disposeObject } from '../three/selection-helpers';
+import { createPlateMesh, createQuadMesh } from '../three/create-shell-mesh';
 import { computeLocalAxes3D } from '../engine/solver-3d';
 
 /**
@@ -28,12 +29,14 @@ export interface SceneSyncContext {
   supportsParent: THREE.Group;
   loadsParent: THREE.Group;
   resultsParent: THREE.Group;
+  shellsParent: THREE.Group;
   scene: THREE.Scene;
 
   // Reconciliation maps (mutated in place)
   nodeMeshes: Map<number, THREE.Mesh>;
   elementGroups: Map<number, THREE.Group>;
   supportGizmos: Map<number, THREE.Group>;
+  shellGroups: Map<string, THREE.Group>; // key: "p{id}" or "q{id}"
 
   // Single-instance groups (replaced on each sync)
   loadGroup: THREE.Group | null;
@@ -164,6 +167,44 @@ export function syncSupports(ctx: SceneSyncContext): void {
   }
 }
 
+// ─── Shells (Plates + Quads) ────────────────────────────────
+
+export function syncShells(ctx: SceneSyncContext): void {
+  if (!ctx.initialized) return;
+
+  const getNode = (id: number) => {
+    const n = modelStore.nodes.get(id);
+    return n ? { x: n.x, y: n.y, z: n.z ?? 0 } : null;
+  };
+
+  // Clear all existing shell meshes (simple rebuild, like elements)
+  for (const [key, group] of ctx.shellGroups) {
+    ctx.shellsParent.remove(group);
+    disposeObject(group);
+  }
+  ctx.shellGroups.clear();
+
+  // Plates (triangular DKT)
+  for (const [id, plate] of modelStore.plates) {
+    const [n0, n1, n2] = plate.nodes.map(nid => getNode(nid));
+    if (!n0 || !n1 || !n2) continue;
+
+    const group = createPlateMesh(n0, n1, n2, id);
+    ctx.shellsParent.add(group);
+    ctx.shellGroups.set(`p${id}`, group);
+  }
+
+  // Quads (MITC4)
+  for (const [id, quad] of modelStore.quads) {
+    const [n0, n1, n2, n3] = quad.nodes.map(nid => getNode(nid));
+    if (!n0 || !n1 || !n2 || !n3) continue;
+
+    const group = createQuadMesh(n0, n1, n2, n3, id);
+    ctx.shellsParent.add(group);
+    ctx.shellGroups.set(`q${id}`, group);
+  }
+}
+
 // ─── Loads ───────────────────────────────────────────────────
 
 export function syncLoads(ctx: SceneSyncContext): void {
@@ -280,6 +321,24 @@ export function syncLoads(ctx: SceneSyncContext): void {
         loadGrp.add(grpZ);
       }
     }
+    // surface3d: render as a downward arrow at the quad centroid
+    else if (load.type === 'surface3d') {
+      const quad = modelStore.model.quads.get(load.data.quadId);
+      if (!quad) continue;
+      const ns = quad.nodes.map(nid => modelStore.nodes.get(nid));
+      if (ns.some(n => !n)) continue;
+      const cx = ns.reduce((s, n) => s + n!.x, 0) / 4;
+      const cy = ns.reduce((s, n) => s + n!.y, 0) / 4;
+      const cz = ns.reduce((s, n) => s + (n!.z ?? 0), 0) / 4;
+      const totalForce = load.data.q * 1; // representative 1 m² for arrow sizing
+      const arrow = createNodalLoadArrow(
+        { x: cx, y: cy, z: cz },
+        0, -Math.abs(totalForce), 0,
+        0, 0, 0,
+        maxForce, i,
+      );
+      loadGrp.add(arrow);
+    }
     // pointOnElement and pointOnElement3d: simplified as nodal for now
     else if (load.type === 'pointOnElement') {
       const elem = modelStore.elements.get(load.data.elementId);
@@ -345,7 +404,7 @@ export function syncSelection(ctx: SceneSyncContext): void {
 
   // Re-apply color map if active (syncSelection overwrites element colors)
   const dt = resultsStore.diagramType;
-  if (resultsStore.results3D && (dt === 'axialColor' || dt === 'colorMap')) {
+  if (resultsStore.results3D && (dt === 'axialColor' || dt === 'colorMap' || dt === 'verification')) {
     // Import dynamically avoided — call syncColorMap3D from Viewport3D after syncSelection
     // The caller is responsible for re-applying color map.
     // We just set a flag so the caller knows.

@@ -127,10 +127,34 @@ export interface ElementForces {
   hingeEnd: boolean;
 }
 
+export interface ConstraintForce {
+  nodeId: number;
+  dof: string;   // "ux", "uy", "rz", etc.
+  force: number; // kN or kN·m
+}
+
+export interface AssemblyDiagnostic {
+  elementId: number;
+  elementType: string;
+  metric: string;
+  value: number;
+  threshold: number;
+  message: string;
+}
+
+export interface SolverDiagnostic {
+  category: string;
+  message: string;
+  severity: 'info' | 'warning' | 'error';
+}
+
 export interface AnalysisResults {
   displacements: Displacement[];
   reactions: Reaction[];
   elementForces: ElementForces[];
+  constraintForces?: ConstraintForce[];
+  diagnostics?: AssemblyDiagnostic[];
+  solverDiagnostics?: SolverDiagnostic[];
 }
 
 /** Envolvente puntual pre-computada para un elemento */
@@ -151,6 +175,22 @@ export interface EnvelopeDiagramData {
   /** Máximo absoluto global (para escala uniforme) */
   globalMax: number;
 }
+
+// ─── Diagnostics ───────────────────────────────────────────────
+
+export type DiagnosticSeverity = 'error' | 'warning' | 'info';
+
+/** A single diagnostic message from the solver, verifier, or post-processor */
+export interface SolverDiagnostic {
+  severity: DiagnosticSeverity;
+  code: string;                    // machine-readable: 'VERIF_FAIL_SHEAR', 'PDELTA_NOT_CONVERGED', etc.
+  message: string;                 // i18n key or pre-translated string
+  elementIds?: number[];
+  nodeIds?: number[];
+  source: 'solver' | 'assembly' | 'kinematic' | 'verification' | 'serviceability' | 'stability' | 'model';
+  details?: Record<string, unknown>;
+}
+
 
 /** Envolvente completa con datos puntuales para M, V, N */
 export interface FullEnvelope {

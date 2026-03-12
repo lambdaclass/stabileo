@@ -1,5 +1,6 @@
 <script lang="ts">
   import type { DSMStepData } from '../../lib/engine/solver-detailed';
+  import { t } from '../../lib/i18n';
   import { dsmStepsStore } from '../../lib/store';
   import MathEquation from './MathEquation.svelte';
   import MatrixDisplay from './MatrixDisplay.svelte';
@@ -23,18 +24,18 @@
 
 <div class="step">
   <div class="explanation">
-    <p>Se <strong>ensambla</strong> la matriz de rigidez global [K] sumando las contribuciones de cada elemento en las posiciones correspondientes a sus GDL.</p>
+    <p>{@html t('dsm.step4.explanation')}</p>
   </div>
 
   <MathEquation equation={eqAssembly} displayMode />
 
   <div class="elem-selector">
-    <label for="elem-select-4">Resaltar elemento:</label>
+    <label for="elem-select-4">{t('dsm.step4.highlightElement')}</label>
     <select id="elem-select-4" onchange={(e) => {
       const val = (e.target as HTMLSelectElement).value;
       dsmStepsStore.selectElement(val === '' ? null! : Number(val));
     }}>
-      <option value="">Ninguno</option>
+      <option value="">{t('dsm.step4.none')}</option>
       {#each data.elements as el}
         <option value={el.elementId} selected={el.elementId === dsmStepsStore.selectedElemForStep}>
           E{el.elementId} (N{el.nodeI}→N{el.nodeJ})
@@ -56,7 +57,7 @@
   />
 
   <div class="size-info">
-    Dimensión: {n} × {n} | Elementos: {data.elements.length}
+    {t('dsm.step4.sizeInfo').replace('{n}', String(n)).replace('{nElem}', String(data.elements.length))}
   </div>
 </div>
 

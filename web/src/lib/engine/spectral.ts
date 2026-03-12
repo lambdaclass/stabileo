@@ -13,6 +13,7 @@ import type { AnalysisResults, ElementForces, SolverInput } from './types';
 import { buildDofNumbering, assemble, computeInternalForces } from './solver-js';
 import { assembleMassMatrix } from './mass-matrix';
 import { matVec } from './matrix-utils';
+import { t } from '../i18n';
 
 // ─── Design Spectrum ─────────────────────────────────────────────
 
@@ -197,7 +198,7 @@ export function solveSpectral(
   const g = 9.81; // m/s²
 
   const modes = modalResult.modes;
-  if (modes.length === 0) return 'No hay modos disponibles';
+  if (modes.length === 0) return t('spectral.noModes');
 
   const dofNum = buildDofNumbering(input);
   const nf = dofNum.nFree;

@@ -1,14 +1,15 @@
 <script lang="ts">
   import { uiStore, modelStore } from '../../lib/store';
+  import { t } from '../../lib/i18n';
 
   const loadTypes = [
-    { id: 'nodal', label: 'Puntual' },
-    { id: 'distributed', label: 'Distribuida' },
-    { id: 'thermal', label: 'Térmica' },
+    { id: 'nodal', key: 'float.loadPoint' },
+    { id: 'distributed', key: 'float.loadDistributed' },
+    { id: 'thermal', key: 'float.loadThermal' },
   ] as const;
 </script>
 
-<label class="ft-selfweight-toggle" title="Incluir peso propio automáticamente usando densidad del material y área de sección">
+<label class="ft-selfweight-toggle" title={t('float.loadSelfWeightTooltip')}>
   <input type="checkbox" bind:checked={uiStore.includeSelfWeight} />
   <span>PP</span>
 </label>
@@ -17,7 +18,7 @@
 <select class="ft-case-select"
   value={String(uiStore.activeLoadCaseId)}
   onchange={(e) => uiStore.activeLoadCaseId = parseInt(e.currentTarget.value)}
-  title="Caso de carga activo">
+  title={t('float.activeLoadCase')}>
   {#each modelStore.loadCases as lc}
     <option value={String(lc.id)}>{lc.type || lc.name}</option>
   {/each}
@@ -28,24 +29,24 @@
     class="ft-opt-btn"
     class:active={uiStore.loadType === lt.id}
     onclick={() => uiStore.loadType = lt.id}
-  >{lt.label}</button>
+  >{t(lt.key)}</button>
 {/each}
 <span class="ft-sep">|</span>
 {#if uiStore.loadType === 'nodal'}
   {#if uiStore.analysisMode === '3d'}
     <!-- 3D: 6 DOF directions -->
     <button class="ft-opt-btn ft-dir-btn" class:active={uiStore.nodalLoadDir3D === 'fx'}
-      onclick={() => uiStore.nodalLoadDir3D = 'fx'} title="Fuerza en X">Fx</button>
+      onclick={() => uiStore.nodalLoadDir3D = 'fx'} title={t('float.loadForceX3d')}>Fx</button>
     <button class="ft-opt-btn ft-dir-btn" class:active={uiStore.nodalLoadDir3D === 'fy'}
-      onclick={() => uiStore.nodalLoadDir3D = 'fy'} title="Fuerza en Y (vertical)">Fy</button>
+      onclick={() => uiStore.nodalLoadDir3D = 'fy'} title={t('float.loadForceY3d')}>Fy</button>
     <button class="ft-opt-btn ft-dir-btn" class:active={uiStore.nodalLoadDir3D === 'fz'}
-      onclick={() => uiStore.nodalLoadDir3D = 'fz'} title="Fuerza en Z">Fz</button>
+      onclick={() => uiStore.nodalLoadDir3D = 'fz'} title={t('float.loadForceZ3d')}>Fz</button>
     <button class="ft-opt-btn ft-dir-btn" class:active={uiStore.nodalLoadDir3D === 'mx'}
-      onclick={() => uiStore.nodalLoadDir3D = 'mx'} title="Momento en X (torsion)">Mx</button>
+      onclick={() => uiStore.nodalLoadDir3D = 'mx'} title={t('float.loadMomentX3d')}>Mx</button>
     <button class="ft-opt-btn ft-dir-btn" class:active={uiStore.nodalLoadDir3D === 'my'}
-      onclick={() => uiStore.nodalLoadDir3D = 'my'} title="Momento en Y">My</button>
+      onclick={() => uiStore.nodalLoadDir3D = 'my'} title={t('float.loadMomentY3d')}>My</button>
     <button class="ft-opt-btn ft-dir-btn" class:active={uiStore.nodalLoadDir3D === 'mz'}
-      onclick={() => uiStore.nodalLoadDir3D = 'mz'} title="Momento en Z">Mz</button>
+      onclick={() => uiStore.nodalLoadDir3D = 'mz'} title={t('float.loadMomentZ3d')}>Mz</button>
     <label class="ft-input-group">
       <span>{['mx','my','mz'].includes(uiStore.nodalLoadDir3D) ? 'M:' : 'F:'}</span>
       <input type="number" bind:value={uiStore.loadValue} step="1" />
@@ -55,15 +56,15 @@
   <!-- 2D: 3 directions -->
   <button class="ft-opt-btn ft-dir-btn" class:active={uiStore.nodalLoadDir === 'fx'}
     onclick={() => uiStore.nodalLoadDir = 'fx'}
-    title={uiStore.loadIsGlobal ? 'Fuerza horizontal (eje X global)' : 'Fuerza paralela a la barra (eje i local)'}
+    title={uiStore.loadIsGlobal ? t('float.loadForceXGlobal') : t('float.loadForceXLocal')}
   >{uiStore.loadIsGlobal ? 'Fx' : 'Fi'}</button>
   <button class="ft-opt-btn ft-dir-btn" class:active={uiStore.nodalLoadDir === 'fy'}
     onclick={() => uiStore.nodalLoadDir = 'fy'}
-    title={uiStore.loadIsGlobal ? 'Fuerza vertical (eje Y global, positivo = arriba)' : 'Fuerza perpendicular a la barra (eje j local)'}
+    title={uiStore.loadIsGlobal ? t('float.loadForceYGlobal') : t('float.loadForceYLocal')}
   >{uiStore.loadIsGlobal ? 'Fy' : 'Fj'}</button>
   <button class="ft-opt-btn ft-dir-btn" class:active={uiStore.nodalLoadDir === 'mz'}
     onclick={() => uiStore.nodalLoadDir = 'mz'}
-    title="Momento flector (Mz)"
+    title={t('float.loadMomentZ')}
   >Mz</button>
   <label class="ft-input-group">
     <span>{uiStore.nodalLoadDir === 'mz' ? 'M:' : 'F:'}</span>
@@ -71,8 +72,8 @@
     <span class="ft-unit">{uiStore.nodalLoadDir === 'mz' ? 'kN\u00b7m' : 'kN'}</span>
   </label>
   <span class="ft-sep">|</span>
-  <button class="ft-opt-btn ft-coord-btn" class:active={uiStore.loadIsGlobal} onclick={() => uiStore.loadIsGlobal = true} title="Carga en dirección del eje global Y (gravitatoria en barras inclinadas)">Y</button>
-  <button class="ft-opt-btn ft-coord-btn" class:active={!uiStore.loadIsGlobal} onclick={() => uiStore.loadIsGlobal = false} title="Carga perpendicular a la barra (viento en techos inclinados)">⊥</button>
+  <button class="ft-opt-btn ft-coord-btn" class:active={uiStore.loadIsGlobal} onclick={() => uiStore.loadIsGlobal = true} title={t('float.loadGlobalYDir')}>Y</button>
+  <button class="ft-opt-btn ft-coord-btn" class:active={!uiStore.loadIsGlobal} onclick={() => uiStore.loadIsGlobal = false} title={t('float.loadPerpDir')}>⊥</button>
   <label class="ft-input-group">
     <span>α:</span>
     <input type="number" bind:value={uiStore.loadAngle} step="5" />
@@ -114,8 +115,8 @@
     </label>
   {:else}
   <span class="ft-sep">|</span>
-  <button class="ft-opt-btn ft-coord-btn" class:active={uiStore.loadIsGlobal} onclick={() => uiStore.loadIsGlobal = true} title="Carga en dirección del eje global Y (gravitatoria en barras inclinadas)">Y</button>
-  <button class="ft-opt-btn ft-coord-btn" class:active={!uiStore.loadIsGlobal} onclick={() => uiStore.loadIsGlobal = false} title="Carga perpendicular a la barra (viento en techos inclinados)">⊥</button>
+  <button class="ft-opt-btn ft-coord-btn" class:active={uiStore.loadIsGlobal} onclick={() => uiStore.loadIsGlobal = true} title={t('float.loadGlobalYDir')}>Y</button>
+  <button class="ft-opt-btn ft-coord-btn" class:active={!uiStore.loadIsGlobal} onclick={() => uiStore.loadIsGlobal = false} title={t('float.loadPerpDir')}>⊥</button>
   <label class="ft-input-group">
     <span>α:</span>
     <input type="number" bind:value={uiStore.loadAngle} step="5" />

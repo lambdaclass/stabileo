@@ -2,6 +2,8 @@
 // All dimensions in meters, output A in m², Iy/Iz in m⁴
 // Convention: iy = about Y (horizontal axis), iz = about Z (vertical axis)
 
+import { t } from '../i18n';
+
 export type ShapeType =
   | 'rect' | 'circular' | 'hollow-rect' | 'hollow-circular' | 'I-custom'
   | 'T-custom' | 'U-custom' | 'C-custom'
@@ -29,126 +31,126 @@ export const SECTION_SHAPES: ShapeDefinition[] = [
   // ── Steel shapes ──
   {
     id: 'hollow-rect',
-    label: 'Cajón rectangular',
-    description: 'Sección rectangular hueca',
+    label: 'shape.hollowRect',
+    description: 'shape.hollowRect.desc',
     category: 'steel',
     params: [
-      { id: 'b', label: 'Ancho ext. (b)', unit: 'm', step: 0.01, defaultValue: 0.20 },
-      { id: 'h', label: 'Alto ext. (h)', unit: 'm', step: 0.01, defaultValue: 0.30 },
-      { id: 't', label: 'Espesor (t)', unit: 'm', step: 0.0001, defaultValue: 0.01 },
+      { id: 'b', label: 'shape.param.extWidth', unit: 'm', step: 0.01, defaultValue: 0.20 },
+      { id: 'h', label: 'shape.param.extHeight', unit: 'm', step: 0.01, defaultValue: 0.30 },
+      { id: 't', label: 'shape.param.thickness', unit: 'm', step: 0.0001, defaultValue: 0.01 },
     ],
   },
   {
     id: 'hollow-circular',
-    label: 'Tubo circular',
-    description: 'Sección circular hueca (CHS)',
+    label: 'shape.hollowCircular',
+    description: 'shape.hollowCircular.desc',
     category: 'steel',
     params: [
-      { id: 'd', label: 'Diámetro ext. (d)', unit: 'm', step: 0.01, defaultValue: 0.20 },
-      { id: 't', label: 'Espesor (t)', unit: 'm', step: 0.0001, defaultValue: 0.008 },
+      { id: 'd', label: 'shape.param.extDiam', unit: 'm', step: 0.01, defaultValue: 0.20 },
+      { id: 't', label: 'shape.param.thickness', unit: 'm', step: 0.0001, defaultValue: 0.008 },
     ],
   },
   {
     id: 'I-custom',
-    label: 'Doble T (I)',
-    description: 'Perfil I/H personalizado',
+    label: 'shape.iCustom',
+    description: 'shape.iCustom.desc',
     category: 'steel',
     params: [
-      { id: 'h', label: 'Altura total (h)', unit: 'm', step: 0.01, defaultValue: 0.30 },
-      { id: 'b', label: 'Ancho ala (b)', unit: 'm', step: 0.01, defaultValue: 0.15 },
-      { id: 'tw', label: 'Espesor alma (tw)', unit: 'm', step: 0.0001, defaultValue: 0.007 },
-      { id: 'tf', label: 'Espesor ala (tf)', unit: 'm', step: 0.0001, defaultValue: 0.011 },
+      { id: 'h', label: 'shape.param.totalHeight', unit: 'm', step: 0.01, defaultValue: 0.30 },
+      { id: 'b', label: 'shape.param.flangeWidth', unit: 'm', step: 0.01, defaultValue: 0.15 },
+      { id: 'tw', label: 'shape.param.webThickness', unit: 'm', step: 0.0001, defaultValue: 0.007 },
+      { id: 'tf', label: 'shape.param.flangeThickness', unit: 'm', step: 0.0001, defaultValue: 0.011 },
     ],
   },
   {
     id: 'T-custom',
-    label: 'T',
-    description: 'Perfil T de acero (ala + alma)',
+    label: 'shape.tCustom',
+    description: 'shape.tCustom.desc',
     category: 'steel',
     params: [
-      { id: 'h', label: 'Altura total (h)', unit: 'm', step: 0.001, defaultValue: 0.20 },
-      { id: 'bf', label: 'Ancho ala (bf)', unit: 'm', step: 0.001, defaultValue: 0.15 },
-      { id: 'tw', label: 'Espesor alma (tw)', unit: 'm', step: 0.0001, defaultValue: 0.007 },
-      { id: 'tf', label: 'Espesor ala (tf)', unit: 'm', step: 0.0001, defaultValue: 0.011 },
+      { id: 'h', label: 'shape.param.totalHeight', unit: 'm', step: 0.001, defaultValue: 0.20 },
+      { id: 'bf', label: 'shape.param.flangeWidthBf', unit: 'm', step: 0.001, defaultValue: 0.15 },
+      { id: 'tw', label: 'shape.param.webThickness', unit: 'm', step: 0.0001, defaultValue: 0.007 },
+      { id: 'tf', label: 'shape.param.flangeThickness', unit: 'm', step: 0.0001, defaultValue: 0.011 },
     ],
   },
   {
     id: 'U-custom',
-    label: 'U (canal)',
-    description: 'Perfil U/canal personalizado',
+    label: 'shape.uCustom',
+    description: 'shape.uCustom.desc',
     category: 'steel',
     params: [
-      { id: 'h', label: 'Altura total (h)', unit: 'm', step: 0.001, defaultValue: 0.20 },
-      { id: 'b', label: 'Ancho ala (b)', unit: 'm', step: 0.001, defaultValue: 0.075 },
-      { id: 'tw', label: 'Espesor alma (tw)', unit: 'm', step: 0.0001, defaultValue: 0.006 },
-      { id: 'tf', label: 'Espesor ala (tf)', unit: 'm', step: 0.0001, defaultValue: 0.009 },
+      { id: 'h', label: 'shape.param.totalHeight', unit: 'm', step: 0.001, defaultValue: 0.20 },
+      { id: 'b', label: 'shape.param.flangeWidth', unit: 'm', step: 0.001, defaultValue: 0.075 },
+      { id: 'tw', label: 'shape.param.webThickness', unit: 'm', step: 0.0001, defaultValue: 0.006 },
+      { id: 'tf', label: 'shape.param.flangeThickness', unit: 'm', step: 0.0001, defaultValue: 0.009 },
     ],
   },
   {
     id: 'C-custom',
-    label: 'C (con labios)',
-    description: 'Perfil C con aletitas/labios en los extremos de las alas',
+    label: 'shape.cCustom',
+    description: 'shape.cCustom.desc',
     category: 'steel',
     params: [
-      { id: 'h', label: 'Altura total (h)', unit: 'm', step: 0.001, defaultValue: 0.20 },
-      { id: 'b', label: 'Ancho ala (b)', unit: 'm', step: 0.001, defaultValue: 0.075 },
-      { id: 'tw', label: 'Espesor alma (tw)', unit: 'm', step: 0.0001, defaultValue: 0.006 },
-      { id: 'tf', label: 'Espesor ala (tf)', unit: 'm', step: 0.0001, defaultValue: 0.009 },
-      { id: 'c', label: 'Largo labio (c)', unit: 'm', step: 0.001, defaultValue: 0.02 },
-      { id: 'tl', label: 'Espesor labio (tl)', unit: 'm', step: 0.0001, defaultValue: 0.009 },
+      { id: 'h', label: 'shape.param.totalHeight', unit: 'm', step: 0.001, defaultValue: 0.20 },
+      { id: 'b', label: 'shape.param.flangeWidth', unit: 'm', step: 0.001, defaultValue: 0.075 },
+      { id: 'tw', label: 'shape.param.webThickness', unit: 'm', step: 0.0001, defaultValue: 0.006 },
+      { id: 'tf', label: 'shape.param.flangeThickness', unit: 'm', step: 0.0001, defaultValue: 0.009 },
+      { id: 'c', label: 'shape.param.lipLength', unit: 'm', step: 0.001, defaultValue: 0.02 },
+      { id: 'tl', label: 'shape.param.lipThickness', unit: 'm', step: 0.0001, defaultValue: 0.009 },
     ],
   },
   // ── Concrete shapes ──
   {
     id: 'concrete-square',
-    label: 'Cuadrada',
-    description: 'Sección cuadrada de hormigón',
+    label: 'shape.concSquare',
+    description: 'shape.concSquare.desc',
     category: 'concrete',
     params: [
-      { id: 'a', label: 'Lado (a)', unit: 'm', step: 0.01, defaultValue: 0.30 },
+      { id: 'a', label: 'shape.param.side', unit: 'm', step: 0.01, defaultValue: 0.30 },
     ],
   },
   {
     id: 'concrete-rect',
-    label: 'Rectangular',
-    description: 'Sección rectangular de hormigón',
+    label: 'shape.concRect',
+    description: 'shape.concRect.desc',
     category: 'concrete',
     params: [
-      { id: 'b', label: 'Ancho (b)', unit: 'm', step: 0.01, defaultValue: 0.20 },
-      { id: 'h', label: 'Alto (h)', unit: 'm', step: 0.01, defaultValue: 0.40 },
+      { id: 'b', label: 'shape.param.width', unit: 'm', step: 0.01, defaultValue: 0.20 },
+      { id: 'h', label: 'shape.param.height', unit: 'm', step: 0.01, defaultValue: 0.40 },
     ],
   },
   {
     id: 'concrete-circular',
-    label: 'Circular',
-    description: 'Sección circular maciza de hormigón',
+    label: 'shape.concCircular',
+    description: 'shape.concCircular.desc',
     category: 'concrete',
     params: [
-      { id: 'd', label: 'Diámetro (d)', unit: 'm', step: 0.01, defaultValue: 0.40 },
+      { id: 'd', label: 'shape.param.diameter', unit: 'm', step: 0.01, defaultValue: 0.40 },
     ],
   },
   {
     id: 'concrete-T',
-    label: 'T (viga con losa)',
-    description: 'Viga T de hormigón (ala = ancho de influencia de losa)',
+    label: 'shape.concT',
+    description: 'shape.concT.desc',
     category: 'concrete',
     params: [
-      { id: 'bw', label: 'Ancho alma (bw)', unit: 'm', step: 0.01, defaultValue: 0.25 },
-      { id: 'hw', label: 'Alto alma (hw)', unit: 'm', step: 0.01, defaultValue: 0.50 },
-      { id: 'bf', label: 'Ancho ala (bf)', unit: 'm', step: 0.01, defaultValue: 0.80 },
-      { id: 'hf', label: 'Espesor ala (hf)', unit: 'm', step: 0.01, defaultValue: 0.12 },
+      { id: 'bw', label: 'shape.param.webWidth', unit: 'm', step: 0.01, defaultValue: 0.25 },
+      { id: 'hw', label: 'shape.param.webHeight', unit: 'm', step: 0.01, defaultValue: 0.50 },
+      { id: 'bf', label: 'shape.param.flangeWidthBf', unit: 'm', step: 0.01, defaultValue: 0.80 },
+      { id: 'hf', label: 'shape.param.flangeDepth', unit: 'm', step: 0.01, defaultValue: 0.12 },
     ],
   },
   {
     id: 'concrete-invL',
-    label: 'L invertida',
-    description: 'Viga L invertida (losa a un solo lado)',
+    label: 'shape.concInvL',
+    description: 'shape.concInvL.desc',
     category: 'concrete',
     params: [
-      { id: 'bw', label: 'Ancho alma (bw)', unit: 'm', step: 0.01, defaultValue: 0.25 },
-      { id: 'hw', label: 'Alto alma (hw)', unit: 'm', step: 0.01, defaultValue: 0.50 },
-      { id: 'bf', label: 'Ancho ala (bf)', unit: 'm', step: 0.01, defaultValue: 0.50 },
-      { id: 'hf', label: 'Espesor ala (hf)', unit: 'm', step: 0.01, defaultValue: 0.12 },
+      { id: 'bw', label: 'shape.param.webWidth', unit: 'm', step: 0.01, defaultValue: 0.25 },
+      { id: 'hw', label: 'shape.param.webHeight', unit: 'm', step: 0.01, defaultValue: 0.50 },
+      { id: 'bf', label: 'shape.param.flangeWidthBf', unit: 'm', step: 0.01, defaultValue: 0.50 },
+      { id: 'hf', label: 'shape.param.flangeDepth', unit: 'm', step: 0.01, defaultValue: 0.12 },
     ],
   },
 ];
@@ -440,7 +442,7 @@ export function generateSectionName(shapeType: ShapeType, params: Record<string,
     case 'circular':
       return `Circ \u2300${(params.d * 100).toFixed(0)} cm`;
     case 'hollow-rect':
-      return `Cajón ${(params.b * 100).toFixed(0)}x${(params.h * 100).toFixed(0)}x${(params.t * 1000).toFixed(0)} mm`;
+      return `${t('section.hollowRect')} ${(params.b * 100).toFixed(0)}x${(params.h * 100).toFixed(0)}x${(params.t * 1000).toFixed(0)} mm`;
     case 'hollow-circular':
       return `CHS \u2300${(params.d * 100).toFixed(0)}x${(params.t * 1000).toFixed(0)} mm`;
     case 'I-custom':
@@ -462,6 +464,6 @@ export function generateSectionName(shapeType: ShapeType, params: Record<string,
     case 'concrete-invL':
       return `H.A. L inv ${(params.bw * 100).toFixed(0)}x${((params.hw + params.hf) * 100).toFixed(0)} bf=${(params.bf * 100).toFixed(0)}`;
     default:
-      return 'Sección personalizada';
+      return 'section.customName';
   }
 }

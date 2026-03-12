@@ -11,6 +11,7 @@
  */
 
 import { modelStore, resultsStore, uiStore } from '../store';
+import { t } from '../i18n';
 
 // ─── Helpers ──────────────────────────────────────────────────────────────
 
@@ -32,24 +33,24 @@ const VALID_3D_DIAGRAMS = ['deformed', 'momentY', 'momentZ', 'shearY', 'shearZ',
  * Called from the $effect in App.svelte when liveCalc is enabled.
  * Sets results/errors directly on the stores.
  *
- * @param analysisMode  Current analysis mode ('2d' | '3d')
+ * @param analysisMode  Current analysis mode ('2d' | '3d' | 'edu')
  * @param axisConvention3D  Current 3D axis convention string
- * @param prevDiagram  Diagram type before results were cleared (to restore user selection)
  */
-export function runLiveCalc(analysisMode: string, axisConvention3D: string, prevDiagram: string): void {
+export function runLiveCalc(analysisMode: string, axisConvention3D: string): void {
   try {
-    if (analysisMode === '3d') {
-      liveCalc3D(axisConvention3D, prevDiagram);
+    if (analysisMode === '3d' || analysisMode === 'pro') {
+      liveCalc3D(axisConvention3D);
     } else {
-      liveCalc2D(prevDiagram);
+      liveCalc2D();
     }
   } catch (err: any) {
-    uiStore.liveCalcError = err.message ?? 'Error desconocido';
+    uiStore.liveCalcError = err.message ?? t('error.unknown');
   }
 }
 
-function liveCalc3D(axisConvention: string, prevDiagram: string): void {
-  const r = modelStore.solve3D(uiStore.includeSelfWeight, axisConvention === 'leftHand');
+function liveCalc3D(axisConvention: string): void {
+  const isPro = uiStore.analysisMode === 'pro';
+  const r = modelStore.solve3D(uiStore.includeSelfWeight, axisConvention === 'leftHand', isPro);
   if (typeof r === 'string') {
     uiStore.liveCalcError = r;
     return;
@@ -57,17 +58,14 @@ function liveCalc3D(axisConvention: string, prevDiagram: string): void {
   if (!r) return;
 
   if (hasNaN3D(r.displacements as any)) {
-    uiStore.liveCalcError = 'Error numérico 3D: estructura inestable (mecanismo)';
+    uiStore.liveCalcError = t('results.numericError3d');
     return;
   }
 
-  resultsStore.setResults3D(r);
-  if ((VALID_3D_DIAGRAMS as readonly string[]).includes(prevDiagram)) {
-    resultsStore.diagramType = prevDiagram as any;
-  }
+  resultsStore.setResults3D(r, true);
 }
 
-function liveCalc2D(prevDiagram: string): void {
+function liveCalc2D(): void {
   const r = modelStore.solve(uiStore.includeSelfWeight);
   if (typeof r === 'string') {
     uiStore.liveCalcError = r;
@@ -76,11 +74,11 @@ function liveCalc2D(prevDiagram: string): void {
   if (!r) return;
 
   if (hasNaN2D(r.displacements as any)) {
-    uiStore.liveCalcError = 'Error numérico: estructura inestable (mecanismo)';
+    uiStore.liveCalcError = t('results.numericError');
     return;
   }
 
-  resultsStore.setResults(r);
+  resultsStore.setResults(r, true);
 
   // Auto-solve combinations if defined
   if (modelStore.model.combinations.length > 0) {
@@ -88,11 +86,6 @@ function liveCalc2D(prevDiagram: string): void {
     if (combo && typeof combo !== 'string') {
       resultsStore.setCombinationResults(combo.perCase, combo.perCombo, combo.envelope);
     }
-  }
-
-  // Restore diagram type if it was a valid results view
-  if ((VALID_2D_DIAGRAMS as readonly string[]).includes(prevDiagram)) {
-    resultsStore.diagramType = prevDiagram as any;
   }
 }
 
@@ -102,34 +95,93 @@ function liveCalc2D(prevDiagram: string): void {
  * Solve the structure manually (triggered by Enter key / Calcular button).
  * Handles 2D and 3D, combinations, toasts and mobile panel.
  */
-export function runGlobalSolve(): void {
-  if (uiStore.analysisMode === '3d') {
-    globalSolve3D();
+export async function runGlobalSolve(): Promise<void> {
+  if (uiStore.analysisMode === '3d' || uiStore.analysisMode === 'pro') {
+    await globalSolve3D();
+  } else if (uiStore.analysisMode === 'edu') {
+    // Edu mode handles its own solve via edu-solver.ts (registered listener).
+    // This branch is a no-op safety fallback — the edu module's listener
+    // fires first on the same 'dedaliano-solve' event.
+    return;
   } else {
     globalSolve2D();
+  }
+}
+
+/** Show solver diagnostic warnings/errors as toasts (max 2 to avoid spam) */
+function showSolverWarningToasts(diags?: import('./types').SolverDiagnostic[]): void {
+  if (!diags) return;
+  const important = diags.filter(d => d.severity === 'error' || d.severity === 'warning');
+  for (const d of important.slice(0, 2)) {
+    const msg = t(d.message) !== d.message ? t(d.message) : d.message;
+    uiStore.toast(msg, d.severity === 'error' ? 'error' : 'info');
   }
 }
 
 /** Detect if an error message is mechanism/hipostatic-related */
 function isMechanismError(msg: string): boolean {
   const lc = msg.toLowerCase();
-  return lc.includes('mecanismo') || lc.includes('hipostática') || lc.includes('singular') || lc.includes('inestable');
+  return lc.includes('mecanismo') || lc.includes('hipostática') || lc.includes('singular') || lc.includes('inestable')
+    || lc.includes('mechanism') || lc.includes('hypostatic') || lc.includes('unstable');
 }
 
-function globalSolve3D(): void {
-  const r = modelStore.solve3D(uiStore.includeSelfWeight, uiStore.axisConvention3D === 'leftHand');
+async function globalSolve3D(): Promise<void> {
+  const isPro = uiStore.analysisMode === 'pro';
+  const leftHand = uiStore.axisConvention3D === 'leftHand';
+  const hasCombos = modelStore.model.combinations.length > 0;
+  const t0 = performance.now();
+
+  // When combinations exist, use parallel Web Workers for maximum performance
+  if (hasCombos) {
+    try {
+      const comboResult = await modelStore.solveCombinations3DParallel(uiStore.includeSelfWeight, leftHand, isPro);
+      if (typeof comboResult === 'string') {
+        uiStore.toast(comboResult, 'error');
+        return;
+      }
+      if (!comboResult) {
+        uiStore.toast(t('results.emptyModelError'), 'error');
+        return;
+      }
+
+      // Use first per-case result as the "single" baseline view
+      const firstCaseResult = comboResult.perCase.values().next().value;
+      if (firstCaseResult) resultsStore.setResults3D(firstCaseResult);
+
+      resultsStore.setCombinationResults3D(comboResult.perCase, comboResult.perCombo, comboResult.envelope);
+
+      if (uiStore.isMobile) uiStore.mobileResultsPanelOpen = true;
+      const elapsed = performance.now() - t0;
+      const timeStr = elapsed >= 1000 ? (elapsed / 1000).toFixed(2) + ' s' : elapsed.toFixed(0) + ' ms';
+      const nBars = firstCaseResult?.elementForces.length ?? 0;
+      const nReac = firstCaseResult?.reactions.length ?? 0;
+      uiStore.toast(
+        `${t('results.analysis3dSuccess')} (${timeStr}) — ${nBars} ${t('results.bars')}, ${nReac} ${t('results.reactions')} + ${comboResult.perCombo.size} ${t('results.combinations')}`,
+        'success',
+      );
+      if (firstCaseResult) showSolverWarningToasts(firstCaseResult.solverDiagnostics);
+    } catch (e: any) {
+      console.error('[globalSolve3D] Combination solving failed:', e.message);
+      uiStore.toast(e.message, 'error');
+    }
+    return;
+  }
+
+  // No combinations — single solve only
+  const r = modelStore.solve3D(uiStore.includeSelfWeight, leftHand, isPro);
   if (typeof r === 'string') {
-    // No kinematic action in 3D — panel is 2D only
     uiStore.toast(r, 'error');
   } else if (r) {
     resultsStore.setResults3D(r);
     if (uiStore.isMobile) uiStore.mobileResultsPanelOpen = true;
+    const timeStr = r.timings ? ` (${r.timings.totalMs >= 1000 ? (r.timings.totalMs / 1000).toFixed(2) + ' s' : r.timings.totalMs.toFixed(1) + ' ms'})` : '';
     uiStore.toast(
-      `Análisis 3D exitoso — ${r.elementForces.length} barras, ${r.reactions.length} reacciones`,
+      `${t('results.analysis3dSuccess')}${timeStr} — ${r.elementForces.length} ${t('results.bars')}, ${r.reactions.length} ${t('results.reactions')}`,
       'success',
     );
+    showSolverWarningToasts(r.solverDiagnostics);
   } else {
-    uiStore.toast('Modelo vacío o error inesperado', 'error');
+    uiStore.toast(t('results.emptyModelError'), 'error');
   }
 }
 
@@ -140,12 +192,12 @@ function globalSolve2D(): void {
     return;
   }
   if (!r) {
-    uiStore.toast('Modelo vacío o error inesperado', 'error');
+    uiStore.toast(t('results.emptyModelError'), 'error');
     return;
   }
 
   if (hasNaN2D(r.displacements as any)) {
-    uiStore.toast('Error numérico: la estructura puede ser inestable (mecanismo)', 'error', 'kinematic');
+    uiStore.toast(t('results.numericError'), 'error', 'kinematic');
     return;
   }
 
@@ -154,8 +206,8 @@ function globalSolve2D(): void {
   const kin = modelStore.kinematicResult;
   let classText = '';
   if (kin) {
-    if (kin.classification === 'isostatic') classText = ' — Isostática';
-    else if (kin.classification === 'hyperstatic') classText = ` — Hiperestática (grado ${kin.degree})`;
+    if (kin.classification === 'isostatic') classText = ` — ${t('results.isostatic')}`;
+    else if (kin.classification === 'hyperstatic') classText = ` — ${t('results.hyperstatic')} (${t('results.degree')} ${kin.degree})`;
   }
 
   // Auto-solve combinations if defined
@@ -164,13 +216,17 @@ function globalSolve2D(): void {
     const comboResult = modelStore.solveCombinations(uiStore.includeSelfWeight);
     if (comboResult && typeof comboResult !== 'string') {
       resultsStore.setCombinationResults(comboResult.perCase, comboResult.perCombo, comboResult.envelope);
-      comboText = ` + ${comboResult.perCombo.size} combinaciones`;
+      comboText = ` + ${comboResult.perCombo.size} ${t('results.combinations')}`;
     }
   }
 
   if (uiStore.isMobile) uiStore.mobileResultsPanelOpen = true;
+  const timeStr = r.timings ? ` (${r.timings.totalMs >= 1000 ? (r.timings.totalMs / 1000).toFixed(2) + ' s' : r.timings.totalMs.toFixed(1) + ' ms'})` : '';
   uiStore.toast(
-    `Cálculo exitoso${classText} — ${r.elementForces.length} barras, ${r.reactions.length} reacciones${comboText}`,
+    `${t('results.calcSuccess')}${classText}${timeStr} — ${r.elementForces.length} ${t('results.bars')}, ${r.reactions.length} ${t('results.reactions')}${comboText}`,
     'success',
   );
+
+  // Show solver warnings/errors as separate toasts
+  showSolverWarningToasts(r.solverDiagnostics);
 }

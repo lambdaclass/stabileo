@@ -7,6 +7,7 @@ import type {
   SolverInput, SolverNode, SolverSupport,
   SolverDistributedLoad, SolverPointLoadOnElement, SolverThermalLoad,
 } from './types';
+import { t } from '../i18n';
 
 // ─── Types ──────────────────────────────────────────────────────
 
@@ -235,7 +236,7 @@ function solveLU(A: Float64Array, b: Float64Array, n: number): Float64Array {
       const val = Math.abs(a[i * n + k]);
       if (val > maxVal) { maxVal = val; maxRow = i; }
     }
-    if (maxVal < singularityTol) throw new Error(`Matriz singular (mecanismo o estructura hipostática). Verificá los apoyos.`);
+    if (maxVal < singularityTol) throw new Error(t('detailed.singularMatrix'));
     if (maxRow !== k) {
       for (let j = 0; j < n; j++) {
         const tmp = a[k * n + j]; a[k * n + j] = a[maxRow * n + j]; a[maxRow * n + j] = tmp;
@@ -248,7 +249,7 @@ function solveLU(A: Float64Array, b: Float64Array, n: number): Float64Array {
       bw[i] -= factor * bw[k];
     }
   }
-  if (Math.abs(a[(n - 1) * n + (n - 1)]) < singularityTol) throw new Error('Matriz singular (mecanismo). Estructura hipostática.');
+  if (Math.abs(a[(n - 1) * n + (n - 1)]) < singularityTol) throw new Error(t('detailed.singularHypostatic'));
   const x = new Float64Array(n);
   for (let i = n - 1; i >= 0; i--) {
     let sum = bw[i];
@@ -528,7 +529,7 @@ export function solveDetailed(input: SolverInput): DSMStepData {
       const c = Math.cos(ang), s = Math.sin(ang);
       const eKn = mat.e * 1000;
       const alpha = 1.2e-5;
-      const desc = `Carga térmica elem ${elem.id}`;
+      const desc = t('detailed.thermalLoadDesc').replace('{id}', String(elem.id));
       const addLC = (nodeId: number, ld: number, val: number, d: string) => {
         if (Math.abs(val) < 1e-15) return;
         const idx = globalDof(nodeId, ld);

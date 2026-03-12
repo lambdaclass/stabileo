@@ -8,6 +8,7 @@
 
 import type { SolverInput } from './types';
 import { buildDofNumbering, assemble, type DofNumbering } from './solver-js';
+import { t } from '../i18n';
 
 function dofKey(nodeId: number, localDof: number): string {
   return `${nodeId}:${localDof}`;
@@ -227,7 +228,7 @@ export function analyzeKinematics(input: SolverInput): KinematicResult {
       mechanismModes: 0,
       mechanismNodes: [],
       unconstrainedDofs: [],
-      diagnosis: 'Todos los GDL están restringidos.',
+      diagnosis: t('kin.allDofConstrained'),
       isSolvable: true,
     };
   }
@@ -315,32 +316,39 @@ function buildDiagnosis(
   unconstrainedDofs: Array<{ nodeId: number; dof: 'ux' | 'uy' | 'rz' }>,
 ): string {
   const dofNames: Record<string, string> = {
-    'ux': 'desplazamiento horizontal',
-    'uy': 'desplazamiento vertical',
-    'rz': 'rotación',
+    'ux': t('kin.dofHorizontal'),
+    'uy': t('kin.dofVertical'),
+    'rz': t('kin.dofRotation'),
   };
 
   if (mechanismModes === 0) {
-    if (degree > 0) return `Estructura hiperestática de grado ${degree}.`;
-    if (degree === 0) return 'Estructura isostática.';
-    // degree < 0 but rank is full — shouldn't happen, but handle gracefully
-    return `Estructura con grado ${degree} pero numéricamente estable.`;
+    if (degree > 0) return t('kin.diagHyperstatic').replace('{degree}', String(degree));
+    if (degree === 0) return t('kin.diagIsostatic');
+    return t('kin.diagStableButNeg').replace('{degree}', String(degree));
   }
 
   // Has mechanism modes
   const nodeList = mechanismNodes.slice(0, 8).join(', ');
   const dofList = unconstrainedDofs.slice(0, 8)
-    .map(d => `nodo ${d.nodeId} (${dofNames[d.dof]})`)
+    .map(d => `${t('kin.nodeLC')} ${d.nodeId} (${dofNames[d.dof]})`)
     .join('; ');
 
   if (mechanismNodes.length <= 3) {
-    return `Mecanismo en nodo${mechanismNodes.length > 1 ? 's' : ''} ${nodeList} ` +
-           `(${mechanismModes} modo${mechanismModes > 1 ? 's' : ''} de mecanismo). ` +
-           `GDL sin restringir: ${dofList}. ` +
-           `Revisá las articulaciones y apoyos en esa zona.`;
+    return t('kin.diagMechSmall')
+      .replace('{s}', mechanismNodes.length > 1 ? t('kin.plural_s') : '')
+      .replace('{nodes}', nodeList)
+      .replace('{modes}', String(mechanismModes))
+      .replace('{ms}', mechanismModes > 1 ? t('kin.plural_s') : '')
+      .replace('{dofs}', dofList);
   }
 
-  return `Estructura hipostática (grado ${degree}, ${mechanismModes} modo${mechanismModes > 1 ? 's' : ''} de mecanismo). ` +
-         `${mechanismNodes.length} nodos participan: ${nodeList}${mechanismNodes.length > 8 ? '...' : ''}. ` +
-         `GDL sin restringir: ${dofList}${unconstrainedDofs.length > 8 ? '...' : ''}.`;
+  return t('kin.diagMechLarge')
+    .replace('{degree}', String(degree))
+    .replace('{modes}', String(mechanismModes))
+    .replace('{ms}', mechanismModes > 1 ? t('kin.plural_s') : '')
+    .replace('{nNodes}', String(mechanismNodes.length))
+    .replace('{nodes}', nodeList)
+    .replace('{dots1}', mechanismNodes.length > 8 ? '...' : '')
+    .replace('{dofs}', dofList)
+    .replace('{dots2}', unconstrainedDofs.length > 8 ? '...' : '');
 }

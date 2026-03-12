@@ -9,6 +9,7 @@
     type ShapeType, type SectionProperties, type MaterialCategory,
   } from '../lib/data/section-shapes';
   import { crossSectionPath } from '../lib/utils/section-drawing';
+  import { t } from '../lib/i18n';
 
   interface Props {
     open: boolean;
@@ -121,7 +122,7 @@
   }
 
   // ─── Amorphous Section state ────────────────
-  let amorphName = $state('Sección amorfa');
+  let amorphName = $state(t('section.amorphousDefault'));
   let amorphA = $state(0.005);
   let amorphIy = $state(0.00008);
   let amorphIz = $state(0.00002);
@@ -132,7 +133,7 @@
   function handleAmorphousConfirm() {
     if (!amorphValid || !onamorphousselect) return;
     onamorphousselect({
-      name: amorphName || 'Sección amorfa',
+      name: amorphName || t('section.amorphousDefault'),
       a: amorphA,
       iy: amorphIy,
       iz: amorphIz,
@@ -146,11 +147,11 @@
 </script>
 
 {#if open}
-  <div class="sc-overlay" role="dialog" aria-label="Cambiar sección" onkeydown={handleKeydown}>
+  <div class="sc-overlay" role="dialog" aria-label={t('dialog.changeSection')} onkeydown={handleKeydown}>
     <div class="sc-backdrop" onclick={onclose}></div>
     <div class="sc-modal">
       <div class="sc-header">
-        <h2>Cambiar Sección</h2>
+        <h2>{t('dialog.changeSection')}</h2>
         <button class="sc-close" onclick={onclose}>&#x2715;</button>
       </div>
 
@@ -159,16 +160,16 @@
         <button
           class:active={activeMainTab === 'profile'}
           onclick={() => { activeMainTab = 'profile'; }}
-        >Elegir Perfil Estándar</button>
+        >{t('dialog.chooseStandardProfile')}</button>
         <button
           class:active={activeMainTab === 'shape'}
           onclick={() => { activeMainTab = 'shape'; }}
-        >Construir Sección</button>
+        >{t('dialog.buildSection')}</button>
         {#if onamorphousselect}
           <button
             class:active={activeMainTab === 'amorphous'}
             onclick={() => { activeMainTab = 'amorphous'; }}
-          >Definir Sección Amorfa</button>
+          >{t('dialog.defineAmorphousSection')}</button>
         {/if}
       </div>
 
@@ -194,14 +195,14 @@
           {/if}
 
           <div class="profile-search">
-            <input type="text" placeholder="Buscar perfil..." bind:value={searchQuery} />
+            <input type="text" placeholder={t('search.profile')} bind:value={searchQuery} />
           </div>
 
           <div class="profile-table-wrap">
             <table class="profile-table">
               <thead>
                 <tr>
-                  <th>Perfil</th>
+                  <th>{t('table.profile')}</th>
                   <th>h (mm)</th>
                   <th>b (mm)</th>
                   <th>A (cm&#178;)</th>
@@ -223,7 +224,7 @@
                   </tr>
                 {/each}
                 {#if filteredProfiles.length === 0}
-                  <tr><td colspan="7" class="no-results">Sin resultados</td></tr>
+                  <tr><td colspan="7" class="no-results">{t('search.noResults')}</td></tr>
                 {/if}
               </tbody>
             </table>
@@ -233,31 +234,31 @@
       <!-- ═══ Amorphous Section Tab ═══ -->
       {:else if activeMainTab === 'amorphous'}
         <div class="sc-body sc-shape-body">
-          <p class="shape-desc">Definir propiedades de sección directamente sin forma geométrica. Las secciones amorfas no permiten análisis de sección (distribución de tensiones).</p>
+          <p class="shape-desc">{t('dialog.amorphousSectionDesc')}</p>
 
           <div class="param-grid">
             <label class="param-field">
-              <span>Nombre</span>
+              <span>{t('field.name')}</span>
               <div class="param-input">
                 <input type="text" bind:value={amorphName} style="width: 120px;" />
               </div>
             </label>
             <label class="param-field">
-              <span>Área (A)</span>
+              <span>{t('field.area')}</span>
               <div class="param-input">
                 <input type="number" step="0.0001" bind:value={amorphA} />
                 <span class="param-unit">m²</span>
               </div>
             </label>
             <label class="param-field">
-              <span>Iy (eje Y horiz.)</span>
+              <span>{t('field.iyHoriz')}</span>
               <div class="param-input">
                 <input type="number" step="0.000001" bind:value={amorphIy} />
                 <span class="param-unit">m⁴</span>
               </div>
             </label>
             <label class="param-field">
-              <span>Iz (eje Z vert.)</span>
+              <span>{t('field.izVert')}</span>
               <div class="param-input">
                 <input type="number" step="0.000001" bind:value={amorphIz} />
                 <span class="param-unit">m⁴</span>
@@ -265,7 +266,7 @@
             </label>
             {#if is3D}
               <label class="param-field">
-                <span>J (torsión)</span>
+                <span>{t('field.jTorsion')}</span>
                 <div class="param-input">
                   <input type="number" step="0.000001" bind:value={amorphJ} />
                   <span class="param-unit">m⁴</span>
@@ -274,11 +275,11 @@
             {/if}
           </div>
 
-          <div class="amorph-warning">⚠ Las secciones amorfas no permiten análisis de sección (tensiones, Mohr, Von Mises)</div>
+          <div class="amorph-warning">{t('warning.amorphousNoStress')}</div>
 
           {#if amorphValid}
             <div class="results-box">
-              <div class="result-row"><span>Nombre:</span><span class="result-val">{amorphName}</span></div>
+              <div class="result-row"><span>{t('field.resultName')}</span><span class="result-val">{amorphName}</span></div>
               <div class="result-row"><span>A =</span><span class="result-val">{amorphA.toPrecision(4)} m²</span></div>
               <div class="result-row"><span>Iy =</span><span class="result-val">{amorphIy.toPrecision(4)} m⁴</span></div>
               <div class="result-row"><span>Iz =</span><span class="result-val">{amorphIz.toPrecision(4)} m⁴</span></div>
@@ -286,9 +287,9 @@
                 <div class="result-row"><span>J =</span><span class="result-val">{amorphJ.toPrecision(4)} m⁴</span></div>
               {/if}
             </div>
-            <button class="confirm-btn" onclick={handleAmorphousConfirm}>Aplicar sección amorfa</button>
+            <button class="confirm-btn" onclick={handleAmorphousConfirm}>{t('action.applyAmorphousSection')}</button>
           {:else}
-            <div class="results-box error"><span>Todos los valores deben ser positivos</span></div>
+            <div class="results-box error"><span>{t('error.allPositive')}</span></div>
           {/if}
         </div>
 
@@ -296,8 +297,8 @@
       {:else}
         <div class="sc-body sc-shape-body">
           <div class="category-tabs">
-            <button class:active={activeCategory === 'steel'} onclick={() => { activeCategory = 'steel'; }}>Acero</button>
-            <button class:active={activeCategory === 'concrete'} onclick={() => { activeCategory = 'concrete'; }}>Hormigón</button>
+            <button class:active={activeCategory === 'steel'} onclick={() => { activeCategory = 'steel'; }}>{t('shapeBuilder.steel')}</button>
+            <button class:active={activeCategory === 'concrete'} onclick={() => { activeCategory = 'concrete'; }}>{t('shapeBuilder.concrete')}</button>
           </div>
 
           <div class="shape-tabs">
@@ -306,7 +307,7 @@
                 class="tab-btn"
                 class:active={activeShape === shape.id}
                 onclick={() => { activeShape = shape.id; }}
-              >{shape.label}</button>
+              >{t(shape.label)}</button>
             {/each}
           </div>
 
@@ -319,12 +320,12 @@
             </div>
           {/if}
 
-          <p class="shape-desc">{shapeDef.description}</p>
+          <p class="shape-desc">{t(shapeDef.description)}</p>
 
           <div class="param-grid">
             {#each shapeDef.params as p}
               <label class="param-field">
-                <span>{p.label}</span>
+                <span>{t(p.label)}</span>
                 <div class="param-input">
                   <input
                     type="number"
@@ -343,13 +344,13 @@
 
           {#if computed}
             <div class="results-box">
-              <div class="result-row"><span>Nombre:</span><span class="result-val">{autoName}</span></div>
+              <div class="result-row"><span>{t('field.resultName')}</span><span class="result-val">{autoName}</span></div>
               <div class="result-row"><span>A =</span><span class="result-val">{computed.a.toPrecision(4)} m²</span></div>
               <div class="result-row"><span>Iz =</span><span class="result-val">{computed.iz.toPrecision(4)} m⁴</span></div>
             </div>
-            <button class="confirm-btn" onclick={handleShapeConfirm}>Aplicar sección</button>
+            <button class="confirm-btn" onclick={handleShapeConfirm}>{t('action.applySection')}</button>
           {:else}
-            <div class="results-box error"><span>Dimensiones inválidas</span></div>
+            <div class="results-box error"><span>{t('shapeBuilder.invalidDimensions')}</span></div>
           {/if}
         </div>
       {/if}

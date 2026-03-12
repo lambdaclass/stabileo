@@ -1,5 +1,6 @@
 <script lang="ts">
   import { modelStore, uiStore, resultsStore } from '../../lib/store';
+  import { t } from '../../lib/i18n';
   import type { NodalLoad } from '../../lib/store/model.svelte.ts';
   import { toDisplay, unitLabel } from '../../lib/utils/units';
   import SupportDetails from './SupportDetails.svelte';
@@ -31,7 +32,7 @@
 </script>
 
 <div class="panel-section">
-  <h3>Nodo Seleccionado</h3>
+  <h3>{t('prop.selectedNode')}</h3>
   {#each uiStore.selectedNodes as nodeId}
     {#if modelStore.getNode(nodeId)}
       {@const node = modelStore.getNode(nodeId)!}
@@ -58,7 +59,7 @@
         {#if uiStore.analysisMode === '3d' && resultsStore.results3D}
           {@const disp3D = resultsStore.getDisplacement3D(nodeId)}
           {#if disp3D}
-            <h4>Desplazamientos 3D</h4>
+            <h4>{t('prop.displacements3d')}</h4>
             <div class="property-row">
               <span>ux:</span>
               <span>{dv(disp3D.ux, 'displacement').toFixed(us === 'SI' ? 4 : 3)} {ul('displacement')}</span>
@@ -87,7 +88,7 @@
 
           {@const reaction3D = resultsStore.getReaction3D(nodeId)}
           {#if reaction3D}
-            <h4>Reacciones 3D</h4>
+            <h4>{t('prop.reactions3d')}</h4>
             <div class="property-row">
               <span>Rx:</span>
               <span>{dv(reaction3D.fx, 'force').toFixed(2)} {ul('force')}</span>
@@ -116,7 +117,7 @@
         {:else}
           {@const disp = resultsStore.getDisplacement(nodeId)}
           {#if disp}
-            <h4>Desplazamientos</h4>
+            <h4>{t('prop.displacements')}</h4>
             <div class="property-row">
               <span>ux:</span>
               <span>{dv(disp.ux, 'displacement').toFixed(us === 'SI' ? 4 : 3)} {ul('displacement')}</span>
@@ -133,7 +134,7 @@
 
           {@const reaction = resultsStore.getReaction(nodeId)}
           {#if reaction}
-            <h4>Reacciones</h4>
+            <h4>{t('prop.reactions')}</h4>
             <div class="property-row">
               <span>Rx:</span>
               <span>{dv(reaction.rx, 'force').toFixed(2)} {ul('force')}</span>
@@ -157,7 +158,7 @@
 
       {@const nodalLoads = getNodalLoadsForNode(nodeId)}
       {#if nodalLoads.length > 0}
-        <h4>Cargas Nodales</h4>
+        <h4>{t('prop.nodalLoads')}</h4>
         {#each nodalLoads as nl}
           <div class="property-row">
             <span>Fx:</span>
@@ -179,14 +180,14 @@
 
       {@const hinges = modelStore.getHingesAtNode(nodeId)}
       {#if hinges.length > 0}
-        <h4>Articulaciones</h4>
+        <h4>{t('prop.hinges')}</h4>
         {#each hinges as h}
           {@const elem = modelStore.elements.get(h.elementId)}
           {#if elem}
             <div class="property-row">
               <button class="btn-small" class:active={h.hasHinge}
                 onclick={() => { modelStore.toggleHinge(h.elementId, h.end); resultsStore.clear(); }}
-                title="Elemento {h.elementId} — nodo {h.end === 'start' ? 'I' : 'J'}">
+                title="{t('table.elemLabel')} {h.elementId} — {t('table.nodeLabel')} {h.end === 'start' ? 'I' : 'J'}">
                 {h.hasHinge ? '○' : '●'} E{h.elementId}
               </button>
             </div>
@@ -196,16 +197,16 @@
           <button class="btn-small" onclick={() => {
             modelStore.batch(() => { for (const h of hinges) if (!h.hasHinge) modelStore.toggleHinge(h.elementId, h.end); });
             resultsStore.clear();
-          }}>Articular todo</button>
+          }}>{t('prop.hingeAll')}</button>
           <button class="btn-small" onclick={() => {
             modelStore.batch(() => { for (const h of hinges) if (h.hasHinge) modelStore.toggleHinge(h.elementId, h.end); });
             resultsStore.clear();
-          }}>Quitar todo</button>
+          }}>{t('prop.removeAll')}</button>
         </div>
       {/if}
 
       <button class="btn-small btn-danger" onclick={() => { modelStore.removeNode(nodeId); resultsStore.clear(); }}>
-        Eliminar nodo
+        {t('prop.deleteNode')}
       </button>
     {/if}
   {/each}

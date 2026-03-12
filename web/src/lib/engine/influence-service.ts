@@ -5,6 +5,7 @@
 import { computeInfluenceLineWasm } from './wasm-solver';
 import type { ModelData } from './solver-service';
 import type { InfluenceQuantity, InfluenceLineResult } from '../store/model.svelte';
+import { t } from '../i18n';
 
 /**
  * Compute influence line: move unit load P=1 (downward) across elements.
@@ -18,8 +19,8 @@ export function computeInfluenceLine(
   targetPosition: number = 0.5,
   nPointsPerElement: number = 20,
 ): InfluenceLineResult | string {
-  if (model.nodes.size < 2 || model.elements.size < 1) return 'Necesita al menos 2 nodos y 1 elemento';
-  if (model.supports.size < 1) return 'Necesita al menos 1 apoyo';
+  if (model.nodes.size < 2 || model.elements.size < 1) return t('influence.needNodesElems');
+  if (model.supports.size < 1) return t('influence.needSupport');
 
   // Build base solver input (no loads)
   const solver = {
@@ -45,6 +46,6 @@ export function computeInfluenceLine(
       nPointsPerElement,
     });
   } catch (err: any) {
-    return `Error al calcular línea de influencia: ${err.message}`;
+    return t('influence.calcError').replace('{n}', err.message);
   }
 }

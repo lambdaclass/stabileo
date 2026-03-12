@@ -7,6 +7,7 @@ import {
 } from './solver-js';
 import { assembleKg } from './geometric-stiffness';
 import { choleskySolve } from './matrix-utils';
+import { t } from '../i18n';
 
 export interface PDeltaConfig {
   /** Maximum iterations (default 20) */
@@ -47,7 +48,7 @@ export function solvePDelta(
   const nf = dofNum.nFree;
   const nt = dofNum.nTotal;
 
-  if (nf === 0) return 'No hay grados de libertad libres';
+  if (nf === 0) return t('pdelta.noFreeDofs');
 
   // Assemble base stiffness and force
   const { K, F } = assemble(input, dofNum);
@@ -70,7 +71,7 @@ export function solvePDelta(
     uFree = choleskySolve(new Float64Array(Kff), new Float64Array(Ff), nf)
           ?? solveLU(new Float64Array(Kff), new Float64Array(Ff), nf);
   } catch {
-    return 'Error en resolución lineal inicial';
+    return t('pdelta.linearSolveError');
   }
 
   // Save linear solution for B₂ computation

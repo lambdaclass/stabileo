@@ -2,6 +2,7 @@
 
 import type { SolverInput, SolverElement, AnalysisResults, ElementForces } from './types';
 import { solve, computeStaticDegree } from './solver-js';
+import { t } from '../i18n';
 
 export interface PlasticHinge {
   elementId: number;
@@ -98,7 +99,7 @@ export function solvePlastic(
   // Plastic analysis requires frame elements (moment-carrying)
   const hasFrames = Array.from(input.elements.values()).some(e => e.type === 'frame');
   if (!hasFrames) {
-    return 'El análisis plástico requiere elementos tipo pórtico (frame). Los reticulados (truss) solo transmiten fuerza axial y no forman articulaciones plásticas por flexión.';
+    return t('plastic.requiresFrames');
   }
 
   // Compute Mp for each section
@@ -276,7 +277,7 @@ export function solvePlastic(
   }
 
   if (allHinges.length === 0) {
-    return 'No se formaron articulaciones plásticas. Los momentos en la estructura no alcanzan la capacidad plástica Mp. Posibles causas: las cargas son muy bajas relativas a la resistencia de la sección, o la sección tiene capacidad muy alta.';
+    return t('plastic.noHingesFormed');
   }
 
   return {

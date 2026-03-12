@@ -2,20 +2,21 @@
   import { tick } from 'svelte';
   import { tabManager } from '../lib/store/tabs.svelte';
   import { modelStore } from '../lib/store';
+  import { t } from '../lib/i18n';
 
   let tabBarEl: HTMLDivElement;
 
   function handleNameInput(tabId: string, e: Event) {
     const el = e.target as HTMLInputElement;
-    const name = el.value || 'Nueva Estructura';
+    const name = el.value || t('tabBar.newStructure');
     tabManager.renameTab(tabId, name);
   }
 
   function handleNameBlur(tabId: string, e: Event) {
     const el = e.target as HTMLInputElement;
     if (!el.value.trim()) {
-      el.value = 'Nueva Estructura';
-      tabManager.renameTab(tabId, 'Nueva Estructura');
+      el.value = t('tabBar.newStructure');
+      tabManager.renameTab(tabId, t('tabBar.newStructure'));
     }
   }
 
@@ -71,13 +72,13 @@
         <button
           class="tab-close"
           onclick={(e) => { e.stopPropagation(); tabManager.closeTab(tab.id); }}
-          title="Cerrar pestaña"
-          aria-label="Cerrar pestaña"
+          title={t('tabBar.closeTab')}
+          aria-label={t('tabBar.closeTab')}
         >&times;</button>
       {/if}
     </div>
   {/each}
-  <button class="tab-add" onclick={handleNewTab} title="Nueva pestaña">+</button>
+  <button class="tab-add" onclick={handleNewTab} title={t('tabBar.newTab')}>+</button>
 </div>
 
 <style>
