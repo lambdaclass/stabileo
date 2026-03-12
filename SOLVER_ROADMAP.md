@@ -103,10 +103,10 @@ If the goal is `best open structural solver`, the current priority order is:
    Measured across MITC4, Quad9, and curved shell families: 22-89× factorization speedup over dense LU, 22× end-to-end at 30×30 MITC4, 0 perturbations. Sparse wins above ~500 DOFs on all families. Fill ratio grows 2.6-7.0× with mesh size.
 
 2. `Deeper sparse eigensolver integration`
-   Sparse assembly/runtime bottlenecks from duplicate compaction and unconditional `k_full` builds are fixed. Modal 3D and buckling 3D now have sparse eigensolver paths in the common unconstrained case, so this program is partly done. The next step is to push sparse deeper into harmonic and reduction internals and reduce remaining dense eigensolver dependencies.
+   Sparse assembly/runtime bottlenecks from duplicate compaction and unconditional `k_full` builds are fixed. Modal 3D, buckling 3D, and harmonic 3D now have sparse eigensolver paths in the common unconstrained case, and Guyan / Craig-Bampton have their largest repeated-factorization bottlenecks removed. This program is materially underway. The next step is to push sparse deeper into the remaining reduction internals and remove the remaining dense eigensolver dependencies where they still matter.
 
 3. `Runtime measurement on newly sparse workflows`
-   Modal is now measured, and buckling has the sparse eigensolver path but still needs the same runtime/memory treatment. The next concrete measurement step is harmonic, Guyan, and Craig-Bampton, so the next scale work stays data-driven.
+   Modal is measured. Harmonic now has a large measured modal-response win, and Guyan / Craig-Bampton now have measured reduction speedups. The next concrete measurement step is buckling on the new sparse path, followed by any remaining harmonic / reduction follow-up where data still shows dense bottlenecks.
 
 4. `Verification hardening around the new sparse path`
    The sparse path is now live and deterministic. Lock it in with:
@@ -114,12 +114,19 @@ If the goal is `best open structural solver`, the current priority order is:
    - residual-based parity gates (sparse vs dense solutions verified via residual norm)
    - fill-ratio gates (< 200× on representative shell meshes)
    - no-dense-fallback gates on representative shell models
-   - sparse modal parity and no-`k_full`-overbuild expectations
+   - sparse modal, buckling, and harmonic parity plus no-`k_full`-overbuild expectations
+   - sparse reduction gates:
+     - Guyan single-factorization behavior
+     - Craig-Bampton interior eigensolve success
+     - reduction parity where available
+   - release-mode sparse smoke tests for numerically sensitive workflows
+   - `parallel`-feature smoke tests so the parallel sparse path stays aligned with serial behavior
+   - doctest coverage in CI so example/documentation regressions are caught early
    - broader invariant, property-based, and fuzzing coverage around sparse/shell paths
    - signal-driven benchmark growth: add tests that improve proof, regression protection, performance confidence, or edge-case coverage
 
 5. `Broader sparse-path reuse`
-   Sparse reuse is now partly done in 3D modal, buckling, harmonic, Guyan, and Craig-Bampton flows. The next step is to extend sparse reuse where still missing and push sparse deeper than `assemble_sparse_3d() + to_dense_symmetric()`.
+   Sparse reuse is now partly done in 3D modal, buckling, harmonic, Guyan, and Craig-Bampton flows. The next step is to extend sparse reuse where still missing and push sparse deeper than `assemble_sparse_3d() + to_dense_symmetric()`, especially in reduction and eigensolver internals.
 
 6. `Long-tail nonlinear hardening`
    Now that the linear/shell sparse base is healthier, mixed nonlinear cases become more worth attacking:
@@ -174,21 +181,25 @@ The current near-term sequence is:
    Measured: 22-89× factorization speedup, 22× end-to-end at 30×30 MITC4, 0 perturbations across all families/sizes. Sparse wins above ~500 DOFs. Dense still wins at curved 8×8 (~450 DOFs).
 
 2. `Deeper sparse eigensolver integration`
-   Modal 3D and buckling 3D now have sparse eigensolver paths for the common unconstrained case. This is partly done; the next step is to extend that depth into harmonic and reduction workflows and reduce remaining dense eigensolver dependencies.
+   Modal 3D, buckling 3D, and harmonic 3D now have sparse eigensolver paths for the common unconstrained case. This is partly done; the next step is to extend that depth into reduction workflows and reduce the remaining dense eigensolver dependencies.
 
 3. `Runtime measurement on the newly sparse workflows`
-   Modal is now measured. Buckling should be measured next to match its new sparse path, followed by harmonic, Guyan, and Craig-Bampton.
+   Modal is now measured. Harmonic and reduction bottlenecks are now much better understood, so buckling should be measured next to match its new sparse path, followed by any remaining harmonic / reduction follow-up.
 
 4. `Verification hardening around the new sparse path`
    Lock in the sparse path with:
    - determinism gates (sorted assembly and merged DOF numbering are in place; add broader coverage)
    - residual-based parity gates (sparse vs dense verified via residual norm < 1e-6)
    - fill-ratio and no-dense-fallback benchmark gates
-   - sparse modal parity and no-`k_full`-overbuild expectations
+   - sparse modal, buckling, and harmonic parity plus no-`k_full`-overbuild expectations
+   - sparse reduction gates
+   - release-mode sparse smoke coverage
+   - `parallel`-feature smoke coverage
+   - doctest coverage
    - invariant, property-based, and fuzzing coverage around sparse/shell paths
 
 5. `Broader sparse-path reuse`
-   Modal, buckling, harmonic, Guyan, and Craig-Bampton 3D now sparse-assemble and then convert `K_ff` back to dense, with modal and buckling already taking a sparse eigensolver step further. The next step is to push sparse deeper into harmonic and reduction internals.
+   Modal, buckling, harmonic, Guyan, and Craig-Bampton 3D now sparse-assemble and then convert `K_ff` back to dense, with modal, buckling, and harmonic already taking a sparse eigensolver step further. The next step is to push sparse deeper into reduction internals.
 
 6. `Long-tail nonlinear hardening`
    Focus on the hardest mixed cases:
@@ -291,6 +302,7 @@ Focus:
 - parallel assembly scaling on heavier element families
 - conditioning diagnostics
 - eigensolver debt cleanup
+- CI protection for sparse/eigensolver/reduction wins
 
 Current status:
 - **sparse shell solve viability is done**: direct left-looking symbolic Cholesky with two-tier pivot perturbation eliminates dense LU fallback on all shell families (MITC4, MITC9, curved shell)
@@ -305,11 +317,15 @@ Current status:
 - all 8 element families parallelized through a unified `AnyElement3D` work pool
 - memory benchmarks show 11-22× reduction on representative 10×10 to 15×15 shell models
 - criterion benchmarks cover flat-plate (up to 50×50 = 2500 quads) and mixed frame+slab models (up to 8-storey, 8×8 slab)
-- the Lanczos tridiagonal eigensolver still falls back to dense Jacobi on the tridiagonal matrix; this is real eigensolver debt
+- the Lanczos tridiagonal eigensolver debt is now resolved with implicit symmetric QR
 - sparse assembly reuse is now in place for 3D modal, buckling, harmonic, Guyan, and Craig-Bampton workflows, eliminating dense `n×n` assembly there
-- assembly/extraction measurements show a new bottleneck: on MITC4 plate meshes, sparse assembly/extraction can still be 5-25× slower than dense assembly/extraction even though it wins decisively on memory and large-scale solvability
-- profiling shows the hot spot is `CscMatrix::from_triplets` / duplicate compaction, not element stiffness computation
-- some 3D workflows still overbuild `k_full` even when they only need `k_ff`
+- `from_triplets` / duplicate-compaction overhead is fixed, and `k_ff`-only sparse assembly exists where full reactions are not needed
+- modal, buckling, and harmonic 3D now have sparse eigensolver paths in the common unconstrained case
+- Guyan and Craig-Bampton reuse one factorization instead of repeating hundreds of LU decompositions
+- the next scale bottlenecks are now workflow-specific:
+  - buckling runtime measurement on the new sparse path
+  - remaining reduction internals that still densify
+  - harmonic sweep cost after the modal-response acceleration
 
 Measured parallel assembly results (Apple Silicon, release build):
 
@@ -327,26 +343,51 @@ Updated numerical-methods order:
 1. ~~sparse shell solve viability~~ — DONE
 2. ~~fill-reducing ordering quality~~ — DONE (RCM, 1.8× fill on representative shell meshes)
 3. ~~measure real full-model runtime gains~~ — DONE
-4. reduce sparse assembly overhead
-5. add `k_ff`-only sparse assembly where full reactions are not needed
-6. extend sparse path deeper into modal, buckling, harmonic, and reduction internals
-7. tridiagonal eigensolver fix
-8. sparse shift-invert eigensolver path
-9. iterative refinement and Krylov solvers
-10. modified Newton
-11. quasi-Newton variants
+4. deepen sparse eigensolver integration in reduction workflows
+5. measure buckling runtime and any remaining harmonic/reduction bottlenecks
+6. sparse shift-invert eigensolver path
+7. iterative refinement and Krylov solvers
+8. modified Newton
+9. quasi-Newton variants
 
 See [`research/numerical_methods_gap_analysis.md`](/Users/unbalancedparen/projects/dedaliano/research/numerical_methods_gap_analysis.md).
 
 Next steps:
-- profile and reduce `assemble_sparse_3d` overhead
-- compare RCM vs AMD on representative shell and mixed models
-- measure the now-sparse modal/buckling/harmonic/reduction workflows
-- push sparse deeper into eigensolver internals instead of converting `K_ff` back to dense
-- fix the Lanczos tridiagonal eigensolver debt
+- measure buckling runtime on the sparse eigensolver path
+- measure the remaining harmonic / Guyan / Craig-Bampton bottlenecks after the recent speedups
+- push sparse deeper into reduction internals instead of converting `K_ff` back to dense where avoidable
+- add CI gates for the new sparse/eigensolver/reduction guarantees
+- move to iterative refinement / Krylov only after the current direct sparse path is mature enough
 
 Why it matters:
 A solver is not elite if it only works well on small clean examples.
+
+#### CI / Gate Discipline
+
+The newest sparse/eigensolver/reduction wins should be explicit CI gates, not only part of the full suite.
+
+Add or keep explicit named gates for:
+- sparse shell gates:
+  - no dense fallback
+  - fill ratio bounds
+  - deterministic sparse assembly
+  - sparse vs dense residual parity
+- sparse modal / buckling / harmonic parity gates
+- sparse reduction gates:
+  - Guyan single-factorization behavior
+  - Craig-Bampton interior eigensolve success
+  - reduction parity where available
+- release-mode sparse smoke coverage
+- `parallel`-feature smoke coverage
+- doctest coverage
+
+What still needs more testing:
+- buckling runtime/fill gates on the new sparse path
+- harmonic/reduction workflow runtime gates after the latest optimizations
+- no-`k_full`-overbuild expectations in every workflow that should build only `k_ff`
+- broader mixed shell + nonlinear acceptance models
+- broader contact + nonlinear + staging acceptance models
+- more invariant/property/fuzz coverage around sparse eigensolver and reduction paths
 
 ### 4. Verification Hardening
 
