@@ -73,6 +73,28 @@
   let advancedResultsRef = $state<Record<string, any>>({});
   let tabError = $state<string | null>(null);
   let showReportDialog = $state(false);
+  let solving = $state(false);
+  let solveError = $state<string | null>(null);
+  const hasModel = $derived(modelStore.nodes.size > 0 && modelStore.elements.size > 0);
+
+  async function handleSolve() {
+    solveError = null;
+    solving = true;
+    try {
+      await runGlobalSolve();
+      if (!resultsStore.results3D) {
+        solveError = t('pro.noResults');
+        solving = false;
+        return;
+      }
+      // Combinations are already solved inside runGlobalSolve for PRO mode
+      activeTab = 'results';
+    } catch (e: any) {
+      console.error('PRO solve error:', e);
+      solveError = e?.message || String(e) || t('pro.unknownError');
+    }
+    solving = false;
+  }
 
   // Merge model + assembly + solver diagnostics with dedup (mirrors ProDiagnosticsTab logic)
   const diagCount = $derived.by(() => {
@@ -191,11 +213,11 @@
     return loads;
   }
 
-  function handleOpenReportDialog() {
+  async function handleOpenReportDialog() {
     // Auto-solve if no results yet
     if (!resultsStore.results3D) {
       if (modelStore.nodes.size === 0) { uiStore.toast(t('pro.solveFirst'), 'error'); return; }
-      runGlobalSolve();
+      await runGlobalSolve();
     }
     if (!resultsStore.results3D) return;
 
@@ -310,13 +332,19 @@
 <div class="pro-panel">
   <!-- Action bar -->
   <div class="pro-actions">
-    <button class="pro-example-btn" onclick={() => { uiStore.showLoads3D = false; modelStore.loadExample('pro-edificio-7p'); uiStore.includeSelfWeight = true; uiStore.showGrid3D = false; uiStore.showAxes3D = false; setTimeout(() => window.dispatchEvent(new Event('dedaliano-zoom-to-fit')), 100); }} title={t('pro.exampleTitle')}>
+    <button class="pro-example-btn" onclick={() => { modelStore.loadExample('pro-edificio-7p'); uiStore.includeSelfWeight = true; uiStore.showGrid3D = false; uiStore.showAxes3D = false; setTimeout(() => window.dispatchEvent(new Event('dedaliano-zoom-to-fit')), 100); }} title={t('pro.exampleTitle')}>
       {t('pro.exampleBtn')}
+    </button>
+    <button class="pro-solve-btn" onclick={handleSolve} disabled={!hasModel || solving}>
+      {solving ? t('pro.solving') : t('pro.solve')}
     </button>
     <button class="pro-report-btn" onclick={handleOpenReportDialog} disabled={modelStore.nodes.size === 0} title={t('pro.reportTitle')}>
       {t('pro.reportBtn')}
     </button>
   </div>
+  {#if solveError}
+    <div class="pro-solve-error">{solveError}</div>
+  {/if}
 
   <!-- Grouped tab navigation -->
   <nav class="pro-nav">
@@ -430,6 +458,19 @@
   }
   .pro-example-btn:hover { background: #f0a50018; }
 
+  .pro-solve-btn {
+    padding: 5px 18px;
+    font-size: 0.75rem;
+    font-weight: 600;
+    color: #fff;
+    background: linear-gradient(135deg, #4ecdc4, #36b5ad);
+    border: 1px solid #4ecdc4;
+    border-radius: 4px;
+    cursor: pointer;
+  }
+  .pro-solve-btn:hover { background: linear-gradient(135deg, #5fe0d7, #4ecdc4); }
+  .pro-solve-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+
   .pro-report-btn {
     padding: 5px 16px;
     font-size: 0.72rem;
@@ -442,6 +483,14 @@
   }
   .pro-report-btn:hover { background: linear-gradient(135deg, #ff5a75, #e94560); }
   .pro-report-btn:disabled { opacity: 0.3; cursor: not-allowed; }
+
+  .pro-solve-error {
+    padding: 4px 10px;
+    font-size: 0.7rem;
+    color: #ff8a9e;
+    background: rgba(233, 69, 96, 0.1);
+    border-bottom: 1px solid #1a3a5a;
+  }
 
   /* ─── Grouped tab navigation ─── */
   .pro-nav {

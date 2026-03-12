@@ -215,6 +215,7 @@ const es: Record<string, string> = {
   'results.variable': 'Variable',
   'results.resistance': 'Resistencia (σ/fy)',
   'results.shellVonMises': 'Shell σ Von Mises',
+  'results.shellBending': 'Shell Flexión',
   'results.changeResultsView': 'Cambiar resultados a visualizar',
   'results.primary': 'Principal',
   'results.compare': 'Comparar',
@@ -367,7 +368,7 @@ const es: Record<string, string> = {
   'project.open': 'Abrir',
   'project.exportImport': 'Exportar / Importar',
   'project.export': 'Exportar',
-  'project.importLabel': 'Importar',
+  'project.importLabel': 'Importar (Beta)',
   'project.openDed': 'Abrir .ded',
   'project.openDxf': 'Abrir DXF',
   'project.openIfc': 'Abrir IFC',
@@ -565,6 +566,8 @@ const es: Record<string, string> = {
   'project.openIfcTooltip': 'Importar modelo estructural desde archivo IFC (BIM)',
   'project.pasteCoordsTooltip': 'Importar nodos pegando coordenadas X,Y(,Z)',
   'project.generatorTooltip': 'Generar geometría desde plantilla paramétrica',
+  'project.dxfTemplate': 'Plantilla DXF',
+  'project.dxfTemplateTooltip': 'Descargar plantilla DXF con capas predefinidas y un ejemplo de estructura 3D lista para importar',
   'project.copyLinkTooltip': 'Copiar enlace que contiene todo el modelo y configuración — cualquier persona puede abrirlo para ver su copia idéntica',
   'project.pasteLinkTooltip': 'Pegar un enlace compartido y abrirlo en una nueva pestaña de Dedaliano',
   'config.liveCalcTooltip': 'Recalcula automáticamente al editar la estructura',
@@ -1641,6 +1644,13 @@ const es: Record<string, string> = {
   'dxf.materialSteelA36': 'Acero A36',
   'dxf.materialWood': 'Madera',
 
+  // Plan template DXF (3D)
+  'dxf.planTemplateDetected': 'Plantilla de planta detectada — se importará como modelo 3D',
+  'dxf.columnHeight': 'Altura columnas (m)',
+  'dxf.columns': 'columnas',
+  'dxf.beamsLabel': 'vigas',
+  'dxf.sections': 'Secciones',
+
   // ─── File operations (file.ts) ───
   'file.invalidJson': 'El archivo no es JSON válido',
   'file.invalidFormat': 'Formato de archivo inválido. Verificá que sea un archivo .ded de Dedaliano.',
@@ -1924,7 +1934,7 @@ const es: Record<string, string> = {
 
   // ─── Modal Analysis ───
   'modal.noFreeDofs': 'No hay grados de libertad libres',
-  'modal.modelTooLarge': 'Modelo demasiado grande para análisis modal (máx ~500 DOFs libres)',
+  'modal.modelTooLarge': 'Modelo demasiado grande para análisis modal (máx ~3000 DOFs libres)',
   'modal.noDensity': 'Ningún material tiene densidad asignada. Asigne densidad (kg/m³) a los materiales para el análisis modal.',
   'modal.zeroMassMatrix': 'Matriz de masa es cero — asigne densidad a los materiales',
   'modal.choleskyError': 'Fallo en descomposición de Cholesky de la matriz de masa',
@@ -2360,6 +2370,7 @@ const es: Record<string, string> = {
   'edu.step2DescNew': 'Respondé preguntas sobre los diagramas de esfuerzos internos. Mirá la estructura y pensá cómo fluyen las fuerzas.',
   'edu.noDiagramQuestions': 'Sin preguntas de diagramas para este ejercicio — continuá al Paso 3.',
   'edu.moreExercises': 'Más ejercicios próximamente.',
+  'edu.solverInsight': 'Este sistema tiene {dofs} grados de libertad libres ({total} totales). Se resolvió por factorización {solver} en {time} ms.',
   // Diagram questions
   'edu.dq.shearAtSupport': 'V en el apoyo',
   'edu.dq.momentAtCenter': 'M en el centro',
@@ -2407,6 +2418,47 @@ const es: Record<string, string> = {
   'edu.ex8SupportB': 'Apoyo B (5,0)',
   'edu.ex8MmaxBeam': 'Mmax (viga)',
 
+  'edu.sectionStatics': 'Ejercicios de Estática',
+  'edu.sectionStrength': 'Ejercicios de Resistencia de Materiales',
+  'edu.sectionAdvanced': 'Ejercicios de Análisis Avanzado',
+
+  'edu.dq.sigmaMax': 'σmax en la sección',
+  'edu.dq.momentAtBasePD': 'M en la base (P-Delta)',
+
+  'edu.ex9Title': 'Tensión de flexión — Sección rectangular',
+  'edu.ex9Desc': 'Viga simplemente apoyada de 4 m con carga puntual de 15 kN en el centro. Sección rectangular b=200 mm, h=400 mm. Calcule el módulo resistente W = bh²/6 y la tensión máxima de flexión σ = M/W.',
+  'edu.ex9SupportA': 'Apoyo A (x=0)',
+  'edu.ex9SupportB': 'Apoyo B (x=4)',
+  'edu.ex9W': 'W (módulo resistente)',
+
+  'edu.ex10Title': 'Efecto P-Delta — Columna comprimida',
+  'edu.ex10Desc': 'Columna empotrada de 5 m con 100 kN de compresión axial y 2 kN de carga horizontal en la parte superior. El momento de primer orden en la base es M = H×L = 10 kN·m. El análisis P-Delta amplifica este valor. Encuentre el momento amplificado.',
+  'edu.ex10SupportA': 'Empotramiento A (x=0)',
+  'edu.ex10MBase1st': 'M en base (1er orden)',
+  'edu.ex10MBasePD': 'M en base (P-Delta)',
+  'edu.ex10Pcr': 'Pcr (Euler)',
+  'edu.ex10BoundaryK': 'Condición de borde',
+  'edu.ex10Cantilever': 'voladizo',
+
+  // ─── Edu: Kinematic classification ───
+  'edu.kinematicQuestion': '¿Cómo se clasifica esta estructura?',
+  'edu.isostatic': 'Isostática',
+  'edu.hyperstatic': 'Hiperestática',
+  'edu.hyperstaticDegree': 'Grado de hiperestaticidad =',
+
+  // ─── Edu: Diagram shape questions ───
+  'edu.shapeQuestion': '¿Qué forma tiene cada diagrama de esfuerzos internos?',
+  'edu.diagram': 'Diagrama',
+  'edu.verifyShapes': 'Verificar formas',
+  'edu.shape.zero': 'Nulo',
+  'edu.shape.constant': 'Constante',
+  'edu.shape.linear': 'Lineal',
+  'edu.shape.quadratic': 'Cuadrático',
+
+  // ─── Edu: Section data ───
+  'edu.sectionDataTitle': 'Datos de sección',
+  'edu.sectionFormula': 'Fórmula',
+
   // ─── PRO: Common / Shared ───
   'pro.nNodes': '{n} nodos',
   'pro.nElements': '{n} elementos',
@@ -2448,6 +2500,7 @@ const es: Record<string, string> = {
   'pro.custom': 'Custom',
   'pro.chooseProfile': '-- Elegir --',
   'pro.addProfile': 'Agregar perfil',
+  'pro.addSectionPanel': 'Agregar sección',
   'pro.addSection': 'Agregar sección',
   'pro.family': 'Familia',
   'pro.profile': 'Perfil',
@@ -2459,9 +2512,15 @@ const es: Record<string, string> = {
   'pro.rollerX': 'Móvil X',
   'pro.rollerY': 'Móvil Y',
   'pro.spring': 'Resorte',
+  'pro.fixed3d': 'Empotrado 3D',
+  'pro.pinned3d': 'Articulado 3D',
+  'pro.rollerXZ': 'Móvil XZ',
+  'pro.rollerXY': 'Móvil XY',
+  'pro.rollerYZ': 'Móvil YZ',
+  'pro.spring3d': 'Resorte 3D',
+  'pro.custom3d': 'Personalizado',
   'pro.addToSelection': 'Agregar a {n} nodo(s) seleccionado(s)',
   'pro.thickness': 'Espesor (m)',
-  'pro.nodes': 'Nodos',
 
   // ─── PRO: Loads ───
   'pro.loadCases': 'Casos de carga',
@@ -2477,6 +2536,7 @@ const es: Record<string, string> = {
   'pro.addDistLoad': 'Agregar carga distribuida',
   'pro.addPointLoad': 'Agregar carga puntual',
   'pro.surfaceLoad': 'Superficie',
+  'pro.noQuadFound': 'No se encontró el quad. Creá quads en la pestaña Losas primero.',
   'pro.addSurfaceLoad': 'Agregar carga superficial',
   'pro.surfaceLoads': 'Cargas superficiales en losas',
   'pro.thermalQuadLoad': 'Termica (losa)',
@@ -2489,6 +2549,12 @@ const es: Record<string, string> = {
   'pro.distLoads': 'Cargas distribuidas',
   'pro.pointLoads': 'Cargas puntuales en elem.',
   'pro.noLoads': 'Sin cargas en este caso',
+  'pro.showLoads': 'Mostrar cargas',
+  'pro.showAll': 'Todas',
+  'pro.hideAll': 'Ninguna',
+  'pro.showCase': 'Mostrar caso en modelo',
+  'pro.hideCase': 'Ocultar caso del modelo',
+  'pro.loadsHiddenByDiagram': 'Ocultas por diagrama — click para mostrar',
   'pro.caseTypeD': 'Permanente (D)',
   'pro.caseTypeL': 'Sobrecarga (L)',
   'pro.caseTypeW': 'Viento (W)',
@@ -2498,7 +2564,6 @@ const es: Record<string, string> = {
   'pro.caseTypeOther': 'Otro',
 
   // ─── PRO: Constraints ───
-  'pro.rigidLink': 'Vínculo rígido',
   'pro.diaphragm': 'Diafragma',
   'pro.equalDof': 'DOF iguales',
   'pro.linearMpc': 'MPC lineal',
@@ -2544,7 +2609,6 @@ const es: Record<string, string> = {
   'pro.wasmNotReady': 'WASM no disponible — inicializando solver...',
   'pro.winklerFoundation': 'Fundacion Winkler',
   'pro.element': 'Elemento',
-  'pro.solving': 'Resolviendo...',
   'pro.solveWinkler': 'Resolver Winkler',
   'pro.resultWinkler': 'Resultado Winkler',
   'pro.convergence': 'Convergencia',
@@ -2668,7 +2732,7 @@ const es: Record<string, string> = {
   'pro.noSlabs': 'No hay losas (quads) con resultados de tensiones en el modelo.',
   'pro.driftTitle': 'Drift de entrepiso — CIRSOC 103 §5.2.8',
   'pro.driftLimit': 'Límite',
-  'pro.solveFirst': 'Calculá la estructura primero (pestaña Resultados)',
+  'pro.solveFirst': 'Calculá la estructura primero',
   'pro.noVerifiableElems': 'No se encontraron elementos verificables. Asegurate de que los materiales tengan f\'c <= 80 MPa (hormigón) o fy > 80 MPa (acero) y las secciones tengan propiedades definidas.',
   'pro.verifyPrompt': 'Presioná "Verificar elementos" para ejecutar la verificación CIRSOC 201 / 301',
   'pro.wasmNotice': 'Requiere recompilación WASM — las verificaciones {code} se habilitarán cuando se compilen los checks en el motor nativo.',
@@ -2697,6 +2761,7 @@ const es: Record<string, string> = {
   'pro.thresholdLabel': 'Umbral',
   'pro.messageLabel': 'Mensaje',
   'pro.noResults': 'No se obtuvieron resultados',
+  'pro.noResultsYet': 'Presioná Calcular para analizar la estructura',
   'pro.unknownError': 'Error desconocido',
   'pro.solving': 'Calculando...',
   'pro.solve': 'Calcular',
@@ -2793,6 +2858,7 @@ const es: Record<string, string> = {
   'pro.constraintForcesCount': 'fuerzas de restricción',
   'pro.selfWeightLabel': 'Peso propio',
   'pro.rigidDiaphragm': 'Diafragma rígido',
+  'pro.advancedWip': 'En desarrollo — las funciones avanzadas pueden no estar completas',
   'pro.pdeltaDesc': 'Efectos de segundo orden',
   'pro.converged': 'Convergió',
   'pro.notConverged': 'No convergió',
@@ -2809,6 +2875,16 @@ const es: Record<string, string> = {
   'pro.steps': 'pasos',
   'pro.requiresModal': 'Requiere análisis modal previo',
   'pro.needAccelData': 'Se requiere al menos un valor de aceleración',
+  'pro.customMaterial': 'Material personalizado',
+  'pro.addMaterialPanel': 'Agregar material',
+  'pro.addMaterial': 'Agregar material',
+  'pro.noSections': 'Sin secciones definidas',
+  'pro.noMaterials': 'Sin materiales definidos',
+  'pro.optional': 'opcional',
+
+  // ─── Field labels ───
+  'field.poisson': 'ν',
+  'field.density': 'γ',
 
   // ─── Connection Design (CIRSOC 301) ───
   'conn.joints': 'Nudos de conexión',
@@ -2874,5 +2950,28 @@ const es: Record<string, string> = {
   'autoLoad.seismicX': 'Sismo X',
   'autoLoad.seismicZ': 'Sismo Z',
   'autoLoad.autoGenBtn': 'Auto-generar CIRSOC',
+  'autoLoad.wind': 'Viento (CIRSOC 102)',
+  'autoLoad.windCase': 'Viento',
+  'autoLoad.windExposure': 'Exposición',
+  'autoLoad.windExpB': 'Urbana/suburbana',
+  'autoLoad.windExpC': 'Campo abierto',
+  'autoLoad.windExpD': 'Costera',
+  'autoLoad.windTribWidth': 'Ancho tributario',
+
+  // ─── Solver Performance ───
+  'perf.title': 'Rendimiento del solver',
+  'perf.totalTime': 'Tiempo total',
+  'perf.dofs': 'GDL',
+  'perf.dofsDetail': '{free} libres / {total} totales',
+  'perf.solverType': 'Solver',
+  'perf.cholesky': 'Cholesky',
+  'perf.lu': 'LU (fallback)',
+  'perf.wasm': 'WASM nativo',
+  'perf.assembly': 'Ensamblaje',
+  'perf.solve': 'Resolución',
+  'perf.postProcess': 'Post-proceso',
+  'perf.phases': 'Fases',
+  'perf.solveInfo': 'Resuelto en {time} | {dofs} GDL',
+  'perf.solveToast': 'Estructura resuelta en {time}',
 };
 export default es;

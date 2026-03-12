@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { modelStore } from '../../lib/store';
+  import { modelStore, uiStore, resultsStore } from '../../lib/store';
   import type { LoadCaseType } from '../../lib/store/model.svelte';
   import { t } from '../../lib/i18n';
   import ProAutoLoadsDialog from './ProAutoLoadsDialog.svelte';
@@ -10,6 +10,41 @@
 
   let loadKind = $state<LoadKind>('nodal');
   let activeCaseId = $state(1); // default to first load case
+
+  // Load visibility toggle per case
+  function isCaseVisible(caseId: number): boolean {
+    const vis = uiStore.visibleLoadCases3D;
+    return vis === null || vis.includes(caseId);
+  }
+
+  function toggleCaseVisibility(caseId: number) {
+    const current = uiStore.visibleLoadCases3D;
+    if (current === null) {
+      // Currently showing all → hide this one (show all except this)
+      uiStore.visibleLoadCases3D = loadCases.map(lc => lc.id).filter(id => id !== caseId);
+    } else {
+      if (current.includes(caseId)) {
+        const next = current.filter(id => id !== caseId);
+        uiStore.visibleLoadCases3D = next;
+      } else {
+        const next = [...current, caseId];
+        // If all cases are visible, reset to null (show all)
+        uiStore.visibleLoadCases3D = next.length >= loadCases.length ? null : next;
+      }
+    }
+    // Ensure loads are shown
+    uiStore.showLoads3D = true;
+  }
+
+  function showAllCases() {
+    uiStore.visibleLoadCases3D = null;
+    uiStore.showLoads3D = true;
+    uiStore.hideLoadsWithDiagram = false;
+  }
+
+  function hideAllCases() {
+    uiStore.visibleLoadCases3D = [];
+  }
 
   // Nodal load fields
   let nlNodeId = $state('');
@@ -110,7 +145,11 @@
 
   function addSurfaceLoad() {
     const quadId = parseInt(slQuadId);
-    if (isNaN(quadId) || !modelStore.model.quads.has(quadId)) return;
+    if (isNaN(quadId)) return;
+    if (!modelStore.model.quads.has(quadId)) {
+      uiStore.toast(t('pro.noQuadFound'), 'error');
+      return;
+    }
     const q = parseFloat(slQ) || 0;
     if (q === 0) return;
     modelStore.addSurfaceLoad3D(quadId, q, activeCaseId);
@@ -187,6 +226,25 @@
 
   <ProAutoLoadsDialog open={showAutoLoadsDialog} onclose={() => showAutoLoadsDialog = false} />
 
+  <!-- Load visibility bar -->
+  <div class="pro-vis-bar">
+    <label class="pro-vis-toggle">
+      <input type="checkbox" checked={uiStore.showLoads3D} onchange={(e) => { uiStore.showLoads3D = e.currentTarget.checked; if (e.currentTarget.checked) uiStore.hideLoadsWithDiagram = false; }} />
+      {t('pro.showLoads')}
+    </label>
+    {#if !uiStore.showLoads3D}
+      <span class="pro-vis-status pro-vis-off">OFF</span>
+    {:else if uiStore.hideLoadsWithDiagram && resultsStore.diagramType !== 'none'}
+      <button class="pro-vis-btn pro-vis-btn-warn" onclick={() => { uiStore.hideLoadsWithDiagram = false; uiStore.showLoads3D = true; }}>
+        {t('pro.loadsHiddenByDiagram')}
+      </button>
+    {:else}
+      <span class="pro-vis-status pro-vis-on">{loads.length} cargas</span>
+    {/if}
+    <button class="pro-vis-btn" onclick={showAllCases} title={t('pro.showAll')}>{t('pro.showAll')}</button>
+    <button class="pro-vis-btn" onclick={hideAllCases} title={t('pro.hideAll')}>{t('pro.hideAll')}</button>
+  </div>
+
   <!-- Load Cases Management -->
   <div class="pro-cases-section">
     <div class="pro-cases-header">
@@ -202,8 +260,11 @@
         >
           <span class="case-type-dot" class:type-d={lc.type === 'D'} class:type-l={lc.type === 'L'} class:type-w={lc.type === 'W'} class:type-e={lc.type === 'E'}></span>
           {lc.name}
+          <span class="case-eye" class:visible={isCaseVisible(lc.id)} role="button" tabindex="-1" onclick={(e) => { e.stopPropagation(); toggleCaseVisibility(lc.id); }} onkeydown={() => {}} title={isCaseVisible(lc.id) ? t('pro.hideCase') : t('pro.showCase')}>
+            {isCaseVisible(lc.id) ? '👁' : '·'}
+          </span>
           {#if loadCases.length > 1}
-            <button class="case-x" onclick={(e) => { e.stopPropagation(); removeLoadCase(lc.id); }}>×</button>
+            <span class="case-x" role="button" tabindex="-1" onclick={(e) => { e.stopPropagation(); removeLoadCase(lc.id); }} onkeydown={() => {}}>×</span>
           {/if}
         </button>
       {/each}
@@ -436,7 +497,29 @@
 </div>
 
 <style>
-  .pro-loads { display: flex; flex-direction: column; height: 100%; }
+  .pro-loads { display: flex; flex-direction: column; }
+  .pro-vis-bar {
+    display: flex; align-items: center; gap: 8px; padding: 6px 10px;
+    border-bottom: 1px solid #1a3050; background: #0a1a30;
+  }
+  .pro-vis-toggle {
+    display: flex; align-items: center; gap: 4px;
+    font-size: 0.72rem; color: #aaa; cursor: pointer; margin-right: auto;
+  }
+  .pro-vis-toggle input { accent-color: #4ecdc4; cursor: pointer; }
+  .pro-vis-btn {
+    padding: 2px 8px; font-size: 0.65rem; color: #888;
+    background: transparent; border: 1px solid #1a3050; border-radius: 3px; cursor: pointer;
+  }
+  .pro-vis-btn:hover { color: #ccc; border-color: #4ecdc4; }
+  .pro-vis-status { font-size: 0.62rem; font-weight: 600; }
+  .pro-vis-on { color: #4ecdc4; }
+  .pro-vis-off { color: #e94560; }
+  .pro-vis-btn-warn {
+    color: #f0a500; border-color: #5a4a2a; font-weight: 600;
+    animation: pulse-warn 1.5s ease-in-out infinite;
+  }
+  @keyframes pulse-warn { 0%, 100% { opacity: 0.7; } 50% { opacity: 1; } }
   .pro-autogen-bar { padding: 8px 10px; border-bottom: 1px solid #1a3050; }
   .pro-btn-autogen {
     width: 100%; padding: 7px 12px; font-size: 0.75rem; font-weight: 600;
@@ -460,6 +543,12 @@
   }
   .pro-case-tab:hover { color: #ccc; background: #1a3860; }
   .pro-case-tab.active { color: #fff; background: #1a4a7a; border-color: #4ecdc4; }
+  .case-eye {
+    background: none; border: none; font-size: 0.7rem; cursor: pointer;
+    padding: 0 2px; line-height: 1; opacity: 0.4; transition: opacity 0.15s;
+  }
+  .case-eye.visible { opacity: 0.9; }
+  .case-eye:hover { opacity: 1; }
   .case-x { background: none; border: none; color: #555; font-size: 0.8rem; cursor: pointer; padding: 0 0 0 4px; line-height: 1; }
   .case-x:hover { color: #ff6b6b; }
 
@@ -525,7 +614,7 @@
   .pro-btn { align-self: flex-start; padding: 5px 14px; font-size: 0.75rem; color: #ccc; background: #0f3460; border: 1px solid #1a4a7a; border-radius: 4px; cursor: pointer; }
   .pro-btn:hover { background: #1a4a7a; color: #fff; }
 
-  .pro-loads-table-wrap { flex: 1; overflow: auto; }
+  .pro-loads-table-wrap { }
   .pro-load-section-title { padding: 6px 12px; font-size: 0.72rem; font-weight: 600; color: #4ecdc4; text-transform: uppercase; background: #0a1a30; border-bottom: 1px solid #1a3050; }
   .pro-loads-table { width: 100%; border-collapse: collapse; font-size: 0.78rem; }
   .pro-loads-table thead { position: sticky; top: 0; z-index: 1; }

@@ -8,6 +8,8 @@
     type SeismicZone, type SoilType, type ImportanceGroup,
     type DuctilityKey, type StructureSystem, type FloorLevel,
   } from '../../lib/engine/auto-loads';
+  import { generateWindLoads } from '../../lib/engine/wind-loads';
+  import type { WindParams } from '../../lib/engine/wind-loads';
 
   interface Props {
     open: boolean;
@@ -33,6 +35,14 @@
   let structureSystem = $state<StructureSystem>('portico_HA');
   let seismicDirectionX = $state(true);
   let seismicDirectionZ = $state(true);
+
+  // ─── Wind config (CIRSOC 102) ────────
+  let enableWind = $state(false);
+  let windV = $state(45);
+  let windExposure = $state<'B' | 'C' | 'D'>('B');
+  let windWidth = $state(10);
+  let windDirX = $state(true);
+  let windDirZ = $state(false);
 
   // ─── Options ───────────────────────────
   let generateCombinations = $state(true);
@@ -90,6 +100,9 @@
 
     if (!deadCaseId) deadCaseId = modelStore.addLoadCase(t('autoLoad.deadCase'), 'D');
     if (!liveCaseId) liveCaseId = modelStore.addLoadCase(t('autoLoad.liveCase'), 'L');
+
+    let windCaseIdX: number | undefined;
+    let windCaseIdZ: number | undefined;
 
     if (enableSeismic && seismicDirectionX) {
       seismicCaseIdX = cases.find(c => c.type === 'E' && c.name.includes('X'))?.id;
@@ -181,10 +194,45 @@
       }
     }
 
+    // Generate wind loads (CIRSOC 102)
+    if (enableWind) {
+      const params: WindParams = { V: windV, exposure: windExposure };
+      const nodes = modelStore.nodes as Map<number, { id: number; x: number; y: number; z?: number }>;
+
+      if (windDirX) {
+        try {
+          const res = generateWindLoads(nodes, params, 'X', windWidth);
+          if (res?.nodalForces?.length) {
+            const updCases = modelStore.model.loadCases;
+            windCaseIdX = updCases.find(c => c.type === 'W' && c.name.includes('X'))?.id;
+            if (!windCaseIdX) windCaseIdX = modelStore.addLoadCase(`${t('autoLoad.windCase')} X (V=${windV})`, 'W');
+            for (const f of res.nodalForces) {
+              modelStore.addNodalLoad3D(f.nodeId, f.Fx ?? 0, f.Fy ?? 0, f.Fz ?? 0, 0, 0, 0, windCaseIdX);
+            }
+          }
+        } catch { /* skip wind X on error */ }
+      }
+
+      if (windDirZ) {
+        try {
+          const res = generateWindLoads(nodes, params, 'Y', windWidth);
+          if (res?.nodalForces?.length) {
+            const updCases = modelStore.model.loadCases;
+            windCaseIdZ = updCases.find(c => c.type === 'W' && c.name.includes('Z'))?.id;
+            if (!windCaseIdZ) windCaseIdZ = modelStore.addLoadCase(`${t('autoLoad.windCase')} Z (V=${windV})`, 'W');
+            for (const f of res.nodalForces) {
+              modelStore.addNodalLoad3D(f.nodeId, f.Fx ?? 0, f.Fy ?? 0, f.Fz ?? 0, 0, 0, 0, windCaseIdZ);
+            }
+          }
+        } catch { /* skip wind Z on error */ }
+      }
+    }
+
     // Generate standard combinations
     if (generateCombinations) {
       const hasSeismic = enableSeismic && seismicZone > 0;
-      const combos = getCirsoc101Combinations(false, hasSeismic, false);
+      const hasWind = enableWind && (windDirX || windDirZ);
+      const combos = getCirsoc101Combinations(hasWind, hasSeismic, false);
 
       // Map case types to actual case IDs
       const updatedCases = modelStore.model.loadCases;
@@ -375,6 +423,40 @@
               {/each}
             </div>
           {/if}
+        {/if}
+      </fieldset>
+
+      <!-- Wind (CIRSOC 102) -->
+      <fieldset class="al-fieldset">
+        <legend>
+          <label class="al-check-legend">
+            <input type="checkbox" bind:checked={enableWind} />
+            {t('autoLoad.wind')}
+          </label>
+        </legend>
+        {#if enableWind}
+          <div class="al-grid">
+            <div class="al-field">
+              <label class="al-label">V (m/s)</label>
+              <input type="number" class="al-input-sm" bind:value={windV} min={10} max={120} step={1} />
+            </div>
+            <div class="al-field">
+              <label class="al-label">{t('autoLoad.windExposure')}</label>
+              <select class="al-select-sm" bind:value={windExposure}>
+                <option value="B">B — {t('autoLoad.windExpB')}</option>
+                <option value="C">C — {t('autoLoad.windExpC')}</option>
+                <option value="D">D — {t('autoLoad.windExpD')}</option>
+              </select>
+            </div>
+            <div class="al-field">
+              <label class="al-label">{t('autoLoad.windTribWidth')} (m)</label>
+              <input type="number" class="al-input-sm" bind:value={windWidth} min={0.1} step={0.5} />
+            </div>
+          </div>
+          <div class="al-directions" style="margin-top: 6px;">
+            <label><input type="checkbox" bind:checked={windDirX} /> {t('autoLoad.dirX')}</label>
+            <label><input type="checkbox" bind:checked={windDirZ} /> {t('autoLoad.dirZ')}</label>
+          </div>
         {/if}
       </fieldset>
 

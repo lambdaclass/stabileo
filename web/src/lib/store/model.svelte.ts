@@ -8,7 +8,7 @@ import { load3DExample } from './model-examples-3d';
 import type { ExampleAPI3D } from './model-examples-3d';
 import { inferLoadCaseType } from '../engine/combinations-service';
 import { t } from '../i18n';
-import { validateAndSolve2D, buildSolverInput2D, validateAndSolve3D, buildSolverInput3D as buildSolverInput3DFn, solveCombinations2D, solveCombinations3D as solveCombinations3DFn } from '../engine/solver-service';
+import { validateAndSolve2D, buildSolverInput2D, validateAndSolve3D, buildSolverInput3D as buildSolverInput3DFn, solveCombinations2D, solveCombinations3D as solveCombinations3DFn, solveCombinations3DParallel as solveCombinations3DParallelFn } from '../engine/solver-service';
 import { computeInfluenceLine as computeInfluenceLineFn } from '../engine/influence-service';
 
 export interface Node {
@@ -1410,6 +1410,18 @@ function createModelStore() {
       );
     },
 
+    /** Async parallel version of solveCombinations3D — uses Web Workers for parallel solving. */
+    async solveCombinations3DParallel(includeSelfWeight = false, leftHand = false, isPro = false): Promise<{ perCase: Map<number, AnalysisResults3D>; perCombo: Map<number, AnalysisResults3D>; envelope: FullEnvelope3D } | string | null> {
+      return solveCombinations3DParallelFn(
+        { nodes: model.nodes, elements: model.elements, supports: model.supports,
+          loads: model.loads, materials: model.materials, sections: model.sections,
+          plates: isPro ? model.plates : undefined,
+          quads: isPro ? model.quads : undefined,
+          constraints: isPro ? model.constraints : undefined },
+        model.loadCases, model.combinations, includeSelfWeight, leftHand,
+      );
+    },
+
     /** Compute influence line: move unit load P=1 (downward) across elements */
     computeInfluenceLine(
       quantity: InfluenceQuantity,
@@ -1449,6 +1461,7 @@ function createModelStore() {
         toggleHinge: this.toggleHinge.bind(this),
         addDistributedLoad3D: this.addDistributedLoad3D.bind(this),
         addNodalLoad3D: this.addNodalLoad3D.bind(this),
+        addSurfaceLoad3D: this.addSurfaceLoad3D.bind(this),
         addPlate: this.addPlate.bind(this),
         addQuad: this.addQuad.bind(this),
         addConstraint: this.addConstraint.bind(this),

@@ -1,12 +1,12 @@
 <script lang="ts">
-  import { modelStore, resultsStore } from '../../lib/store';
+  import { modelStore, resultsStore, uiStore } from '../../lib/store';
   import { t } from '../../lib/i18n';
   import {
     isSolverReady,
-    solvePDelta3D,
-    solveModal3D,
-    solveBuckling3D,
-    solveSpectral3D,
+    solvePDelta3D as wasmPDelta3D,
+    solveModal3D as wasmModal3D,
+    solveBuckling3D as wasmBuckling3D,
+    solveSpectral3D as wasmSpectral3D,
     solveTimeHistory3D,
     solvePlastic3D,
     solveCorotational3D,
@@ -30,12 +30,18 @@
     solveConstrained2D,
     solveConstrained3D,
   } from '../../lib/engine/wasm-solver';
+  // JS fallback solvers for when WASM is not available
+  import { solvePDelta3D as jsPDelta3D } from '../../lib/engine/pdelta-3d';
+  import { solveModal3D as jsModal3D } from '../../lib/engine/modal-3d';
+  import { solveBuckling3D as jsBuckling3D } from '../../lib/engine/buckling-3d';
+  import { solveSpectral3D as jsSpectral3D } from '../../lib/engine/spectral-3d';
+  import type { SpectralConfig3D } from '../../lib/engine/spectral-3d';
   import { buildSolverInput3D } from '../../lib/engine/solver-service';
   import { cirsoc103Spectrum } from '../../lib/engine/spectral';
   import type { DesignSpectrum } from '../../lib/engine/spectral';
   import { applyRigidDiaphragm, detectFloorLevels } from '../../lib/engine/rigid-diaphragm';
-  import { generateWindLoads } from '../../lib/engine/wind-loads';
-  import type { WindParams } from '../../lib/engine/wind-loads';
+  // Wind loads moved to ProAutoLoadsDialog
+  // enforceConstraints3D removed — WASM solvers handle quads/constraints natively
 
   // Expose advanced results to parent via bindable props
   interface AdvancedResults3D {
@@ -48,6 +54,11 @@
 
   let solving = $state(false);
   let solveError = $state<string | null>(null);
+
+  let modalElapsed = $state<number | null>(null);
+  let bucklingElapsed = $state<number | null>(null);
+  let pdeltaElapsed = $state<number | null>(null);
+  let harmonicElapsed = $state<number | null>(null);
 
   const hasModel = $derived(modelStore.nodes.size > 0 && modelStore.elements.size > 0);
   const wasmAvailable = $derived(isSolverReady());
@@ -64,29 +75,39 @@
   // ─── Shared helpers ────────────────────────────────────────────
 
   let useDiaphragm = $state(false);
-  let includeSelfWeight = $state(false);
 
   function buildInput() {
     const input = buildSolverInput3D(
       { nodes: modelStore.nodes, elements: modelStore.elements, supports: modelStore.supports,
-        loads: modelStore.loads, materials: modelStore.materials, sections: modelStore.sections },
-      includeSelfWeight,
+        loads: modelStore.loads, materials: modelStore.materials, sections: modelStore.sections,
+        quads: modelStore.quads, plates: modelStore.plates, constraints: modelStore.constraints },
+      uiStore.includeSelfWeight,
     );
     if (!input) throw new Error(t('advanced.emptyModel'));
     return input;
   }
 
-  function getMaterialDensities(): Map<number, number> {
+  function getMaterialDensities(input?: any): Map<number, number> {
+    // mat.rho is weight density in kN/m³; convert to mass density in kg/m³
     const densities = new Map<number, number>();
     for (const [id, mat] of modelStore.materials) {
-      densities.set(id, (mat as any).rho ?? 0);
+      densities.set(id, ((mat as any).rho ?? 0) * 1000 / 9.81);
+    }
+    // Also include any materials from the enforced input (penalty materials)
+    // that aren't in the store — use small density to avoid zero-mass DOFs
+    if (input?.materials) {
+      for (const [id] of input.materials) {
+        if (!densities.has(id)) {
+          densities.set(id, 1.0); // 1 kg/m³ — negligible but non-zero
+        }
+      }
     }
     return densities;
   }
 
   function maybeApplyDiaphragm(input: any) {
     if (!useDiaphragm) return input;
-    const levels = detectFloorLevels(input);
+    const levels = detectFloorLevels(input.nodes);
     if (!levels || levels.length === 0) return input;
     return applyRigidDiaphragm(input, { levels });
   }
@@ -98,13 +119,19 @@
   function handlePDelta() {
     solveError = null;
     solving = true;
+    pdeltaElapsed = null;
     try {
       let input = buildInput();
       input = maybeApplyDiaphragm(input);
-      const res = solvePDelta3D(input);
+      let res: any;
+      const t0 = performance.now();
+      try { res = wasmPDelta3D(input); } catch { res = jsPDelta3D(input); }
+      const elapsed = performance.now() - t0;
+      if (typeof res === 'string') { solveError = `P-Delta: ${res}`; solving = false; return; }
+      pdeltaElapsed = elapsed;
       pdeltaResult = res;
       if (res.results) {
-        resultsStore.setResults3D(res.results);
+        resultsStore.setPDeltaResult3D(res);
       }
       advancedResults = { ...advancedResults, pdelta: { converged: res.converged, iterations: res.iterations, b2Factor: res.b2Factor } };
     } catch (e: any) {
@@ -118,14 +145,31 @@
   let modalResult = $state<any | null>(null);
   let numModes = $state(6);
 
+  const modalCumX = $derived.by(() => {
+    if (!modalResult?.modes) return [];
+    let sum = 0;
+    return modalResult.modes.map((m: any) => { sum += Math.abs(m.participationX ?? m.partX ?? 0); return sum; });
+  });
+  const modalCumY = $derived.by(() => {
+    if (!modalResult?.modes) return [];
+    let sum = 0;
+    return modalResult.modes.map((m: any) => { sum += Math.abs(m.participationY ?? m.partY ?? 0); return sum; });
+  });
+
   function handleModal() {
     solveError = null;
     solving = true;
+    modalElapsed = null;
     try {
       let input = buildInput();
       input = maybeApplyDiaphragm(input);
-      const densities = getMaterialDensities();
-      const res = solveModal3D(input, densities, numModes);
+      const densities = getMaterialDensities(input);
+      let res: any;
+      const t0 = performance.now();
+      try { res = wasmModal3D(input, densities, numModes); } catch { res = jsModal3D(input, densities, numModes); }
+      const elapsed = performance.now() - t0;
+      if (typeof res === 'string') { solveError = `Modal: ${res}`; solving = false; return; }
+      modalElapsed = elapsed;
       modalResult = res;
       if (res.modes || res.frequencies) {
         const modes = (res.modes ?? res.frequencies ?? []).map((m: any, i: number) => ({
@@ -161,16 +205,38 @@
       }
       let input = buildInput();
       input = maybeApplyDiaphragm(input);
-      const densities = getMaterialDensities();
+      const densities = getMaterialDensities(input);
       const spectrum: DesignSpectrum = cirsoc103Spectrum(seismicZone, soilType);
-      const res = solveSpectral3D({
-        solver: input,
-        densities,
-        spectrum,
-        directions: ['X', 'Y', 'Z'],
-        combination: spectralCombination,
-        numModes,
-      });
+      let res: any;
+      try {
+        res = wasmSpectral3D({
+          solver: input,
+          densities,
+          spectrum,
+          directions: ['X', 'Y', 'Z'],
+          combination: spectralCombination,
+          numModes,
+        });
+      } catch {
+        // JS fallback: solveSpectral3D(input, modalResult, densities, config) per direction
+        const config: SpectralConfig3D = {
+          direction: 'X',
+          spectrum,
+          rule: spectralCombination,
+        };
+        const resX = jsSpectral3D(input, modalResult, densities, { ...config, direction: 'X' });
+        const resY = jsSpectral3D(input, modalResult, densities, { ...config, direction: 'Y' });
+        if (typeof resX === 'string') { solveError = `Espectral: ${resX}`; solving = false; return; }
+        if (typeof resY === 'string') { solveError = `Espectral: ${resY}`; solving = false; return; }
+        res = {
+          baseShearX: resX.baseShear,
+          baseShearY: resY.baseShear,
+          results: resX.results,
+          perModeX: resX.perMode,
+          perModeY: resY.perMode,
+        };
+      }
+      if (typeof res === 'string') { solveError = `Espectral: ${res}`; solving = false; return; }
       spectralResult = res;
       advancedResults = { ...advancedResults, spectral: { baseShearX: res.baseShearX ?? res.baseShear, baseShearY: res.baseShearY, baseShearZ: res.baseShearZ } };
     } catch (e: any) {
@@ -187,12 +253,18 @@
   function handleBuckling() {
     solveError = null;
     solving = true;
+    bucklingElapsed = null;
     try {
       let input = buildInput();
       input = maybeApplyDiaphragm(input);
-      const res = solveBuckling3D(input, numBucklingModes);
+      let res: any;
+      const t0 = performance.now();
+      try { res = wasmBuckling3D(input, numBucklingModes); } catch { res = jsBuckling3D(input, numBucklingModes); }
+      const elapsed = performance.now() - t0;
+      if (typeof res === 'string') { solveError = `Buckling: ${res}`; solving = false; return; }
+      bucklingElapsed = elapsed;
       bucklingResult = res;
-      const factors = res.factors ?? res.eigenvalues ?? (res.modes?.map((m: any) => m.factor ?? m.eigenvalue) ?? []);
+      const factors = res.factors ?? res.eigenvalues ?? (res.modes?.map((m: any) => m.loadFactor ?? m.factor ?? m.eigenvalue) ?? []);
       advancedResults = { ...advancedResults, buckling: { factors } };
     } catch (e: any) {
       solveError = `Buckling: ${e.message ?? 'Error'}`;
@@ -200,44 +272,7 @@
     solving = false;
   }
 
-  // ─── 5. Wind loads ─────────────────────────────────────────────
-
-  let windV = $state(45);
-  let windExposure = $state<'B' | 'C' | 'D'>('B');
-  let windWidth = $state(10);
-  let windDir = $state<'X' | 'Y'>('X');
-  let windResult = $state<any | null>(null);
-  let windApplied = $state(false);
-
-  function handleWindLoads() {
-    solveError = null;
-    try {
-      const params: WindParams = { V: windV, exposure: windExposure };
-      const res = generateWindLoads(
-        modelStore.nodes as Map<number, { id: number; x: number; y: number; z?: number }>,
-        params, windDir, windWidth,
-      );
-      windResult = res;
-    } catch (e: any) {
-      solveError = `Viento: ${e.message ?? 'Error'}`;
-    }
-  }
-
-  function applyWindToModel() {
-    if (!windResult?.nodalForces?.length) return;
-    let windCaseId = modelStore.model.loadCases.find(c => c.type === 'W')?.id;
-    if (!windCaseId) {
-      windCaseId = modelStore.addLoadCase(`Viento ${windDir} (V=${windV})`, 'W');
-    } else {
-      modelStore.model.loads = modelStore.model.loads.filter(l => (l.data.caseId ?? 1) !== windCaseId);
-    }
-    for (const f of windResult.nodalForces) {
-      modelStore.addNodalLoad3D(f.nodeId, f.Fx ?? 0, f.Fy ?? 0, f.Fz ?? 0, 0, 0, 0, windCaseId);
-    }
-    windApplied = true;
-  }
-
-  // ─── 6. Time History ──────────────────────────────────────────
+  // ─── 5. Time History ──────────────────────────────────────────
 
   let thDt = $state(0.01);
   let thNSteps = $state(200);
@@ -312,6 +347,7 @@
   function handleHarmonic() {
     solveError = null;
     solving = true;
+    harmonicElapsed = null;
     try {
       let input = buildInput();
       input = maybeApplyDiaphragm(input);
@@ -319,6 +355,7 @@
       for (const [id, mat] of modelStore.materials) {
         densities[String(id)] = (mat as any).rho ?? 0;
       }
+      const t0 = performance.now();
       const res = solveHarmonic3D({
         solver: input,
         densities,
@@ -328,6 +365,8 @@
         dampingXi: harmDamping,
         direction: harmDir,
       });
+      const elapsed = performance.now() - t0;
+      harmonicElapsed = elapsed;
       harmResult = res;
     } catch (e: any) {
       solveError = `Harmónico: ${e.message ?? 'Error'}`;
@@ -734,7 +773,7 @@
         return;
       }
       // Model reduction is 2D only
-      const input = modelStore.buildSolverInput(includeSelfWeight);
+      const input = modelStore.buildSolverInput(uiStore.includeSelfWeight);
       if (!input) { solveError = t('advanced.emptyModel'); solving = false; return; }
       if (reductionMethod === 'guyan') {
         reductionResult = guyanReduce2D({ solver: input, retainedDofs: retained });
@@ -767,7 +806,7 @@
         input = maybeApplyDiaphragm(input);
         multiCaseResult = solveMultiCase3D({ solver: input, caseIds: cases.map(c => c.id) });
       } else {
-        const input2D = modelStore.buildSolverInput(includeSelfWeight);
+        const input2D = modelStore.buildSolverInput(uiStore.includeSelfWeight);
         if (!input2D) { solveError = t('advanced.emptyModel'); solving = false; return; }
         multiCaseResult = solveMultiCase2D({ solver: input2D, caseIds: cases.map(c => c.id) });
       }
@@ -841,7 +880,7 @@
         input = maybeApplyDiaphragm(input);
         res = solveConstrained3D({ solver: input, constraints: pairs, method: constraintType });
       } else {
-        const input2D = modelStore.buildSolverInput(includeSelfWeight);
+        const input2D = modelStore.buildSolverInput(uiStore.includeSelfWeight);
         if (!input2D) { solveError = t('advanced.emptyModel'); solving = false; return; }
         res = solveConstrained2D({ solver: input2D, constraints: pairs, method: constraintType });
       }
@@ -860,7 +899,7 @@
   <!-- Global options -->
   <div class="adv-header">
     <label class="adv-check">
-      <input type="checkbox" bind:checked={includeSelfWeight} />
+      <input type="checkbox" bind:checked={uiStore.includeSelfWeight} />
       {t('pro.selfWeightLabel')}
     </label>
     <label class="adv-check">
@@ -872,6 +911,10 @@
     {/if}
   </div>
 
+  <div class="adv-wip-banner">
+    {t('pro.advancedWip')}
+  </div>
+
   {#if solveError}
     <div class="adv-error">{solveError}</div>
   {/if}
@@ -881,13 +924,14 @@
     <!-- ── 1. P-Delta ── -->
     <div class="adv-group">
       <div class="adv-row">
-        <button class="adv-run-btn" onclick={handlePDelta} disabled={!hasModel || solving || !wasmAvailable}>P-Delta</button>
+        <button class="adv-run-btn" onclick={handlePDelta} disabled={!hasModel || solving}>P-Delta</button>
         <span class="adv-desc">{t('pro.pdeltaDesc')}</span>
       </div>
       {#if pdeltaResult}
         <div class="adv-inline">
           {pdeltaResult.converged ? t('pro.converged') : t('pro.notConverged')} — {pdeltaResult.iterations} iter.
           {#if pdeltaResult.b2Factor != null} — B2 = {fmtNum(pdeltaResult.b2Factor)}{/if}
+          {#if pdeltaElapsed != null} — {pdeltaElapsed >= 1000 ? (pdeltaElapsed / 1000).toFixed(2) + ' s' : pdeltaElapsed.toFixed(0) + ' ms'}{/if}
         </div>
       {/if}
     </div>
@@ -895,7 +939,7 @@
     <!-- ── 2. Modal ── -->
     <div class="adv-group">
       <div class="adv-row">
-        <button class="adv-run-btn" onclick={handleModal} disabled={!hasModel || solving || !wasmAvailable}>Modal</button>
+        <button class="adv-run-btn" onclick={handleModal} disabled={!hasModel || solving}>Modal</button>
         <label class="adv-label">
           Modos:
           <input type="number" class="adv-num" bind:value={numModes} min={1} max={50} />
@@ -904,11 +948,11 @@
       {#if modalResult}
         <div class="adv-inline">
           {#if modalResult.totalMass != null}Masa: {fmtNum(modalResult.totalMass)} kg — {/if}
-          {modalResult.modes?.length ?? 0} modos
+          {modalResult.modes?.length ?? 0} modos{#if modalElapsed != null} — {modalElapsed >= 1000 ? (modalElapsed / 1000).toFixed(2) + ' s' : modalElapsed.toFixed(0) + ' ms'}{#if wasmAvailable} (WASM){/if}{/if}
         </div>
         <div class="adv-table-scroll">
           <table class="adv-table">
-            <thead><tr><th>Modo</th><th>f (Hz)</th><th>T (s)</th><th>Part. X</th><th>Part. Y</th><th>Part. Z</th></tr></thead>
+            <thead><tr><th>Modo</th><th>f (Hz)</th><th>T (s)</th><th>Part. X</th><th>Part. Y</th><th>Part. Z</th><th>Cum. X</th><th>Cum. Y</th></tr></thead>
             <tbody>
               {#each modalResult.modes as mode, i}
                 <tr>
@@ -918,6 +962,8 @@
                   <td class="col-num">{fmtNum(mode.participationX ?? 0)}</td>
                   <td class="col-num">{fmtNum(mode.participationY ?? 0)}</td>
                   <td class="col-num">{fmtNum(mode.participationZ ?? 0)}</td>
+                  <td class="col-num" class:cum-warn={modalCumX[i] < 0.9} class:cum-ok={modalCumX[i] >= 0.9}>{(modalCumX[i] * 100).toFixed(1)}%</td>
+                  <td class="col-num" class:cum-warn={modalCumY[i] < 0.9} class:cum-ok={modalCumY[i] >= 0.9}>{(modalCumY[i] * 100).toFixed(1)}%</td>
                 </tr>
               {/each}
             </tbody>
@@ -929,7 +975,7 @@
     <!-- ── 3. Spectral ── -->
     <div class="adv-group">
       <div class="adv-row">
-        <button class="adv-run-btn" onclick={handleSpectral} disabled={!hasModel || solving || !modalResult || !wasmAvailable}>Espectral</button>
+        <button class="adv-run-btn" onclick={handleSpectral} disabled={!hasModel || solving || !modalResult}>Espectral</button>
         <label class="adv-label">
           <select class="adv-sel" bind:value={spectralCombination}>
             <option value="CQC">CQC</option>
@@ -954,19 +1000,19 @@
       {/if}
       {#if spectralResult}
         <div class="adv-inline">
-          {#if spectralResult.baseShear != null}
-            Vb: X={fmtNum(spectralResult.baseShear.x ?? 0)}, Y={fmtNum(spectralResult.baseShear.y ?? 0)} kN
-          {/if}
+          Vb: X={fmtNum(spectralResult.baseShearX ?? spectralResult.baseShear?.x ?? spectralResult.baseShear ?? 0)}, Y={fmtNum(spectralResult.baseShearY ?? spectralResult.baseShear?.y ?? 0)} kN
         </div>
-        {#if spectralResult.perMode}
+        {#if spectralResult.perMode || spectralResult.perModeX}
           <div class="adv-table-scroll">
             <table class="adv-table">
-              <thead><tr><th>Modo</th><th>Sa (g)</th></tr></thead>
+              <thead><tr><th>Modo</th><th>T (s)</th><th>Sa (g)</th><th>Vb (kN)</th></tr></thead>
               <tbody>
-                {#each spectralResult.perMode as pm, i}
+                {#each (spectralResult.perMode ?? spectralResult.perModeX ?? []) as pm, i}
                   <tr>
                     <td class="col-id">{i + 1}</td>
-                    <td class="col-num">{fmtNum(pm.sa ?? pm.Sa ?? 0)}</td>
+                    <td class="col-num">{fmtNum(pm.period ?? 0)}</td>
+                    <td class="col-num">{fmtNum((pm.sa ?? pm.Sa ?? 0) / 9.81)}</td>
+                    <td class="col-num">{fmtNum(pm.shear ?? pm.Vb ?? 0)}</td>
                   </tr>
                 {/each}
               </tbody>
@@ -979,13 +1025,16 @@
     <!-- ── 4. Buckling ── -->
     <div class="adv-group">
       <div class="adv-row">
-        <button class="adv-run-btn" onclick={handleBuckling} disabled={!hasModel || solving || !wasmAvailable}>Pandeo</button>
+        <button class="adv-run-btn" onclick={handleBuckling} disabled={!hasModel || solving}>Pandeo</button>
         <label class="adv-label">
           Modos:
           <input type="number" class="adv-num" bind:value={numBucklingModes} min={1} max={20} />
         </label>
       </div>
       {#if bucklingResult}
+        {#if bucklingElapsed != null}
+          <div class="adv-inline">{bucklingElapsed >= 1000 ? (bucklingElapsed / 1000).toFixed(2) + ' s' : bucklingElapsed.toFixed(0) + ' ms'}{#if wasmAvailable} (WASM){/if}</div>
+        {/if}
         <div class="adv-table-scroll">
           <table class="adv-table">
             <thead><tr><th>Modo</th><th>&#x03BB;cr</th></tr></thead>
@@ -1002,41 +1051,7 @@
       {/if}
     </div>
 
-    <!-- ── 5. Wind Loads ── -->
-    <div class="adv-group">
-      <div class="adv-row">
-        <span class="adv-title">Viento (CIRSOC 102)</span>
-      </div>
-      <div class="adv-form">
-        <label class="adv-label">V (m/s): <input type="number" class="adv-num" bind:value={windV} min={10} max={120} step={1} /></label>
-        <label class="adv-label">Exp: <select class="adv-sel" bind:value={windExposure}><option value="B">B</option><option value="C">C</option><option value="D">D</option></select></label>
-        <label class="adv-label">Ancho: <input type="number" class="adv-num" bind:value={windWidth} min={0.1} step={0.5} /></label>
-        <label class="adv-label">Dir: <select class="adv-sel" bind:value={windDir}><option value="X">X</option><option value="Y">Y</option></select></label>
-        <button class="adv-btn-sm" onclick={handleWindLoads} disabled={!hasModel}>{t('pro.generate')}</button>
-      </div>
-      {#if windResult}
-        <div class="adv-inline">
-          {#if windResult.baseShear != null}Vb={fmtNum(windResult.baseShear)} kN{/if}
-          {#if windResult.overturningMoment != null} — Mv={fmtNum(windResult.overturningMoment)} kN·m{/if}
-          — {windResult.nodalForces?.length ?? 0} {t('pro.nodes')}
-        </div>
-        <button class="adv-btn-sm" onclick={applyWindToModel} disabled={windApplied}>
-          {windApplied ? t('pro.applied') : t('pro.applyToModel')}
-        </button>
-        {#if windResult.steps?.length}
-          <details>
-            <summary class="adv-steps-toggle">{t('pro.calcMemory')}</summary>
-            <div class="adv-steps-list">
-              {#each windResult.steps as step}
-                <div class="adv-step-line">{step}</div>
-              {/each}
-            </div>
-          </details>
-        {/if}
-      {/if}
-    </div>
-
-    <!-- ── 6. Time History ── -->
+    <!-- ── 5. Time History ── -->
     <details class="adv-group-details">
       <summary class="adv-title">Time History</summary>
       <div class="adv-panel">
@@ -1091,6 +1106,7 @@
           {#if harmResult.peakAmplitude != null}{t('pro.peakAmplitude')}: {fmtNum(harmResult.peakAmplitude)} m{/if}
           {#if harmResult.resonanceFreq != null} — f_res={fmtNum(harmResult.resonanceFreq)} Hz{/if}
           {#if harmResult.peakDynamicFactor != null} — DAF={fmtNum(harmResult.peakDynamicFactor)}{/if}
+          {#if harmonicElapsed != null} — {harmonicElapsed >= 1000 ? (harmonicElapsed / 1000).toFixed(2) + ' s' : harmonicElapsed.toFixed(0) + ' ms'} (WASM){/if}
         </div>
         {#if harmResult.frf?.length}
           <details>
@@ -1676,6 +1692,16 @@
     min-height: 0;
   }
 
+  .adv-wip-banner {
+    padding: 7px 12px;
+    font-size: 0.72rem;
+    color: #f0c040;
+    background: rgba(240, 192, 64, 0.08);
+    border-bottom: 1px solid rgba(240, 192, 64, 0.15);
+    flex-shrink: 0;
+    text-align: center;
+  }
+
   .adv-error {
     padding: 6px 12px;
     font-size: 0.72rem;
@@ -1974,4 +2000,7 @@
   }
 
   .adv-stage-name:focus { border-color: #4ecdc4; outline: none; }
+
+  .cum-ok { color: #4caf50; }
+  .cum-warn { color: #f0a500; }
 </style>

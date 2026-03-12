@@ -282,7 +282,7 @@ function serializeInput2D(input: SolverInput): string {
 }
 
 /** Serialize SolverInput3D (with Maps) to JSON string for WASM. */
-function serializeInput3D(input: SolverInput3D): string {
+export function serializeInput3D(input: SolverInput3D): string {
   return JSON.stringify({
     nodes: mapToObj(input.nodes),
     materials: mapToObj(input.materials),
@@ -599,7 +599,7 @@ export function combineResults3D(
 export function computeEnvelope(results: AnalysisResults[]): FullEnvelope | null {
   if (!wasmReady || !wasmComputeEnvelope2d) throw new Error('WASM solver not initialized.');
   if (results.length === 0) return null;
-  const payload = JSON.stringify({ results });
+  const payload = JSON.stringify(results);
   return JSON.parse(wasmComputeEnvelope2d(payload));
 }
 
@@ -607,7 +607,7 @@ export function computeEnvelope(results: AnalysisResults[]): FullEnvelope | null
 export function computeEnvelope3D(results: AnalysisResults3D[]): FullEnvelope3D | null {
   if (!wasmReady || !wasmComputeEnvelope3d) throw new Error('WASM solver not initialized.');
   if (results.length === 0) return null;
-  const payload = JSON.stringify({ results });
+  const payload = JSON.stringify(results);
   return JSON.parse(wasmComputeEnvelope3d(payload));
 }
 

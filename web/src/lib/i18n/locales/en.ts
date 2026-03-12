@@ -215,6 +215,7 @@ const en: Record<string, string> = {
   'results.variable': 'Variable',
   'results.resistance': 'Strength (\u03C3/fy)',
   'results.shellVonMises': 'Shell σ Von Mises',
+  'results.shellBending': 'Shell Bending',
   'results.changeResultsView': 'Change results view',
   'results.primary': 'Primary',
   'results.compare': 'Compare',
@@ -367,7 +368,7 @@ const en: Record<string, string> = {
   'project.open': 'Open',
   'project.exportImport': 'Export / Import',
   'project.export': 'Export',
-  'project.importLabel': 'Import',
+  'project.importLabel': 'Import (Beta)',
   'project.openDed': 'Open .ded',
   'project.openDxf': 'Open DXF',
   'project.openIfc': 'Open IFC',
@@ -565,6 +566,8 @@ const en: Record<string, string> = {
   'project.openIfcTooltip': 'Import structural model from IFC file (BIM)',
   'project.pasteCoordsTooltip': 'Import nodes by pasting X,Y(,Z) coordinates',
   'project.generatorTooltip': 'Generate geometry from parametric template',
+  'project.dxfTemplate': 'DXF Template',
+  'project.dxfTemplateTooltip': 'Download DXF template with predefined layers and a 3D structure example ready to import',
   'project.copyLinkTooltip': 'Copy a link containing the entire model and settings \u2014 anyone can open it to see an identical copy',
   'project.pasteLinkTooltip': 'Paste a shared link and open it in a new Dedaliano tab',
   'config.liveCalcTooltip': 'Automatically recalculates when the structure is edited',
@@ -1641,6 +1644,13 @@ const en: Record<string, string> = {
   'dxf.materialSteelA36': 'Steel A36',
   'dxf.materialWood': 'Wood',
 
+  // Plan template DXF (3D)
+  'dxf.planTemplateDetected': 'Plan template detected — will import as 3D model',
+  'dxf.columnHeight': 'Column height (m)',
+  'dxf.columns': 'columns',
+  'dxf.beamsLabel': 'beams',
+  'dxf.sections': 'Sections',
+
   // ─── File operations (file.ts) ───
   'file.invalidJson': 'The file is not valid JSON',
   'file.invalidFormat': 'Invalid file format. Make sure it is a .ded file from Dedaliano.',
@@ -1924,7 +1934,7 @@ const en: Record<string, string> = {
 
   // ─── Modal Analysis ───
   'modal.noFreeDofs': 'No free degrees of freedom',
-  'modal.modelTooLarge': 'Model too large for modal analysis (max ~500 free DOFs)',
+  'modal.modelTooLarge': 'Model too large for modal analysis (max ~3000 free DOFs)',
   'modal.noDensity': 'No material has density assigned. Assign density (kg/m³) to the materials for modal analysis.',
   'modal.zeroMassMatrix': 'Mass matrix is zero — assign density to the materials',
   'modal.choleskyError': 'Cholesky decomposition of the mass matrix failed',
@@ -2360,6 +2370,7 @@ const en: Record<string, string> = {
   'edu.step2DescNew': 'Answer questions about the internal force diagrams. Look at the structure and think about how forces flow through it.',
   'edu.noDiagramQuestions': 'No diagram questions for this exercise — proceed to Step 3.',
   'edu.moreExercises': 'More exercises coming soon.',
+  'edu.solverInsight': 'This system has {dofs} free degrees of freedom ({total} total). Solved via {solver} factorization in {time} ms.',
   // Diagram questions
   'edu.dq.shearAtSupport': 'V at the support',
   'edu.dq.momentAtCenter': 'M at the center',
@@ -2407,6 +2418,47 @@ const en: Record<string, string> = {
   'edu.ex8SupportB': 'Support B (5,0)',
   'edu.ex8MmaxBeam': 'Mmax (beam)',
 
+  'edu.sectionStatics': 'Statics Exercises',
+  'edu.sectionStrength': 'Strength of Materials Exercises',
+  'edu.sectionAdvanced': 'Advanced Analysis Exercises',
+
+  'edu.dq.sigmaMax': 'σmax in the section',
+  'edu.dq.momentAtBasePD': 'M at base (P-Delta)',
+
+  'edu.ex9Title': 'Bending stress — Rectangular section',
+  'edu.ex9Desc': '4 m simply supported beam with 15 kN point load at center. Rectangular section b=200 mm, h=400 mm. Calculate the section modulus W = bh²/6 and the maximum bending stress σ = M/W.',
+  'edu.ex9SupportA': 'Support A (x=0)',
+  'edu.ex9SupportB': 'Support B (x=4)',
+  'edu.ex9W': 'W (section modulus)',
+
+  'edu.ex10Title': 'P-Delta effect — Column under compression',
+  'edu.ex10Desc': '5 m fixed-base column with 100 kN axial compression and 2 kN horizontal load at the top. The first-order moment at the base is M = H×L = 10 kN·m. P-Delta analysis amplifies this value. Find the amplified moment.',
+  'edu.ex10SupportA': 'Fixed support A (x=0)',
+  'edu.ex10MBase1st': 'M at base (1st order)',
+  'edu.ex10MBasePD': 'M at base (P-Delta)',
+  'edu.ex10Pcr': 'Pcr (Euler)',
+  'edu.ex10BoundaryK': 'Boundary condition',
+  'edu.ex10Cantilever': 'cantilever',
+
+  // ─── Edu: Kinematic classification ───
+  'edu.kinematicQuestion': 'How is this structure classified?',
+  'edu.isostatic': 'Isostatic',
+  'edu.hyperstatic': 'Hyperstatic',
+  'edu.hyperstaticDegree': 'Degree of hyperstaticity =',
+
+  // ─── Edu: Diagram shape questions ───
+  'edu.shapeQuestion': 'What is the shape of each internal force diagram?',
+  'edu.diagram': 'Diagram',
+  'edu.verifyShapes': 'Verify shapes',
+  'edu.shape.zero': 'Zero',
+  'edu.shape.constant': 'Constant',
+  'edu.shape.linear': 'Linear',
+  'edu.shape.quadratic': 'Quadratic',
+
+  // ─── Edu: Section data ───
+  'edu.sectionDataTitle': 'Section data',
+  'edu.sectionFormula': 'Formula',
+
   // ─── PRO: Common / Shared ───
   'pro.nNodes': '{n} nodes',
   'pro.nElements': '{n} elements',
@@ -2448,6 +2500,7 @@ const en: Record<string, string> = {
   'pro.custom': 'Custom',
   'pro.chooseProfile': '-- Choose --',
   'pro.addProfile': 'Add profile',
+  'pro.addSectionPanel': 'Add section',
   'pro.addSection': 'Add section',
   'pro.family': 'Family',
   'pro.profile': 'Profile',
@@ -2459,9 +2512,15 @@ const en: Record<string, string> = {
   'pro.rollerX': 'Roller X',
   'pro.rollerY': 'Roller Y',
   'pro.spring': 'Spring',
+  'pro.fixed3d': 'Fixed 3D',
+  'pro.pinned3d': 'Pinned 3D',
+  'pro.rollerXZ': 'Roller XZ',
+  'pro.rollerXY': 'Roller XY',
+  'pro.rollerYZ': 'Roller YZ',
+  'pro.spring3d': 'Spring 3D',
+  'pro.custom3d': 'Custom',
   'pro.addToSelection': 'Add to {n} selected node(s)',
   'pro.thickness': 'Thickness (m)',
-  'pro.nodes': 'Nodes',
 
   // ─── PRO: Loads ───
   'pro.loadCases': 'Load cases',
@@ -2477,6 +2536,7 @@ const en: Record<string, string> = {
   'pro.addDistLoad': 'Add distributed load',
   'pro.addPointLoad': 'Add point load',
   'pro.surfaceLoad': 'Surface',
+  'pro.noQuadFound': 'Quad not found. Create quads in the Shells tab first.',
   'pro.addSurfaceLoad': 'Add surface load',
   'pro.surfaceLoads': 'Surface loads on slabs',
   'pro.thermalQuadLoad': 'Thermal (slab)',
@@ -2489,6 +2549,12 @@ const en: Record<string, string> = {
   'pro.distLoads': 'Distributed loads',
   'pro.pointLoads': 'Point loads on elem.',
   'pro.noLoads': 'No loads in this case',
+  'pro.showLoads': 'Show loads',
+  'pro.showAll': 'All',
+  'pro.hideAll': 'None',
+  'pro.showCase': 'Show case on model',
+  'pro.hideCase': 'Hide case from model',
+  'pro.loadsHiddenByDiagram': 'Hidden by diagram — click to show',
   'pro.caseTypeD': 'Permanent (D)',
   'pro.caseTypeL': 'Live load (L)',
   'pro.caseTypeW': 'Wind (W)',
@@ -2498,7 +2564,6 @@ const en: Record<string, string> = {
   'pro.caseTypeOther': 'Other',
 
   // ─── PRO: Constraints ───
-  'pro.rigidLink': 'Rigid link',
   'pro.diaphragm': 'Diaphragm',
   'pro.equalDof': 'Equal DOF',
   'pro.linearMpc': 'Linear MPC',
@@ -2544,7 +2609,6 @@ const en: Record<string, string> = {
   'pro.wasmNotReady': 'WASM not available — initializing solver...',
   'pro.winklerFoundation': 'Winkler Foundation',
   'pro.element': 'Element',
-  'pro.solving': 'Solving...',
   'pro.solveWinkler': 'Solve Winkler',
   'pro.resultWinkler': 'Winkler Result',
   'pro.convergence': 'Convergence',
@@ -2668,7 +2732,7 @@ const en: Record<string, string> = {
   'pro.noSlabs': 'No slabs (quads) with stress results in the model.',
   'pro.driftTitle': 'Story drift — CIRSOC 103 §5.2.8',
   'pro.driftLimit': 'Limit',
-  'pro.solveFirst': 'Solve the structure first (Results tab)',
+  'pro.solveFirst': 'Solve the structure first',
   'pro.noVerifiableElems': 'No verifiable elements found. Make sure materials have f\'c ≤ 80 MPa (concrete) or fy > 80 MPa (steel) and sections have defined properties.',
   'pro.verifyPrompt': 'Press "Verify elements" to run CIRSOC 201 / 301 verification',
   'pro.wasmNotice': 'Requires WASM recompilation — {code} checks will be enabled when compiled in the native engine.',
@@ -2697,6 +2761,7 @@ const en: Record<string, string> = {
   'pro.thresholdLabel': 'Threshold',
   'pro.messageLabel': 'Message',
   'pro.noResults': 'No results obtained',
+  'pro.noResultsYet': 'Press Solve to analyze the structure',
   'pro.unknownError': 'Unknown error',
   'pro.solving': 'Solving...',
   'pro.solve': 'Solve',
@@ -2793,6 +2858,7 @@ const en: Record<string, string> = {
   'pro.constraintForcesCount': 'constraint forces',
   'pro.selfWeightLabel': 'Self-weight',
   'pro.rigidDiaphragm': 'Rigid diaphragm',
+  'pro.advancedWip': 'Work in progress — advanced features may not be fully functional',
   'pro.pdeltaDesc': 'Second-order effects',
   'pro.converged': 'Converged',
   'pro.notConverged': 'Not converged',
@@ -2809,6 +2875,16 @@ const en: Record<string, string> = {
   'pro.steps': 'steps',
   'pro.requiresModal': 'Requires prior modal analysis',
   'pro.needAccelData': 'At least one acceleration value is required',
+  'pro.customMaterial': 'Custom material',
+  'pro.addMaterialPanel': 'Add material',
+  'pro.addMaterial': 'Add material',
+  'pro.noSections': 'No sections defined',
+  'pro.noMaterials': 'No materials defined',
+  'pro.optional': 'optional',
+
+  // ─── Field labels ───
+  'field.poisson': 'ν',
+  'field.density': 'γ',
 
   // ─── Connection Design (CIRSOC 301) ───
   'conn.joints': 'Connection joints',
@@ -2874,5 +2950,28 @@ const en: Record<string, string> = {
   'autoLoad.seismicX': 'Seismic X',
   'autoLoad.seismicZ': 'Seismic Z',
   'autoLoad.autoGenBtn': 'Auto-generate CIRSOC',
+  'autoLoad.wind': 'Wind (CIRSOC 102)',
+  'autoLoad.windCase': 'Wind',
+  'autoLoad.windExposure': 'Exposure',
+  'autoLoad.windExpB': 'Urban/suburban',
+  'autoLoad.windExpC': 'Open terrain',
+  'autoLoad.windExpD': 'Coastal',
+  'autoLoad.windTribWidth': 'Tributary width',
+
+  // ─── Solver Performance ───
+  'perf.title': 'Solver performance',
+  'perf.totalTime': 'Total time',
+  'perf.dofs': 'DOFs',
+  'perf.dofsDetail': '{free} free / {total} total',
+  'perf.solverType': 'Solver',
+  'perf.cholesky': 'Cholesky',
+  'perf.lu': 'LU (fallback)',
+  'perf.wasm': 'Native WASM',
+  'perf.assembly': 'Assembly',
+  'perf.solve': 'Solve',
+  'perf.postProcess': 'Post-process',
+  'perf.phases': 'Phases',
+  'perf.solveInfo': 'Solved in {time} | {dofs} DOFs',
+  'perf.solveToast': 'Structure solved in {time}',
 };
 export default en;
