@@ -11,6 +11,7 @@ Read next:
 - shell-family selection notes: [`research/shell_family_selection.md`](/Users/unbalancedparen/projects/dedaliano/research/shell_family_selection.md)
 - competitor shell-family comparison: [`research/competitor_element_families.md`](/Users/unbalancedparen/projects/dedaliano/research/competitor_element_families.md)
 - numerical-methods gap analysis: [`research/numerical_methods_gap_analysis.md`](/Users/unbalancedparen/projects/dedaliano/research/numerical_methods_gap_analysis.md)
+- RC design/BBS research: [`research/rc_design_and_bbs.md`](/Users/unbalancedparen/projects/dedaliano/research/rc_design_and_bbs.md)
 
 It is for:
 - solver mechanics
@@ -154,28 +155,36 @@ If the goal is `best open structural solver`, the current priority order is:
    - broader invariant, property-based, and fuzzing coverage around sparse/shell paths
    - signal-driven benchmark growth: add tests that improve proof, regression protection, performance confidence, or edge-case coverage
 
-4. `Long-tail nonlinear hardening`
+4. `Design-grade result extraction for downstream RC workflows`
+   This is now a near-term solver priority because it unblocks parallel product work on RC design, reinforcement schedules, and later BBS generation. The solver side should provide:
+   - stable section-force envelopes at design stations
+   - governing combination extraction
+   - deterministic beam result sampling and sign conventions
+   - design-ready metadata for section geometry, materials, cover assumptions, and result provenance
+   - parity/regression coverage so product work can depend on these outputs safely
+
+5. `Long-tail nonlinear hardening`
    Now that the linear/shell sparse base is healthier, mixed nonlinear cases become more worth attacking:
    - contact + nonlinear + staging
    - shell + nonlinear interaction
    - difficult convergence edge cases
 
-5. `Solver-path consistency`
+6. `Solver-path consistency`
    Keep dense vs sparse, constrained vs unconstrained, and mixed shell/frame workflows converging to the same behavior.
 
-6. `Product surfacing`
+7. `Product surfacing`
    Deterministic diagnostics and solve timings are now much more valuable in the app:
    - expose pivot perturbation counts and fill ratios in the UI
    - surface solve phase breakdowns for user visibility
    - make solver-path selection and fallback behavior transparent
 
-7. `Constraint-system maturity`
+8. `Constraint-system maturity`
    Finish chained constraints, connector depth, eccentric workflow polish, and remaining parity gaps.
 
-8. `Advanced contact maturity`
+9. `Advanced contact maturity`
    Push harder convergence, richer contact laws, and tougher mixed contact states.
 
-9. `Reference benchmark expansion`
+10. `Reference benchmark expansion`
     Keep growing external-reference proof for contact, fiber 3D, SSI, creep/shrinkage, and broader shell workflows.
     Prefer:
     - reference cases that close real proof gaps
@@ -184,19 +193,19 @@ If the goal is `best open structural solver`, the current priority order is:
     - performance gates that protect runtime, fill, and no-fallback expectations
     Avoid low-signal count inflation.
 
-10. `Shell-family workflow maturity`
+11. `Shell-family workflow maturity`
     Keep the shell-family selection guidance current, maintain the frontier-gate benchmarks, and only reopen shell-family expansion if the current stack proves insufficient on practical workflows.
 
-11. `Shell-family automatic selection policy`
+12. `Shell-family automatic selection policy`
     Turn shell-family guidance into explicit rules the UI and model layer can use for automatic defaults, explainable recommendations, and safe override behavior.
 
-12. `Shell-adjacent workflow breadth competitors still expose clearly`
+13. `Shell-adjacent workflow breadth competitors still expose clearly`
     Add the highest-value missing shell-related workflow classes:
     - layered / laminated shell workflows
     - axisymmetric workflows
     - deeper nonlinear / corotational shell depth
 
-13. `Reduction, staged/PT coupling, and other second-tier depth`
+14. `Reduction, staged/PT coupling, and other second-tier depth`
     Mature the scale-oriented and long-term workflow layers after the core solver-quality gaps above are tighter.
 
 ## Current Sequence
@@ -206,25 +215,32 @@ The current near-term sequence is:
 1. `Runtime and scale`
    Keep eliminating the remaining measured bottlenecks in harmonic, reduction, and sparse eigensolver/reduction internals.
 
-2. `Verification moat`
+2. `Design-grade RC extraction`
+   Build the solver outputs that let the product/design layer start immediately:
+   - beam station-force extraction and envelopes
+   - governing-combination selection
+   - deterministic sign conventions and result provenance
+   - design-oriented regression fixtures for RC-ready outputs
+
+3. `Verification moat`
    Keep turning major solver gains into release-gated, benchmarked, acceptance-covered proof.
 
-3. `Long-tail nonlinear hardening`
+4. `Long-tail nonlinear hardening`
    Focus on ugly mixed cases where mature solvers still win.
 
-4. `Solver-path consistency`
+5. `Solver-path consistency`
    Keep dense vs sparse and mixed-family workflows aligned.
 
-5. `Product surfacing`
+6. `Product surfacing`
    Expose timings, diagnostics, fill, fallback behavior, and shell-family guidance clearly.
 
-6. `Shell-family workflow guidance and frontier tracking`
+7. `Shell-family workflow guidance and frontier tracking`
    Keep the multi-family shell stack well-guided and benchmarked.
 
-7. `Shell-family automatic selection policy`
+8. `Shell-family automatic selection policy`
    Turn guidance into real default-selection logic.
 
-8. `Shell-adjacent workflow breadth`
+9. `Shell-adjacent workflow breadth`
    Add layered shells, axisymmetric workflows, and deeper nonlinear shell depth.
 
 ## Full Backlog
@@ -233,32 +249,36 @@ The current near-term sequence is:
 2. Measure Guyan runtime after factorization reuse
 3. Measure Craig-Bampton runtime after factorization reuse and interior-mode fix
 4. Optimize the harmonic frequency sweep path further if modal-response still leaves big wins on the table
-5. Deepen sparse eigensolver integration in reduction workflows
-6. Fix the Lanczos tridiagonal eigensolver properly everywhere it still falls back
-7. Add broader sparse shift-invert support
-8. Add runtime gates for modal, buckling, harmonic, Guyan, and Craig-Bampton
-9. Add no-`k_full`-overbuild gates everywhere they apply
-10. Add stronger fill-ratio and determinism gates on the sparse path
-11. Expand sparse/dense residual-parity coverage on harder shell and mixed models
-12. Harden mixed shell + nonlinear workflows
-13. Harden contact + nonlinear + staging workflows
-14. Add `Modified Newton`
-15. Add iterative refinement before any remaining expensive fallback path
-16. Add `PCG` with `Jacobi` preconditioning
-17. Add stronger preconditioners like `IC(0)` / `SSOR` if justified by measurements
-18. Implement shell-family automatic selection in the solver/model layer
-19. Add layered / laminated shell workflows
-20. Add axisymmetric workflows
-21. Deepen nonlinear / corotational shell workflows
-22. Add quasi-Newton methods such as `BFGS`, `L-BFGS`, and `Broyden`
-23. Add `GMRES` / `MINRES` for indefinite systems
-24. Add block eigensolvers such as `LOBPCG` / block Lanczos
-25. Deepen layered/composite shell constitutive behavior
-26. Add richer prestress tendon / relaxation workflows
-27. Add bridge-specific staged / moving-load workflow depth
-28. Add fatigue workflows
-29. Add fire / temperature-dependent nonlinear workflows
-30. Add more specialized shell / continuum families only if still justified
+5. Add deterministic beam station-force extraction for RC design
+6. Add governing-combination extraction for beam design checks and schedules
+7. Add design-grade result metadata and provenance for downstream RC workflows
+8. Add regression/parity fixtures for RC-ready beam envelopes and sign conventions
+9. Deepen sparse eigensolver integration in reduction workflows
+10. Fix the Lanczos tridiagonal eigensolver properly everywhere it still falls back
+11. Add broader sparse shift-invert support
+12. Add runtime gates for modal, buckling, harmonic, Guyan, and Craig-Bampton
+13. Add no-`k_full`-overbuild gates everywhere they apply
+14. Add stronger fill-ratio and determinism gates on the sparse path
+15. Expand sparse/dense residual-parity coverage on harder shell and mixed models
+16. Harden mixed shell + nonlinear workflows
+17. Harden contact + nonlinear + staging workflows
+18. Add `Modified Newton`
+19. Add iterative refinement before any remaining expensive fallback path
+20. Add `PCG` with `Jacobi` preconditioning
+21. Add stronger preconditioners like `IC(0)` / `SSOR` if justified by measurements
+22. Implement shell-family automatic selection in the solver/model layer
+23. Add layered / laminated shell workflows
+24. Add axisymmetric workflows
+25. Deepen nonlinear / corotational shell workflows
+26. Add quasi-Newton methods such as `BFGS`, `L-BFGS`, and `Broyden`
+27. Add `GMRES` / `MINRES` for indefinite systems
+28. Add block eigensolvers such as `LOBPCG` / block Lanczos
+29. Deepen layered/composite shell constitutive behavior
+30. Add richer prestress tendon / relaxation workflows
+31. Add bridge-specific staged / moving-load workflow depth
+32. Add fatigue workflows
+33. Add fire / temperature-dependent nonlinear workflows
+34. Add more specialized shell / continuum families only if still justified
 
 ## Active Programs
 

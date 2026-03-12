@@ -8,6 +8,7 @@ Read next:
 - current snapshot: [`CURRENT_STATUS.md`](/Users/unbalancedparen/projects/dedaliano/CURRENT_STATUS.md)
 - solver execution order: [`SOLVER_ROADMAP.md`](/Users/unbalancedparen/projects/dedaliano/SOLVER_ROADMAP.md)
 - market framing: [`POSITIONING.md`](/Users/unbalancedparen/projects/dedaliano/POSITIONING.md)
+- RC design/BBS research: [`research/rc_design_and_bbs.md`](/Users/unbalancedparen/projects/dedaliano/research/rc_design_and_bbs.md)
 
 It is for:
 - app and workflow features
@@ -85,7 +86,7 @@ Still productizing:
 ## Product Layers By User Need
 
 - `Engineers and firms`
-  diagnostics, code checks, reports, connections, foundations, templates, interoperability, and explainable element-family defaults
+  diagnostics, code checks, RC member design and reinforcement schedules, reports, connections, foundations, templates, interoperability, and explainable element-family defaults
 - `Education`
   first-solve success, examples, benchmark explorer, explanatory views
 - `Design-build / temporary works`
@@ -103,25 +104,27 @@ Still productizing:
 |---|---|---|
 | 1 | Onboarding and first-solve success | The fastest way to grow usage is to make the first successful solve easy, obvious, and low-friction. |
 | 2 | Richer diagnostics UX | Diagnostics are now in the app flow; the next step is better grouping, filtering, and visibility rather than first-time surfacing. |
-| 3 | Shell-family recommendation and automatic defaults | The solver now has multiple shell families; the product should recommend `MITC4`, `MITC9`, `SHB8-ANS`, or triangular shells automatically, explain why, and allow safe override. |
-| 4 | Constraint-force presentation | Constraint forces now exist end-to-end; users need them presented coherently alongside reactions and solver diagnostics. |
-| 5 | Click-to-focus and visual highlighting | The next high-value usability step is linking diagnostics and warnings to the affected elements in the viewport. |
-| 6 | Report and calculation-document foundations | Solver trust converts into revenue more easily when firms can produce deliverables. |
-| 7 | Public benchmark and acceptance-model presentation | Make the trust story legible to users, customers, and evaluators. |
-| 8 | Shell/contact/constrained workflow usability | Turn the newest solver capabilities into practical workflows that feel coherent in the app. |
-| 9 | Performance feedback in the UI | Progress, iteration counts, and slow-phase visibility make large-model solves feel much more mature. |
+| 3 | RC beam design and reinforcement schedule | This is one of the clearest analysis-to-deliverable loops for daily structural work: turn envelopes into required steel, selected bars, stirrups, and schedule-ready output. |
+| 4 | Shell-family recommendation and automatic defaults | The solver now has multiple shell families; the product should recommend `MITC4`, `MITC9`, `SHB8-ANS`, or triangular shells automatically, explain why, and allow safe override. |
+| 5 | Constraint-force presentation | Constraint forces now exist end-to-end; users need them presented coherently alongside reactions and solver diagnostics. |
+| 6 | Click-to-focus and visual highlighting | The next high-value usability step is linking diagnostics and warnings to the affected elements in the viewport. |
+| 7 | Report and calculation-document foundations | Solver trust converts into revenue more easily when firms can produce deliverables. |
+| 8 | Public benchmark and acceptance-model presentation | Make the trust story legible to users, customers, and evaluators. |
+| 9 | Shell/contact/constrained workflow usability | Turn the newest solver capabilities into practical workflows that feel coherent in the app. |
+| 10 | Performance feedback in the UI | Progress, iteration counts, and slow-phase visibility make large-model solves feel much more mature. |
 
 ### 3-6 months
 
 | Priority | Topic | Why now |
 |---|---|---|
-| 10 | Code-check packaging and workflow polish | The solver already supports a broad design-check layer; the next step is turning it into a cleaner end-user workflow. |
-| 11 | Connections and foundations productization | These are natural downstream layers on top of solver outputs. |
-| 12 | Interoperability and import/export improvements | Lower switching friction and fit existing office workflows. |
-| 13 | Project, template, and repeatable workflow support | Help firms standardize how they use the solver. |
-| 14 | Education and benchmark-explorer product surface | A strong distribution and trust channel with minimal solver rework. |
-| 15 | API packaging | The engine is reusable; packaging it cleanly opens additional product and enterprise paths. |
-| 16 | Conceptual structural mode for architects | Valuable as a later product layer for early-stage structural feedback, but only after the core engineering workflow is stronger. |
+| 11 | Graphical BBS drawing generation | After the tabular reinforcement schedule works, add bending-shape drawings, dimensions, hook semantics, and schedule-ready graphics. |
+| 12 | Code-check packaging and workflow polish | The solver already supports a broad design-check layer; the next step is turning it into a cleaner end-user workflow. |
+| 13 | Connections and foundations productization | These are natural downstream layers on top of solver outputs. |
+| 14 | Interoperability and import/export improvements | Lower switching friction and fit existing office workflows. |
+| 15 | Project, template, and repeatable workflow support | Help firms standardize how they use the solver. |
+| 16 | Education and benchmark-explorer product surface | A strong distribution and trust channel with minimal solver rework. |
+| 17 | API packaging | The engine is reusable; packaging it cleanly opens additional product and enterprise paths. |
+| 18 | Conceptual structural mode for architects | Valuable as a later product layer for early-stage structural feedback, but only after the core engineering workflow is stronger. |
 
 ### 12 months+
 
@@ -141,6 +144,7 @@ Focus:
 - easy first successful solve
 - visible diagnostics and warnings
 - clean results and constraint-force surface
+- RC beam design and reinforcement schedule output from analysis envelopes
 - actionable diagnostics tied back to the model
 - shell-family recommendations with explainable defaults and safe override
 - benchmark-backed trust story
@@ -152,6 +156,7 @@ Be the most accessible serious structural solver for everyday structural enginee
 
 Focus:
 - code checks
+- graphical BBS and schedule/document outputs
 - reports
 - calculation packages
 - connections and foundations packaging

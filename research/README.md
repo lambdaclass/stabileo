@@ -14,3 +14,5 @@ Current documents:
   Large-model numerical-methods gap analysis and corrected performance priorities.
 - [webgpu_solver_renderer_analysis.md](/Users/unbalancedparen/projects/dedaliano/research/webgpu_solver_renderer_analysis.md)
   WebGPU fit analysis for the renderer vs solver, with ROI and sequencing guidance.
+- [rc_design_and_bbs.md](/Users/unbalancedparen/projects/dedaliano/research/rc_design_and_bbs.md)
+  Why RC design, reinforcement schedules, and later BBS generation should be explicit priorities, with solver vs product responsibilities and staged delivery order.
