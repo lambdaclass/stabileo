@@ -262,7 +262,7 @@ The current near-term sequence is:
 15. Expand sparse/dense residual-parity coverage on harder shell and mixed models
 16. Harden mixed shell + nonlinear workflows
 17. Harden contact + nonlinear + staging workflows
-18. Add `Modified Newton`
+18. ~~Add `Modified Newton`~~ — DONE (corotational 2D/3D + fiber 2D/3D; caches Cholesky from iter 0; diverges for geometric nonlinearity, suited for material nonlinearity)
 19. Add iterative refinement before any remaining expensive fallback path
 20. Add `PCG` with `Jacobi` preconditioning
 21. Add stronger preconditioners like `IC(0)` / `SSOR` if justified by measurements

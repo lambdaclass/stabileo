@@ -17,10 +17,11 @@ Read next:
 
 Latest reported status:
 
-- `5906` passing tests, `0` failures
+- `5908` passing tests, `0` failures
 - explicit CI gate stages for shell benchmarks, shell acceptance models, and constraint benchmarks
 - broad 2D and 3D structural analysis coverage
 - nonlinear, staged, contact, SSI, fiber, imperfections, and creep/shrinkage support
+- modified Newton-Raphson for corotational and fiber nonlinear solvers; useful for moderate material nonlinearity on larger systems, not a universal default — full NR remains more robust in deep plasticity and geometric-nonlinear cases
 - sparse Cholesky now survives shell models (dense LU fallback eliminated, 0 perturbations across all tested sizes)
 - measured sparse vs dense runtime gains: 4.5× at 700 DOFs, 22× at 2600 DOFs, 77-89× at 5700 DOFs (factorization only); 22× end-to-end at 30×30 MITC4
 - sparse wins on all three shell families (MITC4, Quad9, curved) above ~500 DOFs; fill ratio grows from 2.6× to 7.0× with mesh size

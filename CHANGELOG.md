@@ -11,6 +11,14 @@ It should capture what changed, not what should be built next.
 
 ### Added
 
+#### Modified Newton-Raphson for nonlinear solvers
+
+- added `modified_nr: bool` parameter to corotational 2D/3D and fiber nonlinear 2D/3D solvers
+- when enabled, caches the Cholesky factorization from iteration 0 and reuses it across subsequent NR iterations within each load increment, avoiding refactorization; falls back to full NR if Cholesky fails on iteration 0
+- measured on fiber nonlinear 2D with bilinear steel (fy=250 MPa, 1% hardening): converges for moderate plasticity with 2-3× more iterations; diverges for deep plasticity — not a blanket win, useful where factorization cost dominates and nonlinearity is moderate
+- corotational (geometric nonlinearity) diverges under modified NR; full NR remains more robust for geometric-nonlinear and deep-plasticity cases
+- added 3 parity tests (corotational 2D, corotational 3D, fiber 2D) and 1 measurement benchmark
+
 #### Sparse buckling eigensolver milestone
 
 - added `lanczos_buckling_eigen_sparse` in `engine/src/linalg/lanczos.rs`

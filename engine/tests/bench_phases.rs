@@ -1,7 +1,7 @@
 //! One-shot phase breakdown: prints SolveTimings for various MITC4 plate sizes.
 //! Run with: cargo test --release --test bench_phases -- --nocapture
 
-use dedaliano_engine::solver::{linear, modal, assembly, dof::DofNumbering};
+use dedaliano_engine::solver::{linear, modal, assembly, dof::DofNumbering, fiber_nonlinear};
 use dedaliano_engine::solver::harmonic::{HarmonicInput3D};
 use dedaliano_engine::solver::reduction::{GuyanInput3D, CraigBamptonInput3D};
 use dedaliano_engine::solver::mass_matrix::assemble_mass_matrix_3d;
@@ -1274,4 +1274,139 @@ fn harmonic_modal_vs_direct_timing() {
     println!("  Direct (sweep only, {} steps):  {} us", n_freq, direct_sweep_us);
     println!("  Speedup: {:.1}x", speedup);
     println!("  Modal peak: {:.4} Hz, amp={:.6e}", modal_result.peak_frequency, modal_result.peak_amplitude);
+}
+
+// ================================================================
+// Modified Newton-Raphson vs Full Newton-Raphson comparison
+// ================================================================
+
+#[test]
+fn modified_nr_vs_full_nr_measurement() {
+    use dedaliano_engine::element::fiber_beam::{rectangular_fiber_section, FiberMaterial};
+
+    println!("\n=== Modified Newton-Raphson vs Full Newton-Raphson ===\n");
+
+    // Corotational (geometric nonlinearity): Modified NR diverges because
+    // tangent stiffness changes fundamentally each iteration due to geometry updates.
+    // Fiber nonlinear (material nonlinearity): natural use case — tangent changes
+    // are smaller per iteration, so the initial tangent is a good search direction.
+
+    // Bilinear steel: E=200 GPa, fy=250 MPa, 1% hardening.
+    // Loads chosen to push well into plastic range.
+    let mat = FiberMaterial::SteelBilinear { e: 200_000.0, fy: 250.0, hardening_ratio: 0.01 };
+
+    println!("--- Fiber Nonlinear 2D — Bilinear Steel (fy=250 MPa, α=1%) ---");
+    println!("{:<10} {:<6} {:<6} {:<10} {:<12} {:<10} {:<12} {:<8} {:<8}",
+        "Load(kN)", "Elems", "Incr", "Full iter", "Full time", "Mod iter", "Mod time", "Speedup", "uy rel");
+    println!("{}", "-".repeat(92));
+
+    // My = fy_eff * S ≈ 250000 * 0.00533 = 1333 kN·m → yield at P ≈ 267 kN (L=5m)
+    // Use loads around and beyond yield with enough increments.
+    for &(n_elem, load, n_inc) in &[
+        (4,  -250.0,  10),   // near yield
+        (4,  -350.0,  20),   // moderately plastic
+        (4,  -500.0,  40),   // deep plastic, many increments
+        (10, -250.0,  10),
+        (10, -350.0,  20),
+        (10, -500.0,  40),
+    ] {
+        let l_total = 5.0;
+        let elem_len = l_total / n_elem as f64;
+
+        let mut nodes = HashMap::new();
+        for i in 0..=n_elem {
+            nodes.insert(
+                (i + 1).to_string(),
+                SolverNode { id: i + 1, x: i as f64 * elem_len, y: 0.0 },
+            );
+        }
+
+        let mut materials = HashMap::new();
+        materials.insert("1".into(), SolverMaterial { id: 1, e: 200_000.0, nu: 0.3 });
+
+        let mut sections = HashMap::new();
+        // 0.2×0.4m rect: A=0.08, Iz=bh³/12=0.2*0.4³/12≈0.001067
+        sections.insert("1".into(), SolverSection { id: 1, a: 0.08, iz: 0.001067, as_y: None });
+
+        let mut elements = HashMap::new();
+        for i in 0..n_elem {
+            elements.insert((i + 1).to_string(), SolverElement {
+                id: i + 1, elem_type: "frame".into(),
+                node_i: i + 1, node_j: i + 2,
+                material_id: 1, section_id: 1,
+                hinge_start: false, hinge_end: false,
+            });
+        }
+
+        let mut supports = HashMap::new();
+        supports.insert("1".into(), SolverSupport {
+            id: 1, node_id: 1, support_type: "fixed".into(),
+            kx: None, ky: None, kz: None,
+            dx: None, dy: None, drz: None, angle: None,
+        });
+
+        let tip_id = n_elem + 1;
+        let solver = SolverInput {
+            nodes, materials, sections, elements, supports,
+            loads: vec![SolverLoad::Nodal(SolverNodalLoad {
+                node_id: tip_id, fx: 0.0, fy: load, mz: 0.0,
+            })],
+            constraints: vec![], connectors: HashMap::new(),
+        };
+
+        let mut fiber_sections = HashMap::new();
+        for i in 1..=n_elem {
+            fiber_sections.insert(
+                i.to_string(),
+                rectangular_fiber_section(0.2, 0.4, 20, mat.clone()),
+            );
+        }
+
+        let full_input = fiber_nonlinear::FiberNonlinearInput {
+            solver: solver.clone(),
+            fiber_sections: fiber_sections.clone(),
+            n_integration_points: 3,
+            max_iter: 100,
+            tolerance: 1e-8,
+            n_increments: n_inc,
+            modified_nr: false,
+        };
+
+        let mod_input = fiber_nonlinear::FiberNonlinearInput {
+            solver,
+            fiber_sections,
+            n_integration_points: 3,
+            max_iter: 500,
+            tolerance: 1e-8,
+            n_increments: n_inc,
+            modified_nr: true,
+        };
+
+        let t0 = Instant::now();
+        let full = fiber_nonlinear::solve_fiber_nonlinear_2d(&full_input).unwrap();
+        let full_us = t0.elapsed().as_micros();
+
+        let t0 = Instant::now();
+        let modified = fiber_nonlinear::solve_fiber_nonlinear_2d(&mod_input).unwrap();
+        let mod_us = t0.elapsed().as_micros();
+
+        assert!(full.converged, "Full NR should converge (load={}, elems={})", load, n_elem);
+
+        if !modified.converged {
+            println!("{:<10} {:<6} {:<6} {:<10} {:<12} {:<10} {:<12} {:<8} {:<8}",
+                load, n_elem, n_inc, full.iterations, format!("{} us", full_us),
+                "DIVERGED", format!("{} us", mod_us), "N/A", "N/A");
+            continue;
+        }
+
+        let d_full = full.results.displacements.iter().find(|d| d.node_id == tip_id).unwrap();
+        let d_mod = modified.results.displacements.iter().find(|d| d.node_id == tip_id).unwrap();
+        let rel = (d_full.uy - d_mod.uy).abs() / d_full.uy.abs().max(1e-15);
+
+        let speedup = if mod_us > 0 { full_us as f64 / mod_us as f64 } else { 0.0 };
+
+        println!("{:<10} {:<6} {:<6} {:<10} {:<12} {:<10} {:<12} {:<8.2} {:<8.2e}",
+            load, n_elem, n_inc, full.iterations, format!("{} us", full_us),
+            modified.iterations, format!("{} us", mod_us), speedup, rel);
+    }
 }
