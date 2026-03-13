@@ -1,0 +1,23 @@
+{
+  "viewport.zoomToFit": "Adatta alla vista (F)",
+  "viewport3d.zoomToFit": "Adatta alla vista",
+  "viewport3d.topView": "Vista dall'alto",
+  "viewport3d.frontView": "Vista frontale",
+  "viewport3d.sideView": "Vista laterale",
+  "viewport3d.switchToOrtho": "Passa a ortografica",
+  "viewport3d.switchToPersp": "Passa a prospettiva",
+  "viewport3d.disableClipping": "Disattiva taglio",
+  "viewport3d.enableClipping": "Attiva piano di taglio",
+  "viewport3d.disableMeasure": "Disattiva strumento misura",
+  "viewport3d.enableMeasure": "Misura distanza",
+  "table.frame": "Telaio",
+  "table.truss": "Traliccio",
+  "config.unitSI": "SI (kN, m)",
+  "config.unitImperial": "Imperiale (kip, ft)",
+  "matEdit.optional": "opzionale",
+  "dsm.expectedValue": "Valore atteso",
+  "influence.unitLoad": "P=1",
+  "influence.label": "LI",
+  "influence.node": "Nodo",
+  "influence.elem": "Elem"
+}

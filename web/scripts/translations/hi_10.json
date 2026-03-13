@@ -1,0 +1,23 @@
+{
+  "viewport.zoomToFit": "दृश्य समायोजित करें (F)",
+  "viewport3d.zoomToFit": "दृश्य समायोजित करें",
+  "viewport3d.topView": "ऊपर का दृश्य",
+  "viewport3d.frontView": "सामने का दृश्य",
+  "viewport3d.sideView": "पार्श्व दृश्य",
+  "viewport3d.switchToOrtho": "ऑर्थोग्राफ़िक पर स्विच करें",
+  "viewport3d.switchToPersp": "परिप्रेक्ष्य पर स्विच करें",
+  "viewport3d.disableClipping": "क्लिपिंग अक्षम करें",
+  "viewport3d.enableClipping": "क्लिपिंग प्लेन सक्षम करें",
+  "viewport3d.disableMeasure": "माप उपकरण अक्षम करें",
+  "viewport3d.enableMeasure": "दूरी मापें",
+  "table.frame": "फ्रेम",
+  "table.truss": "ट्रस",
+  "config.unitSI": "SI (kN, m)",
+  "config.unitImperial": "इम्पीरियल (kip, ft)",
+  "matEdit.optional": "वैकल्पिक",
+  "dsm.expectedValue": "अपेक्षित मान",
+  "influence.unitLoad": "P=1",
+  "influence.label": "प्रभ.रे.",
+  "influence.node": "नोड",
+  "influence.elem": "एलिम"
+}

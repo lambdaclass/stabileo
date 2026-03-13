@@ -1,0 +1,23 @@
+{
+  "viewport.zoomToFit": "Görünümü sığdır (F)",
+  "viewport3d.zoomToFit": "Görünümü sığdır",
+  "viewport3d.topView": "Üst görünüm",
+  "viewport3d.frontView": "Ön görünüm",
+  "viewport3d.sideView": "Yan görünüm",
+  "viewport3d.switchToOrtho": "Ortografike geç",
+  "viewport3d.switchToPersp": "Perspektife geç",
+  "viewport3d.disableClipping": "Kesmeyi devre dışı bırak",
+  "viewport3d.enableClipping": "Kesme düzlemini etkinleştir",
+  "viewport3d.disableMeasure": "Ölçüm aracını devre dışı bırak",
+  "viewport3d.enableMeasure": "Mesafe ölç",
+  "table.frame": "Çerçeve",
+  "table.truss": "Kafes",
+  "config.unitSI": "SI (kN, m)",
+  "config.unitImperial": "İmparatorluk (kip, ft)",
+  "matEdit.optional": "isteğe bağlı",
+  "dsm.expectedValue": "Beklenen değer",
+  "influence.unitLoad": "P=1",
+  "influence.label": "EÇ",
+  "influence.node": "Düğüm",
+  "influence.elem": "Elem"
+}
