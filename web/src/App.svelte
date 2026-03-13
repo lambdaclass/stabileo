@@ -47,7 +47,7 @@
 
   // Listen for enter-app event from LandingPage "Try Demo" buttons
   if (typeof window !== 'undefined') {
-    window.addEventListener('dedaliano-enter-app', enterApp);
+    window.addEventListener('stabileo-enter-app', enterApp);
   }
 
   // ─── Per-mode model persistence ───
