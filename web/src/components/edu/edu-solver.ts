@@ -59,11 +59,11 @@ export function solveForEdu(): void {
   resultsStore.showReactions = false;
 
   // Notify any listener that edu solve completed
-  window.dispatchEvent(new Event('dedaliano-edu-solved'));
+  window.dispatchEvent(new Event('stabileo-edu-solved'));
 }
 
 // ─── Global solve handler ──────────────────────────────────────────
-// When the 'dedaliano-solve' event fires and we're in edu mode,
+// When the 'stabileo-solve' event fires and we're in edu mode,
 // this module handles it directly — no routing through live-calc.ts.
 
 let registered = false;
@@ -76,7 +76,7 @@ export function registerEduSolveHandler(): void {
   if (registered) return;
   registered = true;
 
-  window.addEventListener('dedaliano-solve', () => {
+  window.addEventListener('stabileo-solve', () => {
     if (uiStore.analysisMode !== 'edu') return;
     solveForEdu();
   });

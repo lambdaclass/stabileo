@@ -13,11 +13,11 @@
   $effect(() => {
     const openProject = () => { showProject = true; };
     const closeProject = () => { showProject = false; };
-    window.addEventListener('dedaliano-open-project', openProject);
-    window.addEventListener('dedaliano-close-project', closeProject);
+    window.addEventListener('stabileo-open-project', openProject);
+    window.addEventListener('stabileo-close-project', closeProject);
     return () => {
-      window.removeEventListener('dedaliano-open-project', openProject);
-      window.removeEventListener('dedaliano-close-project', closeProject);
+      window.removeEventListener('stabileo-open-project', openProject);
+      window.removeEventListener('stabileo-close-project', closeProject);
     };
   });
 
@@ -74,7 +74,7 @@
 
   function handleExportPNG() {
     // Dispatch custom event — App.svelte handles it with canvas ref
-    window.dispatchEvent(new CustomEvent('dedaliano-export-png'));
+    window.dispatchEvent(new CustomEvent('stabileo-export-png'));
   }
 </script>
 
@@ -134,16 +134,16 @@
         <button class="file-btn" onclick={() => fileInput?.click()} title={t('project.openDedTooltip')}>
           {t('project.openDed')}
         </button>
-        <button class="file-btn" onclick={() => window.dispatchEvent(new Event('dedaliano-import-dxf'))} disabled={uiStore.analysisMode === '3d'} title={uiStore.analysisMode === '3d' ? t('project.inDev3d') : t('project.openDxfTooltip')}>
+        <button class="file-btn" onclick={() => window.dispatchEvent(new Event('stabileo-import-dxf'))} disabled={uiStore.analysisMode === '3d'} title={uiStore.analysisMode === '3d' ? t('project.inDev3d') : t('project.openDxfTooltip')}>
           {t('project.openDxf')}
         </button>
-        <button class="file-btn" onclick={() => window.dispatchEvent(new Event('dedaliano-import-ifc'))} title={t('project.openIfcTooltip')}>
+        <button class="file-btn" onclick={() => window.dispatchEvent(new Event('stabileo-import-ifc'))} title={t('project.openIfcTooltip')}>
           {t('project.openIfc')}
         </button>
-        <button class="file-btn" onclick={() => window.dispatchEvent(new Event('dedaliano-import-coords'))} title={t('project.pasteCoordsTooltip')}>
+        <button class="file-btn" onclick={() => window.dispatchEvent(new Event('stabileo-import-coords'))} title={t('project.pasteCoordsTooltip')}>
           {t('project.pasteCoords')}
         </button>
-        <button class="file-btn" onclick={() => window.dispatchEvent(new Event('dedaliano-open-template'))} title={t('project.generatorTooltip')}>
+        <button class="file-btn" onclick={() => window.dispatchEvent(new Event('stabileo-open-template'))} title={t('project.generatorTooltip')}>
           {t('project.generator')}
         </button>
       </div>

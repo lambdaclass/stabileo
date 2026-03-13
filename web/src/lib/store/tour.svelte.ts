@@ -29,6 +29,17 @@ export interface TourStep {
   skip?: () => boolean;                // If returns true, step is skipped (next/prev jump over it)
 }
 
+// Migrate old storage keys
+if (typeof localStorage !== 'undefined') {
+  for (const key of ['tour-started', 'tour-completed']) {
+    const old = localStorage.getItem(`dedaliano-${key}`);
+    if (old !== null && localStorage.getItem(`stabileo-${key}`) === null) {
+      localStorage.setItem(`stabileo-${key}`, old);
+      localStorage.removeItem(`dedaliano-${key}`);
+    }
+  }
+}
+
 function createTourStore() {
   let _isActive = $state(false);
   let _currentStepIndex = $state(0);
@@ -60,7 +71,7 @@ function createTourStore() {
       _steps = tourSteps;
       _currentStepIndex = 0;
       _isActive = true;
-      localStorage.setItem('dedaliano-tour-started', 'true');
+      localStorage.setItem('stabileo-tour-started', 'true');
       _steps[0]?.onEnter?.();
       requestAnimationFrame(() => this.updateTargetRect());
     },
@@ -105,7 +116,7 @@ function createTourStore() {
       if (location.pathname === '/demo') {
         history.replaceState(null, '', '/');
       }
-      localStorage.setItem('dedaliano-tour-completed', 'true');
+      localStorage.setItem('stabileo-tour-completed', 'true');
     },
 
     updateTargetRect() {

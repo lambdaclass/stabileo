@@ -211,7 +211,7 @@ export function generatePlanTemplate(): string {
   // ── Help text on DED_P_AYUDA ──
 
   const helpLines = [
-    'TEMPLATE DEDALIANO - Planta Estructural',
+    'TEMPLATE STABILEO - Planta Estructural',
     '',
     'Capas disponibles:',
     '  DED_P_VIGAS        - Vigas (rectangulos cerrados POLYLINE)',
@@ -258,7 +258,7 @@ export function downloadPlanTemplate(): void {
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
   a.href = url;
-  a.download = 'dedaliano-planta-template.dxf';
+  a.download = 'stabileo-planta-template.dxf';
   a.click();
   URL.revokeObjectURL(url);
 }

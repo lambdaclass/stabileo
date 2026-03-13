@@ -16,6 +16,17 @@ import type { Translations } from './types';
 
 const dicts: Record<string, Translations> = { es, en, pt, de, fr, it, tr, hi, ja, ko, ru, zh, ar, id };
 
+// Migrate old storage keys
+if (typeof localStorage !== 'undefined') {
+	for (const key of ['lang', 'lang-manual']) {
+		const old = localStorage.getItem(`dedaliano-${key}`);
+		if (old !== null && localStorage.getItem(`stabileo-${key}`) === null) {
+			localStorage.setItem(`stabileo-${key}`, old);
+			localStorage.removeItem(`dedaliano-${key}`);
+		}
+	}
+}
+
 function detectBrowserLocale(): string {
 	if (typeof navigator === 'undefined') return 'en';
 	for (const lang of navigator.languages ?? [navigator.language]) {
@@ -28,13 +39,13 @@ function detectBrowserLocale(): string {
 function getInitialLocale(): string {
 	if (typeof localStorage === 'undefined') return detectBrowserLocale();
 	// Only use stored locale if user explicitly chose it (flag set by setLocale)
-	if (localStorage.getItem('dedaliano-lang-manual') === '1') {
-		const stored = localStorage.getItem('dedaliano-lang');
+	if (localStorage.getItem('stabileo-lang-manual') === '1') {
+		const stored = localStorage.getItem('stabileo-lang');
 		if (stored && stored in dicts) return stored;
 	}
 	// Otherwise auto-detect from browser and clear any stale stored value
 	const detected = detectBrowserLocale();
-	localStorage.setItem('dedaliano-lang', detected);
+	localStorage.setItem('stabileo-lang', detected);
 	return detected;
 }
 
@@ -48,8 +59,8 @@ export function t(key: string): string {
 export function setLocale(loc: string) {
 	_locale = loc;
 	if (typeof localStorage !== 'undefined') {
-		localStorage.setItem('dedaliano-lang', loc);
-		localStorage.setItem('dedaliano-lang-manual', '1');
+		localStorage.setItem('stabileo-lang', loc);
+		localStorage.setItem('stabileo-lang-manual', '1');
 	}
 }
 

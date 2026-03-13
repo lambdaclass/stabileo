@@ -15,11 +15,11 @@
   $effect(() => {
     const openConfig = () => { showConfig = true; };
     const closeConfig = () => { showConfig = false; };
-    window.addEventListener('dedaliano-open-config', openConfig);
-    window.addEventListener('dedaliano-close-config', closeConfig);
+    window.addEventListener('stabileo-open-config', openConfig);
+    window.addEventListener('stabileo-close-config', closeConfig);
     return () => {
-      window.removeEventListener('dedaliano-open-config', openConfig);
-      window.removeEventListener('dedaliano-close-config', closeConfig);
+      window.removeEventListener('stabileo-open-config', openConfig);
+      window.removeEventListener('stabileo-close-config', closeConfig);
     };
   });
 </script>

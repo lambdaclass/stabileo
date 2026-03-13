@@ -304,7 +304,7 @@
 
     // Listen for global zoom-to-fit event (dispatched by F key from Toolbar)
     const handleZoomToFitEvent = () => zoomToFit();
-    window.addEventListener('dedaliano-zoom-to-fit', handleZoomToFitEvent);
+    window.addEventListener('stabileo-zoom-to-fit', handleZoomToFitEvent);
 
     // Listen for camera restore event (dispatched on tab switch)
     const handleRestoreCamera = () => {
@@ -314,7 +314,7 @@
       controls.target.set(tgt.x, tgt.y, tgt.z);
       controls.update();
     };
-    window.addEventListener('dedaliano-restore-camera-3d', handleRestoreCamera);
+    window.addEventListener('stabileo-restore-camera-3d', handleRestoreCamera);
 
     // Keyboard shortcuts for 3D viewport
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -339,8 +339,8 @@
       ro.disconnect();
       renderer.dispose();
       controls.dispose();
-      window.removeEventListener('dedaliano-zoom-to-fit', handleZoomToFitEvent);
-      window.removeEventListener('dedaliano-restore-camera-3d', handleRestoreCamera);
+      window.removeEventListener('stabileo-zoom-to-fit', handleZoomToFitEvent);
+      window.removeEventListener('stabileo-restore-camera-3d', handleRestoreCamera);
       window.removeEventListener('keydown', handleKeyDown);
       window.removeEventListener('keydown', onShiftDown);
       window.removeEventListener('keyup', onShiftUp);

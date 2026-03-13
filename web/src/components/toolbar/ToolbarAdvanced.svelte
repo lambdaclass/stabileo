@@ -20,9 +20,9 @@
   // Listen for tour event to auto-open advanced section
   $effect(() => {
     const openAdvanced = () => { showAdvanced = true; };
-    window.addEventListener('dedaliano-open-advanced', openAdvanced);
+    window.addEventListener('stabileo-open-advanced', openAdvanced);
     return () => {
-      window.removeEventListener('dedaliano-open-advanced', openAdvanced);
+      window.removeEventListener('stabileo-open-advanced', openAdvanced);
     };
   });
 
@@ -626,7 +626,7 @@
         onclick={() => {
           if (dsmStepsStore.isOpen) {
             dsmStepsStore.close();
-            setTimeout(() => window.dispatchEvent(new Event('dedaliano-zoom-to-fit')), 100);
+            setTimeout(() => window.dispatchEvent(new Event('stabileo-zoom-to-fit')), 100);
             return;
           }
           if (uiStore.analysisMode === '3d') {
@@ -638,7 +638,7 @@
               dsmStepsStore.open();
               if (uiStore.isMobile) uiStore.rightDrawerOpen = true;
               else uiStore.rightSidebarOpen = true;
-              setTimeout(() => window.dispatchEvent(new Event('dedaliano-zoom-to-fit')), 100);
+              setTimeout(() => window.dispatchEvent(new Event('stabileo-zoom-to-fit')), 100);
             } catch (e: any) {
               uiStore.toast(e.message || t('toast.detailedSolver3dError'), 'error');
             }
@@ -651,7 +651,7 @@
               dsmStepsStore.open();
               if (uiStore.isMobile) uiStore.rightDrawerOpen = true;
               else uiStore.rightSidebarOpen = true;
-              setTimeout(() => window.dispatchEvent(new Event('dedaliano-zoom-to-fit')), 100);
+              setTimeout(() => window.dispatchEvent(new Event('stabileo-zoom-to-fit')), 100);
             } catch (e: any) {
               uiStore.toast(e.message || t('toast.detailedSolverError'), 'error');
             }

@@ -35,7 +35,12 @@
   let { open, hasResults, hasVerifications, hasAdvanced, hasDrift, hasDiagnostics, hasQuantities, ongenerate, onclose }: Props = $props();
 
   // ─── Persistent state (localStorage) ─────────────────────
-  const STORAGE_KEY = 'dedaliano-report-config';
+  // Migrate old storage key
+  if (localStorage.getItem('dedaliano-report-config') !== null && localStorage.getItem('stabileo-report-config') === null) {
+    localStorage.setItem('stabileo-report-config', localStorage.getItem('dedaliano-report-config')!);
+    localStorage.removeItem('dedaliano-report-config');
+  }
+  const STORAGE_KEY = 'stabileo-report-config';
 
   function loadSaved(): Partial<ReportConfig> {
     try {

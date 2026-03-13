@@ -48,6 +48,8 @@ jobs:
       - name: Build
         working-directory: web
         run: npm run build
+        env:
+          BASE_PATH: /stabileo
 
       - uses: actions/configure-pages@v5
 

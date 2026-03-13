@@ -4,7 +4,7 @@
 
   /** Called when the user clicks "Try Demo" — dispatches event for parent to handle */
   function enterApp() {
-    window.dispatchEvent(new CustomEvent('dedaliano-enter-app'));
+    window.dispatchEvent(new CustomEvent('stabileo-enter-app'));
   }
 
   let landingEl: HTMLDivElement;
@@ -110,7 +110,7 @@
 
     // Listen for demo iframe tour completion → enter full app
     const onMessage = (e: MessageEvent) => {
-      if (e.data === 'dedaliano-enter-app') enterApp();
+      if (e.data === 'stabileo-enter-app') enterApp();
     };
     window.addEventListener('message', onMessage);
 
@@ -144,7 +144,7 @@
     <div class="nav-inner">
       <div class="nav-brand">
         <span class="nav-logo">△</span>
-        <span class="nav-name">Dedaliano</span>
+        <span class="nav-name">Stabileo</span>
       </div>
       <div class="nav-links">
         <button onclick={() => scrollTo('features')}>{t('landing.features')}</button>
@@ -183,7 +183,7 @@
       <div class="img-frame hero-frame">
         <div class="img-content slideshow">
           {#each hero.images as src, i}
-            <img {src} alt="Dedaliano" class="slide" class:active={i === hero.idx} />
+            <img {src} alt="Stabileo" class="slide" class:active={i === hero.idx} />
           {/each}
         </div>
         <div class="slideshow-dots">
@@ -362,10 +362,10 @@
         <div class="demo-browser-clean">
           <div class="demo-iframe-wrap">
             {#if demoLoaded}
-              <iframe src="/demo?embed" title="Dedaliano Demo" class="demo-iframe"></iframe>
+              <iframe src="/demo?embed" title="Stabileo Demo" class="demo-iframe"></iframe>
             {:else}
               <button class="demo-placeholder" onclick={() => demoLoaded = true}>
-                <img src="/screenshots/2d-moments.png" alt="Dedaliano Demo" class="demo-thumb" />
+                <img src="/screenshots/2d-moments.png" alt="Stabileo Demo" class="demo-thumb" />
                 <div class="demo-play">
                   <svg viewBox="0 0 24 24" fill="currentColor" width="48" height="48"><path d="M8 5v14l11-7z"/></svg>
                   <span>{t('landing.tryDemo')}</span>
@@ -389,7 +389,7 @@
       <h2>{t('landing.comparisonTitle')}</h2>
       <div class="table-wrap">
         <table>
-          <thead><tr><th></th><th class="hl">Dedaliano</th><th>SkyCiv</th><th>Ftool</th><th>SAP2000</th><th>STAAD</th></tr></thead>
+          <thead><tr><th></th><th class="hl">Stabileo</th><th>SkyCiv</th><th>Ftool</th><th>SAP2000</th><th>STAAD</th></tr></thead>
           <tbody>
             <tr><td>{t('landing.compBrowser')}</td><td class="hl yes">✓</td><td class="yes">✓</td><td class="no">✗</td><td class="no">✗</td><td class="no">✗</td></tr>
             <tr><td>{t('landing.compFree')}</td><td class="hl yes">✓</td><td class="no">{t('landing.trialOnly')}</td><td class="partial">~</td><td class="no">✗</td><td class="no">✗</td></tr>
@@ -475,8 +475,8 @@
   <!-- ═══ FOOTER ═══ -->
   <footer class="lp-footer">
     <div class="footer-inner">
-      <div class="footer-brand"><span class="nav-logo">△</span> Dedaliano</div>
-      <p class="footer-copy">&copy; {new Date().getFullYear()} Dedaliano. {t('landing.footerRights')}</p>
+      <div class="footer-brand"><span class="nav-logo">△</span> Stabileo</div>
+      <p class="footer-copy">&copy; {new Date().getFullYear()} Stabileo. {t('landing.footerRights')}</p>
     </div>
   </footer>
 
