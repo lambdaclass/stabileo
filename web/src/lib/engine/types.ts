@@ -184,3 +184,103 @@ export interface FullEnvelope {
   /** AnalysisResults con max-abs (backward compat para deformada, tabla, reacciones) */
   maxAbsResults: AnalysisResults;
 }
+
+// ─── Beam Station Extraction (2D) ────────────────────────────────
+
+export interface BeamMemberInfo {
+  elementId: number;
+  sectionId: number;
+  materialId: number;
+  length: number;
+}
+
+export interface LabeledResults {
+  comboId: number;
+  comboName?: string;
+  results: AnalysisResults;
+}
+
+export interface BeamStationInput {
+  members: BeamMemberInfo[];
+  combinations: LabeledResults[];
+  numStations?: number;
+}
+
+export interface StationComboForces {
+  comboId: number;
+  comboName?: string;
+  n: number;
+  v: number;
+  m: number;
+}
+
+export interface GoverningEntry {
+  posCombo: number;
+  posValue: number;
+  negCombo: number;
+  negValue: number;
+}
+
+export interface GoverningInfo {
+  moment?: GoverningEntry;
+  shear?: GoverningEntry;
+  axial?: GoverningEntry;
+}
+
+export interface BeamStation {
+  memberId: number;
+  stationIndex: number;
+  t: number;
+  stationX: number;
+  sectionId: number;
+  materialId: number;
+  comboForces: StationComboForces[];
+  governing: GoverningInfo;
+}
+
+export interface SignConvention2D {
+  localX: string;
+  axial: string;
+  shear: string;
+  moment: string;
+  stationX: string;
+}
+
+export interface BeamStationResult {
+  stations: BeamStation[];
+  numMembers: number;
+  numCombinations: number;
+  numStationsPerMember: number;
+  signConvention: SignConvention2D;
+}
+
+export interface MemberGoverningEntry {
+  posCombo: number;
+  posValue: number;
+  posStationIndex: number;
+  negCombo: number;
+  negValue: number;
+  negStationIndex: number;
+}
+
+export interface MemberGoverning {
+  moment?: MemberGoverningEntry;
+  shear?: MemberGoverningEntry;
+  axial?: MemberGoverningEntry;
+}
+
+export interface MemberStationGroup {
+  memberId: number;
+  sectionId: number;
+  materialId: number;
+  length: number;
+  stations: BeamStation[];
+  memberGoverning: MemberGoverning;
+}
+
+export interface GroupedBeamStationResult {
+  members: MemberStationGroup[];
+  numCombinations: number;
+  numStationsPerMember: number;
+  signConvention: SignConvention2D;
+}

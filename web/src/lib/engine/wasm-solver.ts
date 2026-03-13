@@ -21,10 +21,14 @@ import initWasm, {
   compute_influence_line as wasmComputeInfluenceLine,
   compute_section_stress_2d as wasmComputeSectionStress2d,
   compute_section_stress_3d as wasmComputeSectionStress3d,
+  extract_beam_stations as wasmExtractBeamStations,
+  extract_beam_stations_3d as wasmExtractBeamStations3d,
+  extract_beam_stations_grouped as wasmExtractBeamStationsGrouped,
+  extract_beam_stations_grouped_3d as wasmExtractBeamStationsGrouped3d,
 } from '../wasm/dedaliano_engine';
 
-import type { SolverInput, AnalysisResults, FullEnvelope } from './types';
-import type { SolverInput3D, AnalysisResults3D, FullEnvelope3D } from './types-3d';
+import type { SolverInput, AnalysisResults, FullEnvelope, BeamStationInput, BeamStationResult, GroupedBeamStationResult } from './types';
+import type { SolverInput3D, AnalysisResults3D, FullEnvelope3D, BeamStationInput3D, BeamStationResult3D, GroupedBeamStationResult3D } from './types-3d';
 
 let wasmReady = false;
 let wasmInitPromise: Promise<void> | null = null;
@@ -336,4 +340,30 @@ export function computeSectionStress2D(input: {
 export function computeSectionStress3D(input: any) {
   if (!wasmReady) throw new Error('WASM solver not initialized.');
   return JSON.parse(wasmComputeSectionStress3d(JSON.stringify(input)));
+}
+
+// ─── Beam Station Extraction ─────────────────────────────────────
+
+/** Extract 2D beam design stations with per-combo forces and governing values. */
+export function extractBeamStations(input: BeamStationInput): BeamStationResult {
+  if (!wasmReady) throw new Error('WASM solver not initialized.');
+  return JSON.parse(wasmExtractBeamStations(JSON.stringify(input)));
+}
+
+/** Extract 3D beam design stations with per-combo forces and governing values. */
+export function extractBeamStations3D(input: BeamStationInput3D): BeamStationResult3D {
+  if (!wasmReady) throw new Error('WASM solver not initialized.');
+  return JSON.parse(wasmExtractBeamStations3d(JSON.stringify(input)));
+}
+
+/** Extract 2D beam stations grouped by member with member-level governing summaries. */
+export function extractBeamStationsGrouped(input: BeamStationInput): GroupedBeamStationResult {
+  if (!wasmReady) throw new Error('WASM solver not initialized.');
+  return JSON.parse(wasmExtractBeamStationsGrouped(JSON.stringify(input)));
+}
+
+/** Extract 3D beam stations grouped by member with member-level governing summaries. */
+export function extractBeamStationsGrouped3D(input: BeamStationInput3D): GroupedBeamStationResult3D {
+  if (!wasmReady) throw new Error('WASM solver not initialized.');
+  return JSON.parse(wasmExtractBeamStationsGrouped3d(JSON.stringify(input)));
 }

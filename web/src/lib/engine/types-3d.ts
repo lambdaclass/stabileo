@@ -225,3 +225,96 @@ export interface FullEnvelope3D {
   torsion: EnvelopeDiagramData3D;
   maxAbsResults3D: AnalysisResults3D;
 }
+
+// ─── Beam Station Extraction (3D) ────────────────────────────────
+
+import type { BeamMemberInfo, GoverningEntry, MemberGoverningEntry } from './types';
+export type { BeamMemberInfo, GoverningEntry, MemberGoverningEntry };
+
+export interface LabeledResults3D {
+  comboId: number;
+  comboName?: string;
+  results: AnalysisResults3D;
+}
+
+export interface BeamStationInput3D {
+  members: BeamMemberInfo[];
+  combinations: LabeledResults3D[];
+  numStations?: number;
+}
+
+export interface StationComboForces3D {
+  comboId: number;
+  comboName?: string;
+  n: number;
+  vy: number;
+  vz: number;
+  my: number;
+  mz: number;
+  torsion: number;
+}
+
+export interface GoverningInfo3D {
+  axial?: GoverningEntry;
+  shearY?: GoverningEntry;
+  shearZ?: GoverningEntry;
+  momentY?: GoverningEntry;
+  momentZ?: GoverningEntry;
+  torsion?: GoverningEntry;
+}
+
+export interface BeamStation3D {
+  memberId: number;
+  stationIndex: number;
+  t: number;
+  stationX: number;
+  sectionId: number;
+  materialId: number;
+  comboForces: StationComboForces3D[];
+  governing: GoverningInfo3D;
+}
+
+export interface SignConvention3D {
+  localX: string;
+  localYz: string;
+  axial: string;
+  shearY: string;
+  shearZ: string;
+  momentZ: string;
+  momentY: string;
+  torsion: string;
+  stationX: string;
+}
+
+export interface BeamStationResult3D {
+  stations: BeamStation3D[];
+  numMembers: number;
+  numCombinations: number;
+  numStationsPerMember: number;
+  signConvention: SignConvention3D;
+}
+
+export interface MemberGoverning3D {
+  axial?: MemberGoverningEntry;
+  shearY?: MemberGoverningEntry;
+  shearZ?: MemberGoverningEntry;
+  momentY?: MemberGoverningEntry;
+  momentZ?: MemberGoverningEntry;
+  torsion?: MemberGoverningEntry;
+}
+
+export interface MemberStationGroup3D {
+  memberId: number;
+  sectionId: number;
+  materialId: number;
+  length: number;
+  stations: BeamStation3D[];
+  memberGoverning: MemberGoverning3D;
+}
+
+export interface GroupedBeamStationResult3D {
+  members: MemberStationGroup3D[];
+  numCombinations: number;
+  numStationsPerMember: number;
+  signConvention: SignConvention3D;
+}
