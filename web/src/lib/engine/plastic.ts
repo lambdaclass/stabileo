@@ -1,6 +1,6 @@
 // Plastic analysis — incremental plastic hinge method
 
-import type { SolverInput, SolverElement, AnalysisResults, ElementForces } from './types';
+import type { SolverInput, SolverElement, SolverLoad, SolverNode, AnalysisResults, ElementForces } from './types';
 import { solve, computeStaticDegree } from './solver-js';
 import { t } from '../i18n';
 
@@ -10,6 +10,8 @@ export interface PlasticHinge {
   moment: number;    // kN·m (moment at hinge formation)
   loadFactor: number; // cumulative load factor at formation
   step: number;
+  /** Position along the original element (0 = start, 1 = end). Used for interior hinges. */
+  position?: number;
 }
 
 export interface PlasticStep {
@@ -65,6 +67,162 @@ function computeMp(
   return fyKPa * Zp;
 }
 
+// ─── Mesh refinement for interior plastic hinges ─────────────────
+
+const N_SEG = 4; // Split each frame element into 4 sub-elements
+
+interface RefinementMap {
+  refined: SolverInput;
+  /** refined element ID → original element ID */
+  toOrig: Map<number, number>;
+  /** refined element ID → { segment index (0-based), total segments } */
+  segInfo: Map<number, { seg: number; nSeg: number }>;
+  /** original element IDs (for filtering results) */
+  originalNodeIds: Set<number>;
+}
+
+function refineInput(input: SolverInput): RefinementMap {
+  let nextNodeId = Math.max(0, ...input.nodes.keys()) + 10000;
+  let nextElemId = Math.max(0, ...input.elements.keys()) + 10000;
+
+  const newNodes = new Map(input.nodes);
+  const newElements = new Map<number, SolverElement>();
+  const newLoads: SolverLoad[] = [];
+  const toOrig = new Map<number, number>();
+  const segInfo = new Map<number, { seg: number; nSeg: number }>();
+  const originalNodeIds = new Set(input.nodes.keys());
+
+  // Map original element ID → ordered list of sub-element IDs
+  const origToSubs = new Map<number, number[]>();
+
+  for (const [elemId, elem] of input.elements) {
+    if (elem.type !== 'frame') {
+      newElements.set(elemId, { ...elem });
+      toOrig.set(elemId, elemId);
+      segInfo.set(elemId, { seg: 0, nSeg: 1 });
+      origToSubs.set(elemId, [elemId]);
+      continue;
+    }
+
+    const nI = input.nodes.get(elem.nodeI)!;
+    const nJ = input.nodes.get(elem.nodeJ)!;
+    const dx = nJ.x - nI.x;
+    const dy = nJ.y - nI.y;
+
+    // Create intermediate nodes
+    const segNodeIds: number[] = [elem.nodeI];
+    for (let s = 1; s < N_SEG; s++) {
+      const frac = s / N_SEG;
+      const id = nextNodeId++;
+      newNodes.set(id, { id, x: nI.x + frac * dx, y: nI.y + frac * dy });
+      segNodeIds.push(id);
+    }
+    segNodeIds.push(elem.nodeJ);
+
+    // Create sub-elements
+    const subIds: number[] = [];
+    for (let s = 0; s < N_SEG; s++) {
+      const id = nextElemId++;
+      newElements.set(id, {
+        id,
+        type: 'frame',
+        nodeI: segNodeIds[s],
+        nodeJ: segNodeIds[s + 1],
+        materialId: elem.materialId,
+        sectionId: elem.sectionId,
+        hingeStart: s === 0 ? elem.hingeStart : false,
+        hingeEnd: s === N_SEG - 1 ? elem.hingeEnd : false,
+      });
+      toOrig.set(id, elemId);
+      segInfo.set(id, { seg: s, nSeg: N_SEG });
+      subIds.push(id);
+    }
+    origToSubs.set(elemId, subIds);
+  }
+
+  // Redistribute loads
+  for (const load of input.loads) {
+    if (load.type === 'nodal') {
+      newLoads.push(load);
+    } else if (load.type === 'distributed') {
+      const subs = origToSubs.get(load.data.elementId);
+      if (!subs) continue;
+      if (subs.length === 1 && subs[0] === load.data.elementId) {
+        newLoads.push(load);
+        continue;
+      }
+      for (let s = 0; s < subs.length; s++) {
+        const frac0 = s / N_SEG;
+        const frac1 = (s + 1) / N_SEG;
+        const qStart = load.data.qI + (load.data.qJ - load.data.qI) * frac0;
+        const qEnd = load.data.qI + (load.data.qJ - load.data.qI) * frac1;
+        newLoads.push({
+          type: 'distributed',
+          data: { elementId: subs[s], qI: qStart, qJ: qEnd },
+        });
+      }
+    } else if (load.type === 'pointOnElement') {
+      const subs = origToSubs.get(load.data.elementId);
+      if (!subs || subs.length <= 1) { newLoads.push(load); continue; }
+      const elem = input.elements.get(load.data.elementId)!;
+      const nI = input.nodes.get(elem.nodeI)!;
+      const nJ = input.nodes.get(elem.nodeJ)!;
+      const L = Math.sqrt((nJ.x - nI.x) ** 2 + (nJ.y - nI.y) ** 2);
+      const segLen = L / N_SEG;
+      const segIdx = Math.min(Math.floor(load.data.a / segLen), N_SEG - 1);
+      const localA = load.data.a - segIdx * segLen;
+      newLoads.push({
+        type: 'pointOnElement',
+        data: { ...load.data, elementId: subs[segIdx], a: localA },
+      });
+    } else if (load.type === 'thermal') {
+      const subs = origToSubs.get(load.data.elementId);
+      if (!subs) continue;
+      for (const subId of subs) {
+        newLoads.push({
+          type: 'thermal',
+          data: { ...load.data, elementId: subId },
+        });
+      }
+    }
+  }
+
+  return {
+    refined: {
+      nodes: newNodes,
+      materials: input.materials,
+      sections: input.sections,
+      elements: newElements,
+      supports: input.supports,
+      loads: newLoads,
+    },
+    toOrig,
+    segInfo,
+    originalNodeIds,
+  };
+}
+
+/**
+ * Map a hinge on a refined sub-element back to the original element.
+ * Returns the position (0–1) along the original element.
+ */
+function mapHingeBack(
+  hingeElemId: number,
+  hingeEnd: 'start' | 'end',
+  ref: RefinementMap,
+): { origElemId: number; position: number; end: 'start' | 'end' } {
+  const origId = ref.toOrig.get(hingeElemId) ?? hingeElemId;
+  const info = ref.segInfo.get(hingeElemId);
+  if (!info || info.nSeg === 1) {
+    return { origElemId: origId, position: hingeEnd === 'start' ? 0 : 1, end: hingeEnd };
+  }
+  const seg = info.seg;
+  const frac = hingeEnd === 'start' ? seg / info.nSeg : (seg + 1) / info.nSeg;
+  // Map to 'start'/'end' only if at the actual endpoints
+  const end: 'start' | 'end' = frac <= 0.001 ? 'start' : frac >= 0.999 ? 'end' : 'end';
+  return { origElemId: origId, position: frac, end };
+}
+
 /**
  * Incremental plastic analysis (proportional loading, Event-to-Event strategy).
  *
@@ -81,6 +239,10 @@ function computeMp(
  *
  * Accumulated moment at section end = sum of (Δλᵢ × Mᵢ_unit) for all steps,
  * where Mᵢ_unit is the unit-load moment from that step's structural config.
+ *
+ * The mesh is automatically refined (each frame element → 4 sub-elements)
+ * so that interior plastic hinges (e.g. midspan of a beam with distributed
+ * load) are detected correctly.
  *
  * References:
  *   - Neal, B.G. "The Plastic Methods of Structural Analysis" (1977)
@@ -102,14 +264,17 @@ export function solvePlastic(
     return t('plastic.requiresFrames');
   }
 
-  // Compute Mp for each section
+  // Refine mesh to capture interior plastic hinges
+  const ref = refineInput(input);
+  const refinedInput = ref.refined;
+
+  // Compute Mp for each section (uses original element→material mapping)
   const mpBySection = new Map<number, number>();
   for (const [secId, sec] of sections) {
     if (mpOverrides?.has(secId)) {
       mpBySection.set(secId, mpOverrides.get(secId)!);
       continue;
     }
-    // Find a material with fy assigned to elements using this section
     let fy = 250; // default MPa
     for (const elem of input.elements.values()) {
       if (elem.sectionId === secId) {
@@ -120,12 +285,12 @@ export function solvePlastic(
     mpBySection.set(secId, computeMp(sec, fy));
   }
 
-  // Compute degree of static indeterminacy using corrected formula
+  // Compute degree of static indeterminacy on ORIGINAL structure
   const { degree: redundancy } = computeStaticDegree(input);
 
-  // Working copy of elements (to add hinges incrementally)
+  // Working copy of refined elements (to add hinges incrementally)
   const workingElements = new Map<number, SolverElement>();
-  for (const [id, elem] of input.elements) {
+  for (const [id, elem] of refinedInput.elements) {
     workingElements.set(id, { ...elem });
   }
 
@@ -134,9 +299,9 @@ export function solvePlastic(
   let cumulativeLambda = 0;
   let isMechanism = false;
 
-  // Track accumulated moments at each element end: key = "elemId:start" or "elemId:end"
+  // Track accumulated moments at each element end
   const accumulatedMoments = new Map<string, number>();
-  for (const [id] of input.elements) {
+  for (const [id] of refinedInput.elements) {
     accumulatedMoments.set(`${id}:start`, 0);
     accumulatedMoments.set(`${id}:end`, 0);
   }
@@ -144,7 +309,7 @@ export function solvePlastic(
   for (let step = 0; step < maxHinges; step++) {
     // Build modified input with current hinges
     const modInput: SolverInput = {
-      ...input,
+      ...refinedInput,
       elements: new Map(
         Array.from(workingElements.entries()).map(([id, e]) => [id, { ...e }]),
       ),
@@ -155,14 +320,11 @@ export function solvePlastic(
     try {
       results = solve(modInput);
     } catch {
-      // Solver failed → mechanism formed
       isMechanism = true;
       break;
     }
 
     // Find the element end(s) with the smallest Δλ to reach Mp
-    // Δλ = (Mp - |M_accumulated|) / |M_unit|
-    // Collect ALL candidates, then find the minimum and form all hinges at that Δλ
     const candidates: Array<{
       deltaLambda: number;
       elementId: number;
@@ -220,7 +382,7 @@ export function solvePlastic(
     const minDeltaLambda = candidates[0].deltaLambda;
     if (minDeltaLambda <= 1e-15) break;
 
-    const tol = minDeltaLambda * 0.01; // 1% tolerance for simultaneous hinges
+    const tol = minDeltaLambda * 0.01;
     const simultaneousHinges = candidates.filter(c => c.deltaLambda <= minDeltaLambda + tol);
 
     cumulativeLambda += minDeltaLambda;
@@ -235,18 +397,22 @@ export function solvePlastic(
 
     const scaledResults = scaleResults(results, minDeltaLambda);
 
-    // Form all simultaneous hinges
+    // Form all simultaneous hinges — map back to original elements
+    const stepHinges: PlasticHinge[] = [];
     for (const sh of simultaneousHinges) {
+      const mapped = mapHingeBack(sh.elementId, sh.end, ref);
       const hinge: PlasticHinge = {
-        elementId: sh.elementId,
-        end: sh.end,
+        elementId: mapped.origElemId,
+        end: mapped.end,
         moment: sh.moment,
         loadFactor: cumulativeLambda,
         step,
+        position: mapped.position,
       };
       allHinges.push(hinge);
+      stepHinges.push(hinge);
 
-      // Insert hinge in working elements
+      // Insert hinge in working elements (on the refined sub-element)
       const elem = workingElements.get(sh.elementId)!;
       if (sh.end === 'start') {
         elem.hingeStart = true;
@@ -255,16 +421,20 @@ export function solvePlastic(
       }
     }
 
+    // Map step results back: filter displacements to original nodes,
+    // and aggregate sub-element forces to original elements
+    const mappedResults = mapResultsBack(scaledResults, ref, input);
+
     steps.push({
       loadFactor: cumulativeLambda,
       hingesFormed: [...allHinges],
-      results: scaledResults,
+      results: mappedResults,
     });
 
     // Check if next solve will fail (mechanism check)
     try {
       const testInput: SolverInput = {
-        ...input,
+        ...refinedInput,
         elements: new Map(
           Array.from(workingElements.entries()).map(([id, e]) => [id, { ...e }]),
         ),
@@ -287,6 +457,63 @@ export function solvePlastic(
     isMechanism,
     redundancy,
   };
+}
+
+/**
+ * Map refined mesh results back to original element IDs.
+ * Sub-element forces are aggregated: first sub-element's start → original start,
+ * last sub-element's end → original end.
+ */
+function mapResultsBack(
+  results: AnalysisResults,
+  ref: RefinementMap,
+  origInput: SolverInput,
+): AnalysisResults {
+  // Displacements: keep only original nodes
+  const displacements = results.displacements.filter(d => ref.originalNodeIds.has(d.nodeId));
+
+  // Reactions: already on original nodes
+  const reactions = results.reactions;
+
+  // Element forces: group by original element and merge
+  const forcesByOrig = new Map<number, ElementForces[]>();
+  for (const ef of results.elementForces) {
+    const origId = ref.toOrig.get(ef.elementId) ?? ef.elementId;
+    if (!forcesByOrig.has(origId)) forcesByOrig.set(origId, []);
+    forcesByOrig.get(origId)!.push(ef);
+  }
+
+  const elementForces: ElementForces[] = [];
+  for (const [origId, subForces] of forcesByOrig) {
+    // Sort sub-element forces by segment index
+    subForces.sort((a, b) => {
+      const sa = ref.segInfo.get(a.elementId)?.seg ?? 0;
+      const sb = ref.segInfo.get(b.elementId)?.seg ?? 0;
+      return sa - sb;
+    });
+    const first = subForces[0];
+    const last = subForces[subForces.length - 1];
+    const totalLength = subForces.reduce((s, f) => s + f.length, 0);
+
+    elementForces.push({
+      elementId: origId,
+      nStart: first.nStart,
+      nEnd: last.nEnd,
+      vStart: first.vStart,
+      vEnd: last.vEnd,
+      mStart: first.mStart,
+      mEnd: last.mEnd,
+      length: totalLength,
+      qI: first.qI,
+      qJ: last.qJ,
+      pointLoads: first.pointLoads,
+      distributedLoads: first.distributedLoads,
+      hingeStart: first.hingeStart,
+      hingeEnd: last.hingeEnd,
+    });
+  }
+
+  return { displacements, reactions, elementForces };
 }
 
 function scaleResults(r: AnalysisResults, factor: number): AnalysisResults {

@@ -136,9 +136,15 @@ export function drawPlasticHinges(
     const nj = nodes.get(elem.nodeJ);
     if (!ni || !nj) continue;
 
-    const node = hinge.end === 'start' ? ni : nj;
-    const d = dispMap.get(hinge.end === 'start' ? elem.nodeI : elem.nodeJ) ?? { ux: 0, uy: 0 };
-    const s = worldToScreen(node.x + d.ux * autoScale, node.y + d.uy * autoScale);
+    // Use position field for interior hinges, fall back to start/end
+    const pos = hinge.position ?? (hinge.end === 'start' ? 0 : 1);
+    const wx = ni.x + (nj.x - ni.x) * pos;
+    const wy = ni.y + (nj.y - ni.y) * pos;
+    const di = dispMap.get(elem.nodeI) ?? { ux: 0, uy: 0 };
+    const dj = dispMap.get(elem.nodeJ) ?? { ux: 0, uy: 0 };
+    const dux = di.ux + (dj.ux - di.ux) * pos;
+    const duy = di.uy + (dj.uy - di.uy) * pos;
+    const s = worldToScreen(wx + dux * autoScale, wy + duy * autoScale);
 
     // Draw hinge circle
     const r = 8;
