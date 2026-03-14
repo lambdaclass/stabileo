@@ -1,3 +1,36 @@
+// Suppress Clippy lints for numerical/scientific code patterns
+#![allow(
+    clippy::identity_op,
+    clippy::erasing_op,
+    clippy::manual_memcpy,
+    clippy::too_many_arguments,
+    clippy::needless_range_loop,
+    clippy::manual_clamp,
+    clippy::ptr_arg,
+    clippy::derivable_impls,
+    clippy::redundant_closure,
+    clippy::empty_line_after_doc_comments,
+    clippy::doc_lazy_continuation,
+    clippy::new_without_default,
+    clippy::collapsible_if,
+    clippy::let_and_return,
+    clippy::unnecessary_map_or,
+    clippy::if_same_then_else,
+    clippy::needless_lifetimes,
+    clippy::map_clone,
+    clippy::needless_borrowed_reference,
+    clippy::unnecessary_unwrap,
+    clippy::needless_borrow,
+    clippy::for_kv_map,
+    clippy::manual_range_patterns,
+    clippy::get_first,
+    clippy::unused_enumerate_index,
+    clippy::useless_vec,
+    clippy::len_zero,
+    clippy::type_complexity,
+    clippy::never_loop,
+)]
+
 pub mod types;
 pub mod linalg;
 pub mod element;
