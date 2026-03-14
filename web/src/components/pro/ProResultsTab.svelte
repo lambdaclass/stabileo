@@ -4,7 +4,6 @@
   import { runGlobalSolve } from '../../lib/engine/live-calc';
 
   let solveError = $state<string | null>(null);
-  let includeSelfWeight = $state(false);
   let solving = $state(false);
 
   const results = $derived(resultsStore.results3D);
@@ -20,7 +19,6 @@
   function handleSolve() {
     solveError = null;
     solving = true;
-    uiStore.includeSelfWeight = includeSelfWeight;
     try {
       // First solve single (all loads)
       runGlobalSolve();
@@ -33,7 +31,7 @@
       // Now solve combinations if load cases exist
       if (modelStore.loadCases.length > 0 && modelStore.combinations.length > 0) {
         try {
-          const comboResult = modelStore.solveCombinations3D(includeSelfWeight, false, true);
+          const comboResult = modelStore.solveCombinations3D(uiStore.includeSelfWeight, false, true);
           if (typeof comboResult === 'string') {
             console.warn('Combinations warning:', comboResult);
           } else if (comboResult) {
@@ -98,10 +96,6 @@
       <button class="pro-solve-btn" onclick={handleSolve} disabled={!hasModel || solving}>
         {solving ? t('pro.solving') : t('pro.solve')}
       </button>
-      <label class="pro-sw-label">
-        <input type="checkbox" bind:checked={includeSelfWeight} />
-        {t('pro.selfWeight')}
-      </label>
     </div>
     {#if solveError}
       <div class="pro-solve-error">{solveError}</div>

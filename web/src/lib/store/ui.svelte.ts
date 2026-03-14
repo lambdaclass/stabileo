@@ -132,8 +132,10 @@ function createUIStore() {
   // Clipboard
   let clipboard = $state<ClipboardData | null>(null);
 
-  // Self-weight
-  let includeSelfWeight = $state<boolean>(false);
+  // Self-weight — per-mode so switching modes doesn't affect each other
+  let selfWeightBasico = $state(false);
+  let selfWeightEducativo = $state(false);
+  let selfWeightPro = $state(true);
 
   // Element creation type
   let elementCreateType = $state<'frame' | 'truss'>('frame');
@@ -430,8 +432,16 @@ function createUIStore() {
     get clipboard() { return clipboard; },
     set clipboard(v: ClipboardData | null) { clipboard = v; },
 
-    get includeSelfWeight() { return includeSelfWeight; },
-    set includeSelfWeight(v: boolean) { includeSelfWeight = v; },
+    get includeSelfWeight() {
+      if (analysisMode === 'pro') return selfWeightPro;
+      if (analysisMode === 'edu') return selfWeightEducativo;
+      return selfWeightBasico;
+    },
+    set includeSelfWeight(v: boolean) {
+      if (analysisMode === 'pro') selfWeightPro = v;
+      else if (analysisMode === 'edu') selfWeightEducativo = v;
+      else selfWeightBasico = v;
+    },
 
     get elementCreateType() { return elementCreateType; },
     set elementCreateType(v: 'frame' | 'truss') { elementCreateType = v; },

@@ -77,14 +77,11 @@
     // Set the actual analysis mode + per-mode defaults
     if (target === 'basico') {
       uiStore.analysisMode = '2d';
-      uiStore.includeSelfWeight = false;
       resultsStore.showReactions = true;
     } else if (target === 'educativo') {
       uiStore.analysisMode = 'edu';
-      uiStore.includeSelfWeight = false;
     } else {
       uiStore.analysisMode = 'pro';
-      uiStore.includeSelfWeight = true;
     }
     currentAppMode = target;
   }
@@ -296,8 +293,8 @@
         <button class:active={uiStore.appMode === 'basico'} onclick={() => switchAppMode('basico')}>
           {t('app.modeBasic')}
         </button>
-        <button class:active={uiStore.appMode === 'educativo'} class="edu-mode-btn" onclick={() => switchAppMode('educativo')}>{t('app.modeEdu')}<span class="demo-badge">DEMO</span></button>
-        <button class:active={uiStore.appMode === 'pro'} class="pro-mode-btn" onclick={() => switchAppMode('pro')}>{t('app.modePro')}<span class="demo-badge">DEMO</span></button>
+        <button class:active={uiStore.appMode === 'educativo'} class="edu-mode-btn" onclick={() => switchAppMode('educativo')}>{t('app.modeEdu')}<span class="demo-badge">Beta</span></button>
+        <button class:active={uiStore.appMode === 'pro'} class="pro-mode-btn" onclick={() => switchAppMode('pro')}>{t('app.modePro')}<span class="demo-badge">Beta</span></button>
       </div>
     </div>
     <span class="separator">|</span>

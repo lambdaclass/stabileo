@@ -53,6 +53,20 @@ export interface ResultsSyncContext {
   colorMapApplied: boolean;
 }
 
+/** Compute the diagonal of the structure's bounding box (for mode shape scaling). */
+function computeStructureBBox(): number {
+  let minX = Infinity, minY = Infinity, minZ = Infinity;
+  let maxX = -Infinity, maxY = -Infinity, maxZ = -Infinity;
+  for (const n of modelStore.nodes.values()) {
+    if (n.x < minX) minX = n.x; if (n.x > maxX) maxX = n.x;
+    if (n.y < minY) minY = n.y; if (n.y > maxY) maxY = n.y;
+    const z = n.z ?? 0;
+    if (z < minZ) minZ = z; if (z > maxZ) maxZ = z;
+  }
+  const dx = maxX - minX, dy = maxY - minY, dz = maxZ - minZ;
+  return Math.sqrt(dx * dx + dy * dy + dz * dz) || 1;
+}
+
 // ─── Deformed shape ──────────────────────────────────────────
 
 export function syncDeformed(ctx: ResultsSyncContext, scaleOverride?: number): void {
@@ -102,8 +116,10 @@ export function syncDeformed(ctx: ResultsSyncContext, scaleOverride?: number): v
     if (!modal || !modal.modes.length) return;
     const mode = modal.modes[resultsStore.activeModeIndex];
     if (!mode) return;
-    // Animated sinusoidal oscillation for mode shapes
-    scale = scale * Math.sin(performance.now() / 500);
+    // Scale mode shapes relative to structure size (eigenvectors are normalized to max=1)
+    const structureSize = computeStructureBBox();
+    const modeScale = structureSize * 0.15 * (scale / 100);
+    scale = modeScale * Math.sin(performance.now() / 500);
     displacements = mode.displacements;
     modeColor = 0x4ecdc4; // cyan
   } else if (dt === 'bucklingMode') {
@@ -111,8 +127,10 @@ export function syncDeformed(ctx: ResultsSyncContext, scaleOverride?: number): v
     if (!buckling || !buckling.modes.length) return;
     const mode = buckling.modes[resultsStore.activeBucklingMode];
     if (!mode) return;
-    // Animated sinusoidal oscillation for buckling modes
-    scale = scale * Math.sin(performance.now() / 500);
+    // Scale buckling modes relative to structure size (eigenvectors are normalized to max=1)
+    const structureSize = computeStructureBBox();
+    const modeScale = structureSize * 0.15 * (scale / 100);
+    scale = modeScale * Math.sin(performance.now() / 500);
     displacements = mode.displacements;
     modeColor = 0xe96941; // orange-red
   } else {

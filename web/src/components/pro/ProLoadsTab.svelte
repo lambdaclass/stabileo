@@ -226,6 +226,14 @@
 
   <ProAutoLoadsDialog open={showAutoLoadsDialog} onclose={() => showAutoLoadsDialog = false} />
 
+  <!-- Self-weight toggle -->
+  <div class="pro-sw-bar">
+    <label class="pro-sw-toggle">
+      <input type="checkbox" bind:checked={uiStore.includeSelfWeight} />
+      {t('pro.selfWeightLabel')}
+    </label>
+  </div>
+
   <!-- Load visibility bar -->
   <div class="pro-vis-bar">
     <label class="pro-vis-toggle">
@@ -498,6 +506,15 @@
 
 <style>
   .pro-loads { display: flex; flex-direction: column; }
+  .pro-sw-bar {
+    display: flex; align-items: center; padding: 6px 10px;
+    border-bottom: 1px solid #1a3050; background: #0d2238;
+  }
+  .pro-sw-toggle {
+    display: flex; align-items: center; gap: 6px;
+    font-size: 0.75rem; color: #ccc; cursor: pointer; font-weight: 500;
+  }
+  .pro-sw-toggle input { accent-color: #4ecdc4; cursor: pointer; }
   .pro-vis-bar {
     display: flex; align-items: center; gap: 8px; padding: 6px 10px;
     border-bottom: 1px solid #1a3050; background: #0a1a30;

@@ -168,7 +168,7 @@
           <option value="ar">العربية</option>
           <option value="id">Bahasa Indonesia</option>
         </select>
-        <button class="btn-primary sm" onclick={() => enterApp()}>{t('landing.tryDemo')}</button>
+        <button class="btn-primary sm" onclick={() => enterApp()}>{t('landing.tryApp')}</button>
       </div>
     </div>
   </nav>
@@ -182,7 +182,7 @@
       <h1>{t('landing.heroTitle')}</h1>
       <p class="hero-sub">{t('landing.heroSub')}</p>
       <div class="hero-ctas">
-        <button class="btn-primary" onclick={() => enterApp()}>{t('landing.tryDemo')}</button>
+        <button class="btn-primary" onclick={() => enterApp()}>{t('landing.tryApp')}</button>
         <button class="btn-secondary" onclick={() => scrollTo('features')}>{t('landing.features')} ↓</button>
       </div>
       <p class="hero-status">{t('landing.statusNote')}</p>
@@ -422,7 +422,7 @@
           <div class="price-amount">$0</div>
           <p class="price-period">{t('landing.priceForever')}</p>
           <ul><li>{t('landing.priceFree1')}</li><li>{t('landing.priceFree2')}</li><li>{t('landing.priceFree3')}</li><li>{t('landing.priceFree4')}</li><li>{t('landing.priceFree5')}</li><li>{t('landing.priceFree6')}</li></ul>
-          <button class="btn-primary card-cta" onclick={() => enterApp()}>{t('landing.tryDemo')}</button>
+          <button class="btn-primary card-cta" onclick={() => enterApp()}>{t('landing.tryApp')}</button>
         </div>
         <div class="price-card featured">
           <div class="price-ribbon">{t('landing.comingSoon')}</div>
@@ -477,7 +477,7 @@
     <div class="section-inner">
       <h2>{t('landing.ctaTitle')}</h2>
       <p>{t('landing.ctaSub')}</p>
-      <button class="btn-primary large" onclick={() => enterApp()}>{t('landing.tryDemo')}</button>
+      <button class="btn-primary large" onclick={() => enterApp()}>{t('landing.tryApp')}</button>
     </div>
   </section>
 
@@ -491,7 +491,7 @@
 
   <!-- Mobile sticky CTA -->
   <div class="mobile-sticky">
-    <button class="btn-primary" onclick={() => enterApp()}>{t('landing.tryDemo')}</button>
+    <button class="btn-primary" onclick={() => enterApp()}>{t('landing.tryApp')}</button>
   </div>
 </div>
 

@@ -293,6 +293,7 @@ export function serializeInput3D(input: SolverInput3D): string {
     plates: input.plates ? mapToObj(input.plates) : {},
     quads: input.quads ? mapToObj(input.quads) : {},
     constraints: input.constraints ?? [],
+    leftHand: input.leftHand ?? false,
   });
 }
 
@@ -310,8 +311,21 @@ export function solve(input: SolverInput): AnalysisResults {
 export function solve3D(input: SolverInput3D): AnalysisResults3D {
   if (!wasmReady || !wasmSolve3d) throw new Error('WASM solver not initialized. Call initSolver() first.');
   const json = serializeInput3D(input);
-  const resultJson = wasmSolve3d(json);
-  return JSON.parse(resultJson);
+  // Intercept console.error to capture Rust panic messages from console_error_panic_hook
+  const captured: string[] = [];
+  const origError = console.error;
+  console.error = (...args: any[]) => { captured.push(args.map(String).join(' ')); origError.apply(console, args); };
+  try {
+    const resultJson = wasmSolve3d(json);
+    return JSON.parse(resultJson);
+  } catch (e: any) {
+    // Include captured panic message in the error for better diagnostics
+    const panicMsg = captured.length > 0 ? captured.join('\n') : '';
+    const base = e?.message ?? String(e);
+    throw new Error(panicMsg ? `${base}\n[WASM panic]: ${panicMsg}` : base);
+  } finally {
+    console.error = origError;
+  }
 }
 
 /** Solve 2D P-Delta analysis via WASM. */
@@ -1061,7 +1075,18 @@ export function solveMultiCase3D(config: any): any {
   if (config.solver && config.solver.nodes instanceof Map) {
     config = { ...config, solver: JSON.parse(serializeInput3D(config.solver)) };
   }
-  return JSON.parse(wasmSolveMultiCase3d(JSON.stringify(config)));
+  const captured: string[] = [];
+  const origError = console.error;
+  console.error = (...args: any[]) => { captured.push(args.map(String).join(' ')); origError.apply(console, args); };
+  try {
+    return JSON.parse(wasmSolveMultiCase3d(JSON.stringify(config)));
+  } catch (e: any) {
+    const panicMsg = captured.length > 0 ? captured.join('\n') : '';
+    const base = e?.message ?? String(e);
+    throw new Error(panicMsg ? `${base}\n[WASM panic]: ${panicMsg}` : base);
+  } finally {
+    console.error = origError;
+  }
 }
 
 // ─── Nonlinear Path-Following Solvers ─────────────────────────────

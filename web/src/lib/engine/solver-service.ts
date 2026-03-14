@@ -1064,16 +1064,18 @@ export function validateAndSolve3D(model: ModelData, includeSelfWeight = false, 
     }
   }
 
-  // Check for zero-length elements
+  // Check for zero-length elements and missing references
   for (const elem of model.elements.values()) {
     const ni = model.nodes.get(elem.nodeI);
     const nj = model.nodes.get(elem.nodeJ);
-    if (ni && nj) {
-      const dx = nj.x - ni.x, dy = nj.y - ni.y, dz = (nj.z ?? 0) - (ni.z ?? 0);
-      const L = Math.sqrt(dx * dx + dy * dy + dz * dz);
-      if (L < 1e-6) {
-        return t('svc.zeroLengthElement').replace('{n}', String(elem.id)).replace('{ni}', String(elem.nodeI)).replace('{nj}', String(elem.nodeJ));
-      }
+    if (!ni) return `Element ${elem.id}: node ${elem.nodeI} not found`;
+    if (!nj) return `Element ${elem.id}: node ${elem.nodeJ} not found`;
+    if (!model.materials.has(elem.materialId)) return `Element ${elem.id}: material ${elem.materialId} not found`;
+    if (!model.sections.has(elem.sectionId)) return `Element ${elem.id}: section ${elem.sectionId} not found`;
+    const dx = nj.x - ni.x, dy = nj.y - ni.y, dz = (nj.z ?? 0) - (ni.z ?? 0);
+    const L = Math.sqrt(dx * dx + dy * dy + dz * dz);
+    if (L < 1e-6) {
+      return t('svc.zeroLengthElement').replace('{n}', String(elem.id)).replace('{ni}', String(elem.nodeI)).replace('{nj}', String(elem.nodeJ));
     }
   }
 

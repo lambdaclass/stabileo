@@ -899,10 +899,6 @@
   <!-- Global options -->
   <div class="adv-header">
     <label class="adv-check">
-      <input type="checkbox" bind:checked={uiStore.includeSelfWeight} />
-      {t('pro.selfWeightLabel')}
-    </label>
-    <label class="adv-check">
       <input type="checkbox" bind:checked={useDiaphragm} />
       {t('pro.rigidDiaphragm')}
     </label>

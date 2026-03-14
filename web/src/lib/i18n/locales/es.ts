@@ -8,6 +8,7 @@ const es: Record<string, string> = {
   'landing.heroTitle': 'Análisis Estructural, al Instante.',
   'landing.heroSub': 'Análisis estructural 2D y 3D en tu navegador. Gratis para empezar, con planes para universidades y estudios de ingeniería.',
   'landing.tryDemo': 'Probar la demo',
+  'landing.tryApp': 'Probar la app',
   'landing.tryTour': 'Probar el tour guiado',
   'landing.statusNote': 'Modo Básico (2D + 3D) completo y funcional. Modos Educativo y PRO en desarrollo.',
   'landing.modeBasicBadge': 'Modo Básico',

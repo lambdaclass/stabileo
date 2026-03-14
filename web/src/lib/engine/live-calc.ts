@@ -35,13 +35,23 @@ const VALID_3D_DIAGRAMS = ['deformed', 'momentY', 'momentZ', 'shearY', 'shearZ',
  *
  * @param analysisMode  Current analysis mode ('2d' | '3d' | 'edu')
  * @param axisConvention3D  Current 3D axis convention string
+ * @param prevDiagram  Diagram type the user was viewing before clear() — restored after solve
  */
-export function runLiveCalc(analysisMode: string, axisConvention3D: string): void {
+export function runLiveCalc(analysisMode: string, axisConvention3D: string, prevDiagram?: string): void {
   try {
     if (analysisMode === '3d' || analysisMode === 'pro') {
       liveCalc3D(axisConvention3D);
     } else {
       liveCalc2D();
+    }
+    // Restore the diagram type the user was viewing before clear() reset it to 'none'.
+    // Only restore if it's a valid diagram for the current mode.
+    if (prevDiagram && prevDiagram !== 'none') {
+      const is3D = analysisMode === '3d' || analysisMode === 'pro';
+      const validList: readonly string[] = is3D ? VALID_3D_DIAGRAMS : VALID_2D_DIAGRAMS;
+      if (validList.includes(prevDiagram)) {
+        resultsStore.diagramType = prevDiagram as any;
+      }
     }
   } catch (err: any) {
     uiStore.liveCalcError = err.message ?? t('error.unknown');
