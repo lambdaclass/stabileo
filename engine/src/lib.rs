@@ -29,6 +29,7 @@
     clippy::len_zero,
     clippy::type_complexity,
     clippy::never_loop,
+    clippy::manual_swap,
 )]
 
 pub mod types;
