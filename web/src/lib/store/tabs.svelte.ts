@@ -8,12 +8,13 @@ import type { ModelSnapshot } from './history.svelte';
 import { dsmStepsStore } from './dsmSteps.svelte';
 import type { DiagramType } from './results.svelte';
 import type { Tool, SelectMode, ElementColorMode } from './ui.svelte';
+import { t, isDefaultName } from '../i18n';
 
 export interface TabState {
   id: string;
   name: string;
   modelSnapshot: ModelSnapshot;
-  analysisMode: '2d' | '3d';
+  analysisMode: '2d' | '3d' | 'pro' | 'edu';
   // Results visualization state (results themselves are NOT serialized — too large)
   diagramType: DiagramType;
   deformedScale: number;
@@ -218,11 +219,11 @@ function createTabManager() {
       uiStore.cameraTarget3D = { ...state.cameraTarget3D };
       // Notify 3D viewport to update its Three.js camera
       queueMicrotask(() => {
-        window.dispatchEvent(new Event('dedaliano-restore-camera-3d'));
+        window.dispatchEvent(new Event('stabileo-restore-camera-3d'));
       });
     } catch (err) {
       console.error('Tab restore failed:', err);
-      uiStore.toast('Error al restaurar pestaña', 'error');
+      uiStore.toast(t('tabs.restoreError'), 'error');
       return; // Don't set up deferred timers
     }
 
@@ -231,7 +232,7 @@ function createTabManager() {
       // Defer solve to let the model restore propagate
       setTimeout(() => {
         if (signal.aborted) return;
-        window.dispatchEvent(new Event('dedaliano-solve'));
+        window.dispatchEvent(new Event('stabileo-solve'));
         // After solve, restore diagram type
         setTimeout(() => {
           if (signal.aborted) return;
@@ -269,7 +270,7 @@ function createTabManager() {
         const id = generateTabId();
         const state: TabState = {
           id,
-          name: modelStore.model.name || 'Nueva Estructura',
+          name: modelStore.model.name || t('tabBar.newStructure'),
           modelSnapshot: modelStore.snapshot(),
           analysisMode: uiStore.analysisMode,
           diagramType: 'none',
@@ -338,7 +339,7 @@ function createTabManager() {
       const id = generateTabId();
       const newState: TabState = {
         id,
-        name: 'Nueva Estructura',
+        name: t('tabBar.newStructure'),
         modelSnapshot: { nodes: [], elements: [], materials: [], sections: [], supports: [], loads: [], nextId: { node: 1, material: 1, section: 1, element: 1, support: 1, load: 1, loadCase: 1, combination: 1 } },
         analysisMode: uiStore.analysisMode,
         diagramType: 'none',
@@ -430,7 +431,7 @@ function createTabManager() {
     /** Close a tab */
     closeTab(id: string): void {
       if (tabs.length <= 1) return; // can't close last tab
-      if (!confirm('¿Cerrar esta pestaña? Se perderán los cambios no guardados.')) return;
+      if (!confirm(t('tabs.closeConfirm'))) return;
 
       const idx = tabs.findIndex(t => t.id === id);
       if (idx === -1) return;
@@ -458,6 +459,24 @@ function createTabManager() {
       tabs = updated;
       if (id === activeTabId) {
         modelStore.model.name = name;
+      }
+    },
+
+    /** Update default tab names when the locale changes.
+     *  Only renames tabs whose name matches a known default (any locale). */
+    updateDefaultNames(): void {
+      const newDefault = t('tabBar.newStructure');
+      let changed = false;
+      const updated = tabs.map(tab => {
+        if (isDefaultName(tab.name)) {
+          changed = true;
+          return { ...tab, name: newDefault };
+        }
+        return tab;
+      });
+      if (changed) tabs = updated;
+      if (isDefaultName(modelStore.model.name)) {
+        modelStore.model.name = newDefault;
       }
     },
 

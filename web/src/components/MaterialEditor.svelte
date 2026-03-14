@@ -1,5 +1,6 @@
 <script lang="ts">
   import { modelStore, uiStore } from '../lib/store';
+  import { t } from '../lib/i18n';
 
   let inputName = $state<HTMLInputElement | null>(null);
 
@@ -55,9 +56,9 @@
   <!-- svelte-ignore a11y_no_static_element_interactions -->
   <div class="backdrop" onclick={close}></div>
   <div class="editor">
-    <div class="title">Material {matId}</div>
+    <div class="title">{t('matEdit.title').replace('{id}', String(matId))}</div>
     <div class="field">
-      <span>Nombre:</span>
+      <span>{t('matEdit.name')}</span>
       <input
         bind:this={inputName}
         type="text"
@@ -99,12 +100,12 @@
         step="10"
         bind:value={localFy}
         onkeydown={handleKeydown}
-        placeholder="opcional"
+        placeholder={t('matEdit.optional')}
       />
     </div>
     <div class="buttons">
       <button class="btn-ok" onclick={confirm}>OK</button>
-      <button class="btn-cancel" onclick={close}>Cancelar</button>
+      <button class="btn-cancel" onclick={close}>{t('matEdit.cancel')}</button>
     </div>
   </div>
 {/if}

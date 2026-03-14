@@ -12,7 +12,10 @@ export interface ModelSnapshot {
   loads: Array<{ type: string; data: Record<string, unknown> }>;
   loadCases?: Array<{ id: number; type?: string; name: string }>;
   combinations?: Array<{ id: number; name: string; factors: Array<{ caseId: number; factor: number }> }>;
-  nextId: { node: number; material: number; section: number; element: number; support: number; load: number; loadCase?: number; combination?: number };
+  plates?: Array<[number, { id: number; nodes: [number, number, number]; materialId: number; thickness: number }]>;
+  quads?: Array<[number, { id: number; nodes: [number, number, number, number]; materialId: number; thickness: number }]>;
+  constraints?: Array<{ type: string; [key: string]: unknown }>;
+  nextId: { node: number; material: number; section: number; element: number; support: number; load: number; loadCase?: number; combination?: number; plate?: number; quad?: number };
 }
 
 const MAX_HISTORY = 50;

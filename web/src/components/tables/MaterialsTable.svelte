@@ -1,5 +1,6 @@
 <script lang="ts">
   import { modelStore, resultsStore } from '../../lib/store';
+  import { t } from '../../lib/i18n';
   import MaterialPresetSelector from '../MaterialPresetSelector.svelte';
   import type { MaterialPreset } from '../../lib/data/material-presets';
 
@@ -9,7 +10,7 @@
   let showMaterialPresetSelector = $state(false);
 
   function addMaterial() {
-    modelStore.addMaterial({ name: 'Nuevo Material', e: 200000, nu: 0.3, rho: 78.5 });
+    modelStore.addMaterial({ name: t('table.newMaterial'), e: 200000, nu: 0.3, rho: 78.5 });
   }
 
   function updateMaterialField(id: number, field: string, val: string) {
@@ -25,7 +26,7 @@
 
   function deleteMaterial(id: number) {
     const ok = modelStore.removeMaterial(id);
-    if (!ok) alert('No se puede eliminar: hay elementos usando este material.');
+    if (!ok) alert(t('table.cannotDeleteMaterial'));
   }
 
   function handleMaterialPresetSelect(preset: MaterialPreset) {
@@ -45,7 +46,7 @@
 
 <table>
   <thead>
-    <tr><th>ID</th><th>Nombre</th><th>E (MPa)</th><th>&nu;</th><th>&rho; (kN/m&sup3;)</th><th>fy (MPa)</th><th></th></tr>
+    <tr><th>ID</th><th>{t('table.name')}</th><th>E (MPa)</th><th>&nu;</th><th>&rho; (kN/m&sup3;)</th><th>fy (MPa)</th><th></th></tr>
   </thead>
   <tbody>
     {#each materialsArr as mat}
@@ -53,7 +54,7 @@
         <td class="id-cell">{mat.id}</td>
         <td class="name-with-action">
           <input type="text" value={mat.name} onchange={(e) => updateMaterialField(mat.id, 'name', e.currentTarget.value)} />
-          <button class="row-action-btn" title="Elegir material predefinido" onclick={() => { materialPresetTargetId = mat.id; showMaterialPresetSelector = true; }}>&#9783;</button>
+          <button class="row-action-btn" title={t('table.chooseMaterial')} onclick={() => { materialPresetTargetId = mat.id; showMaterialPresetSelector = true; }}>&#9783;</button>
         </td>
         <td><input type="number" step="1000" value={mat.e} onchange={(e) => updateMaterialField(mat.id, 'e', e.currentTarget.value)} /></td>
         <td><input type="number" step="0.01" value={mat.nu} onchange={(e) => updateMaterialField(mat.id, 'nu', e.currentTarget.value)} /></td>
@@ -67,7 +68,7 @@
   </tbody>
 </table>
 <div class="table-footer">
-  <button class="add-btn" onclick={addMaterial}>+ Agregar Material (personalizado)</button>
+  <button class="add-btn" onclick={addMaterial}>{t('table.addMaterialCustom')}</button>
 </div>
 <MaterialPresetSelector
   open={showMaterialPresetSelector}

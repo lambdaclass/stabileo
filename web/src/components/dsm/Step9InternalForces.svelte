@@ -1,5 +1,6 @@
 <script lang="ts">
   import type { DSMStepData } from '../../lib/engine/solver-detailed';
+  import { t } from '../../lib/i18n';
   import { dsmStepsStore } from '../../lib/store';
   import MathEquation from './MathEquation.svelte';
   import VectorDisplay from './VectorDisplay.svelte';
@@ -37,13 +38,13 @@
 
 <div class="step">
   <div class="explanation">
-    <p>Se calculan las <strong>fuerzas internas</strong> de cada elemento transformando los desplazamientos globales a coordenadas locales.</p>
+    <p>{@html t('dsm.step9.explanation')}</p>
   </div>
 
   <MathEquation equation={eqInternal} displayMode />
 
   <div class="elem-selector">
-    <label for="elem-select-9">Elemento:</label>
+    <label for="elem-select-9">{t('dsm.step9.element')}</label>
     <select id="elem-select-9" onchange={(e) => dsmStepsStore.selectElement(Number((e.target as HTMLSelectElement).value))}>
       {#each data.elementForces as ef}
         {@const el = data.elements.find(x => x.elementId === ef.elementId)}
@@ -56,7 +57,7 @@
 
   {#if elemForce && elem}
     <VectorDisplay
-      title={"{u_e} global — Desplazamientos del elemento"}
+      title={t('dsm.step9.globalDisp')}
       vector={elemForce.uGlobal}
       labels={elem.dofLabels}
       precision={6}
@@ -64,7 +65,7 @@
     />
 
     <VectorDisplay
-      title={"{u_e} local — [T]·{u_e}"}
+      title={t('dsm.step9.localDisp')}
       vector={elemForce.uLocal}
       labels={localLabels.map((l, i) => `${i}`)}
       precision={6}
@@ -74,7 +75,7 @@
     <div class="separator"></div>
 
     <VectorDisplay
-      title={"[k]·{u_local} — Fuerzas antes de FEF"}
+      title={t('dsm.step9.forcesBeforeFEF')}
       vector={elemForce.fLocalRaw}
       labels={localLabels}
       precision={4}
@@ -83,7 +84,7 @@
 
     {#if elemForce.fixedEndForces.some(v => Math.abs(v) > 1e-10)}
       <VectorDisplay
-        title={"{f_FE} — Fuerzas de empotramiento"}
+        title={t('dsm.step9.fixedEndForces')}
         vector={elemForce.fixedEndForces}
         labels={localLabels}
         precision={4}
@@ -94,7 +95,7 @@
     <div class="separator"></div>
 
     <VectorDisplay
-      title={"{f} final — Fuerzas internas del elemento"}
+      title={t('dsm.step9.finalForces')}
       vector={elemForce.fLocalFinal}
       labels={localLabels}
       precision={4}
@@ -104,12 +105,12 @@
     <div class="force-summary">
       <table class="summary-table">
         <thead>
-          <tr><th>Fuerza</th><th>Nodo i</th><th>Nodo j</th></tr>
+          <tr><th>{t('dsm.step9.force')}</th><th>{t('dsm.step9.nodeI')}</th><th>{t('dsm.step9.nodeJ')}</th></tr>
         </thead>
         <tbody>
           {#if is3D && isFrame}
             <!-- 3D Frame: N, Vy, Vz, Mx, My, Mz -->
-            {#each [['Axial (N)', 0, 6], ['Corte Y (Vy)', 1, 7], ['Corte Z (Vz)', 2, 8], ['Torsión (Mx)', 3, 9], ['Momento Y (My)', 4, 10], ['Momento Z (Mz)', 5, 11]] as [name, i, j]}
+            {#each [[t('dsm.step9.axial'), 0, 6], [t('dsm.step9.shearY'), 1, 7], [t('dsm.step9.shearZ'), 2, 8], [t('dsm.step9.torsion'), 3, 9], [t('dsm.step9.momentY'), 4, 10], [t('dsm.step9.momentZ'), 5, 11]] as [name, i, j]}
               <tr>
                 <td>{name}</td>
                 <td class:pos={elemForce.fLocalFinal[i] > 1e-10} class:neg={elemForce.fLocalFinal[i] < -1e-10}>{elemForce.fLocalFinal[i]?.toFixed(4) ?? '0'}</td>
@@ -118,7 +119,7 @@
             {/each}
           {:else if is3D && !isFrame}
             <!-- 3D Truss: N, Vy, Vz -->
-            {#each [['Axial (N)', 0, 3], ['Corte Y (Vy)', 1, 4], ['Corte Z (Vz)', 2, 5]] as [name, i, j]}
+            {#each [[t('dsm.step9.axial'), 0, 3], [t('dsm.step9.shearY'), 1, 4], [t('dsm.step9.shearZ'), 2, 5]] as [name, i, j]}
               <tr>
                 <td>{name}</td>
                 <td class:pos={elemForce.fLocalFinal[i] > 1e-10} class:neg={elemForce.fLocalFinal[i] < -1e-10}>{elemForce.fLocalFinal[i]?.toFixed(4) ?? '0'}</td>
@@ -128,18 +129,18 @@
           {:else}
             <!-- 2D -->
             <tr>
-              <td>Axial (N)</td>
+              <td>{t('dsm.step9.axial')}</td>
               <td class:pos={elemForce.fLocalFinal[0] > 1e-10} class:neg={elemForce.fLocalFinal[0] < -1e-10}>{elemForce.fLocalFinal[0].toFixed(4)}</td>
               <td class:pos={elemForce.fLocalFinal[isFrame ? 3 : 2] > 1e-10} class:neg={elemForce.fLocalFinal[isFrame ? 3 : 2] < -1e-10}>{elemForce.fLocalFinal[isFrame ? 3 : 2].toFixed(4)}</td>
             </tr>
             <tr>
-              <td>Corte (V)</td>
+              <td>{t('dsm.step9.shearV')}</td>
               <td class:pos={elemForce.fLocalFinal[1] > 1e-10} class:neg={elemForce.fLocalFinal[1] < -1e-10}>{elemForce.fLocalFinal[1].toFixed(4)}</td>
               <td class:pos={elemForce.fLocalFinal[isFrame ? 4 : 3] > 1e-10} class:neg={elemForce.fLocalFinal[isFrame ? 4 : 3] < -1e-10}>{elemForce.fLocalFinal[isFrame ? 4 : 3].toFixed(4)}</td>
             </tr>
             {#if isFrame}
               <tr>
-                <td>Momento (M)</td>
+                <td>{t('dsm.step9.momentM')}</td>
                 <td class:pos={elemForce.fLocalFinal[2] > 1e-10} class:neg={elemForce.fLocalFinal[2] < -1e-10}>{elemForce.fLocalFinal[2].toFixed(4)}</td>
                 <td class:pos={elemForce.fLocalFinal[5] > 1e-10} class:neg={elemForce.fLocalFinal[5] < -1e-10}>{elemForce.fLocalFinal[5].toFixed(4)}</td>
               </tr>

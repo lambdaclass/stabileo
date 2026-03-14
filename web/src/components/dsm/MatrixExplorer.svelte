@@ -1,5 +1,6 @@
 <script lang="ts">
   import type { DSMStepData } from '../../lib/engine/solver-detailed';
+  import { t } from '../../lib/i18n';
   import { dsmStepsStore } from '../../lib/store';
   import MatrixDisplay from './MatrixDisplay.svelte';
 
@@ -26,14 +27,12 @@
 
 <div class="explorer">
   <div class="explanation">
-    <p>Explorá las matrices de cada elemento: rigidez local <strong>[k]</strong>,
-    transformación <strong>[T]</strong>, y rigidez global <strong>[K]ₑ = Tᵀ·k·T</strong>.
-    Los GDL del elemento se resaltan en la matriz global <strong>[K]</strong>.</p>
+    <p>{@html t('dsm.explorer.explanation')}</p>
   </div>
 
   <!-- Element selector -->
   <div class="elem-selector">
-    <label for="explorer-elem">Elemento:</label>
+    <label for="explorer-elem">{t('dsm.explorer.element')}</label>
     <select id="explorer-elem" onchange={(e) => dsmStepsStore.selectElement(Number((e.target as HTMLSelectElement).value))}>
       {#each data.elements as el}
         <option value={el.elementId} selected={el.elementId === dsmStepsStore.selectedElemForStep}>
@@ -59,7 +58,7 @@
         {/if}
       {/if}
       <div class="prop">
-        <span class="prop-label">GDL</span>
+        <span class="prop-label">{t('dsm.explorer.dof')}</span>
         <span class="prop-val dof-list">{elem.dofIndices.map(d => d + 1).join(', ')}</span>
       </div>
     </div>
@@ -67,13 +66,13 @@
     <!-- Matrix tabs -->
     <div class="matrix-tabs">
       <button class:active={activeTab === 'kLocal'} onclick={() => { activeTab = 'kLocal'; }}>
-        [k] Local
+        {t('dsm.explorer.tabLocal')}
       </button>
       <button class:active={activeTab === 'T'} onclick={() => { activeTab = 'T'; }}>
-        [T] Transformación
+        {t('dsm.explorer.tabTransformation')}
       </button>
       <button class:active={activeTab === 'kGlobal'} onclick={() => { activeTab = 'kGlobal'; }}>
-        [K]ₑ Global
+        {t('dsm.explorer.tabGlobal')}
       </button>
       <div class="tab-spacer"></div>
       <button
@@ -89,7 +88,7 @@
     <div class="matrix-panel">
       {#if activeTab === 'kLocal'}
         <MatrixDisplay
-          title="[k] — Rigidez local ({elem.kLocal.length}×{elem.kLocal[0]?.length})"
+          title={t('dsm.explorer.localStiffness').replace('{rows}', String(elem.kLocal.length)).replace('{cols}', String(elem.kLocal[0]?.length))}
           matrix={elem.kLocal}
           rowLabels={elem.dofLabels}
           colLabels={elem.dofLabels}
@@ -99,14 +98,14 @@
         />
         <div class="matrix-note">
           {#if elem.type === 'frame'}
-            Rigidez en coordenadas locales del elemento (axial + flexión{is3D ? ' biaxial + torsión' : ''}).
+            {t('dsm.explorer.frameLocalNote').replace('{biaxial}', is3D ? t('dsm.explorer.biaxialSuffix') : '')}
           {:else}
-            Rigidez axial en coordenadas locales (reticulado).
+            {t('dsm.explorer.trussLocalNote')}
           {/if}
         </div>
       {:else if activeTab === 'T'}
         <MatrixDisplay
-          title="[T] — Transformación ({elem.T.length}×{elem.T[0]?.length})"
+          title={t('dsm.explorer.transformationMatrix').replace('{rows}', String(elem.T.length)).replace('{cols}', String(elem.T[0]?.length))}
           matrix={elem.T}
           rowLabels={elem.dofLabels}
           colLabels={elem.dofLabels}
@@ -115,11 +114,11 @@
           {editable}
         />
         <div class="matrix-note">
-          Rotación de coordenadas locales a globales. {is3D ? 'Bloques 3×3 de cosenos directores.' : `θ = ${(elem.angle * 180 / Math.PI).toFixed(2)}°`}
+          {t('dsm.explorer.rotationNote').replace('{detail}', is3D ? t('dsm.explorer.cosineBlocks') : 'θ = ' + (elem.angle * 180 / Math.PI).toFixed(2) + '°')}
         </div>
       {:else if activeTab === 'kGlobal'}
         <MatrixDisplay
-          title="[K]ₑ = Tᵀ·k·T ({elem.kGlobal.length}×{elem.kGlobal[0]?.length})"
+          title={t('dsm.explorer.globalStiffness').replace('{rows}', String(elem.kGlobal.length)).replace('{cols}', String(elem.kGlobal[0]?.length))}
           matrix={elem.kGlobal}
           rowLabels={elem.dofLabels}
           colLabels={elem.dofLabels}
@@ -128,7 +127,7 @@
           {editable}
         />
         <div class="matrix-note">
-          Contribución del elemento a la rigidez global. Se ensambla en GDL: [{elem.dofIndices.map(d => d + 1).join(', ')}].
+          {t('dsm.explorer.assemblyNote').replace('{dofs}', elem.dofIndices.map(d => d + 1).join(', '))}
         </div>
       {/if}
     </div>
@@ -138,7 +137,7 @@
       <span class="rel-item" class:active={activeTab === 'kLocal'}>[k]</span>
       <span class="rel-arrow">→ Tᵀ·k·T →</span>
       <span class="rel-item" class:active={activeTab === 'kGlobal'}>[K]ₑ</span>
-      <span class="rel-arrow">→ ensamblaje →</span>
+      <span class="rel-arrow">→ {t('dsm.explorer.assembly')} →</span>
       <span class="rel-item" class:active={showGlobalK}>[K]</span>
     </div>
 
@@ -146,7 +145,7 @@
     {#if showGlobalK}
       <div class="global-k-section">
         <MatrixDisplay
-          title="[K] Global ({data.K.length}×{data.K[0]?.length}) — GDL del elem {elem.elementId} resaltados"
+          title={t('dsm.explorer.globalK').replace('{rows}', String(data.K.length)).replace('{cols}', String(data.K[0]?.length)).replace('{id}', String(elem.elementId))}
           matrix={data.K}
           rowLabels={data.dofLabels}
           colLabels={data.dofLabels}

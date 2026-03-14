@@ -1,9 +1,10 @@
 <script lang="ts">
   import {
-    TEMPLATE_CATALOG, TEMPLATE_CATALOG_3D, generateFromTemplate,
+    getTemplateCatalog, getTemplateCatalog3D, generateFromTemplate,
     type TemplateInfo, type TemplateName, type TemplateInfo3D, type TemplateName3D,
   } from '../lib/templates/generators';
   import { modelStore, resultsStore, historyStore, uiStore } from '../lib/store';
+  import { t } from '../lib/i18n';
 
   interface Props {
     open: boolean;
@@ -21,18 +22,18 @@
   // Group 2D templates by category
   const categories = $derived(() => {
     const cats = new Map<string, TemplateInfo[]>();
-    for (const t of TEMPLATE_CATALOG) {
-      let arr = cats.get(t.category);
-      if (!arr) { arr = []; cats.set(t.category, arr); }
-      arr.push(t);
+    for (const tmpl of getTemplateCatalog()) {
+      let arr = cats.get(tmpl.category);
+      if (!arr) { arr = []; cats.set(tmpl.category, arr); }
+      arr.push(tmpl);
     }
     return cats;
   });
 
   const selectedTemplate = $derived(
     is3D
-      ? TEMPLATE_CATALOG_3D.find(t => t.id === selectedId3D)!
-      : TEMPLATE_CATALOG.find(t => t.id === selectedId2D)!
+      ? getTemplateCatalog3D().find(tmpl => tmpl.id === selectedId3D)!
+      : getTemplateCatalog().find(tmpl => tmpl.id === selectedId2D)!
   );
 
   // Reset param values when template changes (works for both 2D and 3D with params)
@@ -51,7 +52,7 @@
 
   function handleGenerate() {
     if (is3D) {
-      const tmpl = TEMPLATE_CATALOG_3D.find(t => t.id === selectedId3D);
+      const tmpl = getTemplateCatalog3D().find(tmpl3d => tmpl3d.id === selectedId3D);
       if (tmpl) {
         historyStore.pushState();
         modelStore.clear();
@@ -77,19 +78,19 @@
 </script>
 
 {#if open}
-  <div class="tmpl-overlay" role="dialog" aria-label="Templates" onkeydown={handleKeydown}>
+  <div class="tmpl-overlay" role="dialog" aria-label={t('template.title')} onkeydown={handleKeydown}>
     <div class="tmpl-backdrop" onclick={onclose}></div>
     <div class="tmpl-modal">
       <div class="tmpl-header">
-        <h2>Generar desde Template</h2>
+        <h2>{t('template.title')}</h2>
         <button class="tmpl-close" onclick={onclose}>&#x2715;</button>
       </div>
 
       <div class="tmpl-body">
         <div class="tmpl-sidebar">
           {#if is3D}
-            <div class="cat-label">Estructuras 3D</div>
-            {#each TEMPLATE_CATALOG_3D as t}
+            <div class="cat-label">{t('template.structures3d')}</div>
+            {#each getTemplateCatalog3D() as t}
               <button
                 class="tmpl-item"
                 class:active={selectedId3D === t.id}
@@ -150,8 +151,8 @@
           {/if}
 
           <div class="tmpl-actions">
-            <button class="btn-generate" onclick={handleGenerate}>Generar</button>
-            <button class="btn-cancel" onclick={onclose}>Cancelar</button>
+            <button class="btn-generate" onclick={handleGenerate}>{t('template.generate')}</button>
+            <button class="btn-cancel" onclick={onclose}>{t('template.cancel')}</button>
           </div>
         </div>
       </div>

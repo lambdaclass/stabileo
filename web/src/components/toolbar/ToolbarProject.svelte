@@ -2,6 +2,7 @@
   import { uiStore, resultsStore, modelStore, tabManager } from '../../lib/store';
   import { saveProject, loadProject, loadFile, saveSession, downloadResultsCSV, downloadDXF, downloadSVG, downloadExcel, openPDFReport } from '../../lib/store/file';
   import { generateShareURL, loadFromShareLink, MAX_URL_SAFE } from '../../lib/utils/url-sharing';
+  import { t } from '../../lib/i18n';
 
   let fileInput: HTMLInputElement;
 
@@ -12,43 +13,43 @@
   $effect(() => {
     const openProject = () => { showProject = true; };
     const closeProject = () => { showProject = false; };
-    window.addEventListener('dedaliano-open-project', openProject);
-    window.addEventListener('dedaliano-close-project', closeProject);
+    window.addEventListener('stabileo-open-project', openProject);
+    window.addEventListener('stabileo-close-project', closeProject);
     return () => {
-      window.removeEventListener('dedaliano-open-project', openProject);
-      window.removeEventListener('dedaliano-close-project', closeProject);
+      window.removeEventListener('stabileo-open-project', openProject);
+      window.removeEventListener('stabileo-close-project', closeProject);
     };
   });
 
   async function handleCopyShareLink() {
     const result = generateShareURL();
-    if (!result) { uiStore.toast('Modelo vacío', 'error'); return; }
+    if (!result) { uiStore.toast(t('project.emptyModel'), 'error'); return; }
     if (result.length > MAX_URL_SAFE) {
-      uiStore.toast(`Enlace largo (${result.length} chars) — puede no funcionar en todos los navegadores`, 'info');
+      uiStore.toast(t('project.longLink').replace('{n}', String(result.length)), 'info');
     }
     await navigator.clipboard.writeText(result.url);
-    uiStore.toast('Enlace copiado al portapapeles', 'success');
+    uiStore.toast(t('project.linkCopied'), 'success');
   }
 
   async function handlePasteShareLink() {
     try {
       const text = await navigator.clipboard.readText();
       if (!text || !text.includes('#data=') && !text.includes('#embed=')) {
-        uiStore.toast('No se encontró un enlace de Dedaliano en el portapapeles', 'error');
+        uiStore.toast(t('project.noLinkFound'), 'error');
         return;
       }
       // Create a new tab and load the shared model into it
       tabManager.createTab();
       const ok = loadFromShareLink(text);
       if (!ok) {
-        uiStore.toast('No se pudo cargar el enlace — formato inválido', 'error');
+        uiStore.toast(t('project.invalidLink'), 'error');
         return;
       }
       // Sync tab name with the restored model name
       tabManager.syncActiveTabName();
-      uiStore.toast('Enlace cargado en nueva pestaña', 'success');
+      uiStore.toast(t('project.linkLoadedNewTab'), 'success');
     } catch {
-      uiStore.toast('No se pudo leer el portapapeles — verificá los permisos del navegador', 'error');
+      uiStore.toast(t('project.clipboardError'), 'error');
     }
   }
 
@@ -63,96 +64,96 @@
     try {
       const result = await loadFile(file);
       if (result.type === 'session') {
-        uiStore.showToast(`Sesión restaurada: ${result.count} pestañas`, 'success');
+        uiStore.showToast(t('project.sessionRestored').replace('{n}', String(result.count)), 'success');
       }
     } catch (err: any) {
-      alert(err.message || 'Error al cargar el archivo');
+      alert(err.message || t('project.loadError'));
     }
     input.value = ''; // reset so same file can be loaded again
   }
 
   function handleExportPNG() {
     // Dispatch custom event — App.svelte handles it with canvas ref
-    window.dispatchEvent(new CustomEvent('dedaliano-export-png'));
+    window.dispatchEvent(new CustomEvent('stabileo-export-png'));
   }
 </script>
 
 <div class="toolbar-section" data-tour="project-section">
   <button class="section-toggle" onclick={() => showProject = !showProject}>
-    {showProject ? '▾' : '▸'} Proyecto
+    {showProject ? '▾' : '▸'} {t('project.title')}
   </button>
   {#if showProject}
   <div class="file-grid">
-    <button class="file-btn" onclick={saveProject} title="Guarda todos los datos 2D y 3D de la pestaña actual como archivo .ded (Ctrl+S)">
-      Guardar Pestaña
+    <button class="file-btn" onclick={saveProject} title={t('project.saveTabTooltip')}>
+      {t('project.saveTab')}
     </button>
-    <button class="file-btn" onclick={saveSession} title="Guarda todos los datos de todas las pestañas abiertas en un solo archivo">
-      Guardar Sesión
+    <button class="file-btn" onclick={saveSession} title={t('project.saveSessionTooltip')}>
+      {t('project.saveSession')}
     </button>
-    <button class="file-btn" onclick={() => fileInput?.click()} title="Abre un archivo guardado — reconoce si es una sola pestaña o una sesión completa (Ctrl+O)">
-      Abrir
+    <button class="file-btn" onclick={() => fileInput?.click()} title={t('project.openTooltip')}>
+      {t('project.open')}
     </button>
   </div>
   <button class="sub-section-toggle" onclick={() => showProjectExtras = !showProjectExtras}>
-    {showProjectExtras ? '▾' : '▸'} Exportar / Importar
+    {showProjectExtras ? '▾' : '▸'} {t('project.exportImport')}
   </button>
   {#if showProjectExtras}
     <div class="sub-section-content">
-      <span class="file-sub-header">Exportar</span>
+      <span class="file-sub-header">{t('project.export')}</span>
       <div class="file-grid">
         <button
           class="file-btn"
           onclick={downloadExcel}
-          title="Exportar reporte Excel con todas las hojas (modelo + resultados)"
+          title={t('project.exportExcelTooltip')}
         >
           Excel
         </button>
-        <button class="file-btn" onclick={openPDFReport} title="Generar reporte PDF imprimible">
+        <button class="file-btn" onclick={openPDFReport} title={t('project.exportPdfTooltip')}>
           PDF
         </button>
-        <button class="file-btn" onclick={downloadDXF} disabled={uiStore.analysisMode === '3d'} title={uiStore.analysisMode === '3d' ? 'En desarrollo para 3D' : 'Exportar a AutoCAD DXF con diagramas'}>
+        <button class="file-btn" onclick={downloadDXF} disabled={uiStore.analysisMode === '3d'} title={uiStore.analysisMode === '3d' ? t('project.inDev3d') : t('project.exportDxfTooltip')}>
           DXF
         </button>
-        <button class="file-btn" onclick={downloadSVG} disabled={uiStore.analysisMode === '3d'} title={uiStore.analysisMode === '3d' ? 'En desarrollo para 3D' : 'Exportar gráfico vectorial SVG'}>
+        <button class="file-btn" onclick={downloadSVG} disabled={uiStore.analysisMode === '3d'} title={uiStore.analysisMode === '3d' ? t('project.inDev3d') : t('project.exportSvgTooltip')}>
           SVG
         </button>
-        <button class="file-btn" onclick={handleExportPNG} title="Exportar captura de pantalla PNG">
+        <button class="file-btn" onclick={handleExportPNG} title={t('project.exportPngTooltip')}>
           PNG
         </button>
         <button
           class="file-btn"
           onclick={downloadResultsCSV}
           disabled={!resultsStore.results && !resultsStore.results3D}
-          title="Exportar tabla de resultados en CSV"
+          title={t('project.exportCsvTooltip')}
         >
           CSV
         </button>
       </div>
-      <span class="file-sub-header">Importar</span>
+      <span class="file-sub-header">{t('project.importLabel')}</span>
       <div class="file-grid">
-        <button class="file-btn" onclick={() => fileInput?.click()} title="Abrir archivo de proyecto (.ded / .json)">
-          Abrir .ded
+        <button class="file-btn" onclick={() => fileInput?.click()} title={t('project.openDedTooltip')}>
+          {t('project.openDed')}
         </button>
-        <button class="file-btn" onclick={() => window.dispatchEvent(new Event('dedaliano-import-dxf'))} disabled={uiStore.analysisMode === '3d'} title={uiStore.analysisMode === '3d' ? 'En desarrollo para 3D' : 'Importar geometría desde archivo AutoCAD DXF'}>
-          Abrir DXF
+        <button class="file-btn" onclick={() => window.dispatchEvent(new Event('stabileo-import-dxf'))} disabled={uiStore.analysisMode === '3d'} title={uiStore.analysisMode === '3d' ? t('project.inDev3d') : t('project.openDxfTooltip')}>
+          {t('project.openDxf')}
         </button>
-        <button class="file-btn" onclick={() => window.dispatchEvent(new Event('dedaliano-import-ifc'))} title="Importar modelo estructural desde archivo IFC (BIM)">
-          Abrir IFC
+        <button class="file-btn" onclick={() => window.dispatchEvent(new Event('stabileo-import-ifc'))} title={t('project.openIfcTooltip')}>
+          {t('project.openIfc')}
         </button>
-        <button class="file-btn" onclick={() => window.dispatchEvent(new Event('dedaliano-import-coords'))} title="Importar nodos pegando coordenadas X,Y(,Z)">
-          Pegar coords
+        <button class="file-btn" onclick={() => window.dispatchEvent(new Event('stabileo-import-coords'))} title={t('project.pasteCoordsTooltip')}>
+          {t('project.pasteCoords')}
         </button>
-        <button class="file-btn" onclick={() => window.dispatchEvent(new Event('dedaliano-open-template'))} title="Generar geometría desde plantilla paramétrica">
-          Generador
+        <button class="file-btn" onclick={() => window.dispatchEvent(new Event('stabileo-open-template'))} title={t('project.generatorTooltip')}>
+          {t('project.generator')}
         </button>
       </div>
-      <span class="file-sub-header">Compartir</span>
+      <span class="file-sub-header">{t('project.share')}</span>
       <div class="file-grid">
-        <button class="file-btn" onclick={handleCopyShareLink} title="Copiar enlace que contiene todo el modelo y configuración — cualquier persona puede abrirlo para ver su copia idéntica">
-          Copiar enlace
+        <button class="file-btn" onclick={handleCopyShareLink} title={t('project.copyLinkTooltip')}>
+          {t('project.copyLink')}
         </button>
-        <button class="file-btn" onclick={handlePasteShareLink} title="Pegar un enlace compartido y abrirlo en una nueva pestaña de Dedaliano">
-          Pegar enlace
+        <button class="file-btn" onclick={handlePasteShareLink} title={t('project.pasteLinkTooltip')}>
+          {t('project.pasteLink')}
         </button>
       </div>
     </div>

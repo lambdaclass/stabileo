@@ -1101,7 +1101,7 @@ describe('Async moving loads with progress', () => {
     );
 
     const result = await resultPromise;
-    expect(result).toBe('Análisis cancelado');
+    expect(result).toBe('Analysis cancelled');
   });
 });
 

@@ -1,5 +1,6 @@
 <script lang="ts">
   import { modelStore, resultsStore, uiStore, tourStore } from '../lib/store';
+  import { t } from '../lib/i18n';
   import {
     analyzeSectionStress,
     suggestCriticalSections,
@@ -351,8 +352,8 @@
     style="{uiStore.isMobile && tourStore.isActive ? `bottom:auto; top:${uiStore.floatingToolsTopOffset}px; max-height:calc(100vh - ${uiStore.floatingToolsTopOffset}px - 45vh - 16px)` : ''}"
   >
     <div class="ssp-header">
-      <span class="ssp-title">Análisis de Sección {is3D ? '3D ' : ''}{isRotated2D ? `(rot ${querySec?.rotation}°) ` : ''}</span>
-      <button class="ssp-close" onclick={close} title="Cerrar (Esc)">&#x2715;</button>
+      <span class="ssp-title">{t('stress.panelTitle')} {is3D ? '3D ' : ''}{isRotated2D ? `(rot ${querySec?.rotation}°) ` : ''}</span>
+      <button class="ssp-close" onclick={close} title={t('stress.close')}>&#x2715;</button>
     </div>
 
     <div class="ssp-body">
@@ -367,7 +368,7 @@
           type="range" class="ssp-slider-xl" min="0" max="1" step="0.005"
           value={query.t}
           oninput={onSliderInput}
-          title="Mover a lo largo del elemento (x/L)"
+          title={t('stress.moveAlongElem')}
         />
         <span class="ssp-slider-label">J</span>
       </div>
@@ -388,7 +389,7 @@
             <span class="ssp-force-label">V<sub>z</sub></span>
             <span class="ssp-force-value">{fmtForce(analysis3D.Vz)} kN</span>
           </div>
-          <span class="ssp-help" title="Esfuerzos internos 3D en esta sección.&#10;N = normal (+ tracción, - compresión)&#10;Vy = corte en plano XY (produce Mz)&#10;Vz = corte en plano XZ (produce My)">?</span>
+          <span class="ssp-help" title={t('stress.forces3dHelp')}>?</span>
         </div>
         <div class="ssp-forces ssp-forces-moments">
           <div class="ssp-force">
@@ -403,7 +404,7 @@
             <span class="ssp-force-label">M<sub>z</sub></span>
             <span class="ssp-force-value">{fmtForce(-analysis3D.Mz)} kN·m</span>
           </div>
-          <span class="ssp-help" title="Mx = momento torsor&#10;My = momento flector (plano XZ, eje débil)&#10;Mz = momento flector (plano XY, eje fuerte)&#10;Convención: + = sagging (tracción en fibra inferior)">?</span>
+          <span class="ssp-help" title={t('stress.moments3dHelp')}>?</span>
         </div>
       {:else if isRotated2D && analysis3D}
         <!-- Rotated 2D: show decomposed biaxial forces -->
@@ -420,7 +421,7 @@
             <span class="ssp-force-label">V<sub>z</sub></span>
             <span class="ssp-force-value">{fmtForce(analysis3D.Vz)} kN</span>
           </div>
-          <span class="ssp-help" title="Descomposición por rotación de sección ({querySec?.rotation ?? 0}°).&#10;Vy, Vz = componentes del corte en ejes locales rotados">?</span>
+          <span class="ssp-help" title={t('stress.rotDecompHelp').replace('{angle}', String(querySec?.rotation ?? 0))}>?</span>
         </div>
         <div class="ssp-forces ssp-forces-moments">
           <div class="ssp-force">
@@ -431,7 +432,7 @@
             <span class="ssp-force-label">M<sub>z</sub></span>
             <span class="ssp-force-value">{fmtForce(-analysis3D.Mz)} kN·m</span>
           </div>
-          <span class="ssp-help" title="Descomposición del momento M por rotación de sección.&#10;My = M·cos(α) (eje fuerte)&#10;Mz = M·sin(α) (eje débil)&#10;α = {querySec?.rotation ?? 0}°">?</span>
+          <span class="ssp-help" title={t('stress.rotMomentHelp').replace('{angle}', String(querySec?.rotation ?? 0))}>?</span>
         </div>
       {:else if analysis2D}
         <div class="ssp-forces">
@@ -447,7 +448,7 @@
             <span class="ssp-force-label">M</span>
             <span class="ssp-force-value">{fmtForce(-analysis2D.M)} kN·m</span>
           </div>
-          <span class="ssp-help" title="Esfuerzos internos en esta sección del elemento.&#10;N = normal (+ tracción, - compresión)&#10;V = corte transversal&#10;M = momento flector (+ sagging, tracciona abajo)">?</span>
+          <span class="ssp-help" title={t('stress.forces2dHelp')}>?</span>
         </div>
       {/if}
 
@@ -506,8 +507,8 @@
       <!-- Critical sections -->
       <button class="ssp-section-toggle" onclick={() => showCritical = !showCritical}>
         <span class="ssp-chevron">{showCritical ? '▾' : '▸'}</span>
-        Secciones criticas
-        <span class="ssp-help ssp-help-inline" title="Posiciones a lo largo del elemento donde conviene verificar tensiones.&#10;&#10;Incluye puntos de momento maximo (V=0), apoyos, cargas puntuales y puntos intermedios.&#10;Click en cada chip para navegar a esa seccion.">?</span>
+        {t('stress.criticalSections')}
+        <span class="ssp-help ssp-help-inline" title={t('stress.criticalSectionsHelp')}>?</span>
       </button>
       {#if showCritical && criticalSections.length > 0}
         <div class="ssp-critical">
@@ -530,14 +531,14 @@
     style="{uiStore.isMobile && tourStore.isActive ? `bottom:auto; top:${uiStore.floatingToolsTopOffset}px` : ''}"
   >
     <div class="ssp-header">
-      <span class="ssp-title">Análisis de Sección</span>
+      <span class="ssp-title">{t('stress.panelTitle')}</span>
       <button class="ssp-close" onclick={() => resultsStore.clearStressQuery()}>&#x2715;</button>
     </div>
     <div class="ssp-amorph-msg">
       <span class="ssp-amorph-icon">⚠</span>
-      <p>La sección seleccionada es <strong>amorfa</strong> (sin forma geométrica definida).</p>
-      <p>Las secciones amorfas no permiten análisis de distribución de tensiones, círculo de Mohr ni criterios de falla.</p>
-      <p>Para habilitar el análisis de sección, asigne un perfil estándar o construya una sección con forma geométrica.</p>
+      <p>{@html t('stress.amorphMsg1')}</p>
+      <p>{t('stress.amorphMsg2')}</p>
+      <p>{t('stress.amorphMsg3')}</p>
     </div>
   </div>
 {/if}

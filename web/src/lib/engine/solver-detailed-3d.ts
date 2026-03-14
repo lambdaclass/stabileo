@@ -10,6 +10,7 @@ import type {
   SolverInput3D, SolverSupport3D,
   SolverDistributedLoad3D, SolverPointLoad3D,
 } from './types-3d';
+import { t } from '../i18n';
 
 // Re-export the same DSMStepData interface so the StepWizard can display both 2D and 3D
 export type {
@@ -168,7 +169,7 @@ function solveLU(A: Float64Array, b: Float64Array, n: number): Float64Array {
       const val = Math.abs(a[i * n + k]);
       if (val > maxVal) { maxVal = val; maxRow = i; }
     }
-    if (maxVal < singularityTol) throw new Error('Matriz singular 3D (mecanismo o estructura hipostatica). Verifica los apoyos.');
+    if (maxVal < singularityTol) throw new Error(t('detailed3d.singularMatrix'));
     if (maxRow !== k) {
       for (let j = 0; j < n; j++) {
         const tmp = a[k * n + j]; a[k * n + j] = a[maxRow * n + j]; a[maxRow * n + j] = tmp;
@@ -181,7 +182,7 @@ function solveLU(A: Float64Array, b: Float64Array, n: number): Float64Array {
       bw[i] -= factor * bw[k];
     }
   }
-  if (Math.abs(a[(n - 1) * n + (n - 1)]) < singularityTol) throw new Error('Matriz singular 3D (mecanismo). Estructura hipostatica.');
+  if (Math.abs(a[(n - 1) * n + (n - 1)]) < singularityTol) throw new Error(t('detailed3d.singularHypostatic'));
   const x = new Float64Array(n);
   for (let i = n - 1; i >= 0; i--) {
     let sum = bw[i];

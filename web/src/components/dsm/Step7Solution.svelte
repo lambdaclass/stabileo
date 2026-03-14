@@ -1,5 +1,6 @@
 <script lang="ts">
   import type { DSMStepData } from '../../lib/engine/solver-detailed';
+  import { t } from '../../lib/i18n';
   import MathEquation from './MathEquation.svelte';
   import VectorDisplay from './VectorDisplay.svelte';
 
@@ -21,13 +22,13 @@
 
 <div class="step">
   <div class="explanation">
-    <p>Se resuelve el sistema de ecuaciones para obtener los <strong>desplazamientos libres</strong>.</p>
+    <p>{@html t('dsm.step7.explanation')}</p>
   </div>
 
   <MathEquation equation={eqSolve} displayMode />
 
   <VectorDisplay
-    title={`{u_f} — Desplazamientos libres (${nf} GDL)`}
+    title={t('dsm.step7.freeDisp').replace('{n}', String(nf))}
     vector={data.uFree}
     labels={data.freeDofLabels}
     precision={6}
@@ -36,11 +37,11 @@
   <div class="separator"></div>
 
   <div class="explanation">
-    <p>Vector completo de desplazamientos (libres + restringidos):</p>
+    <p>{@html t('dsm.step7.fullVector')}</p>
   </div>
 
   <VectorDisplay
-    title={`{u} — Vector completo (${data.uAll.length} GDL)`}
+    title={t('dsm.step7.fullDisp').replace('{n}', String(data.uAll.length))}
     vector={data.uAll}
     labels={data.dofLabels}
     highlightIndices={maxDispIdx}

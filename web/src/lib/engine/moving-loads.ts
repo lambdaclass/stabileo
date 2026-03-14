@@ -3,6 +3,7 @@
 import type { SolverInput, AnalysisResults, ElementForces, FullEnvelope, ElementEnvelopeDiagram, EnvelopeDiagramData } from './types';
 import { solve } from './solver-js';
 import { computeDiagramValueAt } from './diagrams';
+import { t } from '../i18n';
 
 /** A single axle in a load train */
 export interface Axle {
@@ -18,7 +19,32 @@ export interface LoadTrain {
   axles: Axle[];
 }
 
-/** Predefined load trains */
+/** Predefined load trains (function to pick up current locale) */
+export function getPredefinedTrains(): LoadTrain[] {
+  return [
+    {
+      name: t('train.pointLoad100'),
+      axles: [{ offset: 0, weight: 100 }],
+    },
+    {
+      name: t('train.hl93Truck'),
+      axles: [
+        { offset: 0, weight: 35 },
+        { offset: 4.3, weight: 145 },
+        { offset: 8.6, weight: 145 },
+      ],
+    },
+    {
+      name: t('train.tandem'),
+      axles: [
+        { offset: 0, weight: 110 },
+        { offset: 1.2, weight: 110 },
+      ],
+    },
+  ];
+}
+
+/** @deprecated Use getPredefinedTrains() instead */
 export const PREDEFINED_TRAINS: LoadTrain[] = [
   {
     name: 'Carga puntual (100 kN)',
@@ -166,6 +192,141 @@ function buildPath(input: SolverInput, pathElementIds?: number[]): PathSegment[]
  * Run moving load analysis.
  * Returns envelope of max/min forces across all positions.
  */
+/**
+ * Check if a train is symmetric (single axle or mirror-symmetric weights).
+ */
+function isTrainSymmetric(train: LoadTrain): boolean {
+  if (train.axles.length <= 1) return true;
+  const maxOff = Math.max(...train.axles.map(a => a.offset));
+  for (const axle of train.axles) {
+    const mirror = maxOff - axle.offset;
+    const pair = train.axles.find(a => Math.abs(a.offset - mirror) < 1e-6);
+    if (!pair || Math.abs(pair.weight - axle.weight) > 1e-6) return false;
+  }
+  return true;
+}
+
+/**
+ * Create a reversed copy of a train (mirror axle order so it travels right-to-left).
+ */
+function reverseTrain(train: LoadTrain): LoadTrain {
+  const maxOff = Math.max(...train.axles.map(a => a.offset));
+  return {
+    name: train.name,
+    axles: train.axles.map(a => ({ offset: maxOff - a.offset, weight: a.weight })),
+  };
+}
+
+/**
+ * Build the load array for a single train position on the path.
+ */
+function buildTrainLoads(
+  baseLoads: SolverInput['loads'],
+  train: LoadTrain,
+  refPos: number,
+  totalLength: number,
+  path: PathSegment[],
+): SolverInput['loads'] {
+  const loads: SolverInput['loads'] = [...baseLoads];
+
+  for (const axle of train.axles) {
+    const pos = refPos + axle.offset;
+    if (pos < 0 || pos > totalLength) continue;
+
+    const seg = path.find(s => pos >= s.cumStart && pos <= s.cumStart + s.length);
+    if (!seg) continue;
+
+    const t = (pos - seg.cumStart) / seg.length;
+    const a = t * seg.length;
+
+    const cosTheta = seg.dx / seg.length;
+    const sinTheta = seg.dy / seg.length;
+    const pPerp = -axle.weight * cosTheta;
+
+    if (Math.abs(pPerp) > 1e-10) {
+      loads.push({
+        type: 'pointOnElement',
+        data: { elementId: seg.elementId, a, p: pPerp },
+      });
+    }
+
+    const pAxial = -axle.weight * sinTheta;
+    if (Math.abs(pAxial) > 1e-10) {
+      const fI = pAxial * (1 - t);
+      const fJ = pAxial * t;
+      loads.push(
+        { type: 'nodal', data: { nodeId: seg.nodeI, fx: fI * cosTheta, fy: fI * sinTheta, mz: 0 } },
+        { type: 'nodal', data: { nodeId: seg.nodeJ, fx: fJ * cosTheta, fy: fJ * sinTheta, mz: 0 } },
+      );
+    }
+  }
+
+  return loads;
+}
+
+/**
+ * Solve a single position and update envelope.
+ */
+function solvePosition(
+  baseInput: SolverInput,
+  train: LoadTrain,
+  refPos: number,
+  path: PathSegment[],
+  totalLength: number,
+  envelope: Map<number, { mMaxPos: number; mMaxNeg: number; vMaxPos: number; vMaxNeg: number; nMaxPos: number; nMaxNeg: number }>,
+  positions: MovingLoadEnvelope['positions'],
+): void {
+  const loads = buildTrainLoads(baseInput.loads, train, refPos, totalLength, path);
+  const input: SolverInput = { ...baseInput, loads };
+
+  try {
+    const results = solve(input);
+    positions.push({ refPosition: refPos, results });
+
+    for (const ef of results.elementForces) {
+      const env = envelope.get(ef.elementId);
+      if (!env) continue;
+      const mMax = Math.max(ef.mStart, ef.mEnd);
+      const mMin = Math.min(ef.mStart, ef.mEnd);
+      const vMax = Math.max(ef.vStart, ef.vEnd);
+      const vMin = Math.min(ef.vStart, ef.vEnd);
+      const nMax = Math.max(ef.nStart, ef.nEnd);
+      const nMin = Math.min(ef.nStart, ef.nEnd);
+
+      if (mMax > env.mMaxPos) env.mMaxPos = mMax;
+      if (mMin < env.mMaxNeg) env.mMaxNeg = mMin;
+      if (vMax > env.vMaxPos) env.vMaxPos = vMax;
+      if (vMin < env.vMaxNeg) env.vMaxNeg = vMin;
+      if (nMax > env.nMaxPos) env.nMaxPos = nMax;
+      if (nMin < env.nMaxNeg) env.nMaxNeg = nMin;
+    }
+  } catch (e) {
+    console.warn(`Moving load position ${refPos.toFixed(2)} failed: ${e instanceof Error ? e.message : e}`);
+  }
+}
+
+/**
+ * Compute forward reference positions for a train on a path.
+ */
+function computeRefPositions(train: LoadTrain, totalLength: number, step: number): number[] {
+  const maxAxleOffset = Math.max(...train.axles.map(a => a.offset));
+  const positions: number[] = [];
+  for (let refPos = -maxAxleOffset; refPos <= totalLength; refPos += step) {
+    positions.push(refPos);
+  }
+  return positions;
+}
+
+/**
+ * For each forward refPos, compute the mirror reverse refPos so that
+ * the reversed train produces the exact mirror loading on the structure.
+ * Forward train at r places axles at [r+o₁, r+o₂, ...].
+ * Mirror: reversed train at (L - r - maxOffset) places axles at [L-r-o₁, L-r-o₂, ...].
+ */
+function mirrorRefPositions(forwardPositions: number[], totalLength: number, maxAxleOffset: number): number[] {
+  return forwardPositions.map(r => totalLength - r - maxAxleOffset);
+}
+
 export function solveMovingLoads(
   baseInput: SolverInput,
   config: MovingLoadConfig,
@@ -173,12 +334,10 @@ export function solveMovingLoads(
   const step = config.step ?? 0.25;
   const path = buildPath(baseInput, config.pathElementIds);
 
-  if (path.length === 0) return 'No se encontró un camino continuo de elementos';
+  if (path.length === 0) return t('train.noPathFound');
 
   const totalLength = path[path.length - 1].cumStart + path[path.length - 1].length;
-  const maxAxleOffset = Math.max(...config.train.axles.map(a => a.offset));
 
-  // Initialize envelope
   const envelope = new Map<number, {
     mMaxPos: number; mMaxNeg: number;
     vMaxPos: number; vMaxNeg: number;
@@ -193,81 +352,26 @@ export function solveMovingLoads(
   }
 
   const positions: MovingLoadEnvelope['positions'] = [];
+  const forwardTrain = config.train;
+  const maxAxleOffset = Math.max(...forwardTrain.axles.map(a => a.offset));
+  const forwardRefPositions = computeRefPositions(forwardTrain, totalLength, step);
 
-  // Move reference axle from -maxAxleOffset to totalLength
-  for (let refPos = -maxAxleOffset; refPos <= totalLength; refPos += step) {
-    // Build loads for this position
-    const loads: SolverInput['loads'] = [...baseInput.loads];
+  // Forward pass
+  for (const refPos of forwardRefPositions) {
+    solvePosition(baseInput, forwardTrain, refPos, path, totalLength, envelope, positions);
+  }
 
-    for (const axle of config.train.axles) {
-      const pos = refPos + axle.offset;
-      if (pos < 0 || pos > totalLength) continue;
-
-      // Find which segment this axle falls on
-      const seg = path.find(s => pos >= s.cumStart && pos <= s.cumStart + s.length);
-      if (!seg) continue;
-
-      const t = (pos - seg.cumStart) / seg.length;
-      const a = t * seg.length; // distance from nodeI of this segment
-
-      // Decompose downward force into local coords
-      const cosTheta = seg.dx / seg.length;
-      const sinTheta = seg.dy / seg.length;
-      const pPerp = -axle.weight * cosTheta; // perpendicular component (local)
-
-      if (Math.abs(pPerp) > 1e-10) {
-        loads.push({
-          type: 'pointOnElement',
-          data: { elementId: seg.elementId, a, p: pPerp },
-        });
-      }
-
-      // Axial component as nodal loads
-      const pAxial = -axle.weight * sinTheta;
-      if (Math.abs(pAxial) > 1e-10) {
-        const fI = pAxial * (1 - t);
-        const fJ = pAxial * t;
-        loads.push(
-          { type: 'nodal', data: { nodeId: seg.nodeI, fx: fI * cosTheta, fy: fI * sinTheta, mz: 0 } },
-          { type: 'nodal', data: { nodeId: seg.nodeJ, fx: fJ * cosTheta, fy: fJ * sinTheta, mz: 0 } },
-        );
-      }
-    }
-
-    const input: SolverInput = { ...baseInput, loads };
-
-    try {
-      const results = solve(input);
-      positions.push({ refPosition: refPos, results });
-
-      // Update envelope
-      for (const ef of results.elementForces) {
-        const env = envelope.get(ef.elementId);
-        if (!env) continue;
-        const mMax = Math.max(ef.mStart, ef.mEnd);
-        const mMin = Math.min(ef.mStart, ef.mEnd);
-        const vMax = Math.max(ef.vStart, ef.vEnd);
-        const vMin = Math.min(ef.vStart, ef.vEnd);
-        const nMax = Math.max(ef.nStart, ef.nEnd);
-        const nMin = Math.min(ef.nStart, ef.nEnd);
-
-        if (mMax > env.mMaxPos) env.mMaxPos = mMax;
-        if (mMin < env.mMaxNeg) env.mMaxNeg = mMin;
-        if (vMax > env.vMaxPos) env.vMaxPos = vMax;
-        if (vMin < env.vMaxNeg) env.vMaxNeg = vMin;
-        if (nMax > env.nMaxPos) env.nMaxPos = nMax;
-        if (nMin < env.nMaxNeg) env.nMaxNeg = nMin;
-      }
-    } catch (e) {
-      // Skip positions where the solver fails (e.g. singular matrix at certain load configs).
-      // Log for debugging but don't abort — other positions may still be valid.
-      console.warn(`Moving load position ${refPos.toFixed(2)} failed: ${e instanceof Error ? e.message : e}`);
+  // Reverse pass for asymmetric trains — use mirror positions for exact symmetry
+  if (!isTrainSymmetric(forwardTrain)) {
+    const revTrain = reverseTrain(forwardTrain);
+    const reverseRefPositions = mirrorRefPositions(forwardRefPositions, totalLength, maxAxleOffset);
+    for (const refPos of reverseRefPositions) {
+      solvePosition(baseInput, revTrain, refPos, path, totalLength, envelope, positions);
     }
   }
 
-  if (positions.length === 0) return 'No se pudo resolver ninguna posición de carga';
+  if (positions.length === 0) return t('train.noPositionSolved');
 
-  // Compute pointwise envelope for dual-curve rendering
   const allResults = positions.map(p => p.results);
   const fullEnvelope = computePointwiseEnvelope(allResults);
 
@@ -295,12 +399,10 @@ export async function solveMovingLoadsAsync(
   const step = config.step ?? 0.25;
   const path = buildPath(baseInput, config.pathElementIds);
 
-  if (path.length === 0) return 'No se encontró un camino continuo de elementos';
+  if (path.length === 0) return t('train.noPathFound');
 
   const totalLength = path[path.length - 1].cumStart + path[path.length - 1].length;
-  const maxAxleOffset = Math.max(...config.train.axles.map(a => a.offset));
 
-  // Initialize envelope
   const envelope = new Map<number, {
     mMaxPos: number; mMaxNeg: number;
     vMaxPos: number; vMaxNeg: number;
@@ -314,63 +416,37 @@ export async function solveMovingLoadsAsync(
     });
   }
 
-  // Pre-compute all positions
-  const refPositions: number[] = [];
-  for (let refPos = -maxAxleOffset; refPos <= totalLength; refPos += step) {
-    refPositions.push(refPos);
+  // Pre-compute all positions: forward + mirrored reverse for asymmetric trains
+  const forwardTrain = config.train;
+  const maxAxleOffset = Math.max(...forwardTrain.axles.map(a => a.offset));
+  const forwardRefPositions = computeRefPositions(forwardTrain, totalLength, step);
+
+  const allRefPositions: Array<{ train: LoadTrain; refPos: number }> = [];
+  for (const refPos of forwardRefPositions) {
+    allRefPositions.push({ train: forwardTrain, refPos });
   }
-  const total = refPositions.length;
+  if (!isTrainSymmetric(forwardTrain)) {
+    const revTrain = reverseTrain(forwardTrain);
+    const reverseRefPositions = mirrorRefPositions(forwardRefPositions, totalLength, maxAxleOffset);
+    for (const refPos of reverseRefPositions) {
+      allRefPositions.push({ train: revTrain, refPos });
+    }
+  }
+  const total = allRefPositions.length;
 
   const positions: MovingLoadEnvelope['positions'] = [];
 
   for (let idx = 0; idx < total; idx++) {
-    // Check cancellation
-    if (signal?.aborted) return 'Análisis cancelado';
+    if (signal?.aborted) return t('train.analysisCancelled');
 
-    const refPos = refPositions[idx];
-
-    // Build loads for this position
-    const loads: SolverInput['loads'] = [...baseInput.loads];
-
-    for (const axle of config.train.axles) {
-      const pos = refPos + axle.offset;
-      if (pos < 0 || pos > totalLength) continue;
-
-      const seg = path.find(s => pos >= s.cumStart && pos <= s.cumStart + s.length);
-      if (!seg) continue;
-
-      const t = (pos - seg.cumStart) / seg.length;
-      const a = t * seg.length;
-
-      const cosTheta = seg.dx / seg.length;
-      const sinTheta = seg.dy / seg.length;
-      const pPerp = -axle.weight * cosTheta;
-
-      if (Math.abs(pPerp) > 1e-10) {
-        loads.push({
-          type: 'pointOnElement',
-          data: { elementId: seg.elementId, a, p: pPerp },
-        });
-      }
-
-      const pAxial = -axle.weight * sinTheta;
-      if (Math.abs(pAxial) > 1e-10) {
-        const fI = pAxial * (1 - t);
-        const fJ = pAxial * t;
-        loads.push(
-          { type: 'nodal', data: { nodeId: seg.nodeI, fx: fI * cosTheta, fy: fI * sinTheta, mz: 0 } },
-          { type: 'nodal', data: { nodeId: seg.nodeJ, fx: fJ * cosTheta, fy: fJ * sinTheta, mz: 0 } },
-        );
-      }
-    }
-
+    const { train, refPos } = allRefPositions[idx];
+    const loads = buildTrainLoads(baseInput.loads, train, refPos, totalLength, path);
     const input: SolverInput = { ...baseInput, loads };
 
     try {
       const results = solve(input);
       positions.push({ refPosition: refPos, results });
 
-      // Update envelope
       for (const ef of results.elementForces) {
         const env = envelope.get(ef.elementId);
         if (!env) continue;
@@ -392,15 +468,13 @@ export async function solveMovingLoadsAsync(
       console.warn(`Moving load position ${refPos.toFixed(2)} failed: ${e instanceof Error ? e.message : e}`);
     }
 
-    // Report progress & yield to event loop
     onProgress?.({ current: idx + 1, total, refPosition: refPos });
     await new Promise(r => setTimeout(r, 0));
   }
 
-  if (signal?.aborted) return 'Análisis cancelado';
-  if (positions.length === 0) return 'No se pudo resolver ninguna posición de carga';
+  if (signal?.aborted) return t('train.analysisCancelled');
+  if (positions.length === 0) return t('train.noPositionSolved');
 
-  // Compute pointwise envelope for dual-curve rendering
   const allResults = positions.map(p => p.results);
   const fullEnvelope = computePointwiseEnvelope(allResults);
 

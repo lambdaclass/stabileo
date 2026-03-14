@@ -6,6 +6,7 @@ import type { DxfExportOptions } from './types';
 import { DXF_COLORS } from './types';
 import type { ElementForces } from '../engine/types';
 import { computeDeformedShape } from '../engine/diagrams';
+import { t } from '../i18n';
 
 // ─── Low-level DXF helpers (R12 AC1009 compatible) ────────────
 
@@ -102,11 +103,11 @@ function shearAtX(ef: ElementForces, x: number): number {
 
 function supportLabel(type: string): string {
   switch (type) {
-    case 'fixed': return 'EMPOTRADO';
-    case 'pinned': return 'ARTICULADO';
-    case 'rollerX': return 'MOVIL X';
-    case 'rollerY': return 'MOVIL Y';
-    case 'spring': return 'RESORTE';
+    case 'fixed': return t('dxf.supportFixed');
+    case 'pinned': return t('dxf.supportPinned');
+    case 'rollerX': return t('dxf.supportRollerX');
+    case 'rollerY': return t('dxf.supportRollerY');
+    case 'spring': return t('dxf.supportSpring');
     default: return type.toUpperCase();
   }
 }
@@ -121,21 +122,31 @@ export function exportDxfWithResults(options: DxfExportOptions): string {
 
   // Layer definitions
   const layerDefs: Array<{ name: string; color: number }> = [
-    { name: 'ESTRUCTURA', color: DXF_COLORS.ESTRUCTURA },
-    { name: 'APOYOS_OUT', color: DXF_COLORS.APOYOS_OUT },
+    { name: t('dxf.layerStructure'), color: DXF_COLORS.ESTRUCTURA },
+    { name: t('dxf.layerSupports'), color: DXF_COLORS.APOYOS_OUT },
   ];
 
   const hasResults = options.includeResults && resultsStore.results;
   if (hasResults) {
     layerDefs.push(
-      { name: 'MOMENTOS', color: DXF_COLORS.MOMENTOS },
-      { name: 'CORTANTES', color: DXF_COLORS.CORTANTES },
-      { name: 'AXILES', color: DXF_COLORS.AXILES },
-      { name: 'DEFORMADA', color: DXF_COLORS.DEFORMADA },
-      { name: 'REACCIONES', color: DXF_COLORS.REACCIONES },
-      { name: 'RESULTADOS', color: DXF_COLORS.RESULTADOS },
+      { name: t('dxf.layerMoments'), color: DXF_COLORS.MOMENTOS },
+      { name: t('dxf.layerShear'), color: DXF_COLORS.CORTANTES },
+      { name: t('dxf.layerAxial'), color: DXF_COLORS.AXILES },
+      { name: t('dxf.layerDeformed'), color: DXF_COLORS.DEFORMADA },
+      { name: t('dxf.layerReactions'), color: DXF_COLORS.REACCIONES },
+      { name: t('dxf.layerResults'), color: DXF_COLORS.RESULTADOS },
     );
   }
+  // Resolve layer names once for entity use
+  const LY_STRUCTURE = t('dxf.layerStructure');
+  const LY_SUPPORTS = t('dxf.layerSupports');
+  const LY_MOMENTS = t('dxf.layerMoments');
+  const LY_SHEAR = t('dxf.layerShear');
+  const LY_AXIAL = t('dxf.layerAxial');
+  const LY_DEFORMED = t('dxf.layerDeformed');
+  const LY_REACTIONS = t('dxf.layerReactions');
+  const LY_RESULTS = t('dxf.layerResults');
+
   lines.push(...dxfLayerTable(layerDefs));
 
   // Entities
@@ -147,12 +158,12 @@ export function exportDxfWithResults(options: DxfExportOptions): string {
     const ni = modelStore.getNode(elem.nodeI);
     const nj = modelStore.getNode(elem.nodeJ);
     if (!ni || !nj) continue;
-    lines.push(...dxfLine('ESTRUCTURA', ni.x, ni.y, nj.x, nj.y, ni.z ?? 0, nj.z ?? 0));
+    lines.push(...dxfLine(LY_STRUCTURE, ni.x, ni.y, nj.x, nj.y, ni.z ?? 0, nj.z ?? 0));
   }
 
   // Nodes as points
   for (const [, node] of modelStore.nodes) {
-    lines.push(...dxfPoint('ESTRUCTURA', node.x, node.y, node.z ?? 0));
+    lines.push(...dxfPoint(LY_STRUCTURE, node.x, node.y, node.z ?? 0));
   }
 
   // ── Supports ──
@@ -160,8 +171,8 @@ export function exportDxfWithResults(options: DxfExportOptions): string {
   for (const [, sup] of modelStore.supports) {
     const node = modelStore.getNode(sup.nodeId);
     if (!node) continue;
-    lines.push(...dxfPoint('APOYOS_OUT', node.x, node.y, node.z ?? 0));
-    lines.push(...dxfText('APOYOS_OUT', node.x + 0.1, node.y - 0.3, 0.15, supportLabel(sup.type), node.z ?? 0));
+    lines.push(...dxfPoint(LY_SUPPORTS, node.x, node.y, node.z ?? 0));
+    lines.push(...dxfText(LY_SUPPORTS, node.x + 0.1, node.y - 0.3, 0.15, supportLabel(sup.type), node.z ?? 0));
   }
 
   // ── Result diagrams ──
@@ -211,12 +222,12 @@ export function exportDxfWithResults(options: DxfExportOptions): string {
         ...mPts,
         { x: nj.x, y: nj.y },
       ];
-      lines.push(...dxfPolyline('MOMENTOS', mClosed, true));
+      lines.push(...dxfPolyline(LY_MOMENTS, mClosed, true));
 
       if (options.includeValues && mMax > 0.01) {
         const tx = ni.x + mMaxX * dx + mMaxVal * ds * px;
         const ty = ni.y + mMaxX * dy + mMaxVal * ds * py;
-        lines.push(...dxfText('MOMENTOS', tx, ty + 0.05, 0.1, mMaxVal.toFixed(2)));
+        lines.push(...dxfText(LY_MOMENTS, tx, ty + 0.05, 0.1, mMaxVal.toFixed(2)));
       }
 
       // Shear diagram
@@ -239,12 +250,12 @@ export function exportDxfWithResults(options: DxfExportOptions): string {
         ...vPts,
         { x: nj.x, y: nj.y },
       ];
-      lines.push(...dxfPolyline('CORTANTES', vClosed, true));
+      lines.push(...dxfPolyline(LY_SHEAR, vClosed, true));
 
       if (options.includeValues && vMax > 0.01) {
         const tx = ni.x + vMaxX * dx + vMaxVal * ds * px;
         const ty = ni.y + vMaxX * dy + vMaxVal * ds * py;
-        lines.push(...dxfText('CORTANTES', tx, ty + 0.05, 0.1, vMaxVal.toFixed(2)));
+        lines.push(...dxfText(LY_SHEAR, tx, ty + 0.05, 0.1, vMaxVal.toFixed(2)));
       }
 
       // Axial diagram (constant for uniform load case)
@@ -256,12 +267,12 @@ export function exportDxfWithResults(options: DxfExportOptions): string {
           { x: nj.x + N * ds * px, y: nj.y + N * ds * py },
           { x: nj.x, y: nj.y },
         ];
-        lines.push(...dxfPolyline('AXILES', aPts, true));
+        lines.push(...dxfPolyline(LY_AXIAL, aPts, true));
 
         if (options.includeValues) {
           const mx = (ni.x + nj.x) / 2 + N * ds * px;
           const my = (ni.y + nj.y) / 2 + N * ds * py;
-          lines.push(...dxfText('AXILES', mx, my + 0.05, 0.1, N.toFixed(2)));
+          lines.push(...dxfText(LY_AXIAL, mx, my + 0.05, 0.1, N.toFixed(2)));
         }
       }
     }
@@ -291,7 +302,7 @@ export function exportDxfWithResults(options: DxfExportOptions): string {
           dj.ux, dj.uy, dj.rz,
           defScale, ef.length,
         );
-        lines.push(...dxfPolyline('DEFORMADA', defPts));
+        lines.push(...dxfPolyline(LY_DEFORMED, defPts));
       }
     }
 
@@ -305,7 +316,7 @@ export function exportDxfWithResults(options: DxfExportOptions): string {
       if (Math.abs(rx.ry) > 0.001) parts.push(`Ry=${rx.ry.toFixed(2)}`);
       if (Math.abs(rx.mz) > 0.001) parts.push(`Mz=${rx.mz.toFixed(2)}`);
       if (parts.length > 0) {
-        lines.push(...dxfText('REACCIONES', node.x, node.y - 0.5, 0.12, parts.join(' ')));
+        lines.push(...dxfText(LY_REACTIONS, node.x, node.y - 0.5, 0.12, parts.join(' ')));
       }
     }
 
@@ -321,9 +332,9 @@ export function exportDxfWithResults(options: DxfExportOptions): string {
       if (isFinite(minX)) {
         const sx = minX;
         const sy = maxY + 1.5;
-        lines.push(...dxfText('RESULTADOS', sx, sy, 0.2, `Max delta: ${(resultsStore.maxDisplacement * 1000).toFixed(3)} mm`));
-        lines.push(...dxfText('RESULTADOS', sx, sy - 0.4, 0.2, `Max M: ${resultsStore.maxMoment.toFixed(2)} kN.m`));
-        lines.push(...dxfText('RESULTADOS', sx, sy - 0.8, 0.2, `Max V: ${resultsStore.maxShear.toFixed(2)} kN`));
+        lines.push(...dxfText(LY_RESULTS, sx, sy, 0.2, `${t('dxf.summaryMaxDelta')} ${(resultsStore.maxDisplacement * 1000).toFixed(3)} mm`));
+        lines.push(...dxfText(LY_RESULTS, sx, sy - 0.4, 0.2, `${t('dxf.summaryMaxM')} ${resultsStore.maxMoment.toFixed(2)} kN.m`));
+        lines.push(...dxfText(LY_RESULTS, sx, sy - 0.8, 0.2, `${t('dxf.summaryMaxV')} ${resultsStore.maxShear.toFixed(2)} kN`));
       }
     }
   }

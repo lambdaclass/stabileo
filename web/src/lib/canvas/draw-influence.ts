@@ -1,6 +1,7 @@
 // Draw influence line diagram on Canvas 2D
 
 import type { InfluenceLineResult } from '../store/model.svelte';
+import { t } from '../i18n';
 
 interface DrawContext {
   ctx: CanvasRenderingContext2D;
@@ -222,7 +223,7 @@ export function drawInfluenceLine(
           // Label
           ctx.font = 'bold 10px sans-serif';
           ctx.textAlign = 'center';
-          ctx.fillText('P=1', fromX + snx * 8, fromY + sny * 8);
+          ctx.fillText(t('influence.unitLoad'), fromX + snx * 8, fromY + sny * 8);
         }
       }
     }
@@ -276,8 +277,8 @@ export function drawInfluenceLine(
   ctx.fillStyle = '#ff6b6b';
   ctx.font = 'bold 12px sans-serif';
   ctx.textAlign = 'left';
-  const labelText = `LI: ${il.quantity}` +
-    (il.targetNodeId !== undefined ? ` (Nodo ${il.targetNodeId})` : '') +
-    (il.targetElementId !== undefined ? ` (Elem ${il.targetElementId}, t=${(il.targetPosition ?? 0.5).toFixed(1)})` : '');
+  const labelText = `${t('influence.label')}: ${il.quantity}` +
+    (il.targetNodeId !== undefined ? ` (${t('influence.node')} ${il.targetNodeId})` : '') +
+    (il.targetElementId !== undefined ? ` (${t('influence.elem')} ${il.targetElementId}, t=${(il.targetPosition ?? 0.5).toFixed(1)})` : '');
   ctx.fillText(labelText, 10, 20);
 }

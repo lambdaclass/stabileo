@@ -1,5 +1,6 @@
 <script lang="ts">
-  import { MATERIAL_PRESETS, MATERIAL_CATEGORIES, searchPresets, type MaterialPreset } from '../lib/data/material-presets';
+  import { getMaterialPresets, MATERIAL_CATEGORIES, searchPresets, type MaterialPreset } from '../lib/data/material-presets';
+  import { t } from '../lib/i18n';
 
   interface Props {
     open: boolean;
@@ -25,7 +26,7 @@
     <!-- svelte-ignore a11y_no_static_element_interactions -->
     <div class="preset-modal" onclick={(e) => e.stopPropagation()}>
       <div class="preset-header">
-        <h3>Elegir material</h3>
+        <h3>{t('dialog.chooseMaterial')}</h3>
         <button class="close-btn" onclick={onclose}>✕</button>
       </div>
 
@@ -35,12 +36,12 @@
             class="tab-btn"
             class:active={activeCategory === cat.id}
             onclick={() => { activeCategory = cat.id; searchQuery = ''; }}
-          >{cat.label}</button>
+          >{t(cat.label)}</button>
         {/each}
       </div>
 
       <div class="preset-search">
-        <input type="text" placeholder="Buscar material..." bind:value={searchQuery} />
+        <input type="text" placeholder={t('search.material')} bind:value={searchQuery} />
       </div>
 
       <div class="preset-list">
@@ -55,7 +56,7 @@
           </button>
         {/each}
         {#if filtered.length === 0}
-          <p class="no-results">Sin resultados</p>
+          <p class="no-results">{t('search.noResults')}</p>
         {/if}
       </div>
     </div>

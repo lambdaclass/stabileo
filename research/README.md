@@ -16,3 +16,5 @@ Current documents:
   WebGPU fit analysis for the renderer vs solver, with ROI and sequencing guidance.
 - [rc_design_and_bbs.md](/Users/unbalancedparen/projects/dedaliano/research/rc_design_and_bbs.md)
   Why RC design, reinforcement schedules, and later BBS generation should be explicit priorities, with solver vs product responsibilities and staged delivery order.
+- [cypecad_parity_roadmap.md](cypecad_parity_roadmap.md)
+  Comprehensive CYPECAD feature parity roadmap. Exhaustive feature audit vs our 50k-LOC Rust engine — all solver work is done, only frontend/wiring/output remains. Phased plan from rebar detailing (Phase 1) through advanced analysis UI (Phase 5).

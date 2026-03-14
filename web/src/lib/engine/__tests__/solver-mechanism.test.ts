@@ -61,7 +61,7 @@ function expectClose(actual: number, expected: number, label = '') {
 }
 
 function expectMechanism(input: SolverInput) {
-  expect(() => solve(input)).toThrow(/[Mm]ecanismo|singular|hipostática|inestab|apoyo|restringida|desconectados/);
+  expect(() => solve(input)).toThrow(/[Mm]echanism|singular|hypostatic|unstab|support|restrained|disconnected|[Mm]ecanismo|hipostática|inestab|apoyo|restringida|desconectados/);
 }
 
 // ═══════════════════════════════════════════════════════════════

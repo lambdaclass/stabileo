@@ -660,6 +660,60 @@ export function drawReactions(
   ctx.textAlign = 'left'; // reset
 }
 
+// ── Constraint Forces (2D) ────────────────────────────────────────────
+
+export interface ConstraintForceData {
+  nodeId: number;
+  dof: string;
+  force: number;
+}
+
+export function drawConstraintForces(
+  ctx: CanvasRenderingContext2D,
+  forces: ConstraintForceData[],
+  getNodeScreen: (nodeId: number) => ScreenPoint | null,
+): void {
+  if (!forces || forces.length === 0) return;
+  const arrowLen = 35;
+  const headSize = 7;
+  const C = '#f0a500';
+  for (const cf of forces) {
+    if (Math.abs(cf.force) < 0.001) continue;
+    const s = getNodeScreen(cf.nodeId);
+    if (!s) continue;
+    if (cf.dof === 'uy') {
+      const dir = cf.force > 0 ? 1 : -1;
+      const y1 = s.y + dir * arrowLen;
+      ctx.strokeStyle = C; ctx.lineWidth = 2;
+      ctx.beginPath(); ctx.moveTo(s.x, y1); ctx.lineTo(s.x, s.y); ctx.stroke();
+      ctx.fillStyle = C; ctx.beginPath();
+      ctx.moveTo(s.x, s.y); ctx.lineTo(s.x - headSize * 0.5, s.y + dir * headSize); ctx.lineTo(s.x + headSize * 0.5, s.y + dir * headSize);
+      ctx.closePath(); ctx.fill();
+      ctx.font = 'bold 10px sans-serif'; ctx.textAlign = 'center';
+      ctx.fillText(`${Math.abs(cf.force).toFixed(2)} kN`, s.x, y1 + dir * 12);
+    } else if (cf.dof === 'ux') {
+      const dir = cf.force > 0 ? 1 : -1;
+      const x1 = s.x - dir * arrowLen;
+      ctx.strokeStyle = C; ctx.lineWidth = 2;
+      ctx.beginPath(); ctx.moveTo(x1, s.y); ctx.lineTo(s.x, s.y); ctx.stroke();
+      ctx.fillStyle = C; ctx.beginPath();
+      ctx.moveTo(s.x, s.y); ctx.lineTo(s.x - dir * headSize, s.y - headSize * 0.5); ctx.lineTo(s.x - dir * headSize, s.y + headSize * 0.5);
+      ctx.closePath(); ctx.fill();
+      ctx.font = 'bold 10px sans-serif'; ctx.textAlign = 'center';
+      ctx.fillText(`${Math.abs(cf.force).toFixed(2)} kN`, x1 - dir * 5, s.y - 8);
+    } else if (cf.dof === 'rz') {
+      const radius = 18;
+      ctx.strokeStyle = C; ctx.lineWidth = 2;
+      ctx.beginPath(); ctx.arc(s.x, s.y, radius, -Math.PI * 0.7, Math.PI * 0.2, cf.force < 0); ctx.stroke();
+      const tipAngle = cf.force < 0 ? -Math.PI * 0.7 : Math.PI * 0.2;
+      ctx.fillStyle = C; ctx.beginPath(); ctx.arc(s.x + radius * Math.cos(tipAngle), s.y + radius * Math.sin(tipAngle), 3, 0, Math.PI * 2); ctx.fill();
+      ctx.font = 'bold 10px sans-serif'; ctx.textAlign = 'center';
+      ctx.fillText(`${Math.abs(cf.force).toFixed(2)} kN\u00B7m`, s.x, s.y - radius - 5);
+    }
+  }
+  ctx.textAlign = 'left';
+}
+
 // ── Tooltip ──────────────────────────────────────────────────────────
 
 export function drawTooltip(

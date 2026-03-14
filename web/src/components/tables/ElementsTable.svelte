@@ -1,5 +1,6 @@
 <script lang="ts">
   import { modelStore, uiStore, historyStore, resultsStore } from '../../lib/store';
+  import { t } from '../../lib/i18n';
 
   const nodesArr = $derived([...modelStore.nodes.values()]);
   const elementsArr = $derived([...modelStore.elements.values()]);
@@ -37,7 +38,7 @@
 
 <table>
   <thead>
-    <tr><th>ID</th><th>Tipo</th><th>Nodo I</th><th>Nodo J</th><th>Material</th><th>Secci&oacute;n</th><th>Art. I</th><th>Art. J</th><th>L (m)</th><th></th></tr>
+    <tr><th>ID</th><th>{t('table.type')}</th><th>{t('table.nodeI')}</th><th>{t('table.nodeJ')}</th><th>{t('prop.material')}</th><th>{t('table.sectionHeader')}</th><th>{t('table.hingeI')}</th><th>{t('table.hingeJ')}</th><th>L (m)</th><th></th></tr>
   </thead>
   <tbody>
     {#each elementsArr as elem}
@@ -79,10 +80,10 @@
       {#each nodesArr as n}<option value={n.id}>{n.id}</option>{/each}
     </select>
     <select bind:value={newElemType} class="add-input">
-      <option value="frame">Frame</option>
-      <option value="truss">Truss</option>
+      <option value="frame">{t('table.frame')}</option>
+      <option value="truss">{t('table.truss')}</option>
     </select>
-    <button class="add-btn" onclick={addElement}>+ Elemento</button>
+    <button class="add-btn" onclick={addElement}>{t('table.addElement')}</button>
   </div>
 </div>
 

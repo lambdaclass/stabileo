@@ -8,6 +8,7 @@ import type {
 } from './types';
 import { choleskySolve } from './matrix-utils';
 import { computeStaticDegree as _computeStaticDegree, analyzeKinematics as _analyzeKinematics } from './kinematic-2d';
+import { t } from '../i18n';
 
 // ─── DOF Numbering ───────────────────────────────────────────────
 
@@ -696,7 +697,7 @@ export function solveLU(A: Float64Array, b: Float64Array, n: number): Float64Arr
     }
 
     if (maxVal < singularityTol) {
-      throw new Error(`Matriz singular (mecanismo o estructura hipostática). La estructura no tiene suficientes restricciones para ser estable. Verificá los apoyos y la geometría.`);
+      throw new Error(t('solver.singularMatrix'));
     }
 
     // Swap rows
@@ -723,7 +724,7 @@ export function solveLU(A: Float64Array, b: Float64Array, n: number): Float64Arr
 
   // Check last diagonal
   if (Math.abs(a[(n - 1) * n + (n - 1)]) < singularityTol) {
-    throw new Error('Matriz singular (mecanismo). La estructura es hipostática — no tiene suficientes vínculos para equilibrio estático.');
+    throw new Error(t('solver.singularHypostatic'));
   }
 
   // Back substitution
@@ -739,7 +740,7 @@ export function solveLU(A: Float64Array, b: Float64Array, n: number): Float64Arr
   // Check for NaN/Inf
   for (let i = 0; i < n; i++) {
     if (!isFinite(x[i])) {
-      throw new Error(`Resultado inválido (mecanismo). La estructura es hipostática o tiene un grado de libertad sin restringir.`);
+      throw new Error(t('solver.invalidResult'));
     }
   }
 
@@ -949,44 +950,44 @@ export function computeInternalForces(
 
 export function solve(input: SolverInput): AnalysisResults {
   // Validate
-  if (input.nodes.size < 2) throw new Error('Se necesitan al menos 2 nodos');
-  if (input.elements.size < 1) throw new Error('Se necesita al menos 1 elemento');
-  if (input.supports.size < 1) throw new Error('Se necesita al menos 1 apoyo');
+  if (input.nodes.size < 2) throw new Error(t('solver.minNodes'));
+  if (input.elements.size < 1) throw new Error(t('solver.minElements'));
+  if (input.supports.size < 1) throw new Error(t('solver.minSupports'));
 
   // Validate all element nodes exist and geometry is valid
   for (const elem of input.elements.values()) {
     if (!input.nodes.has(elem.nodeI) || !input.nodes.has(elem.nodeJ)) {
-      throw new Error(`Elemento ${elem.id}: nodos no encontrados`);
+      throw new Error(t('solver.elemNodesNotFound').replace('{id}', String(elem.id)));
     }
     if (!input.materials.has(elem.materialId)) {
-      throw new Error(`Elemento ${elem.id}: material ${elem.materialId} no encontrado`);
+      throw new Error(t('solver.elemMaterialNotFound').replace('{id}', String(elem.id)).replace('{matId}', String(elem.materialId)));
     }
     if (!input.sections.has(elem.sectionId)) {
-      throw new Error(`Elemento ${elem.id}: sección ${elem.sectionId} no encontrada`);
+      throw new Error(t('solver.elemSectionNotFound').replace('{id}', String(elem.id)).replace('{secId}', String(elem.sectionId)));
     }
     // Check for zero-length elements
     const ni = input.nodes.get(elem.nodeI)!;
     const nj = input.nodes.get(elem.nodeJ)!;
     const L = nodeDistance(ni, nj);
     if (L < 1e-10) {
-      throw new Error(`Elemento ${elem.id}: longitud cero (nodos ${elem.nodeI} y ${elem.nodeJ} coinciden)`);
+      throw new Error(t('solver.elemZeroLength').replace('{id}', String(elem.id)).replace('{nodeI}', String(elem.nodeI)).replace('{nodeJ}', String(elem.nodeJ)));
     }
   }
 
   // Validate material properties
   for (const mat of input.materials.values()) {
     if (mat.e <= 0) {
-      throw new Error(`Material ${mat.id}: módulo de elasticidad E debe ser > 0`);
+      throw new Error(t('solver.matInvalidE').replace('{id}', String(mat.id)));
     }
   }
 
   // Validate section properties
   for (const sec of input.sections.values()) {
     if (sec.a <= 0) {
-      throw new Error(`Sección ${sec.id} "${sec.name}": área A debe ser > 0`);
+      throw new Error(t('solver.secInvalidA').replace('{id}', String(sec.id)).replace('{name}', sec.name));
     }
     if (sec.iz <= 0) {
-      throw new Error(`Sección ${sec.id} "${sec.name}": inercia Iz debe ser > 0`);
+      throw new Error(t('solver.secInvalidIz').replace('{id}', String(sec.id)).replace('{name}', sec.name));
     }
   }
 
@@ -1000,7 +1001,7 @@ export function solve(input: SolverInput): AnalysisResults {
         const nj = input.nodes.get(elem.nodeJ)!;
         const L = nodeDistance(ni, nj);
         if (pl.a < 0 || pl.a > L) {
-          throw new Error(`Carga puntual en elemento ${pl.elementId}: posición a=${pl.a.toFixed(3)}m fuera del rango [0, ${L.toFixed(3)}m]`);
+          throw new Error(t('solver.pointLoadOutOfRange').replace('{elemId}', String(pl.elementId)).replace('{a}', pl.a.toFixed(3)).replace('{L}', L.toFixed(3)));
         }
       }
     }
@@ -1044,8 +1045,7 @@ export function solve(input: SolverInput): AnalysisResults {
       // → node has zero transverse stiffness → mechanism
       if (doubleHinged >= frames && frames >= 2 && !supType) {
         throw new Error(
-          `Mecanismo en nodo ${nodeId}: todos los ${frames} elementos tienen articulación en ambos extremos ` +
-          `(solo transmiten axil). El nudo no tiene rigidez lateral ni a flexión.`
+          t('solver.mechanismAllDoubleHinged').replace('{nodeId}', String(nodeId)).replace('{frames}', String(frames))
         );
       }
       // Case 2: ALL elements hinged at this node AND at least one is double-hinged.
@@ -1057,9 +1057,7 @@ export function solve(input: SolverInput): AnalysisResults {
       const hasRotSupport = supType === 'fixed' || supType === 'spring';
       if (hinges >= frames && frames >= 2 && doubleHinged > 0 && !hasRotSupport) {
         throw new Error(
-          `Mecanismo en nodo ${nodeId}: todos los ${frames} elementos tienen articulación en ese nodo ` +
-          `y ${doubleHinged} de ellos son biarticulados (solo axil). ` +
-          `El nudo no tiene rigidez a flexión ni suficiente rigidez transversal.`
+          t('solver.mechanismHingedNode').replace('{nodeId}', String(nodeId)).replace('{frames}', String(frames)).replace('{doubleHinged}', String(doubleHinged))
         );
       }
     }
@@ -1107,7 +1105,7 @@ export function solve(input: SolverInput): AnalysisResults {
   }
 
   if (dofNum.nFree === 0 && !hasPrescribed && input.loads.length === 0) {
-    throw new Error('No hay grados de libertad libres — la estructura está completamente restringida');
+    throw new Error(t('solver.noFreeDofs'));
   }
 
   // Assemble
@@ -1194,11 +1192,7 @@ export function solve(input: SolverInput): AnalysisResults {
   if (artificialDofs.size > 0) {
     for (const idx of artificialDofs) {
       if (idx < nf && Math.abs(uf[idx]) > 100) {
-        throw new Error(
-          'Mecanismo local detectado: un nodo con todas las barras articuladas tiene ' +
-          'rotación excesiva, lo que indica una inestabilidad local. ' +
-          'Revisá las articulaciones de la estructura.'
-        );
+        throw new Error(t('solver.localMechanismRotation'));
       }
     }
   }
@@ -1226,11 +1220,7 @@ export function solve(input: SolverInput): AnalysisResults {
 
     // If max displacement exceeds 10× the structure span, it's a near-mechanism
     if (maxDisp > 10 * maxSpan) {
-      throw new Error(
-        'Mecanismo local detectado: los desplazamientos son excesivos, lo que indica una ' +
-        'inestabilidad local (por ejemplo, un panel rectangular con todas las barras articuladas ' +
-        'en ambos extremos). Revisá las articulaciones y la geometría de la estructura.'
-      );
+      throw new Error(t('solver.localMechanismDisplacement'));
     }
   }
 

@@ -75,20 +75,20 @@ describe('Per-element analysis — isostatic structures', () => {
 
     // Node 1: has pinned support
     expect(ea.nodeIInfo.support).not.toBeNull();
-    expect(ea.nodeIInfo.support!.type).toBe('Articulación fija');
+    expect(ea.nodeIInfo.support!.type).toBe('Pin support');
     expect(ea.nodeIInfo.connectedElems).toHaveLength(0);
 
     // Node 2: has roller support
     expect(ea.nodeJInfo.support).not.toBeNull();
-    expect(ea.nodeJInfo.support!.type).toBe('Roller horizontal');
+    expect(ea.nodeJInfo.support!.type).toBe('Horizontal roller');
     expect(ea.nodeJInfo.connectedElems).toHaveLength(0);
 
     // Descriptions mention the support types
-    expect(ea.nodeIInfo.constraintDescription).toContain('Articulación fija');
-    expect(ea.nodeJInfo.constraintDescription).toContain('Roller horizontal');
+    expect(ea.nodeIInfo.constraintDescription).toContain('Pin support');
+    expect(ea.nodeJInfo.constraintDescription).toContain('Horizontal roller');
 
-    // Explanation mentions "justa"
-    expect(ea.explanation).toContain('justa');
+    // Explanation mentions "Just right"
+    expect(ea.explanation).toContain('Just right');
   });
 
   it('Cantilever: 1 element, fixed at node I, free at node J → isostatic', () => {
@@ -104,12 +104,12 @@ describe('Per-element analysis — isostatic structures', () => {
 
     // Node 1: fixed
     expect(ea.nodeIInfo.support).not.toBeNull();
-    expect(ea.nodeIInfo.support!.type).toBe('Empotramiento');
+    expect(ea.nodeIInfo.support!.type).toBe('Fixed support');
 
     // Node 2: free end
     expect(ea.nodeJInfo.support).toBeNull();
     expect(ea.nodeJInfo.connectedElems).toHaveLength(0);
-    expect(ea.nodeJInfo.constraintDescription).toContain('libre');
+    expect(ea.nodeJInfo.constraintDescription).toContain('Free end');
   });
 
   it('Gerber beam (isostatic with internal hinge): 2 elements → both isostatic', () => {
@@ -208,7 +208,7 @@ describe('Per-element analysis — hyperstatic structures', () => {
     expect(report.degree).toBe(1);
     const ea = getElemAnalysis(report, 1);
     expect(ea.status).toBe('hyperstatic');
-    expect(ea.explanation).toContain('de más');
+    expect(ea.explanation).toContain('excess');
   });
 });
 
@@ -230,7 +230,7 @@ describe('Per-element analysis — mechanism detection', () => {
     expect(report.elementAnalysis).toHaveLength(1);
     const ea = getElemAnalysis(report, 1);
     expect(ea.status).toBe('mechanism');
-    expect(ea.explanation).toContain('sin restringir');
+    expect(ea.explanation).toContain('unconstrained');
   });
 
   it('Beam with only 1 roller: mechanism', () => {
@@ -330,14 +330,14 @@ describe('Per-element analysis — virtual support from connections', () => {
     expect(ea1.nodeJInfo.support).toBeNull();
     expect(ea1.nodeJInfo.connectedElems).toHaveLength(1);
     expect(ea1.nodeJInfo.connectedElems[0].elemId).toBe(2);
-    expect(ea1.nodeJInfo.constraintDescription).toContain('inculación virtual');
+    expect(ea1.nodeJInfo.constraintDescription).toContain('irtual constraint');
 
     // Element 2: node 2 has no support but connected to elem 1
     const ea2 = getElemAnalysis(report, 2);
     expect(ea2.nodeIInfo.support).toBeNull();
     expect(ea2.nodeIInfo.connectedElems).toHaveLength(1);
     expect(ea2.nodeIInfo.connectedElems[0].elemId).toBe(1);
-    expect(ea2.nodeIInfo.constraintDescription).toContain('inculación virtual');
+    expect(ea2.nodeIInfo.constraintDescription).toContain('irtual constraint');
   });
 
   it('Hinge info is correctly reported in constraint description', () => {
@@ -351,7 +351,7 @@ describe('Per-element analysis — virtual support from connections', () => {
     const ea1 = getElemAnalysis(report, 1);
     // Element 1 has hinge at node J (node 2)
     expect(ea1.nodeJInfo.isHingedEnd).toBe(true);
-    expect(ea1.nodeJInfo.constraintDescription).toContain('articulación');
+    expect(ea1.nodeJInfo.constraintDescription).toContain('hinge');
 
     // Element 2: at node 2, connected elem 1 has a hinge at that node
     const ea2 = getElemAnalysis(report, 2);
@@ -380,13 +380,13 @@ describe('Per-element analysis — upstream vs downstream elements', () => {
     const ea1 = getElemAnalysis(report, 1);
     expect(ea1.status).toBe('isostatic');
     expect(ea1.nodeIInfo.support).not.toBeNull();
-    expect(ea1.nodeIInfo.support!.type).toBe('Empotramiento');
+    expect(ea1.nodeIInfo.support!.type).toBe('Fixed support');
     // At node 2: Elem 2 does NOT reach a support without going through Elem 1
     expect(ea1.nodeJInfo.connectedElems).toHaveLength(1);
     expect(ea1.nodeJInfo.connectedElems[0].elemId).toBe(2);
     expect(ea1.nodeJInfo.connectedElems[0].reachesSupport).toBe(false);
     // Description should NOT say "vinculación virtual" for a downstream element
-    expect(ea1.nodeJInfo.constraintDescription).not.toContain('inculación virtual');
+    expect(ea1.nodeJInfo.constraintDescription).not.toContain('irtual constraint');
 
     // Element 2: Node 2 has Elem 1 (upstream → reaches fixed support), Node 3 has Elem 3 (downstream)
     const ea2 = getElemAnalysis(report, 2);
@@ -394,11 +394,11 @@ describe('Per-element analysis — upstream vs downstream elements', () => {
     // Node 2: Elem 1 reaches the fixed support → upstream
     expect(ea2.nodeIInfo.connectedElems[0].elemId).toBe(1);
     expect(ea2.nodeIInfo.connectedElems[0].reachesSupport).toBe(true);
-    expect(ea2.nodeIInfo.constraintDescription).toContain('inculación virtual');
+    expect(ea2.nodeIInfo.constraintDescription).toContain('irtual constraint');
     // Node 3: Elem 3 does NOT reach a support without Elem 2 → downstream
     expect(ea2.nodeJInfo.connectedElems[0].elemId).toBe(3);
     expect(ea2.nodeJInfo.connectedElems[0].reachesSupport).toBe(false);
-    expect(ea2.nodeJInfo.constraintDescription).not.toContain('inculación virtual');
+    expect(ea2.nodeJInfo.constraintDescription).not.toContain('irtual constraint');
 
     // Element 3: Node 3 has Elem 2 (upstream → reaches fixed through chain), Node 4 is free
     const ea3 = getElemAnalysis(report, 3);
@@ -407,7 +407,7 @@ describe('Per-element analysis — upstream vs downstream elements', () => {
     expect(ea3.nodeIInfo.connectedElems[0].reachesSupport).toBe(true);
     expect(ea3.nodeJInfo.support).toBeNull();
     expect(ea3.nodeJInfo.connectedElems).toHaveLength(0);
-    expect(ea3.nodeJInfo.constraintDescription).toContain('Extremo libre');
+    expect(ea3.nodeJInfo.constraintDescription).toContain('Free end');
   });
 
   it('Beam with supports on both ends: both nodes provide real constraint', () => {
@@ -494,21 +494,21 @@ describe('Per-element analysis — DOF breakdown', () => {
     // ux: from empotramiento at node 1
     const uxLine = bd.lines.find(l => l.dof === 'ux')!;
     expect(uxLine.sources).toHaveLength(1);
-    expect(uxLine.sources[0].label).toContain('Empotramiento');
-    expect(uxLine.sources[0].label).toContain('Nodo 1');
+    expect(uxLine.sources[0].label).toContain('Fixed support');
+    expect(uxLine.sources[0].label).toContain('Node 1');
     expect(uxLine.sources[0].viaElems).toEqual([]);
 
     // uy: from empotramiento at node 1
     const uyLine = bd.lines.find(l => l.dof === 'uy')!;
     expect(uyLine.sources).toHaveLength(1);
-    expect(uyLine.sources[0].label).toContain('Empotramiento');
+    expect(uyLine.sources[0].label).toContain('Fixed support');
 
     // θz: from empotramiento at node 1
     const tzLine = bd.lines.find(l => l.dof === 'θz')!;
     expect(tzLine.sources).toHaveLength(1);
-    expect(tzLine.sources[0].label).toContain('Empotramiento');
+    expect(tzLine.sources[0].label).toContain('Fixed support');
 
-    expect(bd.summary).toContain('isostática');
+    expect(bd.summary).toContain('isostatic');
   });
 
   it('Simply supported beam (pinned + rollerX): ux(1), uy(2), θz(implicit)', () => {
@@ -525,23 +525,23 @@ describe('Per-element analysis — DOF breakdown', () => {
     // ux: from pinned at node 1 (only source)
     const uxLine = bd.lines.find(l => l.dof === 'ux')!;
     expect(uxLine.sources).toHaveLength(1);
-    expect(uxLine.sources[0].label).toContain('Articulación fija');
+    expect(uxLine.sources[0].label).toContain('Pin support');
 
     // uy: from pinned at node 1 + roller at node 2 (2 sources)
     const uyLine = bd.lines.find(l => l.dof === 'uy')!;
     expect(uyLine.sources).toHaveLength(2);
     const uyLabels = uyLine.sources.map(s => s.label);
-    expect(uyLabels.some(l => l.includes('Articulación fija'))).toBe(true);
-    expect(uyLabels.some(l => l.includes('Roller horizontal'))).toBe(true);
+    expect(uyLabels.some(l => l.includes('Pin support'))).toBe(true);
+    expect(uyLabels.some(l => l.includes('Horizontal roller'))).toBe(true);
 
     // θz: should be implicit couple (no direct θz source, but uy at both ends)
     // The force couple between the pin at node 1 and roller at node 2 prevents rotation.
     const tzLine = bd.lines.find(l => l.dof === 'θz')!;
     expect(tzLine.sources.length).toBeGreaterThanOrEqual(1);
     expect(tzLine.sources.some(s => s.implicit === true)).toBe(true);
-    expect(tzLine.displayText).toContain('Cupla');
-    expect(tzLine.displayText).toContain('Articulación fija');
-    expect(tzLine.displayText).toContain('Roller horizontal');
+    expect(tzLine.displayText).toContain('Couple');
+    expect(tzLine.displayText).toContain('Pin support');
+    expect(tzLine.displayText).toContain('Horizontal roller');
   });
 
   it('Cantilever chain (3 segments): DOFs flow via chain with element IDs', () => {
@@ -557,18 +557,18 @@ describe('Per-element analysis — DOF breakdown', () => {
     const bd2 = ea2.dofBreakdown;
     const ux2 = bd2.lines.find(l => l.dof === 'ux')!;
     expect(ux2.sources).toHaveLength(1);
-    expect(ux2.sources[0].label).toContain('Empotramiento');
+    expect(ux2.sources[0].label).toContain('Fixed support');
     expect(ux2.sources[0].viaElems).toContain(1); // via Barra 1
-    expect(ux2.displayText).toContain('vía');
+    expect(ux2.displayText).toContain('via');
 
     // Element 3: DOFs should come from empotramiento via Barra 2 → Barra 1
     const ea3 = getElemAnalysis(report, 3);
     const bd3 = ea3.dofBreakdown;
     const ux3 = bd3.lines.find(l => l.dof === 'ux')!;
     expect(ux3.sources).toHaveLength(1);
-    expect(ux3.sources[0].label).toContain('Empotramiento');
+    expect(ux3.sources[0].label).toContain('Fixed support');
     expect(ux3.sources[0].viaElems.length).toBeGreaterThanOrEqual(1); // via at least 1 element
-    expect(ux3.displayText).toContain('vía');
+    expect(ux3.displayText).toContain('via');
   });
 
   it('Hinge blocks θz flow through chain', () => {
@@ -610,7 +610,7 @@ describe('Per-element analysis — DOF breakdown', () => {
 
     // Total should be more than needed
     expect(bd.totalConstraints).toBeGreaterThan(bd.needed);
-    expect(bd.summary).toContain('de más');
+    expect(bd.summary).toContain('excess');
   });
 
   it('No supports: all DOFs show sin restricción', () => {
@@ -625,9 +625,9 @@ describe('Per-element analysis — DOF breakdown', () => {
 
     for (const line of bd.lines) {
       expect(line.sources).toHaveLength(0);
-      expect(line.displayText).toContain('sin restricción');
+      expect(line.displayText).toContain('no constraint');
     }
-    expect(bd.summary).toContain('mecanismo');
+    expect(bd.summary).toContain('mechanism');
   });
 
   it('Truss element: only ux and uy lines (no θz)', () => {

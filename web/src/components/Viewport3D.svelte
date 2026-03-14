@@ -1,16 +1,17 @@
 <script lang="ts">
   import { onMount } from 'svelte';
+  import { t } from '../lib/i18n';
   import * as THREE from 'three';
   import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
-  import { modelStore, uiStore, resultsStore, historyStore, dsmStepsStore } from '../lib/store';
+  import { modelStore, uiStore, resultsStore, historyStore, dsmStepsStore, verificationStore } from '../lib/store';
   import { setLineResolution, fatLineResolution } from '../lib/three/create-element-mesh';
   import { COLORS, setMeshColor, findUserData, disposeObject, createTextSprite } from '../lib/three/selection-helpers';
   import { evaluateDiagramAt, formatDiagramValue3D, type Diagram3DKind } from '../lib/engine/diagrams-3d';
   import { getGroundIntersection as _getGroundIntersection, findNodeHit as _findNodeHit, findElementHit as _findElementHit, segmentsIntersect2D, segmentIntersectsRect2D } from '../lib/viewport3d/picking';
   import { getModelBounds as _getModelBounds, zoomToFit as _zoomToFit, setView as _setView, handleResize as _handleResize, syncOrthoFrustum as _syncOrthoFrustum } from '../lib/viewport3d/camera';
   import { updateGrid as _updateGrid, createFatAxes as _createFatAxes, addAxisLabels as _addAxisLabels } from '../lib/viewport3d/grid';
-  import { syncNodes as _syncNodes, syncElements as _syncElements, syncSupports as _syncSupports, syncLoads as _syncLoads, syncSelection as _syncSelection, type SceneSyncContext } from '../lib/viewport3d/scene-sync';
-  import { syncDeformed as _syncDeformed, syncDiagrams3D as _syncDiagrams3D, syncColorMap3D as _syncColorMap3D, syncReactions as _syncReactions, syncLabels3D as _syncLabels3D, DIAGRAM_3D_TYPES, type ResultsSyncContext } from '../lib/viewport3d/results-sync';
+  import { syncNodes as _syncNodes, syncElements as _syncElements, syncSupports as _syncSupports, syncLoads as _syncLoads, syncShells as _syncShells, syncSelection as _syncSelection, type SceneSyncContext } from '../lib/viewport3d/scene-sync';
+  import { syncDeformed as _syncDeformed, syncDiagrams3D as _syncDiagrams3D, syncColorMap3D as _syncColorMap3D, syncVerificationLabels as _syncVerificationLabels, syncReactions as _syncReactions, syncConstraintForces as _syncConstraintForces, syncLabels3D as _syncLabels3D, DIAGRAM_3D_TYPES, type ResultsSyncContext } from '../lib/viewport3d/results-sync';
 
   let container: HTMLDivElement;
   let renderer: THREE.WebGLRenderer;
@@ -31,6 +32,7 @@
   let diagramGroup: THREE.Group | null = null;
   let overlayDiagramGroup: THREE.Group | null = null;
   let reactionGroup: THREE.Group | null = null;
+  let constraintForcesGroup: THREE.Group | null = null;
   let nodeLabelsGroup: THREE.Group | null = null;
   let elementLabelsGroup: THREE.Group | null = null;
   let lengthLabelsGroup: THREE.Group | null = null;
@@ -45,6 +47,7 @@
   let supportsParent: THREE.Group;
   let loadsParent: THREE.Group;
   let resultsParent: THREE.Group;
+  let shellsParent: THREE.Group;
 
   // ─── Clipping plane ─────────────────────────────────────────
   const clippingPlane = new THREE.Plane(new THREE.Vector3(0, -1, 0), 0);
@@ -69,21 +72,35 @@
   let hoverTooltip = $state<{ text: string; x: number; y: number } | null>(null);
 
   // ─── Diagram legend (overlay) ────────────────────────────────
-  const DIAGRAM_LABELS: Record<string, { name: string; color: string }> = {
-    momentZ: { name: 'Momento Z (Mz)', color: '#4488ff' },
-    momentY: { name: 'Momento Y (My)', color: '#44bbaa' },
-    shearY:  { name: 'Corte Y (Vy)',   color: '#44bb44' },
-    shearZ:  { name: 'Corte Z (Vz)',   color: '#66aa66' },
-    axial:   { name: 'Axil (N)',        color: '#aa66dd' },
-    torsion: { name: 'Torsión (Mx)',    color: '#ee8844' },
-    deformed:{ name: 'Deformada',       color: '#ff8800' },
+  const DIAGRAM_COLORS: Record<string, string> = {
+    momentZ: '#4488ff',
+    momentY: '#44bbaa',
+    shearY:  '#44bb44',
+    shearZ:  '#66aa66',
+    axial:   '#aa66dd',
+    torsion: '#ee8844',
+    deformed:    '#ff8800',
+    modeShape:   '#4ecdc4',
+    bucklingMode:'#e96941',
+  };
+  const DIAGRAM_LABEL_KEYS: Record<string, string> = {
+    momentZ: 'viewport3d.momentZ',
+    momentY: 'viewport3d.momentY',
+    shearY:  'viewport3d.shearY',
+    shearZ:  'viewport3d.shearZ',
+    axial:   'viewport3d.axial',
+    torsion: 'viewport3d.torsion',
+    deformed:    'viewport3d.deformed',
+    modeShape:   'viewport3d.modeShape',
+    bucklingMode:'viewport3d.bucklingMode',
   };
   const diagramLegend = $derived.by(() => {
     const dt = resultsStore.diagramType;
-    if (dt === 'none' || dt === 'axialColor' || dt === 'colorMap') return null;
-    const label = DIAGRAM_LABELS[dt];
-    if (!label) return null;
-    return label;
+    if (dt === 'none' || dt === 'axialColor' || dt === 'colorMap' || dt === 'verification') return null;
+    const color = DIAGRAM_COLORS[dt];
+    const key = DIAGRAM_LABEL_KEYS[dt];
+    if (!color || !key) return null;
+    return { name: t(key), color };
   });
 
   // ─── Tool interaction state ─────────────────────────────────
@@ -109,7 +126,7 @@
     historyStore.pushState();
     const id = modelStore.addNode(x, y, z);
     uiStore.selectNode(id, false);
-    uiStore.toast(`Nodo ${id} creado en (${x}, ${y}, ${z})`, 'success');
+    uiStore.toast(t('viewport3d.nodeCreatedAt').replace('{id}', String(id)).replace('{x}', String(x)).replace('{y}', String(y)).replace('{z}', String(z)), 'success');
     showCoordDialog = false;
   }
 
@@ -151,7 +168,9 @@
     loadsParent.name = 'loads';
     resultsParent = new THREE.Group();
     resultsParent.name = 'results';
-    scene.add(elementsParent, nodesParent, supportsParent, loadsParent, resultsParent);
+    shellsParent = new THREE.Group();
+    shellsParent.name = 'shells';
+    scene.add(elementsParent, nodesParent, supportsParent, loadsParent, resultsParent, shellsParent);
 
     // Camera — isometric-ish view looking at origin
     perspCamera = new THREE.PerspectiveCamera(50, 1, 0.1, 1000);
@@ -241,6 +260,7 @@
     syncElements();
     syncSupports();
     syncLoads();
+    syncShells();
 
     // Render loop
     function animate() {
@@ -252,13 +272,22 @@
       updateClippingPlane();
 
       // Animate deformed shape (oscillating scale like 2D viewport)
-      if (resultsStore.animateDeformed && resultsStore.diagramType === 'deformed' && resultsStore.results3D) {
-        const baseScale = resultsStore.deformedScale;
-        const animScale = baseScale * Math.sin(performance.now() / (500 / resultsStore.animSpeed));
-        // Only rebuild if scale changed meaningfully (avoid per-frame full rebuild)
-        if (resultsCtx.lastDeformedAnimScale === null || Math.abs(animScale - resultsCtx.lastDeformedAnimScale) > baseScale * 0.02) {
-          resultsCtx.lastDeformedAnimScale = animScale;
-          syncDeformed(animScale);
+      const _dt = resultsStore.diagramType;
+      const _animDeformed = resultsStore.animateDeformed && _dt === 'deformed' && resultsStore.results3D;
+      const _animMode = _dt === 'modeShape' && resultsStore.modalResult3D;
+      const _animBuckling = _dt === 'bucklingMode' && resultsStore.bucklingResult3D;
+      if (_animDeformed || _animMode || _animBuckling) {
+        if (_animMode || _animBuckling) {
+          // Mode shapes always animate — syncDeformed handles the sin() internally
+          syncDeformed();
+        } else {
+          const baseScale = resultsStore.deformedScale;
+          const animScale = baseScale * Math.sin(performance.now() / (500 / resultsStore.animSpeed));
+          // Only rebuild if scale changed meaningfully (avoid per-frame full rebuild)
+          if (resultsCtx.lastDeformedAnimScale === null || Math.abs(animScale - resultsCtx.lastDeformedAnimScale) > baseScale * 0.02) {
+            resultsCtx.lastDeformedAnimScale = animScale;
+            syncDeformed(animScale);
+          }
         }
       } else if (deformedGroup && resultsCtx.lastDeformedAnimScale !== null) {
         // Animation was running but conditions no longer met (model cleared, example changed, etc.)
@@ -275,7 +304,7 @@
 
     // Listen for global zoom-to-fit event (dispatched by F key from Toolbar)
     const handleZoomToFitEvent = () => zoomToFit();
-    window.addEventListener('dedaliano-zoom-to-fit', handleZoomToFitEvent);
+    window.addEventListener('stabileo-zoom-to-fit', handleZoomToFitEvent);
 
     // Listen for camera restore event (dispatched on tab switch)
     const handleRestoreCamera = () => {
@@ -285,7 +314,7 @@
       controls.target.set(tgt.x, tgt.y, tgt.z);
       controls.update();
     };
-    window.addEventListener('dedaliano-restore-camera-3d', handleRestoreCamera);
+    window.addEventListener('stabileo-restore-camera-3d', handleRestoreCamera);
 
     // Keyboard shortcuts for 3D viewport
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -310,8 +339,8 @@
       ro.disconnect();
       renderer.dispose();
       controls.dispose();
-      window.removeEventListener('dedaliano-zoom-to-fit', handleZoomToFitEvent);
-      window.removeEventListener('dedaliano-restore-camera-3d', handleRestoreCamera);
+      window.removeEventListener('stabileo-zoom-to-fit', handleZoomToFitEvent);
+      window.removeEventListener('stabileo-restore-camera-3d', handleRestoreCamera);
       window.removeEventListener('keydown', handleKeyDown);
       window.removeEventListener('keydown', onShiftDown);
       window.removeEventListener('keyup', onShiftUp);
@@ -332,8 +361,9 @@
   function initSyncContexts() {
     sceneCtx = {
       initialized: false,
-      nodesParent, elementsParent, supportsParent, loadsParent, resultsParent, scene,
+      nodesParent, elementsParent, supportsParent, loadsParent, resultsParent, shellsParent, scene,
       nodeMeshes, elementGroups, supportGizmos,
+      shellGroups: new Map(),
       loadGroup: null,
       colorMapApplied: false,
     };
@@ -341,8 +371,9 @@
       initialized: false,
       resultsParent, scene,
       elementGroups,
+      shellGroups: sceneCtx.shellGroups,
       deformedGroup: null, diagramGroup: null, overlayDiagramGroup: null,
-      reactionGroup: null, nodeLabelsGroup: null, elementLabelsGroup: null, lengthLabelsGroup: null,
+      reactionGroup: null, constraintForcesGroup: null, nodeLabelsGroup: null, elementLabelsGroup: null, lengthLabelsGroup: null, verificationLabelsGroup: null,
       lastDeformedAnimScale: null,
       colorMapApplied: false,
     };
@@ -353,11 +384,12 @@
   function syncElements() { _syncElements(sceneCtx); }
   function syncSupports() { _syncSupports(sceneCtx); }
   function syncLoads() { _syncLoads(sceneCtx); loadGroup = sceneCtx.loadGroup; }
+  function syncShells() { _syncShells(sceneCtx); }
   function syncSelection() {
     _syncSelection(sceneCtx);
     // Re-apply color map if active (syncSelection overwrites element colors)
     const dt = resultsStore.diagramType;
-    if (resultsStore.results3D && (dt === 'axialColor' || dt === 'colorMap')) {
+    if (resultsStore.results3D && (dt === 'axialColor' || dt === 'colorMap' || dt === 'verification')) {
       syncColorMap3D();
     }
   }
@@ -374,9 +406,16 @@
     _syncColorMap3D(resultsCtx);
     sceneCtx.colorMapApplied = resultsCtx.colorMapApplied;
   }
+  function syncVerificationLabels() {
+    _syncVerificationLabels(resultsCtx);
+  }
   function syncReactions() {
     _syncReactions(resultsCtx);
     reactionGroup = resultsCtx.reactionGroup;
+  }
+  function syncConstraintForces() {
+    _syncConstraintForces(resultsCtx);
+    constraintForcesGroup = resultsCtx.constraintForcesGroup;
   }
   function syncLabels3D() {
     _syncLabels3D(resultsCtx);
@@ -405,12 +444,19 @@
     syncElements(); // elements depend on nodes for position
     syncSupports();
     syncLoads();
+    syncShells(); // shells depend on node positions
   });
 
   $effect(() => {
     modelStore.elements;
     syncElements();
     syncLoads(); // loads reference elements
+  });
+
+  $effect(() => {
+    modelStore.plates;
+    modelStore.quads;
+    syncShells();
   });
 
   $effect(() => {
@@ -436,8 +482,15 @@
     resultsStore.results3D;
     resultsStore.diagramType;
     resultsStore.deformedScale;
+    resultsStore.modalResult3D;
+    resultsStore.activeModeIndex;
+    resultsStore.bucklingResult3D;
+    resultsStore.activeBucklingMode;
     const animating = resultsStore.animateDeformed;
+    const dt = resultsStore.diagramType;
     if (resultsCtx) resultsCtx.lastDeformedAnimScale = null;
+    // Mode shapes and buckling modes always animate from the render loop
+    if (dt === 'modeShape' || dt === 'bucklingMode') return;
     // When animation is active, let the render loop handle syncDeformed with oscillating scale
     if (!animating) {
       syncDeformed();
@@ -459,13 +512,23 @@
     resultsStore.results3D;
     resultsStore.diagramType;
     resultsStore.colorMapKind;
+    // Also react to verification store changes for 'verification' color map
+    verificationStore.concrete;
+    verificationStore.steel;
     syncColorMap3D();
+    syncVerificationLabels();
   });
 
   $effect(() => {
     resultsStore.results3D;
     resultsStore.showReactions;
     syncReactions();
+  });
+
+  $effect(() => {
+    resultsStore.constraintForces3D;
+    resultsStore.showConstraintForces;
+    syncConstraintForces();
   });
 
   $effect(() => {
@@ -678,7 +741,7 @@
     historyStore.pushState();
     const id = modelStore.addNode(snapped.x, snapped.y, snapped.z);
     uiStore.selectNode(id, false);
-    uiStore.toast(`Nodo ${id} creado`, 'success');
+    uiStore.toast(t('viewport3d.nodeCreated').replace('{id}', String(id)), 'success');
   }
 
   function handleElementTool(e: MouseEvent) {
@@ -697,7 +760,7 @@
       // Highlight node I
       const mesh = nodeMeshes.get(nodeId);
       if (mesh) setMeshColor(mesh, 0x00ff00);
-      uiStore.toast(`Nodo I: ${nodeId} — click en Nodo J`, 'info');
+      uiStore.toast(t('viewport3d.nodeIClickJ').replace('{id}', String(nodeId)), 'info');
     } else {
       // Second click → create element
       if (nodeId === pendingElementNodeI) return; // same node
@@ -705,7 +768,7 @@
       historyStore.pushState();
       const elemId = modelStore.addElement(pendingElementNodeI, nodeId, uiStore.elementCreateType);
       uiStore.selectElement(elemId, false);
-      uiStore.toast(`Elemento ${elemId} creado`, 'success');
+      uiStore.toast(t('viewport3d.elementCreated').replace('{id}', String(elemId)), 'success');
 
       // Clean up
       cancelPendingElement();
@@ -774,7 +837,7 @@
       const opts: any = { dofRestraints, dofFrame: uiStore.supportFrame3D };
       const supId = modelStore.addSupport(nodeId, type, springs, opts);
       uiStore.selectSupport(supId, false);
-      uiStore.toast(`Apoyo ${supId} creado en nodo ${nodeId}`, 'success');
+      uiStore.toast(t('viewport3d.supportCreated').replace('{id}', String(supId)).replace('{nid}', String(nodeId)), 'success');
     } else {
       // 2D support creation (unchanged)
       const type = toSupportType(uiStore.supportType, uiStore.supportDirection);
@@ -790,7 +853,7 @@
       if (uiStore.supportDrz !== 0) opts.drz = uiStore.supportDrz;
       const supId = modelStore.addSupport(nodeId, type as any, springs, opts);
       uiStore.selectSupport(supId, false);
-      uiStore.toast(`Apoyo ${supId} creado en nodo ${nodeId}`, 'success');
+      uiStore.toast(t('viewport3d.supportCreated').replace('{id}', String(supId)).replace('{nid}', String(nodeId)), 'success');
     }
   }
 
@@ -822,7 +885,7 @@
         const mz = dir === 'mz' ? val : 0;
         modelStore.addNodalLoad(nodeId, fx, fy, mz, uiStore.activeLoadCaseId);
       }
-      uiStore.toast(`Carga puntual aplicada en nodo ${nodeId}`, 'success');
+      uiStore.toast(t('viewport3d.pointLoadApplied').replace('{id}', String(nodeId)), 'success');
     } else if (uiStore.loadType === 'distributed') {
       const elemId = findElementHit(e);
       if (elemId === null) return;
@@ -835,7 +898,7 @@
       } else {
         modelStore.addDistributedLoad(elemId, uiStore.loadValue, uiStore.loadValueJ, undefined, undefined, uiStore.activeLoadCaseId);
       }
-      uiStore.toast(`Carga distribuida aplicada en elem ${elemId}`, 'success');
+      uiStore.toast(t('viewport3d.distLoadApplied').replace('{id}', String(elemId)), 'success');
     }
   }
 
@@ -986,7 +1049,7 @@
       measureGroup.add(label);
 
       // Toast with distance
-      uiStore.toast(`Distancia: ${dist.toFixed(3)} m`, 'info');
+      uiStore.toast(t('viewport3d.distance').replace('{dist}', dist.toFixed(3)), 'info');
     }
   }
 
@@ -1241,13 +1304,13 @@
       let tooltipText = '';
       if (newHover.type === 'node') {
         const n = modelStore.nodes.get(newHover.id);
-        if (n) tooltipText = `Nodo ${n.id} (${n.x.toFixed(2)}, ${n.y.toFixed(2)}, ${(n.z ?? 0).toFixed(2)})`;
+        if (n) tooltipText = t('viewport3d.nodeTooltip').replace('{id}', String(n.id)).replace('{x}', n.x.toFixed(2)).replace('{y}', n.y.toFixed(2)).replace('{z}', (n.z ?? 0).toFixed(2));
       } else if (newHover.type === 'element') {
         const el = modelStore.elements.get(newHover.id);
         if (el) tooltipText = `Elem ${el.id} [${el.type}] ${el.nodeI}→${el.nodeJ}`;
       } else if (newHover.type === 'support') {
         const s = modelStore.supports.get(newHover.id);
-        if (s) tooltipText = `Apoyo ${s.id} [${s.type}]`;
+        if (s) tooltipText = t('viewport3d.supportTooltip').replace('{id}', String(s.id)).replace('{type}', s.type);
       }
       if (tooltipText) {
         hoverTooltip = { text: tooltipText, x: e.clientX - rect.left + 15, y: e.clientY - rect.top - 10 };
@@ -1416,7 +1479,7 @@
       const group = elementGroups.get(data.id);
       if (group) {
         const dt = resultsStore.diagramType;
-        if (resultsStore.results3D && (dt === 'axialColor' || dt === 'colorMap')) {
+        if (resultsStore.results3D && (dt === 'axialColor' || dt === 'colorMap' || dt === 'verification')) {
           // Re-apply color map instead of base color
           syncColorMap3D();
         } else {
@@ -1444,7 +1507,7 @@
       if (group) {
         // Don't override color map colors with hover
         const dt = resultsStore.diagramType;
-        if (dt !== 'axialColor' && dt !== 'colorMap') {
+        if (dt !== 'axialColor' && dt !== 'colorMap' && dt !== 'verification') {
           setGroupColor(group, COLORS.elementHovered);
         }
       }
@@ -1553,26 +1616,26 @@
 >
   <!-- Camera preset buttons -->
   <div class="camera-controls" style="top: {uiStore.floatingToolsTopOffset}px">
-    <button onclick={zoomToFit} title="Zoom to Fit">⊞</button>
-    <button onclick={() => setView('top')} title="Top View">⊤</button>
-    <button onclick={() => setView('front')} title="Front View">⊡</button>
-    <button onclick={() => setView('side')} title="Side View">⊟</button>
+    <button onclick={zoomToFit} title={t('viewport3d.zoomToFit')}>⊞</button>
+    <button onclick={() => setView('top')} title={t('viewport3d.topView')}>⊤</button>
+    <button onclick={() => setView('front')} title={t('viewport3d.frontView')}>⊡</button>
+    <button onclick={() => setView('side')} title={t('viewport3d.sideView')}>⊟</button>
     <button
       onclick={toggleCameraMode}
-      title={uiStore.cameraMode3D === 'perspective' ? 'Switch to Orthographic' : 'Switch to Perspective'}
+      title={uiStore.cameraMode3D === 'perspective' ? t('viewport3d.switchToOrtho') : t('viewport3d.switchToPersp')}
     >
       {uiStore.cameraMode3D === 'perspective' ? 'P' : 'O'}
     </button>
     <button
       onclick={() => { uiStore.clippingEnabled = !uiStore.clippingEnabled; }}
-      title={uiStore.clippingEnabled ? 'Disable Clipping' : 'Enable Clipping Plane'}
+      title={uiStore.clippingEnabled ? t('viewport3d.disableClipping') : t('viewport3d.enableClipping')}
       class:active-cam={uiStore.clippingEnabled}
     >
       ✂
     </button>
     <button
       onclick={() => { uiStore.measureMode = !uiStore.measureMode; }}
-      title={uiStore.measureMode ? 'Disable Measure Tool' : 'Measure Distance'}
+      title={uiStore.measureMode ? t('viewport3d.disableMeasure') : t('viewport3d.enableMeasure')}
       class:active-cam={uiStore.measureMode}
     >
       📏
@@ -1608,7 +1671,7 @@
     <!-- svelte-ignore a11y_no_static_element_interactions -->
     <div class="coord-dialog-overlay" onkeydown={(e) => { if (e.key === 'Escape') cancelCoordDialog(); }}>
       <div class="coord-dialog">
-        <div class="coord-title">Crear nodo en coordenadas</div>
+        <div class="coord-title">{t('viewport3d.createNodeCoords')}</div>
         <div class="coord-row">
           <label>X</label>
           <!-- svelte-ignore a11y_autofocus -->
@@ -1629,8 +1692,8 @@
           />
         </div>
         <div class="coord-actions">
-          <button class="coord-btn-ok" onclick={submitCoordDialog}>Crear</button>
-          <button class="coord-btn-cancel" onclick={cancelCoordDialog}>Cancelar</button>
+          <button class="coord-btn-ok" onclick={submitCoordDialog}>{t('viewport3d.create')}</button>
+          <button class="coord-btn-cancel" onclick={cancelCoordDialog}>{t('viewport3d.cancel')}</button>
         </div>
       </div>
     </div>
@@ -1641,17 +1704,35 @@
     <div class="diagram-legend">
       {#if resultsStore.isEnvelopeActive && resultsStore.fullEnvelope3D}
         <span class="legend-color" style="background: #4169E1;"></span>
-        <span class="legend-text">Env +</span>
+        <span class="legend-text">{t('viewport3d.envPlus')}</span>
         <span class="legend-color" style="background: #E15041; margin-left: 8px;"></span>
-        <span class="legend-text">Env −</span>
+        <span class="legend-text">{t('viewport3d.envMinus')}</span>
       {:else}
         <span class="legend-color" style="background: {diagramLegend.color};"></span>
         <span class="legend-text">{diagramLegend.name}</span>
       {/if}
       {#if resultsStore.overlayResults3D && resultsStore.overlayLabel}
         <span class="legend-color" style="background: #FFA500; margin-left: 8px;"></span>
-        <span class="legend-text">Overlay: {resultsStore.overlayLabel}</span>
+        <span class="legend-text">{t('viewport3d.overlay').replace('{label}', resultsStore.overlayLabel)}</span>
       {/if}
+    </div>
+  {/if}
+
+  <!-- Verification color legend -->
+  {#if resultsStore.diagramType === 'verification' && verificationStore.hasResults}
+    <div class="diagram-legend verification-legend">
+      <span class="legend-color" style="background: #22cc66;"></span>
+      <span class="legend-text">&le; 0.5</span>
+      <span class="legend-color" style="background: #88cc22; margin-left: 6px;"></span>
+      <span class="legend-text">&le; 0.9</span>
+      <span class="legend-color" style="background: #ddaa00; margin-left: 6px;"></span>
+      <span class="legend-text">&le; 1.0</span>
+      <span class="legend-color" style="background: #ff6600; margin-left: 6px;"></span>
+      <span class="legend-text">&le; 1.1</span>
+      <span class="legend-color" style="background: #ee2222; margin-left: 6px;"></span>
+      <span class="legend-text">&gt; 1.1</span>
+      <span class="legend-color" style="background: #888888; margin-left: 6px;"></span>
+      <span class="legend-text">N/V</span>
     </div>
   {/if}
 

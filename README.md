@@ -1,8 +1,8 @@
 <p align="center">
-  <img src="Logo.png" alt="Dedaliano" width="180" />
+  <img src="Logo.png" alt="Stabileo" width="180" />
 </p>
 
-<h1 align="center">Dedaliano</h1>
+<h1 align="center">Stabileo</h1>
 
 <p align="center">
   <strong>Open-source structural analysis for the browser.</strong><br>
@@ -10,9 +10,9 @@
 </p>
 
 <p align="center">
-  <a href="https://dedaliano.com">Try it now</a> ·
+  <a href="https://stabileo.com">Try it now</a> ·
   <a href="#what-is-structural-analysis">What is this</a> ·
-  <a href="#why-dedaliano">Why it exists</a> ·
+  <a href="#why-stabileo">Why it exists</a> ·
   <a href="#features">Features</a> ·
   <a href="#documentation-map">Docs</a> ·
   <a href="#getting-started">Getting started</a>
@@ -60,11 +60,11 @@ Use the docs by question:
   competitor comparisons, shell-family research, and element-selection notes
 
 This README is intentionally the short repo-level entry point.
-It should explain what Dedaliano is and where to read next, not duplicate the benchmark ledger, roadmap tables, or market strategy in full.
+It should explain what Stabileo is and where to read next, not duplicate the benchmark ledger, roadmap tables, or market strategy in full.
 
 ## Current state
 
-Dedaliano is an `open-source structural solver` with a growing structural engineering platform around it.
+Stabileo is an `open-source structural solver` with a growing structural engineering platform around it.
 
 Latest reported milestone:
 
@@ -77,7 +77,7 @@ For the concise current snapshot and canonical test-count status, see [`CURRENT_
 
 A reasonable description today is:
 
-`Dedaliano is becoming one of the strongest open structural solvers, with a broader product surface than most solver-first projects.`
+`Stabileo is becoming one of the strongest open structural solvers, with a broader product surface than most solver-first projects.`
 
 What is distinctive is not any one verification technique by itself. The stronger identity is:
 
@@ -147,15 +147,15 @@ For simple members this can be done by hand. For real frames, trusses, plates, s
 
 ---
 
-## Why Dedaliano
+## Why Stabileo
 
 The dominant structural analysis tools today are commercial desktop applications: [SAP2000](https://www.csiamerica.com/products/sap2000) and [ETABS](https://www.csiamerica.com/products/etabs) from CSI, [Robot Structural Analysis](https://www.autodesk.com/products/robot-structural-analysis) from Autodesk, [RSTAB](https://www.dlubal.com/en/products/rstab-beam-structures/what-is-rstab) and [RFEM](https://www.dlubal.com/en/products/rfem-fea-software/what-is-rfem) from Dlubal. A professional license costs thousands of dollars per year. They run on Windows. They require installation, license servers, and IT support. Their source code is closed.
 
 For students, this creates a gap. You learn the theory in class (equilibrium, compatibility, constitutive relations, the stiffness method), but you never see the inside of the machine. The commercial tools are black boxes: you input a model, press solve, and get results. You cannot inspect the stiffness matrix, see how it was assembled, verify a single entry, or understand why a particular element is failing. If the results look wrong, you have no way to trace the computation.
 
-Dedaliano is an attempt to provide an alternative.
+Stabileo is an attempt to provide an alternative.
 
-- **Browser-native.** Open [dedaliano.com](https://dedaliano.com) and start. No download, no license key, no account. Works offline after the first load.
+- **Browser-native.** Open [stabileo.com](https://stabileo.com) and start. No download, no license key, no account. Works offline after the first load.
 - **Open source.** The entire codebase is here. Read the solver, trace the math, submit improvements.
 - **Transparent computation.** A 9-step interactive wizard shows every intermediate result of the Direct Stiffness Method: the local stiffness matrix of each element, the coordinate transformation, the assembled global matrix, the partitioning, the solution, the back-substitution for reactions and internal forces. Every matrix is rendered with [KaTeX](https://katex.org).
 - **Solver-first.** The project is organized around a real structural solver and a large public benchmark program, not only a modeling UI.
@@ -169,7 +169,7 @@ Named after [Daedalus](https://en.wikipedia.org/wiki/Daedalus) (Daidalos), the a
 
 ## Features
 
-Dedaliano combines a browser-native structural app with a broad Rust solver and a large public validation program.
+Stabileo combines a browser-native structural app with a broad Rust solver and a large public validation program.
 
 At the repo level, the most important feature groups are:
 
@@ -185,7 +185,7 @@ For exact solver maturity and benchmark coverage, use [`BENCHMARKS.md`](/Users/u
 ---
 ## Getting started
 
-**Use it now.** Open [dedaliano.com](https://dedaliano.com). Nothing to install. Works on any modern browser.
+**Use it now.** Open [stabileo.com](https://stabileo.com). Nothing to install. Works on any modern browser.
 
 **Run locally.**
 

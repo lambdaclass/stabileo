@@ -176,6 +176,22 @@ export interface EnvelopeDiagramData {
   globalMax: number;
 }
 
+// ─── Diagnostics ───────────────────────────────────────────────
+
+export type DiagnosticSeverity = 'error' | 'warning' | 'info';
+
+/** A single diagnostic message from the solver, verifier, or post-processor */
+export interface SolverDiagnostic {
+  severity: DiagnosticSeverity;
+  code: string;                    // machine-readable: 'VERIF_FAIL_SHEAR', 'PDELTA_NOT_CONVERGED', etc.
+  message: string;                 // i18n key or pre-translated string
+  elementIds?: number[];
+  nodeIds?: number[];
+  source: 'solver' | 'assembly' | 'kinematic' | 'verification' | 'serviceability' | 'stability' | 'model';
+  details?: Record<string, unknown>;
+}
+
+
 /** Envolvente completa con datos puntuales para M, V, N */
 export interface FullEnvelope {
   moment: EnvelopeDiagramData;
@@ -183,107 +199,4 @@ export interface FullEnvelope {
   axial: EnvelopeDiagramData;
   /** AnalysisResults con max-abs (backward compat para deformada, tabla, reacciones) */
   maxAbsResults: AnalysisResults;
-}
-
-// ─── Beam Station Extraction (2D) ────────────────────────────────
-
-export interface BeamMemberInfo {
-  elementId: number;
-  sectionId: number;
-  materialId: number;
-  length: number;
-  label?: string;
-}
-
-export interface LabeledResults {
-  comboId: number;
-  comboName?: string;
-  results: AnalysisResults;
-}
-
-export interface BeamStationInput {
-  members: BeamMemberInfo[];
-  combinations: LabeledResults[];
-  numStations?: number;
-}
-
-export interface StationComboForces {
-  comboId: number;
-  comboName?: string;
-  n: number;
-  v: number;
-  m: number;
-}
-
-export interface GoverningEntry {
-  posCombo: number;
-  posValue: number;
-  negCombo: number;
-  negValue: number;
-}
-
-export interface GoverningInfo {
-  moment?: GoverningEntry;
-  shear?: GoverningEntry;
-  axial?: GoverningEntry;
-}
-
-export interface BeamStation {
-  memberId: number;
-  label?: string;
-  stationIndex: number;
-  t: number;
-  stationX: number;
-  sectionId: number;
-  materialId: number;
-  comboForces: StationComboForces[];
-  governing: GoverningInfo;
-}
-
-export interface SignConvention2D {
-  localX: string;
-  axial: string;
-  shear: string;
-  moment: string;
-  stationX: string;
-}
-
-export interface BeamStationResult {
-  stations: BeamStation[];
-  numMembers: number;
-  numCombinations: number;
-  numStationsPerMember: number;
-  signConvention: SignConvention2D;
-}
-
-export interface MemberGoverningEntry {
-  posCombo: number;
-  posValue: number;
-  posStationIndex: number;
-  negCombo: number;
-  negValue: number;
-  negStationIndex: number;
-}
-
-export interface MemberGoverning {
-  moment?: MemberGoverningEntry;
-  shear?: MemberGoverningEntry;
-  axial?: MemberGoverningEntry;
-}
-
-export interface MemberStationGroup {
-  memberId: number;
-  label?: string;
-  sectionId: number;
-  materialId: number;
-  length: number;
-  stations: BeamStation[];
-  memberGoverning: MemberGoverning;
-}
-
-export interface GroupedBeamStationResult {
-  members: MemberStationGroup[];
-  numCombinations: number;
-  numStationsPerMember: number;
-  signConvention: SignConvention2D;
 }

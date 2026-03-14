@@ -1,26 +1,27 @@
 <script lang="ts">
   import { uiStore } from '../../lib/store';
+  import { t } from '../../lib/i18n';
 
   const supportTypes = [
-    { id: 'fixed', label: 'Empot.', icon: '▣', svg: false },
-    { id: 'pinned', label: 'Artic.', icon: '△', svg: false },
-    { id: 'roller', label: 'Móvil', icon: '', svg: true },
-    { id: 'spring', label: 'Resorte', icon: '⌇', svg: false },
+    { id: 'fixed', key: 'float.supportFixedShort', icon: '▣', svg: false },
+    { id: 'pinned', key: 'float.supportPinnedShort', icon: '△', svg: false },
+    { id: 'roller', key: 'float.supportRoller', icon: '', svg: true },
+    { id: 'spring', key: 'float.supportSpring', icon: '⌇', svg: false },
   ] as const;
 </script>
 
 {#if uiStore.analysisMode === '3d'}
   <!-- Per-DOF checkboxes (global frame) -->
-  <label class="ft-chk" title="Restringir traslación X"><input type="checkbox" bind:checked={uiStore.sup3dTx}/> <span>Fx</span></label>
-  <label class="ft-chk" title="Restringir traslación Y"><input type="checkbox" bind:checked={uiStore.sup3dTy}/> <span>Fy</span></label>
-  <label class="ft-chk" title="Restringir traslación Z"><input type="checkbox" bind:checked={uiStore.sup3dTz}/> <span>Fz</span></label>
-  <label class="ft-chk" title="Restringir rotación X"><input type="checkbox" bind:checked={uiStore.sup3dRx}/> <span>Mx</span></label>
-  <label class="ft-chk" title="Restringir rotación Y"><input type="checkbox" bind:checked={uiStore.sup3dRy}/> <span>My</span></label>
-  <label class="ft-chk" title="Restringir rotación Z"><input type="checkbox" bind:checked={uiStore.sup3dRz}/> <span>Mz</span></label>
+  <label class="ft-chk" title={t('float.supportRestrainTx')}><input type="checkbox" bind:checked={uiStore.sup3dTx}/> <span>Fx</span></label>
+  <label class="ft-chk" title={t('float.supportRestrainTy')}><input type="checkbox" bind:checked={uiStore.sup3dTy}/> <span>Fy</span></label>
+  <label class="ft-chk" title={t('float.supportRestrainTz')}><input type="checkbox" bind:checked={uiStore.sup3dTz}/> <span>Fz</span></label>
+  <label class="ft-chk" title={t('float.supportRestrainRx')}><input type="checkbox" bind:checked={uiStore.sup3dRx}/> <span>Mx</span></label>
+  <label class="ft-chk" title={t('float.supportRestrainRy')}><input type="checkbox" bind:checked={uiStore.sup3dRy}/> <span>My</span></label>
+  <label class="ft-chk" title={t('float.supportRestrainRz')}><input type="checkbox" bind:checked={uiStore.sup3dRz}/> <span>Mz</span></label>
   <span class="ft-sep">|</span>
   <!-- Quick presets -->
-  <button class="ft-opt-btn" onclick={() => uiStore.setSupport3DPreset('fixed')} title="Empotrado: 6 GdL restringidos">▣ Empot.</button>
-  <button class="ft-opt-btn" onclick={() => uiStore.setSupport3DPreset('pinned')} title="Articulado: 3 traslaciones">△ Artic.</button>
+  <button class="ft-opt-btn" onclick={() => uiStore.setSupport3DPreset('fixed')} title={t('float.supportFixed3dTitle')}>▣ {t('float.supportFixedShort')}</button>
+  <button class="ft-opt-btn" onclick={() => uiStore.setSupport3DPreset('pinned')} title={t('float.supportPinned3dTitle')}>△ {t('float.supportPinnedShort')}</button>
   <span class="ft-sep">|</span>
   <!-- Spring stiffnesses for unchecked DOFs -->
   {#if !uiStore.sup3dTx || !uiStore.sup3dTy || !uiStore.sup3dTz || !uiStore.sup3dRx || !uiStore.sup3dRy || !uiStore.sup3dRz}
@@ -43,7 +44,7 @@
       <label class="ft-input-group"><span>krz:</span><input type="number" bind:value={uiStore.sup3dKrz} step="100" placeholder="0" /></label>
     {/if}
   {/if}
-  <span class="ft-hint">Click en un nodo para asignar apoyo</span>
+  <span class="ft-hint">{t('float.supportHint')}</span>
 {:else}
   <!-- 2D support types -->
   {#each supportTypes as st}
@@ -51,7 +52,7 @@
       class="ft-opt-btn ft-sup-btn"
       class:active={uiStore.supportType === st.id}
       onclick={() => uiStore.supportType = st.id}
-      title={st.label}
+      title={t(st.key)}
     >
       {#if st.id === 'roller'}
         <svg class="ft-sup-svg" viewBox="0 0 20 20" width="16" height="16">
@@ -62,7 +63,7 @@
       {:else}
         {st.icon}
       {/if}
-      {st.label}
+      {t(st.key)}
     </button>
   {/each}
   {#if uiStore.supportType === 'spring'}
@@ -81,10 +82,10 @@
     </label>
     <span class="ft-sep">|</span>
     <button class="ft-opt-btn ft-coord-btn" class:active={uiStore.supportIsGlobal} onclick={() => uiStore.supportIsGlobal = true}
-      title="Ejes globales: kx en horizontal, ky en vertical">Gl</button>
+      title={t('float.supportGlobalAxes')}>Gl</button>
     <button class="ft-opt-btn ft-coord-btn" class:active={!uiStore.supportIsGlobal} onclick={() => uiStore.supportIsGlobal = false}
-      title="Ejes locales: kx paralelo a la barra, ky perpendicular">Loc</button>
-    <label class="ft-input-group" title="Ángulo de rotación del resorte (afecta la dirección de las rigideces)">
+      title={t('float.supportLocalAxes')}>Loc</button>
+    <label class="ft-input-group" title={t('float.supportAngle')}>
       <span>α:</span>
       <input type="number" bind:value={uiStore.supportAngle} step="5" />
       <span class="ft-unit">°</span>
@@ -94,26 +95,26 @@
     <button class="ft-opt-btn ft-dir-btn" class:active={uiStore.supportDirection === 'x'}
       onclick={() => uiStore.supportDirection = 'x'}
       title={uiStore.supportIsGlobal
-        ? 'Restringe desplazamiento vertical (reacción en Y). Libre en X.'
-        : 'Restringe desplazamiento perpendicular a la barra (eje j). Libre en i.'}
+        ? t('float.rollerRestrictsYGlobal')
+        : t('float.rollerRestrictsJLocal')}
     >{uiStore.supportIsGlobal ? 'X' : 'i'}</button>
     <button class="ft-opt-btn ft-dir-btn" class:active={uiStore.supportDirection === 'y'}
       onclick={() => uiStore.supportDirection = 'y'}
       title={uiStore.supportIsGlobal
-        ? 'Restringe desplazamiento horizontal (reacción en X). Libre en Y.'
-        : 'Restringe desplazamiento paralelo a la barra (eje i). Libre en j.'}
+        ? t('float.rollerRestrictsXGlobal')
+        : t('float.rollerRestrictsILocal')}
     >{uiStore.supportIsGlobal ? 'Y' : 'j'}</button>
     <span class="ft-sep">|</span>
     <button class="ft-opt-btn ft-coord-btn" class:active={uiStore.supportIsGlobal} onclick={() => uiStore.supportIsGlobal = true}
-      title="Ejes globales: X horizontal, Y vertical">Gl</button>
+      title={t('float.rollerGlobalLabel')}>Gl</button>
     <button class="ft-opt-btn ft-coord-btn" class:active={!uiStore.supportIsGlobal} onclick={() => uiStore.supportIsGlobal = false}
-      title="Ejes locales: i paralelo a la barra, j perpendicular">Loc</button>
-    <label class="ft-input-group" title="Desplazamiento impuesto en la dirección restringida del apoyo móvil">
+      title={t('float.rollerLocalLabel')}>Loc</button>
+    <label class="ft-input-group" title={t('float.prescribedRollerDisp')}>
       <span>di:</span>
       <input type="number" bind:value={uiStore.supportDx} step="0.001" />
       <span class="ft-unit">m</span>
     </label>
-    <label class="ft-input-group" title="Ángulo de inclinación del plano del apoyo (afecta la dirección de la reacción)">
+    <label class="ft-input-group" title={t('float.supportAngle')}>
       <span>α:</span>
       <input type="number" bind:value={uiStore.supportAngle} step="5" />
       <span class="ft-unit">°</span>
@@ -121,22 +122,22 @@
   {:else}
     <span class="ft-sep">|</span>
     {#if uiStore.supportType === 'fixed' || uiStore.supportType === 'pinned'}
-      <label class="ft-input-group" title="Desplazamiento horizontal impuesto (positivo = hacia la derecha)">
+      <label class="ft-input-group" title={t('float.prescribedDx')}>
         <span>dx:</span>
         <input type="number" bind:value={uiStore.supportDx} step="0.001" />
       </label>
-      <label class="ft-input-group" title="Desplazamiento vertical impuesto (positivo = hacia arriba)">
+      <label class="ft-input-group" title={t('float.prescribedDy')}>
         <span>dy:</span>
         <input type="number" bind:value={uiStore.supportDy} step="0.001" />
       </label>
     {/if}
     {#if uiStore.supportType === 'fixed'}
-      <label class="ft-input-group" title="Rotación impuesta (positivo = antihorario)">
+      <label class="ft-input-group" title={t('float.prescribedDrz')}>
         <span>dθz:</span>
         <input type="number" bind:value={uiStore.supportDrz} step="0.001" />
       </label>
     {/if}
-    <label class="ft-input-group" title="Ángulo de rotación visual del apoyo (solo afecta la visualización)">
+    <label class="ft-input-group" title={t('float.supportAngleVisual')}>
       <span>α:</span>
       <input type="number" bind:value={uiStore.supportAngle} step="5" />
       <span class="ft-unit">°</span>

@@ -249,7 +249,7 @@ describe('Buckling Analysis — Edge Cases', () => {
     });
     const result = solveBuckling(input);
     expect(typeof result).toBe('string');
-    expect(result as string).toContain('axiales de compresión');
+    expect(result as string).toContain('axial compression');
   });
 
   it('no loads → returns error', () => {

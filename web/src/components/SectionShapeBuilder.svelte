@@ -6,6 +6,7 @@
   } from '../lib/data/section-shapes';
   import { crossSectionPath, type SectionDrawingParams } from '../lib/utils/section-drawing';
   import type { SectionShape } from '../lib/data/steel-profiles';
+  import { t } from '../lib/i18n';
 
   interface Props {
     open: boolean;
@@ -134,7 +135,7 @@
     <!-- svelte-ignore a11y_no_static_element_interactions -->
     <div class="shape-modal" onclick={(e) => e.stopPropagation()}>
       <div class="shape-header">
-        <h3>Construir sección</h3>
+        <h3>{t('shapeBuilder.title')}</h3>
         <button class="close-btn" onclick={onclose}>✕</button>
       </div>
 
@@ -143,11 +144,11 @@
         <button
           class:active={activeCategory === 'steel'}
           onclick={() => { activeCategory = 'steel'; }}
-        >Acero</button>
+        >{t('shapeBuilder.steel')}</button>
         <button
           class:active={activeCategory === 'concrete'}
           onclick={() => { activeCategory = 'concrete'; }}
-        >Hormigón</button>
+        >{t('shapeBuilder.concrete')}</button>
       </div>
 
       <!-- Shape sub-tabs (filtered by category) -->
@@ -183,7 +184,7 @@
 
         <!-- Unit toggle -->
         <div class="unit-toggle">
-          <span class="unit-toggle-label">Unidades:</span>
+          <span class="unit-toggle-label">{t('shapeBuilder.units')}</span>
           <button
             class="unit-btn"
             class:active={displayUnit === 'm'}
@@ -219,7 +220,7 @@
         {#if computed}
           <div class="results-box">
             <div class="result-row">
-              <span>Nombre:</span>
+              <span>{t('shapeBuilder.name')}</span>
               <span class="result-val">{autoName}</span>
             </div>
             <div class="result-row">
@@ -233,11 +234,11 @@
           </div>
 
           <button class="confirm-btn" onclick={handleConfirm}>
-            Aplicar sección
+            {t('shapeBuilder.applySection')}
           </button>
         {:else}
           <div class="results-box error">
-            <span>Dimensiones inválidas</span>
+            <span>{t('shapeBuilder.invalidDimensions')}</span>
           </div>
         {/if}
       </div>

@@ -23,6 +23,17 @@ export interface ClipboardData {
   supports: Array<{ origNodeId: number; type: SupportType }>;
 }
 
+// Migrate old storage keys
+if (typeof localStorage !== 'undefined') {
+  for (const key of ['floating-tools', 'tooltips', 'help-panel', 'unitSystem']) {
+    const old = localStorage.getItem(`dedaliano-${key}`);
+    if (old !== null && localStorage.getItem(`stabileo-${key}`) === null) {
+      localStorage.setItem(`stabileo-${key}`, old);
+      localStorage.removeItem(`dedaliano-${key}`);
+    }
+  }
+}
+
 function createUIStore() {
   let currentTool = $state<Tool>('pan');
   let supportType = $state<SupportTool>('pinned');
@@ -142,7 +153,7 @@ function createUIStore() {
   let embedMode = $state<boolean>(false);
 
   // Floating tools bar (persisted in localStorage)
-  const savedFloatingTools = typeof localStorage !== 'undefined' ? localStorage.getItem('dedaliano-floating-tools') : null;
+  const savedFloatingTools = typeof localStorage !== 'undefined' ? localStorage.getItem('stabileo-floating-tools') : null;
   let showFloatingTools = $state<boolean>(savedFloatingTools !== 'false'); // default true
 
   // How many rows the floating tools bar currently has (1=main, 2=main+options, 3=main+options+load-edit)
@@ -150,15 +161,15 @@ function createUIStore() {
   let floatingToolsRows = $state<number>(1);
 
   // Educational tooltips (persisted in localStorage)
-  const savedTooltips = typeof localStorage !== 'undefined' ? localStorage.getItem('dedaliano-tooltips') : null;
+  const savedTooltips = typeof localStorage !== 'undefined' ? localStorage.getItem('stabileo-tooltips') : null;
   let showTooltips = $state<boolean>(savedTooltips !== 'false'); // default true
 
   // Contextual help panel (persisted in localStorage)
-  const savedHelpPanel = typeof localStorage !== 'undefined' ? localStorage.getItem('dedaliano-help-panel') : null;
+  const savedHelpPanel = typeof localStorage !== 'undefined' ? localStorage.getItem('stabileo-help-panel') : null;
   let showHelpPanel = $state<boolean>(savedHelpPanel === 'true'); // default false
 
   // Unit system — persisted in localStorage
-  const savedUnitSystem = typeof localStorage !== 'undefined' ? localStorage.getItem('dedaliano-unitSystem') : null;
+  const savedUnitSystem = typeof localStorage !== 'undefined' ? localStorage.getItem('stabileo-unitSystem') : null;
   let unitSystem = $state<UnitSystem>((savedUnitSystem === 'Imperial' ? 'Imperial' : 'SI') as UnitSystem);
 
   // What-If exploration mode (not persisted — temporary)
@@ -190,8 +201,8 @@ function createUIStore() {
   let liveCalc = $state(typeof localStorage !== 'undefined' && localStorage.getItem('liveCalc') === 'true');
   let liveCalcError = $state<string | null>(null);
 
-  // Analysis mode: 2D (current) or 3D (new)
-  let analysisMode = $state<'2d' | '3d'>('2d');
+  // Analysis mode: 2D, 3D, PRO or EDU (educational)
+  let analysisMode = $state<'2d' | '3d' | 'pro' | 'edu'>('2d');
 
   // === 3D-specific state ===
   // 3D load direction (6 DOF)
@@ -246,6 +257,7 @@ function createUIStore() {
   let showElementLabels3D = $state<boolean>(false);
   let showLengths3D = $state<boolean>(false);
   let showLoads3D = $state<boolean>(true);
+  let visibleLoadCases3D = $state<number[] | null>(null);
   let showAxes3D = $state<boolean>(true);
 
   // 3D axis convention: terna derecha (right-hand, default) or terna izquierda (left-hand)
@@ -445,7 +457,7 @@ function createUIStore() {
     get showFloatingTools() { return showFloatingTools; },
     set showFloatingTools(v: boolean) {
       showFloatingTools = v;
-      if (typeof localStorage !== 'undefined') localStorage.setItem('dedaliano-floating-tools', String(v));
+      if (typeof localStorage !== 'undefined') localStorage.setItem('stabileo-floating-tools', String(v));
     },
 
     get floatingToolsRows() { return floatingToolsRows; },
@@ -461,13 +473,13 @@ function createUIStore() {
     get showTooltips() { return showTooltips; },
     set showTooltips(v: boolean) {
       showTooltips = v;
-      if (typeof localStorage !== 'undefined') localStorage.setItem('dedaliano-tooltips', String(v));
+      if (typeof localStorage !== 'undefined') localStorage.setItem('stabileo-tooltips', String(v));
     },
 
     get showHelpPanel() { return showHelpPanel; },
     set showHelpPanel(v: boolean) {
       showHelpPanel = v;
-      if (typeof localStorage !== 'undefined') localStorage.setItem('dedaliano-help-panel', String(v));
+      if (typeof localStorage !== 'undefined') localStorage.setItem('stabileo-help-panel', String(v));
     },
 
     get showWhatIf() { return showWhatIf; },
@@ -479,7 +491,7 @@ function createUIStore() {
     get unitSystem() { return unitSystem; },
     set unitSystem(v: UnitSystem) {
       unitSystem = v;
-      try { localStorage.setItem('dedaliano-unitSystem', v); } catch {}
+      try { localStorage.setItem('stabileo-unitSystem', v); } catch {}
     },
 
     // Mobile responsive
@@ -519,7 +531,14 @@ function createUIStore() {
     set liveCalcError(v: string | null) { liveCalcError = v; },
 
     get analysisMode() { return analysisMode; },
-    set analysisMode(v: '2d' | '3d') { analysisMode = v; },
+    set analysisMode(v: '2d' | '3d' | 'pro' | 'edu') { analysisMode = v; },
+
+    /** Top-level app mode derived from analysisMode */
+    get appMode(): 'basico' | 'educativo' | 'pro' {
+      if (analysisMode === 'pro') return 'pro';
+      if (analysisMode === 'edu') return 'educativo';
+      return 'basico';
+    },
 
     // 3D-specific getters/setters
     get nodalLoadDir3D() { return nodalLoadDir3D; },
@@ -608,6 +627,8 @@ function createUIStore() {
     set showLengths3D(v: boolean) { showLengths3D = v; },
     get showLoads3D() { return showLoads3D; },
     set showLoads3D(v: boolean) { showLoads3D = v; },
+    get visibleLoadCases3D() { return visibleLoadCases3D; },
+    set visibleLoadCases3D(v: number[] | null) { visibleLoadCases3D = v; },
     get showAxes3D() { return showAxes3D; },
     set showAxes3D(v: boolean) { showAxes3D = v; },
 

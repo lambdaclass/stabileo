@@ -240,7 +240,7 @@ describe('Modal Analysis — Edge Cases', () => {
     // Density = 0 → zero mass matrix
     const result = solveModal(input, new Map([[1, 0]]));
     expect(typeof result).toBe('string');
-    expect(result as string).toContain('densidad');
+    expect(result as string).toContain('density');
   });
 
   it('no free DOFs → returns error', () => {

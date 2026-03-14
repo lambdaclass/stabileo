@@ -1,0 +1,23 @@
+{
+  "viewport.zoomToFit": "Ansicht anpassen (F)",
+  "viewport3d.zoomToFit": "Ansicht anpassen",
+  "viewport3d.topView": "Draufsicht",
+  "viewport3d.frontView": "Vorderansicht",
+  "viewport3d.sideView": "Seitenansicht",
+  "viewport3d.switchToOrtho": "Zu Orthogonal wechseln",
+  "viewport3d.switchToPersp": "Zu Perspektive wechseln",
+  "viewport3d.disableClipping": "Schnitt deaktivieren",
+  "viewport3d.enableClipping": "Schnittebene aktivieren",
+  "viewport3d.disableMeasure": "Messwerkzeug deaktivieren",
+  "viewport3d.enableMeasure": "Abstand messen",
+  "table.frame": "Rahmen",
+  "table.truss": "Fachwerk",
+  "config.unitSI": "SI (kN, m)",
+  "config.unitImperial": "Imperial (kip, ft)",
+  "matEdit.optional": "optional",
+  "dsm.expectedValue": "Erwarteter Wert",
+  "influence.unitLoad": "P=1",
+  "influence.label": "EL",
+  "influence.node": "Knoten",
+  "influence.elem": "Elem"
+}

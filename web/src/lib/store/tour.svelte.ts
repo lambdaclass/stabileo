@@ -26,6 +26,18 @@ export interface TourStep {
   mobileCardBottom?: string;     // CSS bottom override for mobile (e.g. '64px')
   actionButton?: TourActionButton;     // In-card action button (replaces "Esperando..." when waitFor not met)
   multiAction?: TourActionButton[];    // Multiple action buttons shown alongside "Siguiente →"
+  skip?: () => boolean;                // If returns true, step is skipped (next/prev jump over it)
+}
+
+// Migrate old storage keys
+if (typeof localStorage !== 'undefined') {
+  for (const key of ['tour-started', 'tour-completed']) {
+    const old = localStorage.getItem(`dedaliano-${key}`);
+    if (old !== null && localStorage.getItem(`stabileo-${key}`) === null) {
+      localStorage.setItem(`stabileo-${key}`, old);
+      localStorage.removeItem(`dedaliano-${key}`);
+    }
+  }
 }
 
 function createTourStore() {
@@ -59,7 +71,7 @@ function createTourStore() {
       _steps = tourSteps;
       _currentStepIndex = 0;
       _isActive = true;
-      localStorage.setItem('dedaliano-tour-started', 'true');
+      localStorage.setItem('stabileo-tour-started', 'true');
       _steps[0]?.onEnter?.();
       requestAnimationFrame(() => this.updateTargetRect());
     },
@@ -68,7 +80,10 @@ function createTourStore() {
       if (_isTransitioning || _currentStepIndex >= _steps.length - 1) return;
       _isTransitioning = true;
       _steps[_currentStepIndex]?.onExit?.();
-      _currentStepIndex++;
+      // Skip steps whose skip() returns true
+      let next = _currentStepIndex + 1;
+      while (next < _steps.length - 1 && _steps[next]?.skip?.()) next++;
+      _currentStepIndex = next;
       _steps[_currentStepIndex]?.onEnter?.();
       requestAnimationFrame(() => {
         this.updateTargetRect();
@@ -80,7 +95,10 @@ function createTourStore() {
       if (_isTransitioning || _currentStepIndex <= 0) return;
       _isTransitioning = true;
       _steps[_currentStepIndex]?.onExit?.();
-      _currentStepIndex--;
+      // Skip steps whose skip() returns true
+      let prev = _currentStepIndex - 1;
+      while (prev > 0 && _steps[prev]?.skip?.()) prev--;
+      _currentStepIndex = prev;
       _steps[_currentStepIndex]?.onEnter?.();
       requestAnimationFrame(() => {
         this.updateTargetRect();
@@ -98,7 +116,7 @@ function createTourStore() {
       if (location.pathname === '/demo') {
         history.replaceState(null, '', '/');
       }
-      localStorage.setItem('dedaliano-tour-completed', 'true');
+      localStorage.setItem('stabileo-tour-completed', 'true');
     },
 
     updateTargetRect() {

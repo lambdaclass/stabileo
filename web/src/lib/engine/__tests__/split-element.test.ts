@@ -201,7 +201,7 @@ describe('Mechanism detection with hinges', () => {
       loads: [nodalLoad(2, 0, -20)],
     });
 
-    expect(() => solve(input)).toThrow(/[Mm]ecanismo/);
+    expect(() => solve(input)).toThrow(/[Mm]echanism/);
   });
 
   it('single hinge at internal collinear node of simply-supported beam: mechanism', () => {
@@ -224,7 +224,7 @@ describe('Mechanism detection with hinges', () => {
       loads: [distLoad(1, -10)],
     });
 
-    expect(() => solve(input)).toThrow(/[Mm]ecanismo/);
+    expect(() => solve(input)).toThrow(/[Mm]echanism/);
   });
 
   it('cantilever split with double hinge: mechanism', () => {
@@ -242,7 +242,7 @@ describe('Mechanism detection with hinges', () => {
       loads: [nodalLoad(3, 0, -10)],
     });
 
-    expect(() => solve(input)).toThrow(/[Mm]ecanismo/);
+    expect(() => solve(input)).toThrow(/[Mm]echanism/);
   });
 });
 

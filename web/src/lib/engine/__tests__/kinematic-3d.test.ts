@@ -806,7 +806,7 @@ describe('Classification and diagnosis messages (3D)', () => {
     const result = analyzeKinematics3D(input);
     expect(result.classification).toBe('isostatic');
     expect(result.degree).toBe(0);
-    expect(result.diagnosis).toMatch(/isostática/i);
+    expect(result.diagnosis).toMatch(/isostatic/i);
   });
 
   it('32. Hyperstatic classification with correct degree', () => {
@@ -826,7 +826,7 @@ describe('Classification and diagnosis messages (3D)', () => {
     const result = analyzeKinematics3D(input);
     expect(result.classification).toBe('hyperstatic');
     expect(result.degree).toBe(6);
-    expect(result.diagnosis).toMatch(/hiperestática/i);
+    expect(result.diagnosis).toMatch(/hyperstatic/i);
     expect(result.diagnosis).toContain('6');
   });
 
@@ -841,15 +841,15 @@ describe('Classification and diagnosis messages (3D)', () => {
     expect(result.mechanismNodes.length).toBeGreaterThan(0);
   });
 
-  it('34. Diagnosis message in Spanish for mechanism', () => {
+  it('34. Diagnosis message for mechanism', () => {
     const input = makeInput3D({
       nodes: [[1, 0, 0, 0], [2, 6, 0, 0]],
       elements: [[1, 1, 2, 'frame']],
       supports: [],
     });
     const result = analyzeKinematics3D(input);
-    // Diagnosis should mention mechanism or hypostatic in Spanish
-    expect(result.diagnosis).toMatch(/[Mm]ecanismo|hipostática/);
+    // Diagnosis should mention mechanism or hypostatic
+    expect(result.diagnosis).toMatch(/[Mm]echanism|[Hh]ypostatic/);
   });
 
   it('35. Diagnosis message for valid structure', () => {

@@ -180,7 +180,7 @@ describe('DXF Mapper', () => {
     const result = mapDxfToModel(parsed, { unit: 'm', snapTolerance: 0.01 });
     expect(result.elements).toHaveLength(1);
     expect(result.warnings.length).toBeGreaterThan(0);
-    expect(result.warnings[0]).toContain('lineas como elementos');
+    expect(result.warnings[0]).toContain('lines used as elements');
   });
 
   it('should map support texts', () => {

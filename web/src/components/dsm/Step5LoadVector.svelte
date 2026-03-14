@@ -1,5 +1,6 @@
 <script lang="ts">
   import type { DSMStepData } from '../../lib/engine/solver-detailed';
+  import { t } from '../../lib/i18n';
   import MathEquation from './MathEquation.svelte';
   import VectorDisplay from './VectorDisplay.svelte';
 
@@ -28,13 +29,13 @@
 
 <div class="step">
   <div class="explanation">
-    <p>Se ensambla el <strong>vector de cargas</strong> {'{F}'} combinando cargas nodales directas, fuerzas equivalentes de cargas distribuidas, y otros aportes.</p>
+    <p>{@html t('dsm.step5.explanation')}</p>
   </div>
 
   <MathEquation equation={eqLoadVector} displayMode />
 
   <VectorDisplay
-    title={"Vector {F} global"}
+    title={t('dsm.step5.globalVector')}
     vector={data.F}
     labels={data.dofLabels}
     highlightIndices={nonZeroDofs}
@@ -43,14 +44,14 @@
 
   {#if data.loadContributions.length > 0}
     <div class="contrib-section">
-      <div class="contrib-title">Contribuciones detalladas</div>
+      <div class="contrib-title">{t('dsm.step5.contributions')}</div>
       <div class="contrib-scroll">
         <table class="contrib-table">
           <thead>
             <tr>
-              <th>GDL</th>
-              <th>Valor</th>
-              <th>Origen</th>
+              <th>{t('dsm.step5.dof')}</th>
+              <th>{t('dsm.step5.value')}</th>
+              <th>{t('dsm.step5.source')}</th>
             </tr>
           </thead>
           <tbody>
@@ -68,7 +69,7 @@
       </div>
     </div>
   {:else}
-    <div class="no-loads">No hay cargas aplicadas.</div>
+    <div class="no-loads">{t('dsm.step5.noLoads')}</div>
   {/if}
 </div>
 

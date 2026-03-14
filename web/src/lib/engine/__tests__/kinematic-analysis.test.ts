@@ -478,7 +478,7 @@ describe('Classification and diagnosis messages', () => {
     });
     const result = analyzeKinematics(input);
     expect(result.classification).toBe('isostatic');
-    expect(result.diagnosis).toMatch(/isostática/i);
+    expect(result.diagnosis).toMatch(/isostatic/i);
   });
 
   it('27. Hyperstatic → classification = hyperstatic, diagnosis contains degree', () => {
@@ -493,7 +493,7 @@ describe('Classification and diagnosis messages', () => {
     });
     const result = analyzeKinematics(input);
     expect(result.classification).toBe('hyperstatic');
-    expect(result.diagnosis).toMatch(/hiperestática/i);
+    expect(result.diagnosis).toMatch(/hyperstatic/i);
     expect(result.diagnosis).toContain('3');
   });
 
@@ -506,7 +506,7 @@ describe('Classification and diagnosis messages', () => {
     });
     const result = analyzeKinematics(input);
     expect(result.classification).toBe('hypostatic');
-    expect(result.diagnosis).toMatch(/[Mm]ecanismo|hipostática/);
+    expect(result.diagnosis).toMatch(/[Mm]echanism|[Hh]ypostatic/);
     expect(result.mechanismNodes.length).toBeGreaterThan(0);
   });
 

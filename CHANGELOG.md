@@ -9,14 +9,6 @@ It should capture what changed, not what should be built next.
 
 ## Unreleased
 
-### Changed
-
-#### AMD ordering now enforced in gate tests
-
-- sparse shell gate tests (`fill_ratio_below_threshold`, `fill_ratio_regression`) switched from hard-coded RCM to AMD, matching the default ordering already used by `symbolic_cholesky()`
-- fill bounds tightened: 10×10 from 4.0× to 3.5×, 30×30 from 10.0× to 6.5×, 50×50 from 200× to 50×
-- measured AMD fill: 2.74× at 10×10, 4.88× at 30×30 (vs RCM 3.63× and 9.45×)
-
 ### Added
 
 #### Design-grade beam station extraction

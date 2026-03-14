@@ -1,5 +1,6 @@
 <script lang="ts">
   import type { DSMStepData } from '../../lib/engine/solver-detailed';
+  import { t } from '../../lib/i18n';
   import MathEquation from './MathEquation.svelte';
   import MatrixDisplay from './MatrixDisplay.svelte';
   import VectorDisplay from './VectorDisplay.svelte';
@@ -17,18 +18,18 @@
 
 <div class="step">
   <div class="explanation">
-    <p>Se <strong>particiona</strong> el sistema separando GDL libres (f) y restringidos (r).</p>
+    <p>{@html t('dsm.step6.explanation')}</p>
   </div>
 
   <MathEquation equation={eqPartition} displayMode />
 
   <div class="info-row">
     <div class="info-card">
-      <span class="info-label">GDL libres (f)</span>
+      <span class="info-label">{t('dsm.step6.freeDof')}</span>
       <span class="info-value free">{nf}</span>
     </div>
     <div class="info-card">
-      <span class="info-label">GDL restringidos (r)</span>
+      <span class="info-label">{t('dsm.step6.restrainedDof')}</span>
       <span class="info-value restr">{nr}</span>
     </div>
   </div>
@@ -60,15 +61,15 @@
   <VectorDisplay title={"{F_f}"} vector={data.Ff} labels={data.freeDofLabels} precision={4} />
 
   {#if hasPrescribed}
-    <VectorDisplay title={"{u_r} (desplazamientos prescritos)"} vector={data.uPrescribed} labels={data.restrDofLabels} precision={6} />
+    <VectorDisplay title={"{u_r} (" + t('dsm.step6.prescribedDisp') + ")"} vector={data.uPrescribed} labels={data.restrDofLabels} precision={6} />
     <div class="explanation">
-      <p>Como hay desplazamientos prescritos no nulos, el vector de cargas modificado es:</p>
+      <p>{@html t('dsm.step6.prescribedNote')}</p>
     </div>
     <MathEquation equation={eqFmod} displayMode />
   {/if}
 
   <VectorDisplay
-    title={`${hasPrescribed ? '{F_mod}' : '{F_f}'} — Vector de cargas para resolver`}
+    title={t('dsm.step6.loadVectorToSolve').replace('{name}', hasPrescribed ? '{F_mod}' : '{F_f}')}
     vector={data.FfMod}
     labels={data.freeDofLabels}
     precision={4}

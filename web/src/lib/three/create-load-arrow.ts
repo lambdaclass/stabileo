@@ -2,16 +2,14 @@
 import * as THREE from 'three';
 import { COLORS, createTextSprite } from './selection-helpers';
 
-const ARROW_SCALE_MIN = 0.5;
 const ARROW_SCALE_MAX = 2.5;
 const ARROW_HEAD_LENGTH = 0.12;
 const ARROW_HEAD_WIDTH = 0.05;
 
-/** Clamp arrow length proportional to magnitude */
+/** Arrow length linearly proportional to magnitude: 3kN is 3/10 of max, 5kN is 5/10 */
 function arrowLength(magnitude: number, maxMag: number): number {
   if (maxMag < 1e-10) return 1.0;
-  const t = Math.min(Math.abs(magnitude) / maxMag, 1);
-  return ARROW_SCALE_MIN + t * (ARROW_SCALE_MAX - ARROW_SCALE_MIN);
+  return (Math.abs(magnitude) / maxMag) * ARROW_SCALE_MAX;
 }
 
 /**
@@ -72,11 +70,14 @@ export function createNodalLoadArrow(
   maxForce: number,
   loadIndex: number,
   momentStyle: 'double-arrow' | 'curved' = 'double-arrow',
+  caseColor?: number,
 ): THREE.Group {
   const group = new THREE.Group();
   group.userData = { type: 'load', id: loadIndex };
 
   const origin = new THREE.Vector3(pos.x, pos.y, pos.z);
+  const forceColor = caseColor ?? COLORS.load;
+  const labelHex = '#' + new THREE.Color(forceColor).getHexString();
 
   // Force arrows
   const forces = [
@@ -95,12 +96,12 @@ export function createNodalLoadArrow(
     const farEnd = origin.clone().sub(dir.clone().multiplyScalar(len));
     const arrow = new THREE.ArrowHelper(
       dir, farEnd, len,
-      COLORS.load, ARROW_HEAD_LENGTH, ARROW_HEAD_WIDTH,
+      forceColor, ARROW_HEAD_LENGTH, ARROW_HEAD_WIDTH,
     );
     group.add(arrow);
 
     // Label at the far end of the arrow (away from node)
-    const label = createTextSprite(`${f.val.toFixed(1)} kN`, '#ff6666', 28);
+    const label = createTextSprite(`${f.val.toFixed(1)} kN`, labelHex, 28);
     label.position.copy(farEnd).sub(dir.clone().multiplyScalar(0.15));
     group.add(label);
   }
@@ -194,6 +195,7 @@ export function createDistributedLoadGroup(
   loadIndex: number,
   axis: 'Y' | 'Z' = 'Y',
   localAxisDir?: { x: number; y: number; z: number },
+  caseColor?: number,
 ): THREE.Group {
   const group = new THREE.Group();
   group.userData = { type: 'load', id: loadIndex };
@@ -219,9 +221,10 @@ export function createDistributedLoadGroup(
       : new THREE.Vector3(0, sign, 0);
   }
 
-  // Color: red for Y loads, orange for Z loads
-  const arrowColor = axis === 'Z' ? 0xff8844 : COLORS.load;
-  const labelColor = axis === 'Z' ? '#ff8844' : '#ff6666';
+  // Color: use case color if provided, otherwise red for Y / orange for Z
+  const defaultColor = axis === 'Z' ? 0xff8844 : COLORS.load;
+  const arrowColor = caseColor ?? defaultColor;
+  const labelColor = '#' + new THREE.Color(arrowColor).getHexString();
 
   const numArrows = 7;
   for (let i = 0; i <= numArrows; i++) {
@@ -265,6 +268,95 @@ export function createDistributedLoadGroup(
   const envGeo = new THREE.BufferGeometry().setFromPoints(envelopePoints);
   const envMat = new THREE.LineBasicMaterial({ color: arrowColor, transparent: true, opacity: 0.5 });
   group.add(new THREE.Line(envGeo, envMat));
+
+  return group;
+}
+
+/**
+ * Create a grid of arrows covering a quad surface to visualize area pressure loads.
+ * Arrows are distributed in a 3×3 grid across the quad using bilinear interpolation
+ * of the 4 corner positions, with an optional translucent fill.
+ */
+export function createSurfaceLoadGroup(
+  nodes: Array<{ x: number; y: number; z: number }>,
+  q: number, // kN/m² (positive = downward)
+  maxQ: number,
+  loadIndex: number,
+  caseColor?: number,
+): THREE.Group {
+  const group = new THREE.Group();
+  group.userData = { type: 'load', id: loadIndex };
+  if (Math.abs(q) < 1e-10 || nodes.length < 4) return group;
+
+  const p0 = new THREE.Vector3(nodes[0].x, nodes[0].y, nodes[0].z ?? 0);
+  const p1 = new THREE.Vector3(nodes[1].x, nodes[1].y, nodes[1].z ?? 0);
+  const p2 = new THREE.Vector3(nodes[2].x, nodes[2].y, nodes[2].z ?? 0);
+  const p3 = new THREE.Vector3(nodes[3].x, nodes[3].y, nodes[3].z ?? 0);
+
+  // Bilinear interpolation across the quad
+  function lerpQuad(u: number, v: number): THREE.Vector3 {
+    const a = p0.clone().lerp(p1, u);
+    const b = p3.clone().lerp(p2, u);
+    return a.lerp(b, v);
+  }
+
+  // Load direction: positive q = gravity (downward = -Y global)
+  const loadDir = new THREE.Vector3(0, q > 0 ? -1 : 1, 0);
+
+  const arrowColor = caseColor ?? COLORS.load;
+  const N = 3; // 3×3 grid of arrows
+
+  for (let i = 0; i <= N; i++) {
+    for (let j = 0; j <= N; j++) {
+      const u = i / N;
+      const v = j / N;
+      const pos = lerpQuad(u, v);
+      const len = arrowLength(q, maxQ) * 0.5;
+
+      const farEnd = pos.clone().sub(loadDir.clone().multiplyScalar(len));
+      const arrow = new THREE.ArrowHelper(
+        loadDir, farEnd, len,
+        arrowColor, ARROW_HEAD_LENGTH * 0.7, ARROW_HEAD_WIDTH * 0.7,
+      );
+      group.add(arrow);
+    }
+  }
+
+  // Translucent fill covering the quad surface at arrow-tail height
+  const offset = arrowLength(q, maxQ) * 0.5;
+  const corners = [
+    lerpQuad(0, 0).sub(loadDir.clone().multiplyScalar(offset)),
+    lerpQuad(1, 0).sub(loadDir.clone().multiplyScalar(offset)),
+    lerpQuad(1, 1).sub(loadDir.clone().multiplyScalar(offset)),
+    lerpQuad(0, 1).sub(loadDir.clone().multiplyScalar(offset)),
+  ];
+  const fillGeo = new THREE.BufferGeometry();
+  const vertices = new Float32Array([
+    ...corners[0].toArray(), ...corners[1].toArray(), ...corners[2].toArray(),
+    ...corners[0].toArray(), ...corners[2].toArray(), ...corners[3].toArray(),
+  ]);
+  fillGeo.setAttribute('position', new THREE.BufferAttribute(vertices, 3));
+  const fillMat = new THREE.MeshBasicMaterial({
+    color: arrowColor, transparent: true, opacity: 0.15,
+    side: THREE.DoubleSide, depthWrite: false,
+  });
+  group.add(new THREE.Mesh(fillGeo, fillMat));
+
+  // Outline at arrow tails
+  const outlineGeo = new THREE.BufferGeometry().setFromPoints([
+    corners[0], corners[1], corners[2], corners[3], corners[0],
+  ]);
+  const outlineMat = new THREE.LineBasicMaterial({
+    color: arrowColor, transparent: true, opacity: 0.5,
+  });
+  group.add(new THREE.Line(outlineGeo, outlineMat));
+
+  // Label at center
+  const center = lerpQuad(0.5, 0.5);
+  const labelHex = '#' + new THREE.Color(arrowColor).getHexString();
+  const label = createTextSprite(`${q.toFixed(1)} kN/m²`, labelHex, 26);
+  label.position.copy(center).sub(loadDir.clone().multiplyScalar(offset + 0.2));
+  group.add(label);
 
   return group;
 }
@@ -319,6 +411,64 @@ export function createReactionArrow(
     if (Math.abs(m.val) < 1e-10) continue;
     const label = createTextSprite(`${m.name}=${m.val.toFixed(2)} kN·m`, '#ffaa44', 22);
     label.position.copy(origin).add(m.axis.clone().multiplyScalar(0.5));
+    group.add(label);
+  }
+
+  return group;
+}
+
+const CONSTRAINT_COLOR = 0xf0a500;
+
+const DOF_DIR: Record<string, THREE.Vector3> = {
+  ux: new THREE.Vector3(1, 0, 0),
+  uy: new THREE.Vector3(0, 1, 0),
+  uz: new THREE.Vector3(0, 0, 1),
+  rx: new THREE.Vector3(1, 0, 0),
+  ry: new THREE.Vector3(0, 1, 0),
+  rz: new THREE.Vector3(0, 0, 1),
+};
+
+/**
+ * Create an arrow for a constraint force at a node.
+ * Similar to reaction arrows but with a distinct orange color.
+ */
+export function createConstraintForceArrow(
+  pos: { x: number; y: number; z: number },
+  dof: string,
+  force: number,
+  maxForce: number,
+): THREE.Group {
+  const group = new THREE.Group();
+  const origin = new THREE.Vector3(pos.x, pos.y, pos.z);
+  const baseDir = DOF_DIR[dof];
+  if (!baseDir || Math.abs(force) < 1e-10) return group;
+
+  const isRotational = dof.startsWith('r');
+
+  if (isRotational) {
+    // Moment-type constraint force — show as label only (like reaction moments)
+    const axisName = dof.toUpperCase().replace('R', 'M'); // rx -> MX
+    const label = createTextSprite(`${axisName}=${force.toFixed(2)} kN·m`, '#f0a500', 22);
+    label.position.copy(origin).add(baseDir.clone().multiplyScalar(0.5));
+    group.add(label);
+  } else {
+    // Translational constraint force — show as arrow
+    const dir = baseDir.clone();
+    if (force < 0) dir.negate();
+    const len = arrowLength(force, maxForce) * 0.8;
+
+    // Arrow starts away from node and points TOWARD the node (tip = node)
+    const farEnd = origin.clone().sub(dir.clone().multiplyScalar(len));
+    const arrow = new THREE.ArrowHelper(
+      dir, farEnd, len,
+      CONSTRAINT_COLOR, ARROW_HEAD_LENGTH, ARROW_HEAD_WIDTH,
+    );
+    group.add(arrow);
+
+    // Label at the far end of the arrow
+    const unit = 'kN';
+    const label = createTextSprite(`${force.toFixed(2)} ${unit}`, '#f0a500', 24);
+    label.position.copy(farEnd).sub(dir.clone().multiplyScalar(0.2));
     group.add(label);
   }
 

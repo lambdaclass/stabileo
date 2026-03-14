@@ -1122,7 +1122,7 @@ describe('Input validation', () => {
       elements: [[1, 1, 2, 'frame']],
       supports: [[1, 1, 'fixed'], [2, 2, 'rollerX']],
     });
-    expect(() => solve(input)).toThrow(/longitud cero/);
+    expect(() => solve(input)).toThrow(/zero length/);
   });
 
   it('throws on zero section area', () => {
@@ -1132,7 +1132,7 @@ describe('Input validation', () => {
       supports: [[1, 1, 'fixed'], [2, 2, 'rollerX']],
       a: 0, // Zero area!
     });
-    expect(() => solve(input)).toThrow(/área A debe ser > 0/);
+    expect(() => solve(input)).toThrow(/area A must be > 0/);
   });
 
   it('throws on zero section inertia', () => {
@@ -1142,7 +1142,7 @@ describe('Input validation', () => {
       supports: [[1, 1, 'fixed'], [2, 2, 'rollerX']],
       iz: 0, // Zero inertia!
     });
-    expect(() => solve(input)).toThrow(/inercia Iz debe ser > 0/);
+    expect(() => solve(input)).toThrow(/moment of inertia Iz must be > 0/);
   });
 
   it('throws on negative section area', () => {
@@ -1152,7 +1152,7 @@ describe('Input validation', () => {
       supports: [[1, 1, 'fixed'], [2, 2, 'rollerX']],
       a: -0.01, // Negative area!
     });
-    expect(() => solve(input)).toThrow(/área A debe ser > 0/);
+    expect(() => solve(input)).toThrow(/area A must be > 0/);
   });
 
   it('throws on point load position a < 0', () => {
@@ -1162,7 +1162,7 @@ describe('Input validation', () => {
       supports: [[1, 1, 'fixed'], [2, 2, 'rollerX']],
       loads: [{ type: 'pointOnElement', data: { elementId: 1, p: -10, a: -1 } }],
     });
-    expect(() => solve(input)).toThrow(/posición a=.*fuera del rango/);
+    expect(() => solve(input)).toThrow(/position a=.*out of range/);
   });
 
   it('throws on point load position a > L', () => {
@@ -1172,7 +1172,7 @@ describe('Input validation', () => {
       supports: [[1, 1, 'fixed'], [2, 2, 'rollerX']],
       loads: [{ type: 'pointOnElement', data: { elementId: 1, p: -10, a: 6 } }], // a = 6 > L = 5
     });
-    expect(() => solve(input)).toThrow(/posición a=.*fuera del rango/);
+    expect(() => solve(input)).toThrow(/position a=.*out of range/);
   });
 
   it('accepts point load at element start (a = 0)', () => {

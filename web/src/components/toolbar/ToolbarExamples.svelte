@@ -1,51 +1,57 @@
 <script lang="ts">
   import { uiStore, modelStore, resultsStore, historyStore, tabManager } from '../../lib/store';
-  import { TEMPLATE_CATALOG_3D } from '../../lib/templates/generators';
+  import { getTemplateCatalog3D } from '../../lib/templates/generators';
+  import { t } from '../../lib/i18n';
 
   let showExamples = $state(false);
   let showExamples3D = $state(false);
 
   const examples = [
     // Vigas simples
-    { id: 'simply-supported', name: 'Biarticulada', desc: '6m, q=-10 kN/m' },
-    { id: 'cantilever', name: 'Ménsula distribuida', desc: '5m, q=-10 kN/m' },
-    { id: 'cantilever-point', name: 'Ménsula puntual', desc: '3m, P=-15 kN en extremo' },
-    { id: 'point-loads', name: 'Cargas puntuales', desc: '8m, 2 cargas en barra + lateral' },
+    { id: 'simply-supported', nameKey: 'ex.simply-supported', descKey: 'ex.simply-supported.desc' },
+    { id: 'cantilever', nameKey: 'ex.cantilever', descKey: 'ex.cantilever.desc' },
+    { id: 'cantilever-point', nameKey: 'ex.cantilever-point', descKey: 'ex.cantilever-point.desc' },
+    { id: 'point-loads', nameKey: 'ex.point-loads', descKey: 'ex.point-loads.desc' },
     // Vigas multi-tramo y condiciones especiales
-    { id: 'gerber-beam', name: 'Viga Gerber', desc: '2 tramos, articulación interna' },
-    { id: 'continuous-beam', name: 'Viga continua', desc: '3 tramos, 4 apoyos' },
-    { id: 'spring-support', name: 'Apoyo elástico', desc: 'Resorte ky=5000 kN/m' },
-    { id: 'settlement', name: 'Asentamiento', desc: 'Viga con asent. 10mm' },
-    { id: 'thermal', name: 'Carga térmica', desc: 'Pórtico con ΔT=30°C' },
+    { id: 'gerber-beam', nameKey: 'ex.gerber-beam', descKey: 'ex.gerber-beam.desc' },
+    { id: 'continuous-beam', nameKey: 'ex.continuous-beam', descKey: 'ex.continuous-beam.desc' },
+    { id: 'spring-support', nameKey: 'ex.spring-support', descKey: 'ex.spring-support.desc' },
+    { id: 'settlement', nameKey: 'ex.settlement', descKey: 'ex.settlement.desc' },
+    { id: 'thermal', nameKey: 'ex.thermal', descKey: 'ex.thermal.desc' },
     // Reticulados
-    { id: 'truss', name: 'Reticulado Pratt', desc: '12m, 3m altura' },
-    { id: 'warren-truss', name: 'Reticulado Warren', desc: '12m, diagonales alternadas' },
-    { id: 'howe-truss', name: 'Reticulado Howe', desc: '16m, diags hacia centro' },
+    { id: 'truss', nameKey: 'ex.truss', descKey: 'ex.truss.desc' },
+    { id: 'warren-truss', nameKey: 'ex.warren-truss', descKey: 'ex.warren-truss.desc' },
+    { id: 'howe-truss', nameKey: 'ex.howe-truss', descKey: 'ex.howe-truss.desc' },
     // Arcos y pórticos
-    { id: 'three-hinge-arch', name: 'Arco triarticulado', desc: '10m luz, 4m flecha' },
-    { id: 'portal-frame', name: 'Pórtico simple', desc: '6m×4m, carga lateral + distribuida' },
-    { id: 'two-story-frame', name: 'Pórtico 2 pisos', desc: '6m×7m, viento + gravedad' },
+    { id: 'three-hinge-arch', nameKey: 'ex.three-hinge-arch', descKey: 'ex.three-hinge-arch.desc' },
+    { id: 'portal-frame', nameKey: 'ex.portal-frame', descKey: 'ex.portal-frame.desc' },
+    { id: 'two-story-frame', nameKey: 'ex.two-story-frame', descKey: 'ex.two-story-frame.desc' },
     // Puentes y envolventes
-    { id: 'bridge-moving-load', name: 'Puente — tren de carga', desc: 'Viga continua 14m, envolvente móvil' },
+    { id: 'bridge-moving-load', nameKey: 'ex.bridge-moving-load', descKey: 'ex.bridge-moving-load.desc' },
     // Edificios con combinaciones CIRSOC
-    { id: 'frame-cirsoc-dl', name: 'Pórtico CIRSOC (D+L)', desc: 'Combinaciones 1.4D, 1.2D+1.6L' },
-    { id: 'building-3story-dlw', name: 'Edificio 3 pisos (D+L+W)', desc: 'Combos CIRSOC con viento' },
-    { id: 'frame-seismic', name: 'Pórtico sísmico (D+L+E)', desc: 'Combos CIRSOC con sismo' },
+    { id: 'frame-cirsoc-dl', nameKey: 'ex.frame-cirsoc-dl', descKey: 'ex.frame-cirsoc-dl.desc' },
+    { id: 'building-3story-dlw', nameKey: 'ex.building-3story-dlw', descKey: 'ex.building-3story-dlw.desc' },
+    { id: 'frame-seismic', nameKey: 'ex.frame-seismic', descKey: 'ex.frame-seismic.desc' },
   ] as const;
 
   // Unified 3D examples — built-in + templates, ordered by ascending complexity
-  const examples3D: { id: string; name: string; desc: string; generate?: (s: typeof modelStore) => void }[] = [
-    { id: '3d-cantilever-load', name: 'Ménsula biaxial', desc: 'Fx + Fy + Fz en extremo' },
-    { id: '3d-torsion-beam', name: 'Viga con torsión', desc: 'Carga excéntrica genera Mx' },
-    { id: '', name: 'Arco Articulado 3D', desc: 'Arco parabólico con articulaciones en cuartos de luz', generate: (s) => TEMPLATE_CATALOG_3D.find(t => t.id === 'hingedArch3D')!.generate(s) },
-    { id: '3d-portal-frame', name: 'Pórtico 3D', desc: '2 pórticos paralelos con vigas transversales' },
-    { id: '', name: 'Emparrillado', desc: 'Grilla de vigas en plano XZ con apoyos en esquinas', generate: (s) => TEMPLATE_CATALOG_3D.find(t => t.id === 'gridBeams')!.generate(s) },
-    { id: '3d-space-truss', name: 'Reticulado espacial', desc: 'Estructura triangulada en 3D' },
-    { id: '', name: 'Pórtico Espacial', desc: '2×2 vanos, 2 pisos con vigas y columnas', generate: (s) => TEMPLATE_CATALOG_3D.find(t => t.id === 'spaceFrame3D')!.generate(s) },
-    { id: '', name: 'Torre 2 pisos', desc: 'Torre arriostrada de 6m, 4 columnas', generate: (s) => TEMPLATE_CATALOG_3D.find(t => t.id === 'tower3D_2')!.generate(s) },
-    { id: '', name: 'Torre 4 pisos', desc: 'Torre arriostrada de 12m con estrechamiento', generate: (s) => TEMPLATE_CATALOG_3D.find(t => t.id === 'tower3D_4')!.generate(s) },
-    { id: '3d-nave-industrial', name: 'Nave Industrial', desc: 'Galpón reticulado con grúa puente y contravientos' },
-    { id: '3d-building', name: 'Edificio 5 Pisos', desc: 'D+L+W+E con combinaciones CIRSOC 201' },
+  const examples3D: { id: string; nameKey: string; descKey: string; generate?: (s: typeof modelStore) => void }[] = [
+    { id: '3d-cantilever-load', nameKey: 'ex.3d-cantilever-load', descKey: 'ex.3d-cantilever-load.desc' },
+    { id: '3d-torsion-beam', nameKey: 'ex.3d-torsion-beam', descKey: 'ex.3d-torsion-beam.desc' },
+    { id: '', nameKey: 'ex.hingedArch3D', descKey: 'ex.hingedArch3D.desc', generate: (s) => getTemplateCatalog3D().find(tmpl => tmpl.id === 'hingedArch3D')!.generate(s) },
+    { id: '3d-portal-frame', nameKey: 'ex.3d-portal-frame', descKey: 'ex.3d-portal-frame.desc' },
+    { id: '', nameKey: 'ex.gridBeams', descKey: 'ex.gridBeams.desc', generate: (s) => getTemplateCatalog3D().find(tmpl => tmpl.id === 'gridBeams')!.generate(s) },
+    { id: '3d-space-truss', nameKey: 'ex.3d-space-truss', descKey: 'ex.3d-space-truss.desc' },
+    { id: '', nameKey: 'ex.spaceFrame3D', descKey: 'ex.spaceFrame3D.desc', generate: (s) => getTemplateCatalog3D().find(tmpl => tmpl.id === 'spaceFrame3D')!.generate(s) },
+    { id: '', nameKey: 'ex.tower3D_2', descKey: 'ex.tower3D_2.desc', generate: (s) => getTemplateCatalog3D().find(tmpl => tmpl.id === 'tower3D_2')!.generate(s) },
+    { id: '', nameKey: 'ex.tower3D_4', descKey: 'ex.tower3D_4.desc', generate: (s) => getTemplateCatalog3D().find(tmpl => tmpl.id === 'tower3D_4')!.generate(s) },
+    { id: '3d-nave-industrial', nameKey: 'ex.3d-nave-industrial', descKey: 'ex.3d-nave-industrial.desc' },
+  ];
+
+  // PRO-only examples — shown only in Pro mode
+  const examplesPro: { id: string; nameKey: string; descKey: string }[] = [
+    { id: '3d-building', nameKey: 'ex.3d-building', descKey: 'ex.3d-building.desc' },
+    { id: 'pro-edificio-7p', nameKey: 'ex.pro-edificio-7p', descKey: 'ex.pro-edificio-7p.desc' },
   ];
 
   function handleDuplicateAxis() {
@@ -59,7 +65,7 @@
       }
     }
     if (nodeIds.size === 0) {
-      uiStore.toast('Seleccioná nodos o elementos primero', 'error');
+      uiStore.toast(t('examples.selectFirst'), 'error');
       return;
     }
 
@@ -163,23 +169,41 @@
     uiStore.setSelection(new Set(idMap.values()), new Set(newElements));
 
     resultsStore.clear();
-    uiStore.toast(`Duplicado en ${axis.toUpperCase()} +${dist}m`, 'success');
+    uiStore.toast(`${t('examples.duplicatedIn')} ${axis.toUpperCase()} +${dist}m`, 'success');
   }
 </script>
 
-{#if uiStore.analysisMode === '3d'}
-<!-- 3D mode: wrapper covers both example sections for tour spotlight -->
+{#if uiStore.analysisMode === 'pro'}
+<!-- PRO mode: only PRO examples -->
+<div class="toolbar-section" data-tour="examples-section">
+  <button class="section-toggle" onclick={() => showExamples = !showExamples}>
+    {showExamples ? '▾' : '▸'} {t('examples.titlePro')}
+  </button>
+  {#if showExamples}
+    <div class="examples-list">
+      {#each examplesPro as ex}
+        <button class="example-item" onclick={() => { modelStore.loadExample(ex.id); resultsStore.clear(); resultsStore.clear3D(); if (uiStore.isMobile) uiStore.leftDrawerOpen = false; setTimeout(() => window.dispatchEvent(new Event('stabileo-zoom-to-fit')), 50); }}>
+          <span class="example-name">{t(ex.nameKey)}</span>
+          <span class="example-desc">{t(ex.descKey)}</span>
+        </button>
+      {/each}
+    </div>
+  {/if}
+</div>
+
+{:else if uiStore.analysisMode === '3d'}
+<!-- 3D mode: 2D + 3D example sections -->
 <div data-tour="examples-section" style="display:flex;flex-direction:column;gap:1rem">
 <div class="toolbar-section">
   <button class="section-toggle" onclick={() => showExamples = !showExamples}>
-    {showExamples ? '▾' : '▸'} Ejemplos 2D
+    {showExamples ? '▾' : '▸'} {t('examples.title2d')}
   </button>
   {#if showExamples}
     <div class="examples-list">
       {#each examples.filter(ex => !['truss','warren-truss','howe-truss'].includes(ex.id)) as ex}
-        <button class="example-item" onclick={() => { modelStore.loadExample(ex.id); resultsStore.clear(); resultsStore.clear3D(); if (uiStore.isMobile) uiStore.leftDrawerOpen = false; setTimeout(() => window.dispatchEvent(new Event('dedaliano-zoom-to-fit')), 50); }}>
-          <span class="example-name">{ex.name}</span>
-          <span class="example-desc">{ex.desc}</span>
+        <button class="example-item" onclick={() => { modelStore.loadExample(ex.id); resultsStore.clear(); resultsStore.clear3D(); if (uiStore.isMobile) uiStore.leftDrawerOpen = false; setTimeout(() => window.dispatchEvent(new Event('stabileo-zoom-to-fit')), 50); }}>
+          <span class="example-name">{t(ex.nameKey)}</span>
+          <span class="example-desc">{t(ex.descKey)}</span>
         </button>
       {/each}
     </div>
@@ -188,36 +212,51 @@
 
 <div class="toolbar-section">
   <button class="section-toggle" onclick={() => showExamples3D = !showExamples3D}>
-    {showExamples3D ? '▾' : '▸'} Ejemplos 3D
+    {showExamples3D ? '▾' : '▸'} {t('examples.title3d')}
   </button>
   {#if showExamples3D}
     <div class="examples-list">
       {#each examples3D as ex}
-        <button class="example-item" onclick={() => { if (ex.generate) { ex.generate(modelStore); } else { modelStore.loadExample(ex.id); } resultsStore.clear(); resultsStore.clear3D(); if (uiStore.isMobile) uiStore.leftDrawerOpen = false; setTimeout(() => window.dispatchEvent(new Event('dedaliano-zoom-to-fit')), 50); }}>
-          <span class="example-name">{ex.name}</span>
-          <span class="example-desc">{ex.desc}</span>
+        <button class="example-item" onclick={() => { if (ex.generate) { ex.generate(modelStore); } else { modelStore.loadExample(ex.id); } resultsStore.clear(); resultsStore.clear3D(); if (uiStore.isMobile) uiStore.leftDrawerOpen = false; setTimeout(() => window.dispatchEvent(new Event('stabileo-zoom-to-fit')), 50); }}>
+          <span class="example-name">{t(ex.nameKey)}</span>
+          <span class="example-desc">{t(ex.descKey)}</span>
+        </button>
+      {/each}
+    </div>
+  {/if}
+</div>
+</div>
+
+{:else if uiStore.analysisMode === 'edu'}
+<!-- EDU mode: same 2D examples as basic -->
+<div class="toolbar-section" data-tour="examples-section">
+  <button class="section-toggle" onclick={() => showExamples = !showExamples}>
+    {showExamples ? '▾' : '▸'} {t('examples.title')}
+  </button>
+  {#if showExamples}
+    <div class="examples-list">
+      {#each examples as ex}
+        <button class="example-item" onclick={() => { modelStore.loadExample(ex.id); resultsStore.clear(); resultsStore.clear3D(); if (uiStore.isMobile) uiStore.leftDrawerOpen = false; setTimeout(() => window.dispatchEvent(new Event('stabileo-zoom-to-fit')), 50); }}>
+          <span class="example-name">{t(ex.nameKey)}</span>
+          <span class="example-desc">{t(ex.descKey)}</span>
         </button>
       {/each}
     </div>
   {/if}
 </div>
 
-<!-- Duplicate-on-axis tool: hidden for now, pending proper UX design.
-     Function handleDuplicateAxis() and uiStore.duplicateAxis/duplicateDistance kept for future use. -->
-</div>
-
 {:else}
 <!-- 2D mode: single examples section -->
 <div class="toolbar-section" data-tour="examples-section">
   <button class="section-toggle" onclick={() => showExamples = !showExamples}>
-    {showExamples ? '▾' : '▸'} Ejemplos
+    {showExamples ? '▾' : '▸'} {t('examples.title')}
   </button>
   {#if showExamples}
     <div class="examples-list">
       {#each examples as ex}
-        <button class="example-item" onclick={() => { modelStore.loadExample(ex.id); resultsStore.clear(); resultsStore.clear3D(); if (uiStore.isMobile) uiStore.leftDrawerOpen = false; setTimeout(() => window.dispatchEvent(new Event('dedaliano-zoom-to-fit')), 50); }}>
-          <span class="example-name">{ex.name}</span>
-          <span class="example-desc">{ex.desc}</span>
+        <button class="example-item" onclick={() => { modelStore.loadExample(ex.id); resultsStore.clear(); resultsStore.clear3D(); if (uiStore.isMobile) uiStore.leftDrawerOpen = false; setTimeout(() => window.dispatchEvent(new Event('stabileo-zoom-to-fit')), 50); }}>
+          <span class="example-name">{t(ex.nameKey)}</span>
+          <span class="example-desc">{t(ex.descKey)}</span>
         </button>
       {/each}
     </div>

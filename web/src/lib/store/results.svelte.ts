@@ -1,16 +1,20 @@
 // Results store
 
 import type { AnalysisResults, InfluenceLineResult, Section, Material } from './model.svelte';
-import type { ElementForces, FullEnvelope, ConstraintForce, AssemblyDiagnostic, SolverDiagnostic } from '../engine/types';
+import type { ElementForces, FullEnvelope, ConstraintForce, AssemblyDiagnostic, SolverDiagnostic, SolveTimings } from '../engine/types';
 import type { AnalysisResults3D, Displacement3D, Reaction3D, ElementForces3D, FullEnvelope3D } from '../engine/types-3d';
 import type { MovingLoadEnvelope } from '../engine/moving-loads';
 import type { PDeltaResult } from '../engine/pdelta';
+import type { PDeltaResult3D } from '../engine/pdelta-3d';
 import type { ModalResult } from '../engine/modal';
+import type { ModalResult3D } from '../engine/modal-3d';
 import type { BucklingResult } from '../engine/buckling';
+import type { BucklingResult3D } from '../engine/buckling-3d';
 import type { PlasticResult } from '../engine/plastic';
 import type { SpectralResult } from '../engine/spectral';
+import type { SpectralResult3D } from '../engine/spectral-3d';
 
-export type DiagramType = 'none' | 'moment' | 'shear' | 'axial' | 'deformed' | 'colorMap' | 'axialColor' | 'influenceLine' | 'modeShape' | 'bucklingMode' | 'plasticHinges'
+export type DiagramType = 'none' | 'moment' | 'shear' | 'axial' | 'deformed' | 'colorMap' | 'axialColor' | 'verification' | 'influenceLine' | 'modeShape' | 'bucklingMode' | 'plasticHinges'
   // 3D-specific diagram types
   | 'momentY' | 'momentZ' | 'shearY' | 'shearZ' | 'torsion';
 
@@ -69,10 +73,12 @@ export type ResultsView = 'single' | 'combo' | 'envelope';
 function createResultsStore() {
   let results = $state<AnalysisResults | null>(null);
   let diagramType = $state<DiagramType>('none');
+  /** Remembers last user-visible diagram so live-calc can restore it after clear() */
+  let _lastDiagramType: DiagramType = 'none';
   let deformedScale = $state<number>(100); // Scale factor for deformed shape (1x = true 1:1 real scale)
   let diagramScale = $state<number>(1); // Multiplier for M/V/N diagram size (1 = default 60px height)
   let animateDeformed = $state<boolean>(false);
-  let colorMapKind = $state<'moment' | 'shear' | 'axial' | 'stressRatio'>('moment');
+  let colorMapKind = $state<'moment' | 'shear' | 'axial' | 'stressRatio' | 'vonMises' | 'shellVonMises' | 'shellBending'>('moment');
   let showDiagramValues = $state<boolean>(true);
   let animSpeed = $state<number>(1.0); // animation speed multiplier (0.25 - 3x)
 
@@ -110,7 +116,13 @@ function createResultsStore() {
   let plasticResult = $state<PlasticResult | null>(null);
   let plasticStep = $state<number>(0);
   let spectralResult = $state<SpectralResult | null>(null);
+  // 3D advanced analysis results
+  let pdeltaResult3D = $state<PDeltaResult3D | null>(null);
+  let modalResult3D = $state<ModalResult3D | null>(null);
+  let bucklingResult3D = $state<BucklingResult3D | null>(null);
+  let spectralResult3D = $state<SpectralResult3D | null>(null);
   let showReactions = $state<boolean>(true);
+  let showConstraintForces = $state<boolean>(false);
   let movingLoadShowEnvelope = $state<boolean>(false);
 
   // Moving load progress tracking
@@ -134,10 +146,23 @@ function createResultsStore() {
   let perCombo3D = $state<Map<number, AnalysisResults3D>>(new Map());
   let envelope3D = $state<FullEnvelope3D | null>(null);
 
+  // Diagnostics (2D + 3D parallel)
+  let diagnostics2D = $state<SolverDiagnostic[]>([]);
+  let constraintForces2D = $state<ConstraintForce[]>([]);
+  let diagnostics3DArr = $state<SolverDiagnostic[]>([]);
+  let constraintForces3DArr = $state<ConstraintForce[]>([]);
+
+  // Solve timings
+  let solveTimings2D = $state<SolveTimings | null>(null);
+  let solveTimings3D = $state<SolveTimings | null>(null);
+
   return {
     get results() { return results; },
     get diagramType() { return diagramType; },
-    set diagramType(v: DiagramType) { diagramType = v; },
+    set diagramType(v: DiagramType) {
+      diagramType = v;
+      if (v !== 'none') _lastDiagramType = v;
+    },
     get deformedScale() { return deformedScale; },
     set deformedScale(v: number) { deformedScale = v; },
     get diagramScale() { return diagramScale; },
@@ -145,7 +170,7 @@ function createResultsStore() {
     get animateDeformed() { return animateDeformed; },
     set animateDeformed(v: boolean) { animateDeformed = v; },
     get colorMapKind() { return colorMapKind; },
-    set colorMapKind(v: 'moment' | 'shear' | 'axial' | 'stressRatio') { colorMapKind = v; },
+    set colorMapKind(v: 'moment' | 'shear' | 'axial' | 'stressRatio' | 'vonMises' | 'shellVonMises' | 'shellBending') { colorMapKind = v; },
     get showDiagramValues() { return showDiagramValues; },
     set showDiagramValues(v: boolean) { showDiagramValues = v; },
     get animSpeed() { return animSpeed; },
@@ -265,6 +290,10 @@ function createResultsStore() {
       movingLoadEnvelope = null;
       activeMovingLoadPosition = 0;
       movingLoadShowEnvelope = false;
+      pdeltaResult3D = null;
+      modalResult3D = null;
+      bucklingResult3D = null;
+      spectralResult3D = null;
     },
 
     /** Individual clear methods (for toggle-off behavior) */
@@ -352,8 +381,61 @@ function createResultsStore() {
       spectralResult = r;
     },
 
+    // ─── 3D Advanced Analysis Results ─────────────────────────────
+    get pdeltaResult3D() { return pdeltaResult3D; },
+    setPDeltaResult3D(r: PDeltaResult3D) {
+      this.clearAdvanced();
+      pdeltaResult3D = r;
+      results3D = r.results;
+      diagramType = 'deformed';
+    },
+    clearPDelta3D() {
+      pdeltaResult3D = null;
+    },
+
+    get modalResult3D() { return modalResult3D; },
+    setModalResult3D(r: ModalResult3D) {
+      this.clearAdvanced();
+      modalResult3D = r;
+      activeModeIndex = 0;
+      diagramType = 'modeShape';
+    },
+    clearModal3D() {
+      modalResult3D = null;
+      activeModeIndex = 0;
+      spectralResult3D = null;
+      if (diagramType === 'modeShape') diagramType = 'deformed';
+    },
+
+    get bucklingResult3D() { return bucklingResult3D; },
+    setBucklingResult3D(r: BucklingResult3D) {
+      this.clearAdvanced();
+      bucklingResult3D = r;
+      activeBucklingMode = 0;
+      diagramType = 'bucklingMode';
+    },
+    clearBuckling3D() {
+      bucklingResult3D = null;
+      activeBucklingMode = 0;
+      if (diagramType === 'bucklingMode') diagramType = 'deformed';
+    },
+
+    get spectralResult3D() { return spectralResult3D; },
+    setSpectralResult3D(r: SpectralResult3D) {
+      this.clearAdvanced();
+      spectralResult3D = r;
+      results3D = r.results;
+      diagramType = 'deformed';
+    },
+    clearSpectral3D() {
+      spectralResult3D = null;
+    },
+
     get showReactions() { return showReactions; },
     set showReactions(v: boolean) { showReactions = v; },
+
+    get showConstraintForces() { return showConstraintForces; },
+    set showConstraintForces(v: boolean) { showConstraintForces = v; },
 
     get movingLoadShowEnvelope() { return movingLoadShowEnvelope; },
     set movingLoadShowEnvelope(v: boolean) { movingLoadShowEnvelope = v; },
@@ -390,13 +472,24 @@ function createResultsStore() {
       ilAnimProgress = 0;
     },
 
-    setResults(r: AnalysisResults) {
+    setResults(r: AnalysisResults, preserveDiagram = false) {
       results = r;
       singleResults = r; // Save base solve for "Cargas simples" option
-      // Preserve current diagram type if it's a results-based view; only default to 'deformed' if none
-      const resultsDiagrams: DiagramType[] = ['deformed', 'moment', 'shear', 'axial', 'colorMap', 'axialColor'];
-      if (!resultsDiagrams.includes(diagramType)) {
+      // Preserve current diagram type during live-calc re-solves
+      const validDiagrams: DiagramType[] = ['deformed', 'moment', 'shear', 'axial', 'colorMap', 'axialColor'];
+      if (preserveDiagram) {
+        // clear() may have reset diagramType to 'none' — restore last user-chosen diagram
+        if (diagramType === 'none' && validDiagrams.includes(_lastDiagramType)) {
+          diagramType = _lastDiagramType;
+        }
+        // Keep current diagram if valid, otherwise fall back to deformed
+        if (!validDiagrams.includes(diagramType) && diagramType !== 'none') {
+          diagramType = 'deformed';
+          _lastDiagramType = 'deformed';
+        }
+      } else if (!validDiagrams.includes(diagramType)) {
         diagramType = 'deformed';
+        _lastDiagramType = 'deformed';
       }
       activeView = 'single';
       activeCaseId = null;
@@ -405,6 +498,10 @@ function createResultsStore() {
       perCombo = new Map();
       envelope = null;
       activeComboId = null;
+      // Extract diagnostics and constraint forces from results
+      diagnostics2D = [];
+      constraintForces2D = r.constraintForces ?? [];
+      solveTimings2D = r.timings ?? null;
     },
 
     setCombinationResults(pc: Map<number, AnalysisResults>, pco: Map<number, AnalysisResults>, env: FullEnvelope) {
@@ -467,18 +564,34 @@ function createResultsStore() {
       perCase3D = new Map();
       perCombo3D = new Map();
       envelope3D = null;
+      diagnostics2D = [];
+      constraintForces2D = [];
+      diagnostics3DArr = [];
+      constraintForces3DArr = [];
+      solveTimings2D = null;
+      solveTimings3D = null;
     },
 
     // ─── 3D Results ─────────────────────────────────────────────
 
     get results3D() { return results3D; },
 
-    setResults3D(r: AnalysisResults3D) {
+    setResults3D(r: AnalysisResults3D, preserveDiagram = false) {
       results3D = r;
       singleResults3D = r;
-      const valid3DDiagrams: DiagramType[] = ['deformed', 'momentY', 'momentZ', 'shearY', 'shearZ', 'axial', 'torsion', 'axialColor', 'colorMap', 'none'];
-      if (!valid3DDiagrams.includes(diagramType)) {
+      // Preserve current diagram type during live-calc re-solves
+      const valid3DDiagrams: DiagramType[] = ['deformed', 'momentY', 'momentZ', 'shearY', 'shearZ', 'axial', 'torsion', 'axialColor', 'colorMap'];
+      if (preserveDiagram) {
+        if (diagramType === 'none' && valid3DDiagrams.includes(_lastDiagramType)) {
+          diagramType = _lastDiagramType;
+        }
+        if (!valid3DDiagrams.includes(diagramType) && diagramType !== 'none') {
+          diagramType = 'deformed';
+          _lastDiagramType = 'deformed';
+        }
+      } else if (!valid3DDiagrams.includes(diagramType)) {
         diagramType = 'deformed';
+        _lastDiagramType = 'deformed';
       }
       // Reset 3D combos on fresh solve
       activeView = 'single';
@@ -486,6 +599,10 @@ function createResultsStore() {
       perCase3D = new Map();
       perCombo3D = new Map();
       envelope3D = null;
+      // Extract diagnostics and constraint forces from results
+      diagnostics3DArr = [];
+      constraintForces3DArr = r.constraintForces ?? [];
+      solveTimings3D = r.timings ?? null;
     },
 
     clear3D() {
@@ -494,6 +611,13 @@ function createResultsStore() {
       perCase3D = new Map();
       perCombo3D = new Map();
       envelope3D = null;
+      diagnostics3DArr = [];
+      constraintForces3DArr = [];
+      solveTimings3D = null;
+      pdeltaResult3D = null;
+      modalResult3D = null;
+      bucklingResult3D = null;
+      spectralResult3D = null;
       // Reset diagram state so stale deformed/diagrams are removed from scene
       diagramType = 'none';
       animateDeformed = false;
@@ -511,15 +635,19 @@ function createResultsStore() {
       perCombo3D = pco;
       envelope3D = env;
       activeCaseId = null;
-      // Default: show single results if available
-      if (singleResults3D) {
+      activeComboId = pco.keys().next().value ?? null;
+      // Default: show first combination if available (avoids nonsensical
+      // all-loads-combined view when contradictory cases exist, e.g. wind ±X)
+      if (activeComboId !== null && pco.has(activeComboId)) {
+        results3D = pco.get(activeComboId)!;
+        activeView = 'combo';
+      } else if (singleResults3D) {
         results3D = singleResults3D;
         activeView = 'single';
       } else {
         results3D = env.maxAbsResults3D;
         activeView = 'envelope';
       }
-      activeComboId = pco.keys().next().value ?? null;
       const valid3DDiagrams: DiagramType[] = ['deformed', 'momentY', 'momentZ', 'shearY', 'shearZ', 'axial', 'torsion', 'axialColor', 'colorMap', 'none'];
       if (!valid3DDiagrams.includes(diagramType)) {
         diagramType = 'momentZ';
@@ -559,6 +687,44 @@ function createResultsStore() {
       return Math.max(...results3D.displacements.map(d =>
         Math.sqrt(d.ux ** 2 + d.uy ** 2 + d.uz ** 2)
       ));
+    },
+
+    // ─── Solve Timings ─────────────────────────────────────────
+    get solveTimings() { return solveTimings2D; },
+    get solveTimings3DData() { return solveTimings3D; },
+
+    // ─── Diagnostics ───────────────────────────────────────────
+    get diagnostics() { return diagnostics2D; },
+    get diagnostics3D() { return diagnostics3DArr; },
+    get constraintForces() { return constraintForces2D; },
+    get constraintForces3D() { return constraintForces3DArr; },
+
+    /** Add diagnostics (appends to existing list) */
+    addDiagnostics(diags: SolverDiagnostic[], is3D: boolean = false) {
+      if (is3D) {
+        diagnostics3DArr = [...diagnostics3DArr, ...diags];
+      } else {
+        diagnostics2D = [...diagnostics2D, ...diags];
+      }
+    },
+
+    /** Set constraint forces */
+    setConstraintForces(forces: ConstraintForce[], is3D: boolean = false) {
+      if (is3D) {
+        constraintForces3DArr = forces;
+      } else {
+        constraintForces2D = forces;
+      }
+    },
+
+    clearDiagnostics(is3D: boolean = false) {
+      if (is3D) {
+        diagnostics3DArr = [];
+        constraintForces3DArr = [];
+      } else {
+        diagnostics2D = [];
+        constraintForces2D = [];
+      }
     },
 
     getDisplacement(nodeId: number) {

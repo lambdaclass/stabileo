@@ -29,7 +29,7 @@ Latest reported status:
 - parallel element assembly (rayon) wired into the 3D sparse solver path
 - sparse assembly is now reused in 3D modal, buckling, harmonic, and reduction workflows, eliminating full dense `n×n` assembly there
 - sparse modal 3D, sparse buckling 3D, and sparse harmonic 3D now have real sparse eigensolver paths in the common unconstrained case; modal already shows an `11.8×` measured speedup at `20×20 MITC4`, and harmonic modal response shows a `51.5×` speedup at the same shell size
-- AMD is the default sparse ordering; gate tests now use AMD with tightened fill bounds (2.74× at 10×10, 4.88× at 30×30 vs prior RCM bounds of 4.0× and 10.0×)
+- measured AMD vs RCM comparison now shows AMD winning materially on fill for larger shell meshes and should be treated as the current default ordering direction
 - residual-based sparse vs dense parity testing and benchmark gate coverage
 - Guyan and Craig-Bampton now reuse one factorization instead of repeating hundreds of LU decompositions, with measured reduction speedups around `44×`
 - design-grade beam station extraction (`extract_beam_stations` / `extract_beam_stations_3d`) with per-combo forces, governing provenance, sign-convention metadata, and snapshot-tested JSON contract; grouped-by-member convenience layer (`extract_beam_stations_grouped` / `extract_beam_stations_grouped_3d`) with member-level governing summaries — unblocks RC design tables and BBS

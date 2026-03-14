@@ -10,8 +10,9 @@ import { createNodeMesh, updateNodePosition } from '../three/create-node-mesh';
 import { createElementGroup } from '../three/create-element-mesh';
 import { createSupportGizmo } from '../three/create-support-gizmo';
 import type { SupportGizmoType } from '../three/create-support-gizmo';
-import { createNodalLoadArrow, createDistributedLoadGroup } from '../three/create-load-arrow';
+import { createNodalLoadArrow, createDistributedLoadGroup, createSurfaceLoadGroup } from '../three/create-load-arrow';
 import { COLORS, setMeshColor, setGroupColor, disposeObject } from '../three/selection-helpers';
+import { createPlateMesh, createQuadMesh } from '../three/create-shell-mesh';
 import { computeLocalAxes3D } from '../engine/solver-3d';
 
 /**
@@ -28,12 +29,14 @@ export interface SceneSyncContext {
   supportsParent: THREE.Group;
   loadsParent: THREE.Group;
   resultsParent: THREE.Group;
+  shellsParent: THREE.Group;
   scene: THREE.Scene;
 
   // Reconciliation maps (mutated in place)
   nodeMeshes: Map<number, THREE.Mesh>;
   elementGroups: Map<number, THREE.Group>;
   supportGizmos: Map<number, THREE.Group>;
+  shellGroups: Map<string, THREE.Group>; // key: "p{id}" or "q{id}"
 
   // Single-instance groups (replaced on each sync)
   loadGroup: THREE.Group | null;
@@ -164,6 +167,44 @@ export function syncSupports(ctx: SceneSyncContext): void {
   }
 }
 
+// ─── Shells (Plates + Quads) ────────────────────────────────
+
+export function syncShells(ctx: SceneSyncContext): void {
+  if (!ctx.initialized) return;
+
+  const getNode = (id: number) => {
+    const n = modelStore.nodes.get(id);
+    return n ? { x: n.x, y: n.y, z: n.z ?? 0 } : null;
+  };
+
+  // Clear all existing shell meshes (simple rebuild, like elements)
+  for (const [key, group] of ctx.shellGroups) {
+    ctx.shellsParent.remove(group);
+    disposeObject(group);
+  }
+  ctx.shellGroups.clear();
+
+  // Plates (triangular DKT)
+  for (const [id, plate] of modelStore.plates) {
+    const [n0, n1, n2] = plate.nodes.map(nid => getNode(nid));
+    if (!n0 || !n1 || !n2) continue;
+
+    const group = createPlateMesh(n0, n1, n2, id);
+    ctx.shellsParent.add(group);
+    ctx.shellGroups.set(`p${id}`, group);
+  }
+
+  // Quads (MITC4)
+  for (const [id, quad] of modelStore.quads) {
+    const [n0, n1, n2, n3] = quad.nodes.map(nid => getNode(nid));
+    if (!n0 || !n1 || !n2 || !n3) continue;
+
+    const group = createQuadMesh(n0, n1, n2, n3, id);
+    ctx.shellsParent.add(group);
+    ctx.shellGroups.set(`q${id}`, group);
+  }
+}
+
 // ─── Loads ───────────────────────────────────────────────────
 
 export function syncLoads(ctx: SceneSyncContext): void {
@@ -201,6 +242,8 @@ export function syncLoads(ctx: SceneSyncContext): void {
     } else if (load.type === 'distributed3d') {
       const d = load.data;
       maxQ = Math.max(maxQ, Math.abs(d.qYI), Math.abs(d.qYJ), Math.abs(d.qZI), Math.abs(d.qZJ));
+    } else if (load.type === 'surface3d') {
+      maxQ = Math.max(maxQ, Math.abs(load.data.q));
     }
   }
   if (maxForce < 1e-10) maxForce = 10;
@@ -208,8 +251,21 @@ export function syncLoads(ctx: SceneSyncContext): void {
 
   const loadGrp = ctx.loadGroup;
 
+  // Visibility filter and color helper
+  const visibleCases = uiStore.visibleLoadCases3D; // null = all visible
+  function getCaseColor(caseId: number | undefined): number {
+    const hex = modelStore.getLoadCaseColor(caseId ?? 1);
+    return parseInt(hex.replace('#', ''), 16);
+  }
+
   for (let i = 0; i < loads.length; i++) {
     const load = loads[i];
+    const caseId: number | undefined = load.data.caseId;
+
+    // Filter by visible load cases
+    if (visibleCases !== null && caseId !== undefined && !visibleCases.includes(caseId)) continue;
+
+    const cc = getCaseColor(caseId);
 
     if (load.type === 'nodal') {
       const node = modelStore.nodes.get(load.data.nodeId);
@@ -220,6 +276,7 @@ export function syncLoads(ctx: SceneSyncContext): void {
         0, 0, load.data.mz,
         maxForce, i,
         uiStore.momentStyle3D,
+        cc,
       );
       loadGrp.add(arrow);
     } else if (load.type === 'nodal3d') {
@@ -232,6 +289,7 @@ export function syncLoads(ctx: SceneSyncContext): void {
         d.mx, d.my, d.mz,
         maxForce, i,
         uiStore.momentStyle3D,
+        cc,
       );
       loadGrp.add(arrow);
     } else if (load.type === 'distributed') {
@@ -244,7 +302,7 @@ export function syncLoads(ctx: SceneSyncContext): void {
         { x: nI.x, y: nI.y, z: nI.z ?? 0 },
         { x: nJ.x, y: nJ.y, z: nJ.z ?? 0 },
         load.data.qI, load.data.qJ,
-        maxQ, i,
+        maxQ, i, 'Y', undefined, cc,
       );
       loadGrp.add(grp);
     } else if (load.type === 'distributed3d') {
@@ -266,7 +324,7 @@ export function syncLoads(ctx: SceneSyncContext): void {
         const grp = createDistributedLoadGroup(
           posI, posJ,
           load.data.qYI, load.data.qYJ,
-          maxQ, i, 'Y', ey,
+          maxQ, i, 'Y', ey, cc,
         );
         loadGrp.add(grp);
       }
@@ -275,10 +333,22 @@ export function syncLoads(ctx: SceneSyncContext): void {
         const grpZ = createDistributedLoadGroup(
           posI, posJ,
           load.data.qZI, load.data.qZJ,
-          maxQ, i, 'Z', ez,
+          maxQ, i, 'Z', ez, cc,
         );
         loadGrp.add(grpZ);
       }
+    }
+    // surface3d: render as a grid of arrows covering the quad area
+    else if (load.type === 'surface3d') {
+      const quad = modelStore.quads.get(load.data.quadId);
+      if (!quad) continue;
+      const ns = quad.nodes.map((nid: number) => modelStore.nodes.get(nid));
+      if (ns.some((n: any) => !n)) continue;
+      const grp = createSurfaceLoadGroup(
+        ns as Array<{ x: number; y: number; z: number }>,
+        load.data.q, maxQ, i, cc,
+      );
+      loadGrp.add(grp);
     }
     // pointOnElement and pointOnElement3d: simplified as nodal for now
     else if (load.type === 'pointOnElement') {
@@ -297,6 +367,7 @@ export function syncLoads(ctx: SceneSyncContext): void {
         0, -Math.abs(load.data.p), 0, // assume perpendicular = vertical
         0, 0, 0,
         maxForce, i,
+        'double-arrow', cc,
       );
       loadGrp.add(arrow);
     }
@@ -345,7 +416,7 @@ export function syncSelection(ctx: SceneSyncContext): void {
 
   // Re-apply color map if active (syncSelection overwrites element colors)
   const dt = resultsStore.diagramType;
-  if (resultsStore.results3D && (dt === 'axialColor' || dt === 'colorMap')) {
+  if (resultsStore.results3D && (dt === 'axialColor' || dt === 'colorMap' || dt === 'verification')) {
     // Import dynamically avoided — call syncColorMap3D from Viewport3D after syncSelection
     // The caller is responsible for re-applying color map.
     // We just set a flag so the caller knows.

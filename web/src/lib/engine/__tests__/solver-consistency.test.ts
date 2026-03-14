@@ -517,7 +517,7 @@ describe('Kinematic analysis — additional mechanism detection', () => {
 
     // Node 2 has all frame elements hinged at it AND one is double-hinged
     // → should detect mechanism
-    expect(() => solve(input)).toThrow(/[Mm]ecanismo/);
+    expect(() => solve(input)).toThrow(/[Mm]echanism/);
   });
 
   it('three-hinge arch is NOT a mechanism', () => {

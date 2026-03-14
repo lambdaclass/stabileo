@@ -1,5 +1,6 @@
 <script lang="ts">
   import { dsmStepsStore } from '../../lib/store';
+  import { t } from '../../lib/i18n';
   import Step1DOFNumbering from './Step1DOFNumbering.svelte';
   import Step2LocalMatrices from './Step2LocalMatrices.svelte';
   import Step3Transformation from './Step3Transformation.svelte';
@@ -13,19 +14,6 @@
 
   let showExplorer = $state(false);
 
-  const stepNames = [
-    '', // index 0 unused
-    'Numeracion de GDL',
-    'Matrices locales [k]',
-    'Transformacion [T] y [K]ₑ',
-    'Ensamblaje [K] global',
-    'Vector de cargas {F}',
-    'Condiciones de borde',
-    'Solucion {u}',
-    'Reacciones {R}',
-    'Fuerzas internas',
-  ];
-
   const is3D = $derived(
     dsmStepsStore.stepData ? dsmStepsStore.stepData.dofNumbering.dofsPerNode > 3 : false
   );
@@ -35,7 +23,7 @@
     else if (e.key === 'ArrowLeft' || e.key === 'ArrowUp') { e.preventDefault(); dsmStepsStore.prevStep(); }
     else if (e.key === 'Escape') {
       dsmStepsStore.close();
-      setTimeout(() => window.dispatchEvent(new Event('dedaliano-zoom-to-fit')), 100);
+      setTimeout(() => window.dispatchEvent(new Event('stabileo-zoom-to-fit')), 100);
     }
   }
 </script>
@@ -44,18 +32,18 @@
 
 <div class="wizard">
   <div class="wizard-header">
-    <span class="wizard-title">{showExplorer ? 'Explorador de Matrices' : 'Paso a Paso — Método de las Rigideces'}</span>
+    <span class="wizard-title">{showExplorer ? t('dsm.matrixExplorer') : t('dsm.wizardTitle')}</span>
     <button
       class="explorer-toggle"
       class:active={showExplorer}
       onclick={() => { showExplorer = !showExplorer; }}
-      title={showExplorer ? 'Volver a Pasos' : 'Explorador de Matrices'}
+      title={showExplorer ? t('dsm.backToSteps') : t('dsm.matrixExplorer')}
     >
-      {showExplorer ? '← Pasos' : '⊞ Explorador'}
+      {showExplorer ? t('dsm.stepsBtn') : t('dsm.explorerBtn')}
     </button>
     <button class="close-btn" onclick={() => {
       dsmStepsStore.close();
-      setTimeout(() => window.dispatchEvent(new Event('dedaliano-zoom-to-fit')), 100);
+      setTimeout(() => window.dispatchEvent(new Event('stabileo-zoom-to-fit')), 100);
     }}>✕</button>
   </div>
 
@@ -76,7 +64,7 @@
           class:active={dsmStepsStore.currentStep === step}
           class:past={dsmStepsStore.currentStep > step}
           onclick={() => dsmStepsStore.goToStep(step)}
-          title="{step}. {stepNames[step]}"
+          title="{step}. {t('dsm.step' + step + 'Name')}"
         >
           {step}
         </button>
@@ -84,16 +72,16 @@
     </div>
 
     <div class="step-name">
-      Paso {dsmStepsStore.currentStep}: {stepNames[dsmStepsStore.currentStep]}
+      {t('dsm.step').replace('{n}', String(dsmStepsStore.currentStep)).replace('{name}', t('dsm.step' + dsmStepsStore.currentStep + 'Name'))}
     </div>
 
     {#if is3D}
       <div class="mode-banner mode-3d">
-        Modo 3D — 6 GDL/nodo (u, v, w, θx, θy, θz) · Matrices 12×12 (frame) / 6×6 (truss)
+        {t('dsm.mode3dBanner')}
       </div>
     {:else}
       <div class="mode-banner mode-2d">
-        Modo 2D — {dsmStepsStore.stepData?.dofNumbering.dofsPerNode === 2 ? '2 GDL/nodo (ux, uy)' : '3 GDL/nodo (ux, uy, θz)'} · Matrices {dsmStepsStore.stepData?.dofNumbering.dofsPerNode === 2 ? '4×4' : '6×6'} (frame) / {dsmStepsStore.stepData?.dofNumbering.dofsPerNode === 2 ? '4×4' : '4×4'} (truss)
+        {dsmStepsStore.stepData?.dofNumbering.dofsPerNode === 2 ? t('dsm.mode2dBanner2dof') : t('dsm.mode2dBanner3dof')}
       </div>
     {/if}
 
@@ -123,11 +111,11 @@
 
     <div class="wizard-footer">
       <button class="nav-btn" disabled={dsmStepsStore.currentStep === 1} onclick={() => dsmStepsStore.prevStep()}>
-        ← Anterior
+        {t('dsm.prev')}
       </button>
       <span class="step-counter">{dsmStepsStore.currentStep} / 9</span>
       <button class="nav-btn" disabled={dsmStepsStore.currentStep === 9} onclick={() => dsmStepsStore.nextStep()}>
-        Siguiente →
+        {t('dsm.next')}
       </button>
     </div>
   {/if}

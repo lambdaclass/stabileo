@@ -1,6 +1,7 @@
 // 2D Example structures for Dedaliano
 import type { LoadCaseType, LoadCase, LoadCombination, Material, Section, SupportType } from './model.svelte';
 import { uiStore } from './index';
+import { t } from '../i18n';
 
 /** API surface that example loaders need from the model store */
 export interface ExampleAPI {
@@ -25,7 +26,7 @@ export interface ExampleAPI {
 export function load2DExample(name: string, api: ExampleAPI): boolean {
   switch (name) {
     case 'simply-supported': {
-      api.model.name = 'Viga Biarticulada';
+      api.model.name = t('ex.simply-supported');
       const n1 = api.addNode(0, 0);
       const n2 = api.addNode(6, 0);
       const e1 = api.addElement(n1, n2);
@@ -35,7 +36,7 @@ export function load2DExample(name: string, api: ExampleAPI): boolean {
       break;
     }
     case 'cantilever': {
-      api.model.name = 'Viga en Voladizo';
+      api.model.name = t('ex.cantilever');
       const n1 = api.addNode(0, 0);
       const n2 = api.addNode(5, 0);
       const e1 = api.addElement(n1, n2);
@@ -44,7 +45,7 @@ export function load2DExample(name: string, api: ExampleAPI): boolean {
       break;
     }
     case 'portal-frame': {
-      api.model.name = 'Pórtico Simple';
+      api.model.name = t('ex.portal-frame');
       // Material: Hormigón H-25
       const matHA = api.addMaterial({ name: 'H.A. H-25', e: 30000, nu: 0.2, rho: 25 });
       // Secciones de hormigón
@@ -67,7 +68,7 @@ export function load2DExample(name: string, api: ExampleAPI): boolean {
       break;
     }
     case 'continuous-beam': {
-      api.model.name = 'Viga Continua (3 tramos)';
+      api.model.name = t('ex.continuous-beam');
       const n1 = api.addNode(0, 0);
       const n2 = api.addNode(4, 0);
       const n3 = api.addNode(8, 0);
@@ -85,7 +86,7 @@ export function load2DExample(name: string, api: ExampleAPI): boolean {
       break;
     }
     case 'truss': {
-      api.model.name = 'Reticulado Pratt';
+      api.model.name = t('ex.truss');
       // Bottom chord
       const b1 = api.addNode(0, 0);
       const b2 = api.addNode(3, 0);
@@ -127,7 +128,7 @@ export function load2DExample(name: string, api: ExampleAPI): boolean {
       break;
     }
     case 'two-story-frame': {
-      api.model.name = 'Pórtico 2 Pisos';
+      api.model.name = t('ex.two-story-frame');
       // Material: Hormigón H-25
       const matHA = api.addMaterial({ name: 'H.A. H-25', e: 30000, nu: 0.2, rho: 25 });
       const secCol = api.addSection({ name: 'H.A. 30×30', a: 0.09, iz: 0.000675, iy: 0.000675, b: 0.30, h: 0.30, shape: 'rect' });
@@ -160,7 +161,7 @@ export function load2DExample(name: string, api: ExampleAPI): boolean {
       break;
     }
     case 'spring-support': {
-      api.model.name = 'Viga sobre Resorte';
+      api.model.name = t('ex.spring-support');
       const n1 = api.addNode(0, 0);
       const n2 = api.addNode(3, 0);
       const n3 = api.addNode(6, 0);
@@ -174,7 +175,7 @@ export function load2DExample(name: string, api: ExampleAPI): boolean {
       break;
     }
     case 'point-loads': {
-      api.model.name = 'Viga con Cargas Puntuales';
+      api.model.name = t('ex.point-loads');
       const n1 = api.addNode(0, 0);
       const n2 = api.addNode(8, 0);
       const e1 = api.addElement(n1, n2);
@@ -186,7 +187,7 @@ export function load2DExample(name: string, api: ExampleAPI): boolean {
       break;
     }
     case 'thermal': {
-      api.model.name = 'Pórtico con Carga Térmica';
+      api.model.name = t('ex.thermal');
       // Material: Hormigón H-25
       const matHA = api.addMaterial({ name: 'H.A. H-25', e: 30000, nu: 0.2, rho: 25 });
       const secCol = api.addSection({ name: 'H.A. 30×30', a: 0.09, iz: 0.000675, iy: 0.000675, b: 0.30, h: 0.30, shape: 'rect' });
@@ -206,7 +207,7 @@ export function load2DExample(name: string, api: ExampleAPI): boolean {
       break;
     }
     case 'settlement': {
-      api.model.name = 'Viga con Asentamiento';
+      api.model.name = t('ex.settlement');
       const n1 = api.addNode(0, 0);
       const n2 = api.addNode(4, 0);
       const n3 = api.addNode(8, 0);
@@ -219,7 +220,7 @@ export function load2DExample(name: string, api: ExampleAPI): boolean {
       break;
     }
     case 'cantilever-point': {
-      api.model.name = 'Ménsula con Carga Puntual';
+      api.model.name = t('ex.cantilever-point');
       const n1 = api.addNode(0, 0);
       const n2 = api.addNode(3, 0);
       api.addElement(n1, n2);
@@ -228,7 +229,7 @@ export function load2DExample(name: string, api: ExampleAPI): boolean {
       break;
     }
     case 'gerber-beam': {
-      api.model.name = 'Viga Gerber';
+      api.model.name = t('ex.gerber-beam');
       // Two main spans with overhang, connected by a hinged link
       // Span 1: fixed at 0, roller at 5, overhang to 6.5
       // Link: 6.5 to 7.5 (hinges at both ends → only shear transfer)
@@ -263,7 +264,7 @@ export function load2DExample(name: string, api: ExampleAPI): boolean {
       break;
     }
     case 'multi-section-frame': {
-      api.model.name = 'Pórtico Multi-sección';
+      api.model.name = t('ex.portal-frame');
       // Columnas: HEB 300 (sección robusta)
       const secCol = api.addSection({ name: 'HEB 300', a: 0.01491, iz: 0.00008563, iy: 0.0002517, b: 0.30, h: 0.30, shape: 'H' });
       // Vigas: IPN 300 (default sec 1)
@@ -293,7 +294,7 @@ export function load2DExample(name: string, api: ExampleAPI): boolean {
       break;
     }
     case 'warren-truss': {
-      api.model.name = 'Reticulado Warren';
+      api.model.name = t('ex.warren-truss');
       // 12m span, 3m height, 4 panels
       const b1 = api.addNode(0, 0);
       const b2 = api.addNode(3, 0);
@@ -337,7 +338,7 @@ export function load2DExample(name: string, api: ExampleAPI): boolean {
       break;
     }
     case 'howe-truss': {
-      api.model.name = 'Reticulado Howe';
+      api.model.name = t('ex.howe-truss');
       // 16m span, 4m height, 4 panels
       const b1 = api.addNode(0, 0);
       const b2 = api.addNode(4, 0);
@@ -384,7 +385,7 @@ export function load2DExample(name: string, api: ExampleAPI): boolean {
       break;
     }
     case 'three-hinge-arch': {
-      api.model.name = 'Arco Triarticulado';
+      api.model.name = t('ex.three-hinge-arch');
       // Parabolic arch: 10m span, 4m rise, approximated with segments
       const pts: [number, number][] = [];
       const nSeg = 8;
@@ -412,7 +413,7 @@ export function load2DExample(name: string, api: ExampleAPI): boolean {
       break;
     }
     case 'color-map-demo': {
-      api.model.name = 'Demo Mapa de Colores';
+      api.model.name = t('ex.continuous-beam');
       // Material: Hormigón H-25
       const matHA = api.addMaterial({ name: 'H.A. H-25', e: 30000, nu: 0.2, rho: 25 });
       const secCol = api.addSection({ name: 'H.A. 35×35', a: 0.1225, iz: 0.001251, iy: 0.001251, b: 0.35, h: 0.35, shape: 'rect' });
@@ -471,7 +472,7 @@ export function load2DExample(name: string, api: ExampleAPI): boolean {
       break;
     }
     case 'bridge-moving-load': {
-      api.model.name = 'Puente Peatonal — Tren de Carga';
+      api.model.name = t('ex.bridge-moving-load');
       // Viga continua 3 tramos: 4m + 6m + 4m = 14m
       const n1 = api.addNode(0, 0);
       const n2 = api.addNode(4, 0);
@@ -491,7 +492,7 @@ export function load2DExample(name: string, api: ExampleAPI): boolean {
       break;
     }
     case 'bridge-highway': {
-      api.model.name = 'Puente Vehicular — Tren de Carga';
+      api.model.name = t('ex.bridge-moving-load');
       // Material: Hormigón H-30
       const matHA = api.addMaterial({ name: 'H.A. H-30', e: 32000, nu: 0.2, rho: 25 });
       // Viga de puente: sección rectangular 40×80 cm
@@ -508,7 +509,7 @@ export function load2DExample(name: string, api: ExampleAPI): boolean {
       break;
     }
     case 'frame-cirsoc-dl': {
-      api.model.name = 'Pórtico CIRSOC (D+L)';
+      api.model.name = t('ex.frame-cirsoc-dl');
       // Material: Hormigón H-25
       const matHA = api.addMaterial({ name: 'H.A. H-25', e: 30000, nu: 0.2, rho: 25 });
       const secCol = api.addSection({ name: 'H.A. 30×30', a: 0.09, iz: 0.000675, iy: 0.000675, b: 0.30, h: 0.30, shape: 'rect' });
@@ -542,7 +543,7 @@ export function load2DExample(name: string, api: ExampleAPI): boolean {
       break;
     }
     case 'building-3story-dlw': {
-      api.model.name = 'Edificio 3 Pisos (D+L+W)';
+      api.model.name = t('ex.building-3story-dlw');
       // Material: Hormigón H-25
       const matHA = api.addMaterial({ name: 'H.A. H-25', e: 30000, nu: 0.2, rho: 25 });
       const secCol = api.addSection({ name: 'H.A. 35×35', a: 0.1225, iz: 0.001251, iy: 0.001251, b: 0.35, h: 0.35, shape: 'rect' });
@@ -597,7 +598,7 @@ export function load2DExample(name: string, api: ExampleAPI): boolean {
       break;
     }
     case 'frame-seismic': {
-      api.model.name = 'Pórtico Sísmico (D+L+E)';
+      api.model.name = t('ex.frame-seismic');
       // Material: Hormigón H-25
       const matHA = api.addMaterial({ name: 'H.A. H-25', e: 30000, nu: 0.2, rho: 25 });
       const secCol = api.addSection({ name: 'H.A. 35×35', a: 0.1225, iz: 0.001251, iy: 0.001251, b: 0.35, h: 0.35, shape: 'rect' });

@@ -1,5 +1,6 @@
 <script lang="ts">
   import type { DSMStepData } from '../../lib/engine/solver-detailed';
+  import { t } from '../../lib/i18n';
   import MathEquation from './MathEquation.svelte';
 
   let { data }: { data: DSMStepData } = $props();
@@ -23,25 +24,25 @@
 
 <div class="step">
   <div class="explanation">
-    <p>El primer paso es asignar un <strong>índice global</strong> a cada grado de libertad (GDL) de la estructura.</p>
-    <p>Los GDL <span class="free">libres</span> se numeran primero (0 a {nFree - 1}), seguidos por los <span class="restr">restringidos</span> ({nFree} a {nTotal - 1}).</p>
+    <p>{@html t('dsm.step1.explanation')}</p>
+    <p>{@html t('dsm.step1.ordering').replace('{nFree}', String(nFree - 1)).replace('{nFreeStart}', String(nFree)).replace('{nTotal}', String(nTotal - 1))}</p>
   </div>
 
   <div class="info-row">
     <div class="info-card">
-      <span class="info-label">GDL por nodo</span>
+      <span class="info-label">{t('dsm.step1.dofPerNode')}</span>
       <span class="info-value">{dofsPerNode}</span>
     </div>
     <div class="info-card">
-      <span class="info-label">GDL libres</span>
+      <span class="info-label">{t('dsm.step1.freeDof')}</span>
       <span class="info-value free">{nFree}</span>
     </div>
     <div class="info-card">
-      <span class="info-label">GDL restringidos</span>
+      <span class="info-label">{t('dsm.step1.restrainedDof')}</span>
       <span class="info-value restr">{nRestr}</span>
     </div>
     <div class="info-card">
-      <span class="info-label">GDL totales</span>
+      <span class="info-label">{t('dsm.step1.totalDof')}</span>
       <span class="info-value">{nTotal}</span>
     </div>
   </div>
@@ -64,11 +65,11 @@
     <table class="dof-table">
       <thead>
         <tr>
-          <th>Nodo</th>
-          <th>GDL local</th>
-          <th>Índice global</th>
+          <th>{t('dsm.step1.nodeHeader')}</th>
+          <th>{t('dsm.step1.localDof')}</th>
+          <th>{t('dsm.step1.globalIndex')}</th>
           <th>Label</th>
-          <th>Estado</th>
+          <th>{t('dsm.step1.state')}</th>
         </tr>
       </thead>
       <tbody>
@@ -80,7 +81,7 @@
             <td class="label-cell">{dof.label}</td>
             <td>
               <span class="badge" class:badge-free={dof.isFree} class:badge-restr={!dof.isFree}>
-                {dof.isFree ? 'Libre' : 'Restringido'}
+                {dof.isFree ? t('dsm.step1.free') : t('dsm.step1.restrained')}
               </span>
             </td>
           </tr>

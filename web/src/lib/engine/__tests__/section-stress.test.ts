@@ -652,7 +652,7 @@ describe('suggestCriticalSections', () => {
       pointLoads: [{ a: 4, p: -40 }],
     };
     const cs = suggestCriticalSections(ef);
-    expect(cs.find(c => c.reason.includes('puntual'))).toBeDefined();
+    expect(cs.find(c => c.reason.includes('Point load'))).toBeDefined();
   });
 
   it('includes midpoint if no other near 0.5', () => {

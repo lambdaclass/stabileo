@@ -566,7 +566,7 @@ export function loadFromURLHash(): 'data' | 'embed' | null {
 
   // Notify 3D viewport to restore camera from uiStore
   queueMicrotask(() => {
-    window.dispatchEvent(new Event('dedaliano-restore-camera-3d'));
+    window.dispatchEvent(new Event('stabileo-restore-camera-3d'));
   });
 
   // Clean hash from URL without triggering navigation
@@ -577,7 +577,7 @@ export function loadFromURLHash(): 'data' | 'embed' | null {
 
 /**
  * Parse a share URL and return the compressed data portion (or null if invalid).
- * Accepts full URLs like "https://dedaliano.com/#data=..." or just the hash "#data=..."
+ * Accepts full URLs like "https://stabileo.com/#data=..." or just the hash "#data=..."
  */
 export function parseShareURL(url: string): { compressed: string; mode: 'data' | 'embed' } | null {
   try {
@@ -618,7 +618,7 @@ export function loadFromShareLink(url: string): boolean {
 
   // Notify 3D viewport to restore camera from uiStore
   queueMicrotask(() => {
-    window.dispatchEvent(new Event('dedaliano-restore-camera-3d'));
+    window.dispatchEvent(new Event('stabileo-restore-camera-3d'));
   });
 
   return true;

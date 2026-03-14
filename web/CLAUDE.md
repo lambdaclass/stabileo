@@ -1,26 +1,36 @@
-# Dedaliano — Structural Analysis Web App
+# Stabileo — Structural Analysis Web App
 
 Interactive 2D + 3D structural analysis application using the Direct Stiffness Method (DSM).
 Educational tool with step-by-step solver visualization for civil/structural engineering.
 
 ## URLs
 
-- **Producción**: https://dedaliano.com
+- **Producción**: https://stabileo.com (y https://stabileo.pages.dev — mismo deploy)
 - **Dev local**: http://localhost:4000 (`npm run dev`)
 - **Repo**: https://github.com/Batuis/dedaliano (privado)
 
 ## Deploy & Hosting
 
-- **Hosting**: GitHub Pages
+- **Hosting**: Cloudflare Pages (plan gratuito)
 - **CI/CD**: GitHub Actions — cada push a `main` dispara build + deploy automático
-- **Workflow**: `.github/workflows/deploy-gh-pages.yml`
+- **Workflow**: `.github/workflows/deploy.yml` usa `cloudflare/wrangler-action@v3`
+- **Secrets requeridos en GitHub**: `CLOUDFLARE_API_TOKEN`, `CLOUDFLARE_ACCOUNT_ID`
+- **Límite**: 500 deploys/mes (plan gratuito, se renueva el día 1 de cada mes)
+
+### Tracking de deploys
+
+| Mes | Deploys usados | Deploys restantes | Notas |
+|-----|---------------|-------------------|-------|
+| Feb 2026 | 3 | 497 | Migración inicial desde GitHub Pages |
 
 ### Política de deploy
 
 - **NO pushear a main sin permiso explícito del usuario**. Solo pushear cuando él lo indique.
 - Si hay cambios acumulados importantes o algo roto en producción, pedir permiso antes de pushear.
 - Usar `localhost:4000` para desarrollo y previsualización de cambios. (Puerto 3000 reservado para otra app)
-- Agrupar cambios razonablemente cuando convenga, pero sin depender de un límite de deploys de Cloudflare Pages.
+- Cada push a `main` = 1 deploy consumido. Agrupar cambios para minimizar deploys innecesarios.
+- Antes de pushear, considerar: ¿vale la pena gastar un deploy por este cambio, o conviene acumular más?
+- Recomendar al usuario si conviene pushear o esperar según la magnitud de los cambios.
 
 ## Tech Stack
 
@@ -283,7 +293,7 @@ Key test patterns:
 
 ## Feedback System
 
-Los usuarios pueden enviar feedback desde dedaliano.com usando el widget flotante (botón rojo abajo a la derecha).
+Los usuarios pueden enviar feedback desde stabileo.com usando el widget flotante (botón rojo abajo a la derecha).
 
 ### Dónde se almacenan los feedbacks
 
@@ -344,6 +354,7 @@ Cada feedback incluye automáticamente:
 - DXF export/import: disabled for 3D ("En desarrollo para 3D")
 - SVG export: disabled for 3D
 - Overlay comparison (Comparar selector): only works in 2D. In 3D, switching loads/combos works but overlay rendering is not yet implemented.
-- Influence lines: 2D only
-- Moving loads: 2D only
-- P-Delta, Buckling, Modal, Plastic, Spectral: 2D only (3D versions planned)
+- Influence lines: 2D only (3D WASM available but no 3D renderer yet)
+- Moving loads: available in both 2D and 3D
+- Plastic collapse: 2D only (3D not yet implemented in WASM/JS engine)
+- P-Delta, Buckling, Modal, Spectral: available in both 2D and 3D
