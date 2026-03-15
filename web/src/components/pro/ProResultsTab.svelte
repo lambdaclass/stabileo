@@ -86,19 +86,30 @@
   }
 
   const DEFORMED_SCALE_MIN = 1;
-  const DEFORMED_SCALE_MAX = 30;
-  const DEFORMED_SLIDER_STEPS = 100;
+  const DEFORMED_SCALE_MAX = 50;
+  const DEFORMED_SLIDER_STEPS = 200;
 
+  // Piecewise slider mapping:
+  // - first 40% of travel: very fine control from 1x to 3x
+  // - remaining 60%: logarithmic growth from 3x to 50x
   function deformedScaleToSlider(scale: number): number {
     const clamped = Math.min(DEFORMED_SCALE_MAX, Math.max(DEFORMED_SCALE_MIN, scale));
-    const ratio = Math.log(clamped / DEFORMED_SCALE_MIN) / Math.log(DEFORMED_SCALE_MAX / DEFORMED_SCALE_MIN);
-    return Math.round(ratio * DEFORMED_SLIDER_STEPS);
+    if (clamped <= 3) {
+      const t = (clamped - 1) / 2;
+      return Math.round(t * 0.4 * DEFORMED_SLIDER_STEPS);
+    }
+    const hiT = Math.log(clamped / 3) / Math.log(DEFORMED_SCALE_MAX / 3);
+    return Math.round((0.4 + hiT * 0.6) * DEFORMED_SLIDER_STEPS);
   }
 
   function sliderToDeformedScale(slider: number): number {
     const t = Math.min(DEFORMED_SLIDER_STEPS, Math.max(0, slider)) / DEFORMED_SLIDER_STEPS;
-    const scale = DEFORMED_SCALE_MIN * Math.pow(DEFORMED_SCALE_MAX / DEFORMED_SCALE_MIN, t);
-    return Math.max(DEFORMED_SCALE_MIN, Math.round(scale));
+    if (t <= 0.4) {
+      return +(1 + (t / 0.4) * 2).toFixed(2);
+    }
+    const hiT = (t - 0.4) / 0.6;
+    const scale = 3 * Math.pow(DEFORMED_SCALE_MAX / 3, hiT);
+    return +scale.toFixed(scale < 10 ? 2 : 1);
   }
 
   function onDeformedScaleInput(e: Event) {
