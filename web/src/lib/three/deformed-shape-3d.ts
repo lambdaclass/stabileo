@@ -360,7 +360,7 @@ export function createDeformedLines(
 
     let points: THREE.Vector3[];
 
-    if (ef) {
+    if (ef && elem.type !== 'truss') {
       // Use Hermite + particular solution
       const localY = (elem.localYx !== undefined && elem.localYy !== undefined && elem.localYz !== undefined)
         ? { x: elem.localYx, y: elem.localYy, z: elem.localYz } : undefined;
@@ -370,7 +370,9 @@ export function createDeformedLines(
         dI, dJ, ef, scale, eiData, localY, elem.rollAngle, leftHand,
       );
     } else {
-      // Fallback: linear interpolation (no element forces available)
+      // Trusses and force-less elements should stay straight in the deformed view.
+      // Applying beam-style Hermite interpolation to trusses creates non-physical
+      // curls because nodal rotations leak into members that do not carry bending.
       points = [];
       for (let i = 0; i <= SEGMENTS_PER_ELEMENT; i++) {
         const t = i / SEGMENTS_PER_ELEMENT;
