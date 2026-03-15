@@ -132,6 +132,61 @@ function createMock3DModel(): ModelDataLike {
 }
 
 describe('Irregular setback tower 3D example', () => {
+  it('envelope displacements are realistic (< H/250 drift)', { timeout: 30_000 }, () => {
+    const model = createMock3DModel();
+    generateIrregularSetbackTower3D(model as any, {
+      storyH: 3.8,
+      levels: 18,
+      baysX: 6,
+      baysZ: 5,
+      bayX: 8,
+      bayZ: 7,
+      setbackAt: [8, 13],
+      windLoad: 18,
+    });
+
+    // Solve each load case separately
+    const caseIds = [1, 2, 3, 4];
+    const caseResults: Record<number, any> = {};
+    for (const cid of caseIds) {
+      const filtered = { ...model, loads: model.loads.filter((l) => (l.data.caseId ?? 1) === cid) };
+      const input = buildSolverInput3D(filtered as any, false, false);
+      if (!input) continue;
+      const res = solve3D(input);
+      if (typeof res !== 'string') caseResults[cid] = res;
+    }
+
+    // Compute envelope displacements across all 4 combinations
+    const combos = model.combinations;
+    let maxEnvUx = 0, maxEnvUy = 0, maxEnvUz = 0;
+    const numNodes = Object.values(caseResults)[0]?.displacements?.length ?? 0;
+    for (let i = 0; i < numNodes; i++) {
+      for (const combo of combos) {
+        let ux = 0, uy = 0, uz = 0;
+        for (const { caseId, factor } of combo.factors) {
+          const r = caseResults[caseId];
+          if (!r) continue;
+          ux += r.displacements[i].ux * factor;
+          uy += r.displacements[i].uy * factor;
+          uz += r.displacements[i].uz * factor;
+        }
+        maxEnvUx = Math.max(maxEnvUx, Math.abs(ux));
+        maxEnvUy = Math.max(maxEnvUy, Math.abs(uy));
+        maxEnvUz = Math.max(maxEnvUz, Math.abs(uz));
+      }
+    }
+
+    const H = 18 * 3.8; // 68.4 m
+    const maxLateral = Math.max(maxEnvUx, maxEnvUz);
+    console.log(`Envelope: maxUx=${maxEnvUx.toFixed(4)}m, maxUy=${maxEnvUy.toFixed(4)}m, maxUz=${maxEnvUz.toFixed(4)}m`);
+    console.log(`H=${H}m, lateral drift ratio: H/${(H / maxLateral).toFixed(0)}`);
+
+    // Lateral drift should be < H/250 (serviceability limit)
+    expect(maxLateral).toBeLessThan(H / 250);
+    // Vertical displacement should be reasonable
+    expect(maxEnvUy).toBeLessThan(0.05); // < 50mm
+  });
+
   it('dead load produces realistic displacements (sub-mm for properly sized sections)', () => {
     const model = createMock3DModel();
     generateIrregularSetbackTower3D(model as any, {
