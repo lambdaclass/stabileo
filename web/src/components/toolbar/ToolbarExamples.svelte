@@ -48,10 +48,19 @@
     { id: '3d-nave-industrial', nameKey: 'ex.3d-nave-industrial', descKey: 'ex.3d-nave-industrial.desc' },
   ];
 
-  // PRO-only examples — shown only in Pro mode
-  const examplesPro: { id: string; nameKey: string; descKey: string }[] = [
+  // PRO-only examples — curated larger / more realistic workflows
+  const examplesPro: { id: string; nameKey: string; descKey: string; generate?: (s: typeof modelStore) => void }[] = [
     { id: '3d-building', nameKey: 'ex.3d-building', descKey: 'ex.3d-building.desc' },
     { id: 'pro-edificio-7p', nameKey: 'ex.pro-edificio-7p', descKey: 'ex.pro-edificio-7p.desc' },
+    { id: '3d-nave-industrial', nameKey: 'ex.3d-nave-industrial', descKey: 'ex.3d-nave-industrial.desc' },
+    { id: '', nameKey: 'ex.spaceFrame3D', descKey: 'ex.spaceFrame3D.desc', generate: (s) => getTemplateCatalog3D().find(tmpl => tmpl.id === 'spaceFrame3D')!.generate(s) },
+    { id: '', nameKey: 'ex.tower3D_4', descKey: 'ex.tower3D_4.desc', generate: (s) => getTemplateCatalog3D().find(tmpl => tmpl.id === 'tower3D_4')!.generate(s) },
+    { id: '', nameKey: 'ex.gridBeams', descKey: 'ex.gridBeams.desc', generate: (s) => getTemplateCatalog3D().find(tmpl => tmpl.id === 'gridBeams')!.generate(s) },
+    { id: '3d-space-truss', nameKey: 'ex.3d-space-truss', descKey: 'ex.3d-space-truss.desc' },
+    { id: '3d-portal-frame', nameKey: 'ex.3d-portal-frame', descKey: 'ex.3d-portal-frame.desc' },
+    { id: '', nameKey: 'ex.hingedArch3D', descKey: 'ex.hingedArch3D.desc', generate: (s) => getTemplateCatalog3D().find(tmpl => tmpl.id === 'hingedArch3D')!.generate(s) },
+    { id: 'building-3story-dlw', nameKey: 'ex.building-3story-dlw', descKey: 'ex.building-3story-dlw.desc' },
+    { id: 'frame-seismic', nameKey: 'ex.frame-seismic', descKey: 'ex.frame-seismic.desc' },
   ];
 
   function handleDuplicateAxis() {
@@ -182,7 +191,7 @@
   {#if showExamples}
     <div class="examples-list">
       {#each examplesPro as ex}
-        <button class="example-item" onclick={() => { modelStore.loadExample(ex.id); resultsStore.clear(); resultsStore.clear3D(); if (uiStore.isMobile) uiStore.leftDrawerOpen = false; setTimeout(() => window.dispatchEvent(new Event('stabileo-zoom-to-fit')), 50); }}>
+        <button class="example-item" onclick={() => { if (ex.generate) { ex.generate(modelStore); } else { modelStore.loadExample(ex.id); } resultsStore.clear(); resultsStore.clear3D(); if (uiStore.isMobile) uiStore.leftDrawerOpen = false; setTimeout(() => window.dispatchEvent(new Event('stabileo-zoom-to-fit')), 50); }}>
           <span class="example-name">{t(ex.nameKey)}</span>
           <span class="example-desc">{t(ex.descKey)}</span>
         </button>
