@@ -356,6 +356,12 @@ const en: Record<string, string> = {
   'ex.3d-building.desc': 'D+L+W+E with CIRSOC 201 combinations',
   'ex.pro-edificio-7p': '7-Story RC Building (PRO)',
   'ex.pro-edificio-7p.desc': 'Residential with elevator, stairs, CIRSOC 102 wind & occupancy-based live loads',
+  'ex.landmarkTower3D': 'Landmark Lattice Tower',
+  'ex.landmarkTower3D.desc': 'Eiffel-inspired tapered tower with lattice bracing',
+  'ex.cableStayedBridge3D': 'Cable-Stayed Bridge',
+  'ex.cableStayedBridge3D.desc': 'Single-pylon bridge with stayed deck and transverse floorbeams',
+  'ex.stadiumCanopy3D': 'Stadium Canopy',
+  'ex.stadiumCanopy3D.desc': 'Long-span cantilever roof with front-edge girder',
 
   // ─── ToolbarProject.svelte ───
   'project.title': 'Project',

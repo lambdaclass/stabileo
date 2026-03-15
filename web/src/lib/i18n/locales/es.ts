@@ -356,6 +356,12 @@ const es: Record<string, string> = {
   'ex.3d-building.desc': 'D+L+W+E con combinaciones CIRSOC 201',
   'ex.pro-edificio-7p': 'Edificio H.A. 7 Pisos (PRO)',
   'ex.pro-edificio-7p.desc': 'Vivienda con ascensor, escalera, viento CIRSOC 102 y cargas por destino de local',
+  'ex.landmarkTower3D': 'Torre Icónica Reticulada',
+  'ex.landmarkTower3D.desc': 'Torre inspirada en la Eiffel con arriostramiento tipo celosía',
+  'ex.cableStayedBridge3D': 'Puente Atirantado',
+  'ex.cableStayedBridge3D.desc': 'Puente de un pilono con tablero atirantado y vigas transversales',
+  'ex.stadiumCanopy3D': 'Cubierta de Estadio',
+  'ex.stadiumCanopy3D.desc': 'Cubierta en voladizo de gran luz con viga de borde frontal',
 
   // ─── ToolbarProject.svelte ───
   'project.title': 'Proyecto',

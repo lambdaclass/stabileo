@@ -884,6 +884,208 @@ export function generate3DHingedArch(store: ModelStore, p: HingedArch3DParams): 
 }
 
 // -------------------------------------------------------------------
+// 5. Landmark Tower — Eiffel-inspired tapered lattice tower
+// -------------------------------------------------------------------
+
+export interface LandmarkTower3DParams {
+  H: number;
+  nLevels: number;
+  baseWidth: number;
+  topWidth: number;
+  lateralLoad: number;
+}
+
+export function generateLandmarkTower3D(store: ModelStore, p: LandmarkTower3DParams): void {
+  store.clear();
+  store.model.name = t('ex.landmarkTower3D');
+
+  store.batch(() => {
+    const levelH = p.H / p.nLevels;
+    const ring: number[][] = [];
+
+    for (let lev = 0; lev <= p.nLevels; lev++) {
+      const y = lev * levelH;
+      const alpha = lev / p.nLevels;
+      const w = p.baseWidth + alpha * (p.topWidth - p.baseWidth);
+      const o = (p.baseWidth - w) / 2;
+      ring[lev] = [
+        store.addNode(o, y, o),
+        store.addNode(o + w, y, o),
+        store.addNode(o + w, y, o + w),
+        store.addNode(o, y, o + w),
+      ];
+    }
+
+    for (let lev = 0; lev < p.nLevels; lev++) {
+      for (let c = 0; c < 4; c++) {
+        store.addElement(ring[lev][c], ring[lev + 1][c], 'frame');
+      }
+    }
+
+    for (let lev = 1; lev <= p.nLevels; lev++) {
+      for (let c = 0; c < 4; c++) {
+        store.addElement(ring[lev][c], ring[lev][(c + 1) % 4], 'frame');
+      }
+      if (lev < p.nLevels) {
+        store.addElement(ring[lev][0], ring[lev][2], 'truss');
+        store.addElement(ring[lev][1], ring[lev][3], 'truss');
+      }
+    }
+
+    for (let lev = 0; lev < p.nLevels; lev++) {
+      const flip = lev % 2 === 0;
+      for (let face = 0; face < 4; face++) {
+        const a = face;
+        const b = (face + 1) % 4;
+        if (flip) {
+          store.addElement(ring[lev][a], ring[lev + 1][b], 'truss');
+          store.addElement(ring[lev][b], ring[lev + 1][a], 'truss');
+        } else {
+          store.addElement(ring[lev][a], ring[lev + 1][a], 'truss');
+          store.addElement(ring[lev][b], ring[lev + 1][b], 'truss');
+        }
+      }
+    }
+
+    const crownBase = ring[p.nLevels];
+    const topY = p.H + levelH * 0.6;
+    const crown = store.addNode(p.baseWidth / 2, topY, p.baseWidth / 2);
+    for (const nid of crownBase) {
+      store.addElement(nid, crown, 'frame');
+    }
+
+    for (const nid of ring[0]) {
+      store.addSupport(nid, 'fixed3d');
+    }
+
+    for (const nid of crownBase) {
+      store.addNodalLoad3D(nid, p.lateralLoad, -10, p.lateralLoad * 0.35, 0, 0, 0);
+    }
+    store.addNodalLoad3D(crown, p.lateralLoad * 0.5, -20, 0, 0, 0, 0);
+  });
+}
+
+// -------------------------------------------------------------------
+// 6. Cable-stayed bridge — single-pylon showcase bridge
+// -------------------------------------------------------------------
+
+export interface CableStayedBridge3DParams {
+  span: number;
+  deckWidth: number;
+  pylonHeight: number;
+  nPanels: number;
+  deckLoad: number;
+}
+
+export function generateCableStayedBridge3D(store: ModelStore, p: CableStayedBridge3DParams): void {
+  store.clear();
+  store.model.name = t('ex.cableStayedBridge3D');
+
+  store.batch(() => {
+    const dx = p.span / p.nPanels;
+    const zL = -p.deckWidth / 2;
+    const zR = p.deckWidth / 2;
+    const left: number[] = [];
+    const right: number[] = [];
+
+    for (let i = 0; i <= p.nPanels; i++) {
+      const x = i * dx;
+      left.push(store.addNode(x, 0, zL));
+      right.push(store.addNode(x, 0, zR));
+    }
+
+    for (let i = 0; i < p.nPanels; i++) {
+      const e1 = store.addElement(left[i], left[i + 1], 'frame');
+      const e2 = store.addElement(right[i], right[i + 1], 'frame');
+      if (p.deckLoad !== 0) {
+        store.addDistributedLoad3D(e1, 0, 0, p.deckLoad, p.deckLoad);
+        store.addDistributedLoad3D(e2, 0, 0, p.deckLoad, p.deckLoad);
+      }
+    }
+    for (let i = 0; i <= p.nPanels; i++) {
+      store.addElement(left[i], right[i], 'frame');
+    }
+
+    const mid = Math.floor(p.nPanels / 2);
+    const pylonBaseL = store.addNode(mid * dx, 0, zL * 0.35);
+    const pylonBaseR = store.addNode(mid * dx, 0, zR * 0.35);
+    const pylonTop = store.addNode(mid * dx, p.pylonHeight, 0);
+    store.addElement(pylonBaseL, pylonTop, 'frame');
+    store.addElement(pylonBaseR, pylonTop, 'frame');
+    store.addElement(pylonBaseL, pylonBaseR, 'frame');
+    store.addElement(pylonBaseL, left[mid], 'frame');
+    store.addElement(pylonBaseR, right[mid], 'frame');
+
+    for (let i = 1; i < p.nPanels; i++) {
+      if (i === mid) continue;
+      store.addElement(pylonTop, left[i], 'truss');
+      store.addElement(pylonTop, right[i], 'truss');
+    }
+
+    store.addSupport(left[0], 'fixed3d');
+    store.addSupport(right[0], 'fixed3d');
+    store.addSupport(left[p.nPanels], 'fixed3d');
+    store.addSupport(right[p.nPanels], 'fixed3d');
+    store.addSupport(pylonBaseL, 'fixed3d');
+    store.addSupport(pylonBaseR, 'fixed3d');
+
+    store.addNodalLoad3D(pylonTop, 8, -25, 0, 0, 0, 0);
+  });
+}
+
+// -------------------------------------------------------------------
+// 7. Stadium canopy — cantilever roof with back columns
+// -------------------------------------------------------------------
+
+export interface StadiumCanopy3DParams {
+  span: number;
+  depth: number;
+  nFrames: number;
+  roofLoad: number;
+  columnHeight: number;
+}
+
+export function generateStadiumCanopy3D(store: ModelStore, p: StadiumCanopy3DParams): void {
+  store.clear();
+  store.model.name = t('ex.stadiumCanopy3D');
+
+  store.batch(() => {
+    const dx = p.span / p.nFrames;
+    const base: number[] = [];
+    const back: number[] = [];
+    const front: number[] = [];
+
+    for (let i = 0; i <= p.nFrames; i++) {
+      const x = i * dx;
+      base.push(store.addNode(x, 0, 0));
+      back.push(store.addNode(x, p.columnHeight, 0));
+      const camber = Math.sin((Math.PI * i) / p.nFrames) * (p.depth * 0.12);
+      front.push(store.addNode(x, p.columnHeight + camber, p.depth));
+    }
+
+    for (let i = 0; i <= p.nFrames; i++) {
+      store.addElement(base[i], back[i], 'frame');
+      store.addElement(back[i], front[i], 'frame');
+      store.addSupport(base[i], 'fixed3d');
+    }
+
+    for (let i = 0; i < p.nFrames; i++) {
+      store.addElement(back[i], back[i + 1], 'frame');
+      const eFront = store.addElement(front[i], front[i + 1], 'frame');
+      if (p.roofLoad !== 0) {
+        store.addDistributedLoad3D(eFront, 0, 0, p.roofLoad, p.roofLoad);
+      }
+      store.addElement(back[i], front[i + 1], 'truss');
+      store.addElement(front[i], back[i + 1], 'truss');
+    }
+
+    for (let i = 0; i <= p.nFrames; i++) {
+      store.addNodalLoad3D(front[i], 0, -8, 0, 0, 0, 0);
+    }
+  });
+}
+
+// -------------------------------------------------------------------
 // 3D Template catalog (for UI registration)
 // -------------------------------------------------------------------
 
