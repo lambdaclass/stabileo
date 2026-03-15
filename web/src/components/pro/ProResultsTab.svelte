@@ -85,25 +85,45 @@
     return n.toFixed(2);
   }
 
-  const DEFORMED_SCALE_MIN = 1;
   const DEFORMED_SCALE_MAX = 50;
   const DEFORMED_SLIDER_STEPS = 200;
 
+  // Effective minimum: either 1 or whatever auto-scaling set (can be < 1)
+  const effectiveMin = $derived(Math.min(1, resultsStore.deformedScale));
+
   // Piecewise slider mapping:
-  // - first 40% of travel: very fine control from 1x to 3x
+  // - sub-1 zone (if auto-scaled): linear from effectiveMin to 1
+  // - first 40% of 1..50 travel: fine control from 1x to 3x
   // - remaining 60%: logarithmic growth from 3x to 50x
   function deformedScaleToSlider(scale: number): number {
-    const clamped = Math.min(DEFORMED_SCALE_MAX, Math.max(DEFORMED_SCALE_MIN, scale));
+    const min = effectiveMin;
+    if (scale <= min) return 0;
+    if (scale < 1) {
+      // Sub-1 zone: map [min..1] to slider [0..subSteps]
+      const subSteps = min < 1 ? Math.round(DEFORMED_SLIDER_STEPS * 0.1) : 0;
+      return Math.round(((scale - min) / (1 - min)) * subSteps);
+    }
+    const subSteps = min < 1 ? Math.round(DEFORMED_SLIDER_STEPS * 0.1) : 0;
+    const mainSteps = DEFORMED_SLIDER_STEPS - subSteps;
+    const clamped = Math.min(DEFORMED_SCALE_MAX, scale);
     if (clamped <= 3) {
       const t = (clamped - 1) / 2;
-      return Math.round(t * 0.4 * DEFORMED_SLIDER_STEPS);
+      return subSteps + Math.round(t * 0.4 * mainSteps);
     }
     const hiT = Math.log(clamped / 3) / Math.log(DEFORMED_SCALE_MAX / 3);
-    return Math.round((0.4 + hiT * 0.6) * DEFORMED_SLIDER_STEPS);
+    return subSteps + Math.round((0.4 + hiT * 0.6) * mainSteps);
   }
 
   function sliderToDeformedScale(slider: number): number {
-    const t = Math.min(DEFORMED_SLIDER_STEPS, Math.max(0, slider)) / DEFORMED_SLIDER_STEPS;
+    const min = effectiveMin;
+    const subSteps = min < 1 ? Math.round(DEFORMED_SLIDER_STEPS * 0.1) : 0;
+    if (slider <= subSteps && subSteps > 0) {
+      // Sub-1 zone
+      const scale = min + (slider / subSteps) * (1 - min);
+      return +scale.toFixed(2);
+    }
+    const mainSteps = DEFORMED_SLIDER_STEPS - subSteps;
+    const t = Math.min(mainSteps, Math.max(0, slider - subSteps)) / mainSteps;
     if (t <= 0.4) {
       return +(1 + (t / 0.4) * 2).toFixed(2);
     }
@@ -183,7 +203,7 @@
             value={deformedScaleToSlider(resultsStore.deformedScale)}
             oninput={onDeformedScaleInput}
           />
-          <span class="pro-viz-val">{Math.min(DEFORMED_SCALE_MAX, Math.max(DEFORMED_SCALE_MIN, resultsStore.deformedScale))}×</span>
+          <span class="pro-viz-val">{resultsStore.deformedScale < 1 ? resultsStore.deformedScale.toFixed(2) : Math.min(DEFORMED_SCALE_MAX, resultsStore.deformedScale)}×</span>
         </div>
       {/if}
 
