@@ -1,7 +1,7 @@
 <script lang="ts">
   import { uiStore, modelStore, resultsStore, dsmStepsStore } from '../../lib/store';
   import { t } from '../../lib/i18n';
-  import { solvePDelta, solveBuckling, solveModal, solveSpectral, solvePlastic, solveMovingLoads3D as wasmMovingLoads3D, solvePDelta3D as wasmPDelta3D, solveModal3D as wasmModal3D, solveBuckling3D as wasmBuckling3D, solveSpectral3D as wasmSpectral3D } from '../../lib/engine/wasm-solver';
+  import { solvePDelta, solveBuckling, solveModal, solveSpectral, solvePlastic, solveMovingLoads3D as wasmMovingLoads3D, solvePDelta3D as wasmPDelta3D, solveModal3D as wasmModal3D, solveBuckling3D as wasmBuckling3D, solveSpectral3D as wasmSpectral3D, initSolver, isWasmReady } from '../../lib/engine/wasm-solver';
   import { cirsoc103Spectrum } from '../../lib/engine/result-types';
   import { getPredefinedTrains, solveMovingLoadsAsync } from '../../lib/engine/moving-loads';
   import { solveDetailed } from '../../lib/engine/solver-detailed';
@@ -75,6 +75,19 @@
   function toggleAdvHelp(key: string, e: MouseEvent) {
     e.stopPropagation();
     advHelpKey = advHelpKey === key ? null : key;
+  }
+
+  async function ensureWasmReady(context: string): Promise<boolean> {
+    if (isWasmReady()) return true;
+    try {
+      console.warn(`[${context}] WASM solver not ready, initializing now...`);
+      await initSolver();
+      return true;
+    } catch (e: any) {
+      console.error(`[${context}] WASM initialization failed:`, e);
+      uiStore.toast(e?.message || 'WASM solver initialization failed.', 'error');
+      return false;
+    }
   }
 
   function handlePDelta() {
@@ -239,6 +252,7 @@
   }
 
   async function handleMovingLoad3D(trainIndex: number) {
+    if (!await ensureWasmReady('handleMovingLoad3D')) return;
     const input = modelStore.buildSolverInput3D(uiStore.includeSelfWeight, uiStore.axisConvention3D === 'leftHand');
     if (!input) { uiStore.toast(t('advanced.emptyModel'), 'error'); return; }
     const train = getPredefinedTrains()[trainIndex];
@@ -271,7 +285,8 @@
   const is3D = $derived(uiStore.analysisMode === '3d' || uiStore.analysisMode === 'pro');
   const isPro = $derived(uiStore.analysisMode === 'pro');
 
-  function handlePDelta3D() {
+  async function handlePDelta3D() {
+    if (!await ensureWasmReady('handlePDelta3D')) return;
     const input = modelStore.buildSolverInput3D(uiStore.includeSelfWeight, uiStore.axisConvention3D === 'leftHand');
     if (!input) { uiStore.toast(t('advanced.emptyModel'), 'error'); return; }
     try {
@@ -290,7 +305,8 @@
     }
   }
 
-  function handleModal3D() {
+  async function handleModal3D() {
+    if (!await ensureWasmReady('handleModal3D')) return;
     const input = modelStore.buildSolverInput3D(uiStore.includeSelfWeight, uiStore.axisConvention3D === 'leftHand');
     if (!input) { uiStore.toast(t('advanced.emptyModel'), 'error'); return; }
     const densities = new Map<number, number>();
@@ -311,7 +327,8 @@
     }
   }
 
-  function handleBuckling3D() {
+  async function handleBuckling3D() {
+    if (!await ensureWasmReady('handleBuckling3D')) return;
     const input = modelStore.buildSolverInput3D(uiStore.includeSelfWeight, uiStore.axisConvention3D === 'leftHand');
     if (!input) { uiStore.toast(t('advanced.emptyModel'), 'error'); return; }
     try {
@@ -329,7 +346,8 @@
     }
   }
 
-  function handleSpectral3D() {
+  async function handleSpectral3D() {
+    if (!await ensureWasmReady('handleSpectral3D')) return;
     if (!resultsStore.modalResult3D) {
       uiStore.toast(t('advanced.runDynamicFirst'), 'error');
       return;

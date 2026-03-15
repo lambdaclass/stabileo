@@ -12,6 +12,7 @@
 
 import { modelStore, resultsStore, uiStore } from '../store';
 import { t } from '../i18n';
+import { initSolver, isWasmReady } from './wasm-solver';
 
 // ─── Helpers ──────────────────────────────────────────────────────────────
 
@@ -59,6 +60,13 @@ export function runLiveCalc(analysisMode: string, axisConvention3D: string, prev
 }
 
 function liveCalc3D(axisConvention: string): void {
+  if (!isWasmReady()) {
+    initSolver().catch((err) => {
+      console.error('[liveCalc3D] WASM initialization failed:', err);
+      uiStore.liveCalcError = err?.message ?? t('error.unknown');
+    });
+    return;
+  }
   const isPro = uiStore.analysisMode === 'pro';
   const r = modelStore.solve3D(uiStore.includeSelfWeight, axisConvention === 'leftHand', isPro);
   if (typeof r === 'string') {
@@ -107,6 +115,7 @@ function liveCalc2D(): void {
  */
 export async function runGlobalSolve(): Promise<void> {
   if (uiStore.analysisMode === '3d' || uiStore.analysisMode === 'pro') {
+    await ensureWasmReady('runGlobalSolve');
     await globalSolve3D();
   } else if (uiStore.analysisMode === 'edu') {
     // Edu mode handles its own solve via edu-solver.ts (registered listener).
@@ -115,6 +124,17 @@ export async function runGlobalSolve(): Promise<void> {
     return;
   } else {
     globalSolve2D();
+  }
+}
+
+async function ensureWasmReady(context: string): Promise<void> {
+  if (isWasmReady()) return;
+  try {
+    console.warn(`[${context}] WASM solver not ready, initializing now...`);
+    await initSolver();
+  } catch (err: any) {
+    console.error(`[${context}] WASM initialization failed:`, err);
+    throw new Error(err?.message || 'WASM solver initialization failed.');
   }
 }
 
