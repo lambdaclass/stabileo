@@ -197,13 +197,17 @@
     controls.target.set(0, 0, 0);
 
     // ── Keyboard camera navigation ──
-    // WASD = pan, Arrows = orbit, Q/E = up/down
+    // WASD = pan, Arrows = orbit, Q/E = up/down, Shift/Ctrl = speed boost
     const keysPressed = new Set<string>();
+    let navShiftHeld = false;
+    let navCtrlHeld = false;
 
     const onNavKeyDown = (e: KeyboardEvent) => {
       // Skip when typing in inputs
       const tag = document.activeElement?.tagName;
       if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') return;
+      if (e.key === 'Shift') navShiftHeld = true;
+      if (e.key === 'Control') navCtrlHeld = true;
       const k = e.key.toLowerCase();
       if ('wasdqe'.includes(k) || e.key.startsWith('Arrow')) {
         keysPressed.add(k.startsWith('arrow') ? e.key : k);
@@ -215,6 +219,8 @@
       }
     };
     const onNavKeyUp = (e: KeyboardEvent) => {
+      if (e.key === 'Shift') navShiftHeld = false;
+      if (e.key === 'Control') navCtrlHeld = false;
       const k = e.key.toLowerCase();
       keysPressed.delete(k.startsWith('arrow') ? e.key : k);
       if (e.key === 'Shift') controls.enablePan = true;
@@ -280,8 +286,9 @@
       // Keyboard camera movement
       if (keysPressed.size > 0) {
         const dist = camera.position.distanceTo(controls.target);
-        const panSpeed = dist * 0.012;   // scale with zoom level
-        const orbitSpeed = 0.02;          // radians per frame
+        const boost = navShiftHeld ? 3 : 1;
+        const panSpeed = dist * 0.012 * boost;   // scale with zoom level
+        const orbitSpeed = 0.02 * boost;          // radians per frame
 
         // WASD — pan relative to camera orientation
         const forward = _panVec.set(0, 0, 0);
