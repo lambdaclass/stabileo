@@ -52,6 +52,9 @@ If you only read three documents, read them in this order:
 - `How do we build trust in solver correctness?`
   See [`VERIFICATION.md`](/Users/unbalancedparen/projects/dedaliano/VERIFICATION.md).
 
+- `What would a Lean formal-verification program actually cover?`
+  See [`research/lean_formal_verification.md`](/Users/unbalancedparen/projects/dedaliano/research/lean_formal_verification.md).
+
 - `What changed recently?`
   See [`CHANGELOG.md`](/Users/unbalancedparen/projects/dedaliano/CHANGELOG.md).
 
@@ -78,6 +81,8 @@ If you only read three documents, read them in this order:
   numerical-methods gap analysis and corrected priority order for large-model solver work
 - [`research/webgpu_solver_renderer_analysis.md`](/Users/unbalancedparen/projects/dedaliano/research/webgpu_solver_renderer_analysis.md)
   WebGPU fit analysis for renderer vs solver work
+- [`research/lean_formal_verification.md`](/Users/unbalancedparen/projects/dedaliano/research/lean_formal_verification.md)
+  Lean formal-verification scope, ROI ranking, theorem ladder, and phased research plan
 
 ## Role Of Each Document
 

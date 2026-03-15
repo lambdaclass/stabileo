@@ -4,6 +4,8 @@ This folder is for comparative notes, external landscape analysis, and longer-fo
 
 Current documents:
 
+- [lean_formal_verification.md](/Users/unbalancedparen/projects/dedaliano/research/lean_formal_verification.md)
+  Lean formal-verification research plan for the solver core, with ROI-ranked proof targets, theorem ladder, and phased implementation strategy.
 - [open_source_solver_comparison.md](/Users/unbalancedparen/projects/dedaliano/research/open_source_solver_comparison.md)
   Comparison of Dedaliano against major open-source structural / FEA solver projects.
 - [competitor_element_families.md](/Users/unbalancedparen/projects/dedaliano/research/competitor_element_families.md)

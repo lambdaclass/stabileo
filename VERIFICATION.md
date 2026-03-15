@@ -10,6 +10,7 @@ It is not the benchmark ledger and it is not the product roadmap.
 - Use [`SOLVER_ROADMAP.md`](/Users/unbalancedparen/projects/dedaliano/SOLVER_ROADMAP.md) for solver sequencing and implementation order.
 - Use [`PRODUCT_ROADMAP.md`](/Users/unbalancedparen/projects/dedaliano/PRODUCT_ROADMAP.md) for app and workflow sequencing.
 - Use [`POSITIONING.md`](/Users/unbalancedparen/projects/dedaliano/POSITIONING.md) for the business meaning of solver trust.
+- Use [`research/lean_formal_verification.md`](/Users/unbalancedparen/projects/dedaliano/research/lean_formal_verification.md) for the Lean-specific formal-verification research plan and ROI ranking.
 
 ## Goal
 
@@ -134,6 +135,8 @@ Good candidates:
 - constraint transformation logic
 - assembly invariants
 - compact state-transition kernels
+
+For the current Lean-oriented research plan, theorem ladder, and recommended proof scope, see [`research/lean_formal_verification.md`](/Users/unbalancedparen/projects/dedaliano/research/lean_formal_verification.md).
 
 Bad candidates:
 
