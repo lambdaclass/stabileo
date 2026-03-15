@@ -48,6 +48,22 @@ jobs:
       - name: Build
         working-directory: web
         run: npm run build
+        env:
+          BASE_PATH: /
+
+      - name: Verify custom-domain asset paths
+        working-directory: web
+        run: |
+          test -f dist/index.html
+          if grep -Eq '="/stabileo/|='\''/stabileo/'\''' dist/index.html; then
+            echo "GitHub Pages build emitted /stabileo asset paths on the custom domain."
+            echo "Expected root-relative paths like /assets/... for stabileo.com."
+            exit 1
+          fi
+          if ! grep -Eq 'src="/assets/|href="/assets/' dist/index.html; then
+            echo "GitHub Pages build did not emit root-relative asset URLs."
+            exit 1
+          fi
 
       - uses: actions/configure-pages@v5
 
