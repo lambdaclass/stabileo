@@ -994,7 +994,121 @@ export function generateLandmarkTower3D(store: ModelStore, p: LandmarkTower3DPar
 }
 
 // -------------------------------------------------------------------
-// 6. Cable-stayed bridge — dual H-pylon with semi-fan cables
+// 6. XL Diagrid Tower — high-node-count perimeter diagrid tower
+// -------------------------------------------------------------------
+
+export interface XLDiagridTower3DParams {
+  H: number;
+  nLevels: number;
+  nSides: number;
+  baseRadiusX: number;
+  baseRadiusZ: number;
+  topRadiusX: number;
+  topRadiusZ: number;
+  lateralLoad: number;
+}
+
+export function generateXLDiagridTower3D(store: ModelStore, p: XLDiagridTower3DParams): void {
+  store.clear();
+  store.model.name = t('ex.xlDiagridTower3D');
+
+  store.batch(() => {
+    const levelH = p.H / p.nLevels;
+    const perimeter: number[][] = [];
+    const core: number[][] = [];
+    const coreWidthX = Math.max(10, p.baseRadiusX * 0.32);
+    const coreWidthZ = Math.max(10, p.baseRadiusZ * 0.32);
+
+    for (let lev = 0; lev <= p.nLevels; lev++) {
+      const y = lev * levelH;
+      const alpha = lev / p.nLevels;
+      const rx = p.baseRadiusX + alpha * (p.topRadiusX - p.baseRadiusX);
+      const rz = p.baseRadiusZ + alpha * (p.topRadiusZ - p.baseRadiusZ);
+
+      perimeter[lev] = [];
+      for (let i = 0; i < p.nSides; i++) {
+        const theta = (2 * Math.PI * i) / p.nSides;
+        perimeter[lev].push(store.addNode(rx * Math.cos(theta), y, rz * Math.sin(theta)));
+      }
+
+      const cx = coreWidthX * (1 - 0.18 * alpha);
+      const cz = coreWidthZ * (1 - 0.18 * alpha);
+      core[lev] = [
+        store.addNode(-cx / 2, y, -cz / 2),
+        store.addNode(cx / 2, y, -cz / 2),
+        store.addNode(cx / 2, y, cz / 2),
+        store.addNode(-cx / 2, y, cz / 2),
+      ];
+    }
+
+    for (let lev = 0; lev < p.nLevels; lev++) {
+      for (let i = 0; i < p.nSides; i++) {
+        const next = (i + 1) % p.nSides;
+        store.addElement(perimeter[lev][i], perimeter[lev + 1][i], 'frame');
+        store.addElement(perimeter[lev][i], perimeter[lev + 1][next], 'truss');
+        store.addElement(perimeter[lev][next], perimeter[lev + 1][i], 'truss');
+      }
+
+      for (let c = 0; c < 4; c++) {
+        store.addElement(core[lev][c], core[lev + 1][c], 'frame');
+      }
+    }
+
+    for (let lev = 1; lev <= p.nLevels; lev++) {
+      for (let i = 0; i < p.nSides; i++) {
+        store.addElement(perimeter[lev][i], perimeter[lev][(i + 1) % p.nSides], 'frame');
+      }
+      for (let c = 0; c < 4; c++) {
+        store.addElement(core[lev][c], core[lev][(c + 1) % 4], 'frame');
+      }
+
+      // Radial floor framing from core to perimeter, using eight anchors for legibility.
+      for (let face = 0; face < 4; face++) {
+        const sideIdx = Math.round((face * p.nSides) / 4) % p.nSides;
+        const sideIdx2 = Math.round(((face * p.nSides) / 4) + p.nSides / 8) % p.nSides;
+        store.addElement(core[lev][face], perimeter[lev][sideIdx], 'frame');
+        store.addElement(core[lev][face], perimeter[lev][sideIdx2], 'frame');
+      }
+
+      if (lev % 8 === 0 && lev < p.nLevels) {
+        // Outrigger levels tie the core to multiple perimeter nodes.
+        for (let face = 0; face < 4; face++) {
+          const sideIdx = Math.round((face * p.nSides) / 4) % p.nSides;
+          const sideIdxPrev = (sideIdx - 1 + p.nSides) % p.nSides;
+          const sideIdxNext = (sideIdx + 1) % p.nSides;
+          store.addElement(core[lev][face], perimeter[lev][sideIdx], 'frame');
+          store.addElement(core[lev][face], perimeter[lev][sideIdxPrev], 'truss');
+          store.addElement(core[lev][face], perimeter[lev][sideIdxNext], 'truss');
+        }
+      }
+    }
+
+    // Crown ring and mast.
+    const crownCenter = store.addNode(0, p.H + levelH * 0.7, 0);
+    const mastTop = store.addNode(0, p.H + levelH * 1.6, 0);
+    store.addElement(crownCenter, mastTop, 'frame');
+    for (let i = 0; i < p.nSides; i += 2) {
+      store.addElement(perimeter[p.nLevels][i], crownCenter, 'frame');
+      store.addElement(perimeter[p.nLevels][i], mastTop, 'truss');
+    }
+
+    for (const nid of perimeter[0]) {
+      store.addSupport(nid, 'fixed3d');
+    }
+    for (const nid of core[0]) {
+      store.addSupport(nid, 'fixed3d');
+    }
+
+    for (let i = 0; i < p.nSides; i++) {
+      const topNode = perimeter[p.nLevels][i];
+      store.addNodalLoad3D(topNode, p.lateralLoad, -16, p.lateralLoad * 0.28, 0, 0, 0);
+    }
+    store.addNodalLoad3D(crownCenter, p.lateralLoad * 0.8, -40, 0, 0, 0, 0);
+  });
+}
+
+// -------------------------------------------------------------------
+// 7. Cable-stayed bridge — dual H-pylon with semi-fan cables
 // -------------------------------------------------------------------
 
 export interface CableStayedBridge3DParams {

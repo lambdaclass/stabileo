@@ -5,6 +5,7 @@
     generateCableStayedBridge3D,
     generateFullStadium3D,
     generateLandmarkTower3D,
+    generateXLDiagridTower3D,
   } from '../../lib/templates/generators';
   import { openReport } from '../../lib/engine/pro-report';
   import type { ReportData, ReportConfig } from '../../lib/engine/pro-report';
@@ -87,6 +88,7 @@
     { nameKey: 'ex.pro-edificio-7p', descKey: 'ex.pro-edificio-7p.desc', load: () => modelStore.loadExample('pro-edificio-7p') },
     { nameKey: 'ex.3d-nave-industrial', descKey: 'ex.3d-nave-industrial.desc', load: () => modelStore.loadExample('3d-nave-industrial') },
     { nameKey: 'ex.landmarkTower3D', descKey: 'ex.landmarkTower3D.desc', load: () => generateLandmarkTower3D(modelStore, { H: 84, nLevels: 12, baseWidth: 28, topWidth: 8, lateralLoad: 24 }) },
+    { nameKey: 'ex.xlDiagridTower3D', descKey: 'ex.xlDiagridTower3D.desc', load: () => generateXLDiagridTower3D(modelStore, { H: 216, nLevels: 44, nSides: 24, baseRadiusX: 38, baseRadiusZ: 28, topRadiusX: 24, topRadiusZ: 18, lateralLoad: 18 }) },
     { nameKey: 'ex.cableStayedBridge3D', descKey: 'ex.cableStayedBridge3D.desc', load: () => generateCableStayedBridge3D(modelStore, { span: 160, deckWidth: 18, pylonHeight: 56, nPanels: 20, deckLoad: -26 }) },
     { nameKey: 'ex.fullStadium3D', descKey: 'ex.fullStadium3D.desc', load: () => generateFullStadium3D(modelStore, { majorRadius: 78, minorRadius: 54, innerMajorRadius: 42, innerMinorRadius: 26, roofRise: 24, nFrames: 24, roofLoad: -12 }) },
   ];

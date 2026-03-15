@@ -358,6 +358,8 @@ const en: Record<string, string> = {
   'ex.pro-edificio-7p.desc': 'Residential with elevator, stairs, CIRSOC 102 wind & occupancy-based live loads',
   'ex.landmarkTower3D': 'Landmark Lattice Tower',
   'ex.landmarkTower3D.desc': 'Eiffel-inspired tapered tower with lattice bracing',
+  'ex.xlDiagridTower3D': 'XL Diagrid Tower',
+  'ex.xlDiagridTower3D.desc': 'High-rise diagrid tower with 1k+ nodes, central core, and outrigger levels',
   'ex.cableStayedBridge3D': 'Cable-Stayed Bridge',
   'ex.cableStayedBridge3D.desc': 'Single-pylon bridge with stayed deck and transverse floorbeams',
   'ex.fullStadium3D': 'Full Stadium',

@@ -358,6 +358,8 @@ const es: Record<string, string> = {
   'ex.pro-edificio-7p.desc': 'Vivienda con ascensor, escalera, viento CIRSOC 102 y cargas por destino de local',
   'ex.landmarkTower3D': 'Torre Icónica Reticulada',
   'ex.landmarkTower3D.desc': 'Torre inspirada en la Eiffel con arriostramiento tipo celosía',
+  'ex.xlDiagridTower3D': 'Torre Diagrid XL',
+  'ex.xlDiagridTower3D.desc': 'Torre diagrid de gran altura con 1000+ nodos, núcleo central y niveles outrigger',
   'ex.cableStayedBridge3D': 'Puente Atirantado',
   'ex.cableStayedBridge3D.desc': 'Puente de un pilono con tablero atirantado y vigas transversales',
   'ex.fullStadium3D': 'Estadio Completo',
