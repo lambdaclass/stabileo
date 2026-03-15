@@ -122,8 +122,8 @@ export function syncDeformed(ctx: ResultsSyncContext, scaleOverride?: number): v
     displacements = r3d.displacements;
     // Prevent the default 3D view from exploding into unreadable spaghetti on
     // very flexible models, but still respect explicit user scaling changes.
-    // If the user drags the slider away from the default, the manual value wins.
-    if (resultsStore.deformedScale === 100 && scaleOverride === undefined) {
+    // If the user has manually dragged the slider, their value wins.
+    if (!resultsStore.userAdjustedDeformedScale && scaleOverride === undefined) {
       const structureSize = computeStructureBBox();
       const maxDisp = computeMaxDisplacementMagnitude(displacements);
       if (maxDisp > 1e-9) {

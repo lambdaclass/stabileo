@@ -4,6 +4,8 @@
 
 This is the product roadmap: app features, market sequencing, design/reporting layers, and distribution strategy. It is not the solver mechanics roadmap — for that, see `SOLVER_ROADMAP.md`. Historical progress belongs in `CHANGELOG.md`. This document should stay forward-looking.
 
+For the expanding AI track, see `research/ai_structural_engineering_roadmap.md`.
+
 ## Vision
 
 Become the world's best structural engineering software — open-source, browser-based, zero-install. First: match the analytical power of OpenSees/Code_Aster/CalculiX with an accessible visual UX. Then: add design deliverables, diagnostics, and AI-assisted guidance. Later: real-time CRDT collaboration (the Figma moment) and full AI-native design.
@@ -26,12 +28,12 @@ What we have that OpenSees/Code_Aster/CalculiX/SAP2000/ETABS will never have:
 Dedaliano should win in this order:
 
 1. structural solver trust
-2. dynamic analysis and nonlinear materials (what OpenSees is famous for)
-3. code checks and design modules
-4. automatic load generation (what every commercial tool has)
-5. reports and documentation
-6. diagnostics, review workflows, and AI-assisted guidance
-7. lightweight collaboration and shareable review flows
+2. code checks, design modules, and first automation surfaces
+3. automatic load generation and code-driven combinations
+4. reports and documentation
+5. diagnostics, review workflows, and AI-assisted guidance
+6. lightweight collaboration and shareable review flows
+7. dynamic analysis and nonlinear materials (what OpenSees is famous for)
 8. connections and foundations
 9. construction staging, fire, progressive collapse
 10. seismic engineering workflow (end-to-end)
@@ -45,11 +47,110 @@ That matches how structural firms buy software:
 
 ROI order for users:
 1. stable analysis they can trust
-2. design outputs they can use daily
-3. reports and deliverables they can issue
-4. diagnostics, review, and guidance that reduce failure/debug time
-5. lightweight collaboration that makes review and sharing easier
-6. workflow polish and breadth after the above are solid
+2. automation that removes repetitive hand-work immediately
+3. design outputs they can use daily
+4. reports and deliverables they can issue
+5. diagnostics, review, and guidance that reduce failure/debug time
+6. lightweight collaboration that makes review and sharing easier
+7. workflow polish and breadth after the above are solid
+
+## The Automation Gap
+
+The biggest remaining product gap is not "more analysis categories." It is automating the work engineers still do manually after the solver has already produced correct forces.
+
+Today the solver can compute forces, reactions, modes, and envelopes well enough to be impressive. What still blocks daily project delivery is the manual layer on top:
+
+1. defining code load combinations and factors
+2. computing wind / seismic / snow loads from code inputs
+3. checking whether members pass code
+4. sizing sections by trial and error
+5. turning RC demand into bars, schedules, and drawings
+6. generating calculation reports and governing-case narratives
+7. interpreting mode shapes, irregularities, and design drivers
+
+Closing this gap is the difference between:
+
+- `impressive analysis tool`
+- `software an engineer can actually deliver a project with`
+
+Competitors like SAP2000, ETABS, and RFEM automate parts of this already. Dedaliano should not only catch up there; it should also automate things competitors still do not do well or at all.
+
+## What Engineers Still Do Manually
+
+### High-impact automation to ship early
+
+1. `Load combinations and factors`
+   What it should become: auto-generate combinations from selected code families (EC0, ASCE 7, CIRSOC, etc.)
+   Roadmap home: solver load-combination infrastructure + Product Steps 1-2
+
+2. `Wind / seismic / snow loads`
+   What it should become: enter building/site/code parameters and auto-generate pressures, forces, accidental torsion, and pattern loads
+   Roadmap home: Product Step 2
+
+3. `Code pass/fail checking`
+   What it should become: automatic utilization ratios, governing checks, and pass/fail per member and per code
+   Roadmap home: Product Step 2
+
+4. `Section selection`
+   What it should become: suggest viable and optimal sections given forces, code, cost, and constructability
+   Roadmap home: Product Step 2
+
+5. `RC reinforcement design`
+   What it should become: required steel -> selected bars -> curtailment -> cutting lists -> BBS
+   Roadmap home: Product Steps 1-2
+
+6. `Report generation`
+   What it should become: one-click PDF with diagrams, checks, diagnostics, governing cases, and assumptions
+   Roadmap home: Product Step 2
+
+7. `Interpretation of dynamic results`
+   What it should become: automatic flags for soft story, torsional irregularity, mass participation, dominant modes, and suspicious response patterns
+   Roadmap home: Product Step 3
+
+### Medium-impact automation to ship later
+
+1. `Shell family choice`
+   What it should become: auto-select MITC4 vs MITC9 vs curved shell vs SHB8-ANS based on geometry and workflow
+   Roadmap home: Solver Step 7 + Product Step 1
+
+2. `Analysis type choice`
+   What it should become: suggest nonlinear, P-Delta, modal, pushover, or time-history based on the model and requested checks
+   Roadmap home: Product Steps 1 and 3
+
+3. `Pre-solve stability assessment`
+   What it should become: detect mechanisms, disconnected nodes, bad constraints, poor shell geometry, and suspicious modeling before solve
+   Roadmap home: Solver Step 3
+
+4. `Pushover workflow`
+   What it should become: one-click capacity spectrum, performance point, and plastic hinge sequence
+   Roadmap home: Product Step 3 + Solver Step 10
+
+5. `IDA workflow`
+   What it should become: automatic record selection, scaling, batch NLRHA, and fragility curves
+   Roadmap home: Product Step 3 + Solver dynamic/nonlinear depth
+
+6. `BIM round-trip`
+   What it should become: IFC round-trip with analysis/design results embedded or linked
+   Roadmap home: Product Step 4
+
+## What Competitors Still Do Not Automate Well
+
+These are not just "catch-up" items. They are chances to define the category.
+
+1. `AI-assisted model review`
+   Example: "beam 7 has no lateral restraint", "this shell is inverted", "this diaphragm constraint likely over-stiffens the floor"
+
+2. `Natural language result queries`
+   Example: "what is the max moment in the roof beams?" with governing combination and location
+
+3. `Global section optimization`
+   Not just per-member sizing, but whole-structure optimization including fabrication rhythm, procurement, and connection economy
+
+4. `Live code comparison`
+   Side-by-side EC2 vs ACI vs CIRSOC design interpretation for the same member or structure
+
+5. `Generative structural layout`
+   Given architectural constraints, produce and rank structural systems instead of only checking one user-authored scheme
 
 ## Users We Can Support
 
@@ -139,24 +240,30 @@ What not to build next:
 
 ### 1. Solver-Led Product
 
-Build trust through a reliable, accessible structural solver with strong diagnostics and first design outputs.
+Build trust through a reliable, accessible structural solver with strong diagnostics and the first high-ROI automation surfaces.
 
 **What:**
 - WASM path reliability — single trusted solver runtime in production
+- Automatic code-driven load combinations and factors
+- Automatic load generation for the first high-value codes and workflows
 - RC beam design and reinforcement schedule (envelopes, required steel, selected bars, stirrups, schedule-ready output)
+- Automatic member utilization ratios and pass/fail summaries
+- AI-assisted section suggestion from utilization, code, and basic economy signals
+- Automatic load-combination generation from selected codes
 - Report and calculation-document foundations
 - Onboarding and first-solve success
 - Richer diagnostics UX — grouping, filtering, provenance, click-to-focus highlighting
 - AI-assisted modeling and review — explain warnings, suggest missing supports/loads, flag suspicious patterns, guide first-fix actions
+- Natural-language result navigation and explanation
 - Lightweight collaboration — comments, pinned annotations, shared links, model/version diff, reviewer read-only flows
 - Constraint-force and governing-result presentation
 - Shell-family recommendation and automatic defaults (MITC4/MITC9/SHB8-ANS)
 - Public benchmark and acceptance-model presentation
 - Performance feedback in the UI — progress bars, iteration counts, slow-phase visibility
 
-**Goal:** Be the most accessible serious structural solver for everyday structural engineering.
+**Goal:** Be the most accessible serious structural solver for everyday structural engineering, while already automating the first repetitive design tasks engineers do after analysis.
 
-**Done when:** An engineer can model a structure in the browser, get trustworthy results with clear diagnostics, produce an RC beam schedule, and share a read-only link with a reviewer.
+**Done when:** An engineer can model a structure in the browser, get trustworthy results with clear diagnostics, auto-generate the first code combinations and design checks, produce an RC beam schedule, and share a read-only link with a reviewer.
 
 ### 2. Deliverable Layer
 
@@ -165,16 +272,17 @@ Turn analysis into paid engineering work with design checks, reports, and intero
 **What:**
 - Graphical BBS drawing generation — bending-shape drawings, dimensions, hook semantics
 - Multi-code design check UI — EC2, EC3, ACI 318, AISC 360, NDS, TMS 402, AISI S100 wired to unified code-selector with per-member utilization ratios
+- Automatic code load generation — wind, snow, seismic ELF, pattern loading, accidental torsion from code/site inputs
 - Connections and foundations productization — auto-sizing and detail generation
-- Automatic load generation — wind (EC1/ASCE 7), seismic ELF (EC8/ASCE 7), snow, live load patterns from code parameters
 - Reports and calculation packages — PDF with LaTeX equations, project info, design checks, diagrams
 - Interoperability — full IFC import/export, DXF 3D
 - Project and template support — reusable workflows, firm standardization
-- AI-powered section suggestion — suggest optimal sections from utilization ratios with code references
-- AI-powered load combination from code selection — auto-generate required combinations including accidental torsion, pattern loading, combination factors
+- AI-powered section suggestion — deepen from local member sizing into stronger whole-frame recommendations
+- AI-powered load combination from code selection — broaden and harden code coverage including accidental torsion, pattern loading, combination factors
 - Natural language result queries — "what's the max moment in beam 7?", "which column has the highest utilization?"
+- AI-powered code-check explanation — explain why a member fails and what parameter drives the failure
 
-**Goal:** Move from "can analyze" to "can support paid engineering work." AI handles the tedious parts (section sizing, load combo generation, result navigation) so engineers spend time on judgment.
+**Goal:** Move from "can analyze" to "can support paid engineering work." Automation handles more of the repetitive design and reporting layer so engineers spend more time on judgment.
 
 **Done when:** An engineer can run a design check against their national code, generate a submission-grade PDF report, import/export IFC, and ask the app questions about results in plain language.
 
@@ -237,6 +345,7 @@ Turn the app into a real-time collaborative platform — the Figma of structural
 - Natural language to model — "8-storey RC frame, seismic zone 4, soft soil" generates a complete structural model
 - Automated design iteration — AI runs hundreds of variants, presents Pareto-optimal designs (cost vs weight vs drift vs carbon)
 - GNN/neural operator surrogates — train on solver output for 1000x parametric speedup
+- Real-time code comparison — compare EC2 / ACI / CIRSOC interpretation on the same structure or member
 - PWA and offline — installable Progressive Web App, mobile-optimized 3D viewer, offline sync via CRDTs
 
 **Done when:** A team of engineers can work on the same model simultaneously with live cursors, branch/merge design alternatives, and an AI can generate and rank hundreds of structural variants automatically.

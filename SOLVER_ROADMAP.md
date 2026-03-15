@@ -4,6 +4,8 @@
 
 This is the solver roadmap for mechanics, numerical robustness, validation sequencing, verification strategy, and performance/scale work. It is not the product, market, or revenue roadmap — for that, see `PRODUCT_ROADMAP.md`. For current capability and validation status, see `BENCHMARKS.md`. Historical progress belongs in `CHANGELOG.md`.
 
+For the cross-cutting AI track that depends on these solver outputs and contracts, see `research/ai_structural_engineering_roadmap.md`.
+
 ## Where We Are
 
 Sparse direct solver, deterministic assembly, multi-family shell stack (MITC4+EAS-7, MITC9, SHB8-ANS, curved shell), sparse eigensolver paths for modal/buckling/harmonic, beam station extraction for RC design, and Modified Newton-Raphson are all done. The WASM path and TypeScript solver retirement are the immediate blockers. See `CURRENT_STATUS.md` for the full snapshot and measured benchmark data.
@@ -29,6 +31,7 @@ The next big gains are not about collecting more categories. They are about maki
 3. `Long-tail nonlinear robustness` — the solver should stay reliable on shell + nonlinear, contact + staging, and difficult convergence paths.
 4. `Solver-path consistency` — dense vs sparse, constrained vs unconstrained, and mixed shell/frame workflows should keep converging to the same behavior.
 5. `Shell workflow maturity` — the advantage is now the multi-family shell stack used correctly, not raw shell-family count.
+6. `Automation-ready outputs` — the solver should not stop at forces; it should expose the structured, governing, code-ready data product automation needs immediately.
 
 ## What The Solver Must Enable Beyond The Core App
 
@@ -42,6 +45,23 @@ If the product roadmap succeeds, the solver becomes the foundation for more soft
 6. `Reproducibility` — QA/review and collaboration products need deterministic replay, build IDs, and captured solver-run artifacts.
 7. `Model quality gates` — review and peer-check layers work much better when the solver catches instability, disconnected subgraphs, shell pathologies, and bad support conditions before solve.
 8. `Web/desktop runtime parity` — if the product ships as both browser and Tauri desktop, the solver contracts, diagnostics, and major workflows need parity across WASM-in-browser and native/local execution surfaces.
+9. `Design-automation-ready result contracts` — code-check UIs, AI suggestions, and section optimization need normalized governing-case outputs, utilization inputs, stable member identifiers, and machine-readable result summaries rather than only raw forces.
+10. `Query-ready result indexing` — natural-language result queries and review tooling need fast access to maxima, minima, governing combinations, element groups, and named scopes without forcing the UI to recompute everything ad hoc.
+11. `Batch and optimization execution` — global section optimization, Pareto runs, and generative layout workflows need repeatable headless execution, deterministic result payloads, and infrastructure for multi-run sweeps.
+
+## The Automation Gap The Solver Must Close
+
+The most important remaining solver-adjacent gap is not "one more analysis method." It is enabling the product to automate the decisions engineers still make manually after the solve.
+
+The solver already computes forces, reactions, modes, and envelopes. To support real design automation, it must also provide:
+
+1. `Code-ready load metadata` — enough structure to auto-generate and track code combinations, accidental torsion, pattern loading, and load provenance
+2. `Design-grade member demand extraction` — governing N/V/M/T with stable metadata, not just raw element force arrays
+3. `Utilization-input contracts` — clean inputs for steel/RC/timber/masonry code checks without ad hoc UI-side reconstruction
+4. `Report-grade provenance` — governing case, location, check context, and solver diagnostics suitable for documents
+5. `Optimization-ready batch interfaces` — repeatable solve APIs for section suggestion, global optimization, and generative comparison
+
+Without this layer, the product can analyze structures but still cannot automate the 60-70% of engineering work that happens after analysis.
 
 ## Shell Formulation Boundaries
 
@@ -81,6 +101,16 @@ Recommended shell order:
 16. WebGPU compute shaders — Step 15
 
 See `research/numerical_methods_gap_analysis.md`.
+
+## Immediate Solver Priority For Automation
+
+If automation is pulled earlier in the product roadmap, the solver should respond in this order:
+
+1. `WASM/runtime trust` — the automation layer is useless if the main solve path is not trustworthy
+2. `Design-grade extraction and governing metadata` — the product needs stable member demands, governing combinations, and provenance
+3. `Structured diagnostics and query-ready result summaries` — automation, AI assistance, and review should consume structured payloads, not scrape raw tables
+4. `Code/load metadata contracts` — automatic combinations, loads, and design checks need solver-side metadata that survives into reports and exports
+5. `Batch/headless execution ergonomics` — optimization and generative workflows come only after the first automation surfaces are stable
 
 ## Must-Have Vs Later
 
@@ -190,6 +220,7 @@ Finish beam station extraction for RC design workflows. Most of this is done; cl
 - Add contract/snapshot tests protecting the serialized payload shape
 - Add versioned or evolution-safe result contracts for downstream consumers
 - Ensure governing outputs never emit phantom combos or sentinel infinities
+- Extend the same design-grade contract discipline to non-RC member demand extraction so steel/code-check workflows do not rebuild semantics from raw forces
 
 **Done when:**
 - 2D and 3D integration tests exercise full solve-to-extraction paths
@@ -211,6 +242,7 @@ Make the solver easier to trust before and after a run, and make diagnostics str
 - **Post-solve trust signals:** equilibrium / residual / conditioning summaries in result payloads, governing-result provenance (which combination, which station, which check)
 - Expose pivot perturbation counts, fill ratios, and solve phase breakdowns in the UI
 - Make solver-path selection and fallback behavior transparent
+- Add query-ready summaries for maxima/minima/governing cases so product-level result Q&A and AI explanation do not scrape tables or raw arrays
 
 **Done when:**
 - Pre-solve checks exist for all model quality gates listed above
@@ -218,6 +250,7 @@ Make the solver easier to trust before and after a run, and make diagnostics str
 - Result payloads expose equilibrium/residual/conditioning summaries on representative workflows
 - Solver-run artifacts can be attached to bug reports and replayed locally
 - At least one AI/review consumer uses structured codes, not string parsing
+- Result-query consumers can answer governing-case questions from structured payloads instead of ad hoc UI recomputation
 
 ### Step 4 — Runtime and Scale Dominance
 
@@ -239,6 +272,7 @@ Current status: all 8 element families parallelized through a unified `AnyElemen
 - Measure representative browser memory ceilings and worker startup overhead
 - Add iterative refinement before any remaining expensive fallback path
 - **Performance regression CI:** runtime benchmarks must be re-checked on every merge, not measured once and forgotten. Add CI gates that fail if key benchmarks regress beyond a tolerance (e.g. sparse factorization time, end-to-end solve time on representative models). Track trends, not just pass/fail.
+- Add headless batch-run ergonomics for optimization and comparison workflows so runtime wins are usable outside the interactive UI
 
 **CI / Gate Discipline:**
 - Sparse shell gates: no dense fallback, fill ratio bounds, deterministic sparse assembly, sparse vs dense residual parity
@@ -279,6 +313,7 @@ Protect major solver paths with visible, release-grade proof. This is how the so
 - **Real-model regression suite:** collect saved models from real users (with permission) or generate realistic messy models (mixed element types, irregular topology, nearly-coplanar shells, short members, eccentric connections). These catch failures that textbook benchmarks miss.
 - **WASM vs native parity tests:** run the same solver inputs through both native `cargo test` and the WASM build, compare results to machine precision. Catches f64 rounding differences, memory layout issues, and WASM-specific codegen bugs.
 - **Mutation testing:** use `cargo-mutants` or equivalent to measure whether the test suite actually catches regressions. A test suite with 5908 passing tests is worthless if mutating the solver code doesn't fail any of them.
+- **Design-automation regression tests:** verify that code-check inputs, governing-case extraction, and report-grade metadata remain stable on representative building workflows, not only that raw solve numbers match
 
 **Done when:**
 - Explicit CI gates exist for sparse shells, sparse modal/buckling/harmonic, and reduction workflows
@@ -291,6 +326,7 @@ Protect major solver paths with visible, release-grade proof. This is how the so
 - At least 10 real-model or realistic-messy-model regressions are in the suite
 - WASM vs native parity tests pass on representative workflows
 - Mutation testing score is tracked and improving
+- Design-automation regressions protect the downstream contracts product features depend on
 
 ### Step 6 — Long-Tail Nonlinear Hardening and Solver-Path Consistency
 

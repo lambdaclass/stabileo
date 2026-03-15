@@ -89,15 +89,6 @@
   const DEFORMED_SCALE_MAX = 50;
   const DEFORMED_SLIDER_STEPS = 200;
 
-  $effect(() => {
-    if (results && resultsStore.deformedScale > DEFORMED_SCALE_MAX) {
-      resultsStore.deformedScale = DEFORMED_SCALE_MAX;
-    }
-    if (results && resultsStore.deformedScale < DEFORMED_SCALE_MIN) {
-      resultsStore.deformedScale = DEFORMED_SCALE_MIN;
-    }
-  });
-
   // Piecewise slider mapping:
   // - first 40% of travel: very fine control from 1x to 3x
   // - remaining 60%: logarithmic growth from 3x to 50x
