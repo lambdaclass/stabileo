@@ -1,0 +1,14 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>Stabileo</title>
+    <script>
+      (function () {
+        var route = window.location.pathname + window.location.search + window.location.hash;
+        window.location.replace('/?route=' + encodeURIComponent(route));
+      })();
+    </script>
+  </head>
+  <body></body>
+</html>

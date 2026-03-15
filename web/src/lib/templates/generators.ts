@@ -1154,8 +1154,8 @@ export function generateFullStadium3D(store: ModelStore, p: FullStadium3DParams)
       roofOuter.push(store.addNode(outerX, outerRise, outerZ));
       mastBase.push(store.addNode((p.majorRadius + 20 + mainStand * 10) * c, 0, (p.minorRadius + 16 + mainStand * 7) * s));
 
-      if (!openSector && (i % 2 === 0 || mainStand > 0.55)) {
-        mastTop.push(store.addNode((p.majorRadius + 20 + mainStand * 10) * c, outerRise + 12 + mainStand * 8, (p.minorRadius + 16 + mainStand * 7) * s));
+      if (!openSector && (i % 3 === 0 || mainStand > 0.72)) {
+        mastTop.push(store.addNode((p.majorRadius + 18 + mainStand * 8) * c, outerRise + 8 + mainStand * 6, (p.minorRadius + 14 + mainStand * 5) * s));
       } else {
         mastTop.push(null);
       }
@@ -1212,6 +1212,9 @@ export function generateFullStadium3D(store: ModelStore, p: FullStadium3DParams)
         store.addElement(mastTop[i]!, roofOuter[i], 'truss');
         store.addElement(mastTop[i]!, roofInner[i], 'truss');
         store.addElement(mastTop[i]!, concourse[i], 'truss');
+        if (coveredNext) {
+          store.addElement(mastTop[i]!, roofOuter[next], 'truss');
+        }
       }
 
       store.addSupport(baseOuter[i], 'fixed3d');

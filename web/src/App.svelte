@@ -38,11 +38,38 @@
   import { runLiveCalc, runGlobalSolve } from './lib/engine/live-calc';
   import LandingPage from './components/LandingPage.svelte';
 
+  if (typeof window !== 'undefined') {
+    const redirectedRoute = new URLSearchParams(location.search).get('route');
+    if (redirectedRoute) {
+      history.replaceState(null, '', redirectedRoute);
+    }
+  }
+
+  function isAppRoute(pathname: string) {
+    return pathname === '/app' || pathname === '/app/';
+  }
+
+  function isDemoRoute(pathname: string) {
+    return pathname === '/demo' || pathname === '/demo/';
+  }
+
+  function shouldShowLanding() {
+    const params = new URLSearchParams(location.search);
+    return !params.has('embed') && !isAppRoute(location.pathname) && !isDemoRoute(location.pathname);
+  }
+
   const isEmbedDemo = new URLSearchParams(location.search).has('embed');
-  let showLanding = $state(!isEmbedDemo);
+  let showLanding = $state(shouldShowLanding());
 
   function enterApp() {
+    if (!isAppRoute(location.pathname)) {
+      history.pushState(null, '', '/app');
+    }
     showLanding = false;
+  }
+
+  function syncRouteState() {
+    showLanding = shouldShowLanding();
   }
 
   // Listen for enter-app event from LandingPage "Try Demo" buttons
@@ -161,9 +188,12 @@
     tabManager.init();
 
     // Check for /demo path → launch guided tour
-    const isDemoRoute = location.pathname === '/demo' || location.pathname === '/demo/';
-    if (isDemoRoute) {
-      history.replaceState(null, '', '/');
+    const onPopState = () => syncRouteState();
+    window.addEventListener('popstate', onPopState);
+
+    if (isDemoRoute(location.pathname)) {
+      history.replaceState(null, '', '/app');
+      syncRouteState();
       setTimeout(() => tourStore.start(buildTourSteps()), 600);
     }
 
@@ -244,6 +274,7 @@
       window.removeEventListener('stabileo-dxf-drop', handleDxfDropEvent);
       window.removeEventListener('stabileo-import-ifc', handleIfcImportEvent);
       window.removeEventListener('stabileo-solve', handleGlobalSolve);
+      window.removeEventListener('popstate', onPopState);
     };
   });
 
