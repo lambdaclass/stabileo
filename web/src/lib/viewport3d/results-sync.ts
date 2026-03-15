@@ -126,7 +126,7 @@ export function syncDeformed(ctx: ResultsSyncContext, scaleOverride?: number): v
       const structureSize = computeStructureBBox();
       const maxDisp = computeMaxDisplacementMagnitude(displacements);
       if (maxDisp > 1e-9) {
-        const maxVisualOffset = structureSize * 0.35;
+        const maxVisualOffset = structureSize * 0.10;
         const maxSafeScale = maxVisualOffset / maxDisp;
         const capped = Math.min(scale, maxSafeScale);
         if (capped !== scale) {
