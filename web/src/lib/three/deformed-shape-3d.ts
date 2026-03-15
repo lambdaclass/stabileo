@@ -355,35 +355,23 @@ export function createDeformedLines(
     const dJ = dispMap.get(elem.nodeJ);
     if (!dI || !dJ) continue;
 
-    const ef = forcesMap.get(elemId);
-    const eiData = eiMap?.get(elemId);
-
     let points: THREE.Vector3[];
-
-    if (ef && elem.type !== 'truss') {
-      // Use Hermite + particular solution
-      const localY = (elem.localYx !== undefined && elem.localYy !== undefined && elem.localYz !== undefined)
-        ? { x: elem.localYx, y: elem.localYy, z: elem.localYz } : undefined;
-      points = computeDeformedShape3D(
-        { x: nI.x, y: nI.y, z: nI.z ?? 0 },
-        { x: nJ.x, y: nJ.y, z: nJ.z ?? 0 },
-        dI, dJ, ef, scale, eiData, localY, elem.rollAngle, leftHand,
-      );
-    } else {
-      // Trusses and force-less elements should stay straight in the deformed view.
-      // Applying beam-style Hermite interpolation to trusses creates non-physical
-      // curls because nodal rotations leak into members that do not carry bending.
-      points = [];
-      for (let i = 0; i <= SEGMENTS_PER_ELEMENT; i++) {
-        const t = i / SEGMENTS_PER_ELEMENT;
-        const ox = nI.x + (nJ.x - nI.x) * t;
-        const oy = nI.y + (nJ.y - nI.y) * t;
-        const oz = (nI.z ?? 0) + ((nJ.z ?? 0) - (nI.z ?? 0)) * t;
-        const ux = dI.ux + (dJ.ux - dI.ux) * t;
-        const uy = dI.uy + (dJ.uy - dI.uy) * t;
-        const uz = dI.uz + (dJ.uz - dI.uz) * t;
-        points.push(new THREE.Vector3(ox + ux * scale, oy + uy * scale, oz + uz * scale));
-      }
+    // In 3D whole-structure views, exact beam-curvature rendering makes tall
+    // building deformed shapes unreadable because every loaded floor beam
+    // becomes a visible cubic curve. Use straight nodal interpolation here so
+    // the viewport emphasizes global drift/torsion. The exact per-member 3D
+    // curve routine remains available via computeDeformedShape3D() for focused
+    // element-level tools/tests.
+    points = [];
+    for (let i = 0; i <= SEGMENTS_PER_ELEMENT; i++) {
+      const t = i / SEGMENTS_PER_ELEMENT;
+      const ox = nI.x + (nJ.x - nI.x) * t;
+      const oy = nI.y + (nJ.y - nI.y) * t;
+      const oz = (nI.z ?? 0) + ((nJ.z ?? 0) - (nI.z ?? 0)) * t;
+      const ux = dI.ux + (dJ.ux - dI.ux) * t;
+      const uy = dI.uy + (dJ.uy - dI.uy) * t;
+      const uz = dI.uz + (dJ.uz - dI.uz) * t;
+      points.push(new THREE.Vector3(ox + ux * scale, oy + uy * scale, oz + uz * scale));
     }
 
     if (points.length < 2) continue;
