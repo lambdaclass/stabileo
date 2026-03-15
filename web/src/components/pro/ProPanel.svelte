@@ -2,17 +2,6 @@
   import { tick } from 'svelte';
   import { t } from '../../lib/i18n';
   import { modelStore, resultsStore, uiStore, verificationStore, tabManager } from '../../lib/store';
-  import {
-    generateCableStayedBridge3D,
-    generateFullStadium3D,
-    generateGeodesicDome3D,
-    generateIrregularSetbackTower3D,
-    generateMatFoundation3D,
-    generatePipeRack3D,
-    generateRcDesignFrame3D,
-    generateSuspensionBridge3D,
-    generateXLDiagridTower3D,
-  } from '../../lib/templates/generators';
   import { openReport } from '../../lib/engine/pro-report';
   import type { ReportData, ReportConfig } from '../../lib/engine/pro-report';
   import { verifyElement, classifyElement, computeJointPsiFromModel } from '../../lib/engine/codes/argentina/cirsoc201';
@@ -126,7 +115,7 @@
       tags: ['pro.tagDrift', 'pro.tagTorsion'],
       stats: { nodes: '420', members: '1180' },
       preset: 'default',
-      load: () => generateIrregularSetbackTower3D(modelStore, { storyH: 3.8, levels: 18, baysX: 6, baysZ: 5, bayX: 8, bayZ: 7, setbackAt: [8, 13], windLoad: 18 }),
+      load: () => modelStore.loadExample('torre-irregular-con-retiros'),
     },
     {
       group: 'buildings',
@@ -137,7 +126,7 @@
       tags: ['pro.tagDesign', 'pro.tagRC'],
       stats: { nodes: '180', members: '344' },
       preset: 'default',
-      load: () => generateRcDesignFrame3D(modelStore, { baysX: 4, baysZ: 3, bayX: 7.5, bayZ: 6.5, stories: 8, storyH: 3.4, windLoad: 12 }),
+      load: () => modelStore.loadExample('rc-design-frame'),
     },
     {
       group: 'industrial',
@@ -159,7 +148,7 @@
       tags: ['pro.tagIndustrial', 'pro.tagSteel'],
       stats: { nodes: '90', members: '173' },
       preset: 'default',
-      load: () => generatePipeRack3D(modelStore, { bays: 7, bayLength: 9, width: 10, levels: 3, levelHeight: 4.5, lateralLoad: 9 }),
+      load: () => modelStore.loadExample('pipe-rack'),
     },
     {
       group: 'foundations',
@@ -170,7 +159,7 @@
       tags: ['pro.tagFoundation', 'pro.tagSoil'],
       stats: { nodes: '99', members: '180', shells: '80' },
       preset: 'clean-shell',
-      load: () => generateMatFoundation3D(modelStore, { Lx: 36, Lz: 28, nX: 8, nZ: 7, subgradeKy: 90000 }),
+      load: () => modelStore.loadExample('mat-foundation'),
     },
     {
       group: 'longspan',
@@ -181,7 +170,7 @@
       tags: ['pro.tagCables', 'pro.tagLongSpan'],
       stats: { nodes: '430', members: '980' },
       preset: 'bridge',
-      load: () => generateSuspensionBridge3D(modelStore, { mainSpan: 480, sideSpan: 120, deckWidth: 22, towerHeight: 90, sag: 45, nPanelsMain: 40, nPanelsSide: 10, trussDepth: 8, deckLoad: -32 }),
+      load: () => modelStore.loadExample('suspension-bridge'),
     },
     {
       group: 'longspan',
@@ -192,7 +181,7 @@
       tags: ['pro.tagCables', 'pro.tagBridge'],
       stats: { nodes: '45', members: '102' },
       preset: 'bridge',
-      load: () => generateCableStayedBridge3D(modelStore, { span: 160, deckWidth: 18, pylonHeight: 56, nPanels: 20, deckLoad: -26 }),
+      load: () => modelStore.loadExample('cable-stayed-bridge'),
     },
     {
       group: 'longspan',
@@ -203,7 +192,7 @@
       tags: ['pro.tagRoof', 'pro.tagBowl'],
       stats: { nodes: '312', members: '690', shells: '48' },
       preset: 'clean-shell',
-      load: () => generateFullStadium3D(modelStore, { majorRadius: 78, minorRadius: 54, innerMajorRadius: 42, innerMinorRadius: 26, roofRise: 24, nFrames: 24, roofLoad: -12 }),
+      load: () => modelStore.loadExample('full-stadium'),
     },
     {
       group: 'xl',
@@ -214,7 +203,7 @@
       tags: ['pro.tagScale', 'pro.tagDrift'],
       stats: { nodes: '1262', members: '5013' },
       preset: 'xl',
-      load: () => generateXLDiagridTower3D(modelStore, { H: 228, nLevels: 42, nSides: 20, baseRadiusX: 38, baseRadiusZ: 28, topRadiusX: 22, topRadiusZ: 16, lateralLoad: 18 }),
+      load: () => modelStore.loadExample('xl-diagrid-tower'),
     },
     {
       group: 'xl',
@@ -225,7 +214,7 @@
       tags: ['pro.tagShells', 'pro.tagScale'],
       stats: { nodes: '641', members: '1920' },
       preset: 'xl',
-      load: () => generateGeodesicDome3D(modelStore, { radius: 40, frequency: 8, hemisphere: true, selfWeightLoad: -5 }),
+      load: () => modelStore.loadExample('geodesic-dome'),
     },
   ];
   const proExampleGroups = $derived.by(() => {
@@ -524,8 +513,8 @@
     }
   }
 
-  function loadProExample(ex: ProExample) {
-    ex.load();
+  async function loadProExample(ex: ProExample) {
+    await ex.load();
     uiStore.includeSelfWeight = true;
     applyExamplePreset(ex.preset);
     tabManager.syncActiveTabName();

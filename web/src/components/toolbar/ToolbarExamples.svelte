@@ -1,10 +1,5 @@
 <script lang="ts">
   import { uiStore, modelStore, resultsStore } from '../../lib/store';
-  import {
-    generateCableStayedBridge3D,
-    generateStadiumCanopy3D,
-    getTemplateCatalog3D,
-  } from '../../lib/templates/generators';
   import { t } from '../../lib/i18n';
 
   let showExamples = $state(false);
@@ -38,33 +33,33 @@
     { id: 'frame-seismic', nameKey: 'ex.frame-seismic', descKey: 'ex.frame-seismic.desc' },
   ] as const;
 
-  // Unified 3D examples — built-in + templates, ordered by ascending complexity
-  const examples3D: { id: string; nameKey: string; descKey: string; generate?: (s: typeof modelStore) => void }[] = [
+  // Unified 3D examples — ordered by ascending complexity
+  const examples3D: { id: string; nameKey: string; descKey: string }[] = [
     { id: '3d-cantilever-load', nameKey: 'ex.3d-cantilever-load', descKey: 'ex.3d-cantilever-load.desc' },
     { id: '3d-torsion-beam', nameKey: 'ex.3d-torsion-beam', descKey: 'ex.3d-torsion-beam.desc' },
-    { id: '', nameKey: 'ex.hingedArch3D', descKey: 'ex.hingedArch3D.desc', generate: (s) => getTemplateCatalog3D().find(tmpl => tmpl.id === 'hingedArch3D')!.generate(s) },
+    { id: 'hinged-arch-3d', nameKey: 'ex.hingedArch3D', descKey: 'ex.hingedArch3D.desc' },
     { id: '3d-portal-frame', nameKey: 'ex.3d-portal-frame', descKey: 'ex.3d-portal-frame.desc' },
-    { id: '', nameKey: 'ex.gridBeams', descKey: 'ex.gridBeams.desc', generate: (s) => getTemplateCatalog3D().find(tmpl => tmpl.id === 'gridBeams')!.generate(s) },
+    { id: 'grid-beams', nameKey: 'ex.gridBeams', descKey: 'ex.gridBeams.desc' },
     { id: '3d-space-truss', nameKey: 'ex.3d-space-truss', descKey: 'ex.3d-space-truss.desc' },
-    { id: '', nameKey: 'ex.spaceFrame3D', descKey: 'ex.spaceFrame3D.desc', generate: (s) => getTemplateCatalog3D().find(tmpl => tmpl.id === 'spaceFrame3D')!.generate(s) },
-    { id: '', nameKey: 'ex.tower3D_2', descKey: 'ex.tower3D_2.desc', generate: (s) => getTemplateCatalog3D().find(tmpl => tmpl.id === 'tower3D_2')!.generate(s) },
-    { id: '', nameKey: 'ex.tower3D_4', descKey: 'ex.tower3D_4.desc', generate: (s) => getTemplateCatalog3D().find(tmpl => tmpl.id === 'tower3D_4')!.generate(s) },
+    { id: 'space-frame', nameKey: 'ex.spaceFrame3D', descKey: 'ex.spaceFrame3D.desc' },
+    { id: 'tower-3d-2', nameKey: 'ex.tower3D_2', descKey: 'ex.tower3D_2.desc' },
+    { id: 'tower-3d-4', nameKey: 'ex.tower3D_4', descKey: 'ex.tower3D_4.desc' },
     { id: '3d-nave-industrial', nameKey: 'ex.3d-nave-industrial', descKey: 'ex.3d-nave-industrial.desc' },
   ];
 
   // PRO-only examples — curated larger / more realistic workflows
-  const examplesPro: { id: string; nameKey: string; descKey: string; generate?: (s: typeof modelStore) => void }[] = [
+  const examplesPro: { id: string; nameKey: string; descKey: string }[] = [
     { id: '3d-building', nameKey: 'ex.3d-building', descKey: 'ex.3d-building.desc' },
     { id: 'pro-edificio-7p', nameKey: 'ex.pro-edificio-7p', descKey: 'ex.pro-edificio-7p.desc' },
     { id: '3d-nave-industrial', nameKey: 'ex.3d-nave-industrial', descKey: 'ex.3d-nave-industrial.desc' },
-    { id: '', nameKey: 'ex.cableStayedBridge3D', descKey: 'ex.cableStayedBridge3D.desc', generate: (s) => generateCableStayedBridge3D(s, { span: 72, deckWidth: 10, pylonHeight: 26, nPanels: 12, deckLoad: -18 }) },
-    { id: '', nameKey: 'ex.stadiumCanopy3D', descKey: 'ex.stadiumCanopy3D.desc', generate: (s) => generateStadiumCanopy3D(s, { span: 54, depth: 18, nFrames: 9, roofLoad: -10, columnHeight: 14 }) },
-    { id: '', nameKey: 'ex.spaceFrame3D', descKey: 'ex.spaceFrame3D.desc', generate: (s) => getTemplateCatalog3D().find(tmpl => tmpl.id === 'spaceFrame3D')!.generate(s) },
-    { id: '', nameKey: 'ex.tower3D_4', descKey: 'ex.tower3D_4.desc', generate: (s) => getTemplateCatalog3D().find(tmpl => tmpl.id === 'tower3D_4')!.generate(s) },
-    { id: '', nameKey: 'ex.gridBeams', descKey: 'ex.gridBeams.desc', generate: (s) => getTemplateCatalog3D().find(tmpl => tmpl.id === 'gridBeams')!.generate(s) },
+    { id: 'cable-stayed-bridge-small', nameKey: 'ex.cableStayedBridge3D', descKey: 'ex.cableStayedBridge3D.desc' },
+    { id: 'stadium-canopy', nameKey: 'ex.stadiumCanopy3D', descKey: 'ex.stadiumCanopy3D.desc' },
+    { id: 'space-frame', nameKey: 'ex.spaceFrame3D', descKey: 'ex.spaceFrame3D.desc' },
+    { id: 'tower-3d-4', nameKey: 'ex.tower3D_4', descKey: 'ex.tower3D_4.desc' },
+    { id: 'grid-beams', nameKey: 'ex.gridBeams', descKey: 'ex.gridBeams.desc' },
     { id: '3d-space-truss', nameKey: 'ex.3d-space-truss', descKey: 'ex.3d-space-truss.desc' },
     { id: '3d-portal-frame', nameKey: 'ex.3d-portal-frame', descKey: 'ex.3d-portal-frame.desc' },
-    { id: '', nameKey: 'ex.hingedArch3D', descKey: 'ex.hingedArch3D.desc', generate: (s) => getTemplateCatalog3D().find(tmpl => tmpl.id === 'hingedArch3D')!.generate(s) },
+    { id: 'hinged-arch-3d', nameKey: 'ex.hingedArch3D', descKey: 'ex.hingedArch3D.desc' },
     { id: 'building-3story-dlw', nameKey: 'ex.building-3story-dlw', descKey: 'ex.building-3story-dlw.desc' },
     { id: 'frame-seismic', nameKey: 'ex.frame-seismic', descKey: 'ex.frame-seismic.desc' },
   ];
@@ -81,7 +76,7 @@
   {#if showExamples}
     <div class="examples-list">
       {#each examplesPro as ex}
-        <button class="example-item" onclick={() => { if (ex.generate) { ex.generate(modelStore); } else { modelStore.loadExample(ex.id); } resultsStore.clear(); resultsStore.clear3D(); if (uiStore.isMobile) uiStore.leftDrawerOpen = false; setTimeout(() => window.dispatchEvent(new Event('stabileo-zoom-to-fit')), 50); }}>
+        <button class="example-item" onclick={async () => { await modelStore.loadExample(ex.id); resultsStore.clear(); resultsStore.clear3D(); if (uiStore.isMobile) uiStore.leftDrawerOpen = false; setTimeout(() => window.dispatchEvent(new Event('stabileo-zoom-to-fit')), 50); }}>
           <span class="example-name">{t(ex.nameKey)}</span>
           <span class="example-desc">{t(ex.descKey)}</span>
         </button>
@@ -100,7 +95,7 @@
   {#if showExamples}
     <div class="examples-list">
       {#each examples.filter(ex => !['truss','warren-truss','howe-truss'].includes(ex.id)) as ex}
-        <button class="example-item" onclick={() => { modelStore.loadExample(ex.id); resultsStore.clear(); resultsStore.clear3D(); if (uiStore.isMobile) uiStore.leftDrawerOpen = false; setTimeout(() => window.dispatchEvent(new Event('stabileo-zoom-to-fit')), 50); }}>
+        <button class="example-item" onclick={async () => { await modelStore.loadExample(ex.id); resultsStore.clear(); resultsStore.clear3D(); if (uiStore.isMobile) uiStore.leftDrawerOpen = false; setTimeout(() => window.dispatchEvent(new Event('stabileo-zoom-to-fit')), 50); }}>
           <span class="example-name">{t(ex.nameKey)}</span>
           <span class="example-desc">{t(ex.descKey)}</span>
         </button>
@@ -116,7 +111,7 @@
   {#if showExamples3D}
     <div class="examples-list">
       {#each examples3D as ex}
-        <button class="example-item" onclick={() => { if (ex.generate) { ex.generate(modelStore); } else { modelStore.loadExample(ex.id); } resultsStore.clear(); resultsStore.clear3D(); if (uiStore.isMobile) uiStore.leftDrawerOpen = false; setTimeout(() => window.dispatchEvent(new Event('stabileo-zoom-to-fit')), 50); }}>
+        <button class="example-item" onclick={async () => { await modelStore.loadExample(ex.id); resultsStore.clear(); resultsStore.clear3D(); if (uiStore.isMobile) uiStore.leftDrawerOpen = false; setTimeout(() => window.dispatchEvent(new Event('stabileo-zoom-to-fit')), 50); }}>
           <span class="example-name">{t(ex.nameKey)}</span>
           <span class="example-desc">{t(ex.descKey)}</span>
         </button>
@@ -135,7 +130,7 @@
   {#if showExamples}
     <div class="examples-list">
       {#each examples as ex}
-        <button class="example-item" onclick={() => { modelStore.loadExample(ex.id); resultsStore.clear(); resultsStore.clear3D(); if (uiStore.isMobile) uiStore.leftDrawerOpen = false; setTimeout(() => window.dispatchEvent(new Event('stabileo-zoom-to-fit')), 50); }}>
+        <button class="example-item" onclick={async () => { await modelStore.loadExample(ex.id); resultsStore.clear(); resultsStore.clear3D(); if (uiStore.isMobile) uiStore.leftDrawerOpen = false; setTimeout(() => window.dispatchEvent(new Event('stabileo-zoom-to-fit')), 50); }}>
           <span class="example-name">{t(ex.nameKey)}</span>
           <span class="example-desc">{t(ex.descKey)}</span>
         </button>
@@ -153,7 +148,7 @@
   {#if showExamples}
     <div class="examples-list">
       {#each examples as ex}
-        <button class="example-item" onclick={() => { modelStore.loadExample(ex.id); resultsStore.clear(); resultsStore.clear3D(); if (uiStore.isMobile) uiStore.leftDrawerOpen = false; setTimeout(() => window.dispatchEvent(new Event('stabileo-zoom-to-fit')), 50); }}>
+        <button class="example-item" onclick={async () => { await modelStore.loadExample(ex.id); resultsStore.clear(); resultsStore.clear3D(); if (uiStore.isMobile) uiStore.leftDrawerOpen = false; setTimeout(() => window.dispatchEvent(new Event('stabileo-zoom-to-fit')), 50); }}>
           <span class="example-name">{t(ex.nameKey)}</span>
           <span class="example-desc">{t(ex.descKey)}</span>
         </button>

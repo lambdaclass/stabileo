@@ -1,0 +1,119 @@
+{
+  "name": "Point loads",
+  "materials": [
+    {
+      "id": 1,
+      "name": "Acero A36",
+      "e": 200000,
+      "nu": 0.3,
+      "rho": 78.5,
+      "fy": 250
+    }
+  ],
+  "sections": [
+    {
+      "id": 1,
+      "name": "IPN 300",
+      "a": 0.0069,
+      "iy": 0.000098,
+      "iz": 0.00000451,
+      "j": 1e-7,
+      "b": 0.125,
+      "h": 0.3
+    }
+  ],
+  "nodes": [
+    {
+      "id": 1,
+      "x": 0,
+      "y": 0,
+      "z": 0
+    },
+    {
+      "id": 2,
+      "x": 8,
+      "y": 0,
+      "z": 0
+    }
+  ],
+  "elements": [
+    {
+      "id": 1,
+      "type": "frame",
+      "nodeI": 1,
+      "nodeJ": 2,
+      "materialId": 1,
+      "sectionId": 1,
+      "hingeStart": false,
+      "hingeEnd": false
+    }
+  ],
+  "supports": [
+    {
+      "id": 1,
+      "nodeId": 1,
+      "type": "pinned"
+    },
+    {
+      "id": 2,
+      "nodeId": 2,
+      "type": "rollerX"
+    }
+  ],
+  "loads": [
+    {
+      "type": "pointOnElement",
+      "data": {
+        "id": 1,
+        "elementId": 1,
+        "a": 2,
+        "p": -25
+      }
+    },
+    {
+      "type": "pointOnElement",
+      "data": {
+        "id": 2,
+        "elementId": 1,
+        "a": 5,
+        "p": -40
+      }
+    },
+    {
+      "type": "nodal",
+      "data": {
+        "id": 3,
+        "nodeId": 2,
+        "fx": 10,
+        "fy": 0,
+        "mz": 0
+      }
+    }
+  ],
+  "plates": [],
+  "quads": [],
+  "constraints": [],
+  "loadCases": [
+    {
+      "id": 1,
+      "type": "D",
+      "name": "Dead Load"
+    },
+    {
+      "id": 2,
+      "type": "L",
+      "name": "Live Load"
+    },
+    {
+      "id": 3,
+      "type": "W",
+      "name": "Wind"
+    },
+    {
+      "id": 4,
+      "type": "E",
+      "name": "Earthquake"
+    }
+  ],
+  "combinations": []
+}

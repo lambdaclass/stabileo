@@ -1,0 +1,392 @@
+{
+  "name": "Continuous Beam",
+  "materials": [
+    {
+      "id": 1,
+      "name": "Acero A36",
+      "e": 200000,
+      "nu": 0.3,
+      "rho": 78.5,
+      "fy": 250
+    },
+    {
+      "id": 2,
+      "name": "H.A. H-25",
+      "e": 30000,
+      "nu": 0.2,
+      "rho": 25
+    }
+  ],
+  "sections": [
+    {
+      "id": 1,
+      "name": "IPN 300",
+      "a": 0.0069,
+      "iy": 0.000098,
+      "iz": 0.00000451,
+      "j": 1e-7,
+      "b": 0.125,
+      "h": 0.3
+    },
+    {
+      "id": 2,
+      "name": "H.A. 35×35",
+      "a": 0.1225,
+      "iz": 0.001251,
+      "iy": 0.001251,
+      "b": 0.35,
+      "h": 0.35,
+      "shape": "rect"
+    },
+    {
+      "id": 3,
+      "name": "H.A. 25×55",
+      "a": 0.1375,
+      "iz": 0.000716,
+      "iy": 0.003466,
+      "b": 0.25,
+      "h": 0.55,
+      "shape": "rect"
+    }
+  ],
+  "nodes": [
+    {
+      "id": 1,
+      "x": 0,
+      "y": 0,
+      "z": 0
+    },
+    {
+      "id": 2,
+      "x": 5,
+      "y": 0,
+      "z": 0
+    },
+    {
+      "id": 3,
+      "x": 11,
+      "y": 0,
+      "z": 0
+    },
+    {
+      "id": 4,
+      "x": 16,
+      "y": 0,
+      "z": 0
+    },
+    {
+      "id": 5,
+      "x": 0,
+      "y": 4,
+      "z": 0
+    },
+    {
+      "id": 6,
+      "x": 5,
+      "y": 4,
+      "z": 0
+    },
+    {
+      "id": 7,
+      "x": 11,
+      "y": 4,
+      "z": 0
+    },
+    {
+      "id": 8,
+      "x": 16,
+      "y": 4,
+      "z": 0
+    },
+    {
+      "id": 9,
+      "x": 0,
+      "y": 7.5,
+      "z": 0
+    },
+    {
+      "id": 10,
+      "x": 5,
+      "y": 7.5,
+      "z": 0
+    },
+    {
+      "id": 11,
+      "x": 11,
+      "y": 7.5,
+      "z": 0
+    },
+    {
+      "id": 12,
+      "x": 16,
+      "y": 7.5,
+      "z": 0
+    }
+  ],
+  "elements": [
+    {
+      "id": 1,
+      "type": "frame",
+      "nodeI": 1,
+      "nodeJ": 5,
+      "materialId": 2,
+      "sectionId": 2,
+      "hingeStart": false,
+      "hingeEnd": false
+    },
+    {
+      "id": 2,
+      "type": "frame",
+      "nodeI": 2,
+      "nodeJ": 6,
+      "materialId": 2,
+      "sectionId": 2,
+      "hingeStart": false,
+      "hingeEnd": false
+    },
+    {
+      "id": 3,
+      "type": "frame",
+      "nodeI": 3,
+      "nodeJ": 7,
+      "materialId": 2,
+      "sectionId": 2,
+      "hingeStart": false,
+      "hingeEnd": false
+    },
+    {
+      "id": 4,
+      "type": "frame",
+      "nodeI": 4,
+      "nodeJ": 8,
+      "materialId": 2,
+      "sectionId": 2,
+      "hingeStart": false,
+      "hingeEnd": false
+    },
+    {
+      "id": 5,
+      "type": "frame",
+      "nodeI": 5,
+      "nodeJ": 6,
+      "materialId": 2,
+      "sectionId": 3,
+      "hingeStart": false,
+      "hingeEnd": false
+    },
+    {
+      "id": 6,
+      "type": "frame",
+      "nodeI": 6,
+      "nodeJ": 7,
+      "materialId": 2,
+      "sectionId": 3,
+      "hingeStart": false,
+      "hingeEnd": false
+    },
+    {
+      "id": 7,
+      "type": "frame",
+      "nodeI": 7,
+      "nodeJ": 8,
+      "materialId": 2,
+      "sectionId": 3,
+      "hingeStart": false,
+      "hingeEnd": false
+    },
+    {
+      "id": 8,
+      "type": "frame",
+      "nodeI": 5,
+      "nodeJ": 9,
+      "materialId": 2,
+      "sectionId": 2,
+      "hingeStart": false,
+      "hingeEnd": false
+    },
+    {
+      "id": 9,
+      "type": "frame",
+      "nodeI": 6,
+      "nodeJ": 10,
+      "materialId": 2,
+      "sectionId": 2,
+      "hingeStart": false,
+      "hingeEnd": false
+    },
+    {
+      "id": 10,
+      "type": "frame",
+      "nodeI": 7,
+      "nodeJ": 11,
+      "materialId": 2,
+      "sectionId": 2,
+      "hingeStart": false,
+      "hingeEnd": false
+    },
+    {
+      "id": 11,
+      "type": "frame",
+      "nodeI": 8,
+      "nodeJ": 12,
+      "materialId": 2,
+      "sectionId": 2,
+      "hingeStart": false,
+      "hingeEnd": false
+    },
+    {
+      "id": 12,
+      "type": "frame",
+      "nodeI": 9,
+      "nodeJ": 10,
+      "materialId": 2,
+      "sectionId": 3,
+      "hingeStart": false,
+      "hingeEnd": false
+    },
+    {
+      "id": 13,
+      "type": "frame",
+      "nodeI": 10,
+      "nodeJ": 11,
+      "materialId": 2,
+      "sectionId": 3,
+      "hingeStart": false,
+      "hingeEnd": false
+    },
+    {
+      "id": 14,
+      "type": "frame",
+      "nodeI": 11,
+      "nodeJ": 12,
+      "materialId": 2,
+      "sectionId": 3,
+      "hingeStart": false,
+      "hingeEnd": false
+    }
+  ],
+  "supports": [
+    {
+      "id": 1,
+      "nodeId": 1,
+      "type": "fixed"
+    },
+    {
+      "id": 2,
+      "nodeId": 2,
+      "type": "fixed"
+    },
+    {
+      "id": 3,
+      "nodeId": 3,
+      "type": "fixed"
+    },
+    {
+      "id": 4,
+      "nodeId": 4,
+      "type": "fixed"
+    }
+  ],
+  "loads": [
+    {
+      "type": "distributed",
+      "data": {
+        "id": 1,
+        "elementId": 5,
+        "qI": -15,
+        "qJ": -15
+      }
+    },
+    {
+      "type": "distributed",
+      "data": {
+        "id": 2,
+        "elementId": 6,
+        "qI": -25,
+        "qJ": -25
+      }
+    },
+    {
+      "type": "distributed",
+      "data": {
+        "id": 3,
+        "elementId": 7,
+        "qI": -10,
+        "qJ": -10
+      }
+    },
+    {
+      "type": "distributed",
+      "data": {
+        "id": 4,
+        "elementId": 12,
+        "qI": -8,
+        "qJ": -8
+      }
+    },
+    {
+      "type": "distributed",
+      "data": {
+        "id": 5,
+        "elementId": 13,
+        "qI": -12,
+        "qJ": -12
+      }
+    },
+    {
+      "type": "distributed",
+      "data": {
+        "id": 6,
+        "elementId": 14,
+        "qI": -5,
+        "qJ": -5
+      }
+    },
+    {
+      "type": "nodal",
+      "data": {
+        "id": 7,
+        "nodeId": 5,
+        "fx": 20,
+        "fy": 0,
+        "mz": 0
+      }
+    },
+    {
+      "type": "nodal",
+      "data": {
+        "id": 8,
+        "nodeId": 9,
+        "fx": 15,
+        "fy": 0,
+        "mz": 0
+      }
+    }
+  ],
+  "plates": [],
+  "quads": [],
+  "constraints": [],
+  "loadCases": [
+    {
+      "id": 1,
+      "type": "D",
+      "name": "Dead Load"
+    },
+    {
+      "id": 2,
+      "type": "L",
+      "name": "Live Load"
+    },
+    {
+      "id": 3,
+      "type": "W",
+      "name": "Wind"
+    },
+    {
+      "id": 4,
+      "type": "E",
+      "name": "Earthquake"
+    }
+  ],
+  "combinations": []
+}

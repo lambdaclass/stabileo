@@ -4,8 +4,8 @@ import { uiStore, modelStore, resultsStore } from '../store';
 import { t } from '../i18n';
 
 /** Load an example and clean up results (same logic as ToolbarExamples) */
-function loadExampleAndZoom(exampleId: string) {
-  modelStore.loadExample(exampleId);
+async function loadExampleAndZoom(exampleId: string) {
+  await modelStore.loadExample(exampleId);
   resultsStore.clear();
   resultsStore.clear3D();
   setTimeout(() => window.dispatchEvent(new Event('stabileo-zoom-to-fit')), 50);

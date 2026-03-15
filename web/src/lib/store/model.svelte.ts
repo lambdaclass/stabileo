@@ -3,8 +3,8 @@ import type { KinematicResult } from '../engine/solver-js';
 import type { SolverInput, FullEnvelope, AnalysisResults } from '../engine/types';
 import type { SolverInput3D, AnalysisResults3D, FullEnvelope3D, Constraint3D } from '../engine/types-3d';
 import type { ModelSnapshot } from './history.svelte';
-import { load2DExample } from './model-examples-2d';
-import { load3DExample } from './model-examples-3d';
+import { getFixture, is3DFixture } from '../templates/fixture-index';
+import { loadFixture } from '../templates/load-fixture';
 import type { ExampleAPI3D } from './model-examples-3d';
 import { inferLoadCaseType } from '../engine/combinations-service';
 import { t } from '../i18n';
@@ -1439,12 +1439,15 @@ function createModelStore() {
 
     // ─── Example Structures ───
 
-    loadExample(name: string): void {
+    async loadExample(name: string): Promise<void> {
+      const loader = getFixture(name);
+      if (!loader) return;
+
       if (!_undoBatching) _pushUndo?.();
       _undoBatching = true;
       this.clear();
 
-      // Delegate to extracted example modules
+      const json = await loader();
       const api: ExampleAPI3D = {
         addNode: this.addNode.bind(this),
         addElement: this.addElement.bind(this),
@@ -1469,7 +1472,13 @@ function createModelStore() {
         nextId,
       };
 
-      load2DExample(name, api) || load3DExample(name, api);
+      loadFixture(json as any, api as any);
+
+      // Switch to 3D mode if this is a 3D fixture
+      if (is3DFixture(name)) {
+        const { uiStore } = await import('./index');
+        uiStore.analysisMode = '3d';
+      }
 
       _undoBatching = false;
     },

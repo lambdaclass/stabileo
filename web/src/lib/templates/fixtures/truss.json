@@ -1,0 +1,277 @@
+{
+  "name": "Pratt Truss",
+  "materials": [
+    {
+      "id": 1,
+      "name": "Acero A36",
+      "e": 200000,
+      "nu": 0.3,
+      "rho": 78.5,
+      "fy": 250
+    }
+  ],
+  "sections": [
+    {
+      "id": 1,
+      "name": "IPN 300",
+      "a": 0.0069,
+      "iy": 0.000098,
+      "iz": 0.00000451,
+      "j": 1e-7,
+      "b": 0.125,
+      "h": 0.3
+    }
+  ],
+  "nodes": [
+    {
+      "id": 1,
+      "x": 0,
+      "y": 0,
+      "z": 0
+    },
+    {
+      "id": 2,
+      "x": 3,
+      "y": 0,
+      "z": 0
+    },
+    {
+      "id": 3,
+      "x": 6,
+      "y": 0,
+      "z": 0
+    },
+    {
+      "id": 4,
+      "x": 9,
+      "y": 0,
+      "z": 0
+    },
+    {
+      "id": 5,
+      "x": 12,
+      "y": 0,
+      "z": 0
+    },
+    {
+      "id": 6,
+      "x": 3,
+      "y": 3,
+      "z": 0
+    },
+    {
+      "id": 7,
+      "x": 6,
+      "y": 3,
+      "z": 0
+    },
+    {
+      "id": 8,
+      "x": 9,
+      "y": 3,
+      "z": 0
+    }
+  ],
+  "elements": [
+    {
+      "id": 1,
+      "type": "truss",
+      "nodeI": 1,
+      "nodeJ": 2,
+      "materialId": 1,
+      "sectionId": 2,
+      "hingeStart": false,
+      "hingeEnd": false
+    },
+    {
+      "id": 2,
+      "type": "truss",
+      "nodeI": 2,
+      "nodeJ": 3,
+      "materialId": 1,
+      "sectionId": 2,
+      "hingeStart": false,
+      "hingeEnd": false
+    },
+    {
+      "id": 3,
+      "type": "truss",
+      "nodeI": 3,
+      "nodeJ": 4,
+      "materialId": 1,
+      "sectionId": 2,
+      "hingeStart": false,
+      "hingeEnd": false
+    },
+    {
+      "id": 4,
+      "type": "truss",
+      "nodeI": 4,
+      "nodeJ": 5,
+      "materialId": 1,
+      "sectionId": 2,
+      "hingeStart": false,
+      "hingeEnd": false
+    },
+    {
+      "id": 5,
+      "type": "truss",
+      "nodeI": 6,
+      "nodeJ": 7,
+      "materialId": 1,
+      "sectionId": 2,
+      "hingeStart": false,
+      "hingeEnd": false
+    },
+    {
+      "id": 6,
+      "type": "truss",
+      "nodeI": 7,
+      "nodeJ": 8,
+      "materialId": 1,
+      "sectionId": 2,
+      "hingeStart": false,
+      "hingeEnd": false
+    },
+    {
+      "id": 7,
+      "type": "truss",
+      "nodeI": 2,
+      "nodeJ": 6,
+      "materialId": 1,
+      "sectionId": 2,
+      "hingeStart": false,
+      "hingeEnd": false
+    },
+    {
+      "id": 8,
+      "type": "truss",
+      "nodeI": 3,
+      "nodeJ": 7,
+      "materialId": 1,
+      "sectionId": 2,
+      "hingeStart": false,
+      "hingeEnd": false
+    },
+    {
+      "id": 9,
+      "type": "truss",
+      "nodeI": 4,
+      "nodeJ": 8,
+      "materialId": 1,
+      "sectionId": 2,
+      "hingeStart": false,
+      "hingeEnd": false
+    },
+    {
+      "id": 10,
+      "type": "truss",
+      "nodeI": 1,
+      "nodeJ": 6,
+      "materialId": 1,
+      "sectionId": 2,
+      "hingeStart": false,
+      "hingeEnd": false
+    },
+    {
+      "id": 11,
+      "type": "truss",
+      "nodeI": 6,
+      "nodeJ": 3,
+      "materialId": 1,
+      "sectionId": 2,
+      "hingeStart": false,
+      "hingeEnd": false
+    },
+    {
+      "id": 12,
+      "type": "truss",
+      "nodeI": 3,
+      "nodeJ": 8,
+      "materialId": 1,
+      "sectionId": 2,
+      "hingeStart": false,
+      "hingeEnd": false
+    },
+    {
+      "id": 13,
+      "type": "truss",
+      "nodeI": 8,
+      "nodeJ": 5,
+      "materialId": 1,
+      "sectionId": 2,
+      "hingeStart": false,
+      "hingeEnd": false
+    }
+  ],
+  "supports": [
+    {
+      "id": 1,
+      "nodeId": 1,
+      "type": "pinned"
+    },
+    {
+      "id": 2,
+      "nodeId": 5,
+      "type": "rollerX"
+    }
+  ],
+  "loads": [
+    {
+      "type": "nodal",
+      "data": {
+        "id": 1,
+        "nodeId": 6,
+        "fx": 0,
+        "fy": -20,
+        "mz": 0
+      }
+    },
+    {
+      "type": "nodal",
+      "data": {
+        "id": 2,
+        "nodeId": 7,
+        "fx": 0,
+        "fy": -30,
+        "mz": 0
+      }
+    },
+    {
+      "type": "nodal",
+      "data": {
+        "id": 3,
+        "nodeId": 8,
+        "fx": 0,
+        "fy": -20,
+        "mz": 0
+      }
+    }
+  ],
+  "plates": [],
+  "quads": [],
+  "constraints": [],
+  "loadCases": [
+    {
+      "id": 1,
+      "type": "D",
+      "name": "Dead Load"
+    },
+    {
+      "id": 2,
+      "type": "L",
+      "name": "Live Load"
+    },
+    {
+      "id": 3,
+      "type": "W",
+      "name": "Wind"
+    },
+    {
+      "id": 4,
+      "type": "E",
+      "name": "Earthquake"
+    }
+  ],
+  "combinations": []
+}
