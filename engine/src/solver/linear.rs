@@ -12,6 +12,11 @@ fn now_micros() -> u64 {
     START.get_or_init(Instant::now).elapsed().as_micros() as u64
 }
 
+#[inline]
+fn micros_to_ms(us: u64) -> f64 {
+    us as f64 / 1000.0
+}
+
 #[cfg(target_arch = "wasm32")]
 #[inline]
 fn now_micros() -> u64 {
@@ -315,9 +320,16 @@ pub fn solve_3d(input: &SolverInput3D) -> Result<AnalysisResults3D, String> {
                     // Jump to timings construction
                     let total_us = now_micros().saturating_sub(t_total);
                     let timings = SolveTimings {
-                        assembly_us, conditioning_us, symbolic_us, numeric_us,
-                        solve_us: 0, residual_us: 0, dense_fallback_us: dense_fb_us,
-                        reactions_us: 0, stress_recovery_us: 0, total_us,
+                        assembly_ms: micros_to_ms(assembly_us),
+                        conditioning_ms: micros_to_ms(conditioning_us),
+                        symbolic_ms: micros_to_ms(symbolic_us),
+                        numeric_ms: micros_to_ms(numeric_us),
+                        solve_ms: 0.0,
+                        residual_ms: 0.0,
+                        dense_fallback_ms: micros_to_ms(dense_fb_us),
+                        reactions_ms: 0.0,
+                        stress_recovery_ms: 0.0,
+                        total_ms: micros_to_ms(total_us),
                         n_free: nf, nnz_kff, nnz_l,
                         pivot_perturbations: 0, max_perturbation: 0.0,
                     };
@@ -448,16 +460,16 @@ pub fn solve_3d(input: &SolverInput3D) -> Result<AnalysisResults3D, String> {
         let total_us = now_micros().saturating_sub(t_total);
 
         let timings = SolveTimings {
-            assembly_us,
-            conditioning_us,
-            symbolic_us,
-            numeric_us,
-            solve_us,
-            residual_us,
-            dense_fallback_us: dense_fb_us,
-            reactions_us,
-            stress_recovery_us,
-            total_us,
+            assembly_ms: micros_to_ms(assembly_us),
+            conditioning_ms: micros_to_ms(conditioning_us),
+            symbolic_ms: micros_to_ms(symbolic_us),
+            numeric_ms: micros_to_ms(numeric_us),
+            solve_ms: micros_to_ms(solve_us),
+            residual_ms: micros_to_ms(residual_us),
+            dense_fallback_ms: micros_to_ms(dense_fb_us),
+            reactions_ms: micros_to_ms(reactions_us),
+            stress_recovery_ms: micros_to_ms(stress_recovery_us),
+            total_ms: micros_to_ms(total_us),
             n_free: nf,
             nnz_kff,
             nnz_l,

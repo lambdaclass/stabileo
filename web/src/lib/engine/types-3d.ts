@@ -1,8 +1,8 @@
 // 3D Structural Analysis Types
 // Phase 1: Engine Core — types for 3D frame/truss solver (6 DOF/node)
 
-import type { SolverMaterial, SolverDiagnostic, ConstraintForce, DiagnosticSeverity } from './types';
-export type { SolverMaterial, SolverDiagnostic, ConstraintForce, DiagnosticSeverity };
+import type { SolverMaterial, SolverDiagnostic, ConstraintForce, DiagnosticSeverity, SolveTimings } from './types';
+export type { SolverMaterial, SolverDiagnostic, ConstraintForce, DiagnosticSeverity, SolveTimings };
 
 // ─── Geometry ────────────────────────────────────────────────────
 
@@ -314,6 +314,7 @@ export interface AnalysisResults3D {
   solverDiagnostics?: import('./types').SolverDiagnostic[];
   plateStresses?: PlateStress[];
   quadStresses?: QuadStress[];
+  timings?: SolveTimings;
 }
 
 // ─── Envelope types for 3D load combinations ─────────────────

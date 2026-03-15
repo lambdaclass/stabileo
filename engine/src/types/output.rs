@@ -113,20 +113,30 @@ pub struct SolverDiagnostic {
 
 // ==================== Solve Timings ====================
 
-/// Per-phase wall-clock timings from solve_3d (microseconds).
+/// Per-phase wall-clock timings from solve_3d (milliseconds).
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct SolveTimings {
-    pub assembly_us: u64,
-    pub conditioning_us: u64,
-    pub symbolic_us: u64,
-    pub numeric_us: u64,
-    pub solve_us: u64,
-    pub residual_us: u64,
-    pub dense_fallback_us: u64,
-    pub reactions_us: u64,
-    pub stress_recovery_us: u64,
-    pub total_us: u64,
+    #[serde(alias = "assemblyUs", alias = "assembly_us")]
+    pub assembly_ms: f64,
+    #[serde(alias = "conditioningUs", alias = "conditioning_us")]
+    pub conditioning_ms: f64,
+    #[serde(alias = "symbolicUs", alias = "symbolic_us")]
+    pub symbolic_ms: f64,
+    #[serde(alias = "numericUs", alias = "numeric_us")]
+    pub numeric_ms: f64,
+    #[serde(alias = "solveUs", alias = "solve_us")]
+    pub solve_ms: f64,
+    #[serde(alias = "residualUs", alias = "residual_us")]
+    pub residual_ms: f64,
+    #[serde(alias = "denseFallbackUs", alias = "dense_fallback_us")]
+    pub dense_fallback_ms: f64,
+    #[serde(alias = "reactionsUs", alias = "reactions_us")]
+    pub reactions_ms: f64,
+    #[serde(alias = "stressRecoveryUs", alias = "stress_recovery_us")]
+    pub stress_recovery_ms: f64,
+    #[serde(alias = "totalUs", alias = "total_us")]
+    pub total_ms: f64,
     pub n_free: usize,
     pub nnz_kff: usize,
     pub nnz_l: usize,

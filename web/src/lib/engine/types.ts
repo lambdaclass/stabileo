@@ -148,6 +148,27 @@ export interface SolverDiagnostic {
   severity: 'info' | 'warning' | 'error';
 }
 
+export interface SolveTimings {
+  assemblyMs: number;
+  conditioningMs: number;
+  symbolicMs: number;
+  numericMs: number;
+  solveMs: number;
+  residualMs: number;
+  denseFallbackMs: number;
+  reactionsMs: number;
+  stressRecoveryMs: number;
+  totalMs: number;
+  nFree: number;
+  nnzKff: number;
+  nnzL: number;
+  pivotPerturbations: number;
+  maxPerturbation: number;
+  // Present on some educational / legacy solve paths.
+  nTotal?: number;
+  solverType?: 'cholesky' | 'lu' | string;
+}
+
 export interface AnalysisResults {
   displacements: Displacement[];
   reactions: Reaction[];
@@ -155,6 +176,7 @@ export interface AnalysisResults {
   constraintForces?: ConstraintForce[];
   diagnostics?: AssemblyDiagnostic[];
   solverDiagnostics?: SolverDiagnostic[];
+  timings?: SolveTimings;
 }
 
 /** Envolvente puntual pre-computada para un elemento */
