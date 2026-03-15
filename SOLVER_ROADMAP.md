@@ -431,25 +431,44 @@ Goal:
 - full dynamic time-history and pushover analysis capability, matching OpenSees on the common 80% of earthquake engineering work
 
 Solver work:
+
+**Time integration:**
 - **Newmark-β method** — implicit unconditionally stable (β=1/4, γ=1/2), consistent and lumped mass matrix support
 - **HHT-α method** — numerical dissipation for high-frequency noise, α ∈ [-1/3, 0]
-- **Explicit dynamics** (central difference) — for impact/blast loading, conditionally stable with critical Δt
-- **Rayleigh damping** — α·M + β·K (mass + stiffness proportional)
-- **Modal damping** — per-mode damping ratios applied in modal coordinates
+- **Explicit dynamics** (central difference) — matrix-free element force evaluation (never assemble K), conditionally stable with critical Δt
 - **Consistent mass matrix** — already have lumped; add consistent for Newmark accuracy
+- **Lumped mass with rotational inertia** — rotational DOF mass terms for torsional mode accuracy
 - **Nonlinear dynamics** — Newton-Raphson within each time step, material + geometric nonlinearity
 - **Operator-splitting** — separate nonlinear solve from time integration for efficiency
+
+**Damping models:**
+- **Rayleigh damping** — α·M + β·K (mass + stiffness proportional)
+- **Modal damping** — per-mode damping ratios applied in modal coordinates
+- **Caughey damping** — generalized Rayleigh matching damping ratios at more than 2 frequencies
+- **Frequency-dependent damping** — G(f) for viscoelastic components and harmonic response
+- **Non-proportional damping** — complex eigenvalue analysis for structures with discrete dampers or mixed materials
+- **Material-specific structural damping** — frequency-independent loss factor approach (hysteretic damping)
+
+**Controls and output:**
 - **Energy balance check** — detect numerical instability via energy drift monitoring
 - **Adaptive time stepping** — reduce Δt on slow convergence, increase on fast convergence
 - **Restart/checkpoint** — save and resume long dynamic analyses from intermediate state
 - **Ground motion input** — acceleration time-history loading applied as base excitation
 - **Response history extraction** — displacement, velocity, acceleration at selected nodes/DOFs
+- **Random vibration / PSD analysis** — power spectral density input for wind/wave/traffic, response PSD and RMS extraction
+
+**Response spectrum enhancements:**
+- **CQC3** — three-component earthquake combination
+- **SRSS, CQC, GMC, Gupta** methods — full set of modal combination rules
+- **Missing mass correction** — static correction for high-frequency truncated modes
 
 Finish means:
 - linear Newmark-β and HHT-α pass known analytical solutions (SDOF free vibration, step load, harmonic forcing)
 - nonlinear dynamic passes OpenSees-comparable benchmarks (RC column pushover, steel frame cyclic)
 - energy balance stays within tolerance across all dynamic benchmarks
 - adaptive stepping reduces total cost on variable-difficulty problems
+- complex eigenvalue analysis with non-proportional damping matches known solutions
+- PSD-driven random vibration matches Nastran/SAP2000 on standard benchmark cases
 
 ### Phase J: Nonlinear Material Models
 
@@ -458,12 +477,20 @@ Goal:
 
 Solver work:
 
+**Computational plasticity framework:**
+- **General return mapping algorithm** — yield surface, flow rule, hardening law, closest-point projection, consistent tangent operator
+- **J2 (von Mises) plasticity** — general framework with isotropic/kinematic/mixed hardening
+- **Isotropic hardening** — Voce, linear, power-law, tabular
+- **Kinematic hardening** — Armstrong-Frederick, Chaboche multi-backstress
+- **Substepping for material integration** — substep strain increment at Gauss point level when return mapping fails, rather than cutting global load step
+
 **Material state framework:**
 - material state management — commit/revert/copy for path-dependent materials
 - fiber section with multiple materials — concrete core + cover + rebar in single section
 - 3D fiber section — biaxial bending (ε₀, κy, κz) for fiber beam-column
 - moment-curvature analysis — section-level stress-strain integration
 - M-N-V interaction — full interaction surface generation from fiber section
+- **User-defined material interface (UMAT-equivalent)** — callback or plugin API for custom constitutive models without modifying solver source
 
 **Concrete models:**
 - **Kent-Park / modified Kent-Park** — confined/unconfined compression with degrading stiffness
@@ -472,6 +499,8 @@ Solver work:
 - **Concrete damage plasticity** (CDP) — isotropic damage + plasticity (Abaqus-equivalent formulation)
 - **fib Model Code 2010** — code-compliant stress-strain curves
 - **Eurocode 2 parabola-rectangle** — design stress-strain with partial safety factors
+- **Smeared/rotating crack model** — fixed or rotating crack with tension cutoff and shear retention for RC shells/walls
+- **Damage mechanics** (Mazars, Lemaitre) — continuum damage tracking stiffness degradation
 
 **Steel models:**
 - **Bilinear steel** — elastic-perfectly-plastic and elastic-strain-hardening
@@ -479,17 +508,26 @@ Solver work:
 - **Giuffré-Menegotto-Pinto** — combined isotropic + kinematic hardening
 - **Steel4** — asymmetric tension/compression, ultimate stress, fracture strain
 
-**Additional materials (later):**
+**Geotechnical materials:**
+- **Drucker-Prager plasticity** — pressure-dependent yield for soil, rock, concrete under multiaxial stress
+- **Mohr-Coulomb plasticity** — the most common soil constitutive model
+- **Modified Cam-Clay** — critical-state soil model for clay (settlement, embankments, excavations)
+
+**General constitutive support:**
+- **Orthotropic/anisotropic elasticity** — for timber, masonry, composites, geological materials
 - hyperelastic (Neo-Hookean, Mooney-Rivlin) — rubber bearings, seismic isolators
 - creep & shrinkage (ACI 209, fib MC 2010, CEB-FIP) — long-term time-dependent effects
 - viscoelastic (Kelvin-Voigt, Maxwell) — viscous dampers, soil
-- fatigue (Coffin-Manson, rainflow counting) — low-cycle fatigue assessment
+- fatigue (Coffin-Manson, rainflow counting, Palmgren-Miner cumulative damage) — low-cycle and high-cycle fatigue assessment
 
 Finish means:
 - each uniaxial material passes cyclic stress-strain verification against published curves
 - fiber sections with mixed concrete+steel reproduce known moment-curvature responses
 - Mander model matches confinement-dependent peak stress and strain within 2% of analytical formulas
 - hysteretic energy dissipation matches reference solutions under cyclic loading
+- return mapping converges on all standard plasticity benchmarks (thick cylinder, notched bar, Cook's membrane)
+- Drucker-Prager/Mohr-Coulomb reproduce bearing capacity and slope stability results within 5% of analytical solutions
+- UMAT interface allows external material definition without recompiling the solver
 
 ### Phase K: Pushover Analysis
 
@@ -497,6 +535,8 @@ Goal:
 - static pushover for seismic assessment, with capacity spectrum and performance point identification
 
 Solver work:
+
+**Pushover methods:**
 - **Displacement-controlled pushover** — monotonic lateral load pattern with arc-length or displacement control
 - **Load patterns** — inverted triangular, uniform, code-specific (EC8, ASCE 7) modal-proportional
 - **Plastic hinge tracking** — monitor and record sequence of hinge formation, ductility demand per step
@@ -505,17 +545,41 @@ Solver work:
 - **N2 method** (Eurocode 8) — SDOF equivalent, target displacement from elastic spectrum
 - **Multi-modal pushover** (MPA) — run separate pushovers per mode, combine via SRSS
 
+**Concentrated plasticity elements:**
+- **Plastic hinge beam element** — concentrated plasticity at member ends for building-scale pushover (faster than distributed plasticity)
+- **Multi-linear moment-rotation hinges** — user-defined or code-based backbone curves
+- **FEMA 356/ASCE 41 hinge tables** — predefined hinge properties for concrete beams/columns, steel beams/columns, and steel braces
+- **Fiber hinge** — fiber-section-based hinge with automatic backbone curve generation
+
 Finish means:
 - pushover on known benchmark frames matches published capacity curves
 - performance point identification agrees with hand calculations on standard SDOF/MDOF cases
 - plastic hinge sequence matches expected failure mode for standard frame configurations
+- concentrated plasticity hinge matches distributed plasticity within expected accuracy for standard frames
 
 ### Phase L: Advanced Element Library
 
 Goal:
-- element families needed for specialized structural analysis beyond frames and shells
+- element families needed for specialized structural analysis beyond frames and shells — closing every element gap against Abaqus, OpenSees, and Code_Aster
 
 Solver work:
+
+**Advanced beam elements:**
+- **Force-based beam-column element** — satisfies equilibrium exactly, converges with one element per member, gold standard for nonlinear frame analysis (what makes OpenSees dominant)
+- **Timoshenko beam with warping DOF (7-DOF)** — essential for open thin-walled sections (channels, angles, Z-sections) where warping torsion dominates
+- **Beam with Vlasov theory** — bimoment, warping, shear center offset for thin-walled stability analysis
+- **Tapered elements** — variable cross-section beams with interpolated section properties
+- **Curved beams** — in-plane and out-of-plane curved beam elements
+- **Beam rigid end zones / offsets** — finite joint size modeling for correct moment diagrams near connections
+- **Mixed formulation beams** (Hellinger-Reissner) — avoids shear locking in deep beams
+
+**Shell elements for meshing freedom:**
+- **Full shell triangle (MITC3/DSG3)** — membrane+bending+drilling in a single triangular element for auto-meshed geometries with holes, transitions, irregular boundaries
+- **6-node triangular shell (MITC6/STRI65)** — higher-order triangle matching MITC9 quad for p-refinement
+- **Axisymmetric shell of revolution element** — 1D line element generating shells of revolution (tanks, silos, pressure vessels, cooling towers) without full 3D meshing
+- **Continuum shell elements (SC6R, SC8R)** — 3D connectivity with shell kinematics for composite ply stacking and shell-solid transitions
+- **Thick shell formulation** — full Reissner-Mindlin for very thick shells (R/t < 5) with through-thickness shear and normal stress
+- **Composite laminate failure criteria** — Tsai-Wu, Tsai-Hill, Hashin, Puck for ply-by-ply failure assessment in layered shells
 
 **Special structural elements:**
 - **Seismic isolator elements** — bilinear hysteretic, friction pendulum (velocity-dependent)
@@ -523,41 +587,58 @@ Solver work:
 - **Buckling-restrained braces (BRB)** — backbone curve + hysteresis with compression overstrength
 - **Panel zone elements** — beam-column joint flexibility (Krawinkler model)
 - **Infill wall elements** — equivalent diagonal strut (Crisafulli model)
+- **Gap/hook elements** — compression-only or tension-only springs for foundations, expansion joints, bearings
+- **Cohesive zone elements** — traction-separation laws for delamination, debonding, concrete-rebar bond, fracture propagation
 
 **Cable & tension structures:**
 - **Full catenary element** — exact catenary stiffness matrix (not Ernst approximation)
 - **Form-finding** — force density method, dynamic relaxation for cable/membrane structures
 - **Membrane elements** — tension-only triangular membranes for fabric structures
 
-**3D solid elements (later):**
+**3D solid elements:**
 - **8-node hex (C3D8)** — standard trilinear brick with B-bar or selective reduced integration
 - **20-node hex (C3D20)** — serendipity quadratic brick
 - **4-node tet (C3D4)** — linear tetrahedron (constant strain)
 - **10-node tet (C3D10)** — quadratic tetrahedron
-
-**Advanced beams:**
-- **Tapered elements** — variable cross-section beams with interpolated section properties
-- **Curved beams** — in-plane and out-of-plane curved beam elements
+- **Embedded elements** — embed beam (rebar) inside solid/shell without matching meshes, essential for RC solid modeling
 
 Finish means:
+- force-based beam matches OpenSees forceBeamColumn on RC column cyclic tests within 2%
+- warping beam produces correct warping stresses and bimoment on channel/Z-section benchmarks
+- MITC3 triangle passes patch tests and converges on standard shell benchmarks
 - isolator element reproduces published bilinear hysteresis loops within 2%
 - BRB element matches published backbone curves and cyclic energy dissipation
 - catenary element matches exact catenary solution for cable under self-weight
 - solid elements pass patch tests and converge on known elasticity benchmarks
+- cohesive zone elements reproduce mode I/II/mixed-mode delamination benchmarks
+- Tsai-Wu/Hashin failure in layered shells matches published composite failure loads
 
-### Phase M: Fire & Progressive Collapse Analysis
+### Phase M: Thermal, Fire, Fatigue & Progressive Collapse
 
 Goal:
-- temperature-dependent structural analysis and automated member removal for robustness checks
+- temperature-dependent structural analysis, fatigue assessment, and automated member removal for robustness checks
 
 Solver work:
+
+**Thermal stress analysis (general):**
+- **Steady-state thermal** — thermal gradients in bridge decks, solar radiation effects, seasonal temperature variations
+- **Transient thermal** — time-varying temperature fields through sections
+- **Coupled thermo-mechanical (sequential)** — solve thermal → apply degraded properties or thermal strains → structural solve
+- **Coupled thermo-mechanical (two-way)** — structural deformation affects heat flow (for extreme deformation scenarios)
 
 **Fire analysis:**
 - **Standard fire curves** — ISO 834, ASTM E119, hydrocarbon curve as time-temperature input
 - **Parametric fire curves** — Eurocode 1-1-2 compartment fire model
 - **Temperature-dependent material properties** — reduced E, fy, fc per EC2/EC3/EC4 fire parts
 - **Thermal analysis** — 1D lumped parameter or 2D FE heat transfer through sections
-- **Coupled thermo-mechanical** — sequential: solve thermal → apply degraded properties → structural solve at each time step
+
+**Fatigue analysis:**
+- **Rainflow cycle counting** — extract stress cycles from time-history results
+- **S-N curve library** — detail categories per EC3-1-9, AISC Design Guide 27, DNV-RP-C203, IIW
+- **Palmgren-Miner cumulative damage** — linear damage accumulation across cycle ranges
+- **Stress-life and strain-life methods** — high-cycle (S-N) and low-cycle (ε-N / Coffin-Manson)
+- **Fatigue hot-spot stress extrapolation** — surface stress extrapolation to weld toes per IIW/DNV for welded connections
+- **Weld assessment support** — effective notch stress, structural stress, weld category selection
 
 **Progressive collapse:**
 - **Automatic member removal** — systematic removal of one vertical element at a time
@@ -571,6 +652,9 @@ Finish means:
 - structural response under ISO 834 matches published fire analysis benchmarks
 - member removal + nonlinear re-analysis produces stable results on standard frame configurations
 - dynamic amplification factor approach matches nonlinear dynamic results within expected accuracy bounds
+- rainflow counting matches ASTM E1049 reference cases
+- fatigue damage accumulation matches hand calculations for standard detail categories
+- thermal stress from bridge deck gradients matches known analytical solutions
 
 ### Phase N: Automatic Load Generation (Solver Support)
 
@@ -589,26 +673,54 @@ Finish means:
 - wind pressure profiles match tabulated code values within rounding tolerance
 - pattern loading generates correct unfavorable arrangements for continuous beams
 
-### Phase O: Performance & Scale (Iterative Solvers and GPU)
+### Phase O: Performance & Scale (Numerical Methods, Parallelism, GPU)
 
 Goal:
-- handle 100k+ DOF models in-browser and enable topology optimization inner loops
+- handle 100k+ DOF models in-browser, scale to millions of DOFs on native/server, and enable topology optimization inner loops
 
 Solver work:
+
+**Iterative solvers:**
 - **Preconditioned CG** — Jacobi and IC(0) preconditioners for SPD systems
 - **GMRES / MINRES** — for indefinite and non-symmetric systems (contact, buckling)
+- **Algebraic multigrid (AMG) preconditioner** — the only preconditioner that scales to millions of DOFs for shell/solid systems; Jacobi/IC(0) are insufficient for large ill-conditioned problems
 - **Hybrid direct-iterative** — direct for small/medium, iterative for large, automatic selection
+
+**Direct solver improvements:**
+- **Multi-frontal solver** — tree-level parallelism, industry standard for large sparse direct solves (like MUMPS, PaStiX)
+- **Nested dissection ordering** — via METIS/SCOTCH integration, asymptotically optimal fill for 2D/3D meshes (better than AMD for large models)
+- **Supernodal Cholesky** — block-column factorization for cache utilization on large models
+- **Sparse mass matrix** — enable fully-sparse K⁻¹Mx eigensolver paths
+
+**Eigensolver improvements:**
 - **Block eigensolvers** — LOBPCG / block Lanczos for many-mode problems
+
+**Large-deformation formulations:**
+- **Total Lagrangian (TL) formulation** — reference undeformed configuration, needed for continuum elements under large strain (rubber, soil, hyperelastic)
+- **Updated Lagrangian (UL) formulation** — reference last converged configuration, standard for metal forming, progressive collapse, very large deformations
+
+**Parallelism and hardware:**
+- **Domain decomposition (FETI, Balancing DD)** — algorithmic decomposition for multi-core and distributed scaling beyond 100k DOFs
 - **WebGPU compute shaders** — parallel element stiffness evaluation, postprocessing kernels, sparse mat-vec
 - **Web Workers** — parallel assembly across multiple cores (beyond current rayon)
-- **Sparse mass matrix** — enable fully-sparse K⁻¹Mx eigensolver paths
-- **Supernodal Cholesky** — block-column factorization for cache utilization on large models
+
+**Solver robustness at scale:**
+- **Dissipation-based stabilization** — artificial viscous damping for local instabilities (snap-through of individual elements in shell buckling, concrete cracking) with energy tracking to ensure dissipation stays small
+- **Trust region methods** — alternative to line search for nonlinear convergence, more robust for sudden stiffness changes (contact, damage)
+- **Predictor-corrector refinements** — secant/tangent/arc-length predictor with normal plane/cylindrical arc corrector for snap-through/snap-back tracking
+- **Branch switching at bifurcation** — detect limit and bifurcation points, switch branches for post-buckling path tracing
+- **Automatic increment control** — smart step size based on convergence rate, energy criterion, contact status changes (not just pass/fail)
+- **Initial stress / initial strain method** — separate equilibrium iteration from expensive constitutive update
 
 Finish means:
 - PCG converges on representative shell models with IC(0) preconditioning
+- AMG-preconditioned iterative solver converges on 1M DOF shell/solid models
+- multi-frontal solver with nested dissection shows measurable speedup over current left-looking supernodal on large models
 - hybrid solver automatically selects iterative above measured crossover point
 - WebGPU element evaluation shows measurable speedup on large uniform shell meshes
 - 100k DOF models solve in-browser within reasonable time (< 60s)
+- TL/UL formulations pass large-strain benchmarks (rubber block, thick cylinder, metal forming)
+- domain decomposition shows near-linear scaling on multi-core for models above 500k DOFs
 
 ### Phase P: Optimization Solver Support
 
@@ -644,6 +756,77 @@ Finish means:
 - FORM reliability index matches analytical solution for known limit-state functions
 - Monte Carlo failure probability converges to FORM result with sufficient samples
 - batch execution reuses symbolic factorization across parameter variations
+
+### Phase R: Contact, Interface & Constraint Depth
+
+Goal:
+- contact and constraint capabilities matching Abaqus and Code_Aster for practical multi-part structural models
+
+Solver work:
+
+**Contact enforcement:**
+- **Augmented Lagrangian contact** — eliminates penetration without very high penalty stiffness
+- **Mortar contact** — variationally consistent, passes patch test, accurate stress transfer across non-matching meshes
+- **Friction models** — Coulomb with proper slip/stick detection, exponential (velocity-dependent), anisotropic friction
+- **Self-contact** — surface contacting itself during large deformation (pipe buckling, shell folding)
+
+**Interface elements:**
+- **Cohesive zone models (CZM)** — traction-separation laws for delamination, debonding, and fracture propagation
+- **Tie constraints (surface-based mesh tying)** — connect non-matching meshes without shared nodes for multi-part assemblies
+
+**Advanced constraints:**
+- **Shell-to-solid coupling** — kinematically consistent connection between shell and solid regions for mixed-dimension models
+- **Beam-to-shell connection with offset** — connect beam flanges/webs to shell elements for detailed joint modeling
+- **Embedded elements** — embed beams (rebar) inside solids/shells without matching meshes for RC modeling
+- **Distributed coupling (RBE3-equivalent)** — distribute load to nodes weighted by area/distance, not rigid
+- **Kinematic coupling with DOF selection** — rigid constraint on selected DOFs at a surface
+- **General linear MPC equations** — user-defined u_i = Σ(a_j · u_j) + b for arbitrary DOF relationships
+- **Periodic boundary conditions** — for RVE homogenization and structures with repeating geometry
+- **Automatic symmetry/antisymmetry constraints** — automatic BCs on cut planes for 2×-8× model size reduction
+
+Finish means:
+- augmented Lagrangian contact matches Hertz contact analytical solution within 1%
+- mortar contact passes patch test on non-matching meshes
+- shell-to-solid coupling produces continuous displacement/stress at interface
+- embedded rebar in concrete solid matches reference RC beam solutions
+- periodic BCs reproduce known homogenization results for composite RVEs
+
+### Phase S: Design-Oriented Post-Processing
+
+Goal:
+- solver-level result extraction and transformation that enables practical design workflows for RC slabs, steel connections, pressure vessels, and fatigue assessment
+
+Solver work:
+
+**Shell design results:**
+- **Wood-Armer moments** — transform shell (Mx, My, Mxy) into design moments for orthogonal reinforcement in RC slabs
+- **Nodal force summation / section cuts** — sum internal forces across arbitrary cutting planes through shell/solid models
+- **Result envelopes for shells** — max/min stress/force at every node across all load combinations (beam envelopes exist; extend to shells)
+- **Design-oriented result transformation** — transform to reinforcement directions, principal stress directions, or user-defined local directions
+- **Influence surface generation** — influence surfaces for slabs/decks under moving loads (bridges)
+- **Crack width estimation** — estimate crack widths in RC shells/slabs from reinforcement strains per EC2/ACI 318
+- **Punching shear perimeter detection** — automatic column perimeter detection in flat slabs with code-check per ACI 318/EC2
+
+**Stress processing:**
+- **Stress linearization** — decompose through-thickness stress into membrane + bending + peak components per ASME VIII Div.2 / EN 13445 for pressure vessel design
+- **Result smoothing / averaging control** — nodal averaging by material, by element type, by angle threshold to prevent incorrect averaging at material boundaries
+- **Superconvergent patch recovery (SPR)** — Zienkiewicz-Zhu stress smoothing for improved accuracy and error estimation
+
+**Analysis workflow support:**
+- **Submodeling / global-local analysis** — run coarse global model, extract boundary displacements, drive refined local model for connections, fatigue hot spots, stress concentrations
+- **Nonlinear post-buckling workflow** — imperfection seeding from linear buckling modes, arc-length tracing of post-buckling path, knockdown factor extraction
+- **Construction sequence with time-dependent interaction** — creep/shrinkage/relaxation interaction between stages, tendon loss tracking, segmental bridge workflows
+
+**Error estimation:**
+- **ZZ error estimator** — Zienkiewicz-Zhu a-posteriori error for mesh adequacy guidance
+- **h-refinement indicators** — element-level error indicators for adaptive mesh refinement
+
+Finish means:
+- Wood-Armer moments match hand calculations on standard slab cases
+- section cut forces satisfy global equilibrium to machine precision
+- stress linearization matches ASME benchmark cases
+- submodel boundary displacements produce stress results within 5% of fully-refined global model
+- error estimator reliably identifies under-refined regions
 
 ## Full Backlog
 
@@ -796,6 +979,68 @@ Finish means:
 118. Implement subset simulation
 119. Add batch execution API with symbolic factorization reuse
 
+### Phase R (Contact, Interface & Constraints)
+
+120. Implement augmented Lagrangian contact enforcement
+121. Implement mortar contact for non-matching meshes
+122. Add Coulomb friction with proper slip/stick detection
+123. Add self-contact for large deformation (pipe buckling, shell folding)
+124. Implement cohesive zone elements (traction-separation for delamination/debonding)
+125. Add tie constraints for multi-part assemblies with non-matching meshes
+126. Implement shell-to-solid coupling constraints
+127. Add beam-to-shell connection with offset
+128. Implement embedded elements (rebar in concrete solids/shells)
+129. Add distributed coupling (RBE3-equivalent)
+130. Add kinematic coupling with DOF selection
+131. Add general linear MPC equations (u_i = Σ(a_j · u_j) + b)
+132. Implement periodic boundary conditions for RVE homogenization
+133. Add automatic symmetry/antisymmetry constraints on cut planes
+
+### Phase S (Design-Oriented Post-Processing)
+
+134. Implement Wood-Armer moments for RC slab design from shell results
+135. Add nodal force summation / section cuts through shell/solid models
+136. Implement shell result envelopes across load combinations
+137. Add design-oriented result transformation to reinforcement/principal/user directions
+138. Add influence surface generation for slabs under moving loads
+139. Implement crack width estimation from shell reinforcement strains (EC2/ACI 318)
+140. Add automatic punching shear perimeter detection and code-check
+141. Implement stress linearization (membrane+bending+peak per ASME/EN 13445)
+142. Add result smoothing/averaging control by material, type, and angle threshold
+143. Implement superconvergent patch recovery (SPR / Zienkiewicz-Zhu)
+144. Add submodeling / global-local analysis workflow
+145. Add nonlinear post-buckling workflow (imperfection seeding, arc-length, knockdown)
+146. Add construction sequence with creep/shrinkage/relaxation interaction between stages
+147. Implement ZZ error estimator for mesh adequacy guidance
+148. Add h-refinement indicators from element-level error estimates
+
+### Cross-Phase Items
+
+149. Implement general return mapping algorithm (yield surface, flow rule, hardening, consistent tangent)
+150. Add Caughey damping (generalized Rayleigh for more than 2 target frequencies)
+151. Add frequency-dependent and non-proportional damping with complex eigenvalue analysis
+152. Add random vibration / PSD analysis (wind/wave/traffic excitation)
+153. Add response spectrum CQC3, GMC, Gupta methods and missing mass correction
+154. Implement force-based beam-column element (OpenSees-equivalent)
+155. Add Timoshenko beam with warping DOF (7-DOF) for open thin-walled sections
+156. Add full shell triangle (MITC3/DSG3 with membrane+bending+drilling)
+157. Add 6-node triangular shell (MITC6/STRI65)
+158. Implement composite laminate failure criteria (Tsai-Wu, Tsai-Hill, Hashin, Puck)
+159. Add UMAT-equivalent user-defined material interface
+160. Implement Drucker-Prager and Mohr-Coulomb plasticity for geotechnical analysis
+161. Implement Modified Cam-Clay for clay soils
+162. Add orthotropic/anisotropic elasticity for timber, masonry, composites
+163. Implement Total Lagrangian and Updated Lagrangian large-strain formulations
+164. Add multi-frontal solver with nested dissection ordering
+165. Implement AMG preconditioner for million-DOF models
+166. Add domain decomposition (FETI) for distributed parallelism
+167. Add smeared/rotating crack and damage mechanics models (Mazars, Lemaitre)
+168. Implement Gauss-point substepping for material integration robustness
+169. Add dissipation-based stabilization for shell buckling and concrete cracking
+170. Implement plastic hinge beam element with FEMA 356/ASCE 41 hinge tables
+171. Add fatigue cycle counting (rainflow) and S-N damage accumulation
+172. Add thermal stress analysis (steady-state/transient, bridge deck gradients)
+
 ## Active Programs
 
 ### 1. Shell-Family Maturity
@@ -919,8 +1164,12 @@ Updated numerical-methods order:
 8. ~~modified Newton~~ — DONE (implemented for corotational and fiber nonlinear solvers; not a universal default)
 9. quasi-Newton variants
 10. iterative solvers (PCG + IC(0), GMRES/MINRES) — Phase O
-11. WebGPU compute shaders — Phase O
-12. supernodal Cholesky — Phase O
+11. AMG preconditioner for million-DOF models — Phase O
+12. multi-frontal solver + nested dissection (METIS) — Phase O
+13. Total/Updated Lagrangian for continuum large-strain — Phase O
+14. domain decomposition (FETI) — Phase O
+15. supernodal Cholesky — Phase O
+16. WebGPU compute shaders — Phase O
 
 See [`research/numerical_methods_gap_analysis.md`](/Users/unbalancedparen/projects/dedaliano/research/numerical_methods_gap_analysis.md).
 
@@ -1019,34 +1268,88 @@ If Rust is the one solver, it should not be constrained to browser-only executio
 ### 8. Dynamic Analysis and Earthquake Engineering
 
 Focus:
-- time integration methods (Newmark-β, HHT-α, explicit central difference)
-- damping models (Rayleigh, modal)
+- time integration methods (Newmark-β, HHT-α, explicit central difference with matrix-free evaluation)
+- damping models (Rayleigh, modal, Caughey, frequency-dependent, non-proportional with complex eigenvalues)
 - nonlinear dynamics with material and geometric nonlinearity
 - ground motion input and response extraction
+- random vibration / PSD analysis for wind/wave/traffic
+- response spectrum enhancements (CQC3, GMC, Gupta, missing mass correction)
 - pushover analysis and capacity spectrum methods
 - seismic isolator and damper element support
 
 Why it matters:
 Dynamic and pushover analysis is what OpenSees is famous for. This is the capability that makes Dedaliano the go-to tool for earthquake engineering.
 
-### 9. Nonlinear Material Library
+### 9. Nonlinear Material Library and Computational Plasticity
 
 Focus:
+- general return mapping algorithm (yield surface, flow rule, hardening, consistent tangent)
 - material state management framework (commit/revert/copy)
-- concrete models (Kent-Park, Mander, Concrete02, CDP, code-based)
-- steel models (bilinear, Menegotto-Pinto, Giuffré, Steel4)
+- concrete models (Kent-Park, Mander, Concrete02, CDP, smeared crack, Mazars damage)
+- steel models (bilinear, Menegotto-Pinto, Giuffré, Steel4, Chaboche kinematic hardening)
+- geotechnical models (Drucker-Prager, Mohr-Coulomb, Modified Cam-Clay)
+- orthotropic/anisotropic elasticity for timber, masonry, composites
 - fiber sections with mixed materials
 - moment-curvature and interaction surface generation
+- Gauss-point substepping for material integration robustness
+- user-defined material interface (UMAT-equivalent)
 
 Why it matters:
-Realistic material behavior is the foundation of all nonlinear analysis. Without it, pushover, dynamic, and design workflows are toys.
+Realistic material behavior is the foundation of all nonlinear analysis. The return mapping framework makes adding new materials systematic. Without geotechnical materials, foundation and soil analysis is impossible. Without UMAT, every new material requires modifying the solver source.
 
-### 10. Specialized Analysis Depth
+### 10. Element Library Completeness
 
 Focus:
+- force-based beam-column element (OpenSees gold standard for nonlinear frames)
+- Timoshenko beam with warping DOF (open thin-walled sections)
+- plastic hinge beam element with FEMA 356/ASCE 41 tables
+- full shell triangle (MITC3/DSG3) for meshing freedom
+- 6-node triangular shell (MITC6/STRI65) for p-refinement
+- axisymmetric shell of revolution element
+- composite laminate failure criteria (Tsai-Wu, Hashin, Puck)
+- gap/hook and cohesive zone elements
+- seismic isolators, BRBs, viscous dampers, panel zones
+
+Why it matters:
+Element completeness determines what real problems the solver can handle. The force-based beam is the single most important missing element. Shell triangles are non-negotiable for practical meshing. Warping DOF is needed for every steel structure with open sections.
+
+### 11. Contact, Constraints & Mixed-Dimension Models
+
+Focus:
+- augmented Lagrangian and mortar contact for accurate stress transfer
+- friction (Coulomb slip/stick, velocity-dependent)
+- shell-to-solid coupling and beam-to-shell connections
+- embedded elements (rebar in concrete)
+- distributed coupling (RBE3), tie constraints, general MPC equations
+- periodic BCs, automatic symmetry/antisymmetry
+
+Why it matters:
+Real structural models are multi-part assemblies with mixed dimensions. Without proper coupling, users cannot model connections, composite sections, or multi-scale problems.
+
+### 12. Design-Oriented Post-Processing
+
+Focus:
+- Wood-Armer moments for RC slab design from shell results
+- section cuts and nodal force summation through shells/solids
+- shell result envelopes across load combinations
+- stress linearization (ASME/EN 13445 pressure vessel codes)
+- crack width estimation, punching shear detection
+- submodeling / global-local analysis
+- result smoothing and SPR stress recovery
+- error estimation and h-refinement indicators
+
+Why it matters:
+A solver that produces correct numbers but cannot transform them into design quantities is useless for practicing engineers. Wood-Armer moments alone unlock RC flat slab design from shell models.
+
+### 13. Specialized Analysis Depth
+
+Focus:
+- thermal stress (general, not just fire) — bridge decks, solar radiation, seasonal
 - fire analysis with temperature-dependent material degradation (Phase M)
+- fatigue (rainflow counting, S-N curves, Palmgren-Miner, weld assessment) (Phase M)
 - progressive collapse with automated member removal (Phase M)
 - automatic load generation from building codes (Phase N)
+- Total/Updated Lagrangian for continuum large-strain (Phase O)
 - topology optimization with sensitivity analysis (Phase P)
 - reliability and probabilistic assessment (Phase Q)
 
@@ -1128,41 +1431,116 @@ Done means:
 - representative browser/native parity checks are green
 - heavy workflows have a documented execution recommendation and proof path
 
+### Dynamic analysis (Phase I)
+
+Done means:
+- Newmark-β and HHT-α pass analytical SDOF/MDOF benchmarks
+- nonlinear dynamic matches OpenSees reference on standard RC column/steel frame cases
+- all damping models (Rayleigh, Caughey, modal, non-proportional) verified against analytical solutions
+- random vibration matches commercial solver PSD output on standard cases
+
+### Nonlinear materials (Phase J)
+
+Done means:
+- return mapping framework supports arbitrary yield surface + hardening law combinations
+- each concrete/steel model passes cyclic verification against published curves
+- Drucker-Prager/Mohr-Coulomb reproduce bearing capacity benchmarks within 5%
+- UMAT interface works without recompiling solver source
+
+### Pushover (Phase K)
+
+Done means:
+- capacity curves match published benchmarks on standard frames
+- both distributed and concentrated plasticity produce consistent results
+- FEMA 356 / ASCE 41 hinge tables produce correct acceptance criteria
+
+### Element library (Phase L)
+
+Done means:
+- force-based beam matches OpenSees forceBeamColumn on nonlinear frame benchmarks
+- warping beam produces correct bimoment on channel/Z-section cases
+- MITC3 triangle passes patch tests and converges on standard shell benchmarks
+- composite failure criteria match published laminate failure loads
+
+### Contact and constraints (Phase R)
+
+Done means:
+- augmented Lagrangian contact matches Hertz analytical solution within 1%
+- mortar contact passes patch test on non-matching meshes
+- shell-to-solid coupling produces continuous stress at interface
+- embedded rebar matches reference RC beam results
+
+### Design post-processing (Phase S)
+
+Done means:
+- Wood-Armer moments match hand calculations on standard slab cases
+- section cuts satisfy global equilibrium to machine precision
+- stress linearization matches ASME benchmark cases
+- submodel results within 5% of fully-refined global model
+
 ## Must-Have Vs Later
 
 ### Must-have to become the best open structural solver
 
-- shell endgame maturity
-- performance and scale
+**Core solver trust (Phases A–H):**
+- shell endgame maturity (all families hardened, guided, and auto-selected)
+- performance and scale (sparse direct dominance, measured runtime wins)
 - WASM path reliability and single-solver convergence
-- verification hardening
+- verification hardening (gates, acceptance models, CI)
 - observability / reproducibility / auditability
 - long-tail nonlinear hardening
-- solver-path consistency
+- solver-path consistency (dense/sparse, constrained/unconstrained)
 - constraint-system maturity
-- dynamic analysis (Newmark-β, HHT-α, explicit) — Phase I
-- nonlinear material models (concrete, steel, fiber sections) — Phase J
-- pushover analysis (capacity spectrum, N2, MPA) — Phase K
+
+**Dynamic and nonlinear (Phases I–K):**
+- dynamic analysis (Newmark-β, HHT-α, explicit, Rayleigh/modal/Caughey damping) — Phase I
+- nonlinear material models (concrete, steel, geotechnical, return mapping framework) — Phase J
+- pushover analysis (capacity spectrum, N2, MPA, plastic hinge elements) — Phase K
+
+**Critical element gaps:**
+- force-based beam-column element (what makes OpenSees dominant) — Phase L
+- Timoshenko beam with warping DOF (open sections are wrong without this) — Phase L
+- full shell triangle (MITC3/DSG3 — meshing freedom is non-negotiable) — Phase L
+- plastic hinge beam element (makes pushover practical at building scale) — Phase K
+
+**Critical post-processing gaps:**
+- Wood-Armer moments (shell-based RC slab design is impossible without this) — Phase S
+- section cuts / nodal force summation for shell/solid design — Phase S
+- result envelopes for shells across load combinations — Phase S
 
 ### Important after the core claim is secure
 
-- advanced contact maturity
-- broader reference benchmark expansion
+- advanced element library (isolators, BRB, catenary, panel zones, infill walls) — Phase L
+- 6-node triangular shell (MITC6) and axisymmetric shell of revolution — Phase L
+- composite laminate failure criteria (Tsai-Wu, Hashin) — Phase L
+- automatic load generation (wind, seismic ELF, snow, patterns) — Phase N
+- iterative solvers (PCG, AMG) and multi-frontal solver for 100k+ DOFs — Phase O
+- Total/Updated Lagrangian for continuum large-strain analysis — Phase O
+- contact depth (augmented Lagrangian, mortar, friction, self-contact) — Phase R
+- constraint depth (shell-to-solid coupling, embedded elements, tie constraints) — Phase R
+- stress linearization for pressure vessel codes (ASME, EN 13445) — Phase S
+- submodeling / global-local analysis — Phase S
+- advanced reference benchmark expansion
 - model reduction / substructuring workflow maturity
 - deeper prestress / staged time-dependent coupling
-- specialized shell breadth
-- deterministic-behavior and explainability refinement
-- broader native/server workflow packaging after core parity is secure
-- advanced element library (isolators, BRB, catenary, panel zones) — Phase L
-- automatic load generation (wind, seismic ELF, snow, patterns) — Phase N
-- iterative solvers and WebGPU for 100k+ DOF models — Phase O
+- broader native/server workflow packaging
 
 ### Later specialization
 
-- fire and progressive collapse analysis — Phase M
+- thermal stress and fire analysis — Phase M
+- fatigue analysis (rainflow counting, S-N curves, weld assessment) — Phase M
+- progressive collapse (GSA/UFC alternate path) — Phase M
 - topology optimization and sensitivity analysis — Phase P
 - reliability and probabilistic analysis (FORM/SORM, Monte Carlo) — Phase Q
-- 3D solid elements (hex, tet)
+- domain decomposition (FETI) for distributed parallelism — Phase O
+- WebGPU compute shaders — Phase O
+- 3D solid elements (C3D8, C3D20, C3D4, C3D10) — Phase L
+- continuum shell elements (SC6R, SC8R) — Phase L
+- geotechnical materials (Cam-Clay) — Phase J
+- user-defined material interface (UMAT) — Phase J
+- error estimation and adaptive h-refinement — Phase S
+- cohesive zone models for delamination/fracture — Phase R
+- periodic BCs for homogenization — Phase R
 - membranes / cable nets / specialized tensile structures
 - bridge-specific advanced workflows
 - broader domain expansion
