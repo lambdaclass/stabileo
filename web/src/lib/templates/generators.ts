@@ -917,42 +917,42 @@ export function generateIrregularSetbackTower3D(store: ModelStore, p: IrregularS
   store.model.name = t('ex.irregularSetbackTower3D');
 
   store.batch(() => {
-    // Realistic sections for a multi-story steel building
-    // Section 1 (default) is IPN 300 — replace it with HEB 400 for columns
+    // Heavy sections for an 18-story irregular tower (68 m, 8 m bays, geometric skew)
+    // Section 1 (default): HD 400×314 for columns — heaviest wide-flange for high-rise
     store.updateSection(1, {
-      name: 'HEB 400',
-      a: 0.01978,         // 197.8 cm²
-      iy: 0.000576800,    // 57680 cm⁴ (strong axis)
-      iz: 0.000108200,    // 10820 cm⁴ (weak axis)
-      j: 0.000003560,     // 356 cm⁴
-      h: 0.400,
+      name: 'HD 400×314',
+      a: 0.04007,         // 400.7 cm²
+      iy: 0.001891000,    // 189100 cm⁴ (strong axis)
+      iz: 0.000616400,    // 61640 cm⁴ (weak axis)
+      j: 0.000054600,     // 5460 cm⁴
+      h: 0.407,
+      b: 0.408,
+      shape: 'I',
+      tw: 0.022,
+      tf: 0.048,
+    });
+    // Section 2: HEB 450 for beams — stiff beams for 8 m spans
+    const beamSecId = store.addSection({
+      name: 'HEB 450',
+      a: 0.02180,         // 218.0 cm²
+      iy: 0.000798100,    // 79810 cm⁴ (strong axis)
+      iz: 0.000117200,    // 11720 cm⁴ (weak axis)
+      j: 0.000004090,     // 409 cm⁴
+      h: 0.450,
       b: 0.300,
       shape: 'I',
-      tw: 0.0135,
-      tf: 0.024,
+      tw: 0.014,
+      tf: 0.026,
     });
-    // Section 2: IPE 360 for beams
-    const beamSecId = store.addSection({
-      name: 'IPE 360',
-      a: 0.00727,         // 72.7 cm²
-      iy: 0.000162700,    // 16270 cm⁴ (strong axis)
-      iz: 0.000010430,    // 1043 cm⁴ (weak axis)
-      j: 0.000000373,     // 37.3 cm⁴
-      h: 0.360,
-      b: 0.170,
-      shape: 'I',
-      tw: 0.008,
-      tf: 0.0127,
-    });
-    // Section 3: L 100x100x10 for bracing
+    // Section 3: CHS 273×12.5 for bracing — heavy tubular for lateral stiffness
     const braceSecId = store.addSection({
-      name: 'L 100x10',
-      a: 0.001920,        // 19.2 cm²
-      iy: 0.000001770,    // 177 cm⁴
-      iz: 0.000001770,    // 177 cm⁴
-      j: 0.000000064,     // 6.4 cm⁴
-      h: 0.100,
-      b: 0.100,
+      name: 'CHS 273×12',
+      a: 0.010200,        // 102.0 cm²
+      iy: 0.000082600,    // 8260 cm⁴
+      iz: 0.000082600,    // 8260 cm⁴
+      j: 0.000165200,     // 16520 cm⁴
+      h: 0.273,
+      b: 0.273,
     });
 
     const floors: number[][][] = []; // floors[level][iz][ix]
