@@ -360,6 +360,8 @@ const es: Record<string, string> = {
   'ex.landmarkTower3D.desc': 'Torre inspirada en la Eiffel con arriostramiento tipo celosía',
   'ex.xlDiagridTower3D': 'Torre Diagrid XL',
   'ex.xlDiagridTower3D.desc': 'Torre diagrid de gran altura con 1000+ nodos, núcleo central y niveles outrigger',
+  'ex.geodesicDome3D': 'Domo Geodésico',
+  'ex.geodesicDome3D.desc': 'Domo geodésico Buckminster Fuller con triangulación icosaédrica',
   'ex.suspensionBridge3D': 'Puente Colgante',
   'ex.suspensionBridge3D.desc': 'Puente colgante con cables parabólicos, viga rigidizadora y tramos de acceso',
   'ex.cableStayedBridge3D': 'Puente Atirantado',

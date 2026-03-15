@@ -360,6 +360,8 @@ const en: Record<string, string> = {
   'ex.landmarkTower3D.desc': 'Eiffel-inspired tapered tower with lattice bracing',
   'ex.xlDiagridTower3D': 'XL Diagrid Tower',
   'ex.xlDiagridTower3D.desc': 'High-rise diagrid tower with 1k+ nodes, central core, and outrigger levels',
+  'ex.geodesicDome3D': 'Geodesic Dome',
+  'ex.geodesicDome3D.desc': 'Buckminster Fuller geodesic dome with icosahedral triangulation',
   'ex.suspensionBridge3D': 'Suspension Bridge',
   'ex.suspensionBridge3D.desc': 'Twin-tower suspension bridge with parabolic cables, stiffening truss, and approach spans',
   'ex.cableStayedBridge3D': 'Cable-Stayed Bridge',

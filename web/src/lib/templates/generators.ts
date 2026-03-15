@@ -1134,6 +1134,133 @@ export function generateXLDiagridTower3D(store: ModelStore, p: XLDiagridTower3DP
 }
 
 // -------------------------------------------------------------------
+// 6b. Geodesic dome — icosahedral subdivision, Buckminster Fuller style
+// -------------------------------------------------------------------
+
+export interface GeodesicDome3DParams {
+  radius: number;        // dome radius (m)
+  frequency: number;     // subdivision frequency (4-12, higher = more nodes)
+  hemisphere: boolean;    // true = half sphere, false = full sphere
+  selfWeightLoad: number; // nodal gravity load (kN, negative = down)
+}
+
+export function generateGeodesicDome3D(store: ModelStore, p: GeodesicDome3DParams): void {
+  store.clear();
+  store.model.name = t('ex.geodesicDome3D');
+
+  store.batch(() => {
+    const R = p.radius;
+    const freq = Math.max(2, Math.round(p.frequency));
+    // Hemisphere cut: only keep vertices with Y >= cutY
+    const cutY = p.hemisphere ? -R * 0.05 : -R * 1.1;
+
+    // ── Icosahedron base vertices ──
+    const phi = (1 + Math.sqrt(5)) / 2;
+    const icoNorm = Math.sqrt(1 + phi * phi);
+    const rawVerts: [number, number, number][] = [
+      [-1, phi, 0], [1, phi, 0], [-1, -phi, 0], [1, -phi, 0],
+      [0, -1, phi], [0, 1, phi], [0, -1, -phi], [0, 1, -phi],
+      [phi, 0, -1], [phi, 0, 1], [-phi, 0, -1], [-phi, 0, 1],
+    ];
+    const icoVerts = rawVerts.map(([x, y, z]) => [x / icoNorm, y / icoNorm, z / icoNorm] as [number, number, number]);
+
+    const icoFaces: [number, number, number][] = [
+      [0, 11, 5], [0, 5, 1], [0, 1, 7], [0, 7, 10], [0, 10, 11],
+      [1, 5, 9], [5, 11, 4], [11, 10, 2], [10, 7, 6], [7, 1, 8],
+      [3, 9, 4], [3, 4, 2], [3, 2, 6], [3, 6, 8], [3, 8, 9],
+      [4, 9, 5], [2, 4, 11], [6, 2, 10], [8, 6, 7], [9, 8, 1],
+    ];
+
+    // Dedup map: rounded unit-sphere coords → node ID
+    const vertMap = new Map<string, number>();
+    const nodeCoords = new Map<number, { x: number; y: number; z: number }>();
+    const edges = new Set<string>();
+
+    const vertKey = (nx: number, ny: number, nz: number): string =>
+      `${nx.toFixed(8)},${ny.toFixed(8)},${nz.toFixed(8)}`;
+
+    // Returns node ID or -1 if below cut
+    const getOrCreateNode = (x: number, y: number, z: number): number => {
+      const len = Math.sqrt(x * x + y * y + z * z);
+      const nx = x / len, ny = y / len, nz = z / len;
+      const sy = ny * R;
+      if (sy < cutY) return -1; // below hemisphere cut
+      const key = vertKey(nx, ny, nz);
+      if (vertMap.has(key)) return vertMap.get(key)!;
+      const sx = nx * R, sz = nz * R;
+      const nodeId = store.addNode(sx, sy, sz);
+      vertMap.set(key, nodeId);
+      nodeCoords.set(nodeId, { x: sx, y: sy, z: sz });
+      return nodeId;
+    };
+
+    const addEdge = (a: number, b: number) => {
+      if (a < 0 || b < 0) return; // one end was cut
+      const lo = Math.min(a, b), hi = Math.max(a, b);
+      const key = `${lo}-${hi}`;
+      if (edges.has(key)) return;
+      edges.add(key);
+      store.addElement(a, b, 'frame');
+    };
+
+    // Subdivide each icosahedron face
+    for (const [ia, ib, ic] of icoFaces) {
+      const va = icoVerts[ia], vb = icoVerts[ib], vc = icoVerts[ic];
+
+      const faceNodes: number[][] = [];
+      for (let row = 0; row <= freq; row++) {
+        faceNodes[row] = [];
+        for (let col = 0; col <= freq - row; col++) {
+          const u = row / freq;
+          const v = col / freq;
+          const w = 1 - u - v;
+          faceNodes[row][col] = getOrCreateNode(
+            w * va[0] + u * vb[0] + v * vc[0],
+            w * va[1] + u * vb[1] + v * vc[1],
+            w * va[2] + u * vb[2] + v * vc[2],
+          );
+        }
+      }
+
+      for (let row = 0; row <= freq; row++) {
+        for (let col = 0; col <= freq - row; col++) {
+          const n = faceNodes[row][col];
+          if (col < freq - row) addEdge(n, faceNodes[row][col + 1]);
+          if (row < freq) addEdge(n, faceNodes[row + 1][col]);
+          if (row < freq && col > 0) addEdge(n, faceNodes[row + 1][col - 1]);
+        }
+      }
+    }
+
+    // ── Base ring + supports ──
+    // Collect all created nodes, find the lowest band
+    const allNodes = [...nodeCoords.entries()].map(([id, c]) => ({ id, ...c }));
+    const minY = Math.min(...allNodes.map(n => n.y));
+    const ringThreshold = minY + R * 0.12;
+    const ringNodes = allNodes
+      .filter(n => n.y <= ringThreshold)
+      .sort((a, b) => Math.atan2(a.z, a.x) - Math.atan2(b.z, b.x));
+
+    // Connect base ring circumferentially and pin
+    for (let i = 0; i < ringNodes.length; i++) {
+      const next = (i + 1) % ringNodes.length;
+      addEdge(ringNodes[i].id, ringNodes[next].id);
+      store.addSupport(ringNodes[i].id, 'pinned3d');
+    }
+
+    // Gravity loads on non-base nodes
+    if (p.selfWeightLoad !== 0) {
+      const ringSet = new Set(ringNodes.map(n => n.id));
+      for (const n of allNodes) {
+        if (!ringSet.has(n.id)) {
+          store.addNodalLoad3D(n.id, 0, p.selfWeightLoad, 0, 0, 0, 0);
+        }
+      }
+    }
+  });
+}
+
+// -------------------------------------------------------------------
 // 7a. Suspension bridge — parabolic cables, portal towers, stiffening truss
 // -------------------------------------------------------------------
 
