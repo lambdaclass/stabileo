@@ -1,6 +1,12 @@
 <script lang="ts">
   import { t } from '../../lib/i18n';
   import { modelStore, resultsStore, uiStore, verificationStore } from '../../lib/store';
+  import {
+    generateCableStayedBridge3D,
+    generateLandmarkTower3D,
+    generateStadiumCanopy3D,
+    getTemplateCatalog3D,
+  } from '../../lib/templates/generators';
   import { openReport } from '../../lib/engine/pro-report';
   import type { ReportData, ReportConfig } from '../../lib/engine/pro-report';
   import { verifyElement, classifyElement, computeJointPsiFromModel } from '../../lib/engine/codes/argentina/cirsoc201';
@@ -75,7 +81,19 @@
   let showReportDialog = $state(false);
   let solving = $state(false);
   let solveError = $state<string | null>(null);
+  let showExampleMenu = $state(false);
   const hasModel = $derived(modelStore.nodes.size > 0 && modelStore.elements.size > 0);
+
+  const proExamples: Array<{ nameKey: string; descKey: string; load: () => void }> = [
+    { nameKey: 'ex.pro-edificio-7p', descKey: 'ex.pro-edificio-7p.desc', load: () => modelStore.loadExample('pro-edificio-7p') },
+    { nameKey: 'ex.3d-building', descKey: 'ex.3d-building.desc', load: () => modelStore.loadExample('3d-building') },
+    { nameKey: 'ex.3d-nave-industrial', descKey: 'ex.3d-nave-industrial.desc', load: () => modelStore.loadExample('3d-nave-industrial') },
+    { nameKey: 'ex.landmarkTower3D', descKey: 'ex.landmarkTower3D.desc', load: () => generateLandmarkTower3D(modelStore, { H: 42, nLevels: 8, baseWidth: 18, topWidth: 4, lateralLoad: 12 }) },
+    { nameKey: 'ex.cableStayedBridge3D', descKey: 'ex.cableStayedBridge3D.desc', load: () => generateCableStayedBridge3D(modelStore, { span: 72, deckWidth: 10, pylonHeight: 26, nPanels: 12, deckLoad: -18 }) },
+    { nameKey: 'ex.stadiumCanopy3D', descKey: 'ex.stadiumCanopy3D.desc', load: () => generateStadiumCanopy3D(modelStore, { span: 54, depth: 18, nFrames: 9, roofLoad: -10, columnHeight: 14 }) },
+    { nameKey: 'ex.spaceFrame3D', descKey: 'ex.spaceFrame3D.desc', load: () => getTemplateCatalog3D().find(tmpl => tmpl.id === 'spaceFrame3D')!.generate(modelStore) },
+    { nameKey: 'ex.tower3D_4', descKey: 'ex.tower3D_4.desc', load: () => getTemplateCatalog3D().find(tmpl => tmpl.id === 'tower3D_4')!.generate(modelStore) },
+  ];
 
   async function handleSolve() {
     solveError = null;
@@ -327,14 +345,37 @@
       default: return '';
     }
   }
+
+  function loadProExample(load: () => void) {
+    load();
+    uiStore.includeSelfWeight = true;
+    uiStore.showGrid3D = false;
+    uiStore.showAxes3D = false;
+    resultsStore.clear();
+    resultsStore.clear3D();
+    showExampleMenu = false;
+    setTimeout(() => window.dispatchEvent(new Event('stabileo-zoom-to-fit')), 100);
+  }
 </script>
 
 <div class="pro-panel">
   <!-- Action bar -->
   <div class="pro-actions">
-    <button class="pro-example-btn" onclick={() => { modelStore.loadExample('pro-edificio-7p'); uiStore.includeSelfWeight = true; uiStore.showGrid3D = false; uiStore.showAxes3D = false; setTimeout(() => window.dispatchEvent(new Event('stabileo-zoom-to-fit')), 100); }} title={t('pro.exampleTitle')}>
-      {t('pro.exampleBtn')}
-    </button>
+    <div class="pro-example-wrap">
+      <button class="pro-example-btn" onclick={() => showExampleMenu = !showExampleMenu} title={t('pro.exampleTitle')}>
+        {t('pro.exampleBtn')}
+      </button>
+      {#if showExampleMenu}
+        <div class="pro-example-menu">
+          {#each proExamples as ex}
+            <button class="pro-example-item" onclick={() => loadProExample(ex.load)}>
+              <span class="pro-example-name">{t(ex.nameKey)}</span>
+              <span class="pro-example-desc">{t(ex.descKey)}</span>
+            </button>
+          {/each}
+        </div>
+      {/if}
+    </div>
     <button class="pro-solve-btn" onclick={handleSolve} disabled={!hasModel || solving}>
       {solving ? t('pro.solving') : t('pro.solve')}
     </button>
@@ -446,6 +487,11 @@
     border-bottom: 1px solid #1a3a5a;
     flex-shrink: 0;
     justify-content: flex-end;
+    position: relative;
+  }
+
+  .pro-example-wrap {
+    position: relative;
   }
 
   .pro-example-btn {
@@ -459,6 +505,51 @@
     cursor: pointer;
   }
   .pro-example-btn:hover { background: #f0a50018; }
+
+  .pro-example-menu {
+    position: absolute;
+    top: calc(100% + 6px);
+    right: 0;
+    width: 320px;
+    max-height: 340px;
+    overflow-y: auto;
+    background: #16213e;
+    border: 1px solid #2a3f6a;
+    border-radius: 6px;
+    box-shadow: 0 18px 40px rgba(0, 0, 0, 0.35);
+    padding: 4px;
+    z-index: 30;
+  }
+
+  .pro-example-item {
+    width: 100%;
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 2px;
+    padding: 8px 9px;
+    background: transparent;
+    border: none;
+    border-radius: 4px;
+    color: #dbe5ff;
+    cursor: pointer;
+    text-align: left;
+  }
+
+  .pro-example-item:hover {
+    background: #0f3460;
+  }
+
+  .pro-example-name {
+    font-size: 0.75rem;
+    font-weight: 700;
+  }
+
+  .pro-example-desc {
+    font-size: 0.66rem;
+    color: #90a4c6;
+    line-height: 1.3;
+  }
 
   .pro-solve-btn {
     padding: 5px 18px;
