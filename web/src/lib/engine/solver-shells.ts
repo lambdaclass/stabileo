@@ -9,7 +9,7 @@
 
 import type { SolverLoad3D, AnalysisResults3D } from './types-3d';
 import type { Node, Material, SurfaceLoad3D, ThermalLoadQuad3D } from '../store/model.svelte';
-import { enrichWithShellStresses } from './shell-stress-recovery';
+// Shell stress recovery now handled by WASM solver — TS fallback removed
 
 // ─── Types ───────────────────────────────────────────────────────
 
@@ -175,15 +175,13 @@ export function addShellAdjacency(
 
 // ─── Shell stress post-processing ────────────────────────────────
 
-/** Run shell stress recovery on solver results (PRO-only post-processing). */
+/** Shell stress post-processing — now a no-op, WASM solver provides stress data directly. */
 export function postProcessShellStresses(
-  results: AnalysisResults3D,
-  nodes: Map<number, Node>,
-  quads: Map<number, QuadData>,
-  plates: Map<number, PlateData>,
-  materials: Map<number, Material>,
+  _results: AnalysisResults3D,
+  _nodes: Map<number, Node>,
+  _quads: Map<number, QuadData>,
+  _plates: Map<number, PlateData>,
+  _materials: Map<number, Material>,
 ): void {
-  if (quads.size > 0 || plates.size > 0) {
-    enrichWithShellStresses(results, nodes, quads as any, plates as any, materials);
-  }
+  // WASM solver returns plateStresses/quadStresses directly — no JS fallback needed
 }

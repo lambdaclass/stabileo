@@ -1,7 +1,7 @@
 // Moving load analysis — envelope of moving load trains across a structure
 
 import type { SolverInput, AnalysisResults, ElementForces, FullEnvelope, ElementEnvelopeDiagram, EnvelopeDiagramData } from './types';
-import { solve } from './solver-js';
+import { solve } from './wasm-solver';
 import { computeDiagramValueAt } from './diagrams';
 import { t } from '../i18n';
 

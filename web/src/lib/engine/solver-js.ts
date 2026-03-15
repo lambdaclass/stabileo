@@ -7,6 +7,7 @@ import type {
   SolverDistributedLoad, SolverPointLoadOnElement, SolverThermalLoad,
 } from './types';
 import { choleskySolve } from './matrix-utils';
+// kinematic-2d.ts functions used internally by solve() for mechanism detection
 import { computeStaticDegree as _computeStaticDegree, analyzeKinematics as _analyzeKinematics } from './kinematic-2d';
 import { t } from '../i18n';
 
@@ -1298,6 +1299,5 @@ export function solve(input: SolverInput): AnalysisResults {
   return { displacements, reactions, elementForces };
 }
 
-// ─── Kinematic Analysis (re-exported from kinematic-2d.ts) ──────
-// Extracted to kinematic-2d.ts for modularity. Re-exported here for backward compatibility.
-export { computeStaticDegree, analyzeKinematics, type KinematicResult } from './kinematic-2d';
+// KinematicResult type re-exported for backward compatibility (import from kinematic-2d.ts directly for new code)
+export type { KinematicResult } from './kinematic-2d';
