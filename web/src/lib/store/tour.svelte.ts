@@ -30,7 +30,13 @@ export interface TourStep {
 }
 
 // Migrate old storage keys
-if (typeof localStorage !== 'undefined') {
+function hasLocalStorage(): boolean {
+  try {
+    return typeof localStorage !== 'undefined' && typeof localStorage.getItem === 'function';
+  } catch { return false; }
+}
+
+if (hasLocalStorage()) {
   for (const key of ['tour-started', 'tour-completed']) {
     const old = localStorage.getItem(`dedaliano-${key}`);
     if (old !== null && localStorage.getItem(`stabileo-${key}`) === null) {

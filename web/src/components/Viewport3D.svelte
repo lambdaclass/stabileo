@@ -196,22 +196,31 @@
     controls.dampingFactor = 0.1;
     controls.target.set(0, 0, 0);
 
-    // Disable OrbitControls' shift-pan while select tool is active.
-    // OrbitControls hardcodes shift+left-click → pan, conflicting with
-    // additive box select. Toggling enablePan via keydown/keyup is the
-    // most reliable approach — no event-propagation races.
-    const onShiftDown = (e: KeyboardEvent) => {
+    // ── Keyboard camera navigation ──
+    // WASD = pan, Arrows = orbit, Q/E = up/down
+    const keysPressed = new Set<string>();
+
+    const onNavKeyDown = (e: KeyboardEvent) => {
+      // Skip when typing in inputs
+      const tag = document.activeElement?.tagName;
+      if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') return;
+      const k = e.key.toLowerCase();
+      if ('wasdqe'.includes(k) || e.key.startsWith('Arrow')) {
+        keysPressed.add(k.startsWith('arrow') ? e.key : k);
+        e.preventDefault();
+      }
+      // Disable OrbitControls' shift-pan while select tool is active
       if (e.key === 'Shift' && uiStore.currentTool === 'select') {
         controls.enablePan = false;
       }
     };
-    const onShiftUp = (e: KeyboardEvent) => {
-      if (e.key === 'Shift') {
-        controls.enablePan = true;
-      }
+    const onNavKeyUp = (e: KeyboardEvent) => {
+      const k = e.key.toLowerCase();
+      keysPressed.delete(k.startsWith('arrow') ? e.key : k);
+      if (e.key === 'Shift') controls.enablePan = true;
     };
-    window.addEventListener('keydown', onShiftDown);
-    window.addEventListener('keyup', onShiftUp);
+    window.addEventListener('keydown', onNavKeyDown);
+    window.addEventListener('keyup', onNavKeyUp);
 
     // Sync camera state to uiStore on orbit change (throttled)
     let cameraSyncTimer: ReturnType<typeof setTimeout> | null = null;
@@ -263,8 +272,56 @@
     syncShells();
 
     // Render loop
+    const _panVec = new THREE.Vector3();
+    const _orbitSpherical = new THREE.Spherical();
     function animate() {
       animFrameId = requestAnimationFrame(animate);
+
+      // Keyboard camera movement
+      if (keysPressed.size > 0) {
+        const dist = camera.position.distanceTo(controls.target);
+        const panSpeed = dist * 0.012;   // scale with zoom level
+        const orbitSpeed = 0.02;          // radians per frame
+
+        // WASD — pan relative to camera orientation
+        const forward = _panVec.set(0, 0, 0);
+        if (keysPressed.has('w')) forward.z -= panSpeed;
+        if (keysPressed.has('s')) forward.z += panSpeed;
+        if (keysPressed.has('a')) forward.x -= panSpeed;
+        if (keysPressed.has('d')) forward.x += panSpeed;
+        if (forward.lengthSq() > 0) {
+          // Transform pan vector from camera-local to world space
+          forward.applyQuaternion(camera.quaternion);
+          forward.y = 0; // keep horizontal
+          controls.target.add(forward);
+          camera.position.add(forward);
+        }
+
+        // Q/E — vertical movement
+        if (keysPressed.has('q')) {
+          controls.target.y -= panSpeed;
+          camera.position.y -= panSpeed;
+        }
+        if (keysPressed.has('e')) {
+          controls.target.y += panSpeed;
+          camera.position.y += panSpeed;
+        }
+
+        // Arrow keys — orbit around target
+        _orbitSpherical.setFromVector3(
+          camera.position.clone().sub(controls.target)
+        );
+        if (keysPressed.has('ArrowLeft')) _orbitSpherical.theta -= orbitSpeed;
+        if (keysPressed.has('ArrowRight')) _orbitSpherical.theta += orbitSpeed;
+        if (keysPressed.has('ArrowUp')) _orbitSpherical.phi = Math.max(0.1, _orbitSpherical.phi - orbitSpeed);
+        if (keysPressed.has('ArrowDown')) _orbitSpherical.phi = Math.min(Math.PI - 0.1, _orbitSpherical.phi + orbitSpeed);
+        if (keysPressed.has('ArrowLeft') || keysPressed.has('ArrowRight') || keysPressed.has('ArrowUp') || keysPressed.has('ArrowDown')) {
+          camera.position.copy(controls.target).add(
+            _panVec.setFromSpherical(_orbitSpherical)
+          );
+        }
+      }
+
       controls.update();
       // Keep ortho frustum synced when using orthographic camera
       if (camera === orthoCamera) syncOrthoFrustum();
@@ -342,8 +399,8 @@
       window.removeEventListener('stabileo-zoom-to-fit', handleZoomToFitEvent);
       window.removeEventListener('stabileo-restore-camera-3d', handleRestoreCamera);
       window.removeEventListener('keydown', handleKeyDown);
-      window.removeEventListener('keydown', onShiftDown);
-      window.removeEventListener('keyup', onShiftUp);
+      window.removeEventListener('keydown', onNavKeyDown);
+      window.removeEventListener('keyup', onNavKeyUp);
       if (renderer.domElement.parentNode) {
         renderer.domElement.parentNode.removeChild(renderer.domElement);
       }

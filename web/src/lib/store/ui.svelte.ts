@@ -24,7 +24,13 @@ export interface ClipboardData {
 }
 
 // Migrate old storage keys
-if (typeof localStorage !== 'undefined') {
+function hasLocalStorage(): boolean {
+  try {
+    return typeof localStorage !== 'undefined' && typeof localStorage.getItem === 'function';
+  } catch { return false; }
+}
+
+if (hasLocalStorage()) {
   for (const key of ['floating-tools', 'tooltips', 'help-panel', 'unitSystem']) {
     const old = localStorage.getItem(`dedaliano-${key}`);
     if (old !== null && localStorage.getItem(`stabileo-${key}`) === null) {
@@ -155,7 +161,7 @@ function createUIStore() {
   let embedMode = $state<boolean>(false);
 
   // Floating tools bar (persisted in localStorage)
-  const savedFloatingTools = typeof localStorage !== 'undefined' ? localStorage.getItem('stabileo-floating-tools') : null;
+  const savedFloatingTools = hasLocalStorage() ? localStorage.getItem('stabileo-floating-tools') : null;
   let showFloatingTools = $state<boolean>(savedFloatingTools !== 'false'); // default true
 
   // How many rows the floating tools bar currently has (1=main, 2=main+options, 3=main+options+load-edit)
@@ -163,15 +169,15 @@ function createUIStore() {
   let floatingToolsRows = $state<number>(1);
 
   // Educational tooltips (persisted in localStorage)
-  const savedTooltips = typeof localStorage !== 'undefined' ? localStorage.getItem('stabileo-tooltips') : null;
+  const savedTooltips = hasLocalStorage() ? localStorage.getItem('stabileo-tooltips') : null;
   let showTooltips = $state<boolean>(savedTooltips !== 'false'); // default true
 
   // Contextual help panel (persisted in localStorage)
-  const savedHelpPanel = typeof localStorage !== 'undefined' ? localStorage.getItem('stabileo-help-panel') : null;
+  const savedHelpPanel = hasLocalStorage() ? localStorage.getItem('stabileo-help-panel') : null;
   let showHelpPanel = $state<boolean>(savedHelpPanel === 'true'); // default false
 
   // Unit system — persisted in localStorage
-  const savedUnitSystem = typeof localStorage !== 'undefined' ? localStorage.getItem('stabileo-unitSystem') : null;
+  const savedUnitSystem = hasLocalStorage() ? localStorage.getItem('stabileo-unitSystem') : null;
   let unitSystem = $state<UnitSystem>((savedUnitSystem === 'Imperial' ? 'Imperial' : 'SI') as UnitSystem);
 
   // What-If exploration mode (not persisted — temporary)
@@ -200,7 +206,7 @@ function createUIStore() {
   let toastCounter = 0;
 
   // Live calculation
-  let liveCalc = $state(typeof localStorage !== 'undefined' && localStorage.getItem('liveCalc') === 'true');
+  let liveCalc = $state(hasLocalStorage() && localStorage.getItem('liveCalc') === 'true');
   let liveCalcError = $state<string | null>(null);
 
   // Analysis mode: 2D, 3D, PRO or EDU (educational)
@@ -467,7 +473,7 @@ function createUIStore() {
     get showFloatingTools() { return showFloatingTools; },
     set showFloatingTools(v: boolean) {
       showFloatingTools = v;
-      if (typeof localStorage !== 'undefined') localStorage.setItem('stabileo-floating-tools', String(v));
+      if (hasLocalStorage()) localStorage.setItem('stabileo-floating-tools', String(v));
     },
 
     get floatingToolsRows() { return floatingToolsRows; },
@@ -483,13 +489,13 @@ function createUIStore() {
     get showTooltips() { return showTooltips; },
     set showTooltips(v: boolean) {
       showTooltips = v;
-      if (typeof localStorage !== 'undefined') localStorage.setItem('stabileo-tooltips', String(v));
+      if (hasLocalStorage()) localStorage.setItem('stabileo-tooltips', String(v));
     },
 
     get showHelpPanel() { return showHelpPanel; },
     set showHelpPanel(v: boolean) {
       showHelpPanel = v;
-      if (typeof localStorage !== 'undefined') localStorage.setItem('stabileo-help-panel', String(v));
+      if (hasLocalStorage()) localStorage.setItem('stabileo-help-panel', String(v));
     },
 
     get showWhatIf() { return showWhatIf; },
@@ -501,7 +507,7 @@ function createUIStore() {
     get unitSystem() { return unitSystem; },
     set unitSystem(v: UnitSystem) {
       unitSystem = v;
-      try { localStorage.setItem('stabileo-unitSystem', v); } catch {}
+      if (hasLocalStorage()) localStorage.setItem('stabileo-unitSystem', v);
     },
 
     // Mobile responsive
@@ -535,7 +541,7 @@ function createUIStore() {
     get liveCalc() { return liveCalc; },
     set liveCalc(v: boolean) {
       liveCalc = v;
-      if (typeof localStorage !== 'undefined') localStorage.setItem('liveCalc', String(v));
+      if (hasLocalStorage()) localStorage.setItem('liveCalc', String(v));
     },
     get liveCalcError() { return liveCalcError; },
     set liveCalcError(v: string | null) { liveCalcError = v; },

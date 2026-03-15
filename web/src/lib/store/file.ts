@@ -673,7 +673,13 @@ export function openPDFReport(): void {
 // ─── AutoSave (localStorage) ────────────────────────────────────
 
 // Migrate old storage key
-if (typeof localStorage !== 'undefined') {
+function hasLocalStorage(): boolean {
+  try {
+    return typeof localStorage !== 'undefined' && typeof localStorage.getItem === 'function';
+  } catch { return false; }
+}
+
+if (hasLocalStorage()) {
   if (localStorage.getItem('dedaliano-autosave') !== null && localStorage.getItem('stabileo-autosave') === null) {
     localStorage.setItem('stabileo-autosave', localStorage.getItem('dedaliano-autosave')!);
     localStorage.removeItem('dedaliano-autosave');
