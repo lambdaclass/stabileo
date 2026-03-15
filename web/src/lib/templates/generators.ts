@@ -636,10 +636,8 @@ export function generateSpaceFrame3D(store: ModelStore, p: SpaceFrame3DParams): 
       for (let iz = 0; iz <= p.nBaysY; iz++) {
         for (let ix = 0; ix < p.nBaysX; ix++) {
           const eid = store.addElement(nodeGrid[f][iz][ix], nodeGrid[f][iz][ix + 1], 'frame');
-          // Distributed load on top floor beams only
-          // UBA: gravity → local Z (ez=(0,-1,0) for horizontal bars, so qZ = -p.q)
-          if (f === p.nFloors && p.q !== 0) {
-            store.addDistributedLoad3D(eid, 0, 0, -p.q, -p.q);
+          if (p.q !== 0) {
+            store.addDistributedLoad3D(eid, 0, p.q, 0, p.q);
           }
         }
       }
@@ -650,11 +648,27 @@ export function generateSpaceFrame3D(store: ModelStore, p: SpaceFrame3DParams): 
       for (let ix = 0; ix <= p.nBaysX; ix++) {
         for (let iz = 0; iz < p.nBaysY; iz++) {
           const eid = store.addElement(nodeGrid[f][iz][ix], nodeGrid[f][iz + 1][ix], 'frame');
-          // Distributed load on top floor beams only
-          // UBA: gravity → local Z (ez=(0,-1,0) for horizontal bars, so qZ = -p.q)
-          if (f === p.nFloors && p.q !== 0) {
-            store.addDistributedLoad3D(eid, 0, 0, -p.q, -p.q);
+          if (p.q !== 0) {
+            store.addDistributedLoad3D(eid, 0, p.q, 0, p.q);
           }
+        }
+      }
+    }
+
+    // X-bracing on perimeter faces for lateral stiffness
+    for (let f = 0; f < p.nFloors; f++) {
+      // Front face (iz=0) and back face (iz=nBaysY)
+      for (const iz of [0, p.nBaysY]) {
+        for (let ix = 0; ix < p.nBaysX; ix++) {
+          store.addElement(nodeGrid[f][iz][ix], nodeGrid[f + 1][iz][ix + 1], 'truss');
+          store.addElement(nodeGrid[f][iz][ix + 1], nodeGrid[f + 1][iz][ix], 'truss');
+        }
+      }
+      // Left face (ix=0) and right face (ix=nBaysX)
+      for (const ix of [0, p.nBaysX]) {
+        for (let iz = 0; iz < p.nBaysY; iz++) {
+          store.addElement(nodeGrid[f][iz][ix], nodeGrid[f + 1][iz + 1][ix], 'truss');
+          store.addElement(nodeGrid[f][iz + 1][ix], nodeGrid[f + 1][iz][ix], 'truss');
         }
       }
     }
@@ -1118,35 +1132,49 @@ export function generateStadiumCanopy3D(store: ModelStore, p: StadiumCanopy3DPar
   store.batch(() => {
     const dx = p.span / p.nFrames;
     const base: number[] = [];
-    const back: number[] = [];
-    const front: number[] = [];
+    const backTop: number[] = [];
+    const backMid: number[] = [];
+    const frontTop: number[] = [];
+    const frontMid: number[] = [];
+    const roofSlope = -0.08; // slight downward slope for drainage
 
     for (let i = 0; i <= p.nFrames; i++) {
       const x = i * dx;
+      const frontY = p.columnHeight + p.depth * roofSlope;
       base.push(store.addNode(x, 0, 0));
-      back.push(store.addNode(x, p.columnHeight, 0));
-      const camber = Math.sin((Math.PI * i) / p.nFrames) * (p.depth * 0.12);
-      front.push(store.addNode(x, p.columnHeight + camber, p.depth));
+      backTop.push(store.addNode(x, p.columnHeight, 0));
+      backMid.push(store.addNode(x, p.columnHeight * 0.6, 0));
+      frontTop.push(store.addNode(x, frontY, p.depth));
+      frontMid.push(store.addNode(x, frontY - 2.5, p.depth));
     }
 
+    // Columns with mid-height bracing node
     for (let i = 0; i <= p.nFrames; i++) {
-      store.addElement(base[i], back[i], 'frame');
-      store.addElement(back[i], front[i], 'frame');
+      store.addElement(base[i], backMid[i], 'frame');
+      store.addElement(backMid[i], backTop[i], 'frame');
+      // Cantilever rafters (upper + lower chord for truss depth)
+      store.addElement(backTop[i], frontTop[i], 'frame');
+      store.addElement(backMid[i], frontMid[i], 'frame');
+      // Verticals at front tip
+      store.addElement(frontMid[i], frontTop[i], 'frame');
       store.addSupport(base[i], 'fixed3d');
     }
 
     for (let i = 0; i < p.nFrames; i++) {
-      store.addElement(back[i], back[i + 1], 'frame');
-      const eFront = store.addElement(front[i], front[i + 1], 'frame');
+      // Longitudinal beams
+      store.addElement(backTop[i], backTop[i + 1], 'frame');
+      store.addElement(backMid[i], backMid[i + 1], 'frame');
+      const eTop = store.addElement(frontTop[i], frontTop[i + 1], 'frame');
+      store.addElement(frontMid[i], frontMid[i + 1], 'frame');
       if (p.roofLoad !== 0) {
-        store.addDistributedLoad3D(eFront, 0, 0, p.roofLoad, p.roofLoad);
+        store.addDistributedLoad3D(eTop, 0, p.roofLoad, 0, p.roofLoad);
       }
-      store.addElement(back[i], front[i + 1], 'truss');
-      store.addElement(front[i], back[i + 1], 'truss');
-    }
-
-    for (let i = 0; i <= p.nFrames; i++) {
-      store.addNodalLoad3D(front[i], 0, -8, 0, 0, 0, 0);
+      // Roof plane X-bracing (upper chord)
+      store.addElement(backTop[i], frontTop[i + 1], 'truss');
+      store.addElement(frontTop[i], backTop[i + 1], 'truss');
+      // Warren diagonals between upper and lower chords
+      store.addElement(backTop[i], frontMid[i], 'truss');
+      store.addElement(frontTop[i], backMid[i], 'truss');
     }
   });
 }
