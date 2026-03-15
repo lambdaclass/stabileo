@@ -67,9 +67,7 @@ function createResultsStore() {
   let diagramType = $state<DiagramType>('none');
   /** Remembers last user-visible diagram so live-calc can restore it after clear() */
   let _lastDiagramType: DiagramType = 'none';
-  let deformedScale = $state<number>(100); // Scale factor for deformed shape (1x = true 1:1 real scale)
-  let _userAdjustedDeformedScale = false; // true once user manually changes the slider
-  let _autoScaledMin = $state<number>(1); // lowest auto-scaled value since last solve (for slider range)
+  let deformedScale = $state<number>(100); // Scale factor for deformed shape (applied directly to displacements)
   let diagramScale = $state<number>(1); // Multiplier for M/V/N diagram size (1 = default 60px height)
   let animateDeformed = $state<boolean>(false);
   let colorMapKind = $state<'moment' | 'shear' | 'axial' | 'stressRatio' | 'vonMises' | 'shellVonMises' | 'shellBending'>('moment');
@@ -158,13 +156,7 @@ function createResultsStore() {
       if (v !== 'none') _lastDiagramType = v;
     },
     get deformedScale() { return deformedScale; },
-    set deformedScale(v: number) { deformedScale = v; _userAdjustedDeformedScale = true; },
-    get userAdjustedDeformedScale() { return _userAdjustedDeformedScale; },
-    resetDeformedScaleFlag() { _userAdjustedDeformedScale = false; },
-    /** Set scale programmatically (auto-scaling, restore) without marking as user choice */
-    setDeformedScaleAuto(v: number) { deformedScale = v; if (v < _autoScaledMin) _autoScaledMin = v; },
-    /** Lowest auto-scaled value since last solve — used for slider range */
-    get autoScaledMin() { return _autoScaledMin; },
+    set deformedScale(v: number) { deformedScale = v; },
     get diagramScale() { return diagramScale; },
     set diagramScale(v: number) { diagramScale = Math.max(0.1, Math.min(10, v)); },
     get animateDeformed() { return animateDeformed; },
@@ -475,7 +467,7 @@ function createResultsStore() {
     setResults(r: AnalysisResults, preserveDiagram = false) {
       results = r;
       singleResults = r; // Save base solve for "Cargas simples" option
-      _userAdjustedDeformedScale = false; _autoScaledMin = 1; // re-enable auto-scaling on fresh solve
+      deformedScale = 100; // reset to default on fresh solve
       // Preserve current diagram type during live-calc re-solves
       const validDiagrams: DiagramType[] = ['deformed', 'moment', 'shear', 'axial', 'colorMap', 'axialColor'];
       if (preserveDiagram) {
@@ -584,7 +576,7 @@ function createResultsStore() {
       singleResults3D = r;
       showReactions = false;
       showConstraintForces = false;
-      _userAdjustedDeformedScale = false; _autoScaledMin = 1; // re-enable auto-scaling on fresh solve
+      deformedScale = 100; // reset to default on fresh solve
       // Preserve current diagram type during live-calc re-solves
       const valid3DDiagrams: DiagramType[] = ['deformed', 'momentY', 'momentZ', 'shearY', 'shearZ', 'axial', 'torsion', 'axialColor', 'colorMap'];
       if (preserveDiagram) {

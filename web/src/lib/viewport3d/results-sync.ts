@@ -66,15 +66,6 @@ function computeStructureBBox(): number {
   return Math.sqrt(dx * dx + dy * dy + dz * dz) || 1;
 }
 
-function computeMaxDisplacementMagnitude(displacements: Displacement3D[]): number {
-  let maxDisp = 0;
-  for (const d of displacements) {
-    const mag = Math.sqrt(d.ux * d.ux + d.uy * d.uy + d.uz * d.uz);
-    if (mag > maxDisp) maxDisp = mag;
-  }
-  return maxDisp;
-}
-
 // ─── Deformed shape ──────────────────────────────────────────
 
 export function syncDeformed(ctx: ResultsSyncContext, scaleOverride?: number): void {
@@ -119,25 +110,6 @@ export function syncDeformed(ctx: ResultsSyncContext, scaleOverride?: number): v
     const r3d = resultsStore.results3D;
     if (!r3d) return;
     displacements = r3d.displacements;
-    // Prevent the default 3D view from exploding into unreadable spaghetti on
-    // very flexible models, but still respect explicit user scaling changes.
-    // If the user has manually dragged the slider, their value wins.
-    if (!resultsStore.userAdjustedDeformedScale && scaleOverride === undefined) {
-      const structureSize = computeStructureBBox();
-      const maxDisp = computeMaxDisplacementMagnitude(displacements);
-      if (maxDisp > 1e-9) {
-        const maxVisualOffset = structureSize * 0.10;
-        const maxSafeScale = maxVisualOffset / maxDisp;
-        const capped = Math.min(scale, maxSafeScale);
-        if (capped !== scale) {
-          scale = capped;
-          // Write back so UI label reflects the actual scale being rendered.
-          // Use queueMicrotask to avoid re-triggering the $effect that called us.
-          const v = scale;
-          queueMicrotask(() => resultsStore.setDeformedScaleAuto(v));
-        }
-      }
-    }
   } else if (dt === 'modeShape') {
     const modal = resultsStore.modalResult3D;
     if (!modal || !modal.modes.length) return;

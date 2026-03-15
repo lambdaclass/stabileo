@@ -85,34 +85,8 @@
     return n.toFixed(2);
   }
 
-  const DEFORMED_SLIDER_STEPS = 200;
-
-  // Dynamic range: min is auto-scaled value, max is 5× that (subtle → clearly exaggerated)
-  // For stiff models where auto-scaling doesn't trigger, use the classic 1-50 range
-  const effectiveMin = $derived(resultsStore.autoScaledMin);
-  const effectiveMax = $derived(effectiveMin < 1 ? effectiveMin * 5 : 50);
-
-  // Simple logarithmic slider mapping across the full [effectiveMin .. effectiveMax] range
-  function deformedScaleToSlider(scale: number): number {
-    const min = effectiveMin;
-    const max = effectiveMax;
-    if (scale <= min) return 0;
-    if (scale >= max) return DEFORMED_SLIDER_STEPS;
-    const t = Math.log(scale / min) / Math.log(max / min);
-    return Math.round(t * DEFORMED_SLIDER_STEPS);
-  }
-
-  function sliderToDeformedScale(slider: number): number {
-    const min = effectiveMin;
-    const max = effectiveMax;
-    const t = Math.min(DEFORMED_SLIDER_STEPS, Math.max(0, slider)) / DEFORMED_SLIDER_STEPS;
-    const scale = min * Math.pow(max / min, t);
-    return +scale.toFixed(scale < 1 ? 2 : scale < 10 ? 1 : 0);
-  }
-
   function onDeformedScaleInput(e: Event) {
-    const slider = Number((e.target as HTMLInputElement).value);
-    resultsStore.deformedScale = sliderToDeformedScale(slider);
+    resultsStore.deformedScale = Number((e.target as HTMLInputElement).value);
   }
 
   const caseKeys = $derived([...resultsStore.perCase3D.keys()]);
@@ -175,13 +149,13 @@
           <input
             type="range"
             class="pro-viz-range"
-            min={0}
-            max={DEFORMED_SLIDER_STEPS}
+            min={1}
+            max={1000}
             step={1}
-            value={deformedScaleToSlider(resultsStore.deformedScale)}
+            value={resultsStore.deformedScale}
             oninput={onDeformedScaleInput}
           />
-          <span class="pro-viz-val">{resultsStore.deformedScale < 1 ? resultsStore.deformedScale.toFixed(2) : resultsStore.deformedScale < 10 ? resultsStore.deformedScale.toFixed(1) : Math.round(resultsStore.deformedScale)}×</span>
+          <span class="pro-viz-val">{Math.round(resultsStore.deformedScale)}×</span>
         </div>
       {/if}
 

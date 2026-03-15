@@ -622,10 +622,10 @@
       setDiagramUnitSystem(uiStore.unitSystem);
 
       if (dt === 'deformed') {
-        const baseScale = resultsStore.deformedScale;
+        const scale = resultsStore.deformedScale;
         const animScale = resultsStore.animateDeformed
-          ? baseScale * Math.sin(performance.now() / (500 / resultsStore.animSpeed))
-          : baseScale;
+          ? scale * Math.sin(performance.now() / (500 / resultsStore.animSpeed))
+          : scale;
         drawDeformed(resultsStore.results, makeDrawContext(), uiStore.zoom, animScale);
       } else if (dt === 'moment' || dt === 'shear' || dt === 'axial') {
         const dkind = dt as DiagramKind;
