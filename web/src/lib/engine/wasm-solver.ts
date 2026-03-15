@@ -140,9 +140,8 @@ export async function initSolver(): Promise<void> {
   if (wasmReady) return;
   if (wasmInitPromise) return wasmInitPromise;
   wasmInitPromise = (async () => {
-    // Use a variable path so Rollup/Vite doesn't try to resolve at build time
-    const wasmPath = '../wasm/dedaliano_engine';
-    const wasm = await import(/* @vite-ignore */ wasmPath);
+    // Let Vite track and rewrite the generated WASM glue module for production.
+    const wasm = await import('../wasm/dedaliano_engine.js');
     await wasm.default();
     wasmSolve2d = wasm.solve_2d;
     wasmSolve3d = wasm.solve_3d;
