@@ -19,7 +19,7 @@ import type { SolverInput, SolverLoad, AnalysisResults, SolverNode, SolverElemen
 const STEEL_E = 200_000; // MPa
 const STD_A = 0.01; // m²
 const STD_IZ = 1e-4; // m⁴
-const ALPHA = 1.2e-5; // /°C steel thermal expansion
+const _ALPHA = 1.2e-5; // /°C steel thermal expansion
 
 // ─── Helpers ────────────────────────────────────────────────────
 
@@ -174,7 +174,7 @@ function checkNodalEquilibrium(
   const supportedNodes = new Set<number>();
   for (const sup of input.supports.values()) supportedNodes.add(sup.nodeId);
 
-  for (const [nodeId, node] of input.nodes) {
+  for (const [nodeId] of input.nodes) {
     if (supportedNodes.has(nodeId)) continue; // skip supported nodes (reactions handle equilibrium)
 
     let sumFx = 0, sumFy = 0, sumMz = 0;
@@ -777,7 +777,7 @@ describe('1.3 — Analytical benchmarks', () => {
       // The moment at point of load: use start moment + shear contribution
       // M(a) = Ry_left * a = mStart + vStart * a (but sign conventions vary)
       // Just check Mmax from the element forces
-      const Mmax = Math.abs(f.mStart) + Math.abs(f.vStart) * a;
+      const _Mmax = Math.abs(f.mStart) + Math.abs(f.vStart) * a;
       // Actually, use the analytical approach: at any section to the left of load
       // M(a) = Ry_left * a. Let's verify via reactions.
       const Ry_left = getReaction(results, 1).ry;
@@ -788,7 +788,7 @@ describe('1.3 — Analytical benchmarks', () => {
       const EI = STEEL_E * 1000 * STD_IZ; // kN·m²
       // For a<b: delta_mid = P*b*(3*L² - 4*b²)/(48*EI) when a <= L/2
       // Here a=3, b=5, L=8, a < L/2=4
-      const delta_mid = P * b * (3 * L * L - 4 * b * b) / (48 * EI);
+      const _delta_mid = P * b * (3 * L * L - 4 * b * b) / (48 * EI);
       // Approximate: midspan is at node... but we only have 2 nodes.
       // Deflection under load: P*a²*b²/(3*EI*L)
       // We can't directly read mid-element deflection from results.
@@ -921,7 +921,7 @@ describe('1.3 — Analytical benchmarks', () => {
     // P * (nSeg-1) = w * L → w = P*(nSeg-1)/L
     const P = 10; // kN per node
     const totalW = P * (nSeg - 1); // = 70 kN
-    const w_equiv = totalW / L; // 7 kN/m
+    const _w_equiv = totalW / L; // 7 kN/m
     const loads: SolverLoad[] = [];
     for (let i = 1; i < nSeg; i++) {
       loads.push({ type: 'nodal', data: { nodeId: i + 1, fx: 0, fy: -P, mz: 0 } });
@@ -1263,14 +1263,12 @@ describe('1.4 — Stability and edge cases', () => {
       supports: [[1, 1, 'fixed'], [2, 3, 'fixed']],
       loads: [{ type: 'nodal', data: { nodeId: 2, fx: 0, fy: -10, mz: 0 } }],
     });
-    let isError = false;
     try {
-      const result = solve(input);
+      solve(input);
       // If solver doesn't detect disconnection, it may still solve each part independently
       // In that case it's not an error per se — the solver handles disconnected graphs
-      isError = typeof result === 'string';
     } catch {
-      isError = true;
+      // disconnected structure may throw — that's also acceptable
     }
     // Note: current solver may not detect disconnected structures as an error
     // This test documents current behavior
@@ -1364,21 +1362,6 @@ describe('1.5 — Maxwell reciprocity (δ_ij = δ_ji)', () => {
   });
 
   it('continuous beam: vertical load reciprocity', () => {
-    const input_base = {
-      nodes: [[1, 0, 0], [2, 3, 0], [3, 6, 0], [4, 10, 0]] as [number, number, number][],
-      elements: [
-        [1, 1, 2, 'frame'], [2, 2, 3, 'frame'], [3, 3, 4, 'frame'],
-      ] as [number, number, number, 'frame'][],
-      supports: [[1, 1, 'pinned'], [2, 3, 'rollerX'], [3, 4, 'rollerX']] as [number, number, string][],
-    };
-
-    // Load at node 2, measure at node 3 (note: node 3 is supported, so measure rotation)
-    // Actually, for rollerX, uy is restrained. Use free DOFs.
-    // Node 2 is free, node 3 has rollerX (uy restrained, ux/rz free).
-    // Let's use node 2 (free) and load at two different free nodes.
-    // Better: use vertical load at node 2 (free), measure uy at node 2 vs load at...
-    // Actually node 2 is the only fully free node. Let me redesign.
-
     // Use 4-span with 2 free nodes
     const input_base2 = {
       nodes: [[1, 0, 0], [2, 3, 0], [3, 7, 0], [4, 10, 0]] as [number, number, number][],

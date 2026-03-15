@@ -20,7 +20,6 @@ import type {
   SolverSupport3D, AnalysisResults3D, Displacement3D, ElementForces3D,
 } from '../../engine/types-3d';
 import type { SolverMaterial } from '../../engine/types';
-import * as THREE from 'three';
 
 // ─── Constants ──────────────────────────────────────────────────
 

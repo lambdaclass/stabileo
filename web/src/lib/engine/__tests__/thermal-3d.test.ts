@@ -49,18 +49,6 @@ function fixedSupport(nodeId: number): SolverSupport3D {
   };
 }
 
-function pinnedSupport(nodeId: number): SolverSupport3D {
-  return {
-    nodeId,
-    rx: true,
-    ry: true,
-    rz: true,
-    rrx: false,
-    rry: false,
-    rrz: false,
-  };
-}
-
 /** Pinned support with torsion restrained (for beam along X) */
 function pinnedSupportBeamX(nodeId: number): SolverSupport3D {
   return {

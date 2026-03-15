@@ -879,7 +879,7 @@ describe('13d. Model-store mapping: rollerX settlement reads dy field', () => {
   ];
 
   // Apply the same mapping logic as model store solve()
-  function mapStoreSupportToSolver(s: typeof storeSupports[number]) {
+  function mapStoreSupportToSolver(s: { id: number; nodeId: number; type: string; [k: string]: unknown }) {
     if (s.type === 'rollerX' || s.type === 'rollerY') {
       // This is the critical mapping: rollerX restricts Y → read dy; rollerY restricts X → read dx
       const di = s.type === 'rollerX' ? ((s as any).dy ?? 0) : ((s as any).dx ?? 0);

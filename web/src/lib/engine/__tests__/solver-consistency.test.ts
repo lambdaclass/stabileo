@@ -441,7 +441,6 @@ describe('Template generators — analytical verification', () => {
     // ΣFx = 0: Hlateral + sum(rx) = 0
     let sumFx = Hlateral;
     let sumFy = qBeam * W;
-    let sumM = 0; // about origin
     for (const r of results.reactions) {
       sumFx += r.rx;
       sumFy += r.ry;
@@ -729,7 +728,7 @@ describe('Diagram values — analytical checks', () => {
     // computeDiagramValueAt imported at top
 
     // Moment at fixed end (t=0): M = PL (hogging, positive in beam convention)
-    const mFixed = computeDiagramValueAt('moment', 0, ef);
+    const _mFixed = computeDiagramValueAt('moment', 0, ef);
     // Moment at free end (t=1): M = 0
     const mFree = computeDiagramValueAt('moment', 1.0, ef);
     expect(Math.abs(mFree)).toBeLessThan(0.01);

@@ -251,7 +251,7 @@ describe('Valid structures that must NOT be flagged as mechanisms', () => {
         [2, 2, 3, 'frame', true, false],   // hinge at node 2
       ],
       supports: [[1, 1, 'pinned'], [2, 2, 'rollerX'], [3, 3, 'pinned']],
-      loads: [{ type: 'distributed', data: { id: 1, elementId: 1, qI: -10, qJ: -10 } }],
+      loads: [{ type: 'distributed', data: { elementId: 1, qI: -10, qJ: -10 } }],
     });
     const result = solve(input);
     expect(result).toBeTruthy();
@@ -366,8 +366,8 @@ describe('Hinge behavior verification', () => {
       ],
       supports: [[1, 1, 'fixed'], [2, 3, 'rollerX']],
       loads: [
-        { type: 'distributed', data: { id: 1, elementId: 1, qI: q, qJ: q } },
-        { type: 'distributed', data: { id: 2, elementId: 2, qI: q, qJ: q } },
+        { type: 'distributed', data: { elementId: 1, qI: q, qJ: q } },
+        { type: 'distributed', data: { elementId: 2, qI: q, qJ: q } },
       ],
     });
     const result = solve(input);
@@ -467,7 +467,7 @@ describe('Global equilibrium on complex structures', () => {
       nodes: [[1, 0, 0], [2, L, 0]],
       elements: [[1, 1, 2, 'frame']],
       supports: [[1, 1, 'fixed']],
-      loads: [{ type: 'distributed', data: { id: 1, elementId: 1, qI: q, qJ: q } }],
+      loads: [{ type: 'distributed', data: { elementId: 1, qI: q, qJ: q } }],
     });
     const result = solve(input);
     expect(result).toBeTruthy();

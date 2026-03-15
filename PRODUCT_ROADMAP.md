@@ -56,6 +56,8 @@ ROI order for users:
 
 ## The Automation Gap
 
+> Full analysis: [research/automation_gaps.md](research/automation_gaps.md)
+
 The biggest remaining product gap is not "more analysis categories." It is automating the work engineers still do manually after the solver has already produced correct forces.
 
 Today the solver can compute forces, reactions, modes, and envelopes well enough to be impressive. What still blocks daily project delivery is the manual layer on top:

@@ -4,7 +4,7 @@
     computeSectionProperties, generateSectionName,
     type ShapeType, type SectionProperties, type MaterialCategory,
   } from '../lib/data/section-shapes';
-  import { crossSectionPath, type SectionDrawingParams } from '../lib/utils/section-drawing';
+  import { crossSectionPath } from '../lib/utils/section-drawing';
   import type { SectionShape } from '../lib/data/steel-profiles';
   import { t } from '../lib/i18n';
 

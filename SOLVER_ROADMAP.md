@@ -51,6 +51,8 @@ If the product roadmap succeeds, the solver becomes the foundation for more soft
 
 ## The Automation Gap The Solver Must Close
 
+> Full analysis: [research/automation_gaps.md](research/automation_gaps.md)
+
 The most important remaining solver-adjacent gap is not "one more analysis method." It is enabling the product to automate the decisions engineers still make manually after the solve.
 
 The solver already computes forces, reactions, modes, and envelopes. To support real design automation, it must also provide:
