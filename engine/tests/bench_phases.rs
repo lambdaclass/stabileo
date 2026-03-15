@@ -145,10 +145,10 @@ fn phase_breakdown_mitc4() {
             println!(
                 "{:>10} {:>6} {:>6} {:>9} {:>9} {:>9} {:>7} {:>7} {:>10} {:>7} {:>8} {:>9} {:>6} {:>8} {:>8} {:>8} {:>10.2e}",
                 label, n_nodes, n_elems,
-                t.assembly_us, t.symbolic_us, t.numeric_us,
-                t.solve_us, t.residual_us, t.dense_fallback_us,
-                t.reactions_us, t.stress_recovery_us,
-                t.total_us, t.n_free, t.nnz_kff, t.nnz_l,
+                t.assembly_ms, t.symbolic_ms, t.numeric_ms,
+                t.solve_ms, t.residual_ms, t.dense_fallback_ms,
+                t.reactions_ms, t.stress_recovery_ms,
+                t.total_ms, t.n_free, t.nnz_kff, t.nnz_l,
                 t.pivot_perturbations, t.max_perturbation,
             );
         } else {
@@ -577,7 +577,7 @@ fn sparse_vs_dense_comparison() {
         // Sparse path (full solve_3d)
         let result = linear::solve_3d(&input).unwrap();
         let t = result.timings.as_ref().unwrap();
-        let sparse_us = t.total_us;
+        let sparse_us = t.total_ms;
         let nf = t.n_free;
         let fill = if t.nnz_kff > 0 {
             t.nnz_l as f64 / t.nnz_kff as f64

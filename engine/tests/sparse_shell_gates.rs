@@ -130,13 +130,13 @@ fn no_dense_fallback_on_shell() {
     let t = result.timings.as_ref().expect("Expected timings from sparse path");
 
     assert_eq!(
-        t.dense_fallback_us, 0,
-        "Dense fallback triggered ({} us) — sparse Cholesky should survive shell matrices",
-        t.dense_fallback_us
+        t.dense_fallback_ms, 0.0,
+        "Dense fallback triggered ({} ms) — sparse Cholesky should survive shell matrices",
+        t.dense_fallback_ms
     );
     assert!(
-        t.solve_us > 0,
-        "Sparse solve_us is 0 — factorization may have failed"
+        t.solve_ms > 0.0,
+        "Sparse solve_ms is 0 — factorization may have failed"
     );
 }
 
@@ -410,13 +410,10 @@ fn diagnose_shell_pivots() {
             let i = asm.k_ff.row_idx[p];
             if i == j { continue; }
             // Find (j, i) in column i (i.e., row j in col i)
-            let mut found = false;
+            let mut _found = false;
             for q in asm.k_ff.col_ptr[i]..asm.k_ff.col_ptr[i + 1] {
                 if asm.k_ff.row_idx[q] == j {
-                    // This is K_ff stored as lower-tri CSC; (j,i) with j < i means
-                    // we need to find entry at row j in column i. But in lower-tri,
-                    // col i only has rows >= i, so row j < i won't exist.
-                    found = true;
+                    _found = true;
                     break;
                 }
             }
