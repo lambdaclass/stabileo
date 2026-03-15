@@ -199,13 +199,11 @@ function addGroundCross(group: THREE.Group, y: number = -0.35): void {
  */
 function addCustom3DGizmo(
   group: THREE.Group,
-  color: number,
+  _color: number,
   dofRestraints?: { tx: boolean; ty: boolean; tz: boolean; rx: boolean; ry: boolean; rz: boolean },
 ): void {
   const r = dofRestraints ?? { tx: true, ty: true, tz: true, rx: false, ry: false, rz: false };
   const barLen = 0.25;
-  const barMat = new THREE.MeshStandardMaterial({ color, roughness: 0.5 });
-  const arcMat = new THREE.MeshBasicMaterial({ color: 0xffaa44 });
 
   // Translation restraints: short cylinders along axes
   const transAxes: [boolean, THREE.Vector3, number][] = [

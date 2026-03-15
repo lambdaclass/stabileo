@@ -920,8 +920,7 @@ describe('1.3 — Analytical benchmarks', () => {
     // Total vertical load = w * L. With nodal loads of P at each interior node:
     // P * (nSeg-1) = w * L → w = P*(nSeg-1)/L
     const P = 10; // kN per node
-    const totalW = P * (nSeg - 1); // = 70 kN
-    const _w_equiv = totalW / L; // 7 kN/m
+    const totalW = P * (nSeg - 1); // = 70 kN total vertical load
     const loads: SolverLoad[] = [];
     for (let i = 1; i < nSeg; i++) {
       loads.push({ type: 'nodal', data: { nodeId: i + 1, fx: 0, fy: -P, mz: 0 } });

@@ -159,7 +159,7 @@ function toCompact(snapshot: ModelSnapshot, meta?: ShareMeta): Record<string, un
     if (v.t != null) opt.t = r(v.t);
     if (v.iy != null) opt.iy = r(v.iy);
     if (v.j != null) opt.j = r(v.j);
-    if (v.rotation) opt.rot = r(v.rotation);
+    if ((v as any).rotation) opt.rot = r((v as any).rotation);
     if (Object.keys(opt).length > 0) base.push(opt as any);
     return base;
   });
@@ -457,7 +457,8 @@ export function generateShareURL(): { url: string; length: number } | null {
   const snapshot = modelStore.snapshot();
   if (snapshot.nodes.length === 0) return null;
 
-  snapshot.analysisMode = uiStore.analysisMode;
+  const mode = uiStore.analysisMode;
+  snapshot.analysisMode = (mode === '2d' || mode === '3d') ? mode : undefined;
   const meta = buildShareMeta(true);
 
   const compressed = compressV2(snapshot, meta);
@@ -472,7 +473,8 @@ export function generateEmbedURL(): { url: string; length: number } | null {
   const snapshot = modelStore.snapshot();
   if (snapshot.nodes.length === 0) return null;
 
-  snapshot.analysisMode = uiStore.analysisMode;
+  const mode = uiStore.analysisMode;
+  snapshot.analysisMode = (mode === '2d' || mode === '3d') ? mode : undefined;
   const meta = buildShareMeta(false);
 
   const compressed = compressV2(snapshot, meta);

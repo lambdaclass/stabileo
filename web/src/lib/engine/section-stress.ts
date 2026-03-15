@@ -4,7 +4,7 @@
 // No torsion (T=0) and no out-of-plane shear (V_z=0).
 
 import type { Section } from '../store/model.svelte';
-import { ALL_PROFILES, familyToShape, type SteelProfile, type SectionShape } from '../data/steel-profiles';
+import { ALL_PROFILES, type SectionShape } from '../data/steel-profiles';
 import type { ElementForces } from './types';
 import { computeSectionStress2D, isWasmReady } from './wasm-solver';
 import { computeDiagramValueAt } from './diagrams';
@@ -207,49 +207,9 @@ export function resolveSectionGeometry(sec: Section): ResolvedSection {
   };
 }
 
-/** Estimate inertia about Z-axis (vertical, b³ terms) — for central core computation */
-function estimateAboutZ(
-  shape: SectionShape, A: number, Iz: number,
-  h: number, b: number, tw: number, tf: number, t: number,
-): number {
-  switch (shape) {
-    case 'rect':
-    case 'generic':
-      return h * b * b * b / 12;
-    case 'I':
-    case 'H':
-      // Iz ≈ 2·(tf·b³/12) + (h-2tf)·tw³/12
-      return 2 * (tf * b * b * b / 12) + (h - 2 * tf) * tw * tw * tw / 12;
-    case 'U':
-      // UPN: Iz ≈ 2·(tf·b³/12) + (h-2tf)·tw³/12
-      return 2 * (tf * b * b * b / 12) + (h - 2 * tf) * tw * tw * tw / 12;
-    case 'RHS': {
-      const bI = b - 2 * t;
-      const hI = h - 2 * t;
-      return (h * b * b * b - hI * bI * bI * bI) / 12;
-    }
-    case 'CHS':
-      return Iz; // by symmetry
-    case 'L':
-      return Iz; // equal legs approximation
-    case 'T':
-    case 'invL': {
-      // Iz ≈ hf·bf³/12 + hw·bw³/12 (both centered on z-axis)
-      const hw = h - tf;
-      return tf * b * b * b / 12 + hw * tw * tw * tw / 12;
-    }
-    case 'C':
-      // Similar to I but with lips
-      return 2 * (tf * b * b * b / 12) + (h - 2 * tf) * tw * tw * tw / 12;
-    default:
-      // Fallback: scale from Iz by aspect ratio
-      return b > 0 && h > 0 ? Iz * (b / h) * (b / h) : Iz;
-  }
-}
-
 /** Estimate inertia about Y-axis (horizontal, h³ terms) — primary 2D bending inertia */
 function estimateAboutY(
-  shape: SectionShape, A: number, Iz: number,
+  shape: SectionShape, _A: number, Iz: number,
   h: number, b: number, tw: number, tf: number, t: number,
 ): number {
   switch (shape) {
@@ -423,7 +383,6 @@ function computeQandB(y: number, rs: ResolvedSection): { Q: number; bAtY: number
       // Rectangular hollow section
       const bOuter = rs.b;
       const hOuter = rs.h;
-      const bInner = bOuter - 2 * rs.t;
       const hInner = hOuter - 2 * rs.t;
       const halfHi = hInner / 2;
 
@@ -1288,7 +1247,6 @@ function sfT(absV: number, rs: ResolvedSection): ShearFlowSegment[] {
   // Centroid coordinates
   const yTop = rs.h - yBar;           // top of flange
   const yJunc = hw - yBar;            // junction (top of web / bottom of flange)
-  const yBot = -yBar;                 // bottom of web
   const yFlCL = (yJunc + yTop) / 2;   // flange centerline y
 
   const halfOvhg = (bf - bw) / 2;     // flange overhang on each side

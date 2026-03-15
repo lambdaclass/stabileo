@@ -328,8 +328,8 @@ export function createDeformedLines(
   displacements: Displacement3D[],
   elementForces: ElementForces3D[],
   scale: number,
-  eiMap?: Map<number, ElementEI>,
-  leftHand?: boolean,
+  _eiMap?: Map<number, ElementEI>,
+  _leftHand?: boolean,
 ): THREE.Group {
   const group = new THREE.Group();
   group.userData = { type: 'deformed' };
@@ -346,7 +346,7 @@ export function createDeformedLines(
     forcesMap.set(ef.elementId, ef);
   }
 
-  for (const [elemId, elem] of elements) {
+  for (const [, elem] of elements) {
     const nI = nodes.get(elem.nodeI);
     const nJ = nodes.get(elem.nodeJ);
     if (!nI || !nJ) continue;

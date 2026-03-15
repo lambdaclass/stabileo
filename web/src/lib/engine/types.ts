@@ -14,6 +14,7 @@ export interface SolverMaterial {
 
 export interface SolverSection {
   id: number;
+  name?: string;
   a: number;   // m²
   iz: number;  // m⁴
 }
@@ -140,12 +141,6 @@ export interface AssemblyDiagnostic {
   value: number;
   threshold: number;
   message: string;
-}
-
-export interface SolverDiagnostic {
-  category: string;
-  message: string;
-  severity: 'info' | 'warning' | 'error';
 }
 
 export interface SolveTimings {

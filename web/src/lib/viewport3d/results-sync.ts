@@ -10,10 +10,9 @@ import * as THREE from 'three';
 import { modelStore, uiStore, resultsStore } from '../store';
 import { createDeformedLines, type ElementEI } from '../three/deformed-shape-3d';
 import { createDiagramGroup3D, createEnvelopeDiagramGroup3D } from '../three/diagram-render-3d';
-import { COLORS, setGroupColor, disposeObject, heatmapColor, axialForceColor, verificationColor, createTextSprite } from '../three/selection-helpers';
+import { COLORS, setGroupColor, disposeObject, axialForceColor, verificationColor, createTextSprite } from '../three/selection-helpers';
 import { verificationStore } from '../store/verification.svelte';
 import { createReactionArrow, createConstraintForceArrow } from '../three/create-load-arrow';
-import { computeElementStress3D } from '../engine/section-stress-3d';
 import type { Diagram3DKind } from '../engine/diagrams-3d';
 import type { Displacement3D } from '../engine/types-3d';
 import { sampleElementValues, createHeatmapCylinder, orientHeatmapMesh, applyShellVertexColors, type HeatmapVariable } from '../three/stress-heatmap';
@@ -347,7 +346,7 @@ export function syncColorMap3D(ctx: ResultsSyncContext): void {
     if (cmKind === 'shellVonMises') {
       // Shell-only mode: restore frame elements, apply shell heatmap
       clearHeatmapMeshes(ctx);
-      for (const [id, group] of ctx.elementGroups) {
+      for (const [_id, group] of ctx.elementGroups) {
         showOriginalMeshes(group, true);
         setGroupColor(group, 0x888888); // dim frames
       }

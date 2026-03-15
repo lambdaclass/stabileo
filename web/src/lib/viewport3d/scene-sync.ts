@@ -14,6 +14,7 @@ import { createNodalLoadArrow, createDistributedLoadGroup, createSurfaceLoadGrou
 import { COLORS, setMeshColor, setGroupColor, disposeObject } from '../three/selection-helpers';
 import { createPlateMesh, createQuadMesh } from '../three/create-shell-mesh';
 import { computeLocalAxes3D } from '../engine/solver-3d';
+import type { SolverNode3D } from '../engine/types-3d';
 
 /**
  * Mutable context holding Three.js scene graph references.
@@ -178,7 +179,7 @@ export function syncShells(ctx: SceneSyncContext): void {
   };
 
   // Clear all existing shell meshes (simple rebuild, like elements)
-  for (const [key, group] of ctx.shellGroups) {
+  for (const [, group] of ctx.shellGroups) {
     ctx.shellsParent.remove(group);
     disposeObject(group);
   }
@@ -312,8 +313,8 @@ export function syncLoads(ctx: SceneSyncContext): void {
       const nJ = modelStore.nodes.get(elem.nodeJ);
       if (!nI || !nJ) continue;
       // Compute local axes to get the actual ey/ez directions in global coordinates
-      const posI = { x: nI.x, y: nI.y, z: nI.z ?? 0 };
-      const posJ = { x: nJ.x, y: nJ.y, z: nJ.z ?? 0 };
+      const posI = { id: 0, x: nI.x, y: nI.y, z: nI.z ?? 0 } as SolverNode3D;
+      const posJ = { id: 0, x: nJ.x, y: nJ.y, z: nJ.z ?? 0 } as SolverNode3D;
       const elemLocalY = (elem.localYx !== undefined && elem.localYy !== undefined && elem.localYz !== undefined)
         ? { x: elem.localYx, y: elem.localYy, z: elem.localYz } : undefined;
       const localAxes = computeLocalAxes3D(posI, posJ, elemLocalY, elem.rollAngle);

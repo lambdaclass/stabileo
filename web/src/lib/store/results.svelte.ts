@@ -1,7 +1,7 @@
 // Results store
 
 import type { AnalysisResults, InfluenceLineResult, Section, Material } from './model.svelte';
-import type { ElementForces, FullEnvelope, ConstraintForce, AssemblyDiagnostic, SolverDiagnostic, SolveTimings } from '../engine/types';
+import type { ElementForces, FullEnvelope, ConstraintForce, SolverDiagnostic, SolveTimings } from '../engine/types';
 import type { AnalysisResults3D, Displacement3D, Reaction3D, ElementForces3D, FullEnvelope3D } from '../engine/types-3d';
 import type { MovingLoadEnvelope } from '../engine/moving-loads';
 import type { PDeltaResult, PDeltaResult3D, ModalResult, ModalResult3D, BucklingResult, BucklingResult3D, PlasticResult, SpectralResult, SpectralResult3D } from '../engine/result-types';
@@ -763,11 +763,6 @@ function createResultsStore() {
       ));
     },
 
-    // Constraint forces & diagnostics (2D + 3D)
-    get constraintForces(): ConstraintForce[] { return results?.constraintForces ?? []; },
-    get diagnostics(): AssemblyDiagnostic[] { return results?.diagnostics ?? []; },
-    get constraintForces3D(): ConstraintForce[] { return results3D?.constraintForces ?? []; },
-    get diagnostics3D(): AssemblyDiagnostic[] { return results3D?.diagnostics ?? []; },
     get solverDiagnostics(): SolverDiagnostic[] { return results?.solverDiagnostics ?? []; },
     get solverDiagnostics3D(): SolverDiagnostic[] { return results3D?.solverDiagnostics ?? []; },
 

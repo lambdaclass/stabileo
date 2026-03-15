@@ -918,8 +918,6 @@ export function generateIrregularSetbackTower3D(store: ModelStore, p: IrregularS
 
   store.batch(() => {
     const floors: number[][][] = []; // floors[level][iz][ix]
-    const maxX = p.baysX * p.bayX;
-    const maxZ = p.baysZ * p.bayZ;
 
     const insetAt = (lev: number) => {
       let inset = 0;

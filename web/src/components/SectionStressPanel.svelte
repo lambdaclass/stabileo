@@ -532,7 +532,7 @@
   >
     <div class="ssp-header">
       <span class="ssp-title">{t('stress.panelTitle')}</span>
-      <button class="ssp-close" onclick={() => resultsStore.clearStressQuery()}>&#x2715;</button>
+      <button class="ssp-close" onclick={() => resultsStore.stressQuery = null}>&#x2715;</button>
     </div>
     <div class="ssp-amorph-msg">
       <span class="ssp-amorph-icon">⚠</span>

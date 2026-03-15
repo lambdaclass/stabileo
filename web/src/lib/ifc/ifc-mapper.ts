@@ -147,13 +147,13 @@ export function mapIfcToModel(
       if (dims) {
         const h = parseFloat(dims[1]) * 1e-3; // mm → m
         const b = parseFloat(dims[2]) * 1e-3;
-        const t = dims[3] ? parseFloat(dims[3]) * 1e-3 : undefined;
+        const tw = dims[3] ? parseFloat(dims[3]) * 1e-3 : undefined;
         // Estimate properties
-        const a = t ? 2 * (h + b) * t : h * b; // hollow vs solid
-        const iz = t ? (h ** 3 * b / 12 - (h - 2 * t) ** 3 * (b - 2 * t) / 12) : h ** 3 * b / 12;
+        const a = tw ? 2 * (h + b) * tw : h * b; // hollow vs solid
+        const iz = tw ? (h ** 3 * b / 12 - (h - 2 * tw) ** 3 * (b - 2 * tw) / 12) : h ** 3 * b / 12;
         sections.push({
-          name, a, iz, h, b, t,
-          shape: t ? 'RHS' : 'rect',
+          name, a, iz, h, b, t: tw,
+          shape: tw ? 'RHS' : 'rect',
         });
         warnings.push(t('ifc.profileEstimated').replace('{n}', name));
       } else {

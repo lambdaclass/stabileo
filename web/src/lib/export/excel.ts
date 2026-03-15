@@ -21,14 +21,6 @@ interface ExcelExportOptions {
   includeResults?: boolean;
 }
 
-// Column width helpers
-const COL_WIDTHS = {
-  id: 6,
-  name: 18,
-  type: 10,
-  value: 12,
-  unit: 8,
-};
 
 function createSummarySheet(): XLSX.WorkSheet {
   const is3D = uiStore.analysisMode === '3d';
@@ -299,10 +291,13 @@ function createReactionsSheet(): XLSX.WorkSheet {
 
   for (const r of r2d!.reactions) {
     const sup = [...modelStore.supports.values()].find(s => s.nodeId === r.nodeId);
-    const supType = sup ? {
+    const supType = sup ? ({
       fixed: t('excel.fixed'), pinned: t('excel.pinned'),
       rollerX: t('excel.rollerX'), rollerY: t('excel.rollerY'), spring: t('excel.spring'),
-    }[sup.type] ?? sup.type : '-';
+      fixed3d: t('excel.fixed'), pinned3d: t('excel.pinned'),
+      rollerXY: 'Roller XY', rollerXZ: 'Roller XZ', rollerYZ: 'Roller YZ',
+      spring3d: t('excel.spring'), custom3d: 'Custom 3D',
+    } as Record<string, string>)[sup.type] ?? sup.type : '-';
 
     data.push([
       r.nodeId, supType,

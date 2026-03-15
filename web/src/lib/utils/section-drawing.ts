@@ -39,7 +39,6 @@ export function crossSectionPath(p: SectionDrawingParams): string {
       // Compute proper inner width: web is on the left, flanges extend to the right
       // Inner width = b - tw (the open channel part)
       const tw = p.tw * sc;
-      const innerW = (p.b - p.tw) * sc;
       // Draw symmetric U centered: left side is the web (closed), right side is open
       // Outer: full rectangle. Inner: rectangle cut from the right side.
       // Points: start top-left (web side), go clockwise

@@ -5,7 +5,7 @@
 
 import type {
   SolverInput, SolverNode, SolverSupport,
-  SolverDistributedLoad, SolverPointLoadOnElement, SolverThermalLoad,
+  SolverPointLoadOnElement, SolverThermalLoad,
 } from './types';
 import { t } from '../i18n';
 

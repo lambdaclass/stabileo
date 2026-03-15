@@ -3,7 +3,6 @@
 // mesh topology, and analysis context. Returns a recommendation with reasons.
 
 import type { ShellFamily, ShellRecommendation } from './types-3d';
-import { AVAILABLE_SHELL_FAMILIES } from './types-3d';
 
 // ─── Input types ────────────────────────────────────────────────
 
@@ -47,12 +46,6 @@ function dot(a: Vec3, b: Vec3): number {
 
 function length(v: Vec3): number {
   return Math.sqrt(v.x * v.x + v.y * v.y + v.z * v.z);
-}
-
-function normalize(v: Vec3): Vec3 {
-  const l = length(v);
-  if (l < 1e-12) return { x: 0, y: 0, z: 0 };
-  return { x: v.x / l, y: v.y / l, z: v.z / l };
 }
 
 /** Angle between two vectors in degrees */
@@ -143,13 +136,9 @@ const SKEW_WARN = 45;              // warn if skew < 45°
 
 // ─── Selector ───────────────────────────────────────────────────
 
-function isAvailable(f: ShellFamily): boolean {
-  return (AVAILABLE_SHELL_FAMILIES as readonly string[]).includes(f);
-}
-
 /** Select the best shell family for a triangular element */
 export function selectTriFamily(ctx: ShellSelectionContext): ShellRecommendation {
-  const { nodes, thickness, analysisType, preferAccuracy } = ctx;
+  const { nodes, thickness, preferAccuracy } = ctx;
   const m = computeTriMetrics(nodes, thickness);
   const warnings: string[] = [];
 
@@ -201,7 +190,7 @@ export function selectTriFamily(ctx: ShellSelectionContext): ShellRecommendation
 
 /** Select the best shell family for a quadrilateral element */
 export function selectQuadFamily(ctx: ShellSelectionContext): ShellRecommendation {
-  const { nodes, thickness, analysisType, preferAccuracy } = ctx;
+  const { nodes, thickness, preferAccuracy } = ctx;
   const m = computeQuadMetrics(nodes, thickness);
   const warnings: string[] = [];
 

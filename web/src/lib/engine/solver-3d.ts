@@ -1418,9 +1418,7 @@ function solve3DInternal(input: SolverInput3D): AnalysisResults3D {
 
   const reactions: Reaction3D[] = [];
   for (const sup of input.supports.values()) {
-    // Check if any DOF has a spring
     const springs = [sup.kx, sup.ky, sup.kz, sup.krx, sup.kry, sup.krz];
-    const hasAnySpring = springs.some(s => s !== undefined && s > 0);
 
     let fx = 0, fy = 0, fz = 0, mx = 0, my = 0, mz = 0;
 

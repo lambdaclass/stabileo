@@ -985,10 +985,10 @@ export function solve(input: SolverInput): AnalysisResults {
   // Validate section properties
   for (const sec of input.sections.values()) {
     if (sec.a <= 0) {
-      throw new Error(t('solver.secInvalidA').replace('{id}', String(sec.id)).replace('{name}', sec.name));
+      throw new Error(t('solver.secInvalidA').replace('{id}', String(sec.id)).replace('{name}', sec.name ?? ''));
     }
     if (sec.iz <= 0) {
-      throw new Error(t('solver.secInvalidIz').replace('{id}', String(sec.id)).replace('{name}', sec.name));
+      throw new Error(t('solver.secInvalidIz').replace('{id}', String(sec.id)).replace('{name}', sec.name ?? ''));
     }
   }
 

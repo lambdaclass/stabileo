@@ -111,13 +111,6 @@ function fixedSupport3D(nodeId: number): SolverSupport3D {
 function pinnedSupport3D(nodeId: number): SolverSupport3D {
   return { nodeId, rx: true, ry: true, rz: true, rrx: false, rry: false, rrz: false };
 }
-function pinnedSupportBeamX(nodeId: number): SolverSupport3D {
-  return { nodeId, rx: true, ry: true, rz: true, rrx: true, rry: false, rrz: false };
-}
-function rollerYSupport3D(nodeId: number): SolverSupport3D {
-  // Restrain Y only (and torsion for stability)
-  return { nodeId, rx: false, ry: true, rz: false, rrx: true, rry: false, rrz: false };
-}
 
 function buildInput3D(
   nodes: SolverNode3D[],
@@ -141,27 +134,6 @@ function assertSuccess3D(result: AnalysisResults3D | string): asserts result is 
   if (typeof result === 'string') throw new Error(`Solver error: ${result}`);
 }
 
-function checkEquilibrium3D(result: AnalysisResults3D, input: SolverInput3D, tol = 0.01) {
-  let sumFx = 0, sumFy = 0, sumFz = 0;
-  for (const r of result.reactions) { sumFx += r.fx; sumFy += r.fy; sumFz += r.fz; }
-  for (const l of input.loads) {
-    if (l.type === 'nodal') { sumFx += l.data.fx; sumFy += l.data.fy; sumFz += l.data.fz; }
-    if (l.type === 'distributed') {
-      const elem = input.elements.get(l.data.elementId)!;
-      const ni = input.nodes.get(elem.nodeI)!, nj = input.nodes.get(elem.nodeJ)!;
-      const dx = nj.x - ni.x, dy = nj.y - ni.y, dz = nj.z - ni.z;
-      const L = Math.sqrt(dx * dx + dy * dy + dz * dz);
-      // Approximate: average distributed load × length in each local direction
-      const qYavg = (l.data.qYI + l.data.qYJ) / 2;
-      const qZavg = (l.data.qZI + l.data.qZJ) / 2;
-      // For beam along X: local Y ≈ global Z, local Z ≈ -global Y (UBA convention)
-      // This is approximate; exact depends on local axes
-      sumFy += qZavg * L * (-1); // negative because local Z ≈ -global Y for horizontal beams
-      sumFz += qYavg * L;
-    }
-  }
-  // For non-nodal loads, equilibrium check is more complex; focus on reactions balancing applied nodal loads
-}
 
 function makeFrame3D(id: number, nI: number, nJ: number, hingeStart = false, hingeEnd = false): SolverElement3D {
   return { id, type: 'frame', nodeI: nI, nodeJ: nJ, materialId: 1, sectionId: 1, hingeStart, hingeEnd };
@@ -279,7 +251,7 @@ describe('1. Isostatic 2D — Cantilever Beams', () => {
 
   it('Cantilever + tip point load: δ=PL³/3EI', () => {
     const L = 4, P = -15;
-    const E = STEEL_E, A = STD_A, Iz = STD_IZ;
+    const E = STEEL_E, Iz = STD_IZ;
     const EI = E * 1000 * Iz; // kN·m²
 
     const input = makeInput({
@@ -964,7 +936,7 @@ describe('5. Extreme values — Dimension combinations', () => {
   });
 
   it('Many elements (20-element discretization): same result as 1 element', () => {
-    const L = 10, P = -30, n = 20;
+    const L = 10, n = 20;
     const dx = L / n;
 
     // Single element reference

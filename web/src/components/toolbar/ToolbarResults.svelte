@@ -1,8 +1,5 @@
 <script lang="ts">
-  import { uiStore, resultsStore, modelStore, historyStore } from '../../lib/store';
-  import { unitLabel } from '../../lib/utils/units';
-  import { solveDetailed } from '../../lib/engine/solver-detailed';
-  import { solveDetailed3D } from '../../lib/engine/solver-detailed-3d';
+  import { uiStore, resultsStore, modelStore } from '../../lib/store';
   import { t } from '../../lib/i18n';
 
   // ─── Educational Tooltips (subset used by Results) ─────────────
@@ -66,8 +63,6 @@
   }
 
   // ─── Derived ───────────────────────────────────────────────────
-  const us = $derived(uiStore.unitSystem);
-  const ul = (q: import('../../lib/utils/units').Quantity) => unitLabel(q, us);
 
   // Pulse the Solve button when model is ready but not yet solved
   const modelReady = $derived(
@@ -179,37 +174,6 @@
     }
   }
 
-  function handleSolveCombinations() {
-    if (uiStore.analysisMode === '3d' || uiStore.analysisMode === 'pro') {
-      const isPro = uiStore.analysisMode === 'pro';
-      const result = modelStore.solveCombinations3D(uiStore.includeSelfWeight, uiStore.axisConvention3D === 'leftHand', isPro);
-      if (typeof result === 'string') {
-        uiStore.toast(result, 'error');
-      } else if (result) {
-        resultsStore.setCombinationResults3D(result.perCase, result.perCombo, result.envelope);
-        const nCombos = result.perCombo.size;
-        const nCases = result.perCase.size;
-        uiStore.toast(t('toast.combinations3dSuccess').replace('{n}', String(nCombos)).replace('{cases}', String(nCases)), 'success');
-      }
-      return;
-    }
-    const result = modelStore.solveCombinations(uiStore.includeSelfWeight);
-    if (typeof result === 'string') {
-      uiStore.toast(result, 'error');
-    } else if (result) {
-      resultsStore.setCombinationResults(result.perCase, result.perCombo, result.envelope);
-      const nCombos = result.perCombo.size;
-      const nCases = result.perCase.size;
-      uiStore.toast(t('toast.combinationsSuccess').replace('{n}', String(nCombos)).replace('{cases}', String(nCases)), 'success');
-    }
-  }
-
-  function zoomToFit() {
-    if (modelStore.nodes.size === 0) return;
-    const canvas = document.querySelector('.viewport-container canvas') as HTMLCanvasElement | null;
-    if (!canvas) return;
-    uiStore.zoomToFit(modelStore.nodes.values(), canvas.width, canvas.height);
-  }
 </script>
 
 <div class="toolbar-section">
