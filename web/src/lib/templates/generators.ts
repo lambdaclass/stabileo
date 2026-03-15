@@ -1108,7 +1108,287 @@ export function generateXLDiagridTower3D(store: ModelStore, p: XLDiagridTower3DP
 }
 
 // -------------------------------------------------------------------
-// 7. Cable-stayed bridge — dual H-pylon with semi-fan cables
+// 7a. Suspension bridge — parabolic cables, portal towers, stiffening truss
+// -------------------------------------------------------------------
+
+export interface SuspensionBridge3DParams {
+  mainSpan: number;       // main span between towers (m)
+  sideSpan: number;       // each approach span (m)
+  deckWidth: number;      // total width (m)
+  towerHeight: number;    // height above deck (m)
+  sag: number;            // cable sag at midspan (m)
+  nPanelsMain: number;    // panels in main span
+  nPanelsSide: number;    // panels per side span
+  trussDepth: number;     // stiffening truss depth (m)
+  deckLoad: number;       // distributed load (kN/m, negative = down)
+}
+
+export function generateSuspensionBridge3D(store: ModelStore, p: SuspensionBridge3DParams): void {
+  store.clear();
+  store.model.name = t('ex.suspensionBridge3D');
+
+  store.batch(() => {
+    const hw = p.deckWidth / 2;
+    const nMain = p.nPanelsMain;
+    const nSide = p.nPanelsSide;
+    const dxMain = p.mainSpan / nMain;
+    const dxSide = p.sideSpan / nSide;
+    const deckY = 0;
+    const towerX1 = p.sideSpan;           // left tower x
+    const towerX2 = p.sideSpan + p.mainSpan; // right tower x
+    const totalLen = 2 * p.sideSpan + p.mainSpan;
+
+    // Cable profile: parabola y(x) = towerHeight - sag * (2x/L - 1)^2
+    // where x is measured from tower1, L = mainSpan
+    // At towers (x=0, x=L): y = towerHeight - sag*(1) = towerHeight - sag  ... no
+    // Better: y(x) = towerHeight - 4*sag*(x/L)*(1 - x/L)
+    // At x=0 and x=L: y = towerHeight. At x=L/2: y = towerHeight - sag.
+    const cableY = (xFromTower1: number): number => {
+      const t = xFromTower1 / p.mainSpan;
+      return deckY + p.towerHeight - 4 * p.sag * t * (1 - t);
+    };
+
+    // Side span cable: linear from anchorage (ground level) to tower top
+    const towerTopY = deckY + p.towerHeight;
+    const anchorY = deckY - 4; // anchorages slightly below deck
+
+    // ── Upper deck (stiffening truss top chord) ──
+    // Laid out as left-side-span | main-span | right-side-span
+    const allX: number[] = [];
+    // Left side span
+    for (let i = 0; i <= nSide; i++) allX.push(i * dxSide);
+    // Main span (skip tower1 position, already added)
+    for (let i = 1; i <= nMain; i++) allX.push(towerX1 + i * dxMain);
+    // Right side span (skip tower2 position, already added)
+    for (let i = 1; i <= nSide; i++) allX.push(towerX2 + i * dxSide);
+
+    const totalPanels = allX.length - 1;
+    const towerIdx1 = nSide;             // index in allX for tower1
+    const towerIdx2 = nSide + nMain;     // index in allX for tower2
+
+    // Deck nodes: upper chord (deck level) and lower chord (truss bottom)
+    const upperL: number[] = []; // upper left
+    const upperR: number[] = []; // upper right
+    const lowerL: number[] = []; // lower left
+    const lowerR: number[] = []; // lower right
+
+    for (let i = 0; i < allX.length; i++) {
+      const x = allX[i];
+      upperL.push(store.addNode(x, deckY, -hw));
+      upperR.push(store.addNode(x, deckY, hw));
+      lowerL.push(store.addNode(x, deckY - p.trussDepth, -hw));
+      lowerR.push(store.addNode(x, deckY - p.trussDepth, hw));
+    }
+
+    // Longitudinal chords + loads
+    for (let i = 0; i < totalPanels; i++) {
+      const eUL = store.addElement(upperL[i], upperL[i + 1], 'frame');
+      const eUR = store.addElement(upperR[i], upperR[i + 1], 'frame');
+      store.addElement(lowerL[i], lowerL[i + 1], 'frame');
+      store.addElement(lowerR[i], lowerR[i + 1], 'frame');
+      if (p.deckLoad !== 0) {
+        store.addDistributedLoad3D(eUL, 0, p.deckLoad, 0, p.deckLoad);
+        store.addDistributedLoad3D(eUR, 0, p.deckLoad, 0, p.deckLoad);
+      }
+    }
+
+    // Cross beams + verticals + diagonals at every panel point
+    for (let i = 0; i < allX.length; i++) {
+      // Cross beams at deck and lower chord
+      store.addElement(upperL[i], upperR[i], 'frame');
+      store.addElement(lowerL[i], lowerR[i], 'frame');
+      // Verticals connecting upper to lower chord
+      store.addElement(upperL[i], lowerL[i], 'frame');
+      store.addElement(upperR[i], lowerR[i], 'frame');
+    }
+
+    // Warren diagonals in stiffening truss (both sides)
+    for (let i = 0; i < totalPanels; i++) {
+      if (i % 2 === 0) {
+        store.addElement(upperL[i], lowerL[i + 1], 'truss');
+        store.addElement(upperR[i], lowerR[i + 1], 'truss');
+      } else {
+        store.addElement(lowerL[i], upperL[i + 1], 'truss');
+        store.addElement(lowerR[i], upperR[i + 1], 'truss');
+      }
+    }
+
+    // Horizontal wind bracing on lower chord plane
+    for (let i = 0; i < totalPanels; i++) {
+      if (i % 2 === 0) {
+        store.addElement(lowerL[i], lowerR[i + 1], 'truss');
+      } else {
+        store.addElement(lowerR[i], lowerL[i + 1], 'truss');
+      }
+    }
+
+    // ── Portal towers ──
+    const buildTower = (deckIdx: number) => {
+      const x = allX[deckIdx];
+      const legInset = hw * 0.15; // legs slightly inside deck edges
+      const topY = towerTopY;
+      const midY = topY * 0.55;
+      const portalY = topY * 0.80; // portal cross-beam
+
+      // Tower legs (4 nodes: base inner-left, inner-right, outer-left, outer-right)
+      const baseLZ = -hw + legInset;
+      const baseRZ = hw - legInset;
+
+      // Base (at deck level, connected to deck)
+      const bL = store.addNode(x, deckY, baseLZ);
+      const bR = store.addNode(x, deckY, baseRZ);
+      // Mid height
+      const mL = store.addNode(x, midY, baseLZ);
+      const mR = store.addNode(x, midY, baseRZ);
+      // Portal beam height
+      const pL = store.addNode(x, portalY, baseLZ);
+      const pR = store.addNode(x, portalY, baseRZ);
+      // Top (saddle points for main cable)
+      const tL = store.addNode(x, topY, baseLZ);
+      const tR = store.addNode(x, topY, baseRZ);
+
+      // Legs
+      store.addElement(bL, mL, 'frame');
+      store.addElement(mL, pL, 'frame');
+      store.addElement(pL, tL, 'frame');
+      store.addElement(bR, mR, 'frame');
+      store.addElement(mR, pR, 'frame');
+      store.addElement(pR, tR, 'frame');
+
+      // Cross beams
+      store.addElement(mL, mR, 'frame');
+      store.addElement(pL, pR, 'frame');
+      store.addElement(tL, tR, 'frame');
+
+      // K-bracing between cross beams for stiffness
+      store.addElement(mL, pR, 'truss');
+      store.addElement(mR, pL, 'truss');
+      store.addElement(pL, tR, 'truss');
+      store.addElement(pR, tL, 'truss');
+
+      // Connect tower base to deck
+      store.addElement(bL, upperL[deckIdx], 'frame');
+      store.addElement(bR, upperR[deckIdx], 'frame');
+      store.addElement(bL, lowerL[deckIdx], 'frame');
+      store.addElement(bR, lowerR[deckIdx], 'frame');
+
+      // Fixed supports at tower base
+      store.addSupport(bL, 'fixed3d');
+      store.addSupport(bR, 'fixed3d');
+
+      return { topL: tL, topR: tR, baseL: bL, baseR: bR, baseLZ, baseRZ };
+    };
+
+    const tower1 = buildTower(towerIdx1);
+    const tower2 = buildTower(towerIdx2);
+
+    // ── Main cables (parabolic) + hangers ──
+    const mainCableL: number[] = [];
+    const mainCableR: number[] = [];
+
+    // Cable nodes at every main-span panel point
+    for (let i = 0; i <= nMain; i++) {
+      const x = towerX1 + i * dxMain;
+      const y = cableY(i * dxMain);
+      if (i === 0) {
+        // At tower — reuse tower top nodes
+        mainCableL.push(tower1.topL);
+        mainCableR.push(tower1.topR);
+      } else if (i === nMain) {
+        mainCableL.push(tower2.topL);
+        mainCableR.push(tower2.topR);
+      } else {
+        mainCableL.push(store.addNode(x, y, tower1.baseLZ));
+        mainCableR.push(store.addNode(x, y, tower1.baseRZ));
+      }
+    }
+
+    // Cable longitudinal elements
+    for (let i = 0; i < nMain; i++) {
+      store.addElement(mainCableL[i], mainCableL[i + 1], 'truss');
+      store.addElement(mainCableR[i], mainCableR[i + 1], 'truss');
+    }
+
+    // Vertical hangers from cable to deck (skip tower positions)
+    for (let i = 1; i < nMain; i++) {
+      const deckIdx = towerIdx1 + i;
+      store.addElement(mainCableL[i], upperL[deckIdx], 'truss');
+      store.addElement(mainCableR[i], upperR[deckIdx], 'truss');
+    }
+
+    // ── Side span cables (straight from tower top to anchorage) ──
+    // Left side: from anchor (x=0) to tower1 top
+    const anchorLL = store.addNode(0, anchorY, tower1.baseLZ);
+    const anchorLR = store.addNode(0, anchorY, tower1.baseRZ);
+    store.addSupport(anchorLL, 'fixed3d');
+    store.addSupport(anchorLR, 'fixed3d');
+
+    // Intermediate cable nodes on left side span
+    const sideCableNodesL_L: number[] = [anchorLL];
+    const sideCableNodesL_R: number[] = [anchorLR];
+    for (let i = 1; i < nSide; i++) {
+      const x = i * dxSide;
+      const frac = i / nSide;
+      const y = anchorY + frac * (towerTopY - anchorY);
+      sideCableNodesL_L.push(store.addNode(x, y, tower1.baseLZ));
+      sideCableNodesL_R.push(store.addNode(x, y, tower1.baseRZ));
+    }
+    sideCableNodesL_L.push(tower1.topL);
+    sideCableNodesL_R.push(tower1.topR);
+
+    for (let i = 0; i < nSide; i++) {
+      store.addElement(sideCableNodesL_L[i], sideCableNodesL_L[i + 1], 'truss');
+      store.addElement(sideCableNodesL_R[i], sideCableNodesL_R[i + 1], 'truss');
+    }
+    // Hangers on left side span
+    for (let i = 1; i < nSide; i++) {
+      store.addElement(sideCableNodesL_L[i], upperL[i], 'truss');
+      store.addElement(sideCableNodesL_R[i], upperR[i], 'truss');
+    }
+
+    // Right side: from tower2 top to anchor (x=totalLen)
+    const anchorRL = store.addNode(totalLen, anchorY, tower2.baseLZ);
+    const anchorRR = store.addNode(totalLen, anchorY, tower2.baseRZ);
+    store.addSupport(anchorRL, 'fixed3d');
+    store.addSupport(anchorRR, 'fixed3d');
+
+    const sideCableNodesR_L: number[] = [tower2.topL];
+    const sideCableNodesR_R: number[] = [tower2.topR];
+    for (let i = 1; i < nSide; i++) {
+      const x = towerX2 + i * dxSide;
+      const frac = i / nSide;
+      const y = towerTopY + frac * (anchorY - towerTopY);
+      sideCableNodesR_L.push(store.addNode(x, y, tower2.baseLZ));
+      sideCableNodesR_R.push(store.addNode(x, y, tower2.baseRZ));
+    }
+    sideCableNodesR_L.push(anchorRL);
+    sideCableNodesR_R.push(anchorRR);
+
+    for (let i = 0; i < nSide; i++) {
+      store.addElement(sideCableNodesR_L[i], sideCableNodesR_L[i + 1], 'truss');
+      store.addElement(sideCableNodesR_R[i], sideCableNodesR_R[i + 1], 'truss');
+    }
+    // Hangers on right side span
+    for (let i = 1; i < nSide; i++) {
+      const deckIdx = towerIdx2 + i;
+      store.addElement(sideCableNodesR_L[i], upperL[deckIdx], 'truss');
+      store.addElement(sideCableNodesR_R[i], upperR[deckIdx], 'truss');
+    }
+
+    // ── Abutment supports (pinned — allow thermal expansion) ──
+    store.addSupport(upperL[0], 'pinned3d');
+    store.addSupport(upperR[0], 'pinned3d');
+    store.addSupport(upperL[allX.length - 1], 'pinned3d');
+    store.addSupport(upperR[allX.length - 1], 'pinned3d');
+    store.addSupport(lowerL[0], 'pinned3d');
+    store.addSupport(lowerR[0], 'pinned3d');
+    store.addSupport(lowerL[allX.length - 1], 'pinned3d');
+    store.addSupport(lowerR[allX.length - 1], 'pinned3d');
+  });
+}
+
+// -------------------------------------------------------------------
+// 7b. Cable-stayed bridge — dual H-pylon with semi-fan cables
 // -------------------------------------------------------------------
 
 export interface CableStayedBridge3DParams {
