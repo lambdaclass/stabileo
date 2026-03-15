@@ -160,6 +160,8 @@ function createResultsStore() {
     set deformedScale(v: number) { deformedScale = v; _userAdjustedDeformedScale = true; },
     get userAdjustedDeformedScale() { return _userAdjustedDeformedScale; },
     resetDeformedScaleFlag() { _userAdjustedDeformedScale = false; },
+    /** Set scale programmatically (auto-scaling, restore) without marking as user choice */
+    setDeformedScaleAuto(v: number) { deformedScale = v; },
     get diagramScale() { return diagramScale; },
     set diagramScale(v: number) { diagramScale = Math.max(0.1, Math.min(10, v)); },
     get animateDeformed() { return animateDeformed; },

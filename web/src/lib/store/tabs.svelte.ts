@@ -175,7 +175,7 @@ function createTabManager() {
       uiStore.selectMode = state.selectMode;
 
       // Restore results visualization settings (results themselves will need re-solve)
-      resultsStore.deformedScale = state.deformedScale;
+      resultsStore.setDeformedScaleAuto(state.deformedScale); // restored value is not a user choice — allow auto-scaling
       resultsStore.diagramScale = state.diagramScale;
       resultsStore.showDiagramValues = state.showDiagramValues;
 

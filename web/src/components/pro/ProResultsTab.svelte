@@ -183,7 +183,7 @@
             value={deformedScaleToSlider(resultsStore.deformedScale)}
             oninput={onDeformedScaleInput}
           />
-          <span class="pro-viz-val">{resultsStore.deformedScale}×</span>
+          <span class="pro-viz-val">{Math.min(DEFORMED_SCALE_MAX, Math.max(DEFORMED_SCALE_MIN, resultsStore.deformedScale))}×</span>
         </div>
       {/if}
 

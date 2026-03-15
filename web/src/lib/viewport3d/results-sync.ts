@@ -130,6 +130,10 @@ export function syncDeformed(ctx: ResultsSyncContext, scaleOverride?: number): v
         const maxVisualOffset = structureSize * 0.35;
         const maxSafeScale = maxVisualOffset / maxDisp;
         scale = Math.min(scale, maxSafeScale);
+        // Write back so UI label reflects the actual scale being rendered
+        if (scale !== resultsStore.deformedScale) {
+          resultsStore.setDeformedScaleAuto(scale);
+        }
       }
     }
   } else if (dt === 'modeShape') {
