@@ -917,6 +917,44 @@ export function generateIrregularSetbackTower3D(store: ModelStore, p: IrregularS
   store.model.name = t('ex.irregularSetbackTower3D');
 
   store.batch(() => {
+    // Realistic sections for a multi-story steel building
+    // Section 1 (default) is IPN 300 — replace it with HEB 400 for columns
+    store.updateSection(1, {
+      name: 'HEB 400',
+      a: 0.01978,         // 197.8 cm²
+      iy: 0.000576800,    // 57680 cm⁴ (strong axis)
+      iz: 0.000108200,    // 10820 cm⁴ (weak axis)
+      j: 0.000003560,     // 356 cm⁴
+      h: 0.400,
+      b: 0.300,
+      shape: 'I',
+      tw: 0.0135,
+      tf: 0.024,
+    });
+    // Section 2: IPE 360 for beams
+    const beamSecId = store.addSection({
+      name: 'IPE 360',
+      a: 0.00727,         // 72.7 cm²
+      iy: 0.000162700,    // 16270 cm⁴ (strong axis)
+      iz: 0.000010430,    // 1043 cm⁴ (weak axis)
+      j: 0.000000373,     // 37.3 cm⁴
+      h: 0.360,
+      b: 0.170,
+      shape: 'I',
+      tw: 0.008,
+      tf: 0.0127,
+    });
+    // Section 3: L 100x100x10 for bracing
+    const braceSecId = store.addSection({
+      name: 'L 100x10',
+      a: 0.001920,        // 19.2 cm²
+      iy: 0.000001770,    // 177 cm⁴
+      iz: 0.000001770,    // 177 cm⁴
+      j: 0.000000064,     // 6.4 cm⁴
+      h: 0.100,
+      b: 0.100,
+    });
+
     const floors: number[][][] = []; // floors[level][iz][ix]
 
     const insetAt = (lev: number) => {
@@ -952,47 +990,60 @@ export function generateIrregularSetbackTower3D(store: ModelStore, p: IrregularS
       const inset = levelInset(lev);
       const nextInset = levelInset(lev + 1);
 
+      // Columns (section 1 = HEB 400)
       for (let iz = inset; iz <= p.baysZ - inset; iz++) {
         for (let ix = inset; ix <= p.baysX - inset; ix++) {
           const a = nodeAt(lev, ix, iz);
           const b = nodeAt(lev + 1, ix, iz);
-          if (a && b) store.addElement(a, b, 'frame');
+          if (a && b) store.addElement(a, b, 'frame'); // uses default section 1 (HEB 400)
         }
       }
 
+      // Beams in X direction (section 2 = IPE 360)
       for (let iz = nextInset; iz <= p.baysZ - nextInset; iz++) {
         for (let ix = nextInset; ix < p.baysX - nextInset; ix++) {
           const a = nodeAt(lev + 1, ix, iz);
           const b = nodeAt(lev + 1, ix + 1, iz);
           if (a && b) {
             const eid = store.addElement(a, b, 'frame');
+            store.updateElementSection(eid, beamSecId);
             store.addDistributedLoad3D(eid, 0, 0, -18, -18, undefined, undefined, 1);
             store.addDistributedLoad3D(eid, 0, 0, -10, -10, undefined, undefined, 2);
           }
         }
       }
+      // Beams in Z direction (section 2 = IPE 360)
       for (let ix = nextInset; ix <= p.baysX - nextInset; ix++) {
         for (let iz = nextInset; iz < p.baysZ - nextInset; iz++) {
           const a = nodeAt(lev + 1, ix, iz);
           const b = nodeAt(lev + 1, ix, iz + 1);
           if (a && b) {
             const eid = store.addElement(a, b, 'frame');
+            store.updateElementSection(eid, beamSecId);
             store.addDistributedLoad3D(eid, 0, 0, -16, -16, undefined, undefined, 1);
             store.addDistributedLoad3D(eid, 0, 0, -8, -8, undefined, undefined, 2);
           }
         }
       }
 
+      // Facade bracing (section 3 = L 100x10)
       const facadeInset = Math.max(inset, nextInset);
       for (let iz = facadeInset; iz < p.baysZ - facadeInset; iz++) {
         const leftA = nodeAt(lev, facadeInset, iz);
         const leftB = nodeAt(lev + 1, facadeInset, iz + 1);
         const rightA = nodeAt(lev, p.baysX - facadeInset, iz);
         const rightB = nodeAt(lev + 1, p.baysX - facadeInset, iz + 1);
-        if (leftA && leftB && (lev + iz) % 2 === 0) store.addElement(leftA, leftB, 'truss');
-        if (rightA && rightB && (lev + iz) % 2 === 1) store.addElement(rightA, rightB, 'truss');
+        if (leftA && leftB && (lev + iz) % 2 === 0) {
+          const eid = store.addElement(leftA, leftB, 'truss');
+          store.updateElementSection(eid, braceSecId);
+        }
+        if (rightA && rightB && (lev + iz) % 2 === 1) {
+          const eid = store.addElement(rightA, rightB, 'truss');
+          store.updateElementSection(eid, braceSecId);
+        }
       }
 
+      // Outrigger trusses (section 3 = L 100x10)
       if ((lev + 1) % 6 === 0) {
         const cx0 = Math.floor((p.baysX + facadeInset) / 2);
         const cz0 = Math.floor((p.baysZ + facadeInset) / 2);
@@ -1005,7 +1056,10 @@ export function generateIrregularSetbackTower3D(store: ModelStore, p: IrregularS
         for (const [ix, iz] of anchorPairs) {
           const core = nodeAt(lev + 1, cx0, cz0);
           const edge = nodeAt(lev + 1, ix, iz);
-          if (core && edge && core !== edge) store.addElement(core, edge, 'truss');
+          if (core && edge && core !== edge) {
+            const eid = store.addElement(core, edge, 'truss');
+            store.updateElementSection(eid, braceSecId);
+          }
         }
       }
     }
@@ -1044,6 +1098,20 @@ export function generateMatFoundation3D(store: ModelStore, p: MatFoundation3DPar
   store.model.name = t('ex.matFoundation3D');
 
   store.batch(() => {
+    // Concrete material
+    store.updateMaterial(1, { name: 'H25', e: 25000, nu: 0.2, rho: 25, fy: 25 });
+    // Section 1: RC rib 200×600
+    store.updateSection(1, {
+      name: 'RC Rib 200×600',
+      a: 0.12,
+      iy: 0.0036,
+      iz: 0.0004,
+      j: 0.00254,
+      h: 0.6,
+      b: 0.2,
+      shape: 'rect',
+    });
+
     const dx = p.Lx / p.nX;
     const dz = p.Lz / p.nZ;
     const nodes: number[][] = [];
@@ -1112,6 +1180,33 @@ export function generatePipeRack3D(store: ModelStore, p: PipeRack3DParams): void
   store.model.name = t('ex.pipeRack3D');
 
   store.batch(() => {
+    // Section 1: HEB 200 columns
+    store.updateSection(1, {
+      name: 'HEB 200',
+      a: 0.00781,
+      iy: 0.00005696,
+      iz: 0.00002003,
+      j: 0.000000594,
+      h: 0.2,
+      b: 0.2,
+      shape: 'I',
+      tw: 0.009,
+      tf: 0.015,
+    });
+    // Section 2: IPE 240 beams
+    const beamSecId = store.addSection({
+      name: 'IPE 240',
+      a: 0.00391,
+      iy: 0.00003892,
+      iz: 0.00000284,
+      j: 0.000000129,
+      h: 0.24,
+      b: 0.12,
+      shape: 'I',
+      tw: 0.0062,
+      tf: 0.0098,
+    });
+
     const frames: number[][][] = []; // bay station -> level -> side
     for (let bay = 0; bay <= p.bays; bay++) {
       frames[bay] = [];
@@ -1125,6 +1220,7 @@ export function generatePipeRack3D(store: ModelStore, p: PipeRack3DParams): void
       }
     }
 
+    // Columns (section 1 = HEB 200)
     for (let bay = 0; bay <= p.bays; bay++) {
       for (let lev = 0; lev < p.levels; lev++) {
         store.addElement(frames[bay][lev][0], frames[bay][lev + 1][0], 'frame');
@@ -1134,12 +1230,19 @@ export function generatePipeRack3D(store: ModelStore, p: PipeRack3DParams): void
       store.addSupport(frames[bay][0][1], 'fixed3d');
     }
 
+    // Beams and bracing
     for (let bay = 0; bay < p.bays; bay++) {
       for (let lev = 1; lev <= p.levels; lev++) {
+        // Longitudinal beams (section 2 = IPE 240)
         const left = store.addElement(frames[bay][lev][0], frames[bay + 1][lev][0], 'frame');
+        store.updateElementSection(left, beamSecId);
         const right = store.addElement(frames[bay][lev][1], frames[bay + 1][lev][1], 'frame');
-        store.addElement(frames[bay][lev][0], frames[bay][lev][1], 'frame');
-        store.addElement(frames[bay + 1][lev][0], frames[bay + 1][lev][1], 'frame');
+        store.updateElementSection(right, beamSecId);
+        // Transverse beams (section 2 = IPE 240)
+        const crossA = store.addElement(frames[bay][lev][0], frames[bay][lev][1], 'frame');
+        store.updateElementSection(crossA, beamSecId);
+        const crossB = store.addElement(frames[bay + 1][lev][0], frames[bay + 1][lev][1], 'frame');
+        store.updateElementSection(crossB, beamSecId);
         store.addDistributedLoad3D(left, 0, 0, -10, -10, undefined, undefined, 1);
         store.addDistributedLoad3D(right, 0, 0, -10, -10, undefined, undefined, 1);
       }
@@ -1182,6 +1285,31 @@ export function generateRcDesignFrame3D(store: ModelStore, p: RcDesignFrame3DPar
   store.model.name = t('ex.rcDesignFrame3D');
 
   store.batch(() => {
+    // Concrete material
+    store.updateMaterial(1, { name: 'H30', e: 30000, nu: 0.2, rho: 25, fy: 30 });
+    // Section 1: RC Column 400×400
+    store.updateSection(1, {
+      name: 'RC Col 400×400',
+      a: 0.16,
+      iy: 0.002133,
+      iz: 0.002133,
+      j: 0.003605,
+      h: 0.4,
+      b: 0.4,
+      shape: 'rect',
+    });
+    // Section 2: RC Beam 300×600
+    const beamSecId = store.addSection({
+      name: 'RC Beam 300×600',
+      a: 0.18,
+      iy: 0.0054,
+      iz: 0.00135,
+      j: 0.00478,
+      h: 0.6,
+      b: 0.3,
+      shape: 'rect',
+    });
+
     const grid: number[][][] = [];
     for (let lev = 0; lev <= p.stories; lev++) {
       grid[lev] = [];
@@ -1194,6 +1322,7 @@ export function generateRcDesignFrame3D(store: ModelStore, p: RcDesignFrame3DPar
       }
     }
 
+    // Columns (section 1 = RC Column 400×400)
     for (let lev = 0; lev < p.stories; lev++) {
       for (let iz = 0; iz <= p.baysZ; iz++) {
         for (let ix = 0; ix <= p.baysX; ix++) {
@@ -1202,10 +1331,12 @@ export function generateRcDesignFrame3D(store: ModelStore, p: RcDesignFrame3DPar
       }
     }
 
+    // Beams (section 2 = RC Beam 300×600)
     for (let lev = 1; lev <= p.stories; lev++) {
       for (let iz = 0; iz <= p.baysZ; iz++) {
         for (let ix = 0; ix < p.baysX; ix++) {
           const eid = store.addElement(grid[lev][iz][ix], grid[lev][iz][ix + 1], 'frame');
+          store.updateElementSection(eid, beamSecId);
           store.addDistributedLoad3D(eid, 0, 0, -14, -14, undefined, undefined, 1);
           store.addDistributedLoad3D(eid, 0, 0, -8, -8, undefined, undefined, 2);
         }
@@ -1213,6 +1344,7 @@ export function generateRcDesignFrame3D(store: ModelStore, p: RcDesignFrame3DPar
       for (let ix = 0; ix <= p.baysX; ix++) {
         for (let iz = 0; iz < p.baysZ; iz++) {
           const eid = store.addElement(grid[lev][iz][ix], grid[lev][iz + 1][ix], 'frame');
+          store.updateElementSection(eid, beamSecId);
           store.addDistributedLoad3D(eid, 0, 0, -12, -12, undefined, undefined, 1);
           store.addDistributedLoad3D(eid, 0, 0, -6, -6, undefined, undefined, 2);
         }
@@ -1256,6 +1388,43 @@ export function generateXLDiagridTower3D(store: ModelStore, p: XLDiagridTower3DP
   store.model.name = t('ex.xlDiagridTower3D');
 
   store.batch(() => {
+    // Section 1: Core column HEB 450
+    store.updateSection(1, {
+      name: 'HEB 450',
+      a: 0.02181,
+      iy: 0.00079890,
+      iz: 0.00011720,
+      j: 0.000004305,
+      h: 0.45,
+      b: 0.3,
+      shape: 'I',
+      tw: 0.014,
+      tf: 0.026,
+    });
+    // Section 2: Diagrid CHS 244x10 (perimeter diagonals + rings)
+    const diagridSecId = store.addSection({
+      name: 'CHS 244×10',
+      a: 0.00736,
+      iy: 0.00001920,
+      iz: 0.00001920,
+      j: 0.00003840,
+      h: 0.244,
+      b: 0.244,
+    });
+    // Section 3: Core beam IPE 300
+    const coreBeamSecId = store.addSection({
+      name: 'IPE 300',
+      a: 0.00538,
+      iy: 0.00008356,
+      iz: 0.00000604,
+      j: 0.000000201,
+      h: 0.3,
+      b: 0.15,
+      shape: 'I',
+      tw: 0.0071,
+      tf: 0.0107,
+    });
+
     const levelH = p.H / p.nLevels;
     const perimeter: number[][] = [];
     const core: number[][] = [];
@@ -1297,35 +1466,39 @@ export function generateXLDiagridTower3D(store: ModelStore, p: XLDiagridTower3DP
     }
 
     for (let lev = 0; lev < p.nLevels; lev++) {
+      // Perimeter verticals + diagonals (section 2 = CHS 244×10)
       for (let i = 0; i < p.nSides; i++) {
         const next = (i + 1) % p.nSides;
-        store.addElement(perimeter[lev][i], perimeter[lev + 1][i], 'frame');
+        store.updateElementSection(store.addElement(perimeter[lev][i], perimeter[lev + 1][i], 'frame'), diagridSecId);
         if ((lev + i) % 2 === 0) {
-          store.addElement(perimeter[lev][i], perimeter[lev + 1][next], 'truss');
+          store.updateElementSection(store.addElement(perimeter[lev][i], perimeter[lev + 1][next], 'truss'), diagridSecId);
         } else {
-          store.addElement(perimeter[lev][next], perimeter[lev + 1][i], 'truss');
+          store.updateElementSection(store.addElement(perimeter[lev][next], perimeter[lev + 1][i], 'truss'), diagridSecId);
         }
       }
 
+      // Core columns (section 1 = HEB 450, default)
       for (let c = 0; c < 4; c++) {
         store.addElement(core[lev][c], core[lev + 1][c], 'frame');
       }
     }
 
     for (let lev = 1; lev <= p.nLevels; lev++) {
+      // Perimeter rings (section 2 = CHS 244×10)
       for (let i = 0; i < p.nSides; i++) {
-        store.addElement(perimeter[lev][i], perimeter[lev][(i + 1) % p.nSides], 'frame');
+        store.updateElementSection(store.addElement(perimeter[lev][i], perimeter[lev][(i + 1) % p.nSides], 'frame'), diagridSecId);
       }
+      // Core beams (section 3 = IPE 300)
       for (let c = 0; c < 4; c++) {
-        store.addElement(core[lev][c], core[lev][(c + 1) % 4], 'frame');
+        store.updateElementSection(store.addElement(core[lev][c], core[lev][(c + 1) % 4], 'frame'), coreBeamSecId);
       }
 
-      // Radial floor framing from core to perimeter, using eight anchors for legibility.
+      // Radial floor framing from core to perimeter (section 3 = IPE 300)
       for (let face = 0; face < 4; face++) {
         const sideIdx = Math.round((face * p.nSides) / 4) % p.nSides;
         const sideIdx2 = Math.round(((face * p.nSides) / 4) + p.nSides / 8) % p.nSides;
-        store.addElement(core[lev][face], perimeter[lev][sideIdx], 'frame');
-        store.addElement(core[lev][face], perimeter[lev][sideIdx2], 'frame');
+        store.updateElementSection(store.addElement(core[lev][face], perimeter[lev][sideIdx], 'frame'), coreBeamSecId);
+        store.updateElementSection(store.addElement(core[lev][face], perimeter[lev][sideIdx2], 'frame'), coreBeamSecId);
       }
 
       if (lev % 8 === 0 && lev < p.nLevels) {
@@ -1334,9 +1507,9 @@ export function generateXLDiagridTower3D(store: ModelStore, p: XLDiagridTower3DP
           const sideIdx = Math.round((face * p.nSides) / 4) % p.nSides;
           const sideIdxPrev = (sideIdx - 1 + p.nSides) % p.nSides;
           const sideIdxNext = (sideIdx + 1) % p.nSides;
-          store.addElement(core[lev][face], perimeter[lev][sideIdx], 'frame');
-          store.addElement(core[lev][face], perimeter[lev][sideIdxPrev], 'truss');
-          store.addElement(core[lev][face], perimeter[lev][sideIdxNext], 'truss');
+          store.updateElementSection(store.addElement(core[lev][face], perimeter[lev][sideIdx], 'frame'), coreBeamSecId);
+          store.updateElementSection(store.addElement(core[lev][face], perimeter[lev][sideIdxPrev], 'truss'), diagridSecId);
+          store.updateElementSection(store.addElement(core[lev][face], perimeter[lev][sideIdxNext], 'truss'), diagridSecId);
         }
       }
     }
@@ -1362,30 +1535,30 @@ export function generateXLDiagridTower3D(store: ModelStore, p: XLDiagridTower3DP
         ringNodes.push(store.addNode(topRx * scale * Math.cos(theta), crownY, topRz * scale * Math.sin(theta)));
       }
       for (let i = 0; i < nPts; i++) {
-        store.addElement(ringNodes[i], ringNodes[(i + 1) % nPts], 'frame');
+        store.updateElementSection(store.addElement(ringNodes[i], ringNodes[(i + 1) % nPts], 'frame'), diagridSecId);
       }
       // Connect to previous ring or top perimeter
       const prev = ring === 0 ? perimeter[crownLevel] : crownRings[ring - 1];
       for (let i = 0; i < nPts; i++) {
         const pIdx = Math.round((i * prev.length) / nPts) % prev.length;
-        store.addElement(prev[pIdx], ringNodes[i], 'frame');
+        store.updateElementSection(store.addElement(prev[pIdx], ringNodes[i], 'frame'), diagridSecId);
         // Triangulation diagonal
         const pIdx2 = (pIdx + 1) % prev.length;
-        store.addElement(prev[pIdx2], ringNodes[i], 'truss');
+        store.updateElementSection(store.addElement(prev[pIdx2], ringNodes[i], 'truss'), diagridSecId);
       }
       crownRings.push(ringNodes);
     }
 
-    // Apex + spire
+    // Apex + spire (section 2 = CHS 244×10)
     const crownCenter = store.addNode(0, p.H + levelH * 1.25, 0);
     const mastTop = store.addNode(0, p.H + levelH * 2.2, 0);
-    store.addElement(crownCenter, mastTop, 'frame');
+    store.updateElementSection(store.addElement(crownCenter, mastTop, 'frame'), diagridSecId);
     const innerRing = crownRings[crownRings.length - 1];
-    for (const nid of innerRing) store.addElement(nid, crownCenter, 'frame');
+    for (const nid of innerRing) store.updateElementSection(store.addElement(nid, crownCenter, 'frame'), diagridSecId);
     // Spire stays from second ring for visual drama
     const stayRing = crownRings[1];
     for (let i = 0; i < stayRing.length; i += 3) {
-      store.addElement(stayRing[i], mastTop, 'truss');
+      store.updateElementSection(store.addElement(stayRing[i], mastTop, 'truss'), diagridSecId);
     }
 
     for (const nid of perimeter[0]) {
@@ -1419,6 +1592,17 @@ export function generateGeodesicDome3D(store: ModelStore, p: GeodesicDome3DParam
   store.model.name = t('ex.geodesicDome3D');
 
   store.batch(() => {
+    // Section 1: CHS 114x5 (uniform geodesic dome)
+    store.updateSection(1, {
+      name: 'CHS 114×5',
+      a: 0.00171,
+      iy: 0.000002470,
+      iz: 0.000002470,
+      j: 0.000004940,
+      h: 0.114,
+      b: 0.114,
+    });
+
     const R = p.radius;
     const freq = Math.max(2, Math.round(p.frequency));
     // Hemisphere cut: only keep vertices with Y >= cutY
@@ -1551,6 +1735,40 @@ export function generateSuspensionBridge3D(store: ModelStore, p: SuspensionBridg
   store.model.name = t('ex.suspensionBridge3D');
 
   store.batch(() => {
+    // Section 1: Main cable (big cable bundle)
+    store.updateSection(1, {
+      name: 'Main Cable',
+      a: 0.020,
+      iy: 0.0000318,
+      iz: 0.0000318,
+      j: 0.0000637,
+      h: 0.16,
+      b: 0.16,
+    });
+    // Section 2: Deck chord IPE 450
+    const deckSecId = store.addSection({
+      name: 'IPE 450',
+      a: 0.00988,
+      iy: 0.00033740,
+      iz: 0.00001676,
+      j: 0.000000669,
+      h: 0.45,
+      b: 0.19,
+      shape: 'I',
+      tw: 0.0094,
+      tf: 0.0146,
+    });
+    // Section 3: Hanger/lateral L 80x80x8
+    const hangerSecId = store.addSection({
+      name: 'L 80×80×8',
+      a: 0.00123,
+      iy: 0.0000008,
+      iz: 0.0000008,
+      j: 0.00000002,
+      h: 0.08,
+      b: 0.08,
+    });
+
     const hw = p.deckWidth / 2;
     const nMain = p.nPanelsMain;
     const nSide = p.nPanelsSide;
@@ -1603,45 +1821,59 @@ export function generateSuspensionBridge3D(store: ModelStore, p: SuspensionBridg
       lowerR.push(store.addNode(x, deckY - p.trussDepth, hw));
     }
 
-    // Longitudinal chords + loads
+    // Longitudinal chords + loads (section 2 = IPE 450)
     for (let i = 0; i < totalPanels; i++) {
       const eUL = store.addElement(upperL[i], upperL[i + 1], 'frame');
+      store.updateElementSection(eUL, deckSecId);
       const eUR = store.addElement(upperR[i], upperR[i + 1], 'frame');
-      store.addElement(lowerL[i], lowerL[i + 1], 'frame');
-      store.addElement(lowerR[i], lowerR[i + 1], 'frame');
+      store.updateElementSection(eUR, deckSecId);
+      const eLL = store.addElement(lowerL[i], lowerL[i + 1], 'frame');
+      store.updateElementSection(eLL, deckSecId);
+      const eLR = store.addElement(lowerR[i], lowerR[i + 1], 'frame');
+      store.updateElementSection(eLR, deckSecId);
       if (p.deckLoad !== 0) {
         store.addDistributedLoad3D(eUL, 0, p.deckLoad, 0, p.deckLoad);
         store.addDistributedLoad3D(eUR, 0, p.deckLoad, 0, p.deckLoad);
       }
     }
 
-    // Cross beams + verticals + diagonals at every panel point
+    // Cross beams + verticals + diagonals at every panel point (section 3 = L 80×80×8)
     for (let i = 0; i < allX.length; i++) {
       // Cross beams at deck and lower chord
-      store.addElement(upperL[i], upperR[i], 'frame');
-      store.addElement(lowerL[i], lowerR[i], 'frame');
+      const cb1 = store.addElement(upperL[i], upperR[i], 'frame');
+      store.updateElementSection(cb1, hangerSecId);
+      const cb2 = store.addElement(lowerL[i], lowerR[i], 'frame');
+      store.updateElementSection(cb2, hangerSecId);
       // Verticals connecting upper to lower chord
-      store.addElement(upperL[i], lowerL[i], 'frame');
-      store.addElement(upperR[i], lowerR[i], 'frame');
+      const v1 = store.addElement(upperL[i], lowerL[i], 'frame');
+      store.updateElementSection(v1, hangerSecId);
+      const v2 = store.addElement(upperR[i], lowerR[i], 'frame');
+      store.updateElementSection(v2, hangerSecId);
     }
 
-    // Warren diagonals in stiffening truss (both sides)
+    // Warren diagonals in stiffening truss (both sides) (section 3 = L 80×80×8)
     for (let i = 0; i < totalPanels; i++) {
       if (i % 2 === 0) {
-        store.addElement(upperL[i], lowerL[i + 1], 'truss');
-        store.addElement(upperR[i], lowerR[i + 1], 'truss');
+        const d1 = store.addElement(upperL[i], lowerL[i + 1], 'truss');
+        store.updateElementSection(d1, hangerSecId);
+        const d2 = store.addElement(upperR[i], lowerR[i + 1], 'truss');
+        store.updateElementSection(d2, hangerSecId);
       } else {
-        store.addElement(lowerL[i], upperL[i + 1], 'truss');
-        store.addElement(lowerR[i], upperR[i + 1], 'truss');
+        const d1 = store.addElement(lowerL[i], upperL[i + 1], 'truss');
+        store.updateElementSection(d1, hangerSecId);
+        const d2 = store.addElement(lowerR[i], upperR[i + 1], 'truss');
+        store.updateElementSection(d2, hangerSecId);
       }
     }
 
-    // Horizontal wind bracing on lower chord plane
+    // Horizontal wind bracing on lower chord plane (section 3 = L 80×80×8)
     for (let i = 0; i < totalPanels; i++) {
       if (i % 2 === 0) {
-        store.addElement(lowerL[i], lowerR[i + 1], 'truss');
+        const wb = store.addElement(lowerL[i], lowerR[i + 1], 'truss');
+        store.updateElementSection(wb, hangerSecId);
       } else {
-        store.addElement(lowerR[i], lowerL[i + 1], 'truss');
+        const wb = store.addElement(lowerR[i], lowerL[i + 1], 'truss');
+        store.updateElementSection(wb, hangerSecId);
       }
     }
 
@@ -1670,30 +1902,30 @@ export function generateSuspensionBridge3D(store: ModelStore, p: SuspensionBridg
       const tL = store.addNode(x, topY, baseLZ);
       const tR = store.addNode(x, topY, baseRZ);
 
-      // Legs
-      store.addElement(bL, mL, 'frame');
-      store.addElement(mL, pL, 'frame');
-      store.addElement(pL, tL, 'frame');
-      store.addElement(bR, mR, 'frame');
-      store.addElement(mR, pR, 'frame');
-      store.addElement(pR, tR, 'frame');
+      // Legs (section 2 = IPE 450)
+      store.updateElementSection(store.addElement(bL, mL, 'frame'), deckSecId);
+      store.updateElementSection(store.addElement(mL, pL, 'frame'), deckSecId);
+      store.updateElementSection(store.addElement(pL, tL, 'frame'), deckSecId);
+      store.updateElementSection(store.addElement(bR, mR, 'frame'), deckSecId);
+      store.updateElementSection(store.addElement(mR, pR, 'frame'), deckSecId);
+      store.updateElementSection(store.addElement(pR, tR, 'frame'), deckSecId);
 
-      // Cross beams
-      store.addElement(mL, mR, 'frame');
-      store.addElement(pL, pR, 'frame');
-      store.addElement(tL, tR, 'frame');
+      // Cross beams (section 3 = L 80×80×8)
+      store.updateElementSection(store.addElement(mL, mR, 'frame'), hangerSecId);
+      store.updateElementSection(store.addElement(pL, pR, 'frame'), hangerSecId);
+      store.updateElementSection(store.addElement(tL, tR, 'frame'), hangerSecId);
 
-      // K-bracing between cross beams for stiffness
-      store.addElement(mL, pR, 'truss');
-      store.addElement(mR, pL, 'truss');
-      store.addElement(pL, tR, 'truss');
-      store.addElement(pR, tL, 'truss');
+      // K-bracing between cross beams for stiffness (section 3 = L 80×80×8)
+      store.updateElementSection(store.addElement(mL, pR, 'truss'), hangerSecId);
+      store.updateElementSection(store.addElement(mR, pL, 'truss'), hangerSecId);
+      store.updateElementSection(store.addElement(pL, tR, 'truss'), hangerSecId);
+      store.updateElementSection(store.addElement(pR, tL, 'truss'), hangerSecId);
 
-      // Connect tower base to deck
-      store.addElement(bL, upperL[deckIdx], 'frame');
-      store.addElement(bR, upperR[deckIdx], 'frame');
-      store.addElement(bL, lowerL[deckIdx], 'frame');
-      store.addElement(bR, lowerR[deckIdx], 'frame');
+      // Connect tower base to deck (section 2 = IPE 450)
+      store.updateElementSection(store.addElement(bL, upperL[deckIdx], 'frame'), deckSecId);
+      store.updateElementSection(store.addElement(bR, upperR[deckIdx], 'frame'), deckSecId);
+      store.updateElementSection(store.addElement(bL, lowerL[deckIdx], 'frame'), deckSecId);
+      store.updateElementSection(store.addElement(bR, lowerR[deckIdx], 'frame'), deckSecId);
 
       // Fixed supports at tower base
       store.addSupport(bL, 'fixed3d');
@@ -1732,11 +1964,11 @@ export function generateSuspensionBridge3D(store: ModelStore, p: SuspensionBridg
       store.addElement(mainCableR[i], mainCableR[i + 1], 'truss');
     }
 
-    // Vertical hangers from cable to deck (skip tower positions)
+    // Vertical hangers from cable to deck (skip tower positions) (section 3 = L 80×80×8)
     for (let i = 1; i < nMain; i++) {
       const deckIdx = towerIdx1 + i;
-      store.addElement(mainCableL[i], upperL[deckIdx], 'truss');
-      store.addElement(mainCableR[i], upperR[deckIdx], 'truss');
+      store.updateElementSection(store.addElement(mainCableL[i], upperL[deckIdx], 'truss'), hangerSecId);
+      store.updateElementSection(store.addElement(mainCableR[i], upperR[deckIdx], 'truss'), hangerSecId);
     }
 
     // ── Side span cables (straight from tower top to anchorage) ──
@@ -1763,10 +1995,10 @@ export function generateSuspensionBridge3D(store: ModelStore, p: SuspensionBridg
       store.addElement(sideCableNodesL_L[i], sideCableNodesL_L[i + 1], 'truss');
       store.addElement(sideCableNodesL_R[i], sideCableNodesL_R[i + 1], 'truss');
     }
-    // Hangers on left side span
+    // Hangers on left side span (section 3 = L 80×80×8)
     for (let i = 1; i < nSide; i++) {
-      store.addElement(sideCableNodesL_L[i], upperL[i], 'truss');
-      store.addElement(sideCableNodesL_R[i], upperR[i], 'truss');
+      store.updateElementSection(store.addElement(sideCableNodesL_L[i], upperL[i], 'truss'), hangerSecId);
+      store.updateElementSection(store.addElement(sideCableNodesL_R[i], upperR[i], 'truss'), hangerSecId);
     }
 
     // Right side: from tower2 top to anchor (x=totalLen)
@@ -1791,11 +2023,11 @@ export function generateSuspensionBridge3D(store: ModelStore, p: SuspensionBridg
       store.addElement(sideCableNodesR_L[i], sideCableNodesR_L[i + 1], 'truss');
       store.addElement(sideCableNodesR_R[i], sideCableNodesR_R[i + 1], 'truss');
     }
-    // Hangers on right side span
+    // Hangers on right side span (section 3 = L 80×80×8)
     for (let i = 1; i < nSide; i++) {
       const deckIdx = towerIdx2 + i;
-      store.addElement(sideCableNodesR_L[i], upperL[deckIdx], 'truss');
-      store.addElement(sideCableNodesR_R[i], upperR[deckIdx], 'truss');
+      store.updateElementSection(store.addElement(sideCableNodesR_L[i], upperL[deckIdx], 'truss'), hangerSecId);
+      store.updateElementSection(store.addElement(sideCableNodesR_R[i], upperR[deckIdx], 'truss'), hangerSecId);
     }
 
     // ── Abutment supports (pinned — allow thermal expansion) ──
@@ -1827,6 +2059,43 @@ export function generateCableStayedBridge3D(store: ModelStore, p: CableStayedBri
   store.model.name = t('ex.cableStayedBridge3D');
 
   store.batch(() => {
+    // Section 1: Pylon HEB 500
+    store.updateSection(1, {
+      name: 'HEB 500',
+      a: 0.02386,
+      iy: 0.00107200,
+      iz: 0.00012620,
+      j: 0.000004917,
+      h: 0.5,
+      b: 0.3,
+      shape: 'I',
+      tw: 0.0145,
+      tf: 0.028,
+    });
+    // Section 2: Deck IPE 400
+    const deckSecId = store.addSection({
+      name: 'IPE 400',
+      a: 0.00845,
+      iy: 0.00023130,
+      iz: 0.00001318,
+      j: 0.000000510,
+      h: 0.4,
+      b: 0.18,
+      shape: 'I',
+      tw: 0.0086,
+      tf: 0.0135,
+    });
+    // Section 3: Stay cable
+    const cableSecId = store.addSection({
+      name: 'Stay Cable',
+      a: 0.005,
+      iy: 0.000002,
+      iz: 0.000002,
+      j: 0.000004,
+      h: 0.08,
+      b: 0.08,
+    });
+
     const n = p.nPanels;
     const dx = p.span / n;
     const hw = p.deckWidth / 2; // half-width
@@ -1839,16 +2108,21 @@ export function generateCableStayedBridge3D(store: ModelStore, p: CableStayedBri
       left.push(store.addNode(i * dx, deckY, -hw));
       right.push(store.addNode(i * dx, deckY, hw));
     }
+    // Deck longitudinal girders (section 2 = IPE 400)
     for (let i = 0; i < n; i++) {
       const eL = store.addElement(left[i], left[i + 1], 'frame');
+      store.updateElementSection(eL, deckSecId);
       const eR = store.addElement(right[i], right[i + 1], 'frame');
+      store.updateElementSection(eR, deckSecId);
       if (p.deckLoad !== 0) {
         store.addDistributedLoad3D(eL, 0, p.deckLoad, 0, p.deckLoad);
         store.addDistributedLoad3D(eR, 0, p.deckLoad, 0, p.deckLoad);
       }
     }
+    // Cross beams (section 2 = IPE 400)
     for (let i = 0; i <= n; i++) {
-      store.addElement(left[i], right[i], 'frame');
+      const cb = store.addElement(left[i], right[i], 'frame');
+      store.updateElementSection(cb, deckSecId);
     }
 
     // ── H-pylons at ~1/4 and ~3/4 of span ──
@@ -1900,9 +2174,9 @@ export function generateCableStayedBridge3D(store: ModelStore, p: CableStayedBri
       // Connect anchors into pylon shaft
       store.addElement(anchL, pylonTopL, 'frame');
       store.addElement(anchR, pylonTopR, 'frame');
-      // Cables from anchors to deck
-      store.addElement(anchL, left[deckIdx], 'truss');
-      store.addElement(anchR, right[deckIdx], 'truss');
+      // Cables from anchors to deck (section 3 = Stay Cable)
+      store.updateElementSection(store.addElement(anchL, left[deckIdx], 'truss'), cableSecId);
+      store.updateElementSection(store.addElement(anchR, right[deckIdx], 'truss'), cableSecId);
     };
 
     for (let c = 1; c <= nCables; c++) {
@@ -2015,6 +2289,30 @@ export function generateFullStadium3D(store: ModelStore, p: FullStadium3DParams)
   store.model.name = t('ex.fullStadium3D');
 
   store.batch(() => {
+    // Section 1: Main ring beam IPE 300
+    store.updateSection(1, {
+      name: 'IPE 300',
+      a: 0.00538,
+      iy: 0.00008356,
+      iz: 0.00000604,
+      j: 0.000000201,
+      h: 0.3,
+      b: 0.15,
+      shape: 'I',
+      tw: 0.0071,
+      tf: 0.0107,
+    });
+    // Section 2: Roof truss CHS 168x6
+    const roofSecId = store.addSection({
+      name: 'CHS 168×6',
+      a: 0.00305,
+      iy: 0.000003880,
+      iz: 0.000003880,
+      j: 0.000007760,
+      h: 0.168,
+      b: 0.168,
+    });
+
     const fieldLength = 105;
     const fieldWidth = 68;
     const fieldHalfX = fieldLength / 2;
@@ -2051,12 +2349,14 @@ export function generateFullStadium3D(store: ModelStore, p: FullStadium3DParams)
     const baseOuter = ovalRing(fieldHalfX + 73, fieldHalfZ + 58, 0);
     const facadeTop = ovalRing(fieldHalfX + 73, fieldHalfZ + 58, 12);
 
-    const addRingFrames = (nodes: number[], type: 'frame' | 'truss' = 'frame') => {
+    const addRingFrames = (nodes: number[], type: 'frame' | 'truss' = 'frame', secId?: number) => {
       for (let i = 0; i < n; i++) {
-        store.addElement(nodes[i], nodes[(i + 1) % n], type);
+        const eid = store.addElement(nodes[i], nodes[(i + 1) % n], type);
+        if (secId !== undefined) store.updateElementSection(eid, secId);
       }
     };
 
+    // Ring/raker/tier elements = section 1 (IPE 300, default)
     addRingFrames(baseInner);
     addRingFrames(baseOuter);
     addRingFrames(fieldEdge);
@@ -2067,10 +2367,11 @@ export function generateFullStadium3D(store: ModelStore, p: FullStadium3DParams)
     addRingFrames(upperMid);
     addRingFrames(upperBack);
     addRingFrames(concourse);
-    addRingFrames(roofLowerInner);
-    addRingFrames(roofLowerOuter);
-    addRingFrames(roofUpperInner);
-    addRingFrames(roofUpperOuter);
+    // Roof truss rings = section 2 (CHS 168×6)
+    addRingFrames(roofLowerInner, 'frame', roofSecId);
+    addRingFrames(roofLowerOuter, 'frame', roofSecId);
+    addRingFrames(roofUpperInner, 'frame', roofSecId);
+    addRingFrames(roofUpperOuter, 'frame', roofSecId);
     addRingFrames(facadeTop);
 
     for (let i = 0; i < n; i++) {
@@ -2098,24 +2399,26 @@ export function generateFullStadium3D(store: ModelStore, p: FullStadium3DParams)
         store.addElement(lowerBack[i], upperMid[next], 'truss');
       }
 
-      // ── Roof space truss ──
+      // ── Roof space truss (section 2 = CHS 168×6) ──
       // Verticals: lower chord → upper chord
-      store.addElement(roofLowerInner[i], roofUpperInner[i], 'frame');
-      store.addElement(roofLowerOuter[i], roofUpperOuter[i], 'frame');
+      store.updateElementSection(store.addElement(roofLowerInner[i], roofUpperInner[i], 'frame'), roofSecId);
+      store.updateElementSection(store.addElement(roofLowerOuter[i], roofUpperOuter[i], 'frame'), roofSecId);
       // Radial chords (inner → outer)
-      store.addElement(roofLowerInner[i], roofLowerOuter[i], 'frame');
-      store.addElement(roofUpperInner[i], roofUpperOuter[i], 'frame');
+      store.updateElementSection(store.addElement(roofLowerInner[i], roofLowerOuter[i], 'frame'), roofSecId);
+      store.updateElementSection(store.addElement(roofUpperInner[i], roofUpperOuter[i], 'frame'), roofSecId);
       // Diagonals within truss depth (Warren pattern)
-      store.addElement(roofLowerInner[i], roofUpperOuter[i], 'truss');
-      store.addElement(roofUpperInner[i], roofLowerOuter[i], 'truss');
+      store.updateElementSection(store.addElement(roofLowerInner[i], roofUpperOuter[i], 'truss'), roofSecId);
+      store.updateElementSection(store.addElement(roofUpperInner[i], roofLowerOuter[i], 'truss'), roofSecId);
       // Cross-bay diagonals on upper chord for lateral stiffness
-      store.addElement(roofUpperInner[i], roofUpperOuter[next], 'truss');
+      store.updateElementSection(store.addElement(roofUpperInner[i], roofUpperOuter[next], 'truss'), roofSecId);
       // Connect concourse to lower chord
-      store.addElement(concourse[i], roofLowerInner[i], 'frame');
+      store.updateElementSection(store.addElement(concourse[i], roofLowerInner[i], 'frame'), roofSecId);
       // Roof loads on upper chord rings
       if (p.roofLoad !== 0) {
         const ringA = store.addElement(roofUpperInner[i], roofUpperInner[next], 'frame');
+        store.updateElementSection(ringA, roofSecId);
         const ringB = store.addElement(roofUpperOuter[i], roofUpperOuter[next], 'frame');
+        store.updateElementSection(ringB, roofSecId);
         store.addDistributedLoad3D(ringA, 0, p.roofLoad, 0, p.roofLoad);
         store.addDistributedLoad3D(ringB, 0, p.roofLoad, 0, p.roofLoad);
       }
