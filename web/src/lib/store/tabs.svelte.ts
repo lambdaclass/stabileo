@@ -21,6 +21,9 @@ export interface TabState {
   diagramScale: number;
   showDiagramValues: boolean;
   hadResults: boolean; // whether results existed (user should re-solve after switch)
+  // Results overlay state
+  showReactions?: boolean;
+  showConstraintForces?: boolean;
   // DSM wizard state
   dsmIsOpen: boolean;
   dsmCurrentStep: number;
@@ -135,6 +138,9 @@ function createTabManager() {
       showLoads3D: uiStore.showLoads3D,
       showAxes3D: uiStore.showAxes3D,
       axisConvention3D: uiStore.axisConvention3D,
+      // Results overlay state
+      showReactions: resultsStore.showReactions,
+      showConstraintForces: resultsStore.showConstraintForces,
       // Other per-tab settings
       includeSelfWeight: uiStore.includeSelfWeight,
       liveCalc: uiStore.liveCalc,
@@ -178,6 +184,8 @@ function createTabManager() {
       resultsStore.setDeformedScaleAuto(state.deformedScale); // restored value is not a user choice — allow auto-scaling
       resultsStore.diagramScale = state.diagramScale;
       resultsStore.showDiagramValues = state.showDiagramValues;
+      resultsStore.showReactions = state.showReactions ?? false;
+      resultsStore.showConstraintForces = state.showConstraintForces ?? false;
 
       // Restore per-tab visualization config — 2D
       uiStore.showGrid = state.showGrid;

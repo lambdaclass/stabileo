@@ -156,8 +156,11 @@
       resultsStore.showReactions = true;
     } else if (target === 'educativo') {
       uiStore.analysisMode = 'edu';
+      resultsStore.showReactions = false;
     } else {
       uiStore.analysisMode = 'pro';
+      resultsStore.showReactions = false;
+      resultsStore.showConstraintForces = false;
     }
     currentAppMode = target;
     replaceAppUrl(target, modelStore.model.name);
