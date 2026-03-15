@@ -85,6 +85,27 @@
     return n.toFixed(2);
   }
 
+  const DEFORMED_SCALE_MIN = 1;
+  const DEFORMED_SCALE_MAX = 30;
+  const DEFORMED_SLIDER_STEPS = 100;
+
+  function deformedScaleToSlider(scale: number): number {
+    const clamped = Math.min(DEFORMED_SCALE_MAX, Math.max(DEFORMED_SCALE_MIN, scale));
+    const ratio = Math.log(clamped / DEFORMED_SCALE_MIN) / Math.log(DEFORMED_SCALE_MAX / DEFORMED_SCALE_MIN);
+    return Math.round(ratio * DEFORMED_SLIDER_STEPS);
+  }
+
+  function sliderToDeformedScale(slider: number): number {
+    const t = Math.min(DEFORMED_SLIDER_STEPS, Math.max(0, slider)) / DEFORMED_SLIDER_STEPS;
+    const scale = DEFORMED_SCALE_MIN * Math.pow(DEFORMED_SCALE_MAX / DEFORMED_SCALE_MIN, t);
+    return Math.max(DEFORMED_SCALE_MIN, Math.round(scale));
+  }
+
+  function onDeformedScaleInput(e: Event) {
+    const slider = Number((e.target as HTMLInputElement).value);
+    resultsStore.deformedScale = sliderToDeformedScale(slider);
+  }
+
   const caseKeys = $derived([...resultsStore.perCase3D.keys()]);
   const comboKeys = $derived([...resultsStore.perCombo3D.keys()]);
 
@@ -142,7 +163,15 @@
       {#if resultsStore.diagramType === 'deformed'}
         <div class="pro-viz-row">
           <label class="pro-viz-label">{t('pro.scaleLabel')}</label>
-          <input type="range" class="pro-viz-range" min={1} max={500} bind:value={resultsStore.deformedScale} />
+          <input
+            type="range"
+            class="pro-viz-range"
+            min={0}
+            max={DEFORMED_SLIDER_STEPS}
+            step={1}
+            value={deformedScaleToSlider(resultsStore.deformedScale)}
+            oninput={onDeformedScaleInput}
+          />
           <span class="pro-viz-val">{resultsStore.deformedScale}×</span>
         </div>
       {/if}
