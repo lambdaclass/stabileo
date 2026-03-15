@@ -174,7 +174,7 @@ async function globalSolve3D(): Promise<void> {
   const hasCombos = modelStore.model.combinations.length > 0;
   const t0 = performance.now();
 
-  const runSingleSolve = () => {
+  const runSingleSolve = (quiet = false) => {
     const r = modelStore.solve3D(uiStore.includeSelfWeight, leftHand, isPro);
     if (typeof r === 'string') {
       uiStore.toast(r, 'error');
@@ -186,12 +186,14 @@ async function globalSolve3D(): Promise<void> {
     }
     resultsStore.setResults3D(r);
     if (uiStore.isMobile) uiStore.mobileResultsPanelOpen = true;
-    const timeStr = formatSolveTiming(r.timings);
-    uiStore.toast(
-      `${t('results.analysis3dSuccess')}${timeStr} — ${r.elementForces.length} ${t('results.bars')}, ${r.reactions.length} ${t('results.reactions')}`,
-      'success',
-    );
-    showSolverWarningToasts(r.solverDiagnostics);
+    if (!quiet) {
+      const timeStr = formatSolveTiming(r.timings);
+      uiStore.toast(
+        `${t('results.analysis3dSuccess')}${timeStr} — ${r.elementForces.length} ${t('results.bars')}, ${r.reactions.length} ${t('results.reactions')}`,
+        'success',
+      );
+      showSolverWarningToasts(r.solverDiagnostics);
+    }
     return r;
   };
 
@@ -223,9 +225,10 @@ async function globalSolve3D(): Promise<void> {
   // When combinations exist, use parallel Web Workers for maximum performance
   if (hasCombos) {
     if (isPro) {
-      // In PRO, always establish a baseline solved state first so the user
+      // In PRO, establish a baseline solved state first so the user
       // still gets usable results even if the combination path fails.
-      const baseline = runSingleSolve();
+      // Suppress the baseline toast — only the final result toasts.
+      const baseline = runSingleSolve(true);
       if (!baseline) return;
       try {
         const comboError = await runComboSolve();
