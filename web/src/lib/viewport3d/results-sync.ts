@@ -120,14 +120,17 @@ export function syncDeformed(ctx: ResultsSyncContext, scaleOverride?: number): v
     const r3d = resultsStore.results3D;
     if (!r3d) return;
     displacements = r3d.displacements;
-    // Prevent large 3D models from turning into unreadable spaghetti when the
-    // default exaggeration is too aggressive for the solved displacement field.
-    const structureSize = computeStructureBBox();
-    const maxDisp = computeMaxDisplacementMagnitude(displacements);
-    if (maxDisp > 1e-9) {
-      const maxVisualOffset = structureSize * 0.35;
-      const maxSafeScale = maxVisualOffset / maxDisp;
-      scale = Math.min(scale, maxSafeScale);
+    // Prevent the default 3D view from exploding into unreadable spaghetti on
+    // very flexible models, but still respect explicit user scaling changes.
+    // If the user drags the slider away from the default, the manual value wins.
+    if (resultsStore.deformedScale === 100 && scaleOverride === undefined) {
+      const structureSize = computeStructureBBox();
+      const maxDisp = computeMaxDisplacementMagnitude(displacements);
+      if (maxDisp > 1e-9) {
+        const maxVisualOffset = structureSize * 0.35;
+        const maxSafeScale = maxVisualOffset / maxDisp;
+        scale = Math.min(scale, maxSafeScale);
+      }
     }
   } else if (dt === 'modeShape') {
     const modal = resultsStore.modalResult3D;
