@@ -67,6 +67,15 @@ function computeStructureBBox(): number {
   return Math.sqrt(dx * dx + dy * dy + dz * dz) || 1;
 }
 
+function computeMaxDisplacementMagnitude(displacements: Displacement3D[]): number {
+  let maxDisp = 0;
+  for (const d of displacements) {
+    const mag = Math.sqrt(d.ux * d.ux + d.uy * d.uy + d.uz * d.uz);
+    if (mag > maxDisp) maxDisp = mag;
+  }
+  return maxDisp;
+}
+
 // ─── Deformed shape ──────────────────────────────────────────
 
 export function syncDeformed(ctx: ResultsSyncContext, scaleOverride?: number): void {
@@ -111,6 +120,15 @@ export function syncDeformed(ctx: ResultsSyncContext, scaleOverride?: number): v
     const r3d = resultsStore.results3D;
     if (!r3d) return;
     displacements = r3d.displacements;
+    // Prevent large 3D models from turning into unreadable spaghetti when the
+    // default exaggeration is too aggressive for the solved displacement field.
+    const structureSize = computeStructureBBox();
+    const maxDisp = computeMaxDisplacementMagnitude(displacements);
+    if (maxDisp > 1e-9) {
+      const maxVisualOffset = structureSize * 0.35;
+      const maxSafeScale = maxVisualOffset / maxDisp;
+      scale = Math.min(scale, maxSafeScale);
+    }
   } else if (dt === 'modeShape') {
     const modal = resultsStore.modalResult3D;
     if (!modal || !modal.modes.length) return;
