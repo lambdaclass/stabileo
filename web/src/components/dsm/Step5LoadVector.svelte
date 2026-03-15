@@ -6,15 +6,6 @@
 
   let { data }: { data: DSMStepData } = $props();
 
-  // Group contributions by DOF for detail table
-  const contributionsByDof = $derived.by(() => {
-    const map = new Map<number, typeof data.loadContributions>();
-    for (const c of data.loadContributions) {
-      if (!map.has(c.dofIndex)) map.set(c.dofIndex, []);
-      map.get(c.dofIndex)!.push(c);
-    }
-    return map;
-  });
 
   const eqLoadVector = '\\{ F \\} = \\{ F_{\\text{nodal}} \\} + \\{ F_{\\text{equiv}} \\}';
 

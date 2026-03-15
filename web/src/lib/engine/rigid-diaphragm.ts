@@ -6,8 +6,7 @@
 // "penalty" beams connecting all nodes at that level to enforce rigid body motion
 // (same ux, uy, θz). This preserves the existing solver interface.
 
-import type { SolverInput3D, SolverNode3D, SolverElement3D, SolverSection3D, SolverMaterial } from './types-3d';
-import type { SolverDiagnostic } from './types';
+import type { SolverInput3D, SolverNode3D } from './types-3d';
 
 export interface DiaphragmLevel {
   z: number;          // floor elevation (m)
@@ -104,10 +103,7 @@ export function applyRigidDiaphragm(
   materials.set(diagMatId, {
     id: diagMatId,
     e: 200000 * mult, // MPa × multiplier
-    g: 80000 * mult,
     nu: 0.3,
-    rho: 0, // massless
-    fy: 0,
   });
 
   // Create rigid diaphragm section (large area, minimal inertia in vertical direction)

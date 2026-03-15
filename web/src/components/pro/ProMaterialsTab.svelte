@@ -2,7 +2,7 @@
   import { modelStore } from '../../lib/store';
   import { t } from '../../lib/i18n';
   import {
-    getMaterialPresets, MATERIAL_CATEGORIES, searchPresets,
+    MATERIAL_CATEGORIES, searchPresets,
     type MaterialPreset,
   } from '../../lib/data/material-presets';
 

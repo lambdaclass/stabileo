@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { modelStore, uiStore, historyStore, resultsStore } from '../../lib/store';
+  import { modelStore, historyStore, resultsStore } from '../../lib/store';
   import { t } from '../../lib/i18n';
 
   const nodesArr = $derived([...modelStore.nodes.values()]);

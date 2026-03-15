@@ -334,7 +334,6 @@ export function checkFlexure(params: ConcreteDesignParams, Mu: number, Nu: numbe
       const epsPrime = 0.003 * (cTarget - dPrime) / cTarget;
       const fsPrime = epsPrime >= EPSILON_Y_420 ? fy_kPa : epsPrime * 200000 * 1000;
       AsCompReq = (Cs / (fsPrime - alpha1 * fc_kPa)) * 1e4;
-      const AsExtra = (Cs / fy_kPa) * 1e4;
       AsReq = (CcStar / fy_kPa + Cs / fy_kPa) * 1e4;
       a = aTarget;
       c = cTarget;

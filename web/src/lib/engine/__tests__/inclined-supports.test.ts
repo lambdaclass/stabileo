@@ -14,7 +14,7 @@
 import { describe, it, expect } from 'vitest';
 import { solve } from '../solver-js';
 import { computeStaticDegree, analyzeKinematics } from '../kinematic-2d';
-import type { SolverInput, SolverNode, SolverElement, SolverMaterial, SolverSection, SolverSupport, SolverLoad } from '../types';
+import type { SolverInput, SolverSupport, SolverLoad } from '../types';
 
 // ─── Helpers ───────────────────────────────────────────────────────────
 

@@ -3,7 +3,7 @@
   import { mapIfcToModel, type IfcMember, type IfcMappingResult } from '../lib/ifc/ifc-mapper';
   import { t } from '../lib/i18n';
 
-  let { open = false, file = null as File | null, onclose = () => {} } = $props();
+  let { open = false, file = null as File | null, onclose = (() => {}) as () => void } = $props();
 
   let members = $state<IfcMember[]>([]);
   let mappingResult = $state<IfcMappingResult | null>(null);

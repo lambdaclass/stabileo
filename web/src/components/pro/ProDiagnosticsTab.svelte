@@ -7,7 +7,6 @@
   type SeverityFilter = 'all' | 'error' | 'warning' | 'info';
 
   let severityFilter = $state<SeverityFilter>('all');
-  let modelDiags = $state<SolverDiagnostic[]>([]);
 
   const is3D = $derived(uiStore.analysisMode === '3d' || uiStore.analysisMode === 'pro');
 
@@ -95,12 +94,10 @@
 
   function handleClick(diag: SolverDiagnostic) {
     if (diag.elementIds && diag.elementIds.length > 0) {
-      uiStore.selectedElements = new Set(diag.elementIds);
-      uiStore.selectedNodes = new Set();
+      uiStore.setSelection(new Set(), new Set(diag.elementIds));
       window.dispatchEvent(new Event('stabileo-zoom-to-fit'));
     } else if (diag.nodeIds && diag.nodeIds.length > 0) {
-      uiStore.selectedNodes = new Set(diag.nodeIds);
-      uiStore.selectedElements = new Set();
+      uiStore.setSelection(new Set(diag.nodeIds), new Set());
       window.dispatchEvent(new Event('stabileo-zoom-to-fit'));
     }
   }

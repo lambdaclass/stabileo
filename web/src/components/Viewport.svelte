@@ -31,13 +31,9 @@
     findNearestSupport as _findNearestSupport,
     findNearestMidpoint as _findNearestMidpoint,
     findAllLoadsNear as _findAllLoadsNear,
-    findNearestLoad as _findNearestLoad,
     snapWithMidpoint as _snapWithMidpoint,
-    segmentsIntersect,
     segmentIntersectsRect,
   } from '../lib/viewport/spatial-queries';
-
-  let { showResults = false } = $props();
 
   let canvas: HTMLCanvasElement;
   let ctx: CanvasRenderingContext2D | null = null;
@@ -252,7 +248,7 @@
           const mat = modelStore.materials.get(elem.materialId);
           if (!sec || !mat || !mat.fy) continue;
           const stress = computeElementStress(ef, sec, mat);
-          const val = kind === 'stressRatio' ? (stress.ratio ?? 0) : (stress.vonMises ?? 0);
+          const val = kind === 'stressRatio' ? (stress.ratio ?? 0) : Math.max(stress.vonMisesStart ?? 0, stress.vonMisesEnd ?? 0);
           elemMaxes.set(ef.elementId, val);
           if (kind === 'vonMises' && val > globalMax) globalMax = val;
         }
@@ -625,7 +621,6 @@
       const dt = resultsStore.diagramType;
       setDiagramUnitSystem(uiStore.unitSystem);
 
-      const lh = uiStore.axisConvention3D === 'leftHand';
       if (dt === 'deformed') {
         const baseScale = resultsStore.deformedScale;
         const animScale = resultsStore.animateDeformed
@@ -643,7 +638,7 @@
           const envData = dkind === 'moment' ? envSrc.moment
                         : dkind === 'shear'  ? envSrc.shear
                         :                       envSrc.axial;
-          drawEnvelopeDiagrams(envData, makeDrawContext(), resultsStore.diagramScale, resultsStore.showDiagramValues, lh);
+          drawEnvelopeDiagrams(envData, makeDrawContext(), resultsStore.diagramScale, resultsStore.showDiagramValues);
           // Draw envelope legend
           ctx.save();
           ctx.font = '11px sans-serif';
@@ -669,10 +664,10 @@
               computeDiagramGlobalMax(resultsStore.overlayResults, dkind),
             );
             const overlayColors = { fill: 'rgba(255, 165, 0, 0.12)', stroke: 'rgba(255, 165, 0, 0.5)', text: 'rgba(255, 165, 0, 0.6)' };
-            drawDiagrams(resultsStore.overlayResults, dkind, makeDrawContext(), resultsStore.diagramScale, false, overlayColors, sharedMax, lh);
-            drawDiagrams(resultsStore.results, dkind, makeDrawContext(), resultsStore.diagramScale, resultsStore.showDiagramValues, undefined, sharedMax, lh);
+            drawDiagrams(resultsStore.overlayResults, dkind, makeDrawContext(), resultsStore.diagramScale, false, overlayColors, sharedMax);
+            drawDiagrams(resultsStore.results, dkind, makeDrawContext(), resultsStore.diagramScale, resultsStore.showDiagramValues, undefined, sharedMax);
           } else {
-            drawDiagrams(resultsStore.results, dkind, makeDrawContext(), resultsStore.diagramScale, resultsStore.showDiagramValues, undefined, undefined, lh);
+            drawDiagrams(resultsStore.results, dkind, makeDrawContext(), resultsStore.diagramScale, resultsStore.showDiagramValues, undefined, undefined);
           }
         }
       } else if (dt === 'influenceLine' && resultsStore.influenceLine) {
@@ -1063,9 +1058,9 @@
               const edx = nj.x - ni.x;
               const edy = nj.y - ni.y;
               const lenSq = edx * edx + edy * edy;
-              let t = ((world.x - ni.x) * edx + (world.y - ni.y) * edy) / lenSq;
-              t = Math.max(0.05, Math.min(0.95, t));
-              const result = modelStore.splitElementAtPoint(nearElem.id, t);
+              let tParam = ((world.x - ni.x) * edx + (world.y - ni.y) * edy) / lenSq;
+              tParam = Math.max(0.05, Math.min(0.95, tParam));
+              const result = modelStore.splitElementAtPoint(nearElem.id, tParam);
               if (result) {
                 modelStore.toggleHinge(result.elemA, 'end');
                 modelStore.toggleHinge(result.elemB, 'start');
@@ -1120,7 +1115,7 @@
           const springOpts: { angle?: number; isGlobal?: boolean } = {};
           if (springAngle !== 0) springOpts.angle = springAngle;
           if (!springIsGlobal) springOpts.isGlobal = false;
-          const springId = modelStore.addSupport(nearNode.id, 'spring', {
+          modelStore.addSupport(nearNode.id, 'spring', {
             kx: uiStore.springKx,
             ky: uiStore.springKy,
             kz: uiStore.springKz || undefined,
@@ -1635,7 +1630,6 @@
     const mx = e.clientX - rect.left;
     const my = e.clientY - rect.top;
     const world = uiStore.screenToWorld(mx, my);
-    const snapped = uiStore.snapWorld(world.x, world.y);
 
     const nearNode = findNearestNode(world.x, world.y, 0.3);
     const nearElem = nearNode ? null : findNearestElement(world.x, world.y, 0.3);
@@ -1837,9 +1831,7 @@
     return _findAllLoadsNear(wx, wy, maxDist, modelStore.model.loads, modelStore.elements, modelStore.nodes);
   }
 
-  function findNearestLoad(wx: number, wy: number, maxDist: number, excludeIds?: Set<number>) {
-    return _findNearestLoad(wx, wy, maxDist, modelStore.model.loads, modelStore.elements, modelStore.nodes, excludeIds);
-  }
+
 </script>
 
 <div class="viewport2d-wrapper">

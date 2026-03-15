@@ -2,8 +2,6 @@
 // Generates load cases, loads, and combinations from project parameters.
 // Does NOT touch the solver — produces data compatible with modelStore.
 
-import { t } from '../i18n';
-
 // ─── CIRSOC 101: Occupancy Live Loads ─────────────────────────
 
 export type OccupancyKey =

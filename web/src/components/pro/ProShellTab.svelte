@@ -3,7 +3,6 @@
   import { t } from '../../lib/i18n';
   import { selectShellFamily } from '../../lib/engine/shell-family-selector';
   import type { ShellFamily, ShellRecommendation } from '../../lib/engine/types-3d';
-  import { AVAILABLE_SHELL_FAMILIES } from '../../lib/engine/types-3d';
   import type { Vec3 } from '../../lib/engine/shell-family-selector';
 
   // --- Plate (DKT triangle) creator state ---

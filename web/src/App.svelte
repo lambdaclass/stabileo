@@ -27,7 +27,6 @@
   import SectionStressPanel from './components/SectionStressPanel.svelte';
   import KinematicPanel from './components/KinematicPanel.svelte';
   import TabBar from './components/TabBar.svelte';
-  import FeedbackWidget from './components/FeedbackWidget.svelte';
   import MobileResultsPanel from './components/MobileResultsPanel.svelte';
   import ProPanel from './components/pro/ProPanel.svelte';
   import EducativePanel from './components/edu/EducativePanel.svelte';
@@ -99,7 +98,6 @@
     return !params.has('embed') && !isAppRoute(location.pathname) && !isDemoRoute(location.pathname);
   }
 
-  const isEmbedDemo = new URLSearchParams(location.search).has('embed');
   let showLanding = $state(shouldShowLanding());
 
   function enterApp() {
@@ -468,7 +466,7 @@
     <div class="main-area">
       <main class="viewport-container">
         {#if uiStore.analysisMode === '2d' || uiStore.analysisMode === 'edu'}
-          <Viewport showResults={uiStore.analysisMode === '2d' && showResults} />
+          <Viewport />
         {:else}
           <Viewport3D />
         {/if}

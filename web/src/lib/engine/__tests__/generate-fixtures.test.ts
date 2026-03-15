@@ -16,7 +16,7 @@ import { combineResults, computeEnvelope } from './combinations-legacy';
 import { makeRandomModel2D } from './diff-fuzz-helpers';
 import { createMockAPI } from './example-api-mock';
 import { buildSolverInput2D, buildSolverInput3D } from '../solver-service';
-import type { LoadCase, LoadCombination } from '../../../lib/store/model.svelte';
+import type { LoadCase } from '../../../lib/store/model.svelte';
 
 // Mock uiStore so truss examples don't hit Svelte runtime
 vi.mock('../../../lib/store/index', () => ({
@@ -425,7 +425,6 @@ describe('Generate example model fixtures', () => {
     if (!found) throw new Error("Example '3d-building' not found");
 
     const { loadCases, combinations } = api.model;
-    const modelData = api.getModelData();
 
     // Solve per case
     const perCase3D = solvePerCase3D(api, loadCases);

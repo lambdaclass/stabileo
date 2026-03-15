@@ -38,7 +38,7 @@
 
   // Auto-scroll to keep active tab visible
   $effect(() => {
-    const _activeId = tabManager.activeTabId;
+    void tabManager.activeTabId;
     tick().then(() => {
       if (!tabBarEl) return;
       const activeEl = tabBarEl.querySelector('.tab.active') as HTMLElement;

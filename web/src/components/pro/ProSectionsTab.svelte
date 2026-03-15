@@ -8,7 +8,7 @@
   import {
     SECTION_SHAPES, STEEL_SHAPES, CONCRETE_SHAPES,
     computeSectionProperties, generateSectionName,
-    type ShapeType, type SectionProperties, type MaterialCategory,
+    type ShapeType, type MaterialCategory,
   } from '../../lib/data/section-shapes';
   import { crossSectionPath } from '../../lib/utils/section-drawing';
 
@@ -52,7 +52,7 @@
       iy: p.iy * 1e-8,
       b: p.b / 1000,
       h: p.h / 1000,
-      shape: shapeForFamily(p.family),
+      shape: shapeForFamily(p.family) as any,
       tw: p.tw ? p.tw / 1000 : undefined,
       tf: p.tf ? p.tf / 1000 : undefined,
       t: p.t ? p.t / 1000 : undefined,
@@ -123,7 +123,7 @@
       j: computed.j,
       b: computed.b,
       h: computed.h,
-      shape: computed.shape,
+      shape: computed.shape as any,
       tw: computed.tw,
       tf: computed.tf,
       t: computed.t,

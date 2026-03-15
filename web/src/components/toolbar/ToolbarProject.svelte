@@ -1,6 +1,6 @@
 <script lang="ts">
-  import { uiStore, resultsStore, modelStore, tabManager } from '../../lib/store';
-  import { saveProject, loadProject, loadFile, saveSession, downloadResultsCSV, downloadDXF, downloadSVG, downloadExcel, openPDFReport } from '../../lib/store/file';
+  import { uiStore, resultsStore, tabManager } from '../../lib/store';
+  import { saveProject, loadFile, saveSession, downloadResultsCSV, downloadDXF, downloadSVG, downloadExcel, openPDFReport } from '../../lib/store/file';
   import { generateShareURL, loadFromShareLink, MAX_URL_SAFE } from '../../lib/utils/url-sharing';
   import { t } from '../../lib/i18n';
 
@@ -53,9 +53,6 @@
     }
   }
 
-  function handleNew() {
-    tabManager.createTab();
-  }
 
   async function handleLoadFile(e: Event) {
     const input = e.target as HTMLInputElement;
@@ -64,7 +61,7 @@
     try {
       const result = await loadFile(file);
       if (result.type === 'session') {
-        uiStore.showToast(t('project.sessionRestored').replace('{n}', String(result.count)), 'success');
+        uiStore.toast(t('project.sessionRestored').replace('{n}', String(result.count)), 'success');
       }
     } catch (err: any) {
       alert(err.message || t('project.loadError'));

@@ -86,6 +86,8 @@ function combineResults(
     nStart: 0, nEnd: 0, vStart: 0, vEnd: 0, mStart: 0, mEnd: 0,
     length: f.length, qI: 0, qJ: 0,
     pointLoads: [] as Array<{ a: number; p: number }>,
+    distributedLoads: [] as Array<{ qI: number; qJ: number; a: number; b: number }>,
+    hingeStart: false, hingeEnd: false,
   }));
 
   for (const { caseId, factor } of factors) {
@@ -255,6 +257,7 @@ describe('Envelope computation', () => {
         elementId: 1, nStart: 50, nEnd: -50,
         vStart: 20, vEnd: -20, mStart: 100, mEnd: -80,
         length: 5, qI: 0, qJ: 0, pointLoads: [],
+        distributedLoads: [], hingeStart: false, hingeEnd: false,
       }],
     };
     const r2: AnalysisResults = {
@@ -264,6 +267,7 @@ describe('Envelope computation', () => {
         elementId: 1, nStart: -70, nEnd: 30,
         vStart: -25, vEnd: 15, mStart: -60, mEnd: 120,
         length: 5, qI: 0, qJ: 0, pointLoads: [],
+        distributedLoads: [], hingeStart: false, hingeEnd: false,
       }],
     };
 
@@ -294,6 +298,7 @@ describe('Envelope computation', () => {
         elementId: 1, nStart: 50, nEnd: -50,
         vStart: 20, vEnd: -20, mStart: 100, mEnd: -80,
         length: 5, qI: 0, qJ: 0, pointLoads: [],
+        distributedLoads: [], hingeStart: false, hingeEnd: false,
       }],
     };
 
@@ -310,6 +315,7 @@ describe('Envelope computation', () => {
         elementId: 1, nStart: 30, nEnd: -20,
         vStart: 10, vEnd: -5, mStart: 50, mEnd: -30,
         length: 5, qI: 0, qJ: 0, pointLoads: [],
+        distributedLoads: [], hingeStart: false, hingeEnd: false,
       }],
     };
     const r2: AnalysisResults = {
@@ -319,6 +325,7 @@ describe('Envelope computation', () => {
         elementId: 1, nStart: -40, nEnd: 15,
         vStart: -12, vEnd: 8, mStart: -80, mEnd: 60,
         length: 5, qI: 0, qJ: 0, pointLoads: [],
+        distributedLoads: [], hingeStart: false, hingeEnd: false,
       }],
     };
     const r3: AnalysisResults = {
@@ -328,6 +335,7 @@ describe('Envelope computation', () => {
         elementId: 1, nStart: 10, nEnd: -45,
         vStart: 5, vEnd: -15, mStart: 20, mEnd: -10,
         length: 5, qI: 0, qJ: 0, pointLoads: [],
+        distributedLoads: [], hingeStart: false, hingeEnd: false,
       }],
     };
 
@@ -407,7 +415,7 @@ describe('Pointwise envelope — dual pos/neg curves', () => {
         elementId: 1, nStart: 50, nEnd: -50,
         vStart: 20, vEnd: -20, mStart: 100, mEnd: -80,
         length: 5, qI: 0, qJ: 0, pointLoads: [],
-        hingeStart: false, hingeEnd: false,
+        distributedLoads: [], hingeStart: false, hingeEnd: false,
       }],
     };
     const r2: AnalysisResults = {
@@ -417,7 +425,7 @@ describe('Pointwise envelope — dual pos/neg curves', () => {
         elementId: 1, nStart: -70, nEnd: 30,
         vStart: -25, vEnd: 15, mStart: -60, mEnd: 120,
         length: 5, qI: 0, qJ: 0, pointLoads: [],
-        hingeStart: false, hingeEnd: false,
+        distributedLoads: [], hingeStart: false, hingeEnd: false,
       }],
     };
 
@@ -571,7 +579,6 @@ describe('Influence line — M at midspan of simply supported beam', () => {
 describe('Thermal loads — uniform temperature change', () => {
   const E = STEEL_E;
   const A = STD_A;
-  const IZ = STD_IZ;
   const L = 5;
   const DT = 30; // °C
 
@@ -633,11 +640,8 @@ describe('Thermal loads — uniform temperature change', () => {
 
 describe('Thermal loads — temperature gradient', () => {
   const E = STEEL_E;
-  const IZ = STD_IZ;
   const L = 5;
   const DTg = 20; // °C gradient (top - bottom)
-  // Section height for gradient
-  const b = 0.15, h = 0.3;
 
   it('fixed-fixed beam with ΔTg: M = E·I·α·ΔTg/h at both ends', () => {
     const input = makeInput({
@@ -774,7 +778,6 @@ describe('Self-weight on inclined beam', () => {
   const A = 0.01;
   const L = Math.sqrt(3 * 3 + 3 * 3);
   const q = rho * A;
-  const W = q * L; // total weight (vertical, downward)
 
   it('equilibrium: total vertical reactions = total weight for inclined beam', () => {
     // q acts downward → decompose into local perpendicular and axial
@@ -1093,7 +1096,7 @@ describe('Async moving loads with progress', () => {
     const resultPromise = solveMovingLoadsAsync(
       asyncInput,
       { train: { name: 'test', axles: [{ offset: 0, weight: 100 }] }, step: 0.5 },
-      (p) => {
+      () => {
         callCount++;
         if (callCount >= 2) ac.abort(); // Cancel after 2 positions
       },
@@ -1273,7 +1276,6 @@ describe('Moving loads on inclined and vertical bars', () => {
     expect(typeof result).not.toBe('string');
     if (typeof result === 'string') return;
 
-    const L = 3 * Math.sqrt(2); // ~4.243
     const nodes = new Map([[1, { x: 0, y: 0 }], [2, { x: 3, y: 3 }]]);
 
     // At refPos=1.0, axle 1 at 1.0m, axle 2 at 2.0m along bar

@@ -9,11 +9,12 @@
     const items: Array<{ source: string; type: string; message: string; severity: string }> = [];
     const asmDiags = uiStore.analysisMode === '3d' ? resultsStore.diagnostics3D : resultsStore.diagnostics;
     for (const d of asmDiags) {
-      items.push({ source: `Elem ${d.elementId} (${d.elementType})`, type: d.metric, message: d.message, severity: 'warning' });
+      const elemIds = d.elementIds && d.elementIds.length > 0 ? `Elem ${d.elementIds[0]}` : '';
+      items.push({ source: elemIds || d.source, type: d.code, message: d.message, severity: d.severity });
     }
     const solverDiags = uiStore.analysisMode === '3d' ? resultsStore.solverDiagnostics3D : resultsStore.solverDiagnostics;
     for (const d of solverDiags) {
-      items.push({ source: d.category, type: d.category, message: d.message, severity: d.severity });
+      items.push({ source: d.source, type: d.code, message: d.message, severity: d.severity });
     }
     return items;
   })());

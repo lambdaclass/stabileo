@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { uiStore, modelStore, resultsStore, historyStore } from '../lib/store';
+  import { uiStore, modelStore, resultsStore } from '../lib/store';
   import { t } from '../lib/i18n';
 
   let subdivCount = $state(2);
@@ -25,7 +25,7 @@
       uiStore.editingElementId = ctx.elementId;
       uiStore.editScreenPos = { x: ctx.x, y: ctx.y };
     } else if (action === 'add-support' && ctx.nodeId != null) {
-      modelStore.addSupport(ctx.nodeId, uiStore.supportType);
+      modelStore.addSupport(ctx.nodeId, uiStore.supportType as any);
     } else if (action === 'add-load' && ctx.nodeId != null) {
       modelStore.addNodalLoad(ctx.nodeId, 0, uiStore.loadValue);
     } else if (action === 'select-node' && ctx.nodeId != null) {

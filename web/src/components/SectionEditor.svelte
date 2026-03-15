@@ -82,7 +82,7 @@
     showProfileSelector = false;
   }
 
-  function handleProfileSelect(profile: SteelProfile, section: { a: number; iz: number; b: number; h: number }) {
+  function handleProfileSelect(profile: SteelProfile, _section: { a: number; iz: number; b: number; h: number }) {
     const full = profileToSectionFull(profile);
     localName = profile.name;
     localA = full.a.toPrecision(6);

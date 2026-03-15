@@ -578,7 +578,7 @@ export function designSlabReinforcement(
   for (const rb of rebarOptions) {
     // Try spacings from 10cm to 25cm
     for (const sp of [0.10, 0.125, 0.15, 0.175, 0.20, 0.225, 0.25]) {
-      const AsProv = rb.area / sp * 0.01; // cm²/m (area per bar / spacing in m * 100cm/m)
+      // AsProv = rb.area / sp * 0.01; // cm²/m (area per bar / spacing in m * 100cm/m)
       const asProvCm2 = rb.area * (1 / sp) ; // bars per meter × area each
       if (asProvCm2 >= AsReq && (bestAs === 0 || asProvCm2 < bestAs * 1.3)) {
         bestDia = rb.dia;

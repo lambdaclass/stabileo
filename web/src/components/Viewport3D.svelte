@@ -4,10 +4,10 @@
   import * as THREE from 'three';
   import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
   import { modelStore, uiStore, resultsStore, historyStore, dsmStepsStore, verificationStore } from '../lib/store';
-  import { setLineResolution, fatLineResolution } from '../lib/three/create-element-mesh';
-  import { COLORS, setMeshColor, findUserData, disposeObject, createTextSprite } from '../lib/three/selection-helpers';
+  import { fatLineResolution } from '../lib/three/create-element-mesh';
+  import { COLORS, setMeshColor, setGroupColor, findUserData, disposeObject, createTextSprite } from '../lib/three/selection-helpers';
   import { evaluateDiagramAt, formatDiagramValue3D, type Diagram3DKind } from '../lib/engine/diagrams-3d';
-  import { getGroundIntersection as _getGroundIntersection, findNodeHit as _findNodeHit, findElementHit as _findElementHit, segmentsIntersect2D, segmentIntersectsRect2D } from '../lib/viewport3d/picking';
+  import { getGroundIntersection as _getGroundIntersection, findNodeHit as _findNodeHit, findElementHit as _findElementHit, segmentIntersectsRect2D } from '../lib/viewport3d/picking';
   import { getModelBounds as _getModelBounds, zoomToFit as _zoomToFit, setView as _setView, handleResize as _handleResize, syncOrthoFrustum as _syncOrthoFrustum } from '../lib/viewport3d/camera';
   import { updateGrid as _updateGrid, createFatAxes as _createFatAxes, addAxisLabels as _addAxisLabels } from '../lib/viewport3d/grid';
   import { syncNodes as _syncNodes, syncElements as _syncElements, syncSupports as _syncSupports, syncLoads as _syncLoads, syncShells as _syncShells, syncSelection as _syncSelection, type SceneSyncContext } from '../lib/viewport3d/scene-sync';
@@ -27,15 +27,7 @@
   let nodeMeshes = new Map<number, THREE.Mesh>();
   let elementGroups = new Map<number, THREE.Group>();
   let supportGizmos = new Map<number, THREE.Group>();
-  let loadGroup: THREE.Group | null = null;
   let deformedGroup: THREE.Group | null = null;
-  let diagramGroup: THREE.Group | null = null;
-  let overlayDiagramGroup: THREE.Group | null = null;
-  let reactionGroup: THREE.Group | null = null;
-  let constraintForcesGroup: THREE.Group | null = null;
-  let nodeLabelsGroup: THREE.Group | null = null;
-  let elementLabelsGroup: THREE.Group | null = null;
-  let lengthLabelsGroup: THREE.Group | null = null;
   let gridGroup: THREE.Object3D | null = null;
   let measureGroup: THREE.Group | null = null;
   let axesHelper: THREE.Group | null = null;
@@ -57,7 +49,6 @@
   const mouse = new THREE.Vector2();
   let hoveredData: { type: string; id: number } | null = null;
   let hoveredNodeId3D = $state<number | null>(null);
-  let isDragging = false;
   let mouseDownPos = { x: 0, y: 0 };
 
   // ─── Box select state ──────────────────────────────────────
@@ -200,14 +191,12 @@
     // WASD = pan, Arrows = orbit, Q/E = up/down, Shift/Ctrl = speed boost
     const keysPressed = new Set<string>();
     let navShiftHeld = false;
-    let navCtrlHeld = false;
 
     const onNavKeyDown = (e: KeyboardEvent) => {
       // Skip when typing in inputs
       const tag = document.activeElement?.tagName;
       if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') return;
       if (e.key === 'Shift') navShiftHeld = true;
-      if (e.key === 'Control') navCtrlHeld = true;
       const k = e.key.toLowerCase();
       if ('wasdqe'.includes(k) || e.key.startsWith('Arrow')) {
         keysPressed.add(k.startsWith('arrow') ? e.key : k);
@@ -220,7 +209,6 @@
     };
     const onNavKeyUp = (e: KeyboardEvent) => {
       if (e.key === 'Shift') navShiftHeld = false;
-      if (e.key === 'Control') navCtrlHeld = false;
       const k = e.key.toLowerCase();
       keysPressed.delete(k.startsWith('arrow') ? e.key : k);
       if (e.key === 'Shift') controls.enablePan = true;
@@ -447,7 +435,7 @@
   function syncNodes() { _syncNodes(sceneCtx); }
   function syncElements() { _syncElements(sceneCtx); }
   function syncSupports() { _syncSupports(sceneCtx); }
-  function syncLoads() { _syncLoads(sceneCtx); loadGroup = sceneCtx.loadGroup; }
+  function syncLoads() { _syncLoads(sceneCtx); }
   function syncShells() { _syncShells(sceneCtx); }
   function syncSelection() {
     _syncSelection(sceneCtx);
@@ -463,8 +451,6 @@
   }
   function syncDiagrams3D() {
     _syncDiagrams3D(resultsCtx);
-    diagramGroup = resultsCtx.diagramGroup;
-    overlayDiagramGroup = resultsCtx.overlayDiagramGroup;
   }
   function syncColorMap3D() {
     _syncColorMap3D(resultsCtx);
@@ -475,17 +461,12 @@
   }
   function syncReactions() {
     _syncReactions(resultsCtx);
-    reactionGroup = resultsCtx.reactionGroup;
   }
   function syncConstraintForces() {
     _syncConstraintForces(resultsCtx);
-    constraintForcesGroup = resultsCtx.constraintForcesGroup;
   }
   function syncLabels3D() {
     _syncLabels3D(resultsCtx);
-    nodeLabelsGroup = resultsCtx.nodeLabelsGroup;
-    elementLabelsGroup = resultsCtx.elementLabelsGroup;
-    lengthLabelsGroup = resultsCtx.lengthLabelsGroup;
   }
 
   // ─── Clear stress query when leaving stress mode ────────────
@@ -738,7 +719,6 @@
 
   function handleMouseDown(e: MouseEvent) {
     if (e.button === 0) {
-      isDragging = false;
       mouseDownPos = { x: e.clientX, y: e.clientY };
 
       const tool = uiStore.currentTool;
@@ -971,14 +951,6 @@
     return tool;
   }
 
-  function snapToGrid3D(x: number, z: number): { x: number; z: number } {
-    if (!uiStore.snapToGrid3D || !uiStore.showGrid3D) return { x, z };
-    const g = uiStore.gridSize3D;
-    return {
-      x: Math.round(x / g) * g,
-      z: Math.round(z / g) * g,
-    };
-  }
 
   /** Find nearest existing node within threshold (3D distance) */
   function findNearestNode3D(worldPos: THREE.Vector3, threshold = 0.3): number | null {
@@ -1585,9 +1557,6 @@
   //  CAMERA HELPERS
   // ═══════════════════════════════════════════════════════════════
 
-  function getModelBounds() {
-    return _getModelBounds(modelStore.nodes);
-  }
 
   function zoomToFit() {
     _zoomToFit(camera, controls, modelStore.nodes, orthoCamera, container);

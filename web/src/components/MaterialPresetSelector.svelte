@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { getMaterialPresets, MATERIAL_CATEGORIES, searchPresets, type MaterialPreset } from '../lib/data/material-presets';
+  import { MATERIAL_CATEGORIES, searchPresets, type MaterialPreset } from '../lib/data/material-presets';
   import { t } from '../lib/i18n';
 
   interface Props {

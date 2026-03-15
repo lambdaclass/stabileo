@@ -5,7 +5,7 @@ import type { ElementVerification } from './codes/argentina/cirsoc201';
 
 export interface ElementQuantity {
   elementId: number;
-  elementType: 'beam' | 'column';
+  elementType: 'beam' | 'column' | 'wall';
   length: number;          // m
   concreteVolume: number;  // m³
   rebarWeight: number;     // kg (longitudinal)

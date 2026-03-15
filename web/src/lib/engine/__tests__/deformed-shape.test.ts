@@ -23,7 +23,7 @@
 import { describe, it, expect } from 'vitest';
 import { computeDeformedShape } from '../diagrams';
 import { solve } from '../solver-js';
-import type { SolverInput, SolverLoad, AnalysisResults, ElementForces } from '../types';
+import type { SolverInput, SolverLoad, AnalysisResults } from '../types';
 
 // ─── Constants ──────────────────────────────────────────────────
 
@@ -102,10 +102,6 @@ function curvatureAt(pts: { x: number; y: number }[], i: number): number {
   return 2 * cross / (ds1 * ds2 * (ds1 + ds2));
 }
 
-/** Compute transverse deflection in local coordinates for a horizontal beam */
-function localTransverseDeflection(pts: { x: number; y: number }[], baseY: number, scale: number): number[] {
-  return pts.map(p => (p.y - baseY) / scale);
-}
 
 // ═══════════════════════════════════════════════════════════════
 // 1. ENDPOINT ACCURACY: deformed shape endpoints match solver displacements
@@ -148,7 +144,6 @@ describe('Deformed shape: endpoint accuracy', () => {
       loads: [{ type: 'distributed', data: { elementId: 1, qI: q, qJ: q } }],
     });
     const results = solve(input);
-    const dI = getDisp(results, 1);
     const dJ = getDisp(results, 2);
 
     const pts = deformedFromResults(results, 1, input.nodes, input.elements as any, 100);
@@ -280,7 +275,6 @@ describe('Deformed shape: rigid joint angle preservation', () => {
       loads: [{ type: 'nodal', data: { nodeId: 2, fx: 0, fy: -10, mz: 0 } }],
     });
     const results = solve(input);
-    const dNode2 = getDisp(results, 2);
 
     // Both elements share node 2 with the SAME rotation
     const pts1 = deformedFromResults(results, 1, input.nodes, input.elements as any, 200);
@@ -364,14 +358,13 @@ describe('Deformed shape: hinge behavior', () => {
     // Moment at fixed end should be non-zero
     expect(Math.abs(ef.mEnd)).toBeGreaterThan(0.1);
 
-    const pts = deformedFromResults(results, 1, input.nodes, input.elements as any, 200);
+    deformedFromResults(results, 1, input.nodes, input.elements as any, 200);
 
     // Verify computeDeformedShape uses the adjusted rotation for hinge:
     // The hinge formula sets θI = 3·dv/(2L) - θJ/2 which produces zero v'' at ξ=0
     // We verify this analytically by checking the Hermite second derivative:
     const dI = getDisp(results, 1);
     const dJ = getDisp(results, 2);
-    const cos = 1, sin = 0; // horizontal beam
     const vI = dI.uy, vJ = dJ.uy;
     const dv = vJ - vI;
     // Adjusted thetaI for hingeStart:
@@ -454,15 +447,6 @@ describe('Deformed shape: hinge behavior', () => {
 
     // Slope at junction: element 1 end has M=0 (hinge), element 2 start may have M≠0
     // The tangent slopes CAN be different (angular discontinuity allowed)
-    const slope1 = Math.atan2(
-      pts1[pts1.length - 1].y - pts1[pts1.length - 2].y,
-      pts1[pts1.length - 1].x - pts1[pts1.length - 2].x,
-    );
-    const slope2 = Math.atan2(
-      pts2[1].y - pts2[0].y,
-      pts2[1].x - pts2[0].x,
-    );
-
     // They should NOT be forced equal (unlike rigid joint)
     // This is a weak test — just verify the function runs and produces valid results
     expect(pts1.length).toBe(21);
@@ -516,12 +500,12 @@ describe('Deformed shape: analytical verification', () => {
 
     // Analytical max deflection at midspan
     const EI = E * 1000 * Iz;
-    const delta_max_exact = 5 * q * L * L * L * L / (384 * EI);
+    // Analytical max deflection: delta_max_exact = 5 * q * L^4 / (384 * EI)
 
     // The deformed shape at midspan (point 10 of 21)
     const pts = deformedFromResults(results, 1, input.nodes, input.elements as any, 1);
     const midIdx = Math.floor(pts.length / 2);
-    const midDeflection = pts[midIdx].y; // this is the base + displacement * scale
+    void pts[midIdx].y; // midDeflection: this is the base + displacement * scale
 
     // The actual midspan deflection from the curve
     // baseY at midspan = 0 (horizontal beam), so midDeflection = uy_mid * scale
@@ -817,7 +801,6 @@ describe('Deformed shape: inclined and vertical bars', () => {
         loads: [{ type: 'nodal', data: { nodeId: 2, fx: 0, fy: -10, mz: 0 } }],
       });
       const results = solve(input);
-      const dI = getDisp(results, 1);
       const dJ = getDisp(results, 2);
 
       const pts = deformedFromResults(results, 1, input.nodes, input.elements as any, 100);

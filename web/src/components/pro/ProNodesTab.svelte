@@ -134,8 +134,7 @@
     const row = rows[idx];
     if (row.id !== null) {
       // Select node in viewport
-      uiStore.selectedNodes = new Set([row.id]);
-      uiStore.selectedElements = new Set();
+      uiStore.setSelection(new Set([row.id]), new Set());
     }
   }
 

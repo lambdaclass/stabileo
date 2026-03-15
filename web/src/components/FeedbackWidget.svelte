@@ -32,22 +32,19 @@
   let turnstileFailed = $state(false);
   let turnstileContainer: HTMLDivElement;
 
-  declare global {
-    interface Window {
-      turnstile?: {
-        render: (container: HTMLElement, options: {
-          sitekey: string;
-          callback: (token: string) => void;
-          'expired-callback'?: () => void;
-          'error-callback'?: () => void;
-          theme?: 'dark' | 'light' | 'auto';
-          size?: 'normal' | 'compact';
-        }) => string;
-        remove: (widgetId: string) => void;
-        reset: (widgetId: string) => void;
-      };
-    }
-  }
+  type TurnstileWidget = {
+    render: (container: HTMLElement, options: {
+      sitekey: string;
+      callback: (token: string) => void;
+      'expired-callback'?: () => void;
+      'error-callback'?: () => void;
+      theme?: 'dark' | 'light' | 'auto';
+      size?: 'normal' | 'compact';
+    }) => string;
+    remove: (widgetId: string) => void;
+    reset: (widgetId: string) => void;
+  };
+  const turnstileWindow = window as typeof window & { turnstile?: TurnstileWidget };
 
   function toggleOpen() {
     isOpen = !isOpen;
@@ -87,14 +84,14 @@
   }
 
   function renderTurnstile() {
-    if (!turnstileContainer || !window.turnstile) {
+    if (!turnstileContainer || !turnstileWindow.turnstile) {
       // Turnstile script didn't load — allow submission without it
       turnstileFailed = true;
       return;
     }
     cleanupTurnstile();
     try {
-      turnstileWidgetId = window.turnstile.render(turnstileContainer, {
+      turnstileWidgetId = turnstileWindow.turnstile.render(turnstileContainer, {
         sitekey: TURNSTILE_SITE_KEY,
         callback: (token: string) => { turnstileToken = token; turnstileFailed = false; },
         'expired-callback': () => { turnstileToken = ''; },
@@ -109,8 +106,8 @@
   }
 
   function cleanupTurnstile() {
-    if (turnstileWidgetId && window.turnstile) {
-      window.turnstile.remove(turnstileWidgetId);
+    if (turnstileWidgetId && turnstileWindow.turnstile) {
+      turnstileWindow.turnstile.remove(turnstileWidgetId);
     }
     turnstileWidgetId = null;
     turnstileToken = '';
@@ -161,8 +158,8 @@
     } finally {
       isSending = false;
       // Reset turnstile for next submission
-      if (turnstileWidgetId && window.turnstile) {
-        window.turnstile.reset(turnstileWidgetId);
+      if (turnstileWidgetId && turnstileWindow.turnstile) {
+        turnstileWindow.turnstile.reset(turnstileWidgetId);
         turnstileToken = '';
       }
     }

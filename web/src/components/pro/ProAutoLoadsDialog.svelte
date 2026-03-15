@@ -4,7 +4,7 @@
   import {
     OCCUPANCY_TABLE, DEAD_LOAD_DEFAULTS,
     getCirsoc101Combinations, computeSeismicStatic, detectFloorLevels,
-    DUCTILITY_TABLE, IMPORTANCE_FACTORS,
+    DUCTILITY_TABLE,
     type SeismicZone, type SoilType, type ImportanceGroup,
     type DuctilityKey, type StructureSystem, type FloorLevel,
   } from '../../lib/engine/auto-loads';
@@ -142,7 +142,6 @@
       if (cosAngle > 0.5) continue;
 
       // Estimate tributary width (heuristic: use section width or 1m default)
-      const sec = modelStore.sections.get(elem.sectionId);
       // For beams, assume tributary width = spacing between beams ≈ 3m (user can adjust)
       const tribWidth = 3.0;
 

@@ -10,7 +10,7 @@
 
 import { describe, it, expect } from 'vitest';
 import { solve } from '../solver-js';
-import type { SolverInput, SolverSupport, SolverLoad, AnalysisResults } from '../types';
+import type { SolverInput, SolverSupport, SolverLoad } from '../types';
 
 // ─── Helpers ───────────────────────────────────────────────────────────
 
@@ -46,9 +46,6 @@ function getReaction(results: ReturnType<typeof solve>, nodeId: number) {
   return results.reactions?.find(r => r.nodeId === nodeId);
 }
 
-function getForces(results: ReturnType<typeof solve>, elemId: number) {
-  return results.elementForces?.find(f => f.elementId === elemId);
-}
 
 /**
  * Linearly combine reaction values from multiple cases.

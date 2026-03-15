@@ -19,7 +19,6 @@ import type { SolverInput, SolverLoad, AnalysisResults } from '../types';
 const STEEL_E = 200_000; // MPa
 const STD_A = 0.01;      // m²
 const STD_IZ = 1e-4;     // m⁴
-const TOL = 0.02;        // 2% relative
 const ABS_TOL = 1e-6;
 
 // ─── Helpers ────────────────────────────────────────────────────

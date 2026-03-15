@@ -19,7 +19,7 @@ import type { SolverInput, SolverLoad, AnalysisResults, SolverNode, SolverElemen
 const STEEL_E = 200_000; // MPa
 const STD_A = 0.01; // m²
 const STD_IZ = 1e-4; // m⁴
-const _ALPHA = 1.2e-5; // /°C steel thermal expansion
+// const ALPHA = 1.2e-5; // /°C steel thermal expansion (unused)
 
 // ─── Helpers ────────────────────────────────────────────────────
 
@@ -771,13 +771,13 @@ describe('1.3 — Analytical benchmarks', () => {
 
     it('max moment = P*a*b/L', () => {
       // At the point of load application
-      const f = getForces(results, 1)!;
+      getForces(results, 1);
       // M(x=a) from left: Ry_left * a = P*b/L * a = P*a*b/L
       const expectedM = P * a * b / L;
       // The moment at point of load: use start moment + shear contribution
       // M(a) = Ry_left * a = mStart + vStart * a (but sign conventions vary)
       // Just check Mmax from the element forces
-      const _Mmax = Math.abs(f.mStart) + Math.abs(f.vStart) * a;
+      // Mmax = Math.abs(f.mStart) + Math.abs(f.vStart) * a; // unused, verified via reactions below
       // Actually, use the analytical approach: at any section to the left of load
       // M(a) = Ry_left * a. Let's verify via reactions.
       const Ry_left = getReaction(results, 1).ry;
@@ -785,10 +785,10 @@ describe('1.3 — Analytical benchmarks', () => {
     });
 
     it('midspan deflection (Mohr integral)', () => {
-      const EI = STEEL_E * 1000 * STD_IZ; // kN·m²
+      // EI = STEEL_E * 1000 * STD_IZ (kN·m²)
       // For a<b: delta_mid = P*b*(3*L² - 4*b²)/(48*EI) when a <= L/2
       // Here a=3, b=5, L=8, a < L/2=4
-      const _delta_mid = P * b * (3 * L * L - 4 * b * b) / (48 * EI);
+      // delta_mid = P * b * (3*L² - 4*b²) / (48*EI); // analytical, not directly testable from nodal results
       // Approximate: midspan is at node... but we only have 2 nodes.
       // Deflection under load: P*a²*b²/(3*EI*L)
       // We can't directly read mid-element deflection from results.

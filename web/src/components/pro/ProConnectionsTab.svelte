@@ -3,7 +3,7 @@
   import { t } from '../../lib/i18n';
   import {
     detectJoints, getJointForces, checkBoltGroup, checkFilletWeld,
-    BOLT_TABLE, type BoltGrade, type BoltResult, type WeldResult,
+    type BoltGrade, type BoltResult, type WeldResult,
     type JointInfo, type JointForces,
   } from '../../lib/engine/connection-design';
 
@@ -58,8 +58,7 @@
   }
 
   function highlightJoint(j: JointInfo) {
-    uiStore.selectedNodes = new Set([j.nodeId]);
-    uiStore.selectedElements = new Set(j.elementIds);
+    uiStore.setSelection(new Set([j.nodeId]), new Set(j.elementIds));
   }
 
   /** Auto-fill bolt forces from joint max shear */

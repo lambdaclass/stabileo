@@ -10,7 +10,6 @@ import {
   resolveSectionGeometry,
   inferSectionShape,
   computeCentralCore,
-  type ResolvedSection,
 } from '../section-stress';
 import type { Section } from '../../store/model.svelte';
 import type { ElementForces } from '../types';
@@ -86,6 +85,8 @@ function simpleBeamForces(N: number, V: number, M: number, L: number): ElementFo
     vStart: V, vEnd: V,
     mStart: M, mEnd: M,
     length: L, qI: 0, qJ: 0,
+    pointLoads: [], distributedLoads: [],
+    hingeStart: false, hingeEnd: false,
   };
 }
 
@@ -101,6 +102,9 @@ function uniformLoadBeam(q: number, L: number): ElementForces {
     vStart: R, vEnd: -R,
     mStart: 0, mEnd: 0,
     length: L, qI: q, qJ: q,
+    pointLoads: [],
+    distributedLoads: [{ qI: q, qJ: q, a: 0, b: L }],
+    hingeStart: false, hingeEnd: false,
   };
 }
 
@@ -612,6 +616,8 @@ describe('suggestCriticalSections', () => {
       vStart: 40, vEnd: -40,
       mStart: 0, mEnd: 0,
       length: 4, qI: -20, qJ: -20,
+      pointLoads: [], distributedLoads: [],
+      hingeStart: false, hingeEnd: false,
     };
     const cs = suggestCriticalSections(ef);
     expect(cs.find(c => c.reason.includes('V=0'))).toBeDefined();
@@ -630,6 +636,8 @@ describe('suggestCriticalSections', () => {
       vStart: Vs, vEnd: -(totalLoad + Vs),
       mStart: 0, mEnd: 0,
       length: L, qI: qi, qJ: qj,
+      pointLoads: [], distributedLoads: [],
+      hingeStart: false, hingeEnd: false,
     };
     const cs = suggestCriticalSections(ef);
     // Should find at least one V=0 point
@@ -650,6 +658,8 @@ describe('suggestCriticalSections', () => {
       mStart: 0, mEnd: 0,
       length: 10, qI: 0, qJ: 0,
       pointLoads: [{ a: 4, p: -40 }],
+      distributedLoads: [],
+      hingeStart: false, hingeEnd: false,
     };
     const cs = suggestCriticalSections(ef);
     expect(cs.find(c => c.reason.includes('Point load'))).toBeDefined();
@@ -669,6 +679,8 @@ describe('suggestCriticalSections', () => {
       mStart: 0, mEnd: 0,
       length: 6, qI: -10, qJ: -10,
       pointLoads: [{ a: 3.01, p: -1 }], // very close to midpoint
+      distributedLoads: [],
+      hingeStart: false, hingeEnd: false,
     };
     const cs = suggestCriticalSections(ef);
     // Should not have two sections within 0.02 of each other
@@ -1080,7 +1092,7 @@ describe('Pressure center sign convention (3D)', () => {
     const rs = resolveSectionGeometry(sec);
     const A = rs.a;
     const Iz = rs.iy; // LARGE (Iyy = about Y horizontal)
-    const N = -100, Mz = -10, My = 0;
+    const N = -100, Mz = -10;
 
     // EN intercept: y = -N·Iz/(A·Mz)
     const yEN = -(N * Iz) / (A * Mz);
@@ -1211,7 +1223,7 @@ describe('ResolvedSection iy/iz naming consistency', () => {
       hingeStart: false, hingeEnd: false,
       qI: 0, qJ: 0, pointLoads: [], distributedLoads: [],
     };
-    const result = analyzeSectionStress(ef, sec, 355, 0.5);
+    analyzeSectionStress(ef, sec, 355, 0.5);
     // At midspan (t=0.5), M=0 → σ should be 0 everywhere
     // At start (t=0), M=100 kN·m → σ at extreme fiber = M·yMax/Iy / 1000
     const resultStart = analyzeSectionStress(ef, sec, 355, 0);

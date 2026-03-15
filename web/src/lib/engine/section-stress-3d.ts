@@ -31,7 +31,7 @@ export interface SectionStress3D {
 
 export function computeSectionStress(
   N: number, Vy: number, Vz: number,
-  Mx: number, My: number, Mz: number,
+  _Mx: number, My: number, Mz: number,
   A: number, Iz: number, Iy: number,
   h: number = 0, b: number = 0,
   fy: number = 355_000,
@@ -451,7 +451,6 @@ export function interpolateForces3D(
   ef: ElementForces3D, t: number,
 ): { N: number; Vy: number; Vz: number; Mx: number; My: number; Mz: number } {
   const x = t * ef.length;
-  const L = ef.length;
 
   // N: linear (no distributed axial loads assumed)
   const N = ef.nStart + t * (ef.nEnd - ef.nStart);

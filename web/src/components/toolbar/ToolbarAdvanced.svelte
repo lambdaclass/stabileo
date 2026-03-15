@@ -1,7 +1,7 @@
 <script lang="ts">
   import { uiStore, modelStore, resultsStore, dsmStepsStore } from '../../lib/store';
   import { t } from '../../lib/i18n';
-  import { solvePDelta, solveBuckling, solveModal, solveSpectral, solvePlastic, solveMovingLoads3D as wasmMovingLoads3D, solvePDelta3D as wasmPDelta3D, solveModal3D as wasmModal3D, solveBuckling3D as wasmBuckling3D, solveSpectral3D as wasmSpectral3D, initSolver, isWasmReady } from '../../lib/engine/wasm-solver';
+  import { solvePDelta, solveBuckling, solveModal, solveSpectral, solvePlastic, solvePDelta3D as wasmPDelta3D, solveModal3D as wasmModal3D, solveBuckling3D as wasmBuckling3D, solveSpectral3D as wasmSpectral3D, initSolver, isWasmReady } from '../../lib/engine/wasm-solver';
   import { cirsoc103Spectrum } from '../../lib/engine/result-types';
   import { getPredefinedTrains, solveMovingLoadsAsync } from '../../lib/engine/moving-loads';
   import { solveDetailed } from '../../lib/engine/solver-detailed';
@@ -251,36 +251,6 @@
     }
   }
 
-  async function handleMovingLoad3D(trainIndex: number) {
-    if (!await ensureWasmReady('handleMovingLoad3D')) return;
-    const input = modelStore.buildSolverInput3D(uiStore.includeSelfWeight, uiStore.axisConvention3D === 'leftHand');
-    if (!input) { uiStore.toast(t('advanced.emptyModel'), 'error'); return; }
-    const train = getPredefinedTrains()[trainIndex];
-    if (!train) return;
-
-    const abortController = resultsStore.startMovingLoadAnalysis();
-
-    try {
-      const t0 = performance.now();
-      const result = wasmMovingLoads3D({ solver: input, train });
-      const dt = performance.now() - t0;
-
-      if (abortController.signal.aborted) return;
-
-      if (typeof result === 'string') {
-        uiStore.toast(result, 'error');
-        return;
-      }
-      resultsStore.setMovingLoadEnvelope(result);
-      uiStore.toast(t('toast.movingLoadSuccess').replace('{positions}', String(result.positions.length)).replace('{ms}', dt.toFixed(0)), 'success');
-    } catch (e: any) {
-      if (!abortController.signal.aborted) {
-        uiStore.toast(e.message || t('toast.movingLoadError'), 'error');
-      }
-    } finally {
-      resultsStore.finishMovingLoad();
-    }
-  }
 
   const is3D = $derived(uiStore.analysisMode === '3d' || uiStore.analysisMode === 'pro');
   const isPro = $derived(uiStore.analysisMode === 'pro');

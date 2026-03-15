@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { uiStore, modelStore, resultsStore, historyStore, tabManager } from '../../lib/store';
+  import { uiStore, modelStore, resultsStore } from '../../lib/store';
   import {
     generateCableStayedBridge3D,
     generateStadiumCanopy3D,
@@ -69,123 +69,7 @@
     { id: 'frame-seismic', nameKey: 'ex.frame-seismic', descKey: 'ex.frame-seismic.desc' },
   ];
 
-  function handleDuplicateAxis() {
-    // Collect all selected nodes + nodes from selected elements
-    const nodeIds = new Set<number>(uiStore.selectedNodes);
-    for (const elemId of uiStore.selectedElements) {
-      const elem = modelStore.elements.get(elemId);
-      if (elem) {
-        nodeIds.add(elem.nodeI);
-        nodeIds.add(elem.nodeJ);
-      }
-    }
-    if (nodeIds.size === 0) {
-      uiStore.toast(t('examples.selectFirst'), 'error');
-      return;
-    }
 
-    const axis = uiStore.duplicateAxis;
-    const dist = uiStore.duplicateDistance;
-
-    // Offset vector
-    const ox = axis === 'x' ? dist : 0;
-    const oy = axis === 'y' ? dist : 0;
-    const oz = axis === 'z' ? dist : 0;
-
-    const idMap = new Map<number, number>(); // origNodeId → newNodeId
-    const newElements: number[] = [];
-
-    historyStore.pushState();
-
-    modelStore.batch(() => {
-      // 1. Create duplicated nodes
-      for (const nid of nodeIds) {
-        const n = modelStore.getNode(nid);
-        if (!n) continue;
-        const newId = modelStore.addNode(n.x + ox, n.y + oy, (n.z ?? 0) + oz);
-        idMap.set(nid, newId);
-      }
-
-      // 2. Duplicate elements between copied nodes
-      for (const elem of modelStore.elements.values()) {
-        if (nodeIds.has(elem.nodeI) && nodeIds.has(elem.nodeJ)) {
-          const ni = idMap.get(elem.nodeI);
-          const nj = idMap.get(elem.nodeJ);
-          if (ni == null || nj == null) continue;
-          const newElemId = modelStore.addElement(ni, nj, elem.type);
-          const matId = modelStore.materials.has(elem.materialId) ? elem.materialId : 1;
-          const secId = modelStore.sections.has(elem.sectionId) ? elem.sectionId : 1;
-          modelStore.updateElementMaterial(newElemId, matId);
-          modelStore.updateElementSection(newElemId, secId);
-          if (elem.hingeStart) modelStore.toggleHinge(newElemId, 'start');
-          if (elem.hingeEnd) modelStore.toggleHinge(newElemId, 'end');
-          newElements.push(newElemId);
-        }
-      }
-
-      // 3. Duplicate supports on copied nodes
-      for (const sup of modelStore.supports.values()) {
-        if (nodeIds.has(sup.nodeId)) {
-          const newNodeId = idMap.get(sup.nodeId);
-          if (newNodeId != null) {
-            modelStore.addSupport(newNodeId, sup.type);
-          }
-        }
-      }
-
-      // 4. Duplicate loads on copied nodes/elements
-      // Build element mapping: original elemId → new elemId
-      const elemMap = new Map<number, number>();
-      for (const elem of modelStore.elements.values()) {
-        if (nodeIds.has(elem.nodeI) && nodeIds.has(elem.nodeJ)) {
-          const ni = idMap.get(elem.nodeI);
-          const nj = idMap.get(elem.nodeJ);
-          if (ni != null && nj != null) {
-            for (const newElemId of newElements) {
-              const newElem = modelStore.elements.get(newElemId);
-              if (newElem && newElem.nodeI === ni && newElem.nodeJ === nj) {
-                elemMap.set(elem.id, newElemId);
-                break;
-              }
-            }
-          }
-        }
-      }
-
-      for (const loadEntry of modelStore.loads) {
-        const d = loadEntry.data as any;
-        if (loadEntry.type === 'nodal3d' && nodeIds.has(d.nodeId)) {
-          const newNodeId = idMap.get(d.nodeId);
-          if (newNodeId != null) {
-            modelStore.addNodalLoad3D(newNodeId, d.fx, d.fy, d.fz, d.mx, d.my, d.mz, d.caseId);
-          }
-        } else if (loadEntry.type === 'nodal' && nodeIds.has(d.nodeId)) {
-          const newNodeId = idMap.get(d.nodeId);
-          if (newNodeId != null) {
-            modelStore.addNodalLoad(newNodeId, d.fx, d.fy, d.mz, d.caseId);
-          }
-        } else if (loadEntry.type === 'distributed3d' && elemMap.has(d.elementId)) {
-          const newElemId = elemMap.get(d.elementId)!;
-          modelStore.addDistributedLoad3D(newElemId, d.qYI, d.qYJ, d.qZI, d.qZJ, d.a, d.b, d.caseId);
-        } else if (loadEntry.type === 'distributed' && elemMap.has(d.elementId)) {
-          const newElemId = elemMap.get(d.elementId)!;
-          modelStore.addDistributedLoad(newElemId, d.qI, d.qJ, d.angle, d.isGlobal, d.caseId, d.a, d.b);
-        } else if (loadEntry.type === 'pointOnElement' && elemMap.has(d.elementId)) {
-          const newElemId = elemMap.get(d.elementId)!;
-          modelStore.addPointLoadOnElement(newElemId, d.a, d.p, { px: d.px, mz: d.mz, angle: d.angle, isGlobal: d.isGlobal, caseId: d.caseId });
-        } else if (loadEntry.type === 'thermal' && elemMap.has(d.elementId)) {
-          const newElemId = elemMap.get(d.elementId)!;
-          modelStore.addThermalLoad(newElemId, d.dtUniform, d.dtGradient, d.caseId);
-        }
-      }
-    });
-
-    // Select new items
-    uiStore.setSelection(new Set(idMap.values()), new Set(newElements));
-
-    resultsStore.clear();
-    uiStore.toast(`${t('examples.duplicatedIn')} ${axis.toUpperCase()} +${dist}m`, 'success');
-  }
 </script>
 
 {#if uiStore.analysisMode === 'pro'}

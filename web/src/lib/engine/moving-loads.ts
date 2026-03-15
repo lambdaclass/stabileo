@@ -1,6 +1,6 @@
 // Moving load analysis — envelope of moving load trains across a structure
 
-import type { SolverInput, AnalysisResults, ElementForces, FullEnvelope, ElementEnvelopeDiagram, EnvelopeDiagramData } from './types';
+import type { SolverInput, AnalysisResults, FullEnvelope, ElementEnvelopeDiagram, EnvelopeDiagramData } from './types';
 import { solve as wasmSolve, isWasmReady } from './wasm-solver';
 import { solve as tsSolve } from './solver-js';
 import { computeDiagramValueAt } from './diagrams';
@@ -173,7 +173,6 @@ function buildPath(input: SolverInput, pathElementIds?: number[]): PathSegment[]
     if (!best) break;
     visited.add(best.elemId);
 
-    const elem = input.elements.get(best.elemId)!;
     const ni = input.nodes.get(current)!;
     const nj = input.nodes.get(best.otherNode)!;
     const dx = nj.x - ni.x;

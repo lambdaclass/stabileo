@@ -12,7 +12,7 @@ import { solve3D } from '../solver-3d';
 import { computeDiagram3D } from '../diagrams-3d';
 import type {
   SolverInput3D, SolverNode3D, SolverSection3D, SolverElement3D,
-  SolverSupport3D, AnalysisResults3D, ElementForces3D,
+  SolverSupport3D, AnalysisResults3D,
 } from '../types-3d';
 import type { SolverMaterial } from '../types';
 

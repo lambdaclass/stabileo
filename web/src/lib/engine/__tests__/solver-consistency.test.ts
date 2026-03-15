@@ -23,7 +23,8 @@ import {
   generatePrattTruss,
   generateWarrenTruss,
 } from '../../templates/generators';
-import type { SolverInput, SolverLoad, AnalysisResults, ModelSnapshot } from '../types';
+import type { SolverInput, SolverLoad, AnalysisResults } from '../types';
+import type { ModelSnapshot } from '../../store/history.svelte';
 
 // ─── Helpers ──────────────────────────────────────────────────────
 
@@ -65,15 +66,15 @@ function getDisp(results: AnalysisResults, nodeId: number) {
 
 /** Convert a ModelSnapshot to SolverInput */
 function snapshotToInput(snap: ModelSnapshot): SolverInput {
-  const nodes = new Map(snap.nodes.map(([id, n]) => [id, n]));
-  const materials = new Map(snap.materials.map(([id, m]) => [id, m]));
-  const sections = new Map(snap.sections.map(([id, s]) => [id, s]));
-  const elements = new Map(snap.elements.map(([id, e]) => [id, {
+  const nodes = new Map(snap.nodes.map(([id, n]: [number, any]) => [id, n]));
+  const materials = new Map(snap.materials.map(([id, m]: [number, any]) => [id, m]));
+  const sections = new Map(snap.sections.map(([id, s]: [number, any]) => [id, s]));
+  const elements = new Map(snap.elements.map(([id, e]: [number, any]) => [id, {
     ...e,
     hingeStart: (e as any).hingeStart ?? false,
     hingeEnd: (e as any).hingeEnd ?? false,
   }]));
-  const supports = new Map(snap.supports.map(([id, s]) => [id, s]));
+  const supports = new Map(snap.supports.map(([id, s]: [number, any]) => [id, s]));
 
   // Convert template loads to solver format
   const loads: SolverLoad[] = (snap.loads ?? []).map((l: any) => {
@@ -137,7 +138,7 @@ describe('solver-detailed matches solver-js', () => {
     }
 
     // Reactions must match
-    for (const r of production.reactions) {
+    for (const _r of production.reactions) {
       // Reactions in detailed are stored as reactionsRaw vector
       // Let's just compare the final element forces
     }
@@ -236,7 +237,7 @@ describe('solver-detailed matches solver-js', () => {
     for (let i = 0; i < detailed.dofNumbering.nFree; i++) {
       expect(Math.abs(detailed.uFree[i] - production.displacements
         .flatMap(d => [d.ux, d.uy])
-        .filter((_, idx) => {
+        .filter((_) => {
           // This is approximate; just verify total solution vector
           return true;
         })[0] || 0)).toBeDefined(); // simplified check
@@ -384,7 +385,7 @@ describe('Template generators — analytical verification', () => {
 
     // E from the default material: 210_000_000 kN/m² → but template uses 210000000
     // Section: 30x30 cm → A=0.09, Iz=0.000675
-    const E_kNm2 = 210_000_000; // kN/m² (template default material e=210000000 is in kPa actually)
+    // E_kNm2 = 210_000_000 kN/m² (template default material value — see comments below)
     // Actually template DEFAULT_MATERIAL e = 210000000 → but solver-js does mat.e * 1000
     // So E_actual = 210000000 * 1000 = 2.1e11 kN/m² — that's wrong
     // Wait: template e = 210000000, the comment says "kN/m² for E"
@@ -396,7 +397,7 @@ describe('Template generators — analytical verification', () => {
     // But solver does mat.e * 1000 (MPa → kN/m²)
     // So if mat.e = 210000000, then E = 2.1e11 kN/m²
     // That makes no physical sense. Let's just check deflection analytically with actual E
-    const sec_Iz = 0.000675; // m⁴ (30x30 cm)
+    // sec_Iz = 0.000675 m⁴ (30x30 cm section)
 
     // The tip node is the last one
     const tipNode = Math.max(...results.displacements.map(d => d.nodeId));
@@ -728,7 +729,7 @@ describe('Diagram values — analytical checks', () => {
     // computeDiagramValueAt imported at top
 
     // Moment at fixed end (t=0): M = PL (hogging, positive in beam convention)
-    const _mFixed = computeDiagramValueAt('moment', 0, ef);
+    computeDiagramValueAt('moment', 0, ef);
     // Moment at free end (t=1): M = 0
     const mFree = computeDiagramValueAt('moment', 1.0, ef);
     expect(Math.abs(mFree)).toBeLessThan(0.01);

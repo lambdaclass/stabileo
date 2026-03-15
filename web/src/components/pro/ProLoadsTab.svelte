@@ -209,7 +209,7 @@
       combo.factors.push({ caseId, factor: f });
     }
     // Trigger reactivity
-    modelStore.updateCombination(comboId, combo.name, combo.factors);
+    modelStore.updateCombination(comboId, { name: combo.name, factors: combo.factors });
   }
 
   function fmtNum(n: number): string {

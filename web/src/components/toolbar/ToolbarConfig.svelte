@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { uiStore, resultsStore, modelStore } from '../../lib/store';
+  import { uiStore, resultsStore } from '../../lib/store';
   import { unitLabel } from '../../lib/utils/units';
   import { t } from '../../lib/i18n';
 

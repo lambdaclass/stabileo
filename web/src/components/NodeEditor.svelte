@@ -17,7 +17,8 @@
     if (node) {
       localX = node.x.toFixed(3);
       localY = node.y.toFixed(3);
-      // Focus first input on next tick
+      // Focus first input on next tick (inputY kept for potential keyboard navigation)
+      void inputY;
       setTimeout(() => inputX?.select(), 0);
     }
   });

@@ -2,11 +2,10 @@
   import { modelStore, uiStore, resultsStore, historyStore } from '../lib/store';
   import { parseDxf } from '../lib/dxf/parser';
   import { mapDxfToModel, parseSectionText, parseMaterialText } from '../lib/dxf/mapper';
-  import { searchProfiles, profileToSection } from '../lib/data/steel-profiles';
   import type { DxfParseResult, DxfMappingResult, DxfUnit } from '../lib/dxf/types';
   import { t } from '../lib/i18n';
 
-  let { open = false, file = null as File | null, onclose = () => {} } = $props();
+  let { open = false, file = null as File | null, onclose = (() => {}) as () => void } = $props();
 
   let parseResult = $state<DxfParseResult | null>(null);
   let mappingResult = $state<DxfMappingResult | null>(null);

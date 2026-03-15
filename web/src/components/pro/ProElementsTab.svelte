@@ -65,7 +65,7 @@
         }];
         // Chain: nodeJ becomes next nodeI
         drawNodeI = nodeId;
-        uiStore.selectedNodes = new Set();
+        uiStore.setSelection(new Set(), new Set());
       }
     }
   });
@@ -171,8 +171,7 @@
     selectedRowIdx = idx;
     const row = rows[idx];
     if (row.id !== null) {
-      uiStore.selectedElements = new Set([row.id]);
-      uiStore.selectedNodes = new Set();
+      uiStore.setSelection(new Set(), new Set([row.id]));
     }
   }
 
@@ -180,8 +179,7 @@
     drawMode = !drawMode;
     if (drawMode) {
       drawNodeI = null;
-      uiStore.selectedNodes = new Set();
-      uiStore.selectedElements = new Set();
+      uiStore.setSelection(new Set(), new Set());
     }
   }
 

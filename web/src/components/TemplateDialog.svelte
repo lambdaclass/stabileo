@@ -1,7 +1,7 @@
 <script lang="ts">
   import {
     getTemplateCatalog, getTemplateCatalog3D, generateFromTemplate,
-    type TemplateInfo, type TemplateName, type TemplateInfo3D, type TemplateName3D,
+    type TemplateInfo, type TemplateName, type TemplateName3D,
   } from '../lib/templates/generators';
   import { modelStore, resultsStore, historyStore, uiStore } from '../lib/store';
   import { t } from '../lib/i18n';

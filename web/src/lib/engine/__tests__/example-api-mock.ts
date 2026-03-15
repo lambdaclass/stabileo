@@ -4,7 +4,6 @@
  * the real app takes (example loader → ModelData → buildSolverInput2D/3D).
  */
 
-import type { ExampleAPI } from '../../../lib/store/model-examples-2d';
 import type { ExampleAPI3D } from '../../../lib/store/model-examples-3d';
 import type { ModelData } from '../solver-service';
 import type {
@@ -193,6 +192,22 @@ export function createMockAPI(): MockAPIResult {
       if (caseId !== undefined) data.caseId = caseId;
       loads.push({ type: 'nodal3d', data });
       return id;
+    },
+
+    addSurfaceLoad3D(_quadId: number, _q: number, _caseId?: number): number {
+      return 0; // stub: no surface load support in mock
+    },
+
+    addPlate(_nodes: [number, number, number], _materialId: number, _thickness: number): number {
+      return 0; // stub
+    },
+
+    addQuad(_nodes: [number, number, number, number], _materialId: number, _thickness: number): number {
+      return 0; // stub
+    },
+
+    addConstraint(_c: import('../../../lib/engine/types-3d').Constraint3D): void {
+      // stub
     },
 
     getModelData(): ModelData {

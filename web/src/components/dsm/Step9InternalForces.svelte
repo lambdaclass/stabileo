@@ -33,7 +33,7 @@
   });
 
   // For 3D frames: half = 6 (N,Vy,Vz,Mx,My,Mz), for 2D frames: half = 3 (N,V,M), for trusses: half = 2/3
-  const half = $derived(localLabels.length / 2);
+  // const half = $derived(localLabels.length / 2); // reserved for future use
 </script>
 
 <div class="step">
@@ -67,7 +67,7 @@
     <VectorDisplay
       title={t('dsm.step9.localDisp')}
       vector={elemForce.uLocal}
-      labels={localLabels.map((l, i) => `${i}`)}
+      labels={localLabels.map((_l, i) => `${i}`)}
       precision={6}
       horizontal
     />
@@ -110,20 +110,26 @@
         <tbody>
           {#if is3D && isFrame}
             <!-- 3D Frame: N, Vy, Vz, Mx, My, Mz -->
-            {#each [[t('dsm.step9.axial'), 0, 6], [t('dsm.step9.shearY'), 1, 7], [t('dsm.step9.shearZ'), 2, 8], [t('dsm.step9.torsion'), 3, 9], [t('dsm.step9.momentY'), 4, 10], [t('dsm.step9.momentZ'), 5, 11]] as [name, i, j]}
+            {#each [[t('dsm.step9.axial'), 0, 6], [t('dsm.step9.shearY'), 1, 7], [t('dsm.step9.shearZ'), 2, 8], [t('dsm.step9.torsion'), 3, 9], [t('dsm.step9.momentY'), 4, 10], [t('dsm.step9.momentZ'), 5, 11]] as row (row[0])}
+              {@const rowName = row[0] as string}
+              {@const ri = row[1] as number}
+              {@const rj = row[2] as number}
               <tr>
-                <td>{name}</td>
-                <td class:pos={elemForce.fLocalFinal[i] > 1e-10} class:neg={elemForce.fLocalFinal[i] < -1e-10}>{elemForce.fLocalFinal[i]?.toFixed(4) ?? '0'}</td>
-                <td class:pos={elemForce.fLocalFinal[j] > 1e-10} class:neg={elemForce.fLocalFinal[j] < -1e-10}>{elemForce.fLocalFinal[j]?.toFixed(4) ?? '0'}</td>
+                <td>{rowName}</td>
+                <td class:pos={elemForce.fLocalFinal[ri] > 1e-10} class:neg={elemForce.fLocalFinal[ri] < -1e-10}>{elemForce.fLocalFinal[ri]?.toFixed(4) ?? '0'}</td>
+                <td class:pos={elemForce.fLocalFinal[rj] > 1e-10} class:neg={elemForce.fLocalFinal[rj] < -1e-10}>{elemForce.fLocalFinal[rj]?.toFixed(4) ?? '0'}</td>
               </tr>
             {/each}
           {:else if is3D && !isFrame}
             <!-- 3D Truss: N, Vy, Vz -->
-            {#each [[t('dsm.step9.axial'), 0, 3], [t('dsm.step9.shearY'), 1, 4], [t('dsm.step9.shearZ'), 2, 5]] as [name, i, j]}
+            {#each [[t('dsm.step9.axial'), 0, 3], [t('dsm.step9.shearY'), 1, 4], [t('dsm.step9.shearZ'), 2, 5]] as row (row[0])}
+              {@const rowName = row[0] as string}
+              {@const ri = row[1] as number}
+              {@const rj = row[2] as number}
               <tr>
-                <td>{name}</td>
-                <td class:pos={elemForce.fLocalFinal[i] > 1e-10} class:neg={elemForce.fLocalFinal[i] < -1e-10}>{elemForce.fLocalFinal[i]?.toFixed(4) ?? '0'}</td>
-                <td class:pos={elemForce.fLocalFinal[j] > 1e-10} class:neg={elemForce.fLocalFinal[j] < -1e-10}>{elemForce.fLocalFinal[j]?.toFixed(4) ?? '0'}</td>
+                <td>{rowName}</td>
+                <td class:pos={elemForce.fLocalFinal[ri] > 1e-10} class:neg={elemForce.fLocalFinal[ri] < -1e-10}>{elemForce.fLocalFinal[ri]?.toFixed(4) ?? '0'}</td>
+                <td class:pos={elemForce.fLocalFinal[rj] > 1e-10} class:neg={elemForce.fLocalFinal[rj] < -1e-10}>{elemForce.fLocalFinal[rj]?.toFixed(4) ?? '0'}</td>
               </tr>
             {/each}
           {:else}

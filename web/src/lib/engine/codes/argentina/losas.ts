@@ -235,7 +235,7 @@ export function designSlab(params: SlabDesignParams): SlabDesignResult {
 
   // 4. Primary reinforcement (X direction)
   const MuX = Math.abs(Mu_x);
-  const { As: AsReqX, a: aX, phi: phiX } = computeAsFlexure(MuX, d, fc, fy);
+  const { As: AsReqX, phi: phiX } = computeAsFlexure(MuX, d, fc, fy);
   const AsDesignX = Math.max(AsReqX, AsMin);
   steps.push(`As,req,X = ${AsReqX.toFixed(2)} cm²/m → diseño: ${AsDesignX.toFixed(2)} cm²/m`);
 
@@ -280,7 +280,6 @@ export function designSlab(params: SlabDesignParams): SlabDesignResult {
   // 5. Secondary reinforcement (Y direction or distribution)
   let AsReqY: number;
   let phiY = PHI_FLEXURE;
-  let aY = 0;
   let MuY = 0;
 
   if (type === 'bidirectional' && Mu_y !== undefined) {
@@ -288,7 +287,6 @@ export function designSlab(params: SlabDesignParams): SlabDesignResult {
     const resY = computeAsFlexure(MuY, d, fc, fy);
     AsReqY = Math.max(resY.As, AsMin);
     phiY = resY.phi;
-    aY = resY.a;
     steps.push(`As,req,Y = ${resY.As.toFixed(2)} cm²/m → diseño: ${AsReqY.toFixed(2)} cm²/m`);
   } else {
     // Distribution reinforcement: max(AsMin, As_principal/5)

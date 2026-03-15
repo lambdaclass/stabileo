@@ -54,7 +54,7 @@
       type: 'rigidLink',
       masterNode: master,
       slaveNode: slave,
-      dofs: activeDofs,
+      dofs: activeDofs as any,
     });
     rlMaster = '';
     rlSlave = '';
@@ -85,7 +85,7 @@
       type: 'equalDof',
       masterNode: master,
       slaveNode: slave,
-      dofs: activeDofs,
+      dofs: activeDofs as any,
     });
     eqMaster = '';
     eqSlave = '';
@@ -107,9 +107,9 @@
     if (parsed.length === 0) return;
     modelStore.addConstraint({
       type: 'linearMpc',
-      terms: parsed,
+      terms: parsed as any,
       rhs,
-    });
+    } as any);
     mpcTerms = '';
     mpcRhs = '0';
   }
@@ -127,7 +127,7 @@
 
   function autoDetectDiaphragms() {
     const tolerance = 0.05;
-    const levels = detectFloorLevels(modelStore.nodes, tolerance);
+    const levels = detectFloorLevels(modelStore.nodes as any, tolerance);
     if (levels.length === 0) return;
 
     for (const z of levels) {

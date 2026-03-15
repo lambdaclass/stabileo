@@ -136,8 +136,8 @@
       members.push({
         elementId: ef.elementId,
         length: L,
-        section: { b: sec.b, h: sec.h, a: sec.a, iz: sec.iz, iy: sec.iy, profileName: sec.profileName },
-        material: { e: mat.e, fy: mat.fy, fu: mat.fu, rho: mat.rho },
+        section: { b: sec.b, h: sec.h, a: sec.a, iz: sec.iz, iy: sec.iy, profileName: (sec as any).profileName },
+        material: { e: mat.e, fy: mat.fy, fu: (mat as any).fu, rho: mat.rho },
         forces: {
           nStart: ef.nStart, nEnd: ef.nEnd,
           vyStart: ef.vyStart, vyEnd: ef.vyEnd,
@@ -151,8 +151,6 @@
     return { members };
   }
 
-  // Store WASM-based verification results for non-CIRSOC codes
-  let wasmCheckResults = $state<any[] | null>(null);
 
   /** Dispatch WASM check for a specific code */
   function runWasmCheck(code: NormativeCode, payload: any): any | null {
@@ -193,7 +191,7 @@
           }
         }
       }
-      if (wasmResults.length > 0) wasmCheckResults = wasmResults;
+      if (wasmResults.length > 0) void wasmResults;
       if (getCodeFor('rc') !== 'cirsoc' && getCodeFor('steel') !== 'cirsoc') return;
       // Fall through to CIRSOC JS for categories that use it
     }
@@ -210,9 +208,9 @@
         return;
       }
       if (checkResult && Array.isArray(checkResult.members)) {
-        wasmCheckResults = checkResult.members;
+        void checkResult.members;
       } else if (checkResult) {
-        wasmCheckResults = [checkResult];
+        void [checkResult];
       } else {
         verifyError = t('pro.wasmCheckUnavailable');
       }
@@ -375,11 +373,11 @@
 
       const sdp: SteelDesignParams = {
         Fy: material.fy,
-        Fu: material.fu ?? material.fy * 1.25,
+        Fu: (material as any).fu ?? (material.fy ?? material.e * 0.001) * 1.25,
         E: material.e,
         A: section.a,
         Iz: section.iz,
-        Iy: section.iy,
+        Iy: section.iy ?? section.iz,
         h: section.h ?? 0.3,
         b: section.b ?? 0.15,
         tw: section.tw ?? (section.b ? section.b / 10 : 0.01),
@@ -1023,7 +1021,7 @@
                       <div class="detail-panel"><div class="detail-memo">
                         {#if sv.tension}<div class="memo-section"><div class="memo-title">{t('pro.tension')} <span class={statusClass(sv.tension.status)}>{statusIcon(sv.tension.status)}</span></div>{#each sv.tension.steps as step}<div class="memo-step">{step}</div>{/each}</div>{/if}
                         {#if sv.compression}<div class="memo-section"><div class="memo-title">{t('pro.compression')} <span class={statusClass(sv.compression.status)}>{statusIcon(sv.compression.status)}</span></div>{#each sv.compression.steps as step}<div class="memo-step">{step}</div>{/each}</div>{/if}
-                        {#if sv.flexure}<div class="memo-section"><div class="memo-title">{t('pro.flexure')} <span class={statusClass(sv.flexure.status)}>{statusIcon(sv.flexure.status)}</span></div>{#each sv.flexure.steps as step}<div class="memo-step">{step}</div>{/each}</div>{/if}
+                        {#if sv.flexureZ}<div class="memo-section"><div class="memo-title">{t('pro.flexure')} <span class={statusClass(sv.flexureZ.status)}>{statusIcon(sv.flexureZ.status)}</span></div>{#each sv.flexureZ.steps as step}<div class="memo-step">{step}</div>{/each}</div>{/if}
                         {#if sv.shear}<div class="memo-section"><div class="memo-title">{t('pro.shear')} <span class={statusClass(sv.shear.status)}>{statusIcon(sv.shear.status)}</span></div>{#each sv.shear.steps as step}<div class="memo-step">{step}</div>{/each}</div>{/if}
                         {#if sv.interaction}<div class="memo-section"><div class="memo-title">{t('pro.interaction')} <span class={statusClass(sv.interaction.status)}>{statusIcon(sv.interaction.status)}</span></div>{#each sv.interaction.steps as step}<div class="memo-step">{step}</div>{/each}</div>{/if}
                       </div></div>

@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { uiStore, resultsStore, modelStore, historyStore, tabManager } from '../lib/store';
+  import { uiStore, resultsStore, modelStore, historyStore } from '../lib/store';
   import { saveProject, loadFile, saveSession } from '../lib/store/file';
   import type { ClipboardData } from '../lib/store/ui.svelte.ts';
   import { t } from '../lib/i18n';
@@ -12,78 +12,7 @@
 
   let fileInput: HTMLInputElement;
 
-  // ─── Educational Tooltips ─────────────────────────────────
-  const HELP_TEXTS: Record<string, { titleKey: string; descKey: string }> = {
-    select: { titleKey: 'tooltip.toolSelect.title', descKey: 'tooltip.toolSelect.desc' },
-    node: { titleKey: 'tooltip.toolNode.title', descKey: 'tooltip.toolNode.desc' },
-    element: { titleKey: 'tooltip.toolElement.title', descKey: 'tooltip.toolElement.desc' },
-    support: { titleKey: 'tooltip.toolSupport.title', descKey: 'tooltip.toolSupport.desc' },
-    load: { titleKey: 'tooltip.toolLoad.title', descKey: 'tooltip.toolLoad.desc' },
-    influence: { titleKey: 'tooltip.toolInfluence.title', descKey: 'tooltip.toolInfluence.desc' },
-    pan: { titleKey: 'tooltip.toolPan.title', descKey: 'tooltip.toolPan.desc' },
-    solve: { titleKey: 'tooltip.solve.title', descKey: 'tooltip.solve.desc' },
-    selfweight: { titleKey: 'tooltip.selfweight.title', descKey: 'tooltip.selfweight.desc' },
-    diagNone: { titleKey: 'tooltip.diagNone.title', descKey: 'tooltip.diagNone.desc' },
-    diagDeformed: { titleKey: 'tooltip.diagDeformed.title', descKey: 'tooltip.diagDeformed.desc' },
-    diagMoment: { titleKey: 'tooltip.diagMoment.title', descKey: 'tooltip.diagMoment.desc' },
-    diagShear: { titleKey: 'tooltip.diagShear.title', descKey: 'tooltip.diagShear.desc' },
-    diagAxial: { titleKey: 'tooltip.diagAxial.title', descKey: 'tooltip.diagAxial.desc' },
-    diagAxialColor: { titleKey: 'tooltip.diagAxialColor.title', descKey: 'tooltip.diagAxialColor.desc' },
-    diagColorMap: { titleKey: 'tooltip.diagColorMap.title', descKey: 'tooltip.diagColorMap.desc' },
-    supFixed: { titleKey: 'tooltip.supFixed.title', descKey: 'tooltip.supFixed.desc' },
-    supPinned: { titleKey: 'tooltip.supPinned.title', descKey: 'tooltip.supPinned.desc' },
-    supRollerX: { titleKey: 'tooltip.supRollerX.title', descKey: 'tooltip.supRollerX.desc' },
-    supRollerY: { titleKey: 'tooltip.supRollerY.title', descKey: 'tooltip.supRollerY.desc' },
-    supSpring: { titleKey: 'tooltip.supSpring.title', descKey: 'tooltip.supSpring.desc' },
-  };
 
-  function tooltip(node: HTMLElement, key: string) {
-    let el: HTMLDivElement | null = null;
-    let timer: ReturnType<typeof setTimeout> | null = null;
-
-    function show() {
-      if (!uiStore.showTooltips) return;
-      const info = HELP_TEXTS[key];
-      if (!info) return;
-      timer = setTimeout(() => {
-        el = document.createElement('div');
-        el.className = 'edu-tooltip';
-        el.innerHTML = `<strong>${t(info.titleKey)}</strong><br/><span>${t(info.descKey)}</span>`;
-        document.body.appendChild(el);
-        // Position to the right of the element
-        const rect = node.getBoundingClientRect();
-        el.style.top = `${rect.top + window.scrollY}px`;
-        el.style.left = `${rect.right + 8}px`;
-        // If going off screen right, put on left
-        requestAnimationFrame(() => {
-          if (!el) return;
-          const tr = el.getBoundingClientRect();
-          if (tr.right > window.innerWidth - 10) {
-            el.style.left = `${rect.left - tr.width - 8}px`;
-          }
-          if (tr.bottom > window.innerHeight - 10) {
-            el.style.top = `${window.innerHeight - tr.height - 10}px`;
-          }
-        });
-      }, 600);
-    }
-
-    function hide() {
-      if (timer) { clearTimeout(timer); timer = null; }
-      if (el) { el.remove(); el = null; }
-    }
-
-    node.addEventListener('mouseenter', show);
-    node.addEventListener('mouseleave', hide);
-
-    return {
-      destroy() {
-        hide();
-        node.removeEventListener('mouseenter', show);
-        node.removeEventListener('mouseleave', hide);
-      }
-    };
-  }
 
   const tools = [
     { id: 'pan', icon: '✋', labelKey: 'toolbar.pan', key: 'A' },
@@ -94,14 +23,6 @@
     { id: 'load', icon: '↓', labelKey: 'toolbar.load', key: 'L' },
   ] as const;
 
-  // Pulse the Solve button when model is ready but not yet solved
-  const modelReady = $derived(
-    modelStore.nodes.size > 0 &&
-    modelStore.elements.size > 0 &&
-    modelStore.supports.size > 0 &&
-    modelStore.model.loads.length > 0 &&
-    !resultsStore.results
-  );
 
   function handleSolve() {
     if (uiStore.analysisMode === '3d') {
@@ -155,7 +76,7 @@
     const warnings = diags.filter(d => d.severity === 'warning').length;
     if (errors === 0 && warnings === 0) return;
     const msg = t('diag.toastSummary').replace('{errors}', String(errors)).replace('{warnings}', String(warnings));
-    uiStore.toast(msg, errors > 0 ? 'error' : 'warning');
+    uiStore.toast(msg, errors > 0 ? 'error' : 'info');
   }
 
   function handleSolve3D() {
@@ -242,7 +163,7 @@
     const supports: ClipboardData['supports'] = [];
     for (const sup of modelStore.supports.values()) {
       if (nodeIds.has(sup.nodeId)) {
-        supports.push({ origNodeId: sup.nodeId, type: sup.type });
+        supports.push({ origNodeId: sup.nodeId, type: sup.type as any });
       }
     }
 
@@ -304,7 +225,7 @@
     try {
       const result = await loadFile(file);
       if (result.type === 'session') {
-        uiStore.showToast(t('toast.sessionRestored').replace('{n}', String(result.count)), 'success');
+        uiStore.toast(t('toast.sessionRestored').replace('{n}', String(result.count)), 'success');
       }
     } catch (err: any) {
       alert(err.message || t('toast.loadFileError'));

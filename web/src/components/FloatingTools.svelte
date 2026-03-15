@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { uiStore, resultsStore, modelStore } from '../lib/store';
+  import { uiStore, modelStore } from '../lib/store';
   import { t } from '../lib/i18n';
   import ToolSelectOptions from './floating-tools/ToolSelectOptions.svelte';
   import ToolNodeOptions from './floating-tools/ToolNodeOptions.svelte';

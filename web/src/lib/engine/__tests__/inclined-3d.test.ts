@@ -29,14 +29,6 @@ function fixedSupport(nodeId: number): SolverSupport3D {
   };
 }
 
-/** Pinned support (3 translations restrained, 3 rotations free) */
-function pinnedSupport(nodeId: number): SolverSupport3D {
-  return {
-    nodeId,
-    rx: true, ry: true, rz: true,
-    rrx: false, rry: false, rrz: false,
-  };
-}
 
 /** Inclined roller support: constrains displacement along the given normal direction.
  *  All translational DOFs are free (penalty handles the constraint).

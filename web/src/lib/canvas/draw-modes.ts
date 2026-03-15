@@ -1,6 +1,6 @@
 // Drawing mode shapes (modal analysis) and buckling modes on the canvas
 
-import type { ModeShape, BucklingMode, PlasticResult } from '../engine/result-types';
+import type { PlasticResult } from '../engine/result-types';
 
 interface DrawContext {
   ctx: CanvasRenderingContext2D;
@@ -16,7 +16,7 @@ interface DrawContext {
 export function drawModeShape(
   displacements: Array<{ nodeId: number; ux: number; uy: number; rz: number }>,
   dc: DrawContext,
-  zoom: number,
+  _zoom: number,
   scale: number,
   color: string = '#4ecdc4',
 ): void {
