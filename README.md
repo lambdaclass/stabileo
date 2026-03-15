@@ -222,3 +222,11 @@ To report a vulnerability, email security@lambdaclass.com.
 <p align="center">
   <em>In honor of Daedalus, who built the labyrinth and dared to fly.</em>
 </p>
+
+---
+
+## Built by
+
+- **Bautista Chesta** — Civil Engineer, Faculty of Engineering, University of Buenos Aires (FIUBA)
+- **Diego Kingston** — Ph.D. in Engineering, University of Buenos Aires (UBA)
+- **Federico Carrone**
