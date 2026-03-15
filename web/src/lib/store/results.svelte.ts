@@ -67,7 +67,7 @@ function createResultsStore() {
   let diagramType = $state<DiagramType>('none');
   /** Remembers last user-visible diagram so live-calc can restore it after clear() */
   let _lastDiagramType: DiagramType = 'none';
-  let deformedScale = $state<number>(100); // Scale factor for deformed shape (applied directly to displacements)
+  let deformedScale = $state<number>(1); // Scale factor for deformed shape (applied directly to displacements)
   let diagramScale = $state<number>(1); // Multiplier for M/V/N diagram size (1 = default 60px height)
   let animateDeformed = $state<boolean>(false);
   let colorMapKind = $state<'moment' | 'shear' | 'axial' | 'stressRatio' | 'vonMises' | 'shellVonMises' | 'shellBending'>('moment');
@@ -467,7 +467,7 @@ function createResultsStore() {
     setResults(r: AnalysisResults, preserveDiagram = false) {
       results = r;
       singleResults = r; // Save base solve for "Cargas simples" option
-      deformedScale = 100; // reset to default on fresh solve
+      deformedScale = 1; // reset to default on fresh solve
       // Preserve current diagram type during live-calc re-solves
       const validDiagrams: DiagramType[] = ['deformed', 'moment', 'shear', 'axial', 'colorMap', 'axialColor'];
       if (preserveDiagram) {
@@ -576,7 +576,7 @@ function createResultsStore() {
       singleResults3D = r;
       showReactions = false;
       showConstraintForces = false;
-      deformedScale = 100; // reset to default on fresh solve
+      deformedScale = 1; // reset to default on fresh solve
       // Preserve current diagram type during live-calc re-solves
       const valid3DDiagrams: DiagramType[] = ['deformed', 'momentY', 'momentZ', 'shearY', 'shearZ', 'axial', 'torsion', 'axialColor', 'colorMap'];
       if (preserveDiagram) {

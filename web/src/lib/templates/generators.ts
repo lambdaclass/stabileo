@@ -1180,31 +1180,31 @@ export function generatePipeRack3D(store: ModelStore, p: PipeRack3DParams): void
   store.model.name = t('ex.pipeRack3D');
 
   store.batch(() => {
-    // Section 1: HEB 200 columns
+    // Section 1: HEB 340 columns (pipe racks need stiff columns for lateral loads + crane)
     store.updateSection(1, {
-      name: 'HEB 200',
-      a: 0.00781,
-      iy: 0.00005696,
-      iz: 0.00002003,
-      j: 0.000000594,
-      h: 0.2,
-      b: 0.2,
+      name: 'HEB 340',
+      a: 0.01706,
+      iy: 0.000366600,
+      iz: 0.000096900,
+      j: 0.000002570,
+      h: 0.340,
+      b: 0.300,
       shape: 'I',
-      tw: 0.009,
-      tf: 0.015,
+      tw: 0.012,
+      tf: 0.0215,
     });
-    // Section 2: IPE 240 beams
+    // Section 2: IPE 330 beams (9m spans with pipe loads)
     const beamSecId = store.addSection({
-      name: 'IPE 240',
-      a: 0.00391,
-      iy: 0.00003892,
-      iz: 0.00000284,
-      j: 0.000000129,
-      h: 0.24,
-      b: 0.12,
+      name: 'IPE 330',
+      a: 0.00626,
+      iy: 0.000117700,
+      iz: 0.000007881,
+      j: 0.000000281,
+      h: 0.330,
+      b: 0.160,
       shape: 'I',
-      tw: 0.0062,
-      tf: 0.0098,
+      tw: 0.0075,
+      tf: 0.0115,
     });
 
     const frames: number[][][] = []; // bay station -> level -> side
@@ -1592,15 +1592,15 @@ export function generateGeodesicDome3D(store: ModelStore, p: GeodesicDome3DParam
   store.model.name = t('ex.geodesicDome3D');
 
   store.batch(() => {
-    // Section 1: CHS 114x5 (uniform geodesic dome)
+    // Section 1: CHS 219×8 (40m dome needs stiff tubular members)
     store.updateSection(1, {
-      name: 'CHS 114×5',
-      a: 0.00171,
-      iy: 0.000002470,
-      iz: 0.000002470,
-      j: 0.000004940,
-      h: 0.114,
-      b: 0.114,
+      name: 'CHS 219×8',
+      a: 0.00530,
+      iy: 0.00002960,
+      iz: 0.00002960,
+      j: 0.00005920,
+      h: 0.219,
+      b: 0.219,
     });
 
     const R = p.radius;
@@ -2289,28 +2289,28 @@ export function generateFullStadium3D(store: ModelStore, p: FullStadium3DParams)
   store.model.name = t('ex.fullStadium3D');
 
   store.batch(() => {
-    // Section 1: Main ring beam IPE 300
+    // Section 1: Main ring beam HEB 300 (stadium bowl with ~80m spans)
     store.updateSection(1, {
-      name: 'IPE 300',
-      a: 0.00538,
-      iy: 0.00008356,
-      iz: 0.00000604,
-      j: 0.000000201,
-      h: 0.3,
-      b: 0.15,
+      name: 'HEB 300',
+      a: 0.01491,
+      iy: 0.000251700,
+      iz: 0.000085630,
+      j: 0.000001850,
+      h: 0.300,
+      b: 0.300,
       shape: 'I',
-      tw: 0.0071,
-      tf: 0.0107,
+      tw: 0.011,
+      tf: 0.019,
     });
-    // Section 2: Roof truss CHS 168x6
+    // Section 2: Roof truss CHS 273×10 (long-span roof)
     const roofSecId = store.addSection({
-      name: 'CHS 168×6',
-      a: 0.00305,
-      iy: 0.000003880,
-      iz: 0.000003880,
-      j: 0.000007760,
-      h: 0.168,
-      b: 0.168,
+      name: 'CHS 273×10',
+      a: 0.00826,
+      iy: 0.00005810,
+      iz: 0.00005810,
+      j: 0.00011620,
+      h: 0.273,
+      b: 0.273,
     });
 
     const fieldLength = 105;
