@@ -875,6 +875,83 @@ Finish means:
 - submodel boundary displacements produce stress results within 5% of fully-refined global model
 - error estimator reliably identifies under-refined regions
 
+---
+
+## Post-Core Solver Phases: Platform-Enabling Infrastructure
+
+These phases provide the solver-level infrastructure needed by the post-core product vision (PRODUCT_ROADMAP Phases 8–14). The solver roadmap only carries the enabling work — downstream product definitions live in the product roadmap.
+
+### Phase T: Incremental & Collaborative Solver Infrastructure
+
+Goal:
+- solver supports incremental re-analysis and CRDT-compatible model mutations for real-time collaborative engineering
+
+Solver work:
+- **Incremental re-analysis** — when a single node/element/load changes, re-solve only the affected region instead of the full model (substructure-aware partial factorization update)
+- **Model diff API** — solver accepts a structural model diff (added/removed/modified nodes, elements, loads, constraints) and returns updated results efficiently
+- **Deterministic solve ordering** — guarantee identical results regardless of which user's mutation arrives first (already partially done; extend to all solver paths)
+- **Concurrent read safety** — multiple consumers can read results while solver is updating (lock-free result store or copy-on-write snapshots)
+- **Partial result availability** — expose intermediate results (e.g., displacement before stress recovery) so UI can show progressive updates
+- **Undo-safe state** — solver state supports efficient snapshot/restore for per-user undo stacks in collaborative sessions
+
+Finish means:
+- incremental re-analysis after single-element modification runs 10× faster than full re-solve on representative models
+- model diff API produces identical results to full re-solve on all tested cases
+- concurrent result reads never produce torn/inconsistent data
+
+### Phase U: AI & Surrogate Solver Support
+
+Goal:
+- solver provides the training data, inference hooks, and feedback loops for AI-native structural engineering
+
+Solver work:
+- **Batch parametric runner** — run thousands of solver variants efficiently (vary geometry, sections, materials, loads) with shared symbolic factorization and parallel execution; output training datasets
+- **Feature extraction API** — export per-element and per-node features (utilization ratios, force/displacement vectors, stiffness contributions) in ML-ready formats (numpy-compatible binary, Arrow/Parquet)
+- **GNN training data pipeline** — export mesh graph (nodes, edges, element types, boundary conditions) with solution fields for graph neural network training
+- **Surrogate inference hook** — solver API accepts a surrogate model (ONNX/WASM) that can replace the full solve for rapid parametric sweeps, with automatic fallback to full solve when surrogate confidence is low
+- **Design sensitivity export** — expose ∂response/∂parameter for gradient-based optimization and AI design iteration
+- **Anomaly scoring** — solver computes per-element anomaly scores (residual, energy ratio, utilization outlier) that AI can use to flag suspicious results
+- **Reinforcement learning interface** — solver exposes step/reward API where an RL agent can modify the model (change section, add member, move node) and observe the resulting utilization/cost/weight
+
+Finish means:
+- batch runner generates 10,000 variants of a standard frame in under 1 hour
+- GNN trained on solver output predicts displacement field within 5% on unseen geometries
+- surrogate hook correctly falls back to full solve when prediction error exceeds threshold
+
+### Phase V: Construction & Digital Twin Solver Support
+
+Goal:
+- solver supports staged construction simulation, as-built calibration, and live digital twin loops
+
+Solver work:
+- **Time-dependent staged analysis** — creep, shrinkage, and relaxation interaction between construction stages with automatic time-stepping; tendon loss tracking per stage; age-dependent material properties
+- **Construction sequence solver** — activate/deactivate elements by stage, apply stage-specific loads, accumulate stresses across stages without reset
+- **As-built geometry update** — accept surveyed geometry (point cloud or coordinate corrections), update mesh, re-solve with as-built dimensions
+- **Live sensor integration** — solver accepts real-time sensor streams (accelerations, strains, temperatures), runs Bayesian model updating (Phase Q), and outputs updated predictions on a schedule
+- **Predictive simulation** — given current construction state and weather forecast, predict next-day deflections, early-age concrete strength, and formwork striking safety
+
+Finish means:
+- staged construction of a segmental bridge matches midas Gen reference within 5%
+- creep/shrinkage predictions over 10,000 days match fib MC 2010 analytical curves
+- live sensor loop updates model parameters within 1 minute of data arrival on standard hardware
+
+### Phase W: Planetary-Scale & Portfolio Solver Support
+
+Goal:
+- solver scales to city/portfolio-level analysis and supports climate-driven scenario generation
+
+Solver work:
+- **Portfolio batch analysis** — analyze hundreds or thousands of buildings in parallel (distributed across cloud workers), aggregate results into portfolio-level risk metrics
+- **Climate scenario loading** — accept future climate parameters (wind speed distributions, flood levels, fire intensity) and generate code-compatible load cases automatically
+- **Embodied carbon computation** — compute CO₂ from material quantities (steel tonnage × emission factor, concrete volume × mix-specific factor), integrated into optimization objective
+- **Fragility curve generation** — automated IDA → fragility curve → loss estimation pipeline for portfolio-level seismic risk
+- **LiDAR/photogrammetry mesh import** — accept point clouds or triangulated meshes from building scans, convert to FE model with automatic element type assignment
+
+Finish means:
+- portfolio analysis of 1,000 buildings completes in under 8 hours on cloud infrastructure
+- climate-adjusted wind loads match hand calculations for standard building configurations
+- embodied carbon matches EPD (Environmental Product Declaration) values within 10%
+
 ## Full Backlog
 
 ### Phases A–H (Core Solver Quality)
@@ -1096,6 +1173,41 @@ Finish means:
 179. Implement plastic hinge beam element with FEMA 356/ASCE 41 hinge tables
 180. Add fatigue cycle counting (rainflow) and S-N damage accumulation
 181. Add thermal stress analysis (steady-state/transient, bridge deck gradients)
+
+### Phase T (Incremental & Collaborative Solver)
+
+182. Implement incremental re-analysis (partial factorization update on single-element change)
+183. Add model diff API (accept added/removed/modified elements, return updated results)
+184. Extend deterministic solve ordering to all solver paths for CRDT compatibility
+185. Add concurrent read safety (lock-free or copy-on-write result snapshots)
+186. Add partial result availability (expose displacement before full stress recovery)
+187. Implement undo-safe solver state with efficient snapshot/restore
+
+### Phase U (AI & Surrogate Support)
+
+188. Implement batch parametric runner with shared symbolic factorization
+189. Add feature extraction API (per-element/node features in ML-ready formats)
+190. Add GNN training data pipeline (mesh graph + solution fields export)
+191. Implement surrogate inference hook (ONNX/WASM surrogate with automatic fallback)
+192. Add design sensitivity export (∂response/∂parameter)
+193. Implement per-element anomaly scoring (residual, energy ratio, utilization outlier)
+194. Add reinforcement learning step/reward interface
+
+### Phase V (Construction & Digital Twin Solver)
+
+195. Implement time-dependent staged analysis (creep/shrinkage/relaxation across stages)
+196. Add construction sequence solver (element activation/deactivation by stage)
+197. Add as-built geometry update (accept surveyed coordinates, re-solve)
+198. Implement live sensor integration with scheduled Bayesian model updating
+199. Add predictive simulation (next-day deflections from current state + forecast)
+
+### Phase W (Planetary-Scale & Portfolio)
+
+200. Implement portfolio batch analysis (distributed cloud workers, aggregated risk metrics)
+201. Add climate scenario loading (future wind/flood/fire → code-compatible load cases)
+202. Implement embodied carbon computation integrated into optimization objective
+203. Add automated fragility curve generation (IDA → fragility → loss estimation pipeline)
+204. Add LiDAR/photogrammetry mesh import (point cloud → FE model)
 
 ## Active Programs
 
