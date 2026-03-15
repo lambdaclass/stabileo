@@ -18,3 +18,7 @@ Current documents:
   Why RC design, reinforcement schedules, and later BBS generation should be explicit priorities, with solver vs product responsibilities and staged delivery order.
 - [cypecad_parity_roadmap.md](cypecad_parity_roadmap.md)
   Comprehensive CYPECAD feature parity roadmap. Exhaustive feature audit vs our 50k-LOC Rust engine — all solver work is done, only frontend/wiring/output remains. Phased plan from rebar detailing (Phase 1) through advanced analysis UI (Phase 5).
+- [cypecad_gap_analysis.md](/Users/unbalancedparen/projects/dedaliano/research/cypecad_gap_analysis.md)
+  Corrected CYPECAD-vs-Dedaliano gap analysis, separating engine capability from workflow/product, design automation, and report/export gaps.
+- [beyond_roadmap_opportunities.md](/Users/unbalancedparen/projects/dedaliano/research/beyond_roadmap_opportunities.md)
+  Research-backed opportunities beyond the solver roadmap: code checking, ML surrogates, FEMA P-58, topology optimization, BIM-IFC, CLT, seismic automation, generative design, and a nuanced WebGPU assessment (GPU helps visualization/postprocessing/topology, but sparse direct stays on CPU).

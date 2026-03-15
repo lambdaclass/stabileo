@@ -239,27 +239,28 @@ The current near-term sequence is:
    - reliable combinations / multi-case execution
    - diagnostics strong enough to root-cause any remaining trap instead of masking it
    - production failure capture strong enough to turn a user report into a deterministic repro
-   - remove the TypeScript solver from runtime use once this is stable
+   - define and satisfy the deletion gates for the TypeScript runtime solver path
+   - only then remove the TypeScript solver from runtime use
 
-2. `Runtime and scale`
-   Keep eliminating the remaining measured bottlenecks in harmonic, reduction, and sparse eigensolver/reduction internals.
-
-3. `Design-grade RC extraction`
+2. `Design-grade RC extraction`
    Beam station extraction, grouped-by-member convenience layer, sign-convention metadata, and governing summaries are done. Remaining:
    - 3D integration test depth
    - design-ready metadata for cover assumptions and bar schedules once RC design integration begins
 
-4. `Verification moat`
+3. `Result trust and product-facing diagnostics`
+   Expose timings, diagnostics, fill, provenance, constraint/governing outputs, and trust signals clearly enough that users can rely on and explain the solver.
+
+4. `Runtime and scale`
+   Keep eliminating the remaining measured bottlenecks in harmonic, reduction, and sparse eigensolver/reduction internals.
+
+5. `Verification moat`
    Keep turning major solver gains into release-gated, benchmarked, acceptance-covered proof.
 
-5. `Long-tail nonlinear hardening`
+6. `Long-tail nonlinear hardening`
    Focus on ugly mixed cases where mature solvers still win.
 
-6. `Solver-path consistency`
+7. `Solver-path consistency`
    Keep dense vs sparse and mixed-family workflows aligned.
-
-7. `Product surfacing`
-   Expose timings, diagnostics, fill, fallback behavior, and shell-family guidance clearly.
 
 8. `Shell-family workflow guidance and frontier tracking`
    Keep the multi-family shell stack well-guided and benchmarked.
