@@ -980,7 +980,7 @@ export function generateLandmarkTower3D(store: ModelStore, p: LandmarkTower3DPar
 }
 
 // -------------------------------------------------------------------
-// 6. Cable-stayed bridge — dual-pylon with harp cables
+// 6. Cable-stayed bridge — dual H-pylon with semi-fan cables
 // -------------------------------------------------------------------
 
 export interface CableStayedBridge3DParams {
@@ -998,119 +998,104 @@ export function generateCableStayedBridge3D(store: ModelStore, p: CableStayedBri
   store.batch(() => {
     const n = p.nPanels;
     const dx = p.span / n;
-    const zL = -p.deckWidth / 2;
-    const zR = p.deckWidth / 2;
-    const deckY = p.pylonHeight * 0.15; // deck elevated slightly
-    const backSpan = p.span * 0.25; // back-span beyond pylons
+    const hw = p.deckWidth / 2; // half-width
+    const deckY = 0;
 
-    // ── Deck girders (left + right edge beams) ──
-    // Back-span | main span | back-span
+    // ── Deck: two edge girders + cross beams ──
     const left: number[] = [];
     const right: number[] = [];
-    const nBack = Math.max(2, Math.round(n * 0.2)); // panels in each back-span
-    const dxBack = backSpan / nBack;
-    const totalPanels = nBack + n + nBack;
-
-    for (let i = 0; i <= totalPanels; i++) {
-      let x: number;
-      if (i <= nBack) x = -backSpan + i * dxBack;
-      else if (i <= nBack + n) x = (i - nBack) * dx;
-      else x = p.span + (i - nBack - n) * dxBack;
-      left.push(store.addNode(x, deckY, zL));
-      right.push(store.addNode(x, deckY, zR));
+    for (let i = 0; i <= n; i++) {
+      left.push(store.addNode(i * dx, deckY, -hw));
+      right.push(store.addNode(i * dx, deckY, hw));
     }
-
-    // Deck edge beams + cross beams + loads
-    for (let i = 0; i < totalPanels; i++) {
-      const e1 = store.addElement(left[i], left[i + 1], 'frame');
-      const e2 = store.addElement(right[i], right[i + 1], 'frame');
+    for (let i = 0; i < n; i++) {
+      const eL = store.addElement(left[i], left[i + 1], 'frame');
+      const eR = store.addElement(right[i], right[i + 1], 'frame');
       if (p.deckLoad !== 0) {
-        store.addDistributedLoad3D(e1, 0, p.deckLoad, 0, p.deckLoad);
-        store.addDistributedLoad3D(e2, 0, p.deckLoad, 0, p.deckLoad);
+        store.addDistributedLoad3D(eL, 0, p.deckLoad, 0, p.deckLoad);
+        store.addDistributedLoad3D(eR, 0, p.deckLoad, 0, p.deckLoad);
       }
     }
-    // Cross beams at every panel point
-    for (let i = 0; i <= totalPanels; i++) {
+    for (let i = 0; i <= n; i++) {
       store.addElement(left[i], right[i], 'frame');
     }
 
-    // ── Pylon positions ──
-    const pylonIdx1 = nBack; // left pylon at x=0
-    const pylonIdx2 = nBack + n; // right pylon at x=span
+    // ── H-pylons at ~1/4 and ~3/4 of span ──
+    const pIdx1 = Math.round(n * 0.25); // deck panel index for pylon 1
+    const pIdx2 = Math.round(n * 0.75); // deck panel index for pylon 2
+    const pH = p.pylonHeight;
 
-    // ── A-frame pylons ──
-    // Each pylon: two inclined legs from deck level to a single top node
-    const buildPylon = (deckIdx: number, x: number) => {
-      const legSpread = p.deckWidth * 0.6;
-      const baseL = store.addNode(x, 0, -legSpread / 2);
-      const baseR = store.addNode(x, 0, legSpread / 2);
-      const top = store.addNode(x, p.pylonHeight, 0);
-      // Pylon legs
-      store.addElement(baseL, top, 'frame');
-      store.addElement(baseR, top, 'frame');
-      // Cross-beam at deck level tying legs to deck
-      store.addElement(baseL, baseR, 'frame');
-      store.addElement(baseL, left[deckIdx], 'frame');
-      store.addElement(baseR, right[deckIdx], 'frame');
-      // Supports at pylon feet
-      store.addSupport(baseL, 'fixed3d');
-      store.addSupport(baseR, 'fixed3d');
-      return top;
+    const buildHPylon = (deckIdx: number) => {
+      const x = deckIdx * dx;
+      // Two vertical legs at deck edges, rising to full height
+      const legL = store.addNode(x, pH, -hw);
+      const legR = store.addNode(x, pH, hw);
+      store.addElement(left[deckIdx], legL, 'frame'); // left leg
+      store.addElement(right[deckIdx], legR, 'frame'); // right leg
+      // Cross-beam at top
+      store.addElement(legL, legR, 'frame');
+      // Cross-beam at 2/3 height for stiffness
+      const midL = store.addNode(x, pH * 0.65, -hw);
+      const midR = store.addNode(x, pH * 0.65, hw);
+      store.addElement(left[deckIdx], midL, 'frame');
+      store.addElement(right[deckIdx], midR, 'frame');
+      store.addElement(midL, midR, 'frame');
+      store.addElement(midL, legL, 'frame');
+      store.addElement(midR, legR, 'frame');
+      // Supports at deck level under pylon
+      store.addSupport(left[deckIdx], 'fixed3d');
+      store.addSupport(right[deckIdx], 'fixed3d');
+      return { topL: legL, topR: legR };
     };
 
-    const pylonTop1 = buildPylon(pylonIdx1, 0);
-    const pylonTop2 = buildPylon(pylonIdx2, p.span);
+    const pylon1 = buildHPylon(pIdx1);
+    const pylon2 = buildHPylon(pIdx2);
 
-    // ── Harp-pattern cables (semi-fan) ──
-    // Cables attach at evenly spaced heights on the pylon
-    const nCables = Math.floor(n / 2) - 1; // cables per side per pylon
-    if (nCables > 0) {
-      const hMin = p.pylonHeight * 0.4;
-      const hMax = p.pylonHeight * 0.95;
+    // ── Semi-fan cables ──
+    // Each pylon has cables fanning from near its top to deck points
+    // on both sides (toward midspan and toward abutment)
+    const nCables = Math.min(6, Math.floor((pIdx2 - pIdx1) / 2) - 1);
+    const hTop = pH * 0.95;
+    const hBot = pH * 0.70;
 
-      for (let c = 0; c < nCables; c++) {
-        const hFrac = (c + 1) / (nCables + 1);
-        const h = hMin + hFrac * (hMax - hMin);
+    const addCablePair = (
+      pylonTopL: number, pylonTopR: number,
+      pylonX: number, cableH: number,
+      deckIdx: number,
+    ) => {
+      // Cable anchor nodes on pylon at cableH
+      const anchL = store.addNode(pylonX, cableH, -hw);
+      const anchR = store.addNode(pylonX, cableH, hw);
+      // Connect anchors into pylon shaft
+      store.addElement(anchL, pylonTopL, 'frame');
+      store.addElement(anchR, pylonTopR, 'frame');
+      // Cables from anchors to deck
+      store.addElement(anchL, left[deckIdx], 'truss');
+      store.addElement(anchR, right[deckIdx], 'truss');
+    };
 
-        // Anchor nodes at different heights on each pylon
-        const anch1 = store.addNode(0, h, 0);
-        const anch2 = store.addNode(p.span, h, 0);
+    for (let c = 1; c <= nCables; c++) {
+      const hFrac = c / (nCables + 1);
+      const h = hBot + hFrac * (hTop - hBot);
 
-        // Pylon 1: cables to main span (right side) + back-span (left side)
-        const mainIdx = pylonIdx1 + (c + 1) * 2; // every 2 panels into main span
-        const backIdx = pylonIdx1 - (c + 1); // into back-span
-        if (mainIdx <= pylonIdx2 && mainIdx > pylonIdx1) {
-          store.addElement(anch1, left[mainIdx], 'truss');
-          store.addElement(anch1, right[mainIdx], 'truss');
-        }
-        if (backIdx >= 0) {
-          store.addElement(anch1, left[backIdx], 'truss');
-          store.addElement(anch1, right[backIdx], 'truss');
-        }
+      // Pylon 1: cables toward midspan (right) and toward abutment (left)
+      const toMid1 = pIdx1 + c * 2;
+      const toEnd1 = pIdx1 - c * 2;
+      if (toMid1 < pIdx2) addCablePair(pylon1.topL, pylon1.topR, pIdx1 * dx, h, toMid1);
+      if (toEnd1 >= 0) addCablePair(pylon1.topL, pylon1.topR, pIdx1 * dx, h, toEnd1);
 
-        // Pylon 2: cables to main span (left side) + back-span (right side)
-        const mainIdx2 = pylonIdx2 - (c + 1) * 2;
-        const backIdx2 = pylonIdx2 + (c + 1);
-        if (mainIdx2 >= pylonIdx1 && mainIdx2 < pylonIdx2) {
-          store.addElement(anch2, left[mainIdx2], 'truss');
-          store.addElement(anch2, right[mainIdx2], 'truss');
-        }
-        if (backIdx2 <= totalPanels) {
-          store.addElement(anch2, left[backIdx2], 'truss');
-          store.addElement(anch2, right[backIdx2], 'truss');
-        }
-
-        // Connect anchor nodes to pylon shaft
-        store.addElement(anch1, pylonTop1, 'frame');
-        store.addElement(anch2, pylonTop2, 'frame');
-      }
+      // Pylon 2: cables toward midspan (left) and toward abutment (right)
+      const toMid2 = pIdx2 - c * 2;
+      const toEnd2 = pIdx2 + c * 2;
+      if (toMid2 > pIdx1) addCablePair(pylon2.topL, pylon2.topR, pIdx2 * dx, h, toMid2);
+      if (toEnd2 <= n) addCablePair(pylon2.topL, pylon2.topR, pIdx2 * dx, h, toEnd2);
     }
 
     // ── Abutment supports ──
     store.addSupport(left[0], 'pinned3d');
     store.addSupport(right[0], 'pinned3d');
-    store.addSupport(left[totalPanels], 'pinned3d');
-    store.addSupport(right[totalPanels], 'pinned3d');
+    store.addSupport(left[n], 'pinned3d');
+    store.addSupport(right[n], 'pinned3d');
   });
 }
 
