@@ -58,8 +58,11 @@ pub struct FailureCheck {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct SectionStressResult {
+    #[serde(rename = "N")]
     pub n: f64,
+    #[serde(rename = "V")]
     pub v: f64,
+    #[serde(rename = "M")]
     pub m: f64,
     pub resolved: ResolvedSection,
     pub distribution: Vec<StressPoint>,

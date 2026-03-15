@@ -1,6 +1,8 @@
 // Diagram calculation: M(x), V(x), N(x) along each element
 // Given end forces and distributed load, compute intermediate values
 
+import { computeDeformedShape as wasmComputeDeformedShape } from './wasm-solver';
+
 export interface DiagramPoint {
   /** Position along element [0, 1] normalized */
   t: number;
@@ -305,222 +307,23 @@ export function computeDeformedShape(
   length: number,
   hingeStart: boolean = false,
   hingeEnd: boolean = false,
-  /** EI in kN·m² — enables intra-element deflection from loads */
   EI?: number,
-  /** Distributed load qI at node I (kN/m, local perpendicular) — legacy for full-length */
   loadQI?: number,
-  /** Distributed load qJ at node J (kN/m, local perpendicular) — legacy for full-length */
   loadQJ?: number,
-  /** Point loads on element [{a: distance from I (m), p: kN perpendicular}] */
   loadPoints?: Array<{ a: number; p: number }>,
-  /** All distributed loads including partial (overrides loadQI/loadQJ when present) */
   distLoads?: Array<{ qI: number; qJ: number; a: number; b: number }>,
 ): { x: number; y: number }[] {
-  const points: { x: number; y: number }[] = [];
-  const cos = (nodeJx - nodeIx) / length;
-  const sin = (nodeJy - nodeIy) / length;
-
-  // Transform displacements to local coordinates
-  const vI = -uIx * sin + uIy * cos;
-  const vJ = -uJx * sin + uJy * cos;
-  const uI = uIx * cos + uIy * sin;
-  const uJ = uJx * cos + uJy * sin;
-
-  // ── Particular solution setup ──────────────────────────────────
-  // The Hermite interpolation captures the cubic polynomial part
-  // (from nodal displacements/rotations). When loads act between nodes,
-  // the fixed-fixed particular solution adds the quartic correction
-  // with v_p(0) = v_p(L) = v'_p(0) = v'_p(L) = 0.
-  const L = length;
-  const L2 = L * L;
-  const L3 = L2 * L;
-  const L4 = L3 * L;
-
-  // Build list of distributed loads (new distLoads array or legacy loadQI/loadQJ)
-  const allDistLoads: Array<{ qI: number; qJ: number; a: number; b: number }> = [];
-  if (distLoads && distLoads.length > 0) {
-    allDistLoads.push(...distLoads);
-  } else {
-    const q0 = loadQI ?? 0;
-    const q1 = loadQJ ?? 0;
-    if (Math.abs(q0) > 1e-10 || Math.abs(q1) > 1e-10) {
-      allDistLoads.push({ qI: q0, qJ: q1, a: 0, b: L });
-    }
-  }
-  const hasDistLoad = allDistLoads.length > 0;
-  const hasPtLoads = loadPoints && loadPoints.length > 0;
-  // Floor EI at 1e-6 kN·m² to prevent overflow in particular solution (q·L⁴/EI)
-  const hasLoads = EI && EI > 1e-6 && (hasDistLoad || hasPtLoads);
-
-  // Helper: compute v''_p(0) and v''_p(L) for a point load P at distance aP from node I
-  const pointVpp = (P: number, aP: number) => {
-    const bP = L - aP;
-    return {
-      vpp0: P * aP * bP * bP / (EI! * L2),
-      vppL: P * aP * aP * bP / (EI! * L2),
-    };
-  };
-
-  // Compute v''_p at x=0 and x=L for the fixed-fixed particular solution.
-  let vpp_p0 = 0;
-  let vpp_pL = 0;
-
-  if (hasLoads) {
-    for (const dl of allDistLoads) {
-      const isFullLength = dl.a < 1e-10 && Math.abs(dl.b - L) < 1e-10;
-      if (isFullLength) {
-        // Exact analytical formula for full-length trapezoidal load
-        vpp_p0 += L2 * (4 * dl.qI + dl.qJ) / (60 * EI!);
-        vpp_pL += L2 * (dl.qI + 4 * dl.qJ) / (60 * EI!);
-      } else {
-        // Partial load: discretize into point loads via Simpson's rule
-        const N = 20;
-        const span = dl.b - dl.a;
-        if (span < 1e-12) continue;
-        const h = span / N;
-        for (let j = 0; j <= N; j++) {
-          const t = j / N;
-          const xLoad = dl.a + t * span;
-          const qAt = dl.qI + (dl.qJ - dl.qI) * t;
-          let w: number;
-          if (j === 0 || j === N) w = h / 3;
-          else if (j % 2 === 1) w = 4 * h / 3;
-          else w = 2 * h / 3;
-          const dP = qAt * w;
-          if (Math.abs(dP) < 1e-15) continue;
-          const { vpp0, vppL } = pointVpp(dP, xLoad);
-          vpp_p0 += vpp0;
-          vpp_pL += vppL;
-        }
-      }
-    }
-
-    if (hasPtLoads) {
-      for (const pl of loadPoints!) {
-        const { vpp0, vppL } = pointVpp(pl.p, pl.a);
-        vpp_p0 += vpp0;
-        vpp_pL += vppL;
-      }
-    }
-  }
-
-  // Adjust local end rotations for hinges.
-  // At a hinge, M = 0 → v''_total = v''_Hermite + v''_particular = 0.
-  // The Hermite rotation must compensate for the particular solution's curvature.
-  //
-  // Hermite second derivatives at endpoints (dv = vJ - vI):
-  //   v''_H(0) = (6dv - 4L·θI - 2L·θJ) / L²
-  //   v''_H(L) = (-6dv + 2L·θI + 4L·θJ) / L²
-  //
-  // Hinge condition: v''_H(end) = -v''_p(end), giving:
-  //   hingeStart: θI = 3dv/(2L) - θJ/2 + L·v''_p(0)/4
-  //   hingeEnd:   θJ = 3dv/(2L) - θI/2 - L·v''_p(L)/4
-  //   both hinges (simultaneous):
-  //     θI = dv/L + L·v''_p(0)/3 + L·v''_p(L)/6
-  //     θJ = dv/L - L·v''_p(0)/6 - L·v''_p(L)/3
-  //
-  // Without loads, v''_p = 0 and these reduce to the original formulas.
-  let thetaI = rIz;
-  let thetaJ = rJz;
-  const dv = vJ - vI;
-
-  if (hingeStart && hingeEnd) {
-    thetaI = dv / L + L * vpp_p0 / 3 + L * vpp_pL / 6;
-    thetaJ = dv / L - L * vpp_p0 / 6 - L * vpp_pL / 3;
-  } else if (hingeStart) {
-    thetaI = 3 * dv / (2 * L) - thetaJ / 2 + L * vpp_p0 / 4;
-  } else if (hingeEnd) {
-    thetaJ = 3 * dv / (2 * L) - thetaI / 2 - L * vpp_pL / 4;
-  }
-
-  const nPts = 21;
-  for (let i = 0; i < nPts; i++) {
-    const xi = i / (nPts - 1);
-    const x = xi * L;
-    const xi2 = xi * xi;
-    const xi3 = xi2 * xi;
-
-    // Hermite shape functions
-    const N1 = 1 - 3 * xi2 + 2 * xi3;
-    const N2 = (xi - 2 * xi2 + xi3) * L;
-    const N3 = 3 * xi2 - 2 * xi3;
-    const N4 = (-xi2 + xi3) * L;
-
-    let vLocal = N1 * vI + N2 * thetaI + N3 * vJ + N4 * thetaJ;
-
-    // Add particular solution (intra-element deflection from loads)
-    if (hasLoads) {
-      let vp = 0;
-
-      if (hasDistLoad) {
-        for (const dl of allDistLoads) {
-          const isFullLength = dl.a < 1e-10 && Math.abs(dl.b - L) < 1e-10;
-          if (isFullLength) {
-            // Exact: Fixed-fixed beam under trapezoidal load q(x) = q0 + (q1-q0)·x/L
-            const Lmx = L - x;
-            const x2Lmx2 = x * x * Lmx * Lmx;
-            vp += x2Lmx2 * (dl.qI / 24 + (dl.qJ - dl.qI) * (L + x) / (120 * L)) / EI!;
-          } else {
-            // Partial load: discretize into point loads via Simpson's rule
-            const N = 20;
-            const span = dl.b - dl.a;
-            if (span < 1e-12) continue;
-            const h = span / N;
-            for (let j = 0; j <= N; j++) {
-              const t = j / N;
-              const xLoad = dl.a + t * span;
-              const qAt = dl.qI + (dl.qJ - dl.qI) * t;
-              let w: number;
-              if (j === 0 || j === N) w = h / 3;
-              else if (j % 2 === 1) w = 4 * h / 3;
-              else w = 2 * h / 3;
-              const dP = qAt * w;
-              if (Math.abs(dP) < 1e-15) continue;
-              const aP = xLoad, bP = L - xLoad;
-              if (x <= xLoad) {
-                vp += dP * bP * bP * x * x * (3 * aP * L - x * (3 * aP + bP)) / (6 * EI! * L3);
-              } else {
-                const Lmx = L - x;
-                vp += dP * aP * aP * Lmx * Lmx * (3 * bP * L - Lmx * (3 * bP + aP)) / (6 * EI! * L3);
-              }
-            }
-          }
-        }
-      }
-
-      if (hasPtLoads) {
-        for (const pl of loadPoints!) {
-          const a = pl.a, P = pl.p, b = L - a;
-          // Fixed-fixed beam with point load P at distance a:
-          if (x <= a) {
-            vp += P * b * b * x * x * (3 * a * L - x * (3 * a + b)) / (6 * EI! * L3);
-          } else {
-            const Lmx = L - x;
-            vp += P * a * a * Lmx * Lmx * (3 * b * L - Lmx * (3 * b + a)) / (6 * EI! * L3);
-          }
-        }
-      }
-
-      vLocal += vp;
-    }
-
-    // Axial displacement (linear interpolation)
-    const uLocal = uI + xi * (uJ - uI);
-
-    // Transform back to global
-    const baseX = nodeIx + xi * (nodeJx - nodeIx);
-    const baseY = nodeIy + xi * (nodeJy - nodeIy);
-
-    const dx = uLocal * cos - vLocal * sin;
-    const dy = uLocal * sin + vLocal * cos;
-
-    points.push({
-      x: baseX + dx * scale,
-      y: baseY + dy * scale,
-    });
-  }
-
-  return points;
+  // Delegate to WASM — convert TS args to WASM input format
+  return wasmComputeDeformedShape({
+    nodeIx, nodeIy, nodeJx, nodeJy,
+    uIx, uIy, rIz, uJx, uJy, rJz,
+    scale, length, hingeStart, hingeEnd,
+    ei: EI ?? null,
+    loadQi: loadQI ?? null,
+    loadQj: loadQJ ?? null,
+    loadPoints: (loadPoints ?? []).map(p => [p.a, p.p]),
+    distLoads: (distLoads ?? []).map(d => [d.qI, d.qJ, d.a, d.b]),
+  });
 }
 
 /**

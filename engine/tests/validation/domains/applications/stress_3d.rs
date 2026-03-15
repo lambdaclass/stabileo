@@ -89,7 +89,7 @@ fn validation_stress_3d_pure_axial() {
 
     // σ = N/A = 100/(0.1*0.2) = 5000 kN/m² = 5 MPa
     let sigma_expected = n_force / section.a / 1000.0; // MPa
-    assert_close(result.sigma_at_point, sigma_expected, 0.01, "pure axial σ at centroid");
+    assert_close(result.sigma_at_fiber, sigma_expected, 0.01, "pure axial σ at centroid");
 
     // All distribution points should have same normal stress (no bending)
     for pt in &result.distribution_y {
@@ -131,7 +131,7 @@ fn validation_stress_3d_biaxial_bending() {
 
     // σ = Mz·y/Iz - My·z/Iy (in MPa, so divide by 1000)
     let sigma_expected = (mz * y_fiber / section.iz - my * z_fiber / section.iy) / 1000.0;
-    assert_close(result.sigma_at_point, sigma_expected, 0.02,
+    assert_close(result.sigma_at_fiber, sigma_expected, 0.02,
         "biaxial bending σ at corner fiber");
 }
 
@@ -249,8 +249,8 @@ fn validation_stress_3d_von_mises() {
 
     // At neutral axis: σ ≈ 0 (no bending), τ ≈ max
     // Von Mises at centroid: σ_vm = √(σ² + 3·τ²) ≈ √(3)·|τ|
-    let sigma = result.sigma_at_point;
-    let tau = result.tau_total_at_point;
+    let sigma = result.sigma_at_fiber;
+    let tau = result.tau_total;
     let vm_expected = (sigma * sigma + 3.0 * tau * tau).sqrt();
 
     // Check Von Mises in distribution

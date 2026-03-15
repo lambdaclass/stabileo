@@ -24,17 +24,28 @@ pub struct StressPoint3D {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct SectionStressResult3D {
+    #[serde(rename = "N")]
     pub n: f64,
+    #[serde(rename = "Vy")]
     pub vy: f64,
+    #[serde(rename = "Vz")]
     pub vz: f64,
+    #[serde(rename = "Mx")]
     pub mx: f64,
+    #[serde(rename = "My")]
     pub my: f64,
+    #[serde(rename = "Mz")]
     pub mz: f64,
     pub resolved: ResolvedSection,
+    #[serde(rename = "Iz")]
+    pub iz: f64,
     pub distribution_y: Vec<StressPoint3D>,
     pub distribution_z: Vec<StressPoint3D>,
-    pub sigma_at_point: f64,
-    pub tau_total_at_point: f64,
+    pub sigma_at_fiber: f64,
+    pub tau_vy_at_fiber: f64,
+    pub tau_vz_at_fiber: f64,
+    pub tau_torsion: f64,
+    pub tau_total: f64,
     pub mohr: MohrCircle,
     pub failure: FailureCheck,
     pub neutral_axis: Option<NeutralAxis3D>,
@@ -269,10 +280,21 @@ pub fn compute_section_stress_3d(input: &SectionStressInput3D) -> SectionStressR
     let my = evaluate_diagram_3d_at(ef, "momentY", input.t);
     let mz = evaluate_diagram_3d_at(ef, "momentZ", input.t);
 
-    let resolved = resolve_section_3d(&input.section);
+    compute_stress_3d_from_raw(n, vy, vz, mx, my, mz, &input.section, input.fy, input.y_fiber, input.z_fiber)
+}
 
-    let y = input.y_fiber.unwrap_or(resolved.h / 2.0);
-    let z = input.z_fiber.unwrap_or(0.0);
+/// Analyze 3D section stress from raw internal forces (no element forces interpolation).
+pub fn compute_stress_3d_from_raw(
+    n: f64, vy: f64, vz: f64, mx: f64, my: f64, mz: f64,
+    section: &SectionGeometry,
+    fy: Option<f64>,
+    y_fiber: Option<f64>,
+    z_fiber: Option<f64>,
+) -> SectionStressResult3D {
+    let resolved = resolve_section_3d(section);
+
+    let y = y_fiber.unwrap_or(resolved.h / 2.0);
+    let z = z_fiber.unwrap_or(0.0);
 
     // Y-axis distribution (z=0 cut)
     let distribution_y: Vec<StressPoint3D> = {
@@ -281,7 +303,7 @@ pub fn compute_section_stress_3d(input: &SectionStressInput3D) -> SectionStressR
             let yi = resolved.y_min + (i as f64 / (NUM_POINTS_3D - 1) as f64) * span;
             let sigma = biaxial_normal_stress(n, my, mz, resolved.a, resolved.iy, resolved.iz, yi, 0.0);
             let t_vy = shear_stress_vy(vy, yi, &resolved);
-            let t_vz = 0.0; // z=0 → no Vz shear on this cut
+            let t_vz = 0.0;
             let t_t = torsion_shear(mx, &resolved);
             let tau_total = (t_vy * t_vy + t_vz * t_vz + t_t * t_t).sqrt();
             let vm = (sigma * sigma + 3.0 * tau_total * tau_total).sqrt();
@@ -305,25 +327,30 @@ pub fn compute_section_stress_3d(input: &SectionStressInput3D) -> SectionStressR
     };
 
     // Stress at selected point
-    let sigma_at_point = biaxial_normal_stress(n, my, mz, resolved.a, resolved.iy, resolved.iz, y, z);
-    let t_vy = shear_stress_vy(vy, y, &resolved);
-    let t_vz = shear_stress_vz(vz, z, &resolved);
-    let t_t = torsion_shear(mx, &resolved);
-    let tau_total_at_point = (t_vy * t_vy + t_vz * t_vz + t_t * t_t).sqrt();
+    let sigma_at_fiber = biaxial_normal_stress(n, my, mz, resolved.a, resolved.iy, resolved.iz, y, z);
+    let tau_vy_at_fiber = shear_stress_vy(vy, y, &resolved);
+    let tau_vz_at_fiber = shear_stress_vz(vz, z, &resolved);
+    let tau_torsion = torsion_shear(mx, &resolved);
+    let tau_total = (tau_vy_at_fiber * tau_vy_at_fiber + tau_vz_at_fiber * tau_vz_at_fiber + tau_torsion * tau_torsion).sqrt();
 
-    let mohr = compute_mohr_circle(sigma_at_point, tau_total_at_point);
-    let failure = check_failure(sigma_at_point, tau_total_at_point, input.fy);
+    let mohr = compute_mohr_circle(sigma_at_fiber, tau_total);
+    let failure = check_failure(sigma_at_fiber, tau_total, fy);
 
     // Neutral axis
     let neutral_axis = compute_neutral_axis_3d(n, my, mz, &resolved);
+    let iz = resolved.iz;
 
     SectionStressResult3D {
         n, vy, vz, mx, my, mz,
         resolved,
+        iz,
         distribution_y,
         distribution_z,
-        sigma_at_point,
-        tau_total_at_point,
+        sigma_at_fiber,
+        tau_vy_at_fiber,
+        tau_vz_at_fiber,
+        tau_torsion,
+        tau_total,
         mohr,
         failure,
         neutral_axis,

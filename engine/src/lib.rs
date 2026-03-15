@@ -461,6 +461,73 @@ pub fn compute_section_stress_3d(json: &str) -> Result<String, JsValue> {
         .map_err(|e| JsValue::from_str(&format!("Serialize error: {}", e)))
 }
 
+/// Compute 3D section stress from raw internal forces (no element forces interpolation).
+/// JSON: { N, Vy, Vz, Mx, My, Mz, section, fy?, yFiber?, zFiber? }
+#[wasm_bindgen]
+pub fn compute_section_stress_3d_from_forces(json: &str) -> Result<String, JsValue> {
+    #[derive(serde::Deserialize)]
+    #[serde(rename_all = "camelCase")]
+    struct Input {
+        #[serde(rename = "N")]
+        n: f64,
+        #[serde(rename = "Vy")]
+        vy: f64,
+        #[serde(rename = "Vz")]
+        vz: f64,
+        #[serde(rename = "Mx")]
+        mx: f64,
+        #[serde(rename = "My")]
+        my: f64,
+        #[serde(rename = "Mz")]
+        mz: f64,
+        section: postprocess::section_stress::SectionGeometry,
+        #[serde(default)]
+        fy: Option<f64>,
+        #[serde(default)]
+        y_fiber: Option<f64>,
+        #[serde(default)]
+        z_fiber: Option<f64>,
+    }
+    let d: Input = serde_json::from_str(json)
+        .map_err(|e| JsValue::from_str(&format!("Parse error: {}", e)))?;
+    let result = postprocess::section_stress_3d::compute_stress_3d_from_raw(
+        d.n, d.vy, d.vz, d.mx, d.my, d.mz,
+        &d.section, d.fy, d.y_fiber, d.z_fiber,
+    );
+    serde_json::to_string(&result)
+        .map_err(|e| JsValue::from_str(&format!("Serialize error: {}", e)))
+}
+
+/// Compute 2D diagram value at position t for one element. JSON: { kind, t, elementForces }
+#[wasm_bindgen]
+pub fn compute_diagram_value_at(json: &str) -> Result<f64, JsValue> {
+    #[derive(serde::Deserialize)]
+    #[serde(rename_all = "camelCase")]
+    struct Input {
+        kind: String,
+        t: f64,
+        element_forces: types::ElementForces,
+    }
+    let d: Input = serde_json::from_str(json)
+        .map_err(|e| JsValue::from_str(&format!("Parse error: {}", e)))?;
+    Ok(postprocess::diagrams::compute_diagram_value_at(&d.kind, d.t, &d.element_forces))
+}
+
+/// Compute 3D diagram value at position t for one element. JSON: { kind, t, elementForces }
+#[wasm_bindgen]
+pub fn compute_diagram_value_at_3d(json: &str) -> Result<f64, JsValue> {
+    #[derive(serde::Deserialize)]
+    #[serde(rename_all = "camelCase")]
+    struct Input {
+        kind: String,
+        t: f64,
+        element_forces: types::ElementForces3D,
+    }
+    let d: Input = serde_json::from_str(json)
+        .map_err(|e| JsValue::from_str(&format!("Parse error: {}", e)))?;
+    Ok(postprocess::diagrams_3d::evaluate_diagram_3d_at(&d.element_forces, &d.kind, d.t))
+}
+
 // ==================== Multi-Case Load Combinations ====================
 
 /// Solve 2D multi-case load combinations with envelope. JSON: MultiCaseInput

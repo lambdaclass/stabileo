@@ -1119,57 +1119,106 @@ export function generateFullStadium3D(store: ModelStore, p: FullStadium3DParams)
 
   store.batch(() => {
     const baseOuter: number[] = [];
+    const lowerBowl: number[] = [];
+    const upperBowl: number[] = [];
     const concourse: number[] = [];
-    const innerBowl: number[] = [];
     const roofInner: number[] = [];
     const roofOuter: number[] = [];
+    const mastBase: number[] = [];
+    const mastTop: Array<number | null> = [];
+    const roofCovered: boolean[] = [];
 
-    const innerRise = p.roofRise * 0.35;
-    const outerRise = p.roofRise;
+    const lowerRiseBase = p.roofRise * 0.18;
+    const upperRiseBase = p.roofRise * 0.5;
+    const outerRiseBase = p.roofRise;
 
     for (let i = 0; i < p.nFrames; i++) {
       const theta = (2 * Math.PI * i) / p.nFrames;
       const c = Math.cos(theta);
       const s = Math.sin(theta);
+      const mainStand = Math.max(0, s);
+      const openSector = c < -0.35 && s < -0.15;
+      roofCovered.push(!openSector);
 
-      baseOuter.push(store.addNode(p.majorRadius * c, 0, p.minorRadius * s));
-      concourse.push(store.addNode((p.majorRadius - 6) * c, innerRise * 0.35, (p.minorRadius - 6) * s));
-      innerBowl.push(store.addNode(p.innerMajorRadius * c, innerRise, p.innerMinorRadius * s));
-      roofInner.push(store.addNode((p.innerMajorRadius + 6) * c, innerRise + 4, (p.innerMinorRadius + 6) * s));
-      roofOuter.push(store.addNode((p.majorRadius + 8) * c, outerRise, (p.minorRadius + 8) * s));
+      const lowerRise = lowerRiseBase + mainStand * 2.5;
+      const upperRise = upperRiseBase + mainStand * 7.5;
+      const outerRise = outerRiseBase + mainStand * 10;
+      const outerX = (p.majorRadius + 8 + mainStand * 8) * c;
+      const outerZ = (p.minorRadius + 8 + mainStand * 5) * s;
+
+      baseOuter.push(store.addNode((p.majorRadius + mainStand * 6) * c, 0, (p.minorRadius + mainStand * 3) * s));
+      lowerBowl.push(store.addNode((p.innerMajorRadius + 4) * c, lowerRise, (p.innerMinorRadius + 4) * s));
+      upperBowl.push(store.addNode((p.majorRadius - 16 + mainStand * 4) * c, upperRise, (p.minorRadius - 14 + mainStand * 3) * s));
+      concourse.push(store.addNode((p.majorRadius - 8 + mainStand * 4) * c, upperRise + 2.5, (p.minorRadius - 8 + mainStand * 3) * s));
+      roofInner.push(store.addNode((p.innerMajorRadius + 16 + mainStand * 3) * c, upperRise + 6, (p.innerMinorRadius + 14 + mainStand * 2) * s));
+      roofOuter.push(store.addNode(outerX, outerRise, outerZ));
+      mastBase.push(store.addNode((p.majorRadius + 20 + mainStand * 10) * c, 0, (p.minorRadius + 16 + mainStand * 7) * s));
+
+      if (!openSector && (i % 2 === 0 || mainStand > 0.55)) {
+        mastTop.push(store.addNode((p.majorRadius + 20 + mainStand * 10) * c, outerRise + 12 + mainStand * 8, (p.minorRadius + 16 + mainStand * 7) * s));
+      } else {
+        mastTop.push(null);
+      }
     }
 
     for (let i = 0; i < p.nFrames; i++) {
       const next = (i + 1) % p.nFrames;
+      const coveredI = roofCovered[i];
+      const coveredNext = roofCovered[next];
+      const roofSpanClosed = coveredI && coveredNext;
 
-      // Ring beams
+      // Bowl and perimeter rings
       store.addElement(baseOuter[i], baseOuter[next], 'frame');
+      store.addElement(lowerBowl[i], lowerBowl[next], 'frame');
+      store.addElement(upperBowl[i], upperBowl[next], 'frame');
       store.addElement(concourse[i], concourse[next], 'frame');
-      store.addElement(innerBowl[i], innerBowl[next], 'frame');
-      const innerRoofRing = store.addElement(roofInner[i], roofInner[next], 'frame');
-      const outerRoofRing = store.addElement(roofOuter[i], roofOuter[next], 'frame');
+      if (roofSpanClosed) {
+        const innerRoofRing = store.addElement(roofInner[i], roofInner[next], 'frame');
+        const outerRoofRing = store.addElement(roofOuter[i], roofOuter[next], 'frame');
 
-      if (p.roofLoad !== 0) {
-        store.addDistributedLoad3D(innerRoofRing, 0, p.roofLoad, 0, p.roofLoad);
-        store.addDistributedLoad3D(outerRoofRing, 0, p.roofLoad, 0, p.roofLoad);
+        if (p.roofLoad !== 0) {
+          store.addDistributedLoad3D(innerRoofRing, 0, p.roofLoad, 0, p.roofLoad);
+          store.addDistributedLoad3D(outerRoofRing, 0, p.roofLoad, 0, p.roofLoad);
+        }
       }
 
-      // Rakers / columns / roof cantilevers
+      // Seating rake and concourse frames
+      store.addElement(lowerBowl[i], upperBowl[i], 'frame');
+      store.addElement(upperBowl[i], concourse[i], 'frame');
       store.addElement(baseOuter[i], concourse[i], 'frame');
-      store.addElement(concourse[i], innerBowl[i], 'frame');
-      store.addElement(concourse[i], roofOuter[i], 'frame');
-      store.addElement(innerBowl[i], roofInner[i], 'frame');
-      store.addElement(roofInner[i], roofOuter[i], 'frame');
+      store.addElement(baseOuter[i], upperBowl[i], 'truss');
+      store.addElement(lowerBowl[i], upperBowl[next], 'truss');
+      store.addElement(lowerBowl[next], upperBowl[i], 'truss');
+      store.addElement(concourse[i], upperBowl[next], 'truss');
+      store.addElement(concourse[next], upperBowl[i], 'truss');
 
-      // Radial roof and bowl bracing
-      store.addElement(innerBowl[i], roofOuter[i], 'truss');
-      store.addElement(roofInner[i], roofOuter[next], 'truss');
-      store.addElement(roofOuter[i], roofInner[next], 'truss');
-      store.addElement(concourse[i], innerBowl[next], 'truss');
-      store.addElement(innerBowl[i], concourse[next], 'truss');
+      if (coveredI) {
+        // Roof cantilever and radial roof bracing
+        store.addElement(concourse[i], roofInner[i], 'frame');
+        store.addElement(roofInner[i], roofOuter[i], 'frame');
+        store.addElement(upperBowl[i], roofInner[i], 'truss');
+        store.addElement(lowerBowl[i], roofOuter[i], 'truss');
+
+        if (coveredNext) {
+          store.addElement(roofInner[i], roofOuter[next], 'truss');
+          store.addElement(roofOuter[i], roofInner[next], 'truss');
+        }
+      }
+
+      // Outer support mast and backstay system
+      store.addElement(baseOuter[i], mastBase[i], 'frame');
+      if (mastTop[i] != null && coveredI) {
+        store.addElement(mastBase[i], mastTop[i]!, 'frame');
+        store.addElement(mastTop[i]!, roofOuter[i], 'truss');
+        store.addElement(mastTop[i]!, roofInner[i], 'truss');
+        store.addElement(mastTop[i]!, concourse[i], 'truss');
+      }
 
       store.addSupport(baseOuter[i], 'fixed3d');
-      store.addNodalLoad3D(roofOuter[i], 0, -10, 0, 0, 0, 0);
+      store.addSupport(mastBase[i], 'fixed3d');
+      if (coveredI) {
+        store.addNodalLoad3D(roofOuter[i], 0, -10, 0, 0, 0, 0);
+      }
     }
   });
 }

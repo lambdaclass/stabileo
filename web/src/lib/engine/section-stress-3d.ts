@@ -8,13 +8,9 @@
 
 import type { ElementForces3D } from './types-3d';
 import type { Section } from '../store/model.svelte';
+import { computeSectionStress3D, computeSectionStress3DFromForces } from './wasm-solver';
 import { t } from '../i18n';
 import {
-  resolveSectionGeometry,
-  computeMohrCircle,
-  checkFailure,
-  shearStress,
-  normalStress,
   type ResolvedSection,
   type MohrCircle,
   type FailureCheck,
@@ -568,12 +564,47 @@ function buildSamplingZ(rs: ResolvedSection): number[] {
   return positions;
 }
 
+// ─── WASM neutral axis adapter ───────────────────────────────────────
+
+/** Convert WASM neutral axis (two-point form) to TS NeutralAxisInfo (slope-intercept form). */
+function convertWasmNA(na: { y1: number; z1: number; y2: number; z2: number } | null): NeutralAxisInfo {
+  if (!na) return { exists: false, slope: 0, intercept: 0, angle: 0 };
+  const dz = na.z2 - na.z1;
+  const dy = na.y2 - na.y1;
+  if (Math.abs(dz) < 1e-12) {
+    // Vertical line
+    return { exists: true, slope: Infinity, intercept: na.z1, angle: Math.PI / 2 };
+  }
+  const slope = dy / dz;
+  const intercept = na.y1 - slope * na.z1;
+  const angle = Math.atan(slope);
+  return { exists: true, slope, intercept, angle };
+}
+
+/** Adapt WASM 3D result to TS SectionStressResult3D interface. */
+function adaptWasm3DResult(r: any): SectionStressResult3D {
+  return {
+    N: r.N, Vy: r.Vy, Vz: r.Vz, Mx: r.Mx, My: r.My, Mz: r.Mz,
+    resolved: r.resolved,
+    Iz: r.Iz,
+    distributionY: r.distributionY,
+    distributionZ: r.distributionZ,
+    sigmaAtFiber: r.sigmaAtFiber,
+    tauVyAtFiber: r.tauVyAtFiber,
+    tauVzAtFiber: r.tauVzAtFiber,
+    tauTorsion: r.tauTorsion,
+    tauTotal: r.tauTotal,
+    neutralAxis: convertWasmNA(r.neutralAxis),
+    mohr: r.mohr,
+    failure: r.failure,
+  };
+}
+
 // ─── Full detailed analysis ──────────────────────────────────────────
 
 /**
  * Full 3D section stress analysis at position t along element.
- * Computes biaxial normal stress, Jourawsky shear in both axes,
- * torsion shear, neutral axis, Mohr's circle, and failure check.
+ * Delegates to WASM solver.
  */
 export function analyzeSectionStress3D(
   ef: ElementForces3D,
@@ -583,84 +614,22 @@ export function analyzeSectionStress3D(
   yFiber?: number,
   zFiber?: number,
 ): SectionStressResult3D {
-  // Interpolate forces at position t
-  const { N, Vy, Vz, Mx, My, Mz } = interpolateForces3D(ef, t);
-
-  // Resolve section geometry
-  const resolved = resolveSectionGeometry(sec);
-  const halfH = resolved.h / 2;
-  const halfB = resolved.b / 2;
-
-  // Iy in Navier notation = inertia for Mz·z term = about Z vertical = resolved.iz
-  const Iy = resolved.iz;
-  const J = resolved.j;
-
-  // Default fibers: extreme
-  const yF = yFiber ?? halfH;
-  const zF = zFiber ?? 0;
-
-  // ── Distributions along Y axis (z=0 cut) ──
-  const yPositions = buildSamplingY(resolved);
-  const distributionY: StressPoint3D[] = yPositions.map(y => {
-    const sigma = normalStress3D(N, Mz, My, resolved.a, resolved.iy, Iy, y, 0);
-    const tauVy = shearStress(Vy, y, resolved); // reuse 2D Jourawsky for strong axis
-    const tauVz = 0; // at z=0, weak-axis shear contribution is max Q but also depends on cut
-    const tauT = torsionShearStress(Mx, resolved, J);
-    const tTotal = Math.sqrt(tauVy * tauVy + tauVz * tauVz + tauT * tauT);
-    const vm = Math.sqrt(sigma * sigma + 3 * tTotal * tTotal);
-    return { y, z: 0, sigma, tauVy, tauVz, tauT, vonMises: vm };
+  const raw = computeSectionStress3D({
+    elementForces: ef,
+    section: sec,
+    fy: fy ?? null,
+    t,
+    yFiber: yFiber ?? null,
+    zFiber: zFiber ?? null,
   });
-
-  // ── Distributions along Z axis (y=0 cut) ──
-  const zPositions = buildSamplingZ(resolved);
-  const distributionZ: StressPoint3D[] = zPositions.map(z => {
-    const sigma = normalStress3D(N, Mz, My, resolved.a, resolved.iy, Iy, 0, z);
-    const tauVy = 0; // at y=0, Vy shear is maximum but for z-axis scan we show Vz contribution
-    const tauVz = shearStressWeakAxis(Vz, z, resolved, Iy);
-    const tauT = torsionShearStress(Mx, resolved, J);
-    const tTotal = Math.sqrt(tauVy * tauVy + tauVz * tauVz + tauT * tauT);
-    const vm = Math.sqrt(sigma * sigma + 3 * tTotal * tTotal);
-    return { y: 0, z, sigma, tauVy, tauVz, tauT, vonMises: vm };
-  });
-
-  // ── Stresses at selected fiber (yF, zF) ──
-  const sigmaAtFiber = normalStress3D(N, Mz, My, resolved.a, resolved.iy, Iy, yF, zF);
-  const tauVyAtFiber = shearStress(Vy, yF, resolved);
-  const tauVzAtFiber = shearStressWeakAxis(Vz, zF, resolved, Iy);
-  const tauTorsion = torsionShearStress(Mx, resolved, J);
-  const tauTotal = Math.sqrt(tauVyAtFiber ** 2 + tauVzAtFiber ** 2 + tauTorsion ** 2);
-
-  // ── Neutral axis ──
-  const neutralAxis = computeNeutralAxis(N, Mz, My, resolved.a, resolved.iy, Iy);
-
-  // ── Mohr's circle (plane stress: σ_x vs τ_total) ──
-  const mohr = computeMohrCircle(sigmaAtFiber, tauTotal);
-
-  // ── Failure check ──
-  const fyMPa = fy ?? undefined;
-  const failure = checkFailure(sigmaAtFiber, tauTotal, fyMPa);
-
-  return {
-    N, Vy, Vz, Mx, My, Mz,
-    resolved,
-    Iz: Iy,
-    distributionY,
-    distributionZ,
-    sigmaAtFiber,
-    tauVyAtFiber,
-    tauVzAtFiber,
-    tauTorsion,
-    tauTotal,
-    neutralAxis,
-    mohr,
-    failure,
-  };
+  return adaptWasm3DResult(raw);
 }
 
 /**
  * Biaxial stress analysis from raw internal forces (no ElementForces3D needed).
  * Used for 2D sections with rotation: M and V are decomposed by the caller
  * into biaxial components (My, Mz, Vy, Vz) before calling this.
+ * Delegates to WASM solver.
  */
 export function analyzeSectionStressFromForces(
   N: number, Vy: number, Vz: number, Mx: number, My: number, Mz: number,
@@ -669,71 +638,14 @@ export function analyzeSectionStressFromForces(
   yFiber?: number,
   zFiber?: number,
 ): SectionStressResult3D {
-  const resolved = resolveSectionGeometry(sec);
-  const halfH = resolved.h / 2;
-  const halfB = resolved.b / 2;
-
-  const Iy = resolved.iz; // Navier Iy = about Z vertical = resolved.iz
-  const J = resolved.j;
-
-  const yF = yFiber ?? halfH;
-  const zF = zFiber ?? 0;
-
-  // ── Distributions along Y axis (z=0 cut) ──
-  const yPositions = buildSamplingY(resolved);
-  const distributionY: StressPoint3D[] = yPositions.map(y => {
-    const sigma = normalStress3D(N, Mz, My, resolved.a, resolved.iy, Iy, y, 0);
-    const tauVy = shearStress(Vy, y, resolved);
-    const tauVz = 0;
-    const tauT = torsionShearStress(Mx, resolved, J);
-    const tTotal = Math.sqrt(tauVy * tauVy + tauVz * tauVz + tauT * tauT);
-    const vm = Math.sqrt(sigma * sigma + 3 * tTotal * tTotal);
-    return { y, z: 0, sigma, tauVy, tauVz, tauT, vonMises: vm };
-  });
-
-  // ── Distributions along Z axis (y=0 cut) ──
-  const zPositions = buildSamplingZ(resolved);
-  const distributionZ: StressPoint3D[] = zPositions.map(z => {
-    const sigma = normalStress3D(N, Mz, My, resolved.a, resolved.iy, Iy, 0, z);
-    const tauVy = 0;
-    const tauVz = shearStressWeakAxis(Vz, z, resolved, Iy);
-    const tauT = torsionShearStress(Mx, resolved, J);
-    const tTotal = Math.sqrt(tauVy * tauVy + tauVz * tauVz + tauT * tauT);
-    const vm = Math.sqrt(sigma * sigma + 3 * tTotal * tTotal);
-    return { y: 0, z, sigma, tauVy, tauVz, tauT, vonMises: vm };
-  });
-
-  // ── Stresses at selected fiber (yF, zF) ──
-  const sigmaAtFiber = normalStress3D(N, Mz, My, resolved.a, resolved.iy, Iy, yF, zF);
-  const tauVyAtFiber = shearStress(Vy, yF, resolved);
-  const tauVzAtFiber = shearStressWeakAxis(Vz, zF, resolved, Iy);
-  const tauTorsion = torsionShearStress(Mx, resolved, J);
-  const tauTotal = Math.sqrt(tauVyAtFiber ** 2 + tauVzAtFiber ** 2 + tauTorsion ** 2);
-
-  // ── Neutral axis ──
-  const neutralAxis = computeNeutralAxis(N, Mz, My, resolved.a, resolved.iy, Iy);
-
-  // ── Mohr's circle ──
-  const mohr = computeMohrCircle(sigmaAtFiber, tauTotal);
-
-  // ── Failure check ──
-  const failure = checkFailure(sigmaAtFiber, tauTotal, fy ?? undefined);
-
-  return {
+  const raw = computeSectionStress3DFromForces({
     N, Vy, Vz, Mx, My, Mz,
-    resolved,
-    Iz: Iy,
-    distributionY,
-    distributionZ,
-    sigmaAtFiber,
-    tauVyAtFiber,
-    tauVzAtFiber,
-    tauTorsion,
-    tauTotal,
-    neutralAxis,
-    mohr,
-    failure,
-  };
+    section: sec,
+    fy: fy ?? null,
+    yFiber: yFiber ?? null,
+    zFiber: zFiber ?? null,
+  });
+  return adaptWasm3DResult(raw);
 }
 
 /**

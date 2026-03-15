@@ -48,11 +48,14 @@ let wasmComputeInfluenceLine: ((json: string) => string) | null = null;
 // Section Stress
 let wasmComputeSectionStress2d: ((json: string) => string) | null = null;
 let wasmComputeSectionStress3d: ((json: string) => string) | null = null;
+let wasmComputeSectionStress3dFromForces: ((json: string) => string) | null = null;
 
 // Diagrams & Deformed Shape
 let wasmComputeDiagrams2d: ((json: string) => string) | null = null;
 let wasmComputeDiagrams3d: ((json: string) => string) | null = null;
 let wasmComputeDeformedShape: ((json: string) => string) | null = null;
+let wasmComputeDiagramValueAt: ((json: string) => number) | null = null;
+let wasmComputeDiagramValueAt3d: ((json: string) => number) | null = null;
 
 // 3D advanced solver WASM functions
 let wasmSolveCorotational3d: ((json: string, maxIter: number, tolerance: number, nIncrements: number) => string) | null = null;
@@ -112,6 +115,12 @@ let wasmAnalyzeSection: ((json: string) => string) | null = null;
 let wasmGuyanReduce2d: ((json: string) => string) | null = null;
 let wasmCraigBampton2d: ((json: string) => string) | null = null;
 
+// Beam Station Extraction
+let wasmExtractBeamStations: ((json: string) => string) | null = null;
+let wasmExtractBeamStations3d: ((json: string) => string) | null = null;
+let wasmExtractBeamStationsGrouped: ((json: string) => string) | null = null;
+let wasmExtractBeamStationsGrouped3d: ((json: string) => string) | null = null;
+
 // Design Checks (not yet compiled into WASM binary — graceful fallback via ?? null)
 let wasmCheckSteelMembers: ((json: string) => string) | null = null;
 let wasmCheckRcMembers: ((json: string) => string) | null = null;
@@ -170,11 +179,14 @@ export async function initSolver(): Promise<void> {
     // Section Stress
     wasmComputeSectionStress2d = wasm.compute_section_stress_2d;
     wasmComputeSectionStress3d = wasm.compute_section_stress_3d;
+    wasmComputeSectionStress3dFromForces = wasm.compute_section_stress_3d_from_forces ?? null;
 
     // Diagrams & Deformed Shape
     wasmComputeDiagrams2d = wasm.compute_diagrams_2d;
     wasmComputeDiagrams3d = wasm.compute_diagrams_3d;
     wasmComputeDeformedShape = wasm.compute_deformed_shape;
+    wasmComputeDiagramValueAt = wasm.compute_diagram_value_at ?? null;
+    wasmComputeDiagramValueAt3d = wasm.compute_diagram_value_at_3d ?? null;
 
     // 3D advanced solvers
     wasmSolveCorotational3d = wasm.solve_corotational_3d ?? null;
@@ -247,6 +259,12 @@ export async function initSolver(): Promise<void> {
     wasmCheckBoltGroups = wasm.check_bolt_groups ?? null;
     wasmCheckWeldGroups = wasm.check_weld_groups ?? null;
     wasmCheckSpreadFootings = wasm.check_spread_footings ?? null;
+
+    // Beam Station Extraction
+    wasmExtractBeamStations = wasm.extract_beam_stations ?? null;
+    wasmExtractBeamStations3d = wasm.extract_beam_stations_3d ?? null;
+    wasmExtractBeamStationsGrouped = wasm.extract_beam_stations_grouped ?? null;
+    wasmExtractBeamStationsGrouped3d = wasm.extract_beam_stations_grouped_3d ?? null;
 
     wasmReady = true;
   })();
@@ -675,6 +693,18 @@ export function computeSectionStress3D(input: any) {
   return JSON.parse(wasmComputeSectionStress3d(JSON.stringify(input)));
 }
 
+/** Compute 3D section stress from raw forces via WASM. */
+export function computeSectionStress3DFromForces(input: {
+  N: number; Vy: number; Vz: number; Mx: number; My: number; Mz: number;
+  section: any;
+  fy?: number | null;
+  yFiber?: number | null;
+  zFiber?: number | null;
+}) {
+  if (!wasmReady || !wasmComputeSectionStress3dFromForces) throw new Error('WASM solver not initialized.');
+  return JSON.parse(wasmComputeSectionStress3dFromForces(JSON.stringify(input)));
+}
+
 // ─── Diagrams & Deformed Shape ───────────────────────────────────
 
 /** Compute 2D diagrams (moment, shear, axial) via WASM. */
@@ -715,6 +745,23 @@ export function computeDiagrams3D(input: SolverInput3D, results: AnalysisResults
 export function computeDeformedShape(input: any) {
   if (!wasmReady || !wasmComputeDeformedShape) throw new Error('WASM solver not initialized.');
   return JSON.parse(wasmComputeDeformedShape(JSON.stringify(input)));
+}
+
+/** Compute 2D diagram value at position t for one element via WASM. Returns null if WASM not available. */
+export function computeDiagramValueAtWasm(kind: string, t: number, elementForces: any): number | null {
+  if (!wasmReady || !wasmComputeDiagramValueAt) return null;
+  return wasmComputeDiagramValueAt(JSON.stringify({ kind, t, elementForces }));
+}
+
+/** Compute 3D diagram value at position t for one element via WASM. Returns null if WASM not available. */
+export function computeDiagramValueAt3DWasm(kind: string, t: number, elementForces: any): number | null {
+  if (!wasmReady || !wasmComputeDiagramValueAt3d) return null;
+  return wasmComputeDiagramValueAt3d(JSON.stringify({ kind, t, elementForces }));
+}
+
+/** Check if WASM solver is ready. */
+export function isWasmReady(): boolean {
+  return wasmReady;
 }
 
 // ─── Design Check Wrappers ───────────────────────────────────────
@@ -1168,4 +1215,33 @@ export function craigBampton2D(config: any): any {
     config = { ...config, solver: JSON.parse(serializeInput2D(config.solver)) };
   }
   return JSON.parse(wasmCraigBampton2d(JSON.stringify(config)));
+}
+
+// ─── Beam Station Extraction ─────────────────────────────────────
+
+import type { BeamStationInput, BeamStationResult, GroupedBeamStationResult } from './types';
+import type { BeamStationInput3D, BeamStationResult3D, GroupedBeamStationResult3D } from './types-3d';
+
+/** Extract 2D beam design stations with per-combo forces and governing values. */
+export function extractBeamStations(input: BeamStationInput): BeamStationResult {
+  if (!wasmReady || !wasmExtractBeamStations) throw new Error('WASM beam station extraction not available.');
+  return JSON.parse(wasmExtractBeamStations(JSON.stringify(input)));
+}
+
+/** Extract 3D beam design stations with per-combo forces and governing values. */
+export function extractBeamStations3D(input: BeamStationInput3D): BeamStationResult3D {
+  if (!wasmReady || !wasmExtractBeamStations3d) throw new Error('WASM beam station 3D extraction not available.');
+  return JSON.parse(wasmExtractBeamStations3d(JSON.stringify(input)));
+}
+
+/** Extract 2D beam stations grouped by member with member-level governing summaries. */
+export function extractBeamStationsGrouped(input: BeamStationInput): GroupedBeamStationResult {
+  if (!wasmReady || !wasmExtractBeamStationsGrouped) throw new Error('WASM grouped beam station extraction not available.');
+  return JSON.parse(wasmExtractBeamStationsGrouped(JSON.stringify(input)));
+}
+
+/** Extract 3D beam stations grouped by member with member-level governing summaries. */
+export function extractBeamStationsGrouped3D(input: BeamStationInput3D): GroupedBeamStationResult3D {
+  if (!wasmReady || !wasmExtractBeamStationsGrouped3d) throw new Error('WASM grouped beam station 3D extraction not available.');
+  return JSON.parse(wasmExtractBeamStationsGrouped3d(JSON.stringify(input)));
 }

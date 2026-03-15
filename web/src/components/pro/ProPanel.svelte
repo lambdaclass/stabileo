@@ -369,12 +369,18 @@
       </button>
       {#if showExampleMenu}
         <div class="pro-example-menu">
-          {#each proExamples as ex}
-            <button class="pro-example-item" onclick={() => loadProExample(ex.load)}>
-              <span class="pro-example-name">{t(ex.nameKey)}</span>
-              <span class="pro-example-desc">{t(ex.descKey)}</span>
-            </button>
-          {/each}
+          <div class="pro-example-menu-head">
+            <div class="pro-example-menu-title">{t('pro.exampleTitle')}</div>
+            <div class="pro-example-menu-subtitle">PRO models and showcase structures</div>
+          </div>
+          <div class="pro-example-grid">
+            {#each proExamples as ex}
+              <button class="pro-example-item" onclick={() => loadProExample(ex.load)}>
+                <span class="pro-example-name">{t(ex.nameKey)}</span>
+                <span class="pro-example-desc">{t(ex.descKey)}</span>
+              </button>
+            {/each}
+          </div>
         </div>
       {/if}
     </div>
@@ -512,15 +518,42 @@
     position: absolute;
     top: calc(100% + 6px);
     right: 0;
-    width: 320px;
-    max-height: 340px;
+    width: 460px;
+    max-height: 420px;
     overflow-y: auto;
-    background: #16213e;
-    border: 1px solid #2a3f6a;
-    border-radius: 6px;
-    box-shadow: 0 18px 40px rgba(0, 0, 0, 0.35);
-    padding: 4px;
+    background: linear-gradient(180deg, #162746 0%, #122038 100%);
+    border: 1px solid #31507c;
+    border-radius: 10px;
+    box-shadow: 0 20px 48px rgba(0, 0, 0, 0.42);
+    padding: 8px;
     z-index: 30;
+  }
+
+  .pro-example-menu-head {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    padding: 6px 8px 10px;
+    border-bottom: 1px solid #29456d;
+    margin-bottom: 8px;
+  }
+
+  .pro-example-menu-title {
+    font-size: 0.82rem;
+    font-weight: 700;
+    color: #f3f6ff;
+  }
+
+  .pro-example-menu-subtitle {
+    font-size: 0.66rem;
+    color: #8ea3c8;
+    letter-spacing: 0.02em;
+  }
+
+  .pro-example-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 8px;
   }
 
   .pro-example-item {
@@ -528,23 +561,28 @@
     display: flex;
     flex-direction: column;
     align-items: flex-start;
-    gap: 2px;
-    padding: 8px 9px;
-    background: transparent;
-    border: none;
-    border-radius: 4px;
+    gap: 4px;
+    padding: 10px 11px;
+    background: rgba(18, 42, 74, 0.72);
+    border: 1px solid #29456d;
+    border-radius: 8px;
     color: #dbe5ff;
     cursor: pointer;
     text-align: left;
+    min-height: 82px;
+    transition: transform 120ms ease, border-color 120ms ease, background 120ms ease;
   }
 
   .pro-example-item:hover {
-    background: #0f3460;
+    background: #153158;
+    border-color: #4f79b2;
+    transform: translateY(-1px);
   }
 
   .pro-example-name {
-    font-size: 0.75rem;
+    font-size: 0.77rem;
     font-weight: 700;
+    color: #f7f9ff;
   }
 
   .pro-example-desc {
