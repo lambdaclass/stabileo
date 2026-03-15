@@ -1,18 +1,11 @@
 // Kinematic Analysis for 2D structures
-// Extracted from solver-js.ts to reduce file size and improve modularity.
-//
-// Exports:
-//   - KinematicResult (interface)
-//   - computeStaticDegree()
-//   - analyzeKinematics()
+// computeStaticDegree is pure counting math (no solver dependency).
+// analyzeKinematics delegates to the WASM engine for the heavy LU rank analysis.
 
 import type { SolverInput } from './types';
+import { analyzeKinematics as wasmAnalyzeKinematics, isWasmReady } from './wasm-solver';
 import { buildDofNumbering, assemble, type DofNumbering } from './solver-js';
 import { t } from '../i18n';
-
-function dofKey(nodeId: number, localDof: number): string {
-  return `${nodeId}:${localDof}`;
-}
 
 // ─── Kinematic Analysis ──────────────────────────────────────────
 
@@ -26,7 +19,7 @@ export interface KinematicResult {
   mechanismNodes: number[];
   /** Unconstrained DOFs with node and direction */
   unconstrainedDofs: Array<{ nodeId: number; dof: 'ux' | 'uy' | 'rz' }>;
-  /** Human-readable diagnosis in Spanish */
+  /** Human-readable diagnosis */
   diagnosis: string;
   /** Whether the structure can be solved */
   isSolvable: boolean;
@@ -96,15 +89,10 @@ export function computeStaticDegree(input: SolverInput): { degree: number; nodeC
     const k = nodeFrameElems.get(nodeId) ?? 0;
     let ci: number;
     if (k <= 1) {
-      // Free end or single-element node: hinge modifies stiffness
-      // but does not add an independent equilibrium condition
       ci = 0;
     } else if (rotRestrainedNodes.has(nodeId)) {
-      // Node with rotational restraint: each hinge is independent
       ci = j;
     } else {
-      // Node without rotational restraint:
-      // All-hinged node has one free rotation DOF → one fewer condition
       ci = Math.min(j, k - 1);
     }
     if (ci > 0) nodeConditions.set(nodeId, ci);
@@ -117,17 +105,29 @@ export function computeStaticDegree(input: SolverInput): { degree: number; nodeC
 }
 
 /**
- * LU factorization with partial pivoting for rank analysis.
- * Does NOT throw on zero pivots — instead records them.
+ * Full kinematic analysis: combines degree formula + rank analysis.
+ * Uses WASM engine when available, falls back to TS implementation.
  */
+export function analyzeKinematics(input: SolverInput): KinematicResult {
+  if (isWasmReady()) {
+    return wasmAnalyzeKinematics(input);
+  }
+  return analyzeKinematicsTS(input);
+}
+
+// ─── TS Fallback (used in tests without WASM) ───────────────────
+
+function dofKey(nodeId: number, localDof: number): string {
+  return `${nodeId}:${localDof}`;
+}
+
 function luRankAnalysis(Kff: Float64Array, n: number): {
   rank: number;
-  zeroPivotDofs: number[];  // original DOF indices with zero pivots
+  zeroPivotDofs: number[];
 } {
   const a = new Float64Array(Kff);
   const perm = Array.from({ length: n }, (_, i) => i);
 
-  // Relative tolerance based on maximum diagonal
   let maxDiag = 0;
   for (let i = 0; i < n; i++) maxDiag = Math.max(maxDiag, Math.abs(a[i * n + i]));
   const tol = Math.max(1e-10, maxDiag * 1e-10);
@@ -136,7 +136,6 @@ function luRankAnalysis(Kff: Float64Array, n: number): {
   let rank = 0;
 
   for (let k = 0; k < n; k++) {
-    // Find pivot in column k, rows k..n-1
     let maxVal = 0, maxRow = k;
     for (let i = k; i < n; i++) {
       const val = Math.abs(a[i * n + k]);
@@ -144,16 +143,12 @@ function luRankAnalysis(Kff: Float64Array, n: number): {
     }
 
     if (maxVal < tol) {
-      // Zero pivot → record the original DOF index
       zeroPivotDofs.push(perm[k]);
-      // Skip this column (don't eliminate, rank deficient)
-      // Move to next column but keep same row position
       continue;
     }
 
     rank++;
 
-    // Swap rows k and maxRow
     if (maxRow !== k) {
       for (let j = 0; j < n; j++) {
         const tmp = a[k * n + j]; a[k * n + j] = a[maxRow * n + j]; a[maxRow * n + j] = tmp;
@@ -161,7 +156,6 @@ function luRankAnalysis(Kff: Float64Array, n: number): {
       const tmp = perm[k]; perm[k] = perm[maxRow]; perm[maxRow] = tmp;
     }
 
-    // Gaussian elimination
     const pivot = a[k * n + k];
     for (let i = k + 1; i < n; i++) {
       const factor = a[i * n + k] / pivot;
@@ -175,19 +169,15 @@ function luRankAnalysis(Kff: Float64Array, n: number): {
   return { rank, zeroPivotDofs };
 }
 
-/**
- * Map zero-pivot DOF indices back to node IDs and DOF labels.
- */
 function mapPivotsToNodes(
   zeroPivotDofs: number[],
   dofNum: DofNumbering,
 ): { mechanismNodes: number[]; unconstrainedDofs: Array<{ nodeId: number; dof: 'ux' | 'uy' | 'rz' }> } {
   const dofLabels = ['ux', 'uy', 'rz'] as const;
 
-  // Build reverse map: globalDofIndex → { nodeId, localDof }
   const reverseMap = new Map<number, { nodeId: number; localDof: number }>();
   for (const [key, idx] of dofNum.map) {
-    if (idx >= dofNum.nFree) continue; // only free DOFs
+    if (idx >= dofNum.nFree) continue;
     const parts = key.split(':');
     reverseMap.set(idx, { nodeId: parseInt(parts[0]), localDof: parseInt(parts[1]) });
   }
@@ -209,106 +199,6 @@ function mapPivotsToNodes(
   return { mechanismNodes: [...nodeSet].sort((a, b) => a - b), unconstrainedDofs };
 }
 
-/**
- * Full kinematic analysis: combines degree formula + rank analysis.
- * Returns classification, mechanism nodes, and diagnosis.
- */
-export function analyzeKinematics(input: SolverInput): KinematicResult {
-  // Step 1: Compute corrected degree
-  const { degree, nodeConditions } = computeStaticDegree(input);
-
-  // Step 2: Build DOF numbering
-  const dofNum = buildDofNumbering(input);
-  const nf = dofNum.nFree;
-
-  if (nf === 0) {
-    return {
-      degree,
-      classification: degree > 0 ? 'hyperstatic' : degree === 0 ? 'isostatic' : 'hypostatic',
-      mechanismModes: 0,
-      mechanismNodes: [],
-      unconstrainedDofs: [],
-      diagnosis: t('kin.allDofConstrained'),
-      isSolvable: true,
-    };
-  }
-
-  // Step 3: Assemble K WITHOUT artificial stiffness
-  const { K } = assemble(input, dofNum, true);
-  const nt = dofNum.nTotal;
-
-  // Step 4: Extract Kff
-  const Kff = new Float64Array(nf * nf);
-  for (let i = 0; i < nf; i++) {
-    for (let j = 0; j < nf; j++) {
-      Kff[i * nf + j] = K[i * nt + j];
-    }
-  }
-
-  // Step 5: LU rank analysis
-  const { rank, zeroPivotDofs } = luRankAnalysis(Kff, nf);
-
-  // Step 5b: Filter out expected zero-stiffness DOFs at valid pin joints.
-  // These are rotation DOFs at nodes where ALL frame elements are hinged and
-  // there is no rotational restraint from supports. These DOFs correctly have
-  // zero stiffness and are handled by artificial stiffness during actual solving.
-  // They are NOT true mechanisms (e.g., three-hinge arch crowns, Gerber beam joints).
-  const expectedZeroDofs = new Set<number>();
-  if (dofNum.dofsPerNode >= 3) {
-    const nodeHingeCount = new Map<number, number>();
-    const nodeFrameCount = new Map<number, number>();
-    for (const elem of input.elements.values()) {
-      if (elem.type !== 'frame') continue;
-      nodeFrameCount.set(elem.nodeI, (nodeFrameCount.get(elem.nodeI) ?? 0) + 1);
-      nodeFrameCount.set(elem.nodeJ, (nodeFrameCount.get(elem.nodeJ) ?? 0) + 1);
-      if (elem.hingeStart) nodeHingeCount.set(elem.nodeI, (nodeHingeCount.get(elem.nodeI) ?? 0) + 1);
-      if (elem.hingeEnd) nodeHingeCount.set(elem.nodeJ, (nodeHingeCount.get(elem.nodeJ) ?? 0) + 1);
-    }
-    const rotRestrainedNodes = new Set<number>();
-    for (const sup of input.supports.values()) {
-      if (sup.type === 'fixed') rotRestrainedNodes.add(sup.nodeId);
-      if (sup.type === 'spring' && sup.kz && sup.kz > 0) rotRestrainedNodes.add(sup.nodeId);
-    }
-    for (const [nodeId, hinges] of nodeHingeCount) {
-      const frames = nodeFrameCount.get(nodeId) ?? 0;
-      if (hinges >= frames && frames >= 1 && !rotRestrainedNodes.has(nodeId)) {
-        const key = dofKey(nodeId, 2); // rotation DOF
-        const idx = dofNum.map.get(key);
-        if (idx !== undefined && idx < nf) {
-          expectedZeroDofs.add(idx);
-        }
-      }
-    }
-  }
-
-  // True mechanism DOFs = zero pivots that are NOT expected pin-joint rotations
-  const trueMechanismDofs = zeroPivotDofs.filter(d => !expectedZeroDofs.has(d));
-  const mechanismModes = trueMechanismDofs.length;
-
-  // Step 6: Map zero pivots to nodes (only true mechanism DOFs)
-  const { mechanismNodes, unconstrainedDofs } = mapPivotsToNodes(trueMechanismDofs, dofNum);
-
-  // Step 7: Build classification and diagnosis
-  const isSolvable = mechanismModes === 0;
-
-  let classification: 'hyperstatic' | 'isostatic' | 'hypostatic';
-  if (degree > 0 && isSolvable) classification = 'hyperstatic';
-  else if (degree === 0 && isSolvable) classification = 'isostatic';
-  else classification = 'hypostatic';
-
-  const diagnosis = buildDiagnosis(degree, mechanismModes, mechanismNodes, unconstrainedDofs);
-
-  return {
-    degree,
-    classification,
-    mechanismModes,
-    mechanismNodes,
-    unconstrainedDofs,
-    diagnosis,
-    isSolvable,
-  };
-}
-
 function buildDiagnosis(
   degree: number,
   mechanismModes: number,
@@ -327,7 +217,6 @@ function buildDiagnosis(
     return t('kin.diagStableButNeg').replace('{degree}', String(degree));
   }
 
-  // Has mechanism modes
   const nodeList = mechanismNodes.slice(0, 8).join(', ');
   const dofList = unconstrainedDofs.slice(0, 8)
     .map(d => `${t('kin.nodeLC')} ${d.nodeId} (${dofNames[d.dof]})`)
@@ -351,4 +240,80 @@ function buildDiagnosis(
     .replace('{dots1}', mechanismNodes.length > 8 ? '...' : '')
     .replace('{dofs}', dofList)
     .replace('{dots2}', unconstrainedDofs.length > 8 ? '...' : '');
+}
+
+function analyzeKinematicsTS(input: SolverInput): KinematicResult {
+  const { degree } = computeStaticDegree(input);
+
+  const dofNum = buildDofNumbering(input);
+  const nf = dofNum.nFree;
+
+  if (nf === 0) {
+    return {
+      degree,
+      classification: degree > 0 ? 'hyperstatic' : degree === 0 ? 'isostatic' : 'hypostatic',
+      mechanismModes: 0,
+      mechanismNodes: [],
+      unconstrainedDofs: [],
+      diagnosis: t('kin.allDofConstrained'),
+      isSolvable: true,
+    };
+  }
+
+  const { K } = assemble(input, dofNum, true);
+  const nt = dofNum.nTotal;
+
+  const Kff = new Float64Array(nf * nf);
+  for (let i = 0; i < nf; i++) {
+    for (let j = 0; j < nf; j++) {
+      Kff[i * nf + j] = K[i * nt + j];
+    }
+  }
+
+  const { zeroPivotDofs } = luRankAnalysis(Kff, nf);
+
+  // Filter out expected zero-stiffness DOFs at valid pin joints
+  const expectedZeroDofs = new Set<number>();
+  if (dofNum.dofsPerNode >= 3) {
+    const nodeHingeCount = new Map<number, number>();
+    const nodeFrameCount = new Map<number, number>();
+    for (const elem of input.elements.values()) {
+      if (elem.type !== 'frame') continue;
+      nodeFrameCount.set(elem.nodeI, (nodeFrameCount.get(elem.nodeI) ?? 0) + 1);
+      nodeFrameCount.set(elem.nodeJ, (nodeFrameCount.get(elem.nodeJ) ?? 0) + 1);
+      if (elem.hingeStart) nodeHingeCount.set(elem.nodeI, (nodeHingeCount.get(elem.nodeI) ?? 0) + 1);
+      if (elem.hingeEnd) nodeHingeCount.set(elem.nodeJ, (nodeHingeCount.get(elem.nodeJ) ?? 0) + 1);
+    }
+    const rotRestrainedNodes = new Set<number>();
+    for (const sup of input.supports.values()) {
+      if (sup.type === 'fixed') rotRestrainedNodes.add(sup.nodeId);
+      if (sup.type === 'spring' && sup.kz && sup.kz > 0) rotRestrainedNodes.add(sup.nodeId);
+    }
+    for (const [nodeId, hinges] of nodeHingeCount) {
+      const frames = nodeFrameCount.get(nodeId) ?? 0;
+      if (hinges >= frames && frames >= 1 && !rotRestrainedNodes.has(nodeId)) {
+        const key = dofKey(nodeId, 2);
+        const idx = dofNum.map.get(key);
+        if (idx !== undefined && idx < nf) {
+          expectedZeroDofs.add(idx);
+        }
+      }
+    }
+  }
+
+  const trueMechanismDofs = zeroPivotDofs.filter(d => !expectedZeroDofs.has(d));
+  const mechanismModes = trueMechanismDofs.length;
+
+  const { mechanismNodes, unconstrainedDofs } = mapPivotsToNodes(trueMechanismDofs, dofNum);
+
+  const isSolvable = mechanismModes === 0;
+
+  let classification: 'hyperstatic' | 'isostatic' | 'hypostatic';
+  if (degree > 0 && isSolvable) classification = 'hyperstatic';
+  else if (degree === 0 && isSolvable) classification = 'isostatic';
+  else classification = 'hypostatic';
+
+  const diagnosis = buildDiagnosis(degree, mechanismModes, mechanismNodes, unconstrainedDofs);
+
+  return { degree, classification, mechanismModes, mechanismNodes, unconstrainedDofs, diagnosis, isSolvable };
 }

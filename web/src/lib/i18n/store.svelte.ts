@@ -16,8 +16,15 @@ import type { Translations } from './types';
 
 const dicts: Record<string, Translations> = { es, en, pt, de, fr, it, tr, hi, ja, ko, ru, zh, ar, id };
 
+/** Safe localStorage check — vitest defines localStorage but without working methods. */
+function hasLocalStorage(): boolean {
+	try {
+		return typeof localStorage !== 'undefined' && typeof localStorage.getItem === 'function';
+	} catch { return false; }
+}
+
 // Migrate old storage keys
-if (typeof localStorage !== 'undefined') {
+if (hasLocalStorage()) {
 	for (const key of ['lang', 'lang-manual']) {
 		const old = localStorage.getItem(`dedaliano-${key}`);
 		if (old !== null && localStorage.getItem(`stabileo-${key}`) === null) {
@@ -37,7 +44,7 @@ function detectBrowserLocale(): string {
 }
 
 function getInitialLocale(): string {
-	if (typeof localStorage === 'undefined') return detectBrowserLocale();
+	if (!hasLocalStorage()) return detectBrowserLocale();
 	// Only use stored locale if user explicitly chose it (flag set by setLocale)
 	if (localStorage.getItem('stabileo-lang-manual') === '1') {
 		const stored = localStorage.getItem('stabileo-lang');
@@ -58,7 +65,7 @@ export function t(key: string): string {
 
 export function setLocale(loc: string) {
 	_locale = loc;
-	if (typeof localStorage !== 'undefined') {
+	if (hasLocalStorage()) {
 		localStorage.setItem('stabileo-lang', loc);
 		localStorage.setItem('stabileo-lang-manual', '1');
 	}

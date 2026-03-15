@@ -17,7 +17,8 @@
  */
 
 import { describe, it, expect } from 'vitest';
-import { solve, computeStaticDegree, analyzeKinematics } from '../solver-js';
+import { solve } from '../solver-js';
+import { computeStaticDegree, analyzeKinematics } from '../kinematic-2d';
 import type { SolverInput, SolverLoad } from '../types';
 
 // ─── Test Helpers ───────────────────────────────────────────────

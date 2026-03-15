@@ -8,9 +8,13 @@
 
 import type { ElementForces3D } from './types-3d';
 import type { Section } from '../store/model.svelte';
-import { computeSectionStress3D, computeSectionStress3DFromForces } from './wasm-solver';
+import { computeSectionStress3D, computeSectionStress3DFromForces, isWasmReady } from './wasm-solver';
 import { t } from '../i18n';
 import {
+  resolveSectionGeometry,
+  computeMohrCircle,
+  checkFailure,
+  shearStress,
   type ResolvedSection,
   type MohrCircle,
   type FailureCheck,
@@ -614,15 +618,20 @@ export function analyzeSectionStress3D(
   yFiber?: number,
   zFiber?: number,
 ): SectionStressResult3D {
-  const raw = computeSectionStress3D({
-    elementForces: ef,
-    section: sec,
-    fy: fy ?? null,
-    t,
-    yFiber: yFiber ?? null,
-    zFiber: zFiber ?? null,
-  });
-  return adaptWasm3DResult(raw);
+  if (isWasmReady()) {
+    const raw = computeSectionStress3D({
+      elementForces: ef,
+      section: sec,
+      fy: fy ?? null,
+      t,
+      yFiber: yFiber ?? null,
+      zFiber: zFiber ?? null,
+    });
+    return adaptWasm3DResult(raw);
+  }
+
+  const { N, Vy, Vz, Mx, My, Mz } = interpolateForces3D(ef, t);
+  return analyzeSectionStressFromForcesTS(N, Vy, Vz, Mx, My, Mz, sec, fy, yFiber, zFiber);
 }
 
 /**
@@ -638,14 +647,85 @@ export function analyzeSectionStressFromForces(
   yFiber?: number,
   zFiber?: number,
 ): SectionStressResult3D {
-  const raw = computeSectionStress3DFromForces({
-    N, Vy, Vz, Mx, My, Mz,
-    section: sec,
-    fy: fy ?? null,
-    yFiber: yFiber ?? null,
-    zFiber: zFiber ?? null,
+  if (isWasmReady()) {
+    const raw = computeSectionStress3DFromForces({
+      N, Vy, Vz, Mx, My, Mz,
+      section: sec,
+      fy: fy ?? null,
+      yFiber: yFiber ?? null,
+      zFiber: zFiber ?? null,
+    });
+    return adaptWasm3DResult(raw);
+  }
+
+  return analyzeSectionStressFromForcesTS(N, Vy, Vz, Mx, My, Mz, sec, fy, yFiber, zFiber);
+}
+
+/** Shared TS fallback for both analyzeSectionStress3D and analyzeSectionStressFromForces. */
+function analyzeSectionStressFromForcesTS(
+  N: number, Vy: number, Vz: number, Mx: number, My: number, Mz: number,
+  sec: Section,
+  fy: number | undefined,
+  yFiber?: number,
+  zFiber?: number,
+): SectionStressResult3D {
+  const resolved = resolveSectionGeometry(sec);
+  const halfH = resolved.h / 2;
+
+  const Iy = resolved.iz;
+  const J = resolved.j;
+
+  const yF = yFiber ?? halfH;
+  const zF = zFiber ?? 0;
+
+  const yPositions = buildSamplingY(resolved);
+  const distributionY: StressPoint3D[] = yPositions.map(y => {
+    const sigma = normalStress3D(N, Mz, My, resolved.a, resolved.iy, Iy, y, 0);
+    const tauVy = shearStress(Vy, y, resolved);
+    const tauVz = 0;
+    const tauT = torsionShearStress(Mx, resolved, J);
+    const tTotal = Math.sqrt(tauVy * tauVy + tauVz * tauVz + tauT * tauT);
+    const vm = Math.sqrt(sigma * sigma + 3 * tTotal * tTotal);
+    return { y, z: 0, sigma, tauVy, tauVz, tauT, vonMises: vm };
   });
-  return adaptWasm3DResult(raw);
+
+  const zPositions = buildSamplingZ(resolved);
+  const distributionZ: StressPoint3D[] = zPositions.map(z => {
+    const sigma = normalStress3D(N, Mz, My, resolved.a, resolved.iy, Iy, 0, z);
+    const tauVy = 0;
+    const tauVz = shearStressWeakAxis(Vz, z, resolved, Iy);
+    const tauT = torsionShearStress(Mx, resolved, J);
+    const tTotal = Math.sqrt(tauVy * tauVy + tauVz * tauVz + tauT * tauT);
+    const vm = Math.sqrt(sigma * sigma + 3 * tTotal * tTotal);
+    return { y: 0, z, sigma, tauVy, tauVz, tauT, vonMises: vm };
+  });
+
+  const sigmaAtFiber = normalStress3D(N, Mz, My, resolved.a, resolved.iy, Iy, yF, zF);
+  const tauVyAtFiber = shearStress(Vy, yF, resolved);
+  const tauVzAtFiber = shearStressWeakAxis(Vz, zF, resolved, Iy);
+  const tauTorsion = torsionShearStress(Mx, resolved, J);
+  const tauTotal = Math.sqrt(tauVyAtFiber ** 2 + tauVzAtFiber ** 2 + tauTorsion ** 2);
+
+  const neutralAxis = computeNeutralAxis(N, Mz, My, resolved.a, resolved.iy, Iy);
+
+  const mohr = computeMohrCircle(sigmaAtFiber, tauTotal);
+  const failure = checkFailure(sigmaAtFiber, tauTotal, fy ?? undefined);
+
+  return {
+    N, Vy, Vz, Mx, My, Mz,
+    resolved,
+    Iz: Iy,
+    distributionY,
+    distributionZ,
+    sigmaAtFiber,
+    tauVyAtFiber,
+    tauVzAtFiber,
+    tauTorsion,
+    tauTotal,
+    neutralAxis,
+    mohr,
+    failure,
+  };
 }
 
 /**

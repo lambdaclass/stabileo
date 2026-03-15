@@ -6,7 +6,8 @@
 import type { Section } from '../store/model.svelte';
 import { ALL_PROFILES, familyToShape, type SteelProfile, type SectionShape } from '../data/steel-profiles';
 import type { ElementForces } from './types';
-import { computeSectionStress2D } from './wasm-solver';
+import { computeSectionStress2D, isWasmReady } from './wasm-solver';
+import { computeDiagramValueAt } from './diagrams';
 import { t } from '../i18n';
 
 // ─── Types ────────────────────────────────────────────────────────────
@@ -731,14 +732,38 @@ export function analyzeSectionStress(
   t: number,
   yFiber?: number,
 ): SectionStressResult {
-  // Delegate to WASM — pass section directly (Rust resolves geometry internally)
-  return computeSectionStress2D({
-    elementForces: ef,
-    section: sec,
-    fy: fy ?? null,
-    t,
-    yFiber: yFiber ?? null,
-  });
+  if (isWasmReady()) {
+    return computeSectionStress2D({
+      elementForces: ef,
+      section: sec,
+      fy: fy ?? null,
+      t,
+      yFiber: yFiber ?? null,
+    });
+  }
+
+  // TS fallback
+  const N = computeDiagramValueAt('axial', t, ef);
+  const V = computeDiagramValueAt('shear', t, ef);
+  const M = computeDiagramValueAt('moment', t, ef);
+
+  const resolved = resolveSectionGeometry(sec);
+  const y = yFiber ?? resolved.h / 2;
+  const distribution = computeStressDistribution(N, V, M, resolved);
+  const sigmaAtY = normalStress(N, M, resolved.a, resolved.iy, y);
+  const tauAtY = shearStress(V, y, resolved);
+  const mohr = computeMohrCircle(sigmaAtY, tauAtY);
+  const failure = checkFailure(sigmaAtY, tauAtY, fy);
+
+  let neutralAxisY: number | null = null;
+  if (Math.abs(M) > 1e-10 && resolved.a > 1e-15) {
+    const yEN = -(N * resolved.iy) / (resolved.a * M);
+    if (yEN >= resolved.yMin - 1e-6 && yEN <= resolved.yMax + 1e-6) {
+      neutralAxisY = yEN;
+    }
+  }
+
+  return { N, V, M, resolved, distribution, sigmaAtY, tauAtY, mohr, failure, neutralAxisY };
 }
 
 // ─── Central Core (Núcleo Central) ───────────────────────────────────

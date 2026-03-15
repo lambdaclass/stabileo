@@ -1,7 +1,7 @@
 // Diagram calculation: M(x), V(x), N(x) along each element
 // Given end forces and distributed load, compute intermediate values
 
-import { computeDeformedShape as wasmComputeDeformedShape } from './wasm-solver';
+import { computeDeformedShape as wasmComputeDeformedShape, isWasmReady } from './wasm-solver';
 
 export interface DiagramPoint {
   /** Position along element [0, 1] normalized */
@@ -54,15 +54,43 @@ function buildSamplingPositions(
 }
 
 /**
+ * Helper: build an ElementDiagram by sampling computeDiagramValueAt at each position.
+ */
+function buildDiagram(
+  kind: 'moment' | 'shear' | 'axial',
+  ef: Parameters<typeof computeDiagramValueAt>[2],
+  nodeIx: number, nodeIy: number,
+  nodeJx: number, nodeJy: number,
+  pointLoads: Array<{ a: number; p: number; px?: number; mz?: number }>,
+): ElementDiagram {
+  const positions = kind === 'axial' && !pointLoads.some(pl => pl.px && Math.abs(pl.px) > 1e-15)
+    ? Array.from({ length: NUM_POINTS }, (_, i) => i / (NUM_POINTS - 1))
+    : buildSamplingPositions(ef.length, pointLoads);
+
+  const points: DiagramPoint[] = [];
+  let maxVal = -Infinity, minVal = Infinity;
+  let maxAbsT = 0, maxAbsValue = 0;
+
+  for (const t of positions) {
+    const value = computeDiagramValueAt(kind, t, ef);
+    const x = nodeIx + t * (nodeJx - nodeIx);
+    const y = nodeIy + t * (nodeJy - nodeIy);
+
+    points.push({ t, x, y, value });
+
+    if (value > maxVal) maxVal = value;
+    if (value < minVal) minVal = value;
+    if (Math.abs(value) > Math.abs(maxAbsValue)) {
+      maxAbsT = t;
+      maxAbsValue = value;
+    }
+  }
+
+  return { elementId: 0, points, maxValue: maxVal, minValue: minVal, maxAbsT, maxAbsValue };
+}
+
+/**
  * Compute moment diagram M(x) along element
- *
- * The solver's vStart/mStart represent forces the element exerts on nodes
- * (opposite sign from standard internal forces). The equilibrium gives:
- *   dV_solver/dx = q
- *   dM_solver/dx = -V_solver
- *
- * Therefore: M(x) = mStart - vStart·x - q·x²/2
- * With point loads at positions a_i: M jumps in slope by -P at each a_i
  */
 export function computeMomentDiagram(
   mStart: number, _mEnd: number,
@@ -72,49 +100,12 @@ export function computeMomentDiagram(
   nodeJx: number, nodeJy: number,
   pointLoads: Array<{ a: number; p: number; px?: number; mz?: number }> = [],
 ): ElementDiagram {
-  const positions = buildSamplingPositions(length, pointLoads);
-
-  const points: DiagramPoint[] = [];
-  let maxVal = -Infinity, minVal = Infinity;
-  let maxAbsT = 0, maxAbsValue = 0;
-
-  const sortedPL = [...pointLoads].sort((a, b) => a.a - b.a);
-  const dq = qJ - qI; // linear variation rate
-
-  for (const t of positions) {
-    const xi = t * length;
-
-    // M(x) = mStart - vStart·x - qI·x²/2 - (qJ-qI)·x³/(6·L)
-    let value = mStart - vStart * xi - qI * xi * xi / 2 - dq * xi * xi * xi / (6 * length);
-
-    for (const pl of sortedPL) {
-      if (pl.a < xi - 1e-10) {
-        value -= pl.p * (xi - pl.a);
-        // Concentrated moment: step in moment diagram
-        if (pl.mz) value -= pl.mz;
-      }
-    }
-
-    const x = nodeIx + t * (nodeJx - nodeIx);
-    const y = nodeIy + t * (nodeJy - nodeIy);
-
-    points.push({ t, x, y, value });
-
-    if (value > maxVal) maxVal = value;
-    if (value < minVal) minVal = value;
-    if (Math.abs(value) > Math.abs(maxAbsValue)) {
-      maxAbsT = t;
-      maxAbsValue = value;
-    }
-  }
-
-  return { elementId: 0, points, maxValue: maxVal, minValue: minVal, maxAbsT, maxAbsValue };
+  const ef = { mStart, mEnd: _mEnd, vStart, vEnd: 0, nStart: 0, nEnd: 0, qI, qJ, length, pointLoads };
+  return buildDiagram('moment', ef, nodeIx, nodeIy, nodeJx, nodeJy, pointLoads);
 }
 
 /**
  * Compute shear diagram V(x)
- * V(x) = V_i + q·x  (dV_solver/dx = q)
- * With point loads: V has a jump of -P at each position a_i
  */
 export function computeShearDiagram(
   vStart: number, qI: number, qJ: number,
@@ -123,47 +114,12 @@ export function computeShearDiagram(
   nodeJx: number, nodeJy: number,
   pointLoads: Array<{ a: number; p: number; px?: number; mz?: number }> = [],
 ): ElementDiagram {
-  const positions = buildSamplingPositions(length, pointLoads);
-
-  const points: DiagramPoint[] = [];
-  let maxVal = -Infinity, minVal = Infinity;
-  let maxAbsT = 0, maxAbsValue = 0;
-
-  const sortedPL = [...pointLoads].sort((a, b) => a.a - b.a);
-  const dq = qJ - qI;
-
-  for (const t of positions) {
-    const xi = t * length;
-
-    // V(x) = vStart + qI·x + (qJ-qI)·x²/(2·L)
-    let value = vStart + qI * xi + dq * xi * xi / (2 * length);
-
-    for (const pl of sortedPL) {
-      if (pl.a < xi - 1e-10) {
-        value += pl.p;
-      }
-    }
-
-    const x = nodeIx + t * (nodeJx - nodeIx);
-    const y = nodeIy + t * (nodeJy - nodeIy);
-
-    points.push({ t, x, y, value });
-
-    if (value > maxVal) maxVal = value;
-    if (value < minVal) minVal = value;
-    if (Math.abs(value) > Math.abs(maxAbsValue)) {
-      maxAbsT = t;
-      maxAbsValue = value;
-    }
-  }
-
-  return { elementId: 0, points, maxValue: maxVal, minValue: minVal, maxAbsT, maxAbsValue };
+  const ef = { mStart: 0, mEnd: 0, vStart, vEnd: 0, nStart: 0, nEnd: 0, qI, qJ, length, pointLoads };
+  return buildDiagram('shear', ef, nodeIx, nodeIy, nodeJx, nodeJy, pointLoads);
 }
 
 /**
  * Compute axial force diagram N(x)
- * N(x) = N_start (constant, no distributed axial load)
- * With axial point loads (px): N has a jump of +px at each position a_i
  */
 export function computeAxialDiagram(
   nStart: number, nEnd: number,
@@ -172,43 +128,8 @@ export function computeAxialDiagram(
   nodeJx: number, nodeJy: number,
   pointLoads: Array<{ a: number; p: number; px?: number; mz?: number }> = [],
 ): ElementDiagram {
-  // Check if there are any axial point loads
-  const hasAxialPL = pointLoads.some(pl => pl.px && Math.abs(pl.px) > 1e-15);
-  const positions = hasAxialPL ? buildSamplingPositions(length, pointLoads) :
-    Array.from({ length: NUM_POINTS }, (_, i) => i / (NUM_POINTS - 1));
-
-  const points: DiagramPoint[] = [];
-  let maxVal = -Infinity, minVal = Infinity;
-  let maxAbsT = 0, maxAbsValue = 0;
-
-  const sortedPL = hasAxialPL ? [...pointLoads].filter(pl => pl.px && Math.abs(pl.px!) > 1e-15).sort((a, b) => a.a - b.a) : [];
-
-  for (const t of positions) {
-    const xi = t * length;
-    // Linear interpolation between nStart and nEnd
-    let value = nStart + t * (nEnd - nStart);
-
-    // Add axial point load jumps
-    for (const pl of sortedPL) {
-      if (pl.a < xi - 1e-10) {
-        value += pl.px!;
-      }
-    }
-
-    const x = nodeIx + t * (nodeJx - nodeIx);
-    const y = nodeIy + t * (nodeJy - nodeIy);
-
-    points.push({ t, x, y, value });
-
-    if (value > maxVal) maxVal = value;
-    if (value < minVal) minVal = value;
-    if (Math.abs(value) > Math.abs(maxAbsValue)) {
-      maxAbsT = t;
-      maxAbsValue = value;
-    }
-  }
-
-  return { elementId: 0, points, maxValue: maxVal, minValue: minVal, maxAbsT, maxAbsValue };
+  const ef = { mStart: 0, mEnd: 0, vStart: 0, vEnd: 0, nStart, nEnd, qI: 0, qJ: 0, length, pointLoads };
+  return buildDiagram('axial', ef, nodeIx, nodeIy, nodeJx, nodeJy, pointLoads);
 }
 
 /**
@@ -240,7 +161,6 @@ export function computeDiagramValueAt(
         if (span < 1e-12 || s < 1e-12) continue;
         const dq = (dl.qJ - dl.qI) / span;
         const d = xi - dl.a;
-        // ∫_0^s (qI + dq·u)·(d - u) du = qI·(d·s - s²/2) + dq·(d·s²/2 - s³/3)
         value -= dl.qI * (d * s - s * s / 2) + dq * (d * s * s / 2 - s * s * s / 3);
       }
     }
@@ -253,7 +173,6 @@ export function computeDiagramValueAt(
     return value;
   } else if (kind === 'shear') {
     let value = ef.vStart;
-    // Distributed load contributions: ∫_a^min(xi,b) q(ξ) dξ
     for (const dl of dLoads) {
       if (xi > dl.a + 1e-10) {
         const xEnd = Math.min(xi, dl.b);
@@ -283,20 +202,7 @@ export function computeDiagramValueAt(
 
 /**
  * Compute deformed shape points using Hermite cubic interpolation + particular solution.
- *
- * Shape functions:
- *   N1(ξ) = 1 - 3ξ² + 2ξ³,  N2(ξ) = (ξ - 2ξ² + ξ³)·L
- *   N3(ξ) = 3ξ² - 2ξ³,      N4(ξ) = (-ξ² + ξ³)·L
- *
- * The particular solution captures intra-element deflection from distributed
- * and point loads using fixed-fixed beam formulas (quartic correction with
- * v_p(0) = v_p(L) = v'_p(0) = v'_p(L) = 0).
- *
- * For hinged ends (M=0 → curvature=0), the element-end rotation is adjusted
- * so that v''_total = v''_Hermite + v''_particular = 0 at the hinge. This
- * accounts for the particular solution's nonzero curvature at the ends and
- * produces correct deflection curves for all boundary condition types:
- * fixed-fixed, pin-fixed, fixed-pin, and pin-pin (simply-supported).
+ * Delegates to WASM when available, falls back to TS implementation.
  */
 export function computeDeformedShape(
   nodeIx: number, nodeIy: number,
@@ -313,23 +219,38 @@ export function computeDeformedShape(
   loadPoints?: Array<{ a: number; p: number }>,
   distLoads?: Array<{ qI: number; qJ: number; a: number; b: number }>,
 ): { x: number; y: number }[] {
-  // Delegate to WASM — convert TS args to WASM input format
-  return wasmComputeDeformedShape({
-    nodeIx, nodeIy, nodeJx, nodeJy,
-    uIx, uIy, rIz, uJx, uJy, rJz,
-    scale, length, hingeStart, hingeEnd,
-    ei: EI ?? null,
-    loadQi: loadQI ?? null,
-    loadQj: loadQJ ?? null,
-    loadPoints: (loadPoints ?? []).map(p => [p.a, p.p]),
-    distLoads: (distLoads ?? []).map(d => [d.qI, d.qJ, d.a, d.b]),
-  });
+  if (isWasmReady()) {
+    return wasmComputeDeformedShape({
+      nodeIx, nodeIy, nodeJx, nodeJy,
+      uIx, uIy, rIz, uJx, uJy, rJz,
+      scale, length, hingeStart, hingeEnd,
+      ei: EI ?? null,
+      loadQi: loadQI ?? null,
+      loadQj: loadQJ ?? null,
+      loadPoints: (loadPoints ?? []).map(p => [p.a, p.p]),
+      distLoads: (distLoads ?? []).map(d => [d.qI, d.qJ, d.a, d.b]),
+    });
+  }
+
+  // TS fallback: sample computeDisplacementAt at NUM_POINTS positions
+  const points: { x: number; y: number }[] = [];
+  for (let i = 0; i < NUM_POINTS; i++) {
+    const t = i / (NUM_POINTS - 1);
+    const { ux, uy } = computeDisplacementAt(
+      t, nodeIx, nodeIy, nodeJx, nodeJy,
+      uIx, uIy, rIz, uJx, uJy, rJz,
+      length, hingeStart, hingeEnd, EI, loadQI, loadQJ, loadPoints, distLoads,
+    );
+    const baseX = nodeIx + t * (nodeJx - nodeIx);
+    const baseY = nodeIy + t * (nodeJy - nodeIy);
+    points.push({ x: baseX + ux * scale, y: baseY + uy * scale });
+  }
+  return points;
 }
 
 /**
  * Compute the actual displacement (ux, uy in metres) at parameter t ∈ [0,1]
- * along an element, using the same Hermite cubic + particular solution
- * as computeDeformedShape / drawDeformed.
+ * along an element, using Hermite cubic + particular solution.
  *
  * Unlike linear interpolation, this correctly captures mid-span deflection
  * even when both end-nodes have zero displacement (e.g. simply supported beam).
@@ -377,7 +298,6 @@ export function computeDisplacementAt(
   }
   const hasDistLoad = allDistLoads.length > 0;
   const hasPtLoads = loadPoints && loadPoints.length > 0;
-  // Floor EI at 1e-6 kN·m² to prevent overflow in particular solution (q·L⁴/EI)
   const hasLoads = EI && EI > 1e-6 && (hasDistLoad || hasPtLoads);
 
   const pointVpp = (P: number, aP: number) => {
