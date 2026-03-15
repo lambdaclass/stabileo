@@ -89,23 +89,23 @@
   const DEFORMED_SLIDER_STEPS = 200;
 
   // Effective minimum: either 1 or whatever auto-scaling set (can be < 1)
-  const effectiveMin = $derived(Math.min(1, resultsStore.deformedScale));
+  const effectiveMin = $derived(resultsStore.autoScaledMin);
+  const hasSubRange = $derived(effectiveMin < 1);
 
   // Piecewise slider mapping:
-  // - sub-1 zone (if auto-scaled): linear from effectiveMin to 1
+  // - sub-1 zone (if auto-scaled below 1): linear from effectiveMin to 1
   // - first 40% of 1..50 travel: fine control from 1x to 3x
   // - remaining 60%: logarithmic growth from 3x to 50x
   function deformedScaleToSlider(scale: number): number {
     const min = effectiveMin;
+    const sub = hasSubRange;
+    const subSteps = sub ? Math.round(DEFORMED_SLIDER_STEPS * 0.1) : 0;
     if (scale <= min) return 0;
-    if (scale < 1) {
-      // Sub-1 zone: map [min..1] to slider [0..subSteps]
-      const subSteps = min < 1 ? Math.round(DEFORMED_SLIDER_STEPS * 0.1) : 0;
+    if (scale < 1 && sub) {
       return Math.round(((scale - min) / (1 - min)) * subSteps);
     }
-    const subSteps = min < 1 ? Math.round(DEFORMED_SLIDER_STEPS * 0.1) : 0;
     const mainSteps = DEFORMED_SLIDER_STEPS - subSteps;
-    const clamped = Math.min(DEFORMED_SCALE_MAX, scale);
+    const clamped = Math.min(DEFORMED_SCALE_MAX, Math.max(1, scale));
     if (clamped <= 3) {
       const t = (clamped - 1) / 2;
       return subSteps + Math.round(t * 0.4 * mainSteps);
@@ -116,9 +116,9 @@
 
   function sliderToDeformedScale(slider: number): number {
     const min = effectiveMin;
-    const subSteps = min < 1 ? Math.round(DEFORMED_SLIDER_STEPS * 0.1) : 0;
-    if (slider <= subSteps && subSteps > 0) {
-      // Sub-1 zone
+    const sub = hasSubRange;
+    const subSteps = sub ? Math.round(DEFORMED_SLIDER_STEPS * 0.1) : 0;
+    if (slider <= subSteps && sub) {
       const scale = min + (slider / subSteps) * (1 - min);
       return +scale.toFixed(2);
     }

@@ -129,10 +129,13 @@ export function syncDeformed(ctx: ResultsSyncContext, scaleOverride?: number): v
       if (maxDisp > 1e-9) {
         const maxVisualOffset = structureSize * 0.35;
         const maxSafeScale = maxVisualOffset / maxDisp;
-        scale = Math.min(scale, maxSafeScale);
-        // Write back so UI label reflects the actual scale being rendered
-        if (scale !== resultsStore.deformedScale) {
-          resultsStore.setDeformedScaleAuto(scale);
+        const capped = Math.min(scale, maxSafeScale);
+        if (capped !== scale) {
+          scale = capped;
+          // Write back so UI label reflects the actual scale being rendered.
+          // Use queueMicrotask to avoid re-triggering the $effect that called us.
+          const v = scale;
+          queueMicrotask(() => resultsStore.setDeformedScaleAuto(v));
         }
       }
     }
