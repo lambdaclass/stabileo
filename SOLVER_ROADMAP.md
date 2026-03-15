@@ -135,6 +135,8 @@ If the goal is `best open structural solver`, the current priority order is:
    - harden main-thread solve, worker solve, and multi-case/combo solve paths
    - eliminate branch-specific or deploy-specific WASM traps
    - add enough diagnostics to localize failures at the JS/WASM boundary
+   - make production failures reproducible from a captured solver-run artifact, not just screenshots
+   - define explicit deletion criteria for the TypeScript solver runtime path
    - retire the JS solver only after the WASM path is stable end-to-end
 
 2. `Runtime and scale dominance`
@@ -185,13 +187,20 @@ If the goal is `best open structural solver`, the current priority order is:
    - surface solve phase breakdowns for user visibility
    - make solver-path selection and fallback behavior transparent
 
-9. `Constraint-system maturity`
+9. `Result trust and auditability`
+   A top-tier structural solver must make results easier to trust and audit:
+   - reaction equilibrium summaries
+   - residual / conditioning summaries
+   - governing-result provenance
+   - explainable solver-path and warning outputs suitable for reports and QA
+
+10. `Constraint-system maturity`
    Finish chained constraints, connector depth, eccentric workflow polish, and remaining parity gaps.
 
-10. `Advanced contact maturity`
+11. `Advanced contact maturity`
    Push harder convergence, richer contact laws, and tougher mixed contact states.
 
-11. `Reference benchmark expansion`
+12. `Reference benchmark expansion`
     Keep growing external-reference proof for contact, fiber 3D, SSI, creep/shrinkage, and broader shell workflows.
     Prefer:
     - reference cases that close real proof gaps
@@ -200,19 +209,22 @@ If the goal is `best open structural solver`, the current priority order is:
     - performance gates that protect runtime, fill, and no-fallback expectations
     Avoid low-signal count inflation.
 
-12. `Shell-family workflow maturity`
+13. `Shell-family workflow maturity`
     Keep the shell-family selection guidance current, maintain the frontier-gate benchmarks, and only reopen shell-family expansion if the current stack proves insufficient on practical workflows.
 
-13. `Shell-family automatic selection policy`
+14. `Shell-family automatic selection policy`
     Turn shell-family guidance into explicit rules the UI and model layer can use for automatic defaults, explainable recommendations, and safe override behavior.
 
-14. `Shell-adjacent workflow breadth competitors still expose clearly`
+15. `Shell-adjacent workflow breadth competitors still expose clearly`
     Add the highest-value missing shell-related workflow classes:
     - layered / laminated shell workflows
     - axisymmetric workflows
     - deeper nonlinear / corotational shell depth
 
-15. `Reduction, staged/PT coupling, and other second-tier depth`
+16. `Native / server execution maturity`
+    If Rust is the one solver, browser WASM is not enough. Native/server execution should become first-class for heavy runs, enterprise workflows, and reproducible batch analysis.
+
+17. `Reduction, staged/PT coupling, and other second-tier depth`
     Mature the scale-oriented and long-term workflow layers after the core solver-quality gaps above are tighter.
 
 ## Current Sequence
@@ -226,6 +238,7 @@ The current near-term sequence is:
    - reliable 3D solve in main thread and workers
    - reliable combinations / multi-case execution
    - diagnostics strong enough to root-cause any remaining trap instead of masking it
+   - production failure capture strong enough to turn a user report into a deterministic repro
    - remove the TypeScript solver from runtime use once this is stable
 
 2. `Runtime and scale`
@@ -272,13 +285,17 @@ Finish means:
 - worker-based and main-thread solve paths both succeed on representative 3D models
 - combinations / multi-case execution succeeds through the WASM path on representative models
 - the production app no longer shows raw WASM trap messages such as `unreachable`
+- production failures can be captured into a reproducible solver-run artifact with build SHA and solver-path metadata
 - runtime fallback to the TypeScript solver is removed from the shipped app
+- no shipped UI path imports the TypeScript runtime solver for actual solving
 
 Concrete proof:
 - one named CI/deploy check that verifies the built commit SHA is the one served by the app
 - one representative 2D solve and one representative 3D solve exercised through the browser-facing WASM entry points
 - one representative worker/combo solve exercised through the production code path
+- one reproducible failure-capture path that records build SHA, solver path, ordering, key diagnostics, and enough input/output state to replay the issue locally
 - zero known production-only WASM trap regressions open
+- explicit deletion checklist for the TS solver runtime path is complete
 
 ### Phase B: Runtime And Scale Dominance
 
@@ -291,12 +308,15 @@ Finish means:
 - remaining harmonic bottlenecks are measured after modal-response acceleration
 - reduction internals no longer densify the important `K_ff` paths unnecessarily
 - CI tracks representative runtime/fill behavior on the main sparse workflows
+- workflow-level timing and memory are tracked, not only kernel-level factorization timing
 
 Concrete proof:
 - runtime tables exist for modal, buckling, harmonic, Guyan, and Craig-Bampton on representative models
 - sparse path wins are recorded on the target model sizes, not just factorization microbenchmarks
 - no-`k_full`-overbuild expectations are enforced where applicable
 - fill-ratio, no-dense-fallback, and residual-parity gates stay green in CI
+- solve-to-results timing exists for representative browser/product workflows
+- representative browser memory ceilings and worker startup overhead are measured
 
 ### Phase C: Verification Moat Expansion
 
@@ -309,12 +329,14 @@ Finish means:
 - determinism gates exist where assembly / numbering / ordering should be deterministic
 - invariant, property-based, and fuzz coverage exists around the sparse/shell/contact/constraint frontier
 - benchmark growth stays signal-driven instead of count-driven
+- public solver/output contracts are stable enough to version and protect in CI
 
 Concrete proof:
 - explicit CI gates exist for sparse shells, sparse modal/buckling/harmonic, and reduction workflows
 - representative reference models exist for contact, fiber 3D, SSI, creep/shrinkage, and shell workflows
 - parity and residual thresholds are written down and enforced
 - doctests and release-mode smoke tests are part of CI, not local-only habits
+- contract/snapshot CI exists for public solver payloads that product code depends on
 
 ### Phase D: Design-Grade Extraction For RC Workflows
 
@@ -327,12 +349,14 @@ Finish means:
 - governing metadata, sign conventions, and provenance are explicit and documented
 - integration coverage exists for the 3D extraction path
 - remaining metadata needed by RC design is explicit once cover/bar-detail assumptions begin
+- result contracts are versioned or otherwise evolution-safe for downstream consumers
 
 Concrete proof:
 - contract/snapshot tests protect the serialized payload shape
 - 2D and 3D integration tests exercise full solve-to-extraction paths
 - governing outputs never emit phantom combos or sentinel infinities
 - product code can consume station data without reconstructing solver semantics from raw arrays
+- payload/schema evolution rules are documented and enforced by tests
 
 ### Phase E: Long-Tail Nonlinear Hardening And Solver-Path Consistency
 
@@ -351,7 +375,22 @@ Concrete proof:
 - solver-path-specific result divergences are treated as regressions, not expected quirks
 - known nonlinear edge cases have acceptance coverage instead of only anecdotal reproduction
 
-### Phase F: Shell Workflow Maturity And Breadth
+### Phase F: Result Trust, Auditability, And Model Quality Gates
+
+Goal:
+- the solver becomes easier to trust before and after a run, not only numerically stronger internally
+
+Finish means:
+- bad models are caught earlier with clear pre-solve diagnostics
+- result outputs expose enough equilibrium / residual / provenance information for QA and reporting
+- user-visible warnings are tied to actual solver evidence rather than generic failure text
+
+Concrete proof:
+- pre-solve checks exist for disconnected subgraphs, instability risk, poor constraints, duplicate/near-duplicate nodes, shell distortion / Jacobian risk, and suspicious local-axis setups
+- result payloads expose equilibrium/residual/conditioning summaries on representative workflows
+- solver-run artifacts can be attached to bug reports and reviewed by engineering without manual reconstruction
+
+### Phase G: Shell Workflow Maturity And Breadth
 
 Goal:
 - the multi-family shell stack is not only broad, but guided, benchmarked, and hard to misuse
@@ -369,6 +408,21 @@ Concrete proof:
 - frontier benchmarks exist for the active shell families on the workflows they are meant to cover
 - layered, axisymmetric, and deeper nonlinear shell workflows each have at least one reference/acceptance case
 - shell-family expansion is not reopened unless the current stack fails on practical workflows
+
+### Phase H: Native / Server Execution Maturity
+
+Goal:
+- Rust runs as one solver across browser and native/server contexts, not just as a browser WASM artifact
+
+Finish means:
+- representative heavy workflows can run natively/server-side using the same solver codebase
+- native/browser parity is checked on representative cases
+- server/batch execution is reproducible enough for long analyses, reports, and enterprise workflows
+
+Concrete proof:
+- at least one named native/server execution path exists and is tested
+- representative browser vs native parity cases are green
+- heavy-model or long-running workflow(s) have a documented native/server execution recommendation
 
 ## Full Backlog
 
@@ -406,6 +460,14 @@ Concrete proof:
 32. Add fatigue workflows
 33. Add fire / temperature-dependent nonlinear workflows
 34. Add more specialized shell / continuum families only if still justified
+35. Add production solver-run artifact capture with build SHA, solver path, ordering, and diagnostics
+36. Add deterministic repro-bundle export for production failures
+37. Add versioned / contract-tested public solver payloads
+38. Add workflow-level timing and browser memory baselines, not only kernel microbenchmarks
+39. Add explicit TypeScript-solver deletion checklist and migration gates
+40. Add native / server execution parity and batch-run coverage
+41. Add pre-solve model quality gates for instability risk, duplicate nodes, bad constraints, and shell distortion risk
+42. Add result audit summaries: equilibrium, residual, conditioning, and governing provenance
 
 ## Active Programs
 
@@ -589,7 +651,19 @@ Rule:
 Why it matters:
 This is how the solver becomes visibly trustworthy rather than merely feature-rich.
 
-### 5. Long-Tail Nonlinear Hardening
+### 5. Observability, Reproducibility, And Auditability
+
+Focus:
+- solver-run artifacts
+- build SHA and solver-path metadata
+- reproducible bug capture
+- equilibrium / residual / conditioning summaries
+- versioned result contracts
+
+Why it matters:
+A solver becomes dramatically more valuable when failures are reproducible and results are auditable instead of opaque.
+
+### 6. Long-Tail Nonlinear Hardening
 
 Focus:
 - mixed contact + nonlinear + staged cases
@@ -599,6 +673,16 @@ Focus:
 
 Why it matters:
 This is the main remaining place where mature open solvers still have more years of hardened behavior than Dedaliano.
+
+### 7. Native / Server Execution
+
+Focus:
+- native parity with browser WASM
+- heavy-model execution outside the browser
+- batch / report / enterprise execution paths
+
+Why it matters:
+If Rust is the one solver, it should not be constrained to browser-only execution for the workloads where native execution is clearly better.
 
 ## Exit Criteria
 
@@ -653,13 +737,37 @@ Done means:
 - mixed frame/shell workflows do not diverge by solver path
 - result outputs remain consistent across linear and advanced solver families
 
+### WASM path reliability and single-solver convergence
+
+Done means:
+- deployed production builds are traceable to a specific commit and solver artifact set
+- main-thread, worker, and combo/multi-case WASM paths are green on representative examples
+- production failures can be replayed locally from a captured artifact
+- the TypeScript runtime solver path is removed
+
+### Result trust, auditability, and contracts
+
+Done means:
+- public solver payloads used by product code are contract-tested and evolution-safe
+- representative results expose equilibrium/residual/conditioning/provenance summaries
+- pre-solve model quality gates catch the most common invalid-model causes before solve
+
+### Native / server execution
+
+Done means:
+- at least one real native/server execution path is maintained and tested
+- representative browser/native parity checks are green
+- heavy workflows have a documented execution recommendation and proof path
+
 ## Must-Have Vs Later
 
 ### Must-have to become the best open structural solver
 
 - shell endgame maturity
 - performance and scale
+- WASM path reliability and single-solver convergence
 - verification hardening
+- observability / reproducibility / auditability
 - long-tail nonlinear hardening
 - solver-path consistency
 - constraint-system maturity
@@ -672,6 +780,7 @@ Done means:
 - deeper prestress / staged time-dependent coupling
 - specialized shell breadth
 - deterministic-behavior and explainability refinement
+- broader native/server workflow packaging after core parity is secure
 
 ### Later specialization
 
