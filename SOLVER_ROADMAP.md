@@ -167,6 +167,9 @@ Make Rust/WASM the trustworthy main execution path in production, fix the fronte
 - Make production failures reproducible from a captured solver-run artifact
 - Define explicit deletion criteria for the TypeScript solver runtime path
 - Retire the JS solver only after the WASM path is stable end-to-end
+- **Browser-level end-to-end tests:** automated tests that exercise the actual WASM-in-browser path — JS/WASM serialization round-trips, worker communication, memory limits, and multi-case solve through the real UI entry points (not just `cargo test` natively)
+- **Cross-browser WASM smoke tests:** verify WASM path on Chrome, Firefox, and Safari — different engines have different memory limits, JIT behavior, and WASM quirks
+- **Oracle replacement plan for differential fuzz tests:** the 90 differential fuzz tests currently compare Rust vs TypeScript output. Once the TS solver is deleted, that oracle disappears. Before deletion, lock golden reference outputs from the TS solver on all 90 seeds and convert the fuzz suite to golden-file comparison. Alternatively, add a third-party solver comparison (OpenSees, Code_Aster) on a subset of cases.
 
 **Done when:**
 - One named CI/deploy check verifies the built commit SHA is the one served by the app
@@ -174,6 +177,8 @@ Make Rust/WASM the trustworthy main execution path in production, fix the fronte
 - A reproducible failure-capture path records build SHA, solver path, ordering, diagnostics, and enough state to replay locally
 - Zero known production-only WASM trap regressions open
 - The TypeScript solver runtime path is deleted and no shipped UI path imports it for solving
+- Browser-level end-to-end tests pass on at least Chrome and one other browser
+- Golden reference outputs are locked for all differential fuzz seeds before the TS solver is deleted
 
 ### Step 2 — Design-Grade RC Extraction Hardening
 
@@ -233,6 +238,7 @@ Current status: all 8 element families parallelized through a unified `AnyElemen
 - Track workflow-level timing and memory, not only kernel-level factorization timing
 - Measure representative browser memory ceilings and worker startup overhead
 - Add iterative refinement before any remaining expensive fallback path
+- **Performance regression CI:** runtime benchmarks must be re-checked on every merge, not measured once and forgotten. Add CI gates that fail if key benchmarks regress beyond a tolerance (e.g. sparse factorization time, end-to-end solve time on representative models). Track trends, not just pass/fail.
 
 **CI / Gate Discipline:**
 - Sparse shell gates: no dense fallback, fill ratio bounds, deterministic sparse assembly, sparse vs dense residual parity
@@ -250,6 +256,7 @@ Current status: all 8 element families parallelized through a unified `AnyElemen
 - Fill-ratio, no-dense-fallback, and residual-parity gates stay green in CI
 - Solve-to-results timing exists for representative browser/product workflows
 - Sparse assembly overhead is no longer a dominant cost on medium shell models
+- Performance regression CI gates exist and fail on regressions beyond defined tolerance
 
 ### Step 5 — Verification Moat
 
@@ -267,6 +274,11 @@ Protect major solver paths with visible, release-grade proof. This is how the so
 - Add contract/snapshot CI for public solver payloads that product code depends on
 - Keep benchmark growth signal-driven (proof, regression protection, performance confidence, edge-case coverage) — not count-driven
 - Rule: do not add low-signal tests just to increase the count. Add tests that improve proof, regression protection, performance confidence, or edge-case coverage
+- **Property-based invariant tests:** equilibrium preservation (sum of reactions = applied loads), stiffness matrix symmetry, stiffness matrix positive-definiteness (for well-constrained models), energy bounds (strain energy ≥ 0, work-energy theorem), rigid body mode detection (6 zero eigenvalues for free 3D structure), partition-of-unity on shape functions, patch test satisfaction per element family
+- **Fuzz testing depth:** `cargo-fuzz` or `proptest` on solver entry points with randomized geometry, loads, materials, and boundary conditions. Target: crash-free on 10,000+ random models, not just the curated benchmark set. Fuzz the WASM serialization boundary (malformed JSON, truncated payloads, NaN/Inf inputs)
+- **Real-model regression suite:** collect saved models from real users (with permission) or generate realistic messy models (mixed element types, irregular topology, nearly-coplanar shells, short members, eccentric connections). These catch failures that textbook benchmarks miss.
+- **WASM vs native parity tests:** run the same solver inputs through both native `cargo test` and the WASM build, compare results to machine precision. Catches f64 rounding differences, memory layout issues, and WASM-specific codegen bugs.
+- **Mutation testing:** use `cargo-mutants` or equivalent to measure whether the test suite actually catches regressions. A test suite with 5908 passing tests is worthless if mutating the solver code doesn't fail any of them.
 
 **Done when:**
 - Explicit CI gates exist for sparse shells, sparse modal/buckling/harmonic, and reduction workflows
@@ -274,6 +286,11 @@ Protect major solver paths with visible, release-grade proof. This is how the so
 - Parity and residual thresholds are written down and enforced
 - Doctests and release-mode smoke tests are part of CI
 - Public solver contracts are stable enough to version and protect in CI
+- Property-based invariant tests cover equilibrium, symmetry, energy bounds, and rigid body modes
+- Fuzz testing runs crash-free on 10,000+ random models
+- At least 10 real-model or realistic-messy-model regressions are in the suite
+- WASM vs native parity tests pass on representative workflows
+- Mutation testing score is tracked and improving
 
 ### Step 6 — Long-Tail Nonlinear Hardening and Solver-Path Consistency
 
@@ -643,219 +660,229 @@ Solver scales to city/portfolio-level analysis and supports climate-driven scena
 32. Add native / server execution parity and batch-run coverage
 33. Add pre-solve model quality gates for instability risk, duplicate nodes, bad constraints, and shell distortion risk
 34. Add result audit summaries: equilibrium, residual, conditioning, and governing provenance
+35. Add browser-level end-to-end tests exercising the actual WASM-in-browser path (serialization, workers, memory limits)
+36. Add cross-browser WASM smoke tests (Chrome, Firefox, Safari)
+37. Lock golden reference outputs from TS solver on all 90 differential fuzz seeds before TS deletion
+38. Add performance regression CI gates that fail on regressions beyond defined tolerance
+39. Add property-based invariant tests: equilibrium preservation, K symmetry, K positive-definiteness, energy bounds, rigid body modes, shape function partition-of-unity, patch tests
+40. Add fuzz testing on solver entry points with randomized geometry/loads/materials/BCs (crash-free on 10,000+ random models)
+41. Fuzz the WASM serialization boundary (malformed JSON, truncated payloads, NaN/Inf inputs)
+42. Build real-model regression suite from realistic messy models (mixed elements, irregular topology, eccentric connections)
+43. Add WASM vs native parity tests comparing results to machine precision on representative workflows
+44. Add mutation testing (`cargo-mutants` or equivalent) and track mutation score
 
 ### Step 8 (Dynamic Analysis)
 
-35. Implement Newmark-beta implicit time integration (beta=1/4, gamma=1/2)
-36. Implement HHT-alpha method with numerical dissipation control
-37. Implement explicit central difference method with critical dt calculation
-38. Add Rayleigh damping (alpha*M + beta*K) to all dynamic solvers
-39. Add modal damping with per-mode damping ratios
-40. Implement consistent mass matrix alongside existing lumped mass
-41. Add nonlinear dynamics (Newton-Raphson within time steps)
-42. Add operator-splitting for efficiency in nonlinear dynamics
-43. Implement energy balance monitoring for numerical stability detection
-44. Add adaptive time stepping based on convergence behavior
-45. Implement checkpoint/restart for long dynamic analyses
-46. Add ground motion input as base excitation
-47. Add response history extraction at selected nodes/DOFs
+45. Implement Newmark-beta implicit time integration (beta=1/4, gamma=1/2)
+46. Implement HHT-alpha method with numerical dissipation control
+47. Implement explicit central difference method with critical dt calculation
+48. Add Rayleigh damping (alpha*M + beta*K) to all dynamic solvers
+49. Add modal damping with per-mode damping ratios
+50. Implement consistent mass matrix alongside existing lumped mass
+51. Add nonlinear dynamics (Newton-Raphson within time steps)
+52. Add operator-splitting for efficiency in nonlinear dynamics
+53. Implement energy balance monitoring for numerical stability detection
+54. Add adaptive time stepping based on convergence behavior
+55. Implement checkpoint/restart for long dynamic analyses
+56. Add ground motion input as base excitation
+57. Add response history extraction at selected nodes/DOFs
 
 ### Step 9 (Nonlinear Materials)
 
-48. Implement material state management (commit/revert/copy) framework
-49. Implement Kent-Park / modified Kent-Park confined/unconfined concrete
-50. Implement Mander confined concrete model
-51. Implement Concrete02 with tension stiffening
-52. Implement concrete damage plasticity (CDP)
-53. Implement fib Model Code 2010 stress-strain curves
-54. Implement Eurocode 2 parabola-rectangle design curves
-55. Implement bilinear steel (elastic-perfectly-plastic, strain-hardening)
-56. Implement Menegotto-Pinto (Steel02) hysteretic model
-57. Implement Giuffre-Menegotto-Pinto combined hardening
-58. Implement Steel4 with asymmetric behavior and fracture
-59. Add fiber section with multiple materials (concrete core + cover + rebar)
-60. Add 3D fiber section (biaxial bending: epsilon_0, kappa_y, kappa_z)
-61. Add moment-curvature analysis from fiber section integration
-62. Add M-N-V interaction surface generation
+58. Implement material state management (commit/revert/copy) framework
+59. Implement Kent-Park / modified Kent-Park confined/unconfined concrete
+60. Implement Mander confined concrete model
+61. Implement Concrete02 with tension stiffening
+62. Implement concrete damage plasticity (CDP)
+63. Implement fib Model Code 2010 stress-strain curves
+64. Implement Eurocode 2 parabola-rectangle design curves
+65. Implement bilinear steel (elastic-perfectly-plastic, strain-hardening)
+66. Implement Menegotto-Pinto (Steel02) hysteretic model
+67. Implement Giuffre-Menegotto-Pinto combined hardening
+68. Implement Steel4 with asymmetric behavior and fracture
+69. Add fiber section with multiple materials (concrete core + cover + rebar)
+70. Add 3D fiber section (biaxial bending: epsilon_0, kappa_y, kappa_z)
+71. Add moment-curvature analysis from fiber section integration
+72. Add M-N-V interaction surface generation
 
 ### Step 10 (Pushover)
 
-63. Implement displacement-controlled pushover with arc-length control
-64. Add load patterns: inverted triangular, uniform, modal-proportional (EC8, ASCE 7)
-65. Add plastic hinge tracking with ductility demand per step
-66. Implement capacity curve extraction with bilinear idealization
-67. Implement capacity spectrum method (ATC-40 / FEMA 440)
-68. Implement N2 method (Eurocode 8)
-69. Implement multi-modal pushover analysis (MPA)
+73. Implement displacement-controlled pushover with arc-length control
+74. Add load patterns: inverted triangular, uniform, modal-proportional (EC8, ASCE 7)
+75. Add plastic hinge tracking with ductility demand per step
+76. Implement capacity curve extraction with bilinear idealization
+77. Implement capacity spectrum method (ATC-40 / FEMA 440)
+78. Implement N2 method (Eurocode 8)
+79. Implement multi-modal pushover analysis (MPA)
 
 ### Step 11 (Advanced Elements)
 
-70. Implement seismic isolator elements (bilinear, friction pendulum)
-71. Implement viscous damper elements (F = C*v^alpha)
-72. Implement BRB elements with backbone curve and hysteresis
-73. Implement panel zone elements (Krawinkler model)
-74. Implement infill wall elements (equivalent diagonal strut)
-75. Implement full catenary element (exact stiffness, not Ernst)
-76. Add form-finding (force density, dynamic relaxation)
-77. Add membrane elements for fabric structures
-78. Add tapered beam elements
-79. Add curved beam elements
-80. Add 3D solid elements (C3D8, C3D20, C3D4, C3D10)
+80. Implement seismic isolator elements (bilinear, friction pendulum)
+81. Implement viscous damper elements (F = C*v^alpha)
+82. Implement BRB elements with backbone curve and hysteresis
+83. Implement panel zone elements (Krawinkler model)
+84. Implement infill wall elements (equivalent diagonal strut)
+85. Implement full catenary element (exact stiffness, not Ernst)
+86. Add form-finding (force density, dynamic relaxation)
+87. Add membrane elements for fabric structures
+88. Add tapered beam elements
+89. Add curved beam elements
+90. Add 3D solid elements (C3D8, C3D20, C3D4, C3D10)
 
 ### Step 13 (Thermal, Fire, Fatigue & Progressive Collapse)
 
-81. Implement standard fire curves (ISO 834, ASTM E119, hydrocarbon)
-82. Implement parametric fire curves (EC1-1-2)
-83. Add temperature-dependent material properties per EC2/EC3/EC4
-84. Implement 1D/2D thermal analysis through sections
-85. Add coupled thermo-mechanical sequential analysis
-86. Implement automatic member removal for progressive collapse
-87. Add dynamic amplification factor per GSA/UFC
-88. Add nonlinear static alternate path analysis
-89. Add catenary action (large-displacement tensile membrane)
-90. Add acceptance criteria evaluation per GSA guidelines
+91. Implement standard fire curves (ISO 834, ASTM E119, hydrocarbon)
+92. Implement parametric fire curves (EC1-1-2)
+93. Add temperature-dependent material properties per EC2/EC3/EC4
+94. Implement 1D/2D thermal analysis through sections
+95. Add coupled thermo-mechanical sequential analysis
+96. Implement automatic member removal for progressive collapse
+97. Add dynamic amplification factor per GSA/UFC
+98. Add nonlinear static alternate path analysis
+99. Add catenary action (large-displacement tensile membrane)
+100. Add acceptance criteria evaluation per GSA guidelines
 
 ### Step 14 (Automatic Load Generation)
 
-91. Implement wind pressure computation (ASCE 7, EC1)
-92. Implement seismic ELF distribution (EC8, ASCE 7, NCh 433)
-93. Implement snow load computation (EC1-1-3, ASCE 7)
-94. Add live load pattern generation (checkerboard, adjacent-span)
-95. Add surface pressure mapping to element face loads
+101. Implement wind pressure computation (ASCE 7, EC1)
+102. Implement seismic ELF distribution (EC8, ASCE 7, NCh 433)
+103. Implement snow load computation (EC1-1-3, ASCE 7)
+104. Add live load pattern generation (checkerboard, adjacent-span)
+105. Add surface pressure mapping to element face loads
 
 ### Step 15 (Performance & Scale)
 
-96. Implement PCG with Jacobi and IC(0) preconditioners
-97. Implement GMRES / MINRES for indefinite systems
-98. Add hybrid direct-iterative solver with automatic selection
-99. Add block eigensolvers (LOBPCG / block Lanczos)
-100. Implement WebGPU compute shaders for element stiffness and mat-vec
-101. Add Web Workers for parallel assembly
-102. Add sparse mass matrix for fully-sparse eigensolver paths
-103. Implement supernodal Cholesky for cache utilization
+106. Implement PCG with Jacobi and IC(0) preconditioners
+107. Implement GMRES / MINRES for indefinite systems
+108. Add hybrid direct-iterative solver with automatic selection
+109. Add block eigensolvers (LOBPCG / block Lanczos)
+110. Implement WebGPU compute shaders for element stiffness and mat-vec
+111. Add Web Workers for parallel assembly
+112. Add sparse mass matrix for fully-sparse eigensolver paths
+113. Implement supernodal Cholesky for cache utilization
 
 ### Step 16 (Optimization)
 
-104. Implement analytical design sensitivities (dK/dx, dM/dx)
-105. Implement SIMP topology optimization with OC/MMA update
-106. Add adjoint method for efficient gradient computation
-107. Add eigenvalue sensitivity for frequency-constrained optimization
-108. Add p-norm stress constraint aggregation
+114. Implement analytical design sensitivities (dK/dx, dM/dx)
+115. Implement SIMP topology optimization with OC/MMA update
+116. Add adjoint method for efficient gradient computation
+117. Add eigenvalue sensitivity for frequency-constrained optimization
+118. Add p-norm stress constraint aggregation
 
 ### Step 17 (Reliability, Probabilistic & Bayesian)
 
-109. Add parameterized solver for material/geometry/load uncertainty
-110. Implement FORM/SORM reliability methods
-111. Add Monte Carlo batch solver execution
-112. Add importance sampling for rare failure events
-113. Implement subset simulation
-114. Add batch execution API with symbolic factorization reuse
-115. Implement Bayesian parameter estimation with likelihood from FE model
-116. Add MCMC sampling (Metropolis-Hastings, Hamiltonian MC, Transitional MCMC)
-117. Implement modal-based model updating (frequency + mode shape residuals, MAC-based)
-118. Add sensor data ingestion API (acceleration, strain, displacement time-series)
-119. Implement Bayesian damage detection via stiffness change hypothesis testing
-120. Add predictive posterior propagation for remaining capacity / fatigue life
-121. Implement polynomial chaos expansion (PCE) for efficient UQ
-122. Add stochastic FEM with random field discretization
-123. Implement Sobol global sensitivity indices
+119. Add parameterized solver for material/geometry/load uncertainty
+120. Implement FORM/SORM reliability methods
+121. Add Monte Carlo batch solver execution
+122. Add importance sampling for rare failure events
+123. Implement subset simulation
+124. Add batch execution API with symbolic factorization reuse
+125. Implement Bayesian parameter estimation with likelihood from FE model
+126. Add MCMC sampling (Metropolis-Hastings, Hamiltonian MC, Transitional MCMC)
+127. Implement modal-based model updating (frequency + mode shape residuals, MAC-based)
+128. Add sensor data ingestion API (acceleration, strain, displacement time-series)
+129. Implement Bayesian damage detection via stiffness change hypothesis testing
+130. Add predictive posterior propagation for remaining capacity / fatigue life
+131. Implement polynomial chaos expansion (PCE) for efficient UQ
+132. Add stochastic FEM with random field discretization
+133. Implement Sobol global sensitivity indices
 
 ### Step 18 (Contact, Interface & Constraints)
 
-124. Implement augmented Lagrangian contact enforcement
-125. Implement mortar contact for non-matching meshes
-126. Add Coulomb friction with proper slip/stick detection
-127. Add self-contact for large deformation (pipe buckling, shell folding)
-128. Implement cohesive zone elements (traction-separation for delamination/debonding)
-129. Add tie constraints for multi-part assemblies with non-matching meshes
-130. Implement shell-to-solid coupling constraints
-131. Add beam-to-shell connection with offset
-132. Implement embedded elements (rebar in concrete solids/shells)
-133. Add distributed coupling (RBE3-equivalent)
-134. Add kinematic coupling with DOF selection
-135. Add general linear MPC equations (u_i = sum(a_j * u_j) + b)
-136. Implement periodic boundary conditions for RVE homogenization
-137. Add automatic symmetry/antisymmetry constraints on cut planes
+134. Implement augmented Lagrangian contact enforcement
+135. Implement mortar contact for non-matching meshes
+136. Add Coulomb friction with proper slip/stick detection
+137. Add self-contact for large deformation (pipe buckling, shell folding)
+138. Implement cohesive zone elements (traction-separation for delamination/debonding)
+139. Add tie constraints for multi-part assemblies with non-matching meshes
+140. Implement shell-to-solid coupling constraints
+141. Add beam-to-shell connection with offset
+142. Implement embedded elements (rebar in concrete solids/shells)
+143. Add distributed coupling (RBE3-equivalent)
+144. Add kinematic coupling with DOF selection
+145. Add general linear MPC equations (u_i = sum(a_j * u_j) + b)
+146. Implement periodic boundary conditions for RVE homogenization
+147. Add automatic symmetry/antisymmetry constraints on cut planes
 
 ### Step 19 (Design-Oriented Post-Processing)
 
-138. Implement Wood-Armer moments for RC slab design from shell results
-139. Add nodal force summation / section cuts through shell/solid models
-140. Implement shell result envelopes across load combinations
-141. Add design-oriented result transformation to reinforcement/principal/user directions
-142. Add influence surface generation for slabs under moving loads
-143. Implement crack width estimation from shell reinforcement strains (EC2/ACI 318)
-144. Add automatic punching shear perimeter detection and code-check
-145. Implement stress linearization (membrane+bending+peak per ASME/EN 13445)
-146. Add result smoothing/averaging control by material, type, and angle threshold
-147. Implement superconvergent patch recovery (SPR / Zienkiewicz-Zhu)
-148. Add submodeling / global-local analysis workflow
-149. Add nonlinear post-buckling workflow (imperfection seeding, arc-length, knockdown)
-150. Add construction sequence with creep/shrinkage/relaxation interaction between stages
-151. Implement ZZ error estimator for mesh adequacy guidance
-152. Add h-refinement indicators from element-level error estimates
+148. Implement Wood-Armer moments for RC slab design from shell results
+149. Add nodal force summation / section cuts through shell/solid models
+150. Implement shell result envelopes across load combinations
+151. Add design-oriented result transformation to reinforcement/principal/user directions
+152. Add influence surface generation for slabs under moving loads
+153. Implement crack width estimation from shell reinforcement strains (EC2/ACI 318)
+154. Add automatic punching shear perimeter detection and code-check
+155. Implement stress linearization (membrane+bending+peak per ASME/EN 13445)
+156. Add result smoothing/averaging control by material, type, and angle threshold
+157. Implement superconvergent patch recovery (SPR / Zienkiewicz-Zhu)
+158. Add submodeling / global-local analysis workflow
+159. Add nonlinear post-buckling workflow (imperfection seeding, arc-length, knockdown)
+160. Add construction sequence with creep/shrinkage/relaxation interaction between stages
+161. Implement ZZ error estimator for mesh adequacy guidance
+162. Add h-refinement indicators from element-level error estimates
 
 ### Cross-Phase Items
 
-153. Implement general return mapping algorithm (yield surface, flow rule, hardening, consistent tangent)
-154. Add Caughey damping (generalized Rayleigh for more than 2 target frequencies)
-155. Add frequency-dependent and non-proportional damping with complex eigenvalue analysis
-156. Add random vibration / PSD analysis (wind/wave/traffic excitation)
-157. Add response spectrum CQC3, GMC, Gupta methods and missing mass correction
-158. Implement force-based beam-column element (OpenSees-equivalent)
-159. Add Timoshenko beam with warping DOF (7-DOF) for open thin-walled sections
-160. Add full shell triangle (MITC3/DSG3 with membrane+bending+drilling)
-161. Add 6-node triangular shell (MITC6/STRI65)
-162. Implement composite laminate failure criteria (Tsai-Wu, Tsai-Hill, Hashin, Puck)
-163. Add UMAT-equivalent user-defined material interface
-164. Implement Drucker-Prager and Mohr-Coulomb plasticity for geotechnical analysis
-165. Implement Modified Cam-Clay for clay soils
-166. Add orthotropic/anisotropic elasticity for timber, masonry, composites
-167. Implement Total Lagrangian and Updated Lagrangian large-strain formulations
-168. Add multi-frontal solver with nested dissection ordering
-169. Implement AMG preconditioner for million-DOF models
-170. Add domain decomposition (FETI) for distributed parallelism
-171. Add smeared/rotating crack and damage mechanics models (Mazars, Lemaitre)
-172. Implement Gauss-point substepping for material integration robustness
-173. Add dissipation-based stabilization for shell buckling and concrete cracking
-174. Implement plastic hinge beam element with FEMA 356/ASCE 41 hinge tables
-175. Add fatigue cycle counting (rainflow) and S-N damage accumulation
-176. Add thermal stress analysis (steady-state/transient, bridge deck gradients)
+163. Implement general return mapping algorithm (yield surface, flow rule, hardening, consistent tangent)
+164. Add Caughey damping (generalized Rayleigh for more than 2 target frequencies)
+165. Add frequency-dependent and non-proportional damping with complex eigenvalue analysis
+166. Add random vibration / PSD analysis (wind/wave/traffic excitation)
+167. Add response spectrum CQC3, GMC, Gupta methods and missing mass correction
+168. Implement force-based beam-column element (OpenSees-equivalent)
+169. Add Timoshenko beam with warping DOF (7-DOF) for open thin-walled sections
+170. Add full shell triangle (MITC3/DSG3 with membrane+bending+drilling)
+171. Add 6-node triangular shell (MITC6/STRI65)
+172. Implement composite laminate failure criteria (Tsai-Wu, Tsai-Hill, Hashin, Puck)
+173. Add UMAT-equivalent user-defined material interface
+174. Implement Drucker-Prager and Mohr-Coulomb plasticity for geotechnical analysis
+175. Implement Modified Cam-Clay for clay soils
+176. Add orthotropic/anisotropic elasticity for timber, masonry, composites
+177. Implement Total Lagrangian and Updated Lagrangian large-strain formulations
+178. Add multi-frontal solver with nested dissection ordering
+179. Implement AMG preconditioner for million-DOF models
+180. Add domain decomposition (FETI) for distributed parallelism
+181. Add smeared/rotating crack and damage mechanics models (Mazars, Lemaitre)
+182. Implement Gauss-point substepping for material integration robustness
+183. Add dissipation-based stabilization for shell buckling and concrete cracking
+184. Implement plastic hinge beam element with FEMA 356/ASCE 41 hinge tables
+185. Add fatigue cycle counting (rainflow) and S-N damage accumulation
+186. Add thermal stress analysis (steady-state/transient, bridge deck gradients)
 
 ### Step 20 (Incremental & Collaborative Solver)
 
-177. Implement incremental re-analysis (partial factorization update on single-element change)
-178. Add model diff API (accept added/removed/modified elements, return updated results)
-179. Extend deterministic solve ordering to all solver paths for CRDT compatibility
-180. Add concurrent read safety (lock-free or copy-on-write result snapshots)
-181. Add partial result availability (expose displacement before full stress recovery)
-182. Implement undo-safe solver state with efficient snapshot/restore
+187. Implement incremental re-analysis (partial factorization update on single-element change)
+188. Add model diff API (accept added/removed/modified elements, return updated results)
+189. Extend deterministic solve ordering to all solver paths for CRDT compatibility
+190. Add concurrent read safety (lock-free or copy-on-write result snapshots)
+191. Add partial result availability (expose displacement before full stress recovery)
+192. Implement undo-safe solver state with efficient snapshot/restore
 
 ### Step 21 (AI & Surrogate Support)
 
-183. Implement batch parametric runner with shared symbolic factorization
-184. Add feature extraction API (per-element/node features in ML-ready formats)
-185. Add GNN training data pipeline (mesh graph + solution fields export)
-186. Implement surrogate inference hook (ONNX/WASM surrogate with automatic fallback)
-187. Add design sensitivity export (dresponse/dparameter)
-188. Implement per-element anomaly scoring (residual, energy ratio, utilization outlier)
-189. Add reinforcement learning step/reward interface
+193. Implement batch parametric runner with shared symbolic factorization
+194. Add feature extraction API (per-element/node features in ML-ready formats)
+195. Add GNN training data pipeline (mesh graph + solution fields export)
+196. Implement surrogate inference hook (ONNX/WASM surrogate with automatic fallback)
+197. Add design sensitivity export (dresponse/dparameter)
+198. Implement per-element anomaly scoring (residual, energy ratio, utilization outlier)
+199. Add reinforcement learning step/reward interface
 
 ### Step 22 (Construction & Digital Twin Solver)
 
-190. Implement time-dependent staged analysis (creep/shrinkage/relaxation across stages)
-191. Add construction sequence solver (element activation/deactivation by stage)
-192. Add as-built geometry update (accept surveyed coordinates, re-solve)
-193. Implement live sensor integration with scheduled Bayesian model updating
-194. Add predictive simulation (next-day deflections from current state + forecast)
+200. Implement time-dependent staged analysis (creep/shrinkage/relaxation across stages)
+201. Add construction sequence solver (element activation/deactivation by stage)
+202. Add as-built geometry update (accept surveyed coordinates, re-solve)
+203. Implement live sensor integration with scheduled Bayesian model updating
+204. Add predictive simulation (next-day deflections from current state + forecast)
 
 ### Step 23 (Planetary-Scale & Portfolio)
 
-195. Implement portfolio batch analysis (distributed cloud workers, aggregated risk metrics)
-196. Add climate scenario loading (future wind/flood/fire to code-compatible load cases)
-197. Implement embodied carbon computation integrated into optimization objective
-198. Add automated fragility curve generation (IDA to fragility to loss estimation pipeline)
-199. Add LiDAR/photogrammetry mesh import (point cloud to FE model)
+205. Implement portfolio batch analysis (distributed cloud workers, aggregated risk metrics)
+206. Add climate scenario loading (future wind/flood/fire to code-compatible load cases)
+207. Implement embodied carbon computation integrated into optimization objective
+208. Add automated fragility curve generation (IDA to fragility to loss estimation pipeline)
+209. Add LiDAR/photogrammetry mesh import (point cloud to FE model)
 
 ## Measured Benchmarks (Reference)
 
