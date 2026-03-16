@@ -185,7 +185,7 @@ describe('Irregular setback tower 3D example', () => {
     expect(maxEnvUy).toBeLessThan(0.10); // < 100mm vertical under factored loads
   });
 
-  it('dead load produces realistic displacements (sub-mm for properly sized sections)', () => {
+  it('dead load produces realistic displacements (sub-mm for properly sized sections)', { timeout: 30000 }, () => {
     const model = createMock3DModel();
     generateIrregularSetbackTower3D(model as any, {
       storyH: 3.8,

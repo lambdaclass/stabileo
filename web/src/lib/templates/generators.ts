@@ -1856,14 +1856,14 @@ export function generateSuspensionBridge3D(store: ModelStore, p: SuspensionBridg
     // Warren diagonals in stiffening truss (both sides) (section 3 = L 80×80×8)
     for (let i = 0; i < totalPanels; i++) {
       if (i % 2 === 0) {
-        const d1 = store.addElement(upperL[i], lowerL[i + 1], 'truss');
+        const d1 = store.addElement(upperL[i], lowerL[i + 1], 'frame');
         store.updateElementSection(d1, hangerSecId);
-        const d2 = store.addElement(upperR[i], lowerR[i + 1], 'truss');
+        const d2 = store.addElement(upperR[i], lowerR[i + 1], 'frame');
         store.updateElementSection(d2, hangerSecId);
       } else {
-        const d1 = store.addElement(lowerL[i], upperL[i + 1], 'truss');
+        const d1 = store.addElement(lowerL[i], upperL[i + 1], 'frame');
         store.updateElementSection(d1, hangerSecId);
-        const d2 = store.addElement(lowerR[i], upperR[i + 1], 'truss');
+        const d2 = store.addElement(lowerR[i], upperR[i + 1], 'frame');
         store.updateElementSection(d2, hangerSecId);
       }
     }
@@ -1871,10 +1871,10 @@ export function generateSuspensionBridge3D(store: ModelStore, p: SuspensionBridg
     // Horizontal wind bracing on lower chord plane (section 3 = L 80×80×8)
     for (let i = 0; i < totalPanels; i++) {
       if (i % 2 === 0) {
-        const wb = store.addElement(lowerL[i], lowerR[i + 1], 'truss');
+        const wb = store.addElement(lowerL[i], lowerR[i + 1], 'frame');
         store.updateElementSection(wb, hangerSecId);
       } else {
-        const wb = store.addElement(lowerR[i], lowerL[i + 1], 'truss');
+        const wb = store.addElement(lowerR[i], lowerL[i + 1], 'frame');
         store.updateElementSection(wb, hangerSecId);
       }
     }
@@ -1918,10 +1918,10 @@ export function generateSuspensionBridge3D(store: ModelStore, p: SuspensionBridg
       store.updateElementSection(store.addElement(tL, tR, 'frame'), hangerSecId);
 
       // K-bracing between cross beams for stiffness (section 3 = L 80×80×8)
-      store.updateElementSection(store.addElement(mL, pR, 'truss'), hangerSecId);
-      store.updateElementSection(store.addElement(mR, pL, 'truss'), hangerSecId);
-      store.updateElementSection(store.addElement(pL, tR, 'truss'), hangerSecId);
-      store.updateElementSection(store.addElement(pR, tL, 'truss'), hangerSecId);
+      store.updateElementSection(store.addElement(mL, pR, 'frame'), hangerSecId);
+      store.updateElementSection(store.addElement(mR, pL, 'frame'), hangerSecId);
+      store.updateElementSection(store.addElement(pL, tR, 'frame'), hangerSecId);
+      store.updateElementSection(store.addElement(pR, tL, 'frame'), hangerSecId);
 
       // Connect tower base to deck (section 2 = IPE 450)
       store.updateElementSection(store.addElement(bL, upperL[deckIdx], 'frame'), deckSecId);
@@ -1962,15 +1962,15 @@ export function generateSuspensionBridge3D(store: ModelStore, p: SuspensionBridg
 
     // Cable longitudinal elements
     for (let i = 0; i < nMain; i++) {
-      store.addElement(mainCableL[i], mainCableL[i + 1], 'truss');
-      store.addElement(mainCableR[i], mainCableR[i + 1], 'truss');
+      store.addElement(mainCableL[i], mainCableL[i + 1], 'frame');
+      store.addElement(mainCableR[i], mainCableR[i + 1], 'frame');
     }
 
     // Vertical hangers from cable to deck (skip tower positions) (section 3 = L 80×80×8)
     for (let i = 1; i < nMain; i++) {
       const deckIdx = towerIdx1 + i;
-      store.updateElementSection(store.addElement(mainCableL[i], upperL[deckIdx], 'truss'), hangerSecId);
-      store.updateElementSection(store.addElement(mainCableR[i], upperR[deckIdx], 'truss'), hangerSecId);
+      store.updateElementSection(store.addElement(mainCableL[i], upperL[deckIdx], 'frame'), hangerSecId);
+      store.updateElementSection(store.addElement(mainCableR[i], upperR[deckIdx], 'frame'), hangerSecId);
     }
 
     // ── Side span cables (straight from tower top to anchorage) ──
@@ -1994,13 +1994,13 @@ export function generateSuspensionBridge3D(store: ModelStore, p: SuspensionBridg
     sideCableNodesL_R.push(tower1.topR);
 
     for (let i = 0; i < nSide; i++) {
-      store.addElement(sideCableNodesL_L[i], sideCableNodesL_L[i + 1], 'truss');
-      store.addElement(sideCableNodesL_R[i], sideCableNodesL_R[i + 1], 'truss');
+      store.addElement(sideCableNodesL_L[i], sideCableNodesL_L[i + 1], 'frame');
+      store.addElement(sideCableNodesL_R[i], sideCableNodesL_R[i + 1], 'frame');
     }
     // Hangers on left side span (section 3 = L 80×80×8)
     for (let i = 1; i < nSide; i++) {
-      store.updateElementSection(store.addElement(sideCableNodesL_L[i], upperL[i], 'truss'), hangerSecId);
-      store.updateElementSection(store.addElement(sideCableNodesL_R[i], upperR[i], 'truss'), hangerSecId);
+      store.updateElementSection(store.addElement(sideCableNodesL_L[i], upperL[i], 'frame'), hangerSecId);
+      store.updateElementSection(store.addElement(sideCableNodesL_R[i], upperR[i], 'frame'), hangerSecId);
     }
 
     // Right side: from tower2 top to anchor (x=totalLen)
@@ -2022,14 +2022,14 @@ export function generateSuspensionBridge3D(store: ModelStore, p: SuspensionBridg
     sideCableNodesR_R.push(anchorRR);
 
     for (let i = 0; i < nSide; i++) {
-      store.addElement(sideCableNodesR_L[i], sideCableNodesR_L[i + 1], 'truss');
-      store.addElement(sideCableNodesR_R[i], sideCableNodesR_R[i + 1], 'truss');
+      store.addElement(sideCableNodesR_L[i], sideCableNodesR_L[i + 1], 'frame');
+      store.addElement(sideCableNodesR_R[i], sideCableNodesR_R[i + 1], 'frame');
     }
     // Hangers on right side span (section 3 = L 80×80×8)
     for (let i = 1; i < nSide; i++) {
       const deckIdx = towerIdx2 + i;
-      store.updateElementSection(store.addElement(sideCableNodesR_L[i], upperL[deckIdx], 'truss'), hangerSecId);
-      store.updateElementSection(store.addElement(sideCableNodesR_R[i], upperR[deckIdx], 'truss'), hangerSecId);
+      store.updateElementSection(store.addElement(sideCableNodesR_L[i], upperL[deckIdx], 'frame'), hangerSecId);
+      store.updateElementSection(store.addElement(sideCableNodesR_R[i], upperR[deckIdx], 'frame'), hangerSecId);
     }
 
     // ── Abutment supports (pinned — allow thermal expansion) ──
