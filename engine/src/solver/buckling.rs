@@ -63,8 +63,7 @@ pub fn solve_buckling_2d(
 
     // 3. Extract free-DOF submatrices
     let free_idx: Vec<usize> = (0..nf).collect();
-    let asm = assemble_2d(input, &dof_num);
-    let k_ff = extract_submatrix(&asm.k, n, &free_idx, &free_idx);
+    let sasm = assemble_sparse_2d(input, &dof_num);
 
     // Negate Kg (we solve K·φ = λ·(-Kg)·φ for positive eigenvalues)
     let kg_ff_raw = extract_submatrix(&kg_full, n, &free_idx, &free_idx);
@@ -75,11 +74,6 @@ pub fn solve_buckling_2d(
 
     // Apply constraint transform if present
     let cs = FreeConstraintSystem::build_2d(&input.constraints, &dof_num, &input.nodes);
-    let (k_solve, neg_kg_solve, ns) = if let Some(ref cs) = cs {
-        (cs.reduce_matrix(&k_ff), cs.reduce_matrix(&neg_kg_ff), cs.n_free_indep)
-    } else {
-        (k_ff, neg_kg_ff, nf)
-    };
 
     // Check if any element is in compression
     let has_compression = linear.element_forces.iter().any(|ef| {
@@ -90,10 +84,25 @@ pub fn solve_buckling_2d(
     }
 
     // 4. Solve generalized eigenvalue: (-Kg)·φ = μ·K·φ  (K is SPD)
-    let result = solve_generalized_eigen(&neg_kg_solve, &k_solve, ns, 200)
-        .ok_or_else(|| "Eigenvalue decomposition failed — stiffness matrix issue".to_string())?;
+    // No-constraint path: sparse shift-invert Lanczos (K⁻¹(-Kg)x, K factorized by sparse Cholesky).
+    // Constraint path: dense Jacobi (needs dense K for reduce_matrix).
+    let (result, ns) = if cs.is_none() {
+        let r = lanczos_buckling_eigen_sparse(&sasm.k_ff, &neg_kg_ff, nf, num_modes)
+            .ok_or_else(|| "Eigenvalue decomposition failed — stiffness matrix issue".to_string())?;
+        (r, nf)
+    } else {
+        let k_ff = sasm.k_ff.to_dense_symmetric();
+        let cs_ref = cs.as_ref().unwrap();
+        let k_solve = cs_ref.reduce_matrix(&k_ff);
+        let neg_kg_solve = cs_ref.reduce_matrix(&neg_kg_ff);
+        let ns = cs_ref.n_free_indep;
+        let r = solve_generalized_eigen(&neg_kg_solve, &k_solve, ns, 200)
+            .ok_or_else(|| "Eigenvalue decomposition failed — stiffness matrix issue".to_string())?;
+        (r, ns)
+    };
 
     let num_modes = num_modes.min(ns);
+    let n_converged = result.values.len();
     let mut mode_pairs: Vec<(f64, usize)> = Vec::new();
     for (idx, &mu) in result.values.iter().enumerate() {
         if mu > 1e-12 {
@@ -105,7 +114,7 @@ pub fn solve_buckling_2d(
 
     let mut modes = Vec::new();
     for &(lambda, idx) in mode_pairs.iter().take(num_modes) {
-        let phi_s: Vec<f64> = (0..ns).map(|i| result.vectors[i * ns + idx]).collect();
+        let phi_s: Vec<f64> = (0..ns).map(|i| result.vectors[i * n_converged + idx]).collect();
         let phi_f = if let Some(ref cs) = cs {
             cs.expand_solution(&phi_s)
         } else {

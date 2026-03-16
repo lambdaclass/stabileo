@@ -234,30 +234,22 @@ Roadmap home:
 
 ### Step 1 — WASM Path Reliability and Single-Solver Convergence
 
-Make Rust/WASM the trustworthy main execution path in production, fix the frontend/WASM boundary completely, and remove the TypeScript solver as a runtime backup.
+Status: core transition complete.
 
-**What:**
-- Prove deploy/build consistency between JS glue and `.wasm` — one trusted deploy path, one trusted artifact set
-- Verify production is serving the expected branch and commit
-- Harden main-thread solve, worker solve, and multi-case/combo solve paths on representative 2D and 3D models
-- Eliminate branch-specific or deploy-specific WASM traps (no more raw `unreachable` messages)
-- Add diagnostics to localize failures at the JS/WASM boundary
-- Add production solver-run artifact capture with build SHA, solver path, ordering, and diagnostics
-- Make production failures reproducible from a captured solver-run artifact
-- Define explicit deletion criteria for the TypeScript solver runtime path
-- Retire the JS solver only after the WASM path is stable end-to-end
-- **Browser-level end-to-end tests:** automated tests that exercise the actual WASM-in-browser path — JS/WASM serialization round-trips, worker communication, memory limits, and multi-case solve through the real UI entry points (not just `cargo test` natively)
-- **Cross-browser WASM smoke tests:** verify WASM path on Chrome, Firefox, and Safari — different engines have different memory limits, JIT behavior, and WASM quirks
-- **Oracle replacement plan for differential fuzz tests:** the 90 differential fuzz tests currently compare Rust vs TypeScript output. Once the TS solver is deleted, that oracle disappears. Before deletion, lock golden reference outputs from the TS solver on all 90 seeds and convert the fuzz suite to golden-file comparison. Alternatively, add a third-party solver comparison (OpenSees, Code_Aster) on a subset of cases.
+Rust/WASM is now the trusted main execution path in production and the TypeScript solver runtime path is retired. The remaining work from this transition is no longer a standalone phase; it lives in ongoing trust, verification, and diagnostics hardening below.
 
-**Done when:**
-- One named CI/deploy check verifies the built commit SHA is the one served by the app
-- Representative 2D, 3D, worker, and combo solves succeed through the browser-facing WASM entry points
-- A reproducible failure-capture path records build SHA, solver path, ordering, diagnostics, and enough state to replay locally
-- Zero known production-only WASM trap regressions open
-- The TypeScript solver runtime path is deleted and no shipped UI path imports it for solving
-- Browser-level end-to-end tests pass on at least Chrome and one other browser
-- Golden reference outputs are locked for all differential fuzz seeds before the TS solver is deleted
+**Completed:**
+- Rust/WASM is the production solve path
+- The TypeScript solver runtime path is deleted from shipped solve flows
+- Main-thread, worker, and combo solve paths run through the browser-facing WASM boundary
+- JS/WASM deploy-path issues and production import-path issues have been closed
+- Differential-fuzz retirement work has been converted away from the old TS runtime dependency
+- Browser-facing solve flows are stable enough that the roadmap can move on to design-grade extraction, diagnostics, and daily engineering workflows
+
+**Remaining spillover now tracked elsewhere:**
+- production solver-run artifact capture and replayability → Step 3
+- browser/cross-browser trust hardening → Steps 3 and 5
+- any future JS/WASM boundary regressions → Step 3 diagnostics and Step 5 verification moat
 
 ### Step 2 — Design-Grade RC Extraction Hardening
 
@@ -305,7 +297,7 @@ Make the solver easier to trust before and after a run, and make diagnostics str
 
 Turn the sparse infrastructure into a clearly dominant runtime story across all measured bottlenecks. A solver is not elite if it only works well on small clean examples.
 
-Current status: all 8 element families parallelized through a unified `AnyElement3D` work pool. Memory benchmarks show 11-22x reduction on representative 10x10 to 15x15 shell models. Criterion benchmarks cover flat-plate (up to 50x50 = 2500 quads) and mixed frame+slab models (up to 8-storey, 8x8 slab).
+Current status: AMD is already the default fill-reducing ordering, so the old "Phase 4a" ordering change is done. All 8 element families are parallelized through a unified `AnyElement3D` work pool. Memory benchmarks show 11-22x reduction on representative 10x10 to 15x15 shell models. Criterion benchmarks cover flat-plate (up to 50x50 = 2500 quads) and mixed frame+slab models (up to 8-storey, 8x8 slab). The next live work here is constraint-system maturity plus runtime/fill measurement on real workflows.
 
 **What:**
 - Measure buckling runtime on the sparse eigensolver path
