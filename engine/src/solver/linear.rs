@@ -664,18 +664,19 @@ pub fn solve_3d(input: &SolverInput3D) -> Result<AnalysisResults3D, String> {
             ).with_value(max_perturbation_val, 0.0).with_phase("factorization"));
         }
 
-        // Residual diagnostic
+        // Residual diagnostic — describes the returned solution, not any rejected attempt
+        let solver_label = if used_residual_fallback { "Dense LU fallback" } else { "Sparse Cholesky" };
         structured.push(if rel_residual < 1e-6 {
             StructuredDiagnostic::global(
                 DiagnosticCode::ResidualOk,
                 Severity::Info,
-                format!("Sparse Cholesky solver ({} free DOFs, residual {:.2e})", nf, rel_residual),
+                format!("{} ({} free DOFs, residual {:.2e})", solver_label, nf, rel_residual),
             ).with_value(rel_residual, 1e-6).with_phase("solve")
         } else {
             StructuredDiagnostic::global(
                 DiagnosticCode::ResidualHigh,
                 Severity::Warning,
-                format!("Sparse Cholesky residual {:.2e} exceeds tolerance, fell back to dense LU", rel_residual),
+                format!("{} residual {:.2e} exceeds tolerance", solver_label, rel_residual),
             ).with_value(rel_residual, 1e-6).with_phase("solve")
         });
 
