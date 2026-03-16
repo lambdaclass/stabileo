@@ -33,13 +33,13 @@ What we have that OpenSees/Code_Aster/CalculiX/SAP2000/ETABS will never have:
 Dedaliano should win in this order:
 
 1. structural solver trust
-2. code checks, design modules, and first automation surfaces
+2. code checks, steel/RC design workflows, and first automation surfaces
 3. automatic load generation and code-driven combinations
 4. reports and documentation
 5. diagnostics, review workflows, and AI-assisted guidance
 6. lightweight collaboration and shareable review flows
 7. dynamic analysis and nonlinear materials (what OpenSees is famous for)
-8. connections and foundations
+8. foundations and deeper connection/detail workflows
 9. construction staging, fire, progressive collapse
 10. seismic engineering workflow (end-to-end)
 11. interoperability and BIM-connected workflows
@@ -54,7 +54,7 @@ That matches how structural firms buy software:
 ROI order for users:
 1. stable analysis they can trust
 2. automation that removes repetitive hand-work immediately
-3. design outputs they can use daily
+3. steel/RC design outputs they can use daily
 4. reports and deliverables they can issue
 5. diagnostics, review, and guidance that reduce failure/debug time
 6. lightweight collaboration that makes review and sharing easier
@@ -172,15 +172,19 @@ Commercially, the most important catch-up gap is also the clearest wedge in Lati
    What it should become: suggest viable and optimal sections given forces, code, cost, and constructability
    Roadmap home: Product Step 2
 
-5. `RC reinforcement design`
+5. `Steel member and connection design`
+   What it should become: automatic steel member checks, connection demand extraction, first connection sizing/check workflows, and report-ready design outputs
+   Roadmap home: Product Steps 1-2
+
+6. `RC reinforcement design`
    What it should become: required steel -> selected bars -> curtailment -> cutting lists -> BBS
    Roadmap home: Product Steps 1-2
 
-6. `Report generation`
+7. `Report generation`
    What it should become: one-click PDF with diagrams, checks, diagnostics, governing cases, and assumptions
    Roadmap home: Product Step 2
 
-7. `Interpretation of dynamic results`
+8. `Interpretation of dynamic results`
    What it should become: automatic flags for soft story, torsional irregularity, mass participation, dominant modes, and suspicious response patterns
    Roadmap home: Product Step 3
 
@@ -334,6 +338,7 @@ Build trust through a reliable, accessible structural solver with strong diagnos
 - Public verification surface — benchmark explorer, acceptance models, reference cases, and visible trust signals in the app
 - Automatic code-driven load combinations and factors
 - Automatic load generation for the first high-value codes and workflows
+- Steel member design foundations — member utilization, governing steel checks, connection-ready end-force extraction, and first report-ready steel design surfaces
 - RC beam design and reinforcement schedule (envelopes, required steel, selected bars, stirrups, schedule-ready output)
 - Automatic member utilization ratios and pass/fail summaries
 - AI-assisted section suggestion from utilization, code, and basic economy signals
@@ -352,9 +357,9 @@ Build trust through a reliable, accessible structural solver with strong diagnos
 - Public benchmark and acceptance-model presentation
 - Performance feedback in the UI — progress bars, iteration counts, slow-phase visibility
 
-**Goal:** Be the most accessible serious structural solver for everyday structural engineering, while already automating the first repetitive design tasks engineers do after analysis.
+**Goal:** Be the most accessible serious structural solver for everyday structural engineering, while already automating the first repetitive steel and RC design tasks engineers do after analysis.
 
-**Done when:** An engineer can model a structure in the browser, pass pre-solve quality gates, get trustworthy results with visible verification/trust signals and structured diagnostics, auto-generate the first code combinations and design checks, produce an RC beam schedule, and share a read-only link with a reviewer.
+**Done when:** An engineer can model a structure in the browser, pass pre-solve quality gates, get trustworthy results with visible verification/trust signals and structured diagnostics, auto-generate the first code combinations and design checks, produce a first steel member design result and an RC beam schedule, and share a read-only link with a reviewer.
 
 ### 2. Deliverable Layer
 
@@ -364,6 +369,7 @@ Turn analysis into paid engineering work with design checks, reports, and intero
 - Graphical BBS drawing generation — bending-shape drawings, dimensions, hook semantics
 - Multi-code design check UI — EC2, EC3, ACI 318, AISC 360, NDS, TMS 402, AISI S100 wired to unified code-selector with per-member utilization ratios
 - Automatic code load generation — wind, snow, seismic ELF, pattern loading, accidental torsion from code/site inputs
+- Steel connection design workflow — first connection library, sizing/check flow, governing demand packaging, and report-ready outputs
 - Connections and foundations productization — auto-sizing and detail generation
 - Reports and calculation packages — PDF with LaTeX equations, project info, design checks, diagrams
 - Interoperability — full IFC import/export, DXF 3D
@@ -374,11 +380,12 @@ Turn analysis into paid engineering work with design checks, reports, and intero
 - AI-powered code-check explanation — explain why a member fails and what parameter drives the failure
 - AI-generated governing-case/report summaries — explain which combinations control and why, ready for report output and reviewer consumption
 - AI reinforcement/design adjustment suggestions — explain likely bar/section changes that would clear a failing check
+- Explicit steel design wedge for daily building/industrial workflows — member checks first, then connection design and report outputs
 - Explicit RC/BBS wedge for LATAM delivery workflows — schedules, drawings, and report outputs that directly close the CYPECAD-style project-delivery gap
 
 **Goal:** Move from "can analyze" to "can support paid engineering work." Automation handles more of the repetitive design and reporting layer so engineers spend more time on judgment.
 
-**Done when:** An engineer can run a design check against their national code, generate a submission-grade PDF report, import/export IFC, and ask the app questions about results in plain language.
+**Done when:** An engineer can run steel and RC design checks against their national code, complete a first steel connection design workflow, generate a submission-grade PDF report, import/export IFC, and ask the app questions about results in plain language.
 
 ### 3. Dynamic and Nonlinear Layer
 
