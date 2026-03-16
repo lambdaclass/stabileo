@@ -5,6 +5,8 @@ use std::collections::HashMap;
 use super::diagrams::compute_diagram_value_at;
 use super::diagrams_3d::evaluate_diagram_3d_at;
 
+fn default_schema_version() -> u32 { 1 }
+
 // ==================== Sign Convention Metadata ====================
 
 /// Describes the local-axis and sign conventions used for station forces.
@@ -186,6 +188,16 @@ pub struct BeamStation {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct BeamStationResult {
+    /// Schema version for payload evolution safety.
+    ///
+    /// # Evolution rules
+    /// - Adding new Optional fields: does NOT bump version (backwards compatible)
+    /// - Removing fields, renaming fields, changing types: MUST bump version
+    /// - Downstream consumers should check `schema_version` and handle unknown versions gracefully
+    /// - Version history:
+    ///   - v1: initial stable schema (2026-03-16)
+    #[serde(default = "default_schema_version")]
+    pub schema_version: u32,
     pub stations: Vec<BeamStation>,
     pub num_members: usize,
     pub num_combinations: usize,
@@ -262,6 +274,8 @@ pub struct BeamStationInput3D {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct BeamStationResult3D {
+    #[serde(default = "default_schema_version")]
+    pub schema_version: u32,
     pub stations: Vec<BeamStation3D>,
     pub num_members: usize,
     pub num_combinations: usize,
@@ -346,6 +360,7 @@ pub fn extract_beam_stations(input: &BeamStationInput) -> BeamStationResult {
     }
 
     BeamStationResult {
+        schema_version: 1,
         stations,
         num_members: input.members.len(),
         num_combinations: input.combinations.len(),
@@ -443,6 +458,7 @@ pub fn extract_beam_stations_3d(input: &BeamStationInput3D) -> BeamStationResult
     }
 
     BeamStationResult3D {
+        schema_version: 1,
         stations,
         num_members: input.members.len(),
         num_combinations: input.combinations.len(),
@@ -512,6 +528,8 @@ pub struct MemberStationGroup {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct GroupedBeamStationResult {
+    #[serde(default = "default_schema_version")]
+    pub schema_version: u32,
     pub members: Vec<MemberStationGroup>,
     pub num_combinations: usize,
     pub num_stations_per_member: usize,
@@ -534,6 +552,8 @@ pub struct MemberStationGroup3D {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct GroupedBeamStationResult3D {
+    #[serde(default = "default_schema_version")]
+    pub schema_version: u32,
     pub members: Vec<MemberStationGroup3D>,
     pub num_combinations: usize,
     pub num_stations_per_member: usize,
@@ -624,6 +644,7 @@ pub fn group_by_member(flat: &BeamStationResult, members: &[BeamMemberInfo]) -> 
     }
 
     GroupedBeamStationResult {
+        schema_version: 1,
         members: groups,
         num_combinations: flat.num_combinations,
         num_stations_per_member: flat.num_stations_per_member,
@@ -675,6 +696,7 @@ pub fn group_by_member_3d(flat: &BeamStationResult3D, members: &[BeamMemberInfo]
     }
 
     GroupedBeamStationResult3D {
+        schema_version: 1,
         members: groups,
         num_combinations: flat.num_combinations,
         num_stations_per_member: flat.num_stations_per_member,

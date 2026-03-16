@@ -246,6 +246,7 @@ mod tests {
     #[test]
     fn extract_steel_demands_2d_produces_correct_output() {
         let grouped = GroupedBeamStationResult {
+            schema_version: 1,
             members: vec![MemberStationGroup {
                 member_id: 1,
                 label: None,
@@ -277,6 +278,7 @@ mod tests {
     #[test]
     fn extract_rc_demands_3d_uses_mz_as_mu() {
         let grouped = GroupedBeamStationResult3D {
+            schema_version: 1,
             members: vec![MemberStationGroup3D {
                 member_id: 1,
                 label: None,
