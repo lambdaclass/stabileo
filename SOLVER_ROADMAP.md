@@ -9,10 +9,10 @@ For the deeper solver safety and validation hardening architecture behind the ne
 
 ## Where We Are
 
-Sparse direct solver, deterministic assembly, multi-family shell stack (MITC4+EAS-7, MITC9, SHB8-ANS, curved shell), sparse eigensolver paths for modal/buckling/harmonic, beam station extraction for RC design, Modified Newton-Raphson, the WASM production path, TypeScript solver retirement, AMD default ordering, and sparse 2D/3D buckling are all done. See `BENCHMARKS.md` for the full snapshot and measured benchmark data.
+Sparse direct solver, deterministic assembly, multi-family shell stack (MITC4+EAS-7, MITC9, SHB8-ANS, curved shell), sparse eigensolver paths for modal/buckling/harmonic, beam station extraction for RC design, grouped/member-level 3D extraction, design-demand bridging for RC/steel checks, Modified Newton-Raphson, the WASM production path, TypeScript solver retirement, AMD default ordering, sparse 2D/3D buckling, sparse 3D reduction block extraction, and the first sparse buckling runtime gate are all done. See `BENCHMARKS.md` for the full snapshot and measured benchmark data.
 
 The live near-term blockers are now:
-- design-grade extraction hardening for downstream RC/steel workflows
+- final design-grade extraction contract hardening for downstream RC/steel workflows
 - constraint-system maturity and sparse/runtime hardening on real workflows
 - structured diagnostics, query-ready results, and automation-ready contracts
 
@@ -21,7 +21,7 @@ The live near-term blockers are now:
 Before broadening the solver into more design-code and advanced-analysis depth, the following fixes should land as soon as possible because they affect trust in the current validation and delivery path:
 
 1. `Eliminate false-green tests` — missing fixtures in differential/property parity tests must fail loudly or be reported as intentionally ignored, not pass silently without assertions.
-2. `Finish 3D extraction hardening` — add 3D integration coverage and payload contract/snapshot protection for beam-station and steel-demand extraction so downstream design workflows are not built on fragile result shapes.
+2. `Finish the last extraction hardening gaps` — the 3D solve→stations→demands bridge is in place, but payload evolution rules and downstream contract discipline still need to be locked down.
 3. `Strengthen test oracles` — improve equilibrium checks to cover distributed loads and moment balance, and tighten tolerance policy so regression tests are not looser than the value of the signal they protect.
 4. `Move wall-clock timing checks out of normal pass/fail tests` — timing-sensitive sparse-vs-dense assertions should live in benchmarks, explicit gates, or ignored perf suites rather than flaky default test runs.
 5. `Close current sparse reduction/runtime gaps` — remove avoidable densification in reduction workflows, add buckling runtime/fill gates on the new sparse paths, and enforce no-`k_full`-overbuild expectations where applicable.
@@ -272,19 +272,18 @@ Rust/WASM is now the trusted main execution path in production and the TypeScrip
 
 ### Step 2 — Design-Grade RC Extraction Hardening
 
-Finish beam station extraction for RC design workflows. Most of this is done; close the remaining gaps.
+The core extraction bridge is now in place: 2D/3D beam stations, grouped-by-member summaries, 3D solve→extraction tests, stable JSON field-name checks, and the first solve→stations→demands→steel-check pipeline all exist. The remaining work is to harden contracts and downstream evolution rules so product automation can safely build on top of them.
 
 **What:**
-- Deepen 3D integration test coverage (currently 2D-only in integration tests)
 - Add design-ready metadata for cover assumptions and bar schedules once RC design integration begins
-- Add contract/snapshot tests protecting the serialized payload shape
+- Keep contract/snapshot tests protecting the serialized payload shape as the payload evolves
 - Add versioned or evolution-safe result contracts for downstream consumers
 - Ensure governing outputs never emit phantom combos or sentinel infinities
 - Extend the same design-grade contract discipline to non-RC member demand extraction so steel/code-check workflows do not rebuild semantics from raw forces
-- Add explicit solve-to-extraction regression cases for representative 3D RC and steel fixtures so product workflows do not depend on ad hoc UI reconstruction
+- Add more representative solve-to-extraction regression fixtures for RC and steel workflows so product code does not drift back toward ad hoc UI reconstruction
 
 **Done when:**
-- 2D and 3D integration tests exercise full solve-to-extraction paths
+- 2D and 3D integration tests continue to exercise full solve-to-extraction paths
 - Contract/snapshot tests protect the serialized station payload shape
 - Product code can consume station data without reconstructing solver semantics from raw arrays
 - Payload/schema evolution rules are documented and enforced by tests
@@ -319,14 +318,12 @@ Make the solver easier to trust before and after a run, and make diagnostics str
 
 Turn the sparse infrastructure into a clearly dominant runtime story across all measured bottlenecks. A solver is not elite if it only works well on small clean examples.
 
-Current status: AMD is already the default fill-reducing ordering, so the old "Phase 4a" ordering change is done. All 8 element families are parallelized through a unified `AnyElement3D` work pool. Memory benchmarks show 11-22x reduction on representative 10x10 to 15x15 shell models. Criterion benchmarks cover flat-plate (up to 50x50 = 2500 quads) and mixed frame+slab models (up to 8-storey, 8x8 slab). The next live work here is constraint-system maturity plus runtime/fill measurement on real workflows.
+Current status: AMD is already the default fill-reducing ordering, so the old "Phase 4a" ordering change is done. All 8 element families are parallelized through a unified `AnyElement3D` work pool. Memory benchmarks show 11-22x reduction on representative 10x10 to 15x15 shell models. Criterion benchmarks cover flat-plate (up to 50x50 = 2500 quads) and mixed frame+slab models (up to 8-storey, 8x8 slab). Sparse 3D Guyan/Craig-Bampton no-constraint paths now extract `K_bb/K_bi/K_ib/K_ii` directly from sparse `K_ff`, Guyan reaction recovery extracts `K_rf` directly from sparse `k_full`, and a 10x10 plate sparse buckling runtime gate is in place. The next live work here is constraint-system maturity plus broader runtime/fill measurement on real workflows.
 
 **What:**
-- Measure buckling runtime on the sparse eigensolver path
 - Measure Guyan and Craig-Bampton runtime after factorization reuse
 - Measure remaining harmonic bottlenecks after modal-response acceleration
 - Deepen sparse eigensolver integration in reduction workflows — reduction internals should not densify `K_ff` unnecessarily
-- Push sparse deeper into reduction internals instead of converting `K_ff` back to dense where avoidable (eliminate `assemble_sparse_3d() + to_dense_symmetric()` pattern)
 - Add broader sparse shift-invert support
 - Add runtime gates for modal, buckling, harmonic, Guyan, and Craig-Bampton
 - Add no-`k_full`-overbuild gates everywhere they apply
@@ -345,7 +342,7 @@ Current status: AMD is already the default fill-reducing ordering, so the old "P
 - Release-mode sparse smoke coverage
 - `parallel`-feature smoke coverage
 - Doctest coverage
-- What still needs more testing: buckling runtime/fill gates on new sparse path, harmonic/reduction workflow runtime gates, no-`k_full`-overbuild expectations in every workflow that should build only `k_ff`, broader mixed shell + nonlinear acceptance models, broader contact + nonlinear + staging acceptance models, more invariant/property/fuzz coverage around sparse eigensolver and reduction paths
+- What still needs more testing: broader buckling runtime/fill coverage beyond the first sparse gate, harmonic/reduction workflow runtime gates, no-`k_full`-overbuild expectations in every workflow that should build only `k_ff`, broader mixed shell + nonlinear acceptance models, broader contact + nonlinear + staging acceptance models, more invariant/property/fuzz coverage around sparse eigensolver and reduction paths
 
 **Done when:**
 - Runtime tables exist for modal, buckling, harmonic, Guyan, and Craig-Bampton on representative models
@@ -734,33 +731,34 @@ Solver scales to city/portfolio-level analysis and supports climate-driven scena
 5. Deepen sparse eigensolver integration in reduction workflows
 6. Fix the Lanczos tridiagonal eigensolver properly everywhere it still falls back
 7. Add broader sparse shift-invert support
-8. Add runtime gates for modal, buckling, harmonic, Guyan, and Craig-Bampton
-9. Add no-`k_full`-overbuild gates everywhere they apply
-10. Add stronger fill-ratio and determinism gates on the sparse path
-11. Expand sparse/dense residual-parity coverage on harder shell and mixed models
-12. Harden mixed shell + nonlinear workflows
-13. Harden contact + nonlinear + staging workflows
-14. Add iterative refinement before any remaining expensive fallback path
-15. Add `PCG` with `Jacobi` preconditioning
-16. Add stronger preconditioners like `IC(0)` / `SSOR` if justified by measurements
-17. Implement shell-family automatic selection in the solver/model layer
-18. Add layered / laminated shell workflows
-19. Add axisymmetric workflows
-20. Deepen nonlinear / corotational shell workflows
-21. Add quasi-Newton methods such as `BFGS`, `L-BFGS`, and `Broyden`
-22. Add `GMRES` / `MINRES` for indefinite systems
-23. Add block eigensolvers such as `LOBPCG` / block Lanczos
-24. Deepen layered/composite shell constitutive behavior
-25. Add richer prestress tendon / relaxation workflows
-26. Add bridge-specific staged / moving-load workflow depth
-27. Add production solver-run artifact capture with build SHA, solver path, ordering, and diagnostics
-28. Add deterministic repro-bundle export for production failures
-29. Add versioned / contract-tested public solver payloads
-30. Add workflow-level timing and browser memory baselines, not only kernel microbenchmarks
-31. Add explicit TypeScript-solver deletion checklist and migration gates
-32. Add native / server execution parity and batch-run coverage
-33. Add pre-solve model quality gates for instability risk, duplicate nodes, bad constraints, and shell distortion risk
-34. Add result audit summaries: equilibrium, residual, conditioning, and governing provenance
+8. Add runtime gates for modal, harmonic, Guyan, and Craig-Bampton
+9. Broaden buckling runtime/fill gates beyond the first sparse plate gate
+10. Add no-`k_full`-overbuild gates everywhere they apply
+11. Add stronger fill-ratio and determinism gates on the sparse path
+12. Expand sparse/dense residual-parity coverage on harder shell and mixed models
+13. Harden mixed shell + nonlinear workflows
+14. Harden contact + nonlinear + staging workflows
+15. Add iterative refinement before any remaining expensive fallback path
+16. Add `PCG` with `Jacobi` preconditioning
+17. Add stronger preconditioners like `IC(0)` / `SSOR` if justified by measurements
+18. Implement shell-family automatic selection in the solver/model layer
+19. Add layered / laminated shell workflows
+20. Add axisymmetric workflows
+21. Deepen nonlinear / corotational shell workflows
+22. Add quasi-Newton methods such as `BFGS`, `L-BFGS`, and `Broyden`
+23. Add `GMRES` / `MINRES` for indefinite systems
+24. Add block eigensolvers such as `LOBPCG` / block Lanczos
+25. Deepen layered/composite shell constitutive behavior
+26. Add richer prestress tendon / relaxation workflows
+27. Add bridge-specific staged / moving-load workflow depth
+28. Add production solver-run artifact capture with build SHA, solver path, ordering, and diagnostics
+29. Add deterministic repro-bundle export for production failures
+30. Add versioned / contract-tested public solver payloads
+31. Add workflow-level timing and browser memory baselines, not only kernel microbenchmarks
+32. Add explicit TypeScript-solver deletion checklist and migration gates
+33. Add native / server execution parity and batch-run coverage
+34. Add pre-solve model quality gates for instability risk, duplicate nodes, bad constraints, and shell distortion risk
+35. Add result audit summaries: equilibrium, residual, conditioning, and governing provenance
 35. Add browser-level end-to-end tests exercising the actual WASM-in-browser path (serialization, workers, memory limits)
 36. Add cross-browser WASM smoke tests (Chrome, Firefox, Safari)
 37. Lock golden reference outputs from TS solver on all 90 differential fuzz seeds before TS deletion
