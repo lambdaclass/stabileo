@@ -1737,7 +1737,15 @@ export function generateSuspensionBridge3D(store: ModelStore, p: SuspensionBridg
   store.model.name = t('ex.suspensionBridge3D');
 
   store.batch(() => {
-    // Section 1: Main cable (big cable bundle)
+    // Material 2: High-strength cable wire (fy=1600 MPa, E=200 GPa)
+    const cableMatId = store.addMaterial({
+      name: 'Cable wire 1600',
+      e: 200_000,
+      poisson: 0.3,
+      density: 78.5,
+    });
+
+    // Section 1: Main cable bundle — d≈160mm, A=0.020 m² (HS wire: σ=H/A≈1024 MPa < 1600)
     store.updateSection(1, {
       name: 'Main Cable',
       a: 0.020,
@@ -1747,28 +1755,38 @@ export function generateSuspensionBridge3D(store: ModelStore, p: SuspensionBridg
       h: 0.16,
       b: 0.16,
     });
-    // Section 2: Deck chord IPE 450
+    // Section 2: Deck chord — HEB 800 (stiffening truss chord for long-span bridge)
     const deckSecId = store.addSection({
-      name: 'IPE 450',
-      a: 0.00988,
-      iy: 0.00033740,
-      iz: 0.00001676,
-      j: 0.000000669,
-      h: 0.45,
-      b: 0.19,
+      name: 'HEB 800',
+      a: 0.03342,
+      iy: 0.003591,
+      iz: 0.000149,
+      j: 0.00000318,
+      h: 0.80,
+      b: 0.30,
       shape: 'I',
-      tw: 0.0094,
-      tf: 0.0146,
+      tw: 0.0175,
+      tf: 0.033,
     });
-    // Section 3: Hanger/lateral L 80x80x8
+    // Section 3: Hanger — CHS 88.9×6.3 (HS wire)
     const hangerSecId = store.addSection({
-      name: 'L 80×80×8',
-      a: 0.00123,
-      iy: 0.0000008,
-      iz: 0.0000008,
-      j: 0.00000002,
-      h: 0.08,
-      b: 0.08,
+      name: 'CHS 88.9×6.3',
+      a: 0.001634,
+      iy: 0.000001215,
+      iz: 0.000001215,
+      j: 0.000002430,
+      h: 0.0889,
+      b: 0.0889,
+    });
+    // Section 4: Deck bracing — CHS 168.3×10 (S235)
+    const bracingSecId = store.addSection({
+      name: 'CHS 168.3×10',
+      a: 0.00497,
+      iy: 0.0000181,
+      iz: 0.0000181,
+      j: 0.0000362,
+      h: 0.1683,
+      b: 0.1683,
     });
 
     const hw = p.deckWidth / 2;
@@ -1839,43 +1857,43 @@ export function generateSuspensionBridge3D(store: ModelStore, p: SuspensionBridg
       }
     }
 
-    // Cross beams + verticals + diagonals at every panel point (section 3 = L 80×80×8)
+    // Cross beams + verticals + diagonals at every panel point (section 4 = CHS 168.3×10)
     for (let i = 0; i < allX.length; i++) {
       // Cross beams at deck and lower chord
       const cb1 = store.addElement(upperL[i], upperR[i], 'frame');
-      store.updateElementSection(cb1, hangerSecId);
+      store.updateElementSection(cb1, bracingSecId);
       const cb2 = store.addElement(lowerL[i], lowerR[i], 'frame');
-      store.updateElementSection(cb2, hangerSecId);
+      store.updateElementSection(cb2, bracingSecId);
       // Verticals connecting upper to lower chord
       const v1 = store.addElement(upperL[i], lowerL[i], 'frame');
-      store.updateElementSection(v1, hangerSecId);
+      store.updateElementSection(v1, bracingSecId);
       const v2 = store.addElement(upperR[i], lowerR[i], 'frame');
-      store.updateElementSection(v2, hangerSecId);
+      store.updateElementSection(v2, bracingSecId);
     }
 
-    // Warren diagonals in stiffening truss (both sides) (section 3 = L 80×80×8)
+    // Warren diagonals in stiffening truss (both sides) (section 4 = CHS 168.3×10)
     for (let i = 0; i < totalPanels; i++) {
       if (i % 2 === 0) {
         const d1 = store.addElement(upperL[i], lowerL[i + 1], 'frame');
-        store.updateElementSection(d1, hangerSecId);
+        store.updateElementSection(d1, bracingSecId);
         const d2 = store.addElement(upperR[i], lowerR[i + 1], 'frame');
-        store.updateElementSection(d2, hangerSecId);
+        store.updateElementSection(d2, bracingSecId);
       } else {
         const d1 = store.addElement(lowerL[i], upperL[i + 1], 'frame');
-        store.updateElementSection(d1, hangerSecId);
+        store.updateElementSection(d1, bracingSecId);
         const d2 = store.addElement(lowerR[i], upperR[i + 1], 'frame');
-        store.updateElementSection(d2, hangerSecId);
+        store.updateElementSection(d2, bracingSecId);
       }
     }
 
-    // Horizontal wind bracing on lower chord plane (section 3 = L 80×80×8)
+    // Horizontal wind bracing on lower chord plane (section 4 = CHS 168.3×10)
     for (let i = 0; i < totalPanels; i++) {
       if (i % 2 === 0) {
         const wb = store.addElement(lowerL[i], lowerR[i + 1], 'frame');
-        store.updateElementSection(wb, hangerSecId);
+        store.updateElementSection(wb, bracingSecId);
       } else {
         const wb = store.addElement(lowerR[i], lowerL[i + 1], 'frame');
-        store.updateElementSection(wb, hangerSecId);
+        store.updateElementSection(wb, bracingSecId);
       }
     }
 
@@ -1912,16 +1930,16 @@ export function generateSuspensionBridge3D(store: ModelStore, p: SuspensionBridg
       store.updateElementSection(store.addElement(mR, pR, 'frame'), deckSecId);
       store.updateElementSection(store.addElement(pR, tR, 'frame'), deckSecId);
 
-      // Cross beams (section 3 = L 80×80×8)
-      store.updateElementSection(store.addElement(mL, mR, 'frame'), hangerSecId);
-      store.updateElementSection(store.addElement(pL, pR, 'frame'), hangerSecId);
-      store.updateElementSection(store.addElement(tL, tR, 'frame'), hangerSecId);
+      // Cross beams (section 4 = CHS 168.3×10)
+      store.updateElementSection(store.addElement(mL, mR, 'frame'), bracingSecId);
+      store.updateElementSection(store.addElement(pL, pR, 'frame'), bracingSecId);
+      store.updateElementSection(store.addElement(tL, tR, 'frame'), bracingSecId);
 
-      // K-bracing between cross beams for stiffness (section 3 = L 80×80×8)
-      store.updateElementSection(store.addElement(mL, pR, 'frame'), hangerSecId);
-      store.updateElementSection(store.addElement(mR, pL, 'frame'), hangerSecId);
-      store.updateElementSection(store.addElement(pL, tR, 'frame'), hangerSecId);
-      store.updateElementSection(store.addElement(pR, tL, 'frame'), hangerSecId);
+      // K-bracing between cross beams for stiffness (section 4 = CHS 168.3×10)
+      store.updateElementSection(store.addElement(mL, pR, 'frame'), bracingSecId);
+      store.updateElementSection(store.addElement(mR, pL, 'frame'), bracingSecId);
+      store.updateElementSection(store.addElement(pL, tR, 'frame'), bracingSecId);
+      store.updateElementSection(store.addElement(pR, tL, 'frame'), bracingSecId);
 
       // Connect tower base to deck (section 2 = IPE 450)
       store.updateElementSection(store.addElement(bL, upperL[deckIdx], 'frame'), deckSecId);
@@ -1960,17 +1978,23 @@ export function generateSuspensionBridge3D(store: ModelStore, p: SuspensionBridg
       }
     }
 
-    // Cable longitudinal elements
+    // Cable longitudinal elements (HS cable wire material)
     for (let i = 0; i < nMain; i++) {
-      store.addElement(mainCableL[i], mainCableL[i + 1], 'frame');
-      store.addElement(mainCableR[i], mainCableR[i + 1], 'frame');
+      const cL = store.addElement(mainCableL[i], mainCableL[i + 1], 'frame');
+      store.updateElementMaterial(cL, cableMatId);
+      const cR = store.addElement(mainCableR[i], mainCableR[i + 1], 'frame');
+      store.updateElementMaterial(cR, cableMatId);
     }
 
-    // Vertical hangers from cable to deck (skip tower positions) (section 3 = L 80×80×8)
+    // Vertical hangers from cable to deck (skip tower positions) (section 3 = CHS 88.9×6.3, HS wire)
     for (let i = 1; i < nMain; i++) {
       const deckIdx = towerIdx1 + i;
-      store.updateElementSection(store.addElement(mainCableL[i], upperL[deckIdx], 'frame'), hangerSecId);
-      store.updateElementSection(store.addElement(mainCableR[i], upperR[deckIdx], 'frame'), hangerSecId);
+      const hL = store.addElement(mainCableL[i], upperL[deckIdx], 'frame');
+      store.updateElementSection(hL, hangerSecId);
+      store.updateElementMaterial(hL, cableMatId);
+      const hR = store.addElement(mainCableR[i], upperR[deckIdx], 'frame');
+      store.updateElementSection(hR, hangerSecId);
+      store.updateElementMaterial(hR, cableMatId);
     }
 
     // ── Side span cables (straight from tower top to anchorage) ──
@@ -1994,13 +2018,19 @@ export function generateSuspensionBridge3D(store: ModelStore, p: SuspensionBridg
     sideCableNodesL_R.push(tower1.topR);
 
     for (let i = 0; i < nSide; i++) {
-      store.addElement(sideCableNodesL_L[i], sideCableNodesL_L[i + 1], 'frame');
-      store.addElement(sideCableNodesL_R[i], sideCableNodesL_R[i + 1], 'frame');
+      const cL = store.addElement(sideCableNodesL_L[i], sideCableNodesL_L[i + 1], 'frame');
+      store.updateElementMaterial(cL, cableMatId);
+      const cR = store.addElement(sideCableNodesL_R[i], sideCableNodesL_R[i + 1], 'frame');
+      store.updateElementMaterial(cR, cableMatId);
     }
-    // Hangers on left side span (section 3 = L 80×80×8)
+    // Hangers on left side span (section 3 = CHS 88.9×6.3, HS wire)
     for (let i = 1; i < nSide; i++) {
-      store.updateElementSection(store.addElement(sideCableNodesL_L[i], upperL[i], 'frame'), hangerSecId);
-      store.updateElementSection(store.addElement(sideCableNodesL_R[i], upperR[i], 'frame'), hangerSecId);
+      const hL = store.addElement(sideCableNodesL_L[i], upperL[i], 'frame');
+      store.updateElementSection(hL, hangerSecId);
+      store.updateElementMaterial(hL, cableMatId);
+      const hR = store.addElement(sideCableNodesL_R[i], upperR[i], 'frame');
+      store.updateElementSection(hR, hangerSecId);
+      store.updateElementMaterial(hR, cableMatId);
     }
 
     // Right side: from tower2 top to anchor (x=totalLen)
@@ -2022,14 +2052,20 @@ export function generateSuspensionBridge3D(store: ModelStore, p: SuspensionBridg
     sideCableNodesR_R.push(anchorRR);
 
     for (let i = 0; i < nSide; i++) {
-      store.addElement(sideCableNodesR_L[i], sideCableNodesR_L[i + 1], 'frame');
-      store.addElement(sideCableNodesR_R[i], sideCableNodesR_R[i + 1], 'frame');
+      const cL = store.addElement(sideCableNodesR_L[i], sideCableNodesR_L[i + 1], 'frame');
+      store.updateElementMaterial(cL, cableMatId);
+      const cR = store.addElement(sideCableNodesR_R[i], sideCableNodesR_R[i + 1], 'frame');
+      store.updateElementMaterial(cR, cableMatId);
     }
-    // Hangers on right side span (section 3 = L 80×80×8)
+    // Hangers on right side span (section 3 = CHS 88.9×6.3, HS wire)
     for (let i = 1; i < nSide; i++) {
       const deckIdx = towerIdx2 + i;
-      store.updateElementSection(store.addElement(sideCableNodesR_L[i], upperL[deckIdx], 'frame'), hangerSecId);
-      store.updateElementSection(store.addElement(sideCableNodesR_R[i], upperR[deckIdx], 'frame'), hangerSecId);
+      const hL = store.addElement(sideCableNodesR_L[i], upperL[deckIdx], 'frame');
+      store.updateElementSection(hL, hangerSecId);
+      store.updateElementMaterial(hL, cableMatId);
+      const hR = store.addElement(sideCableNodesR_R[i], upperR[deckIdx], 'frame');
+      store.updateElementSection(hR, hangerSecId);
+      store.updateElementMaterial(hR, cableMatId);
     }
 
     // ── Abutment supports (pinned — allow thermal expansion) ──
@@ -2087,7 +2123,14 @@ export function generateCableStayedBridge3D(store: ModelStore, p: CableStayedBri
       tw: 0.0086,
       tf: 0.0135,
     });
-    // Section 3: Stay cable
+    // Material 2: High-strength cable wire (fy=1600 MPa, E=200 GPa)
+    const cableMatId = store.addMaterial({
+      name: 'Cable wire 1600',
+      e: 200_000,
+      poisson: 0.3,
+      density: 78.5,
+    });
+    // Section 3: Stay cable (HS wire)
     const cableSecId = store.addSection({
       name: 'Stay Cable',
       a: 0.005,
@@ -2176,9 +2219,13 @@ export function generateCableStayedBridge3D(store: ModelStore, p: CableStayedBri
       // Connect anchors into pylon shaft
       store.addElement(anchL, pylonTopL, 'frame');
       store.addElement(anchR, pylonTopR, 'frame');
-      // Cables from anchors to deck (section 3 = Stay Cable)
-      store.updateElementSection(store.addElement(anchL, left[deckIdx], 'truss'), cableSecId);
-      store.updateElementSection(store.addElement(anchR, right[deckIdx], 'truss'), cableSecId);
+      // Cables from anchors to deck (section 3 = Stay Cable, HS wire)
+      const stL = store.addElement(anchL, left[deckIdx], 'truss');
+      store.updateElementSection(stL, cableSecId);
+      store.updateElementMaterial(stL, cableMatId);
+      const stR = store.addElement(anchR, right[deckIdx], 'truss');
+      store.updateElementSection(stR, cableSecId);
+      store.updateElementMaterial(stR, cableMatId);
     };
 
     for (let c = 1; c <= nCables; c++) {

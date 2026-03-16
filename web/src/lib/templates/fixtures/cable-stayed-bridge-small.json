@@ -8,6 +8,13 @@
       "nu": 0.3,
       "rho": 78.5,
       "fy": 250
+    },
+    {
+      "id": 2,
+      "name": "Cable wire 1600",
+      "e": 200000,
+      "poisson": 0.3,
+      "density": 78.5
     }
   ],
   "sections": [
@@ -882,7 +889,7 @@
       "type": "truss",
       "nodeI": 35,
       "nodeJ": 11,
-      "materialId": 1,
+      "materialId": 2,
       "sectionId": 3,
       "hingeStart": false,
       "hingeEnd": false
@@ -892,7 +899,7 @@
       "type": "truss",
       "nodeI": 36,
       "nodeJ": 12,
-      "materialId": 1,
+      "materialId": 2,
       "sectionId": 3,
       "hingeStart": false,
       "hingeEnd": false
@@ -922,7 +929,7 @@
       "type": "truss",
       "nodeI": 37,
       "nodeJ": 3,
-      "materialId": 1,
+      "materialId": 2,
       "sectionId": 3,
       "hingeStart": false,
       "hingeEnd": false
@@ -932,7 +939,7 @@
       "type": "truss",
       "nodeI": 38,
       "nodeJ": 4,
-      "materialId": 1,
+      "materialId": 2,
       "sectionId": 3,
       "hingeStart": false,
       "hingeEnd": false
@@ -962,7 +969,7 @@
       "type": "truss",
       "nodeI": 39,
       "nodeJ": 15,
-      "materialId": 1,
+      "materialId": 2,
       "sectionId": 3,
       "hingeStart": false,
       "hingeEnd": false
@@ -972,7 +979,7 @@
       "type": "truss",
       "nodeI": 40,
       "nodeJ": 16,
-      "materialId": 1,
+      "materialId": 2,
       "sectionId": 3,
       "hingeStart": false,
       "hingeEnd": false
@@ -1002,7 +1009,7 @@
       "type": "truss",
       "nodeI": 41,
       "nodeJ": 23,
-      "materialId": 1,
+      "materialId": 2,
       "sectionId": 3,
       "hingeStart": false,
       "hingeEnd": false
@@ -1012,7 +1019,7 @@
       "type": "truss",
       "nodeI": 42,
       "nodeJ": 24,
-      "materialId": 1,
+      "materialId": 2,
       "sectionId": 3,
       "hingeStart": false,
       "hingeEnd": false
@@ -1042,7 +1049,7 @@
       "type": "truss",
       "nodeI": 43,
       "nodeJ": 15,
-      "materialId": 1,
+      "materialId": 2,
       "sectionId": 3,
       "hingeStart": false,
       "hingeEnd": false
@@ -1052,7 +1059,7 @@
       "type": "truss",
       "nodeI": 44,
       "nodeJ": 16,
-      "materialId": 1,
+      "materialId": 2,
       "sectionId": 3,
       "hingeStart": false,
       "hingeEnd": false
@@ -1082,7 +1089,7 @@
       "type": "truss",
       "nodeI": 45,
       "nodeJ": 11,
-      "materialId": 1,
+      "materialId": 2,
       "sectionId": 3,
       "hingeStart": false,
       "hingeEnd": false
@@ -1092,7 +1099,7 @@
       "type": "truss",
       "nodeI": 46,
       "nodeJ": 12,
-      "materialId": 1,
+      "materialId": 2,
       "sectionId": 3,
       "hingeStart": false,
       "hingeEnd": false
