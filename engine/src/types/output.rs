@@ -75,6 +75,12 @@ pub struct AnalysisResults {
     pub diagnostics: Vec<AssemblyDiagnostic>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub solver_diagnostics: Vec<SolverDiagnostic>,
+    /// Structured diagnostics with enum codes (new — preferred over solver_diagnostics).
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub structured_diagnostics: Vec<StructuredDiagnostic>,
+    /// Post-solve equilibrium/residual summary.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub equilibrium: Option<EquilibriumSummary>,
 }
 
 /// Forces at constrained DOFs due to constraint enforcement.
@@ -103,12 +109,209 @@ pub struct AssemblyDiagnostic {
 // ==================== Solver Diagnostics ====================
 
 /// Diagnostic emitted by the solver (path choice, conditioning, fallbacks).
+///
+/// This is the legacy string-based format. New code should prefer
+/// `StructuredDiagnostic` which carries enum codes for machine matching.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct SolverDiagnostic {
     pub category: String,   // "solver_path", "conditioning", "fallback"
     pub message: String,
     pub severity: String,   // "info", "warning", "error"
+}
+
+// ==================== Structured Diagnostics ====================
+
+/// Machine-readable severity levels for diagnostics.
+/// AI and review UIs can match on these without string parsing.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "lowercase")]
+pub enum Severity {
+    /// Informational: solver path chosen, timing info, etc.
+    Info,
+    /// Warning: potential issue that may affect accuracy.
+    Warning,
+    /// Error: solve failed or results are unreliable.
+    Error,
+}
+
+/// Stable enum-based diagnostic codes.
+///
+/// Each variant is a distinct, matchable diagnostic. Product code and AI
+/// consumers can switch on these codes instead of parsing message strings.
+/// **Stability rule**: codes may be added but never removed or renamed.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum DiagnosticCode {
+    // ---- Solver path ----
+    /// Sparse Cholesky was used.
+    SparseCholesky,
+    /// Dense LU was used (small model or fallback).
+    DenseLu,
+    /// Sparse Cholesky failed, fell back to dense LU.
+    SparseFallbackDenseLu,
+    /// Diagonal shift applied to stabilize factorization.
+    DiagonalRegularization,
+
+    // ---- Conditioning ----
+    /// Diagonal ratio > 1e8 (moderate conditioning concern).
+    HighDiagonalRatio,
+    /// Diagonal ratio > 1e12 (severe conditioning concern).
+    ExtremelyHighDiagonalRatio,
+    /// Near-zero diagonal detected (singular or near-singular DOF).
+    NearZeroDiagonal,
+
+    // ---- Residual / equilibrium ----
+    /// Post-solve residual within tolerance.
+    ResidualOk,
+    /// Post-solve residual exceeds tolerance.
+    ResidualHigh,
+    /// Global equilibrium check passed.
+    EquilibriumOk,
+    /// Global equilibrium check failed.
+    EquilibriumViolation,
+
+    // ---- Element quality ----
+    /// Element aspect ratio exceeds threshold.
+    HighAspectRatio,
+    /// Element has negative Jacobian (inverted).
+    NegativeJacobian,
+    /// Element warping exceeds threshold.
+    HighWarping,
+    /// Element Jacobian ratio is poor.
+    PoorJacobianRatio,
+    /// Element minimum angle below threshold.
+    SmallMinAngle,
+
+    // ---- Pre-solve model quality ----
+    /// No free DOFs — fully restrained.
+    NoFreeDofs,
+    /// Local mechanism detected (hinged node).
+    LocalMechanism,
+    /// Singular stiffness matrix.
+    SingularMatrix,
+}
+
+/// A structured diagnostic with enum code, severity, optional element/node
+/// references, and provenance metadata.
+///
+/// Designed for machine consumption: AI review, automated guidance, structured
+/// logging, and query-based result inspection.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct StructuredDiagnostic {
+    /// Stable enum code — switch on this, not the message.
+    pub code: DiagnosticCode,
+    /// Severity level.
+    pub severity: Severity,
+    /// Human-readable message (for display, not matching).
+    pub message: String,
+    /// Element IDs this diagnostic applies to (empty = global).
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub element_ids: Vec<usize>,
+    /// Node IDs this diagnostic applies to (empty = global).
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub node_ids: Vec<usize>,
+    /// DOF indices this diagnostic applies to (empty = global).
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub dof_indices: Vec<usize>,
+    /// Solver phase that produced this diagnostic.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub phase: Option<String>,
+    /// Numeric value associated with this diagnostic (e.g. residual, ratio).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub value: Option<f64>,
+    /// Threshold that was exceeded (if applicable).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub threshold: Option<f64>,
+}
+
+impl StructuredDiagnostic {
+    /// Create a global (no element/node references) diagnostic.
+    pub fn global(code: DiagnosticCode, severity: Severity, message: impl Into<String>) -> Self {
+        Self {
+            code,
+            severity,
+            message: message.into(),
+            element_ids: vec![],
+            node_ids: vec![],
+            dof_indices: vec![],
+            phase: None,
+            value: None,
+            threshold: None,
+        }
+    }
+
+    /// Attach a numeric value and threshold.
+    pub fn with_value(mut self, value: f64, threshold: f64) -> Self {
+        self.value = Some(value);
+        self.threshold = Some(threshold);
+        self
+    }
+
+    /// Attach a solver phase.
+    pub fn with_phase(mut self, phase: impl Into<String>) -> Self {
+        self.phase = Some(phase.into());
+        self
+    }
+
+    /// Attach DOF indices.
+    pub fn with_dofs(mut self, dofs: Vec<usize>) -> Self {
+        self.dof_indices = dofs;
+        self
+    }
+
+    /// Attach element IDs.
+    pub fn with_elements(mut self, ids: Vec<usize>) -> Self {
+        self.element_ids = ids;
+        self
+    }
+}
+
+/// Convert a StructuredDiagnostic to the legacy SolverDiagnostic format.
+impl From<&StructuredDiagnostic> for SolverDiagnostic {
+    fn from(sd: &StructuredDiagnostic) -> Self {
+        let category = match sd.code {
+            DiagnosticCode::SparseCholesky | DiagnosticCode::DenseLu => "solver_path",
+            DiagnosticCode::SparseFallbackDenseLu | DiagnosticCode::DiagonalRegularization => "fallback",
+            DiagnosticCode::HighDiagonalRatio | DiagnosticCode::ExtremelyHighDiagonalRatio | DiagnosticCode::NearZeroDiagonal => "conditioning",
+            DiagnosticCode::ResidualOk | DiagnosticCode::ResidualHigh | DiagnosticCode::EquilibriumOk | DiagnosticCode::EquilibriumViolation => "residual",
+            DiagnosticCode::HighAspectRatio | DiagnosticCode::NegativeJacobian | DiagnosticCode::HighWarping | DiagnosticCode::PoorJacobianRatio | DiagnosticCode::SmallMinAngle => "element_quality",
+            DiagnosticCode::NoFreeDofs | DiagnosticCode::LocalMechanism | DiagnosticCode::SingularMatrix => "model_quality",
+        };
+        let severity = match sd.severity {
+            Severity::Info => "info",
+            Severity::Warning => "warning",
+            Severity::Error => "error",
+        };
+        SolverDiagnostic {
+            category: category.to_string(),
+            message: sd.message.clone(),
+            severity: severity.to_string(),
+        }
+    }
+}
+
+// ==================== Equilibrium Summary ====================
+
+/// Post-solve equilibrium and residual summary.
+/// Included in result payloads so consumers can assess trust without
+/// recomputing from raw arrays.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct EquilibriumSummary {
+    /// Relative residual: ||K*u - f|| / ||f||  (0 = perfect).
+    pub relative_residual: f64,
+    /// Whether the residual is within the solver's tolerance.
+    pub residual_ok: bool,
+    /// Sum of applied forces (global X, Y, Z or X, Y for 2D).
+    pub applied_force_sum: Vec<f64>,
+    /// Sum of reaction forces (global X, Y, Z or X, Y for 2D).
+    pub reaction_force_sum: Vec<f64>,
+    /// Max absolute equilibrium imbalance across directions.
+    pub max_imbalance: f64,
+    /// Whether global equilibrium is satisfied (imbalance < tolerance).
+    pub equilibrium_ok: bool,
 }
 
 // ==================== Solve Timings ====================
@@ -238,6 +441,12 @@ pub struct AnalysisResults3D {
     pub solver_diagnostics: Vec<SolverDiagnostic>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub timings: Option<SolveTimings>,
+    /// Structured diagnostics with enum codes (new — preferred over solver_diagnostics).
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub structured_diagnostics: Vec<StructuredDiagnostic>,
+    /// Post-solve equilibrium/residual summary.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub equilibrium: Option<EquilibriumSummary>,
 }
 
 // ==================== Quad Stress Output ====================

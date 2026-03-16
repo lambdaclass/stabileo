@@ -161,7 +161,7 @@ pub fn combine_results(input: &CombinationInput) -> Option<AnalysisResults> {
         }
     }
 
-    Some(AnalysisResults { displacements, reactions, element_forces, constraint_forces: vec![], diagnostics: vec![], solver_diagnostics: vec![] })
+    Some(AnalysisResults { displacements, reactions, element_forces, constraint_forces: vec![], diagnostics: vec![], solver_diagnostics: vec![], structured_diagnostics: vec![], equilibrium: None })
 }
 
 // ==================== 2D Envelope ====================
@@ -202,7 +202,7 @@ pub fn compute_envelope(results: &[AnalysisResults]) -> Option<FullEnvelope> {
         }
     }
 
-    let max_abs_results = AnalysisResults { displacements, reactions, element_forces, constraint_forces: vec![], diagnostics: vec![], solver_diagnostics: vec![] };
+    let max_abs_results = AnalysisResults { displacements, reactions, element_forces, constraint_forces: vec![], diagnostics: vec![], solver_diagnostics: vec![], structured_diagnostics: vec![], equilibrium: None };
 
     fn compute_env_diagram(kind: &str, results: &[AnalysisResults]) -> EnvelopeDiagramData {
         let first = &results[0];
@@ -332,7 +332,7 @@ pub fn combine_results_3d(input: &CombinationInput3D) -> Option<AnalysisResults3
         }
     }
 
-    Some(AnalysisResults3D { displacements, reactions, element_forces, plate_stresses: vec![], quad_stresses: vec![], quad_nodal_stresses: vec![], constraint_forces: vec![], diagnostics: vec![], solver_diagnostics: vec![], timings: None })
+    Some(AnalysisResults3D { displacements, reactions, element_forces, plate_stresses: vec![], quad_stresses: vec![], quad_nodal_stresses: vec![], constraint_forces: vec![], diagnostics: vec![], solver_diagnostics: vec![], structured_diagnostics: vec![], equilibrium: None, timings: None })
 }
 
 // ==================== 3D Envelope ====================
@@ -386,7 +386,7 @@ pub fn compute_envelope_3d(results: &[AnalysisResults3D]) -> Option<FullEnvelope
         }
     }
 
-    let max_abs_results_3d = AnalysisResults3D { displacements, reactions, element_forces, plate_stresses: vec![], quad_stresses: vec![], quad_nodal_stresses: vec![], constraint_forces: vec![], diagnostics: vec![], solver_diagnostics: vec![], timings: None };
+    let max_abs_results_3d = AnalysisResults3D { displacements, reactions, element_forces, plate_stresses: vec![], quad_stresses: vec![], quad_nodal_stresses: vec![], constraint_forces: vec![], diagnostics: vec![], solver_diagnostics: vec![], structured_diagnostics: vec![], equilibrium: None, timings: None };
 
     fn compute_env_3d(kind: &str, results: &[AnalysisResults3D]) -> EnvelopeDiagramData {
         let first = &results[0];

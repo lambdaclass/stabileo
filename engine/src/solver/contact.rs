@@ -767,6 +767,8 @@ pub fn solve_contact_2d(input: &ContactInput) -> Result<ContactResult, String> {
             constraint_forces: vec![],
             diagnostics: vec![],
             solver_diagnostics: vec![],
+            structured_diagnostics: vec![],
+            equilibrium: None,
         }
     });
 
@@ -1209,6 +1211,8 @@ pub fn solve_contact_3d(input: &ContactInput3D) -> Result<ContactResult3D, Strin
         constraint_forces: vec![],
         diagnostics: vec![],
         solver_diagnostics: vec![],
+        structured_diagnostics: vec![],
+        equilibrium: None,
         timings: None,
     };
 

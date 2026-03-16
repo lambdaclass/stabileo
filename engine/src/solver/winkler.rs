@@ -150,7 +150,7 @@ pub fn solve_winkler_2d(input: &WinklerInput) -> Result<AnalysisResults, String>
         vec![]
     };
 
-    Ok(AnalysisResults { displacements, reactions, element_forces, constraint_forces, diagnostics: vec![], solver_diagnostics: vec![] })
+    Ok(AnalysisResults { displacements, reactions, element_forces, constraint_forces, diagnostics: vec![], solver_diagnostics: vec![], structured_diagnostics: vec![], equilibrium: None })
 }
 
 // ==================== 3D Winkler Solver ====================
@@ -266,6 +266,8 @@ pub fn solve_winkler_3d(input: &WinklerInput3D) -> Result<AnalysisResults3D, Str
         constraint_forces,
         diagnostics: vec![],
         solver_diagnostics: vec![],
+        structured_diagnostics: vec![],
+        equilibrium: None,
         timings: None,
     })
 }

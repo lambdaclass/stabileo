@@ -324,6 +324,8 @@ pub fn solve_cable_2d(
         constraint_forces,
         diagnostics: vec![],
         solver_diagnostics: vec![],
+        structured_diagnostics: vec![],
+        equilibrium: None,
     };
 
     // Cable-specific results
@@ -573,6 +575,8 @@ pub fn solve_cable_3d(
         constraint_forces,
         diagnostics: vec![],
         solver_diagnostics: vec![],
+        structured_diagnostics: vec![],
+        equilibrium: None,
         timings: None,
     };
 

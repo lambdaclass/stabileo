@@ -663,6 +663,8 @@ fn build_final_results(
         constraint_forces,
         diagnostics: vec![],
         solver_diagnostics: vec![],
+        structured_diagnostics: vec![],
+        equilibrium: None,
     })
 }
 
@@ -1423,6 +1425,8 @@ fn build_final_results_3d(
         constraint_forces,
         diagnostics: vec![],
         solver_diagnostics: vec![],
+        structured_diagnostics: vec![],
+        equilibrium: None,
         timings: None,
     })
 }

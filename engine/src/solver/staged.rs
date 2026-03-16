@@ -226,6 +226,8 @@ pub fn solve_staged_2d(input: &StagedInput) -> Result<StagedAnalysisResults, Str
             constraint_forces: vec![],
             diagnostics: vec![],
             solver_diagnostics: vec![],
+            structured_diagnostics: vec![],
+            equilibrium: None,
         });
 
     Ok(StagedAnalysisResults {
@@ -528,6 +530,8 @@ fn build_results_from_u(
         constraint_forces: vec![],
         diagnostics: vec![],
         solver_diagnostics: vec![],
+        structured_diagnostics: vec![],
+        equilibrium: None,
     }
 }
 
@@ -913,6 +917,8 @@ pub fn solve_staged_3d(input: &StagedInput3D) -> Result<StagedAnalysisResults3D,
             constraint_forces: vec![],
             diagnostics: vec![],
             solver_diagnostics: vec![],
+            structured_diagnostics: vec![],
+            equilibrium: None,
             timings: None,
         });
 
@@ -1264,6 +1270,8 @@ fn build_results_from_u_3d(
         constraint_forces: vec![],
         diagnostics: vec![],
         solver_diagnostics: vec![],
+        structured_diagnostics: vec![],
+        equilibrium: None,
         timings: None,
     }
 }

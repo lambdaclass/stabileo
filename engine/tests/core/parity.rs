@@ -28,7 +28,7 @@ fn test_envelope_3d_json_field_name() {
         max_abs_results_3d: AnalysisResults3D {
             displacements: vec![],
             reactions: vec![],
-            element_forces: vec![], plate_stresses: vec![], quad_stresses: vec![], quad_nodal_stresses: vec![], constraint_forces: vec![], diagnostics: vec![], solver_diagnostics: vec![], timings: None },
+            element_forces: vec![], plate_stresses: vec![], quad_stresses: vec![], quad_nodal_stresses: vec![], constraint_forces: vec![], diagnostics: vec![], solver_diagnostics: vec![], timings: None, structured_diagnostics: vec![], equilibrium: None },
     };
 
     let json = serde_json::to_string(&env).unwrap();
@@ -65,6 +65,8 @@ fn test_envelope_2d_json_field_names() {
             constraint_forces: vec![],
             diagnostics: vec![],
             solver_diagnostics: vec![],
+            structured_diagnostics: vec![],
+            equilibrium: None,
         },
     };
 

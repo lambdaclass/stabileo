@@ -14,3 +14,4 @@ mod postprocess;
 mod beam_stations;
 mod beam_stations_3d;
 mod sparse;
+mod diagnostics;

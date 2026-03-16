@@ -193,6 +193,8 @@ pub fn solve_pdelta_2d(
             constraint_forces,
             diagnostics: vec![],
             solver_diagnostics: vec![],
+            structured_diagnostics: vec![],
+            equilibrium: None,
         },
         iterations,
         converged,
@@ -415,7 +417,7 @@ pub fn solve_pdelta_3d(
     };
 
     Ok(PDeltaResult3D {
-        results: AnalysisResults3D { displacements, reactions, element_forces, plate_stresses: compute_plate_stresses(input, &dof_num, &u_current), quad_stresses: compute_quad_stresses(input, &dof_num, &u_current), quad_nodal_stresses: vec![], constraint_forces, diagnostics: vec![], solver_diagnostics: vec![], timings: None },
+        results: AnalysisResults3D { displacements, reactions, element_forces, plate_stresses: compute_plate_stresses(input, &dof_num, &u_current), quad_stresses: compute_quad_stresses(input, &dof_num, &u_current), quad_nodal_stresses: vec![], constraint_forces, diagnostics: vec![], solver_diagnostics: vec![], structured_diagnostics: vec![], equilibrium: None, timings: None },
         iterations,
         converged,
         is_stable: converged && max_ratio < 100.0,
