@@ -13,8 +13,9 @@
       "id": 2,
       "name": "Cable wire 1600",
       "e": 200000,
-      "poisson": 0.3,
-      "density": 78.5
+      "nu": 0.3,
+      "rho": 78.5,
+      "fy": 1600
     }
   ],
   "sections": [

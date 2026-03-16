@@ -1741,8 +1741,9 @@ export function generateSuspensionBridge3D(store: ModelStore, p: SuspensionBridg
     const cableMatId = store.addMaterial({
       name: 'Cable wire 1600',
       e: 200_000,
-      poisson: 0.3,
-      density: 78.5,
+      nu: 0.3,
+      rho: 78.5,
+      fy: 1600,
     });
 
     // Section 1: Main cable bundle — d≈160mm, A=0.020 m² (HS wire: σ=H/A≈1024 MPa < 1600)
@@ -2127,8 +2128,9 @@ export function generateCableStayedBridge3D(store: ModelStore, p: CableStayedBri
     const cableMatId = store.addMaterial({
       name: 'Cable wire 1600',
       e: 200_000,
-      poisson: 0.3,
-      density: 78.5,
+      nu: 0.3,
+      rho: 78.5,
+      fy: 1600,
     });
     // Section 3: Stay cable (HS wire)
     const cableSecId = store.addSection({
