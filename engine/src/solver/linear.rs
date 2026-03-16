@@ -172,7 +172,7 @@ pub fn solve_2d(input: &SolverInput) -> Result<AnalysisResults, String> {
         res2.sqrt() / f2.sqrt().max(1e-30)
     };
 
-    let equilibrium = compute_equilibrium_summary_2d(input, &reactions, rel_residual);
+    let equilibrium = compute_equilibrium_summary_2d(&asm.f, &reactions_vec, &dof_num, rel_residual);
 
     // Build structured diagnostics — same contract as 3D sparse/dense paths
     let mut structured = Vec::new();
@@ -427,7 +427,20 @@ pub fn solve_3d(input: &SolverInput3D) -> Result<AnalysisResults3D, String> {
                     element_forces.sort_by_key(|ef| ef.element_id);
                     let plate_stresses = compute_plate_stresses(input, &dof_num, &u_full);
                     let quad_stresses = compute_quad_stresses(input, &dof_num, &u_full);
-                    let equilibrium = compute_equilibrium_summary_3d(input, &reactions, 0.0);
+
+                    // Compute actual residual: ||K*u - F||_free / ||F||_free
+                    let rel_residual = {
+                        let mut res2 = 0.0f64;
+                        let mut f2 = 0.0f64;
+                        for i in 0..nf {
+                            let r = ku_full[i] - asm.f[i];
+                            res2 += r * r;
+                            f2 += asm.f[i] * asm.f[i];
+                        }
+                        res2.sqrt() / f2.sqrt().max(1e-30)
+                    };
+
+                    let equilibrium = compute_equilibrium_summary_3d(&asm.f, &reactions_vec, &dof_num, rel_residual);
 
                     // Build structured diagnostics for fallback path
                     let mut structured = Vec::new();
@@ -451,12 +464,20 @@ pub fn solve_3d(input: &SolverInput3D) -> Result<AnalysisResults3D, String> {
                         ).with_value(cond, 1e8).with_phase("conditioning"));
                     }
 
-                    // Direct solve residual is machine-precision for dense LU
-                    structured.push(StructuredDiagnostic::global(
-                        DiagnosticCode::ResidualOk,
-                        Severity::Info,
-                        format!("Dense LU fallback ({} free DOFs)", nf),
-                    ).with_value(0.0, 1e-6).with_phase("solve"));
+                    // Residual diagnostic with actual computed value
+                    structured.push(if rel_residual < 1e-6 {
+                        StructuredDiagnostic::global(
+                            DiagnosticCode::ResidualOk,
+                            Severity::Info,
+                            format!("Dense LU fallback ({} free DOFs, residual {:.2e})", nf, rel_residual),
+                        ).with_value(rel_residual, 1e-6).with_phase("solve")
+                    } else {
+                        StructuredDiagnostic::global(
+                            DiagnosticCode::ResidualHigh,
+                            Severity::Warning,
+                            format!("Dense LU fallback residual {:.2e} exceeds tolerance", rel_residual),
+                        ).with_value(rel_residual, 1e-6).with_phase("solve")
+                    });
 
                     return Ok(AnalysisResults3D {
                         displacements, reactions, element_forces, plate_stresses, quad_stresses,
@@ -631,8 +652,8 @@ pub fn solve_3d(input: &SolverInput3D) -> Result<AnalysisResults3D, String> {
             ).with_value(rel_residual, 1e-6).with_phase("solve")
         });
 
-        // Compute equilibrium summary from reactions and applied loads
-        let equilibrium = compute_equilibrium_summary_3d(input, &reactions, rel_residual);
+        // Compute equilibrium summary from assembled force vector (includes all load types)
+        let equilibrium = compute_equilibrium_summary_3d(&asm.f, &reactions_vec, &dof_num, rel_residual);
 
         Ok(AnalysisResults3D {
             displacements,
@@ -739,7 +760,7 @@ pub fn solve_3d(input: &SolverInput3D) -> Result<AnalysisResults3D, String> {
         let plate_stresses = compute_plate_stresses(input, &dof_num, &u_full);
         let quad_stresses = compute_quad_stresses(input, &dof_num, &u_full);
 
-        let equilibrium = compute_equilibrium_summary_3d(input, &reactions, rel_residual);
+        let equilibrium = compute_equilibrium_summary_3d(&asm.f, &reactions_vec, &dof_num, rel_residual);
 
         // Build structured diagnostics for dense path — same contract as sparse path
         let mut structured = Vec::new();
@@ -1840,58 +1861,46 @@ pub(crate) fn compute_quad_nodal_stresses(
 
 // ==================== Equilibrium Summary ====================
 
-/// Compute a post-solve equilibrium summary for 3D analysis.
+/// Compute equilibrium summary for 3D from the assembled force vector.
 ///
-/// Sums applied nodal loads vs reaction forces to measure global imbalance.
-/// Distributed/point/thermal loads are not summed here because their effect
-/// appears in reactions via the assembled force vector — equilibrium is
-/// checked as: |sum(reactions) + sum(nodal_loads)| ≈ 0 per direction.
+/// Uses `assembled_f` and `reactions_vec` (the raw restrained-DOF reaction vector)
+/// with the DOF map to compute per-direction sums. This avoids double-counting
+/// from duplicate support entries.
 pub(super) fn compute_equilibrium_summary_3d(
-    input: &SolverInput3D,
-    reactions: &[Reaction3D],
+    assembled_f: &[f64],
+    reactions_vec: &[f64],
+    dof_num: &DofNumbering,
     rel_residual: f64,
 ) -> EquilibriumSummary {
-    // Sum applied nodal loads in global directions
-    let mut applied = [0.0f64; 6]; // fx, fy, fz, mx, my, mz
-    for load in &input.loads {
-        if let SolverLoad3D::Nodal(nl) = load {
-            applied[0] += nl.fx;
-            applied[1] += nl.fy;
-            applied[2] += nl.fz;
-            applied[3] += nl.mx;
-            applied[4] += nl.my;
-            applied[5] += nl.mz;
+    let nf = dof_num.n_free;
+
+    // Sum applied forces and reactions by physical direction using DOF map
+    let mut applied = [0.0f64; 6];
+    let mut rxn = [0.0f64; 6];
+    for (&(_node_id, local_dof), &global_idx) in &dof_num.map {
+        if local_dof >= 6 { continue; }
+        if global_idx < nf {
+            // Free DOF: only applied force
+            if global_idx < assembled_f.len() {
+                applied[local_dof] += assembled_f[global_idx];
+            }
+        } else {
+            // Restrained DOF: applied force + reaction
+            if global_idx < assembled_f.len() {
+                applied[local_dof] += assembled_f[global_idx];
+            }
+            let ridx = global_idx - nf;
+            if ridx < reactions_vec.len() {
+                rxn[local_dof] += reactions_vec[ridx];
+            }
         }
     }
 
-    // Sum reaction forces
-    let mut rxn = [0.0f64; 6];
-    for r in reactions {
-        rxn[0] += r.fx;
-        rxn[1] += r.fy;
-        rxn[2] += r.fz;
-        rxn[3] += r.mx;
-        rxn[4] += r.my;
-        rxn[5] += r.mz;
-    }
-
-    // Translational force equilibrium only (fx, fy, fz).
-    // When all loads are nodal, applied + reactions should be ~0.
-    // When there are element-level loads (pressure, distributed, thermal),
-    // the applied sum only captures nodal loads — equilibrium can't be
-    // assessed from this partial sum, so we skip the check.
-    let has_non_nodal = input.loads.iter().any(|l| !matches!(l, SolverLoad3D::Nodal(_)));
+    // Translational equilibrium (fx, fy, fz): applied + reactions ≈ 0
     let force_imbalance: Vec<f64> = (0..3).map(|i| applied[i] + rxn[i]).collect();
     let max_imbalance = force_imbalance.iter().map(|v| v.abs()).fold(0.0f64, f64::max);
-
     let max_force = applied[..3].iter().chain(&rxn[..3]).map(|v| v.abs()).fold(0.0f64, f64::max);
-    let equilibrium_ok = if has_non_nodal {
-        // Can't check nodal-only equilibrium when element loads exist;
-        // the residual check (relative_residual) is the trust signal instead.
-        true
-    } else {
-        max_imbalance < 1e-6 * max_force.max(1.0)
-    };
+    let equilibrium_ok = max_imbalance < 1e-6 * max_force.max(1.0);
 
     EquilibriumSummary {
         relative_residual: rel_residual,
@@ -1903,39 +1912,41 @@ pub(super) fn compute_equilibrium_summary_3d(
     }
 }
 
-/// Compute a post-solve equilibrium summary for 2D analysis.
+/// Compute equilibrium summary for 2D from the assembled force vector.
 pub(super) fn compute_equilibrium_summary_2d(
-    input: &SolverInput,
-    reactions: &[Reaction],
+    assembled_f: &[f64],
+    reactions_vec: &[f64],
+    dof_num: &DofNumbering,
     rel_residual: f64,
 ) -> EquilibriumSummary {
-    // Sum applied nodal loads (global: fx, fy, mz)
+    let nf = dof_num.n_free;
+    let ndirs = dof_num.dofs_per_node.min(3);
+
+    // Sum applied forces and reactions by physical direction using DOF map
     let mut applied = [0.0f64; 3];
-    for load in &input.loads {
-        if let SolverLoad::Nodal(nl) = load {
-            applied[0] += nl.fx;
-            applied[1] += nl.fy;
-            applied[2] += nl.mz;
+    let mut rxn = [0.0f64; 3];
+    for (&(_node_id, local_dof), &global_idx) in &dof_num.map {
+        if local_dof >= ndirs { continue; }
+        if global_idx < nf {
+            if global_idx < assembled_f.len() {
+                applied[local_dof] += assembled_f[global_idx];
+            }
+        } else {
+            if global_idx < assembled_f.len() {
+                applied[local_dof] += assembled_f[global_idx];
+            }
+            let ridx = global_idx - nf;
+            if ridx < reactions_vec.len() {
+                rxn[local_dof] += reactions_vec[ridx];
+            }
         }
     }
 
-    // Sum reactions
-    let mut rxn = [0.0f64; 3];
-    for r in reactions {
-        rxn[0] += r.rx;
-        rxn[1] += r.ry;
-        rxn[2] += r.mz;
-    }
-
-    // Only check translational equilibrium (fx, fy).
-    // Skip when element-level loads are present (same reasoning as 3D).
-    let has_non_nodal = input.loads.iter().any(|l| !matches!(l, SolverLoad::Nodal(_)));
+    // Translational equilibrium (fx, fy)
     let force_imbalance: Vec<f64> = (0..2).map(|i| applied[i] + rxn[i]).collect();
     let max_imbalance = force_imbalance.iter().map(|v| v.abs()).fold(0.0f64, f64::max);
     let max_force = applied[..2].iter().chain(&rxn[..2]).map(|v| v.abs()).fold(0.0f64, f64::max);
-    let equilibrium_ok = if has_non_nodal { true } else {
-        max_imbalance < 1e-6 * max_force.max(1.0)
-    };
+    let equilibrium_ok = max_imbalance < 1e-6 * max_force.max(1.0);
 
     EquilibriumSummary {
         relative_residual: rel_residual,

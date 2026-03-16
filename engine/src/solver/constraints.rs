@@ -751,7 +751,23 @@ pub fn solve_constrained_2d(input: &ConstrainedInput) -> Result<AnalysisResults,
     let raw_forces = fcs.compute_constraint_forces(&k_ff, &u_f, &f_f);
     let constraint_forces = map_dof_forces_to_constraint_forces(&raw_forces, &dof_num);
 
-    let equilibrium = linear::compute_equilibrium_summary_2d(&input.solver, &reactions, 0.0);
+    // Compute actual residual: ||K_ff*u_f - f_f|| / ||f_f||
+    let rel_residual = {
+        let mut res2 = 0.0f64;
+        let mut fnorm2 = 0.0f64;
+        for i in 0..nf {
+            let mut ku_i = 0.0;
+            for j in 0..nf {
+                ku_i += k_ff[i * nf + j] * u_f[j];
+            }
+            let r = ku_i - f_f[i];
+            res2 += r * r;
+            fnorm2 += f_f[i] * f_f[i];
+        }
+        res2.sqrt() / fnorm2.sqrt().max(1e-30)
+    };
+
+    let equilibrium = linear::compute_equilibrium_summary_2d(&asm.f, &reactions_vec, &dof_num, rel_residual);
 
     Ok(AnalysisResults {
         displacements,
