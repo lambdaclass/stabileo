@@ -153,6 +153,13 @@ pub fn solve_2d(input: &SolverInput) -> Result<AnalysisResults, String> {
 
     let equilibrium = compute_equilibrium_summary_2d(input, &reactions, 0.0);
 
+    let mut structured = Vec::new();
+    structured.push(StructuredDiagnostic::global(
+        if nf >= SPARSE_THRESHOLD { DiagnosticCode::SparseCholesky } else { DiagnosticCode::DenseLu },
+        Severity::Info,
+        format!("{} solver ({} free DOFs)", if nf >= SPARSE_THRESHOLD { "Sparse Cholesky" } else { "Dense" }, nf),
+    ).with_phase("solve"));
+
     Ok(AnalysisResults {
         displacements,
         reactions,
@@ -160,7 +167,7 @@ pub fn solve_2d(input: &SolverInput) -> Result<AnalysisResults, String> {
         constraint_forces: vec![],
         diagnostics: asm.diagnostics,
         solver_diagnostics: vec![],
-        structured_diagnostics: vec![],
+        structured_diagnostics: structured,
         equilibrium: Some(equilibrium),
     })
 }
@@ -618,6 +625,37 @@ pub fn solve_3d(input: &SolverInput3D) -> Result<AnalysisResults3D, String> {
 
         let equilibrium = compute_equilibrium_summary_3d(input, &reactions, 0.0);
 
+        // Build structured diagnostics for dense path
+        let mut structured = Vec::new();
+        structured.push(StructuredDiagnostic::global(
+            DiagnosticCode::DenseLu,
+            Severity::Info,
+            format!("Dense solver ({} free DOFs)", nf),
+        ).with_phase("solve"));
+
+        let cond = cond_report.diagonal_ratio;
+        if cond > 1e12 {
+            structured.push(StructuredDiagnostic::global(
+                DiagnosticCode::ExtremelyHighDiagonalRatio,
+                Severity::Warning,
+                format!("Extremely high diagonal ratio {:.2e}", cond),
+            ).with_value(cond, 1e12).with_phase("conditioning"));
+        } else if cond > 1e8 {
+            structured.push(StructuredDiagnostic::global(
+                DiagnosticCode::HighDiagonalRatio,
+                Severity::Warning,
+                format!("High diagonal ratio {:.2e}", cond),
+            ).with_value(cond, 1e8).with_phase("conditioning"));
+        }
+
+        if !cond_report.near_zero_dofs.is_empty() {
+            structured.push(StructuredDiagnostic::global(
+                DiagnosticCode::NearZeroDiagonal,
+                Severity::Warning,
+                format!("{} near-zero diagonal entries", cond_report.near_zero_dofs.len()),
+            ).with_dofs(cond_report.near_zero_dofs.clone()).with_phase("conditioning"));
+        }
+
         Ok(AnalysisResults3D {
             displacements,
             reactions,
@@ -628,7 +666,7 @@ pub fn solve_3d(input: &SolverInput3D) -> Result<AnalysisResults3D, String> {
             constraint_forces: vec![],
             diagnostics: asm.diagnostics,
             solver_diagnostics: solver_diags,
-            structured_diagnostics: vec![],
+            structured_diagnostics: structured,
             equilibrium: Some(equilibrium),
             timings: None,
         })
