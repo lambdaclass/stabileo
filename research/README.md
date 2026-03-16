@@ -30,5 +30,7 @@ Current documents:
   Best software products to build once the core roadmap lands: RC design/BBS studio, report OS, QA/review assistant, firm workspace, parametric configurators, interoperability, cloud comparison, and education.
 - [ai_structural_engineering_roadmap.md](/Users/unbalancedparen/projects/dedaliano/research/ai_structural_engineering_roadmap.md)
   Separate AI roadmap for structural engineering: what can ship early on today’s solver, what needs deeper batch/optimization infrastructure, and what belongs to the research frontier.
+- [ai_provider_architecture.md](/Users/unbalancedparen/projects/dedaliano/research/ai_provider_architecture.md)
+  Recommended AI integration architecture: frontend calls an internal capability-based AI layer, which routes to Claude/OpenAI/Kimi/local/future providers through backend adapters.
 - [automation_gaps.md](/Users/unbalancedparen/projects/dedaliano/research/automation_gaps.md)
   Full automation gap analysis for Stabileo/Dedaliano: what is already automated, what engineers still do manually (high and medium impact), first-mover opportunities no competitor has, an automation maturity ladder, a prioritized implementation matrix, and a competitor coverage map.

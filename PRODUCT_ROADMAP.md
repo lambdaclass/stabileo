@@ -10,6 +10,10 @@ For the expanding AI track, see `research/ai_structural_engineering_roadmap.md`.
 
 Become the world's best structural engineering software — open-source, browser-based, zero-install. First: match the analytical power of OpenSees/Code_Aster/CalculiX with an accessible visual UX. Then: add design deliverables, diagnostics, and AI-assisted guidance. Later: real-time CRDT collaboration (the Figma moment) and full AI-native design.
 
+Strategic positioning:
+- not `broader than every open-source mechanics framework`
+- but `the strongest open structural solver product with the clearest visible proof of correctness, the best workflow automation, and the best browser-native UX`
+
 ## Competitive Moat
 
 What we have that OpenSees/Code_Aster/CalculiX/SAP2000/ETABS will never have:
@@ -22,6 +26,7 @@ What we have that OpenSees/Code_Aster/CalculiX/SAP2000/ETABS will never have:
 6. **Explainable diagnostics and review workflows** — warnings, provenance, result trust, comments, and guided fixes as first-class product surfaces
 7. **AI-assisted engineering UX** — guided modeling, result queries, and code/design suggestions built on structured solver outputs
 8. **CRDT collaboration** — later Figma-style real-time multi-user editing on top of a trusted structural core
+9. **Verification as a product surface** — public benchmarks, acceptance models, reproducible runs, and trust signals visible to users rather than hidden in backend engineering
 
 ## Product Thesis
 
@@ -55,6 +60,25 @@ ROI order for users:
 6. lightweight collaboration that makes review and sharing easier
 7. workflow polish and breadth after the above are solid
 
+## What The Product Depends On From The Solver
+
+The product roadmap only works if the solver exposes the right contracts and trust signals. The app should treat these as product dependencies, not backend details.
+
+1. `Benchmark and verification moat`
+   Public acceptance models, parity checks, and reproducible proof should be part of the user-facing trust story.
+
+2. `Structured diagnostics and provenance`
+   Machine-readable warning codes, severity, element references, and governing-case provenance are the substrate for AI review, QA, reports, and comments.
+
+3. `Query-ready result contracts`
+   Natural-language result queries, reviewer tools, and report generation need indexed maxima/minima/governing-case summaries rather than UI-side table scraping.
+
+4. `Model quality gates`
+   Pre-solve checks for mechanisms, bad constraints, disconnected subgraphs, shell pathologies, and suspicious axes/supports are one of the highest-ROI product features.
+
+5. `Headless and native execution parity`
+   Desktop, API, cloud comparison, and firm workflows depend on browser/native parity and repeatable headless execution, not only a good in-browser demo.
+
 ## The Automation Gap
 
 > Full analysis: [research/automation_gaps.md](research/automation_gaps.md)
@@ -77,6 +101,11 @@ Closing this gap is the difference between:
 - `software an engineer can actually deliver a project with`
 
 Competitors like SAP2000, ETABS, and RFEM automate parts of this already. Dedaliano should not only catch up there; it should also automate things competitors still do not do well or at all.
+
+Commercially, the most important catch-up gap is also the clearest wedge in Latin America:
+- `RC design + reinforcement schedules + BBS`
+- this is the specific area where CYPECAD still has strong practical advantage
+- closing it matters not just technically, but commercially, because it moves Dedaliano from analysis software into project-delivery software for RC-heavy markets
 
 ## What Engineers Still Do Manually
 
@@ -154,6 +183,12 @@ These are not just "catch-up" items. They are chances to define the category.
 
 5. `Generative structural layout`
    Given architectural constraints, produce and rank structural systems instead of only checking one user-authored scheme
+
+These should appear in the product sequence on purpose:
+- `AI-assisted model review` and `natural-language result queries` early
+- `global section optimization` in the platform layer once batch/headless execution is solid
+- `live code comparison` in the platform layer once multi-code checks are mature
+- `generative structural layout` only after optimization and trusted automation infrastructure exist
 
 ## Users We Can Support
 
@@ -247,6 +282,7 @@ Build trust through a reliable, accessible structural solver with strong diagnos
 
 **What:**
 - WASM path reliability — single trusted solver runtime in production
+- Public verification surface — benchmark explorer, acceptance models, reference cases, and visible trust signals in the app
 - Automatic code-driven load combinations and factors
 - Automatic load generation for the first high-value codes and workflows
 - RC beam design and reinforcement schedule (envelopes, required steel, selected bars, stirrups, schedule-ready output)
@@ -255,9 +291,12 @@ Build trust through a reliable, accessible structural solver with strong diagnos
 - Automatic load-combination generation from selected codes
 - Report and calculation-document foundations
 - Onboarding and first-solve success
-- Richer diagnostics UX — grouping, filtering, provenance, click-to-focus highlighting
+- Model quality gates before solve — mechanisms, disconnected nodes, bad constraints, shell pathologies, suspicious local axes/support conditions
+- Richer diagnostics UX — grouping, filtering, machine-readable codes, provenance, click-to-focus highlighting
 - AI-assisted modeling and review — explain warnings, suggest missing supports/loads, flag suspicious patterns, guide first-fix actions
-- Natural-language result navigation and explanation
+- AI explanation of model quality gates — tell the user not only that the model is invalid, but why it matters and what the most likely fix is
+- AI setup guidance — suggest shell family, analysis path, and first checks based on the current model and workflow
+- Natural-language result navigation and explanation powered by query-ready solver summaries
 - Lightweight collaboration — comments, pinned annotations, shared links, model/version diff, reviewer read-only flows
 - Constraint-force and governing-result presentation
 - Shell-family recommendation and automatic defaults (MITC4/MITC9/SHB8-ANS)
@@ -266,7 +305,7 @@ Build trust through a reliable, accessible structural solver with strong diagnos
 
 **Goal:** Be the most accessible serious structural solver for everyday structural engineering, while already automating the first repetitive design tasks engineers do after analysis.
 
-**Done when:** An engineer can model a structure in the browser, get trustworthy results with clear diagnostics, auto-generate the first code combinations and design checks, produce an RC beam schedule, and share a read-only link with a reviewer.
+**Done when:** An engineer can model a structure in the browser, pass pre-solve quality gates, get trustworthy results with visible verification/trust signals and structured diagnostics, auto-generate the first code combinations and design checks, produce an RC beam schedule, and share a read-only link with a reviewer.
 
 ### 2. Deliverable Layer
 
@@ -284,6 +323,9 @@ Turn analysis into paid engineering work with design checks, reports, and intero
 - AI-powered load combination from code selection — broaden and harden code coverage including accidental torsion, pattern loading, combination factors
 - Natural language result queries — "what's the max moment in beam 7?", "which column has the highest utilization?"
 - AI-powered code-check explanation — explain why a member fails and what parameter drives the failure
+- AI-generated governing-case/report summaries — explain which combinations control and why, ready for report output and reviewer consumption
+- AI reinforcement/design adjustment suggestions — explain likely bar/section changes that would clear a failing check
+- Explicit RC/BBS wedge for LATAM delivery workflows — schedules, drawings, and report outputs that directly close the CYPECAD-style project-delivery gap
 
 **Goal:** Move from "can analyze" to "can support paid engineering work." Automation handles more of the repetitive design and reporting layer so engineers spend more time on judgment.
 
@@ -320,8 +362,8 @@ Fit into real firm workflows before expanding into a broader platform.
 - Project and template workflows — reusable firm standards, named defaults, standard report packages
 - Education and benchmark explorer — university course integration, homework templates, interactive benchmark viewer
 - Stronger review flows — comments, pinned annotations, reviewer states, project/version diff
-- Slab and floor design — punching shear (EC2/ACI), flat slab strips, post-tensioned tendon layout, waffle/ribbed slabs
-- Additional design codes — timber (EC5/NDS, CLT, glulam), masonry (EC6/TMS 402, confined masonry), composite (EC4/AISC, metal deck, headed studs, precast)
+- First broader workflow packaging around firms and education, not yet full platformization
+- AI workflow assistant — help users import models, choose templates, prepare reviews, and interpret diffs without adding full platform complexity
 
 Desktop principles:
 - Web remains the primary product surface
@@ -347,15 +389,28 @@ Turn the app into a structural engineering platform with APIs, automation loops,
 - Cost estimation — material quantities to cost (steel tonnage, concrete volume, rebar weight, formwork)
 - Enterprise controls — permissions, audit trail, administration
 - Optimization and parametric design — size/shape/topology optimization (SIMP), parameter sweeps, multi-objective Pareto, code-constrained optimization
+- Global section optimization — optimize the structure as a system, not only member-by-member, including fabrication rhythm and procurement economy
 - Natural language to model — "8-storey RC frame, seismic zone 4, soft soil" generates a complete structural model
 - Automated design iteration — AI runs hundreds of variants, presents Pareto-optimal designs (cost vs weight vs drift vs carbon)
 - GNN/neural operator surrogates — train on solver output for 1000x parametric speedup
 - Real-time code comparison — compare EC2 / ACI / CIRSOC interpretation on the same structure or member
+- Generative structural layout — produce and rank structural systems from architectural constraints once optimization and automation are trusted
 - PWA and offline — installable Progressive Web App, mobile-optimized 3D viewer, offline sync via CRDTs
 
 **Done when:** A team of engineers can work on the same model simultaneously with live cursors, branch/merge design alternatives, and an AI can generate and rank hundreds of structural variants automatically.
 
-### 6. Specialized Analysis
+### 6. Domain Breadth Layer
+
+Broaden the usable design domain once the core workflow and platform surfaces are in place.
+
+**What:**
+- Slab and floor design — punching shear (EC2/ACI), flat slab strips, post-tensioned tendon layout, waffle/ribbed slabs
+- Additional design codes — timber (EC5/NDS, CLT, glulam), masonry (EC6/TMS 402, confined masonry), composite (EC4/AISC, metal deck, headed studs, precast)
+- Architect-friendly conceptual structural mode with strong guardrails
+
+**Done when:** The same product can serve common RC, steel, timber, masonry, slab, and conceptual structural workflows without forcing firms into separate tools for each domain.
+
+### 7. Specialized Analysis
 
 Cover the remaining 20% of specialized analysis that advanced users need.
 
@@ -371,9 +426,9 @@ Cover the remaining 20% of specialized analysis that advanced users need.
 
 **Done when:** An engineer can run a progressive collapse check, a fire resistance analysis, and a probabilistic seismic risk assessment on a 100k+ DOF model — all within the same app.
 
-### 7. Software Built On The Solver
+### 8. First-Party Software Built On The Solver
 
-Turn the solver from an application into a software stack structural firms can live inside.
+Turn the solver from an application into a first-party software stack structural firms can live inside.
 
 **What:**
 - RC design + BBS studio — analysis to required steel to selected bars to schedules to drawings
@@ -387,9 +442,9 @@ Turn the solver from an application into a software stack structural firms can l
 
 ---
 
-**Post-Core Vision:** Once the solver roadmap and product roadmap through Step 7 are complete, the game shifts from "catch up and surpass" to "define the next era." The value moves beyond the solver engine into AI, collaboration, automation, and the software ecosystem built on top of trusted analysis.
+**Post-Core Vision:** Once the solver roadmap and product roadmap through Step 8 are complete, the game shifts from "catch up and surpass" to "define the next era." The value moves beyond the solver engine into AI, collaboration, automation, and the software ecosystem built on top of trusted analysis.
 
-### 8. Construction Intelligence
+### 9. Construction Intelligence
 
 Bridge the gap between structural design and construction.
 
@@ -402,7 +457,7 @@ Bridge the gap between structural design and construction.
 
 **Done when:** A contractor can feed site sensor data into the model, get daily deflection predictions, and receive automatically generated rebar shop drawings that account for as-built conditions.
 
-### 9. Planetary-Scale Infrastructure
+### 10. Planetary-Scale Infrastructure
 
 Help humanity build climate-resilient, low-carbon, reusable infrastructure.
 
@@ -415,7 +470,7 @@ Help humanity build climate-resilient, low-carbon, reusable infrastructure.
 
 **Done when:** A city can upload its building portfolio, get a seismic/climate risk assessment, and receive prioritized retrofit recommendations with embodied carbon tradeoffs.
 
-### 10. Education Platform
+### 11. Education Platform
 
 Replace static textbooks with interactive learning.
 
@@ -428,9 +483,9 @@ Replace static textbooks with interactive learning.
 
 **Done when:** A professor can assign a structural design homework, students solve it interactively in the browser, and the app auto-grades while explaining the structural behavior step by step.
 
-### 11. API Economy and Platform Ecosystem
+### 12. Third-Party Ecosystem and API Economy
 
-Become the structural engineering operating system.
+Turn the platform into external infrastructure that other software and institutions build on top of.
 
 **What:**
 - Stabileo as infrastructure — other applications call the solver via REST/WebSocket API
