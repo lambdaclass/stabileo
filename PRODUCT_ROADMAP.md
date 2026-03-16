@@ -331,47 +331,65 @@ What not to build next:
 
 ### 1. Solver-Led Product
 
-Build trust through a reliable, accessible structural solver with strong diagnostics and the first high-ROI automation surfaces.
+Build trust through a reliable, accessible structural solver with strong diagnostics, section capacity tools, and the first high-ROI design automation surfaces.
 
 **What:**
+
+Solver trust and diagnostics:
 - WASM path reliability — single trusted solver runtime in production
 - Public verification surface — benchmark explorer, acceptance models, reference cases, and visible trust signals in the app
-- Automatic code-driven load combinations and factors
-- Automatic load generation for the first high-value codes and workflows
-- Steel member design foundations — member utilization, governing steel checks, connection-ready end-force extraction, and first report-ready steel design surfaces
-- RC beam design and reinforcement schedule (envelopes, required steel, selected bars, stirrups, schedule-ready output)
-- Automatic member utilization ratios and pass/fail summaries
-- AI-assisted section suggestion from utilization, code, and basic economy signals
-- Automatic load-combination generation from selected codes
-- Report and calculation-document foundations
-- Onboarding and first-solve success
 - Model quality gates before solve — mechanisms, disconnected nodes, bad constraints, shell pathologies, suspicious local axes/support conditions
 - Richer diagnostics UX — grouping, filtering, machine-readable codes, provenance, click-to-focus highlighting
-- AI-assisted modeling and review — explain warnings, suggest missing supports/loads, flag suspicious patterns, guide first-fix actions
-- AI explanation of model quality gates — tell the user not only that the model is invalid, but why it matters and what the most likely fix is
-- AI setup guidance — suggest shell family, analysis path, and first checks based on the current model and workflow
-- Natural-language result navigation and explanation powered by query-ready solver summaries
-- Lightweight collaboration — comments, pinned annotations, shared links, model/version diff, reviewer read-only flows
 - Constraint-force and governing-result presentation
 - Shell-family recommendation and automatic defaults (MITC4/MITC9/SHB8-ANS)
 - Public benchmark and acceptance-model presentation
 - Performance feedback in the UI — progress bars, iteration counts, slow-phase visibility
+- Onboarding and first-solve success
 
-**Goal:** Be the most accessible serious structural solver for everyday structural engineering, while already automating the first repetitive steel and RC design tasks engineers do after analysis.
+Section capacity and materials (solver Phase 5 — daily engineering need):
+- Nonlinear material models — Mander confined concrete, Menegotto-Pinto steel, EC2 parabola-rectangle, bilinear steel
+- RC section builder — visual concrete shape + rebar layout → auto-generate fibers
+- P-M and P-M-M interaction diagram viewer for column design
+- Moment-curvature curve visualization and section-level pushover
+- Cracked section iteration workflow — solve → check cracking → reduce EI → re-solve
+- Material stress-strain curve editor and preview
+- Cyclic material testing with hysteresis visualization
 
-**Done when:** An engineer can model a structure in the browser, pass pre-solve quality gates, get trustworthy results with visible verification/trust signals and structured diagnostics, auto-generate the first code combinations and design checks, produce a first steel member design result and an RC beam schedule, and share a read-only link with a reviewer.
+Design code computations (solver Phase 6 — what engineers bill for):
+- Steel member design — section classification, LTB, compression curves, combined interaction, per-member utilization ratios with pass/fail
+- RC beam design — required As, stirrup spacing, crack width, deflection check
+- RC column design — interaction diagrams, slenderness, moment magnification
+- Effective buckling length display per column (extracted from global eigenvectors)
+- Multi-code selector — EC2/EC3, ACI 318/AISC 360, EHE-08/EAE
+- Detailing rules output — min/max reinforcement, cover, anchorage lengths
+- Automatic member utilization ratios and pass/fail summaries
+- Automatic code-driven load combinations and factors
+
+First automation and AI surfaces:
+- AI-assisted section suggestion from utilization, code, and basic economy signals
+- AI-assisted modeling and review — explain warnings, suggest missing supports/loads, flag suspicious patterns, guide first-fix actions
+- AI explanation of model quality gates — tell the user not only that the model is invalid, but why it matters and what the most likely fix is
+- AI setup guidance — suggest shell family, analysis path, and first checks based on the current model and workflow
+- Natural-language result navigation and explanation powered by query-ready solver summaries
+- Report and calculation-document foundations
+- Lightweight collaboration — comments, pinned annotations, shared links, model/version diff, reviewer read-only flows
+
+**Goal:** Be the most accessible serious structural solver for everyday structural engineering, with real section capacity tools and code-compliant design output that engineers can use on daily projects.
+
+**Done when:** An engineer can model a structure in the browser, pass pre-solve quality gates, get trustworthy results with visible verification, view P-M interaction diagrams and moment-curvature curves, run steel and RC design checks with utilization ratios against their national code, produce a first RC beam schedule, and share a read-only link with a reviewer.
 
 ### 2. Deliverable Layer
 
-Turn analysis into paid engineering work with design checks, reports, and interoperability.
+Turn analysis into paid engineering work with reports, BBS, connections, and interoperability.
 
 **What:**
+- RC reinforcement schedule and BBS — required steel → selected bars → curtailment → cutting lists → bar bending schedule
 - Graphical BBS drawing generation — bending-shape drawings, dimensions, hook semantics
-- Multi-code design check UI — EC2, EC3, ACI 318, AISC 360, NDS, TMS 402, AISI S100 wired to unified code-selector with per-member utilization ratios
-- Automatic code load generation — wind, snow, seismic ELF, pattern loading, accidental torsion from code/site inputs
 - Steel connection design workflow — first connection library, sizing/check flow, governing demand packaging, and report-ready outputs
-- Connections and foundations productization — auto-sizing and detail generation
 - Reports and calculation packages — PDF with LaTeX equations, project info, design checks, diagrams
+- Automatic code load generation — wind, snow, seismic ELF, pattern loading, accidental torsion from code/site inputs
+- Multi-code design check breadth — EC2, EC3, ACI 318, AISC 360, NDS, TMS 402, AISI S100 wired to unified code-selector
+- Connections and foundations productization — auto-sizing and detail generation
 - Interoperability — full IFC import/export, DXF 3D
 - Project and template support — reusable workflows, firm standardization
 - AI-powered section suggestion — deepen from local member sizing into stronger whole-frame recommendations
@@ -383,9 +401,9 @@ Turn analysis into paid engineering work with design checks, reports, and intero
 - Explicit steel design wedge for daily building/industrial workflows — member checks first, then connection design and report outputs
 - Explicit RC/BBS wedge for LATAM delivery workflows — schedules, drawings, and report outputs that directly close the CYPECAD-style project-delivery gap
 
-**Goal:** Move from "can analyze" to "can support paid engineering work." Automation handles more of the repetitive design and reporting layer so engineers spend more time on judgment.
+**Goal:** Move from "can analyze and design" to "can produce deliverables for paid engineering work." Automation handles the repetitive reporting and detailing layer so engineers spend more time on judgment.
 
-**Done when:** An engineer can run steel and RC design checks against their national code, complete a first steel connection design workflow, generate a submission-grade PDF report, import/export IFC, and ask the app questions about results in plain language.
+**Done when:** An engineer can generate a BBS from RC design results, complete a first steel connection design workflow, generate a submission-grade PDF report, import/export IFC, and ask the app questions about results in plain language.
 
 ### 3. Dynamic and Nonlinear Layer
 
@@ -394,14 +412,12 @@ Make the browser the go-to tool for earthquake engineering, replacing OpenSees f
 **What:**
 - Dynamic time-history UI (Newmark-beta, HHT-alpha, ground motion input)
 - Pushover analysis (capacity spectrum, N2, MPA)
-- Nonlinear material editors (concrete, steel, fiber sections)
-- RC section builder (visual concrete shape + rebar layout)
-- Moment-curvature and interaction diagrams
-- Cyclic material testing with hysteresis visualization
 - Construction staging UI
 - Seismic workflow end-to-end (spectra, ground motion selection, IDA)
 - AI-powered nonlinear/dynamic result interpretation — explain convergence, flag unusual hysteresis, detect soft-story mechanisms, suggest damping parameters
 - AI ground motion selection — suggest appropriate records from site parameters and target spectrum
+
+**Note:** Nonlinear material models, RC section builder, moment-curvature, and interaction diagrams have moved to Step 1 — they are daily design needs, not earthquake-specialist features. The solver delivers them in Phase 5 (before dynamic analysis in Phase 7), so the product can ship them earlier.
 
 **Goal:** Make Stabileo the go-to tool for earthquake engineering — in the browser, with a visual editor, replacing OpenSees for the common 80% of work. AI makes nonlinear results accessible to engineers who aren't nonlinear specialists.
 
