@@ -53,23 +53,22 @@ fn validation_corotational_vm14_eccentric_column() {
     let lin_res = linear::solve_2d(&input).unwrap();
     let corot_res = corotational::solve_corotational_2d(&input, 50, 1e-5, 10, false);
 
-    if let Ok(corot) = corot_res {
-        let tip_lin = lin_res.displacements.iter()
-            .find(|d| d.node_id == n + 1).unwrap().uy.abs();
-        let tip_corot = corot.results.displacements.iter()
-            .find(|d| d.node_id == n + 1).unwrap().uy.abs();
+    let corot = corot_res.expect("VM14 corotational solve must succeed");
+    let tip_lin = lin_res.displacements.iter()
+        .find(|d| d.node_id == n + 1).unwrap().uy.abs();
+    let tip_corot = corot.results.displacements.iter()
+        .find(|d| d.node_id == n + 1).unwrap().uy.abs();
 
-        assert!(corot.converged, "VM14-like should converge");
-        assert!(tip_lin > 1e-8, "Linear should deflect");
-        assert!(tip_corot > 1e-8, "Corotational should deflect");
+    assert!(corot.converged, "VM14-like should converge");
+    assert!(tip_lin > 1e-8, "Linear should deflect");
+    assert!(tip_corot > 1e-8, "Corotational should deflect");
 
-        // Corotational with axial compression should amplify lateral displacement
-        assert!(
-            tip_corot >= tip_lin * 0.95,
-            "Axial compression should amplify: corot={:.6e} vs linear={:.6e}",
-            tip_corot, tip_lin
-        );
-    }
+    // Corotational with axial compression should amplify lateral displacement
+    assert!(
+        tip_corot >= tip_lin * 0.95,
+        "Axial compression should amplify: corot={:.6e} vs linear={:.6e}",
+        tip_corot, tip_lin
+    );
 }
 
 // ================================================================
@@ -95,19 +94,18 @@ fn validation_corotational_small_load_equals_linear() {
     let lin_res = linear::solve_2d(&input).unwrap();
     let corot_res = corotational::solve_corotational_2d(&input, 50, 1e-5, 5, false);
 
-    if let Ok(corot) = corot_res {
-        let lin_uy = lin_res.displacements.iter()
-            .find(|d| d.node_id == tip_node).unwrap().uy;
-        let corot_uy = corot.results.displacements.iter()
-            .find(|d| d.node_id == tip_node).unwrap().uy;
+    let corot = corot_res.expect("small-load corotational solve must succeed");
+    let lin_uy = lin_res.displacements.iter()
+        .find(|d| d.node_id == tip_node).unwrap().uy;
+    let corot_uy = corot.results.displacements.iter()
+        .find(|d| d.node_id == tip_node).unwrap().uy;
 
-        if lin_uy.abs() > 1e-12 {
-            let ratio = corot_uy / lin_uy;
-            assert!(
-                (ratio - 1.0).abs() < 0.05,
-                "Small load: corot/linear={:.4}, should be ≈1.0", ratio
-            );
-        }
+    if lin_uy.abs() > 1e-12 {
+        let ratio = corot_uy / lin_uy;
+        assert!(
+            (ratio - 1.0).abs() < 0.05,
+            "Small load: corot/linear={:.4}, should be ≈1.0", ratio
+        );
     }
 }
 
@@ -135,23 +133,22 @@ fn validation_corotational_large_load_stiffening() {
     let lin_res = linear::solve_2d(&input).unwrap();
     let corot_res = corotational::solve_corotational_2d(&input, 100, 1e-5, 20, false);
 
-    if let Ok(corot) = corot_res {
-        let lin_uy = lin_res.displacements.iter()
-            .find(|d| d.node_id == tip_node).unwrap().uy;
-        let corot_uy = corot.results.displacements.iter()
-            .find(|d| d.node_id == tip_node).unwrap().uy;
+    let corot = corot_res.expect("large-load corotational solve must succeed");
+    let lin_uy = lin_res.displacements.iter()
+        .find(|d| d.node_id == tip_node).unwrap().uy;
+    let corot_uy = corot.results.displacements.iter()
+        .find(|d| d.node_id == tip_node).unwrap().uy;
 
-        // Both should be negative (downward)
-        assert!(lin_uy < 0.0, "Linear should deflect down");
+    // Both should be negative (downward)
+    assert!(lin_uy < 0.0, "Linear should deflect down");
 
-        // Corotational should converge and produce a result
-        assert!(corot.converged, "Large load should still converge");
+    // Corotational should converge and produce a result
+    assert!(corot.converged, "Large load should still converge");
 
-        // The key check is that corotational gives a different result from linear
-        // For very large transverse loads, the beam develops membrane forces
-        // which stiffen the response
-        assert!(corot_uy < 0.0, "Corotational should deflect down");
-    }
+    // The key check is that corotational gives a different result from linear
+    // For very large transverse loads, the beam develops membrane forces
+    // which stiffen the response
+    assert!(corot_uy < 0.0, "Corotational should deflect down");
 }
 
 // ================================================================
@@ -175,10 +172,9 @@ fn validation_corotational_convergence_monitoring() {
 
     let corot_res = corotational::solve_corotational_2d(&input, 50, 1e-5, 10, false);
 
-    if let Ok(corot) = corot_res {
-        assert!(corot.converged, "Moderate load should converge");
-        assert!(corot.iterations <= 50, "Should converge in ≤50 iterations, took {}", corot.iterations);
-    }
+    let corot = corot_res.expect("convergence-monitoring corotational solve must succeed");
+    assert!(corot.converged, "Moderate load should converge");
+    assert!(corot.iterations <= 50, "Should converge in ≤50 iterations, took {}", corot.iterations);
 }
 
 // ================================================================
@@ -205,22 +201,23 @@ fn validation_corotational_increments_convergence() {
     let res_many = corotational::solve_corotational_2d(&input, 50, 1e-5, 20, false);
 
     // Both should converge (if they do, compare results)
-    if let (Ok(few), Ok(many)) = (res_few, res_many) {
-        if few.converged && many.converged {
-            let uy_few = few.results.displacements.iter()
-                .find(|d| d.node_id == tip_node).unwrap().uy;
-            let uy_many = many.results.displacements.iter()
-                .find(|d| d.node_id == tip_node).unwrap().uy;
+    let few = res_few.expect("few-increments corotational solve must succeed");
+    let many = res_many.expect("many-increments corotational solve must succeed");
+    assert!(few.converged, "Few-increments solve should converge");
+    assert!(many.converged, "Many-increments solve should converge");
 
-            // Results should be similar (converged to same answer)
-            if uy_few.abs() > 1e-8 {
-                let ratio = uy_many / uy_few;
-                assert!(
-                    (ratio - 1.0).abs() < 0.20,
-                    "Different increments should give similar results: ratio={:.4}",
-                    ratio
-                );
-            }
-        }
+    let uy_few = few.results.displacements.iter()
+        .find(|d| d.node_id == tip_node).unwrap().uy;
+    let uy_many = many.results.displacements.iter()
+        .find(|d| d.node_id == tip_node).unwrap().uy;
+
+    // Results should be similar (converged to same answer)
+    if uy_few.abs() > 1e-8 {
+        let ratio = uy_many / uy_few;
+        assert!(
+            (ratio - 1.0).abs() < 0.20,
+            "Different increments should give similar results: ratio={:.4}",
+            ratio
+        );
     }
 }

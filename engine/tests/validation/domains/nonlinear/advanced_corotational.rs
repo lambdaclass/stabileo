@@ -106,32 +106,27 @@ fn validation_corot_incremental_convergence() {
     let res_50 = corotational::solve_corotational_2d(&input, 50, 1e-6, 50, false);
 
     // All should converge for this moderate load
-    let tip_5 = if let Ok(ref r) = res_5 {
-        if r.converged { Some(r.results.displacements.iter().find(|d| d.node_id == n + 1).unwrap().uy) }
-        else { None }
-    } else { None };
+    let r_5 = res_5.expect("5-increment corotational solve must succeed");
+    assert!(r_5.converged, "5-increment solve should converge");
+    let d5 = r_5.results.displacements.iter().find(|d| d.node_id == n + 1).unwrap().uy;
 
-    let tip_20 = if let Ok(ref r) = res_20 {
-        if r.converged { Some(r.results.displacements.iter().find(|d| d.node_id == n + 1).unwrap().uy) }
-        else { None }
-    } else { None };
+    let r_20 = res_20.expect("20-increment corotational solve must succeed");
+    assert!(r_20.converged, "20-increment solve should converge");
+    let d20 = r_20.results.displacements.iter().find(|d| d.node_id == n + 1).unwrap().uy;
 
-    let tip_50 = if let Ok(ref r) = res_50 {
-        if r.converged { Some(r.results.displacements.iter().find(|d| d.node_id == n + 1).unwrap().uy) }
-        else { None }
-    } else { None };
+    let r_50 = res_50.expect("50-increment corotational solve must succeed");
+    assert!(r_50.converged, "50-increment solve should converge");
+    let d50 = r_50.results.displacements.iter().find(|d| d.node_id == n + 1).unwrap().uy;
 
     // At minimum, the 20 and 50 increment results should be closer to each other
     // than 5 and 50 increments
-    if let (Some(d5), Some(d20), Some(d50)) = (tip_5, tip_20, tip_50) {
-        let err_5 = (d5 - d50).abs();
-        let err_20 = (d20 - d50).abs();
-        assert!(
-            err_20 <= err_5 + 1e-8,
-            "20 increments should be closer to 50 than 5 is: err_5={:.6e}, err_20={:.6e}",
-            err_5, err_20
-        );
-    }
+    let err_5 = (d5 - d50).abs();
+    let err_20 = (d20 - d50).abs();
+    assert!(
+        err_20 <= err_5 + 1e-8,
+        "20 increments should be closer to 50 than 5 is: err_5={:.6e}, err_20={:.6e}",
+        err_5, err_20
+    );
 }
 
 // ================================================================

@@ -432,7 +432,9 @@ fn diagnose_shell_pivots() {
 }
 
 /// Gate 5a: Sparse assembly is faster than dense assembly + extraction for 20×20 plate.
+// Wall-clock timing test — run manually or in perf gates, not default CI
 #[test]
+#[ignore]
 fn sparse_faster_than_dense() {
     let input = make_ss_plate(20, 20);
     let dof_num = DofNumbering::build_3d(&input);
@@ -953,10 +955,10 @@ fn sparse_buckling_runtime() {
     println!("10x10 compressed plate: buckling in {}ms, {} modes",
         elapsed_ms, result.modes.len());
 
-    // Should complete in under 5 seconds (generous bound for CI).
+    // Generous bound — catches catastrophic regression, not tight perf gate
     // On Apple M1 this is typically <500ms.
     assert!(
-        elapsed_ms < 5000,
+        elapsed_ms < 15000,
         "Buckling solve too slow: {}ms on 10×10 plate", elapsed_ms
     );
     assert!(result.modes.len() >= 3, "Should find at least 3 buckling modes");
@@ -983,7 +985,9 @@ fn perimeter_nodes(grid: &[Vec<usize>], nx: usize, ny: usize) -> Vec<usize> {
 /// Gate: Guyan 3D uses single Cholesky factorization, not repeated LU.
 /// Verifies that Guyan on a 10×10 plate completes successfully and that
 /// the interior solves use Cholesky (timing must be << nb × single-LU time).
+// Wall-clock timing test — run manually or in perf gates, not default CI
 #[test]
+#[ignore]
 fn guyan_single_factorization() {
     let nx = 10;
     let ny = 10;

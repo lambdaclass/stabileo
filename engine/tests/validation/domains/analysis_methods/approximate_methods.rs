@@ -45,9 +45,9 @@ fn validation_approx_portal_shear() {
     let r4 = results.reactions.iter().find(|r| r.node_id == 4).unwrap();
 
     // Each column should carry approximately F/2 (for symmetric frame)
-    assert_close(r1.rx.abs(), f_lat / 2.0, 0.15,
+    assert_close(r1.rx.abs(), f_lat / 2.0, 0.08,
         "Portal: V_left ≈ F/2");
-    assert_close(r4.rx.abs(), f_lat / 2.0, 0.15,
+    assert_close(r4.rx.abs(), f_lat / 2.0, 0.08,
         "Portal: V_right ≈ F/2");
 
     // Total must equal F exactly

@@ -182,14 +182,10 @@ fn benchmark_guyan_reduction_frequencies() {
                         eprintln!("  Full mode {}: {:.4} Hz", i + 1, f);
                     }
                 }
-                Err(e) => {
-                    eprintln!("Guyan reduction failed: {}", e);
-                }
+                Err(e) => panic!("Guyan reduction must succeed: {e}"),
             }
         }
-        Err(e) => {
-            eprintln!("Full modal analysis failed: {}", e);
-        }
+        Err(e) => panic!("Full modal analysis must succeed: {e}"),
     }
 }
 
@@ -325,14 +321,10 @@ fn benchmark_craig_bampton_frequencies() {
                         }
                     }
                 }
-                Err(e) => {
-                    eprintln!("Craig-Bampton reduction failed: {}", e);
-                }
+                Err(e) => panic!("Craig-Bampton reduction must succeed: {e}"),
             }
         }
-        Err(e) => {
-            eprintln!("Full modal analysis failed: {}", e);
-        }
+        Err(e) => panic!("Full modal analysis must succeed: {e}"),
     }
 }
 
@@ -416,14 +408,10 @@ fn benchmark_reduction_mass_consistency() {
                         );
                     }
                 }
-                Err(e) => {
-                    eprintln!("Craig-Bampton reduction failed (mass check): {}", e);
-                }
+                Err(e) => panic!("Craig-Bampton reduction must succeed (mass check): {e}"),
             }
         }
-        Err(e) => {
-            eprintln!("Full modal analysis failed (mass check): {}", e);
-        }
+        Err(e) => panic!("Full modal analysis must succeed (mass check): {e}"),
     }
 }
 
@@ -468,7 +456,7 @@ fn benchmark_guyan_boundary_sensitivity() {
                 eprintln!("Guyan {}: err={:.4}%", label, err * 100.0);
                 assert!(err < 0.05, "Guyan {} error {:.2}% exceeds 5%", label, err * 100.0);
             }
-            Err(e) => eprintln!("Guyan {} failed: {}", label, e),
+            Err(e) => panic!("Guyan {label} must succeed: {e}"),
         }
     }
 }
@@ -511,7 +499,7 @@ fn benchmark_guyan_static_parity() {
             // Interior recovered displacements should be non-empty
             assert!(!gr.displacements.is_empty());
         }
-        Err(e) => eprintln!("Guyan static parity failed: {}", e),
+        Err(e) => panic!("Guyan static parity must succeed: {e}"),
     }
 }
 
@@ -532,7 +520,7 @@ fn benchmark_craig_bampton_mode_count() {
     let full = modal::solve_modal_2d(&beam, &densities(), 5);
     let full_freqs = match &full {
         Ok(r) => r.modes.iter().take(3).map(|m| m.frequency).collect::<Vec<_>>(),
-        Err(e) => { eprintln!("Full modal failed: {}", e); return; }
+        Err(e) => panic!("Full modal must succeed: {e}"),
     };
 
     let tip = n_nodes;
@@ -549,21 +537,20 @@ fn benchmark_craig_bampton_mode_count() {
         });
 
         let mut errs = Vec::new();
-        if let Ok(cb_res) = &cb {
-            let nr = cb_res.n_reduced;
-            if let Some(eig) = solve_generalized_eigen(&cb_res.k_reduced, &cb_res.m_reduced, nr, 200) {
-                let mut freqs: Vec<f64> = eig.values.iter()
-                    .filter(|&&v| v > 1e-6)
-                    .map(|&v| v.sqrt() / (2.0 * std::f64::consts::PI))
-                    .collect();
-                freqs.sort_by(|a, b| a.partial_cmp(b).unwrap());
-                for (i, (cf, ff)) in freqs.iter().zip(full_freqs.iter()).enumerate() {
-                    let err = (cf - ff).abs() / ff.max(1e-20);
-                    eprintln!("CB {} modes: mode {}={:.4} Hz (full={:.4}, err={:.2}%)",
-                        n_modes, i + 1, cf, ff, err * 100.0);
-                    errs.push(err);
-                }
-            }
+        let cb_res = cb.expect(&format!("Craig-Bampton with {n_modes} modes must succeed"));
+        let nr = cb_res.n_reduced;
+        let eig = solve_generalized_eigen(&cb_res.k_reduced, &cb_res.m_reduced, nr, 200)
+            .expect("Generalized eigen solve must succeed");
+        let mut freqs: Vec<f64> = eig.values.iter()
+            .filter(|&&v| v > 1e-6)
+            .map(|&v| v.sqrt() / (2.0 * std::f64::consts::PI))
+            .collect();
+        freqs.sort_by(|a, b| a.partial_cmp(b).unwrap());
+        for (i, (cf, ff)) in freqs.iter().zip(full_freqs.iter()).enumerate() {
+            let err = (cf - ff).abs() / ff.max(1e-20);
+            eprintln!("CB {} modes: mode {}={:.4} Hz (full={:.4}, err={:.2}%)",
+                n_modes, i + 1, cf, ff, err * 100.0);
+            errs.push(err);
         }
         all_errors.push((format!("{}", n_modes), errs));
     }
@@ -611,32 +598,30 @@ fn benchmark_reduction_scaled_model() {
     let q3 = 3 * n_nodes / 4;
 
     // Guyan
-    if let Ok(gr) = guyan_reduce_2d(&GuyanInput {
+    let gr = guyan_reduce_2d(&GuyanInput {
         solver: beam_loaded.clone(),
         boundary_nodes: vec![q1, q2, q3, tip],
-    }) {
-        let nb = gr.n_boundary;
-        for i in 0..nb {
-            assert!(gr.k_condensed[i * nb + i] > 0.0, "Guyan K diag[{}] not positive", i);
-        }
-        let d_tip = gr.displacements.iter().find(|d| d.node_id == tip).map(|d| d.uy).unwrap_or(0.0);
-        let err = (d_tip - d_tip_full).abs() / d_tip_full.abs().max(1e-15);
-        eprintln!("40-elem Guyan: err={:.2}%", err * 100.0);
-        assert!(err < 0.02, "Guyan static recovery error {:.2}% exceeds 2%", err * 100.0);
+    }).expect("Guyan reduction (40-elem) must succeed");
+    let nb = gr.n_boundary;
+    for i in 0..nb {
+        assert!(gr.k_condensed[i * nb + i] > 0.0, "Guyan K diag[{}] not positive", i);
     }
+    let d_tip = gr.displacements.iter().find(|d| d.node_id == tip).map(|d| d.uy).unwrap_or(0.0);
+    let err = (d_tip - d_tip_full).abs() / d_tip_full.abs().max(1e-15);
+    eprintln!("40-elem Guyan: err={:.2}%", err * 100.0);
+    assert!(err < 0.02, "Guyan static recovery error {:.2}% exceeds 2%", err * 100.0);
 
     // CB
-    if let Ok(cb) = craig_bampton_2d(&CraigBamptonInput {
+    let cb = craig_bampton_2d(&CraigBamptonInput {
         solver: beam.clone(),
         boundary_nodes: vec![q1, q2, q3, tip],
         n_modes: 5,
         densities: densities(),
-    }) {
-        let nr = cb.n_reduced;
-        for i in 0..nr {
-            assert!(cb.k_reduced[i * nr + i] > 0.0, "CB K diag[{}] not positive", i);
-            assert!(cb.m_reduced[i * nr + i] >= -1e-10, "CB M diag[{}] negative", i);
-        }
-        eprintln!("40-elem CB: n_reduced={}, n_modes={}", cb.n_reduced, cb.n_modes_kept);
+    }).expect("Craig-Bampton (40-elem) must succeed");
+    let nr = cb.n_reduced;
+    for i in 0..nr {
+        assert!(cb.k_reduced[i * nr + i] > 0.0, "CB K diag[{}] not positive", i);
+        assert!(cb.m_reduced[i * nr + i] >= -1e-10, "CB M diag[{}] negative", i);
     }
+    eprintln!("40-elem CB: n_reduced={}, n_modes={}", cb.n_reduced, cb.n_modes_kept);
 }

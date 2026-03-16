@@ -94,10 +94,10 @@ fn validation_approx_ext_portal_method_two_story_shear() {
     let r4 = results.reactions.iter().find(|r| r.node_id == 4).unwrap();
 
     let portal_predicted_each = total_applied / 2.0; // 22.5 kN
-    // Portal method is approximate; allow 25% tolerance for fixed-base frames
-    assert_close(r1.rx.abs(), portal_predicted_each, 0.25,
+    // Portal method is approximate; allow 10% tolerance for fixed-base frames
+    assert_close(r1.rx.abs(), portal_predicted_each, 0.10,
         "portal method: left column base shear ~ H_total/2");
-    assert_close(r4.rx.abs(), portal_predicted_each, 0.25,
+    assert_close(r4.rx.abs(), portal_predicted_each, 0.10,
         "portal method: right column base shear ~ H_total/2");
 
     // Verify story 2 column shears are smaller than story 1 column shears

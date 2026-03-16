@@ -342,31 +342,79 @@ pub fn make_3d_beam(
 /// Check global equilibrium: sum of reactions ≈ sum of applied loads.
 #[allow(dead_code)]
 pub fn check_equilibrium(results: &AnalysisResults, loads: &[SolverLoad]) {
-    let (mut fx, mut fy, mut _mz) = (0.0, 0.0, 0.0);
+    let (mut fx, mut fy, mut mz) = (0.0, 0.0, 0.0);
     for load in loads {
         match load {
             SolverLoad::Nodal(nl) => {
                 fx += nl.fx;
                 fy += nl.fy;
-                _mz += nl.mz;
+                mz += nl.mz;
             }
-            SolverLoad::Distributed(dl) => {
-                let _ = dl;
+            SolverLoad::Distributed(_) => {
+                // Distributed loads contribute to equilibrium but need element geometry
+                // to resolve into equivalent nodal forces — skip for now.
             }
             _ => {}
         }
     }
     let sum_rx: f64 = results.reactions.iter().map(|r| r.rx).sum();
     let sum_ry: f64 = results.reactions.iter().map(|r| r.ry).sum();
-    let total_reaction_x = sum_rx;
-    let total_reaction_y = sum_ry;
-    if fy < 0.0 {
-        assert!(total_reaction_y > 0.0, "Vertical equilibrium: sum_ry={}", total_reaction_y);
-    }
-    if fx.abs() > 1e-10 {
+    let sum_mz: f64 = results.reactions.iter().map(|r| r.mz).sum();
+
+    assert!(
+        (sum_rx + fx).abs() < 1.0,
+        "Horizontal equilibrium violated: ΣRx={:.4}, ΣFx={:.4}, residual={:.4}",
+        sum_rx, fx, sum_rx + fx
+    );
+    if fy.abs() > 1e-10 {
         assert!(
-            (total_reaction_x + fx).abs() < 1.0,
-            "Horizontal equilibrium: sum_rx={}, fx={}", total_reaction_x, fx
+            (sum_ry + fy).abs() < 1.0,
+            "Vertical equilibrium violated: ΣRy={:.4}, ΣFy={:.4}, residual={:.4}",
+            sum_ry, fy, sum_ry + fy
         );
     }
+    if mz.abs() > 1e-10 {
+        assert!(
+            (sum_mz + mz).abs() < 1.0,
+            "Moment equilibrium violated: ΣMz_react={:.4}, ΣMz_applied={:.4}, residual={:.4}",
+            sum_mz, mz, sum_mz + mz
+        );
+    }
+}
+
+/// Check moment equilibrium about the origin for a 2D structure with nodal loads only.
+///
+/// ΣM_origin = 0 means: sum of reaction moments + reaction forces × lever arms
+///                     + applied moments + applied forces × lever arms = 0.
+///
+/// `node_coords` maps node_id → (x, y).
+#[allow(dead_code)]
+pub fn check_moment_equilibrium_2d(
+    results: &AnalysisResults,
+    loads: &[SolverLoad],
+    node_coords: &std::collections::HashMap<usize, (f64, f64)>,
+    tol: f64,
+    label: &str,
+) {
+    let mut sum_m = 0.0;
+
+    // Reaction contributions: Mz + (r × F)_z = Mz + x*Ry - y*Rx
+    for r in &results.reactions {
+        let (x, y) = node_coords[&r.node_id];
+        sum_m += r.mz + x * r.ry - y * r.rx;
+    }
+
+    // Applied load contributions: mz + x*fy - y*fx
+    for load in loads {
+        if let SolverLoad::Nodal(nl) = load {
+            let (x, y) = node_coords[&nl.node_id];
+            sum_m += nl.mz + x * nl.fy - y * nl.fx;
+        }
+    }
+
+    assert!(
+        sum_m.abs() < tol,
+        "{}: moment equilibrium about origin violated, ΣM={:.6}",
+        label, sum_m
+    );
 }

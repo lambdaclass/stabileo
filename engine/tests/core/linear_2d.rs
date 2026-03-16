@@ -216,6 +216,14 @@ fn portal_frame_lateral_load_equilibrium() {
 
     let sum_ry: f64 = results.reactions.iter().map(|r| r.ry).sum();
     assert_close(sum_ry, 0.0, 0.01, "portal frame ΣFy = 0");
+
+    // Moment equilibrium about the left support (node 1 at origin (0,0)):
+    // ΣM = reaction moments + reaction forces × arms + applied load moments = 0
+    // Portal: h=4, w=6. Lateral load H=20 at node 2 (0, 4).
+    let node_coords: std::collections::HashMap<usize, (f64, f64)> = [
+        (1, (0.0, 0.0)), (2, (0.0, 4.0)), (3, (6.0, 4.0)), (4, (6.0, 0.0)),
+    ].iter().cloned().collect();
+    check_moment_equilibrium_2d(&results, &input.loads, &node_coords, 1.0, "portal frame ΣM");
 }
 
 // ─── Hinged Elements ─────────────────────────────────────────

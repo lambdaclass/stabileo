@@ -140,22 +140,21 @@ fn validation_pushover_corotational_large_displacement() {
     // Corotational solution
     let corot_res = corotational::solve_corotational_2d(&input, 50, 1e-5, 10, false);
 
-    if let Ok(corot) = corot_res {
-        let corot_tip = corot.results.displacements.iter()
-            .find(|d| d.node_id == n + 1).unwrap().uy;
+    let corot = corot_res.expect("pushover corotational solve must succeed");
+    let corot_tip = corot.results.displacements.iter()
+        .find(|d| d.node_id == n + 1).unwrap().uy;
 
-        // Both should deflect downward
-        assert!(lin_tip < 0.0, "Linear: tip should deflect down");
-        assert!(corot_tip < 0.0, "Corotational: tip should deflect down");
+    // Both should deflect downward
+    assert!(lin_tip < 0.0, "Linear: tip should deflect down");
+    assert!(corot_tip < 0.0, "Corotational: tip should deflect down");
 
-        // Corotational should give smaller deflection (geometric stiffening)
-        // or larger (geometric softening) depending on the problem
-        // The key check is that it converged and gave a reasonable result
-        assert!(
-            corot.converged,
-            "Corotational should converge"
-        );
-    }
+    // Corotational should give smaller deflection (geometric stiffening)
+    // or larger (geometric softening) depending on the problem
+    // The key check is that it converged and gave a reasonable result
+    assert!(
+        corot.converged,
+        "Corotational should converge"
+    );
 }
 
 // ================================================================

@@ -74,6 +74,16 @@ fn pdelta_equilibrium() {
         (sum_ry - 200.0).abs() < 2.0,
         "ΣFy: sum_ry={:.2}, applied=−200, diff={:.2}", sum_ry, sum_ry - 200.0
     );
+
+    // Moment equilibrium about the origin (node 1 at (0,0)):
+    // Portal: h=4, w=6. Lateral H=20 at node 2, gravity -100 at nodes 2 & 3.
+    let node_coords: std::collections::HashMap<usize, (f64, f64)> = [
+        (1, (0.0, 0.0)), (2, (0.0, 4.0)), (3, (6.0, 4.0)), (4, (6.0, 0.0)),
+    ].iter().cloned().collect();
+    check_moment_equilibrium_2d(
+        &pdelta.results, &input.loads, &node_coords, 2.0,
+        "P-Delta portal frame ΣM",
+    );
 }
 
 #[test]

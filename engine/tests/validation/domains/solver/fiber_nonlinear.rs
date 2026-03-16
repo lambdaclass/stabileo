@@ -321,14 +321,12 @@ fn load_displacement_monotonically_increasing() {
             50, 1e-6,
         );
 
-        let result = solve_fiber_nonlinear_2d(&input);
-        if let Ok(r) = result {
-            if r.converged {
-                let d = r.results.displacements.iter()
-                    .find(|d| d.node_id == 1).unwrap();
-                displacements.push(d.uy.abs());
-            }
-        }
+        let result = solve_fiber_nonlinear_2d(&input)
+            .expect(&format!("Fiber nonlinear solver must succeed at increment {inc}"));
+        assert!(result.converged, "Fiber nonlinear solver must converge at increment {inc}");
+        let d = result.results.displacements.iter()
+            .find(|d| d.node_id == 1).unwrap();
+        displacements.push(d.uy.abs());
     }
 
     assert!(
