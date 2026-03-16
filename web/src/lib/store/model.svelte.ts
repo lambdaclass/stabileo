@@ -5,7 +5,6 @@ import type { SolverInput3D, AnalysisResults3D, FullEnvelope3D, Constraint3D } f
 import type { ModelSnapshot } from './history.svelte';
 import { getFixture, is3DFixture } from '../templates/fixture-index';
 import { loadFixture } from '../templates/load-fixture';
-import type { ExampleAPI3D } from './model-examples-3d';
 import { inferLoadCaseType } from '../engine/combinations-service';
 import { t } from '../i18n';
 import { validateAndSolve2D, buildSolverInput2D, validateAndSolve3D, buildSolverInput3D as buildSolverInput3DFn, solveCombinations2D, solveCombinations3D as solveCombinations3DFn, solveCombinations3DParallel as solveCombinations3DParallelFn } from '../engine/solver-service';
@@ -1448,7 +1447,7 @@ function createModelStore() {
       this.clear();
 
       const json = await loader();
-      const api: ExampleAPI3D = {
+      const api = {
         addNode: this.addNode.bind(this),
         addElement: this.addElement.bind(this),
         addSupport: this.addSupport.bind(this),

@@ -19,7 +19,6 @@
     downloadCanvasPNG,
   } from './lib/store/file';
   import { loadFromURLHash } from './lib/utils/url-sharing';
-  import TemplateDialog from './components/TemplateDialog.svelte';
   import DxfImportDialog from './components/DxfImportDialog.svelte';
   import IfcImportDialog from './components/IfcImportDialog.svelte';
   import FloatingTools from './components/FloatingTools.svelte';
@@ -166,7 +165,6 @@
     replaceAppUrl(target, modelStore.model.name);
   }
 
-  let showTemplateDialog = $state(false);
   let showDxfImport = $state(false);
   let dxfImportFile = $state<File | null>(null);
   let showIfcImport = $state(false);
@@ -332,8 +330,6 @@
     window.addEventListener('stabileo-export-png', handleExportPNG);
     const handleImportEvent = () => { showImportDialog = true; };
     window.addEventListener('stabileo-import-coords', handleImportEvent);
-    const handleTemplateEvent = () => { showTemplateDialog = true; };
-    window.addEventListener('stabileo-open-template', handleTemplateEvent);
     const handleDxfImportEvent = () => { dxfFileInput?.click(); };
     window.addEventListener('stabileo-import-dxf', handleDxfImportEvent);
     const handleDxfDropEvent = (e: Event) => {
@@ -355,7 +351,6 @@
       window.removeEventListener('resize', onResize);
       window.removeEventListener('stabileo-export-png', handleExportPNG);
       window.removeEventListener('stabileo-import-coords', handleImportEvent);
-      window.removeEventListener('stabileo-open-template', handleTemplateEvent);
       window.removeEventListener('stabileo-import-dxf', handleDxfImportEvent);
       window.removeEventListener('stabileo-dxf-drop', handleDxfDropEvent);
       window.removeEventListener('stabileo-import-ifc', handleIfcImportEvent);
@@ -596,8 +591,6 @@
 <ContextMenu />
 
 <HelpOverlay />
-
-<TemplateDialog open={showTemplateDialog} onclose={() => showTemplateDialog = false} />
 
 <DxfImportDialog
   open={showDxfImport}

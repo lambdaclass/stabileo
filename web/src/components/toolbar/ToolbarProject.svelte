@@ -140,9 +140,6 @@
         <button class="file-btn" onclick={() => window.dispatchEvent(new Event('stabileo-import-coords'))} title={t('project.pasteCoordsTooltip')}>
           {t('project.pasteCoords')}
         </button>
-        <button class="file-btn" onclick={() => window.dispatchEvent(new Event('stabileo-open-template'))} title={t('project.generatorTooltip')}>
-          {t('project.generator')}
-        </button>
       </div>
       <span class="file-sub-header">{t('project.share')}</span>
       <div class="file-grid">
