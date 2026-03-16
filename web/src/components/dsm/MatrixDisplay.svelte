@@ -1,5 +1,9 @@
 <script lang="ts">
   import { t } from '../../lib/i18n';
+  import { uiStore } from '../../lib/store';
+
+  let copyFeedback = $state<'ok' | null>(null);
+
   let {
     matrix = [],
     rowLabels = [],
@@ -84,6 +88,31 @@
     }
     return { total, answered, correct };
   });
+
+  function fmtLatex(val: number): string {
+    if (Math.abs(val) < 1e-10) return '0';
+    if (Math.abs(val) >= 1e6 || (Math.abs(val) < 0.001 && Math.abs(val) > 0)) {
+      const exp = Math.floor(Math.log10(Math.abs(val)));
+      const mantissa = val / Math.pow(10, exp);
+      return `${mantissa.toFixed(precision - 1)} \\times 10^{${exp}}`;
+    }
+    return val.toFixed(precision);
+  }
+
+  function toLatex(): string {
+    const rows = matrix.map(row => row.map(fmtLatex).join(' & '));
+    return `\\begin{bmatrix}\n${rows.join(' \\\\\n')}\n\\end{bmatrix}`;
+  }
+
+  async function copyLatex() {
+    try {
+      await navigator.clipboard.writeText(toLatex());
+      copyFeedback = 'ok';
+      setTimeout(() => { copyFeedback = null; }, 1500);
+    } catch {
+      uiStore.toast(t('dsm.latexCopyError'), 'error');
+    }
+  }
 </script>
 
 {#if title}
@@ -91,11 +120,16 @@
     {title}
     {#if editable && quizStats}
       <span class="quiz-stats">
-        {quizStats.correct}/{quizStats.answered} correctas
+        {t('dsm.quizCorrect').replace('{correct}', String(quizStats.correct)).replace('{answered}', String(quizStats.answered))}
         {#if quizStats.answered > 0}
           ({Math.round(quizStats.correct / quizStats.answered * 100)}%)
         {/if}
       </span>
+    {/if}
+    {#if !editable && matrix.length > 0}
+      <button class="latex-copy-btn" onclick={copyLatex} title={t('dsm.latexCopyHint')}>
+        {copyFeedback === 'ok' ? t('dsm.latexCopied') : t('dsm.latexCopy')}
+      </button>
     {/if}
   </div>
 {/if}
@@ -165,6 +199,22 @@
     font-weight: 400;
     color: #4ecdc4;
     font-size: 0.65rem;
+  }
+  .latex-copy-btn {
+    margin-left: auto;
+    padding: 1px 6px;
+    font-size: 0.6rem;
+    color: #888;
+    background: transparent;
+    border: 1px solid #333;
+    border-radius: 3px;
+    cursor: pointer;
+    transition: all 0.15s;
+    white-space: nowrap;
+  }
+  .latex-copy-btn:hover {
+    color: #ddd;
+    border-color: #4ecdc4;
   }
   .matrix-scroll {
     overflow-x: auto;

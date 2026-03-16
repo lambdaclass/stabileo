@@ -1,4 +1,9 @@
 <script lang="ts">
+  import { t } from '../../lib/i18n';
+  import { uiStore } from '../../lib/store';
+
+  let copyFeedback = $state<'ok' | null>(null);
+
   let {
     vector = [],
     labels = [],
@@ -22,10 +27,42 @@
     }
     return val.toFixed(precision);
   }
+
+  function fmtLatex(val: number): string {
+    if (Math.abs(val) < 1e-10) return '0';
+    if (Math.abs(val) >= 1e6 || (Math.abs(val) < 0.001 && Math.abs(val) > 0)) {
+      const exp = Math.floor(Math.log10(Math.abs(val)));
+      const mantissa = val / Math.pow(10, exp);
+      return `${mantissa.toFixed(precision - 1)} \\times 10^{${exp}}`;
+    }
+    return val.toFixed(precision);
+  }
+
+  function toLatex(): string {
+    const entries = vector.map(fmtLatex).join(' \\\\\n');
+    return `\\begin{Bmatrix}\n${entries}\n\\end{Bmatrix}`;
+  }
+
+  async function copyLatex() {
+    try {
+      await navigator.clipboard.writeText(toLatex());
+      copyFeedback = 'ok';
+      setTimeout(() => { copyFeedback = null; }, 1500);
+    } catch {
+      uiStore.toast(t('dsm.latexCopyError'), 'error');
+    }
+  }
 </script>
 
 {#if title}
-  <div class="vec-title">{title}</div>
+  <div class="vec-title">
+    {title}
+    {#if vector.length > 0}
+      <button class="latex-copy-btn" onclick={copyLatex} title={t('dsm.latexCopyHint')}>
+        {copyFeedback === 'ok' ? t('dsm.latexCopied') : t('dsm.latexCopy')}
+      </button>
+    {/if}
+  </div>
 {/if}
 <div class="vec-scroll" class:horizontal>
   <table class="vec-table" class:horizontal>
@@ -65,6 +102,25 @@
     color: #888;
     margin-bottom: 0.25rem;
     font-weight: 600;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .latex-copy-btn {
+    margin-left: auto;
+    padding: 1px 6px;
+    font-size: 0.6rem;
+    color: #888;
+    background: transparent;
+    border: 1px solid #333;
+    border-radius: 3px;
+    cursor: pointer;
+    transition: all 0.15s;
+    white-space: nowrap;
+  }
+  .latex-copy-btn:hover {
+    color: #ddd;
+    border-color: #4ecdc4;
   }
   .vec-scroll {
     overflow: auto;

@@ -37,6 +37,20 @@ export interface PlasticConfig {
   mpOverrides?: Map<number, number>;
 }
 
+export interface PlasticStep3D {
+  loadFactor: number;
+  hingesFormed: PlasticHinge[];
+  results: AnalysisResults3D;
+}
+
+export interface PlasticResult3D {
+  collapseFactor: number;
+  steps: PlasticStep3D[];
+  hinges: PlasticHinge[];
+  isMechanism: boolean;
+  redundancy: number;
+}
+
 // ─── P-Delta Analysis ──────────────────────────────────────────
 
 export interface PDeltaConfig {

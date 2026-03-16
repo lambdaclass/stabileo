@@ -4,7 +4,7 @@ import type { AnalysisResults, InfluenceLineResult, Section, Material } from './
 import type { ElementForces, FullEnvelope, ConstraintForce, SolverDiagnostic, SolveTimings } from '../engine/types';
 import type { AnalysisResults3D, Displacement3D, Reaction3D, ElementForces3D, FullEnvelope3D } from '../engine/types-3d';
 import type { MovingLoadEnvelope } from '../engine/moving-loads';
-import type { PDeltaResult, PDeltaResult3D, ModalResult, ModalResult3D, BucklingResult, BucklingResult3D, PlasticResult, SpectralResult, SpectralResult3D } from '../engine/result-types';
+import type { PDeltaResult, PDeltaResult3D, ModalResult, ModalResult3D, BucklingResult, BucklingResult3D, PlasticResult, PlasticResult3D, SpectralResult, SpectralResult3D } from '../engine/result-types';
 
 export type DiagramType = 'none' | 'moment' | 'shear' | 'axial' | 'deformed' | 'colorMap' | 'axialColor' | 'verification' | 'influenceLine' | 'modeShape' | 'bucklingMode' | 'plasticHinges'
   // 3D-specific diagram types
@@ -112,6 +112,8 @@ function createResultsStore() {
   let pdeltaResult3D = $state<PDeltaResult3D | null>(null);
   let modalResult3D = $state<ModalResult3D | null>(null);
   let bucklingResult3D = $state<BucklingResult3D | null>(null);
+  let plasticResult3D = $state<PlasticResult3D | null>(null);
+  let plasticStep3D = $state<number>(0);
   let spectralResult3D = $state<SpectralResult3D | null>(null);
   let showReactions = $state<boolean>(false);
   let showConstraintForces = $state<boolean>(false);
@@ -285,6 +287,8 @@ function createResultsStore() {
       pdeltaResult3D = null;
       modalResult3D = null;
       bucklingResult3D = null;
+      plasticResult3D = null;
+      plasticStep3D = 0;
       spectralResult3D = null;
     },
 
@@ -351,7 +355,12 @@ function createResultsStore() {
 
     get plasticResult() { return plasticResult; },
     get plasticStep() { return plasticStep; },
-    set plasticStep(v: number) { plasticStep = v; },
+    set plasticStep(v: number) {
+      plasticStep = v;
+      if (plasticResult && plasticResult.steps[v]) {
+        results = plasticResult.steps[v].results;
+      }
+    },
     setPlasticResult(r: PlasticResult) {
       this.clearAdvanced();
       plasticResult = r;
@@ -421,6 +430,29 @@ function createResultsStore() {
     },
     clearSpectral3D() {
       spectralResult3D = null;
+    },
+
+    get plasticResult3D() { return plasticResult3D; },
+    get plasticStep3D() { return plasticStep3D; },
+    set plasticStep3D(v: number) {
+      plasticStep3D = v;
+      if (plasticResult3D && plasticResult3D.steps[v]) {
+        results3D = plasticResult3D.steps[v].results;
+      }
+    },
+    setPlasticResult3D(r: PlasticResult3D) {
+      this.clearAdvanced();
+      plasticResult3D = r;
+      plasticStep3D = r.steps.length - 1;
+      if (r.steps.length > 0) {
+        results3D = r.steps[r.steps.length - 1].results;
+      }
+      diagramType = 'plasticHinges';
+    },
+    clearPlastic3D() {
+      plasticResult3D = null;
+      plasticStep3D = 0;
+      if (diagramType === 'plasticHinges') diagramType = 'deformed';
     },
 
     get showReactions() { return showReactions; },
@@ -616,6 +648,8 @@ function createResultsStore() {
       modalResult3D = null;
       bucklingResult3D = null;
       spectralResult3D = null;
+      plasticResult3D = null;
+      plasticStep3D = 0;
       showReactions = false;
       showConstraintForces = false;
       // Reset diagram state so stale deformed/diagrams are removed from scene

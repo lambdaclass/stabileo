@@ -1,6 +1,7 @@
 <script lang="ts">
   import { dsmStepsStore } from '../../lib/store';
   import { t } from '../../lib/i18n';
+  import { openDsmReport } from '../../lib/engine/dsm-report';
   import Step1DOFNumbering from './Step1DOFNumbering.svelte';
   import Step2LocalMatrices from './Step2LocalMatrices.svelte';
   import Step3Transformation from './Step3Transformation.svelte';
@@ -33,6 +34,22 @@
 <div class="wizard">
   <div class="wizard-header">
     <span class="wizard-title">{showExplorer ? t('dsm.matrixExplorer') : t('dsm.wizardTitle')}</span>
+    <button
+      class="quiz-toggle"
+      class:active={dsmStepsStore.quizMode}
+      onclick={() => { dsmStepsStore.quizMode = !dsmStepsStore.quizMode; }}
+      title={t('dsm.quizModeHint')}
+    >
+      {t('dsm.quizMode')}
+    </button>
+    <button
+      class="export-btn"
+      onclick={() => { if (dsmStepsStore.stepData) openDsmReport(dsmStepsStore.stepData, t); }}
+      title={t('dsm.exportReportHint')}
+      disabled={!dsmStepsStore.stepData}
+    >
+      {t('dsm.exportReport')}
+    </button>
     <button
       class="explorer-toggle"
       class:active={showExplorer}
@@ -143,8 +160,44 @@
     font-weight: 600;
     color: #4ecdc4;
   }
-  .explorer-toggle {
+  .quiz-toggle {
     margin-left: auto;
+    margin-right: 4px;
+    padding: 2px 8px;
+    border: 1px solid #0f3460;
+    border-radius: 4px;
+    background: transparent;
+    color: #888;
+    font-size: 0.7rem;
+    cursor: pointer;
+    transition: all 0.15s;
+  }
+  .quiz-toggle:hover {
+    color: #ddd;
+    border-color: #f0a500;
+  }
+  .quiz-toggle.active {
+    background: rgba(240, 165, 0, 0.15);
+    color: #f0a500;
+    border-color: #f0a500;
+  }
+  .export-btn {
+    padding: 2px 8px;
+    border: 1px solid #0f3460;
+    border-radius: 4px;
+    background: transparent;
+    color: #888;
+    font-size: 0.7rem;
+    cursor: pointer;
+    transition: all 0.15s;
+  }
+  .export-btn:hover:not(:disabled) {
+    color: #ddd;
+    border-color: #1a5090;
+    background: rgba(26, 80, 144, 0.15);
+  }
+  .export-btn:disabled { opacity: 0.3; cursor: default; }
+  .explorer-toggle {
     margin-right: 8px;
     padding: 2px 8px;
     border: 1px solid #0f3460;

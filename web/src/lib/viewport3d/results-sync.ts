@@ -79,7 +79,7 @@ export function syncDeformed(ctx: ResultsSyncContext, scaleOverride?: number): v
   }
 
   const dt = resultsStore.diagramType;
-  const isDeformedLike = dt === 'deformed' || dt === 'modeShape' || dt === 'bucklingMode';
+  const isDeformedLike = dt === 'deformed' || dt === 'modeShape' || dt === 'bucklingMode' || dt === 'plasticHinges';
 
   // Restore element opacity when not showing deformed shape
   const showingDeformed = resultsStore.results3D && isDeformedLike;
@@ -132,6 +132,13 @@ export function syncDeformed(ctx: ResultsSyncContext, scaleOverride?: number): v
     scale = modeScale * Math.sin(performance.now() / 500);
     displacements = mode.displacements;
     modeColor = 0xe96941; // orange-red
+  } else if (dt === 'plasticHinges') {
+    const plastic = resultsStore.plasticResult3D;
+    if (!plastic || !plastic.steps.length) return;
+    const step = plastic.steps[resultsStore.plasticStep3D];
+    if (!step) return;
+    displacements = step.results.displacements;
+    modeColor = 0xe9e944; // yellow (matches 2D)
   } else {
     return;
   }
@@ -180,6 +187,56 @@ export function syncDeformed(ctx: ResultsSyncContext, scaleOverride?: number): v
         mat.color.copy(color);
       }
     });
+  }
+
+  // Add plastic hinge spheres when in plasticHinges mode
+  if (dt === 'plasticHinges') {
+    const plastic = resultsStore.plasticResult3D;
+    const stepIdx = resultsStore.plasticStep3D;
+    if (plastic && plastic.steps[stepIdx]) {
+      const step = plastic.steps[stepIdx];
+      const dispMap = new Map<number, { ux: number; uy: number; uz: number }>();
+      for (const d of step.results.displacements) {
+        dispMap.set(d.nodeId, { ux: d.ux, uy: d.uy, uz: d.uz });
+      }
+      // Auto-scale from max displacement
+      let maxDisp = 0;
+      for (const d of step.results.displacements) {
+        const mag = Math.sqrt(d.ux * d.ux + d.uy * d.uy + d.uz * d.uz);
+        if (mag > maxDisp) maxDisp = mag;
+      }
+      const structSize = computeStructureBBox();
+      const hingeScale = maxDisp > 0 ? structSize * 0.05 / maxDisp : 1;
+      const sphereGeo = new THREE.SphereGeometry(structSize * 0.015, 12, 8);
+      const sphereMat = new THREE.MeshBasicMaterial({ color: 0xe94560 });
+
+      for (const hinge of step.hingesFormed) {
+        const elem = modelStore.elements.get(hinge.elementId);
+        if (!elem) continue;
+        const nI = modelStore.nodes.get(elem.nodeI);
+        const nJ = modelStore.nodes.get(elem.nodeJ);
+        if (!nI || !nJ) continue;
+        const pos = hinge.position ?? (hinge.end === 'start' ? 0 : 1);
+        const wx = nI.x + (nJ.x - nI.x) * pos;
+        const wy = nI.y + (nJ.y - nI.y) * pos;
+        const wz = (nI.z ?? 0) + ((nJ.z ?? 0) - (nI.z ?? 0)) * pos;
+        const dI = dispMap.get(elem.nodeI) ?? { ux: 0, uy: 0, uz: 0 };
+        const dJ = dispMap.get(elem.nodeJ) ?? { ux: 0, uy: 0, uz: 0 };
+        const dux = dI.ux + (dJ.ux - dI.ux) * pos;
+        const duy = dI.uy + (dJ.uy - dI.uy) * pos;
+        const duz = dI.uz + (dJ.uz - dI.uz) * pos;
+
+        const sphere = new THREE.Mesh(sphereGeo, sphereMat);
+        sphere.position.set(
+          wx + dux * hingeScale,
+          wy + duy * hingeScale,
+          wz + duz * hingeScale,
+        );
+        ctx.deformedGroup!.add(sphere);
+      }
+
+      // Geometry is shared across sphere instances — disposed when deformedGroup is disposed
+    }
   }
 
   ctx.resultsParent.add(ctx.deformedGroup);
