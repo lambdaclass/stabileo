@@ -203,9 +203,52 @@ fn compare_element_forces_direct(
     }
 }
 
-// ─── 3D comparison (displacements + reactions only) ──────────────
-// 3D element force conventions differ between TS and Rust (local axis mapping),
-// but displacements and reactions in global coordinates match exactly.
+// ─── 3D element force comparison ─────────────────────────────────
+// Both Rust and TS solvers now use SAP2000/textbook local axis convention,
+// so element forces (n, vy, vz, mx, my, mz) can be compared directly.
+
+fn compare_element_forces_3d(
+    prefix: &str,
+    actual: &AnalysisResults3D,
+    expected: &AnalysisResults3D,
+    rel_tol: f64,
+) {
+    let mut actual_ef: Vec<_> = actual.element_forces.clone();
+    let mut expected_ef: Vec<_> = expected.element_forces.clone();
+    actual_ef.sort_by_key(|f| f.element_id);
+    expected_ef.sort_by_key(|f| f.element_id);
+
+    assert_eq!(
+        actual_ef.len(),
+        expected_ef.len(),
+        "{}: 3D element forces count mismatch",
+        prefix
+    );
+
+    for (a, e) in actual_ef.iter().zip(expected_ef.iter()) {
+        assert_eq!(
+            a.element_id, e.element_id,
+            "{}: 3D element_id mismatch",
+            prefix
+        );
+        let lbl = format!("{} elem{}", prefix, a.element_id);
+
+        assert_close(a.n_start, e.n_start, rel_tol, &format!("{} n_start", lbl));
+        assert_close(a.n_end, e.n_end, rel_tol, &format!("{} n_end", lbl));
+        assert_close(a.vy_start, e.vy_start, rel_tol, &format!("{} vy_start", lbl));
+        assert_close(a.vy_end, e.vy_end, rel_tol, &format!("{} vy_end", lbl));
+        assert_close(a.vz_start, e.vz_start, rel_tol, &format!("{} vz_start", lbl));
+        assert_close(a.vz_end, e.vz_end, rel_tol, &format!("{} vz_end", lbl));
+        assert_close(a.mx_start, e.mx_start, rel_tol, &format!("{} mx_start", lbl));
+        assert_close(a.mx_end, e.mx_end, rel_tol, &format!("{} mx_end", lbl));
+        assert_close(a.my_start, e.my_start, rel_tol, &format!("{} my_start", lbl));
+        assert_close(a.my_end, e.my_end, rel_tol, &format!("{} my_end", lbl));
+        assert_close(a.mz_start, e.mz_start, rel_tol, &format!("{} mz_start", lbl));
+        assert_close(a.mz_end, e.mz_end, rel_tol, &format!("{} mz_end", lbl));
+    }
+}
+
+// ─── 3D comparison (displacements + reactions + element forces) ──
 
 fn compare_results_3d(prefix: &str, actual: &AnalysisResults3D, expected: &AnalysisResults3D) {
     let mut actual_disp: Vec<_> = actual.displacements.clone();
@@ -250,13 +293,8 @@ fn compare_results_3d(prefix: &str, actual: &AnalysisResults3D, expected: &Analy
         assert_close(a.mz, e.mz, REL_TOL_FORCE, &format!("{} mz", lbl));
     }
 
-    // Element force count check (structural sanity)
-    assert_eq!(
-        actual.element_forces.len(),
-        expected.element_forces.len(),
-        "{}: 3D element forces count mismatch",
-        prefix
-    );
+    // Full element force comparison (both solvers now use same local axis convention)
+    compare_element_forces_3d(prefix, actual, expected, REL_TOL_FORCE);
 }
 
 // ─── Canonical 2D solve parity ───────────────────────────────────
@@ -635,6 +673,51 @@ random_parity_test!(test_fuzz_random_48, 48);
 random_parity_test!(test_fuzz_random_49, 49);
 random_parity_test!(test_fuzz_random_50, 50);
 
+// ─── Random 3D model parity ─────────────────────────────────────
+// Tests random 3D frame models with asymmetric sections (Iy ≠ Iz)
+// and distributed loads in both local Y and Z. Detects local axis
+// convention mismatches between TS and Rust solvers.
+
+macro_rules! random_3d_parity_test {
+    ($name:ident, $seed:expr) => {
+        #[test]
+        fn $name() {
+            let seed = $seed;
+            let skip_name = format!("random3d-{}-skip", seed);
+            if fixture_exists(&skip_name) {
+                return;
+            }
+            let input_name = format!("random3d-{}-input", seed);
+            if !fixture_exists(&input_name) {
+                eprintln!("Skipping random3d-{}: fixture not found", seed);
+                return;
+            }
+            run_3d_parity(&format!("random3d-{}", seed));
+        }
+    };
+}
+
+random_3d_parity_test!(test_fuzz_random3d_1, 1);
+random_3d_parity_test!(test_fuzz_random3d_2, 2);
+random_3d_parity_test!(test_fuzz_random3d_3, 3);
+random_3d_parity_test!(test_fuzz_random3d_4, 4);
+random_3d_parity_test!(test_fuzz_random3d_5, 5);
+random_3d_parity_test!(test_fuzz_random3d_6, 6);
+random_3d_parity_test!(test_fuzz_random3d_7, 7);
+random_3d_parity_test!(test_fuzz_random3d_8, 8);
+random_3d_parity_test!(test_fuzz_random3d_9, 9);
+random_3d_parity_test!(test_fuzz_random3d_10, 10);
+random_3d_parity_test!(test_fuzz_random3d_11, 11);
+random_3d_parity_test!(test_fuzz_random3d_12, 12);
+random_3d_parity_test!(test_fuzz_random3d_13, 13);
+random_3d_parity_test!(test_fuzz_random3d_14, 14);
+random_3d_parity_test!(test_fuzz_random3d_15, 15);
+random_3d_parity_test!(test_fuzz_random3d_16, 16);
+random_3d_parity_test!(test_fuzz_random3d_17, 17);
+random_3d_parity_test!(test_fuzz_random3d_18, 18);
+random_3d_parity_test!(test_fuzz_random3d_19, 19);
+random_3d_parity_test!(test_fuzz_random3d_20, 20);
+
 // ─── Example model parity (2D single-case) ──────────────────────
 // These test every built-in example model in the app: trusses, hinges,
 // thermal loads, springs, prescribed displacements, point loads on
@@ -904,12 +987,8 @@ fn compare_results_3d_relaxed(
         assert_close(a.mz, e.mz, rel_tol_force, &format!("{} mz", lbl));
     }
 
-    assert_eq!(
-        actual.element_forces.len(),
-        expected.element_forces.len(),
-        "{}: 3D element forces count mismatch",
-        prefix
-    );
+    // Full element force comparison (both solvers now use same local axis convention)
+    compare_element_forces_3d(prefix, actual, expected, rel_tol_force);
 }
 
 fn run_3d_parity(name: &str) {
@@ -951,64 +1030,14 @@ macro_rules! example_3d_parity_test {
 }
 
 example_3d_parity_test!(test_ex_3d_cantilever_load, "ex-3d-cantilever-load");
-// Grid slab: Rust uses standard local axes (Y-up), TS uses UBA (Y-down).
-// Different conventions → different K_global for elements with Iy ≠ Iz.
-#[test]
-fn test_ex_3d_grid_slab() {
-    try_3d_parity("ex-3d-grid-slab", "local axis convention: Rust standard vs TS UBA");
-}
+// Grid slab: Both solvers now use SAP2000/textbook local axis convention.
+example_3d_parity_test!(test_ex_3d_grid_slab, "ex-3d-grid-slab");
 example_3d_parity_test!(test_ex_3d_tower, "ex-3d-tower");
 example_3d_parity_test!(test_ex_3d_torsion_beam, "ex-3d-torsion-beam");
 
-// 3D models with distributed3d loads have known differences between
-// TS and Rust solvers in local axis convention / load projection.
-// These tests verify the solver runs and report differences.
-
-/// Helper for known-gap 3D tests.
-fn try_3d_parity(name: &str, known_issue: &str) {
-    let input_json = match load_fixture(&format!("{}-input", name)) {
-        Some(j) => j,
-        None => {
-            eprintln!("Skipping {}: fixture not found", name);
-            return;
-        }
-    };
-    let expected_json = load_fixture(&format!("{}-results", name)).unwrap();
-    let input: SolverInput3D = serde_json::from_str(&input_json).unwrap();
-    let expected: AnalysisResults3D = serde_json::from_str(&expected_json).unwrap();
-
-    match solve_3d(&input) {
-        Ok(actual) => {
-            // Verify structural sanity
-            assert_eq!(
-                actual.displacements.len(),
-                expected.displacements.len(),
-                "{}: displacement count mismatch",
-                name
-            );
-            assert_eq!(
-                actual.element_forces.len(),
-                expected.element_forces.len(),
-                "{}: element forces count mismatch",
-                name
-            );
-            eprintln!("NOTE: {} solved successfully but has known parity gap ({})", name, known_issue);
-        }
-        Err(e) => {
-            eprintln!("NOTE: Rust 3D solver fails on {} ({}): {}", name, known_issue, e);
-        }
-    }
-}
-
-#[test]
-fn test_ex_3d_portal_frame() {
-    try_3d_parity("ex-3d-portal-frame", "distributed3d load local axis differences");
-}
-
-#[test]
-fn test_ex_3d_nave_industrial() {
-    try_3d_parity("ex-3d-nave-industrial", "large model cumulative differences");
-}
+// Portal frame and nave industrial: both solvers now use same local axis convention.
+example_3d_parity_test!(test_ex_3d_portal_frame, "ex-3d-portal-frame");
+example_3d_parity_test!(test_ex_3d_nave_industrial, "ex-3d-nave-industrial");
 
 // 3D space truss has a rollerXY support that produces a different reaction count
 // between TS and Rust solvers. Test with relaxed reaction count check.
@@ -1073,13 +1102,12 @@ fn test_ex_3d_building() {
     };
     let meta: serde_json::Value = serde_json::from_str(&meta_json).unwrap();
 
-    // 5-story building with distributed3d loads — known parity gap.
-    // Verify each case solves successfully and report differences.
+    // Both solvers now use SAP2000/textbook local axis convention — full comparison.
     let load_cases = meta["loadCases"].as_array().unwrap();
     for lc in load_cases {
         let case_name = lc["name"].as_str().unwrap();
         if fixture_exists(&format!("{}-input", case_name)) {
-            try_3d_parity(case_name, "3d-building distributed3d load differences");
+            run_3d_parity(case_name);
         }
     }
 }

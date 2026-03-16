@@ -1,0 +1,111 @@
+{
+  "nodes": {
+    "1": {
+      "id": 1,
+      "x": 0,
+      "y": 0,
+      "z": 0
+    },
+    "2": {
+      "id": 2,
+      "x": 5.995682674227282,
+      "y": 0,
+      "z": 0
+    },
+    "3": {
+      "id": 3,
+      "x": 1.6375060950709772,
+      "y": 0,
+      "z": 4.392139061354101
+    }
+  },
+  "materials": {
+    "1": {
+      "id": 1,
+      "e": 200000,
+      "nu": 0.3
+    }
+  },
+  "sections": {
+    "1": {
+      "id": 1,
+      "a": 0.00538,
+      "iy": 0.00008356,
+      "iz": 0.00000604,
+      "j": 2.01e-7
+    }
+  },
+  "elements": {
+    "1": {
+      "id": 1,
+      "type": "frame",
+      "nodeI": 1,
+      "nodeJ": 2,
+      "materialId": 1,
+      "sectionId": 1,
+      "hingeStart": false,
+      "hingeEnd": false
+    },
+    "2": {
+      "id": 2,
+      "type": "frame",
+      "nodeI": 2,
+      "nodeJ": 3,
+      "materialId": 1,
+      "sectionId": 1,
+      "hingeStart": false,
+      "hingeEnd": false
+    }
+  },
+  "supports": {
+    "1": {
+      "nodeId": 1,
+      "rx": true,
+      "ry": true,
+      "rz": true,
+      "rrx": true,
+      "rry": true,
+      "rrz": true
+    },
+    "2": {
+      "nodeId": 2,
+      "rx": true,
+      "ry": true,
+      "rz": true,
+      "rrx": false,
+      "rry": false,
+      "rrz": false
+    },
+    "3": {
+      "nodeId": 3,
+      "rx": true,
+      "ry": true,
+      "rz": true,
+      "rrx": false,
+      "rry": false,
+      "rrz": false
+    }
+  },
+  "loads": [
+    {
+      "type": "distributed",
+      "data": {
+        "elementId": 2,
+        "qYI": -3.640805784612894,
+        "qYJ": -11.174856062047184,
+        "qZI": 2.954419660381973,
+        "qZJ": -8.285757517442107
+      }
+    },
+    {
+      "type": "distributed",
+      "data": {
+        "elementId": 1,
+        "qYI": -11.728527246043086,
+        "qYJ": -6.768287541810423,
+        "qZI": -6.469511352479458,
+        "qZJ": -7.157697387039661
+      }
+    }
+  ]
+}

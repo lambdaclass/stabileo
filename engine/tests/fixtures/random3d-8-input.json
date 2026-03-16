@@ -1,0 +1,123 @@
+{
+  "nodes": {
+    "1": {
+      "id": 1,
+      "x": 0,
+      "y": 0,
+      "z": 0
+    },
+    "2": {
+      "id": 2,
+      "x": 6.249769854592159,
+      "y": 0,
+      "z": 0
+    },
+    "3": {
+      "id": 3,
+      "x": 1.2855018663570563,
+      "y": 0,
+      "z": 4.233230704441667
+    }
+  },
+  "materials": {
+    "1": {
+      "id": 1,
+      "e": 200000,
+      "nu": 0.3
+    }
+  },
+  "sections": {
+    "1": {
+      "id": 1,
+      "a": 0.00538,
+      "iy": 0.00008356,
+      "iz": 0.00000604,
+      "j": 2.01e-7
+    }
+  },
+  "elements": {
+    "1": {
+      "id": 1,
+      "type": "frame",
+      "nodeI": 1,
+      "nodeJ": 2,
+      "materialId": 1,
+      "sectionId": 1,
+      "hingeStart": false,
+      "hingeEnd": false
+    },
+    "2": {
+      "id": 2,
+      "type": "frame",
+      "nodeI": 2,
+      "nodeJ": 3,
+      "materialId": 1,
+      "sectionId": 1,
+      "hingeStart": false,
+      "hingeEnd": false
+    }
+  },
+  "supports": {
+    "1": {
+      "nodeId": 1,
+      "rx": true,
+      "ry": true,
+      "rz": true,
+      "rrx": true,
+      "rry": true,
+      "rrz": true
+    },
+    "2": {
+      "nodeId": 2,
+      "rx": true,
+      "ry": true,
+      "rz": true,
+      "rrx": false,
+      "rry": false,
+      "rrz": false
+    },
+    "3": {
+      "nodeId": 3,
+      "rx": true,
+      "ry": true,
+      "rz": true,
+      "rrx": false,
+      "rry": false,
+      "rrz": false
+    }
+  },
+  "loads": [
+    {
+      "type": "distributed",
+      "data": {
+        "elementId": 1,
+        "qYI": -10.948123156093061,
+        "qYJ": -14.015440762974322,
+        "qZI": 1.505387481302023,
+        "qZJ": -9.160596998408437
+      }
+    },
+    {
+      "type": "nodal",
+      "data": {
+        "nodeId": 3,
+        "fx": 0,
+        "fy": -11.67000039247796,
+        "fz": 0,
+        "mx": 0,
+        "my": 0,
+        "mz": 0
+      }
+    },
+    {
+      "type": "distributed",
+      "data": {
+        "elementId": 2,
+        "qYI": -5.096983109600842,
+        "qYJ": -6.4827541168779135,
+        "qZI": -4.500828571617603,
+        "qZJ": -4.517664782702923
+      }
+    }
+  ]
+}

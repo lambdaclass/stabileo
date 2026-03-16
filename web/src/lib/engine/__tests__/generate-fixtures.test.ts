@@ -13,7 +13,7 @@ import { solve3D } from '../solver-3d';
 import type { SolverInput, SolverLoad, AnalysisResults } from '../types';
 import type { SolverInput3D } from '../types-3d';
 import { combineResults, computeEnvelope } from './combinations-legacy';
-import { makeRandomModel2D } from './diff-fuzz-helpers';
+import { makeRandomModel2D, makeRandomModel3D } from './diff-fuzz-helpers';
 import { createMockAPI } from './example-api-mock';
 import { buildSolverInput2D, buildSolverInput3D } from '../solver-service';
 import type { LoadCase } from '../../../lib/store/model.svelte';
@@ -243,7 +243,7 @@ describe('Generate fixtures for Rust parity testing', () => {
     writeFixture('cantilever-3d-results', results);
   });
 
-  // ─── 5. Random seeded models ────────────────────────────────
+  // ─── 5. Random seeded models (2D) ────────────────────────────
 
   for (let seed = 1; seed <= 50; seed++) {
     it(`generates random-${seed} fixture`, () => {
@@ -257,6 +257,22 @@ describe('Generate fixtures for Rust parity testing', () => {
         // Model is a mechanism or otherwise unsolvable — skip silently
         // Write a sentinel so Rust knows to skip
         writeFixture(`random-${seed}-skip`, { reason: 'mechanism or solver error' });
+      }
+    });
+  }
+
+  // ─── 6. Random seeded 3D models ────────────────────────────
+
+  for (let seed = 1; seed <= 20; seed++) {
+    it(`generates random3d-${seed} fixture`, () => {
+      const input = makeRandomModel3D(seed);
+      try {
+        const results = solve3D(input);
+        writeFixture(`random3d-${seed}-input`, serializeInput3D(input));
+        writeFixture(`random3d-${seed}-results`, results);
+      } catch {
+        // Model is a mechanism or otherwise unsolvable — skip silently
+        writeFixture(`random3d-${seed}-skip`, { reason: 'mechanism or solver error' });
       }
     });
   }

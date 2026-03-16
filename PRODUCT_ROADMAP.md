@@ -38,8 +38,9 @@ Dedaliano should win in this order:
 9. construction staging, fire, progressive collapse
 10. seismic engineering workflow (end-to-end)
 11. interoperability and BIM-connected workflows
-12. optimization, full collaboration, and broader AI workflows
-13. broader material codes (timber, masonry, composite)
+12. broader material codes (timber, masonry, composite)
+13. desktop, API, and firm workflow packaging
+14. optimization, full collaboration, and broader AI workflows
 
 That matches how structural firms buy software:
 
@@ -308,20 +309,19 @@ Make the browser the go-to tool for earthquake engineering, replacing OpenSees f
 
 **Done when:** An earthquake engineer can run a pushover analysis, select ground motions, perform IDA, and get AI-explained results — all in the browser without writing a single line of Tcl.
 
-### 4. Workflow and Ecosystem Layer
+### 4. Workflow Fit Layer
 
-Fit into real firm workflows and broaden adoption with scripting, desktop, education, and additional codes.
+Fit into real firm workflows before expanding into a broader platform.
 
 **What:**
 - SAP2000/ETABS import (.s2k), STAAD.Pro import (.std), Robot exchange format
 - OpenSees import (.tcl parser subset) for migration
-- Python scripting API (Pyodide in-browser) for batch runs and parametric studies
-- REST API — headless solver for CI integration and automated analysis
 - Tauri desktop packaging — same web app as a local desktop app for offline use, local files, native integration
+- Project and template workflows — reusable firm standards, named defaults, standard report packages
 - Education and benchmark explorer — university course integration, homework templates, interactive benchmark viewer
-- Additional design codes — timber (EC5/NDS, CLT, glulam), masonry (EC6/TMS 402, confined masonry), composite (EC4/AISC, metal deck, headed studs, precast)
+- Stronger review flows — comments, pinned annotations, reviewer states, project/version diff
 - Slab and floor design — punching shear (EC2/ACI), flat slab strips, post-tensioned tendon layout, waffle/ribbed slabs
-- Architect-friendly conceptual mode — early-stage structural feedback with defaults, visual feedback, and guardrails
+- Additional design codes — timber (EC5/NDS, CLT, glulam), masonry (EC6/TMS 402, confined masonry), composite (EC4/AISC, metal deck, headed studs, precast)
 
 Desktop principles:
 - Web remains the primary product surface
@@ -329,13 +329,16 @@ Desktop principles:
 - Local file access, offline use, and native integration are the main value
 - Auto-update from signed GitHub releases or equivalent signed update feed
 
-**Done when:** A firm can import their existing SAP2000 models, run batch parametric studies via Python, work offline on the desktop app, and design timber/masonry/composite members against their national code.
+**Done when:** A firm can import an existing model, standardize it to office templates, review it collaboratively, work offline on desktop when needed, and keep using the same product surface.
 
 ### 5. Platform Layer
 
-Turn the app into a real-time collaborative platform — the Figma of structural engineering.
+Turn the app into a structural engineering platform with APIs, automation loops, and real-time collaboration.
 
 **What:**
+- Python scripting API (Pyodide in-browser) for batch runs and parametric studies
+- REST API — headless solver for CI integration and automated analysis
+- Cloud solve + comparison platform — batch analysis, branch comparison, model diffing, scenario sweeps, history, batch reports
 - CRDT-based real-time collaboration — structural model as CRDT document (Yjs or Automerge), structural-aware merge semantics (you can't delete a node someone else is loading; adding a load to a member someone else is redesigning triggers a review), awareness protocol (live cursors, selection highlights), WebRTC peer-to-peer sync with WebSocket relay fallback, offline-first editing with automatic merge, per-user undo, branch and merge for models, operational history and audit trail
 - User roles and permissions (viewer, editor, reviewer, approver)
 - Comments and annotations pinned to nodes/elements/regions
@@ -384,51 +387,9 @@ Turn the solver from an application into a software stack structural firms can l
 
 ---
 
-**Post-Core Vision:** Once the solver roadmap (Steps 1-19) and the product roadmap (Steps 1-7) are complete, Stabileo is the most complete structural solver ever built — open-source or commercial. At that point the game changes from "catch up and surpass" to "define the next era." The value shifts from the solver engine to AI, collaboration, and the ecosystem built on top of it.
+**Post-Core Vision:** Once the solver roadmap and product roadmap through Step 7 are complete, the game shifts from "catch up and surpass" to "define the next era." The value moves beyond the solver engine into AI, collaboration, automation, and the software ecosystem built on top of trusted analysis.
 
-### 8. AI-Native Structural Engineering
-
-Ship the AI capabilities that need the full solver depth (dynamic, materials, pushover, batch execution). Many AI features ship earlier — Step 1 has AI-assisted diagnostics and review, Step 2 has section suggestion and NL result queries, Step 3 has nonlinear result interpretation. This step is for the AI capabilities that need the full solver depth (dynamic, materials, pushover, batch execution) to work well.
-
-**What:**
-- Full natural language to model — complex structures with nonlinear materials, staged construction, seismic design parameters
-- AI design assistant at scale — watches modeling in real-time across hundreds of members, understands nonlinear behavior, suggests retrofit strategies
-- Automated design iteration with Pareto — AI runs hundreds of variants using batch parametric runner, presents Pareto-optimal designs
-- GNN surrogates in production — neural operators replacing full solves in design exploration, IDA acceleration, topology optimization
-- LLM-powered code compliance — "does this design satisfy EC8 for ductility class high?" answered by reading the full nonlinear model and referencing specific code clauses
-- Anomaly detection at depth — detect soft-story mechanisms, torsional irregularities, connection inadequacy, progressive collapse vulnerability
-- Reinforcement learning for design — RL agent learns structural design by trial and error against the solver
-
-**Done when:** The app can autonomously generate, analyze, and rank structural design alternatives while an engineer focuses on judgment, and an AI can answer complex code-compliance questions by reasoning over nonlinear analysis results.
-
-### 9. Real-Time Collaborative Engineering
-
-Make structural engineering a real-time team activity.
-
-**What:**
-- Incremental re-analysis — solver re-analyzes only the affected region when one user changes a node
-- Structural-aware conflict resolution — CRDT merge semantics that understand structural dependencies
-- Live review mode — senior engineer sees the junior's model updating in real-time with live utilization ratios, annotates and approves in-place
-- Branching and what-if — branch a structural model like git, explore alternatives, merge with full diff visualization
-- Multi-cursor design — multiple engineers on different parts of the same building simultaneously
-- Async review workflows — comments pinned to elements/nodes/load cases, assigned review tasks, approval tracking
-
-**Done when:** A senior engineer can watch a junior's model evolve in real-time, annotate issues, approve changes, and merge design branches — all without passing files back and forth.
-
-### 10. Generative Structural Design
-
-Shift design from "engineer proposes one solution and checks it" to "AI generates the solution space and engineer selects the best option."
-
-**What:**
-- System generation — "design me a 40m span roof" generates 50 topologically distinct structural systems, analyzes all, ranks by weight/cost/constructability/carbon
-- Buildable topology optimization — SIMP/BESO that outputs real member sizes, connection feasibility, manufacturing constraints
-- Parametric form-finding — architect drags a shape, structure optimizes in real-time
-- Multi-objective Pareto exploration — interactive Pareto front trading off cost, weight, drift, carbon, constructability with live model preview
-- Code-constrained generation — AI only proposes designs that satisfy the selected building code from the start
-
-**Done when:** An engineer can describe a structural problem in plain language and receive dozens of code-compliant, buildable design alternatives ranked across multiple objectives.
-
-### 11. Construction Intelligence
+### 8. Construction Intelligence
 
 Bridge the gap between structural design and construction.
 
@@ -441,7 +402,7 @@ Bridge the gap between structural design and construction.
 
 **Done when:** A contractor can feed site sensor data into the model, get daily deflection predictions, and receive automatically generated rebar shop drawings that account for as-built conditions.
 
-### 12. Planetary-Scale Infrastructure
+### 9. Planetary-Scale Infrastructure
 
 Help humanity build climate-resilient, low-carbon, reusable infrastructure.
 
@@ -454,7 +415,7 @@ Help humanity build climate-resilient, low-carbon, reusable infrastructure.
 
 **Done when:** A city can upload its building portfolio, get a seismic/climate risk assessment, and receive prioritized retrofit recommendations with embodied carbon tradeoffs.
 
-### 13. Education Platform
+### 10. Education Platform
 
 Replace static textbooks with interactive learning.
 
@@ -467,7 +428,7 @@ Replace static textbooks with interactive learning.
 
 **Done when:** A professor can assign a structural design homework, students solve it interactively in the browser, and the app auto-grades while explaining the structural behavior step by step.
 
-### 14. API Economy and Platform Ecosystem
+### 11. API Economy and Platform Ecosystem
 
 Become the structural engineering operating system.
 
@@ -477,8 +438,7 @@ Become the structural engineering operating system.
 - City planning — urban planning tools check structural feasibility in real-time
 - Parametric design backends — Grasshopper, Dynamo, Blender use Stabileo as the analysis engine
 - Plugin/extension marketplace — third-party developers build specialized tools on top
-- Reinforcement learning for design — RL agent learns structural design by trial and error against the solver, discovers novel structural forms
-- Foundation models for structural engineering — pre-trained on millions of analyzed structures
+- Foundation-model and RL research outputs productized through the platform once the solver/data stack is mature
 - Autonomous inspection pipeline — drone damage capture, CV crack detection, Bayesian model updating, remaining life prediction
 
 **Goal:** Stabileo becomes the structural engineering operating system — the platform that every other structural tool is built on top of. Nobody can replicate a platform with a better Cholesky factorization.

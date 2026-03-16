@@ -230,4 +230,160 @@ mod tests {
         assert!((ey[1] - 1.0).abs() < 1e-10);
         assert!((ez[2] - 1.0).abs() < 1e-10);
     }
+
+    // ─── Cross-solver local axes parity tests ────────────────────
+
+    fn dot3(a: &[f64; 3], b: &[f64; 3]) -> f64 {
+        a[0] * b[0] + a[1] * b[1] + a[2] * b[2]
+    }
+
+    fn norm3(v: &[f64; 3]) -> f64 {
+        (v[0] * v[0] + v[1] * v[1] + v[2] * v[2]).sqrt()
+    }
+
+    fn normalize3(v: &[f64; 3]) -> [f64; 3] {
+        let n = norm3(v);
+        [v[0] / n, v[1] / n, v[2] / n]
+    }
+
+    fn det3(r0: &[f64; 3], r1: &[f64; 3], r2: &[f64; 3]) -> f64 {
+        dot3(r0, &cross(r1, r2))
+    }
+
+    /// Reference algorithm — SAP2000/textbook convention.
+    fn expected_axes(dx: f64, dy: f64, dz: f64) -> ([f64; 3], [f64; 3], [f64; 3]) {
+        let l = (dx * dx + dy * dy + dz * dz).sqrt();
+        let ex = [dx / l, dy / l, dz / l];
+        let ey_ref = if ex[1].abs() > 0.999 {
+            [0.0, 0.0, 1.0]
+        } else {
+            [0.0, 1.0, 0.0]
+        };
+        let ez = normalize3(&cross(&ex, &ey_ref));
+        let ey = normalize3(&cross(&ez, &ex));
+        (ex, ey, ez)
+    }
+
+    fn assert_vec_close(actual: &[f64; 3], expected: &[f64; 3], tol: f64) {
+        for i in 0..3 {
+            assert!(
+                (actual[i] - expected[i]).abs() < tol,
+                "component {} mismatch: {} vs {} (tol={})",
+                i, actual[i], expected[i], tol,
+            );
+        }
+    }
+
+    fn assert_orthonormal_rh(ex: &[f64; 3], ey: &[f64; 3], ez: &[f64; 3], label: &str) {
+        let tol = 1e-10;
+        assert!(dot3(ex, ey).abs() < tol, "{label}: ex.ey != 0");
+        assert!(dot3(ey, ez).abs() < tol, "{label}: ey.ez != 0");
+        assert!(dot3(ex, ez).abs() < tol, "{label}: ex.ez != 0");
+        assert!((norm3(ex) - 1.0).abs() < tol, "{label}: |ex| != 1");
+        assert!((norm3(ey) - 1.0).abs() < tol, "{label}: |ey| != 1");
+        assert!((norm3(ez) - 1.0).abs() < tol, "{label}: |ez| != 1");
+        assert!((det3(ex, ey, ez) - 1.0).abs() < tol, "{label}: det != 1");
+    }
+
+    #[test]
+    fn test_local_axes_parity_all_orientations() {
+        let cases: Vec<(&str, f64, f64, f64)> = vec![
+            ("Horizontal +X",            5.0,  0.0,  0.0),
+            ("Horizontal -X",           -5.0,  0.0,  0.0),
+            ("Horizontal +Z",            0.0,  0.0,  5.0),
+            ("Horizontal -Z",            0.0,  0.0, -5.0),
+            ("Vertical +Y",              0.0,  5.0,  0.0),
+            ("Vertical -Y",              0.0, -5.0,  0.0),
+            ("Diagonal XY (45 deg)",     3.0,  3.0,  0.0),
+            ("Diagonal XZ",              3.0,  0.0,  4.0),
+            ("Diagonal XYZ (arbitrary)", 3.0,  4.0,  5.0),
+        ];
+
+        for (label, dx, dy, dz) in &cases {
+            let (ex, ey, ez) = compute_local_axes_3d(
+                0.0, 0.0, 0.0, *dx, *dy, *dz,
+                None, None, None, None, false,
+            );
+            let (ref_ex, ref_ey, ref_ez) = expected_axes(*dx, *dy, *dz);
+
+            assert_vec_close(&ex, &ref_ex, 1e-10);
+            assert_vec_close(&ey, &ref_ey, 1e-10);
+            assert_vec_close(&ez, &ref_ez, 1e-10);
+            assert_orthonormal_rh(&ex, &ey, &ez, label);
+        }
+    }
+
+    #[test]
+    fn test_local_axes_roll_angle_orthonormal() {
+        let angles = [30.0, 45.0, 90.0, 180.0, -45.0, 270.0];
+
+        for angle in &angles {
+            // +X bar
+            let (ex, ey, ez) = compute_local_axes_3d(
+                0.0, 0.0, 0.0, 5.0, 0.0, 0.0,
+                None, None, None, Some(*angle), false,
+            );
+            assert_orthonormal_rh(&ex, &ey, &ez, &format!("+X roll {angle}"));
+            assert_vec_close(&ex, &[1.0, 0.0, 0.0], 1e-10);
+
+            // Diagonal XYZ
+            let (ex, ey, ez) = compute_local_axes_3d(
+                0.0, 0.0, 0.0, 3.0, 4.0, 5.0,
+                None, None, None, Some(*angle), false,
+            );
+            assert_orthonormal_rh(&ex, &ey, &ez, &format!("diag roll {angle}"));
+        }
+    }
+
+    #[test]
+    fn test_local_axes_roll_90_values() {
+        let (_, base_ey, base_ez) = compute_local_axes_3d(
+            0.0, 0.0, 0.0, 5.0, 0.0, 0.0,
+            None, None, None, None, false,
+        );
+        let (_, rolled_ey, rolled_ez) = compute_local_axes_3d(
+            0.0, 0.0, 0.0, 5.0, 0.0, 0.0,
+            None, None, None, Some(90.0), false,
+        );
+        // After 90 deg roll: ey_new = ez_old, ez_new = -ey_old
+        assert_vec_close(&rolled_ey, &base_ez, 1e-10);
+        assert_vec_close(&rolled_ez, &[-base_ey[0], -base_ey[1], -base_ey[2]], 1e-10);
+    }
+
+    #[test]
+    fn test_local_axes_left_hand() {
+        let cases: Vec<(f64, f64, f64)> = vec![
+            ( 5.0,  0.0,  0.0),
+            (-5.0,  0.0,  0.0),
+            ( 0.0,  5.0,  0.0),
+            ( 0.0, -5.0,  0.0),
+            ( 0.0,  0.0,  5.0),
+            ( 3.0,  3.0,  0.0),
+            ( 3.0,  4.0,  5.0),
+        ];
+
+        for (dx, dy, dz) in &cases {
+            let (rh_ex, rh_ey, rh_ez) = compute_local_axes_3d(
+                0.0, 0.0, 0.0, *dx, *dy, *dz,
+                None, None, None, None, false,
+            );
+            let (lh_ex, lh_ey, lh_ez) = compute_local_axes_3d(
+                0.0, 0.0, 0.0, *dx, *dy, *dz,
+                None, None, None, None, true,
+            );
+            let label = format!("leftHand ({dx},{dy},{dz})");
+            // ex unchanged
+            assert_vec_close(&lh_ex, &rh_ex, 1e-10);
+            // ey negated
+            assert_vec_close(&lh_ey, &[-rh_ey[0], -rh_ey[1], -rh_ey[2]], 1e-10);
+            // ez unchanged
+            assert_vec_close(&lh_ez, &rh_ez, 1e-10);
+            // det = -1 (left-handed)
+            let d = det3(&lh_ex, &lh_ey, &lh_ez);
+            assert!(
+                (d - (-1.0)).abs() < 1e-10,
+                "{label}: det = {d}, expected -1",
+            );
+        }
+    }
 }

@@ -1,0 +1,124 @@
+{
+  "nodes": {
+    "1": {
+      "id": 1,
+      "x": 0,
+      "y": 0,
+      "z": 0
+    },
+    "2": {
+      "id": 2,
+      "x": 4.230650290381163,
+      "y": 0,
+      "z": 0
+    },
+    "3": {
+      "id": 3,
+      "x": 0.3841253725778581,
+      "y": 4.655507853953168,
+      "z": 2.3743624882772565
+    }
+  },
+  "materials": {
+    "1": {
+      "id": 1,
+      "e": 200000,
+      "nu": 0.3
+    }
+  },
+  "sections": {
+    "1": {
+      "id": 1,
+      "a": 0.00538,
+      "iy": 0.00008356,
+      "iz": 0.00000604,
+      "j": 2.01e-7
+    }
+  },
+  "elements": {
+    "1": {
+      "id": 1,
+      "type": "frame",
+      "nodeI": 1,
+      "nodeJ": 2,
+      "materialId": 1,
+      "sectionId": 1,
+      "hingeStart": false,
+      "hingeEnd": false
+    },
+    "2": {
+      "id": 2,
+      "type": "frame",
+      "nodeI": 2,
+      "nodeJ": 3,
+      "materialId": 1,
+      "sectionId": 1,
+      "hingeStart": false,
+      "hingeEnd": false
+    }
+  },
+  "supports": {
+    "1": {
+      "nodeId": 1,
+      "rx": true,
+      "ry": true,
+      "rz": true,
+      "rrx": true,
+      "rry": true,
+      "rrz": true
+    },
+    "2": {
+      "nodeId": 2,
+      "rx": true,
+      "ry": true,
+      "rz": true,
+      "rrx": false,
+      "rry": false,
+      "rrz": false
+    }
+  },
+  "loads": [
+    {
+      "type": "distributed",
+      "data": {
+        "elementId": 2,
+        "qYI": -11.784047657623887,
+        "qYJ": -12.441318257711828,
+        "qZI": -7.553800847381353,
+        "qZJ": 6.443728478625417
+      }
+    },
+    {
+      "type": "nodal",
+      "data": {
+        "nodeId": 3,
+        "fx": 0,
+        "fy": -9.286224860697985,
+        "fz": 0,
+        "mx": 0,
+        "my": 0,
+        "mz": 0
+      }
+    },
+    {
+      "type": "distributed",
+      "data": {
+        "elementId": 2,
+        "qYI": -12.585458698216826,
+        "qYJ": -17.599804827943444,
+        "qZI": -2.1679771058261395,
+        "qZJ": 5.415859017521143
+      }
+    },
+    {
+      "type": "distributed",
+      "data": {
+        "elementId": 1,
+        "qYI": -17.52530017774552,
+        "qYJ": -12.427669161465019,
+        "qZI": -2.8690278455615044,
+        "qZJ": 4.426541723310947
+      }
+    }
+  ]
+}
