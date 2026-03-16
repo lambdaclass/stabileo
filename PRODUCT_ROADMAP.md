@@ -73,12 +73,13 @@ What engineers do on almost every project and should come first:
 - code-driven load combinations
 - steel member design and first steel connection workflows
 - RC beam/column design, reinforcement schedules, and BBS foundations
-- reports, governing-case summaries, and submission-ready outputs
+- basic reports and governing-case summaries (unblocked now — analysis-only calc books are billable)
+- full design reports with utilization ratios and reinforcement schedules (after solver Phases 5-6)
 - diagnostics, review cues, and AI explanation of what is wrong and what to fix
 
 Roadmap home:
-- Product Step 1
-- Product Step 2
+- Product Step 1 (basic reports, diagnostics, section capacity, design checks)
+- Product Step 2 (full design reports, BBS, connections)
 
 ### Weekly work
 
@@ -420,12 +421,19 @@ First automation and AI surfaces:
 - AI explanation of model quality gates — tell the user not only that the model is invalid, but why it matters and what the most likely fix is
 - AI setup guidance — suggest shell family, analysis path, and first checks based on the current model and workflow
 - Natural-language result navigation and explanation powered by query-ready solver summaries
-- Report and calculation-document foundations
 - Lightweight collaboration — comments, pinned annotations, shared links, model/version diff, reviewer read-only flows
 
-**Goal:** Be the most accessible serious structural solver for everyday structural engineering, with real section capacity tools and code-compliant design output that engineers can use on daily projects.
+Report and calculation documents (unblocked now — does not need design codes):
+- Basic PDF report v1 — model summary, loads, combinations, force diagrams, reactions, governing cases, deformed shapes
+- Customizable templates — firm logo, project info, engineer stamp
+- LaTeX/KaTeX rendering — equations in the report (leverage existing DSM wizard)
+- Diagram exports — M/V/N diagrams, deformed shapes, mode shapes as vector graphics
+- Multi-language reports — English, Spanish (leverage i18n system)
+- Enriched with design checks, utilization ratios, and reinforcement schedules once solver Phases 5-6 land
 
-**Done when:** An engineer can model a structure in the browser, pass pre-solve quality gates, get trustworthy results with visible verification, view P-M interaction diagrams and moment-curvature curves, run steel and RC design checks with utilization ratios against their national code, produce a first RC beam schedule, and share a read-only link with a reviewer.
+**Goal:** Be the most accessible serious structural solver for everyday structural engineering, with real section capacity tools, code-compliant design output, and report-ready deliverables that engineers can use on daily projects.
+
+**Done when:** An engineer can model a structure in the browser, pass pre-solve quality gates, get trustworthy results with visible verification, generate a basic calculation report, view P-M interaction diagrams and moment-curvature curves, run steel and RC design checks with utilization ratios against their national code, produce a first RC beam schedule, and share a read-only link with a reviewer.
 
 ### 2. Deliverable Layer
 
@@ -435,7 +443,7 @@ Turn analysis into paid engineering work with reports, BBS, connections, and int
 - RC reinforcement schedule and BBS — required steel → selected bars → curtailment → cutting lists → bar bending schedule
 - Graphical BBS drawing generation — bending-shape drawings, dimensions, hook semantics
 - Steel connection design workflow — first connection library, sizing/check flow, governing demand packaging, and report-ready outputs
-- Reports and calculation packages — PDF with LaTeX equations, project info, design checks, diagrams
+- Full design reports — enrich Step 1 basic reports with design checks, utilization summaries, reinforcement schedules, and appendix-level per-element calculations
 - Automatic code load generation — wind, snow, seismic ELF, pattern loading, accidental torsion from code/site inputs
 - Multi-code design check breadth — EC2, EC3, ACI 318, AISC 360, NDS, TMS 402, AISI S100 wired to unified code-selector
 - Connections and foundations productization — auto-sizing and detail generation
