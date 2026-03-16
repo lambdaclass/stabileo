@@ -704,11 +704,13 @@ pub fn solve_constrained_2d(input: &ConstrainedInput) -> Result<AnalysisResults,
     let f_reduced = ct_f(&c_ff, &f_f, nf, n_free_indep);
 
     // Solve reduced system
+    let mut used_fallback = false;
     let u_indep = {
         let mut k_work = k_reduced.clone();
         match cholesky_solve(&mut k_work, &f_reduced, n_free_indep) {
             Some(u) => u,
             None => {
+                used_fallback = true;
                 let mut k_work = k_reduced;
                 let mut f_work = f_reduced.clone();
                 lu_solve(&mut k_work, &mut f_work, n_free_indep)
@@ -769,11 +771,18 @@ pub fn solve_constrained_2d(input: &ConstrainedInput) -> Result<AnalysisResults,
 
     let equilibrium = linear::compute_equilibrium_summary_2d(&asm.f, &reactions_vec, &dof_num, rel_residual);
 
-    // Solver-path diagnostic
+    // Solver-path diagnostic — report the actual solver that produced the result
+    let (path_code, path_sev) = if used_fallback {
+        (DiagnosticCode::SparseFallbackDenseLu, Severity::Warning)
+    } else {
+        (DiagnosticCode::DenseLu, Severity::Info)
+    };
     constraint_diags.push(StructuredDiagnostic::global(
-        DiagnosticCode::DenseLu,
-        Severity::Info,
-        format!("Constrained 2D solver ({} free DOFs, {} independent)", nf, n_free_indep),
+        path_code,
+        path_sev,
+        format!("Constrained 2D {} ({} free DOFs, {} independent)",
+            if used_fallback { "Cholesky failed, dense LU fallback" } else { "Dense" },
+            nf, n_free_indep),
     ).with_phase("solve"));
 
     // Residual diagnostic
@@ -876,11 +885,13 @@ pub fn solve_constrained_3d(input: &ConstrainedInput3D) -> Result<AnalysisResult
     let k_reduced = ct_k_c(&c_ff, &k_ff, nf, n_free_indep);
     let f_reduced = ct_f(&c_ff, &f_f, nf, n_free_indep);
 
+    let mut used_fallback = false;
     let u_indep = if n_free_indep >= 64 {
         let k_sparse = CscMatrix::from_dense_symmetric(&k_reduced, n_free_indep);
         match sparse_cholesky_solve_full(&k_sparse, &f_reduced) {
             Some(u) => u,
             None => {
+                used_fallback = true;
                 let mut k_work = k_reduced;
                 let mut f_work = f_reduced.clone();
                 lu_solve(&mut k_work, &mut f_work, n_free_indep)
@@ -892,6 +903,7 @@ pub fn solve_constrained_3d(input: &ConstrainedInput3D) -> Result<AnalysisResult
         match cholesky_solve(&mut k_work, &f_reduced, n_free_indep) {
             Some(u) => u,
             None => {
+                used_fallback = true;
                 let mut k_work = k_reduced;
                 let mut f_work = f_reduced.clone();
                 lu_solve(&mut k_work, &mut f_work, n_free_indep)
@@ -948,16 +960,23 @@ pub fn solve_constrained_3d(input: &ConstrainedInput3D) -> Result<AnalysisResult
 
     let equilibrium = linear::compute_equilibrium_summary_3d(&asm.f, &reactions_vec, &dof_num, rel_residual);
 
-    // Solver-path diagnostic
-    let path_code = if n_free_indep >= 64 {
-        DiagnosticCode::SparseCholesky
+    // Solver-path diagnostic — report the actual solver that produced the result
+    let (path_code, path_sev) = if used_fallback {
+        (DiagnosticCode::SparseFallbackDenseLu, Severity::Warning)
+    } else if n_free_indep >= 64 {
+        (DiagnosticCode::SparseCholesky, Severity::Info)
     } else {
-        DiagnosticCode::DenseLu
+        (DiagnosticCode::DenseLu, Severity::Info)
+    };
+    let solver_label = match path_code {
+        DiagnosticCode::SparseFallbackDenseLu => "Cholesky failed, dense LU fallback",
+        DiagnosticCode::SparseCholesky => "Sparse Cholesky",
+        _ => "Dense",
     };
     constraint_diags.push(StructuredDiagnostic::global(
         path_code,
-        Severity::Info,
-        format!("Constrained 3D solver ({} free DOFs, {} independent)", nf, n_free_indep),
+        path_sev,
+        format!("Constrained 3D {} ({} free DOFs, {} independent)", solver_label, nf, n_free_indep),
     ).with_phase("solve"));
 
     // Residual diagnostic

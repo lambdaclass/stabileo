@@ -554,4 +554,44 @@ fn diagnostics_parity_constrained_3d() {
     };
     let r = solve_constrained_3d(&ci).unwrap();
     assert_diagnostics_contract(&r.structured_diagnostics, r.equilibrium.as_ref(), "constrained-3D");
+
+    // Small model → dense path
+    assert!(r.structured_diagnostics.iter().any(|d| d.code == DiagnosticCode::DenseLu),
+        "small constrained 3D model should use dense path");
+}
+
+#[test]
+fn diagnostics_parity_constrained_3d_sparse() {
+    // 14 elements → 15 nodes × 6 DOFs = 90 total, minus 6 fixed = 84 free.
+    // With 1 EqualDOF constraint on 1 DOF, n_free_indep ≈ 83 → sparse path (>= 64).
+    let mut base = make_3d_beam(
+        14, 14.0,
+        200e3, 0.3, 0.01, 1e-4, 1e-4, 2e-4,
+        vec![true, true, true, true, true, true],
+        None,
+        vec![SolverLoad3D::Nodal(SolverNodalLoad3D {
+            node_id: 15, fx: 0.0, fy: -10.0, fz: 0.0,
+            mx: 0.0, my: 0.0, mz: 0.0, bw: None,
+        })],
+    );
+    base.constraints = vec![
+        Constraint::EqualDOF(EqualDOFConstraint {
+            master_node: 2, slave_node: 3, dofs: vec![0, 1],
+        }),
+    ];
+    let ci = ConstrainedInput3D {
+        solver: base.clone(),
+        constraints: base.constraints.clone(),
+    };
+    let r = solve_constrained_3d(&ci).unwrap();
+    assert_diagnostics_contract(&r.structured_diagnostics, r.equilibrium.as_ref(), "constrained-3D-sparse");
+
+    // Large model → sparse path (SparseCholesky, not fallback on a well-conditioned problem)
+    let path = r.structured_diagnostics.iter()
+        .find(|d| matches!(d.code,
+            DiagnosticCode::SparseCholesky | DiagnosticCode::DenseLu | DiagnosticCode::SparseFallbackDenseLu
+        ))
+        .expect("should have solver-path diagnostic");
+    assert_eq!(path.code, DiagnosticCode::SparseCholesky,
+        "large constrained 3D model should use sparse path, got {:?}", path.code);
 }
