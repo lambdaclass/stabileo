@@ -79,6 +79,51 @@ The product roadmap only works if the solver exposes the right contracts and tru
 5. `Headless and native execution parity`
    Desktop, API, cloud comparison, and firm workflows depend on browser/native parity and repeatable headless execution, not only a good in-browser demo.
 
+## Open-Source vs Hosted Boundary
+
+The roadmap describes the full product direction, but not every capability should live at the same distribution layer.
+
+### Open-source should include
+
+- the core browser product
+- solver-driven diagnostics, verification, and review surfaces
+- AI UI surfaces and capability interfaces
+- prompt/result schemas
+- local/basic provider adapter patterns where appropriate
+- basic AI assistance such as diagnostic explanation, result queries, and limited code-check explanation
+- local model support if it is added
+- basic BYO-key mode if it materially helps community adoption
+- report/design workflow foundations that make the product genuinely useful on its own
+
+### Hosted / private / commercial should include
+
+- hosted backend routing
+- premium provider integrations and tuning
+- provider-selection policies
+- caching, logging, tracing, and eval infrastructure
+- team review assistant
+- large-project context assembly
+- report-generation intelligence
+- automated design iteration / optimization assistant
+- office-specific knowledge / templates / standards
+- usage quotas, rate limits, billing, and admin controls
+- enterprise security / audit / tenancy features
+- cloud comparison, batch execution, and hosted platform services
+
+### Guiding principle
+
+The open-source version should be strong enough to be real software engineers can trust and use.
+
+The hosted/private layer should monetize:
+
+- orchestration
+- scale
+- collaboration
+- premium automation
+- enterprise controls
+
+not artificial crippling of the core engineering product.
+
 ## The Automation Gap
 
 > Full analysis: [research/automation_gaps.md](research/automation_gaps.md)
@@ -226,6 +271,10 @@ Already present:
 - WASD/Arrow/QE keyboard camera navigation with Shift speed boost
 - frame vs truss color differentiation across 2D and 3D viewports
 - showcase PRO examples (suspension bridge, geodesic dome, diagrid tower, stadium, cable-stayed bridge)
+
+Known example issues:
+
+- **Suspension bridge example needs nonlinear solver**: The linear solver overestimates deflections because it lacks geometric stiffness from cable pretension. Suspension bridges are inherently nonlinear — cable stiffness depends on tension state. Once the corotational/nonlinear 3D solver supports cable pretension, revisit the suspension bridge example with realistic cable areas (A≈0.020 m²) instead of the current oversized A=0.060 m² workaround. Consider adding a catenary element (form-finding) for proper cable analysis.
 
 Still productizing:
 
