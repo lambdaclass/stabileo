@@ -3,7 +3,7 @@
 // analyzeKinematics delegates to the WASM engine for the heavy LU rank analysis.
 
 import type { SolverInput } from './types';
-import { analyzeKinematics as wasmAnalyzeKinematics } from './wasm-solver';
+import { analyzeKinematics as wasmAnalyzeKinematics, isWasmReady } from './wasm-solver';
 
 // ─── Kinematic Analysis ──────────────────────────────────────────
 
@@ -107,5 +107,18 @@ export function computeStaticDegree(input: SolverInput): { degree: number; nodeC
  * Uses WASM engine exclusively.
  */
 export function analyzeKinematics(input: SolverInput): KinematicResult {
+  if (!isWasmReady()) {
+    const { degree } = computeStaticDegree(input);
+    const classification = degree > 0 ? 'hyperstatic' : degree === 0 ? 'isostatic' : 'hypostatic';
+    return {
+      degree,
+      classification,
+      mechanismModes: 0,
+      mechanismNodes: [],
+      unconstrainedDofs: [],
+      diagnosis: 'WASM not initialized — degree estimate only',
+      isSolvable: degree >= 0,
+    };
+  }
   return wasmAnalyzeKinematics(input);
 }

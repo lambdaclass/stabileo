@@ -102,8 +102,88 @@ function expectClose(actual: number, expected: number, tol = TOL, label = '') {
   }
 }
 
-// (Sections 1 & 2 removed — solver-detailed and Cholesky-vs-LU tests
-// depended on TS solver internals no longer available)
+// ═════════════════════════════════════════════════════════════════
+// 1–2. WASM SOLVER CONSISTENCY ORACLES
+// (Replaces deleted TS solver-detailed and Cholesky-vs-LU tests
+//  with WASM-backed equivalents that verify the same properties)
+// ═════════════════════════════════════════════════════════════════
+
+describe('WASM solver consistency oracles', () => {
+  it('equilibrium oracle — SS beam with UDL: sum of reactions equals total applied load', () => {
+    const L = 8, q = -12; // kN/m downward
+    const input = makeInput({
+      nodes: [[1, 0, 0], [2, L, 0]],
+      elements: [[1, 1, 2, 'frame']],
+      supports: [[1, 1, 'pinned'], [2, 2, 'rollerX']],
+      loads: [{ type: 'distributed', data: { elementId: 1, qI: q, qJ: q } }],
+    });
+
+    const results = solve(input);
+    const totalApplied = q * L; // -96 kN
+
+    let sumRy = 0;
+    for (const r of results.reactions) sumRy += r.ry;
+
+    // ΣFy = 0: reactions must balance applied load
+    expect(Math.abs(sumRy + totalApplied)).toBeLessThan(0.01);
+    // Each reaction should be positive (upward) for downward load
+    for (const r of results.reactions) {
+      expect(r.ry).toBeGreaterThan(0);
+    }
+  });
+
+  it('analytical displacement oracle — cantilever tip: PL^3/(3EI)', () => {
+    const L = 4, P = -20;
+    // Use known E, A, Iz so we can compute the analytical deflection
+    const E_MPa = 200_000;
+    const myA = 0.01;
+    const myIz = 1e-4;
+    const input = makeInput({
+      nodes: [[1, 0, 0], [2, L, 0]],
+      elements: [[1, 1, 2, 'frame']],
+      supports: [[1, 1, 'fixed']],
+      loads: [{ type: 'nodal', data: { nodeId: 2, fx: 0, fy: P, mz: 0 } }],
+      e: E_MPa,
+      a: myA,
+      iz: myIz,
+    });
+
+    const results = solve(input);
+
+    // WASM solver uses E in kN/m^2 = E_MPa * 1000
+    const E_kNm2 = E_MPa * 1000;
+    const delta_analytical = P * L * L * L / (3 * E_kNm2 * myIz);
+
+    const tipDisp = getDisp(results, 2);
+    expectClose(tipDisp.uy, delta_analytical, TOL, 'tip deflection = PL^3/(3EI)');
+  });
+
+  it('symmetry oracle — SS beam with centered point load: equal reactions', () => {
+    const L = 10, P = -50;
+    // Point load at midspan via two elements meeting at center node
+    const input = makeInput({
+      nodes: [[1, 0, 0], [2, L / 2, 0], [3, L, 0]],
+      elements: [
+        [1, 1, 2, 'frame'],
+        [2, 2, 3, 'frame'],
+      ],
+      supports: [[1, 1, 'pinned'], [2, 3, 'rollerX']],
+      loads: [{ type: 'nodal', data: { nodeId: 2, fx: 0, fy: P, mz: 0 } }],
+    });
+
+    const results = solve(input);
+    const rA = getReaction(results, 1);
+    const rB = getReaction(results, 3);
+
+    // Symmetric structure + symmetric load → equal vertical reactions
+    expectClose(rA.ry, rB.ry, TOL, 'symmetric reactions');
+    // Each reaction = P/2 (upward)
+    expectClose(rA.ry, -P / 2, TOL, 'each reaction = P/2');
+
+    // Equilibrium
+    expect(Math.abs(rA.ry + rB.ry + P)).toBeLessThan(0.01);
+  });
+});
 
 // ═════════════════════════════════════════════════════════════════
 // 3. TEMPLATE GENERATORS — ANALYTICAL VERIFICATION

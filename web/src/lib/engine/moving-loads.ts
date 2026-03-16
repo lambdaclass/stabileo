@@ -1,7 +1,7 @@
 // Moving load analysis — envelope of moving load trains across a structure
 
 import type { SolverInput, AnalysisResults, FullEnvelope, ElementEnvelopeDiagram, EnvelopeDiagramData } from './types';
-import { solve } from './wasm-solver';
+import { solve, isWasmReady } from './wasm-solver';
 import { computeDiagramValueAt } from './diagrams';
 import { t } from '../i18n';
 
@@ -330,6 +330,7 @@ export function solveMovingLoads(
   baseInput: SolverInput,
   config: MovingLoadConfig,
 ): MovingLoadEnvelope | string {
+  if (!isWasmReady()) return 'WASM solver not initialized';
   const step = config.step ?? 0.25;
   const path = buildPath(baseInput, config.pathElementIds);
 
@@ -395,6 +396,7 @@ export async function solveMovingLoadsAsync(
   onProgress?: (progress: MovingLoadProgress) => void,
   signal?: AbortSignal,
 ): Promise<MovingLoadEnvelope | string> {
+  if (!isWasmReady()) return 'WASM solver not initialized';
   const step = config.step ?? 0.25;
   const path = buildPath(baseInput, config.pathElementIds);
 

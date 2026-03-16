@@ -3,7 +3,7 @@
 // analyzeKinematics3D delegates to the WASM engine for the heavy LU rank analysis.
 
 import type { SolverInput3D, SolverSupport3D } from './types-3d';
-import { analyzeKinematics3D as wasmAnalyzeKinematics3D } from './wasm-solver';
+import { analyzeKinematics3D as wasmAnalyzeKinematics3D, isWasmReady } from './wasm-solver';
 
 // ─── Result type ─────────────────────────────────────────────────
 
@@ -129,5 +129,18 @@ export function computeStaticDegree3D(
  * Uses WASM engine exclusively.
  */
 export function analyzeKinematics3D(input: SolverInput3D): KinematicResult3D {
+  if (!isWasmReady()) {
+    const { degree } = computeStaticDegree3D(input);
+    const classification = degree > 0 ? 'hyperstatic' : degree === 0 ? 'isostatic' : 'hypostatic';
+    return {
+      degree,
+      classification,
+      mechanismModes: 0,
+      mechanismNodes: [],
+      unconstrainedDofs: [],
+      diagnosis: 'WASM not initialized — degree estimate only',
+      isSolvable: degree >= 0,
+    };
+  }
   return wasmAnalyzeKinematics3D(input);
 }

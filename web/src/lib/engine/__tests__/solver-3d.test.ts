@@ -4,8 +4,6 @@
 import { describe, it, expect } from 'vitest';
 import { solve3D } from '../wasm-solver';
 import { computeLocalAxes3D } from '../local-axes-3d';
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-const frameLocalStiffness3D = (..._args: any[]): number[] => []; // stub for skipped tests
 import type {
   SolverInput3D, SolverNode3D, SolverSection3D, SolverElement3D,
   SolverSupport3D, AnalysisResults3D,
@@ -240,52 +238,83 @@ describe('3D Solver — computeLocalAxes3D (SAP2000 convention)', () => {
   });
 });
 
-describe.skip('3D Solver — frameLocalStiffness3D (TS solver internal)', () => {
-  it('produces symmetric 12×12 matrix', () => {
-    const k = frameLocalStiffness3D(E, G, A, Iy, Iz, J, 5, false, false);
-    for (let i = 0; i < 12; i++) {
-      for (let j = i; j < 12; j++) {
-        expect(k[i * 12 + j]).toBeCloseTo(k[j * 12 + i], 6);
-      }
-    }
+describe('3D Solver — WASM-backed stiffness verification (replaces frameLocalStiffness3D tests)', () => {
+  // Instead of inspecting the stiffness matrix directly (TS internal removed),
+  // we verify that the WASM solver produces correct analytical displacements
+  // for a single 3D cantilever beam. If the stiffness matrix is wrong inside
+  // WASM, these tests will fail.
+
+  const L = 5;
+  const TOL_3D = 1e-4;
+
+  it('axial stiffness: δ = PL/(EA)', () => {
+    const Px = 100; // kN axial
+    const input = buildInput(
+      [{ id: 1, x: 0, y: 0, z: 0 }, { id: 2, x: L, y: 0, z: 0 }],
+      [{ id: 1, type: 'frame', nodeI: 1, nodeJ: 2, materialId: 1, sectionId: 1, hingeStart: false, hingeEnd: false }],
+      [fixedSupport(1)],
+      [{ type: 'nodal', data: { nodeId: 2, fx: Px, fy: 0, fz: 0, mx: 0, my: 0, mz: 0 } }],
+    );
+
+    const result = solve3D(input);
+    assertSuccess(result);
+
+    const d2 = result.displacements.find(d => d.nodeId === 2)!;
+    const ux_expected = Px * L / (E * A);
+    expect(d2.ux).toBeCloseTo(ux_expected, 4);
+    expect(d2.uy).toBeCloseTo(0, 6);
+    expect(d2.uz).toBeCloseTo(0, 6);
   });
 
-  it('axial terms EA/L', () => {
-    const L = 5;
-    const k = frameLocalStiffness3D(E, G, A, Iy, Iz, J, L, false, false);
-    const ea_l = E * A / L;
-    expect(k[0 * 12 + 0]).toBeCloseTo(ea_l);
-    expect(k[0 * 12 + 6]).toBeCloseTo(-ea_l);
-    expect(k[6 * 12 + 6]).toBeCloseTo(ea_l);
+  it('strong-axis bending: δ = PL^3/(3EIz)', () => {
+    const Py = -10; // kN in local Y direction
+    const input = buildInput(
+      [{ id: 1, x: 0, y: 0, z: 0 }, { id: 2, x: L, y: 0, z: 0 }],
+      [{ id: 1, type: 'frame', nodeI: 1, nodeJ: 2, materialId: 1, sectionId: 1, hingeStart: false, hingeEnd: false }],
+      [fixedSupport(1)],
+      [{ type: 'nodal', data: { nodeId: 2, fx: 0, fy: Py, fz: 0, mx: 0, my: 0, mz: 0 } }],
+    );
+
+    const result = solve3D(input);
+    assertSuccess(result);
+
+    const d2 = result.displacements.find(d => d.nodeId === 2)!;
+    const uy_expected = Py * L ** 3 / (3 * E * Iz);
+    expect(Math.abs((d2.uy - uy_expected) / uy_expected)).toBeLessThan(TOL_3D);
   });
 
-  it('torsion terms GJ/L', () => {
-    const L = 5;
-    const k = frameLocalStiffness3D(E, G, A, Iy, Iz, J, L, false, false);
-    const gj_l = G * J / L;
-    expect(k[3 * 12 + 3]).toBeCloseTo(gj_l);
-    expect(k[3 * 12 + 9]).toBeCloseTo(-gj_l);
-    expect(k[9 * 12 + 9]).toBeCloseTo(gj_l);
+  it('weak-axis bending: δ = PL^3/(3EIy)', () => {
+    const Pz = -10; // kN in local Z direction
+    const input = buildInput(
+      [{ id: 1, x: 0, y: 0, z: 0 }, { id: 2, x: L, y: 0, z: 0 }],
+      [{ id: 1, type: 'frame', nodeI: 1, nodeJ: 2, materialId: 1, sectionId: 1, hingeStart: false, hingeEnd: false }],
+      [fixedSupport(1)],
+      [{ type: 'nodal', data: { nodeId: 2, fx: 0, fy: 0, fz: Pz, mx: 0, my: 0, mz: 0 } }],
+    );
+
+    const result = solve3D(input);
+    assertSuccess(result);
+
+    const d2 = result.displacements.find(d => d.nodeId === 2)!;
+    const uz_expected = Pz * L ** 3 / (3 * E * Iy);
+    expect(Math.abs((d2.uz - uz_expected) / uz_expected)).toBeLessThan(TOL_3D);
   });
 
-  it('strong-axis bending (v, θz): same as 2D', () => {
-    const L = 5;
-    const k = frameLocalStiffness3D(E, G, A, Iy, Iz, J, L, false, false);
-    const EI = E * Iz;
-    expect(k[1 * 12 + 1]).toBeCloseTo(12 * EI / (L * L * L));
-    expect(k[5 * 12 + 5]).toBeCloseTo(4 * EI / L);
-    expect(k[1 * 12 + 5]).toBeCloseTo(6 * EI / (L * L));
-  });
+  it('torsion: θ = TL/(GJ)', () => {
+    const Mx = 5; // kN·m torque
+    const input = buildInput(
+      [{ id: 1, x: 0, y: 0, z: 0 }, { id: 2, x: L, y: 0, z: 0 }],
+      [{ id: 1, type: 'frame', nodeI: 1, nodeJ: 2, materialId: 1, sectionId: 1, hingeStart: false, hingeEnd: false }],
+      [fixedSupport(1)],
+      [{ type: 'nodal', data: { nodeId: 2, fx: 0, fy: 0, fz: 0, mx: Mx, my: 0, mz: 0 } }],
+    );
 
-  it('weak-axis bending (w, θy): sign inversions', () => {
-    const L = 5;
-    const k = frameLocalStiffness3D(E, G, A, Iy, Iz, J, L, false, false);
-    const EI = E * Iy;
-    expect(k[2 * 12 + 2]).toBeCloseTo(12 * EI / (L * L * L));
-    expect(k[4 * 12 + 4]).toBeCloseTo(4 * EI / L);
-    // Coupling w-θy: opposite sign to v-θz
-    expect(k[2 * 12 + 4]).toBeCloseTo(-6 * EI / (L * L)); // negative!
-    expect(k[1 * 12 + 5]).toBeCloseTo(6 * E * Iz / (L * L)); // positive for comparison
+    const result = solve3D(input);
+    assertSuccess(result);
+
+    const d2 = result.displacements.find(d => d.nodeId === 2)!;
+    const rx_expected = Mx * L / (G * J);
+    expect(d2.rx).toBeCloseTo(rx_expected, 4);
   });
 });
 
@@ -1022,22 +1051,45 @@ describe('3D Solver — Mixed frame + truss', () => {
 });
 
 describe('3D Solver — Transformation matrix orthogonality', () => {
-  it.skip('T^T * T = I for any orientation (TS solver internal: frameTransformationMatrix3D)', () => {
-    const nI: SolverNode3D = { id: 1, x: 1, y: 2, z: 3 };
-    const nJ: SolverNode3D = { id: 2, x: 4, y: 6, z: 8 };
-    const _axes = computeLocalAxes3D(nI, nJ);
-    const T = (null as any); // frameTransformationMatrix3D removed (TS solver internal)
+  it('rotation invariance — angled cantilever gives same tip displacement magnitude as horizontal', () => {
+    // If the transformation matrix is correct (T^T * T = I internally),
+    // a cantilever at an arbitrary 3D angle should give the same tip
+    // displacement magnitude as the equivalent horizontal one.
+    const L = 5;
+    const P = -10; // kN transverse load
 
-    for (let i = 0; i < 12; i++) {
-      for (let j = 0; j < 12; j++) {
-        let sum = 0;
-        for (let k = 0; k < 12; k++) {
-          sum += T[k * 12 + i] * T[k * 12 + j];
-        }
-        const expected = i === j ? 1 : 0;
-        expect(sum).toBeCloseTo(expected, 10);
-      }
-    }
+    // Horizontal cantilever along +X, load in Y
+    const inputH = buildInput(
+      [{ id: 1, x: 0, y: 0, z: 0 }, { id: 2, x: L, y: 0, z: 0 }],
+      [{ id: 1, type: 'frame', nodeI: 1, nodeJ: 2, materialId: 1, sectionId: 1, hingeStart: false, hingeEnd: false }],
+      [fixedSupport(1)],
+      [{ type: 'nodal', data: { nodeId: 2, fx: 0, fy: P, fz: 0, mx: 0, my: 0, mz: 0 } }],
+    );
+    const resultH = solve3D(inputH);
+    assertSuccess(resultH);
+    const dH = resultH.displacements.find(d => d.nodeId === 2)!;
+    const magH = Math.sqrt(dH.ux ** 2 + dH.uy ** 2 + dH.uz ** 2);
+
+    // Angled cantilever: beam along direction (3, 4, 0), length = 5
+    // Load perpendicular to beam axis, in the local Y plane (global Y component)
+    // For a beam in XY plane, local ey = (-4/5, 3/5, 0), so a load of P in local Y
+    // maps to global: fx = P * (-4/5), fy = P * (3/5)
+    const inputA = buildInput(
+      [{ id: 1, x: 0, y: 0, z: 0 }, { id: 2, x: 3, y: 4, z: 0 }],
+      [{ id: 1, type: 'frame', nodeI: 1, nodeJ: 2, materialId: 1, sectionId: 1, hingeStart: false, hingeEnd: false }],
+      [fixedSupport(1)],
+      [{ type: 'nodal', data: { nodeId: 2, fx: P * (-4 / 5), fy: P * (3 / 5), fz: 0, mx: 0, my: 0, mz: 0 } }],
+    );
+    const resultA = solve3D(inputA);
+    assertSuccess(resultA);
+    const dA = resultA.displacements.find(d => d.nodeId === 2)!;
+    const magA = Math.sqrt(dA.ux ** 2 + dA.uy ** 2 + dA.uz ** 2);
+
+    // Both should give the same displacement magnitude (same P, L, EIz)
+    expect(Math.abs((magA - magH) / magH)).toBeLessThan(1e-4);
+
+    // Also check equilibrium on the angled one
+    checkEquilibrium(resultA, inputA);
   });
 
   it('local axes are orthonormal', () => {
