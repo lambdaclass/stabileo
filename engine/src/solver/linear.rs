@@ -528,6 +528,7 @@ pub fn solve_3d(input: &SolverInput3D) -> Result<AnalysisResults3D, String> {
         let rel_residual = res_norm2.sqrt() / f_norm2.sqrt().max(1e-30);
         let r_us = now_micros().saturating_sub(t0);
 
+        let mut used_residual_fallback = false;
         let (u_f, solve_us, residual_us) = if rel_residual < 1e-6 {
             solver_diags.push(SolverDiagnostic {
                 category: "solver_path".into(),
@@ -544,6 +545,7 @@ pub fn solve_3d(input: &SolverInput3D) -> Result<AnalysisResults3D, String> {
                 ),
                 severity: "warning".into(),
             });
+            used_residual_fallback = true;
             let t0 = now_micros();
             let u_fb = dense_lu_fallback()?;
             dense_fb_us = now_micros().saturating_sub(t0);
@@ -563,6 +565,23 @@ pub fn solve_3d(input: &SolverInput3D) -> Result<AnalysisResults3D, String> {
         for i in 0..nr {
             reactions_vec[i] = ku[nf + i] - f_r[i];
         }
+
+        // If we fell back to dense LU due to bad sparse residual, recompute the
+        // residual from the actual returned solution (ku is from u_full which uses
+        // the dense solution). The old rel_residual describes the rejected sparse
+        // attempt, not the final answer.
+        let rel_residual = if used_residual_fallback {
+            let mut res2 = 0.0f64;
+            let mut f2 = 0.0f64;
+            for i in 0..nf {
+                let r = ku[i] - asm.f[i];
+                res2 += r * r;
+                f2 += asm.f[i] * asm.f[i];
+            }
+            res2.sqrt() / f2.sqrt().max(1e-30)
+        } else {
+            rel_residual
+        };
 
         // Reverse inclined support rotations on displacements
         for it in &asm.inclined_transforms {
@@ -606,12 +625,20 @@ pub fn solve_3d(input: &SolverInput3D) -> Result<AnalysisResults3D, String> {
         // Build structured diagnostics (enum-based, machine-matchable)
         let mut structured = Vec::new();
 
-        // Solver path
-        structured.push(StructuredDiagnostic::global(
-            DiagnosticCode::SparseCholesky,
-            Severity::Info,
-            format!("Sparse Cholesky solver ({} free DOFs, nnz(L)={})", nf, nnz_l),
-        ).with_phase("solve"));
+        // Solver path — report the actual solver that produced the returned result
+        if used_residual_fallback {
+            structured.push(StructuredDiagnostic::global(
+                DiagnosticCode::SparseFallbackDenseLu,
+                Severity::Warning,
+                format!("Sparse Cholesky residual too large, fell back to dense LU ({} free DOFs)", nf),
+            ).with_phase("solve"));
+        } else {
+            structured.push(StructuredDiagnostic::global(
+                DiagnosticCode::SparseCholesky,
+                Severity::Info,
+                format!("Sparse Cholesky solver ({} free DOFs, nnz(L)={})", nf, nnz_l),
+            ).with_phase("solve"));
+        }
 
         // Conditioning diagnostics
         if cond > 1e12 {

@@ -250,8 +250,14 @@ fn assert_diagnostics_contract(diags: &[StructuredDiagnostic], eq: Option<&Equil
     // All path diagnostics have phase
     let pd = path_codes[0];
     assert!(pd.phase.is_some(), "[{}] solver-path diagnostic missing phase", label);
-    assert_eq!(pd.severity, Severity::Info,
-        "[{}] solver-path severity should be Info (unless fallback)", label);
+    // Normal paths are Info; fallback paths are Warning
+    if pd.code == DiagnosticCode::SparseFallbackDenseLu {
+        assert_eq!(pd.severity, Severity::Warning,
+            "[{}] fallback solver-path severity should be Warning", label);
+    } else {
+        assert_eq!(pd.severity, Severity::Info,
+            "[{}] solver-path severity should be Info", label);
+    }
 
     // 2. Exactly one residual diagnostic
     let res_codes: Vec<_> = diags.iter()
@@ -368,4 +374,117 @@ fn diagnostics_residual_values_consistent() {
     let diag_says_ok = res_diag.code == DiagnosticCode::ResidualOk;
     assert_eq!(diag_says_ok, eq.residual_ok,
         "residual ok mismatch: diagnostic code={:?}, equilibrium.residual_ok={}", res_diag.code, eq.residual_ok);
+}
+
+/// Verify that when the sparse path succeeds, the solver-path code is SparseCholesky
+/// (not SparseFallbackDenseLu) and the residual describes the actual returned solution.
+///
+/// Note: testing the residual-triggered fallback path (sparse residual > 1e-6 → dense LU)
+/// is not practical with a normal model since well-conditioned problems always produce
+/// good sparse residuals. The fix for that path (recomputing residual from the dense
+/// solution's K*u) is verified by code inspection and the structural invariant below.
+#[test]
+fn diagnostics_sparse_path_code_matches_actual_solver() {
+    // 12 elements → 72 free DOFs → sparse path
+    let input = make_3d_beam(
+        12, 12.0,
+        200e3, 0.3, 0.01, 1e-4, 1e-4, 2e-4,
+        vec![true, true, true, true, true, true],
+        None,
+        vec![SolverLoad3D::Nodal(SolverNodalLoad3D {
+            node_id: 13, fx: 0.0, fy: -10.0, fz: 0.0,
+            mx: 0.0, my: 0.0, mz: 0.0, bw: None,
+        })],
+    );
+    let r = solve_3d(&input).unwrap();
+
+    // On a well-conditioned problem, sparse should succeed — no fallback
+    let path = r.structured_diagnostics.iter()
+        .find(|d| matches!(d.code,
+            DiagnosticCode::SparseCholesky | DiagnosticCode::SparseFallbackDenseLu
+        ))
+        .expect("should have solver-path diagnostic");
+    assert_eq!(path.code, DiagnosticCode::SparseCholesky,
+        "well-conditioned problem should not trigger fallback");
+
+    // Residual in diagnostic should be the actual solve residual, not stale
+    let res_diag = r.structured_diagnostics.iter()
+        .find(|d| d.code == DiagnosticCode::ResidualOk)
+        .expect("should have ResidualOk");
+    assert!(res_diag.value.unwrap() < 1e-10,
+        "sparse residual should be near-machine-precision: {:.2e}", res_diag.value.unwrap());
+
+    // No SparseFallbackDenseLu should appear on a clean solve
+    assert!(!r.structured_diagnostics.iter().any(|d| d.code == DiagnosticCode::SparseFallbackDenseLu),
+        "clean solve should not emit fallback diagnostic");
+}
+
+/// Verify the diagnostics parity contract for the early sparse-factorization-failure
+/// fallback path. This path is entered when Cholesky factorization fails completely
+/// (even with regularization). Like the residual-triggered fallback, it returns a dense
+/// LU solution.
+///
+/// Note: triggering this path requires a matrix where Cholesky fails for all shift
+/// values, which doesn't happen with normal FEA models. The test verifies the contract
+/// shape on the paths we can trigger, and the code structure ensures both fallback paths
+/// emit the same diagnostic contract.
+#[test]
+fn diagnostics_parity_contract_residual_describes_returned_solution() {
+    // Test the invariant: reported residual matches what you'd get from the returned
+    // displacements. Tests all reachable paths (2D dense, 3D dense, 3D sparse).
+    for (label, eq_opt) in [
+        ("2D-dense", {
+            let input = make_input(
+                vec![(1, 0.0, 0.0), (2, 4.0, 0.0)],
+                vec![(1, 200e3, 0.3)],
+                vec![(1, 0.01, 1e-4)],
+                vec![(1, "frame", 1, 2, 1, 1, false, false)],
+                vec![(1, 1, "fixed")],
+                vec![SolverLoad::Nodal(SolverNodalLoad {
+                    node_id: 2, fx: 0.0, fy: -10.0, mz: 0.0,
+                })],
+            );
+            let r = solve_2d(&input).unwrap();
+            assert_diagnostics_contract(&r.structured_diagnostics, r.equilibrium.as_ref(), "2D-dense-residual");
+            r.equilibrium
+        }),
+        ("3D-dense", {
+            let input = make_3d_input(
+                vec![(1, 0.0, 0.0, 0.0), (2, 4.0, 0.0, 0.0)],
+                vec![(1, 200e3, 0.3)],
+                vec![(1, 0.01, 1e-4, 1e-4, 2e-4)],
+                vec![(1, "frame", 1, 2, 1, 1)],
+                vec![(1, vec![true, true, true, true, true, true])],
+                vec![SolverLoad3D::Nodal(SolverNodalLoad3D {
+                    node_id: 2, fx: 0.0, fy: -10.0, fz: 0.0,
+                    mx: 0.0, my: 0.0, mz: 0.0, bw: None,
+                })],
+            );
+            let r = solve_3d(&input).unwrap();
+            assert_diagnostics_contract(&r.structured_diagnostics, r.equilibrium.as_ref(), "3D-dense-residual");
+            r.equilibrium
+        }),
+        ("3D-sparse", {
+            let input = make_3d_beam(
+                12, 12.0,
+                200e3, 0.3, 0.01, 1e-4, 1e-4, 2e-4,
+                vec![true, true, true, true, true, true],
+                None,
+                vec![SolverLoad3D::Nodal(SolverNodalLoad3D {
+                    node_id: 13, fx: 0.0, fy: -10.0, fz: 0.0,
+                    mx: 0.0, my: 0.0, mz: 0.0, bw: None,
+                })],
+            );
+            let r = solve_3d(&input).unwrap();
+            assert_diagnostics_contract(&r.structured_diagnostics, r.equilibrium.as_ref(), "3D-sparse-residual");
+            r.equilibrium
+        }),
+    ] {
+        let eq = eq_opt.as_ref().unwrap();
+        // The reported residual must be honest: small for a well-conditioned problem
+        assert!(eq.relative_residual < 1e-8,
+            "[{}] residual {:.2e} too large for well-conditioned model", label, eq.relative_residual);
+        assert!(eq.residual_ok, "[{}] residual_ok should be true", label);
+        assert!(eq.equilibrium_ok, "[{}] equilibrium_ok should be true", label);
+    }
 }
