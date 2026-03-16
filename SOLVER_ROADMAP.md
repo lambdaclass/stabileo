@@ -114,6 +114,53 @@ If automation is pulled earlier in the product roadmap, the solver should respon
 4. `Code/load metadata contracts` — automatic combinations, loads, and design checks need solver-side metadata that survives into reports and exports
 5. `Batch/headless execution ergonomics` — optimization and generative workflows come only after the first automation surfaces are stable
 
+## Daily, Weekly, Monthly Priority Lens
+
+The solver should be prioritized by how often the downstream engineering work actually happens.
+
+### Daily work enablers
+
+These are the solver capabilities that support everyday billable engineering and therefore should stay first:
+
+- WASM/runtime trust and single-solver convergence
+- design-grade extraction and governing metadata
+- structured diagnostics, provenance, and model quality gates
+- query-ready result contracts for reports, review, and AI assistance
+- code/load metadata contracts for combinations and design checks
+- section- and member-level outputs that support RC and steel design workflows
+
+Roadmap home:
+- Solver Steps 1-3
+- Solver Step 14 in support of product automation
+- the design-oriented subset of later extraction/post-processing work
+
+### Weekly work enablers
+
+These are important recurring workflows, but they should not outrank the daily delivery layer:
+
+- runtime/scale improvements that make larger real jobs practical
+- verification moat expansion and stronger parity/fuzz/property coverage
+- shell workflow maturity and automatic family guidance
+- headless/native parity for desktop, reports, and office workflows
+- automatic load generation once the contracts are solid
+
+Roadmap home:
+- Solver Steps 4-7
+- Solver Step 12
+- Solver Step 14
+
+### Monthly / specialist enablers
+
+These are critical for advanced users and long-term moat, but they are not the first things most engineers bill every week:
+
+- dynamic analysis, nonlinear materials, and pushover
+- advanced elements, contact depth, and specialized post-processing
+- optimization, probabilistic methods, and digital-twin loops
+- incremental/collaborative solver paths and AI/surrogate support
+
+Roadmap home:
+- Solver Step 8 and beyond
+
 ## Must-Have Vs Later
 
 ### Must-have to become the best open structural solver

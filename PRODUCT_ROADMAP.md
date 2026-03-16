@@ -60,6 +60,55 @@ ROI order for users:
 6. lightweight collaboration that makes review and sharing easier
 7. workflow polish and breadth after the above are solid
 
+## Daily, Weekly, Monthly Priority Lens
+
+This is the clearest way to prioritize the product roadmap:
+
+### Daily work
+
+What engineers do on almost every project and should come first:
+
+- trustworthy solve and visible verification
+- model quality gates before solve
+- code-driven load combinations
+- steel member design and first steel connection workflows
+- RC beam/column design, reinforcement schedules, and BBS foundations
+- reports, governing-case summaries, and submission-ready outputs
+- diagnostics, review cues, and AI explanation of what is wrong and what to fix
+
+Roadmap home:
+- Product Step 1
+- Product Step 2
+
+### Weekly work
+
+What engineers do regularly, but not on every single model every day:
+
+- automatic code load generation
+- IFC/import-export and office-template workflows
+- reviewer flows, comments, diffs, and lightweight collaboration
+- desktop/offline workflows
+- natural-language result queries and stronger AI review assistance
+- first dynamic interpretation surfaces and broader workflow packaging
+
+Roadmap home:
+- Product Step 2
+- Product Step 3
+- Product Step 4
+
+### Monthly / specialist work
+
+What matters a lot for advanced firms and specialists, but should not outrank daily delivery work:
+
+- time-history and advanced earthquake workflows
+- pushover, IDA, fragility, and performance-based seismic workflows
+- progressive collapse, fire, and probabilistic workflows
+- global optimization, generative layout, and CRDT real-time collaboration
+- cloud platform, ecosystem APIs, and broader software layers built on the solver
+
+Roadmap home:
+- Product Step 3 and beyond
+
 ## What The Product Depends On From The Solver
 
 The product roadmap only works if the solver exposes the right contracts and trust signals. The app should treat these as product dependencies, not backend details.
@@ -346,8 +395,8 @@ Solver trust and diagnostics:
 - Performance feedback in the UI — progress bars, iteration counts, slow-phase visibility
 - Onboarding and first-solve success
 
-Section capacity and materials (solver Phase 5 — daily engineering need):
-- Nonlinear material models — Mander confined concrete, Menegotto-Pinto steel, EC2 parabola-rectangle, bilinear steel
+Section capacity and materials (early design-oriented subset of solver material/section capability):
+- Design-oriented material and section surfaces — Mander confined concrete, Menegotto-Pinto steel, EC2 parabola-rectangle, bilinear steel, and the section-level capacity outputs needed for daily design workflows
 - RC section builder — visual concrete shape + rebar layout → auto-generate fibers
 - P-M and P-M-M interaction diagram viewer for column design
 - Moment-curvature curve visualization and section-level pushover
@@ -417,7 +466,7 @@ Make the browser the go-to tool for earthquake engineering, replacing OpenSees f
 - AI-powered nonlinear/dynamic result interpretation — explain convergence, flag unusual hysteresis, detect soft-story mechanisms, suggest damping parameters
 - AI ground motion selection — suggest appropriate records from site parameters and target spectrum
 
-**Note:** Nonlinear material models, RC section builder, moment-curvature, and interaction diagrams have moved to Step 1 — they are daily design needs, not earthquake-specialist features. The solver delivers them in Phase 5 (before dynamic analysis in Phase 7), so the product can ship them earlier.
+**Note:** RC section builder, moment-curvature, interaction diagrams, and the first design-oriented subset of material/section capability have moved to Step 1 because they are daily design needs, not earthquake-specialist features. This does not mean the full nonlinear-material roadmap lands early. The broader solver-side nonlinear material program still belongs later; Step 1 only depends on the subset needed for daily RC/steel design workflows.
 
 **Goal:** Make Stabileo the go-to tool for earthquake engineering — in the browser, with a visual editor, replacing OpenSees for the common 80% of work. AI makes nonlinear results accessible to engineers who aren't nonlinear specialists.
 
