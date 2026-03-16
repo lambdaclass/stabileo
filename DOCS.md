@@ -55,6 +55,9 @@ If you only read three documents, read them in this order:
 - `What would a Lean formal-verification program actually cover?`
   See [`research/lean_formal_verification.md`](/Users/unbalancedparen/projects/dedaliano/research/lean_formal_verification.md).
 
+- `Should we use CHOLMOD and NVIDIA GPUs in a remote solver backend?`
+  See [`research/cholmod_nvidia_gpu_research.md`](/Users/unbalancedparen/projects/dedaliano/research/cholmod_nvidia_gpu_research.md).
+
 - `What changed recently?`
   See [`CHANGELOG.md`](/Users/unbalancedparen/projects/dedaliano/CHANGELOG.md).
 
@@ -83,6 +86,8 @@ If you only read three documents, read them in this order:
   WebGPU fit analysis for renderer vs solver work
 - [`research/lean_formal_verification.md`](/Users/unbalancedparen/projects/dedaliano/research/lean_formal_verification.md)
   Lean formal-verification scope, ROI ranking, theorem ladder, and phased research plan
+- [`research/cholmod_nvidia_gpu_research.md`](/Users/unbalancedparen/projects/dedaliano/research/cholmod_nvidia_gpu_research.md)
+  CHOLMOD + NVIDIA GPU feasibility, architecture options, expected speed range, and benchmark plan
 
 ## Role Of Each Document
 
