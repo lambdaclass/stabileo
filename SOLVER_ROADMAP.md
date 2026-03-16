@@ -8,7 +8,12 @@ For the cross-cutting AI track that depends on these solver outputs and contract
 
 ## Where We Are
 
-Sparse direct solver, deterministic assembly, multi-family shell stack (MITC4+EAS-7, MITC9, SHB8-ANS, curved shell), sparse eigensolver paths for modal/buckling/harmonic, beam station extraction for RC design, and Modified Newton-Raphson are all done. The WASM path and TypeScript solver retirement are the immediate blockers. See `BENCHMARKS.md` for the full snapshot and measured benchmark data.
+Sparse direct solver, deterministic assembly, multi-family shell stack (MITC4+EAS-7, MITC9, SHB8-ANS, curved shell), sparse eigensolver paths for modal/buckling/harmonic, beam station extraction for RC design, Modified Newton-Raphson, the WASM production path, TypeScript solver retirement, AMD default ordering, and sparse 2D/3D buckling are all done. See `BENCHMARKS.md` for the full snapshot and measured benchmark data.
+
+The live near-term blockers are now:
+- design-grade extraction hardening for downstream RC/steel workflows
+- constraint-system maturity and sparse/runtime hardening on real workflows
+- structured diagnostics, query-ready results, and automation-ready contracts
 
 ## What Still Separates Dedaliano From The Strongest Open Solvers
 
@@ -18,7 +23,7 @@ The remaining gaps are not "missing the basics." They are:
 2. `Long-tail nonlinear maturity` — more years of hardened edge cases are still needed in mixed nonlinear workflows (contact + nonlinear + staging, shell + nonlinear interaction, difficult convergence).
 3. `Full solver-path consistency` — dense vs sparse, constrained vs unconstrained, shell vs frame-shell mixed, and advanced nonlinear paths must keep converging to the same behavior.
 4. `Benchmark moat expansion` — broader external-reference proof is the most realistic path to becoming the best open structural solver.
-5. `Shell-family workflow maturity` — MITC4 + MITC9 + SHB8-ANS + curved shells form a real production shell stack. The remaining work is guidance, workflow hardening, and shell-adjacent capabilities, not missing core shell breadth.
+5. `Shell-family workflow maturity` — MITC4 + MITC9 + SHB8-ANS + curved shells form a real production shell stack. Basic selection guidance already exists; the remaining work is automatic defaulting, workflow hardening, and shell-adjacent capabilities, not missing core shell breadth.
 
 This changes the strategic target: not `be broader than every open-source mechanics framework` but `be the strongest open structural solver product with the deepest visible proof of correctness`.
 
