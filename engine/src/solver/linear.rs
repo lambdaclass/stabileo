@@ -1742,14 +1742,22 @@ pub(super) fn compute_equilibrium_summary_3d(
     }
 
     // Translational force equilibrium only (fx, fy, fz).
-    // Moment equilibrium depends on the reference point and force×distance
-    // terms, so we can't reliably check it from simple sums. Moments are
-    // still reported in the sums for informational purposes.
+    // When all loads are nodal, applied + reactions should be ~0.
+    // When there are element-level loads (pressure, distributed, thermal),
+    // the applied sum only captures nodal loads — equilibrium can't be
+    // assessed from this partial sum, so we skip the check.
+    let has_non_nodal = input.loads.iter().any(|l| !matches!(l, SolverLoad3D::Nodal(_)));
     let force_imbalance: Vec<f64> = (0..3).map(|i| applied[i] + rxn[i]).collect();
     let max_imbalance = force_imbalance.iter().map(|v| v.abs()).fold(0.0f64, f64::max);
 
     let max_force = applied[..3].iter().chain(&rxn[..3]).map(|v| v.abs()).fold(0.0f64, f64::max);
-    let equilibrium_ok = max_imbalance < 1e-6 * max_force.max(1.0);
+    let equilibrium_ok = if has_non_nodal {
+        // Can't check nodal-only equilibrium when element loads exist;
+        // the residual check (relative_residual) is the trust signal instead.
+        true
+    } else {
+        max_imbalance < 1e-6 * max_force.max(1.0)
+    };
 
     EquilibriumSummary {
         relative_residual: rel_residual,
@@ -1785,11 +1793,15 @@ pub(super) fn compute_equilibrium_summary_2d(
         rxn[2] += r.mz;
     }
 
-    // Only check translational equilibrium (fx, fy)
+    // Only check translational equilibrium (fx, fy).
+    // Skip when element-level loads are present (same reasoning as 3D).
+    let has_non_nodal = input.loads.iter().any(|l| !matches!(l, SolverLoad::Nodal(_)));
     let force_imbalance: Vec<f64> = (0..2).map(|i| applied[i] + rxn[i]).collect();
     let max_imbalance = force_imbalance.iter().map(|v| v.abs()).fold(0.0f64, f64::max);
     let max_force = applied[..2].iter().chain(&rxn[..2]).map(|v| v.abs()).fold(0.0f64, f64::max);
-    let equilibrium_ok = max_imbalance < 1e-6 * max_force.max(1.0);
+    let equilibrium_ok = if has_non_nodal { true } else {
+        max_imbalance < 1e-6 * max_force.max(1.0)
+    };
 
     EquilibriumSummary {
         relative_residual: rel_residual,

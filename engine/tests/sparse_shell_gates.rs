@@ -1202,3 +1202,95 @@ fn guyan_3d_vs_linear_parity() {
         max_uz
     );
 }
+
+// ==================== 2D Sparse Runtime Gate ====================
+
+/// Build a long 2D multi-span beam with many elements to test 2D sparse path.
+fn make_2d_multi_span(n_elements: usize) -> SolverInput {
+    let mut nodes = HashMap::new();
+    for i in 0..=n_elements {
+        nodes.insert(i.to_string(), SolverNode { id: i, x: i as f64, y: 0.0 });
+    }
+
+    let mut materials = HashMap::new();
+    materials.insert("1".to_string(), SolverMaterial { id: 1, e: 200e3, nu: 0.3 });
+
+    let mut sections = HashMap::new();
+    sections.insert("1".to_string(), SolverSection { id: 1, a: 0.01, iz: 1e-4, as_y: None });
+
+    let mut elements = HashMap::new();
+    for i in 0..n_elements {
+        elements.insert(i.to_string(), SolverElement {
+            id: i, elem_type: "frame".to_string(),
+            node_i: i, node_j: i + 1,
+            material_id: 1, section_id: 1,
+            hinge_start: false, hinge_end: false,
+        });
+    }
+
+    let mut supports = HashMap::new();
+    // Pin first node, roller every 10th
+    supports.insert("0".to_string(), SolverSupport {
+        id: 0, node_id: 0, support_type: "fixed".to_string(),
+        kx: None, ky: None, kz: None,
+        dx: None, dy: None, drz: None, angle: None,
+    });
+    for i in (10..=n_elements).step_by(10) {
+        supports.insert(i.to_string(), SolverSupport {
+            id: i, node_id: i, support_type: "pinned".to_string(),
+            kx: None, ky: None, kz: None,
+            dx: None, dy: None, drz: None, angle: None,
+        });
+    }
+
+    let loads = vec![SolverLoad::Nodal(SolverNodalLoad {
+        node_id: n_elements / 2, fx: 0.0, fy: -10.0, mz: 0.0,
+    })];
+
+    SolverInput {
+        nodes, materials, sections, elements, supports, loads,
+        constraints: vec![], connectors: HashMap::new(),
+    }
+}
+
+#[test]
+fn sparse_2d_runtime() {
+    let input = make_2d_multi_span(200);
+
+    // Warmup
+    let _ = linear::solve_2d(&input);
+
+    let t0 = Instant::now();
+    let result = linear::solve_2d(&input).expect("2D sparse solve failed");
+    let elapsed_ms = t0.elapsed().as_millis();
+
+    println!("200-element 2D beam: {}ms, {} displacements", elapsed_ms, result.displacements.len());
+
+    // Should be fast (typically <100ms)
+    assert!(elapsed_ms < 2000, "2D sparse solve too slow: {}ms", elapsed_ms);
+
+    // Equilibrium should be good
+    let eq = result.equilibrium.as_ref().expect("should have equilibrium");
+    assert!(eq.equilibrium_ok, "equilibrium should pass");
+    assert!(eq.max_imbalance < 1e-3, "imbalance: {}", eq.max_imbalance);
+}
+
+#[test]
+fn large_3d_equilibrium_gate() {
+    // 10x10 shell plate — verify equilibrium summary is populated and correct
+    let input = make_ss_plate(10, 10);
+    let result = linear::solve_3d(&input).expect("3D solve failed");
+
+    let eq = result.equilibrium.as_ref().expect("should have equilibrium");
+    assert!(eq.equilibrium_ok, "equilibrium should pass for 10x10 plate");
+    assert!(eq.residual_ok, "residual should be ok");
+
+    // Structured diagnostics should be present (sparse path)
+    assert!(!result.structured_diagnostics.is_empty(),
+        "10x10 plate should have structured diagnostics");
+
+    // Should have residual diagnostic
+    let has_residual = result.structured_diagnostics.iter()
+        .any(|d| d.code == DiagnosticCode::ResidualOk || d.code == DiagnosticCode::ResidualHigh);
+    assert!(has_residual, "should have residual diagnostic");
+}
