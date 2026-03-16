@@ -70,7 +70,7 @@ What engineers do on almost every project and should come first:
 
 - trustworthy solve and visible verification
 - model quality gates before solve
-- code-driven load combinations
+- code-driven load combinations and the first narrow code-load generation slice
 - steel member design and first steel connection workflows
 - RC beam/column design, reinforcement schedules, and BBS foundations
 - basic reports and governing-case summaries (unblocked now — analysis-only calc books are billable)
@@ -407,6 +407,7 @@ Section capacity and materials (early design-oriented subset of solver material/
 
 Design code computations (solver Phase 6 — what engineers bill for):
 - Steel member design — section classification, LTB, compression curves, combined interaction, per-member utilization ratios with pass/fail
+- First steel connection workflow — connection-demand extraction, first connection library, sizing/check flow, and report-ready outputs for the most common daily steel cases
 - RC beam design — required As, stirrup spacing, crack width, deflection check
 - RC column design — interaction diagrams, slenderness, moment magnification
 - Effective buckling length display per column (extracted from global eigenvectors)
@@ -414,6 +415,7 @@ Design code computations (solver Phase 6 — what engineers bill for):
 - Detailing rules output — min/max reinforcement, cover, anchorage lengths
 - Automatic member utilization ratios and pass/fail summaries
 - Automatic code-driven load combinations and factors
+- Narrow first code-load generation slice — simple seismic ELF, gravity-pattern rules, and the first code-driven wind/snow patterns that unlock daily design workflows without trying to solve the entire load-generation scope at once
 
 First automation and AI surfaces:
 - AI-assisted section suggestion from utilization, code, and basic economy signals
@@ -442,9 +444,9 @@ Turn analysis into paid engineering work with reports, BBS, connections, and int
 **What:**
 - RC reinforcement schedule and BBS — required steel → selected bars → curtailment → cutting lists → bar bending schedule
 - Graphical BBS drawing generation — bending-shape drawings, dimensions, hook semantics
-- Steel connection design workflow — first connection library, sizing/check flow, governing demand packaging, and report-ready outputs
+- Steel connection workflow expansion — broaden beyond the first daily-use connection set with more connection families, stronger detailing, and richer report outputs
 - Full design reports — enrich Step 1 basic reports with design checks, utilization summaries, reinforcement schedules, and appendix-level per-element calculations
-- Automatic code load generation — wind, snow, seismic ELF, pattern loading, accidental torsion from code/site inputs
+- Broader automatic code load generation — extend the first narrow Step 1 slice into fuller wind, snow, seismic ELF, pattern loading, and accidental torsion coverage from code/site inputs
 - Multi-code design check breadth — EC2, EC3, ACI 318, AISC 360, NDS, TMS 402, AISI S100 wired to unified code-selector
 - Connections and foundations productization — auto-sizing and detail generation
 - Interoperability — full IFC import/export, DXF 3D

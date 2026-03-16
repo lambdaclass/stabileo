@@ -111,7 +111,7 @@ If automation is pulled earlier in the product roadmap, the solver should respon
 1. `WASM/runtime trust` — the automation layer is useless if the main solve path is not trustworthy
 2. `Design-grade extraction and governing metadata` — the product needs stable member demands, governing combinations, and provenance
 3. `Structured diagnostics and query-ready result summaries` — automation, AI assistance, and review should consume structured payloads, not scrape raw tables
-4. `Code/load metadata contracts` — automatic combinations, loads, and design checks need solver-side metadata that survives into reports and exports
+4. `Code/load metadata contracts` — automatic combinations, the first narrow code-load generation slice, and design checks need solver-side metadata that survives into reports and exports
 5. `Batch/headless execution ergonomics` — optimization and generative workflows come only after the first automation surfaces are stable
 
 ## Daily, Weekly, Monthly Priority Lens
@@ -126,7 +126,7 @@ These are the solver capabilities that support everyday billable engineering and
 - design-grade extraction and governing metadata
 - structured diagnostics, provenance, and model quality gates
 - query-ready result contracts for reports, review, and AI assistance
-- code/load metadata contracts for combinations and design checks
+- code/load metadata contracts for combinations, first code-load generation, and design checks
 - section- and member-level outputs that support RC and steel design workflows
 
 Roadmap home:
@@ -142,7 +142,7 @@ These are important recurring workflows, but they should not outrank the daily d
 - verification moat expansion and stronger parity/fuzz/property coverage
 - shell workflow maturity and automatic family guidance
 - headless/native parity for desktop, reports, and office workflows
-- automatic load generation once the contracts are solid
+- broader automatic load generation once the contracts are solid
 
 Roadmap home:
 - Solver Steps 4-7
