@@ -934,6 +934,34 @@ fn sparse_buckling_parity() {
     }
 }
 
+// ==================== Buckling Runtime Gate ====================
+
+/// Gate: sparse buckling should complete in reasonable time on a 10×10 plate.
+/// This measures end-to-end buckling solve time (including linear pre-solve for Kg).
+#[test]
+fn sparse_buckling_runtime() {
+    let input = make_compressed_plate(10, 10);
+
+    // Warmup
+    let _ = buckling::solve_buckling_3d(&input, 3);
+
+    let t0 = Instant::now();
+    let result = buckling::solve_buckling_3d(&input, 3)
+        .expect("Sparse buckling solve failed");
+    let elapsed_ms = t0.elapsed().as_millis();
+
+    println!("10x10 compressed plate: buckling in {}ms, {} modes",
+        elapsed_ms, result.modes.len());
+
+    // Should complete in under 5 seconds (generous bound for CI).
+    // On Apple M1 this is typically <500ms.
+    assert!(
+        elapsed_ms < 5000,
+        "Buckling solve too slow: {}ms on 10×10 plate", elapsed_ms
+    );
+    assert!(result.modes.len() >= 3, "Should find at least 3 buckling modes");
+}
+
 // ==================== Guyan / Craig-Bampton Gates ====================
 
 /// Helper: get boundary nodes (perimeter) from grid.
