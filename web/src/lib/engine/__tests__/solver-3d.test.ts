@@ -157,24 +157,24 @@ const J = 1e-5;        // m⁴
 
 // ─── Tests ───────────────────────────────────────────────────────
 
-describe('3D Solver — computeLocalAxes3D (UBA convention)', () => {
-  it('+X bar: ex=(1,0,0), ey=(0,0,1), ez=(0,-1,0)', () => {
+describe('3D Solver — computeLocalAxes3D (SAP2000 convention)', () => {
+  it('+X bar: ex=(1,0,0), ey=(0,1,0), ez=(0,0,1)', () => {
     const nI: SolverNode3D = { id: 1, x: 0, y: 0, z: 0 };
     const nJ: SolverNode3D = { id: 2, x: 5, y: 0, z: 0 };
     const axes = computeLocalAxes3D(nI, nJ);
     expect(axes.ex).toEqual([1, 0, 0]);
-    expect(axes.ey[0]).toBeCloseTo(0); expect(axes.ey[1]).toBeCloseTo(0); expect(axes.ey[2]).toBeCloseTo(1);
-    expect(axes.ez[0]).toBeCloseTo(0); expect(axes.ez[1]).toBeCloseTo(-1); expect(axes.ez[2]).toBeCloseTo(0);
+    expect(axes.ey[0]).toBeCloseTo(0); expect(axes.ey[1]).toBeCloseTo(1); expect(axes.ey[2]).toBeCloseTo(0);
+    expect(axes.ez[0]).toBeCloseTo(0); expect(axes.ez[1]).toBeCloseTo(0); expect(axes.ez[2]).toBeCloseTo(1);
     expect(axes.L).toBeCloseTo(5);
   });
 
-  it('-X bar: ex=(-1,0,0), ey=(0,0,-1), ez=(0,-1,0)', () => {
+  it('-X bar: ex=(-1,0,0), ey=(0,1,0), ez=(0,0,-1)', () => {
     const nI: SolverNode3D = { id: 1, x: 5, y: 0, z: 0 };
     const nJ: SolverNode3D = { id: 2, x: 0, y: 0, z: 0 };
     const axes = computeLocalAxes3D(nI, nJ);
     expect(axes.ex[0]).toBeCloseTo(-1);
-    expect(axes.ey[2]).toBeCloseTo(-1);
-    expect(axes.ez[1]).toBeCloseTo(-1);
+    expect(axes.ey[1]).toBeCloseTo(1);
+    expect(axes.ez[2]).toBeCloseTo(-1);
   });
 
   it('+Y (vertical) bar: ex=(0,1,0), ey=(0,0,1), ez=(1,0,0)', () => {
@@ -186,17 +186,17 @@ describe('3D Solver — computeLocalAxes3D (UBA convention)', () => {
     expect(axes.ez[0]).toBeCloseTo(1); expect(axes.ez[1]).toBeCloseTo(0); expect(axes.ez[2]).toBeCloseTo(0);
   });
 
-  it('+Z bar: ex=(0,0,1), ey=(-1,0,0), ez=(0,-1,0)', () => {
+  it('+Z bar: ex=(0,0,1), ey=(0,1,0), ez=(-1,0,0)', () => {
     const nI: SolverNode3D = { id: 1, x: 0, y: 0, z: 0 };
     const nJ: SolverNode3D = { id: 2, x: 0, y: 0, z: 5 };
     const axes = computeLocalAxes3D(nI, nJ);
     expect(axes.ex).toEqual([0, 0, 1]);
-    expect(axes.ey[0]).toBeCloseTo(-1);
-    expect(axes.ez[1]).toBeCloseTo(-1);
+    expect(axes.ey[1]).toBeCloseTo(1);
+    expect(axes.ez[0]).toBeCloseTo(-1);
     expect(axes.L).toBeCloseTo(5);
   });
 
-  it('diagonal bar in XY plane → ez has negative Y component', () => {
+  it('diagonal bar in XY plane → ez points in +Z', () => {
     const nI: SolverNode3D = { id: 1, x: 0, y: 0, z: 0 };
     const nJ: SolverNode3D = { id: 2, x: 3, y: 4, z: 0 };
     const axes = computeLocalAxes3D(nI, nJ);
@@ -204,8 +204,11 @@ describe('3D Solver — computeLocalAxes3D (UBA convention)', () => {
     expect(axes.ex[0]).toBeCloseTo(3 / 5);
     expect(axes.ex[1]).toBeCloseTo(4 / 5);
     expect(axes.ex[2]).toBeCloseTo(0);
-    // ez should point downward (negative Y component)
-    expect(axes.ez[1]).toBeLessThan(0);
+    // SAP2000: ey_ref=[0,1,0], ez = ex × ey_ref → [0,0,1] for XY-plane bar
+    // ey = ez × ex = [-4/5, 3/5, 0]
+    expect(axes.ez[2]).toBeCloseTo(1);
+    expect(axes.ey[0]).toBeCloseTo(-4 / 5);
+    expect(axes.ey[1]).toBeCloseTo(3 / 5);
     // Right-hand terna: det should be 1
     const det = axes.ex[0]*(axes.ey[1]*axes.ez[2]-axes.ey[2]*axes.ez[1])
               - axes.ex[1]*(axes.ey[0]*axes.ez[2]-axes.ey[2]*axes.ez[0])
@@ -226,11 +229,11 @@ describe('3D Solver — computeLocalAxes3D (UBA convention)', () => {
   it('rollAngle rotates ey/ez around ex', () => {
     const nI: SolverNode3D = { id: 1, x: 0, y: 0, z: 0 };
     const nJ: SolverNode3D = { id: 2, x: 5, y: 0, z: 0 };
-    // Default: ey=(0,0,1), ez=(0,-1,0)
-    // Roll 90°: ey'=cos(90)*ey+sin(90)*ez = ez = (0,-1,0), ez'=-sin(90)*ey+cos(90)*ez = -ey = (0,0,-1)
+    // Default: ey=(0,1,0), ez=(0,0,1)
+    // Roll 90°: ey'=cos(90)*ey+sin(90)*ez = ez = (0,0,1), ez'=-sin(90)*ey+cos(90)*ez = -ey = (0,-1,0)
     const axes = computeLocalAxes3D(nI, nJ, undefined, 90);
-    expect(axes.ey[0]).toBeCloseTo(0); expect(axes.ey[1]).toBeCloseTo(-1); expect(axes.ey[2]).toBeCloseTo(0);
-    expect(axes.ez[0]).toBeCloseTo(0); expect(axes.ez[1]).toBeCloseTo(0); expect(axes.ez[2]).toBeCloseTo(-1);
+    expect(axes.ey[0]).toBeCloseTo(0); expect(axes.ey[1]).toBeCloseTo(0); expect(axes.ey[2]).toBeCloseTo(1);
+    expect(axes.ez[0]).toBeCloseTo(0); expect(axes.ez[1]).toBeCloseTo(-1); expect(axes.ez[2]).toBeCloseTo(0);
   });
 });
 
@@ -287,10 +290,10 @@ describe('3D Solver — Cantilever, load in Y', () => {
   // Horizontal bar along X, fixed at node 1, free at node 2.
   // Point load Fy = -10 kN at node 2 (downward).
   //
-  // UBA convention: ey=(0,0,1), ez=(0,-1,0) for +X beam
-  // Global Fy maps to local Z (ez·(0,Fy,0) = -Fy) → uses Iy in stiffness
-  // uy_global = Fy*L³/(3*E*Iy) (same formula shape, just Iy instead of Iz)
-  // Internal forces: Vz and My (not Vy and Mz)
+  // SAP2000 convention: ey=(0,1,0), ez=(0,0,1) for +X beam
+  // Global Fy maps to local Y (ey·(0,Fy,0) = Fy) → uses Iz in stiffness
+  // uy_global = Fy*L³/(3*E*Iz)
+  // Internal forces: Vy and Mz (not Vz and My)
 
   const L = 5;
   const P = -10; // kN (downward in Y)
@@ -311,8 +314,8 @@ describe('3D Solver — Cantilever, load in Y', () => {
     const result = solve3D(input);
     assertSuccess(result);
 
-    // Fy now goes through local Z plane → uses Iy
-    const uy_expected = P * L * L * L / (3 * E * Iy);
+    // SAP2000: Fy goes through local Y plane → uses Iz
+    const uy_expected = P * L * L * L / (3 * E * Iz);
 
     const d2 = result.displacements.find(d => d.nodeId === 2)!;
     expect(d2.uy).toBeCloseTo(uy_expected, 4);
@@ -337,12 +340,12 @@ describe('3D Solver — Cantilever, load in Y', () => {
     assertSuccess(result);
 
     const ef = result.elementForces[0];
-    // With UBA, gravity (Fy) goes to local Z plane → Vz and My
-    expect(Math.abs(ef.vzStart)).toBeCloseTo(Math.abs(P), 4);
-    // Moment at fixed end: |My| = |P|*L = 50
-    expect(Math.abs(ef.myStart)).toBeCloseTo(Math.abs(P) * L, 4);
+    // SAP2000: gravity (Fy) goes to local Y plane → Vy and Mz
+    expect(Math.abs(ef.vyStart)).toBeCloseTo(Math.abs(P), 4);
+    // Moment at fixed end: |Mz| = |P|*L = 50
+    expect(Math.abs(ef.mzStart)).toBeCloseTo(Math.abs(P) * L, 4);
     // Moment at free end = 0
-    expect(ef.myEnd).toBeCloseTo(0, 4);
+    expect(ef.mzEnd).toBeCloseTo(0, 4);
   });
 
   it('global equilibrium', () => {
@@ -367,8 +370,8 @@ describe('3D Solver — Cantilever, load in Z', () => {
     const result = solve3D(input);
     assertSuccess(result);
 
-    // UBA: Fz goes to local Y (ey·(0,0,Fz) = Fz) → uses Iz
-    const uz_expected = P * L * L * L / (3 * E * Iz);
+    // SAP2000: Fz goes to local Z (ez·(0,0,Fz) = Fz) → uses Iy
+    const uz_expected = P * L * L * L / (3 * E * Iy);
 
     const d2 = result.displacements.find(d => d.nodeId === 2)!;
     expect(d2.uz).toBeCloseTo(uz_expected, 4);
@@ -450,8 +453,8 @@ describe('3D Solver — Simply supported, uniform load (gravity)', () => {
   // In 3D, a "pinned" support with all rotations free leaves the torsion DOF unconstrained.
   // We need to restrain torsion (rrx) at least at one end for stability.
   //
-  // UBA convention: for +X beam, ez=(0,-1,0). Gravity (downward) = positive qZ.
-  // q = 10 kN/m downward → qZI = 10, qZJ = 10 (ez points down, positive qZ = downward)
+  // SAP2000 convention: for +X beam, ey=(0,1,0). Gravity (downward) = negative qY.
+  // q = 10 kN/m downward → qYI = -10, qYJ = -10 (ey points up, negative qY = downward)
   //
   // Analytical:
   //   R_A = R_B = q*L/2 = 50 kN (upward)
@@ -463,7 +466,7 @@ describe('3D Solver — Simply supported, uniform load (gravity)', () => {
     [{ id: 1, x: 0, y: 0, z: 0 }, { id: 2, x: L, y: 0, z: 0 }],
     [{ id: 1, type: 'frame', nodeI: 1, nodeJ: 2, materialId: 1, sectionId: 1, hingeStart: false, hingeEnd: false }],
     [pinnedSupportBeamX(1), pinnedSupportBeamX(2)],
-    [{ type: 'distributed', data: { elementId: 1, qYI: 0, qYJ: 0, qZI: q, qZJ: q } }],
+    [{ type: 'distributed', data: { elementId: 1, qYI: -q, qYJ: -q, qZI: 0, qZJ: 0 } }],
   );
 
   it('reactions', () => {
@@ -473,7 +476,7 @@ describe('3D Solver — Simply supported, uniform load (gravity)', () => {
     const r1 = result.reactions.find(r => r.nodeId === 1)!;
     const r2 = result.reactions.find(r => r.nodeId === 2)!;
 
-    // qZ=10 in local Z (ez=(0,-1,0)) → global Fy = ez[1]*qZ*L = -10*5 = -50 total
+    // qY=-10 in local Y (ey=(0,1,0)) → global Fy = ey[1]*qY*L = -10*5 = -50 total
     // Each reaction: fy = 50/2 = 25 kN upward
     expect(r1.fy).toBeCloseTo(q * L / 2, 4); // 25 kN upward
     expect(r2.fy).toBeCloseTo(q * L / 2, 4);
@@ -486,11 +489,11 @@ describe('3D Solver — Simply supported, uniform load (gravity)', () => {
     assertSuccess(result);
 
     const ef = result.elementForces[0];
-    // UBA: gravity load in local Z plane → My (not Mz)
-    expect(ef.myStart).toBeCloseTo(0, 4);
-    expect(ef.myEnd).toBeCloseTo(0, 4);
-    // Shear at start = qL/2 (Vz, not Vy)
-    expect(Math.abs(ef.vzStart)).toBeCloseTo(q * L / 2, 4);
+    // SAP2000: gravity load in local Y plane → Mz (not My)
+    expect(ef.mzStart).toBeCloseTo(0, 4);
+    expect(ef.mzEnd).toBeCloseTo(0, 4);
+    // Shear at start = qL/2 (Vy, not Vz)
+    expect(Math.abs(ef.vyStart)).toBeCloseTo(q * L / 2, 4);
   });
 
   it('global equilibrium', () => {
@@ -673,16 +676,16 @@ describe('3D Solver — Space truss (tetrahedron)', () => {
 });
 
 describe('3D Solver — 2D↔3D equivalence', () => {
-  // UBA: gravity on +X beam → qZ (local Z = (0,-1,0) = downward)
-  // q = 10 kN/m downward → qZI = 10, qZJ = 10
+  // SAP2000: gravity on +X beam → qY (local Y = (0,1,0) = upward, negative = downward)
+  // q = 10 kN/m downward → qYI = -10, qYJ = -10
   const L = 6;
-  const q = 10; // kN/m downward (positive qZ = downward in UBA)
+  const q = 10; // kN/m downward magnitude
 
   const input = buildInput(
     [{ id: 1, x: 0, y: 0, z: 0 }, { id: 2, x: L, y: 0, z: 0 }],
     [{ id: 1, type: 'frame', nodeI: 1, nodeJ: 2, materialId: 1, sectionId: 1, hingeStart: false, hingeEnd: false }],
     [pinnedSupportBeamX(1), pinnedSupportBeamX(2)],
-    [{ type: 'distributed', data: { elementId: 1, qYI: 0, qYJ: 0, qZI: q, qZJ: q } }],
+    [{ type: 'distributed', data: { elementId: 1, qYI: -q, qYJ: -q, qZI: 0, qZJ: 0 } }],
   );
 
   it('reactions match 2D: R = qL/2', () => {
@@ -698,28 +701,16 @@ describe('3D Solver — 2D↔3D equivalence', () => {
     expect(r2.fy).toBeCloseTo(R_expected, 4);
   });
 
-  it('end rotation uses Iy (gravity goes through local Z plane)', () => {
+  it('end rotation uses Iz (gravity goes through local Y plane)', () => {
     const result = solve3D(input);
     assertSuccess(result);
 
-    // UBA: gravity in local Z plane → uses Iy, produces θy (local) which maps to global rz
-    // For a SS beam with UDL q in local Z:
-    // The end rotation in the local Z-plane is θy = qL³/(24EIy)
-    // Global rotation mapping: R^T maps local rotations to global
-    // For +X beam: ry_global = ey[1]*θx + ey[1] terms... but from R^T:
-    // The local θy maps to global rz via the transformation.
-    // Actually, let's check: local DOFs [u,v,w,θx,θy,θz] → global via R^T
-    // R^T row for ry_global: [ex[1], ey[1], ez[1]] = [0, 0, -1] applied to [θx, θy, θz]
-    // → ry_global = -θz_local (but θz_local = 0 for Z-plane load)
-    // R^T row for rz_global: [ex[2], ey[2], ez[2]] = [0, 1, 0] applied to [θx, θy, θz]
-    // → rz_global = θy_local... wait that's wrong direction.
-    // Actually: for rotation DOFs, same 3x3 rotation applies.
+    // SAP2000: gravity in local Y plane → uses Iz, produces θz (local)
+    // For +X beam with SAP2000: ey=(0,1,0), ez=(0,0,1)
     // rz_global = R^T[2,:] · [θx, θy, θz]_local = ex[2]*θx + ey[2]*θy + ez[2]*θz
-    //           = 0*θx + 1*θy + 0*θz = θy_local
-    // So rz_global = θy_local, and θy_local = -q*L³/(24*E*Iy) for qZ>0 (downward).
-    // But the sign: for a downward UDL, the left support rotates clockwise (positive θy?).
-    // Let's just check magnitudes.
-    const theta_mag = q * L * L * L / (24 * E * Iy);
+    //           = 0*θx + 0*θy + 1*θz = θz_local
+    // So rz_global = θz_local, and θz_local = q*L³/(24*E*Iz) for qY<0 (downward).
+    const theta_mag = q * L * L * L / (24 * E * Iz);
 
     const d1 = result.displacements.find(d => d.nodeId === 1)!;
     const d2 = result.displacements.find(d => d.nodeId === 2)!;
@@ -754,9 +745,9 @@ describe('3D Solver — Cantilever with biaxial loading', () => {
     const result = solve3D(input);
     assertSuccess(result);
 
-    // UBA: Fy goes through local Z (uses Iy), Fz goes through local Y (uses Iz)
-    const uy_expected = Fy * L * L * L / (3 * E * Iy);
-    const uz_expected = Fz * L * L * L / (3 * E * Iz);
+    // SAP2000: Fy goes through local Y (uses Iz), Fz goes through local Z (uses Iy)
+    const uy_expected = Fy * L * L * L / (3 * E * Iz);
+    const uz_expected = Fz * L * L * L / (3 * E * Iy);
 
     const d2 = result.displacements.find(d => d.nodeId === 2)!;
     expect(d2.uy).toBeCloseTo(uy_expected, 4);
@@ -878,16 +869,16 @@ describe('3D Solver — 3D portal frame (out of plane)', () => {
 
 describe('3D Solver — Distributed load in Z-global on cantilever', () => {
   // Intent: apply distributed load in global Z direction on +X beam.
-  // UBA: local Y = (0,0,1) = Z-global. So qY produces Z-global force.
-  // Local Y bending uses Iz.
+  // SAP2000: local Z = (0,0,1) = Z-global. So qZ produces Z-global force.
+  // Local Z bending uses Iy.
   const L = 4;
-  const qy = -8; // kN/m in local Y (= -8 kN/m in Z-global direction)
+  const qz = -8; // kN/m in local Z (= -8 kN/m in Z-global direction)
 
   const input = buildInput(
     [{ id: 1, x: 0, y: 0, z: 0 }, { id: 2, x: L, y: 0, z: 0 }],
     [{ id: 1, type: 'frame', nodeI: 1, nodeJ: 2, materialId: 1, sectionId: 1, hingeStart: false, hingeEnd: false }],
     [fixedSupport(1)],
-    [{ type: 'distributed', data: { elementId: 1, qYI: qy, qYJ: qy, qZI: 0, qZJ: 0 } }],
+    [{ type: 'distributed', data: { elementId: 1, qYI: 0, qYJ: 0, qZI: qz, qZJ: qz } }],
   );
 
   it('solves and deflects in Z', () => {
@@ -895,8 +886,8 @@ describe('3D Solver — Distributed load in Z-global on cantilever', () => {
     assertSuccess(result);
 
     const d2 = result.displacements.find(d => d.nodeId === 2)!;
-    // Local Y plane uses Iz. uz_global = v_local (from R^T mapping)
-    const uz_expected = qy * L * L * L * L / (8 * E * Iz);
+    // Local Z plane uses Iy. uz_global = w_local (from R^T mapping)
+    const uz_expected = qz * L * L * L * L / (8 * E * Iy);
     expect(d2.uz).toBeCloseTo(uz_expected, 4);
   });
 
@@ -905,9 +896,9 @@ describe('3D Solver — Distributed load in Z-global on cantilever', () => {
     assertSuccess(result);
 
     const r1 = result.reactions.find(r => r.nodeId === 1)!;
-    // Total load in Z-global = qy * L * ey[2] = -8 * 4 * 1 = -32
+    // Total load in Z-global = qz * L * ez[2] = -8 * 4 * 1 = -32
     // Reaction fz = 32
-    expect(r1.fz).toBeCloseTo(-qy * L, 4);
+    expect(r1.fz).toBeCloseTo(-qz * L, 4);
   });
 
   it('global equilibrium', () => {
@@ -918,17 +909,17 @@ describe('3D Solver — Distributed load in Z-global on cantilever', () => {
 });
 
 describe('3D Solver — Point load on element (gravity)', () => {
-  // UBA: for +X beam, to apply downward force, use pz (local Z = (0,-1,0) = downward)
-  // pz = 12 means 12 kN downward. Reaction fy = 12 kN upward.
+  // SAP2000: for +X beam, to apply downward force, use py negative (local Y = (0,1,0) = upward)
+  // py = -12 means 12 kN downward. Reaction fy = 12 kN upward.
   const L = 6;
-  const Pz = 12; // kN in local Z direction (= 12 kN downward in UBA)
+  const Py = -12; // kN in local Y direction (= 12 kN downward in SAP2000)
   const a = 3;
 
   const input = buildInput(
     [{ id: 1, x: 0, y: 0, z: 0 }, { id: 2, x: L, y: 0, z: 0 }],
     [{ id: 1, type: 'frame', nodeI: 1, nodeJ: 2, materialId: 1, sectionId: 1, hingeStart: false, hingeEnd: false }],
     [fixedSupport(1)],
-    [{ type: 'pointOnElement', data: { elementId: 1, a, py: 0, pz: Pz } }],
+    [{ type: 'pointOnElement', data: { elementId: 1, a, py: Py, pz: 0 } }],
   );
 
   it('solves successfully', () => {
@@ -936,13 +927,13 @@ describe('3D Solver — Point load on element (gravity)', () => {
     assertSuccess(result);
   });
 
-  it('reaction Fy = Pz at fixed end (upward reaction for downward load)', () => {
+  it('reaction Fy = |Py| at fixed end (upward reaction for downward load)', () => {
     const result = solve3D(input);
     assertSuccess(result);
 
     const r1 = result.reactions.find(r => r.nodeId === 1)!;
-    // pz=12 in local Z = (0,-1,0) → 12 kN downward → reaction fy = 12 kN upward
-    expect(r1.fy).toBeCloseTo(Pz, 4);
+    // py=-12 in local Y = (0,1,0) → 12 kN downward → reaction fy = 12 kN upward
+    expect(r1.fy).toBeCloseTo(-Py, 4);
   });
 
   it('global equilibrium', () => {
@@ -1232,8 +1223,8 @@ describe('3D Solver — Moment equilibrium at interior node', () => {
 
 describe('3D Solver — Cantilever IPN 200 with realistic properties', () => {
   // Cantilever beam L=3m, P=10kN at tip in -Y direction (downward)
-  // UBA: Fy goes through local Z plane → uses Iy
-  // δ = PL³/(3EIy) = 10 × 27 / (3 × 200e6 × 1.17e-5)
+  // SAP2000: Fy goes through local Y plane → uses Iz
+  // δ = PL³/(3EIz) = 10 × 27 / (3 × 200e6 × 2.14e-5)
   const L = 3;
   const P = 10; // kN
   const nodes: SolverNode3D[] = [
@@ -1248,14 +1239,14 @@ describe('3D Solver — Cantilever IPN 200 with realistic properties', () => {
     { type: 'nodal', data: { nodeId: 2, fx: 0, fy: -P, fz: 0, mx: 0, my: 0, mz: 0 } },
   ];
 
-  it('tip deflection matches PL³/(3EIy) (gravity goes through local Z)', () => {
+  it('tip deflection matches PL³/(3EIz) (gravity goes through local Y)', () => {
     const input = buildInput(nodes, elements, supports, loads, [steelMat], [ipn200Section]);
     const result = solve3D(input);
     assertSuccess(result);
 
     const E_kN = 200000 * 1000; // kN/m²
-    // UBA: Fy → local Z → uses Iy
-    const expected = P * L ** 3 / (3 * E_kN * ipn200Section.iy);
+    // SAP2000: Fy → local Y → uses Iz
+    const expected = P * L ** 3 / (3 * E_kN * ipn200Section.iz);
     const tipDisp = result.displacements.find(d => d.nodeId === 2)!;
     expect(Math.abs(tipDisp.uy)).toBeCloseTo(expected, 4);
   });
@@ -1281,8 +1272,8 @@ describe('3D Solver — Cantilever IPN 200 with realistic properties', () => {
 
 describe('3D Solver — Weak axis vs strong axis deflection', () => {
   // Cantilever L=2m with same load magnitude but different directions
-  // UBA for +X beam: Fy → local Z (uses Iy=weak), Fz → local Y (uses Iz=strong)
-  // So Fy direction gives LARGER deflection (weak axis)
+  // SAP2000 for +X beam: Fy → local Y (uses Iz=strong), Fz → local Z (uses Iy=weak)
+  // So Fz direction gives LARGER deflection (weak axis)
   const L = 2;
   const P = 5; // kN
   const nodes: SolverNode3D[] = [
@@ -1293,7 +1284,7 @@ describe('3D Solver — Weak axis vs strong axis deflection', () => {
     { id: 1, type: 'frame', nodeI: 1, nodeJ: 2, materialId: 1, sectionId: 2, hingeStart: false, hingeEnd: false },
   ];
 
-  it('Fy deflection (weak axis, Iy) > Fz deflection (strong axis, Iz), ratio ≈ Iz/Iy', () => {
+  it('Fz deflection (weak axis, Iy) > Fy deflection (strong axis, Iz), ratio ≈ Iz/Iy', () => {
     const supportsY: SolverSupport3D[] = [fixedSupport(1)];
     const loadsY: SolverInput3D['loads'] = [
       { type: 'nodal', data: { nodeId: 2, fx: 0, fy: -P, fz: 0, mx: 0, my: 0, mz: 0 } },
@@ -1312,9 +1303,9 @@ describe('3D Solver — Weak axis vs strong axis deflection', () => {
     assertSuccess(resultZ);
     const dispZ = Math.abs(resultZ.displacements.find(d => d.nodeId === 2)!.uz);
 
-    // UBA: Fy→Iy (weak), Fz→Iz (strong). dispY > dispZ, ratio = Iz/Iy ≈ 1.83
-    expect(dispY).toBeGreaterThan(dispZ);
-    expect(dispY / dispZ).toBeCloseTo(ipn200Section.iz / ipn200Section.iy, 1);
+    // SAP2000: Fy→Iz (strong), Fz→Iy (weak). dispZ > dispY, ratio = Iz/Iy ≈ 1.83
+    expect(dispZ).toBeGreaterThan(dispY);
+    expect(dispZ / dispY).toBeCloseTo(ipn200Section.iz / ipn200Section.iy, 1);
   });
 });
 
@@ -1483,11 +1474,11 @@ describe('3D Solver — Displacement compatibility at shared node', () => {
   });
 });
 
-describe('3D Solver — Simply supported beam with qZ (gravity, Iy)', () => {
-  // UBA: local Z on +X beam = (0,-1,0) = downward.
-  // qZ = 8 means 8 kN/m downward → reactions in global fy (vertical).
+describe('3D Solver — Simply supported beam with qY (gravity, Iz)', () => {
+  // SAP2000: local Y on +X beam = (0,1,0) = upward.
+  // qY = -8 means 8 kN/m downward → reactions in global fy (vertical).
   const L = 5;
-  const qZ = 8; // kN/m in local Z direction (= downward in UBA)
+  const qMag = 8; // kN/m magnitude (downward)
   const nodes: SolverNode3D[] = [
     { id: 1, x: 0, y: 0, z: 0 },
     { id: 2, x: L, y: 0, z: 0 },
@@ -1500,18 +1491,18 @@ describe('3D Solver — Simply supported beam with qZ (gravity, Iy)', () => {
     pinnedSupportBeamX(2),
   ];
   const loads: SolverInput3D['loads'] = [
-    { type: 'distributed', data: { elementId: 1, qYI: 0, qYJ: 0, qZI: qZ, qZJ: qZ } },
+    { type: 'distributed', data: { elementId: 1, qYI: -qMag, qYJ: -qMag, qZI: 0, qZJ: 0 } },
   ];
 
-  it('total Y reaction = qZ × L (gravity loads produce vertical reactions)', () => {
+  it('total Y reaction = q × L (gravity loads produce vertical reactions)', () => {
     const input = buildInput(nodes, elements, supports, loads);
     const result = solve3D(input);
     assertSuccess(result);
 
-    const expected = qZ * L; // 40 kN total
+    const expected = qMag * L; // 40 kN total
     let totalFy = 0;
     for (const r of result.reactions) totalFy += Math.abs(r.fy);
-    // UBA: qZ on +X beam acts vertically → reactions are in fy
+    // SAP2000: qY on +X beam acts vertically → reactions are in fy
     expect(totalFy).toBeCloseTo(expected, 1);
   });
 
@@ -1524,10 +1515,10 @@ describe('3D Solver — Simply supported beam with qZ (gravity, Iy)', () => {
 });
 
 describe('3D Solver — Fixed-fixed beam with uniform load (gravity)', () => {
-  // UBA: for +X beam, gravity = qZ (local Z = (0,-1,0) = downward)
-  // q = 12 kN/m downward → qZI = 12, qZJ = 12
+  // SAP2000: for +X beam, gravity = negative qY (local Y = (0,1,0) = upward)
+  // q = 12 kN/m downward → qYI = -12, qYJ = -12
   const L = 4;
-  const q = 12; // kN/m
+  const q = 12; // kN/m magnitude
   const nodes: SolverNode3D[] = [
     { id: 1, x: 0, y: 0, z: 0 },
     { id: 2, x: L, y: 0, z: 0 },
@@ -1537,19 +1528,19 @@ describe('3D Solver — Fixed-fixed beam with uniform load (gravity)', () => {
   ];
   const supports: SolverSupport3D[] = [fixedSupport(1), fixedSupport(2)];
   const loads: SolverInput3D['loads'] = [
-    { type: 'distributed', data: { elementId: 1, qYI: 0, qYJ: 0, qZI: q, qZJ: q } },
+    { type: 'distributed', data: { elementId: 1, qYI: -q, qYJ: -q, qZI: 0, qZJ: 0 } },
   ];
 
-  it('end moments = qL²/12 (My in UBA for gravity)', () => {
+  it('end moments = qL²/12 (Mz in SAP2000 for gravity)', () => {
     const input = buildInput(nodes, elements, supports, loads);
     const result = solve3D(input);
     assertSuccess(result);
 
     const ef = result.elementForces.find(f => f.elementId === 1)!;
     const expectedM = q * L ** 2 / 12;
-    // UBA: gravity in local Z plane → My (not Mz)
-    expect(Math.abs(ef.myStart)).toBeCloseTo(expectedM, 2);
-    expect(Math.abs(ef.myEnd)).toBeCloseTo(expectedM, 2);
+    // SAP2000: gravity in local Y plane → Mz (not My)
+    expect(Math.abs(ef.mzStart)).toBeCloseTo(expectedM, 2);
+    expect(Math.abs(ef.mzEnd)).toBeCloseTo(expectedM, 2);
   });
 
   it('reactions = qL/2 at each support', () => {

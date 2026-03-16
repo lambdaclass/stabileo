@@ -637,7 +637,7 @@ export function generateSpaceFrame3D(store: ModelStore, p: SpaceFrame3DParams): 
         for (let ix = 0; ix < p.nBaysX; ix++) {
           const eid = store.addElement(nodeGrid[f][iz][ix], nodeGrid[f][iz][ix + 1], 'frame');
           if (p.q !== 0) {
-            store.addDistributedLoad3D(eid, 0, p.q, 0, p.q);
+            store.addDistributedLoad3D(eid, p.q, p.q, 0, 0);
           }
         }
       }
@@ -649,7 +649,7 @@ export function generateSpaceFrame3D(store: ModelStore, p: SpaceFrame3DParams): 
         for (let iz = 0; iz < p.nBaysY; iz++) {
           const eid = store.addElement(nodeGrid[f][iz][ix], nodeGrid[f][iz + 1][ix], 'frame');
           if (p.q !== 0) {
-            store.addDistributedLoad3D(eid, 0, p.q, 0, p.q);
+            store.addDistributedLoad3D(eid, p.q, p.q, 0, 0);
           }
         }
       }
@@ -1000,6 +1000,7 @@ export function generateIrregularSetbackTower3D(store: ModelStore, p: IrregularS
       }
 
       // Beams in X direction (section 2 = IPE 360)
+      // SAP2000: ey=(0,1,0) for horizontal beams, so gravity (−Y) = negative qY
       for (let iz = nextInset; iz <= p.baysZ - nextInset; iz++) {
         for (let ix = nextInset; ix < p.baysX - nextInset; ix++) {
           const a = nodeAt(lev + 1, ix, iz);
@@ -1007,12 +1008,13 @@ export function generateIrregularSetbackTower3D(store: ModelStore, p: IrregularS
           if (a && b) {
             const eid = store.addElement(a, b, 'frame');
             store.updateElementSection(eid, beamSecId);
-            store.addDistributedLoad3D(eid, 0, 0, -18, -18, undefined, undefined, 1);
-            store.addDistributedLoad3D(eid, 0, 0, -10, -10, undefined, undefined, 2);
+            store.addDistributedLoad3D(eid, -18, -18, 0, 0, undefined, undefined, 1);
+            store.addDistributedLoad3D(eid, -10, -10, 0, 0, undefined, undefined, 2);
           }
         }
       }
       // Beams in Z direction (section 2 = IPE 360)
+      // SAP2000: ey=(0,1,0) for horizontal beams, so gravity (−Y) = negative qY
       for (let ix = nextInset; ix <= p.baysX - nextInset; ix++) {
         for (let iz = nextInset; iz < p.baysZ - nextInset; iz++) {
           const a = nodeAt(lev + 1, ix, iz);
@@ -1020,8 +1022,8 @@ export function generateIrregularSetbackTower3D(store: ModelStore, p: IrregularS
           if (a && b) {
             const eid = store.addElement(a, b, 'frame');
             store.updateElementSection(eid, beamSecId);
-            store.addDistributedLoad3D(eid, 0, 0, -16, -16, undefined, undefined, 1);
-            store.addDistributedLoad3D(eid, 0, 0, -8, -8, undefined, undefined, 2);
+            store.addDistributedLoad3D(eid, -16, -16, 0, 0, undefined, undefined, 1);
+            store.addDistributedLoad3D(eid, -8, -8, 0, 0, undefined, undefined, 2);
           }
         }
       }
@@ -1243,8 +1245,8 @@ export function generatePipeRack3D(store: ModelStore, p: PipeRack3DParams): void
         store.updateElementSection(crossA, beamSecId);
         const crossB = store.addElement(frames[bay + 1][lev][0], frames[bay + 1][lev][1], 'frame');
         store.updateElementSection(crossB, beamSecId);
-        store.addDistributedLoad3D(left, 0, 0, -10, -10, undefined, undefined, 1);
-        store.addDistributedLoad3D(right, 0, 0, -10, -10, undefined, undefined, 1);
+        store.addDistributedLoad3D(left, -10, -10, 0, 0, undefined, undefined, 1);
+        store.addDistributedLoad3D(right, -10, -10, 0, 0, undefined, undefined, 1);
       }
 
       if (bay % 2 === 0) {
@@ -1337,16 +1339,16 @@ export function generateRcDesignFrame3D(store: ModelStore, p: RcDesignFrame3DPar
         for (let ix = 0; ix < p.baysX; ix++) {
           const eid = store.addElement(grid[lev][iz][ix], grid[lev][iz][ix + 1], 'frame');
           store.updateElementSection(eid, beamSecId);
-          store.addDistributedLoad3D(eid, 0, 0, -14, -14, undefined, undefined, 1);
-          store.addDistributedLoad3D(eid, 0, 0, -8, -8, undefined, undefined, 2);
+          store.addDistributedLoad3D(eid, -14, -14, 0, 0, undefined, undefined, 1);
+          store.addDistributedLoad3D(eid, -8, -8, 0, 0, undefined, undefined, 2);
         }
       }
       for (let ix = 0; ix <= p.baysX; ix++) {
         for (let iz = 0; iz < p.baysZ; iz++) {
           const eid = store.addElement(grid[lev][iz][ix], grid[lev][iz + 1][ix], 'frame');
           store.updateElementSection(eid, beamSecId);
-          store.addDistributedLoad3D(eid, 0, 0, -12, -12, undefined, undefined, 1);
-          store.addDistributedLoad3D(eid, 0, 0, -6, -6, undefined, undefined, 2);
+          store.addDistributedLoad3D(eid, -12, -12, 0, 0, undefined, undefined, 1);
+          store.addDistributedLoad3D(eid, -6, -6, 0, 0, undefined, undefined, 2);
         }
       }
     }
@@ -1832,8 +1834,8 @@ export function generateSuspensionBridge3D(store: ModelStore, p: SuspensionBridg
       const eLR = store.addElement(lowerR[i], lowerR[i + 1], 'frame');
       store.updateElementSection(eLR, deckSecId);
       if (p.deckLoad !== 0) {
-        store.addDistributedLoad3D(eUL, 0, p.deckLoad, 0, p.deckLoad);
-        store.addDistributedLoad3D(eUR, 0, p.deckLoad, 0, p.deckLoad);
+        store.addDistributedLoad3D(eUL, p.deckLoad, p.deckLoad, 0, 0);
+        store.addDistributedLoad3D(eUR, p.deckLoad, p.deckLoad, 0, 0);
       }
     }
 
@@ -2115,8 +2117,8 @@ export function generateCableStayedBridge3D(store: ModelStore, p: CableStayedBri
       const eR = store.addElement(right[i], right[i + 1], 'frame');
       store.updateElementSection(eR, deckSecId);
       if (p.deckLoad !== 0) {
-        store.addDistributedLoad3D(eL, 0, p.deckLoad, 0, p.deckLoad);
-        store.addDistributedLoad3D(eR, 0, p.deckLoad, 0, p.deckLoad);
+        store.addDistributedLoad3D(eL, p.deckLoad, p.deckLoad, 0, 0);
+        store.addDistributedLoad3D(eR, p.deckLoad, p.deckLoad, 0, 0);
       }
     }
     // Cross beams (section 2 = IPE 400)
@@ -2258,7 +2260,7 @@ export function generateStadiumCanopy3D(store: ModelStore, p: StadiumCanopy3DPar
       const eTop = store.addElement(frontTop[i], frontTop[i + 1], 'frame');
       store.addElement(frontMid[i], frontMid[i + 1], 'frame');
       if (p.roofLoad !== 0) {
-        store.addDistributedLoad3D(eTop, 0, p.roofLoad, 0, p.roofLoad);
+        store.addDistributedLoad3D(eTop, p.roofLoad, p.roofLoad, 0, 0);
       }
       // Roof plane X-bracing (upper chord)
       store.addElement(backTop[i], frontTop[i + 1], 'truss');
@@ -2419,8 +2421,8 @@ export function generateFullStadium3D(store: ModelStore, p: FullStadium3DParams)
         store.updateElementSection(ringA, roofSecId);
         const ringB = store.addElement(roofUpperOuter[i], roofUpperOuter[next], 'frame');
         store.updateElementSection(ringB, roofSecId);
-        store.addDistributedLoad3D(ringA, 0, p.roofLoad, 0, p.roofLoad);
-        store.addDistributedLoad3D(ringB, 0, p.roofLoad, 0, p.roofLoad);
+        store.addDistributedLoad3D(ringA, p.roofLoad, p.roofLoad, 0, 0);
+        store.addDistributedLoad3D(ringB, p.roofLoad, p.roofLoad, 0, 0);
       }
 
       // Facade and support structure

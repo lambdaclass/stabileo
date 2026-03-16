@@ -979,13 +979,13 @@ describe('5. Extreme values — Dimension combinations', () => {
 
 describe('6. 3D — Cantilevers', () => {
 
-  it('3D cantilever + tip load in Y: δ=PL³/(3EIy), reactions correct', () => {
-    // UBA convention: beam along X, ez = -Y (down), ey = Z
-    // Load in global Y → local -Z direction → bending about local Y → uses Iy
+  it('3D cantilever + tip load in Y: δ=PL³/(3EIz), reactions correct', () => {
+    // SAP2000 convention: beam along X, ey = Y (up), ez = Z
+    // Load in global Y → local Y direction → bending about local Z → uses Iz
     const L = 4, P = -10;
     const E = 200000;
-    const Iy = stdSection3D.iy; // weak-axis bending for load in Y (UBA convention)
-    const EIy = E * 1000 * Iy;
+    const Iz = stdSection3D.iz; // strong-axis bending for load in Y (SAP2000 convention)
+    const EIz = E * 1000 * Iz;
 
     const input = buildInput3D(
       [{ id: 1, x: 0, y: 0, z: 0 }, { id: 2, x: L, y: 0, z: 0 }],
@@ -1001,19 +1001,19 @@ describe('6. 3D — Cantilevers', () => {
     const rFixed = result.reactions.find(r => r.nodeId === 1)!;
     expectClose(rFixed.fy, -P, 0.01, 'Fy reaction');
 
-    // Tip displacement: δy = PL³/(3EIy) — UBA local axes
+    // Tip displacement: δy = PL³/(3EIz) — SAP2000 local axes
     const tipDisp = result.displacements.find(d => d.nodeId === 2)!;
-    const deltaAnalytical = P * L ** 3 / (3 * EIy);
-    expectClose(tipDisp.uy, deltaAnalytical, 0.02, 'δy = PL³/3EIy');
+    const deltaAnalytical = P * L ** 3 / (3 * EIz);
+    expectClose(tipDisp.uy, deltaAnalytical, 0.02, 'δy = PL³/3EIz');
   });
 
-  it('3D cantilever + tip load in Z: bending about Z axis (uses Iz)', () => {
-    // UBA convention: beam along X, ez = -Y, ey = Z
-    // Load in global Z → local Y direction → bending about local Z → uses Iz
+  it('3D cantilever + tip load in Z: bending about Y axis (uses Iy)', () => {
+    // SAP2000 convention: beam along X, ey = Y, ez = Z
+    // Load in global Z → local Z direction → bending about local Y → uses Iy
     const L = 4, Fz = -10;
     const E = 200000;
-    const Iz = stdSection3D.iz; // strong-axis for load in Z (UBA convention)
-    const EIz = E * 1000 * Iz;
+    const Iy = stdSection3D.iy; // weak-axis for load in Z (SAP2000 convention)
+    const EIy = E * 1000 * Iy;
 
     const input = buildInput3D(
       [{ id: 1, x: 0, y: 0, z: 0 }, { id: 2, x: L, y: 0, z: 0 }],
@@ -1025,10 +1025,10 @@ describe('6. 3D — Cantilevers', () => {
     const result = solve3D(input);
     assertSuccess3D(result);
 
-    // Tip displacement: δz = Fz*L³/(3EIz) — UBA local axes
+    // Tip displacement: δz = Fz*L³/(3EIy) — SAP2000 local axes
     const tipDisp = result.displacements.find(d => d.nodeId === 2)!;
-    const deltaAnalytical = Fz * L ** 3 / (3 * EIz);
-    expectClose(tipDisp.uz, deltaAnalytical, 0.02, 'δz = FzL³/3EIz');
+    const deltaAnalytical = Fz * L ** 3 / (3 * EIy);
+    expectClose(tipDisp.uz, deltaAnalytical, 0.02, 'δz = FzL³/3EIy');
   });
 
   it('3D cantilever + torsion: θx = Mx·L/(GJ)', () => {

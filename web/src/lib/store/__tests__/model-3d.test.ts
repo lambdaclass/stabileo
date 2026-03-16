@@ -246,8 +246,8 @@ describe('solve3D — Cantilever with load in Z', () => {
   const Iz = 0.0001; // Strong axis
   const Iy = 0.00005; // Weak axis (different from Iz)
   const Fz = -8; // kN (global Z)
-  // UBA: beam +X → ey=(0,0,1). Global Fz projects to local Y → uses Iz
-  const EIz_kN = E * 1000 * Iz;
+  // SAP2000: beam +X → ez=(0,0,1). Global Fz projects to local Z → uses Iy
+  const EIy_kN = E * 1000 * Iy;
 
   const input = buildInput3D({
     nodes: [
@@ -267,11 +267,11 @@ describe('solve3D — Cantilever with load in Z', () => {
     expect(typeof result).not.toBe('string');
   });
 
-  it('displacement uz at free end matches analytical FzL³/(3EIz)', () => {
-    // UBA: Fz (global) → local Y-plane → uses Iz. uz = ey[2]*v = v.
+  it('displacement uz at free end matches analytical FzL³/(3EIy)', () => {
+    // SAP2000: Fz (global) → local Z-plane → uses Iy. uz = ez[2]*w = w.
     const result = assertSuccess(solve3D(input));
     const d2 = result.displacements.find(d => d.nodeId === 2)!;
-    const uzExpected = Fz * L ** 3 / (3 * EIz_kN);
+    const uzExpected = Fz * L ** 3 / (3 * EIy_kN);
     expect(d2.uz).toBeCloseTo(uzExpected, 6);
   });
 
@@ -396,7 +396,7 @@ describe('3D load types', () => {
 
   it('distributed3d load produces correct reactions', () => {
     const L = 4;
-    const qZ = 10; // kN/m in local Z (UBA: +qZ = downward for beam along +X)
+    const qY = -10; // kN/m in local Y (SAP2000: qY=-10 = downward for beam along +X)
 
     const input = buildInput3D({
       nodes: [
@@ -410,24 +410,24 @@ describe('3D load types', () => {
       ],
       loads: [{
         type: 'distributed',
-        data: { elementId: 1, qYI: 0, qYJ: 0, qZI: qZ, qZJ: qZ },
+        data: { elementId: 1, qYI: qY, qYJ: qY, qZI: 0, qZJ: 0 },
       }],
     });
 
     const result = assertSuccess(solve3D(input));
 
     // Sum of vertical (global Y) reactions should equal total downward load
-    // UBA: ez=(0,-1,0), qZ=+10 → 10*4=40kN downward → fy reactions = +40
-    const totalLoad = qZ * L;
+    // SAP2000: ey=(0,1,0), qY=-10 → -10*4=40kN downward → fy reactions = +40
+    const totalLoad = Math.abs(qY) * L;
     const totalReaction = result.reactions.reduce((sum, r) => sum + r.fy, 0);
     expect(totalReaction).toBeCloseTo(totalLoad, 4);
   });
 
-  it('pointOnElement3d load in Z direction', () => {
+  it('pointOnElement3d load in Y direction', () => {
     const L = 6;
-    const pz = -5; // kN in local Z at midspan
-    // UBA: beam +X → ez=(0,-1,0). local pz=-5 → global force = (0,+5,0)
-    // So pz loads the Z-plane (My/Vz, uses Iy) and displacement is in global Y
+    const py = -5; // kN in local Y at midspan
+    // SAP2000: beam +X → ey=(0,1,0). local py=-5 → global force = (0,-5,0)
+    // So py loads the Y-plane (Mz/Vy, uses Iz) and displacement is in global Y
 
     const input = buildInput3D({
       nodes: [
@@ -440,14 +440,14 @@ describe('3D load types', () => {
       ],
       loads: [{
         type: 'pointOnElement',
-        data: { elementId: 1, a: L / 2, py: 0, pz },
+        data: { elementId: 1, a: L / 2, py, pz: 0 },
       }],
     });
 
     const result = assertSuccess(solve3D(input));
     const d2 = result.displacements.find(d => d.nodeId === 2)!;
 
-    // UBA: pz loads Z-plane → displacement in global Y (via ez=(0,-1,0)), no global Z displacement
+    // SAP2000: py loads Y-plane → displacement in global Y (via ey=(0,1,0)), no global Z displacement
     expect(d2.uy).not.toBe(0);
     expect(Math.abs(d2.uz)).toBeLessThan(1e-10);
   });

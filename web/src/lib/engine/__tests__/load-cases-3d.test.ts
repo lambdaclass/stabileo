@@ -97,10 +97,10 @@ describe('3D Superposition: simply supported beam D + L', () => {
   let resultD: AnalysisResults3D;
   let resultL: AnalysisResults3D;
 
-  it('solves D case: qZ = +10 kN/m (gravity downward)', () => {
-    // UBA convention: beam along +X → ez=(0,-1,0), so +qZ = downward
+  it('solves D case: qY = -10 kN/m (gravity downward)', () => {
+    // SAP2000 convention: beam along +X → ey=(0,1,0), so qY=-10 = downward
     const input = buildInput(nodes, elements, supports, [
-      { type: 'distributed', data: { elementId: 1, qYI: 0, qYJ: 0, qZI: 10, qZJ: 10 } },
+      { type: 'distributed', data: { elementId: 1, qYI: -10, qYJ: -10, qZI: 0, qZJ: 0 } },
     ]);
     const res = solve3D(input);
     assertSuccess(res);
@@ -111,9 +111,9 @@ describe('3D Superposition: simply supported beam D + L', () => {
     expect(totalFy).toBeCloseTo(60, 1);
   });
 
-  it('solves L case: qZ = +5 kN/m (gravity downward)', () => {
+  it('solves L case: qY = -5 kN/m (gravity downward)', () => {
     const input = buildInput(nodes, elements, supports, [
-      { type: 'distributed', data: { elementId: 1, qYI: 0, qYJ: 0, qZI: 5, qZJ: 5 } },
+      { type: 'distributed', data: { elementId: 1, qYI: -5, qYJ: -5, qZI: 0, qZJ: 0 } },
     ]);
     const res = solve3D(input);
     assertSuccess(res);
@@ -124,9 +124,9 @@ describe('3D Superposition: simply supported beam D + L', () => {
   });
 
   it('1.2D + 1.6L: superposition of reactions matches direct solve', () => {
-    // Direct solve with combined load: q = 1.2*10 + 1.6*5 = 20 kN/m in local Z
+    // Direct solve with combined load: q = 1.2*10 + 1.6*5 = 20 kN/m in local Y (downward)
     const inputCombined = buildInput(nodes, elements, supports, [
-      { type: 'distributed', data: { elementId: 1, qYI: 0, qYJ: 0, qZI: 20, qZJ: 20 } },
+      { type: 'distributed', data: { elementId: 1, qYI: -20, qYJ: -20, qZI: 0, qZJ: 0 } },
     ]);
     const resCombined = solve3D(inputCombined);
     assertSuccess(resCombined);
@@ -147,25 +147,25 @@ describe('3D Superposition: simply supported beam D + L', () => {
     expect(totalFySup).toBeCloseTo(totalFyDirect, 1);
   });
 
-  it('element forces combine linearly (My, Vz)', () => {
-    // UBA: gravity in local Z → My/Vz forces (not Mz/Vy)
+  it('element forces combine linearly (Mz, Vy)', () => {
+    // SAP2000: gravity in local Y → Mz/Vy forces
     const fD = getForces(resultD, 1)!;
     const fL = getForces(resultL, 1)!;
 
     // 1.2D + 1.6L
-    const myCombined = 1.2 * fD.myStart + 1.6 * fL.myStart;
-    const vzCombined = 1.2 * fD.vzStart + 1.6 * fL.vzStart;
+    const mzCombined = 1.2 * fD.mzStart + 1.6 * fL.mzStart;
+    const vyCombined = 1.2 * fD.vyStart + 1.6 * fL.vyStart;
 
     // Direct solve
     const inputCombined = buildInput(nodes, elements, supports, [
-      { type: 'distributed', data: { elementId: 1, qYI: 0, qYJ: 0, qZI: 20, qZJ: 20 } },
+      { type: 'distributed', data: { elementId: 1, qYI: -20, qYJ: -20, qZI: 0, qZJ: 0 } },
     ]);
     const resCombined = solve3D(inputCombined);
     assertSuccess(resCombined);
     const fComb = getForces(resCombined, 1)!;
 
-    expect(myCombined).toBeCloseTo(fComb.myStart, 2);
-    expect(vzCombined).toBeCloseTo(fComb.vzStart, 2);
+    expect(mzCombined).toBeCloseTo(fComb.mzStart, 2);
+    expect(vyCombined).toBeCloseTo(fComb.vyStart, 2);
   });
 
   it('displacement superposition matches direct solve', () => {
@@ -176,7 +176,7 @@ describe('3D Superposition: simply supported beam D + L', () => {
     const combinedUy = 1.2 * dD.uy + 1.6 * dL.uy;
 
     const inputCombined = buildInput(nodes, elements, supports, [
-      { type: 'distributed', data: { elementId: 1, qYI: 0, qYJ: 0, qZI: 20, qZJ: 20 } },
+      { type: 'distributed', data: { elementId: 1, qYI: -20, qYJ: -20, qZI: 0, qZJ: 0 } },
     ]);
     const resCombined = solve3D(inputCombined);
     assertSuccess(resCombined);
@@ -206,9 +206,9 @@ describe('3D Superposition: portal frame D + W', () => {
 
   it('solves D: distributed on beam element 2', () => {
     // Portal: columns are vertical (1→2, 3→4), beam is horizontal (2→3 along +X at y=4)
-    // Beam along +X: ez=(0,-1,0), +qZ = downward
+    // SAP2000: beam along +X → ey=(0,1,0), qY=-10 = downward
     const input = buildInput(nodes, elements, supports, [
-      { type: 'distributed', data: { elementId: 2, qYI: 0, qYJ: 0, qZI: 10, qZJ: 10 } },
+      { type: 'distributed', data: { elementId: 2, qYI: -10, qYJ: -10, qZI: 0, qZJ: 0 } },
     ]);
     const res = solve3D(input);
     assertSuccess(res);
@@ -262,10 +262,10 @@ describe('3D Superposition: bidirectional distributed loads', () => {
   let resultY: AnalysisResults3D;
   let resultZ: AnalysisResults3D;
 
-  it('solves case 1: gravity qZ=+10 (downward in global Y)', () => {
-    // UBA: beam +X → ez=(0,-1,0), +qZ = downward (−globalY)
+  it('solves case 1: gravity qY=-10 (downward in global Y)', () => {
+    // SAP2000: beam +X → ey=(0,1,0), qY=-10 = downward (−globalY)
     const input = buildInput(nodes, elements, supports, [
-      { type: 'distributed', data: { elementId: 1, qYI: 0, qYJ: 0, qZI: 10, qZJ: 10 } },
+      { type: 'distributed', data: { elementId: 1, qYI: -10, qYJ: -10, qZI: 0, qZJ: 0 } },
     ]);
     const res = solve3D(input);
     assertSuccess(res);
@@ -276,10 +276,10 @@ describe('3D Superposition: bidirectional distributed loads', () => {
     expect(totalFy).toBeCloseTo(60, 0);
   });
 
-  it('solves case 2: lateral qY=-8 (in −globalZ)', () => {
-    // UBA: beam +X → ey=(0,0,1), qY=-8 → force in −globalZ
+  it('solves case 2: lateral qZ=-8 (in −globalZ)', () => {
+    // SAP2000: beam +X → ez=(0,0,1), qZ=-8 → force in −globalZ
     const input = buildInput(nodes, elements, supports, [
-      { type: 'distributed', data: { elementId: 1, qYI: -8, qYJ: -8, qZI: 0, qZJ: 0 } },
+      { type: 'distributed', data: { elementId: 1, qYI: 0, qYJ: 0, qZI: -8, qZJ: -8 } },
     ]);
     const res = solve3D(input);
     assertSuccess(res);
@@ -313,10 +313,10 @@ describe('3D Superposition: bidirectional distributed loads', () => {
     const dZ = resultZ.displacements.find(d => d.nodeId === 2)!;
 
     // Direct solve: 1.2*case1 + 1.6*case2
-    // case1: qZI=10 → factor 1.2 → qZI=12
-    // case2: qYI=-8 → factor 1.6 → qYI=-12.8
+    // case1: qYI=-10 → factor 1.2 → qYI=-12
+    // case2: qZI=-8 → factor 1.6 → qZI=-12.8
     const inputDirect = buildInput(nodes, elements, supports, [
-      { type: 'distributed', data: { elementId: 1, qYI: -12.8, qYJ: -12.8, qZI: 12, qZJ: 12 } },
+      { type: 'distributed', data: { elementId: 1, qYI: -12, qYJ: -12, qZI: -12.8, qZJ: -12.8 } },
     ]);
     const resDirect = solve3D(inputDirect);
     assertSuccess(resDirect);

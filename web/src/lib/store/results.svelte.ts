@@ -572,16 +572,6 @@ function createResultsStore() {
     get results3D() { return results3D; },
 
     setResults3D(r: AnalysisResults3D, preserveDiagram = false) {
-      // DEBUG: log max displacement to diagnose deformed shape bug
-      if (r.displacements?.length) {
-        let mx = 0, my = 0, mz = 0;
-        for (const d of r.displacements) {
-          mx = Math.max(mx, Math.abs(d.ux));
-          my = Math.max(my, Math.abs(d.uy));
-          mz = Math.max(mz, Math.abs(d.uz));
-        }
-        console.log(`[DEBUG] setResults3D max disp: ux=${(mx*1000).toFixed(1)}mm uy=${(my*1000).toFixed(1)}mm uz=${(mz*1000).toFixed(1)}mm | scale=${deformedScale}`);
-      }
       results3D = r;
       singleResults3D = r;
       showReactions = false;

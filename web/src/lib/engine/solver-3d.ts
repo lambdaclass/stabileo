@@ -135,19 +135,19 @@ export interface LocalAxes3D {
 }
 
 /**
- * Compute local coordinate system for a 3D element (UBA right-hand convention).
+ * Compute local coordinate system for a 3D element (SAP2000/textbook convention).
  *
  * Convention:
  * - ex = normalize(J - I) — element axis
- * - ez always points "downward" (toward −Y global) for non-vertical bars;
- *   for vertical bars, ez = (+X global) = (1,0,0)
- * - ey completes the right-hand terna: ey = ez × ex
+ * - For non-vertical: ey lies in the vertical plane (ey ≈ global Y upward)
+ *   ez = ex × ey_ref, ey = ez × ex (ey_ref = global Y)
+ * - For vertical: ey_ref = global Z
  *
  * Cardinal examples:
- *   +X bar: ex=(1,0,0),  ey=(0,0,1),   ez=(0,−1,0)
- *   −X bar: ex=(−1,0,0), ey=(0,0,−1),  ez=(0,−1,0)
- *   +Z bar: ex=(0,0,1),  ey=(−1,0,0),  ez=(0,−1,0)
- *   −Z bar: ex=(0,0,−1), ey=(1,0,0),   ez=(0,−1,0)
+ *   +X bar: ex=(1,0,0),  ey=(0,1,0),   ez=(0,0,1)
+ *   −X bar: ex=(−1,0,0), ey=(0,1,0),   ez=(0,0,−1)
+ *   +Z bar: ex=(0,0,1),  ey=(0,1,0),   ez=(−1,0,0)
+ *   −Z bar: ex=(0,0,−1), ey=(0,1,0),   ez=(1,0,0)
  *   +Y bar: ex=(0,1,0),  ey=(0,0,1),   ez=(1,0,0)
  *   −Y bar: ex=(0,−1,0), ey=(0,0,−1),  ez=(1,0,0)
  *
@@ -195,34 +195,36 @@ export function computeLocalAxes3D(
       ezx * ex[1] - ezy * ex[0],
     ];
   } else {
-    // UBA auto-orient convention
+    // SAP2000/textbook auto-orient convention:
+    //   ey_ref = global Y for non-vertical, global Z for vertical
+    //   ez = ex × ey_ref, ey = ez × ex
     const dotY = Math.abs(ex[1]); // |component along global Y|
 
-    let refEz: [number, number, number];
+    let eyRef: [number, number, number];
     if (dotY > 0.999) {
-      // Near-vertical element: ez reference = global X (1,0,0)
-      refEz = [1, 0, 0];
+      // Near-vertical element: ey reference = global Z (0,0,1)
+      eyRef = [0, 0, 1];
     } else {
-      // Non-vertical: ez points "down" = (0,−1,0)
-      refEz = [0, -1, 0];
+      // Non-vertical: ey reference = global Y (0,1,0)
+      eyRef = [0, 1, 0];
     }
 
-    // ey = normalize(refEz × ex)
-    let eyx = refEz[1] * ex[2] - refEz[2] * ex[1];
-    let eyy = refEz[2] * ex[0] - refEz[0] * ex[2];
-    let eyz = refEz[0] * ex[1] - refEz[1] * ex[0];
-    const eyLen = Math.sqrt(eyx * eyx + eyy * eyy + eyz * eyz);
-    if (eyLen < 1e-10) {
+    // ez = normalize(ex × eyRef)
+    let ezx = ex[1] * eyRef[2] - ex[2] * eyRef[1];
+    let ezy = ex[2] * eyRef[0] - ex[0] * eyRef[2];
+    let ezz = ex[0] * eyRef[1] - ex[1] * eyRef[0];
+    const ezLen = Math.sqrt(ezx * ezx + ezy * ezy + ezz * ezz);
+    if (ezLen < 1e-10) {
       throw new Error(t('solver.localAxesError'));
     }
-    eyx /= eyLen; eyy /= eyLen; eyz /= eyLen;
-    ey = [eyx, eyy, eyz];
+    ezx /= ezLen; ezy /= ezLen; ezz /= ezLen;
+    ez = [ezx, ezy, ezz];
 
-    // ez = ex × ey (guaranteed orthogonal)
-    ez = [
-      ex[1] * ey[2] - ex[2] * ey[1],
-      ex[2] * ey[0] - ex[0] * ey[2],
-      ex[0] * ey[1] - ex[1] * ey[0],
+    // ey = ez × ex (guaranteed orthogonal)
+    ey = [
+      ez[1] * ex[2] - ez[2] * ex[1],
+      ez[2] * ex[0] - ez[0] * ex[2],
+      ez[0] * ex[1] - ez[1] * ex[0],
     ];
   }
 

@@ -420,9 +420,9 @@ describe('3D Thermal Loads — Temperature Gradient', () => {
     expect(Math.abs(f.mzEnd)).toBeLessThan(1);
 
     // But there should be rotation at the ends
-    // UBA: beam +X → gradientZ → Mz (Y-plane) → θz_local → maps to global ry (via ez=(0,-1,0))
+    // SAP2000: beam +X → gradientZ → Mz (Z-plane bending) → θz_local → maps to global rz
     const d1 = getDisp(result, 1);
-    expect(Math.abs(d1.ry)).toBeGreaterThan(1e-8);
+    expect(Math.abs(d1.rz)).toBeGreaterThan(1e-8);
 
     checkEquilibriumThermal(result, input);
   });

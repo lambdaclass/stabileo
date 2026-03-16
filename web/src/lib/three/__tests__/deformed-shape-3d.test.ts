@@ -89,11 +89,11 @@ describe('computeDeformedShape3D', () => {
   describe('Cantilever beam along X with point load Fy', () => {
     // Cantilever: fixed at node 1 (x=0), free at node 2 (x=L)
     // Load: Fy = -P at free end (downward in global Y)
-    // UBA: beam +X → ey=(0,0,1), ez=(0,-1,0). Global Fy projects to Z-plane (uses Iy).
-    // Expected tip deflection: δ = PL³/(3EIy) (downward in global Y via ez)
+    // SAP2000: beam +X → ey=(0,1,0), ez=(0,0,1). Global Fy projects to Y-plane (uses Iz).
+    // Expected tip deflection: δ = PL³/(3EIz) (downward in global Y via ey)
     const P = 10; // kN
 
-    it('tip deflection matches PL³/(3EIy) within 1%', () => {
+    it('tip deflection matches PL³/(3EIz) within 1%', () => {
       const input = buildInput(
         [{ id: 1, x: 0, y: 0, z: 0 }, { id: 2, x: L, y: 0, z: 0 }],
         [frameElement(1, 1, 2)],
@@ -118,8 +118,8 @@ describe('computeDeformedShape3D', () => {
 
       // Tip (last point) should match analytical deflection
       const tipPoint = points[points.length - 1];
-      // UBA: Fy goes into Z-plane (uses Iy), deflection in global Y via ez=(0,-1,0)
-      const expected = -P * L * L * L / (3 * EIy_kN); // downward (negative Y)
+      // SAP2000: Fy goes into Y-plane (uses Iz), deflection in global Y via ey=(0,1,0)
+      const expected = -P * L * L * L / (3 * EIz_kN); // downward (negative Y)
 
       // tip Y displacement
       const tipDy = tipPoint.y - 0; // baseY at tip = 0 + 0 (scale=1, so tipPoint.y ≈ displacement)
@@ -162,11 +162,11 @@ describe('computeDeformedShape3D', () => {
 
   describe('Cantilever beam along X with point load Fz', () => {
     // Load: Fz = -P at free end (global Z)
-    // UBA: beam +X → ey=(0,0,1). Global Fz projects to Y-plane (uses Iz).
-    // Expected tip deflection: δ = PL³/(3EIz) in global Z direction (via ey)
+    // SAP2000: beam +X → ez=(0,0,1). Global Fz projects to Z-plane (uses Iy).
+    // Expected tip deflection: δ = PL³/(3EIy) in global Z direction (via ez)
     const P = 10; // kN
 
-    it('tip deflection matches PL³/(3EIz) within 1%', () => {
+    it('tip deflection matches PL³/(3EIy) within 1%', () => {
       const input = buildInput(
         [{ id: 1, x: 0, y: 0, z: 0 }, { id: 2, x: L, y: 0, z: 0 }],
         [frameElement(1, 1, 2)],
@@ -188,9 +188,9 @@ describe('computeDeformedShape3D', () => {
       );
 
       // Tip Z displacement
-      // UBA: Fz goes into Y-plane (uses Iz), deflection in global Z via ey=(0,0,1)
+      // SAP2000: Fz goes into Z-plane (uses Iy), deflection in global Z via ez=(0,0,1)
       const tipPoint = points[points.length - 1];
-      const expected = -P * L * L * L / (3 * EIz_kN);
+      const expected = -P * L * L * L / (3 * EIy_kN);
       const tipDz = tipPoint.z - 0;
       expect(tipDz).toBeCloseTo(expected, 4);
     });
@@ -199,8 +199,8 @@ describe('computeDeformedShape3D', () => {
   describe('Simply supported beam with UDL in Y', () => {
     // Beam from (0,0,0) to (L,0,0), pinned at both ends
     // UDL: q = -10 kN/m in local Y
-    // UBA: beam +X → ey=(0,0,1), local Y maps to globalZ
-    // Max deflection at midspan: δ_mid = 5qL⁴/(384EIz) in globalZ direction
+    // SAP2000: beam +X → ey=(0,1,0), local Y maps to globalY
+    // Max deflection at midspan: δ_mid = 5qL⁴/(384EIz) in globalY direction
     const q = 10; // kN/m
 
     it('midspan deflection matches 5qL⁴/(384EIz) within 2%', () => {
@@ -231,8 +231,8 @@ describe('computeDeformedShape3D', () => {
       const midPoint = points[10];
       const expected = -5 * q * L * L * L * L / (384 * EIz_kN);
 
-      // UBA: local Y → globalZ, so midspan Z displacement should match
-      expect(midPoint.z).toBeCloseTo(expected, 4);
+      // SAP2000: local Y → globalY, so midspan Y displacement should match
+      expect(midPoint.y).toBeCloseTo(expected, 4);
     });
   });
 
@@ -240,7 +240,7 @@ describe('computeDeformedShape3D', () => {
     // Both ends fixed → nodal displacements are zero
     // Without particular solution: deformed shape would show zero deflection
     // With particular solution: δ_mid = qL⁴/(384EIz)
-    // UBA: local Y → globalZ for beam along +X
+    // SAP2000: local Y → globalY for beam along +X
     const q = 10; // kN/m
 
     it('midspan deflection matches qL⁴/(384EIz) within 2%', () => {
@@ -267,16 +267,16 @@ describe('computeDeformedShape3D', () => {
         dI, dJ, ef, SCALE, eiData,
       );
 
-      // Both ends should be at zero (fixed) — check globalZ since UBA localY→globalZ
-      expect(points[0].z).toBeCloseTo(0, 8);
-      expect(points[points.length - 1].z).toBeCloseTo(0, 8);
+      // Both ends should be at zero (fixed) — check globalY since SAP2000 localY→globalY
+      expect(points[0].y).toBeCloseTo(0, 8);
+      expect(points[points.length - 1].y).toBeCloseTo(0, 8);
 
       // Midpoint deflection from particular solution
       const midPoint = points[10];
       const expected = -q * L * L * L * L / (384 * EIz_kN);
 
-      // UBA: local Y → globalZ
-      expect(midPoint.z).toBeCloseTo(expected, 5);
+      // SAP2000: local Y → globalY
+      expect(midPoint.y).toBeCloseTo(expected, 5);
     });
 
     it('without EI data, fixed-fixed beam shows zero deflection (linear only)', () => {
@@ -303,21 +303,21 @@ describe('computeDeformedShape3D', () => {
         dI, dJ, ef, SCALE, undefined,
       );
 
-      // All points should be at z ≈ 0 (Hermite with zero end disp/rot)
-      // UBA: localY → globalZ for beam along +X
+      // All points should be at y ≈ 0 (Hermite with zero end disp/rot)
+      // SAP2000: localY → globalY for beam along +X
       for (const pt of points) {
-        expect(Math.abs(pt.z)).toBeLessThan(1e-10);
+        expect(Math.abs(pt.y)).toBeLessThan(1e-10);
       }
     });
   });
 
   describe('Fixed-fixed beam with UDL in Z (weak axis)', () => {
     // Test weak axis bending with particular solution
-    // UBA: beam +X → ez=(0,-1,0), local Z maps to −globalY
-    // qZI = -q → force in −localZ = +globalY (upward). Deflection in globalY via ez.
+    // SAP2000: beam +X → ez=(0,0,1), local Z maps to globalZ
+    // qZI = -q → force in −localZ = −globalZ. Deflection in globalZ via ez.
     const q = 10; // kN/m in local Z direction
 
-    it('midspan Y deflection matches qL⁴/(384EIy) within 2%', () => {
+    it('midspan Z deflection matches qL⁴/(384EIy) within 2%', () => {
       const input = buildInput(
         [{ id: 1, x: 0, y: 0, z: 0 }, { id: 2, x: L, y: 0, z: 0 }],
         [frameElement(1, 1, 2)],
@@ -341,20 +341,18 @@ describe('computeDeformedShape3D', () => {
         dI, dJ, ef, SCALE, eiData,
       );
 
-      // Both ends at zero — check globalY since UBA localZ→−globalY
-      expect(points[0].y).toBeCloseTo(0, 8);
-      expect(points[points.length - 1].y).toBeCloseTo(0, 8);
+      // Both ends at zero — check globalZ since SAP2000 localZ→globalZ
+      expect(points[0].z).toBeCloseTo(0, 8);
+      expect(points[points.length - 1].z).toBeCloseTo(0, 8);
 
-      // Midpoint Y deflection (UBA: localZ → globalY via ez=(0,-1,0))
-      // w_local from qZ=-q → w is in +localZ direction (upward in local Z = −globalY)
-      // δ_y = ez[1]*w = (-1)*w, so positive w → negative globalY
+      // Midpoint Z deflection (SAP2000: localZ → globalZ via ez=(0,0,1))
+      // qZ=-q → force in −localZ = −globalZ direction
+      // w_mid = (-q)*L⁴/(384*EIy) (negative = beam bows in −localZ = −globalZ)
+      // δ_z = ez[2]*w_mid = w_mid → negative (downward in globalZ)
       const midPoint = points[10];
-      // For q in negative localZ: w_mid = (-q)*L⁴/(384*EIy) (negative = beam bows in −localZ = +globalY)
-      // δ_y = ez[1]*w_mid = (-1)*w_mid → positive (upward in globalY)
-      // The formula: expected = q * L⁴ / (384 * EIy_kN) (positive = upward globalY)
-      const expected = q * L * L * L * L / (384 * EIy_kN);
+      const expected = -q * L * L * L * L / (384 * EIy_kN);
 
-      expect(midPoint.y).toBeCloseTo(expected, 5);
+      expect(midPoint.z).toBeCloseTo(expected, 5);
     });
   });
 
