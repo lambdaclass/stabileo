@@ -190,6 +190,14 @@ pub enum DiagnosticCode {
     LocalMechanism,
     /// Singular stiffness matrix.
     SingularMatrix,
+
+    // ---- Constraint quality ----
+    /// Same DOF is constrained by multiple constraints.
+    ConflictingConstraints,
+    /// Circular dependency in constraint chain (A→B→A).
+    CircularConstraint,
+    /// DOF is both constrained and restrained by a support.
+    OverConstrainedDof,
 }
 
 /// A structured diagnostic with enum code, severity, optional element/node
@@ -266,6 +274,12 @@ impl StructuredDiagnostic {
         self.element_ids = ids;
         self
     }
+
+    /// Attach node IDs.
+    pub fn with_nodes(mut self, ids: Vec<usize>) -> Self {
+        self.node_ids = ids;
+        self
+    }
 }
 
 /// Convert a StructuredDiagnostic to the legacy SolverDiagnostic format.
@@ -278,6 +292,7 @@ impl From<&StructuredDiagnostic> for SolverDiagnostic {
             DiagnosticCode::ResidualOk | DiagnosticCode::ResidualHigh | DiagnosticCode::EquilibriumOk | DiagnosticCode::EquilibriumViolation => "residual",
             DiagnosticCode::HighAspectRatio | DiagnosticCode::NegativeJacobian | DiagnosticCode::HighWarping | DiagnosticCode::PoorJacobianRatio | DiagnosticCode::SmallMinAngle => "element_quality",
             DiagnosticCode::NoFreeDofs | DiagnosticCode::LocalMechanism | DiagnosticCode::SingularMatrix => "model_quality",
+            DiagnosticCode::ConflictingConstraints | DiagnosticCode::CircularConstraint | DiagnosticCode::OverConstrainedDof => "constraints",
         };
         let severity = match sd.severity {
             Severity::Info => "info",

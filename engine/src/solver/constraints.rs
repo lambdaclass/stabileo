@@ -48,6 +48,199 @@ pub struct ConstrainedInput3D {
     pub constraints: Vec<Constraint>,
 }
 
+/// Pre-solve constraint validation.
+///
+/// Detects conflicting, circular, or over-constrained configurations and
+/// returns structured diagnostics. Called before building the transform matrix.
+pub fn validate_constraints(
+    constraints: &[Constraint],
+    dof_num: &DofNumbering,
+    nodes_2d: Option<&HashMap<String, SolverNode>>,
+    nodes_3d: Option<&HashMap<String, SolverNode3D>>,
+) -> Vec<StructuredDiagnostic> {
+    let mut diags = Vec::new();
+
+    // Build reverse map: global DOF → (node_id, local_dof)
+    let reverse_map: HashMap<usize, (usize, usize)> = dof_num.map.iter()
+        .map(|(&(node_id, local_dof), &global_dof)| (global_dof, (node_id, local_dof)))
+        .collect();
+
+    // Collect which DOFs each constraint makes dependent
+    let mut dep_count: HashMap<usize, Vec<usize>> = HashMap::new(); // global_dof -> [constraint indices]
+    let mut master_of: HashMap<usize, HashSet<usize>> = HashMap::new(); // dep_dof -> set of master DOFs
+
+    for (ci, constraint) in constraints.iter().enumerate() {
+        let slave_dofs = collect_dependent_dofs(constraint, dof_num, nodes_2d, nodes_3d);
+        for (slave_global, master_globals) in &slave_dofs {
+            dep_count.entry(*slave_global).or_default().push(ci);
+            master_of.entry(*slave_global).or_default().extend(master_globals);
+        }
+    }
+
+    // 1. Conflicting constraints: same DOF constrained by multiple constraints
+    for (&dof, indices) in &dep_count {
+        if indices.len() > 1 {
+            let node_id = reverse_map.get(&dof).map(|&(n, _)| n).unwrap_or(0);
+            diags.push(StructuredDiagnostic::global(
+                DiagnosticCode::ConflictingConstraints,
+                Severity::Warning,
+                format!("DOF {} (node {}) is constrained by {} constraints — last one wins",
+                    dof, node_id, indices.len()),
+            ).with_dofs(vec![dof]).with_nodes(vec![node_id]).with_phase("constraints"));
+        }
+    }
+
+    // 2. Circular dependencies: A depends on B depends on A
+    for (&dep_dof, masters) in &master_of {
+        for &m in masters {
+            if let Some(m_masters) = master_of.get(&m) {
+                if m_masters.contains(&dep_dof) {
+                    let n1 = reverse_map.get(&dep_dof).map(|&(n, _)| n).unwrap_or(0);
+                    let n2 = reverse_map.get(&m).map(|&(n, _)| n).unwrap_or(0);
+                    diags.push(StructuredDiagnostic::global(
+                        DiagnosticCode::CircularConstraint,
+                        Severity::Error,
+                        format!("Circular constraint: DOF {} (node {}) ↔ DOF {} (node {})",
+                            dep_dof, n1, m, n2),
+                    ).with_dofs(vec![dep_dof, m]).with_nodes(vec![n1, n2]).with_phase("constraints"));
+                }
+            }
+        }
+    }
+
+    // 3. Dependent DOF is also restrained by a support (over-constrained)
+    let restrained: HashSet<usize> = (dof_num.n_free..dof_num.n_total).collect();
+    for &dep_dof in dep_count.keys() {
+        if restrained.contains(&dep_dof) {
+            let node_id = reverse_map.get(&dep_dof).map(|&(n, _)| n).unwrap_or(0);
+            diags.push(StructuredDiagnostic::global(
+                DiagnosticCode::OverConstrainedDof,
+                Severity::Warning,
+                format!("DOF {} (node {}) is both constrained and restrained by a support",
+                    dep_dof, node_id),
+            ).with_dofs(vec![dep_dof]).with_nodes(vec![node_id]).with_phase("constraints"));
+        }
+    }
+
+    diags
+}
+
+/// Collect dependent DOFs from a single constraint, returning (slave_global, [master_globals]).
+fn collect_dependent_dofs(
+    constraint: &Constraint,
+    dof_num: &DofNumbering,
+    nodes_2d: Option<&HashMap<String, SolverNode>>,
+    nodes_3d: Option<&HashMap<String, SolverNode3D>>,
+) -> Vec<(usize, Vec<usize>)> {
+    let node_by_id_2d: Option<HashMap<usize, &SolverNode>> = nodes_2d.map(|nodes| {
+        nodes.values().map(|n| (n.id, n)).collect()
+    });
+    let node_by_id_3d: Option<HashMap<usize, &SolverNode3D>> = nodes_3d.map(|nodes| {
+        nodes.values().map(|n| (n.id, n)).collect()
+    });
+    let mut result = Vec::new();
+
+    match constraint {
+        Constraint::RigidLink(rl) => {
+            let dofs = if rl.dofs.is_empty() {
+                (0..dof_num.dofs_per_node.min(3)).collect::<Vec<_>>()
+            } else {
+                rl.dofs.clone()
+            };
+            for &dof in &dofs {
+                if let Some(&slave_global) = dof_num.map.get(&(rl.slave_node, dof)) {
+                    let mut masters = Vec::new();
+                    if let Some(&m) = dof_num.map.get(&(rl.master_node, dof)) {
+                        masters.push(m);
+                    }
+                    // Rotation coupling DOFs
+                    if dof_num.dofs_per_node <= 3 {
+                        if let Some(&rz) = dof_num.map.get(&(rl.master_node, 2)) {
+                            masters.push(rz);
+                        }
+                    } else {
+                        for rot_dof in 3..6 {
+                            if let Some(&rd) = dof_num.map.get(&(rl.master_node, rot_dof)) {
+                                masters.push(rd);
+                            }
+                        }
+                    }
+                    result.push((slave_global, masters));
+                }
+            }
+        }
+        Constraint::Diaphragm(dia) => {
+            let (d0, d1, dr) = match dia.plane.as_str() {
+                "XZ" => (0usize, 2usize, 4usize),
+                "YZ" => (1, 2, 3),
+                _ => (0, 1, 2),
+            };
+            for &slave_id in &dia.slave_nodes {
+                for &dof in &[d0, d1] {
+                    if let Some(&s) = dof_num.map.get(&(slave_id, dof)) {
+                        let mut masters = Vec::new();
+                        if let Some(&m) = dof_num.map.get(&(dia.master_node, dof)) {
+                            masters.push(m);
+                        }
+                        if let Some(&m) = dof_num.map.get(&(dia.master_node, dr)) {
+                            masters.push(m);
+                        }
+                        result.push((s, masters));
+                    }
+                }
+            }
+        }
+        Constraint::EqualDOF(eq) => {
+            for &dof in &eq.dofs {
+                if let Some(&slave_global) = dof_num.map.get(&(eq.slave_node, dof)) {
+                    if let Some(&master_global) = dof_num.map.get(&(eq.master_node, dof)) {
+                        result.push((slave_global, vec![master_global]));
+                    }
+                }
+            }
+        }
+        Constraint::EccentricConnection(ec) => {
+            let dpn = dof_num.dofs_per_node;
+            let all_dofs: Vec<usize> = (0..dpn.min(if dpn <= 3 { 3 } else { 6 })).collect();
+            for &dof in &all_dofs {
+                if ec.releases.get(dof).copied().unwrap_or(false) { continue; }
+                if let Some(&slave_global) = dof_num.map.get(&(ec.slave_node, dof)) {
+                    let mut masters = vec![];
+                    if let Some(&m) = dof_num.map.get(&(ec.master_node, dof)) {
+                        masters.push(m);
+                    }
+                    if dpn > 3 {
+                        for rot_dof in 3..6 {
+                            if let Some(&rd) = dof_num.map.get(&(ec.master_node, rot_dof)) {
+                                masters.push(rd);
+                            }
+                        }
+                    } else if let Some(&rz) = dof_num.map.get(&(ec.master_node, 2)) {
+                        masters.push(rz);
+                    }
+                    result.push((slave_global, masters));
+                }
+            }
+        }
+        Constraint::LinearMPC(mpc) => {
+            if mpc.terms.is_empty() { return result; }
+            let (dep_idx, _) = mpc.terms.iter().enumerate()
+                .max_by(|(_, a), (_, b)| a.coefficient.abs().partial_cmp(&b.coefficient.abs()).unwrap())
+                .unwrap();
+            let dep_term = &mpc.terms[dep_idx];
+            if let Some(&dep_global) = dof_num.map.get(&(dep_term.node_id, dep_term.dof)) {
+                let masters: Vec<usize> = mpc.terms.iter().enumerate()
+                    .filter(|(i, _)| *i != dep_idx)
+                    .filter_map(|(_, t)| dof_num.map.get(&(t.node_id, t.dof)).copied())
+                    .collect();
+                result.push((dep_global, masters));
+            }
+        }
+    }
+    let _ = (node_by_id_2d, node_by_id_3d); // suppress unused warnings
+    result
+}
+
 /// Build the constraint transformation matrix C.
 ///
 /// C maps independent DOFs to full DOFs: u_full = C * u_indep.
@@ -459,6 +652,12 @@ pub fn solve_constrained_2d(input: &ConstrainedInput) -> Result<AnalysisResults,
         }
     }
 
+    // Pre-solve constraint validation
+    let constraint_diags = validate_constraints(
+        &input.constraints, &dof_num,
+        Some(&input.solver.nodes), None,
+    );
+
     // Build constraint transform on free DOFs only
     let ct = build_constraint_transform(
         &input.constraints, &dof_num,
@@ -552,6 +751,8 @@ pub fn solve_constrained_2d(input: &ConstrainedInput) -> Result<AnalysisResults,
     let raw_forces = fcs.compute_constraint_forces(&k_ff, &u_f, &f_f);
     let constraint_forces = map_dof_forces_to_constraint_forces(&raw_forces, &dof_num);
 
+    let equilibrium = linear::compute_equilibrium_summary_2d(&input.solver, &reactions, 0.0);
+
     Ok(AnalysisResults {
         displacements,
         reactions,
@@ -559,8 +760,8 @@ pub fn solve_constrained_2d(input: &ConstrainedInput) -> Result<AnalysisResults,
         constraint_forces,
         diagnostics: vec![],
         solver_diagnostics: vec![],
-        structured_diagnostics: vec![],
-        equilibrium: None,
+        structured_diagnostics: constraint_diags,
+        equilibrium: Some(equilibrium),
     })
 }
 
@@ -595,6 +796,12 @@ pub fn solve_constrained_3d(input: &ConstrainedInput3D) -> Result<AnalysisResult
             }
         }
     }
+
+    // Pre-solve constraint validation
+    let constraint_diags = validate_constraints(
+        &input.constraints, &dof_num,
+        None, Some(&input.solver.nodes),
+    );
 
     let ct = build_constraint_transform(
         &input.constraints, &dof_num,
@@ -689,7 +896,7 @@ pub fn solve_constrained_3d(input: &ConstrainedInput3D) -> Result<AnalysisResult
         constraint_forces,
         diagnostics: vec![],
         solver_diagnostics: vec![],
-        structured_diagnostics: vec![],
+        structured_diagnostics: constraint_diags,
         equilibrium: None,
         timings: None,
     })

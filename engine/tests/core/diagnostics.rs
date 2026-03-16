@@ -2,6 +2,7 @@
 use crate::common::{make_input, make_3d_input, make_3d_beam};
 use dedaliano_engine::types::*;
 use dedaliano_engine::solver::linear::{solve_2d, solve_3d};
+use dedaliano_engine::solver::constraints::{solve_constrained_2d, ConstrainedInput};
 
 #[test]
 fn equilibrium_summary_2d_cantilever() {
@@ -140,4 +141,87 @@ fn structured_diagnostics_3d_dense_path() {
     // Equilibrium should be populated
     assert!(results.equilibrium.is_some());
     assert!(results.equilibrium.as_ref().unwrap().equilibrium_ok);
+}
+
+#[test]
+fn constraint_validation_conflicting() {
+    // Two EqualDOF constraints on the same slave DOF → ConflictingConstraints diagnostic
+    let mut base = make_input(
+        vec![(1, 0.0, 0.0), (2, 4.0, 0.0), (3, 8.0, 0.0)],
+        vec![(1, 200e3, 0.3)],
+        vec![(1, 0.01, 1e-4)],
+        vec![
+            (1, "frame", 1, 2, 1, 1, false, false),
+            (2, "frame", 2, 3, 1, 1, false, false),
+        ],
+        vec![(1, 1, "fixed"), (2, 3, "pinned")],
+        vec![SolverLoad::Nodal(SolverNodalLoad {
+            node_id: 2, fx: 0.0, fy: -10.0, mz: 0.0,
+        })],
+    );
+
+    // Both constraints make node 2 DOF 0 dependent on different masters
+    base.constraints = vec![
+        Constraint::EqualDOF(EqualDOFConstraint {
+            master_node: 1, slave_node: 2, dofs: vec![0],
+        }),
+        Constraint::EqualDOF(EqualDOFConstraint {
+            master_node: 3, slave_node: 2, dofs: vec![0],
+        }),
+    ];
+
+    let ci = ConstrainedInput {
+        solver: base.clone(),
+        constraints: base.constraints.clone(),
+    };
+    let results = solve_constrained_2d(&ci).unwrap();
+
+    // Should have ConflictingConstraints diagnostic
+    let conflict = results.structured_diagnostics.iter()
+        .find(|d| d.code == DiagnosticCode::ConflictingConstraints);
+    assert!(conflict.is_some(), "should detect conflicting constraints, got: {:?}",
+        results.structured_diagnostics);
+
+    // Equilibrium should still be populated (solve succeeds, just with a warning)
+    assert!(results.equilibrium.is_some());
+}
+
+#[test]
+fn constraint_validation_clean_passes() {
+    // A clean constraint setup should produce no constraint diagnostics
+    let mut base = make_input(
+        vec![(1, 0.0, 0.0), (2, 4.0, 0.0), (3, 8.0, 0.0)],
+        vec![(1, 200e3, 0.3)],
+        vec![(1, 0.01, 1e-4)],
+        vec![
+            (1, "frame", 1, 2, 1, 1, false, false),
+            (2, "frame", 2, 3, 1, 1, false, false),
+        ],
+        vec![(1, 1, "fixed"), (2, 3, "pinned")],
+        vec![SolverLoad::Nodal(SolverNodalLoad {
+            node_id: 2, fx: 0.0, fy: -10.0, mz: 0.0,
+        })],
+    );
+
+    base.constraints = vec![
+        Constraint::EqualDOF(EqualDOFConstraint {
+            master_node: 1, slave_node: 2, dofs: vec![0],
+        }),
+    ];
+
+    let ci = ConstrainedInput {
+        solver: base.clone(),
+        constraints: base.constraints.clone(),
+    };
+    let results = solve_constrained_2d(&ci).unwrap();
+
+    // No constraint-related diagnostics
+    let constraint_diags: Vec<_> = results.structured_diagnostics.iter()
+        .filter(|d| matches!(d.code,
+            DiagnosticCode::ConflictingConstraints |
+            DiagnosticCode::CircularConstraint |
+            DiagnosticCode::OverConstrainedDof
+        ))
+        .collect();
+    assert!(constraint_diags.is_empty(), "clean constraints should have no issues: {:?}", constraint_diags);
 }

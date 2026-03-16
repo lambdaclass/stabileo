@@ -1712,7 +1712,7 @@ pub(crate) fn compute_quad_nodal_stresses(
 /// Distributed/point/thermal loads are not summed here because their effect
 /// appears in reactions via the assembled force vector — equilibrium is
 /// checked as: |sum(reactions) + sum(nodal_loads)| ≈ 0 per direction.
-fn compute_equilibrium_summary_3d(
+pub(super) fn compute_equilibrium_summary_3d(
     input: &SolverInput3D,
     reactions: &[Reaction3D],
     rel_residual: f64,
@@ -1762,7 +1762,7 @@ fn compute_equilibrium_summary_3d(
 }
 
 /// Compute a post-solve equilibrium summary for 2D analysis.
-fn compute_equilibrium_summary_2d(
+pub(super) fn compute_equilibrium_summary_2d(
     input: &SolverInput,
     reactions: &[Reaction],
     rel_residual: f64,
