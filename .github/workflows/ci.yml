@@ -65,6 +65,10 @@ jobs:
         working-directory: engine
         run: cargo nextest run --profile ci -E 'test(/benchmark_.*constraint/)'
 
+      - name: Sparse shell gates
+        working-directory: engine
+        run: cargo nextest run --profile ci --test sparse_shell_gates
+
       - name: Run all tests
         working-directory: engine
         run: cargo nextest run --profile ci -E 'all() - test(harmonic_phase_breakdown) - test(harmonic_modal_vs_direct_timing)'

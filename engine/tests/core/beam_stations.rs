@@ -269,6 +269,270 @@ fn test_no_data_governing_absent_in_json() {
     assert!(gov.get("axial").is_none(), "axial should be absent");
 }
 
+// ==================== Grouped Snapshot Test ====================
+
+/// Snapshot: verify the serialized JSON shape of the grouped 2D output.
+/// If this test breaks, the product team's deserialization code may also break.
+#[test]
+fn test_grouped_snapshot_stable_output() {
+    // 2-span continuous beam: 3 nodes, 2 elements, 2 combos
+    let input_d = make_input(
+        vec![(1, 0.0, 0.0), (2, 6.0, 0.0), (3, 12.0, 0.0)],
+        vec![(1, 200000.0, 0.3)],
+        vec![(1, 0.15, 0.003125)],
+        vec![
+            (1, "frame", 1, 2, 1, 1, false, false),
+            (2, "frame", 2, 3, 1, 1, false, false),
+        ],
+        vec![(1, 1, "pinned"), (2, 2, "rollerX"), (3, 3, "rollerX")],
+        vec![SolverLoad::Distributed(SolverDistributedLoad {
+            element_id: 1, q_i: -10.0, q_j: -10.0, a: None, b: None,
+        })],
+    );
+    let results_d = solve_2d(&input_d).unwrap();
+
+    let input_l = make_input(
+        vec![(1, 0.0, 0.0), (2, 6.0, 0.0), (3, 12.0, 0.0)],
+        vec![(1, 200000.0, 0.3)],
+        vec![(1, 0.15, 0.003125)],
+        vec![
+            (1, "frame", 1, 2, 1, 1, false, false),
+            (2, "frame", 2, 3, 1, 1, false, false),
+        ],
+        vec![(1, 1, "pinned"), (2, 2, "rollerX"), (3, 3, "rollerX")],
+        vec![SolverLoad::Distributed(SolverDistributedLoad {
+            element_id: 1, q_i: -20.0, q_j: -20.0, a: None, b: None,
+        })],
+    );
+    let results_l = solve_2d(&input_l).unwrap();
+
+    let station_input = BeamStationInput {
+        members: vec![
+            BeamMemberInfo { element_id: 1, section_id: 1, material_id: 1, length: 6.0, label: None },
+            BeamMemberInfo { element_id: 2, section_id: 1, material_id: 1, length: 6.0, label: None },
+        ],
+        combinations: vec![
+            LabeledResults { combo_id: 1, combo_name: Some("D".into()), results: results_d },
+            LabeledResults { combo_id: 2, combo_name: Some("D+L".into()), results: results_l },
+        ],
+        num_stations: Some(5),
+    };
+
+    let grouped = extract_beam_stations_grouped(&station_input);
+    let v = serde_json::to_value(&grouped).unwrap();
+
+    // Top-level keys
+    assert!(v.get("members").is_some(), "Missing top-level 'members'");
+    assert!(v.get("numCombinations").is_some(), "Missing 'numCombinations'");
+    assert!(v.get("numStationsPerMember").is_some(), "Missing 'numStationsPerMember'");
+    assert!(v.get("signConvention").is_some(), "Missing 'signConvention'");
+
+    let members = v["members"].as_array().unwrap();
+    assert_eq!(members.len(), 2);
+
+    // Each member: expected keys
+    for m in members {
+        for key in &["memberId", "sectionId", "materialId", "length", "stations", "memberGoverning"] {
+            assert!(m.get(*key).is_some(), "Missing member key: {}", key);
+        }
+
+        // Each station: expected keys
+        let stations = m["stations"].as_array().unwrap();
+        assert!(!stations.is_empty());
+        for st in stations {
+            for key in &["stationIndex", "t", "stationX", "comboForces"] {
+                assert!(st.get(*key).is_some(), "Missing station key: {}", key);
+            }
+            // Each comboForces entry
+            let cfs = st["comboForces"].as_array().unwrap();
+            for cf in cfs {
+                for key in &["comboId", "n", "v", "m"] {
+                    assert!(cf.get(*key).is_some(), "Missing comboForces key: {}", key);
+                }
+            }
+        }
+
+        // memberGoverning: moment/shear/axial each with pos/neg combo, value, stationIndex
+        let gov = &m["memberGoverning"];
+        for gov_key in &["moment", "shear", "axial"] {
+            if let Some(entry) = gov.get(*gov_key) {
+                for field in &["posCombo", "posValue", "posStationIndex",
+                               "negCombo", "negValue", "negStationIndex"] {
+                    assert!(entry.get(*field).is_some(),
+                        "Missing memberGoverning.{}.{}", gov_key, field);
+                }
+            }
+        }
+    }
+
+    // Member 1 has load → memberGoverning.moment should exist
+    let gov1 = &members[0]["memberGoverning"];
+    assert!(gov1.get("moment").is_some(), "Member 1 should have governing moment");
+    assert!(gov1.get("shear").is_some(), "Member 1 should have governing shear");
+}
+
+// ==================== Design Demands Integration Tests ====================
+
+/// End-to-end: solve → grouped stations → steel demands.
+/// Verifies extract_steel_demands_2d produces non-empty, sensible results.
+#[test]
+fn test_steel_demands_integration() {
+    use dedaliano_engine::postprocess::design_demands::{extract_steel_demands_2d, DemandStrategy};
+
+    let input_d = make_input(
+        vec![(1, 0.0, 0.0), (2, 6.0, 0.0), (3, 12.0, 0.0)],
+        vec![(1, 200000.0, 0.3)],
+        vec![(1, 0.15, 0.003125)],
+        vec![
+            (1, "frame", 1, 2, 1, 1, false, false),
+            (2, "frame", 2, 3, 1, 1, false, false),
+        ],
+        vec![(1, 1, "pinned"), (2, 2, "rollerX"), (3, 3, "rollerX")],
+        vec![SolverLoad::Distributed(SolverDistributedLoad {
+            element_id: 1, q_i: -10.0, q_j: -10.0, a: None, b: None,
+        })],
+    );
+    let results_d = solve_2d(&input_d).unwrap();
+
+    let input_l = make_input(
+        vec![(1, 0.0, 0.0), (2, 6.0, 0.0), (3, 12.0, 0.0)],
+        vec![(1, 200000.0, 0.3)],
+        vec![(1, 0.15, 0.003125)],
+        vec![
+            (1, "frame", 1, 2, 1, 1, false, false),
+            (2, "frame", 2, 3, 1, 1, false, false),
+        ],
+        vec![(1, 1, "pinned"), (2, 2, "rollerX"), (3, 3, "rollerX")],
+        vec![SolverLoad::Distributed(SolverDistributedLoad {
+            element_id: 1, q_i: -20.0, q_j: -20.0, a: None, b: None,
+        })],
+    );
+    let results_l = solve_2d(&input_l).unwrap();
+
+    let station_input = BeamStationInput {
+        members: vec![
+            BeamMemberInfo { element_id: 1, section_id: 1, material_id: 1, length: 6.0, label: None },
+            BeamMemberInfo { element_id: 2, section_id: 1, material_id: 1, length: 6.0, label: None },
+        ],
+        combinations: vec![
+            LabeledResults { combo_id: 1, combo_name: Some("D".into()), results: results_d },
+            LabeledResults { combo_id: 2, combo_name: Some("D+L".into()), results: results_l },
+        ],
+        num_stations: Some(11),
+    };
+
+    let grouped = extract_beam_stations_grouped(&station_input);
+    let demands = extract_steel_demands_2d(&grouped, DemandStrategy::MaxAbsMoment);
+
+    // Non-empty: one per member
+    assert_eq!(demands.len(), 2, "Should have one demand per member");
+
+    // Correct element IDs
+    assert_eq!(demands[0].element_id, 1);
+    assert_eq!(demands[1].element_id, 2);
+
+    // Fields are sensible (not NaN)
+    for d in &demands {
+        assert!(!d.n.is_nan(), "n should not be NaN for element {}", d.element_id);
+        assert!(!d.my.is_nan(), "my should not be NaN for element {}", d.element_id);
+        assert!(d.vy.is_some(), "vy should be Some for 2D");
+        assert!(!d.vy.unwrap().is_nan(), "vy should not be NaN");
+        assert!(d.mz.is_none(), "mz should be None for 2D demands");
+    }
+
+    // Member 1 has load, so moment should be nonzero
+    assert!(demands[0].my.abs() > 1e-6, "Member 1 moment should be nonzero: {}", demands[0].my);
+
+    // JSON round-trip: verify key field names
+    let json_val = serde_json::to_value(&demands).unwrap();
+    let arr = json_val.as_array().unwrap();
+    for item in arr {
+        for key in &["elementId", "n", "my"] {
+            assert!(item.get(*key).is_some(), "Missing steel demand key: {}", key);
+        }
+    }
+}
+
+/// End-to-end: solve → grouped stations → RC demands.
+/// Verifies extract_rc_demands_2d produces non-empty, sensible results.
+#[test]
+fn test_rc_demands_integration() {
+    use dedaliano_engine::postprocess::design_demands::{extract_rc_demands_2d, DemandStrategy};
+
+    let input_d = make_input(
+        vec![(1, 0.0, 0.0), (2, 6.0, 0.0), (3, 12.0, 0.0)],
+        vec![(1, 200000.0, 0.3)],
+        vec![(1, 0.15, 0.003125)],
+        vec![
+            (1, "frame", 1, 2, 1, 1, false, false),
+            (2, "frame", 2, 3, 1, 1, false, false),
+        ],
+        vec![(1, 1, "pinned"), (2, 2, "rollerX"), (3, 3, "rollerX")],
+        vec![SolverLoad::Distributed(SolverDistributedLoad {
+            element_id: 1, q_i: -10.0, q_j: -10.0, a: None, b: None,
+        })],
+    );
+    let results_d = solve_2d(&input_d).unwrap();
+
+    let input_l = make_input(
+        vec![(1, 0.0, 0.0), (2, 6.0, 0.0), (3, 12.0, 0.0)],
+        vec![(1, 200000.0, 0.3)],
+        vec![(1, 0.15, 0.003125)],
+        vec![
+            (1, "frame", 1, 2, 1, 1, false, false),
+            (2, "frame", 2, 3, 1, 1, false, false),
+        ],
+        vec![(1, 1, "pinned"), (2, 2, "rollerX"), (3, 3, "rollerX")],
+        vec![SolverLoad::Distributed(SolverDistributedLoad {
+            element_id: 1, q_i: -20.0, q_j: -20.0, a: None, b: None,
+        })],
+    );
+    let results_l = solve_2d(&input_l).unwrap();
+
+    let station_input = BeamStationInput {
+        members: vec![
+            BeamMemberInfo { element_id: 1, section_id: 1, material_id: 1, length: 6.0, label: None },
+            BeamMemberInfo { element_id: 2, section_id: 1, material_id: 1, length: 6.0, label: None },
+        ],
+        combinations: vec![
+            LabeledResults { combo_id: 1, combo_name: Some("D".into()), results: results_d },
+            LabeledResults { combo_id: 2, combo_name: Some("D+L".into()), results: results_l },
+        ],
+        num_stations: Some(11),
+    };
+
+    let grouped = extract_beam_stations_grouped(&station_input);
+    let demands = extract_rc_demands_2d(&grouped, DemandStrategy::MaxAbsMoment);
+
+    // Non-empty: one per member
+    assert_eq!(demands.len(), 2, "Should have one demand per member");
+
+    // Correct element IDs
+    assert_eq!(demands[0].element_id, 1);
+    assert_eq!(demands[1].element_id, 2);
+
+    // Fields are sensible (not NaN)
+    for d in &demands {
+        assert!(!d.mu.is_nan(), "mu should not be NaN for element {}", d.element_id);
+        assert!(d.vu.is_some(), "vu should be Some for 2D");
+        assert!(!d.vu.unwrap().is_nan(), "vu should not be NaN");
+        assert!(d.nu.is_some(), "nu should be Some for 2D");
+        assert!(!d.nu.unwrap().is_nan(), "nu should not be NaN");
+    }
+
+    // Member 1 has load, so moment should be nonzero
+    assert!(demands[0].mu.abs() > 1e-6, "Member 1 mu should be nonzero: {}", demands[0].mu);
+
+    // JSON round-trip: verify key field names
+    let json_val = serde_json::to_value(&demands).unwrap();
+    let arr = json_val.as_array().unwrap();
+    for item in arr {
+        for key in &["elementId", "mu"] {
+            assert!(item.get(*key).is_some(), "Missing RC demand key: {}", key);
+        }
+    }
+}
+
 // ==================== Grouped-by-Member Integration Tests ====================
 
 /// Full solve → grouped extraction. Verifies member-level governing
