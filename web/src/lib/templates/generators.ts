@@ -1746,15 +1746,16 @@ export function generateSuspensionBridge3D(store: ModelStore, p: SuspensionBridg
       fy: 1600,
     });
 
-    // Section 1: Main cable bundle — d≈160mm, A=0.020 m² (HS wire: σ=H/A≈1024 MPa < 1600)
+    // Section 1: Main cable bundle — d≈280mm, A=0.060 m² (HS wire: σ=H/A≈341 MPa < 1600)
+    // Oversized vs minimum to limit cable stretch in linear analysis (no geometric stiffness)
     store.updateSection(1, {
       name: 'Main Cable',
-      a: 0.020,
-      iy: 0.0000318,
-      iz: 0.0000318,
-      j: 0.0000637,
-      h: 0.16,
-      b: 0.16,
+      a: 0.060,
+      iy: 0.000302,
+      iz: 0.000302,
+      j: 0.000604,
+      h: 0.28,
+      b: 0.28,
     });
     // Section 2: Deck chord — HEB 800 (stiffening truss chord for long-span bridge)
     const deckSecId = store.addSection({
