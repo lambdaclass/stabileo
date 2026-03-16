@@ -2,7 +2,9 @@ use crate::common::*;
 use dedaliano_engine::types::*;
 use dedaliano_engine::solver::linear::solve_3d;
 use dedaliano_engine::postprocess::beam_stations::*;
+use dedaliano_engine::postprocess::design_demands::*;
 use dedaliano_engine::postprocess::diagrams_3d::evaluate_diagram_3d_at;
+use dedaliano_engine::postprocess::steel_check::*;
 
 // Material/section constants
 const E: f64 = 200_000.0; // MPa (steel)
@@ -475,4 +477,95 @@ fn test_grouped_full_solve_3d() {
     // 3D-specific governing keys
     assert!(json.contains("momentZ") || json.contains("moment_z"));
     assert!(json.contains("shearY") || json.contains("shear_y"));
+}
+
+// ==================== Full Pipeline: Solve → Stations → Demands → Steel Check ====================
+
+/// End-to-end pipeline: 3D solve → station extraction → demand extraction → steel check.
+/// Proves the full bridge from solver output to design unity ratios works.
+#[test]
+fn test_full_pipeline_solve_to_steel_check_3d() {
+    // Steel cantilever with biaxial tip load
+    let input = make_3d_input(
+        vec![(1, 0.0, 0.0, 0.0), (2, 4.0, 0.0, 0.0)],
+        vec![(1, E, NU)],
+        vec![(1, A, IY, IZ, J)],
+        vec![(1, "frame", 1, 2, 1, 1)],
+        vec![(1, vec![true, true, true, true, true, true])],
+        vec![SolverLoad3D::Nodal(SolverNodalLoad3D {
+            node_id: 2, fx: -100.0, fy: -50.0, fz: 0.0, mx: 0.0, my: 0.0, mz: 0.0, bw: None,
+        })],
+    );
+    let results = solve_3d(&input).unwrap();
+
+    // Step 1: Station extraction
+    let station_input = BeamStationInput3D {
+        members: vec![BeamMemberInfo {
+            element_id: 1, section_id: 1, material_id: 1, length: 4.0, label: None,
+        }],
+        combinations: vec![LabeledResults3D {
+            combo_id: 1, combo_name: Some("ULS".to_string()), results,
+        }],
+        num_stations: Some(11),
+    };
+    let grouped = extract_beam_stations_grouped_3d(&station_input);
+
+    // Step 2: Demand extraction
+    let demands = extract_steel_demands_3d(&grouped, DemandStrategy::MaxAbsMoment);
+    assert_eq!(demands.len(), 1);
+    let d = &demands[0];
+    assert_eq!(d.element_id, 1);
+    // Cantilever with P=-100 and Fy=-50: should have compression and bending
+    assert!(d.n < 0.0, "Should be in compression: {}", d.n);
+    // Load is in Y direction on X-axis beam: moment is about Z, not Y
+    assert!(d.mz.unwrap_or(0.0).abs() > 1.0 || d.my.abs() > 1.0,
+        "Should have bending moment: my={}, mz={:?}", d.my, d.mz);
+
+    // Step 3: Steel check — use realistic W-shape properties
+    // W200x46: Fy=345 MPa, A=5890mm², Iy=45.5e6mm⁴, Iz=15.3e6mm⁴
+    // Units: kN and m (E in MPa = kN/m² / 1000 → forces in kN)
+    let fy: f64 = 345.0;  // MPa
+    let ag: f64 = 5890e-6; // m²
+    let iy_sec: f64 = 45.5e-6; // m⁴
+    let iz_sec: f64 = 15.3e-6; // m⁴
+    let ry = (iy_sec / ag).sqrt();
+    let rz = (iz_sec / ag).sqrt();
+    let j_sec = 0.306e-6; // m⁴
+    let zy = 497e-6; // m³ (plastic)
+    let zz = 157e-6; // m³
+    let sy = 448e-6; // m³ (elastic)
+    let sz = 104e-6; // m³
+
+    let steel_input = SteelCheckInput {
+        members: vec![SteelMemberData {
+            element_id: 1,
+            fy, ag,
+            an: None, u_factor: None,
+            lby: 4.0, lbz: 4.0,
+            ky: None, kz: None,
+            iy: iy_sec, iz: iz_sec,
+            ry, rz,
+            zy, zz, sy, sz,
+            j: j_sec,
+            cw: Some(0.0),
+            lb: Some(4.0),
+            cb: None,
+            e: E,
+            g: None,
+            depth: Some(0.203),
+        }],
+        forces: demands,
+    };
+
+    let results = check_steel_members(&steel_input);
+    assert_eq!(results.len(), 1);
+    let r = &results[0];
+
+    // Unity ratio should be finite and positive
+    assert!(r.unity_ratio.is_finite(), "Unity ratio should be finite");
+    assert!(r.unity_ratio > 0.0, "Unity ratio should be positive");
+    // Capacities should be positive
+    assert!(r.phi_pn_compression > 0.0);
+    assert!(r.phi_pn_tension > 0.0);
+    assert!(r.phi_mn_y > 0.0);
 }
