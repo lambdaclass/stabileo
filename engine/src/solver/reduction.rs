@@ -593,17 +593,11 @@ pub fn guyan_reduce_3d(input: &GuyanInput3D) -> Result<GuyanResult3D, String> {
     if nf == 0 { return Err("No free DOFs".into()); }
 
     let sasm = assembly::assemble_sparse_3d(&input.solver, &dof_num, false);
-    let k_ff_raw = sasm.k_ff.to_dense_symmetric();
     let f_f_raw: Vec<f64> = sasm.f[..nf].to_vec();
 
     // Apply constraint reduction
     let cs = FreeConstraintSystem::build_3d(&input.solver.constraints, &dof_num, &input.solver.nodes);
     let ns = cs.as_ref().map_or(nf, |c| c.n_free_indep);
-    let (k_ff, f_f) = if let Some(ref cs) = cs {
-        (cs.reduce_matrix(&k_ff_raw), cs.reduce_vector(&f_f_raw))
-    } else {
-        (k_ff_raw, f_f_raw)
-    };
 
     // Classify reduced DOFs into boundary and interior
     let rmap = cs.as_ref().map(|c| c.map_reduced_to_physical());
@@ -628,14 +622,31 @@ pub fn guyan_reduce_3d(input: &GuyanInput3D) -> Result<GuyanResult3D, String> {
     if nb == 0 { return Err("No boundary DOFs found".into()); }
     if ni == 0 { return Err("No interior DOFs to condense".into()); }
 
-    // Extract submatrices from reduced system
-    let k_bb = extract_submatrix(&k_ff, ns, &boundary_dofs, &boundary_dofs);
-    let k_bi = extract_submatrix(&k_ff, ns, &boundary_dofs, &interior_dofs);
-    let k_ib = extract_submatrix(&k_ff, ns, &interior_dofs, &boundary_dofs);
-    let k_ii = extract_submatrix(&k_ff, ns, &interior_dofs, &interior_dofs);
-
-    let f_b: Vec<f64> = boundary_dofs.iter().map(|&d| f_f[d]).collect();
-    let f_i: Vec<f64> = interior_dofs.iter().map(|&d| f_f[d]).collect();
+    // Extract submatrices and force vectors.
+    // When no constraints: extract directly from sparse K_ff (avoids full densification).
+    // When constraints: densify K_ff for constraint reduction, then extract from dense.
+    let (k_bb, k_bi, k_ib, k_ii, f_b, f_i) = if let Some(ref cs) = cs {
+        let k_ff_dense = cs.reduce_matrix(&sasm.k_ff.to_dense_symmetric());
+        let f_f = cs.reduce_vector(&f_f_raw);
+        (
+            extract_submatrix(&k_ff_dense, ns, &boundary_dofs, &boundary_dofs),
+            extract_submatrix(&k_ff_dense, ns, &boundary_dofs, &interior_dofs),
+            extract_submatrix(&k_ff_dense, ns, &interior_dofs, &boundary_dofs),
+            extract_submatrix(&k_ff_dense, ns, &interior_dofs, &interior_dofs),
+            boundary_dofs.iter().map(|&d| f_f[d]).collect::<Vec<f64>>(),
+            interior_dofs.iter().map(|&d| f_f[d]).collect::<Vec<f64>>(),
+        )
+    } else {
+        // No constraints: extract blocks directly from sparse K_ff
+        (
+            sasm.k_ff.extract_block_dense(&boundary_dofs, &boundary_dofs),
+            sasm.k_ff.extract_block_dense(&boundary_dofs, &interior_dofs),
+            sasm.k_ff.extract_block_dense(&interior_dofs, &boundary_dofs),
+            sasm.k_ff.extract_block_dense(&interior_dofs, &interior_dofs),
+            boundary_dofs.iter().map(|&d| f_f_raw[d]).collect::<Vec<f64>>(),
+            interior_dofs.iter().map(|&d| f_f_raw[d]).collect::<Vec<f64>>(),
+        )
+    };
 
     // Factorize K_II once via Cholesky (K_II is SPD)
     let l_ii = factorize_kii(&k_ii, ni)?;
@@ -721,10 +732,9 @@ pub fn guyan_reduce_3d(input: &GuyanInput3D) -> Result<GuyanResult3D, String> {
     let nr = n - nf;
     let reactions = if nr > 0 {
         if let Some(ref k_full) = sasm_full.k_full {
-            let k_full_dense = k_full.to_dense_symmetric();
             let free_idx2: Vec<usize> = (0..nf).collect();
             let rest_idx: Vec<usize> = (nf..n).collect();
-            let k_rf = extract_submatrix(&k_full_dense, n, &rest_idx, &free_idx2);
+            let k_rf = k_full.extract_block_dense(&rest_idx, &free_idx2);
             let f_r = extract_subvec(&sasm_full.f, &rest_idx);
             let k_rf_uf = mat_vec_rect(&k_rf, &u_f, nr, nf);
             let mut reactions_vec = vec![0.0; nr];
@@ -765,21 +775,15 @@ pub fn craig_bampton_3d(input: &CraigBamptonInput3D) -> Result<CraigBamptonResul
     if nf == 0 { return Err("No free DOFs".into()); }
 
     let sasm = assembly::assemble_sparse_3d(&input.solver, &dof_num, false);
-    let k_ff_raw = sasm.k_ff.to_dense_symmetric();
     let m_full = super::mass_matrix::assemble_mass_matrix_3d(&input.solver, &dof_num, &input.densities);
 
-    // Extract free-free matrices
+    // Extract free-free mass matrix (mass matrix is still dense)
     let free_idx: Vec<usize> = (0..nf).collect();
     let m_ff_raw = extract_submatrix(&m_full, n, &free_idx, &free_idx);
 
     // Apply constraint reduction
     let cs = FreeConstraintSystem::build_3d(&input.solver.constraints, &dof_num, &input.solver.nodes);
     let ns = cs.as_ref().map_or(nf, |c| c.n_free_indep);
-    let (k_ff, m_ff) = if let Some(ref cs) = cs {
-        (cs.reduce_matrix(&k_ff_raw), cs.reduce_matrix(&m_ff_raw))
-    } else {
-        (k_ff_raw, m_ff_raw)
-    };
 
     // Classify reduced DOFs
     let rmap = cs.as_ref().map(|c| c.map_reduced_to_physical());
@@ -806,12 +810,32 @@ pub fn craig_bampton_3d(input: &CraigBamptonInput3D) -> Result<CraigBamptonResul
 
     let n_modes = input.n_modes.min(ni);
 
-    // Extract submatrices from reduced system
-    let k_bb = extract_submatrix(&k_ff, ns, &boundary_dofs, &boundary_dofs);
-    let k_bi = extract_submatrix(&k_ff, ns, &boundary_dofs, &interior_dofs);
-    let k_ib = extract_submatrix(&k_ff, ns, &interior_dofs, &boundary_dofs);
-    let k_ii = extract_submatrix(&k_ff, ns, &interior_dofs, &interior_dofs);
+    // Extract stiffness submatrices.
+    // No constraints: extract directly from sparse K_ff.
+    // With constraints: densify for constraint reduction, then extract.
+    let (k_bb, k_bi, k_ib, k_ii) = if let Some(ref cs) = cs {
+        let k_ff_dense = cs.reduce_matrix(&sasm.k_ff.to_dense_symmetric());
+        (
+            extract_submatrix(&k_ff_dense, ns, &boundary_dofs, &boundary_dofs),
+            extract_submatrix(&k_ff_dense, ns, &boundary_dofs, &interior_dofs),
+            extract_submatrix(&k_ff_dense, ns, &interior_dofs, &boundary_dofs),
+            extract_submatrix(&k_ff_dense, ns, &interior_dofs, &interior_dofs),
+        )
+    } else {
+        (
+            sasm.k_ff.extract_block_dense(&boundary_dofs, &boundary_dofs),
+            sasm.k_ff.extract_block_dense(&boundary_dofs, &interior_dofs),
+            sasm.k_ff.extract_block_dense(&interior_dofs, &boundary_dofs),
+            sasm.k_ff.extract_block_dense(&interior_dofs, &interior_dofs),
+        )
+    };
 
+    // Mass submatrices (always from dense mass matrix — mass is already dense)
+    let m_ff = if let Some(ref cs) = cs {
+        cs.reduce_matrix(&m_ff_raw)
+    } else {
+        m_ff_raw
+    };
     let m_bb = extract_submatrix(&m_ff, ns, &boundary_dofs, &boundary_dofs);
     let m_bi = extract_submatrix(&m_ff, ns, &boundary_dofs, &interior_dofs);
     let m_ib = extract_submatrix(&m_ff, ns, &interior_dofs, &boundary_dofs);

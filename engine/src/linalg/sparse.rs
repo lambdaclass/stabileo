@@ -207,6 +207,58 @@ impl CscMatrix {
         CscMatrix::from_triplets(m, &rows, &cols, &vals)
     }
 
+    /// Extract a rectangular block A[row_indices, col_indices] from a symmetric
+    /// lower-triangle CSC matrix as a dense row-major matrix.
+    ///
+    /// Since we only store the lower triangle (i >= j), for an entry (i, j) with
+    /// i < j we look up (j, i) instead. This correctly handles both diagonal blocks
+    /// (K_bb, K_ii) and off-diagonal blocks (K_bi, K_ib).
+    pub fn extract_block_dense(
+        &self,
+        row_indices: &[usize],
+        col_indices: &[usize],
+    ) -> Vec<f64> {
+        let nr = row_indices.len();
+        let nc = col_indices.len();
+        let mut block = vec![0.0; nr * nc];
+
+        // Build fast lookup: old_row → new_row
+        let mut row_map = vec![usize::MAX; self.n];
+        for (new_r, &old_r) in row_indices.iter().enumerate() {
+            row_map[old_r] = new_r;
+        }
+
+        for (new_c, &old_c) in col_indices.iter().enumerate() {
+            // Scan column `old_c` in CSC for entries where row is in row_indices
+            for k in self.col_ptr[old_c]..self.col_ptr[old_c + 1] {
+                let old_r = self.row_idx[k];
+                // This is stored entry (old_r, old_c) with old_r >= old_c (lower tri)
+                let new_r = row_map[old_r];
+                if new_r != usize::MAX {
+                    block[new_r * nc + new_c] = self.values[k];
+                }
+            }
+
+            // For entries where old_r < old_c (upper tri), we need the symmetric
+            // counterpart: look in column old_r for row old_c.
+            // Specifically: for each row_index that is < old_c, the stored entry
+            // is at (old_c, old_r) in the lower triangle.
+            for (new_r, &old_r) in row_indices.iter().enumerate() {
+                if old_r < old_c {
+                    // Look for entry (old_c, old_r) in column old_r
+                    for k in self.col_ptr[old_r]..self.col_ptr[old_r + 1] {
+                        if self.row_idx[k] == old_c {
+                            block[new_r * nc + new_c] = self.values[k];
+                            break;
+                        }
+                    }
+                }
+            }
+        }
+
+        block
+    }
+
     /// Update values in-place, keeping the same sparsity pattern.
     /// `other` must have the same pattern (col_ptr, row_idx).
     pub fn add_values_inplace(&mut self, other: &CscMatrix) {
