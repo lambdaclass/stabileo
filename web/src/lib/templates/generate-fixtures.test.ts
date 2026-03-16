@@ -328,7 +328,7 @@ describe('Generate JSON fixtures', () => {
   const basic3D = [
     '3d-portal-frame', '3d-space-truss', '3d-cantilever-load',
     '3d-grid-slab', '3d-tower', '3d-torsion-beam',
-    '3d-nave-industrial', '3d-building', 'pro-edificio-7p',
+    '3d-nave-industrial', '3d-building', 'pro-edificio-7p', 'pro-sagrada-familia',
   ];
   for (const name of basic3D) {
     it(name, () => {

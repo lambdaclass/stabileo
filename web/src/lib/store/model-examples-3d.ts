@@ -1164,6 +1164,872 @@ export function load3DExample(name: string, api: ExampleAPI3D): boolean {
       return true;
     }
 
+
+    case 'pro-sagrada-familia': {
+      // ══════════════════════════════════════════════════════════════════════════
+      // SAGRADA FAMILIA — Basílica de Barcelona (Antoni Gaudí, 1882–present)
+      //
+      // Full structural FEM model based on published geometric data from:
+      //   - Arup structural analysis reports (Easton, Grant & Hulme 2019)
+      //   - Santiago Huerta "Structural Design in the Work of Gaudí" (UPM)
+      //   - Mark Burry parametric geometry research (mcburry.net)
+      //   - Daniel Davis column geometry studies (danieldavis.com)
+      //   - Official Sagrada Familia blog geometry articles
+      //   - Josep Gómez Serrano (UPC) — structural director since 1986
+      //
+      // GEOMETRY:
+      //   Module: 7.5m (Gaudí's universal module, 172.5m / 23 = 7.5m)
+      //   Plan: Latin cross, 90m × 45m naves + 60m transept
+      //   12 bays longitudinal × 6 column lines transverse = 78 column positions
+      //   4 column types: porphyry (12-sided star, Ø2.1m), basalt (10-sided, Ø1.75m),
+      //                   granite (8-sided, Ø1.4m), sandstone (6-sided, Ø1.05m)
+      //   Column height:diameter = 10:1. Branching follows Gaudí's rule:
+      //     first section height = N sides (m), subsequent sections halve.
+      //   Vault heights: outer 22m, lateral 30m, central 45m, crossing 60m, apse 75m
+      //
+      // TOWERS (18 total, octagonal with helicoid twist):
+      //   12 Bell towers: parabolic profile, helicoid spiral ±12°/level, shell panels
+      //     4 Nativity (NE): 98–107.5m, 4 Passion (SW): 107.5–112m, 4 Glory (SE): 112–120m
+      //   4 Evangelist towers: 135m, entasis profile (classical bulge)
+      //   Virgin Mary tower: 138m, 12-pointed star crown
+      //   Jesus Christ tower: 172.5m (= 23 × 7.5m), straight taper
+      //
+      // LOADS: D + L + Wind (Mediterranean) + Seismic (Barcelona CTE zone)
+      // ══════════════════════════════════════════════════════════════════════════
+      api.model.name = 'Sagrada Familia — PRO';
+
+      // ─── PARAMETERS ───
+      const G = 7.5;           // Gaudí's universal module (m)
+      const nBaysLong = 12;    // longitudinal bays (entrance to apse) = 90m
+      const totalLength = nBaysLong * G; // 90m
+      const totalWidth = 6 * G; // 45m (5 naves)
+      // Transverse column line positions (Z)
+      // 6 lines: outer walls + 4 internal separating 5 naves
+      const colZPos = [0, G, 2 * G, 4 * G, 5 * G, 6 * G]; // 0,7.5,15,30,37.5,45
+      // Nave widths: outer(7.5), lateral(7.5), central(15), lateral(7.5), outer(7.5)
+
+      // Vault spring heights by Z-strip
+      const vaultH = [22, 30, 45, 45, 30, 22]; // height at each column Z line
+      // Vault crown heights between Z-strips (midspan of each nave)
+      const crownH = [25, 34, 60, 34, 25]; // crown between zi and zi+1
+
+      // Transept parameters
+      const transeptBay = 8;  // bay index where transept crosses
+      const transeptExt = G;  // transept extends 7.5m beyond outer naves each side
+
+      // ─── MATERIALS ───
+      // 4 stone types (per official blog: columns of the Sagrada Familia)
+      // Height:diameter = 10:1 rule (official geometry)
+      const matPorph = api.addMaterial({ name: 'Pórfido rojo (12 lados)', e: 70000, nu: 0.25, rho: 27, fy: 20 });
+      const matBasalt = api.addMaterial({ name: 'Basalto negro (10 lados)', e: 70000, nu: 0.25, rho: 29, fy: 20 });
+      const matGranite = api.addMaterial({ name: 'Granito gris (8 lados)', e: 55000, nu: 0.20, rho: 26, fy: 20 });
+      const matSandst = api.addMaterial({ name: 'Arenisca Montjuïc (6 lados)', e: 20000, nu: 0.15, rho: 23, fy: 20 });
+      const matHA = api.addMaterial({ name: 'H.A. bóvedas/nervaduras', e: 32000, nu: 0.2, rho: 25, fy: 30 });
+      const matSteel = api.addMaterial({ name: 'Acero prestress torres', e: 200000, nu: 0.3, rho: 78.5, fy: 235 });
+
+      // ─── SECTIONS ───
+      // Columns: circular equivalents (π/4 × d² for A, π/64 × d⁴ for I)
+      const secPorph = api.addSection({ // Ø2.1m, H=21m (10:1 rule, 12 sides)
+        name: 'Pórfido Ø2100', a: 3.464, iz: 0.955, iy: 0.955, j: 1.91,
+        b: 2.1, h: 2.1, shape: 'rect',
+      });
+      const secBasalt = api.addSection({ // Ø1.75m, H=17.5m
+        name: 'Basalto Ø1750', a: 2.405, iz: 0.460, iy: 0.460, j: 0.92,
+        b: 1.75, h: 1.75, shape: 'rect',
+      });
+      const secGranite = api.addSection({ // Ø1.4m, H=14m
+        name: 'Granito Ø1400', a: 1.539, iz: 0.189, iy: 0.189, j: 0.378,
+        b: 1.4, h: 1.4, shape: 'rect',
+      });
+      const secSandst = api.addSection({ // Ø1.05m, H=10.5m
+        name: 'Arenisca Ø1050', a: 0.866, iz: 0.060, iy: 0.060, j: 0.120,
+        b: 1.05, h: 1.05, shape: 'rect',
+      });
+      // Branch sections (sub-columns after bifurcation)
+      const secBranch1 = api.addSection({ // primary branch Ø900
+        name: 'Rama Ø900', a: 0.636, iz: 0.0322, iy: 0.0322, j: 0.0644,
+        b: 0.9, h: 0.9, shape: 'rect',
+      });
+      const secBranch2 = api.addSection({ // secondary branch Ø600
+        name: 'Rama Ø600', a: 0.283, iz: 0.00636, iy: 0.00636, j: 0.01272,
+        b: 0.6, h: 0.6, shape: 'rect',
+      });
+      // Vault ribs (nervaduras hiperbólicas)
+      const secRibMain = api.addSection({
+        name: 'Nervadura principal 50×100', a: 0.50, iz: 0.04167, iy: 0.01042, j: 0.022,
+        b: 0.50, h: 1.00, shape: 'rect',
+      });
+      const secRibSec = api.addSection({
+        name: 'Nervadura secundaria 30×60', a: 0.18, iz: 0.0054, iy: 0.00135, j: 0.004,
+        b: 0.30, h: 0.60, shape: 'rect',
+      });
+      const secRibDiag = api.addSection({
+        name: 'Nervadura diagonal 35×70', a: 0.245, iz: 0.01001, iy: 0.0025, j: 0.008,
+        b: 0.35, h: 0.70, shape: 'rect',
+      });
+      // Gallery/triforium level beams
+      const secGallery = api.addSection({
+        name: 'Galería 30×50', a: 0.15, iz: 0.003125, iy: 0.001125, j: 0.003,
+        b: 0.30, h: 0.50, shape: 'rect',
+      });
+      // Tower sections
+      const secTwCol = api.addSection({
+        name: 'Torre columna 80×80', a: 0.64, iz: 0.03413, iy: 0.03413, j: 0.058,
+        b: 0.80, h: 0.80, shape: 'rect',
+      });
+      const secTwBeam = api.addSection({
+        name: 'Torre viga 50×60', a: 0.30, iz: 0.009, iy: 0.00625, j: 0.010,
+        b: 0.50, h: 0.60, shape: 'rect',
+      });
+      const secTwBrace = api.addSection({
+        name: 'Torre riostra Ø350', a: 0.0962, iz: 7.37e-4, iy: 7.37e-4,
+        h: 0.35, b: 0.35, shape: 'tube',
+      });
+      // Outer wall section
+      const secWall = api.addSection({
+        name: 'Muro ext 40×60', a: 0.24, iz: 0.0072, iy: 0.0032, j: 0.006,
+        b: 0.40, h: 0.60, shape: 'rect',
+      });
+
+      // ─── HELPERS ───
+      const addF = (n1: number, n2: number, mat: number, sec: number) => {
+        const eid = api.addElement(n1, n2, 'frame');
+        api.updateElementMaterial(eid, mat); api.updateElementSection(eid, sec);
+        return eid;
+      };
+      const addT = (n1: number, n2: number, mat: number, sec: number) => {
+        const eid = api.addElement(n1, n2, 'truss');
+        api.updateElementMaterial(eid, mat); api.updateElementSection(eid, sec);
+        return eid;
+      };
+
+      // ═══════════════════════════════════════════════════════════════
+      // 1. COLUMNS — 78 positions on 7.5m grid (13 × 6)
+      //    Column type assignment per Gaudí's hierarchy:
+      //    Crossing (4): porphyry 12-sided
+      //    Evangelist (8): basalt 10-sided
+      //    Nave (central+lateral): granite 8-sided
+      //    Outer naves: sandstone 6-sided
+      // ═══════════════════════════════════════════════════════════════
+
+      // Column type assignment function
+      function getColType(bx: number, zi: number): { mat: number; sec: number; sides: number; branchSec: number } {
+        // 4 crossing columns: porphyry (transept × central nave)
+        if ((bx === transeptBay || bx === transeptBay + 1) && (zi === 2 || zi === 3)) {
+          return { mat: matPorph, sec: secPorph, sides: 12, branchSec: secBranch1 };
+        }
+        // 8 evangelist columns: basalt (transept × lateral naves)
+        if ((bx === transeptBay || bx === transeptBay + 1) && (zi === 1 || zi === 4)) {
+          return { mat: matBasalt, sec: secBasalt, sides: 10, branchSec: secBranch1 };
+        }
+        // Central nave columns: basalt
+        if (zi === 2 || zi === 3) {
+          return { mat: matBasalt, sec: secBasalt, sides: 10, branchSec: secBranch1 };
+        }
+        // Lateral nave columns: granite
+        if (zi === 1 || zi === 4) {
+          return { mat: matGranite, sec: secGranite, sides: 8, branchSec: secBranch2 };
+        }
+        // Outer nave columns: sandstone
+        return { mat: matSandst, sec: secSandst, sides: 6, branchSec: secBranch2 };
+      }
+
+      // Node storage
+      const cBase: number[][] = [];  // [bx][zi] base node (Y=0)
+      const cMid: number[][] = [];   // [bx][zi] gallery level node
+      const cBranch: number[][] = []; // [bx][zi] branching point
+      const cTop: number[][] = [];   // [bx][zi] vault spring level
+      const galleryH = 15;           // gallery/triforium height (m)
+
+      for (let bx = 0; bx <= nBaysLong; bx++) {
+        const x = bx * G;
+        cBase[bx] = []; cMid[bx] = []; cBranch[bx] = []; cTop[bx] = [];
+
+        for (let zi = 0; zi < 6; zi++) {
+          const z = colZPos[zi];
+          const ct = getColType(bx, zi);
+          const topH = vaultH[zi];
+
+          // Branching height: first section = N sides in meters
+          // Then halving. Total trunk = sides + sides/2 + sides/4 + ... ≈ 2×sides
+          // But capped at 75% of vault spring height
+          const branchH = Math.min(ct.sides * 1.5, topH * 0.65);
+
+          // Create nodes
+          cBase[bx][zi] = api.addNode(x, 0, z);
+          api.addSupport(cBase[bx][zi], 'fixed3d');
+
+          cMid[bx][zi] = api.addNode(x, galleryH, z);
+          cBranch[bx][zi] = api.addNode(x, branchH, z);
+          cTop[bx][zi] = api.addNode(x, topH, z);
+
+          // Trunk: base → gallery → branch → top
+          if (galleryH < branchH) {
+            addF(cBase[bx][zi], cMid[bx][zi], ct.mat, ct.sec);
+            addF(cMid[bx][zi], cBranch[bx][zi], ct.mat, ct.sec);
+          } else {
+            addF(cBase[bx][zi], cBranch[bx][zi], ct.mat, ct.sec);
+            cMid[bx][zi] = cBranch[bx][zi]; // gallery at branch level
+          }
+          addF(cBranch[bx][zi], cTop[bx][zi], ct.mat, ct.branchSec);
+
+          // ─── Tree branching (Gaudí's fractal rule) ───
+          // Level 1: 4 primary branches from trunk at branchH
+          //   Each curves outward via intermediate knuckle node
+          // Level 2: each primary splits into 2 sub-branches (for ≥8-sided columns)
+          // Level 3: for ≥10-sided, sub-branches split again (tertiary tips)
+          // This creates the forest-canopy effect visible in the real basilica
+          const span = topH - branchH;
+          const off1 = 3.0;
+          const dirs: [number, number][] = [[off1, 0], [-off1, 0], [0, off1], [0, -off1]];
+          for (const [dx, dz] of dirs) {
+            const tx1 = x + dx * 0.5;
+            const tz1 = z + dz * 0.5;
+            const ty1 = branchH + span * 0.35;
+            if (tx1 < -2 || tx1 > totalLength + 2 || tz1 < -2 || tz1 > totalWidth + 2) continue;
+            // Knuckle node (slight curve outward)
+            const knuckle = api.addNode(tx1, ty1, tz1);
+            addF(cBranch[bx][zi], knuckle, ct.mat, ct.branchSec);
+
+            // Primary tip
+            const tx2 = x + dx;
+            const tz2 = z + dz;
+            const ty2 = branchH + span * 0.65;
+            const primTip = api.addNode(tx2, ty2, tz2);
+            addF(knuckle, primTip, ct.mat, ct.branchSec);
+
+            // Level 2 sub-branches for ≥8-sided columns
+            if (ct.sides >= 8) {
+              // Split into 2 sub-tips, perpendicular to primary direction
+              const perpX = dz !== 0 ? 1.5 : 0;
+              const perpZ = dx !== 0 ? 1.5 : 0;
+              const subH = branchH + span * 0.85;
+              for (const sign of [-1, 1]) {
+                const sx = tx2 + sign * perpX;
+                const sz = tz2 + sign * perpZ;
+                if (sx < -2 || sx > totalLength + 2 || sz < -2 || sz > totalWidth + 2) continue;
+                const subTip = api.addNode(sx, subH, sz);
+                addF(primTip, subTip, ct.mat, secBranch2);
+
+                // Level 3 tertiary tips for ≥10-sided (porphyry, basalt)
+                if (ct.sides >= 10) {
+                  const terH = branchH + span * 0.95;
+                  const terX = sx + dx * 0.3;
+                  const terZ = sz + dz * 0.3;
+                  if (terX >= -2 && terX <= totalLength + 2 && terZ >= -2 && terZ <= totalWidth + 2) {
+                    const terTip = api.addNode(terX, terH, terZ);
+                    addF(subTip, terTip, ct.mat, secBranch2);
+                  }
+                }
+              }
+            }
+          }
+          // Diagonal branches (45° between primary directions)
+          if (ct.sides >= 8) {
+            const dOff = 2.2;
+            const diagDirs: [number, number][] = [[dOff, dOff], [-dOff, dOff], [dOff, -dOff], [-dOff, -dOff]];
+            for (const [dx, dz] of diagDirs) {
+              const tx = x + dx;
+              const tz = z + dz;
+              if (tx < -2 || tx > totalLength + 2 || tz < -2 || tz > totalWidth + 2) continue;
+              const diagTip = api.addNode(tx, branchH + span * 0.7, tz);
+              addF(cBranch[bx][zi], diagTip, ct.mat, secBranch2);
+            }
+          }
+        }
+      }
+
+      // ═══════════════════════════════════════════════════════════════
+      // 2. GALLERY / TRIFORIUM — Continuous beams at Y=15m
+      //    Runs longitudinally and transversally between columns
+      // ═══════════════════════════════════════════════════════════════
+
+      // Longitudinal gallery beams
+      for (let zi = 0; zi < 6; zi++) {
+        for (let bx = 0; bx < nBaysLong; bx++) {
+          addF(cMid[bx][zi], cMid[bx + 1][zi], matHA, secGallery);
+        }
+      }
+      // Transverse gallery beams
+      for (let bx = 0; bx <= nBaysLong; bx++) {
+        for (let zi = 0; zi < 5; zi++) {
+          addF(cMid[bx][zi], cMid[bx][zi + 1], matHA, secGallery);
+        }
+      }
+
+      // ═══════════════════════════════════════════════════════════════
+      // 3. VAULT RIBS — Network of ribs at vault spring level
+      //    Main ribs (longitudinal + transverse) + diagonal cross-ribs
+      //    Plus crown nodes elevated above spring level
+      // ═══════════════════════════════════════════════════════════════
+
+      // Longitudinal ribs (X direction) connecting column tops
+      for (let zi = 0; zi < 6; zi++) {
+        for (let bx = 0; bx < nBaysLong; bx++) {
+          addF(cTop[bx][zi], cTop[bx + 1][zi], matHA, secRibMain);
+        }
+      }
+
+      // Transverse ribs (Z direction) connecting column tops
+      for (let bx = 0; bx <= nBaysLong; bx++) {
+        for (let zi = 0; zi < 5; zi++) {
+          addF(cTop[bx][zi], cTop[bx][zi + 1], matHA, secRibMain);
+        }
+      }
+
+      // Crown nodes and cross ribs for each vault bay
+      // Each bay gets a crown node at its center, elevated to the proper vault height
+      const vCrown: number[][] = []; // [bx][zi] crown node for bay bx, strip zi→zi+1
+      for (let bx = 0; bx < nBaysLong; bx++) {
+        vCrown[bx] = [];
+        const cx = (bx + 0.5) * G;
+        for (let zi = 0; zi < 5; zi++) {
+          const cz = (colZPos[zi] + colZPos[zi + 1]) / 2;
+          const ch = crownH[zi];
+          vCrown[bx][zi] = api.addNode(cx, ch, cz);
+
+          // Connect crown to 4 corners of the bay
+          addF(cTop[bx][zi], vCrown[bx][zi], matHA, secRibDiag);
+          addF(cTop[bx + 1][zi], vCrown[bx][zi], matHA, secRibDiag);
+          addF(cTop[bx][zi + 1], vCrown[bx][zi], matHA, secRibDiag);
+          addF(cTop[bx + 1][zi + 1], vCrown[bx][zi], matHA, secRibDiag);
+        }
+      }
+
+      // Secondary ribs connecting adjacent crowns (longitudinal and transverse)
+      for (let bx = 0; bx < nBaysLong; bx++) {
+        for (let zi = 0; zi < 4; zi++) {
+          addF(vCrown[bx][zi], vCrown[bx][zi + 1], matHA, secRibSec);
+        }
+      }
+      for (let zi = 0; zi < 5; zi++) {
+        for (let bx = 0; bx < nBaysLong - 1; bx++) {
+          addF(vCrown[bx][zi], vCrown[bx + 1][zi], matHA, secRibSec);
+        }
+      }
+
+      // ═══════════════════════════════════════════════════════════════
+      // 4. VAULT SHELLS — 4 triangular plates per bay (subdivided)
+      //    Each bay has crown node + 4 corners → 4 triangles
+      //    Total: 12 × 5 × 4 = 240 triangular shells
+      // ═══════════════════════════════════════════════════════════════
+
+      // Shell thickness by nave type
+      const shellT = [0.15, 0.20, 0.30, 0.20, 0.15]; // outer, lateral, central, lateral, outer
+
+      for (let bx = 0; bx < nBaysLong; bx++) {
+        for (let zi = 0; zi < 5; zi++) {
+          const t = shellT[zi];
+          const cr = vCrown[bx][zi];
+          const n00 = cTop[bx][zi];
+          const n10 = cTop[bx + 1][zi];
+          const n11 = cTop[bx + 1][zi + 1];
+          const n01 = cTop[bx][zi + 1];
+          // 4 triangular plates
+          api.addPlate([n00, n10, cr], matHA, t);
+          api.addPlate([n10, n11, cr], matHA, t);
+          api.addPlate([n11, n01, cr], matHA, t);
+          api.addPlate([n01, n00, cr], matHA, t);
+        }
+      }
+
+      // ═══════════════════════════════════════════════════════════════
+      // 5. OUTER WALLS — Between exterior column lines
+      //    Frame elements at wall lines (Z=0 and Z=45m)
+      //    With intermediate vertical struts every half-bay
+      // ═══════════════════════════════════════════════════════════════
+
+      // Wall struts at mid-bay between outer columns
+      for (const zi of [0, 5]) {
+        for (let bx = 0; bx < nBaysLong; bx++) {
+          const mx = (bx + 0.5) * G;
+          const wallBase = api.addNode(mx, 0, colZPos[zi]);
+          const wallMid = api.addNode(mx, galleryH, colZPos[zi]);
+          const wallTop = api.addNode(mx, vaultH[zi], colZPos[zi]);
+          api.addSupport(wallBase, 'fixed3d');
+          addF(wallBase, wallMid, matSandst, secWall);
+          addF(wallMid, wallTop, matSandst, secWall);
+          // Connect to adjacent column tops and mids
+          addF(wallMid, cMid[bx][zi], matHA, secGallery);
+          addF(wallMid, cMid[bx + 1][zi], matHA, secGallery);
+          addF(wallTop, cTop[bx][zi], matHA, secRibSec);
+          addF(wallTop, cTop[bx + 1][zi], matHA, secRibSec);
+        }
+      }
+
+      // ═══════════════════════════════════════════════════════════════
+      // 6. TRANSEPT — Extended arms beyond nave width
+      //    Extends 7.5m on each side (Z<0 and Z>45m)
+      //    at bays transeptBay and transeptBay+1
+      // ═══════════════════════════════════════════════════════════════
+
+      const transeptH = 30; // transept arm vault height
+      const trNodes: number[][] = []; // [side 0=left, 1=right][0=base, 1=mid, 2=top]
+
+      for (let side = 0; side < 2; side++) {
+        const tz = side === 0 ? -transeptExt : totalWidth + transeptExt;
+        trNodes[side] = [];
+
+        for (let bi = 0; bi < 2; bi++) {
+          const bx = transeptBay + bi;
+          const x = bx * G;
+          const base = api.addNode(x, 0, tz);
+          api.addSupport(base, 'fixed3d');
+          const mid = api.addNode(x, galleryH, tz);
+          const top = api.addNode(x, transeptH, tz);
+          addF(base, mid, matGranite, secGranite);
+          addF(mid, top, matGranite, secBranch1);
+
+          // Connect to main nave outer columns
+          const nearZi = side === 0 ? 0 : 5;
+          addF(mid, cMid[bx][nearZi], matHA, secGallery);
+          addF(top, cTop[bx][nearZi], matHA, secRibMain);
+          trNodes[side].push(top);
+        }
+        // Transverse rib between transept pair
+        if (trNodes[side].length === 2) {
+          addF(trNodes[side][0], trNodes[side][1], matHA, secRibMain);
+        }
+      }
+
+      // Transept vault quads (connecting transept arm to outer nave)
+      for (let side = 0; side < 2; side++) {
+        const nearZi = side === 0 ? 0 : 5;
+        if (trNodes[side].length === 2) {
+          api.addQuad([
+            cTop[transeptBay][nearZi], cTop[transeptBay + 1][nearZi],
+            trNodes[side][1], trNodes[side][0],
+          ], matHA, 0.20);
+        }
+      }
+
+      // Crossing vault — extra shell above the 4 porphyry columns
+      // The crossing reaches 60m height (already captured by crownH[2]=60 for central nave)
+      // Add a special keystone node at 60m
+      const keystoneNode = api.addNode(
+        (transeptBay + 0.5) * G, 60,
+        (colZPos[2] + colZPos[3]) / 2,
+      );
+      // Connect to 4 crossing column tops
+      addF(cTop[transeptBay][2], keystoneNode, matHA, secRibMain);
+      addF(cTop[transeptBay + 1][2], keystoneNode, matHA, secRibMain);
+      addF(cTop[transeptBay][3], keystoneNode, matHA, secRibMain);
+      addF(cTop[transeptBay + 1][3], keystoneNode, matHA, secRibMain);
+      // Crossing shell plates (4 triangles)
+      api.addPlate([cTop[transeptBay][2], cTop[transeptBay + 1][2], keystoneNode], matHA, 0.35);
+      api.addPlate([cTop[transeptBay + 1][2], cTop[transeptBay + 1][3], keystoneNode], matHA, 0.35);
+      api.addPlate([cTop[transeptBay + 1][3], cTop[transeptBay][3], keystoneNode], matHA, 0.35);
+      api.addPlate([cTop[transeptBay][3], cTop[transeptBay][2], keystoneNode], matHA, 0.35);
+
+      // ═══════════════════════════════════════════════════════════════
+      // 7. APSE — Semicircular ambulatory with 7 radial chapels
+      //    Located at X > 90m (east end)
+      //    Outer ring: R=22.5m (ambulatory columns)
+      //    Inner ring: R=15m (connects to last nave columns)
+      // ═══════════════════════════════════════════════════════════════
+
+      const apseCx = totalLength + 5;   // center X of apse
+      const apseCz = totalWidth / 2;    // center Z
+      const apseRout = 22.5;            // outer ambulatory radius
+      const apseRin = 15;               // inner ring radius
+      const nApseCol = 9;               // columns in semicircle
+      const apseH = 30;                 // ambulatory vault height
+      const apseApexH = 75;             // apse apex (highest vault)
+
+      const apseOutBase: number[] = [];
+      const apseOutTop: number[] = [];
+      const apseInBase: number[] = [];
+      const apseInTop: number[] = [];
+
+      for (let i = 0; i < nApseCol; i++) {
+        const angle = Math.PI * (0.5 + i / (nApseCol - 1)); // 90° to 270°
+
+        // Outer ring
+        const ox = apseCx + apseRout * Math.cos(angle);
+        const oz = apseCz + apseRout * Math.sin(angle);
+        apseOutBase[i] = api.addNode(ox, 0, oz);
+        api.addSupport(apseOutBase[i], 'fixed3d');
+        apseOutTop[i] = api.addNode(ox, apseH, oz);
+        addF(apseOutBase[i], apseOutTop[i], matSandst, secSandst);
+
+        // Inner ring
+        const ix = apseCx + apseRin * Math.cos(angle);
+        const iz = apseCz + apseRin * Math.sin(angle);
+        apseInBase[i] = api.addNode(ix, 0, iz);
+        api.addSupport(apseInBase[i], 'fixed3d');
+        apseInTop[i] = api.addNode(ix, apseH + 8, iz);
+        addF(apseInBase[i], apseInTop[i], matGranite, secGranite);
+      }
+
+      // Ribs between apse columns
+      for (let i = 0; i < nApseCol - 1; i++) {
+        addF(apseOutTop[i], apseOutTop[i + 1], matHA, secRibMain);
+        addF(apseInTop[i], apseInTop[i + 1], matHA, secRibMain);
+        addF(apseOutTop[i], apseInTop[i], matHA, secRibSec); // radial ribs
+        // Ambulatory shell quads between rings
+        api.addQuad([
+          apseOutTop[i], apseOutTop[i + 1], apseInTop[i + 1], apseInTop[i],
+        ], matHA, 0.20);
+      }
+      // Last radial rib
+      addF(apseOutTop[nApseCol - 1], apseInTop[nApseCol - 1], matHA, secRibSec);
+
+      // Connect apse inner ring to last nave columns
+      addF(apseInTop[0], cTop[nBaysLong][5], matHA, secRibMain);
+      addF(apseInTop[nApseCol - 1], cTop[nBaysLong][0], matHA, secRibMain);
+      // Connect intermediate apse columns to nearest nave columns
+      const midApse = Math.floor(nApseCol / 2);
+      addF(apseInTop[midApse], cTop[nBaysLong][2], matHA, secRibMain);
+      addF(apseInTop[midApse], cTop[nBaysLong][3], matHA, secRibMain);
+      // More connections
+      if (nApseCol >= 5) {
+        addF(apseInTop[2], cTop[nBaysLong][4], matHA, secRibSec);
+        addF(apseInTop[nApseCol - 3], cTop[nBaysLong][1], matHA, secRibSec);
+      }
+
+      // Apse vault apex
+      const apseApex = api.addNode(apseCx, apseApexH, apseCz);
+      for (let i = 0; i < nApseCol; i++) {
+        addF(apseInTop[i], apseApex, matHA, secRibDiag);
+      }
+      // Apse crown shells (triangular)
+      for (let i = 0; i < nApseCol - 1; i++) {
+        api.addPlate([apseInTop[i], apseInTop[i + 1], apseApex], matHA, 0.25);
+      }
+
+      // 7 radial chapel niches (small extrusions beyond outer ring)
+      const nChapels = 7;
+      for (let i = 0; i < nChapels; i++) {
+        const angle = Math.PI * (0.6 + i * 0.8 / (nChapels - 1));
+        const chapR = apseRout + 4; // 4m deep chapels
+        const cx = apseCx + chapR * Math.cos(angle);
+        const cz = apseCz + chapR * Math.sin(angle);
+        const chapBase = api.addNode(cx, 0, cz);
+        api.addSupport(chapBase, 'fixed3d');
+        const chapTop = api.addNode(cx, apseH - 5, cz);
+        addF(chapBase, chapTop, matSandst, secSandst);
+        // Connect to nearest outer apse column
+        const nearI = Math.round(i * (nApseCol - 1) / (nChapels - 1));
+        addF(chapTop, apseOutTop[Math.min(nearI, nApseCol - 1)], matHA, secRibSec);
+      }
+
+      // ═══════════════════════════════════════════════════════════════
+      // 8. ALL 18 TOWERS — Octagonal cylinders with helicoid twist
+      //    Bell towers (12): octagonal with parabolic profile + helicoid rotation
+      //    Evangelist towers (4): octagonal, straight taper, taller
+      //    Virgin Mary (1): octagonal with star crown (12-pointed)
+      //    Jesus Christ (1): octagonal, tallest at 172.5m (23 × 7.5m module)
+      //
+      //    Each tower uses 8 nodes per level arranged in a circle.
+      //    Helicoid twist: each level rotates by twistPerLevel radians.
+      //    Bell tower profile: parabolic bulge (wider at mid-height, pinches at top)
+      //    Pinnacle: top 15% narrows rapidly to a spire point.
+      // ═══════════════════════════════════════════════════════════════
+
+      // Bell tower profile: radius as function of normalized height t ∈ [0,1]
+      // Based on the real Sagrada Familia bell tower silhouette:
+      // Flared base → slight narrowing → midheight bulge → rapid taper → pinnacle
+      function bellProfile(t: number, baseR: number): number {
+        if (t < 0.05) return baseR * (1.0 + 0.1 * (1 - t / 0.05)); // base flare
+        if (t < 0.25) return baseR * (1.0 - 0.08 * ((t - 0.05) / 0.20)); // slight narrowing
+        if (t < 0.55) return baseR * (0.92 + 0.18 * Math.sin(Math.PI * (t - 0.25) / 0.30)); // midheight bulge
+        if (t < 0.75) return baseR * (1.0 - 0.25 * ((t - 0.55) / 0.20)); // upper taper
+        if (t < 0.88) return baseR * (0.75 - 0.45 * ((t - 0.75) / 0.13)); // rapid taper to pinnacle neck
+        return baseR * (0.30 - 0.25 * ((t - 0.88) / 0.12)); // pinnacle spire
+      }
+      // Straight taper for central towers
+      function straightProfile(t: number, baseR: number): number {
+        return baseR * (1.0 - 0.35 * t);
+      }
+      // Evangelist profile: slight entasis (classical bulge)
+      function entasisProfile(t: number, baseR: number): number {
+        const entasis = 0.06 * Math.sin(Math.PI * t * 0.7); // subtle bulge in lower half
+        return baseR * (1.0 - 0.30 * t + entasis);
+      }
+
+      const NSides = 8; // octagonal cross-section for all towers
+
+      // Tower definitions with profile type
+      type TowerProfile = 'bell' | 'straight' | 'entasis';
+      const allTowers: { x: number; z: number; h: number; r: number; levels: number; twist: number; profile: TowerProfile }[] = [
+        // 12 Bell towers — octagonal with parabolic profile + helicoid twist (12°/level)
+        // Nativity facade (X=0)
+        { x: -5, z: 5.5, h: 98, r: 3.0, levels: 18, twist: 0.21, profile: 'bell' },
+        { x: -5, z: 14.5, h: 107.5, r: 3.0, levels: 20, twist: 0.21, profile: 'bell' },
+        { x: -5, z: 23, h: 107.5, r: 3.0, levels: 20, twist: -0.21, profile: 'bell' },
+        { x: -5, z: 32, h: 98, r: 3.0, levels: 18, twist: -0.21, profile: 'bell' },
+        // Passion facade (X=totalLength)
+        { x: totalLength + 5, z: 5.5, h: 107.5, r: 3.0, levels: 20, twist: 0.21, profile: 'bell' },
+        { x: totalLength + 5, z: 14.5, h: 112, r: 3.0, levels: 20, twist: 0.21, profile: 'bell' },
+        { x: totalLength + 5, z: 23, h: 112, r: 3.0, levels: 20, twist: -0.21, profile: 'bell' },
+        { x: totalLength + 5, z: 32, h: 107.5, r: 3.0, levels: 20, twist: -0.21, profile: 'bell' },
+        // Glory facade (Z=0)
+        { x: 20, z: -6, h: 112, r: 3.0, levels: 20, twist: 0.21, profile: 'bell' },
+        { x: 32, z: -6, h: 120, r: 3.0, levels: 22, twist: 0.21, profile: 'bell' },
+        { x: 44, z: -6, h: 120, r: 3.0, levels: 22, twist: -0.21, profile: 'bell' },
+        { x: 56, z: -6, h: 112, r: 3.0, levels: 20, twist: -0.21, profile: 'bell' },
+        // 4 Evangelist towers — octagonal with entasis, above the crossing
+        { x: transeptBay * G - 4, z: 2 * G - 4, h: 135, r: 3.5, levels: 22, twist: 0.10, profile: 'entasis' },
+        { x: (transeptBay + 1) * G + 4, z: 2 * G - 4, h: 135, r: 3.5, levels: 22, twist: -0.10, profile: 'entasis' },
+        { x: transeptBay * G - 4, z: 4 * G + 4, h: 135, r: 3.5, levels: 22, twist: -0.10, profile: 'entasis' },
+        { x: (transeptBay + 1) * G + 4, z: 4 * G + 4, h: 135, r: 3.5, levels: 22, twist: 0.10, profile: 'entasis' },
+        // Virgin Mary tower — above apse
+        { x: totalLength + 3, z: totalWidth / 2, h: 138, r: 4.0, levels: 24, twist: 0.08, profile: 'entasis' },
+        // Jesus Christ tower — tallest, above crossing, 172.5m = 23 × 7.5m
+        { x: (transeptBay + 0.5) * G, z: totalWidth / 2, h: 172.5, r: 5.0, levels: 28, twist: 0.05, profile: 'straight' },
+      ];
+
+      for (const tw of allTowers) {
+        const profileFn = tw.profile === 'bell' ? bellProfile
+          : tw.profile === 'entasis' ? entasisProfile : straightProfile;
+
+        // Generate octagonal nodes at each level with helicoid twist
+        const tN: number[][] = []; // [level][vertex 0..NSides-1]
+        for (let lv = 0; lv <= tw.levels; lv++) {
+          tN[lv] = [];
+          const t = lv / tw.levels;
+          const y = t * tw.h;
+          const r = profileFn(t, tw.r);
+          const baseAngle = lv * tw.twist; // helicoid twist accumulates per level
+
+          for (let v = 0; v < NSides; v++) {
+            const angle = baseAngle + (2 * Math.PI * v) / NSides;
+            const nx = tw.x + r * Math.cos(angle);
+            const nz = tw.z + r * Math.sin(angle);
+            tN[lv][v] = api.addNode(nx, y, nz);
+          }
+          // Fixed supports at base
+          if (lv === 0) {
+            for (let v = 0; v < NSides; v++) api.addSupport(tN[0][v], 'fixed3d');
+          }
+        }
+
+        // Vertical columns: each vertex connects to the same vertex on next level
+        for (let lv = 0; lv < tw.levels; lv++) {
+          for (let v = 0; v < NSides; v++) {
+            addF(tN[lv][v], tN[lv + 1][v], matHA, secTwCol);
+          }
+        }
+
+        // Horizontal ring beams: every level (octagonal rings)
+        for (let lv = 0; lv <= tw.levels; lv++) {
+          // Full ring every 2 levels, partial (4 alternating) on others
+          const step = lv % 2 === 0 ? 1 : 2;
+          for (let v = 0; v < NSides; v += step) {
+            addF(tN[lv][v], tN[lv][(v + step) % NSides], matHA, secTwBeam);
+          }
+        }
+
+        // Helicoid diagonal bracing: connects vertex v at level lv
+        // to vertex (v+1) at level lv+1, creating the spiral staircase effect
+        // visible in the real towers' openwork windows
+        for (let lv = 0; lv < tw.levels; lv++) {
+          for (let v = 0; v < NSides; v++) {
+            // Spiral diagonal (helicoid pattern)
+            const nextV = (v + 1) % NSides;
+            addT(tN[lv][v], tN[lv + 1][nextV], matSteel, secTwBrace);
+          }
+          // Counter-spiral every other level for stability
+          if (lv % 2 === 0) {
+            for (let v = 0; v < NSides; v++) {
+              const prevV = (v + NSides - 1) % NSides;
+              addT(tN[lv][v], tN[lv + 1][prevV], matSteel, secTwBrace);
+            }
+          }
+        }
+
+        // Tower shell panels on lower half (solid masonry skin)
+        // Represented as quads between adjacent vertices across 2 levels
+        const solidLevels = Math.floor(tw.levels * 0.45);
+        for (let lv = 0; lv < solidLevels; lv += 2) {
+          for (let v = 0; v < NSides; v++) {
+            const vn = (v + 1) % NSides;
+            api.addQuad(
+              [tN[lv][v], tN[lv][vn], tN[lv + 1][vn], tN[lv + 1][v]],
+              matHA, 0.30,
+            );
+          }
+        }
+
+        // Pinnacle cross-ribs at top 3 levels (for bell towers)
+        if (tw.profile === 'bell' && tw.levels >= 4) {
+          const topLv = tw.levels;
+          // Cross-bracing through center at top
+          for (let v = 0; v < NSides / 2; v++) {
+            addF(tN[topLv][v], tN[topLv][v + NSides / 2], matHA, secTwBeam);
+            addF(tN[topLv - 1][v], tN[topLv - 1][v + NSides / 2], matHA, secTwBeam);
+          }
+        }
+
+        // Connect towers to main structure at gallery and vault levels
+        // Find 3 nearest column tops and connect with ribs
+        const connections: { bx: number; zi: number; dist: number }[] = [];
+        for (let bx = 0; bx <= nBaysLong; bx++) {
+          for (let zi = 0; zi < 6; zi++) {
+            const dx = bx * G - tw.x;
+            const dz = colZPos[zi] - tw.z;
+            const dist = Math.sqrt(dx * dx + dz * dz);
+            if (dist < 15 && dist > 2) connections.push({ bx, zi, dist });
+          }
+        }
+        connections.sort((a, b) => a.dist - b.dist);
+        const nConn = Math.min(3, connections.length);
+        for (let ci = 0; ci < nConn; ci++) {
+          const { bx: cbx, zi: czi } = connections[ci];
+          // Connect at gallery level (level ~3) and vault level (level ~5)
+          const galleryLv = Math.min(3, tw.levels);
+          const vaultLv = Math.min(6, tw.levels);
+          addF(tN[galleryLv][0], cMid[cbx][czi], matHA, secRibSec);
+          addF(tN[vaultLv][0], cTop[cbx][czi], matHA, secRibSec);
+        }
+      }
+
+      // ═══════════════════════════════════════════════════════════════
+      // 9. CLOISTER GALLERIES — Covered walkways along outer walls
+      //    Running along Z=0 and Z=45m between facade towers
+      // ═══════════════════════════════════════════════════════════════
+
+      const cloisterH = 8;  // cloister height
+      const cloisterW = 4;  // cloister width (extends outward)
+
+      for (const side of [0, 1]) {
+        const baseZ = side === 0 ? -cloisterW : totalWidth + cloisterW;
+        const wallZi = side === 0 ? 0 : 5;
+
+        for (let bx = 1; bx < nBaysLong; bx++) { // skip first and last (facades)
+          const x = bx * G;
+          const clBase = api.addNode(x, 0, baseZ);
+          api.addSupport(clBase, 'fixed3d');
+          const clTop = api.addNode(x, cloisterH, baseZ);
+          addF(clBase, clTop, matSandst, secWall);
+          // Connect to main outer column at gallery level
+          addF(clTop, cMid[bx][wallZi], matHA, secGallery);
+        }
+        // Longitudinal beams along cloister
+        for (let bx = 1; bx < nBaysLong - 1; bx++) {
+          addF(cMid[bx][wallZi], cMid[bx + 1][wallZi], matHA, secGallery);
+        }
+      }
+
+      // ═══════════════════════════════════════════════════════════════
+      // 10. LOAD CASES — D + L + Wind + Seismic
+      // ═══════════════════════════════════════════════════════════════
+
+      api.model.loadCases = [
+        { id: 1, type: 'D' as LoadCaseType, name: 'D — Peso propio + acabados (3 kN/m²)' },
+        { id: 2, type: 'L' as LoadCaseType, name: 'L — Mantenimiento cubierta (0.5 kN/m²)' },
+        { id: 3, type: 'W' as LoadCaseType, name: 'W — Viento +X (Mediterráneo NE)' },
+        { id: 4, type: 'W' as LoadCaseType, name: 'W — Viento −X (SW)' },
+        { id: 5, type: 'W' as LoadCaseType, name: 'W — Viento +Z (SE)' },
+        { id: 6, type: 'E' as LoadCaseType, name: 'E — Sismo +X (CTE Barcelona, ag=0.04g)' },
+        { id: 7, type: 'E' as LoadCaseType, name: 'E — Sismo +Z' },
+      ];
+      api.nextId.loadCase = 8;
+
+      // ─── D: Dead load (finishes, installations) over vault nodes ───
+      // 3 kN/m² additional over 90×45 = 4050 m²
+      for (let bx = 0; bx <= nBaysLong; bx++) {
+        for (let zi = 0; zi < 6; zi++) {
+          const tribX = bx === 0 || bx === nBaysLong ? G / 2 : G;
+          const tribZ = zi === 0 ? colZPos[1] / 2
+            : zi === 5 ? (totalWidth - colZPos[4]) / 2
+            : (colZPos[zi + 1] - colZPos[zi - 1]) / 2;
+          api.addNodalLoad3D(cTop[bx][zi], 0, -3.0 * tribX * tribZ, 0, 0, 0, 0, 1);
+        }
+      }
+
+      // ─── L: Maintenance access on vaults ───
+      for (let bx = 0; bx <= nBaysLong; bx++) {
+        for (let zi = 0; zi < 6; zi++) {
+          const tribX = bx === 0 || bx === nBaysLong ? G / 2 : G;
+          const tribZ = zi === 0 ? colZPos[1] / 2
+            : zi === 5 ? (totalWidth - colZPos[4]) / 2
+            : (colZPos[zi + 1] - colZPos[zi - 1]) / 2;
+          api.addNodalLoad3D(cTop[bx][zi], 0, -0.5 * tribX * tribZ, 0, 0, 0, 0, 2);
+        }
+      }
+
+      // ─── W: Wind loads (Barcelona: q=0.5 kN/m², Cp windward=0.8, leeward=0.5) ───
+      // W+X (case 3): pressure on X=0 facade, suction on X=last
+      for (let zi = 0; zi < 6; zi++) {
+        const h = vaultH[zi];
+        const tribZ = zi === 0 || zi === 5 ? G / 2 : G;
+        // Windward
+        api.addNodalLoad3D(cTop[0][zi], 0.5 * 0.8 * h * tribZ, 0, 0, 0, 0, 0, 3);
+        // Leeward
+        api.addNodalLoad3D(cTop[nBaysLong][zi], 0.5 * 0.5 * h * tribZ, 0, 0, 0, 0, 0, 3);
+      }
+      // W-X (case 4): reversed
+      for (let zi = 0; zi < 6; zi++) {
+        const h = vaultH[zi];
+        const tribZ = zi === 0 || zi === 5 ? G / 2 : G;
+        api.addNodalLoad3D(cTop[nBaysLong][zi], -0.5 * 0.8 * h * tribZ, 0, 0, 0, 0, 0, 4);
+        api.addNodalLoad3D(cTop[0][zi], -0.5 * 0.5 * h * tribZ, 0, 0, 0, 0, 0, 4);
+      }
+      // W+Z (case 5): transverse wind
+      for (let bx = 0; bx <= nBaysLong; bx++) {
+        const tribX = bx === 0 || bx === nBaysLong ? G / 2 : G;
+        const h = vaultH[0]; // outer wall height
+        api.addNodalLoad3D(cTop[bx][0], 0, 0, 0.5 * 0.8 * h * tribX, 0, 0, 0, 5);
+        api.addNodalLoad3D(cTop[bx][5], 0, 0, 0.5 * 0.5 * h * tribX, 0, 0, 0, 5);
+      }
+
+      // ─── E: Seismic (CTE Barcelona zone, ag=0.04g) ───
+      // Equivalent lateral force: F = 0.04 × W per floor
+      // Approximate total weight ≈ 50,000 tonnes → Vbase ≈ 2000 kN per direction
+      // Distributed proportional to height at vault tops
+      const sumH = Array.from({ length: 6 }, (_, zi) => vaultH[zi]).reduce((a, b) => a + b, 0);
+      for (let bx = 0; bx <= nBaysLong; bx++) {
+        for (let zi = 0; zi < 6; zi++) {
+          const tribX = bx === 0 || bx === nBaysLong ? G / 2 : G;
+          const tribZ = zi === 0 ? colZPos[1] / 2
+            : zi === 5 ? (totalWidth - colZPos[4]) / 2
+            : (colZPos[zi + 1] - colZPos[zi - 1]) / 2;
+          const weight = 25 * 0.25 * tribX * tribZ + 3.0 * tribX * tribZ; // vault + finishes
+          const Fx = 0.04 * weight * vaultH[zi] / sumH * 6; // height-proportional
+          api.addNodalLoad3D(cTop[bx][zi], Fx, 0, 0, 0, 0, 0, 6);
+          api.addNodalLoad3D(cTop[bx][zi], 0, 0, Fx, 0, 0, 0, 7);
+        }
+      }
+
+      // ═══════════════════════════════════════════════════════════════
+      // 11. LOAD COMBINATIONS — Eurocode / CTE
+      // ═══════════════════════════════════════════════════════════════
+
+      api.model.combinations = [
+        { id: 1, name: 'ELU 1: 1.35D', factors: [
+          { caseId: 1, factor: 1.35 },
+        ]},
+        { id: 2, name: 'ELU 2: 1.35D + 1.5L', factors: [
+          { caseId: 1, factor: 1.35 }, { caseId: 2, factor: 1.5 },
+        ]},
+        { id: 3, name: 'ELU 3: 1.35D + 1.5W+X', factors: [
+          { caseId: 1, factor: 1.35 }, { caseId: 3, factor: 1.5 },
+        ]},
+        { id: 4, name: 'ELU 4: 1.35D + 1.5W−X', factors: [
+          { caseId: 1, factor: 1.35 }, { caseId: 4, factor: 1.5 },
+        ]},
+        { id: 5, name: 'ELU 5: 1.35D + 1.5W+Z', factors: [
+          { caseId: 1, factor: 1.35 }, { caseId: 5, factor: 1.5 },
+        ]},
+        { id: 6, name: 'ELU 6: 1.0D + L + E+X', factors: [
+          { caseId: 1, factor: 1.0 }, { caseId: 2, factor: 0.3 }, { caseId: 6, factor: 1.0 },
+        ]},
+        { id: 7, name: 'ELU 7: 1.0D + L + E+Z', factors: [
+          { caseId: 1, factor: 1.0 }, { caseId: 2, factor: 0.3 }, { caseId: 7, factor: 1.0 },
+        ]},
+        { id: 8, name: 'ELU 8: 1.35D + 0.7L + 1.5W+X', factors: [
+          { caseId: 1, factor: 1.35 }, { caseId: 2, factor: 0.7 }, { caseId: 3, factor: 1.5 },
+        ]},
+        { id: 9, name: 'ELS: 1.0D + 1.0L + 0.6W+X', factors: [
+          { caseId: 1, factor: 1.0 }, { caseId: 2, factor: 1.0 }, { caseId: 3, factor: 0.6 },
+        ]},
+      ];
+      api.nextId.combination = 10;
+
+      return true;
+    }
+
     default:
       return false;
   }

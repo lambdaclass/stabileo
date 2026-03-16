@@ -2494,6 +2494,496 @@ export function generateFullStadium3D(store: ModelStore, p: FullStadium3DParams)
   });
 }
 
+
+// -------------------------------------------------------------------
+// 9. La Bombonera — Boca Juniors stadium (asymmetric D-shape)
+//    East (long side, touchline) = flat palcos building
+//    West (long side, touchline) = full 3-tier stands
+//    North & South (short ends, behind goals) = curved 3-tier stands
+// -------------------------------------------------------------------
+
+export interface LaBombonera3DParams {
+  fieldLength: number;   // 105 m (FIFA) — runs along X axis
+  fieldWidth: number;    // 68 m (FIFA) — runs along Z axis
+  nFramesLong: number;   // portal frames along each long side (E and W)
+  nFramesEnd: number;    // portal frames along each curved short end (N and S)
+  tierLoad: number;      // kN/m crowd + dead on tier beams (negative = intended down)
+  roofLoad: number;      // kN/m roof dead load (negative = intended down)
+}
+
+export function generateLaBombonera3D(store: ModelStore, p: LaBombonera3DParams): void {
+  store.clear();
+  store.model.name = t('ex.laBombonera3D');
+
+  store.batch(() => {
+    // ── Materials ──
+    // Mat 1 (default): Steel S275 — for roof trusses & east palcos (1996)
+    store.updateMaterial(1, {
+      name: 'Acero S275',
+      e: 210000, nu: 0.3, rho: 78.5, fy: 275,
+    });
+    // Mat 2: RC H-21 (1930s era concrete, built to German DIN standards)
+    const rcMatId = store.addMaterial({
+      name: 'H-21 (1940)', e: 25000, nu: 0.2, rho: 25, fy: 21,
+    });
+
+    // ── Sections ──
+    // Sec 1: RC Column 0.80×0.80 (main portal columns)
+    store.updateSection(1, {
+      name: 'RC Col 800×800', a: 0.64,
+      iy: 0.03413, iz: 0.03413, j: 0.05747,
+      h: 0.80, b: 0.80, shape: 'rect',
+    });
+    // Sec 2: RC Beam 0.40×0.80 (inclined rakers)
+    const rakerSecId = store.addSection({
+      name: 'RC Raker 400×800', a: 0.32,
+      iy: 0.01707, iz: 0.00427, j: 0.00985,
+      h: 0.80, b: 0.40, shape: 'rect',
+    });
+    // Sec 3: RC Beam 0.30×0.60 (ring beams / secondary)
+    const ringSecId = store.addSection({
+      name: 'RC Beam 300×600', a: 0.18,
+      iy: 0.0054, iz: 0.00135, j: 0.00358,
+      h: 0.60, b: 0.30, shape: 'rect',
+    });
+    // Sec 4: CHS 219×8 (steel roof chords + palco columns)
+    const steelSecId = store.addSection({
+      name: 'CHS 219×8', a: 0.00530,
+      iy: 0.00001090, iz: 0.00001090, j: 0.00002180,
+      h: 0.219, b: 0.219, shape: 'tube',
+    });
+    // Sec 5: L 100×10 (roof diagonals / bracing)
+    const braceSecId = store.addSection({
+      name: 'L 100×10', a: 0.001920,
+      iy: 0.000000177, iz: 0.000000177, j: 0.0000000640,
+      h: 0.10, b: 0.10, shape: 'L',
+    });
+
+    // ── Geometry ──
+    // X axis = field length (North +X, South -X)
+    // Z axis = field width (East +Z, West -Z)
+    const fL = p.fieldLength / 2;   // 52.5
+    const fW = p.fieldWidth / 2;    // 34
+
+    const gap = 3;                  // field edge → first structure
+    const dLower = 14;              // radial depth of lower tier (platea)
+    const dMiddle = 12;             // radial depth of middle tier (preferencial)
+    const dUpper = 8;               // radial depth of upper tier (populares — steep!)
+    const dTotal = dLower + dMiddle + dUpper; // 34 m total
+
+    // Heights — upper tier at ~44° (rise 13m / run 8m ≈ 58° rake → seats at ~44°)
+    const h1b = 1.5, h1t = 9;      // lower tier base/top (~30° platea)
+    const h2b = 10,  h2t = 19;     // middle tier base/top (~37° preferencial)
+    const h3b = 20,  h3t = 32;     // upper tier base/top (~56° raker → ~44° seat angle)
+    const hRoofLo = 34, hRoofHi = 38;
+
+    // East palcos building (1996 steel + RC rebuild)
+    const hPalcoTop = 22;           // taller than middle tier — bulky building
+    const palcoDepth = 10;          // wider than before — proper building depth
+    const nPalcoFloors = 7;         // ground + 6 upper floors of palcos
+
+    // Frame counts
+    const nL = p.nFramesLong;       // per long side
+    const nE = p.nFramesEnd;        // per short curved end
+    const nEast = nL;               // east side has same frame count as west
+    const cS = 3;                   // nodes per corner arc
+
+    // ── D-ring generator ──
+    // Closed loop: East (straight, long) → SE corner → South end (semicircle)
+    //   → SW corner → West (straight, long) → NW corner → North end (semicircle)
+    //   → NE corner → back to start
+    function dRing(ro: number, y: number, eastRo?: number, skipEastNodes = false): number[] {
+      const ids: number[] = [];
+      const eRo = eastRo ?? Math.min(ro, gap + palcoDepth);
+
+      // 1. East side (touchline): straight at z = +(fW + eRo), x from +fL to -fL
+      for (let i = 0; i <= nEast; i++) {
+        if (skipEastNodes) { ids.push(-1); continue; }
+        ids.push(store.addNode(fL * (1 - 2 * i / nEast), y, fW + eRo));
+      }
+
+      // 2. SE corner: arc from east (z+) to south (x-)
+      for (let i = 1; i <= cS; i++) {
+        const a = (Math.PI / 2) * i / cS;
+        const r = eRo + (ro - eRo) * (a / (Math.PI / 2));
+        ids.push(store.addNode(-fL - r * Math.sin(a), y, fW + r * Math.cos(a)));
+      }
+
+      // 3. South end (behind goal): semicircle at x ≈ -fL, z from +fW to -fW
+      for (let i = 1; i < nE; i++) {
+        const t = i / nE;
+        const z = fW * (1 - 2 * t);
+        const bulge = ro * (1 + 0.12 * (1 - (2 * t - 1) ** 2));
+        ids.push(store.addNode(-fL - bulge, y, z));
+      }
+
+      // 4. SW corner: arc from south (x-) to west (z-)
+      for (let i = 1; i <= cS; i++) {
+        const a = (Math.PI / 2) * i / cS;
+        ids.push(store.addNode(-fL - ro * Math.cos(a), y, -fW - ro * Math.sin(a)));
+      }
+
+      // 5. West side (touchline): straight at z = -(fW + ro), x from -fL to +fL
+      for (let i = 1; i <= nL; i++) {
+        const t = i / (nL + 1);
+        ids.push(store.addNode(-fL + 2 * fL * t, y, -(fW + ro)));
+      }
+
+      // 6. NW corner: arc from west (z-) to north (x+)
+      for (let i = 1; i <= cS; i++) {
+        const a = (Math.PI / 2) * i / cS;
+        ids.push(store.addNode(fL + ro * Math.sin(a), y, -fW - ro * Math.cos(a)));
+      }
+
+      // 7. North end (behind goal): semicircle at x ≈ +fL, z from -fW to +fW
+      for (let i = 1; i < nE; i++) {
+        const t = i / nE;
+        const z = -fW * (1 - 2 * t);
+        const bulge = ro * (1 + 0.12 * (1 - (2 * t - 1) ** 2));
+        ids.push(store.addNode(fL + bulge, y, z));
+      }
+
+      // 8. NE corner: arc from north (x+) to east (z+)
+      for (let i = 1; i < cS; i++) {
+        const a = (Math.PI / 2) * i / cS;
+        const r = ro + (eRo - ro) * (a / (Math.PI / 2));
+        ids.push(store.addNode(fL + r * Math.cos(a), y, fW + r * Math.sin(a)));
+      }
+
+      return ids;
+    }
+
+    // ── Tier rings ──
+    // "Escamadas": each upper tier cantilevers forward (toward field)
+    const t1Front = dRing(gap, h1b);
+    const t1Back  = dRing(gap + dLower, h1t);
+
+    // "Escamadas": each upper tier cantilevers forward past the one below
+    // skipEastNodes=true: upper tiers don't exist on east side (palcos building instead)
+    const t2Front = dRing(gap + dLower * 0.4, h2b, undefined, true);
+    const t2Back  = dRing(gap + dLower + dMiddle, h2t, undefined, true);
+
+    const t3Front = dRing(gap + dLower * 0.55 + dMiddle * 0.3, h3b, undefined, true);
+    const t3Back  = dRing(gap + dTotal, h3t, undefined, true);
+
+    const base    = dRing(gap, 0);
+    const baseOut = dRing(gap + dTotal, 0, undefined, true);
+    const conc    = dRing(gap + dTotal + 3, h2t, undefined, true);
+
+    const n = t1Front.length;
+
+    // Which indices are on the east (palcos) side?
+    // East = first segment: indices 0..nEast
+    const eastEndIdx = nEast;
+
+    function isEastSide(idx: number): boolean {
+      return idx <= eastEndIdx;
+    }
+
+    // ── Ring beams ──
+    const addRings = (
+      nodes: number[], secId: number, matId?: number,
+      skipEast = false,
+    ) => {
+      for (let i = 0; i < n; i++) {
+        const next = (i + 1) % n;
+        // skipEast: skip if EITHER end is east (prevents transition beams to orphans)
+        if (skipEast && (isEastSide(i) || isEastSide(next))) continue;
+        const eid = store.addElement(nodes[i], nodes[next], 'frame');
+        store.updateElementSection(eid, secId);
+        if (matId !== undefined) store.updateElementMaterial(eid, matId);
+      }
+    };
+
+    // Ground-level ring (foundation tie beams)
+    addRings(base, ringSecId, rcMatId);
+    // Lower tier: ring beams on all sides (Bombonera has platea all around)
+    addRings(t1Front, ringSecId, rcMatId);
+    addRings(t1Back, ringSecId, rcMatId);
+    // Middle/upper tiers + concourse: skip east side (no tier structure there)
+    addRings(t2Front, ringSecId, rcMatId, true);
+    addRings(t2Back, ringSecId, rcMatId, true);
+    addRings(t3Front, ringSecId, rcMatId, true);
+    addRings(t3Back, ringSecId, rcMatId, true);
+    addRings(conc, ringSecId, rcMatId, true);
+
+    // ── Portal frames at each node position ──
+    for (let i = 0; i < n; i++) {
+      const east = isEastSide(i);
+      const next = (i + 1) % n;
+      const nextEast = isEastSide(next);
+
+      // Ground column to lower tier front
+      const c0 = store.addElement(base[i], t1Front[i], 'frame');
+      store.updateElementSection(c0, 1);
+      store.updateElementMaterial(c0, rcMatId);
+
+      // ── LOWER TIER (all sides) ──
+      const r1 = store.addElement(t1Front[i], t1Back[i], 'frame');
+      store.updateElementSection(r1, rakerSecId);
+      store.updateElementMaterial(r1, rcMatId);
+      if (p.tierLoad !== 0) {
+        // Case 1: dead + static live
+        store.addDistributedLoad3D(r1, -p.tierLoad, -p.tierLoad, 0, 0);
+        // Case 3: dynamic crowd (fans jumping ~2Hz, EN 1991 C5, DAF ≈ 1.4)
+        store.addDistributedLoad3D(r1, -p.tierLoad * 0.4, -p.tierLoad * 0.4, 0, 0,
+          undefined, undefined, 3);
+      }
+      // Lower tier slab shell (platea exists on ALL sides including east)
+      store.addQuad([t1Front[i], t1Front[next], t1Back[next], t1Back[i]], rcMatId, 0.18);
+
+      if (!east) {
+        // ── MIDDLE TIER (W/N/S only) ──
+        // Vertical column from t1 back up to t2 front (vomitory support)
+        const c1 = store.addElement(t1Back[i], t2Front[i], 'frame');
+        store.updateElementSection(c1, 1);
+        store.updateElementMaterial(c1, rcMatId);
+
+        // Inclined raker beam — follows stair geometry
+        const r2 = store.addElement(t2Front[i], t2Back[i], 'frame');
+        store.updateElementSection(r2, rakerSecId);
+        store.updateElementMaterial(r2, rcMatId);
+        if (p.tierLoad !== 0) {
+          store.addDistributedLoad3D(r2, -p.tierLoad, -p.tierLoad, 0, 0);
+          store.addDistributedLoad3D(r2, -p.tierLoad * 0.4, -p.tierLoad * 0.4, 0, 0,
+            undefined, undefined, 3);
+        }
+
+        if (!nextEast) {
+          store.addQuad([t2Front[i], t2Front[next], t2Back[next], t2Back[i]], rcMatId, 0.16);
+        }
+
+        // ── UPPER TIER (W/N/S only, ~44° raker — the "vertigo angle") ──
+        const c2 = store.addElement(t2Back[i], t3Front[i], 'frame');
+        store.updateElementSection(c2, 1);
+        store.updateElementMaterial(c2, rcMatId);
+
+        // Steep raker beam — this is the signature structural element
+        const r3 = store.addElement(t3Front[i], t3Back[i], 'frame');
+        store.updateElementSection(r3, rakerSecId);
+        store.updateElementMaterial(r3, rcMatId);
+        if (p.tierLoad !== 0) {
+          store.addDistributedLoad3D(r3, -p.tierLoad * 0.8, -p.tierLoad * 0.8, 0, 0);
+          // Upper tier gets higher dynamic factor — steeper = more bounce
+          store.addDistributedLoad3D(r3, -p.tierLoad * 0.5, -p.tierLoad * 0.5, 0, 0,
+            undefined, undefined, 3);
+        }
+
+        if (!nextEast) {
+          store.addQuad([t3Front[i], t3Front[next], t3Back[next], t3Back[i]], rcMatId, 0.15);
+        }
+
+        // Outer column: ground → tier 3 back (continuous portal frame column)
+        const cOut = store.addElement(baseOut[i], t3Back[i], 'frame');
+        store.updateElementSection(cOut, 1);
+        store.updateElementMaterial(cOut, rcMatId);
+
+        // Intermediate back column: ground → tier 2 back (mid-height support)
+        const midBase = store.addNode(
+          store.model.nodes.get(t2Back[i])!.x,
+          0,
+          store.model.nodes.get(t2Back[i])!.z ?? 0,
+        );
+        const cMid = store.addElement(midBase, t2Back[i], 'frame');
+        store.updateElementSection(cMid, 1);
+        store.updateElementMaterial(cMid, rcMatId);
+        store.addSupport(midBase, 'fixed3d');
+
+        // Back beam: tier 3 back → concourse
+        const bk = store.addElement(t3Back[i], conc[i], 'frame');
+        store.updateElementSection(bk, ringSecId);
+        store.updateElementMaterial(bk, rcMatId);
+
+        // Concourse column to ground (every 2nd frame for lighter look)
+        if (i % 2 === 0) {
+          const concNode = store.model.nodes.get(conc[i])!;
+          const concBase = store.addNode(concNode.x, 0, concNode.z ?? 0);
+          const cConc = store.addElement(concBase, conc[i], 'frame');
+          store.updateElementSection(cConc, 1);
+          store.updateElementMaterial(cConc, rcMatId);
+          store.addSupport(concBase, 'fixed3d');
+        }
+
+        // X-bracing diagonals every 3rd frame for lateral stability
+        if (i % 3 === 0 && !nextEast) {
+          // Forward diagonal: front[i] → back[next]
+          const br1a = store.addElement(t1Front[i], t1Back[next], 'truss');
+          store.updateElementMaterial(br1a, rcMatId);
+          const br2a = store.addElement(t2Front[i], t2Back[next], 'truss');
+          store.updateElementMaterial(br2a, rcMatId);
+          const br3a = store.addElement(t3Front[i], t3Back[next], 'truss');
+          store.updateElementMaterial(br3a, rcMatId);
+          // Reverse diagonal: back[i] → front[next] (completes the X)
+          const br1b = store.addElement(t1Back[i], t1Front[next], 'truss');
+          store.updateElementMaterial(br1b, rcMatId);
+          const br2b = store.addElement(t2Back[i], t2Front[next], 'truss');
+          store.updateElementMaterial(br2b, rcMatId);
+          const br3b = store.addElement(t3Back[i], t3Front[next], 'truss');
+          store.updateElementMaterial(br3b, rcMatId);
+        }
+
+        store.addSupport(baseOut[i], 'fixed3d');
+      } else {
+        // East side palcos handled in dedicated pass below
+      }
+
+      store.addSupport(base[i], 'fixed3d');
+    }
+
+    // ── EAST SIDE: 1996 palcos building (multi-story RC + steel) ──
+    // A long narrow building along the east touchline with:
+    //   - Ground-level platea (lower tier, already built above)
+    //   - 7 floors of stacked palcos (luxury boxes) above
+    //   - Two column lines: front (field-side) and back (street-side)
+    const eastFrontFloors: number[][] = []; // [floor][frameIdx] → nodeId
+    const eastBackFloors: number[][] = [];
+    for (let lev = 0; lev <= nPalcoFloors; lev++) {
+      eastFrontFloors.push([]);
+      eastBackFloors.push([]);
+    }
+
+    // Create all palco nodes for east frames
+    for (let i = 0; i <= eastEndIdx; i++) {
+      const fn = store.model.nodes.get(t1Back[i])!;
+      const fz = fn.z ?? 0;
+      const bz = fz + palcoDepth;
+
+      // Level 0 = top of lower tier (front) / ground (back)
+      eastFrontFloors[0].push(t1Back[i]);
+      const backBase = store.addNode(fn.x, 0, bz);
+      eastBackFloors[0].push(backBase);
+      store.addSupport(backBase, 'fixed3d');
+
+      // Upper floors
+      for (let lev = 1; lev <= nPalcoFloors; lev++) {
+        const yLev = h1t + (hPalcoTop - h1t) * lev / nPalcoFloors;
+        eastFrontFloors[lev].push(store.addNode(fn.x, yLev, fz));
+        eastBackFloors[lev].push(store.addNode(fn.x, yLev, bz));
+      }
+    }
+
+    const nEastFrames = eastEndIdx + 1;
+    for (let i = 0; i < nEastFrames; i++) {
+      // Front columns (steel CHS — 1996 metallic frame)
+      for (let lev = 0; lev < nPalcoFloors; lev++) {
+        const col = store.addElement(eastFrontFloors[lev][i], eastFrontFloors[lev + 1][i], 'frame');
+        store.updateElementSection(col, steelSecId);
+      }
+      // Back columns (RC — heavier, street-side wall)
+      for (let lev = 0; lev < nPalcoFloors; lev++) {
+        const col = store.addElement(eastBackFloors[lev][i], eastBackFloors[lev + 1][i], 'frame');
+        store.updateElementSection(col, 1);
+        store.updateElementMaterial(col, rcMatId);
+      }
+      // Floor beams front→back at each level
+      for (let lev = 1; lev <= nPalcoFloors; lev++) {
+        const fb = store.addElement(eastFrontFloors[lev][i], eastBackFloors[lev][i], 'frame');
+        store.updateElementSection(fb, steelSecId);
+        if (p.tierLoad !== 0) {
+          store.addDistributedLoad3D(fb, -p.tierLoad * 0.5, -p.tierLoad * 0.5, 0, 0);
+        }
+      }
+
+      // Ring beams connecting adjacent east frames (longitudinal connectivity)
+      if (i < nEastFrames - 1) {
+        for (let lev = 1; lev <= nPalcoFloors; lev++) {
+          // Front ring beam
+          const rf = store.addElement(eastFrontFloors[lev][i], eastFrontFloors[lev][i + 1], 'frame');
+          store.updateElementSection(rf, ringSecId);
+          // Back ring beam
+          const rb = store.addElement(eastBackFloors[lev][i], eastBackFloors[lev][i + 1], 'frame');
+          store.updateElementSection(rb, ringSecId);
+          store.updateElementMaterial(rb, rcMatId);
+        }
+        // Floor slabs (shell panels between adjacent frames)
+        for (let lev = 1; lev <= nPalcoFloors; lev += 2) {
+          store.addQuad([
+            eastFrontFloors[lev][i], eastFrontFloors[lev][i + 1],
+            eastBackFloors[lev][i + 1], eastBackFloors[lev][i],
+          ], rcMatId, 0.15);
+        }
+      }
+
+      // X-bracing on back facade wall every 3rd bay
+      if (i % 3 === 0 && i < nEastFrames - 1) {
+        for (let lev = 0; lev < nPalcoFloors; lev++) {
+          const br1 = store.addElement(eastBackFloors[lev][i], eastBackFloors[lev + 1][i + 1], 'truss');
+          store.updateElementSection(br1, braceSecId);
+          const br2 = store.addElement(eastBackFloors[lev + 1][i], eastBackFloors[lev][i + 1], 'truss');
+          store.updateElementSection(br2, braceSecId);
+        }
+      }
+    }
+
+    // ── Roof canopy (steel) over W/N/S stands ──
+    const roofIn: number[] = [];
+    const roofOut: number[] = [];
+    for (let i = 0; i < n; i++) {
+      if (isEastSide(i)) { roofIn.push(-1); roofOut.push(-1); continue; }
+      const tb = store.model.nodes.get(t3Back[i])!;
+      const cn = store.model.nodes.get(conc[i])!;
+      roofIn.push(store.addNode(tb.x, hRoofLo, tb.z ?? 0));
+      roofOut.push(store.addNode(cn.x, hRoofHi, cn.z ?? 0));
+    }
+
+    // Per-node roof elements: radial beam + masts (for EVERY valid roof node)
+    for (let i = 0; i < n; i++) {
+      if (roofIn[i] < 0) continue;
+
+      // Radial beam connecting inner and outer chord
+      const rd = store.addElement(roofIn[i], roofOut[i], 'frame');
+      store.updateElementSection(rd, steelSecId);
+
+      // Masts from tier structure up to roof
+      const m1 = store.addElement(t3Back[i], roofIn[i], 'frame');
+      store.updateElementSection(m1, steelSecId);
+      const m2 = store.addElement(conc[i], roofOut[i], 'frame');
+      store.updateElementSection(m2, steelSecId);
+    }
+
+    // Per-bay roof elements: ring chords + Warren diagonals + loads
+    for (let i = 0; i < n; i++) {
+      if (roofIn[i] < 0) continue;
+      const next = (i + 1) % n;
+      if (roofIn[next] < 0) continue;
+
+      // Ring chords
+      const ri = store.addElement(roofIn[i], roofIn[next], 'frame');
+      store.updateElementSection(ri, steelSecId);
+      const ro = store.addElement(roofOut[i], roofOut[next], 'frame');
+      store.updateElementSection(ro, steelSecId);
+
+      // Warren diagonals (both directions for proper truss action)
+      const wd1 = store.addElement(roofIn[i], roofOut[next], 'truss');
+      store.updateElementSection(wd1, braceSecId);
+      const wd2 = store.addElement(roofOut[i], roofIn[next], 'truss');
+      store.updateElementSection(wd2, braceSecId);
+
+      // Roof loads
+      if (p.roofLoad !== 0) {
+        store.addDistributedLoad3D(ri, -p.roofLoad, -p.roofLoad, 0, 0);
+        store.addDistributedLoad3D(ro, -p.roofLoad, -p.roofLoad, 0, 0);
+      }
+    }
+
+    // ── Wind loads (case 2): from east hitting the palcos facade ──
+    // Wind pressure on east building facade (field-side face, pushes toward field -Z)
+    for (let i = 0; i < nEastFrames; i++) {
+      // Pressure increases with height — apply on front column nodes
+      for (let lev = 1; lev <= nPalcoFloors; lev++) {
+        const wF = -3 - 5 * (lev / nPalcoFloors); // -3 kN at bottom → -8 kN at top
+        store.addNodalLoad3D(eastFrontFloors[lev][i], 0, 0, wF, 0, 0, 0, 2);
+      }
+    }
+    // Leeward suction on west side (faces -Z, suction pulls outward in -Z)
+    const wStart = eastEndIdx + 1 + cS + (nE - 1) + cS; // past east+SE+south+SW
+    for (let i = wStart; i < wStart + nL && i < n; i++) {
+      store.addNodalLoad3D(t3Back[i], 0, 0, -3, 0, 0, 0, 2);
+    }
+  });
+}
+
+
 // -------------------------------------------------------------------
 // 3D Template catalog (for UI registration)
 // -------------------------------------------------------------------
