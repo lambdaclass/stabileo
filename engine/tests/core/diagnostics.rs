@@ -2,7 +2,10 @@
 use crate::common::{make_input, make_3d_input, make_3d_beam};
 use dedaliano_engine::types::*;
 use dedaliano_engine::solver::linear::{solve_2d, solve_3d};
-use dedaliano_engine::solver::constraints::{solve_constrained_2d, ConstrainedInput};
+use dedaliano_engine::solver::constraints::{
+    solve_constrained_2d, ConstrainedInput,
+    solve_constrained_3d, ConstrainedInput3D,
+};
 
 #[test]
 fn equilibrium_summary_2d_cantilever() {
@@ -487,4 +490,68 @@ fn diagnostics_parity_contract_residual_describes_returned_solution() {
         assert!(eq.residual_ok, "[{}] residual_ok should be true", label);
         assert!(eq.equilibrium_ok, "[{}] equilibrium_ok should be true", label);
     }
+}
+
+// ==================== Constrained Path Parity Tests ====================
+
+#[test]
+fn diagnostics_parity_constrained_2d() {
+    // Constrained 2D must satisfy the same diagnostics contract as linear 2D
+    let mut base = make_input(
+        vec![(1, 0.0, 0.0), (2, 4.0, 0.0), (3, 8.0, 0.0)],
+        vec![(1, 200e3, 0.3)],
+        vec![(1, 0.01, 1e-4)],
+        vec![
+            (1, "frame", 1, 2, 1, 1, false, false),
+            (2, "frame", 2, 3, 1, 1, false, false),
+        ],
+        vec![(1, 1, "fixed"), (2, 3, "pinned")],
+        vec![SolverLoad::Nodal(SolverNodalLoad {
+            node_id: 2, fx: 0.0, fy: -10.0, mz: 0.0,
+        })],
+    );
+    base.constraints = vec![
+        Constraint::EqualDOF(EqualDOFConstraint {
+            master_node: 1, slave_node: 2, dofs: vec![0],
+        }),
+    ];
+    let ci = ConstrainedInput {
+        solver: base.clone(),
+        constraints: base.constraints.clone(),
+    };
+    let r = solve_constrained_2d(&ci).unwrap();
+    assert_diagnostics_contract(&r.structured_diagnostics, r.equilibrium.as_ref(), "constrained-2D");
+}
+
+#[test]
+fn diagnostics_parity_constrained_3d() {
+    // Constrained 3D must satisfy the same diagnostics contract as linear 3D
+    let mut base = make_3d_input(
+        vec![(1, 0.0, 0.0, 0.0), (2, 4.0, 0.0, 0.0), (3, 8.0, 0.0, 0.0)],
+        vec![(1, 200e3, 0.3)],
+        vec![(1, 0.01, 1e-4, 1e-4, 2e-4)],
+        vec![
+            (1, "frame", 1, 2, 1, 1),
+            (2, "frame", 2, 3, 1, 1),
+        ],
+        vec![
+            (1, vec![true, true, true, true, true, true]),
+            (3, vec![false, true, true, false, false, false]),
+        ],
+        vec![SolverLoad3D::Nodal(SolverNodalLoad3D {
+            node_id: 2, fx: 0.0, fy: -10.0, fz: 0.0,
+            mx: 0.0, my: 0.0, mz: 0.0, bw: None,
+        })],
+    );
+    base.constraints = vec![
+        Constraint::EqualDOF(EqualDOFConstraint {
+            master_node: 1, slave_node: 2, dofs: vec![0],
+        }),
+    ];
+    let ci = ConstrainedInput3D {
+        solver: base.clone(),
+        constraints: base.constraints.clone(),
+    };
+    let r = solve_constrained_3d(&ci).unwrap();
+    assert_diagnostics_contract(&r.structured_diagnostics, r.equilibrium.as_ref(), "constrained-3D");
 }

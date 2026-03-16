@@ -653,7 +653,7 @@ pub fn solve_constrained_2d(input: &ConstrainedInput) -> Result<AnalysisResults,
     }
 
     // Pre-solve constraint validation
-    let constraint_diags = validate_constraints(
+    let mut constraint_diags = validate_constraints(
         &input.constraints, &dof_num,
         Some(&input.solver.nodes), None,
     );
@@ -769,6 +769,28 @@ pub fn solve_constrained_2d(input: &ConstrainedInput) -> Result<AnalysisResults,
 
     let equilibrium = linear::compute_equilibrium_summary_2d(&asm.f, &reactions_vec, &dof_num, rel_residual);
 
+    // Solver-path diagnostic
+    constraint_diags.push(StructuredDiagnostic::global(
+        DiagnosticCode::DenseLu,
+        Severity::Info,
+        format!("Constrained 2D solver ({} free DOFs, {} independent)", nf, n_free_indep),
+    ).with_phase("solve"));
+
+    // Residual diagnostic
+    constraint_diags.push(if rel_residual < 1e-6 {
+        StructuredDiagnostic::global(
+            DiagnosticCode::ResidualOk,
+            Severity::Info,
+            format!("Constrained 2D residual {:.2e}", rel_residual),
+        ).with_value(rel_residual, 1e-6).with_phase("solve")
+    } else {
+        StructuredDiagnostic::global(
+            DiagnosticCode::ResidualHigh,
+            Severity::Warning,
+            format!("Constrained 2D residual {:.2e} exceeds tolerance", rel_residual),
+        ).with_value(rel_residual, 1e-6).with_phase("solve")
+    });
+
     Ok(AnalysisResults {
         displacements,
         reactions,
@@ -814,7 +836,7 @@ pub fn solve_constrained_3d(input: &ConstrainedInput3D) -> Result<AnalysisResult
     }
 
     // Pre-solve constraint validation
-    let constraint_diags = validate_constraints(
+    let mut constraint_diags = validate_constraints(
         &input.constraints, &dof_num,
         None, Some(&input.solver.nodes),
     );
@@ -897,14 +919,65 @@ pub fn solve_constrained_3d(input: &ConstrainedInput3D) -> Result<AnalysisResult
     let displacements = linear::build_displacements_3d(&dof_num, &u_full);
     let element_forces = linear::compute_internal_forces_3d(&input.solver, &dof_num, &u_full);
 
+    // Build reactions for output
+    let mut reactions = linear::build_reactions_3d(
+        &input.solver, &dof_num, &reactions_vec, &f_r, nf, &u_full,
+    );
+    reactions.sort_by_key(|r| r.node_id);
+
     // Compute constraint forces at dependent DOFs
     let fcs = FreeConstraintSystem { c_ff, n_free_indep, nf };
     let raw_forces = fcs.compute_constraint_forces(&k_ff, &u_f, &f_f);
     let constraint_forces = map_dof_forces_to_constraint_forces(&raw_forces, &dof_num);
 
+    // Compute actual residual: ||K_ff*u_f - f_f|| / ||f_f||
+    let rel_residual = {
+        let mut res2 = 0.0f64;
+        let mut fnorm2 = 0.0f64;
+        for i in 0..nf {
+            let mut ku_i = 0.0;
+            for j in 0..nf {
+                ku_i += k_ff[i * nf + j] * u_f[j];
+            }
+            let r = ku_i - f_f[i];
+            res2 += r * r;
+            fnorm2 += f_f[i] * f_f[i];
+        }
+        res2.sqrt() / fnorm2.sqrt().max(1e-30)
+    };
+
+    let equilibrium = linear::compute_equilibrium_summary_3d(&asm.f, &reactions_vec, &dof_num, rel_residual);
+
+    // Solver-path diagnostic
+    let path_code = if n_free_indep >= 64 {
+        DiagnosticCode::SparseCholesky
+    } else {
+        DiagnosticCode::DenseLu
+    };
+    constraint_diags.push(StructuredDiagnostic::global(
+        path_code,
+        Severity::Info,
+        format!("Constrained 3D solver ({} free DOFs, {} independent)", nf, n_free_indep),
+    ).with_phase("solve"));
+
+    // Residual diagnostic
+    constraint_diags.push(if rel_residual < 1e-6 {
+        StructuredDiagnostic::global(
+            DiagnosticCode::ResidualOk,
+            Severity::Info,
+            format!("Constrained 3D residual {:.2e}", rel_residual),
+        ).with_value(rel_residual, 1e-6).with_phase("solve")
+    } else {
+        StructuredDiagnostic::global(
+            DiagnosticCode::ResidualHigh,
+            Severity::Warning,
+            format!("Constrained 3D residual {:.2e} exceeds tolerance", rel_residual),
+        ).with_value(rel_residual, 1e-6).with_phase("solve")
+    });
+
     Ok(AnalysisResults3D {
         displacements,
-        reactions: vec![],
+        reactions,
         element_forces,
         plate_stresses: vec![],
         quad_stresses: vec![],
@@ -913,7 +986,7 @@ pub fn solve_constrained_3d(input: &ConstrainedInput3D) -> Result<AnalysisResult
         diagnostics: vec![],
         solver_diagnostics: vec![],
         structured_diagnostics: constraint_diags,
-        equilibrium: None,
+        equilibrium: Some(equilibrium),
         timings: None,
     })
 }
