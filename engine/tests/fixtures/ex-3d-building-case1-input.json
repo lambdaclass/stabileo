@@ -366,16 +366,16 @@
       "id": 4,
       "name": "Viga 30×60",
       "a": 0.18,
-      "iy": 0.00135,
-      "iz": 0.0054,
+      "iy": 0.0054,
+      "iz": 0.00135,
       "j": 0.004
     },
     "5": {
       "id": 5,
       "name": "Viga 25×50",
       "a": 0.125,
-      "iy": 0.000651,
-      "iz": 0.002604,
+      "iy": 0.002604,
+      "iz": 0.000651,
       "j": 0.0018
     }
   },
@@ -1519,600 +1519,600 @@
       "type": "distributed",
       "data": {
         "elementId": 46,
-        "qYI": 0,
-        "qYJ": 0,
-        "qZI": 8,
-        "qZJ": 8
+        "qYI": -8,
+        "qYJ": -8,
+        "qZI": 0,
+        "qZJ": 0
       }
     },
     {
       "type": "distributed",
       "data": {
         "elementId": 47,
-        "qYI": 0,
-        "qYJ": 0,
-        "qZI": 8,
-        "qZJ": 8
+        "qYI": -8,
+        "qYJ": -8,
+        "qZI": 0,
+        "qZJ": 0
       }
     },
     {
       "type": "distributed",
       "data": {
         "elementId": 48,
-        "qYI": 0,
-        "qYJ": 0,
-        "qZI": 8,
-        "qZJ": 8
+        "qYI": -8,
+        "qYJ": -8,
+        "qZI": 0,
+        "qZJ": 0
       }
     },
     {
       "type": "distributed",
       "data": {
         "elementId": 49,
-        "qYI": 0,
-        "qYJ": 0,
-        "qZI": 8,
-        "qZJ": 8
+        "qYI": -8,
+        "qYJ": -8,
+        "qZI": 0,
+        "qZJ": 0
       }
     },
     {
       "type": "distributed",
       "data": {
         "elementId": 50,
-        "qYI": 0,
-        "qYJ": 0,
-        "qZI": 8,
-        "qZJ": 8
+        "qYI": -8,
+        "qYJ": -8,
+        "qZI": 0,
+        "qZJ": 0
       }
     },
     {
       "type": "distributed",
       "data": {
         "elementId": 51,
-        "qYI": 0,
-        "qYJ": 0,
-        "qZI": 8,
-        "qZJ": 8
+        "qYI": -8,
+        "qYJ": -8,
+        "qZI": 0,
+        "qZJ": 0
       }
     },
     {
       "type": "distributed",
       "data": {
         "elementId": 52,
-        "qYI": 0,
-        "qYJ": 0,
-        "qZI": 8,
-        "qZJ": 8
+        "qYI": -8,
+        "qYJ": -8,
+        "qZI": 0,
+        "qZJ": 0
       }
     },
     {
       "type": "distributed",
       "data": {
         "elementId": 53,
-        "qYI": 0,
-        "qYJ": 0,
-        "qZI": 8,
-        "qZJ": 8
+        "qYI": -8,
+        "qYJ": -8,
+        "qZI": 0,
+        "qZJ": 0
       }
     },
     {
       "type": "distributed",
       "data": {
         "elementId": 54,
-        "qYI": 0,
-        "qYJ": 0,
-        "qZI": 8,
-        "qZJ": 8
+        "qYI": -8,
+        "qYJ": -8,
+        "qZI": 0,
+        "qZJ": 0
       }
     },
     {
       "type": "distributed",
       "data": {
         "elementId": 55,
-        "qYI": 0,
-        "qYJ": 0,
-        "qZI": 8,
-        "qZJ": 8
+        "qYI": -8,
+        "qYJ": -8,
+        "qZI": 0,
+        "qZJ": 0
       }
     },
     {
       "type": "distributed",
       "data": {
         "elementId": 56,
-        "qYI": 0,
-        "qYJ": 0,
-        "qZI": 8,
-        "qZJ": 8
+        "qYI": -8,
+        "qYJ": -8,
+        "qZI": 0,
+        "qZJ": 0
       }
     },
     {
       "type": "distributed",
       "data": {
         "elementId": 57,
-        "qYI": 0,
-        "qYJ": 0,
-        "qZI": 8,
-        "qZJ": 8
+        "qYI": -8,
+        "qYJ": -8,
+        "qZI": 0,
+        "qZJ": 0
       }
     },
     {
       "type": "distributed",
       "data": {
         "elementId": 58,
-        "qYI": 0,
-        "qYJ": 0,
-        "qZI": 8,
-        "qZJ": 8
+        "qYI": -8,
+        "qYJ": -8,
+        "qZI": 0,
+        "qZJ": 0
       }
     },
     {
       "type": "distributed",
       "data": {
         "elementId": 59,
-        "qYI": 0,
-        "qYJ": 0,
-        "qZI": 8,
-        "qZJ": 8
+        "qYI": -8,
+        "qYJ": -8,
+        "qZI": 0,
+        "qZJ": 0
       }
     },
     {
       "type": "distributed",
       "data": {
         "elementId": 60,
-        "qYI": 0,
-        "qYJ": 0,
-        "qZI": 8,
-        "qZJ": 8
+        "qYI": -8,
+        "qYJ": -8,
+        "qZI": 0,
+        "qZJ": 0
       }
     },
     {
       "type": "distributed",
       "data": {
         "elementId": 61,
-        "qYI": 0,
-        "qYJ": 0,
-        "qZI": 8,
-        "qZJ": 8
+        "qYI": -8,
+        "qYJ": -8,
+        "qZI": 0,
+        "qZJ": 0
       }
     },
     {
       "type": "distributed",
       "data": {
         "elementId": 62,
-        "qYI": 0,
-        "qYJ": 0,
-        "qZI": 8,
-        "qZJ": 8
+        "qYI": -8,
+        "qYJ": -8,
+        "qZI": 0,
+        "qZJ": 0
       }
     },
     {
       "type": "distributed",
       "data": {
         "elementId": 63,
-        "qYI": 0,
-        "qYJ": 0,
-        "qZI": 8,
-        "qZJ": 8
+        "qYI": -8,
+        "qYJ": -8,
+        "qZI": 0,
+        "qZJ": 0
       }
     },
     {
       "type": "distributed",
       "data": {
         "elementId": 64,
-        "qYI": 0,
-        "qYJ": 0,
-        "qZI": 8,
-        "qZJ": 8
+        "qYI": -8,
+        "qYJ": -8,
+        "qZI": 0,
+        "qZJ": 0
       }
     },
     {
       "type": "distributed",
       "data": {
         "elementId": 65,
-        "qYI": 0,
-        "qYJ": 0,
-        "qZI": 8,
-        "qZJ": 8
+        "qYI": -8,
+        "qYJ": -8,
+        "qZI": 0,
+        "qZJ": 0
       }
     },
     {
       "type": "distributed",
       "data": {
         "elementId": 66,
-        "qYI": 0,
-        "qYJ": 0,
-        "qZI": 8,
-        "qZJ": 8
+        "qYI": -8,
+        "qYJ": -8,
+        "qZI": 0,
+        "qZJ": 0
       }
     },
     {
       "type": "distributed",
       "data": {
         "elementId": 67,
-        "qYI": 0,
-        "qYJ": 0,
-        "qZI": 8,
-        "qZJ": 8
+        "qYI": -8,
+        "qYJ": -8,
+        "qZI": 0,
+        "qZJ": 0
       }
     },
     {
       "type": "distributed",
       "data": {
         "elementId": 68,
-        "qYI": 0,
-        "qYJ": 0,
-        "qZI": 8,
-        "qZJ": 8
+        "qYI": -8,
+        "qYJ": -8,
+        "qZI": 0,
+        "qZJ": 0
       }
     },
     {
       "type": "distributed",
       "data": {
         "elementId": 69,
-        "qYI": 0,
-        "qYJ": 0,
-        "qZI": 8,
-        "qZJ": 8
+        "qYI": -8,
+        "qYJ": -8,
+        "qZI": 0,
+        "qZJ": 0
       }
     },
     {
       "type": "distributed",
       "data": {
         "elementId": 70,
-        "qYI": 0,
-        "qYJ": 0,
-        "qZI": 8,
-        "qZJ": 8
+        "qYI": -8,
+        "qYJ": -8,
+        "qZI": 0,
+        "qZJ": 0
       }
     },
     {
       "type": "distributed",
       "data": {
         "elementId": 71,
-        "qYI": 0,
-        "qYJ": 0,
-        "qZI": 8,
-        "qZJ": 8
+        "qYI": -8,
+        "qYJ": -8,
+        "qZI": 0,
+        "qZJ": 0
       }
     },
     {
       "type": "distributed",
       "data": {
         "elementId": 72,
-        "qYI": 0,
-        "qYJ": 0,
-        "qZI": 8,
-        "qZJ": 8
+        "qYI": -8,
+        "qYJ": -8,
+        "qZI": 0,
+        "qZJ": 0
       }
     },
     {
       "type": "distributed",
       "data": {
         "elementId": 73,
-        "qYI": 0,
-        "qYJ": 0,
-        "qZI": 8,
-        "qZJ": 8
+        "qYI": -8,
+        "qYJ": -8,
+        "qZI": 0,
+        "qZJ": 0
       }
     },
     {
       "type": "distributed",
       "data": {
         "elementId": 74,
-        "qYI": 0,
-        "qYJ": 0,
-        "qZI": 8,
-        "qZJ": 8
+        "qYI": -8,
+        "qYJ": -8,
+        "qZI": 0,
+        "qZJ": 0
       }
     },
     {
       "type": "distributed",
       "data": {
         "elementId": 75,
-        "qYI": 0,
-        "qYJ": 0,
-        "qZI": 8,
-        "qZJ": 8
+        "qYI": -8,
+        "qYJ": -8,
+        "qZI": 0,
+        "qZJ": 0
       }
     },
     {
       "type": "distributed",
       "data": {
         "elementId": 76,
-        "qYI": 0,
-        "qYJ": 0,
-        "qZI": 6,
-        "qZJ": 6
+        "qYI": -6,
+        "qYJ": -6,
+        "qZI": 0,
+        "qZJ": 0
       }
     },
     {
       "type": "distributed",
       "data": {
         "elementId": 77,
-        "qYI": 0,
-        "qYJ": 0,
-        "qZI": 6,
-        "qZJ": 6
+        "qYI": -6,
+        "qYJ": -6,
+        "qZI": 0,
+        "qZJ": 0
       }
     },
     {
       "type": "distributed",
       "data": {
         "elementId": 78,
-        "qYI": 0,
-        "qYJ": 0,
-        "qZI": 6,
-        "qZJ": 6
+        "qYI": -6,
+        "qYJ": -6,
+        "qZI": 0,
+        "qZJ": 0
       }
     },
     {
       "type": "distributed",
       "data": {
         "elementId": 79,
-        "qYI": 0,
-        "qYJ": 0,
-        "qZI": 6,
-        "qZJ": 6
+        "qYI": -6,
+        "qYJ": -6,
+        "qZI": 0,
+        "qZJ": 0
       }
     },
     {
       "type": "distributed",
       "data": {
         "elementId": 80,
-        "qYI": 0,
-        "qYJ": 0,
-        "qZI": 6,
-        "qZJ": 6
+        "qYI": -6,
+        "qYJ": -6,
+        "qZI": 0,
+        "qZJ": 0
       }
     },
     {
       "type": "distributed",
       "data": {
         "elementId": 81,
-        "qYI": 0,
-        "qYJ": 0,
-        "qZI": 6,
-        "qZJ": 6
+        "qYI": -6,
+        "qYJ": -6,
+        "qZI": 0,
+        "qZJ": 0
       }
     },
     {
       "type": "distributed",
       "data": {
         "elementId": 82,
-        "qYI": 0,
-        "qYJ": 0,
-        "qZI": 6,
-        "qZJ": 6
+        "qYI": -6,
+        "qYJ": -6,
+        "qZI": 0,
+        "qZJ": 0
       }
     },
     {
       "type": "distributed",
       "data": {
         "elementId": 83,
-        "qYI": 0,
-        "qYJ": 0,
-        "qZI": 6,
-        "qZJ": 6
+        "qYI": -6,
+        "qYJ": -6,
+        "qZI": 0,
+        "qZJ": 0
       }
     },
     {
       "type": "distributed",
       "data": {
         "elementId": 84,
-        "qYI": 0,
-        "qYJ": 0,
-        "qZI": 6,
-        "qZJ": 6
+        "qYI": -6,
+        "qYJ": -6,
+        "qZI": 0,
+        "qZJ": 0
       }
     },
     {
       "type": "distributed",
       "data": {
         "elementId": 85,
-        "qYI": 0,
-        "qYJ": 0,
-        "qZI": 6,
-        "qZJ": 6
+        "qYI": -6,
+        "qYJ": -6,
+        "qZI": 0,
+        "qZJ": 0
       }
     },
     {
       "type": "distributed",
       "data": {
         "elementId": 86,
-        "qYI": 0,
-        "qYJ": 0,
-        "qZI": 6,
-        "qZJ": 6
+        "qYI": -6,
+        "qYJ": -6,
+        "qZI": 0,
+        "qZJ": 0
       }
     },
     {
       "type": "distributed",
       "data": {
         "elementId": 87,
-        "qYI": 0,
-        "qYJ": 0,
-        "qZI": 6,
-        "qZJ": 6
+        "qYI": -6,
+        "qYJ": -6,
+        "qZI": 0,
+        "qZJ": 0
       }
     },
     {
       "type": "distributed",
       "data": {
         "elementId": 88,
-        "qYI": 0,
-        "qYJ": 0,
-        "qZI": 6,
-        "qZJ": 6
+        "qYI": -6,
+        "qYJ": -6,
+        "qZI": 0,
+        "qZJ": 0
       }
     },
     {
       "type": "distributed",
       "data": {
         "elementId": 89,
-        "qYI": 0,
-        "qYJ": 0,
-        "qZI": 6,
-        "qZJ": 6
+        "qYI": -6,
+        "qYJ": -6,
+        "qZI": 0,
+        "qZJ": 0
       }
     },
     {
       "type": "distributed",
       "data": {
         "elementId": 90,
-        "qYI": 0,
-        "qYJ": 0,
-        "qZI": 6,
-        "qZJ": 6
+        "qYI": -6,
+        "qYJ": -6,
+        "qZI": 0,
+        "qZJ": 0
       }
     },
     {
       "type": "distributed",
       "data": {
         "elementId": 91,
-        "qYI": 0,
-        "qYJ": 0,
-        "qZI": 6,
-        "qZJ": 6
+        "qYI": -6,
+        "qYJ": -6,
+        "qZI": 0,
+        "qZJ": 0
       }
     },
     {
       "type": "distributed",
       "data": {
         "elementId": 92,
-        "qYI": 0,
-        "qYJ": 0,
-        "qZI": 6,
-        "qZJ": 6
+        "qYI": -6,
+        "qYJ": -6,
+        "qZI": 0,
+        "qZJ": 0
       }
     },
     {
       "type": "distributed",
       "data": {
         "elementId": 93,
-        "qYI": 0,
-        "qYJ": 0,
-        "qZI": 6,
-        "qZJ": 6
+        "qYI": -6,
+        "qYJ": -6,
+        "qZI": 0,
+        "qZJ": 0
       }
     },
     {
       "type": "distributed",
       "data": {
         "elementId": 94,
-        "qYI": 0,
-        "qYJ": 0,
-        "qZI": 6,
-        "qZJ": 6
+        "qYI": -6,
+        "qYJ": -6,
+        "qZI": 0,
+        "qZJ": 0
       }
     },
     {
       "type": "distributed",
       "data": {
         "elementId": 95,
-        "qYI": 0,
-        "qYJ": 0,
-        "qZI": 6,
-        "qZJ": 6
+        "qYI": -6,
+        "qYJ": -6,
+        "qZI": 0,
+        "qZJ": 0
       }
     },
     {
       "type": "distributed",
       "data": {
         "elementId": 96,
-        "qYI": 0,
-        "qYJ": 0,
-        "qZI": 6,
-        "qZJ": 6
+        "qYI": -6,
+        "qYJ": -6,
+        "qZI": 0,
+        "qZJ": 0
       }
     },
     {
       "type": "distributed",
       "data": {
         "elementId": 97,
-        "qYI": 0,
-        "qYJ": 0,
-        "qZI": 6,
-        "qZJ": 6
+        "qYI": -6,
+        "qYJ": -6,
+        "qZI": 0,
+        "qZJ": 0
       }
     },
     {
       "type": "distributed",
       "data": {
         "elementId": 98,
-        "qYI": 0,
-        "qYJ": 0,
-        "qZI": 6,
-        "qZJ": 6
+        "qYI": -6,
+        "qYJ": -6,
+        "qZI": 0,
+        "qZJ": 0
       }
     },
     {
       "type": "distributed",
       "data": {
         "elementId": 99,
-        "qYI": 0,
-        "qYJ": 0,
-        "qZI": 6,
-        "qZJ": 6
+        "qYI": -6,
+        "qYJ": -6,
+        "qZI": 0,
+        "qZJ": 0
       }
     },
     {
       "type": "distributed",
       "data": {
         "elementId": 100,
-        "qYI": 0,
-        "qYJ": 0,
-        "qZI": 6,
-        "qZJ": 6
+        "qYI": -6,
+        "qYJ": -6,
+        "qZI": 0,
+        "qZJ": 0
       }
     },
     {
       "type": "distributed",
       "data": {
         "elementId": 101,
-        "qYI": 0,
-        "qYJ": 0,
-        "qZI": 6,
-        "qZJ": 6
+        "qYI": -6,
+        "qYJ": -6,
+        "qZI": 0,
+        "qZJ": 0
       }
     },
     {
       "type": "distributed",
       "data": {
         "elementId": 102,
-        "qYI": 0,
-        "qYJ": 0,
-        "qZI": 6,
-        "qZJ": 6
+        "qYI": -6,
+        "qYJ": -6,
+        "qZI": 0,
+        "qZJ": 0
       }
     },
     {
       "type": "distributed",
       "data": {
         "elementId": 103,
-        "qYI": 0,
-        "qYJ": 0,
-        "qZI": 6,
-        "qZJ": 6
+        "qYI": -6,
+        "qYJ": -6,
+        "qZI": 0,
+        "qZJ": 0
       }
     },
     {
       "type": "distributed",
       "data": {
         "elementId": 104,
-        "qYI": 0,
-        "qYJ": 0,
-        "qZI": 6,
-        "qZJ": 6
+        "qYI": -6,
+        "qYJ": -6,
+        "qZI": 0,
+        "qZJ": 0
       }
     },
     {
       "type": "distributed",
       "data": {
         "elementId": 105,
-        "qYI": 0,
-        "qYJ": 0,
-        "qZI": 6,
-        "qZJ": 6
+        "qYI": -6,
+        "qYJ": -6,
+        "qZI": 0,
+        "qZJ": 0
       }
     }
   ],

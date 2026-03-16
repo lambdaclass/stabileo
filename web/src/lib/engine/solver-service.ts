@@ -987,15 +987,18 @@ export function buildSolverInput3D(model: ModelData, includeSelfWeight = false, 
     nodes: new Map(Array.from(model.nodes.entries()).map(([id, n]) => [id, { id: n.id, x: n.x, y: n.y, z: n.z ?? 0 }])),
     materials: new Map(Array.from(model.materials.entries()).map(([id, m]) => [id, { id: m.id, e: m.e, nu: m.nu }])),
     sections: new Map(Array.from(model.sections.entries()).map(([id, s]) => {
-      // s.iy = about Y-axis (horizontal), s.iz = about Z-axis (vertical)
-      // Solver convention: iy controls bending about Y (w, θy DOFs), iz controls bending about Z (v, θz DOFs)
-      const aboutY = s.iy ?? (s.b && s.h ? (s.b * s.h ** 3) / 12 : s.iz);  // Iy: about Y horizontal
-      const aboutZ = s.iz;  // Iz: about Z vertical
+      // European section convention: s.iy = strong axis (about horizontal y-y), s.iz = weak axis (about vertical z-z)
+      // Solver convention: iy (about local Y = vertical) controls Z-plane bending,
+      //                    iz (about local Z = horizontal) controls Y-plane bending
+      // For web-vertical I-beams: local Y = vertical = section z-z (weak), local Z = horizontal = section y-y (strong)
+      // Therefore: solver iy ← s.iz (weak), solver iz ← s.iy (strong)
+      const euroStrong = s.iy ?? (s.b && s.h ? (s.b * s.h ** 3) / 12 : s.iz);  // European Iy (strong axis)
+      const euroWeak = s.iz;  // European Iz (weak axis)
       return [id, {
         id: s.id, name: s.name, a: s.a,
-        iy: aboutY,   // solver iy = Iy (about Y horizontal) → controls Z-displacement bending (w, θy)
-        iz: aboutZ,   // solver iz = Iz (about Z vertical) → controls Y-displacement bending (v, θz)
-        j: s.j ?? aboutY * 0.001,
+        iy: euroWeak,    // solver iy (about local Y = vertical) ← European weak axis
+        iz: euroStrong,  // solver iz (about local Z = horizontal) ← European strong axis
+        j: s.j ?? euroStrong * 0.001,
       }];
     })),
     elements: new Map(Array.from(model.elements.entries()).map(([id, e]) => {

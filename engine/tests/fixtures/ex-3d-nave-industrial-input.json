@@ -1450,16 +1450,16 @@
       "id": 6,
       "name": "Carrilera IPN500",
       "a": 0.0179,
-      "iy": 0.0000248,
-      "iz": 0.0006874,
+      "iy": 0.0006874,
+      "iz": 0.0000248,
       "j": 0.0000033
     },
     "7": {
       "id": 7,
       "name": "Correa UPN160",
       "a": 0.0024,
-      "iy": 8.5e-7,
-      "iz": 0.00000925,
+      "iy": 0.00000925,
+      "iz": 8.5e-7,
       "j": 5e-8
     },
     "8": {
@@ -8826,60 +8826,60 @@
       "type": "distributed",
       "data": {
         "elementId": 484,
-        "qYI": 0,
-        "qYJ": 0,
-        "qZI": 1.41,
-        "qZJ": 1.41
+        "qYI": -1.41,
+        "qYJ": -1.41,
+        "qZI": 0,
+        "qZJ": 0
       }
     },
     {
       "type": "distributed",
       "data": {
         "elementId": 486,
-        "qYI": 0,
-        "qYJ": 0,
-        "qZI": 1.41,
-        "qZJ": 1.41
+        "qYI": -1.41,
+        "qYJ": -1.41,
+        "qZI": 0,
+        "qZJ": 0
       }
     },
     {
       "type": "distributed",
       "data": {
         "elementId": 488,
-        "qYI": 0,
-        "qYJ": 0,
-        "qZI": 1.41,
-        "qZJ": 1.41
+        "qYI": -1.41,
+        "qYJ": -1.41,
+        "qZI": 0,
+        "qZJ": 0
       }
     },
     {
       "type": "distributed",
       "data": {
         "elementId": 485,
-        "qYI": 0,
-        "qYJ": 0,
-        "qZI": 1.41,
-        "qZJ": 1.41
+        "qYI": -1.41,
+        "qYJ": -1.41,
+        "qZI": 0,
+        "qZJ": 0
       }
     },
     {
       "type": "distributed",
       "data": {
         "elementId": 487,
-        "qYI": 0,
-        "qYJ": 0,
-        "qZI": 1.41,
-        "qZJ": 1.41
+        "qYI": -1.41,
+        "qYJ": -1.41,
+        "qZI": 0,
+        "qZJ": 0
       }
     },
     {
       "type": "distributed",
       "data": {
         "elementId": 489,
-        "qYI": 0,
-        "qYJ": 0,
-        "qZI": 1.41,
-        "qZJ": 1.41
+        "qYI": -1.41,
+        "qYJ": -1.41,
+        "qZI": 0,
+        "qZJ": 0
       }
     },
     {
@@ -10290,420 +10290,420 @@
       "type": "distributed",
       "data": {
         "elementId": 400,
-        "qYI": 0,
-        "qYJ": 0,
-        "qZI": -0.5,
-        "qZJ": -0.5
+        "qYI": 0.5,
+        "qYJ": 0.5,
+        "qZI": 0,
+        "qZJ": 0
       }
     },
     {
       "type": "distributed",
       "data": {
         "elementId": 401,
-        "qYI": 0,
-        "qYJ": 0,
-        "qZI": -0.5,
-        "qZJ": -0.5
+        "qYI": 0.5,
+        "qYJ": 0.5,
+        "qZI": 0,
+        "qZJ": 0
       }
     },
     {
       "type": "distributed",
       "data": {
         "elementId": 402,
-        "qYI": 0,
-        "qYJ": 0,
-        "qZI": -0.5,
-        "qZJ": -0.5
+        "qYI": 0.5,
+        "qYJ": 0.5,
+        "qZI": 0,
+        "qZJ": 0
       }
     },
     {
       "type": "distributed",
       "data": {
         "elementId": 403,
-        "qYI": 0,
-        "qYJ": 0,
-        "qZI": -0.25,
-        "qZJ": -0.25
+        "qYI": 0.25,
+        "qYJ": 0.25,
+        "qZI": 0,
+        "qZJ": 0
       }
     },
     {
       "type": "distributed",
       "data": {
         "elementId": 404,
-        "qYI": 0,
-        "qYJ": 0,
-        "qZI": -0.25,
-        "qZJ": -0.25
+        "qYI": 0.25,
+        "qYJ": 0.25,
+        "qZI": 0,
+        "qZJ": 0
       }
     },
     {
       "type": "distributed",
       "data": {
         "elementId": 405,
-        "qYI": 0,
-        "qYJ": 0,
-        "qZI": -0.25,
-        "qZJ": -0.25
+        "qYI": 0.25,
+        "qYJ": 0.25,
+        "qZI": 0,
+        "qZJ": 0
       }
     },
     {
       "type": "distributed",
       "data": {
         "elementId": 406,
-        "qYI": 0,
-        "qYJ": 0,
-        "qZI": -0.25,
-        "qZJ": -0.25
+        "qYI": 0.25,
+        "qYJ": 0.25,
+        "qZI": 0,
+        "qZJ": 0
       }
     },
     {
       "type": "distributed",
       "data": {
         "elementId": 414,
-        "qYI": 0,
-        "qYJ": 0,
-        "qZI": -0.5,
-        "qZJ": -0.5
+        "qYI": 0.5,
+        "qYJ": 0.5,
+        "qZI": 0,
+        "qZJ": 0
       }
     },
     {
       "type": "distributed",
       "data": {
         "elementId": 415,
-        "qYI": 0,
-        "qYJ": 0,
-        "qZI": -0.5,
-        "qZJ": -0.5
+        "qYI": 0.5,
+        "qYJ": 0.5,
+        "qZI": 0,
+        "qZJ": 0
       }
     },
     {
       "type": "distributed",
       "data": {
         "elementId": 416,
-        "qYI": 0,
-        "qYJ": 0,
-        "qZI": -0.5,
-        "qZJ": -0.5
+        "qYI": 0.5,
+        "qYJ": 0.5,
+        "qZI": 0,
+        "qZJ": 0
       }
     },
     {
       "type": "distributed",
       "data": {
         "elementId": 417,
-        "qYI": 0,
-        "qYJ": 0,
-        "qZI": -0.25,
-        "qZJ": -0.25
+        "qYI": 0.25,
+        "qYJ": 0.25,
+        "qZI": 0,
+        "qZJ": 0
       }
     },
     {
       "type": "distributed",
       "data": {
         "elementId": 418,
-        "qYI": 0,
-        "qYJ": 0,
-        "qZI": -0.25,
-        "qZJ": -0.25
+        "qYI": 0.25,
+        "qYJ": 0.25,
+        "qZI": 0,
+        "qZJ": 0
       }
     },
     {
       "type": "distributed",
       "data": {
         "elementId": 419,
-        "qYI": 0,
-        "qYJ": 0,
-        "qZI": -0.25,
-        "qZJ": -0.25
+        "qYI": 0.25,
+        "qYJ": 0.25,
+        "qZI": 0,
+        "qZJ": 0
       }
     },
     {
       "type": "distributed",
       "data": {
         "elementId": 420,
-        "qYI": 0,
-        "qYJ": 0,
-        "qZI": -0.25,
-        "qZJ": -0.25
+        "qYI": 0.25,
+        "qYJ": 0.25,
+        "qZI": 0,
+        "qZJ": 0
       }
     },
     {
       "type": "distributed",
       "data": {
         "elementId": 428,
-        "qYI": 0,
-        "qYJ": 0,
-        "qZI": -0.5,
-        "qZJ": -0.5
+        "qYI": 0.5,
+        "qYJ": 0.5,
+        "qZI": 0,
+        "qZJ": 0
       }
     },
     {
       "type": "distributed",
       "data": {
         "elementId": 429,
-        "qYI": 0,
-        "qYJ": 0,
-        "qZI": -0.5,
-        "qZJ": -0.5
+        "qYI": 0.5,
+        "qYJ": 0.5,
+        "qZI": 0,
+        "qZJ": 0
       }
     },
     {
       "type": "distributed",
       "data": {
         "elementId": 430,
-        "qYI": 0,
-        "qYJ": 0,
-        "qZI": -0.5,
-        "qZJ": -0.5
+        "qYI": 0.5,
+        "qYJ": 0.5,
+        "qZI": 0,
+        "qZJ": 0
       }
     },
     {
       "type": "distributed",
       "data": {
         "elementId": 431,
-        "qYI": 0,
-        "qYJ": 0,
-        "qZI": -0.25,
-        "qZJ": -0.25
+        "qYI": 0.25,
+        "qYJ": 0.25,
+        "qZI": 0,
+        "qZJ": 0
       }
     },
     {
       "type": "distributed",
       "data": {
         "elementId": 432,
-        "qYI": 0,
-        "qYJ": 0,
-        "qZI": -0.25,
-        "qZJ": -0.25
+        "qYI": 0.25,
+        "qYJ": 0.25,
+        "qZI": 0,
+        "qZJ": 0
       }
     },
     {
       "type": "distributed",
       "data": {
         "elementId": 433,
-        "qYI": 0,
-        "qYJ": 0,
-        "qZI": -0.25,
-        "qZJ": -0.25
+        "qYI": 0.25,
+        "qYJ": 0.25,
+        "qZI": 0,
+        "qZJ": 0
       }
     },
     {
       "type": "distributed",
       "data": {
         "elementId": 434,
-        "qYI": 0,
-        "qYJ": 0,
-        "qZI": -0.25,
-        "qZJ": -0.25
+        "qYI": 0.25,
+        "qYJ": 0.25,
+        "qZI": 0,
+        "qZJ": 0
       }
     },
     {
       "type": "distributed",
       "data": {
         "elementId": 442,
-        "qYI": 0,
-        "qYJ": 0,
-        "qZI": -0.5,
-        "qZJ": -0.5
+        "qYI": 0.5,
+        "qYJ": 0.5,
+        "qZI": 0,
+        "qZJ": 0
       }
     },
     {
       "type": "distributed",
       "data": {
         "elementId": 443,
-        "qYI": 0,
-        "qYJ": 0,
-        "qZI": -0.5,
-        "qZJ": -0.5
+        "qYI": 0.5,
+        "qYJ": 0.5,
+        "qZI": 0,
+        "qZJ": 0
       }
     },
     {
       "type": "distributed",
       "data": {
         "elementId": 444,
-        "qYI": 0,
-        "qYJ": 0,
-        "qZI": -0.5,
-        "qZJ": -0.5
+        "qYI": 0.5,
+        "qYJ": 0.5,
+        "qZI": 0,
+        "qZJ": 0
       }
     },
     {
       "type": "distributed",
       "data": {
         "elementId": 445,
-        "qYI": 0,
-        "qYJ": 0,
-        "qZI": -0.25,
-        "qZJ": -0.25
+        "qYI": 0.25,
+        "qYJ": 0.25,
+        "qZI": 0,
+        "qZJ": 0
       }
     },
     {
       "type": "distributed",
       "data": {
         "elementId": 446,
-        "qYI": 0,
-        "qYJ": 0,
-        "qZI": -0.25,
-        "qZJ": -0.25
+        "qYI": 0.25,
+        "qYJ": 0.25,
+        "qZI": 0,
+        "qZJ": 0
       }
     },
     {
       "type": "distributed",
       "data": {
         "elementId": 447,
-        "qYI": 0,
-        "qYJ": 0,
-        "qZI": -0.25,
-        "qZJ": -0.25
+        "qYI": 0.25,
+        "qYJ": 0.25,
+        "qZI": 0,
+        "qZJ": 0
       }
     },
     {
       "type": "distributed",
       "data": {
         "elementId": 448,
-        "qYI": 0,
-        "qYJ": 0,
-        "qZI": -0.25,
-        "qZJ": -0.25
+        "qYI": 0.25,
+        "qYJ": 0.25,
+        "qZI": 0,
+        "qZJ": 0
       }
     },
     {
       "type": "distributed",
       "data": {
         "elementId": 456,
-        "qYI": 0,
-        "qYJ": 0,
-        "qZI": -0.5,
-        "qZJ": -0.5
+        "qYI": 0.5,
+        "qYJ": 0.5,
+        "qZI": 0,
+        "qZJ": 0
       }
     },
     {
       "type": "distributed",
       "data": {
         "elementId": 457,
-        "qYI": 0,
-        "qYJ": 0,
-        "qZI": -0.5,
-        "qZJ": -0.5
+        "qYI": 0.5,
+        "qYJ": 0.5,
+        "qZI": 0,
+        "qZJ": 0
       }
     },
     {
       "type": "distributed",
       "data": {
         "elementId": 458,
-        "qYI": 0,
-        "qYJ": 0,
-        "qZI": -0.5,
-        "qZJ": -0.5
+        "qYI": 0.5,
+        "qYJ": 0.5,
+        "qZI": 0,
+        "qZJ": 0
       }
     },
     {
       "type": "distributed",
       "data": {
         "elementId": 459,
-        "qYI": 0,
-        "qYJ": 0,
-        "qZI": -0.25,
-        "qZJ": -0.25
+        "qYI": 0.25,
+        "qYJ": 0.25,
+        "qZI": 0,
+        "qZJ": 0
       }
     },
     {
       "type": "distributed",
       "data": {
         "elementId": 460,
-        "qYI": 0,
-        "qYJ": 0,
-        "qZI": -0.25,
-        "qZJ": -0.25
+        "qYI": 0.25,
+        "qYJ": 0.25,
+        "qZI": 0,
+        "qZJ": 0
       }
     },
     {
       "type": "distributed",
       "data": {
         "elementId": 461,
-        "qYI": 0,
-        "qYJ": 0,
-        "qZI": -0.25,
-        "qZJ": -0.25
+        "qYI": 0.25,
+        "qYJ": 0.25,
+        "qZI": 0,
+        "qZJ": 0
       }
     },
     {
       "type": "distributed",
       "data": {
         "elementId": 462,
-        "qYI": 0,
-        "qYJ": 0,
-        "qZI": -0.25,
-        "qZJ": -0.25
+        "qYI": 0.25,
+        "qYJ": 0.25,
+        "qZI": 0,
+        "qZJ": 0
       }
     },
     {
       "type": "distributed",
       "data": {
         "elementId": 470,
-        "qYI": 0,
-        "qYJ": 0,
-        "qZI": -0.5,
-        "qZJ": -0.5
+        "qYI": 0.5,
+        "qYJ": 0.5,
+        "qZI": 0,
+        "qZJ": 0
       }
     },
     {
       "type": "distributed",
       "data": {
         "elementId": 471,
-        "qYI": 0,
-        "qYJ": 0,
-        "qZI": -0.5,
-        "qZJ": -0.5
+        "qYI": 0.5,
+        "qYJ": 0.5,
+        "qZI": 0,
+        "qZJ": 0
       }
     },
     {
       "type": "distributed",
       "data": {
         "elementId": 472,
-        "qYI": 0,
-        "qYJ": 0,
-        "qZI": -0.5,
-        "qZJ": -0.5
+        "qYI": 0.5,
+        "qYJ": 0.5,
+        "qZI": 0,
+        "qZJ": 0
       }
     },
     {
       "type": "distributed",
       "data": {
         "elementId": 473,
-        "qYI": 0,
-        "qYJ": 0,
-        "qZI": -0.25,
-        "qZJ": -0.25
+        "qYI": 0.25,
+        "qYJ": 0.25,
+        "qZI": 0,
+        "qZJ": 0
       }
     },
     {
       "type": "distributed",
       "data": {
         "elementId": 474,
-        "qYI": 0,
-        "qYJ": 0,
-        "qZI": -0.25,
-        "qZJ": -0.25
+        "qYI": 0.25,
+        "qYJ": 0.25,
+        "qZI": 0,
+        "qZJ": 0
       }
     },
     {
       "type": "distributed",
       "data": {
         "elementId": 475,
-        "qYI": 0,
-        "qYJ": 0,
-        "qZI": -0.25,
-        "qZJ": -0.25
+        "qYI": 0.25,
+        "qYJ": 0.25,
+        "qZI": 0,
+        "qZJ": 0
       }
     },
     {
       "type": "distributed",
       "data": {
         "elementId": 476,
-        "qYI": 0,
-        "qYJ": 0,
-        "qZI": -0.25,
-        "qZJ": -0.25
+        "qYI": 0.25,
+        "qYJ": 0.25,
+        "qZI": 0,
+        "qZJ": 0
       }
     },
     {

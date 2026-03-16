@@ -45,9 +45,9 @@ export function load3DExample(name: string, api: ExampleAPI3D): boolean {
       api.addSupport(pf2, 'fixed3d');
       api.addSupport(pf3, 'fixed3d');
       api.addSupport(pf4, 'fixed3d');
-      // Distributed load on beams (gravity -> local Z, since ez=(0,-1,0) for horizontal bars)
-      api.addDistributedLoad3D(pfB1, 0, 0, 10, 10);
-      api.addDistributedLoad3D(pfB2, 0, 0, 10, 10);
+      // Distributed load on beams (gravity -> local Y, ey=(0,1,0) for horizontal bars)
+      api.addDistributedLoad3D(pfB1, -10, -10, 0, 0);
+      api.addDistributedLoad3D(pfB2, -10, -10, 0, 0);
       // Lateral load
       api.addNodalLoad3D(pf5, 15, 0, 5, 0, 0, 0);
       return true;
@@ -281,20 +281,20 @@ export function load3DExample(name: string, api: ExampleAPI3D): boolean {
       const NMain = 4;
 
       // ─── Material ───
-      const niMat = api.addMaterial({ name: 'Acero A36', e: 200000, nu: 0.3, rho: 78.5 });
+      const niMat = api.addMaterial({ name: 'Acero A36', e: 200000, nu: 0.3, rho: 78.5, fy: 250 });
 
       // ─── Secciones ───
-      const sCC = api.addSection({ name: 'Col cord 2L75', a: 0.00114, iz: 4.5e-7, iy: 4.5e-7, j: 3e-8 });
-      const sCD = api.addSection({ name: 'Col diag L50', a: 0.00048, iz: 1e-7, iy: 1e-7 });
-      const sTC = api.addSection({ name: 'Cab cord 2L100', a: 0.0019, iz: 1.2e-6, iy: 1.2e-6, j: 1.5e-7 });
-      const sTD = api.addSection({ name: 'Cab diag L60', a: 0.00069, iz: 2e-7, iy: 2e-7 });
+      const sCC = api.addSection({ name: 'Col cord 2L75', a: 0.00114, iz: 4.5e-7, iy: 4.5e-7, j: 3e-8, h: 0.075, b: 0.075, shape: 'L' });
+      const sCD = api.addSection({ name: 'Col diag L50', a: 0.00048, iz: 1e-7, iy: 1e-7, h: 0.050, b: 0.050, shape: 'L' });
+      const sTC = api.addSection({ name: 'Cab cord 2L100', a: 0.0019, iz: 1.2e-6, iy: 1.2e-6, j: 1.5e-7, h: 0.100, b: 0.100, shape: 'L' });
+      const sTD = api.addSection({ name: 'Cab diag L60', a: 0.00069, iz: 2e-7, iy: 2e-7, h: 0.060, b: 0.060, shape: 'L' });
       const sCR = api.addSection({
         name: 'Carrilera IPN500', a: 0.0179, iz: 6.874e-4, iy: 2.48e-5,
         j: 3.3e-6, b: 0.185, h: 0.500, shape: 'I',
       });
-      const sPR = api.addSection({ name: 'Correa UPN160', a: 0.00240, iz: 9.25e-6, iy: 8.5e-7, j: 5e-8 });
-      const sBR = api.addSection({ name: 'Tirante Ø16', a: 0.000201, iz: 3.2e-9, iy: 3.2e-9 });
-      const sLG = api.addSection({ name: 'Ret lat 2L65', a: 0.00098, iz: 3e-7, iy: 3e-7, j: 2e-8 });
+      const sPR = api.addSection({ name: 'Correa UPN160', a: 0.00240, iz: 9.25e-6, iy: 8.5e-7, j: 5e-8, h: 0.160, b: 0.065, shape: 'I' });
+      const sBR = api.addSection({ name: 'Tirante Ø16', a: 0.000201, iz: 3.2e-9, iy: 3.2e-9, h: 0.016, b: 0.016, shape: 'tube' });
+      const sLG = api.addSection({ name: 'Ret lat 2L65', a: 0.00098, iz: 3e-7, iy: 3e-7, j: 2e-8, h: 0.065, b: 0.065, shape: 'L' });
 
       // ─── Helpers ───
       const niT = (n1: number, n2: number, s: number) => {
@@ -598,7 +598,7 @@ export function load3DExample(name: string, api: ExampleAPI3D): boolean {
       }
       // Peso propio carrileras (IPN500 ≈ 1.41 kN/m)
       for (const eid of [...craneRailIdsL, ...craneRailIdsR]) {
-        api.addDistributedLoad3D(eid, 0, 0, 1.41, 1.41, undefined, undefined, 1);
+        api.addDistributedLoad3D(eid, -1.41, -1.41, 0, 0, undefined, undefined, 1);
       }
 
       // ─── Lr (Sobrecarga cubierta + grúa) ───
@@ -634,7 +634,7 @@ export function load3DExample(name: string, api: ExampleAPI3D): boolean {
           const idx = f * (NTP - 1) + (p - 1);
           const eid = roofPurlinIds[idx];
           const q = p < midP ? qRoofWindward : qRoofLeeward;
-          api.addDistributedLoad3D(eid, 0, 0, -q, -q, undefined, undefined, 3);
+          api.addDistributedLoad3D(eid, q, q, 0, 0, undefined, undefined, 3);
         }
       }
       // Viento en aleros (presión en nodos tope de columna)
@@ -763,10 +763,10 @@ export function load3DExample(name: string, api: ExampleAPI3D): boolean {
       const qDx = 8;   // kN/m sobre vigas principales (X)
       const qDz = 6;   // kN/m sobre vigas secundarias (Z)
       for (const eid of beamXIds) {
-        api.addDistributedLoad3D(eid, 0, 0, qDx, qDx, undefined, undefined, 1);
+        api.addDistributedLoad3D(eid, -qDx, -qDx, 0, 0, undefined, undefined, 1);
       }
       for (const eid of beamZIds) {
-        api.addDistributedLoad3D(eid, 0, 0, qDz, qDz, undefined, undefined, 1);
+        api.addDistributedLoad3D(eid, -qDz, -qDz, 0, 0, undefined, undefined, 1);
       }
 
       // -- L (Carga viva): sobrecarga de uso --
@@ -774,10 +774,10 @@ export function load3DExample(name: string, api: ExampleAPI3D): boolean {
       const qLx = 4;   // kN/m
       const qLz = 3;   // kN/m
       for (const eid of beamXIds) {
-        api.addDistributedLoad3D(eid, 0, 0, qLx, qLx, undefined, undefined, 2);
+        api.addDistributedLoad3D(eid, -qLx, -qLx, 0, 0, undefined, undefined, 2);
       }
       for (const eid of beamZIds) {
-        api.addDistributedLoad3D(eid, 0, 0, qLz, qLz, undefined, undefined, 2);
+        api.addDistributedLoad3D(eid, -qLz, -qLz, 0, 0, undefined, undefined, 2);
       }
 
       // -- W (Viento +X): presion distribuida sobre fachada --

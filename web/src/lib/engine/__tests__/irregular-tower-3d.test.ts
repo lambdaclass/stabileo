@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 
 import { generateIrregularSetbackTower3D } from '../../templates/generators';
 import { buildSolverInput3D } from '../solver-service';
-import { solve3D } from '../wasm-solver';
+import { solve3D } from '../solver-3d';
 
 type ModelDataLike = {
   name: string;
@@ -185,7 +185,7 @@ describe('Irregular setback tower 3D example', () => {
     expect(maxEnvUy).toBeLessThan(0.10); // < 100mm vertical under factored loads
   });
 
-  it('dead load produces realistic displacements (sub-mm for properly sized sections)', { timeout: 30000 }, () => {
+  it('dead load produces realistic displacements (sub-mm for properly sized sections)', { timeout: 30_000 }, () => {
     const model = createMock3DModel();
     generateIrregularSetbackTower3D(model as any, {
       storyH: 3.8,

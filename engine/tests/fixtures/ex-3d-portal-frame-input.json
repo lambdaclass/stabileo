@@ -191,20 +191,20 @@
       "type": "distributed",
       "data": {
         "elementId": 5,
-        "qYI": 0,
-        "qYJ": 0,
-        "qZI": 10,
-        "qZJ": 10
+        "qYI": -10,
+        "qYJ": -10,
+        "qZI": 0,
+        "qZJ": 0
       }
     },
     {
       "type": "distributed",
       "data": {
         "elementId": 6,
-        "qYI": 0,
-        "qYJ": 0,
-        "qZI": 10,
-        "qZJ": 10
+        "qYI": -10,
+        "qYJ": -10,
+        "qZI": 0,
+        "qZJ": 0
       }
     },
     {
