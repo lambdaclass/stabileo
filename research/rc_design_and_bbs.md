@@ -3,7 +3,7 @@
 Read next:
 - product priorities: [PRODUCT_ROADMAP.md](/Users/unbalancedparen/projects/dedaliano/PRODUCT_ROADMAP.md)
 - solver priorities: [SOLVER_ROADMAP.md](/Users/unbalancedparen/projects/dedaliano/SOLVER_ROADMAP.md)
-- current capability snapshot: [CURRENT_STATUS.md](/Users/unbalancedparen/projects/dedaliano/CURRENT_STATUS.md)
+- benchmarks: [BENCHMARKS.md](/Users/unbalancedparen/projects/dedaliano/BENCHMARKS.md)
 
 This note captures why `reinforced-concrete member design`, `reinforcement schedules`, and later `bar bending schedule (BBS)` generation are important enough to be explicit priorities.
 

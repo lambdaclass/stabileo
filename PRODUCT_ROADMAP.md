@@ -569,7 +569,6 @@ Do not prioritize these before the core product is clearly trusted:
 ## Related Docs
 
 - `README.md` — repo entry point and document map
-- `CURRENT_STATUS.md` — current snapshot
 - `SOLVER_ROADMAP.md` — solver mechanics and validation sequencing
 - `POSITIONING.md` — market framing and competitive wedge
 - `research/rc_design_and_bbs.md` — RC design and BBS research

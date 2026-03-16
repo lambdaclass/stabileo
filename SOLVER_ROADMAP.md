@@ -8,7 +8,7 @@ For the cross-cutting AI track that depends on these solver outputs and contract
 
 ## Where We Are
 
-Sparse direct solver, deterministic assembly, multi-family shell stack (MITC4+EAS-7, MITC9, SHB8-ANS, curved shell), sparse eigensolver paths for modal/buckling/harmonic, beam station extraction for RC design, and Modified Newton-Raphson are all done. The WASM path and TypeScript solver retirement are the immediate blockers. See `CURRENT_STATUS.md` for the full snapshot and measured benchmark data.
+Sparse direct solver, deterministic assembly, multi-family shell stack (MITC4+EAS-7, MITC9, SHB8-ANS, curved shell), sparse eigensolver paths for modal/buckling/harmonic, beam station extraction for RC design, and Modified Newton-Raphson are all done. The WASM path and TypeScript solver retirement are the immediate blockers. See `BENCHMARKS.md` for the full snapshot and measured benchmark data.
 
 ## What Still Separates Dedaliano From The Strongest Open Solvers
 
@@ -979,7 +979,6 @@ Phase 3c workflow measurements (20x20 MITC4, nf=2564):
 - `BENCHMARKS.md` — capability and benchmark evidence
 - `VERIFICATION.md` — verification philosophy and testing stack
 - `PRODUCT_ROADMAP.md` — app, workflow, market, and product sequencing
-- `CURRENT_STATUS.md` — current snapshot
 - `CHANGELOG.md` — historical progress
 - `research/shell_family_selection.md` — shell-family selection notes
 - `research/competitor_element_families.md` — competitor shell-family comparison

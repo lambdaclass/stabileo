@@ -1,7 +1,6 @@
 # CHOLMOD + NVIDIA GPU Research
 
 Read next:
-- [CURRENT_STATUS.md](/Users/unbalancedparen/projects/dedaliano/CURRENT_STATUS.md)
 - [SOLVER_ROADMAP.md](/Users/unbalancedparen/projects/dedaliano/SOLVER_ROADMAP.md)
 - [research/numerical_methods_gap_analysis.md](/Users/unbalancedparen/projects/dedaliano/research/numerical_methods_gap_analysis.md)
 - [research/webgpu_solver_renderer_analysis.md](/Users/unbalancedparen/projects/dedaliano/research/webgpu_solver_renderer_analysis.md)
@@ -80,7 +79,7 @@ The current codebase already has a strong sparse CPU path:
 
 Relevant local evidence:
 
-- [`CURRENT_STATUS.md`](/Users/unbalancedparen/projects/dedaliano/CURRENT_STATUS.md)
+- [`BENCHMARKS.md`](/Users/unbalancedparen/projects/dedaliano/BENCHMARKS.md)
   current measured sparse wins:
   - `4.5x` at ~700 DOFs
   - `22x` at ~2600 DOFs

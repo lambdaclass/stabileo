@@ -111,12 +111,11 @@ Requires Node.js >= 18.
 
 | Document | Contents |
 |----------|----------|
-| [CURRENT_STATUS.md](CURRENT_STATUS.md) | Solver snapshot, strengths, gaps, next priorities |
-| [BENCHMARKS.md](BENCHMARKS.md) | Validation coverage and benchmark status |
-| [SOLVER_ROADMAP.md](SOLVER_ROADMAP.md) | Solver mechanics, performance, and validation sequencing |
+| [SOLVER_ROADMAP.md](SOLVER_ROADMAP.md) | Solver status, sequencing, performance, and validation |
 | [PRODUCT_ROADMAP.md](PRODUCT_ROADMAP.md) | App, workflow, and market sequencing |
-| [POSITIONING.md](POSITIONING.md) | Market framing and competitive strategy |
+| [BENCHMARKS.md](BENCHMARKS.md) | Validation coverage and benchmark status |
 | [VERIFICATION.md](VERIFICATION.md) | Testing philosophy, fuzzing, invariants |
+| [POSITIONING.md](POSITIONING.md) | Market framing and competitive strategy |
 | [engine/README.md](engine/README.md) | Rust solver engine API and analysis types |
 | [CHANGELOG.md](CHANGELOG.md) | Milestone updates |
 | [research/](research/) | Shell-family research, competitor comparisons, numerical methods |

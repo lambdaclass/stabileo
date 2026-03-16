@@ -2,7 +2,7 @@
 
 Read next:
 - entry point: [`README.md`](/Users/unbalancedparen/projects/dedaliano/README.md)
-- current snapshot: [`CURRENT_STATUS.md`](/Users/unbalancedparen/projects/dedaliano/CURRENT_STATUS.md)
+- solver roadmap: [`SOLVER_ROADMAP.md`](/Users/unbalancedparen/projects/dedaliano/SOLVER_ROADMAP.md)
 - product execution: [`PRODUCT_ROADMAP.md`](/Users/unbalancedparen/projects/dedaliano/PRODUCT_ROADMAP.md)
 
 ## What Dedaliano Is
