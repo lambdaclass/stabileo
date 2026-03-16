@@ -247,5 +247,5 @@ License cost is only part of the equation:
 - `SOLVER_ROADMAP.md` — solver step definitions and done criteria
 - `PRODUCT_ROADMAP.md` — product sequencing
 - `research/open_source_solver_comparison.md` — detailed comparison with OpenSees, Code_Aster, Kratos
-- `research/cypecad_gap_analysis.md` — CYPECAD-specific gap analysis
+- `research/cypecad_competitive_gap_and_parity_plan.md` — CYPECAD-specific competitive gap and phased parity plan
 - `POSITIONING.md` — market framing and competitive strategy

@@ -573,5 +573,5 @@ Do not prioritize these before the core product is clearly trusted:
 - `POSITIONING.md` — market framing and competitive wedge
 - `research/rc_design_and_bbs.md` — RC design and BBS research
 - `research/beyond_roadmap_opportunities.md` — GNN surrogates, digital twins, UQ, advanced research opportunities
-- `research/cypecad_parity_roadmap.md` — CYPECAD feature parity analysis and wiring plan
+- `research/cypecad_competitive_gap_and_parity_plan.md` — unified CYPECAD competitive gap analysis and parity plan
 - `research/post_roadmap_software_stack.md` — platform adjacencies after roadmap execution

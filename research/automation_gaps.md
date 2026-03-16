@@ -168,7 +168,7 @@ Most competitors automate code checks and reports reasonably well. What they do 
 5. **Generative layout** — no competitor generates structural systems from architectural constraints; they all check one user-authored scheme.
 6. **Transparent solver** — no competitor exposes enough of the solver internals for engineers to trace a result from input to output. Stabileo can build a verification story no commercial tool can match.
 
-The CYPECAD angle is worth noting separately: CYPECAD has strong RC reinforcement automation (bar selection, BBS, local code depth for Spain, Portugal, and Latin America) that no other competitor has matched for those markets. See `research/cypecad_gap_analysis.md` for the full audit. Stabileo can close this gap at the engine level because the beam station extraction for RC design is already implemented — the missing pieces are the bar selection logic, schedule formatting, and local code databases, not solver mechanics.
+The CYPECAD angle is worth noting separately: CYPECAD has strong RC reinforcement automation (bar selection, BBS, local code depth for Spain, Portugal, and Latin America) that no other competitor has matched for those markets. See `research/cypecad_competitive_gap_and_parity_plan.md` for the full audit. Stabileo can close this gap at the engine level because the beam station extraction for RC design is already implemented — the missing pieces are the bar selection logic, schedule formatting, and local code databases, not solver mechanics.
 
 ---
 
@@ -192,8 +192,7 @@ Derived from the priority matrix and the product roadmap sequence:
 - `PRODUCT_ROADMAP.md` — product sequencing and step definitions
 - `SOLVER_ROADMAP.md` — solver mechanics roadmap, Steps 1–23
 - `research/rc_design_and_bbs.md` — RC design and BBS research
-- `research/cypecad_gap_analysis.md` — CYPECAD-specific gap analysis and corrected capability audit
-- `research/cypecad_parity_roadmap.md` — phased CYPECAD parity plan
+- `research/cypecad_competitive_gap_and_parity_plan.md` — unified CYPECAD competitive gap analysis and phased parity plan
 - `research/competitive_displacement_by_step.md` — which competitors each step displaces and estimated savings
 - `research/post_roadmap_software_stack.md` — software products to build on top of the solver moat
 - `research/ai_structural_engineering_roadmap.md` — AI feature roadmap and what needs deep solver depth vs what can ship early
