@@ -31,6 +31,10 @@
   import EducativePanel from './components/edu/EducativePanel.svelte';
   import TourOverlay from './components/TourOverlay.svelte';
   import HelpOverlay from './components/HelpOverlay.svelte';
+  import ApiPlayground from './components/ApiPlayground.svelte';
+  import AssignmentCreator from './components/edu/AssignmentCreator.svelte';
+  import AssignmentView from './components/edu/AssignmentView.svelte';
+  import { decompressAssignment, type AssignmentDef } from './lib/utils/assignment';
   import ContextMenu from './components/ContextMenu.svelte';
   import { tourStore } from './lib/store/tour.svelte';
   import { buildTourSteps } from './lib/tour/tour-steps';
@@ -176,6 +180,9 @@
   const showResults = $derived(resultsStore.results !== null || resultsStore.results3D !== null);
   let showAutosaveBanner = $state(false);
   let showImportDialog = $state(false);
+  let showApiPlayground = $state(false);
+  let showAssignmentCreator = $state(false);
+  let activeAssignment = $state<AssignmentDef | null>(null);
   let importText = $state('');
   let autosaveData = $state<ReturnType<typeof loadFromLocalStorage>>(null);
   let autosaveInterval: ReturnType<typeof setInterval> | null = null;
@@ -264,13 +271,36 @@
       setTimeout(() => tourStore.start(buildTourSteps()), 600);
     }
 
-    // Check for URL hash (shared model link or embed)
+    // Check for URL hash (shared model link, embed, or assignment)
     const hashMode = loadFromURLHash();
     if (hashMode === 'embed') {
       uiStore.embedMode = true;
     }
+    if (hashMode === 'assignment') {
+      // Parse and load assignment from URL hash
+      const hash = location.hash;
+      const compressed = hash.startsWith('#assignment=') ? hash.slice(12) : null;
+      if (compressed) {
+        const def = decompressAssignment(compressed);
+        if (def) {
+          activeAssignment = def;
+          uiStore.analysisMode = def.analysisMode;
+          modelStore.restore(def.model);
+          uiStore.embedMode = true; // Hide toolbar/sidebar in assignment mode
+          // Clean hash
+          history.replaceState(null, '', location.pathname + location.search);
+          // Auto zoom-to-fit
+          setTimeout(() => {
+            const canvas = document.querySelector('.viewport-container canvas') as HTMLCanvasElement | null;
+            if (canvas && modelStore.nodes.size > 0) {
+              uiStore.zoomToFit(modelStore.nodes.values(), canvas.width, canvas.height);
+            }
+          }, 100);
+        }
+      }
+    }
     // Auto zoom-to-fit when loading from shared link
-    if (hashMode) {
+    if (hashMode && hashMode !== 'assignment') {
       setTimeout(() => {
         const canvas = document.querySelector('.viewport-container canvas') as HTMLCanvasElement | null;
         if (canvas && modelStore.nodes.size > 0) {
@@ -341,6 +371,14 @@
     const handleIfcImportEvent = () => { ifcFileInput?.click(); };
     window.addEventListener('stabileo-import-ifc', handleIfcImportEvent);
 
+    // API Playground event
+    const handleOpenApi = () => { showApiPlayground = true; };
+    window.addEventListener('stabileo-open-api', handleOpenApi);
+
+    // Assignment Creator event
+    const handleOpenAssignment = () => { showAssignmentCreator = true; };
+    window.addEventListener('stabileo-open-assignment-creator', handleOpenAssignment);
+
     // Global solve event — always mounted (mobile bottom bar dispatches this)
     const handleGlobalSolve = () => runGlobalSolve();
     window.addEventListener('stabileo-solve', handleGlobalSolve);
@@ -354,6 +392,8 @@
       window.removeEventListener('stabileo-import-dxf', handleDxfImportEvent);
       window.removeEventListener('stabileo-dxf-drop', handleDxfDropEvent);
       window.removeEventListener('stabileo-import-ifc', handleIfcImportEvent);
+      window.removeEventListener('stabileo-open-api', handleOpenApi);
+      window.removeEventListener('stabileo-open-assignment-creator', handleOpenAssignment);
       window.removeEventListener('stabileo-solve', handleGlobalSolve);
       window.removeEventListener('popstate', onPopState);
     };
@@ -479,7 +519,11 @@
     </div>
 
     {#if !uiStore.isMobile}
-      {#if uiStore.appMode === 'pro'}
+      {#if activeAssignment}
+        <aside class="sidebar right assignment-sidebar">
+          <AssignmentView assignment={activeAssignment} />
+        </aside>
+      {:else if uiStore.appMode === 'pro'}
         <aside class="sidebar right pro-sidebar">
           <ProPanel />
         </aside>
@@ -624,6 +668,14 @@
     (e.currentTarget as HTMLInputElement).value = '';
   }}
 />
+
+{#if showApiPlayground}
+  <ApiPlayground onclose={() => { showApiPlayground = false; }} />
+{/if}
+
+{#if showAssignmentCreator}
+  <AssignmentCreator onclose={() => { showAssignmentCreator = false; }} />
+{/if}
 
 {#if showImportDialog}
   <div class="help-overlay" role="dialog" aria-label={t('app.importCoordinates')}>
@@ -805,6 +857,12 @@
     width: 420px;
     min-width: 420px;
     max-width: 420px;
+  }
+
+  .assignment-sidebar {
+    width: 380px;
+    min-width: 380px;
+    max-width: 380px;
   }
 
   .project-name {
@@ -1200,6 +1258,10 @@
   .embed-mode .app-footer,
   .embed-mode .sidebar {
     display: none !important;
+  }
+
+  .embed-mode .sidebar.assignment-sidebar {
+    display: flex !important;
   }
 
   .embed-mode .app-body {

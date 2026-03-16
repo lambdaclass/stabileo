@@ -254,6 +254,33 @@ Key test patterns:
 - Mechanism detection (singular matrix, large displacement)
 - Thermal loads, prescribed displacements, spring supports
 
+## Public API
+
+The app exposes a programmatic API via `window.stabileo` for browser console, userscripts, and notebook integration.
+
+### Usage (browser console)
+```javascript
+// Solve the built-in example
+const result = stabileo.solve2D(stabileo.EXAMPLE);
+console.log(result.data.reactions);
+
+// Solve a custom structure
+const input = { nodes: [...], materials: [...], sections: [...], elements: [...], supports: [...], loads: [...] };
+const result = stabileo.solve2D(input);
+// or: stabileo.solve3D(input, { includeSelfWeight: true, leftHand: false });
+```
+
+### Input format
+Same as the `.ded` file `ModelSnapshot` format: Maps serialized as `Array<[id, entity]>` tuples. See `src/lib/engine/api.ts` for the `ApiModelInput` interface and `EXAMPLE_INPUT_2D` for a complete example.
+
+### API Playground
+Accessible from Project > Export/Import > API section. Provides a JSON editor with "Current Model" / "Example" loaders, 2D/3D mode selector, and solve button.
+
+### Key files
+- `src/lib/engine/api.ts` — Core API functions (`solve2D`, `solve3D`, type definitions)
+- `src/components/ApiPlayground.svelte` — Interactive playground UI
+- `src/main.ts` — `window.stabileo` global exposure
+
 ## Data
 
 - `src/lib/data/steel-profiles.ts` — 100+ European steel profiles (IPE, HEB, HEA, UPN, L, RHS, CHS)
@@ -349,6 +376,39 @@ Cada feedback incluye automáticamente:
 - El campo "nombre" es opcional en el formulario y se incluye en el body del GitHub issue como `**Autor:** nombre`
 - Los badges son: 🏆 (1°), 🥈 (2°), 🥉 (3°), ⭐ (4° en adelante)
 
+## LMS / Assignment System
+
+Teachers can create auto-graded assignments from any model and share via URL or embed in LMS platforms (Moodle, Google Classroom, Canvas).
+
+### Flow
+1. Teacher builds a structure in basic mode
+2. Switches to Education mode → "Create Assignment"
+3. Assignment Creator auto-detects questions from the model (reactions, max values, kinematic classification)
+4. Teacher configures: title, time limit, max attempts, tolerance, which questions to include
+5. Generates `#assignment=<compressed>` URL
+6. Student opens URL → locked viewport + questions panel → submits → auto-graded
+7. Grade reported to parent iframe via `postMessage` (for LMS integration)
+
+### Grade Reporting Protocol
+```javascript
+// Message sent to parent iframe on submission
+window.parent.postMessage({
+  type: 'stabileo-grade',
+  source: 'stabileo',
+  score: 8,       // points earned
+  total: 10,      // total points
+  percent: 80,    // percentage
+  details: [...], // per-question breakdown
+  timestamp: '2026-03-16T...',
+  assignmentTitle: 'Midterm — Simply Supported Beam',
+}, '*');
+```
+
+### Key Files
+- `src/lib/utils/assignment.ts` — Assignment serialization, URL generation, grading engine, postMessage reporting
+- `src/components/edu/AssignmentCreator.svelte` — Teacher UI for creating assignments
+- `src/components/edu/AssignmentView.svelte` — Student solving UI with timer and grade display
+
 ## Known Limitations (3D)
 
 - DXF export/import: disabled for 3D ("En desarrollo para 3D")
@@ -356,5 +416,4 @@ Cada feedback incluye automáticamente:
 - Overlay comparison (Comparar selector): only works in 2D. In 3D, switching loads/combos works but overlay rendering is not yet implemented.
 - Influence lines: 2D only (3D WASM available but no 3D renderer yet)
 - Moving loads: available in both 2D and 3D
-- Plastic collapse: 2D only (3D not yet implemented in WASM/JS engine)
-- P-Delta, Buckling, Modal, Spectral: available in both 2D and 3D
+- P-Delta, Buckling, Modal, Spectral, Plastic collapse: available in both 2D and 3D

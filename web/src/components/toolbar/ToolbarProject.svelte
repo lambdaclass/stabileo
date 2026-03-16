@@ -150,6 +150,18 @@
           {t('project.pasteLink')}
         </button>
       </div>
+      <span class="file-sub-header">API</span>
+      <div class="file-grid">
+        <button class="file-btn" onclick={() => window.dispatchEvent(new Event('stabileo-open-api'))} title={t('api.openHint')}>
+          {t('api.playground')}
+        </button>
+      </div>
+      <span class="file-sub-header">LMS</span>
+      <div class="file-grid">
+        <button class="file-btn" onclick={() => window.dispatchEvent(new Event('stabileo-open-assignment-creator'))} title={t('lms.createAssignmentDesc')}>
+          {t('lms.createAssignment')}
+        </button>
+      </div>
     </div>
   {/if}
   {/if}

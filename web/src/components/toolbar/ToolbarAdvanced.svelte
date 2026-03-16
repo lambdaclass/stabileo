@@ -1,7 +1,7 @@
 <script lang="ts">
   import { uiStore, modelStore, resultsStore, dsmStepsStore } from '../../lib/store';
   import { t } from '../../lib/i18n';
-  import { solvePDelta, solveBuckling, solveModal, solveSpectral, solvePlastic, solvePDelta3D as wasmPDelta3D, solveModal3D as wasmModal3D, solveBuckling3D as wasmBuckling3D, solveSpectral3D as wasmSpectral3D, initSolver, isWasmReady } from '../../lib/engine/wasm-solver';
+  import { solvePDelta, solveBuckling, solveModal, solveSpectral, solvePlastic, solvePDelta3D as wasmPDelta3D, solveModal3D as wasmModal3D, solveBuckling3D as wasmBuckling3D, solveSpectral3D as wasmSpectral3D, solvePlastic3D as wasmPlastic3D, initSolver, isWasmReady } from '../../lib/engine/wasm-solver';
   import { cirsoc103Spectrum } from '../../lib/engine/result-types';
   import { getPredefinedTrains, solveMovingLoadsAsync } from '../../lib/engine/moving-loads';
   import { solveDetailed } from '../../lib/engine/solver-detailed';
@@ -316,6 +316,34 @@
     }
   }
 
+  async function handlePlastic3D() {
+    if (!await ensureWasmReady('handlePlastic3D')) return;
+    const input = modelStore.buildSolverInput3D(uiStore.includeSelfWeight, uiStore.axisConvention3D === 'leftHand');
+    if (!input) { uiStore.toast(t('advanced.emptyModel'), 'error'); return; }
+    const sections = new Map<number, { a: number; iz: number; iy?: number; materialId: number; b?: number; h?: number }>();
+    for (const [id, sec] of modelStore.sections) {
+      const elem = [...modelStore.elements.values()].find(e => e.sectionId === id);
+      sections.set(id, { a: sec.a, iz: sec.iz, iy: sec.iy, materialId: elem?.materialId ?? 1, b: sec.b, h: sec.h });
+    }
+    const materials = new Map<number, { fy?: number }>();
+    for (const [id, mat] of modelStore.materials) {
+      materials.set(id, { fy: mat.fy });
+    }
+    try {
+      const t0 = performance.now();
+      const result = wasmPlastic3D({ solver: input, sections, materials });
+      const dt = performance.now() - t0;
+      if (typeof result === 'string') { uiStore.toast(result, 'error'); return; }
+      resultsStore.setPlasticResult3D(result);
+      const msg = result.isMechanism
+        ? t('toast.plasticMechanism').replace('{lambda}', result.collapseFactor.toFixed(2)).replace('{hinges}', String(result.hinges.length)).replace('{limit}', String(result.redundancy + 1)).replace('{ms}', dt.toFixed(0))
+        : t('toast.plasticNoCollapse').replace('{hinges}', String(result.hinges.length)).replace('{lambda}', result.collapseFactor.toFixed(2)).replace('{redundancy}', String(result.redundancy)).replace('{ms}', dt.toFixed(0));
+      uiStore.toast(msg, result.isMechanism ? 'info' : 'success');
+    } catch (e: any) {
+      uiStore.toast(e.message || t('toast.plasticError'), 'error');
+    }
+  }
+
   async function handleSpectral3D() {
     if (!await ensureWasmReady('handleSpectral3D')) return;
     if (!resultsStore.modalResult3D) {
@@ -471,21 +499,23 @@
     </div>
     {@render helpPanel('modal')}
     {@render helpPanel('spectral')}
-    <!-- Plastic, Envelope, Moving Loads, Influence Lines: 2D only -->
-    {#if !is3D}
     <div class="adv-btn-wrap" style="grid-column: span 2">
-      <button class="adv-btn" style="flex:1" class:active={!!resultsStore.plasticResult}
+      <button class="adv-btn" style="flex:1" class:active={is3D ? !!resultsStore.plasticResult3D : !!resultsStore.plasticResult}
         onclick={() => {
-          if (resultsStore.plasticResult) {
-            resultsStore.clearPlastic();
-            const r = modelStore.solve(uiStore.includeSelfWeight);
-            if (r && typeof r !== 'string') resultsStore.setResults(r);
-          } else { handlePlastic(); }
+          if (is3D) {
+            if (resultsStore.plasticResult3D) { resultsStore.clearPlastic3D(); }
+            else { handlePlastic3D(); }
+          } else {
+            if (resultsStore.plasticResult) {
+              resultsStore.clearPlastic();
+              const r = modelStore.solve(uiStore.includeSelfWeight);
+              if (r && typeof r !== 'string') resultsStore.setResults(r);
+            } else { handlePlastic(); }
+          }
         }}>{t('advanced.plasticCollapse')}</button>
       <button class="adv-help-btn" onclick={(e) => toggleAdvHelp('plastic', e)} class:active={advHelpKey === 'plastic'}>?</button>
     </div>
     {@render helpPanel('plastic')}
-    {/if}
     <div class="adv-btn-wrap" style="grid-column: span 2">
       <button class="adv-btn" style="flex:1"
         class:active={resultsStore.activeView === 'envelope'}
@@ -693,17 +723,19 @@
       </div>
     {/if}
   {/if}
-  {#if resultsStore.plasticResult}
+  {@const plR = is3D ? resultsStore.plasticResult3D : resultsStore.plasticResult}
+  {@const plStep = is3D ? resultsStore.plasticStep3D : resultsStore.plasticStep}
+  {#if plR}
     <div class="adv-result-row">
       <button class="adv-result-btn" class:active={resultsStore.diagramType === 'plasticHinges'} onclick={() => resultsStore.diagramType = 'plasticHinges'}>{t('advanced.plasticLabel')}</button>
-      <button class="small-btn" onclick={() => { if (resultsStore.plasticStep > 0) resultsStore.plasticStep--; }} disabled={resultsStore.plasticStep === 0}>&#9664;</button>
-      <span class="adv-result-label">{resultsStore.plasticStep + 1}/{resultsStore.plasticResult.steps.length}</span>
-      <button class="small-btn" onclick={() => { if (resultsStore.plasticResult && resultsStore.plasticStep < resultsStore.plasticResult.steps.length - 1) resultsStore.plasticStep++; }} disabled={!resultsStore.plasticResult || resultsStore.plasticStep >= resultsStore.plasticResult.steps.length - 1}>&#9654;</button>
+      <button class="small-btn" onclick={() => { if (is3D) { if (resultsStore.plasticStep3D > 0) resultsStore.plasticStep3D--; } else { if (resultsStore.plasticStep > 0) resultsStore.plasticStep--; } }} disabled={plStep === 0}>&#9664;</button>
+      <span class="adv-result-label">{plStep + 1}/{plR.steps.length}</span>
+      <button class="small-btn" onclick={() => { if (is3D) { if (plR && resultsStore.plasticStep3D < plR.steps.length - 1) resultsStore.plasticStep3D++; } else { if (plR && resultsStore.plasticStep < plR.steps.length - 1) resultsStore.plasticStep++; } }} disabled={!plR || plStep >= plR.steps.length - 1}>&#9654;</button>
     </div>
     <div class="adv-result-info">
-      &lambda; = {resultsStore.plasticResult.steps[resultsStore.plasticStep]?.loadFactor.toFixed(3) ?? '—'} |
-      {resultsStore.plasticResult.isMechanism ? t('advanced.mechanism') : t('advanced.noCollapse')} |
-      GH = {resultsStore.plasticResult.redundancy}
+      &lambda; = {plR.steps[plStep]?.loadFactor.toFixed(3) ?? '—'} |
+      {plR.isMechanism ? t('advanced.mechanism') : t('advanced.noCollapse')} |
+      GH = {plR.redundancy}
     </div>
   {/if}
   {#if resultsStore.movingLoadEnvelope}

@@ -539,9 +539,12 @@ function restoreMeta(snapshot: ModelSnapshot): void {
  * Try to load a model from the current URL hash.
  * Returns 'data' | 'embed' | null depending on what was found.
  */
-export function loadFromURLHash(): 'data' | 'embed' | null {
+export function loadFromURLHash(): 'data' | 'embed' | 'assignment' | null {
   const hash = location.hash;
   if (!hash) return null;
+
+  // Assignment URLs are handled separately by App.svelte
+  if (hash.startsWith('#assignment=')) return 'assignment';
 
   let mode: 'data' | 'embed' | null = null;
   let compressed: string | null = null;
