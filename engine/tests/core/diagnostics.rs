@@ -595,3 +595,141 @@ fn diagnostics_parity_constrained_3d_sparse() {
     assert_eq!(path.code, DiagnosticCode::SparseCholesky,
         "large constrained 3D model should use sparse path, got {:?}", path.code);
 }
+
+// ==================== Pre-Solve Gate Tests ====================
+
+#[test]
+fn pre_solve_disconnected_node_2d() {
+    // Node 2 is disconnected: the element only connects nodes 0 and 1.
+    // Node 2 is fixed so the matrix remains non-singular.
+    let input = make_input(
+        vec![(0, 0.0, 0.0), (1, 6.0, 0.0), (2, 3.0, 3.0)],
+        vec![(1, 200e3, 0.3)],
+        vec![(1, 0.01, 1e-4)],
+        vec![(1, "frame", 0, 1, 1, 1, false, false)],
+        vec![(1, 0, "fixed"), (2, 2, "fixed")],
+        vec![SolverLoad::Nodal(SolverNodalLoad {
+            node_id: 1, fx: 0.0, fy: -10.0, mz: 0.0,
+        })],
+    );
+    let results = solve_2d(&input).unwrap();
+
+    let diags = &results.structured_diagnostics;
+    let disconnected = diags.iter().find(|d| d.code == DiagnosticCode::DisconnectedNode);
+    assert!(disconnected.is_some(), "should detect disconnected node");
+    assert!(disconnected.unwrap().node_ids.contains(&2),
+        "diagnostic should reference node 2, got {:?}", disconnected.unwrap().node_ids);
+}
+
+#[test]
+fn pre_solve_near_duplicate_nodes_2d() {
+    // Node 0 at (0,0) and node 1 at (1e-9, 0) are near-duplicates.
+    // Element connects node 0 to node 2. Node 1 is not connected (fixed to avoid singularity).
+    let input = make_input(
+        vec![(0, 0.0, 0.0), (1, 1e-9, 0.0), (2, 6.0, 0.0)],
+        vec![(1, 200e3, 0.3)],
+        vec![(1, 0.01, 1e-4)],
+        vec![(1, "frame", 0, 2, 1, 1, false, false)],
+        vec![(1, 0, "fixed"), (2, 1, "fixed")],
+        vec![SolverLoad::Nodal(SolverNodalLoad {
+            node_id: 2, fx: 0.0, fy: -10.0, mz: 0.0,
+        })],
+    );
+    let results = solve_2d(&input).unwrap();
+
+    let diags = &results.structured_diagnostics;
+    let near_dup = diags.iter().find(|d| d.code == DiagnosticCode::NearDuplicateNodes);
+    assert!(near_dup.is_some(), "should detect near-duplicate nodes");
+    let nd = near_dup.unwrap();
+    assert!(nd.node_ids.contains(&0) && nd.node_ids.contains(&1),
+        "diagnostic should reference nodes 0 and 1, got {:?}", nd.node_ids);
+}
+
+#[test]
+fn pre_solve_instability_risk_truss_no_rotation() {
+    // Two nodes connected by a truss element. Truss has no rotational stiffness.
+    // Node 0: pinned (dx=0, dy=0, rz free) — no rotational restraint.
+    // Node 1: rollerX (dy=0 only) — no rotational restraint.
+    // Both nodes should trigger InstabilityRisk.
+    let input = make_input(
+        vec![(0, 0.0, 0.0), (1, 6.0, 0.0)],
+        vec![(1, 200e3, 0.3)],
+        vec![(1, 0.01, 1e-4)],
+        vec![(1, "truss", 0, 1, 1, 1, false, false)],
+        vec![(1, 0, "pinned"), (2, 1, "rollerX")],
+        vec![SolverLoad::Nodal(SolverNodalLoad {
+            node_id: 1, fx: 10.0, fy: 0.0, mz: 0.0,
+        })],
+    );
+    let results = solve_2d(&input).unwrap();
+
+    let diags = &results.structured_diagnostics;
+    let instability: Vec<_> = diags.iter()
+        .filter(|d| d.code == DiagnosticCode::InstabilityRisk)
+        .collect();
+    assert!(!instability.is_empty(), "should detect instability risk for truss-only nodes");
+
+    // Both node 0 and node 1 should be flagged
+    let flagged_nodes: std::collections::HashSet<usize> = instability.iter()
+        .flat_map(|d| d.node_ids.iter().copied())
+        .collect();
+    assert!(flagged_nodes.contains(&0),
+        "node 0 (pinned, truss-only) should be flagged, got {:?}", flagged_nodes);
+    assert!(flagged_nodes.contains(&1),
+        "node 1 (roller, truss-only) should be flagged, got {:?}", flagged_nodes);
+}
+
+#[test]
+fn pre_solve_clean_model_no_warnings() {
+    // A clean 2D model with frame elements and proper supports should have
+    // no pre-solve diagnostics (DisconnectedNode, NearDuplicateNodes, InstabilityRisk).
+    let input = make_input(
+        vec![(1, 0.0, 0.0), (2, 6.0, 0.0)],
+        vec![(1, 200e3, 0.3)],
+        vec![(1, 0.01, 1e-4)],
+        vec![(1, "frame", 1, 2, 1, 1, false, false)],
+        vec![(1, 1, "fixed")],
+        vec![SolverLoad::Nodal(SolverNodalLoad {
+            node_id: 2, fx: 0.0, fy: -10.0, mz: 0.0,
+        })],
+    );
+    let results = solve_2d(&input).unwrap();
+
+    let pre_solve_diags: Vec<_> = results.structured_diagnostics.iter()
+        .filter(|d| matches!(d.code,
+            DiagnosticCode::DisconnectedNode |
+            DiagnosticCode::NearDuplicateNodes |
+            DiagnosticCode::InstabilityRisk
+        ))
+        .collect();
+    assert!(pre_solve_diags.is_empty(),
+        "clean model should have no pre-solve diagnostics, got {:?}",
+        pre_solve_diags.iter().map(|d| &d.code).collect::<Vec<_>>());
+}
+
+#[test]
+fn pre_solve_disconnected_node_3d() {
+    // 3D model: element connects nodes 1 and 2, node 3 is disconnected.
+    // Node 3 is fully fixed to avoid a singular matrix.
+    let input = make_3d_input(
+        vec![(1, 0.0, 0.0, 0.0), (2, 6.0, 0.0, 0.0), (3, 3.0, 3.0, 0.0)],
+        vec![(1, 200e3, 0.3)],
+        vec![(1, 0.01, 1e-4, 1e-4, 2e-4)],
+        vec![(1, "frame", 1, 2, 1, 1)],
+        vec![
+            (1, vec![true, true, true, true, true, true]),
+            (3, vec![true, true, true, true, true, true]),
+        ],
+        vec![SolverLoad3D::Nodal(SolverNodalLoad3D {
+            node_id: 2, fx: 0.0, fy: -10.0, fz: 0.0,
+            mx: 0.0, my: 0.0, mz: 0.0, bw: None,
+        })],
+    );
+    let results = solve_3d(&input).unwrap();
+
+    let diags = &results.structured_diagnostics;
+    let disconnected = diags.iter().find(|d| d.code == DiagnosticCode::DisconnectedNode);
+    assert!(disconnected.is_some(), "should detect disconnected node in 3D model");
+    assert!(disconnected.unwrap().node_ids.contains(&3),
+        "diagnostic should reference node 3, got {:?}", disconnected.unwrap().node_ids);
+}

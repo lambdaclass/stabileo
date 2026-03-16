@@ -190,6 +190,12 @@ pub enum DiagnosticCode {
     LocalMechanism,
     /// Singular stiffness matrix.
     SingularMatrix,
+    /// Disconnected node — not connected to any element.
+    DisconnectedNode,
+    /// Near-duplicate nodes — two nodes at nearly the same position.
+    NearDuplicateNodes,
+    /// Instability risk — node has too few restraints for the element types it connects to.
+    InstabilityRisk,
 
     // ---- Constraint quality ----
     /// Same DOF is constrained by multiple constraints.
@@ -291,7 +297,7 @@ impl From<&StructuredDiagnostic> for SolverDiagnostic {
             DiagnosticCode::HighDiagonalRatio | DiagnosticCode::ExtremelyHighDiagonalRatio | DiagnosticCode::NearZeroDiagonal => "conditioning",
             DiagnosticCode::ResidualOk | DiagnosticCode::ResidualHigh | DiagnosticCode::EquilibriumOk | DiagnosticCode::EquilibriumViolation => "residual",
             DiagnosticCode::HighAspectRatio | DiagnosticCode::NegativeJacobian | DiagnosticCode::HighWarping | DiagnosticCode::PoorJacobianRatio | DiagnosticCode::SmallMinAngle => "element_quality",
-            DiagnosticCode::NoFreeDofs | DiagnosticCode::LocalMechanism | DiagnosticCode::SingularMatrix => "model_quality",
+            DiagnosticCode::NoFreeDofs | DiagnosticCode::LocalMechanism | DiagnosticCode::SingularMatrix | DiagnosticCode::DisconnectedNode | DiagnosticCode::NearDuplicateNodes | DiagnosticCode::InstabilityRisk => "model_quality",
             DiagnosticCode::ConflictingConstraints | DiagnosticCode::CircularConstraint | DiagnosticCode::OverConstrainedDof => "constraints",
         };
         let severity = match sd.severity {

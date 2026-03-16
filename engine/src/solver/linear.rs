@@ -42,6 +42,7 @@ pub fn solve_2d(input: &SolverInput) -> Result<AnalysisResults, String> {
     }
 
     let dof_num = DofNumbering::build_2d(input);
+    let pre_solve_diags = super::pre_solve_gates::run_pre_solve_gates_2d(input);
 
     if dof_num.n_free == 0 {
         return Err("No free DOFs — all nodes are fully restrained".into());
@@ -176,6 +177,7 @@ pub fn solve_2d(input: &SolverInput) -> Result<AnalysisResults, String> {
 
     // Build structured diagnostics — same contract as 3D sparse/dense paths
     let mut structured = Vec::new();
+    structured.extend(pre_solve_diags);
 
     // Solver path
     structured.push(StructuredDiagnostic::global(
@@ -250,6 +252,7 @@ pub fn solve_3d(input: &SolverInput3D) -> Result<AnalysisResults3D, String> {
     let input = expand_curved_beams_3d(input);
     let input = &input;
     let dof_num = DofNumbering::build_3d(input);
+    let pre_solve_diags = super::pre_solve_gates::run_pre_solve_gates_3d(input);
 
     if dof_num.n_free == 0 {
         return Err("No free DOFs — all nodes are fully restrained".into());
@@ -444,6 +447,7 @@ pub fn solve_3d(input: &SolverInput3D) -> Result<AnalysisResults3D, String> {
 
                     // Build structured diagnostics for fallback path
                     let mut structured = Vec::new();
+                    structured.extend(pre_solve_diags.clone());
                     structured.push(StructuredDiagnostic::global(
                         DiagnosticCode::SparseFallbackDenseLu,
                         Severity::Warning,
@@ -624,6 +628,7 @@ pub fn solve_3d(input: &SolverInput3D) -> Result<AnalysisResults3D, String> {
 
         // Build structured diagnostics (enum-based, machine-matchable)
         let mut structured = Vec::new();
+        structured.extend(pre_solve_diags.clone());
 
         // Solver path — report the actual solver that produced the returned result
         if used_residual_fallback {
@@ -792,6 +797,7 @@ pub fn solve_3d(input: &SolverInput3D) -> Result<AnalysisResults3D, String> {
 
         // Build structured diagnostics for dense path — same contract as sparse path
         let mut structured = Vec::new();
+        structured.extend(pre_solve_diags);
 
         // Solver path
         structured.push(StructuredDiagnostic::global(
