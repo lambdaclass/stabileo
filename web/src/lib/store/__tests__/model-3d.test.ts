@@ -2,10 +2,10 @@
 // Tests that the model store correctly builds SolverInput3D and dispatches to solve3D
 
 import { describe, it, expect } from 'vitest';
-import { solve3D } from '../../engine/solver-3d';
+import { solve3D } from '../../engine/wasm-solver';
 import type { SolverInput3D, SolverLoad3D, AnalysisResults3D } from '../../engine/types-3d';
 import type { SolverInput } from '../../engine/types';
-import { solve } from '../../engine/solver-js';
+import { solve } from '../../engine/wasm-solver';
 
 // ─── Snap3D pure logic tests ──────────────────────────────
 // Replicate the snapWorld3D logic for unit testing (avoids importing the store)

@@ -1,16 +1,9 @@
 // Moving load analysis — envelope of moving load trains across a structure
 
 import type { SolverInput, AnalysisResults, FullEnvelope, ElementEnvelopeDiagram, EnvelopeDiagramData } from './types';
-import { solve as wasmSolve, isWasmReady } from './wasm-solver';
-import { solve as tsSolve } from './solver-js';
+import { solve } from './wasm-solver';
 import { computeDiagramValueAt } from './diagrams';
 import { t } from '../i18n';
-
-/** Use WASM solver when available, TS fallback otherwise. */
-function solve(input: SolverInput): AnalysisResults {
-  if (isWasmReady()) return wasmSolve(input);
-  return tsSolve(input);
-}
 
 /** A single axle in a load train */
 export interface Axle {

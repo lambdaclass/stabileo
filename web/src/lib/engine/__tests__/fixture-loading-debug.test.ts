@@ -2,7 +2,7 @@ import { describe, it, expect } from 'vitest';
 import { readFileSync } from 'fs';
 import { loadFixture, type JSONModel, type FixtureLoader } from '../../templates/load-fixture';
 import { buildSolverInput3D } from '../solver-service';
-import { solve3D } from '../solver-3d';
+import { solve3D } from '../wasm-solver';
 
 function createStoreMock() {
   let nextNode = 1, nextElem = 1, nextSupport = 1, nextLoad = 1, nextSection = 2, nextMat = 2;

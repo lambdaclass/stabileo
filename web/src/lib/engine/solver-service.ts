@@ -3,7 +3,7 @@
 
 import { solve as solveStructure, solve3D as solve3DEngine, analyzeKinematics, combineResults, combineResults3D, computeEnvelope, computeEnvelope3D, solveMultiCase3D, serializeInput3D } from './wasm-solver';
 import type { SolverInput, FullEnvelope, AnalysisResults } from './types';
-import { computeLocalAxes3D } from './solver-3d';
+import { computeLocalAxes3D } from './local-axes-3d';
 import type { SolverInput3D, SolverLoad3D, AnalysisResults3D, FullEnvelope3D, Constraint3D } from './types-3d';
 import type { KinematicResult } from './kinematic-2d';
 import {

@@ -22,8 +22,8 @@
  */
 
 import { describe, it, expect } from 'vitest';
-import { solve } from '../solver-js';
-import { solve3D } from '../solver-3d';
+import { solve } from '../wasm-solver';
+import { solve3D } from '../wasm-solver';
 import { computeDiagramValueAt } from '../diagrams';
 import type { SolverInput, SolverLoad, AnalysisResults } from '../types';
 import type {

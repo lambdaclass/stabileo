@@ -1,4 +1,4 @@
-import type { LocalAxes3D } from '../engine/solver-3d';
+import type { LocalAxes3D } from '../engine/local-axes-3d';
 
 /**
  * Apply visual axis convention for diagram rendering.

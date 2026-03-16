@@ -2,7 +2,7 @@
 // Each generator returns a complete ModelSnapshot ready to restore
 
 import type { ModelSnapshot } from '../store/history.svelte';
-import { computeLocalAxes3D } from '../engine/solver-3d';
+import { computeLocalAxes3D } from '../engine/local-axes-3d';
 import { t } from '../i18n';
 
 // Default material and section

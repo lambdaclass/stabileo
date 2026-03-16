@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 
 import { generateIrregularSetbackTower3D } from '../../templates/generators';
 import { buildSolverInput3D } from '../solver-service';
-import { solve3D } from '../solver-3d';
+import { solve3D } from '../wasm-solver';
 
 type ModelDataLike = {
   name: string;

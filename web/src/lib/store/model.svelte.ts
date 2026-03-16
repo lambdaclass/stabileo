@@ -1,5 +1,5 @@
 // Model store - manages the structural model
-import type { KinematicResult } from '../engine/solver-js';
+import type { KinematicResult } from '../engine/kinematic-2d';
 import type { SolverInput, FullEnvelope, AnalysisResults } from '../engine/types';
 import type { SolverInput3D, AnalysisResults3D, FullEnvelope3D, Constraint3D } from '../engine/types-3d';
 import type { ModelSnapshot } from './history.svelte';

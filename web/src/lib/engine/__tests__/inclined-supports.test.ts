@@ -12,7 +12,7 @@
  */
 
 import { describe, it, expect } from 'vitest';
-import { solve } from '../solver-js';
+import { solve } from '../wasm-solver';
 import { computeStaticDegree, analyzeKinematics } from '../kinematic-2d';
 import type { SolverInput, SolverSupport, SolverLoad } from '../types';
 

@@ -8,8 +8,8 @@
 import { describe, it, vi } from 'vitest';
 import * as fs from 'node:fs';
 import * as path from 'node:path';
-import { solve } from '../solver-js';
-import { solve3D } from '../solver-3d';
+import { solve } from '../wasm-solver';
+import { solve3D } from '../wasm-solver';
 import type { SolverInput, SolverLoad, AnalysisResults } from '../types';
 import type { SolverInput3D } from '../types-3d';
 import { combineResults, computeEnvelope } from './combinations-legacy';

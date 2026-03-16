@@ -13,7 +13,7 @@ import type { SupportGizmoType } from '../three/create-support-gizmo';
 import { createNodalLoadArrow, createDistributedLoadGroup, createSurfaceLoadGroup } from '../three/create-load-arrow';
 import { COLORS, setMeshColor, setGroupColor, disposeObject } from '../three/selection-helpers';
 import { createPlateMesh, createQuadMesh } from '../three/create-shell-mesh';
-import { computeLocalAxes3D } from '../engine/solver-3d';
+import { computeLocalAxes3D } from '../engine/local-axes-3d';
 import type { SolverNode3D } from '../engine/types-3d';
 
 /**

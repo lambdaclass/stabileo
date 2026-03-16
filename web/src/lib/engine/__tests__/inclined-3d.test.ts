@@ -3,7 +3,7 @@
 // along the specified normal direction using the penalty method.
 
 import { describe, it, expect } from 'vitest';
-import { solve3D } from '../solver-3d';
+import { solve3D } from '../wasm-solver';
 import type {
   SolverInput3D, SolverNode3D, SolverSection3D, SolverElement3D,
   SolverSupport3D, AnalysisResults3D,

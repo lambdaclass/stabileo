@@ -14,7 +14,7 @@
 
 import { describe, it, expect } from 'vitest';
 import { computeDeformedShape3D, type ElementEI } from '../deformed-shape-3d';
-import { solve3D } from '../../engine/solver-3d';
+import { solve3D } from '../../engine/wasm-solver';
 import type {
   SolverInput3D, SolverNode3D, SolverSection3D, SolverElement3D,
   SolverSupport3D, AnalysisResults3D, Displacement3D, ElementForces3D,

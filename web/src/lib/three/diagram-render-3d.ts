@@ -5,7 +5,7 @@
 import * as THREE from 'three';
 import type { Node, Element, Section } from '../store/model.svelte';
 import type { ElementForces3D, EnvelopeDiagramData3D } from '../engine/types-3d';
-import { computeLocalAxes3D } from '../engine/solver-3d';
+import { computeLocalAxes3D } from '../engine/local-axes-3d';
 import {
   computeDiagram3D,
   computeGlobalMax3D,

@@ -13,7 +13,7 @@
 
 import { describe, it, expect } from 'vitest';
 import { computeDiagram3D, computeGlobalMax3D, type Diagram3DKind } from '../diagrams-3d';
-import { solve3D } from '../solver-3d';
+import { solve3D } from '../wasm-solver';
 import type {
   SolverInput3D, SolverNode3D, SolverSection3D, SolverElement3D,
   SolverSupport3D, AnalysisResults3D, ElementForces3D,

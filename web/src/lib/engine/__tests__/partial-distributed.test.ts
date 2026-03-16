@@ -6,7 +6,7 @@
  */
 
 import { describe, it, expect } from 'vitest';
-import { solve } from '../solver-js';
+import { solve } from '../wasm-solver';
 import { computeDiagramValueAt } from '../diagrams';
 import type { SolverInput, SolverLoad, AnalysisResults } from '../types';
 

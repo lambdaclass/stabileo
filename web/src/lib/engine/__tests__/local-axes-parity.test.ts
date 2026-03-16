@@ -13,7 +13,7 @@
  */
 
 import { describe, it, expect } from 'vitest';
-import { computeLocalAxes3D } from '../solver-3d';
+import { computeLocalAxes3D } from '../local-axes-3d';
 import type { SolverNode3D } from '../types-3d';
 
 // ─── Helpers ─────────────────────────────────────────────────────

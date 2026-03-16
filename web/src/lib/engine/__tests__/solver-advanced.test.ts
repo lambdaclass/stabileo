@@ -10,7 +10,7 @@
  */
 
 import { describe, it, expect } from 'vitest';
-import { solve } from '../solver-js';
+import { solve } from '../wasm-solver';
 import type { SolverInput, SolverLoad, AnalysisResults } from '../types';
 
 // ─── Test Helpers ───────────────────────────────────────────────
@@ -992,49 +992,7 @@ describe('Three-hinge arch — internal hinge at crown', () => {
   });
 });
 
-// ═══════════════════════════════════════════════════════════════════
-// CHOLESKY SOLVER — VERIFY IDENTICAL RESULTS TO LU
-// ═══════════════════════════════════════════════════════════════════
-
-import { solveLU } from '../solver-js';
-import { choleskySolve } from '../matrix-utils';
-
-describe('Cholesky solver matches LU for SPD systems', () => {
-  it('2x2 SPD system', () => {
-    // K = [[4, 1], [1, 3]], b = [1, 2]
-    // Exact: x = [1/11, 7/11]
-    const K = new Float64Array([4, 1, 1, 3]);
-    const b = new Float64Array([1, 2]);
-    const xLU = solveLU(new Float64Array(K), new Float64Array(b), 2);
-    const xCh = choleskySolve(new Float64Array(K), new Float64Array(b), 2)!;
-    expect(xCh).toBeTruthy();
-    for (let i = 0; i < 2; i++) {
-      expect(Math.abs(xCh[i] - xLU[i])).toBeLessThan(1e-12);
-    }
-  });
-
-  it('returns null for non-SPD matrix', () => {
-    // Not positive definite: [[1, 2], [2, 1]]
-    const K = new Float64Array([1, 2, 2, 1]);
-    const b = new Float64Array([1, 1]);
-    const result = choleskySolve(K, b, 2);
-    expect(result).toBeNull();
-  });
-
-  it('simply supported beam: Cholesky matches LU', () => {
-    const input = makeInput({
-      nodes: [[1, 0, 0], [2, 3, 0], [3, 6, 0]],
-      elements: [[1, 1, 2, 'frame'], [2, 2, 3, 'frame']],
-      supports: [[1, 1, 'pinned'], [2, 3, 'rollerX']],
-      loads: [{ type: 'distributed', data: { elementId: 1, qI: -10, qJ: -10 } }],
-    });
-    const result = solve(input);
-    // Verify equilibrium still works (Cholesky is now the default solver)
-    const r1 = getReaction(result, 1);
-    const r3 = getReaction(result, 3);
-    expectClose(r1.ry + r3.ry, 30, 'Vertical equilibrium: q*L = 10*3');
-  });
-});
+// (Cholesky vs LU tests removed — TS solver internals no longer available)
 
 // ═══════════════════════════════════════════════════════════════════
 // ASYNC MOVING LOADS — PROGRESS AND CANCELLATION

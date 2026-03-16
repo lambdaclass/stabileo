@@ -2,7 +2,8 @@
 // Tests for uniform temperature change and temperature gradients in 3D frame/truss elements.
 
 import { describe, it, expect } from 'vitest';
-import { solve3D, computeLocalAxes3D } from '../solver-3d';
+import { solve3D } from '../wasm-solver';
+import { computeLocalAxes3D } from '../local-axes-3d';
 import type {
   SolverInput3D,
   SolverNode3D,

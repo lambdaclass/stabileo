@@ -20,12 +20,82 @@ import type {
   DofInfo, ElementStepData, LoadContribution, ElementForceStep, DSMStepData,
 } from './solver-detailed';
 
-import {
-  computeLocalAxes3D,
-  frameLocalStiffness3D,
-  trussLocalStiffness3D,
-  frameTransformationMatrix3D,
-} from './solver-3d';
+import { computeLocalAxes3D } from './local-axes-3d';
+
+// ─── Inlined stiffness/transformation primitives (pedagogical tool) ──
+
+function frameLocalStiffness3D(
+  E: number, G: number, A: number, Iy: number, Iz: number, J: number, L: number,
+  hingeStart: boolean, hingeEnd: boolean,
+): Float64Array {
+  const n = 12;
+  const k = new Float64Array(n * n);
+  const EA_L = E * A / L;
+  const GJ_L = G * J / L;
+  k[0*n+0] = EA_L; k[0*n+6] = -EA_L; k[6*n+0] = -EA_L; k[6*n+6] = EA_L;
+  k[3*n+3] = GJ_L; k[3*n+9] = -GJ_L; k[9*n+3] = -GJ_L; k[9*n+9] = GJ_L;
+  // Strong-axis bending: v, θz (DOFs 1,5,7,11)
+  {
+    const EI = E * Iz, EI_L = EI/L, EI_L2 = EI_L/L, EI_L3 = EI_L2/L;
+    if (!hingeStart && !hingeEnd) {
+      k[1*n+1]=12*EI_L3; k[1*n+5]=6*EI_L2; k[1*n+7]=-12*EI_L3; k[1*n+11]=6*EI_L2;
+      k[5*n+1]=6*EI_L2; k[5*n+5]=4*EI_L; k[5*n+7]=-6*EI_L2; k[5*n+11]=2*EI_L;
+      k[7*n+1]=-12*EI_L3; k[7*n+5]=-6*EI_L2; k[7*n+7]=12*EI_L3; k[7*n+11]=-6*EI_L2;
+      k[11*n+1]=6*EI_L2; k[11*n+5]=2*EI_L; k[11*n+7]=-6*EI_L2; k[11*n+11]=4*EI_L;
+    } else if (hingeStart && !hingeEnd) {
+      k[1*n+1]=3*EI_L3; k[1*n+7]=-3*EI_L3; k[1*n+11]=3*EI_L2;
+      k[7*n+1]=-3*EI_L3; k[7*n+7]=3*EI_L3; k[7*n+11]=-3*EI_L2;
+      k[11*n+1]=3*EI_L2; k[11*n+7]=-3*EI_L2; k[11*n+11]=3*EI_L;
+    } else if (!hingeStart && hingeEnd) {
+      k[1*n+1]=3*EI_L3; k[1*n+5]=3*EI_L2; k[1*n+7]=-3*EI_L3;
+      k[5*n+1]=3*EI_L2; k[5*n+5]=3*EI_L; k[5*n+7]=-3*EI_L2;
+      k[7*n+1]=-3*EI_L3; k[7*n+5]=-3*EI_L2; k[7*n+7]=3*EI_L3;
+    }
+  }
+  // Weak-axis bending: w, θy (DOFs 2,4,8,10)
+  {
+    const EI = E * Iy, EI_L = EI/L, EI_L2 = EI_L/L, EI_L3 = EI_L2/L;
+    if (!hingeStart && !hingeEnd) {
+      k[2*n+2]=12*EI_L3; k[2*n+4]=-6*EI_L2; k[2*n+8]=-12*EI_L3; k[2*n+10]=-6*EI_L2;
+      k[4*n+2]=-6*EI_L2; k[4*n+4]=4*EI_L; k[4*n+8]=6*EI_L2; k[4*n+10]=2*EI_L;
+      k[8*n+2]=-12*EI_L3; k[8*n+4]=6*EI_L2; k[8*n+8]=12*EI_L3; k[8*n+10]=6*EI_L2;
+      k[10*n+2]=-6*EI_L2; k[10*n+4]=2*EI_L; k[10*n+8]=6*EI_L2; k[10*n+10]=4*EI_L;
+    } else if (hingeStart && !hingeEnd) {
+      k[2*n+2]=3*EI_L3; k[2*n+8]=-3*EI_L3; k[2*n+10]=-3*EI_L2;
+      k[8*n+2]=-3*EI_L3; k[8*n+8]=3*EI_L3; k[8*n+10]=3*EI_L2;
+      k[10*n+2]=-3*EI_L2; k[10*n+8]=3*EI_L2; k[10*n+10]=3*EI_L;
+    } else if (!hingeStart && hingeEnd) {
+      k[2*n+2]=3*EI_L3; k[2*n+4]=-3*EI_L2; k[2*n+8]=-3*EI_L3;
+      k[4*n+2]=-3*EI_L2; k[4*n+4]=3*EI_L; k[4*n+8]=3*EI_L2;
+      k[8*n+2]=-3*EI_L3; k[8*n+4]=3*EI_L2; k[8*n+8]=3*EI_L3;
+    }
+  }
+  return k;
+}
+
+function trussLocalStiffness3D(E: number, A: number, L: number): Float64Array {
+  const n = 6;
+  const k = new Float64Array(n * n);
+  const ea_l = E * A / L;
+  k[0*n+0] = ea_l; k[0*n+3] = -ea_l; k[3*n+0] = -ea_l; k[3*n+3] = ea_l;
+  return k;
+}
+
+function frameTransformationMatrix3D(
+  ex: [number, number, number],
+  ey: [number, number, number],
+  ez: [number, number, number],
+): Float64Array {
+  const n = 12;
+  const T = new Float64Array(n * n);
+  for (let block = 0; block < 4; block++) {
+    const off = block * 3;
+    T[(off+0)*n+(off+0)]=ex[0]; T[(off+0)*n+(off+1)]=ex[1]; T[(off+0)*n+(off+2)]=ex[2];
+    T[(off+1)*n+(off+0)]=ey[0]; T[(off+1)*n+(off+1)]=ey[1]; T[(off+1)*n+(off+2)]=ey[2];
+    T[(off+2)*n+(off+0)]=ez[0]; T[(off+2)*n+(off+1)]=ez[1]; T[(off+2)*n+(off+2)]=ez[2];
+  }
+  return T;
+}
 
 // ─── Internal helpers ────────────────────────────────────────────
 
