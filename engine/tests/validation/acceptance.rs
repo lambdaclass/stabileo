@@ -103,9 +103,9 @@ fn acceptance_3b_building_case1() {
             "NaN/Inf at node {}", d.node_id);
     }
 
-    // Reactions should be non-trivial
-    let sum_fz: f64 = result.reactions.iter().map(|r| r.fz).sum();
-    assert!(sum_fz.abs() > 1.0, "Reactions should be non-zero, got sum_fz={:.2}", sum_fz);
+    // Reactions should be non-trivial (case1 = dead load → gravity on local Y)
+    let sum_fy: f64 = result.reactions.iter().map(|r| r.fy).sum();
+    assert!(sum_fy.abs() > 1.0, "Reactions should be non-zero, got sum_fy={:.2}", sum_fy);
 
     // Displacements reasonable
     let max_disp = result.displacements.iter()
