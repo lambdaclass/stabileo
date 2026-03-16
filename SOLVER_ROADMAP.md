@@ -5,6 +5,7 @@
 This is the solver roadmap for mechanics, numerical robustness, validation sequencing, verification strategy, and performance/scale work. It is not the product, market, or revenue roadmap — for that, see `PRODUCT_ROADMAP.md`. For current capability and validation status, see `BENCHMARKS.md`. Historical progress belongs in `CHANGELOG.md`.
 
 For the cross-cutting AI track that depends on these solver outputs and contracts, see `research/ai_structural_engineering_roadmap.md`.
+For the deeper solver safety and validation hardening architecture behind the near-term trust work, see `research/solver_safety_and_validation_hardening.md`.
 
 ## Where We Are
 
@@ -25,6 +26,8 @@ Before broadening the solver into more design-code and advanced-analysis depth, 
 4. `Move wall-clock timing checks out of normal pass/fail tests` — timing-sensitive sparse-vs-dense assertions should live in benchmarks, explicit gates, or ignored perf suites rather than flaky default test runs.
 5. `Close current sparse reduction/runtime gaps` — remove avoidable densification in reduction workflows, add buckling runtime/fill gates on the new sparse paths, and enforce no-`k_full`-overbuild expectations where applicable.
 6. `Keep solver trust visible` — every hardening change above should add proof, not only code: CI gates, contract tests, analytical/reference checks, or reproducible artifacts.
+
+See also: `research/solver_safety_and_validation_hardening.md` for the fuller defense-layer architecture around validation, convergence safeguards, post-solve verification, diagnostics, and frontend mutation guards.
 
 ## What Still Separates Dedaliano From The Strongest Open Solvers
 

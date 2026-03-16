@@ -4,6 +4,8 @@ This folder is for comparative notes, external landscape analysis, and longer-fo
 
 Current documents:
 
+- [solver_safety_and_validation_hardening.md](/Users/unbalancedparen/projects/dedaliano/research/solver_safety_and_validation_hardening.md)
+  Solver safety architecture for explicit failure modes, input validation, convergence safeguards, post-solve verification, structured diagnostics, solver-run artifacts, and frontend mutation guards.
 - [automation_gaps.md](/Users/unbalancedparen/projects/dedaliano/research/automation_gaps.md)
   Full automation gap analysis for Stabileo/Dedaliano: what is already automated, what engineers still do manually (high and medium impact), first-mover opportunities no competitor has, an automation maturity ladder, a prioritized implementation matrix, and a competitor coverage map.
 - [competitive_displacement_by_step.md](/Users/unbalancedparen/projects/dedaliano/research/competitive_displacement_by_step.md)
