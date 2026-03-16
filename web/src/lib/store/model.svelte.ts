@@ -1473,10 +1473,13 @@ function createModelStore() {
 
       loadFixture(json as any, api as any);
 
-      // Switch to 3D mode if this is a 3D fixture
+      // Switch to plain 3D mode only when the current app mode is the basic app.
+      // PRO and EDU use 3D fixtures too, but loading them should not downgrade the app.
       if (is3DFixture(name)) {
         const { uiStore } = await import('./index');
-        uiStore.analysisMode = '3d';
+        if (uiStore.analysisMode !== 'pro' && uiStore.analysisMode !== 'edu') {
+          uiStore.analysisMode = '3d';
+        }
       }
 
       _undoBatching = false;
