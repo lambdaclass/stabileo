@@ -15,6 +15,17 @@ The live near-term blockers are now:
 - constraint-system maturity and sparse/runtime hardening on real workflows
 - structured diagnostics, query-ready results, and automation-ready contracts
 
+## ASAP Hardening Work
+
+Before broadening the solver into more design-code and advanced-analysis depth, the following fixes should land as soon as possible because they affect trust in the current validation and delivery path:
+
+1. `Eliminate false-green tests` — missing fixtures in differential/property parity tests must fail loudly or be reported as intentionally ignored, not pass silently without assertions.
+2. `Finish 3D extraction hardening` — add 3D integration coverage and payload contract/snapshot protection for beam-station and steel-demand extraction so downstream design workflows are not built on fragile result shapes.
+3. `Strengthen test oracles` — improve equilibrium checks to cover distributed loads and moment balance, and tighten tolerance policy so regression tests are not looser than the value of the signal they protect.
+4. `Move wall-clock timing checks out of normal pass/fail tests` — timing-sensitive sparse-vs-dense assertions should live in benchmarks, explicit gates, or ignored perf suites rather than flaky default test runs.
+5. `Close current sparse reduction/runtime gaps` — remove avoidable densification in reduction workflows, add buckling runtime/fill gates on the new sparse paths, and enforce no-`k_full`-overbuild expectations where applicable.
+6. `Keep solver trust visible` — every hardening change above should add proof, not only code: CI gates, contract tests, analytical/reference checks, or reproducible artifacts.
+
 ## What Still Separates Dedaliano From The Strongest Open Solvers
 
 The remaining gaps are not "missing the basics." They are:
@@ -267,6 +278,7 @@ Finish beam station extraction for RC design workflows. Most of this is done; cl
 - Add versioned or evolution-safe result contracts for downstream consumers
 - Ensure governing outputs never emit phantom combos or sentinel infinities
 - Extend the same design-grade contract discipline to non-RC member demand extraction so steel/code-check workflows do not rebuild semantics from raw forces
+- Add explicit solve-to-extraction regression cases for representative 3D RC and steel fixtures so product workflows do not depend on ad hoc UI reconstruction
 
 **Done when:**
 - 2D and 3D integration tests exercise full solve-to-extraction paths
@@ -289,6 +301,8 @@ Make the solver easier to trust before and after a run, and make diagnostics str
 - Expose pivot perturbation counts, fill ratios, and solve phase breakdowns in the UI
 - Make solver-path selection and fallback behavior transparent
 - Add query-ready summaries for maxima/minima/governing cases so product-level result Q&A and AI explanation do not scrape tables or raw arrays
+- Strengthen equilibrium and trust oracles in the validation helpers so distributed loads, moment balance, and constrained-force behavior are checked consistently instead of only by weak ad hoc helpers
+- Tighten tolerance policy by test type: analytical/reference tests should be much stricter than benchmark-comparison tolerances, and regression tests should not inherit permissive benchmark tolerances by default
 
 **Done when:**
 - Pre-solve checks exist for all model quality gates listed above
@@ -319,6 +333,7 @@ Current status: AMD is already the default fill-reducing ordering, so the old "P
 - Add iterative refinement before any remaining expensive fallback path
 - **Performance regression CI:** runtime benchmarks must be re-checked on every merge, not measured once and forgotten. Add CI gates that fail if key benchmarks regress beyond a tolerance (e.g. sparse factorization time, end-to-end solve time on representative models). Track trends, not just pass/fail.
 - Add headless batch-run ergonomics for optimization and comparison workflows so runtime wins are usable outside the interactive UI
+- Move wall-clock-sensitive sparse-vs-dense timing assertions out of normal default tests and into benchmark/explicit-perf gate paths so correctness CI is not flaky
 
 **CI / Gate Discipline:**
 - Sparse shell gates: no dense fallback, fill ratio bounds, deterministic sparse assembly, sparse vs dense residual parity
@@ -358,6 +373,7 @@ Protect major solver paths with visible, release-grade proof. This is how the so
 - **Fuzz testing depth:** `cargo-fuzz` or `proptest` on solver entry points with randomized geometry, loads, materials, and boundary conditions. Target: crash-free on 10,000+ random models, not just the curated benchmark set. Fuzz the WASM serialization boundary (malformed JSON, truncated payloads, NaN/Inf inputs)
 - **Real-model regression suite:** collect saved models from real users (with permission) or generate realistic messy models (mixed element types, irregular topology, nearly-coplanar shells, short members, eccentric connections). These catch failures that textbook benchmarks miss.
 - **WASM vs native parity tests:** run the same solver inputs through both native `cargo test` and the WASM build, compare results to machine precision. Catches f64 rounding differences, memory layout issues, and WASM-specific codegen bugs.
+- Make missing-fixture behavior explicit in parity/fuzz suites: missing required fixtures should fail or be reported as ignored/skipped infrastructure, never silently count as passing verification
 - **Mutation testing:** use `cargo-mutants` or equivalent to measure whether the test suite actually catches regressions. A test suite with 5908 passing tests is worthless if mutating the solver code doesn't fail any of them.
 - **Design-automation regression tests:** verify that code-check inputs, governing-case extraction, and report-grade metadata remain stable on representative building workflows, not only that raw solve numbers match
 
