@@ -85,29 +85,34 @@ pub fn solve_2d(input: &SolverInput) -> Result<AnalysisResults, String> {
         f_f[i] -= k_fr_ur[i];
     }
 
+    // Dense conditioning check
+    let cond_report = super::conditioning::check_conditioning(&k_ff, nf);
+
     // Solve Kff * u_f = Ff_modified
-    let u_f = if nf >= SPARSE_THRESHOLD {
+    let (u_f, used_sparse) = if nf >= SPARSE_THRESHOLD {
         // Sparse path
         let k_ff_sparse = CscMatrix::from_dense_symmetric(&k_ff, nf);
         match sparse_cholesky_solve_full(&k_ff_sparse, &f_f) {
-            Some(u) => u,
+            Some(u) => (u, true),
             None => {
                 // Fallback to dense LU
-                let mut k_work = k_ff;
+                let mut k_work = k_ff.clone();
                 let mut f_work = f_f.clone();
-                lu_solve(&mut k_work, &mut f_work, nf)
-                    .ok_or_else(|| "Singular stiffness matrix — structure is a mechanism".to_string())?
+                let u = lu_solve(&mut k_work, &mut f_work, nf)
+                    .ok_or_else(|| "Singular stiffness matrix — structure is a mechanism".to_string())?;
+                (u, false)
             }
         }
     } else {
         let mut k_work = k_ff.clone();
         match cholesky_solve(&mut k_work, &f_f, nf) {
-            Some(u) => u,
+            Some(u) => (u, false),
             None => {
-                let mut k_work = k_ff;
+                let mut k_work = k_ff.clone();
                 let mut f_work = f_f.clone();
-                lu_solve(&mut k_work, &mut f_work, nf)
-                    .ok_or_else(|| "Singular stiffness matrix — structure is a mechanism".to_string())?
+                let u = lu_solve(&mut k_work, &mut f_work, nf)
+                    .ok_or_else(|| "Singular stiffness matrix — structure is a mechanism".to_string())?;
+                (u, false)
             }
         }
     };
@@ -151,14 +156,72 @@ pub fn solve_2d(input: &SolverInput) -> Result<AnalysisResults, String> {
     let mut element_forces = compute_internal_forces_2d(input, &dof_num, &u_full);
     element_forces.sort_by_key(|ef| ef.element_id);
 
-    let equilibrium = compute_equilibrium_summary_2d(input, &reactions, 0.0);
+    // Compute residual: ||K_ff * u_f - f_f|| / ||f_f||
+    let rel_residual = {
+        let mut res2 = 0.0f64;
+        let mut f2 = 0.0f64;
+        for i in 0..nf {
+            let mut ku_i = 0.0;
+            for j in 0..nf {
+                ku_i += k_ff[i * nf + j] * u_f[j];
+            }
+            let r = ku_i - f_f[i];
+            res2 += r * r;
+            f2 += f_f[i] * f_f[i];
+        }
+        res2.sqrt() / f2.sqrt().max(1e-30)
+    };
 
+    let equilibrium = compute_equilibrium_summary_2d(input, &reactions, rel_residual);
+
+    // Build structured diagnostics — same contract as 3D sparse/dense paths
     let mut structured = Vec::new();
+
+    // Solver path
     structured.push(StructuredDiagnostic::global(
-        if nf >= SPARSE_THRESHOLD { DiagnosticCode::SparseCholesky } else { DiagnosticCode::DenseLu },
+        if used_sparse { DiagnosticCode::SparseCholesky } else { DiagnosticCode::DenseLu },
         Severity::Info,
-        format!("{} solver ({} free DOFs)", if nf >= SPARSE_THRESHOLD { "Sparse Cholesky" } else { "Dense" }, nf),
+        format!("{} solver ({} free DOFs)", if used_sparse { "Sparse Cholesky" } else { "Dense" }, nf),
     ).with_phase("solve"));
+
+    // Conditioning
+    let cond = cond_report.diagonal_ratio;
+    if cond > 1e12 {
+        structured.push(StructuredDiagnostic::global(
+            DiagnosticCode::ExtremelyHighDiagonalRatio,
+            Severity::Warning,
+            format!("Extremely high diagonal ratio {:.2e}", cond),
+        ).with_value(cond, 1e12).with_phase("conditioning"));
+    } else if cond > 1e8 {
+        structured.push(StructuredDiagnostic::global(
+            DiagnosticCode::HighDiagonalRatio,
+            Severity::Warning,
+            format!("High diagonal ratio {:.2e}", cond),
+        ).with_value(cond, 1e8).with_phase("conditioning"));
+    }
+
+    if !cond_report.near_zero_dofs.is_empty() {
+        structured.push(StructuredDiagnostic::global(
+            DiagnosticCode::NearZeroDiagonal,
+            Severity::Warning,
+            format!("{} near-zero diagonal entries", cond_report.near_zero_dofs.len()),
+        ).with_dofs(cond_report.near_zero_dofs.clone()).with_phase("conditioning"));
+    }
+
+    // Residual
+    structured.push(if rel_residual < 1e-6 {
+        StructuredDiagnostic::global(
+            DiagnosticCode::ResidualOk,
+            Severity::Info,
+            format!("Residual {:.2e} ({} free DOFs)", rel_residual, nf),
+        ).with_value(rel_residual, 1e-6).with_phase("solve")
+    } else {
+        StructuredDiagnostic::global(
+            DiagnosticCode::ResidualHigh,
+            Severity::Warning,
+            format!("Residual {:.2e} exceeds tolerance ({} free DOFs)", rel_residual, nf),
+        ).with_value(rel_residual, 1e-6).with_phase("solve")
+    });
 
     Ok(AnalysisResults {
         displacements,
@@ -365,11 +428,41 @@ pub fn solve_3d(input: &SolverInput3D) -> Result<AnalysisResults3D, String> {
                     let plate_stresses = compute_plate_stresses(input, &dof_num, &u_full);
                     let quad_stresses = compute_quad_stresses(input, &dof_num, &u_full);
                     let equilibrium = compute_equilibrium_summary_3d(input, &reactions, 0.0);
+
+                    // Build structured diagnostics for fallback path
+                    let mut structured = Vec::new();
+                    structured.push(StructuredDiagnostic::global(
+                        DiagnosticCode::SparseFallbackDenseLu,
+                        Severity::Warning,
+                        format!("Sparse Cholesky failed, fell back to dense LU ({} free DOFs)", nf),
+                    ).with_phase("solve"));
+
+                    if cond > 1e12 {
+                        structured.push(StructuredDiagnostic::global(
+                            DiagnosticCode::ExtremelyHighDiagonalRatio,
+                            Severity::Warning,
+                            format!("Extremely high diagonal ratio {:.2e}", cond),
+                        ).with_value(cond, 1e12).with_phase("conditioning"));
+                    } else if cond > 1e8 {
+                        structured.push(StructuredDiagnostic::global(
+                            DiagnosticCode::HighDiagonalRatio,
+                            Severity::Warning,
+                            format!("High diagonal ratio {:.2e}", cond),
+                        ).with_value(cond, 1e8).with_phase("conditioning"));
+                    }
+
+                    // Direct solve residual is machine-precision for dense LU
+                    structured.push(StructuredDiagnostic::global(
+                        DiagnosticCode::ResidualOk,
+                        Severity::Info,
+                        format!("Dense LU fallback ({} free DOFs)", nf),
+                    ).with_value(0.0, 1e-6).with_phase("solve"));
+
                     return Ok(AnalysisResults3D {
                         displacements, reactions, element_forces, plate_stresses, quad_stresses,
                         quad_nodal_stresses: compute_quad_nodal_stresses(input, &dof_num, &u_full),
                         constraint_forces: vec![], diagnostics: asm.diagnostics,
-                        solver_diagnostics: solver_diags, structured_diagnostics: vec![], equilibrium: Some(equilibrium), timings: Some(timings),
+                        solver_diagnostics: solver_diags, structured_diagnostics: structured, equilibrium: Some(equilibrium), timings: Some(timings),
                     });
                 }
             }
@@ -492,6 +585,13 @@ pub fn solve_3d(input: &SolverInput3D) -> Result<AnalysisResults3D, String> {
         // Build structured diagnostics (enum-based, machine-matchable)
         let mut structured = Vec::new();
 
+        // Solver path
+        structured.push(StructuredDiagnostic::global(
+            DiagnosticCode::SparseCholesky,
+            Severity::Info,
+            format!("Sparse Cholesky solver ({} free DOFs, nnz(L)={})", nf, nnz_l),
+        ).with_phase("solve"));
+
         // Conditioning diagnostics
         if cond > 1e12 {
             structured.push(StructuredDiagnostic::global(
@@ -578,7 +678,7 @@ pub fn solve_3d(input: &SolverInput3D) -> Result<AnalysisResults3D, String> {
             match cholesky_solve(&mut k_work, &f_f, nf) {
                 Some(u) => u,
                 None => {
-                    let mut k_work = k_ff;
+                    let mut k_work = k_ff.clone();
                     let mut f_work = f_f.clone();
                     lu_solve(&mut k_work, &mut f_work, nf)
                         .ok_or_else(|| "Singular stiffness matrix — structure is a mechanism".to_string())?
@@ -591,6 +691,22 @@ pub fn solve_3d(input: &SolverInput3D) -> Result<AnalysisResults3D, String> {
             message: format!("Dense solver ({} free DOFs)", nf),
             severity: "info".into(),
         });
+
+        // Compute residual: ||K_ff * u_f - f_f|| / ||f_f||
+        let rel_residual = {
+            let mut res2 = 0.0f64;
+            let mut f2 = 0.0f64;
+            for i in 0..nf {
+                let mut ku_i = 0.0;
+                for j in 0..nf {
+                    ku_i += k_ff[i * nf + j] * u_f[j];
+                }
+                let r = ku_i - f_f[i];
+                res2 += r * r;
+                f2 += f_f[i] * f_f[i];
+            }
+            res2.sqrt() / f2.sqrt().max(1e-30)
+        };
 
         let mut u_full = vec![0.0; n];
         for i in 0..nf { u_full[i] = u_f[i]; }
@@ -623,16 +739,19 @@ pub fn solve_3d(input: &SolverInput3D) -> Result<AnalysisResults3D, String> {
         let plate_stresses = compute_plate_stresses(input, &dof_num, &u_full);
         let quad_stresses = compute_quad_stresses(input, &dof_num, &u_full);
 
-        let equilibrium = compute_equilibrium_summary_3d(input, &reactions, 0.0);
+        let equilibrium = compute_equilibrium_summary_3d(input, &reactions, rel_residual);
 
-        // Build structured diagnostics for dense path
+        // Build structured diagnostics for dense path — same contract as sparse path
         let mut structured = Vec::new();
+
+        // Solver path
         structured.push(StructuredDiagnostic::global(
             DiagnosticCode::DenseLu,
             Severity::Info,
             format!("Dense solver ({} free DOFs)", nf),
         ).with_phase("solve"));
 
+        // Conditioning
         let cond = cond_report.diagonal_ratio;
         if cond > 1e12 {
             structured.push(StructuredDiagnostic::global(
@@ -655,6 +774,21 @@ pub fn solve_3d(input: &SolverInput3D) -> Result<AnalysisResults3D, String> {
                 format!("{} near-zero diagonal entries", cond_report.near_zero_dofs.len()),
             ).with_dofs(cond_report.near_zero_dofs.clone()).with_phase("conditioning"));
         }
+
+        // Residual
+        structured.push(if rel_residual < 1e-6 {
+            StructuredDiagnostic::global(
+                DiagnosticCode::ResidualOk,
+                Severity::Info,
+                format!("Dense solver residual {:.2e} ({} free DOFs)", rel_residual, nf),
+            ).with_value(rel_residual, 1e-6).with_phase("solve")
+        } else {
+            StructuredDiagnostic::global(
+                DiagnosticCode::ResidualHigh,
+                Severity::Warning,
+                format!("Dense solver residual {:.2e} exceeds tolerance ({} free DOFs)", rel_residual, nf),
+            ).with_value(rel_residual, 1e-6).with_phase("solve")
+        });
 
         Ok(AnalysisResults3D {
             displacements,

@@ -225,3 +225,147 @@ fn constraint_validation_clean_passes() {
         .collect();
     assert!(constraint_diags.is_empty(), "clean constraints should have no issues: {:?}", constraint_diags);
 }
+
+// ==================== Path-Parity Tests ====================
+//
+// Verify that every solver path emits the same diagnostic contract:
+// 1. Exactly one solver-path code (SparseCholesky | DenseLu | SparseFallbackDenseLu)
+// 2. Exactly one residual code (ResidualOk | ResidualHigh)
+// 3. Phase fields are always present
+// 4. Residual diagnostic carries value + threshold
+// 5. Equilibrium summary is always present
+
+/// Assert the diagnostics contract that all solver paths must satisfy.
+fn assert_diagnostics_contract(diags: &[StructuredDiagnostic], eq: Option<&EquilibriumSummary>, label: &str) {
+    // 1. Exactly one solver-path diagnostic
+    let path_codes: Vec<_> = diags.iter()
+        .filter(|d| matches!(d.code,
+            DiagnosticCode::SparseCholesky | DiagnosticCode::DenseLu | DiagnosticCode::SparseFallbackDenseLu
+        ))
+        .collect();
+    assert_eq!(path_codes.len(), 1,
+        "[{}] expected exactly 1 solver-path diagnostic, got {}: {:?}",
+        label, path_codes.len(), path_codes.iter().map(|d| &d.code).collect::<Vec<_>>());
+
+    // All path diagnostics have phase
+    let pd = path_codes[0];
+    assert!(pd.phase.is_some(), "[{}] solver-path diagnostic missing phase", label);
+    assert_eq!(pd.severity, Severity::Info,
+        "[{}] solver-path severity should be Info (unless fallback)", label);
+
+    // 2. Exactly one residual diagnostic
+    let res_codes: Vec<_> = diags.iter()
+        .filter(|d| matches!(d.code, DiagnosticCode::ResidualOk | DiagnosticCode::ResidualHigh))
+        .collect();
+    assert_eq!(res_codes.len(), 1,
+        "[{}] expected exactly 1 residual diagnostic, got {}", label, res_codes.len());
+
+    let rd = res_codes[0];
+    assert!(rd.phase.is_some(), "[{}] residual diagnostic missing phase", label);
+    assert!(rd.value.is_some(), "[{}] residual diagnostic missing value", label);
+    assert!(rd.threshold.is_some(), "[{}] residual diagnostic missing threshold", label);
+
+    // 3. If conditioning diagnostics exist, they have phase + value
+    for d in diags.iter().filter(|d| matches!(d.code,
+        DiagnosticCode::HighDiagonalRatio | DiagnosticCode::ExtremelyHighDiagonalRatio | DiagnosticCode::NearZeroDiagonal
+    )) {
+        assert!(d.phase.is_some(), "[{}] conditioning diagnostic {:?} missing phase", label, d.code);
+    }
+
+    // 4. Equilibrium summary present
+    assert!(eq.is_some(), "[{}] equilibrium summary missing", label);
+}
+
+#[test]
+fn diagnostics_parity_2d_dense() {
+    // 2 elements → 3 nodes × 3 DOFs = 9 total, minus 3 fixed = 6 free → dense
+    let input = make_input(
+        vec![(1, 0.0, 0.0), (2, 4.0, 0.0)],
+        vec![(1, 200e3, 0.3)],
+        vec![(1, 0.01, 1e-4)],
+        vec![(1, "frame", 1, 2, 1, 1, false, false)],
+        vec![(1, 1, "fixed")],
+        vec![SolverLoad::Nodal(SolverNodalLoad {
+            node_id: 2, fx: 0.0, fy: -10.0, mz: 0.0,
+        })],
+    );
+    let r = solve_2d(&input).unwrap();
+    assert_diagnostics_contract(&r.structured_diagnostics, r.equilibrium.as_ref(), "2D-dense");
+
+    // Should be DenseLu (< SPARSE_THRESHOLD free DOFs)
+    assert!(r.structured_diagnostics.iter().any(|d| d.code == DiagnosticCode::DenseLu),
+        "2D small model should use dense path");
+}
+
+#[test]
+fn diagnostics_parity_3d_dense() {
+    // 1 element → 2 nodes × 6 DOFs = 12 total, minus 6 fixed = 6 free → dense
+    let input = make_3d_input(
+        vec![(1, 0.0, 0.0, 0.0), (2, 4.0, 0.0, 0.0)],
+        vec![(1, 200e3, 0.3)],
+        vec![(1, 0.01, 1e-4, 1e-4, 2e-4)],
+        vec![(1, "frame", 1, 2, 1, 1)],
+        vec![(1, vec![true, true, true, true, true, true])],
+        vec![SolverLoad3D::Nodal(SolverNodalLoad3D {
+            node_id: 2, fx: 0.0, fy: -10.0, fz: 0.0,
+            mx: 0.0, my: 0.0, mz: 0.0, bw: None,
+        })],
+    );
+    let r = solve_3d(&input).unwrap();
+    assert_diagnostics_contract(&r.structured_diagnostics, r.equilibrium.as_ref(), "3D-dense");
+
+    assert!(r.structured_diagnostics.iter().any(|d| d.code == DiagnosticCode::DenseLu),
+        "3D small model should use dense path");
+}
+
+#[test]
+fn diagnostics_parity_3d_sparse() {
+    // 12 elements → 13 nodes × 6 DOFs = 78 total, minus 6 fixed = 72 free → sparse
+    let input = make_3d_beam(
+        12, 12.0,
+        200e3, 0.3, 0.01, 1e-4, 1e-4, 2e-4,
+        vec![true, true, true, true, true, true],
+        None,
+        vec![SolverLoad3D::Nodal(SolverNodalLoad3D {
+            node_id: 13, fx: 0.0, fy: -10.0, fz: 0.0,
+            mx: 0.0, my: 0.0, mz: 0.0, bw: None,
+        })],
+    );
+    let r = solve_3d(&input).unwrap();
+    assert_diagnostics_contract(&r.structured_diagnostics, r.equilibrium.as_ref(), "3D-sparse");
+
+    assert!(r.structured_diagnostics.iter().any(|d| d.code == DiagnosticCode::SparseCholesky),
+        "3D large model should use sparse path");
+}
+
+#[test]
+fn diagnostics_residual_values_consistent() {
+    // Verify that residual in the diagnostic matches residual in the equilibrium summary
+    let input = make_3d_beam(
+        12, 12.0,
+        200e3, 0.3, 0.01, 1e-4, 1e-4, 2e-4,
+        vec![true, true, true, true, true, true],
+        None,
+        vec![SolverLoad3D::Nodal(SolverNodalLoad3D {
+            node_id: 13, fx: 0.0, fy: -10.0, fz: 0.0,
+            mx: 0.0, my: 0.0, mz: 0.0, bw: None,
+        })],
+    );
+    let r = solve_3d(&input).unwrap();
+
+    let eq = r.equilibrium.as_ref().unwrap();
+    let res_diag = r.structured_diagnostics.iter()
+        .find(|d| matches!(d.code, DiagnosticCode::ResidualOk | DiagnosticCode::ResidualHigh))
+        .unwrap();
+
+    let diag_residual = res_diag.value.unwrap();
+    let eq_residual = eq.relative_residual;
+
+    assert!((diag_residual - eq_residual).abs() < 1e-15,
+        "residual mismatch: diagnostic={:.2e}, equilibrium={:.2e}", diag_residual, eq_residual);
+
+    // Both should agree on ok/not-ok
+    let diag_says_ok = res_diag.code == DiagnosticCode::ResidualOk;
+    assert_eq!(diag_says_ok, eq.residual_ok,
+        "residual ok mismatch: diagnostic code={:?}, equilibrium.residual_ok={}", res_diag.code, eq.residual_ok);
+}
