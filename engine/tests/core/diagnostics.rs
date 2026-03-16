@@ -708,6 +708,19 @@ fn pre_solve_clean_model_no_warnings() {
 }
 
 #[test]
+fn tolerance_policy_tiers_are_ordered() {
+    use crate::common::tolerance::*;
+    // Parity is tightest
+    assert!(parity::REL_TOL_DISP < analytical::REL_TOL_TIGHT);
+    // Analytical is tighter than domain
+    assert!(analytical::REL_TOL < domain::REL_TOL);
+    // Domain is tighter than approximate
+    assert!(domain::REL_TOL < approximate::REL_TOL);
+    // Equilibrium is tightest absolute
+    assert!(analytical::EQUILIBRIUM_ABS <= analytical::ABS_TOL);
+}
+
+#[test]
 fn pre_solve_disconnected_node_3d() {
     // 3D model: element connects nodes 1 and 2, node 3 is disconnected.
     // Node 3 is fully fixed to avoid a singular matrix.

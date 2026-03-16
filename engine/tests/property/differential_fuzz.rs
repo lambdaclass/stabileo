@@ -18,9 +18,10 @@ use std::path::Path;
 
 // ─── Comparison helpers ──────────────────────────────────────────
 
-const REL_TOL_DISP: f64 = 1e-6;
-const REL_TOL_FORCE: f64 = 1e-4;
-const ABS_TOL: f64 = 1e-8;
+use crate::common::tolerance::parity;
+const REL_TOL_DISP: f64 = parity::REL_TOL_DISP;
+const REL_TOL_FORCE: f64 = parity::REL_TOL_FORCE;
+const ABS_TOL: f64 = parity::ABS_TOL;
 
 fn close(actual: f64, expected: f64, rel_tol: f64) -> bool {
     let diff = (actual - expected).abs();

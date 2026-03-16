@@ -1,3 +1,5 @@
+pub mod tolerance;
+
 // Shared test helpers for building SolverInput structures.
 
 use dedaliano_engine::types::*;
