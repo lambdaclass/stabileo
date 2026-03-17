@@ -1006,49 +1006,59 @@
                 <tr class="detail-row">
                   <td colspan="9">
                     <div class="detail-panel">
-                      <!-- Cross section SVG -->
-                      <div class="detail-svg">
-                        {@html generateCrossSectionSvg({
-                          b: v.b, h: v.h, cover: v.cover,
-                          flexure: v.flexure, shear: v.shear,
-                          column: v.column, isColumn: v.elementType === 'column' || v.elementType === 'wall',
-                        })}
-                      </div>
+                      <!-- Cross section + elevation + interaction SVGs (override-aware) -->
+                      {#if true}
+                        {@const ov = overrides.get(v.elementId)}
+                        {@const effFlexure = ov
+                          ? { ...v.flexure, barCount: ov.barCount, barDia: ov.barDia, bars: `${ov.barCount} Ø${ov.barDia}`, AsProv: effectiveAs(v) }
+                          : v.flexure}
+                        {@const effColumn = v.column
+                          ? (ov ? { ...v.column, barCount: ov.barCount, barDia: ov.barDia, bars: `${ov.barCount} Ø${ov.barDia}`, AsProv: effectiveAs(v) } : v.column)
+                          : undefined}
 
-                      <!-- Elevation SVG -->
-                      {#if v.elementType === 'beam'}
-                        {@const elemLen = elementLengthMap.get(v.elementId) ?? 3}
-                        {@const elem = modelStore.elements.get(v.elementId)}
                         <div class="detail-svg">
-                          {@html generateBeamElevationSvg({
-                            length: elemLen, h: v.h, cover: v.cover,
-                            flexure: v.flexure, shear: v.shear,
-                            supportI: elem ? getSupportType(elem.nodeI) : 'pinned',
-                            supportJ: elem ? getSupportType(elem.nodeJ) : 'pinned',
+                          {@html generateCrossSectionSvg({
+                            b: v.b, h: v.h, cover: v.cover,
+                            flexure: effFlexure, shear: v.shear,
+                            column: effColumn, isColumn: v.elementType === 'column' || v.elementType === 'wall',
                           })}
                         </div>
-                      {:else if v.column && (v.elementType === 'column' || v.elementType === 'wall')}
-                        {@const elemLen = elementLengthMap.get(v.elementId) ?? 3}
-                        <div class="detail-svg">
-                          {@html generateColumnElevationSvg({
-                            height: elemLen, b: v.b, h: v.h, cover: v.cover,
-                            column: v.column, shear: v.shear,
-                          })}
-                        </div>
-                      {/if}
 
-                      {#if v.column}
-                        {@const diagParams = {
-                          b: v.b, h: v.h, fc: v.fc, fy: rebarFy,
-                          cover: v.cover + stirrupDia / 2000 + v.flexure.barDia / 2000,
-                          AsProv: v.column.AsProv ?? v.flexure.AsProv,
-                          barCount: v.column.barCount ?? v.flexure.barCount,
-                          barDia: v.flexure.barDia,
-                        } satisfies DiagramParams}
-                        {@const diagram = generateInteractionDiagram(diagParams)}
-                        <div class="detail-svg interaction-diagram">
-                          {@html generateInteractionSvg(diagram, { Nu: v.Nu, Mu: v.Mu }, 280, 350)}
-                        </div>
+                        {#if v.elementType === 'beam'}
+                          {@const elemLen = elementLengthMap.get(v.elementId) ?? 3}
+                          {@const elem = modelStore.elements.get(v.elementId)}
+                          <div class="detail-svg">
+                            {@html generateBeamElevationSvg({
+                              length: elemLen, h: v.h, cover: v.cover,
+                              flexure: effFlexure, shear: v.shear,
+                              supportI: elem ? getSupportType(elem.nodeI) : 'pinned',
+                              supportJ: elem ? getSupportType(elem.nodeJ) : 'pinned',
+                            })}
+                          </div>
+                        {:else if effColumn && (v.elementType === 'column' || v.elementType === 'wall')}
+                          {@const elemLen = elementLengthMap.get(v.elementId) ?? 3}
+                          <div class="detail-svg">
+                            {@html generateColumnElevationSvg({
+                              height: elemLen, b: v.b, h: v.h, cover: v.cover,
+                              column: effColumn, shear: v.shear,
+                            })}
+                          </div>
+                        {/if}
+
+                        {#if effColumn}
+                          {@const effBarDia = ov ? ov.barDia : v.flexure.barDia}
+                          {@const diagParams = {
+                            b: v.b, h: v.h, fc: v.fc, fy: rebarFy,
+                            cover: v.cover + stirrupDia / 2000 + effBarDia / 2000,
+                            AsProv: effColumn.AsProv,
+                            barCount: effColumn.barCount,
+                            barDia: effBarDia,
+                          } satisfies DiagramParams}
+                          {@const diagram = generateInteractionDiagram(diagParams)}
+                          <div class="detail-svg interaction-diagram">
+                            {@html generateInteractionSvg(diagram, { Nu: v.Nu, Mu: v.Mu }, 280, 350)}
+                          </div>
+                        {/if}
                       {/if}
 
                       <!-- Override control -->
