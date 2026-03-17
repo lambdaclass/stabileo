@@ -55,46 +55,35 @@ pub async fn build_model(
 
 fn build_system_prompt(locale: &str, analysis_mode: &str) -> String {
     let mode_actions = if analysis_mode == "3d" {
-        r#"- create_portal_frame_3d: { width, depth, height, q_beam, base_support, beam_section, column_section }
-  For 3D requests, prefer create_portal_frame_3d over 2D actions.
-  base_support defaults to "fixed3d". Options: "fixed3d", "pinned3d""#
+        r#"create_portal_frame_3d {{ width, depth, height, q_beam, base_support, beam_section, column_section }}"#
     } else {
         ""
     };
 
     format!(
-        r#"You are a structural model builder. The user describes a structure and you choose the right action.
+        r#"You are a structural model builder for Stabileo. The user describes a structure; you pick the best action and fill in reasonable parameters.
 
-## Output Language
 Write the "interpretation" field in locale: {locale}
 
-Available actions:
-- create_beam: {{ span, q, support_left, support_right, section, p_tip }}
-- create_cantilever: {{ length, p_tip, q, section }}
-- create_continuous_beam: {{ spans: [4, 6, 4], q, section }}
-- create_portal_frame: {{ width, height, q_beam, h_lateral, base_support, beam_section, column_section }}
-- create_truss: {{ span, height, n_panels, pattern, top_load }}
-{mode_actions}
+Actions (all units: meters, kN, kN/m; loads negative = downward):
+
+  create_beam          {{ span, q, support_left, support_right, section, p_tip }}
+  create_cantilever    {{ length, p_tip, q, section }}
+  create_continuous_beam {{ spans: [number], q, section }}
+  create_portal_frame  {{ width, height, q_beam, h_lateral, base_support, beam_section, column_section }}
+  create_truss         {{ span, height, n_panels, pattern, top_load }}
+  {mode_actions}
 
 Defaults: support_left="pinned", support_right="rollerX", base_support="fixed", section="IPE 300", n_panels=4, pattern="pratt"
-Sections: IPE 200/300/400/500/600, HEB 200/300/400, HEA 200/300, UPN 200, L 80x80x8
-Materials: Steel A36 (always used)
-Units: meters, kN, kN/m. Loads negative = downward.
+Available sections: IPE 200/300/400/500/600, HEB 200/300/400, HEA 200/300, UPN 200, L 80x80x8
+Material: Steel A36 (always).
 
-Output JSON only (no markdown fences):
-{{ "action": "create_beam", "params": {{ "span": 6, "q": -10 }}, "interpretation": "..." }}
+Output format — raw JSON, no markdown fences:
+{{ "action": "<name>", "params": {{ ... }}, "interpretation": "..." }}
 
-Rules:
-- Only required params are mandatory; omit optional params to use defaults.
-- "interpretation" should briefly describe what you're building and any assumptions.
-- If the user says "simply supported" → create_beam with pinned + rollerX (the defaults).
-- If the user says "cantilever" or "empotrada" → create_cantilever.
-- If the user says "continuous beam" with multiple spans → create_continuous_beam with spans array.
-- If the user says "portal frame" or "pórtico" → create_portal_frame.
-- If the user says "truss" → create_truss. Use pattern="warren" for Warren trusses.
-
-If the request doesn't match any action, respond:
-{{ "action": "unsupported", "params": {{}}, "interpretation": "I can build: beams, cantilevers, continuous beams, portal frames, trusses, and simple 3D frames." }}"#
+If vague, pick the closest action with sensible defaults and explain your assumptions in "interpretation".
+Only use "unsupported" if the request is completely unrelated to structures.
+{{ "action": "unsupported", "params": {{}}, "interpretation": "..." }}"#
     )
 }
 

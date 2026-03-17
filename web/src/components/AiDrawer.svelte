@@ -155,6 +155,17 @@
     lastDescription = text;
     scrollChatToBottom();
 
+    // Handle clear/reset commands locally
+    const lower = text.toLowerCase();
+    if (/\b(clean|clear|reset|limpiar|borrar|vaciar)\b/.test(lower) && !/\b(beam|frame|truss|viga|pórtico|portico|cantilever)\b/.test(lower)) {
+      historyStore.pushState();
+      resultsStore.clear();
+      modelStore.clear();
+      chatMessages.push({ role: 'system', text: 'Model cleared.' });
+      scrollChatToBottom();
+      return;
+    }
+
     // Add building indicator
     chatMessages.push({ role: 'ai', text: 'Building...', isBuilding: true });
     scrollChatToBottom();
@@ -282,69 +293,10 @@
     } else if (snapshotMode === '2d' && uiStore.analysisMode === '3d') {
       uiStore.analysisMode = '2d';
     }
-    const is3D = uiStore.analysisMode === '3d';
 
-    // Clear current model and results
+    // Clear results and restore model atomically (preserves materialId/sectionId on elements)
     resultsStore.clear();
-    modelStore.clear();
-
-    // Materials
-    if (snapshot.materials) {
-      const matMap = new Map(snapshot.materials.map(([k, v]) => [k, { ...v }]));
-      (modelStore as any).model.materials = matMap;
-    }
-    // Sections
-    if (snapshot.sections) {
-      const secMap = new Map(snapshot.sections.map(([k, v]) => [k, { ...v }]));
-      (modelStore as any).model.sections = secMap;
-    }
-
-    // Nodes
-    if (snapshot.nodes) {
-      for (const [, node] of snapshot.nodes) {
-        modelStore.addNode(node.x, node.y, node.z);
-      }
-    }
-
-    // Elements
-    if (snapshot.elements) {
-      for (const [, elem] of snapshot.elements) {
-        modelStore.addElement(elem.nodeI, elem.nodeJ, elem.type ?? 'frame');
-      }
-    }
-
-    // Supports
-    if (snapshot.supports) {
-      for (const [, sup] of snapshot.supports) {
-        modelStore.addSupport(sup.nodeId, sup.type as any);
-      }
-    }
-
-    // Loads
-    if (snapshot.loads) {
-      for (const load of snapshot.loads) {
-        const d = load.data as any;
-        if (is3D) {
-          if (load.type === 'distributed3d' && d.elementId) {
-            modelStore.addDistributedLoad3D(d.elementId, d.qYI ?? 0, d.qYJ ?? 0, d.qZI ?? 0, d.qZJ ?? 0);
-          } else if (load.type === 'nodal3d' && d.nodeId) {
-            modelStore.addNodalLoad3D(d.nodeId, d.fx ?? 0, d.fy ?? 0, d.fz ?? 0, d.mx ?? 0, d.my ?? 0, d.mz ?? 0);
-          } else if (load.type === 'distributed' && d.elementId) {
-            modelStore.addDistributedLoad3D(d.elementId, d.qI ?? 0, d.qJ ?? d.qI ?? 0, 0, 0);
-          } else if (load.type === 'nodal' && d.nodeId) {
-            modelStore.addNodalLoad3D(d.nodeId, d.fx ?? 0, d.fy ?? 0, 0, 0, 0, d.mz ?? 0);
-          }
-        } else {
-          if (load.type === 'distributed' && d.elementId) {
-            modelStore.addDistributedLoad(d.elementId, d.qI ?? d.q ?? 0, d.qJ ?? d.q ?? d.qI ?? 0);
-          } else if (load.type === 'nodal' && d.nodeId) {
-            modelStore.addNodalLoad(d.nodeId, d.fx ?? 0, d.fy ?? 0, d.mz ?? 0);
-          }
-        }
-      }
-    }
-
-    modelStore.bumpModelVersion();
+    modelStore.restore(snapshot);
 
     // Zoom to fit
     const canvas = document.querySelector('.viewport-container canvas') as HTMLCanvasElement | null;
