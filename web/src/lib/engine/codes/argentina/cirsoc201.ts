@@ -1256,7 +1256,8 @@ export function verifyElement(input: VerificationInput): ElementVerification {
 // ─── Classify element as beam or column ─────────────────────────
 
 /** Heuristic: if element is more vertical than horizontal, it's a column.
- *  If it's vertical AND the section has high aspect ratio (b/h > 3 or h/b > 3), it's a wall. */
+ *  If it's vertical AND the section has high aspect ratio (b/h > 3 or h/b > 3), it's a wall.
+ *  Convention: Y is the vertical (gravity) axis — matches both 2D (canvas Y) and 3D (Three.js Y-up). */
 export function classifyElement(
   x1: number, y1: number, z1: number,
   x2: number, y2: number, z2: number,
@@ -1265,9 +1266,9 @@ export function classifyElement(
   const dx = Math.abs(x2 - x1);
   const dy = Math.abs(y2 - y1);
   const dz = Math.abs(z2 - z1);
-  const horizontal = Math.sqrt(dx * dx + dy * dy);
-  // If vertical component dominates, it's a column or wall
-  if (dz > horizontal) {
+  const horizontal = Math.sqrt(dx * dx + dz * dz);
+  // If vertical (Y) component dominates, it's a column or wall
+  if (dy > horizontal) {
     // Detect wall: vertical element with high section aspect ratio
     if (sectionB && sectionH) {
       const ratio = Math.max(sectionB, sectionH) / Math.min(sectionB, sectionH);

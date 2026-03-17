@@ -51,27 +51,81 @@ export function generateCrossSectionSvg(opts: CrossSectionSvgOpts): string {
   lines.push(`<rect x="${sx}" y="${sy}" width="${sw}" height="${sh}" fill="none" stroke="#f0a500" stroke-width="${Math.max(stPx, 1.5)}" rx="3"/>`);
 
   if (isColumn && column) {
-    // Column: distribute bars around perimeter
+    // Column: distribute bars around perimeter, with interior rows if needed
     const barR = (column.barDia / 2000) * scale;
     const n = column.barCount;
-    const positions = getColumnBarPositions(n, bPx, hPx, coverPx, ox, oy);
-    for (const [cx, cy] of positions) {
-      lines.push(`<circle cx="${cx}" cy="${cy}" r="${Math.max(barR, 3)}" fill="#e94560" stroke="#ff8a9e" stroke-width="0.5"/>`);
+    const stPx = (shear.stirrupDia / 1000) * scale;
+    const minGapPx = Math.max(column.barDia / 1000, 0.025) * scale;
+    // Max bars that fit along the perimeter (4 corners + bars along each face)
+    const faceW = bPx - 2 * coverPx - 2 * stPx - 2 * barR;
+    const faceH = hPx - 2 * coverPx - 2 * stPx - 2 * barR;
+    const maxBPerFaceH = Math.max(0, Math.floor(faceW / (2 * barR + minGapPx)));
+    const maxBPerFaceV = Math.max(0, Math.floor(faceH / (2 * barR + minGapPx)));
+    const maxPerimeter = 4 + 2 * maxBPerFaceH + 2 * maxBPerFaceV;
+
+    if (n <= maxPerimeter || n <= 4) {
+      // Fits on perimeter — use standard distribution
+      const positions = getColumnBarPositions(n, bPx, hPx, coverPx, ox, oy);
+      for (const [cx, cy] of positions) {
+        lines.push(`<circle cx="${cx}" cy="${cy}" r="${Math.max(barR, 3)}" fill="#e94560" stroke="#ff8a9e" stroke-width="0.5"/>`);
+      }
+    } else {
+      // Overflow: fill perimeter, then add interior rows
+      const perimPositions = getColumnBarPositions(Math.min(n, maxPerimeter), bPx, hPx, coverPx, ox, oy);
+      for (const [cx, cy] of perimPositions) {
+        lines.push(`<circle cx="${cx}" cy="${cy}" r="${Math.max(barR, 3)}" fill="#e94560" stroke="#ff8a9e" stroke-width="0.5"/>`);
+      }
+      // Interior bars in a grid
+      let remaining = n - perimPositions.length;
+      const inset = coverPx + stPx + 2 * barR + minGapPx;
+      const innerStartX = ox + inset + barR;
+      const innerEndX = ox + bPx - inset - barR;
+      const innerStartY = oy + inset + barR;
+      const innerEndY = oy + hPx - inset - barR;
+      const innerW = innerEndX - innerStartX;
+      const innerH = innerEndY - innerStartY;
+      if (innerW > 0 && innerH > 0 && remaining > 0) {
+        const cols = Math.max(1, Math.floor((innerW + minGapPx) / (2 * barR + minGapPx)));
+        const rows = Math.ceil(remaining / cols);
+        let idx = 0;
+        for (let r = 0; r < rows && idx < remaining; r++) {
+          const barsInRow = Math.min(cols, remaining - idx);
+          const cy = rows === 1 ? oy + hPx / 2 : innerStartY + r * (innerH / Math.max(rows - 1, 1));
+          const spacing = barsInRow > 1 ? innerW / (barsInRow - 1) : 0;
+          for (let c = 0; c < barsInRow; c++) {
+            const cx = barsInRow === 1 ? ox + bPx / 2 : innerStartX + c * spacing;
+            lines.push(`<circle cx="${cx}" cy="${cy}" r="${Math.max(barR, 3)}" fill="#e94560" stroke="#ff8a9e" stroke-width="0.5" opacity="0.7"/>`);
+            idx++;
+          }
+        }
+      }
     }
     lines.push(`<text x="${ox + bPx / 2}" y="${oy + hPx + 35}" text-anchor="middle" class="bar-label">${column.bars}</text>`);
     lines.push(`<text x="${ox + bPx / 2}" y="${oy + hPx + 48}" text-anchor="middle" class="bar-label">eØ${shear.stirrupDia} c/${(shear.spacing * 100).toFixed(0)}</text>`);
   } else {
-    // Beam: bottom tension bars
+    // Beam: bottom tension bars — multi-row when spacing is too tight
     const barR = (flexure.barDia / 2000) * scale;
     const nBot = flexure.barCount;
-    const barY = oy + hPx - coverPx - (shear.stirrupDia / 1000) * scale - barR;
-    const startX = ox + coverPx + (shear.stirrupDia / 1000) * scale + barR;
-    const endX = ox + bPx - coverPx - (shear.stirrupDia / 1000) * scale - barR;
-    const spacingX = nBot > 1 ? (endX - startX) / (nBot - 1) : 0;
+    const stPx = (shear.stirrupDia / 1000) * scale;
+    const startX = ox + coverPx + stPx + barR;
+    const endX = ox + bPx - coverPx - stPx - barR;
+    const availW = endX - startX;
+    // Minimum clear gap: max(bar diameter, 25mm) per CIRSOC 201 §7.6
+    const minGapPx = Math.max(flexure.barDia / 1000, 0.025) * scale;
+    const maxPerRow = Math.max(1, availW > 0 ? Math.floor((availW + minGapPx) / (2 * barR + minGapPx)) : 1);
+    const nRows = Math.ceil(nBot / maxPerRow);
+    const rowGapPx = 2 * barR + minGapPx;
 
-    for (let i = 0; i < nBot; i++) {
-      const cx = nBot === 1 ? ox + bPx / 2 : startX + i * spacingX;
-      lines.push(`<circle cx="${cx}" cy="${barY}" r="${Math.max(barR, 3)}" fill="#e94560" stroke="#ff8a9e" stroke-width="0.5"/>`);
+    let barIdx = 0;
+    for (let row = 0; row < nRows; row++) {
+      const barsInRow = Math.min(maxPerRow, nBot - barIdx);
+      const barY = oy + hPx - coverPx - stPx - barR - row * rowGapPx;
+      const rowSpacing = barsInRow > 1 ? (endX - startX) / (barsInRow - 1) : 0;
+      for (let i = 0; i < barsInRow; i++) {
+        const cx = barsInRow === 1 ? ox + bPx / 2 : startX + i * rowSpacing;
+        lines.push(`<circle cx="${cx}" cy="${barY}" r="${Math.max(barR, 3)}" fill="#e94560" stroke="#ff8a9e" stroke-width="0.5"/>`);
+        barIdx++;
+      }
     }
 
     // Top bars: compression reinforcement (A's) or construction bars (2 Ø10)
@@ -79,9 +133,9 @@ export function generateCrossSectionSvg(opts: CrossSectionSvgOpts): string {
     const topDia = hasCompSteel ? flexure.barDiaComp! : 10;
     const topCount = hasCompSteel ? flexure.barCountComp! : 2;
     const topBarR = (topDia / 2000) * scale;
-    const topY = oy + coverPx + (shear.stirrupDia / 1000) * scale + topBarR;
-    const topStartX = ox + coverPx + (shear.stirrupDia / 1000) * scale + topBarR;
-    const topEndX = ox + bPx - coverPx - (shear.stirrupDia / 1000) * scale - topBarR;
+    const topY = oy + coverPx + stPx + topBarR;
+    const topStartX = ox + coverPx + stPx + topBarR;
+    const topEndX = ox + bPx - coverPx - stPx - topBarR;
     const topSpacingX = topCount > 1 ? (topEndX - topStartX) / (topCount - 1) : 0;
 
     // Compression bars: blue fill for A's, gray for construction
@@ -93,7 +147,8 @@ export function generateCrossSectionSvg(opts: CrossSectionSvgOpts): string {
     }
 
     // Labels
-    lines.push(`<text x="${ox + bPx / 2}" y="${oy + hPx + 35}" text-anchor="middle" class="bar-label">${flexure.bars} (inf.)</text>`);
+    const rowNote = nRows > 1 ? ` (${nRows} capas)` : '';
+    lines.push(`<text x="${ox + bPx / 2}" y="${oy + hPx + 35}" text-anchor="middle" class="bar-label">${flexure.bars} (inf.)${rowNote}</text>`);
     lines.push(`<text x="${ox + bPx / 2}" y="${oy + hPx + 48}" text-anchor="middle" class="bar-label">eØ${shear.stirrupDia} c/${(shear.spacing * 100).toFixed(0)}</text>`);
     const topLabel = hasCompSteel ? `${flexure.barsComp} (A's)` : `2 Ø10 (sup.)`;
     lines.push(`<text x="${ox + bPx / 2}" y="${oy - 8}" text-anchor="middle" class="bar-label">${topLabel}</text>`);

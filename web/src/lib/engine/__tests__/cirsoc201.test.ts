@@ -179,8 +179,9 @@ describe('CIRSOC 201 Verification', () => {
   });
 
   describe('classifyElement', () => {
+    // Convention: Y is the vertical (gravity) axis — matches 2D canvas and 3D Three.js Y-up
     it('should classify vertical element as column', () => {
-      expect(classifyElement(0, 0, 0, 0, 0, 3)).toBe('column');
+      expect(classifyElement(0, 0, 0, 0, 3, 0)).toBe('column');
     });
 
     it('should classify horizontal element as beam', () => {
@@ -188,11 +189,15 @@ describe('CIRSOC 201 Verification', () => {
     });
 
     it('should classify mostly-horizontal as beam', () => {
-      expect(classifyElement(0, 0, 0, 5, 0, 0.5)).toBe('beam');
+      expect(classifyElement(0, 0, 0, 5, 0.5, 0)).toBe('beam');
     });
 
     it('should classify mostly-vertical as column', () => {
-      expect(classifyElement(0, 0, 0, 0.3, 0, 3)).toBe('column');
+      expect(classifyElement(0, 0, 0, 0.3, 3, 0)).toBe('column');
+    });
+
+    it('should classify Z-direction beam as beam', () => {
+      expect(classifyElement(0, 0, 0, 0, 0, 6)).toBe('beam');
     });
   });
 

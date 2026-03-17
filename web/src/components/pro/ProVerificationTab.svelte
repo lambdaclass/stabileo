@@ -781,7 +781,15 @@
         });
       }
     }
-    return Array.from(groups.values());
+    // Sort: type (column → beam → wall), then dimensions (largest first), then first element ID
+    const typeOrder: Record<string, number> = { column: 0, beam: 1, wall: 2 };
+    return Array.from(groups.values()).sort((a, b) => {
+      const t = (typeOrder[a.elementType] ?? 9) - (typeOrder[b.elementType] ?? 9);
+      if (t !== 0) return t;
+      const area = (b.b * b.h) - (a.b * a.h); // larger sections first
+      if (Math.abs(area) > 1e-6) return area;
+      return (a.elementIds[0] ?? 0) - (b.elementIds[0] ?? 0);
+    });
   });
 
   // Find a beam-column joint pair for the joint detail drawing
@@ -847,7 +855,12 @@
         `${t('pro.totalSteel')} (kg)`,
       ];
       const qtyData: (string | number)[][] = [qtyHeaders];
-      for (const eq of effQty.elements) {
+      const typeOrd: Record<string, number> = { column: 0, beam: 1, wall: 2 };
+      const sortedElems = [...effQty.elements].sort((a, b) => {
+        const t = (typeOrd[a.elementType] ?? 9) - (typeOrd[b.elementType] ?? 9);
+        return t !== 0 ? t : a.elementId - b.elementId;
+      });
+      for (const eq of sortedElems) {
         qtyData.push([
           eq.elementId,
           typeLabel(eq.elementType),
