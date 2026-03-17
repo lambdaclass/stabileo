@@ -67,6 +67,39 @@
   let deflectionResults = $state<Map<number, DeflectionResult>>(new Map());
   let quantities = $state<QuantitySummary | null>(null);
 
+  // ── Manual reinforcement overrides (session-local) ──
+  interface RebarOverride { barCount: number; barDia: number }
+  let overrides = $state<Map<number, RebarOverride>>(new Map());
+  const overrideCount = $derived(overrides.size);
+
+  function setOverride(elemId: number, barCount: number, barDia: number) {
+    const next = new Map(overrides);
+    next.set(elemId, { barCount, barDia });
+    overrides = next;
+  }
+  function clearOverride(elemId: number) {
+    const next = new Map(overrides);
+    next.delete(elemId);
+    overrides = next;
+  }
+  function clearAllOverrides() { overrides = new Map(); }
+
+  /** Effective main bars string for an element, considering overrides */
+  function effectiveBars(v: ElementVerification): string {
+    const ov = overrides.get(v.elementId);
+    if (ov) return `${ov.barCount} Ø${ov.barDia}`;
+    return v.column ? v.column.bars : v.flexure.bars;
+  }
+  /** Effective AsProv (cm²) for an element, considering overrides */
+  function effectiveAs(v: ElementVerification): number {
+    const ov = overrides.get(v.elementId);
+    if (ov) {
+      const rebar = REBAR_DB.find(r => r.diameter === ov.barDia);
+      return rebar ? ov.barCount * rebar.area : 0;
+    }
+    return v.column ? v.column.AsProv : v.flexure.AsProv;
+  }
+
   // Steel verification results (CIRSOC 301)
   let steelVerifications = $state<SteelVerification[]>([]);
 
@@ -698,14 +731,17 @@
     mainBars: string;
     stirrups: string;
     totalAsPerElem: number; // cm² per element
+    hasOverride: boolean;
   }
   const rebarSchedule = $derived.by(() => {
     const groups = new Map<string, RebarScheduleEntry>();
     for (const v of verifications) {
-      const mainBars = v.column ? v.column.bars : v.flexure.bars;
+      const isOv = overrides.has(v.elementId);
+      const mainBars = effectiveBars(v);
+      const asProv = effectiveAs(v);
       const stirrups = `eØ${v.shear.stirrupDia} c/${(v.shear.spacing * 100).toFixed(0)}`;
-      // Group by identical reinforcement: same type + dimensions + bars + stirrups
-      const key = `${v.elementType}_${(v.b*100).toFixed(0)}x${(v.h*100).toFixed(0)}_${mainBars}_${stirrups}`;
+      // Group by identical reinforcement: same type + dimensions + bars + stirrups + override status
+      const key = `${v.elementType}_${(v.b*100).toFixed(0)}x${(v.h*100).toFixed(0)}_${mainBars}_${stirrups}_${isOv ? 'ov' : 'auto'}`;
       const existing = groups.get(key);
       if (existing) {
         existing.elementIds.push(v.elementId);
@@ -720,7 +756,8 @@
           b: v.b, h: v.h,
           mainBars,
           stirrups,
-          totalAsPerElem: v.column ? v.column.AsProv : v.flexure.AsProv,
+          totalAsPerElem: asProv,
+          hasOverride: isOv,
         });
       }
     }
@@ -760,7 +797,7 @@
     const schedHeaders = [
       t('pro.thSectionName'), t('pro.thType'), t('pro.thElements'),
       'b×h (cm)', t('pro.thMainBars'), t('pro.thStirrups'),
-      `${t('pro.thAsPerElem')} (cm²)`,
+      `${t('pro.thAsPerElem')} (cm²)`, t('pro.overrideSource'),
     ];
     const schedData: (string | number)[][] = [schedHeaders];
     for (const entry of rebarSchedule) {
@@ -772,10 +809,11 @@
         entry.mainBars,
         entry.stirrups,
         Number(entry.totalAsPerElem.toFixed(1)),
+        entry.hasOverride ? t('pro.overrideManual') : t('pro.overrideAuto'),
       ]);
     }
     const wsSchedule = XLSX.utils.aoa_to_sheet(schedData);
-    wsSchedule['!cols'] = [{ wch: 18 }, { wch: 10 }, { wch: 28 }, { wch: 10 }, { wch: 14 }, { wch: 14 }, { wch: 12 }];
+    wsSchedule['!cols'] = [{ wch: 18 }, { wch: 10 }, { wch: 28 }, { wch: 10 }, { wch: 14 }, { wch: 14 }, { wch: 12 }, { wch: 10 }];
     XLSX.utils.book_append_sheet(wb, wsSchedule, t('pro.scheduleTab'));
 
     // Sheet 2: Per-element quantities (if available)
@@ -960,7 +998,7 @@
                 <td class="col-num">{fmtNum(v.Vu)}</td>
                 <td class="col-num">{fmtNum(v.Nu)}</td>
                 <td class="col-num">{v.column ? v.column.AsTotal.toFixed(1) : v.flexure.AsReq.toFixed(1)}</td>
-                <td class="col-num">{v.column ? v.column.AsProv.toFixed(1) : v.flexure.AsProv.toFixed(1)}{#if !v.column && v.flexure.isDoublyReinforced && v.flexure.AsComp}<br><span style="font-size:0.65rem;color:#4a90d9">+{v.flexure.AsComp.toFixed(1)} A's</span>{/if}</td>
+                <td class="col-num">{#if overrides.has(v.elementId)}<span class="override-mark" title={t('pro.overrideActive')}>{effectiveAs(v).toFixed(1)}</span>{:else}{v.column ? v.column.AsProv.toFixed(1) : v.flexure.AsProv.toFixed(1)}{#if !v.column && v.flexure.isDoublyReinforced && v.flexure.AsComp}<br><span style="font-size:0.65rem;color:#4a90d9">+{v.flexure.AsComp.toFixed(1)} A's</span>{/if}{/if}</td>
                 <td class="col-stirrup">eØ{v.shear.stirrupDia} c/{(v.shear.spacing * 100).toFixed(0)}</td>
                 <td class="col-status"><span class={statusClass(v.overallStatus)}>{statusIcon(v.overallStatus)}</span></td>
               </tr>
@@ -1012,6 +1050,45 @@
                           {@html generateInteractionSvg(diagram, { Nu: v.Nu, Mu: v.Mu }, 280, 350)}
                         </div>
                       {/if}
+
+                      <!-- Override control -->
+                      {#snippet overrideControl(elemId: number, vv: ElementVerification)}
+                        {@const curOv = overrides.get(elemId)}
+                        {@const autoBarCount = vv.column ? vv.column.barCount : vv.flexure.barCount}
+                        {@const autoBarDia = vv.column ? (vv.column.barDia ?? vv.flexure.barDia) : vv.flexure.barDia}
+                        <div class="override-card">
+                          <div class="override-header">
+                            <span class="override-title">{t('pro.overrideTitle')}</span>
+                            {#if curOv}
+                              <button class="override-revert" onclick={() => clearOverride(elemId)}>{t('pro.overrideRevert')}</button>
+                            {/if}
+                          </div>
+                          <div class="override-auto">
+                            <span class="override-label">{t('pro.overrideAutoDesign')}:</span>
+                            <span class="override-val">{vv.column ? vv.column.bars : vv.flexure.bars} ({(vv.column ? vv.column.AsProv : vv.flexure.AsProv).toFixed(1)} cm²)</span>
+                          </div>
+                          <div class="override-controls">
+                            <label class="override-label">{t('pro.overrideBarCount')}</label>
+                            <input type="number" class="override-input" min="2" max="40" value={curOv?.barCount ?? autoBarCount}
+                              onchange={(e: Event) => { const val = parseInt((e.target as HTMLInputElement).value); if (val >= 2) setOverride(elemId, val, curOv?.barDia ?? autoBarDia); }} />
+                            <label class="override-label">Ø</label>
+                            <select class="override-input" value={curOv?.barDia ?? autoBarDia}
+                              onchange={(e: Event) => { const dia = parseInt((e.target as HTMLSelectElement).value); setOverride(elemId, curOv?.barCount ?? autoBarCount, dia); }}>
+                              {#each REBAR_DB.filter(r => r.diameter >= 10) as rb}
+                                <option value={rb.diameter}>{rb.diameter}</option>
+                              {/each}
+                            </select>
+                          </div>
+                          {#if curOv}
+                            {@const ovAs = effectiveAs(vv)}
+                            {@const reqAs = vv.column ? vv.column.AsTotal : vv.flexure.AsReq}
+                            <div class="override-result" class:override-under={ovAs < reqAs}>
+                              As = {ovAs.toFixed(1)} cm² {ovAs < reqAs ? `< As,req ${reqAs.toFixed(1)}` : `>= As,req ${reqAs.toFixed(1)}`}
+                            </div>
+                          {/if}
+                        </div>
+                      {/snippet}
+                      {@render overrideControl(v.elementId, v)}
 
                       <div class="detail-memo">
                         <div class="memo-section">
@@ -1216,11 +1293,18 @@
 
     <!-- ═══ SCHEDULE TAB ═══ -->
     {:else if activeSection === 'schedule'}
-      <div class="pro-section-label" style="display:flex;align-items:center;justify-content:space-between">
+      <div class="pro-section-label" style="display:flex;align-items:center;justify-content:space-between;gap:6px">
         <span>{t('pro.scheduleTitle')}</span>
-        <button class="pro-export-btn" disabled={rebarSchedule.length === 0} onclick={exportRebarSchedule} title={t('pro.exportScheduleTooltip')}>
-          {t('pro.exportSchedule')}
-        </button>
+        <span style="display:flex;gap:4px;align-items:center">
+          {#if overrideCount > 0}
+            <button class="pro-export-btn" onclick={clearAllOverrides} title={t('pro.overrideClearAllTooltip')}>
+              {t('pro.overrideClearAll')} ({overrideCount})
+            </button>
+          {/if}
+          <button class="pro-export-btn" disabled={rebarSchedule.length === 0} onclick={exportRebarSchedule} title={t('pro.exportScheduleTooltip')}>
+            {t('pro.exportSchedule')}
+          </button>
+        </span>
       </div>
       <div class="pro-verif-table-wrap">
         <table class="pro-verif-table">
@@ -1237,12 +1321,12 @@
           </thead>
           <tbody>
             {#each rebarSchedule as entry}
-              <tr>
+              <tr class:schedule-override={entry.hasOverride}>
                 <td style="color:#4ecdc4">{entry.sectionName}</td>
                 <td class="col-type">{entry.elementType === 'beam' ? t('pro.elemTypeBeam') : entry.elementType === 'wall' ? t('pro.elemTypeWall') : t('pro.elemTypeColumn')}</td>
                 <td class="col-elems" title={entry.elementIds.join(', ')}>{entry.elementIds.length === 1 ? entry.elementIds[0] : `${entry.elementIds.length} elem. (${entry.elementIds.join(', ')})`}</td>
                 <td class="col-num">{(entry.b * 100).toFixed(0)}×{(entry.h * 100).toFixed(0)}</td>
-                <td class="col-stirrup">{entry.mainBars}</td>
+                <td class="col-stirrup">{entry.mainBars}{#if entry.hasOverride} <span class="override-mark" title={t('pro.overrideActive')}>*</span>{/if}</td>
                 <td class="col-stirrup">{entry.stirrups}</td>
                 <td class="col-num">{entry.totalAsPerElem.toFixed(1)} cm²</td>
               </tr>
@@ -1794,6 +1878,80 @@
   }
   .pro-export-btn:hover:not(:disabled) { background: rgba(78, 205, 196, 0.2); }
   .pro-export-btn:disabled { opacity: 0.4; cursor: default; }
+
+  /* ─── Override controls ─── */
+  .override-card {
+    flex-shrink: 0;
+    width: 190px;
+    background: #0f1a30;
+    border: 1px solid #1a3050;
+    border-radius: 4px;
+    padding: 8px;
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+  }
+  .override-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+  .override-title {
+    font-size: 0.6rem;
+    font-weight: 600;
+    color: #4ecdc4;
+    text-transform: uppercase;
+  }
+  .override-revert {
+    font-size: 0.55rem;
+    padding: 1px 6px;
+    background: rgba(233, 69, 96, 0.15);
+    color: #e94560;
+    border: 1px solid rgba(233, 69, 96, 0.3);
+    border-radius: 2px;
+    cursor: pointer;
+  }
+  .override-revert:hover { background: rgba(233, 69, 96, 0.3); }
+  .override-auto {
+    font-size: 0.58rem;
+    color: #777;
+  }
+  .override-auto .override-val {
+    font-family: monospace;
+    color: #999;
+  }
+  .override-controls {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    font-size: 0.6rem;
+  }
+  .override-label { color: #888; font-size: 0.58rem; white-space: nowrap; }
+  .override-input {
+    width: 48px;
+    padding: 2px 4px;
+    font-size: 0.6rem;
+    font-family: monospace;
+    background: #0a1628;
+    color: #ccc;
+    border: 1px solid #1a3050;
+    border-radius: 2px;
+  }
+  select.override-input { width: 52px; }
+  .override-result {
+    font-size: 0.58rem;
+    font-family: monospace;
+    color: #4ecdc4;
+    padding: 2px 4px;
+    background: rgba(78, 205, 196, 0.08);
+    border-radius: 2px;
+  }
+  .override-under { color: #e94560; background: rgba(233, 69, 96, 0.08); }
+
+  /* ─── Override marks ─── */
+  .override-mark { color: #f0a500; font-weight: 600; }
+  .schedule-override { background: rgba(240, 165, 0, 0.04); }
+  .schedule-override td { border-bottom-color: rgba(240, 165, 0, 0.15); }
 
   /* ─── Slab cards ─── */
   .slab-card {
