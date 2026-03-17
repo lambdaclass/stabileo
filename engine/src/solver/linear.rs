@@ -225,7 +225,7 @@ pub fn solve_2d(input: &SolverInput) -> Result<AnalysisResults, String> {
         ).with_value(rel_residual, 1e-6).with_phase("solve")
     });
 
-    Ok(AnalysisResults {
+    let mut results = AnalysisResults {
         displacements,
         reactions,
         element_forces,
@@ -234,7 +234,10 @@ pub fn solve_2d(input: &SolverInput) -> Result<AnalysisResults, String> {
         solver_diagnostics: vec![],
         structured_diagnostics: structured,
         equilibrium: Some(equilibrium),
-    })
+        result_summary: None,
+    };
+    results.result_summary = Some(crate::postprocess::result_summary::compute_result_summary_2d(&results));
+    Ok(results)
 }
 
 /// Solve a 3D linear static analysis.
@@ -483,12 +486,14 @@ pub fn solve_3d(input: &SolverInput3D) -> Result<AnalysisResults3D, String> {
                         ).with_value(rel_residual, 1e-6).with_phase("solve")
                     });
 
-                    return Ok(AnalysisResults3D {
+                    let mut results = AnalysisResults3D {
                         displacements, reactions, element_forces, plate_stresses, quad_stresses,
                         quad_nodal_stresses: compute_quad_nodal_stresses(input, &dof_num, &u_full),
                         constraint_forces: vec![], diagnostics: asm.diagnostics,
-                        solver_diagnostics: solver_diags, structured_diagnostics: structured, equilibrium: Some(equilibrium), timings: Some(timings),
-                    });
+                        solver_diagnostics: solver_diags, structured_diagnostics: structured, equilibrium: Some(equilibrium), timings: Some(timings), result_summary: None,
+                    };
+                    results.result_summary = Some(crate::postprocess::result_summary::compute_result_summary_3d(&results));
+                    return Ok(results);
                 }
             }
         };
@@ -688,7 +693,7 @@ pub fn solve_3d(input: &SolverInput3D) -> Result<AnalysisResults3D, String> {
         // Compute equilibrium summary from assembled force vector (includes all load types)
         let equilibrium = compute_equilibrium_summary_3d(&asm.f, &reactions_vec, &dof_num, rel_residual);
 
-        Ok(AnalysisResults3D {
+        let mut results = AnalysisResults3D {
             displacements,
             reactions,
             element_forces,
@@ -701,7 +706,10 @@ pub fn solve_3d(input: &SolverInput3D) -> Result<AnalysisResults3D, String> {
             structured_diagnostics: structured,
             equilibrium: Some(equilibrium),
             timings: Some(timings),
-        })
+            result_summary: None,
+        };
+        results.result_summary = Some(crate::postprocess::result_summary::compute_result_summary_3d(&results));
+        Ok(results)
     } else {
         // ── Dense path: small models (nf < 64) ──
         let asm = assemble_3d(input, &dof_num);
@@ -845,7 +853,7 @@ pub fn solve_3d(input: &SolverInput3D) -> Result<AnalysisResults3D, String> {
             ).with_value(rel_residual, 1e-6).with_phase("solve")
         });
 
-        Ok(AnalysisResults3D {
+        let mut results = AnalysisResults3D {
             displacements,
             reactions,
             element_forces,
@@ -858,7 +866,10 @@ pub fn solve_3d(input: &SolverInput3D) -> Result<AnalysisResults3D, String> {
             structured_diagnostics: structured,
             equilibrium: Some(equilibrium),
             timings: None,
-        })
+            result_summary: None,
+        };
+        results.result_summary = Some(crate::postprocess::result_summary::compute_result_summary_3d(&results));
+        Ok(results)
     }
 }
 

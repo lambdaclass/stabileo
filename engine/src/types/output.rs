@@ -81,6 +81,9 @@ pub struct AnalysisResults {
     /// Post-solve equilibrium/residual summary.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub equilibrium: Option<EquilibriumSummary>,
+    /// Query-ready summary of result extremes.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub result_summary: Option<ResultSummary>,
 }
 
 /// Forces at constrained DOFs due to constraint enforcement.
@@ -335,6 +338,36 @@ pub struct EquilibriumSummary {
     pub equilibrium_ok: bool,
 }
 
+// ==================== Query-Ready Result Summary ====================
+
+/// Pre-computed extremes for a single result quantity.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ResultExtreme {
+    pub max_value: f64,
+    pub max_id: usize,
+    pub min_value: f64,
+    pub min_id: usize,
+}
+
+/// Query-ready summary of key result quantities.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ResultSummary {
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub displacement_x: Option<ResultExtreme>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub displacement_y: Option<ResultExtreme>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub displacement_z: Option<ResultExtreme>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub rotation: Option<ResultExtreme>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub displacement_resultant: Option<ResultExtreme>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub reaction_resultant: Option<ResultExtreme>,
+}
+
 // ==================== Solve Timings ====================
 
 /// Per-phase wall-clock timings from solve_3d (milliseconds).
@@ -468,6 +501,9 @@ pub struct AnalysisResults3D {
     /// Post-solve equilibrium/residual summary.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub equilibrium: Option<EquilibriumSummary>,
+    /// Query-ready summary of result extremes.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub result_summary: Option<ResultSummary>,
 }
 
 // ==================== Quad Stress Output ====================

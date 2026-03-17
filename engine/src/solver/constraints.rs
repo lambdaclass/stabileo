@@ -809,6 +809,7 @@ pub fn solve_constrained_2d(input: &ConstrainedInput) -> Result<AnalysisResults,
         solver_diagnostics: vec![],
         structured_diagnostics: constraint_diags,
         equilibrium: Some(equilibrium),
+        result_summary: None,
     })
 }
 
@@ -1007,6 +1008,7 @@ pub fn solve_constrained_3d(input: &ConstrainedInput3D) -> Result<AnalysisResult
         structured_diagnostics: constraint_diags,
         equilibrium: Some(equilibrium),
         timings: None,
+        result_summary: None,
     })
 }
 

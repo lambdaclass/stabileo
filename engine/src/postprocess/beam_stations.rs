@@ -742,7 +742,7 @@ mod tests {
     fn make_results(efs: Vec<ElementForces>) -> AnalysisResults {
         AnalysisResults {
             displacements: vec![], reactions: vec![], element_forces: efs,
-            constraint_forces: vec![], diagnostics: vec![], solver_diagnostics: vec![], structured_diagnostics: vec![], equilibrium: None,
+            constraint_forces: vec![], diagnostics: vec![], solver_diagnostics: vec![], structured_diagnostics: vec![], equilibrium: None, result_summary: None,
         }
     }
 
@@ -1012,7 +1012,7 @@ mod tests {
             plate_stresses: vec![], quad_stresses: vec![],
             quad_nodal_stresses: vec![], constraint_forces: vec![],
             diagnostics: vec![], solver_diagnostics: vec![], timings: None,
-            structured_diagnostics: vec![], equilibrium: None,
+            structured_diagnostics: vec![], equilibrium: None, result_summary: None,
         };
 
         let input = BeamStationInput3D {

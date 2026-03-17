@@ -746,3 +746,87 @@ fn pre_solve_disconnected_node_3d() {
     assert!(disconnected.unwrap().node_ids.contains(&3),
         "diagnostic should reference node 3, got {:?}", disconnected.unwrap().node_ids);
 }
+
+// ==================== Result Summary Tests ====================
+
+#[test]
+fn result_summary_2d_cantilever() {
+    let input = make_input(
+        vec![(1, 0.0, 0.0), (2, 4.0, 0.0)],
+        vec![(1, 200e3, 0.3)],
+        vec![(1, 0.01, 1e-4)],
+        vec![(1, "frame", 1, 2, 1, 1, false, false)],
+        vec![(1, 1, "fixed")],
+        vec![SolverLoad::Nodal(SolverNodalLoad {
+            node_id: 2, fx: 0.0, fy: -10.0, mz: 0.0,
+        })],
+    );
+    let results = solve_2d(&input).unwrap();
+
+    let summary = results.result_summary.as_ref().expect("result_summary should be populated");
+
+    // Displacement X: should exist
+    let dx = summary.displacement_x.as_ref().expect("displacement_x present");
+    // Displacement Y: tip should deflect downward (min_value < 0)
+    let dy = summary.displacement_y.as_ref().expect("displacement_y present");
+    assert!(dy.min_value < 0.0, "cantilever tip should deflect downward: {}", dy.min_value);
+    assert_eq!(dy.min_id, 2, "max downward displacement at tip node 2");
+
+    // Rotation: should exist
+    assert!(summary.rotation.is_some(), "rotation summary present");
+
+    // Displacement resultant: should be positive at tip
+    let res = summary.displacement_resultant.as_ref().expect("resultant present");
+    assert!(res.max_value > 0.0, "resultant > 0");
+    assert_eq!(res.max_id, 2, "max resultant at tip node 2");
+
+    // Reaction resultant: should be at fixed node
+    let rxn = summary.reaction_resultant.as_ref().expect("reaction_resultant present");
+    assert!(rxn.max_value > 0.0, "reaction > 0");
+    assert_eq!(rxn.max_id, 1, "max reaction at fixed node 1");
+
+    // Z displacement should be None for 2D
+    assert!(summary.displacement_z.is_none(), "no Z displacement in 2D");
+
+    // Sanity: dx extremes make sense (node 1 is fixed → ux=0, node 2 may have some ux)
+    assert!(dx.min_value <= dx.max_value, "min <= max");
+}
+
+#[test]
+fn result_summary_3d_cantilever() {
+    let input = make_3d_input(
+        vec![(1, 0.0, 0.0, 0.0), (2, 4.0, 0.0, 0.0)],
+        vec![(1, 200e3, 0.3)],
+        vec![(1, 0.01, 1e-4, 1e-4, 2e-4)],
+        vec![(1, "frame", 1, 2, 1, 1)],
+        vec![(1, vec![true, true, true, true, true, true])],
+        vec![SolverLoad3D::Nodal(SolverNodalLoad3D {
+            node_id: 2, fx: 0.0, fy: -10.0, fz: 0.0,
+            mx: 0.0, my: 0.0, mz: 0.0, bw: None,
+        })],
+    );
+    let results = solve_3d(&input).unwrap();
+
+    let summary = results.result_summary.as_ref().expect("result_summary should be populated");
+
+    // Displacement Y: tip should deflect downward
+    let dy = summary.displacement_y.as_ref().expect("displacement_y present");
+    assert!(dy.min_value < 0.0, "cantilever tip should deflect downward: {}", dy.min_value);
+    assert_eq!(dy.min_id, 2, "max downward displacement at tip node 2");
+
+    // Displacement Z: should exist for 3D
+    assert!(summary.displacement_z.is_some(), "Z displacement present in 3D");
+
+    // Displacement resultant
+    let res = summary.displacement_resultant.as_ref().expect("resultant present");
+    assert!(res.max_value > 0.0, "resultant > 0");
+    assert_eq!(res.max_id, 2, "max resultant at tip node 2");
+
+    // Reaction resultant
+    let rxn = summary.reaction_resultant.as_ref().expect("reaction_resultant present");
+    assert!(rxn.max_value > 0.0, "reaction > 0");
+    assert_eq!(rxn.max_id, 1, "max reaction at fixed node 1");
+
+    // Rotation is None for 3D (complex multi-component)
+    assert!(summary.rotation.is_none(), "rotation is None for 3D");
+}

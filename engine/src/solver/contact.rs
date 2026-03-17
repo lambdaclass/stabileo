@@ -769,6 +769,7 @@ pub fn solve_contact_2d(input: &ContactInput) -> Result<ContactResult, String> {
             solver_diagnostics: vec![],
             structured_diagnostics: vec![],
             equilibrium: None,
+            result_summary: None,
         }
     });
 
@@ -1214,6 +1215,7 @@ pub fn solve_contact_3d(input: &ContactInput3D) -> Result<ContactResult3D, Strin
         structured_diagnostics: vec![],
         equilibrium: None,
         timings: None,
+        result_summary: None,
     };
 
     let element_status_info: Vec<ElementContactInfo> = input.element_behaviors.iter()

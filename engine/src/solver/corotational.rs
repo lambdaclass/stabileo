@@ -665,6 +665,7 @@ fn build_final_results(
         solver_diagnostics: vec![],
         structured_diagnostics: vec![],
         equilibrium: None,
+        result_summary: None,
     })
 }
 
@@ -1428,6 +1429,7 @@ fn build_final_results_3d(
         structured_diagnostics: vec![],
         equilibrium: None,
         timings: None,
+        result_summary: None,
     })
 }
 
