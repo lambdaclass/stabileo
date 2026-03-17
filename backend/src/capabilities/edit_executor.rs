@@ -10,6 +10,13 @@ use super::actions::BuildAction;
 use super::sections::lookup_section;
 use crate::error::AppError;
 
+#[derive(Clone, Copy)]
+struct NodeCoord {
+    x: f64,
+    y: f64,
+    z: Option<f64>,
+}
+
 /// Apply an edit action to an existing snapshot, returning the modified snapshot.
 pub fn apply_edit(action: &BuildAction, snapshot: &Value) -> Result<Value, AppError> {
     let mut snap = snapshot.clone();
@@ -63,16 +70,24 @@ fn next_id(snap: &mut Value, key: &str) -> u32 {
     next
 }
 
-fn get_node_coords(snap: &Value, node_id: u32) -> Option<(f64, f64)> {
+fn get_node_coords(snap: &Value, node_id: u32) -> Option<NodeCoord> {
     let nodes = snap["nodes"].as_array()?;
     for entry in nodes {
         if entry[0].as_u64() == Some(node_id as u64) {
             let x = entry[1]["x"].as_f64()?;
             let y = entry[1]["y"].as_f64()?;
-            return Some((x, y));
+            let z = entry[1]["z"].as_f64();
+            return Some(NodeCoord { x, y, z });
         }
     }
     None
+}
+
+fn is_3d_snapshot(snap: &Value) -> bool {
+    snap["nodes"]
+        .as_array()
+        .map(|nodes| nodes.iter().any(|n| n[1].get("z").is_some()))
+        .unwrap_or(false)
 }
 
 /// Extract all distinct X values (column lines) sorted ascending.
@@ -90,11 +105,18 @@ fn column_lines(snap: &Value) -> Vec<f64> {
 
 /// Extract all distinct Y values (floor levels) sorted ascending.
 fn floor_levels(snap: &Value) -> Vec<f64> {
+    let is_3d = is_3d_snapshot(snap);
     let mut ys: Vec<f64> = snap["nodes"]
         .as_array()
         .unwrap_or(&vec![])
         .iter()
-        .filter_map(|n| n[1]["y"].as_f64())
+        .filter_map(|n| {
+            if is_3d {
+                n[1]["z"].as_f64()
+            } else {
+                n[1]["y"].as_f64()
+            }
+        })
         .collect();
     ys.sort_by(|a, b| a.partial_cmp(b).unwrap());
     ys.dedup_by(|a, b| (*a - *b).abs() < 1e-6);
@@ -114,6 +136,35 @@ fn find_node_at(snap: &Value, x: f64, y: f64) -> Option<u32> {
     })
 }
 
+fn find_node_at_3d(snap: &Value, x: f64, y: f64, z: f64) -> Option<u32> {
+    snap["nodes"].as_array()?.iter().find_map(|n| {
+        let nx = n[1]["x"].as_f64()?;
+        let ny = n[1]["y"].as_f64()?;
+        let nz = n[1]["z"].as_f64()?;
+        if (nx - x).abs() < 1e-6 && (ny - y).abs() < 1e-6 && (nz - z).abs() < 1e-6 {
+            n[0].as_u64().map(|id| id as u32)
+        } else {
+            None
+        }
+    })
+}
+
+fn add_distributed_load_to_snap(snap: &mut Value, element_id: u32, q: f64) {
+    let load_id = next_id(snap, "load");
+    let load = if is_3d_snapshot(snap) {
+        json!({
+            "type": "distributed3d",
+            "data": {"id": load_id, "elementId": element_id, "qYI": q, "qYJ": q, "qZI": 0.0, "qZJ": 0.0}
+        })
+    } else {
+        json!({
+            "type": "distributed",
+            "data": {"id": load_id, "elementId": element_id, "qI": q, "qJ": q}
+        })
+    };
+    snap["loads"].as_array_mut().unwrap().push(load);
+}
+
 /// Get the first section and material from the snapshot (for reuse).
 fn first_section_id(snap: &Value) -> u32 {
     snap["sections"]
@@ -131,9 +182,13 @@ fn first_material_id(snap: &Value) -> u32 {
         .unwrap_or(1) as u32
 }
 
-fn add_node_to_snap(snap: &mut Value, x: f64, y: f64) -> u32 {
+fn add_node_to_snap(snap: &mut Value, x: f64, y: f64, z: Option<f64>) -> u32 {
     let id = next_id(snap, "node");
-    let node = json!([id, {"id": id, "x": x, "y": y}]);
+    let node = if let Some(z) = z {
+        json!([id, {"id": id, "x": x, "y": y, "z": z}])
+    } else {
+        json!([id, {"id": id, "x": x, "y": y}])
+    };
     snap["nodes"].as_array_mut().unwrap().push(node);
     id
 }
@@ -150,6 +205,17 @@ fn add_element_to_snap(snap: &mut Value, node_i: u32, node_j: u32, mat_id: u32, 
         "hingeStart": false,
         "hingeEnd": false,
     }]);
+    snap["elements"].as_array_mut().unwrap().push(elem);
+    id
+}
+
+fn clone_element_to_snap(snap: &mut Value, source: &Value, node_i: u32, node_j: u32) -> u32 {
+    let id = next_id(snap, "element");
+    let mut data = source.clone();
+    data["id"] = json!(id);
+    data["nodeI"] = json!(node_i);
+    data["nodeJ"] = json!(node_j);
+    let elem = json!([id, data]);
     snap["elements"].as_array_mut().unwrap().push(elem);
     id
 }
@@ -194,6 +260,10 @@ fn add_bay(
     beam_section: Option<&str>,
     column_section: Option<&str>,
 ) -> Result<(), AppError> {
+    if is_3d_snapshot(snap) {
+        return add_bay_3d(snap, width, side, beam_section, column_section);
+    }
+
     let cols = column_lines(snap);
     let floors = floor_levels(snap);
 
@@ -224,7 +294,7 @@ fn add_bay(
     // Add nodes at each floor level, columns between consecutive floors, and beams
     let mut prev_node_id: Option<u32> = None;
     for (i, &y) in floors.iter().enumerate() {
-        let node_id = add_node_to_snap(snap, new_x, y);
+        let node_id = add_node_to_snap(snap, new_x, y, None);
 
         // Column from previous floor to this one
         if let Some(prev_id) = prev_node_id {
@@ -249,7 +319,116 @@ fn add_bay(
     Ok(())
 }
 
+fn add_bay_3d(
+    snap: &mut Value,
+    width: f64,
+    side: Option<&str>,
+    beam_section: Option<&str>,
+    column_section: Option<&str>,
+) -> Result<(), AppError> {
+    let xs = column_lines(snap);
+    if xs.len() < 2 {
+        return Err(AppError::BadRequest(
+            "Cannot add bay: 3D model needs at least 2 x-grid lines".into(),
+        ));
+    }
+
+    let side = side.unwrap_or("right");
+    let (outer_x, inner_x, new_x) = if side == "left" {
+        (xs[0], xs[1], xs[0] - width)
+    } else {
+        let last = xs.len() - 1;
+        (xs[last], xs[last - 1], xs[last] + width)
+    };
+    let base_z = *floor_levels(snap).first().unwrap_or(&0.0);
+
+    let beam_override = beam_section.map(|n| ensure_section(snap, n));
+    let col_override = column_section.map(|n| ensure_section(snap, n));
+
+    let outer_face_nodes: Vec<(u32, NodeCoord)> = snap["nodes"]
+        .as_array()
+        .unwrap_or(&vec![])
+        .iter()
+        .filter_map(|n| {
+            let id = n[0].as_u64()? as u32;
+            let coord = get_node_coords(snap, id)?;
+            if (coord.x - outer_x).abs() < 1e-6 {
+                Some((id, coord))
+            } else {
+                None
+            }
+        })
+        .collect();
+
+    let mut node_map = std::collections::HashMap::new();
+    for (old_id, coord) in &outer_face_nodes {
+        let new_id = add_node_to_snap(snap, new_x, coord.y, coord.z);
+        if coord.z.map(|z| (z - base_z).abs() < 1e-6).unwrap_or(false) {
+            add_support_to_snap(snap, new_id, "fixed3d");
+        }
+        node_map.insert(*old_id, new_id);
+    }
+
+    let elements = snap["elements"].as_array().unwrap_or(&vec![]).clone();
+    for entry in elements {
+        let elem = &entry[1];
+        let ni = elem["nodeI"].as_u64().unwrap() as u32;
+        let nj = elem["nodeJ"].as_u64().unwrap() as u32;
+        let ci = get_node_coords(snap, ni).unwrap();
+        let cj = get_node_coords(snap, nj).unwrap();
+
+        let new_pair = if (ci.x - outer_x).abs() < 1e-6 && (cj.x - outer_x).abs() < 1e-6 {
+            Some((*node_map.get(&ni).unwrap(), *node_map.get(&nj).unwrap()))
+        } else if ((ci.x - inner_x).abs() < 1e-6 && (cj.x - outer_x).abs() < 1e-6)
+            || ((ci.x - outer_x).abs() < 1e-6 && (cj.x - inner_x).abs() < 1e-6)
+        {
+            let old_outer = if (ci.x - outer_x).abs() < 1e-6 { ni } else { nj };
+            let old_inner = if old_outer == ni { nj } else { ni };
+            let inner_coord = get_node_coords(snap, old_inner).unwrap();
+            let shifted_outer = find_node_at_3d(snap, outer_x, inner_coord.y, inner_coord.z.unwrap()).unwrap();
+            Some((shifted_outer, *node_map.get(&old_outer).unwrap()))
+        } else {
+            None
+        };
+
+        if let Some((new_i, new_j)) = new_pair {
+            let mut cloned = elem.clone();
+            if let Some(sec_id) = if (ci.z.unwrap_or(0.0) - cj.z.unwrap_or(0.0)).abs() < 1e-6 {
+                beam_override
+            } else {
+                col_override
+            } {
+                cloned["sectionId"] = json!(sec_id);
+            }
+            clone_element_to_snap(snap, &cloned, new_i, new_j);
+        }
+    }
+
+    Ok(())
+}
+
 fn add_story(
+    snap: &mut Value,
+    height: f64,
+    beam_section: Option<&str>,
+    column_section: Option<&str>,
+) -> Result<(), AppError> {
+    let floors = floor_levels(snap);
+    if floors.is_empty() {
+        return Err(AppError::BadRequest(
+            "Cannot add story: model has no nodes".into(),
+        ));
+    }
+
+    if is_3d_snapshot(snap) {
+        add_story_3d(snap, height, beam_section, column_section)?;
+    } else {
+        add_story_2d(snap, height, beam_section, column_section)?;
+    }
+    Ok(())
+}
+
+fn add_story_2d(
     snap: &mut Value,
     height: f64,
     beam_section: Option<&str>,
@@ -275,21 +454,119 @@ fn add_story(
         .map(|n| ensure_section(snap, n))
         .unwrap_or_else(|| first_section_id(snap));
 
-    // Add nodes at new floor, columns up, beams across
     let mut new_node_ids = Vec::new();
     for &x in &cols {
-        let new_node = add_node_to_snap(snap, x, new_y);
+        let new_node = add_node_to_snap(snap, x, new_y, None);
         new_node_ids.push(new_node);
 
-        // Column from top floor to new floor
         if let Some(top_node) = find_node_at(snap, x, top_y) {
             add_element_to_snap(snap, top_node, new_node, mat_id, col_sec_id);
         }
     }
 
-    // Beams between adjacent columns on new floor
     for i in 0..new_node_ids.len().saturating_sub(1) {
         add_element_to_snap(snap, new_node_ids[i], new_node_ids[i + 1], mat_id, beam_sec_id);
+    }
+
+    Ok(())
+}
+
+fn add_story_3d(
+    snap: &mut Value,
+    height: f64,
+    beam_section: Option<&str>,
+    column_section: Option<&str>,
+) -> Result<(), AppError> {
+    let floors = floor_levels(snap);
+    let top_z = *floors
+        .last()
+        .ok_or_else(|| AppError::BadRequest("Cannot add story: model has no floor levels".into()))?;
+    let new_z = top_z + height;
+
+    let beam_override = beam_section.map(|n| ensure_section(snap, n));
+    let col_override = column_section.map(|n| ensure_section(snap, n));
+
+    let top_nodes: Vec<(u32, NodeCoord)> = snap["nodes"]
+        .as_array()
+        .unwrap_or(&vec![])
+        .iter()
+        .filter_map(|n| {
+            let id = n[0].as_u64()? as u32;
+            let coord = get_node_coords(snap, id)?;
+            if coord.z.map(|z| (z - top_z).abs() < 1e-6).unwrap_or(false) {
+                Some((id, coord))
+            } else {
+                None
+            }
+        })
+        .collect();
+
+    if top_nodes.is_empty() {
+        return Err(AppError::BadRequest(
+            "Cannot add story: top floor has no nodes".into(),
+        ));
+    }
+
+    let mut node_map = std::collections::HashMap::new();
+    for (old_id, coord) in &top_nodes {
+        let new_id = add_node_to_snap(snap, coord.x, coord.y, Some(new_z));
+        node_map.insert(*old_id, new_id);
+    }
+
+    let top_floor_elements: Vec<Value> = snap["elements"]
+        .as_array()
+        .unwrap_or(&vec![])
+        .iter()
+        .filter_map(|elem| {
+            let ni = elem[1]["nodeI"].as_u64()? as u32;
+            let nj = elem[1]["nodeJ"].as_u64()? as u32;
+            let ci = get_node_coords(snap, ni)?;
+            let cj = get_node_coords(snap, nj)?;
+            let on_top = ci.z.map(|z| (z - top_z).abs() < 1e-6).unwrap_or(false)
+                && cj.z.map(|z| (z - top_z).abs() < 1e-6).unwrap_or(false);
+            if on_top { Some(elem[1].clone()) } else { None }
+        })
+        .collect();
+
+    let vertical_elements: Vec<Value> = snap["elements"]
+        .as_array()
+        .unwrap_or(&vec![])
+        .iter()
+        .filter_map(|elem| {
+            let ni = elem[1]["nodeI"].as_u64()? as u32;
+            let nj = elem[1]["nodeJ"].as_u64()? as u32;
+            let ci = get_node_coords(snap, ni)?;
+            let cj = get_node_coords(snap, nj)?;
+            let reaches_top = [ci.z?, cj.z?].iter().any(|z| (*z - top_z).abs() < 1e-6);
+            let vertical = (ci.x - cj.x).abs() < 1e-6 && (ci.y - cj.y).abs() < 1e-6;
+            if reaches_top && vertical { Some(elem[1].clone()) } else { None }
+        })
+        .collect();
+
+    for elem in vertical_elements {
+        let ni = elem["nodeI"].as_u64().unwrap() as u32;
+        let nj = elem["nodeJ"].as_u64().unwrap() as u32;
+        let top_node = if node_map.contains_key(&ni) { ni } else { nj };
+        let new_node = *node_map.get(&top_node).unwrap();
+        let mat_id = elem["materialId"].as_u64().unwrap_or(first_material_id(snap) as u64) as u32;
+        let sec_id = col_override.unwrap_or(elem["sectionId"].as_u64().unwrap_or(first_section_id(snap) as u64) as u32);
+        add_element_to_snap(snap, top_node, new_node, mat_id, sec_id);
+    }
+
+    for elem in top_floor_elements {
+        let ni = elem["nodeI"].as_u64().unwrap() as u32;
+        let nj = elem["nodeJ"].as_u64().unwrap() as u32;
+        let new_ni = *node_map.get(&ni).unwrap();
+        let new_nj = *node_map.get(&nj).unwrap();
+
+        let cloned = if let Some(sec_id) = beam_override {
+            let mut data = elem.clone();
+            data["sectionId"] = json!(sec_id);
+            data
+        } else {
+            elem.clone()
+        };
+        clone_element_to_snap(snap, &cloned, new_ni, new_nj);
     }
 
     Ok(())
@@ -339,8 +616,14 @@ fn change_section(
 fn is_horizontal_element(snap: &Value, elem_data: &Value) -> bool {
     let ni = elem_data["nodeI"].as_u64().unwrap_or(0) as u32;
     let nj = elem_data["nodeJ"].as_u64().unwrap_or(0) as u32;
-    if let (Some((_, yi)), Some((_, yj))) = (get_node_coords(snap, ni), get_node_coords(snap, nj)) {
-        (yi - yj).abs() < 1e-6
+    if let (Some(ci), Some(cj)) = (get_node_coords(snap, ni), get_node_coords(snap, nj)) {
+        if is_3d_snapshot(snap) {
+            let zi = ci.z.unwrap_or(0.0);
+            let zj = cj.z.unwrap_or(0.0);
+            (zi - zj).abs() < 1e-6
+        } else {
+            (ci.y - cj.y).abs() < 1e-6
+        }
     } else {
         false
     }
@@ -361,7 +644,10 @@ fn set_all_supports(snap: &mut Value, support_type: &str) -> Result<(), AppError
 fn set_all_beam_loads(snap: &mut Value, q: f64) -> Result<(), AppError> {
     // Remove existing distributed loads
     if let Some(loads) = snap["loads"].as_array_mut() {
-        loads.retain(|l| l["type"].as_str() != Some("distributed"));
+        loads.retain(|l| {
+            let ty = l["type"].as_str();
+            ty != Some("distributed") && ty != Some("distributed3d")
+        });
     }
 
     // Add distributed load on every element
@@ -373,12 +659,7 @@ fn set_all_beam_loads(snap: &mut Value, q: f64) -> Result<(), AppError> {
         .collect();
 
     for eid in element_ids {
-        let load_id = next_id(snap, "load");
-        let load = json!({
-            "type": "distributed",
-            "data": {"id": load_id, "elementId": eid, "qI": q, "qJ": q}
-        });
-        snap["loads"].as_array_mut().unwrap().push(load);
+        add_distributed_load_to_snap(snap, eid, q);
     }
 
     Ok(())
@@ -396,15 +677,34 @@ fn add_lateral_loads(snap: &mut Value, h: f64) -> Result<(), AppError> {
 
     let left_x = cols[0];
 
-    // Add horizontal force at left column of each floor (skip base)
-    for &y in &floors[1..] {
-        if let Some(node_id) = find_node_at(snap, left_x, y) {
-            let load_id = next_id(snap, "load");
-            let load = json!({
-                "type": "nodal",
-                "data": {"id": load_id, "nodeId": node_id, "fx": h, "fy": 0, "mz": 0}
-            });
-            snap["loads"].as_array_mut().unwrap().push(load);
+    if is_3d_snapshot(snap) {
+        let min_y = snap["nodes"]
+            .as_array()
+            .unwrap_or(&vec![])
+            .iter()
+            .filter_map(|n| n[1]["y"].as_f64())
+            .fold(f64::INFINITY, f64::min);
+
+        for &z in &floors[1..] {
+            if let Some(node_id) = find_node_at_3d(snap, left_x, min_y, z) {
+                let load_id = next_id(snap, "load");
+                let load = json!({
+                    "type": "nodal3d",
+                    "data": {"id": load_id, "nodeId": node_id, "fx": h, "fy": 0.0, "fz": 0.0, "mx": 0.0, "my": 0.0, "mz": 0.0}
+                });
+                snap["loads"].as_array_mut().unwrap().push(load);
+            }
+        }
+    } else {
+        for &y in &floors[1..] {
+            if let Some(node_id) = find_node_at(snap, left_x, y) {
+                let load_id = next_id(snap, "load");
+                let load = json!({
+                    "type": "nodal",
+                    "data": {"id": load_id, "nodeId": node_id, "fx": h, "fy": 0, "mz": 0}
+                });
+                snap["loads"].as_array_mut().unwrap().push(load);
+            }
         }
     }
 
@@ -425,12 +725,7 @@ fn add_distributed_load(snap: &mut Value, element_id: u32, q: f64) -> Result<(),
         )));
     }
 
-    let load_id = next_id(snap, "load");
-    let load = json!({
-        "type": "distributed",
-        "data": {"id": load_id, "elementId": element_id, "qI": q, "qJ": q}
-    });
-    snap["loads"].as_array_mut().unwrap().push(load);
+    add_distributed_load_to_snap(snap, element_id, q);
 
     Ok(())
 }
@@ -455,16 +750,32 @@ fn add_nodal_load(
     }
 
     let load_id = next_id(snap, "load");
-    let load = json!({
-        "type": "nodal",
-        "data": {
-            "id": load_id,
-            "nodeId": node_id,
-            "fx": fx.unwrap_or(0.0),
-            "fy": fy.unwrap_or(0.0),
-            "mz": mz.unwrap_or(0.0),
-        }
-    });
+    let load = if is_3d_snapshot(snap) {
+        json!({
+            "type": "nodal3d",
+            "data": {
+                "id": load_id,
+                "nodeId": node_id,
+                "fx": fx.unwrap_or(0.0),
+                "fy": fy.unwrap_or(0.0),
+                "fz": 0.0,
+                "mx": 0.0,
+                "my": 0.0,
+                "mz": mz.unwrap_or(0.0),
+            }
+        })
+    } else {
+        json!({
+            "type": "nodal",
+            "data": {
+                "id": load_id,
+                "nodeId": node_id,
+                "fx": fx.unwrap_or(0.0),
+                "fy": fy.unwrap_or(0.0),
+                "mz": mz.unwrap_or(0.0),
+            }
+        })
+    };
     snap["loads"].as_array_mut().unwrap().push(load);
 
     Ok(())
@@ -536,6 +847,22 @@ mod tests {
             floor_height: 3.0,
             q_beam: Some(-10.0),
             h_lateral: None,
+            beam_section: None,
+            column_section: None,
+        };
+        execute_action(&action).unwrap()
+    }
+
+    fn make_multi_story_3d() -> Value {
+        let action = BuildAction::CreateMultiStoryFrame3d {
+            n_bays_x: 2,
+            n_bays_z: 2,
+            n_floors: 2,
+            bay_width: 5.0,
+            floor_height: 3.0,
+            q_beam: None,
+            h_lateral: None,
+            base_support: None,
             beam_section: None,
             column_section: None,
         };
@@ -666,5 +993,53 @@ mod tests {
         assert_eq!(result["nodes"].as_array().unwrap().len(), orig_nodes + 3);
         // 3 columns + 2 beams = 5 new elements
         assert_eq!(result["elements"].as_array().unwrap().len(), orig_elems + 5);
+    }
+
+    #[test]
+    fn add_story_to_multi_story_3d() {
+        let snap = make_multi_story_3d();
+        let orig_nodes = snap["nodes"].as_array().unwrap().len();
+        let orig_elems = snap["elements"].as_array().unwrap().len();
+        let action = BuildAction::AddStory {
+            height: 3.0,
+            beam_section: None,
+            column_section: None,
+        };
+        let result = apply_edit(&action, &snap).unwrap();
+
+        assert_eq!(result["nodes"].as_array().unwrap().len(), orig_nodes + 9);
+
+        let zs: Vec<f64> = result["nodes"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .filter_map(|n| n[1]["z"].as_f64())
+            .collect();
+        assert!(zs.iter().any(|z| (*z - 9.0).abs() < 1e-6));
+        assert!(result["elements"].as_array().unwrap().len() > orig_elems);
+    }
+
+    #[test]
+    fn add_bay_to_multi_story_3d() {
+        let snap = make_multi_story_3d();
+        let orig_nodes = snap["nodes"].as_array().unwrap().len();
+        let action = BuildAction::AddBay {
+            width: 5.0,
+            side: None,
+            beam_section: None,
+            column_section: None,
+        };
+        let result = apply_edit(&action, &snap).unwrap();
+        assert_eq!(result["nodes"].as_array().unwrap().len(), orig_nodes + 9);
+        let xs: Vec<f64> = result["nodes"].as_array().unwrap().iter().filter_map(|n| n[1]["x"].as_f64()).collect();
+        assert!(xs.iter().any(|x| (*x - 15.0).abs() < 1e-6));
+    }
+
+    #[test]
+    fn set_all_beam_loads_uses_3d_payloads() {
+        let snap = make_multi_story_3d();
+        let action = BuildAction::SetAllBeamLoads { q: -12.0 };
+        let result = apply_edit(&action, &snap).unwrap();
+        assert!(result["loads"].as_array().unwrap().iter().all(|l| l["type"].as_str() == Some("distributed3d")));
     }
 }
