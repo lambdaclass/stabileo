@@ -841,6 +841,13 @@ pub fn execute_action(action: &BuildAction) -> Result<Value, AppError> {
                 "I can build: beams, cantilevers, continuous beams, portal frames, trusses, and simple 3D frames. Please describe one of these structures.".into(),
             ));
         }
+
+        // Edit actions are handled by edit_executor, not generators
+        _ => {
+            return Err(AppError::BadRequest(
+                "Edit actions require an existing model snapshot".into(),
+            ));
+        }
     };
 
     Ok(snapshot)

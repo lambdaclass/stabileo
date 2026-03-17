@@ -5,6 +5,7 @@ use crate::error::AppError;
 #[derive(Debug, Deserialize)]
 #[serde(tag = "action", content = "params", rename_all = "snake_case")]
 pub enum BuildAction {
+    // ── Create actions (generate fresh model) ──────────────────
     CreateBeam {
         span: f64,
         #[serde(default)]
@@ -104,7 +105,91 @@ pub enum BuildAction {
         #[serde(default)]
         column_section: Option<String>,
     },
+
+    // ── Edit actions (modify existing model) ───────────────────
+
+    /// Add a bay to the right or left of an existing frame.
+    AddBay {
+        width: f64,
+        #[serde(default)]
+        side: Option<String>,
+        #[serde(default)]
+        beam_section: Option<String>,
+        #[serde(default)]
+        column_section: Option<String>,
+    },
+    /// Add a story on top of an existing frame.
+    AddStory {
+        height: f64,
+        #[serde(default)]
+        beam_section: Option<String>,
+        #[serde(default)]
+        column_section: Option<String>,
+    },
+    /// Change section on specific elements or all elements of a type.
+    ChangeSection {
+        section: String,
+        #[serde(default)]
+        element_ids: Option<Vec<u32>>,
+        #[serde(default)]
+        element_filter: Option<String>,
+    },
+    /// Set all base supports to a given type.
+    SetAllSupports {
+        support_type: String,
+    },
+    /// Add or change distributed load on all beams.
+    SetAllBeamLoads {
+        q: f64,
+    },
+    /// Add lateral loads (horizontal force per floor at left column).
+    AddLateralLoads {
+        h: f64,
+    },
+    /// Add a distributed load on a specific element.
+    AddDistributedLoad {
+        element_id: u32,
+        q: f64,
+    },
+    /// Add a nodal load at a specific node.
+    AddNodalLoad {
+        node_id: u32,
+        #[serde(default)]
+        fx: Option<f64>,
+        #[serde(default)]
+        fy: Option<f64>,
+        #[serde(default)]
+        mz: Option<f64>,
+    },
+    /// Delete an element by ID.
+    DeleteElement {
+        element_id: u32,
+    },
+    /// Delete a load by ID.
+    DeleteLoad {
+        load_id: u32,
+    },
+
     Unsupported {},
+}
+
+impl BuildAction {
+    /// Returns true if this is an edit action (requires existing snapshot).
+    pub fn is_edit(&self) -> bool {
+        matches!(
+            self,
+            BuildAction::AddBay { .. }
+                | BuildAction::AddStory { .. }
+                | BuildAction::ChangeSection { .. }
+                | BuildAction::SetAllSupports { .. }
+                | BuildAction::SetAllBeamLoads { .. }
+                | BuildAction::AddLateralLoads { .. }
+                | BuildAction::AddDistributedLoad { .. }
+                | BuildAction::AddNodalLoad { .. }
+                | BuildAction::DeleteElement { .. }
+                | BuildAction::DeleteLoad { .. }
+        )
+    }
 }
 
 #[derive(Debug, Deserialize)]
@@ -196,6 +281,29 @@ pub fn validate_action(action: &BuildAction) -> Result<(), AppError> {
             require_positive(*depth, "depth")?;
             require_positive(*height, "height")?;
         }
+        // Edit action validation
+        BuildAction::AddBay { width, .. } => {
+            require_positive(*width, "width")?;
+        }
+        BuildAction::AddStory { height, .. } => {
+            require_positive(*height, "height")?;
+        }
+        BuildAction::ChangeSection { section, .. } => {
+            if section.is_empty() {
+                return Err(AppError::BadRequest("section must not be empty".into()));
+            }
+        }
+        BuildAction::AddLateralLoads { h } => {
+            if !h.is_finite() {
+                return Err(AppError::BadRequest("h must be a finite number".into()));
+            }
+        }
+        BuildAction::SetAllSupports { .. }
+        | BuildAction::SetAllBeamLoads { .. }
+        | BuildAction::AddDistributedLoad { .. }
+        | BuildAction::AddNodalLoad { .. }
+        | BuildAction::DeleteElement { .. }
+        | BuildAction::DeleteLoad { .. } => {}
         BuildAction::Unsupported { .. } => {}
     }
     Ok(())
@@ -233,6 +341,42 @@ mod tests {
         let json = r#"{"action":"unsupported","params":{},"interpretation":"I can build beams..."}"#;
         let resp: ActionResponse = serde_json::from_str(json).unwrap();
         assert!(matches!(resp.action, BuildAction::Unsupported { .. }));
+    }
+
+    #[test]
+    fn parse_add_bay_action() {
+        let json = r#"{"action":"add_bay","params":{"width":6},"interpretation":"Adding bay"}"#;
+        let resp: ActionResponse = serde_json::from_str(json).unwrap();
+        assert!(matches!(resp.action, BuildAction::AddBay { width, .. } if (width - 6.0).abs() < 1e-9));
+        assert!(resp.action.is_edit());
+    }
+
+    #[test]
+    fn parse_add_story_action() {
+        let json = r#"{"action":"add_story","params":{"height":3.5},"interpretation":"Adding floor"}"#;
+        let resp: ActionResponse = serde_json::from_str(json).unwrap();
+        assert!(matches!(resp.action, BuildAction::AddStory { .. }));
+        assert!(resp.action.is_edit());
+    }
+
+    #[test]
+    fn parse_change_section_action() {
+        let json = r#"{"action":"change_section","params":{"section":"HEB 400","element_filter":"column"},"interpretation":"Changing columns"}"#;
+        let resp: ActionResponse = serde_json::from_str(json).unwrap();
+        assert!(matches!(resp.action, BuildAction::ChangeSection { .. }));
+    }
+
+    #[test]
+    fn create_actions_are_not_edit() {
+        let action = BuildAction::CreateBeam {
+            span: 6.0,
+            q: None,
+            support_left: None,
+            support_right: None,
+            section: None,
+            p_tip: None,
+        };
+        assert!(!action.is_edit());
     }
 
     #[test]

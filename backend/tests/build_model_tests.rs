@@ -44,7 +44,7 @@ fn parse_legacy_valid_json() {
         tool_calls: vec![],
     };
 
-    let result = parse_response(resp, "req-1".into()).unwrap();
+    let result = parse_response(resp, "req-1".into(), None).unwrap();
     assert!(result.snapshot.is_some());
     let snap = result.snapshot.unwrap();
     assert!(snap.get("nodes").is_some());
@@ -66,7 +66,7 @@ fn parse_json_wrapped_in_markdown_fences() {
         tool_calls: vec![],
     };
 
-    let result = parse_response(resp, "req-2".into()).unwrap();
+    let result = parse_response(resp,"req-2".into(), None).unwrap();
     assert!(result.snapshot.unwrap().get("nodes").is_some());
 }
 
@@ -76,7 +76,7 @@ fn parse_json_wrapped_in_markdown_fences() {
 #[test]
 fn parse_missing_nodes_returns_conversational() {
     let resp = make_resp(r#"{"snapshot": {"elements": [[1, {"id":1}]]}, "interpretation": "test"}"#);
-    let result = parse_response(resp, "req-conv".into()).unwrap();
+    let result = parse_response(resp,"req-conv".into(), None).unwrap();
     assert!(result.snapshot.is_none());
     assert!(!result.message.is_empty());
 }
@@ -84,21 +84,21 @@ fn parse_missing_nodes_returns_conversational() {
 #[test]
 fn parse_missing_elements_returns_conversational() {
     let resp = make_resp(r#"{"snapshot": {"nodes": [[1, {"id":1,"x":0,"y":0}]]}, "interpretation": "test"}"#);
-    let result = parse_response(resp, "req-conv".into()).unwrap();
+    let result = parse_response(resp,"req-conv".into(), None).unwrap();
     assert!(result.snapshot.is_none());
 }
 
 #[test]
 fn parse_empty_string_returns_conversational() {
     let resp = make_resp("");
-    let result = parse_response(resp, "req-conv".into()).unwrap();
+    let result = parse_response(resp,"req-conv".into(), None).unwrap();
     assert!(result.snapshot.is_none());
 }
 
 #[test]
 fn parse_wrong_schema_returns_conversational() {
     let resp = make_resp(r#"{"answer": "42"}"#);
-    let result = parse_response(resp, "req-conv".into()).unwrap();
+    let result = parse_response(resp,"req-conv".into(), None).unwrap();
     assert!(result.snapshot.is_none());
     assert!(result.message.contains("42"));
 }
@@ -106,7 +106,7 @@ fn parse_wrong_schema_returns_conversational() {
 #[test]
 fn parse_plain_text_returns_conversational() {
     let resp = make_resp("A simply supported beam transfers loads to its supports through bending and shear.");
-    let result = parse_response(resp, "req-conv".into()).unwrap();
+    let result = parse_response(resp,"req-conv".into(), None).unwrap();
     assert!(result.snapshot.is_none());
     assert!(result.message.contains("simply supported"));
 }
@@ -114,7 +114,7 @@ fn parse_plain_text_returns_conversational() {
 #[test]
 fn parse_snapshot_not_object_returns_conversational() {
     let resp = make_resp(r#"{"snapshot": "not an object", "interpretation": "test"}"#);
-    let result = parse_response(resp, "req-conv".into()).unwrap();
+    let result = parse_response(resp,"req-conv".into(), None).unwrap();
     assert!(result.snapshot.is_none());
 }
 
@@ -123,7 +123,7 @@ fn parse_snapshot_not_object_returns_conversational() {
 #[test]
 fn parse_action_beam_produces_snapshot() {
     let resp = make_resp(r#"{"action":"create_beam","params":{"span":6,"q":-10},"interpretation":"Viga biapoyada de 6m"}"#);
-    let result = parse_response(resp, "action-1".into()).unwrap();
+    let result = parse_response(resp,"action-1".into(), None).unwrap();
 
     assert!(result.scope_refusal.is_none());
     let snap = result.snapshot.unwrap();
@@ -138,7 +138,7 @@ fn parse_action_beam_produces_snapshot() {
 #[test]
 fn parse_action_cantilever() {
     let resp = make_resp(r#"{"action":"create_cantilever","params":{"length":3,"p_tip":-15},"interpretation":"Cantilever 3m"}"#);
-    let result = parse_response(resp, "action-2".into()).unwrap();
+    let result = parse_response(resp,"action-2".into(), None).unwrap();
 
     let snap = result.snapshot.unwrap();
     let supports = snap["supports"].as_array().unwrap();
@@ -149,7 +149,7 @@ fn parse_action_cantilever() {
 #[test]
 fn parse_action_continuous_beam() {
     let resp = make_resp(r#"{"action":"create_continuous_beam","params":{"spans":[4,6,4],"q":-12},"interpretation":"Viga continua"}"#);
-    let result = parse_response(resp, "action-3".into()).unwrap();
+    let result = parse_response(resp,"action-3".into(), None).unwrap();
 
     let snap = result.snapshot.unwrap();
     assert_eq!(snap["nodes"].as_array().unwrap().len(), 4);
@@ -160,7 +160,7 @@ fn parse_action_continuous_beam() {
 #[test]
 fn parse_action_portal_frame() {
     let resp = make_resp(r#"{"action":"create_portal_frame","params":{"width":8,"height":5,"q_beam":-15,"h_lateral":10},"interpretation":"Portal frame"}"#);
-    let result = parse_response(resp, "action-4".into()).unwrap();
+    let result = parse_response(resp,"action-4".into(), None).unwrap();
 
     let snap = result.snapshot.unwrap();
     assert_eq!(snap["nodes"].as_array().unwrap().len(), 4);
@@ -170,14 +170,14 @@ fn parse_action_portal_frame() {
 #[test]
 fn parse_action_truss() {
     let resp = make_resp(r#"{"action":"create_truss","params":{"span":12,"height":2,"n_panels":4,"pattern":"pratt","top_load":-10},"interpretation":"Pratt truss"}"#);
-    let result = parse_response(resp, "action-5".into()).unwrap();
+    let result = parse_response(resp,"action-5".into(), None).unwrap();
     assert!(result.snapshot.unwrap()["nodes"].as_array().unwrap().len() >= 8);
 }
 
 #[test]
 fn parse_action_portal_frame_3d() {
     let resp = make_resp(r#"{"action":"create_portal_frame_3d","params":{"width":6,"depth":4,"height":4,"q_beam":-10},"interpretation":"3D frame"}"#);
-    let result = parse_response(resp, "action-6".into()).unwrap();
+    let result = parse_response(resp,"action-6".into(), None).unwrap();
 
     let snap = result.snapshot.unwrap();
     assert_eq!(snap["analysisMode"].as_str().unwrap(), "3d");
@@ -187,7 +187,7 @@ fn parse_action_portal_frame_3d() {
 #[test]
 fn parse_action_multi_story_frame() {
     let resp = make_resp(r#"{"action":"create_multi_story_frame","params":{"n_bays":2,"n_floors":3,"bay_width":6,"floor_height":3,"q_beam":-10},"interpretation":"3-story frame"}"#);
-    let result = parse_response(resp, "action-7".into()).unwrap();
+    let result = parse_response(resp,"action-7".into(), None).unwrap();
 
     let snap = result.snapshot.unwrap();
     // 4 rows x 3 columns = 12 nodes
@@ -201,7 +201,7 @@ fn parse_action_multi_story_frame() {
 #[test]
 fn parse_action_multi_story_frame_3d() {
     let resp = make_resp(r#"{"action":"create_multi_story_frame_3d","params":{"n_bays_x":2,"n_bays_z":2,"n_floors":3,"bay_width":6,"floor_height":3},"interpretation":"3D building"}"#);
-    let result = parse_response(resp, "action-8".into()).unwrap();
+    let result = parse_response(resp,"action-8".into(), None).unwrap();
 
     let snap = result.snapshot.unwrap();
     assert_eq!(snap["analysisMode"].as_str().unwrap(), "3d");
@@ -220,7 +220,7 @@ fn parse_action_multi_story_frame_3d() {
 #[test]
 fn parse_action_howe_truss() {
     let resp = make_resp(r#"{"action":"create_truss","params":{"span":12,"height":2,"n_panels":4,"pattern":"howe","top_load":-10},"interpretation":"Howe truss"}"#);
-    let result = parse_response(resp, "action-9".into()).unwrap();
+    let result = parse_response(resp,"action-9".into(), None).unwrap();
     let snap = result.snapshot.unwrap();
     assert!(snap["nodes"].as_array().unwrap().len() >= 8);
     assert!(result.change_summary.unwrap().contains("Howe"));
@@ -229,7 +229,7 @@ fn parse_action_howe_truss() {
 #[test]
 fn parse_action_unsupported_returns_scope_refusal() {
     let resp = make_resp(r#"{"action":"unsupported","params":{},"interpretation":"I can build beams, cantilevers, continuous beams, portal frames, trusses, and simple 3D frames."}"#);
-    let result = parse_response(resp, "action-ref".into()).unwrap();
+    let result = parse_response(resp,"action-ref".into(), None).unwrap();
 
     assert!(result.snapshot.is_none());
     assert_eq!(result.scope_refusal, Some(true));
@@ -239,14 +239,14 @@ fn parse_action_unsupported_returns_scope_refusal() {
 #[test]
 fn parse_action_invalid_span_returns_error() {
     let resp = make_resp(r#"{"action":"create_beam","params":{"span":-5},"interpretation":"test"}"#);
-    let err = parse_response(resp, "action-val".into()).unwrap_err();
+    let err = parse_response(resp,"action-val".into(), None).unwrap_err();
     assert!(err.to_string().contains("positive number"));
 }
 
 #[test]
 fn parse_action_with_custom_section() {
     let resp = make_resp(r#"{"action":"create_beam","params":{"span":6,"q":-10,"section":"IPE 400"},"interpretation":"test"}"#);
-    let result = parse_response(resp, "action-sec".into()).unwrap();
+    let result = parse_response(resp,"action-sec".into(), None).unwrap();
     let snap = result.snapshot.unwrap();
     let sec_name = snap["sections"].as_array().unwrap()[0][1]["name"]
         .as_str()
@@ -265,7 +265,7 @@ fn legacy_fallback_still_works() {
         tool_calls: vec![],
     };
 
-    let result = parse_response(resp, "legacy-1".into()).unwrap();
+    let result = parse_response(resp,"legacy-1".into(), None).unwrap();
     let snap = result.snapshot.unwrap();
     assert!(snap.get("nodes").is_some());
     assert!(snap.get("elements").is_some());
@@ -274,7 +274,7 @@ fn legacy_fallback_still_works() {
 #[test]
 fn change_summary_present_for_actions() {
     let resp = make_resp(r#"{"action":"create_portal_frame","params":{"width":8,"height":5},"interpretation":"test"}"#);
-    let result = parse_response(resp, "sum-1".into()).unwrap();
+    let result = parse_response(resp,"sum-1".into(), None).unwrap();
     let summary = result.change_summary.unwrap();
     assert!(summary.contains("Portal frame"));
     assert!(summary.contains("8"));
@@ -283,7 +283,7 @@ fn change_summary_present_for_actions() {
 #[test]
 fn response_serialization_has_correct_fields() {
     let resp = make_resp(r#"{"action":"create_beam","params":{"span":6},"interpretation":"test beam"}"#);
-    let result = parse_response(resp, "ser-1".into()).unwrap();
+    let result = parse_response(resp,"ser-1".into(), None).unwrap();
     let json = serde_json::to_value(&result).unwrap();
 
     // camelCase
@@ -298,7 +298,7 @@ fn response_serialization_has_correct_fields() {
 #[test]
 fn scope_refusal_serialization() {
     let resp = make_resp(r#"{"action":"unsupported","params":{},"interpretation":"nope"}"#);
-    let result = parse_response(resp, "ser-2".into()).unwrap();
+    let result = parse_response(resp,"ser-2".into(), None).unwrap();
     let json = serde_json::to_value(&result).unwrap();
 
     assert!(json["snapshot"].is_null());
@@ -315,6 +315,8 @@ async fn build_model_with_stub_returns_parsed_response() {
         description: "Simply supported beam, 6m, IPE 300, 10 kN/m".into(),
         locale: Some("en".into()),
         analysis_mode: None,
+        model_context: None,
+        current_snapshot: None,
     };
 
     let result = build_model(&provider, req, "req-stub-1".into())
@@ -336,6 +338,8 @@ async fn build_model_with_provider_error_propagates() {
         description: "test".into(),
         locale: None,
         analysis_mode: None,
+        model_context: None,
+        current_snapshot: None,
     };
 
     let err = build_model(&provider, req, "req-stub-2".into())
@@ -352,6 +356,8 @@ async fn response_serializes_to_camel_case() {
         description: "test beam".into(),
         locale: None,
         analysis_mode: None,
+        model_context: None,
+        current_snapshot: None,
     };
 
     let result = build_model(&provider, req, "req-ser".into())
@@ -378,6 +384,8 @@ async fn build_model_with_tool_call_produces_snapshot() {
         description: "beam 6m with 10kN/m load".into(),
         locale: Some("en".into()),
         analysis_mode: None,
+        model_context: None,
+        current_snapshot: None,
     };
 
     let result = build_model(&provider, req, "tc-1".into())
@@ -402,6 +410,8 @@ async fn build_model_tool_call_portal_frame() {
         description: "portal frame".into(),
         locale: None,
         analysis_mode: None,
+        model_context: None,
+        current_snapshot: None,
     };
 
     let result = build_model(&provider, req, "tc-2".into())
@@ -421,6 +431,8 @@ async fn build_model_tool_call_with_plain_text_fallback() {
         description: "hi".into(),
         locale: None,
         analysis_mode: None,
+        model_context: None,
+        current_snapshot: None,
     };
 
     let result = build_model(&provider, req, "tc-3".into())

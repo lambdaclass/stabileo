@@ -284,6 +284,94 @@ pub fn generator_catalog() -> Vec<GeneratorDef> {
     ]
 }
 
+// ─── Edit tool catalog ──────────────────────────────────────────
+
+pub fn edit_tool_catalog() -> Vec<GeneratorDef> {
+    vec![
+        GeneratorDef {
+            action: "add_bay",
+            description: "Add a bay to the right or left of an existing frame",
+            params: vec![
+                param_req("width", "f64", "Bay width (m)"),
+                param_opt_def("side", "string", json!("right"), "left or right"),
+                param_opt("beam_section", "string", "Beam section name"),
+                param_opt("column_section", "string", "Column section name"),
+            ],
+        },
+        GeneratorDef {
+            action: "add_story",
+            description: "Add a story on top of an existing frame",
+            params: vec![
+                param_req("height", "f64", "Story height (m)"),
+                param_opt("beam_section", "string", "Beam section name"),
+                param_opt("column_section", "string", "Column section name"),
+            ],
+        },
+        GeneratorDef {
+            action: "change_section",
+            description: "Change section on elements (all, specific IDs, or by type: beam/column)",
+            params: vec![
+                param_req("section", "string", "New section name (e.g. 'HEB 400')"),
+                param_opt("element_ids", "[u32]", "Specific element IDs to change"),
+                param_opt("element_filter", "string", "Filter: 'beam' or 'column'"),
+            ],
+        },
+        GeneratorDef {
+            action: "set_all_supports",
+            description: "Change all support types (e.g. fixed to pinned)",
+            params: vec![
+                param_req("support_type", "string", "New support type (fixed, pinned, rollerX, etc.)"),
+            ],
+        },
+        GeneratorDef {
+            action: "set_all_beam_loads",
+            description: "Set uniform distributed load on all elements",
+            params: vec![
+                param_req("q", "f64", "Distributed load (kN/m, negative = downward)"),
+            ],
+        },
+        GeneratorDef {
+            action: "add_lateral_loads",
+            description: "Add horizontal force at each floor level (left column)",
+            params: vec![
+                param_req("h", "f64", "Horizontal force per floor (kN)"),
+            ],
+        },
+        GeneratorDef {
+            action: "add_distributed_load",
+            description: "Add distributed load on a specific element",
+            params: vec![
+                param_req("element_id", "u32", "Target element ID"),
+                param_req("q", "f64", "Load intensity (kN/m, negative = downward)"),
+            ],
+        },
+        GeneratorDef {
+            action: "add_nodal_load",
+            description: "Add point load at a specific node",
+            params: vec![
+                param_req("node_id", "u32", "Target node ID"),
+                param_opt("fx", "f64", "Horizontal force (kN)"),
+                param_opt("fy", "f64", "Vertical force (kN, negative = downward)"),
+                param_opt("mz", "f64", "Moment (kN·m)"),
+            ],
+        },
+        GeneratorDef {
+            action: "delete_element",
+            description: "Delete an element by ID",
+            params: vec![
+                param_req("element_id", "u32", "Element ID to delete"),
+            ],
+        },
+        GeneratorDef {
+            action: "delete_load",
+            description: "Delete a load by ID",
+            params: vec![
+                param_req("load_id", "u32", "Load ID to delete"),
+            ],
+        },
+    ]
+}
+
 // ─── Full registry as JSON (for prompt + API) ───────────────────
 
 pub fn full_registry_json() -> Value {
@@ -365,12 +453,15 @@ pub fn prompt_text(analysis_mode: &str) -> String {
 use crate::providers::traits::ToolDef;
 
 /// Convert the generator catalog into provider-agnostic tool definitions.
-/// Filters by analysis mode (2D generators excluded from 3D and vice versa).
-pub fn tool_definitions(analysis_mode: &str) -> Vec<ToolDef> {
-    let gens = generator_catalog();
+/// Filters by analysis mode. When `has_model` is true, also includes edit tools.
+pub fn tool_definitions(analysis_mode: &str, has_model: bool) -> Vec<ToolDef> {
+    let mut all_gens = generator_catalog();
+    if has_model {
+        all_gens.extend(edit_tool_catalog());
+    }
     let mut tools = Vec::new();
 
-    for gen in &gens {
+    for gen in &all_gens {
         // Skip 3D generators in 2D mode
         if analysis_mode != "3d" && gen.action.ends_with("_3d") {
             continue;

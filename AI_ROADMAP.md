@@ -111,6 +111,132 @@ Each level needs:
 - test cases with known-good reference models
 - a clear refusal/fallback when the request exceeds the current level
 
+#### Self-describing capability model
+
+The builder should move away from hardcoded action lists embedded directly in prompts.
+
+Target rule:
+- the system should be self-describing
+- the AI should read a machine-readable capability manifest
+- the backend should remain the source of truth
+
+This should be layered explicitly:
+
+1. `solver capabilities`
+   - what the engine can analyze at a low level
+   - element types, supports, loads, constraints, analysis modes, and other primitives
+
+2. `generator/build capabilities`
+   - what the AI is allowed to build at a high level
+   - examples: `create_beam`, `create_truss`, `create_multi_story_frame`, `create_multi_story_frame_3d`
+
+3. `AI capability prompt contract`
+   - the curated manifest that the AI consumes when choosing actions
+   - generated from backend-owned capability metadata, not handwritten prompt drift
+
+Important boundary:
+- the solver should not directly expose its raw internal surface to the AI as the prompt contract
+- the AI should see curated build actions, not every low-level FEM primitive
+
+Reason:
+- the solver answers `what can be analyzed`
+- the generators answer `what can be reliably built from user intent`
+
+Those are related, but not the same contract.
+
+#### Why generators still matter
+
+Even if the solver becomes more self-describing, deterministic generators are still required.
+
+The solver knows primitives such as:
+- frame elements
+- truss elements
+- supports
+- nodal loads
+- distributed loads
+- 2D/3D analysis modes
+
+The user asks for composed structures such as:
+- a 3-bay 2-story frame
+- a Pratt truss
+- a portal frame with lateral load
+
+The generator layer is what deterministically expands:
+- typology
+- dimensions
+- support strategy
+- default sections/materials
+- connectivity
+- loads
+
+into a valid `ModelSnapshot`.
+
+Without generators, the AI would have to compose raw solver primitives directly, which is:
+- less deterministic
+- harder to validate
+- harder to test
+- harder to keep within honest scope boundaries
+
+#### Capability registry
+
+The backend should own a machine-readable capability registry for AI-safe build actions.
+
+That registry should describe, per action:
+- action name
+- description
+- analysis-mode support
+- required parameters
+- optional parameters
+- parameter types
+- parameter bounds
+- defaults
+- enums/options
+- examples
+- limitations/scope notes
+
+The same registry should drive:
+- prompt construction
+- backend validation
+- capability discovery endpoint(s)
+- frontend builder hints/examples
+- tests that ensure every declared action has a real executor
+
+This keeps the system aligned and avoids prompt drift.
+
+The desired flow is:
+
+`solver primitives -> curated generator/action registry -> AI prompt contract -> deterministic executor`
+
+Not:
+
+`raw solver surface -> AI improvisation`
+
+#### Source-of-truth rule
+
+The capability registry should live in the backend AI/build layer, not only in the frontend builder and not directly inside the solver.
+
+The builder UI should consume it.
+The prompt builder should consume it.
+The validator should consume it.
+
+But the backend should own it because:
+- it knows what executors actually exist
+- it can keep prompt and validation in sync
+- it can expose the same contract to UI and tests
+
+The solver may contribute low-level metadata, but the solver should not be the owner of the AI-facing action contract.
+
+#### Recommended implementation path
+
+1. add a backend-owned capability registry for build actions
+2. expose it as a machine-readable endpoint
+3. generate the build-model prompt from that registry instead of a hardcoded action list
+4. use the same registry to strengthen parameter validation
+5. let the frontend builder consume the registry for examples, hints, and capability-aware UX
+6. add tests that fail if a registered action has no executor or if prompt-visible actions diverge from executable actions
+
+This should become the long-term contract for the conversational builder.
+
 #### Conversational builder architecture
 
 The builder should evolve into a conversational structural editor built around this loop:
