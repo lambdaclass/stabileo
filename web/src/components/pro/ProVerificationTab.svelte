@@ -3,19 +3,29 @@
   import type { SolverDiagnostic } from '../../lib/engine/types';
   import { verifyElement, classifyElement, REBAR_DB, computeJointPsiFromModel } from '../../lib/engine/codes/argentina/cirsoc201';
   import type { ElementVerification, VerificationInput } from '../../lib/engine/codes/argentina/cirsoc201';
-  import { generateCrossSectionSvg, generateBeamElevationSvg, generateColumnElevationSvg, generateJointDetailSvg, generateSlabReinforcementSvg, designSlabReinforcement } from '../../lib/engine/reinforcement-svg';
+  import { generateCrossSectionSvg, generateBeamElevationSvg, generateBeamDesignDiagramSvg, generateColumnElevationSvg, generateJointDetailSvg, generateSlabReinforcementSvg, designSlabReinforcement } from '../../lib/engine/reinforcement-svg';
   import type { SlabDesignResult } from '../../lib/engine/reinforcement-svg';
   import { checkCrackWidth, checkDeflection } from '../../lib/engine/codes/argentina/serviceability';
   import type { CrackResult, DeflectionResult } from '../../lib/engine/codes/argentina/serviceability';
   import { computeQuantities } from '../../lib/engine/quantity-takeoff';
   import type { QuantitySummary } from '../../lib/engine/quantity-takeoff';
+  import { generateBBS, bbsToCSV, computeBeamDesignEnvelope } from '../../lib/engine/rebar-schedule';
+  import type { BBSSummary, BeamDesignEnvelope } from '../../lib/engine/rebar-schedule';
   import { verifySteelElement } from '../../lib/engine/codes/argentina/cirsoc301';
   import type { SteelVerification, SteelVerificationInput, SteelDesignParams } from '../../lib/engine/codes/argentina/cirsoc301';
   import { generateInteractionDiagram, generateInteractionSvg } from '../../lib/engine/codes/argentina/interaction-diagram';
   import type { DiagramParams } from '../../lib/engine/codes/argentina/interaction-diagram';
-  import { isDesignCheckAvailable, checkSteelMembers, checkRcMembers, checkEc2Members, checkEc3Members, checkTimberMembers, checkMasonryMembers, checkCfsMembers, checkBoltGroups, checkWeldGroups, checkSpreadFootings } from '../../lib/engine/wasm-solver';
+  import { isDesignCheckAvailable, checkSteelMembers, checkRcMembers, checkEc2Members, checkEc3Members, checkTimberMembers, checkMasonryMembers, checkCfsMembers, checkBoltGroups, checkWeldGroups } from '../../lib/engine/wasm-solver';
+  import { exportRebarDxf, openRebarPdf } from '../../lib/dxf/rebar-writer';
+  import { designSpreadFooting, generateFootingSvg } from '../../lib/engine/codes/argentina/foundation-design';
+  import type { FootingDesignResult } from '../../lib/engine/codes/argentina/foundation-design';
+  import { checkJointSeismic } from '../../lib/engine/codes/argentina/seismic-detailing';
+  import type { JointSeismicResult } from '../../lib/engine/codes/argentina/seismic-detailing';
+  import { detectJoints } from '../../lib/engine/connection-design';
   import { t } from '../../lib/i18n';
   import * as XLSX from 'xlsx';
+  import ProColumnSchedule from './ProColumnSchedule.svelte';
+  import ProBeamSchedule from './ProBeamSchedule.svelte';
 
   /** Normative code options for design checks */
   type NormativeCode = 'cirsoc' | 'aci-aisc' | 'eurocode' | 'nds' | 'masonry' | 'cfs';
@@ -32,7 +42,7 @@
     return def.labelKey ? t(def.labelKey) : def.label!;
   }
 
-  let { verifications = $bindable([]) }: { verifications: ElementVerification[] } = $props();
+  let { verifications = $bindable([]), steelVerifsOut = $bindable([]), footingResultOut = $bindable(null), footingInputOut = $bindable(null) }: { verifications: ElementVerification[]; steelVerifsOut?: SteelVerification[]; footingResultOut?: any; footingInputOut?: any } = $props();
   let expandedId = $state<number | null>(null);
   let expandedSteelId = $state<number | null>(null);
   let rebarFy = $state(420);    // MPa — default ADN 420
@@ -146,13 +156,42 @@
   let storyDrifts = $state<StoryDriftResult[]>([]);
   const driftLimit = 0.015; // CIRSOC 103 §5.2.8: 0.015 for RC, 0.020 for steel
 
+  // Punching shear form state
+  let punchSlabH = $state(0.20);
+  let punchD = $state(0.16);
+  let punchFc = $state(25);
+  let punchBc = $state(0.30);
+  let punchLc = $state(0.30);
+  let punchPosition = $state<'interior' | 'edge' | 'corner'>('interior');
+  let punchVu = $state(200);
+  let punchMu = $state(0);
+  let punchResult = $state<any>(null);
+
   // Detail view tabs
-  type DetailSection = 'verification' | 'detailing' | 'schedule' | 'slabs' | 'drift' | 'connections';
+  type DetailSection = 'verification' | 'detailing' | 'schedule' | 'columnSchedule' | 'beamSchedule' | 'punching' | 'slabs' | 'drift' | 'connections' | 'seismic';
   let activeSection = $state<DetailSection>('verification');
 
   const results = $derived(resultsStore.results3D);
   const hasResults = $derived(results !== null);
   const hasEnvelope = $derived(resultsStore.hasCombinations3D);
+
+  // Clear stale verification data when analysis results are cleared (model changed)
+  $effect(() => {
+    if (!results) {
+      verifications = [];
+      steelVerifications = [];
+      crackResults = new Map();
+      deflectionResults = new Map();
+      quantities = null;
+      elementLengthMap = new Map();
+      slabDesigns = [];
+      storyDrifts = [];
+      verifyError = null;
+      expandedId = null;
+      expandedSteelId = null;
+      boltResult = null;
+    }
+  });
 
   interface EnvelopeSolicitations {
     Mu: number; Vu: number; Nu: number;
@@ -458,6 +497,7 @@
       steelVerifs.push(verifySteelElement(steelInput));
     }
     steelVerifications = steelVerifs;
+    steelVerifsOut = steelVerifs;
 
     // Check if there are any verifiable elements (including quads/plates for slabs)
     const hasQuads = results.quadStresses && results.quadStresses.length > 0;
@@ -682,30 +722,119 @@
     }
   }
 
-  // Spread footing
+  // Spread footing (full design)
   let footB = $state(1.5);       // m
   let footL = $state(1.5);       // m
   let footH = $state(0.5);       // m
+  let footBc = $state(0.30);     // column width (m)
+  let footLc = $state(0.30);     // column length (m)
   let footFc = $state(25);       // MPa
+  let footFy = $state(420);      // MPa
+  let footCover = $state(0.075); // m (7.5cm for foundations)
   let footSigmaAdm = $state(200); // kPa
   let footNu = $state(500);      // kN
   let footMu = $state(50);       // kN·m
-  let footResult = $state<any | null>(null);
+  let footSelfWeight = $state(true);
+  let footResult = $state<FootingDesignResult | null>(null);
+  let footExpanded = $state(false);
+  let footSelectedNode = $state<number | null>(null);
+
+  /** Auto-fill footing loads from a support node's reactions */
+  function autoFillFooting(nodeId: number) {
+    footSelectedNode = nodeId;
+    const r3d = resultsStore.results3D;
+    if (!r3d) return;
+    // Get reaction at this support
+    const reaction = r3d.reactions.find(r => r.nodeId === nodeId);
+    if (reaction) {
+      footNu = Math.abs(reaction.fy); // vertical reaction = axial on footing
+      footMu = Math.sqrt(reaction.mx * reaction.mx + reaction.mz * reaction.mz); // resultant moment
+    }
+    // Infer column dimensions from connected element's section
+    const connectedElems = modelStore.getElementsAtNode(nodeId);
+    for (const { element } of connectedElems) {
+      const sec = modelStore.sections.get(element.sectionId ?? -1);
+      if (sec && (sec.b ?? 0) > 0 && (sec.h ?? 0) > 0) {
+        footBc = sec.b!;
+        footLc = sec.h!;
+        break;
+      }
+    }
+  }
+
+  // Seismic joint checks
+  let seismicResults = $state<JointSeismicResult[]>([]);
+  let seismicExpanded = $state<number | null>(null);
 
   function handleFootingCheck() {
     try {
-      footResult = checkSpreadFootings({
-        width: footB,
-        length: footL,
-        depth: footH,
-        fc: footFc,
-        allowableBearing: footSigmaAdm,
-        axialLoad: footNu,
-        moment: footMu,
-      });
+      const input = {
+        B: footB, L: footL, H: footH,
+        bc: footBc, lc: footLc,
+        fc: footFc, fy: footFy, cover: footCover,
+        sigmaAdm: footSigmaAdm,
+        Nu: footNu, Mu: footMu,
+        includeSelfWeight: footSelfWeight,
+      };
+      footResult = designSpreadFooting(input);
+      // Expose to parent for report generation
+      footingResultOut = footResult;
+      footingInputOut = { B: footB, L: footL, H: footH, bc: footBc, lc: footLc, fc: footFc, fy: footFy, sigmaAdm: footSigmaAdm, Nu: footNu, Mu: footMu };
     } catch (e: any) {
-      verifyError = `Fundación: ${e.message ?? 'Error'}`;
+      verifyError = `${t('pro.footingTitle')}: ${e.message ?? 'Error'}`;
     }
+  }
+
+  /** Run seismic capacity design checks at all beam-column joints */
+  function runSeismicChecks() {
+    const r3d = resultsStore.results3D;
+    if (!r3d || verifications.length === 0) return;
+
+    // Build lookup maps
+    const verifMap = new Map<number, ElementVerification>();
+    for (const v of verifications) verifMap.set(v.elementId, v);
+
+    const efMap = new Map<number, any>();
+    for (const ef of r3d.elementForces) {
+      efMap.set(ef.elementId, {
+        NI: ef.nStart, NJ: ef.nEnd,
+        VyI: ef.vyStart, VyJ: ef.vyEnd,
+        MzI: ef.mzStart, MzJ: ef.mzEnd,
+      });
+    }
+
+    // Detect joints
+    const joints = detectJoints(
+      modelStore.nodes as any,
+      modelStore.elements as any,
+      modelStore.supports as any,
+    );
+
+    const results: JointSeismicResult[] = [];
+    for (const joint of joints) {
+      // Only check joints that have both beams and columns
+      const hasCol = joint.elementIds.some(id => {
+        const v = verifMap.get(id);
+        return v && (v.elementType === 'column' || v.elementType === 'wall');
+      });
+      const hasBeam = joint.elementIds.some(id => {
+        const v = verifMap.get(id);
+        return v && v.elementType === 'beam';
+      });
+      if (!hasCol || !hasBeam) continue;
+
+      const result = checkJointSeismic({
+        nodeId: joint.nodeId,
+        verifications: verifMap,
+        elementForces: efMap,
+        elements: modelStore.elements as any,
+        elementIds: joint.elementIds,
+        confinement: joint.hasSupport ? 'exterior' : 'interior',
+      });
+      if (result.overallStatus !== 'n/a') results.push(result);
+    }
+
+    seismicResults = results;
   }
 
   function toggleExpand(id: number) {
@@ -901,12 +1030,99 @@
     XLSX.writeFile(wb, `planilla-hierros-${modelStore.model.name || 'modelo'}.xlsx`);
   }
 
+  // Formal Bar Bending Schedule
+  const bbs = $derived.by<BBSSummary | null>(() => {
+    if (verifications.length === 0 || elementLengthMap.size === 0) return null;
+    // Build element forces map for zone-aware stirrups
+    const efMap = new Map<number, import('../../lib/engine/types-3d').ElementForces3D>();
+    if (results) {
+      for (const ef of results.elementForces) efMap.set(ef.elementId, ef);
+    }
+    return generateBBS({ verifications, elementLengths: elementLengthMap, elementForces: efMap.size > 0 ? efMap : undefined });
+  });
+
   /** Get support type for an element end node */
   function getSupportType(nodeId: number): 'fixed' | 'pinned' | 'free' {
     const sup = modelStore.supports.get(nodeId);
     if (!sup) return 'free';
     if (sup.type === 'fixed') return 'fixed';
     return 'pinned';
+  }
+
+  /** Export BBS as CSV file download */
+  function exportBBScsv() {
+    if (!bbs) return;
+    const csv = bbsToCSV(bbs);
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'planilla-doblado-barras.csv';
+    a.click();
+    URL.revokeObjectURL(url);
+  }
+
+  /** Export reinforcement detail DXF (plano de despiece) */
+  function exportRebarDxfFile() {
+    if (!bbs) return;
+    // Build envelopes map for zone-aware stirrups in DXF
+    const envelopes = new Map<number, BeamDesignEnvelope>();
+    if (results) {
+      const efMap = new Map<number, import('../../lib/engine/types-3d').ElementForces3D>();
+      for (const ef of results.elementForces) efMap.set(ef.elementId, ef);
+      for (const v of verifications) {
+        if (v.elementType === 'beam') {
+          const ef = efMap.get(v.elementId);
+          if (ef) {
+            const params = { fc: v.fc, fy: v.fy, cover: v.cover, b: v.b, h: v.h, stirrupDia: v.shear.stirrupDia };
+            envelopes.set(v.elementId, computeBeamDesignEnvelope(ef, params, v));
+          }
+        }
+      }
+    }
+    const dxf = exportRebarDxf({
+      bbs,
+      verifications,
+      elementLengths: elementLengthMap,
+      envelopes: envelopes.size > 0 ? envelopes : undefined,
+      projectName: modelStore.model.name,
+      projectDate: new Date().toISOString().slice(0, 10),
+    });
+    const safeName = modelStore.model.name.replace(/[^a-zA-Z0-9áéíóúñÁÉÍÓÚÑ _-]/g, '').trim() || 'armadura';
+    const blob = new Blob([dxf], { type: 'application/dxf' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `${safeName}-despiece.dxf`;
+    a.click();
+    URL.revokeObjectURL(url);
+  }
+
+  /** Open reinforcement detail as printable page (Print → PDF) */
+  function exportRebarPdf() {
+    if (!bbs) return;
+    const envelopes = new Map<number, BeamDesignEnvelope>();
+    if (results) {
+      const efMap = new Map<number, import('../../lib/engine/types-3d').ElementForces3D>();
+      for (const ef of results.elementForces) efMap.set(ef.elementId, ef);
+      for (const v of verifications) {
+        if (v.elementType === 'beam') {
+          const ef = efMap.get(v.elementId);
+          if (ef) {
+            const params = { fc: v.fc, fy: v.fy, cover: v.cover, b: v.b, h: v.h, stirrupDia: v.shear.stirrupDia };
+            envelopes.set(v.elementId, computeBeamDesignEnvelope(ef, params, v));
+          }
+        }
+      }
+    }
+    openRebarPdf({
+      bbs,
+      verifications,
+      elementLengths: elementLengthMap,
+      envelopes: envelopes.size > 0 ? envelopes : undefined,
+      projectName: modelStore.model.name,
+      projectDate: new Date().toISOString().slice(0, 10),
+    });
   }
 </script>
 
@@ -1004,6 +1220,13 @@
       <button class:active={activeSection === 'verification'} onclick={() => activeSection = 'verification'}>{t('pro.verificationTab')}</button>
       <button class:active={activeSection === 'detailing'} onclick={() => activeSection = 'detailing'}>{t('pro.detailingTab')}</button>
       <button class:active={activeSection === 'schedule'} onclick={() => activeSection = 'schedule'}>{t('pro.scheduleTab')}</button>
+      {#if verifications.some(v => v.elementType === 'column')}
+        <button class:active={activeSection === 'columnSchedule'} onclick={() => activeSection = 'columnSchedule'}>{t('pro.colSchedTab')}</button>
+      {/if}
+      {#if verifications.some(v => v.elementType === 'beam')}
+        <button class:active={activeSection === 'beamSchedule'} onclick={() => activeSection = 'beamSchedule'}>{t('pro.beamSchedTab')}</button>
+      {/if}
+      <button class:active={activeSection === 'punching'} onclick={() => activeSection = 'punching'}>{t('pro.punchingTab')}</button>
       {#if slabDesigns.length > 0}
         <button class:active={activeSection === 'slabs'} onclick={() => activeSection = 'slabs'}>{t('pro.slabsTab')}</button>
       {/if}
@@ -1011,6 +1234,7 @@
         <button class:active={activeSection === 'drift'} onclick={() => activeSection = 'drift'}>Drift{#if storyDrifts.some(d => d.status === 'fail')} ✗{/if}</button>
       {/if}
       <button class:active={activeSection === 'connections'} onclick={() => activeSection = 'connections'}>{t('pro.connectionsTab')}</button>
+      <button class:active={activeSection === 'seismic'} onclick={() => { activeSection = 'seismic'; if (seismicResults.length === 0) runSeismicChecks(); }}>{t('pro.seismicTab')}</button>
     </div>
 
     <!-- ═══ VERIFICATION TAB ═══ -->
@@ -1070,9 +1294,11 @@
                           })}
                         </div>
 
+                        <!-- Elevation SVG -->
                         {#if v.elementType === 'beam'}
                           {@const elemLen = elementLengthMap.get(v.elementId) ?? 3}
                           {@const elem = modelStore.elements.get(v.elementId)}
+                          {@const ef = results?.elementForces.find(f => f.elementId === v.elementId)}
                           <div class="detail-svg">
                             {@html generateBeamElevationSvg({
                               length: elemLen, b: v.b, h: v.h, cover: v.cover,
@@ -1081,6 +1307,18 @@
                               supportJ: elem ? getSupportType(elem.nodeJ) : 'pinned',
                             })}
                           </div>
+                          {#if ef}
+                            {@const designEnv = computeBeamDesignEnvelope(ef, { fc: v.fc, fy: v.fy, cover: v.cover, b: v.b, h: v.h, stirrupDia: v.shear.stirrupDia }, v)}
+                            <div class="detail-svg design-envelope">
+                              {@html generateBeamDesignDiagramSvg({
+                                length: elemLen,
+                                envelope: designEnv,
+                                supportI: elem ? getSupportType(elem.nodeI) : 'pinned',
+                                supportJ: elem ? getSupportType(elem.nodeJ) : 'pinned',
+                                labels: { stirrups: t('pro.stirrups'), asReq: t('pro.asReq'), asProv: t('pro.asProv') },
+                              })}
+                            </div>
+                          {/if}
                         {:else if effColumn && (v.elementType === 'column' || v.elementType === 'wall')}
                           {@const elemLen = elementLengthMap.get(v.elementId) ?? 3}
                           <div class="detail-svg">
@@ -1353,6 +1591,7 @@
 
     <!-- ═══ SCHEDULE TAB ═══ -->
     {:else if activeSection === 'schedule'}
+      <div class="schedule-scroll-wrap">
       <div class="pro-section-label schedule-header">
         <span>{t('pro.scheduleTitle')}</span>
         <span class="schedule-actions">
@@ -1366,7 +1605,7 @@
           </button>
         </span>
       </div>
-      <div class="pro-verif-table-wrap">
+      <div class="pro-verif-table-wrap" style="flex:none">
         <table class="pro-verif-table">
           <thead>
             <tr>
@@ -1394,6 +1633,58 @@
           </tbody>
         </table>
       </div>
+
+      {#if bbs && bbs.bars.length > 0}
+        {@const hasZones = bbs.bars.some(b => b.zone)}
+        <div class="pro-section-label" style="display:flex;align-items:center;gap:8px">
+          {t('pro.bbsTitle')}
+          <button class="bbs-export-btn" onclick={exportBBScsv} title={t('pro.bbsExportCSV')}>CSV ↓</button>
+          <button class="bbs-export-btn dxf" onclick={exportRebarDxfFile} title={t('pro.bbsExportDXF')}>DXF ↓</button>
+          <button class="bbs-export-btn pdf" onclick={exportRebarPdf} title={t('pro.bbsExportPDF')}>PDF ↓</button>
+        </div>
+        <div class="pro-verif-table-wrap" style="flex:none">
+          <table class="pro-verif-table">
+            <thead>
+              <tr>
+                <th>{t('pro.bbsMark')}</th>
+                {#if hasZones}<th>{t('pro.bbsZone')}</th>{/if}
+                <th>{t('pro.bbsDia')}</th>
+                <th>{t('pro.bbsQty')}</th>
+                <th>{t('pro.bbsLength')}</th>
+                <th>{t('pro.bbsWeightEach')}</th>
+                <th>{t('pro.bbsWeightTotal')}</th>
+              </tr>
+            </thead>
+            <tbody>
+              {#each bbs.bars as bar}
+                <tr>
+                  <td style="color:#4ecdc4;font-weight:600">{bar.mark}</td>
+                  {#if hasZones}<td class="col-stirrup">{bar.zone ?? '—'}</td>{/if}
+                  <td class="col-stirrup">{bar.label}</td>
+                  <td class="col-num">{bar.count}</td>
+                  <td class="col-num">{bar.lengthEach.toFixed(2)} m</td>
+                  <td class="col-num">{bar.weightEach.toFixed(2)} kg</td>
+                  <td class="col-num">{bar.weightTotal.toFixed(1)} kg</td>
+                </tr>
+              {/each}
+            </tbody>
+          </table>
+        </div>
+
+        <div class="pro-section-label">{t('pro.bbsByDia')}</div>
+        <div class="schedule-summary">
+          {#each bbs.weightByDia as d}
+            <div class="schedule-item">
+              <span class="schedule-label">{d.label}</span>
+              <span class="schedule-value">{d.totalCount} u. — {d.totalWeight.toFixed(1)} kg</span>
+            </div>
+          {/each}
+          <div class="schedule-item" style="border-top:1px solid #333;padding-top:6px;margin-top:4px">
+            <span class="schedule-label" style="font-weight:700">{t('pro.bbsTotalSteel')}</span>
+            <span class="schedule-value" style="font-weight:700">{bbs.totalWeight.toFixed(1)} kg ({bbs.totalCount} u.)</span>
+          </div>
+        </div>
+      {/if}
 
       {#if effectiveQuantities}
         <div class="pro-section-label">{t('pro.materialsSummary')}{#if overrideCount > 0} <span class="override-mark">*</span>{/if}</div>
@@ -1429,6 +1720,7 @@
           {/if}
         </div>
       {/if}
+      </div><!-- end schedule-scroll-wrap -->
 
     <!-- ═══ SLABS TAB ═══ -->
     {:else if activeSection === 'slabs'}
@@ -1564,32 +1856,307 @@
         </div>
       </details>
 
-      <!-- Spread footing check -->
+      <!-- Spread footing design -->
       <details class="conn-details">
         <summary class="conn-summary">{t('pro.footingTitle')}</summary>
         <div class="conn-panel">
+          {#if resultsStore.results3D && modelStore.supports.size > 0}
+            <div class="conn-form foot-autofill">
+              <label class="conn-label">{t('pro.footingAutoFill')}:
+                <select class="pro-sel" value={footSelectedNode ?? ''} onchange={(e) => { const v = Number((e.target as HTMLSelectElement).value); if (v) autoFillFooting(v); }}>
+                  <option value="">—</option>
+                  {#each [...modelStore.supports.values()] as sup}
+                    <option value={sup.nodeId}>Node {sup.nodeId}</option>
+                  {/each}
+                </select>
+              </label>
+            </div>
+          {/if}
           <div class="conn-form">
-            <label class="conn-label">B (m): <input type="number" class="adv-num" bind:value={footB} min={0.3} max={5} step={0.1} /></label>
-            <label class="conn-label">L (m): <input type="number" class="adv-num" bind:value={footL} min={0.3} max={5} step={0.1} /></label>
-            <label class="conn-label">h (m): <input type="number" class="adv-num" bind:value={footH} min={0.2} max={2} step={0.05} /></label>
+            <label class="conn-label">{t('pro.footingB')} (m): <input type="number" class="adv-num" bind:value={footB} min={0.3} max={8} step={0.1} /></label>
+            <label class="conn-label">{t('pro.footingL')} (m): <input type="number" class="adv-num" bind:value={footL} min={0.3} max={8} step={0.1} /></label>
+            <label class="conn-label">{t('pro.footingH')} (m): <input type="number" class="adv-num" bind:value={footH} min={0.2} max={2} step={0.05} /></label>
+          </div>
+          <div class="conn-form">
+            <label class="conn-label">{t('pro.footingBc')} (m): <input type="number" class="adv-num" bind:value={footBc} min={0.15} max={1.5} step={0.05} /></label>
+            <label class="conn-label">{t('pro.footingLc')} (m): <input type="number" class="adv-num" bind:value={footLc} min={0.15} max={1.5} step={0.05} /></label>
+          </div>
+          <div class="conn-form">
             <label class="conn-label">f'c (MPa): <input type="number" class="adv-num" bind:value={footFc} min={15} max={50} /></label>
+            <label class="conn-label">fy (MPa): <input type="number" class="adv-num" bind:value={footFy} min={220} max={520} step={10} /></label>
+            <label class="conn-label">{t('pro.footingCover')} (m): <input type="number" class="adv-num" bind:value={footCover} min={0.04} max={0.15} step={0.005} /></label>
           </div>
           <div class="conn-form">
             <label class="conn-label">σ_adm (kPa): <input type="number" class="adv-num" bind:value={footSigmaAdm} min={50} max={1000} step={10} /></label>
             <label class="conn-label">N (kN): <input type="number" class="adv-num" bind:value={footNu} min={0} step={50} /></label>
             <label class="conn-label">M (kN·m): <input type="number" class="adv-num" bind:value={footMu} min={0} step={10} /></label>
-            <button class="adv-btn-sm" onclick={handleFootingCheck}>{t('pro.verify')}</button>
           </div>
+          <div class="conn-form" style="align-items:center">
+            <label class="conn-label" style="gap:4px">
+              <input type="checkbox" bind:checked={footSelfWeight} />
+              {t('pro.footingSelfWeight')}
+            </label>
+            <button class="adv-btn-sm" onclick={handleFootingCheck}>{t('pro.footingDesign')}</button>
+          </div>
+
           {#if footResult}
-            <div class="conn-result" class:fail={footResult.ratio >= 1}>
-              <span>{t('pro.utilization')}: {((footResult.ratio ?? 0) * 100).toFixed(0)}%</span>
-              {#if footResult.bearingPressure != null}<span>σ={footResult.bearingPressure.toFixed(0)} kPa</span>{/if}
-              {#if footResult.punchingRatio != null}<span>{t('pro.punching')}: {(footResult.punchingRatio * 100).toFixed(0)}%</span>{/if}
-              {#if footResult.status}<span class={'status-' + footResult.status}>{footResult.status === 'ok' ? '✓' : '✗'}</span>{/if}
+            {@const fr = footResult}
+            <div class="foot-results">
+              <!-- Status summary row -->
+              <div class="foot-status" class:fail={fr.overallStatus === 'fail'} class:ok={fr.overallStatus === 'ok'}>
+                <span class="foot-status-icon">{fr.overallStatus === 'ok' ? '✓' : '✗'}</span>
+                <span>{t('pro.footingOverall')}: {fr.overallStatus === 'ok' ? 'OK' : 'FAIL'}</span>
+                <span class="foot-vol">{t('pro.footingConcrete')}: {fr.concreteVolume.toFixed(2)} m³</span>
+              </div>
+
+              <!-- Checks grid -->
+              <div class="foot-checks">
+                <!-- Bearing -->
+                <div class="foot-check" class:fail={fr.pressure.status === 'fail'}>
+                  <div class="foot-check-title">{t('pro.footingBearing')}</div>
+                  <div class="foot-check-val">σ_max = {fr.pressure.qMax.toFixed(0)} kPa / {footSigmaAdm} kPa</div>
+                  <div class="foot-check-ratio">{(fr.pressure.ratio * 100).toFixed(0)}%</div>
+                  <div class="foot-check-type">{fr.pressure.type}</div>
+                </div>
+                <!-- Punching -->
+                <div class="foot-check" class:fail={fr.punching.status === 'fail'}>
+                  <div class="foot-check-title">{t('pro.punching')}</div>
+                  <div class="foot-check-val">Vu = {fr.punching.Vu.toFixed(0)} kN / φVc = {fr.punching.phiVc.toFixed(0)} kN</div>
+                  <div class="foot-check-ratio">{(fr.punching.ratio * 100).toFixed(0)}%</div>
+                  <div class="foot-check-type">b₀ = {(fr.punching.b0 * 100).toFixed(0)} cm</div>
+                </div>
+                <!-- One-way shear B -->
+                <div class="foot-check" class:fail={fr.oneWayShearB.status === 'fail'}>
+                  <div class="foot-check-title">{t('pro.footingShear')} (B)</div>
+                  <div class="foot-check-val">Vu = {fr.oneWayShearB.Vu.toFixed(0)} kN / φVc = {fr.oneWayShearB.phiVc.toFixed(0)} kN</div>
+                  <div class="foot-check-ratio">{(fr.oneWayShearB.ratio * 100).toFixed(0)}%</div>
+                </div>
+                <!-- One-way shear L -->
+                <div class="foot-check" class:fail={fr.oneWayShearL.status === 'fail'}>
+                  <div class="foot-check-title">{t('pro.footingShear')} (L)</div>
+                  <div class="foot-check-val">Vu = {fr.oneWayShearL.Vu.toFixed(0)} kN / φVc = {fr.oneWayShearL.phiVc.toFixed(0)} kN</div>
+                  <div class="foot-check-ratio">{(fr.oneWayShearL.ratio * 100).toFixed(0)}%</div>
+                </div>
+                <!-- Flexure B -->
+                <div class="foot-check" class:fail={fr.flexureB.status === 'fail'}>
+                  <div class="foot-check-title">{t('pro.footingFlexure')} (B)</div>
+                  <div class="foot-check-val">Mu = {fr.flexureB.Mu.toFixed(1)} kN·m/m → {fr.flexureB.bars}</div>
+                  <div class="foot-check-ratio">As = {fr.flexureB.AsProv.toFixed(1)} cm²/m</div>
+                </div>
+                <!-- Flexure L -->
+                <div class="foot-check" class:fail={fr.flexureL.status === 'fail'}>
+                  <div class="foot-check-title">{t('pro.footingFlexure')} (L)</div>
+                  <div class="foot-check-val">Mu = {fr.flexureL.Mu.toFixed(1)} kN·m/m → {fr.flexureL.bars}</div>
+                  <div class="foot-check-ratio">As = {fr.flexureL.AsProv.toFixed(1)} cm²/m</div>
+                </div>
+              </div>
+
+              <!-- SVG diagram -->
+              <div class="foot-svg">
+                {@html generateFootingSvg(fr, {
+                  width: 460, height: 440,
+                  labels: {
+                    reinforcement: t('pro.footingPlanView'),
+                    pressure: t('pro.footingSection'),
+                  },
+                })}
+              </div>
+
+              <!-- Expandable calculation steps -->
+              <button class="foot-expand-btn" onclick={() => footExpanded = !footExpanded}>
+                {footExpanded ? '▼' : '▶'} {t('pro.footingSteps')}
+              </button>
+              {#if footExpanded}
+                <div class="foot-steps">
+                  <div class="foot-step-group">
+                    <strong>{t('pro.footingBearing')}</strong>
+                    {#each fr.pressure.steps as step}<div class="memo-step">{step}</div>{/each}
+                  </div>
+                  <div class="foot-step-group">
+                    <strong>{t('pro.punching')}</strong>
+                    {#each fr.punching.steps as step}<div class="memo-step">{step}</div>{/each}
+                  </div>
+                  <div class="foot-step-group">
+                    <strong>{t('pro.footingShear')} (B)</strong>
+                    {#each fr.oneWayShearB.steps as step}<div class="memo-step">{step}</div>{/each}
+                  </div>
+                  <div class="foot-step-group">
+                    <strong>{t('pro.footingShear')} (L)</strong>
+                    {#each fr.oneWayShearL.steps as step}<div class="memo-step">{step}</div>{/each}
+                  </div>
+                  <div class="foot-step-group">
+                    <strong>{t('pro.footingFlexure')} (B)</strong>
+                    {#each fr.flexureB.steps as step}<div class="memo-step">{step}</div>{/each}
+                  </div>
+                  <div class="foot-step-group">
+                    <strong>{t('pro.footingFlexure')} (L)</strong>
+                    {#each fr.flexureL.steps as step}<div class="memo-step">{step}</div>{/each}
+                  </div>
+                </div>
+              {/if}
             </div>
           {/if}
         </div>
       </details>
+
+    {:else if activeSection === 'seismic'}
+    <!-- ═══ SEISMIC TAB ═══ -->
+    <div class="pro-section-label">{t('pro.seismicTitle')}</div>
+
+    {#if seismicResults.length === 0}
+      <div class="pro-empty">{t('pro.seismicNoJoints')}</div>
+    {:else}
+      {@const okCount = seismicResults.filter(r => r.overallStatus === 'ok').length}
+      {@const failCount = seismicResults.filter(r => r.overallStatus === 'fail').length}
+      <div class="seismic-summary">
+        <span class="seismic-stat ok">{okCount} ✓</span>
+        <span class="seismic-stat fail">{failCount} ✗</span>
+        <span class="seismic-stat">{seismicResults.length} {t('pro.seismicJoints')}</span>
+      </div>
+
+      <div class="seismic-list">
+        {#each seismicResults as jr}
+          <div class="seismic-joint" class:fail={jr.overallStatus === 'fail'}>
+            <button class="seismic-joint-header" onclick={() => seismicExpanded = seismicExpanded === jr.nodeId ? null : jr.nodeId}>
+              <span class="seismic-node">Node {jr.nodeId}</span>
+              <span class={'seismic-status ' + jr.overallStatus}>{jr.overallStatus === 'ok' ? '✓' : '✗'}</span>
+              {#if jr.scwb}
+                <span class="seismic-tag">{t('pro.scwbShort')}: {jr.scwb.ratio.toFixed(2)}</span>
+              {/if}
+              {#if jr.jointShear}
+                <span class="seismic-tag">{t('pro.jointShearShort')}: {jr.jointShear.ratio.toFixed(2)}</span>
+              {/if}
+              <span class="seismic-expand">{seismicExpanded === jr.nodeId ? '▼' : '▶'}</span>
+            </button>
+
+            {#if seismicExpanded === jr.nodeId}
+              <div class="seismic-detail">
+                <!-- SCWB -->
+                {#if jr.scwb}
+                  <div class="seismic-check" class:fail={jr.scwb.status === 'fail'}>
+                    <div class="seismic-check-title">{t('pro.scwbTitle')}</div>
+                    <div class="seismic-check-formula">ΣMnc ≥ 1.2 × ΣMng</div>
+                    <div class="seismic-check-vals">
+                      <span>ΣMnc = {jr.scwb.sumMnc.toFixed(1)} kN·m</span>
+                      <span>ΣMng = {jr.scwb.sumMng.toFixed(1)} kN·m</span>
+                      <span>1.2 × ΣMng = {jr.scwb.required.toFixed(1)} kN·m</span>
+                      <span class="seismic-ratio">{t('pro.ratio')}: {jr.scwb.ratio.toFixed(2)} {jr.scwb.status === 'ok' ? '≥ 1.0 ✓' : '< 1.0 ✗'}</span>
+                    </div>
+                    {#if jr.scwb.columnDetails.length > 0}
+                      <div class="seismic-sub">{t('pro.columns')}:</div>
+                      {#each jr.scwb.columnDetails as cd}
+                        <div class="seismic-elem">Elem {cd.elementId}: Nu={cd.Nu.toFixed(0)} kN, φMn={cd.phiMn.toFixed(1)} kN·m</div>
+                      {/each}
+                    {/if}
+                    {#if jr.scwb.beamDetails.length > 0}
+                      <div class="seismic-sub">{t('pro.beams')}:</div>
+                      {#each jr.scwb.beamDetails as bd}
+                        <div class="seismic-elem">Elem {bd.elementId}: φMn={bd.phiMn.toFixed(1)} kN·m</div>
+                      {/each}
+                    {/if}
+                    <details class="seismic-steps-details">
+                      <summary class="foot-expand-btn">{t('pro.footingSteps')}</summary>
+                      <div class="seismic-steps">
+                        {#each jr.scwb.steps as step}<div class="memo-step">{step}</div>{/each}
+                      </div>
+                    </details>
+                  </div>
+                {/if}
+
+                <!-- Joint Shear -->
+                {#if jr.jointShear}
+                  <div class="seismic-check" class:fail={jr.jointShear.status === 'fail'}>
+                    <div class="seismic-check-title">{t('pro.jointShearTitle')}</div>
+                    <div class="seismic-check-formula">Vj ≤ φ · γ · √f'c · Aj</div>
+                    <div class="seismic-check-vals">
+                      <span>Vj = {jr.jointShear.Vj.toFixed(0)} kN</span>
+                      <span>φVn = {jr.jointShear.phiVn.toFixed(0)} kN</span>
+                      <span>γ = {jr.jointShear.gamma} (Aj = {(jr.jointShear.Aj * 1e4).toFixed(0)} cm²)</span>
+                      <span class="seismic-ratio">{t('pro.ratio')}: {jr.jointShear.ratio.toFixed(2)} {jr.jointShear.status === 'ok' ? '≤ 1.0 ✓' : '> 1.0 ✗'}</span>
+                    </div>
+                    <details class="seismic-steps-details">
+                      <summary class="foot-expand-btn">{t('pro.footingSteps')}</summary>
+                      <div class="seismic-steps">
+                        {#each jr.jointShear.steps as step}<div class="memo-step">{step}</div>{/each}
+                      </div>
+                    </details>
+                  </div>
+                {/if}
+              </div>
+            {/if}
+          </div>
+        {/each}
+      </div>
+    {/if}
+
+    {:else if activeSection === 'columnSchedule'}
+    <!-- ═══ COLUMN SCHEDULE TAB ═══ -->
+    <ProColumnSchedule {verifications} elementLengths={elementLengthMap} />
+
+    {:else if activeSection === 'beamSchedule'}
+    <!-- ═══ BEAM SCHEDULE TAB ═══ -->
+    <ProBeamSchedule {verifications} elementLengths={elementLengthMap} />
+
+    {:else if activeSection === 'punching'}
+    <!-- ═══ PUNCHING SHEAR TAB ═══ -->
+    {#await import('../../lib/engine/codes/argentina/punching-shear') then { checkPunchingShear, generatePunchingSvg }}
+      <div class="punching-panel">
+        <div class="pro-section-label">{t('pro.punchingTitle')}</div>
+        <div class="punching-form">
+          <label>{t('pro.punchingSlabH')} (m): <input type="number" bind:value={punchSlabH} step="0.01" min="0.1" max="1.0" /></label>
+          <label>{t('pro.punchingEffDepth')} (m): <input type="number" bind:value={punchD} step="0.01" min="0.05" /></label>
+          <label>f'c (MPa): <input type="number" bind:value={punchFc} step="1" min="20" /></label>
+          <label>{t('pro.punchingColumnDims')} bc (m): <input type="number" bind:value={punchBc} step="0.05" min="0.15" /></label>
+          <label>{t('pro.punchingColumnDims')} lc (m): <input type="number" bind:value={punchLc} step="0.05" min="0.15" /></label>
+          <label>{t('pro.punchingColPosition')}:
+            <select bind:value={punchPosition}>
+              <option value="interior">{t('pro.punchingInterior')}</option>
+              <option value="edge">{t('pro.punchingEdge')}</option>
+              <option value="corner">{t('pro.punchingCorner')}</option>
+            </select>
+          </label>
+          <label>{t('pro.punchingVu')} (kN): <input type="number" bind:value={punchVu} step="1" /></label>
+          <label>{t('pro.punchingMu')} (kN·m): <input type="number" bind:value={punchMu} step="1" /></label>
+          <button class="pro-run-btn" onclick={() => {
+            punchResult = checkPunchingShear({
+              slabH: punchSlabH, d: punchD, fc: punchFc,
+              bc: punchBc, lc: punchLc, colPosition: punchPosition,
+              Vu: punchVu, Mu: punchMu,
+            });
+          }}>{t('pro.punchingRun')}</button>
+        </div>
+
+        {#if punchResult}
+          <div class="punching-result">
+            <div class="punching-svg">
+              {@html generatePunchingSvg({
+                slabH: punchSlabH, d: punchD, fc: punchFc,
+                bc: punchBc, lc: punchLc, colPosition: punchPosition,
+                Vu: punchVu, Mu: punchMu,
+              }, punchResult)}
+            </div>
+            <div class="punching-data">
+              <div class="punching-row"><span>{t('pro.punchingCritPerimeter')}:</span> <span>{(punchResult.b0 * 100).toFixed(1)} cm</span></div>
+              <div class="punching-row"><span>{t('pro.punchingCapacity')}:</span> <span>{punchResult.phiVc.toFixed(1)} kN</span></div>
+              <div class="punching-row"><span>{t('pro.punchingStress')}:</span> <span>{punchResult.vu.toFixed(2)} MPa</span></div>
+              <div class="punching-row"><span>{t('pro.punchingGoverning')}:</span> <span>vc = {punchResult.vc_governing.toFixed(2)} MPa</span></div>
+              <div class="punching-row status-{punchResult.status}"><span>{t('pro.colSchedRatio')}:</span> <span>{(punchResult.ratio * 100).toFixed(0)}%</span></div>
+            </div>
+            <details class="punching-steps">
+              <summary>{t('pro.punchingResult')}</summary>
+              <div class="step-list">
+                {#each punchResult.steps as step}
+                  <div class="step-line">{step}</div>
+                {/each}
+              </div>
+            </details>
+          </div>
+        {:else}
+          <div class="pro-empty">{t('pro.punchingNoResults')}</div>
+        {/if}
+      </div>
+    {/await}
+
     {/if}
 
   {:else if !verifyError}
@@ -1800,6 +2367,10 @@
   .detail-svg :global(svg) {
     max-width: 100%;
     height: auto;
+  }
+  .detail-svg.design-envelope {
+    flex-basis: 100%;
+    margin-top: 6px;
   }
 
   .detail-memo {
@@ -2031,6 +2602,29 @@
   .schedule-override { background: rgba(240, 165, 0, 0.04); }
   .schedule-override td { border-bottom-color: rgba(240, 165, 0, 0.15); }
 
+  .schedule-scroll-wrap {
+    flex: 1;
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+  }
+
+  .bbs-export-btn {
+    padding: 2px 10px;
+    font-size: 11px;
+    background: #2a2a2a;
+    color: #4ecdc4;
+    border: 1px solid #4ecdc4;
+    border-radius: 4px;
+    cursor: pointer;
+  }
+  .bbs-export-btn:hover { background: #4ecdc4; color: #1a1a1a; }
+  .bbs-export-btn.dxf { background: #2a4a6a; border-color: #4a8abf; }
+  .bbs-export-btn.dxf:hover { background: #4a8abf; color: #1a1a1a; }
+  .bbs-export-btn.pdf { background: #5a2a2a; border-color: #bf4a4a; }
+  .bbs-export-btn.pdf:hover { background: #bf4a4a; color: #1a1a1a; }
+
   /* ─── Slab cards ─── */
   .slab-card {
     margin: 8px 10px;
@@ -2094,4 +2688,115 @@
   .conn-result.fail { border-color: #e94560; background: rgba(233, 69, 96, 0.08); }
   .adv-btn-sm { padding: 3px 10px; border: 1px solid #1a4a7a; border-radius: 4px; background: #0f3460; color: #4ecdc4; font-size: 0.68rem; cursor: pointer; }
   .adv-btn-sm:hover { background: #1a4a7a; color: white; }
+
+  /* ── Foundation design results ── */
+  .foot-results { display: flex; flex-direction: column; gap: 8px; margin-top: 4px; }
+  .foot-status {
+    display: flex; align-items: center; gap: 8px; padding: 5px 10px;
+    border-radius: 4px; font-size: 0.72rem; font-weight: 600;
+    background: rgba(78, 205, 196, 0.1); border: 1px solid rgba(78, 205, 196, 0.3); color: #4ecdc4;
+  }
+  .foot-status.fail { background: rgba(233, 69, 96, 0.1); border-color: rgba(233, 69, 96, 0.3); color: #e94560; }
+  .foot-status-icon { font-size: 1rem; }
+  .foot-vol { margin-left: auto; font-weight: 400; font-size: 0.62rem; color: #888; }
+  .foot-checks {
+    display: grid; grid-template-columns: 1fr 1fr; gap: 4px;
+  }
+  .foot-check {
+    padding: 4px 8px; border-radius: 3px; font-size: 0.62rem;
+    background: #0d1b33; border: 1px solid #1a3050;
+  }
+  .foot-check.fail { border-color: #e94560; }
+  .foot-check-title { color: #4ecdc4; font-weight: 600; font-size: 0.65rem; }
+  .foot-check-val { color: #ccc; margin-top: 2px; }
+  .foot-check-ratio { color: #f0a500; font-weight: 600; }
+  .foot-check-type { color: #666; font-size: 0.58rem; }
+  .foot-svg { display: flex; justify-content: center; }
+  .foot-svg svg { max-width: 100%; height: auto; }
+  .foot-expand-btn {
+    background: none; border: none; color: #4ecdc4; font-size: 0.65rem;
+    cursor: pointer; text-align: left; padding: 2px 0;
+  }
+  .foot-expand-btn:hover { color: #fff; }
+  .foot-steps { font-size: 0.6rem; color: #aaa; padding: 4px 8px; }
+  .foot-step-group { margin-bottom: 8px; }
+  .foot-step-group strong { color: #4ecdc4; font-size: 0.65rem; }
+
+  /* ── Auto-fill selector ── */
+  .foot-autofill { border-bottom: 1px solid #1a3050; padding-bottom: 4px; margin-bottom: 2px; }
+
+  /* ── Seismic detailing ── */
+  .seismic-summary { display: flex; gap: 10px; padding: 4px 8px; font-size: 0.7rem; }
+  .seismic-stat { color: #888; }
+  .seismic-stat.ok { color: #4ecdc4; font-weight: 600; }
+  .seismic-stat.fail { color: #e94560; font-weight: 600; }
+  .seismic-list { display: flex; flex-direction: column; gap: 4px; padding: 0 6px; overflow-y: auto; }
+  .seismic-joint {
+    border: 1px solid #1a3050; border-radius: 4px; background: #0a1628;
+  }
+  .seismic-joint.fail { border-color: rgba(233, 69, 96, 0.4); }
+  .seismic-joint-header {
+    display: flex; align-items: center; gap: 8px; width: 100%; padding: 5px 8px;
+    background: none; border: none; color: #ccc; font-size: 0.68rem; cursor: pointer; text-align: left;
+  }
+  .seismic-joint-header:hover { background: rgba(78, 205, 196, 0.05); }
+  .seismic-node { font-weight: 600; color: #4ecdc4; min-width: 60px; }
+  .seismic-status.ok { color: #4ecdc4; }
+  .seismic-status.fail { color: #e94560; }
+  .seismic-tag { color: #888; font-size: 0.62rem; }
+  .seismic-expand { margin-left: auto; color: #555; font-size: 0.6rem; }
+  .seismic-detail { padding: 4px 8px 8px; display: flex; flex-direction: column; gap: 6px; }
+  .seismic-check {
+    padding: 6px 8px; border-radius: 3px; font-size: 0.62rem;
+    background: #0d1b33; border: 1px solid #1a3050;
+  }
+  .seismic-check.fail { border-color: #e94560; }
+  .seismic-check-title { color: #4ecdc4; font-weight: 600; font-size: 0.68rem; }
+  .seismic-check-formula { color: #f0a500; font-family: monospace; font-size: 0.62rem; margin: 2px 0; }
+  .seismic-check-vals { display: flex; flex-direction: column; gap: 1px; color: #ccc; }
+  .seismic-ratio { font-weight: 600; color: #f0a500; }
+  .seismic-sub { color: #4a90d9; font-weight: 600; margin-top: 4px; font-size: 0.62rem; }
+  .seismic-elem { color: #aaa; font-size: 0.6rem; padding-left: 8px; }
+  .seismic-steps-details { margin-top: 4px; }
+  .seismic-steps { font-size: 0.6rem; color: #aaa; padding: 4px 8px; }
+
+  /* Punching shear */
+  .punching-panel { padding: 6px 8px; }
+  .punching-form {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 4px 8px;
+    font-size: 0.68rem;
+    color: #ccc;
+    margin: 6px 0;
+  }
+  .punching-form label { display: flex; align-items: center; gap: 4px; }
+  .punching-form input, .punching-form select {
+    width: 80px;
+    padding: 2px 4px;
+    background: #0a1a30;
+    border: 1px solid #1a3a5a;
+    border-radius: 3px;
+    color: #ccc;
+    font-size: 0.68rem;
+  }
+  .punching-result { margin-top: 8px; }
+  .punching-svg { display: flex; justify-content: center; margin: 6px 0; }
+  .punching-data {
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+    font-size: 0.7rem;
+    padding: 6px 8px;
+    background: #0a1828;
+    border-radius: 4px;
+  }
+  .punching-row { display: flex; justify-content: space-between; color: #ccc; }
+  .punching-row.status-ok { color: #4caf50; font-weight: 600; }
+  .punching-row.status-warn { color: #f0a500; font-weight: 600; }
+  .punching-row.status-fail { color: #e94560; font-weight: 600; }
+  .punching-steps { margin-top: 6px; font-size: 0.65rem; color: #888; }
+  .punching-steps summary { cursor: pointer; color: #4ecdc4; font-size: 0.68rem; }
+  .step-list { padding: 4px 8px; }
+  .step-line { padding: 1px 0; font-family: monospace; font-size: 0.62rem; color: #aaa; }
 </style>

@@ -6,8 +6,19 @@
   import type { ReportData, ReportConfig } from '../../lib/engine/pro-report';
   import { verifyElement, classifyElement, computeJointPsiFromModel } from '../../lib/engine/codes/argentina/cirsoc201';
   import type { ElementVerification, VerificationInput } from '../../lib/engine/codes/argentina/cirsoc201';
+  import { verifySteelElement } from '../../lib/engine/codes/argentina/cirsoc301';
+  import type { SteelVerification, SteelVerificationInput, SteelDesignParams } from '../../lib/engine/codes/argentina/cirsoc301';
   import { computeQuantities } from '../../lib/engine/quantity-takeoff';
+  import { generateBBS } from '../../lib/engine/rebar-schedule';
+  import { groupColumnsByMark } from '../../lib/engine/column-schedule';
+  import { groupBeamsByMark } from '../../lib/engine/beam-schedule';
   import { runGlobalSolve } from '../../lib/engine/live-calc';
+  import { checkJointSeismic } from '../../lib/engine/codes/argentina/seismic-detailing';
+  import type { JointSeismicResult } from '../../lib/engine/codes/argentina/seismic-detailing';
+  import { detectJoints } from '../../lib/engine/connection-design';
+  import type { ShearTabInput, ShearTabResult } from '../../lib/engine/codes/argentina/shear-tab-design';
+  import type { EndPlateInput, EndPlateResult } from '../../lib/engine/codes/argentina/end-plate-design';
+  import type { BasePlateInput, BasePlateResult } from '../../lib/engine/codes/argentina/base-plate-design';
   import ProReportDialog from './ProReportDialog.svelte';
   import ProNodesTab from './ProNodesTab.svelte';
   import ProElementsTab from './ProElementsTab.svelte';
@@ -71,6 +82,12 @@
   let activeTab = $state<ProTab>('nodes');
   let verificationsRef = $state<ElementVerification[]>([]);
   let advancedResultsRef = $state<Record<string, any>>({});
+  let steelVerifsRef = $state<any[]>([]);
+  let footingResultRef = $state<any>(null);
+  let footingInputRef = $state<any>(null);
+  let shearTabRef = $state<{ input: ShearTabInput; result: ShearTabResult } | null>(null);
+  let endPlateRef = $state<{ input: EndPlateInput; result: EndPlateResult } | null>(null);
+  let basePlateConnRef = $state<{ input: BasePlateInput; result: BasePlateResult } | null>(null);
   let tabError = $state<string | null>(null);
   let showReportDialog = $state(false);
   let solving = $state(false);
@@ -364,6 +381,63 @@
     return verifs;
   }
 
+  /** Auto-run CIRSOC 301 steel verification on current results */
+  function autoVerifySteel(): SteelVerification[] {
+    const results = resultsStore.results3D;
+    if (!results) return [];
+    const steelVerifs: SteelVerification[] = [];
+
+    for (const ef of results.elementForces) {
+      const elem = modelStore.elements.get(ef.elementId);
+      if (!elem) continue;
+      const section = modelStore.sections.get(elem.sectionId);
+      const material = modelStore.materials.get(elem.materialId);
+      if (!section || !material) continue;
+      if (!material.fy || material.fy <= 80) continue; // Steel only
+
+      const nodeI = modelStore.nodes.get(elem.nodeI);
+      const nodeJ = modelStore.nodes.get(elem.nodeJ);
+      if (!nodeI || !nodeJ) continue;
+
+      const dx = nodeJ.x - nodeI.x, dy = nodeJ.y - nodeI.y, dz = (nodeJ.z ?? 0) - (nodeI.z ?? 0);
+      const elementLength = Math.sqrt(dx * dx + dy * dy + dz * dz);
+      if (elementLength <= 0) continue;
+
+      const NuMax = Math.max(Math.abs(ef.nStart), Math.abs(ef.nEnd));
+      const MuzMax = Math.max(Math.abs(ef.mzStart), Math.abs(ef.mzEnd));
+      const MuyMax = Math.max(Math.abs(ef.myStart), Math.abs(ef.myEnd));
+      const VuMax = Math.max(Math.abs(ef.vyStart), Math.abs(ef.vyEnd));
+
+      const sdp: SteelDesignParams = {
+        Fy: material.fy,
+        Fu: (material as any).fu ?? (material.fy ?? material.e * 0.001) * 1.25,
+        E: material.e,
+        A: section.a,
+        Iz: section.iz,
+        Iy: section.iy ?? section.iz,
+        h: section.h ?? 0.3,
+        b: section.b ?? 0.15,
+        tw: section.tw ?? (section.b ? section.b / 10 : 0.01),
+        tf: section.tf ?? (section.b ? section.b / 15 : 0.01),
+        L: elementLength,
+        Lb: elementLength,
+        J: section.j ?? 0,
+      };
+
+      const steelInput: SteelVerificationInput = {
+        elementId: ef.elementId,
+        Nu: NuMax,
+        Muy: MuyMax,
+        Muz: MuzMax,
+        Vu: VuMax,
+        params: sdp,
+      };
+
+      steelVerifs.push(verifySteelElement(steelInput));
+    }
+    return steelVerifs;
+  }
+
   /** Serialize loads for the report */
   function serializeLoads(): ReportData['loads'] {
     const loads: NonNullable<ReportData['loads']> = [];
@@ -388,10 +462,20 @@
     }
     if (!resultsStore.results3D) return;
 
-    // Auto-verify CIRSOC if not already done
+    // Auto-verify CIRSOC 201 (RC) if not already done
     if (verificationsRef.length === 0) {
       verificationsRef = autoVerify();
       verificationStore.setConcrete(verificationsRef);
+    }
+
+    // Auto-verify CIRSOC 301 (steel) if not already done
+    if (steelVerifsRef.length === 0) {
+      try {
+        steelVerifsRef = autoVerifySteel();
+      } catch (err) {
+        console.error('[Report] Steel verification failed:', err);
+        uiStore.toast('Steel verification error: ' + String(err), 'error');
+      }
     }
 
     showReportDialog = true;
@@ -399,9 +483,16 @@
 
   function exportReport(config: ReportConfig) {
     showReportDialog = false;
+    console.log('[Report] exportReport called');
 
     const results = resultsStore.results3D;
-    if (!results) return;
+    if (!results) { console.error('[Report] No results3D available'); uiStore.toast('No results available for report', 'error'); return; }
+
+    try { _exportReportInner(config, results); }
+    catch (err) { console.error('[Report] exportReport crashed:', err); alert('Report export error: ' + String(err)); }
+  }
+
+  function _exportReportInner(config: ReportConfig, results: NonNullable<typeof resultsStore.results3D>) {
 
     let screenshot: string | undefined;
     const canvas = document.querySelector('canvas');
@@ -422,6 +513,10 @@
       loads: serializeLoads(),
       results,
       verifications: verificationsRef,
+      steelVerifications: steelVerifsRef.length > 0 ? steelVerifsRef : undefined,
+      shearTabResult: shearTabRef ?? undefined,
+      endPlateResult: endPlateRef ?? undefined,
+      basePlateConnResult: basePlateConnRef ?? undefined,
       advancedResults: Object.keys(advancedResultsRef).length > 0 ? advancedResultsRef : undefined,
       diagnostics: resultsStore.diagnostics3D.length > 0 ? resultsStore.diagnostics3D : undefined,
       screenshot,
@@ -444,6 +539,50 @@
       }
       data.quantities = computeQuantities(verificationsRef, elemLengths);
       data.elementLengths = elemLengths;
+      // Build element forces map for zone-aware BBS
+      const efMap = new Map<number, (typeof results.elementForces)[0]>();
+      for (const ef of results.elementForces) efMap.set(ef.elementId, ef);
+      data.bbs = generateBBS({ verifications: verificationsRef, elementLengths: elemLengths, elementForces: efMap });
+
+      // Column + beam schedule marks for report
+      const colMarks = groupColumnsByMark(verificationsRef, elemLengths);
+      if (colMarks.length > 0) data.columnMarks = colMarks;
+      const bmMarks = groupBeamsByMark(verificationsRef, elemLengths);
+      if (bmMarks.length > 0) data.beamMarks = bmMarks;
+
+      // Seismic capacity design checks
+      try {
+        const verifMap = new Map<number, ElementVerification>();
+        for (const v of verificationsRef) verifMap.set(v.elementId, v);
+        const seismicEfMap = new Map<number, any>();
+        for (const ef of results.elementForces) {
+          seismicEfMap.set(ef.elementId, {
+            NI: ef.nStart, NJ: ef.nEnd,
+            VyI: ef.vyStart, VyJ: ef.vyEnd,
+            MzI: ef.mzStart, MzJ: ef.mzEnd,
+          });
+        }
+        const joints = detectJoints(modelStore.nodes as any, modelStore.elements as any, modelStore.supports as any);
+        const seismicResults: JointSeismicResult[] = [];
+        for (const joint of joints) {
+          const hasCol = joint.elementIds.some(id => { const v = verifMap.get(id); return v && (v.elementType === 'column' || v.elementType === 'wall'); });
+          const hasBeam = joint.elementIds.some(id => { const v = verifMap.get(id); return v && v.elementType === 'beam'; });
+          if (!hasCol || !hasBeam) continue;
+          const result = checkJointSeismic({
+            nodeId: joint.nodeId, verifications: verifMap, elementForces: seismicEfMap,
+            elements: modelStore.elements as any, elementIds: joint.elementIds,
+            confinement: joint.hasSupport ? 'exterior' : 'interior',
+          });
+          if (result.overallStatus !== 'n/a') seismicResults.push(result);
+        }
+        if (seismicResults.length > 0) data.seismicResults = seismicResults;
+      } catch { /* seismic checks optional */ }
+    }
+
+    // Footing design results (from ProVerificationTab)
+    if (footingResultRef) {
+      data.footingResult = footingResultRef;
+      data.footingInput = footingInputRef;
     }
 
     // Story drift for report
@@ -520,6 +659,12 @@
     tabManager.syncActiveTabName();
     resultsStore.clear();
     resultsStore.clear3D();
+    // Clear stale verification/report state from previous model
+    verificationsRef = [];
+    steelVerifsRef = [];
+    footingResultRef = null;
+    footingInputRef = null;
+    advancedResultsRef = {};
     showExampleMenu = false;
     setTimeout(() => window.dispatchEvent(new Event('stabileo-zoom-to-fit')), 200);
     setTimeout(() => window.dispatchEvent(new Event('stabileo-zoom-to-fit')), 600);
@@ -606,9 +751,13 @@
         {:else if activeTab === 'results'}
           <ProResultsTab />
         {:else if activeTab === 'verification'}
-          <ProVerificationTab bind:verifications={verificationsRef} />
+          <ProVerificationTab bind:verifications={verificationsRef} bind:steelVerifsOut={steelVerifsRef} bind:footingResultOut={footingResultRef} bind:footingInputOut={footingInputRef} />
         {:else if activeTab === 'connections'}
-          <ProConnectionsTab />
+          <ProConnectionsTab
+            onshearTabResult={(input, result) => { shearTabRef = { input, result }; }}
+            onendPlateResult={(input, result) => { endPlateRef = { input, result }; }}
+            onbasePlateResult={(input, result) => { basePlateConnRef = { input, result }; }}
+          />
         {:else if activeTab === 'diagnostics'}
           <ProDiagnosticsTab />
         {/if}
@@ -663,6 +812,15 @@
   hasDrift={false}
   hasDiagnostics={resultsStore.diagnostics3D.length > 0}
   hasQuantities={verificationsRef.length > 0}
+  hasSteelDesign={steelVerifsRef.length > 0}
+  hasSeismic={verificationsRef.length > 0}
+  hasFoundations={footingResultRef != null}
+  hasColumnSchedule={verificationsRef.length > 0}
+  hasBeamSchedule={verificationsRef.length > 0}
+  hasPunchingShear={false}
+  hasBasePlate={basePlateConnRef != null}
+  hasShearTab={shearTabRef != null}
+  hasEndPlate={endPlateRef != null}
   ongenerate={exportReport}
   onclose={() => { showReportDialog = false; }}
 />

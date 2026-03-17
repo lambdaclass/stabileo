@@ -10,7 +10,24 @@ import type { ElementVerification } from './codes/argentina/cirsoc201';
 import { generateCrossSectionSvg, generateBeamElevationSvg, generateColumnElevationSvg, generateJointDetailSvg, generateSlabReinforcementSvg, designSlabReinforcement } from './reinforcement-svg';
 import { generateInteractionDiagram, generateInteractionSvg } from './codes/argentina/interaction-diagram';
 import type { QuantitySummary } from './quantity-takeoff';
+import type { BBSSummary } from './rebar-schedule';
 import type { SolverDiagnostic } from './types';
+import type { JointSeismicResult } from './codes/argentina/seismic-detailing';
+import type { FootingDesignResult } from './codes/argentina/foundation-design';
+import { generateFootingSvg } from './codes/argentina/foundation-design';
+import type { SteelVerification } from './codes/argentina/cirsoc301';
+import type { ColumnMark } from './column-schedule';
+import { generateScheduleCrossSectionSvg } from './column-schedule';
+import type { BeamMark } from './beam-schedule';
+import { generateBeamCrossSectionSvg } from './beam-schedule';
+import type { PunchingResult, PunchingInput } from './codes/argentina/punching-shear';
+import { generatePunchingSvg } from './codes/argentina/punching-shear';
+import type { BasePlateResult, BasePlateInput } from './codes/argentina/base-plate-design';
+import { generateBasePlatePlanSvg } from './codes/argentina/base-plate-design';
+import type { ShearTabInput, ShearTabResult } from './codes/argentina/shear-tab-design';
+import { generateShearTabSvg } from './codes/argentina/shear-tab-design';
+import type { EndPlateInput, EndPlateResult } from './codes/argentina/end-plate-design';
+import { generateEndPlateSvg } from './codes/argentina/end-plate-design';
 
 /** Translation function type — accepts key, returns translated string */
 type TFunc = (key: string) => string;
@@ -36,6 +53,15 @@ export interface ReportConfig {
     diagnostics: boolean;
     quantities: boolean;
     loads: boolean;
+    seismic: boolean;
+    foundations: boolean;
+    steelDesign: boolean;
+    columnSchedule: boolean;
+    beamSchedule: boolean;
+    punchingShear: boolean;
+    basePlate: boolean;
+    shearTab: boolean;
+    endPlate: boolean;
   };
 }
 
@@ -55,8 +81,12 @@ export interface ReportData {
   results: AnalysisResults3D;
   // Verification
   verifications: ElementVerification[];
+  // Steel verification (CIRSOC 301)
+  steelVerifications?: SteelVerification[];
   // Quantities
   quantities?: QuantitySummary;
+  // Bar Bending Schedule
+  bbs?: BBSSummary;
   // Element lengths for elevation drawings
   elementLengths?: Map<number, number>;
   // Advanced analysis results (modal, spectral, P-Delta, buckling)
@@ -73,6 +103,23 @@ export interface ReportData {
     ratioX: number; ratioZ: number;
     status: 'ok' | 'warn' | 'fail';
   }>;
+  // Seismic capacity design results (CIRSOC 201 §21)
+  seismicResults?: JointSeismicResult[];
+  // Foundation design result
+  footingResult?: FootingDesignResult;
+  footingInput?: { B: number; L: number; H: number; bc: number; lc: number; fc: number; fy: number; sigmaAdm: number; Nu: number; Mu: number };
+  // Column schedule
+  columnMarks?: ColumnMark[];
+  // Beam schedule
+  beamMarks?: BeamMark[];
+  // Punching shear results
+  punchingResults?: Array<{ input: PunchingInput; result: PunchingResult }>;
+  // Base plate results
+  basePlateResults?: Array<{ input: BasePlateInput; result: BasePlateResult }>;
+  // Connection design results
+  shearTabResult?: { input: ShearTabInput; result: ShearTabResult };
+  endPlateResult?: { input: EndPlateInput; result: EndPlateResult };
+  basePlateConnResult?: { input: BasePlateInput; result: BasePlateResult };
   // Diagnostics
   diagnostics?: SolverDiagnostic[];
   // Viewport screenshot (data URL)
@@ -151,11 +198,40 @@ function renderStep(step: string): string {
   tex = tex.replace(/ρ_min/g, '\\rho_{min}');
   tex = tex.replace(/ρ_max/g, '\\rho_{max}');
   tex = tex.replace(/ρ_b/g, '\\rho_{b}');
+  // ── Steel-specific (CIRSOC 301) ──
+  tex = tex.replace(/φMn/g, '\\phi M_{n}');
+  tex = tex.replace(/φPn/g, '\\phi P_{n}');
+  tex = tex.replace(/φVn/g, '\\phi V_{n}');
+  tex = tex.replace(/φRn/g, '\\phi R_{n}');
+  tex = tex.replace(/Mn(?=[·\s=,)])/g, 'M_{n}');
+  tex = tex.replace(/Mp(?=[·\s=,)\-])/g, 'M_{p}');
+  tex = tex.replace(/Mr(?=[·\s=,)])/g, 'M_{r}');
+  tex = tex.replace(/Sx(?=[·\s=,)])/g, 'S_{x}');
+  tex = tex.replace(/Sy(?=[·\s=,)])/g, 'S_{y}');
+  tex = tex.replace(/Zx(?=[·\s=,)])/g, 'Z_{x}');
+  tex = tex.replace(/Zy(?=[·\s=,)])/g, 'Z_{y}');
+  tex = tex.replace(/Fcr(?=[·\s=,)])/g, 'F_{cr}');
+  tex = tex.replace(/Fe(?=[·\s=,)])/g, 'F_{e}');
+  tex = tex.replace(/Fy(?=[·\s=,)])/g, 'F_{y}');
+  tex = tex.replace(/Fu(?=[·\s=,)])/g, 'F_{u}');
+  tex = tex.replace(/Lb(?=[·\s=,<>≤≥)])/g, 'L_{b}');
+  tex = tex.replace(/Lp(?=[·\s=,<>≤≥)])/g, 'L_{p}');
+  tex = tex.replace(/Lr(?=[·\s=,<>≤≥)])/g, 'L_{r}');
+  tex = tex.replace(/KL\/r/g, 'KL/r');
+  tex = tex.replace(/rx(?=[·\s=,)])/g, 'r_{x}');
+  tex = tex.replace(/ry(?=[·\s=,)])/g, 'r_{y}');
 
   // ── √ handling: match √ followed by a "token" (letters/digits/'/_ until · or space or = or )) ──
   // e.g. "√f'c" → "\sqrt{f'_{c}}", "√(d² - X)" → "\sqrt{(d² - X)}"
   tex = tex.replace(/√\(([^)]+)\)/g, '\\sqrt{($1)}');       // √(expr) → \sqrt{(expr)}
   tex = tex.replace(/√([A-Za-z0-9'_{}\\.]+)/g, '\\sqrt{$1}'); // √token → \sqrt{token}
+
+  // ── Protect compound units BEFORE Unicode · replacement ──
+  // Replace kN·m with a placeholder to prevent · → \cdot inside unit text
+  const KNM_PLACEHOLDER = '\x00KNM\x00';
+  tex = tex.replace(/kN·m/g, KNM_PLACEHOLDER);
+  tex = tex.replace(/cm²\/m/g, '\x00CM2M\x00');
+  tex = tex.replace(/m²\/m/g, '\x00M2M\x00');
 
   // ── Unicode symbol replacements ──
   tex = tex.replace(/·/g, ' \\cdot ');
@@ -172,21 +248,34 @@ function renderStep(step: string): string {
   tex = tex.replace(/×/g, '\\times ');
   tex = tex.replace(/Ø/g, '\\varnothing');
 
+  // ── Restore unit placeholders and wrap with \text{} at end of expression ──
+  tex = tex.replace(new RegExp(`\\s+${KNM_PLACEHOLDER}\\s*$`), ' \\text{ kN}{\\cdot}\\text{m}');
+  tex = tex.replace(new RegExp(KNM_PLACEHOLDER, 'g'), '\\text{kN}{\\cdot}\\text{m}');
+  tex = tex.replace(/\x00CM2M\x00/g, '\\text{cm²/m}');
+  tex = tex.replace(/\x00M2M\x00/g, '\\text{m²/m}');
+
   // ── Units at end of expression → \text{} ──
-  // Unit patterns (after · → \cdot replacement, ² → ^{2})
-  tex = tex.replace(/\s+kN\s*\\cdot\s*m\s*$/, ' \\text{ kN·m}');
   tex = tex.replace(/\s+cm\^{2}\/m\s*$/, ' \\text{ cm²/m}');
   tex = tex.replace(/\s+m\^{2}\/m\s*$/, ' \\text{ m²/m}');
   tex = tex.replace(/\s+cm\^{2}\s*$/, ' \\text{ cm²}');
   tex = tex.replace(/\s+m\^{2}\s*$/, ' \\text{ m²}');
+  tex = tex.replace(/\s+mm\^{3}\s*$/, ' \\text{ mm³}');
+  tex = tex.replace(/\s+mm\^{2}\s*$/, ' \\text{ mm²}');
   tex = tex.replace(/\s+(kN|MPa|cm|mm|m|rad)\s*$/, ' \\text{ $1}');
   tex = tex.replace(/\s+(%)\s*$/, ' \\text{$1}');
 
   // ── Wrap text fragments (Armadura propuesta:, Estribos:, etc.) ──
-  // Detect lines that are descriptive text, not equations (no "=" sign, or start with ⚠/Armadura/Estribos/etc.)
-  const isTextLine = /^⚠/.test(step) || /^(Armadura|Estribos|Momento|Sección|Columna|No se)/.test(step);
+  // Detect lines that are descriptive text, not equations
+  const trimmed = step.trim();
+  const isTextLine = /^⚠/.test(step)
+    || /^(Armadura|Estribos|Momento|Sección|Columna|No se)/.test(step)
+    || /^===/.test(trimmed)
+    || /^§[A-Z]/.test(trimmed)
+    || /^Solicitaciones/.test(trimmed)
+    || /^(Eje debil|J y Cw|Zona|Pandeo|Interaccion)/.test(trimmed)
+    || (trimmed.endsWith(':') && !trimmed.includes('='));
   if (isTextLine) {
-    tex = `\\text{${escHtml(step).replace(/Ø/g, 'ø')}}`;
+    tex = `\\text{${escHtml(step).replace(/Ø/g, 'ø').replace(/·/g, '}\\cdot\\text{')}}`;
   }
 
   return `<div class="memo-step">${km(tex)}</div>`;
@@ -385,9 +474,18 @@ export function generateReportHtml(data: ReportData): string {
   if (showSection('modelData')) tocEntries.push({ label: '1. ' + tr('report.modelData'), anchor: 'sec-model-data' });
   if (showSection('results')) tocEntries.push({ label: '2. ' + tr('report.results'), anchor: 'sec-results' });
   if (showSection('verification') && verifications.length > 0) tocEntries.push({ label: '3. ' + tr('report.verification'), anchor: 'sec-verification' });
-  if (showSection('advancedAnalysis') && data.advancedResults) tocEntries.push({ label: '4. ' + (tr('report.advancedAnalysis') || 'Advanced Analysis'), anchor: 'sec-advanced' });
+  if (showSection('steelDesign') && data.steelVerifications && data.steelVerifications.length > 0) tocEntries.push({ label: '4. ' + tr('report.steelTitle'), anchor: 'sec-steel' });
+  if (showSection('shearTab') && data.shearTabResult) tocEntries.push({ label: '4.1 ' + tr('conn.shearTab'), anchor: 'sec-shear-tab' });
+  if (showSection('endPlate') && data.endPlateResult) tocEntries.push({ label: '4.2 ' + tr('conn.endPlate'), anchor: 'sec-end-plate' });
+  if (showSection('advancedAnalysis') && data.advancedResults) tocEntries.push({ label: '5. ' + (tr('report.advancedAnalysis') || 'Advanced Analysis'), anchor: 'sec-advanced' });
   if (showSection('storyDrift') && data.storyDrifts && data.storyDrifts.length > 0) tocEntries.push({ label: '5. ' + (tr('report.storyDrift') || 'Story Drift'), anchor: 'sec-drift' });
-  if (showSection('diagnostics') && data.diagnostics && data.diagnostics.length > 0) tocEntries.push({ label: '6. ' + (tr('report.diagnostics') || 'Diagnostics'), anchor: 'sec-diagnostics' });
+  if (showSection('seismic') && data.seismicResults && data.seismicResults.length > 0) tocEntries.push({ label: '6. ' + tr('report.seismicTitle'), anchor: 'sec-seismic' });
+  if (showSection('foundations') && data.footingResult) tocEntries.push({ label: '7. ' + tr('report.foundationsTitle'), anchor: 'sec-foundations' });
+  if (showSection('columnSchedule') && data.columnMarks && data.columnMarks.length > 0) tocEntries.push({ label: '8. ' + tr('report.secColumnSchedule'), anchor: 'sec-col-schedule' });
+  if (showSection('beamSchedule') && data.beamMarks && data.beamMarks.length > 0) tocEntries.push({ label: '9. ' + tr('report.secBeamSchedule'), anchor: 'sec-beam-schedule' });
+  if (showSection('punchingShear') && data.punchingResults && data.punchingResults.length > 0) tocEntries.push({ label: '10. ' + tr('report.secPunchingShear'), anchor: 'sec-punching' });
+  if (showSection('basePlate') && data.basePlateResults && data.basePlateResults.length > 0) tocEntries.push({ label: '11. ' + tr('report.secBasePlate'), anchor: 'sec-base-plate' });
+  if (showSection('diagnostics') && data.diagnostics && data.diagnostics.length > 0) tocEntries.push({ label: '11. ' + (tr('report.diagnostics') || 'Diagnostics'), anchor: 'sec-diagnostics' });
   if (showSection('quantities') && quantities) tocEntries.push({ label: '7. ' + (tr('report.quantities') || 'Quantities'), anchor: 'sec-quantities' });
   for (const entry of tocEntries) {
     html.push(`<div class="toc-entry"><a href="#${entry.anchor}">${escHtml(entry.label)}</a><span class="toc-dots"></span></div>`);
@@ -907,6 +1005,28 @@ export function generateReportHtml(data: ReportData): string {
     }
     html.push(`</tbody></table>`);
 
+    // Bar Bending Schedule
+    if (data.bbs && data.bbs.bars.length > 0) {
+      html.push(`<h3>${escHtml(tr('pro.bbsTitle') || 'Bar Bending Schedule (BBS)')}</h3>`);
+      const hasZones = data.bbs.bars.some(b => b.zone);
+      const zoneHdr = hasZones ? `<th>${escHtml(tr('pro.bbsZone') || 'Zone')}</th>` : '';
+      html.push(`<table><thead><tr><th>${escHtml(tr('pro.bbsMark') || 'Mark')}</th><th>${escHtml(tr('pro.bbsShape') || 'Shape')}</th><th>${escHtml(tr('pro.bbsDia') || 'Dia')}</th><th>${escHtml(tr('pro.bbsQty') || 'Qty')}</th><th>${escHtml(tr('pro.bbsLength') || 'Length')} (m)</th><th>${escHtml(tr('pro.bbsWeightEach') || 'Wt/bar')} (kg)</th><th>${escHtml(tr('pro.bbsWeightTotal') || 'Wt total')} (kg)</th>${zoneHdr}</tr></thead><tbody>`);
+      for (const bar of data.bbs.bars) {
+        const zoneTd = hasZones ? `<td>${escHtml(bar.zone ?? '—')}</td>` : '';
+        html.push(`<tr><td>${escHtml(bar.mark)}</td><td>${escHtml(bar.shape)}</td><td>${escHtml(bar.label)}</td><td class="num">${bar.count}</td><td class="num">${bar.lengthEach.toFixed(2)}</td><td class="num">${bar.weightEach.toFixed(2)}</td><td class="num">${bar.weightTotal.toFixed(1)}</td>${zoneTd}</tr>`);
+      }
+      html.push(`<tr style="font-weight:bold;border-top:2px solid #333"><td colspan="3">${escHtml(tr('pro.bbsTotalSteel') || 'Total')}</td><td class="num">${data.bbs.totalCount}</td><td></td><td></td><td class="num">${data.bbs.totalWeight.toFixed(1)}</td>${hasZones ? '<td></td>' : ''}</tr>`);
+      html.push(`</tbody></table>`);
+
+      // Weight by diameter
+      html.push(`<h4>${escHtml(tr('pro.bbsByDia') || 'Weight by diameter')}</h4>`);
+      html.push(`<table><thead><tr><th>${escHtml(tr('pro.bbsDia') || 'Dia')}</th><th>${escHtml(tr('pro.bbsQty') || 'Qty')}</th><th>${escHtml(tr('pro.bbsWeightTotal') || 'Wt total')} (kg)</th></tr></thead><tbody>`);
+      for (const d of data.bbs.weightByDia) {
+        html.push(`<tr><td>${escHtml(d.label)}</td><td class="num">${d.totalCount}</td><td class="num">${d.totalWeight.toFixed(1)}</td></tr>`);
+      }
+      html.push(`</tbody></table>`);
+    }
+
     // Quantities section
     if (quantities) {
       html.push(`<h2>3.4 ${escHtml(tr('report.quantities'))}</h2>`);
@@ -924,6 +1044,199 @@ export function generateReportHtml(data: ReportData): string {
         html.push(`<tr><td>${eq.elementId}</td><td>${typeLabelShort(eq.elementType, tr)}</td><td class="num">${eq.length.toFixed(2)}</td><td class="num">${eq.concreteVolume.toFixed(3)}</td><td class="num">${eq.rebarWeight.toFixed(1)}</td><td class="num">${eq.stirrupWeight.toFixed(1)}</td><td class="num">${eq.totalSteelWeight.toFixed(1)}</td></tr>`);
       }
       html.push(`</tbody></table>`);
+    }
+  }
+
+  // ─── Steel Verification (CIRSOC 301) ────────────────────
+  if (showSection('steelDesign') && data.steelVerifications && data.steelVerifications.length > 0) {
+    html.push(`<div class="page-break"></div>`);
+    html.push(`<h2>${escHtml(tr('report.steelTitle'))}</h2>`);
+    html.push(`<p class="code-ref">CIRSOC 301 (AISC 360)</p>`);
+
+    // Summary table
+    html.push(`<table><thead><tr><th>Elem</th><th>Nu (kN)</th><th>Muz (kN·m)</th><th>Muy (kN·m)</th><th>Vu (kN)</th><th>${escHtml(tr('pro.interaction'))}</th><th>${escHtml(tr('report.status'))}</th></tr></thead><tbody>`);
+    for (const sv of data.steelVerifications) {
+      const statusCls = sv.overallStatus === 'fail' ? 'status-fail' : sv.overallStatus === 'warn' ? 'status-warn' : 'status-ok';
+      const intRatio = sv.interaction ? fmtNum(sv.interaction.ratio) : '—';
+      html.push(`<tr><td>${sv.elementId}</td><td class="num">${fmtNum(sv.Nu, 1)}</td><td class="num">${fmtNum(sv.Muz, 1)}</td><td class="num">${fmtNum(sv.Muy, 1)}</td><td class="num">${fmtNum(sv.Vu, 1)}</td><td class="num">${intRatio}</td><td class="${statusCls}">${sv.overallStatus === 'ok' ? '✓' : sv.overallStatus === 'warn' ? '⚠' : '✗'}</td></tr>`);
+    }
+    html.push(`</tbody></table>`);
+
+    // Detailed steps per element
+    for (const sv of data.steelVerifications) {
+      html.push(`<h3>Elem ${sv.elementId}</h3>`);
+
+      if (sv.tension) {
+        html.push(`<h4>${escHtml(tr('report.steelTension'))} — ${km(`\\phi P_n = ${fmtNum(sv.tension.phiPn, 1)}\\text{ kN}`)}</h4>`);
+        html.push(`<div class="step-block">`);
+        for (const step of sv.tension.steps) html.push(renderStep(step));
+        html.push(`</div>`);
+      }
+
+      if (sv.compression) {
+        html.push(`<h4>${escHtml(tr('report.steelCompression'))} — ${km(`\\phi P_n = ${fmtNum(sv.compression.phiPn, 1)}\\text{ kN}`)}</h4>`);
+        html.push(`<div class="step-block">`);
+        for (const step of sv.compression.steps) html.push(renderStep(step));
+        html.push(`</div>`);
+      }
+
+      html.push(`<h4>${escHtml(tr('report.steelFlexureZ'))} — ${km(`\\phi M_n = ${fmtNum(sv.flexureZ.phiMn, 1)}\\text{ kN}{\\cdot}\\text{m}`)}</h4>`);
+      html.push(`<div class="step-block">`);
+      for (const step of sv.flexureZ.steps) html.push(renderStep(step));
+      html.push(`</div>`);
+
+      if (sv.flexureY) {
+        html.push(`<h4>${escHtml(tr('report.steelFlexureY'))} — ${km(`\\phi M_n = ${fmtNum(sv.flexureY.phiMn, 1)}\\text{ kN}{\\cdot}\\text{m}`)}</h4>`);
+        html.push(`<div class="step-block">`);
+        for (const step of sv.flexureY.steps) html.push(renderStep(step));
+        html.push(`</div>`);
+      }
+
+      html.push(`<h4>${escHtml(tr('report.steelShear'))} — ${km(`\\phi V_n = ${fmtNum(sv.shear.phiVn, 1)}\\text{ kN}`)}</h4>`);
+      html.push(`<div class="step-block">`);
+      for (const step of sv.shear.steps) html.push(renderStep(step));
+      html.push(`</div>`);
+
+      if (sv.interaction) {
+        html.push(`<h4>${escHtml(tr('pro.interaction'))} (${sv.interaction.equation})</h4>`);
+        html.push(`<div class="step-block">`);
+        for (const step of sv.interaction.steps) html.push(renderStep(step));
+        html.push(`</div>`);
+      }
+    }
+  }
+
+  // ─── Shear Tab Connection Design ──────────────────────────
+  if (showSection('shearTab') && data.shearTabResult) {
+    const { input: sti, result: str } = data.shearTabResult;
+    html.push(`<div class="page-break"></div>`);
+    html.push(`<h2 id="sec-shear-tab">${escHtml(tr('conn.shearTab'))}</h2>`);
+    html.push(`<p class="code-ref">CIRSOC 301 Cap. J (AISC 360)</p>`);
+    html.push(`<p>${escHtml(tr('conn.stDesc'))}</p>`);
+
+    // SVG diagram
+    html.push(`<div class="svg-container">${generateShearTabSvg(sti, str)}</div>`);
+
+    // Input summary
+    html.push(`<h3>${escHtml(tr('report.connectionInput'))}</h3>`);
+    html.push(`<table><tbody>`);
+    html.push(`<tr><td>${escHtml(tr('conn.stBeam'))}</td><td>d=${sti.beamDepth} mm, tw=${sti.beamTw} mm, Fy=${sti.beamFy} MPa, Fu=${sti.beamFu} MPa</td></tr>`);
+    html.push(`<tr><td>${escHtml(tr('conn.stPlate'))}</td><td>Hp=${sti.plateHeight} mm, tp=${sti.plateThickness} mm, Fy=${sti.plateFy} MPa, Fu=${sti.plateFu} MPa</td></tr>`);
+    html.push(`<tr><td>${escHtml(tr('conn.stBolts'))}</td><td>∅${sti.boltDia} mm ${sti.boltGrade}, n=${sti.nBolts}, s=${sti.boltSpacing} mm, Le=${sti.boltEdgeDist} mm, g=${sti.boltGage} mm</td></tr>`);
+    html.push(`<tr><td>${escHtml(tr('conn.stWeld'))}</td><td>a=${sti.weldLeg} mm, Fexx=${sti.weldFexx} MPa</td></tr>`);
+    html.push(`<tr><td>Vu</td><td class="num">${fmtNum(sti.Vu, 1)} kN</td></tr>`);
+    html.push(`</tbody></table>`);
+
+    // Check results
+    html.push(`<h3>${escHtml(tr('conn.stChecksTitle'))}</h3>`);
+    const stChecks = [
+      { label: tr('conn.stBoltShear'), r: str.boltShear },
+      { label: tr('conn.stBoltBearing'), r: str.boltBearing },
+      { label: tr('conn.stPlateShearYield'), r: str.plateShearYield },
+      { label: tr('conn.stPlateShearRupture'), r: str.plateShearRupture },
+      { label: tr('conn.stBlockShear'), r: str.blockShear },
+      { label: tr('conn.stWeldCheck'), r: str.weld },
+    ];
+    html.push(`<table><thead><tr><th>${escHtml(tr('report.check'))}</th><th>${escHtml(tr('pro.ratio'))}</th><th>${escHtml(tr('report.status'))}</th></tr></thead><tbody>`);
+    for (const ck of stChecks) {
+      const cls = ck.r.status === 'fail' ? 'status-fail' : ck.r.status === 'warn' ? 'status-warn' : 'status-ok';
+      html.push(`<tr><td>${escHtml(ck.label)}</td><td class="num">${(ck.r.ratio * 100).toFixed(0)}%</td><td class="${cls}">${ck.r.status === 'ok' ? '✓' : ck.r.status === 'warn' ? '⚠' : '✗'}</td></tr>`);
+    }
+    html.push(`</tbody></table>`);
+
+    // Overall result
+    const stOverallCls = str.overallStatus === 'ok' ? 'status-ok' : str.overallStatus === 'warn' ? 'status-warn' : 'status-fail';
+    html.push(`<p class="${stOverallCls}" style="font-weight:bold">${escHtml(tr('conn.governing'))}: ${(str.overallRatio * 100).toFixed(0)}% ${str.overallStatus === 'ok' ? '✓ OK' : str.overallStatus === 'warn' ? '⚠' : '✗ NG'}</p>`);
+
+    // Detailed steps per check
+    for (const ck of stChecks) {
+      html.push(`<h4>${escHtml(ck.label)}</h4>`);
+      html.push(`<div class="step-block">`);
+      for (const step of ck.r.steps) html.push(renderStep(step));
+      html.push(`</div>`);
+    }
+  }
+
+  // ─── End Plate Connection Design ──────────────────────────
+  if (showSection('endPlate') && data.endPlateResult) {
+    const { input: epi, result: epr } = data.endPlateResult;
+    html.push(`<div class="page-break"></div>`);
+    html.push(`<h2 id="sec-end-plate">${escHtml(tr('conn.endPlate'))}</h2>`);
+    html.push(`<p class="code-ref">CIRSOC 301 Cap. J + AISC DG4</p>`);
+    html.push(`<p>${escHtml(tr('conn.epDesc'))}</p>`);
+
+    // SVG diagram
+    html.push(`<div class="svg-container">${generateEndPlateSvg(epi, epr)}</div>`);
+
+    // Input summary
+    html.push(`<h3>${escHtml(tr('report.connectionInput'))}</h3>`);
+    html.push(`<table><tbody>`);
+    html.push(`<tr><td>${escHtml(tr('report.type'))}</td><td>${epi.type === 'extended' ? 'Extended' : 'Flush'}</td></tr>`);
+    html.push(`<tr><td>Beam</td><td>d=${epi.beamDepth} mm, bf=${epi.beamBf} mm, tf=${epi.beamTf} mm, tw=${epi.beamTw} mm</td></tr>`);
+    html.push(`<tr><td>Plate</td><td>Bp=${epi.plateWidth} mm, tp=${epi.plateThickness} mm, Fy=${epi.plateFy} MPa</td></tr>`);
+    html.push(`<tr><td>Bolts</td><td>∅${epi.boltDia} mm ${epi.boltGrade}, ${epi.nBoltsPerRow}×${epi.nRowsTension} rows, g=${epi.boltGageG} mm</td></tr>`);
+    html.push(`<tr><td>Mu</td><td class="num">${fmtNum(epi.Mu, 1)} kN·m</td></tr>`);
+    html.push(`<tr><td>Vu</td><td class="num">${fmtNum(epi.Vu, 1)} kN</td></tr>`);
+    html.push(`</tbody></table>`);
+
+    // Check results
+    html.push(`<h3>${escHtml(tr('conn.epChecksTitle'))}</h3>`);
+    const epChecks = [
+      { label: tr('conn.epBoltTension'), r: epr.boltTension },
+      { label: tr('conn.epPlateBending'), r: epr.plateBending },
+      { label: tr('conn.epFlangeForce'), r: epr.beamFlangeForcce },
+      { label: tr('conn.epShear'), r: epr.shear },
+    ];
+    html.push(`<table><thead><tr><th>${escHtml(tr('report.check'))}</th><th>${escHtml(tr('pro.ratio'))}</th><th>${escHtml(tr('report.status'))}</th></tr></thead><tbody>`);
+    for (const ck of epChecks) {
+      const cls = ck.r.status === 'fail' ? 'status-fail' : ck.r.status === 'warn' ? 'status-warn' : 'status-ok';
+      html.push(`<tr><td>${escHtml(ck.label)}</td><td class="num">${(ck.r.ratio * 100).toFixed(0)}%</td><td class="${cls}">${ck.r.status === 'ok' ? '✓' : ck.r.status === 'warn' ? '⚠' : '✗'}</td></tr>`);
+    }
+    html.push(`</tbody></table>`);
+
+    // Overall result
+    const epOverallCls = epr.overallStatus === 'ok' ? 'status-ok' : epr.overallStatus === 'warn' ? 'status-warn' : 'status-fail';
+    html.push(`<p class="${epOverallCls}" style="font-weight:bold">${escHtml(tr('conn.governing'))}: ${(epr.overallRatio * 100).toFixed(0)}% ${epr.overallStatus === 'ok' ? '✓ OK' : epr.overallStatus === 'warn' ? '⚠' : '✗ NG'}</p>`);
+
+    // Detailed steps per check
+    for (const ck of epChecks) {
+      html.push(`<h4>${escHtml(ck.label)}</h4>`);
+      html.push(`<div class="step-block">`);
+      for (const step of ck.r.steps) html.push(renderStep(step));
+      html.push(`</div>`);
+    }
+  }
+
+  // ─── Base Plate Connection Design (from Connections tab) ──
+  if (showSection('basePlate') && data.basePlateConnResult) {
+    const { input: bpi, result: bpr } = data.basePlateConnResult;
+    // Only render if not already in basePlateResults array
+    if (!data.basePlateResults || data.basePlateResults.length === 0) {
+      html.push(`<div class="page-break"></div>`);
+      html.push(`<h2 id="sec-base-plate">${escHtml(tr('report.secBasePlate'))}</h2>`);
+      html.push(`<p class="code-ref">CIRSOC 301 / AISC DG1</p>`);
+      html.push(`<div class="svg-container">${generateBasePlatePlanSvg(bpi, bpr)}</div>`);
+
+      const bpChecks = [
+        { name: 'Bearing', r: bpr.bearing },
+        { name: 'Plate bending', r: bpr.plateBending },
+        { name: 'Anchor tension', r: bpr.anchorTension },
+        { name: 'Anchor shear', r: bpr.anchorShear },
+        { name: 'T+V interaction', r: bpr.interaction },
+        { name: 'Shear transfer', r: bpr.shearTransfer },
+      ];
+      html.push(`<table class="data-table"><thead><tr><th>Check</th><th>Ratio</th><th>Status</th></tr></thead><tbody>`);
+      for (const ck of bpChecks) {
+        const cls = ck.r.status === 'fail' ? 'fail' : ck.r.status === 'warn' ? 'warn' : 'ok';
+        html.push(`<tr><td>${escHtml(ck.name)}</td><td class="num">${(ck.r.ratio * 100).toFixed(0)}%</td><td class="${cls}">${ck.r.status === 'ok' ? '✓' : '✗'}</td></tr>`);
+      }
+      html.push(`</tbody></table>`);
+      for (const ck of bpChecks) {
+        html.push(`<h4>${escHtml(ck.name)}</h4>`);
+        html.push(`<div class="step-block">`);
+        for (const s of ck.r.steps) html.push(renderStep(s));
+        html.push(`</div>`);
+      }
     }
   }
 
@@ -990,6 +1303,213 @@ export function generateReportHtml(data: ReportData): string {
     html.push(`</tbody></table>`);
   }
 
+  // ─── Seismic Capacity Design ────────────────────────────
+  if (showSection('seismic') && data.seismicResults && data.seismicResults.length > 0) {
+    html.push(`<div class="page-break"></div>`);
+    html.push(`<h2>${escHtml(tr('report.seismicTitle'))}</h2>`);
+    html.push(`<p class="code-ref">CIRSOC 201 §21</p>`);
+
+    const okCount = data.seismicResults.filter(r => r.overallStatus === 'ok').length;
+    const failCount = data.seismicResults.filter(r => r.overallStatus === 'fail').length;
+    html.push(`<p>${escHtml(tr('report.seismicSummary'))}: <span class="status-ok">${okCount} ✓</span> / <span class="status-fail">${failCount} ✗</span> (${data.seismicResults.length} ${escHtml(tr('pro.seismicJoints'))})</p>`);
+
+    // Summary table
+    html.push(`<table><thead><tr><th>Node</th><th>${escHtml(tr('pro.scwbShort'))}</th><th>ΣMnc (kN·m)</th><th>1.2·ΣMng (kN·m)</th><th>${escHtml(tr('pro.jointShearShort'))}</th><th>Vj (kN)</th><th>φVn (kN)</th><th>${escHtml(tr('report.status'))}</th></tr></thead><tbody>`);
+    for (const jr of data.seismicResults) {
+      const statusCls = jr.overallStatus === 'fail' ? 'status-fail' : 'status-ok';
+      const scwbRatio = jr.scwb ? fmtNum(jr.scwb.ratio) : '—';
+      const scwbMnc = jr.scwb ? fmtNum(jr.scwb.sumMnc, 1) : '—';
+      const scwbReq = jr.scwb ? fmtNum(jr.scwb.required, 1) : '—';
+      const jsRatio = jr.jointShear ? fmtNum(jr.jointShear.ratio) : '—';
+      const jsVj = jr.jointShear ? fmtNum(jr.jointShear.Vj, 0) : '—';
+      const jsVn = jr.jointShear ? fmtNum(jr.jointShear.phiVn, 0) : '—';
+      html.push(`<tr><td>${jr.nodeId}</td><td class="num">${scwbRatio}</td><td class="num">${scwbMnc}</td><td class="num">${scwbReq}</td><td class="num">${jsRatio}</td><td class="num">${jsVj}</td><td class="num">${jsVn}</td><td class="${statusCls}">${jr.overallStatus === 'ok' ? '✓' : '✗'}</td></tr>`);
+    }
+    html.push(`</tbody></table>`);
+
+    // Detail per joint
+    for (const jr of data.seismicResults) {
+      html.push(`<h3>Node ${jr.nodeId}</h3>`);
+
+      if (jr.scwb) {
+        html.push(`<h4>${escHtml(tr('pro.scwbTitle'))}</h4>`);
+        html.push(`<div class="step-block">`);
+        for (const step of jr.scwb.steps) html.push(renderStep(step));
+        html.push(`</div>`);
+      }
+
+      if (jr.jointShear) {
+        html.push(`<h4>${escHtml(tr('pro.jointShearTitle'))}</h4>`);
+        html.push(`<div class="step-block">`);
+        for (const step of jr.jointShear.steps) html.push(renderStep(step));
+        html.push(`</div>`);
+      }
+    }
+  }
+
+  // ─── Foundation Design ────────────────────────────────
+  if (showSection('foundations') && data.footingResult) {
+    const fr = data.footingResult;
+    const fi = data.footingInput;
+    html.push(`<div class="page-break"></div>`);
+    html.push(`<h2>${escHtml(tr('report.foundationsTitle'))}</h2>`);
+    html.push(`<p class="code-ref">CIRSOC 201 §11, §15</p>`);
+
+    // Input summary
+    if (fi) {
+      html.push(`<h3>${escHtml(tr('report.foundationsInput'))}</h3>`);
+      html.push(`<table><tbody>`);
+      html.push(`<tr><td>${escHtml(tr('report.footingDimensions'))}</td><td class="num">${fi.B.toFixed(2)} × ${fi.L.toFixed(2)} × ${fi.H.toFixed(2)} m</td></tr>`);
+      html.push(`<tr><td>${escHtml(tr('report.columnDimensions'))}</td><td class="num">${(fi.bc * 100).toFixed(0)} × ${(fi.lc * 100).toFixed(0)} cm</td></tr>`);
+      html.push(`<tr><td>f'c</td><td class="num">${fi.fc} MPa</td></tr>`);
+      html.push(`<tr><td>fy</td><td class="num">${fi.fy} MPa</td></tr>`);
+      html.push(`<tr><td>σ_adm</td><td class="num">${fi.sigmaAdm} kPa</td></tr>`);
+      html.push(`<tr><td>N</td><td class="num">${fi.Nu.toFixed(0)} kN</td></tr>`);
+      html.push(`<tr><td>M</td><td class="num">${fi.Mu.toFixed(1)} kN·m</td></tr>`);
+      html.push(`</tbody></table>`);
+    }
+
+    // Results summary
+    html.push(`<h3>${escHtml(tr('report.foundationsResults'))}</h3>`);
+    const overallCls = fr.overallStatus === 'ok' ? 'status-ok' : 'status-fail';
+    html.push(`<p class="${overallCls}" style="font-size:13px;font-weight:bold">${fr.overallStatus === 'ok' ? '✓ OK' : '✗ FAIL'}</p>`);
+
+    html.push(`<table><thead><tr><th>${escHtml(tr('report.check'))}</th><th>${escHtml(tr('report.demand'))}</th><th>${escHtml(tr('report.capacity'))}</th><th>${escHtml(tr('pro.ratio'))}</th><th>${escHtml(tr('report.status'))}</th></tr></thead><tbody>`);
+
+    const checks = [
+      { name: tr('pro.footingBearing'), demand: `σ=${fr.pressure.qMax.toFixed(0)} kPa`, capacity: `${fi?.sigmaAdm ?? '—'} kPa`, ratio: fr.pressure.ratio, status: fr.pressure.status },
+      { name: tr('pro.punching'), demand: `Vu=${fr.punching.Vu.toFixed(0)} kN`, capacity: `φVc=${fr.punching.phiVc.toFixed(0)} kN`, ratio: fr.punching.ratio, status: fr.punching.status },
+      { name: `${tr('pro.footingShear')} (B)`, demand: `Vu=${fr.oneWayShearB.Vu.toFixed(0)} kN`, capacity: `φVc=${fr.oneWayShearB.phiVc.toFixed(0)} kN`, ratio: fr.oneWayShearB.ratio, status: fr.oneWayShearB.status },
+      { name: `${tr('pro.footingShear')} (L)`, demand: `Vu=${fr.oneWayShearL.Vu.toFixed(0)} kN`, capacity: `φVc=${fr.oneWayShearL.phiVc.toFixed(0)} kN`, ratio: fr.oneWayShearL.ratio, status: fr.oneWayShearL.status },
+      { name: `${tr('pro.footingFlexure')} (B)`, demand: `Mu=${fr.flexureB.Mu.toFixed(1)} kN·m/m`, capacity: fr.flexureB.bars, ratio: fr.flexureB.ratio, status: fr.flexureB.status },
+      { name: `${tr('pro.footingFlexure')} (L)`, demand: `Mu=${fr.flexureL.Mu.toFixed(1)} kN·m/m`, capacity: fr.flexureL.bars, ratio: fr.flexureL.ratio, status: fr.flexureL.status },
+    ];
+    for (const ck of checks) {
+      const cls = ck.status === 'fail' ? 'status-fail' : 'status-ok';
+      html.push(`<tr><td>${escHtml(ck.name)}</td><td>${ck.demand}</td><td>${ck.capacity}</td><td class="num">${(ck.ratio * 100).toFixed(0)}%</td><td class="${cls}">${ck.status === 'ok' ? '✓' : '✗'}</td></tr>`);
+    }
+    html.push(`</tbody></table>`);
+
+    // Concrete volume + rebar
+    html.push(`<p>${escHtml(tr('report.concrete'))}: ${fr.concreteVolume.toFixed(2)} m³</p>`);
+
+    // Footing SVG diagram (plan + section)
+    const footSvg = generateFootingSvg(fr, {
+      width: 460, height: 440,
+      labels: { reinforcement: tr('pro.footingPlanView'), pressure: tr('pro.footingSection') },
+    });
+    html.push(`<div class="svg-container">${footSvg}</div>`);
+
+    // Calculation steps
+    html.push(`<h3>${escHtml(tr('pro.footingSteps'))}</h3>`);
+    const stepGroups = [
+      { title: tr('pro.footingBearing'), steps: fr.pressure.steps },
+      { title: tr('pro.punching'), steps: fr.punching.steps },
+      { title: `${tr('pro.footingShear')} (B)`, steps: fr.oneWayShearB.steps },
+      { title: `${tr('pro.footingShear')} (L)`, steps: fr.oneWayShearL.steps },
+      { title: `${tr('pro.footingFlexure')} (B)`, steps: fr.flexureB.steps },
+      { title: `${tr('pro.footingFlexure')} (L)`, steps: fr.flexureL.steps },
+    ];
+    for (const sg of stepGroups) {
+      html.push(`<h4>${escHtml(sg.title)}</h4>`);
+      html.push(`<div class="step-block">`);
+      for (const step of sg.steps) html.push(renderStep(step));
+      html.push(`</div>`);
+    }
+  }
+
+  // ─── Column Schedule ──────────────────────────────────
+  if (showSection('columnSchedule') && data.columnMarks && data.columnMarks.length > 0) {
+    html.push(`<div class="page-break"></div>`);
+    html.push(`<a id="sec-col-schedule"></a>`);
+    html.push(`<h2>Column Reinforcement Schedule</h2>`);
+    html.push(`<table class="data-table"><thead><tr><th>Mark</th><th>b×h (cm)</th><th>f'c</th><th>Bars</th><th>As (cm²)</th><th>Ties</th><th>Elements</th><th>Max Ratio</th></tr></thead><tbody>`);
+    for (const m of data.columnMarks) {
+      const bCm = (m.b * 100).toFixed(0);
+      const hCm = (m.h * 100).toFixed(0);
+      const sCm = (m.stirrupSpacing * 100).toFixed(0);
+      const cls = m.worstStatus === 'fail' ? 'fail' : m.worstStatus === 'warn' ? 'warn' : 'ok';
+      html.push(`<tr><td><strong>${escHtml(m.mark)}</strong></td><td>${bCm}×${hCm}</td><td>${m.fc} MPa</td><td>${escHtml(m.bars)}</td><td class="num">${m.AsProv.toFixed(1)}</td><td>eØ${m.stirrupDia} c/${sCm}</td><td>${m.elements.length}</td><td class="${cls}">${(m.maxRatio * 100).toFixed(0)}%</td></tr>`);
+    }
+    html.push(`</tbody></table>`);
+    // SVG cross-sections for each mark
+    for (const m of data.columnMarks) {
+      html.push(`<div class="svg-container">${generateScheduleCrossSectionSvg(m)}</div>`);
+    }
+  }
+
+  // ─── Beam Schedule ──────────────────────────────────
+  if (showSection('beamSchedule') && data.beamMarks && data.beamMarks.length > 0) {
+    html.push(`<div class="page-break"></div>`);
+    html.push(`<a id="sec-beam-schedule"></a>`);
+    html.push(`<h2>${escHtml(tr('report.secBeamSchedule'))}</h2>`);
+    html.push(`<table class="data-table"><thead><tr><th>Mark</th><th>b×h (cm)</th><th>f'c</th><th>Bot. bars</th><th>Top bars</th><th>As bot (cm²)</th><th>Stirrups</th><th>Elems</th><th>Max Ratio</th></tr></thead><tbody>`);
+    for (const m of data.beamMarks) {
+      const bCm = (m.b * 100).toFixed(0);
+      const hCm = (m.h * 100).toFixed(0);
+      const sCm = (m.stirrupSpacing * 100).toFixed(0);
+      const topBars = m.isDoublyReinforced ? escHtml(m.barsComp) : '—';
+      const cls = m.worstStatus === 'fail' ? 'fail' : m.worstStatus === 'warn' ? 'warn' : 'ok';
+      html.push(`<tr><td><strong>${escHtml(m.mark)}</strong></td><td>${bCm}×${hCm}</td><td>${m.fc} MPa</td><td>${escHtml(m.bars)}</td><td>${topBars}</td><td class="num">${m.AsProv.toFixed(1)}</td><td>eØ${m.stirrupDia} c/${sCm}</td><td>${m.elements.length}</td><td class="${cls}">${(m.maxRatio * 100).toFixed(0)}%</td></tr>`);
+    }
+    html.push(`</tbody></table>`);
+    for (const m of data.beamMarks) {
+      html.push(`<div class="svg-container">${generateBeamCrossSectionSvg(m)}</div>`);
+    }
+  }
+
+  // ─── Punching Shear ──────────────────────────────────
+  if (showSection('punchingShear') && data.punchingResults && data.punchingResults.length > 0) {
+    html.push(`<div class="page-break"></div>`);
+    html.push(`<a id="sec-punching"></a>`);
+    html.push(`<h2>Punching Shear — CIRSOC 201 §11.11</h2>`);
+    for (const { input: pi, result: pr } of data.punchingResults) {
+      const cls = pr.status === 'fail' ? 'fail' : pr.status === 'warn' ? 'warn' : 'ok';
+      html.push(`<h3>${escHtml(pi.colPosition)} — ${(pi.bc * 100).toFixed(0)}×${(pi.lc * 100).toFixed(0)} cm</h3>`);
+      html.push(`<div class="svg-container">${generatePunchingSvg(pi, pr)}</div>`);
+      html.push(`<table class="data-table"><tbody>`);
+      html.push(`<tr><td>b0</td><td class="num">${(pr.b0 * 100).toFixed(1)} cm</td></tr>`);
+      html.push(`<tr><td>φVc</td><td class="num">${pr.phiVc.toFixed(1)} kN</td></tr>`);
+      html.push(`<tr><td>vu</td><td class="num">${pr.vu.toFixed(2)} MPa</td></tr>`);
+      html.push(`<tr><td>Ratio</td><td class="${cls}">${(pr.ratio * 100).toFixed(0)}%</td></tr>`);
+      html.push(`</tbody></table>`);
+      html.push(`<div class="step-block">`);
+      for (const s of pr.steps) html.push(renderStep(s));
+      html.push(`</div>`);
+    }
+  }
+
+  // ─── Base Plate ──────────────────────────────────────
+  if (showSection('basePlate') && data.basePlateResults && data.basePlateResults.length > 0) {
+    html.push(`<div class="page-break"></div>`);
+    html.push(`<a id="sec-base-plate"></a>`);
+    html.push(`<h2>Base Plate + Anchor Bolt Design</h2>`);
+    for (const { input: bi, result: br } of data.basePlateResults) {
+      html.push(`<h3>Plate ${(bi.N * 100).toFixed(0)}×${(bi.B * 100).toFixed(0)}×${(bi.tp * 1000).toFixed(0)}mm</h3>`);
+      html.push(`<div class="svg-container">${generateBasePlatePlanSvg(bi, br)}</div>`);
+      const checks = [
+        { name: 'Bearing', r: br.bearing },
+        { name: 'Plate bending', r: br.plateBending },
+        { name: 'Anchor tension', r: br.anchorTension },
+        { name: 'Anchor shear', r: br.anchorShear },
+        { name: 'T+V interaction', r: br.interaction },
+        { name: 'Shear transfer', r: br.shearTransfer },
+      ];
+      html.push(`<table class="data-table"><thead><tr><th>Check</th><th>Ratio</th><th>Status</th></tr></thead><tbody>`);
+      for (const ck of checks) {
+        const cls = ck.r.status === 'fail' ? 'fail' : ck.r.status === 'warn' ? 'warn' : 'ok';
+        html.push(`<tr><td>${escHtml(ck.name)}</td><td class="num">${(ck.r.ratio * 100).toFixed(0)}%</td><td class="${cls}">${ck.r.status === 'ok' ? '✓' : '✗'}</td></tr>`);
+      }
+      html.push(`</tbody></table>`);
+      for (const ck of checks) {
+        html.push(`<h4>${escHtml(ck.name)}</h4>`);
+        html.push(`<div class="step-block">`);
+        for (const s of ck.r.steps) html.push(renderStep(s));
+        html.push(`</div>`);
+      }
+    }
+  }
+
   // ─── Diagnostics ──────────────────────────────────────
   if (showSection('diagnostics') && data.diagnostics && data.diagnostics.length > 0) {
     html.push(`<div class="page-break"></div>`);
@@ -1027,9 +1547,35 @@ export function generateReportHtml(data: ReportData): string {
 
 /** Open the report in a new window for printing */
 export function openReport(data: ReportData): void {
-  const htmlContent = generateReportHtml(data);
-  const win = window.open('', '_blank');
-  if (!win) return;
-  win.document.write(htmlContent);
-  win.document.close();
+  console.log('[Report] Generating report...', {
+    nodes: data.nodes.length,
+    elements: data.elements.length,
+    steelVerifs: data.steelVerifications?.length ?? 0,
+    rcVerifs: data.verifications.length,
+    shearTab: !!data.shearTabResult,
+    endPlate: !!data.endPlateResult,
+  });
+
+  let htmlContent: string;
+  try {
+    htmlContent = generateReportHtml(data);
+  } catch (err) {
+    console.error('[Report] Generation failed:', err);
+    alert('Report generation error: ' + String(err));
+    return;
+  }
+
+  console.log('[Report] HTML generated, length:', htmlContent.length);
+
+  // Use Blob URL — more reliable than document.write for large reports
+  const blob = new Blob([htmlContent], { type: 'text/html;charset=utf-8' });
+  const url = URL.createObjectURL(blob);
+  const win = window.open(url, '_blank');
+  if (!win) {
+    alert('Popup blocked — please allow popups for this site and try again.');
+    URL.revokeObjectURL(url);
+    return;
+  }
+  // Revoke after a delay so the browser has time to load
+  setTimeout(() => URL.revokeObjectURL(url), 60000);
 }

@@ -17,6 +17,15 @@
       diagnostics: boolean;
       quantities: boolean;
       loads: boolean;
+      steelDesign: boolean;
+      seismic: boolean;
+      foundations: boolean;
+      columnSchedule: boolean;
+      beamSchedule: boolean;
+      punchingShear: boolean;
+      basePlate: boolean;
+      shearTab: boolean;
+      endPlate: boolean;
     };
   }
 
@@ -28,11 +37,20 @@
     hasDrift: boolean;
     hasDiagnostics: boolean;
     hasQuantities: boolean;
+    hasSteelDesign: boolean;
+    hasSeismic: boolean;
+    hasFoundations: boolean;
+    hasColumnSchedule: boolean;
+    hasBeamSchedule: boolean;
+    hasPunchingShear: boolean;
+    hasBasePlate: boolean;
+    hasShearTab: boolean;
+    hasEndPlate: boolean;
     ongenerate: (config: ReportConfig) => void;
     onclose: () => void;
   }
 
-  let { open, hasResults, hasVerifications, hasAdvanced, hasDrift, hasDiagnostics, hasQuantities, ongenerate, onclose }: Props = $props();
+  let { open, hasResults, hasVerifications, hasAdvanced, hasDrift, hasDiagnostics, hasQuantities, hasSteelDesign, hasSeismic, hasFoundations, hasColumnSchedule, hasBeamSchedule, hasPunchingShear, hasBasePlate, hasShearTab, hasEndPlate, ongenerate, onclose }: Props = $props();
 
   // ─── Persistent state (localStorage) ─────────────────────
   // Migrate old storage key
@@ -69,6 +87,15 @@
   let secDiagnostics = $state(true);
   let secQuantities = $state(true);
   let secLoads = $state(true);
+  let secSteelDesign = $state(true);
+  let secSeismic = $state(true);
+  let secFoundations = $state(true);
+  let secColumnSchedule = $state(true);
+  let secBeamSchedule = $state(true);
+  let secPunchingShear = $state(true);
+  let secBasePlate = $state(true);
+  let secShearTab = $state(true);
+  let secEndPlate = $state(true);
 
   function handleLogoUpload(e: Event) {
     const input = e.target as HTMLInputElement;
@@ -105,6 +132,15 @@
         diagnostics: secDiagnostics,
         quantities: secQuantities,
         loads: secLoads,
+        steelDesign: secSteelDesign,
+        seismic: secSeismic,
+        foundations: secFoundations,
+        columnSchedule: secColumnSchedule,
+        beamSchedule: secBeamSchedule,
+        punchingShear: secPunchingShear,
+        basePlate: secBasePlate,
+        shearTab: secShearTab,
+        endPlate: secEndPlate,
       },
     });
   }
@@ -173,6 +209,15 @@
           <label class="rpt-check"><input type="checkbox" bind:checked={secAdvanced} disabled={!hasAdvanced} /> {t('report.secAdvanced')} {#if !hasAdvanced}<span class="rpt-hint">({t('report.noData')})</span>{/if}</label>
           <label class="rpt-check"><input type="checkbox" bind:checked={secDrift} disabled={!hasDrift} /> {t('report.secDrift')} {#if !hasDrift}<span class="rpt-hint">({t('report.noData')})</span>{/if}</label>
           <label class="rpt-check"><input type="checkbox" bind:checked={secQuantities} disabled={!hasQuantities} /> {t('report.secQuantities')} {#if !hasQuantities}<span class="rpt-hint">({t('report.noData')})</span>{/if}</label>
+          <label class="rpt-check"><input type="checkbox" bind:checked={secSteelDesign} disabled={!hasSteelDesign} /> {t('report.secSteelDesign')} {#if !hasSteelDesign}<span class="rpt-hint">({t('report.noData')})</span>{/if}</label>
+          <label class="rpt-check"><input type="checkbox" bind:checked={secSeismic} disabled={!hasSeismic} /> {t('report.secSeismic')} {#if !hasSeismic}<span class="rpt-hint">({t('report.noData')})</span>{/if}</label>
+          <label class="rpt-check"><input type="checkbox" bind:checked={secFoundations} disabled={!hasFoundations} /> {t('report.secFoundations')} {#if !hasFoundations}<span class="rpt-hint">({t('report.noData')})</span>{/if}</label>
+          <label class="rpt-check"><input type="checkbox" bind:checked={secColumnSchedule} disabled={!hasColumnSchedule} /> {t('report.secColumnSchedule')} {#if !hasColumnSchedule}<span class="rpt-hint">({t('report.noData')})</span>{/if}</label>
+          <label class="rpt-check"><input type="checkbox" bind:checked={secBeamSchedule} disabled={!hasBeamSchedule} /> {t('report.secBeamSchedule')} {#if !hasBeamSchedule}<span class="rpt-hint">({t('report.noData')})</span>{/if}</label>
+          <label class="rpt-check"><input type="checkbox" bind:checked={secPunchingShear} disabled={!hasPunchingShear} /> {t('report.secPunchingShear')} {#if !hasPunchingShear}<span class="rpt-hint">({t('report.noData')})</span>{/if}</label>
+          <label class="rpt-check"><input type="checkbox" bind:checked={secBasePlate} disabled={!hasBasePlate} /> {t('report.secBasePlate')} {#if !hasBasePlate}<span class="rpt-hint">({t('report.noData')})</span>{/if}</label>
+          <label class="rpt-check"><input type="checkbox" bind:checked={secShearTab} disabled={!hasShearTab} /> {t('conn.shearTab')} {#if !hasShearTab}<span class="rpt-hint">({t('report.noData')})</span>{/if}</label>
+          <label class="rpt-check"><input type="checkbox" bind:checked={secEndPlate} disabled={!hasEndPlate} /> {t('conn.endPlate')} {#if !hasEndPlate}<span class="rpt-hint">({t('report.noData')})</span>{/if}</label>
           <label class="rpt-check"><input type="checkbox" bind:checked={secDiagnostics} disabled={!hasDiagnostics} /> {t('report.secDiagnostics')} {#if !hasDiagnostics}<span class="rpt-hint">({t('report.noData')})</span>{/if}</label>
         </div>
       </fieldset>

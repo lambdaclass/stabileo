@@ -338,6 +338,169 @@ function drawSupportSymbol(lines: string[], x: number, y: number, type: 'fixed' 
   }
 }
 
+// ─── Beam Design Envelope Diagram ────────────────────────────────
+// Shows required As(x) vs provided As, moment diagram, and stirrup zones
+
+import type { BeamDesignEnvelope } from './rebar-schedule';
+
+export interface BeamDesignDiagramOpts {
+  length: number;           // beam length (m)
+  envelope: BeamDesignEnvelope;
+  supportI: 'fixed' | 'pinned' | 'free';
+  supportJ: 'fixed' | 'pinned' | 'free';
+  labels?: {
+    stirrups?: string;   // default "Stirrups"
+    asReq?: string;      // default "As,req"
+    asProv?: string;     // default "As,prov"
+  };
+}
+
+/**
+ * Generate an SVG showing:
+ * 1. Required As(x) as filled area diagram (red)
+ * 2. Provided As as horizontal line (green)
+ * 3. Moment diagram M(x) (blue outline)
+ * 4. Stirrup spacing zones with annotations
+ */
+export function generateBeamDesignDiagramSvg(opts: BeamDesignDiagramOpts): string {
+  const { length, envelope, supportI, supportJ, labels } = opts;
+  const { stations, stirrupZones, AsProv, AsProvComp } = envelope;
+  const lbl = { stirrups: labels?.stirrups ?? 'Stirrups', asReq: labels?.asReq ?? 'As,req', asProv: labels?.asProv ?? 'As,prov' };
+  if (stations.length < 2) return '';
+
+  // Layout constants
+  const W = 620, H = 340;
+  const ox = 60, oy = 20;              // origin of diagram area
+  const plotW = W - ox - 20;           // plot width
+  const asH = 100;                      // As diagram height
+  const momentH = 80;                   // moment diagram height
+  const stirrupH = 40;                  // stirrup zone height
+  const gap = 15;
+
+  // Y positions
+  const asTop = oy;
+  const asBot = asTop + asH;
+  const momentTop = asBot + gap;
+  const momentBot = momentTop + momentH;
+  const stirrupTop = momentBot + gap;
+  const stirrupBot = stirrupTop + stirrupH;
+
+  // Scales
+  const xScale = plotW / length;
+  const maxAs = Math.max(AsProv, envelope.maxAsReq, 1) * 1.15;
+  const asScale = asH / maxAs;
+  const maxMu = Math.max(...stations.map(s => s.Mu), 1);
+  const muScale = momentH / maxMu;
+
+  const lines: string[] = [];
+  lines.push(`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${W} ${H}" width="${W}" height="${H}">`);
+  lines.push(`<style>
+    text { font-family: monospace; fill: #ccc; }
+    .axis-label { font-size: 8px; fill: #888; }
+    .zone-label { font-size: 8px; fill: #f0a500; }
+    .legend { font-size: 8px; }
+  </style>`);
+
+  // ── 1. As(x) diagram ──
+  // Background
+  lines.push(`<rect x="${ox}" y="${asTop}" width="${plotW}" height="${asH}" fill="#111" rx="2"/>`);
+
+  // Required As filled area (red)
+  let reqPath = `M ${ox},${asBot}`;
+  for (const s of stations) {
+    const px = ox + s.t * length * xScale;
+    const py = asBot - s.AsReq * asScale;
+    reqPath += ` L ${px},${py}`;
+  }
+  reqPath += ` L ${ox + plotW},${asBot} Z`;
+  lines.push(`<path d="${reqPath}" fill="rgba(233,69,96,0.35)" stroke="#e94560" stroke-width="1.2"/>`);
+
+  // Provided As line (green, constant)
+  const provY = asBot - AsProv * asScale;
+  lines.push(`<line x1="${ox}" y1="${provY}" x2="${ox + plotW}" y2="${provY}" stroke="#4ecdc4" stroke-width="1.5" stroke-dasharray="6,3"/>`);
+
+  // Compression steel line (if doubly reinforced)
+  if (AsProvComp > 0) {
+    const compY = asBot - AsProvComp * asScale;
+    lines.push(`<line x1="${ox}" y1="${compY}" x2="${ox + plotW}" y2="${compY}" stroke="#888" stroke-width="1" stroke-dasharray="4,2"/>`);
+    lines.push(`<text x="${ox + plotW + 3}" y="${compY + 3}" class="axis-label" fill="#888">A's=${AsProvComp.toFixed(1)}</text>`);
+  }
+
+  // Y axis labels for As
+  lines.push(`<text x="${ox - 4}" y="${asBot + 3}" text-anchor="end" class="axis-label">0</text>`);
+  lines.push(`<text x="${ox - 4}" y="${provY + 3}" text-anchor="end" class="axis-label" fill="#4ecdc4">${AsProv.toFixed(1)}</text>`);
+  const maxReq = envelope.maxAsReq;
+  if (Math.abs(maxReq - AsProv) > 0.5) {
+    const maxReqY = asBot - maxReq * asScale;
+    lines.push(`<text x="${ox - 4}" y="${maxReqY + 3}" text-anchor="end" class="axis-label" fill="#e94560">${maxReq.toFixed(1)}</text>`);
+  }
+  lines.push(`<text x="${ox - 4}" y="${asTop + 10}" text-anchor="end" class="axis-label">As (cm²)</text>`);
+
+  // Legend
+  lines.push(`<rect x="${ox + 5}" y="${asTop + 3}" width="8" height="8" fill="rgba(233,69,96,0.35)" stroke="#e94560" stroke-width="0.5"/>`);
+  lines.push(`<text x="${ox + 16}" y="${asTop + 10}" class="legend" fill="#e94560">${lbl.asReq}</text>`);
+  lines.push(`<line x1="${ox + 60}" y1="${asTop + 7}" x2="${ox + 76}" y2="${asTop + 7}" stroke="#4ecdc4" stroke-width="1.5" stroke-dasharray="4,2"/>`);
+  lines.push(`<text x="${ox + 80}" y="${asTop + 10}" class="legend" fill="#4ecdc4">${lbl.asProv}</text>`);
+
+  // ── 2. Moment diagram M(x) ──
+  lines.push(`<rect x="${ox}" y="${momentTop}" width="${plotW}" height="${momentH}" fill="#111" rx="2"/>`);
+
+  let muPath = `M ${ox},${momentBot}`;
+  for (const s of stations) {
+    const px = ox + s.t * length * xScale;
+    const py = momentBot - s.Mu * muScale;
+    muPath += ` L ${px},${py}`;
+  }
+  muPath += ` L ${ox + plotW},${momentBot} Z`;
+  lines.push(`<path d="${muPath}" fill="rgba(78,205,196,0.15)" stroke="#4ecdc4" stroke-width="1"/>`);
+
+  // Mu axis
+  lines.push(`<text x="${ox - 4}" y="${momentBot + 3}" text-anchor="end" class="axis-label">0</text>`);
+  lines.push(`<text x="${ox - 4}" y="${momentTop + 10}" text-anchor="end" class="axis-label">${maxMu.toFixed(1)}</text>`);
+  lines.push(`<text x="${ox - 4}" y="${momentTop - 2}" text-anchor="end" class="axis-label">M (kN·m)</text>`);
+
+  // ── 3. Stirrup spacing zones ──
+  lines.push(`<rect x="${ox}" y="${stirrupTop}" width="${plotW}" height="${stirrupH}" fill="#111" rx="2"/>`);
+
+  const zoneColors = ['#e94560', '#f0a500', '#4ecdc4']; // dense → medium → sparse
+  // Sort zones by spacing to assign colors (tighter = more critical)
+  const allSpacings = [...new Set(stirrupZones.map(z => z.spacing))].sort((a, b) => a - b);
+
+  for (const zone of stirrupZones) {
+    const x1 = ox + zone.tStart * length * xScale;
+    const x2 = ox + zone.tEnd * length * xScale;
+    const w = Math.max(x2 - x1, 2);
+    const colorIdx = Math.min(allSpacings.indexOf(zone.spacing), zoneColors.length - 1);
+    const color = zoneColors[colorIdx >= 0 ? colorIdx : 0];
+
+    lines.push(`<rect x="${x1}" y="${stirrupTop}" width="${w}" height="${stirrupH}" fill="${color}" opacity="0.25"/>`);
+    // Draw stirrup tick marks
+    const nTicks = Math.max(Math.floor((zone.tEnd - zone.tStart) * length / zone.spacing), 1);
+    const tickStep = w / (nTicks + 1);
+    for (let i = 1; i <= Math.min(nTicks, 30); i++) {
+      const tx = x1 + i * tickStep;
+      lines.push(`<line x1="${tx}" y1="${stirrupTop + 2}" x2="${tx}" y2="${stirrupBot - 2}" stroke="${color}" stroke-width="0.7" opacity="0.6"/>`);
+    }
+    // Zone label
+    if (w > 40) {
+      lines.push(`<text x="${x1 + w / 2}" y="${stirrupBot + 12}" text-anchor="middle" class="zone-label">${zone.label}</text>`);
+    }
+  }
+  lines.push(`<text x="${ox - 4}" y="${stirrupTop + stirrupH / 2 + 3}" text-anchor="end" class="axis-label">${lbl.stirrups}</text>`);
+
+  // ── Beam axis + supports ──
+  const baseY = stirrupBot + 25;
+  lines.push(`<line x1="${ox}" y1="${baseY}" x2="${ox + plotW}" y2="${baseY}" stroke="#666" stroke-width="1"/>`);
+  if (supportI !== 'free') drawSupportSymbol(lines, ox, baseY, supportI);
+  if (supportJ !== 'free') drawSupportSymbol(lines, ox + plotW, baseY, supportJ);
+
+  // Length dimension
+  lines.push(`<text x="${ox + plotW / 2}" y="${baseY + 22}" text-anchor="middle" class="axis-label">L = ${length.toFixed(2)} m</text>`);
+
+  lines.push(`</svg>`);
+  return lines.join('\n');
+}
+
 // ─── Column Elevation Drawing ───────────────────────────────────
 
 export interface ColumnElevationSvgOpts {

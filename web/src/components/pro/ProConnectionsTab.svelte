@@ -6,6 +6,19 @@
     type BoltGrade, type BoltResult, type WeldResult,
     type JointInfo, type JointForces,
   } from '../../lib/engine/connection-design';
+  import { designBasePlate, generateBasePlatePlanSvg, type BasePlateInput, type BasePlateResult, type AnchorBoltGrade } from '../../lib/engine/codes/argentina/base-plate-design';
+  import ProShearTabSection from './ProShearTabSection.svelte';
+  import ProEndPlateSection from './ProEndPlateSection.svelte';
+  import type { ShearTabInput, ShearTabResult } from '../../lib/engine/codes/argentina/shear-tab-design';
+  import type { EndPlateInput, EndPlateResult } from '../../lib/engine/codes/argentina/end-plate-design';
+
+  interface Props {
+    onshearTabResult?: (input: ShearTabInput, result: ShearTabResult) => void;
+    onendPlateResult?: (input: EndPlateInput, result: EndPlateResult) => void;
+    onbasePlateResult?: (input: BasePlateInput, result: BasePlateResult) => void;
+  }
+
+  let { onshearTabResult, onendPlateResult, onbasePlateResult }: Props = $props();
 
   // ─── Joint detection (reactive) ──────────────
   const joints = $derived.by(() => {
@@ -97,6 +110,52 @@
       Vu: weldVu,
       plateThickness: weldPlateThickness,
     });
+  }
+
+  // ─── Base Plate state ────────────────────────
+  let bpColB = $state(0.20);     // m
+  let bpColD = $state(0.20);     // m
+  let bpN = $state(0.40);        // m
+  let bpB = $state(0.40);        // m
+  let bpTp = $state(0.025);      // m (25mm)
+  let bpFy = $state(250);        // MPa
+  let bpFc = $state(25);         // MPa
+  let bpA2 = $state(1.0);        // m²
+  let bpBoltDia = $state(20);    // mm
+  let bpBoltGrade = $state<AnchorBoltGrade>('A307');
+  let bpBoltCount = $state(4);
+  let bpBoltRows = $state(2);
+  let bpBoltCols = $state(2);
+  let bpEdgeDistN = $state(0.06); // m
+  let bpEdgeDistB = $state(0.06);
+  let bpEmbedment = $state(0.30); // m
+  let bpPu = $state(500);         // kN
+  let bpVu = $state(50);          // kN
+  let bpMu = $state(0);           // kN·m
+  let bpResult = $state<BasePlateResult | null>(null);
+
+  function runBasePlateDesign() {
+    const input: BasePlateInput = {
+      colB: bpColB, colD: bpColD,
+      N: bpN, B: bpB, tp: bpTp,
+      Fy_plate: bpFy, fc: bpFc, A2: bpA2,
+      bolt: {
+        diameter: bpBoltDia, grade: bpBoltGrade,
+        nBolts: bpBoltCount, nRows: bpBoltRows, nCols: bpBoltCols,
+        edgeDistN: bpEdgeDistN, edgeDistB: bpEdgeDistB,
+        embedment: bpEmbedment,
+      },
+      Pu: bpPu, Vu: bpVu, Mu: bpMu,
+    };
+    bpResult = designBasePlate(input);
+    onbasePlateResult?.(input, bpResult);
+  }
+
+  function autoFillBasePlateForces() {
+    if (!jointForces) return;
+    bpPu = Math.round(Math.abs(jointForces.maxN) * 10) / 10;
+    bpVu = Math.round(jointForces.maxV * 10) / 10;
+    bpMu = Math.round(jointForces.maxM * 10) / 10;
   }
 
   function fmtN(n: number): string {
@@ -214,6 +273,87 @@
       </div>
     </details>
 
+    <!-- Base Plate Design -->
+    <details class="conn-check-details">
+      <summary class="conn-check-summary">
+        {t('pro.basePlateTitle')}
+        {#if bpResult}
+          <span class="conn-ratio-badge {statusClass(bpResult.overallStatus)}">{(bpResult.overallRatio * 100).toFixed(0)}%</span>
+        {/if}
+      </summary>
+      <div class="conn-check-body">
+        <div class="conn-form-grid bp-grid">
+          <label>{t('pro.basePlateColumn')} bf (m) <input type="number" class="conn-inp" bind:value={bpColB} step={0.01} min={0.1} /></label>
+          <label>{t('pro.basePlateColumn')} d (m) <input type="number" class="conn-inp" bind:value={bpColD} step={0.01} min={0.1} /></label>
+          <label>{t('pro.basePlateDims')} N (m) <input type="number" class="conn-inp" bind:value={bpN} step={0.01} min={0.2} /></label>
+          <label>{t('pro.basePlateDims')} B (m) <input type="number" class="conn-inp" bind:value={bpB} step={0.01} min={0.2} /></label>
+          <label>{t('pro.basePlateThickness')} (m) <input type="number" class="conn-inp" bind:value={bpTp} step={0.005} min={0.01} /></label>
+          <label>{t('pro.basePlateFy')} (MPa) <input type="number" class="conn-inp" bind:value={bpFy} step={10} min={200} /></label>
+          <label>{t('pro.basePlateFc')} (MPa) <input type="number" class="conn-inp" bind:value={bpFc} step={5} min={15} /></label>
+          <label>{t('pro.basePlateA2')} (m²) <input type="number" class="conn-inp" bind:value={bpA2} step={0.1} min={0.1} /></label>
+        </div>
+        <div class="bp-sub-header">{t('pro.basePlateBoltDia')}</div>
+        <div class="conn-form-grid bp-grid">
+          <label>Ø (mm) <input type="number" class="conn-inp" bind:value={bpBoltDia} step={2} min={12} max={50} /></label>
+          <label>{t('pro.basePlateBoltGrade')} <select class="conn-inp" bind:value={bpBoltGrade}>
+            <option value="F-24">F-24</option>
+            <option value="SAE-1040">SAE-1040</option>
+            <option value="A307">A307</option>
+            <option value="A325">A325</option>
+            <option value="A490">A490</option>
+          </select></label>
+          <label>{t('pro.basePlateBoltRows')} <input type="number" class="conn-inp" bind:value={bpBoltRows} min={1} max={6} />×<input type="number" class="conn-inp" bind:value={bpBoltCols} min={1} max={6} /></label>
+          <label>{t('pro.basePlateEdgeDist')} N (m) <input type="number" class="conn-inp" bind:value={bpEdgeDistN} step={0.01} min={0.03} /></label>
+          <label>{t('pro.basePlateEdgeDist')} B (m) <input type="number" class="conn-inp" bind:value={bpEdgeDistB} step={0.01} min={0.03} /></label>
+          <label>{t('pro.basePlateEmbedment')} (m) <input type="number" class="conn-inp" bind:value={bpEmbedment} step={0.05} min={0.1} /></label>
+        </div>
+        <div class="conn-force-inputs">
+          <label>{t('pro.basePlatePu')} (kN) <input type="number" class="conn-inp" bind:value={bpPu} step={10} /></label>
+          <label>{t('pro.basePlateVu')} (kN) <input type="number" class="conn-inp" bind:value={bpVu} step={5} /></label>
+          <label>{t('pro.basePlateMu')} (kN·m) <input type="number" class="conn-inp" bind:value={bpMu} step={5} /></label>
+          {#if jointForces}
+            <button class="conn-btn-auto" onclick={autoFillBasePlateForces}>{t('conn.autoFill')}</button>
+          {/if}
+          <button class="conn-btn-verify" onclick={() => { bpBoltCount = bpBoltRows * bpBoltCols; runBasePlateDesign(); }}>{t('pro.basePlateRun')}</button>
+        </div>
+        {#if bpResult}
+          <div class="bp-results">
+            <div class="bp-svg-wrap">
+              {@html generateBasePlatePlanSvg({
+                colB: bpColB, colD: bpColD,
+                N: bpN, B: bpB, tp: bpTp,
+                Fy_plate: bpFy, fc: bpFc, A2: bpA2,
+                bolt: { diameter: bpBoltDia, grade: bpBoltGrade, nBolts: bpBoltCount, nRows: bpBoltRows, nCols: bpBoltCols, edgeDistN: bpEdgeDistN, edgeDistB: bpEdgeDistB, embedment: bpEmbedment },
+                Pu: bpPu, Vu: bpVu, Mu: bpMu,
+              }, bpResult)}
+            </div>
+            {#each [
+              { label: t('pro.basePlateBearing'), r: bpResult.bearing },
+              { label: t('pro.basePlateBending'), r: bpResult.plateBending },
+              { label: t('pro.basePlateAnchorTension'), r: bpResult.anchorTension },
+              { label: t('pro.basePlateAnchorShear'), r: bpResult.anchorShear },
+              { label: t('pro.basePlateInteraction'), r: bpResult.interaction },
+              { label: t('pro.basePlateShearTransfer'), r: bpResult.shearTransfer },
+            ] as check}
+              <details class="bp-check-detail">
+                <summary class="bp-check-sum">
+                  <span>{check.label}</span>
+                  <span class="conn-ratio-badge {statusClass(check.r.status)}">{(check.r.ratio * 100).toFixed(0)}%</span>
+                </summary>
+                <div class="bp-steps">
+                  {#each check.r.steps as step}
+                    <div class="bp-step">{step}</div>
+                  {/each}
+                </div>
+              </details>
+            {/each}
+          </div>
+        {:else}
+          <div class="conn-empty">{t('pro.basePlateNoResults')}</div>
+        {/if}
+      </div>
+    </details>
+
     <!-- Weld check -->
     <details class="conn-check-details">
       <summary class="conn-check-summary">
@@ -252,6 +392,12 @@
         {/if}
       </div>
     </details>
+
+    <!-- Shear Tab Connection -->
+    <ProShearTabSection {jointForces} onresult={onshearTabResult} />
+
+    <!-- End Plate Moment Connection -->
+    <ProEndPlateSection {jointForces} onresult={onendPlateResult} />
   {/if}
 </div>
 
@@ -338,4 +484,18 @@
   .conn-status-icon.st-ok { color: #22cc66; }
   .conn-status-icon.st-warn { color: #f0a500; }
   .conn-status-icon.st-fail { color: #e94560; }
+
+  /* Base Plate */
+  .bp-grid { grid-template-columns: 1fr 1fr; }
+  .bp-sub-header { font-size: 0.68rem; color: #4ecdc4; font-weight: 600; margin: 6px 0 2px; padding-left: 2px; }
+  .bp-results { margin-top: 6px; }
+  .bp-svg-wrap { display: flex; justify-content: center; margin: 4px 0 8px; }
+  .bp-check-detail { border-bottom: 1px solid #0f2030; }
+  .bp-check-sum {
+    padding: 4px 6px; font-size: 0.68rem; color: #ccc; cursor: pointer;
+    display: flex; justify-content: space-between; align-items: center;
+  }
+  .bp-check-sum:hover { color: #fff; }
+  .bp-steps { padding: 4px 8px; }
+  .bp-step { font-family: monospace; font-size: 0.6rem; color: #aaa; padding: 1px 0; }
 </style>
