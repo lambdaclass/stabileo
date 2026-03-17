@@ -3,6 +3,9 @@
   import { t, i18n } from '../lib/i18n';
   import { reviewModel, buildArtifact, type ReviewModelResponse, type ReviewFinding } from '../lib/ai/client';
 
+  type AiTab = 'review' | 'explain' | 'query' | 'build';
+  let activeTab = $state<AiTab>('review');
+
   let loading = $state(false);
   let error = $state<string | null>(null);
   let response = $state<ReviewModelResponse | null>(null);
@@ -17,7 +20,6 @@
   async function handleReview() {
     loading = true;
     error = null;
-    response = null;
 
     try {
       const is3D = uiStore.analysisMode === '3d';
@@ -50,9 +52,18 @@
     }
   }
 
+  function severityLabel(severity: string): string {
+    switch (severity) {
+      case 'error': return 'ERR';
+      case 'warning': return 'WARN';
+      case 'info': return 'INFO';
+      default: return severity.toUpperCase().slice(0, 4);
+    }
+  }
+
   function riskColor(risk: string): string {
     switch (risk) {
-      case 'high': return '#e94560';
+      case 'high': case 'critical': return '#e94560';
       case 'medium': return '#f0a500';
       case 'low': return '#4caf50';
       default: return '#aaa';
@@ -78,28 +89,40 @@
 </script>
 
 <aside class="ai-drawer">
+  <!-- Header -->
   <div class="drawer-header">
-    <span class="drawer-title">{t('ai.title')}</span>
-    <button class="close-btn" onclick={close}>×</button>
+    <span class="drawer-title">△ Stabileo AI</span>
+    <button class="close-btn" onclick={close} title="Close">×</button>
   </div>
 
-  <div class="drawer-body">
-    <!-- Review tab -->
-    <div class="tab-content">
-      <button
-        class="review-btn"
-        disabled={!hasResults || loading}
-        onclick={handleReview}
-      >
-        {#if loading}
-          <span class="spinner"></span> {t('ai.reviewing')}
-        {:else}
-          {t('ai.reviewModel')}
-        {/if}
-      </button>
+  <!-- Tabs -->
+  <div class="tab-bar">
+    <button class="tab" class:active={activeTab === 'review'} onclick={() => activeTab = 'review'}>Review</button>
+    <button class="tab" class:active={activeTab === 'explain'} onclick={() => activeTab = 'explain'}>Explain</button>
+    <button class="tab" class:active={activeTab === 'query'} onclick={() => activeTab = 'query'}>Query</button>
+    <button class="tab" class:active={activeTab === 'build'} onclick={() => activeTab = 'build'}>Build</button>
+  </div>
 
-      {#if !hasResults}
-        <p class="hint">{t('ai.solveFirst')}</p>
+  <!-- Body -->
+  <div class="drawer-body">
+    {#if activeTab === 'review'}
+      <!-- Review action -->
+      {#if !response && !loading}
+        <button
+          class="action-btn"
+          disabled={!hasResults}
+          onclick={handleReview}
+        >
+          {t('ai.reviewModel')}
+        </button>
+        {#if !hasResults}
+          <p class="hint">{t('ai.solveFirst')}</p>
+        {/if}
+      {:else if loading}
+        <div class="loading-state">
+          <span class="spinner"></span>
+          <span class="loading-text">{t('ai.reviewing')}</span>
+        </div>
       {/if}
 
       {#if error}
@@ -108,12 +131,13 @@
 
       {#if response}
         <div class="results">
-          <!-- Risk Level -->
-          <div class="risk-badge" style="border-color: {riskColor(response.riskLevel)}">
-            <span class="risk-label">{t('ai.risk')}</span>
-            <span class="risk-value" style="color: {riskColor(response.riskLevel)}">
-              {response.riskLevel.toUpperCase()}
-            </span>
+          <!-- Risk + Regenerate row -->
+          <div class="risk-row">
+            <div class="risk-chip" style="background: {riskColor(response.riskLevel)}20; border-color: {riskColor(response.riskLevel)}">
+              <span class="risk-dot" style="background: {riskColor(response.riskLevel)}"></span>
+              <span class="risk-text" style="color: {riskColor(response.riskLevel)}">{response.riskLevel.toUpperCase()}</span>
+            </div>
+            <button class="regen-btn" onclick={handleReview} disabled={loading} title="Re-run review">↻</button>
           </div>
 
           <!-- Summary -->
@@ -122,6 +146,7 @@
           <!-- Findings -->
           {#if response.findings.length > 0}
             <div class="findings">
+              <span class="section-label">{t('ai.findings') ?? 'Findings'} ({response.findings.length})</span>
               {#each response.findings as finding, i}
                 <button
                   class="finding"
@@ -129,7 +154,9 @@
                   onclick={() => handleFindingClick(finding, i)}
                 >
                   <div class="finding-header">
-                    <span class="severity-dot" style="background: {severityColor(finding.severity)}"></span>
+                    <span class="severity-badge" style="background: {severityColor(finding.severity)}">
+                      {severityLabel(finding.severity)}
+                    </span>
                     <span class="finding-title">{finding.title}</span>
                     <span class="finding-chevron">{expandedFinding === i ? '▾' : '▸'}</span>
                   </div>
@@ -137,12 +164,14 @@
                     <div class="finding-body">
                       <p>{finding.explanation}</p>
                       {#if finding.recommendation}
-                        <p class="recommendation"><strong>{t('ai.recommendation')}:</strong> {finding.recommendation}</p>
+                        <p class="recommendation">{finding.recommendation}</p>
                       {/if}
                       {#if finding.affectedIds.length > 0}
-                        <p class="affected">
-                          {t('ai.affected')}: {finding.affectedIds.join(', ')}
-                        </p>
+                        <div class="finding-actions">
+                          <button class="finding-action" onclick={(e) => { e.stopPropagation(); handleFindingClick(finding, i); }}>
+                            Zoom to issue
+                          </button>
+                        </div>
                       {/if}
                     </div>
                   {/if}
@@ -155,8 +184,8 @@
 
           <!-- Review Order -->
           {#if response.reviewOrder.length > 0}
-            <div class="review-order">
-              <span class="sub-label">{t('ai.reviewOrder')}</span>
+            <div class="collapsible-section">
+              <span class="section-label">{t('ai.reviewOrder')}</span>
               <ol>
                 {#each response.reviewOrder as step}
                   <li>{step}</li>
@@ -167,8 +196,8 @@
 
           <!-- Risky Assumptions -->
           {#if response.riskyAssumptions.length > 0}
-            <div class="assumptions">
-              <span class="sub-label">{t('ai.riskyAssumptions')}</span>
+            <div class="collapsible-section">
+              <span class="section-label">{t('ai.riskyAssumptions')}</span>
               <ul>
                 {#each response.riskyAssumptions as assumption}
                   <li>{assumption}</li>
@@ -179,11 +208,32 @@
 
           <!-- Meta -->
           <div class="meta">
-            {response.meta.modelUsed} · {response.meta.latencyMs}ms · {response.meta.inputTokens + response.meta.outputTokens} tokens
+            {response.meta.modelUsed} · {response.meta.latencyMs}ms · {response.meta.inputTokens + response.meta.outputTokens} tok
           </div>
         </div>
       {/if}
-    </div>
+
+    {:else if activeTab === 'explain'}
+      <div class="placeholder">
+        <span class="placeholder-icon">?</span>
+        <p>Select a diagnostic or finding to get a detailed explanation.</p>
+        <p class="hint">Coming soon</p>
+      </div>
+
+    {:else if activeTab === 'query'}
+      <div class="placeholder">
+        <span class="placeholder-icon">⌕</span>
+        <p>Ask questions about your analysis results.</p>
+        <p class="hint">Coming soon</p>
+      </div>
+
+    {:else if activeTab === 'build'}
+      <div class="placeholder">
+        <span class="placeholder-icon">+</span>
+        <p>Describe a structure and let AI build it.</p>
+        <p class="hint">Coming soon</p>
+      </div>
+    {/if}
   </div>
 </aside>
 
@@ -196,23 +246,23 @@
     display: flex;
     flex-direction: column;
     overflow: hidden;
+    flex-shrink: 0;
   }
 
   .drawer-header {
     display: flex;
     align-items: center;
     justify-content: space-between;
-    padding: 0.6rem 0.75rem;
+    padding: 0.5rem 0.75rem;
     border-bottom: 1px solid #0f3460;
     flex-shrink: 0;
   }
 
   .drawer-title {
-    font-size: 0.8rem;
+    font-size: 0.75rem;
     font-weight: 600;
     color: #ccc;
-    text-transform: uppercase;
-    letter-spacing: 0.05em;
+    letter-spacing: 0.03em;
   }
 
   .close-btn {
@@ -229,53 +279,92 @@
     color: #e94560;
   }
 
+  /* ─── Tabs ─── */
+  .tab-bar {
+    display: flex;
+    border-bottom: 1px solid #0f3460;
+    flex-shrink: 0;
+  }
+
+  .tab {
+    flex: 1;
+    padding: 0.4rem 0;
+    background: none;
+    border: none;
+    border-bottom: 2px solid transparent;
+    color: #666;
+    font-size: 0.68rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    cursor: pointer;
+    transition: all 0.15s;
+  }
+
+  .tab:hover {
+    color: #aaa;
+    background: rgba(255, 255, 255, 0.02);
+  }
+
+  .tab.active {
+    color: #4ecdc4;
+    border-bottom-color: #4ecdc4;
+  }
+
+  /* ─── Body ─── */
   .drawer-body {
     flex: 1;
     overflow-y: auto;
     padding: 0.75rem;
-  }
-
-  .tab-content {
     display: flex;
     flex-direction: column;
     gap: 0.6rem;
   }
 
-  .review-btn {
+  /* ─── Action button (shown before results) ─── */
+  .action-btn {
     width: 100%;
-    padding: 0.6rem;
+    padding: 0.55rem;
     background: #0f3460;
     border: 1px solid #1a4a7a;
     border-radius: 4px;
     color: #ccc;
     cursor: pointer;
-    font-size: 0.8rem;
+    font-size: 0.78rem;
     font-weight: 600;
-    text-transform: uppercase;
-    letter-spacing: 0.05em;
     transition: all 0.2s;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    gap: 0.4rem;
   }
 
-  .review-btn:hover:not(:disabled) {
+  .action-btn:hover:not(:disabled) {
     background: #1a4a7a;
     color: white;
   }
 
-  .review-btn:disabled {
+  .action-btn:disabled {
     opacity: 0.4;
     cursor: not-allowed;
   }
 
+  /* ─── Loading ─── */
+  .loading-state {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+    padding: 1rem 0;
+    color: #888;
+  }
+
+  .loading-text {
+    font-size: 0.78rem;
+  }
+
   .spinner {
     display: inline-block;
-    width: 14px;
-    height: 14px;
-    border: 2px solid #555;
-    border-top-color: #ccc;
+    width: 16px;
+    height: 16px;
+    border: 2px solid #444;
+    border-top-color: #4ecdc4;
     border-radius: 50%;
     animation: spin 0.6s linear infinite;
   }
@@ -285,158 +374,244 @@
   }
 
   .hint {
-    color: #666;
-    font-size: 0.75rem;
+    color: #555;
+    font-size: 0.73rem;
     font-style: italic;
     margin: 0;
   }
 
   .error-box {
-    background: rgba(233, 69, 96, 0.15);
-    border: 1px solid #e94560;
+    background: rgba(233, 69, 96, 0.12);
+    border: 1px solid rgba(233, 69, 96, 0.4);
     border-radius: 4px;
     padding: 0.5rem 0.6rem;
     color: #e94560;
-    font-size: 0.75rem;
+    font-size: 0.73rem;
     word-break: break-word;
   }
 
+  /* ─── Results ─── */
   .results {
     display: flex;
     flex-direction: column;
     gap: 0.6rem;
   }
 
-  .risk-badge {
+  .risk-row {
     display: flex;
     align-items: center;
-    gap: 0.5rem;
-    padding: 0.4rem 0.6rem;
+    justify-content: space-between;
+  }
+
+  .risk-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+    padding: 0.25rem 0.6rem;
     border: 1px solid;
-    border-radius: 4px;
-    background: rgba(255, 255, 255, 0.03);
+    border-radius: 12px;
   }
 
-  .risk-label {
-    color: #888;
+  .risk-dot {
+    width: 7px;
+    height: 7px;
+    border-radius: 50%;
+  }
+
+  .risk-text {
     font-size: 0.7rem;
-    text-transform: uppercase;
-    letter-spacing: 0.05em;
+    font-weight: 700;
+    letter-spacing: 0.04em;
   }
 
-  .risk-value {
-    font-size: 0.8rem;
-    font-weight: 700;
+  .regen-btn {
+    background: none;
+    border: 1px solid #333;
+    color: #777;
+    width: 28px;
+    height: 28px;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 1rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.15s;
+  }
+
+  .regen-btn:hover:not(:disabled) {
+    border-color: #4ecdc4;
+    color: #4ecdc4;
+  }
+
+  .regen-btn:disabled {
+    opacity: 0.4;
   }
 
   .summary {
     color: #bbb;
-    font-size: 0.78rem;
-    line-height: 1.45;
+    font-size: 0.76rem;
+    line-height: 1.5;
     margin: 0;
+  }
+
+  /* ─── Findings ─── */
+  .section-label {
+    color: #777;
+    font-size: 0.65rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
   }
 
   .findings {
     display: flex;
     flex-direction: column;
-    gap: 0.3rem;
+    gap: 0.35rem;
   }
 
   .finding {
     width: 100%;
-    background: rgba(255, 255, 255, 0.03);
-    border: 1px solid #2a2a3a;
-    border-radius: 4px;
+    background: rgba(255, 255, 255, 0.02);
+    border: 1px solid #252535;
+    border-radius: 5px;
     padding: 0;
     cursor: pointer;
     text-align: left;
     color: #ccc;
-    transition: border-color 0.2s;
+    transition: border-color 0.15s;
   }
 
   .finding:hover {
-    border-color: #444;
+    border-color: #3a3a4a;
   }
 
   .finding.expanded {
-    border-color: #555;
+    border-color: #4a4a5a;
   }
 
   .finding-header {
     display: flex;
     align-items: center;
-    gap: 0.4rem;
-    padding: 0.45rem 0.6rem;
+    gap: 0.45rem;
+    padding: 0.4rem 0.55rem;
   }
 
-  .severity-dot {
-    width: 8px;
-    height: 8px;
-    border-radius: 50%;
+  .severity-badge {
+    font-size: 0.55rem;
+    font-weight: 700;
+    letter-spacing: 0.03em;
+    color: white;
+    padding: 0.1rem 0.35rem;
+    border-radius: 3px;
     flex-shrink: 0;
+    line-height: 1.3;
   }
 
   .finding-title {
     flex: 1;
-    font-size: 0.75rem;
+    font-size: 0.73rem;
     font-weight: 500;
   }
 
   .finding-chevron {
-    color: #666;
-    font-size: 0.7rem;
+    color: #555;
+    font-size: 0.65rem;
   }
 
   .finding-body {
-    padding: 0 0.6rem 0.5rem;
-    border-top: 1px solid #2a2a3a;
+    padding: 0.4rem 0.55rem 0.5rem;
+    border-top: 1px solid #252535;
   }
 
   .finding-body p {
-    margin: 0.35rem 0 0;
-    font-size: 0.73rem;
-    color: #999;
-    line-height: 1.4;
-  }
-
-  .recommendation {
-    color: #aaa !important;
-  }
-
-  .affected {
-    color: #777 !important;
-    font-size: 0.7rem !important;
-  }
-
-  .no-findings {
-    color: #4caf50;
-    font-size: 0.75rem;
-    margin: 0;
-  }
-
-  .review-order, .assumptions {
-    font-size: 0.73rem;
-  }
-
-  .sub-label {
-    color: #888;
-    font-size: 0.7rem;
-    text-transform: uppercase;
-    letter-spacing: 0.05em;
-  }
-
-  .review-order ol, .assumptions ul {
-    margin: 0.25rem 0 0;
-    padding-left: 1.2rem;
+    margin: 0 0 0.3rem;
+    font-size: 0.72rem;
     color: #999;
     line-height: 1.45;
   }
 
-  .meta {
-    color: #555;
+  .recommendation {
+    color: #aaa !important;
+    font-style: italic;
+  }
+
+  .finding-actions {
+    display: flex;
+    gap: 0.4rem;
+    margin-top: 0.3rem;
+  }
+
+  .finding-action {
+    background: none;
+    border: 1px solid #333;
+    color: #888;
     font-size: 0.65rem;
+    padding: 0.2rem 0.45rem;
+    border-radius: 3px;
+    cursor: pointer;
+    transition: all 0.15s;
+  }
+
+  .finding-action:hover {
+    border-color: #4ecdc4;
+    color: #4ecdc4;
+  }
+
+  .no-findings {
+    color: #4caf50;
+    font-size: 0.73rem;
+    margin: 0;
+  }
+
+  /* ─── Collapsible sections ─── */
+  .collapsible-section {
+    font-size: 0.72rem;
+  }
+
+  .collapsible-section ol, .collapsible-section ul {
+    margin: 0.2rem 0 0;
+    padding-left: 1.1rem;
+    color: #999;
+    line-height: 1.5;
+  }
+
+  .meta {
+    color: #444;
+    font-size: 0.6rem;
     text-align: right;
     padding-top: 0.3rem;
     border-top: 1px solid #1a1a2e;
+  }
+
+  /* ─── Placeholder tabs ─── */
+  .placeholder {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 2rem 1rem;
+    text-align: center;
+    gap: 0.4rem;
+  }
+
+  .placeholder-icon {
+    font-size: 1.5rem;
+    color: #333;
+    width: 48px;
+    height: 48px;
+    border-radius: 50%;
+    border: 2px solid #252535;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin-bottom: 0.3rem;
+  }
+
+  .placeholder p {
+    color: #666;
+    font-size: 0.75rem;
+    margin: 0;
+    line-height: 1.4;
   }
 </style>

@@ -140,7 +140,7 @@ export function buildArtifact(
       buildTimestamp: new Date().toISOString(),
       buildSha: 'web-frontend',
       solverPath: results.timings?.solverType ?? 'unknown',
-      nFreeDofs: results.timings?.nFree ?? 0,
+      nFreeDofs: results.timings?.nFree ?? (results.displacements.length * 3),
       nElements: nElements,
       nNodes: nNodes,
     },

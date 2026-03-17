@@ -660,8 +660,8 @@
   <!-- <FeedbackWidget /> -->
 {/if}
 
-{#if !showLanding && !uiStore.isMobile && !uiStore.embedMode}
-  <button class="ai-fab" class:active={uiStore.aiDrawerOpen} onclick={() => uiStore.aiDrawerOpen = !uiStore.aiDrawerOpen} title="Stabileo AI">
+{#if !showLanding && !uiStore.isMobile && !uiStore.embedMode && !uiStore.aiDrawerOpen}
+  <button class="ai-fab" onclick={() => uiStore.aiDrawerOpen = true} title="Stabileo AI">
     △
   </button>
 {/if}
