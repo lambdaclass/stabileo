@@ -45,8 +45,7 @@
             pkgs.jq
             pkgs.curl
           ] ++ pkgs.lib.optionals pkgs.stdenv.isDarwin [
-            pkgs.darwin.apple_sdk.frameworks.Security
-            pkgs.darwin.apple_sdk.frameworks.SystemConfiguration
+            pkgs.apple-sdk_15
           ];
 
           shellHook = ''
