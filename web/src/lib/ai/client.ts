@@ -64,6 +64,21 @@ export interface BuildModelResponse {
   meta: ReviewMeta;
 }
 
+/** Compact model summary sent to the AI prompt for edit reasoning. */
+export interface ModelContext {
+  nodeCount: number;
+  elementCount: number;
+  supportCount: number;
+  loadCount: number;
+  bounds: { xMin: number; xMax: number; yMin: number; yMax: number };
+  sections: Array<{ id: number; name: string }>;
+  materials: Array<{ id: number; name: string }>;
+  supportTypes: string[];
+  elementTypes: string[];
+  floorHeights: number[];
+  bayWidths: number[];
+}
+
 // ─── Artifact construction ─────────────────────────────────────
 
 // All fields are camelCase to match the Rust backend's #[serde(rename_all = "camelCase")]
@@ -236,12 +251,18 @@ export async function buildModel(
   description: string,
   locale?: string,
   analysisMode?: string,
+  modelContext?: ModelContext,
+  currentSnapshot?: Record<string, unknown>,
 ): Promise<BuildModelResponse> {
-  const raw: any = await post('/api/ai/build-model', {
+  const body: Record<string, unknown> = {
     description,
     locale: locale ?? 'en',
     analysisMode: analysisMode ?? '2d',
-  });
+  };
+  if (modelContext) body.modelContext = modelContext;
+  if (currentSnapshot) body.currentSnapshot = currentSnapshot;
+
+  const raw: any = await post('/api/ai/build-model', body);
   // Normalize: old backend returns { snapshot, interpretation }, new returns { snapshot, message }
   return {
     snapshot: raw.snapshot ?? null,

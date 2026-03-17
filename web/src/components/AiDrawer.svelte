@@ -1,7 +1,7 @@
 <script lang="ts">
   import { resultsStore, modelStore, uiStore, historyStore } from '../lib/store';
   import { t, i18n } from '../lib/i18n';
-  import { reviewModel, buildArtifact, buildModel, type ReviewModelResponse, type ReviewFinding, type BuildModelResponse } from '../lib/ai/client';
+  import { reviewModel, buildArtifact, buildModel, type ReviewModelResponse, type ReviewFinding, type BuildModelResponse, type ModelContext } from '../lib/ai/client';
   import { runGlobalSolve } from '../lib/engine/live-calc';
   import type { ModelSnapshot } from '../lib/store/history.svelte';
 
@@ -133,6 +133,69 @@
     return { valid: errors.length === 0, errors };
   }
 
+  // ─── Model context for edit actions ───
+
+  const hasModelOnCanvas = $derived(modelStore.nodes.size > 0 && modelStore.elements.size > 0);
+
+  function buildModelContext(): ModelContext {
+    const nodes = modelStore.nodes;
+    let xMin = Infinity, xMax = -Infinity, yMin = Infinity, yMax = -Infinity;
+    for (const n of nodes.values()) {
+      if (n.x < xMin) xMin = n.x;
+      if (n.x > xMax) xMax = n.x;
+      if (n.y < yMin) yMin = n.y;
+      if (n.y > yMax) yMax = n.y;
+    }
+
+    // Unique section/material refs
+    const sections: Array<{ id: number; name: string }> = [];
+    for (const [id, s] of modelStore.sections) {
+      sections.push({ id, name: s.name });
+    }
+    const materials: Array<{ id: number; name: string }> = [];
+    for (const [id, m] of modelStore.materials) {
+      materials.push({ id, name: m.name });
+    }
+
+    // Unique support types and element types
+    const supTypes = new Set<string>();
+    for (const s of modelStore.supports.values()) supTypes.add(s.type);
+    const elemTypes = new Set<string>();
+    for (const e of modelStore.elements.values()) elemTypes.add(e.type);
+
+    // Detect floor heights (unique Y coords with multiple nodes) and bay widths (unique X spacings)
+    const yCounts = new Map<number, number>();
+    const xSet = new Set<number>();
+    for (const n of nodes.values()) {
+      yCounts.set(n.y, (yCounts.get(n.y) ?? 0) + 1);
+      xSet.add(n.x);
+    }
+    const floorHeights = [...yCounts.entries()]
+      .filter(([, count]) => count >= 2)
+      .map(([y]) => y)
+      .sort((a, b) => a - b);
+    const xSorted = [...xSet].sort((a, b) => a - b);
+    const bayWidths: number[] = [];
+    for (let i = 1; i < xSorted.length; i++) {
+      const w = +(xSorted[i] - xSorted[i - 1]).toFixed(4);
+      if (w > 0) bayWidths.push(w);
+    }
+
+    return {
+      nodeCount: nodes.size,
+      elementCount: modelStore.elements.size,
+      supportCount: modelStore.supports.size,
+      loadCount: modelStore.loads.length,
+      bounds: { xMin, xMax, yMin, yMax },
+      sections,
+      materials,
+      supportTypes: [...supTypes],
+      elementTypes: [...elemTypes],
+      floorHeights,
+      bayWidths,
+    };
+  }
+
   // ─── Build handler ───
 
   async function handleBuildSend(descriptionOverride?: string) {
@@ -173,7 +236,10 @@
     buildLoading = true;
 
     try {
-      const resp = await buildModel(text, i18n.locale, uiStore.analysisMode === '3d' ? '3d' : '2d');
+      const mode = uiStore.analysisMode === '3d' ? '3d' : '2d';
+      const ctx = hasModelOnCanvas ? buildModelContext() : undefined;
+      const currentSnap = hasModelOnCanvas ? ($state.snapshot(modelStore.snapshot()) as Record<string, unknown>) : undefined;
+      const resp = await buildModel(text, i18n.locale, mode, ctx, currentSnap);
 
       // Remove building indicator
       chatMessages = chatMessages.filter(m => !m.isBuilding);
@@ -496,10 +562,18 @@
       <div class="chat-messages" bind:this={chatContainer}>
         {#if chatMessages.length === 0}
           <div class="chat-empty">
-            <p class="chat-empty-title">Describe a structure</p>
-            <p class="chat-empty-hint">Try: "simply supported beam, 6m, 10 kN/m"</p>
-            <p class="chat-empty-hint">Or: "portal frame, 8m span, 5m height"</p>
-            <p class="chat-empty-hint">Or: "continuous beam, spans 4+6+4 m"</p>
+            {#if hasModelOnCanvas}
+              <p class="chat-empty-title">Describe a structure or change</p>
+              <p class="chat-empty-hint">Try: "add one bay on the right"</p>
+              <p class="chat-empty-hint">Or: "add a story"</p>
+              <p class="chat-empty-hint">Or: "change all beams to IPE 400"</p>
+              <p class="chat-empty-hint">Or: "build a new 3-story frame"</p>
+            {:else}
+              <p class="chat-empty-title">Describe a structure</p>
+              <p class="chat-empty-hint">Try: "simply supported beam, 6m, 10 kN/m"</p>
+              <p class="chat-empty-hint">Or: "portal frame, 8m span, 5m height"</p>
+              <p class="chat-empty-hint">Or: "continuous beam, spans 4+6+4 m"</p>
+            {/if}
           </div>
         {/if}
         {#each chatMessages as msg}
@@ -549,7 +623,7 @@
       <div class="chat-input-row">
         <textarea
           class="chat-input"
-          placeholder="Describe what to build..."
+          placeholder={hasModelOnCanvas ? "Describe a change or new structure..." : "Describe what to build..."}
           bind:value={chatInput}
           onkeydown={handleBuildKeydown}
           disabled={buildLoading || !!pendingDraft}
