@@ -1,5 +1,6 @@
 // UI state store
 
+import { DEFAULT_WORKING_PLANE, VERTICAL_AXIS } from '../geometry/coordinate-system';
 import type { UnitSystem } from '../utils/units';
 
 export type Tool = 'select' | 'node' | 'element' | 'support' | 'load' | 'pan' | 'influenceLine';
@@ -126,11 +127,11 @@ function createUIStore() {
 
   // 3D clipping plane
   let clippingEnabled = $state<boolean>(false);
-  let clippingAxis = $state<'x' | 'y' | 'z'>('z');
+  let clippingAxis = $state<'x' | 'y' | 'z'>(VERTICAL_AXIS);
   let clippingPosition = $state<number>(0);
 
   // 3D working plane and snap
-  let workingPlane = $state<'XZ' | 'XY' | 'YZ'>('XY');
+  let workingPlane = $state<'XZ' | 'XY' | 'YZ'>(DEFAULT_WORKING_PLANE);
 
   // Duplicate along axis
   let duplicateAxis = $state<'x' | 'y' | 'z'>('z');

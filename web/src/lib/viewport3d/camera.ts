@@ -9,7 +9,7 @@
 import * as THREE from 'three';
 import type { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { setLineResolution } from '../three/create-element-mesh';
-import { setCameraUp } from './coordinate-system';
+import { setCameraUp, TOP_VIEW_UP_VECTOR } from '../geometry/coordinate-system';
 
 // ─── Types ──────────────────────────────────────────────────
 
@@ -103,7 +103,7 @@ export function setView(
   switch (view) {
     case 'top':
       camera.position.set(center.x, center.y, center.z + dist);
-      camera.up.set(0, 1, 0);
+      camera.up.copy(TOP_VIEW_UP_VECTOR);
       break;
     case 'front':
       camera.position.set(center.x, center.y - dist, center.z);

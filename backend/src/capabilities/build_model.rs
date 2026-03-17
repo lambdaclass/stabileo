@@ -2,6 +2,7 @@ use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
 use super::actions::{validate_action, ActionResponse, BuildAction};
+use super::coordinate_system::{VerticalAxis, DEFAULT_HORIZONTAL_PLANE_3D, GRAVITY_DIRECTION_3D, VERTICAL_AXIS_3D};
 use super::edit_executor;
 use super::generators::execute_action;
 use super::registry;
@@ -30,6 +31,7 @@ pub struct ModelContext {
     pub support_count: u32,
     pub load_count: u32,
     pub bounds: Bounds,
+    pub vertical_axis: VerticalAxis,
     pub sections: Vec<NameRef>,
     pub materials: Vec<NameRef>,
     pub support_types: Vec<String>,
@@ -109,6 +111,7 @@ fn build_system_prompt(locale: &str, analysis_mode: &str, ctx: Option<&ModelCont
 The user has an existing model on canvas:
 - {nodes} nodes, {elems} elements, {sups} supports, {loads} loads
 - Bounds: X [{x0}, {x1}], Y [{y0}, {y1}]
+- 3D contract: vertical axis = {vertical_axis}, horizontal plane = {horizontal_plane}, gravity = {gravity:?}
 - Sections: {secs}
 - Support types: {stypes}
 - Floor heights: {floors:?}
@@ -121,6 +124,9 @@ Use create tools when the user wants something entirely different."#,
             sups = c.support_count, loads = c.load_count,
             x0 = c.bounds.x_min, x1 = c.bounds.x_max,
             y0 = c.bounds.y_min, y1 = c.bounds.y_max,
+            vertical_axis = match c.vertical_axis { VerticalAxis::Y => "y", VerticalAxis::Z => VERTICAL_AXIS_3D },
+            horizontal_plane = DEFAULT_HORIZONTAL_PLANE_3D,
+            gravity = GRAVITY_DIRECTION_3D,
             secs = sections.join(", "),
             stypes = c.support_types.join(", "),
             floors = c.floor_heights,

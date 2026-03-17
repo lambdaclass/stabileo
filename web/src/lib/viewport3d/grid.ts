@@ -3,6 +3,7 @@ import { Line2 } from 'three/addons/lines/Line2.js';
 import { LineMaterial } from 'three/addons/lines/LineMaterial.js';
 import { LineGeometry } from 'three/addons/lines/LineGeometry.js';
 import { disposeObject } from '../three/selection-helpers';
+import { setPlaneOffset, type WorkingPlane3D } from '../geometry/coordinate-system';
 
 /**
  * Remove the old grid (if any), optionally create a new one based on settings,
@@ -13,7 +14,7 @@ export function updateGrid(
   oldGridGroup: THREE.Object3D | null,
   showGrid: boolean,
   gridSize3D: number,
-  workingPlane: 'XY' | 'YZ' | 'XZ',
+  workingPlane: WorkingPlane3D,
   nodeCreateZ: number,
 ): THREE.Object3D | null {
   // Remove old grid
@@ -28,18 +29,7 @@ export function updateGrid(
   const divisions = Math.round(gridSize / gridSize3D);
   const grid = new THREE.GridHelper(gridSize, divisions, 0x1a4a7a, 0x0f3460);
 
-  if (workingPlane === 'XY') {
-    // Default horizontal plane for Z-up scenes: grid on XY at z = nodeCreateZ.
-    grid.rotation.x = Math.PI / 2;
-    grid.position.z = nodeCreateZ;
-  } else if (workingPlane === 'XZ') {
-    // Vertical elevation plane (normal = Y).
-    grid.position.y = nodeCreateZ;
-  } else if (workingPlane === 'YZ') {
-    // Rotate grid to lie on YZ plane (normal = X)
-    grid.rotation.z = Math.PI / 2;
-    grid.position.x = nodeCreateZ;
-  }
+  setPlaneOffset(grid, workingPlane, nodeCreateZ);
 
   scene.add(grid);
   return grid;

@@ -1,6 +1,7 @@
 // Pure picking / intersection utilities extracted from Viewport3D.svelte
 import * as THREE from 'three';
 import { findUserData } from '../three/selection-helpers';
+import { planeNormal, type WorkingPlane3D } from '../geometry/coordinate-system';
 
 // ─── 2D segment intersection (Crossing select) ──────────────────
 
@@ -57,24 +58,14 @@ export function getGroundIntersection(
   raycaster: THREE.Raycaster,
   mouse: THREE.Vector2,
   camera: THREE.Camera,
-  workingPlane: 'XY' | 'YZ' | 'XZ',
+  workingPlane: WorkingPlane3D,
   nodeCreateZ: number,
 ): THREE.Vector3 | null {
   raycaster.setFromCamera(mouse, camera);
   raycaster.camera = camera;
 
   // Choose plane based on working plane setting
-  let plane: THREE.Plane;
-  if (workingPlane === 'XY') {
-    // Normal = Z, plane at z = nodeCreateZ
-    plane = new THREE.Plane(new THREE.Vector3(0, 0, 1), -nodeCreateZ);
-  } else if (workingPlane === 'YZ') {
-    // Normal = X, plane at x = nodeCreateZ
-    plane = new THREE.Plane(new THREE.Vector3(1, 0, 0), -nodeCreateZ);
-  } else {
-    // XZ (default): Normal = Y, plane at y = nodeCreateZ
-    plane = new THREE.Plane(new THREE.Vector3(0, 1, 0), -nodeCreateZ);
-  }
+  const plane = new THREE.Plane(planeNormal(workingPlane), -nodeCreateZ);
 
   const target = new THREE.Vector3();
   const hit = raycaster.ray.intersectPlane(plane, target);

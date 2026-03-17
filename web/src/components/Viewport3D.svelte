@@ -9,7 +9,7 @@
   import { evaluateDiagramAt, formatDiagramValue3D, type Diagram3DKind } from '../lib/engine/diagrams-3d';
   import { getGroundIntersection as _getGroundIntersection, findNodeHit as _findNodeHit, findElementHit as _findElementHit, segmentIntersectsRect2D } from '../lib/viewport3d/picking';
   import { getModelBounds as _getModelBounds, zoomToFit as _zoomToFit, setView as _setView, handleResize as _handleResize, syncOrthoFrustum as _syncOrthoFrustum } from '../lib/viewport3d/camera';
-  import { setCameraUp } from '../lib/viewport3d/coordinate-system';
+  import { planeNormal, setCameraUp } from '../lib/geometry/coordinate-system';
   import { updateGrid as _updateGrid, createFatAxes as _createFatAxes, addAxisLabels as _addAxisLabels } from '../lib/viewport3d/grid';
   import { syncNodes as _syncNodes, syncElements as _syncElements, syncSupports as _syncSupports, syncLoads as _syncLoads, syncShells as _syncShells, syncSelection as _syncSelection, type SceneSyncContext } from '../lib/viewport3d/scene-sync';
   import { syncDeformed as _syncDeformed, syncDiagrams3D as _syncDiagrams3D, syncColorMap3D as _syncColorMap3D, syncVerificationLabels as _syncVerificationLabels, syncReactions as _syncReactions, syncConstraintForces as _syncConstraintForces, syncLabels3D as _syncLabels3D, DIAGRAM_3D_TYPES, type ResultsSyncContext } from '../lib/viewport3d/results-sync';
@@ -43,7 +43,7 @@
   let shellsParent: THREE.Group;
 
   // ─── Clipping plane ─────────────────────────────────────────
-  const clippingPlane = new THREE.Plane(new THREE.Vector3(0, -1, 0), 0);
+  const clippingPlane = new THREE.Plane(planeNormal('XY').clone().negate(), 0);
 
   // ─── Raycaster ───────────────────────────────────────────────
   const raycaster = new THREE.Raycaster();
@@ -1305,11 +1305,11 @@
     const wp = uiStore.workingPlane;
     let groundPlane: THREE.Plane;
     if (wp === 'XY') {
-      groundPlane = new THREE.Plane(new THREE.Vector3(0, 0, 1), -uiStore.nodeCreateZ);
+      groundPlane = new THREE.Plane(planeNormal('XY'), -uiStore.nodeCreateZ);
     } else if (wp === 'YZ') {
-      groundPlane = new THREE.Plane(new THREE.Vector3(1, 0, 0), -uiStore.nodeCreateZ);
+      groundPlane = new THREE.Plane(planeNormal('YZ'), -uiStore.nodeCreateZ);
     } else {
-      groundPlane = new THREE.Plane(new THREE.Vector3(0, 1, 0), -uiStore.nodeCreateZ);
+      groundPlane = new THREE.Plane(planeNormal('XZ'), -uiStore.nodeCreateZ);
     }
     const worldPt = new THREE.Vector3();
     if (raycaster.ray.intersectPlane(groundPlane, worldPt)) {

@@ -7,6 +7,8 @@
  *   VITE_AI_API_KEY     — bearer token
  */
 
+import { getElevation, hasElevation, VERTICAL_AXIS, type CoordinateNode } from '../geometry/coordinate-system';
+
 const BACKEND_URL = import.meta.env.VITE_AI_BACKEND_URL || 'http://localhost:3001';
 const API_KEY = import.meta.env.VITE_AI_API_KEY || '';
 
@@ -71,7 +73,7 @@ export interface ModelContext {
   supportCount: number;
   loadCount: number;
   bounds: { xMin: number; xMax: number; yMin: number; yMax: number };
-  verticalAxis: 'y' | 'z';
+  verticalAxis: 'y' | typeof VERTICAL_AXIS;
   sections: Array<{ id: number; name: string }>;
   materials: Array<{ id: number; name: string }>;
   supportTypes: string[];
@@ -82,7 +84,7 @@ export interface ModelContext {
 
 /** Inputs for buildModelContext — decoupled from store for testability. */
 export interface ModelStoreView {
-  nodes: Map<number, { id: number; x: number; y: number; z?: number }>;
+  nodes: Map<number, CoordinateNode & { id: number }>;
   elements: Map<number, { id: number; type: string }>;
   sections: Map<number, { id: number; name: string }>;
   materials: Map<number, { id: number; name: string }>;
@@ -99,7 +101,7 @@ export function buildModelContext(store: ModelStoreView): ModelContext {
     if (n.x > xMax) xMax = n.x;
     if (n.y < yMin) yMin = n.y;
     if (n.y > yMax) yMax = n.y;
-    if (n.z !== undefined) hasZ = true;
+    if (hasElevation(n)) hasZ = true;
   }
 
   const sections: Array<{ id: number; name: string }> = [];
@@ -112,11 +114,11 @@ export function buildModelContext(store: ModelStoreView): ModelContext {
   const elemTypes = new Set<string>();
   for (const e of store.elements.values()) elemTypes.add(e.type);
 
-  const verticalAxis = hasZ ? 'z' : 'y';
+  const verticalAxis = hasZ ? VERTICAL_AXIS : 'y';
   const levelCounts = new Map<number, number>();
   const xSet = new Set<number>();
   for (const n of store.nodes.values()) {
-    const level = verticalAxis === 'z' ? (n.z ?? 0) : n.y;
+    const level = verticalAxis === VERTICAL_AXIS ? getElevation(n) : n.y;
     levelCounts.set(level, (levelCounts.get(level) ?? 0) + 1);
     xSet.add(n.x);
   }

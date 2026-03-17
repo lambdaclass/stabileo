@@ -166,6 +166,38 @@ describe('buildModelContext', () => {
     expect(ctx.verticalAxis).toBe('z');
     expect(ctx.floorHeights).toEqual([0, 3]);
   });
+
+  it('preserves the backend Z-up contract for a 3D snapshot-derived store', () => {
+    const backendStyleStore: ModelStoreView = {
+      nodes: new Map([
+        [1, { id: 1, x: 0, y: 0, z: 0 }],
+        [2, { id: 2, x: 6, y: 0, z: 0 }],
+        [3, { id: 3, x: 0, y: 5, z: 0 }],
+        [4, { id: 4, x: 6, y: 5, z: 0 }],
+        [5, { id: 5, x: 0, y: 0, z: 3 }],
+        [6, { id: 6, x: 6, y: 0, z: 3 }],
+        [7, { id: 7, x: 0, y: 5, z: 3 }],
+        [8, { id: 8, x: 6, y: 5, z: 3 }],
+      ]),
+      elements: new Map([
+        [1, { id: 1, type: 'frame' }],
+        [2, { id: 2, type: 'frame' }],
+      ]),
+      sections: new Map([[1, { id: 1, name: 'IPE 300' }]]),
+      materials: new Map([[1, { id: 1, name: 'Steel A36' }]]),
+      supports: new Map([
+        [1, { id: 1, type: 'fixed3d' }],
+        [2, { id: 2, type: 'fixed3d' }],
+      ]),
+      loads: [],
+    };
+
+    const ctx = buildModelContext(backendStyleStore);
+
+    expect(ctx.verticalAxis).toBe('z');
+    expect(ctx.floorHeights).toEqual([0, 3]);
+    expect(ctx.bounds).toEqual({ xMin: 0, xMax: 6, yMin: 0, yMax: 5 });
+  });
 });
 
 // ─── buildModel integration (mocked fetch) ─────────────────────

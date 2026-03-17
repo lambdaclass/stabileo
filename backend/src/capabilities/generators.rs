@@ -856,9 +856,30 @@ pub fn execute_action(action: &BuildAction) -> Result<Value, AppError> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::capabilities::coordinate_system::assert_z_up_snapshot;
 
     fn has_keys(v: &Value, keys: &[&str]) -> bool {
         keys.iter().all(|k| v.get(k).is_some())
+    }
+
+    fn assert_vertical_columns_vary_in_z_only(snap: &Value) {
+        let nodes = snap["nodes"].as_array().unwrap();
+        for elem in snap["elements"].as_array().unwrap() {
+            let ni = elem[1]["nodeI"].as_u64().unwrap() as u32;
+            let nj = elem[1]["nodeJ"].as_u64().unwrap() as u32;
+            let node_i = nodes.iter().find(|n| n[0].as_u64() == Some(ni as u64)).unwrap();
+            let node_j = nodes.iter().find(|n| n[0].as_u64() == Some(nj as u64)).unwrap();
+            let xi = node_i[1]["x"].as_f64().unwrap();
+            let yi = node_i[1]["y"].as_f64().unwrap();
+            let zi = node_i[1]["z"].as_f64().unwrap();
+            let xj = node_j[1]["x"].as_f64().unwrap();
+            let yj = node_j[1]["y"].as_f64().unwrap();
+            let zj = node_j[1]["z"].as_f64().unwrap();
+
+            if (xi - xj).abs() < 1e-6 && (yi - yj).abs() < 1e-6 {
+                assert!((zi - zj).abs() > 1e-6, "vertical element must vary in z");
+            }
+        }
     }
 
     #[test]
@@ -919,6 +940,25 @@ mod tests {
         assert_eq!(snap["nodes"].as_array().unwrap().len(), 8);
         assert_eq!(snap["elements"].as_array().unwrap().len(), 8);
         assert_eq!(snap["supports"].as_array().unwrap().len(), 4);
+        assert_z_up_snapshot(&snap);
+        assert_vertical_columns_vary_in_z_only(&snap);
+    }
+
+    #[test]
+    fn multi_story_frame_3d_uses_z_for_floors() {
+        let snap = generate_multi_story_frame_3d(2, 2, 3, 6.0, 3.0, None, None, &None, &None, &None);
+        assert_z_up_snapshot(&snap);
+        assert_vertical_columns_vary_in_z_only(&snap);
+
+        let mut z_levels: Vec<f64> = snap["nodes"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .filter_map(|n| n[1]["z"].as_f64())
+            .collect();
+        z_levels.sort_by(|a, b| a.partial_cmp(b).unwrap());
+        z_levels.dedup_by(|a, b| (*a - *b).abs() < 1e-6);
+        assert_eq!(z_levels, vec![0.0, 3.0, 6.0, 9.0]);
     }
 
     #[test]

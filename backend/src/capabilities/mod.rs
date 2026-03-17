@@ -1,5 +1,6 @@
 pub mod actions;
 pub mod build_model;
+pub mod coordinate_system;
 pub mod edit_executor;
 pub mod explain_diagnostic;
 pub mod generators;

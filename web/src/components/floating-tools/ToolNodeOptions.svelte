@@ -1,6 +1,7 @@
 <script lang="ts">
   import { uiStore } from '../../lib/store';
   import { t } from '../../lib/i18n';
+  import { planeLevelAxis } from '../../lib/geometry/coordinate-system';
 </script>
 
 <button
@@ -21,7 +22,7 @@
   <button class="ft-opt-btn" class:active={uiStore.workingPlane==='YZ'} onclick={() => uiStore.workingPlane='YZ'} title={t('float.nodePlaneYZ')}>YZ</button>
   <span class="ft-sep">|</span>
   <label class="ft-input-group" title={t('float.nodeLevelTooltip')}>
-    <span>{t('float.nodeLevel').replace('{axis}', uiStore.workingPlane === 'XY' ? 'Z' : uiStore.workingPlane === 'XZ' ? 'Y' : 'X')}</span>
+    <span>{t('float.nodeLevel').replace('{axis}', planeLevelAxis(uiStore.workingPlane).toUpperCase())}</span>
     <input type="number" bind:value={uiStore.nodeCreateZ} step="0.5" />
     <span class="ft-unit">m</span>
   </label>
