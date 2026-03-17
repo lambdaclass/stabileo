@@ -12,7 +12,7 @@ For the deeper solver safety and validation hardening architecture behind the ne
 Sparse direct solver, deterministic assembly, multi-family shell stack (MITC4+EAS-7, MITC9, SHB8-ANS, curved shell), sparse eigensolver paths for modal/buckling/harmonic, beam station extraction for RC design, grouped/member-level 3D extraction, design-demand bridging for RC/steel checks, Modified Newton-Raphson, the WASM production path, TypeScript solver retirement, AMD default ordering, sparse 2D/3D buckling, sparse 3D reduction block extraction, and the first sparse buckling runtime gate are all done. See `BENCHMARKS.md` for the full snapshot and measured benchmark data.
 
 The live near-term blockers are now:
-- remaining Step 3 trust work: model-quality gates, query-ready results, and automation-ready contracts
+- final Step 3 trust work: pre-solve shell distortion / Jacobian gating and suspicious local-axis detection
 - constraint-system maturity and sparse/runtime hardening on real workflows
 - keeping verification/trust signals visible as contracts and CI gates evolve
 
@@ -21,7 +21,7 @@ The live near-term blockers are now:
 Before broadening the solver into more design-code and advanced-analysis depth, the following fixes should land as soon as possible because they affect trust in the current validation and delivery path:
 
 1. `Eliminate false-green tests` — DONE. Missing fixtures in differential/property parity tests now fail loudly instead of silently counting as passing verification.
-2. `Finish the last extraction hardening gaps` — SUBSTANTIALLY DONE. The 3D solve→stations→demands bridge, grouped snapshots, no-phantom-governing checks, schema/evolution rules, and representative RC/steel regression fixtures are in place. Remaining metadata for cover assumptions and bar schedules belongs with later RC design integration.
+2. `Finish the last extraction hardening gaps` — DONE for the current Step 2 scope. The 3D solve→stations→demands bridge, grouped snapshots, no-phantom-governing checks, schema/evolution rules, governing combo names, and representative RC/steel regression fixtures are in place. Remaining metadata for cover assumptions and bar schedules belongs with later RC design integration.
 3. `Strengthen test oracles` — MOSTLY DONE. Equilibrium checks now cover distributed loads and moment balance better; the remaining work is to codify tolerance policy by test type so regression tests do not inherit benchmark-grade looseness.
 4. `Move wall-clock timing checks out of normal pass/fail tests` — DONE. Timing-sensitive sparse-vs-dense assertions have been moved into ignored perf paths or relaxed where appropriate.
 5. `Close current sparse reduction/runtime gaps` — STILL OPEN. Keep removing avoidable densification where applicable, add broader buckling/runtime/fill gates, and enforce no-`k_full`-overbuild expectations where they truly apply.
@@ -272,7 +272,7 @@ Rust/WASM is now the trusted main execution path in production and the TypeScrip
 
 ### Step 2 — Design-Grade RC Extraction Hardening
 
-The core extraction bridge is now in place and substantially hardened: 2D/3D beam stations, grouped-by-member summaries, 3D solve→extraction tests, stable JSON field-name checks, grouped snapshots, no-phantom-governing checks, documented schema/evolution rules, and solve→stations→demands regression fixtures for both steel and RC workflows all exist. This is now a stable base for downstream product automation.
+The core extraction bridge is in place and done for the current Step 2 scope: 2D/3D beam stations, grouped-by-member summaries, 3D solve→extraction tests, stable JSON field-name checks, grouped snapshots, no-phantom-governing checks, documented schema/evolution rules, governing combo names, and solve→stations→demands regression fixtures for both steel and RC workflows all exist. This is now a stable base for downstream product automation.
 
 **What:**
 - Keep contract/snapshot tests protecting the serialized payload shape as the payload evolves
@@ -292,16 +292,16 @@ The core extraction bridge is now in place and substantially hardened: 2D/3D bea
 Make the solver easier to trust before and after a run, and make diagnostics structured enough for AI-assisted review, collaboration, and automated guidance. A solver becomes dramatically more valuable when failures are reproducible and results are auditable instead of opaque.
 
 **What:**
-- **Pre-solve model quality gates:** disconnected subgraph detection and duplicate/near-duplicate nodes are now in place for 2D and 3D; initial instability-risk checks exist for 2D truss-only cases; poor/conflicting constraint diagnostics already exist. Remaining gate work is shell distortion / Jacobian risk before assembly plus suspicious local-axis detection.
+- **Pre-solve model quality gates:** disconnected-node / isolated-component checks and duplicate/near-duplicate nodes are now in place for 2D and 3D; initial instability-risk checks exist for 2D truss-only cases; poor/conflicting constraint diagnostics already exist. Remaining gate work is shell distortion / Jacobian risk before assembly plus suspicious local-axis detection.
 - **Machine-readable warning codes** — stable enum-based codes that AI and review UIs can match on without brittle string parsing
 - **Stable severity levels** — error / warning / info with consistent semantics across all solver paths
 - **Element/member/node references in every diagnostic** — annotation-ready references for comments, review flows, and AI suggestions
 - **Provenance metadata** — every diagnostic carries the solver path, phase, and combination that produced it
-- **Deterministic solver-run artifacts** — build SHA, solver path, ordering, key diagnostics, and enough input/output state to replay any issue locally
-- **Post-solve trust signals:** equilibrium / residual / conditioning summaries are now in representative result payloads; continue expanding governing-result provenance (which combination, which station, which check)
+- **Deterministic solver-run artifacts** — build SHA, solver path, ordering, key diagnostics, equilibrium, timings, compact result fingerprint, and enough input/output state to replay any issue locally are now defined at the contract layer
+- **Post-solve trust signals:** equilibrium / residual / conditioning summaries are now in representative result payloads; sparse fill ratio diagnostics are emitted; continue expanding governing-result provenance (which combination, which station, which check)
 - Expose pivot perturbation counts, fill ratios, and solve phase breakdowns in the UI
 - Make solver-path selection and fallback behavior transparent
-- Add query-ready summaries for maxima/minima/governing cases so product-level result Q&A and AI explanation do not scrape tables or raw arrays
+- Query-ready summaries for maxima/minima/governing cases are now in place; keep them stable so product-level result Q&A and AI explanation do not drift back toward table scraping
 - Strengthen equilibrium and trust oracles in the validation helpers so distributed loads, moment balance, and constrained-force behavior are checked consistently instead of only by weak ad hoc helpers
 - Tighten tolerance policy by test type: analytical/reference tests should be much stricter than benchmark-comparison tolerances, and regression tests should not inherit permissive benchmark tolerances by default
 

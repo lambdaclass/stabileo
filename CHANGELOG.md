@@ -9,6 +9,30 @@ It should capture what changed, not what should be built next.
 
 ## Unreleased
 
+### Added
+
+#### Extraction contracts, structured diagnostics, and solver-run artifacts
+
+- hardened the beam-station extraction contract for downstream RC/steel workflows:
+  - added `schemaVersion` to station payloads with documented evolution rules
+  - added no-phantom-governing protections so empty governing entries do not serialize fake combo IDs or infinities
+  - added representative full-pipeline regression fixtures for RC and steel solve → stations → demands workflows
+  - added grouped/member-level snapshot and contract coverage
+  - added governing combo names to governing entries and grouped member-governing entries
+- added pre-solve model-quality gates for:
+  - disconnected nodes / isolated components
+  - near-duplicate nodes
+  - initial 2D instability-risk detection
+- expanded structured diagnostics and trust signals:
+  - machine-readable diagnostic codes, severity, node/DOF references, and path-parity coverage
+  - equilibrium and residual summaries in representative result payloads
+  - sparse fill-ratio diagnostics after sparse Cholesky
+  - documented tolerance policy by test type
+- added a solver-run artifact contract for reproducibility and replay:
+  - `SolverRunMeta` with engine version, build SHA, solver path, and model size
+  - `SolverRunArtifact` carrying metadata, diagnostics, equilibrium, timings, result summary, and compact output fingerprint
+  - JSON round-trip coverage for artifact serialization
+
 ### Changed
 
 #### WASM-first with TS fallback across engine modules
