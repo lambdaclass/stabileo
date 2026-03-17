@@ -98,23 +98,23 @@ These are the next concrete infrastructure tasks in execution order:
 13. `Solve-time artifact capture in product` — NOT STARTED.
 14. `Artifact export/import and local persistence` — NOT STARTED.
 15. `Replay/support flow on top of artifacts` — NOT STARTED.
-16. `Code-check capability` — NOT STARTED. Backend endpoint + per-member panel. Tier 1 priority.
-17. `Suggest-loads capability` — NOT STARTED. Needs code/load-rule data and product-side workflow framing. Tier 1 priority.
-18. `Pre-solve diagnostics capability` — NOT STARTED. Real-time model analysis before solving. Tier 1 priority.
-19. `Canvas-query capability` — NOT STARTED. Natural language queries on model/results with visual highlights. Tier 1 priority.
-20. `Section-optimizer capability` — NOT STARTED. Needs solver-in-the-loop workflow and tighter optimization contracts. Tier 2.
-21. `Generate-report capability` — NOT STARTED. Needs stronger report/output infrastructure first. Tier 2.
-22. `Teaching-assistant capability` — NOT STARTED. Educativo mode integration. Tier 2.
-23. `Compare-models capability` — NOT STARTED. Two-artifact diff with engineering commentary. Tier 2.
-24. `Sketch-to-model capability` — NOT STARTED. Vision model integration. Tier 3.
-25. `Failure-narrative capability` — NOT STARTED. Storytelling layer on diagnostics. Tier 3.
-18. `Storage boundary decision` — NOT STARTED. Define local vs hosted artifact storage explicitly.
-19. `API/artifact versioning policy` — NOT STARTED. Define compatibility and migration rules.
-20. `Named native/server solve path` — NOT STARTED.
-21. `Browser/native parity smoke coverage` — NOT STARTED.
-22. `Worker/job model for long-running tasks` — NOT STARTED.
-23. `Batch execution with progress/cancellation` — NOT STARTED.
-24. `Deployment promotion/rollback discipline` — NOT STARTED.
+16. `Pre-solve diagnostics capability` — NOT STARTED. Real-time model analysis before solving. Highest-value daily trust surface.
+17. `Canvas-query capability` — NOT STARTED. Natural language queries on model/results with visual highlights.
+18. `Code-check capability` — NOT STARTED. Backend endpoint + per-member panel.
+19. `Suggest-loads capability` — NOT STARTED. Needs code/load-rule data and product-side workflow framing.
+20. `Storage boundary decision` — NOT STARTED. Define local vs hosted artifact storage explicitly.
+21. `API/artifact versioning policy` — NOT STARTED. Define compatibility and migration rules.
+22. `Named native/server solve path` — NOT STARTED.
+23. `Browser/native parity smoke coverage` — NOT STARTED.
+24. `Worker/job model for long-running tasks` — NOT STARTED.
+25. `Batch execution with progress/cancellation` — NOT STARTED.
+26. `Deployment promotion/rollback discipline` — NOT STARTED.
+27. `Section-optimizer capability` — NOT STARTED. Needs solver-in-the-loop workflow and tighter optimization contracts.
+28. `Generate-report capability` — NOT STARTED. Needs stronger report/output infrastructure first.
+29. `Teaching-assistant capability` — NOT STARTED. Educativo mode integration.
+30. `Compare-models capability` — NOT STARTED. Two-artifact diff with engineering commentary.
+31. `Sketch-to-model capability` — NOT STARTED. Vision model integration.
+32. `Failure-narrative capability` — NOT STARTED. Storytelling layer on diagnostics.
 
 ## Current Infra Surface
 
@@ -530,23 +530,18 @@ Current status: PARTIALLY DONE. All 4 core backend capabilities are live with 49
 - test/provider stubs (stub provider already working)
 - capability-level evals and traces
 
-**Capability priority tiers:**
+**Ordered capability sequence:**
 
-Tier 1 — High impact, near-term (backend + frontend):
-1. `code-check` — daily professional use, the most requested feature in structural tools
-2. `suggest-loads` — eliminates the most error-prone manual step for students and junior engineers
-3. `pre-solve-diagnostics` — catches errors before wasting solve time, builds trust
-4. `canvas-query` — natural language interaction with results, high wow-factor
-
-Tier 2 — Medium-term, high value:
-5. `section-optimizer` — solver-in-the-loop, killer feature for daily use. Needs iteration infrastructure.
-6. `generate-report` — engineers spend hours on calculation reports manually. Structured PDF/markdown output.
-7. `teaching-assistant` — educativo mode differentiator, explains "why" not just "what"
+1. `pre-solve-diagnostics` — catches errors before wasting solve time and builds trust immediately
+2. `canvas-query` — natural language interaction with results and model context, with visual highlights
+3. `code-check` — daily professional use and the strongest direct economic value
+4. `suggest-loads` — eliminates one of the most error-prone manual steps for students and junior engineers
+5. `section-optimizer` — solver-in-the-loop, high-value daily use once iteration infrastructure exists
+6. `generate-report` — structured calculation/report output after stronger output infrastructure exists
+7. `teaching-assistant` — educativo differentiator that explains why, not only what
 8. `compare-models` — useful for design iteration and review workflows
-
-Tier 3 — Longer-term:
-9. `sketch-to-model` — vision model integration, image → geometry extraction
-10. `failure-narrative` — storytelling layer on top of diagnostics, requires deep structural context
+9. `sketch-to-model` — vision model integration, image to geometry extraction
+10. `failure-narrative` — storytelling layer on diagnostics after stronger structural context exists
 
 **`build-model` scope ladder:**
 
@@ -568,6 +563,25 @@ Each level needs:
 - validation rules (node connectivity, support adequacy, load completeness)
 - test cases with known-good reference models
 - clear failure mode when the request exceeds the current level
+
+**Conversational model builder:**
+
+The Build tab is not a one-shot generator — it is a chat interface where the user iterates on the model through conversation.
+
+Flow:
+1. User types "build me a 6m simply supported beam with 10 kN/m distributed load"
+2. AI returns model JSON → validated → imported into the canvas → user sees it immediately
+3. User continues: "add a column at midspan", "change the section to IPE 300", "make it a portal frame"
+4. Each message includes the current model state as context, so the AI modifies rather than rebuilds
+5. User can also say "solve it" or "now review it" to trigger solve + review from the chat
+
+Key design rules:
+- Every AI modification is a single undo step — user can always revert
+- AI sees the current model snapshot on every message (nodes, elements, materials, sections, supports, loads)
+- Chat history persists within the session so context builds up
+- The canvas updates live after each accepted generation
+- Invalid or incomplete model JSON is rejected with a clear error, never silently imported
+- The user always has final control — AI proposes, user accepts or rejects
 
 **Done when:**
 - capabilities are distinct contracts, not prompt modes hidden behind one endpoint
