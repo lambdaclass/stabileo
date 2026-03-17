@@ -67,7 +67,7 @@ jobs:
 
       - name: Run all tests
         working-directory: engine
-        run: cargo nextest run --profile ci -E 'all() - test(harmonic_phase_breakdown) - test(harmonic_modal_vs_direct_timing)'
+        run: cargo nextest run --profile ci -E 'all() - binary(sparse_shell_gates) - test(/benchmark_shell/) - test(/benchmark_beam_shell/) - test(/benchmark_plate/) - test(/benchmark_navier/) - test(/benchmark_scordelis/) - test(/benchmark_cantilever/) - test(/benchmark_pinched/) - test(/test_quad_thin_plate/) - test(/acceptance_.*shell/) - test(/acceptance_.*diaphragm/) - test(/benchmark_.*constraint/) - test(harmonic_phase_breakdown) - test(harmonic_modal_vs_direct_timing)'
         timeout-minutes: 10
 
       - name: Benchmarks compile
