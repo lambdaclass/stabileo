@@ -504,7 +504,7 @@ Current status: PARTIALLY DONE. All 4 core backend capabilities are live with 49
 - separate capability endpoints, each with its own contract:
   - `review-model` — DONE. Consumes `SolverRunArtifact`, returns structured findings.
   - `explain-diagnostic` — DONE. Takes `DiagnosticCode` + context, returns plain-language explanation and fix steps.
-  - `build-model` — DONE. Takes natural language description, returns model JSON (nodes, elements, materials, supports, loads).
+  - `build-model` — DONE. Takes natural language description, returns model JSON (nodes, elements, materials, supports, loads). Scope ladder below.
   - `interpret-results` — DONE. Takes `ResultSummary` + user question, returns assessment with code reference.
   - `section-optimizer` — iterates steel profiles to find lightest section meeting constraints (solver-in-the-loop, later).
   - `suggest-loads` — suggests load combinations from code (CIRSOC) given building type and location (later).
@@ -548,6 +548,27 @@ Tier 3 — Longer-term:
 9. `sketch-to-model` — vision model integration, image → geometry extraction
 10. `failure-narrative` — storytelling layer on top of diagnostics, requires deep structural context
 
+**`build-model` scope ladder:**
+
+Start narrow and expand deliberately. Each level must work reliably before moving to the next.
+
+| Level | Structures | Key challenges |
+|-------|-----------|----------------|
+| 1 | Simply supported beams, cantilevers, continuous beams | Correct node placement, support types, distributed/point loads |
+| 2 | Portal frames (single bay, single story) | Column-beam connectivity, fixed/pinned bases, lateral loads |
+| 3 | Multi-bay, multi-story 2D frames | Regular grid generation, floor loads, bracing |
+| 4 | Trusses (Pratt, Warren, Howe) | Truss element type, pin joints, panel geometry |
+| 5 | Simple 3D frames (single story, rectangular plan) | 3D node coordinates, 6-DOF elements, 3D supports |
+| 6 | Multi-story 3D frames | Floor diaphragms, column stacking, slab loads |
+| 7 | Mixed structures (frames + trusses, inclined members) | Element type mixing, complex connectivity |
+| 8 | Structures from description + constraints ("6m span, max deflection L/300, residential") | Solver-in-the-loop: generate → solve → check → iterate |
+
+Each level needs:
+- prompt templates with structural examples at that complexity
+- validation rules (node connectivity, support adequacy, load completeness)
+- test cases with known-good reference models
+- clear failure mode when the request exceeds the current level
+
 **Done when:**
 - capabilities are distinct contracts, not prompt modes hidden behind one endpoint
 - frontend surfaces AI results inline (not a separate page)
@@ -555,6 +576,7 @@ Tier 3 — Longer-term:
 - eval/tracing exists per capability
 - code-check and section-optimizer are usable for daily professional workflows
 - pre-solve diagnostics catch common modeling errors before solving
+- build-model reliably produces valid models through at least Level 3
 
 ### Stage 8 — Firm and Team Infrastructure
 
