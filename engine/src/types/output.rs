@@ -199,6 +199,10 @@ pub enum DiagnosticCode {
     NearDuplicateNodes,
     /// Instability risk — node has too few restraints for the element types it connects to.
     InstabilityRisk,
+    /// Shell element has poor pre-solve geometry (high aspect ratio, negative Jacobian, etc.).
+    ShellDistortion,
+    /// Frame element has suspicious local-axis definition.
+    SuspiciousLocalAxis,
 
     // ---- Constraint quality ----
     /// Same DOF is constrained by multiple constraints.
@@ -300,7 +304,7 @@ impl From<&StructuredDiagnostic> for SolverDiagnostic {
             DiagnosticCode::HighDiagonalRatio | DiagnosticCode::ExtremelyHighDiagonalRatio | DiagnosticCode::NearZeroDiagonal => "conditioning",
             DiagnosticCode::ResidualOk | DiagnosticCode::ResidualHigh | DiagnosticCode::EquilibriumOk | DiagnosticCode::EquilibriumViolation => "residual",
             DiagnosticCode::HighAspectRatio | DiagnosticCode::NegativeJacobian | DiagnosticCode::HighWarping | DiagnosticCode::PoorJacobianRatio | DiagnosticCode::SmallMinAngle => "element_quality",
-            DiagnosticCode::NoFreeDofs | DiagnosticCode::LocalMechanism | DiagnosticCode::SingularMatrix | DiagnosticCode::DisconnectedNode | DiagnosticCode::NearDuplicateNodes | DiagnosticCode::InstabilityRisk => "model_quality",
+            DiagnosticCode::NoFreeDofs | DiagnosticCode::LocalMechanism | DiagnosticCode::SingularMatrix | DiagnosticCode::DisconnectedNode | DiagnosticCode::NearDuplicateNodes | DiagnosticCode::InstabilityRisk | DiagnosticCode::ShellDistortion | DiagnosticCode::SuspiciousLocalAxis => "model_quality",
             DiagnosticCode::ConflictingConstraints | DiagnosticCode::CircularConstraint | DiagnosticCode::OverConstrainedDof => "constraints",
         };
         let severity = match sd.severity {

@@ -747,6 +747,185 @@ fn pre_solve_disconnected_node_3d() {
         "diagnostic should reference node 3, got {:?}", disconnected.unwrap().node_ids);
 }
 
+// ==================== Shell Distortion & Local Axis Gate Tests ====================
+
+#[test]
+fn pre_solve_shell_distortion_inverted_quad() {
+    use dedaliano_engine::solver::pre_solve_gates::check_shell_distortion_3d;
+
+    // Build a minimal SolverInput3D with one inverted quad (bowtie node ordering).
+    // Nodes: 1=(0,0,0), 2=(1,0,0), 3=(0,1,0), 4=(1,1,0) — crossing diagonals.
+    let mut input = make_3d_input(
+        vec![(1, 0.0, 0.0, 0.0), (2, 1.0, 0.0, 0.0), (3, 0.0, 1.0, 0.0), (4, 1.0, 1.0, 0.0)],
+        vec![(1, 200e3, 0.3)],
+        vec![(1, 0.01, 1e-4, 1e-4, 2e-4)],
+        vec![],  // no frame elements
+        vec![(1, vec![true, true, true, true, true, true])],
+        vec![],  // no loads
+    );
+    // Add a quad with bowtie node ordering → negative Jacobian at some Gauss points
+    // Nodes: 1=(0,0), 2=(1,0), 3=(0,1), 4=(1,1)
+    // Ordering 1→2→4→3 is a proper quad; 1→3→2→4 creates a bowtie (edges cross)
+    input.quads.insert("1".to_string(), SolverQuadElement {
+        id: 1,
+        nodes: [1, 3, 2, 4], // bowtie: edge 1→3 crosses edge 2→4
+        material_id: 1,
+        thickness: 0.1,
+    });
+
+    let diags = check_shell_distortion_3d(&input);
+    let shell_diags: Vec<_> = diags.iter()
+        .filter(|d| d.code == DiagnosticCode::ShellDistortion)
+        .collect();
+    assert!(!shell_diags.is_empty(),
+        "should detect shell distortion on inverted quad, got: {:?}", diags);
+
+    // At least one should be Error severity (negative Jacobian)
+    let has_error = shell_diags.iter().any(|d| d.severity == Severity::Error);
+    assert!(has_error, "inverted quad should produce Error severity diagnostic");
+}
+
+#[test]
+fn pre_solve_shell_distortion_high_aspect_ratio() {
+    use dedaliano_engine::solver::pre_solve_gates::check_shell_distortion_3d;
+
+    // Quad with extreme aspect ratio: 100:1
+    let mut input = make_3d_input(
+        vec![(1, 0.0, 0.0, 0.0), (2, 100.0, 0.0, 0.0), (3, 100.0, 1.0, 0.0), (4, 0.0, 1.0, 0.0)],
+        vec![(1, 200e3, 0.3)],
+        vec![(1, 0.01, 1e-4, 1e-4, 2e-4)],
+        vec![],
+        vec![(1, vec![true, true, true, true, true, true])],
+        vec![],
+    );
+    input.quads.insert("1".to_string(), SolverQuadElement {
+        id: 1,
+        nodes: [1, 2, 3, 4],
+        material_id: 1,
+        thickness: 0.1,
+    });
+
+    let diags = check_shell_distortion_3d(&input);
+    let aspect_diag = diags.iter().find(|d|
+        d.code == DiagnosticCode::ShellDistortion && d.message.contains("aspect ratio")
+    );
+    assert!(aspect_diag.is_some(),
+        "should detect high aspect ratio, got: {:?}", diags.iter().map(|d| &d.message).collect::<Vec<_>>());
+}
+
+#[test]
+fn pre_solve_shell_distortion_clean_quad() {
+    use dedaliano_engine::solver::pre_solve_gates::check_shell_distortion_3d;
+
+    // Well-shaped unit square quad — no distortion warnings
+    let mut input = make_3d_input(
+        vec![(1, 0.0, 0.0, 0.0), (2, 1.0, 0.0, 0.0), (3, 1.0, 1.0, 0.0), (4, 0.0, 1.0, 0.0)],
+        vec![(1, 200e3, 0.3)],
+        vec![(1, 0.01, 1e-4, 1e-4, 2e-4)],
+        vec![],
+        vec![(1, vec![true, true, true, true, true, true])],
+        vec![],
+    );
+    input.quads.insert("1".to_string(), SolverQuadElement {
+        id: 1,
+        nodes: [1, 2, 3, 4],
+        material_id: 1,
+        thickness: 0.1,
+    });
+
+    let diags = check_shell_distortion_3d(&input);
+    let shell_diags: Vec<_> = diags.iter()
+        .filter(|d| d.code == DiagnosticCode::ShellDistortion)
+        .collect();
+    assert!(shell_diags.is_empty(),
+        "clean quad should have no distortion diagnostics, got: {:?}",
+        shell_diags.iter().map(|d| &d.message).collect::<Vec<_>>());
+}
+
+#[test]
+fn pre_solve_suspicious_local_axes_parallel() {
+    use dedaliano_engine::solver::pre_solve_gates::check_suspicious_local_axes_3d;
+
+    // Element along X-axis with orientation vector also along X → nearly parallel → flagged
+    let mut input = make_3d_input(
+        vec![(1, 0.0, 0.0, 0.0), (2, 10.0, 0.0, 0.0)],
+        vec![(1, 200e3, 0.3)],
+        vec![(1, 0.01, 1e-4, 1e-4, 2e-4)],
+        vec![(1, "frame", 1, 2, 1, 1)],
+        vec![(1, vec![true, true, true, true, true, true])],
+        vec![],
+    );
+    // Set local axis orientation to (1, 0, 0) — parallel to element axis
+    let el = input.elements.get_mut("1").unwrap();
+    el.local_yx = Some(1.0);
+    el.local_yy = Some(0.0);
+    el.local_yz = Some(0.0);
+
+    let diags = check_suspicious_local_axes_3d(&input);
+    let axis_diags: Vec<_> = diags.iter()
+        .filter(|d| d.code == DiagnosticCode::SuspiciousLocalAxis)
+        .collect();
+    assert!(!axis_diags.is_empty(),
+        "should detect suspicious local axis (parallel to element), got: {:?}", diags);
+    assert!(axis_diags[0].message.contains("nearly parallel"),
+        "message should mention 'nearly parallel': {}", axis_diags[0].message);
+}
+
+#[test]
+fn pre_solve_suspicious_local_axes_zero_length() {
+    use dedaliano_engine::solver::pre_solve_gates::check_suspicious_local_axes_3d;
+
+    // Element with zero-length orientation vector
+    let mut input = make_3d_input(
+        vec![(1, 0.0, 0.0, 0.0), (2, 10.0, 0.0, 0.0)],
+        vec![(1, 200e3, 0.3)],
+        vec![(1, 0.01, 1e-4, 1e-4, 2e-4)],
+        vec![(1, "frame", 1, 2, 1, 1)],
+        vec![(1, vec![true, true, true, true, true, true])],
+        vec![],
+    );
+    let el = input.elements.get_mut("1").unwrap();
+    el.local_yx = Some(0.0);
+    el.local_yy = Some(0.0);
+    el.local_yz = Some(0.0);
+
+    let diags = check_suspicious_local_axes_3d(&input);
+    let axis_diags: Vec<_> = diags.iter()
+        .filter(|d| d.code == DiagnosticCode::SuspiciousLocalAxis)
+        .collect();
+    assert!(!axis_diags.is_empty(),
+        "should detect zero-length orientation vector");
+    assert!(axis_diags[0].message.contains("zero-length"),
+        "message should mention 'zero-length': {}", axis_diags[0].message);
+}
+
+#[test]
+fn pre_solve_suspicious_local_axes_clean() {
+    use dedaliano_engine::solver::pre_solve_gates::check_suspicious_local_axes_3d;
+
+    // Element along X-axis with orientation along Y → perpendicular → clean
+    let mut input = make_3d_input(
+        vec![(1, 0.0, 0.0, 0.0), (2, 10.0, 0.0, 0.0)],
+        vec![(1, 200e3, 0.3)],
+        vec![(1, 0.01, 1e-4, 1e-4, 2e-4)],
+        vec![(1, "frame", 1, 2, 1, 1)],
+        vec![(1, vec![true, true, true, true, true, true])],
+        vec![],
+    );
+    let el = input.elements.get_mut("1").unwrap();
+    el.local_yx = Some(0.0);
+    el.local_yy = Some(1.0);
+    el.local_yz = Some(0.0);
+
+    let diags = check_suspicious_local_axes_3d(&input);
+    let axis_diags: Vec<_> = diags.iter()
+        .filter(|d| d.code == DiagnosticCode::SuspiciousLocalAxis)
+        .collect();
+    assert!(axis_diags.is_empty(),
+        "perpendicular orientation should be clean, got: {:?}",
+        axis_diags.iter().map(|d| &d.message).collect::<Vec<_>>());
+}
+
 // ==================== Result Summary Tests ====================
 
 #[test]
