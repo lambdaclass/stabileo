@@ -106,6 +106,9 @@ function createRecordingMock(): { api: any; toJSON: () => JSONModel } {
     // Element
     addElement(nI: number, nJ: number, type: 'frame' | 'truss' = 'frame') {
       const id = nextElem++;
+      if (type === 'truss' && !sections.has(2)) {
+        sections.set(2, { id: 2, name: 'L 80x80x8', a: 0.001232, iy: 8.78e-8, iz: 8.78e-8, j: 2.6e-8, b: 0.08, h: 0.08 });
+      }
       elements.set(id, {
         id, type, nodeI: nI, nodeJ: nJ,
         materialId: 1, sectionId: type === 'truss' ? 2 : 1,
