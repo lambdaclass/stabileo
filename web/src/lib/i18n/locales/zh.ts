@@ -353,6 +353,12 @@ const zh: Translations = {
   'ex.3d-nave-industrial.desc': '桁架式厂房含吊车梁和支撑',
   'ex.3d-building': '5层建筑',
   'ex.3d-building.desc': 'D+L+W+E CIRSOC 201 组合',
+  'ex.laBombonera3D': 'La Bombonera 体育场',
+  'ex.laBombonera3D.desc': 'Boca Juniors 不对称D形体育场，3层看台及包厢楼',
+  'ex.laBombonera3D.purpose': '体育场 / 不对称 / 看台',
+  'ex.sagradaFamilia3D': 'Sagrada Familia',
+  'ex.sagradaFamilia3D.desc': 'Gaudí 大教堂，树状分叉柱、双曲面穹顶及18座塔楼',
+  'ex.sagradaFamilia3D.purpose': '遗产 / 塔楼 / XL',
 
   // ─── ToolbarProject.svelte ───
   'project.title': '项目',
@@ -2302,9 +2308,11 @@ const zh: Translations = {
   'pro.tabConnections': '连接',
   'pro.tabDiagnostics': '诊断',
   'pro.exampleBtn': '示例',
-  'pro.exampleTitle': '加载示例钢筋混凝土7层建筑',
+  'pro.exampleTitle': 'PRO 示例',
   'pro.reportBtn': '报告',
   'pro.reportTitle': '导出计算报告',
+  'pro.tagHeritage': '遗产',
+  'pro.stats.heavy': '大型模型',
 
   // ─── PRO Report (report.*) ───
   'report.printBtn': '打印 / PDF',

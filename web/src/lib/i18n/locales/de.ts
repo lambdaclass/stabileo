@@ -352,6 +352,12 @@ const de: Translations = {
   'ex.3d-nave-industrial.desc': 'Fachwerklagerhalle mit Kran und Aussteifung',
   'ex.3d-building': '5-Geschoss-Gebäude',
   'ex.3d-building.desc': 'D+L+W+E mit CIRSOC 201 Kombinationen',
+  'ex.laBombonera3D': 'Stadion La Bombonera',
+  'ex.laBombonera3D.desc': 'Asymmetrisches D-förmiges Stadion von Boca Juniors mit 3 Tribünenrängen und Logengebäude',
+  'ex.laBombonera3D.purpose': 'Stadion / asymmetrisch / Ränge',
+  'ex.sagradaFamilia3D': 'Sagrada Familia',
+  'ex.sagradaFamilia3D.desc': 'Gaudí-Basilika mit verzweigten Säulen, hyperboloiden Gewölben und 18 Türmen',
+  'ex.sagradaFamilia3D.purpose': 'Erbe / Türme / XL',
 
   // ─── ToolbarProject.svelte ───
   'project.title': 'Projekt',
@@ -2314,10 +2320,12 @@ const de: Translations = {
   'pro.tabVerification': 'Nachweis',
   'pro.tabConnections': 'Verb.',
   'pro.tabDiagnostics': 'Diag.',
-  'pro.exampleBtn': 'Beispiel',
-  'pro.exampleTitle': 'Beispielgebäude StB 7 Stockwerke laden',
+  'pro.exampleBtn': 'Beispiele',
+  'pro.exampleTitle': 'PRO-Beispiele',
   'pro.reportBtn': 'Bericht',
   'pro.reportTitle': 'Berechnungsbericht exportieren',
+  'pro.tagHeritage': 'Denkmal',
+  'pro.stats.heavy': 'großes Modell',
 
   // ─── PRO Report ───
   'report.printBtn': 'Drucken / PDF',

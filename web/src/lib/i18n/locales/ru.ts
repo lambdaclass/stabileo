@@ -353,6 +353,12 @@ const ru: Translations = {
   'ex.3d-nave-industrial.desc': 'Стержневой ангар с мостовым краном и связями',
   'ex.3d-building': 'Здание 5 этажей',
   'ex.3d-building.desc': 'D+L+W+E с комбинациями CIRSOC 201',
+  'ex.laBombonera3D': 'Стадион La Bombonera',
+  'ex.laBombonera3D.desc': 'Асимметричный D-образный стадион Boca Juniors с 3 ярусами трибун и ложами',
+  'ex.laBombonera3D.purpose': 'Стадион / асимметрия / ярусы',
+  'ex.sagradaFamilia3D': 'Sagrada Familia',
+  'ex.sagradaFamilia3D.desc': 'Базилика Gaudí с ветвящимися колоннами, гиперболоидными сводами и 18 башнями',
+  'ex.sagradaFamilia3D.purpose': 'Наследие / башни / XL',
 
   // ─── ToolbarProject.svelte ───
   'project.title': 'Проект',
@@ -2302,10 +2308,12 @@ const ru: Translations = {
   'pro.tabVerification': 'Проверка',
   'pro.tabConnections': 'Узлы соед.',
   'pro.tabDiagnostics': 'Диагн.',
-  'pro.exampleBtn': 'Пример',
-  'pro.exampleTitle': 'Загрузить пример: ж/б 7-этажное здание',
+  'pro.exampleBtn': 'Примеры',
+  'pro.exampleTitle': 'Примеры PRO',
   'pro.reportBtn': 'Отчёт',
   'pro.reportTitle': 'Экспорт расчётного отчёта',
+  'pro.tagHeritage': 'Наследие',
+  'pro.stats.heavy': 'тяжёлая модель',
 
   // ─── PRO Report ───
   'report.printBtn': 'Печать / PDF',

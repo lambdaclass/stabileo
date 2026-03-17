@@ -358,6 +358,12 @@ const id: Translations = {
   'ex.3d-building.desc': 'D+L+W+E dengan kombinasi CIRSOC 201',
   'ex.pro-edificio-7p': 'Gedung Beton 7 Lantai (PRO)',
   'ex.pro-edificio-7p.desc': 'Hunian dengan lift, tangga, beban angin CIRSOC 102 & beban hidup berdasarkan hunian',
+  'ex.laBombonera3D': 'Stadion La Bombonera',
+  'ex.laBombonera3D.desc': 'Stadion asimetris berbentuk D milik Boca Juniors dengan 3 tingkat tribun dan gedung palco',
+  'ex.laBombonera3D.purpose': 'Stadion / asimetris / tribun',
+  'ex.sagradaFamilia3D': 'Sagrada Familia',
+  'ex.sagradaFamilia3D.desc': 'Basilika Gaudí dengan kolom bercabang, kubah hiperboloid, dan 18 menara',
+  'ex.sagradaFamilia3D.purpose': 'Warisan / menara / XL',
 
   // ─── ToolbarProject.svelte ───
   'project.title': 'Proyek',
@@ -2297,9 +2303,11 @@ const id: Translations = {
   'pro.tabConnections': 'Samb.',
   'pro.tabDiagnostics': 'Diag.',
   'pro.exampleBtn': 'Contoh',
-  'pro.exampleTitle': 'Muat contoh gedung beton 7 lantai',
+  'pro.exampleTitle': 'Contoh PRO',
   'pro.reportBtn': 'Laporan',
   'pro.reportTitle': 'Ekspor laporan perhitungan',
+  'pro.tagHeritage': 'Warisan',
+  'pro.stats.heavy': 'model berat',
 
   // ─── PRO Report ───
   'report.printBtn': 'Cetak / PDF',

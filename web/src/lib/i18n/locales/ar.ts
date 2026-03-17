@@ -358,6 +358,12 @@ const ar: Translations = {
   'ex.3d-building.desc': 'D+L+W+E مع تركيبات CIRSOC 201',
   'ex.pro-edificio-7p': 'مبنى خرساني 7 طوابق (PRO)',
   'ex.pro-edificio-7p.desc': 'سكني مع مصعد ودرج، رياح CIRSOC 102 وأحمال حية حسب الإشغال',
+  'ex.laBombonera3D': 'ملعب La Bombonera',
+  'ex.laBombonera3D.desc': 'ملعب Boca Juniors غير متماثل بشكل D مع 3 مستويات مدرجات ومبنى لوجات',
+  'ex.laBombonera3D.purpose': 'ملعب / غير متماثل / مدرجات',
+  'ex.sagradaFamilia3D': 'Sagrada Familia',
+  'ex.sagradaFamilia3D.desc': 'بازيليكا Gaudí بأعمدة متفرعة وأقبية زائدية و18 برجاً',
+  'ex.sagradaFamilia3D.purpose': 'تراث / أبراج / XL',
 
   // ─── ToolbarProject.svelte ───
   'project.title': 'مشروع',
@@ -2298,10 +2304,12 @@ const ar: Translations = {
   'pro.tabVerification': 'التحقق',
   'pro.tabConnections': 'وصلات',
   'pro.tabDiagnostics': 'تشخيص',
-  'pro.exampleBtn': 'مثال',
-  'pro.exampleTitle': 'تحميل مثال مبنى خرساني 7 طوابق',
+  'pro.exampleBtn': 'أمثلة',
+  'pro.exampleTitle': 'أمثلة PRO',
   'pro.reportBtn': 'تقرير',
   'pro.reportTitle': 'تصدير تقرير الحسابات',
+  'pro.tagHeritage': 'تراث',
+  'pro.stats.heavy': 'نموذج ثقيل',
 
   // ─── PRO: Common / Shared ───
   'pro.nNodes': '{n} عقدة',

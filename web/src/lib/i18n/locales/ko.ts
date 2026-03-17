@@ -358,6 +358,12 @@ const ko: Translations = {
   'ex.3d-building.desc': 'CIRSOC 201 조합 D+L+W+E',
   'ex.pro-edificio-7p': '7층 RC 건물 (PRO)',
   'ex.pro-edificio-7p.desc': '엘리베이터, 계단이 있는 주거용, CIRSOC 102 풍하중 및 용도별 활하중',
+  'ex.laBombonera3D': 'La Bombonera 경기장',
+  'ex.laBombonera3D.desc': 'Boca Juniors 비대칭 D형 경기장, 3층 관중석 및 특별석 건물',
+  'ex.laBombonera3D.purpose': '경기장 / 비대칭 / 관중석',
+  'ex.sagradaFamilia3D': 'Sagrada Familia',
+  'ex.sagradaFamilia3D.desc': 'Gaudí 대성당, 분기 기둥, 쌍곡면 볼트 및 18개 탑',
+  'ex.sagradaFamilia3D.purpose': '유산 / 탑 / XL',
 
   // ─── ToolbarProject.svelte ───
   'project.title': '프로젝트',
@@ -2300,9 +2306,11 @@ const ko: Translations = {
   'pro.tabConnections': '접합',
   'pro.tabDiagnostics': '진단',
   'pro.exampleBtn': '예제',
-  'pro.exampleTitle': 'RC 7층 건물 예제 불러오기',
+  'pro.exampleTitle': 'PRO 예제',
   'pro.reportBtn': '보고서',
   'pro.reportTitle': '계산 보고서 내보내기',
+  'pro.tagHeritage': '문화유산',
+  'pro.stats.heavy': '대형 모델',
 
   // ─── PRO Report ───
   'report.printBtn': '인쇄 / PDF',

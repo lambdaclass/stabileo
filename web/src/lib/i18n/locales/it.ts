@@ -352,6 +352,12 @@ const it: Translations = {
   'ex.3d-nave-industrial.desc': 'Capannone reticolare con carroponte e controventi',
   'ex.3d-building': 'Edificio 5 piani',
   'ex.3d-building.desc': 'D+L+W+E con combinazioni CIRSOC 201',
+  'ex.laBombonera3D': 'Stadio La Bombonera',
+  'ex.laBombonera3D.desc': 'Stadio asimmetrico a D del Boca Juniors con 3 livelli di tribune e palchi',
+  'ex.laBombonera3D.purpose': 'Stadio / asimmetrico / tribune',
+  'ex.sagradaFamilia3D': 'Sagrada Familia',
+  'ex.sagradaFamilia3D.desc': 'Basilica di Gaudí con colonne ramificate, volte iperboloidi e 18 torri',
+  'ex.sagradaFamilia3D.purpose': 'Patrimonio / torri / XL',
 
   // ─── ToolbarProject.svelte ───
   'project.title': 'Progetto',
@@ -2312,10 +2318,12 @@ const it: Translations = {
   'pro.tabVerification': 'Verifica',
   'pro.tabConnections': 'Conn.',
   'pro.tabDiagnostics': 'Diag.',
-  'pro.exampleBtn': 'Esempio',
-  'pro.exampleTitle': 'Carica edificio C.A. 7 piani di esempio',
+  'pro.exampleBtn': 'Esempi',
+  'pro.exampleTitle': 'Esempi PRO',
   'pro.reportBtn': 'Report',
   'pro.reportTitle': 'Esporta relazione di calcolo',
+  'pro.tagHeritage': 'Patrimonio',
+  'pro.stats.heavy': 'modello pesante',
 
   // ─── PRO Report ───
   'report.printBtn': 'Stampa / PDF',

@@ -91,6 +91,7 @@
     tags: string[];
     stats: { nodes: string; members: string; shells?: string };
     preset?: ExamplePreset;
+    featured?: boolean;
     load: () => void;
   }
 
@@ -197,6 +198,29 @@
     {
       group: 'xl',
       groupKey: 'pro.examples.groupXL',
+      nameKey: 'ex.geodesicDome3D',
+      descKey: 'ex.geodesicDome3D.desc',
+      purposeKey: 'ex.geodesicDome3D.purpose',
+      tags: ['pro.tagShells', 'pro.tagScale'],
+      stats: { nodes: '641', members: '1920' },
+      preset: 'xl',
+      load: () => modelStore.loadExample('geodesic-dome'),
+    },
+    {
+      group: 'xl',
+      groupKey: 'pro.examples.groupXL',
+      nameKey: 'ex.laBombonera3D',
+      descKey: 'ex.laBombonera3D.desc',
+      purposeKey: 'ex.laBombonera3D.purpose',
+      tags: ['pro.tagBowl', 'pro.tagScale'],
+      stats: { nodes: '757', members: '1680' },
+      preset: 'clean-shell',
+      featured: true,
+      load: () => modelStore.loadExample('la-bombonera'),
+    },
+    {
+      group: 'xl',
+      groupKey: 'pro.examples.groupXL',
       nameKey: 'ex.xlDiagridTower3D',
       descKey: 'ex.xlDiagridTower3D.desc',
       purposeKey: 'ex.xlDiagridTower3D.purpose',
@@ -208,13 +232,14 @@
     {
       group: 'xl',
       groupKey: 'pro.examples.groupXL',
-      nameKey: 'ex.geodesicDome3D',
-      descKey: 'ex.geodesicDome3D.desc',
-      purposeKey: 'ex.geodesicDome3D.purpose',
-      tags: ['pro.tagShells', 'pro.tagScale'],
-      stats: { nodes: '641', members: '1920' },
+      nameKey: 'ex.sagradaFamilia3D',
+      descKey: 'ex.sagradaFamilia3D.desc',
+      purposeKey: 'ex.sagradaFamilia3D.purpose',
+      tags: ['pro.tagHeritage', 'pro.tagScale'],
+      stats: { nodes: '5184', members: '12755' },
       preset: 'xl',
-      load: () => modelStore.loadExample('geodesic-dome'),
+      featured: true,
+      load: () => modelStore.loadExample('pro-sagrada-familia'),
     },
   ];
   const proExampleGroups = $derived.by(() => {
@@ -629,7 +654,7 @@
         <div class="pro-example-group-title">{group.title}</div>
         <div class="pro-example-grid">
           {#each group.examples as ex}
-            <button class="pro-example-item" onclick={() => loadProExample(ex)}>
+            <button class="pro-example-item" class:pro-example-featured={ex.featured} onclick={() => loadProExample(ex)}>
               <div class="pro-example-topline">
                 <span class="pro-example-name">{t(ex.nameKey)}</span>
                 <span class="pro-example-purpose">{t(ex.purposeKey)}</span>
@@ -645,6 +670,9 @@
                 <span>{ex.stats.members} {t('pro.stats.members')}</span>
                 {#if ex.stats.shells}
                   <span>{ex.stats.shells} {t('pro.stats.shells')}</span>
+                {/if}
+                {#if Number(ex.stats.nodes) >= 1000}
+                  <span class="pro-example-heavy">{t('pro.stats.heavy')}</span>
                 {/if}
               </div>
             </button>
@@ -848,6 +876,18 @@
     margin-top: auto;
     font-size: 0.58rem;
     color: #7f97bc;
+  }
+
+  .pro-example-heavy {
+    color: #a08050;
+    font-style: italic;
+  }
+
+  .pro-example-featured {
+    border-color: #f0a50044;
+  }
+  .pro-example-featured:hover {
+    border-color: #f0a500aa;
   }
 
   .pro-solve-btn {
