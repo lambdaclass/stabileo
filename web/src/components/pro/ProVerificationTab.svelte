@@ -15,6 +15,7 @@
   import type { DiagramParams } from '../../lib/engine/codes/argentina/interaction-diagram';
   import { isDesignCheckAvailable, checkSteelMembers, checkRcMembers, checkEc2Members, checkEc3Members, checkTimberMembers, checkMasonryMembers, checkCfsMembers, checkBoltGroups, checkWeldGroups, checkSpreadFootings } from '../../lib/engine/wasm-solver';
   import { t } from '../../lib/i18n';
+  import * as XLSX from 'xlsx';
 
   /** Normative code options for design checks */
   type NormativeCode = 'cirsoc' | 'aci-aisc' | 'eurocode' | 'nds' | 'masonry' | 'cfs';
@@ -749,6 +750,76 @@
   const colEntries = $derived(rebarSchedule.filter(e => e.elementType === 'column'));
   const wallEntries = $derived(rebarSchedule.filter(e => e.elementType === 'wall'));
 
+  /** Export rebar schedule + quantities to XLSX */
+  function exportRebarSchedule() {
+    if (rebarSchedule.length === 0) return;
+    const wb = XLSX.utils.book_new();
+
+    // Sheet 1: Grouped rebar schedule
+    const typeLabel = (et: string) => et === 'beam' ? t('pro.elemTypeBeam') : et === 'wall' ? t('pro.elemTypeWall') : t('pro.elemTypeColumn');
+    const schedHeaders = [
+      t('pro.thSectionName'), t('pro.thType'), t('pro.thElements'),
+      'b×h (cm)', t('pro.thMainBars'), t('pro.thStirrups'),
+      `${t('pro.thAsPerElem')} (cm²)`,
+    ];
+    const schedData: (string | number)[][] = [schedHeaders];
+    for (const entry of rebarSchedule) {
+      schedData.push([
+        entry.sectionName,
+        typeLabel(entry.elementType),
+        entry.elementIds.join(', '),
+        `${(entry.b * 100).toFixed(0)}×${(entry.h * 100).toFixed(0)}`,
+        entry.mainBars,
+        entry.stirrups,
+        Number(entry.totalAsPerElem.toFixed(1)),
+      ]);
+    }
+    const wsSchedule = XLSX.utils.aoa_to_sheet(schedData);
+    wsSchedule['!cols'] = [{ wch: 18 }, { wch: 10 }, { wch: 28 }, { wch: 10 }, { wch: 14 }, { wch: 14 }, { wch: 12 }];
+    XLSX.utils.book_append_sheet(wb, wsSchedule, t('pro.scheduleTab'));
+
+    // Sheet 2: Per-element quantities (if available)
+    if (quantities) {
+      const qtyHeaders = [
+        'ID', t('pro.thType'), `L (m)`,
+        `${t('pro.totalConcrete')} (m³)`,
+        `${t('pro.exportRebarWeight')} (kg)`,
+        `${t('pro.exportStirrupWeight')} (kg)`,
+        `${t('pro.totalSteel')} (kg)`,
+      ];
+      const qtyData: (string | number)[][] = [qtyHeaders];
+      for (const eq of quantities.elements) {
+        qtyData.push([
+          eq.elementId,
+          typeLabel(eq.elementType),
+          Number(eq.length.toFixed(3)),
+          Number(eq.concreteVolume.toFixed(4)),
+          Number(eq.rebarWeight.toFixed(1)),
+          Number(eq.stirrupWeight.toFixed(1)),
+          Number(eq.totalSteelWeight.toFixed(1)),
+        ]);
+      }
+      // Summary row
+      qtyData.push([]);
+      qtyData.push([
+        t('excel.total'), '', '',
+        Number(quantities.totalConcreteVolume.toFixed(2)),
+        Number(quantities.totalRebarWeight.toFixed(0)),
+        Number(quantities.totalStirrupWeight.toFixed(0)),
+        Number(quantities.totalSteelWeight.toFixed(0)),
+      ]);
+      qtyData.push([
+        t('pro.globalRatio'), '', '', '', '', '',
+        `${quantities.steelRatio.toFixed(1)} kg/m³`,
+      ]);
+      const wsQty = XLSX.utils.aoa_to_sheet(qtyData);
+      wsQty['!cols'] = [{ wch: 8 }, { wch: 10 }, { wch: 8 }, { wch: 16 }, { wch: 14 }, { wch: 14 }, { wch: 14 }];
+      XLSX.utils.book_append_sheet(wb, wsQty, t('pro.materialsSummary'));
+    }
+
+    XLSX.writeFile(wb, `planilla-hierros-${modelStore.model.name || 'modelo'}.xlsx`);
+  }
+
   /** Get support type for an element end node */
   function getSupportType(nodeId: number): 'fixed' | 'pinned' | 'free' {
     const sup = modelStore.supports.get(nodeId);
@@ -1145,7 +1216,12 @@
 
     <!-- ═══ SCHEDULE TAB ═══ -->
     {:else if activeSection === 'schedule'}
-      <div class="pro-section-label">{t('pro.scheduleTitle')}</div>
+      <div class="pro-section-label" style="display:flex;align-items:center;justify-content:space-between">
+        <span>{t('pro.scheduleTitle')}</span>
+        <button class="pro-export-btn" disabled={rebarSchedule.length === 0} onclick={exportRebarSchedule} title={t('pro.exportScheduleTooltip')}>
+          {t('pro.exportSchedule')}
+        </button>
+      </div>
       <div class="pro-verif-table-wrap">
         <table class="pro-verif-table">
           <thead>
@@ -1705,6 +1781,19 @@
   }
   .schedule-label { color: #888; }
   .schedule-value { color: #4ecdc4; font-family: monospace; font-weight: 600; }
+
+  .pro-export-btn {
+    padding: 3px 10px;
+    font-size: 0.62rem;
+    background: rgba(78, 205, 196, 0.1);
+    color: #4ecdc4;
+    border: 1px solid rgba(78, 205, 196, 0.3);
+    border-radius: 3px;
+    cursor: pointer;
+    white-space: nowrap;
+  }
+  .pro-export-btn:hover:not(:disabled) { background: rgba(78, 205, 196, 0.2); }
+  .pro-export-btn:disabled { opacity: 0.4; cursor: default; }
 
   /* ─── Slab cards ─── */
   .slab-card {
