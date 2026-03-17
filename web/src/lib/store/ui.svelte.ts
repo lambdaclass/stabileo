@@ -197,6 +197,9 @@ function createUIStore() {
   let rightSidebarOpen = $state(false);
   let leftSidebarOpen = $state(true);
 
+  // AI drawer
+  let aiDrawerOpen = $state(false);
+
   // Context menu
   let contextMenu = $state<{ x: number; y: number; nodeId?: number; elementId?: number } | null>(null);
 
@@ -525,6 +528,8 @@ function createUIStore() {
     set rightSidebarOpen(v: boolean) { rightSidebarOpen = v; },
     get leftSidebarOpen() { return leftSidebarOpen; },
     set leftSidebarOpen(v: boolean) { leftSidebarOpen = v; },
+    get aiDrawerOpen() { return aiDrawerOpen; },
+    set aiDrawerOpen(v: boolean) { aiDrawerOpen = v; },
 
     get contextMenu() { return contextMenu; },
     set contextMenu(v: { x: number; y: number; nodeId?: number; elementId?: number } | null) { contextMenu = v; },

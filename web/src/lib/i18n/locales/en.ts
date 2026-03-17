@@ -3027,5 +3027,19 @@ const en: Record<string, string> = {
   'perf.phases': 'Phases',
   'perf.solveInfo': 'Solved in {time} | {dofs} DOFs',
   'perf.solveToast': 'Structure solved in {time}',
+
+  // ─── AI Review ───
+  'ai.title': 'Stabileo AI',
+  'ai.reviewModel': 'Review model',
+  'ai.reviewing': 'Analyzing…',
+  'ai.solveFirst': 'Solve first to review with AI.',
+  'ai.noResults': 'No results to review.',
+  'ai.unknownError': 'Unknown error while querying AI.',
+  'ai.risk': 'Risk',
+  'ai.recommendation': 'Recommendation',
+  'ai.affected': 'Affected IDs',
+  'ai.noFindings': 'No findings — model looks good.',
+  'ai.reviewOrder': 'Suggested review order',
+  'ai.riskyAssumptions': 'Risky assumptions',
 };
 export default en;

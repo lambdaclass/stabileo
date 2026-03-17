@@ -36,6 +36,7 @@
   import { buildTourSteps } from './lib/tour/tour-steps';
   import { runLiveCalc, runGlobalSolve } from './lib/engine/live-calc';
   import LandingPage from './components/LandingPage.svelte';
+  import AiDrawer from './components/AiDrawer.svelte';
 
   if (typeof window !== 'undefined') {
     const redirectedRoute = new URLSearchParams(location.search).get('route');
@@ -509,6 +510,10 @@
         {/if}
       {/if}
     {/if}
+
+    {#if !uiStore.isMobile && uiStore.aiDrawerOpen}
+      <AiDrawer />
+    {/if}
   </div>
 
   {#if !uiStore.isMobile}
@@ -653,6 +658,12 @@
 {#if !uiStore.embedMode}
   <!-- FeedbackWidget disabled — will be reimplemented professionally -->
   <!-- <FeedbackWidget /> -->
+{/if}
+
+{#if !showLanding && !uiStore.isMobile && !uiStore.embedMode}
+  <button class="ai-fab" class:active={uiStore.aiDrawerOpen} onclick={() => uiStore.aiDrawerOpen = !uiStore.aiDrawerOpen} title="Stabileo AI">
+    △
+  </button>
 {/if}
 
 <TourOverlay />
@@ -901,6 +912,42 @@
 
   .btn-secondary:hover {
     background: #1a4a7a;
+  }
+
+  .ai-fab {
+    position: fixed;
+    bottom: 24px;
+    right: 24px;
+    z-index: 100;
+    width: 48px;
+    height: 48px;
+    border-radius: 50%;
+    background: #0f3460;
+    border: 2px solid #1a4a7a;
+    color: #ccc;
+    font-size: 1.1rem;
+    font-weight: 700;
+    letter-spacing: 0;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.2s;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
+  }
+
+  .ai-fab:hover {
+    background: #1a4a7a;
+    border-color: #4ecdc4;
+    color: #4ecdc4;
+    transform: scale(1.05);
+  }
+
+  .ai-fab.active {
+    background: #1a4a7a;
+    border-color: #4ecdc4;
+    color: #4ecdc4;
+    box-shadow: 0 4px 16px rgba(78, 205, 196, 0.3);
   }
 
   .btn-help {

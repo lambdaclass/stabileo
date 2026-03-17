@@ -3027,5 +3027,19 @@ const es: Record<string, string> = {
   'perf.phases': 'Fases',
   'perf.solveInfo': 'Resuelto en {time} | {dofs} GDL',
   'perf.solveToast': 'Estructura resuelta en {time}',
+
+  // ─── AI Review ───
+  'ai.title': 'Stabileo AI',
+  'ai.reviewModel': 'Revisar modelo',
+  'ai.reviewing': 'Analizando…',
+  'ai.solveFirst': 'Resolvé primero para revisar con IA.',
+  'ai.noResults': 'No hay resultados para revisar.',
+  'ai.unknownError': 'Error desconocido al consultar la IA.',
+  'ai.risk': 'Riesgo',
+  'ai.recommendation': 'Recomendación',
+  'ai.affected': 'IDs afectados',
+  'ai.noFindings': 'Sin observaciones — el modelo se ve bien.',
+  'ai.reviewOrder': 'Orden de revisión sugerido',
+  'ai.riskyAssumptions': 'Supuestos riesgosos',
 };
 export default es;
