@@ -358,12 +358,6 @@ const ko: Translations = {
   'ex.3d-building.desc': 'CIRSOC 201 조합 D+L+W+E',
   'ex.pro-edificio-7p': '7층 RC 건물 (PRO)',
   'ex.pro-edificio-7p.desc': '엘리베이터, 계단이 있는 주거용, CIRSOC 102 풍하중 및 용도별 활하중',
-  'ex.pro-sagrada-familia': 'Sagrada Familia (PRO)',
-  'ex.pro-sagrada-familia.desc': 'Barcelona basilica: 36 tree-columns, hyperboloid vaults, apse, and towers',
-  'ex.pro-sagrada-familia.purpose': 'Stone / vaults / towers',
-  'ex.laBombonera3D': 'La Bombonera (Boca Juniors)',
-  'ex.laBombonera3D.desc': '비대칭 D자형 경기장: 경사 레이커가 있는 3층 RC 포털 프레임, 동측 팔코스 건물, 부분 지붕 캐노피, 풍하중',
-  'ex.laBombonera3D.purpose': 'RC 경기장 / 비대칭 / 레이커',
 
   // ─── ToolbarProject.svelte ───
   'project.title': '프로젝트',

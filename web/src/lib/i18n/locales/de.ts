@@ -2229,12 +2229,6 @@ const de: Translations = {
   // ─── Missing example keys ───
   'ex.pro-edificio-7p': 'Stahlbetongebäude 7 Stockwerke (PRO)',
   'ex.pro-edificio-7p.desc': 'Wohngebäude mit Aufzug, Treppe, Wind CIRSOC 102 und Nutzlasten nach Raumnutzung',
-  'ex.pro-sagrada-familia': 'Sagrada Familia (PRO)',
-  'ex.pro-sagrada-familia.desc': 'Barcelona basilica: 36 tree-columns, hyperboloid vaults, apse, and towers',
-  'ex.pro-sagrada-familia.purpose': 'Stone / vaults / towers',
-  'ex.laBombonera3D': 'La Bombonera (Boca Juniors)',
-  'ex.laBombonera3D.desc': 'Asymmetrisches D-förmiges Stadion: 3-stöckige Stahlbeton-Rahmen mit geneigten Tribünenträgern, Ostgebäude mit Logen, Teildachüberdachung, Windlasten',
-  'ex.laBombonera3D.purpose': 'Stahlbeton-Stadion / asymmetrisch / Tribünenträger',
 
   // ─── Config ───
   'config.showConstraintForces': 'Zwangskräfte anzeigen',

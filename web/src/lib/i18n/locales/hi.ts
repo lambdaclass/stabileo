@@ -2337,12 +2337,6 @@ const hi: Translations = {
   // ─── Missing: ex.pro-edificio-7p ───
   'ex.pro-edificio-7p': 'R.C. भवन 7 मंजिल (PRO)',
   'ex.pro-edificio-7p.desc': 'लिफ्ट, सीढ़ी, CIRSOC 102 पवन भार और स्थान उपयोग भार वाला आवासीय भवन',
-  'ex.pro-sagrada-familia': 'Sagrada Familia (PRO)',
-  'ex.pro-sagrada-familia.desc': 'Barcelona basilica: 36 tree-columns, hyperboloid vaults, apse, and towers',
-  'ex.pro-sagrada-familia.purpose': 'Stone / vaults / towers',
-  'ex.laBombonera3D': 'La Bombonera (Boca Juniors)',
-  'ex.laBombonera3D.desc': 'असममित D-आकार का स्टेडियम: झुके हुए रेकर्स वाले 3-स्तरीय RC पोर्टल फ्रेम, पूर्वी पाल्कोस भवन, आंशिक छत छतरी, पवन भार',
-  'ex.laBombonera3D.purpose': 'RC स्टेडियम / असममित / रेकर्स',
 
   // ─── Missing: config.showConstraintForces ───
   'config.showConstraintForces': 'बंधन बल दिखाएँ',

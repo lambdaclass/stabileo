@@ -2337,12 +2337,6 @@ const fr: Translations = {
   // ─── Missing individual keys ───
   'ex.pro-edificio-7p': 'Bâtiment B.A. 7 Étages (PRO)',
   'ex.pro-edificio-7p.desc': 'Habitation avec ascenseur, escalier, vent CIRSOC 102 et charges par destination du local',
-  'ex.pro-sagrada-familia': 'Sagrada Familia (PRO)',
-  'ex.pro-sagrada-familia.desc': 'Barcelona basilica: 36 tree-columns, hyperboloid vaults, apse, and towers',
-  'ex.pro-sagrada-familia.purpose': 'Stone / vaults / towers',
-  'ex.laBombonera3D': 'La Bombonera (Boca Juniors)',
-  'ex.laBombonera3D.desc': 'Stade asymétrique en D : portiques BA à 3 niveaux avec gradins inclinés, bâtiment de loges est, auvent partiel, charges de vent',
-  'ex.laBombonera3D.purpose': 'Stade BA / asymétrique / gradins',
   'field.poisson': 'ν',
   'field.density': 'γ',
   'config.showConstraintForces': 'Afficher les forces de liaison',

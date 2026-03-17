@@ -358,12 +358,6 @@ const ar: Translations = {
   'ex.3d-building.desc': 'D+L+W+E مع تركيبات CIRSOC 201',
   'ex.pro-edificio-7p': 'مبنى خرساني 7 طوابق (PRO)',
   'ex.pro-edificio-7p.desc': 'سكني مع مصعد ودرج، رياح CIRSOC 102 وأحمال حية حسب الإشغال',
-  'ex.pro-sagrada-familia': 'Sagrada Familia (PRO)',
-  'ex.pro-sagrada-familia.desc': 'Barcelona basilica: 36 tree-columns, hyperboloid vaults, apse, and towers',
-  'ex.pro-sagrada-familia.purpose': 'Stone / vaults / towers',
-  'ex.laBombonera3D': 'La Bombonera (Boca Juniors)',
-  'ex.laBombonera3D.desc': 'ملعب غير متماثل بشكل D: إطارات بوابية من الخرسانة المسلحة بـ 3 مستويات مع مدرجات مائلة، مبنى المقصورات الشرقي، مظلة سقف جزئية، أحمال الرياح',
-  'ex.laBombonera3D.purpose': 'ملعب خرسانة مسلحة / غير متماثل / مدرجات',
 
   // ─── ToolbarProject.svelte ───
   'project.title': 'مشروع',

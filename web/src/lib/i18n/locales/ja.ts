@@ -358,12 +358,6 @@ const ja: Translations = {
   'ex.3d-building.desc': 'D+L+W+E CIRSOC 201組合せ',
   'ex.pro-edificio-7p': '7層RC建物（PRO）',
   'ex.pro-edificio-7p.desc': 'エレベーター・階段付き住宅、CIRSOC 102風荷重・用途別活荷重',
-  'ex.pro-sagrada-familia': 'Sagrada Familia (PRO)',
-  'ex.pro-sagrada-familia.desc': 'Barcelona basilica: 36 tree-columns, hyperboloid vaults, apse, and towers',
-  'ex.pro-sagrada-familia.purpose': 'Stone / vaults / towers',
-  'ex.laBombonera3D': 'La Bombonera (Boca Juniors)',
-  'ex.laBombonera3D.desc': '非対称D型スタジアム：傾斜レーカー付き3層RCポータルフレーム、東側パルコス棟、部分屋根キャノピー、風荷重',
-  'ex.laBombonera3D.purpose': 'RCスタジアム / 非対称 / レーカー',
 
   // ─── ToolbarProject.svelte ───
   'project.title': 'プロジェクト',

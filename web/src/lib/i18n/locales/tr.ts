@@ -2337,12 +2337,6 @@ const tr: Translations = {
   // ─── Missing: ex.pro-edificio-7p ───
   'ex.pro-edificio-7p': 'B.A. Bina 7 Kat (PRO)',
   'ex.pro-edificio-7p.desc': 'Asansör, merdiven, CIRSOC 102 rüzgar yükü ve kullanım amaçlı yükler içeren konut binası',
-  'ex.pro-sagrada-familia': 'Sagrada Familia (PRO)',
-  'ex.pro-sagrada-familia.desc': 'Barcelona basilica: 36 tree-columns, hyperboloid vaults, apse, and towers',
-  'ex.pro-sagrada-familia.purpose': 'Stone / vaults / towers',
-  'ex.laBombonera3D': 'La Bombonera (Boca Juniors)',
-  'ex.laBombonera3D.desc': 'Asimetrik D-şekilli stadyum: eğimli raker\'lı 3 katlı BA portal çerçeveler, doğu loca binası, kısmi çatı sundurması, rüzgar yükleri',
-  'ex.laBombonera3D.purpose': 'BA stadyum / asimetrik / raker\'lar',
 
   // ─── Missing: config.showConstraintForces ───
   'config.showConstraintForces': 'Bağ kuvvetlerini göster',

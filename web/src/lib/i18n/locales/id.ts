@@ -358,12 +358,6 @@ const id: Translations = {
   'ex.3d-building.desc': 'D+L+W+E dengan kombinasi CIRSOC 201',
   'ex.pro-edificio-7p': 'Gedung Beton 7 Lantai (PRO)',
   'ex.pro-edificio-7p.desc': 'Hunian dengan lift, tangga, beban angin CIRSOC 102 & beban hidup berdasarkan hunian',
-  'ex.pro-sagrada-familia': 'Sagrada Familia (PRO)',
-  'ex.pro-sagrada-familia.desc': 'Barcelona basilica: 36 tree-columns, hyperboloid vaults, apse, and towers',
-  'ex.pro-sagrada-familia.purpose': 'Stone / vaults / towers',
-  'ex.laBombonera3D': 'La Bombonera (Boca Juniors)',
-  'ex.laBombonera3D.desc': 'Stadion asimetris berbentuk D: portal beton bertulang 3 tingkat dengan raker miring, gedung palcos timur, kanopi atap parsial, beban angin',
-  'ex.laBombonera3D.purpose': 'Stadion beton bertulang / asimetris / raker',
 
   // ─── ToolbarProject.svelte ───
   'project.title': 'Proyek',

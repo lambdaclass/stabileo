@@ -2218,12 +2218,6 @@ const ru: Translations = {
   // ─── Individual missing keys ───
   'ex.pro-edificio-7p': '7-этажное ж/б здание (PRO)',
   'ex.pro-edificio-7p.desc': 'Жилое с лифтом, лестницами, ветровой нагрузкой CIRSOC 102 и временными нагрузками по назначению',
-  'ex.pro-sagrada-familia': 'Sagrada Familia (PRO)',
-  'ex.pro-sagrada-familia.desc': 'Barcelona basilica: 36 tree-columns, hyperboloid vaults, apse, and towers',
-  'ex.pro-sagrada-familia.purpose': 'Stone / vaults / towers',
-  'ex.laBombonera3D': 'La Bombonera (Boca Juniors)',
-  'ex.laBombonera3D.desc': 'Асимметричный D-образный стадион: 3-ярусные ЖБ портальные рамы с наклонными рейкерами, восточное здание лож, частичный навес крыши, ветровые нагрузки',
-  'ex.laBombonera3D.purpose': 'ЖБ стадион / асимметричный / рейкеры',
   'field.density': 'γ',
   'field.poisson': 'ν',
   'config.showConstraintForces': 'Показать усилия связей',

@@ -2218,12 +2218,6 @@ const zh: Translations = {
   // ─── Individual missing keys ───
   'ex.pro-edificio-7p': '7层钢筋混凝土建筑 (PRO)',
   'ex.pro-edificio-7p.desc': '含电梯、楼梯的住宅，CIRSOC 102 风荷载及基于用途的活荷载',
-  'ex.pro-sagrada-familia': 'Sagrada Familia (PRO)',
-  'ex.pro-sagrada-familia.desc': 'Barcelona basilica: 36 tree-columns, hyperboloid vaults, apse, and towers',
-  'ex.pro-sagrada-familia.purpose': 'Stone / vaults / towers',
-  'ex.laBombonera3D': 'La Bombonera (Boca Juniors)',
-  'ex.laBombonera3D.desc': '非对称D形体育场：带倾斜看台梁的3层RC门式框架、东侧包厢楼、局部屋顶雨篷、风荷载',
-  'ex.laBombonera3D.purpose': 'RC体育场 / 非对称 / 看台梁',
   'field.density': 'γ',
   'field.poisson': 'ν',
   'config.showConstraintForces': '显示约束力',
