@@ -236,9 +236,17 @@ export async function buildModel(
   locale?: string,
   analysisMode?: string,
 ): Promise<BuildModelResponse> {
-  return post('/api/ai/build-model', {
+  const raw: any = await post('/api/ai/build-model', {
     description,
     locale: locale ?? 'en',
     analysisMode: analysisMode ?? '2d',
   });
+  // Normalize: old backend returns { snapshot, interpretation }, new returns { snapshot, message }
+  return {
+    snapshot: raw.snapshot ?? null,
+    message: raw.message ?? raw.interpretation ?? '',
+    changeSummary: raw.changeSummary,
+    scopeRefusal: raw.scopeRefusal,
+    meta: raw.meta,
+  };
 }
