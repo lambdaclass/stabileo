@@ -96,20 +96,39 @@ See also:
 
 Start narrow and expand deliberately. Each level must work reliably before moving to the next.
 
-| Level | Structures | Key challenges |
-|-------|-----------|----------------|
-| 1 | Simply supported beams, cantilevers, continuous beams, portal frames, basic trusses, simple 3D frames | Correct node placement, support types, 2D/3D loads, and correct section/material defaults |
-| 2 | Multi-bay, multi-story 2D frames | Regular grid generation, floor loads, bracing |
-| 3 | Trusses (Pratt, Warren, Howe) with complex geometry | Truss element type, pin joints, panel geometry |
-| 4 | Multi-story 3D frames | Floor diaphragms, column stacking, slab loads |
-| 5 | Mixed structures (frames + trusses, inclined members) | Element type mixing, complex connectivity |
-| 6 | Structures from description + constraints ("6m span, max deflection L/300, residential") | Solver-in-the-loop: generate -> solve -> check -> iterate |
+Current maturity:
+
+| Level | Status | Structures | Key challenges |
+|-------|--------|-----------|----------------|
+| 1 | Done | Simply supported beams, cantilevers, continuous beams, portal frames, basic trusses, simple 3D frames | Correct node placement, support types, 2D/3D loads, and correct section/material defaults |
+| 2 | Done | Multi-bay, multi-story 2D frames | Regular grid generation, floor loads, bracing |
+| 3 | Done | Trusses (Pratt, Warren, Howe) with complex geometry | Truss element type, pin joints, panel geometry |
+| 4 | Done | Multi-story 3D frames | Floor diaphragms, column stacking, slab loads |
+| 5 | In progress | Mixed structures (frames + trusses, inclined members) | Element type mixing, complex connectivity, edit-action composition over existing models |
+| 6 | Not started | Structures from description + constraints ("6m span, max deflection L/300, residential") | Solver-in-the-loop: generate -> solve -> check -> iterate |
 
 Each level needs:
 - prompt templates with structural examples at that complexity
 - validation rules for connectivity, support adequacy, and load completeness
 - test cases with known-good reference models
 - a clear refusal/fallback when the request exceeds the current level
+
+Current implemented generator scope:
+- `create_beam`
+- `create_cantilever`
+- `create_continuous_beam`
+- `create_portal_frame`
+- `create_truss`
+- `create_multi_story_frame`
+- `create_portal_frame_3d`
+- `create_multi_story_frame_3d`
+
+Current implemented edit-action scope:
+- add one bay/story at the structural-system level
+- change sections
+- change support strategy
+- add/remove loads
+- delete members and constrained structural edits through validated edit actions
 
 #### Self-describing capability model
 
@@ -239,7 +258,7 @@ This should become the long-term contract for the conversational builder.
 
 #### Conversational builder architecture
 
-The builder should evolve into a conversational structural editor built around this loop:
+The builder is now moving from a pure generator into a conversational structural editor built around this loop:
 
 1. user intent
 2. AI planning step
@@ -258,6 +277,20 @@ The key rule is:
 
 This should move the builder away from freeform `text -> full model JSON` and toward constrained structural editing.
 
+Current status:
+- native provider tool/function calling is implemented behind the provider abstraction
+- the AI no longer has to guess between `JSON` and plain text responses
+- the backend exposes tool definitions from the action/edit registry
+- the frontend sends current model context plus current snapshot when a model already exists on canvas
+- the same conversational surface can now build from scratch or edit the existing model
+
+Current response handling order:
+1. native tool call
+2. JSON fallback
+3. plain-text conversational fallback
+
+This is the correct direction and should remain the baseline for future builder work.
+
 #### Planning and editing roles
 
 The builder should evolve toward two internal AI roles:
@@ -270,6 +303,12 @@ The builder should evolve toward two internal AI roles:
   - emits constrained actions or structured draft changes
 
 This separation makes building-scale interactions much cleaner than one monolithic prompt.
+
+Current practical split:
+- `generator actions` are the fast path for common typologies
+- `edit actions` are the composition path for modifying an existing model
+
+This is what unlocks Level 5. Mixed structures should mostly come from composition over edit actions, not from an endless list of bespoke whole-structure generators.
 
 #### Building abstractions
 
@@ -315,6 +354,10 @@ Examples of clarifications:
 
 The resulting assumptions ledger should stay visible to the user.
 
+Current policy:
+- if the requested structure fits a supported build/edit action with safe defaults, the builder may proceed directly and make defaults explicit
+- if key structural intent is still missing, the builder should ask clarifying questions instead of inventing unsupported topology
+
 #### Hierarchical editing
 
 Building-scale editing should happen at meaningful levels:
@@ -354,6 +397,11 @@ Then the AI can:
 
 This is especially important for building workflows where missing lateral systems, poor support assumptions, or disconnected framing are common.
 
+Current status:
+- validation exists for generated/edited snapshots and action parameters
+- solver-in-the-loop iteration does not exist yet
+- Level 6 remains blocked on batch iteration, constraint evaluation, and optimization loops
+
 #### Geometry, setup, and loads are distinct steps
 
 The builder should eventually treat these as separate layers:
@@ -370,11 +418,13 @@ The builder should track maturity by structural typology, not only by one generi
 
 Example maturity ladder:
 - beams: stable
-- portal frames: beta
-- basic trusses: early
-- 2D frame buildings: later
-- simple 3D frame buildings: later
+- portal frames: stable
+- trusses (Pratt/Warren/Howe): stable
+- 2D frame buildings: stable
+- simple 3D frame buildings: stable
+- mixed frame + truss systems: in progress
 - industrial sheds/warehouses: later
+- constraint-driven design generation: later
 
 This makes scope boundaries honest and visible.
 
@@ -415,6 +465,13 @@ The backend remains the source of truth:
 - rejects unsupported or ambiguous actions when needed
 - translates valid actions into normalized model snapshots or product operations
 
+Current implementation direction:
+- tool/function calling is preferred over prompt-only JSON extraction
+- provider-specific tool use stays behind the provider adapters
+- the internal action/edit contract stays provider-agnostic
+- generator actions remain the preferred deterministic path
+- direct freeform snapshot generation should only ever be a guarded fallback, not the default execution path
+
 #### Deterministic builder tests
 
 Each supported prompt family should eventually have deterministic tests covering:
@@ -449,21 +506,30 @@ Chat state rules:
 - each applied AI change is one undo step
 - AI-generated model changes should show visible state such as `Draft`, `Applied`, `Rejected`, or `Undone`
 
-#### Level 1 implementation policy
+Current status:
+- the builder now operates as a build-or-edit surface depending on whether a model already exists
+- frontend request shaping includes:
+  - `analysisMode` always
+  - compact `modelContext` when a model exists
+  - full `currentSnapshot` when edit tools may be needed
+- empty-state examples and input copy should adapt between build and edit modes
 
-Level 1 supports both 2D and 3D:
-- simply supported beams
+#### Level 1-4 implementation policy
+
+Implemented today:
+- beams
 - cantilevers
 - continuous beams
-- single-bay single-story portal frames
-- basic trusses
-- simple 3D frames (single story, rectangular plan)
+- single-bay and multi-bay 2D portal/frame buildings
+- trusses with Pratt, Warren, and Howe patterns
+- simple and multi-story 3D frames
 
-Level 1 should explicitly exclude:
-- multi-story 3D frames with diaphragms
+Still explicitly excluded from the current builder contract:
+- arbitrary mixed-structure composition without edit actions
 - solver-in-the-loop design iteration
 - voice input
 - sketch/image input
+- constraint-driven optimization/generation
 
 Animation policy:
 
@@ -540,18 +606,21 @@ Even if the product UX does not expose obvious user-facing limits, the implement
 - request IDs and safe structured logging
 
 These are infrastructure requirements, not optional polish.
-3. Frontend shows **Apply / Retry / Cancel** (never auto-apply blindly)
-4. On Apply:
+
+Frontend interaction requirements:
+1. frontend shows **Apply / Retry / Cancel** (never auto-apply blindly)
+2. on Apply:
    - snapshot current model for undo
-   - rebuild/animate in short phases
+   - apply validated draft
    - auto-frame camera
    - auto-solve
    - offer "Review this model" in chat
-5. Each AI message shows status badge: Draft / Applied / Rejected / Undone
+3. each AI message should show visible state such as `Draft`, `Applied`, `Rejected`, or `Undone`
 
-**AI context grounding:**
+AI context grounding:
 The AI should know on every message:
-- current model state (nodes, elements, materials, sections, supports, loads)
+- compact current model state summary
+- full current snapshot when edit actions may mutate the existing model
 - selected entities (if any)
 - active analysis mode (2D/3D)
 - current spans and coordinate ranges

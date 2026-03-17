@@ -35,19 +35,20 @@ Already in place:
 - Rust solver through WASM
 - backend AI service (Rust/Axum) with 6 providers (Claude, OpenAI, DeepSeek, Mistral, Kimi, Gemini)
 - provider-agnostic AI adapter layer with env-driven selection (`AI_PROVIDER`)
+- provider-agnostic tool/function-calling contract behind provider adapters
 - 4 AI capability endpoints — all authenticated, with timeout guards:
   - `review-model` — verified end-to-end with Kimi and GPT-4o
   - `explain-diagnostic` — diagnostic code explanation and fix steps
-  - `build-model` — natural language to model JSON
+  - `build-model` — conversational build/edit over deterministic generators and edit actions
   - `interpret-results` — result-question answering with code references
 - provider timeout guard (configurable via `PROVIDER_TIMEOUT_SECS`, default 90s)
-- 49 contract tests (response parsing, malformed/refusal cases, stub provider integration — across all 4 capabilities)
+- 75 backend tests passing, including capability parsing, malformed/refusal cases, stub provider integration, tool-calling flows, and build/edit action coverage
 - reusable solver-run artifact contract at the engine layer
 - containerized local/proxy setup (`Dockerfile`, `docker-compose.yml`, `nginx.conf`)
 - local developer bootstrap helpers (`Makefile`, `flake.nix` — verified working)
 
 Not yet complete:
-- frontend integration for remaining AI capabilities (Explain, Query, Build tabs — placeholders exist)
+- frontend integration for remaining AI capabilities (Explain and Query still need wiring)
 - input validation and request size limits
 - rate limiting and abuse controls
 - AI output validation (generated model JSON must be validated before import)
@@ -62,7 +63,7 @@ Not yet complete:
 
 The live near-term blockers are now:
 - abuse and security hardening for AI-facing routes — before any broader rollout
-- frontend integration for remaining AI capabilities (Query, Explain, Build tabs)
+- frontend integration for remaining AI capabilities (Query and Explain tabs)
 - input validation, request size limits, and abuse controls for AI and artifact flows
 - product-side solver-run artifact capture, storage, export/import, and replay flows
 - backend observability, rate limiting, and startup validation
@@ -85,7 +86,7 @@ Before broadening the infrastructure into heavier deployment, batch, or team wor
 These are the next concrete infrastructure tasks in execution order:
 
 1. `Provider timeout guard` — DONE. Configurable timeout on all 4 capability endpoints.
-2. `Capability contract tests` — DONE. 49 tests across all 4 capabilities (parsing, malformed, stub integration, serialization).
+2. `Capability contract tests` — DONE. 75 backend tests covering all 4 capabilities plus tool-calling and build/edit action flows.
 3. `Explain-diagnostic capability` — DONE. Backend endpoint with contract tests.
 4. `Build-model capability` — DONE. Backend endpoint with model JSON validation and contract tests.
 5. `Interpret-results capability` — DONE. Backend endpoint with contract tests.
@@ -95,17 +96,18 @@ These are the next concrete infrastructure tasks in execution order:
 9. `Request IDs and structured request logging` — NOT DONE.
 10. `Startup validation for provider/config/API keys` — NOT DONE.
 11. `Review-model frontend integration` — DONE. Stabileo AI right-side drawer with Review tab, risk chip, finding cards with severity badges, zoom-to-issue, regenerate button.
-12. `Query/Explain/Build frontend tabs` — NOT STARTED. Drawer tabs exist as placeholders, need wiring to backend endpoints.
-13. `Solve-time artifact capture in product` — NOT STARTED.
-14. `Artifact export/import and local persistence` — NOT STARTED.
-15. `Replay/support flow on top of artifacts` — NOT STARTED.
-16. `Storage boundary decision` — NOT STARTED. Define local vs hosted artifact storage explicitly.
-17. `API/artifact versioning policy` — NOT STARTED. Define compatibility and migration rules.
-18. `Named native/server solve path` — NOT STARTED.
-19. `Browser/native parity smoke coverage` — NOT STARTED.
-20. `Worker/job model for long-running tasks` — NOT STARTED.
-21. `Batch execution with progress/cancellation` — NOT STARTED.
-22. `Deployment promotion/rollback discipline` — NOT STARTED.
+12. `Build frontend integration` — DONE. Conversational build/edit drawer flow with Apply/Retry/Cancel, model-context-aware edit requests, and preview-on-canvas behavior.
+13. `Query/Explain frontend tabs` — NOT STARTED. Drawer tabs exist as placeholders, need wiring to backend endpoints.
+14. `Solve-time artifact capture in product` — NOT STARTED.
+15. `Artifact export/import and local persistence` — NOT STARTED.
+16. `Replay/support flow on top of artifacts` — NOT STARTED.
+17. `Storage boundary decision` — NOT STARTED. Define local vs hosted artifact storage explicitly.
+18. `API/artifact versioning policy` — NOT STARTED. Define compatibility and migration rules.
+19. `Named native/server solve path` — NOT STARTED.
+20. `Browser/native parity smoke coverage` — NOT STARTED.
+21. `Worker/job model for long-running tasks` — NOT STARTED.
+22. `Batch execution with progress/cancellation` — NOT STARTED.
+23. `Deployment promotion/rollback discipline` — NOT STARTED.
 
 ## Current Infra Surface
 
@@ -368,7 +370,7 @@ Infrastructure should be designed explicitly for these environments:
 
 Goal: establish a minimal but production-shaped backend surface.
 
-Current status: MOSTLY DONE. Backend workspace, provider abstraction, auth, health, timeout guard, and first capability endpoint exist and are locally verified. Remaining work is startup validation, stronger structured logging, and broader capability/contract hardening.
+Current status: MOSTLY DONE. Backend workspace, provider abstraction, auth, health, timeout guard, all 4 capability endpoints, and provider-agnostic tool-calling exist and are locally verified. Remaining work is startup validation, stronger structured logging, and broader capability/contract hardening.
 
 **What:**
 - backend workspace layout and shared contracts with `engine/`
@@ -376,14 +378,14 @@ Current status: MOSTLY DONE. Backend workspace, provider abstraction, auth, heal
 - auth middleware
 - health endpoint
 - provider abstraction for AI capabilities
-- first capability endpoint (`review-model`)
+- stable capability endpoints for `review-model`, `explain-diagnostic`, `build-model`, and `interpret-results`
 - clean error mapping and HTTP boundaries
 
 **Done when:**
 - service boots locally with one command
 - auth works consistently
 - provider selection is env-driven
-- one AI capability is live behind a stable request/response contract
+- all current AI capabilities are live behind stable request/response contracts
 
 ### Stage 2 — Reproducibility and Supportability
 
@@ -555,13 +557,14 @@ Current status: EARLY. Local container/Nix/dev bootstrap exists, but promotion r
 
 The next infrastructure sequence should be:
 
-1. ~~add `explain-diagnostic`, `build-model`, `interpret-results` backend capabilities~~ — DONE. All 4 AI capabilities are live with 49 contract tests.
+1. ~~add `explain-diagnostic`, `build-model`, `interpret-results` backend capabilities~~ — DONE. All 4 AI capabilities are live with 75 backend tests.
 2. ~~frontend integration: review-model~~ — DONE. Stabileo AI drawer with Review tab, tested end-to-end with GPT-4o.
-3. frontend integration: wire remaining drawer tabs (Query, Explain, Build) to existing backend endpoints
-4. add input validation, request size limits, and per-capability field bounds — blocks cheapest attacks before broadening usage
-5. add rate limiting (per-key, per-capability) and request IDs — required before any production traffic
-6. add AI output validation for `build-model` — generated model JSON must be validated before frontend import
-7. finish `Stage 2` product-side flows for solver-run artifacts
+3. ~~frontend integration: wire Build tab to backend~~ — DONE. Conversational build/edit flow is wired end-to-end.
+4. frontend integration: wire remaining drawer tabs (Query, Explain) to existing backend endpoints
+5. add input validation, request size limits, and per-capability field bounds — blocks cheapest attacks before broadening usage
+6. add rate limiting (per-key, per-capability) and request IDs — required before any production traffic
+7. add AI output validation for `build-model` — generated model JSON must be validated before frontend import
+8. finish `Stage 2` product-side flows for solver-run artifacts
 8. harden `Stage 3` observability/startup validation/structured logging
 9. define storage boundary and API/artifact versioning policy
 10. only then broaden into desktop persistence and native/server solve packaging
