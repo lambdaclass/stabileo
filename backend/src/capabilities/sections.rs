@@ -54,7 +54,7 @@ pub fn default_material() -> serde_json::Value {
 
 // All values in SI: m², m⁴, m
 // Converted from cm²→m² (/1e4), cm⁴→m⁴ (/1e8), mm→m (/1e3)
-static SECTIONS: [SectionProps; 12] = [
+pub static SECTIONS: [SectionProps; 12] = [
     // IPE 200
     SectionProps {
         name: "IPE 200",

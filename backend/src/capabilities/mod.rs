@@ -3,5 +3,6 @@ pub mod build_model;
 pub mod explain_diagnostic;
 pub mod generators;
 pub mod interpret_results;
+pub mod registry;
 pub mod review_model;
 pub mod sections;

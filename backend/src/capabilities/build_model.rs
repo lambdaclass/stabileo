@@ -57,11 +57,7 @@ pub async fn build_model(
 }
 
 fn build_system_prompt(locale: &str, analysis_mode: &str) -> String {
-    let mode_actions = if analysis_mode == "3d" {
-        r#"create_portal_frame_3d {{ width, depth, height, q_beam, base_support, beam_section, column_section }}"#
-    } else {
-        ""
-    };
+    let capabilities = super::registry::prompt_text(analysis_mode);
 
     format!(
         r#"You are a structural engineering assistant for Stabileo, a structural analysis app. You can both chat freely and build structural models.
@@ -71,20 +67,12 @@ Respond in locale: {locale}
 When the user wants to BUILD or CREATE a structure, output a JSON action (no markdown fences):
 {{ "action": "<name>", "params": {{ ... }}, "interpretation": "..." }}
 
-Available actions (units: meters, kN, kN/m; loads negative = downward):
-  create_beam          {{ span, q, support_left, support_right, section, p_tip }}
-  create_cantilever    {{ length, p_tip, q, section }}
-  create_continuous_beam {{ spans: [number], q, section }}
-  create_portal_frame  {{ width, height, q_beam, h_lateral, base_support, beam_section, column_section }}
-  create_truss         {{ span, height, n_panels, pattern, top_load }}
-  create_multi_story_frame {{ n_bays, n_floors, bay_width, floor_height, q_beam, h_lateral, beam_section, column_section }}
-  create_multi_story_frame_3d {{ n_bays_x, n_bays_z, n_floors, bay_width, floor_height, q_beam, h_lateral, base_support, beam_section, column_section }}
-  {mode_actions}
-
+{capabilities}
 Defaults: support_left="pinned", support_right="rollerX", base_support="fixed", section="IPE 300", n_panels=4, pattern="pratt"
 Truss patterns: "pratt", "warren", "howe"
-Available sections: IPE 200/300/400/500/600, HEB 200/300/400, HEA 200/300, UPN 200, L 80x80x8
-Material: Steel A36 (always).
+
+If the request doesn't match any available action, respond:
+{{ "action": "unsupported", "params": {{}}, "interpretation": "I can build: beams, cantilevers, continuous beams, portal frames, trusses, multi-story frames, and 3D frames." }}
 
 For anything else — questions, explanations, advice, greetings — just reply in plain text. Be helpful, concise, and knowledgeable about structural engineering."#
     )
