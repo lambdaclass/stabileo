@@ -445,10 +445,10 @@
 
   <!-- Tabs -->
   <div class="tab-bar">
+    <button class="tab" class:active={activeTab === 'build'} onclick={() => activeTab = 'build'}>Build</button>
     <button class="tab" class:active={activeTab === 'review'} onclick={() => activeTab = 'review'}>Review</button>
     <button class="tab" class:active={activeTab === 'explain'} onclick={() => activeTab = 'explain'}>Explain</button>
     <button class="tab" class:active={activeTab === 'query'} onclick={() => activeTab = 'query'}>Query</button>
-    <button class="tab" class:active={activeTab === 'build'} onclick={() => activeTab = 'build'}>Build</button>
   </div>
 
   <!-- Body -->
