@@ -6,7 +6,7 @@
   import type { ModelSnapshot } from '../lib/store/history.svelte';
 
   type AiTab = 'review' | 'explain' | 'query' | 'build';
-  let activeTab = $state<AiTab>('review');
+  let activeTab = $state<AiTab>('build');
 
   // ─── Internal limits ───
   const MAX_MESSAGE_LENGTH = 2000;

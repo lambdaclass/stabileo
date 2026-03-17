@@ -182,7 +182,12 @@ async function post<T>(path: string, body: unknown): Promise<T> {
 
   if (!resp.ok) {
     const text = await resp.text().catch(() => '');
-    throw new Error(`AI backend error ${resp.status}: ${text}`);
+    let message = text;
+    try {
+      const parsed = JSON.parse(text);
+      if (parsed.error) message = parsed.error;
+    } catch { /* use raw text */ }
+    throw new Error(message || `AI backend error ${resp.status}`);
   }
 
   return resp.json();

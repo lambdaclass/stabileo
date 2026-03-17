@@ -138,7 +138,9 @@ pub fn parse_response(
 
     let raw: Raw = serde_json::from_str(json_str).map_err(|e| {
         tracing::warn!("failed to parse build-model response: {e}\nraw: {content}");
-        AppError::Internal(format!("failed to parse AI response: {e}"))
+        AppError::BadRequest(
+            "Could not generate a model from that description. Try describing a structure, e.g. \"simply supported beam, 6m span, 10 kN/m load\".".into(),
+        )
     })?;
 
     // Validate that snapshot has the required fields
@@ -147,8 +149,8 @@ pub fn parse_response(
         || snapshot.get("nodes").is_none()
         || snapshot.get("elements").is_none()
     {
-        return Err(AppError::Internal(
-            "AI response missing required model fields (nodes, elements)".into(),
+        return Err(AppError::BadRequest(
+            "AI response missing required model fields. Try a more specific structural description.".into(),
         ));
     }
 
