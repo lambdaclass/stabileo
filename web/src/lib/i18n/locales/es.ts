@@ -2788,6 +2788,7 @@ const es: Record<string, string> = {
   'pro.overrideAuto': 'Auto',
   'pro.overrideClearAll': 'Limpiar ajustes',
   'pro.overrideClearAllTooltip': 'Revertir todos los ajustes manuales al diseño automático',
+  'pro.qtyOverrideNote': '* Peso de barras longitudinales incluye ajustes manuales; estribos sin cambios',
   'pro.slabTotalArea': 'Losas — Área total',
   'pro.slabConcrete': 'Losas — Hormigón',
   'pro.slabReinfTitle': 'Armado de losas — CIRSOC 201',

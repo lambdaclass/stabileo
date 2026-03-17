@@ -2788,6 +2788,7 @@ const en: Record<string, string> = {
   'pro.overrideAuto': 'Auto',
   'pro.overrideClearAll': 'Clear overrides',
   'pro.overrideClearAllTooltip': 'Revert all manual overrides to auto design',
+  'pro.qtyOverrideNote': '* Longitudinal rebar quantities include manual overrides; stirrups unchanged',
   'pro.slabTotalArea': 'Slabs — Total area',
   'pro.slabConcrete': 'Slabs — Concrete',
   'pro.slabReinfTitle': 'Slab reinforcement — CIRSOC 201',

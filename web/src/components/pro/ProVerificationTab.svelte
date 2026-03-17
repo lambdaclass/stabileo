@@ -100,6 +100,26 @@
     return v.column ? v.column.AsProv : v.flexure.AsProv;
   }
 
+  /** Quantities adjusted for active overrides (longitudinal rebar only) */
+  const effectiveQuantities = $derived.by((): QuantitySummary | null => {
+    if (!quantities) return null;
+    if (overrides.size === 0) return quantities;
+    const STEEL_DENSITY = 7850;
+    const elements = quantities.elements.map(eq => {
+      const v = verifications.find(vv => vv.elementId === eq.elementId);
+      if (!v || !overrides.has(eq.elementId)) return eq;
+      const ovAs = effectiveAs(v); // cm²
+      const rebarWeight = ovAs * 1e-4 * eq.length * STEEL_DENSITY;
+      return { ...eq, rebarWeight, totalSteelWeight: rebarWeight + eq.stirrupWeight };
+    });
+    const totalConcreteVolume = elements.reduce((s, e) => s + e.concreteVolume, 0);
+    const totalRebarWeight = elements.reduce((s, e) => s + e.rebarWeight, 0);
+    const totalStirrupWeight = elements.reduce((s, e) => s + e.stirrupWeight, 0);
+    const totalSteelWeight = totalRebarWeight + totalStirrupWeight;
+    const steelRatio = totalConcreteVolume > 0 ? totalSteelWeight / totalConcreteVolume : 0;
+    return { elements, totalConcreteVolume, totalRebarWeight, totalStirrupWeight, totalSteelWeight, steelRatio };
+  });
+
   // Steel verification results (CIRSOC 301)
   let steelVerifications = $state<SteelVerification[]>([]);
 
@@ -816,8 +836,9 @@
     wsSchedule['!cols'] = [{ wch: 18 }, { wch: 10 }, { wch: 28 }, { wch: 10 }, { wch: 14 }, { wch: 14 }, { wch: 12 }, { wch: 10 }];
     XLSX.utils.book_append_sheet(wb, wsSchedule, t('pro.scheduleTab'));
 
-    // Sheet 2: Per-element quantities (if available)
-    if (quantities) {
+    // Sheet 2: Per-element quantities (override-aware for longitudinal rebar)
+    const effQty = effectiveQuantities;
+    if (effQty) {
       const qtyHeaders = [
         'ID', t('pro.thType'), `L (m)`,
         `${t('pro.totalConcrete')} (m³)`,
@@ -826,7 +847,7 @@
         `${t('pro.totalSteel')} (kg)`,
       ];
       const qtyData: (string | number)[][] = [qtyHeaders];
-      for (const eq of quantities.elements) {
+      for (const eq of effQty.elements) {
         qtyData.push([
           eq.elementId,
           typeLabel(eq.elementType),
@@ -841,15 +862,19 @@
       qtyData.push([]);
       qtyData.push([
         t('excel.total'), '', '',
-        Number(quantities.totalConcreteVolume.toFixed(2)),
-        Number(quantities.totalRebarWeight.toFixed(0)),
-        Number(quantities.totalStirrupWeight.toFixed(0)),
-        Number(quantities.totalSteelWeight.toFixed(0)),
+        Number(effQty.totalConcreteVolume.toFixed(2)),
+        Number(effQty.totalRebarWeight.toFixed(0)),
+        Number(effQty.totalStirrupWeight.toFixed(0)),
+        Number(effQty.totalSteelWeight.toFixed(0)),
       ]);
       qtyData.push([
         t('pro.globalRatio'), '', '', '', '', '',
-        `${quantities.steelRatio.toFixed(1)} kg/m³`,
+        `${effQty.steelRatio.toFixed(1)} kg/m³`,
       ]);
+      if (overrideCount > 0) {
+        qtyData.push([]);
+        qtyData.push([t('pro.qtyOverrideNote')]);
+      }
       const wsQty = XLSX.utils.aoa_to_sheet(qtyData);
       wsQty['!cols'] = [{ wch: 8 }, { wch: 10 }, { wch: 8 }, { wch: 16 }, { wch: 14 }, { wch: 14 }, { wch: 14 }];
       XLSX.utils.book_append_sheet(wb, wsQty, t('pro.materialsSummary'));
@@ -945,9 +970,10 @@
       <span class="status-ok">{countOk} ✓</span>
       <span class="status-warn">{countWarn} ⚠</span>
       <span class="status-fail">{countFail} ✗</span>
-      {#if quantities}
-        <span class="qty-badge">H°: {quantities.totalConcreteVolume.toFixed(2)} m³</span>
-        <span class="qty-badge">Acero: {quantities.totalSteelWeight.toFixed(0)} kg ({quantities.steelRatio.toFixed(0)} kg/m³)</span>
+      {#if effectiveQuantities}
+        <span class="qty-badge">H°: {effectiveQuantities.totalConcreteVolume.toFixed(2)} m³</span>
+        <span class="qty-badge">Acero: {effectiveQuantities.totalSteelWeight.toFixed(0)} kg ({effectiveQuantities.steelRatio.toFixed(0)} kg/m³)</span>
+        {#if overrideCount > 0}<span class="override-mark" title={t('pro.qtyOverrideNote')}>*</span>{/if}
       {/if}
       <button class="pro-show-model-btn" onclick={showOnModel} title={t('pro.showOnModel')}>
         {t('pro.showOnModel')}
@@ -1346,21 +1372,26 @@
         </table>
       </div>
 
-      {#if quantities}
-        <div class="pro-section-label">{t('pro.materialsSummary')}</div>
+      {#if effectiveQuantities}
+        <div class="pro-section-label">{t('pro.materialsSummary')}{#if overrideCount > 0} <span class="override-mark">*</span>{/if}</div>
         <div class="schedule-summary">
           <div class="schedule-item">
             <span class="schedule-label">{t('pro.totalConcrete')}</span>
-            <span class="schedule-value">{quantities.totalConcreteVolume.toFixed(2)} m³</span>
+            <span class="schedule-value">{effectiveQuantities.totalConcreteVolume.toFixed(2)} m³</span>
           </div>
           <div class="schedule-item">
             <span class="schedule-label">{t('pro.totalSteel')}</span>
-            <span class="schedule-value">{quantities.totalSteelWeight.toFixed(0)} kg</span>
+            <span class="schedule-value">{effectiveQuantities.totalSteelWeight.toFixed(0)} kg</span>
           </div>
           <div class="schedule-item">
             <span class="schedule-label">{t('pro.globalRatio')}</span>
-            <span class="schedule-value">{quantities.steelRatio.toFixed(1)} kg/m³</span>
+            <span class="schedule-value">{effectiveQuantities.steelRatio.toFixed(1)} kg/m³</span>
           </div>
+          {#if overrideCount > 0}
+            <div class="schedule-item">
+              <span class="schedule-label override-mark">{t('pro.qtyOverrideNote')}</span>
+            </div>
+          {/if}
           {#if slabDesigns.length > 0}
             {@const totalSlabArea = slabDesigns.reduce((s, d) => s + d.spanX * d.spanZ, 0)}
             {@const totalSlabVol = slabDesigns.reduce((s, d) => s + d.spanX * d.spanZ * d.thickness, 0)}
