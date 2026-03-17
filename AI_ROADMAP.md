@@ -113,6 +113,121 @@ Each level needs:
 - test cases with known-good reference models
 - a clear refusal/fallback when the request exceeds the current level
 
+### Build Model — Conversational Builder Architecture
+
+The Build tab is a conversational model builder: the user describes a structure, watches it appear on canvas, and iterates through chat.
+
+**Level 1 (current) — Full model generation:**
+- User describes → AI returns full ModelSnapshot JSON → validate → import → solve
+- Fast rebuild animation: nodes → elements → supports → loads (~400-600ms total)
+- Current model sent as context for follow-up modifications
+- Each accepted build is one undo step
+
+**Level 2 (target) — Action-based editing:**
+- Replace full-model JSON generation with constrained structured actions
+- AI emits actions, not arbitrary model state:
+  - `create_beam(span=6m, support_left=pinned, support_right=roller, load_udl=10kN/m)`
+  - `add_column(at=3m, height=4m, base_support=fixed)`
+  - `change_section(target=element_3, section=IPE300)`
+  - `add_support(node=5, type=pinned)`
+  - `add_udl(element=2, q=-10)`
+  - `delete_member(element=4)`
+- Backend validates action against schema → translates to model-store operations
+- AI speaks a narrow public contract, never invents internal app APIs
+
+Why action-based is much better:
+- more reliable and predictable
+- easier to validate, refuse, and debug
+- easier to animate (diff is trivial — you know exactly what changed)
+- easier to undo (one action = one undo step)
+- less likely to hallucinate invalid model structure
+- enables clarifying questions ("pinned or fixed?")
+- enables selection-aware editing ("change *this* to IPE 300")
+
+**Interaction model (target):**
+
+1. User types request in Build tab
+2. AI returns:
+   - explanation of what it will do
+   - structured action(s) or draft model
+   - change summary: "+2 nodes, +1 element, +1 support, section changed on 3 elements"
+3. Frontend shows **Apply / Retry / Cancel** (never auto-apply blindly)
+4. On Apply:
+   - snapshot current model for undo
+   - rebuild/animate in short phases
+   - auto-frame camera
+   - auto-solve
+   - offer "Review this model" in chat
+5. Each AI message shows status badge: Draft / Applied / Rejected / Undone
+
+**AI context grounding:**
+The AI should know on every message:
+- current model state (nodes, elements, materials, sections, supports, loads)
+- selected entities (if any)
+- active analysis mode (2D/3D)
+- current spans and coordinate ranges
+- existing materials/sections library
+- units (always SI metric)
+
+**Clarifying questions:**
+If the request is ambiguous, AI should ask before building:
+- "Do you want the column pinned or fixed at the base?"
+- "Should the load apply to the full span or only the middle span?"
+- "2D or 3D frame?"
+
+**Scope refusal:**
+If the prompt asks for something beyond the current level:
+- refuse clearly with a message like "I can build simple 2D beams, portal frames, and basic trusses right now."
+- suggest a narrower reformulation
+- never attempt and produce garbage
+
+**Solver feedback in the loop:**
+After build + solve:
+- if model is unstable or invalid, AI says what failed
+- proposes a fix ("The structure is unstable — try adding a horizontal restraint at node 2")
+- turns the builder from a generator into an assistant
+
+**Quick-start chips:**
+Show template chips above the chat input for common structures:
+- Simply supported beam
+- Cantilever
+- Continuous beam
+- Portal frame
+- Basic truss
+
+**Validation rules (both backend and frontend):**
+- all nodes must have valid coordinates
+- all elements must reference existing node IDs
+- at least one support must exist
+- materials and sections must be present and valid
+- reject if node/element count exceeds Level capability
+- reject malformed or oversized AI responses
+- if validation fails: keep previous model, show exact error in chat, never partially import
+
+**Internal safety guards (not user-visible):**
+- max message length (2000 chars)
+- max returned model size
+- max conversation turns kept in prompt context
+- max AI response size
+- max node/element count for builder requests (500 nodes for Level 1)
+- timeout guard on provider calls
+- rate limiting per key/capability
+
+**Action history (visible, not just chat):**
+Show a structured log alongside chat:
+- Created beam (6m, IPE 300)
+- Added column at 3.0 m
+- Changed section to IPE 300
+- Solved — 4 nodes, 3 elements, LOW risk
+
+This makes undo/redo understandable and the build process traceable.
+
+**Level 2 animation policy (future):**
+- diff-based animation for incremental edits
+- pulse changed elements
+- fade removed entities
+- preserve camera position and selection intelligently
+
 ### Code Check and Suggest Loads
 
 - depend on code/load metadata contracts and a rule-based code layer
