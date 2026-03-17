@@ -1,10 +1,37 @@
+use serde::{Deserialize, Serialize};
+use serde_json::Value;
+
 use crate::error::ProviderError;
+
+// ─── Tool-call contract (provider-agnostic) ────────────────────
+
+/// A tool the LLM can choose to call.
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct ToolDef {
+    pub name: String,
+    pub description: String,
+    /// JSON Schema for the tool's parameters.
+    pub parameters: Value,
+}
+
+/// A tool call the LLM chose to make.
+#[derive(Clone, Debug)]
+pub struct ToolCall {
+    pub name: String,
+    /// Raw JSON string of arguments.
+    pub arguments: String,
+}
+
+// ─── Request / Response ────────────────────────────────────────
 
 pub struct AiRequest {
     pub system_prompt: String,
     pub user_message: String,
     pub max_tokens: u32,
     pub temperature: f32,
+    /// When non-empty, the LLM may call one of these tools instead of
+    /// replying with plain text.
+    pub tools: Vec<ToolDef>,
 }
 
 pub struct AiResponse {
@@ -13,7 +40,11 @@ pub struct AiResponse {
     pub input_tokens: u32,
     pub output_tokens: u32,
     pub latency_ms: u64,
+    /// Non-empty when the LLM chose to call a tool.
+    pub tool_calls: Vec<ToolCall>,
 }
+
+// ─── Provider dispatch ─────────────────────────────────────────
 
 pub enum Provider {
     Claude(super::claude::ClaudeProvider),
@@ -41,7 +72,8 @@ impl Provider {
     }
 }
 
-/// Test-only provider that returns a canned response or error.
+// ─── Test-only stub ────────────────────────────────────────────
+
 #[cfg(any(test, feature = "test-support"))]
 pub struct StubProvider {
     response: Result<AiResponse, ProviderError>,
@@ -57,6 +89,23 @@ impl StubProvider {
                 input_tokens: 100,
                 output_tokens: 200,
                 latency_ms: 50,
+                tool_calls: vec![],
+            }),
+        }
+    }
+
+    pub fn ok_tool_call(name: impl Into<String>, arguments: impl Into<String>) -> Self {
+        Self {
+            response: Ok(AiResponse {
+                content: String::new(),
+                model: "stub-model".into(),
+                input_tokens: 100,
+                output_tokens: 200,
+                latency_ms: 50,
+                tool_calls: vec![ToolCall {
+                    name: name.into(),
+                    arguments: arguments.into(),
+                }],
             }),
         }
     }
@@ -75,6 +124,7 @@ impl StubProvider {
                 input_tokens: r.input_tokens,
                 output_tokens: r.output_tokens,
                 latency_ms: r.latency_ms,
+                tool_calls: r.tool_calls.clone(),
             }),
             Err(e) => Err(match e {
                 ProviderError::Api { status, body } => ProviderError::Api {

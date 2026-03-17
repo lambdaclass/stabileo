@@ -77,12 +77,14 @@ impl GeminiProvider {
             .map(|u| (u.prompt_token_count, u.candidates_token_count))
             .unwrap_or((0, 0));
 
+        // Gemini tool calling not yet implemented — tools in request are ignored.
         Ok(AiResponse {
             content,
             model: self.model.clone(),
             input_tokens,
             output_tokens,
             latency_ms: start.elapsed().as_millis() as u64,
+            tool_calls: vec![],
         })
     }
 }

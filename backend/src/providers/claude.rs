@@ -1,9 +1,10 @@
 use reqwest::Client;
 use serde::{Deserialize, Serialize};
+use serde_json::Value;
 use std::time::Instant;
 
 use crate::error::ProviderError;
-use super::traits::{AiRequest, AiResponse};
+use super::traits::{AiRequest, AiResponse, ToolCall};
 
 pub struct ClaudeProvider {
     client: Client,
@@ -23,6 +24,16 @@ impl ClaudeProvider {
     pub async fn complete(&self, req: AiRequest) -> Result<AiResponse, ProviderError> {
         let start = Instant::now();
 
+        let tools: Option<Vec<ClaudeTool>> = if req.tools.is_empty() {
+            None
+        } else {
+            Some(req.tools.iter().map(|t| ClaudeTool {
+                name: &t.name,
+                description: &t.description,
+                input_schema: &t.parameters,
+            }).collect())
+        };
+
         let body = AnthropicRequest {
             model: &self.model,
             max_tokens: req.max_tokens,
@@ -32,6 +43,7 @@ impl ClaudeProvider {
                 role: "user",
                 content: &req.user_message,
             }],
+            tools,
         };
 
         let resp = self
@@ -54,23 +66,41 @@ impl ClaudeProvider {
             .await
             .map_err(|e| ProviderError::Parse(e.to_string()))?;
 
-        let content = parsed
-            .content
-            .into_iter()
-            .filter(|b| b.r#type == "text")
-            .map(|b| b.text)
-            .collect::<Vec<_>>()
-            .join("");
+        let mut content_parts = Vec::new();
+        let mut tool_calls = Vec::new();
+
+        for block in parsed.content {
+            match block.r#type.as_str() {
+                "text" => {
+                    if let Some(text) = block.text {
+                        content_parts.push(text);
+                    }
+                }
+                "tool_use" => {
+                    if let (Some(name), Some(input)) = (block.name, block.input) {
+                        tool_calls.push(ToolCall {
+                            name,
+                            arguments: serde_json::to_string(&input)
+                                .unwrap_or_default(),
+                        });
+                    }
+                }
+                _ => {}
+            }
+        }
 
         Ok(AiResponse {
-            content,
+            content: content_parts.join(""),
             model: parsed.model,
             input_tokens: parsed.usage.input_tokens,
             output_tokens: parsed.usage.output_tokens,
             latency_ms: start.elapsed().as_millis() as u64,
+            tool_calls,
         })
     }
 }
+
+// ─── Request types ─────────────────────────────────────────────
 
 #[derive(Serialize)]
 struct AnthropicRequest<'a> {
@@ -79,6 +109,8 @@ struct AnthropicRequest<'a> {
     temperature: f32,
     system: &'a str,
     messages: Vec<Message<'a>>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    tools: Option<Vec<ClaudeTool<'a>>>,
 }
 
 #[derive(Serialize)]
@@ -86,6 +118,15 @@ struct Message<'a> {
     role: &'a str,
     content: &'a str,
 }
+
+#[derive(Serialize)]
+struct ClaudeTool<'a> {
+    name: &'a str,
+    description: &'a str,
+    input_schema: &'a Value,
+}
+
+// ─── Response types ────────────────────────────────────────────
 
 #[derive(Deserialize)]
 struct AnthropicResponse {
@@ -97,7 +138,12 @@ struct AnthropicResponse {
 #[derive(Deserialize)]
 struct ContentBlock {
     r#type: String,
-    text: String,
+    #[serde(default)]
+    text: Option<String>,
+    #[serde(default)]
+    name: Option<String>,
+    #[serde(default)]
+    input: Option<Value>,
 }
 
 #[derive(Deserialize)]

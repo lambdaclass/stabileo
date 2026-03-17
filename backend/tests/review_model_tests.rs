@@ -70,6 +70,7 @@ fn parse_valid_json() {
         input_tokens: 100,
         output_tokens: 200,
         latency_ms: 50,
+        tool_calls: vec![],
     };
 
     let result = parse_review_response(resp, "req-1".into()).unwrap();
@@ -93,6 +94,7 @@ fn parse_json_wrapped_in_markdown_fences() {
         input_tokens: 0,
         output_tokens: 0,
         latency_ms: 0,
+        tool_calls: vec![],
     };
 
     let result = parse_review_response(resp, "req-2".into()).unwrap();
@@ -109,6 +111,7 @@ fn parse_json_wrapped_in_plain_fences() {
         input_tokens: 0,
         output_tokens: 0,
         latency_ms: 0,
+        tool_calls: vec![],
     };
 
     let result = parse_review_response(resp, "req-3".into()).unwrap();
@@ -148,6 +151,7 @@ fn parse_multiple_findings() {
         input_tokens: 0,
         output_tokens: 0,
         latency_ms: 0,
+        tool_calls: vec![],
     };
 
     let result = parse_review_response(resp, "req-4".into()).unwrap();
@@ -175,6 +179,7 @@ fn parse_empty_findings() {
         input_tokens: 0,
         output_tokens: 0,
         latency_ms: 0,
+        tool_calls: vec![],
     };
 
     let result = parse_review_response(resp, "req-5".into()).unwrap();
@@ -206,6 +211,7 @@ fn parse_missing_optional_fields_in_finding() {
         input_tokens: 0,
         output_tokens: 0,
         latency_ms: 0,
+        tool_calls: vec![],
     };
 
     let result = parse_review_response(resp, "req-6".into()).unwrap();
@@ -222,6 +228,7 @@ fn parse_with_surrounding_whitespace() {
         input_tokens: 0,
         output_tokens: 0,
         latency_ms: 0,
+        tool_calls: vec![],
     };
 
     let result = parse_review_response(resp, "req-7".into()).unwrap();
@@ -238,6 +245,7 @@ fn parse_empty_string_fails() {
         input_tokens: 0,
         output_tokens: 0,
         latency_ms: 0,
+        tool_calls: vec![],
     };
 
     let err = parse_review_response(resp, "req-err".into()).unwrap_err();
@@ -252,6 +260,7 @@ fn parse_plain_text_refusal_fails() {
         input_tokens: 0,
         output_tokens: 0,
         latency_ms: 0,
+        tool_calls: vec![],
     };
 
     let err = parse_review_response(resp, "req-err".into()).unwrap_err();
@@ -266,6 +275,7 @@ fn parse_incomplete_json_fails() {
         input_tokens: 0,
         output_tokens: 0,
         latency_ms: 0,
+        tool_calls: vec![],
     };
 
     let err = parse_review_response(resp, "req-err".into()).unwrap_err();
@@ -281,6 +291,7 @@ fn parse_wrong_schema_fails() {
         input_tokens: 0,
         output_tokens: 0,
         latency_ms: 0,
+        tool_calls: vec![],
     };
 
     let err = parse_review_response(resp, "req-err".into()).unwrap_err();
@@ -295,6 +306,7 @@ fn parse_json_array_instead_of_object_fails() {
         input_tokens: 0,
         output_tokens: 0,
         latency_ms: 0,
+        tool_calls: vec![],
     };
 
     let err = parse_review_response(resp, "req-err".into()).unwrap_err();
@@ -309,6 +321,7 @@ fn parse_html_error_page_fails() {
         input_tokens: 0,
         output_tokens: 0,
         latency_ms: 0,
+        tool_calls: vec![],
     };
 
     let err = parse_review_response(resp, "req-err".into()).unwrap_err();

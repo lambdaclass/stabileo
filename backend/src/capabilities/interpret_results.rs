@@ -76,6 +76,7 @@ pub async fn interpret_results(
         user_message,
         max_tokens: 2048,
         temperature: 0.2,
+        tools: vec![],
     };
 
     let ai_resp: AiResponse = provider.complete(ai_req).await?;

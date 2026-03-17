@@ -27,6 +27,7 @@ fn make_resp(content: &str) -> AiResponse {
         input_tokens: 0,
         output_tokens: 0,
         latency_ms: 0,
+        tool_calls: vec![],
     }
 }
 
@@ -40,6 +41,7 @@ fn parse_legacy_valid_json() {
         input_tokens: 200,
         output_tokens: 400,
         latency_ms: 100,
+        tool_calls: vec![],
     };
 
     let result = parse_response(resp, "req-1".into()).unwrap();
@@ -61,6 +63,7 @@ fn parse_json_wrapped_in_markdown_fences() {
         input_tokens: 0,
         output_tokens: 0,
         latency_ms: 0,
+        tool_calls: vec![],
     };
 
     let result = parse_response(resp, "req-2".into()).unwrap();
@@ -259,6 +262,7 @@ fn legacy_fallback_still_works() {
         input_tokens: 100,
         output_tokens: 200,
         latency_ms: 50,
+        tool_calls: vec![],
     };
 
     let result = parse_response(resp, "legacy-1".into()).unwrap();
@@ -360,4 +364,70 @@ async fn response_serializes_to_camel_case() {
 
     let meta = json.get("meta").unwrap();
     assert!(meta.get("modelUsed").is_some());
+}
+
+// ---- Tool call tests (function calling path) ----
+
+#[tokio::test]
+async fn build_model_with_tool_call_produces_snapshot() {
+    let provider = Provider::Stub(StubProvider::ok_tool_call(
+        "create_beam",
+        r#"{"span":6,"q":-10,"interpretation":"Simply supported beam, 6m"}"#,
+    ));
+    let req = BuildModelRequest {
+        description: "beam 6m with 10kN/m load".into(),
+        locale: Some("en".into()),
+        analysis_mode: None,
+    };
+
+    let result = build_model(&provider, req, "tc-1".into())
+        .await
+        .unwrap();
+
+    let snap = result.snapshot.unwrap();
+    assert!(snap.get("nodes").is_some());
+    assert!(snap.get("elements").is_some());
+    assert_eq!(result.message, "Simply supported beam, 6m");
+    assert!(result.change_summary.is_some());
+    assert!(result.scope_refusal.is_none());
+}
+
+#[tokio::test]
+async fn build_model_tool_call_portal_frame() {
+    let provider = Provider::Stub(StubProvider::ok_tool_call(
+        "create_portal_frame",
+        r#"{"width":8,"height":5,"q_beam":-15,"interpretation":"Portal frame 8x5m"}"#,
+    ));
+    let req = BuildModelRequest {
+        description: "portal frame".into(),
+        locale: None,
+        analysis_mode: None,
+    };
+
+    let result = build_model(&provider, req, "tc-2".into())
+        .await
+        .unwrap();
+
+    let snap = result.snapshot.unwrap();
+    assert_eq!(snap["nodes"].as_array().unwrap().len(), 4);
+    assert_eq!(snap["elements"].as_array().unwrap().len(), 3);
+}
+
+#[tokio::test]
+async fn build_model_tool_call_with_plain_text_fallback() {
+    // No tool call, just text — should be conversational
+    let provider = Provider::Stub(StubProvider::ok("Hello! How can I help you today?"));
+    let req = BuildModelRequest {
+        description: "hi".into(),
+        locale: None,
+        analysis_mode: None,
+    };
+
+    let result = build_model(&provider, req, "tc-3".into())
+        .await
+        .unwrap();
+
+    assert!(result.snapshot.is_none());
+    assert!(result.message.contains("Hello"));
+    assert!(result.scope_refusal.is_none());
 }

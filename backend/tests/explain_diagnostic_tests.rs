@@ -38,6 +38,7 @@ fn parse_valid_json() {
         input_tokens: 80,
         output_tokens: 150,
         latency_ms: 30,
+        tool_calls: vec![],
     };
 
     let result = parse_response(resp, "req-1".into()).unwrap();
@@ -59,6 +60,7 @@ fn parse_json_wrapped_in_markdown_fences() {
         input_tokens: 0,
         output_tokens: 0,
         latency_ms: 0,
+        tool_calls: vec![],
     };
 
     let result = parse_response(resp, "req-2".into()).unwrap();
@@ -81,6 +83,7 @@ fn parse_empty_fix_steps() {
         input_tokens: 0,
         output_tokens: 0,
         latency_ms: 0,
+        tool_calls: vec![],
     };
 
     let result = parse_response(resp, "req-3".into()).unwrap();
@@ -95,6 +98,7 @@ fn parse_empty_string_fails() {
         input_tokens: 0,
         output_tokens: 0,
         latency_ms: 0,
+        tool_calls: vec![],
     };
 
     assert!(parse_response(resp, "req-err".into()).is_err());
@@ -108,6 +112,7 @@ fn parse_wrong_schema_fails() {
         input_tokens: 0,
         output_tokens: 0,
         latency_ms: 0,
+        tool_calls: vec![],
     };
 
     assert!(parse_response(resp, "req-err".into()).is_err());
@@ -121,6 +126,7 @@ fn parse_plain_text_refusal_fails() {
         input_tokens: 0,
         output_tokens: 0,
         latency_ms: 0,
+        tool_calls: vec![],
     };
 
     assert!(parse_response(resp, "req-err".into()).is_err());

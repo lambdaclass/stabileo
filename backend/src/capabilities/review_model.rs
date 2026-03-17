@@ -68,6 +68,7 @@ pub async fn review_model(
         user_message,
         max_tokens: 4096,
         temperature: 0.2,
+        tools: vec![],
     };
 
     let ai_resp: AiResponse = provider.complete(ai_req).await?;

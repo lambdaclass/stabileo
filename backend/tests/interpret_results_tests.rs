@@ -49,6 +49,7 @@ fn parse_valid_json() {
         input_tokens: 150,
         output_tokens: 250,
         latency_ms: 60,
+        tool_calls: vec![],
     };
 
     let result = parse_response(resp, "req-1".into()).unwrap();
@@ -68,6 +69,7 @@ fn parse_json_wrapped_in_markdown_fences() {
         input_tokens: 0,
         output_tokens: 0,
         latency_ms: 0,
+        tool_calls: vec![],
     };
 
     let result = parse_response(resp, "req-2".into()).unwrap();
@@ -89,6 +91,7 @@ fn parse_empty_optional_arrays() {
         input_tokens: 0,
         output_tokens: 0,
         latency_ms: 0,
+        tool_calls: vec![],
     };
 
     let result = parse_response(resp, "req-3".into()).unwrap();
@@ -110,6 +113,7 @@ fn parse_missing_optional_arrays_uses_defaults() {
         input_tokens: 0,
         output_tokens: 0,
         latency_ms: 0,
+        tool_calls: vec![],
     };
 
     let result = parse_response(resp, "req-4".into()).unwrap();
@@ -125,6 +129,7 @@ fn parse_empty_string_fails() {
         input_tokens: 0,
         output_tokens: 0,
         latency_ms: 0,
+        tool_calls: vec![],
     };
 
     assert!(parse_response(resp, "req-err".into()).is_err());
@@ -138,6 +143,7 @@ fn parse_wrong_schema_fails() {
         input_tokens: 0,
         output_tokens: 0,
         latency_ms: 0,
+        tool_calls: vec![],
     };
 
     assert!(parse_response(resp, "req-err".into()).is_err());
@@ -151,6 +157,7 @@ fn parse_plain_text_refusal_fails() {
         input_tokens: 0,
         output_tokens: 0,
         latency_ms: 0,
+        tool_calls: vec![],
     };
 
     assert!(parse_response(resp, "req-err".into()).is_err());

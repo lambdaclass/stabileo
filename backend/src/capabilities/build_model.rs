@@ -3,6 +3,7 @@ use serde_json::Value;
 
 use super::actions::{validate_action, ActionResponse, BuildAction};
 use super::generators::execute_action;
+use super::registry;
 use crate::error::AppError;
 use crate::providers::traits::{AiRequest, AiResponse, Provider};
 
@@ -44,12 +45,14 @@ pub async fn build_model(
     let analysis_mode = req.analysis_mode.as_deref().unwrap_or("2d");
 
     let system_prompt = build_system_prompt(locale, analysis_mode);
+    let tools = registry::tool_definitions(analysis_mode);
 
     let ai_req = AiRequest {
         system_prompt,
         user_message: req.description,
         max_tokens: 2048,
         temperature: 0.1,
+        tools,
     };
 
     let ai_resp: AiResponse = provider.complete(ai_req).await?;
@@ -57,29 +60,88 @@ pub async fn build_model(
 }
 
 fn build_system_prompt(locale: &str, analysis_mode: &str) -> String {
-    let capabilities = super::registry::prompt_text(analysis_mode);
+    let capabilities = registry::prompt_text(analysis_mode);
 
     format!(
-        r#"You are a helpful assistant embedded in Stabileo, a structural analysis app. You can chat about anything and also build structural models.
+        r#"You are a helpful assistant embedded in Stabileo, a structural analysis app.
 
 Respond in locale: {locale}
 
-ONLY when the user explicitly wants to BUILD or CREATE a structure, output a JSON action (no markdown fences):
-{{ "action": "<name>", "params": {{ ... }}, "interpretation": "..." }}
+When the user describes a structure they want (beam, frame, truss, building, cantilever, etc.), even vaguely, call the appropriate tool with reasonable defaults. Do NOT ask clarifying questions — just build it.
 
-{capabilities}
-Defaults: support_left="pinned", support_right="rollerX", base_support="fixed", section="IPE 300", n_panels=4, pattern="pratt"
-Truss patterns: "pratt", "warren", "howe"
+For everything else (greetings, questions, explanations, advice, any topic), reply in plain text.
 
-For EVERYTHING else — greetings, questions, explanations, advice, opinions, any topic — just reply in plain text. Never output JSON unless the user is asking you to build a structure."#
+{capabilities}"#
     )
 }
 
+/// Parse the AI response: tool calls first, then text fallbacks.
 pub fn parse_response(
     ai_resp: AiResponse,
     request_id: String,
 ) -> Result<BuildModelResponse, AppError> {
     let raw_content = ai_resp.content.trim().to_string();
+
+    let meta = super::review_model::ReviewMeta {
+        model_used: ai_resp.model,
+        input_tokens: ai_resp.input_tokens,
+        output_tokens: ai_resp.output_tokens,
+        latency_ms: ai_resp.latency_ms,
+        request_id,
+    };
+
+    // ── Priority 1: Native tool call ──────────────────────────
+    if let Some(tc) = ai_resp.tool_calls.first() {
+        let raw_debug = format!("tool_call: {}({})", tc.name, tc.arguments);
+
+        // Extract interpretation from tool args and build clean params
+        let mut args: Value = serde_json::from_str(&tc.arguments).unwrap_or(Value::Object(Default::default()));
+        let interpretation = args
+            .as_object_mut()
+            .and_then(|m| m.remove("interpretation"))
+            .and_then(|v| v.as_str().map(String::from))
+            .unwrap_or_default();
+
+        // Build the action JSON with interpretation at top level, params without it
+        let action_json = serde_json::json!({
+            "action": tc.name,
+            "params": args,
+            "interpretation": interpretation,
+        });
+
+        if let Ok(action_resp) = serde_json::from_value::<ActionResponse>(action_json) {
+            if matches!(action_resp.action, BuildAction::Unsupported { .. }) {
+                return Ok(BuildModelResponse {
+                    snapshot: None,
+                    message: interpretation,
+                    change_summary: None,
+                    scope_refusal: Some(true),
+                    raw_ai_response: Some(raw_debug),
+                    meta,
+                });
+            }
+
+            validate_action(&action_resp.action)?;
+            let snapshot = execute_action(&action_resp.action)?;
+
+            return Ok(BuildModelResponse {
+                snapshot: Some(snapshot),
+                message: if interpretation.is_empty() {
+                    action_summary(&action_resp.action)
+                } else {
+                    interpretation
+                },
+                change_summary: Some(action_summary(&action_resp.action)),
+                scope_refusal: None,
+                raw_ai_response: Some(raw_debug),
+                meta,
+            });
+        }
+
+        // Tool call didn't parse — fall through to text parsing
+    }
+
+    // ── Priority 2: JSON in text (legacy or fallback) ─────────
     let content = raw_content.as_str();
     let json_str = if content.starts_with("```") {
         content
@@ -91,17 +153,8 @@ pub fn parse_response(
         content
     };
 
-    let meta = super::review_model::ReviewMeta {
-        model_used: ai_resp.model,
-        input_tokens: ai_resp.input_tokens,
-        output_tokens: ai_resp.output_tokens,
-        latency_ms: ai_resp.latency_ms,
-        request_id,
-    };
-
-    // Try action-based parsing first
+    // Try action-based JSON parsing
     if let Ok(action_resp) = serde_json::from_str::<ActionResponse>(json_str) {
-        // Handle scope refusal — return message, no model
         if matches!(action_resp.action, BuildAction::Unsupported { .. }) {
             return Ok(BuildModelResponse {
                 snapshot: None,
@@ -126,7 +179,7 @@ pub fn parse_response(
         });
     }
 
-    // Fallback: try legacy { snapshot, interpretation } format
+    // Try legacy { snapshot, interpretation } format
     #[derive(Deserialize)]
     struct LegacyRaw {
         snapshot: Value,
@@ -150,7 +203,7 @@ pub fn parse_response(
         }
     }
 
-    // Not JSON at all — plain text conversational response
+    // ── Priority 3: Plain text conversational response ────────
     Ok(BuildModelResponse {
         snapshot: None,
         message: raw_content.clone(),

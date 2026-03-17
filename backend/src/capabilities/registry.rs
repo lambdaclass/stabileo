@@ -360,6 +360,74 @@ pub fn prompt_text(analysis_mode: &str) -> String {
     out
 }
 
+// ─── Tool definitions for function calling ──────────────────────
+
+use crate::providers::traits::ToolDef;
+
+/// Convert the generator catalog into provider-agnostic tool definitions.
+/// Filters by analysis mode (2D generators excluded from 3D and vice versa).
+pub fn tool_definitions(analysis_mode: &str) -> Vec<ToolDef> {
+    let gens = generator_catalog();
+    let mut tools = Vec::new();
+
+    for gen in &gens {
+        // Skip 3D generators in 2D mode
+        if analysis_mode != "3d" && gen.action.ends_with("_3d") {
+            continue;
+        }
+
+        let mut properties = serde_json::Map::new();
+        let mut required = Vec::new();
+
+        for p in &gen.params {
+            let json_type = match p.r#type {
+                "f64" => "number",
+                "u32" => "integer",
+                "string" => "string",
+                "[f64]" => "array",
+                _ => "string",
+            };
+
+            let mut prop = serde_json::Map::new();
+            if json_type == "array" {
+                prop.insert("type".into(), json!("array"));
+                prop.insert("items".into(), json!({"type": "number"}));
+            } else {
+                prop.insert("type".into(), json!(json_type));
+            }
+            prop.insert("description".into(), json!(p.description));
+            if let Some(def) = &p.default {
+                prop.insert("default".into(), def.clone());
+            }
+
+            properties.insert(p.name.to_string(), Value::Object(prop));
+
+            if p.required {
+                required.push(json!(p.name));
+            }
+        }
+
+        // Add interpretation as a required parameter
+        let mut interp_prop = serde_json::Map::new();
+        interp_prop.insert("type".into(), json!("string"));
+        interp_prop.insert("description".into(), json!("Brief description of what you're building, in the user's locale"));
+        properties.insert("interpretation".into(), Value::Object(interp_prop));
+        required.push(json!("interpretation"));
+
+        tools.push(ToolDef {
+            name: gen.action.to_string(),
+            description: gen.description.to_string(),
+            parameters: json!({
+                "type": "object",
+                "properties": properties,
+                "required": required,
+            }),
+        });
+    }
+
+    tools
+}
+
 // ─── Helpers ────────────────────────────────────────────────────
 
 fn param_req(name: &'static str, ty: &'static str, desc: &'static str) -> ParamDef {
