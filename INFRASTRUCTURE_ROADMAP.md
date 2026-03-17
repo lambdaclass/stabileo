@@ -45,6 +45,72 @@ Not yet complete:
 - batch execution and job orchestration
 - multi-environment deployment discipline
 
+## Cross-Cutting Requirements
+
+These are not one-stage features. They need to shape every infrastructure stage from the start.
+
+### Testing Strategy
+
+- contract tests for backend request/response schemas
+- mocked-provider tests for every AI adapter
+- solver-run artifact round-trip and replay-verification tests
+- deployment smoke tests for health/auth/basic capability paths
+- browser/native/server parity smoke tests where the same contracts cross runtimes
+
+### Privacy and Retention
+
+- define exactly what a solver-run artifact stores
+- define redaction rules for logs and artifacts
+- ensure secrets and provider credentials never appear in logs, artifacts, or error bodies
+- document artifact retention windows for local, hosted, and support workflows
+- make export/import behavior explicit so users understand what they are sharing
+
+### Versioning Policy
+
+- version backend request/response contracts explicitly
+- version solver-run artifacts explicitly
+- define compatibility policy between frontend, backend, and engine contract versions
+- treat breaking contract changes as intentional migrations, not casual refactors
+
+### Security Baseline
+
+- environment-specific CORS policy
+- API key / token scope model
+- rate limiting and abuse controls
+- secret rotation expectations
+- audit logging for hosted/team workflows
+- fail-safe behavior when auth/config is missing or invalid
+
+### Storage Decisions
+
+- local persistence boundary: IndexedDB vs local filesystem vs desktop file export
+- hosted persistence boundary: metadata store vs blob store
+- artifact deduplication policy
+- separation between OSS/local storage expectations and hosted/private storage layers
+
+### Cost Controls
+
+- per-capability timeout ceilings
+- per-provider token/model ceilings
+- model routing by quality/cost class
+- fallback rules when the preferred provider fails or is too expensive
+- hosted budget controls before broad AI rollout
+
+### Operational Targets
+
+- define latency targets per capability
+- define acceptable provider failure behavior
+- define replay success expectations for solver-run artifacts
+- define basic availability targets before firms depend on hosted workflows
+
+## What Infrastructure Must Not Do Yet
+
+- do not split into premature microservices
+- do not fork desktop into a separate product
+- do not bake provider-specific logic into product-facing capability contracts
+- do not add heavy workflow engines before real batch demand exists
+- do not make hosted/private persistence a hidden requirement for core OSS contracts
+
 ## Stages
 
 ### Stage 1 — Service Foundations
@@ -142,11 +208,14 @@ Goal: enable workloads that are too large or too numerous for interactive-only e
 
 **What:**
 - job queue
+- worker execution model
 - artifact-backed batch runs
 - retryable long-running jobs
 - progress reporting
 - cancellation
 - scenario sweeps / comparison jobs
+- idempotency and replay semantics
+- dead-letter / failed-job handling
 
 **Done when:**
 - batch runs do not depend on a browser tab staying open
@@ -194,6 +263,7 @@ Goal: support office workflows, review flows, and hosted/private value layers.
 Goal: stop infrastructure quality from depending on luck and local setup.
 
 **What:**
+- environment matrix: local, preview, staging, production, desktop/local-only, and later private/on-prem
 - environment promotion rules
 - migration/version discipline
 - secret management

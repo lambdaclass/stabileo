@@ -19,10 +19,16 @@ web/dist/
 # Claude internal
 .claude/
 
-# Rust / Wasm engine build artifacts
+# Rust / Wasm build artifacts
+target/
 engine/target/
 engine/pkg/
 web/src/lib/wasm/
+
+# Nix
+result
+result-*
+.direnv/
 
 # Local doc-sync automation state
 .doc-sync-last-head

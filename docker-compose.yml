@@ -1,0 +1,38 @@
+services:
+  backend:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: runtime
+    ports:
+      - "3001:3001"
+    env_file:
+      - backend/.env
+    environment:
+      - HOST=0.0.0.0
+      - PORT=3001
+      - LOG_FORMAT=json
+    volumes:
+      - web-dist:/app/web-dist
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3001/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+
+  web:
+    image: nginx:alpine
+    ports:
+      - "4000:80"
+    volumes:
+      - web-dist:/app/web-dist:ro
+      - ./nginx.conf:/etc/nginx/conf.d/default.conf:ro
+    depends_on:
+      backend:
+        condition: service_healthy
+    restart: unless-stopped
+
+volumes:
+  web-dist:
