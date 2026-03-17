@@ -67,37 +67,52 @@ fn parse_json_wrapped_in_markdown_fences() {
     assert!(result.snapshot.unwrap().get("nodes").is_some());
 }
 
+// ---- Conversational fallback tests ----
+// Invalid/incomplete JSON or plain text → treated as conversational response (no snapshot)
+
 #[test]
-fn parse_missing_nodes_fails() {
+fn parse_missing_nodes_returns_conversational() {
     let resp = make_resp(r#"{"snapshot": {"elements": [[1, {"id":1}]]}, "interpretation": "test"}"#);
-    let err = parse_response(resp, "req-err".into()).unwrap_err();
-    assert!(err.to_string().contains("missing required model fields"));
+    let result = parse_response(resp, "req-conv".into()).unwrap();
+    assert!(result.snapshot.is_none());
+    assert!(!result.message.is_empty());
 }
 
 #[test]
-fn parse_missing_elements_fails() {
+fn parse_missing_elements_returns_conversational() {
     let resp = make_resp(r#"{"snapshot": {"nodes": [[1, {"id":1,"x":0,"y":0}]]}, "interpretation": "test"}"#);
-    let err = parse_response(resp, "req-err".into()).unwrap_err();
-    assert!(err.to_string().contains("missing required model fields"));
+    let result = parse_response(resp, "req-conv".into()).unwrap();
+    assert!(result.snapshot.is_none());
 }
 
 #[test]
-fn parse_empty_string_fails() {
+fn parse_empty_string_returns_conversational() {
     let resp = make_resp("");
-    assert!(parse_response(resp, "req-err".into()).is_err());
+    let result = parse_response(resp, "req-conv".into()).unwrap();
+    assert!(result.snapshot.is_none());
 }
 
 #[test]
-fn parse_wrong_schema_fails() {
+fn parse_wrong_schema_returns_conversational() {
     let resp = make_resp(r#"{"answer": "42"}"#);
-    assert!(parse_response(resp, "req-err".into()).is_err());
+    let result = parse_response(resp, "req-conv".into()).unwrap();
+    assert!(result.snapshot.is_none());
+    assert!(result.message.contains("42"));
 }
 
 #[test]
-fn parse_snapshot_not_object_fails() {
+fn parse_plain_text_returns_conversational() {
+    let resp = make_resp("A simply supported beam transfers loads to its supports through bending and shear.");
+    let result = parse_response(resp, "req-conv".into()).unwrap();
+    assert!(result.snapshot.is_none());
+    assert!(result.message.contains("simply supported"));
+}
+
+#[test]
+fn parse_snapshot_not_object_returns_conversational() {
     let resp = make_resp(r#"{"snapshot": "not an object", "interpretation": "test"}"#);
-    let err = parse_response(resp, "req-err".into()).unwrap_err();
-    assert!(err.to_string().contains("missing required model fields"));
+    let result = parse_response(resp, "req-conv".into()).unwrap();
+    assert!(result.snapshot.is_none());
 }
 
 // ---- Action-based parsing tests ----

@@ -64,12 +64,14 @@ fn build_system_prompt(locale: &str, analysis_mode: &str) -> String {
     };
 
     format!(
-        r#"You are a structural model builder for Stabileo. The user describes a structure; you pick the best action and fill in reasonable parameters.
+        r#"You are a structural engineering assistant for Stabileo, a structural analysis app. You can both chat freely and build structural models.
 
-Write the "interpretation" field in locale: {locale}
+Respond in locale: {locale}
 
-Actions (all units: meters, kN, kN/m; loads negative = downward):
+When the user wants to BUILD or CREATE a structure, output a JSON action (no markdown fences):
+{{ "action": "<name>", "params": {{ ... }}, "interpretation": "..." }}
 
+Available actions (units: meters, kN, kN/m; loads negative = downward):
   create_beam          {{ span, q, support_left, support_right, section, p_tip }}
   create_cantilever    {{ length, p_tip, q, section }}
   create_continuous_beam {{ spans: [number], q, section }}
@@ -79,19 +81,12 @@ Actions (all units: meters, kN, kN/m; loads negative = downward):
   create_multi_story_frame_3d {{ n_bays_x, n_bays_z, n_floors, bay_width, floor_height, q_beam, h_lateral, base_support, beam_section, column_section }}
   {mode_actions}
 
-Note: create_multi_story_frame_3d generates 3D space frames with X-bracing on perimeter.
-
 Defaults: support_left="pinned", support_right="rollerX", base_support="fixed", section="IPE 300", n_panels=4, pattern="pratt"
-Truss patterns: "pratt" (default), "warren", "howe"
+Truss patterns: "pratt", "warren", "howe"
 Available sections: IPE 200/300/400/500/600, HEB 200/300/400, HEA 200/300, UPN 200, L 80x80x8
 Material: Steel A36 (always).
 
-Output format — raw JSON, no markdown fences:
-{{ "action": "<name>", "params": {{ ... }}, "interpretation": "..." }}
-
-If vague, pick the closest action with sensible defaults and explain your assumptions in "interpretation".
-Only use "unsupported" if the request is completely unrelated to structures.
-{{ "action": "unsupported", "params": {{}}, "interpretation": "..." }}"#
+For anything else — questions, explanations, advice, greetings — just reply in plain text. Be helpful, concise, and knowledgeable about structural engineering."#
     )
 }
 
@@ -146,34 +141,34 @@ pub fn parse_response(
         });
     }
 
-    // Fallback: legacy { snapshot, interpretation } format
+    // Fallback: try legacy { snapshot, interpretation } format
     #[derive(Deserialize)]
     struct LegacyRaw {
         snapshot: Value,
         interpretation: String,
     }
 
-    let raw: LegacyRaw = serde_json::from_str(json_str).map_err(|e| {
-        tracing::warn!("failed to parse build-model response: {e}\nraw: {content}");
-        AppError::BadRequest(
-            "Could not generate a model from that description. Try describing a structure, e.g. \"simply supported beam, 6m span, 10 kN/m load\".".into(),
-        )
-    })?;
-
-    let snapshot = &raw.snapshot;
-    if !snapshot.is_object()
-        || snapshot.get("nodes").is_none()
-        || snapshot.get("elements").is_none()
-    {
-        return Err(AppError::BadRequest(
-            "AI response missing required model fields. Try a more specific structural description."
-                .into(),
-        ));
+    if let Ok(raw) = serde_json::from_str::<LegacyRaw>(json_str) {
+        let snapshot = &raw.snapshot;
+        if snapshot.is_object()
+            && snapshot.get("nodes").is_some()
+            && snapshot.get("elements").is_some()
+        {
+            return Ok(BuildModelResponse {
+                snapshot: Some(raw.snapshot),
+                message: raw.interpretation,
+                change_summary: None,
+                scope_refusal: None,
+                raw_ai_response: Some(raw_content),
+                meta,
+            });
+        }
     }
 
+    // Not JSON at all — plain text conversational response
     Ok(BuildModelResponse {
-        snapshot: Some(raw.snapshot),
-        message: raw.interpretation,
+        snapshot: None,
+        message: raw_content.clone(),
         change_summary: None,
         scope_refusal: None,
         raw_ai_response: Some(raw_content),

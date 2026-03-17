@@ -185,11 +185,11 @@
         && Array.isArray(snap.nodes) && (snap.nodes as unknown[]).length > 0
         && Array.isArray(snap.elements) && (snap.elements as unknown[]).length > 0;
 
-      // Scope refusal or empty/missing snapshot — show message, no draft
+      // No structure in response — conversational reply or scope refusal
       if (resp.scopeRefusal || !hasStructure) {
         chatMessages.push({
           role: 'ai',
-          text: resp.message || 'I can build: beams, cantilevers, continuous beams, portal frames, trusses, and 3D frames. Describe a structure to get started.',
+          text: resp.message || 'Try describing a structure to build.',
           rawAiResponse: resp.rawAiResponse,
           meta: {
             modelUsed: resp.meta.modelUsed,
