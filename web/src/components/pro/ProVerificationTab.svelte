@@ -20,14 +20,17 @@
   /** Normative code options for design checks */
   type NormativeCode = 'cirsoc' | 'aci-aisc' | 'eurocode' | 'nds' | 'masonry' | 'cfs';
 
-  const normativeOptions: { value: NormativeCode; label: string; wasmKeys: string[] }[] = [
+  const normativeOptionsDefs: { value: NormativeCode; label?: string; labelKey?: string; wasmKeys: string[] }[] = [
     { value: 'cirsoc', label: 'CIRSOC 201/301', wasmKeys: [] },
     { value: 'aci-aisc', label: 'ACI 318 / AISC 360', wasmKeys: ['rcMembers', 'steelMembers'] },
     { value: 'eurocode', label: 'Eurocode 2/3', wasmKeys: ['ec2Members', 'ec3Members'] },
-    { value: 'nds', label: 'NDS (Madera)', wasmKeys: ['timberMembers'] },
-    { value: 'masonry', label: 'Mampostería', wasmKeys: ['masonryMembers'] },
-    { value: 'cfs', label: 'CFS (Conformado en frío)', wasmKeys: ['cfsMembers'] },
+    { value: 'nds', labelKey: 'pro.codeTimber', wasmKeys: ['timberMembers'] },
+    { value: 'masonry', labelKey: 'pro.codeMasonry', wasmKeys: ['masonryMembers'] },
+    { value: 'cfs', labelKey: 'pro.codeCfs', wasmKeys: ['cfsMembers'] },
   ];
+  function normLabel(def: typeof normativeOptionsDefs[number]): string {
+    return def.labelKey ? t(def.labelKey) : def.label!;
+  }
 
   let { verifications = $bindable([]) }: { verifications: ElementVerification[] } = $props();
   let expandedId = $state<number | null>(null);
@@ -42,7 +45,8 @@
   // ── Code mixing: per-category code selection ──
   let mixCodes = $state(false);
   type CheckCategory = 'rc' | 'steel' | 'seismic';
-  const categoryLabels: Record<CheckCategory, string> = { rc: 'H° Armado', steel: 'Acero', seismic: 'Sísmica' };
+  const categoryLabelKeys: Record<CheckCategory, string> = { rc: 'pro.catRc', steel: 'pro.catSteel', seismic: 'pro.catSeismic' };
+  function catLabel(cat: CheckCategory): string { return t(categoryLabelKeys[cat]); }
   const codesForCategory: Record<CheckCategory, NormativeCode[]> = {
     rc: ['cirsoc', 'aci-aisc', 'eurocode'],
     steel: ['cirsoc', 'aci-aisc', 'eurocode', 'cfs'],
@@ -55,7 +59,7 @@
 
   /** Whether the selected normative code has its WASM checks compiled */
   const selectedNormativeAvailable = $derived(() => {
-    const opt = normativeOptions.find(o => o.value === selectedNormative);
+    const opt = normativeOptionsDefs.find(o => o.value === selectedNormative);
     if (!opt || opt.wasmKeys.length === 0) return true; // CIRSOC uses JS, always available
     return opt.wasmKeys.every(k => isDesignCheckAvailable(k));
   });
@@ -235,13 +239,14 @@
           try {
             const r = runWasmCheck(code, payload);
             if (r && Array.isArray(r.members)) {
-              const label = normativeOptions.find(o => o.value === code)?.label ?? code;
-              wasmResults.push(...r.members.map((m: any) => ({ ...m, _source: `${categoryLabels[cat]} (${label})` })));
+              const found = normativeOptionsDefs.find(o => o.value === code);
+              const label = found ? normLabel(found) : code;
+              wasmResults.push(...r.members.map((m: any) => ({ ...m, _source: `${catLabel(cat)} (${label})` })));
             } else if (r) {
               wasmResults.push(r);
             }
           } catch (e: any) {
-            verifyError = `${categoryLabels[cat]}: ${e.message}`;
+            verifyError = `${catLabel(cat)}: ${e.message}`;
           }
         }
       }
@@ -845,7 +850,7 @@
     XLSX.utils.book_append_sheet(wb, wsSchedule, t('pro.scheduleTab'));
 
     // Sheet 2: Per-element quantities (override-aware for longitudinal rebar)
-    const effQty = effectiveQuantities;
+    const effQty = effectiveQuantities ?? quantities;
     if (effQty) {
       const qtyHeaders = [
         'ID', t('pro.thType'), `L (m)`,
@@ -857,8 +862,8 @@
       const qtyData: (string | number)[][] = [qtyHeaders];
       const typeOrd: Record<string, number> = { column: 0, beam: 1, wall: 2 };
       const sortedElems = [...effQty.elements].sort((a, b) => {
-        const t = (typeOrd[a.elementType] ?? 9) - (typeOrd[b.elementType] ?? 9);
-        return t !== 0 ? t : a.elementId - b.elementId;
+        const diff = (typeOrd[a.elementType] ?? 9) - (typeOrd[b.elementType] ?? 9);
+        return diff !== 0 ? diff : a.elementId - b.elementId;
       });
       for (const eq of sortedElems) {
         qtyData.push([
@@ -910,11 +915,11 @@
     <div class="pro-verif-title-row">
       <div class="pro-verif-title">{t('pro.normativeVerif')}</div>
       <select bind:value={selectedNormative} class="pro-sel normative-sel" disabled={mixCodes}>
-        {#each normativeOptions as opt}
-          <option value={opt.value}>{opt.label}</option>
+        {#each normativeOptionsDefs as opt}
+          <option value={opt.value}>{normLabel(opt)}</option>
         {/each}
       </select>
-      <label class="mix-toggle" title="Combinar diferentes códigos por categoría">
+      <label class="mix-toggle" title={t('pro.mixCodesTooltip')}>
         <input type="checkbox" bind:checked={mixCodes} />
         <span>Mix</span>
       </label>
@@ -923,10 +928,11 @@
       <div class="mix-codes-row">
         {#each Object.entries(codesForCategory) as [cat, codes]}
           <label class="mix-code-item">
-            <span class="mix-cat-label">{categoryLabels[cat as CheckCategory]}:</span>
+            <span class="mix-cat-label">{catLabel(cat as CheckCategory)}:</span>
             <select bind:value={mixedCodes[cat as CheckCategory]} class="pro-sel mix-sel">
               {#each codes as code}
-                <option value={code}>{normativeOptions.find(o => o.value === code)?.label}</option>
+                {@const def = normativeOptionsDefs.find(o => o.value === code)}
+                <option value={code}>{def ? normLabel(def) : code}</option>
               {/each}
             </select>
           </label>
@@ -935,7 +941,7 @@
     {/if}
     {#if !isCirsocSelected && !selectedNormativeAvailable()}
       <div class="pro-wasm-notice">
-        {t('pro.wasmNotice').replace('{code}', normativeOptions.find(o => o.value === selectedNormative)?.label ?? '')}
+        {t('pro.wasmNotice').replace('{code}', (() => { const d = normativeOptionsDefs.find(o => o.value === selectedNormative); return d ? normLabel(d) : ''; })())}
       </div>
     {/if}
     <div class="pro-verif-params">
@@ -984,8 +990,8 @@
       <span class="status-warn">{countWarn} ⚠</span>
       <span class="status-fail">{countFail} ✗</span>
       {#if effectiveQuantities}
-        <span class="qty-badge">H°: {effectiveQuantities.totalConcreteVolume.toFixed(2)} m³</span>
-        <span class="qty-badge">Acero: {effectiveQuantities.totalSteelWeight.toFixed(0)} kg ({effectiveQuantities.steelRatio.toFixed(0)} kg/m³)</span>
+        <span class="qty-badge">{t('pro.qtyConcreteBadge')}: {effectiveQuantities.totalConcreteVolume.toFixed(2)} m³</span>
+        <span class="qty-badge">{t('pro.qtySteelBadge')}: {effectiveQuantities.totalSteelWeight.toFixed(0)} kg ({effectiveQuantities.steelRatio.toFixed(0)} kg/m³)</span>
         {#if overrideCount > 0}<span class="override-mark" title={t('pro.qtyOverrideNote')}>*</span>{/if}
       {/if}
       <button class="pro-show-model-btn" onclick={showOnModel} title={t('pro.showOnModel')}>
@@ -1018,13 +1024,13 @@
           <thead>
             <tr>
               <th>Elem</th>
-              <th>Tipo</th>
+              <th>{t('pro.thType')}</th>
               <th>Mu</th>
               <th>Vu</th>
               <th>Nu</th>
               <th>As req</th>
               <th>As prov</th>
-              <th>Estribos</th>
+              <th>{t('pro.thStirrups')}</th>
               <th></th>
             </tr>
           </thead>
@@ -1060,6 +1066,7 @@
                             b: v.b, h: v.h, cover: v.cover,
                             flexure: effFlexure, shear: v.shear,
                             column: effColumn, isColumn: v.elementType === 'column' || v.elementType === 'wall',
+                            layerWord: t('pro.layerWord'),
                           })}
                         </div>
 
@@ -1068,7 +1075,7 @@
                           {@const elem = modelStore.elements.get(v.elementId)}
                           <div class="detail-svg">
                             {@html generateBeamElevationSvg({
-                              length: elemLen, h: v.h, cover: v.cover,
+                              length: elemLen, b: v.b, h: v.h, cover: v.cover,
                               flexure: effFlexure, shear: v.shear,
                               supportI: elem ? getSupportType(elem.nodeI) : 'pinned',
                               supportJ: elem ? getSupportType(elem.nodeJ) : 'pinned',
@@ -1121,7 +1128,7 @@
                           <div class="override-controls">
                             <label class="override-label">{t('pro.overrideBarCount')}</label>
                             <input type="number" class="override-input" min="2" max="40" value={ovBarCount}
-                              onchange={(e: Event) => { const val = parseInt((e.target as HTMLInputElement).value); if (val >= 2) setOverride(v.elementId, val, ovBarDia); }} />
+                              oninput={(e: Event) => { const val = parseInt((e.target as HTMLInputElement).value); if (!isNaN(val) && val >= 2 && val <= 40) setOverride(v.elementId, val, ovBarDia); }} />
                             <label class="override-label">Ø</label>
                             <select class="override-input" value={ovBarDia}
                               onchange={(e: Event) => { const dia = parseInt((e.target as HTMLSelectElement).value); setOverride(v.elementId, ovBarCount, dia); }}>
@@ -1244,17 +1251,18 @@
                 {@const elemLen = elementLengthMap.get(rep.elementId) ?? 3}
                 {@const elem = modelStore.elements.get(rep.elementId)}
                 <div class="gallery-item">
-                  <div class="gallery-title">{entry.sectionName} — Elementos {entry.elementIds.join(', ')}</div>
+                  <div class="gallery-title">{entry.sectionName} — {t('data.elements')} {entry.elementIds.join(', ')}</div>
                   <div class="detail-svg">
                     {@html generateCrossSectionSvg({
                       b: rep.b, h: rep.h, cover: rep.cover,
                       flexure: rep.flexure, shear: rep.shear,
                       column: rep.column, isColumn: false,
+                      layerWord: t('pro.layerWord'),
                     })}
                   </div>
                   <div class="detail-svg">
                     {@html generateBeamElevationSvg({
-                      length: elemLen, h: rep.h, cover: rep.cover,
+                      length: elemLen, b: rep.b, h: rep.h, cover: rep.cover,
                       flexure: rep.flexure, shear: rep.shear,
                       supportI: elem ? getSupportType(elem.nodeI) : 'pinned',
                       supportJ: elem ? getSupportType(elem.nodeJ) : 'pinned',
@@ -1274,12 +1282,13 @@
               {#if rep && rep.column}
                 {@const elemLen = elementLengthMap.get(rep.elementId) ?? 3}
                 <div class="gallery-item">
-                  <div class="gallery-title">{entry.sectionName} — Elementos {entry.elementIds.join(', ')}</div>
+                  <div class="gallery-title">{entry.sectionName} — {t('data.elements')} {entry.elementIds.join(', ')}</div>
                   <div class="detail-svg">
                     {@html generateCrossSectionSvg({
                       b: rep.b, h: rep.h, cover: rep.cover,
                       flexure: rep.flexure, shear: rep.shear,
                       column: rep.column, isColumn: true,
+                      layerWord: t('pro.layerWord'),
                     })}
                   </div>
                   <div class="detail-svg">
@@ -1302,12 +1311,13 @@
               {#if rep && rep.column}
                 {@const elemLen = elementLengthMap.get(rep.elementId) ?? 3}
                 <div class="gallery-item">
-                  <div class="gallery-title">{entry.sectionName} — Elementos {entry.elementIds.join(', ')}</div>
+                  <div class="gallery-title">{entry.sectionName} — {t('data.elements')} {entry.elementIds.join(', ')}</div>
                   <div class="detail-svg">
                     {@html generateCrossSectionSvg({
                       b: rep.b, h: rep.h, cover: rep.cover,
                       flexure: rep.flexure, shear: rep.shear,
                       column: rep.column, isColumn: true,
+                      layerWord: t('pro.layerWord'),
                     })}
                   </div>
                   <div class="detail-svg">
@@ -1469,7 +1479,7 @@
         <table class="pro-verif-table">
           <thead>
             <tr>
-              <th>Nivel (m)</th>
+              <th>{t('pro.driftLevel')}</th>
               <th>h piso (m)</th>
               <th>Δx (mm)</th>
               <th>Δz (mm)</th>
@@ -1494,7 +1504,7 @@
         </table>
       </div>
       {#if storyDrifts.length === 0}
-        <div class="pro-empty">No se detectaron pisos con desplazamientos laterales.</div>
+        <div class="pro-empty">{t('pro.driftNone')}</div>
       {/if}
 
     {:else if activeSection === 'connections'}
@@ -1587,7 +1597,7 @@
       {#if hasResults}
         {t('pro.verifyPrompt')}
       {:else}
-        Primero resolvé la estructura (pestaña Resultados)
+        {t('pro.solveFirst')}
       {/if}
     </div>
   {/if}

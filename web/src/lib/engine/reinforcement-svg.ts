@@ -13,10 +13,12 @@ export interface CrossSectionSvgOpts {
   shear: ShearResult;
   column?: ColumnResult;
   isColumn: boolean;
+  /** i18n word for "layers", e.g. "layers" or "capas". Used when bars need multiple rows. */
+  layerWord?: string;
 }
 
 export function generateCrossSectionSvg(opts: CrossSectionSvgOpts): string {
-  const { b, h, cover, flexure, shear, isColumn, column } = opts;
+  const { b, h, cover, flexure, shear, isColumn, column, layerWord } = opts;
   const scale = 400 / Math.max(b, h); // fit in ~400px
   const W = b * scale + 100; // extra for annotations
   const H = h * scale + 100;
@@ -63,37 +65,39 @@ export function generateCrossSectionSvg(opts: CrossSectionSvgOpts): string {
     const maxBPerFaceV = Math.max(0, Math.floor(faceH / (2 * barR + minGapPx)));
     const maxPerimeter = 4 + 2 * maxBPerFaceH + 2 * maxBPerFaceV;
 
-    if (n <= maxPerimeter || n <= 4) {
+    if (n <= maxPerimeter || n <= 8) {
       // Fits on perimeter — use standard distribution
-      const positions = getColumnBarPositions(n, bPx, hPx, coverPx, ox, oy);
+      const positions = getColumnBarPositions(n, bPx, hPx, coverPx, ox, oy, stPx, barR);
       for (const [cx, cy] of positions) {
         lines.push(`<circle cx="${cx}" cy="${cy}" r="${Math.max(barR, 3)}" fill="#e94560" stroke="#ff8a9e" stroke-width="0.5"/>`);
       }
     } else {
       // Overflow: fill perimeter, then add interior rows
-      const perimPositions = getColumnBarPositions(Math.min(n, maxPerimeter), bPx, hPx, coverPx, ox, oy);
+      const perimPositions = getColumnBarPositions(Math.min(n, maxPerimeter), bPx, hPx, coverPx, ox, oy, stPx, barR);
       for (const [cx, cy] of perimPositions) {
         lines.push(`<circle cx="${cx}" cy="${cy}" r="${Math.max(barR, 3)}" fill="#e94560" stroke="#ff8a9e" stroke-width="0.5"/>`);
       }
-      // Interior bars in a grid
+      // Interior bars in a grid — only if there's real interior space
       let remaining = n - perimPositions.length;
-      const inset = coverPx + stPx + 2 * barR + minGapPx;
-      const innerStartX = ox + inset + barR;
-      const innerEndX = ox + bPx - inset - barR;
-      const innerStartY = oy + inset + barR;
-      const innerEndY = oy + hPx - inset - barR;
+      const margin = coverPx + stPx + Math.max(barR, 5);
+      const innerStartX = ox + margin + 2 * barR + minGapPx;
+      const innerEndX = ox + bPx - margin - 2 * barR - minGapPx;
+      const innerStartY = oy + margin + 2 * barR + minGapPx;
+      const innerEndY = oy + hPx - margin - 2 * barR - minGapPx;
       const innerW = innerEndX - innerStartX;
       const innerH = innerEndY - innerStartY;
-      if (innerW > 0 && innerH > 0 && remaining > 0) {
+      if (innerW > 2 * barR && innerH > 2 * barR && remaining > 0) {
         const cols = Math.max(1, Math.floor((innerW + minGapPx) / (2 * barR + minGapPx)));
-        const rows = Math.ceil(remaining / cols);
+        const maxIntRows = Math.max(1, Math.floor((innerH + minGapPx) / (2 * barR + minGapPx)));
+        const rows = Math.min(Math.ceil(remaining / cols), maxIntRows);
+        const drawn = Math.min(remaining, rows * cols);
         let idx = 0;
-        for (let r = 0; r < rows && idx < remaining; r++) {
-          const barsInRow = Math.min(cols, remaining - idx);
+        for (let r = 0; r < rows && idx < drawn; r++) {
+          const barsInRow = Math.min(cols, drawn - idx);
           const cy = rows === 1 ? oy + hPx / 2 : innerStartY + r * (innerH / Math.max(rows - 1, 1));
-          const spacing = barsInRow > 1 ? innerW / (barsInRow - 1) : 0;
+          const colSpacing = barsInRow > 1 ? innerW / (barsInRow - 1) : 0;
           for (let c = 0; c < barsInRow; c++) {
-            const cx = barsInRow === 1 ? ox + bPx / 2 : innerStartX + c * spacing;
+            const cx = barsInRow === 1 ? ox + bPx / 2 : innerStartX + c * colSpacing;
             lines.push(`<circle cx="${cx}" cy="${cy}" r="${Math.max(barR, 3)}" fill="#e94560" stroke="#ff8a9e" stroke-width="0.5" opacity="0.7"/>`);
             idx++;
           }
@@ -113,13 +117,18 @@ export function generateCrossSectionSvg(opts: CrossSectionSvgOpts): string {
     // Minimum clear gap: max(bar diameter, 25mm) per CIRSOC 201 §7.6
     const minGapPx = Math.max(flexure.barDia / 1000, 0.025) * scale;
     const maxPerRow = Math.max(1, availW > 0 ? Math.floor((availW + minGapPx) / (2 * barR + minGapPx)) : 1);
-    const nRows = Math.ceil(nBot / maxPerRow);
     const rowGapPx = 2 * barR + minGapPx;
+    // Cap rows to available vertical space (leave room for top bars)
+    const botBarY0 = oy + hPx - coverPx - stPx - barR; // first row Y
+    const topLimit = oy + coverPx + stPx + barR + rowGapPx; // above this = top bar zone
+    const maxRows = Math.max(1, Math.floor((botBarY0 - topLimit) / rowGapPx) + 1);
+    const nRows = Math.min(Math.ceil(nBot / maxPerRow), maxRows);
+    const nDrawn = Math.min(nBot, nRows * maxPerRow);
 
     let barIdx = 0;
     for (let row = 0; row < nRows; row++) {
-      const barsInRow = Math.min(maxPerRow, nBot - barIdx);
-      const barY = oy + hPx - coverPx - stPx - barR - row * rowGapPx;
+      const barsInRow = Math.min(maxPerRow, nDrawn - barIdx);
+      const barY = botBarY0 - row * rowGapPx;
       const rowSpacing = barsInRow > 1 ? (endX - startX) / (barsInRow - 1) : 0;
       for (let i = 0; i < barsInRow; i++) {
         const cx = barsInRow === 1 ? ox + bPx / 2 : startX + i * rowSpacing;
@@ -147,8 +156,9 @@ export function generateCrossSectionSvg(opts: CrossSectionSvgOpts): string {
     }
 
     // Labels
-    const rowNote = nRows > 1 ? ` (${nRows} capas)` : '';
-    lines.push(`<text x="${ox + bPx / 2}" y="${oy + hPx + 35}" text-anchor="middle" class="bar-label">${flexure.bars} (inf.)${rowNote}</text>`);
+    const rowNote = nRows > 1 ? ` (${nRows} ${layerWord ?? 'rows'})` : '';
+    const truncNote = nDrawn < nBot ? ` [max ${nDrawn}]` : '';
+    lines.push(`<text x="${ox + bPx / 2}" y="${oy + hPx + 35}" text-anchor="middle" class="bar-label">${flexure.bars} (inf.)${rowNote}${truncNote}</text>`);
     lines.push(`<text x="${ox + bPx / 2}" y="${oy + hPx + 48}" text-anchor="middle" class="bar-label">eØ${shear.stirrupDia} c/${(shear.spacing * 100).toFixed(0)}</text>`);
     const topLabel = hasCompSteel ? `${flexure.barsComp} (A's)` : `2 Ø10 (sup.)`;
     lines.push(`<text x="${ox + bPx / 2}" y="${oy - 8}" text-anchor="middle" class="bar-label">${topLabel}</text>`);
@@ -170,47 +180,46 @@ export function generateCrossSectionSvg(opts: CrossSectionSvgOpts): string {
   return lines.join('\n');
 }
 
-function getColumnBarPositions(n: number, bPx: number, hPx: number, coverPx: number, ox: number, oy: number): [number, number][] {
-  const margin = coverPx + 10; // approximate with stirrup + bar radius
+function getColumnBarPositions(n: number, bPx: number, hPx: number, coverPx: number, ox: number, oy: number, stPx: number = 0, barR: number = 0): [number, number][] {
+  const margin = coverPx + stPx + Math.max(barR, 5);
   const positions: [number, number][] = [];
 
+  const x0 = ox + margin;
+  const x1 = ox + bPx - margin;
+  const y0 = oy + margin;
+  const y1 = oy + hPx - margin;
+
   if (n <= 4) {
-    // 4 corners
-    positions.push([ox + margin, oy + margin]);
-    positions.push([ox + bPx - margin, oy + margin]);
-    positions.push([ox + margin, oy + hPx - margin]);
-    positions.push([ox + bPx - margin, oy + hPx - margin]);
-    return positions.slice(0, n);
+    const corners: [number, number][] = [[x0, y0], [x1, y0], [x1, y1], [x0, y1]];
+    return corners.slice(0, n);
   }
 
-  // Distribute around perimeter
-  const perSide = Math.ceil((n - 4) / 4);
-  // Corners first
-  positions.push([ox + margin, oy + margin]);
-  positions.push([ox + bPx - margin, oy + margin]);
-  positions.push([ox + bPx - margin, oy + hPx - margin]);
-  positions.push([ox + margin, oy + hPx - margin]);
+  // 4 corners
+  positions.push([x0, y0], [x1, y0], [x1, y1], [x0, y1]);
 
-  // Fill sides
-  let remaining = n - 4;
-  const sides = [
-    { x1: ox + margin, y1: oy + margin, x2: ox + bPx - margin, y2: oy + margin },             // top
-    { x1: ox + bPx - margin, y1: oy + margin, x2: ox + bPx - margin, y2: oy + hPx - margin }, // right
-    { x1: ox + bPx - margin, y1: oy + hPx - margin, x2: ox + margin, y2: oy + hPx - margin }, // bottom
-    { x1: ox + margin, y1: oy + hPx - margin, x2: ox + margin, y2: oy + margin },             // left
+  // Distribute remaining bars symmetrically: top/bottom pair first, then right/left
+  const extra = n - 4;
+  const faceCounts = [0, 0, 0, 0]; // top, bottom, right, left
+  for (let i = 0; i < extra; i++) {
+    faceCounts[i % 4]++;
+  }
+
+  // Faces: [start, end] pairs — bars are placed between corners
+  const faces: { sx: number; sy: number; ex: number; ey: number }[] = [
+    { sx: x0, sy: y0, ex: x1, ey: y0 }, // top
+    { sx: x1, sy: y1, ex: x0, ey: y1 }, // bottom (reversed for symmetry with top)
+    { sx: x1, sy: y0, ex: x1, ey: y1 }, // right
+    { sx: x0, sy: y1, ex: x0, ey: y0 }, // left
   ];
 
-  for (const side of sides) {
-    if (remaining <= 0) break;
-    const count = Math.min(perSide, remaining);
+  for (let f = 0; f < 4; f++) {
+    const count = faceCounts[f];
+    if (count === 0) continue;
+    const { sx, sy, ex, ey } = faces[f];
     for (let i = 1; i <= count; i++) {
       const t = i / (count + 1);
-      positions.push([
-        side.x1 + t * (side.x2 - side.x1),
-        side.y1 + t * (side.y2 - side.y1),
-      ]);
+      positions.push([sx + t * (ex - sx), sy + t * (ey - sy)]);
     }
-    remaining -= count;
   }
 
   return positions;
@@ -220,6 +229,7 @@ function getColumnBarPositions(n: number, bPx: number, hPx: number, coverPx: num
 
 export interface ElevationSvgOpts {
   length: number;     // beam length (m)
+  b: number;          // section width (m) — needed for multi-row consistency with cross-section
   h: number;          // section height (m)
   cover: number;      // concrete cover (m)
   flexure: FlexureResult;
@@ -229,7 +239,7 @@ export interface ElevationSvgOpts {
 }
 
 export function generateBeamElevationSvg(opts: ElevationSvgOpts): string {
-  const { length, h, cover, flexure, shear, supportI, supportJ } = opts;
+  const { length, b, h, cover, flexure, shear, supportI, supportJ } = opts;
   const scaleX = 500 / length;
   const scaleY = Math.min(200, 300 / h);
   const W = length * scaleX + 100;
@@ -251,13 +261,37 @@ export function generateBeamElevationSvg(opts: ElevationSvgOpts): string {
   // Concrete outline
   lines.push(`<rect x="${ox}" y="${oy}" width="${lPx}" height="${hPx}" fill="#1a2a40" stroke="#4ecdc4" stroke-width="1.5"/>`);
 
-  // Bottom rebar line
-  const botY = oy + hPx - cover * scaleY - 5;
-  lines.push(`<line x1="${ox + 5}" y1="${botY}" x2="${ox + lPx - 5}" y2="${botY}" stroke="#e94560" stroke-width="2"/>`);
+  // ── Bottom bars: multi-row layout matching cross-section logic ──
+  const barDiaMm = flexure.barDia;
+  const barR_m = barDiaMm / 2000;
+  const stThick_m = shear.stirrupDia / 1000;
+  const minGap_m = Math.max(barDiaMm / 1000, 0.025);
+  const availW_m = b - 2 * cover - 2 * stThick_m - 2 * barR_m;
+  const maxPerRow = Math.max(1, availW_m > 0 ? Math.floor((availW_m + minGap_m) / (2 * barR_m + minGap_m)) : 1);
+  const rowGap_m = 2 * barR_m + minGap_m;
+  // Vertical space cap (same as cross-section)
+  const botBarY0_m = h - cover - stThick_m - barR_m;
+  const topBarY0_m = cover + stThick_m + barR_m;
+  const topLimit_m = topBarY0_m + rowGap_m;
+  const maxRows = Math.max(1, Math.floor((botBarY0_m - topLimit_m) / rowGap_m) + 1);
+  const nBot = flexure.barCount;
+  const nRows = Math.min(Math.ceil(nBot / maxPerRow), maxRows);
 
-  // Top rebar line (construction)
+  // Draw one horizontal line per row (side view: each row is a line at its height)
+  for (let row = 0; row < nRows; row++) {
+    const y_m = botBarY0_m - row * rowGap_m;
+    const yPx = oy + (h - y_m) * (hPx / h);
+    const opacity = row === 0 ? 1 : 0.7;
+    const sw = row === 0 ? 2 : 1.5;
+    lines.push(`<line x1="${ox + 5}" y1="${yPx}" x2="${ox + lPx - 5}" y2="${yPx}" stroke="#e94560" stroke-width="${sw}" opacity="${opacity}"/>`);
+  }
+
+  // Top rebar line (construction or compression)
+  const hasCompSteel = flexure.isDoublyReinforced && flexure.barCountComp && flexure.barDiaComp;
   const topY = oy + cover * scaleY + 5;
-  lines.push(`<line x1="${ox + 5}" y1="${topY}" x2="${ox + lPx - 5}" y2="${topY}" stroke="#666" stroke-width="1.5" stroke-dasharray="6,3"/>`);
+  const topStroke = hasCompSteel ? '#4a90d9' : '#666';
+  const topDash = hasCompSteel ? '' : ' stroke-dasharray="6,3"';
+  lines.push(`<line x1="${ox + 5}" y1="${topY}" x2="${ox + lPx - 5}" y2="${topY}" stroke="${topStroke}" stroke-width="1.5"${topDash}/>`);
 
   // Stirrups (draw some representative ones)
   const nStirrup = Math.min(Math.floor(length / shear.spacing), 30);
@@ -276,8 +310,10 @@ export function generateBeamElevationSvg(opts: ElevationSvgOpts): string {
   }
 
   // Labels
-  lines.push(`<text x="${ox + lPx / 2}" y="${botY + 15}" text-anchor="middle" class="bar-label">${flexure.bars}</text>`);
-  lines.push(`<text x="${ox + lPx / 2}" y="${topY - 8}" text-anchor="middle" class="bar-label" style="fill:#888">2 Ø10</text>`);
+  const rowNote = nRows > 1 ? ` (${nRows}r)` : '';
+  lines.push(`<text x="${ox + lPx / 2}" y="${oy + hPx - cover * scaleY + 15}" text-anchor="middle" class="bar-label">${flexure.bars}${rowNote}</text>`);
+  const topLabel = hasCompSteel ? (flexure.barsComp ?? '2 Ø10') : '2 Ø10';
+  lines.push(`<text x="${ox + lPx / 2}" y="${topY - 8}" text-anchor="middle" class="bar-label" style="fill:${hasCompSteel ? '#4a90d9' : '#888'}">${topLabel}</text>`);
 
   // Stirrup label
   lines.push(`<text x="${ox + lPx / 2}" y="${oy + hPx + 40}" text-anchor="middle" class="stirrup-label">eØ${shear.stirrupDia} c/${(shear.spacing * 100).toFixed(0)} cm</text>`);
@@ -343,9 +379,15 @@ export function generateColumnElevationSvg(opts: ColumnElevationSvgOpts): string
   lines.push(`<line x1="${xL}" y1="${oy + 5}" x2="${xL}" y2="${oy + hPx - 5}" stroke="#e94560" stroke-width="${Math.max(barR, 1.5)}"/>`);
   lines.push(`<line x1="${xR}" y1="${oy + 5}" x2="${xR}" y2="${oy + hPx - 5}" stroke="#e94560" stroke-width="${Math.max(barR, 1.5)}"/>`);
 
-  // Intermediate vertical bars (if > 4 bars total)
+  // Intermediate vertical bars — must match cross-section round-robin distribution
+  // From the b-face view, bars on top/bottom faces project to interior x-positions,
+  // while left/right face bars overlap with the edge bars.
   if (column.barCount > 4) {
-    const nInter = Math.floor((column.barCount - 4) / 2);
+    const extra = column.barCount - 4;
+    const faceCounts = [0, 0, 0, 0]; // top, bottom, right, left
+    for (let i = 0; i < extra; i++) faceCounts[i % 4]++;
+    // Visible intermediate lines = bars on the top or bottom face (whichever has more)
+    const nInter = Math.max(faceCounts[0], faceCounts[1]);
     for (let i = 1; i <= nInter; i++) {
       const t = i / (nInter + 1);
       const xi = xL + t * (xR - xL);

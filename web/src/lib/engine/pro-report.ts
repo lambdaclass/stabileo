@@ -765,6 +765,7 @@ export function generateReportHtml(data: ReportData): string {
         html.push(`<h3>${lbl} ${secStr} cm — ${escHtml(tr('report.longitudinalView'))}</h3>`);
         const elevSvg = generateBeamElevationSvg({
           length: elemLen,
+          b: v.b,
           h: v.h,
           cover: v.cover,
           flexure: v.flexure,
