@@ -1,0 +1,25 @@
+[package]
+name = "dedaliano-backend"
+version = "0.1.0"
+edition = "2021"
+
+[features]
+test-support = []
+
+[dependencies]
+dedaliano-engine = { path = "../engine" }
+axum = "0.8"
+tokio = { version = "1", features = ["full"] }
+tower-http = { version = "0.6", features = ["cors", "trace"] }
+reqwest = { version = "0.12", features = ["json", "rustls-tls"] }
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter", "json"] }
+dotenvy = "0.15"
+thiserror = "2"
+uuid = { version = "1", features = ["v4"] }
+
+[dev-dependencies]
+tokio = { version = "1", features = ["full", "macros"] }
+dedaliano-backend = { path = ".", features = ["test-support"] }
