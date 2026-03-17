@@ -55,6 +55,12 @@ export interface InterpretResultsResponse {
   meta: ReviewMeta;
 }
 
+export interface BuildModelResponse {
+  snapshot: Record<string, unknown>;
+  interpretation: string;
+  meta: ReviewMeta;
+}
+
 // ─── Artifact construction ─────────────────────────────────────
 
 // All fields are camelCase to match the Rust backend's #[serde(rename_all = "camelCase")]
@@ -214,6 +220,16 @@ export async function interpretResults(
     resultSummary,
     question,
     modelInfo,
+    locale: locale ?? 'en',
+  });
+}
+
+export async function buildModel(
+  description: string,
+  locale?: string,
+): Promise<BuildModelResponse> {
+  return post('/api/ai/build-model', {
+    description,
     locale: locale ?? 'en',
   });
 }

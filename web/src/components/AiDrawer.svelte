@@ -1,14 +1,22 @@
 <script lang="ts">
-  import { resultsStore, modelStore, uiStore } from '../lib/store';
+  import { resultsStore, modelStore, uiStore, historyStore } from '../lib/store';
   import { t, i18n } from '../lib/i18n';
-  import { reviewModel, buildArtifact, type ReviewModelResponse, type ReviewFinding } from '../lib/ai/client';
+  import { reviewModel, buildArtifact, buildModel, type ReviewModelResponse, type ReviewFinding } from '../lib/ai/client';
+  import { runGlobalSolve } from '../lib/engine/live-calc';
+  import type { ModelSnapshot } from '../lib/store/history.svelte';
 
   type AiTab = 'review' | 'explain' | 'query' | 'build';
   let activeTab = $state<AiTab>('review');
 
-  let loading = $state(false);
-  let error = $state<string | null>(null);
-  let response = $state<ReviewModelResponse | null>(null);
+  // ─── Internal limits ───
+  const MAX_MESSAGE_LENGTH = 2000;
+  const MAX_CHAT_HISTORY = 50;
+  const MAX_MODEL_CONTEXT_NODES = 500;
+
+  // ─── Review state ───
+  let reviewLoading = $state(false);
+  let reviewError = $state<string | null>(null);
+  let reviewResponse = $state<ReviewModelResponse | null>(null);
   let expandedFinding = $state<number | null>(null);
 
   const hasResults = $derived(
@@ -17,29 +25,189 @@
       : resultsStore.results !== null
   );
 
+  // ─── Build state ───
+  interface ChatMessage {
+    role: 'user' | 'ai';
+    text: string;
+    meta?: { modelUsed: string; latencyMs: number; tokens: number };
+    isBuilding?: boolean;
+  }
+
+  let chatMessages = $state<ChatMessage[]>([]);
+  let chatInput = $state('');
+  let buildLoading = $state(false);
+  let buildError = $state<string | null>(null);
+  let chatContainer = $state<HTMLDivElement>(undefined as any);
+
+  function scrollChatToBottom() {
+    if (chatContainer) {
+      setTimeout(() => chatContainer.scrollTop = chatContainer.scrollHeight, 50);
+    }
+  }
+
+  async function handleBuildSend() {
+    const text = chatInput.trim();
+    if (!text || buildLoading) return;
+    if (text.length > MAX_MESSAGE_LENGTH) {
+      buildError = `Message too long (max ${MAX_MESSAGE_LENGTH} characters)`;
+      return;
+    }
+
+    chatInput = '';
+    buildError = null;
+
+    // Add user message
+    chatMessages.push({ role: 'user', text });
+    if (chatMessages.length > MAX_CHAT_HISTORY) chatMessages.shift();
+    scrollChatToBottom();
+
+    // Add building indicator
+    chatMessages.push({ role: 'ai', text: 'Building...', isBuilding: true });
+    scrollChatToBottom();
+    buildLoading = true;
+
+    try {
+      // Build description with model context for follow-up messages
+      let description = text;
+      if (modelStore.nodes.size > 0 && modelStore.nodes.size <= MAX_MODEL_CONTEXT_NODES) {
+        const snap = modelStore.snapshot();
+        description = `Current model context (modify this model based on my request):\n${JSON.stringify(snap)}\n\nUser request: ${text}`;
+      }
+
+      const resp = await buildModel(description, i18n.locale);
+
+      // Remove building indicator
+      chatMessages = chatMessages.filter(m => !m.isBuilding);
+
+      // Validate snapshot
+      const snapshot = resp.snapshot as Record<string, unknown>;
+      if (!snapshot.nodes || !snapshot.elements) {
+        throw new Error('AI returned invalid model (missing nodes or elements)');
+      }
+
+      // Push undo state before modifying
+      historyStore.pushState();
+
+      // Animate import
+      await animateImport(snapshot as unknown as ModelSnapshot);
+
+      // Auto-solve
+      runGlobalSolve();
+
+      // Add AI response
+      chatMessages.push({
+        role: 'ai',
+        text: resp.interpretation,
+        meta: {
+          modelUsed: resp.meta.modelUsed,
+          latencyMs: resp.meta.latencyMs,
+          tokens: resp.meta.inputTokens + resp.meta.outputTokens,
+        },
+      });
+      scrollChatToBottom();
+    } catch (e: any) {
+      chatMessages = chatMessages.filter(m => !m.isBuilding);
+      buildError = e.message || 'Failed to build model';
+      chatMessages.push({ role: 'ai', text: `Error: ${buildError}` });
+      scrollChatToBottom();
+    } finally {
+      buildLoading = false;
+    }
+  }
+
+  function sleep(ms: number): Promise<void> {
+    return new Promise(resolve => setTimeout(resolve, ms));
+  }
+
+  async function animateImport(snapshot: ModelSnapshot) {
+    // Clear current model
+    resultsStore.clear();
+    modelStore.clear();
+
+    // Phase 1: Materials and sections (instant, no visual)
+    if (snapshot.materials) {
+      const matMap = new Map(snapshot.materials.map(([k, v]) => [k, { ...v }]));
+      (modelStore as any).model.materials = matMap;
+    }
+    if (snapshot.sections) {
+      const secMap = new Map(snapshot.sections.map(([k, v]) => [k, { ...v }]));
+      (modelStore as any).model.sections = secMap;
+    }
+
+    // Phase 2: Nodes appear
+    if (snapshot.nodes) {
+      for (const [, node] of snapshot.nodes) {
+        modelStore.addNode(node.x, node.y, node.z);
+      }
+    }
+    modelStore.bumpModelVersion();
+    await sleep(100);
+
+    // Phase 3: Elements connect
+    if (snapshot.elements) {
+      for (const [, elem] of snapshot.elements) {
+        modelStore.addElement(elem.nodeI, elem.nodeJ, elem.type ?? 'frame');
+      }
+    }
+    modelStore.bumpModelVersion();
+    await sleep(100);
+
+    // Phase 4: Supports snap on
+    if (snapshot.supports) {
+      for (const [, sup] of snapshot.supports) {
+        modelStore.addSupport(sup.nodeId, sup.type as any);
+      }
+    }
+    modelStore.bumpModelVersion();
+    await sleep(100);
+
+    // Phase 5: Loads appear
+    if (snapshot.loads) {
+      for (const load of snapshot.loads) {
+        const d = load.data as any;
+        if (load.type === 'distributed' && d.elementId) {
+          modelStore.addDistributedLoad(d.elementId, d.qI ?? d.q ?? 0, d.qJ ?? d.q ?? d.qI ?? 0);
+        } else if (load.type === 'nodal' && d.nodeId) {
+          modelStore.addNodalLoad(d.nodeId, d.fx ?? 0, d.fy ?? 0, d.mz ?? 0);
+        }
+      }
+    }
+    modelStore.bumpModelVersion();
+    await sleep(100);
+
+    // Zoom to fit
+    const canvas = document.querySelector('.viewport-container canvas') as HTMLCanvasElement | null;
+    if (canvas && modelStore.nodes.size > 0) {
+      uiStore.zoomToFit(modelStore.nodes.values(), canvas.width, canvas.height);
+    }
+  }
+
+  function handleBuildKeydown(e: KeyboardEvent) {
+    if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault();
+      handleBuildSend();
+    }
+  }
+
+  // ─── Review handlers ───
   async function handleReview() {
-    loading = true;
-    error = null;
+    reviewLoading = true;
+    reviewError = null;
 
     try {
       const is3D = uiStore.analysisMode === '3d';
       const results = is3D ? resultsStore.results3D : resultsStore.results;
       if (!results) {
-        error = t('ai.noResults');
+        reviewError = t('ai.noResults');
         return;
       }
 
-      const artifact = buildArtifact(
-        results as any,
-        modelStore.nodes.size,
-        modelStore.elements.size,
-      );
-
-      response = await reviewModel(artifact, i18n.locale);
+      const artifact = buildArtifact(results as any, modelStore.nodes.size, modelStore.elements.size);
+      reviewResponse = await reviewModel(artifact, i18n.locale);
     } catch (e: any) {
-      error = e.message || t('ai.unknownError');
+      reviewError = e.message || t('ai.unknownError');
     } finally {
-      loading = false;
+      reviewLoading = false;
     }
   }
 
@@ -104,59 +272,45 @@
   </div>
 
   <!-- Body -->
-  <div class="drawer-body">
-    {#if activeTab === 'review'}
-      <!-- Review action -->
-      {#if !response && !loading}
-        <button
-          class="action-btn"
-          disabled={!hasResults}
-          onclick={handleReview}
-        >
+  {#if activeTab === 'review'}
+    <div class="drawer-body">
+      {#if !reviewResponse && !reviewLoading}
+        <button class="action-btn" disabled={!hasResults} onclick={handleReview}>
           {t('ai.reviewModel')}
         </button>
         {#if !hasResults}
           <p class="hint">{t('ai.solveFirst')}</p>
         {/if}
-      {:else if loading}
+      {:else if reviewLoading}
         <div class="loading-state">
           <span class="spinner"></span>
           <span class="loading-text">{t('ai.reviewing')}</span>
         </div>
       {/if}
 
-      {#if error}
-        <div class="error-box">{error}</div>
+      {#if reviewError}
+        <div class="error-box">{reviewError}</div>
       {/if}
 
-      {#if response}
+      {#if reviewResponse}
         <div class="results">
-          <!-- Risk + Regenerate row -->
           <div class="risk-row">
-            <div class="risk-chip" style="background: {riskColor(response.riskLevel)}20; border-color: {riskColor(response.riskLevel)}">
-              <span class="risk-dot" style="background: {riskColor(response.riskLevel)}"></span>
-              <span class="risk-text" style="color: {riskColor(response.riskLevel)}">{response.riskLevel.toUpperCase()}</span>
+            <div class="risk-chip" style="background: {riskColor(reviewResponse.riskLevel)}20; border-color: {riskColor(reviewResponse.riskLevel)}">
+              <span class="risk-dot" style="background: {riskColor(reviewResponse.riskLevel)}"></span>
+              <span class="risk-text" style="color: {riskColor(reviewResponse.riskLevel)}">{reviewResponse.riskLevel.toUpperCase()}</span>
             </div>
-            <button class="regen-btn" onclick={handleReview} disabled={loading} title="Re-run review">↻</button>
+            <button class="regen-btn" onclick={handleReview} disabled={reviewLoading} title="Re-run review">↻</button>
           </div>
 
-          <!-- Summary -->
-          <p class="summary">{response.summary}</p>
+          <p class="summary">{reviewResponse.summary}</p>
 
-          <!-- Findings -->
-          {#if response.findings.length > 0}
+          {#if reviewResponse.findings.length > 0}
             <div class="findings">
-              <span class="section-label">{t('ai.findings') ?? 'Findings'} ({response.findings.length})</span>
-              {#each response.findings as finding, i}
-                <button
-                  class="finding"
-                  class:expanded={expandedFinding === i}
-                  onclick={() => handleFindingClick(finding, i)}
-                >
+              <span class="section-label">Findings ({reviewResponse.findings.length})</span>
+              {#each reviewResponse.findings as finding, i}
+                <div class="finding" class:expanded={expandedFinding === i} role="button" tabindex="0" onclick={() => handleFindingClick(finding, i)} onkeydown={(e) => { if (e.key === 'Enter') handleFindingClick(finding, i); }}>
                   <div class="finding-header">
-                    <span class="severity-badge" style="background: {severityColor(finding.severity)}">
-                      {severityLabel(finding.severity)}
-                    </span>
+                    <span class="severity-badge" style="background: {severityColor(finding.severity)}">{severityLabel(finding.severity)}</span>
                     <span class="finding-title">{finding.title}</span>
                     <span class="finding-chevron">{expandedFinding === i ? '▾' : '▸'}</span>
                   </div>
@@ -168,73 +322,106 @@
                       {/if}
                       {#if finding.affectedIds.length > 0}
                         <div class="finding-actions">
-                          <button class="finding-action" onclick={(e) => { e.stopPropagation(); handleFindingClick(finding, i); }}>
-                            Zoom to issue
-                          </button>
+                          <button class="finding-action" onclick={(e) => { e.stopPropagation(); handleFindingClick(finding, i); }}>Zoom to issue</button>
                         </div>
                       {/if}
                     </div>
                   {/if}
-                </button>
+                </div>
               {/each}
             </div>
           {:else}
             <p class="no-findings">{t('ai.noFindings')}</p>
           {/if}
 
-          <!-- Review Order -->
-          {#if response.reviewOrder.length > 0}
+          {#if reviewResponse.reviewOrder.length > 0}
             <div class="collapsible-section">
               <span class="section-label">{t('ai.reviewOrder')}</span>
-              <ol>
-                {#each response.reviewOrder as step}
-                  <li>{step}</li>
-                {/each}
-              </ol>
+              <ol>{#each reviewResponse.reviewOrder as step}<li>{step}</li>{/each}</ol>
             </div>
           {/if}
 
-          <!-- Risky Assumptions -->
-          {#if response.riskyAssumptions.length > 0}
+          {#if reviewResponse.riskyAssumptions.length > 0}
             <div class="collapsible-section">
               <span class="section-label">{t('ai.riskyAssumptions')}</span>
-              <ul>
-                {#each response.riskyAssumptions as assumption}
-                  <li>{assumption}</li>
-                {/each}
-              </ul>
+              <ul>{#each reviewResponse.riskyAssumptions as assumption}<li>{assumption}</li>{/each}</ul>
             </div>
           {/if}
 
-          <!-- Meta -->
           <div class="meta">
-            {response.meta.modelUsed} · {response.meta.latencyMs}ms · {response.meta.inputTokens + response.meta.outputTokens} tok
+            {reviewResponse.meta.modelUsed} · {reviewResponse.meta.latencyMs}ms · {reviewResponse.meta.inputTokens + reviewResponse.meta.outputTokens} tok
           </div>
         </div>
       {/if}
+    </div>
 
-    {:else if activeTab === 'explain'}
+  {:else if activeTab === 'build'}
+    <div class="build-container">
+      <!-- Chat messages -->
+      <div class="chat-messages" bind:this={chatContainer}>
+        {#if chatMessages.length === 0}
+          <div class="chat-empty">
+            <p class="chat-empty-title">Describe a structure</p>
+            <p class="chat-empty-hint">Try: "simply supported beam, 6m, 10 kN/m distributed load"</p>
+            <p class="chat-empty-hint">Or: "2-bay portal frame, 5m span, 4m height, steel"</p>
+          </div>
+        {/if}
+        {#each chatMessages as msg}
+          <div class="chat-msg chat-{msg.role}" class:building={msg.isBuilding}>
+            <div class="chat-bubble">
+              {#if msg.isBuilding}
+                <span class="spinner-sm"></span>
+              {/if}
+              <span>{msg.text}</span>
+            </div>
+            {#if msg.meta}
+              <div class="chat-meta">{msg.meta.modelUsed} · {msg.meta.latencyMs}ms · {msg.meta.tokens} tok</div>
+            {/if}
+          </div>
+        {/each}
+        {#if buildError}
+          <div class="error-box">{buildError}</div>
+        {/if}
+      </div>
+
+      <!-- Chat input -->
+      <div class="chat-input-row">
+        <textarea
+          class="chat-input"
+          placeholder="Describe what to build..."
+          bind:value={chatInput}
+          onkeydown={handleBuildKeydown}
+          disabled={buildLoading}
+          rows="2"
+        ></textarea>
+        <button class="chat-send" onclick={handleBuildSend} disabled={buildLoading || !chatInput.trim()}>
+          {#if buildLoading}
+            <span class="spinner-sm"></span>
+          {:else}
+            →
+          {/if}
+        </button>
+      </div>
+    </div>
+
+  {:else if activeTab === 'explain'}
+    <div class="drawer-body">
       <div class="placeholder">
         <span class="placeholder-icon">?</span>
         <p>Select a diagnostic or finding to get a detailed explanation.</p>
         <p class="hint">Coming soon</p>
       </div>
+    </div>
 
-    {:else if activeTab === 'query'}
+  {:else if activeTab === 'query'}
+    <div class="drawer-body">
       <div class="placeholder">
         <span class="placeholder-icon">⌕</span>
         <p>Ask questions about your analysis results.</p>
         <p class="hint">Coming soon</p>
       </div>
-
-    {:else if activeTab === 'build'}
-      <div class="placeholder">
-        <span class="placeholder-icon">+</span>
-        <p>Describe a structure and let AI build it.</p>
-        <p class="hint">Coming soon</p>
-      </div>
-    {/if}
-  </div>
+    </div>
+  {/if}
 </aside>
 
 <style>
@@ -274,10 +461,7 @@
     padding: 0 0.2rem;
     line-height: 1;
   }
-
-  .close-btn:hover {
-    color: #e94560;
-  }
+  .close-btn:hover { color: #e94560; }
 
   /* ─── Tabs ─── */
   .tab-bar {
@@ -300,16 +484,8 @@
     cursor: pointer;
     transition: all 0.15s;
   }
-
-  .tab:hover {
-    color: #aaa;
-    background: rgba(255, 255, 255, 0.02);
-  }
-
-  .tab.active {
-    color: #4ecdc4;
-    border-bottom-color: #4ecdc4;
-  }
+  .tab:hover { color: #aaa; background: rgba(255, 255, 255, 0.02); }
+  .tab.active { color: #4ecdc4; border-bottom-color: #4ecdc4; }
 
   /* ─── Body ─── */
   .drawer-body {
@@ -321,7 +497,7 @@
     gap: 0.6rem;
   }
 
-  /* ─── Action button (shown before results) ─── */
+  /* ─── Action button ─── */
   .action-btn {
     width: 100%;
     padding: 0.55rem;
@@ -334,16 +510,8 @@
     font-weight: 600;
     transition: all 0.2s;
   }
-
-  .action-btn:hover:not(:disabled) {
-    background: #1a4a7a;
-    color: white;
-  }
-
-  .action-btn:disabled {
-    opacity: 0.4;
-    cursor: not-allowed;
-  }
+  .action-btn:hover:not(:disabled) { background: #1a4a7a; color: white; }
+  .action-btn:disabled { opacity: 0.4; cursor: not-allowed; }
 
   /* ─── Loading ─── */
   .loading-state {
@@ -354,10 +522,7 @@
     padding: 1rem 0;
     color: #888;
   }
-
-  .loading-text {
-    font-size: 0.78rem;
-  }
+  .loading-text { font-size: 0.78rem; }
 
   .spinner {
     display: inline-block;
@@ -369,16 +534,20 @@
     animation: spin 0.6s linear infinite;
   }
 
-  @keyframes spin {
-    to { transform: rotate(360deg); }
+  .spinner-sm {
+    display: inline-block;
+    width: 12px;
+    height: 12px;
+    border: 2px solid #444;
+    border-top-color: #4ecdc4;
+    border-radius: 50%;
+    animation: spin 0.6s linear infinite;
+    flex-shrink: 0;
   }
 
-  .hint {
-    color: #555;
-    font-size: 0.73rem;
-    font-style: italic;
-    margin: 0;
-  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  .hint { color: #555; font-size: 0.73rem; font-style: italic; margin: 0; }
 
   .error-box {
     background: rgba(233, 69, 96, 0.12);
@@ -391,17 +560,9 @@
   }
 
   /* ─── Results ─── */
-  .results {
-    display: flex;
-    flex-direction: column;
-    gap: 0.6rem;
-  }
+  .results { display: flex; flex-direction: column; gap: 0.6rem; }
 
-  .risk-row {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-  }
+  .risk-row { display: flex; align-items: center; justify-content: space-between; }
 
   .risk-chip {
     display: inline-flex;
@@ -411,18 +572,8 @@
     border: 1px solid;
     border-radius: 12px;
   }
-
-  .risk-dot {
-    width: 7px;
-    height: 7px;
-    border-radius: 50%;
-  }
-
-  .risk-text {
-    font-size: 0.7rem;
-    font-weight: 700;
-    letter-spacing: 0.04em;
-  }
+  .risk-dot { width: 7px; height: 7px; border-radius: 50%; }
+  .risk-text { font-size: 0.7rem; font-weight: 700; letter-spacing: 0.04em; }
 
   .regen-btn {
     background: none;
@@ -438,37 +589,15 @@
     justify-content: center;
     transition: all 0.15s;
   }
+  .regen-btn:hover:not(:disabled) { border-color: #4ecdc4; color: #4ecdc4; }
+  .regen-btn:disabled { opacity: 0.4; }
 
-  .regen-btn:hover:not(:disabled) {
-    border-color: #4ecdc4;
-    color: #4ecdc4;
-  }
-
-  .regen-btn:disabled {
-    opacity: 0.4;
-  }
-
-  .summary {
-    color: #bbb;
-    font-size: 0.76rem;
-    line-height: 1.5;
-    margin: 0;
-  }
+  .summary { color: #bbb; font-size: 0.76rem; line-height: 1.5; margin: 0; }
 
   /* ─── Findings ─── */
-  .section-label {
-    color: #777;
-    font-size: 0.65rem;
-    font-weight: 600;
-    text-transform: uppercase;
-    letter-spacing: 0.05em;
-  }
+  .section-label { color: #777; font-size: 0.65rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em; }
 
-  .findings {
-    display: flex;
-    flex-direction: column;
-    gap: 0.35rem;
-  }
+  .findings { display: flex; flex-direction: column; gap: 0.35rem; }
 
   .finding {
     width: 100%;
@@ -481,21 +610,10 @@
     color: #ccc;
     transition: border-color 0.15s;
   }
+  .finding:hover { border-color: #3a3a4a; }
+  .finding.expanded { border-color: #4a4a5a; }
 
-  .finding:hover {
-    border-color: #3a3a4a;
-  }
-
-  .finding.expanded {
-    border-color: #4a4a5a;
-  }
-
-  .finding-header {
-    display: flex;
-    align-items: center;
-    gap: 0.45rem;
-    padding: 0.4rem 0.55rem;
-  }
+  .finding-header { display: flex; align-items: center; gap: 0.45rem; padding: 0.4rem 0.55rem; }
 
   .severity-badge {
     font-size: 0.55rem;
@@ -507,41 +625,14 @@
     flex-shrink: 0;
     line-height: 1.3;
   }
+  .finding-title { flex: 1; font-size: 0.73rem; font-weight: 500; }
+  .finding-chevron { color: #555; font-size: 0.65rem; }
 
-  .finding-title {
-    flex: 1;
-    font-size: 0.73rem;
-    font-weight: 500;
-  }
+  .finding-body { padding: 0.4rem 0.55rem 0.5rem; border-top: 1px solid #252535; }
+  .finding-body p { margin: 0 0 0.3rem; font-size: 0.72rem; color: #999; line-height: 1.45; }
+  .recommendation { color: #aaa !important; font-style: italic; }
 
-  .finding-chevron {
-    color: #555;
-    font-size: 0.65rem;
-  }
-
-  .finding-body {
-    padding: 0.4rem 0.55rem 0.5rem;
-    border-top: 1px solid #252535;
-  }
-
-  .finding-body p {
-    margin: 0 0 0.3rem;
-    font-size: 0.72rem;
-    color: #999;
-    line-height: 1.45;
-  }
-
-  .recommendation {
-    color: #aaa !important;
-    font-style: italic;
-  }
-
-  .finding-actions {
-    display: flex;
-    gap: 0.4rem;
-    margin-top: 0.3rem;
-  }
-
+  .finding-actions { display: flex; gap: 0.4rem; margin-top: 0.3rem; }
   .finding-action {
     background: none;
     border: 1px solid #333;
@@ -552,37 +643,14 @@
     cursor: pointer;
     transition: all 0.15s;
   }
+  .finding-action:hover { border-color: #4ecdc4; color: #4ecdc4; }
 
-  .finding-action:hover {
-    border-color: #4ecdc4;
-    color: #4ecdc4;
-  }
+  .no-findings { color: #4caf50; font-size: 0.73rem; margin: 0; }
 
-  .no-findings {
-    color: #4caf50;
-    font-size: 0.73rem;
-    margin: 0;
-  }
+  .collapsible-section { font-size: 0.72rem; }
+  .collapsible-section ol, .collapsible-section ul { margin: 0.2rem 0 0; padding-left: 1.1rem; color: #999; line-height: 1.5; }
 
-  /* ─── Collapsible sections ─── */
-  .collapsible-section {
-    font-size: 0.72rem;
-  }
-
-  .collapsible-section ol, .collapsible-section ul {
-    margin: 0.2rem 0 0;
-    padding-left: 1.1rem;
-    color: #999;
-    line-height: 1.5;
-  }
-
-  .meta {
-    color: #444;
-    font-size: 0.6rem;
-    text-align: right;
-    padding-top: 0.3rem;
-    border-top: 1px solid #1a1a2e;
-  }
+  .meta { color: #444; font-size: 0.6rem; text-align: right; padding-top: 0.3rem; border-top: 1px solid #1a1a2e; }
 
   /* ─── Placeholder tabs ─── */
   .placeholder {
@@ -594,7 +662,6 @@
     text-align: center;
     gap: 0.4rem;
   }
-
   .placeholder-icon {
     font-size: 1.5rem;
     color: #333;
@@ -607,11 +674,153 @@
     justify-content: center;
     margin-bottom: 0.3rem;
   }
+  .placeholder p { color: #666; font-size: 0.75rem; margin: 0; line-height: 1.4; }
 
-  .placeholder p {
-    color: #666;
-    font-size: 0.75rem;
+  /* ─── Build / Chat ─── */
+  .build-container {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+  }
+
+  .chat-messages {
+    flex: 1;
+    overflow-y: auto;
+    padding: 0.75rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+  }
+
+  .chat-empty {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    flex: 1;
+    text-align: center;
+    gap: 0.3rem;
+    padding: 2rem 0;
+  }
+
+  .chat-empty-title {
+    color: #888;
+    font-size: 0.8rem;
+    font-weight: 600;
     margin: 0;
+  }
+
+  .chat-empty-hint {
+    color: #555;
+    font-size: 0.7rem;
+    margin: 0;
+    font-style: italic;
+  }
+
+  .chat-msg {
+    display: flex;
+    flex-direction: column;
+    gap: 0.15rem;
+  }
+
+  .chat-user {
+    align-items: flex-end;
+  }
+
+  .chat-ai {
+    align-items: flex-start;
+  }
+
+  .chat-bubble {
+    max-width: 90%;
+    padding: 0.4rem 0.6rem;
+    border-radius: 6px;
+    font-size: 0.73rem;
+    line-height: 1.45;
+    display: flex;
+    align-items: flex-start;
+    gap: 0.4rem;
+  }
+
+  .chat-user .chat-bubble {
+    background: #1a4a7a;
+    color: #ddd;
+    border-bottom-right-radius: 2px;
+  }
+
+  .chat-ai .chat-bubble {
+    background: rgba(255, 255, 255, 0.04);
+    border: 1px solid #252535;
+    color: #bbb;
+    border-bottom-left-radius: 2px;
+  }
+
+  .chat-msg.building .chat-bubble {
+    color: #888;
+    font-style: italic;
+  }
+
+  .chat-meta {
+    color: #444;
+    font-size: 0.58rem;
+    padding: 0 0.2rem;
+  }
+
+  .chat-input-row {
+    display: flex;
+    gap: 0.4rem;
+    padding: 0.5rem 0.75rem;
+    border-top: 1px solid #0f3460;
+    flex-shrink: 0;
+    align-items: flex-end;
+  }
+
+  .chat-input {
+    flex: 1;
+    background: #0f3460;
+    border: 1px solid #1a4a7a;
+    border-radius: 6px;
+    color: #ddd;
+    font-size: 0.75rem;
+    padding: 0.4rem 0.5rem;
+    resize: none;
     line-height: 1.4;
+    font-family: inherit;
+  }
+  .chat-input:focus {
+    outline: none;
+    border-color: #4ecdc4;
+  }
+  .chat-input::placeholder {
+    color: #555;
+  }
+  .chat-input:disabled {
+    opacity: 0.5;
+  }
+
+  .chat-send {
+    width: 36px;
+    height: 36px;
+    background: #0f3460;
+    border: 1px solid #1a4a7a;
+    border-radius: 6px;
+    color: #ccc;
+    font-size: 1rem;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.15s;
+    flex-shrink: 0;
+  }
+  .chat-send:hover:not(:disabled) {
+    background: #1a4a7a;
+    border-color: #4ecdc4;
+    color: #4ecdc4;
+  }
+  .chat-send:disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
   }
 </style>
