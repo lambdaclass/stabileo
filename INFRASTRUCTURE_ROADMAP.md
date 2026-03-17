@@ -7,6 +7,7 @@ This is the infrastructure roadmap: backend services, deployment, runtime enviro
 See also:
 - [`SOLVER_ROADMAP.md`](/Users/unbalancedparen/projects/dedaliano/SOLVER_ROADMAP.md)
 - [`PRODUCT_ROADMAP.md`](/Users/unbalancedparen/projects/dedaliano/PRODUCT_ROADMAP.md)
+- [`AI_ROADMAP.md`](/Users/unbalancedparen/projects/dedaliano/AI_ROADMAP.md)
 - [`research/ai_provider_architecture.md`](/Users/unbalancedparen/projects/dedaliano/research/ai_provider_architecture.md)
 - [`research/open_source_vs_hosted_ai_boundary.md`](/Users/unbalancedparen/projects/dedaliano/research/open_source_vs_hosted_ai_boundary.md)
 
@@ -98,23 +99,13 @@ These are the next concrete infrastructure tasks in execution order:
 13. `Solve-time artifact capture in product` — NOT STARTED.
 14. `Artifact export/import and local persistence` — NOT STARTED.
 15. `Replay/support flow on top of artifacts` — NOT STARTED.
-16. `Pre-solve diagnostics capability` — NOT STARTED. Real-time model analysis before solving. Highest-value daily trust surface.
-17. `Canvas-query capability` — NOT STARTED. Natural language queries on model/results with visual highlights.
-18. `Code-check capability` — NOT STARTED. Backend endpoint + per-member panel.
-19. `Suggest-loads capability` — NOT STARTED. Needs code/load-rule data and product-side workflow framing.
-20. `Storage boundary decision` — NOT STARTED. Define local vs hosted artifact storage explicitly.
-21. `API/artifact versioning policy` — NOT STARTED. Define compatibility and migration rules.
-22. `Named native/server solve path` — NOT STARTED.
-23. `Browser/native parity smoke coverage` — NOT STARTED.
-24. `Worker/job model for long-running tasks` — NOT STARTED.
-25. `Batch execution with progress/cancellation` — NOT STARTED.
-26. `Deployment promotion/rollback discipline` — NOT STARTED.
-27. `Section-optimizer capability` — NOT STARTED. Needs solver-in-the-loop workflow and tighter optimization contracts.
-28. `Generate-report capability` — NOT STARTED. Needs stronger report/output infrastructure first.
-29. `Teaching-assistant capability` — NOT STARTED. Educativo mode integration.
-30. `Compare-models capability` — NOT STARTED. Two-artifact diff with engineering commentary.
-31. `Sketch-to-model capability` — NOT STARTED. Vision model integration.
-32. `Failure-narrative capability` — NOT STARTED. Storytelling layer on diagnostics.
+16. `Storage boundary decision` — NOT STARTED. Define local vs hosted artifact storage explicitly.
+17. `API/artifact versioning policy` — NOT STARTED. Define compatibility and migration rules.
+18. `Named native/server solve path` — NOT STARTED.
+19. `Browser/native parity smoke coverage` — NOT STARTED.
+20. `Worker/job model for long-running tasks` — NOT STARTED.
+21. `Batch execution with progress/cancellation` — NOT STARTED.
+22. `Deployment promotion/rollback discipline` — NOT STARTED.
 
 ## Current Infra Surface
 
@@ -494,103 +485,32 @@ Current status: NOT STARTED.
 - long-running jobs are observable and cancellable
 - product can request comparison/batch workflows through stable APIs
 
-### Stage 7 — AI Capability Platform
+### Stage 7 — AI Service Runtime
 
-Goal: turn one-off AI endpoints into a real capability layer with frontend integration.
+Goal: keep the AI service safe, observable, provider-agnostic, and product-ready as capabilities expand.
 
-Current status: PARTIALLY DONE. All 4 core backend capabilities are live with 49 contract tests. Frontend integration and later capabilities (optimizer, loads, report) are still open.
+Current status: PARTIALLY DONE. The backend AI service is real and tested, but rollout controls, observability, request governance, and frontend/product integration are still incomplete.
 
 **What:**
-- separate capability endpoints, each with its own contract:
-  - `review-model` — DONE. Consumes `SolverRunArtifact`, returns structured findings.
-  - `explain-diagnostic` — DONE. Takes `DiagnosticCode` + context, returns plain-language explanation and fix steps.
-  - `build-model` — DONE. Takes natural language description, returns model JSON (nodes, elements, materials, supports, loads). Scope ladder below.
-  - `interpret-results` — DONE. Takes `ResultSummary` + user question, returns assessment with code reference.
-  - `section-optimizer` — iterates steel profiles to find lightest section meeting constraints (solver-in-the-loop, later).
-  - `suggest-loads` — suggests load combinations from code (CIRSOC) given building type and location (later).
-  - `generate-report` — takes solver output, produces structured engineering report (later).
-  - `code-check` — user selects a member, AI checks it against CIRSOC/Eurocode/AISC. Returns utilization ratios, governing clause, pass/fail.
-  - `pre-solve-diagnostics` — analyze the model before solving. Detect missing supports, floating nodes, unrealistic sections, impossible load combinations. Show warnings inline as the user builds.
-  - `canvas-query` — natural language queries on the model/results: "highlight all members with utilization > 0.8", "show me where the max deflection is", "which supports carry the most load". Returns text + visual highlights.
-  - `compare-models` — takes two solver-run artifacts, produces a diff with engineering commentary: what changed, which is better, key trade-offs.
-  - `failure-narrative` — when a model fails or has issues, tells the story: why it's failing, what's causing it, concrete fix suggestions. Goes beyond diagnostic codes to structural intuition.
-  - `sketch-to-model` — upload a hand sketch or photo of a structure, AI extracts geometry and creates the model. Camera/image → nodes + elements + supports.
-  - `teaching-assistant` — in educativo mode, explain *why* the moment diagram looks like that, *why* the reaction at node 2 is larger, connect results to structural intuition. Not just "what" but "why".
-- frontend integration for each capability:
-  - post-solve "Revisar modelo" button + findings panel with node/element highlighting — DONE (Stabileo AI drawer, Review tab)
-  - diagnostic badge click → AI explanation tooltip/panel
-  - toolbar chat/command input → natural language model builder
-  - canvas-integrated natural language query bar
-  - code-check panel per selected member
-  - pre-solve inline warnings (before the user clicks Solve)
-  - comparison view for two model variants
-  - teaching mode explanations integrated into educativo panel
-- provider-agnostic routing (6 providers already in place)
-- per-capability model selection
-- test/provider stubs (stub provider already working)
+- separate capability endpoints with stable contracts
+- provider-agnostic routing and model selection
+- timeout guards, retry policy, and cost ceilings
+- per-capability feature flags and rollout controls
+- request IDs, structured logs, metrics, and traces
+- provider outage handling and kill switches
+- artifact-aware request validation and schema/version checks
+- frontend/product wiring on top of the same stable APIs
 - capability-level evals and traces
 
-**Ordered capability sequence:**
-
-1. `pre-solve-diagnostics` — catches errors before wasting solve time and builds trust immediately
-2. `canvas-query` — natural language interaction with results and model context, with visual highlights
-3. `code-check` — daily professional use and the strongest direct economic value
-4. `suggest-loads` — eliminates one of the most error-prone manual steps for students and junior engineers
-5. `section-optimizer` — solver-in-the-loop, high-value daily use once iteration infrastructure exists
-6. `generate-report` — structured calculation/report output after stronger output infrastructure exists
-7. `teaching-assistant` — educativo differentiator that explains why, not only what
-8. `compare-models` — useful for design iteration and review workflows
-9. `sketch-to-model` — vision model integration, image to geometry extraction
-10. `failure-narrative` — storytelling layer on diagnostics after stronger structural context exists
-
-**`build-model` scope ladder:**
-
-Start narrow and expand deliberately. Each level must work reliably before moving to the next.
-
-| Level | Structures | Key challenges |
-|-------|-----------|----------------|
-| 1 | Simply supported beams, cantilevers, continuous beams | Correct node placement, support types, distributed/point loads |
-| 2 | Portal frames (single bay, single story) | Column-beam connectivity, fixed/pinned bases, lateral loads |
-| 3 | Multi-bay, multi-story 2D frames | Regular grid generation, floor loads, bracing |
-| 4 | Trusses (Pratt, Warren, Howe) | Truss element type, pin joints, panel geometry |
-| 5 | Simple 3D frames (single story, rectangular plan) | 3D node coordinates, 6-DOF elements, 3D supports |
-| 6 | Multi-story 3D frames | Floor diaphragms, column stacking, slab loads |
-| 7 | Mixed structures (frames + trusses, inclined members) | Element type mixing, complex connectivity |
-| 8 | Structures from description + constraints ("6m span, max deflection L/300, residential") | Solver-in-the-loop: generate → solve → check → iterate |
-
-Each level needs:
-- prompt templates with structural examples at that complexity
-- validation rules (node connectivity, support adequacy, load completeness)
-- test cases with known-good reference models
-- clear failure mode when the request exceeds the current level
-
-**Conversational model builder:**
-
-The Build tab is not a one-shot generator — it is a chat interface where the user iterates on the model through conversation.
-
-Flow:
-1. User types "build me a 6m simply supported beam with 10 kN/m distributed load"
-2. AI returns model JSON → validated → imported into the canvas → user sees it immediately
-3. User continues: "add a column at midspan", "change the section to IPE 300", "make it a portal frame"
-4. Each message includes the current model state as context, so the AI modifies rather than rebuilds
-5. User can also say "solve it" or "now review it" to trigger solve + review from the chat
-
-Key design rules:
-- Every AI modification is a single undo step — user can always revert
-- AI sees the current model snapshot on every message (nodes, elements, materials, sections, supports, loads)
-- Chat history persists within the session so context builds up
-- The canvas updates live after each accepted generation
-- Invalid or incomplete model JSON is rejected with a clear error, never silently imported
-- The user always has final control — AI proposes, user accepts or rejects
+AI capability order, build-model scope, and capability-specific product behavior live in:
+- [`AI_ROADMAP.md`](/Users/unbalancedparen/projects/dedaliano/AI_ROADMAP.md)
 
 **Done when:**
-- capabilities are distinct contracts, not prompt modes hidden behind one endpoint
-- frontend surfaces AI results inline (not a separate page)
+- capabilities remain distinct contracts, not prompt modes hidden behind one endpoint
 - provider swaps do not change product-layer APIs
+- rollout/kill-switch controls exist per capability and provider
 - eval/tracing exists per capability
-- code-check and section-optimizer are usable for daily professional workflows
-- pre-solve diagnostics catch common modeling errors before solving
-- build-model reliably produces valid models through at least Level 3
+- the AI service can degrade safely under provider outages, abuse, or budget pressure
 
 ### Stage 8 — Firm and Team Infrastructure
 
@@ -641,13 +561,10 @@ The next infrastructure sequence should be:
 4. add input validation, request size limits, and per-capability field bounds — blocks cheapest attacks before broadening usage
 5. add rate limiting (per-key, per-capability) and request IDs — required before any production traffic
 6. add AI output validation for `build-model` — generated model JSON must be validated before frontend import
-7. add `code-check` backend capability — highest-impact new capability for professional use
-8. add `suggest-loads` backend capability — eliminates error-prone manual step
-9. add `pre-solve-diagnostics` — real-time model validation before solving
-10. finish `Stage 2` product-side flows for solver-run artifacts
-11. harden `Stage 3` observability/startup validation/structured logging
-12. add `section-optimizer` with solver-in-the-loop — killer feature for daily professional workflows
-13. only then broaden into desktop persistence and native/server solve packaging
+7. finish `Stage 2` product-side flows for solver-run artifacts
+8. harden `Stage 3` observability/startup validation/structured logging
+9. define storage boundary and API/artifact versioning policy
+10. only then broaden into desktop persistence and native/server solve packaging
 
 ## What This Unblocks
 

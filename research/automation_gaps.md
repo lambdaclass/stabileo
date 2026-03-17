@@ -195,5 +195,5 @@ Derived from the priority matrix and the product roadmap sequence:
 - `research/cypecad_competitive_gap_and_parity_plan.md` — unified CYPECAD competitive gap analysis and phased parity plan
 - `research/competitive_displacement_by_step.md` — which competitors each step displaces and estimated savings
 - `research/post_roadmap_software_stack.md` — software products to build on top of the solver moat
-- `research/ai_structural_engineering_roadmap.md` — AI feature roadmap and what needs deep solver depth vs what can ship early
+- `AI_ROADMAP.md` — AI feature roadmap and what needs deep solver depth vs what can ship early
 - `research/beyond_roadmap_opportunities.md` — frontier opportunities beyond the core roadmap

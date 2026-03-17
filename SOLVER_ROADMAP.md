@@ -4,7 +4,7 @@
 
 This is the solver roadmap for mechanics, numerical robustness, validation sequencing, verification strategy, and performance/scale work. It is not the product, market, or revenue roadmap — for that, see `PRODUCT_ROADMAP.md`. For current capability and validation status, see `BENCHMARKS.md`. Historical progress belongs in `CHANGELOG.md`.
 
-For the cross-cutting AI track that depends on these solver outputs and contracts, see `research/ai_structural_engineering_roadmap.md`.
+For the cross-cutting AI track that depends on these solver outputs and contracts, see [`AI_ROADMAP.md`](/Users/unbalancedparen/projects/dedaliano/AI_ROADMAP.md).
 For the deeper solver safety and validation hardening architecture behind the near-term trust work, see `research/solver_safety_and_validation_hardening.md`.
 
 ## Where We Are

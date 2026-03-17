@@ -18,8 +18,6 @@ Current documents:
   Why RC design, reinforcement schedules, and later BBS generation should be explicit priorities, with solver vs product responsibilities and staged delivery order.
 - [post_roadmap_software_stack.md](/Users/unbalancedparen/projects/dedaliano/research/post_roadmap_software_stack.md)
   Best software products to build once the core roadmap lands: RC design/BBS studio, report OS, QA/review assistant, firm workspace, parametric configurators, interoperability, cloud comparison, and education.
-- [ai_structural_engineering_roadmap.md](/Users/unbalancedparen/projects/dedaliano/research/ai_structural_engineering_roadmap.md)
-  Separate AI roadmap for structural engineering: what can ship early on today’s solver, what needs deeper batch/optimization infrastructure, and what belongs to the research frontier.
 - [ai_provider_architecture.md](/Users/unbalancedparen/projects/dedaliano/research/ai_provider_architecture.md)
   Recommended AI integration architecture: frontend calls an internal capability-based AI layer, which routes to Claude/OpenAI/Kimi/local/future providers through backend adapters.
 - [open_source_vs_hosted_ai_boundary.md](/Users/unbalancedparen/projects/dedaliano/research/open_source_vs_hosted_ai_boundary.md)

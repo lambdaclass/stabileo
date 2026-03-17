@@ -4,7 +4,7 @@
 
 This is the product roadmap: app features, market sequencing, design/reporting layers, and distribution strategy. It is not the solver mechanics roadmap — for that, see `SOLVER_ROADMAP.md`. Historical progress belongs in `CHANGELOG.md`. This document should stay forward-looking.
 
-For the expanding AI track, see `research/ai_structural_engineering_roadmap.md`.
+For the expanding AI track, see [`AI_ROADMAP.md`](/Users/unbalancedparen/projects/dedaliano/AI_ROADMAP.md).
 
 ## Vision
 
