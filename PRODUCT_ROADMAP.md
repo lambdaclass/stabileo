@@ -120,13 +120,16 @@ The product roadmap only works if the solver exposes the right contracts and tru
 2. `Structured diagnostics and provenance`
    Machine-readable warning codes, severity, element references, and governing-case provenance are the substrate for AI review, QA, reports, and comments.
 
-3. `Query-ready result contracts`
+3. `Solver-run artifact contract`
+   Bug-report export/import, reproducible support cases, and reviewer replay flows depend on a stable solver-run artifact the product can capture and attach, not only internal engine metadata.
+
+4. `Query-ready result contracts`
    Natural-language result queries, reviewer tools, and report generation need indexed maxima/minima/governing-case summaries rather than UI-side table scraping.
 
-4. `Model quality gates`
+5. `Model quality gates`
    Pre-solve checks for mechanisms, bad constraints, disconnected subgraphs, shell pathologies, and suspicious axes/supports are one of the highest-ROI product features.
 
-5. `Headless and native execution parity`
+6. `Headless and native execution parity`
    Desktop, API, cloud comparison, and firm workflows depend on browser/native parity and repeatable headless execution, not only a good in-browser demo.
 
 ## Open-Source vs Hosted Boundary
@@ -390,10 +393,12 @@ Solver trust and diagnostics:
 - Public verification surface — benchmark explorer, acceptance models, reference cases, and visible trust signals in the app
 - Model quality gates before solve — mechanisms, disconnected nodes, bad constraints, shell pathologies, suspicious local axes/support conditions
 - Richer diagnostics UX — grouping, filtering, machine-readable codes, provenance, click-to-focus highlighting
+- Structured-code review consumer — reviewer surfaces, comments, and AI explanation should match on diagnostic codes/severity/references instead of parsing warning strings
 - Constraint-force and governing-result presentation
 - Shell-family recommendation and automatic defaults (MITC4/MITC9/SHB8-ANS)
 - Public benchmark and acceptance-model presentation
 - Performance feedback in the UI — progress bars, iteration counts, slow-phase visibility
+- Solver-run artifact capture — export/import a reproducible run package for bug reports, support, and peer review replay
 - Onboarding and first-solve success
 
 Section capacity and materials (early design-oriented subset of solver material/section capability):
@@ -493,6 +498,7 @@ Fit into real firm workflows before expanding into a broader platform.
 - Project and template workflows — reusable firm standards, named defaults, standard report packages
 - Education and benchmark explorer — university course integration, homework templates, interactive benchmark viewer
 - Stronger review flows — comments, pinned annotations, reviewer states, project/version diff
+- Bug-report and support replay flow — attach/export solver-run artifacts from the app so support and reviewers can reproduce issues deterministically
 - First broader workflow packaging around firms and education, not yet full platformization
 - AI workflow assistant — help users import models, choose templates, prepare reviews, and interpret diffs without adding full platform complexity
 

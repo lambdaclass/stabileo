@@ -17,6 +17,9 @@ use tracing_subscriber::EnvFilter;
 
 use config::{Config, LogFormat};
 use middleware::auth::{require_auth, ApiKey};
+use routes::build_model::build_model_handler;
+use routes::explain_diagnostic::explain_diagnostic_handler;
+use routes::interpret_results::interpret_results_handler;
 use routes::review_model::{review_model_handler, AppState};
 
 #[tokio::main]
@@ -59,6 +62,9 @@ async fn main() {
 
     let api_routes = Router::new()
         .route("/ai/review-model", post(review_model_handler))
+        .route("/ai/explain-diagnostic", post(explain_diagnostic_handler))
+        .route("/ai/build-model", post(build_model_handler))
+        .route("/ai/interpret-results", post(interpret_results_handler))
         .layer(axum_mw::from_fn(require_auth));
 
     let app = Router::new()
