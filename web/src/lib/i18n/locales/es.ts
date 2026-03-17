@@ -3073,5 +3073,6 @@ const es: Record<string, string> = {
   'ai.build.imported': 'Modelo importado — revisá y resolvé para verificar.',
   'ai.build.scopeNote': 'Soporta vigas, pórticos y marcos 3D simples. Estructuras complejas pueden generar modelos incompletos.',
   'ai.build.draft': 'Borrador generado por IA — revisar antes de usar',
+  'ai.build.validationFailed': 'Snapshot rechazado — estructura inválida:',
 };
 export default es;

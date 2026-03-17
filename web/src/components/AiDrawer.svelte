@@ -8,6 +8,7 @@
     type InterpretResultsResponse,
     type BuildModelResponse,
   } from '../lib/ai/client';
+  import { validateBuildSnapshot } from '../lib/ai/validate-snapshot';
 
   type AiTab = 'review' | 'explain' | 'query' | 'build';
   let activeTab = $state<AiTab>('review');
@@ -152,6 +153,13 @@
 
   function handleImport() {
     if (!buildResponse?.snapshot) return;
+
+    const validation = validateBuildSnapshot(buildResponse.snapshot);
+    if (!validation.valid) {
+      buildError = t('ai.build.validationFailed') + '\n' + validation.errors.join('; ');
+      return;
+    }
+
     historyStore.pushState();
     modelStore.restore(buildResponse.snapshot as any);
     resultsStore.clear();

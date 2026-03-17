@@ -3073,5 +3073,6 @@ const en: Record<string, string> = {
   'ai.build.imported': 'Model imported — review and solve to verify.',
   'ai.build.scopeNote': 'Supports beams, portal frames, and simple 3D frames. Complex structures may produce incomplete models.',
   'ai.build.draft': 'AI-generated draft — review before use',
+  'ai.build.validationFailed': 'Snapshot rejected — invalid structure:',
 };
 export default en;
