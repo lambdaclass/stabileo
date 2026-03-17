@@ -60,6 +60,7 @@ export interface BuildModelResponse {
   message: string;
   changeSummary?: string;
   scopeRefusal?: boolean;
+  rawAiResponse?: string;
   meta: ReviewMeta;
 }
 
@@ -247,6 +248,7 @@ export async function buildModel(
     message: raw.message ?? raw.interpretation ?? '',
     changeSummary: raw.changeSummary,
     scopeRefusal: raw.scopeRefusal,
+    rawAiResponse: raw.rawAiResponse,
     meta: raw.meta,
   };
 }

@@ -167,6 +167,20 @@ fn parse_action_portal_frame_3d() {
 }
 
 #[test]
+fn parse_action_multi_story_frame() {
+    let resp = make_resp(r#"{"action":"create_multi_story_frame","params":{"n_bays":2,"n_floors":3,"bay_width":6,"floor_height":3,"q_beam":-10},"interpretation":"3-story frame"}"#);
+    let result = parse_response(resp, "action-7".into()).unwrap();
+
+    let snap = result.snapshot.unwrap();
+    // 4 rows x 3 columns = 12 nodes
+    assert_eq!(snap["nodes"].as_array().unwrap().len(), 12);
+    // 3 floors * 3 columns (columns) + 3 floors * 2 bays (beams) = 9 + 6 = 15
+    assert_eq!(snap["elements"].as_array().unwrap().len(), 15);
+    // 3 fixed supports at base
+    assert_eq!(snap["supports"].as_array().unwrap().len(), 3);
+}
+
+#[test]
 fn parse_action_unsupported_returns_scope_refusal() {
     let resp = make_resp(r#"{"action":"unsupported","params":{},"interpretation":"I can build beams, cantilevers, continuous beams, portal frames, trusses, and simple 3D frames."}"#);
     let result = parse_response(resp, "action-ref".into()).unwrap();

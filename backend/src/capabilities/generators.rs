@@ -488,6 +488,79 @@ fn generate_portal_frame_3d(
     b.to_snapshot()
 }
 
+// ---- Multi-story frame ----
+
+fn generate_multi_story_frame(
+    n_bays: u32,
+    n_floors: u32,
+    bay_width: f64,
+    floor_height: f64,
+    q_beam: Option<f64>,
+    h_lateral: Option<f64>,
+    beam_section: &Option<String>,
+    column_section: &Option<String>,
+) -> Value {
+    let b_sec = resolve_section(beam_section);
+    let c_sec = column_section
+        .as_deref()
+        .and_then(lookup_section)
+        .unwrap_or_else(default_column_section);
+
+    let mut b = Builder::new_2d(b_sec);
+    // Add column section as section id 2 if different from beam
+    if c_sec.name != b_sec.name {
+        b.sections.push(section_to_json(2, c_sec));
+    }
+    let col_sec_id = if c_sec.name != b_sec.name { 2 } else { 1 };
+
+    // Node grid: node_grid[floor][column]
+    let mut node_grid: Vec<Vec<u32>> = Vec::new();
+    for f in 0..=(n_floors as usize) {
+        let mut row = Vec::new();
+        for c in 0..=(n_bays as usize) {
+            let x = c as f64 * bay_width;
+            let y = f as f64 * floor_height;
+            row.push(b.add_node_2d(x, y));
+        }
+        node_grid.push(row);
+    }
+
+    // Columns: vertical elements
+    for f in 0..(n_floors as usize) {
+        for c in 0..=(n_bays as usize) {
+            b.add_frame_sec(node_grid[f][c], node_grid[f + 1][c], col_sec_id);
+        }
+    }
+
+    // Beams: horizontal elements per floor (above base)
+    for f in 1..=(n_floors as usize) {
+        for c in 0..(n_bays as usize) {
+            let eid = b.add_frame(node_grid[f][c], node_grid[f][c + 1]);
+            if let Some(q) = q_beam {
+                if q != 0.0 {
+                    b.add_distributed_load(eid, q);
+                }
+            }
+        }
+    }
+
+    // Fixed supports at base
+    for c in 0..=(n_bays as usize) {
+        b.add_support(node_grid[0][c], "fixed");
+    }
+
+    // Lateral loads at each floor (leftmost node)
+    if let Some(h) = h_lateral {
+        if h != 0.0 {
+            for f in 1..=(n_floors as usize) {
+                b.add_nodal_load_2d(node_grid[f][0], h, 0.0);
+            }
+        }
+    }
+
+    b.to_snapshot()
+}
+
 // ---- Dispatch ----
 
 pub fn execute_action(action: &BuildAction) -> Result<Value, AppError> {
@@ -537,6 +610,26 @@ pub fn execute_action(action: &BuildAction) -> Result<Value, AppError> {
             pattern,
             top_load,
         } => generate_truss(*span, *height, n_panels.unwrap_or(4), pattern, *top_load),
+
+        BuildAction::CreateMultiStoryFrame {
+            n_bays,
+            n_floors,
+            bay_width,
+            floor_height,
+            q_beam,
+            h_lateral,
+            beam_section,
+            column_section,
+        } => generate_multi_story_frame(
+            *n_bays,
+            *n_floors,
+            *bay_width,
+            *floor_height,
+            *q_beam,
+            *h_lateral,
+            beam_section,
+            column_section,
+        ),
 
         BuildAction::CreatePortalFrame3d {
             width,

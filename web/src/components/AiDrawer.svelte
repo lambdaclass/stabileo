@@ -31,6 +31,7 @@
     meta?: { modelUsed: string; latencyMs: number; tokens: number };
     isBuilding?: boolean;
     changeSummary?: string;
+    rawAiResponse?: string;
     /** The draft snapshot pending Apply/Cancel. */
     draft?: Record<string, unknown>;
   }
@@ -189,6 +190,7 @@
         chatMessages.push({
           role: 'ai',
           text: resp.message || 'I can build: beams, cantilevers, continuous beams, portal frames, trusses, and 3D frames. Describe a structure to get started.',
+          rawAiResponse: resp.rawAiResponse,
           meta: {
             modelUsed: resp.meta.modelUsed,
             latencyMs: resp.meta.latencyMs,
@@ -223,6 +225,7 @@
         role: 'ai',
         text: resp.message,
         changeSummary: resp.changeSummary,
+        rawAiResponse: resp.rawAiResponse,
         draft: snap,
         meta: {
           modelUsed: resp.meta.modelUsed,
@@ -509,6 +512,12 @@
             </div>
             {#if msg.changeSummary}
               <div class="change-summary">{msg.changeSummary}</div>
+            {/if}
+            {#if msg.rawAiResponse}
+              <details class="raw-response">
+                <summary>LLM response</summary>
+                <pre>{msg.rawAiResponse}</pre>
+              </details>
             {/if}
             {#if msg.meta}
               <div class="chat-meta">{msg.meta.modelUsed} · {msg.meta.latencyMs}ms · {msg.meta.tokens} tok</div>
@@ -927,6 +936,27 @@
     color: #4ecdc4;
     padding: 0 0.2rem;
     font-weight: 500;
+  }
+
+  .raw-response {
+    font-size: 0.6rem;
+    color: #888;
+    padding: 0.15rem 0.2rem;
+  }
+  .raw-response summary {
+    cursor: pointer;
+    user-select: none;
+  }
+  .raw-response pre {
+    margin: 0.25rem 0 0;
+    padding: 0.4rem;
+    background: #1a1a2e;
+    border-radius: 4px;
+    white-space: pre-wrap;
+    word-break: break-all;
+    font-size: 0.55rem;
+    max-height: 200px;
+    overflow-y: auto;
   }
 
   .chat-meta {

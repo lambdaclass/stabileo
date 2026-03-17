@@ -29,6 +29,9 @@ pub struct BuildModelResponse {
     /// When true, the AI declined to build — message explains why.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub scope_refusal: Option<bool>,
+    /// Raw AI response for debugging / transparency.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub raw_ai_response: Option<String>,
     pub meta: super::review_model::ReviewMeta,
 }
 
@@ -72,6 +75,7 @@ Actions (all units: meters, kN, kN/m; loads negative = downward):
   create_continuous_beam {{ spans: [number], q, section }}
   create_portal_frame  {{ width, height, q_beam, h_lateral, base_support, beam_section, column_section }}
   create_truss         {{ span, height, n_panels, pattern, top_load }}
+  create_multi_story_frame {{ n_bays, n_floors, bay_width, floor_height, q_beam, h_lateral, beam_section, column_section }}
   {mode_actions}
 
 Defaults: support_left="pinned", support_right="rollerX", base_support="fixed", section="IPE 300", n_panels=4, pattern="pratt"
@@ -91,7 +95,8 @@ pub fn parse_response(
     ai_resp: AiResponse,
     request_id: String,
 ) -> Result<BuildModelResponse, AppError> {
-    let content = ai_resp.content.trim();
+    let raw_content = ai_resp.content.trim().to_string();
+    let content = raw_content.as_str();
     let json_str = if content.starts_with("```") {
         content
             .trim_start_matches("```json")
@@ -119,6 +124,7 @@ pub fn parse_response(
                 message: action_resp.interpretation,
                 change_summary: None,
                 scope_refusal: Some(true),
+                raw_ai_response: Some(raw_content),
                 meta,
             });
         }
@@ -131,6 +137,7 @@ pub fn parse_response(
             message: action_resp.interpretation,
             change_summary: Some(action_summary(&action_resp.action)),
             scope_refusal: None,
+            raw_ai_response: Some(raw_content),
             meta,
         });
     }
@@ -165,6 +172,7 @@ pub fn parse_response(
         message: raw.interpretation,
         change_summary: None,
         scope_refusal: None,
+        raw_ai_response: Some(raw_content),
         meta,
     })
 }
@@ -194,6 +202,9 @@ fn action_summary(action: &BuildAction) -> String {
         BuildAction::CreateTruss { span, height, pattern, .. } => {
             let pat = pattern.as_deref().unwrap_or("pratt");
             format!("{} truss {span}x{height}m", capitalize(pat))
+        }
+        BuildAction::CreateMultiStoryFrame { n_bays, n_floors, bay_width, floor_height, .. } => {
+            format!("{n_floors}-story frame, {n_bays} bays @ {bay_width}m x {floor_height}m")
         }
         BuildAction::CreatePortalFrame3d { width, depth, height, .. } => {
             format!("3D frame {width}x{depth}x{height}m")

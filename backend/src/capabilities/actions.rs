@@ -58,6 +58,20 @@ pub enum BuildAction {
         #[serde(default)]
         top_load: Option<f64>,
     },
+    CreateMultiStoryFrame {
+        n_bays: u32,
+        n_floors: u32,
+        bay_width: f64,
+        floor_height: f64,
+        #[serde(default)]
+        q_beam: Option<f64>,
+        #[serde(default)]
+        h_lateral: Option<f64>,
+        #[serde(default)]
+        beam_section: Option<String>,
+        #[serde(default)]
+        column_section: Option<String>,
+    },
     #[serde(rename = "create_portal_frame_3d")]
     CreatePortalFrame3d {
         width: f64,
@@ -117,6 +131,22 @@ pub fn validate_action(action: &BuildAction) -> Result<(), AppError> {
                     ));
                 }
             }
+        }
+        BuildAction::CreateMultiStoryFrame {
+            n_bays,
+            n_floors,
+            bay_width,
+            floor_height,
+            ..
+        } => {
+            if *n_bays < 1 {
+                return Err(AppError::BadRequest("n_bays must be >= 1".into()));
+            }
+            if *n_floors < 1 {
+                return Err(AppError::BadRequest("n_floors must be >= 1".into()));
+            }
+            require_positive(*bay_width, "bay_width")?;
+            require_positive(*floor_height, "floor_height")?;
         }
         BuildAction::CreatePortalFrame3d {
             width,
