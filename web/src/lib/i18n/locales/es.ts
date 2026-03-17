@@ -3074,5 +3074,9 @@ const es: Record<string, string> = {
   'ai.build.scopeNote': 'Soporta vigas, pórticos y marcos 3D simples. Estructuras complejas pueden generar modelos incompletos.',
   'ai.build.draft': 'Borrador generado por IA — revisar antes de usar',
   'ai.build.validationFailed': 'Snapshot rechazado — estructura inválida:',
+
+  // ─── AI Availability ───
+  'ai.unavailable.title': 'IA no configurada',
+  'ai.unavailable.desc': 'El backend de IA no está conectado a este despliegue. Contactá al administrador o configurá VITE_AI_API_KEY para habilitar las funciones de IA.',
 };
 export default es;

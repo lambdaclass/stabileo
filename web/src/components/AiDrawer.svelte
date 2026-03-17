@@ -7,6 +7,7 @@
     type ExplainDiagnosticResponse,
     type InterpretResultsResponse,
     type BuildModelResponse,
+    aiAvailable,
   } from '../lib/ai/client';
   import { validateBuildSnapshot } from '../lib/ai/validate-snapshot';
 
@@ -228,6 +229,14 @@
     <button class="close-btn" onclick={close} title="Close">×</button>
   </div>
 
+  {#if !aiAvailable}
+    <div class="drawer-body">
+      <div class="unavailable-state">
+        <p class="unavailable-title">{t('ai.unavailable.title')}</p>
+        <p class="unavailable-desc">{t('ai.unavailable.desc')}</p>
+      </div>
+    </div>
+  {:else}
   <!-- Tabs -->
   <div class="tab-bar">
     <button class="tab" class:active={activeTab === 'review'} onclick={() => activeTab = 'review'}>Review</button>
@@ -507,6 +516,7 @@
       {/if}
     {/if}
   </div>
+  {/if}
 </aside>
 
 <style>
@@ -519,6 +529,31 @@
     flex-direction: column;
     overflow: hidden;
     flex-shrink: 0;
+  }
+
+  .unavailable-state {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    flex: 1;
+    padding: 2rem 1.5rem;
+    text-align: center;
+    gap: 0.6rem;
+  }
+
+  .unavailable-title {
+    color: #888;
+    font-size: 0.85rem;
+    font-weight: 600;
+    margin: 0;
+  }
+
+  .unavailable-desc {
+    color: #555;
+    font-size: 0.73rem;
+    line-height: 1.5;
+    margin: 0;
   }
 
   .drawer-header {

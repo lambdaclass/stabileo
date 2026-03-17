@@ -3074,5 +3074,9 @@ const en: Record<string, string> = {
   'ai.build.scopeNote': 'Supports beams, portal frames, and simple 3D frames. Complex structures may produce incomplete models.',
   'ai.build.draft': 'AI-generated draft — review before use',
   'ai.build.validationFailed': 'Snapshot rejected — invalid structure:',
+
+  // ─── AI Availability ───
+  'ai.unavailable.title': 'AI is not configured',
+  'ai.unavailable.desc': 'The AI backend is not connected to this deployment. Contact the administrator or configure VITE_AI_API_KEY to enable AI features.',
 };
 export default en;

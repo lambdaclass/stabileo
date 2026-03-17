@@ -10,6 +10,9 @@
 const BACKEND_URL = import.meta.env.VITE_AI_BACKEND_URL || 'http://localhost:3001';
 const API_KEY = import.meta.env.VITE_AI_API_KEY || '';
 
+/** True when AI backend credentials are configured at build time. */
+export const aiAvailable: boolean = API_KEY.length > 0;
+
 // ─── Types ─────────────────────────────────────────────────────
 
 export interface ReviewFinding {

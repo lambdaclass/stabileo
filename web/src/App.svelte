@@ -37,6 +37,7 @@
   import { runLiveCalc, runGlobalSolve } from './lib/engine/live-calc';
   import LandingPage from './components/LandingPage.svelte';
   import AiDrawer from './components/AiDrawer.svelte';
+  import { aiAvailable } from './lib/ai/client';
 
   if (typeof window !== 'undefined') {
     const redirectedRoute = new URLSearchParams(location.search).get('route');
@@ -511,7 +512,7 @@
       {/if}
     {/if}
 
-    {#if !uiStore.isMobile && uiStore.aiDrawerOpen}
+    {#if !uiStore.isMobile && uiStore.aiDrawerOpen && aiAvailable}
       <AiDrawer />
     {/if}
   </div>
@@ -660,7 +661,7 @@
   <!-- <FeedbackWidget /> -->
 {/if}
 
-{#if !showLanding && !uiStore.isMobile && !uiStore.embedMode && !uiStore.aiDrawerOpen}
+{#if !showLanding && !uiStore.isMobile && !uiStore.embedMode && !uiStore.aiDrawerOpen && aiAvailable}
   <button class="ai-fab" onclick={() => uiStore.aiDrawerOpen = true} title="Stabileo AI">
     △
   </button>
