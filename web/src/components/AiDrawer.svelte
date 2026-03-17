@@ -203,13 +203,16 @@
         return;
       }
 
-      // Store as pending draft — user must Apply
-      pendingDraft = resp.snapshot;
+      // Push undo state and preview the draft on canvas immediately
+      historyStore.pushState();
+      fastRebuild(snap as unknown as ModelSnapshot);
+      pendingDraft = snap;
+
       chatMessages.push({
         role: 'ai',
         text: resp.message,
         changeSummary: resp.changeSummary,
-        draft: resp.snapshot,
+        draft: snap,
         meta: {
           modelUsed: resp.meta.modelUsed,
           latencyMs: resp.meta.latencyMs,
@@ -235,15 +238,8 @@
 
   async function handleApply() {
     if (!pendingDraft) return;
-    const snapshot = pendingDraft as unknown as ModelSnapshot;
 
-    // Push undo state
-    historyStore.pushState();
-
-    // Fast rebuild (no animation)
-    fastRebuild(snapshot);
-
-    // Auto-solve
+    // Model is already on canvas — just solve
     await runGlobalSolve();
 
     pendingDraft = null;
@@ -257,6 +253,8 @@
   }
 
   function handleCancel() {
+    // Revert to previous model via undo
+    historyStore.undo();
     pendingDraft = null;
     chatMessages.push({
       role: 'system',
@@ -266,6 +264,8 @@
   }
 
   function handleRetry() {
+    // Revert and resend
+    historyStore.undo();
     pendingDraft = null;
     if (lastDescription) {
       handleBuildSend(lastDescription);
