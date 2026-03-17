@@ -1,7 +1,7 @@
 <script lang="ts">
   import { resultsStore, modelStore, uiStore, historyStore } from '../lib/store';
   import { t, i18n } from '../lib/i18n';
-  import { reviewModel, buildArtifact, buildModel, type ReviewModelResponse, type ReviewFinding } from '../lib/ai/client';
+  import { reviewModel, buildArtifact, buildModel, type ReviewModelResponse, type ReviewFinding, type BuildModelResponse } from '../lib/ai/client';
   import { runGlobalSolve } from '../lib/engine/live-calc';
   import type { ModelSnapshot } from '../lib/store/history.svelte';
 
@@ -11,7 +11,6 @@
   // ─── Internal limits ───
   const MAX_MESSAGE_LENGTH = 2000;
   const MAX_CHAT_HISTORY = 50;
-  const MAX_MODEL_CONTEXT_NODES = 500;
 
   // ─── Review state ───
   let reviewLoading = $state(false);
@@ -27,10 +26,13 @@
 
   // ─── Build state ───
   interface ChatMessage {
-    role: 'user' | 'ai';
+    role: 'user' | 'ai' | 'system';
     text: string;
     meta?: { modelUsed: string; latencyMs: number; tokens: number };
     isBuilding?: boolean;
+    changeSummary?: string;
+    /** The draft snapshot pending Apply/Cancel. */
+    draft?: Record<string, unknown>;
   }
 
   let chatMessages = $state<ChatMessage[]>([]);
@@ -38,6 +40,12 @@
   let buildLoading = $state(false);
   let buildError = $state<string | null>(null);
   let chatContainer = $state<HTMLDivElement>(undefined as any);
+  /** Track the last user description so Retry can resend it. */
+  let lastDescription = $state('');
+  /** Whether a draft is pending Apply/Cancel. */
+  let pendingDraft = $state<Record<string, unknown> | null>(null);
+  /** Whether model was just applied and solved — enables "Review this model". */
+  let justApplied = $state(false);
 
   function scrollChatToBottom() {
     if (chatContainer) {
@@ -45,20 +53,106 @@
     }
   }
 
-  async function handleBuildSend() {
-    const text = chatInput.trim();
+  // ─── Validation ───
+
+  interface ValidationResult {
+    valid: boolean;
+    errors: string[];
+  }
+
+  function validateSnapshot(snapshot: Record<string, unknown>): ValidationResult {
+    const errors: string[] = [];
+    const nodes = snapshot.nodes as Array<[number, { id: number; x: number; y: number; z?: number }]> | undefined;
+    const elements = snapshot.elements as Array<[number, { id: number; nodeI: number; nodeJ: number }]> | undefined;
+    const supports = snapshot.supports as Array<[number, { id: number; nodeId: number; type: string }]> | undefined;
+    const materials = snapshot.materials as Array<[number, unknown]> | undefined;
+    const sections = snapshot.sections as Array<[number, unknown]> | undefined;
+
+    if (!nodes || !Array.isArray(nodes) || nodes.length < 2) {
+      errors.push('Model must have at least 2 nodes');
+    }
+    if (!elements || !Array.isArray(elements) || elements.length < 1) {
+      errors.push('Model must have at least 1 element');
+    }
+    if (!supports || !Array.isArray(supports) || supports.length < 1) {
+      errors.push('Model must have at least 1 support');
+    }
+    if (!materials || !Array.isArray(materials) || materials.length < 1) {
+      errors.push('Model must have at least 1 material');
+    }
+    if (!sections || !Array.isArray(sections) || sections.length < 1) {
+      errors.push('Model must have at least 1 section');
+    }
+
+    // Early return if basic structure is missing
+    if (errors.length > 0) return { valid: false, errors };
+
+    // Node ID set for reference validation
+    const nodeIds = new Set(nodes!.map(([id]) => id));
+    const elementIds = new Set(elements!.map(([id]) => id));
+
+    // Validate element node references
+    for (const [id, elem] of elements!) {
+      if (!nodeIds.has(elem.nodeI)) {
+        errors.push(`Element ${id} references non-existent node ${elem.nodeI}`);
+      }
+      if (!nodeIds.has(elem.nodeJ)) {
+        errors.push(`Element ${id} references non-existent node ${elem.nodeJ}`);
+      }
+    }
+
+    // Validate support node references
+    for (const [id, sup] of supports!) {
+      if (!nodeIds.has(sup.nodeId)) {
+        errors.push(`Support ${id} references non-existent node ${sup.nodeId}`);
+      }
+    }
+
+    // Validate load references
+    const loads = snapshot.loads as Array<{ type: string; data: Record<string, unknown> }> | undefined;
+    if (loads && Array.isArray(loads)) {
+      for (const load of loads) {
+        const d = load.data;
+        if (d.elementId && !elementIds.has(d.elementId as number)) {
+          errors.push(`Load references non-existent element ${d.elementId}`);
+        }
+        if (d.nodeId && !nodeIds.has(d.nodeId as number)) {
+          errors.push(`Load references non-existent node ${d.nodeId}`);
+        }
+      }
+    }
+
+    // Validate coordinates are finite
+    for (const [id, node] of nodes!) {
+      if (!Number.isFinite(node.x) || !Number.isFinite(node.y)) {
+        errors.push(`Node ${id} has invalid coordinates`);
+      }
+    }
+
+    return { valid: errors.length === 0, errors };
+  }
+
+  // ─── Build handler ───
+
+  async function handleBuildSend(descriptionOverride?: string) {
+    const text = (descriptionOverride ?? chatInput).trim();
     if (!text || buildLoading) return;
     if (text.length > MAX_MESSAGE_LENGTH) {
       buildError = `Message too long (max ${MAX_MESSAGE_LENGTH} characters)`;
       return;
     }
 
-    chatInput = '';
+    if (!descriptionOverride) chatInput = '';
     buildError = null;
+    justApplied = false;
+    pendingDraft = null;
 
-    // Add user message
-    chatMessages.push({ role: 'user', text });
-    if (chatMessages.length > MAX_CHAT_HISTORY) chatMessages.shift();
+    // Add user message (only if not a retry)
+    if (!descriptionOverride) {
+      chatMessages.push({ role: 'user', text });
+      if (chatMessages.length > MAX_CHAT_HISTORY) chatMessages.shift();
+    }
+    lastDescription = text;
     scrollChatToBottom();
 
     // Add building indicator
@@ -67,37 +161,44 @@
     buildLoading = true;
 
     try {
-      // Build description with model context for follow-up messages
-      let description = text;
-      if (modelStore.nodes.size > 0 && modelStore.nodes.size <= MAX_MODEL_CONTEXT_NODES) {
-        const snap = modelStore.snapshot();
-        description = `Current model context (modify this model based on my request):\n${JSON.stringify(snap)}\n\nUser request: ${text}`;
-      }
-
-      const resp = await buildModel(description, i18n.locale);
+      const resp = await buildModel(text, i18n.locale, uiStore.analysisMode === '3d' ? '3d' : '2d');
 
       // Remove building indicator
       chatMessages = chatMessages.filter(m => !m.isBuilding);
 
-      // Validate snapshot
-      const snapshot = resp.snapshot as Record<string, unknown>;
-      if (!snapshot.nodes || !snapshot.elements) {
-        throw new Error('AI returned invalid model (missing nodes or elements)');
+      // Scope refusal — show message, no draft
+      if (resp.scopeRefusal || !resp.snapshot) {
+        chatMessages.push({
+          role: 'ai',
+          text: resp.message,
+          meta: {
+            modelUsed: resp.meta.modelUsed,
+            latencyMs: resp.meta.latencyMs,
+            tokens: resp.meta.inputTokens + resp.meta.outputTokens,
+          },
+        });
+        scrollChatToBottom();
+        return;
       }
 
-      // Push undo state before modifying
-      historyStore.pushState();
+      // Validate the snapshot
+      const validation = validateSnapshot(resp.snapshot);
+      if (!validation.valid) {
+        chatMessages.push({
+          role: 'system',
+          text: `Validation failed:\n${validation.errors.join('\n')}`,
+        });
+        scrollChatToBottom();
+        return;
+      }
 
-      // Animate import
-      await animateImport(snapshot as unknown as ModelSnapshot);
-
-      // Auto-solve
-      runGlobalSolve();
-
-      // Add AI response
+      // Store as pending draft — user must Apply
+      pendingDraft = resp.snapshot;
       chatMessages.push({
         role: 'ai',
-        text: resp.interpretation,
+        text: resp.message,
+        changeSummary: resp.changeSummary,
+        draft: resp.snapshot,
         meta: {
           modelUsed: resp.meta.modelUsed,
           latencyMs: resp.meta.latencyMs,
@@ -108,78 +209,142 @@
     } catch (e: any) {
       chatMessages = chatMessages.filter(m => !m.isBuilding);
       buildError = e.message || 'Failed to build model';
-      chatMessages.push({ role: 'ai', text: `Error: ${buildError}` });
+      chatMessages.push({ role: 'system', text: `Error: ${buildError}` });
       scrollChatToBottom();
     } finally {
       buildLoading = false;
     }
   }
 
-  function sleep(ms: number): Promise<void> {
-    return new Promise(resolve => setTimeout(resolve, ms));
+  // ─── Apply / Retry / Cancel ───
+
+  async function handleApply() {
+    if (!pendingDraft) return;
+    const snapshot = pendingDraft as unknown as ModelSnapshot;
+
+    // Push undo state
+    historyStore.pushState();
+
+    // Fast rebuild (no animation)
+    fastRebuild(snapshot);
+
+    // Auto-solve
+    await runGlobalSolve();
+
+    pendingDraft = null;
+    justApplied = true;
+
+    chatMessages.push({
+      role: 'system',
+      text: 'Model applied and solved.',
+    });
+    scrollChatToBottom();
   }
 
-  async function animateImport(snapshot: ModelSnapshot) {
-    // Clear current model
+  function handleCancel() {
+    pendingDraft = null;
+    chatMessages.push({
+      role: 'system',
+      text: 'Draft discarded.',
+    });
+    scrollChatToBottom();
+  }
+
+  function handleRetry() {
+    pendingDraft = null;
+    if (lastDescription) {
+      handleBuildSend(lastDescription);
+    }
+  }
+
+  // ─── Fast rebuild (no diff animation) ───
+
+  function fastRebuild(snapshot: ModelSnapshot) {
+    // Switch analysis mode if snapshot specifies it
+    const snapshotMode = (snapshot as any).analysisMode;
+    if (snapshotMode === '3d' && uiStore.analysisMode !== '3d') {
+      uiStore.analysisMode = '3d';
+    } else if (snapshotMode === '2d' && uiStore.analysisMode === '3d') {
+      uiStore.analysisMode = '2d';
+    }
+    const is3D = uiStore.analysisMode === '3d';
+
+    // Clear current model and results
     resultsStore.clear();
     modelStore.clear();
 
-    // Phase 1: Materials and sections (instant, no visual)
+    // Materials
     if (snapshot.materials) {
       const matMap = new Map(snapshot.materials.map(([k, v]) => [k, { ...v }]));
       (modelStore as any).model.materials = matMap;
     }
+    // Sections
     if (snapshot.sections) {
       const secMap = new Map(snapshot.sections.map(([k, v]) => [k, { ...v }]));
       (modelStore as any).model.sections = secMap;
     }
 
-    // Phase 2: Nodes appear
+    // Nodes
     if (snapshot.nodes) {
       for (const [, node] of snapshot.nodes) {
         modelStore.addNode(node.x, node.y, node.z);
       }
     }
-    modelStore.bumpModelVersion();
-    await sleep(100);
 
-    // Phase 3: Elements connect
+    // Elements
     if (snapshot.elements) {
       for (const [, elem] of snapshot.elements) {
         modelStore.addElement(elem.nodeI, elem.nodeJ, elem.type ?? 'frame');
       }
     }
-    modelStore.bumpModelVersion();
-    await sleep(100);
 
-    // Phase 4: Supports snap on
+    // Supports
     if (snapshot.supports) {
       for (const [, sup] of snapshot.supports) {
         modelStore.addSupport(sup.nodeId, sup.type as any);
       }
     }
-    modelStore.bumpModelVersion();
-    await sleep(100);
 
-    // Phase 5: Loads appear
+    // Loads
     if (snapshot.loads) {
       for (const load of snapshot.loads) {
         const d = load.data as any;
-        if (load.type === 'distributed' && d.elementId) {
-          modelStore.addDistributedLoad(d.elementId, d.qI ?? d.q ?? 0, d.qJ ?? d.q ?? d.qI ?? 0);
-        } else if (load.type === 'nodal' && d.nodeId) {
-          modelStore.addNodalLoad(d.nodeId, d.fx ?? 0, d.fy ?? 0, d.mz ?? 0);
+        if (is3D) {
+          if (load.type === 'distributed3d' && d.elementId) {
+            modelStore.addDistributedLoad3D(d.elementId, d.qYI ?? 0, d.qYJ ?? 0, d.qZI ?? 0, d.qZJ ?? 0);
+          } else if (load.type === 'nodal3d' && d.nodeId) {
+            modelStore.addNodalLoad3D(d.nodeId, d.fx ?? 0, d.fy ?? 0, d.fz ?? 0, d.mx ?? 0, d.my ?? 0, d.mz ?? 0);
+          } else if (load.type === 'distributed' && d.elementId) {
+            modelStore.addDistributedLoad3D(d.elementId, d.qI ?? 0, d.qJ ?? d.qI ?? 0, 0, 0);
+          } else if (load.type === 'nodal' && d.nodeId) {
+            modelStore.addNodalLoad3D(d.nodeId, d.fx ?? 0, d.fy ?? 0, 0, 0, 0, d.mz ?? 0);
+          }
+        } else {
+          if (load.type === 'distributed' && d.elementId) {
+            modelStore.addDistributedLoad(d.elementId, d.qI ?? d.q ?? 0, d.qJ ?? d.q ?? d.qI ?? 0);
+          } else if (load.type === 'nodal' && d.nodeId) {
+            modelStore.addNodalLoad(d.nodeId, d.fx ?? 0, d.fy ?? 0, d.mz ?? 0);
+          }
         }
       }
     }
+
     modelStore.bumpModelVersion();
-    await sleep(100);
 
     // Zoom to fit
     const canvas = document.querySelector('.viewport-container canvas') as HTMLCanvasElement | null;
     if (canvas && modelStore.nodes.size > 0) {
       uiStore.zoomToFit(modelStore.nodes.values(), canvas.width, canvas.height);
     }
+  }
+
+  // ─── One-click review after build ───
+
+  async function handlePostBuildReview() {
+    justApplied = false;
+    activeTab = 'review';
+    // Small delay so the tab switches visually before the review starts
+    setTimeout(() => handleReview(), 100);
   }
 
   function handleBuildKeydown(e: KeyboardEvent) {
@@ -259,7 +424,7 @@
 <aside class="ai-drawer">
   <!-- Header -->
   <div class="drawer-header">
-    <span class="drawer-title">△ Stabileo AI</span>
+    <span class="drawer-title">Stabileo AI</span>
     <button class="close-btn" onclick={close} title="Close">×</button>
   </div>
 
@@ -362,8 +527,9 @@
         {#if chatMessages.length === 0}
           <div class="chat-empty">
             <p class="chat-empty-title">Describe a structure</p>
-            <p class="chat-empty-hint">Try: "simply supported beam, 6m, 10 kN/m distributed load"</p>
-            <p class="chat-empty-hint">Or: "2-bay portal frame, 5m span, 4m height, steel"</p>
+            <p class="chat-empty-hint">Try: "simply supported beam, 6m, 10 kN/m"</p>
+            <p class="chat-empty-hint">Or: "portal frame, 8m span, 5m height"</p>
+            <p class="chat-empty-hint">Or: "continuous beam, spans 4+6+4 m"</p>
           </div>
         {/if}
         {#each chatMessages as msg}
@@ -372,8 +538,11 @@
               {#if msg.isBuilding}
                 <span class="spinner-sm"></span>
               {/if}
-              <span>{msg.text}</span>
+              <span class="chat-text">{msg.text}</span>
             </div>
+            {#if msg.changeSummary}
+              <div class="change-summary">{msg.changeSummary}</div>
+            {/if}
             {#if msg.meta}
               <div class="chat-meta">{msg.meta.modelUsed} · {msg.meta.latencyMs}ms · {msg.meta.tokens} tok</div>
             {/if}
@@ -384,6 +553,22 @@
         {/if}
       </div>
 
+      <!-- Apply / Retry / Cancel bar -->
+      {#if pendingDraft}
+        <div class="draft-actions">
+          <button class="draft-btn draft-apply" onclick={handleApply}>Apply</button>
+          <button class="draft-btn draft-retry" onclick={handleRetry}>Retry</button>
+          <button class="draft-btn draft-cancel" onclick={handleCancel}>Cancel</button>
+        </div>
+      {/if}
+
+      <!-- Post-build review shortcut -->
+      {#if justApplied && hasResults}
+        <div class="post-build-bar">
+          <button class="post-build-btn" onclick={handlePostBuildReview}>Review this model</button>
+        </div>
+      {/if}
+
       <!-- Chat input -->
       <div class="chat-input-row">
         <textarea
@@ -391,10 +576,10 @@
           placeholder="Describe what to build..."
           bind:value={chatInput}
           onkeydown={handleBuildKeydown}
-          disabled={buildLoading}
+          disabled={buildLoading || !!pendingDraft}
           rows="2"
         ></textarea>
-        <button class="chat-send" onclick={handleBuildSend} disabled={buildLoading || !chatInput.trim()}>
+        <button class="chat-send" onclick={() => handleBuildSend()} disabled={buildLoading || !chatInput.trim() || !!pendingDraft}>
           {#if buildLoading}
             <span class="spinner-sm"></span>
           {:else}
@@ -724,13 +909,9 @@
     gap: 0.15rem;
   }
 
-  .chat-user {
-    align-items: flex-end;
-  }
-
-  .chat-ai {
-    align-items: flex-start;
-  }
+  .chat-user { align-items: flex-end; }
+  .chat-ai { align-items: flex-start; }
+  .chat-system { align-items: center; }
 
   .chat-bubble {
     max-width: 90%;
@@ -741,6 +922,11 @@
     display: flex;
     align-items: flex-start;
     gap: 0.4rem;
+  }
+
+  .chat-text {
+    white-space: pre-wrap;
+    word-break: break-word;
   }
 
   .chat-user .chat-bubble {
@@ -756,15 +942,96 @@
     border-bottom-left-radius: 2px;
   }
 
+  .chat-system .chat-bubble {
+    background: rgba(78, 205, 196, 0.08);
+    border: 1px solid rgba(78, 205, 196, 0.2);
+    color: #4ecdc4;
+    font-size: 0.68rem;
+    padding: 0.3rem 0.5rem;
+  }
+
   .chat-msg.building .chat-bubble {
     color: #888;
     font-style: italic;
+  }
+
+  .change-summary {
+    font-size: 0.62rem;
+    color: #4ecdc4;
+    padding: 0 0.2rem;
+    font-weight: 500;
   }
 
   .chat-meta {
     color: #444;
     font-size: 0.58rem;
     padding: 0 0.2rem;
+  }
+
+  /* ─── Draft actions (Apply / Retry / Cancel) ─── */
+  .draft-actions {
+    display: flex;
+    gap: 0.4rem;
+    padding: 0.45rem 0.75rem;
+    border-top: 1px solid #0f3460;
+    flex-shrink: 0;
+  }
+
+  .draft-btn {
+    flex: 1;
+    padding: 0.4rem 0;
+    border: 1px solid;
+    border-radius: 5px;
+    font-size: 0.72rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.15s;
+  }
+
+  .draft-apply {
+    background: rgba(78, 205, 196, 0.15);
+    border-color: #4ecdc4;
+    color: #4ecdc4;
+  }
+  .draft-apply:hover { background: rgba(78, 205, 196, 0.25); }
+
+  .draft-retry {
+    background: rgba(240, 165, 0, 0.1);
+    border-color: #f0a500;
+    color: #f0a500;
+  }
+  .draft-retry:hover { background: rgba(240, 165, 0, 0.2); }
+
+  .draft-cancel {
+    background: rgba(255, 255, 255, 0.03);
+    border-color: #444;
+    color: #888;
+  }
+  .draft-cancel:hover { background: rgba(255, 255, 255, 0.06); color: #bbb; }
+
+  /* ─── Post-build review ─── */
+  .post-build-bar {
+    display: flex;
+    padding: 0.35rem 0.75rem;
+    border-top: 1px solid #0f3460;
+    flex-shrink: 0;
+  }
+
+  .post-build-btn {
+    width: 100%;
+    padding: 0.35rem 0;
+    background: rgba(79, 195, 247, 0.08);
+    border: 1px solid rgba(79, 195, 247, 0.3);
+    border-radius: 5px;
+    color: #4fc3f7;
+    font-size: 0.7rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.15s;
+  }
+  .post-build-btn:hover {
+    background: rgba(79, 195, 247, 0.15);
+    border-color: rgba(79, 195, 247, 0.5);
   }
 
   .chat-input-row {

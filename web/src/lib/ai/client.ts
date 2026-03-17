@@ -56,8 +56,10 @@ export interface InterpretResultsResponse {
 }
 
 export interface BuildModelResponse {
-  snapshot: Record<string, unknown>;
-  interpretation: string;
+  snapshot: Record<string, unknown> | null;
+  message: string;
+  changeSummary?: string;
+  scopeRefusal?: boolean;
   meta: ReviewMeta;
 }
 
@@ -232,9 +234,11 @@ export async function interpretResults(
 export async function buildModel(
   description: string,
   locale?: string,
+  analysisMode?: string,
 ): Promise<BuildModelResponse> {
   return post('/api/ai/build-model', {
     description,
     locale: locale ?? 'en',
+    analysisMode: analysisMode ?? '2d',
   });
 }

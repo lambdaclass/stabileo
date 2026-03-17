@@ -98,14 +98,12 @@ Start narrow and expand deliberately. Each level must work reliably before movin
 
 | Level | Structures | Key challenges |
 |-------|-----------|----------------|
-| 1 | Simply supported beams, cantilevers, continuous beams | Correct node placement, support types, distributed/point loads |
-| 2 | Portal frames (single bay, single story) | Column-beam connectivity, fixed/pinned bases, lateral loads |
-| 3 | Multi-bay, multi-story 2D frames | Regular grid generation, floor loads, bracing |
-| 4 | Trusses (Pratt, Warren, Howe) | Truss element type, pin joints, panel geometry |
-| 5 | Simple 3D frames (single story, rectangular plan) | 3D node coordinates, 6-DOF elements, 3D supports |
-| 6 | Multi-story 3D frames | Floor diaphragms, column stacking, slab loads |
-| 7 | Mixed structures (frames + trusses, inclined members) | Element type mixing, complex connectivity |
-| 8 | Structures from description + constraints ("6m span, max deflection L/300, residential") | Solver-in-the-loop: generate -> solve -> check -> iterate |
+| 1 | Simply supported beams, cantilevers, continuous beams, portal frames, basic trusses, simple 3D frames | Correct node placement, support types, 2D/3D loads, and correct section/material defaults |
+| 2 | Multi-bay, multi-story 2D frames | Regular grid generation, floor loads, bracing |
+| 3 | Trusses (Pratt, Warren, Howe) with complex geometry | Truss element type, pin joints, panel geometry |
+| 4 | Multi-story 3D frames | Floor diaphragms, column stacking, slab loads |
+| 5 | Mixed structures (frames + trusses, inclined members) | Element type mixing, complex connectivity |
+| 6 | Structures from description + constraints ("6m span, max deflection L/300, residential") | Solver-in-the-loop: generate -> solve -> check -> iterate |
 
 Each level needs:
 - prompt templates with structural examples at that complexity
@@ -113,25 +111,169 @@ Each level needs:
 - test cases with known-good reference models
 - a clear refusal/fallback when the request exceeds the current level
 
-#### Builder architecture rule
+#### Conversational builder architecture
 
-The builder should not be treated as freeform `text -> full model JSON` forever.
-
-The target architecture is:
+The builder should evolve into a conversational structural editor built around this loop:
 
 1. user intent
-2. AI emits a constrained action or draft change
-3. backend validates and translates it
-4. frontend applies it to the model
-5. solver/review flows run on the resulting trusted snapshot
+2. AI planning step
+3. deterministic backend build/edit
+4. validation and optional solve/review
+5. AI refinement step
+6. user approval, clarification, or further change
 
-The model should speak a narrow AI-facing contract, not the product's private internal API.
+This is the target architecture:
+
+`user -> AI -> builder -> validator/solver -> AI -> user`
+
+The key rule is:
+- AI should own intent, clarification, explanation, and constrained editing
+- the backend should own geometry generation, IDs, connectivity, normalization, schema correctness, and deterministic expansion into the real model
+
+This should move the builder away from freeform `text -> full model JSON` and toward constrained structural editing.
+
+#### Planning and editing roles
+
+The builder should evolve toward two internal AI roles:
+- `planner`
+  - understands user intent
+  - selects typology
+  - asks clarifying questions
+  - makes assumptions explicit
+- `editor`
+  - emits constrained actions or structured draft changes
+
+This separation makes building-scale interactions much cleaner than one monolithic prompt.
+
+#### Building abstractions
+
+To work well for buildings, the builder must operate on structural systems, not only individual FEM entities.
+
+Prefer building-level concepts such as:
+- stories
+- bays
+- grids
+- frame lines
+- roof systems
+- bracing bays
+- diaphragms
+- section families
+- support strategies
+- load assumptions
+
+For buildings, the AI should describe:
+- typology
+- key dimensions
+- framing strategy
+- lateral system
+- material system
+- family-level section choices
+
+The backend should then expand that into nodes, members, supports, loads, combinations, and IDs deterministically.
+
+#### Assumptions and clarification
+
+The conversational builder should not pretend ambiguity does not exist.
+
+It should:
+- ask clarifying questions when key structural intent is missing
+- make defaults explicit
+- record what the user specified, what the AI assumed, and what the backend defaulted
+
+Examples of clarifications:
+- steel or concrete?
+- 2D or 3D?
+- fixed or pinned bases?
+- full-span or partial-span loading?
+- what lateral system should be used?
+
+The resulting assumptions ledger should stay visible to the user.
+
+#### Hierarchical editing
+
+Building-scale editing should happen at meaningful levels:
+- add one story
+- add one bay
+- brace the end bays
+- change all beams on level 2
+- make column bases pinned
+- change the beam family to IPE 300
+
+This is much more useful than forcing every change to be expressed member by member.
+
+#### Family-based assignment
+
+The builder should support family-level assignment early for building workflows:
+- beam family
+- column family
+- brace family
+- roof/truss family
+
+This is essential if the builder is going to move beyond toy examples.
+
+#### Validation and solver feedback loop
+
+The builder should improve itself through validation and solver feedback.
+
+After the backend builds or edits a model:
+- run validation
+- optionally solve or run lightweight review checks
+- return compact trusted feedback to the AI
+
+Then the AI can:
+- explain assumptions
+- identify what failed
+- propose a constrained corrective action
+- ask for permission to apply the fix
+
+This is especially important for building workflows where missing lateral systems, poor support assumptions, or disconnected framing are common.
+
+#### Geometry, setup, and loads are distinct steps
+
+The builder should eventually treat these as separate layers:
+1. geometry/framing
+2. supports/materials/sections
+3. loads/combinations
+4. solve/review/fix
+
+That keeps the system much more robust than trying to invent a complete building in one opaque generation step.
+
+#### Maturity ladder by typology
+
+The builder should track maturity by structural typology, not only by one generic "build-model" label.
+
+Example maturity ladder:
+- beams: stable
+- portal frames: beta
+- basic trusses: early
+- 2D frame buildings: later
+- simple 3D frame buildings: later
+- industrial sheds/warehouses: later
+
+This makes scope boundaries honest and visible.
+
+#### Drafts, preview, and acceptance
+
+The builder should behave like a drafting assistant, not an auto-apply agent.
+
+The desired interaction is:
+- AI proposes a draft change
+- user sees a summary of what will change
+- user can `Apply`, `Retry`, or `Cancel`
+- applied changes become one undo step
+
+Over time this should evolve toward ghost-preview or draft-overlay behavior on the canvas before apply.
+
+#### Action contract direction
+
+The AI should speak a narrow builder-facing contract, not the product's private internal API.
 
 Prefer action-style outputs such as:
 - `create_beam`
 - `create_continuous_beam`
 - `create_portal_frame`
 - `create_basic_truss`
+- `create_simple_3d_frame`
 - `add_column`
 - `add_support`
 - `add_udl`
@@ -145,9 +287,20 @@ Prefer action-style outputs such as:
 The backend remains the source of truth:
 - validates fields and scope
 - rejects unsupported or ambiguous actions when needed
-- maps valid actions into normalized model snapshots or product operations
+- translates valid actions into normalized model snapshots or product operations
 
-#### Builder interaction model
+#### Deterministic builder tests
+
+Each supported prompt family should eventually have deterministic tests covering:
+- prompt
+- parsed intent
+- built typology
+- validation outcome
+- expected solve/review sanity
+
+This is one of the highest-leverage ways to keep the builder trustworthy as scope expands.
+
+#### Interaction model
 
 The Build tab should behave like a constrained structural editor, not a generic chatbot.
 
@@ -170,23 +323,23 @@ Chat state rules:
 - each applied AI change is one undo step
 - AI-generated model changes should show visible state such as `Draft`, `Applied`, `Rejected`, or `Undone`
 
-#### Level 1 builder scope
+#### Level 1 implementation policy
 
-Level 1 should stay intentionally narrow:
+Level 1 supports both 2D and 3D:
 - simply supported beams
 - cantilevers
 - continuous beams
 - single-bay single-story portal frames
 - basic trusses
+- simple 3D frames (single story, rectangular plan)
 
 Level 1 should explicitly exclude:
-- 3D models
-- multi-story frames
+- multi-story 3D frames with diaphragms
 - solver-in-the-loop design iteration
 - voice input
 - sketch/image input
 
-#### Level 1 animation policy
+Animation policy:
 
 Do not start with diff-based animation.
 
@@ -213,7 +366,7 @@ Why this is the right first version:
 
 Diff-based incremental animation can come later once the builder itself is reliable.
 
-#### Builder trust and validation
+Trust and validation:
 
 Builder output must be treated as untrusted input.
 
@@ -233,7 +386,7 @@ Failure behavior:
 - show a precise validation error in chat
 - never partially import a broken model
 
-#### Builder quality additions
+High-value quality additions:
 
 The builder becomes much better when these are added early:
 - `Preview before apply`
@@ -248,7 +401,7 @@ The builder becomes much better when these are added early:
 - `One-click review after build`
 - `Camera reframing after apply`
 
-#### Builder safety limits
+Safety limits:
 
 Even if the product UX does not expose obvious user-facing limits, the implementation still needs hard guards:
 - max message length
@@ -261,45 +414,6 @@ Even if the product UX does not expose obvious user-facing limits, the implement
 - request IDs and safe structured logging
 
 These are infrastructure requirements, not optional polish.
-
-### Build Model — Conversational Builder Architecture
-
-The Build tab is a conversational model builder: the user describes a structure, watches it appear on canvas, and iterates through chat.
-
-**Level 1 (current) — Full model generation:**
-- User describes → AI returns full ModelSnapshot JSON → validate → import → solve
-- Fast rebuild animation: nodes → elements → supports → loads (~400-600ms total)
-- Current model sent as context for follow-up modifications
-- Each accepted build is one undo step
-
-**Level 2 (target) — Action-based editing:**
-- Replace full-model JSON generation with constrained structured actions
-- AI emits actions, not arbitrary model state:
-  - `create_beam(span=6m, support_left=pinned, support_right=roller, load_udl=10kN/m)`
-  - `add_column(at=3m, height=4m, base_support=fixed)`
-  - `change_section(target=element_3, section=IPE300)`
-  - `add_support(node=5, type=pinned)`
-  - `add_udl(element=2, q=-10)`
-  - `delete_member(element=4)`
-- Backend validates action against schema → translates to model-store operations
-- AI speaks a narrow public contract, never invents internal app APIs
-
-Why action-based is much better:
-- more reliable and predictable
-- easier to validate, refuse, and debug
-- easier to animate (diff is trivial — you know exactly what changed)
-- easier to undo (one action = one undo step)
-- less likely to hallucinate invalid model structure
-- enables clarifying questions ("pinned or fixed?")
-- enables selection-aware editing ("change *this* to IPE 300")
-
-**Interaction model (target):**
-
-1. User types request in Build tab
-2. AI returns:
-   - explanation of what it will do
-   - structured action(s) or draft model
-   - change summary: "+2 nodes, +1 element, +1 support, section changed on 3 elements"
 3. Frontend shows **Apply / Retry / Cancel** (never auto-apply blindly)
 4. On Apply:
    - snapshot current model for undo
@@ -326,7 +440,7 @@ If the request is ambiguous, AI should ask before building:
 
 **Scope refusal:**
 If the prompt asks for something beyond the current level:
-- refuse clearly with a message like "I can build simple 2D beams, portal frames, and basic trusses right now."
+- refuse clearly with a message like "I can build beams, portal frames, basic trusses, and simple 3D frames right now."
 - suggest a narrower reformulation
 - never attempt and produce garbage
 

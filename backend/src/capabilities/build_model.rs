@@ -1,21 +1,34 @@
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
+use super::actions::{validate_action, ActionResponse, BuildAction};
+use super::generators::execute_action;
 use crate::error::AppError;
 use crate::providers::traits::{AiRequest, AiResponse, Provider};
 
 #[derive(Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct BuildModelRequest {
     pub description: String,
     #[serde(default)]
     pub locale: Option<String>,
+    #[serde(default)]
+    pub analysis_mode: Option<String>,
 }
 
 #[derive(Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct BuildModelResponse {
-    pub snapshot: Value,
-    pub interpretation: String,
+    /// The generated model snapshot. Null when the request is out of scope.
+    pub snapshot: Option<Value>,
+    /// AI's explanation of what was built, or a scope-refusal message.
+    pub message: String,
+    /// Short summary of what changed (e.g. "Created 2-span continuous beam with 10 kN/m load").
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub change_summary: Option<String>,
+    /// When true, the AI declined to build — message explains why.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub scope_refusal: Option<bool>,
     pub meta: super::review_model::ReviewMeta,
 }
 
@@ -25,13 +38,14 @@ pub async fn build_model(
     request_id: String,
 ) -> Result<BuildModelResponse, AppError> {
     let locale = req.locale.as_deref().unwrap_or("en");
+    let analysis_mode = req.analysis_mode.as_deref().unwrap_or("2d");
 
-    let system_prompt = build_system_prompt(locale);
+    let system_prompt = build_system_prompt(locale, analysis_mode);
 
     let ai_req = AiRequest {
         system_prompt,
         user_message: req.description,
-        max_tokens: 8192,
+        max_tokens: 2048,
         temperature: 0.1,
     };
 
@@ -39,79 +53,48 @@ pub async fn build_model(
     parse_response(ai_resp, request_id)
 }
 
-fn build_system_prompt(locale: &str) -> String {
+fn build_system_prompt(locale: &str, analysis_mode: &str) -> String {
+    let mode_actions = if analysis_mode == "3d" {
+        r#"- create_portal_frame_3d: { width, depth, height, q_beam, base_support, beam_section, column_section }
+  For 3D requests, prefer create_portal_frame_3d over 2D actions.
+  base_support defaults to "fixed3d". Options: "fixed3d", "pinned3d""#
+    } else {
+        ""
+    };
+
     format!(
-        r#"You are a structural model builder for the Dedaliano analysis engine. The user describes a structure in natural language and you generate the model JSON.
+        r#"You are a structural model builder. The user describes a structure and you choose the right action.
 
 ## Output Language
-Respond in locale: {locale} (for the interpretation field only — the JSON field names must stay in English)
+Write the "interpretation" field in locale: {locale}
 
-## Units (strictly SI, metric)
-- Distance: meters (m)
-- Force: kilonewtons (kN)
-- Moment: kN·m
-- Stress: MPa
-- Density: kN/m³
-- Area: m²
-- Moment of inertia: m⁴
+Available actions:
+- create_beam: {{ span, q, support_left, support_right, section, p_tip }}
+- create_cantilever: {{ length, p_tip, q, section }}
+- create_continuous_beam: {{ spans: [4, 6, 4], q, section }}
+- create_portal_frame: {{ width, height, q_beam, h_lateral, base_support, beam_section, column_section }}
+- create_truss: {{ span, height, n_panels, pattern, top_load }}
+{mode_actions}
 
-## Common Materials
-- Steel A36: E=200000 MPa, nu=0.3, rho=78.5 kN/m³, fy=250 MPa
-- Steel A572-50: E=200000 MPa, nu=0.3, rho=78.5 kN/m³, fy=345 MPa
-- Concrete H-25: E=30000 MPa, nu=0.2, rho=25 kN/m³
+Defaults: support_left="pinned", support_right="rollerX", base_support="fixed", section="IPE 300", n_panels=4, pattern="pratt"
+Sections: IPE 200/300/400/500/600, HEB 200/300/400, HEA 200/300, UPN 200, L 80x80x8
+Materials: Steel A36 (always used)
+Units: meters, kN, kN/m. Loads negative = downward.
 
-## Common Steel Sections (approximate properties)
-- IPE 200: A=0.00285 m², Iz=1.943e-5 m⁴, h=0.2, b=0.1, tw=0.0056, tf=0.0085, shape="I"
-- IPE 300: A=0.00538 m², Iz=8.356e-5 m⁴, h=0.3, b=0.15, tw=0.0071, tf=0.0107, shape="I"
-- IPE 400: A=0.00845 m², Iz=2.313e-4 m⁴, h=0.4, b=0.18, tw=0.0086, tf=0.0135, shape="I"
-- HEB 200: A=0.00781 m², Iz=5.696e-5 m⁴, h=0.2, b=0.2, tw=0.009, tf=0.015, shape="H"
-- HEB 300: A=0.01491 m², Iz=2.517e-4 m⁴, h=0.3, b=0.3, tw=0.011, tf=0.019, shape="H"
+Output JSON only (no markdown fences):
+{{ "action": "create_beam", "params": {{ "span": 6, "q": -10 }}, "interpretation": "..." }}
 
-## Model JSON Format
+Rules:
+- Only required params are mandatory; omit optional params to use defaults.
+- "interpretation" should briefly describe what you're building and any assumptions.
+- If the user says "simply supported" → create_beam with pinned + rollerX (the defaults).
+- If the user says "cantilever" or "empotrada" → create_cantilever.
+- If the user says "continuous beam" with multiple spans → create_continuous_beam with spans array.
+- If the user says "portal frame" or "pórtico" → create_portal_frame.
+- If the user says "truss" → create_truss. Use pattern="warren" for Warren trusses.
 
-The output must be a valid ModelSnapshot. Key rules:
-- Nodes, materials, sections, elements, supports are arrays of [id, object] pairs
-- Loads are arrays of objects with "type" and "data" fields
-- Element types: "frame" (bending+axial) or "truss" (axial only)
-- Support types (2D): "fixed", "pinned", "rollerX", "rollerY"
-- Support types (3D): "fixed3d", "pinned3d", "rollerXZ", "rollerXY", "rollerYZ"
-- Load types (2D): "nodal" (fx, fy, mz), "distributed" (qI, qJ on element), "pointOnElement" (a, p)
-
-## Example (simple beam)
-
-For "simply supported beam, 6m, IPE 300, 10 kN/m distributed load":
-
-```json
-{{
-  "analysisMode": "2d",
-  "nodes": [[1, {{"id":1,"x":0,"y":0}}], [2, {{"id":2,"x":6,"y":0}}]],
-  "materials": [[1, {{"id":1,"name":"Steel A36","e":200000,"nu":0.3,"rho":78.5,"fy":250}}]],
-  "sections": [[1, {{"id":1,"name":"IPE 300","a":0.00538,"iz":8.356e-5,"h":0.3,"b":0.15,"shape":"I","tw":0.0071,"tf":0.0107}}]],
-  "elements": [[1, {{"id":1,"type":"frame","nodeI":1,"nodeJ":2,"materialId":1,"sectionId":1,"hingeStart":false,"hingeEnd":false}}]],
-  "supports": [[1, {{"id":1,"nodeId":1,"type":"pinned"}}], [2, {{"id":2,"nodeId":2,"type":"rollerX"}}]],
-  "loads": [{{"type":"distributed","data":{{"id":1,"elementId":1,"qI":-10,"qJ":-10}}}}],
-  "nextId": {{"node":3,"material":2,"section":2,"element":2,"support":3,"load":2}}
-}}
-```
-
-## Output Format
-Respond with ONLY a JSON object (no markdown fences):
-
-{{
-  "snapshot": {{ the ModelSnapshot object }},
-  "interpretation": "brief description of what you built and any assumptions you made"
-}}
-
-## Guidelines
-- Use 2D mode unless the user explicitly mentions 3D, Z coordinates, or out-of-plane behavior
-- Place nodes at logical structural points (supports, load application points, span ends, joints)
-- Distributed loads are negative for downward (gravity) in local coords
-- For continuous beams, create separate elements per span with shared nodes at intermediate supports
-- For frames/portals, create column and beam elements with appropriate node connectivity
-- If the user specifies a profile (IPE, HEB, etc.), use the closest match from the common sections above
-- If no profile specified, choose a reasonable one for the span and load
-- Always include at least one material and one section
-- Set nextId correctly (max id + 1 for each entity type)"#
+If the request doesn't match any action, respond:
+{{ "action": "unsupported", "params": {{}}, "interpretation": "I can build: beams, cantilevers, continuous beams, portal frames, trusses, and simple 3D frames." }}"#
     )
 }
 
@@ -130,39 +113,110 @@ pub fn parse_response(
         content
     };
 
+    let meta = super::review_model::ReviewMeta {
+        model_used: ai_resp.model,
+        input_tokens: ai_resp.input_tokens,
+        output_tokens: ai_resp.output_tokens,
+        latency_ms: ai_resp.latency_ms,
+        request_id,
+    };
+
+    // Try action-based parsing first
+    if let Ok(action_resp) = serde_json::from_str::<ActionResponse>(json_str) {
+        // Handle scope refusal — return message, no model
+        if matches!(action_resp.action, BuildAction::Unsupported { .. }) {
+            return Ok(BuildModelResponse {
+                snapshot: None,
+                message: action_resp.interpretation,
+                change_summary: None,
+                scope_refusal: Some(true),
+                meta,
+            });
+        }
+
+        validate_action(&action_resp.action)?;
+        let snapshot = execute_action(&action_resp.action)?;
+
+        return Ok(BuildModelResponse {
+            snapshot: Some(snapshot),
+            message: action_resp.interpretation,
+            change_summary: Some(action_summary(&action_resp.action)),
+            scope_refusal: None,
+            meta,
+        });
+    }
+
+    // Fallback: legacy { snapshot, interpretation } format
     #[derive(Deserialize)]
-    struct Raw {
+    struct LegacyRaw {
         snapshot: Value,
         interpretation: String,
     }
 
-    let raw: Raw = serde_json::from_str(json_str).map_err(|e| {
+    let raw: LegacyRaw = serde_json::from_str(json_str).map_err(|e| {
         tracing::warn!("failed to parse build-model response: {e}\nraw: {content}");
         AppError::BadRequest(
             "Could not generate a model from that description. Try describing a structure, e.g. \"simply supported beam, 6m span, 10 kN/m load\".".into(),
         )
     })?;
 
-    // Validate that snapshot has the required fields
     let snapshot = &raw.snapshot;
     if !snapshot.is_object()
         || snapshot.get("nodes").is_none()
         || snapshot.get("elements").is_none()
     {
         return Err(AppError::BadRequest(
-            "AI response missing required model fields. Try a more specific structural description.".into(),
+            "AI response missing required model fields. Try a more specific structural description."
+                .into(),
         ));
     }
 
     Ok(BuildModelResponse {
-        snapshot: raw.snapshot,
-        interpretation: raw.interpretation,
-        meta: super::review_model::ReviewMeta {
-            model_used: ai_resp.model,
-            input_tokens: ai_resp.input_tokens,
-            output_tokens: ai_resp.output_tokens,
-            latency_ms: ai_resp.latency_ms,
-            request_id,
-        },
+        snapshot: Some(raw.snapshot),
+        message: raw.interpretation,
+        change_summary: None,
+        scope_refusal: None,
+        meta,
     })
+}
+
+/// Generate a short change summary from the action.
+fn action_summary(action: &BuildAction) -> String {
+    match action {
+        BuildAction::CreateBeam { span, q, .. } => {
+            let load = q.map(|v| format!(", {v} kN/m")).unwrap_or_default();
+            format!("Beam {span}m{load}")
+        }
+        BuildAction::CreateCantilever { length, p_tip, q, .. } => {
+            let load = p_tip
+                .map(|v| format!(", P={v} kN"))
+                .or_else(|| q.map(|v| format!(", q={v} kN/m")))
+                .unwrap_or_default();
+            format!("Cantilever {length}m{load}")
+        }
+        BuildAction::CreateContinuousBeam { spans, q, .. } => {
+            let s: Vec<String> = spans.iter().map(|v| format!("{v}")).collect();
+            let load = q.map(|v| format!(", {v} kN/m")).unwrap_or_default();
+            format!("Continuous beam [{}]{load}", s.join("+"))
+        }
+        BuildAction::CreatePortalFrame { width, height, .. } => {
+            format!("Portal frame {width}x{height}m")
+        }
+        BuildAction::CreateTruss { span, height, pattern, .. } => {
+            let pat = pattern.as_deref().unwrap_or("pratt");
+            format!("{} truss {span}x{height}m", capitalize(pat))
+        }
+        BuildAction::CreatePortalFrame3d { width, depth, height, .. } => {
+            format!("3D frame {width}x{depth}x{height}m")
+        }
+        BuildAction::Unsupported { .. } => String::new(),
+    }
+}
+
+fn capitalize(s: &str) -> String {
+    let mut c = s.chars();
+    match c.next() {
+        None => String::new(),
+        Some(f) => f.to_uppercase().chain(c).collect(),
+    }
 }

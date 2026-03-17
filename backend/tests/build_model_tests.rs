@@ -20,10 +20,20 @@ fn valid_build_json() -> &'static str {
     }"#
 }
 
-// ---- Parse contract tests ----
+fn make_resp(content: &str) -> AiResponse {
+    AiResponse {
+        content: content.into(),
+        model: "m".into(),
+        input_tokens: 0,
+        output_tokens: 0,
+        latency_ms: 0,
+    }
+}
+
+// ---- Legacy parse contract tests ----
 
 #[test]
-fn parse_valid_json() {
+fn parse_legacy_valid_json() {
     let resp = AiResponse {
         content: valid_build_json().into(),
         model: "test-model".into(),
@@ -33,11 +43,13 @@ fn parse_valid_json() {
     };
 
     let result = parse_response(resp, "req-1".into()).unwrap();
-    assert!(result.snapshot.is_object());
-    assert!(result.snapshot.get("nodes").is_some());
-    assert!(result.snapshot.get("elements").is_some());
-    assert!(!result.interpretation.is_empty());
+    assert!(result.snapshot.is_some());
+    let snap = result.snapshot.unwrap();
+    assert!(snap.get("nodes").is_some());
+    assert!(snap.get("elements").is_some());
+    assert!(!result.message.is_empty());
     assert_eq!(result.meta.model_used, "test-model");
+    assert!(result.scope_refusal.is_none());
 }
 
 #[test]
@@ -52,90 +64,185 @@ fn parse_json_wrapped_in_markdown_fences() {
     };
 
     let result = parse_response(resp, "req-2".into()).unwrap();
-    assert!(result.snapshot.get("nodes").is_some());
+    assert!(result.snapshot.unwrap().get("nodes").is_some());
 }
 
 #[test]
 fn parse_missing_nodes_fails() {
-    let content = r#"{
-        "snapshot": {"elements": [[1, {"id":1}]]},
-        "interpretation": "test"
-    }"#;
-
-    let resp = AiResponse {
-        content: content.into(),
-        model: "m".into(),
-        input_tokens: 0,
-        output_tokens: 0,
-        latency_ms: 0,
-    };
-
+    let resp = make_resp(r#"{"snapshot": {"elements": [[1, {"id":1}]]}, "interpretation": "test"}"#);
     let err = parse_response(resp, "req-err".into()).unwrap_err();
     assert!(err.to_string().contains("missing required model fields"));
 }
 
 #[test]
 fn parse_missing_elements_fails() {
-    let content = r#"{
-        "snapshot": {"nodes": [[1, {"id":1,"x":0,"y":0}]]},
-        "interpretation": "test"
-    }"#;
-
-    let resp = AiResponse {
-        content: content.into(),
-        model: "m".into(),
-        input_tokens: 0,
-        output_tokens: 0,
-        latency_ms: 0,
-    };
-
+    let resp = make_resp(r#"{"snapshot": {"nodes": [[1, {"id":1,"x":0,"y":0}]]}, "interpretation": "test"}"#);
     let err = parse_response(resp, "req-err".into()).unwrap_err();
     assert!(err.to_string().contains("missing required model fields"));
 }
 
 #[test]
 fn parse_empty_string_fails() {
-    let resp = AiResponse {
-        content: "".into(),
-        model: "m".into(),
-        input_tokens: 0,
-        output_tokens: 0,
-        latency_ms: 0,
-    };
-
+    let resp = make_resp("");
     assert!(parse_response(resp, "req-err".into()).is_err());
 }
 
 #[test]
 fn parse_wrong_schema_fails() {
-    let resp = AiResponse {
-        content: r#"{"answer": "42"}"#.into(),
-        model: "m".into(),
-        input_tokens: 0,
-        output_tokens: 0,
-        latency_ms: 0,
-    };
-
+    let resp = make_resp(r#"{"answer": "42"}"#);
     assert!(parse_response(resp, "req-err".into()).is_err());
 }
 
 #[test]
 fn parse_snapshot_not_object_fails() {
-    let content = r#"{
-        "snapshot": "not an object",
-        "interpretation": "test"
-    }"#;
-
-    let resp = AiResponse {
-        content: content.into(),
-        model: "m".into(),
-        input_tokens: 0,
-        output_tokens: 0,
-        latency_ms: 0,
-    };
-
+    let resp = make_resp(r#"{"snapshot": "not an object", "interpretation": "test"}"#);
     let err = parse_response(resp, "req-err".into()).unwrap_err();
     assert!(err.to_string().contains("missing required model fields"));
+}
+
+// ---- Action-based parsing tests ----
+
+#[test]
+fn parse_action_beam_produces_snapshot() {
+    let resp = make_resp(r#"{"action":"create_beam","params":{"span":6,"q":-10},"interpretation":"Viga biapoyada de 6m"}"#);
+    let result = parse_response(resp, "action-1".into()).unwrap();
+
+    assert!(result.scope_refusal.is_none());
+    let snap = result.snapshot.unwrap();
+    assert!(snap.get("nodes").is_some());
+    assert!(snap.get("elements").is_some());
+    assert!(snap.get("supports").is_some());
+    assert_eq!(snap["nodes"].as_array().unwrap().len(), 2);
+    assert_eq!(result.message, "Viga biapoyada de 6m");
+    assert!(result.change_summary.is_some());
+}
+
+#[test]
+fn parse_action_cantilever() {
+    let resp = make_resp(r#"{"action":"create_cantilever","params":{"length":3,"p_tip":-15},"interpretation":"Cantilever 3m"}"#);
+    let result = parse_response(resp, "action-2".into()).unwrap();
+
+    let snap = result.snapshot.unwrap();
+    let supports = snap["supports"].as_array().unwrap();
+    assert_eq!(supports.len(), 1);
+    assert_eq!(supports[0][1]["type"].as_str().unwrap(), "fixed");
+}
+
+#[test]
+fn parse_action_continuous_beam() {
+    let resp = make_resp(r#"{"action":"create_continuous_beam","params":{"spans":[4,6,4],"q":-12},"interpretation":"Viga continua"}"#);
+    let result = parse_response(resp, "action-3".into()).unwrap();
+
+    let snap = result.snapshot.unwrap();
+    assert_eq!(snap["nodes"].as_array().unwrap().len(), 4);
+    assert_eq!(snap["elements"].as_array().unwrap().len(), 3);
+    assert_eq!(snap["supports"].as_array().unwrap().len(), 4);
+}
+
+#[test]
+fn parse_action_portal_frame() {
+    let resp = make_resp(r#"{"action":"create_portal_frame","params":{"width":8,"height":5,"q_beam":-15,"h_lateral":10},"interpretation":"Portal frame"}"#);
+    let result = parse_response(resp, "action-4".into()).unwrap();
+
+    let snap = result.snapshot.unwrap();
+    assert_eq!(snap["nodes"].as_array().unwrap().len(), 4);
+    assert_eq!(snap["elements"].as_array().unwrap().len(), 3);
+}
+
+#[test]
+fn parse_action_truss() {
+    let resp = make_resp(r#"{"action":"create_truss","params":{"span":12,"height":2,"n_panels":4,"pattern":"pratt","top_load":-10},"interpretation":"Pratt truss"}"#);
+    let result = parse_response(resp, "action-5".into()).unwrap();
+    assert!(result.snapshot.unwrap()["nodes"].as_array().unwrap().len() >= 8);
+}
+
+#[test]
+fn parse_action_portal_frame_3d() {
+    let resp = make_resp(r#"{"action":"create_portal_frame_3d","params":{"width":6,"depth":4,"height":4,"q_beam":-10},"interpretation":"3D frame"}"#);
+    let result = parse_response(resp, "action-6".into()).unwrap();
+
+    let snap = result.snapshot.unwrap();
+    assert_eq!(snap["analysisMode"].as_str().unwrap(), "3d");
+    assert_eq!(snap["nodes"].as_array().unwrap().len(), 8);
+}
+
+#[test]
+fn parse_action_unsupported_returns_scope_refusal() {
+    let resp = make_resp(r#"{"action":"unsupported","params":{},"interpretation":"I can build beams, cantilevers, continuous beams, portal frames, trusses, and simple 3D frames."}"#);
+    let result = parse_response(resp, "action-ref".into()).unwrap();
+
+    assert!(result.snapshot.is_none());
+    assert_eq!(result.scope_refusal, Some(true));
+    assert!(result.message.contains("beams"));
+}
+
+#[test]
+fn parse_action_invalid_span_returns_error() {
+    let resp = make_resp(r#"{"action":"create_beam","params":{"span":-5},"interpretation":"test"}"#);
+    let err = parse_response(resp, "action-val".into()).unwrap_err();
+    assert!(err.to_string().contains("positive number"));
+}
+
+#[test]
+fn parse_action_with_custom_section() {
+    let resp = make_resp(r#"{"action":"create_beam","params":{"span":6,"q":-10,"section":"IPE 400"},"interpretation":"test"}"#);
+    let result = parse_response(resp, "action-sec".into()).unwrap();
+    let snap = result.snapshot.unwrap();
+    let sec_name = snap["sections"].as_array().unwrap()[0][1]["name"]
+        .as_str()
+        .unwrap();
+    assert_eq!(sec_name, "IPE 400");
+}
+
+#[test]
+fn legacy_fallback_still_works() {
+    let resp = AiResponse {
+        content: valid_build_json().into(),
+        model: "legacy".into(),
+        input_tokens: 100,
+        output_tokens: 200,
+        latency_ms: 50,
+    };
+
+    let result = parse_response(resp, "legacy-1".into()).unwrap();
+    let snap = result.snapshot.unwrap();
+    assert!(snap.get("nodes").is_some());
+    assert!(snap.get("elements").is_some());
+}
+
+#[test]
+fn change_summary_present_for_actions() {
+    let resp = make_resp(r#"{"action":"create_portal_frame","params":{"width":8,"height":5},"interpretation":"test"}"#);
+    let result = parse_response(resp, "sum-1".into()).unwrap();
+    let summary = result.change_summary.unwrap();
+    assert!(summary.contains("Portal frame"));
+    assert!(summary.contains("8"));
+}
+
+#[test]
+fn response_serialization_has_correct_fields() {
+    let resp = make_resp(r#"{"action":"create_beam","params":{"span":6},"interpretation":"test beam"}"#);
+    let result = parse_response(resp, "ser-1".into()).unwrap();
+    let json = serde_json::to_value(&result).unwrap();
+
+    // camelCase
+    assert!(json.get("snapshot").is_some());
+    assert!(json.get("message").is_some());
+    assert!(json.get("changeSummary").is_some());
+    assert!(json.get("meta").is_some());
+    // scopeRefusal should be absent (skip_serializing_if)
+    assert!(json.get("scopeRefusal").is_none());
+}
+
+#[test]
+fn scope_refusal_serialization() {
+    let resp = make_resp(r#"{"action":"unsupported","params":{},"interpretation":"nope"}"#);
+    let result = parse_response(resp, "ser-2".into()).unwrap();
+    let json = serde_json::to_value(&result).unwrap();
+
+    assert!(json["snapshot"].is_null());
+    assert_eq!(json["scopeRefusal"], true);
+    assert!(json.get("changeSummary").is_none());
 }
 
 // ---- Stub provider integration tests ----
@@ -146,14 +253,15 @@ async fn build_model_with_stub_returns_parsed_response() {
     let req = BuildModelRequest {
         description: "Simply supported beam, 6m, IPE 300, 10 kN/m".into(),
         locale: Some("en".into()),
+        analysis_mode: None,
     };
 
     let result = build_model(&provider, req, "req-stub-1".into())
         .await
         .unwrap();
 
-    assert!(result.snapshot.get("nodes").is_some());
-    assert!(!result.interpretation.is_empty());
+    assert!(result.snapshot.unwrap().get("nodes").is_some());
+    assert!(!result.message.is_empty());
     assert_eq!(result.meta.model_used, "stub-model");
 }
 
@@ -166,6 +274,7 @@ async fn build_model_with_provider_error_propagates() {
     let req = BuildModelRequest {
         description: "test".into(),
         locale: None,
+        analysis_mode: None,
     };
 
     let err = build_model(&provider, req, "req-stub-2".into())
@@ -181,6 +290,7 @@ async fn response_serializes_to_camel_case() {
     let req = BuildModelRequest {
         description: "test beam".into(),
         locale: None,
+        analysis_mode: None,
     };
 
     let result = build_model(&provider, req, "req-ser".into())
@@ -189,7 +299,7 @@ async fn response_serializes_to_camel_case() {
 
     let json = serde_json::to_value(&result).unwrap();
     assert!(json.get("snapshot").is_some());
-    assert!(json.get("interpretation").is_some());
+    assert!(json.get("message").is_some());
 
     let meta = json.get("meta").unwrap();
     assert!(meta.get("modelUsed").is_some());
