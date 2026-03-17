@@ -46,7 +46,7 @@ Already in place:
 - local developer bootstrap helpers (`Makefile`, `flake.nix` — verified working)
 
 Not yet complete:
-- frontend integration for AI capabilities
+- frontend integration for remaining AI capabilities (Explain, Query, Build tabs — placeholders exist)
 - input validation and request size limits
 - rate limiting and abuse controls
 - AI output validation (generated model JSON must be validated before import)
@@ -61,7 +61,7 @@ Not yet complete:
 
 The live near-term blockers are now:
 - abuse and security hardening for AI-facing routes — before any broader rollout
-- frontend integration for AI capabilities (review-model, explain-diagnostic, build-model, interpret-results)
+- frontend integration for remaining AI capabilities (Query, Explain, Build tabs)
 - input validation, request size limits, and abuse controls for AI and artifact flows
 - product-side solver-run artifact capture, storage, export/import, and replay flows
 - backend observability, rate limiting, and startup validation
@@ -93,15 +93,21 @@ These are the next concrete infrastructure tasks in execution order:
 8. `AI output validation` — NOT DONE. Generated model JSON from `build-model` must be validated/sanitized before frontend import. AI text output is advisory only.
 9. `Request IDs and structured request logging` — NOT DONE.
 10. `Startup validation for provider/config/API keys` — NOT DONE.
-11. `Review-model frontend integration` — NOT STARTED. Add post-solve entry point plus findings panel with element/node highlighting.
-12. `Explain-diagnostic frontend integration` — NOT STARTED. Add diagnostic badge/tooltip/panel consumer.
-13. `Build-model frontend integration` — NOT STARTED. Add toolbar/chat-style input and model import flow.
-12. `Solve-time artifact capture in product` — NOT STARTED.
-13. `Artifact export/import and local persistence` — NOT STARTED.
-14. `Replay/support flow on top of artifacts` — NOT STARTED.
-15. `Section-optimizer capability` — LATER. Needs solver-in-the-loop workflow and tighter optimization contracts.
-16. `Suggest-loads capability` — LATER. Needs code/load-rule data and product-side workflow framing.
-17. `Generate-report capability` — LATER. Needs stronger report/output infrastructure first.
+11. `Review-model frontend integration` — DONE. Stabileo AI right-side drawer with Review tab, risk chip, finding cards with severity badges, zoom-to-issue, regenerate button.
+12. `Query/Explain/Build frontend tabs` — NOT STARTED. Drawer tabs exist as placeholders, need wiring to backend endpoints.
+13. `Solve-time artifact capture in product` — NOT STARTED.
+14. `Artifact export/import and local persistence` — NOT STARTED.
+15. `Replay/support flow on top of artifacts` — NOT STARTED.
+16. `Code-check capability` — NOT STARTED. Backend endpoint + per-member panel. Tier 1 priority.
+17. `Suggest-loads capability` — NOT STARTED. Needs code/load-rule data and product-side workflow framing. Tier 1 priority.
+18. `Pre-solve diagnostics capability` — NOT STARTED. Real-time model analysis before solving. Tier 1 priority.
+19. `Canvas-query capability` — NOT STARTED. Natural language queries on model/results with visual highlights. Tier 1 priority.
+20. `Section-optimizer capability` — NOT STARTED. Needs solver-in-the-loop workflow and tighter optimization contracts. Tier 2.
+21. `Generate-report capability` — NOT STARTED. Needs stronger report/output infrastructure first. Tier 2.
+22. `Teaching-assistant capability` — NOT STARTED. Educativo mode integration. Tier 2.
+23. `Compare-models capability` — NOT STARTED. Two-artifact diff with engineering commentary. Tier 2.
+24. `Sketch-to-model capability` — NOT STARTED. Vision model integration. Tier 3.
+25. `Failure-narrative capability` — NOT STARTED. Storytelling layer on diagnostics. Tier 3.
 18. `Storage boundary decision` — NOT STARTED. Define local vs hosted artifact storage explicitly.
 19. `API/artifact versioning policy` — NOT STARTED. Define compatibility and migration rules.
 20. `Named native/server solve path` — NOT STARTED.
@@ -503,20 +509,52 @@ Current status: PARTIALLY DONE. All 4 core backend capabilities are live with 49
   - `section-optimizer` — iterates steel profiles to find lightest section meeting constraints (solver-in-the-loop, later).
   - `suggest-loads` — suggests load combinations from code (CIRSOC) given building type and location (later).
   - `generate-report` — takes solver output, produces structured engineering report (later).
+  - `code-check` — user selects a member, AI checks it against CIRSOC/Eurocode/AISC. Returns utilization ratios, governing clause, pass/fail.
+  - `pre-solve-diagnostics` — analyze the model before solving. Detect missing supports, floating nodes, unrealistic sections, impossible load combinations. Show warnings inline as the user builds.
+  - `canvas-query` — natural language queries on the model/results: "highlight all members with utilization > 0.8", "show me where the max deflection is", "which supports carry the most load". Returns text + visual highlights.
+  - `compare-models` — takes two solver-run artifacts, produces a diff with engineering commentary: what changed, which is better, key trade-offs.
+  - `failure-narrative` — when a model fails or has issues, tells the story: why it's failing, what's causing it, concrete fix suggestions. Goes beyond diagnostic codes to structural intuition.
+  - `sketch-to-model` — upload a hand sketch or photo of a structure, AI extracts geometry and creates the model. Camera/image → nodes + elements + supports.
+  - `teaching-assistant` — in educativo mode, explain *why* the moment diagram looks like that, *why* the reaction at node 2 is larger, connect results to structural intuition. Not just "what" but "why".
 - frontend integration for each capability:
-  - post-solve "Revisar modelo" button + findings panel with node/element highlighting
+  - post-solve "Revisar modelo" button + findings panel with node/element highlighting — DONE (Stabileo AI drawer, Review tab)
   - diagnostic badge click → AI explanation tooltip/panel
   - toolbar chat/command input → natural language model builder
+  - canvas-integrated natural language query bar
+  - code-check panel per selected member
+  - pre-solve inline warnings (before the user clicks Solve)
+  - comparison view for two model variants
+  - teaching mode explanations integrated into educativo panel
 - provider-agnostic routing (6 providers already in place)
 - per-capability model selection
 - test/provider stubs (stub provider already working)
 - capability-level evals and traces
+
+**Capability priority tiers:**
+
+Tier 1 — High impact, near-term (backend + frontend):
+1. `code-check` — daily professional use, the most requested feature in structural tools
+2. `suggest-loads` — eliminates the most error-prone manual step for students and junior engineers
+3. `pre-solve-diagnostics` — catches errors before wasting solve time, builds trust
+4. `canvas-query` — natural language interaction with results, high wow-factor
+
+Tier 2 — Medium-term, high value:
+5. `section-optimizer` — solver-in-the-loop, killer feature for daily use. Needs iteration infrastructure.
+6. `generate-report` — engineers spend hours on calculation reports manually. Structured PDF/markdown output.
+7. `teaching-assistant` — educativo mode differentiator, explains "why" not just "what"
+8. `compare-models` — useful for design iteration and review workflows
+
+Tier 3 — Longer-term:
+9. `sketch-to-model` — vision model integration, image → geometry extraction
+10. `failure-narrative` — storytelling layer on top of diagnostics, requires deep structural context
 
 **Done when:**
 - capabilities are distinct contracts, not prompt modes hidden behind one endpoint
 - frontend surfaces AI results inline (not a separate page)
 - provider swaps do not change product-layer APIs
 - eval/tracing exists per capability
+- code-check and section-optimizer are usable for daily professional workflows
+- pre-solve diagnostics catch common modeling errors before solving
 
 ### Stage 8 — Firm and Team Infrastructure
 
@@ -562,13 +600,18 @@ Current status: EARLY. Local container/Nix/dev bootstrap exists, but promotion r
 The next infrastructure sequence should be:
 
 1. ~~add `explain-diagnostic`, `build-model`, `interpret-results` backend capabilities~~ — DONE. All 4 AI capabilities are live with 49 contract tests.
-2. add input validation, request size limits, and per-capability field bounds — blocks cheapest attacks before broadening usage
-3. add rate limiting (per-key, per-capability) and request IDs — required before any production traffic
-4. add AI output validation for `build-model` — generated model JSON must be validated before frontend import
-5. frontend integration: post-solve review button, diagnostic explanations, model builder input, results interpreter
-6. finish `Stage 2` product-side flows for solver-run artifacts
-7. harden `Stage 3` observability/startup validation/structured logging
-8. only then broaden into desktop persistence and native/server solve packaging
+2. ~~frontend integration: review-model~~ — DONE. Stabileo AI drawer with Review tab, tested end-to-end with GPT-4o.
+3. frontend integration: wire remaining drawer tabs (Query, Explain, Build) to existing backend endpoints
+4. add input validation, request size limits, and per-capability field bounds — blocks cheapest attacks before broadening usage
+5. add rate limiting (per-key, per-capability) and request IDs — required before any production traffic
+6. add AI output validation for `build-model` — generated model JSON must be validated before frontend import
+7. add `code-check` backend capability — highest-impact new capability for professional use
+8. add `suggest-loads` backend capability — eliminates error-prone manual step
+9. add `pre-solve-diagnostics` — real-time model validation before solving
+10. finish `Stage 2` product-side flows for solver-run artifacts
+11. harden `Stage 3` observability/startup validation/structured logging
+12. add `section-optimizer` with solver-in-the-loop — killer feature for daily professional workflows
+13. only then broaden into desktop persistence and native/server solve packaging
 
 ## What This Unblocks
 
