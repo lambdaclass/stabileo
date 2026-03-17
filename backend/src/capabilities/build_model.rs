@@ -76,9 +76,13 @@ Actions (all units: meters, kN, kN/m; loads negative = downward):
   create_portal_frame  {{ width, height, q_beam, h_lateral, base_support, beam_section, column_section }}
   create_truss         {{ span, height, n_panels, pattern, top_load }}
   create_multi_story_frame {{ n_bays, n_floors, bay_width, floor_height, q_beam, h_lateral, beam_section, column_section }}
+  create_multi_story_frame_3d {{ n_bays_x, n_bays_z, n_floors, bay_width, floor_height, q_beam, h_lateral, base_support, beam_section, column_section }}
   {mode_actions}
 
+Note: create_multi_story_frame_3d generates 3D space frames with X-bracing on perimeter.
+
 Defaults: support_left="pinned", support_right="rollerX", base_support="fixed", section="IPE 300", n_panels=4, pattern="pratt"
+Truss patterns: "pratt" (default), "warren", "howe"
 Available sections: IPE 200/300/400/500/600, HEB 200/300/400, HEA 200/300, UPN 200, L 80x80x8
 Material: Steel A36 (always).
 
@@ -205,6 +209,9 @@ fn action_summary(action: &BuildAction) -> String {
         }
         BuildAction::CreateMultiStoryFrame { n_bays, n_floors, bay_width, floor_height, .. } => {
             format!("{n_floors}-story frame, {n_bays} bays @ {bay_width}m x {floor_height}m")
+        }
+        BuildAction::CreateMultiStoryFrame3d { n_bays_x, n_bays_z, n_floors, bay_width, floor_height, .. } => {
+            format!("{n_floors}-story 3D frame, {n_bays_x}x{n_bays_z} bays @ {bay_width}m x {floor_height}m")
         }
         BuildAction::CreatePortalFrame3d { width, depth, height, .. } => {
             format!("3D frame {width}x{depth}x{height}m")

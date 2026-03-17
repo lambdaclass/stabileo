@@ -72,6 +72,24 @@ pub enum BuildAction {
         #[serde(default)]
         column_section: Option<String>,
     },
+    #[serde(rename = "create_multi_story_frame_3d")]
+    CreateMultiStoryFrame3d {
+        n_bays_x: u32,
+        n_bays_z: u32,
+        n_floors: u32,
+        bay_width: f64,
+        floor_height: f64,
+        #[serde(default)]
+        q_beam: Option<f64>,
+        #[serde(default)]
+        h_lateral: Option<f64>,
+        #[serde(default)]
+        base_support: Option<String>,
+        #[serde(default)]
+        beam_section: Option<String>,
+        #[serde(default)]
+        column_section: Option<String>,
+    },
     #[serde(rename = "create_portal_frame_3d")]
     CreatePortalFrame3d {
         width: f64,
@@ -141,6 +159,26 @@ pub fn validate_action(action: &BuildAction) -> Result<(), AppError> {
         } => {
             if *n_bays < 1 {
                 return Err(AppError::BadRequest("n_bays must be >= 1".into()));
+            }
+            if *n_floors < 1 {
+                return Err(AppError::BadRequest("n_floors must be >= 1".into()));
+            }
+            require_positive(*bay_width, "bay_width")?;
+            require_positive(*floor_height, "floor_height")?;
+        }
+        BuildAction::CreateMultiStoryFrame3d {
+            n_bays_x,
+            n_bays_z,
+            n_floors,
+            bay_width,
+            floor_height,
+            ..
+        } => {
+            if *n_bays_x < 1 {
+                return Err(AppError::BadRequest("n_bays_x must be >= 1".into()));
+            }
+            if *n_bays_z < 1 {
+                return Err(AppError::BadRequest("n_bays_z must be >= 1".into()));
             }
             if *n_floors < 1 {
                 return Err(AppError::BadRequest("n_floors must be >= 1".into()));

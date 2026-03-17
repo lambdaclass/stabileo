@@ -181,6 +181,34 @@ fn parse_action_multi_story_frame() {
 }
 
 #[test]
+fn parse_action_multi_story_frame_3d() {
+    let resp = make_resp(r#"{"action":"create_multi_story_frame_3d","params":{"n_bays_x":2,"n_bays_z":2,"n_floors":3,"bay_width":6,"floor_height":3},"interpretation":"3D building"}"#);
+    let result = parse_response(resp, "action-8".into()).unwrap();
+
+    let snap = result.snapshot.unwrap();
+    assert_eq!(snap["analysisMode"].as_str().unwrap(), "3d");
+    // (3+1) floors * 3x3 grid = 36 nodes
+    assert_eq!(snap["nodes"].as_array().unwrap().len(), 36);
+    // Columns: 3 floors * 9 columns = 27
+    // X-beams: 3 floors * 3 rows * 2 bays = 18
+    // Z-beams: 3 floors * 3 cols * 2 bays = 18
+    // X-bracing: 3 floors * (2 faces * 2 bays * 2 diags + 2 faces * 2 bays * 2 diags) = 3 * 16 = 48
+    let n_elems = snap["elements"].as_array().unwrap().len();
+    assert!(n_elems > 50, "expected >50 elements, got {n_elems}");
+    // 9 supports at base
+    assert_eq!(snap["supports"].as_array().unwrap().len(), 9);
+}
+
+#[test]
+fn parse_action_howe_truss() {
+    let resp = make_resp(r#"{"action":"create_truss","params":{"span":12,"height":2,"n_panels":4,"pattern":"howe","top_load":-10},"interpretation":"Howe truss"}"#);
+    let result = parse_response(resp, "action-9".into()).unwrap();
+    let snap = result.snapshot.unwrap();
+    assert!(snap["nodes"].as_array().unwrap().len() >= 8);
+    assert!(result.change_summary.unwrap().contains("Howe"));
+}
+
+#[test]
 fn parse_action_unsupported_returns_scope_refusal() {
     let resp = make_resp(r#"{"action":"unsupported","params":{},"interpretation":"I can build beams, cantilevers, continuous beams, portal frames, trusses, and simple 3D frames."}"#);
     let result = parse_response(resp, "action-ref".into()).unwrap();

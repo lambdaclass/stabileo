@@ -140,6 +140,15 @@ impl Builder {
         }));
     }
 
+    fn add_nodal_load_3d(&mut self, node_id: u32, fx: f64, fy: f64, fz: f64) {
+        let id = self.load_id;
+        self.load_id += 1;
+        self.loads.push(json!({
+            "type": "nodal3d",
+            "data": {"id": id, "nodeId": node_id, "fx": fx, "fy": fy, "fz": fz, "mx": 0, "my": 0, "mz": 0}
+        }));
+    }
+
     fn to_snapshot(self) -> Value {
         let n_sections = self.sections.len() as u32;
         json!({
@@ -384,8 +393,44 @@ fn generate_truss(
         for &nid in &top {
             b.add_nodal_load_2d(nid, 0.0, load);
         }
+    } else if pat == "howe" {
+        // Howe: opposite diagonal direction from Pratt
+        let mut top = Vec::new();
+        for i in 0..=n_panels {
+            top.push(b.add_node_2d(i as f64 * dx, height));
+        }
+
+        // Bottom chord
+        for i in 0..n_panels as usize {
+            b.add_truss(bottom[i], bottom[i + 1], 2);
+        }
+        // Top chord
+        for i in 0..n_panels as usize {
+            b.add_truss(top[i], top[i + 1], 2);
+        }
+        // Verticals
+        for i in 0..=n_panels as usize {
+            b.add_truss(bottom[i], top[i], 2);
+        }
+        // Diagonals (Howe: opposite of Pratt)
+        let mid = (n_panels / 2) as usize;
+        for i in 0..n_panels as usize {
+            if i < mid {
+                b.add_truss(bottom[i], top[i + 1], 2);
+            } else {
+                b.add_truss(top[i], bottom[i + 1], 2);
+            }
+        }
+
+        b.add_support(bottom[0], "pinned");
+        b.add_support(*bottom.last().unwrap(), "rollerX");
+
+        let load = top_load.unwrap_or(-10.0);
+        for &nid in &top {
+            b.add_nodal_load_2d(nid, 0.0, load);
+        }
     } else {
-        // Pratt pattern
+        // Pratt pattern (default)
         let mut top = Vec::new();
         for i in 0..=n_panels {
             top.push(b.add_node_2d(i as f64 * dx, height));
@@ -561,6 +606,124 @@ fn generate_multi_story_frame(
     b.to_snapshot()
 }
 
+// ---- Multi-story 3D frame (port of generateSpaceFrame3D) ----
+
+fn generate_multi_story_frame_3d(
+    n_bays_x: u32,
+    n_bays_z: u32,
+    n_floors: u32,
+    bay_width: f64,
+    floor_height: f64,
+    q_beam: Option<f64>,
+    h_lateral: Option<f64>,
+    base_support: &Option<String>,
+    beam_section: &Option<String>,
+    column_section: &Option<String>,
+) -> Value {
+    let b_sec = beam_section
+        .as_deref()
+        .and_then(lookup_section)
+        .unwrap_or_else(default_section);
+    let c_sec = column_section
+        .as_deref()
+        .and_then(lookup_section)
+        .unwrap_or_else(default_column_section);
+    let sup_type = resolve_support(base_support, "fixed3d");
+
+    let mut b = Builder::new_3d(b_sec, c_sec);
+    // section 1 = column, section 2 = beam
+
+    // Node grid: node_grid[floor][iz][ix]
+    let mut node_grid: Vec<Vec<Vec<u32>>> = Vec::new();
+    for f in 0..=(n_floors as usize) {
+        let mut floor_nodes: Vec<Vec<u32>> = Vec::new();
+        let z = f as f64 * floor_height;
+        for iz in 0..=(n_bays_z as usize) {
+            let mut row = Vec::new();
+            for ix in 0..=(n_bays_x as usize) {
+                row.push(b.add_node_3d(ix as f64 * bay_width, iz as f64 * bay_width, z));
+            }
+            floor_nodes.push(row);
+        }
+        node_grid.push(floor_nodes);
+    }
+
+    // Columns
+    for f in 0..(n_floors as usize) {
+        for iz in 0..=(n_bays_z as usize) {
+            for ix in 0..=(n_bays_x as usize) {
+                b.add_frame_sec(node_grid[f][iz][ix], node_grid[f + 1][iz][ix], 1);
+            }
+        }
+    }
+
+    // Beams in X at every floor above base
+    for f in 1..=(n_floors as usize) {
+        for iz in 0..=(n_bays_z as usize) {
+            for ix in 0..(n_bays_x as usize) {
+                let eid = b.add_frame_sec(node_grid[f][iz][ix], node_grid[f][iz][ix + 1], 2);
+                if let Some(q) = q_beam {
+                    if q != 0.0 {
+                        b.add_distributed_load(eid, q);
+                    }
+                }
+            }
+        }
+    }
+
+    // Beams in Z at every floor above base
+    for f in 1..=(n_floors as usize) {
+        for ix in 0..=(n_bays_x as usize) {
+            for iz in 0..(n_bays_z as usize) {
+                let eid = b.add_frame_sec(node_grid[f][iz][ix], node_grid[f][iz + 1][ix], 2);
+                if let Some(q) = q_beam {
+                    if q != 0.0 {
+                        b.add_distributed_load(eid, q);
+                    }
+                }
+            }
+        }
+    }
+
+    // X-bracing on perimeter for lateral stiffness
+    for f in 0..(n_floors as usize) {
+        // Front face (iz=0) and back face (iz=n_bays_z)
+        for &iz in &[0, n_bays_z as usize] {
+            for ix in 0..(n_bays_x as usize) {
+                b.add_truss(node_grid[f][iz][ix], node_grid[f + 1][iz][ix + 1], 2);
+                b.add_truss(node_grid[f][iz][ix + 1], node_grid[f + 1][iz][ix], 2);
+            }
+        }
+        // Left face (ix=0) and right face (ix=n_bays_x)
+        for &ix in &[0, n_bays_x as usize] {
+            for iz in 0..(n_bays_z as usize) {
+                b.add_truss(node_grid[f][iz][ix], node_grid[f + 1][iz + 1][ix], 2);
+                b.add_truss(node_grid[f][iz + 1][ix], node_grid[f + 1][iz][ix], 2);
+            }
+        }
+    }
+
+    // Supports at base
+    for iz in 0..=(n_bays_z as usize) {
+        for ix in 0..=(n_bays_x as usize) {
+            b.add_support(node_grid[0][iz][ix], &sup_type);
+        }
+    }
+
+    // Lateral loads at each floor (all nodes on ix=0 face)
+    if let Some(h) = h_lateral {
+        if h != 0.0 {
+            for f in 1..=(n_floors as usize) {
+                for iz in 0..=(n_bays_z as usize) {
+                    b.add_nodal_load_3d(node_grid[f][iz][0], h, 0.0, 0.0);
+                }
+            }
+        }
+    }
+
+    b.to_snapshot()
+}
+
 // ---- Dispatch ----
 
 pub fn execute_action(action: &BuildAction) -> Result<Value, AppError> {
@@ -627,6 +790,30 @@ pub fn execute_action(action: &BuildAction) -> Result<Value, AppError> {
             *floor_height,
             *q_beam,
             *h_lateral,
+            beam_section,
+            column_section,
+        ),
+
+        BuildAction::CreateMultiStoryFrame3d {
+            n_bays_x,
+            n_bays_z,
+            n_floors,
+            bay_width,
+            floor_height,
+            q_beam,
+            h_lateral,
+            base_support,
+            beam_section,
+            column_section,
+        } => generate_multi_story_frame_3d(
+            *n_bays_x,
+            *n_bays_z,
+            *n_floors,
+            *bay_width,
+            *floor_height,
+            *q_beam,
+            *h_lateral,
+            base_support,
             beam_section,
             column_section,
         ),
