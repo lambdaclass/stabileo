@@ -1,6 +1,6 @@
 # Solver Audit and Gap Analysis
 
-Deep code review of the solver engine, test suite, design checks, frontend validation, and numerical behavior. This document catalogs gaps not currently covered in `SOLVER_ROADMAP.md`, `PRODUCT_ROADMAP.md`, or `research/solver_safety_and_validation_hardening.md`.
+Deep code review of the solver engine, test suite, design checks, frontend validation, and numerical behavior. This document catalogs gaps not currently covered in `SOLVER_ROADMAP.md`, `PRODUCT_ROADMAP.md`, or `research/solver_safety_and_validation_hardening.md`. Sections 9-10 cover solution initialization, warm-start capability, preconditioning, and iterative solver infrastructure.
 
 ## 1. Dead Code That Should Be Wired
 
@@ -306,7 +306,150 @@ Suggested tiers:
 - External benchmark comparison (NAFEMS, ANSYS VM): rel_tol = 0.02-0.05 (2-5%)
 - Shell convergence studies: document convergence rate, not just final value
 
-## 9. Prioritized Recommendations
+## 9. Solution Initialization and Warm-Start
+
+### 9.1 All Solvers Initialize From Zero Displacement
+
+Every solver in the codebase initializes the displacement vector as `let mut u_full = vec![0.0; n]`. This applies uniformly across all analysis types:
+
+| Solver | File | Line(s) |
+|--------|------|---------|
+| Linear 2D/3D | `linear.rs` | 116, 337, 428, 536 |
+| Corotational 2D/3D | `corotational.rs` | 38, 859 |
+| Material Nonlinear 2D/3D | `material_nonlinear.rs` | 107, 842 |
+| Fiber Nonlinear 2D/3D | `fiber_nonlinear.rs` | 110, 572 |
+| Arc-Length / Displacement Control | `arc_length.rs` | 138, 362 |
+| P-Delta | `pdelta.rs` | (uses linear solve, inherits zero init) |
+| Cable 2D/3D | `cable.rs` | 186, 440 |
+| SSI 2D/3D | `ssi.rs` | 121, 266 |
+| Contact 2D/3D | `contact.rs` | 315, 943 |
+| Time Integration 2D/3D | `time_integration.rs` | 83-85 (u, v, a all zero), 832-834 |
+| Spectral 2D/3D | `spectral.rs` | 97, 322 |
+| Reduction (Guyan/CB) | `reduction.rs` | 276, 724 |
+| Staged 2D | `staged.rs` | (uses per-stage linear solve) |
+| Winkler 2D/3D | `winkler.rs` | 126, 234 |
+| Buckling 3D | `buckling.rs` | 242, 275 |
+
+For linear analysis this is correct (the system is solved exactly). For nonlinear analysis, zero is a reasonable starting point when combined with incremental loading. However, there is no mechanism to override this default.
+
+### 9.2 Dead `initial_displacements` Field
+
+`ImperfectionInput` in `types/input.rs:878` defines:
+
+```rust
+/// Initial displacements from previous analysis (node_id → [ux, uy, rz])
+pub initial_displacements: HashMap<String, Vec<f64>>,
+```
+
+This field is **never read by any solver**. The WASM entry points `solve_with_imperfections_2d` and `solve_with_imperfections_3d` (`lib.rs:908-959`) apply geometric imperfections and notional loads, but ignore `initial_displacements` entirely. A user passing initial displacements via the API would get no effect and no error.
+
+**Impact:** This is dead API surface that promises a capability the solver does not deliver. Either wire it (apply as initial displacement vector before solving) or remove it to avoid confusion.
+
+### 9.3 No Warm-Start or Continuation Capability
+
+None of the nonlinear solver APIs accept an initial displacement estimate:
+
+```rust
+solve_corotational_2d(input, max_iter, tolerance, n_increments, modified_nr)
+solve_nonlinear_material_2d(input: &NonlinearMaterialInput)
+solve_fiber_nonlinear_2d(input: &FiberNonlinearInput)
+solve_arc_length(input: &ArcLengthInput)
+solve_displacement_control(input: &DisplacementControlInput)
+```
+
+This prevents several engineering workflows:
+
+| Workflow | Why it needs warm-start | Workaround available? |
+|----------|------------------------|----------------------|
+| Multi-phase construction | Stage N should start from Stage N-1 deformed state | Staged solver handles this internally, but users cannot chain arbitrary analysis types |
+| Post-earthquake residual analysis | Start nonlinear static from dynamic final state | No |
+| Load sequence change | Continue from a converged state with modified loads | Must re-run from zero |
+| Parameter study continuation | Nearby parameter → nearby solution → fewer iterations | No |
+| Pre-stressed concrete (after losses) | Start nonlinear with initial stress/strain state | Fiber nonlinear can use residual stresses via imperfections, but not initial displacements |
+
+**Not mentioned in:** SOLVER_ROADMAP.md, PRODUCT_ROADMAP.md, or numerical_methods_gap_analysis.md.
+
+### 9.4 Time Integration Initial Conditions
+
+Time integration (`time_integration.rs:82-91`) initializes u, v, a all to zero, then computes initial acceleration from `M*a0 = F0 - C*v0 - K*u0`. This is correct for zero initial conditions but there is no API field to specify non-zero initial velocity or displacement (e.g., for vibration from an initial displaced shape, or free-vibration decay from a static deformed configuration).
+
+## 10. Preconditioning and Iterative Solver Infrastructure
+
+### 10.1 Current Linear Solver Strategy: Direct Only
+
+The codebase uses direct solvers exclusively:
+
+| Solver | File | Use case |
+|--------|------|----------|
+| Sparse Cholesky | `linalg/sparse_chol.rs` | Primary path for all 3D problems. Left-looking symbolic factorization, AMD/RCM ordering, two-tier pivot perturbation |
+| Dense Cholesky | `linalg/cholesky.rs` | Small-medium 2D problems, SPD systems |
+| Dense LU | `linalg/lu.rs` | Fallback for non-SPD or when Cholesky fails |
+
+This strategy is correct for current model sizes. The sparse Cholesky is healthy (1.8× fill on shell meshes via RCM, 22-89× factorization speedup over dense).
+
+### 10.2 No Iterative Solvers
+
+No Krylov iterative solvers exist in the codebase:
+
+- No Preconditioned Conjugate Gradient (PCG)
+- No GMRES / MINRES / BiCGSTAB / LSMR
+- No iterative solver abstraction or trait
+
+**Note:** `linalg/jacobi.rs` implements the cyclic Jacobi **eigenvalue** solver (for dense symmetric eigenvalue problems), not Jacobi preconditioning. The name is a potential source of confusion.
+
+### 10.3 No Preconditioner Infrastructure
+
+No preconditioners of any kind:
+
+- No diagonal / Jacobi preconditioning
+- No Incomplete Cholesky IC(0)
+- No SSOR / SOR
+- No Algebraic Multigrid (AMG)
+- No preconditioner trait or abstraction
+
+### 10.4 Existing Iterative Refinement (Limited Scope)
+
+The 3D sparse linear solver path (`linear.rs:369-390`) has iterative refinement, but only as a post-correction for pivot perturbation artifacts:
+
+```rust
+// Iterative refinement against the ORIGINAL K_ff to correct for
+// the regularization shift. Up to 5 steps of residual correction.
+if pivot_perturbations > 0 {
+    for _ in 0..5 {
+        // r = f - K*u, then solve K*du = r, u += du
+    }
+}
+```
+
+This is good practice for regularized systems but is not a general iterative solver — it still depends on a direct factorization and only activates when pivot perturbation was needed.
+
+### 10.5 Conditioning Diagnostics Are Informational Only
+
+`conditioning.rs` computes the diagonal ratio of the stiffness matrix and logs warnings at thresholds (1e8, 1e12). The solver continues regardless. There is no mechanism to:
+
+- Select solver/preconditioner based on conditioning
+- Trigger iterative refinement for poorly conditioned systems
+- Reject results when conditioning makes them meaningless
+
+### 10.6 Roadmap Position
+
+From `numerical_methods_gap_analysis.md`, iterative solver infrastructure is **P2 priority**, after P1 (deeper sparse eigensolver integration):
+
+1. P2.1: General iterative refinement (low effort, quality backstop)
+2. P2.2: PCG with diagonal/Jacobi preconditioning
+3. P2.3: IC(0), SSOR, eventually AMG
+
+This ordering is reasonable. For models up to ~50k DOFs, the sparse direct solver is likely faster than an iterative solver with simple preconditioning. Iterative solvers become advantageous at larger scales (>100k DOFs) or for problems where the stiffness matrix changes frequently (nonlinear, contact) and refactorization is expensive.
+
+### 10.7 Impact on Nonlinear Convergence
+
+The absence of iterative solvers has indirect effects on nonlinear convergence:
+
+- **Modified Newton-Raphson** caches a single Cholesky factorization and reuses it. This is effectively using the initial tangent as a "preconditioner" for the Newton system. An actual preconditioned Krylov solver with the initial tangent as preconditioner would be mathematically equivalent but could adapt more smoothly.
+- **Quasi-Newton methods** (BFGS, L-BFGS, Broyden — P3 priority) approximate the tangent update without refactorization. These are currently not implemented and would provide the most direct benefit to nonlinear solve cost.
+- **Contact and SSI problems** involve status-changing stiffness that can cause convergence difficulties. Broyden-type updates are particularly suited to these problems but are not yet available.
+
+## 11. Prioritized Recommendations
 
 ### Immediate (days of work, high safety impact)
 
@@ -315,24 +458,39 @@ Suggested tiers:
 3. Add NaN/Inf check on displacement vector before post-processing
 4. Auto-execute `section_stress.rs` scan after linear solve, include overstress warnings in results
 5. Compute N/Ncr for compression members post-linear-solve, warn if > 0.1
+6. Resolve dead `initial_displacements` field — either wire it into the imperfection solve path or remove it from `ImperfectionInput`
 
 ### Near-term (weeks of work, trust impact)
 
-6. Wire `line_search.rs` into N-R loops (corotational, material_NL, fiber_NL)
-7. Add force-based convergence check to P-Delta
-8. Add divergence detection to all nonlinear solvers
-9. Add shear check to `steel_check.rs` (AISC G2)
-10. Standardize pass/fail boolean across all design check modules
-11. Add self-weight auto-computation for frame elements from section properties and material density
+7. Wire `line_search.rs` into N-R loops (corotational, material_NL, fiber_NL)
+8. Add force-based convergence check to P-Delta
+9. Add divergence detection to all nonlinear solvers
+10. Add shear check to `steel_check.rs` (AISC G2)
+11. Standardize pass/fail boolean across all design check modules
+12. Add self-weight auto-computation for frame elements from section properties and material density
+13. Add `initial_u` parameter to nonlinear solver APIs for warm-start / continuation analysis
+14. Add non-zero initial conditions (u0, v0) to time integration API
+
+### Scalability (P2 roadmap, months of work)
+
+15. General iterative refinement as quality backstop for all direct solves (not just pivot-perturbed)
+16. PCG with diagonal/Jacobi preconditioning for large SPD systems
+17. Preconditioner infrastructure: IC(0), SSOR, trait abstraction
+18. Conditioning-aware solver selection (direct for well-conditioned, iterative + preconditioner for large/ill-conditioned)
+
+### Nonlinear cost reduction (P3 roadmap)
+
+19. Quasi-Newton variants (BFGS, L-BFGS) for nonlinear solvers where full tangent refactorization dominates cost
+20. Broyden updates for contact/SSI status-changing problems
 
 ### Verification depth (ongoing, credibility impact)
 
-12. Add Maxwell/Betti reciprocity test
-13. Add LTB analytical verification
-14. Add inelastic buckling test
-15. Add Cook's membrane as element distortion benchmark
-16. Add circular plate, Levy solution, Mindlin thick plate tests
-17. Add SDOF harmonic resonance, fixed-fixed beam frequencies, impulse response
-18. Add propped cantilever plastic collapse
-19. Add Hetenyi closed-form verification for beam on elastic foundation
-20. Add cylindrical/spherical shell membrane pressure tests
+21. Add Maxwell/Betti reciprocity test
+22. Add LTB analytical verification
+23. Add inelastic buckling test
+24. Add Cook's membrane as element distortion benchmark
+25. Add circular plate, Levy solution, Mindlin thick plate tests
+26. Add SDOF harmonic resonance, fixed-fixed beam frequencies, impulse response
+27. Add propped cantilever plastic collapse
+28. Add Hetenyi closed-form verification for beam on elastic foundation
+29. Add cylindrical/spherical shell membrane pressure tests
