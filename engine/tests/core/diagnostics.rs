@@ -1095,6 +1095,85 @@ fn solver_run_meta_3d_sparse_populated() {
     assert_eq!(meta.n_nodes, 13);
 }
 
+// ==================== Solver Run Artifact Tests ====================
+
+#[test]
+fn solver_run_artifact_2d_roundtrip() {
+    let input = make_input(
+        vec![(1, 0.0, 0.0), (2, 4.0, 0.0)],
+        vec![(1, 200e3, 0.3)],
+        vec![(1, 0.01, 1e-4)],
+        vec![(1, "frame", 1, 2, 1, 1, false, false)],
+        vec![(1, 1, "fixed")],
+        vec![SolverLoad::Nodal(SolverNodalLoad {
+            node_id: 2, fx: 0.0, fy: -10.0, mz: 0.0,
+        })],
+    );
+    let results = solve_2d(&input).unwrap();
+
+    // Build artifact
+    let artifact = SolverRunArtifact::from_2d(&results)
+        .expect("artifact should be Some when solver_run_meta is present");
+
+    // Meta matches
+    assert_eq!(artifact.meta.solver_path, "dense_lu");
+    assert_eq!(artifact.meta.n_nodes, 2);
+    assert_eq!(artifact.meta.n_elements, 1);
+    assert_eq!(artifact.meta.n_free_dofs, 3);
+
+    // Diagnostics present
+    assert!(!artifact.diagnostics.is_empty());
+
+    // Equilibrium present
+    assert!(artifact.equilibrium.is_some());
+    assert!(artifact.equilibrium.as_ref().unwrap().equilibrium_ok);
+
+    // Fingerprint matches result counts
+    assert_eq!(artifact.fingerprint.n_displacements, results.displacements.len());
+    assert_eq!(artifact.fingerprint.n_reactions, results.reactions.len());
+    assert_eq!(artifact.fingerprint.n_element_forces, results.element_forces.len());
+    assert!(artifact.fingerprint.max_abs_displacement > 0.0);
+    assert!(artifact.fingerprint.max_abs_reaction > 0.0);
+
+    // JSON round-trip
+    let json = serde_json::to_string(&artifact).unwrap();
+    let deserialized: SolverRunArtifact = serde_json::from_str(&json).unwrap();
+    assert_eq!(deserialized.meta.solver_path, artifact.meta.solver_path);
+    assert_eq!(deserialized.fingerprint.n_displacements, artifact.fingerprint.n_displacements);
+}
+
+#[test]
+fn solver_run_artifact_3d_sparse() {
+    let input = make_3d_beam(
+        12, 12.0,
+        200e3, 0.3, 0.01, 1e-4, 1e-4, 2e-4,
+        vec![true, true, true, true, true, true],
+        None,
+        vec![SolverLoad3D::Nodal(SolverNodalLoad3D {
+            node_id: 13, fx: 0.0, fy: -10.0, fz: 0.0,
+            mx: 0.0, my: 0.0, mz: 0.0, bw: None,
+        })],
+    );
+    let results = solve_3d(&input).unwrap();
+
+    let artifact = SolverRunArtifact::from_3d(&results)
+        .expect("artifact should be Some for 3D solve");
+
+    assert_eq!(artifact.meta.solver_path, "sparse_cholesky");
+    assert_eq!(artifact.meta.n_free_dofs, 72);
+    assert!(artifact.timings.is_some(), "3D artifact should have timings");
+    assert!(artifact.result_summary.is_some());
+    assert_eq!(artifact.fingerprint.n_displacements, 13);
+    assert_eq!(artifact.fingerprint.n_reactions, 1); // only fixed node has reactions
+    assert!(artifact.fingerprint.max_abs_displacement > 0.0);
+
+    // JSON round-trip
+    let json = serde_json::to_string_pretty(&artifact).unwrap();
+    let rt: SolverRunArtifact = serde_json::from_str(&json).unwrap();
+    assert_eq!(rt.meta.engine_version, artifact.meta.engine_version);
+    assert!((rt.fingerprint.max_abs_displacement - artifact.fingerprint.max_abs_displacement).abs() < 1e-15);
+}
+
 #[test]
 fn result_summary_3d_cantilever() {
     let input = make_3d_input(
