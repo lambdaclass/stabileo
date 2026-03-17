@@ -1052,43 +1052,44 @@
                       {/if}
 
                       <!-- Override control -->
-                      {#snippet overrideControl(elemId: number, vv: ElementVerification)}
-                        {@const curOv = overrides.get(elemId)}
-                        {@const autoBarCount = vv.column ? vv.column.barCount : vv.flexure.barCount}
-                        {@const autoBarDia = vv.column ? (vv.column.barDia ?? vv.flexure.barDia) : vv.flexure.barDia}
+                      {#if true}
+                        {@const curOv = overrides.get(v.elementId)}
+                        {@const autoBarCount = v.column ? v.column.barCount : v.flexure.barCount}
+                        {@const autoBarDia = v.column ? (v.column.barDia ?? v.flexure.barDia) : v.flexure.barDia}
+                        {@const ovBarCount = curOv?.barCount ?? autoBarCount}
+                        {@const ovBarDia = curOv?.barDia ?? autoBarDia}
                         <div class="override-card">
                           <div class="override-header">
                             <span class="override-title">{t('pro.overrideTitle')}</span>
                             {#if curOv}
-                              <button class="override-revert" onclick={() => clearOverride(elemId)}>{t('pro.overrideRevert')}</button>
+                              <button class="override-revert" onclick={() => clearOverride(v.elementId)}>{t('pro.overrideRevert')}</button>
                             {/if}
                           </div>
                           <div class="override-auto">
                             <span class="override-label">{t('pro.overrideAutoDesign')}:</span>
-                            <span class="override-val">{vv.column ? vv.column.bars : vv.flexure.bars} ({(vv.column ? vv.column.AsProv : vv.flexure.AsProv).toFixed(1)} cm²)</span>
+                            <span class="override-val">{v.column ? v.column.bars : v.flexure.bars} ({(v.column ? v.column.AsProv : v.flexure.AsProv).toFixed(1)} cm²)</span>
                           </div>
                           <div class="override-controls">
                             <label class="override-label">{t('pro.overrideBarCount')}</label>
-                            <input type="number" class="override-input" min="2" max="40" value={curOv?.barCount ?? autoBarCount}
-                              onchange={(e: Event) => { const val = parseInt((e.target as HTMLInputElement).value); if (val >= 2) setOverride(elemId, val, curOv?.barDia ?? autoBarDia); }} />
+                            <input type="number" class="override-input" min="2" max="40" value={ovBarCount}
+                              onchange={(e: Event) => { const val = parseInt((e.target as HTMLInputElement).value); if (val >= 2) setOverride(v.elementId, val, ovBarDia); }} />
                             <label class="override-label">Ø</label>
-                            <select class="override-input" value={curOv?.barDia ?? autoBarDia}
-                              onchange={(e: Event) => { const dia = parseInt((e.target as HTMLSelectElement).value); setOverride(elemId, curOv?.barCount ?? autoBarCount, dia); }}>
+                            <select class="override-input" value={ovBarDia}
+                              onchange={(e: Event) => { const dia = parseInt((e.target as HTMLSelectElement).value); setOverride(v.elementId, ovBarCount, dia); }}>
                               {#each REBAR_DB.filter(r => r.diameter >= 10) as rb}
                                 <option value={rb.diameter}>{rb.diameter}</option>
                               {/each}
                             </select>
                           </div>
                           {#if curOv}
-                            {@const ovAs = effectiveAs(vv)}
-                            {@const reqAs = vv.column ? vv.column.AsTotal : vv.flexure.AsReq}
+                            {@const ovAs = effectiveAs(v)}
+                            {@const reqAs = v.column ? v.column.AsTotal : v.flexure.AsReq}
                             <div class="override-result" class:override-under={ovAs < reqAs}>
                               As = {ovAs.toFixed(1)} cm² {ovAs < reqAs ? `< As,req ${reqAs.toFixed(1)}` : `>= As,req ${reqAs.toFixed(1)}`}
                             </div>
                           {/if}
                         </div>
-                      {/snippet}
-                      {@render overrideControl(v.elementId, v)}
+                      {/if}
 
                       <div class="detail-memo">
                         <div class="memo-section">
@@ -1293,9 +1294,9 @@
 
     <!-- ═══ SCHEDULE TAB ═══ -->
     {:else if activeSection === 'schedule'}
-      <div class="pro-section-label" style="display:flex;align-items:center;justify-content:space-between;gap:6px">
+      <div class="pro-section-label schedule-header">
         <span>{t('pro.scheduleTitle')}</span>
-        <span style="display:flex;gap:4px;align-items:center">
+        <span class="schedule-actions">
           {#if overrideCount > 0}
             <button class="pro-export-btn" onclick={clearAllOverrides} title={t('pro.overrideClearAllTooltip')}>
               {t('pro.overrideClearAll')} ({overrideCount})
@@ -1878,6 +1879,19 @@
   }
   .pro-export-btn:hover:not(:disabled) { background: rgba(78, 205, 196, 0.2); }
   .pro-export-btn:disabled { opacity: 0.4; cursor: default; }
+
+  /* ─── Schedule header ─── */
+  .schedule-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 6px;
+  }
+  .schedule-actions {
+    display: flex;
+    gap: 4px;
+    align-items: center;
+  }
 
   /* ─── Override controls ─── */
   .override-card {
