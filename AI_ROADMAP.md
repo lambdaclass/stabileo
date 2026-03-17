@@ -113,6 +113,155 @@ Each level needs:
 - test cases with known-good reference models
 - a clear refusal/fallback when the request exceeds the current level
 
+#### Builder architecture rule
+
+The builder should not be treated as freeform `text -> full model JSON` forever.
+
+The target architecture is:
+
+1. user intent
+2. AI emits a constrained action or draft change
+3. backend validates and translates it
+4. frontend applies it to the model
+5. solver/review flows run on the resulting trusted snapshot
+
+The model should speak a narrow AI-facing contract, not the product's private internal API.
+
+Prefer action-style outputs such as:
+- `create_beam`
+- `create_continuous_beam`
+- `create_portal_frame`
+- `create_basic_truss`
+- `add_column`
+- `add_support`
+- `add_udl`
+- `add_point_load`
+- `change_section`
+- `change_material`
+- `delete_member`
+- `solve_model`
+- `review_model`
+
+The backend remains the source of truth:
+- validates fields and scope
+- rejects unsupported or ambiguous actions when needed
+- maps valid actions into normalized model snapshots or product operations
+
+#### Builder interaction model
+
+The Build tab should behave like a constrained structural editor, not a generic chatbot.
+
+Expected interaction:
+- user sends a build/change request
+- AI returns an explanation plus a structured draft change
+- frontend validates the returned payload
+- user can `Apply`, `Retry`, or `Cancel`
+- on apply:
+  - snapshot current model for undo
+  - apply the validated change
+  - animate the rebuild
+  - auto-frame the camera
+  - auto-solve
+  - optionally offer `Review this model`
+
+Chat state rules:
+- chat persists across drawer tab switches
+- chat does not clear when switching model tabs
+- each applied AI change is one undo step
+- AI-generated model changes should show visible state such as `Draft`, `Applied`, `Rejected`, or `Undone`
+
+#### Level 1 builder scope
+
+Level 1 should stay intentionally narrow:
+- simply supported beams
+- cantilevers
+- continuous beams
+- single-bay single-story portal frames
+- basic trusses
+
+Level 1 should explicitly exclude:
+- 3D models
+- multi-story frames
+- solver-in-the-loop design iteration
+- voice input
+- sketch/image input
+
+#### Level 1 animation policy
+
+Do not start with diff-based animation.
+
+For Level 1, every accepted AI change should use a fast rebuild:
+1. validate returned model or action result
+2. push one undo snapshot
+3. clear canvas
+4. animate rebuild in short phases:
+   - nodes
+   - elements
+   - supports
+   - loads
+5. auto-solve
+6. render results
+
+Target total visual time after AI response:
+- roughly `400-600 ms`
+
+Why this is the right first version:
+- simpler
+- deterministic
+- easier to validate
+- avoids brittle diff logic early
+
+Diff-based incremental animation can come later once the builder itself is reliable.
+
+#### Builder trust and validation
+
+Builder output must be treated as untrusted input.
+
+Validation should happen in both backend and frontend.
+
+Minimum validation:
+- all nodes have required coordinates
+- all elements reference existing node IDs
+- at least one support exists
+- materials and sections are present
+- model fits the currently supported builder scope
+- payload size stays within configured limits
+- unsupported schema versions are rejected once versioning is in place
+
+Failure behavior:
+- keep the previous model unchanged
+- show a precise validation error in chat
+- never partially import a broken model
+
+#### Builder quality additions
+
+The builder becomes much better when these are added early:
+- `Preview before apply`
+- `Change summary`
+  - example: `+2 nodes`, `+1 element`, `+1 support`, `section changed on 3 members`
+- `Scope refusal`
+  - clearly refuse requests beyond current capability level and suggest a narrower prompt
+- `Clarifying questions`
+  - ask when support type, load extent, or framing intent is ambiguous
+- `Selection-aware editing`
+  - use the currently selected entities as context for changes
+- `One-click review after build`
+- `Camera reframing after apply`
+
+#### Builder safety limits
+
+Even if the product UX does not expose obvious user-facing limits, the implementation still needs hard guards:
+- max message length
+- max prompt/context length
+- max conversation turns included in provider context
+- max returned model size
+- max nodes/elements/loads per builder request
+- provider timeout
+- rate limiting
+- request IDs and safe structured logging
+
+These are infrastructure requirements, not optional polish.
+
 ### Build Model — Conversational Builder Architecture
 
 The Build tab is a conversational model builder: the user describes a structure, watches it appear on canvas, and iterates through chat.
