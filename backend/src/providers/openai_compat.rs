@@ -101,10 +101,9 @@ impl OpenAiCompatProvider {
             return Err(ProviderError::Api { status, body });
         }
 
-        let parsed: ChatResponse = resp
-            .json()
-            .await
-            .map_err(|e| ProviderError::Parse(e.to_string()))?;
+        let raw_body = resp.text().await?;
+        let parsed: ChatResponse = serde_json::from_str(&raw_body)
+            .map_err(|e| ProviderError::Parse(format!("{e}; body: {raw_body}")))?;
 
         let choice = parsed
             .choices
@@ -112,24 +111,14 @@ impl OpenAiCompatProvider {
             .next()
             .ok_or_else(|| ProviderError::Parse("no choices in response".into()))?;
 
-        // Extract tool calls if present
-        let tool_calls: Vec<ToolCall> = choice
-            .message
-            .tool_calls
-            .unwrap_or_default()
-            .into_iter()
-            .map(|tc| ToolCall {
-                name: tc.function.name,
-                arguments: tc.function.arguments,
-            })
-            .collect();
+        let tool_calls = extract_tool_calls(choice.message.tool_calls);
 
-        // Kimi Code returns content in reasoning_content, with content often empty
-        let content = if choice.message.content.is_empty() {
-            choice.message.reasoning_content.unwrap_or_default()
-        } else {
-            choice.message.content
-        };
+        // OpenAI-compatible providers vary here:
+        // - content may be null, a string, an array of text parts, or an object
+        // - reasoning_content may also be string or structured JSON
+        let content = extract_text(choice.message.content)
+            .or_else(|| extract_text(choice.message.reasoning_content))
+            .unwrap_or_default();
 
         Ok(AiResponse {
             content,
@@ -190,9 +179,9 @@ struct Choice {
 #[derive(Deserialize)]
 struct ResponseMessage {
     #[serde(default)]
-    content: String,
+    content: Option<Value>,
     #[serde(default)]
-    reasoning_content: Option<String>,
+    reasoning_content: Option<Value>,
     #[serde(default)]
     tool_calls: Option<Vec<ResponseToolCall>>,
 }
@@ -205,11 +194,158 @@ struct ResponseToolCall {
 #[derive(Deserialize)]
 struct ResponseFunction {
     name: String,
-    arguments: String,
+    arguments: Value,
 }
 
 #[derive(Deserialize)]
 struct ChatUsage {
     prompt_tokens: u32,
     completion_tokens: u32,
+}
+
+fn extract_tool_calls(tool_calls: Option<Vec<ResponseToolCall>>) -> Vec<ToolCall> {
+    tool_calls
+        .unwrap_or_default()
+        .into_iter()
+        .map(|tc| ToolCall {
+            name: tc.function.name,
+            arguments: match tc.function.arguments {
+                Value::String(s) => s,
+                other => other.to_string(),
+            },
+        })
+        .collect()
+}
+
+fn extract_text(value: Option<Value>) -> Option<String> {
+    let text = extract_text_from_value(value?)?;
+    let trimmed = text.trim();
+    if trimmed.is_empty() {
+        None
+    } else {
+        Some(trimmed.to_string())
+    }
+}
+
+fn extract_text_from_value(value: Value) -> Option<String> {
+    match value {
+        Value::Null => None,
+        Value::String(s) => Some(s),
+        Value::Array(parts) => {
+            let mut out = Vec::new();
+            for part in parts {
+                if let Some(text) = extract_text_from_value(part) {
+                    if !text.trim().is_empty() {
+                        out.push(text);
+                    }
+                }
+            }
+            if out.is_empty() {
+                None
+            } else {
+                Some(out.join("\n"))
+            }
+        }
+        Value::Object(mut obj) => {
+            if let Some(text) = obj.remove("text").and_then(extract_text_from_value) {
+                return Some(text);
+            }
+            if let Some(text) = obj.remove("content").and_then(extract_text_from_value) {
+                return Some(text);
+            }
+            None
+        }
+        other => Some(other.to_string()),
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn parses_tool_call_when_content_is_null() {
+        let raw = r#"{
+          "model":"gpt-test",
+          "choices":[
+            {
+              "message":{
+                "content":null,
+                "tool_calls":[
+                  {
+                    "function":{
+                      "name":"create_beam",
+                      "arguments":"{\"span\":6,\"q\":-10}"
+                    }
+                  }
+                ]
+              }
+            }
+          ],
+          "usage":{"prompt_tokens":10,"completion_tokens":5}
+        }"#;
+
+        let parsed: ChatResponse = serde_json::from_str(raw).unwrap();
+        let choice = parsed.choices.into_iter().next().unwrap();
+        let tool_calls = extract_tool_calls(choice.message.tool_calls);
+
+        assert_eq!(tool_calls.len(), 1);
+        assert_eq!(tool_calls[0].name, "create_beam");
+        assert!(tool_calls[0].arguments.contains("\"span\":6"));
+    }
+
+    #[test]
+    fn extracts_text_from_array_content_parts() {
+        let raw = r#"{
+          "model":"gpt-test",
+          "choices":[
+            {
+              "message":{
+                "content":[
+                  {"type":"text","text":"I can help with that."},
+                  {"type":"text","text":"Please specify the span."}
+                ]
+              }
+            }
+          ],
+          "usage":{"prompt_tokens":10,"completion_tokens":5}
+        }"#;
+
+        let parsed: ChatResponse = serde_json::from_str(raw).unwrap();
+        let choice = parsed.choices.into_iter().next().unwrap();
+        let text = extract_text(choice.message.content).unwrap();
+
+        assert!(text.contains("I can help with that."));
+        assert!(text.contains("Please specify the span."));
+    }
+
+    #[test]
+    fn serializes_object_arguments_tool_call() {
+        let raw = r#"{
+          "model":"gpt-test",
+          "choices":[
+            {
+              "message":{
+                "content":null,
+                "tool_calls":[
+                  {
+                    "function":{
+                      "name":"create_beam",
+                      "arguments":{"span":6,"q":-10}
+                    }
+                  }
+                ]
+              }
+            }
+          ],
+          "usage":{"prompt_tokens":10,"completion_tokens":5}
+        }"#;
+
+        let parsed: ChatResponse = serde_json::from_str(raw).unwrap();
+        let choice = parsed.choices.into_iter().next().unwrap();
+        let tool_calls = extract_tool_calls(choice.message.tool_calls);
+
+        assert_eq!(tool_calls.len(), 1);
+        assert_eq!(tool_calls[0].arguments, r#"{"q":-10,"span":6}"#);
+    }
 }

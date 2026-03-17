@@ -18,15 +18,15 @@ export function load3DExample(name: string, api: ExampleAPI3D): boolean {
   switch (name) {
     case '3d-portal-frame': {
       api.model.name = t('ex.3d-portal-frame');
-      // 2 porticos en plano XY separados 4m en Z, conectados por vigas transversales
-      // Base nodes (Y=0)
+      // 2 porticos en plano XZ separados 4m en Y, conectados por vigas transversales
+      // Base nodes (Z=0)
       const pf1 = api.addNode(0, 0, 0);
       const pf2 = api.addNode(6, 0, 0);
-      const pf3 = api.addNode(0, 0, 4);
-      const pf4 = api.addNode(6, 0, 4);
-      // Top nodes (Y=4)
-      const pf5 = api.addNode(0, 4, 0);
-      const pf6 = api.addNode(6, 4, 0);
+      const pf3 = api.addNode(0, 4, 0);
+      const pf4 = api.addNode(6, 4, 0);
+      // Top nodes (Z=4)
+      const pf5 = api.addNode(0, 0, 4);
+      const pf6 = api.addNode(6, 0, 4);
       const pf7 = api.addNode(0, 4, 4);
       const pf8 = api.addNode(6, 4, 4);
       // Columns
@@ -37,7 +37,7 @@ export function load3DExample(name: string, api: ExampleAPI3D): boolean {
       // Beams in X direction
       const pfB1 = api.addElement(pf5, pf6, 'frame');
       const pfB2 = api.addElement(pf7, pf8, 'frame');
-      // Transverse beams in Z direction
+      // Transverse beams in Y direction
       api.addElement(pf5, pf7, 'frame');
       api.addElement(pf6, pf8, 'frame');
       // Supports — fixed 3D at base
@@ -56,27 +56,27 @@ export function load3DExample(name: string, api: ExampleAPI3D): boolean {
     case '3d-space-truss': {
       api.model.name = t('ex.3d-space-truss');
       // Reticulado Warren espacial: cordon inferior y superior con diagonales
-      // 4 tramos de 2m en X, ancho 2m en Z, altura 1.5m en Y
+      // 4 tramos de 2m en X, ancho 2m en Y, altura 1.5m en Z
       const span = 2;  // largo de cada tramo
-      const w = 2;     // ancho en Z
-      const h = 1.5;   // altura en Y
+      const w = 2;     // ancho en Y
+      const h = 1.5;   // altura en Z
       const nSpans = 4;
 
-      // Cordon inferior (y=0): nodos en esquinas
+      // Cordon inferior (z=0): nodos en esquinas
       const bot: number[] = [];
       for (let i = 0; i <= nSpans; i++) {
         bot.push(api.addNode(i * span, 0, 0));
-        bot.push(api.addNode(i * span, 0, w));
+        bot.push(api.addNode(i * span, w, 0));
       }
-      // bot[2*i] = lado Z=0, bot[2*i+1] = lado Z=w
+      // bot[2*i] = lado Y=0, bot[2*i+1] = lado Y=w
 
-      // Cordon superior (y=h): nodos desplazados medio tramo en X
+      // Cordon superior (z=h): nodos desplazados medio tramo en X
       const top: number[] = [];
       for (let i = 0; i < nSpans; i++) {
-        top.push(api.addNode((i + 0.5) * span, h, 0));
-        top.push(api.addNode((i + 0.5) * span, h, w));
+        top.push(api.addNode((i + 0.5) * span, 0, h));
+        top.push(api.addNode((i + 0.5) * span, w, h));
       }
-      // top[2*i] = lado Z=0, top[2*i+1] = lado Z=w
+      // top[2*i] = lado Y=0, top[2*i+1] = lado Y=w
 
       // Barras cordon inferior longitudinal
       for (let i = 0; i < nSpans; i++) {
@@ -151,12 +151,12 @@ export function load3DExample(name: string, api: ExampleAPI3D): boolean {
 
     case '3d-grid-slab': {
       api.model.name = t('ex.gridBeams');
-      // Grilla 3x3 de vigas en plano XZ a Y=0
+      // Grilla 3x3 de vigas en plano XY a Z=0
       const gNodes: number[][] = [];
       for (let iz = 0; iz <= 3; iz++) {
         gNodes[iz] = [];
         for (let ix = 0; ix <= 3; ix++) {
-          gNodes[iz][ix] = api.addNode(ix * 2, 0, iz * 2);
+          gNodes[iz][ix] = api.addNode(ix * 2, iz * 2, 0);
         }
       }
       // Beams in X direction
@@ -186,15 +186,15 @@ export function load3DExample(name: string, api: ExampleAPI3D): boolean {
 
     case '3d-tower': {
       api.model.name = t('ex.tower3D_2');
-      // 3 niveles: Y=0, Y=3, Y=6. Base 2m x 2m
+      // 3 niveles: Z=0, Z=3, Z=6. Base 2m x 2m
       const tw: number[][] = []; // [level][corner 0-3]
       for (let lev = 0; lev < 3; lev++) {
         tw[lev] = [];
-        const y = lev * 3;
-        tw[lev][0] = api.addNode(0, y, 0);
-        tw[lev][1] = api.addNode(2, y, 0);
-        tw[lev][2] = api.addNode(2, y, 2);
-        tw[lev][3] = api.addNode(0, y, 2);
+        const z = lev * 3;
+        tw[lev][0] = api.addNode(0, 0, z);
+        tw[lev][1] = api.addNode(2, 0, z);
+        tw[lev][2] = api.addNode(2, 2, z);
+        tw[lev][3] = api.addNode(0, 2, z);
       }
       // Columns (vertical)
       for (let c = 0; c < 4; c++) {
@@ -692,11 +692,11 @@ export function load3DExample(name: string, api: ExampleAPI3D): boolean {
       const ng: number[][][] = [];
       for (let f = 0; f <= nFloors; f++) {
         ng[f] = [];
-        const y = f === 0 ? 0 : groundH + (f - 1) * storyH;
+        const z = f === 0 ? 0 : groundH + (f - 1) * storyH;
         for (let iz = 0; iz <= nBaysZ; iz++) {
           ng[f][iz] = [];
           for (let ix = 0; ix <= nBaysX; ix++) {
-            ng[f][iz][ix] = api.addNode(ix * bayX, y, iz * bayZ);
+            ng[f][iz][ix] = api.addNode(ix * bayX, iz * bayZ, z);
           }
         }
       }

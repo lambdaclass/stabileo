@@ -70,8 +70,8 @@ export function zoomToFit(
   if (!camera || !controls) return;
   const { center, maxDim } = getModelBounds(nodes);
   const dist = maxDim * 1.5;
-  camera.position.set(center.x + dist, center.y + dist * 0.6, center.z + dist);
-  camera.up.set(0, 1, 0); // Reset UP vector (top view sets it to (0,0,-1))
+  camera.position.set(center.x + dist, center.y + dist, center.z + dist * 0.6);
+  camera.up.set(0, 0, 1); // Reset UP vector for Z-up scenes.
   controls.target.copy(center);
   controls.update();
   // Adjust clip planes so large models (bridges, stadiums) aren't clipped
@@ -101,20 +101,20 @@ export function setView(
 
   switch (view) {
     case 'top':
-      camera.position.set(center.x, center.y + dist, center.z);
-      camera.up.set(0, 0, -1);
-      break;
-    case 'front':
       camera.position.set(center.x, center.y, center.z + dist);
       camera.up.set(0, 1, 0);
       break;
+    case 'front':
+      camera.position.set(center.x, center.y - dist, center.z);
+      camera.up.set(0, 0, 1);
+      break;
     case 'side':
       camera.position.set(center.x + dist, center.y, center.z);
-      camera.up.set(0, 1, 0);
+      camera.up.set(0, 0, 1);
       break;
     case 'iso':
-      camera.position.set(center.x + dist * 0.7, center.y + dist * 0.5, center.z + dist * 0.7);
-      camera.up.set(0, 1, 0);
+      camera.position.set(center.x + dist * 0.7, center.y + dist * 0.7, center.z + dist * 0.5);
+      camera.up.set(0, 0, 1);
       break;
   }
   controls.target.copy(center);

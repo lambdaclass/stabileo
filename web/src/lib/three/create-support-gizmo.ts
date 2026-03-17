@@ -18,7 +18,7 @@ export interface CreateSupportOpts {
 
 /**
  * Create a visual gizmo for a support at the given position.
- * The gizmo sits below the node in the -Y direction.
+ * The gizmo sits below the node in the -Z direction.
  */
 export function createSupportGizmo(
   pos: { x: number; y: number; z: number },
@@ -75,24 +75,24 @@ function addFixedGizmo(group: THREE.Group, color: number): void {
   const geo = new THREE.BoxGeometry(0.5, 0.15, 0.5);
   const mat = new THREE.MeshStandardMaterial({ color, roughness: 0.6 });
   const box = new THREE.Mesh(geo, mat);
-  box.position.set(0, -0.075, 0);
+  box.position.set(0, 0, -0.075);
   group.add(box);
 
-  // Hash lines below block (in both X and Z directions for 3D)
+  // Hash lines below block (in both X and Y directions for 3D)
   const linesMat = new THREE.LineBasicMaterial({ color: 0x556677 });
   for (let i = -1; i <= 1; i++) {
     // Hash along X direction
     const ptsX = [
-      new THREE.Vector3(-0.25 + i * 0.15, -0.15, 0),
-      new THREE.Vector3(-0.1 + i * 0.15, -0.3, 0),
+      new THREE.Vector3(-0.25 + i * 0.15, 0, -0.15),
+      new THREE.Vector3(-0.1 + i * 0.15, 0, -0.3),
     ];
     group.add(new THREE.Line(new THREE.BufferGeometry().setFromPoints(ptsX), linesMat));
-    // Hash along Z direction
-    const ptsZ = [
-      new THREE.Vector3(0, -0.15, -0.25 + i * 0.15),
-      new THREE.Vector3(0, -0.3, -0.1 + i * 0.15),
+    // Hash along Y direction
+    const ptsY = [
+      new THREE.Vector3(0, -0.25 + i * 0.15, -0.15),
+      new THREE.Vector3(0, -0.1 + i * 0.15, -0.3),
     ];
-    group.add(new THREE.Line(new THREE.BufferGeometry().setFromPoints(ptsZ), linesMat));
+    group.add(new THREE.Line(new THREE.BufferGeometry().setFromPoints(ptsY), linesMat));
   }
 }
 
@@ -103,14 +103,14 @@ function addPinnedGizmo(group: THREE.Group, color: number): void {
   const geo = new THREE.ConeGeometry(0.18, 0.35, 4);
   const mat = new THREE.MeshStandardMaterial({ color, roughness: 0.5 });
   const cone = new THREE.Mesh(geo, mat);
-  // Rotate 45° around Y so square base edges align with world X and Z axes
-  cone.rotation.y = Math.PI / 4;
-  // Center at -height/2 so vertex (at +0.175 from center) lands at y=0 (node)
-  // and base (at -0.175 from center) lands at y=-0.35
-  cone.position.set(0, -0.175, 0);
+  // Rotate to point along +Z, then align square base edges with world X/Y axes.
+  cone.rotation.x = Math.PI / 2;
+  cone.rotation.z = Math.PI / 4;
+  // Center at -height/2 so vertex lands at z=0 (node) and base at z=-0.35.
+  cone.position.set(0, 0, -0.175);
   group.add(cone);
 
-  // Ground cross (X + Z lines)
+  // Ground cross (X + Y lines)
   addGroundCross(group);
 }
 
@@ -121,21 +121,22 @@ function addRollerGizmo(group: THREE.Group, color: number, vertical: boolean): v
   const coneGeo = new THREE.ConeGeometry(0.16, 0.3, 4);
   const mat = new THREE.MeshStandardMaterial({ color, roughness: 0.5 });
   const cone = new THREE.Mesh(coneGeo, mat);
-  cone.rotation.y = Math.PI / 4;
-  // Center at -0.15 so vertex at y=0 (node), base at y=-0.3
-  cone.position.set(0, -0.15, 0);
+  cone.rotation.x = Math.PI / 2;
+  cone.rotation.z = Math.PI / 4;
+  // Center at -0.15 so vertex at z=0 (node), base at z=-0.3
+  cone.position.set(0, 0, -0.15);
   group.add(cone);
 
   // 4 small spheres (wheels) below the pyramid base
   const sphereGeo = new THREE.SphereGeometry(0.04, 8, 8);
   const sphereMat = new THREE.MeshStandardMaterial({ color, roughness: 0.4 });
-  const baseY = -0.34; // just below pyramid base
+  const baseZ = -0.34; // just below pyramid base
   const spread = 0.1;  // distance from center to each wheel
   const wheelPositions: [number, number, number][] = [
-    [-spread, baseY, -spread],
-    [ spread, baseY, -spread],
-    [-spread, baseY,  spread],
-    [ spread, baseY,  spread],
+    [-spread, -spread, baseZ],
+    [ spread, -spread, baseZ],
+    [-spread,  spread, baseZ],
+    [ spread,  spread, baseZ],
   ];
   for (const [wx, wy, wz] of wheelPositions) {
     const sphere = new THREE.Mesh(sphereGeo, sphereMat);
@@ -147,8 +148,8 @@ function addRollerGizmo(group: THREE.Group, color: number, vertical: boolean): v
   addGroundCross(group, -0.42);
 
   if (vertical) {
-    // Rotate entire gizmo 90° around Z for vertical roller
-    group.rotation.z = -Math.PI / 2;
+    // Rotate entire gizmo 90° around Y for a roller aligned with global Y.
+    group.rotation.y = Math.PI / 2;
   }
 }
 
@@ -161,13 +162,13 @@ function addSpringGizmo(group: THREE.Group, color: number): void {
 
   points.push(new THREE.Vector3(0, 0, 0));
   for (let i = 0; i < coils; i++) {
-    const y0 = -(i / coils) * height - 0.05;
-    const y1 = -((i + 0.5) / coils) * height - 0.05;
+    const z0 = -(i / coils) * height - 0.05;
+    const z1 = -((i + 0.5) / coils) * height - 0.05;
     const sign = i % 2 === 0 ? 1 : -1;
-    points.push(new THREE.Vector3(sign * width, y0, 0));
-    points.push(new THREE.Vector3(-sign * width, y1, 0));
+    points.push(new THREE.Vector3(sign * width, 0, z0));
+    points.push(new THREE.Vector3(-sign * width, 0, z1));
   }
-  points.push(new THREE.Vector3(0, -height - 0.05, 0));
+  points.push(new THREE.Vector3(0, 0, -height - 0.05));
 
   const geo = new THREE.BufferGeometry().setFromPoints(points);
   const mat = new THREE.LineBasicMaterial({ color, linewidth: 2 });
@@ -176,21 +177,21 @@ function addSpringGizmo(group: THREE.Group, color: number): void {
   addGroundLine(group, -height - 0.1);
 }
 
-/** Ground cross (X + Z lines) below support — used by pinned and roller */
-function addGroundCross(group: THREE.Group, y: number = -0.35): void {
+/** Ground cross (X + Y lines) below support — used by pinned and roller */
+function addGroundCross(group: THREE.Group, z: number = -0.35): void {
   const lineMat = new THREE.LineBasicMaterial({ color: 0x556677 });
   // Line along X
   const ptsX = [
-    new THREE.Vector3(-0.25, y, 0),
-    new THREE.Vector3(0.25, y, 0),
+    new THREE.Vector3(-0.25, 0, z),
+    new THREE.Vector3(0.25, 0, z),
   ];
   group.add(new THREE.Line(new THREE.BufferGeometry().setFromPoints(ptsX), lineMat));
-  // Line along Z
-  const ptsZ = [
-    new THREE.Vector3(0, y, -0.25),
-    new THREE.Vector3(0, y, 0.25),
+  // Line along Y
+  const ptsY = [
+    new THREE.Vector3(0, -0.25, z),
+    new THREE.Vector3(0, 0.25, z),
   ];
-  group.add(new THREE.Line(new THREE.BufferGeometry().setFromPoints(ptsZ), lineMat));
+  group.add(new THREE.Line(new THREE.BufferGeometry().setFromPoints(ptsY), lineMat));
 }
 
 /** Custom 3D support: shows per-DOF indicators.
@@ -220,7 +221,7 @@ function addCustom3DGizmo(
     if (axis.x > 0) mesh.rotation.z = -Math.PI / 2;
     else if (axis.z > 0) mesh.rotation.x = Math.PI / 2;
     // Position below node
-    mesh.position.set(0, -0.2, 0);
+    mesh.position.set(0, 0, -0.2);
     group.add(mesh);
   }
 
@@ -239,7 +240,7 @@ function addCustom3DGizmo(
     const quat = new THREE.Quaternion();
     quat.setFromUnitVectors(new THREE.Vector3(0, 0, 1), axis);
     mesh.quaternion.copy(quat);
-    mesh.position.set(0, -0.2, 0);
+    mesh.position.set(0, 0, -0.2);
     group.add(mesh);
   }
 
@@ -248,10 +249,10 @@ function addCustom3DGizmo(
 }
 
 /** Horizontal ground line below support — used by spring */
-function addGroundLine(group: THREE.Group, y: number = -0.35): void {
+function addGroundLine(group: THREE.Group, z: number = -0.35): void {
   const pts = [
-    new THREE.Vector3(-0.25, y, 0),
-    new THREE.Vector3(0.25, y, 0),
+    new THREE.Vector3(-0.25, 0, z),
+    new THREE.Vector3(0.25, 0, z),
   ];
   const geo = new THREE.BufferGeometry().setFromPoints(pts);
   const mat = new THREE.LineBasicMaterial({ color: 0x556677 });

@@ -15,6 +15,7 @@ The live near-term blockers are now:
 - final Step 3 trust work: pre-solve shell distortion / Jacobian gating and suspicious local-axis detection
 - constraint-system maturity and sparse/runtime hardening on real workflows
 - keeping verification/trust signals visible as contracts and CI gates evolve
+- immediate 3D coordinate-system alignment with the `Z-up` product/runtime convention so generators, solver contracts, and viewport interpretation do not drift
 
 ## ASAP Hardening Work
 
@@ -26,6 +27,7 @@ Before broadening the solver into more design-code and advanced-analysis depth, 
 4. `Move wall-clock timing checks out of normal pass/fail tests` — DONE. Timing-sensitive sparse-vs-dense assertions have been moved into ignored perf paths or relaxed where appropriate.
 5. `Close current sparse reduction/runtime gaps` — STILL OPEN. Keep removing avoidable densification where applicable, add broader buckling/runtime/fill gates, and enforce no-`k_full`-overbuild expectations where they truly apply.
 6. `Keep solver trust visible` — ONGOING. Every hardening change above should add proof, not only code: CI gates, contract tests, analytical/reference checks, or reproducible artifacts.
+7. `Lock the 3D coordinate convention explicitly` — NEW. The solver/generator side must match the `Z-up` product/runtime convention now, and any future compatibility work must be treated as a deliberate platform migration rather than ad hoc drift.
 
 See also: `research/solver_safety_and_validation_hardening.md` for the fuller defense-layer architecture around validation, convergence safeguards, post-solve verification, diagnostics, and frontend mutation guards.
 
@@ -67,6 +69,23 @@ If the product roadmap succeeds, the solver becomes the foundation for more soft
 9. `Design-automation-ready result contracts` — code-check UIs, AI suggestions, and section optimization need normalized governing-case outputs, utilization inputs, stable member identifiers, and machine-readable result summaries rather than only raw forces.
 10. `Query-ready result indexing` — natural-language result queries and review tooling need fast access to maxima, minima, governing combinations, element groups, and named scopes without forcing the UI to recompute everything ad hoc.
 11. `Batch and optimization execution` — global section optimization, Pareto runs, and generative layout workflows need repeatable headless execution, deterministic result payloads, and infrastructure for multi-run sweeps.
+
+## 3D Coordinate Convention
+
+This must be explicit across the solver, generators, and product runtime.
+
+Current operational rule:
+- the product/runtime convention is `Z-up`
+- short-term solver/generator work must match that convention
+- no new 3D generator or solver-facing contract should silently reintroduce `Y-up` assumptions into 3D workflows
+
+Migration rule:
+- the frontend/runtime migration to `Z-up` should stay staged and explicit
+- any remaining compatibility work must be treated as planned migration work, not as isolated generator/viewer tweaks
+
+Trust rule:
+- mixed coordinate conventions are a correctness bug, not a style preference
+- this is therefore a near-term trust/alignment task, not optional cleanup
 
 ## The Automation Gap The Solver Must Close
 

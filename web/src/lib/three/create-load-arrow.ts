@@ -300,8 +300,8 @@ export function createSurfaceLoadGroup(
     return a.lerp(b, v);
   }
 
-  // Load direction: positive q = gravity (downward = -Y global)
-  const loadDir = new THREE.Vector3(0, q > 0 ? -1 : 1, 0);
+  // Load direction: positive q = gravity (downward = -Z global)
+  const loadDir = new THREE.Vector3(0, 0, q > 0 ? -1 : 1);
 
   const arrowColor = caseColor ?? COLORS.load;
   const N = 3; // 3×3 grid of arrows

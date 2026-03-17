@@ -608,16 +608,16 @@ export function generateSpaceFrame3D(store: ModelStore, p: SpaceFrame3DParams): 
 
   store.batch(() => {
     // Node grid: nodeGrid[floor][iz][ix]
-    // floor 0 = base (Y=0), floor nFloors = top
+    // floor 0 = base (Z=0), floor nFloors = top
     const nodeGrid: number[][][] = [];
 
     for (let f = 0; f <= p.nFloors; f++) {
       nodeGrid[f] = [];
-      const y = f * p.storyHeight;
+      const z = f * p.storyHeight;
       for (let iz = 0; iz <= p.nBaysY; iz++) {
         nodeGrid[f][iz] = [];
         for (let ix = 0; ix <= p.nBaysX; ix++) {
-          nodeGrid[f][iz][ix] = store.addNode(ix * p.bayWidth, y, iz * p.bayWidth);
+          nodeGrid[f][iz][ix] = store.addNode(ix * p.bayWidth, iz * p.bayWidth, z);
         }
       }
     }
@@ -683,7 +683,7 @@ export function generateSpaceFrame3D(store: ModelStore, p: SpaceFrame3DParams): 
 }
 
 // -------------------------------------------------------------------
-// 2. Grid Beams (Emparrillado) — Beam grid in XZ plane
+// 2. Grid Beams (Emparrillado) — Beam grid in XY plane
 // -------------------------------------------------------------------
 
 export interface GridBeamsParams {
@@ -702,12 +702,12 @@ export function generateGridBeams(store: ModelStore, p: GridBeamsParams): void {
     const dx = p.Lx / p.nDivX;
     const dz = p.Lz / p.nDivZ;
 
-    // Create node grid at Y=0
+    // Create node grid at Z=0
     const nodes: number[][] = []; // nodes[iz][ix]
     for (let iz = 0; iz <= p.nDivZ; iz++) {
       nodes[iz] = [];
       for (let ix = 0; ix <= p.nDivX; ix++) {
-        nodes[iz][ix] = store.addNode(ix * dx, 0, iz * dz);
+        nodes[iz][ix] = store.addNode(ix * dx, iz * dz, 0);
       }
     }
 
@@ -772,14 +772,14 @@ export function generateTower3D(store: ModelStore, p: Tower3DParams): void {
 
     for (let lev = 0; lev <= p.nLevels; lev++) {
       corners[lev] = [];
-      const y = lev * levelH;
+      const z = lev * levelH;
       const t = lev / p.nLevels; // 0 at base, 1 at top
       const w = p.baseWidth + t * (p.topWidth - p.baseWidth);
       const offset = (p.baseWidth - w) / 2; // centre the plan
-      corners[lev][0] = store.addNode(offset, y, offset);
-      corners[lev][1] = store.addNode(offset + w, y, offset);
-      corners[lev][2] = store.addNode(offset + w, y, offset + w);
-      corners[lev][3] = store.addNode(offset, y, offset + w);
+      corners[lev][0] = store.addNode(offset, offset, z);
+      corners[lev][1] = store.addNode(offset + w, offset, z);
+      corners[lev][2] = store.addNode(offset + w, offset + w, z);
+      corners[lev][3] = store.addNode(offset, offset + w, z);
     }
 
     // Columns (vertical): connect each corner between consecutive levels
@@ -847,12 +847,12 @@ export function generate3DHingedArch(store: ModelStore, p: HingedArch3DParams): 
   store.batch(() => {
     const dx = p.span / p.nSegments;
 
-    // Parabolic y(x) = 4*rise*x*(span-x)/span^2
+    // Parabolic z(x) = 4*rise*x*(span-x)/span^2
     const nodeIds: number[] = [];
     for (let i = 0; i <= p.nSegments; i++) {
       const x = i * dx;
-      const y = 4 * p.rise * x * (p.span - x) / (p.span * p.span);
-      nodeIds.push(store.addNode(x, y, 0));
+      const z = 4 * p.rise * x * (p.span - x) / (p.span * p.span);
+      nodeIds.push(store.addNode(x, 0, z));
     }
 
     // Create elements along the arch
@@ -967,13 +967,13 @@ export function generateIrregularSetbackTower3D(store: ModelStore, p: IrregularS
 
     for (let lev = 0; lev <= p.levels; lev++) {
       const inset = insetAt(lev);
-      const y = lev * p.storyH;
+      const z = lev * p.storyH;
       floors[lev] = [];
       for (let iz = inset; iz <= p.baysZ - inset; iz++) {
         const row: number[] = [];
         for (let ix = inset; ix <= p.baysX - inset; ix++) {
           const skew = lev > p.levels * 0.45 ? (lev - p.levels * 0.45) * 0.07 : 0;
-          row.push(store.addNode(ix * p.bayX + skew * (iz / Math.max(1, p.baysZ)), y, iz * p.bayZ));
+          row.push(store.addNode(ix * p.bayX + skew * (iz / Math.max(1, p.baysZ)), iz * p.bayZ, z));
         }
         floors[lev].push(row);
       }
@@ -1214,10 +1214,10 @@ export function generatePipeRack3D(store: ModelStore, p: PipeRack3DParams): void
       frames[bay] = [];
       const x = bay * p.bayLength;
       for (let lev = 0; lev <= p.levels; lev++) {
-        const y = lev * p.levelHeight;
+        const z = lev * p.levelHeight;
         frames[bay][lev] = [
-          store.addNode(x, y, 0),
-          store.addNode(x, y, p.width),
+          store.addNode(x, 0, z),
+          store.addNode(x, p.width, z),
         ];
       }
     }
@@ -1318,7 +1318,7 @@ export function generateRcDesignFrame3D(store: ModelStore, p: RcDesignFrame3DPar
       for (let iz = 0; iz <= p.baysZ; iz++) {
         const row: number[] = [];
         for (let ix = 0; ix <= p.baysX; ix++) {
-          row.push(store.addNode(ix * p.bayX, lev * p.storyH, iz * p.bayZ));
+          row.push(store.addNode(ix * p.bayX, iz * p.bayZ, lev * p.storyH));
         }
         grid[lev].push(row);
       }
@@ -1446,7 +1446,7 @@ export function generateXLDiagridTower3D(store: ModelStore, p: XLDiagridTower3DP
     };
 
     for (let lev = 0; lev <= p.nLevels; lev++) {
-      const y = lev * levelH;
+      const z = lev * levelH;
       const alpha = lev / p.nLevels;
       const rx = radiusAt(p.baseRadiusX, p.topRadiusX, alpha);
       const rz = radiusAt(p.baseRadiusZ, p.topRadiusZ, alpha);
@@ -1454,16 +1454,16 @@ export function generateXLDiagridTower3D(store: ModelStore, p: XLDiagridTower3DP
       perimeter[lev] = [];
       for (let i = 0; i < p.nSides; i++) {
         const theta = (2 * Math.PI * i) / p.nSides;
-        perimeter[lev].push(store.addNode(rx * Math.cos(theta), y, rz * Math.sin(theta)));
+        perimeter[lev].push(store.addNode(rx * Math.cos(theta), rz * Math.sin(theta), z));
       }
 
       const cx = coreWidthX * (1 - 0.18 * alpha);
       const cz = coreWidthZ * (1 - 0.18 * alpha);
       core[lev] = [
-        store.addNode(-cx / 2, y, -cz / 2),
-        store.addNode(cx / 2, y, -cz / 2),
-        store.addNode(cx / 2, y, cz / 2),
-        store.addNode(-cx / 2, y, cz / 2),
+        store.addNode(-cx / 2, -cz / 2, z),
+        store.addNode(cx / 2, -cz / 2, z),
+        store.addNode(cx / 2, cz / 2, z),
+        store.addNode(-cx / 2, cz / 2, z),
       ];
     }
 
@@ -1529,12 +1529,12 @@ export function generateXLDiagridTower3D(store: ModelStore, p: XLDiagridTower3DP
 
     for (let ring = 0; ring < domeScales.length; ring++) {
       const scale = domeScales[ring];
-      const crownY = p.H + levelH * domeHeights[ring];
+      const crownZ = p.H + levelH * domeHeights[ring];
       const nPts = domeSides[ring];
       const ringNodes: number[] = [];
       for (let i = 0; i < nPts; i++) {
         const theta = (2 * Math.PI * i) / nPts;
-        ringNodes.push(store.addNode(topRx * scale * Math.cos(theta), crownY, topRz * scale * Math.sin(theta)));
+        ringNodes.push(store.addNode(topRx * scale * Math.cos(theta), topRz * scale * Math.sin(theta), crownZ));
       }
       for (let i = 0; i < nPts; i++) {
         store.updateElementSection(store.addElement(ringNodes[i], ringNodes[(i + 1) % nPts], 'frame'), diagridSecId);
@@ -1552,8 +1552,8 @@ export function generateXLDiagridTower3D(store: ModelStore, p: XLDiagridTower3DP
     }
 
     // Apex + spire (section 2 = CHS 244×10)
-    const crownCenter = store.addNode(0, p.H + levelH * 1.25, 0);
-    const mastTop = store.addNode(0, p.H + levelH * 2.2, 0);
+    const crownCenter = store.addNode(0, 0, p.H + levelH * 1.25);
+    const mastTop = store.addNode(0, 0, p.H + levelH * 2.2);
     store.updateElementSection(store.addElement(crownCenter, mastTop, 'frame'), diagridSecId);
     const innerRing = crownRings[crownRings.length - 1];
     for (const nid of innerRing) store.updateElementSection(store.addElement(nid, crownCenter, 'frame'), diagridSecId);

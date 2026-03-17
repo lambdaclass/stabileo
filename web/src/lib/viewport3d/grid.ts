@@ -28,13 +28,13 @@ export function updateGrid(
   const divisions = Math.round(gridSize / gridSize3D);
   const grid = new THREE.GridHelper(gridSize, divisions, 0x1a4a7a, 0x0f3460);
 
-  if (workingPlane === 'XZ') {
-    // Default — Y is up, grid on XZ at y = nodeCreateZ
-    grid.position.y = nodeCreateZ;
-  } else if (workingPlane === 'XY') {
-    // Rotate grid to lie on XY plane (normal = Z)
+  if (workingPlane === 'XY') {
+    // Default horizontal plane for Z-up scenes: grid on XY at z = nodeCreateZ.
     grid.rotation.x = Math.PI / 2;
     grid.position.z = nodeCreateZ;
+  } else if (workingPlane === 'XZ') {
+    // Vertical elevation plane (normal = Y).
+    grid.position.y = nodeCreateZ;
   } else if (workingPlane === 'YZ') {
     // Rotate grid to lie on YZ plane (normal = X)
     grid.rotation.z = Math.PI / 2;

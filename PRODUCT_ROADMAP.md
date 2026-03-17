@@ -78,6 +78,13 @@ What engineers do on almost every project and should come first:
 - diagnostics, review cues, and AI explanation of what is wrong and what to fix
 
 Roadmap home:
+
+Immediate product/platform alignment item:
+- fix the current 3D coordinate-system mismatch first
+- make `Z-up` the explicit product/runtime convention so the app aligns with structural-software expectations
+- migrate frontend/runtime pieces in an intentional sequence: viewport/grid/support visuals, generators/examples, and AI context extraction
+- keep backend/solver contracts aligned while the frontend migration lands; do not allow any new `Y-up` assumptions back into 3D flows
+- do not allow more 3D UX/generator work to silently deepen a mixed-convention state
 - Product Step 1 (basic reports, diagnostics, section capacity, design checks)
 - Product Step 2 (full design reports, BBS, connections)
 
@@ -333,6 +340,15 @@ Known example issues:
 
 - **Suspension bridge example needs nonlinear solver**: The linear solver overestimates deflections because it lacks geometric stiffness from cable pretension. Suspension bridges are inherently nonlinear — cable stiffness depends on tension state. Once the corotational/nonlinear 3D solver supports cable pretension, revisit the suspension bridge example with realistic cable areas (A≈0.020 m²) instead of the current oversized A=0.060 m² workaround. Consider adding a catenary element (form-finding) for proper cable analysis.
 
+3D coordinate-system decision:
+
+- Dedaliano is moving to `Z-up` as the canonical 3D product/runtime convention: `x = horizontal`, `y = plan depth`, `z = elevation`.
+- The frontend/runtime migration is the near-term work item because the viewport, support visuals, generators, examples, and AI context packaging must all agree on the same interpretation.
+- Backend generators/importers and any solver-facing contracts must remain aligned with that `Z-up` convention as the migration completes.
+- Important rule: do not mix conventions across backend generators, frontend templates, viewport logic, loads, and result rendering.
+- A repo-wide `Z-up` migration must be treated as a planned platform refactor with compatibility review, not as an incidental bug fix.
+- This should be treated as a near-term platform decision, not a low-priority cleanup item.
+
 Still productizing:
 
 - richer diagnostics UX in the app/API
@@ -344,6 +360,7 @@ Still productizing:
 - broader workflow packaging around the full solver surface
 - deeper collaboration and firm-facing features
 - smoother interoperability and downstream integrations
+- explicit coordinate-system ADR for 3D workflows (`Z-up` canonical, no mixed conventions)
 
 ## Post-Core Software Stack
 

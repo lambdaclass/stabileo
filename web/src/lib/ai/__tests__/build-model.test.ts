@@ -97,6 +97,7 @@ describe('buildModelContext', () => {
     expect(ctx.loadCount).toBe(6);
 
     expect(ctx.bounds).toEqual({ xMin: 0, xMax: 12, yMin: 0, yMax: 9 });
+    expect(ctx.verticalAxis).toBe('y');
     expect(ctx.sections).toEqual([
       { id: 1, name: 'IPE 300' },
       { id: 2, name: 'HEB 300' },
@@ -117,6 +118,7 @@ describe('buildModelContext', () => {
     expect(ctx.nodeCount).toBe(2);
     expect(ctx.elementCount).toBe(1);
     expect(ctx.bounds).toEqual({ xMin: 0, xMax: 6, yMin: 0, yMax: 0 });
+    expect(ctx.verticalAxis).toBe('y');
     expect(ctx.supportTypes).toContain('pinned');
     expect(ctx.supportTypes).toContain('rollerX');
     // y=0 has 2 nodes → floor height detected
@@ -138,8 +140,31 @@ describe('buildModelContext', () => {
     expect(ctx.nodeCount).toBe(0);
     expect(ctx.elementCount).toBe(0);
     expect(ctx.bounds.xMin).toBe(Infinity);
+    expect(ctx.verticalAxis).toBe('y');
     expect(ctx.floorHeights).toEqual([]);
     expect(ctx.bayWidths).toEqual([]);
+  });
+
+  it('uses Z as elevation for 3D model context', () => {
+    const store: ModelStoreView = {
+      nodes: new Map([
+        [1, { id: 1, x: 0, y: 0, z: 0 }],
+        [2, { id: 2, x: 6, y: 0, z: 0 }],
+        [3, { id: 3, x: 0, y: 4, z: 3 }],
+        [4, { id: 4, x: 6, y: 4, z: 3 }],
+      ]),
+      elements: new Map([[1, { id: 1, type: 'frame' }]]),
+      sections: new Map(),
+      materials: new Map(),
+      supports: new Map(),
+      loads: [],
+    };
+
+    const ctx = buildModelContext(store);
+
+    expect(ctx.bounds).toEqual({ xMin: 0, xMax: 6, yMin: 0, yMax: 4 });
+    expect(ctx.verticalAxis).toBe('z');
+    expect(ctx.floorHeights).toEqual([0, 3]);
   });
 });
 

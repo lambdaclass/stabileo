@@ -71,6 +71,7 @@ export interface ModelContext {
   supportCount: number;
   loadCount: number;
   bounds: { xMin: number; xMax: number; yMin: number; yMax: number };
+  verticalAxis: 'y' | 'z';
   sections: Array<{ id: number; name: string }>;
   materials: Array<{ id: number; name: string }>;
   supportTypes: string[];
@@ -92,11 +93,13 @@ export interface ModelStoreView {
 /** Build a compact ModelContext from store data. */
 export function buildModelContext(store: ModelStoreView): ModelContext {
   let xMin = Infinity, xMax = -Infinity, yMin = Infinity, yMax = -Infinity;
+  let hasZ = false;
   for (const n of store.nodes.values()) {
     if (n.x < xMin) xMin = n.x;
     if (n.x > xMax) xMax = n.x;
     if (n.y < yMin) yMin = n.y;
     if (n.y > yMax) yMax = n.y;
+    if (n.z !== undefined) hasZ = true;
   }
 
   const sections: Array<{ id: number; name: string }> = [];
@@ -109,15 +112,17 @@ export function buildModelContext(store: ModelStoreView): ModelContext {
   const elemTypes = new Set<string>();
   for (const e of store.elements.values()) elemTypes.add(e.type);
 
-  const yCounts = new Map<number, number>();
+  const verticalAxis = hasZ ? 'z' : 'y';
+  const levelCounts = new Map<number, number>();
   const xSet = new Set<number>();
   for (const n of store.nodes.values()) {
-    yCounts.set(n.y, (yCounts.get(n.y) ?? 0) + 1);
+    const level = verticalAxis === 'z' ? (n.z ?? 0) : n.y;
+    levelCounts.set(level, (levelCounts.get(level) ?? 0) + 1);
     xSet.add(n.x);
   }
-  const floorHeights = [...yCounts.entries()]
+  const floorHeights = [...levelCounts.entries()]
     .filter(([, count]) => count >= 2)
-    .map(([y]) => y)
+    .map(([level]) => level)
     .sort((a, b) => a - b);
   const xSorted = [...xSet].sort((a, b) => a - b);
   const bayWidths: number[] = [];
@@ -132,6 +137,7 @@ export function buildModelContext(store: ModelStoreView): ModelContext {
     supportCount: store.supports.size,
     loadCount: store.loads.length,
     bounds: { xMin, xMax, yMin, yMax },
+    verticalAxis,
     sections,
     materials,
     supportTypes: [...supTypes],
