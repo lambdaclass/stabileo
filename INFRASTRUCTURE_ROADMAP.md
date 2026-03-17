@@ -27,23 +27,106 @@ See also:
 5. `Product and solver dependencies stay explicit`
    Infrastructure exists to support solver trust and product workflows, not as a separate vanity stack.
 
-## Current Status
+## Where We Are
 
 Already in place:
 - browser-first main app
 - Rust solver through WASM
-- first backend AI service foundation
-- provider-agnostic AI adapter layer
-- authenticated `review-model` endpoint
+- backend AI service (Rust/Axum) with 6 providers (Claude, OpenAI, DeepSeek, Mistral, Kimi, Gemini)
+- provider-agnostic AI adapter layer with env-driven selection (`AI_PROVIDER`)
+- authenticated `review-model` endpoint — verified end-to-end with Kimi and GPT-4o
+- provider timeout guard (configurable via `PROVIDER_TIMEOUT_SECS`, default 90s)
+- 19 contract tests (response parsing, malformed/refusal cases, stub provider integration)
 - reusable solver-run artifact contract at the engine layer
+- containerized local/proxy setup (`Dockerfile`, `docker-compose.yml`, `nginx.conf`)
+- local developer bootstrap helpers (`Makefile`, `flake.nix` — verified working)
 
 Not yet complete:
+- frontend integration for AI capabilities
+- additional AI capabilities beyond review-model
 - persistent artifact capture/export/import flows
 - replay/support workflows
 - production observability and rate limiting
 - native/server solve packaging
 - batch execution and job orchestration
 - multi-environment deployment discipline
+
+The live near-term blockers are now:
+- frontend integration for existing `review-model` capability (post-solve button + results panel)
+- new AI capabilities: `explain-diagnostic`, `build-model`, `interpret-results`
+- product-side solver-run artifact capture, storage, export/import, and replay flows
+- backend observability, rate limiting, and startup validation
+- a documented path from browser-only execution to native/server and batch execution without forking contracts
+
+## ASAP Infrastructure Work
+
+Before broadening the infrastructure into heavier deployment, batch, or team workflows, the following items should land because they shape every later stage:
+
+1. `Capture solver-run artifacts in product flows` — STILL OPEN. The engine-level artifact contract exists; the app still needs solve-time capture, export/import, and replay wiring.
+2. `Make backend failures diagnosable` — PARTIALLY DONE. Error mapping and a health route exist, but request IDs, structured logs, metrics, and clear provider-failure classification still need to be hardened.
+3. `Fail fast on config/provider mistakes` — PARTIALLY DONE. Env-based config exists, but startup validation and clearer invalid-provider / missing-key behavior should be treated as a first-class operational requirement.
+4. `Bound hosted AI risk` — NOT DONE. Rate limiting, timeout ceilings, retry policy, and cost controls should exist before broadening AI usage.
+5. `Keep AI capability contracts clean` — PARTIALLY DONE. `review-model` is live; `explain-diagnostic` and `query-results` should ship as separate endpoints/capabilities, not prompt modes hidden behind one route.
+6. `Keep runtime environments aligned` — NOT DONE. Browser, desktop, native/server, and batch execution still need an explicit parity and routing story.
+
+## Near-Term Task List
+
+These are the next concrete infrastructure tasks in execution order:
+
+1. ~~Add provider timeout and retry policy.~~ DONE (timeout guard, configurable)
+2. ~~Add backend contract tests for capability request/response schemas.~~ DONE (19 tests)
+3. Add `explain-diagnostic` capability — takes a `DiagnosticCode` + context, returns plain-language explanation and fix steps. Smallest new capability.
+4. Add `build-model` capability — takes a natural language description ("viga continua 3 tramos, IPE300, 10 kN/m"), returns model JSON (nodes, elements, materials, supports, loads). Frontend loads it like file import.
+5. Add `interpret-results` capability — takes `ResultSummary` + user question ("is this deflection acceptable for L/300?"), returns assessment with code reference.
+6. Frontend: wire `review-model` into post-solve UI (button + side panel showing findings with affected nodes highlighted).
+7. Frontend: wire `explain-diagnostic` into diagnostic badges/tooltips.
+8. Frontend: wire `build-model` into a chat/command input in the toolbar.
+9. Add request IDs and structured request logging.
+10. Add rate limiting and abuse controls.
+11. Add startup validation for provider/config/API keys.
+12. Capture solver-run artifacts on solve in the product.
+13. Add artifact export/import and local persistence.
+14. Add replay/support flow on top of captured artifacts.
+15. Add `section-optimizer` capability — iterates steel profiles to find lightest section meeting deflection/stress constraints (needs solver-in-the-loop).
+16. Add `suggest-loads` capability — suggests load combinations from code (CIRSOC) given building type and location.
+17. Add `generate-report` capability — takes solver output, produces structured engineering report.
+18. Define storage boundaries for local vs hosted artifacts.
+19. Define explicit API/artifact versioning and compatibility policy.
+20. Establish a named native/server solve path.
+21. Add browser/native parity smoke coverage.
+22. Define the worker/job model for long-running tasks.
+23. Add batch execution with progress/cancellation semantics.
+24. Add deployment promotion/rollback discipline across preview, staging, and production.
+
+## Current Infra Surface
+
+This is the concrete infrastructure surface that exists today and should be treated as the baseline:
+
+- `backend/` service workspace with shared engine contracts
+- environment-driven provider selection for AI capabilities
+- authenticated API boundary
+- health endpoint and basic request handling
+- container/proxy files for local and deployment-shaped execution
+- first engine-level replayable artifact contract
+
+This baseline should stay simple and stable while the roadmap expands around it.
+
+## Decision Log Rule
+
+Important infrastructure choices should not live only in chat history or commits.
+
+Create and maintain short ADR-style notes for decisions such as:
+- job queue technology
+- local vs hosted storage boundary
+- solver-run artifact format
+- auth/token model
+- provider routing policy
+- native/server runtime packaging
+
+Rule:
+- record the decision
+- record the rejected alternatives
+- record the migration cost if the decision changes later
 
 ## Cross-Cutting Requirements
 
@@ -71,6 +154,7 @@ These are not one-stage features. They need to shape every infrastructure stage 
 - version solver-run artifacts explicitly
 - define compatibility policy between frontend, backend, and engine contract versions
 - treat breaking contract changes as intentional migrations, not casual refactors
+- define rollback expectations when a new contract version is deployed and then reverted
 
 ### Security Baseline
 
@@ -102,6 +186,57 @@ These are not one-stage features. They need to shape every infrastructure stage 
 - define acceptable provider failure behavior
 - define replay success expectations for solver-run artifacts
 - define basic availability targets before firms depend on hosted workflows
+
+## Ownership and Operations
+
+Infrastructure work should have explicit ownership, even in a small team.
+
+At minimum, define who owns:
+- deploys and rollback execution
+- provider outage response
+- artifact retention policy
+- contract/schema migrations
+- support replay flows
+- production secret rotation
+
+If ownership is shared, write down the handoff rules instead of assuming them.
+
+## Production Readiness Checklist
+
+Before calling a hosted infrastructure surface production-ready, it should have:
+
+- health checks
+- request IDs
+- structured logs
+- timeout and retry policy
+- rate limiting
+- startup config validation
+- secret-management story
+- replay/artifact round-trip verification
+- rollback tested at least once
+- basic backup/restore story for persisted hosted state
+
+## Environment Matrix
+
+Infrastructure should be designed explicitly for these environments:
+
+- `local dev`
+  Fast iteration, mocked providers where useful, low ceremony.
+
+- `preview / PR`
+  Smoke-test deployments for API, auth, and capability contract checks.
+
+- `staging`
+  Production-shaped config and routing with safe data boundaries.
+
+- `production`
+  Strict secrets, logging, alerting, retention, and rollback discipline.
+
+- `desktop / local-only`
+  Same contracts, different persistence/runtime assumptions.
+
+- `private / on-prem` later
+  Provider substitution, local persistence, and enterprise controls without forking contracts.
 
 ## What Infrastructure Must Not Do Yet
 
@@ -224,20 +359,29 @@ Goal: enable workloads that are too large or too numerous for interactive-only e
 
 ### Stage 7 — AI Capability Platform
 
-Goal: turn one-off AI endpoints into a real capability layer.
+Goal: turn one-off AI endpoints into a real capability layer with frontend integration.
 
 **What:**
-- separate capability endpoints:
-  - `review-model`
-  - `explain-diagnostic`
-  - `query-results`
-- provider-agnostic routing
+- separate capability endpoints, each with its own contract:
+  - `review-model` — DONE. Consumes `SolverRunArtifact`, returns structured findings.
+  - `explain-diagnostic` — takes `DiagnosticCode` + context, returns plain-language explanation and fix steps.
+  - `build-model` — takes natural language description, returns model JSON (nodes, elements, materials, supports, loads).
+  - `interpret-results` — takes `ResultSummary` + user question, returns assessment with code reference.
+  - `section-optimizer` — iterates steel profiles to find lightest section meeting constraints (solver-in-the-loop, later).
+  - `suggest-loads` — suggests load combinations from code (CIRSOC) given building type and location (later).
+  - `generate-report` — takes solver output, produces structured engineering report (later).
+- frontend integration for each capability:
+  - post-solve "Revisar modelo" button + findings panel with node/element highlighting
+  - diagnostic badge click → AI explanation tooltip/panel
+  - toolbar chat/command input → natural language model builder
+- provider-agnostic routing (6 providers already in place)
 - per-capability model selection
-- test/provider stubs
+- test/provider stubs (stub provider already working)
 - capability-level evals and traces
 
 **Done when:**
 - capabilities are distinct contracts, not prompt modes hidden behind one endpoint
+- frontend surfaces AI results inline (not a separate page)
 - provider swaps do not change product-layer APIs
 - eval/tracing exists per capability
 
@@ -280,10 +424,12 @@ Goal: stop infrastructure quality from depending on luck and local setup.
 
 The next infrastructure sequence should be:
 
-1. finish `Stage 2` product-side flows for solver-run artifacts
-2. harden `Stage 3` observability/rate-limit/timeout/config validation
-3. keep `Stage 1` AI capability contracts clean while adding `explain-diagnostic`
-4. only then broaden into desktop persistence and native/server solve packaging
+1. add `explain-diagnostic` and `build-model` backend capabilities (same pattern as `review-model`)
+2. frontend integration: post-solve review button, diagnostic explanations, model builder input
+3. finish `Stage 2` product-side flows for solver-run artifacts
+4. harden `Stage 3` observability/rate-limit/config validation
+5. add `interpret-results` capability
+6. only then broaden into desktop persistence and native/server solve packaging
 
 ## What This Unblocks
 
