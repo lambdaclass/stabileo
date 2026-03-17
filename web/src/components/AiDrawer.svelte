@@ -166,11 +166,18 @@
       // Remove building indicator
       chatMessages = chatMessages.filter(m => !m.isBuilding);
 
-      // Scope refusal — show message, no draft
-      if (resp.scopeRefusal || !resp.snapshot) {
+      // Check if snapshot has actual structural content
+      const snap = resp.snapshot;
+      const hasStructure = snap
+        && typeof snap === 'object'
+        && Array.isArray(snap.nodes) && (snap.nodes as unknown[]).length > 0
+        && Array.isArray(snap.elements) && (snap.elements as unknown[]).length > 0;
+
+      // Scope refusal or empty/missing snapshot — show message, no draft
+      if (resp.scopeRefusal || !hasStructure) {
         chatMessages.push({
           role: 'ai',
-          text: resp.message,
+          text: resp.message || 'I can build: beams, cantilevers, continuous beams, portal frames, trusses, and 3D frames. Describe a structure to get started.',
           meta: {
             modelUsed: resp.meta.modelUsed,
             latencyMs: resp.meta.latencyMs,
@@ -182,8 +189,12 @@
       }
 
       // Validate the snapshot
-      const validation = validateSnapshot(resp.snapshot);
+      const validation = validateSnapshot(snap);
       if (!validation.valid) {
+        chatMessages.push({
+          role: 'ai',
+          text: resp.message || 'The generated model has issues.',
+        });
         chatMessages.push({
           role: 'system',
           text: `Validation failed:\n${validation.errors.join('\n')}`,
@@ -208,8 +219,12 @@
       scrollChatToBottom();
     } catch (e: any) {
       chatMessages = chatMessages.filter(m => !m.isBuilding);
-      buildError = e.message || 'Failed to build model';
-      chatMessages.push({ role: 'system', text: `Error: ${buildError}` });
+      const msg = e.message || 'Failed to build model';
+      // Friendly message for scope/parse errors from old backend
+      const friendly = msg.includes('Could not generate')
+        ? 'I can build: beams, cantilevers, continuous beams, portal frames, trusses, and 3D frames. Try describing a structure, e.g. "simply supported beam, 6m, 10 kN/m".'
+        : msg;
+      chatMessages.push({ role: 'ai', text: friendly });
       scrollChatToBottom();
     } finally {
       buildLoading = false;
