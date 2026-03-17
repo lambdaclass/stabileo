@@ -16,12 +16,12 @@
 {#if uiStore.analysisMode === '3d'}
   <span class="ft-sep">|</span>
   <span style="font-size:0.65rem;color:#888;">{t('float.nodePlane')}</span>
-  <button class="ft-opt-btn" class:active={uiStore.workingPlane==='XZ'} onclick={() => uiStore.workingPlane='XZ'} title={t('float.nodePlaneXZ')}>XZ</button>
   <button class="ft-opt-btn" class:active={uiStore.workingPlane==='XY'} onclick={() => uiStore.workingPlane='XY'} title={t('float.nodePlaneXY')}>XY</button>
+  <button class="ft-opt-btn" class:active={uiStore.workingPlane==='XZ'} onclick={() => uiStore.workingPlane='XZ'} title={t('float.nodePlaneXZ')}>XZ</button>
   <button class="ft-opt-btn" class:active={uiStore.workingPlane==='YZ'} onclick={() => uiStore.workingPlane='YZ'} title={t('float.nodePlaneYZ')}>YZ</button>
   <span class="ft-sep">|</span>
   <label class="ft-input-group" title={t('float.nodeLevelTooltip')}>
-    <span>{t('float.nodeLevel').replace('{axis}', uiStore.workingPlane === 'XZ' ? 'Y' : uiStore.workingPlane === 'XY' ? 'Z' : 'X')}</span>
+    <span>{t('float.nodeLevel').replace('{axis}', uiStore.workingPlane === 'XY' ? 'Z' : uiStore.workingPlane === 'XZ' ? 'Y' : 'X')}</span>
     <input type="number" bind:value={uiStore.nodeCreateZ} step="0.5" />
     <span class="ft-unit">m</span>
   </label>

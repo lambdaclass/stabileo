@@ -126,11 +126,11 @@ function createUIStore() {
 
   // 3D clipping plane
   let clippingEnabled = $state<boolean>(false);
-  let clippingAxis = $state<'x' | 'y' | 'z'>('y');
+  let clippingAxis = $state<'x' | 'y' | 'z'>('z');
   let clippingPosition = $state<number>(0);
 
   // 3D working plane and snap
-  let workingPlane = $state<'XZ' | 'XY' | 'YZ'>('XZ');
+  let workingPlane = $state<'XZ' | 'XY' | 'YZ'>('XY');
 
   // Duplicate along axis
   let duplicateAxis = $state<'x' | 'y' | 'z'>('z');
@@ -276,7 +276,7 @@ function createUIStore() {
   let axisConvention3D = $state<'rightHand' | 'leftHand'>('rightHand');
 
   // 3D camera state (synced from Viewport3D via saveCameraState, restored on tab switch)
-  let cameraPosition3D = $state<{ x: number; y: number; z: number }>({ x: 10, y: 6, z: 10 });
+  let cameraPosition3D = $state<{ x: number; y: number; z: number }>({ x: 10, y: 8, z: 10 });
   let cameraTarget3D = $state<{ x: number; y: number; z: number }>({ x: 0, y: 0, z: 0 });
 
   // Pending auto-solve from URL sharing (stores the diagramType to restore after solve)

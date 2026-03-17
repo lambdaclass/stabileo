@@ -9,6 +9,7 @@
 import * as THREE from 'three';
 import type { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { setLineResolution } from '../three/create-element-mesh';
+import { setCameraUp } from './coordinate-system';
 
 // ─── Types ──────────────────────────────────────────────────
 
@@ -71,7 +72,7 @@ export function zoomToFit(
   const { center, maxDim } = getModelBounds(nodes);
   const dist = maxDim * 1.5;
   camera.position.set(center.x + dist, center.y + dist, center.z + dist * 0.6);
-  camera.up.set(0, 0, 1); // Reset UP vector for Z-up scenes.
+  setCameraUp(camera);
   controls.target.copy(center);
   controls.update();
   // Adjust clip planes so large models (bridges, stadiums) aren't clipped
@@ -106,15 +107,15 @@ export function setView(
       break;
     case 'front':
       camera.position.set(center.x, center.y - dist, center.z);
-      camera.up.set(0, 0, 1);
+      setCameraUp(camera);
       break;
     case 'side':
       camera.position.set(center.x + dist, center.y, center.z);
-      camera.up.set(0, 0, 1);
+      setCameraUp(camera);
       break;
     case 'iso':
       camera.position.set(center.x + dist * 0.7, center.y + dist * 0.7, center.z + dist * 0.5);
-      camera.up.set(0, 0, 1);
+      setCameraUp(camera);
       break;
   }
   controls.target.copy(center);
