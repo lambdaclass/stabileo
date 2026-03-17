@@ -5,22 +5,28 @@ use std::time::Instant;
 use crate::error::ProviderError;
 use super::traits::{AiRequest, AiResponse};
 
-/// Shared adapter for OpenAI-compatible APIs (OpenAI, DeepSeek, Mistral, Kimi/Moonshot).
+/// Shared adapter for OpenAI-compatible APIs (OpenAI, DeepSeek, Mistral, Kimi).
 pub struct OpenAiCompatProvider {
     client: Client,
     base_url: String,
     api_key: String,
     model: String,
+    extra_headers: Vec<(&'static str, String)>,
 }
 
 impl OpenAiCompatProvider {
-    pub fn new(base_url: String, api_key: String, model: String) -> Self {
+    fn build(base_url: String, api_key: String, model: String, extra_headers: Vec<(&'static str, String)>) -> Self {
         Self {
             client: Client::new(),
             base_url,
             api_key,
             model,
+            extra_headers,
         }
+    }
+
+    pub fn new(base_url: String, api_key: String, model: String) -> Self {
+        Self::build(base_url, api_key, model, vec![])
     }
 
     pub fn openai(api_key: String, model: String) -> Self {
@@ -36,7 +42,12 @@ impl OpenAiCompatProvider {
     }
 
     pub fn kimi(api_key: String, model: String) -> Self {
-        Self::new("https://api.moonshot.cn/v1".into(), api_key, model)
+        Self::build(
+            "https://api.kimi.com/coding/v1".into(),
+            api_key,
+            model,
+            vec![("User-Agent", "claude-code/1.0".into())],
+        )
     }
 
     pub async fn complete(&self, req: AiRequest) -> Result<AiResponse, ProviderError> {
@@ -58,13 +69,16 @@ impl OpenAiCompatProvider {
             ],
         };
 
-        let resp = self
+        let mut request = self
             .client
             .post(format!("{}/chat/completions", self.base_url))
-            .header("Authorization", format!("Bearer {}", self.api_key))
-            .json(&body)
-            .send()
-            .await?;
+            .header("Authorization", format!("Bearer {}", self.api_key));
+
+        for (key, value) in &self.extra_headers {
+            request = request.header(*key, value);
+        }
+
+        let resp = request.json(&body).send().await?;
 
         let status = resp.status().as_u16();
         if status != 200 {
@@ -83,8 +97,15 @@ impl OpenAiCompatProvider {
             .next()
             .ok_or_else(|| ProviderError::Parse("no choices in response".into()))?;
 
+        // Kimi Code returns content in reasoning_content, with content often empty
+        let content = if choice.message.content.is_empty() {
+            choice.message.reasoning_content.unwrap_or_default()
+        } else {
+            choice.message.content
+        };
+
         Ok(AiResponse {
-            content: choice.message.content,
+            content,
             model: parsed.model,
             input_tokens: parsed.usage.prompt_tokens,
             output_tokens: parsed.usage.completion_tokens,
@@ -121,7 +142,10 @@ struct Choice {
 
 #[derive(Deserialize)]
 struct ResponseMessage {
+    #[serde(default)]
     content: String,
+    #[serde(default)]
+    reasoning_content: Option<String>,
 }
 
 #[derive(Deserialize)]

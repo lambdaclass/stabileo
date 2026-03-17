@@ -85,7 +85,7 @@ fn build_provider(name: &str) -> Provider {
         "kimi" => {
             let api_key = env_key("KIMI_API_KEY");
             let model = std::env::var("AI_MODEL")
-                .unwrap_or_else(|_| "moonshot-v1-128k".into());
+                .unwrap_or_else(|_| "kimi-k2-0711-preview".into());
             Provider::Kimi(OpenAiCompatProvider::kimi(api_key, model))
         }
         "gemini" => {
