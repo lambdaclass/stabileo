@@ -229,18 +229,7 @@
       preset: 'xl',
       load: () => modelStore.loadExample('xl-diagrid-tower'),
     },
-    {
-      group: 'xl',
-      groupKey: 'pro.examples.groupXL',
-      nameKey: 'ex.sagradaFamilia3D',
-      descKey: 'ex.sagradaFamilia3D.desc',
-      purposeKey: 'ex.sagradaFamilia3D.purpose',
-      tags: ['pro.tagHeritage', 'pro.tagScale'],
-      stats: { nodes: '5184', members: '12755' },
-      preset: 'xl',
-      featured: true,
-      load: () => modelStore.loadExample('pro-sagrada-familia'),
-    },
+    // Sagrada Familia removed upstream — fixture no longer available
   ];
   const proExampleGroups = $derived.by(() => {
     const order: ExampleGroup[] = ['buildings', 'industrial', 'foundations', 'longspan', 'xl'];
