@@ -348,6 +348,47 @@ fn diagnostics_parity_3d_sparse() {
 }
 
 #[test]
+fn sparse_fill_ratio_diagnostic_emitted() {
+    // 12-element cantilever → 72 free DOFs > 64 → sparse path
+    let input = make_3d_beam(
+        12, 12.0,
+        200e3, 0.3, 0.01, 1e-4, 1e-4, 2e-4,
+        vec![true, true, true, true, true, true],
+        None,
+        vec![SolverLoad3D::Nodal(SolverNodalLoad3D {
+            node_id: 13, fx: 0.0, fy: -10.0, fz: 0.0,
+            mx: 0.0, my: 0.0, mz: 0.0, bw: None,
+        })],
+    );
+    let results = solve_3d(&input).unwrap();
+
+    // SparseFillRatio diagnostic should exist
+    let fill_diag = results.structured_diagnostics.iter()
+        .find(|d| d.code == DiagnosticCode::SparseFillRatio);
+    assert!(fill_diag.is_some(),
+        "sparse path should emit SparseFillRatio diagnostic, got codes: {:?}",
+        results.structured_diagnostics.iter().map(|d| &d.code).collect::<Vec<_>>());
+
+    let fd = fill_diag.unwrap();
+
+    // value and threshold must be populated
+    assert!(fd.value.is_some(), "SparseFillRatio should have value");
+    assert!(fd.threshold.is_some(), "SparseFillRatio should have threshold");
+    assert!((fd.threshold.unwrap() - 20.0).abs() < 1e-10, "threshold should be 20.0");
+
+    // For a well-conditioned beam, fill ratio should be modest and severity Info
+    assert_eq!(fd.severity, Severity::Info,
+        "well-conditioned model should have Info severity, fill ratio = {:.1}",
+        fd.value.unwrap());
+    assert!(fd.value.unwrap() > 0.0, "fill ratio must be positive");
+    assert!(fd.value.unwrap() < 20.0,
+        "well-conditioned beam fill ratio should be < 20, got {:.1}", fd.value.unwrap());
+
+    // Phase should be factorization
+    assert_eq!(fd.phase.as_deref(), Some("factorization"));
+}
+
+#[test]
 fn diagnostics_residual_values_consistent() {
     // Verify that residual in the diagnostic matches residual in the equilibrium summary
     let input = make_3d_beam(
@@ -969,6 +1010,89 @@ fn result_summary_2d_cantilever() {
 
     // Sanity: dx extremes make sense (node 1 is fixed → ux=0, node 2 may have some ux)
     assert!(dx.min_value <= dx.max_value, "min <= max");
+}
+
+// ==================== Solver Run Metadata Tests ====================
+
+#[test]
+fn solver_run_meta_2d_populated() {
+    // Small 2D cantilever: 1 element, 2 nodes, fixed at node 1, load at node 2.
+    // nf = 3 (< 64) → dense path.
+    let input = make_input(
+        vec![(1, 0.0, 0.0), (2, 4.0, 0.0)],
+        vec![(1, 200e3, 0.3)],
+        vec![(1, 0.01, 1e-4)],
+        vec![(1, "frame", 1, 2, 1, 1, false, false)],
+        vec![(1, 1, "fixed")],
+        vec![SolverLoad::Nodal(SolverNodalLoad {
+            node_id: 2, fx: 0.0, fy: -10.0, mz: 0.0,
+        })],
+    );
+    let results = solve_2d(&input).unwrap();
+
+    let meta = results.solver_run_meta.as_ref()
+        .expect("solver_run_meta should be Some for linear 2D solve");
+
+    assert!(!meta.engine_version.is_empty(), "engine_version should be non-empty");
+    assert_eq!(meta.solver_path, "dense_lu", "small 2D model should use dense_lu");
+    assert_eq!(meta.n_free_dofs, 3, "2 nodes * 3 DOFs - 3 fixed = 3 free");
+    assert_eq!(meta.n_elements, 1);
+    assert_eq!(meta.n_nodes, 2);
+    // build_sha and build_timestamp have fallback values in dev
+    assert!(!meta.build_sha.is_empty());
+    assert!(!meta.build_timestamp.is_empty());
+}
+
+#[test]
+fn solver_run_meta_3d_dense_populated() {
+    // Small 3D cantilever: 1 element, 2 nodes → 6 free DOFs → dense path.
+    let input = make_3d_input(
+        vec![(1, 0.0, 0.0, 0.0), (2, 4.0, 0.0, 0.0)],
+        vec![(1, 200e3, 0.3)],
+        vec![(1, 0.01, 1e-4, 1e-4, 2e-4)],
+        vec![(1, "frame", 1, 2, 1, 1)],
+        vec![(1, vec![true, true, true, true, true, true])],
+        vec![SolverLoad3D::Nodal(SolverNodalLoad3D {
+            node_id: 2, fx: 0.0, fy: -10.0, fz: 0.0,
+            mx: 0.0, my: 0.0, mz: 0.0, bw: None,
+        })],
+    );
+    let results = solve_3d(&input).unwrap();
+
+    let meta = results.solver_run_meta.as_ref()
+        .expect("solver_run_meta should be Some for linear 3D solve");
+
+    assert!(!meta.engine_version.is_empty(), "engine_version should be non-empty");
+    assert_eq!(meta.solver_path, "dense_lu", "small 3D model should use dense_lu");
+    assert_eq!(meta.n_free_dofs, 6, "2 nodes * 6 DOFs - 6 fixed = 6 free");
+    assert_eq!(meta.n_elements, 1);
+    assert_eq!(meta.n_nodes, 2);
+}
+
+#[test]
+fn solver_run_meta_3d_sparse_populated() {
+    // 12-element cantilever → 72 free DOFs → sparse path.
+    let input = make_3d_beam(
+        12, 12.0,
+        200e3, 0.3, 0.01, 1e-4, 1e-4, 2e-4,
+        vec![true, true, true, true, true, true],
+        None,
+        vec![SolverLoad3D::Nodal(SolverNodalLoad3D {
+            node_id: 13, fx: 0.0, fy: -10.0, fz: 0.0,
+            mx: 0.0, my: 0.0, mz: 0.0, bw: None,
+        })],
+    );
+    let results = solve_3d(&input).unwrap();
+
+    let meta = results.solver_run_meta.as_ref()
+        .expect("solver_run_meta should be Some for linear 3D sparse solve");
+
+    assert!(!meta.engine_version.is_empty(), "engine_version should be non-empty");
+    assert_eq!(meta.solver_path, "sparse_cholesky",
+        "large well-conditioned model should use sparse_cholesky");
+    assert_eq!(meta.n_free_dofs, 72, "13 nodes * 6 DOFs - 6 fixed = 72 free");
+    assert_eq!(meta.n_elements, 12);
+    assert_eq!(meta.n_nodes, 13);
 }
 
 #[test]

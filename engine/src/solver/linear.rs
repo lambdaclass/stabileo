@@ -225,6 +225,7 @@ pub fn solve_2d(input: &SolverInput) -> Result<AnalysisResults, String> {
         ).with_value(rel_residual, 1e-6).with_phase("solve")
     });
 
+    let solver_path_2d = if used_sparse { "sparse_cholesky" } else { "dense_lu" };
     let mut results = AnalysisResults {
         displacements,
         reactions,
@@ -235,6 +236,12 @@ pub fn solve_2d(input: &SolverInput) -> Result<AnalysisResults, String> {
         structured_diagnostics: structured,
         equilibrium: Some(equilibrium),
         result_summary: None,
+        solver_run_meta: Some(SolverRunMeta::new(
+            solver_path_2d,
+            nf,
+            input.elements.len(),
+            input.nodes.len(),
+        )),
     };
     results.result_summary = Some(crate::postprocess::result_summary::compute_result_summary_2d(&results));
     Ok(results)
@@ -254,6 +261,13 @@ pub fn solve_3d(input: &SolverInput3D) -> Result<AnalysisResults3D, String> {
     // Expand curved beams into frame elements before solving
     let input = expand_curved_beams_3d(input);
     let input = &input;
+    let n_nodes = input.nodes.len();
+    let n_elements = input.elements.len()
+        + input.plates.len()
+        + input.quads.len()
+        + input.quad9s.len()
+        + input.solid_shells.len()
+        + input.curved_shells.len();
     let dof_num = DofNumbering::build_3d(input);
     let pre_solve_diags = super::pre_solve_gates::run_pre_solve_gates_3d(input);
 
@@ -491,6 +505,9 @@ pub fn solve_3d(input: &SolverInput3D) -> Result<AnalysisResults3D, String> {
                         quad_nodal_stresses: compute_quad_nodal_stresses(input, &dof_num, &u_full),
                         constraint_forces: vec![], diagnostics: asm.diagnostics,
                         solver_diagnostics: solver_diags, structured_diagnostics: structured, equilibrium: Some(equilibrium), timings: Some(timings), result_summary: None,
+                        solver_run_meta: Some(SolverRunMeta::new(
+                            "sparse_fallback_dense_lu", nf, n_elements, n_nodes,
+                        )),
                     };
                     results.result_summary = Some(crate::postprocess::result_summary::compute_result_summary_3d(&results));
                     return Ok(results);
@@ -650,6 +667,14 @@ pub fn solve_3d(input: &SolverInput3D) -> Result<AnalysisResults3D, String> {
             ).with_phase("solve"));
         }
 
+        // Sparse fill ratio diagnostic
+        let fill_ratio = nnz_l as f64 / nnz_kff.max(1) as f64;
+        structured.push(StructuredDiagnostic::global(
+            DiagnosticCode::SparseFillRatio,
+            if fill_ratio > 20.0 { Severity::Warning } else { Severity::Info },
+            format!("Sparse fill ratio: {:.1}x (nnz(K_ff)={}, nnz(L)={})", fill_ratio, nnz_kff, nnz_l),
+        ).with_value(fill_ratio, 20.0).with_phase("factorization"));
+
         // Conditioning diagnostics
         if cond > 1e12 {
             structured.push(StructuredDiagnostic::global(
@@ -707,6 +732,10 @@ pub fn solve_3d(input: &SolverInput3D) -> Result<AnalysisResults3D, String> {
             equilibrium: Some(equilibrium),
             timings: Some(timings),
             result_summary: None,
+            solver_run_meta: Some(SolverRunMeta::new(
+                if used_residual_fallback { "sparse_fallback_dense_lu" } else { "sparse_cholesky" },
+                nf, n_elements, n_nodes,
+            )),
         };
         results.result_summary = Some(crate::postprocess::result_summary::compute_result_summary_3d(&results));
         Ok(results)
@@ -867,6 +896,9 @@ pub fn solve_3d(input: &SolverInput3D) -> Result<AnalysisResults3D, String> {
             equilibrium: Some(equilibrium),
             timings: None,
             result_summary: None,
+            solver_run_meta: Some(SolverRunMeta::new(
+                "dense_lu", nf, n_elements, n_nodes,
+            )),
         };
         results.result_summary = Some(crate::postprocess::result_summary::compute_result_summary_3d(&results));
         Ok(results)

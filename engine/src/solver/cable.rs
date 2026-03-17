@@ -326,7 +326,7 @@ pub fn solve_cable_2d(
         solver_diagnostics: vec![],
         structured_diagnostics: vec![],
         equilibrium: None,
-        result_summary: None,
+        result_summary: None, solver_run_meta: None,
     };
 
     // Cable-specific results
@@ -579,7 +579,7 @@ pub fn solve_cable_3d(
         structured_diagnostics: vec![],
         equilibrium: None,
         timings: None,
-        result_summary: None,
+        result_summary: None, solver_run_meta: None,
     };
 
     let cable_forces = cables.iter().map(|ci| {

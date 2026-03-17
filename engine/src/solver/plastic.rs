@@ -315,7 +315,7 @@ fn scale_results(results: &AnalysisResults, factor: f64) -> AnalysisResults {
         solver_diagnostics: vec![],
         structured_diagnostics: vec![],
         equilibrium: None,
-        result_summary: None,
+        result_summary: None, solver_run_meta: None,
     }
 }
 
@@ -587,6 +587,6 @@ fn scale_results_3d(results: &AnalysisResults3D, factor: f64) -> AnalysisResults
         structured_diagnostics: vec![],
         equilibrium: None,
         timings: None,
-        result_summary: None,
+        result_summary: None, solver_run_meta: None,
     }
 }

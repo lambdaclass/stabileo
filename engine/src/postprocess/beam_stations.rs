@@ -107,8 +107,12 @@ pub struct StationComboForces {
 pub struct GoverningEntry {
     pub pos_combo: usize,
     pub pos_value: f64,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub pos_combo_name: Option<String>,
     pub neg_combo: usize,
     pub neg_value: f64,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub neg_combo_name: Option<String>,
 }
 
 /// Builder that accumulates updates and only produces a GoverningEntry
@@ -117,8 +121,10 @@ pub struct GoverningEntry {
 struct GoverningBuilder {
     pos_combo: usize,
     pos_value: f64,
+    pos_combo_name: Option<String>,
     neg_combo: usize,
     neg_value: f64,
+    neg_combo_name: Option<String>,
     has_data: bool,
 }
 
@@ -127,21 +133,25 @@ impl GoverningBuilder {
         Self {
             pos_combo: 0,
             pos_value: f64::NEG_INFINITY,
+            pos_combo_name: None,
             neg_combo: 0,
             neg_value: f64::INFINITY,
+            neg_combo_name: None,
             has_data: false,
         }
     }
 
-    fn update(&mut self, combo_id: usize, value: f64) {
+    fn update(&mut self, combo_id: usize, value: f64, combo_name: Option<&str>) {
         self.has_data = true;
         if value > self.pos_value {
             self.pos_value = value;
             self.pos_combo = combo_id;
+            self.pos_combo_name = combo_name.map(|s| s.to_string());
         }
         if value < self.neg_value {
             self.neg_value = value;
             self.neg_combo = combo_id;
+            self.neg_combo_name = combo_name.map(|s| s.to_string());
         }
     }
 
@@ -150,8 +160,10 @@ impl GoverningBuilder {
             Some(GoverningEntry {
                 pos_combo: self.pos_combo,
                 pos_value: self.pos_value,
+                pos_combo_name: self.pos_combo_name,
                 neg_combo: self.neg_combo,
                 neg_value: self.neg_value,
+                neg_combo_name: self.neg_combo_name,
             })
         } else {
             None
@@ -328,9 +340,9 @@ pub fn extract_beam_stations(input: &BeamStationInput) -> BeamStationResult {
                 let v = compute_diagram_value_at("shear", t, ef);
                 let n = compute_diagram_value_at("axial", t, ef);
 
-                gov_moment.update(combo.combo_id, m);
-                gov_shear.update(combo.combo_id, v);
-                gov_axial.update(combo.combo_id, n);
+                gov_moment.update(combo.combo_id, m, combo.combo_name.as_deref());
+                gov_shear.update(combo.combo_id, v, combo.combo_name.as_deref());
+                gov_axial.update(combo.combo_id, n, combo.combo_name.as_deref());
 
                 combo_forces.push(StationComboForces {
                     combo_id: combo.combo_id,
@@ -417,12 +429,12 @@ pub fn extract_beam_stations_3d(input: &BeamStationInput3D) -> BeamStationResult
                 let mz = evaluate_diagram_3d_at(ef, "momentZ", t);
                 let torsion = evaluate_diagram_3d_at(ef, "torsion", t);
 
-                gov_axial.update(combo.combo_id, n);
-                gov_shear_y.update(combo.combo_id, vy);
-                gov_shear_z.update(combo.combo_id, vz);
-                gov_moment_y.update(combo.combo_id, my);
-                gov_moment_z.update(combo.combo_id, mz);
-                gov_torsion.update(combo.combo_id, torsion);
+                gov_axial.update(combo.combo_id, n, combo.combo_name.as_deref());
+                gov_shear_y.update(combo.combo_id, vy, combo.combo_name.as_deref());
+                gov_shear_z.update(combo.combo_id, vz, combo.combo_name.as_deref());
+                gov_moment_y.update(combo.combo_id, my, combo.combo_name.as_deref());
+                gov_moment_z.update(combo.combo_id, mz, combo.combo_name.as_deref());
+                gov_torsion.update(combo.combo_id, torsion, combo.combo_name.as_deref());
 
                 combo_forces.push(StationComboForces3D {
                     combo_id: combo.combo_id,
@@ -479,9 +491,13 @@ pub struct MemberGoverningEntry {
     pub pos_combo: usize,
     pub pos_value: f64,
     pub pos_station_index: usize,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub pos_combo_name: Option<String>,
     pub neg_combo: usize,
     pub neg_value: f64,
     pub neg_station_index: usize,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub neg_combo_name: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -564,17 +580,19 @@ struct MemberGovBuilder {
     pos_combo: usize,
     pos_value: f64,
     pos_station: usize,
+    pos_combo_name: Option<String>,
     neg_combo: usize,
     neg_value: f64,
     neg_station: usize,
+    neg_combo_name: Option<String>,
     has_data: bool,
 }
 
 impl MemberGovBuilder {
     fn new() -> Self {
         Self {
-            pos_combo: 0, pos_value: f64::NEG_INFINITY, pos_station: 0,
-            neg_combo: 0, neg_value: f64::INFINITY, neg_station: 0,
+            pos_combo: 0, pos_value: f64::NEG_INFINITY, pos_station: 0, pos_combo_name: None,
+            neg_combo: 0, neg_value: f64::INFINITY, neg_station: 0, neg_combo_name: None,
             has_data: false,
         }
     }
@@ -585,11 +603,13 @@ impl MemberGovBuilder {
             self.pos_value = entry.pos_value;
             self.pos_combo = entry.pos_combo;
             self.pos_station = station_index;
+            self.pos_combo_name = entry.pos_combo_name.clone();
         }
         if entry.neg_value < self.neg_value {
             self.neg_value = entry.neg_value;
             self.neg_combo = entry.neg_combo;
             self.neg_station = station_index;
+            self.neg_combo_name = entry.neg_combo_name.clone();
         }
     }
 
@@ -599,9 +619,11 @@ impl MemberGovBuilder {
                 pos_combo: self.pos_combo,
                 pos_value: self.pos_value,
                 pos_station_index: self.pos_station,
+                pos_combo_name: self.pos_combo_name,
                 neg_combo: self.neg_combo,
                 neg_value: self.neg_value,
                 neg_station_index: self.neg_station,
+                neg_combo_name: self.neg_combo_name,
             })
         } else {
             None
@@ -742,7 +764,7 @@ mod tests {
     fn make_results(efs: Vec<ElementForces>) -> AnalysisResults {
         AnalysisResults {
             displacements: vec![], reactions: vec![], element_forces: efs,
-            constraint_forces: vec![], diagnostics: vec![], solver_diagnostics: vec![], structured_diagnostics: vec![], equilibrium: None, result_summary: None,
+            constraint_forces: vec![], diagnostics: vec![], solver_diagnostics: vec![], structured_diagnostics: vec![], equilibrium: None, result_summary: None, solver_run_meta: None,
         }
     }
 
@@ -942,6 +964,103 @@ mod tests {
     }
 
     #[test]
+    fn governing_combo_name_propagated() {
+        // Two combos with names: combo 10 has large moment, combo 20 has large shear
+        let ef0 = ElementForces {
+            element_id: 1, length: 4.0,
+            n_start: 0.0, n_end: 0.0,
+            v_start: 5.0, v_end: -5.0,
+            m_start: -100.0, m_end: 100.0,
+            q_i: 0.0, q_j: 0.0,
+            point_loads: vec![], distributed_loads: vec![],
+            hinge_start: false, hinge_end: false,
+        };
+        let ef1 = ElementForces {
+            element_id: 1, length: 4.0,
+            n_start: 0.0, n_end: 0.0,
+            v_start: 200.0, v_end: -200.0,
+            m_start: -10.0, m_end: 10.0,
+            q_i: 0.0, q_j: 0.0,
+            point_loads: vec![], distributed_loads: vec![],
+            hinge_start: false, hinge_end: false,
+        };
+
+        let input = BeamStationInput {
+            members: vec![make_member(1, 4.0)],
+            combinations: vec![
+                LabeledResults { combo_id: 10, combo_name: Some("1.35D".into()), results: make_results(vec![ef0]) },
+                LabeledResults { combo_id: 20, combo_name: Some("1.50L".into()), results: make_results(vec![ef1]) },
+            ],
+            num_stations: Some(2),
+        };
+
+        let result = extract_beam_stations(&input);
+        let s1 = &result.stations[1]; // t=1.0
+
+        // Governing moment pos should come from combo 10 (m_end=100 > 10)
+        let gov_m = s1.governing.moment.as_ref().unwrap();
+        assert_eq!(gov_m.pos_combo, 10);
+        assert_eq!(gov_m.pos_combo_name.as_deref(), Some("1.35D"));
+
+        // Governing moment neg should come from combo 20 (m_end=10 < 100, but at t=0: -100 < -10)
+        // At t=0: combo 10 m=-100, combo 20 m=-10 → neg = combo 10
+        let s0 = &result.stations[0];
+        let gov_m0 = s0.governing.moment.as_ref().unwrap();
+        assert_eq!(gov_m0.neg_combo, 10);
+        assert_eq!(gov_m0.neg_combo_name.as_deref(), Some("1.35D"));
+
+        // Shear is constant along element (no distributed loads), so v = v_start everywhere.
+        // combo 10: v_start=5, combo 20: v_start=200 → pos=combo 20, neg=combo 10
+        let gov_v = s1.governing.shear.as_ref().unwrap();
+        assert_eq!(gov_v.pos_combo, 20);
+        assert_eq!(gov_v.pos_combo_name.as_deref(), Some("1.50L"));
+        assert_eq!(gov_v.neg_combo, 10);
+        assert_eq!(gov_v.neg_combo_name.as_deref(), Some("1.35D"));
+
+        // Verify member-level governing also propagates names
+        // Moment at t=0: combo10=-100, combo20=-10; at t=1: combo10=-120, combo20=-810
+        // Member pos moment = -10 (combo 20), member neg moment = -810 (combo 20)
+        let grouped = extract_beam_stations_grouped(&input);
+        let g = &grouped.members[0];
+        let mg_m = g.member_governing.moment.as_ref().unwrap();
+        assert_eq!(mg_m.pos_combo_name.as_deref(), Some("1.50L"));
+        assert_eq!(mg_m.neg_combo_name.as_deref(), Some("1.50L"));
+        // Shear pos = 200 (combo 20), shear neg = 5 (combo 10)
+        let mg_v = g.member_governing.shear.as_ref().unwrap();
+        assert_eq!(mg_v.pos_combo_name.as_deref(), Some("1.50L"));
+        assert_eq!(mg_v.neg_combo_name.as_deref(), Some("1.35D"));
+    }
+
+    #[test]
+    fn governing_combo_name_none_when_absent() {
+        let ef = make_ss_udl_ef(1);
+        let input = BeamStationInput {
+            members: vec![make_member(1, 6.0)],
+            combinations: vec![LabeledResults {
+                combo_id: 1, combo_name: None,
+                results: make_results(vec![ef]),
+            }],
+            num_stations: Some(2),
+        };
+
+        let result = extract_beam_stations(&input);
+        let gov_m = result.stations[0].governing.moment.as_ref().unwrap();
+        assert!(gov_m.pos_combo_name.is_none());
+        assert!(gov_m.neg_combo_name.is_none());
+
+        // JSON should omit the name fields
+        let json = serde_json::to_string(&result).unwrap();
+        assert!(!json.contains("posComboName"));
+        assert!(!json.contains("negComboName"));
+
+        // Member-level governing should also have None
+        let grouped = extract_beam_stations_grouped(&input);
+        let mg = grouped.members[0].member_governing.moment.as_ref().unwrap();
+        assert!(mg.pos_combo_name.is_none());
+        assert!(mg.neg_combo_name.is_none());
+    }
+
+    #[test]
     fn sign_convention_present() {
         let ef = make_ss_udl_ef(1);
         let input = BeamStationInput {
@@ -1012,7 +1131,7 @@ mod tests {
             plate_stresses: vec![], quad_stresses: vec![],
             quad_nodal_stresses: vec![], constraint_forces: vec![],
             diagnostics: vec![], solver_diagnostics: vec![], timings: None,
-            structured_diagnostics: vec![], equilibrium: None, result_summary: None,
+            structured_diagnostics: vec![], equilibrium: None, result_summary: None, solver_run_meta: None,
         };
 
         let input = BeamStationInput3D {

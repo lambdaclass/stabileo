@@ -84,6 +84,9 @@ pub struct AnalysisResults {
     /// Query-ready summary of result extremes.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub result_summary: Option<ResultSummary>,
+    /// Deterministic solver-run metadata for reproducibility.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub solver_run_meta: Option<SolverRunMeta>,
 }
 
 /// Forces at constrained DOFs due to constraint enforcement.
@@ -155,6 +158,8 @@ pub enum DiagnosticCode {
     SparseFallbackDenseLu,
     /// Diagonal shift applied to stabilize factorization.
     DiagonalRegularization,
+    /// Sparse fill ratio (nnz(L) / nnz(K_ff)).
+    SparseFillRatio,
 
     // ---- Conditioning ----
     /// Diagonal ratio > 1e8 (moderate conditioning concern).
@@ -301,6 +306,7 @@ impl From<&StructuredDiagnostic> for SolverDiagnostic {
         let category = match sd.code {
             DiagnosticCode::SparseCholesky | DiagnosticCode::DenseLu => "solver_path",
             DiagnosticCode::SparseFallbackDenseLu | DiagnosticCode::DiagonalRegularization => "fallback",
+            DiagnosticCode::SparseFillRatio => "performance",
             DiagnosticCode::HighDiagonalRatio | DiagnosticCode::ExtremelyHighDiagonalRatio | DiagnosticCode::NearZeroDiagonal => "conditioning",
             DiagnosticCode::ResidualOk | DiagnosticCode::ResidualHigh | DiagnosticCode::EquilibriumOk | DiagnosticCode::EquilibriumViolation => "residual",
             DiagnosticCode::HighAspectRatio | DiagnosticCode::NegativeJacobian | DiagnosticCode::HighWarping | DiagnosticCode::PoorJacobianRatio | DiagnosticCode::SmallMinAngle => "element_quality",
@@ -370,6 +376,50 @@ pub struct ResultSummary {
     pub displacement_resultant: Option<ResultExtreme>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub reaction_resultant: Option<ResultExtreme>,
+}
+
+// ==================== Solver Run Metadata ====================
+
+/// Deterministic solver-run metadata for reproducibility and bug-report attachment.
+/// Captures the engine version, build provenance, solver path actually used,
+/// and model dimensions so that every result payload is self-describing.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct SolverRunMeta {
+    /// Crate version from Cargo.toml (e.g. "0.1.0").
+    pub engine_version: String,
+    /// Build timestamp (set via DEDALIANO_BUILD_TS env var; "unknown" if unset).
+    pub build_timestamp: String,
+    /// Git SHA of the build (set via DEDALIANO_BUILD_SHA env var; "dev" if unset).
+    pub build_sha: String,
+    /// Which solver path actually executed: "sparse_cholesky", "dense_lu",
+    /// or "sparse_fallback_dense_lu".
+    pub solver_path: String,
+    /// Number of free (unconstrained) DOFs solved for.
+    pub n_free_dofs: usize,
+    /// Number of elements in the model.
+    pub n_elements: usize,
+    /// Number of nodes in the model.
+    pub n_nodes: usize,
+}
+
+impl SolverRunMeta {
+    /// Build metadata with compile-time version/provenance constants.
+    pub fn new(solver_path: &str, n_free_dofs: usize, n_elements: usize, n_nodes: usize) -> Self {
+        Self {
+            engine_version: env!("CARGO_PKG_VERSION").to_string(),
+            build_timestamp: option_env!("DEDALIANO_BUILD_TS")
+                .unwrap_or("unknown")
+                .to_string(),
+            build_sha: option_env!("DEDALIANO_BUILD_SHA")
+                .unwrap_or("dev")
+                .to_string(),
+            solver_path: solver_path.to_string(),
+            n_free_dofs,
+            n_elements,
+            n_nodes,
+        }
+    }
 }
 
 // ==================== Solve Timings ====================
@@ -508,6 +558,9 @@ pub struct AnalysisResults3D {
     /// Query-ready summary of result extremes.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub result_summary: Option<ResultSummary>,
+    /// Deterministic solver-run metadata for reproducibility.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub solver_run_meta: Option<SolverRunMeta>,
 }
 
 // ==================== Quad Stress Output ====================
