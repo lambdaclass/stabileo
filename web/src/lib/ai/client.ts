@@ -79,6 +79,68 @@ export interface ModelContext {
   bayWidths: number[];
 }
 
+/** Inputs for buildModelContext — decoupled from store for testability. */
+export interface ModelStoreView {
+  nodes: Map<number, { id: number; x: number; y: number; z?: number }>;
+  elements: Map<number, { id: number; type: string }>;
+  sections: Map<number, { id: number; name: string }>;
+  materials: Map<number, { id: number; name: string }>;
+  supports: Map<number, { id: number; type: string }>;
+  loads: unknown[];
+}
+
+/** Build a compact ModelContext from store data. */
+export function buildModelContext(store: ModelStoreView): ModelContext {
+  let xMin = Infinity, xMax = -Infinity, yMin = Infinity, yMax = -Infinity;
+  for (const n of store.nodes.values()) {
+    if (n.x < xMin) xMin = n.x;
+    if (n.x > xMax) xMax = n.x;
+    if (n.y < yMin) yMin = n.y;
+    if (n.y > yMax) yMax = n.y;
+  }
+
+  const sections: Array<{ id: number; name: string }> = [];
+  for (const [id, s] of store.sections) sections.push({ id, name: s.name });
+  const materials: Array<{ id: number; name: string }> = [];
+  for (const [id, m] of store.materials) materials.push({ id, name: m.name });
+
+  const supTypes = new Set<string>();
+  for (const s of store.supports.values()) supTypes.add(s.type);
+  const elemTypes = new Set<string>();
+  for (const e of store.elements.values()) elemTypes.add(e.type);
+
+  const yCounts = new Map<number, number>();
+  const xSet = new Set<number>();
+  for (const n of store.nodes.values()) {
+    yCounts.set(n.y, (yCounts.get(n.y) ?? 0) + 1);
+    xSet.add(n.x);
+  }
+  const floorHeights = [...yCounts.entries()]
+    .filter(([, count]) => count >= 2)
+    .map(([y]) => y)
+    .sort((a, b) => a - b);
+  const xSorted = [...xSet].sort((a, b) => a - b);
+  const bayWidths: number[] = [];
+  for (let i = 1; i < xSorted.length; i++) {
+    const w = +(xSorted[i] - xSorted[i - 1]).toFixed(4);
+    if (w > 0) bayWidths.push(w);
+  }
+
+  return {
+    nodeCount: store.nodes.size,
+    elementCount: store.elements.size,
+    supportCount: store.supports.size,
+    loadCount: store.loads.length,
+    bounds: { xMin, xMax, yMin, yMax },
+    sections,
+    materials,
+    supportTypes: [...supTypes],
+    elementTypes: [...elemTypes],
+    floorHeights,
+    bayWidths,
+  };
+}
+
 // ─── Artifact construction ─────────────────────────────────────
 
 // All fields are camelCase to match the Rust backend's #[serde(rename_all = "camelCase")]
