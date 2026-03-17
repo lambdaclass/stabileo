@@ -3041,5 +3041,37 @@ const es: Record<string, string> = {
   'ai.noFindings': 'Sin observaciones — el modelo se ve bien.',
   'ai.reviewOrder': 'Orden de revisión sugerido',
   'ai.riskyAssumptions': 'Supuestos riesgosos',
+  'ai.findings': 'Observaciones',
+
+  // ─── AI Explain ───
+  'ai.explain.prompt': 'Seleccioná un diagnóstico para obtener una explicación.',
+  'ai.explain.noDiagnostics': 'No hay diagnósticos. Resolvé el modelo primero.',
+  'ai.explain.explaining': 'Explicando…',
+  'ai.explain.cause': 'Causa probable',
+  'ai.explain.fixSteps': 'Pasos de corrección',
+  'ai.explain.severityMeaning': 'Significado de la severidad',
+  'ai.explain.advisory': 'Asesoramiento IA — verificar con criterio ingenieril',
+
+  // ─── AI Query ───
+  'ai.query.placeholder': 'Preguntá sobre los resultados…',
+  'ai.query.ask': 'Consultar',
+  'ai.query.asking': 'Interpretando…',
+  'ai.query.noResults': 'Resolvé el modelo primero para consultar resultados.',
+  'ai.query.assessment': 'Evaluación',
+  'ai.query.references': 'Referencias normativas',
+  'ai.query.warnings': 'Advertencias',
+  'ai.query.advisory': 'Interpretación IA — basada en artefacto del solver, verificar con normativa',
+
+  // ─── AI Build ───
+  'ai.build.placeholder': 'Describí una estructura…',
+  'ai.build.generate': 'Generar',
+  'ai.build.generating': 'Generando…',
+  'ai.build.interpretation': 'Lo que se generó',
+  'ai.build.preview': 'Ver JSON',
+  'ai.build.import': 'Importar al modelo',
+  'ai.build.importWarning': 'Esto reemplazará tu modelo actual. Los modelos generados por IA deben revisarse antes de usarse.',
+  'ai.build.imported': 'Modelo importado — revisá y resolvé para verificar.',
+  'ai.build.scopeNote': 'Soporta vigas, pórticos y marcos 3D simples. Estructuras complejas pueden generar modelos incompletos.',
+  'ai.build.draft': 'Borrador generado por IA — revisar antes de usar',
 };
 export default es;

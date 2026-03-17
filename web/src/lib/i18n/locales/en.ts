@@ -3041,5 +3041,37 @@ const en: Record<string, string> = {
   'ai.noFindings': 'No findings — model looks good.',
   'ai.reviewOrder': 'Suggested review order',
   'ai.riskyAssumptions': 'Risky assumptions',
+  'ai.findings': 'Findings',
+
+  // ─── AI Explain ───
+  'ai.explain.prompt': 'Select a diagnostic or finding to explain.',
+  'ai.explain.noDiagnostics': 'No diagnostics available. Solve the model first.',
+  'ai.explain.explaining': 'Explaining…',
+  'ai.explain.cause': 'Likely cause',
+  'ai.explain.fixSteps': 'Fix steps',
+  'ai.explain.severityMeaning': 'Severity meaning',
+  'ai.explain.advisory': 'AI advisory — verify with engineering judgment',
+
+  // ─── AI Query ───
+  'ai.query.placeholder': 'Ask about your results…',
+  'ai.query.ask': 'Ask',
+  'ai.query.asking': 'Interpreting…',
+  'ai.query.noResults': 'Solve the model first to ask questions about results.',
+  'ai.query.assessment': 'Assessment',
+  'ai.query.references': 'Code references',
+  'ai.query.warnings': 'Warnings',
+  'ai.query.advisory': 'AI interpretation — based on solver artifact, verify with code checks',
+
+  // ─── AI Build ───
+  'ai.build.placeholder': 'Describe a structure…',
+  'ai.build.generate': 'Generate',
+  'ai.build.generating': 'Building…',
+  'ai.build.interpretation': 'What was built',
+  'ai.build.preview': 'Preview JSON',
+  'ai.build.import': 'Import into model',
+  'ai.build.importWarning': 'This will replace your current model. AI-generated models must be reviewed before use.',
+  'ai.build.imported': 'Model imported — review and solve to verify.',
+  'ai.build.scopeNote': 'Supports beams, portal frames, and simple 3D frames. Complex structures may produce incomplete models.',
+  'ai.build.draft': 'AI-generated draft — review before use',
 };
 export default en;

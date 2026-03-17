@@ -55,6 +55,12 @@ export interface InterpretResultsResponse {
   meta: ReviewMeta;
 }
 
+export interface BuildModelResponse {
+  snapshot: Record<string, unknown>;
+  interpretation: string;
+  meta: ReviewMeta;
+}
+
 // ─── Artifact construction ─────────────────────────────────────
 
 // All fields are camelCase to match the Rust backend's #[serde(rename_all = "camelCase")]
@@ -158,6 +164,41 @@ export function buildArtifact(
   };
 }
 
+// ─── Result summary construction ────────────────────────────────
+
+export function buildResultSummary(results: AnalysisResultsLike): Record<string, unknown> {
+  const disps = results.displacements;
+  const reacts = results.reactions;
+
+  let maxUx = 0, maxUxNode = 0, maxUy = 0, maxUyNode = 0;
+  let maxResultant = 0, maxResultantNode = 0;
+  for (let i = 0; i < disps.length; i++) {
+    const d = disps[i];
+    const ux = Math.abs(d.ux), uy = Math.abs(d.uy);
+    if (ux > Math.abs(maxUx)) { maxUx = d.ux; maxUxNode = i + 1; }
+    if (uy > Math.abs(maxUy)) { maxUy = d.uy; maxUyNode = i + 1; }
+    const r = Math.sqrt(d.ux * d.ux + d.uy * d.uy + (d.uz ?? 0) * (d.uz ?? 0));
+    if (r > maxResultant) { maxResultant = r; maxResultantNode = i + 1; }
+  }
+
+  let maxReact = 0, maxReactNode = 0;
+  for (let i = 0; i < reacts.length; i++) {
+    const rc = reacts[i];
+    const v = Math.sqrt(rc.fx * rc.fx + rc.fy * rc.fy + (rc.fz ?? 0) * (rc.fz ?? 0));
+    if (v > maxReact) { maxReact = v; maxReactNode = i + 1; }
+  }
+
+  return {
+    displacementX: { max: maxUx, nodeId: maxUxNode },
+    displacementY: { max: maxUy, nodeId: maxUyNode },
+    displacementResultant: { max: maxResultant, nodeId: maxResultantNode },
+    reactionResultant: { max: maxReact, nodeId: maxReactNode },
+    nDisplacements: disps.length,
+    nReactions: reacts.length,
+    nElementForces: results.elementForces.length,
+  };
+}
+
 // ─── API calls ─────────────────────────────────────────────────
 
 async function post<T>(path: string, body: unknown): Promise<T> {
@@ -214,6 +255,16 @@ export async function interpretResults(
     resultSummary,
     question,
     modelInfo,
+    locale: locale ?? 'en',
+  });
+}
+
+export async function buildModel(
+  description: string,
+  locale?: string,
+): Promise<BuildModelResponse> {
+  return post('/api/ai/build-model', {
+    description,
     locale: locale ?? 'en',
   });
 }
