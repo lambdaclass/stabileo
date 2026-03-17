@@ -13,6 +13,9 @@ pub enum AppError {
     #[error("provider error: {0}")]
     Provider(#[from] ProviderError),
 
+    #[error("provider timed out")]
+    ProviderTimeout,
+
     #[error("internal error: {0}")]
     Internal(String),
 }
@@ -41,6 +44,10 @@ impl IntoResponse for AppError {
                     "AI provider request failed".to_string(),
                 )
             }
+            AppError::ProviderTimeout => (
+                StatusCode::GATEWAY_TIMEOUT,
+                "AI provider timed out".to_string(),
+            ),
             AppError::Internal(msg) => {
                 tracing::error!("internal error: {msg}");
                 (

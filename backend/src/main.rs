@@ -6,6 +6,7 @@ mod providers;
 mod routes;
 
 use std::sync::Arc;
+use std::time::Duration;
 
 use axum::middleware as axum_mw;
 use axum::routing::{get, post};
@@ -40,6 +41,7 @@ async fn main() {
 
     let state = Arc::new(AppState {
         provider: config.provider,
+        provider_timeout: Duration::from_secs(config.provider_timeout_secs),
     });
 
     let cors = CorsLayer::new()

@@ -8,6 +8,7 @@ use crate::providers::traits::Provider;
 pub struct Config {
     pub dedaliano_api_key: String,
     pub provider: Provider,
+    pub provider_timeout_secs: u64,
     pub addr: SocketAddr,
     pub allowed_origins: Vec<String>,
     pub log_format: LogFormat,
@@ -41,10 +42,16 @@ impl Config {
         let ai_provider = std::env::var("AI_PROVIDER").unwrap_or_else(|_| "claude".into());
         let provider = build_provider(&ai_provider);
 
+        let provider_timeout_secs: u64 = std::env::var("PROVIDER_TIMEOUT_SECS")
+            .ok()
+            .and_then(|v| v.parse().ok())
+            .unwrap_or(90);
+
         Self {
             dedaliano_api_key: std::env::var("DEDALIANO_API_KEY")
                 .expect("DEDALIANO_API_KEY must be set"),
             provider,
+            provider_timeout_secs,
             addr,
             allowed_origins,
             log_format,
