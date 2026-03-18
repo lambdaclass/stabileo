@@ -37,6 +37,7 @@
   import { runLiveCalc, runGlobalSolve } from './lib/engine/live-calc';
   import LandingPage from './components/LandingPage.svelte';
   import AiDrawer from './components/AiDrawer.svelte';
+  import ProDiagnosticsTab from './components/pro/ProDiagnosticsTab.svelte';
 
   if (typeof window !== 'undefined') {
     const redirectedRoute = new URLSearchParams(location.search).get('route');
@@ -177,6 +178,7 @@
   const showResults = $derived(resultsStore.results !== null || resultsStore.results3D !== null);
   let showAutosaveBanner = $state(false);
   let showImportDialog = $state(false);
+  let showDiagnostics = $state(false);
   let importText = $state('');
   let autosaveData = $state<ReturnType<typeof loadFromLocalStorage>>(null);
   let autosaveInterval: ReturnType<typeof setInterval> | null = null;
@@ -507,6 +509,14 @@
                   <DataTable />
                 </div>
               {/if}
+              <button class="datatable-toggle" onclick={() => showDiagnostics = !showDiagnostics}>
+                {showDiagnostics ? '▾' : '▸'} {t('diag.tab')}
+              </button>
+              {#if showDiagnostics}
+                <div class="diagnostics-sidebar">
+                  <ProDiagnosticsTab />
+                </div>
+              {/if}
             {/if}
           </aside>
         {/if}
@@ -548,6 +558,14 @@
         {#if uiStore.showDataTable}
           <div class="data-table-sidebar">
             <DataTable />
+          </div>
+        {/if}
+        <button class="datatable-toggle" onclick={() => showDiagnostics = !showDiagnostics}>
+          {showDiagnostics ? '▾' : '▸'} {t('diag.tab')}
+        </button>
+        {#if showDiagnostics}
+          <div class="diagnostics-sidebar">
+            <ProDiagnosticsTab />
           </div>
         {/if}
       {/if}
@@ -1054,6 +1072,12 @@
   }
 
   .data-table-sidebar {
+    flex: 1;
+    overflow: hidden;
+    min-height: 0;
+  }
+
+  .diagnostics-sidebar {
     flex: 1;
     overflow: hidden;
     min-height: 0;
