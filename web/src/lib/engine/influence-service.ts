@@ -40,8 +40,8 @@ export function computeInfluenceLine(
       ky: s.ky,
       kz: s.kz,
       dx: s.dx,
-      dz: s.dy,
-      dry: s.drz,
+      dz: s.dz ?? s.dy,
+      dry: s.dry ?? s.drz,
     }])),
     loads: [] as any[],
   };

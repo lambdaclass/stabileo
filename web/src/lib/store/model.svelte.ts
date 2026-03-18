@@ -72,14 +72,14 @@ export interface Support {
   ky?: number; // kN/m
   kz?: number; // kN·m/rad (2D rotation spring / 3D rotation-Z spring)
   dx?: number; // prescribed ux (m)
-  dy?: number; // prescribed uy (m)
-  drz?: number; // prescribed rotation about Z (rad)
+  dz?: number; // prescribed uz (m)
+  dry?: number; // prescribed rotation about Y (rad)
+  dy?: number; // legacy alias for prescribed uz (m)
+  drz?: number; // legacy alias for prescribed rotation about Y (rad)
   angle?: number;    // ángulo en grados (solo para rollers) — 0 = horizontal
   isGlobal?: boolean; // true = ejes globales (default), false = ejes locales
   // 3D-specific fields
-  dz?: number;   // prescribed uz (m, 3D)
   drx?: number;  // prescribed rotation about X (rad, 3D)
-  dry?: number;  // prescribed rotation about Y (rad, 3D)
   krx?: number;  // kN·m/rad — torsional spring (3D)
   kry?: number;  // kN·m/rad — rotation about Y spring (3D)
   krz?: number;  // kN·m/rad — rotation about Z spring (3D)
@@ -101,8 +101,10 @@ export interface NodalLoad {
   id: number;
   nodeId: number;
   fx: number; // kN
-  fy: number; // kN
-  mz: number; // kN·m
+  fz: number; // kN
+  my: number; // kN·m
+  fy?: number; // legacy alias
+  mz?: number; // legacy alias
   caseId?: number; // load case ID (default: 1)
 }
 
@@ -124,7 +126,8 @@ export interface PointLoadOnElement {
   a: number; // distance from node I (m)
   p: number; // kN (perpendicular, local coords)
   px?: number; // kN (axial, local coords — positive = tension toward J)
-  mz?: number; // kN·m (moment at position a — positive = CCW)
+  my?: number; // kN·m (moment at position a — positive = CCW)
+  mz?: number; // legacy alias
   caseId?: number;
   angle?: number;     // degrees, rotation from base direction (default 0)
   isGlobal?: boolean; // false=local coords (default), true=global coords
@@ -258,6 +261,11 @@ export interface InfluenceLineResult {
 function createModelStore() {
   const normalize2DSupportType = (type: SupportType): SupportType =>
     type === 'rollerY' ? 'rollerZ' : type;
+  const canonicalSupportDz = (support: Partial<Support>): number | undefined => support.dz ?? support.dy;
+  const canonicalSupportDry = (support: Partial<Support>): number | undefined => support.dry ?? support.drz;
+  const canonicalLoadFz = (load: Partial<NodalLoad>): number => load.fz ?? load.fy ?? 0;
+  const canonicalLoadMy = (load: Partial<NodalLoad>): number => load.my ?? load.mz ?? 0;
+  const canonicalPointMoment = (load: Partial<PointLoadOnElement>): number | undefined => load.my ?? load.mz;
 
   let model = $state<StructureModel>({
     name: t('tabBar.newStructure'),
@@ -387,8 +395,23 @@ function createModelStore() {
           hingeStart: v.hingeStart ?? false,
           hingeEnd: v.hingeEnd ?? false,
         }]) as ModelSnapshot['elements'],
-        supports: Array.from(snap.supports.entries()) as ModelSnapshot['supports'],
-        loads: snap.loads as ModelSnapshot['loads'],
+        supports: Array.from(snap.supports.entries()).map(([k, v]) => [k, {
+          ...v,
+          type: normalize2DSupportType(v.type),
+          dz: canonicalSupportDz(v),
+          dry: canonicalSupportDry(v),
+        }]) as ModelSnapshot['supports'],
+        loads: snap.loads.map((load) => {
+          if (load.type === 'nodal') {
+            const data = load.data as NodalLoad;
+            return { type: load.type, data: { ...data, fz: canonicalLoadFz(data), my: canonicalLoadMy(data) } };
+          }
+          if (load.type === 'pointOnElement') {
+            const data = load.data as PointLoadOnElement;
+            return { type: load.type, data: { ...data, my: canonicalPointMoment(data) } };
+          }
+          return load;
+        }) as ModelSnapshot['loads'],
         loadCases: snap.loadCases as ModelSnapshot['loadCases'],
         combinations: snap.combinations as ModelSnapshot['combinations'],
         plates: Array.from(snap.plates.entries()) as ModelSnapshot['plates'],
@@ -412,7 +435,12 @@ function createModelStore() {
         hingeEnd: v.hingeEnd ?? false,
       }]));
       // Deduplicate supports: keep only the last support per node (legacy cleanup)
-      const supEntries = s.supports.map(([k, v]) => [k, { ...v }] as [number, Support]);
+      const supEntries = s.supports.map(([k, v]) => [k, {
+        ...v,
+        type: normalize2DSupportType(v.type as SupportType),
+        dz: canonicalSupportDz(v),
+        dry: canonicalSupportDry(v),
+      }] as [number, Support]);
       const seenNodes = new Set<number>();
       const dedupedEntries: [number, Support][] = [];
       for (let i = supEntries.length - 1; i >= 0; i--) {
@@ -425,7 +453,17 @@ function createModelStore() {
       dedupedEntries.reverse();
       model.supports = new Map(dedupedEntries);
       // Deep-copy loads manually (structuredClone fails on Svelte reactive proxies)
-      model.loads = s.loads.map(l => ({ type: l.type, data: { ...l.data } })) as unknown as Load[];
+      model.loads = s.loads.map((l) => {
+        if (l.type === 'nodal') {
+          const data = l.data as Partial<NodalLoad>;
+          return { type: l.type, data: { ...data, fz: canonicalLoadFz(data), my: canonicalLoadMy(data) } };
+        }
+        if (l.type === 'pointOnElement') {
+          const data = l.data as Partial<PointLoadOnElement>;
+          return { type: l.type, data: { ...data, my: canonicalPointMoment(data) } };
+        }
+        return { type: l.type, data: { ...l.data } };
+      }) as unknown as Load[];
       // Migrate old distributed loads: q → qI/qJ
       for (const l of model.loads) {
         if (l.type === 'distributed') {
@@ -517,11 +555,11 @@ function createModelStore() {
       if (opts?.isGlobal !== undefined) sup.isGlobal = opts.isGlobal;
       // Prescribed displacements
       if (opts?.dx !== undefined && opts.dx !== 0) sup.dx = opts.dx;
-      if (opts?.dy !== undefined && opts.dy !== 0) sup.dy = opts.dy;
-      if (opts?.dz !== undefined && opts.dz !== 0) sup.dz = opts.dz;
+      const supportDz = opts?.dz ?? opts?.dy;
+      if (supportDz !== undefined && supportDz !== 0) sup.dz = supportDz;
       if (opts?.drx !== undefined && opts.drx !== 0) sup.drx = opts.drx;
-      if (opts?.dry !== undefined && opts.dry !== 0) sup.dry = opts.dry;
-      if (opts?.drz !== undefined && opts.drz !== 0) sup.drz = opts.drz;
+      const supportDry = opts?.dry ?? opts?.drz;
+      if (supportDry !== undefined && supportDry !== 0) sup.dry = supportDry;
       // Per-DOF 3D configuration
       if (opts?.dofRestraints) sup.dofRestraints = opts.dofRestraints;
       if (opts?.dofFrame) sup.dofFrame = opts.dofFrame;
@@ -531,10 +569,10 @@ function createModelStore() {
       return id;
     },
 
-    addNodalLoad(nodeId: number, fx: number, fy: number, mz: number = 0, caseId?: number): number {
+    addNodalLoad(nodeId: number, fx: number, fz: number, my: number = 0, caseId?: number): number {
       if (!_undoBatching) _pushUndo?.();
       const id = nextId.load++;
-      const data: NodalLoad = { id, nodeId, fx, fy, mz };
+      const data: NodalLoad = { id, nodeId, fx, fz, my };
       if (caseId !== undefined) data.caseId = caseId;
       model.loads = [...model.loads, { type: 'nodal', data }];
       return id;
@@ -553,12 +591,13 @@ function createModelStore() {
       return id;
     },
 
-    addPointLoadOnElement(elementId: number, a: number, p: number, opts?: { px?: number; mz?: number; angle?: number; isGlobal?: boolean; caseId?: number }): number {
+    addPointLoadOnElement(elementId: number, a: number, p: number, opts?: { px?: number; my?: number; mz?: number; angle?: number; isGlobal?: boolean; caseId?: number }): number {
       if (!_undoBatching) _pushUndo?.();
       const id = nextId.load++;
       const data: PointLoadOnElement = { id, elementId, a, p };
       if (opts?.px !== undefined && opts.px !== 0) data.px = opts.px;
-      if (opts?.mz !== undefined && opts.mz !== 0) data.mz = opts.mz;
+      const pointMy = opts?.my ?? opts?.mz;
+      if (pointMy !== undefined && pointMy !== 0) data.my = pointMy;
       if (opts?.angle !== undefined && opts.angle !== 0) data.angle = opts.angle;
       if (opts?.isGlobal) data.isGlobal = true;
       if (opts?.caseId !== undefined) data.caseId = opts.caseId;
@@ -732,14 +771,12 @@ function createModelStore() {
         ky: data.ky ?? sup.ky,
         kz: data.kz ?? sup.kz,
         dx: data.dx ?? sup.dx,
-        dy: data.dy ?? sup.dy,
-        drz: data.drz ?? sup.drz,
+        dz: data.dz ?? data.dy ?? sup.dz ?? sup.dy,
+        dry: data.dry ?? data.drz ?? sup.dry ?? sup.drz,
         angle: 'angle' in data ? data.angle : sup.angle,
         isGlobal: 'isGlobal' in data ? data.isGlobal : sup.isGlobal,
         // 3D fields
-        dz: data.dz ?? sup.dz,
         drx: data.drx ?? sup.drx,
-        dry: data.dry ?? sup.dry,
         krx: data.krx ?? sup.krx,
         kry: data.kry ?? sup.kry,
         krz: data.krz ?? sup.krz,
@@ -767,8 +804,8 @@ function createModelStore() {
       if (load.type === 'nodal') {
         const d = load.data as NodalLoad;
         if (data.fx !== undefined) d.fx = data.fx as number;
-        if (data.fy !== undefined) d.fy = data.fy as number;
-        if (data.mz !== undefined) d.mz = data.mz as number;
+        if (data.fz !== undefined || data.fy !== undefined) d.fz = (data.fz ?? data.fy) as number;
+        if (data.my !== undefined || data.mz !== undefined) d.my = (data.my ?? data.mz) as number;
       } else if (load.type === 'distributed') {
         const d = load.data as DistributedLoad;
         if (data.qI !== undefined) d.qI = data.qI as number;
@@ -789,7 +826,7 @@ function createModelStore() {
         if (data.a !== undefined) d.a = data.a as number;
         if (data.p !== undefined) d.p = data.p as number;
         if (data.px !== undefined) d.px = (data.px as number) || undefined;
-        if (data.mz !== undefined) d.mz = (data.mz as number) || undefined;
+        if (data.my !== undefined || data.mz !== undefined) d.my = ((data.my ?? data.mz) as number) || undefined;
         if (data.angle !== undefined) d.angle = data.angle as number;
         if (data.isGlobal !== undefined) d.isGlobal = data.isGlobal as boolean;
       } else if (load.type === 'thermal') {
@@ -799,11 +836,11 @@ function createModelStore() {
       } else if (load.type === 'nodal3d') {
         const d = load.data as NodalLoad3D;
         if (data.fx !== undefined) d.fx = data.fx as number;
-        if (data.fy !== undefined) d.fy = data.fy as number;
+        if (data.fz !== undefined || data.fy !== undefined) d.fz = (data.fz ?? data.fy) as number;
         if (data.fz !== undefined) d.fz = data.fz as number;
         if (data.mx !== undefined) d.mx = data.mx as number;
         if (data.my !== undefined) d.my = data.my as number;
-        if (data.mz !== undefined) d.mz = data.mz as number;
+        if (data.my !== undefined || data.mz !== undefined) d.my = (data.my ?? data.mz) as number;
       } else if (load.type === 'distributed3d') {
         const d = load.data as DistributedLoad3D;
         if (data.qYI !== undefined) d.qYI = data.qYI as number;
@@ -1185,7 +1222,7 @@ function createModelStore() {
           if (d.isGlobal !== undefined) data.isGlobal = d.isGlobal;
           if (d.caseId !== undefined) data.caseId = d.caseId;
           if (d.px !== undefined) data.px = d.px;
-          if (d.mz !== undefined) data.mz = d.mz;
+          if (d.my !== undefined) data.my = d.my;
           model.loads = [...model.loads, { type: 'pointOnElement', data }];
         } else {
           // Point load is on elemB (adjust distance: a' = a - LA)
@@ -1194,7 +1231,7 @@ function createModelStore() {
           if (d.isGlobal !== undefined) data.isGlobal = d.isGlobal;
           if (d.caseId !== undefined) data.caseId = d.caseId;
           if (d.px !== undefined) data.px = d.px;
-          if (d.mz !== undefined) data.mz = d.mz;
+          if (d.my !== undefined) data.my = d.my;
           model.loads = [...model.loads, { type: 'pointOnElement', data }];
         }
       }

@@ -402,7 +402,7 @@
           const caseId = d.caseId ?? 1;
           return {
             elementId: d.elementId, a: d.a, p: d.p,
-            px: d.px, mz: d.mz,
+            px: d.px, my: d.my ?? d.mz,
             angle: d.angle, isGlobal: d.isGlobal,
             caseColor: modelStore.getLoadCaseColor(caseId),
             caseName: modelStore.getLoadCaseName(caseId),
@@ -978,7 +978,7 @@
     _drawElement(ctx!, elem, ni, nj, opts, colorOverride, nodeBarCount);
   }
 
-  function drawSupport(sup: { id: number; nodeId: number; type: string; dx?: number; dy?: number; drz?: number; angle?: number; isGlobal?: boolean }) {
+  function drawSupport(sup: { id: number; nodeId: number; type: string; dx?: number; dz?: number; dry?: number; dy?: number; drz?: number; angle?: number; isGlobal?: boolean }) {
     const node = modelStore.getNode(sup.nodeId);
     if (!node) return;
     const screen = uiStore.worldToScreen(node.x, node.y);
@@ -1147,8 +1147,8 @@
           // Apply prescribed displacements if any are non-zero
           const presc: Record<string, number> = {};
           if (uiStore.supportDx !== 0) presc.dx = uiStore.supportDx;
-          if (uiStore.supportDy !== 0) presc.dy = uiStore.supportDy;
-          if (uiStore.supportDrz !== 0) presc.drz = uiStore.supportDrz;
+          if (uiStore.supportDy !== 0) presc.dz = uiStore.supportDy;
+          if (uiStore.supportDrz !== 0) presc.dry = uiStore.supportDrz;
           if (Object.keys(presc).length > 0) {
             modelStore.updateSupport(supId, presc);
           }
@@ -1459,8 +1459,8 @@
                 const disp = computeDisplacementAt(
                   t,
                   ni.x, ni.y, nj.x, nj.y,
-                  di.ux, di.uy, di.rz,
-                  dj.ux, dj.uy, dj.rz,
+                  di.ux, di.uz ?? di.uy, di.ry ?? di.rz,
+                  dj.ux, dj.uz ?? dj.uy, dj.ry ?? dj.rz,
                   ef.length,
                   ef.hingeStart, ef.hingeEnd,
                   EI, ef.qI, ef.qJ, ef.pointLoads, ef.distributedLoads,
@@ -1468,14 +1468,14 @@
                 const ux = disp.ux * 1000; // mm
                 const uz = get2DDisplayDisplacementVertical(disp) * 1000; // mm
                 // Rotation: interpolate linearly between end rotations (good enough for display)
-                const rz = di.rz + t * (dj.rz - di.rz);
+                const ry = (di.ry ?? di.rz) + t * ((dj.ry ?? dj.rz) - (di.ry ?? di.rz));
                 const totalDisp = Math.sqrt(ux * ux + uz * uz);
                 diagramHover = {
                   elementId: nearElem.id, t, value: totalDisp, worldX: wx, worldY: wy,
                   lines: [
                     `ux: ${ux.toFixed(3)} mm`,
                     `${TWO_D_DISPLACEMENT_LABELS.vertical}: ${uz.toFixed(3)} mm`,
-                    `${TWO_D_DISPLACEMENT_LABELS.rotation}: ${rz.toFixed(4)} rad`,
+                    `${TWO_D_DISPLACEMENT_LABELS.rotation}: ${ry.toFixed(4)} rad`,
                   ],
                 };
               } else {
