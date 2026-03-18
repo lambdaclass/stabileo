@@ -4,7 +4,7 @@
 //
 // Strategy: For each floor level (group of nodes at same Z), add very stiff
 // "penalty" beams connecting all nodes at that level to enforce rigid body motion
-// (same ux, uy, θz). This preserves the existing solver interface.
+// (same ux, uy, θz in the solver's internal 3D DOF basis). This preserves the existing solver interface.
 
 import type { SolverInput3D, SolverNode3D } from './types-3d';
 

@@ -32,7 +32,7 @@ const NUM_POINTS = 21; // number of sampling points per element
  */
 function buildSamplingPositions(
   length: number,
-  pointLoads: Array<{ a: number; p: number; px?: number; mz?: number }>,
+  pointLoads: Array<{ a: number; p: number; px?: number; my?: number }>,
 ): number[] {
   const tSet = new Set<number>();
 
@@ -61,7 +61,7 @@ function buildDiagram(
   ef: Parameters<typeof computeDiagramValueAt>[2],
   nodeIx: number, nodeIy: number,
   nodeJx: number, nodeJy: number,
-  pointLoads: Array<{ a: number; p: number; px?: number; mz?: number }>,
+  pointLoads: Array<{ a: number; p: number; px?: number; my?: number }>,
 ): ElementDiagram {
   const positions = kind === 'axial' && !pointLoads.some(pl => pl.px && Math.abs(pl.px) > 1e-15)
     ? Array.from({ length: NUM_POINTS }, (_, i) => i / (NUM_POINTS - 1))
@@ -98,7 +98,7 @@ export function computeMomentDiagram(
   length: number,
   nodeIx: number, nodeIy: number,
   nodeJx: number, nodeJy: number,
-  pointLoads: Array<{ a: number; p: number; px?: number; mz?: number }> = [],
+  pointLoads: Array<{ a: number; p: number; px?: number; my?: number }> = [],
 ): ElementDiagram {
   const ef = { mStart, mEnd: _mEnd, vStart, vEnd: 0, nStart: 0, nEnd: 0, qI, qJ, length, pointLoads };
   return buildDiagram('moment', ef, nodeIx, nodeIy, nodeJx, nodeJy, pointLoads);
@@ -112,7 +112,7 @@ export function computeShearDiagram(
   length: number,
   nodeIx: number, nodeIy: number,
   nodeJx: number, nodeJy: number,
-  pointLoads: Array<{ a: number; p: number; px?: number; mz?: number }> = [],
+  pointLoads: Array<{ a: number; p: number; px?: number; my?: number }> = [],
 ): ElementDiagram {
   const ef = { mStart: 0, mEnd: 0, vStart, vEnd: 0, nStart: 0, nEnd: 0, qI, qJ, length, pointLoads };
   return buildDiagram('shear', ef, nodeIx, nodeIy, nodeJx, nodeJy, pointLoads);
@@ -126,7 +126,7 @@ export function computeAxialDiagram(
   length: number,
   nodeIx: number, nodeIy: number,
   nodeJx: number, nodeJy: number,
-  pointLoads: Array<{ a: number; p: number; px?: number; mz?: number }> = [],
+  pointLoads: Array<{ a: number; p: number; px?: number; my?: number }> = [],
 ): ElementDiagram {
   const ef = { mStart: 0, mEnd: 0, vStart: 0, vEnd: 0, nStart, nEnd, qI: 0, qJ: 0, length, pointLoads };
   return buildDiagram('axial', ef, nodeIx, nodeIy, nodeJx, nodeJy, pointLoads);
@@ -138,7 +138,7 @@ export function computeAxialDiagram(
 export function computeDiagramValueAt(
   kind: 'moment' | 'shear' | 'axial',
   t: number,
-  ef: { mStart: number; mEnd: number; vStart: number; vEnd: number; nStart: number; nEnd: number; qI: number; qJ: number; length: number; pointLoads?: Array<{ a: number; p: number; px?: number; mz?: number }>; distributedLoads?: Array<{ qI: number; qJ: number; a: number; b: number }> },
+  ef: { mStart: number; mEnd: number; vStart: number; vEnd: number; nStart: number; nEnd: number; qI: number; qJ: number; length: number; pointLoads?: Array<{ a: number; p: number; px?: number; my?: number }>; distributedLoads?: Array<{ qI: number; qJ: number; a: number; b: number }> },
 ): number {
   const xi = t * ef.length;
   const sortedPL = [...(ef.pointLoads ?? [])].sort((a, b) => a.a - b.a);
@@ -167,7 +167,7 @@ export function computeDiagramValueAt(
     for (const pl of sortedPL) {
       if (pl.a < xi - 1e-10) {
         value -= pl.p * (xi - pl.a);
-        if (pl.mz) value -= pl.mz;
+        if (pl.my) value -= pl.my;
       }
     }
     return value;
@@ -236,20 +236,20 @@ export function computeDeformedShape(
   const points: { x: number; y: number }[] = [];
   for (let i = 0; i < NUM_POINTS; i++) {
     const t = i / (NUM_POINTS - 1);
-    const { ux, uy } = computeDisplacementAt(
+    const { ux, uz } = computeDisplacementAt(
       t, nodeIx, nodeIy, nodeJx, nodeJy,
       uIx, uIy, rIz, uJx, uJy, rJz,
       length, hingeStart, hingeEnd, EI, loadQI, loadQJ, loadPoints, distLoads,
     );
     const baseX = nodeIx + t * (nodeJx - nodeIx);
     const baseY = nodeIy + t * (nodeJy - nodeIy);
-    points.push({ x: baseX + ux * scale, y: baseY + uy * scale });
+    points.push({ x: baseX + ux * scale, y: baseY + uz * scale });
   }
   return points;
 }
 
 /**
- * Compute the actual displacement (ux, uy in metres) at parameter t ∈ [0,1]
+ * Compute the actual displacement (ux, uz in metres) at parameter t ∈ [0,1]
  * along an element, using Hermite cubic + particular solution.
  *
  * Unlike linear interpolation, this correctly captures mid-span deflection
@@ -269,9 +269,9 @@ export function computeDisplacementAt(
   loadQJ?: number,
   loadPoints?: Array<{ a: number; p: number }>,
   distLoads?: Array<{ qI: number; qJ: number; a: number; b: number }>,
-): { ux: number; uy: number } {
+): { ux: number; uz: number } {
   const L = length;
-  if (L < 1e-12) return { ux: uIx, uy: uIy };
+  if (L < 1e-12) return { ux: uIx, uz: uIy };
 
   const cosA = (nodeJx - nodeIx) / L;
   const sinA = (nodeJy - nodeIy) / L;
@@ -429,7 +429,7 @@ export function computeDisplacementAt(
 
   // Transform back to global
   const ux = uLocal * cosA - vLocal * sinA;
-  const uy = uLocal * sinA + vLocal * cosA;
+  const uz = uLocal * sinA + vLocal * cosA;
 
-  return { ux, uy };
+  return { ux, uz };
 }

@@ -34,7 +34,7 @@
       uiStore.toast(results, 'error');
     } else if (results) {
       // Validate results aren't degenerate
-      const hasNaN = results.displacements.some(d => !isFinite(d.ux) || !isFinite(d.uy) || !isFinite(d.rz));
+      const hasNaN = results.displacements.some(d => !isFinite(d.ux) || !isFinite(d.uz) || !isFinite(d.ry));
       if (hasNaN) {
         uiStore.toast(t('results.numericError'), 'error');
         return;

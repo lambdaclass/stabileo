@@ -16,8 +16,12 @@ import { initSolver, isWasmReady } from './wasm-solver';
 
 // ─── Helpers ──────────────────────────────────────────────────────────────
 
-function hasNaN2D(displacements: { ux: number; uy: number; rz: number }[]): boolean {
-  return displacements.some(d => !isFinite(d.ux) || !isFinite(d.uy) || !isFinite(d.rz));
+function hasNaN2D(displacements: { ux: number; uz?: number; uy?: number; ry?: number; rz?: number }[]): boolean {
+  return displacements.some(d =>
+    !isFinite(d.ux) ||
+    !isFinite(d.uz ?? d.uy ?? 0) ||
+    !isFinite(d.ry ?? d.rz ?? 0),
+  );
 }
 
 function hasNaN3D(displacements: { ux: number; uy: number; uz: number }[]): boolean {

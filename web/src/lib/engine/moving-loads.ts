@@ -254,8 +254,8 @@ function buildTrainLoads(
       const fI = pAxial * (1 - t);
       const fJ = pAxial * t;
       loads.push(
-        { type: 'nodal', data: { nodeId: seg.nodeI, fx: fI * cosTheta, fy: fI * sinTheta, mz: 0 } },
-        { type: 'nodal', data: { nodeId: seg.nodeJ, fx: fJ * cosTheta, fy: fJ * sinTheta, mz: 0 } },
+        { type: 'nodal', data: { nodeId: seg.nodeI, fx: fI * cosTheta, fz: fI * sinTheta, my: 0 } },
+        { type: 'nodal', data: { nodeId: seg.nodeJ, fx: fJ * cosTheta, fz: fJ * sinTheta, my: 0 } },
       );
     }
   }
@@ -500,13 +500,13 @@ export function computePointwiseEnvelope(results: AnalysisResults[]): FullEnvelo
     const res = results[r];
     for (let i = 0; i < res.displacements.length && i < displacements.length; i++) {
       if (Math.abs(res.displacements[i].ux) > Math.abs(displacements[i].ux)) displacements[i].ux = res.displacements[i].ux;
-      if (Math.abs(res.displacements[i].uy) > Math.abs(displacements[i].uy)) displacements[i].uy = res.displacements[i].uy;
-      if (Math.abs(res.displacements[i].rz) > Math.abs(displacements[i].rz)) displacements[i].rz = res.displacements[i].rz;
+      if (Math.abs(res.displacements[i].uz) > Math.abs(displacements[i].uz)) displacements[i].uz = res.displacements[i].uz;
+      if (Math.abs(res.displacements[i].ry) > Math.abs(displacements[i].ry)) displacements[i].ry = res.displacements[i].ry;
     }
     for (let i = 0; i < res.reactions.length && i < reactions.length; i++) {
       if (Math.abs(res.reactions[i].rx) > Math.abs(reactions[i].rx)) reactions[i].rx = res.reactions[i].rx;
-      if (Math.abs(res.reactions[i].ry) > Math.abs(reactions[i].ry)) reactions[i].ry = res.reactions[i].ry;
-      if (Math.abs(res.reactions[i].mz) > Math.abs(reactions[i].mz)) reactions[i].mz = res.reactions[i].mz;
+      if (Math.abs(res.reactions[i].rz) > Math.abs(reactions[i].rz)) reactions[i].rz = res.reactions[i].rz;
+      if (Math.abs(res.reactions[i].my) > Math.abs(reactions[i].my)) reactions[i].my = res.reactions[i].my;
     }
     for (let i = 0; i < res.elementForces.length && i < elementForces.length; i++) {
       if (Math.abs(res.elementForces[i].nStart) > Math.abs(elementForces[i].nStart)) elementForces[i].nStart = res.elementForces[i].nStart;

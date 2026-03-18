@@ -281,9 +281,9 @@ export function exportDxfWithResults(options: DxfExportOptions): string {
     // ── Deformed shape (Hermite cubic interpolation) ──
 
     if (options.deformedScale > 0) {
-      const dispMap = new Map<number, { ux: number; uy: number; rz: number }>();
+      const dispMap = new Map<number, { ux: number; uz: number; ry: number }>();
       for (const d of r.displacements) {
-        dispMap.set(d.nodeId, { ux: d.ux, uy: d.uy, rz: d.rz ?? 0 });
+        dispMap.set(d.nodeId, { ux: d.ux, uz: d.uz, ry: d.ry ?? 0 });
       }
       const defScale = options.deformedScale;
 
@@ -294,13 +294,13 @@ export function exportDxfWithResults(options: DxfExportOptions): string {
         const nj = modelStore.getNode(elem.nodeJ);
         if (!ni || !nj) continue;
 
-        const di = dispMap.get(elem.nodeI) ?? { ux: 0, uy: 0, rz: 0 };
-        const dj = dispMap.get(elem.nodeJ) ?? { ux: 0, uy: 0, rz: 0 };
+        const di = dispMap.get(elem.nodeI) ?? { ux: 0, uz: 0, ry: 0 };
+        const dj = dispMap.get(elem.nodeJ) ?? { ux: 0, uz: 0, ry: 0 };
 
         const defPts = computeDeformedShape(
           ni.x, ni.y, nj.x, nj.y,
-          di.ux, di.uy, di.rz,
-          dj.ux, dj.uy, dj.rz,
+          di.ux, di.uz, di.ry,
+          dj.ux, dj.uz, dj.ry,
           defScale, ef.length,
         );
         lines.push(...dxfPolyline(LY_DEFORMED, defPts));
@@ -314,8 +314,8 @@ export function exportDxfWithResults(options: DxfExportOptions): string {
       if (!node) continue;
       const parts: string[] = [];
       if (Math.abs(rx.rx) > 0.001) parts.push(`Rx=${rx.rx.toFixed(2)}`);
-      if (Math.abs(rx.ry) > 0.001) parts.push(`Ry=${rx.ry.toFixed(2)}`);
-      if (Math.abs(rx.mz) > 0.001) parts.push(`Mz=${rx.mz.toFixed(2)}`);
+      if (Math.abs(rx.rz) > 0.001) parts.push(`Rz=${rx.rz.toFixed(2)}`);
+      if (Math.abs(rx.my) > 0.001) parts.push(`My=${rx.my.toFixed(2)}`);
       if (parts.length > 0) {
         lines.push(...dxfText(LY_REACTIONS, node.x, node.y - 0.5, 0.12, parts.join(' ')));
       }

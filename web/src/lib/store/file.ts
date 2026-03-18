@@ -575,7 +575,9 @@ export function generateReportHTML(): string {
         const d = load.data;
         tipo = t('file.loadNodal');
         destino = `${t('file.node')} ${d.nodeId}`;
-        valores = `Fx=${fmtNum(d.fx)} kN, Fz=${fmtNum(d.fy)} kN, My=${fmtNum(d.mz)} kN·m`;
+        const fz = 'fz' in d ? Number((d as { fz?: number }).fz ?? 0) : Number((d as { fy?: number }).fy ?? 0);
+        const my = 'my' in d ? Number((d as { my?: number }).my ?? 0) : Number((d as { mz?: number }).mz ?? 0);
+        valores = `Fx=${fmtNum(d.fx)} kN, Fz=${fmtNum(fz)} kN, My=${fmtNum(my)} kN·m`;
         break;
       }
       case 'distributed': {

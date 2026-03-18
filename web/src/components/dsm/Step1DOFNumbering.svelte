@@ -10,13 +10,13 @@
 
   const is3D = $derived(dofsPerNode > 3);
   // DOF name labels per type
-  const eqFrame2D = '\\text{Cada nodo tiene: } u_x, \\; u_y, \\; \\theta_z';
-  const eqTruss2D = '\\text{Cada nodo tiene: } u_x, \\; u_y';
+  const eqFrame2D = '\\text{Cada nodo tiene: } u_x, \\; u_z, \\; \\theta_y';
+  const eqTruss2D = '\\text{Cada nodo tiene: } u_x, \\; u_z';
   const eqFrame3D = '\\text{Cada nodo tiene: } u_x, \\; u_y, \\; u_z, \\; \\theta_x, \\; \\theta_y, \\; \\theta_z';
   const eqTruss3D = '\\text{Cada nodo tiene: } u_x, \\; u_y, \\; u_z';
 
   // Map local DOF index to display name
-  const dofName2D = ['ux', 'uy', 'θz'];
+  const dofName2D = ['ux', 'uz', 'θy'];
   const dofName3D6 = ['ux', 'uy', 'uz', 'θx', 'θy', 'θz'];
   const dofName3D3 = ['ux', 'uy', 'uz'];
   const dofNames = $derived(is3D ? (dofsPerNode === 6 ? dofName3D6 : dofName3D3) : dofName2D);

@@ -73,6 +73,8 @@ export function effectiveBendingInertia(sec: Section): number {
 function buildSolverSupports2D(model: ModelData): Map<number, any> {
   return new Map(Array.from(model.supports.entries()).map(([id, s]) => {
     const isRoller = s.type === 'rollerX' || s.type === 'rollerY' || s.type === 'rollerZ';
+    const supportDz = s.dz ?? s.dy;
+    const supportDry = s.dry ?? s.drz;
     if (isRoller) {
       const baseAngleDeg = s.type === 'rollerX' ? 0 : 90;
       let effectiveAngleDeg = baseAngleDeg;
@@ -88,18 +90,18 @@ function buildSolverSupports2D(model: ModelData): Map<number, any> {
         Math.abs(effectiveAngleDeg % 360 - 90) < 0.01 ||
         Math.abs(effectiveAngleDeg % 360 - 180) < 0.01 ||
         Math.abs(effectiveAngleDeg % 360 - 270) < 0.01;
-      const di = s.type === 'rollerX' ? (s.dy ?? 0) : (s.dx ?? 0);
+      const di = s.type === 'rollerX' ? (supportDz ?? 0) : (s.dx ?? 0);
       if (isAxisAligned) {
         const norm = Math.round(effectiveAngleDeg / 90) % 4;
         const mappedType = (norm === 0 || norm === 2) ? 'rollerX' : 'rollerZ';
         const solverDx = mappedType === 'rollerZ' ? di : undefined;
         const solverDz = mappedType === 'rollerX' ? di : undefined;
-        return [id, { id: s.id, nodeId: s.nodeId, type: mappedType as any, kx: s.kx, ky: s.ky, kz: s.kz, dx: solverDx, dz: solverDz, dry: s.drz }];
+        return [id, { id: s.id, nodeId: s.nodeId, type: mappedType as any, kx: s.kx, ky: s.ky, kz: s.kz, dx: solverDx, dz: solverDz, dry: supportDry }];
       } else {
         const angleRad = effectiveAngleDeg * Math.PI / 180;
         const solverDx = di !== 0 ? di * Math.sin(angleRad) : undefined;
         const solverDz = di !== 0 ? di * Math.cos(angleRad) : undefined;
-        return [id, { id: s.id, nodeId: s.nodeId, type: 'inclinedRoller' as any, angle: angleRad, kx: s.kx, ky: s.ky, kz: s.kz, dx: solverDx, dz: solverDz, dry: s.drz }];
+        return [id, { id: s.id, nodeId: s.nodeId, type: 'inclinedRoller' as any, angle: angleRad, kx: s.kx, ky: s.ky, kz: s.kz, dx: solverDx, dz: solverDz, dry: supportDry }];
       }
     }
     if (s.type === 'spring' && (s.angle !== undefined && s.angle !== 0 || s.isGlobal === false)) {
@@ -111,9 +113,9 @@ function buildSolverSupports2D(model: ModelData): Map<number, any> {
       }
       effectiveAngleDeg += (s.angle ?? 0);
       const angleRad = effectiveAngleDeg * Math.PI / 180;
-      return [id, { id: s.id, nodeId: s.nodeId, type: 'spring' as any, kx: s.kx, ky: s.ky, kz: s.kz, dx: s.dx, dz: s.dy, dry: s.drz, angle: angleRad }];
+      return [id, { id: s.id, nodeId: s.nodeId, type: 'spring' as any, kx: s.kx, ky: s.ky, kz: s.kz, dx: s.dx, dz: supportDz, dry: supportDry, angle: angleRad }];
     }
-    return [id, { id: s.id, nodeId: s.nodeId, type: s.type === 'rollerY' ? 'rollerZ' : s.type, kx: s.kx, ky: s.ky, kz: s.kz, dx: s.dx, dz: s.dy, dry: s.drz }];
+    return [id, { id: s.id, nodeId: s.nodeId, type: s.type === 'rollerY' ? 'rollerZ' : s.type, kx: s.kx, ky: s.ky, kz: s.kz, dx: s.dx, dz: supportDz, dry: supportDry }];
   }));
 }
 
@@ -309,12 +311,12 @@ export function validateAndSolve2D(
 
       const isRollerType = (t: string) => t === 'rollerX' || t === 'rollerY' || t === 'rollerZ';
       const onlyRollersX = [...model.supports.values()].every(s => s.type === 'rollerX');
-      const onlyRollersY = [...model.supports.values()].every(s => s.type === 'rollerY' || s.type === 'rollerZ');
+      const onlyRollersZ = [...model.supports.values()].every(s => s.type === 'rollerY' || s.type === 'rollerZ');
 
       if (onlyRollersX) {
         return t('svc.unstableAllRollersX');
       }
-      if (onlyRollersY) {
+      if (onlyRollersZ) {
         return t('svc.unstableAllRollersY');
       }
 
@@ -436,7 +438,10 @@ export function validateAndSolve2D(
   // Build solver loads array
   const solverLoads = model.loads.map(l => {
     if (l.type === 'nodal') {
-      return { type: 'nodal' as const, data: { nodeId: l.data.nodeId, fx: l.data.fx, fz: l.data.fy, my: l.data.mz } };
+      return {
+        type: 'nodal' as const,
+        data: { nodeId: l.data.nodeId, fx: l.data.fx, fz: l.data.fz ?? l.data.fy, my: l.data.my ?? l.data.mz },
+      };
     } else if (l.type === 'distributed') {
       const d = l.data as DistributedLoad;
       const sd: { elementId: number; qI: number; qJ: number; a?: number; b?: number } = { elementId: d.elementId, qI: d.qI, qJ: d.qJ };
@@ -450,7 +455,7 @@ export function validateAndSolve2D(
       const d = l.data as PointLoadOnElement;
       const spd: { elementId: number; a: number; p: number; px?: number; my?: number } = { elementId: d.elementId, a: d.a, p: d.p };
       if (d.px !== undefined && d.px !== 0) spd.px = d.px;
-      if (d.mz !== undefined && d.mz !== 0) spd.my = d.mz;
+      if ((d.my ?? d.mz) !== undefined && (d.my ?? d.mz) !== 0) spd.my = d.my ?? d.mz;
       return { type: 'pointOnElement' as const, data: spd };
     }
   });
@@ -542,7 +547,10 @@ export function buildSolverInput2D(model: ModelData, includeSelfWeight = false):
 
   for (const l of model.loads) {
     if (l.type === 'nodal') {
-      solverLoads.push({ type: 'nodal' as const, data: { nodeId: l.data.nodeId, fx: l.data.fx, fz: l.data.fy, my: l.data.mz } });
+      solverLoads.push({
+        type: 'nodal' as const,
+        data: { nodeId: l.data.nodeId, fx: l.data.fx, fz: l.data.fz ?? l.data.fy, my: l.data.my ?? l.data.mz },
+      });
     } else if (l.type === 'thermal') {
       const d = l.data as ThermalLoad;
       solverLoads.push({ type: 'thermal' as const, data: { elementId: d.elementId, dtUniform: d.dtUniform, dtGradient: d.dtGradient } });
@@ -552,7 +560,7 @@ export function buildSolverInput2D(model: ModelData, includeSelfWeight = false):
       const isGlobal = d.isGlobal ?? false;
 
       if (angle === 0 && !isGlobal) {
-        solverLoads.push({ type: 'pointOnElement' as const, data: { elementId: d.elementId, a: d.a, p: d.p, px: d.px, my: d.mz } });
+        solverLoads.push({ type: 'pointOnElement' as const, data: { elementId: d.elementId, a: d.a, p: d.p, px: d.px, my: d.my ?? d.mz } });
       } else {
         const elem = model.elements.get(d.elementId);
         if (!elem) continue;

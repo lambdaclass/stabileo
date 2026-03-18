@@ -17,7 +17,7 @@ export interface SupportDetail {
   nodeId: number;
   type: string;           // Spanish label: "Empotramiento", "Articulación fija", etc.
   dofs: number;           // restrained DOF count
-  restrainedDofs: string; // "ux, uy, θz"
+  restrainedDofs: string; // "ux, uz, θy"
 }
 
 export interface HingeDetail {
@@ -31,7 +31,7 @@ export interface HingeDetail {
 
 export interface UnconstrainedDofDetail {
   nodeId: number;
-  dof: 'ux' | 'uy' | 'rz';
+  dof: 'ux' | 'uz' | 'ry';
   dofName: string;        // "desplazamiento horizontal"
   explanation: string;    // root-cause explanation
 }
@@ -51,14 +51,14 @@ export interface NodeConstraintInfo {
 
 // ─── Per-DOF breakdown interfaces ────────────────────────────────
 
-export type DofLabel = 'ux' | 'uy' | 'θz';
+export type DofLabel = 'ux' | 'uz' | 'θy';
 
 /** Single constraint source for a specific DOF */
 export interface DofConstraintSource {
   fromNodeId: number;         // element node where this constraint arrives
   label: string;              // "Empotramiento en Nodo 1"
   viaElems: number[];         // [3, 2] → "vía Barra 3 → Barra 2". Empty = direct.
-  implicit?: boolean;         // true for θz from force couple
+  implicit?: boolean;         // true for θy from force couple
 }
 
 /** One DOF line in the breakdown */
@@ -70,7 +70,7 @@ export interface DofLine {
 
 /** Complete per-DOF breakdown for one element */
 export interface DofBreakdown {
-  lines: DofLine[];           // 3 for frame (ux, uy, θz), 2 for truss (ux, uy)
+  lines: DofLine[];           // 3 for frame (ux, uz, θy), 2 for truss (ux, uz)
   totalConstraints: number;   // effective constraint count (from countEffectiveConstraints)
   needed: number;             // 3 for frame, 2 for truss
   summary: string;            // "3 restricciones para 3 GDL — isostática."
@@ -125,10 +125,10 @@ export interface KinematicReport {
 
 function getSupportLabels(): Record<string, { label: string; dofs: number; restrained: string }> {
   return {
-    fixed:    { label: t('kin.supFixed'), dofs: 3, restrained: 'ux, uy, θz' },
-    pinned:   { label: t('kin.supPinned'), dofs: 2, restrained: 'ux, uy' },
-    rollerX:  { label: t('kin.supRollerX'), dofs: 1, restrained: 'uy' },
-    rollerY:  { label: t('kin.supRollerY'), dofs: 1, restrained: 'ux' },
+    fixed:    { label: t('kin.supFixed'), dofs: 3, restrained: 'ux, uz, θy' },
+    pinned:   { label: t('kin.supPinned'), dofs: 2, restrained: 'ux, uz' },
+    rollerX:  { label: t('kin.supRollerX'), dofs: 1, restrained: 'uz' },
+    rollerZ:  { label: t('kin.supRollerY'), dofs: 1, restrained: 'ux' },
     inclinedRoller: { label: t('kin.supInclinedRoller'), dofs: 1, restrained: 'u_n' },
   };
 }
@@ -136,8 +136,8 @@ function getSupportLabels(): Record<string, { label: string; dofs: number; restr
 function getDofNames(): Record<string, string> {
   return {
     ux: t('kin.dofHorizontal'),
-    uy: t('kin.dofVertical'),
-    rz: t('kin.dofRotation'),
+    uz: t('kin.dofVertical'),
+    ry: t('kin.dofRotation'),
   };
 }
 
@@ -145,11 +145,11 @@ function getDofNames(): Record<string, string> {
 
 function getSupportDofs(): Record<string, ReadonlySet<DofLabel>> {
   return {
-    [t('kin.supFixed')]:          new Set<DofLabel>(['ux', 'uy', 'θz']),
-    [t('kin.supPinned')]:         new Set<DofLabel>(['ux', 'uy']),
-    [t('kin.supRollerX')]:        new Set<DofLabel>(['uy']),
+    [t('kin.supFixed')]:          new Set<DofLabel>(['ux', 'uz', 'θy']),
+    [t('kin.supPinned')]:         new Set<DofLabel>(['ux', 'uz']),
+    [t('kin.supRollerX')]:        new Set<DofLabel>(['uz']),
     [t('kin.supRollerY')]:        new Set<DofLabel>(['ux']),
-    [t('kin.supInclinedRoller')]: new Set<DofLabel>(['uy']),   // simplification: u_n ≈ uy
+    [t('kin.supInclinedRoller')]: new Set<DofLabel>(['uz']),   // simplification: u_n ≈ uz
   };
 }
 
@@ -162,8 +162,8 @@ function parseSupportDofs(sup: SupportDetail): Set<DofLabel> {
   const dofs = new Set<DofLabel>();
   const s = sup.restrainedDofs;
   if (s.includes('ux')) dofs.add('ux');
-  if (s.includes('uy')) dofs.add('uy');
-  if (s.includes('θz') || s.includes('\u03b8z')) dofs.add('θz');
+  if (s.includes('uz') || s.includes('uy')) dofs.add('uz');
+  if (s.includes('θy') || s.includes('\u03b8y') || s.includes('θz') || s.includes('\u03b8z')) dofs.add('θy');
   return dofs;
 }
 
@@ -208,8 +208,8 @@ export function generateKinematicReport(input: SolverInput): KinematicReport | n
       const parts: string[] = [];
       let d = 0;
       if (sup.kx && sup.kx > 0) { parts.push('ux'); d++; }
-      if (sup.ky && sup.ky > 0) { parts.push('uy'); d++; }
-      if (sup.kz && sup.kz > 0) { parts.push('θz'); d++; }
+      if (sup.ky && sup.ky > 0) { parts.push('uz'); d++; }
+      if (sup.kz && sup.kz > 0) { parts.push('θy'); d++; }
       supportDetails.push({
         nodeId: sup.nodeId,
         type: t('kin.supSpring'),
@@ -460,16 +460,16 @@ type ElemConnInfo = { elemId: number; type: 'frame' | 'truss'; nodeI: number; no
 
 /**
  * Determine which DOFs can transfer through a connection at a shared node.
- * A rigid frame passes all 3 DOFs; a hinge or truss blocks θz.
+ * A rigid frame passes all 3 DOFs; a hinge or truss blocks θy.
  */
 function connectionDofFilter(
   connType: 'frame' | 'truss',
   hingedAtSharedNode: boolean,
 ): Set<DofLabel> {
   if (connType === 'truss' || hingedAtSharedNode) {
-    return new Set<DofLabel>(['ux', 'uy']);
+    return new Set<DofLabel>(['ux', 'uz']);
   }
-  return new Set<DofLabel>(['ux', 'uy', 'θz']);
+  return new Set<DofLabel>(['ux', 'uz', 'θy']);
 }
 
 /**
@@ -477,7 +477,7 @@ function connectionDofFilter(
  * find all reachable supports and track which DOFs survive the chain.
  *
  * At each hop, the surviving DOF set is intersected with the connection
- * filters (hinges block θz, trusses block θz). When a support is found,
+ * filters (hinges block θy, trusses block θy). When a support is found,
  * the surviving DOFs are intersected with the support's restrained DOFs.
  */
 function findDofSourcesViaChain(
@@ -527,17 +527,17 @@ function findDofSourcesViaChain(
     const sup = supportByNode.get(state.node);
     if (sup) {
       const supDofs = parseSupportDofs(sup);
-      // For translational DOFs (ux, uy): the support must specifically provide them.
-      // For θz: ANY support provides θz through a rigid chain (moment arm effect).
+      // For translational DOFs (ux, uz): the support must specifically provide them.
+      // For θy: ANY support provides θy through a rigid chain (moment arm effect).
       // A rigid frame chain converts rotational displacement at the near end into
       // translational displacement at the far end. Any translational reaction at
-      // the support resists this displacement, effectively constraining θz.
+      // the support resists this displacement, effectively constraining θy.
       const effective = new Set<DofLabel>();
       for (const d of state.dofs) {
-        if (d === 'θz') {
-          // θz survived the chain (no hinges/trusses blocked it) →
+        if (d === 'θy') {
+          // θy survived the chain (no hinges/trusses blocked it) →
           // any support provides rotational restraint through bending stiffness
-          effective.add('θz');
+          effective.add('θy');
         } else if (supDofs.has(d)) {
           effective.add(d);
         }
@@ -608,12 +608,12 @@ function buildDofBreakdown(
   status: 'isostatic' | 'hyperstatic' | 'mechanism',
 ): DofBreakdown {
   const isFrame = elemType === 'frame';
-  const dofLabels: DofLabel[] = isFrame ? ['ux', 'uy', 'θz'] : ['ux', 'uy'];
+  const dofLabels: DofLabel[] = isFrame ? ['ux', 'uz', 'θy'] : ['ux', 'uz'];
   const needed = isFrame ? 3 : 2;
 
   // Accumulate sources per DOF, per node
-  const sourcesI: Record<DofLabel, DofConstraintSource[]> = { 'ux': [], 'uy': [], 'θz': [] };
-  const sourcesJ: Record<DofLabel, DofConstraintSource[]> = { 'ux': [], 'uy': [], 'θz': [] };
+  const sourcesI: Record<DofLabel, DofConstraintSource[]> = { 'ux': [], 'uz': [], 'θy': [] };
+  const sourcesJ: Record<DofLabel, DofConstraintSource[]> = { 'ux': [], 'uz': [], 'θy': [] };
 
   // Process each end
   const ends: Array<{ nId: number; isHinged: boolean; info: NodeConstraintInfo; acc: Record<DofLabel, DofConstraintSource[]> }> = [
@@ -624,8 +624,8 @@ function buildDofBreakdown(
   for (const end of ends) {
     // DOFs that can exit the element at this node
     const exitDofs: Set<DofLabel> = isFrame
-      ? (end.isHinged ? new Set<DofLabel>(['ux', 'uy']) : new Set<DofLabel>(['ux', 'uy', 'θz']))
-      : new Set<DofLabel>(['ux', 'uy']);
+      ? (end.isHinged ? new Set<DofLabel>(['ux', 'uz']) : new Set<DofLabel>(['ux', 'uz', 'θy']))
+      : new Set<DofLabel>(['ux', 'uz']);
 
     // 1. Direct support
     if (end.info.support) {
@@ -659,7 +659,7 @@ function buildDofBreakdown(
   }
 
   // Combine per DOF from both nodes + deduplicate by (supportNodeId, dof)
-  const combined: Record<DofLabel, DofConstraintSource[]> = { 'ux': [], 'uy': [], 'θz': [] };
+  const combined: Record<DofLabel, DofConstraintSource[]> = { 'ux': [], 'uz': [], 'θy': [] };
   for (const dof of dofLabels) {
     const seen = new Set<string>();
     for (const src of [...sourcesI[dof], ...sourcesJ[dof]]) {
@@ -671,7 +671,7 @@ function buildDofBreakdown(
     }
   }
 
-  // ── Helpers for θz couple (cupla) explanation ──
+  // ── Helpers for θy couple (cupla) explanation ──
   // Format a source as text (label + chain path)
   const fmtSrc = (s: DofConstraintSource): string => {
     const via = s.viaElems.length > 0
@@ -680,20 +680,20 @@ function buildDofBreakdown(
     return s.label + via;
   };
 
-  // Check if a source label corresponds to a support that directly provides θz.
+  // Check if a source label corresponds to a support that directly provides θy.
   // Only Empotramiento (and Resorte with kz) directly restrain rotation.
   // All other supports (pin, rollers) only provide translational restraint;
-  // their θz contribution comes from the moment arm (couple) effect.
-  const isDirectThzLabel = (label: string): boolean =>
+  // their θy contribution comes from the moment arm (couple) effect.
+  const isDirectThyLabel = (label: string): boolean =>
     label.startsWith(t('kin.supFixed')) || label.startsWith(t('kin.supSpring'));
 
-  // Build a "cupla" explanation: θz is constrained by the force couple formed
+  // Build a "cupla" explanation: θy is constrained by the force couple formed
   // between translational reactions at both ends of the element (or chain).
   // A single translational support can't prevent rotation on its own — it takes
   // two reaction forces at different locations to create the couple/moment.
   const buildCoupleText = (): string => {
-    const allTransI = [...sourcesI['ux'], ...sourcesI['uy']];
-    const allTransJ = [...sourcesJ['ux'], ...sourcesJ['uy']];
+    const allTransI = [...sourcesI['ux'], ...sourcesI['uz']];
+    const allTransJ = [...sourcesJ['ux'], ...sourcesJ['uz']];
     const dedup = (srcs: DofConstraintSource[]): string[] => {
       const seen = new Set<string>();
       const out: string[] = [];
@@ -713,16 +713,16 @@ function buildDofBreakdown(
     return t('kin.momentEquilibrium');
   };
 
-  // θz implicit: if frame, no direct/virtual θz sources, but both nodes have translational restraint
-  if (isFrame && combined['θz'].length === 0) {
-    const nodeIHasUy = sourcesI['uy'].length > 0;
-    const nodeJHasUy = sourcesJ['uy'].length > 0;
+  // θy implicit: if frame, no direct/virtual θy sources, but both nodes have translational restraint
+  if (isFrame && combined['θy'].length === 0) {
+    const nodeIHasUz = sourcesI['uz'].length > 0;
+    const nodeJHasUz = sourcesJ['uz'].length > 0;
     const nodeIHasUx = sourcesI['ux'].length > 0;
     const nodeJHasUx = sourcesJ['ux'].length > 0;
-    // θz is implicitly constrained if both nodes have at least one translational restraint
+    // θy is implicitly constrained if both nodes have at least one translational restraint
     // (the force couple from reactions at different nodes prevents rotation)
-    if ((nodeIHasUy && nodeJHasUy) || (nodeIHasUx && nodeJHasUx)) {
-      combined['θz'].push({
+    if ((nodeIHasUz && nodeJHasUz) || (nodeIHasUx && nodeJHasUx)) {
+      combined['θy'].push({
         fromNodeId: -1,
         label: buildCoupleText(),
         viaElems: [],
@@ -737,21 +737,21 @@ function buildDofBreakdown(
     let displayText: string;
     if (sources.length === 0) {
       displayText = '⚠ ' + t('kin.noConstraint');
-    } else if (dof === 'θz') {
-      // θz display: distinguish direct θz (from fixed/spring that directly restrains rotation)
-      // from moment arm θz (from translational supports forming a couple).
+    } else if (dof === 'θy') {
+      // θy display: distinguish direct θy (from fixed/spring that directly restrains rotation)
+      // from moment arm θy (from translational supports forming a couple).
       // A translational support alone cannot prevent rotation; it takes the PAIR of
       // translational reactions at different locations to form the couple.
-      const directSources = sources.filter(s => !s.implicit && isDirectThzLabel(s.label));
-      const momentArmSources = sources.filter(s => !s.implicit && !isDirectThzLabel(s.label));
+      const directSources = sources.filter(s => !s.implicit && isDirectThyLabel(s.label));
+      const momentArmSources = sources.filter(s => !s.implicit && !isDirectThyLabel(s.label));
       const implicitSources = sources.filter(s => s.implicit);
       const parts: string[] = [];
       if (directSources.length > 0) {
-        // Direct θz from fixed support / rotational spring — show normally
+        // Direct θy from fixed support / rotational spring — show normally
         parts.push(...directSources.map(fmtSrc));
       }
       if (momentArmSources.length > 0 && directSources.length === 0) {
-        // Only moment arm θz (no direct θz available) — show couple explanation
+        // Only moment arm θy (no direct θy available) — show couple explanation
         parts.push(buildCoupleText());
       }
       if (implicitSources.length > 0) {
@@ -824,8 +824,8 @@ function generatePerElementAnalysis(
       const parts: string[] = [];
       let d = 0;
       if (sup.kx && sup.kx > 0) { parts.push('ux'); d++; }
-      if (sup.ky && sup.ky > 0) { parts.push('uy'); d++; }
-      if (sup.kz && sup.kz > 0) { parts.push('\u03b8z'); d++; }
+      if (sup.ky && sup.ky > 0) { parts.push('uz'); d++; }
+      if (sup.kz && sup.kz > 0) { parts.push('\u03b8y'); d++; }
       if (d > 0) {
         supportByNode.set(sup.nodeId, {
           nodeId: sup.nodeId, type: t('kin.supSpring'), dofs: d, restrainedDofs: parts.join(', '),
@@ -1123,7 +1123,7 @@ function computeFreeDofs(input: SolverInput): number {
     const t = sup.type as string;
     if (t === 'fixed') constrained += dofsPerNode;
     else if (t === 'pinned') constrained += 2;
-    else if (t === 'rollerX' || t === 'rollerY' || t === 'inclinedRoller') constrained += 1;
+    else if (t === 'rollerX' || t === 'rollerZ' || t === 'inclinedRoller') constrained += 1;
     else if (t === 'spring') {
       if (sup.kx && sup.kx > 0) constrained++;
       if (sup.ky && sup.ky > 0) constrained++;
@@ -1177,7 +1177,7 @@ function explainUnconstrainedDof(nodeId: number, dof: string, input: SolverInput
   const biArticulated = connectedElems.filter(e => e.hingedHere && e.hingedOther);
 
   // Rotation DOF unconstrained
-  if (dof === 'rz') {
+  if (dof === 'ry') {
     if (allHinged && !support) {
       return t('kin.allHingedNoMoment').replace('{node}', String(nodeId)).replace('{elems}', frameElems.map(e => `Elem. ${e.id}`).join(', '));
     }
@@ -1188,7 +1188,7 @@ function explainUnconstrainedDof(nodeId: number, dof: string, input: SolverInput
     return t('kin.insufficientRotConstraint').replace('{node}', String(nodeId));
   }
 
-  // Translation DOF (ux or uy) unconstrained
+  // Translation DOF (ux or uz) unconstrained
   const direction = dof === 'ux' ? t('kin.dirHorizontal') : t('kin.dirVertical');
 
   if (!support && connectedElems.length === 1) {
@@ -1217,7 +1217,7 @@ function explainUnconstrainedDof(nodeId: number, dof: string, input: SolverInput
     if (dof === 'ux' && biArtVertical.length === biArticulated.length && biArticulated.length === connectedElems.length) {
       return t('kin.biArtVertical').replace('{node}', String(nodeId)).replace('{elems}', biArtIds).replace('{dir}', direction);
     }
-    if (dof === 'uy' && biArtHorizontal.length === biArticulated.length && biArticulated.length === connectedElems.length) {
+    if (dof === 'uz' && biArtHorizontal.length === biArticulated.length && biArticulated.length === connectedElems.length) {
       return t('kin.biArtHorizontal').replace('{node}', String(nodeId)).replace('{elems}', biArtIds).replace('{dir}', direction);
     }
   }
@@ -1283,7 +1283,7 @@ function generateSuggestions(
       const key = `add-support-${ud.nodeId}`;
       if (!seen.has(key)) {
         seen.add(key);
-        if (ud.dof === 'rz') {
+        if (ud.dof === 'ry') {
           suggestions.push(t('kin.sugAddFixed').replace('{node}', String(ud.nodeId)));
         } else if (ud.dof === 'ux') {
           suggestions.push(t('kin.sugAddHorizSupport').replace('{node}', String(ud.nodeId)));
@@ -1296,7 +1296,7 @@ function generateSuggestions(
     // Check if upgrading a support would help
     const sup = Array.from(input.supports.values()).find(s => s.nodeId === ud.nodeId);
     if (sup) {
-      if (ud.dof === 'rz' && sup.type !== 'fixed') {
+      if (ud.dof === 'ry' && sup.type !== 'fixed') {
         const key = `upgrade-${ud.nodeId}`;
         if (!seen.has(key)) {
           seen.add(key);
@@ -1311,7 +1311,7 @@ function generateSuggestions(
       if (elem.nodeI === ud.nodeId && elem.hingeStart) hingesHere.push({ elemId: elem.id, end: 'I' });
       if (elem.nodeJ === ud.nodeId && elem.hingeEnd) hingesHere.push({ elemId: elem.id, end: 'J' });
     }
-    if (hingesHere.length > 0 && ud.dof === 'rz') {
+    if (hingesHere.length > 0 && ud.dof === 'ry') {
       const key = `remove-hinge-${ud.nodeId}`;
       if (!seen.has(key)) {
         seen.add(key);
@@ -1322,12 +1322,12 @@ function generateSuggestions(
 
   // Check for global horizontal instability — only suggest if NO support in the
   // entire structure restrains horizontal displacement (ux).
-  // A pinned, fixed, rollerY or spring-with-kx support provides ux restriction.
+  // A pinned, fixed, rollerZ or spring-with-kx support provides ux restriction.
   const uxNodes = unconstrained.filter(u => u.dof === 'ux');
   if (uxNodes.length > 1) {
     const hasAnyHorizontalRestraint = Array.from(input.supports.values()).some(s => {
       const t = s.type as string;
-      return t === 'fixed' || t === 'pinned' || t === 'rollerY' || (t === 'spring' && (s.kx ?? 0) > 0);
+      return t === 'fixed' || t === 'pinned' || t === 'rollerZ' || (t === 'spring' && (s.kx ?? 0) > 0);
     });
     if (!hasAnyHorizontalRestraint) {
       const key = 'global-horizontal';

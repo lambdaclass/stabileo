@@ -13,10 +13,10 @@ import { t } from '../i18n';
 
 export interface DofInfo {
   nodeId: number;
-  localDof: number;  // 0=ux, 1=uy, 2=θ
+  localDof: number;  // 0=ux, 1=uz, 2=θy
   globalIndex: number;
   isFree: boolean;
-  label: string; // "u₁", "v₁", "θ₁", etc.
+  label: string; // "u₁", "w₁", "θ₁", etc.
 }
 
 export interface ElementStepData {
@@ -98,7 +98,7 @@ export interface DSMStepData {
   elementForces: ElementForceStep[];
 
   // Labels for display
-  dofLabels: string[]; // nTotal labels: "u₁", "v₁", "θ₁", ...
+  dofLabels: string[]; // nTotal labels: "u₁", "w₁", "θ₁", ...
   freeDofLabels: string[];
   restrDofLabels: string[];
 }
@@ -114,7 +114,8 @@ function isDofRestrained(sup: SolverSupport, localDof: number): boolean {
     case 'fixed': return true;
     case 'pinned': return localDof === 0 || localDof === 1;
     case 'rollerX': return localDof === 1;
-    case 'rollerY': return localDof === 0;
+    case 'rollerY':
+    case 'rollerZ': return localDof === 0;
     case 'spring': return false;
     default: return false;
   }
