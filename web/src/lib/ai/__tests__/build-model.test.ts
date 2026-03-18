@@ -162,7 +162,7 @@ describe('buildModelContext', () => {
 
     const ctx = buildModelContext(store);
 
-    expect(ctx.bounds).toEqual({ xMin: 0, xMax: 6, yMin: 0, yMax: 4 });
+    expect(ctx.bounds).toEqual({ xMin: 0, xMax: 6, yMin: 0, yMax: 4, zMin: 0, zMax: 3 });
     expect(ctx.verticalAxis).toBe('z');
     expect(ctx.floorHeights).toEqual([0, 3]);
   });
@@ -196,7 +196,7 @@ describe('buildModelContext', () => {
 
     expect(ctx.verticalAxis).toBe('z');
     expect(ctx.floorHeights).toEqual([0, 3]);
-    expect(ctx.bounds).toEqual({ xMin: 0, xMax: 6, yMin: 0, yMax: 5 });
+    expect(ctx.bounds).toEqual({ xMin: 0, xMax: 6, yMin: 0, yMax: 5, zMin: 0, zMax: 3 });
   });
 });
 

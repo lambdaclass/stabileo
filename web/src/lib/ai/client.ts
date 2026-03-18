@@ -72,7 +72,7 @@ export interface ModelContext {
   elementCount: number;
   supportCount: number;
   loadCount: number;
-  bounds: { xMin: number; xMax: number; yMin: number; yMax: number };
+  bounds: { xMin: number; xMax: number; yMin: number; yMax: number; zMin?: number; zMax?: number };
   verticalAxis: typeof VERTICAL_AXIS;
   sections: Array<{ id: number; name: string }>;
   materials: Array<{ id: number; name: string }>;
@@ -95,13 +95,19 @@ export interface ModelStoreView {
 /** Build a compact ModelContext from store data. */
 export function buildModelContext(store: ModelStoreView): ModelContext {
   let xMin = Infinity, xMax = -Infinity, yMin = Infinity, yMax = -Infinity;
+  let zMin = Infinity, zMax = -Infinity;
   let hasZ = false;
   for (const n of store.nodes.values()) {
     if (n.x < xMin) xMin = n.x;
     if (n.x > xMax) xMax = n.x;
     if (n.y < yMin) yMin = n.y;
     if (n.y > yMax) yMax = n.y;
-    if (hasElevation(n)) hasZ = true;
+    if (hasElevation(n)) {
+      hasZ = true;
+      const elev = getElevation(n);
+      if (elev < zMin) zMin = elev;
+      if (elev > zMax) zMax = elev;
+    }
   }
 
   const sections: Array<{ id: number; name: string }> = [];
@@ -138,7 +144,7 @@ export function buildModelContext(store: ModelStoreView): ModelContext {
     elementCount: store.elements.size,
     supportCount: store.supports.size,
     loadCount: store.loads.length,
-    bounds: { xMin, xMax, yMin, yMax },
+    bounds: { xMin, xMax, yMin, yMax, ...(hasZ ? { zMin, zMax } : {}) },
     verticalAxis,
     sections,
     materials,
