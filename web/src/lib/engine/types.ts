@@ -3,7 +3,7 @@
 export interface SolverNode {
   id: number;
   x: number;
-  y: number;
+  z: number;
 }
 
 export interface SolverMaterial {
@@ -30,7 +30,7 @@ export interface SolverElement {
   hingeEnd: boolean;
 }
 
-export type SupportType = 'fixed' | 'pinned' | 'rollerX' | 'rollerY' | 'spring' | 'inclinedRoller';
+export type SupportType = 'fixed' | 'pinned' | 'rollerX' | 'rollerZ' | 'spring' | 'inclinedRoller';
 
 export interface SolverSupport {
   id: number;
@@ -42,10 +42,10 @@ export interface SolverSupport {
   kz?: number; // rotational spring
   // Optional prescribed displacements (m or rad). Only for restrained DOFs.
   dx?: number; // prescribed ux (m)
-  dy?: number; // prescribed uy (m)
-  drz?: number; // prescribed rotation (rad)
+  dz?: number; // prescribed uz (m)
+  dry?: number; // prescribed rotation about y (rad)
   // Rotation angle (radians). Used for:
-  // - inclinedRoller: rolling surface angle from horizontal (α=0 → rollerX, α=π/2 → rollerY)
+  // - inclinedRoller: rolling surface angle from horizontal (α=0 → rollerX, α=π/2 → rollerZ)
   // - spring: local axes rotation from global (kx/ky are in rotated frame)
   angle?: number;
 }
@@ -53,8 +53,8 @@ export interface SolverSupport {
 export interface SolverNodalLoad {
   nodeId: number;
   fx: number;  // kN
-  fy: number;  // kN
-  mz: number;  // kN·m
+  fz: number;  // kN
+  my: number;  // kN·m
 }
 
 export interface SolverDistributedLoad {
@@ -70,7 +70,7 @@ export interface SolverPointLoadOnElement {
   a: number;   // distance from node I (meters)
   p: number;   // kN (perpendicular to element, local coords)
   px?: number; // kN (axial, local coords — positive = toward J)
-  mz?: number; // kN·m (moment at position a — positive = CCW)
+  my?: number; // kN·m (moment at position a — positive = CCW)
 }
 
 export interface SolverThermalLoad {
@@ -97,15 +97,15 @@ export interface SolverInput {
 export interface Displacement {
   nodeId: number;
   ux: number;  // m
-  uy: number;  // m
-  rz: number;  // rad
+  uz: number;  // m
+  ry: number;  // rad
 }
 
 export interface Reaction {
   nodeId: number;
   rx: number;  // kN
-  ry: number;  // kN
-  mz: number;  // kN·m
+  rz: number;  // kN
+  my: number;  // kN·m
 }
 
 export interface ElementForces {
@@ -120,7 +120,7 @@ export interface ElementForces {
   // Loads on this element (for diagram calculation)
   qI: number;      // kN/m at node I (distributed) — legacy, sum of full-length loads
   qJ: number;      // kN/m at node J (distributed) — legacy, sum of full-length loads
-  pointLoads: Array<{ a: number; p: number; px?: number; mz?: number }>; // point loads
+  pointLoads: Array<{ a: number; p: number; px?: number; my?: number }>; // point loads
   // All distributed loads on this element (supports partial loads with a/b)
   distributedLoads: Array<{ qI: number; qJ: number; a: number; b: number }>;
   // Hinge flags (needed for correct deformed shape visualization)
@@ -130,7 +130,7 @@ export interface ElementForces {
 
 export interface ConstraintForce {
   nodeId: number;
-  dof: string;   // "ux", "uy", "rz", etc.
+  dof: string;   // "ux", "uz", "ry", etc.
   force: number; // kN or kN·m
 }
 

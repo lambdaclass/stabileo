@@ -7,7 +7,9 @@ use serde::{Deserialize, Serialize};
 pub struct Displacement {
     pub node_id: usize,
     pub ux: f64,
+    #[serde(rename = "uz", alias = "uy")]
     pub uy: f64,
+    #[serde(rename = "ry", alias = "rz")]
     pub rz: f64,
 }
 
@@ -16,7 +18,9 @@ pub struct Displacement {
 pub struct Reaction {
     pub node_id: usize,
     pub rx: f64,
+    #[serde(rename = "rz", alias = "ry")]
     pub ry: f64,
+    #[serde(rename = "my", alias = "mz")]
     pub mz: f64,
 }
 
@@ -27,7 +31,7 @@ pub struct PointLoadInfo {
     pub p: f64,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub px: Option<f64>,
-    #[serde(skip_serializing_if = "Option::is_none")]
+    #[serde(skip_serializing_if = "Option::is_none", rename = "my", alias = "mz")]
     pub mz: Option<f64>,
 }
 
@@ -809,11 +813,15 @@ pub struct TimeHistoryResult {
 pub struct NodeTimeHistory {
     pub node_id: usize,
     pub ux: Vec<f64>,
+    #[serde(rename = "uz", alias = "uy")]
     pub uy: Vec<f64>,
+    #[serde(rename = "ry", alias = "rz")]
     pub rz: Vec<f64>,
     pub vx: Vec<f64>,
+    #[serde(rename = "vz", alias = "vy")]
     pub vy: Vec<f64>,
     pub ax: Vec<f64>,
+    #[serde(rename = "az", alias = "ay")]
     pub ay: Vec<f64>,
 }
 

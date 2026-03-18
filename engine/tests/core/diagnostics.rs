@@ -987,10 +987,10 @@ fn result_summary_2d_cantilever() {
 
     // Displacement X: should exist
     let dx = summary.displacement_x.as_ref().expect("displacement_x present");
-    // Displacement Y: tip should deflect downward (min_value < 0)
-    let dy = summary.displacement_y.as_ref().expect("displacement_y present");
-    assert!(dy.min_value < 0.0, "cantilever tip should deflect downward: {}", dy.min_value);
-    assert_eq!(dy.min_id, 2, "max downward displacement at tip node 2");
+    // Displacement Z: tip should deflect downward (min_value < 0)
+    let dz = summary.displacement_z.as_ref().expect("displacement_z present");
+    assert!(dz.min_value < 0.0, "cantilever tip should deflect downward: {}", dz.min_value);
+    assert_eq!(dz.min_id, 2, "max downward displacement at tip node 2");
 
     // Rotation: should exist
     assert!(summary.rotation.is_some(), "rotation summary present");
@@ -1005,8 +1005,8 @@ fn result_summary_2d_cantilever() {
     assert!(rxn.max_value > 0.0, "reaction > 0");
     assert_eq!(rxn.max_id, 1, "max reaction at fixed node 1");
 
-    // Z displacement should be None for 2D
-    assert!(summary.displacement_z.is_none(), "no Z displacement in 2D");
+    // Y displacement should be None for 2D XZ-plane analysis
+    assert!(summary.displacement_y.is_none(), "no Y displacement in 2D");
 
     // Sanity: dx extremes make sense (node 1 is fixed → ux=0, node 2 may have some ux)
     assert!(dx.min_value <= dx.max_value, "min <= max");

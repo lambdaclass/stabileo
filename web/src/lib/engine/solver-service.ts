@@ -72,7 +72,7 @@ export function effectiveBendingInertia(sec: Section): number {
 /** Build solver supports map (2D), handling roller angle/inclined roller and spring rotation. */
 function buildSolverSupports2D(model: ModelData): Map<number, any> {
   return new Map(Array.from(model.supports.entries()).map(([id, s]) => {
-    const isRoller = s.type === 'rollerX' || s.type === 'rollerY';
+    const isRoller = s.type === 'rollerX' || s.type === 'rollerY' || s.type === 'rollerZ';
     if (isRoller) {
       const baseAngleDeg = s.type === 'rollerX' ? 0 : 90;
       let effectiveAngleDeg = baseAngleDeg;
@@ -91,15 +91,15 @@ function buildSolverSupports2D(model: ModelData): Map<number, any> {
       const di = s.type === 'rollerX' ? (s.dy ?? 0) : (s.dx ?? 0);
       if (isAxisAligned) {
         const norm = Math.round(effectiveAngleDeg / 90) % 4;
-        const mappedType = (norm === 0 || norm === 2) ? 'rollerX' : 'rollerY';
-        const solverDx = mappedType === 'rollerY' ? di : undefined;
-        const solverDy = mappedType === 'rollerX' ? di : undefined;
-        return [id, { id: s.id, nodeId: s.nodeId, type: mappedType as any, kx: s.kx, ky: s.ky, kz: s.kz, dx: solverDx, dy: solverDy, drz: s.drz }];
+        const mappedType = (norm === 0 || norm === 2) ? 'rollerX' : 'rollerZ';
+        const solverDx = mappedType === 'rollerZ' ? di : undefined;
+        const solverDz = mappedType === 'rollerX' ? di : undefined;
+        return [id, { id: s.id, nodeId: s.nodeId, type: mappedType as any, kx: s.kx, ky: s.ky, kz: s.kz, dx: solverDx, dz: solverDz, dry: s.drz }];
       } else {
         const angleRad = effectiveAngleDeg * Math.PI / 180;
         const solverDx = di !== 0 ? di * Math.sin(angleRad) : undefined;
-        const solverDy = di !== 0 ? di * Math.cos(angleRad) : undefined;
-        return [id, { id: s.id, nodeId: s.nodeId, type: 'inclinedRoller' as any, angle: angleRad, kx: s.kx, ky: s.ky, kz: s.kz, dx: solverDx, dy: solverDy, drz: s.drz }];
+        const solverDz = di !== 0 ? di * Math.cos(angleRad) : undefined;
+        return [id, { id: s.id, nodeId: s.nodeId, type: 'inclinedRoller' as any, angle: angleRad, kx: s.kx, ky: s.ky, kz: s.kz, dx: solverDx, dz: solverDz, dry: s.drz }];
       }
     }
     if (s.type === 'spring' && (s.angle !== undefined && s.angle !== 0 || s.isGlobal === false)) {
@@ -111,9 +111,9 @@ function buildSolverSupports2D(model: ModelData): Map<number, any> {
       }
       effectiveAngleDeg += (s.angle ?? 0);
       const angleRad = effectiveAngleDeg * Math.PI / 180;
-      return [id, { id: s.id, nodeId: s.nodeId, type: 'spring' as any, kx: s.kx, ky: s.ky, kz: s.kz, dx: s.dx, dy: s.dy, drz: s.drz, angle: angleRad }];
+      return [id, { id: s.id, nodeId: s.nodeId, type: 'spring' as any, kx: s.kx, ky: s.ky, kz: s.kz, dx: s.dx, dz: s.dy, dry: s.drz, angle: angleRad }];
     }
-    return [id, { id: s.id, nodeId: s.nodeId, type: s.type, kx: s.kx, ky: s.ky, kz: s.kz, dx: s.dx, dy: s.dy, drz: s.drz }];
+    return [id, { id: s.id, nodeId: s.nodeId, type: s.type === 'rollerY' ? 'rollerZ' : s.type, kx: s.kx, ky: s.ky, kz: s.kz, dx: s.dx, dz: s.dy, dry: s.drz }];
   }));
 }
 
@@ -195,37 +195,37 @@ export function validateAndSolve2D(
 
   // ── External stability: reaction equilibrium matrix rank check ──
   {
-    const supNodes: Array<{ x: number; y: number; type: string; kx?: number; ky?: number; kz?: number }> = [];
+    const supNodes: Array<{ x: number; z: number; type: string; kx?: number; ky?: number; kz?: number }> = [];
     for (const sup of model.supports.values()) {
       const nd = model.nodes.get(sup.nodeId);
-      if (nd) supNodes.push({ x: nd.x, y: nd.y, type: sup.type, kx: sup.kx, ky: sup.ky, kz: sup.kz });
+      if (nd) supNodes.push({ x: nd.x, z: nd.y, type: sup.type === 'rollerY' ? 'rollerZ' : sup.type, kx: sup.kx, ky: sup.ky, kz: sup.kz });
     }
 
-    let cx = 0, cy = 0;
-    for (const s of supNodes) { cx += s.x; cy += s.y; }
-    cx /= supNodes.length; cy /= supNodes.length;
+    let cx = 0, cz = 0;
+    for (const s of supNodes) { cx += s.x; cz += s.z; }
+    cx /= supNodes.length; cz /= supNodes.length;
 
     const cols: Array<[number, number, number]> = [];
     for (const s of supNodes) {
-      const rx = s.x - cx, ry = s.y - cy;
+      const rx = s.x - cx, rz = s.z - cz;
       switch (s.type) {
         case 'fixed':
-          cols.push([1, 0, -ry]);
+          cols.push([1, 0, -rz]);
           cols.push([0, 1, rx]);
           if (hasFrames) cols.push([0, 0, 1]);
           break;
         case 'pinned':
-          cols.push([1, 0, -ry]);
+          cols.push([1, 0, -rz]);
           cols.push([0, 1, rx]);
           break;
         case 'rollerX':
           cols.push([0, 1, rx]);
           break;
-        case 'rollerY':
-          cols.push([1, 0, -ry]);
+        case 'rollerZ':
+          cols.push([1, 0, -rz]);
           break;
         case 'spring':
-          if (s.kx && s.kx > 0) cols.push([1, 0, -ry]);
+          if (s.kx && s.kx > 0) cols.push([1, 0, -rz]);
           if (s.ky && s.ky > 0) cols.push([0, 1, rx]);
           if (hasFrames && s.kz && s.kz > 0) cols.push([0, 0, 1]);
           break;
@@ -290,26 +290,26 @@ export function validateAndSolve2D(
 
   // ── Collinear supports ──
   {
-    const supNodes: { x: number; y: number }[] = [];
+    const supNodes: { x: number; z: number }[] = [];
     for (const sup of model.supports.values()) {
       const nd = model.nodes.get(sup.nodeId);
-      if (nd) supNodes.push(nd);
+      if (nd) supNodes.push({ x: nd.x, z: nd.y });
     }
     if (supNodes.length >= 2) {
       const allCollinear = supNodes.length < 3 ? false : (() => {
-        const x0 = supNodes[0].x, y0 = supNodes[0].y;
-        const dx = supNodes[1].x - x0, dy = supNodes[1].y - y0;
-        const len = Math.sqrt(dx * dx + dy * dy);
+        const x0 = supNodes[0].x, z0 = supNodes[0].z;
+        const dx = supNodes[1].x - x0, dz = supNodes[1].z - z0;
+        const len = Math.sqrt(dx * dx + dz * dz);
         if (len < 1e-10) return false;
         return supNodes.slice(2).every(p => {
-          const cross = Math.abs(dx * (p.y - y0) - dy * (p.x - x0));
+          const cross = Math.abs(dx * (p.z - z0) - dz * (p.x - x0));
           return cross / len < 1e-6;
         });
       })();
 
-      const isRollerType = (t: string) => t === 'rollerX' || t === 'rollerY';
+      const isRollerType = (t: string) => t === 'rollerX' || t === 'rollerY' || t === 'rollerZ';
       const onlyRollersX = [...model.supports.values()].every(s => s.type === 'rollerX');
-      const onlyRollersY = [...model.supports.values()].every(s => s.type === 'rollerY');
+      const onlyRollersY = [...model.supports.values()].every(s => s.type === 'rollerY' || s.type === 'rollerZ');
 
       if (onlyRollersX) {
         return t('svc.unstableAllRollersX');
@@ -436,7 +436,7 @@ export function validateAndSolve2D(
   // Build solver loads array
   const solverLoads = model.loads.map(l => {
     if (l.type === 'nodal') {
-      return { type: 'nodal' as const, data: { nodeId: l.data.nodeId, fx: l.data.fx, fy: l.data.fy, mz: l.data.mz } };
+      return { type: 'nodal' as const, data: { nodeId: l.data.nodeId, fx: l.data.fx, fz: l.data.fy, my: l.data.mz } };
     } else if (l.type === 'distributed') {
       const d = l.data as DistributedLoad;
       const sd: { elementId: number; qI: number; qJ: number; a?: number; b?: number } = { elementId: d.elementId, qI: d.qI, qJ: d.qJ };
@@ -448,9 +448,9 @@ export function validateAndSolve2D(
       return { type: 'thermal' as const, data: { elementId: d.elementId, dtUniform: d.dtUniform, dtGradient: d.dtGradient } };
     } else {
       const d = l.data as PointLoadOnElement;
-      const spd: { elementId: number; a: number; p: number; px?: number; mz?: number } = { elementId: d.elementId, a: d.a, p: d.p };
+      const spd: { elementId: number; a: number; p: number; px?: number; my?: number } = { elementId: d.elementId, a: d.a, p: d.p };
       if (d.px !== undefined && d.px !== 0) spd.px = d.px;
-      if (d.mz !== undefined && d.mz !== 0) spd.mz = d.mz;
+      if (d.mz !== undefined && d.mz !== 0) spd.my = d.mz;
       return { type: 'pointOnElement' as const, data: spd };
     }
   });
@@ -485,10 +485,10 @@ export function validateAndSolve2D(
       if (Math.abs(qTangent) > 1e-10) {
         const Ft = qTangent * L / 2;
         const fxNode = Ft * cosTheta;
-        const fyNode = Ft * sinTheta;
+        const fzNode = Ft * sinTheta;
         solverLoads.push(
-          { type: 'nodal' as const, data: { nodeId: elem.nodeI, fx: fxNode, fy: fyNode, mz: 0 } },
-          { type: 'nodal' as const, data: { nodeId: elem.nodeJ, fx: fxNode, fy: fyNode, mz: 0 } },
+          { type: 'nodal' as const, data: { nodeId: elem.nodeI, fx: fxNode, fz: fzNode, my: 0 } },
+          { type: 'nodal' as const, data: { nodeId: elem.nodeJ, fx: fxNode, fz: fzNode, my: 0 } },
         );
       }
     }
@@ -496,7 +496,7 @@ export function validateAndSolve2D(
 
   // Build solver input
   const input: SolverInput = {
-    nodes: new Map(Array.from(model.nodes.entries()).map(([id, n]) => [id, { id: n.id, x: n.x, y: n.y }])),
+    nodes: new Map(Array.from(model.nodes.entries()).map(([id, n]) => [id, { id: n.id, x: n.x, z: n.y }])),
     materials: new Map(Array.from(model.materials.entries()).map(([id, m]) => [id, { id: m.id, e: m.e, nu: m.nu }])),
     // 2D solver uses the effective bending inertia (accounts for section rotation via Mohr)
     sections: new Map(Array.from(model.sections.entries()).map(([id, s]) => [id, { id: s.id, a: s.a, iz: effectiveBendingInertia(s) }])),
@@ -542,7 +542,7 @@ export function buildSolverInput2D(model: ModelData, includeSelfWeight = false):
 
   for (const l of model.loads) {
     if (l.type === 'nodal') {
-      solverLoads.push({ type: 'nodal' as const, data: { nodeId: l.data.nodeId, fx: l.data.fx, fy: l.data.fy, mz: l.data.mz } });
+      solverLoads.push({ type: 'nodal' as const, data: { nodeId: l.data.nodeId, fx: l.data.fx, fz: l.data.fy, my: l.data.mz } });
     } else if (l.type === 'thermal') {
       const d = l.data as ThermalLoad;
       solverLoads.push({ type: 'thermal' as const, data: { elementId: d.elementId, dtUniform: d.dtUniform, dtGradient: d.dtGradient } });
@@ -552,7 +552,7 @@ export function buildSolverInput2D(model: ModelData, includeSelfWeight = false):
       const isGlobal = d.isGlobal ?? false;
 
       if (angle === 0 && !isGlobal) {
-        solverLoads.push({ type: 'pointOnElement' as const, data: { elementId: d.elementId, a: d.a, p: d.p, px: d.px, mz: d.mz } });
+        solverLoads.push({ type: 'pointOnElement' as const, data: { elementId: d.elementId, a: d.a, p: d.p, px: d.px, my: d.mz } });
       } else {
         const elem = model.elements.get(d.elementId);
         if (!elem) continue;
@@ -587,8 +587,8 @@ export function buildSolverInput2D(model: ModelData, includeSelfWeight = false):
           const fI = pAxial * (1 - t);
           const fJ = pAxial * t;
           solverLoads.push(
-            { type: 'nodal' as const, data: { nodeId: elem.nodeI, fx: fI * cosTheta, fy: fI * sinTheta, mz: 0 } },
-            { type: 'nodal' as const, data: { nodeId: elem.nodeJ, fx: fJ * cosTheta, fy: fJ * sinTheta, mz: 0 } },
+          { type: 'nodal' as const, data: { nodeId: elem.nodeI, fx: fI * cosTheta, fz: fI * sinTheta, my: 0 } },
+          { type: 'nodal' as const, data: { nodeId: elem.nodeJ, fx: fJ * cosTheta, fz: fJ * sinTheta, my: 0 } },
           );
         }
       }
@@ -645,8 +645,8 @@ export function buildSolverInput2D(model: ModelData, includeSelfWeight = false):
           const fI = totalAxial * (1 - tC);
           const fJ = totalAxial * tC;
           solverLoads.push(
-            { type: 'nodal' as const, data: { nodeId: elem.nodeI, fx: fI * cosTheta, fy: fI * sinTheta, mz: 0 } },
-            { type: 'nodal' as const, data: { nodeId: elem.nodeJ, fx: fJ * cosTheta, fy: fJ * sinTheta, mz: 0 } },
+          { type: 'nodal' as const, data: { nodeId: elem.nodeI, fx: fI * cosTheta, fz: fI * sinTheta, my: 0 } },
+          { type: 'nodal' as const, data: { nodeId: elem.nodeJ, fx: fJ * cosTheta, fz: fJ * sinTheta, my: 0 } },
           );
         }
       }
@@ -672,17 +672,17 @@ export function buildSolverInput2D(model: ModelData, includeSelfWeight = false):
       const qTangent = -w * sinTheta;
       if (Math.abs(qTangent) > 1e-10) {
         const Ft = qTangent * L / 2;
-        const fxNode = Ft * cosTheta, fyNode = Ft * sinTheta;
+        const fxNode = Ft * cosTheta, fzNode = Ft * sinTheta;
         solverLoads.push(
-          { type: 'nodal' as const, data: { nodeId: elem.nodeI, fx: fxNode, fy: fyNode, mz: 0 } },
-          { type: 'nodal' as const, data: { nodeId: elem.nodeJ, fx: fxNode, fy: fyNode, mz: 0 } },
+          { type: 'nodal' as const, data: { nodeId: elem.nodeI, fx: fxNode, fz: fzNode, my: 0 } },
+          { type: 'nodal' as const, data: { nodeId: elem.nodeJ, fx: fxNode, fz: fzNode, my: 0 } },
         );
       }
     }
   }
 
   return {
-    nodes: new Map(Array.from(model.nodes.entries()).map(([id, n]) => [id, { id: n.id, x: n.x, y: n.y }])),
+    nodes: new Map(Array.from(model.nodes.entries()).map(([id, n]) => [id, { id: n.id, x: n.x, z: n.y }])),
     materials: new Map(Array.from(model.materials.entries()).map(([id, m]) => [id, { id: m.id, e: m.e, nu: m.nu }])),
     // 2D solver uses the effective bending inertia (accounts for section rotation via Mohr)
     sections: new Map(Array.from(model.sections.entries()).map(([id, s]) => [id, { id: s.id, a: s.a, iz: effectiveBendingInertia(s) }])),

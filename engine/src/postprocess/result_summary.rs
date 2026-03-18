@@ -31,8 +31,8 @@ fn find_extreme(iter: impl Iterator<Item = (usize, f64)>) -> Option<ResultExtrem
 
 pub fn compute_result_summary_2d(results: &AnalysisResults) -> ResultSummary {
     let dx = find_extreme(results.displacements.iter().map(|d| (d.node_id, d.ux)));
-    let dy = find_extreme(results.displacements.iter().map(|d| (d.node_id, d.uy)));
-    let rz = find_extreme(results.displacements.iter().map(|d| (d.node_id, d.rz)));
+    let dz = find_extreme(results.displacements.iter().map(|d| (d.node_id, d.uy)));
+    let ry = find_extreme(results.displacements.iter().map(|d| (d.node_id, d.rz)));
     let res = find_extreme(
         results
             .displacements
@@ -47,9 +47,9 @@ pub fn compute_result_summary_2d(results: &AnalysisResults) -> ResultSummary {
     );
     ResultSummary {
         displacement_x: dx,
-        displacement_y: dy,
-        displacement_z: None,
-        rotation: rz,
+        displacement_y: None,
+        displacement_z: dz,
+        rotation: ry,
         displacement_resultant: res,
         reaction_resultant: rxn,
     }

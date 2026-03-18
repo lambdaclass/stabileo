@@ -8,6 +8,7 @@ use std::collections::HashMap;
 pub struct SolverNode {
     pub id: usize,
     pub x: f64,
+    #[serde(rename = "z", alias = "y")]
     pub y: f64,
 }
 
@@ -58,9 +59,9 @@ pub struct SolverSupport {
     pub kz: Option<f64>,
     #[serde(default)]
     pub dx: Option<f64>,
-    #[serde(default)]
+    #[serde(default, rename = "dz", alias = "dy")]
     pub dy: Option<f64>,
-    #[serde(default)]
+    #[serde(default, rename = "dry", alias = "drz")]
     pub drz: Option<f64>,
     #[serde(default)]
     pub angle: Option<f64>,
@@ -71,7 +72,9 @@ pub struct SolverSupport {
 pub struct SolverNodalLoad {
     pub node_id: usize,
     pub fx: f64,
+    #[serde(rename = "fz", alias = "fy")]
     pub fy: f64,
+    #[serde(rename = "my", alias = "mz")]
     pub mz: f64,
 }
 
@@ -97,7 +100,7 @@ pub struct SolverPointLoadOnElement {
     pub p: f64,
     #[serde(default)]
     pub px: Option<f64>,
-    #[serde(default)]
+    #[serde(default, rename = "my", alias = "mz")]
     pub mz: Option<f64>,
 }
 
@@ -552,7 +555,9 @@ pub struct SpectralModeInput {
 pub struct SpectralModeDisp {
     pub node_id: usize,
     pub ux: f64,
+    #[serde(rename = "uz", alias = "uy")]
     pub uy: f64,
+    #[serde(rename = "ry", alias = "rz")]
     pub rz: f64,
 }
 
@@ -873,7 +878,7 @@ pub struct ImperfectionInput {
     /// Residual stress patterns per section ID
     #[serde(default)]
     pub residual_stresses: HashMap<String, ResidualStressPattern>,
-    /// Initial displacements from previous analysis (node_id → [ux, uy, rz])
+    /// Initial displacements from previous analysis (node_id → [ux, uz, ry])
     #[serde(default)]
     pub initial_displacements: HashMap<String, Vec<f64>>,
 }
@@ -1113,7 +1118,7 @@ pub enum Constraint {
 pub struct RigidLinkConstraint {
     pub master_node: usize,
     pub slave_node: usize,
-    /// DOFs to constrain on slave: 0=ux,1=uy (2D); 0..5 (3D). Empty = all translational.
+    /// DOFs to constrain on slave: 0=ux,1=uz (2D); 0..5 (3D). Empty = all translational.
     #[serde(default)]
     pub dofs: Vec<usize>,
 }
@@ -1202,7 +1207,7 @@ pub struct EccentricConnectionConstraint {
     #[serde(default)]
     pub offset_z: f64,
     /// DOF releases at the connection (true = released/hinged).
-    /// For 2D: [ux, uy, rz]. For 3D: [ux, uy, uz, rx, ry, rz].
+    /// For 2D: [ux, uz, ry]. For 3D: [ux, uy, uz, rx, ry, rz].
     /// Released DOFs are NOT constrained (slave is free in that DOF).
     #[serde(default)]
     pub releases: Vec<bool>,
