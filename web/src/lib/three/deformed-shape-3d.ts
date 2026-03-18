@@ -1,11 +1,11 @@
-// Create Three.js lines for the 3D deformed shape visualization
-// Uses Hermite cubic interpolation + particular solution in both Y and Z bending planes.
+// Create Three.js lines for the 3D deformed shape visualization.
+// Uses Hermite cubic interpolation + particular solution in both local bending planes.
 // This is the 3D generalization of the 2D computeDeformedShape (diagrams.ts).
 //
 // For each element, displacements are transformed to local coordinates,
 // then:
-//   Plano Y (strong axis: Mz, Vy): v(ξ) = Hermite(vI, θzI, vJ, θzJ) + v_particular_Y(x)
-//   Plano Z (weak axis: My, Vz):   w(ξ) = Hermite(wI, -θyI, wJ, -θyJ) + w_particular_Z(x)
+//   Local Y plane: v(ξ) = Hermite(vI, θzI, vJ, θzJ) + v_particular_Y(x)
+//   Local Z plane: w(ξ) = Hermite(wI, -θyI, wJ, -θyJ) + w_particular_Z(x)
 //   Axial:                          u(ξ) = uI + ξ·(uJ - uI)
 // Note: θy = -dw/dx (sign convention), so we use -θy for the Hermite input.
 //
@@ -22,8 +22,8 @@ const SEGMENTS_PER_ELEMENT = 20;
 
 /** EI data for both bending planes */
 export interface ElementEI {
-  EIy: number;  // kN·m² — E·Iy (about Y horizontal) → Z-plane bending (w, θy)
-  EIz: number;  // kN·m² — E·Iz (about Z vertical) → Y-plane bending (v, θz)
+  EIy: number;  // kN·m² — E·Iy for local-Z-plane bending
+  EIz: number;  // kN·m² — E·Iz for local-Y-plane bending
 }
 
 /**
@@ -210,7 +210,7 @@ export function computeDeformedShape3D(
   const thetaYJ = ey[0] * dispJ.rx + ey[1] * dispJ.ry + ey[2] * dispJ.rz;
   const thetaZJ = ez[0] * dispJ.rx + ez[1] * dispJ.ry + ez[2] * dispJ.rz;
 
-  // ── Y-plane (strong axis: Mz, Vy) ──
+  // ── Local Y plane ──
   // v(ξ) uses Hermite with θz as the slope dv/dx
   const EIz = eiData?.EIz;
   const hasYLoads = EIz && EIz > 0 && (

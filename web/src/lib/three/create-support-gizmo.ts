@@ -149,7 +149,7 @@ function addRollerGizmo(group: THREE.Group, color: number, vertical: boolean): v
   addGroundCross(group, -0.42);
 
   if (vertical) {
-    // Rotate entire gizmo 90° around Y for a roller aligned with global Y.
+    // Rotate entire gizmo 90° around Y so the roller aligns with the in-plane vertical axis.
     group.rotation.y = Math.PI / 2;
   }
 }

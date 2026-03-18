@@ -9,8 +9,8 @@ export type { SolverMaterial, SolverDiagnostic, ConstraintForce, DiagnosticSever
 export interface SolverNode3D {
   id: number;
   x: number;  // m (global X)
-  y: number;  // m (global Y — up)
-  z: number;  // m (global Z)
+  y: number;  // m (global Y — plan depth)
+  z: number;  // m (global Z — elevation)
 }
 
 // ─── Section ─────────────────────────────────────────────────────
@@ -19,8 +19,8 @@ export interface SolverSection3D {
   id: number;
   name?: string;
   a: number;   // m² — cross-section area
-  iy: number;  // m⁴ — moment of inertia about Y axis (horizontal) → controls Z-displacement bending (w, θy)
-  iz: number;  // m⁴ — moment of inertia about Z axis (vertical) → controls Y-displacement bending (v, θz)
+  iy: number;  // m⁴ — moment of inertia about local Y
+  iz: number;  // m⁴ — moment of inertia about local Z
   j: number;   // m⁴ — torsional constant (Saint-Venant)
 }
 
@@ -36,7 +36,7 @@ export interface SolverElement3D {
   hingeStart: boolean;
   hingeEnd: boolean;
   // Optional orientation vector for local Y axis (perpendicular to element).
-  // If not provided, computed automatically from global Y (or Z for vertical elements).
+  // If not provided, computed automatically by the solver's local-axis helper.
   localYx?: number;
   localYy?: number;
   localYz?: number;
@@ -186,7 +186,7 @@ export interface DiaphragmConstraint {
   type: 'diaphragm';
   masterNode: number;
   slaveNodes: number[];
-  plane?: string; // default "XY"
+  plane?: string; // default "XY" horizontal diaphragm plane in the Z-up product contract
 }
 
 export interface EqualDofConstraint {

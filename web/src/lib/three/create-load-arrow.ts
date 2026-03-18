@@ -185,7 +185,8 @@ export function createNodalLoadArrow(
  *
  * For 3D loads, pass `localAxisDir` — the actual local ey or ez vector in global
  * coordinates — so arrows point in the correct direction (e.g. downward for gravity
- * loads on horizontal beams). For 2D loads, omit it to default to global Y.
+ * loads on horizontal beams). For 2D/XZ presentation, callers should pass `axis='Z'`
+ * so vertical distributed loads point along global Z.
  */
 export function createDistributedLoadGroup(
   nI: { x: number; y: number; z: number },
@@ -206,7 +207,9 @@ export function createDistributedLoadGroup(
   const length = elementDir.length();
   if (length < 1e-10) return group;
 
-  // Load direction: use actual local axis vector if provided, otherwise fall back to global
+  // Load direction: use actual local axis vector if provided, otherwise fall back to
+  // the requested global axis. In the canonical X/Y/Z contract, 2D callers should
+  // pass axis='Z' for vertical loads.
   const avgQ = (qI + qJ) / 2;
   const sign = avgQ < 0 ? -1 : 1;
   let loadDir: THREE.Vector3;
@@ -215,7 +218,7 @@ export function createDistributedLoadGroup(
     loadDir = new THREE.Vector3(localAxisDir.x, localAxisDir.y, localAxisDir.z)
       .normalize().multiplyScalar(sign);
   } else {
-    // 2D fallback: global Y (vertical)
+    // Global-axis fallback when no local axis is provided.
     loadDir = axis === 'Z'
       ? new THREE.Vector3(0, 0, sign)
       : new THREE.Vector3(0, sign, 0);
@@ -426,6 +429,8 @@ const DOF_DIR: Record<string, THREE.Vector3> = {
   rx: new THREE.Vector3(1, 0, 0),
   ry: new THREE.Vector3(0, 1, 0),
   rz: new THREE.Vector3(0, 0, 1),
+  my: new THREE.Vector3(0, 1, 0),
+  mz: new THREE.Vector3(0, 0, 1),
 };
 
 /**
@@ -443,11 +448,11 @@ export function createConstraintForceArrow(
   const baseDir = DOF_DIR[dof];
   if (!baseDir || Math.abs(force) < 1e-10) return group;
 
-  const isRotational = dof.startsWith('r');
+  const isRotational = dof.startsWith('r') || dof.startsWith('m');
 
   if (isRotational) {
     // Moment-type constraint force — show as label only (like reaction moments)
-    const axisName = dof.toUpperCase().replace('R', 'M'); // rx -> MX
+    const axisName = dof.toUpperCase().replace('R', 'M'); // rx -> MX, my -> MY
     const label = createTextSprite(`${axisName}=${force.toFixed(2)} kN·m`, '#f0a500', 22);
     label.position.copy(origin).add(baseDir.clone().multiplyScalar(0.5));
     group.add(label);
