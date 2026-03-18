@@ -85,8 +85,8 @@
           {#if load.type === 'nodal'}
             {@const d = load.data as NodalLoad}
             <span class="load-field">Fx<input type="number" step="1" value={d.fx} onchange={(e) => updateLoadField(d.id, 'fx', e.currentTarget.value)} /></span>
-            <span class="load-field">Fy<input type="number" step="1" value={d.fy} onchange={(e) => updateLoadField(d.id, 'fy', e.currentTarget.value)} /></span>
-            <span class="load-field">Mz<input type="number" step="1" value={d.mz} onchange={(e) => updateLoadField(d.id, 'mz', e.currentTarget.value)} /></span>
+            <span class="load-field">Fz<input type="number" step="1" value={d.fy} onchange={(e) => updateLoadField(d.id, 'fy', e.currentTarget.value)} /></span>
+            <span class="load-field">My<input type="number" step="1" value={d.mz} onchange={(e) => updateLoadField(d.id, 'mz', e.currentTarget.value)} /></span>
           {:else if load.type === 'nodal3d'}
             {@const d = load.data as NodalLoad3D}
             <span class="load-field">Fx<input type="number" step="1" value={d.fx} onchange={(e) => updateLoadField(d.id, 'fx', e.currentTarget.value)} /></span>

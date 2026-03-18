@@ -47,7 +47,7 @@ export function computeStaticDegree(input: SolverInput): { degree: number; nodeC
     const t = sup.type as string;
     if (t === 'fixed') { r += 3; rotRestrainedNodes.add(sup.nodeId); }
     else if (t === 'pinned') r += 2;
-    else if (t === 'rollerX' || t === 'rollerY' || t === 'inclinedRoller') r += 1;
+    else if (t === 'rollerX' || t === 'rollerY' || t === 'rollerZ' || t === 'inclinedRoller') r += 1;
     else if (t === 'spring') {
       if (sup.kx && sup.kx > 0) r++;
       if (sup.ky && sup.ky > 0) r++;

@@ -159,8 +159,11 @@ export function loadFixture(json: JSONModel, api: FixtureLoader): void {
       }
       case 'nodal': {
         api.addNodalLoad?.(
-          nodeMap.get(d.nodeId as number)!, d.fx as number, d.fy as number,
-          d.mz as number | undefined, d.caseId as number | undefined,
+          nodeMap.get(d.nodeId as number)!,
+          d.fx as number,
+          (d.fz as number | undefined) ?? (d.fy as number),
+          (d.my as number | undefined) ?? (d.mz as number | undefined),
+          d.caseId as number | undefined,
         );
         break;
       }

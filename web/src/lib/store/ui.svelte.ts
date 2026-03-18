@@ -4,15 +4,15 @@ import { DEFAULT_WORKING_PLANE, VERTICAL_AXIS } from '../geometry/coordinate-sys
 import type { UnitSystem } from '../utils/units';
 
 export type Tool = 'select' | 'node' | 'element' | 'support' | 'load' | 'pan' | 'influenceLine';
-export type ILQuantity = 'Ry' | 'Rx' | 'Mz' | 'V' | 'M';
+export type ILQuantity = 'Rz' | 'Ry' | 'Rx' | 'My' | 'Mz' | 'V' | 'M';
 export type SupportTool = 'fixed' | 'pinned' | 'roller' | 'spring';
 export type LoadTool = 'nodal' | 'distributed' | 'thermal';
-export type NodalLoadDir = 'fy' | 'fx' | 'mz';
+export type NodalLoadDir = 'fz' | 'fx' | 'my';
 export type SelectMode = 'nodes' | 'elements' | 'loads' | 'stress' | 'supports';
 export type ElementMode = 'create' | 'hinge';
 export type NodeMode = 'create' | 'hinge';
 export type ElementColorMode = 'uniform' | 'byMaterial' | 'bySection';
-export type SupportType = 'fixed' | 'pinned' | 'rollerX' | 'rollerY' | 'spring';
+export type SupportType = 'fixed' | 'pinned' | 'rollerX' | 'rollerY' | 'rollerZ' | 'spring';
 
 // 3D-specific types
 export type NodalLoadDir3D = 'fx' | 'fy' | 'fz' | 'mx' | 'my' | 'mz';
@@ -46,7 +46,7 @@ function createUIStore() {
   let currentTool = $state<Tool>('pan');
   let supportType = $state<SupportTool>('pinned');
   let loadType = $state<LoadTool>('nodal');
-  let nodalLoadDir = $state<NodalLoadDir>('fy'); // direction for nodal load placement
+  let nodalLoadDir = $state<NodalLoadDir>('fz'); // direction for nodal load placement
   let loadValue = $state<number>(-10); // kN, negative = downward
   let loadValueJ = $state<number>(-10); // kN/m at node J (for trapezoidal)
 
@@ -154,7 +154,7 @@ function createUIStore() {
   let activeLoadCaseId = $state<number>(1);
 
   // Influence line quantity
-  let ilQuantity = $state<ILQuantity>('Ry');
+  let ilQuantity = $state<ILQuantity>('Rz');
 
   // Help overlay
   let showHelp = $state<boolean>(false);

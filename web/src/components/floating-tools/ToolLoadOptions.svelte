@@ -58,18 +58,18 @@
     onclick={() => uiStore.nodalLoadDir = 'fx'}
     title={uiStore.loadIsGlobal ? t('float.loadForceXGlobal') : t('float.loadForceXLocal')}
   >{uiStore.loadIsGlobal ? 'Fx' : 'Fi'}</button>
-  <button class="ft-opt-btn ft-dir-btn" class:active={uiStore.nodalLoadDir === 'fy'}
-    onclick={() => uiStore.nodalLoadDir = 'fy'}
+  <button class="ft-opt-btn ft-dir-btn" class:active={uiStore.nodalLoadDir === 'fz'}
+    onclick={() => uiStore.nodalLoadDir = 'fz'}
     title={uiStore.loadIsGlobal ? t('float.loadForceYGlobal') : t('float.loadForceYLocal')}
-  >{uiStore.loadIsGlobal ? 'Fy' : 'Fj'}</button>
-  <button class="ft-opt-btn ft-dir-btn" class:active={uiStore.nodalLoadDir === 'mz'}
-    onclick={() => uiStore.nodalLoadDir = 'mz'}
+  >{uiStore.loadIsGlobal ? 'Fz' : 'Fj'}</button>
+  <button class="ft-opt-btn ft-dir-btn" class:active={uiStore.nodalLoadDir === 'my'}
+    onclick={() => uiStore.nodalLoadDir = 'my'}
     title={t('float.loadMomentZ')}
-  >Mz</button>
+  >My</button>
   <label class="ft-input-group">
-    <span>{uiStore.nodalLoadDir === 'mz' ? 'M:' : 'F:'}</span>
+    <span>{uiStore.nodalLoadDir === 'my' ? 'M:' : 'F:'}</span>
     <input type="number" bind:value={uiStore.loadValue} step="1" />
-    <span class="ft-unit">{uiStore.nodalLoadDir === 'mz' ? 'kN\u00b7m' : 'kN'}</span>
+    <span class="ft-unit">{uiStore.nodalLoadDir === 'my' ? 'kN\u00b7m' : 'kN'}</span>
   </label>
   <span class="ft-sep">|</span>
   <button class="ft-opt-btn ft-coord-btn" class:active={uiStore.loadIsGlobal} onclick={() => uiStore.loadIsGlobal = true} title={t('float.loadGlobalYDir')}>Y</button>

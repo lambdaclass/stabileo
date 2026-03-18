@@ -78,20 +78,20 @@ export function set2DDisplayedVertical<T extends Pick<CoordinateNode, 'y'>>(node
   return { ...node, y: vertical };
 }
 
-export function get2DDisplayDisplacementVertical<T extends { uy: number }>(disp: T): number {
-  return disp.uy;
+export function get2DDisplayDisplacementVertical<T extends { uz?: number; uy?: number }>(disp: T): number {
+  return disp.uz ?? disp.uy ?? 0;
 }
 
-export function get2DDisplayRotation<T extends { rz: number }>(disp: T): number {
-  return disp.rz;
+export function get2DDisplayRotation<T extends { ry?: number; rz?: number }>(disp: T): number {
+  return disp.ry ?? disp.rz ?? 0;
 }
 
-export function get2DDisplayReactionVertical<T extends { ry: number }>(reaction: T): number {
-  return reaction.ry;
+export function get2DDisplayReactionVertical<T extends { rz?: number; ry?: number }>(reaction: T): number {
+  return reaction.rz ?? reaction.ry ?? 0;
 }
 
-export function get2DDisplayMoment<T extends { mz: number }>(reaction: T): number {
-  return reaction.mz;
+export function get2DDisplayMoment<T extends { my?: number; mz?: number }>(reaction: T): number {
+  return reaction.my ?? reaction.mz ?? 0;
 }
 
 export function isHorizontalPlane(plane: WorkingPlane3D): boolean {

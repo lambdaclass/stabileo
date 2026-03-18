@@ -32,7 +32,17 @@ export function computeInfluenceLine(
       materialId: e.materialId, sectionId: e.sectionId,
       hingeStart: e.hingeStart ?? false, hingeEnd: e.hingeEnd ?? false,
     }])),
-    supports: new Map(Array.from(model.supports.entries()).map(([id, s]) => [id, { id: s.id, nodeId: s.nodeId, type: s.type as any, kx: s.kx, ky: s.ky, kz: s.kz, dx: s.dx, dy: s.dy, drz: s.drz }])),
+    supports: new Map(Array.from(model.supports.entries()).map(([id, s]) => [id, {
+      id: s.id,
+      nodeId: s.nodeId,
+      type: (s.type === 'rollerY' ? 'rollerZ' : s.type) as any,
+      kx: s.kx,
+      ky: s.ky,
+      kz: s.kz,
+      dx: s.dx,
+      dz: s.dy,
+      dry: s.drz,
+    }])),
     loads: [] as any[],
   };
 

@@ -118,7 +118,7 @@
     // Nodal loads
     for (const l of m.nodalLoads) {
       const nodeId = idMap.get(l.nodeId);
-      if (nodeId != null) modelStore.addNodalLoad(nodeId, l.fx, l.fy, l.mz);
+      if (nodeId != null) modelStore.addNodalLoad(nodeId, l.fx, l.fz, l.my);
     }
 
     // Distributed loads

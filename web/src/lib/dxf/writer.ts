@@ -106,6 +106,7 @@ function supportLabel(type: string): string {
     case 'fixed': return t('dxf.supportFixed');
     case 'pinned': return t('dxf.supportPinned');
     case 'rollerX': return t('dxf.supportRollerX');
+    case 'rollerZ':
     case 'rollerY': return t('dxf.supportRollerY');
     case 'spring': return t('dxf.supportSpring');
     default: return type.toUpperCase();

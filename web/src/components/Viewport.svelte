@@ -1125,7 +1125,7 @@
           uiStore.supportAngle = 0;
         } else if (uiStore.supportType === 'roller') {
           // Deduce actual roller type based on direction setting
-          const rollerType = uiStore.supportDirection === 'x' ? 'rollerX' : 'rollerY';
+          const rollerType = uiStore.supportDirection === 'x' ? 'rollerX' : 'rollerZ';
           const angle = uiStore.supportAngle;
           const isGlobal = uiStore.supportIsGlobal;
           const opts: { angle?: number; isGlobal?: boolean } = {};
@@ -1170,9 +1170,9 @@
           const v = uiStore.loadValue;
           const dir = uiStore.nodalLoadDir;
           const fx = dir === 'fx' ? v : 0;
-          const fy = dir === 'fy' ? v : 0;
-          const mz = dir === 'mz' ? v : 0;
-          modelStore.addNodalLoad(nearNode.id, fx, fy, mz, activeCaseId);
+          const fz = dir === 'fz' ? v : 0;
+          const my = dir === 'my' ? v : 0;
+          modelStore.addNodalLoad(nearNode.id, fx, fz, my, activeCaseId);
         } else {
           // No node nearby — try element for PointLoadOnElement
           const nearElem = findNearestElement(world.x, world.y, 0.5);
@@ -1192,11 +1192,11 @@
               const dir = uiStore.nodalLoadDir;
               const v = uiStore.loadValue;
               // Map direction to the correct component:
-              // fx/fi → axial (px), fy/fj → perpendicular (p), mz → moment
-              const p = dir === 'fy' ? v : 0;
+              // fx/fi → axial (px), fz/fj → perpendicular (p), my → moment
+              const p = dir === 'fz' ? v : 0;
               const px = dir === 'fx' ? v : 0;
-              const mz = dir === 'mz' ? v : 0;
-              modelStore.addPointLoadOnElement(nearElem.id, a, p, { px: px || undefined, mz: mz || undefined, angle, isGlobal, caseId: activeCaseId });
+              const my = dir === 'my' ? v : 0;
+              modelStore.addPointLoadOnElement(nearElem.id, a, p, { px: px || undefined, mz: my || undefined, angle, isGlobal, caseId: activeCaseId });
             }
           }
         }

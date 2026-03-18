@@ -939,9 +939,9 @@
         const dir = uiStore.nodalLoadDir;
         const val = uiStore.loadValue;
         const fx = dir === 'fx' ? val : 0;
-        const fy = dir === 'fy' ? val : 0;
-        const mz = dir === 'mz' ? val : 0;
-        modelStore.addNodalLoad(nodeId, fx, fy, mz, uiStore.activeLoadCaseId);
+        const fz = dir === 'fz' ? val : 0;
+        const my = dir === 'my' ? val : 0;
+        modelStore.addNodalLoad(nodeId, fx, fz, my, uiStore.activeLoadCaseId);
       }
       uiStore.toast(t('viewport3d.pointLoadApplied').replace('{id}', String(nodeId)), 'success');
     } else if (uiStore.loadType === 'distributed') {
@@ -961,7 +961,7 @@
   }
 
   function toSupportType(tool: string, direction: 'x' | 'y'): string {
-    if (tool === 'roller') return direction === 'x' ? 'rollerX' : 'rollerY';
+    if (tool === 'roller') return direction === 'x' ? 'rollerX' : 'rollerZ';
     return tool;
   }
 

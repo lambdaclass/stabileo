@@ -97,7 +97,7 @@ describe('buildModelContext', () => {
     expect(ctx.loadCount).toBe(6);
 
     expect(ctx.bounds).toEqual({ xMin: 0, xMax: 12, yMin: 0, yMax: 9 });
-    expect(ctx.verticalAxis).toBe('y');
+    expect(ctx.verticalAxis).toBe('z');
     expect(ctx.sections).toEqual([
       { id: 1, name: 'IPE 300' },
       { id: 2, name: 'HEB 300' },
@@ -118,7 +118,7 @@ describe('buildModelContext', () => {
     expect(ctx.nodeCount).toBe(2);
     expect(ctx.elementCount).toBe(1);
     expect(ctx.bounds).toEqual({ xMin: 0, xMax: 6, yMin: 0, yMax: 0 });
-    expect(ctx.verticalAxis).toBe('y');
+    expect(ctx.verticalAxis).toBe('z');
     expect(ctx.supportTypes).toContain('pinned');
     expect(ctx.supportTypes).toContain('rollerX');
     // y=0 has 2 nodes → floor height detected
@@ -140,7 +140,7 @@ describe('buildModelContext', () => {
     expect(ctx.nodeCount).toBe(0);
     expect(ctx.elementCount).toBe(0);
     expect(ctx.bounds.xMin).toBe(Infinity);
-    expect(ctx.verticalAxis).toBe('y');
+    expect(ctx.verticalAxis).toBe('z');
     expect(ctx.floorHeights).toEqual([]);
     expect(ctx.bayWidths).toEqual([]);
   });

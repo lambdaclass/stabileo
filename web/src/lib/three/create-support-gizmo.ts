@@ -5,7 +5,7 @@ import { COLORS } from './selection-helpers';
 export type SupportGizmoType =
   | 'fixed' | 'fixed3d'
   | 'pinned' | 'pinned3d'
-  | 'rollerX' | 'rollerY' | 'rollerXZ' | 'rollerXY' | 'rollerYZ'
+  | 'rollerX' | 'rollerY' | 'rollerZ' | 'rollerXZ' | 'rollerXY' | 'rollerYZ'
   | 'spring' | 'spring3d'
   | 'custom3d';
 
@@ -43,6 +43,7 @@ export function createSupportGizmo(
     case 'rollerXZ':
       addRollerGizmo(group, color, false);
       break;
+    case 'rollerZ':
     case 'rollerY':
       addRollerGizmo(group, color, true);
       break;

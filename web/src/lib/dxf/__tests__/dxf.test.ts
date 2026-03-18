@@ -225,7 +225,7 @@ describe('DXF Mapper', () => {
     });
     const result = mapDxfToModel(parsed, { unit: 'm', snapTolerance: 0.01 });
     expect(result.nodalLoads).toHaveLength(1);
-    expect(result.nodalLoads[0].fy).toBe(-20);
+    expect(result.nodalLoads[0].fz).toBe(-20);
   });
 
   it('should handle unit conversion (cm to m)', () => {

@@ -8,7 +8,7 @@ export interface ModelSnapshot {
   materials: Array<[number, { id: number; name: string; e: number; nu: number; rho: number }]>;
   sections: Array<[number, { id: number; name: string; a: number; iz: number; b?: number; h?: number; shape?: string; tw?: number; tf?: number; t?: number; iy?: number; j?: number }]>;
   elements: Array<[number, { id: number; type: 'frame' | 'truss'; nodeI: number; nodeJ: number; materialId: number; sectionId: number; hingeStart?: boolean; hingeEnd?: boolean; localYx?: number; localYy?: number; localYz?: number }]>;
-  supports: Array<[number, { id: number; nodeId: number; type: string; angle?: number; isGlobal?: boolean; kx?: number; ky?: number; kz?: number; dx?: number; dy?: number; drz?: number; dz?: number; drx?: number; dry?: number; krx?: number; kry?: number; krz?: number }]>;
+  supports: Array<[number, { id: number; nodeId: number; type: string; angle?: number; isGlobal?: boolean; kx?: number; ky?: number; kz?: number; dx?: number; dy?: number; dz?: number; drz?: number; drx?: number; dry?: number; krx?: number; kry?: number; krz?: number }]>;
   loads: Array<{ type: string; data: Record<string, unknown> }>;
   loadCases?: Array<{ id: number; type?: string; name: string }>;
   combinations?: Array<{ id: number; name: string; factors: Array<{ caseId: number; factor: number }> }>;

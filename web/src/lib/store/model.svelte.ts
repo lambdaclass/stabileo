@@ -60,7 +60,7 @@ export interface Element {
   rollAngle?: number;
 }
 
-export type SupportType = 'fixed' | 'pinned' | 'rollerX' | 'rollerY' | 'spring'
+export type SupportType = 'fixed' | 'pinned' | 'rollerX' | 'rollerY' | 'rollerZ' | 'spring'
   | 'fixed3d' | 'pinned3d' | 'rollerXZ' | 'rollerXY' | 'rollerYZ' | 'spring3d'
   | 'custom3d';
 
@@ -242,7 +242,7 @@ export type { AnalysisResults3D };
 
 // ─── Influence Line Types ───────────────────────────────────────
 
-export type InfluenceQuantity = 'Ry' | 'Rx' | 'Mz' | 'V' | 'M';
+export type InfluenceQuantity = 'Rz' | 'Ry' | 'Rx' | 'My' | 'Mz' | 'V' | 'M';
 
 export interface InfluenceLineResult {
   /** What quantity is being tracked */
@@ -256,6 +256,9 @@ export interface InfluenceLineResult {
 }
 
 function createModelStore() {
+  const normalize2DSupportType = (type: SupportType): SupportType =>
+    type === 'rollerY' ? 'rollerZ' : type;
+
   let model = $state<StructureModel>({
     name: t('tabBar.newStructure'),
     nodes: new Map(),
@@ -501,7 +504,7 @@ function createModelStore() {
         }
       }
       const id = nextId.support++;
-      const sup: Support = { id, nodeId, type };
+      const sup: Support = { id, nodeId, type: normalize2DSupportType(type) };
       if (springs) {
         if (springs.kx !== undefined) sup.kx = springs.kx;
         if (springs.ky !== undefined) sup.ky = springs.ky;
@@ -724,7 +727,7 @@ function createModelStore() {
       model.supports.set(id, {
         id: sup.id,
         nodeId: data.nodeId ?? sup.nodeId,
-        type: data.type ?? sup.type,
+        type: data.type ? normalize2DSupportType(data.type) : sup.type,
         kx: data.kx ?? sup.kx,
         ky: data.ky ?? sup.ky,
         kz: data.kz ?? sup.kz,

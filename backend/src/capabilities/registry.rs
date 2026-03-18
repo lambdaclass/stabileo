@@ -99,14 +99,14 @@ pub fn solver_capabilities() -> SolverCapabilities {
             },
         ],
         support_types: SupportTypes {
-            two_d: vec!["fixed", "pinned", "rollerX", "rollerY", "spring"],
+            two_d: vec!["fixed", "pinned", "rollerX", "rollerZ", "spring"],
             three_d: vec!["fixed3d", "pinned3d", "rollerXZ", "rollerXY", "rollerYZ", "spring3d"],
         },
         load_types: LoadTypes {
             two_d: vec![
                 LoadTypeDef {
                     name: "nodal",
-                    fields: vec!["nodeId", "fx", "fy", "mz"],
+                    fields: vec!["nodeId", "fx", "fz", "my"],
                     description: "Point forces and moment at a node (kN, kN, kN·m)",
                 },
                 LoadTypeDef {
@@ -273,7 +273,7 @@ pub fn generator_catalog() -> Vec<GeneratorDef> {
             description: "Simple 3D portal frame (4 columns + 4 beams)",
             params: vec![
                 param_req("width", "f64", "X span (m)"),
-                param_req("depth", "f64", "Y span (m)"),
+                param_req("depth", "f64", "Y plan depth (m)"),
                 param_req("height", "f64", "Column height (m)"),
                 param_opt("q_beam", "f64", "Distributed load on beams (kN/m)"),
                 param_opt_def("base_support", "string", json!("fixed3d"), "Base support type"),
@@ -351,8 +351,8 @@ pub fn edit_tool_catalog() -> Vec<GeneratorDef> {
             params: vec![
                 param_req("node_id", "u32", "Target node ID"),
                 param_opt("fx", "f64", "Horizontal force (kN)"),
-                param_opt("fy", "f64", "Vertical force (kN, negative = downward)"),
-                param_opt("mz", "f64", "Moment (kN·m)"),
+                param_opt("fz", "f64", "Vertical force (kN, negative = downward)"),
+                param_opt("my", "f64", "Moment about Y (kN·m)"),
             ],
         },
         GeneratorDef {
@@ -531,8 +531,8 @@ pub fn tool_definitions(analysis_mode: &str, has_model: bool) -> Vec<ToolDef> {
                         "properties": {
                             "id": { "type": "integer" },
                             "x": { "type": "number" },
-                            "y": { "type": "number" },
-                            "z": { "type": "number", "description": "Only for 3D" }
+                            "y": { "type": "number", "description": "Plan depth in 3D, elevation in legacy 2D snapshots" },
+                            "z": { "type": "number", "description": "Elevation in 3D and canonical 2D/XZ snapshots" }
                         },
                         "required": ["id", "x", "y"]
                     }

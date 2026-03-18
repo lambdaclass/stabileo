@@ -73,7 +73,7 @@ export interface ModelContext {
   supportCount: number;
   loadCount: number;
   bounds: { xMin: number; xMax: number; yMin: number; yMax: number };
-  verticalAxis: 'y' | typeof VERTICAL_AXIS;
+  verticalAxis: typeof VERTICAL_AXIS;
   sections: Array<{ id: number; name: string }>;
   materials: Array<{ id: number; name: string }>;
   supportTypes: string[];
@@ -114,11 +114,11 @@ export function buildModelContext(store: ModelStoreView): ModelContext {
   const elemTypes = new Set<string>();
   for (const e of store.elements.values()) elemTypes.add(e.type);
 
-  const verticalAxis = hasZ ? VERTICAL_AXIS : 'y';
+  const verticalAxis = VERTICAL_AXIS;
   const levelCounts = new Map<number, number>();
   const xSet = new Set<number>();
   for (const n of store.nodes.values()) {
-    const level = verticalAxis === VERTICAL_AXIS ? getElevation(n) : n.y;
+    const level = hasZ ? getElevation(n) : n.y;
     levelCounts.set(level, (levelCounts.get(level) ?? 0) + 1);
     xSet.add(n.x);
   }
@@ -194,8 +194,8 @@ interface SolverDiagnostic {
 }
 
 interface AnalysisResultsLike {
-  displacements: Array<{ ux: number; uy: number; rz?: number; uz?: number }>;
-  reactions: Array<{ fx: number; fy: number; mz?: number; fz?: number }>;
+  displacements: Array<{ ux: number; uy?: number; uz?: number; ry?: number; rz?: number }>;
+  reactions: Array<{ fx: number; fy?: number; fz?: number; my?: number; mz?: number }>;
   elementForces: Array<Record<string, unknown>>;
   solverDiagnostics?: SolverDiagnostic[];
   timings?: { solverType?: string; nFree?: number };
@@ -219,12 +219,13 @@ export function buildArtifact(
   }));
 
   const maxDisp = results.displacements.reduce((max, d) => {
-    const v = Math.max(Math.abs(d.ux), Math.abs(d.uy), Math.abs(d.rz ?? 0), Math.abs(d.uz ?? 0));
+    const v = Math.max(Math.abs(d.ux), Math.abs(d.uz ?? d.uy ?? 0), Math.abs(d.ry ?? d.rz ?? 0));
     return v > max ? v : max;
   }, 0);
 
   const maxReact = results.reactions.reduce((max, r) => {
-    const v = Math.sqrt(r.fx * r.fx + r.fy * r.fy + (r.fz ?? 0) * (r.fz ?? 0));
+    const vertical = r.fz ?? r.fy ?? 0;
+    const v = Math.sqrt(r.fx * r.fx + vertical * vertical);
     return v > max ? v : max;
   }, 0);
 

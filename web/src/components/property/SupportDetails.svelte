@@ -84,7 +84,7 @@
   <!-- 2D support editing -->
   <div class="property-row">
     <span>{t('prop.type')}:</span>
-    <select value={sup.type === 'rollerX' || sup.type === 'rollerY' ? 'roller' : sup.type}
+    <select value={sup.type === 'rollerX' || sup.type === 'rollerY' || sup.type === 'rollerZ' ? 'roller' : sup.type}
       onchange={(e) => {
         const val = e.currentTarget.value;
         if (val === 'roller') {
@@ -99,13 +99,13 @@
       <option value="spring">{t('table.spring')}</option>
     </select>
   </div>
-  {#if sup.type === 'rollerX' || sup.type === 'rollerY'}
+  {#if sup.type === 'rollerX' || sup.type === 'rollerY' || sup.type === 'rollerZ'}
     <div class="property-row">
       <span>{t('prop.direction')}:</span>
       <button class="btn-small" class:active={sup.type === 'rollerX'} onclick={() => changeSupportType(supId, 'rollerX')}
       >{sup.isGlobal !== false ? 'X' : 'i'}</button>
-      <button class="btn-small" class:active={sup.type === 'rollerY'} onclick={() => changeSupportType(supId, 'rollerY')}
-      >{sup.isGlobal !== false ? 'Y' : 'j'}</button>
+      <button class="btn-small" class:active={sup.type === 'rollerY' || sup.type === 'rollerZ'} onclick={() => changeSupportType(supId, 'rollerZ')}
+      >{sup.isGlobal !== false ? 'Z' : 'j'}</button>
     </div>
     <div class="property-row">
       <span>{t('prop.axes')}:</span>
@@ -161,14 +161,14 @@
         <span>m</span>
       </div>
       <div class="property-row" title={t('prop.imposedDyTitle')}>
-        <span>dy:</span>
+        <span>dz:</span>
         <input type="number" step="0.001" value={sup.dy ?? 0} class="prop-input" onchange={(e) => updateSpringField(supId, 'dy', e.currentTarget.value)} />
         <span>m</span>
       </div>
     {/if}
     {#if sup.type === 'fixed'}
       <div class="property-row" title={t('prop.imposedDrzTitle')}>
-        <span>dθz:</span>
+        <span>dθy:</span>
         <input type="number" step="0.001" value={sup.drz ?? 0} class="prop-input" onchange={(e) => updateSpringField(supId, 'drz', e.currentTarget.value)} />
         <span>rad</span>
       </div>

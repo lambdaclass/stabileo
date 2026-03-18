@@ -68,14 +68,14 @@ export interface MappedElement {
 
 export interface MappedSupport {
   nodeId: number;
-  type: 'fixed' | 'pinned' | 'rollerX' | 'rollerY';
+  type: 'fixed' | 'pinned' | 'rollerX' | 'rollerZ';
 }
 
 export interface MappedNodalLoad {
   nodeId: number;
   fx: number;
-  fy: number;
-  mz: number;
+  fz: number;
+  my: number;
 }
 
 export interface MappedDistributedLoad {

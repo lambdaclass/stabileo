@@ -7,7 +7,7 @@
     { value: 'fixed' as SupportType, label: t('pro.fixed') },
     { value: 'pinned' as SupportType, label: t('pro.pinned') },
     { value: 'rollerX' as SupportType, label: t('pro.rollerX') },
-    { value: 'rollerY' as SupportType, label: t('pro.rollerY') },
+    { value: 'rollerZ' as SupportType, label: t('pro.rollerY') },
     { value: 'spring' as SupportType, label: t('pro.spring') },
   ]);
 

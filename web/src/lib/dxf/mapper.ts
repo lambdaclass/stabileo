@@ -112,8 +112,8 @@ export function mapDxfToModel(
     const qMatch = val.match(/[Qq]\s*=\s*([-+]?\d*\.?\d+)/);
     const pMatch = val.match(/[Pp]\s*=\s*([-+]?\d*\.?\d+)/);
     const fxMatch = val.match(/[Ff][Xx]\s*=\s*([-+]?\d*\.?\d+)/i);
-    const fyMatch = val.match(/[Ff][Yy]\s*=\s*([-+]?\d*\.?\d+)/i);
-    const mMatch = val.match(/[Mm]\s*=\s*([-+]?\d*\.?\d+)/);
+    const fzMatch = val.match(/[Ff][ZzYy]\s*=\s*([-+]?\d*\.?\d+)/i);
+    const mMatch = val.match(/[Mm](?:[YyZz])?\s*=\s*([-+]?\d*\.?\d+)/);
     let matched = false;
 
     if (qMatch) {
@@ -135,7 +135,7 @@ export function mapDxfToModel(
         // Try as nodal vertical load
         const nodeId = findNearestNode(lt.position, nodes, scale, tol * 10);
         if (nodeId >= 0) {
-          nodalLoads.push({ nodeId, fx: 0, fy: parseFloat(pMatch[1]), mz: 0 });
+          nodalLoads.push({ nodeId, fx: 0, fz: parseFloat(pMatch[1]), my: 0 });
           matched = true;
         } else {
           warnings.push(`${t('dxf.warnPointLoadNoElement')} P=${pMatch[1]}`);
@@ -143,14 +143,14 @@ export function mapDxfToModel(
       }
     }
 
-    if (fxMatch || fyMatch || mMatch) {
+    if (fxMatch || fzMatch || mMatch) {
       const nodeId = findNearestNode(lt.position, nodes, scale, tol * 10);
       if (nodeId >= 0) {
         nodalLoads.push({
           nodeId,
           fx: fxMatch ? parseFloat(fxMatch[1]) : 0,
-          fy: fyMatch ? parseFloat(fyMatch[1]) : 0,
-          mz: mMatch ? parseFloat(mMatch[1]) : 0,
+          fz: fzMatch ? parseFloat(fzMatch[1]) : 0,
+          my: mMatch ? parseFloat(mMatch[1]) : 0,
         });
         matched = true;
       } else {
@@ -158,7 +158,7 @@ export function mapDxfToModel(
       }
     }
 
-    if (!matched && !qMatch && !pMatch && !fxMatch && !fyMatch && !mMatch) {
+    if (!matched && !qMatch && !pMatch && !fxMatch && !fzMatch && !mMatch) {
       warnings.push(`${t('dxf.warnUnrecognizedLoadText')} "${val}"`);
     }
   }
@@ -268,10 +268,10 @@ function parseSupportType(text: string): MappedSupport['type'] {
   const txt = text.toUpperCase();
   if (txt.includes('EMPOT') || txt.includes('FIXED') || txt === 'E') return 'fixed';
   if (txt.includes('MOVIL') || txt.includes('ROLLER')) {
-    return txt.includes('Y') ? 'rollerY' : 'rollerX';
+    return txt.includes('Y') || txt.includes('Z') ? 'rollerZ' : 'rollerX';
   }
   if (txt === 'R' || txt === 'RX') return 'rollerX';
-  if (txt === 'RY') return 'rollerY';
+  if (txt === 'RY' || txt === 'RZ') return 'rollerZ';
   // Default: pinned
   return 'pinned';
 }

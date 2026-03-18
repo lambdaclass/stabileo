@@ -97,14 +97,16 @@ function createSummarySheet(): XLSX.WorkSheet {
     data.push([t('excel.maxAxial'), maxAxial.toFixed(2), 'kN']);
     data.push([]);
 
-    let sumRx = 0, sumRy = 0, sumMz = 0;
+    let sumRx = 0, sumRz = 0, sumMy = 0;
     for (const r of r2d.reactions) {
-      sumRx += r.rx; sumRy += r.ry; sumMz += r.mz;
+      sumRx += r.rx;
+      sumRz += get2DDisplayReactionVertical(r);
+      sumMy += get2DDisplayMoment(r);
     }
     data.push([t('excel.equilibriumCheck')]);
     data.push(['ΣRx', sumRx.toFixed(4), 'kN']);
-    data.push(['ΣRy', sumRy.toFixed(4), 'kN']);
-    data.push(['ΣMz', sumMz.toFixed(4), 'kN·m']);
+    data.push(['ΣRz', sumRz.toFixed(4), 'kN']);
+    data.push(['ΣMy', sumMy.toFixed(4), 'kN·m']);
   }
 
   const ws = XLSX.utils.aoa_to_sheet(data);
@@ -303,7 +305,7 @@ function createReactionsSheet(): XLSX.WorkSheet {
     const sup = [...modelStore.supports.values()].find(s => s.nodeId === r.nodeId);
     const supType = sup ? ({
       fixed: t('excel.fixed'), pinned: t('excel.pinned'),
-      rollerX: t('excel.rollerX'), rollerY: t('excel.rollerY'), spring: t('excel.spring'),
+      rollerX: t('excel.rollerX'), rollerY: t('excel.rollerY'), rollerZ: t('excel.rollerY'), spring: t('excel.spring'),
       fixed3d: t('excel.fixed'), pinned3d: t('excel.pinned'),
       rollerXY: 'Roller XY', rollerXZ: 'Roller XZ', rollerYZ: 'Roller YZ',
       spring3d: t('excel.spring'), custom3d: 'Custom 3D',

@@ -239,13 +239,13 @@ export function drawElement(
 // ── Support visual angle ─────────────────────────────────────────────
 
 /** Compute the visual rotation angle (radians) for any support with angle/isGlobal.
- *  For rollerX base=0 deg, rollerY base=90 deg. For fixed/pinned/spring base=0 deg.
+ *  For rollerX base=0 deg, rollerZ base=90 deg. For fixed/pinned/spring base=0 deg.
  *  When isGlobal===false, adds element angle at the node. */
 export function getSupportVisualAngle(
   sup: { type: string; nodeId: number; angle?: number; isGlobal?: boolean },
   getElementAngleAtNode: (nodeId: number) => number,
 ): number {
-  const baseAngleDeg = sup.type === 'rollerY' ? 90 : 0;
+  const baseAngleDeg = (sup.type === 'rollerY' || sup.type === 'rollerZ') ? 90 : 0;
   let angleDeg = baseAngleDeg;
   if (sup.isGlobal === false) {
     const elemAngle = getElementAngleAtNode(sup.nodeId);
@@ -309,7 +309,7 @@ export function drawSupport(
     ctx.closePath();
     ctx.stroke();
     ctx.restore();
-  } else if (sup.type === 'rollerX' || sup.type === 'rollerY') {
+  } else if (sup.type === 'rollerX' || sup.type === 'rollerY' || sup.type === 'rollerZ') {
     // Unified roller drawing with rotation and 2 circles
     const angle = getSupportVisualAngle(sup, getElementAngleAtNode);
     ctx.save();

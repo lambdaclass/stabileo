@@ -63,6 +63,7 @@
     fixed: 'selEntity.supFixed',
     pinned: 'selEntity.supPinned',
     rollerX: 'selEntity.supRoller',
+    rollerZ: 'selEntity.supRoller',
     rollerY: 'selEntity.supRoller',
     spring: 'selEntity.supSpring',
     fixed3d: 'selEntity.supFixed3d',
@@ -75,7 +76,7 @@
   };
 
   function isRollerType(type: string): boolean {
-    return type === 'rollerX' || type === 'rollerY' || type === 'rollerXZ' || type === 'rollerXY' || type === 'rollerYZ';
+    return type === 'rollerX' || type === 'rollerY' || type === 'rollerZ' || type === 'rollerXZ' || type === 'rollerXY' || type === 'rollerYZ';
   }
 
   function is3DSupport(type: string): boolean {
@@ -125,12 +126,12 @@
         <span class="ft-unit">kN</span>
       </label>
       <label class="ft-input-group">
-        <span>Fy:</span>
+        <span>Fz:</span>
         <input type="number" step="1" value={nl.fy} onchange={(e) => updateLoadField(nl.id, 'fy', e.currentTarget.value)} />
         <span class="ft-unit">kN</span>
       </label>
       <label class="ft-input-group">
-        <span>Mz:</span>
+        <span>My:</span>
         <input type="number" step="1" value={nl.mz} onchange={(e) => updateLoadField(nl.id, 'mz', e.currentTarget.value)} />
         <span class="ft-unit">kN·m</span>
       </label>
@@ -174,7 +175,7 @@
         <span class="ft-unit">m</span>
       </label>
       <label class="ft-input-group">
-        <span>{pl.isGlobal ? 'Fy' : 'Fj'}:</span>
+        <span>{pl.isGlobal ? 'Fz' : 'Fj'}:</span>
         <input type="number" step="1" value={pl.p} onchange={(e) => updateLoadField(pl.id, 'p', e.currentTarget.value)} />
         <span class="ft-unit">kN</span>
       </label>
@@ -184,7 +185,7 @@
         <span class="ft-unit">kN</span>
       </label>
       <label class="ft-input-group">
-        <span>Mz:</span>
+        <span>My:</span>
         <input type="number" step="1" value={pl.mz ?? 0} onchange={(e) => updateLoadField(pl.id, 'mz', e.currentTarget.value)} />
         <span class="ft-unit">kN·m</span>
       </label>
@@ -341,10 +342,10 @@
         onclick={() => changeSupportType(selectedSup.id, 'rollerX')}
         title={selectedSup.isGlobal !== false ? t('float.rollerRestrictsYGlobal') : t('float.rollerRestrictsJLocal')}
       >{selectedSup.isGlobal !== false ? 'X' : 'i'}</button>
-      <button class="ft-opt-btn ft-dir-btn" class:active={selectedSup.type === 'rollerY'}
-        onclick={() => changeSupportType(selectedSup.id, 'rollerY')}
+      <button class="ft-opt-btn ft-dir-btn" class:active={selectedSup.type === 'rollerY' || selectedSup.type === 'rollerZ'}
+        onclick={() => changeSupportType(selectedSup.id, 'rollerZ')}
         title={selectedSup.isGlobal !== false ? t('float.rollerRestrictsXGlobal') : t('float.rollerRestrictsILocal')}
-      >{selectedSup.isGlobal !== false ? 'Y' : 'j'}</button>
+      >{selectedSup.isGlobal !== false ? 'Z' : 'j'}</button>
       <span class="ft-sep">|</span>
       <button class="ft-opt-btn ft-coord-btn" class:active={selectedSup.isGlobal !== false} onclick={() => updateSupportField(selectedSup.id, 'isGlobal', true)}
         title={t('float.rollerGlobalLabel')}>Gl</button>

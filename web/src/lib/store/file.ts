@@ -345,7 +345,7 @@ export function exportSVG(): string {
       }
     } else if (sup.type === 'pinned') {
       parts.push(`  <polygon points="${sx.toFixed(1)},${sy.toFixed(1)} ${(sx - supSize).toFixed(1)},${(sy + supSize).toFixed(1)} ${(sx + supSize).toFixed(1)},${(sy + supSize).toFixed(1)}"/>`);
-    } else if (sup.type === 'rollerX' || sup.type === 'rollerY') {
+    } else if (sup.type === 'rollerX' || sup.type === 'rollerY' || sup.type === 'rollerZ') {
       // Compute visual angle
       const baseAngleDeg = sup.type === 'rollerX' ? 0 : 90;
       let angleDeg = baseAngleDeg;
@@ -422,6 +422,7 @@ function supportLabel(type: string): string {
     case 'fixed': return t('file.supportFixed');
     case 'pinned': return t('file.supportPinned');
     case 'rollerX': return t('file.supportRollerX');
+    case 'rollerZ':
     case 'rollerY': return t('file.supportRollerY');
     case 'spring': return t('file.supportSpring');
     default: return type;
@@ -555,8 +556,8 @@ export function generateReportHTML(): string {
     } else {
       const parts: string[] = [];
       if (sup.dx) parts.push(`dx=${fmtNum(sup.dx)} m`);
-      if (sup.dy) parts.push(`dy=${fmtNum(sup.dy)} m`);
-      if (sup.drz) parts.push(`dθ=${fmtNum(sup.drz)} rad`);
+      if (sup.dy) parts.push(`dz=${fmtNum(sup.dy)} m`);
+      if (sup.drz) parts.push(`dθy=${fmtNum(sup.drz)} rad`);
       details = parts.length > 0 ? parts.join(', ') : '-';
     }
     html += `<tr><td>${sup.id}</td><td>${sup.nodeId}</td><td>${supportLabel(sup.type)}</td><td style="text-align:left">${details}</td></tr>`;

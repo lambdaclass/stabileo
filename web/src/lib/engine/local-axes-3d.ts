@@ -1,4 +1,4 @@
-// Local coordinate axes for 3D elements — extracted from solver-3d.ts
+// Local coordinate axes for 3D elements.
 // Used by Three.js renderers, solver-service, and solver-detailed-3d.
 
 import type { SolverNode3D } from './types-3d';
@@ -13,14 +13,22 @@ export interface LocalAxes3D {
   L: number;                     // element length
 }
 
+export const AUTO_ORIENT_NON_VERTICAL_REFERENCE: [number, number, number] = [0, 1, 0];
+export const AUTO_ORIENT_VERTICAL_REFERENCE: [number, number, number] = [0, 0, 1];
+
 /**
- * Compute local coordinate system for a 3D element (SAP2000/textbook convention).
+ * Compute local coordinate system for a 3D element.
  *
- * Convention:
+ * Product/runtime geometry is Z-up, but the 3D solver's historical local-load
+ * convention still uses global Y as the preferred auto-orient reference for
+ * non-vertical members. Keep this internal convention explicit here so future
+ * gravity/local-load changes migrate together instead of drifting silently.
+ *
+ * Solver convention:
  * - ex = normalize(J - I) — element axis
- * - For non-vertical: ey lies in the vertical plane (ey ≈ global Y upward)
- *   ez = ex × ey_ref, ey = ez × ex (ey_ref = global Y)
+ * - For non-vertical: ey_ref = global Y
  * - For vertical: ey_ref = global Z
+ * - ez = ex × ey_ref, ey = ez × ex
  *
  * Cardinal examples:
  *   +X bar: ex=(1,0,0),  ey=(0,1,0),   ez=(0,0,1)
@@ -74,18 +82,16 @@ export function computeLocalAxes3D(
       ezx * ex[1] - ezy * ex[0],
     ];
   } else {
-    // SAP2000/textbook auto-orient convention:
+    // Solver-internal auto-orient convention:
     //   ey_ref = global Y for non-vertical, global Z for vertical
     //   ez = ex × ey_ref, ey = ez × ex
     const dotY = Math.abs(ex[1]); // |component along global Y|
 
     let eyRef: [number, number, number];
     if (dotY > 0.999) {
-      // Near-vertical element: ey reference = global Z (0,0,1)
-      eyRef = [0, 0, 1];
+      eyRef = AUTO_ORIENT_VERTICAL_REFERENCE;
     } else {
-      // Non-vertical: ey reference = global Y (0,1,0)
-      eyRef = [0, 1, 0];
+      eyRef = AUTO_ORIENT_NON_VERTICAL_REFERENCE;
     }
 
     // ez = normalize(ex × eyRef)
