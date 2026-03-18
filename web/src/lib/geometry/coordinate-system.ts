@@ -4,6 +4,9 @@ export type AnalysisAxis = 'x' | 'y' | 'z';
 export type VerticalAxis = 'z';
 export type WorkingPlane3D = 'XY' | 'XZ' | 'YZ';
 export type CoordinateNode = { x: number; y: number; z?: number };
+export type ScenePoint = { x: number; y: number; z: number };
+export type TypedSupportLike = { type: string };
+export type TypedLoadLike = { type: string };
 
 export const VERTICAL_AXIS: VerticalAxis = 'z';
 export const DEFAULT_WORKING_PLANE: WorkingPlane3D = 'XY';
@@ -11,6 +14,41 @@ export const HORIZONTAL_PLANE: WorkingPlane3D = 'XY';
 export const UP_VECTOR = new THREE.Vector3(0, 0, 1);
 export const GRAVITY_VECTOR_3D = new THREE.Vector3(0, 0, -1);
 export const TOP_VIEW_UP_VECTOR = new THREE.Vector3(0, 1, 0);
+export const TWO_D_HORIZONTAL_AXIS_LABEL = 'X';
+export const TWO_D_VERTICAL_AXIS_LABEL = 'Z';
+export const TWO_D_DISPLACEMENT_LABELS = {
+  horizontal: 'ux',
+  vertical: 'uz',
+  rotation: 'θy',
+} as const;
+export const TWO_D_REACTION_LABELS = {
+  horizontal: 'Rx',
+  vertical: 'Rz',
+  moment: 'My',
+} as const;
+export const TWO_D_NODAL_LOAD_LABELS = {
+  horizontal: 'Fx',
+  vertical: 'Fz',
+  moment: 'My',
+} as const;
+
+const THREE_D_SUPPORT_TYPES = new Set([
+  'fixed3d',
+  'pinned3d',
+  'rollerXZ',
+  'rollerXY',
+  'rollerYZ',
+  'spring3d',
+  'custom3d',
+]);
+
+const THREE_D_LOAD_TYPES = new Set([
+  'nodal3d',
+  'distributed3d',
+  'pointOnElement3d',
+  'surface3d',
+  'thermalQuad3d',
+]);
 
 export function setCameraUp(camera: THREE.Camera): void {
   camera.up.copy(UP_VECTOR);
@@ -30,6 +68,30 @@ export function setElevation<T extends CoordinateNode>(node: T, elevation: numbe
 
 export function getPlanDepth(node: CoordinateNode): number {
   return node.y;
+}
+
+export function get2DDisplayedVertical(node: Pick<CoordinateNode, 'y'>): number {
+  return node.y;
+}
+
+export function set2DDisplayedVertical<T extends Pick<CoordinateNode, 'y'>>(node: T, vertical: number): T {
+  return { ...node, y: vertical };
+}
+
+export function get2DDisplayDisplacementVertical<T extends { uy: number }>(disp: T): number {
+  return disp.uy;
+}
+
+export function get2DDisplayRotation<T extends { rz: number }>(disp: T): number {
+  return disp.rz;
+}
+
+export function get2DDisplayReactionVertical<T extends { ry: number }>(reaction: T): number {
+  return reaction.ry;
+}
+
+export function get2DDisplayMoment<T extends { mz: number }>(reaction: T): number {
+  return reaction.mz;
 }
 
 export function isHorizontalPlane(plane: WorkingPlane3D): boolean {
@@ -64,4 +126,46 @@ export function setPlaneOffset(target: THREE.Object3D, plane: WorkingPlane3D, le
     target.rotation.z = Math.PI / 2;
     target.position.x = level;
   }
+}
+
+export function projectNodeToScene(node: CoordinateNode, project2DToXZ = false): ScenePoint {
+  if (project2DToXZ) {
+    return { x: node.x, y: 0, z: node.y };
+  }
+  return { x: node.x, y: node.y, z: node.z ?? 0 };
+}
+
+export function toSceneVector(point: ScenePoint): THREE.Vector3 {
+  return new THREE.Vector3(point.x, point.y, point.z);
+}
+
+export function shouldProjectModelToXZ(params: {
+  nodes: Iterable<CoordinateNode>;
+  supports?: Iterable<TypedSupportLike>;
+  loads?: Iterable<TypedLoadLike>;
+  plateCount?: number;
+  quadCount?: number;
+}): boolean {
+  if ((params.plateCount ?? 0) > 0 || (params.quadCount ?? 0) > 0) return false;
+
+  let hasNodes = false;
+  for (const node of params.nodes) {
+    hasNodes = true;
+    if (Math.abs(node.z ?? 0) > 1e-9) return false;
+  }
+  if (!hasNodes) return false;
+
+  if (params.supports) {
+    for (const support of params.supports) {
+      if (THREE_D_SUPPORT_TYPES.has(support.type)) return false;
+    }
+  }
+
+  if (params.loads) {
+    for (const load of params.loads) {
+      if (THREE_D_LOAD_TYPES.has(load.type)) return false;
+    }
+  }
+
+  return true;
 }

@@ -15,6 +15,7 @@ import { COLORS, setMeshColor, setGroupColor, disposeObject } from '../three/sel
 import { createPlateMesh, createQuadMesh } from '../three/create-shell-mesh';
 import { computeLocalAxes3D } from '../engine/local-axes-3d';
 import type { SolverNode3D } from '../engine/types-3d';
+import { projectNodeToScene, shouldProjectModelToXZ } from '../geometry/coordinate-system';
 
 /**
  * Mutable context holding Three.js scene graph references.
@@ -51,6 +52,13 @@ export interface SceneSyncContext {
 export function syncNodes(ctx: SceneSyncContext): void {
   if (!ctx.initialized) return;
   const storeNodes = modelStore.nodes;
+  const project2D = shouldProjectModelToXZ({
+    nodes: storeNodes.values(),
+    supports: modelStore.supports.values(),
+    loads: modelStore.loads,
+    plateCount: modelStore.plates.size,
+    quadCount: modelStore.quads.size,
+  });
 
   // Remove nodes no longer in store
   for (const [id, mesh] of ctx.nodeMeshes) {
@@ -63,11 +71,12 @@ export function syncNodes(ctx: SceneSyncContext): void {
 
   // Add/update nodes
   for (const [id, node] of storeNodes) {
+    const pos = projectNodeToScene(node, project2D);
     const existing = ctx.nodeMeshes.get(id);
     if (existing) {
-      updateNodePosition(existing, node.x, node.y, node.z ?? 0);
+      updateNodePosition(existing, pos.x, pos.y, pos.z);
     } else {
-      const mesh = createNodeMesh(node.x, node.y, node.z ?? 0, { nodeId: id });
+      const mesh = createNodeMesh(pos.x, pos.y, pos.z, { nodeId: id });
       ctx.nodesParent.add(mesh);
       ctx.nodeMeshes.set(id, mesh);
     }
@@ -79,6 +88,13 @@ export function syncNodes(ctx: SceneSyncContext): void {
 export function syncElements(ctx: SceneSyncContext): void {
   if (!ctx.initialized) return;
   const storeElements = modelStore.elements;
+  const project2D = shouldProjectModelToXZ({
+    nodes: modelStore.nodes.values(),
+    supports: modelStore.supports.values(),
+    loads: modelStore.loads,
+    plateCount: modelStore.plates.size,
+    quadCount: modelStore.quads.size,
+  });
 
   // Remove stale
   for (const [id, group] of ctx.elementGroups) {
@@ -103,9 +119,11 @@ export function syncElements(ctx: SceneSyncContext): void {
     }
 
     const sec = modelStore.sections.get(elem.sectionId);
+    const posI = projectNodeToScene(nI, project2D);
+    const posJ = projectNodeToScene(nJ, project2D);
     const group = createElementGroup(
-      { x: nI.x, y: nI.y, z: nI.z ?? 0 },
-      { x: nJ.x, y: nJ.y, z: nJ.z ?? 0 },
+      posI,
+      posJ,
       {
         elementId: id,
         elementType: elem.type,
@@ -127,6 +145,13 @@ export function syncElements(ctx: SceneSyncContext): void {
 export function syncSupports(ctx: SceneSyncContext): void {
   if (!ctx.initialized) return;
   const storeSupports = modelStore.supports;
+  const project2D = shouldProjectModelToXZ({
+    nodes: modelStore.nodes.values(),
+    supports: storeSupports.values(),
+    loads: modelStore.loads,
+    plateCount: modelStore.plates.size,
+    quadCount: modelStore.quads.size,
+  });
 
   // Remove stale
   for (const [id, gizmo] of ctx.supportGizmos) {
@@ -160,7 +185,7 @@ export function syncSupports(ctx: SceneSyncContext): void {
       else gizmoType = 'custom3d';
     }
     const gizmo = createSupportGizmo(
-      { x: node.x, y: node.y, z: node.z ?? 0 },
+      projectNodeToScene(node, project2D),
       { supportId: id, supportType: gizmoType, dofRestraints: sup.dofRestraints },
     );
     ctx.supportsParent.add(gizmo);
@@ -173,9 +198,17 @@ export function syncSupports(ctx: SceneSyncContext): void {
 export function syncShells(ctx: SceneSyncContext): void {
   if (!ctx.initialized) return;
 
+  const project2D = shouldProjectModelToXZ({
+    nodes: modelStore.nodes.values(),
+    supports: modelStore.supports.values(),
+    loads: modelStore.loads,
+    plateCount: modelStore.plates.size,
+    quadCount: modelStore.quads.size,
+  });
+
   const getNode = (id: number) => {
     const n = modelStore.nodes.get(id);
-    return n ? { x: n.x, y: n.y, z: n.z ?? 0 } : null;
+    return n ? projectNodeToScene(n, project2D) : null;
   };
 
   // Clear all existing shell meshes (simple rebuild, like elements)
@@ -210,6 +243,13 @@ export function syncShells(ctx: SceneSyncContext): void {
 
 export function syncLoads(ctx: SceneSyncContext): void {
   if (!ctx.initialized) return;
+  const project2D = shouldProjectModelToXZ({
+    nodes: modelStore.nodes.values(),
+    supports: modelStore.supports.values(),
+    loads: modelStore.loads,
+    plateCount: modelStore.plates.size,
+    quadCount: modelStore.quads.size,
+  });
 
   // Clear all load visuals
   if (ctx.loadGroup) {
@@ -271,10 +311,11 @@ export function syncLoads(ctx: SceneSyncContext): void {
     if (load.type === 'nodal') {
       const node = modelStore.nodes.get(load.data.nodeId);
       if (!node) continue;
+      const pos = projectNodeToScene(node, project2D);
       const arrow = createNodalLoadArrow(
-        { x: node.x, y: node.y, z: node.z ?? 0 },
-        load.data.fx, load.data.fy, 0,
-        0, 0, load.data.mz,
+        pos,
+        load.data.fx, 0, load.data.fy,
+        0, load.data.mz, 0,
         maxForce, i,
         uiStore.momentStyle3D,
         cc,
@@ -285,7 +326,7 @@ export function syncLoads(ctx: SceneSyncContext): void {
       if (!node) continue;
       const d = load.data;
       const arrow = createNodalLoadArrow(
-        { x: node.x, y: node.y, z: node.z ?? 0 },
+        projectNodeToScene(node, project2D),
         d.fx, d.fy, d.fz,
         d.mx, d.my, d.mz,
         maxForce, i,
@@ -299,11 +340,13 @@ export function syncLoads(ctx: SceneSyncContext): void {
       const nI = modelStore.nodes.get(elem.nodeI);
       const nJ = modelStore.nodes.get(elem.nodeJ);
       if (!nI || !nJ) continue;
+      const posI = projectNodeToScene(nI, project2D);
+      const posJ = projectNodeToScene(nJ, project2D);
       const grp = createDistributedLoadGroup(
-        { x: nI.x, y: nI.y, z: nI.z ?? 0 },
-        { x: nJ.x, y: nJ.y, z: nJ.z ?? 0 },
+        posI,
+        posJ,
         load.data.qI, load.data.qJ,
-        maxQ, i, 'Y', undefined, cc,
+        maxQ, i, project2D ? 'Z' : 'Y', undefined, cc,
       );
       loadGrp.add(grp);
     } else if (load.type === 'distributed3d') {
@@ -315,6 +358,8 @@ export function syncLoads(ctx: SceneSyncContext): void {
       // Compute local axes to get the actual ey/ez directions in global coordinates
       const posI = { id: 0, x: nI.x, y: nI.y, z: nI.z ?? 0 } as SolverNode3D;
       const posJ = { id: 0, x: nJ.x, y: nJ.y, z: nJ.z ?? 0 } as SolverNode3D;
+      const sceneI = projectNodeToScene(nI, project2D);
+      const sceneJ = projectNodeToScene(nJ, project2D);
       const elemLocalY = (elem.localYx !== undefined && elem.localYy !== undefined && elem.localYz !== undefined)
         ? { x: elem.localYx, y: elem.localYy, z: elem.localYz } : undefined;
       const localAxes = computeLocalAxes3D(posI, posJ, elemLocalY, elem.rollAngle);
@@ -323,7 +368,7 @@ export function syncLoads(ctx: SceneSyncContext): void {
       // qY loads act along local ey
       if (Math.abs(load.data.qYI) > 0.01 || Math.abs(load.data.qYJ) > 0.01) {
         const grp = createDistributedLoadGroup(
-          posI, posJ,
+          sceneI, sceneJ,
           load.data.qYI, load.data.qYJ,
           maxQ, i, 'Y', ey, cc,
         );
@@ -332,7 +377,7 @@ export function syncLoads(ctx: SceneSyncContext): void {
       // qZ loads act along local ez
       if (Math.abs(load.data.qZI) > 0.01 || Math.abs(load.data.qZJ) > 0.01) {
         const grpZ = createDistributedLoadGroup(
-          posI, posJ,
+          sceneI, sceneJ,
           load.data.qZI, load.data.qZJ,
           maxQ, i, 'Z', ez, cc,
         );
@@ -360,12 +405,14 @@ export function syncLoads(ctx: SceneSyncContext): void {
       if (!nI || !nJ) continue;
       const L = Math.sqrt((nJ.x-nI.x)**2 + (nJ.y-nI.y)**2 + ((nJ.z??0)-(nI.z??0))**2);
       const t = L > 0 ? load.data.a / L : 0.5;
-      const px = nI.x + (nJ.x - nI.x) * t;
-      const py = nI.y + (nJ.y - nI.y) * t;
-      const pz = (nI.z ?? 0) + ((nJ.z ?? 0) - (nI.z ?? 0)) * t;
+      const sceneI = projectNodeToScene(nI, project2D);
+      const sceneJ = projectNodeToScene(nJ, project2D);
+      const px = sceneI.x + (sceneJ.x - sceneI.x) * t;
+      const py = sceneI.y + (sceneJ.y - sceneI.y) * t;
+      const pz = sceneI.z + (sceneJ.z - sceneI.z) * t;
       const arrow = createNodalLoadArrow(
         { x: px, y: py, z: pz },
-        0, -Math.abs(load.data.p), 0, // assume perpendicular = vertical
+        0, 0, -Math.abs(load.data.p),
         0, 0, 0,
         maxForce, i,
         'double-arrow', cc,

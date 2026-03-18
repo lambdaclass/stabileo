@@ -1,6 +1,7 @@
 <script lang="ts">
   import { modelStore, uiStore } from '../../lib/store';
   import { t } from '../../lib/i18n';
+  import { TWO_D_VERTICAL_AXIS_LABEL } from '../../lib/geometry/coordinate-system';
 
   interface NodeRow {
     id: number | null;  // null = unsaved new row
@@ -188,7 +189,7 @@
         <tr>
           <th class="col-id">ID</th>
           <th class="col-coord">X (m)</th>
-          <th class="col-coord">Y (m)</th>
+          <th class="col-coord">{uiStore.analysisMode === '3d' ? 'Y' : TWO_D_VERTICAL_AXIS_LABEL} (m)</th>
           <th class="col-coord">Z (m)</th>
           <th class="col-actions"></th>
         </tr>

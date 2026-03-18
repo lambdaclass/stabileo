@@ -1,6 +1,7 @@
 <script lang="ts">
   import { modelStore, uiStore, historyStore, resultsStore } from '../lib/store';
   import { t } from '../lib/i18n';
+  import { TWO_D_HORIZONTAL_AXIS_LABEL, TWO_D_VERTICAL_AXIS_LABEL } from '../lib/geometry/coordinate-system';
 
   let inputX = $state<HTMLInputElement | null>(null);
   let inputY = $state<HTMLInputElement | null>(null);
@@ -59,7 +60,7 @@
   <div class="editor" style="left: {pos.x}px; top: {pos.y}px;">
     <div class="title">{t('editor.node')} {nodeId}</div>
     <div class="field">
-      <span>X (m):</span>
+      <span>{TWO_D_HORIZONTAL_AXIS_LABEL} (m):</span>
       <input
         bind:this={inputX}
         type="number"
@@ -69,7 +70,7 @@
       />
     </div>
     <div class="field">
-      <span>Y (m):</span>
+      <span>{TWO_D_VERTICAL_AXIS_LABEL} (m):</span>
       <input
         bind:this={inputY}
         type="number"

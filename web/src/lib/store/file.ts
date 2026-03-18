@@ -9,6 +9,16 @@ import { exportToExcel } from '../export/excel';
 import { tabManager } from './tabs.svelte';
 import type { TabState } from './tabs.svelte';
 import { t } from '../i18n';
+import {
+  TWO_D_DISPLACEMENT_LABELS,
+  TWO_D_REACTION_LABELS,
+  TWO_D_VERTICAL_AXIS_LABEL,
+  get2DDisplayDisplacementVertical,
+  get2DDisplayMoment,
+  get2DDisplayReactionVertical,
+  get2DDisplayRotation,
+  get2DDisplayedVertical,
+} from '../geometry/coordinate-system';
 
 // ─── File Format ────────────────────────────────────────────────
 
@@ -204,17 +214,17 @@ export function exportResultsCSV(): string {
   } else if (r2d) {
     // 2D Displacements
     lines.push(`# ${t('file.displacements')}`);
-    lines.push(`${t('file.node')},ux (m),uy (m),rz (rad)`);
+    lines.push(`${t('file.node')},ux (m),uz (m),ry (rad)`);
     for (const d of r2d.displacements) {
-      lines.push(`${d.nodeId},${d.ux.toExponential(6)},${d.uy.toExponential(6)},${d.rz.toExponential(6)}`);
+      lines.push(`${d.nodeId},${d.ux.toExponential(6)},${get2DDisplayDisplacementVertical(d).toExponential(6)},${get2DDisplayRotation(d).toExponential(6)}`);
     }
     lines.push('');
 
     // 2D Reactions
     lines.push(`# ${t('file.reactions')}`);
-    lines.push(`${t('file.node')},Rx (kN),Ry (kN),Mz (kN·m)`);
+    lines.push(`${t('file.node')},Rx (kN),Rz (kN),My (kN·m)`);
     for (const r of r2d.reactions) {
-      lines.push(`${r.nodeId},${r.rx.toFixed(4)},${r.ry.toFixed(4)},${(-r.mz).toFixed(4)}`);
+      lines.push(`${r.nodeId},${r.rx.toFixed(4)},${get2DDisplayReactionVertical(r).toFixed(4)},${(-get2DDisplayMoment(r)).toFixed(4)}`);
     }
     lines.push('');
 
@@ -497,9 +507,9 @@ export function generateReportHTML(): string {
     html += `</tbody></table>`;
   } else {
     html += `<h3>${t('file.nodes')}</h3>
-<table><thead><tr><th>ID</th><th>X (m)</th><th>Y (m)</th></tr></thead><tbody>`;
+<table><thead><tr><th>ID</th><th>X (m)</th><th>${TWO_D_VERTICAL_AXIS_LABEL} (m)</th></tr></thead><tbody>`;
     for (const [, node] of m.nodes) {
-      html += `<tr><td>${node.id}</td><td>${fmtNum(node.x, 3)}</td><td>${fmtNum(node.y, 3)}</td></tr>`;
+      html += `<tr><td>${node.id}</td><td>${fmtNum(node.x, 3)}</td><td>${fmtNum(get2DDisplayedVertical(node), 3)}</td></tr>`;
     }
     html += `</tbody></table>`;
   }
@@ -564,7 +574,7 @@ export function generateReportHTML(): string {
         const d = load.data;
         tipo = t('file.loadNodal');
         destino = `${t('file.node')} ${d.nodeId}`;
-        valores = `Fx=${fmtNum(d.fx)} kN, Fy=${fmtNum(d.fy)} kN, Mz=${fmtNum(d.mz)} kN·m`;
+        valores = `Fx=${fmtNum(d.fx)} kN, Fz=${fmtNum(d.fy)} kN, My=${fmtNum(d.mz)} kN·m`;
         break;
       }
       case 'distributed': {
@@ -626,17 +636,17 @@ export function generateReportHTML(): string {
 
     // Displacements
     html += `<h3>${t('file.displacements')}</h3>
-<table><thead><tr><th>${t('file.node')}</th><th>ux (m)</th><th>uy (m)</th><th>θz (rad)</th></tr></thead><tbody>`;
+<table><thead><tr><th>${t('file.node')}</th><th>${TWO_D_DISPLACEMENT_LABELS.horizontal} (m)</th><th>${TWO_D_DISPLACEMENT_LABELS.vertical} (m)</th><th>${TWO_D_DISPLACEMENT_LABELS.rotation} (rad)</th></tr></thead><tbody>`;
     for (const d of r.displacements) {
-      html += `<tr><td>${d.nodeId}</td><td>${fmtNum(d.ux)}</td><td>${fmtNum(d.uy)}</td><td>${fmtNum(d.rz)}</td></tr>`;
+      html += `<tr><td>${d.nodeId}</td><td>${fmtNum(d.ux)}</td><td>${fmtNum(get2DDisplayDisplacementVertical(d))}</td><td>${fmtNum(get2DDisplayRotation(d))}</td></tr>`;
     }
     html += `</tbody></table>`;
 
     // Reactions
     html += `<h3>${t('file.reactions')}</h3>
-<table><thead><tr><th>${t('file.node')}</th><th>Rx (kN)</th><th>Ry (kN)</th><th>Mz (kN·m)</th></tr></thead><tbody>`;
+<table><thead><tr><th>${t('file.node')}</th><th>${TWO_D_REACTION_LABELS.horizontal} (kN)</th><th>${TWO_D_REACTION_LABELS.vertical} (kN)</th><th>${TWO_D_REACTION_LABELS.moment} (kN·m)</th></tr></thead><tbody>`;
     for (const rx of r.reactions) {
-      html += `<tr><td>${rx.nodeId}</td><td>${fmtNum(rx.rx)}</td><td>${fmtNum(rx.ry)}</td><td>${fmtNum(-rx.mz)}</td></tr>`;
+      html += `<tr><td>${rx.nodeId}</td><td>${fmtNum(rx.rx)}</td><td>${fmtNum(get2DDisplayReactionVertical(rx))}</td><td>${fmtNum(-get2DDisplayMoment(rx))}</td></tr>`;
     }
     html += `</tbody></table>`;
 

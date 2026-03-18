@@ -9,7 +9,7 @@
 import * as THREE from 'three';
 import type { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { setLineResolution } from '../three/create-element-mesh';
-import { setCameraUp, TOP_VIEW_UP_VECTOR } from '../geometry/coordinate-system';
+import { projectNodeToScene, setCameraUp, shouldProjectModelToXZ, TOP_VIEW_UP_VECTOR } from '../geometry/coordinate-system';
 
 // ─── Types ──────────────────────────────────────────────────
 
@@ -25,9 +25,11 @@ export interface NodePosition {
 export function getModelBounds(
   nodes: Map<number, NodePosition>,
 ): { center: THREE.Vector3; size: THREE.Vector3; maxDim: number } {
+  const project2D = shouldProjectModelToXZ({ nodes: nodes.values() });
   const box = new THREE.Box3();
   for (const [, node] of nodes) {
-    box.expandByPoint(new THREE.Vector3(node.x, node.y, node.z ?? 0));
+    const pos = projectNodeToScene(node, project2D);
+    box.expandByPoint(new THREE.Vector3(pos.x, pos.y, pos.z));
   }
   if (box.isEmpty()) {
     box.expandByPoint(new THREE.Vector3(-5, 0, -5));

@@ -15,6 +15,16 @@
 import * as XLSX from 'xlsx';
 import { modelStore, resultsStore, uiStore } from '../store';
 import { t } from '../i18n';
+import {
+  TWO_D_DISPLACEMENT_LABELS,
+  TWO_D_REACTION_LABELS,
+  TWO_D_VERTICAL_AXIS_LABEL,
+  get2DDisplayDisplacementVertical,
+  get2DDisplayMoment,
+  get2DDisplayReactionVertical,
+  get2DDisplayRotation,
+  get2DDisplayedVertical,
+} from '../geometry/coordinate-system';
 
 interface ExcelExportOptions {
   filename?: string;
@@ -196,12 +206,12 @@ function createNodesSheet(): XLSX.WorkSheet {
   const r2d = resultsStore.results;
   const hasResults = is3D ? !!r3d : !!r2d;
 
-  const headers = is3D ? ['ID', 'X (m)', 'Y (m)', 'Z (m)'] : ['ID', 'X (m)', 'Y (m)'];
+  const headers = is3D ? ['ID', 'X (m)', 'Y (m)', 'Z (m)'] : ['ID', 'X (m)', `${TWO_D_VERTICAL_AXIS_LABEL} (m)`];
   if (hasResults) {
     if (is3D) {
       headers.push('ux (mm)', 'uy (mm)', 'uz (mm)', 'θx (mrad)', 'θy (mrad)', 'θz (mrad)');
     } else {
-      headers.push('ux (mm)', 'uy (mm)', 'θz (mrad)');
+      headers.push('ux (mm)', `${TWO_D_DISPLACEMENT_LABELS.vertical} (mm)`, `${TWO_D_DISPLACEMENT_LABELS.rotation} (mrad)`);
     }
   }
 
@@ -211,7 +221,7 @@ function createNodesSheet(): XLSX.WorkSheet {
     const row: (string | number)[] = [
       node.id,
       Number(node.x.toFixed(4)),
-      Number(node.y.toFixed(4)),
+      Number((is3D ? node.y : get2DDisplayedVertical(node)).toFixed(4)),
     ];
     if (is3D) row.push(Number((node.z ?? 0).toFixed(4)));
 
@@ -231,8 +241,8 @@ function createNodesSheet(): XLSX.WorkSheet {
       if (disp) {
         row.push(
           Number((disp.ux * 1000).toFixed(4)),
-          Number((disp.uy * 1000).toFixed(4)),
-          Number((disp.rz * 1000).toFixed(4)),
+          Number((get2DDisplayDisplacementVertical(disp) * 1000).toFixed(4)),
+          Number((get2DDisplayRotation(disp) * 1000).toFixed(4)),
         );
       } else {
         row.push('-', '-', '-');
@@ -286,7 +296,7 @@ function createReactionsSheet(): XLSX.WorkSheet {
   }
 
   // 2D fallback
-  const headers = [t('excel.node'), t('excel.supportType'), 'Rx (kN)', 'Ry (kN)', 'Mz (kN·m)'];
+  const headers = [t('excel.node'), t('excel.supportType'), `${TWO_D_REACTION_LABELS.horizontal} (kN)`, `${TWO_D_REACTION_LABELS.vertical} (kN)`, `${TWO_D_REACTION_LABELS.moment} (kN·m)`];
   const data: (string | number)[][] = [headers];
 
   for (const r of r2d!.reactions) {
@@ -301,16 +311,16 @@ function createReactionsSheet(): XLSX.WorkSheet {
 
     data.push([
       r.nodeId, supType,
-      Number(r.rx.toFixed(4)), Number(r.ry.toFixed(4)), Number(r.mz.toFixed(4)),
+      Number(r.rx.toFixed(4)), Number(get2DDisplayReactionVertical(r).toFixed(4)), Number(get2DDisplayMoment(r).toFixed(4)),
     ]);
   }
 
   const totals = r2d!.reactions.reduce(
-    (acc, r) => ({ rx: acc.rx + r.rx, ry: acc.ry + r.ry, mz: acc.mz + r.mz }),
-    { rx: 0, ry: 0, mz: 0 }
+    (acc, r) => ({ rx: acc.rx + r.rx, rz: acc.rz + get2DDisplayReactionVertical(r), my: acc.my + get2DDisplayMoment(r) }),
+    { rx: 0, rz: 0, my: 0 }
   );
   data.push([]);
-  data.push([t('excel.total'), '', Number(totals.rx.toFixed(4)), Number(totals.ry.toFixed(4)), Number(totals.mz.toFixed(4))]);
+  data.push([t('excel.total'), '', Number(totals.rx.toFixed(4)), Number(totals.rz.toFixed(4)), Number(totals.my.toFixed(4))]);
 
   const ws = XLSX.utils.aoa_to_sheet(data);
   ws['!cols'] = [{ wch: 8 }, { wch: 14 }, { wch: 12 }, { wch: 12 }, { wch: 14 }];

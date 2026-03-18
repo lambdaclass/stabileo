@@ -9,7 +9,7 @@
   import { evaluateDiagramAt, formatDiagramValue3D, type Diagram3DKind } from '../lib/engine/diagrams-3d';
   import { getGroundIntersection as _getGroundIntersection, findNodeHit as _findNodeHit, findElementHit as _findElementHit, segmentIntersectsRect2D } from '../lib/viewport3d/picking';
   import { getModelBounds as _getModelBounds, zoomToFit as _zoomToFit, setView as _setView, handleResize as _handleResize, syncOrthoFrustum as _syncOrthoFrustum } from '../lib/viewport3d/camera';
-  import { planeNormal, setCameraUp } from '../lib/geometry/coordinate-system';
+  import { planeNormal, projectNodeToScene, setCameraUp, shouldProjectModelToXZ } from '../lib/geometry/coordinate-system';
   import { updateGrid as _updateGrid, createFatAxes as _createFatAxes, addAxisLabels as _addAxisLabels } from '../lib/viewport3d/grid';
   import { syncNodes as _syncNodes, syncElements as _syncElements, syncSupports as _syncSupports, syncLoads as _syncLoads, syncShells as _syncShells, syncSelection as _syncSelection, type SceneSyncContext } from '../lib/viewport3d/scene-sync';
   import { syncDeformed as _syncDeformed, syncDiagrams3D as _syncDiagrams3D, syncColorMap3D as _syncColorMap3D, syncVerificationLabels as _syncVerificationLabels, syncReactions as _syncReactions, syncConstraintForces as _syncConstraintForces, syncLabels3D as _syncLabels3D, DIAGRAM_3D_TYPES, type ResultsSyncContext } from '../lib/viewport3d/results-sync';
@@ -86,6 +86,16 @@
     modeShape:   'viewport3d.modeShape',
     bucklingMode:'viewport3d.bucklingMode',
   };
+
+  function shouldProject2DModel(): boolean {
+    return shouldProjectModelToXZ({
+      nodes: modelStore.nodes.values(),
+      supports: modelStore.supports.values(),
+      loads: modelStore.loads,
+      plateCount: modelStore.plates.size,
+      quadCount: modelStore.quads.size,
+    });
+  }
   const diagramLegend = $derived.by(() => {
     const dt = resultsStore.diagramType;
     if (dt === 'none' || dt === 'axialColor' || dt === 'colorMap' || dt === 'verification') return null;
@@ -1075,8 +1085,10 @@
 
       // Compute model-size-relative scale for the label
       const box = new THREE.Box3();
+      const project2D = shouldProject2DModel();
       for (const [, node] of modelStore.nodes) {
-        box.expandByPoint(new THREE.Vector3(node.x, node.y, node.z ?? 0));
+        const pos = projectNodeToScene(node, project2D);
+        box.expandByPoint(new THREE.Vector3(pos.x, pos.y, pos.z));
       }
       const size = box.getSize(new THREE.Vector3());
       const modelSize = Math.max(size.x, size.y, size.z, 1);
@@ -1139,8 +1151,10 @@
         const newElems = additive ? new Set(uiStore.selectedElements) : new Set<number>();
 
         // Nodes: project to screen, check containment
+        const project2D = shouldProject2DModel();
         for (const node of modelStore.nodes.values()) {
-          const s = projectToScreen(node.x, node.y, node.z ?? 0);
+          const pos = projectNodeToScene(node, project2D);
+          const s = projectToScreen(pos.x, pos.y, pos.z);
           if (s.x >= x1 && s.x <= x2 && s.y >= y1 && s.y <= y2) {
             newNodes.add(node.id);
           }
@@ -1150,8 +1164,10 @@
           const ni = modelStore.getNode(elem.nodeI);
           const nj = modelStore.getNode(elem.nodeJ);
           if (!ni || !nj) continue;
-          const si = projectToScreen(ni.x, ni.y, ni.z ?? 0);
-          const sj = projectToScreen(nj.x, nj.y, nj.z ?? 0);
+          const siPos = projectNodeToScene(ni, project2D);
+          const sjPos = projectNodeToScene(nj, project2D);
+          const si = projectToScreen(siPos.x, siPos.y, siPos.z);
+          const sj = projectToScreen(sjPos.x, sjPos.y, sjPos.z);
           const iIn = si.x >= x1 && si.x <= x2 && si.y >= y1 && si.y <= y2;
           const jIn = sj.x >= x1 && sj.x <= x2 && sj.y >= y1 && sj.y <= y2;
 

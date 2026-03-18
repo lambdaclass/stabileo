@@ -1,6 +1,14 @@
 <script lang="ts">
   import { modelStore, uiStore, resultsStore } from '../../lib/store';
   import { t } from '../../lib/i18n';
+  import {
+    TWO_D_DISPLACEMENT_LABELS,
+    TWO_D_REACTION_LABELS,
+    get2DDisplayDisplacementVertical,
+    get2DDisplayMoment,
+    get2DDisplayReactionVertical,
+    get2DDisplayRotation,
+  } from '../../lib/geometry/coordinate-system';
 
   let resultsSubTab = $state<'displacements' | 'reactions' | 'forces' | 'diagnostics'>('displacements');
 
@@ -114,15 +122,15 @@
     {#if resultsSubTab === 'displacements'}
       <table>
         <thead>
-          <tr><th>{t('table.nodeLabel')}</th><th>ux (mm)</th><th>uy (mm)</th><th>&theta;z (mrad)</th></tr>
+          <tr><th>{t('table.nodeLabel')}</th><th>{TWO_D_DISPLACEMENT_LABELS.horizontal} (mm)</th><th>{TWO_D_DISPLACEMENT_LABELS.vertical} (mm)</th><th>{TWO_D_DISPLACEMENT_LABELS.rotation} (mrad)</th></tr>
         </thead>
         <tbody>
           {#each resultsStore.results.displacements as d}
             <tr>
               <td class="id-cell">{d.nodeId}</td>
               <td class="num">{(d.ux * 1000).toFixed(4)}</td>
-              <td class="num">{(d.uy * 1000).toFixed(4)}</td>
-              <td class="num">{(d.rz * 1000).toFixed(4)}</td>
+              <td class="num">{(get2DDisplayDisplacementVertical(d) * 1000).toFixed(4)}</td>
+              <td class="num">{(get2DDisplayRotation(d) * 1000).toFixed(4)}</td>
             </tr>
           {/each}
         </tbody>
@@ -131,15 +139,15 @@
     {:else if resultsSubTab === 'reactions'}
       <table>
         <thead>
-          <tr><th>{t('table.nodeLabel')}</th><th>Rx (kN)</th><th>Ry (kN)</th><th>Mz (kN&middot;m)</th></tr>
+          <tr><th>{t('table.nodeLabel')}</th><th>{TWO_D_REACTION_LABELS.horizontal} (kN)</th><th>{TWO_D_REACTION_LABELS.vertical} (kN)</th><th>{TWO_D_REACTION_LABELS.moment} (kN&middot;m)</th></tr>
         </thead>
         <tbody>
           {#each resultsStore.results.reactions as r}
             <tr>
               <td class="id-cell">{r.nodeId}</td>
               <td class="num">{r.rx.toFixed(4)}</td>
-              <td class="num">{r.ry.toFixed(4)}</td>
-              <td class="num">{(-r.mz).toFixed(4)}</td>
+              <td class="num">{get2DDisplayReactionVertical(r).toFixed(4)}</td>
+              <td class="num">{(-get2DDisplayMoment(r)).toFixed(4)}</td>
             </tr>
           {/each}
         </tbody>

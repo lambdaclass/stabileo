@@ -1,6 +1,7 @@
 <script lang="ts">
   import { modelStore, uiStore, historyStore, resultsStore } from '../../lib/store';
   import { t } from '../../lib/i18n';
+  import { TWO_D_HORIZONTAL_AXIS_LABEL, TWO_D_VERTICAL_AXIS_LABEL } from '../../lib/geometry/coordinate-system';
 
   const nodesArr = $derived([...modelStore.nodes.values()]);
 
@@ -54,7 +55,7 @@
 {#if nodesArr.length > 0}
   <table>
     <thead>
-      <tr><th>ID</th><th>X (m)</th><th>Y (m)</th>{#if uiStore.analysisMode === '3d'}<th>Z (m)</th>{/if}<th></th></tr>
+      <tr><th>ID</th><th>{TWO_D_HORIZONTAL_AXIS_LABEL} (m)</th><th>{uiStore.analysisMode === '3d' ? 'Y' : TWO_D_VERTICAL_AXIS_LABEL} (m)</th>{#if uiStore.analysisMode === '3d'}<th>Z (m)</th>{/if}<th></th></tr>
     </thead>
     <tbody>
       {#each nodesArr as node}
@@ -73,9 +74,9 @@
 {/if}
 <div class="table-footer">
   <div class="add-row">
-    <span class="add-label">X:</span>
+    <span class="add-label">{TWO_D_HORIZONTAL_AXIS_LABEL}:</span>
     <input type="number" step="0.5" bind:value={newNodeX} class="add-input" />
-    <span class="add-label">Y:</span>
+    <span class="add-label">{uiStore.analysisMode === '3d' ? 'Y' : TWO_D_VERTICAL_AXIS_LABEL}:</span>
     <input type="number" step="0.5" bind:value={newNodeY} class="add-input" />
     {#if uiStore.analysisMode === '3d'}
       <span class="add-label">Z:</span>

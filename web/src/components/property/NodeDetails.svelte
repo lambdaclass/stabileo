@@ -4,6 +4,17 @@
   import type { NodalLoad } from '../../lib/store/model.svelte.ts';
   import { toDisplay, unitLabel } from '../../lib/utils/units';
   import SupportDetails from './SupportDetails.svelte';
+  import {
+    TWO_D_DISPLACEMENT_LABELS,
+    TWO_D_NODAL_LOAD_LABELS,
+    TWO_D_REACTION_LABELS,
+    TWO_D_VERTICAL_AXIS_LABEL,
+    get2DDisplayDisplacementVertical,
+    get2DDisplayMoment,
+    get2DDisplayReactionVertical,
+    get2DDisplayRotation,
+    get2DDisplayedVertical,
+  } from '../../lib/geometry/coordinate-system';
 
   const us = $derived(uiStore.unitSystem);
   const ul = (q: import('../../lib/utils/units').Quantity) => unitLabel(q, us);
@@ -45,8 +56,8 @@
         <span>{dv(node.x, 'length').toFixed(3)} {ul('length')}</span>
       </div>
       <div class="property-row">
-        <span>Y:</span>
-        <span>{dv(node.y, 'length').toFixed(3)} {ul('length')}</span>
+        <span>{uiStore.analysisMode === '3d' ? 'Y' : TWO_D_VERTICAL_AXIS_LABEL}:</span>
+        <span>{dv(uiStore.analysisMode === '3d' ? node.y : get2DDisplayedVertical(node), 'length').toFixed(3)} {ul('length')}</span>
       </div>
       {#if uiStore.analysisMode === '3d'}
         <div class="property-row">
@@ -123,12 +134,12 @@
               <span>{dv(disp.ux, 'displacement').toFixed(us === 'SI' ? 4 : 3)} {ul('displacement')}</span>
             </div>
             <div class="property-row">
-              <span>uy:</span>
-              <span>{dv(disp.uy, 'displacement').toFixed(us === 'SI' ? 4 : 3)} {ul('displacement')}</span>
+              <span>{TWO_D_DISPLACEMENT_LABELS.vertical}:</span>
+              <span>{dv(get2DDisplayDisplacementVertical(disp), 'displacement').toFixed(us === 'SI' ? 4 : 3)} {ul('displacement')}</span>
             </div>
             <div class="property-row">
-              <span>θz:</span>
-              <span>{disp.rz.toFixed(6)} rad</span>
+              <span>{TWO_D_DISPLACEMENT_LABELS.rotation}:</span>
+              <span>{get2DDisplayRotation(disp).toFixed(6)} rad</span>
             </div>
           {/if}
 
@@ -140,12 +151,12 @@
               <span>{dv(reaction.rx, 'force').toFixed(2)} {ul('force')}</span>
             </div>
             <div class="property-row">
-              <span>Ry:</span>
-              <span>{dv(reaction.ry, 'force').toFixed(2)} {ul('force')}</span>
+              <span>{TWO_D_REACTION_LABELS.vertical}:</span>
+              <span>{dv(get2DDisplayReactionVertical(reaction), 'force').toFixed(2)} {ul('force')}</span>
             </div>
             <div class="property-row">
-              <span>Mz:</span>
-              <span>{dv(-reaction.mz, 'moment').toFixed(2)} {ul('moment')}</span>
+              <span>{TWO_D_REACTION_LABELS.moment}:</span>
+              <span>{dv(-get2DDisplayMoment(reaction), 'moment').toFixed(2)} {ul('moment')}</span>
             </div>
           {/if}
         {/if}
@@ -166,12 +177,12 @@
             <span>kN</span>
           </div>
           <div class="property-row">
-            <span>Fy:</span>
+            <span>{TWO_D_NODAL_LOAD_LABELS.vertical}:</span>
             <input type="number" step="1" value={nl.fy} class="prop-input" onchange={(e) => updateLoadField(nl.id, 'fy', e.currentTarget.value)} />
             <span>kN</span>
           </div>
           <div class="property-row">
-            <span>Mz:</span>
+            <span>{TWO_D_NODAL_LOAD_LABELS.moment}:</span>
             <input type="number" step="1" value={nl.mz} class="prop-input" onchange={(e) => updateLoadField(nl.id, 'mz', e.currentTarget.value)} />
             <span>kN·m</span>
           </div>

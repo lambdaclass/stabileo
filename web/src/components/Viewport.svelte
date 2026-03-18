@@ -2,6 +2,7 @@
   import { onMount } from 'svelte';
   import { t } from '../lib/i18n';
   import { modelStore, uiStore, resultsStore, historyStore, dsmStepsStore } from '../lib/store';
+  import { TWO_D_VERTICAL_AXIS_LABEL, TWO_D_DISPLACEMENT_LABELS, get2DDisplayDisplacementVertical, get2DDisplayedVertical } from '../lib/geometry/coordinate-system';
   import { drawDiagrams, drawEnvelopeDiagrams, computeDiagramGlobalMax, setDiagramUnitSystem, type DiagramKind } from '../lib/canvas/draw-diagrams';
   import { computeDiagramValueAt, computeDisplacementAt } from '../lib/engine/diagrams';
   import { effectiveBendingInertia } from '../lib/engine/solver-service';
@@ -862,7 +863,7 @@
 
         const xPos = (diagramHover.t * 100).toFixed(1);
         if (diagramHover.lines) {
-          // Multi-line tooltip (e.g. deformed mode: ux, uy, θ)
+          // Multi-line tooltip (e.g. deformed mode: ux, uz, θy)
           drawTooltip(s.x + 12, s.y - 25, [
             ...diagramHover.lines,
             `x/L = ${xPos}%`,
@@ -890,12 +891,12 @@
       const hoverNode = findNearestNode(uiStore.worldX, uiStore.worldY, 0.3);
       if (hoverNode) {
         const lines: string[] = [t('viewport.nodeTooltip').replace('{id}', String(hoverNode.id))];
-        lines.push(`(${hoverNode.x.toFixed(2)}, ${hoverNode.y.toFixed(2)}) m`);
+        lines.push(`(${hoverNode.x.toFixed(2)}, ${get2DDisplayedVertical(hoverNode).toFixed(2)}) m [X, ${TWO_D_VERTICAL_AXIS_LABEL}]`);
         // Show displacement if results exist
         if (resultsStore.results) {
           const d = resultsStore.getDisplacement(hoverNode.id);
           if (d) {
-            lines.push(`δ: ${(Math.sqrt(d.ux**2 + d.uy**2) * 1000).toFixed(3)} mm`);
+            lines.push(`δ: ${(Math.sqrt(d.ux**2 + get2DDisplayDisplacementVertical(d)**2) * 1000).toFixed(3)} mm`);
           }
         }
         drawTooltip(uiStore.mouseX + 15, uiStore.mouseY - 10, lines);
@@ -1465,16 +1466,16 @@
                   EI, ef.qI, ef.qJ, ef.pointLoads, ef.distributedLoads,
                 );
                 const ux = disp.ux * 1000; // mm
-                const uy = disp.uy * 1000; // mm
+                const uz = get2DDisplayDisplacementVertical(disp) * 1000; // mm
                 // Rotation: interpolate linearly between end rotations (good enough for display)
                 const rz = di.rz + t * (dj.rz - di.rz);
-                const totalDisp = Math.sqrt(ux * ux + uy * uy);
+                const totalDisp = Math.sqrt(ux * ux + uz * uz);
                 diagramHover = {
                   elementId: nearElem.id, t, value: totalDisp, worldX: wx, worldY: wy,
                   lines: [
                     `ux: ${ux.toFixed(3)} mm`,
-                    `uy: ${uy.toFixed(3)} mm`,
-                    `θ: ${rz.toFixed(4)} rad`,
+                    `${TWO_D_DISPLACEMENT_LABELS.vertical}: ${uz.toFixed(3)} mm`,
+                    `${TWO_D_DISPLACEMENT_LABELS.rotation}: ${rz.toFixed(4)} rad`,
                   ],
                 };
               } else {
