@@ -6,7 +6,7 @@
  * This script runs each generator/example loader with a recording mock,
  * then writes the resulting model data to JSON files in fixtures/.
  */
-import { describe, it } from 'vitest';
+import { describe, expect, it } from 'vitest';
 import { writeFileSync, mkdirSync } from 'fs';
 import { join } from 'path';
 
@@ -54,6 +54,15 @@ interface JSONModel {
   constraints: Array<Record<string, unknown>>;
   loadCases: Array<{ id: number; type: string; name: string }>;
   combinations: Array<{ id: number; name: string; factors: Array<{ caseId: number; factor: number }> }>;
+}
+
+function uniqueSorted(values: number[], tol = 1e-6): number[] {
+  const sorted = [...values].sort((a, b) => a - b);
+  const unique: number[] = [];
+  for (const value of sorted) {
+    if (unique.length === 0 || Math.abs(value - unique[unique.length - 1]) > tol) unique.push(value);
+  }
+  return unique;
 }
 
 // ─── Recording mock ─────────────────────────────────────────────
@@ -337,6 +346,27 @@ describe('Generate JSON fixtures', () => {
       writeFixture(name, toJSON());
     });
   }
+
+  it('keeps major 3D examples on Z-up elevation levels', () => {
+    for (const name of ['3d-nave-industrial', '3d-building', 'pro-edificio-7p']) {
+      const { api, toJSON } = createRecordingMock();
+      load3DExample(name, api);
+      const model = toJSON();
+      const nodesById = new Map(model.nodes.map((node) => [node.id, node]));
+      const zLevels = uniqueSorted(model.nodes.map((node) => node.z));
+      const verticalMembers = model.elements.filter((element) => {
+        const nodeI = nodesById.get(element.nodeI);
+        const nodeJ = nodesById.get(element.nodeJ);
+        if (!nodeI || !nodeJ) return false;
+        return Math.abs(nodeI.x - nodeJ.x) < 1e-6
+          && Math.abs(nodeI.y - nodeJ.y) < 1e-6
+          && Math.abs(nodeI.z - nodeJ.z) > 1e-6;
+      });
+
+      expect(zLevels.length, `${name} should span multiple z elevations`).toBeGreaterThan(2);
+      expect(verticalMembers.length, `${name} should contain vertical Z-up members`).toBeGreaterThan(0);
+    }
+  });
 
   // Template catalog 3D (with default params from getTemplateCatalog3D)
   it('space-frame', () => {

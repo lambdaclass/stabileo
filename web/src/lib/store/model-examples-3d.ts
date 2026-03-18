@@ -305,18 +305,18 @@ export function load3DExample(name: string, api: ExampleAPI3D): boolean {
         const e = api.addElement(n1, n2, 'frame');
         api.updateElementMaterial(e, niMat); api.updateElementSection(e, s); return e;
       };
-      const roofY = (z: number) => CH + (RH - CH) * (1 - Math.abs(z - SP / 2) / (SP / 2));
+      const roofZ = (y: number) => CH + (RH - CH) * (1 - Math.abs(y - SP / 2) / (SP / 2));
 
       // ─── Arrays de nodos ───
       const cL: { o: number; i: number }[][] = []; // columna izq [mainIdx][level]
       const cR: { o: number; i: number }[][] = []; // columna der
       const tB: number[][] = [];  // cordón inferior cabriada [frame][panel]
       const tT: number[][] = [];  // cordón superior cabriada
-      // Reticulado lateral: cordón sup (Y=CH) e inf (Y=CRH) en Z=0 y Z=SP
-      const lgT: number[] = [];   // top chord Z=0
-      const lgB: number[] = [];   // bottom chord Z=0
-      const rgT: number[] = [];   // top chord Z=SP
-      const rgB: number[] = [];   // bottom chord Z=SP
+      // Reticulado lateral: cordón sup (Z=CH) e inf (Z=CRH) en Y=0 y Y=SP
+      const lgT: number[] = [];   // top chord Y=0
+      const lgB: number[] = [];   // bottom chord Y=0
+      const rgT: number[] = [];   // top chord Y=SP
+      const rgB: number[] = [];   // bottom chord Y=SP
 
       // ═══════════════════════════════════════════════
       // 1. PÓRTICOS PRINCIPALES (columnas reticuladas + cabriada Pratt)
@@ -328,9 +328,9 @@ export function load3DExample(name: string, api: ExampleAPI3D): boolean {
 
         // -- Nodos de columnas --
         for (let lv = 0; lv <= NCS; lv++) {
-          const y = lv * segH;
-          cL[mi][lv] = { o: api.addNode(x, y, 0), i: api.addNode(x, y, CW) };
-          cR[mi][lv] = { o: api.addNode(x, y, SP), i: api.addNode(x, y, SP - CW) };
+          const z = lv * segH;
+          cL[mi][lv] = { o: api.addNode(x, 0, z), i: api.addNode(x, CW, z) };
+          cR[mi][lv] = { o: api.addNode(x, SP, z), i: api.addNode(x, SP - CW, z) };
         }
 
         // -- Elementos columnas: cordones, horizontales, diagonales Warren --
@@ -353,18 +353,18 @@ export function load3DExample(name: string, api: ExampleAPI3D): boolean {
         niT(cR[mi][NCS].o, cR[mi][NCS].i, sCD);
 
         // Registrar nodos del reticulado lateral (compartidos con columna)
-        lgT[f] = cL[mi][NCS].o;    // Y=8, Z=0
-        lgB[f] = cL[mi][crLv].o;   // Y=6, Z=0
-        rgT[f] = cR[mi][NCS].o;    // Y=8, Z=SP
-        rgB[f] = cR[mi][crLv].o;   // Y=6, Z=SP
+        lgT[f] = cL[mi][NCS].o;    // Z=8, Y=0
+        lgB[f] = cL[mi][crLv].o;   // Z=6, Y=0
+        rgT[f] = cR[mi][NCS].o;    // Z=8, Y=SP
+        rgB[f] = cR[mi][crLv].o;   // Z=6, Y=SP
 
         // -- Cabriada principal (Pratt) --
         tB[f] = []; tT[f] = [];
         tB[f][0] = cL[mi][NCS].o;
-        for (let p = 1; p < NTP; p++) tB[f][p] = api.addNode(x, CH, p * panW);
+        for (let p = 1; p < NTP; p++) tB[f][p] = api.addNode(x, p * panW, CH);
         tB[f][NTP] = cR[mi][NCS].o;
         tT[f][0] = tB[f][0];
-        for (let p = 1; p < NTP; p++) tT[f][p] = api.addNode(x, roofY(p * panW), p * panW);
+        for (let p = 1; p < NTP; p++) tT[f][p] = api.addNode(x, p * panW, roofZ(p * panW));
         tT[f][NTP] = tB[f][NTP];
         for (let p = 0; p < NTP; p++) niF(tB[f][p], tB[f][p + 1], sTC);
         for (let p = 0; p < NTP; p++) niF(tT[f][p], tT[f][p + 1], sTC);
@@ -375,24 +375,24 @@ export function load3DExample(name: string, api: ExampleAPI3D): boolean {
       }
 
       // ═══════════════════════════════════════════════
-      // 2. RETICULADOS LATERALES (Z=0 y Z=SP)
-      //    Cordón sup Y=CH, cordón inf Y=CRH, conectan pórticos principales
+      // 2. RETICULADOS LATERALES (Y=0 y Y=SP)
+      //    Cordón sup Z=CH, cordón inf Z=CRH, conectan pórticos principales
       //    y sostienen cabriadas secundarias
       // ═══════════════════════════════════════════════
       // Crear nodos en posiciones de cabriadas secundarias
       for (const f of [1, 3, 5]) {
         const x = fX(f);
-        lgT[f] = api.addNode(x, CH, 0);
-        lgB[f] = api.addNode(x, CRH, 0);
-        rgT[f] = api.addNode(x, CH, SP);
-        rgB[f] = api.addNode(x, CRH, SP);
+        lgT[f] = api.addNode(x, 0, CH);
+        lgB[f] = api.addNode(x, 0, CRH);
+        rgT[f] = api.addNode(x, SP, CH);
+        rgB[f] = api.addNode(x, SP, CRH);
       }
       // Elementos del reticulado entre frames consecutivos
       for (let f = 0; f < NF - 1; f++) {
-        niF(lgT[f], lgT[f + 1], sLG);  // cordón sup Z=0
-        niF(lgB[f], lgB[f + 1], sLG);  // cordón inf Z=0
-        niF(rgT[f], rgT[f + 1], sLG);  // cordón sup Z=SP
-        niF(rgB[f], rgB[f + 1], sLG);  // cordón inf Z=SP
+        niF(lgT[f], lgT[f + 1], sLG);  // cordón sup Y=0
+        niF(lgB[f], lgB[f + 1], sLG);  // cordón inf Y=0
+        niF(rgT[f], rgT[f + 1], sLG);  // cordón sup Y=SP
+        niF(rgB[f], rgB[f + 1], sLG);  // cordón inf Y=SP
         // Diagonales Warren
         if (f % 2 === 0) {
           niT(lgT[f], lgB[f + 1], sCD);
@@ -416,10 +416,10 @@ export function load3DExample(name: string, api: ExampleAPI3D): boolean {
         const x = fX(f);
         tB[f] = []; tT[f] = [];
         tB[f][0] = lgT[f]; // comparte con reticulado lateral
-        for (let p = 1; p < NTP; p++) tB[f][p] = api.addNode(x, CH, p * panW);
+        for (let p = 1; p < NTP; p++) tB[f][p] = api.addNode(x, p * panW, CH);
         tB[f][NTP] = rgT[f];
         tT[f][0] = tB[f][0];
-        for (let p = 1; p < NTP; p++) tT[f][p] = api.addNode(x, roofY(p * panW), p * panW);
+        for (let p = 1; p < NTP; p++) tT[f][p] = api.addNode(x, p * panW, roofZ(p * panW));
         tT[f][NTP] = tB[f][NTP];
         for (let p = 0; p < NTP; p++) niF(tB[f][p], tB[f][p + 1], sTC);
         for (let p = 0; p < NTP; p++) niF(tT[f][p], tT[f][p + 1], sTC);
@@ -433,7 +433,7 @@ export function load3DExample(name: string, api: ExampleAPI3D): boolean {
       // 4. PARANTES INTERMEDIOS + CONEXIONES LONGITUDINALES
       // ═══════════════════════════════════════════════
 
-      // Parantes verticales en posiciones de cabriadas secundarias (Z=0 y Z=SP)
+      // Parantes verticales en posiciones de cabriadas secundarias (Y=0 y Y=SP)
       // Cortan largueros de 8m en 2×4m y descargan al piso + reticulado lateral
       // postL[sf][lv], postR[sf][lv] — sf=0,1,2 → frames 1,3,5
       const postL: number[][] = [];
@@ -442,15 +442,15 @@ export function load3DExample(name: string, api: ExampleAPI3D): boolean {
         const f = sf * 2 + 1; // frame index 1, 3, 5
         const x = fX(f);
         postL[sf] = []; postR[sf] = [];
-        // Nodos: Y=0, segH, 2*segH (lv=0,1,2). lv=3 → lgB[f], lv=4 → lgT[f]
+        // Nodos: Z=0, segH, 2*segH (lv=0,1,2). lv=3 → lgB[f], lv=4 → lgT[f]
         for (let lv = 0; lv < crLv; lv++) {
-          const y = lv * segH;
-          postL[sf][lv] = api.addNode(x, y, 0);
-          postR[sf][lv] = api.addNode(x, y, SP);
+          const z = lv * segH;
+          postL[sf][lv] = api.addNode(x, 0, z);
+          postR[sf][lv] = api.addNode(x, SP, z);
         }
-        postL[sf][crLv] = lgB[f]; // Y=6, compartido con reticulado lateral
+        postL[sf][crLv] = lgB[f]; // Z=6, compartido con reticulado lateral
         postR[sf][crLv] = rgB[f];
-        // Elementos: frame de base a cordón inf del reticulado (Y=0 → Y=6)
+        // Elementos: frame de base a cordón inf del reticulado (Z=0 → Z=6)
         for (let lv = 0; lv < crLv; lv++) {
           niF(postL[sf][lv], postL[sf][lv + 1], sCC);
           niF(postR[sf][lv], postR[sf][lv + 1], sCC);
@@ -510,7 +510,7 @@ export function load3DExample(name: string, api: ExampleAPI3D): boolean {
       // 5. CONTRAVIENTOS
       // ═══════════════════════════════════════════════
 
-      // 5a. Lateral — X horizontal a Y=CH, profundidad Z=0→panW y Z=SP-panW→SP
+      // 5a. Lateral — X horizontal a Z=CH, profundidad Y=0→panW y Y=SP-panW→SP
       //     Ambos laterales, largo completo del edificio
       for (let f = 0; f < NF - 1; f++) {
         // Lado izquierdo: Z=0 ↔ Z=panW
@@ -531,8 +531,8 @@ export function load3DExample(name: string, api: ExampleAPI3D): boolean {
       }
 
       // 5c. Hastiales (X=0 y X=24): columnas intermedias + largueros + riostras
-      //     3 columnas intermedias (Z=5,10,15) con nodos cada segH (Y=0,2,4,6,8)
-      //     Largueros a Y=2,4,6 (mismas alturas que laterales)
+      //     3 columnas intermedias (Y=5,10,15) con nodos cada segH (Z=0,2,4,6,8)
+      //     Largueros a Z=2,4,6 (mismas alturas que laterales)
       for (const mi of [0, NMain - 1]) {
         const f = mi * 2;
         const x = fX(f);
@@ -540,15 +540,15 @@ export function load3DExample(name: string, api: ExampleAPI3D): boolean {
         const gN: number[][] = [];
         for (let k = 0; k < 3; k++) {
           gN[k] = [];
-          const z = (k + 1) * SP / 4;
+          const y = (k + 1) * SP / 4;
           const pIdx = (k + 1) * NTP / 4; // panel 2, 4, 6
-          for (let lv = 0; lv < NCS; lv++) gN[k][lv] = api.addNode(x, lv * segH, z);
-          gN[k][NCS] = tB[f][pIdx]; // Y=8 compartido con cordón inferior
+          for (let lv = 0; lv < NCS; lv++) gN[k][lv] = api.addNode(x, y, lv * segH);
+          gN[k][NCS] = tB[f][pIdx]; // Z=8 compartido con cordón inferior
           // Elementos columna (frame continuo base→techo)
           for (let lv = 0; lv < NCS; lv++) niF(gN[k][lv], gN[k][lv + 1], sCC);
           api.addSupport(gN[k][0], 'pinned3d');
         }
-        // Largueros frontales a lv=1,2,3 (Y=2,4,6) — frame para tomar viento
+        // Largueros frontales a lv=1,2,3 (Z=2,4,6) — frame para tomar viento
         for (let lv = 1; lv < NCS; lv++) {
           wallGirtIdsL.push(niF(cL[mi][lv].o, gN[0][lv], sPR));
           for (let k = 0; k < 2; k++) wallGirtIdsL.push(niF(gN[k][lv], gN[k + 1][lv], sPR));
@@ -593,7 +593,7 @@ export function load3DExample(name: string, api: ExampleAPI3D): boolean {
         const tw = tribW(f);
         for (let p = 0; p <= NTP; p++) {
           const tz = p === 0 || p === NTP ? panW / 2 : panW;
-          api.addNodalLoad3D(tT[f][p], 0, -0.5 * tw * tz, 0, 0, 0, 0, 1);
+          api.addNodalLoad3D(tT[f][p], 0, 0, -0.5 * tw * tz, 0, 0, 0, 1);
         }
       }
       // Peso propio carrileras (IPN500 ≈ 1.41 kN/m)
@@ -606,17 +606,17 @@ export function load3DExample(name: string, api: ExampleAPI3D): boolean {
         const tw = tribW(f);
         for (let p = 0; p <= NTP; p++) {
           const tz = p === 0 || p === NTP ? panW / 2 : panW;
-          api.addNodalLoad3D(tT[f][p], 0, -0.3 * tw * tz, 0, 0, 0, 0, 2);
+          api.addNodalLoad3D(tT[f][p], 0, 0, -0.3 * tw * tz, 0, 0, 0, 2);
         }
       }
       // Carga de grúa: 120 kN por rueda en pórticos principales 1 y 2 (centrales)
       for (const mi of [1, 2]) {
-        api.addNodalLoad3D(cL[mi][crLv].i, 0, -120, 0, 0, 0, 0, 2);
-        api.addNodalLoad3D(cR[mi][crLv].i, 0, -120, 0, 0, 0, 0, 2);
+        api.addNodalLoad3D(cL[mi][crLv].i, 0, 0, -120, 0, 0, 0, 2);
+        api.addNodalLoad3D(cR[mi][crLv].i, 0, 0, -120, 0, 0, 0, 2);
       }
 
-      // ─── W (Viento transversal +Z) ───
-      // Ejes locales elem horizontal en X: ey→+Z global, ez→-Y global
+      // ─── W (Viento transversal +Y) ───
+      // Ejes locales elem horizontal en X: ey→+Y global, ez→-Z global
       const qWindWall = 0.25 * segH; // 0.50 kN/m
       for (const eid of wallGirtIdsL) {
         api.addDistributedLoad3D(eid, qWindWall, qWindWall, 0, 0, undefined, undefined, 3);
@@ -641,7 +641,7 @@ export function load3DExample(name: string, api: ExampleAPI3D): boolean {
       for (let mi = 0; mi < NMain; mi++) {
         const f = mi * 2;
         const tw = tribW(f);
-        api.addNodalLoad3D(cL[mi][NCS].o, 0, 0, 0.42 * tw * segH / 2, 0, 0, 0, 3);
+        api.addNodalLoad3D(cL[mi][NCS].o, 0, 0.42 * tw * segH / 2, 0, 0, 0, 0, 3);
       }
 
       return true;
@@ -865,7 +865,7 @@ export function load3DExample(name: string, api: ExampleAPI3D): boolean {
       const posZ = [0];
       for (const b of bayZ) posZ.push(posZ[posZ.length - 1] + b);
 
-      function floorY(f: number): number {
+      function floorZ(f: number): number {
         return f === 0 ? 0 : hPB + (f - 1) * hTyp;
       }
 
@@ -898,12 +898,12 @@ export function load3DExample(name: string, api: ExampleAPI3D): boolean {
       const ng: number[][][] = [];
       for (let f = 0; f <= nFloors; f++) {
         ng[f] = [];
-        const y = floorY(f);
+        const z = floorZ(f);
         for (let iz = 0; iz < nColZ; iz++) {
           ng[f][iz] = [];
           for (let ix = 0; ix < nColX; ix++) {
             if (f === 0 && ix === nColX - 1) continue; // no node at base balcony edge
-            ng[f][iz][ix] = api.addNode(posX[ix], y, posZ[iz]);
+            ng[f][iz][ix] = api.addNode(posX[ix], posZ[iz], z);
           }
         }
       }
@@ -984,11 +984,11 @@ export function load3DExample(name: string, api: ExampleAPI3D): boolean {
 
       const elNd: number[][] = [];
       for (let f = 0; f <= nFloors; f++) {
-        const y = floorY(f);
+        const z = floorZ(f);
         const nA = ng[f][0][0];
-        const nB = api.addNode(elevW, y, 0);
-        const nC = api.addNode(elevW, y, elevD);
-        const nD = api.addNode(0, y, elevD);
+        const nB = api.addNode(elevW, 0, z);
+        const nC = api.addNode(elevW, elevD, z);
+        const nD = api.addNode(0, elevD, z);
         elNd[f] = [nA, nB, nC, nD];
       }
 
@@ -1020,7 +1020,7 @@ export function load3DExample(name: string, api: ExampleAPI3D): boolean {
         }
         slaveNodes.push(elNd[f][1], elNd[f][2], elNd[f][3]);
         api.addConstraint({
-          type: 'diaphragm', masterNode: ng[f][0][0], slaveNodes, plane: 'XZ',
+          type: 'diaphragm', masterNode: ng[f][0][0], slaveNodes, plane: 'XY',
         });
       }
 
@@ -1105,9 +1105,9 @@ export function load3DExample(name: string, api: ExampleAPI3D): boolean {
       }
 
       for (let f = 1; f <= nFloors; f++) {
-        const y = floorY(f);
+        const z = floorZ(f);
         const hTrib = f === 1 ? (hPB + hTyp) / 2 : f === nFloors ? hTyp / 2 : hTyp;
-        const kz = kzExpB(y);
+        const kz = kzExpB(z);
         const qz = 0.613 * V * V * kz * Kd * 1e-3; // kN/m²
 
         for (let iz = 0; iz < nColZ; iz++) {
