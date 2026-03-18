@@ -74,6 +74,7 @@ pub async fn interpret_results(
     let ai_req = AiRequest {
         system_prompt,
         user_message,
+        messages: vec![],
         max_tokens: 2048,
         temperature: 0.2,
         tools: vec![],

@@ -8,3 +8,4 @@ pub mod interpret_results;
 pub mod registry;
 pub mod review_model;
 pub mod sections;
+pub mod validate_snapshot;

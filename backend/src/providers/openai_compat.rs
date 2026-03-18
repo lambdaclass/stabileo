@@ -4,7 +4,7 @@ use serde_json::Value;
 use std::time::Instant;
 
 use crate::error::ProviderError;
-use super::traits::{AiRequest, AiResponse, ToolCall};
+use super::traits::{AiRequest, AiResponse, AiRole, ToolCall};
 
 /// Shared adapter for OpenAI-compatible APIs (OpenAI, DeepSeek, Mistral, Kimi).
 pub struct OpenAiCompatProvider {
@@ -67,20 +67,35 @@ impl OpenAiCompatProvider {
             }).collect())
         };
 
+        let mut messages = vec![ChatMessage {
+            role: "system",
+            content: &req.system_prompt,
+        }];
+        if req.messages.is_empty() {
+            messages.push(ChatMessage {
+                role: "user",
+                content: &req.user_message,
+            });
+        } else {
+            for m in &req.messages {
+                messages.push(ChatMessage {
+                    role: match m.role {
+                        AiRole::User => "user",
+                        AiRole::Assistant => "assistant",
+                    },
+                    content: &m.content,
+                });
+            }
+        }
+
+        // o-series models (o1, o3, etc.) use max_completion_tokens and don't support temperature
+        let is_o_series = self.model.starts_with("o1") || self.model.starts_with("o3");
         let body = ChatRequest {
             model: &self.model,
-            max_tokens: req.max_tokens,
-            temperature: req.temperature,
-            messages: vec![
-                ChatMessage {
-                    role: "system",
-                    content: &req.system_prompt,
-                },
-                ChatMessage {
-                    role: "user",
-                    content: &req.user_message,
-                },
-            ],
+            max_tokens: if is_o_series { None } else { Some(req.max_tokens) },
+            max_completion_tokens: if is_o_series { Some(req.max_tokens) } else { None },
+            temperature: if is_o_series { None } else { Some(req.temperature) },
+            messages,
             tools,
         };
 
@@ -136,8 +151,14 @@ impl OpenAiCompatProvider {
 #[derive(Serialize)]
 struct ChatRequest<'a> {
     model: &'a str,
-    max_tokens: u32,
-    temperature: f32,
+    /// Classic parameter for most models.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    max_tokens: Option<u32>,
+    /// Required by o-series models (o1, o3, etc.) instead of max_tokens.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    max_completion_tokens: Option<u32>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    temperature: Option<f32>,
     messages: Vec<ChatMessage<'a>>,
     #[serde(skip_serializing_if = "Option::is_none")]
     tools: Option<Vec<ChatTool<'a>>>,

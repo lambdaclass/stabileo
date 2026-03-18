@@ -254,7 +254,7 @@ export function buildArtifact(
 
 // ─── API calls ─────────────────────────────────────────────────
 
-async function post<T>(path: string, body: unknown): Promise<T> {
+async function post<T>(path: string, body: unknown, signal?: AbortSignal): Promise<T> {
   if (!API_KEY) {
     throw new Error('AI backend API key not configured (VITE_AI_API_KEY)');
   }
@@ -266,6 +266,7 @@ async function post<T>(path: string, body: unknown): Promise<T> {
       'Authorization': `Bearer ${API_KEY}`,
     },
     body: JSON.stringify(body),
+    signal,
   });
 
   if (!resp.ok) {
@@ -317,12 +318,26 @@ export async function interpretResults(
   });
 }
 
+export interface ConversationMessage {
+  role: 'user' | 'assistant';
+  content: string;
+}
+
+export interface SolverDiagnosticMsg {
+  code: string;
+  severity: string;
+  message: string;
+}
+
 export async function buildModel(
   description: string,
   locale?: string,
   analysisMode?: string,
   modelContext?: ModelContext,
   currentSnapshot?: Record<string, unknown>,
+  messages?: ConversationMessage[],
+  solverDiagnostics?: SolverDiagnosticMsg[],
+  signal?: AbortSignal,
 ): Promise<BuildModelResponse> {
   const body: Record<string, unknown> = {
     description,
@@ -331,8 +346,10 @@ export async function buildModel(
   };
   if (modelContext) body.modelContext = modelContext;
   if (currentSnapshot) body.currentSnapshot = currentSnapshot;
+  if (messages && messages.length > 0) body.messages = messages;
+  if (solverDiagnostics && solverDiagnostics.length > 0) body.solverDiagnostics = solverDiagnostics;
 
-  const raw: any = await post('/api/ai/build-model', body);
+  const raw: any = await post('/api/ai/build-model', body, signal);
   // Normalize: old backend returns { snapshot, interpretation }, new returns { snapshot, message }
   return {
     snapshot: raw.snapshot ?? null,

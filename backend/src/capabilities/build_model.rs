@@ -1,13 +1,14 @@
 use serde::{Deserialize, Serialize};
-use serde_json::Value;
+use serde_json::{json, Value};
 
 use super::actions::{validate_action, ActionResponse, BuildAction};
 use super::coordinate_system::{VerticalAxis, DEFAULT_HORIZONTAL_PLANE_3D, GRAVITY_DIRECTION_3D, VERTICAL_AXIS_3D};
 use super::edit_executor;
 use super::generators::execute_action;
 use super::registry;
+use super::validate_snapshot;
 use crate::error::AppError;
-use crate::providers::traits::{AiRequest, AiResponse, Provider};
+use crate::providers::traits::{AiMessage, AiRequest, AiResponse, AiRole, Provider};
 
 #[derive(Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -21,6 +22,25 @@ pub struct BuildModelRequest {
     pub model_context: Option<ModelContext>,
     /// Full current snapshot, required for edit actions.
     pub current_snapshot: Option<Value>,
+    /// Multi-turn conversation history for iterative building.
+    #[serde(default)]
+    pub messages: Option<Vec<ConversationMessage>>,
+    /// Solver diagnostics from a previous run, for the AI to fix.
+    #[serde(default)]
+    pub solver_diagnostics: Option<Vec<SolverDiagnostic>>,
+}
+
+#[derive(Debug, Deserialize, Serialize, Clone)]
+pub struct ConversationMessage {
+    pub role: String,
+    pub content: String,
+}
+
+#[derive(Debug, Deserialize, Serialize, Clone)]
+pub struct SolverDiagnostic {
+    pub code: String,
+    pub severity: String,
+    pub message: String,
 }
 
 #[derive(Debug, Deserialize, Serialize)]
@@ -88,16 +108,81 @@ pub async fn build_model(
     let system_prompt = build_system_prompt(locale, analysis_mode, req.model_context.as_ref());
     let tools = registry::tool_definitions(analysis_mode, has_model);
 
+    // Build multi-turn messages from conversation history + diagnostics
+    let ai_messages = build_ai_messages(
+        &req.description,
+        req.messages.as_deref(),
+        req.solver_diagnostics.as_deref(),
+    );
+
     let ai_req = AiRequest {
         system_prompt,
-        user_message: req.description,
-        max_tokens: 2048,
+        user_message: req.description.clone(),
+        messages: ai_messages,
+        max_tokens: 8192,
         temperature: 0.1,
         tools,
     };
 
     let ai_resp: AiResponse = provider.complete(ai_req).await?;
     parse_response(ai_resp, request_id, req.current_snapshot.as_ref())
+}
+
+/// Build `AiMessage` list from conversation history, solver diagnostics,
+/// and the current user description.
+fn build_ai_messages(
+    description: &str,
+    history: Option<&[ConversationMessage]>,
+    diagnostics: Option<&[SolverDiagnostic]>,
+) -> Vec<AiMessage> {
+    let has_history = history.map_or(false, |h| !h.is_empty());
+    let has_diagnostics = diagnostics.map_or(false, |d| !d.is_empty());
+
+    // No history and no diagnostics → use single user_message fallback
+    if !has_history && !has_diagnostics {
+        return vec![];
+    }
+
+    let mut messages = Vec::new();
+
+    // Replay conversation history
+    if let Some(history) = history {
+        for msg in history {
+            let role = match msg.role.as_str() {
+                "assistant" | "ai" => AiRole::Assistant,
+                _ => AiRole::User,
+            };
+            messages.push(AiMessage {
+                role,
+                content: msg.content.clone(),
+            });
+        }
+    }
+
+    // Inject solver diagnostics as a user message
+    if let Some(diags) = diagnostics {
+        if !diags.is_empty() {
+            let diag_text: Vec<String> = diags
+                .iter()
+                .map(|d| format!("- [{}] {}: {}", d.severity, d.code, d.message))
+                .collect();
+            messages.push(AiMessage {
+                role: AiRole::User,
+                content: format!(
+                    "The solver found these issues with your model:\n{}\n\nPlease fix them by calling create_model again with corrected data.",
+                    diag_text.join("\n")
+                ),
+            });
+        }
+    }
+
+    // Append the current user description
+    messages.push(AiMessage {
+        role: AiRole::User,
+        content: description.to_string(),
+    });
+
+    messages
 }
 
 fn build_system_prompt(locale: &str, analysis_mode: &str, ctx: Option<&ModelContext>) -> String {
@@ -143,6 +228,19 @@ Respond in locale: {locale}
 
 When the user describes a structure they want (beam, frame, truss, building, cantilever, etc.), even vaguely, call the appropriate tool with reasonable defaults. Do NOT ask clarifying questions — just build it.
 
+When no predefined generator matches the user's request, use the create_model tool to build the structure directly. You can create ANY structure: bridges, towers, arches, domes, irregular frames, trusses, etc.
+
+Rules for create_model:
+- Use unique sequential IDs starting from 1 for each entity type
+- Every element must reference valid node, section, and material IDs
+- At least one support is required for stability
+- Default material: Steel A36 (E=200000, nu=0.3, rho=78.5, fy=250)
+- Section properties: pick from the available sections list, or use reasonable custom values (a in m², iz in m⁴)
+- Loads: negative fy values = downward direction
+- For 2D: nodes have x, y (Y = up). For 3D: nodes have x, y, z (Z = up)
+- Generate DETAILED structures with realistic geometry: use 20-60 nodes for complex structures like stadiums, bridges, towers. Don't oversimplify — a stadium needs columns, tiers, roof trusses with diagonals. A bridge needs deck, piers, cables or trusses.
+- Use realistic dimensions in meters (e.g. stadium ~60-100m wide, bridge ~30-80m span, tower ~20-50m tall)
+
 For everything else (greetings, questions, explanations, advice, any topic), reply in plain text.
 
 {capabilities}{context_section}"#
@@ -185,7 +283,11 @@ pub fn parse_response(
             "interpretation": interpretation,
         });
 
-        if let Ok(action_resp) = serde_json::from_value::<ActionResponse>(action_json) {
+        let parse_result = serde_json::from_value::<ActionResponse>(action_json.clone());
+        if let Err(ref e) = parse_result {
+            tracing::warn!("tool call '{}' failed to parse as ActionResponse: {} — raw args: {}", tc.name, e, tc.arguments);
+        }
+        if let Ok(action_resp) = parse_result {
             if matches!(action_resp.action, BuildAction::Unsupported { .. }) {
                 return Ok(BuildModelResponse {
                     snapshot: None,
@@ -292,6 +394,22 @@ pub fn parse_response(
 
 /// Dispatch an action: edit actions use the edit executor, create actions use generators.
 fn run_action(action: &BuildAction, current_snapshot: Option<&Value>) -> Result<Value, AppError> {
+    // CreateModel has its own assembly path
+    if let BuildAction::CreateModel {
+        analysis_mode,
+        nodes,
+        elements,
+        materials,
+        sections,
+        supports,
+        loads,
+    } = action
+    {
+        return assemble_create_model(
+            analysis_mode, nodes, elements, materials, sections, supports, loads.as_deref(),
+        );
+    }
+
     if action.is_edit() {
         let snap = current_snapshot.ok_or_else(|| {
             AppError::BadRequest("Edit actions require an existing model (send currentSnapshot)".into())
@@ -300,6 +418,98 @@ fn run_action(action: &BuildAction, current_snapshot: Option<&Value>) -> Result<
     } else {
         execute_action(action)
     }
+}
+
+/// Assemble raw arrays from `create_model` into the standard snapshot format
+/// (same as generators produce: `[id, {data}]` tuples), then validate.
+fn assemble_create_model(
+    analysis_mode: &str,
+    nodes: &[Value],
+    elements: &[Value],
+    materials: &[Value],
+    sections: &[Value],
+    supports: &[Value],
+    loads: Option<&[Value]>,
+) -> Result<Value, AppError> {
+    // Convert each array entry from `{id, ...}` to `[id, {id, ...}]` tuples
+    let nodes_tuples = to_tuples(nodes);
+    let elements_tuples = to_tuples(elements);
+    let materials_tuples = to_tuples(materials);
+    let sections_tuples = to_tuples(sections);
+    let supports_tuples = to_tuples(supports);
+
+    // Loads use a different format: they have type+data at top level
+    let loads_arr = loads
+        .map(|l| l.to_vec())
+        .unwrap_or_default();
+
+    // Compute nextId counters
+    let next_node = max_id(&nodes_tuples) + 1;
+    let next_elem = max_id(&elements_tuples) + 1;
+    let next_mat = max_id(&materials_tuples) + 1;
+    let next_sec = max_id(&sections_tuples) + 1;
+    let next_sup = max_id(&supports_tuples) + 1;
+    let next_load = loads_arr.len() as u32 + 1;
+
+    let snapshot = json!({
+        "analysisMode": analysis_mode,
+        "nodes": nodes_tuples,
+        "elements": elements_tuples,
+        "materials": materials_tuples,
+        "sections": sections_tuples,
+        "supports": supports_tuples,
+        "loads": loads_arr,
+        "nextId": {
+            "node": next_node,
+            "element": next_elem,
+            "material": next_mat,
+            "section": next_sec,
+            "support": next_sup,
+            "load": next_load,
+        }
+    });
+
+    // Validate
+    let warnings = validate_snapshot::validate_snapshot(&snapshot)?;
+    if !warnings.is_empty() {
+        tracing::warn!("create_model warnings: {:?}", warnings);
+    }
+
+    Ok(snapshot)
+}
+
+/// Convert `[{id: 1, ...}, ...]` to `[[1, {id: 1, ...}], ...]` tuples.
+/// If already in tuple format `[id, {...}]`, pass through.
+fn to_tuples(entries: &[Value]) -> Vec<Value> {
+    entries
+        .iter()
+        .map(|entry| {
+            // Already a tuple?
+            if let Some(arr) = entry.as_array() {
+                if arr.len() >= 2 && arr[1].is_object() {
+                    return entry.clone();
+                }
+            }
+            // Object → tuple
+            if let Some(obj) = entry.as_object() {
+                let id = obj
+                    .get("id")
+                    .and_then(|v| v.as_u64())
+                    .unwrap_or(0);
+                return json!([id, entry]);
+            }
+            entry.clone()
+        })
+        .collect()
+}
+
+/// Get the max ID from `[[id, {...}], ...]` tuples.
+fn max_id(tuples: &[Value]) -> u32 {
+    tuples
+        .iter()
+        .filter_map(|t| t.as_array().and_then(|a| a.first()).and_then(|v| v.as_u64()))
+        .max()
+        .unwrap_or(0) as u32
 }
 
 /// Generate a short change summary from the action.
@@ -369,6 +579,9 @@ fn action_summary(action: &BuildAction) -> String {
         }
         BuildAction::DeleteLoad { load_id } => {
             format!("Deleted load {load_id}")
+        }
+        BuildAction::CreateModel { nodes, elements, .. } => {
+            format!("Custom model ({} nodes, {} elements)", nodes.len(), elements.len())
         }
         BuildAction::Unsupported { .. } => String::new(),
     }

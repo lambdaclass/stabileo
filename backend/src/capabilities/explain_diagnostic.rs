@@ -67,6 +67,7 @@ pub async fn explain_diagnostic(
     let ai_req = AiRequest {
         system_prompt,
         user_message: details,
+        messages: vec![],
         max_tokens: 1024,
         temperature: 0.1,
         tools: vec![],

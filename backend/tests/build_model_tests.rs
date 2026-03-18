@@ -317,6 +317,8 @@ async fn build_model_with_stub_returns_parsed_response() {
         analysis_mode: None,
         model_context: None,
         current_snapshot: None,
+        messages: None,
+        solver_diagnostics: None,
     };
 
     let result = build_model(&provider, req, "req-stub-1".into())
@@ -340,6 +342,8 @@ async fn build_model_with_provider_error_propagates() {
         analysis_mode: None,
         model_context: None,
         current_snapshot: None,
+        messages: None,
+        solver_diagnostics: None,
     };
 
     let err = build_model(&provider, req, "req-stub-2".into())
@@ -358,6 +362,8 @@ async fn response_serializes_to_camel_case() {
         analysis_mode: None,
         model_context: None,
         current_snapshot: None,
+        messages: None,
+        solver_diagnostics: None,
     };
 
     let result = build_model(&provider, req, "req-ser".into())
@@ -386,6 +392,8 @@ async fn build_model_with_tool_call_produces_snapshot() {
         analysis_mode: None,
         model_context: None,
         current_snapshot: None,
+        messages: None,
+        solver_diagnostics: None,
     };
 
     let result = build_model(&provider, req, "tc-1".into())
@@ -412,6 +420,8 @@ async fn build_model_tool_call_portal_frame() {
         analysis_mode: None,
         model_context: None,
         current_snapshot: None,
+        messages: None,
+        solver_diagnostics: None,
     };
 
     let result = build_model(&provider, req, "tc-2".into())
@@ -433,6 +443,8 @@ async fn build_model_tool_call_with_plain_text_fallback() {
         analysis_mode: None,
         model_context: None,
         current_snapshot: None,
+        messages: None,
+        solver_diagnostics: None,
     };
 
     let result = build_model(&provider, req, "tc-3".into())

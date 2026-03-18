@@ -3,6 +3,21 @@ use serde_json::Value;
 
 use crate::error::ProviderError;
 
+// ─── Multi-turn messages ───────────────────────────────────────
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct AiMessage {
+    pub role: AiRole,
+    pub content: String,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(rename_all = "lowercase")]
+pub enum AiRole {
+    User,
+    Assistant,
+}
+
 // ─── Tool-call contract (provider-agnostic) ────────────────────
 
 /// A tool the LLM can choose to call.
@@ -27,6 +42,9 @@ pub struct ToolCall {
 pub struct AiRequest {
     pub system_prompt: String,
     pub user_message: String,
+    /// Multi-turn conversation history. When non-empty, providers use this
+    /// instead of a single `user_message`.
+    pub messages: Vec<AiMessage>,
     pub max_tokens: u32,
     pub temperature: f32,
     /// When non-empty, the LLM may call one of these tools instead of

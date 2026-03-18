@@ -4,7 +4,7 @@ use serde_json::Value;
 use std::time::Instant;
 
 use crate::error::ProviderError;
-use super::traits::{AiRequest, AiResponse, ToolCall};
+use super::traits::{AiRequest, AiResponse, AiRole, ToolCall};
 
 pub struct ClaudeProvider {
     client: Client,
@@ -34,15 +34,27 @@ impl ClaudeProvider {
             }).collect())
         };
 
+        let messages = if req.messages.is_empty() {
+            vec![Message {
+                role: "user",
+                content: &req.user_message,
+            }]
+        } else {
+            req.messages.iter().map(|m| Message {
+                role: match m.role {
+                    AiRole::User => "user",
+                    AiRole::Assistant => "assistant",
+                },
+                content: &m.content,
+            }).collect()
+        };
+
         let body = AnthropicRequest {
             model: &self.model,
             max_tokens: req.max_tokens,
             temperature: req.temperature,
             system: &req.system_prompt,
-            messages: vec![Message {
-                role: "user",
-                content: &req.user_message,
-            }],
+            messages,
             tools,
         };
 

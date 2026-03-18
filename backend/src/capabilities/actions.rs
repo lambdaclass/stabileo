@@ -1,4 +1,5 @@
 use serde::Deserialize;
+use serde_json::Value;
 
 use crate::error::AppError;
 
@@ -170,6 +171,19 @@ pub enum BuildAction {
         load_id: u32,
     },
 
+    /// Create an arbitrary model from raw arrays (nodes, elements, etc.).
+    CreateModel {
+        #[serde(alias = "analysisMode")]
+        analysis_mode: String,
+        nodes: Vec<Value>,
+        elements: Vec<Value>,
+        materials: Vec<Value>,
+        sections: Vec<Value>,
+        supports: Vec<Value>,
+        #[serde(default)]
+        loads: Option<Vec<Value>>,
+    },
+
     Unsupported {},
 }
 
@@ -304,6 +318,25 @@ pub fn validate_action(action: &BuildAction) -> Result<(), AppError> {
         | BuildAction::AddNodalLoad { .. }
         | BuildAction::DeleteElement { .. }
         | BuildAction::DeleteLoad { .. } => {}
+        BuildAction::CreateModel {
+            nodes, elements, materials, sections, supports, ..
+        } => {
+            if nodes.is_empty() {
+                return Err(AppError::BadRequest("create_model: at least 1 node required".into()));
+            }
+            if elements.is_empty() {
+                return Err(AppError::BadRequest("create_model: at least 1 element required".into()));
+            }
+            if materials.is_empty() {
+                return Err(AppError::BadRequest("create_model: at least 1 material required".into()));
+            }
+            if sections.is_empty() {
+                return Err(AppError::BadRequest("create_model: at least 1 section required".into()));
+            }
+            if supports.is_empty() {
+                return Err(AppError::BadRequest("create_model: at least 1 support required".into()));
+            }
+        }
         BuildAction::Unsupported { .. } => {}
     }
     Ok(())

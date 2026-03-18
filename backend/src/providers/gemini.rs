@@ -3,7 +3,7 @@ use serde::{Deserialize, Serialize};
 use std::time::Instant;
 
 use crate::error::ProviderError;
-use super::traits::{AiRequest, AiResponse};
+use super::traits::{AiRequest, AiResponse, AiRole};
 
 pub struct GeminiProvider {
     client: Client,
@@ -34,12 +34,22 @@ impl GeminiProvider {
                     text: &req.system_prompt,
                 }],
             },
-            contents: vec![Content {
-                role: "user",
-                parts: vec![Part {
-                    text: &req.user_message,
-                }],
-            }],
+            contents: if req.messages.is_empty() {
+                vec![Content {
+                    role: "user",
+                    parts: vec![Part {
+                        text: &req.user_message,
+                    }],
+                }]
+            } else {
+                req.messages.iter().map(|m| Content {
+                    role: match m.role {
+                        AiRole::User => "user",
+                        AiRole::Assistant => "model",
+                    },
+                    parts: vec![Part { text: &m.content }],
+                }).collect()
+            },
             generation_config: GenerationConfig {
                 max_output_tokens: req.max_tokens,
                 temperature: req.temperature,

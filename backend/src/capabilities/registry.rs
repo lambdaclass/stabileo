@@ -516,6 +516,101 @@ pub fn tool_definitions(analysis_mode: &str, has_model: bool) -> Vec<ToolDef> {
         });
     }
 
+    // Always add create_model (works in both create and edit contexts)
+    tools.push(ToolDef {
+        name: "create_model".to_string(),
+        description: "Create an arbitrary structural model by specifying nodes, elements, supports, and loads directly. Use this when no predefined generator matches the user's request.".to_string(),
+        parameters: json!({
+            "type": "object",
+            "properties": {
+                "analysisMode": { "type": "string", "enum": ["2d", "3d"], "description": "Analysis mode" },
+                "nodes": {
+                    "type": "array",
+                    "items": {
+                        "type": "object",
+                        "properties": {
+                            "id": { "type": "integer" },
+                            "x": { "type": "number" },
+                            "y": { "type": "number" },
+                            "z": { "type": "number", "description": "Only for 3D" }
+                        },
+                        "required": ["id", "x", "y"]
+                    }
+                },
+                "elements": {
+                    "type": "array",
+                    "items": {
+                        "type": "object",
+                        "properties": {
+                            "id": { "type": "integer" },
+                            "type": { "type": "string", "enum": ["frame", "truss"] },
+                            "nodeI": { "type": "integer" },
+                            "nodeJ": { "type": "integer" },
+                            "sectionId": { "type": "integer" },
+                            "materialId": { "type": "integer" }
+                        },
+                        "required": ["id", "type", "nodeI", "nodeJ", "sectionId", "materialId"]
+                    }
+                },
+                "materials": {
+                    "type": "array",
+                    "items": {
+                        "type": "object",
+                        "properties": {
+                            "id": { "type": "integer" },
+                            "name": { "type": "string" },
+                            "e": { "type": "number", "description": "Elastic modulus (MPa)" },
+                            "nu": { "type": "number" },
+                            "rho": { "type": "number" },
+                            "fy": { "type": "number" }
+                        },
+                        "required": ["id", "name", "e"]
+                    }
+                },
+                "sections": {
+                    "type": "array",
+                    "items": {
+                        "type": "object",
+                        "properties": {
+                            "id": { "type": "integer" },
+                            "name": { "type": "string" },
+                            "a": { "type": "number", "description": "Cross-section area (m²)" },
+                            "iz": { "type": "number", "description": "Moment of inertia about Z (m⁴)" },
+                            "iy": { "type": "number", "description": "Moment of inertia about Y, only for 3D (m⁴)" },
+                            "j": { "type": "number", "description": "Torsional constant, only for 3D (m⁴)" }
+                        },
+                        "required": ["id", "name", "a", "iz"]
+                    }
+                },
+                "supports": {
+                    "type": "array",
+                    "items": {
+                        "type": "object",
+                        "properties": {
+                            "id": { "type": "integer" },
+                            "nodeId": { "type": "integer" },
+                            "type": { "type": "string" }
+                        },
+                        "required": ["id", "nodeId", "type"]
+                    }
+                },
+                "loads": {
+                    "type": "array",
+                    "items": {
+                        "type": "object",
+                        "properties": {
+                            "type": { "type": "string" },
+                            "data": { "type": "object" }
+                        },
+                        "required": ["type", "data"]
+                    }
+                },
+                "interpretation": { "type": "string", "description": "Brief description of what you're building, in the user's locale" }
+            },
+            "required": ["analysisMode", "nodes", "elements", "materials", "sections", "supports", "interpretation"]
+        }),
+    });
+
     tools
 }
 

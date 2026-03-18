@@ -1,7 +1,7 @@
 <script lang="ts">
   import { resultsStore, modelStore, uiStore, historyStore } from '../lib/store';
   import { t, i18n } from '../lib/i18n';
-  import { reviewModel, buildArtifact, buildModel, buildModelContext, type ReviewModelResponse, type ReviewFinding, type BuildModelResponse } from '../lib/ai/client';
+  import { reviewModel, buildArtifact, buildModel, buildModelContext, type ReviewModelResponse, type ReviewFinding, type BuildModelResponse, type ConversationMessage, type SolverDiagnosticMsg } from '../lib/ai/client';
   import { runGlobalSolve } from '../lib/engine/live-calc';
   import type { ModelSnapshot } from '../lib/store/history.svelte';
 
@@ -47,6 +47,12 @@
   let pendingDraft = $state<Record<string, unknown> | null>(null);
   /** Whether model was just applied and solved — enables "Review this model". */
   let justApplied = $state(false);
+  /** AbortController for cancelling in-flight AI requests. */
+  let abortController = $state<AbortController | null>(null);
+  /** Multi-turn conversation history sent to the backend. */
+  let conversationHistory = $state<ConversationMessage[]>([]);
+  /** Solver diagnostics from the last solve, available for "Fix issues". */
+  let lastSolverDiagnostics = $state<SolverDiagnosticMsg[]>([]);
 
   function scrollChatToBottom() {
     if (chatContainer) {
@@ -109,11 +115,11 @@
       }
     }
 
-    // Validate load references
-    const loads = snapshot.loads as Array<{ type: string; data: Record<string, unknown> }> | undefined;
+    // Validate load references (handles both { type, data: { elementId } } and flat { type, elementId } formats)
+    const loads = snapshot.loads as Array<Record<string, unknown>> | undefined;
     if (loads && Array.isArray(loads)) {
       for (const load of loads) {
-        const d = load.data;
+        const d = (load.data as Record<string, unknown>) ?? load;
         if (d.elementId && !elementIds.has(d.elementId as number)) {
           errors.push(`Load references non-existent element ${d.elementId}`);
         }
@@ -175,15 +181,24 @@
     chatMessages.push({ role: 'ai', text: 'Building...', isBuilding: true });
     scrollChatToBottom();
     buildLoading = true;
+    const ac = new AbortController();
+    abortController = ac;
 
     try {
       const mode = uiStore.analysisMode === '3d' ? '3d' : '2d';
       const ctx = hasModelOnCanvas ? buildModelContext(modelStore) : undefined;
       const currentSnap = hasModelOnCanvas ? ($state.snapshot(modelStore.snapshot()) as Record<string, unknown>) : undefined;
-      const resp = await buildModel(text, i18n.locale, mode, ctx, currentSnap);
+      const resp = await buildModel(text, i18n.locale, mode, ctx, currentSnap, conversationHistory.length > 0 ? conversationHistory : undefined, undefined, ac.signal);
 
       // Remove building indicator
       chatMessages = chatMessages.filter(m => !m.isBuilding);
+
+      // Track conversation history
+      conversationHistory = [
+        ...conversationHistory,
+        { role: 'user', content: text },
+        { role: 'assistant', content: resp.message || resp.rawAiResponse || '' },
+      ];
 
       // Check if snapshot has actual structural content
       const snap = resp.snapshot;
@@ -243,15 +258,19 @@
       scrollChatToBottom();
     } catch (e: any) {
       chatMessages = chatMessages.filter(m => !m.isBuilding);
-      const msg = e.message || 'Failed to build model';
-      // Friendly message for scope/parse errors from old backend
-      const friendly = msg.includes('Could not generate')
-        ? 'I can build: beams, cantilevers, continuous beams, portal frames, trusses, and 3D frames. Try describing a structure, e.g. "simply supported beam, 6m, 10 kN/m".'
-        : msg;
-      chatMessages.push({ role: 'ai', text: friendly });
+      if (e.name === 'AbortError') {
+        chatMessages.push({ role: 'system', text: 'Request cancelled.' });
+      } else {
+        const msg = e.message || 'Failed to build model';
+        const friendly = msg.includes('Could not generate')
+          ? 'I can build: beams, cantilevers, continuous beams, portal frames, trusses, and 3D frames. Try describing a structure, e.g. "simply supported beam, 6m, 10 kN/m".'
+          : msg;
+        chatMessages.push({ role: 'ai', text: friendly });
+      }
       scrollChatToBottom();
     } finally {
       buildLoading = false;
+      abortController = null;
     }
   }
 
@@ -266,9 +285,19 @@
     pendingDraft = null;
     justApplied = true;
 
+    // Capture solver diagnostics for potential "Fix issues"
+    const is3D = uiStore.analysisMode === '3d';
+    const results = is3D ? resultsStore.results3D : resultsStore.results;
+    const solverDiags = (results as any)?.solverDiagnostics ?? [];
+    lastSolverDiagnostics = solverDiags
+      .filter((d: any) => d.severity === 'error' || d.severity === 'warning')
+      .map((d: any) => ({ code: d.code, severity: d.severity, message: d.message }));
+
     chatMessages.push({
       role: 'system',
-      text: 'Model applied and solved.',
+      text: lastSolverDiagnostics.length > 0
+        ? `Model applied and solved. ${lastSolverDiagnostics.length} issue(s) found.`
+        : 'Model applied and solved.',
     });
     scrollChatToBottom();
   }
@@ -290,6 +319,86 @@
     pendingDraft = null;
     if (lastDescription) {
       handleBuildSend(lastDescription);
+    }
+  }
+
+  async function handleFixIssues() {
+    if (lastSolverDiagnostics.length === 0 || buildLoading) return;
+    buildLoading = true;
+    buildError = null;
+    justApplied = false;
+
+    chatMessages.push({ role: 'user', text: 'Fix the solver issues' });
+    chatMessages.push({ role: 'ai', text: 'Fixing...', isBuilding: true });
+    scrollChatToBottom();
+
+    try {
+      const mode = uiStore.analysisMode === '3d' ? '3d' : '2d';
+      const ctx = hasModelOnCanvas ? buildModelContext(modelStore) : undefined;
+      const currentSnap = hasModelOnCanvas ? ($state.snapshot(modelStore.snapshot()) as Record<string, unknown>) : undefined;
+      const resp = await buildModel(
+        'Fix the solver issues in this model',
+        i18n.locale,
+        mode,
+        ctx,
+        currentSnap,
+        conversationHistory.length > 0 ? conversationHistory : undefined,
+        lastSolverDiagnostics,
+      );
+
+      chatMessages = chatMessages.filter(m => !m.isBuilding);
+
+      // Track in conversation history
+      conversationHistory = [
+        ...conversationHistory,
+        { role: 'user', content: 'Fix the solver issues' },
+        { role: 'assistant', content: resp.message || resp.rawAiResponse || '' },
+      ];
+
+      const snap = resp.snapshot;
+      const hasStructure = snap
+        && typeof snap === 'object'
+        && Array.isArray(snap.nodes) && (snap.nodes as unknown[]).length > 0
+        && Array.isArray(snap.elements) && (snap.elements as unknown[]).length > 0;
+
+      if (resp.scopeRefusal || !hasStructure) {
+        chatMessages.push({
+          role: 'ai',
+          text: resp.message || 'Could not fix the issues automatically.',
+          meta: resp.meta ? { modelUsed: resp.meta.modelUsed, latencyMs: resp.meta.latencyMs, tokens: resp.meta.inputTokens + resp.meta.outputTokens } : undefined,
+        });
+        scrollChatToBottom();
+        return;
+      }
+
+      const validation = validateSnapshot(snap);
+      if (!validation.valid) {
+        chatMessages.push({ role: 'ai', text: resp.message || 'Fixed model has issues.' });
+        chatMessages.push({ role: 'system', text: `Validation failed:\n${validation.errors.join('\n')}` });
+        scrollChatToBottom();
+        return;
+      }
+
+      historyStore.pushState();
+      fastRebuild(snap as unknown as ModelSnapshot);
+      pendingDraft = snap;
+      lastSolverDiagnostics = [];
+
+      chatMessages.push({
+        role: 'ai',
+        text: resp.message,
+        changeSummary: resp.changeSummary,
+        rawAiResponse: resp.rawAiResponse,
+        draft: snap,
+        meta: resp.meta ? { modelUsed: resp.meta.modelUsed, latencyMs: resp.meta.latencyMs, tokens: resp.meta.inputTokens + resp.meta.outputTokens } : undefined,
+      });
+      scrollChatToBottom();
+    } catch (e: any) {
+      chatMessages = chatMessages.filter(m => !m.isBuilding);
+      chatMessages.push({ role: 'ai', text: e.message || 'Failed to fix issues' });
+      scrollChatToBottom();
+    } finally {
+      buildLoading = false;
     }
   }
 
@@ -322,6 +431,12 @@
     activeTab = 'review';
     // Small delay so the tab switches visually before the review starts
     setTimeout(() => handleReview(), 100);
+  }
+
+  function handleAbortBuild() {
+    if (abortController) {
+      abortController.abort();
+    }
   }
 
   function handleBuildKeydown(e: KeyboardEvent) {
@@ -513,7 +628,7 @@
               <p class="chat-empty-title">Describe a structure</p>
               <p class="chat-empty-hint">Try: "simply supported beam, 6m, 10 kN/m"</p>
               <p class="chat-empty-hint">Or: "portal frame, 8m span, 5m height"</p>
-              <p class="chat-empty-hint">Or: "continuous beam, spans 4+6+4 m"</p>
+              <p class="chat-empty-hint">Or: "build a bridge with two piers"</p>
             {/if}
           </div>
         {/if}
@@ -553,8 +668,17 @@
         </div>
       {/if}
 
+      <!-- Fix solver issues -->
+      {#if justApplied && lastSolverDiagnostics.length > 0 && !pendingDraft}
+        <div class="post-build-bar">
+          <button class="post-build-btn fix-issues-btn" onclick={handleFixIssues} disabled={buildLoading}>
+            Fix {lastSolverDiagnostics.length} solver issue{lastSolverDiagnostics.length > 1 ? 's' : ''}
+          </button>
+        </div>
+      {/if}
+
       <!-- Post-build review shortcut -->
-      {#if justApplied && hasResults}
+      {#if justApplied && hasResults && lastSolverDiagnostics.length === 0}
         <div class="post-build-bar">
           <button class="post-build-btn" onclick={handlePostBuildReview}>Review this model</button>
         </div>
@@ -570,13 +694,11 @@
           disabled={buildLoading || !!pendingDraft}
           rows="2"
         ></textarea>
-        <button class="chat-send" onclick={() => handleBuildSend()} disabled={buildLoading || !chatInput.trim() || !!pendingDraft}>
-          {#if buildLoading}
-            <span class="spinner-sm"></span>
-          {:else}
-            →
-          {/if}
-        </button>
+        {#if buildLoading}
+          <button class="chat-send stop-btn" onclick={handleAbortBuild} title="Stop">■</button>
+        {:else}
+          <button class="chat-send" onclick={() => handleBuildSend()} disabled={!chatInput.trim() || !!pendingDraft}>→</button>
+        {/if}
       </div>
     </div>
 
@@ -1045,6 +1167,16 @@
     background: rgba(79, 195, 247, 0.15);
     border-color: rgba(79, 195, 247, 0.5);
   }
+  .fix-issues-btn {
+    background: rgba(240, 165, 0, 0.08);
+    border-color: rgba(240, 165, 0, 0.3);
+    color: #f0a500;
+  }
+  .fix-issues-btn:hover {
+    background: rgba(240, 165, 0, 0.15);
+    border-color: rgba(240, 165, 0, 0.5);
+  }
+  .fix-issues-btn:disabled { opacity: 0.4; cursor: not-allowed; }
 
   .chat-input-row {
     display: flex;
@@ -1101,5 +1233,14 @@
   .chat-send:disabled {
     opacity: 0.4;
     cursor: not-allowed;
+  }
+  .stop-btn {
+    background: rgba(233, 69, 96, 0.15);
+    border-color: #e94560;
+    color: #e94560;
+    font-size: 0.7rem;
+  }
+  .stop-btn:hover {
+    background: rgba(233, 69, 96, 0.3);
   }
 </style>
