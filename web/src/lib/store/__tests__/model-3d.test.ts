@@ -416,7 +416,7 @@ describe('3D load types', () => {
 
     const result = assertSuccess(solve3D(input));
 
-    // Sum of vertical (global Y) reactions should equal total downward load
+    // Sum of vertical (global Y in 3D) reactions should equal total downward load
     // SAP2000: ey=(0,1,0), qY=-10 → -10*4=40kN downward → fy reactions = +40
     const totalLoad = Math.abs(qY) * L;
     const totalReaction = result.reactions.reduce((sum, r) => sum + r.fy, 0);

@@ -9,7 +9,7 @@ use serde::{Deserialize, Serialize};
 
 /// A single polygon region of a cross-section.
 /// Vertices are ordered counter-clockwise for positive area.
-/// Y-axis is horizontal, Z-axis is vertical (standard section convention).
+/// Local section coordinates: Y = width/depth, Z = height (standard section convention).
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct SectionPolygon {

@@ -27,7 +27,7 @@ use super::constraints::FreeConstraintSystem;
 pub struct SoilSpring {
     /// Node ID where the spring is attached
     pub node_id: usize,
-    /// Direction: 0=X, 1=Y (2D) or 0=X, 1=Y, 2=Z (3D)
+    /// Direction: 0=X, 1=Z (2D) or 0=X, 1=Y, 2=Z (3D)
     pub direction: usize,
     /// Soil curve type
     pub curve: SoilCurve,

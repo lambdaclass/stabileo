@@ -828,7 +828,7 @@ pub struct NotionalLoadDef {
     /// Direction: 0=X, 1=Y, 2=Z
     #[serde(default)]
     pub direction: usize,
-    /// Gravity axis: 0=X, 1=Y, 2=Z (default 1=Y for vertical)
+    /// Gravity axis: 0=X, 1=Z (2D), 0=X, 1=Y, 2=Z (3D). Default 1 = vertical in 2D (Z).
     #[serde(default = "default_gravity_axis")]
     pub gravity_axis: usize,
 }

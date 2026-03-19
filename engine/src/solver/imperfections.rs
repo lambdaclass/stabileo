@@ -38,7 +38,7 @@ pub fn notional_loads_2d(
     notional: &NotionalLoadDef,
 ) -> Vec<SolverLoad> {
     let mut loads = Vec::new();
-    let dir = notional.direction.min(1); // 2D: 0=X, 1=Y
+    let dir = notional.direction.min(1); // 2D: 0=X, 1=Z
     let grav = notional.gravity_axis.min(1);
 
     // Collect gravity forces per node from existing nodal loads

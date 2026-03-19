@@ -399,7 +399,7 @@ pub fn solve_contact_2d(input: &ContactInput) -> Result<ContactResult, String> {
             for (gi, gap) in input.gap_elements.iter().enumerate() {
                 if gap_status[gi] == ContactStatus::Active {
                     // Gap is closed -- add normal penalty stiffness
-                    let dir = gap.direction.min(1); // 2D: 0=X, 1=Y
+                    let dir = gap.direction.min(1); // 2D: 0=X, 1=Z
                     if let (Some(&di), Some(&dj)) = (
                         dof_num.map.get(&(gap.node_i, dir)),
                         dof_num.map.get(&(gap.node_j, dir)),
