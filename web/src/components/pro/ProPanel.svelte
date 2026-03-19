@@ -216,6 +216,17 @@
       preset: 'xl',
       load: () => modelStore.loadExample('geodesic-dome'),
     },
+    {
+      group: 'xl',
+      groupKey: 'pro.examples.groupXL',
+      nameKey: 'ex.laBombonera3D',
+      descKey: 'ex.laBombonera3D.desc',
+      purposeKey: 'ex.laBombonera3D.purpose',
+      tags: ['pro.tagBowl', 'pro.tagScale'],
+      stats: { nodes: '1005', members: '2476', shells: '120' },
+      preset: 'clean-shell',
+      load: () => modelStore.loadExample('la-bombonera'),
+    },
   ];
   const proExampleGroups = $derived.by(() => {
     const order: ExampleGroup[] = ['buildings', 'industrial', 'foundations', 'longspan', 'xl'];

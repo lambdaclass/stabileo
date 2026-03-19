@@ -26,6 +26,7 @@ import {
   generateTower3D,
   generate3DHingedArch,
   generateStadiumCanopy3D,
+  generateLaBombonera3D,
 } from './generators';
 import { load2DExample } from '../store/model-examples-2d';
 import { load3DExample } from '../store/model-examples-3d';
@@ -331,6 +332,12 @@ describe('Generate JSON fixtures', () => {
     const { api, toJSON } = createRecordingMock();
     generateGeodesicDome3D(api as any, { radius: 40, frequency: 8, hemisphere: true, selfWeightLoad: -5 });
     writeFixture('geodesic-dome', toJSON());
+  });
+
+  it('la-bombonera', () => {
+    const { api, toJSON } = createRecordingMock();
+    generateLaBombonera3D(api as any, { fieldLength: 105, fieldWidth: 68, nFramesLong: 12, nFramesEnd: 8, tierLoad: -15, roofLoad: -8 });
+    writeFixture('la-bombonera', toJSON());
   });
 
   // Basic 3D examples (from model-examples-3d.ts)

@@ -52,6 +52,7 @@ const fixtures3D: Record<string, FixtureLoader> = {
   'full-stadium': () => import('./fixtures/full-stadium.json'),
   'xl-diagrid-tower': () => import('./fixtures/xl-diagrid-tower.json'),
   'geodesic-dome': () => import('./fixtures/geodesic-dome.json'),
+  'la-bombonera': () => import('./fixtures/la-bombonera.json'),
   // Template catalog 3D (now JSON)
   'space-frame': () => import('./fixtures/space-frame.json'),
   'grid-beams': () => import('./fixtures/grid-beams.json'),

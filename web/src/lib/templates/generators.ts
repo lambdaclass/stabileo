@@ -2495,6 +2495,366 @@ export function generateFullStadium3D(store: ModelStore, p: FullStadium3DParams)
 }
 
 // -------------------------------------------------------------------
+// 9. La Bombonera — Boca Juniors stadium (asymmetric D-shape)
+//    East (long side, touchline) = flat palcos building
+//    West (long side, touchline) = full 3-tier stands
+//    North & South (short ends, behind goals) = curved 3-tier stands
+// -------------------------------------------------------------------
+
+export interface LaBombonera3DParams {
+  fieldLength: number;   // 105 m (FIFA) — runs along X axis
+  fieldWidth: number;    // 68 m (FIFA) — runs along Z axis
+  nFramesLong: number;   // portal frames along each long side (E and W)
+  nFramesEnd: number;    // portal frames along each curved short end (N and S)
+  tierLoad: number;      // kN/m crowd + dead on tier beams (negative = intended down)
+  roofLoad: number;      // kN/m roof dead load (negative = intended down)
+}
+
+export function generateLaBombonera3D(store: ModelStore, p: LaBombonera3DParams): void {
+  store.clear();
+  store.model.name = t('ex.laBombonera3D');
+
+  store.batch(() => {
+    // ── Materials ──
+    store.updateMaterial(1, { name: 'Acero S275', e: 210000, nu: 0.3, rho: 78.5, fy: 275 });
+    const rcMatId = store.addMaterial({ name: 'H-21 (1940)', e: 25000, nu: 0.2, rho: 25, fy: 21 });
+
+    // ── Sections ──
+    store.updateSection(1, { name: 'RC Col 800×800', a: 0.64, iy: 0.03413, iz: 0.03413, j: 0.05747, h: 0.80, b: 0.80, shape: 'rect' });
+    const rakerSecId = store.addSection({ name: 'RC Raker 400×800', a: 0.32, iy: 0.01707, iz: 0.00427, j: 0.00985, h: 0.80, b: 0.40, shape: 'rect' });
+    const ringSecId = store.addSection({ name: 'RC Beam 300×600', a: 0.18, iy: 0.0054, iz: 0.00135, j: 0.00358, h: 0.60, b: 0.30, shape: 'rect' });
+    const steelSecId = store.addSection({ name: 'CHS 219×8', a: 0.00530, iy: 0.00001090, iz: 0.00001090, j: 0.00002180, h: 0.219, b: 0.219, shape: 'tube' });
+    const braceSecId = store.addSection({ name: 'L 100×10', a: 0.001920, iy: 0.000000177, iz: 0.000000177, j: 0.0000000640, h: 0.10, b: 0.10, shape: 'L' });
+
+    // ── Geometry ──
+    const fL = p.fieldLength / 2;
+    const fW = p.fieldWidth / 2;
+    const gap = 3;
+    const dLower = 14, dMiddle = 12, dUpper = 8;
+    const dTotal = dLower + dMiddle + dUpper;
+    const h1b = 1.5, h1t = 9;
+    const h2b = 10, h2t = 19;
+    const h3b = 20, h3t = 32;
+    const hRoofLo = 34, hRoofHi = 38;
+    const hPalcoTop = 22;
+    const palcoDepth = 10;
+    const nPalcoFloors = 7;
+    const nL = p.nFramesLong;
+    const nE = p.nFramesEnd;
+    const nEast = nL;
+    const cS = 3;
+
+    function dRing(ro: number, h: number, eastRo?: number, skipEastNodes = false): number[] {
+      const ids: number[] = [];
+      const eRo = eastRo ?? Math.min(ro, gap + palcoDepth);
+      for (let i = 0; i <= nEast; i++) {
+        if (skipEastNodes) { ids.push(-1); continue; }
+        ids.push(store.addNode(fL * (1 - 2 * i / nEast), fW + eRo, h));
+      }
+      for (let i = 1; i <= cS; i++) {
+        const a = (Math.PI / 2) * i / cS;
+        const r = eRo + (ro - eRo) * (a / (Math.PI / 2));
+        ids.push(store.addNode(-fL - r * Math.sin(a), fW + r * Math.cos(a), h));
+      }
+      for (let i = 1; i < nE; i++) {
+        const t = i / nE;
+        const yc = fW * (1 - 2 * t);
+        const bulge = ro * (1 + 0.12 * (1 - (2 * t - 1) ** 2));
+        ids.push(store.addNode(-fL - bulge, yc, h));
+      }
+      for (let i = 1; i <= cS; i++) {
+        const a = (Math.PI / 2) * i / cS;
+        ids.push(store.addNode(-fL - ro * Math.cos(a), -fW - ro * Math.sin(a), h));
+      }
+      for (let i = 1; i <= nL; i++) {
+        const t = i / (nL + 1);
+        ids.push(store.addNode(-fL + 2 * fL * t, -(fW + ro), h));
+      }
+      for (let i = 1; i <= cS; i++) {
+        const a = (Math.PI / 2) * i / cS;
+        ids.push(store.addNode(fL + ro * Math.sin(a), -fW - ro * Math.cos(a), h));
+      }
+      for (let i = 1; i < nE; i++) {
+        const t = i / nE;
+        const yc = -fW * (1 - 2 * t);
+        const bulge = ro * (1 + 0.12 * (1 - (2 * t - 1) ** 2));
+        ids.push(store.addNode(fL + bulge, yc, h));
+      }
+      for (let i = 1; i < cS; i++) {
+        const a = (Math.PI / 2) * i / cS;
+        const r = ro + (eRo - ro) * (a / (Math.PI / 2));
+        ids.push(store.addNode(fL + r * Math.cos(a), fW + r * Math.sin(a), h));
+      }
+      return ids;
+    }
+
+    const t1Front = dRing(gap, h1b);
+    const t1Back  = dRing(gap + dLower, h1t);
+    const t2Front = dRing(gap + dLower * 0.4, h2b, undefined, true);
+    const t2Back  = dRing(gap + dLower + dMiddle, h2t, undefined, true);
+    const t3Front = dRing(gap + dLower * 0.55 + dMiddle * 0.3, h3b, undefined, true);
+    const t3Back  = dRing(gap + dTotal, h3t, undefined, true);
+    const base    = dRing(gap, 0);
+    const baseOut = dRing(gap + dTotal, 0, undefined, true);
+    const conc    = dRing(gap + dTotal + 3, h2t, undefined, true);
+    const n = t1Front.length;
+    const eastEndIdx = nEast;
+
+    function isEastSide(idx: number): boolean { return idx <= eastEndIdx; }
+
+    const addRings = (nodes: number[], secId: number, matId?: number, skipEast = false) => {
+      for (let i = 0; i < n; i++) {
+        const next = (i + 1) % n;
+        if (skipEast && (isEastSide(i) || isEastSide(next))) continue;
+        const eid = store.addElement(nodes[i], nodes[next], 'frame');
+        store.updateElementSection(eid, secId);
+        if (matId !== undefined) store.updateElementMaterial(eid, matId);
+      }
+    };
+
+    addRings(base, ringSecId, rcMatId);
+    addRings(t1Front, ringSecId, rcMatId);
+    addRings(t1Back, ringSecId, rcMatId);
+    addRings(t2Front, ringSecId, rcMatId, true);
+    addRings(t2Back, ringSecId, rcMatId, true);
+    addRings(t3Front, ringSecId, rcMatId, true);
+    addRings(t3Back, ringSecId, rcMatId, true);
+    addRings(conc, ringSecId, rcMatId, true);
+
+    function lerpNode(nA: number, nB: number, t: number, zOverride?: number): number {
+      const a = store.model.nodes.get(nA)!;
+      const b = store.model.nodes.get(nB)!;
+      return store.addNode(a.x + t * (b.x - a.x), a.y + t * (b.y - a.y), zOverride ?? ((a.z ?? 0) + t * ((b.z ?? 0) - (a.z ?? 0))));
+    }
+
+    function nodeXYZ(id: number): { x: number; y: number; z: number } {
+      const n = store.model.nodes.get(id)!;
+      return { x: n.x, y: n.y, z: n.z ?? 0 };
+    }
+
+    const addRC = (nA: number, nB: number, secId: number): number => {
+      const eid = store.addElement(nA, nB, 'frame');
+      store.updateElementSection(eid, secId);
+      store.updateElementMaterial(eid, rcMatId);
+      return eid;
+    };
+
+    const facLevels: number[][] = Array.from({ length: 4 }, () => new Array(n).fill(-1));
+
+    for (let i = 0; i < n; i++) {
+      const east = isEastSide(i);
+      const next = (i + 1) % n;
+      const nextEast = isEastSide(next);
+
+      addRC(base[i], t1Front[i], 1);
+      const bPos = nodeXYZ(t1Back[i]);
+      const colBbase = store.addNode(bPos.x, bPos.y, 0);
+      addRC(colBbase, t1Back[i], 1);
+      store.addSupport(colBbase, 'fixed3d');
+      const r1 = addRC(t1Front[i], t1Back[i], rakerSecId);
+      addRC(base[i], t1Back[i], rakerSecId);
+      if (p.tierLoad !== 0) {
+        store.addDistributedLoad3D(r1, -p.tierLoad, -p.tierLoad, 0, 0);
+        store.addDistributedLoad3D(r1, -p.tierLoad * 0.4, -p.tierLoad * 0.4, 0, 0, undefined, undefined, 3);
+      }
+
+      if (!east) {
+        const cPos = nodeXYZ(t2Back[i]);
+        const dPos = nodeXYZ(baseOut[i]);
+        const colB_L2 = t1Back[i];
+        const colCbase = store.addNode(cPos.x, cPos.y, 0);
+        const colC_L1 = store.addNode(cPos.x, cPos.y, h1b);
+        const colC_L2 = store.addNode(cPos.x, cPos.y, h1t);
+        const colC_L3 = t2Back[i];
+        addRC(colCbase, colC_L1, 1);
+        addRC(colC_L1, colC_L2, 1);
+        addRC(colC_L2, colC_L3, 1);
+        store.addSupport(colCbase, 'fixed3d');
+        const colC_L4 = store.addNode(cPos.x, cPos.y, h3b);
+        addRC(colC_L3, colC_L4, 1);
+
+        const colD_L1 = store.addNode(dPos.x, dPos.y, h1b);
+        const colD_L2 = store.addNode(dPos.x, dPos.y, h1t);
+        const colD_L3 = store.addNode(dPos.x, dPos.y, h2t);
+        const colD_L4 = store.addNode(dPos.x, dPos.y, h3b);
+        addRC(baseOut[i], colD_L1, 1);
+        addRC(colD_L1, colD_L2, 1);
+        addRC(colD_L2, colD_L3, 1);
+        addRC(colD_L3, colD_L4, 1);
+        addRC(colD_L4, t3Back[i], 1);
+        facLevels[0][i] = colD_L1;
+        facLevels[1][i] = colD_L2;
+        facLevels[2][i] = colD_L3;
+        facLevels[3][i] = colD_L4;
+
+        addRC(t1Front[i], colC_L1, ringSecId);
+        addRC(colC_L1, colD_L1, ringSecId);
+        addRC(colB_L2, colC_L2, ringSecId);
+        addRC(colC_L2, colD_L2, ringSecId);
+        addRC(colC_L3, colD_L3, ringSecId);
+        addRC(colC_L4, colD_L4, ringSecId);
+
+        addRC(colBbase, colC_L2, rakerSecId);
+        addRC(colCbase, colD_L2, rakerSecId);
+        addRC(colC_L2, colD_L3, rakerSecId);
+        addRC(colC_L3, colD_L4, rakerSecId);
+
+        addRC(t1Back[i], t2Front[i], 1);
+        const r2 = addRC(t2Front[i], t2Back[i], rakerSecId);
+        if (p.tierLoad !== 0) {
+          store.addDistributedLoad3D(r2, -p.tierLoad, -p.tierLoad, 0, 0);
+          store.addDistributedLoad3D(r2, -p.tierLoad * 0.4, -p.tierLoad * 0.4, 0, 0, undefined, undefined, 3);
+        }
+        if (!nextEast) { store.addQuad([t2Front[i], t2Front[next], t2Back[next], t2Back[i]], rcMatId, 0.16); }
+
+        addRC(t2Back[i], t3Front[i], 1);
+        const r3 = addRC(t3Front[i], t3Back[i], rakerSecId);
+        if (p.tierLoad !== 0) {
+          store.addDistributedLoad3D(r3, -p.tierLoad * 0.8, -p.tierLoad * 0.8, 0, 0);
+          store.addDistributedLoad3D(r3, -p.tierLoad * 0.5, -p.tierLoad * 0.5, 0, 0, undefined, undefined, 3);
+        }
+        if (!nextEast) { store.addQuad([t3Front[i], t3Front[next], t3Back[next], t3Back[i]], rcMatId, 0.15); }
+
+        addRC(t3Back[i], conc[i], ringSecId);
+        if (i % 2 === 0) {
+          const concNode = store.model.nodes.get(conc[i])!;
+          const concBase = store.addNode(concNode.x, concNode.y, 0);
+          addRC(concBase, conc[i], 1);
+          store.addSupport(concBase, 'fixed3d');
+        }
+        store.addSupport(baseOut[i], 'fixed3d');
+      }
+      store.addSupport(base[i], 'fixed3d');
+    }
+
+    addRings(baseOut, ringSecId, rcMatId, true);
+    for (const level of facLevels) {
+      for (let i = 0; i < n; i++) {
+        if (level[i] < 0) continue;
+        const next = (i + 1) % n;
+        if (level[next] < 0) continue;
+        addRC(level[i], level[next], ringSecId);
+      }
+    }
+
+    const facDiagLevs = [baseOut, facLevels[0], facLevels[1], facLevels[2], facLevels[3], t3Back];
+    for (let i = 0; i < n; i++) {
+      if (isEastSide(i)) continue;
+      const next = (i + 1) % n;
+      if (isEastSide(next)) continue;
+      for (let lev = 0; lev < 3; lev++) {
+        const botThis = facDiagLevs[lev][i];
+        const topNext = facDiagLevs[lev + 1][next];
+        if (botThis < 0 || topNext < 0) continue;
+        addRC(botThis, topNext, rakerSecId);
+      }
+    }
+
+    const eastFrontFloors: number[][] = [];
+    const eastBackFloors: number[][] = [];
+    for (let lev = 0; lev <= nPalcoFloors; lev++) { eastFrontFloors.push([]); eastBackFloors.push([]); }
+    for (let i = 0; i <= eastEndIdx; i++) {
+      const fn = store.model.nodes.get(t1Back[i])!;
+      const fy = fn.y;
+      const by = fy + palcoDepth;
+      eastFrontFloors[0].push(t1Back[i]);
+      const backBase = store.addNode(fn.x, by, 0);
+      eastBackFloors[0].push(backBase);
+      store.addSupport(backBase, 'fixed3d');
+      for (let lev = 1; lev <= nPalcoFloors; lev++) {
+        const zLev = h1t + (hPalcoTop - h1t) * lev / nPalcoFloors;
+        eastFrontFloors[lev].push(store.addNode(fn.x, fy, zLev));
+        eastBackFloors[lev].push(store.addNode(fn.x, by, zLev));
+      }
+    }
+    const nEastFrames = eastEndIdx + 1;
+    for (let i = 0; i < nEastFrames; i++) {
+      for (let lev = 0; lev < nPalcoFloors; lev++) {
+        const col = store.addElement(eastFrontFloors[lev][i], eastFrontFloors[lev + 1][i], 'frame');
+        store.updateElementSection(col, steelSecId);
+      }
+      for (let lev = 0; lev < nPalcoFloors; lev++) {
+        const col = store.addElement(eastBackFloors[lev][i], eastBackFloors[lev + 1][i], 'frame');
+        store.updateElementSection(col, 1);
+        store.updateElementMaterial(col, rcMatId);
+      }
+      for (let lev = 1; lev <= nPalcoFloors; lev++) {
+        const fb = store.addElement(eastFrontFloors[lev][i], eastBackFloors[lev][i], 'frame');
+        store.updateElementSection(fb, steelSecId);
+        if (p.tierLoad !== 0) { store.addDistributedLoad3D(fb, -p.tierLoad * 0.5, -p.tierLoad * 0.5, 0, 0); }
+      }
+      if (i < nEastFrames - 1) {
+        for (let lev = 1; lev <= nPalcoFloors; lev++) {
+          const rf = store.addElement(eastFrontFloors[lev][i], eastFrontFloors[lev][i + 1], 'frame');
+          store.updateElementSection(rf, ringSecId);
+          const rb = store.addElement(eastBackFloors[lev][i], eastBackFloors[lev][i + 1], 'frame');
+          store.updateElementSection(rb, ringSecId);
+          store.updateElementMaterial(rb, rcMatId);
+        }
+        for (let lev = 1; lev <= nPalcoFloors; lev += 2) {
+          store.addQuad([eastFrontFloors[lev][i], eastFrontFloors[lev][i + 1], eastBackFloors[lev][i + 1], eastBackFloors[lev][i]], rcMatId, 0.15);
+        }
+      }
+      if (i % 3 === 0 && i < nEastFrames - 1) {
+        for (let lev = 0; lev < nPalcoFloors; lev++) {
+          const br1 = store.addElement(eastBackFloors[lev][i], eastBackFloors[lev + 1][i + 1], 'truss');
+          store.updateElementSection(br1, braceSecId);
+          const br2 = store.addElement(eastBackFloors[lev + 1][i], eastBackFloors[lev][i + 1], 'truss');
+          store.updateElementSection(br2, braceSecId);
+        }
+      }
+    }
+
+    const roofIn: number[] = [];
+    const roofOut: number[] = [];
+    for (let i = 0; i < n; i++) {
+      if (isEastSide(i)) { roofIn.push(-1); roofOut.push(-1); continue; }
+      const tb = store.model.nodes.get(t3Back[i])!;
+      const cn = store.model.nodes.get(conc[i])!;
+      roofIn.push(store.addNode(tb.x, tb.y, hRoofLo));
+      roofOut.push(store.addNode(cn.x, cn.y, hRoofHi));
+    }
+    for (let i = 0; i < n; i++) {
+      if (roofIn[i] < 0) continue;
+      const rd = store.addElement(roofIn[i], roofOut[i], 'frame');
+      store.updateElementSection(rd, steelSecId);
+      const m1 = store.addElement(t3Back[i], roofIn[i], 'frame');
+      store.updateElementSection(m1, steelSecId);
+      const m2 = store.addElement(conc[i], roofOut[i], 'frame');
+      store.updateElementSection(m2, steelSecId);
+    }
+    for (let i = 0; i < n; i++) {
+      if (roofIn[i] < 0) continue;
+      const next = (i + 1) % n;
+      if (roofIn[next] < 0) continue;
+      const ri = store.addElement(roofIn[i], roofIn[next], 'frame');
+      store.updateElementSection(ri, steelSecId);
+      const ro = store.addElement(roofOut[i], roofOut[next], 'frame');
+      store.updateElementSection(ro, steelSecId);
+      const wd1 = store.addElement(roofIn[i], roofOut[next], 'truss');
+      store.updateElementSection(wd1, braceSecId);
+      const wd2 = store.addElement(roofOut[i], roofIn[next], 'truss');
+      store.updateElementSection(wd2, braceSecId);
+      if (p.roofLoad !== 0) {
+        store.addDistributedLoad3D(ri, -p.roofLoad, -p.roofLoad, 0, 0);
+        store.addDistributedLoad3D(ro, -p.roofLoad, -p.roofLoad, 0, 0);
+      }
+    }
+
+    for (let i = 0; i < nEastFrames; i++) {
+      for (let lev = 1; lev <= nPalcoFloors; lev++) {
+        const wF = -3 - 5 * (lev / nPalcoFloors);
+        store.addNodalLoad3D(eastFrontFloors[lev][i], 0, wF, 0, 0, 0, 0, 2);
+      }
+    }
+    const wStart = eastEndIdx + 1 + cS + (nE - 1) + cS;
+    for (let i = wStart; i < wStart + nL && i < n; i++) {
+      store.addNodalLoad3D(t3Back[i], 0, -3, 0, 0, 0, 0, 2);
+    }
+  });
+}
+
+// -------------------------------------------------------------------
 // 3D Template catalog (for UI registration)
 // -------------------------------------------------------------------
 
