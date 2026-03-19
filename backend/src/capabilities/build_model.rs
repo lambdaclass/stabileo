@@ -244,7 +244,7 @@ Rules for create_model:
 - At least one support is required for stability
 - Default material: Steel A36 (E=200000, nu=0.3, rho=78.5, fy=250)
 - Section properties: pick from the available sections list, or use reasonable custom values (a in m², iz in m⁴)
-- For 2D: nodes have x, y where y = vertical (up). Gravity = negative y. Downward loads use negative fy.
+- For 2D: nodes have x, z where z = vertical (up). Gravity = negative z. Downward loads use negative fz.
 - For 3D: nodes have x, y, z where z = elevation (up). Gravity = negative z. Downward loads use negative fz.
 - Generate DETAILED structures with realistic geometry: use 20-60 nodes for complex structures like stadiums, bridges, towers. Don't oversimplify — a stadium needs columns, tiers, roof trusses with diagonals. A bridge needs deck, piers, cables or trusses.
 - Use realistic dimensions in meters (e.g. stadium ~60-100m wide, bridge ~30-80m span, tower ~20-50m tall)
