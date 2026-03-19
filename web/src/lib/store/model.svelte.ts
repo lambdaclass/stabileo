@@ -1525,11 +1525,6 @@ function createModelStore() {
       _undoBatching = false;
     },
 
-    // ─── REPLACED: ~1050 lines of example code extracted to ───
-    // model-examples-2d.ts (22 2D examples)
-    // model-examples-3d.ts (7 3D examples)
-    // ─────────────────────────────────────────────────────────
-
     // ─── Material CRUD ───
     // NOTE: All material/section methods reassign the entire Map to guarantee
     // Svelte 5 reactivity. SvelteMap proxy .set()/.delete() don't reliably
