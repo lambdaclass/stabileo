@@ -1607,8 +1607,8 @@ export function generateGeodesicDome3D(store: ModelStore, p: GeodesicDome3DParam
 
     const R = p.radius;
     const freq = Math.max(2, Math.round(p.frequency));
-    // Hemisphere cut: only keep vertices with Y >= cutY
-    const cutY = p.hemisphere ? -R * 0.05 : -R * 1.1;
+    // Hemisphere cut: only keep vertices with Z >= cutZ
+    const cutZ = p.hemisphere ? -R * 0.05 : -R * 1.1;
 
     // ── Icosahedron base vertices ──
     const phi = (1 + Math.sqrt(5)) / 2;
@@ -1639,11 +1639,11 @@ export function generateGeodesicDome3D(store: ModelStore, p: GeodesicDome3DParam
     const getOrCreateNode = (x: number, y: number, z: number): number => {
       const len = Math.sqrt(x * x + y * y + z * z);
       const nx = x / len, ny = y / len, nz = z / len;
-      const sy = ny * R;
-      if (sy < cutY) return -1; // below hemisphere cut
+      const sz = ny * R; // vertical (Z-up): icosahedron Y → world Z
+      if (sz < cutZ) return -1; // below hemisphere cut
       const key = vertKey(nx, ny, nz);
       if (vertMap.has(key)) return vertMap.get(key)!;
-      const sx = nx * R, sz = nz * R;
+      const sx = nx * R, sy = nz * R; // depth (Y-axis): icosahedron Z → world Y
       const nodeId = store.addNode(sx, sy, sz);
       vertMap.set(key, nodeId);
       nodeCoords.set(nodeId, { x: sx, y: sy, z: sz });
@@ -1691,11 +1691,11 @@ export function generateGeodesicDome3D(store: ModelStore, p: GeodesicDome3DParam
     // ── Base ring + supports ──
     // Collect all created nodes, find the lowest band
     const allNodes = [...nodeCoords.entries()].map(([id, c]) => ({ id, ...c }));
-    const minY = Math.min(...allNodes.map(n => n.y));
-    const ringThreshold = minY + R * 0.12;
+    const minZ = Math.min(...allNodes.map(n => n.z));
+    const ringThreshold = minZ + R * 0.12;
     const ringNodes = allNodes
-      .filter(n => n.y <= ringThreshold)
-      .sort((a, b) => Math.atan2(a.z, a.x) - Math.atan2(b.z, b.x));
+      .filter(n => n.z <= ringThreshold)
+      .sort((a, b) => Math.atan2(a.y, a.x) - Math.atan2(b.y, b.x));
 
     // Connect base ring circumferentially and pin
     for (let i = 0; i < ringNodes.length; i++) {
@@ -1709,7 +1709,7 @@ export function generateGeodesicDome3D(store: ModelStore, p: GeodesicDome3DParam
       const ringSet = new Set(ringNodes.map(n => n.id));
       for (const n of allNodes) {
         if (!ringSet.has(n.id)) {
-          store.addNodalLoad3D(n.id, 0, p.selfWeightLoad, 0, 0, 0, 0);
+          store.addNodalLoad3D(n.id, 0, 0, p.selfWeightLoad, 0, 0, 0);
         }
       }
     }
@@ -1837,10 +1837,10 @@ export function generateSuspensionBridge3D(store: ModelStore, p: SuspensionBridg
 
     for (let i = 0; i < allX.length; i++) {
       const x = allX[i];
-      upperL.push(store.addNode(x, deckY, -hw));
-      upperR.push(store.addNode(x, deckY, hw));
-      lowerL.push(store.addNode(x, deckY - p.trussDepth, -hw));
-      lowerR.push(store.addNode(x, deckY - p.trussDepth, hw));
+      upperL.push(store.addNode(x, -hw, deckY));
+      upperR.push(store.addNode(x, hw, deckY));
+      lowerL.push(store.addNode(x, -hw, deckY - p.trussDepth));
+      lowerR.push(store.addNode(x, hw, deckY - p.trussDepth));
     }
 
     // Longitudinal chords + loads (section 2 = IPE 450)
@@ -1854,8 +1854,8 @@ export function generateSuspensionBridge3D(store: ModelStore, p: SuspensionBridg
       const eLR = store.addElement(lowerR[i], lowerR[i + 1], 'frame');
       store.updateElementSection(eLR, deckSecId);
       if (p.deckLoad !== 0) {
-        store.addDistributedLoad3D(eUL, p.deckLoad, p.deckLoad, 0, 0);
-        store.addDistributedLoad3D(eUR, p.deckLoad, p.deckLoad, 0, 0);
+        store.addDistributedLoad3D(eUL, 0, 0, p.deckLoad, p.deckLoad);
+        store.addDistributedLoad3D(eUR, 0, 0, p.deckLoad, p.deckLoad);
       }
     }
 
@@ -1912,17 +1912,17 @@ export function generateSuspensionBridge3D(store: ModelStore, p: SuspensionBridg
       const baseRZ = hw - legInset;
 
       // Base (at deck level, connected to deck)
-      const bL = store.addNode(x, deckY, baseLZ);
-      const bR = store.addNode(x, deckY, baseRZ);
+      const bL = store.addNode(x, baseLZ, deckY);
+      const bR = store.addNode(x, baseRZ, deckY);
       // Mid height
-      const mL = store.addNode(x, midY, baseLZ);
-      const mR = store.addNode(x, midY, baseRZ);
+      const mL = store.addNode(x, baseLZ, midY);
+      const mR = store.addNode(x, baseRZ, midY);
       // Portal beam height
-      const pL = store.addNode(x, portalY, baseLZ);
-      const pR = store.addNode(x, portalY, baseRZ);
+      const pL = store.addNode(x, baseLZ, portalY);
+      const pR = store.addNode(x, baseRZ, portalY);
       // Top (saddle points for main cable)
-      const tL = store.addNode(x, topY, baseLZ);
-      const tR = store.addNode(x, topY, baseRZ);
+      const tL = store.addNode(x, baseLZ, topY);
+      const tR = store.addNode(x, baseRZ, topY);
 
       // Legs (section 2 = IPE 450)
       store.updateElementSection(store.addElement(bL, mL, 'frame'), deckSecId);
@@ -1975,8 +1975,8 @@ export function generateSuspensionBridge3D(store: ModelStore, p: SuspensionBridg
         mainCableL.push(tower2.topL);
         mainCableR.push(tower2.topR);
       } else {
-        mainCableL.push(store.addNode(x, y, tower1.baseLZ));
-        mainCableR.push(store.addNode(x, y, tower1.baseRZ));
+        mainCableL.push(store.addNode(x, tower1.baseLZ, y));
+        mainCableR.push(store.addNode(x, tower1.baseRZ, y));
       }
     }
 
@@ -2001,8 +2001,8 @@ export function generateSuspensionBridge3D(store: ModelStore, p: SuspensionBridg
 
     // ── Side span cables (straight from tower top to anchorage) ──
     // Left side: from anchor (x=0) to tower1 top
-    const anchorLL = store.addNode(0, anchorY, tower1.baseLZ);
-    const anchorLR = store.addNode(0, anchorY, tower1.baseRZ);
+    const anchorLL = store.addNode(0, tower1.baseLZ, anchorY);
+    const anchorLR = store.addNode(0, tower1.baseRZ, anchorY);
     store.addSupport(anchorLL, 'fixed3d');
     store.addSupport(anchorLR, 'fixed3d');
 
@@ -2013,8 +2013,8 @@ export function generateSuspensionBridge3D(store: ModelStore, p: SuspensionBridg
       const x = i * dxSide;
       const frac = i / nSide;
       const y = anchorY + frac * (towerTopY - anchorY);
-      sideCableNodesL_L.push(store.addNode(x, y, tower1.baseLZ));
-      sideCableNodesL_R.push(store.addNode(x, y, tower1.baseRZ));
+      sideCableNodesL_L.push(store.addNode(x, tower1.baseLZ, y));
+      sideCableNodesL_R.push(store.addNode(x, tower1.baseRZ, y));
     }
     sideCableNodesL_L.push(tower1.topL);
     sideCableNodesL_R.push(tower1.topR);
@@ -2036,8 +2036,8 @@ export function generateSuspensionBridge3D(store: ModelStore, p: SuspensionBridg
     }
 
     // Right side: from tower2 top to anchor (x=totalLen)
-    const anchorRL = store.addNode(totalLen, anchorY, tower2.baseLZ);
-    const anchorRR = store.addNode(totalLen, anchorY, tower2.baseRZ);
+    const anchorRL = store.addNode(totalLen, tower2.baseLZ, anchorY);
+    const anchorRR = store.addNode(totalLen, tower2.baseRZ, anchorY);
     store.addSupport(anchorRL, 'fixed3d');
     store.addSupport(anchorRR, 'fixed3d');
 
@@ -2047,8 +2047,8 @@ export function generateSuspensionBridge3D(store: ModelStore, p: SuspensionBridg
       const x = towerX2 + i * dxSide;
       const frac = i / nSide;
       const y = towerTopY + frac * (anchorY - towerTopY);
-      sideCableNodesR_L.push(store.addNode(x, y, tower2.baseLZ));
-      sideCableNodesR_R.push(store.addNode(x, y, tower2.baseRZ));
+      sideCableNodesR_L.push(store.addNode(x, tower2.baseLZ, y));
+      sideCableNodesR_R.push(store.addNode(x, tower2.baseRZ, y));
     }
     sideCableNodesR_L.push(anchorRL);
     sideCableNodesR_R.push(anchorRR);
@@ -2153,8 +2153,8 @@ export function generateCableStayedBridge3D(store: ModelStore, p: CableStayedBri
     const left: number[] = [];
     const right: number[] = [];
     for (let i = 0; i <= n; i++) {
-      left.push(store.addNode(i * dx, deckY, -hw));
-      right.push(store.addNode(i * dx, deckY, hw));
+      left.push(store.addNode(i * dx, -hw, deckY));
+      right.push(store.addNode(i * dx, hw, deckY));
     }
     // Deck longitudinal girders (section 2 = IPE 400)
     for (let i = 0; i < n; i++) {
@@ -2163,8 +2163,8 @@ export function generateCableStayedBridge3D(store: ModelStore, p: CableStayedBri
       const eR = store.addElement(right[i], right[i + 1], 'frame');
       store.updateElementSection(eR, deckSecId);
       if (p.deckLoad !== 0) {
-        store.addDistributedLoad3D(eL, p.deckLoad, p.deckLoad, 0, 0);
-        store.addDistributedLoad3D(eR, p.deckLoad, p.deckLoad, 0, 0);
+        store.addDistributedLoad3D(eL, 0, 0, p.deckLoad, p.deckLoad);
+        store.addDistributedLoad3D(eR, 0, 0, p.deckLoad, p.deckLoad);
       }
     }
     // Cross beams (section 2 = IPE 400)
@@ -2181,15 +2181,15 @@ export function generateCableStayedBridge3D(store: ModelStore, p: CableStayedBri
     const buildHPylon = (deckIdx: number) => {
       const x = deckIdx * dx;
       // Two vertical legs at deck edges, rising to full height
-      const legL = store.addNode(x, pH, -hw);
-      const legR = store.addNode(x, pH, hw);
+      const legL = store.addNode(x, -hw, pH);
+      const legR = store.addNode(x, hw, pH);
       store.addElement(left[deckIdx], legL, 'frame'); // left leg
       store.addElement(right[deckIdx], legR, 'frame'); // right leg
       // Cross-beam at top
       store.addElement(legL, legR, 'frame');
       // Cross-beam at 2/3 height for stiffness
-      const midL = store.addNode(x, pH * 0.65, -hw);
-      const midR = store.addNode(x, pH * 0.65, hw);
+      const midL = store.addNode(x, -hw, pH * 0.65);
+      const midR = store.addNode(x, hw, pH * 0.65);
       store.addElement(left[deckIdx], midL, 'frame');
       store.addElement(right[deckIdx], midR, 'frame');
       store.addElement(midL, midR, 'frame');
@@ -2217,8 +2217,8 @@ export function generateCableStayedBridge3D(store: ModelStore, p: CableStayedBri
       deckIdx: number,
     ) => {
       // Cable anchor nodes on pylon at cableH
-      const anchL = store.addNode(pylonX, cableH, -hw);
-      const anchR = store.addNode(pylonX, cableH, hw);
+      const anchL = store.addNode(pylonX, -hw, cableH);
+      const anchR = store.addNode(pylonX, hw, cableH);
       // Connect anchors into pylon shaft
       store.addElement(anchL, pylonTopL, 'frame');
       store.addElement(anchR, pylonTopR, 'frame');
@@ -2285,10 +2285,10 @@ export function generateStadiumCanopy3D(store: ModelStore, p: StadiumCanopy3DPar
       const x = i * dx;
       const frontY = p.columnHeight + p.depth * roofSlope;
       base.push(store.addNode(x, 0, 0));
-      backTop.push(store.addNode(x, p.columnHeight, 0));
-      backMid.push(store.addNode(x, p.columnHeight * 0.6, 0));
-      frontTop.push(store.addNode(x, frontY, p.depth));
-      frontMid.push(store.addNode(x, frontY - 2.5, p.depth));
+      backTop.push(store.addNode(x, 0, p.columnHeight));
+      backMid.push(store.addNode(x, 0, p.columnHeight * 0.6));
+      frontTop.push(store.addNode(x, p.depth, frontY));
+      frontMid.push(store.addNode(x, p.depth, frontY - 2.5));
     }
 
     // Columns with mid-height bracing node
@@ -2310,7 +2310,7 @@ export function generateStadiumCanopy3D(store: ModelStore, p: StadiumCanopy3DPar
       const eTop = store.addElement(frontTop[i], frontTop[i + 1], 'frame');
       store.addElement(frontMid[i], frontMid[i + 1], 'frame');
       if (p.roofLoad !== 0) {
-        store.addDistributedLoad3D(eTop, p.roofLoad, p.roofLoad, 0, 0);
+        store.addDistributedLoad3D(eTop, 0, 0, p.roofLoad, p.roofLoad);
       }
       // Roof plane X-bracing (upper chord)
       store.addElement(backTop[i], frontTop[i + 1], 'truss');
@@ -2379,7 +2379,7 @@ export function generateFullStadium3D(store: ModelStore, p: FullStadium3DParams)
         const s = Math.sin(theta);
         const crownLift = Math.max(0, Math.cos(theta * 2)) * crown;
         const mainStandBias = Math.max(0, s) * bias;
-        ids.push(store.addNode(rx * c, y + crownLift + mainStandBias, rz * s));
+        ids.push(store.addNode(rx * c, rz * s, y + crownLift + mainStandBias));
       }
       return ids;
     };
@@ -2471,8 +2471,8 @@ export function generateFullStadium3D(store: ModelStore, p: FullStadium3DParams)
         store.updateElementSection(ringA, roofSecId);
         const ringB = store.addElement(roofUpperOuter[i], roofUpperOuter[next], 'frame');
         store.updateElementSection(ringB, roofSecId);
-        store.addDistributedLoad3D(ringA, p.roofLoad, p.roofLoad, 0, 0);
-        store.addDistributedLoad3D(ringB, p.roofLoad, p.roofLoad, 0, 0);
+        store.addDistributedLoad3D(ringA, 0, 0, p.roofLoad, p.roofLoad);
+        store.addDistributedLoad3D(ringB, 0, 0, p.roofLoad, p.roofLoad);
       }
 
       // Facade and support structure
