@@ -161,8 +161,8 @@ export function loadFixture(json: JSONModel, api: FixtureLoader): void {
         api.addNodalLoad?.(
           nodeMap.get(d.nodeId as number)!,
           d.fx as number,
-          (d.fz as number | undefined) ?? (d.fy as number),
-          (d.my as number | undefined) ?? (d.mz as number | undefined),
+          d.fz as number,
+          d.my as number | undefined,
           d.caseId as number | undefined,
         );
         break;

@@ -270,9 +270,9 @@
         "id": 7,
         "nodeId": 3,
         "fx": 8,
-        "fy": 0,
-        "mz": 0,
-        "caseId": 3
+        "caseId": 3,
+        "fz": 0,
+        "my": 0
       }
     },
     {
@@ -281,9 +281,9 @@
         "id": 8,
         "nodeId": 5,
         "fx": 12,
-        "fy": 0,
-        "mz": 0,
-        "caseId": 3
+        "caseId": 3,
+        "fz": 0,
+        "my": 0
       }
     },
     {
@@ -292,9 +292,9 @@
         "id": 9,
         "nodeId": 7,
         "fx": 6,
-        "fy": 0,
-        "mz": 0,
-        "caseId": 3
+        "caseId": 3,
+        "fz": 0,
+        "my": 0
       }
     }
   ],
