@@ -35,3 +35,4 @@ result-*
 .doc-sync.log
 .doc-sync.launchd.out
 .doc-sync.launchd.err
+.cache/
