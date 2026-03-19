@@ -259,7 +259,7 @@ export interface SeismicConfig {
 }
 
 export interface FloorLevel {
-  elevation: number;   // m (Y coordinate)
+  elevation: number;   // m (Z coordinate, elevation in Z-up)
   weight: number;      // kN (seismic weight at this level)
   nodeIds: number[];   // nodes at this level
 }
@@ -332,7 +332,7 @@ export function computeSeismicStatic(
 }
 
 /** Detect floor levels from model nodes.
- *  Groups nodes by Y coordinate (with tolerance), returns sorted levels. */
+ *  Groups nodes by Z coordinate (elevation in Z-up), returns sorted levels. */
 export function detectFloorLevels(
   nodes: Map<number, { id: number; x: number; y: number; z?: number }>,
   tolerance: number = 0.05,
@@ -340,17 +340,17 @@ export function detectFloorLevels(
   const levels = new Map<number, number[]>();
 
   for (const [id, node] of nodes) {
-    const y = node.y;
+    const z = node.z ?? 0;
     let matched = false;
     for (const [elev, ids] of levels) {
-      if (Math.abs(y - elev) < tolerance) {
+      if (Math.abs(z - elev) < tolerance) {
         ids.push(id);
         matched = true;
         break;
       }
     }
     if (!matched) {
-      levels.set(y, [id]);
+      levels.set(z, [id]);
     }
   }
 

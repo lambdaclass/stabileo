@@ -137,24 +137,24 @@
       const L = Math.sqrt(dx * dx + dy * dy + dz * dz);
       if (L < 0.01) continue;
 
-      const cosAngle = Math.abs(dy) / L;
-      // Skip if element is nearly vertical (column)
+      const cosAngle = Math.abs(dz) / L;
+      // Skip if element is nearly vertical (column) — Z-up: vertical = large dz
       if (cosAngle > 0.5) continue;
 
       // Estimate tributary width (heuristic: use section width or 1m default)
       // For beams, assume tributary width = spacing between beams ≈ 3m (user can adjust)
       const tribWidth = 3.0;
 
-      // Dead load (distributed along element in local Y = gravity direction for horizontal elements)
-      const qDead = -totalDead * tribWidth; // negative Y = downward
+      // Dead load (distributed along element local Z = gravity direction for horizontal elements)
+      const qDead = -totalDead * tribWidth; // negative Z = downward
       if (Math.abs(qDead) > 0.001) {
-        modelStore.addDistributedLoad3D(elem.id, qDead, qDead, 0, 0, undefined, undefined, deadCaseId!);
+        modelStore.addDistributedLoad3D(elem.id, 0, 0, qDead, qDead, undefined, undefined, deadCaseId!);
       }
 
       // Live load
       const qLive = -occupancyQ * tribWidth;
       if (Math.abs(qLive) > 0.001) {
-        modelStore.addDistributedLoad3D(elem.id, qLive, qLive, 0, 0, undefined, undefined, liveCaseId!);
+        modelStore.addDistributedLoad3D(elem.id, 0, 0, qLive, qLive, undefined, undefined, liveCaseId!);
       }
     }
 
@@ -195,7 +195,7 @@
                   modelStore.addNodalLoad3D(nodeId, forcePerNode, 0, 0, 0, 0, 0, seismicCaseIdX);
                 }
                 if (seismicDirectionZ && seismicCaseIdZ) {
-                  modelStore.addNodalLoad3D(nodeId, 0, 0, forcePerNode, 0, 0, 0, seismicCaseIdZ);
+                  modelStore.addNodalLoad3D(nodeId, 0, forcePerNode, 0, 0, 0, 0, seismicCaseIdZ);
                 }
               }
             }
@@ -287,12 +287,12 @@
       const L = Math.sqrt(dx * dx + dy * dy + dz * dz);
       const w = (mat.rho ?? 25) * sec.a * L; // kN
 
-      // Distribute to nearest floor levels
-      const yMid = (nI.y + nJ.y) / 2;
+      // Distribute to nearest floor levels (Z = elevation in Z-up)
+      const zMid = ((nI.z ?? 0) + (nJ.z ?? 0)) / 2;
       let bestIdx = 0;
       let bestDist = Infinity;
       for (let i = 0; i < levels.length; i++) {
-        const d = Math.abs(levels[i].elevation - yMid);
+        const d = Math.abs(levels[i].elevation - zMid);
         if (d < bestDist) { bestDist = d; bestIdx = i; }
       }
       weights[bestIdx] += w;

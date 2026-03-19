@@ -14,8 +14,8 @@ export interface ExampleAPI {
   updateElementMaterial(elemId: number, matId: number): void;
   updateElementSection(elemId: number, secId: number): void;
   addDistributedLoad(elemId: number, qI: number, qJ?: number, angle?: number, isGlobal?: boolean, caseId?: number): number;
-  addNodalLoad(nodeId: number, fx: number, fy: number, mz?: number, caseId?: number): number;
-  addPointLoadOnElement(elementId: number, a: number, p: number, opts?: { px?: number; mz?: number; angle?: number; isGlobal?: boolean; caseId?: number }): number;
+  addNodalLoad(nodeId: number, fx: number, fz: number, my?: number, caseId?: number): number;
+  addPointLoadOnElement(elementId: number, a: number, p: number, opts?: { px?: number; my?: number; angle?: number; isGlobal?: boolean; caseId?: number }): number;
   addThermalLoad(elemId: number, dtUniform: number, dtGradient: number): number;
   toggleHinge(elemId: number, end: 'start' | 'end'): void;
   model: { name: string; loadCases: LoadCase[]; combinations: LoadCombination[] };
