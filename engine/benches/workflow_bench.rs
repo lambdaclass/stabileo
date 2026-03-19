@@ -505,7 +505,7 @@ fn make_flat_plate_3d(nx: usize, ny: usize) -> SolverInput3D {
     boundary.dedup();
     for &n in &boundary {
         supports.insert(sid.to_string(), SolverSupport3D {
-            node_id: n, rx: false, rz: false, ry: true,
+            node_id: n, rx: false, ry: false, rz: true,
             rrx: false, rry: false, rrz: false,
             kx: None, ky: None, kz: None,
             krx: None, kry: None, krz: None,
@@ -517,7 +517,7 @@ fn make_flat_plate_3d(nx: usize, ny: usize) -> SolverInput3D {
         sid += 1;
     }
     supports.insert(sid.to_string(), SolverSupport3D {
-        node_id: grid[0][0], rx: true, rz: true, ry: true,
+        node_id: grid[0][0], rx: true, ry: true, rz: true,
         rrx: false, rry: false, rrz: false,
         kx: None, ky: None, kz: None,
         krx: None, kry: None, krz: None,

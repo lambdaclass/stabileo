@@ -66,7 +66,7 @@ fn acceptance_3a_industrial_nave() {
 
     // No NaN/Inf in displacements
     for d in &result.displacements {
-        assert!(d.ux.is_finite() && d.uz.is_finite() && d.uz.is_finite(),
+        assert!(d.ux.is_finite() && d.uy.is_finite() && d.uz.is_finite(),
             "NaN/Inf at node {}", d.node_id);
     }
 
@@ -99,7 +99,7 @@ fn acceptance_3b_building_case1() {
 
     // No NaN/Inf
     for d in &result.displacements {
-        assert!(d.ux.is_finite() && d.uz.is_finite() && d.uz.is_finite(),
+        assert!(d.ux.is_finite() && d.uy.is_finite() && d.uz.is_finite(),
             "NaN/Inf at node {}", d.node_id);
     }
 
@@ -109,7 +109,7 @@ fn acceptance_3b_building_case1() {
 
     // Displacements reasonable
     let max_disp = result.displacements.iter()
-        .map(|d| d.ux.abs().max(d.uz.abs()).max(d.uz.abs()))
+        .map(|d| d.ux.abs().max(d.uy.abs()).max(d.uz.abs()))
         .fold(0.0_f64, f64::max);
     assert!(max_disp > 1e-8, "All displacements near zero");
     assert!(max_disp < 1.0, "Displacements unreasonably large: {:.4}", max_disp);
@@ -393,7 +393,7 @@ fn acceptance_3e_mixed_frame_shell() {
     for (i, &nid) in base_ids.iter().enumerate() {
         supports.insert((i + 1).to_string(), SolverSupport3D {
             node_id: nid,
-            rx: true, rz: true, ry: true,
+            rx: true, ry: true, rz: true,
             rrx: true, rry: true, rrz: true,
             kx: None, ky: None, kz: None,
             krx: None, kry: None, krz: None,
@@ -441,7 +441,7 @@ fn acceptance_3e_mixed_frame_shell() {
 
     // No NaN/Inf
     for d in &result.displacements {
-        assert!(d.ux.is_finite() && d.uz.is_finite() && d.uz.is_finite(),
+        assert!(d.ux.is_finite() && d.uy.is_finite() && d.uz.is_finite(),
             "NaN/Inf at node {}", d.node_id);
     }
 
@@ -579,7 +579,7 @@ fn acceptance_4a_steel_building_diaphragms() {
 
     // 1. No NaN/Inf
     for d in &result.displacements {
-        assert!(d.ux.is_finite() && d.uz.is_finite() && d.uz.is_finite(),
+        assert!(d.ux.is_finite() && d.uy.is_finite() && d.uz.is_finite(),
             "NaN/Inf at node {}", d.node_id);
     }
 
@@ -591,12 +591,12 @@ fn acceptance_4a_steel_building_diaphragms() {
         let master_node = input.nodes.values().find(|n| n.id == 19).unwrap();
         let dx = slave_node.x - master_node.x;
         let dy = slave_node.y - master_node.y;
-        let expected_ux = master19.ux - dy * master19.ry;
-        let expected_uy = master19.uz + dx * master19.ry;
+        let expected_ux = master19.ux - dy * master19.rz;
+        let expected_uy = master19.uy + dx * master19.rz;
         assert!((slave.ux - expected_ux).abs() < 1e-4,
             "Diaphragm ux mismatch at node {}: got {:.8}, expected {:.8}", slave_id, slave.ux, expected_ux);
-        assert!((slave.uz - expected_uy).abs() < 1e-4,
-            "Diaphragm uy mismatch at node {}: got {:.8}, expected {:.8}", slave_id, slave.uz, expected_uy);
+        assert!((slave.uy - expected_uy).abs() < 1e-4,
+            "Diaphragm uy mismatch at node {}: got {:.8}, expected {:.8}", slave_id, slave.uy, expected_uy);
     }
 
     // 3. Vertical equilibrium: reactions should be non-trivial and balance gravity
@@ -623,7 +623,7 @@ fn acceptance_4a_steel_building_diaphragms() {
     // 6. Eccentric node 25 follows rigid-body from master 20
     let master20 = result.displacements.iter().find(|d| d.node_id == 20).unwrap();
     let slave25 = result.displacements.iter().find(|d| d.node_id == 25).unwrap();
-    let expected_ux_25 = master20.ux - 0.3 * master20.ry;
+    let expected_ux_25 = master20.ux - 0.3 * master20.rz;
     assert!((slave25.ux - expected_ux_25).abs() < 1e-3,
         "Eccentric node 25 ux: got {:.8}, expected {:.8}", slave25.ux, expected_ux_25);
 }
@@ -717,7 +717,7 @@ fn acceptance_4b_frame_quad_slab() {
     for (i, &nid) in base_ids.iter().enumerate() {
         supports.insert((i + 1).to_string(), SolverSupport3D {
             node_id: nid,
-            rx: true, rz: true, ry: true, rrx: true, rry: true, rrz: true,
+            rx: true, ry: true, rz: true, rrx: true, rry: true, rrz: true,
             kx: None, ky: None, kz: None, krx: None, kry: None, krz: None,
             dx: None, dy: None, dz: None, drx: None, dry: None, drz: None,
             normal_x: None, normal_y: None, normal_z: None,
@@ -1180,7 +1180,7 @@ fn acceptance_4f_shell_cantilever() {
         let nid = grid[0][j];
         supports.insert(nid.to_string(), SolverSupport3D {
             node_id: nid,
-            rx: true, rz: true, ry: true, rrx: true, rry: true, rrz: true,
+            rx: true, ry: true, rz: true, rrx: true, rry: true, rrz: true,
             kx: None, ky: None, kz: None, krx: None, kry: None, krz: None,
             dx: None, dy: None, dz: None, drx: None, dry: None, drz: None,
             normal_x: None, normal_y: None, normal_z: None,
@@ -1252,7 +1252,7 @@ fn acceptance_4f_shell_cantilever() {
 
     // 5. No NaN/Inf in displacements
     for d in &result.displacements {
-        assert!(d.ux.is_finite() && d.uz.is_finite() && d.uz.is_finite(),
+        assert!(d.ux.is_finite() && d.uy.is_finite() && d.uz.is_finite(),
             "NaN/Inf at node {}", d.node_id);
     }
 }
@@ -1445,7 +1445,7 @@ fn acceptance_4h_mixed_frame_shell_diaphragm() {
     for (i, &nid) in base_ids.iter().enumerate() {
         supports.insert((i + 1).to_string(), SolverSupport3D {
             node_id: nid,
-            rx: true, rz: true, ry: true, rrx: true, rry: true, rrz: true,
+            rx: true, ry: true, rz: true, rrx: true, rry: true, rrz: true,
             kx: None, ky: None, kz: None, krx: None, kry: None, krz: None,
             dx: None, dy: None, dz: None, drx: None, dry: None, drz: None,
             normal_x: None, normal_y: None, normal_z: None,
@@ -1502,7 +1502,7 @@ fn acceptance_4h_mixed_frame_shell_diaphragm() {
 
     // 1. No NaN/Inf
     for d in &result.displacements {
-        assert!(d.ux.is_finite() && d.uz.is_finite() && d.uz.is_finite(),
+        assert!(d.ux.is_finite() && d.uy.is_finite() && d.uz.is_finite(),
             "NaN/Inf at node {}", d.node_id);
     }
 
@@ -1796,7 +1796,7 @@ fn acceptance_5b_corotational_3d_rigid_link() {
 
     // 2. Finite displacements
     for d in &result.results.displacements {
-        assert!(d.ux.is_finite() && d.uz.is_finite() && d.uz.is_finite(),
+        assert!(d.ux.is_finite() && d.uy.is_finite() && d.uz.is_finite(),
             "NaN/Inf at node {}", d.node_id);
     }
 
@@ -1921,7 +1921,7 @@ fn acceptance_5c_corotational_3d_diaphragm() {
 
     // 2. Finite displacements
     for d in &result.results.displacements {
-        assert!(d.ux.is_finite() && d.uz.is_finite() && d.uz.is_finite(),
+        assert!(d.ux.is_finite() && d.uy.is_finite() && d.uz.is_finite(),
             "NaN/Inf at node {}", d.node_id);
     }
 
@@ -2524,7 +2524,7 @@ fn acceptance_5j_contact_3d_rigid_link() {
 
     // 2. Finite displacements
     for d in &result.results.displacements {
-        assert!(d.ux.is_finite() && d.uz.is_finite() && d.uz.is_finite(),
+        assert!(d.ux.is_finite() && d.uy.is_finite() && d.uz.is_finite(),
             "NaN/Inf at node {}", d.node_id);
     }
 
@@ -2688,7 +2688,7 @@ fn acceptance_5l_time_integration_3d_rigid_link() {
 
     // 2. Finite peak displacements
     for d in &result.peak_displacements {
-        assert!(d.ux.is_finite() && d.uz.is_finite() && d.uz.is_finite(),
+        assert!(d.ux.is_finite() && d.uy.is_finite() && d.uz.is_finite(),
             "NaN/Inf peak at node {}", d.node_id);
     }
 
@@ -2770,7 +2770,7 @@ where
 fn sup3d_full(node_id: usize) -> SolverSupport3D {
     SolverSupport3D {
         node_id,
-        rx: true, rz: true, ry: true, rrx: true, rry: true, rrz: true,
+        rx: true, ry: true, rz: true, rrx: true, rry: true, rrz: true,
         kx: None, ky: None, kz: None,
         krx: None, kry: None, krz: None,
         dx: None, dy: None, dz: None,
@@ -2780,7 +2780,7 @@ fn sup3d_full(node_id: usize) -> SolverSupport3D {
     }
 }
 
-fn sup3d_custom(node_id: usize, rx: bool, rz: bool, ry: bool, rrx: bool, rry: bool, rrz: bool) -> SolverSupport3D {
+fn sup3d_custom(node_id: usize, rx: bool, ry: bool, rz: bool, rrx: bool, rry: bool, rrz: bool) -> SolverSupport3D {
     SolverSupport3D {
         node_id,
         rx, ry, rz, rrx, rry, rrz,
@@ -2882,7 +2882,7 @@ fn acceptance_6a_q9_shell_cantilever() {
 
     // 5. No NaN/Inf
     for d in &result.displacements {
-        assert!(d.ux.is_finite() && d.uz.is_finite() && d.uz.is_finite(),
+        assert!(d.ux.is_finite() && d.uy.is_finite() && d.uz.is_finite(),
             "NaN/Inf at node {}", d.node_id);
     }
 
@@ -3028,7 +3028,7 @@ fn acceptance_6b_mixed_beam_q9_slab() {
 
     // 1. No NaN/Inf
     for d in &result.displacements {
-        assert!(d.ux.is_finite() && d.uz.is_finite() && d.uz.is_finite(),
+        assert!(d.ux.is_finite() && d.uy.is_finite() && d.uz.is_finite(),
             "NaN/Inf at node {}", d.node_id);
     }
 
@@ -3156,7 +3156,7 @@ fn acceptance_6c_q9_cylindrical_tank() {
 
     // 1. No NaN/Inf
     for d in &result.displacements {
-        assert!(d.ux.is_finite() && d.uz.is_finite() && d.uz.is_finite(),
+        assert!(d.ux.is_finite() && d.uy.is_finite() && d.uz.is_finite(),
             "NaN/Inf at node {}", d.node_id);
     }
 

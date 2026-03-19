@@ -697,7 +697,7 @@ fn validation_vm41_3d_l_frame_out_of_plane() {
 
     let delta_total = delta_bend1 + delta_rotation1 + delta_bend2 + delta_torsion;
 
-    assert_close(tip.uz.abs(), delta_total, 0.05,
+    assert_close(tip.uy.abs(), delta_total, 0.05,
         "VM41 tip Y deflection (bending + torsion)");
 
     // The torsion component should be significant (> 10% of total)
@@ -710,7 +710,7 @@ fn validation_vm41_3d_l_frame_out_of_plane() {
 
     // Equilibrium: fixed-end reactions should balance applied load
     let r_base = results.reactions.iter().find(|r| r.node_id == 1).unwrap();
-    assert_close(r_base.fz.abs(), fy, 0.02, "VM41 Fy equilibrium");
+    assert_close(r_base.fy.abs(), fy, 0.02, "VM41 Fy equilibrium");
 
     // Fixed-end should have a torque about x (from torsion in member 1)
     // and moments about y and z (from bending)

@@ -210,9 +210,9 @@ fn validation_nafems_le10_3d_cantilever() {
 
     // Bending deflection
     let delta_y_exact = p * l.powi(3) / (3.0 * e_eff * iz);
-    let err_y = (tip.uz.abs() - delta_y_exact).abs() / delta_y_exact;
+    let err_y = (tip.uy.abs() - delta_y_exact).abs() / delta_y_exact;
     assert!(err_y < 0.05,
-        "NAFEMS LE10 δy: {:.6e}, expected {:.6e}", tip.uz.abs(), delta_y_exact);
+        "NAFEMS LE10 δy: {:.6e}, expected {:.6e}", tip.uy.abs(), delta_y_exact);
 
     // Torsional twist
     let theta_x_exact = t * l / (g * j);
@@ -341,10 +341,10 @@ fn validation_nafems_r0031_3d_truss() {
     let results = linear::solve_3d(&input).unwrap();
 
     // Global equilibrium: ΣFy = P
-    let sum_fz: f64 = results.reactions.iter().map(|r| r.fz).sum();
-    let err = (sum_fz - p).abs() / p;
+    let sum_fy: f64 = results.reactions.iter().map(|r| r.fy).sum();
+    let err = (sum_fy - p).abs() / p;
     assert!(err < 0.01,
-        "NAFEMS R0031 equilibrium: ΣFy={:.4}, expected P={:.4}", sum_fz, p);
+        "NAFEMS R0031 equilibrium: ΣFy={:.4}, expected P={:.4}", sum_fy, p);
 
     // Tip should deflect downward
     let d4 = results.displacements.iter().find(|d| d.node_id == 4).unwrap();

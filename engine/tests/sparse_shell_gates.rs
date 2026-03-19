@@ -70,7 +70,7 @@ fn make_ss_plate(nx: usize, ny: usize) -> SolverInput3D {
             sid.to_string(),
             SolverSupport3D {
                 node_id: n,
-                rx: false, rz: false, ry: true,
+                rx: false, ry: false, rz: true,
                 rrx: false, rry: false, rrz: false,
                 kx: None, ky: None, kz: None,
                 krx: None, kry: None, krz: None,
@@ -87,7 +87,7 @@ fn make_ss_plate(nx: usize, ny: usize) -> SolverInput3D {
         sid.to_string(),
         SolverSupport3D {
             node_id: grid[0][0],
-            rx: true, rz: true, ry: true,
+            rx: true, ry: true, rz: true,
             rrx: false, rry: false, rrz: false,
             kx: None, ky: None, kz: None,
             krx: None, kry: None, krz: None,
@@ -237,11 +237,11 @@ fn sparse_vs_dense_parity() {
                 if global < nf {
                     let sparse_val = match local_dof {
                         0 => disp.ux,
-                        1 => disp.uz,
+                        1 => disp.uy,
                         2 => disp.uz,
                         3 => disp.rx,
-                        4 => disp.rz,
-                        5 => disp.ry,
+                        4 => disp.ry,
+                        5 => disp.rz,
                         _ => 0.0,
                     };
                     let dense_val = u_dense[global];
@@ -740,7 +740,7 @@ fn make_ss_plate_with_grid(nx: usize, ny: usize) -> (SolverInput3D, Vec<Vec<usiz
             sid.to_string(),
             SolverSupport3D {
                 node_id: n,
-                rx: false, rz: false, ry: true,
+                rx: false, ry: false, rz: true,
                 rrx: false, rry: false, rrz: false,
                 kx: None, ky: None, kz: None,
                 krx: None, kry: None, krz: None,
@@ -756,7 +756,7 @@ fn make_ss_plate_with_grid(nx: usize, ny: usize) -> (SolverInput3D, Vec<Vec<usiz
         sid.to_string(),
         SolverSupport3D {
             node_id: grid[0][0],
-            rx: true, rz: true, ry: true,
+            rx: true, ry: true, rz: true,
             rrx: false, rry: false, rrz: false,
             kx: None, ky: None, kz: None,
             krx: None, kry: None, krz: None,
@@ -836,7 +836,7 @@ fn make_compressed_plate(nx: usize, ny: usize) -> SolverInput3D {
             if i == 0 || i == nx || j == 0 || j == ny {
                 supports.insert(sid.to_string(), SolverSupport3D {
                     node_id: grid[i][j],
-                    rx: i == 0, rz: j == 0, ry: true,
+                    rx: i == 0, ry: j == 0, rz: true,
                     rrx: false, rry: false, rrz: false,
                     kx: None, ky: None, kz: None,
                     krx: None, kry: None, krz: None,
@@ -891,7 +891,7 @@ fn sparse_buckling_parity() {
     if !input.quads.is_empty() {
         let mut u_full = vec![0.0; n];
         for d in &lin.displacements {
-            let vals = [d.ux, d.uz, d.uz, d.rx, d.rz, d.ry];
+            let vals = [d.ux, d.uy, d.uz, d.rx, d.ry, d.rz];
             for (i, &v) in vals.iter().enumerate() {
                 if let Some(&dof) = dof_num.map.get(&(d.node_id, i)) { u_full[dof] = v; }
             }
@@ -1169,7 +1169,7 @@ fn guyan_3d_vs_linear_parity() {
 
     let mut max_rel_err = 0.0f64;
     let max_disp = linear_result.displacements.iter()
-        .flat_map(|d| vec![d.ux.abs(), d.uz.abs(), d.uz.abs(), d.rx.abs(), d.rz.abs(), d.ry.abs()])
+        .flat_map(|d| vec![d.ux.abs(), d.uy.abs(), d.uz.abs(), d.rx.abs(), d.ry.abs(), d.rz.abs()])
         .fold(0.0f64, f64::max);
 
     for ld in &linear_result.displacements {
@@ -1178,8 +1178,8 @@ fn guyan_3d_vs_linear_parity() {
             .expect(&format!("Missing node {} in Guyan result", ld.node_id));
 
         for &(lv, gv, _name) in &[
-            (ld.ux, gd.ux, "ux"), (ld.uy, gd.uy, "uy"), (ld.uy, gd.uy, "uz"),
-            (ld.rx, gd.rx, "rx"), (ld.rz, gd.rz, "ry"), (ld.ry, gd.ry, "rz"),
+            (ld.ux, gd.ux, "ux"), (ld.uy, gd.uy, "uy"), (ld.uz, gd.uz, "uz"),
+            (ld.rx, gd.rx, "rx"), (ld.ry, gd.ry, "ry"), (ld.rz, gd.rz, "rz"),
         ] {
             let err = (lv - gv).abs() / max_disp.max(1e-20);
             if err > max_rel_err {

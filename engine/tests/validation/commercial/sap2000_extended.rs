@@ -480,19 +480,19 @@ fn validation_sap_ext_3d_l_frame_torsion() {
 
     // 1. Global equilibrium: reaction Fy at base = +10 kN (opposite to applied)
     let r1 = results.reactions.iter().find(|r| r.node_id == 1).unwrap();
-    assert_close(r1.fz, fy_load.abs(), 0.02, "SAP_EXT5 Fy equilibrium");
+    assert_close(r1.fy, fy_load.abs(), 0.02, "SAP_EXT5 Fy equilibrium");
 
     // 2. Tip deflection should be primarily in Y direction
     let tip = results.displacements.iter().find(|d| d.node_id == 3).unwrap();
-    assert!(tip.uz.abs() > 1e-6, "SAP_EXT5: tip should deflect in Y");
-    assert!(tip.uz < 0.0, "SAP_EXT5: tip Y deflection should be negative (downward)");
+    assert!(tip.uy.abs() > 1e-6, "SAP_EXT5: tip should deflect in Y");
+    assert!(tip.uy < 0.0, "SAP_EXT5: tip Y deflection should be negative (downward)");
 
     // 3. The beam applies a moment at the corner = Fy * w = 10 * 5 = 50 kN·m
     // This must be equilibrated by the column torsion + bending at the base.
     // Check moment equilibrium at base: sum of base moments about Z axis passing through node 1
     // My at base should be related to Fy * some arm, but more precisely:
     // The total base moment magnitude should be nonzero and consistent.
-    let base_m_total = (r1.mx.powi(2) + r1.my.powi(2) + r1.my.powi(2)).sqrt();
+    let base_m_total = (r1.mx.powi(2) + r1.my.powi(2) + r1.mz.powi(2)).sqrt();
     assert!(base_m_total > 1.0, "SAP_EXT5: base should have significant moment, got {:.4}", base_m_total);
 
     // 4. Column element should have torsion (mx component)

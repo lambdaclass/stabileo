@@ -844,8 +844,8 @@ fn validation_truss_ext_space_truss_tension_coefficients() {
     let apex = results.displacements.iter().find(|d| d.node_id == 4).unwrap();
     assert!(apex.ux.abs() < 1e-8,
         "Space truss: apex ux = 0 by symmetry: {:.6e}", apex.ux);
-    assert!(apex.uz.abs() < 1e-8,
-        "Space truss: apex uy = 0 by symmetry: {:.6e}", apex.uz);
+    assert!(apex.uy.abs() < 1e-8,
+        "Space truss: apex uy = 0 by symmetry: {:.6e}", apex.uy);
     assert!(apex.uz < 0.0,
         "Space truss: apex moves downward: uz={:.6e}", apex.uz);
 }

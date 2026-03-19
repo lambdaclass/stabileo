@@ -500,8 +500,8 @@ fn validation_ansys_vm30_3d_space_truss() {
     let loads = vec![SolverLoad3D::Nodal(SolverNodalLoad3D {
         node_id: 4,
         fx: 0.0,
-        fz: 0.0,
-        fy: -p,
+        fy: 0.0,
+        fz: -p,
         mx: 0.0,
         my: 0.0,
         mz: 0.0,
@@ -544,9 +544,9 @@ fn validation_ansys_vm30_3d_space_truss() {
 
     // Horizontal equilibrium (by symmetry, net Fx = Fy = 0)
     let sum_fx: f64 = results.reactions.iter().map(|r| r.fx).sum();
-    let sum_fz: f64 = results.reactions.iter().map(|r| r.fz).sum();
+    let sum_fy: f64 = results.reactions.iter().map(|r| r.fy).sum();
     assert!(sum_fx.abs() < 0.1, "VM30 sum_fx={:.4} should be ~0", sum_fx);
-    assert!(sum_fz.abs() < 0.1, "VM30 sum_fz={:.4} should be ~0", sum_fz);
+    assert!(sum_fy.abs() < 0.1, "VM30 sum_fy={:.4} should be ~0", sum_fy);
 
     // Apex displacement should be purely downward (by symmetry)
     let apex = results
@@ -555,10 +555,10 @@ fn validation_ansys_vm30_3d_space_truss() {
         .find(|d| d.node_id == 4)
         .unwrap();
     assert!(
-        apex.ux.abs() < 1e-6 && apex.uz.abs() < 1e-6,
+        apex.ux.abs() < 1e-6 && apex.uy.abs() < 1e-6,
         "VM30: apex should have no lateral displacement, got ux={:.6e}, uy={:.6e}",
         apex.ux,
-        apex.uz
+        apex.uy
     );
     assert!(
         apex.uz < 0.0,

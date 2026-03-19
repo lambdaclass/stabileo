@@ -623,11 +623,11 @@ fn validation_vm9_3d_equilibrium() {
     let results = linear::solve_3d(&input).unwrap();
 
     let sum_fx: f64 = results.reactions.iter().map(|r| r.fx).sum();
-    let sum_fz: f64 = results.reactions.iter().map(|r| r.fz).sum();
+    let sum_fy: f64 = results.reactions.iter().map(|r| r.fy).sum();
     let sum_fz: f64 = results.reactions.iter().map(|r| r.fz).sum();
 
     assert!(sum_fx.abs() < 0.1, "VM9 ΣFx={:.4} ≠ 0", sum_fx);
-    assert!(sum_fz.abs() < 0.1, "VM9 ΣFy={:.4} ≠ 0", sum_fz);
+    assert!(sum_fy.abs() < 0.1, "VM9 ΣFy={:.4} ≠ 0", sum_fy);
     assert_close(sum_fz, p, 0.01, "VM9 ΣFz = P");
 }
 

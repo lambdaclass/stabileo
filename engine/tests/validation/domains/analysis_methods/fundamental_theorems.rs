@@ -95,8 +95,8 @@ fn validation_maxwell_betti_3d() {
     let res_a = linear::solve_3d(&input_a).unwrap();
     let res_b = linear::solve_3d(&input_b).unwrap();
 
-    let uy_a_at_4 = res_a.displacements.iter().find(|d| d.node_id == 4).unwrap().uz;
-    let uy_b_at_2 = res_b.displacements.iter().find(|d| d.node_id == 2).unwrap().uz;
+    let uy_a_at_4 = res_a.displacements.iter().find(|d| d.node_id == 4).unwrap().uy;
+    let uy_b_at_2 = res_b.displacements.iter().find(|d| d.node_id == 2).unwrap().uy;
 
     assert_close(uy_a_at_4, uy_b_at_2, 1e-10, "Maxwell-Betti 3D: δ_{2,4} = δ_{4,2}");
 }
@@ -321,7 +321,7 @@ fn validation_superposition_3d() {
         let d1 = res_1.displacements.iter().find(|d| d.node_id == dc.node_id).unwrap();
         let d2 = res_2.displacements.iter().find(|d| d.node_id == dc.node_id).unwrap();
 
-        assert_close(dc.uz, d1.uz + d2.uz, 1e-10,
+        assert_close(dc.uy, d1.uy + d2.uy, 1e-10,
             &format!("Superposition 3D uy node {}", dc.node_id));
         assert_close(dc.uz, d1.uz + d2.uz, 1e-10,
             &format!("Superposition 3D uz node {}", dc.node_id));

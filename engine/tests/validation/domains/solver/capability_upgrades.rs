@@ -485,8 +485,8 @@ fn capability_vm18_quarter_circle_out_of_plane() {
         SolverSupport3D {
             node_id: 1,
             rx: true,
-            rz: true,
             ry: true,
+            rz: true,
             rrx: true,
             rry: true,
             rrz: true,
@@ -497,8 +497,8 @@ fn capability_vm18_quarter_circle_out_of_plane() {
             kry: None,
             krz: None,
             dx: None,
-            dz: None,
             dy: None,
+            dz: None,
             drx: None,
             dry: None,
             drz: None,
@@ -515,8 +515,8 @@ fn capability_vm18_quarter_circle_out_of_plane() {
     let loads = vec![SolverLoad3D::Nodal(SolverNodalLoad3D {
         node_id: 3,
         fx: 0.0,
-        fz: f_kn,
-        fy: 0.0,
+        fy: f_kn,
+        fz: 0.0,
         mx: 0.0,
         my: 0.0,
         mz: 0.0,
@@ -542,7 +542,7 @@ fn capability_vm18_quarter_circle_out_of_plane() {
         .iter()
         .find(|d| d.node_id == 3)
         .unwrap();
-    let computed = tip.uz.abs();
+    let computed = tip.uy.abs();
 
     let error = (computed - delta_ref).abs() / delta_ref;
     assert!(
@@ -684,8 +684,8 @@ fn capability_vm44_roark_circular_ring() {
         SolverSupport3D {
             node_id: 1,
             rx: true,
-            rz: true,
             ry: true,
+            rz: true,
             rrx: false,
             rry: false,
             rrz: false,
@@ -696,8 +696,8 @@ fn capability_vm44_roark_circular_ring() {
             kry: None,
             krz: None,
             dx: None,
-            dz: None,
             dy: None,
+            dz: None,
             drx: None,
             dry: None,
             drz: None,
@@ -714,8 +714,8 @@ fn capability_vm44_roark_circular_ring() {
         SolverSupport3D {
             node_id: 3,
             rx: true,
-            rz: false,
-            ry: true,
+            ry: false,
+            rz: true,
             rrx: false,
             rry: false,
             rrz: false,
@@ -726,8 +726,8 @@ fn capability_vm44_roark_circular_ring() {
             kry: None,
             krz: None,
             dx: None,
-            dz: None,
             dy: None,
+            dz: None,
             drx: None,
             dry: None,
             drz: None,
@@ -745,8 +745,8 @@ fn capability_vm44_roark_circular_ring() {
         SolverLoad3D::Nodal(SolverNodalLoad3D {
             node_id: 1,
             fx: 0.0,
-            fz: p,
-            fy: 0.0,
+            fy: p,
+            fz: 0.0,
             mx: 0.0,
             my: 0.0,
             mz: 0.0,
@@ -755,8 +755,8 @@ fn capability_vm44_roark_circular_ring() {
         SolverLoad3D::Nodal(SolverNodalLoad3D {
             node_id: 3,
             fx: 0.0,
-            fz: -p,
-            fy: 0.0,
+            fy: -p,
+            fz: 0.0,
             mx: 0.0,
             my: 0.0,
             mz: 0.0,
@@ -786,7 +786,7 @@ fn capability_vm44_roark_circular_ring() {
         .iter()
         .find(|d| d.node_id == 3)
         .unwrap();
-    let computed = top.uz.abs();
+    let computed = top.uy.abs();
 
     let error = (computed - delta_ref).abs() / delta_ref;
     assert!(

@@ -566,8 +566,8 @@ fn validation_vm47_3d_cantilever_torsion() {
         vec![SolverLoad3D::Nodal(SolverNodalLoad3D {
             node_id: n + 1,
             fx: 0.0,
-            fz: 0.0,
             fy: 0.0,
+            fz: 0.0,
             mx: torque,
             my: 0.0,
             mz: 0.0,
@@ -596,9 +596,9 @@ fn validation_vm47_3d_cantilever_torsion() {
 
     // No bending deflection (pure torsion)
     assert!(
-        tip.uz.abs() < 1e-8,
+        tip.uy.abs() < 1e-8,
         "VM47: no Y deflection for pure torsion, uy={:.6e}",
-        tip.uz
+        tip.uy
     );
     assert!(
         tip.uz.abs() < 1e-8,

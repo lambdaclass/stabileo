@@ -266,11 +266,11 @@ fn compare_results_3d(prefix: &str, actual: &AnalysisResults3D, expected: &Analy
     for (a, e) in actual_disp.iter().zip(expected_disp.iter()) {
         let lbl = format!("{} node{}", prefix, a.node_id);
         assert_close(a.ux, e.ux, REL_TOL_DISP, &format!("{} ux", lbl));
-        assert_close(a.uz, e.uz, REL_TOL_DISP, &format!("{} uy", lbl));
+        assert_close(a.uy, e.uy, REL_TOL_DISP, &format!("{} uy", lbl));
         assert_close(a.uz, e.uz, REL_TOL_DISP, &format!("{} uz", lbl));
         assert_close(a.rx, e.rx, REL_TOL_DISP, &format!("{} rx", lbl));
-        assert_close(a.rz, e.rz, REL_TOL_DISP, &format!("{} ry", lbl));
-        assert_close(a.ry, e.ry, REL_TOL_DISP, &format!("{} rz", lbl));
+        assert_close(a.ry, e.ry, REL_TOL_DISP, &format!("{} ry", lbl));
+        assert_close(a.rz, e.rz, REL_TOL_DISP, &format!("{} rz", lbl));
     }
 
     let mut actual_react: Vec<_> = actual.reactions.clone();
@@ -287,11 +287,11 @@ fn compare_results_3d(prefix: &str, actual: &AnalysisResults3D, expected: &Analy
     for (a, e) in actual_react.iter().zip(expected_react.iter()) {
         let lbl = format!("{} react{}", prefix, a.node_id);
         assert_close(a.fx, e.fx, REL_TOL_FORCE, &format!("{} fx", lbl));
-        assert_close(a.fz, e.fz, REL_TOL_FORCE, &format!("{} fy", lbl));
+        assert_close(a.fy, e.fy, REL_TOL_FORCE, &format!("{} fy", lbl));
         assert_close(a.fz, e.fz, REL_TOL_FORCE, &format!("{} fz", lbl));
         assert_close(a.mx, e.mx, REL_TOL_FORCE, &format!("{} mx", lbl));
         assert_close(a.my, e.my, REL_TOL_FORCE, &format!("{} my", lbl));
-        assert_close(a.my, e.my, REL_TOL_FORCE, &format!("{} mz", lbl));
+        assert_close(a.mz, e.mz, REL_TOL_FORCE, &format!("{} mz", lbl));
     }
 
     // Full element force comparison (both solvers now use same local axis convention)
@@ -960,11 +960,11 @@ fn compare_results_3d_relaxed(
     for (a, e) in actual_disp.iter().zip(expected_disp.iter()) {
         let lbl = format!("{} node{}", prefix, a.node_id);
         assert_close(a.ux, e.ux, rel_tol_disp, &format!("{} ux", lbl));
-        assert_close(a.uz, e.uz, rel_tol_disp, &format!("{} uy", lbl));
+        assert_close(a.uy, e.uy, rel_tol_disp, &format!("{} uy", lbl));
         assert_close(a.uz, e.uz, rel_tol_disp, &format!("{} uz", lbl));
         assert_close(a.rx, e.rx, rel_tol_disp, &format!("{} rx", lbl));
-        assert_close(a.rz, e.rz, rel_tol_disp, &format!("{} ry", lbl));
-        assert_close(a.ry, e.ry, rel_tol_disp, &format!("{} rz", lbl));
+        assert_close(a.ry, e.ry, rel_tol_disp, &format!("{} ry", lbl));
+        assert_close(a.rz, e.rz, rel_tol_disp, &format!("{} rz", lbl));
     }
 
     let mut actual_react: Vec<_> = actual.reactions.clone();
@@ -981,11 +981,11 @@ fn compare_results_3d_relaxed(
     for (a, e) in actual_react.iter().zip(expected_react.iter()) {
         let lbl = format!("{} react{}", prefix, a.node_id);
         assert_close(a.fx, e.fx, rel_tol_force, &format!("{} fx", lbl));
-        assert_close(a.fz, e.fz, rel_tol_force, &format!("{} fy", lbl));
+        assert_close(a.fy, e.fy, rel_tol_force, &format!("{} fy", lbl));
         assert_close(a.fz, e.fz, rel_tol_force, &format!("{} fz", lbl));
         assert_close(a.mx, e.mx, rel_tol_force, &format!("{} mx", lbl));
         assert_close(a.my, e.my, rel_tol_force, &format!("{} my", lbl));
-        assert_close(a.my, e.my, rel_tol_force, &format!("{} mz", lbl));
+        assert_close(a.mz, e.mz, rel_tol_force, &format!("{} mz", lbl));
     }
 
     // Full element force comparison (both solvers now use same local axis convention)
@@ -1066,7 +1066,7 @@ fn test_ex_3d_space_truss() {
     for (a, e) in actual_disp.iter().zip(expected_disp.iter()) {
         let lbl = format!("{} node{}", name, a.node_id);
         assert_close(a.ux, e.ux, REL_TOL_DISP, &format!("{} ux", lbl));
-        assert_close(a.uz, e.uz, REL_TOL_DISP, &format!("{} uy", lbl));
+        assert_close(a.uy, e.uy, REL_TOL_DISP, &format!("{} uy", lbl));
         assert_close(a.uz, e.uz, REL_TOL_DISP, &format!("{} uz", lbl));
     }
 
@@ -1085,7 +1085,7 @@ fn test_ex_3d_space_truss() {
         let e = expected_react.iter().find(|r| r.node_id == a.node_id).unwrap();
         let lbl = format!("{} react{}", name, a.node_id);
         assert_close(a.fx, e.fx, REL_TOL_FORCE, &format!("{} fx", lbl));
-        assert_close(a.fz, e.fz, REL_TOL_FORCE, &format!("{} fy", lbl));
+        assert_close(a.fy, e.fy, REL_TOL_FORCE, &format!("{} fy", lbl));
         assert_close(a.fz, e.fz, REL_TOL_FORCE, &format!("{} fz", lbl));
     }
 }

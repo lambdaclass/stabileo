@@ -128,7 +128,7 @@ fn validation_notional_loads_3d_direction() {
         assert_eq!(nl.node_id, 2);
         // lateral = 0.005 * 200 = 1.0 in X
         assert_close(nl.fx, 1.0, 1e-6, "3D notional fx");
-        assert_close(nl.fz, 0.0, 1e-6, "3D notional fy = 0");
+        assert_close(nl.fy, 0.0, 1e-6, "3D notional fy = 0");
         assert_close(nl.fz, 0.0, 1e-6, "3D notional fz = 0");
     } else {
         panic!("Expected 3D nodal load");
@@ -322,17 +322,17 @@ fn validation_multiple_node_imperfections() {
 
     let n1 = input.nodes.values().find(|n| n.id == 1).unwrap();
     assert_close(n1.x, 0.001, 1e-12, "Node 1 x");
-    assert_close(n1.z, 0.0, 1e-12, "Node 1 y");
+    assert_close(n1.y, 0.0, 1e-12, "Node 1 y");
     assert_close(n1.z, 0.0, 1e-12, "Node 1 z");
 
     let n2 = input.nodes.values().find(|n| n.id == 2).unwrap();
     assert_close(n2.x, 5.005, 1e-12, "Node 2 x");
-    assert_close(n2.z, 0.010, 1e-12, "Node 2 y");
+    assert_close(n2.y, 0.010, 1e-12, "Node 2 y");
     assert_close(n2.z, -0.002, 1e-12, "Node 2 z");
 
     let n3 = input.nodes.values().find(|n| n.id == 3).unwrap();
     assert_close(n3.x, 10.0, 1e-12, "Node 3 x");
-    assert_close(n3.z, 0.003, 1e-12, "Node 3 y");
+    assert_close(n3.y, 0.003, 1e-12, "Node 3 y");
     assert_close(n3.z, 0.007, 1e-12, "Node 3 z");
 }
 

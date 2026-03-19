@@ -541,19 +541,19 @@ fn validation_comb_ext_3d_distributed_combo() {
     let tip_comb = combined.displacements.iter().find(|d| d.node_id == tip_id).unwrap();
     let tip_dir = res_direct.displacements.iter().find(|d| d.node_id == tip_id).unwrap();
 
-    assert_close(tip_comb.uz, tip_dir.uz, 1e-6, "3D dist combo tip uy");
+    assert_close(tip_comb.uy, tip_dir.uy, 1e-6, "3D dist combo tip uy");
     assert_close(tip_comb.uz, tip_dir.uz, 1e-6, "3D dist combo tip uz");
-    assert_close(tip_comb.ry, tip_dir.ry, 1e-6, "3D dist combo tip rz");
-    assert_close(tip_comb.rz, tip_dir.rz, 1e-6, "3D dist combo tip ry");
+    assert_close(tip_comb.rz, tip_dir.rz, 1e-6, "3D dist combo tip rz");
+    assert_close(tip_comb.ry, tip_dir.ry, 1e-6, "3D dist combo tip ry");
 
     // Compare reactions at fixed support (node 1)
     let r1_comb = combined.reactions.iter().find(|r| r.node_id == 1).unwrap();
     let r1_dir = res_direct.reactions.iter().find(|r| r.node_id == 1).unwrap();
 
-    assert_close(r1_comb.fz, r1_dir.fz, 1e-5, "3D dist combo Fy reaction");
+    assert_close(r1_comb.fy, r1_dir.fy, 1e-5, "3D dist combo Fy reaction");
     assert_close(r1_comb.fz, r1_dir.fz, 1e-5, "3D dist combo Fz reaction");
     assert_close(r1_comb.my, r1_dir.my, 1e-5, "3D dist combo My reaction");
-    assert_close(r1_comb.my, r1_dir.my, 1e-5, "3D dist combo Mz reaction");
+    assert_close(r1_comb.mz, r1_dir.mz, 1e-5, "3D dist combo Mz reaction");
 
     // Compare element forces on the first element
     let ef1_comb = combined.element_forces.iter().find(|e| e.element_id == 1).unwrap();

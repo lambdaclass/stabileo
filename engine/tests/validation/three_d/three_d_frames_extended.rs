@@ -61,7 +61,7 @@ fn validation_3d_ext_1_cantilever_torsion() {
     assert_close(tip.rx.abs(), theta_expected, 0.02, "cantilever torsion theta");
 
     // Pure torsion should produce no lateral deflection
-    assert!(tip.uz.abs() < 1e-8, "torsion: no uy, got {:.2e}", tip.uz);
+    assert!(tip.uy.abs() < 1e-8, "torsion: no uy, got {:.2e}", tip.uy);
     assert!(tip.uz.abs() < 1e-8, "torsion: no uz, got {:.2e}", tip.uz);
 
     // And no axial displacement
@@ -103,7 +103,7 @@ fn validation_3d_ext_2_frame_biaxial_bending() {
     let delta_y = fy * l.powi(3) / (3.0 * E_EFF * IZ);
     let delta_z = fz * l.powi(3) / (3.0 * E_EFF * IY);
 
-    assert_close(tip.uz.abs(), delta_y, 0.02, "biaxial delta_y");
+    assert_close(tip.uy.abs(), delta_y, 0.02, "biaxial delta_y");
     assert_close(tip.uz.abs(), delta_z, 0.02, "biaxial delta_z");
 
     // Also verify the two planes are truly independent by checking
@@ -137,7 +137,7 @@ fn validation_3d_ext_2_frame_biaxial_bending() {
     let tip_z = res_z.displacements.iter().find(|d| d.node_id == n + 1).unwrap();
 
     // Superposition: combined uy should match Y-only case
-    assert_close(tip.uz, tip_y.uz, 0.01, "biaxial superposition uy");
+    assert_close(tip.uy, tip_y.uy, 0.01, "biaxial superposition uy");
     // Combined uz should match Z-only case
     assert_close(tip.uz, tip_z.uz, 0.01, "biaxial superposition uz");
 }
@@ -203,11 +203,11 @@ fn validation_3d_ext_3_space_truss_equilibrium() {
 
     // Check 3D equilibrium
     let sum_fx: f64 = results.reactions.iter().map(|r| r.fx).sum();
-    let sum_fz: f64 = results.reactions.iter().map(|r| r.fz).sum();
+    let sum_fy: f64 = results.reactions.iter().map(|r| r.fy).sum();
     let sum_fz: f64 = results.reactions.iter().map(|r| r.fz).sum();
 
     assert!(sum_fx.abs() < 0.5, "6-bar truss Fx={:.3}, expected 0", sum_fx);
-    assert!(sum_fz.abs() < 0.5, "6-bar truss Fy={:.3}, expected 0", sum_fz);
+    assert!(sum_fy.abs() < 0.5, "6-bar truss Fy={:.3}, expected 0", sum_fy);
     assert_close(sum_fz, p, 0.01, "6-bar truss sum(Fz) = P");
 
     // By symmetry, all 4 inclined bars should carry equal force
@@ -462,7 +462,7 @@ fn validation_3d_ext_6_inclined_column() {
     let delta_bend = f_transverse.abs() * l.powi(3) / (3.0 * E_EFF * i_min);
 
     // Total displacement should be bounded by axial + bending contributions
-    let total_disp = (tip.ux * tip.ux + tip.uz * tip.uz + tip.uz * tip.uz).sqrt();
+    let total_disp = (tip.ux * tip.ux + tip.uy * tip.uy + tip.uz * tip.uz).sqrt();
     assert!(total_disp > delta_axial * 0.5,
         "inclined column: total disp {:.6} should exceed half axial deform {:.6}",
         total_disp, delta_axial * 0.5);
@@ -476,7 +476,7 @@ fn validation_3d_ext_6_inclined_column() {
 
     // Also verify the displacement projection along the member axis
     // gives the axial deformation
-    let disp_along_axis = tip.ux * cx + tip.uz * cy + tip.uz * cz;
+    let disp_along_axis = tip.ux * cx + tip.uy * cy + tip.uz * cz;
     // This should be close to -F_axial*L/(EA) since axial shortening
     let delta_axial_signed = f_axial * l / (E_EFF * A_SEC);
     assert_close(disp_along_axis.abs(), delta_axial_signed.abs(), 0.15,
@@ -582,7 +582,7 @@ fn validation_3d_ext_7_symmetric_box() {
         let d = results.displacements.iter().find(|d| d.node_id == nid).unwrap();
         assert!(d.ux.abs() < 1e-6,
             "symmetric box: node {} ux={:.2e} should be ~0", nid, d.ux);
-        assert!(d.uz.abs() < 1e-6,
+        assert!(d.uy.abs() < 1e-6,
             "symmetric box: node {} uy={:.2e} should be ~0", nid, d.uy);
     }
 
@@ -633,7 +633,7 @@ fn validation_3d_ext_8_cantilever_udl_3d() {
     // Analytical tip deflection: delta = |w| * L^4 / (8 * E_eff * Iz)
     let delta_exact = w.abs() * l.powi(4) / (8.0 * E_EFF * IZ);
 
-    assert_close(tip_3d.uz.abs(), delta_exact, 0.03, "cantilever UDL 3D tip uy");
+    assert_close(tip_3d.uy.abs(), delta_exact, 0.03, "cantilever UDL 3D tip uy");
 
     // No deflection in Z (load is only in Y)
     assert!(tip_3d.uz.abs() < 1e-6,
@@ -660,11 +660,11 @@ fn validation_3d_ext_8_cantilever_udl_3d() {
 
     // 2D and 3D should agree closely
     if tip_2d.uz.abs() > 1e-8 {
-        let ratio = tip_3d.uz.abs() / tip_2d.uz.abs();
+        let ratio = tip_3d.uy.abs() / tip_2d.uz.abs();
         assert!(
             (ratio - 1.0).abs() < 0.05,
             "3D vs 2D UDL cantilever: uy_3d={:.6}, uy_2d={:.6}, ratio={:.4}",
-            tip_3d.uz, tip_2d.uz, ratio
+            tip_3d.uy, tip_2d.uz, ratio
         );
     }
 }

@@ -286,14 +286,14 @@ fn bridge_grillage_load_distribution() {
     // Center girder midspan deflection
     let d_center = results.displacements.iter()
         .find(|d| d.node_id == mid_node_center)
-        .unwrap().uz;
+        .unwrap().uy;
     assert!(d_center < 0.0, "Center girder deflects down: uy={:.6}", d_center);
 
     // Edge girder midspan deflection (girder 0)
     let mid_node_edge = 0 * n_per_girder + 1 + n_elem / 2;
     let d_edge = results.displacements.iter()
         .find(|d| d.node_id == mid_node_edge)
-        .unwrap().uz;
+        .unwrap().uy;
 
     // Transverse distribution: edge girder deflects less than center
     assert!(
@@ -310,7 +310,7 @@ fn bridge_grillage_load_distribution() {
     );
 
     // Vertical equilibrium
-    let sum_ry: f64 = results.reactions.iter().map(|r| r.fz).sum();
+    let sum_ry: f64 = results.reactions.iter().map(|r| r.fy).sum();
     assert_close(sum_ry, p, 0.02, "Grillage equilibrium: sum Ry = P");
 }
 
@@ -592,7 +592,7 @@ fn bridge_skew_effect_comparison() {
     );
     let res_normal = linear::solve_3d(&input_normal).unwrap();
     let d_normal = res_normal.displacements.iter()
-        .find(|d| d.node_id == mid_normal).unwrap().uz;
+        .find(|d| d.node_id == mid_normal).unwrap().uy;
 
     // Skew bridge: beam along a 30-degree angle in X-Z plane
     let theta = 30.0_f64.to_radians();
@@ -625,7 +625,7 @@ fn bridge_skew_effect_comparison() {
     );
     let res_skew = linear::solve_3d(&input_skew).unwrap();
     let d_skew = res_skew.displacements.iter()
-        .find(|d| d.node_id == mid_skew).unwrap().uz;
+        .find(|d| d.node_id == mid_skew).unwrap().uy;
 
     // Both beams deflect downward
     assert!(d_normal < 0.0, "Normal bridge deflects down: {:.6}", d_normal);

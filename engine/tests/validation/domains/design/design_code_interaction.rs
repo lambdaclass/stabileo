@@ -261,7 +261,7 @@ fn validation_combined_axial_biaxial_3d() {
 
     // Y-deflection: delta_y = Fy*L^3/(3*E*Iz)
     let dy_expected = fy * l.powi(3) / (3.0 * E_EFF * iz);
-    assert_close(tip.uz.abs(), dy_expected, 0.03,
+    assert_close(tip.uy.abs(), dy_expected, 0.03,
         "3D biaxial: delta_y = Fy*L^3/(3EIz)");
 
     // Z-deflection: delta_z = Fz*L^3/(3*E*Iy)
@@ -270,7 +270,7 @@ fn validation_combined_axial_biaxial_3d() {
         "3D biaxial: delta_z = Fz*L^3/(3EIy)");
 
     // Resultant transverse deflection
-    let delta_trans = (tip.uz.powi(2) + tip.uz.powi(2)).sqrt();
+    let delta_trans = (tip.uy.powi(2) + tip.uz.powi(2)).sqrt();
     let delta_trans_expected = (dy_expected.powi(2) + dz_expected.powi(2)).sqrt();
     assert_close(delta_trans, delta_trans_expected, 0.03,
         "3D biaxial: resultant transverse deflection");

@@ -443,7 +443,7 @@ fn validation_timoshenko_3d_deep_beam() {
     // Fixed support: all 6 DOFs restrained
     sups_map.insert("1".to_string(), SolverSupport3D {
         node_id: 1,
-        rx: true, rz: true, ry: true, rrx: true, rry: true, rrz: true,
+        rx: true, ry: true, rz: true, rrx: true, rry: true, rrz: true,
         kx: None, ky: None, kz: None, krx: None, kry: None, krz: None,
         dx: None, dy: None, dz: None, drx: None, dry: None, drz: None,
         normal_x: None, normal_y: None, normal_z: None, is_inclined: None,
@@ -482,10 +482,10 @@ fn validation_timoshenko_3d_deep_beam() {
     let delta_z_shear = pz.abs() * l / (g_eff() * as_z);
     let delta_z_timo = delta_z_bending + delta_z_shear;
 
-    let rel_err_y = (d_tip.uz.abs() - delta_y_timo).abs() / delta_y_timo;
+    let rel_err_y = (d_tip.uy.abs() - delta_y_timo).abs() / delta_y_timo;
     assert!(rel_err_y < 0.01,
         "3D deep beam Y: actual={:.6e}, expected={:.6e}, err={:.4}%",
-        d_tip.uz.abs(), delta_y_timo, rel_err_y * 100.0);
+        d_tip.uy.abs(), delta_y_timo, rel_err_y * 100.0);
 
     let rel_err_z = (d_tip.uz.abs() - delta_z_timo).abs() / delta_z_timo;
     assert!(rel_err_z < 0.01,

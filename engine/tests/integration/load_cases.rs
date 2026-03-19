@@ -93,7 +93,7 @@ fn make_beam_3d() -> SolverInput3D {
     let mut supports = HashMap::new();
     supports.insert("1".to_string(), SolverSupport3D {
         node_id: 1,
-        rx: true, rz: true, ry: true,
+        rx: true, ry: true, rz: true,
         rrx: true, rry: false, rrz: false,
         kx: None, ky: None, kz: None,
         krx: None, kry: None, krz: None,
@@ -105,7 +105,7 @@ fn make_beam_3d() -> SolverInput3D {
     });
     supports.insert("2".to_string(), SolverSupport3D {
         node_id: 3,
-        rx: false, rz: true, ry: true,
+        rx: false, ry: true, rz: true,
         rrx: true, rry: false, rrz: false,
         kx: None, ky: None, kz: None,
         krx: None, kry: None, krz: None,

@@ -525,12 +525,12 @@ fn validation_nafems_le10_grillage_bending() {
 
     // 1. Bending deflection: delta_y = PL^3 / (3*E_eff*Iz)
     let delta_y_exact = p * length.powi(3) / (3.0 * e_eff * iz);
-    assert_close(tip.uz.abs(), delta_y_exact, 0.02,
+    assert_close(tip.uy.abs(), delta_y_exact, 0.02,
         "NAFEMS LE10: tip bending deflection uy = PL^3/(3EIz)");
 
     // 2. Tip rotation from bending: theta_z = PL^2 / (2*E_eff*Iz)
     let theta_z_exact = p * length.powi(2) / (2.0 * e_eff * iz);
-    assert_close(tip.ry.abs(), theta_z_exact, 0.02,
+    assert_close(tip.rz.abs(), theta_z_exact, 0.02,
         "NAFEMS LE10: tip bending rotation rz = PL^2/(2EIz)");
 
     // 3. Torsional twist: theta_x = TL / (GJ)
@@ -543,13 +543,13 @@ fn validation_nafems_le10_grillage_bending() {
         "NAFEMS LE10: uz should be ~0 for Y-plane loading, got {:.6e}", tip.uz);
 
     // 5. Global equilibrium: reactions at fixed end
-    let sum_fz: f64 = results.reactions.iter().map(|r| r.fz).sum();
-    assert_close(sum_fz, p, 0.01,
+    let sum_fy: f64 = results.reactions.iter().map(|r| r.fy).sum();
+    assert_close(sum_fy, p, 0.01,
         "NAFEMS LE10: vertical equilibrium sum(Fy) = P");
 
     // 6. Fixed-end moment from bending: M_fixed = P*L
-    let sum_my: f64 = results.reactions.iter().map(|r| r.my).sum();
-    assert_close(sum_my.abs(), p * length, 0.02,
+    let sum_mz: f64 = results.reactions.iter().map(|r| r.mz).sum();
+    assert_close(sum_mz.abs(), p * length, 0.02,
         "NAFEMS LE10: fixed-end bending moment = PL");
 
     // 7. Fixed-end torque: T_fixed = T (applied torque)
@@ -608,7 +608,7 @@ fn validation_nafems_r0031_3d_beam_bending() {
 
     // 2. Vertical deflection: delta_y = |Fy| * L^3 / (3 * E_eff * Iz)
     let delta_y_exact = fy.abs() * length.powi(3) / (3.0 * e_eff * iz);
-    assert_close(tip.uz.abs(), delta_y_exact, 0.02,
+    assert_close(tip.uy.abs(), delta_y_exact, 0.02,
         "NAFEMS R0031: vertical deflection uy = FyL^3/(3EIz)");
 
     // 3. Lateral deflection: delta_z = Fz * L^3 / (3 * E_eff * Iy)
@@ -618,28 +618,28 @@ fn validation_nafems_r0031_3d_beam_bending() {
 
     // 4. Tip rotation about Z (from vertical bending): rz = |Fy| * L^2 / (2 * E_eff * Iz)
     let theta_z_exact = fy.abs() * length.powi(2) / (2.0 * e_eff * iz);
-    assert_close(tip.ry.abs(), theta_z_exact, 0.02,
+    assert_close(tip.rz.abs(), theta_z_exact, 0.02,
         "NAFEMS R0031: tip rotation rz = FyL^2/(2EIz)");
 
     // 5. Tip rotation about Y (from lateral bending): ry = Fz * L^2 / (2 * E_eff * Iy)
     let theta_y_exact = fz * length.powi(2) / (2.0 * e_eff * iy);
-    assert_close(tip.rz.abs(), theta_y_exact, 0.02,
+    assert_close(tip.ry.abs(), theta_y_exact, 0.02,
         "NAFEMS R0031: tip rotation ry = FzL^2/(2EIy)");
 
     // 6. Global equilibrium in all directions
     let sum_fx: f64 = results.reactions.iter().map(|r| r.fx).sum();
-    let sum_fz: f64 = results.reactions.iter().map(|r| r.fz).sum();
+    let sum_fy: f64 = results.reactions.iter().map(|r| r.fy).sum();
     let sum_fz: f64 = results.reactions.iter().map(|r| r.fz).sum();
     assert_close(sum_fx, -fx, 0.01,
         "NAFEMS R0031: X equilibrium sum(Rx) = -Fx");
-    assert_close(sum_fz, -fy, 0.01,
+    assert_close(sum_fy, -fy, 0.01,
         "NAFEMS R0031: Y equilibrium sum(Ry) = -Fy");
     assert_close(sum_fz, -fz, 0.01,
         "NAFEMS R0031: Z equilibrium sum(Rz) = -Fz");
 
     // 7. Fixed-end moment about Z: Mz = |Fy| * L (from vertical load)
-    let sum_my: f64 = results.reactions.iter().map(|r| r.my).sum();
-    assert_close(sum_my.abs(), fy.abs() * length, 0.02,
+    let sum_mz: f64 = results.reactions.iter().map(|r| r.mz).sum();
+    assert_close(sum_mz.abs(), fy.abs() * length, 0.02,
         "NAFEMS R0031: fixed-end moment Mz = |Fy|*L");
 
     // 8. Fixed-end moment about Y: My = Fz * L (from lateral load)
@@ -648,7 +648,7 @@ fn validation_nafems_r0031_3d_beam_bending() {
         "NAFEMS R0031: fixed-end moment My = Fz*L");
 
     // 9. Deflection directions should match load directions
-    assert!(tip.uz < 0.0, "NAFEMS R0031: uy should be negative (downward load)");
+    assert!(tip.uy < 0.0, "NAFEMS R0031: uy should be negative (downward load)");
     assert!(tip.uz > 0.0, "NAFEMS R0031: uz should be positive (positive Fz)");
     assert!(tip.ux > 0.0, "NAFEMS R0031: ux should be positive (positive Fx)");
 }

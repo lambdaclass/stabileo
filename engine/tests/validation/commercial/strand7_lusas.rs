@@ -907,8 +907,8 @@ fn validation_lusas_bm3_3d_torsion() {
         vec![SolverLoad3D::Nodal(SolverNodalLoad3D {
             node_id: n + 1,
             fx: 0.0,
-            fz: 0.0,
             fy: 0.0,
+            fz: 0.0,
             mx: torque,
             my: 0.0,
             mz: 0.0,
@@ -944,9 +944,9 @@ fn validation_lusas_bm3_3d_torsion() {
     // 3. No bending should occur (pure torsion problem)
     // Tip displacements in Y and Z should be negligible
     assert!(
-        tip.uz.abs() < 1e-8,
+        tip.uy.abs() < 1e-8,
         "LUSAS_BM3: uy at tip should be ~0, got {:.6e}",
-        tip.uz
+        tip.uy
     );
     assert!(
         tip.uz.abs() < 1e-8,

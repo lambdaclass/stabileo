@@ -86,7 +86,7 @@ fn cantilever_fiber_2d(
         loads.push(SolverLoad::Nodal(SolverNodalLoad {
             node_id: 1,
             fx: fz, // fx in solver convention
-            fz,
+            fz: fy,
             my,
         }));
     }

@@ -369,7 +369,7 @@ fn benchmark_diaphragm_3d_floor() {
 
     // No NaN/Inf in displacements
     for d in &results.displacements {
-        assert!(d.ux.is_finite() && d.uz.is_finite() && d.uz.is_finite(),
+        assert!(d.ux.is_finite() && d.uy.is_finite() && d.uz.is_finite(),
             "NaN/Inf at node {}", d.node_id);
     }
 
@@ -386,7 +386,7 @@ fn benchmark_diaphragm_3d_floor() {
     eprintln!("3D diaphragm ux: min={:.6e}, max={:.6e}", ux_min, ux_max);
     for &nid in &[5, 6, 7, 8] {
         let d = results.displacements.iter().find(|d| d.node_id == nid).unwrap();
-        eprintln!("  node {}: ux={:.6e}, uy={:.6e}, rz={:.6e}", nid, d.ux, d.uy, d.ry);
+        eprintln!("  node {}: ux={:.6e}, uy={:.6e}, rz={:.6e}", nid, d.ux, d.uy, d.rz);
     }
 
     // Rigid diaphragm: all floor nodes should drift in same direction and similar order
@@ -665,7 +665,7 @@ fn benchmark_connector_3d_bearing() {
 
     // Axial relative displacement should be tiny (high stiffness)
     let axial_rel = (d3.ux - d2.ux).abs();
-    let shear_rel = (d3.uz - d2.uz).abs();
+    let shear_rel = (d3.uy - d2.uy).abs();
 
     eprintln!(
         "3D bearing: axial_rel={:.6e}, shear_rel={:.6e}, ratio={:.1}",
@@ -685,10 +685,10 @@ fn benchmark_connector_3d_bearing() {
 
     // Reactions should balance applied loads (fx=10, fy=5 at node 2)
     let sum_fx: f64 = results.reactions.iter().map(|r| r.fx).sum();
-    let sum_fz: f64 = results.reactions.iter().map(|r| r.fz).sum();
-    eprintln!("3D bearing equilibrium: Σfx={:.4}, Σfy={:.4}", sum_fx, sum_fz);
+    let sum_fy: f64 = results.reactions.iter().map(|r| r.fy).sum();
+    eprintln!("3D bearing equilibrium: Σfx={:.4}, Σfy={:.4}", sum_fx, sum_fy);
     assert!((sum_fx + 10.0).abs() < 0.5, "X equilibrium: Σfx={:.4}", sum_fx);
-    assert!((sum_fz + 5.0).abs() < 0.5, "Y equilibrium: Σfy={:.4}", sum_fz);
+    assert!((sum_fy + 5.0).abs() < 0.5, "Y equilibrium: Σfy={:.4}", sum_fy);
 }
 
 // ================================================================

@@ -510,9 +510,9 @@ fn validation_opensees_7_3d_space_truss() {
 
     // Horizontal equilibrium: sum Fx = 0, sum Fy = 0
     let sum_fx: f64 = results.reactions.iter().map(|r| r.fx).sum();
-    let sum_fz: f64 = results.reactions.iter().map(|r| r.fz).sum();
+    let sum_fy: f64 = results.reactions.iter().map(|r| r.fy).sum();
     assert!(sum_fx.abs() < 0.5, "OS7: sum_fx={:.4} should be ~0", sum_fx);
-    assert!(sum_fz.abs() < 0.5, "OS7: sum_fz={:.4} should be ~0", sum_fz);
+    assert!(sum_fy.abs() < 0.5, "OS7: sum_fy={:.4} should be ~0", sum_fy);
 
     // Apex should deflect downward
     let d_apex = results.displacements.iter().find(|d| d.node_id == 4).unwrap();

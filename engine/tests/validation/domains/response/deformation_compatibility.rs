@@ -312,7 +312,7 @@ fn validation_compat_3d_joint_6dof() {
     let delta_y = fy * l.powi(3) / (3.0 * e_eff * IZ);
     let delta_z = fz * l.powi(3) / (3.0 * e_eff * IY);
 
-    assert_close(tip.uz.abs(), delta_y, 0.05, "3D joint: uy = Fy·L³/(3EIz)");
+    assert_close(tip.uy.abs(), delta_y, 0.05, "3D joint: uy = Fy·L³/(3EIz)");
     assert_close(tip.uz.abs(), delta_z, 0.05, "3D joint: uz = Fz·L³/(3EIy)");
 
     // Pure bending: no torsion, so rx ≈ 0 at tip.
@@ -320,7 +320,7 @@ fn validation_compat_3d_joint_6dof() {
         "3D joint: no torsion, rx should be ~0, got {:.2e}", tip.rx);
 
     // Both Fy and Fz are active, confirming 6-DOF node is utilized.
-    assert!(tip.uz.abs() > 0.0 && tip.uz.abs() > 0.0,
+    assert!(tip.uy.abs() > 0.0 && tip.uz.abs() > 0.0,
         "3D joint: both uy and uz must be non-zero");
 }
 

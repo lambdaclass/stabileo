@@ -493,7 +493,7 @@ fn test_parity_3d_envelope_json_roundtrip() {
     let mut supports = HashMap::new();
     supports.insert("1".to_string(), SolverSupport3D {
         node_id: 1,
-        rx: true, rz: true, ry: true, rrx: true, rry: true, rrz: true,
+        rx: true, ry: true, rz: true, rrx: true, rry: true, rrz: true,
         kx: None, ky: None, kz: None, krx: None, kry: None, krz: None,
         dx: None, dy: None, dz: None, drx: None, dry: None, drz: None,
         normal_x: None, normal_y: None, normal_z: None, is_inclined: None, rw: None, kw: None,
@@ -556,7 +556,7 @@ fn test_parity_3d_combination_superposition() {
         let mut supports = HashMap::new();
         supports.insert("1".to_string(), SolverSupport3D {
             node_id: 1,
-            rx: true, rz: true, ry: true, rrx: true, rry: true, rrz: true,
+            rx: true, ry: true, rz: true, rrx: true, rry: true, rrz: true,
             kx: None, ky: None, kz: None, krx: None, kry: None, krz: None,
             dx: None, dy: None, dz: None, drx: None, dry: None, drz: None,
             normal_x: None, normal_y: None, normal_z: None, is_inclined: None, rw: None, kw: None,
@@ -600,9 +600,9 @@ fn test_parity_3d_combination_superposition() {
         let c = &combined.displacements[i];
         let d = &r_direct.displacements[i];
         assert!(
-            (c.uz - d.uz).abs() < 1e-8 && (c.uz - d.uz).abs() < 1e-8,
+            (c.uy - d.uy).abs() < 1e-8 && (c.uz - d.uz).abs() < 1e-8,
             "3D displacement mismatch at node {}: combined uy={:.6} uz={:.6}, direct uy={:.6} uz={:.6}",
-            c.node_id, c.uz, c.uz, d.uz, d.uz
+            c.node_id, c.uy, c.uz, d.uy, d.uz
         );
     }
 
@@ -611,7 +611,7 @@ fn test_parity_3d_combination_superposition() {
         let c = &combined.reactions[i];
         let d = &r_direct.reactions[i];
         assert!(
-            (c.fz - d.fz).abs() < 1e-4 && (c.fz - d.fz).abs() < 1e-4,
+            (c.fy - d.fy).abs() < 1e-4 && (c.fz - d.fz).abs() < 1e-4,
             "3D reaction mismatch at node {}", c.node_id
         );
     }

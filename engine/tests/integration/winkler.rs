@@ -6,7 +6,7 @@ use std::collections::HashMap;
 
 fn support_3d_fixed(node_id: usize) -> SolverSupport3D {
     SolverSupport3D {
-        node_id, rx: true, rz: true, ry: true, rrx: true, rry: true, rrz: true,
+        node_id, rx: true, ry: true, rz: true, rrx: true, rry: true, rrz: true,
         kx: None, ky: None, kz: None, krx: None, kry: None, krz: None,
         dx: None, dy: None, dz: None, drx: None, dry: None, drz: None,
         rw: None, kw: None,
@@ -16,7 +16,7 @@ fn support_3d_fixed(node_id: usize) -> SolverSupport3D {
 
 fn support_3d_pinned(node_id: usize) -> SolverSupport3D {
     SolverSupport3D {
-        node_id, rx: true, rz: true, ry: true, rrx: false, rry: false, rrz: false,
+        node_id, rx: true, ry: true, rz: true, rrx: false, rry: false, rrz: false,
         kx: None, ky: None, kz: None, krx: None, kry: None, krz: None,
         dx: None, dy: None, dz: None, drx: None, dry: None, drz: None,
         rw: None, kw: None,
@@ -250,8 +250,8 @@ fn winkler_3d_biaxial_foundation() {
     let result = solve_winkler_3d(&input).unwrap();
     let mid = result.displacements.iter().find(|d| d.node_id == 4).unwrap();
 
-    assert!(mid.uz.abs() > mid.uz.abs(),
-        "Larger Y load → larger Y deflection: uy={:.6e}, uz={:.6e}", mid.uy, mid.uy);
+    assert!(mid.uy.abs() > mid.uz.abs(),
+        "Larger Y load → larger Y deflection: uy={:.6e}, uz={:.6e}", mid.uy, mid.uz);
     assert!(mid.uy < 0.0, "uy should be negative: {:.6e}", mid.uy);
     assert!(mid.uz > 0.0, "uz should be positive: {:.6e}", mid.uz);
 }

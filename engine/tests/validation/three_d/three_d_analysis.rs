@@ -46,7 +46,7 @@ fn validation_3d_cantilever_biaxial_bending() {
     let delta_y = fy * l.powi(3) / (3.0 * E_EFF * IZ);
     let delta_z = fz * l.powi(3) / (3.0 * E_EFF * IY);
 
-    assert_close(tip.uz.abs(), delta_y, 0.02, "3D biaxial δy");
+    assert_close(tip.uy.abs(), delta_y, 0.02, "3D biaxial δy");
     assert_close(tip.uz.abs(), delta_z, 0.02, "3D biaxial δz");
 }
 
@@ -77,7 +77,7 @@ fn validation_3d_cantilever_pure_torsion() {
     assert_close(tip.rx.abs(), theta_expected, 0.02, "3D torsion θ");
 
     // No lateral displacement from pure torsion
-    assert!(tip.uz.abs() < 1e-8, "3D torsion: no uy, got {:.2e}", tip.uz);
+    assert!(tip.uy.abs() < 1e-8, "3D torsion: no uy, got {:.2e}", tip.uy);
     assert!(tip.uz.abs() < 1e-8, "3D torsion: no uz, got {:.2e}", tip.uz);
 }
 
@@ -223,7 +223,7 @@ fn validation_3d_ss_beam_parity_with_2d() {
     // Compare midspan Y deflection
     let mid = n / 2 + 1;
     let uy_2d = res_2d.displacements.iter().find(|d| d.node_id == mid).unwrap().uz;
-    let uy_3d = res_3d.displacements.iter().find(|d| d.node_id == mid).unwrap().uz;
+    let uy_3d = res_3d.displacements.iter().find(|d| d.node_id == mid).unwrap().uy;
 
     // Should be close (within 5% — 3D has more DOFs and different boundary conditions)
     if uy_2d.abs() > 1e-8 {
@@ -261,7 +261,7 @@ fn validation_3d_cantilever_weak_axis_no_coupling() {
     assert_close(tip.uz.abs(), delta_z, 0.02, "3D weak-axis δz");
 
     // No coupling to strong axis
-    assert!(tip.uz.abs() < 1e-8, "3D weak-axis: no uy coupling, got {:.2e}", tip.uz);
+    assert!(tip.uy.abs() < 1e-8, "3D weak-axis: no uy coupling, got {:.2e}", tip.uy);
 }
 
 // ═══════════════════════════════════════════════════════════════
@@ -423,10 +423,10 @@ fn validation_3d_equilibrium_all_dof() {
 
     // For a cantilever, there's only one reaction (at node 1)
     let sum_fx: f64 = results.reactions.iter().map(|r| r.fx).sum();
-    let sum_fz: f64 = results.reactions.iter().map(|r| r.fz).sum();
+    let sum_fy: f64 = results.reactions.iter().map(|r| r.fy).sum();
     let sum_fz: f64 = results.reactions.iter().map(|r| r.fz).sum();
 
     assert!((sum_fx + fx).abs() < 0.5, "3D equil ΣFx: {:.2} + {:.2}", sum_fx, fx);
-    assert!((sum_fz + fy).abs() < 0.5, "3D equil ΣFy: {:.2} + {:.2}", sum_fz, fy);
+    assert!((sum_fy + fy).abs() < 0.5, "3D equil ΣFy: {:.2} + {:.2}", sum_fy, fy);
     assert!((sum_fz + fz).abs() < 0.5, "3D equil ΣFz: {:.2} + {:.2}", sum_fz, fz);
 }

@@ -509,7 +509,7 @@ fn validation_weaver_6_grid_beam() {
     );
     let results_a = linear::solve_3d(&input_a).unwrap();
     let d_mid_a = results_a.displacements.iter()
-        .find(|d| d.node_id == mid).unwrap().uz.abs();
+        .find(|d| d.node_id == mid).unwrap().uy.abs();
 
     // --- Case B: Beam with perpendicular stub at midspan ---
     // Main beam along X, stub along Z from midspan node
@@ -575,7 +575,7 @@ fn validation_weaver_6_grid_beam() {
     let results_b = linear::solve_3d(&input_b).unwrap();
 
     let d_mid_b = results_b.displacements.iter()
-        .find(|d| d.node_id == mid).unwrap().uz.abs();
+        .find(|d| d.node_id == mid).unwrap().uy.abs();
 
     // The stub provides additional restraint, so deflection should be less
     assert!(
@@ -585,8 +585,8 @@ fn validation_weaver_6_grid_beam() {
     );
 
     // Vertical equilibrium for case B
-    let sum_fz: f64 = results_b.reactions.iter().map(|r| r.fz).sum();
-    assert_close(sum_fz, p, 0.02, "Weaver 6: sum Fy = P");
+    let sum_fy: f64 = results_b.reactions.iter().map(|r| r.fy).sum();
+    assert_close(sum_fy, p, 0.02, "Weaver 6: sum Fy = P");
 
     // Reference deflection for simply-supported beam with midspan load
     let e_eff = E * 1000.0;

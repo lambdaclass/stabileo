@@ -301,7 +301,7 @@ fn validation_superposition_3d() {
     })];
     let input_y = make_3d_beam(n, l, E, 0.3, A, IZ, IZ, 3e-4, fixed.clone(), None, loads_y);
     let tip_y = linear::solve_3d(&input_y).unwrap()
-        .displacements.iter().find(|d| d.node_id == n + 1).unwrap().uz;
+        .displacements.iter().find(|d| d.node_id == n + 1).unwrap().uy;
 
     // Z load only
     let loads_z = vec![SolverLoad3D::Nodal(SolverNodalLoad3D {
@@ -319,6 +319,6 @@ fn validation_superposition_3d() {
     let res = linear::solve_3d(&input_both).unwrap();
     let tip = res.displacements.iter().find(|d| d.node_id == n + 1).unwrap();
 
-    assert_close(tip.uz, tip_y, 0.01, "3D superposition: uy");
+    assert_close(tip.uy, tip_y, 0.01, "3D superposition: uy");
     assert_close(tip.uz, tip_z, 0.01, "3D superposition: uz");
 }

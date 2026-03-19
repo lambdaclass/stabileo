@@ -272,8 +272,8 @@ fn validation_symmetry_3d_biaxial() {
         .find(|d| d.node_id == n + 1).unwrap();
 
     // No Y deflection for Z load
-    assert!(tip_z.uz.abs() < 1e-10,
-        "Z-load: uy ≈ 0: {:.6e}", tip_z.uz);
+    assert!(tip_z.uy.abs() < 1e-10,
+        "Z-load: uy ≈ 0: {:.6e}", tip_z.uy);
 }
 
 // ================================================================

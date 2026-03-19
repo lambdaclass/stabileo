@@ -299,7 +299,7 @@ fn validation_vm12_3d_cantilever_biaxial() {
     let delta_y_expected = fy * l.powi(3) / (3.0 * E_EFF * iz);
     let delta_z_expected = fz * l.powi(3) / (3.0 * E_EFF * iy);
 
-    assert_close(tip.uz.abs(), delta_y_expected, 0.02, "VM12 δy");
+    assert_close(tip.uy.abs(), delta_y_expected, 0.02, "VM12 δy");
     assert_close(tip.uz.abs(), delta_z_expected, 0.02, "VM12 δz");
 }
 

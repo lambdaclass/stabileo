@@ -300,7 +300,7 @@ fn cable_3d_simple() {
     let mut supports = HashMap::new();
     supports.insert("1".to_string(), SolverSupport3D {
         node_id: 1,
-        rx: true, rz: true, ry: true, rrx: true, rry: true, rrz: true,
+        rx: true, ry: true, rz: true, rrx: true, rry: true, rrz: true,
         kx: None, ky: None, kz: None, krx: None, kry: None, krz: None,
         dx: None, dy: None, dz: None, drx: None, dry: None, drz: None,
         rw: None, kw: None,
@@ -308,7 +308,7 @@ fn cable_3d_simple() {
     });
     supports.insert("2".to_string(), SolverSupport3D {
         node_id: 3,
-        rx: true, rz: true, ry: true, rrx: true, rry: true, rrz: true,
+        rx: true, ry: true, rz: true, rrx: true, rry: true, rrz: true,
         kx: None, ky: None, kz: None, krx: None, kry: None, krz: None,
         dx: None, dy: None, dz: None, drx: None, dry: None, drz: None,
         rw: None, kw: None,
@@ -317,7 +317,7 @@ fn cable_3d_simple() {
     // Cables lie in the XZ plane — node 2 has zero Y-stiffness, so restrain Y
     supports.insert("3".to_string(), SolverSupport3D {
         node_id: 2,
-        rx: false, rz: true, ry: false, rrx: false, rry: false, rrz: false,
+        rx: false, ry: true, rz: false, rrx: false, rry: false, rrz: false,
         kx: None, ky: None, kz: None, krx: None, kry: None, krz: None,
         dx: None, dy: None, dz: None, drx: None, dry: None, drz: None,
         rw: None, kw: None,

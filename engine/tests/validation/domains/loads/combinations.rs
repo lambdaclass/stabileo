@@ -240,7 +240,7 @@ fn validation_comb_3d_biaxial() {
     let tip_comb = combined.displacements.iter().find(|d| d.node_id == n + 1).unwrap();
     let tip_direct = res_direct.displacements.iter().find(|d| d.node_id == n + 1).unwrap();
 
-    assert_close(tip_comb.uz, tip_direct.uz, 1e-6, "3D combo tip uy");
+    assert_close(tip_comb.uy, tip_direct.uy, 1e-6, "3D combo tip uy");
     assert_close(tip_comb.uz, tip_direct.uz, 1e-6, "3D combo tip uz");
 }
 

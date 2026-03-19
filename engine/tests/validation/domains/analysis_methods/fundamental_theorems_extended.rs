@@ -293,7 +293,7 @@ fn validation_ext_work_energy_3d_cantilever() {
     let d_tip = results.displacements.iter().find(|d| d.node_id == tip).unwrap();
 
     // External work: W = ½ P |δ_y|
-    let w_ext: f64 = 0.5 * p * d_tip.uz.abs();
+    let w_ext: f64 = 0.5 * p * d_tip.uy.abs();
 
     // Analytical strain energy: U = P²L³/(6EI)
     let u_analytical: f64 = p * p * l.powi(3) / (6.0 * e_eff * IZ);
@@ -303,7 +303,7 @@ fn validation_ext_work_energy_3d_cantilever() {
 
     // Also verify tip deflection directly
     let delta_exact: f64 = p * l.powi(3) / (3.0 * e_eff * IZ);
-    assert_close(d_tip.uz.abs(), delta_exact, 0.02,
+    assert_close(d_tip.uy.abs(), delta_exact, 0.02,
         "3D cantilever tip deflection: δ = PL³/(3EI)");
 }
 
@@ -341,7 +341,7 @@ fn validation_ext_maxwell_betti_3d_mixed_dof() {
     let res_b = linear::solve_3d(&input_b).unwrap();
 
     // Fz at node_i → rotation ry at node_j
-    let ry_a_at_j = res_a.displacements.iter().find(|d| d.node_id == node_j).unwrap().rz;
+    let ry_a_at_j = res_a.displacements.iter().find(|d| d.node_id == node_j).unwrap().ry;
     // My at node_j → displacement uz at node_i
     let uz_b_at_i = res_b.displacements.iter().find(|d| d.node_id == node_i).unwrap().uz;
 

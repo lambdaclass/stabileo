@@ -543,7 +543,7 @@ fn benchmark_contact_3d_gap_closure() {
     // Fixed at node 1
     sups_map.insert("1".to_string(), dedaliano_engine::types::SolverSupport3D {
         node_id: 1,
-        rx: true, rz: true, ry: true, rrx: true, rry: true, rrz: true,
+        rx: true, ry: true, rz: true, rrx: true, rry: true, rrz: true,
         kx: None, ky: None, kz: None,
         krx: None, kry: None, krz: None,
         dx: None, dy: None, dz: None,
@@ -554,7 +554,7 @@ fn benchmark_contact_3d_gap_closure() {
     // Fixed at node 4
     sups_map.insert("2".to_string(), dedaliano_engine::types::SolverSupport3D {
         node_id: 4,
-        rx: true, rz: true, ry: true, rrx: true, rry: true, rrz: true,
+        rx: true, ry: true, rz: true, rrx: true, rry: true, rrz: true,
         kx: None, ky: None, kz: None,
         krx: None, kry: None, krz: None,
         dx: None, dy: None, dz: None,

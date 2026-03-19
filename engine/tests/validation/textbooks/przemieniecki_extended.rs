@@ -171,7 +171,7 @@ fn validation_prz_3d_offset_loading() {
 
     // Bending: δy = Fy*L³/(3*E_eff*Iz)
     let dy_expected = fy * l.powi(3) / (3.0 * E_EFF * IZ);
-    assert_close(tip.uz.abs(), dy_expected, 0.02, "PRZ offset δy");
+    assert_close(tip.uy.abs(), dy_expected, 0.02, "PRZ offset δy");
 
     // Torsion: θx = Mx*L/(G*J)
     let theta_x_expected = mx * l / (G * J);
@@ -205,7 +205,7 @@ fn validation_prz_rotated_element() {
     );
     let res_x = linear::solve_3d(&input_x).unwrap();
     let tip_x = res_x.displacements.iter().find(|d| d.node_id == n + 1).unwrap();
-    let delta_x = tip_x.uz.abs();
+    let delta_x = tip_x.uy.abs();
 
     // Cantilever along Y: nodes at (0,0,0) to (0,L,0)
     let elem_len = l / n as f64;

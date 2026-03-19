@@ -661,8 +661,8 @@ fn bridge_ext_elastomeric_bearing_3d_pier() {
     let loads = vec![SolverLoad3D::Nodal(SolverNodalLoad3D {
         node_id: n + 1,
         fx: p_lateral,
-        fz: 0.0,
         fy: 0.0,
+        fz: 0.0,
         mx: 0.0,
         my: 0.0,
         mz: 0.0,

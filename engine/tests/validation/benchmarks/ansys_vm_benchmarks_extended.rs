@@ -536,9 +536,9 @@ fn validation_vm42_3d_cantilever_torsion() {
 
     // Pure torsion: no transverse displacement
     assert!(
-        tip.uz.abs() < 1e-8,
+        tip.uy.abs() < 1e-8,
         "VM42: tip uy should be ~0, got {:.6e}",
-        tip.uz
+        tip.uy
     );
     assert!(
         tip.uz.abs() < 1e-8,
@@ -559,9 +559,9 @@ fn validation_vm42_3d_cantilever_torsion() {
 
     // No bending reactions (pure torsion)
     assert!(
-        r_base.fz.abs() < 0.1,
+        r_base.fy.abs() < 0.1,
         "VM42: base Fy should be ~0, got {:.4}",
-        r_base.fz
+        r_base.fy
     );
     assert!(
         r_base.fz.abs() < 0.1,

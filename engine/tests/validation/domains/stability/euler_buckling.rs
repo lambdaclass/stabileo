@@ -81,8 +81,8 @@ fn make_3d_column_input(
         vec![SolverLoad3D::Nodal(SolverNodalLoad3D {
             node_id: n_elem + 1,
             fx: axial_load,
-            fz: 0.0,
             fy: 0.0,
+            fz: 0.0,
             mx: 0.0,
             my: 0.0,
             mz: 0.0, bw: None })]

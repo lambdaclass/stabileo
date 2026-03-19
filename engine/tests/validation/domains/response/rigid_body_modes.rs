@@ -368,7 +368,7 @@ fn validation_rigid_body_3d_fully_restrained_valid() {
     // Tip deflection: δ = PL³/(3EI_z) for Fy load
     let delta_exact = p * l.powi(3) / (3.0 * e_eff * IZ);
     let tip = results.displacements.iter().find(|d| d.node_id == n + 1).unwrap();
-    assert_close(tip.uz.abs(), delta_exact, 0.05,
+    assert_close(tip.uy.abs(), delta_exact, 0.05,
         "3D cantilever: δ = PL³/(3EI)");
 
     // Root node (node 1) should have zero displacements (fully fixed)
@@ -377,11 +377,11 @@ fn validation_rigid_body_3d_fully_restrained_valid() {
     assert!(root.uy.abs() < 1e-10, "Root uy=0: got {:.2e}", root.uy);
     assert!(root.uz.abs() < 1e-10, "Root uz=0: got {:.2e}", root.uz);
     assert!(root.rx.abs() < 1e-10, "Root rx=0: got {:.2e}", root.rx);
-    assert!(root.rz.abs() < 1e-10, "Root ry=0: got {:.2e}", root.rz);
-    assert!(root.ry.abs() < 1e-10, "Root rz=0: got {:.2e}", root.ry);
+    assert!(root.ry.abs() < 1e-10, "Root ry=0: got {:.2e}", root.ry);
+    assert!(root.rz.abs() < 1e-10, "Root rz=0: got {:.2e}", root.rz);
 
     // Fixed end reaction: Fy = P, Mz = -P*L
     let r_root = results.reactions.iter().find(|r| r.node_id == 1).unwrap();
-    assert_close(r_root.fz, p, 0.01, "3D cantilever: root reaction Fy = P");
-    assert_close(r_root.my.abs(), p * l, 0.02, "3D cantilever: root moment Mz = PL");
+    assert_close(r_root.fy, p, 0.01, "3D cantilever: root reaction Fy = P");
+    assert_close(r_root.mz.abs(), p * l, 0.02, "3D cantilever: root moment Mz = PL");
 }

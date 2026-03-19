@@ -657,8 +657,8 @@ fn validation_robot_3d_cantilever_biaxial() {
         vec![SolverLoad3D::Nodal(SolverNodalLoad3D {
             node_id: n + 1,
             fx: 0.0,
-            fz: fy,
-            fy: fz,
+            fy: fy,
+            fz: fz,
             mx: 0.0,
             my: 0.0,
             mz: 0.0,
@@ -677,7 +677,7 @@ fn validation_robot_3d_cantilever_biaxial() {
     // δy = Fy·L³/(3EIz)
     let delta_y_expected = fy * l.powi(3) / (3.0 * E_EFF * iz);
     assert_close(
-        tip.uz.abs(),
+        tip.uy.abs(),
         delta_y_expected,
         0.02,
         "Robot7 δy = Fy·L³/(3EIz)",
@@ -694,11 +694,11 @@ fn validation_robot_3d_cantilever_biaxial() {
 
     // Base reactions: Fy_reaction = Fy, Fz_reaction = Fz
     let r_base = results.reactions.iter().find(|r| r.node_id == 1).unwrap();
-    assert_close(r_base.fz.abs(), fy, 0.02, "Robot7 base Fy reaction");
+    assert_close(r_base.fy.abs(), fy, 0.02, "Robot7 base Fy reaction");
     assert_close(r_base.fz.abs(), fz, 0.02, "Robot7 base Fz reaction");
 
     // Base moments: Mz = Fy·L, My = Fz·L
-    assert_close(r_base.my.abs(), fy * l, 0.02, "Robot7 Mz = Fy·L");
+    assert_close(r_base.mz.abs(), fy * l, 0.02, "Robot7 Mz = Fy·L");
     assert_close(r_base.my.abs(), fz * l, 0.02, "Robot7 My = Fz·L");
 }
 

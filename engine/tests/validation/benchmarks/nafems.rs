@@ -265,7 +265,7 @@ fn validation_nafems_le5_z_section_cantilever_3d() {
 
     // Tip should deflect in Y (primary bending direction)
     let delta_y_exact = p * length.powi(3) / (3.0 * e * 1000.0 * iz);
-    assert_close(tip.uz.abs(), delta_y_exact, 0.01,
+    assert_close(tip.uy.abs(), delta_y_exact, 0.01,
         "NAFEMS LE5: tip uy matches Euler-Bernoulli");
 
     // With Iy ≠ Iz but load only in Y, there's no coupling for a principal-axis-aligned section.
@@ -274,6 +274,6 @@ fn validation_nafems_le5_z_section_cantilever_3d() {
         "NAFEMS LE5: uz should be ~0 for principal-axis loading, got {:.6e}", tip.uz);
 
     // Verify global equilibrium
-    let sum_fz: f64 = results.reactions.iter().map(|r| r.fz).sum();
-    assert!((sum_fz - p).abs() < 0.01, "NAFEMS LE5: vertical equilibrium");
+    let sum_fy: f64 = results.reactions.iter().map(|r| r.fy).sum();
+    assert!((sum_fy - p).abs() < 0.01, "NAFEMS LE5: vertical equilibrium");
 }

@@ -376,31 +376,31 @@ fn validation_mcguire_5_3d_space_frame() {
     // Tip should deflect primarily in Y (direction of load)
     let tip = results.displacements.iter().find(|d| d.node_id == 3).unwrap();
     assert!(
-        tip.uz.abs() > 1e-6,
+        tip.uy.abs() > 1e-6,
         "Beam tip should deflect in Y, uy={:.6e}", tip.uy
     );
     assert!(
-        tip.uz < 0.0,
-        "Beam tip uy should be negative (downward), got {:.6e}", tip.uz
+        tip.uy < 0.0,
+        "Beam tip uy should be negative (downward), got {:.6e}", tip.uy
     );
 
     // Joint node 2 should also deflect (column flexibility)
     let joint = results.displacements.iter().find(|d| d.node_id == 2).unwrap();
     assert!(
-        joint.uz.abs() > 1e-8,
+        joint.uy.abs() > 1e-8,
         "Joint should deflect in Y due to column bending, uy={:.6e}", joint.uy
     );
 
     // Tip deflection should be greater than joint deflection (beam adds to column)
     assert!(
-        tip.uz.abs() > joint.uz.abs(),
+        tip.uy.abs() > joint.uy.abs(),
         "Tip deflection {:.6e} should exceed joint {:.6e}",
-        tip.uz.abs(), joint.uz.abs()
+        tip.uy.abs(), joint.uy.abs()
     );
 
     // Global force equilibrium
-    let sum_fz: f64 = results.reactions.iter().map(|r| r.fz).sum();
-    assert_close(sum_fz, -fy_tip, 0.02, "3D L-frame sum_fz = -applied");
+    let sum_fy: f64 = results.reactions.iter().map(|r| r.fy).sum();
+    assert_close(sum_fy, -fy_tip, 0.02, "3D L-frame sum_fy = -applied");
 
     let sum_fx: f64 = results.reactions.iter().map(|r| r.fx).sum();
     let sum_fz: f64 = results.reactions.iter().map(|r| r.fz).sum();

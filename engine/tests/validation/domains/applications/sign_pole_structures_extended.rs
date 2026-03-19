@@ -352,8 +352,8 @@ fn antenna_mast_3d_biaxial_wind() {
     let loads = vec![SolverLoad3D::Nodal(SolverNodalLoad3D {
         node_id: tip_node,
         fx: fx_wind,
-        fz: 0.0,
-        fy: fz_wind,
+        fy: 0.0,
+        fz: fz_wind,
         mx: 0.0,
         my: 0.0,
         mz: 0.0,
