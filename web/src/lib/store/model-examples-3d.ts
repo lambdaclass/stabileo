@@ -130,8 +130,8 @@ export function load3DExample(name: string, api: ExampleAPI3D): boolean {
 
       // Cargas en nodos superiores
       for (let i = 0; i < nSpans; i++) {
-        api.addNodalLoad3D(top[2 * i], 0, -20, 0, 0, 0, 0);
-        api.addNodalLoad3D(top[2 * i + 1], 0, -20, 0, 0, 0, 0);
+        api.addNodalLoad3D(top[2 * i], 0, 0, -20, 0, 0, 0);
+        api.addNodalLoad3D(top[2 * i + 1], 0, 0, -20, 0, 0, 0);
       }
       return true;
     }
@@ -144,8 +144,8 @@ export function load3DExample(name: string, api: ExampleAPI3D): boolean {
       api.addElement(cl1, cl2, 'frame');
       // Fixed support at base
       api.addSupport(cl1, 'fixed3d');
-      // Biaxial load at tip: Fx=-100kN, Fy=-50kN, Fz=+10kN, Mx=+5kN·m
-      api.addNodalLoad3D(cl2, -100, -50, 10, 5, 0, 0);
+      // Biaxial load at tip: Fx=-100kN, Fy=+10kN, Fz=-50kN, Mx=+5kN·m
+      api.addNodalLoad3D(cl2, -100, 10, -50, 5, 0, 0);
       return true;
     }
 
@@ -177,10 +177,10 @@ export function load3DExample(name: string, api: ExampleAPI3D): boolean {
       api.addSupport(gNodes[3][0], 'pinned3d');
       api.addSupport(gNodes[3][3], 'pinned3d');
       // Loads at interior nodes
-      api.addNodalLoad3D(gNodes[1][1], 0, -20, 0, 0, 0, 0);
-      api.addNodalLoad3D(gNodes[1][2], 0, -20, 0, 0, 0, 0);
-      api.addNodalLoad3D(gNodes[2][1], 0, -20, 0, 0, 0, 0);
-      api.addNodalLoad3D(gNodes[2][2], 0, -20, 0, 0, 0, 0);
+      api.addNodalLoad3D(gNodes[1][1], 0, 0, -20, 0, 0, 0);
+      api.addNodalLoad3D(gNodes[1][2], 0, 0, -20, 0, 0, 0);
+      api.addNodalLoad3D(gNodes[2][1], 0, 0, -20, 0, 0, 0);
+      api.addNodalLoad3D(gNodes[2][2], 0, 0, -20, 0, 0, 0);
       return true;
     }
 
@@ -232,8 +232,8 @@ export function load3DExample(name: string, api: ExampleAPI3D): boolean {
       api.addNodalLoad3D(tw[2][2], 10, 0, 5, 0, 0, 0);
       api.addNodalLoad3D(tw[2][3], 10, 0, 5, 0, 0, 0);
       // Gravity on top beams
-      api.addNodalLoad3D(tw[2][0], 0, -15, 0, 0, 0, 0);
-      api.addNodalLoad3D(tw[2][2], 0, -15, 0, 0, 0, 0);
+      api.addNodalLoad3D(tw[2][0], 0, 0, -15, 0, 0, 0);
+      api.addNodalLoad3D(tw[2][2], 0, 0, -15, 0, 0, 0);
       return true;
     }
 
@@ -248,8 +248,8 @@ export function load3DExample(name: string, api: ExampleAPI3D): boolean {
       // Fixed at both ends
       api.addSupport(tb1, 'fixed3d');
       api.addSupport(tb3, 'pinned3d');
-      // Eccentric load at midspan: Fy=-20kN + Mx=8kN·m (torsion from eccentricity)
-      api.addNodalLoad3D(tb2, 0, -20, 0, 8, 0, 0);
+      // Eccentric load at midspan: Fz=-20kN + Mx=8kN·m (torsion from eccentricity)
+      api.addNodalLoad3D(tb2, 0, 0, -20, 8, 0, 0);
       return true;
     }
 
@@ -598,7 +598,7 @@ export function load3DExample(name: string, api: ExampleAPI3D): boolean {
       }
       // Peso propio carrileras (IPN500 ≈ 1.41 kN/m)
       for (const eid of [...craneRailIdsL, ...craneRailIdsR]) {
-        api.addDistributedLoad3D(eid, 0, 0, 1.41, 1.41, undefined, undefined, 1);
+        api.addDistributedLoad3D(eid, 0, 0, -1.41, -1.41, undefined, undefined, 1);
       }
 
       // ─── Lr (Sobrecarga cubierta + grúa) ───

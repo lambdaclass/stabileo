@@ -1121,12 +1121,12 @@ export function generateMatFoundation3D(store: ModelStore, p: MatFoundation3DPar
     for (let iz = 0; iz <= p.nZ; iz++) {
       nodes[iz] = [];
       for (let ix = 0; ix <= p.nX; ix++) {
-        const nid = store.addNode(ix * dx, 0, iz * dz);
+        const nid = store.addNode(ix * dx, iz * dz, 0);
         nodes[iz][ix] = nid;
         store.addSupport(nid, 'spring3d', {
           kx: p.subgradeKy * 0.08,
-          ky: p.subgradeKy,
-          kz: p.subgradeKy * 0.08,
+          ky: p.subgradeKy * 0.08,
+          kz: p.subgradeKy,
           krx: p.subgradeKy * 0.02,
           kry: p.subgradeKy * 0.02,
           krz: p.subgradeKy * 0.02,
@@ -1158,8 +1158,8 @@ export function generateMatFoundation3D(store: ModelStore, p: MatFoundation3DPar
       [p.nX - 2, p.nZ - 2, -1800],
       [Math.floor(p.nX / 2), Math.floor(p.nZ / 2), -2400],
     ];
-    for (const [ix, iz, fy] of pedestalLoads) {
-      store.addNodalLoad3D(nodes[iz][ix], 0, fy, 0, 0, 0, 0, 1);
+    for (const [ix, iz, fz] of pedestalLoads) {
+      store.addNodalLoad3D(nodes[iz][ix], 0, 0, fz, 0, 0, 0, 1);
     }
   });
 }
