@@ -637,7 +637,7 @@ export function generateSpaceFrame3D(store: ModelStore, p: SpaceFrame3DParams): 
         for (let ix = 0; ix < p.nBaysX; ix++) {
           const eid = store.addElement(nodeGrid[f][iz][ix], nodeGrid[f][iz][ix + 1], 'frame');
           if (p.q !== 0) {
-            store.addDistributedLoad3D(eid, p.q, p.q, 0, 0);
+            store.addDistributedLoad3D(eid, 0, 0, p.q, p.q);
           }
         }
       }
@@ -649,7 +649,7 @@ export function generateSpaceFrame3D(store: ModelStore, p: SpaceFrame3DParams): 
         for (let iz = 0; iz < p.nBaysY; iz++) {
           const eid = store.addElement(nodeGrid[f][iz][ix], nodeGrid[f][iz + 1][ix], 'frame');
           if (p.q !== 0) {
-            store.addDistributedLoad3D(eid, p.q, p.q, 0, 0);
+            store.addDistributedLoad3D(eid, 0, 0, p.q, p.q);
           }
         }
       }
@@ -739,7 +739,7 @@ export function generateGridBeams(store: ModelStore, p: GridBeamsParams): void {
     if (p.q !== 0) {
       for (let iz = 1; iz < p.nDivZ; iz++) {
         for (let ix = 1; ix < p.nDivX; ix++) {
-          store.addNodalLoad3D(nodes[iz][ix], 0, p.q, 0, 0, 0, 0);
+          store.addNodalLoad3D(nodes[iz][ix], 0, 0, p.q, 0, 0, 0);
         }
       }
     }
@@ -824,7 +824,7 @@ export function generateTower3D(store: ModelStore, p: Tower3DParams): void {
 
     // Gravity loads at top corners
     for (let c = 0; c < 4; c++) {
-      store.addNodalLoad3D(corners[p.nLevels][c], 0, -15, 0, 0, 0, 0);
+      store.addNodalLoad3D(corners[p.nLevels][c], 0, 0, -15, 0, 0, 0);
     }
   });
 }
@@ -868,9 +868,9 @@ export function generate3DHingedArch(store: ModelStore, p: HingedArch3DParams): 
           { id: 0, x: nI.x, y: nI.y, z: nI.z ?? 0 },
           { id: 1, x: nJ.x, y: nJ.y, z: nJ.z ?? 0 },
         );
-        // gravity = (0, p.q, 0), project onto local Y and Z
-        const qY = axes.ey[1] * p.q;
-        const qZ = axes.ez[1] * p.q;
+        // gravity = (0, 0, p.q), project onto local Y and Z
+        const qY = axes.ey[2] * p.q;
+        const qZ = axes.ez[2] * p.q;
         store.addDistributedLoad3D(eid, qY, qY, qZ, qZ);
       }
     }
@@ -1000,7 +1000,7 @@ export function generateIrregularSetbackTower3D(store: ModelStore, p: IrregularS
       }
 
       // Beams in X direction (section 2 = IPE 360)
-      // SAP2000: ey=(0,1,0) for horizontal beams, so gravity (−Y) = negative qY
+      // Z-up: gravity (−Z) = negative qZ for horizontal beams
       for (let iz = nextInset; iz <= p.baysZ - nextInset; iz++) {
         for (let ix = nextInset; ix < p.baysX - nextInset; ix++) {
           const a = nodeAt(lev + 1, ix, iz);
@@ -1008,13 +1008,13 @@ export function generateIrregularSetbackTower3D(store: ModelStore, p: IrregularS
           if (a && b) {
             const eid = store.addElement(a, b, 'frame');
             store.updateElementSection(eid, beamSecId);
-            store.addDistributedLoad3D(eid, -18, -18, 0, 0, undefined, undefined, 1);
-            store.addDistributedLoad3D(eid, -10, -10, 0, 0, undefined, undefined, 2);
+            store.addDistributedLoad3D(eid, 0, 0, -18, -18, undefined, undefined, 1);
+            store.addDistributedLoad3D(eid, 0, 0, -10, -10, undefined, undefined, 2);
           }
         }
       }
       // Beams in Z direction (section 2 = IPE 360)
-      // SAP2000: ey=(0,1,0) for horizontal beams, so gravity (−Y) = negative qY
+      // Z-up: gravity (−Z) = negative qZ for horizontal beams
       for (let ix = nextInset; ix <= p.baysX - nextInset; ix++) {
         for (let iz = nextInset; iz < p.baysZ - nextInset; iz++) {
           const a = nodeAt(lev + 1, ix, iz);
@@ -1022,8 +1022,8 @@ export function generateIrregularSetbackTower3D(store: ModelStore, p: IrregularS
           if (a && b) {
             const eid = store.addElement(a, b, 'frame');
             store.updateElementSection(eid, beamSecId);
-            store.addDistributedLoad3D(eid, -16, -16, 0, 0, undefined, undefined, 1);
-            store.addDistributedLoad3D(eid, -8, -8, 0, 0, undefined, undefined, 2);
+            store.addDistributedLoad3D(eid, 0, 0, -16, -16, undefined, undefined, 1);
+            store.addDistributedLoad3D(eid, 0, 0, -8, -8, undefined, undefined, 2);
           }
         }
       }
@@ -1245,8 +1245,8 @@ export function generatePipeRack3D(store: ModelStore, p: PipeRack3DParams): void
         store.updateElementSection(crossA, beamSecId);
         const crossB = store.addElement(frames[bay + 1][lev][0], frames[bay + 1][lev][1], 'frame');
         store.updateElementSection(crossB, beamSecId);
-        store.addDistributedLoad3D(left, -10, -10, 0, 0, undefined, undefined, 1);
-        store.addDistributedLoad3D(right, -10, -10, 0, 0, undefined, undefined, 1);
+        store.addDistributedLoad3D(left, 0, 0, -10, -10, undefined, undefined, 1);
+        store.addDistributedLoad3D(right, 0, 0, -10, -10, undefined, undefined, 1);
       }
 
       if (bay % 2 === 0) {
@@ -1339,16 +1339,16 @@ export function generateRcDesignFrame3D(store: ModelStore, p: RcDesignFrame3DPar
         for (let ix = 0; ix < p.baysX; ix++) {
           const eid = store.addElement(grid[lev][iz][ix], grid[lev][iz][ix + 1], 'frame');
           store.updateElementSection(eid, beamSecId);
-          store.addDistributedLoad3D(eid, -14, -14, 0, 0, undefined, undefined, 1);
-          store.addDistributedLoad3D(eid, -8, -8, 0, 0, undefined, undefined, 2);
+          store.addDistributedLoad3D(eid, 0, 0, -14, -14, undefined, undefined, 1);
+          store.addDistributedLoad3D(eid, 0, 0, -8, -8, undefined, undefined, 2);
         }
       }
       for (let ix = 0; ix <= p.baysX; ix++) {
         for (let iz = 0; iz < p.baysZ; iz++) {
           const eid = store.addElement(grid[lev][iz][ix], grid[lev][iz + 1][ix], 'frame');
           store.updateElementSection(eid, beamSecId);
-          store.addDistributedLoad3D(eid, -12, -12, 0, 0, undefined, undefined, 1);
-          store.addDistributedLoad3D(eid, -6, -6, 0, 0, undefined, undefined, 2);
+          store.addDistributedLoad3D(eid, 0, 0, -12, -12, undefined, undefined, 1);
+          store.addDistributedLoad3D(eid, 0, 0, -6, -6, undefined, undefined, 2);
         }
       }
     }
@@ -1572,9 +1572,9 @@ export function generateXLDiagridTower3D(store: ModelStore, p: XLDiagridTower3DP
 
     for (let i = 0; i < p.nSides; i++) {
       const topNode = perimeter[p.nLevels][i];
-      store.addNodalLoad3D(topNode, p.lateralLoad, -16, p.lateralLoad * 0.28, 0, 0, 0);
+      store.addNodalLoad3D(topNode, p.lateralLoad, p.lateralLoad * 0.28, -16, 0, 0, 0);
     }
-    store.addNodalLoad3D(crownCenter, p.lateralLoad * 0.8, -40, 0, 0, 0, 0);
+    store.addNodalLoad3D(crownCenter, p.lateralLoad * 0.8, 0, -40, 0, 0, 0);
   });
 }
 
