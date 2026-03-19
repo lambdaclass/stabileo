@@ -352,6 +352,10 @@ const de: Translations = {
   'ex.3d-nave-industrial.desc': 'Fachwerklagerhalle mit Kran und Aussteifung',
   'ex.3d-building': '5-Geschoss-Gebäude',
   'ex.3d-building.desc': 'D+L+W+E mit CIRSOC 201 Kombinationen',
+  'ex.suspensionBridge3D': 'Hängebrücke',
+  'ex.suspensionBridge3D.desc': 'Hängebrücke mit zwei Pylonen, parabolischen Kabeln, Versteifungsfachwerk und Vorlandbrücken (lineare Analyse — Seilkonstruktionen erfordern nichtlineare Analyse für realistische Ergebnisse)',
+  'ex.cableStayedBridge3D': 'Schrägseilbrücke',
+  'ex.cableStayedBridge3D.desc': 'Einpylonbrücke mit abgespannter Fahrbahn und Querträgern (lineare Analyse — Seilkonstruktionen erfordern nichtlineare Analyse für realistische Ergebnisse)',
 
   // ─── ToolbarProject.svelte ───
   'project.title': 'Projekt',

@@ -358,6 +358,10 @@ const ja: Translations = {
   'ex.3d-building.desc': 'D+L+W+E CIRSOC 201組合せ',
   'ex.pro-edificio-7p': '7層RC建物（PRO）',
   'ex.pro-edificio-7p.desc': 'エレベーター・階段付き住宅、CIRSOC 102風荷重・用途別活荷重',
+  'ex.suspensionBridge3D': '吊り橋',
+  'ex.suspensionBridge3D.desc': '双塔吊り橋、放物線ケーブル、補剛トラス、アプローチスパン付き（線形解析 — ケーブル構造は現実的な結果を得るために非線形解析が必要です）',
+  'ex.cableStayedBridge3D': '斜張橋',
+  'ex.cableStayedBridge3D.desc': '単一主塔の斜張橋、横桁付き（線形解析 — ケーブル構造は現実的な結果を得るために非線形解析が必要です）',
 
   // ─── ToolbarProject.svelte ───
   'project.title': 'プロジェクト',

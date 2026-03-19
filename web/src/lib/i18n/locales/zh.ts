@@ -353,6 +353,10 @@ const zh: Translations = {
   'ex.3d-nave-industrial.desc': '桁架式厂房含吊车梁和支撑',
   'ex.3d-building': '5层建筑',
   'ex.3d-building.desc': 'D+L+W+E CIRSOC 201 组合',
+  'ex.suspensionBridge3D': '悬索桥',
+  'ex.suspensionBridge3D.desc': '双塔悬索桥，含抛物线缆索、加劲桁架和引桥跨度（线性分析 — 缆索结构需要非线性分析才能获得真实结果）',
+  'ex.cableStayedBridge3D': '斜拉桥',
+  'ex.cableStayedBridge3D.desc': '单塔斜拉桥，含横向楼面梁（线性分析 — 缆索结构需要非线性分析才能获得真实结果）',
 
   // ─── ToolbarProject.svelte ───
   'project.title': '项目',

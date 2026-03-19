@@ -358,6 +358,10 @@ const ko: Translations = {
   'ex.3d-building.desc': 'CIRSOC 201 조합 D+L+W+E',
   'ex.pro-edificio-7p': '7층 RC 건물 (PRO)',
   'ex.pro-edificio-7p.desc': '엘리베이터, 계단이 있는 주거용, CIRSOC 102 풍하중 및 용도별 활하중',
+  'ex.suspensionBridge3D': '현수교',
+  'ex.suspensionBridge3D.desc': '포물선 케이블, 보강 트러스, 접근 경간이 있는 쌍탑 현수교 (선형 해석 — 케이블 구조물은 현실적인 결과를 위해 비선형 해석이 필요합니다)',
+  'ex.cableStayedBridge3D': '사장교',
+  'ex.cableStayedBridge3D.desc': '횡방향 바닥보가 있는 단일 주탑 사장교 (선형 해석 — 케이블 구조물은 현실적인 결과를 위해 비선형 해석이 필요합니다)',
 
   // ─── ToolbarProject.svelte ───
   'project.title': '프로젝트',

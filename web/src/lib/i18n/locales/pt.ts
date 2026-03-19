@@ -352,6 +352,10 @@ const pt: Translations = {
   'ex.3d-nave-industrial.desc': 'Galpão treliçado com ponte rolante e contraventamento',
   'ex.3d-building': 'Edifício 5 Pavimentos',
   'ex.3d-building.desc': 'D+L+W+E com combinações CIRSOC 201',
+  'ex.suspensionBridge3D': 'Ponte Pênsil',
+  'ex.suspensionBridge3D.desc': 'Ponte pênsil de duas torres com cabos parabólicos, treliça de rigidez e vãos de acesso (análise linear — estruturas com cabos requerem análise não linear para resultados realistas)',
+  'ex.cableStayedBridge3D': 'Ponte Estaiada',
+  'ex.cableStayedBridge3D.desc': 'Ponte de um pilone com tabuleiro estaiado e transversinas (análise linear — estruturas com cabos requerem análise não linear para resultados realistas)',
 
   // ─── ToolbarProject.svelte ───
   'project.title': 'Projeto',

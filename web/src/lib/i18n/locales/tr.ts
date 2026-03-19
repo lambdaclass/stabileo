@@ -352,6 +352,10 @@ const tr: Translations = {
   'ex.3d-nave-industrial.desc': 'Vinçli ve çaprazlı kafes çatılı depo',
   'ex.3d-building': '5 Katlı Bina',
   'ex.3d-building.desc': 'CIRSOC 201 kombinasyonlarıyla D+L+W+E',
+  'ex.suspensionBridge3D': 'Asma Köprü',
+  'ex.suspensionBridge3D.desc': 'Parabolik kablolu, rijitlik makaslı ve yaklaşım açıklıklı çift kuleli asma köprü (doğrusal analiz — kablolu yapılar gerçekçi sonuçlar için doğrusal olmayan analiz gerektirir)',
+  'ex.cableStayedBridge3D': 'Kablolu Köprü',
+  'ex.cableStayedBridge3D.desc': 'Gergi kablolu tabliye ve enine kirişli tek pilonlu köprü (doğrusal analiz — kablolu yapılar gerçekçi sonuçlar için doğrusal olmayan analiz gerektirir)',
 
   // ─── ToolbarProject.svelte ───
   'project.title': 'Proje',

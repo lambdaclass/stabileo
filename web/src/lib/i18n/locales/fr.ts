@@ -352,6 +352,10 @@ const fr: Translations = {
   'ex.3d-nave-industrial.desc': 'Entrepôt à treillis avec pont roulant et contreventement',
   'ex.3d-building': 'Bâtiment 5 étages',
   'ex.3d-building.desc': 'D+L+W+E avec combinaisons CIRSOC 201',
+  'ex.suspensionBridge3D': 'Pont suspendu',
+  'ex.suspensionBridge3D.desc': 'Pont suspendu à deux pylônes avec câbles paraboliques, poutre de rigidité et travées d\'accès (analyse linéaire — les structures à câbles nécessitent une analyse non linéaire pour des résultats réalistes)',
+  'ex.cableStayedBridge3D': 'Pont à haubans',
+  'ex.cableStayedBridge3D.desc': 'Pont à un pylône avec tablier haubanné et poutres transversales (analyse linéaire — les structures à câbles nécessitent une analyse non linéaire pour des résultats réalistes)',
 
   // ─── ToolbarProject.svelte ───
   'project.title': 'Projet',

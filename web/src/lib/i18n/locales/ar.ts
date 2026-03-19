@@ -358,6 +358,10 @@ const ar: Translations = {
   'ex.3d-building.desc': 'D+L+W+E مع تركيبات CIRSOC 201',
   'ex.pro-edificio-7p': 'مبنى خرساني 7 طوابق (PRO)',
   'ex.pro-edificio-7p.desc': 'سكني مع مصعد ودرج، رياح CIRSOC 102 وأحمال حية حسب الإشغال',
+  'ex.suspensionBridge3D': 'جسر معلّق',
+  'ex.suspensionBridge3D.desc': 'جسر معلّق ببرجين مع كابلات قطع مكافئ وجمالون تصليب ومداخل جانبية (تحليل خطي — المنشآت الكبلية تتطلب تحليلاً لا خطياً للحصول على نتائج واقعية)',
+  'ex.cableStayedBridge3D': 'جسر مُثبّت بالكابلات',
+  'ex.cableStayedBridge3D.desc': 'جسر بعمود واحد مع سطح مُثبّت بكابلات وكمرات عرضية (تحليل خطي — المنشآت الكبلية تتطلب تحليلاً لا خطياً للحصول على نتائج واقعية)',
 
   // ─── ToolbarProject.svelte ───
   'project.title': 'مشروع',

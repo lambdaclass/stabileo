@@ -358,6 +358,10 @@ const id: Translations = {
   'ex.3d-building.desc': 'D+L+W+E dengan kombinasi CIRSOC 201',
   'ex.pro-edificio-7p': 'Gedung Beton 7 Lantai (PRO)',
   'ex.pro-edificio-7p.desc': 'Hunian dengan lift, tangga, beban angin CIRSOC 102 & beban hidup berdasarkan hunian',
+  'ex.suspensionBridge3D': 'Jembatan Gantung',
+  'ex.suspensionBridge3D.desc': 'Jembatan gantung dua menara dengan kabel parabolik, rangka pengaku, dan bentang pendekatan (analisis linier — struktur kabel memerlukan analisis nonlinier untuk hasil yang realistis)',
+  'ex.cableStayedBridge3D': 'Jembatan Kabel',
+  'ex.cableStayedBridge3D.desc': 'Jembatan satu pilon dengan dek berkabel dan balok lantai melintang (analisis linier — struktur kabel memerlukan analisis nonlinier untuk hasil yang realistis)',
 
   // ─── ToolbarProject.svelte ───
   'project.title': 'Proyek',

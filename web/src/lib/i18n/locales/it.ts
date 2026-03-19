@@ -352,6 +352,10 @@ const it: Translations = {
   'ex.3d-nave-industrial.desc': 'Capannone reticolare con carroponte e controventi',
   'ex.3d-building': 'Edificio 5 piani',
   'ex.3d-building.desc': 'D+L+W+E con combinazioni CIRSOC 201',
+  'ex.suspensionBridge3D': 'Ponte sospeso',
+  'ex.suspensionBridge3D.desc': 'Ponte sospeso a due torri con cavi parabolici, trave irrigidente e campate di accesso (analisi lineare — le strutture a cavi richiedono un\'analisi non lineare per risultati realistici)',
+  'ex.cableStayedBridge3D': 'Ponte strallato',
+  'ex.cableStayedBridge3D.desc': 'Ponte a singolo pilone con impalcato strallato e traversi (analisi lineare — le strutture a cavi richiedono un\'analisi non lineare per risultati realistici)',
 
   // ─── ToolbarProject.svelte ───
   'project.title': 'Progetto',
