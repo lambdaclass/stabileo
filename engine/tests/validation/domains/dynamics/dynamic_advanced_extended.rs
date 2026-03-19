@@ -99,7 +99,7 @@ fn validation_dyn_adv_ext_portal_frame_sway_impulse() {
         let fx = if i < impulse_steps { f0 } else { 0.0 };
         force_history.push(TimeForceRecord {
             time: t,
-            loads: vec![SolverNodalLoad { node_id: 2, fx, fy: 0.0, mz: 0.0 }] });
+            loads: vec![SolverNodalLoad { node_id: 2, fx, fz: 0.0, my: 0.0 }] });
     }
 
     let input = make_time_input(solver, dt, n_steps, "newmark", 0.0,
@@ -163,7 +163,7 @@ fn validation_dyn_adv_ext_superposition_principle() {
             let fy = a1 * (omega_drive * t).sin() + a2 * (omega_drive * t).cos();
             fh.push(TimeForceRecord {
                 time: t,
-                loads: vec![SolverNodalLoad { node_id: tip, fx: 0.0, fy, mz: 0.0 }] });
+                loads: vec![SolverNodalLoad { node_id: tip, fx: 0.0, fz: fy, my: 0.0 }] });
         }
         fh
     };
@@ -188,13 +188,13 @@ fn validation_dyn_adv_ext_superposition_principle() {
     let hc = res_comb.node_histories.iter().find(|h| h.node_id == tip).unwrap();
 
     // Check superposition at multiple time steps
-    let check_count = n_steps.min(hc.uy.len()).min(h1.uy.len()).min(h2.uy.len());
+    let check_count = n_steps.min(hc.uz.len()).min(h1.uz.len()).min(h2.uz.len());
     let mut max_err: f64 = 0.0;
     let mut max_combined: f64 = 0.0;
 
     for i in 0..check_count {
-        let sum_uy = h1.uy[i] + h2.uy[i];
-        let combined_uy = hc.uy[i];
+        let sum_uy = h1.uz[i] + h2.uz[i];
+        let combined_uy = hc.uz[i];
         let err = (sum_uy - combined_uy).abs();
         if combined_uy.abs() > max_combined {
             max_combined = combined_uy.abs();
@@ -254,7 +254,7 @@ fn validation_dyn_adv_ext_triangular_pulse_daf() {
         };
         force_history.push(TimeForceRecord {
             time: t,
-            loads: vec![SolverNodalLoad { node_id: tip, fx: 0.0, fy, mz: 0.0 }] });
+            loads: vec![SolverNodalLoad { node_id: tip, fx: 0.0, fz: fy, my: 0.0 }] });
     }
 
     let input = make_time_input(solver.clone(), dt, n_steps, "newmark", 0.0,
@@ -264,15 +264,15 @@ fn validation_dyn_adv_ext_triangular_pulse_daf() {
     // Static deflection under peak force
     let static_input = make_beam(n, l, E, A, IZ, "fixed", None,
         vec![SolverLoad::Nodal(SolverNodalLoad {
-            node_id: tip, fx: 0.0, fy: -f0, mz: 0.0,
+            node_id: tip, fx: 0.0, fz: -f0, my: 0.0,
         })]);
     let static_res = linear::solve_2d(&static_input).unwrap();
     let u_static = static_res.displacements.iter()
-        .find(|d| d.node_id == tip).unwrap().uy.abs();
+        .find(|d| d.node_id == tip).unwrap().uz.abs();
 
     let hist = result.node_histories.iter()
         .find(|h| h.node_id == tip).unwrap();
-    let peak = hist.uy.iter().fold(0.0_f64, |a, &b| a.max(b.abs()));
+    let peak = hist.uz.iter().fold(0.0_f64, |a, &b| a.max(b.abs()));
 
     let daf = peak / u_static;
 
@@ -316,7 +316,7 @@ fn validation_dyn_adv_ext_damping_reduces_peak() {
             let fy = f0 * (0.95 * omega1 * t).sin();
             fh.push(TimeForceRecord {
                 time: t,
-                loads: vec![SolverNodalLoad { node_id: tip, fx: 0.0, fy, mz: 0.0 }] });
+                loads: vec![SolverNodalLoad { node_id: tip, fx: 0.0, fz: fy, my: 0.0 }] });
         }
         fh
     };
@@ -336,8 +336,8 @@ fn validation_dyn_adv_ext_damping_reduces_peak() {
     let hist_damped = res_damped.node_histories.iter()
         .find(|h| h.node_id == tip).unwrap();
 
-    let peak_undamped = hist_undamped.uy.iter().fold(0.0_f64, |a, &b| a.max(b.abs()));
-    let peak_damped = hist_damped.uy.iter().fold(0.0_f64, |a, &b| a.max(b.abs()));
+    let peak_undamped = hist_undamped.uz.iter().fold(0.0_f64, |a, &b| a.max(b.abs()));
+    let peak_damped = hist_damped.uz.iter().fold(0.0_f64, |a, &b| a.max(b.abs()));
 
     assert!(peak_undamped > 1e-10,
         "Undamped should have response, peak={:.6e}", peak_undamped);
@@ -446,7 +446,7 @@ fn validation_dyn_adv_ext_step_then_release() {
         let fy = if i < n_hold { -f0 } else { 0.0 };
         force_history.push(TimeForceRecord {
             time: t,
-            loads: vec![SolverNodalLoad { node_id: tip, fx: 0.0, fy, mz: 0.0 }] });
+            loads: vec![SolverNodalLoad { node_id: tip, fx: 0.0, fz: fy, my: 0.0 }] });
     }
 
     // Use moderate damping so the system reaches near-steady-state during hold
@@ -460,16 +460,16 @@ fn validation_dyn_adv_ext_step_then_release() {
     // During late hold phase, displacement should be near static value
     let static_input = make_beam(n, l, E, A, IZ, "fixed", None,
         vec![SolverLoad::Nodal(SolverNodalLoad {
-            node_id: tip, fx: 0.0, fy: -f0, mz: 0.0,
+            node_id: tip, fx: 0.0, fz: -f0, my: 0.0,
         })]);
     let static_res = linear::solve_2d(&static_input).unwrap();
     let u_static = static_res.displacements.iter()
-        .find(|d| d.node_id == tip).unwrap().uy;
+        .find(|d| d.node_id == tip).unwrap().uz;
 
     // Check that near end of hold phase, displacement is close to u_static
     let check_start = n_hold - (n_hold / 5);
-    let check_end = n_hold.min(hist.uy.len());
-    let avg_hold: f64 = hist.uy[check_start..check_end].iter().sum::<f64>()
+    let check_end = n_hold.min(hist.uz.len());
+    let avg_hold: f64 = hist.uz[check_start..check_end].iter().sum::<f64>()
         / (check_end - check_start) as f64;
 
     let hold_err = (avg_hold - u_static).abs() / u_static.abs();
@@ -478,10 +478,10 @@ fn validation_dyn_adv_ext_step_then_release() {
         avg_hold, u_static, hold_err * 100.0);
 
     // After release, the system should oscillate (not stay at u_static)
-    let free_start = n_hold.min(hist.uy.len());
-    let free_end = hist.uy.len();
+    let free_start = n_hold.min(hist.uz.len());
+    let free_end = hist.uz.len();
     if free_end > free_start + 10 {
-        let free_slice = &hist.uy[free_start..free_end];
+        let free_slice = &hist.uz[free_start..free_end];
         let max_free = free_slice.iter().fold(0.0_f64, |a, &b| a.max(b.abs()));
         let min_free = free_slice.iter().fold(f64::MAX, |a, &b| a.min(b));
         let range = max_free - min_free.abs().min(0.0);
@@ -532,13 +532,13 @@ fn validation_dyn_adv_ext_half_sine_shock_spectrum() {
             };
             fh.push(TimeForceRecord {
                 time: t,
-                loads: vec![SolverNodalLoad { node_id: tip, fx: 0.0, fy, mz: 0.0 }] });
+                loads: vec![SolverNodalLoad { node_id: tip, fx: 0.0, fz: fy, my: 0.0 }] });
         }
         let input = make_time_input(solver.clone(), dt, n_steps, "newmark", 0.0,
             Some(fh), None);
         let res = time_integration::solve_time_history_2d(&input).unwrap();
         let hist = res.node_histories.iter().find(|h| h.node_id == tip).unwrap();
-        hist.uy.iter().fold(0.0_f64, |a, &b| a.max(b.abs()))
+        hist.uz.iter().fold(0.0_f64, |a, &b| a.max(b.abs()))
     };
 
     // Impulsive regime: short pulse
@@ -567,11 +567,11 @@ fn validation_dyn_adv_ext_half_sine_shock_spectrum() {
     // Static deflection for reference
     let static_input = make_beam(n, l, E, A, IZ, "fixed", None,
         vec![SolverLoad::Nodal(SolverNodalLoad {
-            node_id: tip, fx: 0.0, fy: -f0, mz: 0.0,
+            node_id: tip, fx: 0.0, fz: -f0, my: 0.0,
         })]);
     let static_res = linear::solve_2d(&static_input).unwrap();
     let u_static = static_res.displacements.iter()
-        .find(|d| d.node_id == tip).unwrap().uy.abs();
+        .find(|d| d.node_id == tip).unwrap().uz.abs();
 
     // Long pulse DAF should be bounded by ~ 2.0 (slightly above for multi-DOF)
     let daf_long = peak_long / u_static;
@@ -616,7 +616,7 @@ fn validation_dyn_adv_ext_velocity_displacement_consistency() {
         let fy = if i < impulse_steps { -f0 } else { 0.0 };
         force_history.push(TimeForceRecord {
             time: t,
-            loads: vec![SolverNodalLoad { node_id: tip, fx: 0.0, fy, mz: 0.0 }] });
+            loads: vec![SolverNodalLoad { node_id: tip, fx: 0.0, fz: fy, my: 0.0 }] });
     }
 
     let input = make_time_input(solver, dt, n_steps, "newmark", 0.0,
@@ -628,8 +628,8 @@ fn validation_dyn_adv_ext_velocity_displacement_consistency() {
 
     // Use the free vibration portion (after impulse)
     let free_start = impulse_steps + 5;
-    let uy_free = &hist.uy[free_start..];
-    let vy_free = &hist.vy[free_start..];
+    let uy_free = &hist.uz[free_start..];
+    let vy_free = &hist.vz[free_start..];
 
     let peak_uy = uy_free.iter().fold(0.0_f64, |a, &b| a.max(b.abs()));
     let peak_vy = vy_free.iter().fold(0.0_f64, |a, &b| a.max(b.abs()));

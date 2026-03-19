@@ -88,8 +88,8 @@ fn validation_sway_antisymmetric_moments() {
     // For a symmetric portal under lateral load, the base moments
     // should be equal in magnitude. Due to the geometry being symmetric
     // about the midline, both columns deform identically.
-    let m_base_left = r1.mz.abs();
-    let m_base_right = r4.mz.abs();
+    let m_base_left = r1.my.abs();
+    let m_base_right = r4.my.abs();
 
     let ratio = m_base_left / m_base_right;
     assert!(ratio > 0.5 && ratio < 2.0,
@@ -141,7 +141,7 @@ fn validation_sway_two_bay_portal_method() {
     ];
 
     let loads = vec![SolverLoad::Nodal(SolverNodalLoad {
-        node_id: 2, fx: lateral, fy: 0.0, mz: 0.0,
+        node_id: 2, fx: lateral, fz: 0.0, my: 0.0,
     })];
 
     let input = make_input(nodes, vec![(1, E, 0.3)], vec![(1, A, IZ)], elems, sups, loads);
@@ -201,7 +201,7 @@ fn validation_sway_fixed_vs_pinned_base() {
     ];
     let sups = vec![(1, 1, "pinned"), (2, 4, "pinned")];
     let loads = vec![SolverLoad::Nodal(SolverNodalLoad {
-        node_id: 2, fx: lateral, fy: 0.0, mz: 0.0,
+        node_id: 2, fx: lateral, fz: 0.0, my: 0.0,
     })];
     let input_pinned = make_input(nodes, vec![(1, E, 0.3)], vec![(1, A, IZ)], elems, sups, loads);
     let results_pinned = linear::solve_2d(&input_pinned).unwrap();
@@ -256,14 +256,14 @@ fn validation_sway_superposition() {
         let dhg = res_hg.displacements.iter().find(|d| d.node_id == node_id).unwrap();
 
         let ux_sum = dh.ux + dg.ux;
-        let uy_sum = dh.uy + dg.uy;
-        let rz_sum = dh.rz + dg.rz;
+        let uy_sum = dh.uz + dg.uz;
+        let rz_sum = dh.ry + dg.ry;
 
         assert_close(dhg.ux, ux_sum, 0.05,
             &format!("Superposition ux at node {}", node_id));
-        assert_close(dhg.uy, uy_sum, 0.05,
+        assert_close(dhg.uz, uy_sum, 0.05,
             &format!("Superposition uy at node {}", node_id));
-        assert_close(dhg.rz, rz_sum, 0.05,
+        assert_close(dhg.ry, rz_sum, 0.05,
             &format!("Superposition rz at node {}", node_id));
     }
 }
@@ -307,8 +307,8 @@ fn validation_sway_multi_story() {
     let sups = vec![(1, 1, "fixed"), (2, 4, "fixed")];
 
     let loads = vec![
-        SolverLoad::Nodal(SolverNodalLoad { node_id: 2, fx: h1_load, fy: 0.0, mz: 0.0 }),
-        SolverLoad::Nodal(SolverNodalLoad { node_id: 5, fx: h2_load, fy: 0.0, mz: 0.0 }),
+        SolverLoad::Nodal(SolverNodalLoad { node_id: 2, fx: h1_load, fz: 0.0, my: 0.0 }),
+        SolverLoad::Nodal(SolverNodalLoad { node_id: 5, fx: h2_load, fz: 0.0, my: 0.0 }),
     ];
 
     let input = make_input(nodes, vec![(1, E, 0.3)], vec![(1, A, IZ)], elems, sups, loads);
@@ -374,7 +374,7 @@ fn validation_sway_leaning_column() {
     let sups = vec![(1, 1, "fixed"), (2, 4, "pinned")];
 
     let loads = vec![SolverLoad::Nodal(SolverNodalLoad {
-        node_id: 2, fx: lateral, fy: 0.0, mz: 0.0,
+        node_id: 2, fx: lateral, fz: 0.0, my: 0.0,
     })];
 
     let input = make_input(nodes, vec![(1, E, 0.3)], vec![(1, A, IZ)], elems, sups, loads);
@@ -425,7 +425,7 @@ fn validation_sway_equilibrium() {
     // Sum of vertical reactions should balance total gravity
     // Gravity applied at nodes 2 and 3, so total = 2 * gravity
     let total_gravity = 2.0 * gravity;
-    let sum_ry: f64 = results.reactions.iter().map(|r| r.ry).sum();
+    let sum_ry: f64 = results.reactions.iter().map(|r| r.rz).sum();
     assert_close(sum_ry, -total_gravity, 0.05, "Vertical equilibrium: sum_ry + G = 0");
 
     // Moment equilibrium about node 1:
@@ -437,8 +437,8 @@ fn validation_sway_equilibrium() {
     // Both supports should have non-trivial reactions
     assert!(r1.rx.abs() > 0.1, "Left base should have horizontal reaction");
     assert!(r4.rx.abs() > 0.1, "Right base should have horizontal reaction");
-    assert!(r1.ry.abs() > 0.1, "Left base should have vertical reaction");
-    assert!(r4.ry.abs() > 0.1, "Right base should have vertical reaction");
+    assert!(r1.rz.abs() > 0.1, "Left base should have vertical reaction");
+    assert!(r4.rz.abs() > 0.1, "Right base should have vertical reaction");
 
     // Moment equilibrium about node 1 (origin):
     // Using M = x*Fy - y*Fx for each load point:
@@ -449,8 +449,8 @@ fn validation_sway_equilibrium() {
     let applied_moment = -lateral * h + gravity * w;
     // Reaction moment about node 1:
     //   Node 1 (0,0): just mz
-    //   Node 4 (w,0): r4.ry * w + r4.mz (rx has zero arm since y=0)
-    let reaction_moment = r4.ry * w + r1.mz + r4.mz;
+    //   Node 4 (w,0): r4.rz * w + r4.my (rx has zero arm since y=0)
+    let reaction_moment = r4.rz * w + r1.my + r4.my;
     assert_close(reaction_moment, -applied_moment, 0.05,
         "Moment equilibrium about node 1");
 }

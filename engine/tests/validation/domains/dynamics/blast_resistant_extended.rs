@@ -54,7 +54,7 @@ fn blast_friedlander_equivalent_static_load() {
     let input = make_beam(
         n, l, e, a, iz, "pinned", Some("rollerX"),
         vec![SolverLoad::Nodal(SolverNodalLoad {
-            node_id: mid_node, fx: 0.0, fy: -f_eq, mz: 0.0,
+            node_id: mid_node, fx: 0.0, fz: -f_eq, my: 0.0,
         })],
     );
     let results = solve_2d(&input).expect("solve");
@@ -66,7 +66,7 @@ fn blast_friedlander_equivalent_static_load() {
     let e_eff: f64 = e * 1000.0;
     let delta_exact: f64 = f_eq * l.powi(3) / (48.0 * e_eff * iz);
 
-    assert_close(mid_disp.uy.abs(), delta_exact, 0.05, "Friedlander equiv static deflection");
+    assert_close(mid_disp.uz.abs(), delta_exact, 0.05, "Friedlander equiv static deflection");
 
     // Verify impulse is positive and less than triangular approximation
     let i_tri: f64 = 0.5 * p_so * td;
@@ -112,7 +112,7 @@ fn blast_sdof_step_load_dlf() {
     let e_eff: f64 = e * 1000.0;
     let delta_st: f64 = 5.0 * q.abs() * l.powi(4) / (384.0 * e_eff * iz);
 
-    assert_close(mid_disp.uy.abs(), delta_st, 0.05, "SS beam UDL static deflection");
+    assert_close(mid_disp.uz.abs(), delta_st, 0.05, "SS beam UDL static deflection");
 
     // SDOF equivalent stiffness: K_eq = 384*EI / (5*L^3)
     let k_eq: f64 = 384.0 * e_eff * iz / (5.0 * l.powi(3));
@@ -239,7 +239,7 @@ fn blast_triangular_pulse_dlf() {
 
     let mid_node = n / 2 + 1;
     let delta_static: f64 = results.displacements.iter()
-        .find(|d| d.node_id == mid_node).unwrap().uy.abs();
+        .find(|d| d.node_id == mid_node).unwrap().uz.abs();
 
     // Analytical: delta = qL^4 / (384*EI) for fixed-fixed
     let e_eff: f64 = e * 1000.0;
@@ -332,7 +332,7 @@ fn blast_impulse_to_equivalent_static() {
     let input = make_beam(
         n, l, e, a, iz, "pinned", Some("rollerX"),
         vec![SolverLoad::Nodal(SolverNodalLoad {
-            node_id: mid_node, fx: 0.0, fy: -f_equiv, mz: 0.0,
+            node_id: mid_node, fx: 0.0, fz: -f_equiv, my: 0.0,
         })],
     );
     let results = solve_2d(&input).expect("solve");
@@ -341,7 +341,7 @@ fn blast_impulse_to_equivalent_static() {
         .find(|d| d.node_id == mid_node).unwrap();
 
     // The solver deflection should match delta_max_impulse
-    assert_close(mid_disp.uy.abs(), delta_max_impulse, 0.05,
+    assert_close(mid_disp.uz.abs(), delta_max_impulse, 0.05,
         "Impulse-equivalent static deflection");
 
     // Also verify: F_equiv = I * omega (alternative formula)
@@ -421,7 +421,7 @@ fn blast_column_lateral_deformation() {
 
     // Base reactions
     let base_shear: f64 = results.reactions[0].rx.abs();
-    let base_moment: f64 = results.reactions[0].mz.abs();
+    let base_moment: f64 = results.reactions[0].my.abs();
 
     // Shear = q * H
     let v_exact: f64 = q_lat * h;
@@ -484,19 +484,19 @@ fn blast_required_section_resistance() {
         .find(|d| d.node_id == mid_node).unwrap();
 
     // Deflection should be less than allowable (since Iz_provided > Iz_required)
-    assert!(mid_disp.uy.abs() < delta_allow,
-        "Deflection {:.6} < allowable {:.6} m", mid_disp.uy.abs(), delta_allow);
+    assert!(mid_disp.uz.abs() < delta_allow,
+        "Deflection {:.6} < allowable {:.6} m", mid_disp.uz.abs(), delta_allow);
 
     // Verify midspan moment matches q*L^2/8
     let m_max_exact: f64 = q_blast * l * l / 8.0;
 
     // Check reactions: each support carries half the total load
     let total_load: f64 = q_blast * l;
-    let sum_ry: f64 = results.reactions.iter().map(|r| r.ry).sum::<f64>();
+    let sum_ry: f64 = results.reactions.iter().map(|r| r.rz).sum::<f64>();
     assert_close(sum_ry, total_load, 0.02, "Total reaction = q*L");
 
     // Verify the Iz sizing logic: delta_actual / delta_allow ≈ Iz_req / Iz_provided
-    let delta_actual: f64 = mid_disp.uy.abs();
+    let delta_actual: f64 = mid_disp.uz.abs();
     let delta_ratio: f64 = delta_actual / delta_allow;
     let iz_ratio: f64 = iz_required / iz_provided;
     assert_close(delta_ratio, iz_ratio, 0.05, "Deflection scales inversely with Iz");

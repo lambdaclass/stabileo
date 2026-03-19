@@ -107,13 +107,13 @@ fn validation_span_ratio_short_span_stiffer() {
     // Find max deflection in short span (nodes 1 to n_per_span+1)
     let max_defl_short = results.displacements.iter()
         .filter(|d| d.node_id >= 1 && d.node_id <= n_per_span + 1)
-        .map(|d| d.uy.abs())
+        .map(|d| d.uz.abs())
         .fold(0.0_f64, f64::max);
 
     // Find max deflection in long span (nodes n_per_span+1 to 2*n_per_span+1)
     let max_defl_long = results.displacements.iter()
         .filter(|d| d.node_id >= n_per_span + 1 && d.node_id <= 2 * n_per_span + 1)
-        .map(|d| d.uy.abs())
+        .map(|d| d.uz.abs())
         .fold(0.0_f64, f64::max);
 
     assert!(
@@ -318,9 +318,9 @@ fn validation_span_ratio_reaction_distribution() {
     let input_eq = make_continuous_beam(&[l_eq, l_eq], n_per_span, E, A, IZ, loads_eq);
     let res_eq = linear::solve_2d(&input_eq).unwrap();
 
-    let r_a_eq = res_eq.reactions.iter().find(|r| r.node_id == 1).unwrap().ry;
+    let r_a_eq = res_eq.reactions.iter().find(|r| r.node_id == 1).unwrap().rz;
     let r_c_eq = res_eq.reactions.iter()
-        .find(|r| r.node_id == 2 * n_per_span + 1).unwrap().ry;
+        .find(|r| r.node_id == 2 * n_per_span + 1).unwrap().rz;
 
     // Symmetric: R_A = R_C
     assert_close(r_a_eq, r_c_eq, 0.02, "equal spans R_A = R_C");
@@ -340,9 +340,9 @@ fn validation_span_ratio_reaction_distribution() {
     let input_uneq = make_continuous_beam(&[l1, l2], n_per_span, E, A, IZ, loads_uneq);
     let res_uneq = linear::solve_2d(&input_uneq).unwrap();
 
-    let r_a_uneq = res_uneq.reactions.iter().find(|r| r.node_id == 1).unwrap().ry;
+    let r_a_uneq = res_uneq.reactions.iter().find(|r| r.node_id == 1).unwrap().rz;
     let r_c_uneq = res_uneq.reactions.iter()
-        .find(|r| r.node_id == 2 * n_per_span + 1).unwrap().ry;
+        .find(|r| r.node_id == 2 * n_per_span + 1).unwrap().rz;
 
     // Asymmetric: R_A != R_C
     let asymmetry = (r_a_uneq - r_c_uneq).abs();
@@ -363,7 +363,7 @@ fn validation_span_ratio_reaction_distribution() {
     assert_close(r_c_uneq, expected_r_c, 0.03, "unequal R_C");
 
     // Equilibrium: sum of reactions = total load
-    let sum_ry: f64 = res_uneq.reactions.iter().map(|r| r.ry).sum();
+    let sum_ry: f64 = res_uneq.reactions.iter().map(|r| r.rz).sum();
     assert_close(sum_ry, q * (l1 + l2), 0.02, "unequal spans equilibrium");
 }
 
@@ -434,9 +434,9 @@ fn validation_span_ratio_cantilever_overhang() {
     // at the right support is larger, which lifts the midspan upward, reducing
     // downward deflection. So longer overhang => smaller midspan deflection.
     let defl_mid_short = res_short.displacements.iter()
-        .find(|d| d.node_id == mid_node).unwrap().uy;
+        .find(|d| d.node_id == mid_node).unwrap().uz;
     let defl_mid_long = res_long.displacements.iter()
-        .find(|d| d.node_id == mid_node).unwrap().uy;
+        .find(|d| d.node_id == mid_node).unwrap().uz;
 
     // Both deflect downward (negative uy) at midspan
     // Longer overhang should reduce the downward deflection magnitude
@@ -462,10 +462,10 @@ fn validation_span_ratio_cantilever_overhang() {
     );
 
     // Verify equilibrium for both cases
-    let sum_ry_short: f64 = res_short.reactions.iter().map(|r| r.ry).sum();
+    let sum_ry_short: f64 = res_short.reactions.iter().map(|r| r.rz).sum();
     assert_close(sum_ry_short, q * (l + overhang_short), 0.02, "overhang short equilibrium");
 
-    let sum_ry_long: f64 = res_long.reactions.iter().map(|r| r.ry).sum();
+    let sum_ry_long: f64 = res_long.reactions.iter().map(|r| r.rz).sum();
     assert_close(sum_ry_long, q * (l + overhang_long), 0.02, "overhang long equilibrium");
 }
 
@@ -512,9 +512,9 @@ fn validation_span_ratio_slenderness_deflection() {
 
     let mid = n / 2 + 1;
     let defl_stiff = res_a.displacements.iter()
-        .find(|d| d.node_id == mid).unwrap().uy.abs();
+        .find(|d| d.node_id == mid).unwrap().uz.abs();
     let defl_slender = res_b.displacements.iter()
-        .find(|d| d.node_id == mid).unwrap().uy.abs();
+        .find(|d| d.node_id == mid).unwrap().uz.abs();
 
     // Slender beam should deflect more
     assert!(

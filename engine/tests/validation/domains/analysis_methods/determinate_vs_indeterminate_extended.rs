@@ -38,8 +38,8 @@ fn validation_ext_ss_beam_midspan_moment_pl_over_4() {
         vec![SolverLoad::Nodal(SolverNodalLoad {
             node_id: mid_node,
             fx: 0.0,
-            fy: -p,
-            mz: 0.0,
+            fz: -p,
+            my: 0.0,
         })],
     );
     let results = linear::solve_2d(&input).unwrap();
@@ -61,8 +61,8 @@ fn validation_ext_ss_beam_midspan_moment_pl_over_4() {
         vec![SolverLoad::Nodal(SolverNodalLoad {
             node_id: mid_node,
             fx: 0.0,
-            fy: -p,
-            mz: 0.0,
+            fz: -p,
+            my: 0.0,
         })],
     );
     let res2 = linear::solve_2d(&input2).unwrap();
@@ -92,8 +92,8 @@ fn validation_ext_fixed_fixed_midspan_moment_pl_over_8() {
         vec![SolverLoad::Nodal(SolverNodalLoad {
             node_id: mid_node,
             fx: 0.0,
-            fy: -p,
-            mz: 0.0,
+            fz: -p,
+            my: 0.0,
         })],
     );
     let results = linear::solve_2d(&input).unwrap();
@@ -111,8 +111,8 @@ fn validation_ext_fixed_fixed_midspan_moment_pl_over_8() {
     // Fixed-end moments: M_A = M_B = PL/8 (same magnitude)
     let r_a = results.reactions.iter().find(|r| r.node_id == 1).unwrap();
     let r_b = results.reactions.iter().find(|r| r.node_id == n + 1).unwrap();
-    assert_close(r_a.mz.abs(), p * l / 8.0, 0.03, "FF end moment A = PL/8");
-    assert_close(r_b.mz.abs(), p * l / 8.0, 0.03, "FF end moment B = PL/8");
+    assert_close(r_a.my.abs(), p * l / 8.0, 0.03, "FF end moment A = PL/8");
+    assert_close(r_b.my.abs(), p * l / 8.0, 0.03, "FF end moment B = PL/8");
 }
 
 // ═══════════════════════════════════════════════════════════════
@@ -153,7 +153,7 @@ fn validation_ext_three_span_continuous_interior_reactions() {
     let total_load = q * 3.0 * l_span;
 
     // Equilibrium check
-    let sum_ry: f64 = results.reactions.iter().map(|r| r.ry).sum();
+    let sum_ry: f64 = results.reactions.iter().map(|r| r.rz).sum();
     assert_close(sum_ry, total_load, 0.02, "3-span equilibrium");
 
     // Interior support nodes: node n_per_span+1 and node 2*n_per_span+1
@@ -164,14 +164,14 @@ fn validation_ext_three_span_continuous_interior_reactions() {
     let r_int2 = results.reactions.iter().find(|r| r.node_id == interior_node_2).unwrap();
 
     // For a symmetric 3-span beam, the two interior reactions are equal
-    assert_close(r_int1.ry, r_int2.ry, 0.03, "symmetric interior reactions");
+    assert_close(r_int1.rz, r_int2.rz, 0.03, "symmetric interior reactions");
 
     // Interior reactions should exceed the simple-beam value wL per span
     let simple_reaction = q * l_span;
     assert!(
-        r_int1.ry > simple_reaction,
+        r_int1.rz > simple_reaction,
         "Interior reaction ({:.2}) should exceed wL ({:.2})",
-        r_int1.ry, simple_reaction
+        r_int1.rz, simple_reaction
     );
 
     // Exterior reactions should be less than wL/2
@@ -181,11 +181,11 @@ fn validation_ext_three_span_continuous_interior_reactions() {
         .unwrap();
     let half_simple = q * l_span / 2.0;
     assert!(
-        r_ext_a.ry < half_simple,
+        r_ext_a.rz < half_simple,
         "Exterior reaction ({:.2}) should be less than wL/2 ({:.2})",
-        r_ext_a.ry, half_simple
+        r_ext_a.rz, half_simple
     );
-    assert_close(r_ext_a.ry, r_ext_b.ry, 0.03, "symmetric exterior reactions");
+    assert_close(r_ext_a.rz, r_ext_b.rz, 0.03, "symmetric exterior reactions");
 }
 
 // ═══════════════════════════════════════════════════════════════
@@ -212,8 +212,8 @@ fn validation_ext_betti_reciprocal_theorem_indeterminate() {
         vec![SolverLoad::Nodal(SolverNodalLoad {
             node_id: node_a,
             fx: 0.0,
-            fy: -p1,
-            mz: 0.0,
+            fz: -p1,
+            my: 0.0,
         })],
     );
     let res1 = linear::solve_2d(&input1).unwrap();
@@ -224,8 +224,8 @@ fn validation_ext_betti_reciprocal_theorem_indeterminate() {
         vec![SolverLoad::Nodal(SolverNodalLoad {
             node_id: node_b,
             fx: 0.0,
-            fy: -p2,
-            mz: 0.0,
+            fz: -p2,
+            my: 0.0,
         })],
     );
     let res2 = linear::solve_2d(&input2).unwrap();
@@ -240,8 +240,8 @@ fn validation_ext_betti_reciprocal_theorem_indeterminate() {
         .find(|d| d.node_id == node_b)
         .unwrap();
 
-    let work_1_through_2 = p1 * d_a_from_2.uy.abs();
-    let work_2_through_1 = p2 * d_b_from_1.uy.abs();
+    let work_1_through_2 = p1 * d_a_from_2.uz.abs();
+    let work_2_through_1 = p2 * d_b_from_1.uz.abs();
 
     assert_close(
         work_1_through_2,
@@ -284,14 +284,14 @@ fn validation_ext_symmetric_indeterminate_response() {
     let r_b = results.reactions.iter().find(|r| r.node_id == n + 1).unwrap();
 
     // Symmetric reactions
-    assert_close(r_a.ry, r_b.ry, 0.02, "symmetric Ry");
-    assert_close(r_a.ry, q * l / 2.0, 0.02, "R_A = qL/2");
+    assert_close(r_a.rz, r_b.rz, 0.02, "symmetric Ry");
+    assert_close(r_a.rz, q * l / 2.0, 0.02, "R_A = qL/2");
 
     // Fixed-end moments equal in magnitude (opposite sign due to convention)
-    assert_close(r_a.mz.abs(), r_b.mz.abs(), 0.02, "symmetric |Mz|");
+    assert_close(r_a.my.abs(), r_b.my.abs(), 0.02, "symmetric |Mz|");
 
     // Analytical: M_fixed = qL^2/12 for UDL on fixed-fixed beam
-    assert_close(r_a.mz.abs(), q * l * l / 12.0, 0.03, "M_fixed = qL^2/12");
+    assert_close(r_a.my.abs(), q * l * l / 12.0, 0.03, "M_fixed = qL^2/12");
 
     // Symmetric displacements: uy at node i equals uy at node (n+2-i)
     for i in 1..=(n / 2) {
@@ -302,7 +302,7 @@ fn validation_ext_symmetric_indeterminate_response() {
             .find(|d| d.node_id == n + 2 - i)
             .unwrap();
         assert_close(
-            d_left.uy, d_right.uy, 0.02,
+            d_left.uz, d_right.uz, 0.02,
             &format!("symmetric uy nodes {} and {}", i, n + 2 - i),
         );
     }
@@ -314,9 +314,9 @@ fn validation_ext_symmetric_indeterminate_response() {
         .unwrap();
     for d in &results.displacements {
         assert!(
-            d_mid.uy.abs() >= d.uy.abs() - 1e-10,
+            d_mid.uz.abs() >= d.uz.abs() - 1e-10,
             "Midspan should have max deflection: mid={:.6}, node {}={:.6}",
-            d_mid.uy.abs(), d.node_id, d.uy.abs()
+            d_mid.uz.abs(), d.node_id, d.uz.abs()
         );
     }
 }
@@ -344,7 +344,7 @@ fn validation_ext_portal_frame_lateral_load_sharing() {
     assert_close(sum_rx, -f_lat, 0.02, "portal Fx equilibrium");
 
     // Vertical equilibrium: no vertical loads applied
-    let sum_ry: f64 = results.reactions.iter().map(|r| r.ry).sum();
+    let sum_ry: f64 = results.reactions.iter().map(|r| r.rz).sum();
     assert_close(sum_ry.abs(), 0.0, 0.02, "portal Fy equilibrium (no gravity)");
 
     // Both bases should resist horizontal force (both have Rx != 0)
@@ -362,19 +362,19 @@ fn validation_ext_portal_frame_lateral_load_sharing() {
 
     // Both bases have nonzero moments (indeterminate)
     assert!(
-        r_base1.mz.abs() > 1.0,
-        "Base 1 should have moment reaction: Mz={:.4}", r_base1.mz
+        r_base1.my.abs() > 1.0,
+        "Base 1 should have moment reaction: Mz={:.4}", r_base1.my
     );
     assert!(
-        r_base2.mz.abs() > 1.0,
-        "Base 2 should have moment reaction: Mz={:.4}", r_base2.mz
+        r_base2.my.abs() > 1.0,
+        "Base 2 should have moment reaction: Mz={:.4}", r_base2.my
     );
 
     // Vertical reactions form a couple to resist overturning moment
     // R1_y * w + moments = F_lat * h
     // The two vertical reactions should be equal and opposite
     assert_close(
-        r_base1.ry, -r_base2.ry, 0.02,
+        r_base1.rz, -r_base2.rz, 0.02,
         "portal vertical couple",
     );
 }
@@ -399,8 +399,8 @@ fn validation_ext_cantilever_tip_deflection_analytical() {
         vec![SolverLoad::Nodal(SolverNodalLoad {
             node_id: n + 1,
             fx: 0.0,
-            fy: -p,
-            mz: 0.0,
+            fz: -p,
+            my: 0.0,
         })],
     );
     let res1 = linear::solve_2d(&input1).unwrap();
@@ -412,7 +412,7 @@ fn validation_ext_cantilever_tip_deflection_analytical() {
         .find(|d| d.node_id == n + 1)
         .unwrap();
     assert_close(
-        d_tip1.uy.abs(), expected_defl, 0.02,
+        d_tip1.uz.abs(), expected_defl, 0.02,
         "cantilever tip deflection = PL^3/(3EI)",
     );
 
@@ -422,8 +422,8 @@ fn validation_ext_cantilever_tip_deflection_analytical() {
         vec![SolverLoad::Nodal(SolverNodalLoad {
             node_id: n + 1,
             fx: 0.0,
-            fy: -p,
-            mz: 0.0,
+            fz: -p,
+            my: 0.0,
         })],
     );
     let res2 = linear::solve_2d(&input2).unwrap();
@@ -434,15 +434,15 @@ fn validation_ext_cantilever_tip_deflection_analytical() {
 
     // Deflection should halve when Iz doubles (determinate: reactions unchanged)
     assert_close(
-        d_tip2.uy.abs(), d_tip1.uy.abs() / 2.0, 0.02,
+        d_tip2.uz.abs(), d_tip1.uz.abs() / 2.0, 0.02,
         "doubling Iz halves cantilever deflection",
     );
 
     // Reactions unchanged (determinate)
     let r1 = res1.reactions.iter().find(|r| r.node_id == 1).unwrap();
     let r2 = res2.reactions.iter().find(|r| r.node_id == 1).unwrap();
-    assert_close(r1.ry, r2.ry, 0.02, "cantilever Ry unchanged with 2*Iz");
-    assert_close(r1.mz, r2.mz, 0.02, "cantilever Mz unchanged with 2*Iz");
+    assert_close(r1.rz, r2.rz, 0.02, "cantilever Ry unchanged with 2*Iz");
+    assert_close(r1.my, r2.my, 0.02, "cantilever Mz unchanged with 2*Iz");
 }
 
 // ═══════════════════════════════════════════════════════════════
@@ -512,7 +512,7 @@ fn validation_ext_fixed_vs_ss_midspan_moment_ratio_udl() {
     // Fixed-end moment should be qL^2/12
     let r_a = res_ff.reactions.iter().find(|r| r.node_id == 1).unwrap();
     assert_close(
-        r_a.mz.abs(), q * l * l / 12.0, 0.03,
+        r_a.my.abs(), q * l * l / 12.0, 0.03,
         "FF end moment = qL^2/12",
     );
 }

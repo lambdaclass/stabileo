@@ -108,7 +108,7 @@ fn plastic_simply_supported_beam() {
         vec![(1, "frame", 1, 2, 1, 1, false, false)],
         vec![(1, 1, "pinned"), (2, 2, "rollerX")],
         vec![SolverLoad::PointOnElement(SolverPointLoadOnElement {
-            element_id: 1, a: l / 2.0, p: -1.0, px: None, mz: None, // Unit load
+            element_id: 1, a: l / 2.0, p: -1.0, px: None, my: None, // Unit load
         })],
     );
 

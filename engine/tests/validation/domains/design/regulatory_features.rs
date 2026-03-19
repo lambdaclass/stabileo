@@ -53,9 +53,9 @@ fn validation_partial_distributed_load() {
     // Partial load should give less deflection than full load
     let mid = n / 2 + 1;
     let d_full_mid = res_full.displacements.iter()
-        .find(|d| d.node_id == mid).unwrap().uy.abs();
+        .find(|d| d.node_id == mid).unwrap().uz.abs();
     let d_half_mid = res_half.displacements.iter()
-        .find(|d| d.node_id == mid).unwrap().uy.abs();
+        .find(|d| d.node_id == mid).unwrap().uz.abs();
 
     assert!(
         d_half_mid < d_full_mid,
@@ -65,7 +65,7 @@ fn validation_partial_distributed_load() {
 
     // Equilibrium check: reactions should equal total applied load
     let total_load_half = q.abs() * length / 2.0;
-    let sum_ry: f64 = res_half.reactions.iter().map(|r| r.ry).sum();
+    let sum_ry: f64 = res_half.reactions.iter().map(|r| r.rz).sum();
     assert_close(sum_ry, total_load_half, 0.02, "Partial load: ΣRy = qL/2");
 }
 
@@ -102,9 +102,9 @@ fn validation_partial_load_ab_parameters() {
     // Partial load should produce smaller deflections
     let mid = n / 2 + 1;
     let d_full = res_full.displacements.iter()
-        .find(|d| d.node_id == mid).unwrap().uy.abs();
+        .find(|d| d.node_id == mid).unwrap().uz.abs();
     let d_part = res_partial.displacements.iter()
-        .find(|d| d.node_id == mid).unwrap().uy.abs();
+        .find(|d| d.node_id == mid).unwrap().uz.abs();
 
     assert!(
         d_part <= d_full * 1.01,
@@ -113,8 +113,8 @@ fn validation_partial_load_ab_parameters() {
     );
 
     // Both should produce valid equilibrium
-    let sum_ry_full: f64 = res_full.reactions.iter().map(|r| r.ry).sum();
-    let sum_ry_part: f64 = res_partial.reactions.iter().map(|r| r.ry).sum();
+    let sum_ry_full: f64 = res_full.reactions.iter().map(|r| r.rz).sum();
+    let sum_ry_part: f64 = res_partial.reactions.iter().map(|r| r.rz).sum();
     assert!(sum_ry_full > 0.0, "Full load reactions should be positive");
     assert!(sum_ry_part > 0.0, "Partial load reactions should be positive");
 }
@@ -150,7 +150,7 @@ fn validation_prescribed_displacement_settlement() {
     // Modify the middle support to have prescribed displacement
     let mut input_with_settlement = input.clone();
     if let Some(sup) = input_with_settlement.supports.get_mut("2") {
-        sup.dy = Some(settlement);
+        sup.dz = Some(settlement);
     }
 
     let results = linear::solve_2d(&input_with_settlement).unwrap();
@@ -167,7 +167,7 @@ fn validation_prescribed_displacement_settlement() {
 
     if let Some(d) = d_mid {
         assert_close(
-            d.uy, settlement, 0.05,
+            d.uz, settlement, 0.05,
             "Prescribed displacement: uy at support should match settlement",
         );
     }
@@ -191,7 +191,7 @@ fn validation_prescribed_rotation() {
     // Prescribe rotation at right support
     for sup in input.supports.values_mut() {
         if sup.node_id == n + 1 {
-            sup.drz = Some(theta);
+            sup.dry = Some(theta);
         }
     }
 
@@ -200,13 +200,13 @@ fn validation_prescribed_rotation() {
     // Should produce reactions (non-zero moments)
     let r_end = results.reactions.iter().find(|r| r.node_id == n + 1);
     if let Some(r) = r_end {
-        assert!(r.mz.abs() > 1e-10, "Prescribed rotation should produce moment reaction");
+        assert!(r.my.abs() > 1e-10, "Prescribed rotation should produce moment reaction");
     }
 
     // Net moment should account for couples from vertical reactions
     // Just check it's bounded
     assert!(
-        results.reactions.iter().all(|r| r.ry.abs() < 1e10),
+        results.reactions.iter().all(|r| r.rz.abs() < 1e10),
         "Reactions should be finite"
     );
 }
@@ -249,9 +249,9 @@ fn validation_inter_story_drift() {
         ],
         vec![(1, 1, "fixed"), (2, 2, "fixed")],
         vec![
-            SolverLoad::Nodal(SolverNodalLoad { node_id: 3, fx: 10.0, fy: 0.0, mz: 0.0 }),
-            SolverLoad::Nodal(SolverNodalLoad { node_id: 5, fx: 10.0, fy: 0.0, mz: 0.0 }),
-            SolverLoad::Nodal(SolverNodalLoad { node_id: 7, fx: 10.0, fy: 0.0, mz: 0.0 }),
+            SolverLoad::Nodal(SolverNodalLoad { node_id: 3, fx: 10.0, fz: 0.0, my: 0.0 }),
+            SolverLoad::Nodal(SolverNodalLoad { node_id: 5, fx: 10.0, fz: 0.0, my: 0.0 }),
+            SolverLoad::Nodal(SolverNodalLoad { node_id: 7, fx: 10.0, fz: 0.0, my: 0.0 }),
         ],
     );
 
@@ -360,7 +360,7 @@ fn validation_superposition_principle() {
     let input1 = make_beam(
         n, length, E, A, IZ, "pinned", Some("rollerX"),
         vec![SolverLoad::Nodal(SolverNodalLoad {
-            node_id: node_a, fx: 0.0, fy: p1, mz: 0.0,
+            node_id: node_a, fx: 0.0, fz: p1, my: 0.0,
         })],
     );
 
@@ -369,7 +369,7 @@ fn validation_superposition_principle() {
     let input2 = make_beam(
         n, length, E, A, IZ, "pinned", Some("rollerX"),
         vec![SolverLoad::Nodal(SolverNodalLoad {
-            node_id: node_b, fx: 0.0, fy: p2, mz: 0.0,
+            node_id: node_b, fx: 0.0, fz: p2, my: 0.0,
         })],
     );
 
@@ -378,10 +378,10 @@ fn validation_superposition_principle() {
         n, length, E, A, IZ, "pinned", Some("rollerX"),
         vec![
             SolverLoad::Nodal(SolverNodalLoad {
-                node_id: node_a, fx: 0.0, fy: p1, mz: 0.0,
+                node_id: node_a, fx: 0.0, fz: p1, my: 0.0,
             }),
             SolverLoad::Nodal(SolverNodalLoad {
-                node_id: node_b, fx: 0.0, fy: p2, mz: 0.0,
+                node_id: node_b, fx: 0.0, fz: p2, my: 0.0,
             }),
         ],
     );
@@ -392,9 +392,9 @@ fn validation_superposition_principle() {
 
     // Check superposition at midspan
     let mid = n / 2 + 1;
-    let uy1 = res1.displacements.iter().find(|d| d.node_id == mid).unwrap().uy;
-    let uy2 = res2.displacements.iter().find(|d| d.node_id == mid).unwrap().uy;
-    let uy_combo = res_combo.displacements.iter().find(|d| d.node_id == mid).unwrap().uy;
+    let uy1 = res1.displacements.iter().find(|d| d.node_id == mid).unwrap().uz;
+    let uy2 = res2.displacements.iter().find(|d| d.node_id == mid).unwrap().uz;
+    let uy_combo = res_combo.displacements.iter().find(|d| d.node_id == mid).unwrap().uz;
 
     let uy_super = uy1 + uy2;
     assert_close(
@@ -418,13 +418,13 @@ fn validation_load_scaling_linearity() {
     let input1 = make_beam(
         n, length, E, A, IZ, "fixed", None,
         vec![SolverLoad::Nodal(SolverNodalLoad {
-            node_id: n + 1, fx: 0.0, fy: p, mz: 0.0,
+            node_id: n + 1, fx: 0.0, fz: p, my: 0.0,
         })],
     );
     let input2 = make_beam(
         n, length, E, A, IZ, "fixed", None,
         vec![SolverLoad::Nodal(SolverNodalLoad {
-            node_id: n + 1, fx: 0.0, fy: 2.0 * p, mz: 0.0,
+            node_id: n + 1, fx: 0.0, fz: 2.0 * p, my: 0.0,
         })],
     );
 
@@ -432,8 +432,8 @@ fn validation_load_scaling_linearity() {
     let res2 = linear::solve_2d(&input2).unwrap();
 
     let tip = n + 1;
-    let uy1 = res1.displacements.iter().find(|d| d.node_id == tip).unwrap().uy;
-    let uy2 = res2.displacements.iter().find(|d| d.node_id == tip).unwrap().uy;
+    let uy1 = res1.displacements.iter().find(|d| d.node_id == tip).unwrap().uz;
+    let uy2 = res2.displacements.iter().find(|d| d.node_id == tip).unwrap().uz;
 
     assert_close(
         uy2 / uy1, 2.0, 0.001,

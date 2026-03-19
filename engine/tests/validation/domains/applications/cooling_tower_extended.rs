@@ -110,14 +110,14 @@ fn cooling_tower_hyperbolic_shell_meridional() {
     for i in 1..=n_lower {
         let w_seg: f64 = w_lower * dz_lower;
         loads.push(SolverLoad::Nodal(SolverNodalLoad {
-            node_id: i + 1, fx: w_seg, fy: 0.0, mz: 0.0,
+            node_id: i + 1, fx: w_seg, fz: 0.0, my: 0.0,
         }));
     }
     // Weight from upper portion
     for i in 1..=n_upper {
         let w_seg: f64 = w_upper * dz_upper;
         loads.push(SolverLoad::Nodal(SolverNodalLoad {
-            node_id: n_lower + 1 + i, fx: w_seg, fy: 0.0, mz: 0.0,
+            node_id: n_lower + 1 + i, fx: w_seg, fz: 0.0, my: 0.0,
         }));
     }
 
@@ -203,10 +203,10 @@ fn cooling_tower_mechanical_draft_frame() {
     let sups = vec![(1, 1, "fixed"), (2, 4, "fixed")];
     let loads = vec![
         SolverLoad::Nodal(SolverNodalLoad {
-            node_id: 2, fx: f_wind, fy: p_gravity, mz: 0.0,
+            node_id: 2, fx: f_wind, fz: p_gravity, my: 0.0,
         }),
         SolverLoad::Nodal(SolverNodalLoad {
-            node_id: 3, fx: 0.0, fy: p_gravity, mz: 0.0,
+            node_id: 3, fx: 0.0, fz: p_gravity, my: 0.0,
         }),
     ];
 
@@ -215,7 +215,7 @@ fn cooling_tower_mechanical_draft_frame() {
 
     // Vertical equilibrium: sum of ry = total gravity load
     let total_gravity: f64 = w_fan + w_deck;
-    let sum_ry: f64 = results.reactions.iter().map(|r| r.ry).sum::<f64>();
+    let sum_ry: f64 = results.reactions.iter().map(|r| r.rz).sum::<f64>();
     assert_close(sum_ry.abs(), total_gravity, 0.02, "Vertical equilibrium for fan deck load");
 
     // Horizontal equilibrium: sum of rx = wind load
@@ -236,15 +236,15 @@ fn cooling_tower_mechanical_draft_frame() {
     let r1 = results.reactions.iter().find(|r| r.node_id == 1).unwrap();
     let r4 = results.reactions.iter().find(|r| r.node_id == 4).unwrap();
     assert!(
-        r1.mz.abs() > 0.0 && r4.mz.abs() > 0.0,
+        r1.my.abs() > 0.0 && r4.my.abs() > 0.0,
         "Both column bases have moment reactions"
     );
 
     // Wind-induced overturning: base moments resist M = F_wind × h
     let m_wind_ot: f64 = f_wind * h_frame;
-    let sum_base_mz: f64 = r1.mz.abs() + r4.mz.abs();
-    let vert_couple: f64 = (r1.ry - r4.ry).abs() * w_frame / 2.0;
-    let m_resist: f64 = sum_base_mz + vert_couple;
+    let sum_base_my: f64 = r1.my.abs() + r4.my.abs();
+    let vert_couple: f64 = (r1.rz - r4.rz).abs() * w_frame / 2.0;
+    let m_resist: f64 = sum_base_my + vert_couple;
     assert_close(m_resist, m_wind_ot, 0.10, "Moment equilibrium under wind");
 }
 
@@ -303,12 +303,12 @@ fn cooling_tower_fill_support_beam() {
     let mid_disp = results.displacements.iter()
         .find(|d| d.node_id == mid_node).unwrap();
 
-    assert_close(mid_disp.uy.abs(), delta_exact, 0.05, "Fill beam midspan deflection");
+    assert_close(mid_disp.uz.abs(), delta_exact, 0.05, "Fill beam midspan deflection");
 
     // Analytical reaction: R = qL/2
     let r_exact: f64 = q_total.abs() * l_span / 2.0;
     let r1 = results.reactions.iter().find(|r| r.node_id == 1).unwrap();
-    assert_close(r1.ry.abs(), r_exact, 0.02, "Fill beam support reaction");
+    assert_close(r1.rz.abs(), r_exact, 0.02, "Fill beam support reaction");
 
     // Analytical midspan moment: M = qL²/8
     let m_exact: f64 = q_total.abs() * l_span.powi(2) / 8.0;
@@ -321,8 +321,8 @@ fn cooling_tower_fill_support_beam() {
     // Serviceability: deflection < span/250
     let defl_limit: f64 = l_span / 250.0;
     assert!(
-        mid_disp.uy.abs() < defl_limit,
-        "Deflection {:.4} m < L/250 = {:.4} m", mid_disp.uy.abs(), defl_limit
+        mid_disp.uz.abs() < defl_limit,
+        "Deflection {:.4} m < L/250 = {:.4} m", mid_disp.uz.abs(), defl_limit
     );
 }
 
@@ -374,19 +374,19 @@ fn cooling_tower_fan_deck() {
     let total_load: f64 = q_total.abs() * 2.0 * span;
 
     // Vertical equilibrium
-    let sum_ry: f64 = results.reactions.iter().map(|r| r.ry).sum::<f64>();
+    let sum_ry: f64 = results.reactions.iter().map(|r| r.rz).sum::<f64>();
     assert_close(sum_ry.abs(), total_load, 0.02, "Fan deck vertical equilibrium");
 
     // Internal support reaction: R_mid = 5qL/4 (for equal-span two-span beam)
     let r_mid_exact: f64 = 5.0 * q_total.abs() * span / 4.0;
     let mid_node = n_per_span + 1;
     let r_mid = results.reactions.iter().find(|r| r.node_id == mid_node).unwrap();
-    assert_close(r_mid.ry.abs(), r_mid_exact, 0.05, "Fan deck internal support reaction (5qL/4)");
+    assert_close(r_mid.rz.abs(), r_mid_exact, 0.05, "Fan deck internal support reaction (5qL/4)");
 
     // End reaction: R_end = 3qL/8
     let r_end_exact: f64 = 3.0 * q_total.abs() * span / 8.0;
     let r_end = results.reactions.iter().find(|r| r.node_id == 1).unwrap();
-    assert_close(r_end.ry.abs(), r_end_exact, 0.05, "Fan deck end support reaction (3qL/8)");
+    assert_close(r_end.rz.abs(), r_end_exact, 0.05, "Fan deck end support reaction (3qL/8)");
 
     // Hogging moment at internal support: M = -qL²/8
     let m_hog_exact: f64 = q_total.abs() * span.powi(2) / 8.0;
@@ -452,7 +452,7 @@ fn cooling_tower_column_ring_beam() {
     let total_3bay: f64 = q_ring.abs() * 3.0 * bay_length;
 
     // Vertical equilibrium
-    let sum_ry: f64 = results.reactions.iter().map(|r| r.ry).sum::<f64>();
+    let sum_ry: f64 = results.reactions.iter().map(|r| r.rz).sum::<f64>();
     assert_close(sum_ry.abs(), total_3bay, 0.02, "Ring beam vertical equilibrium");
 
     // Column reactions (internal supports carry more than end supports)
@@ -462,7 +462,7 @@ fn cooling_tower_column_ring_beam() {
     // Check one of the internal supports (node at end of first span)
     let int_node = n_per_span + 1;
     let r_int = results.reactions.iter().find(|r| r.node_id == int_node).unwrap();
-    assert_close(r_int.ry.abs(), r_interior_approx, 0.15, "Ring beam interior column reaction");
+    assert_close(r_int.rz.abs(), r_interior_approx, 0.15, "Ring beam interior column reaction");
 
     // Per-column load from full ring (each column gets total weight / n_columns)
     let p_per_column: f64 = w_shell_total / n_columns;
@@ -562,8 +562,8 @@ fn cooling_tower_wind_loading_shell() {
         loads.push(SolverLoad::Nodal(SolverNodalLoad {
             node_id: i + 2, // nodes 2 through n_seg+1
             fx: 0.0,
-            fy: f_segments[i],
-            mz: 0.0,
+            fz: f_segments[i],
+            my: 0.0,
         }));
     }
 
@@ -577,10 +577,10 @@ fn cooling_tower_wind_loading_shell() {
 
     // Base shear = total wind force
     let r_base = results.reactions.iter().find(|r| r.node_id == 1).unwrap();
-    assert_close(r_base.ry.abs(), f_total, 0.02, "Base shear equals total wind force");
+    assert_close(r_base.rz.abs(), f_total, 0.02, "Base shear equals total wind force");
 
     // Base moment = overturning moment
-    assert_close(r_base.mz.abs(), m_base, 0.05, "Base moment equals wind overturning moment");
+    assert_close(r_base.my.abs(), m_base, 0.05, "Base moment equals wind overturning moment");
 
     // Sanity: total wind force in reasonable range (500-5000 kN for large tower)
     assert!(
@@ -656,11 +656,11 @@ fn cooling_tower_basin_wall() {
 
     // Base shear reaction should equal total hydrostatic force
     let r_base = results.reactions.iter().find(|r| r.node_id == 1).unwrap();
-    assert_close(r_base.ry.abs(), f_total, 0.05, "Basin wall base shear = total hydrostatic force");
+    assert_close(r_base.rz.abs(), f_total, 0.05, "Basin wall base shear = total hydrostatic force");
 
     // Base moment: M = p_max × h² / 6 (triangular load on cantilever)
     let m_base_exact: f64 = p_max * h_wall.powi(2) / 6.0 * b_strip;
-    assert_close(r_base.mz.abs(), m_base_exact, 0.10, "Basin wall base moment");
+    assert_close(r_base.my.abs(), m_base_exact, 0.10, "Basin wall base moment");
 
     // Tip deflection: δ = q_max × L⁴ / (30 × E × I) for triangular load
     let e_eff: f64 = e_concrete * 1000.0;
@@ -668,7 +668,7 @@ fn cooling_tower_basin_wall() {
     let tip_node = n + 1;
     let tip_disp = results.displacements.iter()
         .find(|d| d.node_id == tip_node).unwrap();
-    assert_close(tip_disp.uy.abs(), delta_exact, 0.10, "Basin wall tip deflection");
+    assert_close(tip_disp.uz.abs(), delta_exact, 0.10, "Basin wall tip deflection");
 
     // Crack control: check maximum stress vs concrete tensile strength
     let sigma_base: f64 = m_base_exact / (b_strip * t_wall.powi(2) / 6.0); // kN/m²
@@ -768,13 +768,13 @@ fn cooling_tower_drift_eliminator_support() {
     // Loads: applied at top chord nodes (drift eliminator weight)
     let loads = vec![
         SolverLoad::Nodal(SolverNodalLoad {
-            node_id: 5, fx: 0.0, fy: -p_panel, mz: 0.0,
+            node_id: 5, fx: 0.0, fz: -p_panel, my: 0.0,
         }),
         SolverLoad::Nodal(SolverNodalLoad {
-            node_id: 6, fx: 0.0, fy: -p_panel, mz: 0.0,
+            node_id: 6, fx: 0.0, fz: -p_panel, my: 0.0,
         }),
         SolverLoad::Nodal(SolverNodalLoad {
-            node_id: 7, fx: 0.0, fy: -p_panel, mz: 0.0,
+            node_id: 7, fx: 0.0, fz: -p_panel, my: 0.0,
         }),
     ];
 
@@ -785,16 +785,16 @@ fn cooling_tower_drift_eliminator_support() {
     let total_load: f64 = p_panel * 3.0;
 
     // Vertical equilibrium
-    let sum_ry: f64 = results.reactions.iter().map(|r| r.ry).sum::<f64>();
+    let sum_ry: f64 = results.reactions.iter().map(|r| r.rz).sum::<f64>();
     assert_close(sum_ry, total_load, 0.02, "Truss vertical equilibrium");
 
     // Symmetry: equal reactions at both supports
     let r1 = results.reactions.iter().find(|r| r.node_id == 1).unwrap();
     let r4 = results.reactions.iter().find(|r| r.node_id == 4).unwrap();
-    assert_close(r1.ry, r4.ry, 0.05, "Symmetric support reactions");
+    assert_close(r1.rz, r4.rz, 0.05, "Symmetric support reactions");
 
     // Each support reaction = total load / 2
-    assert_close(r1.ry, total_load / 2.0, 0.05, "Support reaction = total load / 2");
+    assert_close(r1.rz, total_load / 2.0, 0.05, "Support reaction = total load / 2");
 
     // Analytical max chord force: F_chord = M_max / d
     // where M_max = total_load × L / 8 (equivalent UDL moment for 3 equal point loads)

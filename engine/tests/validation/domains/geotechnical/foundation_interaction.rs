@@ -57,18 +57,18 @@ fn validation_foundation_winkler_central_load() {
             id: i + 1, node_id,
             support_type: "spring".to_string(),
             kx, ky: Some(k_spring), kz: None,
-            dx: None, dy: None, drz: None, angle: None,
+            dx: None, dz: None, dry: None, angle: None,
         });
     }
 
     let mid = n / 2 + 1;
     let loads = vec![SolverLoad::Nodal(SolverNodalLoad {
-        node_id: mid, fx: 0.0, fy: -p, mz: 0.0,
+        node_id: mid, fx: 0.0, fz: -p, my: 0.0,
     })];
 
     let mut nodes_map = HashMap::new();
     for (id, x, y) in &nodes {
-        nodes_map.insert(id.to_string(), SolverNode { id: *id, x: *x, y: *y });
+        nodes_map.insert(id.to_string(), SolverNode { id: *id, x: *x, z: *y });
     }
     let mut mats_map = HashMap::new();
     mats_map.insert("1".to_string(), SolverMaterial { id: 1, e: E, nu: 0.3 });
@@ -90,16 +90,16 @@ fn validation_foundation_winkler_central_load() {
 
     // Deflection at center should be maximum
     let d_mid = results.displacements.iter().find(|d| d.node_id == mid).unwrap();
-    assert!(d_mid.uy < 0.0, "Winkler: center deflects down: {:.6e}", d_mid.uy);
+    assert!(d_mid.uz < 0.0, "Winkler: center deflects down: {:.6e}", d_mid.uz);
 
     // End nodes should deflect less than center
     let d_end = results.displacements.iter().find(|d| d.node_id == 1).unwrap();
-    assert!(d_end.uy.abs() < d_mid.uy.abs(),
-        "Winkler: end deflects less: {:.6e} < {:.6e}", d_end.uy.abs(), d_mid.uy.abs());
+    assert!(d_end.uz.abs() < d_mid.uz.abs(),
+        "Winkler: end deflects less: {:.6e} < {:.6e}", d_end.uz.abs(), d_mid.uz.abs());
 
     // Total spring reaction should equal applied load
     let total_reaction: f64 = results.displacements.iter()
-        .map(|d| d.uy.abs() * k_spring)
+        .map(|d| d.uz.abs() * k_spring)
         .sum();
     assert_close(total_reaction, p, 0.05,
         "Winkler: total spring reaction = P");
@@ -134,18 +134,18 @@ fn validation_foundation_stiffness_effect() {
                 id: i + 1, node_id: i + 1,
                 support_type: "spring".to_string(),
                 kx, ky: Some(k), kz: None,
-                dx: None, dy: None, drz: None, angle: None,
+                dx: None, dz: None, dry: None, angle: None,
             });
         }
 
         let mid = n / 2 + 1;
         let loads = vec![SolverLoad::Nodal(SolverNodalLoad {
-            node_id: mid, fx: 0.0, fy: -p, mz: 0.0,
+            node_id: mid, fx: 0.0, fz: -p, my: 0.0,
         })];
 
         let mut nodes_map = HashMap::new();
         for (id, x, y) in &nodes {
-            nodes_map.insert(id.to_string(), SolverNode { id: *id, x: *x, y: *y });
+            nodes_map.insert(id.to_string(), SolverNode { id: *id, x: *x, z: *y });
         }
         let mut mats_map = HashMap::new();
         mats_map.insert("1".to_string(), SolverMaterial { id: 1, e: E, nu: 0.3 });
@@ -164,7 +164,7 @@ fn validation_foundation_stiffness_effect() {
             connectors: HashMap::new(), };
 
         let results = linear::solve_2d(&input).unwrap();
-        results.displacements.iter().find(|d| d.node_id == mid).unwrap().uy.abs()
+        results.displacements.iter().find(|d| d.node_id == mid).unwrap().uz.abs()
     };
 
     let d_soft = get_max_deflection(100.0);
@@ -205,18 +205,18 @@ fn validation_foundation_rigid_limit() {
             id: i + 1, node_id: i + 1,
             support_type: "spring".to_string(),
             kx, ky: Some(k), kz: None,
-            dx: None, dy: None, drz: None, angle: None,
+            dx: None, dz: None, dry: None, angle: None,
         });
     }
 
     let mid = n / 2 + 1;
     let loads = vec![SolverLoad::Nodal(SolverNodalLoad {
-        node_id: mid, fx: 0.0, fy: -p, mz: 0.0,
+        node_id: mid, fx: 0.0, fz: -p, my: 0.0,
     })];
 
     let mut nodes_map = HashMap::new();
     for (id, x, y) in &nodes {
-        nodes_map.insert(id.to_string(), SolverNode { id: *id, x: *x, y: *y });
+        nodes_map.insert(id.to_string(), SolverNode { id: *id, x: *x, z: *y });
     }
     let mut mats_map = HashMap::new();
     mats_map.insert("1".to_string(), SolverMaterial { id: 1, e: E, nu: 0.3 });
@@ -238,8 +238,8 @@ fn validation_foundation_rigid_limit() {
 
     // Deflection should be very small (rigid foundation)
     let d_mid = results.displacements.iter().find(|d| d.node_id == mid).unwrap();
-    assert!(d_mid.uy.abs() < 1e-5,
-        "Rigid foundation: uy should be ≈ 0: {:.6e}", d_mid.uy);
+    assert!(d_mid.uz.abs() < 1e-5,
+        "Rigid foundation: uy should be ≈ 0: {:.6e}", d_mid.uz);
 }
 
 // ================================================================
@@ -272,7 +272,7 @@ fn validation_foundation_winkler_udl_symmetric() {
             id: i + 1, node_id: i + 1,
             support_type: "spring".to_string(),
             kx, ky: Some(k), kz: None,
-            dx: None, dy: None, drz: None, angle: None,
+            dx: None, dz: None, dry: None, angle: None,
         });
     }
 
@@ -285,7 +285,7 @@ fn validation_foundation_winkler_udl_symmetric() {
 
     let mut nodes_map = HashMap::new();
     for (id, x, y) in &nodes {
-        nodes_map.insert(id.to_string(), SolverNode { id: *id, x: *x, y: *y });
+        nodes_map.insert(id.to_string(), SolverNode { id: *id, x: *x, z: *y });
     }
     let mut mats_map = HashMap::new();
     mats_map.insert("1".to_string(), SolverMaterial { id: 1, e: E, nu: 0.3 });
@@ -308,8 +308,8 @@ fn validation_foundation_winkler_udl_symmetric() {
     // Symmetry check
     let mid = n / 2 + 1;
     for i in 1..mid {
-        let d_left = results.displacements.iter().find(|d| d.node_id == i + 1).unwrap().uy;
-        let d_right = results.displacements.iter().find(|d| d.node_id == n + 1 - i).unwrap().uy;
+        let d_left = results.displacements.iter().find(|d| d.node_id == i + 1).unwrap().uz;
+        let d_right = results.displacements.iter().find(|d| d.node_id == n + 1 - i).unwrap().uz;
         let err = (d_left - d_right).abs() / d_left.abs().max(1e-10);
         assert!(err < 0.02,
             "Winkler UDL symmetry: node {}: {:.6e}, node {}: {:.6e}",
@@ -347,19 +347,19 @@ fn validation_foundation_localized_deflection() {
             id: i + 1, node_id: i + 1,
             support_type: "spring".to_string(),
             kx, ky: Some(k), kz: None,
-            dx: None, dy: None, drz: None, angle: None,
+            dx: None, dz: None, dry: None, angle: None,
         });
     }
 
     // Load at 1/4 span
     let load_node = n / 4 + 1;
     let loads = vec![SolverLoad::Nodal(SolverNodalLoad {
-        node_id: load_node, fx: 0.0, fy: -p, mz: 0.0,
+        node_id: load_node, fx: 0.0, fz: -p, my: 0.0,
     })];
 
     let mut nodes_map = HashMap::new();
     for (id, x, y) in &nodes {
-        nodes_map.insert(id.to_string(), SolverNode { id: *id, x: *x, y: *y });
+        nodes_map.insert(id.to_string(), SolverNode { id: *id, x: *x, z: *y });
     }
     let mut mats_map = HashMap::new();
     mats_map.insert("1".to_string(), SolverMaterial { id: 1, e: E, nu: 0.3 });
@@ -380,10 +380,10 @@ fn validation_foundation_localized_deflection() {
     let results = linear::solve_2d(&input).unwrap();
 
     // Deflection at load point should be maximum
-    let d_load = results.displacements.iter().find(|d| d.node_id == load_node).unwrap().uy.abs();
+    let d_load = results.displacements.iter().find(|d| d.node_id == load_node).unwrap().uz.abs();
 
     // Deflection at far end should be much less
-    let d_far = results.displacements.iter().find(|d| d.node_id == n_nodes).unwrap().uy.abs();
+    let d_far = results.displacements.iter().find(|d| d.node_id == n_nodes).unwrap().uz.abs();
     assert!(d_far < d_load * 0.5,
         "Localized: d_far < d_load: {:.6e} < {:.6e}", d_far, d_load);
 }
@@ -417,24 +417,24 @@ fn validation_foundation_mixed_boundary() {
         id: 1, node_id: 1,
         support_type: "fixed".to_string(),
         kx: None, ky: None, kz: None,
-        dx: None, dy: None, drz: None, angle: None,
+        dx: None, dz: None, dry: None, angle: None,
     });
     // Spring at right
     sups_map.insert("2".to_string(), SolverSupport {
         id: 2, node_id: n_nodes,
         support_type: "spring".to_string(),
         kx: None, ky: Some(k), kz: None,
-        dx: None, dy: None, drz: None, angle: None,
+        dx: None, dz: None, dry: None, angle: None,
     });
 
     let mid = n / 2 + 1;
     let loads = vec![SolverLoad::Nodal(SolverNodalLoad {
-        node_id: mid, fx: 0.0, fy: -p, mz: 0.0,
+        node_id: mid, fx: 0.0, fz: -p, my: 0.0,
     })];
 
     let mut nodes_map = HashMap::new();
     for (id, x, y) in &nodes {
-        nodes_map.insert(id.to_string(), SolverNode { id: *id, x: *x, y: *y });
+        nodes_map.insert(id.to_string(), SolverNode { id: *id, x: *x, z: *y });
     }
     let mut mats_map = HashMap::new();
     mats_map.insert("1".to_string(), SolverMaterial { id: 1, e: E, nu: 0.3 });
@@ -456,15 +456,15 @@ fn validation_foundation_mixed_boundary() {
 
     // Fixed support reaction
     let r_fixed = results.reactions.iter().find(|r| r.node_id == 1).unwrap();
-    assert!(r_fixed.ry > 0.0, "Fixed support takes upward reaction: {:.4}", r_fixed.ry);
+    assert!(r_fixed.rz > 0.0, "Fixed support takes upward reaction: {:.4}", r_fixed.rz);
 
     // Spring support: reaction = k × uy at that node
-    let d_spring = results.displacements.iter().find(|d| d.node_id == n_nodes).unwrap().uy;
+    let d_spring = results.displacements.iter().find(|d| d.node_id == n_nodes).unwrap().uz;
     let r_spring = -k * d_spring; // spring force = -k * displacement
     assert!(r_spring > 0.0, "Spring takes positive reaction: {:.4}", r_spring);
 
     // Total reaction ≈ P
-    let total = r_fixed.ry + r_spring;
+    let total = r_fixed.rz + r_spring;
     assert_close(total, p, 0.05,
         "Mixed boundary: total reaction = P");
 }
@@ -500,7 +500,7 @@ fn validation_foundation_stiff_beam_uniform() {
             id: i + 1, node_id: i + 1,
             support_type: "spring".to_string(),
             kx, ky: Some(k), kz: None,
-            dx: None, dy: None, drz: None, angle: None,
+            dx: None, dz: None, dry: None, angle: None,
         });
     }
 
@@ -513,7 +513,7 @@ fn validation_foundation_stiff_beam_uniform() {
 
     let mut nodes_map = HashMap::new();
     for (id, x, y) in &nodes {
-        nodes_map.insert(id.to_string(), SolverNode { id: *id, x: *x, y: *y });
+        nodes_map.insert(id.to_string(), SolverNode { id: *id, x: *x, z: *y });
     }
     let mut mats_map = HashMap::new();
     mats_map.insert("1".to_string(), SolverMaterial { id: 1, e: E, nu: 0.3 });
@@ -534,7 +534,7 @@ fn validation_foundation_stiff_beam_uniform() {
     let results = linear::solve_2d(&input).unwrap();
 
     // All nodes should have approximately equal vertical displacement
-    let disps: Vec<f64> = results.displacements.iter().map(|d| d.uy).collect();
+    let disps: Vec<f64> = results.displacements.iter().map(|d| d.uz).collect();
     let avg = disps.iter().sum::<f64>() / disps.len() as f64;
     let max_dev = disps.iter().map(|&d| (d - avg).abs()).fold(0.0_f64, f64::max);
 
@@ -573,7 +573,7 @@ fn validation_foundation_equilibrium() {
             id: i + 1, node_id: i + 1,
             support_type: "spring".to_string(),
             kx, ky: Some(k), kz: None,
-            dx: None, dy: None, drz: None, angle: None,
+            dx: None, dz: None, dry: None, angle: None,
         });
     }
 
@@ -586,12 +586,12 @@ fn validation_foundation_equilibrium() {
         }));
     }
     loads.push(SolverLoad::Nodal(SolverNodalLoad {
-        node_id: mid, fx: 0.0, fy: -p, mz: 0.0,
+        node_id: mid, fx: 0.0, fz: -p, my: 0.0,
     }));
 
     let mut nodes_map = HashMap::new();
     for (id, x, y) in &nodes {
-        nodes_map.insert(id.to_string(), SolverNode { id: *id, x: *x, y: *y });
+        nodes_map.insert(id.to_string(), SolverNode { id: *id, x: *x, z: *y });
     }
     let mut mats_map = HashMap::new();
     mats_map.insert("1".to_string(), SolverMaterial { id: 1, e: E, nu: 0.3 });
@@ -613,7 +613,7 @@ fn validation_foundation_equilibrium() {
 
     // Total spring reactions = total load
     let total_load = q.abs() * l + p;
-    let total_reaction: f64 = results.reactions.iter().map(|r| r.ry).sum();
+    let total_reaction: f64 = results.reactions.iter().map(|r| r.rz).sum();
     assert_close(total_reaction, total_load, 0.05,
         "Foundation equilibrium: ΣR = total load");
 }

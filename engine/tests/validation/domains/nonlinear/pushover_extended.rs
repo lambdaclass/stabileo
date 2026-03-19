@@ -235,14 +235,14 @@ fn validation_pushover_ext_two_story_hinge_sequence() {
         SolverLoad::Nodal(SolverNodalLoad {
             node_id: 3,
             fx: 1.0,
-            fy: 0.0,
-            mz: 0.0,
+            fz: 0.0,
+            my: 0.0,
         }),
         SolverLoad::Nodal(SolverNodalLoad {
             node_id: 5,
             fx: 1.0,
-            fy: 0.0,
-            mz: 0.0,
+            fz: 0.0,
+            my: 0.0,
         }),
     ];
 
@@ -333,14 +333,14 @@ fn validation_pushover_ext_push_pattern_comparison() {
         SolverLoad::Nodal(SolverNodalLoad {
             node_id: 3,
             fx: 1.0,
-            fy: 0.0,
-            mz: 0.0,
+            fz: 0.0,
+            my: 0.0,
         }),
         SolverLoad::Nodal(SolverNodalLoad {
             node_id: 5,
             fx: 1.0,
-            fy: 0.0,
-            mz: 0.0,
+            fz: 0.0,
+            my: 0.0,
         }),
     ];
 
@@ -352,14 +352,14 @@ fn validation_pushover_ext_push_pattern_comparison() {
         SolverLoad::Nodal(SolverNodalLoad {
             node_id: 3,
             fx: f1_tri,
-            fy: 0.0,
-            mz: 0.0,
+            fz: 0.0,
+            my: 0.0,
         }),
         SolverLoad::Nodal(SolverNodalLoad {
             node_id: 5,
             fx: f2_tri,
-            fy: 0.0,
-            mz: 0.0,
+            fz: 0.0,
+            my: 0.0,
         }),
     ];
 
@@ -782,21 +782,21 @@ fn validation_pushover_ext_weak_story_mechanism() {
         SolverLoad::Nodal(SolverNodalLoad {
             node_id: 3,
             fx: 1.0,
-            fy: 0.0,
-            mz: 0.0,
+            fz: 0.0,
+            my: 0.0,
         }),
         SolverLoad::Nodal(SolverNodalLoad {
             node_id: 5,
             fx: 1.0,
-            fy: 0.0,
-            mz: 0.0,
+            fz: 0.0,
+            my: 0.0,
         }),
     ];
 
     // Need two sections in the solver input
     let mut nodes_map = HashMap::new();
     for &(id, x, y) in &nodes {
-        nodes_map.insert(id.to_string(), SolverNode { id, x, y });
+        nodes_map.insert(id.to_string(), SolverNode { id, x, z: y });
     }
     let mut mats_map = HashMap::new();
     mats_map.insert(
@@ -854,8 +854,8 @@ fn validation_pushover_ext_weak_story_mechanism() {
                 ky: None,
                 kz: None,
                 dx: None,
-                dy: None,
-                drz: None,
+                dz: None,
+                dry: None,
                 angle: None,
             },
         );
@@ -956,13 +956,13 @@ fn validation_pushover_ext_symmetric_frame_response() {
         .iter()
         .find(|r| r.node_id == 1)
         .unwrap()
-        .ry;
+        .rz;
     let ry_4 = lin_res
         .reactions
         .iter()
         .find(|r| r.node_id == 4)
         .unwrap()
-        .ry;
+        .rz;
 
     // For a portal with lateral load at roof: moment equilibrium gives
     // vertical reactions. The magnitude should be equal.

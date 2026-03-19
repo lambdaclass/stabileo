@@ -16,9 +16,9 @@ use std::collections::HashMap;
 /// Beam: 10m span, E=200GPa, A=0.05m², I=1e-4m⁴
 fn make_ss_beam_2d_with_load() -> SolverInput {
     let mut nodes = HashMap::new();
-    nodes.insert("1".to_string(), SolverNode { id: 1, x: 0.0, y: 0.0 });
-    nodes.insert("2".to_string(), SolverNode { id: 2, x: 5.0, y: 0.0 });
-    nodes.insert("3".to_string(), SolverNode { id: 3, x: 10.0, y: 0.0 });
+    nodes.insert("1".to_string(), SolverNode { id: 1, x: 0.0, z: 0.0 });
+    nodes.insert("2".to_string(), SolverNode { id: 2, x: 5.0, z: 0.0 });
+    nodes.insert("3".to_string(), SolverNode { id: 3, x: 10.0, z: 0.0 });
 
     let mut materials = HashMap::new();
     materials.insert("1".to_string(), SolverMaterial { id: 1, e: 200e6, nu: 0.3 });
@@ -44,17 +44,17 @@ fn make_ss_beam_2d_with_load() -> SolverInput {
     supports.insert("1".to_string(), SolverSupport {
         id: 1, node_id: 1, support_type: "pin".to_string(),
         kx: None, ky: None, kz: None,
-        dx: None, dy: None, drz: None, angle: None,
+        dx: None, dz: None, dry: None, angle: None,
     });
     supports.insert("2".to_string(), SolverSupport {
         id: 2, node_id: 3, support_type: "roller".to_string(),
         kx: None, ky: None, kz: None,
-        dx: None, dy: None, drz: None, angle: None,
+        dx: None, dz: None, dry: None, angle: None,
     });
 
     let loads = vec![
         SolverLoad::Nodal(SolverNodalLoad {
-            node_id: 2, fx: 0.0, fy: -10.0, mz: 0.0,
+            node_id: 2, fx: 0.0, fz: -10.0, my: 0.0,
         }),
     ];
 
@@ -99,7 +99,7 @@ fn make_ss_beam_3d_with_load() -> SolverInput3D {
     let mut supports = HashMap::new();
     supports.insert("1".to_string(), SolverSupport3D {
         node_id: 1,
-        rx: true, ry: true, rz: true,
+        rx: true, rz: true, ry: true,
         rrx: true, rry: false, rrz: false,
         kx: None, ky: None, kz: None,
         krx: None, kry: None, krz: None,
@@ -111,7 +111,7 @@ fn make_ss_beam_3d_with_load() -> SolverInput3D {
     });
     supports.insert("2".to_string(), SolverSupport3D {
         node_id: 3,
-        rx: false, ry: true, rz: true,
+        rx: false, rz: true, ry: true,
         rrx: true, rry: false, rrz: false,
         kx: None, ky: None, kz: None,
         krx: None, kry: None, krz: None,

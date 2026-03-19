@@ -83,11 +83,11 @@ pub fn solve_spectral_2d(input: &SpectralInput) -> Result<SpectralResult, String
                 if idx < nf { u_modal[idx] = d.ux * participation * sd; }
             }
             if let Some(&idx) = dof_num.map.get(&(d.node_id, 1)) {
-                if idx < nf { u_modal[idx] = d.uy * participation * sd; }
+                if idx < nf { u_modal[idx] = d.uz * participation * sd; }
             }
             if dof_num.dofs_per_node >= 3 {
                 if let Some(&idx) = dof_num.map.get(&(d.node_id, 2)) {
-                    if idx < nf { u_modal[idx] = d.rz * participation * sd; }
+                    if idx < nf { u_modal[idx] = d.ry * participation * sd; }
                 }
             }
         }

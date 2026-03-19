@@ -53,7 +53,7 @@ fn validation_fef_ext_point_on_element_midspan() {
         a: elem_len, // at the end of element 5 = node 6 = midspan
         p: -p,
         px: None,
-        mz: None,
+        my: None,
     })];
     let input = make_beam(n, l, E, A, IZ, "fixed", Some("fixed"), loads);
     let results = linear::solve_2d(&input).unwrap();
@@ -62,16 +62,16 @@ fn validation_fef_ext_point_on_element_midspan() {
     let r_end = results.reactions.iter().find(|r| r.node_id == n + 1).unwrap();
 
     // Reactions = P/2 each (symmetric)
-    assert_close(r1.ry, p / 2.0, 0.02, "PointOnElement midspan: R_left = P/2");
-    assert_close(r_end.ry, p / 2.0, 0.02, "PointOnElement midspan: R_right = P/2");
+    assert_close(r1.rz, p / 2.0, 0.02, "PointOnElement midspan: R_left = P/2");
+    assert_close(r_end.rz, p / 2.0, 0.02, "PointOnElement midspan: R_right = P/2");
 
     // Fixed-end moments = PL/8 each
     let fem = p * l / 8.0;
-    assert_close(r1.mz.abs(), fem, 0.02, "PointOnElement midspan: M_left = PL/8");
-    assert_close(r_end.mz.abs(), fem, 0.02, "PointOnElement midspan: M_right = PL/8");
+    assert_close(r1.my.abs(), fem, 0.02, "PointOnElement midspan: M_left = PL/8");
+    assert_close(r_end.my.abs(), fem, 0.02, "PointOnElement midspan: M_right = PL/8");
 
     // Equilibrium: sum of vertical reactions = P
-    let sum_ry: f64 = results.reactions.iter().map(|r| r.ry).sum();
+    let sum_ry: f64 = results.reactions.iter().map(|r| r.rz).sum();
     assert_close(sum_ry, p, 0.01, "PointOnElement midspan: ΣRy = P");
 }
 
@@ -99,7 +99,7 @@ fn validation_fef_ext_concentrated_moment_midspan() {
         a: elem_len,
         p: 0.0,
         px: None,
-        mz: Some(m0),
+        my: Some(m0),
     })];
     let input = make_beam(n, l, E, A, IZ, "fixed", Some("fixed"), loads);
     let results = linear::solve_2d(&input).unwrap();
@@ -109,16 +109,16 @@ fn validation_fef_ext_concentrated_moment_midspan() {
 
     // Reaction moments: M_A = M₀/4, M_B = M₀/4
     let m_end_exact = m0 / 4.0; // 15 kN·m
-    assert_close(r1.mz.abs(), m_end_exact, 0.05, "Conc moment: M_A = M₀/4");
-    assert_close(r_end.mz.abs(), m_end_exact, 0.05, "Conc moment: M_B = M₀/4");
+    assert_close(r1.my.abs(), m_end_exact, 0.05, "Conc moment: M_A = M₀/4");
+    assert_close(r_end.my.abs(), m_end_exact, 0.05, "Conc moment: M_B = M₀/4");
 
     // Vertical reactions: R = ±3M₀/(2L) (couple, no net vertical force)
     let r_exact = 3.0 * m0 / (2.0 * l); // = 11.25 kN
-    assert_close(r1.ry.abs(), r_exact, 0.05, "Conc moment: |R_A| = 3M₀/(2L)");
-    assert_close(r_end.ry.abs(), r_exact, 0.05, "Conc moment: |R_B| = 3M₀/(2L)");
+    assert_close(r1.rz.abs(), r_exact, 0.05, "Conc moment: |R_A| = 3M₀/(2L)");
+    assert_close(r_end.rz.abs(), r_exact, 0.05, "Conc moment: |R_B| = 3M₀/(2L)");
 
     // Net vertical reaction should be zero (moment only, no external force)
-    let sum_ry: f64 = results.reactions.iter().map(|r| r.ry).sum();
+    let sum_ry: f64 = results.reactions.iter().map(|r| r.rz).sum();
     assert_close(sum_ry.abs(), 0.0, 0.01, "Conc moment: ΣRy ≈ 0");
 }
 
@@ -140,10 +140,10 @@ fn validation_fef_ext_two_symmetric_point_loads() {
     // Load at L/3 (node 4) and 2L/3 (node 7)
     let loads = vec![
         SolverLoad::Nodal(SolverNodalLoad {
-            node_id: 4, fx: 0.0, fy: -p, mz: 0.0,
+            node_id: 4, fx: 0.0, fz: -p, my: 0.0,
         }),
         SolverLoad::Nodal(SolverNodalLoad {
-            node_id: 7, fx: 0.0, fy: -p, mz: 0.0,
+            node_id: 7, fx: 0.0, fz: -p, my: 0.0,
         }),
     ];
     let input = make_beam(n, l, E, A, IZ, "fixed", Some("fixed"), loads);
@@ -153,20 +153,20 @@ fn validation_fef_ext_two_symmetric_point_loads() {
     let r_end = results.reactions.iter().find(|r| r.node_id == n + 1).unwrap();
 
     // By symmetry: R_A = R_B = P
-    assert_close(r1.ry, p, 0.02, "Sym 2P: R_A = P");
-    assert_close(r_end.ry, p, 0.02, "Sym 2P: R_B = P");
+    assert_close(r1.rz, p, 0.02, "Sym 2P: R_A = P");
+    assert_close(r_end.rz, p, 0.02, "Sym 2P: R_B = P");
 
     // M_A = M_B = 2PL/9
     let fem = 2.0 * p * l / 9.0;
-    assert_close(r1.mz.abs(), fem, 0.02, "Sym 2P: M_A = 2PL/9");
-    assert_close(r_end.mz.abs(), fem, 0.02, "Sym 2P: M_B = 2PL/9");
+    assert_close(r1.my.abs(), fem, 0.02, "Sym 2P: M_A = 2PL/9");
+    assert_close(r_end.my.abs(), fem, 0.02, "Sym 2P: M_B = 2PL/9");
 
     // Symmetry: moments equal in magnitude
-    let diff: f64 = (r1.mz.abs() - r_end.mz.abs()).abs();
+    let diff: f64 = (r1.my.abs() - r_end.my.abs()).abs();
     assert!(diff < 0.1, "Sym 2P: |M_A| ≈ |M_B|, diff = {:.4}", diff);
 
     // Equilibrium
-    let sum_ry: f64 = results.reactions.iter().map(|r| r.ry).sum();
+    let sum_ry: f64 = results.reactions.iter().map(|r| r.rz).sum();
     assert_close(sum_ry, 2.0 * p, 0.01, "Sym 2P: ΣRy = 2P");
 }
 
@@ -207,25 +207,25 @@ fn validation_fef_ext_inverse_triangular_load() {
     let m_left = q.abs() * l * l / 20.0;
     let m_right = q.abs() * l * l / 30.0;
 
-    assert_close(r1.mz.abs(), m_left, 0.10, "Inv tri: M_left ≈ qL²/20");
-    assert_close(r_end.mz.abs(), m_right, 0.10, "Inv tri: M_right ≈ qL²/30");
+    assert_close(r1.my.abs(), m_left, 0.10, "Inv tri: M_left ≈ qL²/20");
+    assert_close(r_end.my.abs(), m_right, 0.10, "Inv tri: M_right ≈ qL²/30");
 
     // Left moment should exceed right moment (load heavier on left)
     assert!(
-        r1.mz.abs() > r_end.mz.abs(),
+        r1.my.abs() > r_end.my.abs(),
         "Inv tri: M_left > M_right: {:.4} > {:.4}",
-        r1.mz.abs(), r_end.mz.abs()
+        r1.my.abs(), r_end.my.abs()
     );
 
     // Reactions from mirrored triangular FEF
     let r_a_exact = 7.0 * q.abs() * l / 20.0;
     let r_b_exact = 3.0 * q.abs() * l / 20.0;
-    assert_close(r1.ry, r_a_exact, 0.10, "Inv tri: R_A ≈ 7qL/20");
-    assert_close(r_end.ry, r_b_exact, 0.10, "Inv tri: R_B ≈ 3qL/20");
+    assert_close(r1.rz, r_a_exact, 0.10, "Inv tri: R_A ≈ 7qL/20");
+    assert_close(r_end.rz, r_b_exact, 0.10, "Inv tri: R_B ≈ 3qL/20");
 
     // Total vertical reaction = qL/2
     let total = q.abs() * l / 2.0;
-    let sum_ry: f64 = results.reactions.iter().map(|r| r.ry).sum();
+    let sum_ry: f64 = results.reactions.iter().map(|r| r.rz).sum();
     assert_close(sum_ry, total, 0.02, "Inv tri: ΣRy = qL/2");
 }
 
@@ -273,19 +273,19 @@ fn validation_fef_ext_trapezoidal_load() {
     // M_B = q1*L²/12 + Δq*L²/20
     let m_b_exact = q1a * l * l / 12.0 + dq * l * l / 20.0;
 
-    assert_close(r1.mz.abs(), m_a_exact, 0.10, "Trapez: M_A = q1L²/12 + ΔqL²/30");
-    assert_close(r_end.mz.abs(), m_b_exact, 0.10, "Trapez: M_B = q1L²/12 + ΔqL²/20");
+    assert_close(r1.my.abs(), m_a_exact, 0.10, "Trapez: M_A = q1L²/12 + ΔqL²/30");
+    assert_close(r_end.my.abs(), m_b_exact, 0.10, "Trapez: M_B = q1L²/12 + ΔqL²/20");
 
     // Right moment > left moment (heavier load on right)
     assert!(
-        r_end.mz.abs() > r1.mz.abs(),
+        r_end.my.abs() > r1.my.abs(),
         "Trapez: M_B > M_A: {:.4} > {:.4}",
-        r_end.mz.abs(), r1.mz.abs()
+        r_end.my.abs(), r1.my.abs()
     );
 
     // Total load = (q1 + q2)/2 * L = average intensity × length
     let total = (q1a + dq + q1a) / 2.0 * l; // = (q1 + q2)/2 * L
-    let sum_ry: f64 = results.reactions.iter().map(|r| r.ry).sum();
+    let sum_ry: f64 = results.reactions.iter().map(|r| r.rz).sum();
     assert_close(sum_ry, total, 0.02, "Trapez: ΣRy = (q1+q2)L/2");
 }
 
@@ -366,11 +366,11 @@ fn validation_fef_ext_cantilever_udl() {
 
     // R_A = |q|L = 10 × 4 = 40 kN (upward)
     let r_exact = q.abs() * l;
-    assert_close(r1.ry, r_exact, 0.02, "Cantilever UDL: R_A = qL");
+    assert_close(r1.rz, r_exact, 0.02, "Cantilever UDL: R_A = qL");
 
     // M_A = |q|L²/2 = 10 × 16 / 2 = 80 kN·m
     let m_exact = q.abs() * l * l / 2.0;
-    assert_close(r1.mz.abs(), m_exact, 0.02, "Cantilever UDL: M_A = qL²/2");
+    assert_close(r1.my.abs(), m_exact, 0.02, "Cantilever UDL: M_A = qL²/2");
 
     // Tip deflection: δ = qL⁴ / (8EI)
     // E in solver is multiplied by 1000: E_actual = 200_000 × 1000 = 2e8 kN/m²
@@ -380,7 +380,7 @@ fn validation_fef_ext_cantilever_udl() {
     let tip_node = n + 1;
     let disp_tip = results.displacements.iter().find(|d| d.node_id == tip_node).unwrap();
     // Displacement is downward (negative uy)
-    assert_close(disp_tip.uy.abs(), delta_exact, 0.02, "Cantilever UDL: δ_tip = qL⁴/(8EI)");
+    assert_close(disp_tip.uz.abs(), delta_exact, 0.02, "Cantilever UDL: δ_tip = qL⁴/(8EI)");
 
     // No horizontal reaction for purely vertical load
     assert_close(r1.rx.abs(), 0.0, 0.01, "Cantilever UDL: Rx ≈ 0");
@@ -427,15 +427,15 @@ fn validation_fef_ext_thermal_gradient() {
     let e_actual = E * 1000.0; // kN/m²
     let m_exact = e_actual * IZ * alpha * dt_gradient / h_solver;
 
-    assert_close(r1.mz.abs(), m_exact, 0.05, "Thermal: M_A = EIαΔT/h");
-    assert_close(r_end.mz.abs(), m_exact, 0.05, "Thermal: M_B = EIαΔT/h");
+    assert_close(r1.my.abs(), m_exact, 0.05, "Thermal: M_A = EIαΔT/h");
+    assert_close(r_end.my.abs(), m_exact, 0.05, "Thermal: M_B = EIαΔT/h");
 
     // No net vertical load → vertical reactions ≈ 0
-    let sum_ry: f64 = results.reactions.iter().map(|r| r.ry).sum();
+    let sum_ry: f64 = results.reactions.iter().map(|r| r.rz).sum();
     assert_close(sum_ry.abs(), 0.0, 0.01, "Thermal: ΣRy ≈ 0");
 
     // No transverse deflection at midspan (fully restrained beam)
     let mid_node = n / 2 + 1;
     let disp_mid = results.displacements.iter().find(|d| d.node_id == mid_node).unwrap();
-    assert_close(disp_mid.uy.abs(), 0.0, 0.01, "Thermal: midspan deflection ≈ 0");
+    assert_close(disp_mid.uz.abs(), 0.0, 0.01, "Thermal: midspan deflection ≈ 0");
 }

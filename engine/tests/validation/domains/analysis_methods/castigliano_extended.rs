@@ -46,7 +46,7 @@ fn validation_castigliano_ext_fixed_fixed_center() {
 
     let mid = n / 2 + 1;
     let loads = vec![SolverLoad::Nodal(SolverNodalLoad {
-        node_id: mid, fx: 0.0, fy: -p, mz: 0.0,
+        node_id: mid, fx: 0.0, fz: -p, my: 0.0,
     })];
     let input = make_beam(n, l, E, A, IZ, "fixed", Some("fixed"), loads);
     let results = linear::solve_2d(&input).unwrap();
@@ -55,7 +55,7 @@ fn validation_castigliano_ext_fixed_fixed_center() {
 
     // Castigliano: delta = PL^3 / (192EI) for fixed-fixed beam with center load
     let delta_exact = p * l * l * l / (192.0 * E_EFF * IZ);
-    assert_close(d_mid.uy.abs(), delta_exact, 0.02,
+    assert_close(d_mid.uz.abs(), delta_exact, 0.02,
         "Castigliano ext: fixed-fixed center delta = PL^3/(192EI)");
 }
 
@@ -105,7 +105,7 @@ fn validation_castigliano_ext_warren_truss_deflection() {
         ],
         vec![(1, 1, "pinned"), (2, 3, "rollerX")],
         vec![SolverLoad::Nodal(SolverNodalLoad {
-            node_id: 2, fx: 0.0, fy: -p, mz: 0.0,
+            node_id: 2, fx: 0.0, fz: -p, my: 0.0,
         })],
     );
     let results = linear::solve_2d(&input).unwrap();
@@ -113,7 +113,7 @@ fn validation_castigliano_ext_warren_truss_deflection() {
     let d2 = results.displacements.iter().find(|d| d.node_id == 2).unwrap();
 
     // External work = (1/2) * P * delta
-    let u_external = 0.5 * p * d2.uy.abs();
+    let u_external = 0.5 * p * d2.uz.abs();
 
     // Internal strain energy = sum N_i^2 * L_i / (2 * EA)
     // Compute from element forces
@@ -125,7 +125,7 @@ fn validation_castigliano_ext_warren_truss_deflection() {
         let ni = input.nodes.values().find(|n| n.id == elem.node_i).unwrap();
         let nj = input.nodes.values().find(|n| n.id == elem.node_j).unwrap();
         let dx = nj.x - ni.x;
-        let dy = nj.y - ni.y;
+        let dy = nj.z - ni.z;
         let length = (dx * dx + dy * dy).sqrt();
         u_internal += axial * axial * length / (2.0 * E_EFF * a_truss);
     }
@@ -178,7 +178,7 @@ fn validation_castigliano_ext_cantilever_triangular_load() {
 
     // Castigliano: delta_tip = q_max * L^4 / (30 * EI)
     let delta_exact = q_max * l.powi(4) / (30.0 * E_EFF * IZ);
-    assert_close(tip.uy.abs(), delta_exact, 0.03,
+    assert_close(tip.uz.abs(), delta_exact, 0.03,
         "Castigliano ext: cantilever triangular load delta = qL^4/(30EI)");
 }
 
@@ -206,19 +206,19 @@ fn validation_castigliano_ext_maxwell_reciprocal() {
 
     // Case 1: Load at A, measure deflection at B
     let loads_1 = vec![SolverLoad::Nodal(SolverNodalLoad {
-        node_id: node_a, fx: 0.0, fy: -p, mz: 0.0,
+        node_id: node_a, fx: 0.0, fz: -p, my: 0.0,
     })];
     let input_1 = make_beam(n, l, E, A, IZ, "pinned", Some("rollerX"), loads_1);
     let res_1 = linear::solve_2d(&input_1).unwrap();
-    let f_ab = res_1.displacements.iter().find(|d| d.node_id == node_b).unwrap().uy.abs();
+    let f_ab = res_1.displacements.iter().find(|d| d.node_id == node_b).unwrap().uz.abs();
 
     // Case 2: Load at B, measure deflection at A
     let loads_2 = vec![SolverLoad::Nodal(SolverNodalLoad {
-        node_id: node_b, fx: 0.0, fy: -p, mz: 0.0,
+        node_id: node_b, fx: 0.0, fz: -p, my: 0.0,
     })];
     let input_2 = make_beam(n, l, E, A, IZ, "pinned", Some("rollerX"), loads_2);
     let res_2 = linear::solve_2d(&input_2).unwrap();
-    let f_ba = res_2.displacements.iter().find(|d| d.node_id == node_a).unwrap().uy.abs();
+    let f_ba = res_2.displacements.iter().find(|d| d.node_id == node_a).unwrap().uz.abs();
 
     // Maxwell reciprocal theorem: f_AB = f_BA
     assert_close(f_ab, f_ba, 0.001,
@@ -247,7 +247,7 @@ fn validation_castigliano_ext_propped_cantilever() {
 
     let mid = n / 2 + 1;
     let loads = vec![SolverLoad::Nodal(SolverNodalLoad {
-        node_id: mid, fx: 0.0, fy: -p, mz: 0.0,
+        node_id: mid, fx: 0.0, fz: -p, my: 0.0,
     })];
     // Fixed at left, roller (pinned with horizontal freedom) at right
     let input = make_beam(n, l, E, A, IZ, "fixed", Some("rollerX"), loads);
@@ -258,11 +258,11 @@ fn validation_castigliano_ext_propped_cantilever() {
     // Propped cantilever with center load:
     // delta_center = 7 * P * L^3 / (768 * EI)
     let delta_exact = 7.0 * p * l.powi(3) / (768.0 * E_EFF * IZ);
-    assert_close(d_mid.uy.abs(), delta_exact, 0.03,
+    assert_close(d_mid.uz.abs(), delta_exact, 0.03,
         "Castigliano ext: propped cantilever center delta = 7PL^3/(768EI)");
 
     // Energy check: U = (1/2) * P * delta
-    let u_external = 0.5 * p * d_mid.uy.abs();
+    let u_external = 0.5 * p * d_mid.uz.abs();
     assert!(u_external > 0.0, "Propped cantilever: positive strain energy");
 }
 
@@ -288,10 +288,10 @@ fn validation_castigliano_ext_third_point_loading() {
 
     let loads = vec![
         SolverLoad::Nodal(SolverNodalLoad {
-            node_id: node_a, fx: 0.0, fy: -p, mz: 0.0,
+            node_id: node_a, fx: 0.0, fz: -p, my: 0.0,
         }),
         SolverLoad::Nodal(SolverNodalLoad {
-            node_id: node_b, fx: 0.0, fy: -p, mz: 0.0,
+            node_id: node_b, fx: 0.0, fz: -p, my: 0.0,
         }),
     ];
     let input = make_beam(n, l, E, A, IZ, "pinned", Some("rollerX"), loads);
@@ -301,14 +301,14 @@ fn validation_castigliano_ext_third_point_loading() {
 
     // Third-point loading: delta_center = 23 * P * L^3 / (648 * EI)
     let delta_exact = 23.0 * p * l.powi(3) / (648.0 * E_EFF * IZ);
-    assert_close(d_mid.uy.abs(), delta_exact, 0.02,
+    assert_close(d_mid.uz.abs(), delta_exact, 0.02,
         "Castigliano ext: third-point loading delta = 23PL^3/(648EI)");
 
     // Reactions should be symmetric: R1 = R2 = P (each support carries both loads equally)
     let r1 = results.reactions.iter().find(|r| r.node_id == 1).unwrap();
     let r_end = results.reactions.iter().find(|r| r.node_id == n + 1).unwrap();
-    assert_close(r1.ry, p, 0.01, "Third-point: R1 = P");
-    assert_close(r_end.ry, p, 0.01, "Third-point: R2 = P");
+    assert_close(r1.rz, p, 0.01, "Third-point: R1 = P");
+    assert_close(r_end.rz, p, 0.01, "Third-point: R2 = P");
 }
 
 // ================================================================
@@ -341,7 +341,7 @@ fn validation_castigliano_ext_cantilever_combined() {
 
     let tip_node = n + 1;
     let loads = vec![SolverLoad::Nodal(SolverNodalLoad {
-        node_id: tip_node, fx: 0.0, fy: -p, mz: m_val,
+        node_id: tip_node, fx: 0.0, fz: -p, my: m_val,
     })];
     let input = make_beam(n, l, E, A, IZ, "fixed", None, loads);
     let results = linear::solve_2d(&input).unwrap();
@@ -351,13 +351,13 @@ fn validation_castigliano_ext_cantilever_combined() {
     // Castigliano: delta = dU/dP = PL^3/(3EI) - ML^2/(2EI) (M opposes P)
     let delta_exact = p * l.powi(3) / (3.0 * E_EFF * IZ)
                     - m_val * l * l / (2.0 * E_EFF * IZ);
-    assert_close(tip.uy.abs(), delta_exact, 0.01,
+    assert_close(tip.uz.abs(), delta_exact, 0.01,
         "Castigliano ext: cantilever combined delta = PL^3/(3EI) - ML^2/(2EI)");
 
     // Castigliano: theta = |dU/dM| = |ML/(EI) - PL^2/(2EI)|
     let theta_exact = (p * l * l / (2.0 * E_EFF * IZ)
                      - m_val * l / (E_EFF * IZ)).abs();
-    assert_close(tip.rz.abs(), theta_exact, 0.01,
+    assert_close(tip.ry.abs(), theta_exact, 0.01,
         "Castigliano ext: cantilever combined theta");
 
     // Strain energy from integral: U = [P^2*L^3/3 - P*M*L^2 + M^2*L] / (2EI)
@@ -367,8 +367,8 @@ fn validation_castigliano_ext_cantilever_combined() {
                 / (2.0 * E_EFF * IZ);
 
     // External work: U = (1/2) * (F_y * uy + M_z * rz)
-    // with sign: F_y = -p, uy = tip.uy; M_z = m_val, rz = tip.rz
-    let u_external = 0.5 * ((-p) * tip.uy + m_val * tip.rz);
+    // with sign: F_y = -p, uy = tip.uz; M_z = m_val, rz = tip.ry
+    let u_external = 0.5 * ((-p) * tip.uz + m_val * tip.ry);
     assert_close(u_external, u_exact, 0.01,
         "Castigliano ext: cantilever combined energy consistency");
 }
@@ -427,7 +427,7 @@ fn validation_castigliano_ext_howe_truss() {
         ],
         vec![(1, 1, "pinned"), (2, 5, "rollerX")],
         vec![SolverLoad::Nodal(SolverNodalLoad {
-            node_id: 3, fx: 0.0, fy: -p, mz: 0.0,
+            node_id: 3, fx: 0.0, fz: -p, my: 0.0,
         })],
     );
     let results = linear::solve_2d(&input).unwrap();
@@ -435,7 +435,7 @@ fn validation_castigliano_ext_howe_truss() {
     let d3 = results.displacements.iter().find(|d| d.node_id == 3).unwrap();
 
     // External work
-    let u_external = 0.5 * p * d3.uy.abs();
+    let u_external = 0.5 * p * d3.uz.abs();
 
     // Internal strain energy from axial forces
     let mut u_internal = 0.0;
@@ -445,7 +445,7 @@ fn validation_castigliano_ext_howe_truss() {
         let ni = input.nodes.values().find(|nd| nd.id == elem.node_i).unwrap();
         let nj = input.nodes.values().find(|nd| nd.id == elem.node_j).unwrap();
         let dx = nj.x - ni.x;
-        let dy = nj.y - ni.y;
+        let dy = nj.z - ni.z;
         let length = (dx * dx + dy * dy).sqrt();
         u_internal += axial * axial * length / (2.0 * E_EFF * a_truss);
     }
@@ -457,8 +457,8 @@ fn validation_castigliano_ext_howe_truss() {
     // Equilibrium check: symmetric loading, so R1y = R5y = P/2
     let r1 = results.reactions.iter().find(|r| r.node_id == 1).unwrap();
     let r5 = results.reactions.iter().find(|r| r.node_id == 5).unwrap();
-    assert_close(r1.ry, p / 2.0, 0.02, "Howe truss: R1y = P/2");
-    assert_close(r5.ry, p / 2.0, 0.02, "Howe truss: R5y = P/2");
+    assert_close(r1.rz, p / 2.0, 0.02, "Howe truss: R1y = P/2");
+    assert_close(r5.rz, p / 2.0, 0.02, "Howe truss: R5y = P/2");
 
     // All moments should be zero (truss with double hinges)
     for ef in &results.element_forces {

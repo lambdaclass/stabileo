@@ -70,7 +70,7 @@ fn validation_drift_ext_propped_cantilever() {
         }
     }
     let loads = vec![SolverLoad::Nodal(SolverNodalLoad {
-        node_id: mid + 1, fx: p, fy: 0.0, mz: 0.0,
+        node_id: mid + 1, fx: p, fz: 0.0, my: 0.0,
     })];
     let input = make_input(nodes, vec![(1, E, 0.3)], vec![(1, A, IZ)], elems,
         vec![(1, 1, "fixed")], loads);
@@ -116,8 +116,8 @@ fn validation_drift_ext_two_bay_symmetric() {
     ];
     // Symmetric lateral loads at top of outer columns
     let loads = vec![
-        SolverLoad::Nodal(SolverNodalLoad { node_id: 2, fx: f, fy: 0.0, mz: 0.0 }),
-        SolverLoad::Nodal(SolverNodalLoad { node_id: 5, fx: f, fy: 0.0, mz: 0.0 }),
+        SolverLoad::Nodal(SolverNodalLoad { node_id: 2, fx: f, fz: 0.0, my: 0.0 }),
+        SolverLoad::Nodal(SolverNodalLoad { node_id: 5, fx: f, fz: 0.0, my: 0.0 }),
     ];
     let input = make_input(nodes, vec![(1, E, 0.3)], vec![(1, A, IZ)], elems, sups, loads);
     let results = linear::solve_2d(&input).unwrap();
@@ -176,8 +176,8 @@ fn validation_drift_ext_soft_story() {
     ];
     let sups = vec![(1, 1, "fixed"), (2, 2, "fixed")];
     let loads = vec![
-        SolverLoad::Nodal(SolverNodalLoad { node_id: 3, fx: f, fy: 0.0, mz: 0.0 }),
-        SolverLoad::Nodal(SolverNodalLoad { node_id: 5, fx: f, fy: 0.0, mz: 0.0 }),
+        SolverLoad::Nodal(SolverNodalLoad { node_id: 3, fx: f, fz: 0.0, my: 0.0 }),
+        SolverLoad::Nodal(SolverNodalLoad { node_id: 5, fx: f, fz: 0.0, my: 0.0 }),
     ];
     let input = make_input(nodes, mats, secs, elems, sups, loads);
     let results = linear::solve_2d(&input).unwrap();
@@ -241,8 +241,8 @@ fn validation_drift_ext_antisymmetric() {
     let sups = vec![(1, 1, "fixed"), (2, 7, "fixed")];
     // Antisymmetric lateral loads: +F at left, -F at right
     let loads = vec![
-        SolverLoad::Nodal(SolverNodalLoad { node_id: 2, fx: f, fy: 0.0, mz: 0.0 }),
-        SolverLoad::Nodal(SolverNodalLoad { node_id: 6, fx: -f, fy: 0.0, mz: 0.0 }),
+        SolverLoad::Nodal(SolverNodalLoad { node_id: 2, fx: f, fz: 0.0, my: 0.0 }),
+        SolverLoad::Nodal(SolverNodalLoad { node_id: 6, fx: -f, fz: 0.0, my: 0.0 }),
     ];
     let input = make_input(nodes, vec![(1, E, 0.3)], vec![(1, A, IZ)], elems, sups, loads);
     let results = linear::solve_2d(&input).unwrap();
@@ -293,14 +293,14 @@ fn validation_drift_ext_superposition() {
 
     // Load case 1: P1 at tip
     let input1 = build_column(vec![SolverLoad::Nodal(SolverNodalLoad {
-        node_id: n + 1, fx: p1, fy: 0.0, mz: 0.0,
+        node_id: n + 1, fx: p1, fz: 0.0, my: 0.0,
     })]);
     let d1 = linear::solve_2d(&input1).unwrap()
         .displacements.iter().find(|d| d.node_id == n + 1).unwrap().ux;
 
     // Load case 2: P2 at mid-height
     let input2 = build_column(vec![SolverLoad::Nodal(SolverNodalLoad {
-        node_id: mid + 1, fx: p2, fy: 0.0, mz: 0.0,
+        node_id: mid + 1, fx: p2, fz: 0.0, my: 0.0,
     })]);
     let d2 = linear::solve_2d(&input2).unwrap()
         .displacements.iter().find(|d| d.node_id == n + 1).unwrap().ux;
@@ -308,10 +308,10 @@ fn validation_drift_ext_superposition() {
     // Combined: P1 at tip + P2 at mid-height
     let input_both = build_column(vec![
         SolverLoad::Nodal(SolverNodalLoad {
-            node_id: n + 1, fx: p1, fy: 0.0, mz: 0.0,
+            node_id: n + 1, fx: p1, fz: 0.0, my: 0.0,
         }),
         SolverLoad::Nodal(SolverNodalLoad {
-            node_id: mid + 1, fx: p2, fy: 0.0, mz: 0.0,
+            node_id: mid + 1, fx: p2, fz: 0.0, my: 0.0,
         }),
     ]);
     let d_both = linear::solve_2d(&input_both).unwrap()
@@ -344,7 +344,7 @@ fn validation_drift_ext_moment_load() {
         }
     }
     let loads = vec![SolverLoad::Nodal(SolverNodalLoad {
-        node_id: n + 1, fx: 0.0, fy: 0.0, mz: m,
+        node_id: n + 1, fx: 0.0, fz: 0.0, my: m,
     })];
     let input = make_input(nodes, vec![(1, E, 0.3)], vec![(1, A, IZ)], elems,
         vec![(1, 1, "fixed")], loads);
@@ -391,7 +391,7 @@ fn validation_drift_ext_braced_vs_unbraced() {
     ];
     let sups = vec![(1, 1, "fixed"), (2, 4, "fixed")];
     let loads = vec![SolverLoad::Nodal(SolverNodalLoad {
-        node_id: 2, fx: f, fy: 0.0, mz: 0.0,
+        node_id: 2, fx: f, fz: 0.0, my: 0.0,
     })];
     let input_braced = make_input(nodes, vec![(1, E, 0.3)], vec![(1, A, IZ)], elems, sups, loads);
     let d_braced = linear::solve_2d(&input_braced).unwrap()
@@ -430,7 +430,7 @@ fn validation_drift_ext_drift_ratio_scaling() {
             }
         }
         let loads = vec![SolverLoad::Nodal(SolverNodalLoad {
-            node_id: n + 1, fx: p, fy: 0.0, mz: 0.0,
+            node_id: n + 1, fx: p, fz: 0.0, my: 0.0,
         })];
         let input = make_input(nodes, vec![(1, E, 0.3)], vec![(1, A, IZ)], elems,
             vec![(1, 1, "fixed")], loads);

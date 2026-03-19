@@ -68,7 +68,7 @@ fn validation_flexibility_ext_propped_midspan_deflection() {
     // δ(L/2) = qL⁴/(192EI) (downward, so negative uy)
     let delta_exact = q.abs() * l.powi(4) / (192.0 * e_eff * IZ);
     assert_close(
-        d_mid.uy.abs(),
+        d_mid.uz.abs(),
         delta_exact,
         0.03,
         "Propped cantilever: midspan deflection δ(L/2) = qL⁴/(192EI)",
@@ -95,8 +95,8 @@ fn validation_flexibility_ext_fixed_fixed_point_load() {
     let loads = vec![SolverLoad::Nodal(SolverNodalLoad {
         node_id: mid_node,
         fx: 0.0,
-        fy: -p,
-        mz: 0.0,
+        fz: -p,
+        my: 0.0,
     })];
     let input = make_beam(n, l, E, A, IZ, "fixed", Some("fixed"), loads);
     let results = linear::solve_2d(&input).unwrap();
@@ -110,19 +110,19 @@ fn validation_flexibility_ext_fixed_fixed_point_load() {
 
     // R_A = R_B = P/2
     let r_exact = p / 2.0;
-    assert_close(r1.ry, r_exact, 0.02, "Fixed-fixed point: R_A = P/2");
-    assert_close(r_end.ry, r_exact, 0.02, "Fixed-fixed point: R_B = P/2");
+    assert_close(r1.rz, r_exact, 0.02, "Fixed-fixed point: R_A = P/2");
+    assert_close(r_end.rz, r_exact, 0.02, "Fixed-fixed point: R_B = P/2");
 
     // M_A = M_B = PL/8 (magnitudes equal, signs opposite to convention)
     let m_exact = p * l / 8.0;
     assert_close(
-        r1.mz.abs(),
+        r1.my.abs(),
         m_exact,
         0.02,
         "Fixed-fixed point: M_A = PL/8",
     );
     assert_close(
-        r_end.mz.abs(),
+        r_end.my.abs(),
         m_exact,
         0.02,
         "Fixed-fixed point: M_B = PL/8",
@@ -176,7 +176,7 @@ fn validation_flexibility_ext_unequal_two_span() {
 
     // Global equilibrium: sum of reactions = total load
     let total_load = q.abs() * (l1 + l2);
-    let sum_ry: f64 = results.reactions.iter().map(|r| r.ry).sum();
+    let sum_ry: f64 = results.reactions.iter().map(|r| r.rz).sum();
     assert_close(sum_ry, total_load, 0.02, "Unequal two-span: ΣR = q(L1+L2)");
 
     // Three-moment equation: M_B = q(L1³ + L2³)/(8(L1+L2))
@@ -215,7 +215,7 @@ fn validation_flexibility_ext_unequal_two_span() {
         .find(|r| r.node_id == 2 * n + 1)
         .unwrap();
     assert!(
-        r_int.ry > r_left.ry && r_int.ry > r_right.ry,
+        r_int.rz > r_left.rz && r_int.rz > r_right.rz,
         "Unequal two-span: interior reaction is largest"
     );
 }
@@ -250,7 +250,7 @@ fn validation_flexibility_ext_four_span_symmetry() {
 
     // Global equilibrium
     let total_load = 4.0 * q.abs() * span;
-    let sum_ry: f64 = results.reactions.iter().map(|r| r.ry).sum();
+    let sum_ry: f64 = results.reactions.iter().map(|r| r.rz).sum();
     assert_close(sum_ry, total_load, 0.02, "Four-span: ΣR = 4qL");
 
     // Symmetry: R_1 = R_5
@@ -260,7 +260,7 @@ fn validation_flexibility_ext_four_span_symmetry() {
         .iter()
         .find(|r| r.node_id == 4 * n + 1)
         .unwrap();
-    assert_close(r1.ry, r5.ry, 0.01, "Four-span: R_1 = R_5 (symmetry)");
+    assert_close(r1.rz, r5.rz, 0.01, "Four-span: R_1 = R_5 (symmetry)");
 
     // Symmetry: R_2 = R_4
     let r2 = results
@@ -273,7 +273,7 @@ fn validation_flexibility_ext_four_span_symmetry() {
         .iter()
         .find(|r| r.node_id == 3 * n + 1)
         .unwrap();
-    assert_close(r2.ry, r4.ry, 0.01, "Four-span: R_2 = R_4 (symmetry)");
+    assert_close(r2.rz, r4.rz, 0.01, "Four-span: R_2 = R_4 (symmetry)");
 
     // R_3 is the center reaction; for 4 equal spans under UDL
     // the known coefficients (from flexibility or moment distribution) are:
@@ -286,9 +286,9 @@ fn validation_flexibility_ext_four_span_symmetry() {
     let r1_exact = 0.393 * q.abs() * span;
     let r2_exact = 1.143 * q.abs() * span;
     let r3_exact = 0.929 * q.abs() * span;
-    assert_close(r1.ry, r1_exact, 0.03, "Four-span: R_1 = 0.393qL");
-    assert_close(r2.ry, r2_exact, 0.03, "Four-span: R_2 = 1.143qL");
-    assert_close(r3.ry, r3_exact, 0.03, "Four-span: R_3 = 0.929qL");
+    assert_close(r1.rz, r1_exact, 0.03, "Four-span: R_1 = 0.393qL");
+    assert_close(r2.rz, r2_exact, 0.03, "Four-span: R_2 = 1.143qL");
+    assert_close(r3.rz, r3_exact, 0.03, "Four-span: R_3 = 0.929qL");
 }
 
 // ================================================================
@@ -324,7 +324,7 @@ fn validation_flexibility_ext_propped_fixed_moment() {
     // M_A = qL²/8 (hogging at fixed end)
     let m_exact = q.abs() * l * l / 8.0;
     assert_close(
-        r1.mz.abs(),
+        r1.my.abs(),
         m_exact,
         0.02,
         "Propped cantilever: M_A = qL²/8",
@@ -332,7 +332,7 @@ fn validation_flexibility_ext_propped_fixed_moment() {
 
     // Also verify R_A = 5qL/8
     let r_a_exact = 5.0 * q.abs() * l / 8.0;
-    assert_close(r1.ry, r_a_exact, 0.02, "Propped cantilever: R_A = 5qL/8");
+    assert_close(r1.rz, r_a_exact, 0.02, "Propped cantilever: R_A = 5qL/8");
 }
 
 // ================================================================
@@ -352,8 +352,8 @@ fn validation_flexibility_ext_rotation_coefficient() {
     let loads = vec![SolverLoad::Nodal(SolverNodalLoad {
         node_id: n + 1,
         fx: 0.0,
-        fy: -p,
-        mz: 0.0,
+        fz: -p,
+        my: 0.0,
     })];
     let input = make_beam(n, l, E, A, IZ, "fixed", None, loads);
     let results = linear::solve_2d(&input).unwrap();
@@ -367,7 +367,7 @@ fn validation_flexibility_ext_rotation_coefficient() {
     // θ_tip = PL²/(2EI)
     let theta_exact = p * l * l / (2.0 * e_eff * IZ);
     assert_close(
-        tip.rz.abs(),
+        tip.ry.abs(),
         theta_exact,
         0.02,
         "Cantilever: tip rotation θ = PL²/(2EI)",
@@ -426,14 +426,14 @@ fn validation_flexibility_ext_two_span_point_load() {
     let loads = vec![SolverLoad::Nodal(SolverNodalLoad {
         node_id: load_node,
         fx: 0.0,
-        fy: -p,
-        mz: 0.0,
+        fz: -p,
+        my: 0.0,
     })];
     let input = make_continuous_beam(&[span, span], n, E, A, IZ, loads);
     let results = linear::solve_2d(&input).unwrap();
 
     // Global equilibrium: sum of reactions = P
-    let sum_ry: f64 = results.reactions.iter().map(|r| r.ry).sum();
+    let sum_ry: f64 = results.reactions.iter().map(|r| r.rz).sum();
     assert_close(sum_ry, p, 0.02, "Two-span point load: ΣR = P");
 
     // Three-moment equation for equal spans L, point load P at L/2 on span 1:
@@ -476,15 +476,15 @@ fn validation_flexibility_ext_two_span_point_load() {
         .unwrap();
 
     assert!(
-        d1.uy.abs() < 1e-10,
+        d1.uz.abs() < 1e-10,
         "Two-span point: δ_A = 0 at support A"
     );
     assert!(
-        d_int.uy.abs() < 1e-10,
+        d_int.uz.abs() < 1e-10,
         "Two-span point: δ_B = 0 at interior support"
     );
     assert!(
-        d_end.uy.abs() < 1e-10,
+        d_end.uz.abs() < 1e-10,
         "Two-span point: δ_C = 0 at support C"
     );
 
@@ -507,13 +507,13 @@ fn validation_flexibility_ext_two_span_point_load() {
     // The loaded span distributes force to both adjacent supports.
     // R_A and R_B should both be positive (upward), R_C may be small or negative.
     assert!(
-        r_a.ry > 0.0 && r_b.ry > 0.0,
+        r_a.rz > 0.0 && r_b.rz > 0.0,
         "Two-span point: R_A and R_B are positive (upward)"
     );
 
     // R_A + R_B + R_C = P
     assert_close(
-        r_a.ry + r_b.ry + r_c.ry,
+        r_a.rz + r_b.rz + r_c.rz,
         p,
         0.02,
         "Two-span point: R_A + R_B + R_C = P",
@@ -558,8 +558,8 @@ fn validation_flexibility_ext_propped_midspan_point() {
     let loads = vec![SolverLoad::Nodal(SolverNodalLoad {
         node_id: load_node,
         fx: 0.0,
-        fy: -p,
-        mz: 0.0,
+        fz: -p,
+        my: 0.0,
     })];
     let input = make_beam(n, l, E, A, IZ, "fixed", Some("rollerX"), loads);
     let results = linear::solve_2d(&input).unwrap();
@@ -575,7 +575,7 @@ fn validation_flexibility_ext_propped_midspan_point() {
     let r_b_exact = p * a_dist * a_dist * (3.0 * l - a_dist) / (2.0 * l.powi(3));
     // R_B = 5P/16
     assert_close(
-        r_end.ry,
+        r_end.rz,
         r_b_exact,
         0.03,
         "Propped midspan point: R_B = 5P/16",
@@ -584,7 +584,7 @@ fn validation_flexibility_ext_propped_midspan_point() {
     // R_A = P - R_B = 11P/16
     let r_a_exact = p - r_b_exact;
     assert_close(
-        r1.ry,
+        r1.rz,
         r_a_exact,
         0.03,
         "Propped midspan point: R_A = 11P/16",
@@ -593,7 +593,7 @@ fn validation_flexibility_ext_propped_midspan_point() {
     // M_A = P*L/2 - R_B*L = 3PL/16
     let m_a_exact = p * l / 2.0 - r_b_exact * l;
     assert_close(
-        r1.mz.abs(),
+        r1.my.abs(),
         m_a_exact.abs(),
         0.03,
         "Propped midspan point: M_A = 3PL/16",

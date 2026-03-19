@@ -37,28 +37,28 @@ fn validation_superposition_two_points() {
 
     // Load 1 only
     let loads1 = vec![SolverLoad::Nodal(SolverNodalLoad {
-        node_id: node_a, fx: 0.0, fy: -p1, mz: 0.0,
+        node_id: node_a, fx: 0.0, fz: -p1, my: 0.0,
     })];
     let input1 = make_beam(n, l, E, A, IZ, "pinned", Some("rollerX"), loads1);
     let d1 = linear::solve_2d(&input1).unwrap()
-        .displacements.iter().find(|d| d.node_id == check_node).unwrap().uy;
+        .displacements.iter().find(|d| d.node_id == check_node).unwrap().uz;
 
     // Load 2 only
     let loads2 = vec![SolverLoad::Nodal(SolverNodalLoad {
-        node_id: node_b, fx: 0.0, fy: -p2, mz: 0.0,
+        node_id: node_b, fx: 0.0, fz: -p2, my: 0.0,
     })];
     let input2 = make_beam(n, l, E, A, IZ, "pinned", Some("rollerX"), loads2);
     let d2 = linear::solve_2d(&input2).unwrap()
-        .displacements.iter().find(|d| d.node_id == check_node).unwrap().uy;
+        .displacements.iter().find(|d| d.node_id == check_node).unwrap().uz;
 
     // Combined
     let loads_c = vec![
-        SolverLoad::Nodal(SolverNodalLoad { node_id: node_a, fx: 0.0, fy: -p1, mz: 0.0 }),
-        SolverLoad::Nodal(SolverNodalLoad { node_id: node_b, fx: 0.0, fy: -p2, mz: 0.0 }),
+        SolverLoad::Nodal(SolverNodalLoad { node_id: node_a, fx: 0.0, fz: -p1, my: 0.0 }),
+        SolverLoad::Nodal(SolverNodalLoad { node_id: node_b, fx: 0.0, fz: -p2, my: 0.0 }),
     ];
     let input_c = make_beam(n, l, E, A, IZ, "pinned", Some("rollerX"), loads_c);
     let d_c = linear::solve_2d(&input_c).unwrap()
-        .displacements.iter().find(|d| d.node_id == check_node).unwrap().uy;
+        .displacements.iter().find(|d| d.node_id == check_node).unwrap().uz;
 
     assert_close(d_c, d1 + d2, 0.01, "Superposition: two point loads");
 }
@@ -83,15 +83,15 @@ fn validation_superposition_udl_plus_point() {
         .collect();
     let input_udl = make_beam(n, l, E, A, IZ, "fixed", Some("fixed"), loads_udl);
     let d_udl = linear::solve_2d(&input_udl).unwrap()
-        .displacements.iter().find(|d| d.node_id == mid).unwrap().uy;
+        .displacements.iter().find(|d| d.node_id == mid).unwrap().uz;
 
     // Point only
     let loads_pt = vec![SolverLoad::Nodal(SolverNodalLoad {
-        node_id: mid, fx: 0.0, fy: -p, mz: 0.0,
+        node_id: mid, fx: 0.0, fz: -p, my: 0.0,
     })];
     let input_pt = make_beam(n, l, E, A, IZ, "fixed", Some("fixed"), loads_pt);
     let d_pt = linear::solve_2d(&input_pt).unwrap()
-        .displacements.iter().find(|d| d.node_id == mid).unwrap().uy;
+        .displacements.iter().find(|d| d.node_id == mid).unwrap().uz;
 
     // Combined
     let mut loads_c: Vec<SolverLoad> = (1..=n)
@@ -100,11 +100,11 @@ fn validation_superposition_udl_plus_point() {
         }))
         .collect();
     loads_c.push(SolverLoad::Nodal(SolverNodalLoad {
-        node_id: mid, fx: 0.0, fy: -p, mz: 0.0,
+        node_id: mid, fx: 0.0, fz: -p, my: 0.0,
     }));
     let input_c = make_beam(n, l, E, A, IZ, "fixed", Some("fixed"), loads_c);
     let d_c = linear::solve_2d(&input_c).unwrap()
-        .displacements.iter().find(|d| d.node_id == mid).unwrap().uy;
+        .displacements.iter().find(|d| d.node_id == mid).unwrap().uz;
 
     assert_close(d_c, d_udl + d_pt, 0.01, "Superposition: UDL + point");
 }
@@ -122,11 +122,11 @@ fn validation_superposition_scaling() {
 
     let get_defl = |load: f64| -> f64 {
         let loads = vec![SolverLoad::Nodal(SolverNodalLoad {
-            node_id: mid, fx: 0.0, fy: -load, mz: 0.0,
+            node_id: mid, fx: 0.0, fz: -load, my: 0.0,
         })];
         let input = make_beam(n, l, E, A, IZ, "pinned", Some("rollerX"), loads);
         linear::solve_2d(&input).unwrap()
-            .displacements.iter().find(|d| d.node_id == mid).unwrap().uy
+            .displacements.iter().find(|d| d.node_id == mid).unwrap().uz
     };
 
     let d1 = get_defl(p);
@@ -150,11 +150,11 @@ fn validation_superposition_sign_reversal() {
 
     let get_defl = |load: f64| -> f64 {
         let loads = vec![SolverLoad::Nodal(SolverNodalLoad {
-            node_id: mid, fx: 0.0, fy: load, mz: 0.0,
+            node_id: mid, fx: 0.0, fz: load, my: 0.0,
         })];
         let input = make_beam(n, l, E, A, IZ, "pinned", Some("rollerX"), loads);
         linear::solve_2d(&input).unwrap()
-            .displacements.iter().find(|d| d.node_id == mid).unwrap().uy
+            .displacements.iter().find(|d| d.node_id == mid).unwrap().uz
     };
 
     let d_down = get_defl(-p);
@@ -179,18 +179,18 @@ fn validation_superposition_reactions() {
     let get_r1 = |loads: Vec<SolverLoad>| -> f64 {
         let input = make_beam(n, l, E, A, IZ, "pinned", Some("rollerX"), loads);
         linear::solve_2d(&input).unwrap()
-            .reactions.iter().find(|r| r.node_id == 1).unwrap().ry
+            .reactions.iter().find(|r| r.node_id == 1).unwrap().rz
     };
 
     let r_a = get_r1(vec![SolverLoad::Nodal(SolverNodalLoad {
-        node_id: 3, fx: 0.0, fy: -p1, mz: 0.0,
+        node_id: 3, fx: 0.0, fz: -p1, my: 0.0,
     })]);
     let r_b = get_r1(vec![SolverLoad::Nodal(SolverNodalLoad {
-        node_id: 5, fx: 0.0, fy: -p2, mz: 0.0,
+        node_id: 5, fx: 0.0, fz: -p2, my: 0.0,
     })]);
     let r_c = get_r1(vec![
-        SolverLoad::Nodal(SolverNodalLoad { node_id: 3, fx: 0.0, fy: -p1, mz: 0.0 }),
-        SolverLoad::Nodal(SolverNodalLoad { node_id: 5, fx: 0.0, fy: -p2, mz: 0.0 }),
+        SolverLoad::Nodal(SolverNodalLoad { node_id: 3, fx: 0.0, fz: -p1, my: 0.0 }),
+        SolverLoad::Nodal(SolverNodalLoad { node_id: 5, fx: 0.0, fz: -p2, my: 0.0 }),
     ]);
 
     assert_close(r_c, r_a + r_b, 0.01, "Reaction superposition");
@@ -218,23 +218,23 @@ fn validation_superposition_continuous() {
         .collect();
     let input_u = make_continuous_beam(&[span, span], n, E, A, IZ, loads_u);
     let d_u = linear::solve_2d(&input_u).unwrap()
-        .displacements.iter().find(|d| d.node_id == mid1).unwrap().uy;
+        .displacements.iter().find(|d| d.node_id == mid1).unwrap().uz;
 
     // Point load 1 only
     let loads_p1 = vec![SolverLoad::Nodal(SolverNodalLoad {
-        node_id: mid1, fx: 0.0, fy: -p1, mz: 0.0,
+        node_id: mid1, fx: 0.0, fz: -p1, my: 0.0,
     })];
     let input_p1 = make_continuous_beam(&[span, span], n, E, A, IZ, loads_p1);
     let d_p1 = linear::solve_2d(&input_p1).unwrap()
-        .displacements.iter().find(|d| d.node_id == mid1).unwrap().uy;
+        .displacements.iter().find(|d| d.node_id == mid1).unwrap().uz;
 
     // Point load 2 only
     let loads_p2 = vec![SolverLoad::Nodal(SolverNodalLoad {
-        node_id: mid2, fx: 0.0, fy: -p2, mz: 0.0,
+        node_id: mid2, fx: 0.0, fz: -p2, my: 0.0,
     })];
     let input_p2 = make_continuous_beam(&[span, span], n, E, A, IZ, loads_p2);
     let d_p2 = linear::solve_2d(&input_p2).unwrap()
-        .displacements.iter().find(|d| d.node_id == mid1).unwrap().uy;
+        .displacements.iter().find(|d| d.node_id == mid1).unwrap().uz;
 
     // All combined
     let mut loads_all: Vec<SolverLoad> = (1..=(2 * n))
@@ -242,11 +242,11 @@ fn validation_superposition_continuous() {
             element_id: i, q_i: q, q_j: q, a: None, b: None,
         }))
         .collect();
-    loads_all.push(SolverLoad::Nodal(SolverNodalLoad { node_id: mid1, fx: 0.0, fy: -p1, mz: 0.0 }));
-    loads_all.push(SolverLoad::Nodal(SolverNodalLoad { node_id: mid2, fx: 0.0, fy: -p2, mz: 0.0 }));
+    loads_all.push(SolverLoad::Nodal(SolverNodalLoad { node_id: mid1, fx: 0.0, fz: -p1, my: 0.0 }));
+    loads_all.push(SolverLoad::Nodal(SolverNodalLoad { node_id: mid2, fx: 0.0, fz: -p2, my: 0.0 }));
     let input_all = make_continuous_beam(&[span, span], n, E, A, IZ, loads_all);
     let d_all = linear::solve_2d(&input_all).unwrap()
-        .displacements.iter().find(|d| d.node_id == mid1).unwrap().uy;
+        .displacements.iter().find(|d| d.node_id == mid1).unwrap().uz;
 
     assert_close(d_all, d_u + d_p1 + d_p2, 0.01,
         "3-load superposition on continuous beam");
@@ -301,7 +301,7 @@ fn validation_superposition_3d() {
     })];
     let input_y = make_3d_beam(n, l, E, 0.3, A, IZ, IZ, 3e-4, fixed.clone(), None, loads_y);
     let tip_y = linear::solve_3d(&input_y).unwrap()
-        .displacements.iter().find(|d| d.node_id == n + 1).unwrap().uy;
+        .displacements.iter().find(|d| d.node_id == n + 1).unwrap().uz;
 
     // Z load only
     let loads_z = vec![SolverLoad3D::Nodal(SolverNodalLoad3D {
@@ -319,6 +319,6 @@ fn validation_superposition_3d() {
     let res = linear::solve_3d(&input_both).unwrap();
     let tip = res.displacements.iter().find(|d| d.node_id == n + 1).unwrap();
 
-    assert_close(tip.uy, tip_y, 0.01, "3D superposition: uy");
+    assert_close(tip.uz, tip_y, 0.01, "3D superposition: uy");
     assert_close(tip.uz, tip_z, 0.01, "3D superposition: uz");
 }

@@ -41,7 +41,7 @@ fn validation_roark_ext_1_fixed_fixed_center_load() {
     let input = make_beam(
         n, l, E, A, IZ, "fixed", Some("fixed"),
         vec![SolverLoad::Nodal(SolverNodalLoad {
-            node_id: mid, fx: 0.0, fy: -p, mz: 0.0,
+            node_id: mid, fx: 0.0, fz: -p, my: 0.0,
         })],
     );
 
@@ -51,20 +51,20 @@ fn validation_roark_ext_1_fixed_fixed_center_load() {
     let delta_exact = p * l.powi(3) / (192.0 * e_eff * IZ);
     let d_mid = results.displacements.iter()
         .find(|d| d.node_id == mid).unwrap();
-    assert_close(d_mid.uy.abs(), delta_exact, 0.02, "Roark ext 8a: delta_max");
+    assert_close(d_mid.uz.abs(), delta_exact, 0.02, "Roark ext 8a: delta_max");
 
     // Fixed-end moment at left: M = PL/8
     let m_exact = p * l / 8.0;
     let r1 = results.reactions.iter().find(|r| r.node_id == 1).unwrap();
-    assert_close(r1.mz.abs(), m_exact, 0.02, "Roark ext 8a: M_fixed_left");
+    assert_close(r1.my.abs(), m_exact, 0.02, "Roark ext 8a: M_fixed_left");
 
     // Fixed-end moment at right: M = PL/8
     let r_end = results.reactions.iter().find(|r| r.node_id == n + 1).unwrap();
-    assert_close(r_end.mz.abs(), m_exact, 0.02, "Roark ext 8a: M_fixed_right");
+    assert_close(r_end.my.abs(), m_exact, 0.02, "Roark ext 8a: M_fixed_right");
 
     // Reactions: each support takes P/2
-    assert_close(r1.ry, p / 2.0, 0.02, "Roark ext 8a: R_left");
-    assert_close(r_end.ry, p / 2.0, 0.02, "Roark ext 8a: R_right");
+    assert_close(r1.rz, p / 2.0, 0.02, "Roark ext 8a: R_left");
+    assert_close(r_end.rz, p / 2.0, 0.02, "Roark ext 8a: R_right");
 }
 
 // ================================================================
@@ -94,17 +94,17 @@ fn validation_roark_ext_2_fixed_fixed_udl() {
     let mid = n / 2 + 1;
     let d_mid = results.displacements.iter()
         .find(|d| d.node_id == mid).unwrap();
-    assert_close(d_mid.uy.abs(), delta_exact, 0.02, "Roark ext 8e: delta_max");
+    assert_close(d_mid.uz.abs(), delta_exact, 0.02, "Roark ext 8e: delta_max");
 
     // Fixed-end moments: M = wL^2/12
     let m_fixed = w * l * l / 12.0;
     let r1 = results.reactions.iter().find(|r| r.node_id == 1).unwrap();
     let r_end = results.reactions.iter().find(|r| r.node_id == n + 1).unwrap();
-    assert_close(r1.mz.abs(), m_fixed, 0.02, "Roark ext 8e: M_fixed_left");
-    assert_close(r_end.mz.abs(), m_fixed, 0.02, "Roark ext 8e: M_fixed_right");
+    assert_close(r1.my.abs(), m_fixed, 0.02, "Roark ext 8e: M_fixed_left");
+    assert_close(r_end.my.abs(), m_fixed, 0.02, "Roark ext 8e: M_fixed_right");
 
     // Equilibrium: sum of vertical reactions = wL
-    let sum_ry: f64 = results.reactions.iter().map(|r| r.ry).sum();
+    let sum_ry: f64 = results.reactions.iter().map(|r| r.rz).sum();
     assert_close(sum_ry, w * l, 0.01, "Roark ext 8e: equilibrium");
 }
 
@@ -125,7 +125,7 @@ fn validation_roark_ext_3_propped_cantilever_center() {
     let input = make_beam(
         n, l, E, A, IZ, "fixed", Some("rollerX"),
         vec![SolverLoad::Nodal(SolverNodalLoad {
-            node_id: mid, fx: 0.0, fy: -p, mz: 0.0,
+            node_id: mid, fx: 0.0, fz: -p, my: 0.0,
         })],
     );
 
@@ -134,21 +134,21 @@ fn validation_roark_ext_3_propped_cantilever_center() {
     // Roller reaction: R_roller = 5P/16
     let r_roller = results.reactions.iter().find(|r| r.node_id == n + 1).unwrap();
     let r_roller_exact = 5.0 * p / 16.0;
-    assert_close(r_roller.ry, r_roller_exact, 0.02, "Roark ext 3a: R_roller");
+    assert_close(r_roller.rz, r_roller_exact, 0.02, "Roark ext 3a: R_roller");
 
     // Fixed-end moment: M_fixed = 3PL/16
     let r_fixed = results.reactions.iter().find(|r| r.node_id == 1).unwrap();
     let m_fixed_exact = 3.0 * p * l / 16.0;
-    assert_close(r_fixed.mz.abs(), m_fixed_exact, 0.02, "Roark ext 3a: M_fixed");
+    assert_close(r_fixed.my.abs(), m_fixed_exact, 0.02, "Roark ext 3a: M_fixed");
 
     // Deflection under load: delta = 7PL^3/(768EI)
     let delta_exact = 7.0 * p * l.powi(3) / (768.0 * e_eff * IZ);
     let d_mid = results.displacements.iter()
         .find(|d| d.node_id == mid).unwrap();
-    assert_close(d_mid.uy.abs(), delta_exact, 0.02, "Roark ext 3a: delta_under_load");
+    assert_close(d_mid.uz.abs(), delta_exact, 0.02, "Roark ext 3a: delta_under_load");
 
     // Equilibrium
-    let sum_ry: f64 = results.reactions.iter().map(|r| r.ry).sum();
+    let sum_ry: f64 = results.reactions.iter().map(|r| r.rz).sum();
     assert_close(sum_ry, p, 0.01, "Roark ext 3a: equilibrium");
 }
 
@@ -177,19 +177,19 @@ fn validation_roark_ext_4_propped_cantilever_udl() {
     // Roller reaction: R_roller = 3wL/8
     let r_roller = results.reactions.iter().find(|r| r.node_id == n + 1).unwrap();
     let r_roller_exact = 3.0 * w * l / 8.0;
-    assert_close(r_roller.ry, r_roller_exact, 0.02, "Roark ext 3e: R_roller");
+    assert_close(r_roller.rz, r_roller_exact, 0.02, "Roark ext 3e: R_roller");
 
     // Fixed reaction: R_fixed = 5wL/8
     let r_fixed = results.reactions.iter().find(|r| r.node_id == 1).unwrap();
     let r_fixed_exact = 5.0 * w * l / 8.0;
-    assert_close(r_fixed.ry, r_fixed_exact, 0.02, "Roark ext 3e: R_fixed");
+    assert_close(r_fixed.rz, r_fixed_exact, 0.02, "Roark ext 3e: R_fixed");
 
     // Fixed-end moment: M_fixed = wL^2/8
     let m_fixed_exact = w * l * l / 8.0;
-    assert_close(r_fixed.mz.abs(), m_fixed_exact, 0.02, "Roark ext 3e: M_fixed");
+    assert_close(r_fixed.my.abs(), m_fixed_exact, 0.02, "Roark ext 3e: M_fixed");
 
     // Equilibrium
-    let sum_ry: f64 = results.reactions.iter().map(|r| r.ry).sum();
+    let sum_ry: f64 = results.reactions.iter().map(|r| r.rz).sum();
     assert_close(sum_ry, w * l, 0.01, "Roark ext 3e: equilibrium");
 }
 
@@ -229,16 +229,16 @@ fn validation_roark_ext_5_cantilever_triangular() {
     let delta_exact = 11.0 * w_max * l.powi(4) / (120.0 * e_eff * IZ);
     let tip = results.displacements.iter()
         .find(|d| d.node_id == n + 1).unwrap();
-    assert_close(tip.uy.abs(), delta_exact, 0.02, "Roark ext 2d: delta_tip");
+    assert_close(tip.uz.abs(), delta_exact, 0.02, "Roark ext 2d: delta_tip");
 
     // Fixed-end moment: M = w_max * L^2 / 3
     let m_fixed_exact = w_max * l * l / 3.0;
     let r1 = results.reactions.iter().find(|r| r.node_id == 1).unwrap();
-    assert_close(r1.mz.abs(), m_fixed_exact, 0.02, "Roark ext 2d: M_fixed");
+    assert_close(r1.my.abs(), m_fixed_exact, 0.02, "Roark ext 2d: M_fixed");
 
     // Reaction: R = w_max * L / 2
     let r_exact = w_max * l / 2.0;
-    assert_close(r1.ry, r_exact, 0.02, "Roark ext 2d: R_fixed");
+    assert_close(r1.rz, r_exact, 0.02, "Roark ext 2d: R_fixed");
 }
 
 // ================================================================
@@ -258,7 +258,7 @@ fn validation_roark_ext_6_ss_moment_at_end() {
     let input = make_beam(
         n, l, E, A, IZ, "pinned", Some("rollerX"),
         vec![SolverLoad::Nodal(SolverNodalLoad {
-            node_id: 1, fx: 0.0, fy: 0.0, mz: m0,
+            node_id: 1, fx: 0.0, fz: 0.0, my: m0,
         })],
     );
 
@@ -268,13 +268,13 @@ fn validation_roark_ext_6_ss_moment_at_end() {
     let theta_a_exact = m0 * l / (3.0 * e_eff * IZ);
     let d_a = results.displacements.iter()
         .find(|d| d.node_id == 1).unwrap();
-    assert_close(d_a.rz.abs(), theta_a_exact, 0.02, "Roark ext 1d: theta_A");
+    assert_close(d_a.ry.abs(), theta_a_exact, 0.02, "Roark ext 1d: theta_A");
 
     // Rotation at B (far end): theta_B = M0*L/(6EI)
     let theta_b_exact = m0 * l / (6.0 * e_eff * IZ);
     let d_b = results.displacements.iter()
         .find(|d| d.node_id == n + 1).unwrap();
-    assert_close(d_b.rz.abs(), theta_b_exact, 0.02, "Roark ext 1d: theta_B");
+    assert_close(d_b.ry.abs(), theta_b_exact, 0.02, "Roark ext 1d: theta_B");
 
     // Max deflection: delta_max = M0*L^2 / (9*sqrt(3)*EI)
     let delta_max_exact = m0 * l * l / (9.0 * 3.0_f64.sqrt() * e_eff * IZ);
@@ -285,14 +285,14 @@ fn validation_roark_ext_6_ss_moment_at_end() {
     let closest_node = (x_max / elem_len).round() as usize + 1;
     let d_max = results.displacements.iter()
         .find(|d| d.node_id == closest_node).unwrap();
-    assert_close(d_max.uy.abs(), delta_max_exact, 0.02, "Roark ext 1d: delta_max");
+    assert_close(d_max.uz.abs(), delta_max_exact, 0.02, "Roark ext 1d: delta_max");
 
     // Reactions: R_A = -M0/L (downward), R_B = M0/L (upward) for positive M0
     // The beam deflects upward for a positive applied moment at A
     let r_a = results.reactions.iter().find(|r| r.node_id == 1).unwrap();
     let r_b = results.reactions.iter().find(|r| r.node_id == n + 1).unwrap();
-    assert_close(r_a.ry.abs(), m0 / l, 0.02, "Roark ext 1d: R_A");
-    assert_close(r_b.ry.abs(), m0 / l, 0.02, "Roark ext 1d: R_B");
+    assert_close(r_a.rz.abs(), m0 / l, 0.02, "Roark ext 1d: R_A");
+    assert_close(r_b.rz.abs(), m0 / l, 0.02, "Roark ext 1d: R_B");
 }
 
 // ================================================================
@@ -333,26 +333,26 @@ fn validation_roark_ext_7_fixed_free_partial_udl() {
     let delta_tip_exact = 41.0 * w * l.powi(4) / (384.0 * e_eff * IZ);
     let tip = results.displacements.iter()
         .find(|d| d.node_id == n + 1).unwrap();
-    assert_close(tip.uy.abs(), delta_tip_exact, 0.02, "Roark ext 2c partial: delta_tip");
+    assert_close(tip.uz.abs(), delta_tip_exact, 0.02, "Roark ext 2c partial: delta_tip");
 
     // Fixed-end moment: M = w*(L/2)*(3L/4) = 3wL^2/8
     // Actually for cantilever with UDL from L/2 to L:
     // M_fixed = w*(L/2) * (L/2 + L/4) = w*(L/2)*(3L/4) = 3wL^2/8
     let m_fixed_exact = 3.0 * w * l * l / 8.0;
     let r1 = results.reactions.iter().find(|r| r.node_id == 1).unwrap();
-    assert_close(r1.mz.abs(), m_fixed_exact, 0.02, "Roark ext 2c partial: M_fixed");
+    assert_close(r1.my.abs(), m_fixed_exact, 0.02, "Roark ext 2c partial: M_fixed");
 
     // Fixed-end reaction: R = w * L/2
     let r_exact = w * l / 2.0;
-    assert_close(r1.ry, r_exact, 0.02, "Roark ext 2c partial: R_fixed");
+    assert_close(r1.rz, r_exact, 0.02, "Roark ext 2c partial: R_fixed");
 
     // Midspan deflection (at L/2, boundary of loaded region)
     // Verify it is positive and less than tip deflection
     let mid = n / 2 + 1;
     let d_mid = results.displacements.iter()
         .find(|d| d.node_id == mid).unwrap();
-    assert!(d_mid.uy.abs() > 0.0, "Midspan should deflect");
-    assert!(d_mid.uy.abs() < tip.uy.abs(), "Midspan deflection < tip deflection");
+    assert!(d_mid.uz.abs() > 0.0, "Midspan should deflect");
+    assert!(d_mid.uz.abs() < tip.uz.abs(), "Midspan deflection < tip deflection");
 }
 
 // ================================================================
@@ -421,7 +421,7 @@ fn validation_roark_ext_8_overhanging_beam() {
         elems,
         sups,
         vec![SolverLoad::Nodal(SolverNodalLoad {
-            node_id: tip_node, fx: 0.0, fy: -p, mz: 0.0,
+            node_id: tip_node, fx: 0.0, fz: -p, my: 0.0,
         })],
     );
 
@@ -430,15 +430,15 @@ fn validation_roark_ext_8_overhanging_beam() {
     // Reaction at B (interior support): R_B = P*(L+a)/L (upward)
     let r_b = results.reactions.iter().find(|r| r.node_id == support_node_b).unwrap();
     let r_b_exact = p * (l + a) / l;
-    assert_close(r_b.ry, r_b_exact, 0.02, "Roark ext overhang: R_B");
+    assert_close(r_b.rz, r_b_exact, 0.02, "Roark ext overhang: R_B");
 
     // Reaction at A: R_A = -P*a/L (downward, hence negative)
     let r_a = results.reactions.iter().find(|r| r.node_id == 1).unwrap();
     let r_a_exact = -p * a / l;
-    assert_close(r_a.ry, r_a_exact, 0.02, "Roark ext overhang: R_A");
+    assert_close(r_a.rz, r_a_exact, 0.02, "Roark ext overhang: R_A");
 
     // Equilibrium: R_A + R_B = P
-    let sum_ry: f64 = results.reactions.iter().map(|r| r.ry).sum();
+    let sum_ry: f64 = results.reactions.iter().map(|r| r.rz).sum();
     assert_close(sum_ry, p, 0.01, "Roark ext overhang: equilibrium");
 
     // Maximum negative moment at interior support B: M = -P*a
@@ -454,5 +454,5 @@ fn validation_roark_ext_8_overhanging_beam() {
     let delta_tip_exact = p * a * a * (l + a) / (3.0 * e_eff * IZ);
     let d_tip = results.displacements.iter()
         .find(|d| d.node_id == tip_node).unwrap();
-    assert_close(d_tip.uy.abs(), delta_tip_exact, 0.02, "Roark ext overhang: delta_tip");
+    assert_close(d_tip.uz.abs(), delta_tip_exact, 0.02, "Roark ext overhang: delta_tip");
 }

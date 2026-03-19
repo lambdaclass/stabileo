@@ -56,19 +56,19 @@ fn validation_unit_load_ss_beam_midspan_udl() {
     // Exact formula: delta = 5qL^4/(384EI) for SS beam with UDL
     let delta_exact: f64 = 5.0 * q.abs() * l.powi(4) / (384.0 * e_eff * IZ);
 
-    assert_close(mid_d.uy.abs(), delta_exact, 0.02,
+    assert_close(mid_d.uz.abs(), delta_exact, 0.02,
         "SS beam UDL midspan: 5qL^4/(384EI)");
 
     // Unit load verification: apply unit load at midspan, get flexibility f
     // Then delta_UDL = integral of q * influence_line = 5qL^4/(384EI)
     let unit_loads = vec![SolverLoad::Nodal(SolverNodalLoad {
-        node_id: mid, fx: 0.0, fy: -1.0, mz: 0.0,
+        node_id: mid, fx: 0.0, fz: -1.0, my: 0.0,
     })];
     let input_unit = make_beam(n, l, E, A, IZ, "pinned", Some("rollerX"), unit_loads);
     let results_unit = linear::solve_2d(&input_unit).unwrap();
 
     let f_mid: f64 = results_unit.displacements.iter()
-        .find(|d| d.node_id == mid).unwrap().uy.abs();
+        .find(|d| d.node_id == mid).unwrap().uz.abs();
 
     // For unit point load at midspan: f = PL^3/(48EI) with P=1
     let f_exact: f64 = l.powi(3) / (48.0 * e_eff * IZ);
@@ -92,13 +92,13 @@ fn validation_unit_load_cantilever_tip_flexibility() {
 
     // Step 1: apply unit load at tip to get flexibility coefficient
     let unit_loads = vec![SolverLoad::Nodal(SolverNodalLoad {
-        node_id: n + 1, fx: 0.0, fy: -1.0, mz: 0.0,
+        node_id: n + 1, fx: 0.0, fz: -1.0, my: 0.0,
     })];
     let input_unit = make_beam(n, l, E, A, IZ, "fixed", None, unit_loads);
     let results_unit = linear::solve_2d(&input_unit).unwrap();
 
     let f_tip: f64 = results_unit.displacements.iter()
-        .find(|d| d.node_id == n + 1).unwrap().uy.abs();
+        .find(|d| d.node_id == n + 1).unwrap().uz.abs();
 
     // Flexibility = L^3/(3EI) for unit load at cantilever tip
     let f_exact: f64 = l.powi(3) / (3.0 * e_eff * IZ);
@@ -110,13 +110,13 @@ fn validation_unit_load_cantilever_tip_flexibility() {
 
     // Step 3: verify against direct analysis
     let actual_loads = vec![SolverLoad::Nodal(SolverNodalLoad {
-        node_id: n + 1, fx: 0.0, fy: -p_actual, mz: 0.0,
+        node_id: n + 1, fx: 0.0, fz: -p_actual, my: 0.0,
     })];
     let input_actual = make_beam(n, l, E, A, IZ, "fixed", None, actual_loads);
     let results_actual = linear::solve_2d(&input_actual).unwrap();
 
     let delta_actual: f64 = results_actual.displacements.iter()
-        .find(|d| d.node_id == n + 1).unwrap().uy.abs();
+        .find(|d| d.node_id == n + 1).unwrap().uz.abs();
 
     assert_close(delta_predicted, delta_actual, 0.001,
         "Cantilever: flexibility * P = direct delta");
@@ -141,13 +141,13 @@ fn validation_unit_load_propped_cantilever_midspan() {
 
     // Unit load at midspan
     let unit_loads = vec![SolverLoad::Nodal(SolverNodalLoad {
-        node_id: mid, fx: 0.0, fy: -1.0, mz: 0.0,
+        node_id: mid, fx: 0.0, fz: -1.0, my: 0.0,
     })];
     let input = make_beam(n, l, E, A, IZ, "fixed", Some("rollerX"), unit_loads);
     let results = linear::solve_2d(&input).unwrap();
 
     let f_mid: f64 = results.displacements.iter()
-        .find(|d| d.node_id == mid).unwrap().uy.abs();
+        .find(|d| d.node_id == mid).unwrap().uz.abs();
 
     // Exact deflection at midspan for propped cantilever with unit P at midspan:
     // delta = 7PL^3/(768EI)  (Roark's / beam formula tables)
@@ -158,13 +158,13 @@ fn validation_unit_load_propped_cantilever_midspan() {
 
     // Verify linearity: doubling the load doubles the deflection
     let double_loads = vec![SolverLoad::Nodal(SolverNodalLoad {
-        node_id: mid, fx: 0.0, fy: -2.0, mz: 0.0,
+        node_id: mid, fx: 0.0, fz: -2.0, my: 0.0,
     })];
     let input_double = make_beam(n, l, E, A, IZ, "fixed", Some("rollerX"), double_loads);
     let results_double = linear::solve_2d(&input_double).unwrap();
 
     let f_double: f64 = results_double.displacements.iter()
-        .find(|d| d.node_id == mid).unwrap().uy.abs();
+        .find(|d| d.node_id == mid).unwrap().uz.abs();
 
     assert_close(f_double, 2.0 * f_mid, 0.001,
         "Propped cantilever: linearity (2P gives 2*delta)");
@@ -190,23 +190,23 @@ fn validation_unit_load_maxwell_reciprocal() {
 
     // Case 1: unit load at A, measure deflection at B
     let loads_a = vec![SolverLoad::Nodal(SolverNodalLoad {
-        node_id: node_a, fx: 0.0, fy: -1.0, mz: 0.0,
+        node_id: node_a, fx: 0.0, fz: -1.0, my: 0.0,
     })];
     let input_a = make_beam(n, l, E, A, IZ, "pinned", Some("rollerX"), loads_a);
     let results_a = linear::solve_2d(&input_a).unwrap();
 
     let f_ab: f64 = results_a.displacements.iter()
-        .find(|d| d.node_id == node_b).unwrap().uy;
+        .find(|d| d.node_id == node_b).unwrap().uz;
 
     // Case 2: unit load at B, measure deflection at A
     let loads_b = vec![SolverLoad::Nodal(SolverNodalLoad {
-        node_id: node_b, fx: 0.0, fy: -1.0, mz: 0.0,
+        node_id: node_b, fx: 0.0, fz: -1.0, my: 0.0,
     })];
     let input_b = make_beam(n, l, E, A, IZ, "pinned", Some("rollerX"), loads_b);
     let results_b = linear::solve_2d(&input_b).unwrap();
 
     let f_ba: f64 = results_b.displacements.iter()
-        .find(|d| d.node_id == node_a).unwrap().uy;
+        .find(|d| d.node_id == node_a).unwrap().uz;
 
     // Maxwell: f_AB = f_BA
     assert_close(f_ab, f_ba, 0.001,
@@ -246,13 +246,13 @@ fn validation_unit_load_quarter_from_midspan_load() {
 
     // Direct analysis: apply P at midspan
     let loads = vec![SolverLoad::Nodal(SolverNodalLoad {
-        node_id: mid, fx: 0.0, fy: -p, mz: 0.0,
+        node_id: mid, fx: 0.0, fz: -p, my: 0.0,
     })];
     let input = make_beam(n, l, E, A, IZ, "pinned", Some("rollerX"), loads);
     let results = linear::solve_2d(&input).unwrap();
 
     let delta_quarter: f64 = results.displacements.iter()
-        .find(|d| d.node_id == quarter).unwrap().uy.abs();
+        .find(|d| d.node_id == quarter).unwrap().uz.abs();
 
     // Exact: for load at a=L/2, deflection at x=L/4 (x < a):
     // delta = P*b*x*(L^2 - b^2 - x^2)/(6*L*EI) where b=L-a=L/2, x=L/4
@@ -268,13 +268,13 @@ fn validation_unit_load_quarter_from_midspan_load() {
     // Unit load cross-check: apply unit load at quarter, get deflection at midspan
     // By Maxwell's theorem this should equal delta_quarter / P
     let unit_loads = vec![SolverLoad::Nodal(SolverNodalLoad {
-        node_id: quarter, fx: 0.0, fy: -1.0, mz: 0.0,
+        node_id: quarter, fx: 0.0, fz: -1.0, my: 0.0,
     })];
     let input_unit = make_beam(n, l, E, A, IZ, "pinned", Some("rollerX"), unit_loads);
     let results_unit = linear::solve_2d(&input_unit).unwrap();
 
     let f_mid_from_quarter: f64 = results_unit.displacements.iter()
-        .find(|d| d.node_id == mid).unwrap().uy.abs();
+        .find(|d| d.node_id == mid).unwrap().uz.abs();
 
     // By Maxwell: f_mid_from_quarter = delta_quarter / P
     assert_close(f_mid_from_quarter, delta_quarter / p, 0.001,
@@ -299,13 +299,13 @@ fn validation_unit_load_cantilever_rotational_flexibility() {
 
     // Step 1: apply unit moment at tip
     let unit_loads = vec![SolverLoad::Nodal(SolverNodalLoad {
-        node_id: n + 1, fx: 0.0, fy: 0.0, mz: 1.0,
+        node_id: n + 1, fx: 0.0, fz: 0.0, my: 1.0,
     })];
     let input_unit = make_beam(n, l, E, A, IZ, "fixed", None, unit_loads);
     let results_unit = linear::solve_2d(&input_unit).unwrap();
 
     let f_rot: f64 = results_unit.displacements.iter()
-        .find(|d| d.node_id == n + 1).unwrap().rz.abs();
+        .find(|d| d.node_id == n + 1).unwrap().ry.abs();
 
     // Rotational flexibility = L/(EI) for cantilever with unit moment at tip
     let f_rot_exact: f64 = l / (e_eff * IZ);
@@ -317,13 +317,13 @@ fn validation_unit_load_cantilever_rotational_flexibility() {
 
     // Step 3: verify against direct analysis
     let actual_loads = vec![SolverLoad::Nodal(SolverNodalLoad {
-        node_id: n + 1, fx: 0.0, fy: 0.0, mz: m_actual,
+        node_id: n + 1, fx: 0.0, fz: 0.0, my: m_actual,
     })];
     let input_actual = make_beam(n, l, E, A, IZ, "fixed", None, actual_loads);
     let results_actual = linear::solve_2d(&input_actual).unwrap();
 
     let theta_actual: f64 = results_actual.displacements.iter()
-        .find(|d| d.node_id == n + 1).unwrap().rz.abs();
+        .find(|d| d.node_id == n + 1).unwrap().ry.abs();
 
     assert_close(theta_predicted, theta_actual, 0.001,
         "Cantilever: f_rot * M = direct rotation");
@@ -331,7 +331,7 @@ fn validation_unit_load_cantilever_rotational_flexibility() {
     // Also verify translational deflection from unit moment:
     // delta_tip = ML^2/(2EI) with M=1 => f_trans = L^2/(2EI)
     let f_trans: f64 = results_unit.displacements.iter()
-        .find(|d| d.node_id == n + 1).unwrap().uy.abs();
+        .find(|d| d.node_id == n + 1).unwrap().uz.abs();
 
     let f_trans_exact: f64 = l * l / (2.0 * e_eff * IZ);
     assert_close(f_trans, f_trans_exact, 0.02,
@@ -357,7 +357,7 @@ fn validation_unit_load_two_span_midspan() {
 
     // Unit load at midspan of span 1
     let unit_loads = vec![SolverLoad::Nodal(SolverNodalLoad {
-        node_id: mid_span1, fx: 0.0, fy: -1.0, mz: 0.0,
+        node_id: mid_span1, fx: 0.0, fz: -1.0, my: 0.0,
     })];
     let input = make_continuous_beam(
         &[span, span], n_per_span, E, A, IZ, unit_loads,
@@ -365,7 +365,7 @@ fn validation_unit_load_two_span_midspan() {
     let results = linear::solve_2d(&input).unwrap();
 
     let f_mid: f64 = results.displacements.iter()
-        .find(|d| d.node_id == mid_span1).unwrap().uy.abs();
+        .find(|d| d.node_id == mid_span1).unwrap().uz.abs();
 
     // For SS beam of span L: f = L^3/(48EI) = 0.02083 L^3/(EI)
     // For two-span continuous beam, midspan deflection is reduced.
@@ -388,7 +388,7 @@ fn validation_unit_load_two_span_midspan() {
 
     // Linearity check: 10x the load gives 10x the deflection
     let loads_10 = vec![SolverLoad::Nodal(SolverNodalLoad {
-        node_id: mid_span1, fx: 0.0, fy: -10.0, mz: 0.0,
+        node_id: mid_span1, fx: 0.0, fz: -10.0, my: 0.0,
     })];
     let input_10 = make_continuous_beam(
         &[span, span], n_per_span, E, A, IZ, loads_10,
@@ -396,7 +396,7 @@ fn validation_unit_load_two_span_midspan() {
     let results_10 = linear::solve_2d(&input_10).unwrap();
 
     let f_mid_10: f64 = results_10.displacements.iter()
-        .find(|d| d.node_id == mid_span1).unwrap().uy.abs();
+        .find(|d| d.node_id == mid_span1).unwrap().uz.abs();
 
     assert_close(f_mid_10, 10.0 * f_mid, 0.001,
         "Two-span: linearity (10P gives 10*delta)");

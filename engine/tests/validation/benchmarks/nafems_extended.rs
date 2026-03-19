@@ -37,7 +37,7 @@ fn validation_nafems_fv1_ss_point_load() {
     let mid = n / 2 + 1;
     let input = make_beam(n, l, E, A, IZ, "pinned", Some("rollerX"),
         vec![SolverLoad::Nodal(SolverNodalLoad {
-            node_id: mid, fx: 0.0, fy: -p, mz: 0.0,
+            node_id: mid, fx: 0.0, fz: -p, my: 0.0,
         })]);
 
     let results = linear::solve_2d(&input).unwrap();
@@ -45,7 +45,7 @@ fn validation_nafems_fv1_ss_point_load() {
 
     // Deflection
     let delta_exact = p * l.powi(3) / (48.0 * e_eff * IZ);
-    assert_close(d_mid.uy.abs(), delta_exact, 0.02, "NAFEMS FV1: δ_mid = PL³/(48EI)");
+    assert_close(d_mid.uz.abs(), delta_exact, 0.02, "NAFEMS FV1: δ_mid = PL³/(48EI)");
 
     // Midspan moment
     let m_exact = p * l / 4.0;
@@ -53,7 +53,7 @@ fn validation_nafems_fv1_ss_point_load() {
     assert_close(ef.m_end.abs(), m_exact, 0.02, "NAFEMS FV1: M_mid = PL/4");
 
     // Reactions = P/2
-    let ra = results.reactions.iter().find(|r| r.node_id == 1).unwrap().ry;
+    let ra = results.reactions.iter().find(|r| r.node_id == 1).unwrap().rz;
     assert_close(ra, p / 2.0, 0.01, "NAFEMS FV1: R_A = P/2");
 }
 
@@ -119,7 +119,7 @@ fn validation_nafems_fv31_cantilever_tip_load() {
 
     let input = make_beam(n, l, E, A, IZ, "fixed", None,
         vec![SolverLoad::Nodal(SolverNodalLoad {
-            node_id: n + 1, fx: 0.0, fy: -p, mz: 0.0,
+            node_id: n + 1, fx: 0.0, fz: -p, my: 0.0,
         })]);
 
     let results = linear::solve_2d(&input).unwrap();
@@ -127,15 +127,15 @@ fn validation_nafems_fv31_cantilever_tip_load() {
 
     // Tip deflection
     let delta_exact = p * l.powi(3) / (3.0 * e_eff * IZ);
-    assert_close(tip.uy.abs(), delta_exact, 0.02, "NAFEMS FV31: δ = PL³/(3EI)");
+    assert_close(tip.uz.abs(), delta_exact, 0.02, "NAFEMS FV31: δ = PL³/(3EI)");
 
     // Tip rotation
     let theta_exact = p * l.powi(2) / (2.0 * e_eff * IZ);
-    assert_close(tip.rz.abs(), theta_exact, 0.02, "NAFEMS FV31: θ = PL²/(2EI)");
+    assert_close(tip.ry.abs(), theta_exact, 0.02, "NAFEMS FV31: θ = PL²/(2EI)");
 
     // Fixed-end moment = PL
     let r = results.reactions.iter().find(|r| r.node_id == 1).unwrap();
-    assert_close(r.mz.abs(), p * l, 0.01, "NAFEMS FV31: M_fixed = PL");
+    assert_close(r.my.abs(), p * l, 0.01, "NAFEMS FV31: M_fixed = PL");
 }
 
 // ================================================================
@@ -210,9 +210,9 @@ fn validation_nafems_le10_3d_cantilever() {
 
     // Bending deflection
     let delta_y_exact = p * l.powi(3) / (3.0 * e_eff * iz);
-    let err_y = (tip.uy.abs() - delta_y_exact).abs() / delta_y_exact;
+    let err_y = (tip.uz.abs() - delta_y_exact).abs() / delta_y_exact;
     assert!(err_y < 0.05,
-        "NAFEMS LE10 δy: {:.6e}, expected {:.6e}", tip.uy.abs(), delta_y_exact);
+        "NAFEMS LE10 δy: {:.6e}, expected {:.6e}", tip.uz.abs(), delta_y_exact);
 
     // Torsional twist
     let theta_x_exact = t * l / (g * j);
@@ -248,8 +248,8 @@ fn validation_nafems_t1_thermal_gradient() {
     // Midspan should deflect (thermal bending)
     let mid = n / 2 + 1;
     let d_mid = results.displacements.iter().find(|d| d.node_id == mid).unwrap();
-    assert!(d_mid.uy.abs() > 1e-8,
-        "NAFEMS T1: thermal gradient should cause deflection, uy={:.6e}", d_mid.uy);
+    assert!(d_mid.uz.abs() > 1e-8,
+        "NAFEMS T1: thermal gradient should cause deflection, uy={:.6e}", d_mid.uz);
 
     // No axial force from gradient (beam is free to expand axially at rollerX)
     let ef = results.element_forces.iter().find(|e| e.element_id == 1).unwrap();
@@ -258,8 +258,8 @@ fn validation_nafems_t1_thermal_gradient() {
 
     // Reactions should be zero (SS beam with thermal gradient = free to bow)
     let ra = results.reactions.iter().find(|r| r.node_id == 1).unwrap();
-    assert!(ra.ry.abs() < 0.1,
-        "NAFEMS T1: Ry should be ≈ 0 for SS beam with gradient: {:.4}", ra.ry);
+    assert!(ra.rz.abs() < 0.1,
+        "NAFEMS T1: Ry should be ≈ 0 for SS beam with gradient: {:.4}", ra.rz);
 }
 
 // ================================================================
@@ -341,10 +341,10 @@ fn validation_nafems_r0031_3d_truss() {
     let results = linear::solve_3d(&input).unwrap();
 
     // Global equilibrium: ΣFy = P
-    let sum_fy: f64 = results.reactions.iter().map(|r| r.fy).sum();
-    let err = (sum_fy - p).abs() / p;
+    let sum_fz: f64 = results.reactions.iter().map(|r| r.fz).sum();
+    let err = (sum_fz - p).abs() / p;
     assert!(err < 0.01,
-        "NAFEMS R0031 equilibrium: ΣFy={:.4}, expected P={:.4}", sum_fy, p);
+        "NAFEMS R0031 equilibrium: ΣFy={:.4}, expected P={:.4}", sum_fz, p);
 
     // Tip should deflect downward
     let d4 = results.displacements.iter().find(|d| d.node_id == 4).unwrap();

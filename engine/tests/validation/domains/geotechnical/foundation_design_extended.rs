@@ -48,7 +48,7 @@ fn make_winkler_beam(
         nodes_map.insert(id.to_string(), SolverNode {
             id,
             x: i as f64 * elem_len,
-            y: 0.0,
+            z: 0.0,
         });
     }
 
@@ -91,8 +91,8 @@ fn make_winkler_beam(
             ky: Some(ky_node),
             kz: None,
             dx: None,
-            dy: None,
-            drz: None,
+            dz: None,
+            dry: None,
             angle: None,
         });
     }
@@ -136,7 +136,7 @@ fn validation_spread_footing_uniform_pressure() {
     let mid = n / 2 + 1;
 
     let loads = vec![SolverLoad::Nodal(SolverNodalLoad {
-        node_id: mid, fx: 0.0, fy: -p, mz: 0.0,
+        node_id: mid, fx: 0.0, fz: -p, my: 0.0,
     })];
 
     let input = make_winkler_beam(n, l, k_soil, E_CONCRETE, a_sec, iz, loads);
@@ -156,13 +156,13 @@ fn validation_spread_footing_uniform_pressure() {
     let d_end = results.displacements.iter().find(|d| d.node_id == 1).unwrap();
 
     // Midspan deflects downward
-    assert!(d_mid.uy < 0.0,
-        "Spread footing: center deflects downward: {:.6e}", d_mid.uy);
+    assert!(d_mid.uz < 0.0,
+        "Spread footing: center deflects downward: {:.6e}", d_mid.uz);
 
     // For a somewhat rigid footing (beta*L < 1), the center and edge
     // deflections should be of similar magnitude
     if beta_l < 1.5 {
-        let ratio = d_end.uy / d_mid.uy;
+        let ratio = d_end.uz / d_mid.uz;
         assert!(ratio > 0.5,
             "Spread footing (rigid): edge/center ratio = {:.3} > 0.5", ratio);
     }
@@ -176,14 +176,14 @@ fn validation_spread_footing_uniform_pressure() {
         let trib = if i == 0 || i == n { elem_len / 2.0 } else { elem_len };
         let ky_node = k_soil * trib;
         let d = results.displacements.iter().find(|d| d.node_id == nid).unwrap();
-        reaction_sum += ky_node * d.uy.abs();
+        reaction_sum += ky_node * d.uz.abs();
     }
     assert_close(reaction_sum, p, 0.05,
         "Spread footing: total spring reaction = P");
 
     // Average deflection should be close to P/(k_soil * L) for rigid footing
     let avg_deflection = results.displacements.iter()
-        .map(|d| d.uy.abs())
+        .map(|d| d.uz.abs())
         .sum::<f64>() / (n + 1) as f64;
     assert_close(avg_deflection, delta_rigid, 0.25,
         "Spread footing: avg deflection ~ P/(k*L)");
@@ -226,10 +226,10 @@ fn validation_combined_footing_pressure_trapezoid() {
 
     let loads = vec![
         SolverLoad::Nodal(SolverNodalLoad {
-            node_id: node_p1, fx: 0.0, fy: -p1, mz: 0.0,
+            node_id: node_p1, fx: 0.0, fz: -p1, my: 0.0,
         }),
         SolverLoad::Nodal(SolverNodalLoad {
-            node_id: node_p2, fx: 0.0, fy: -p2, mz: 0.0,
+            node_id: node_p2, fx: 0.0, fz: -p2, my: 0.0,
         }),
     ];
 
@@ -244,7 +244,7 @@ fn validation_combined_footing_pressure_trapezoid() {
         let trib = if i == 0 || i == n { elem_len / 2.0 } else { elem_len };
         let ky_node = k_soil * trib;
         let d = results.displacements.iter().find(|d| d.node_id == nid).unwrap();
-        reaction_sum += ky_node * d.uy.abs();
+        reaction_sum += ky_node * d.uz.abs();
     }
     assert_close(reaction_sum, p_total, 0.05,
         "Combined footing: total reaction = P1 + P2");
@@ -260,7 +260,7 @@ fn validation_combined_footing_pressure_trapezoid() {
         let trib = if i == 0 || i == n { elem_len / 2.0 } else { elem_len };
         let ky_node = k_soil * trib;
         let d = results.displacements.iter().find(|d| d.node_id == nid).unwrap();
-        reaction_moment += ky_node * d.uy.abs() * x;
+        reaction_moment += ky_node * d.uz.abs() * x;
     }
     let x_reaction = reaction_moment / reaction_sum;
 
@@ -271,9 +271,9 @@ fn validation_combined_footing_pressure_trapezoid() {
     // Since P1 > P2, deflection at P1 location should be >= deflection at P2
     let d_p1 = results.displacements.iter().find(|d| d.node_id == node_p1).unwrap();
     let d_p2 = results.displacements.iter().find(|d| d.node_id == node_p2).unwrap();
-    assert!(d_p1.uy.abs() >= d_p2.uy.abs() * 0.9,
+    assert!(d_p1.uz.abs() >= d_p2.uz.abs() * 0.9,
         "Combined footing: heavier column deflects more: {:.6e} vs {:.6e}",
-        d_p1.uy.abs(), d_p2.uy.abs());
+        d_p1.uz.abs(), d_p2.uz.abs());
 }
 
 // ================================================================
@@ -309,10 +309,10 @@ fn validation_strap_footing() {
 
     let loads = vec![
         SolverLoad::Nodal(SolverNodalLoad {
-            node_id: node_p1, fx: 0.0, fy: -p1, mz: 0.0,
+            node_id: node_p1, fx: 0.0, fz: -p1, my: 0.0,
         }),
         SolverLoad::Nodal(SolverNodalLoad {
-            node_id: node_p2, fx: 0.0, fy: -p2, mz: 0.0,
+            node_id: node_p2, fx: 0.0, fz: -p2, my: 0.0,
         }),
     ];
 
@@ -327,7 +327,7 @@ fn validation_strap_footing() {
         let trib = if i == 0 || i == n { elem_len / 2.0 } else { elem_len };
         let ky_node = k_soil * trib;
         let d = results.displacements.iter().find(|d| d.node_id == nid).unwrap();
-        reaction_sum += ky_node * d.uy.abs();
+        reaction_sum += ky_node * d.uz.abs();
     }
     assert_close(reaction_sum, p_total, 0.05,
         "Strap footing: total reaction = P1 + P2");
@@ -345,8 +345,8 @@ fn validation_strap_footing() {
     let d_p2 = results.displacements.iter().find(|d| d.node_id == node_p2).unwrap();
 
     // Both should deflect downward
-    assert!(d_p1.uy < 0.0, "Strap footing: edge column deflects down");
-    assert!(d_p2.uy < 0.0, "Strap footing: interior column deflects down");
+    assert!(d_p1.uz < 0.0, "Strap footing: edge column deflects down");
+    assert!(d_p2.uz < 0.0, "Strap footing: interior column deflects down");
 }
 
 // ================================================================
@@ -380,7 +380,7 @@ fn validation_pile_cap_3_piles() {
     let p = 900.0;
     let mid = n / 2 + 1;
     let loads = vec![SolverLoad::Nodal(SolverNodalLoad {
-        node_id: mid, fx: 0.0, fy: -p, mz: 0.0,
+        node_id: mid, fx: 0.0, fz: -p, my: 0.0,
     })];
 
     // Build input manually with spring supports only at pile locations
@@ -389,7 +389,7 @@ fn validation_pile_cap_3_piles() {
     for i in 0..n_nodes {
         let id = i + 1;
         nodes_map.insert(id.to_string(), SolverNode {
-            id, x: i as f64 * elem_len, y: 0.0,
+            id, x: i as f64 * elem_len, z: 0.0,
         });
     }
 
@@ -415,7 +415,7 @@ fn validation_pile_cap_3_piles() {
             id: i + 1, node_id: nid,
             support_type: "spring".to_string(),
             kx, ky: Some(k_pile), kz: None,
-            dx: None, dy: None, drz: None, angle: None,
+            dx: None, dz: None, dry: None, angle: None,
         });
     }
 
@@ -428,7 +428,7 @@ fn validation_pile_cap_3_piles() {
     // Compute pile forces from deflections: F_pile = k_pile * |uy|
     let pile_forces: Vec<f64> = pile_nodes.iter().map(|&nid| {
         let d = results.displacements.iter().find(|d| d.node_id == nid).unwrap();
-        k_pile * d.uy.abs()
+        k_pile * d.uz.abs()
     }).collect();
 
     // Total pile force should equal applied load
@@ -510,12 +510,12 @@ fn validation_retaining_wall_stem() {
     let m_base_exact = ka * gamma * h.powi(3) / 6.0;
 
     let r_base = results.reactions.iter().find(|r| r.node_id == 1).unwrap();
-    assert_close(r_base.mz.abs(), m_base_exact, 0.05,
+    assert_close(r_base.my.abs(), m_base_exact, 0.05,
         "Retaining wall: base moment = Ka*gamma*H^3/6");
 
     // Base shear: V_base = Pa = 0.5 * Ka * gamma * H^2
     let v_base_exact = 0.5 * ka * gamma * h * h;
-    assert_close(r_base.ry.abs(), v_base_exact, 0.05,
+    assert_close(r_base.rz.abs(), v_base_exact, 0.05,
         "Retaining wall: base shear = 0.5*Ka*gamma*H^2");
 }
 
@@ -554,10 +554,10 @@ fn validation_grade_beam_concentrated_loads() {
 
     let loads = vec![
         SolverLoad::Nodal(SolverNodalLoad {
-            node_id: node_left, fx: 0.0, fy: -p, mz: 0.0,
+            node_id: node_left, fx: 0.0, fz: -p, my: 0.0,
         }),
         SolverLoad::Nodal(SolverNodalLoad {
-            node_id: node_right, fx: 0.0, fy: -p, mz: 0.0,
+            node_id: node_right, fx: 0.0, fz: -p, my: 0.0,
         }),
     ];
 
@@ -572,7 +572,7 @@ fn validation_grade_beam_concentrated_loads() {
         let trib = if i == 0 || i == n { elem_len / 2.0 } else { elem_len };
         let ky_node = k_soil * trib;
         let d = results.displacements.iter().find(|d| d.node_id == nid).unwrap();
-        reaction_sum += ky_node * d.uy.abs();
+        reaction_sum += ky_node * d.uz.abs();
     }
     assert_close(reaction_sum, p_total, 0.05,
         "Grade beam: total spring reaction = 2P");
@@ -580,7 +580,7 @@ fn validation_grade_beam_concentrated_loads() {
     // Symmetry: deflection at left load ~ deflection at right load
     let d_left = results.displacements.iter().find(|d| d.node_id == node_left).unwrap();
     let d_right = results.displacements.iter().find(|d| d.node_id == node_right).unwrap();
-    assert_close(d_left.uy, d_right.uy, 0.05,
+    assert_close(d_left.uz, d_right.uz, 0.05,
         "Grade beam: symmetric loads give symmetric deflections");
 
     // Bending moment should be non-zero under the loads
@@ -593,9 +593,9 @@ fn validation_grade_beam_concentrated_loads() {
 
     // Deflection at load points should be greater than at beam ends
     let d_end = results.displacements.iter().find(|d| d.node_id == 1).unwrap();
-    assert!(d_left.uy.abs() > d_end.uy.abs(),
+    assert!(d_left.uz.abs() > d_end.uz.abs(),
         "Grade beam: load point deflects more than end: {:.6e} > {:.6e}",
-        d_left.uy.abs(), d_end.uy.abs());
+        d_left.uz.abs(), d_end.uz.abs());
 }
 
 // ================================================================
@@ -636,13 +636,13 @@ fn validation_mat_foundation_differential_settlement() {
 
     let loads = vec![
         SolverLoad::Nodal(SolverNodalLoad {
-            node_id: node1, fx: 0.0, fy: -p1, mz: 0.0,
+            node_id: node1, fx: 0.0, fz: -p1, my: 0.0,
         }),
         SolverLoad::Nodal(SolverNodalLoad {
-            node_id: node2, fx: 0.0, fy: -p2, mz: 0.0,
+            node_id: node2, fx: 0.0, fz: -p2, my: 0.0,
         }),
         SolverLoad::Nodal(SolverNodalLoad {
-            node_id: node3, fx: 0.0, fy: -p3, mz: 0.0,
+            node_id: node3, fx: 0.0, fz: -p3, my: 0.0,
         }),
     ];
 
@@ -657,7 +657,7 @@ fn validation_mat_foundation_differential_settlement() {
         let trib = if i == 0 || i == n { elem_len / 2.0 } else { elem_len };
         let ky_node = k_soil * trib;
         let d = results.displacements.iter().find(|d| d.node_id == nid).unwrap();
-        reaction_sum += ky_node * d.uy.abs();
+        reaction_sum += ky_node * d.uz.abs();
     }
     assert_close(reaction_sum, p_total, 0.05,
         "Mat foundation: total reaction = sum of loads");
@@ -668,27 +668,27 @@ fn validation_mat_foundation_differential_settlement() {
     let d2 = results.displacements.iter().find(|d| d.node_id == node2).unwrap();
     let d3 = results.displacements.iter().find(|d| d.node_id == node3).unwrap();
 
-    assert!(d2.uy.abs() > d1.uy.abs(),
+    assert!(d2.uz.abs() > d1.uz.abs(),
         "Mat foundation: center column settles more than edge: {:.6e} > {:.6e}",
-        d2.uy.abs(), d1.uy.abs());
+        d2.uz.abs(), d1.uz.abs());
 
     // Symmetric edge columns should have similar deflection
-    assert_close(d1.uy, d3.uy, 0.05,
+    assert_close(d1.uz, d3.uz, 0.05,
         "Mat foundation: symmetric columns settle equally");
 
     // Unloaded zone (midpoint between columns) should settle less than loaded
     let mid_unloaded = (6.5 / elem_len).round() as usize + 1;
     let d_unloaded = results.displacements.iter()
         .find(|d| d.node_id == mid_unloaded).unwrap();
-    assert!(d_unloaded.uy.abs() < d1.uy.abs(),
+    assert!(d_unloaded.uz.abs() < d1.uz.abs(),
         "Mat foundation: unloaded zone settles less: {:.6e} < {:.6e}",
-        d_unloaded.uy.abs(), d1.uy.abs());
+        d_unloaded.uz.abs(), d1.uz.abs());
 
     // Differential settlement = max deflection - min deflection
     let max_settle = results.displacements.iter()
-        .map(|d| d.uy.abs()).fold(0.0_f64, f64::max);
+        .map(|d| d.uz.abs()).fold(0.0_f64, f64::max);
     let min_settle = results.displacements.iter()
-        .map(|d| d.uy.abs()).fold(f64::INFINITY, f64::min);
+        .map(|d| d.uz.abs()).fold(f64::INFINITY, f64::min);
     let diff_settle = max_settle - min_settle;
     assert!(diff_settle > 0.0,
         "Mat foundation: differential settlement > 0: {:.6e}", diff_settle);
@@ -725,7 +725,7 @@ fn validation_deep_beam_foundation() {
     let mid = n / 2 + 1;
 
     let loads = vec![SolverLoad::Nodal(SolverNodalLoad {
-        node_id: mid, fx: 0.0, fy: -p, mz: 0.0,
+        node_id: mid, fx: 0.0, fz: -p, my: 0.0,
     })];
 
     let input = crate::common::make_beam(n, l, E_CONCRETE, a_sec, iz,
@@ -735,9 +735,9 @@ fn validation_deep_beam_foundation() {
     // Reactions: each support carries P/2
     let r_a = results.reactions.iter().find(|r| r.node_id == 1).unwrap();
     let r_b = results.reactions.iter().find(|r| r.node_id == n + 1).unwrap();
-    assert_close(r_a.ry, p / 2.0, 0.02,
+    assert_close(r_a.rz, p / 2.0, 0.02,
         "Deep beam: R_A = P/2");
-    assert_close(r_b.ry, p / 2.0, 0.02,
+    assert_close(r_b.rz, p / 2.0, 0.02,
         "Deep beam: R_B = P/2");
 
     // Midspan moment: M = P*L/4
@@ -768,7 +768,7 @@ fn validation_deep_beam_foundation() {
     let d_mid = results.displacements.iter().find(|d| d.node_id == mid).unwrap();
     // Euler-Bernoulli underestimates deep beam deflection but the solver
     // uses Euler-Bernoulli, so they should match
-    assert_close(d_mid.uy.abs(), delta_euler, 0.05,
+    assert_close(d_mid.uz.abs(), delta_euler, 0.05,
         "Deep beam: midspan deflection matches EB theory");
 
     // Verify the span/depth ratio is indeed "deep beam" territory

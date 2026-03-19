@@ -55,22 +55,22 @@ fn validation_buckling_euler_pinned() {
     let mut input = make_column(n, l, E, A, IZ, "pinned", "rollerX", 0.0);
     input.loads = vec![
         SolverLoad::Nodal(SolverNodalLoad {
-            node_id: n + 1, fx: p_axial, fy: 0.0, mz: 0.0,
+            node_id: n + 1, fx: p_axial, fz: 0.0, my: 0.0,
         }),
         SolverLoad::Nodal(SolverNodalLoad {
-            node_id: n / 2 + 1, fx: 0.0, fy: p_lateral, mz: 0.0,
+            node_id: n / 2 + 1, fx: 0.0, fz: p_lateral, my: 0.0,
         }),
     ];
 
     // First-order (linear) analysis
     let res_linear = linear::solve_2d(&input).unwrap();
     let d_linear = res_linear.displacements.iter()
-        .find(|d| d.node_id == n / 2 + 1).unwrap().uy.abs();
+        .find(|d| d.node_id == n / 2 + 1).unwrap().uz.abs();
 
     // Second-order (P-delta) analysis
     let res_pdelta = pdelta::solve_pdelta_2d(&input, 30, 1e-6).unwrap();
     let d_pdelta = res_pdelta.results.displacements.iter()
-        .find(|d| d.node_id == n / 2 + 1).unwrap().uy.abs();
+        .find(|d| d.node_id == n / 2 + 1).unwrap().uz.abs();
 
     // P-delta should amplify deflection: at 50% Pcr, amplification ≈ 2
     let amplification = d_pdelta / d_linear;
@@ -98,23 +98,23 @@ fn validation_buckling_fixed_vs_pinned() {
     // Pinned-pinned
     let input_pp = make_beam(n, l, E, A, IZ, "pinned", Some("rollerX"),
         vec![
-            SolverLoad::Nodal(SolverNodalLoad { node_id: n + 1, fx: p_axial, fy: 0.0, mz: 0.0 }),
-            SolverLoad::Nodal(SolverNodalLoad { node_id: n / 2 + 1, fx: 0.0, fy: p_lateral, mz: 0.0 }),
+            SolverLoad::Nodal(SolverNodalLoad { node_id: n + 1, fx: p_axial, fz: 0.0, my: 0.0 }),
+            SolverLoad::Nodal(SolverNodalLoad { node_id: n / 2 + 1, fx: 0.0, fz: p_lateral, my: 0.0 }),
         ]);
     let res_pp = linear::solve_2d(&input_pp).unwrap();
 
     // Fixed-fixed
     let input_ff = make_beam(n, l, E, A, IZ, "fixed", Some("fixed"),
         vec![
-            SolverLoad::Nodal(SolverNodalLoad { node_id: n + 1, fx: p_axial, fy: 0.0, mz: 0.0 }),
-            SolverLoad::Nodal(SolverNodalLoad { node_id: n / 2 + 1, fx: 0.0, fy: p_lateral, mz: 0.0 }),
+            SolverLoad::Nodal(SolverNodalLoad { node_id: n + 1, fx: p_axial, fz: 0.0, my: 0.0 }),
+            SolverLoad::Nodal(SolverNodalLoad { node_id: n / 2 + 1, fx: 0.0, fz: p_lateral, my: 0.0 }),
         ]);
     let res_ff = linear::solve_2d(&input_ff).unwrap();
 
     let d_pp = res_pp.displacements.iter()
-        .find(|d| d.node_id == n / 2 + 1).unwrap().uy.abs();
+        .find(|d| d.node_id == n / 2 + 1).unwrap().uz.abs();
     let d_ff = res_ff.displacements.iter()
-        .find(|d| d.node_id == n / 2 + 1).unwrap().uy.abs();
+        .find(|d| d.node_id == n / 2 + 1).unwrap().uz.abs();
 
     // Fixed-fixed is much stiffer (Pcr is 4× higher)
     // At 50% of PP Euler load, PP is significantly amplified but FF barely
@@ -139,30 +139,30 @@ fn validation_buckling_fixed_pinned() {
     // Pinned-pinned (reference)
     let input_pp = make_beam(n, l, E, A, IZ, "pinned", Some("rollerX"),
         vec![
-            SolverLoad::Nodal(SolverNodalLoad { node_id: n + 1, fx: p_axial, fy: 0.0, mz: 0.0 }),
-            SolverLoad::Nodal(SolverNodalLoad { node_id: n / 2 + 1, fx: 0.0, fy: p_lateral, mz: 0.0 }),
+            SolverLoad::Nodal(SolverNodalLoad { node_id: n + 1, fx: p_axial, fz: 0.0, my: 0.0 }),
+            SolverLoad::Nodal(SolverNodalLoad { node_id: n / 2 + 1, fx: 0.0, fz: p_lateral, my: 0.0 }),
         ]);
     let res_pp = linear::solve_2d(&input_pp).unwrap();
 
     // Fixed-pinned
     let input_fp = make_beam(n, l, E, A, IZ, "fixed", Some("rollerX"),
         vec![
-            SolverLoad::Nodal(SolverNodalLoad { node_id: n + 1, fx: p_axial, fy: 0.0, mz: 0.0 }),
-            SolverLoad::Nodal(SolverNodalLoad { node_id: n / 2 + 1, fx: 0.0, fy: p_lateral, mz: 0.0 }),
+            SolverLoad::Nodal(SolverNodalLoad { node_id: n + 1, fx: p_axial, fz: 0.0, my: 0.0 }),
+            SolverLoad::Nodal(SolverNodalLoad { node_id: n / 2 + 1, fx: 0.0, fz: p_lateral, my: 0.0 }),
         ]);
     let res_fp = linear::solve_2d(&input_fp).unwrap();
 
     // Fixed-fixed
     let input_ff = make_beam(n, l, E, A, IZ, "fixed", Some("fixed"),
         vec![
-            SolverLoad::Nodal(SolverNodalLoad { node_id: n + 1, fx: p_axial, fy: 0.0, mz: 0.0 }),
-            SolverLoad::Nodal(SolverNodalLoad { node_id: n / 2 + 1, fx: 0.0, fy: p_lateral, mz: 0.0 }),
+            SolverLoad::Nodal(SolverNodalLoad { node_id: n + 1, fx: p_axial, fz: 0.0, my: 0.0 }),
+            SolverLoad::Nodal(SolverNodalLoad { node_id: n / 2 + 1, fx: 0.0, fz: p_lateral, my: 0.0 }),
         ]);
     let res_ff = linear::solve_2d(&input_ff).unwrap();
 
-    let d_pp = res_pp.displacements.iter().find(|d| d.node_id == n / 2 + 1).unwrap().uy.abs();
-    let d_fp = res_fp.displacements.iter().find(|d| d.node_id == n / 2 + 1).unwrap().uy.abs();
-    let d_ff = res_ff.displacements.iter().find(|d| d.node_id == n / 2 + 1).unwrap().uy.abs();
+    let d_pp = res_pp.displacements.iter().find(|d| d.node_id == n / 2 + 1).unwrap().uz.abs();
+    let d_fp = res_fp.displacements.iter().find(|d| d.node_id == n / 2 + 1).unwrap().uz.abs();
+    let d_ff = res_ff.displacements.iter().find(|d| d.node_id == n / 2 + 1).unwrap().uz.abs();
 
     // Fixed-pinned stiffness is between PP and FF
     assert!(d_fp < d_pp, "FP stiffer than PP: {:.6} < {:.6}", d_fp, d_pp);
@@ -186,19 +186,19 @@ fn validation_buckling_cantilever() {
 
     let input = make_beam(n, l, E, A, IZ, "fixed", None,
         vec![
-            SolverLoad::Nodal(SolverNodalLoad { node_id: n + 1, fx: p_axial, fy: 0.0, mz: 0.0 }),
-            SolverLoad::Nodal(SolverNodalLoad { node_id: n + 1, fx: 0.0, fy: p_lateral, mz: 0.0 }),
+            SolverLoad::Nodal(SolverNodalLoad { node_id: n + 1, fx: p_axial, fz: 0.0, my: 0.0 }),
+            SolverLoad::Nodal(SolverNodalLoad { node_id: n + 1, fx: 0.0, fz: p_lateral, my: 0.0 }),
         ]);
 
     // Linear analysis
     let res_lin = linear::solve_2d(&input).unwrap();
     let d_lin = res_lin.displacements.iter()
-        .find(|d| d.node_id == n + 1).unwrap().uy.abs();
+        .find(|d| d.node_id == n + 1).unwrap().uz.abs();
 
     // P-delta analysis
     let res_pd = pdelta::solve_pdelta_2d(&input, 30, 1e-6).unwrap();
     let d_pd = res_pd.results.displacements.iter()
-        .find(|d| d.node_id == n + 1).unwrap().uy.abs();
+        .find(|d| d.node_id == n + 1).unwrap().uz.abs();
 
     // At 80% of cantilever Pcr, P-delta should significantly amplify
     let amplification = d_pd / d_lin;
@@ -226,8 +226,8 @@ fn validation_buckling_intermediate_support() {
     // Without intermediate support
     let input_no = make_beam(n, l, E, A, IZ, "pinned", Some("rollerX"),
         vec![
-            SolverLoad::Nodal(SolverNodalLoad { node_id: n + 1, fx: p_axial, fy: 0.0, mz: 0.0 }),
-            SolverLoad::Nodal(SolverNodalLoad { node_id: n / 4 + 1, fx: 0.0, fy: p_lateral, mz: 0.0 }),
+            SolverLoad::Nodal(SolverNodalLoad { node_id: n + 1, fx: p_axial, fz: 0.0, my: 0.0 }),
+            SolverLoad::Nodal(SolverNodalLoad { node_id: n / 4 + 1, fx: 0.0, fz: p_lateral, my: 0.0 }),
         ]);
     let res_no = linear::solve_2d(&input_no).unwrap();
 
@@ -244,8 +244,8 @@ fn validation_buckling_intermediate_support() {
         (3, n / 2 + 1, "rollerX"), // intermediate lateral support
     ];
     let loads = vec![
-        SolverLoad::Nodal(SolverNodalLoad { node_id: n + 1, fx: p_axial, fy: 0.0, mz: 0.0 }),
-        SolverLoad::Nodal(SolverNodalLoad { node_id: n / 4 + 1, fx: 0.0, fy: p_lateral, mz: 0.0 }),
+        SolverLoad::Nodal(SolverNodalLoad { node_id: n + 1, fx: p_axial, fz: 0.0, my: 0.0 }),
+        SolverLoad::Nodal(SolverNodalLoad { node_id: n / 4 + 1, fx: 0.0, fz: p_lateral, my: 0.0 }),
     ];
     let input_with = make_input(
         nodes, vec![(1, E, 0.3)], vec![(1, A, IZ)], elems, sups, loads,
@@ -254,9 +254,9 @@ fn validation_buckling_intermediate_support() {
 
     // Deflection at quarter point (node n/4+1) — away from the intermediate support
     let d_no = res_no.displacements.iter()
-        .find(|d| d.node_id == n / 4 + 1).unwrap().uy.abs();
+        .find(|d| d.node_id == n / 4 + 1).unwrap().uz.abs();
     let d_with = res_with.displacements.iter()
-        .find(|d| d.node_id == n / 4 + 1).unwrap().uy.abs();
+        .find(|d| d.node_id == n / 4 + 1).unwrap().uz.abs();
 
     // Intermediate support reduces deflection significantly
     assert!(d_with < d_no * 0.5,
@@ -287,8 +287,8 @@ fn validation_buckling_sway_vs_braced() {
     ];
     let sups = vec![(1, 1, "pinned"), (2, 4, "pinned")];
     let loads = vec![
-        SolverLoad::Nodal(SolverNodalLoad { node_id: 2, fx: p_lateral, fy: p_axial, mz: 0.0 }),
-        SolverLoad::Nodal(SolverNodalLoad { node_id: 3, fx: 0.0, fy: p_axial, mz: 0.0 }),
+        SolverLoad::Nodal(SolverNodalLoad { node_id: 2, fx: p_lateral, fz: p_axial, my: 0.0 }),
+        SolverLoad::Nodal(SolverNodalLoad { node_id: 3, fx: 0.0, fz: p_axial, my: 0.0 }),
     ];
     let input_sway = make_input(
         nodes, vec![(1, E, 0.3)], vec![(1, A, IZ)], elems, sups, loads,
@@ -325,19 +325,19 @@ fn validation_buckling_long_column() {
 
     let input = make_beam(n, l, E, A, IZ, "pinned", Some("rollerX"),
         vec![
-            SolverLoad::Nodal(SolverNodalLoad { node_id: n + 1, fx: p_axial, fy: 0.0, mz: 0.0 }),
-            SolverLoad::Nodal(SolverNodalLoad { node_id: n / 2 + 1, fx: 0.0, fy: p_lateral, mz: 0.0 }),
+            SolverLoad::Nodal(SolverNodalLoad { node_id: n + 1, fx: p_axial, fz: 0.0, my: 0.0 }),
+            SolverLoad::Nodal(SolverNodalLoad { node_id: n / 2 + 1, fx: 0.0, fz: p_lateral, my: 0.0 }),
         ]);
 
     // Linear deflection
     let res_lin = linear::solve_2d(&input).unwrap();
     let d_lin = res_lin.displacements.iter()
-        .find(|d| d.node_id == n / 2 + 1).unwrap().uy.abs();
+        .find(|d| d.node_id == n / 2 + 1).unwrap().uz.abs();
 
     // P-delta deflection
     let res_pd = pdelta::solve_pdelta_2d(&input, 30, 1e-6).unwrap();
     let d_pd = res_pd.results.displacements.iter()
-        .find(|d| d.node_id == n / 2 + 1).unwrap().uy.abs();
+        .find(|d| d.node_id == n / 2 + 1).unwrap().uz.abs();
 
     // At 50% Pcr, amplification ≈ 1/(1-0.5) = 2
     let amplification = d_pd / d_lin;
@@ -365,13 +365,13 @@ fn validation_buckling_short_column() {
 
     let input = make_beam(n, l, E, A, IZ, "pinned", Some("rollerX"),
         vec![
-            SolverLoad::Nodal(SolverNodalLoad { node_id: n + 1, fx: p_axial, fy: 0.0, mz: 0.0 }),
-            SolverLoad::Nodal(SolverNodalLoad { node_id: n / 2 + 1, fx: 0.0, fy: p_lateral, mz: 0.0 }),
+            SolverLoad::Nodal(SolverNodalLoad { node_id: n + 1, fx: p_axial, fz: 0.0, my: 0.0 }),
+            SolverLoad::Nodal(SolverNodalLoad { node_id: n / 2 + 1, fx: 0.0, fz: p_lateral, my: 0.0 }),
         ]);
     let results = linear::solve_2d(&input).unwrap();
 
     let d_mid = results.displacements.iter()
-        .find(|d| d.node_id == n / 2 + 1).unwrap().uy;
+        .find(|d| d.node_id == n / 2 + 1).unwrap().uz;
     let d_first = p_lateral * l.powi(3) / (48.0 * e_eff * IZ);
     let amplification = d_mid.abs() / d_first;
 

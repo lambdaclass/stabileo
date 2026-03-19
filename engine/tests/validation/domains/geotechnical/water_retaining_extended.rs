@@ -80,12 +80,12 @@ fn water_retaining_hydrostatic_cantilever() {
     let r_base = results.reactions.iter().find(|r| r.node_id == 1).unwrap();
 
     // The base reaction ry should equal total load
-    assert_close(r_base.ry.abs(), v_exact, 0.02,
+    assert_close(r_base.rz.abs(), v_exact, 0.02,
         "Hydrostatic cantilever: base shear = gamma_w * H^2 / 2");
 
     // Base moment: M = gamma_w * H^3 / 6
     let m_exact: f64 = gamma_w * h.powi(3) / 6.0;
-    assert_close(r_base.mz.abs(), m_exact, 0.02,
+    assert_close(r_base.my.abs(), m_exact, 0.02,
         "Hydrostatic cantilever: base moment = gamma_w * H^3 / 6");
 
     // Tip deflection: delta = gamma_w * H^4 / (30 * E * I)
@@ -94,7 +94,7 @@ fn water_retaining_hydrostatic_cantilever() {
     let delta_exact: f64 = gamma_w * h.powi(4) / (30.0 * e_kn_m2 * iz);
     let tip_disp = results.displacements.iter()
         .find(|d| d.node_id == n + 1).unwrap();
-    assert_close(tip_disp.uy.abs(), delta_exact, 0.03,
+    assert_close(tip_disp.uz.abs(), delta_exact, 0.03,
         "Hydrostatic cantilever: tip deflection = gamma_w*H^4/(30EI)");
 }
 
@@ -147,7 +147,7 @@ fn water_retaining_crack_width_control() {
     // Fixed-end moment for propped cantilever under UDL: M_A = q*L^2/8
     let m_fixed: f64 = p_avg * l * l / 8.0;
     let r_a = results.reactions.iter().find(|r| r.node_id == 1).unwrap();
-    assert_close(r_a.mz.abs(), m_fixed, 0.03,
+    assert_close(r_a.my.abs(), m_fixed, 0.03,
         "Crack width: fixed-end moment = qL^2/8");
 
     // Crack width computation (EN 1992-3 approach)
@@ -261,8 +261,8 @@ fn water_retaining_minimum_reinforcement() {
     let loads = vec![SolverLoad::Nodal(SolverNodalLoad {
         node_id: n_elem + 1,
         fx: n_cr,
-        fy: 0.0,
-        mz: 0.0,
+        fz: 0.0,
+        my: 0.0,
     })];
 
     let input = make_beam(n_elem, l, e, a_m2, iz_m4, "fixed", None, loads);
@@ -359,7 +359,7 @@ fn water_retaining_hoop_tension() {
     // Base shear = gamma_w * H^2 / 2
     let v_base_exact: f64 = gamma_w * h_water * h_water / 2.0;
     let r_base = results.reactions.iter().find(|r| r.node_id == 1).unwrap();
-    assert_close(r_base.ry.abs(), v_base_exact, 0.02,
+    assert_close(r_base.rz.abs(), v_base_exact, 0.02,
         "Hoop tension: base shear on wall strip");
 
     // Hoop tension distribution (verify the formula)
@@ -433,8 +433,8 @@ fn water_retaining_joint_spacing() {
     let loads = vec![SolverLoad::Nodal(SolverNodalLoad {
         node_id: n_elem + 1,
         fx: n_thermal,
-        fy: 0.0,
-        mz: 0.0,
+        fz: 0.0,
+        my: 0.0,
     })];
 
     let input = make_beam(n_elem, l_wall, e, a_sec, iz, "fixed", None, loads);
@@ -519,7 +519,7 @@ fn water_retaining_rectangular_tank() {
 
     // Total load = gamma_w * H^2 / 2
     let total_load: f64 = gamma_w * h * h / 2.0;
-    let sum_ry: f64 = results.reactions.iter().map(|r| r.ry).sum();
+    let sum_ry: f64 = results.reactions.iter().map(|r| r.rz).sum();
     assert_close(sum_ry, total_load, 0.02,
         "Rect tank: total reaction = gamma_w*H^2/2");
 
@@ -529,19 +529,19 @@ fn water_retaining_rectangular_tank() {
     // from fixed end to zero at prop end.
     let r_top_exact: f64 = w_max * h / 10.0;
     let r_top = results.reactions.iter().find(|r| r.node_id == n + 1).unwrap();
-    assert_close(r_top.ry.abs(), r_top_exact, 0.03,
+    assert_close(r_top.rz.abs(), r_top_exact, 0.03,
         "Rect tank: top prop reaction for triangular load");
 
     // Base reaction: R_base = total - R_top = gamma_w*H^2/2 - gamma_w*H^2/10
     //              = gamma_w*H^2 * 2/5
     let r_base = results.reactions.iter().find(|r| r.node_id == 1).unwrap();
     let r_base_exact: f64 = total_load - r_top_exact;
-    assert_close(r_base.ry.abs(), r_base_exact, 0.03,
+    assert_close(r_base.rz.abs(), r_base_exact, 0.03,
         "Rect tank: base reaction for triangular load");
 
     // Base moment: M_base = w_max*H^2/15 (standard table for this loading)
     let m_base_exact: f64 = w_max * h * h / 15.0;
-    assert_close(r_base.mz.abs(), m_base_exact, 0.05,
+    assert_close(r_base.my.abs(), m_base_exact, 0.05,
         "Rect tank: base moment for triangular load");
 }
 
@@ -615,30 +615,30 @@ fn water_retaining_water_testing() {
     let disp_full = results_full.displacements.iter()
         .find(|d| d.node_id == mid_node).unwrap();
 
-    assert_close(disp_empty.uy.abs(), delta_empty_exact, 0.02,
+    assert_close(disp_empty.uz.abs(), delta_empty_exact, 0.02,
         "Water test: empty tank midspan deflection");
-    assert_close(disp_full.uy.abs(), delta_full_exact, 0.02,
+    assert_close(disp_full.uz.abs(), delta_full_exact, 0.02,
         "Water test: full tank midspan deflection");
 
     // Full condition deflection must be larger
     assert!(
-        disp_full.uy.abs() > disp_empty.uy.abs(),
+        disp_full.uz.abs() > disp_empty.uz.abs(),
         "Full deflection {:.4} > empty {:.4} mm",
-        disp_full.uy.abs(), disp_empty.uy.abs()
+        disp_full.uz.abs(), disp_empty.uz.abs()
     );
 
     // Deflection ratio: full/empty = q_full/sw
     let ratio_expected: f64 = q_full / sw;
-    let ratio_actual: f64 = disp_full.uy.abs() / disp_empty.uy.abs();
+    let ratio_actual: f64 = disp_full.uz.abs() / disp_empty.uz.abs();
     assert_close(ratio_actual, ratio_expected, 0.02,
         "Water test: deflection ratio full/empty = load ratio");
 
     // Serviceability: delta < L/250 (typical limit)
     let delta_limit: f64 = l / 250.0;
     assert!(
-        disp_full.uy.abs() < delta_limit,
+        disp_full.uz.abs() < delta_limit,
         "Water test: full deflection {:.4} m < L/250 = {:.4} m",
-        disp_full.uy.abs(), delta_limit
+        disp_full.uz.abs(), delta_limit
     );
 }
 
@@ -747,20 +747,20 @@ fn water_retaining_combined_earth_water() {
         .find(|r| r.node_id == 1).unwrap();
 
     assert!(
-        r_base_combined.ry.abs() > r_base_earth.ry.abs(),
+        r_base_combined.rz.abs() > r_base_earth.rz.abs(),
         "Combined base reaction {:.1} > earth only {:.1} kN",
-        r_base_combined.ry.abs(), r_base_earth.ry.abs()
+        r_base_combined.rz.abs(), r_base_earth.rz.abs()
     );
     assert!(
-        r_base_combined.mz.abs() > r_base_earth.mz.abs(),
+        r_base_combined.my.abs() > r_base_earth.my.abs(),
         "Combined base moment {:.1} > earth only {:.1} kN.m",
-        r_base_combined.mz.abs(), r_base_earth.mz.abs()
+        r_base_combined.my.abs(), r_base_earth.my.abs()
     );
 
     // Verify total load for earth-only case
     // Total earth pressure force = Ka * gamma_soil * H^2 / 2
     let total_earth: f64 = ka * gamma_soil * h * h / 2.0;
-    let sum_ry_earth: f64 = results_earth.reactions.iter().map(|r| r.ry).sum();
+    let sum_ry_earth: f64 = results_earth.reactions.iter().map(|r| r.rz).sum();
     assert_close(sum_ry_earth, total_earth, 0.02,
         "Combined: earth-only total = Ka*gamma*H^2/2");
 
@@ -769,7 +769,7 @@ fn water_retaining_combined_earth_water() {
     let total_water: f64 = gamma_w * h_water * h_water / 2.0;
     // But effective stress reduces earth component, so total combined
     // is not simply earth + water. Check that combined > earth-only.
-    let sum_ry_combined: f64 = results_combined.reactions.iter().map(|r| r.ry).sum();
+    let sum_ry_combined: f64 = results_combined.reactions.iter().map(|r| r.rz).sum();
     assert!(
         sum_ry_combined > sum_ry_earth,
         "Combined total {:.1} > earth only {:.1} kN",

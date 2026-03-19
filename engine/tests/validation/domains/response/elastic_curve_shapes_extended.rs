@@ -36,8 +36,8 @@ fn validation_elastic_curve_ext_cantilever_end_moment_parabolic() {
     let loads = vec![SolverLoad::Nodal(SolverNodalLoad {
         node_id: n + 1,
         fx: 0.0,
-        fy: 0.0,
-        mz: m_val,
+        fz: 0.0,
+        my: m_val,
     })];
     let input = make_beam(n, l, E, A, IZ, "fixed", None, loads);
     let results = linear::solve_2d(&input).unwrap();
@@ -55,7 +55,7 @@ fn validation_elastic_curve_ext_cantilever_end_moment_parabolic() {
             .iter()
             .find(|d| d.node_id == node_id)
             .unwrap()
-            .uy;
+            .uz;
         // Analytical: delta(x) = M*x^2 / (2*EI)
         // Positive M causes upward deflection (positive uy).
         let delta_exact: f64 = m_val * x * x / (2.0 * ei);
@@ -99,14 +99,14 @@ fn validation_elastic_curve_ext_four_point_bending_midspan() {
         SolverLoad::Nodal(SolverNodalLoad {
             node_id: node_left,
             fx: 0.0,
-            fy: -p,
-            mz: 0.0,
+            fz: -p,
+            my: 0.0,
         }),
         SolverLoad::Nodal(SolverNodalLoad {
             node_id: node_right,
             fx: 0.0,
-            fy: -p,
-            mz: 0.0,
+            fz: -p,
+            my: 0.0,
         }),
     ];
     let input = make_beam(n, l, E, A, IZ, "pinned", Some("rollerX"), loads);
@@ -118,7 +118,7 @@ fn validation_elastic_curve_ext_four_point_bending_midspan() {
         .iter()
         .find(|d| d.node_id == mid)
         .unwrap()
-        .uy;
+        .uz;
     // Analytical midspan: delta_mid = P*a / (24*EI) * (3*L^2 - 4*a^2)
     let delta_mid_exact: f64 =
         p * a_pos / (24.0 * ei) * (3.0 * l * l - 4.0 * a_pos * a_pos);
@@ -136,7 +136,7 @@ fn validation_elastic_curve_ext_four_point_bending_midspan() {
         .iter()
         .find(|d| d.node_id == node_left)
         .unwrap()
-        .uy;
+        .uz;
     // For single load P at a on SS beam: delta(a) = P*a^2*b^2/(3*EI*L) where b = L-a
     // For two symmetric loads: delta(a) = P*a/(6*EI*L)*(L^2 - a^2 - a^2) + contribution from second load
     // Simpler: use delta_at_load = P*a*(3*L^2 - 4*a^2) / (48*EI) * 2*a/L ... let's use exact formula.
@@ -218,7 +218,7 @@ fn validation_elastic_curve_ext_fixed_pinned_udl_asymmetric() {
             .iter()
             .find(|d| d.node_id == node_id)
             .unwrap()
-            .uy;
+            .uz;
         let delta_exact: f64 = q * x * x / (48.0 * ei)
             * (3.0 * l * l - 5.0 * l * x + 2.0 * x * x);
         assert_close(
@@ -258,8 +258,8 @@ fn validation_elastic_curve_ext_ss_off_center_point_load() {
     let loads = vec![SolverLoad::Nodal(SolverNodalLoad {
         node_id: load_node,
         fx: 0.0,
-        fy: -p,
-        mz: 0.0,
+        fz: -p,
+        my: 0.0,
     })];
     let input = make_beam(n, l, E, A, IZ, "pinned", Some("rollerX"), loads);
     let results = linear::solve_2d(&input).unwrap();
@@ -275,7 +275,7 @@ fn validation_elastic_curve_ext_ss_off_center_point_load() {
             .iter()
             .find(|d| d.node_id == node_id)
             .unwrap()
-            .uy;
+            .uz;
         // delta(x) = P*b*x / (6*L*EI) * (L^2 - b^2 - x^2)
         let delta_exact: f64 =
             p * b_pos * x / (6.0 * l * ei) * (l * l - b_pos * b_pos - x * x);
@@ -298,7 +298,7 @@ fn validation_elastic_curve_ext_ss_off_center_point_load() {
             .iter()
             .find(|d| d.node_id == node_id)
             .unwrap()
-            .uy;
+            .uz;
         // For x >= a: delta(x) = P*a*(L-x) / (6*L*EI) * (L^2 - a^2 - (L-x)^2)
         let lmx: f64 = l - x;
         let delta_exact: f64 =
@@ -364,7 +364,7 @@ fn validation_elastic_curve_ext_cantilever_triangular_load() {
             .iter()
             .find(|d| d.node_id == node_id)
             .unwrap()
-            .uy;
+            .uz;
         let delta_exact: f64 = q0 / (120.0 * l * ei)
             * (10.0 * l.powi(3) * x.powi(2)
                 - 10.0 * l.powi(2) * x.powi(3)
@@ -410,14 +410,14 @@ fn validation_elastic_curve_ext_ss_udl_deflection_ratio() {
         .iter()
         .find(|d| d.node_id == quarter_node)
         .unwrap()
-        .uy
+        .uz
         .abs();
     let uy_mid = results
         .displacements
         .iter()
         .find(|d| d.node_id == mid_node)
         .unwrap()
-        .uy
+        .uz
         .abs();
 
     let ratio = uy_quarter / uy_mid;
@@ -481,7 +481,7 @@ fn validation_elastic_curve_ext_ss_triangular_load() {
             .iter()
             .find(|d| d.node_id == node_id)
             .unwrap()
-            .uy;
+            .uz;
         let delta_exact: f64 = q0 * x / (360.0 * l * ei)
             * (7.0 * l.powi(4) - 10.0 * l.powi(2) * x.powi(2) + 3.0 * x.powi(4));
         assert_close(
@@ -542,7 +542,7 @@ fn validation_elastic_curve_ext_continuous_two_span_symmetry() {
         .iter()
         .find(|d| d.node_id == interior_node)
         .unwrap()
-        .uy;
+        .uz;
     assert!(
         uy_interior.abs() < 1e-6,
         "Interior support uy should be ~0, got {}",
@@ -556,7 +556,7 @@ fn validation_elastic_curve_ext_continuous_two_span_symmetry() {
         .iter()
         .find(|d| d.node_id == mid1)
         .unwrap()
-        .uy;
+        .uz;
     // Midspan of span 2: node at n_per_span + n_per_span/2 + 1
     let mid2 = n_per_span + n_per_span / 2 + 1;
     let uy_mid2 = results
@@ -564,7 +564,7 @@ fn validation_elastic_curve_ext_continuous_two_span_symmetry() {
         .iter()
         .find(|d| d.node_id == mid2)
         .unwrap()
-        .uy;
+        .uz;
 
     // Both midspan deflections should be downward (negative uy for downward load)
     assert!(

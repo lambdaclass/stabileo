@@ -60,17 +60,17 @@ fn validation_portal_symmetric_gravity_zero_sway() {
     );
 
     // Equal vertical deflection at both top nodes
-    let diff: f64 = (d2.uy - d3.uy).abs();
+    let diff: f64 = (d2.uz - d3.uz).abs();
     assert!(
         diff < 1e-10,
         "Symmetric gravity: node 2 uy={:.6e} should equal node 3 uy={:.6e}, diff={:.6e}",
-        d2.uy, d3.uy, diff
+        d2.uz, d3.uz, diff
     );
 
     // Both should deflect downward
     assert!(
-        d2.uy < 0.0,
-        "Symmetric gravity: top nodes should deflect downward, got uy={:.6e}", d2.uy
+        d2.uz < 0.0,
+        "Symmetric gravity: top nodes should deflect downward, got uy={:.6e}", d2.uz
     );
 }
 
@@ -103,7 +103,7 @@ fn validation_portal_lateral_equal_sway() {
     ];
     let sups = vec![(1, 1_usize, "fixed"), (2, 4, "fixed")];
     let loads = vec![SolverLoad::Nodal(SolverNodalLoad {
-        node_id: 2, fx: p, fy: 0.0, mz: 0.0,
+        node_id: 2, fx: p, fz: 0.0, my: 0.0,
     })];
     let input = make_input(
         nodes,
@@ -176,7 +176,7 @@ fn validation_two_story_upper_drift_exceeds_lower() {
     ];
     let sups = vec![(1, 1_usize, "fixed"), (2, 2, "fixed")];
     let loads = vec![SolverLoad::Nodal(SolverNodalLoad {
-        node_id: 5, fx: p, fy: 0.0, mz: 0.0,
+        node_id: 5, fx: p, fz: 0.0, my: 0.0,
     })];
     let input = make_input(
         nodes,
@@ -237,7 +237,7 @@ fn validation_cantilever_tip_deflection_pl3_3ei() {
     let input = make_beam(
         n, l, E, A, IZ, "fixed", None,
         vec![SolverLoad::Nodal(SolverNodalLoad {
-            node_id: n + 1, fx: 0.0, fy: -p, mz: 0.0,
+            node_id: n + 1, fx: 0.0, fz: -p, my: 0.0,
         })],
     );
     let results = linear::solve_2d(&input).unwrap();
@@ -247,17 +247,17 @@ fn validation_cantilever_tip_deflection_pl3_3ei() {
     // Analytical: delta = PL^3 / (3EI)
     let delta_exact: f64 = p * l.powi(3) / (3.0 * e_eff * IZ);
 
-    let error: f64 = (tip.uy.abs() - delta_exact).abs() / delta_exact;
+    let error: f64 = (tip.uz.abs() - delta_exact).abs() / delta_exact;
     assert!(
         error < 0.02,
         "Cantilever PL^3/(3EI): tip uy={:.6e}, exact={:.6e}, err={:.2}%",
-        tip.uy.abs(), delta_exact, error * 100.0
+        tip.uz.abs(), delta_exact, error * 100.0
     );
 
     // Tip should deflect downward
     assert!(
-        tip.uy < 0.0,
-        "Cantilever: tip should deflect downward, got uy={:.6e}", tip.uy
+        tip.uz < 0.0,
+        "Cantilever: tip should deflect downward, got uy={:.6e}", tip.uz
     );
 }
 
@@ -288,7 +288,7 @@ fn validation_propped_cantilever_max_deflection_shifted() {
 
     // Find the node with maximum absolute vertical deflection
     let max_node = results.displacements.iter()
-        .max_by(|a, b| a.uy.abs().partial_cmp(&b.uy.abs()).unwrap())
+        .max_by(|a, b| a.uz.abs().partial_cmp(&b.uz.abs()).unwrap())
         .unwrap();
 
     // The x-coordinate of the max deflection node
@@ -313,8 +313,8 @@ fn validation_propped_cantilever_max_deflection_shifted() {
     // Confirm max deflection is not at midspan — it is shifted toward the roller end
     let midspan_node = n / 2 + 1;
     let d_mid = results.displacements.iter().find(|d| d.node_id == midspan_node).unwrap();
-    let d_max: f64 = max_node.uy.abs();
-    let d_midspan: f64 = d_mid.uy.abs();
+    let d_max: f64 = max_node.uz.abs();
+    let d_midspan: f64 = d_mid.uz.abs();
     assert!(
         d_max > d_midspan,
         "Propped cantilever: max deflection {:.6e} should exceed midspan {:.6e}",
@@ -357,22 +357,22 @@ fn validation_fixed_fixed_zero_slope_max_at_midspan() {
     let d_start = results.displacements.iter().find(|d| d.node_id == 1).unwrap();
     let d_end = results.displacements.iter().find(|d| d.node_id == n + 1).unwrap();
     assert!(
-        d_start.rz.abs() < 1e-10,
-        "Fixed-fixed: start rotation should be 0, got {:.6e}", d_start.rz
+        d_start.ry.abs() < 1e-10,
+        "Fixed-fixed: start rotation should be 0, got {:.6e}", d_start.ry
     );
     assert!(
-        d_end.rz.abs() < 1e-10,
-        "Fixed-fixed: end rotation should be 0, got {:.6e}", d_end.rz
+        d_end.ry.abs() < 1e-10,
+        "Fixed-fixed: end rotation should be 0, got {:.6e}", d_end.ry
     );
 
     // Zero displacement at both ends
     assert!(
-        d_start.uy.abs() < 1e-10,
-        "Fixed-fixed: start uy should be 0, got {:.6e}", d_start.uy
+        d_start.uz.abs() < 1e-10,
+        "Fixed-fixed: start uy should be 0, got {:.6e}", d_start.uz
     );
     assert!(
-        d_end.uy.abs() < 1e-10,
-        "Fixed-fixed: end uy should be 0, got {:.6e}", d_end.uy
+        d_end.uz.abs() < 1e-10,
+        "Fixed-fixed: end uy should be 0, got {:.6e}", d_end.uz
     );
 
     // Max deflection at midspan
@@ -381,22 +381,22 @@ fn validation_fixed_fixed_zero_slope_max_at_midspan() {
 
     // Check that midspan has the maximum deflection
     let max_defl: f64 = results.displacements.iter()
-        .map(|d| d.uy.abs())
+        .map(|d| d.uz.abs())
         .fold(0.0_f64, f64::max);
-    let ratio: f64 = d_mid.uy.abs() / max_defl;
+    let ratio: f64 = d_mid.uz.abs() / max_defl;
     assert!(
         ratio > 0.98,
         "Fixed-fixed: midspan deflection {:.6e} should be the max {:.6e}, ratio={:.4}",
-        d_mid.uy.abs(), max_defl, ratio
+        d_mid.uz.abs(), max_defl, ratio
     );
 
     // Verify against exact formula: delta = qL^4/(384EI)
     let delta_exact: f64 = q.abs() * l.powi(4) / (384.0 * e_eff * IZ);
-    let error: f64 = (d_mid.uy.abs() - delta_exact).abs() / delta_exact;
+    let error: f64 = (d_mid.uz.abs() - delta_exact).abs() / delta_exact;
     assert!(
         error < 0.05,
         "Fixed-fixed UDL: midspan={:.6e}, exact qL^4/(384EI)={:.6e}, err={:.2}%",
-        d_mid.uy.abs(), delta_exact, error * 100.0
+        d_mid.uz.abs(), delta_exact, error * 100.0
     );
 }
 
@@ -425,11 +425,11 @@ fn validation_ss_udl_symmetric_max_midspan() {
         let mirror = n + 2 - i;
         let di = results.displacements.iter().find(|d| d.node_id == i).unwrap();
         let dm = results.displacements.iter().find(|d| d.node_id == mirror).unwrap();
-        let diff: f64 = (di.uy - dm.uy).abs();
+        let diff: f64 = (di.uz - dm.uz).abs();
         assert!(
             diff < 1e-10,
             "SS UDL symmetry: node {} uy={:.6e} vs mirror node {} uy={:.6e}, diff={:.6e}",
-            i, di.uy, mirror, dm.uy, diff
+            i, di.uz, mirror, dm.uz, diff
         );
     }
 
@@ -439,28 +439,28 @@ fn validation_ss_udl_symmetric_max_midspan() {
 
     // Midspan should have the maximum deflection
     let max_defl: f64 = results.displacements.iter()
-        .map(|d| d.uy.abs())
+        .map(|d| d.uz.abs())
         .fold(0.0_f64, f64::max);
-    let ratio: f64 = d_mid.uy.abs() / max_defl;
+    let ratio: f64 = d_mid.uz.abs() / max_defl;
     assert!(
         ratio > 0.99,
         "SS UDL: midspan deflection {:.6e} should be the max {:.6e}, ratio={:.4}",
-        d_mid.uy.abs(), max_defl, ratio
+        d_mid.uz.abs(), max_defl, ratio
     );
 
     // Verify against exact formula: delta = 5qL^4/(384EI)
     let delta_exact: f64 = 5.0 * q.abs() * l.powi(4) / (384.0 * e_eff * IZ);
-    let error: f64 = (d_mid.uy.abs() - delta_exact).abs() / delta_exact;
+    let error: f64 = (d_mid.uz.abs() - delta_exact).abs() / delta_exact;
     assert!(
         error < 0.02,
         "SS UDL: midspan={:.6e}, exact 5qL^4/(384EI)={:.6e}, err={:.2}%",
-        d_mid.uy.abs(), delta_exact, error * 100.0
+        d_mid.uz.abs(), delta_exact, error * 100.0
     );
 
     // Deflection should be downward (negative uy)
     assert!(
-        d_mid.uy < 0.0,
-        "SS UDL: midspan should deflect downward, got uy={:.6e}", d_mid.uy
+        d_mid.uz < 0.0,
+        "SS UDL: midspan should deflect downward, got uy={:.6e}", d_mid.uz
     );
 }
 
@@ -493,7 +493,7 @@ fn validation_l_frame_tip_load_both_displacements() {
         ],
         vec![(1, 1_usize, "fixed")],
         vec![SolverLoad::Nodal(SolverNodalLoad {
-            node_id: 3, fx: 0.0, fy: -p, mz: 0.0,
+            node_id: 3, fx: 0.0, fz: -p, my: 0.0,
         })],
     );
     let results = linear::solve_2d(&input).unwrap();
@@ -502,8 +502,8 @@ fn validation_l_frame_tip_load_both_displacements() {
 
     // Tip should deflect downward (negative uy)
     assert!(
-        d3.uy < 0.0,
-        "L-frame: tip should deflect downward, got uy={:.6e}", d3.uy
+        d3.uz < 0.0,
+        "L-frame: tip should deflect downward, got uy={:.6e}", d3.uz
     );
 
     // Tip should also have horizontal displacement (column bending causes sway)
@@ -514,9 +514,9 @@ fn validation_l_frame_tip_load_both_displacements() {
 
     // Vertical deflection should be larger than horizontal (beam bending dominates)
     assert!(
-        d3.uy.abs() > d3.ux.abs(),
+        d3.uz.abs() > d3.ux.abs(),
         "L-frame: vertical deflection {:.6e} should exceed horizontal {:.6e}",
-        d3.uy.abs(), d3.ux.abs()
+        d3.uz.abs(), d3.ux.abs()
     );
 
     // The corner node (2) should also displace
@@ -527,7 +527,7 @@ fn validation_l_frame_tip_load_both_displacements() {
     );
 
     // Global equilibrium: sum of vertical reactions = P
-    let sum_ry: f64 = results.reactions.iter().map(|r| r.ry).sum();
+    let sum_ry: f64 = results.reactions.iter().map(|r| r.rz).sum();
     assert_close(sum_ry, p, 0.01, "L-frame: sum_Ry = P");
 
     // The corner and tip should sway in the same direction (rigid connection)

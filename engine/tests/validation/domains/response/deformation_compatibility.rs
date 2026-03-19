@@ -58,7 +58,7 @@ fn validation_compat_shared_node_equal_displacement() {
         ],
         vec![(1, 1, "pinned"), (2, 3, "rollerX")],
         vec![SolverLoad::Nodal(SolverNodalLoad {
-            node_id: 2, fx: 0.0, fy: -p, mz: 0.0,
+            node_id: 2, fx: 0.0, fz: -p, my: 0.0,
         })],
     );
     let results = linear::solve_2d(&input).unwrap();
@@ -71,11 +71,11 @@ fn validation_compat_shared_node_equal_displacement() {
     // Node 2 displacement must equal SS midspan formula: PL³/(48EI)
     let e_eff = E * 1000.0;
     let expected = p * l.powi(3) / (48.0 * e_eff * IZ);
-    assert_close(d2.uy.abs(), expected, 0.02,
+    assert_close(d2.uz.abs(), expected, 0.02,
         "Shared node: uy at midspan = PL³/(48EI)");
 
     // Equilibrium check: reactions sum to applied load.
-    let sum_ry: f64 = results.reactions.iter().map(|r| r.ry).sum();
+    let sum_ry: f64 = results.reactions.iter().map(|r| r.rz).sum();
     assert_close(sum_ry, p, 0.01, "Shared node: ΣRy = P");
 }
 
@@ -112,7 +112,7 @@ fn validation_compat_t_junction_rotation() {
         ],
         vec![(1, 1, "pinned"), (2, 3, "rollerX")],
         vec![SolverLoad::Nodal(SolverNodalLoad {
-            node_id: 4, fx: 10.0, fy: 0.0, mz: 0.0,
+            node_id: 4, fx: 10.0, fz: 0.0, my: 0.0,
         })],
     );
     let results = linear::solve_2d(&input).unwrap();
@@ -133,7 +133,7 @@ fn validation_compat_t_junction_rotation() {
         d4.ux.abs(), d2.ux.abs());
 
     // Both nodes have non-zero rotation (moment transfers through rigid joint).
-    assert!(d2.rz.abs() > 0.0, "T-junction: node 2 has rotation");
+    assert!(d2.ry.abs() > 0.0, "T-junction: node 2 has rotation");
 }
 
 // ================================================================
@@ -173,8 +173,8 @@ fn validation_compat_portal_corner() {
         d2.ux, d3.ux);
 
     // Both corners have non-zero rotation (moment at rigid joint).
-    assert!(d2.rz.abs() > 0.0, "Portal corner: node 2 has rotation");
-    assert!(d3.rz.abs() > 0.0, "Portal corner: node 3 has rotation");
+    assert!(d2.ry.abs() > 0.0, "Portal corner: node 2 has rotation");
+    assert!(d3.ry.abs() > 0.0, "Portal corner: node 3 has rotation");
 }
 
 // ================================================================
@@ -204,7 +204,7 @@ fn validation_compat_rigid_joint_rotation() {
         ],
         vec![(1, 1, "fixed"), (2, 3, "fixed")],
         vec![SolverLoad::Nodal(SolverNodalLoad {
-            node_id: 2, fx: 0.0, fy: -p, mz: 0.0,
+            node_id: 2, fx: 0.0, fz: -p, my: 0.0,
         })],
     );
     let results = linear::solve_2d(&input).unwrap();
@@ -212,18 +212,18 @@ fn validation_compat_rigid_joint_rotation() {
     // Node 2 has a single rz DOF — no relative rotation possible.
     // Verify: the junction node 2 has rotation (moment is transmitted).
     let d2 = results.displacements.iter().find(|d| d.node_id == 2).unwrap();
-    assert!(d2.rz.abs() > 0.0,
+    assert!(d2.ry.abs() > 0.0,
         "Rigid joint: junction must have non-zero rotation");
 
     // Check global equilibrium
-    let sum_ry: f64 = results.reactions.iter().map(|r| r.ry).sum();
+    let sum_ry: f64 = results.reactions.iter().map(|r| r.rz).sum();
     assert_close(sum_ry, p, 0.02, "Rigid joint: ΣRy = P");
 
     // Both supports carry part of the load.
     let r1 = results.reactions.iter().find(|r| r.node_id == 1).unwrap();
     let r3 = results.reactions.iter().find(|r| r.node_id == 3).unwrap();
-    assert!(r1.ry.abs() > 0.0, "Rigid joint: support 1 carries load");
-    assert!(r3.ry.abs() > 0.0, "Rigid joint: support 3 carries load");
+    assert!(r1.rz.abs() > 0.0, "Rigid joint: support 1 carries load");
+    assert!(r3.rz.abs() > 0.0, "Rigid joint: support 3 carries load");
 }
 
 // ================================================================
@@ -273,7 +273,7 @@ fn validation_compat_hinged_joint_discontinuity() {
         "Hinged joint: M_start of elem 2 = {:.4}, should be ~0", ef2.m_start);
 
     // Global equilibrium still holds.
-    let sum_ry: f64 = results.reactions.iter().map(|r| r.ry).sum();
+    let sum_ry: f64 = results.reactions.iter().map(|r| r.rz).sum();
     assert_close(sum_ry, q * l, 0.02, "Hinged joint: ΣRy = qL");
 }
 
@@ -312,7 +312,7 @@ fn validation_compat_3d_joint_6dof() {
     let delta_y = fy * l.powi(3) / (3.0 * e_eff * IZ);
     let delta_z = fz * l.powi(3) / (3.0 * e_eff * IY);
 
-    assert_close(tip.uy.abs(), delta_y, 0.05, "3D joint: uy = Fy·L³/(3EIz)");
+    assert_close(tip.uz.abs(), delta_y, 0.05, "3D joint: uy = Fy·L³/(3EIz)");
     assert_close(tip.uz.abs(), delta_z, 0.05, "3D joint: uz = Fz·L³/(3EIy)");
 
     // Pure bending: no torsion, so rx ≈ 0 at tip.
@@ -320,7 +320,7 @@ fn validation_compat_3d_joint_6dof() {
         "3D joint: no torsion, rx should be ~0, got {:.2e}", tip.rx);
 
     // Both Fy and Fz are active, confirming 6-DOF node is utilized.
-    assert!(tip.uy.abs() > 0.0 && tip.uz.abs() > 0.0,
+    assert!(tip.uz.abs() > 0.0 && tip.uz.abs() > 0.0,
         "3D joint: both uy and uz must be non-zero");
 }
 
@@ -365,25 +365,25 @@ fn validation_compat_multi_member_joint() {
             (4, 5, "pinned"),
         ],
         vec![SolverLoad::Nodal(SolverNodalLoad {
-            node_id: 1, fx: 0.0, fy: -p, mz: 0.0,
+            node_id: 1, fx: 0.0, fz: -p, my: 0.0,
         })],
     );
     let results = linear::solve_2d(&input).unwrap();
 
     // Hub node 1 has a single set of DOFs. Verify hub deflects downward.
     let d_hub = results.displacements.iter().find(|d| d.node_id == 1).unwrap();
-    assert!(d_hub.uy < 0.0,
-        "Hub: uy should be downward (negative), got {:.6}", d_hub.uy);
+    assert!(d_hub.uz < 0.0,
+        "Hub: uy should be downward (negative), got {:.6}", d_hub.uz);
 
     // Global equilibrium: ΣRy = P.
-    let sum_ry: f64 = results.reactions.iter().map(|r| r.ry).sum();
+    let sum_ry: f64 = results.reactions.iter().map(|r| r.rz).sum();
     assert_close(sum_ry, p, 0.02, "Multi-member joint: ΣRy = P");
 
     // By symmetry (arms along X identical), top and bottom arms share load equally.
     // The vertical arms (3→4 and 4→5) carry the gravity component.
     // Check symmetry: left and right tip reactions should be equal.
-    let r2 = results.reactions.iter().find(|r| r.node_id == 2).unwrap().ry;
-    let r3 = results.reactions.iter().find(|r| r.node_id == 3).unwrap().ry;
+    let r2 = results.reactions.iter().find(|r| r.node_id == 2).unwrap().rz;
+    let r3 = results.reactions.iter().find(|r| r.node_id == 3).unwrap().rz;
     assert_close(r2, r3, 0.02, "Multi-member: symmetric X-arms equal Ry");
 }
 
@@ -426,22 +426,22 @@ fn validation_compat_continuous_beam_interior_zeros() {
         .find(|d| d.node_id == int2).unwrap();
 
     // Displacement must be zero at rollerX supports (compatibility condition).
-    assert!(d_int1.uy.abs() < 1e-8,
-        "Interior support {}: uy = {:.2e}, must be 0", int1, d_int1.uy);
-    assert!(d_int2.uy.abs() < 1e-8,
-        "Interior support {}: uy = {:.2e}, must be 0", int2, d_int2.uy);
+    assert!(d_int1.uz.abs() < 1e-8,
+        "Interior support {}: uy = {:.2e}, must be 0", int1, d_int1.uz);
+    assert!(d_int2.uz.abs() < 1e-8,
+        "Interior support {}: uy = {:.2e}, must be 0", int2, d_int2.uz);
 
     // End supports also at zero (pinned and rollerX).
     let d_start = results.displacements.iter().find(|d| d.node_id == 1).unwrap();
     let d_end = results.displacements.iter()
         .find(|d| d.node_id == 3 * n_per_span + 1).unwrap();
-    assert!(d_start.uy.abs() < 1e-8,
-        "Start support: uy = {:.2e}, must be 0", d_start.uy);
-    assert!(d_end.uy.abs() < 1e-8,
-        "End support: uy = {:.2e}, must be 0", d_end.uy);
+    assert!(d_start.uz.abs() < 1e-8,
+        "Start support: uy = {:.2e}, must be 0", d_start.uz);
+    assert!(d_end.uz.abs() < 1e-8,
+        "End support: uy = {:.2e}, must be 0", d_end.uz);
 
     // Equilibrium: ΣRy = total load.
-    let sum_ry: f64 = results.reactions.iter().map(|r| r.ry).sum();
+    let sum_ry: f64 = results.reactions.iter().map(|r| r.rz).sum();
     assert_close(sum_ry, q * 3.0 * span, 0.01,
         "Continuous beam: ΣRy = 3qL");
 }

@@ -89,12 +89,12 @@ fn blast_hopkinson_scaled_distance_beam() {
 
     let mid = n / 2 + 1;
     let mid_d = results.displacements.iter().find(|d| d.node_id == mid).unwrap();
-    let error: f64 = (mid_d.uy.abs() - delta_exact).abs() / delta_exact;
+    let error: f64 = (mid_d.uz.abs() - delta_exact).abs() / delta_exact;
 
     assert!(
         error < 0.05,
         "Hopkinson beam: solver delta={:.6e}, exact={:.6e}, err={:.1}%",
-        mid_d.uy.abs(), delta_exact, error * 100.0
+        mid_d.uz.abs(), delta_exact, error * 100.0
     );
 }
 
@@ -153,12 +153,12 @@ fn blast_reflected_pressure_wall_strip() {
 
     let mid = n / 2 + 1;
     let mid_d = results.displacements.iter().find(|d| d.node_id == mid).unwrap();
-    let error: f64 = (mid_d.uy.abs() - delta_exact).abs() / delta_exact;
+    let error: f64 = (mid_d.uz.abs() - delta_exact).abs() / delta_exact;
 
     assert!(
         error < 0.05,
         "Reflected pressure wall: solver={:.6e}, exact={:.6e}, err={:.1}%",
-        mid_d.uy.abs(), delta_exact, error * 100.0
+        mid_d.uz.abs(), delta_exact, error * 100.0
     );
 
     // Verify reflected pressure is significantly amplified
@@ -221,7 +221,7 @@ fn blast_sdof_equivalent_beam_stiffness() {
     let results = linear::solve_2d(&input).unwrap();
 
     // Total vertical reaction should equal total applied load (equilibrium)
-    let total_ry: f64 = results.reactions.iter().map(|r| r.ry).sum();
+    let total_ry: f64 = results.reactions.iter().map(|r| r.rz).sum();
     let total_applied: f64 = q.abs() * l;
 
     assert_close(total_ry, total_applied, 0.02, "SDOF beam equilibrium: sum(Ry) = q*L");
@@ -231,7 +231,7 @@ fn blast_sdof_equivalent_beam_stiffness() {
     let mid = n / 2 + 1;
     let mid_d = results.displacements.iter().find(|d| d.node_id == mid).unwrap();
 
-    assert_close(mid_d.uy.abs(), delta_exact, 0.05, "SDOF beam midspan deflection");
+    assert_close(mid_d.uz.abs(), delta_exact, 0.05, "SDOF beam midspan deflection");
 }
 
 // ================================================================
@@ -350,7 +350,7 @@ fn blast_vehicle_impact_bollard() {
     //   - free end at node n+1 (top)
     //   - lateral force as fy at impact node
     let loads = vec![SolverLoad::Nodal(SolverNodalLoad {
-        node_id: impact_node, fx: 0.0, fy: -f_impact, mz: 0.0,
+        node_id: impact_node, fx: 0.0, fz: -f_impact, my: 0.0,
     })];
 
     let input = make_beam(n, h_bollard, E_STEEL, a_bollard, iz_bollard, "fixed", None, loads);
@@ -366,7 +366,7 @@ fn blast_vehicle_impact_bollard() {
 
     let tip = results.displacements.iter().find(|d| d.node_id == n + 1).unwrap();
     assert_close(
-        tip.uy.abs(), delta_tip_exact, 0.05,
+        tip.uz.abs(), delta_tip_exact, 0.05,
         "Bollard tip deflection"
     );
 
@@ -374,13 +374,13 @@ fn blast_vehicle_impact_bollard() {
     let m_base_exact: f64 = f_impact * a_load;
     let base_reaction = results.reactions.iter().find(|r| r.node_id == 1).unwrap();
     assert_close(
-        base_reaction.mz.abs(), m_base_exact, 0.05,
+        base_reaction.my.abs(), m_base_exact, 0.05,
         "Bollard base moment"
     );
 
     // Base shear check: V = P
     assert_close(
-        base_reaction.ry.abs(), f_impact, 0.02,
+        base_reaction.rz.abs(), f_impact, 0.02,
         "Bollard base shear"
     );
 }
@@ -434,7 +434,7 @@ fn blast_protective_wall_fixed_beam() {
     let mid_d = results.displacements.iter().find(|d| d.node_id == mid).unwrap();
 
     assert_close(
-        mid_d.uy.abs(), delta_exact, 0.05,
+        mid_d.uz.abs(), delta_exact, 0.05,
         "Protective wall midspan deflection"
     );
 
@@ -446,18 +446,18 @@ fn blast_protective_wall_fixed_beam() {
     let r_end = results.reactions.iter().find(|r| r.node_id == n + 1).unwrap();
 
     assert_close(
-        r1.mz.abs(), m_fixed_exact, 0.05,
+        r1.my.abs(), m_fixed_exact, 0.05,
         "Wall fixed-end moment (left)"
     );
     assert_close(
-        r_end.mz.abs(), m_fixed_exact, 0.05,
+        r_end.my.abs(), m_fixed_exact, 0.05,
         "Wall fixed-end moment (right)"
     );
 
     // Vertical reaction: R = q*L/2 at each support
     let r_vert_exact: f64 = q.abs() * l / 2.0;
     assert_close(
-        r1.ry.abs(), r_vert_exact, 0.02,
+        r1.rz.abs(), r_vert_exact, 0.02,
         "Wall support reaction"
     );
 
@@ -525,7 +525,7 @@ fn blast_fragment_penetration_beam() {
 
     let mid = n / 2 + 1;
     let loads = vec![SolverLoad::Nodal(SolverNodalLoad {
-        node_id: mid, fx: 0.0, fy: -f_eq, mz: 0.0,
+        node_id: mid, fx: 0.0, fz: -f_eq, my: 0.0,
     })];
 
     let input = make_beam(n, l, E_STEEL, a_heavy, iz_heavy, "pinned", Some("rollerX"), loads);
@@ -535,16 +535,16 @@ fn blast_fragment_penetration_beam() {
     let delta_exact: f64 = f_eq * l.powi(3) / (48.0 * e_eff * iz_heavy);
 
     let mid_d = results.displacements.iter().find(|d| d.node_id == mid).unwrap();
-    let error: f64 = (mid_d.uy.abs() - delta_exact).abs() / delta_exact;
+    let error: f64 = (mid_d.uz.abs() - delta_exact).abs() / delta_exact;
 
     assert!(
         error < 0.05,
         "Fragment impact beam: solver={:.6e}, exact PL^3/(48EI)={:.6e}, err={:.1}%",
-        mid_d.uy.abs(), delta_exact, error * 100.0
+        mid_d.uz.abs(), delta_exact, error * 100.0
     );
 
     // Reactions should each be P/2
-    let total_ry: f64 = results.reactions.iter().map(|r| r.ry).sum();
+    let total_ry: f64 = results.reactions.iter().map(|r| r.rz).sum();
     assert_close(total_ry, f_eq, 0.02, "Fragment beam equilibrium: sum(Ry) = P");
 
     // Midspan moment: M = P*L/4
@@ -632,9 +632,9 @@ fn blast_vent_pressure_relief_frame() {
 
     // Base moment sum should also scale linearly
     let sum_mz_full: f64 = results_full.reactions.iter()
-        .map(|r| r.mz.abs()).sum();
+        .map(|r| r.my.abs()).sum();
     let sum_mz_vent: f64 = results_vent.reactions.iter()
-        .map(|r| r.mz.abs()).sum();
+        .map(|r| r.my.abs()).sum();
     let mz_ratio: f64 = sum_mz_vent / sum_mz_full;
 
     assert_close(

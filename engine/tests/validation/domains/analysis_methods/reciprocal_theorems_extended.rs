@@ -47,19 +47,19 @@ fn validation_reciprocal_ext_maxwell_propped_cantilever() {
 
     // Load at i, measure at j
     let loads_i = vec![SolverLoad::Nodal(SolverNodalLoad {
-        node_id: node_i, fx: 0.0, fy: -p, mz: 0.0,
+        node_id: node_i, fx: 0.0, fz: -p, my: 0.0,
     })];
     let input_i = make_beam(n, l, E, A, IZ, "fixed", Some("rollerX"), loads_i);
     let delta_ji = linear::solve_2d(&input_i).unwrap()
-        .displacements.iter().find(|d| d.node_id == node_j).unwrap().uy;
+        .displacements.iter().find(|d| d.node_id == node_j).unwrap().uz;
 
     // Load at j, measure at i
     let loads_j = vec![SolverLoad::Nodal(SolverNodalLoad {
-        node_id: node_j, fx: 0.0, fy: -p, mz: 0.0,
+        node_id: node_j, fx: 0.0, fz: -p, my: 0.0,
     })];
     let input_j = make_beam(n, l, E, A, IZ, "fixed", Some("rollerX"), loads_j);
     let delta_ij = linear::solve_2d(&input_j).unwrap()
-        .displacements.iter().find(|d| d.node_id == node_i).unwrap().uy;
+        .displacements.iter().find(|d| d.node_id == node_i).unwrap().uz;
 
     assert_close(delta_ji, delta_ij, 0.01,
         "Maxwell propped cantilever: δ_ji = δ_ij");
@@ -87,19 +87,19 @@ fn validation_reciprocal_ext_betti_cantilever_moment_force() {
 
     // System 1: moment M at tip
     let loads1 = vec![SolverLoad::Nodal(SolverNodalLoad {
-        node_id: node_tip, fx: 0.0, fy: 0.0, mz: m_val,
+        node_id: node_tip, fx: 0.0, fz: 0.0, my: m_val,
     })];
     let input1 = make_beam(n, l, E, A, IZ, "fixed", None, loads1);
     let res1 = linear::solve_2d(&input1).unwrap();
-    let delta_mid_sys1 = res1.displacements.iter().find(|d| d.node_id == node_mid).unwrap().uy;
+    let delta_mid_sys1 = res1.displacements.iter().find(|d| d.node_id == node_mid).unwrap().uz;
 
     // System 2: force P downward at midspan
     let loads2 = vec![SolverLoad::Nodal(SolverNodalLoad {
-        node_id: node_mid, fx: 0.0, fy: -p_val, mz: 0.0,
+        node_id: node_mid, fx: 0.0, fz: -p_val, my: 0.0,
     })];
     let input2 = make_beam(n, l, E, A, IZ, "fixed", None, loads2);
     let res2 = linear::solve_2d(&input2).unwrap();
-    let theta_tip_sys2 = res2.displacements.iter().find(|d| d.node_id == node_tip).unwrap().rz;
+    let theta_tip_sys2 = res2.displacements.iter().find(|d| d.node_id == node_tip).unwrap().ry;
 
     // Betti: W₁₂ = work of sys1 loads through sys2 displacements
     //   = M * θ_tip(sys2)
@@ -134,19 +134,19 @@ fn validation_reciprocal_ext_maxwell_three_span() {
 
     // Load at i, measure at j
     let loads_i = vec![SolverLoad::Nodal(SolverNodalLoad {
-        node_id: node_i, fx: 0.0, fy: -p, mz: 0.0,
+        node_id: node_i, fx: 0.0, fz: -p, my: 0.0,
     })];
     let input_i = make_continuous_beam(&[span, span, span], n, E, A, IZ, loads_i);
     let delta_ji = linear::solve_2d(&input_i).unwrap()
-        .displacements.iter().find(|d| d.node_id == node_j).unwrap().uy;
+        .displacements.iter().find(|d| d.node_id == node_j).unwrap().uz;
 
     // Load at j, measure at i
     let loads_j = vec![SolverLoad::Nodal(SolverNodalLoad {
-        node_id: node_j, fx: 0.0, fy: -p, mz: 0.0,
+        node_id: node_j, fx: 0.0, fz: -p, my: 0.0,
     })];
     let input_j = make_continuous_beam(&[span, span, span], n, E, A, IZ, loads_j);
     let delta_ij = linear::solve_2d(&input_j).unwrap()
-        .displacements.iter().find(|d| d.node_id == node_i).unwrap().uy;
+        .displacements.iter().find(|d| d.node_id == node_i).unwrap().uz;
 
     assert_close(delta_ji, delta_ij, 0.01,
         "Maxwell three-span: δ_ji = δ_ij across spans 1 and 3");
@@ -178,20 +178,20 @@ fn validation_reciprocal_ext_maxwell_frame_vertical() {
     let sups = vec![(1, 1, "fixed"), (2, 4, "fixed")];
 
     let loads_a = vec![SolverLoad::Nodal(SolverNodalLoad {
-        node_id: 2, fx: 0.0, fy: -p, mz: 0.0,
+        node_id: 2, fx: 0.0, fz: -p, my: 0.0,
     })];
     let input_a = make_input(nodes.clone(), mats.clone(), secs.clone(),
         elems.clone(), sups.clone(), loads_a);
     let uy3_from_a = linear::solve_2d(&input_a).unwrap()
-        .displacements.iter().find(|d| d.node_id == 3).unwrap().uy;
+        .displacements.iter().find(|d| d.node_id == 3).unwrap().uz;
 
     // System B: vertical force at node 3, measure uy at node 2
     let loads_b = vec![SolverLoad::Nodal(SolverNodalLoad {
-        node_id: 3, fx: 0.0, fy: -p, mz: 0.0,
+        node_id: 3, fx: 0.0, fz: -p, my: 0.0,
     })];
     let input_b = make_input(nodes, mats, secs, elems, sups, loads_b);
     let uy2_from_b = linear::solve_2d(&input_b).unwrap()
-        .displacements.iter().find(|d| d.node_id == 2).unwrap().uy;
+        .displacements.iter().find(|d| d.node_id == 2).unwrap().uz;
 
     assert_close(uy3_from_a, uy2_from_b, 0.01,
         "Maxwell frame vertical: δ_uy3(Fy@2) = δ_uy2(Fy@3)");
@@ -221,19 +221,19 @@ fn validation_reciprocal_ext_betti_continuous() {
 
     // System 1: P1 at node_a
     let loads1 = vec![SolverLoad::Nodal(SolverNodalLoad {
-        node_id: node_a, fx: 0.0, fy: -p1, mz: 0.0,
+        node_id: node_a, fx: 0.0, fz: -p1, my: 0.0,
     })];
     let input1 = make_continuous_beam(&[span, span], n, E, A, IZ, loads1);
     let res1 = linear::solve_2d(&input1).unwrap();
-    let delta_b_sys1 = res1.displacements.iter().find(|d| d.node_id == node_b).unwrap().uy;
+    let delta_b_sys1 = res1.displacements.iter().find(|d| d.node_id == node_b).unwrap().uz;
 
     // System 2: P2 at node_b
     let loads2 = vec![SolverLoad::Nodal(SolverNodalLoad {
-        node_id: node_b, fx: 0.0, fy: -p2, mz: 0.0,
+        node_id: node_b, fx: 0.0, fz: -p2, my: 0.0,
     })];
     let input2 = make_continuous_beam(&[span, span], n, E, A, IZ, loads2);
     let res2 = linear::solve_2d(&input2).unwrap();
-    let delta_a_sys2 = res2.displacements.iter().find(|d| d.node_id == node_a).unwrap().uy;
+    let delta_a_sys2 = res2.displacements.iter().find(|d| d.node_id == node_a).unwrap().uz;
 
     // Betti: P2 * δ_b(sys1) = P1 * δ_a(sys2)
     // Both deltas are negative (downward), forces are downward.
@@ -265,7 +265,7 @@ fn validation_reciprocal_ext_maxwell_axial() {
 
     // Load at i, measure at j
     let loads_i = vec![SolverLoad::Nodal(SolverNodalLoad {
-        node_id: node_i, fx: p, fy: 0.0, mz: 0.0,
+        node_id: node_i, fx: p, fz: 0.0, my: 0.0,
     })];
     let input_i = make_beam(n, l, E, A, IZ, "pinned", Some("rollerX"), loads_i);
     let ux_j_from_i = linear::solve_2d(&input_i).unwrap()
@@ -273,7 +273,7 @@ fn validation_reciprocal_ext_maxwell_axial() {
 
     // Load at j, measure at i
     let loads_j = vec![SolverLoad::Nodal(SolverNodalLoad {
-        node_id: node_j, fx: p, fy: 0.0, mz: 0.0,
+        node_id: node_j, fx: p, fz: 0.0, my: 0.0,
     })];
     let input_j = make_beam(n, l, E, A, IZ, "pinned", Some("rollerX"), loads_j);
     let ux_i_from_j = linear::solve_2d(&input_j).unwrap()
@@ -342,8 +342,8 @@ fn validation_reciprocal_ext_betti_frame_lateral_gravity() {
     // System 1: lateral at node 2
     let input1 = make_portal_frame(h, w, E, A, IZ, h_load, 0.0);
     let res1 = linear::solve_2d(&input1).unwrap();
-    let uy2_sys1 = res1.displacements.iter().find(|d| d.node_id == 2).unwrap().uy;
-    let uy3_sys1 = res1.displacements.iter().find(|d| d.node_id == 3).unwrap().uy;
+    let uy2_sys1 = res1.displacements.iter().find(|d| d.node_id == 2).unwrap().uz;
+    let uy3_sys1 = res1.displacements.iter().find(|d| d.node_id == 3).unwrap().uz;
 
     // System 2: gravity at nodes 2 and 3
     let input2 = make_portal_frame(h, w, E, A, IZ, 0.0, g_load);

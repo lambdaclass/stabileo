@@ -71,23 +71,23 @@ fn validation_arch_ext_fixed_fixed_zero_displacement() {
     let d_right = results.displacements.iter().find(|d| d.node_id == n + 1).unwrap();
 
     assert_close(d_left.ux, 0.0, 0.001, "Fixed arch left: ux=0");
-    assert_close(d_left.uy, 0.0, 0.001, "Fixed arch left: uy=0");
-    assert_close(d_left.rz, 0.0, 0.001, "Fixed arch left: rz=0");
+    assert_close(d_left.uz, 0.0, 0.001, "Fixed arch left: uy=0");
+    assert_close(d_left.ry, 0.0, 0.001, "Fixed arch left: rz=0");
 
     assert_close(d_right.ux, 0.0, 0.001, "Fixed arch right: ux=0");
-    assert_close(d_right.uy, 0.0, 0.001, "Fixed arch right: uy=0");
-    assert_close(d_right.rz, 0.0, 0.001, "Fixed arch right: rz=0");
+    assert_close(d_right.uz, 0.0, 0.001, "Fixed arch right: uy=0");
+    assert_close(d_right.ry, 0.0, 0.001, "Fixed arch right: rz=0");
 
     // Fixed-fixed arch develops fixed-end moments (Mz != 0 at supports)
     let r_left = results.reactions.iter().find(|r| r.node_id == 1).unwrap();
     let r_right = results.reactions.iter().find(|r| r.node_id == n + 1).unwrap();
-    assert!(r_left.mz.abs() > 0.1,
-        "Fixed arch should develop support moments: Mz_left={:.4}", r_left.mz);
-    assert!(r_right.mz.abs() > 0.1,
-        "Fixed arch should develop support moments: Mz_right={:.4}", r_right.mz);
+    assert!(r_left.my.abs() > 0.1,
+        "Fixed arch should develop support moments: Mz_left={:.4}", r_left.my);
+    assert!(r_right.my.abs() > 0.1,
+        "Fixed arch should develop support moments: Mz_right={:.4}", r_right.my);
 
     // Vertical equilibrium
-    let sum_ry: f64 = results.reactions.iter().map(|r| r.ry).sum();
+    let sum_ry: f64 = results.reactions.iter().map(|r| r.rz).sum();
     let total_load: f64 = w * l;
     assert_close(sum_ry, total_load, 0.05, "Fixed arch: ΣRy ≈ wL");
 }
@@ -127,7 +127,7 @@ fn validation_arch_ext_truss_arch_zero_moments() {
     // Point loads at each internal node (simulating gravity)
     let loads: Vec<SolverLoad> = (2..=n)
         .map(|i| SolverLoad::Nodal(SolverNodalLoad {
-            node_id: i, fx: 0.0, fy: -p, mz: 0.0,
+            node_id: i, fx: 0.0, fz: -p, my: 0.0,
         }))
         .collect();
 
@@ -155,7 +155,7 @@ fn validation_arch_ext_truss_arch_zero_moments() {
 
     // Vertical equilibrium: ΣRy = (n-1) * P
     let total_applied = (n - 1) as f64 * p;
-    let sum_ry: f64 = results.reactions.iter().map(|r| r.ry).sum();
+    let sum_ry: f64 = results.reactions.iter().map(|r| r.rz).sum();
     assert_close(sum_ry, total_applied, 0.01, "Truss arch: ΣRy = total P");
 }
 
@@ -194,7 +194,7 @@ fn validation_arch_ext_crown_deflection_vs_beam() {
     let sups_arch = vec![(1, 1_usize, "pinned"), (2, n + 1, "pinned")];
     let crown_node = n / 2 + 1;
     let loads_arch = vec![SolverLoad::Nodal(SolverNodalLoad {
-        node_id: crown_node, fx: 0.0, fy: -p, mz: 0.0,
+        node_id: crown_node, fx: 0.0, fz: -p, my: 0.0,
     })];
 
     let input_arch = make_input(
@@ -207,7 +207,7 @@ fn validation_arch_ext_crown_deflection_vs_beam() {
     let input_beam = make_beam(
         n, l, E, A, IZ, "pinned", Some("rollerX"),
         vec![SolverLoad::Nodal(SolverNodalLoad {
-            node_id: crown_node, fx: 0.0, fy: -p, mz: 0.0,
+            node_id: crown_node, fx: 0.0, fz: -p, my: 0.0,
         })],
     );
     let res_beam = linear::solve_2d(&input_beam).unwrap();
@@ -220,13 +220,13 @@ fn validation_arch_ext_crown_deflection_vs_beam() {
         .find(|d| d.node_id == crown_node).unwrap();
 
     // Both deflect downward
-    assert!(d_arch.uy < 0.0, "Arch crown should deflect down: uy={:.6}", d_arch.uy);
-    assert!(d_beam.uy < 0.0, "Beam midspan should deflect down: uy={:.6}", d_beam.uy);
+    assert!(d_arch.uz < 0.0, "Arch crown should deflect down: uy={:.6}", d_arch.uz);
+    assert!(d_beam.uz < 0.0, "Beam midspan should deflect down: uy={:.6}", d_beam.uz);
 
     // Arch deflection should be smaller than beam deflection (arch is stiffer)
-    assert!(d_arch.uy.abs() < d_beam.uy.abs(),
+    assert!(d_arch.uz.abs() < d_beam.uz.abs(),
         "Arch should deflect less than beam: arch={:.6}, beam={:.6}",
-        d_arch.uy, d_beam.uy);
+        d_arch.uz, d_beam.uz);
 }
 
 // ================================================================
@@ -264,7 +264,7 @@ fn validation_arch_ext_circular_vs_parabolic_bending() {
     let sups = vec![(1, 1_usize, "pinned"), (2, n + 1, "pinned")];
     let crown_node = n / 2 + 1;
     let load = vec![SolverLoad::Nodal(SolverNodalLoad {
-        node_id: crown_node, fx: 0.0, fy: -p, mz: 0.0,
+        node_id: crown_node, fx: 0.0, fz: -p, my: 0.0,
     })];
 
     let input_para = make_input(
@@ -303,11 +303,11 @@ fn validation_arch_ext_circular_vs_parabolic_bending() {
 
     // Crown/midspan deflections
     let uy_para = res_para.displacements.iter()
-        .find(|d| d.node_id == crown_node).unwrap().uy;
+        .find(|d| d.node_id == crown_node).unwrap().uz;
     let uy_circ = res_circ.displacements.iter()
-        .find(|d| d.node_id == crown_node).unwrap().uy;
+        .find(|d| d.node_id == crown_node).unwrap().uz;
     let uy_beam = res_beam.displacements.iter()
-        .find(|d| d.node_id == crown_node).unwrap().uy;
+        .find(|d| d.node_id == crown_node).unwrap().uz;
 
     // All deflect downward
     assert!(uy_para < 0.0, "Parabolic arch crown deflects down: uy={:.6}", uy_para);
@@ -367,10 +367,10 @@ fn validation_arch_ext_crown_hinge_zero_moment() {
     // Asymmetric load to make it non-trivial (not funicular)
     let loads = vec![
         SolverLoad::Nodal(SolverNodalLoad {
-            node_id: n / 4 + 1, fx: 0.0, fy: -w * 10.0, mz: 0.0,
+            node_id: n / 4 + 1, fx: 0.0, fz: -w * 10.0, my: 0.0,
         }),
         SolverLoad::Nodal(SolverNodalLoad {
-            node_id: 3 * n / 4 + 1, fx: 0.0, fy: -w * 5.0, mz: 0.0,
+            node_id: 3 * n / 4 + 1, fx: 0.0, fz: -w * 5.0, my: 0.0,
         }),
     ];
 
@@ -425,7 +425,7 @@ fn validation_arch_ext_horizontal_load_reactions() {
     let crown_node = n / 2 + 1;
 
     let loads = vec![SolverLoad::Nodal(SolverNodalLoad {
-        node_id: crown_node, fx: fx_applied, fy: 0.0, mz: 0.0,
+        node_id: crown_node, fx: fx_applied, fz: 0.0, my: 0.0,
     })];
 
     let input = make_input(nodes, vec![(1, E, 0.3)], vec![(1, A, IZ)], elems, sups, loads);
@@ -440,15 +440,15 @@ fn validation_arch_ext_horizontal_load_reactions() {
         "Horizontal load arch: ΣRx + Fx = 0");
 
     // ΣFy = 0: no vertical applied load, but the arch curve couples Fx to vertical reactions
-    let sum_ry: f64 = results.reactions.iter().map(|r| r.ry).sum();
+    let sum_ry: f64 = results.reactions.iter().map(|r| r.rz).sum();
     assert_close(sum_ry, 0.0, 0.01,
         "Horizontal load arch: ΣFy = 0");
 
     // Vertical reactions should be non-zero (equal and opposite) due to moment of Fx
     // The horizontal force at crown height creates a moment about supports
-    assert!(r_left.ry.abs() > 0.1,
-        "Horizontal load should create vertical reactions: Ry_left={:.4}", r_left.ry);
-    assert_close(r_left.ry + r_right.ry, 0.0, 0.01,
+    assert!(r_left.rz.abs() > 0.1,
+        "Horizontal load should create vertical reactions: Ry_left={:.4}", r_left.rz);
+    assert_close(r_left.rz + r_right.rz, 0.0, 0.01,
         "Vertical reactions sum to zero");
 
     // Moment equilibrium about left support (counterclockwise positive):
@@ -460,7 +460,7 @@ fn validation_arch_ext_horizontal_load_reactions() {
     // => Ry_right = Fx_applied * f_rise / L
     let y_crown = f_rise; // crown height
     let ry_right_expected = fx_applied * y_crown / l;
-    assert_close(r_right.ry, ry_right_expected, 0.05,
+    assert_close(r_right.rz, ry_right_expected, 0.05,
         "Horizontal load arch: Ry_right from moment equilibrium");
 }
 
@@ -508,7 +508,7 @@ fn validation_arch_ext_two_hinge_reaction_symmetry() {
     let r_right = results.reactions.iter().find(|r| r.node_id == n + 1).unwrap();
 
     // Symmetric loading: Ry_left = Ry_right
-    assert_close(r_left.ry, r_right.ry, 0.01,
+    assert_close(r_left.rz, r_right.rz, 0.01,
         "Two-hinge symmetric: Ry_left = Ry_right");
 
     // Symmetric loading: Rx_left = -Rx_right (horizontal thrusts equal and opposite)
@@ -527,16 +527,16 @@ fn validation_arch_ext_two_hinge_reaction_symmetry() {
     // The key check is that it is much smaller than a beam's deflection.
     // Beam midspan deflection: δ = 5wL⁴/(384EI)
     let delta_beam = 5.0 * w * l.powi(4) / (384.0 * E * 1000.0 * IZ);
-    assert!(d_crown.uy.abs() < delta_beam * 0.5,
+    assert!(d_crown.uz.abs() < delta_beam * 0.5,
         "Two-hinge arch crown deflection much less than beam: arch={:.6}, beam={:.6}",
-        d_crown.uy.abs(), delta_beam);
+        d_crown.uz.abs(), delta_beam);
 
     // Displacement symmetry: nodes equidistant from midspan have same uy
     let d_quarter = results.displacements.iter()
         .find(|d| d.node_id == n / 4 + 1).unwrap();
     let d_three_quarter = results.displacements.iter()
         .find(|d| d.node_id == 3 * n / 4 + 1).unwrap();
-    assert_close(d_quarter.uy, d_three_quarter.uy, 0.01,
+    assert_close(d_quarter.uz, d_three_quarter.uz, 0.01,
         "Two-hinge symmetric: uy at L/4 = uy at 3L/4");
 }
 
@@ -589,10 +589,10 @@ fn validation_arch_ext_polygonal_axial_thrust_line() {
     // Symmetric loads at node 2 and node 4
     let loads = vec![
         SolverLoad::Nodal(SolverNodalLoad {
-            node_id: 2, fx: 0.0, fy: -p, mz: 0.0,
+            node_id: 2, fx: 0.0, fz: -p, my: 0.0,
         }),
         SolverLoad::Nodal(SolverNodalLoad {
-            node_id: 4, fx: 0.0, fy: -p, mz: 0.0,
+            node_id: 4, fx: 0.0, fz: -p, my: 0.0,
         }),
     ];
 
@@ -603,8 +603,8 @@ fn validation_arch_ext_polygonal_axial_thrust_line() {
     let r_left = results.reactions.iter().find(|r| r.node_id == 1).unwrap();
     let r_right = results.reactions.iter().find(|r| r.node_id == 5).unwrap();
 
-    assert_close(r_left.ry, p, 0.05, "Polygonal arch: Ry_left = P");
-    assert_close(r_right.ry, p, 0.05, "Polygonal arch: Ry_right = P");
+    assert_close(r_left.rz, p, 0.05, "Polygonal arch: Ry_left = P");
+    assert_close(r_right.rz, p, 0.05, "Polygonal arch: Ry_right = P");
 
     // Horizontal equilibrium: Rx_left + Rx_right = 0
     assert_close(r_left.rx + r_right.rx, 0.0, 0.01,
@@ -622,7 +622,7 @@ fn validation_arch_ext_polygonal_axial_thrust_line() {
     // At node 1 (pinned support, m_start=0), equilibrium gives:
     // Axial force projection: N * cos_a = -Rx, N * sin_a = -Ry
     // N = -(Rx * cos_a + Ry * sin_a) in element local axis
-    let n_expected = -(r_left.rx * cos_a + r_left.ry * sin_a);
+    let n_expected = -(r_left.rx * cos_a + r_left.rz * sin_a);
     let ef1 = results.element_forces.iter()
         .find(|ef| ef.element_id == 1).unwrap();
     assert_close(ef1.n_start, n_expected, 0.05,

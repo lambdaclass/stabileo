@@ -91,7 +91,7 @@ fn validation_hardy_cross_ext_five_span_equal_udl() {
 
     // Equilibrium: total reactions = total load
     let total_load = w * 5.0 * l;
-    let sum_ry: f64 = results.reactions.iter().map(|r| r.ry).sum();
+    let sum_ry: f64 = results.reactions.iter().map(|r| r.rz).sum();
     assert_close(sum_ry, total_load, 0.01, "Five-span equilibrium");
 }
 
@@ -144,7 +144,7 @@ fn validation_hardy_cross_ext_two_span_different_loads() {
 
     // Equilibrium: total load = w₁L + w₂L
     let total_load = (w1 + w2) * l;
-    let sum_ry: f64 = results.reactions.iter().map(|r| r.ry).sum();
+    let sum_ry: f64 = results.reactions.iter().map(|r| r.rz).sum();
     assert_close(sum_ry, total_load, 0.01,
         "Two-span different loads equilibrium");
 }
@@ -168,7 +168,7 @@ fn validation_hardy_cross_ext_propped_cantilever_point_load() {
     // Point load at midspan node
     let mid_node = n / 2 + 1;
     let loads = vec![SolverLoad::Nodal(SolverNodalLoad {
-        node_id: mid_node, fx: 0.0, fy: -p, mz: 0.0,
+        node_id: mid_node, fx: 0.0, fz: -p, my: 0.0,
     })];
 
     let input = make_beam(n, l, E, A, IZ, "fixed", Some("rollerX"), loads);
@@ -177,22 +177,22 @@ fn validation_hardy_cross_ext_propped_cantilever_point_load() {
     // M_fixed = 3PL/16
     let m_fixed_exact = 3.0 * p * l / 16.0;
     let r_fixed = results.reactions.iter().find(|r| r.node_id == 1).unwrap();
-    assert_close(r_fixed.mz.abs(), m_fixed_exact, 0.05,
+    assert_close(r_fixed.my.abs(), m_fixed_exact, 0.05,
         "Propped cantilever point load M_fixed = 3PL/16");
 
     // R_roller = 5P/16
     let r_roller_exact = 5.0 * p / 16.0;
     let r_roller = results.reactions.iter().find(|r| r.node_id == n + 1).unwrap();
-    assert_close(r_roller.ry, r_roller_exact, 0.05,
+    assert_close(r_roller.rz, r_roller_exact, 0.05,
         "Propped cantilever point load R_roller = 5P/16");
 
     // R_fixed_y = 11P/16
     let r_fixed_y_exact = 11.0 * p / 16.0;
-    assert_close(r_fixed.ry, r_fixed_y_exact, 0.05,
+    assert_close(r_fixed.rz, r_fixed_y_exact, 0.05,
         "Propped cantilever point load R_fixed = 11P/16");
 
     // Equilibrium
-    let sum_ry: f64 = results.reactions.iter().map(|r| r.ry).sum();
+    let sum_ry: f64 = results.reactions.iter().map(|r| r.rz).sum();
     assert_close(sum_ry, p, 0.01, "Propped cantilever point load equilibrium");
 }
 
@@ -228,23 +228,23 @@ fn validation_hardy_cross_ext_fixed_fixed_udl() {
     let r_left = results.reactions.iter().find(|r| r.node_id == 1).unwrap();
     let r_right = results.reactions.iter().find(|r| r.node_id == n + 1).unwrap();
 
-    assert_close(r_left.mz.abs(), m_end_exact, 0.03,
+    assert_close(r_left.my.abs(), m_end_exact, 0.03,
         "Fixed-fixed UDL M_left = wL²/12");
-    assert_close(r_right.mz.abs(), m_end_exact, 0.03,
+    assert_close(r_right.my.abs(), m_end_exact, 0.03,
         "Fixed-fixed UDL M_right = wL²/12");
 
     // Reactions: R = wL/2 each
     let r_exact = w * l / 2.0;
-    assert_close(r_left.ry, r_exact, 0.03,
+    assert_close(r_left.rz, r_exact, 0.03,
         "Fixed-fixed UDL R_left = wL/2");
-    assert_close(r_right.ry, r_exact, 0.03,
+    assert_close(r_right.rz, r_exact, 0.03,
         "Fixed-fixed UDL R_right = wL/2");
 
     // Symmetry of moments
-    let diff_m: f64 = (r_left.mz.abs() - r_right.mz.abs()).abs();
+    let diff_m: f64 = (r_left.my.abs() - r_right.my.abs()).abs();
     assert!(diff_m < m_end_exact * 0.02,
         "Fixed-fixed moment symmetry: M_left={:.4}, M_right={:.4}",
-        r_left.mz.abs(), r_right.mz.abs());
+        r_left.my.abs(), r_right.my.abs());
 }
 
 // ================================================================
@@ -282,7 +282,7 @@ fn validation_hardy_cross_ext_three_span_center_point_load() {
     // Point load at midspan of span 2: node at n_per_span + n_per_span/2 + 1
     let mid_node = n_per_span + n_per_span / 2 + 1;
     let loads = vec![SolverLoad::Nodal(SolverNodalLoad {
-        node_id: mid_node, fx: 0.0, fy: -p, mz: 0.0,
+        node_id: mid_node, fx: 0.0, fz: -p, my: 0.0,
     })];
 
     let input = make_continuous_beam(&[l, l, l], n_per_span, E, A, IZ, loads);
@@ -303,7 +303,7 @@ fn validation_hardy_cross_ext_three_span_center_point_load() {
         "Three-span center point load M = 3PL/40");
 
     // Equilibrium
-    let sum_ry: f64 = results.reactions.iter().map(|r| r.ry).sum();
+    let sum_ry: f64 = results.reactions.iter().map(|r| r.rz).sum();
     assert_close(sum_ry, p, 0.01, "Three-span center load equilibrium");
 }
 
@@ -332,7 +332,7 @@ fn validation_hardy_cross_ext_portal_combined_loading() {
         "Portal combined: horizontal equilibrium ΣRx = -H");
 
     // Vertical equilibrium: ΣRy + 2W = 0  (two gravity loads applied)
-    let sum_ry: f64 = results.reactions.iter().map(|r| r.ry).sum();
+    let sum_ry: f64 = results.reactions.iter().map(|r| r.rz).sum();
     let total_grav = 2.0 * p_grav; // negative (downward)
     assert_close(sum_ry, -total_grav, 0.02,
         "Portal combined: vertical equilibrium ΣRy = -2W");
@@ -355,7 +355,7 @@ fn validation_hardy_cross_ext_portal_combined_loading() {
     let m_applied = 0.0 * p_grav - h * p_lat + w_span * p_grav - h * 0.0;
 
     // Reactions: node 1 (0,0): mz only; node 4 (w,0): mz + x*ry
-    let m_reaction = r_left.mz + r_right.mz + w_span * r_right.ry;
+    let m_reaction = r_left.my + r_right.my + w_span * r_right.rz;
 
     let residual: f64 = (m_applied + m_reaction).abs();
     let scale: f64 = (p_lat * h).abs().max((p_grav * w_span).abs());
@@ -409,7 +409,7 @@ fn validation_hardy_cross_ext_two_span_overhang() {
 
     // Point load at tip (last node)
     let loads = vec![SolverLoad::Nodal(SolverNodalLoad {
-        node_id: n_nodes, fx: 0.0, fy: -p, mz: 0.0,
+        node_id: n_nodes, fx: 0.0, fz: -p, my: 0.0,
     })];
 
     let input = make_input(
@@ -434,13 +434,13 @@ fn validation_hardy_cross_ext_two_span_overhang() {
     let r_a = results.reactions.iter().find(|r| r.node_id == 1).unwrap();
     let r_b = results.reactions.iter().find(|r| r.node_id == support_b_node).unwrap();
 
-    assert_close(r_a.ry, r_a_exact, 0.05,
+    assert_close(r_a.rz, r_a_exact, 0.05,
         "Overhang R_A = -Pa/L₁");
-    assert_close(r_b.ry, r_b_exact, 0.05,
+    assert_close(r_b.rz, r_b_exact, 0.05,
         "Overhang R_B = P(L₁+a)/L₁");
 
     // Equilibrium: ΣRy = P
-    let sum_ry: f64 = results.reactions.iter().map(|r| r.ry).sum();
+    let sum_ry: f64 = results.reactions.iter().map(|r| r.rz).sum();
     assert_close(sum_ry, p, 0.01, "Overhang equilibrium");
 
     // Moment at B = P × overhang (hogging)
@@ -489,7 +489,7 @@ fn validation_hardy_cross_ext_four_span_alternating_load() {
     let total_load = (w_heavy + w_light) * 2.0 * l; // two heavy + two light spans
 
     // Equilibrium check
-    let sum_ry: f64 = results.reactions.iter().map(|r| r.ry).sum();
+    let sum_ry: f64 = results.reactions.iter().map(|r| r.rz).sum();
     assert_close(sum_ry, total_load, 0.01,
         "Four-span alternating: equilibrium");
 

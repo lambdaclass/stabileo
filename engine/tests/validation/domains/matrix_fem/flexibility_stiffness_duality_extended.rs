@@ -46,13 +46,13 @@ fn validation_flex_stiff_ext_ss_midspan_flexibility() {
 
     // Apply unit load at midspan
     let loads = vec![SolverLoad::Nodal(SolverNodalLoad {
-        node_id: mid, fx: 0.0, fy: -p, mz: 0.0,
+        node_id: mid, fx: 0.0, fz: -p, my: 0.0,
     })];
     let input = make_beam(n, l, E, A, IZ, "pinned", Some("rollerX"), loads);
     let results = linear::solve_2d(&input).unwrap();
 
     let delta: f64 = results.displacements.iter()
-        .find(|d| d.node_id == mid).unwrap().uy.abs();
+        .find(|d| d.node_id == mid).unwrap().uz.abs();
 
     // Flexibility coefficient f = L^3/(48EI)
     let f_exact: f64 = l.powi(3) / (48.0 * e_eff * IZ);
@@ -90,13 +90,13 @@ fn validation_flex_stiff_ext_cantilever_tip_duality() {
     let tip = n + 1;
 
     let loads = vec![SolverLoad::Nodal(SolverNodalLoad {
-        node_id: tip, fx: 0.0, fy: -p, mz: 0.0,
+        node_id: tip, fx: 0.0, fz: -p, my: 0.0,
     })];
     let input = make_beam(n, l, E, A, IZ, "fixed", None, loads);
     let results = linear::solve_2d(&input).unwrap();
 
     let delta: f64 = results.displacements.iter()
-        .find(|d| d.node_id == tip).unwrap().uy.abs();
+        .find(|d| d.node_id == tip).unwrap().uz.abs();
 
     // Flexibility coefficient
     let f_exact: f64 = l.powi(3) / (3.0 * e_eff * IZ);
@@ -133,13 +133,13 @@ fn validation_flex_stiff_ext_fixed_fixed_midspan() {
     let mid = n / 2 + 1;
 
     let loads = vec![SolverLoad::Nodal(SolverNodalLoad {
-        node_id: mid, fx: 0.0, fy: -p, mz: 0.0,
+        node_id: mid, fx: 0.0, fz: -p, my: 0.0,
     })];
     let input = make_beam(n, l, E, A, IZ, "fixed", Some("fixed"), loads);
     let results = linear::solve_2d(&input).unwrap();
 
     let delta: f64 = results.displacements.iter()
-        .find(|d| d.node_id == mid).unwrap().uy.abs();
+        .find(|d| d.node_id == mid).unwrap().uz.abs();
 
     // Flexibility coefficient for fixed-fixed midspan
     let f_exact: f64 = l.powi(3) / (192.0 * e_eff * IZ);
@@ -178,13 +178,13 @@ fn validation_flex_stiff_ext_propped_cantilever_flexibility() {
     let mid = n / 2 + 1;
 
     let loads = vec![SolverLoad::Nodal(SolverNodalLoad {
-        node_id: mid, fx: 0.0, fy: -p, mz: 0.0,
+        node_id: mid, fx: 0.0, fz: -p, my: 0.0,
     })];
     let input = make_beam(n, l, E, A, IZ, "fixed", Some("rollerX"), loads);
     let results = linear::solve_2d(&input).unwrap();
 
     let delta: f64 = results.displacements.iter()
-        .find(|d| d.node_id == mid).unwrap().uy.abs();
+        .find(|d| d.node_id == mid).unwrap().uz.abs();
 
     // For propped cantilever (fixed-roller) with midspan point load P:
     // delta_mid = 7PL^3/(768EI)
@@ -225,21 +225,21 @@ fn validation_flex_stiff_ext_two_span_maxwell_betti() {
 
     // Case 1: unit load at i, measure displacement at j
     let loads1 = vec![SolverLoad::Nodal(SolverNodalLoad {
-        node_id: node_i, fx: 0.0, fy: -1.0, mz: 0.0,
+        node_id: node_i, fx: 0.0, fz: -1.0, my: 0.0,
     })];
     let input1 = make_continuous_beam(&[span, span], n_per_span, E, A, IZ, loads1);
     let r1 = linear::solve_2d(&input1).unwrap();
     let f_ij: f64 = r1.displacements.iter()
-        .find(|d| d.node_id == node_j).unwrap().uy;
+        .find(|d| d.node_id == node_j).unwrap().uz;
 
     // Case 2: unit load at j, measure displacement at i
     let loads2 = vec![SolverLoad::Nodal(SolverNodalLoad {
-        node_id: node_j, fx: 0.0, fy: -1.0, mz: 0.0,
+        node_id: node_j, fx: 0.0, fz: -1.0, my: 0.0,
     })];
     let input2 = make_continuous_beam(&[span, span], n_per_span, E, A, IZ, loads2);
     let r2 = linear::solve_2d(&input2).unwrap();
     let f_ji: f64 = r2.displacements.iter()
-        .find(|d| d.node_id == node_i).unwrap().uy;
+        .find(|d| d.node_id == node_i).unwrap().uz;
 
     // Maxwell-Betti reciprocity: f_ij = f_ji
     assert_close(f_ij, f_ji, 0.001,
@@ -326,21 +326,21 @@ fn validation_flex_stiff_ext_continuous_stiffer() {
 
     // Single-span SS beam: load at midspan
     let loads1 = vec![SolverLoad::Nodal(SolverNodalLoad {
-        node_id: mid_span1, fx: 0.0, fy: -p, mz: 0.0,
+        node_id: mid_span1, fx: 0.0, fz: -p, my: 0.0,
     })];
     let input1 = make_beam(n_per_span, span, E, A, IZ, "pinned", Some("rollerX"), loads1);
     let r1 = linear::solve_2d(&input1).unwrap();
     let delta_1span: f64 = r1.displacements.iter()
-        .find(|d| d.node_id == mid_span1).unwrap().uy.abs();
+        .find(|d| d.node_id == mid_span1).unwrap().uz.abs();
 
     // Two-span continuous beam: same load at midspan of first span
     let loads2 = vec![SolverLoad::Nodal(SolverNodalLoad {
-        node_id: mid_span1, fx: 0.0, fy: -p, mz: 0.0,
+        node_id: mid_span1, fx: 0.0, fz: -p, my: 0.0,
     })];
     let input2 = make_continuous_beam(&[span, span], n_per_span, E, A, IZ, loads2);
     let r2 = linear::solve_2d(&input2).unwrap();
     let delta_2span: f64 = r2.displacements.iter()
-        .find(|d| d.node_id == mid_span1).unwrap().uy.abs();
+        .find(|d| d.node_id == mid_span1).unwrap().uz.abs();
 
     // The 2-span beam should be stiffer (less deflection in loaded span)
     assert!(delta_2span < delta_1span,
@@ -354,12 +354,12 @@ fn validation_flex_stiff_ext_continuous_stiffer() {
 
     // Three-span should be even stiffer than two-span for load in first span
     let loads3 = vec![SolverLoad::Nodal(SolverNodalLoad {
-        node_id: mid_span1, fx: 0.0, fy: -p, mz: 0.0,
+        node_id: mid_span1, fx: 0.0, fz: -p, my: 0.0,
     })];
     let input3 = make_continuous_beam(&[span, span, span], n_per_span, E, A, IZ, loads3);
     let r3 = linear::solve_2d(&input3).unwrap();
     let delta_3span: f64 = r3.displacements.iter()
-        .find(|d| d.node_id == mid_span1).unwrap().uy.abs();
+        .find(|d| d.node_id == mid_span1).unwrap().uz.abs();
 
     // Three-span should be at least as stiff as two-span
     assert!(delta_3span <= delta_2span + 1e-10,
@@ -385,13 +385,13 @@ fn validation_flex_stiff_ext_cantilever_rotation() {
     let tip = n + 1;
 
     let loads = vec![SolverLoad::Nodal(SolverNodalLoad {
-        node_id: tip, fx: 0.0, fy: 0.0, mz: m,
+        node_id: tip, fx: 0.0, fz: 0.0, my: m,
     })];
     let input = make_beam(n, l, E, A, IZ, "fixed", None, loads);
     let results = linear::solve_2d(&input).unwrap();
 
     let theta: f64 = results.displacements.iter()
-        .find(|d| d.node_id == tip).unwrap().rz.abs();
+        .find(|d| d.node_id == tip).unwrap().ry.abs();
 
     // Rotational flexibility coefficient: f_theta = L/(EI)
     let f_theta_exact: f64 = l / (e_eff * IZ);
@@ -414,7 +414,7 @@ fn validation_flex_stiff_ext_cantilever_rotation() {
 
     // Also verify tip displacement: delta = ML^2/(2EI)
     let delta: f64 = results.displacements.iter()
-        .find(|d| d.node_id == tip).unwrap().uy.abs();
+        .find(|d| d.node_id == tip).unwrap().uz.abs();
     let delta_exact: f64 = m * l.powi(2) / (2.0 * e_eff * IZ);
     assert_close(delta, delta_exact, 0.02,
         "Cantilever moment: delta = ML^2/(2EI)");

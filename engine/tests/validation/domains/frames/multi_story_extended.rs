@@ -67,10 +67,10 @@ fn validation_multi_story_two_story_story_shear() {
 
     let loads = vec![
         SolverLoad::Nodal(SolverNodalLoad {
-            node_id: 2, fx: f1, fy: 0.0, mz: 0.0,
+            node_id: 2, fx: f1, fz: 0.0, my: 0.0,
         }),
         SolverLoad::Nodal(SolverNodalLoad {
-            node_id: 3, fx: f2, fy: 0.0, mz: 0.0,
+            node_id: 3, fx: f2, fz: 0.0, my: 0.0,
         }),
     ];
 
@@ -140,9 +140,9 @@ fn validation_multi_story_three_story_drift_and_overturning() {
     let sups = vec![(1, 1, "fixed"), (2, 5, "fixed")];
 
     let loads = vec![
-        SolverLoad::Nodal(SolverNodalLoad { node_id: 2, fx: f_lat, fy: 0.0, mz: 0.0 }),
-        SolverLoad::Nodal(SolverNodalLoad { node_id: 3, fx: f_lat, fy: 0.0, mz: 0.0 }),
-        SolverLoad::Nodal(SolverNodalLoad { node_id: 4, fx: f_lat, fy: 0.0, mz: 0.0 }),
+        SolverLoad::Nodal(SolverNodalLoad { node_id: 2, fx: f_lat, fz: 0.0, my: 0.0 }),
+        SolverLoad::Nodal(SolverNodalLoad { node_id: 3, fx: f_lat, fz: 0.0, my: 0.0 }),
+        SolverLoad::Nodal(SolverNodalLoad { node_id: 4, fx: f_lat, fz: 0.0, my: 0.0 }),
     ];
 
     let input = make_input(nodes, vec![(1, E, 0.3)], vec![(1, A, IZ)], elems, sups, loads);
@@ -169,12 +169,12 @@ fn validation_multi_story_three_story_drift_and_overturning() {
     // Overturning is resisted by vertical reactions: M_ot = Ry_right * w - Ry_left * w
     // (taking moments about left base)
     // With just lateral loads, vertical reactions form a couple.
-    let _ry_left = results.reactions.iter().find(|r| r.node_id == 1).unwrap().ry;
-    let ry_right = results.reactions.iter().find(|r| r.node_id == 5).unwrap().ry;
+    let _ry_left = results.reactions.iter().find(|r| r.node_id == 1).unwrap().rz;
+    let ry_right = results.reactions.iter().find(|r| r.node_id == 5).unwrap().rz;
 
     // Sum of base moments (Mz reactions) + vertical couple must equal overturning
-    let mz_left = results.reactions.iter().find(|r| r.node_id == 1).unwrap().mz;
-    let mz_right = results.reactions.iter().find(|r| r.node_id == 5).unwrap().mz;
+    let mz_left = results.reactions.iter().find(|r| r.node_id == 1).unwrap().my;
+    let mz_right = results.reactions.iter().find(|r| r.node_id == 5).unwrap().my;
     let resisting_moment = ry_right * w + mz_left + mz_right;
     // The resisting moment should equal the overturning moment (sign-wise)
     assert_close(
@@ -231,8 +231,8 @@ fn validation_multi_story_soft_story_drift_concentration() {
     let sups = vec![(1, 1, "fixed"), (2, 4, "fixed")];
 
     let loads = vec![
-        SolverLoad::Nodal(SolverNodalLoad { node_id: 3, fx: f_lat, fy: 0.0, mz: 0.0 }),
-        SolverLoad::Nodal(SolverNodalLoad { node_id: 6, fx: f_lat, fy: 0.0, mz: 0.0 }),
+        SolverLoad::Nodal(SolverNodalLoad { node_id: 3, fx: f_lat, fz: 0.0, my: 0.0 }),
+        SolverLoad::Nodal(SolverNodalLoad { node_id: 6, fx: f_lat, fz: 0.0, my: 0.0 }),
     ];
 
     let input = make_input(
@@ -315,9 +315,9 @@ fn validation_multi_story_two_bay_interior_column_load() {
     let results = solve_2d(&input).expect("solve");
 
     // Interior column at node 4 should carry more vertical load
-    let ry_ext_left = results.reactions.iter().find(|r| r.node_id == 1).unwrap().ry;
-    let ry_interior = results.reactions.iter().find(|r| r.node_id == 4).unwrap().ry;
-    let ry_ext_right = results.reactions.iter().find(|r| r.node_id == 6).unwrap().ry;
+    let ry_ext_left = results.reactions.iter().find(|r| r.node_id == 1).unwrap().rz;
+    let ry_interior = results.reactions.iter().find(|r| r.node_id == 4).unwrap().rz;
+    let ry_ext_right = results.reactions.iter().find(|r| r.node_id == 6).unwrap().rz;
 
     // Interior column carries ~twice the load of exterior columns
     let avg_ext = (ry_ext_left.abs() + ry_ext_right.abs()) / 2.0;
@@ -329,7 +329,7 @@ fn validation_multi_story_two_bay_interior_column_load() {
 
     // Vertical equilibrium: sum of Ry = total gravity = q * 2w
     let total_gravity: f64 = q.abs() * 2.0 * w;
-    let sum_ry: f64 = results.reactions.iter().map(|r| r.ry).sum();
+    let sum_ry: f64 = results.reactions.iter().map(|r| r.rz).sum();
     assert_close(sum_ry, total_gravity, 0.02, "two-bay vertical equilibrium");
 }
 
@@ -376,12 +376,12 @@ fn validation_multi_story_gravity_axial_accumulation() {
 
     // Gravity loads at each floor level on both sides
     let loads = vec![
-        SolverLoad::Nodal(SolverNodalLoad { node_id: 2, fx: 0.0, fy: p, mz: 0.0 }),
-        SolverLoad::Nodal(SolverNodalLoad { node_id: 3, fx: 0.0, fy: p, mz: 0.0 }),
-        SolverLoad::Nodal(SolverNodalLoad { node_id: 4, fx: 0.0, fy: p, mz: 0.0 }),
-        SolverLoad::Nodal(SolverNodalLoad { node_id: 6, fx: 0.0, fy: p, mz: 0.0 }),
-        SolverLoad::Nodal(SolverNodalLoad { node_id: 7, fx: 0.0, fy: p, mz: 0.0 }),
-        SolverLoad::Nodal(SolverNodalLoad { node_id: 8, fx: 0.0, fy: p, mz: 0.0 }),
+        SolverLoad::Nodal(SolverNodalLoad { node_id: 2, fx: 0.0, fz: p, my: 0.0 }),
+        SolverLoad::Nodal(SolverNodalLoad { node_id: 3, fx: 0.0, fz: p, my: 0.0 }),
+        SolverLoad::Nodal(SolverNodalLoad { node_id: 4, fx: 0.0, fz: p, my: 0.0 }),
+        SolverLoad::Nodal(SolverNodalLoad { node_id: 6, fx: 0.0, fz: p, my: 0.0 }),
+        SolverLoad::Nodal(SolverNodalLoad { node_id: 7, fx: 0.0, fz: p, my: 0.0 }),
+        SolverLoad::Nodal(SolverNodalLoad { node_id: 8, fx: 0.0, fz: p, my: 0.0 }),
     ];
 
     let input = make_input(nodes, vec![(1, E, 0.3)], vec![(1, A, IZ)], elems, sups, loads);
@@ -413,7 +413,7 @@ fn validation_multi_story_gravity_axial_accumulation() {
     // Each column at the base should carry half the total gravity
     // Total gravity = 6 loads * |p| = 120 kN, each side = 60 kN
     let total_gravity: f64 = 6.0 * p.abs();
-    let sum_ry: f64 = results.reactions.iter().map(|r| r.ry).sum();
+    let sum_ry: f64 = results.reactions.iter().map(|r| r.rz).sum();
     assert_close(sum_ry, total_gravity, 0.02, "gravity accumulation total Ry");
 }
 
@@ -462,9 +462,9 @@ fn validation_multi_story_drift_ratio_comparison() {
     let sups = vec![(1, 1, "fixed"), (2, 5, "fixed")];
 
     let loads = vec![
-        SolverLoad::Nodal(SolverNodalLoad { node_id: 2, fx: f1, fy: 0.0, mz: 0.0 }),
-        SolverLoad::Nodal(SolverNodalLoad { node_id: 3, fx: f2, fy: 0.0, mz: 0.0 }),
-        SolverLoad::Nodal(SolverNodalLoad { node_id: 4, fx: f3, fy: 0.0, mz: 0.0 }),
+        SolverLoad::Nodal(SolverNodalLoad { node_id: 2, fx: f1, fz: 0.0, my: 0.0 }),
+        SolverLoad::Nodal(SolverNodalLoad { node_id: 3, fx: f2, fz: 0.0, my: 0.0 }),
+        SolverLoad::Nodal(SolverNodalLoad { node_id: 4, fx: f3, fz: 0.0, my: 0.0 }),
     ];
 
     let input = make_input(nodes, vec![(1, E, 0.3)], vec![(1, A, IZ)], elems, sups, loads);
@@ -543,7 +543,7 @@ fn validation_multi_story_portal_method_column_moments() {
 
     let loads = vec![
         SolverLoad::Nodal(SolverNodalLoad {
-            node_id: 2, fx: h_load, fy: 0.0, mz: 0.0,
+            node_id: 2, fx: h_load, fz: 0.0, my: 0.0,
         }),
     ];
 
@@ -572,8 +572,8 @@ fn validation_multi_story_portal_method_column_moments() {
 
     // With a very stiff beam, the actual base moments approach H*h/4
     // Allow 20% tolerance since beam is stiff but not infinitely rigid
-    assert_close(r1.mz.abs(), expected_base_moment, 0.20, "left base moment ~ H*h/4");
-    assert_close(r4.mz.abs(), expected_base_moment, 0.20, "right base moment ~ H*h/4");
+    assert_close(r1.my.abs(), expected_base_moment, 0.20, "left base moment ~ H*h/4");
+    assert_close(r4.my.abs(), expected_base_moment, 0.20, "right base moment ~ H*h/4");
 
     // Equilibrium check
     let sum_rx: f64 = results.reactions.iter().map(|r| r.rx).sum();
@@ -631,8 +631,8 @@ fn validation_multi_story_base_shear_equilibrium() {
         SolverLoad::Nodal(SolverNodalLoad {
             node_id: i + 2, // nodes 2, 3, 4, 5
             fx: f,
-            fy: 0.0,
-            mz: 0.0,
+            fz: 0.0,
+            my: 0.0,
         })
     }).collect();
 
@@ -647,7 +647,7 @@ fn validation_multi_story_base_shear_equilibrium() {
     assert_close(sum_rx.abs(), total_lateral, 0.02, "4-story base shear = sum of lateral forces");
 
     // Sum of vertical reactions should be zero (no gravity loads)
-    let sum_ry: f64 = results.reactions.iter().map(|r| r.ry).sum();
+    let sum_ry: f64 = results.reactions.iter().map(|r| r.rz).sum();
     assert_close(sum_ry.abs(), 0.0, 0.02, "4-story sum Ry = 0 (no gravity)");
 
     // Base shear is shared between two columns

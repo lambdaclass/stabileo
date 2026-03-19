@@ -144,7 +144,7 @@ fn validation_cstay_ext_single_cable_tension() {
 
     // Verify vertical equilibrium: sum of reactions = total applied load
     let total_load: f64 = w * l_deck;
-    let sum_ry: f64 = results.reactions.iter().map(|r| r.ry).sum();
+    let sum_ry: f64 = results.reactions.iter().map(|r| r.rz).sum();
     assert_close(sum_ry, total_load, 0.01,
         "Single cable stay: vertical equilibrium");
 
@@ -292,7 +292,7 @@ fn validation_cstay_ext_fan_pattern_forces() {
 
     // Verify global equilibrium
     let total_load: f64 = w * (4.0 * dx); // total deck length = 4*dx
-    let sum_ry: f64 = results.reactions.iter().map(|r| r.ry).sum();
+    let sum_ry: f64 = results.reactions.iter().map(|r| r.rz).sum();
     assert_close(sum_ry, total_load, 0.02,
         "Fan pattern: vertical equilibrium");
 }
@@ -425,7 +425,7 @@ fn validation_cstay_ext_harp_pattern_forces() {
 
     // Verify global equilibrium
     let total_load: f64 = w * 4.0 * dx;
-    let sum_ry: f64 = results.reactions.iter().map(|r| r.ry).sum();
+    let sum_ry: f64 = results.reactions.iter().map(|r| r.rz).sum();
     assert_close(sum_ry, total_load, 0.02,
         "Harp pattern: vertical equilibrium");
 }
@@ -558,7 +558,7 @@ fn validation_cstay_ext_deck_elastic_supports() {
 
     // Verify equilibrium
     let total_load: f64 = w * 90.0;
-    let sum_ry: f64 = results.reactions.iter().map(|r| r.ry).sum();
+    let sum_ry: f64 = results.reactions.iter().map(|r| r.rz).sum();
     assert_close(sum_ry, total_load, 0.02,
         "Deck elastic supports: vertical equilibrium");
 }
@@ -648,7 +648,7 @@ fn validation_cstay_ext_tower_compression() {
     // Vertical load at tower top
     let loads = vec![
         SolverLoad::Nodal(SolverNodalLoad {
-            node_id: 1, fx: 0.0, fy: -p, mz: 0.0,
+            node_id: 1, fx: 0.0, fz: -p, my: 0.0,
         }),
     ];
 
@@ -703,7 +703,7 @@ fn validation_cstay_ext_tower_compression() {
     //
     // Tower base Ry: from the tower base reaction.
     let ry_tower_base = results.reactions.iter()
-        .find(|r| r.node_id == 2).unwrap().ry;
+        .find(|r| r.node_id == 2).unwrap().rz;
 
     // Tower compression should match the tower base vertical reaction
     assert_close(n_tower, ry_tower_base.abs(), 0.03,
@@ -715,7 +715,7 @@ fn validation_cstay_ext_tower_compression() {
         "Tower carries approximately the full applied load");
 
     // Verify overall equilibrium
-    let sum_ry: f64 = results.reactions.iter().map(|r| r.ry).sum();
+    let sum_ry: f64 = results.reactions.iter().map(|r| r.rz).sum();
     assert_close(sum_ry, p, 0.01,
         "Tower compression: global vertical equilibrium");
 }
@@ -768,7 +768,7 @@ fn validation_cstay_ext_live_load_envelope() {
 
     // Case A: load at node 2 (mid-deck, far from cable)
     let loads_a = vec![SolverLoad::Nodal(SolverNodalLoad {
-        node_id: 2, fx: 0.0, fy: -p, mz: 0.0,
+        node_id: 2, fx: 0.0, fz: -p, my: 0.0,
     })];
 
     let input_a = make_input(
@@ -789,7 +789,7 @@ fn validation_cstay_ext_live_load_envelope() {
 
     // Case B: load at node 3 (at cable anchorage point)
     let loads_b = vec![SolverLoad::Nodal(SolverNodalLoad {
-        node_id: 3, fx: 0.0, fy: -p, mz: 0.0,
+        node_id: 3, fx: 0.0, fz: -p, my: 0.0,
     })];
 
     let input_b = make_input(
@@ -820,8 +820,8 @@ fn validation_cstay_ext_live_load_envelope() {
         variation * 100.0);
 
     // Both cases must satisfy equilibrium
-    let sum_ry_a: f64 = results_a.reactions.iter().map(|r| r.ry).sum();
-    let sum_ry_b: f64 = results_b.reactions.iter().map(|r| r.ry).sum();
+    let sum_ry_a: f64 = results_a.reactions.iter().map(|r| r.rz).sum();
+    let sum_ry_b: f64 = results_b.reactions.iter().map(|r| r.rz).sum();
     assert_close(sum_ry_a, p, 0.01, "Live load case A: equilibrium");
     assert_close(sum_ry_b, p, 0.01, "Live load case B: equilibrium");
 }
@@ -939,7 +939,7 @@ fn validation_cstay_ext_ernst_modulus() {
             ],
             vec![(1, 1, "pinned"), (2, 4, "fixed")],
             vec![SolverLoad::Nodal(SolverNodalLoad {
-                node_id: 2, fx: 0.0, fy: -100.0, mz: 0.0,
+                node_id: 2, fx: 0.0, fz: -100.0, my: 0.0,
             })],
         )
     };
@@ -948,9 +948,9 @@ fn validation_cstay_ext_ernst_modulus() {
     let results_ernst = linear::solve_2d(&build_model(e_input_ernst)).unwrap();
 
     let defl_full = results_full.displacements.iter()
-        .find(|d| d.node_id == 2).unwrap().uy.abs();
+        .find(|d| d.node_id == 2).unwrap().uz.abs();
     let defl_ernst = results_ernst.displacements.iter()
-        .find(|d| d.node_id == 2).unwrap().uy.abs();
+        .find(|d| d.node_id == 2).unwrap().uz.abs();
 
     // Structure with Ernst (reduced) modulus should deflect more
     assert!(defl_ernst > defl_full,
@@ -1075,9 +1075,9 @@ fn validation_cstay_ext_deflection_profile() {
 
     // Under full loading: symmetric deflection
     let defl_left_full = results_full.displacements.iter()
-        .find(|d| d.node_id == 2).unwrap().uy;
+        .find(|d| d.node_id == 2).unwrap().uz;
     let defl_right_full = results_full.displacements.iter()
-        .find(|d| d.node_id == 5).unwrap().uy;
+        .find(|d| d.node_id == 5).unwrap().uz;
 
     // Symmetric loading produces symmetric deflection (both down)
     assert_close(defl_left_full, defl_right_full, 0.03,
@@ -1085,9 +1085,9 @@ fn validation_cstay_ext_deflection_profile() {
 
     // Under partial loading: asymmetric deflection
     let defl_left_partial = results_partial.displacements.iter()
-        .find(|d| d.node_id == 2).unwrap().uy;
+        .find(|d| d.node_id == 2).unwrap().uz;
     let defl_right_partial = results_partial.displacements.iter()
-        .find(|d| d.node_id == 5).unwrap().uy;
+        .find(|d| d.node_id == 5).unwrap().uz;
 
     // Loaded side (left) deflects more downward than under full loading
     // because the unloaded right cable does not pull the tower back

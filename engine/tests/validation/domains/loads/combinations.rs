@@ -44,7 +44,7 @@ fn validation_comb_en1990_uls() {
 
     // LL: point load -20 kN at midspan
     let ll_loads = vec![SolverLoad::Nodal(SolverNodalLoad {
-        node_id: n / 2 + 1, fx: 0.0, fy: -20.0, mz: 0.0,
+        node_id: n / 2 + 1, fx: 0.0, fz: -20.0, my: 0.0,
     })];
 
     // Wind: UDL +3 kN/m (uplift)
@@ -86,7 +86,7 @@ fn validation_comb_en1990_uls() {
         }));
     }
     direct_loads.push(SolverLoad::Nodal(SolverNodalLoad {
-        node_id: n / 2 + 1, fx: 0.0, fy: 1.50 * (-20.0), mz: 0.0,
+        node_id: n / 2 + 1, fx: 0.0, fz: 1.50 * (-20.0), my: 0.0,
     }));
     let input_direct = make_beam(n, l, E, A, IZ, "pinned", Some("rollerX"), direct_loads);
     let res_direct = linear::solve_2d(&input_direct).unwrap();
@@ -94,12 +94,12 @@ fn validation_comb_en1990_uls() {
     // Compare displacements at midspan
     let mid_comb = combined.displacements.iter().find(|d| d.node_id == n / 2 + 1).unwrap();
     let mid_direct = res_direct.displacements.iter().find(|d| d.node_id == n / 2 + 1).unwrap();
-    assert_close(mid_comb.uy, mid_direct.uy, 1e-6, "combo midspan uy");
+    assert_close(mid_comb.uz, mid_direct.uz, 1e-6, "combo midspan uy");
 
     // Compare reactions
     let r1_comb = combined.reactions.iter().find(|r| r.node_id == 1).unwrap();
     let r1_direct = res_direct.reactions.iter().find(|r| r.node_id == 1).unwrap();
-    assert_close(r1_comb.ry, r1_direct.ry, 1e-6, "combo R1_y");
+    assert_close(r1_comb.rz, r1_direct.rz, 1e-6, "combo R1_y");
 }
 
 // ================================================================
@@ -148,7 +148,7 @@ fn validation_comb_negative_factor_wind() {
 
     let mid_comb = combined.displacements.iter().find(|d| d.node_id == n / 2 + 1).unwrap();
     let mid_direct = res_direct.displacements.iter().find(|d| d.node_id == n / 2 + 1).unwrap();
-    assert_close(mid_comb.uy, mid_direct.uy, 1e-6, "wind uplift combo uy");
+    assert_close(mid_comb.uz, mid_direct.uz, 1e-6, "wind uplift combo uy");
 }
 
 // ================================================================
@@ -161,7 +161,7 @@ fn validation_comb_identity_factor() {
     let l = 6.0;
 
     let loads = vec![SolverLoad::Nodal(SolverNodalLoad {
-        node_id: n / 2 + 1, fx: 0.0, fy: -50.0, mz: 0.0,
+        node_id: n / 2 + 1, fx: 0.0, fz: -50.0, my: 0.0,
     })];
 
     let input = make_beam(n, l, E, A, IZ, "pinned", Some("rollerX"), loads);
@@ -176,12 +176,12 @@ fn validation_comb_identity_factor() {
     // Every displacement should match exactly
     for (orig, comb) in original.displacements.iter().zip(combined.displacements.iter()) {
         assert_close(comb.ux, orig.ux, 1e-10, &format!("identity ux node {}", orig.node_id));
-        assert_close(comb.uy, orig.uy, 1e-10, &format!("identity uy node {}", orig.node_id));
-        assert_close(comb.rz, orig.rz, 1e-10, &format!("identity rz node {}", orig.node_id));
+        assert_close(comb.uz, orig.uz, 1e-10, &format!("identity uy node {}", orig.node_id));
+        assert_close(comb.ry, orig.ry, 1e-10, &format!("identity rz node {}", orig.node_id));
     }
 
     for (orig, comb) in original.reactions.iter().zip(combined.reactions.iter()) {
-        assert_close(comb.ry, orig.ry, 1e-10, &format!("identity ry node {}", orig.node_id));
+        assert_close(comb.rz, orig.rz, 1e-10, &format!("identity ry node {}", orig.node_id));
     }
 }
 
@@ -240,7 +240,7 @@ fn validation_comb_3d_biaxial() {
     let tip_comb = combined.displacements.iter().find(|d| d.node_id == n + 1).unwrap();
     let tip_direct = res_direct.displacements.iter().find(|d| d.node_id == n + 1).unwrap();
 
-    assert_close(tip_comb.uy, tip_direct.uy, 1e-6, "3D combo tip uy");
+    assert_close(tip_comb.uz, tip_direct.uz, 1e-6, "3D combo tip uy");
     assert_close(tip_comb.uz, tip_direct.uz, 1e-6, "3D combo tip uz");
 }
 
@@ -265,12 +265,12 @@ fn validation_envelope_4_cases() {
 
     // Case 2: point load -30 kN at quarter span
     let pt_quarter = vec![SolverLoad::Nodal(SolverNodalLoad {
-        node_id: n / 4 + 1, fx: 0.0, fy: -30.0, mz: 0.0,
+        node_id: n / 4 + 1, fx: 0.0, fz: -30.0, my: 0.0,
     })];
 
     // Case 3: point load -30 kN at midspan
     let pt_mid = vec![SolverLoad::Nodal(SolverNodalLoad {
-        node_id: n / 2 + 1, fx: 0.0, fy: -30.0, mz: 0.0,
+        node_id: n / 2 + 1, fx: 0.0, fz: -30.0, my: 0.0,
     })];
 
     // Case 4: UDL +5 kN/m (uplift)
@@ -305,7 +305,7 @@ fn validation_envelope_4_cases() {
     // max_abs_results should capture governing displacements
     let mid_peak = envelope.max_abs_results.displacements.iter()
         .find(|d| d.node_id == n / 2 + 1).unwrap();
-    assert!(mid_peak.uy.abs() > 0.0, "Peak midspan deflection should be non-zero");
+    assert!(mid_peak.uz.abs() > 0.0, "Peak midspan deflection should be non-zero");
 }
 
 // ================================================================
@@ -415,7 +415,7 @@ fn validation_comb_element_forces() {
 
     // Case 2: Point load at midspan
     let pt_loads = vec![SolverLoad::Nodal(SolverNodalLoad {
-        node_id: n / 2 + 1, fx: 0.0, fy: -20.0, mz: 0.0,
+        node_id: n / 2 + 1, fx: 0.0, fz: -20.0, my: 0.0,
     })];
 
     let res1 = linear::solve_2d(&make_beam(n, l, E, A, IZ, "pinned", Some("rollerX"), udl_loads)).unwrap();
@@ -441,7 +441,7 @@ fn validation_comb_element_forces() {
         }))
         .collect();
     direct_loads.push(SolverLoad::Nodal(SolverNodalLoad {
-        node_id: n / 2 + 1, fx: 0.0, fy: -40.0, mz: 0.0,
+        node_id: n / 2 + 1, fx: 0.0, fz: -40.0, my: 0.0,
     }));
     let res_direct = linear::solve_2d(&make_beam(n, l, E, A, IZ, "pinned", Some("rollerX"), direct_loads)).unwrap();
 

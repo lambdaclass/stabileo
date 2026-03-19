@@ -42,8 +42,8 @@ fn validation_udl_ss_beam_symmetric_reactions() {
     let input = make_ss_beam_udl(n, l, E, A, IZ, q);
     let results = linear::solve_2d(&input).unwrap();
 
-    let r_a = results.reactions.iter().find(|r| r.node_id == 1).unwrap().ry;
-    let r_b = results.reactions.iter().find(|r| r.node_id == n + 1).unwrap().ry;
+    let r_a = results.reactions.iter().find(|r| r.node_id == 1).unwrap().rz;
+    let r_b = results.reactions.iter().find(|r| r.node_id == n + 1).unwrap().rz;
 
     let expected = q.abs() * l / 2.0; // 40.0 kN
 
@@ -94,8 +94,8 @@ fn validation_triangular_load_ss_beam_reactions() {
     let input = make_beam(n, l, E, A, IZ, "pinned", Some("rollerX"), loads);
     let results = linear::solve_2d(&input).unwrap();
 
-    let r_a = results.reactions.iter().find(|r| r.node_id == 1).unwrap().ry;
-    let r_b = results.reactions.iter().find(|r| r.node_id == n + 1).unwrap().ry;
+    let r_a = results.reactions.iter().find(|r| r.node_id == 1).unwrap().rz;
+    let r_b = results.reactions.iter().find(|r| r.node_id == n + 1).unwrap().rz;
 
     // Analytical: R_A = q_max*L/6, R_B = q_max*L/3
     let r_a_exact = q_max * l / 6.0;
@@ -158,10 +158,10 @@ fn validation_reversed_triangular_load_reactions() {
     let input_rev = make_beam(n, l, E, A, IZ, "pinned", Some("rollerX"), loads_rev);
     let res_rev = linear::solve_2d(&input_rev).unwrap();
 
-    let r_a_fwd = res_fwd.reactions.iter().find(|r| r.node_id == 1).unwrap().ry;
-    let r_b_fwd = res_fwd.reactions.iter().find(|r| r.node_id == n + 1).unwrap().ry;
-    let r_a_rev = res_rev.reactions.iter().find(|r| r.node_id == 1).unwrap().ry;
-    let r_b_rev = res_rev.reactions.iter().find(|r| r.node_id == n + 1).unwrap().ry;
+    let r_a_fwd = res_fwd.reactions.iter().find(|r| r.node_id == 1).unwrap().rz;
+    let r_b_fwd = res_fwd.reactions.iter().find(|r| r.node_id == n + 1).unwrap().rz;
+    let r_a_rev = res_rev.reactions.iter().find(|r| r.node_id == 1).unwrap().rz;
+    let r_b_rev = res_rev.reactions.iter().find(|r| r.node_id == n + 1).unwrap().rz;
 
     // Reversed: R_A = q_max*L/3, R_B = q_max*L/6
     assert_close(r_a_rev, q_max * l / 3.0, 0.02, "Reversed tri: R_A = q_max*L/3");
@@ -207,8 +207,8 @@ fn validation_partial_span_udl() {
     let input = make_beam(n, l, E, A, IZ, "pinned", Some("rollerX"), loads);
     let results = linear::solve_2d(&input).unwrap();
 
-    let r_a = results.reactions.iter().find(|r| r.node_id == 1).unwrap().ry;
-    let r_b = results.reactions.iter().find(|r| r.node_id == n + 1).unwrap().ry;
+    let r_a = results.reactions.iter().find(|r| r.node_id == 1).unwrap().rz;
+    let r_b = results.reactions.iter().find(|r| r.node_id == n + 1).unwrap().rz;
 
     // Total load = q * L/2 = 10 * 4 = 40
     let total_load = q.abs() * l / 2.0;
@@ -273,14 +273,14 @@ fn validation_udl_larger_deflection_than_triangular() {
         .iter()
         .find(|d| d.node_id == mid)
         .unwrap()
-        .uy
+        .uz
         .abs();
     let d_tri = res_tri
         .displacements
         .iter()
         .find(|d| d.node_id == mid)
         .unwrap()
-        .uy
+        .uz
         .abs();
 
     // UDL should give larger midspan deflection than triangular for same total load
@@ -292,8 +292,8 @@ fn validation_udl_larger_deflection_than_triangular() {
     );
 
     // Verify both have the same total reactions (same total load)
-    let sum_ry_udl: f64 = res_udl.reactions.iter().map(|r| r.ry).sum();
-    let sum_ry_tri: f64 = res_tri.reactions.iter().map(|r| r.ry).sum();
+    let sum_ry_udl: f64 = res_udl.reactions.iter().map(|r| r.rz).sum();
+    let sum_ry_tri: f64 = res_tri.reactions.iter().map(|r| r.rz).sum();
     assert_close(sum_ry_udl, sum_ry_tri, 0.02, "Same total load: ΣR_udl = ΣR_tri");
 }
 
@@ -337,7 +337,7 @@ fn validation_cantilever_linearly_varying_load() {
         .iter()
         .find(|d| d.node_id == n + 1)
         .unwrap();
-    let delta_computed = tip.uy.abs();
+    let delta_computed = tip.uz.abs();
 
     // Analytical: delta_tip = q_max * L^4 / (30 * E * I)
     let delta_exact = q_max * l.powi(4) / (30.0 * e_eff * IZ);
@@ -352,13 +352,13 @@ fn validation_cantilever_linearly_varying_load() {
     // Also check reactions: Ry = q_max*L/2, M = q_max*L^2/6
     let r1 = results.reactions.iter().find(|r| r.node_id == 1).unwrap();
     assert_close(
-        r1.ry,
+        r1.rz,
         q_max * l / 2.0,
         0.02,
         "Cantilever tri load: Ry = q_max*L/2",
     );
     assert_close(
-        r1.mz.abs(),
+        r1.my.abs(),
         q_max * l * l / 6.0,
         0.05,
         "Cantilever tri load: M = q_max*L^2/6",
@@ -394,21 +394,21 @@ fn validation_double_udl_double_deflection() {
         .iter()
         .find(|d| d.node_id == mid)
         .unwrap()
-        .uy;
+        .uz;
     let d2 = res2
         .displacements
         .iter()
         .find(|d| d.node_id == mid)
         .unwrap()
-        .uy;
+        .uz;
 
     // Deflection ratio should be exactly 2
     let ratio = d2 / d1;
     assert_close(ratio, 2.0, 0.02, "Double UDL: deflection ratio = 2");
 
     // Also check reactions scale linearly
-    let r1_a = res1.reactions.iter().find(|r| r.node_id == 1).unwrap().ry;
-    let r2_a = res2.reactions.iter().find(|r| r.node_id == 1).unwrap().ry;
+    let r1_a = res1.reactions.iter().find(|r| r.node_id == 1).unwrap().rz;
+    let r2_a = res2.reactions.iter().find(|r| r.node_id == 1).unwrap().rz;
     let reaction_ratio = r2_a / r1_a;
     assert_close(reaction_ratio, 2.0, 0.02, "Double UDL: reaction ratio = 2");
 }
@@ -449,12 +449,12 @@ fn validation_cantilever_udl_equilibrium() {
 
     // Vertical reaction = total load = |q| * L = 15 * 4 = 60 kN
     let ry_exact = q.abs() * l;
-    assert_close(r1.ry, ry_exact, 0.02, "Cantilever UDL: Ry = q*L");
+    assert_close(r1.rz, ry_exact, 0.02, "Cantilever UDL: Ry = q*L");
 
     // Fixed-end moment = |q| * L^2 / 2 = 15 * 16 / 2 = 120 kN·m
     let mz_exact = q.abs() * l * l / 2.0;
     assert_close(
-        r1.mz.abs(),
+        r1.my.abs(),
         mz_exact,
         0.02,
         "Cantilever UDL: M = q*L^2/2",
@@ -472,7 +472,7 @@ fn validation_cantilever_udl_equilibrium() {
         .find(|d| d.node_id == n + 1)
         .unwrap();
     assert_close(
-        tip.uy.abs(),
+        tip.uz.abs(),
         delta_exact,
         0.05,
         "Cantilever UDL: delta_tip = qL^4/(8EI)",

@@ -60,8 +60,8 @@ fn validation_chen_lui_ext_1_effective_length_fixed_fixed() {
         vec![SolverLoad::Nodal(SolverNodalLoad {
             node_id: n + 1,
             fx: -p_ref,
-            fy: 0.0,
-            mz: 0.0,
+            fz: 0.0,
+            my: 0.0,
         })],
     );
 
@@ -117,8 +117,8 @@ fn validation_chen_lui_ext_2_effective_length_fixed_pinned() {
         vec![SolverLoad::Nodal(SolverNodalLoad {
             node_id: n + 1,
             fx: -p_ref,
-            fy: 0.0,
-            mz: 0.0,
+            fz: 0.0,
+            my: 0.0,
         })],
     );
 
@@ -175,8 +175,8 @@ fn validation_chen_lui_ext_3_truss_bar_euler_buckling() {
         vec![SolverLoad::Nodal(SolverNodalLoad {
             node_id: n + 1,
             fx: -p_ref,
-            fy: 0.0,
-            mz: 0.0,
+            fz: 0.0,
+            my: 0.0,
         })],
     );
 
@@ -230,14 +230,14 @@ fn validation_chen_lui_ext_4_gravity_redistribution_effect() {
             SolverLoad::Nodal(SolverNodalLoad {
                 node_id: 2,
                 fx: 0.0,
-                fy: -p_ref,
-                mz: 0.0,
+                fz: -p_ref,
+                my: 0.0,
             }),
             SolverLoad::Nodal(SolverNodalLoad {
                 node_id: 3,
                 fx: 0.0,
-                fy: -p_ref,
-                mz: 0.0,
+                fz: -p_ref,
+                my: 0.0,
             }),
         ],
     );
@@ -260,8 +260,8 @@ fn validation_chen_lui_ext_4_gravity_redistribution_effect() {
         vec![SolverLoad::Nodal(SolverNodalLoad {
             node_id: 2,
             fx: 0.0,
-            fy: -2.0 * p_ref,
-            mz: 0.0,
+            fz: -2.0 * p_ref,
+            my: 0.0,
         })],
     );
     let result_b = buckling::solve_buckling_2d(&input_b, 1).unwrap();
@@ -328,8 +328,8 @@ fn validation_chen_lui_ext_5_stepped_column_buckling() {
         vec![SolverLoad::Nodal(SolverNodalLoad {
             node_id: n + 1,
             fx: -p_ref,
-            fy: 0.0,
-            mz: 0.0,
+            fz: 0.0,
+            my: 0.0,
         })],
     );
 
@@ -387,14 +387,14 @@ fn validation_chen_lui_ext_6_asymmetric_portal_sway() {
                 SolverLoad::Nodal(SolverNodalLoad {
                     node_id: 2,
                     fx: 0.0,
-                    fy: -p_ref,
-                    mz: 0.0,
+                    fz: -p_ref,
+                    my: 0.0,
                 }),
                 SolverLoad::Nodal(SolverNodalLoad {
                     node_id: 3,
                     fx: 0.0,
-                    fy: -p_ref,
-                    mz: 0.0,
+                    fz: -p_ref,
+                    my: 0.0,
                 }),
             ],
         );
@@ -469,8 +469,8 @@ fn validation_chen_lui_ext_7_pdelta_divergence() {
                 SolverLoad::Nodal(SolverNodalLoad {
                     node_id: top_node,
                     fx: h_perturbation,
-                    fy: -p_axial,
-                    mz: 0.0,
+                    fz: -p_axial,
+                    my: 0.0,
                 }),
             ],
         );
@@ -574,38 +574,38 @@ fn validation_chen_lui_ext_8_three_story_drift_progression() {
         SolverLoad::Nodal(SolverNodalLoad {
             node_id: 2,
             fx: px,
-            fy: py,
-            mz: 0.0,
+            fz: py,
+            my: 0.0,
         }),
         SolverLoad::Nodal(SolverNodalLoad {
             node_id: 3,
             fx: px,
-            fy: py,
-            mz: 0.0,
+            fz: py,
+            my: 0.0,
         }),
         SolverLoad::Nodal(SolverNodalLoad {
             node_id: 4,
             fx: px,
-            fy: py,
-            mz: 0.0,
+            fz: py,
+            my: 0.0,
         }),
         SolverLoad::Nodal(SolverNodalLoad {
             node_id: 6,
             fx: 0.0,
-            fy: py,
-            mz: 0.0,
+            fz: py,
+            my: 0.0,
         }),
         SolverLoad::Nodal(SolverNodalLoad {
             node_id: 7,
             fx: 0.0,
-            fy: py,
-            mz: 0.0,
+            fz: py,
+            my: 0.0,
         }),
         SolverLoad::Nodal(SolverNodalLoad {
             node_id: 8,
             fx: 0.0,
-            fy: py,
-            mz: 0.0,
+            fz: py,
+            my: 0.0,
         }),
     ];
 

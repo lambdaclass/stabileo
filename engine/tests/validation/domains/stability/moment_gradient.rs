@@ -77,7 +77,7 @@ fn validation_gradient_constant_shear() {
     let p = 15.0;
 
     let loads = vec![SolverLoad::Nodal(SolverNodalLoad {
-        node_id: n + 1, fx: 0.0, fy: -p, mz: 0.0,
+        node_id: n + 1, fx: 0.0, fz: -p, my: 0.0,
     })];
     let input = make_beam(n, l, E, A, IZ, "fixed", None, loads);
     let results = linear::solve_2d(&input).unwrap();
@@ -161,7 +161,7 @@ fn validation_gradient_point_load_kink() {
     let mid = n / 2;
 
     let loads = vec![SolverLoad::Nodal(SolverNodalLoad {
-        node_id: mid + 1, fx: 0.0, fy: -p, mz: 0.0,
+        node_id: mid + 1, fx: 0.0, fz: -p, my: 0.0,
     })];
     let input = make_beam(n, l, E, A, IZ, "pinned", Some("rollerX"), loads);
     let results = linear::solve_2d(&input).unwrap();
@@ -198,7 +198,7 @@ fn validation_gradient_couple_moment_jump() {
     let mid = n / 2;
 
     let loads = vec![SolverLoad::Nodal(SolverNodalLoad {
-        node_id: mid + 1, fx: 0.0, fy: 0.0, mz: m,
+        node_id: mid + 1, fx: 0.0, fz: 0.0, my: m,
     })];
     let input = make_beam(n, l, E, A, IZ, "pinned", Some("rollerX"), loads);
     let results = linear::solve_2d(&input).unwrap();
@@ -341,9 +341,9 @@ fn validation_gradient_curvature() {
     // Approximate curvature at midspan from rotation difference
     let mid = n / 2 + 1;
     let rz_left = results.displacements.iter()
-        .find(|d| d.node_id == mid - 1).unwrap().rz;
+        .find(|d| d.node_id == mid - 1).unwrap().ry;
     let rz_right = results.displacements.iter()
-        .find(|d| d.node_id == mid + 1).unwrap().rz;
+        .find(|d| d.node_id == mid + 1).unwrap().ry;
 
     let kappa_approx = (rz_right - rz_left) / (2.0 * dx);
 

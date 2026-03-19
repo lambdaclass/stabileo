@@ -72,7 +72,7 @@ fn validation_material_nonlinear_ff_collapse_bracket() {
     // --- Below collapse: P = 0.4 × Pc = 675 kN ---
     let p_below = 0.4 * pc;
     let loads_below = vec![SolverLoad::Nodal(SolverNodalLoad {
-        node_id: mid_node, fx: 0.0, fy: -p_below, mz: 0.0,
+        node_id: mid_node, fx: 0.0, fz: -p_below, my: 0.0,
     })];
     let input_below = make_nonlinear_beam(n, l, "fixed", Some("fixed"), loads_below);
     let res_below = material_nonlinear::solve_nonlinear_material_2d(&input_below).unwrap();
@@ -91,7 +91,7 @@ fn validation_material_nonlinear_ff_collapse_bracket() {
     // --- Above collapse: P = 1.2 × Pc = 2025 kN ---
     let p_above = 1.2 * pc;
     let loads_above = vec![SolverLoad::Nodal(SolverNodalLoad {
-        node_id: mid_node, fx: 0.0, fy: -p_above, mz: 0.0,
+        node_id: mid_node, fx: 0.0, fz: -p_above, my: 0.0,
     })];
     let input_above = make_nonlinear_beam(n, l, "fixed", Some("fixed"), loads_above);
     let res_above = material_nonlinear::solve_nonlinear_material_2d(&input_above).unwrap();
@@ -106,9 +106,9 @@ fn validation_material_nonlinear_ff_collapse_bracket() {
 
     // Displacement should be much larger than elastic (> 3× due to plastic deformation)
     let disp_below = res_below.results.displacements.iter()
-        .find(|d| d.node_id == mid_node).unwrap().uy.abs();
+        .find(|d| d.node_id == mid_node).unwrap().uz.abs();
     let disp_above = res_above.results.displacements.iter()
-        .find(|d| d.node_id == mid_node).unwrap().uy.abs();
+        .find(|d| d.node_id == mid_node).unwrap().uz.abs();
     assert!(
         disp_above > 3.0 * disp_below,
         "Above Pc disp={:.4e} should be >> below Pc disp={:.4e}",
@@ -134,7 +134,7 @@ fn validation_material_nonlinear_propped_cantilever_bracket() {
     // Below collapse: P = 0.4 × Pc
     let p_below = 0.4 * pc;
     let loads_below = vec![SolverLoad::Nodal(SolverNodalLoad {
-        node_id: mid_node, fx: 0.0, fy: -p_below, mz: 0.0,
+        node_id: mid_node, fx: 0.0, fz: -p_below, my: 0.0,
     })];
     let input_below = make_nonlinear_beam(n, l, "fixed", Some("pinned"), loads_below);
     let res_below = material_nonlinear::solve_nonlinear_material_2d(&input_below).unwrap();
@@ -150,7 +150,7 @@ fn validation_material_nonlinear_propped_cantilever_bracket() {
     // Above collapse: P = 1.5 × Pc
     let p_above = 1.5 * pc;
     let loads_above = vec![SolverLoad::Nodal(SolverNodalLoad {
-        node_id: mid_node, fx: 0.0, fy: -p_above, mz: 0.0,
+        node_id: mid_node, fx: 0.0, fz: -p_above, my: 0.0,
     })];
     let input_above = make_nonlinear_beam(n, l, "fixed", Some("pinned"), loads_above);
     let res_above = material_nonlinear::solve_nonlinear_material_2d(&input_above).unwrap();
@@ -165,9 +165,9 @@ fn validation_material_nonlinear_propped_cantilever_bracket() {
 
     // Displacement amplification above collapse
     let disp_below = res_below.results.displacements.iter()
-        .find(|d| d.node_id == mid_node).unwrap().uy.abs();
+        .find(|d| d.node_id == mid_node).unwrap().uz.abs();
     let disp_above = res_above.results.displacements.iter()
-        .find(|d| d.node_id == mid_node).unwrap().uy.abs();
+        .find(|d| d.node_id == mid_node).unwrap().uz.abs();
 
     // Above collapse, displacement should be at least 2× what scaling from below would give
     let expected_linear = disp_below * (p_above / p_below);
@@ -192,7 +192,7 @@ fn validation_material_nonlinear_cantilever_elastic_phase() {
     let p = 100.0;
 
     let loads = vec![SolverLoad::Nodal(SolverNodalLoad {
-        node_id: n + 1, fx: 0.0, fy: -p, mz: 0.0,
+        node_id: n + 1, fx: 0.0, fz: -p, my: 0.0,
     })];
 
     let input = make_nonlinear_beam(n, l, "fixed", None, loads.clone());
@@ -208,11 +208,11 @@ fn validation_material_nonlinear_cantilever_elastic_phase() {
     let tip = result.results.displacements.iter()
         .find(|d| d.node_id == n + 1).unwrap();
 
-    let error = (tip.uy.abs() - delta_elastic).abs() / delta_elastic;
+    let error = (tip.uz.abs() - delta_elastic).abs() / delta_elastic;
     assert!(
         error < 0.05,
         "Elastic cantilever: uy={:.6e}, elastic={:.6e}, error={:.1}%",
-        tip.uy.abs(), delta_elastic, error * 100.0
+        tip.uz.abs(), delta_elastic, error * 100.0
     );
 
     // All elements should remain elastic

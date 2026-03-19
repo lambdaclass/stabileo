@@ -102,8 +102,8 @@ fn validation_ext_frame_global_moment_equilibrium() {
     let f2 = 5.0;
     // Floor 1 at y = h, floor 2 at y = 2h
     let loads = vec![
-        SolverLoad::Nodal(SolverNodalLoad { node_id: 1 + n_cols, fx: f1, fy: 0.0, mz: 0.0 }),
-        SolverLoad::Nodal(SolverNodalLoad { node_id: 1 + 2 * n_cols, fx: f2, fy: 0.0, mz: 0.0 }),
+        SolverLoad::Nodal(SolverNodalLoad { node_id: 1 + n_cols, fx: f1, fz: 0.0, my: 0.0 }),
+        SolverLoad::Nodal(SolverNodalLoad { node_id: 1 + 2 * n_cols, fx: f2, fz: 0.0, my: 0.0 }),
     ];
     let input = make_input(nodes, vec![(1, E, 0.3)], vec![(1, A, IZ)], elems, sups, loads);
     let results = linear::solve_2d(&input).unwrap();
@@ -118,7 +118,7 @@ fn validation_ext_frame_global_moment_equilibrium() {
     let r1 = results.reactions.iter().find(|r| r.node_id == 1).unwrap();
     let r2 = results.reactions.iter().find(|r| r.node_id == 2).unwrap();
 
-    let m_reaction = r1.mz + r2.mz + r2.ry * w;
+    let m_reaction = r1.my + r2.my + r2.rz * w;
 
     // Equilibrium about origin: sum of all moments = 0.
     // Reaction moments (Mz + Ry*x) balance the applied load moments (Fx*y).
@@ -132,7 +132,7 @@ fn validation_ext_frame_global_moment_equilibrium() {
     assert_close(sum_rx, -(f1 + f2), 0.02, "Horizontal equilibrium: ΣRx = -(F1+F2)");
 
     // Vertical equilibrium (no vertical loads applied)
-    let sum_ry: f64 = results.reactions.iter().map(|r| r.ry).sum();
+    let sum_ry: f64 = results.reactions.iter().map(|r| r.rz).sum();
     assert!(sum_ry.abs() < 1e-6, "No vertical load: ΣRy ≈ 0, got {:.6e}", sum_ry);
 }
 
@@ -162,8 +162,8 @@ fn validation_ext_frame_four_story_cumulative_shear() {
         .map(|s| SolverLoad::Nodal(SolverNodalLoad {
             node_id: 1 + s * n_cols,
             fx: lateral,
-            fy: 0.0,
-            mz: 0.0,
+            fz: 0.0,
+            my: 0.0,
         }))
         .collect();
 
@@ -230,17 +230,17 @@ fn validation_ext_frame_two_bay_symmetric_gravity() {
     let results = linear::solve_2d(&input).unwrap();
 
     // By symmetry, exterior reactions (node 1 and node 3) should be equal
-    let ry_left = results.reactions.iter().find(|r| r.node_id == 1).unwrap().ry;
-    let ry_right = results.reactions.iter().find(|r| r.node_id == 3).unwrap().ry;
+    let ry_left = results.reactions.iter().find(|r| r.node_id == 1).unwrap().rz;
+    let ry_right = results.reactions.iter().find(|r| r.node_id == 3).unwrap().rz;
     assert_close(ry_left, ry_right, 0.02,
         "Two-bay symmetric: equal exterior vertical reactions");
 
     // Interior reaction at node 2
-    let ry_center = results.reactions.iter().find(|r| r.node_id == 2).unwrap().ry;
+    let ry_center = results.reactions.iter().find(|r| r.node_id == 2).unwrap().rz;
 
     // Total vertical equilibrium: sum Ry = 2 * q * w
     let total_load = 2.0 * q * w;
-    let sum_ry: f64 = results.reactions.iter().map(|r| r.ry).sum();
+    let sum_ry: f64 = results.reactions.iter().map(|r| r.rz).sum();
     assert_close(sum_ry, total_load, 0.02, "Two-bay symmetric: vertical equilibrium");
 
     // Interior column carries more (tributary from both beams)
@@ -283,7 +283,7 @@ fn validation_ext_frame_pinned_vs_fixed_base_drift() {
     ];
     let sups = vec![(1, 1_usize, "pinned"), (2, 4_usize, "pinned")];
     let loads = vec![SolverLoad::Nodal(SolverNodalLoad {
-        node_id: 2, fx: lateral, fy: 0.0, mz: 0.0,
+        node_id: 2, fx: lateral, fz: 0.0, my: 0.0,
     })];
     let input_pinned = make_input(nodes, vec![(1, E, 0.3)], vec![(1, A, IZ)],
         elems, sups, loads);
@@ -306,8 +306,8 @@ fn validation_ext_frame_pinned_vs_fixed_base_drift() {
 
     // For pinned base, no moment reactions at base supports
     for r in &res_pinned.reactions {
-        assert!(r.mz.abs() < 1e-6,
-            "Pinned base: no moment at support node {}: mz={:.6e}", r.node_id, r.mz);
+        assert!(r.my.abs() < 1e-6,
+            "Pinned base: no moment at support node {}: mz={:.6e}", r.node_id, r.my);
     }
 }
 
@@ -334,8 +334,8 @@ fn validation_ext_frame_triangular_lateral_load() {
         .map(|s| SolverLoad::Nodal(SolverNodalLoad {
             node_id: 1 + s * n_cols,
             fx: s as f64 * h_base,
-            fy: 0.0,
-            mz: 0.0,
+            fz: 0.0,
+            my: 0.0,
         }))
         .collect();
 
@@ -355,8 +355,8 @@ fn validation_ext_frame_triangular_lateral_load() {
         .map(|s| SolverLoad::Nodal(SolverNodalLoad {
             node_id: 1 + s * n_cols,
             fx: uniform_per_floor,
-            fy: 0.0,
-            mz: 0.0,
+            fz: 0.0,
+            my: 0.0,
         }))
         .collect();
 
@@ -400,7 +400,7 @@ fn validation_ext_frame_soft_story_effect() {
     let (nodes_a, elems_a, sups_a) = make_frame(2, 1, h, w);
     let n_cols: usize = 2;
     let loads_a = vec![
-        SolverLoad::Nodal(SolverNodalLoad { node_id: 1 + 2 * n_cols, fx: lateral, fy: 0.0, mz: 0.0 }),
+        SolverLoad::Nodal(SolverNodalLoad { node_id: 1 + 2 * n_cols, fx: lateral, fz: 0.0, my: 0.0 }),
     ];
     let input_a = make_input(nodes_a, vec![(1, E, 0.3)], vec![(1, A, IZ)],
         elems_a, sups_a, loads_a);
@@ -432,7 +432,7 @@ fn validation_ext_frame_soft_story_effect() {
     ];
     let sups_b = vec![(1, 1_usize, "fixed"), (2, 2_usize, "fixed")];
     let loads_b = vec![
-        SolverLoad::Nodal(SolverNodalLoad { node_id: 5, fx: lateral, fy: 0.0, mz: 0.0 }),
+        SolverLoad::Nodal(SolverNodalLoad { node_id: 5, fx: lateral, fz: 0.0, my: 0.0 }),
     ];
     let input_b = make_input(nodes_b, vec![(1, E, 0.3)],
         vec![(1, A, iz_weak), (2, A, IZ)],
@@ -475,7 +475,7 @@ fn validation_ext_frame_superposition_combined_loads() {
 
     // Load case 1: lateral only
     let loads_lat = vec![
-        SolverLoad::Nodal(SolverNodalLoad { node_id: 1 + 2 * n_cols, fx: px, fy: 0.0, mz: 0.0 }),
+        SolverLoad::Nodal(SolverNodalLoad { node_id: 1 + 2 * n_cols, fx: px, fz: 0.0, my: 0.0 }),
     ];
     let input_lat = make_input(nodes.clone(), vec![(1, E, 0.3)], vec![(1, A, IZ)],
         elems.clone(), sups.clone(), loads_lat);
@@ -483,8 +483,8 @@ fn validation_ext_frame_superposition_combined_loads() {
 
     // Load case 2: gravity only
     let loads_grav = vec![
-        SolverLoad::Nodal(SolverNodalLoad { node_id: 1 + 2 * n_cols, fx: 0.0, fy: py, mz: 0.0 }),
-        SolverLoad::Nodal(SolverNodalLoad { node_id: 2 + 2 * n_cols, fx: 0.0, fy: py, mz: 0.0 }),
+        SolverLoad::Nodal(SolverNodalLoad { node_id: 1 + 2 * n_cols, fx: 0.0, fz: py, my: 0.0 }),
+        SolverLoad::Nodal(SolverNodalLoad { node_id: 2 + 2 * n_cols, fx: 0.0, fz: py, my: 0.0 }),
     ];
     let input_grav = make_input(nodes.clone(), vec![(1, E, 0.3)], vec![(1, A, IZ)],
         elems.clone(), sups.clone(), loads_grav);
@@ -492,8 +492,8 @@ fn validation_ext_frame_superposition_combined_loads() {
 
     // Load case 3: combined
     let loads_comb = vec![
-        SolverLoad::Nodal(SolverNodalLoad { node_id: 1 + 2 * n_cols, fx: px, fy: py, mz: 0.0 }),
-        SolverLoad::Nodal(SolverNodalLoad { node_id: 2 + 2 * n_cols, fx: 0.0, fy: py, mz: 0.0 }),
+        SolverLoad::Nodal(SolverNodalLoad { node_id: 1 + 2 * n_cols, fx: px, fz: py, my: 0.0 }),
+        SolverLoad::Nodal(SolverNodalLoad { node_id: 2 + 2 * n_cols, fx: 0.0, fz: py, my: 0.0 }),
     ];
     let input_comb = make_input(nodes, vec![(1, E, 0.3)], vec![(1, A, IZ)],
         elems, sups, loads_comb);
@@ -508,9 +508,9 @@ fn validation_ext_frame_superposition_combined_loads() {
     // ux_combined = ux_lateral + ux_gravity
     assert_close(d_comb.ux, d_lat.ux + d_grav.ux, 0.01,
         "Superposition: ux_combined = ux_lat + ux_grav");
-    assert_close(d_comb.uy, d_lat.uy + d_grav.uy, 0.01,
+    assert_close(d_comb.uz, d_lat.uz + d_grav.uz, 0.01,
         "Superposition: uy_combined = uy_lat + uy_grav");
-    assert_close(d_comb.rz, d_lat.rz + d_grav.rz, 0.01,
+    assert_close(d_comb.ry, d_lat.ry + d_grav.ry, 0.01,
         "Superposition: rz_combined = rz_lat + rz_grav");
 
     // Also check reaction superposition at base node 1
@@ -520,9 +520,9 @@ fn validation_ext_frame_superposition_combined_loads() {
 
     assert_close(r_comb.rx, r_lat.rx + r_grav.rx, 0.01,
         "Superposition: Rx_combined = Rx_lat + Rx_grav");
-    assert_close(r_comb.ry, r_lat.ry + r_grav.ry, 0.01,
+    assert_close(r_comb.rz, r_lat.rz + r_grav.rz, 0.01,
         "Superposition: Ry_combined = Ry_lat + Ry_grav");
-    assert_close(r_comb.mz, r_lat.mz + r_grav.mz, 0.01,
+    assert_close(r_comb.my, r_lat.my + r_grav.my, 0.01,
         "Superposition: Mz_combined = Mz_lat + Mz_grav");
 }
 
@@ -557,7 +557,7 @@ fn validation_ext_frame_antisymmetric_lateral_equal_column_shears() {
     let sups = vec![(1, 1_usize, "fixed"), (2, 4_usize, "fixed")];
     // Apply lateral load to the left top node only
     let loads = vec![
-        SolverLoad::Nodal(SolverNodalLoad { node_id: 2, fx: lateral, fy: 0.0, mz: 0.0 }),
+        SolverLoad::Nodal(SolverNodalLoad { node_id: 2, fx: lateral, fz: 0.0, my: 0.0 }),
     ];
     let input = make_input(nodes, vec![(1, E, 0.3)], vec![(1, A, IZ)],
         elems, sups, loads);

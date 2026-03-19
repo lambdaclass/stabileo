@@ -63,8 +63,8 @@ fn make_ss_beam_harmonic(
     let load = SolverLoad::Nodal(SolverNodalLoad {
         node_id: mid_node,
         fx: 0.0,
-        fy: -10.0,
-        mz: 0.0,
+        fz: -10.0,
+        my: 0.0,
     });
     let solver = make_beam(
         n_elements, length, E, A, IZ,
@@ -92,8 +92,8 @@ fn make_cantilever_harmonic(
     let load = SolverLoad::Nodal(SolverNodalLoad {
         node_id: tip_node,
         fx: 0.0,
-        fy: -10.0,
-        mz: 0.0,
+        fz: -10.0,
+        my: 0.0,
     });
     let solver = make_beam(
         n_elements, length, E, A, IZ,
@@ -294,8 +294,8 @@ fn validation_harmonic_multi_dof_two_peaks() {
     let load = SolverLoad::Nodal(SolverNodalLoad {
         node_id: load_node,
         fx: 0.0,
-        fy: -10.0,
-        mz: 0.0,
+        fz: -10.0,
+        my: 0.0,
     });
     let solver = make_beam(
         n, l, E, A, IZ,
@@ -503,8 +503,8 @@ fn validation_harmonic_anti_resonance() {
     let load = SolverLoad::Nodal(SolverNodalLoad {
         node_id: load_node,
         fx: 0.0,
-        fy: -10.0,
-        mz: 0.0,
+        fz: -10.0,
+        my: 0.0,
     });
     let solver = make_continuous_beam(&[l, l], n_per_span, E, A, IZ, vec![load]);
 

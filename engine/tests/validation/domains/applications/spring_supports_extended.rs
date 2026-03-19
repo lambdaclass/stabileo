@@ -35,7 +35,7 @@ fn make_beam_with_springs(
     let mut nodes = HashMap::new();
     for i in 0..n_nodes {
         nodes.insert((i + 1).to_string(), SolverNode {
-            id: i + 1, x: i as f64 * elem_len, y: 0.0,
+            id: i + 1, x: i as f64 * elem_len, z: 0.0,
         });
     }
 
@@ -60,14 +60,14 @@ fn make_beam_with_springs(
     sups.insert(sid.to_string(), SolverSupport {
         id: sid, node_id: 1, support_type: start.to_string(),
         kx: None, ky: None, kz: None,
-        dx: None, dy: None, drz: None, angle: None,
+        dx: None, dz: None, dry: None, angle: None,
     });
     sid += 1;
     if let Some(es) = end {
         sups.insert(sid.to_string(), SolverSupport {
             id: sid, node_id: n_nodes, support_type: es.to_string(),
             kx: None, ky: None, kz: None,
-            dx: None, dy: None, drz: None, angle: None,
+            dx: None, dz: None, dry: None, angle: None,
         });
         sid += 1;
     }
@@ -76,7 +76,7 @@ fn make_beam_with_springs(
         sups.insert(sid.to_string(), SolverSupport {
             id: sid, node_id: nid, support_type: "spring".to_string(),
             kx, ky, kz,
-            dx: None, dy: None, drz: None, angle: None,
+            dx: None, dz: None, dry: None, angle: None,
         });
         sid += 1;
     }
@@ -121,12 +121,12 @@ fn validation_spring_two_equal_cantilever() {
 
     // Global vertical equilibrium: sum of all reactions = total load
     let total_load: f64 = (q * l).abs();
-    let sum_ry: f64 = results.reactions.iter().map(|r| r.ry).sum();
+    let sum_ry: f64 = results.reactions.iter().map(|r| r.rz).sum();
     assert_close(sum_ry, total_load, 0.01, "Two equal springs: vertical equilibrium");
 
     // Spring at L/3 (closer to fixed end) should deflect less than spring at 2L/3
-    let d1 = results.displacements.iter().find(|d| d.node_id == n1).unwrap().uy.abs();
-    let d2 = results.displacements.iter().find(|d| d.node_id == n2).unwrap().uy.abs();
+    let d1 = results.displacements.iter().find(|d| d.node_id == n1).unwrap().uz.abs();
+    let d2 = results.displacements.iter().find(|d| d.node_id == n2).unwrap().uz.abs();
     assert!(d1 < d2,
         "Spring closer to fixed end deflects less: d(L/3)={:.6e} < d(2L/3)={:.6e}", d1, d2);
 
@@ -138,8 +138,8 @@ fn validation_spring_two_equal_cantilever() {
     let r2 = results.reactions.iter().find(|r| r.node_id == n2);
     if let (Some(r1), Some(r2)) = (r1, r2) {
         // Both spring reactions should be positive (upward opposing downward load)
-        assert!(r1.ry > 0.0, "Spring at L/3 reaction upward: {:.4}", r1.ry);
-        assert!(r2.ry > 0.0, "Spring at 2L/3 reaction upward: {:.4}", r2.ry);
+        assert!(r1.rz > 0.0, "Spring at L/3 reaction upward: {:.4}", r1.rz);
+        assert!(r2.rz > 0.0, "Spring at 2L/3 reaction upward: {:.4}", r2.rz);
     }
 }
 
@@ -169,7 +169,7 @@ fn validation_spring_propped_cantilever_midspan() {
     }
     let input_no = crate::common::make_beam(n, l, E, A, IZ, "fixed", Some("rollerX"), loads_no);
     let res_no = linear::solve_2d(&input_no).unwrap();
-    let mid_no = res_no.displacements.iter().find(|d| d.node_id == mid).unwrap().uy.abs();
+    let mid_no = res_no.displacements.iter().find(|d| d.node_id == mid).unwrap().uz.abs();
 
     // Propped cantilever with spring at midspan
     let mut loads_spring = Vec::new();
@@ -182,7 +182,7 @@ fn validation_spring_propped_cantilever_midspan() {
         vec![(mid, None, Some(k_spring), None)],
         loads_spring);
     let res_spring = linear::solve_2d(&input_spring).unwrap();
-    let mid_spring = res_spring.displacements.iter().find(|d| d.node_id == mid).unwrap().uy.abs();
+    let mid_spring = res_spring.displacements.iter().find(|d| d.node_id == mid).unwrap().uz.abs();
 
     // Spring should reduce deflection
     assert!(mid_spring < mid_no,
@@ -192,7 +192,7 @@ fn validation_spring_propped_cantilever_midspan() {
     let spring_reaction = res_spring.reactions.iter().find(|r| r.node_id == mid);
     if let Some(r) = spring_reaction {
         let expected_r = k_spring * mid_spring;
-        assert_close(r.ry, expected_r, 0.05, "Spring reaction = k * delta");
+        assert_close(r.rz, expected_r, 0.05, "Spring reaction = k * delta");
     }
 
     // Verify approximate reduction factor using flexibility method:
@@ -207,7 +207,7 @@ fn validation_spring_propped_cantilever_midspan() {
 
     // Also verify total equilibrium
     let total_load = q.abs() * l;
-    let sum_ry: f64 = res_spring.reactions.iter().map(|r| r.ry).sum();
+    let sum_ry: f64 = res_spring.reactions.iter().map(|r| r.rz).sum();
     assert_close(sum_ry, total_load, 0.01, "Propped cantilever spring equilibrium");
 }
 
@@ -233,7 +233,7 @@ fn validation_spring_axial_and_transverse() {
     let input_both = make_beam_with_springs(n, l, "fixed", None,
         vec![(n + 1, Some(kx), Some(ky), None)],
         vec![SolverLoad::Nodal(SolverNodalLoad {
-            node_id: n + 1, fx, fy, mz: 0.0,
+            node_id: n + 1, fx, fz: fy, my: 0.0,
         })]);
     let res_both = linear::solve_2d(&input_both).unwrap();
     let tip_both = res_both.displacements.iter().find(|d| d.node_id == n + 1).unwrap();
@@ -242,7 +242,7 @@ fn validation_spring_axial_and_transverse() {
     let input_ax = make_beam_with_springs(n, l, "fixed", None,
         vec![(n + 1, Some(kx), Some(ky), None)],
         vec![SolverLoad::Nodal(SolverNodalLoad {
-            node_id: n + 1, fx, fy: 0.0, mz: 0.0,
+            node_id: n + 1, fx, fz: 0.0, my: 0.0,
         })]);
     let res_ax = linear::solve_2d(&input_ax).unwrap();
     let tip_ax = res_ax.displacements.iter().find(|d| d.node_id == n + 1).unwrap();
@@ -251,15 +251,15 @@ fn validation_spring_axial_and_transverse() {
     let input_tr = make_beam_with_springs(n, l, "fixed", None,
         vec![(n + 1, Some(kx), Some(ky), None)],
         vec![SolverLoad::Nodal(SolverNodalLoad {
-            node_id: n + 1, fx: 0.0, fy, mz: 0.0,
+            node_id: n + 1, fx: 0.0, fz: fy, my: 0.0,
         })]);
     let res_tr = linear::solve_2d(&input_tr).unwrap();
     let tip_tr = res_tr.displacements.iter().find(|d| d.node_id == n + 1).unwrap();
 
     // Superposition: combined displacement = sum of individual displacements
     assert_close(tip_both.ux, tip_ax.ux + tip_tr.ux, 0.02, "Superposition ux");
-    assert_close(tip_both.uy, tip_ax.uy + tip_tr.uy, 0.02, "Superposition uy");
-    assert_close(tip_both.rz, tip_ax.rz + tip_tr.rz, 0.02, "Superposition rz");
+    assert_close(tip_both.uz, tip_ax.uz + tip_tr.uz, 0.02, "Superposition uy");
+    assert_close(tip_both.ry, tip_ax.ry + tip_tr.ry, 0.02, "Superposition rz");
 
     // Verify axial displacement analytically: delta = F / (EA/L + kx)
     let k_beam_axial = e_eff * A / l;
@@ -295,7 +295,7 @@ fn validation_spring_rotational_sweep() {
         let mut nodes = HashMap::new();
         for i in 0..=n {
             nodes.insert((i + 1).to_string(), SolverNode {
-                id: i + 1, x: i as f64 * elem_len, y: 0.0,
+                id: i + 1, x: i as f64 * elem_len, z: 0.0,
             });
         }
         let mut mats = HashMap::new();
@@ -315,10 +315,10 @@ fn validation_spring_rotational_sweep() {
         sups.insert("1".to_string(), SolverSupport {
             id: 1, node_id: 1, support_type: "pinned".to_string(),
             kx: None, ky: None, kz: Some(kz),
-            dx: None, dy: None, drz: None, angle: None,
+            dx: None, dz: None, dry: None, angle: None,
         });
         let loads = vec![SolverLoad::Nodal(SolverNodalLoad {
-            node_id: n + 1, fx: 0.0, fy: -p, mz: 0.0,
+            node_id: n + 1, fx: 0.0, fz: -p, my: 0.0,
         })];
 
         let input = SolverInput {
@@ -327,7 +327,7 @@ fn validation_spring_rotational_sweep() {
             connectors: HashMap::new(), };
         let results = linear::solve_2d(&input).unwrap();
         let tip = results.displacements.iter().find(|d| d.node_id == n + 1).unwrap();
-        let deflection = tip.uy.abs();
+        let deflection = tip.uz.abs();
 
         // Monotonically decreasing deflection with increasing stiffness
         assert!(deflection < prev_deflection,
@@ -388,7 +388,7 @@ fn validation_spring_quarter_span_moment() {
 
     // Verify equilibrium
     let total_load = q.abs() * l;
-    let sum_ry: f64 = res_spring.reactions.iter().map(|r| r.ry).sum();
+    let sum_ry: f64 = res_spring.reactions.iter().map(|r| r.rz).sum();
     assert_close(sum_ry, total_load, 0.01, "Quarter-span spring equilibrium");
 }
 
@@ -410,17 +410,17 @@ fn validation_spring_energy_balance() {
     let input = make_beam_with_springs(n, l, "fixed", None,
         vec![(n + 1, None, Some(k_spring), None)],
         vec![SolverLoad::Nodal(SolverNodalLoad {
-            node_id: n + 1, fx: 0.0, fy: -p, mz: 0.0,
+            node_id: n + 1, fx: 0.0, fz: -p, my: 0.0,
         })]);
 
     let results = linear::solve_2d(&input).unwrap();
     let tip = results.displacements.iter().find(|d| d.node_id == n + 1).unwrap();
 
     // External work = 0.5 * P * delta (nodal load only)
-    let w_ext = 0.5 * p * tip.uy.abs();
+    let w_ext = 0.5 * p * tip.uz.abs();
 
     // Spring energy = 0.5 * k * delta^2
-    let w_spring = 0.5 * k_spring * tip.uy * tip.uy;
+    let w_spring = 0.5 * k_spring * tip.uz * tip.uz;
 
     // Beam internal energy can be computed from element forces.
     // For a frame element: U = integral of M^2/(2EI) + N^2/(2EA) + V^2/(2GA)
@@ -441,7 +441,7 @@ fn validation_spring_energy_balance() {
     assert!(w_beam > 0.0, "Beam absorbs positive energy: {:.6e}", w_beam);
 
     // Cross-check: spring force = k * |delta|
-    let f_spring = k_spring * tip.uy.abs();
+    let f_spring = k_spring * tip.uz.abs();
     // Beam tip shear = P - f_spring (equilibrium at tip)
     let f_beam_tip = p - f_spring;
     assert!(f_beam_tip > 0.0,
@@ -449,7 +449,7 @@ fn validation_spring_energy_balance() {
 
     // Verify beam energy via alternate route:
     // W_beam should equal 0.5 * P * |delta_tip| - 0.5 * k * delta^2
-    let w_beam_check = 0.5 * p * tip.uy.abs() - 0.5 * k_spring * tip.uy.powi(2);
+    let w_beam_check = 0.5 * p * tip.uz.abs() - 0.5 * k_spring * tip.uz.powi(2);
     assert_close(w_beam, w_beam_check, 0.01, "Beam energy cross-check");
 }
 
@@ -476,10 +476,10 @@ fn validation_spring_with_point_load_superposition() {
     // SS beam without spring
     let input_no = crate::common::make_beam(n, l, E, A, IZ, "pinned", Some("rollerX"),
         vec![SolverLoad::Nodal(SolverNodalLoad {
-            node_id: mid, fx: 0.0, fy: -p, mz: 0.0,
+            node_id: mid, fx: 0.0, fz: -p, my: 0.0,
         })]);
     let res_no = linear::solve_2d(&input_no).unwrap();
-    let mid_no = res_no.displacements.iter().find(|d| d.node_id == mid).unwrap().uy;
+    let mid_no = res_no.displacements.iter().find(|d| d.node_id == mid).unwrap().uz;
 
     // Check numerical SS deflection against analytical
     assert_close(mid_no.abs(), delta_ss, 0.02, "SS midspan deflection analytical");
@@ -492,10 +492,10 @@ fn validation_spring_with_point_load_superposition() {
         let input_spring = make_beam_with_springs(n, l, "pinned", Some("rollerX"),
             vec![(mid, None, Some(k), None)],
             vec![SolverLoad::Nodal(SolverNodalLoad {
-                node_id: mid, fx: 0.0, fy: -p, mz: 0.0,
+                node_id: mid, fx: 0.0, fz: -p, my: 0.0,
             })]);
         let res_spring = linear::solve_2d(&input_spring).unwrap();
-        let mid_d = res_spring.displacements.iter().find(|d| d.node_id == mid).unwrap().uy.abs();
+        let mid_d = res_spring.displacements.iter().find(|d| d.node_id == mid).unwrap().uz.abs();
 
         // Deflection should decrease with increasing spring stiffness
         assert!(mid_d < prev_deflection,
@@ -535,7 +535,7 @@ fn validation_spring_opposing_free_beam() {
     let mut nodes = HashMap::new();
     for i in 0..n_nodes {
         nodes.insert((i + 1).to_string(), SolverNode {
-            id: i + 1, x: i as f64 * elem_len, y: 0.0,
+            id: i + 1, x: i as f64 * elem_len, z: 0.0,
         });
     }
     let mut mats = HashMap::new();
@@ -557,16 +557,16 @@ fn validation_spring_opposing_free_beam() {
     sups.insert("1".to_string(), SolverSupport {
         id: 1, node_id: 1, support_type: "spring".to_string(),
         kx: Some(1e8), ky: Some(k_spring), kz: None,
-        dx: None, dy: None, drz: None, angle: None,
+        dx: None, dz: None, dry: None, angle: None,
     });
     sups.insert("2".to_string(), SolverSupport {
         id: 2, node_id: n_nodes, support_type: "spring".to_string(),
         kx: None, ky: Some(k_spring), kz: None,
-        dx: None, dy: None, drz: None, angle: None,
+        dx: None, dz: None, dry: None, angle: None,
     });
 
     let loads = vec![SolverLoad::Nodal(SolverNodalLoad {
-        node_id: mid, fx: 0.0, fy: -p, mz: 0.0,
+        node_id: mid, fx: 0.0, fz: -p, my: 0.0,
     })];
 
     let input = SolverInput {
@@ -576,26 +576,26 @@ fn validation_spring_opposing_free_beam() {
     let results = linear::solve_2d(&input).unwrap();
 
     // Global equilibrium: sum of spring reactions = P
-    let sum_ry: f64 = results.reactions.iter().map(|r| r.ry).sum();
+    let sum_ry: f64 = results.reactions.iter().map(|r| r.rz).sum();
     assert_close(sum_ry, p, 0.01, "Free beam spring equilibrium");
 
     // By symmetry: each end carries P/2
     let r1 = results.reactions.iter().find(|r| r.node_id == 1).unwrap();
     let r2 = results.reactions.iter().find(|r| r.node_id == n_nodes).unwrap();
-    assert_close(r1.ry, p / 2.0, 0.02, "Left spring carries P/2");
-    assert_close(r2.ry, p / 2.0, 0.02, "Right spring carries P/2");
+    assert_close(r1.rz, p / 2.0, 0.02, "Left spring carries P/2");
+    assert_close(r2.rz, p / 2.0, 0.02, "Right spring carries P/2");
 
     // End displacements should be equal by symmetry
-    let d1 = results.displacements.iter().find(|d| d.node_id == 1).unwrap().uy;
-    let d2 = results.displacements.iter().find(|d| d.node_id == n_nodes).unwrap().uy;
+    let d1 = results.displacements.iter().find(|d| d.node_id == 1).unwrap().uz;
+    let d2 = results.displacements.iter().find(|d| d.node_id == n_nodes).unwrap().uz;
     assert_close(d1, d2, 0.02, "Symmetric end displacements");
 
     // Midspan deflection should be larger (in magnitude) than end deflections
-    let d_mid = results.displacements.iter().find(|d| d.node_id == mid).unwrap().uy;
+    let d_mid = results.displacements.iter().find(|d| d.node_id == mid).unwrap().uz;
     assert!(d_mid.abs() > d1.abs(),
         "Midspan deflects more than ends: {:.6e} > {:.6e}", d_mid.abs(), d1.abs());
 
     // Verify spring reaction = k * delta for each end
-    assert_close(r1.ry, k_spring * d1.abs(), 0.02, "Left spring R = k*d");
-    assert_close(r2.ry, k_spring * d2.abs(), 0.02, "Right spring R = k*d");
+    assert_close(r1.rz, k_spring * d1.abs(), 0.02, "Left spring R = k*d");
+    assert_close(r2.rz, k_spring * d2.abs(), 0.02, "Right spring R = k*d");
 }

@@ -48,10 +48,10 @@ fn validation_slope_defl_fixed_zero_rotations() {
     let d_end = results.displacements.iter().find(|d| d.node_id == n + 1).unwrap();
 
     // Fixed ends: θ = 0
-    assert!(d1.rz.abs() < 1e-10,
-        "Fixed-fixed: θ_left = 0: {:.6e}", d1.rz);
-    assert!(d_end.rz.abs() < 1e-10,
-        "Fixed-fixed: θ_right = 0: {:.6e}", d_end.rz);
+    assert!(d1.ry.abs() < 1e-10,
+        "Fixed-fixed: θ_left = 0: {:.6e}", d1.ry);
+    assert!(d_end.ry.abs() < 1e-10,
+        "Fixed-fixed: θ_right = 0: {:.6e}", d_end.ry);
 }
 
 // ================================================================
@@ -77,13 +77,13 @@ fn validation_slope_defl_propped_rotation() {
 
     // θ_roller = qL³/(48EI) for propped cantilever with UDL
     let theta_exact = q.abs() * l * l * l / (48.0 * e_eff * IZ);
-    assert_close(d_end.rz.abs(), theta_exact, 0.05,
+    assert_close(d_end.ry.abs(), theta_exact, 0.05,
         "Slope-defl: propped cantilever θ = qL³/(48EI)");
 
     // Fixed end: θ = 0
     let d1 = results.displacements.iter().find(|d| d.node_id == 1).unwrap();
-    assert!(d1.rz.abs() < 1e-10,
-        "Propped: θ_fixed = 0: {:.6e}", d1.rz);
+    assert!(d1.ry.abs() < 1e-10,
+        "Propped: θ_fixed = 0: {:.6e}", d1.ry);
 }
 
 // ================================================================
@@ -108,8 +108,8 @@ fn validation_slope_defl_two_span_joint() {
     let d_int = results.displacements.iter().find(|d| d.node_id == interior).unwrap();
 
     // For symmetric loading on equal spans: θ_interior = 0
-    assert!(d_int.rz.abs() < 1e-10,
-        "Two-span symmetric: θ_interior = 0: {:.6e}", d_int.rz);
+    assert!(d_int.ry.abs() < 1e-10,
+        "Two-span symmetric: θ_interior = 0: {:.6e}", d_int.ry);
 
     // Moment continuity at interior joint: m_end of left element = m_start of right element
     // (both represent the same internal moment at the joint, in element-local convention)
@@ -169,7 +169,7 @@ fn validation_slope_defl_end_moment() {
     // Fixed-fixed beam with moment at midspan node
     let mid = n / 2 + 1;
     let loads = vec![SolverLoad::Nodal(SolverNodalLoad {
-        node_id: mid, fx: 0.0, fy: 0.0, mz: m,
+        node_id: mid, fx: 0.0, fz: 0.0, my: m,
     })];
     let input = make_beam(n, l, E, A, IZ, "fixed", Some("fixed"), loads);
     let results = linear::solve_2d(&input).unwrap();
@@ -177,13 +177,13 @@ fn validation_slope_defl_end_moment() {
     // Both ends should have zero rotation (fixed)
     let d1 = results.displacements.iter().find(|d| d.node_id == 1).unwrap();
     let d_end = results.displacements.iter().find(|d| d.node_id == n + 1).unwrap();
-    assert!(d1.rz.abs() < 1e-10, "End moment: θ_left = 0");
-    assert!(d_end.rz.abs() < 1e-10, "End moment: θ_right = 0");
+    assert!(d1.ry.abs() < 1e-10, "End moment: θ_left = 0");
+    assert!(d_end.ry.abs() < 1e-10, "End moment: θ_right = 0");
 
     // Midspan should have non-zero rotation
     let d_mid = results.displacements.iter().find(|d| d.node_id == mid).unwrap();
-    assert!(d_mid.rz.abs() > 0.0,
-        "End moment: θ_mid ≠ 0: {:.6e}", d_mid.rz);
+    assert!(d_mid.ry.abs() > 0.0,
+        "End moment: θ_mid ≠ 0: {:.6e}", d_mid.ry);
 }
 
 // ================================================================
@@ -205,7 +205,7 @@ fn validation_slope_defl_carryover() {
     // Near end = right (roller), far end = left (fixed).
     // M_near = applied moment, M_far = COF × M_near
     let loads = vec![SolverLoad::Nodal(SolverNodalLoad {
-        node_id: n + 1, fx: 0.0, fy: 0.0, mz: m,
+        node_id: n + 1, fx: 0.0, fz: 0.0, my: m,
     })];
     let input = make_beam(n, l, E, A, IZ, "fixed", Some("rollerX"), loads);
     let results = linear::solve_2d(&input).unwrap();
@@ -217,7 +217,7 @@ fn validation_slope_defl_carryover() {
     // The stiffness seen from roller = 3EI/L
     // The fixed end gets COF = 0.5 of the internal moment
     // Reaction moment at fixed = M/2
-    assert_close(r1.mz.abs(), m / 2.0, 0.05,
+    assert_close(r1.my.abs(), m / 2.0, 0.05,
         "Carryover: M_far = M_applied/2");
 }
 
@@ -237,7 +237,7 @@ fn validation_slope_defl_distribution_factor() {
 
     // Two-span beam with moment at interior. Unequal spans → different stiffnesses.
     let loads = vec![SolverLoad::Nodal(SolverNodalLoad {
-        node_id: n + 1, fx: 0.0, fy: 0.0, mz: m,
+        node_id: n + 1, fx: 0.0, fz: 0.0, my: m,
     })];
     let input = make_continuous_beam(&[l1, l2], n, E, A, IZ, loads);
     let results = linear::solve_2d(&input).unwrap();

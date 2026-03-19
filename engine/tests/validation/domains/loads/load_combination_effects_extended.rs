@@ -90,15 +90,15 @@ fn validation_lce_ext_triangular_plus_uniform_cantilever() {
     let tip = n + 1;
 
     // Superposition check: tip deflection
-    let da = res_a.displacements.iter().find(|d| d.node_id == tip).unwrap().uy;
-    let db = res_b.displacements.iter().find(|d| d.node_id == tip).unwrap().uy;
-    let dc = res_c.displacements.iter().find(|d| d.node_id == tip).unwrap().uy;
+    let da = res_a.displacements.iter().find(|d| d.node_id == tip).unwrap().uz;
+    let db = res_b.displacements.iter().find(|d| d.node_id == tip).unwrap().uz;
+    let dc = res_c.displacements.iter().find(|d| d.node_id == tip).unwrap().uz;
     assert_close(dc, da + db, 0.01, "Tri+UDL cantilever: δ_C = δ_A + δ_B");
 
     // Superposition check: fixed-end reaction Ry
-    let ra = res_a.reactions.iter().find(|r| r.node_id == 1).unwrap().ry;
-    let rb = res_b.reactions.iter().find(|r| r.node_id == 1).unwrap().ry;
-    let rc = res_c.reactions.iter().find(|r| r.node_id == 1).unwrap().ry;
+    let ra = res_a.reactions.iter().find(|r| r.node_id == 1).unwrap().rz;
+    let rb = res_b.reactions.iter().find(|r| r.node_id == 1).unwrap().rz;
+    let rc = res_c.reactions.iter().find(|r| r.node_id == 1).unwrap().rz;
     assert_close(rc, ra + rb, 0.01, "Tri+UDL cantilever: Ry_C = Ry_A + Ry_B");
 
     // Analytical: UDL tip deflection = wL⁴/(8EI)
@@ -165,22 +165,22 @@ fn validation_lce_ext_continuous_beam_span_loading() {
     let end_node = 2 * n_per + 1;
 
     // Superposition: center reaction
-    let rc_a = res_a.reactions.iter().find(|r| r.node_id == center_node).unwrap().ry;
-    let rc_b = res_b.reactions.iter().find(|r| r.node_id == center_node).unwrap().ry;
-    let rc_c = res_c.reactions.iter().find(|r| r.node_id == center_node).unwrap().ry;
+    let rc_a = res_a.reactions.iter().find(|r| r.node_id == center_node).unwrap().rz;
+    let rc_b = res_b.reactions.iter().find(|r| r.node_id == center_node).unwrap().rz;
+    let rc_c = res_c.reactions.iter().find(|r| r.node_id == center_node).unwrap().rz;
     assert_close(rc_c, rc_a + rc_b, 0.01,
         "Continuous beam: center Ry superposition");
 
     // Superposition: end reactions
-    let r1_a = res_a.reactions.iter().find(|r| r.node_id == 1).unwrap().ry;
-    let r1_b = res_b.reactions.iter().find(|r| r.node_id == 1).unwrap().ry;
-    let r1_c = res_c.reactions.iter().find(|r| r.node_id == 1).unwrap().ry;
+    let r1_a = res_a.reactions.iter().find(|r| r.node_id == 1).unwrap().rz;
+    let r1_b = res_b.reactions.iter().find(|r| r.node_id == 1).unwrap().rz;
+    let r1_c = res_c.reactions.iter().find(|r| r.node_id == 1).unwrap().rz;
     assert_close(r1_c, r1_a + r1_b, 0.01,
         "Continuous beam: left Ry superposition");
 
-    let rn_a = res_a.reactions.iter().find(|r| r.node_id == end_node).unwrap().ry;
-    let rn_b = res_b.reactions.iter().find(|r| r.node_id == end_node).unwrap().ry;
-    let rn_c = res_c.reactions.iter().find(|r| r.node_id == end_node).unwrap().ry;
+    let rn_a = res_a.reactions.iter().find(|r| r.node_id == end_node).unwrap().rz;
+    let rn_b = res_b.reactions.iter().find(|r| r.node_id == end_node).unwrap().rz;
+    let rn_c = res_c.reactions.iter().find(|r| r.node_id == end_node).unwrap().rz;
     assert_close(rn_c, rn_a + rn_b, 0.01,
         "Continuous beam: right Ry superposition");
 
@@ -235,9 +235,9 @@ fn validation_lce_ext_portal_frame_superposition() {
         let rc = res_c.reactions.iter().find(|r| r.node_id == node_id).unwrap();
         assert_close(rc.rx, ra.rx + rb.rx, 0.01,
             &format!("Portal frame: Rx at node {} superposition", node_id));
-        assert_close(rc.ry, ra.ry + rb.ry, 0.01,
+        assert_close(rc.rz, ra.rz + rb.rz, 0.01,
             &format!("Portal frame: Ry at node {} superposition", node_id));
-        assert_close(rc.mz, ra.mz + rb.mz, 0.01,
+        assert_close(rc.my, ra.my + rb.my, 0.01,
             &format!("Portal frame: Mz at node {} superposition", node_id));
     }
 
@@ -247,7 +247,7 @@ fn validation_lce_ext_portal_frame_superposition() {
     let dc = res_c.displacements.iter().find(|d| d.node_id == 2).unwrap();
     assert_close(dc.ux, da.ux + db.ux, 0.01,
         "Portal frame: ux at node 2 superposition");
-    assert_close(dc.uy, da.uy + db.uy, 0.01,
+    assert_close(dc.uz, da.uz + db.uz, 0.01,
         "Portal frame: uy at node 2 superposition");
 
     // Gravity: symmetric loading → horizontal reactions at base should balance
@@ -288,12 +288,12 @@ fn validation_lce_ext_propped_cantilever_superposition() {
         let mut loads = Vec::new();
         if apply_p {
             loads.push(SolverLoad::Nodal(SolverNodalLoad {
-                node_id: mid, fx: 0.0, fy: -p, mz: 0.0,
+                node_id: mid, fx: 0.0, fz: -p, my: 0.0,
             }));
         }
         if apply_m {
             loads.push(SolverLoad::Nodal(SolverNodalLoad {
-                node_id: mid, fx: 0.0, fy: 0.0, mz: m0,
+                node_id: mid, fx: 0.0, fz: 0.0, my: m0,
             }));
         }
         let input = make_beam(n, l, E, A, IZ, "fixed", Some("rollerX"), loads);
@@ -305,23 +305,23 @@ fn validation_lce_ext_propped_cantilever_superposition() {
     let res_c = build(true, true);
 
     // Superposition: reaction at roller (node tip)
-    let ry_a = res_a.reactions.iter().find(|r| r.node_id == tip).unwrap().ry;
-    let ry_b = res_b.reactions.iter().find(|r| r.node_id == tip).unwrap().ry;
-    let ry_c = res_c.reactions.iter().find(|r| r.node_id == tip).unwrap().ry;
+    let ry_a = res_a.reactions.iter().find(|r| r.node_id == tip).unwrap().rz;
+    let ry_b = res_b.reactions.iter().find(|r| r.node_id == tip).unwrap().rz;
+    let ry_c = res_c.reactions.iter().find(|r| r.node_id == tip).unwrap().rz;
     assert_close(ry_c, ry_a + ry_b, 0.01,
         "Propped cantilever: Ry roller superposition");
 
     // Superposition: fixed-end moment at node 1
-    let mz_a = res_a.reactions.iter().find(|r| r.node_id == 1).unwrap().mz;
-    let mz_b = res_b.reactions.iter().find(|r| r.node_id == 1).unwrap().mz;
-    let mz_c = res_c.reactions.iter().find(|r| r.node_id == 1).unwrap().mz;
+    let mz_a = res_a.reactions.iter().find(|r| r.node_id == 1).unwrap().my;
+    let mz_b = res_b.reactions.iter().find(|r| r.node_id == 1).unwrap().my;
+    let mz_c = res_c.reactions.iter().find(|r| r.node_id == 1).unwrap().my;
     assert_close(mz_c, mz_a + mz_b, 0.01,
         "Propped cantilever: Mz fixed end superposition");
 
     // Superposition: midspan deflection
-    let dy_a = res_a.displacements.iter().find(|d| d.node_id == mid).unwrap().uy;
-    let dy_b = res_b.displacements.iter().find(|d| d.node_id == mid).unwrap().uy;
-    let dy_c = res_c.displacements.iter().find(|d| d.node_id == mid).unwrap().uy;
+    let dy_a = res_a.displacements.iter().find(|d| d.node_id == mid).unwrap().uz;
+    let dy_b = res_b.displacements.iter().find(|d| d.node_id == mid).unwrap().uz;
+    let dy_c = res_c.displacements.iter().find(|d| d.node_id == mid).unwrap().uz;
     assert_close(dy_c, dy_a + dy_b, 0.01,
         "Propped cantilever: δ_mid superposition");
 
@@ -362,10 +362,10 @@ fn validation_lce_ext_fixed_beam_two_point_loads_vs_udl() {
     // Case A: Two point loads at third-points
     let loads_a = vec![
         SolverLoad::Nodal(SolverNodalLoad {
-            node_id: n_third, fx: 0.0, fy: -p, mz: 0.0,
+            node_id: n_third, fx: 0.0, fz: -p, my: 0.0,
         }),
         SolverLoad::Nodal(SolverNodalLoad {
-            node_id: n_two_third, fx: 0.0, fy: -p, mz: 0.0,
+            node_id: n_two_third, fx: 0.0, fz: -p, my: 0.0,
         }),
     ];
     let input_a = make_beam(n, l, E, A, IZ, "fixed", Some("fixed"), loads_a);
@@ -381,13 +381,13 @@ fn validation_lce_ext_fixed_beam_two_point_loads_vs_udl() {
     let res_b = linear::solve_2d(&input_b).unwrap();
 
     // Both cases: same total load = 2P = w*L → same total vertical reaction
-    let ry_a_left = res_a.reactions.iter().find(|r| r.node_id == 1).unwrap().ry;
-    let ry_a_right = res_a.reactions.iter().find(|r| r.node_id == n + 1).unwrap().ry;
+    let ry_a_left = res_a.reactions.iter().find(|r| r.node_id == 1).unwrap().rz;
+    let ry_a_right = res_a.reactions.iter().find(|r| r.node_id == n + 1).unwrap().rz;
     assert_close(ry_a_left + ry_a_right, 2.0 * p, 0.01,
         "Two-point loads: total reaction = 2P");
 
-    let ry_b_left = res_b.reactions.iter().find(|r| r.node_id == 1).unwrap().ry;
-    let ry_b_right = res_b.reactions.iter().find(|r| r.node_id == n + 1).unwrap().ry;
+    let ry_b_left = res_b.reactions.iter().find(|r| r.node_id == 1).unwrap().rz;
+    let ry_b_right = res_b.reactions.iter().find(|r| r.node_id == n + 1).unwrap().rz;
     assert_close(ry_b_left + ry_b_right, 2.0 * p, 0.01,
         "Equivalent UDL: total reaction = wL = 2P");
 
@@ -397,7 +397,7 @@ fn validation_lce_ext_fixed_beam_two_point_loads_vs_udl() {
 
     // Analytical: fixed-fixed UDL → M_end = wL²/12
     let m_end_udl_exact = w_eq.abs() * l.powi(2) / 12.0;
-    let mz_b_left = res_b.reactions.iter().find(|r| r.node_id == 1).unwrap().mz;
+    let mz_b_left = res_b.reactions.iter().find(|r| r.node_id == 1).unwrap().my;
     assert_close(mz_b_left.abs(), m_end_udl_exact, 0.02,
         "Fixed-fixed UDL: M_end = wL²/12");
 
@@ -442,12 +442,12 @@ fn validation_lce_ext_cantilever_tip_moment_and_load() {
         let mut loads = Vec::new();
         if apply_p {
             loads.push(SolverLoad::Nodal(SolverNodalLoad {
-                node_id: tip, fx: 0.0, fy: -p, mz: 0.0,
+                node_id: tip, fx: 0.0, fz: -p, my: 0.0,
             }));
         }
         if apply_m {
             loads.push(SolverLoad::Nodal(SolverNodalLoad {
-                node_id: tip, fx: 0.0, fy: 0.0, mz: m0,
+                node_id: tip, fx: 0.0, fz: 0.0, my: m0,
             }));
         }
         let input = make_beam(n, l, E, A, IZ, "fixed", None, loads);
@@ -463,32 +463,32 @@ fn validation_lce_ext_cantilever_tip_moment_and_load() {
     let tip_c = res_c.displacements.iter().find(|d| d.node_id == tip).unwrap();
 
     // Superposition: deflection
-    assert_close(tip_c.uy, tip_a.uy + tip_b.uy, 0.01,
+    assert_close(tip_c.uz, tip_a.uz + tip_b.uz, 0.01,
         "Cantilever tip: δ_C = δ_P + δ_M (superposition)");
 
     // Superposition: rotation
-    assert_close(tip_c.rz, tip_a.rz + tip_b.rz, 0.01,
+    assert_close(tip_c.ry, tip_a.ry + tip_b.ry, 0.01,
         "Cantilever tip: θ_C = θ_P + θ_M (superposition)");
 
     // Analytical: tip deflection from point load = PL³/(3EI)
     let delta_p_exact = p * l.powi(3) / (3.0 * e_eff * IZ);
-    assert_close(tip_a.uy.abs(), delta_p_exact, 0.02,
+    assert_close(tip_a.uz.abs(), delta_p_exact, 0.02,
         "Cantilever: δ_P = PL³/(3EI)");
 
     // Analytical: tip rotation from point load = PL²/(2EI)
     let theta_p_exact = p * l.powi(2) / (2.0 * e_eff * IZ);
-    assert_close(tip_a.rz.abs(), theta_p_exact, 0.02,
+    assert_close(tip_a.ry.abs(), theta_p_exact, 0.02,
         "Cantilever: θ_P = PL²/(2EI)");
 
     // Analytical: tip deflection from moment = ML²/(2EI)
     // Note: moment M0 (CCW) causes upward deflection at tip
     let delta_m_exact = m0 * l.powi(2) / (2.0 * e_eff * IZ);
-    assert_close(tip_b.uy.abs(), delta_m_exact, 0.02,
+    assert_close(tip_b.uz.abs(), delta_m_exact, 0.02,
         "Cantilever: δ_M = ML²/(2EI)");
 
     // Analytical: tip rotation from moment = ML/(EI)
     let theta_m_exact = m0 * l / (e_eff * IZ);
-    assert_close(tip_b.rz.abs(), theta_m_exact, 0.02,
+    assert_close(tip_b.ry.abs(), theta_m_exact, 0.02,
         "Cantilever: θ_M = ML/(EI)");
 }
 
@@ -536,9 +536,9 @@ fn validation_lce_ext_pattern_loading_vs_full() {
     // Superposition: full = pattern + span2_only
     // Check midspan deflection of span 2 (middle of second span)
     let mid_span2_node = n_per + n_per / 2 + 1;
-    let d_full = res_full.displacements.iter().find(|d| d.node_id == mid_span2_node).unwrap().uy;
-    let d_pattern = res_pattern.displacements.iter().find(|d| d.node_id == mid_span2_node).unwrap().uy;
-    let d_span2 = res_span2.displacements.iter().find(|d| d.node_id == mid_span2_node).unwrap().uy;
+    let d_full = res_full.displacements.iter().find(|d| d.node_id == mid_span2_node).unwrap().uz;
+    let d_pattern = res_pattern.displacements.iter().find(|d| d.node_id == mid_span2_node).unwrap().uz;
+    let d_span2 = res_span2.displacements.iter().find(|d| d.node_id == mid_span2_node).unwrap().uz;
     assert_close(d_full, d_pattern + d_span2, 0.01,
         "Pattern loading: full = pattern + span2_only (midspan2 δ)");
 
@@ -551,14 +551,14 @@ fn validation_lce_ext_pattern_loading_vs_full() {
     // should equal center reaction at support 3 (by symmetry).
     let sup2_node = n_per + 1;
     let sup3_node = 2 * n_per + 1;
-    let r_sup2_full = res_full.reactions.iter().find(|r| r.node_id == sup2_node).unwrap().ry;
-    let r_sup3_full = res_full.reactions.iter().find(|r| r.node_id == sup3_node).unwrap().ry;
+    let r_sup2_full = res_full.reactions.iter().find(|r| r.node_id == sup2_node).unwrap().rz;
+    let r_sup3_full = res_full.reactions.iter().find(|r| r.node_id == sup3_node).unwrap().rz;
     assert_close(r_sup2_full, r_sup3_full, 0.01,
         "Full loading 3-span: R_sup2 = R_sup3 (symmetry)");
 
     // Also check superposition at support reactions
-    let r_sup2_pattern = res_pattern.reactions.iter().find(|r| r.node_id == sup2_node).unwrap().ry;
-    let r_sup2_span2 = res_span2.reactions.iter().find(|r| r.node_id == sup2_node).unwrap().ry;
+    let r_sup2_pattern = res_pattern.reactions.iter().find(|r| r.node_id == sup2_node).unwrap().rz;
+    let r_sup2_span2 = res_span2.reactions.iter().find(|r| r.node_id == sup2_node).unwrap().rz;
     assert_close(r_sup2_full, r_sup2_pattern + r_sup2_span2, 0.01,
         "Pattern loading: support 2 reaction superposition");
 }
@@ -591,11 +591,11 @@ fn validation_lce_ext_scaling_linearity() {
         let mut loads = Vec::new();
         // Point load at midspan
         loads.push(SolverLoad::Nodal(SolverNodalLoad {
-            node_id: mid, fx: 0.0, fy: scale * (-p), mz: 0.0,
+            node_id: mid, fx: 0.0, fz: scale * (-p), my: 0.0,
         }));
         // Moment at quarter-span
         loads.push(SolverLoad::Nodal(SolverNodalLoad {
-            node_id: quarter, fx: 0.0, fy: 0.0, mz: scale * m0,
+            node_id: quarter, fx: 0.0, fz: 0.0, my: scale * m0,
         }));
         // UDL on all elements
         for i in 1..=n {
@@ -613,18 +613,18 @@ fn validation_lce_ext_scaling_linearity() {
     // Reactions scale by α
     for r1 in &res_1.reactions {
         let r2 = res_2.reactions.iter().find(|r| r.node_id == r1.node_id).unwrap();
-        assert_close(r2.ry, alpha * r1.ry, 0.01,
+        assert_close(r2.rz, alpha * r1.rz, 0.01,
             &format!("Scaling: Ry at node {} scales by α", r1.node_id));
-        assert_close(r2.mz, alpha * r1.mz, 0.01,
+        assert_close(r2.my, alpha * r1.my, 0.01,
             &format!("Scaling: Mz at node {} scales by α", r1.node_id));
     }
 
     // Displacements scale by α
     for d1 in &res_1.displacements {
         let d2 = res_2.displacements.iter().find(|d| d.node_id == d1.node_id).unwrap();
-        assert_close(d2.uy, alpha * d1.uy, 0.01,
+        assert_close(d2.uz, alpha * d1.uz, 0.01,
             &format!("Scaling: uy at node {} scales by α", d1.node_id));
-        assert_close(d2.rz, alpha * d1.rz, 0.01,
+        assert_close(d2.ry, alpha * d1.ry, 0.01,
             &format!("Scaling: rz at node {} scales by α", d1.node_id));
     }
 

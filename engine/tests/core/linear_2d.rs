@@ -19,8 +19,8 @@ fn simply_supported_beam_udl_reactions() {
 
     let r1 = results.reactions.iter().find(|r| r.node_id == 1).unwrap();
     let r2 = results.reactions.iter().find(|r| r.node_id == 2).unwrap();
-    assert_close(r1.ry, 30.0, 0.01, "R1y");
-    assert_close(r2.ry, 30.0, 0.01, "R2y");
+    assert_close(r1.rz, 30.0, 0.01, "R1y");
+    assert_close(r2.rz, 30.0, 0.01, "R2y");
     assert_close(r1.rx, 0.0, 0.01, "R1x");
 }
 
@@ -33,7 +33,7 @@ fn simply_supported_beam_udl_deflection() {
 
     let mid = results.displacements.iter().find(|d| d.node_id == 2).unwrap();
     let expected_delta = 5.0 * 10.0 * 6.0_f64.powi(4) / (384.0 * EI);
-    assert_close(mid.uy.abs(), expected_delta, 0.02, "midspan deflection");
+    assert_close(mid.uz.abs(), expected_delta, 0.02, "midspan deflection");
 }
 
 #[test]
@@ -46,7 +46,7 @@ fn simply_supported_beam_udl_end_rotation() {
 
     let d1 = results.displacements.iter().find(|d| d.node_id == 1).unwrap();
     let expected_theta = q * l.powi(3) / (24.0 * EI);
-    assert_close(d1.rz.abs(), expected_theta, 0.02, "end rotation θA");
+    assert_close(d1.ry.abs(), expected_theta, 0.02, "end rotation θA");
 }
 
 // ─── Cantilever Beam ─────────────────────────────────────────
@@ -60,13 +60,13 @@ fn cantilever_point_load_reactions() {
         vec![(1, A, IZ)],
         vec![(1, "frame", 1, 2, 1, 1, false, false)],
         vec![(1, 1, "fixed")],
-        vec![SolverLoad::Nodal(SolverNodalLoad { node_id: 2, fx: 0.0, fy: -50.0, mz: 0.0 })],
+        vec![SolverLoad::Nodal(SolverNodalLoad { node_id: 2, fx: 0.0, fz: -50.0, my: 0.0 })],
     );
     let results = linear::solve_2d(&input).unwrap();
 
     let r1 = results.reactions.iter().find(|r| r.node_id == 1).unwrap();
-    assert_close(r1.ry, 50.0, 0.01, "Ry");
-    assert_close(r1.mz.abs(), 200.0, 0.01, "Mz");
+    assert_close(r1.rz, 50.0, 0.01, "Ry");
+    assert_close(r1.my.abs(), 200.0, 0.01, "Mz");
 }
 
 #[test]
@@ -80,15 +80,15 @@ fn cantilever_point_load_deflection() {
         vec![(1, A, IZ)],
         vec![(1, "frame", 1, 2, 1, 1, false, false)],
         vec![(1, 1, "fixed")],
-        vec![SolverLoad::Nodal(SolverNodalLoad { node_id: 2, fx: 0.0, fy: -p, mz: 0.0 })],
+        vec![SolverLoad::Nodal(SolverNodalLoad { node_id: 2, fx: 0.0, fz: -p, my: 0.0 })],
     );
     let results = linear::solve_2d(&input).unwrap();
 
     let d2 = results.displacements.iter().find(|d| d.node_id == 2).unwrap();
     let expected_delta = p * l.powi(3) / (3.0 * EI);
     let expected_theta = p * l.powi(2) / (2.0 * EI);
-    assert_close(d2.uy.abs(), expected_delta, 0.01, "tip deflection");
-    assert_close(d2.rz.abs(), expected_theta, 0.01, "tip rotation");
+    assert_close(d2.uz.abs(), expected_delta, 0.01, "tip deflection");
+    assert_close(d2.ry.abs(), expected_theta, 0.01, "tip rotation");
 }
 
 #[test]
@@ -109,8 +109,8 @@ fn cantilever_udl_reactions() {
     let results = linear::solve_2d(&input).unwrap();
 
     let r1 = results.reactions.iter().find(|r| r.node_id == 1).unwrap();
-    assert_close(r1.ry, q * l, 0.01, "Ry");
-    assert_close(r1.mz.abs(), q * l * l / 2.0, 0.01, "Mz");
+    assert_close(r1.rz, q * l, 0.01, "Ry");
+    assert_close(r1.my.abs(), q * l * l / 2.0, 0.01, "Mz");
 }
 
 #[test]
@@ -132,7 +132,7 @@ fn cantilever_udl_tip_deflection() {
 
     let d2 = results.displacements.iter().find(|d| d.node_id == 2).unwrap();
     let expected = q * l.powi(4) / (8.0 * EI);
-    assert_close(d2.uy.abs(), expected, 0.01, "cantilever UDL tip deflection");
+    assert_close(d2.uz.abs(), expected, 0.01, "cantilever UDL tip deflection");
 }
 
 // ─── Fixed-Fixed Beam ────────────────────────────────────────
@@ -164,11 +164,11 @@ fn fixed_fixed_beam_udl_reactions() {
 
     let r1 = results.reactions.iter().find(|r| r.node_id == 1).unwrap();
     let r3 = results.reactions.iter().find(|r| r.node_id == 3).unwrap();
-    assert_close(r1.ry, q * l / 2.0, 0.02, "R1y");
-    assert_close(r3.ry, q * l / 2.0, 0.02, "R3y");
+    assert_close(r1.rz, q * l / 2.0, 0.02, "R1y");
+    assert_close(r3.rz, q * l / 2.0, 0.02, "R3y");
     // Fixed-end moments: qL²/12 = 36 kN·m
-    assert_close(r1.mz.abs(), q * l * l / 12.0, 0.02, "M1");
-    assert_close(r3.mz.abs(), q * l * l / 12.0, 0.02, "M3");
+    assert_close(r1.my.abs(), q * l * l / 12.0, 0.02, "M1");
+    assert_close(r3.my.abs(), q * l * l / 12.0, 0.02, "M3");
 }
 
 // ─── Simple Truss ────────────────────────────────────────────
@@ -185,16 +185,16 @@ fn triangular_truss_equilibrium() {
             (3, "truss", 2, 3, 1, 1, false, false),
         ],
         vec![(1, 1, "pinned"), (2, 2, "rollerX")],
-        vec![SolverLoad::Nodal(SolverNodalLoad { node_id: 3, fx: 0.0, fy: -10.0, mz: 0.0 })],
+        vec![SolverLoad::Nodal(SolverNodalLoad { node_id: 3, fx: 0.0, fz: -10.0, my: 0.0 })],
     );
     let results = linear::solve_2d(&input).unwrap();
 
     // By symmetry: RA_y = RB_y = 5 kN
     let r1 = results.reactions.iter().find(|r| r.node_id == 1).unwrap();
     let r2 = results.reactions.iter().find(|r| r.node_id == 2).unwrap();
-    assert_close(r1.ry, 5.0, 0.01, "RA_y");
-    assert_close(r2.ry, 5.0, 0.01, "RB_y");
-    assert_close(r1.ry + r2.ry, 10.0, 0.001, "ΣRy = P");
+    assert_close(r1.rz, 5.0, 0.01, "RA_y");
+    assert_close(r2.rz, 5.0, 0.01, "RB_y");
+    assert_close(r1.rz + r2.rz, 10.0, 0.001, "ΣRy = P");
 
     // All truss elements: zero shear and moment
     for ef in &results.element_forces {
@@ -214,7 +214,7 @@ fn portal_frame_lateral_load_equilibrium() {
     // ΣFx: R1_x + R4_x + 20 = 0
     assert_close(sum_rx, -20.0, 0.01, "portal frame ΣFx equilibrium");
 
-    let sum_ry: f64 = results.reactions.iter().map(|r| r.ry).sum();
+    let sum_ry: f64 = results.reactions.iter().map(|r| r.rz).sum();
     assert_close(sum_ry, 0.0, 0.01, "portal frame ΣFy = 0");
 
     // Moment equilibrium about the left support (node 1 at origin (0,0)):
@@ -237,7 +237,7 @@ fn simply_supported_beam_with_hinge_start() {
         vec![(1, A, IZ)],
         vec![(1, "frame", 1, 2, 1, 1, true, false)],  // hinge at start
         vec![(1, 1, "fixed"), (2, 2, "rollerX")],
-        vec![SolverLoad::Nodal(SolverNodalLoad { node_id: 2, fx: 0.0, fy: -10.0, mz: 0.0 })],
+        vec![SolverLoad::Nodal(SolverNodalLoad { node_id: 2, fx: 0.0, fz: -10.0, my: 0.0 })],
     );
     let results = linear::solve_2d(&input).unwrap();
 
@@ -260,15 +260,15 @@ fn simply_supported_beam_midspan_point_load() {
         vec![(1, "frame", 1, 2, 1, 1, false, false)],
         vec![(1, 1, "pinned"), (2, 2, "rollerX")],
         vec![SolverLoad::PointOnElement(SolverPointLoadOnElement {
-            element_id: 1, a: l / 2.0, p: -p, px: None, mz: None,
+            element_id: 1, a: l / 2.0, p: -p, px: None, my: None,
         })],
     );
     let results = linear::solve_2d(&input).unwrap();
 
     let r1 = results.reactions.iter().find(|r| r.node_id == 1).unwrap();
     let r2 = results.reactions.iter().find(|r| r.node_id == 2).unwrap();
-    assert_close(r1.ry, p / 2.0, 0.01, "RA");
-    assert_close(r2.ry, p / 2.0, 0.01, "RB");
+    assert_close(r1.rz, p / 2.0, 0.01, "RA");
+    assert_close(r2.rz, p / 2.0, 0.01, "RB");
 }
 
 // ─── Mechanism Detection ─────────────────────────────────────
@@ -282,7 +282,7 @@ fn mechanism_detection() {
         vec![(1, A, IZ)],
         vec![(1, "frame", 1, 2, 1, 1, true, true)],  // both ends hinged
         vec![(1, 1, "pinned")],  // Only bottom pinned
-        vec![SolverLoad::Nodal(SolverNodalLoad { node_id: 2, fx: 10.0, fy: 0.0, mz: 0.0 })],
+        vec![SolverLoad::Nodal(SolverNodalLoad { node_id: 2, fx: 10.0, fz: 0.0, my: 0.0 })],
     );
     // This should either fail or produce very large displacements
     let result = linear::solve_2d(&input);
@@ -290,7 +290,7 @@ fn mechanism_detection() {
     // It should detect instability
     assert!(result.is_err() || {
         let r = result.unwrap();
-        r.displacements.iter().any(|d| d.ux.abs() > 1000.0 || d.uy.abs() > 1000.0)
+        r.displacements.iter().any(|d| d.ux.abs() > 1000.0 || d.uz.abs() > 1000.0)
     });
 }
 
@@ -320,11 +320,11 @@ fn cantilever_mesh_convergence() {
             vec![(1, A, IZ)],
             elems,
             vec![(1, 1, "fixed")],
-            vec![SolverLoad::Nodal(SolverNodalLoad { node_id: n_elem + 1, fx: 0.0, fy: -p, mz: 0.0 })],
+            vec![SolverLoad::Nodal(SolverNodalLoad { node_id: n_elem + 1, fx: 0.0, fz: -p, my: 0.0 })],
         );
         let results = linear::solve_2d(&input).unwrap();
         let tip = results.displacements.iter().find(|d| d.node_id == n_elem + 1).unwrap();
-        let error = (tip.uy.abs() - exact_delta).abs() / exact_delta;
+        let error = (tip.uz.abs() - exact_delta).abs() / exact_delta;
 
         // For this load case, 1 element already gives exact answer (cubic interpolation)
         assert!(error < 0.01, "n_elem={}: error={:.4}%", n_elem, error * 100.0);
@@ -343,7 +343,7 @@ fn json_roundtrip_solve() {
         vec![(1, A, IZ)],
         vec![(1, "frame", 1, 2, 1, 1, false, false)],
         vec![(1, 1, "fixed")],
-        vec![SolverLoad::Nodal(SolverNodalLoad { node_id: 2, fx: 0.0, fy: -50.0, mz: 0.0 })],
+        vec![SolverLoad::Nodal(SolverNodalLoad { node_id: 2, fx: 0.0, fz: -50.0, my: 0.0 })],
     );
 
     // Serialize → deserialize → solve (simulates WASM boundary)
@@ -360,5 +360,5 @@ fn json_roundtrip_solve() {
     assert_eq!(results_back.element_forces.len(), results.element_forces.len());
 
     let r1 = results_back.reactions.iter().find(|r| r.node_id == 1).unwrap();
-    assert_close(r1.ry, 50.0, 0.01, "JSON roundtrip Ry");
+    assert_close(r1.rz, 50.0, 0.01, "JSON roundtrip Ry");
 }

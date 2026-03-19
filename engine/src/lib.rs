@@ -1011,7 +1011,7 @@ mod tests {
     ) -> SolverInput {
         let mut nodes_map = HashMap::new();
         for (id, x, y) in nodes {
-            nodes_map.insert(id.to_string(), SolverNode { id, x, y });
+            nodes_map.insert(id.to_string(), SolverNode { id, x, z: y });
         }
         let mut mats_map = HashMap::new();
         for (id, e, nu) in mats {
@@ -1032,7 +1032,7 @@ mod tests {
         for (id, nid, t) in sups {
             sups_map.insert(id.to_string(), SolverSupport {
                 id, node_id: nid, support_type: t.to_string(),
-                kx: None, ky: None, kz: None, dx: None, dy: None, drz: None, angle: None,
+                kx: None, ky: None, kz: None, dx: None, dz: None, dry: None, angle: None,
             });
         }
         SolverInput { nodes: nodes_map, materials: mats_map, sections: secs_map, elements: elems_map, supports: sups_map, loads, constraints: vec![] , connectors: HashMap::new() }
@@ -1053,8 +1053,8 @@ mod tests {
         let results = super::solver::linear::solve_2d(&input).unwrap();
         let r1 = results.reactions.iter().find(|r| r.node_id == 1).unwrap();
         let r2 = results.reactions.iter().find(|r| r.node_id == 2).unwrap();
-        assert!((r1.ry - 30.0).abs() < 0.5, "R1y={}", r1.ry);
-        assert!((r2.ry - 30.0).abs() < 0.5, "R2y={}", r2.ry);
+        assert!((r1.rz - 30.0).abs() < 0.5, "R1z={}", r1.rz);
+        assert!((r2.rz - 30.0).abs() < 0.5, "R2z={}", r2.rz);
     }
 
     #[test]
@@ -1065,12 +1065,12 @@ mod tests {
             vec![(1, 0.15, 0.003125)],
             vec![(1, "frame", 1, 2, 1, 1, false, false)],
             vec![(1, 1, "fixed")],
-            vec![SolverLoad::Nodal(SolverNodalLoad { node_id: 2, fx: 0.0, fy: -50.0, mz: 0.0 })],
+            vec![SolverLoad::Nodal(SolverNodalLoad { node_id: 2, fx: 0.0, fz: -50.0, my: 0.0 })],
         );
         let results = super::solver::linear::solve_2d(&input).unwrap();
         let r1 = results.reactions.iter().find(|r| r.node_id == 1).unwrap();
-        assert!((r1.ry - 50.0).abs() < 0.5, "Ry={}", r1.ry);
-        assert!((r1.mz.abs() - 200.0).abs() < 1.0, "Mz={}", r1.mz);
+        assert!((r1.rz - 50.0).abs() < 0.5, "Rz={}", r1.rz);
+        assert!((r1.my.abs() - 200.0).abs() < 1.0, "My={}", r1.my);
     }
 
     #[test]
@@ -1085,12 +1085,12 @@ mod tests {
                 (3, "truss", 2, 3, 1, 1, false, false),
             ],
             vec![(1, 1, "pinned"), (2, 2, "rollerX")],
-            vec![SolverLoad::Nodal(SolverNodalLoad { node_id: 3, fx: 0.0, fy: -10.0, mz: 0.0 })],
+            vec![SolverLoad::Nodal(SolverNodalLoad { node_id: 3, fx: 0.0, fz: -10.0, my: 0.0 })],
         );
         let results = super::solver::linear::solve_2d(&input).unwrap();
         let r1 = results.reactions.iter().find(|r| r.node_id == 1).unwrap();
         let r2 = results.reactions.iter().find(|r| r.node_id == 2).unwrap();
-        assert!((r1.ry + r2.ry - 10.0).abs() < 0.01);
-        assert!((r1.ry - 5.0).abs() < 0.01);
+        assert!((r1.rz + r2.rz - 10.0).abs() < 0.01);
+        assert!((r1.rz - 5.0).abs() < 0.01);
     }
 }

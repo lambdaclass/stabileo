@@ -37,7 +37,7 @@ fn validation_pdelta_cantilever_amplification() {
         vec![(1, 1, "fixed")],
         vec![
             SolverLoad::Nodal(SolverNodalLoad {
-                node_id: n + 1, fx: -p_axial, fy: h_load, mz: 0.0,
+                node_id: n + 1, fx: -p_axial, fz: h_load, my: 0.0,
             }),
         ],
     );
@@ -48,8 +48,8 @@ fn validation_pdelta_cantilever_amplification() {
     assert!(pdelta_res.converged, "should converge");
     assert!(pdelta_res.is_stable, "should be stable at P < Pcr");
 
-    let lin_uy = linear_res.displacements.iter().find(|d| d.node_id == n + 1).unwrap().uy;
-    let pd_uy = pdelta_res.results.displacements.iter().find(|d| d.node_id == n + 1).unwrap().uy;
+    let lin_uy = linear_res.displacements.iter().find(|d| d.node_id == n + 1).unwrap().uz;
+    let pd_uy = pdelta_res.results.displacements.iter().find(|d| d.node_id == n + 1).unwrap().uz;
 
     // P-Delta should amplify displacement
     let actual_af = pd_uy.abs() / lin_uy.abs();
@@ -141,11 +141,11 @@ fn validation_pdelta_near_critical() {
         vec![(1, 1, "pinned"), (2, n + 1, "rollerX")],
         vec![
             SolverLoad::Nodal(SolverNodalLoad {
-                node_id: n + 1, fx: -p, fy: 0.0, mz: 0.0,
+                node_id: n + 1, fx: -p, fz: 0.0, my: 0.0,
             }),
             // Small lateral perturbation to trigger P-delta
             SolverLoad::Nodal(SolverNodalLoad {
-                node_id: n / 2 + 1, fx: 0.0, fy: 1.0, mz: 0.0,
+                node_id: n / 2 + 1, fx: 0.0, fz: 1.0, my: 0.0,
             }),
         ],
     );
@@ -186,7 +186,7 @@ fn validation_pdelta_beyond_critical() {
             vec![(1, 1, "fixed")],
             vec![
                 SolverLoad::Nodal(SolverNodalLoad {
-                    node_id: n + 1, fx: -p, fy: 10.0, mz: 0.0,
+                    node_id: n + 1, fx: -p, fz: 10.0, my: 0.0,
                 }),
             ],
         )
@@ -258,10 +258,10 @@ fn validation_pdelta_multistory_convergence() {
         ],
         vec![(1, 1, "fixed"), (2, 4, "fixed")],
         vec![
-            SolverLoad::Nodal(SolverNodalLoad { node_id: 2, fx: 20.0, fy: -80.0, mz: 0.0 }),
-            SolverLoad::Nodal(SolverNodalLoad { node_id: 3, fx: 0.0, fy: -80.0, mz: 0.0 }),
-            SolverLoad::Nodal(SolverNodalLoad { node_id: 5, fx: 10.0, fy: -50.0, mz: 0.0 }),
-            SolverLoad::Nodal(SolverNodalLoad { node_id: 6, fx: 0.0, fy: -50.0, mz: 0.0 }),
+            SolverLoad::Nodal(SolverNodalLoad { node_id: 2, fx: 20.0, fz: -80.0, my: 0.0 }),
+            SolverLoad::Nodal(SolverNodalLoad { node_id: 3, fx: 0.0, fz: -80.0, my: 0.0 }),
+            SolverLoad::Nodal(SolverNodalLoad { node_id: 5, fx: 10.0, fz: -50.0, my: 0.0 }),
+            SolverLoad::Nodal(SolverNodalLoad { node_id: 6, fx: 0.0, fz: -50.0, my: 0.0 }),
         ],
     );
 
@@ -283,14 +283,14 @@ fn validation_pdelta_equilibrium() {
     let pdelta_res = pdelta::solve_pdelta_2d(&input, 20, 1e-4).unwrap();
 
     let sum_rx: f64 = pdelta_res.results.reactions.iter().map(|r| r.rx).sum();
-    let sum_ry: f64 = pdelta_res.results.reactions.iter().map(|r| r.ry).sum();
+    let sum_ry: f64 = pdelta_res.results.reactions.iter().map(|r| r.rz).sum();
 
     // ΣRx + applied_fx = 0
     assert!(
         (sum_rx + 20.0).abs() < 2.0,
         "PD equilibrium ΣRx={:.2}, applied=20", sum_rx
     );
-    // ΣRy + applied_fy = 0 (gravity = -100*2 = -200 → Ry = 200)
+    // ΣRy + applied_fz = 0 (gravity = -100*2 = -200 → Ry = 200)
     assert!(
         (sum_ry - 200.0).abs() < 2.0,
         "PD equilibrium ΣRy={:.2}, expected=200", sum_ry

@@ -62,13 +62,13 @@ fn cable_net_ext_diamond_central_load() {
             (4, 5, "pinned"),
         ],
         vec![SolverLoad::Nodal(SolverNodalLoad {
-            node_id: 3, fx: 0.0, fy: -p, mz: 0.0,
+            node_id: 3, fx: 0.0, fz: -p, my: 0.0,
         })],
     );
     let results = linear::solve_2d(&input).unwrap();
 
     // Equilibrium: sum of vertical reactions = P
-    let sum_ry: f64 = results.reactions.iter().map(|r| r.ry).sum();
+    let sum_ry: f64 = results.reactions.iter().map(|r| r.rz).sum();
     assert_close(sum_ry, p, 0.01, "Diamond net: vertical equilibrium");
 
     // Horizontal cables (left-center, center-right) should carry zero axial force
@@ -144,13 +144,13 @@ fn cable_net_ext_hexagonal_symmetry() {
         elems,
         sups,
         vec![SolverLoad::Nodal(SolverNodalLoad {
-            node_id: 7, fx: 0.0, fy: -p, mz: 0.0,
+            node_id: 7, fx: 0.0, fz: -p, my: 0.0,
         })],
     );
     let results = linear::solve_2d(&input).unwrap();
 
     // Global equilibrium
-    let sum_ry: f64 = results.reactions.iter().map(|r| r.ry).sum();
+    let sum_ry: f64 = results.reactions.iter().map(|r| r.rz).sum();
     let sum_rx: f64 = results.reactions.iter().map(|r| r.rx).sum();
     assert_close(sum_ry, p, 0.01, "Hex net: vertical equilibrium");
     assert_close(sum_rx, 0.0, 0.01, "Hex net: horizontal equilibrium");
@@ -219,13 +219,13 @@ fn cable_net_ext_parallel_cables_stiffness_sharing() {
             (3, 3, "pinned"),
         ],
         vec![SolverLoad::Nodal(SolverNodalLoad {
-            node_id: 4, fx: 0.0, fy: -p, mz: 0.0,
+            node_id: 4, fx: 0.0, fz: -p, my: 0.0,
         })],
     );
     let results = linear::solve_2d(&input).unwrap();
 
     // Global equilibrium: sum of vertical reactions = P
-    let sum_ry: f64 = results.reactions.iter().map(|r| r.ry).sum();
+    let sum_ry: f64 = results.reactions.iter().map(|r| r.rz).sum();
     assert_close(sum_ry, p, 0.01, "Cables stiffness: vertical equilibrium");
 
     // Horizontal equilibrium
@@ -243,9 +243,9 @@ fn cable_net_ext_parallel_cables_stiffness_sharing() {
     // The shortest cable (element 2, purely vertical, L=5.0) has highest
     // axial stiffness EA/L and the most favorable angle for vertical load,
     // so it should carry the largest vertical reaction
-    let r1 = results.reactions.iter().find(|r| r.node_id == 1).unwrap().ry;
-    let r2 = results.reactions.iter().find(|r| r.node_id == 2).unwrap().ry;
-    let r3 = results.reactions.iter().find(|r| r.node_id == 3).unwrap().ry;
+    let r1 = results.reactions.iter().find(|r| r.node_id == 1).unwrap().rz;
+    let r2 = results.reactions.iter().find(|r| r.node_id == 2).unwrap().rz;
+    let r3 = results.reactions.iter().find(|r| r.node_id == 3).unwrap().rz;
 
     assert!(r2 > r1, "Cables stiffness: shortest cable has largest vertical reaction");
     assert!(r2 > r3, "Cables stiffness: shortest cable has largest vertical reaction");
@@ -287,7 +287,7 @@ fn cable_net_ext_x_brace_shear_panel() {
         ],
         vec![(1, 1, "pinned"), (2, 2, "pinned")],
         vec![SolverLoad::Nodal(SolverNodalLoad {
-            node_id: 4, fx: p, fy: 0.0, mz: 0.0,
+            node_id: 4, fx: p, fz: 0.0, my: 0.0,
         })],
     );
     let results = linear::solve_2d(&input).unwrap();
@@ -352,13 +352,13 @@ fn cable_net_ext_deflection_proportionality() {
             ],
             vec![(1, 1, "pinned"), (2, 2, "pinned")],
             vec![SolverLoad::Nodal(SolverNodalLoad {
-                node_id: 3, fx: 0.0, fy: -p, mz: 0.0,
+                node_id: 3, fx: 0.0, fz: -p, my: 0.0,
             })],
         );
         linear::solve_2d(&input).unwrap()
             .displacements.iter()
             .find(|d| d.node_id == 3).unwrap()
-            .uy.abs()
+            .uz.abs()
     };
 
     // Test 1: deflection proportional to load (linear)
@@ -421,13 +421,13 @@ fn cable_net_ext_radial_force_vs_angle() {
             (3, 4, "pinned"),
         ],
         vec![SolverLoad::Nodal(SolverNodalLoad {
-            node_id: 2, fx: 0.0, fy: -p, mz: 0.0,
+            node_id: 2, fx: 0.0, fz: -p, my: 0.0,
         })],
     );
     let results = linear::solve_2d(&input).unwrap();
 
     // Equilibrium
-    let sum_ry: f64 = results.reactions.iter().map(|r| r.ry).sum();
+    let sum_ry: f64 = results.reactions.iter().map(|r| r.rz).sum();
     assert_close(sum_ry, p, 0.01, "Radial cables: vertical equilibrium");
 
     let sum_rx: f64 = results.reactions.iter().map(|r| r.rx).sum();
@@ -448,7 +448,7 @@ fn cable_net_ext_radial_force_vs_angle() {
 
     // Center node should deflect downward
     let d = results.displacements.iter().find(|d| d.node_id == 2).unwrap();
-    assert!(d.uy < 0.0, "Radial cables: center deflects downward");
+    assert!(d.uz < 0.0, "Radial cables: center deflects downward");
 }
 
 // ================================================================
@@ -504,19 +504,19 @@ fn cable_net_ext_two_level_load_transfer() {
             (2, 2, "rollerX"),
         ],
         vec![
-            SolverLoad::Nodal(SolverNodalLoad { node_id: 4, fx: 0.0, fy: -p, mz: 0.0 }),
-            SolverLoad::Nodal(SolverNodalLoad { node_id: 5, fx: 0.0, fy: -p, mz: 0.0 }),
+            SolverLoad::Nodal(SolverNodalLoad { node_id: 4, fx: 0.0, fz: -p, my: 0.0 }),
+            SolverLoad::Nodal(SolverNodalLoad { node_id: 5, fx: 0.0, fz: -p, my: 0.0 }),
         ],
     );
     let results = linear::solve_2d(&input).unwrap();
 
     // Global equilibrium
-    let sum_ry: f64 = results.reactions.iter().map(|r| r.ry).sum();
+    let sum_ry: f64 = results.reactions.iter().map(|r| r.rz).sum();
     assert_close(sum_ry, 2.0 * p, 0.01, "Two-level net: vertical equilibrium");
 
     // Symmetric loading and geometry → symmetric reactions
-    let r1 = results.reactions.iter().find(|r| r.node_id == 1).unwrap().ry;
-    let r2 = results.reactions.iter().find(|r| r.node_id == 2).unwrap().ry;
+    let r1 = results.reactions.iter().find(|r| r.node_id == 1).unwrap().rz;
+    let r2 = results.reactions.iter().find(|r| r.node_id == 2).unwrap().rz;
     assert_close(r1, r2, 0.02, "Two-level net: symmetric reactions");
     assert_close(r1, p, 0.02, "Two-level net: each support carries P");
 
@@ -574,14 +574,14 @@ fn cable_net_ext_asymmetric_moment_check() {
             (3, 3, "pinned"),
         ],
         vec![SolverLoad::Nodal(SolverNodalLoad {
-            node_id: 4, fx: 0.0, fy: -p, mz: 0.0,
+            node_id: 4, fx: 0.0, fz: -p, my: 0.0,
         })],
     );
     let results = linear::solve_2d(&input).unwrap();
 
     // Global force equilibrium
     let sum_rx: f64 = results.reactions.iter().map(|r| r.rx).sum();
-    let sum_ry: f64 = results.reactions.iter().map(|r| r.ry).sum();
+    let sum_ry: f64 = results.reactions.iter().map(|r| r.rz).sum();
     assert_close(sum_rx, 0.0, 0.05, "Asymmetric net: horizontal equilibrium");
     assert_close(sum_ry, p, 0.01, "Asymmetric net: vertical equilibrium");
 
@@ -600,9 +600,9 @@ fn cable_net_ext_asymmetric_moment_check() {
     let r3 = results.reactions.iter().find(|r| r.node_id == 3).unwrap();
 
     // Support locations: node 1 at (0,5), node 2 at (6,4), node 3 at (3,6)
-    let m_reactions: f64 = r1.rx * 5.0 - r1.ry * 0.0
-        + r2.rx * 4.0 - r2.ry * 6.0
-        + r3.rx * 6.0 - r3.ry * 3.0;
+    let m_reactions: f64 = r1.rx * 5.0 - r1.rz * 0.0
+        + r2.rx * 4.0 - r2.rz * 6.0
+        + r3.rx * 6.0 - r3.rz * 3.0;
 
     // Moment from applied load about origin: 0*0 - (-P)*3 = 3*P
     let m_load: f64 = p * 3.0;

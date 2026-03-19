@@ -276,19 +276,19 @@ fn validation_unloaded_span_hump_upward() {
         .iter()
         .find(|d| d.node_id == 2)
         .unwrap()
-        .uy;
+        .uz;
     let uy_span2 = results
         .displacements
         .iter()
         .find(|d| d.node_id == 4)
         .unwrap()
-        .uy;
+        .uz;
     let uy_span3 = results
         .displacements
         .iter()
         .find(|d| d.node_id == 6)
         .unwrap()
-        .uy;
+        .uz;
 
     // Loaded spans deflect downward (negative uy)
     assert!(
@@ -335,11 +335,11 @@ fn validation_four_span_reaction_symmetry() {
     let results = linear::solve_2d(&input).unwrap();
 
     // Support nodes: 1, 3, 5, 7, 9
-    let r1 = results.reactions.iter().find(|r| r.node_id == 1).unwrap().ry;
-    let r2 = results.reactions.iter().find(|r| r.node_id == 3).unwrap().ry;
-    let r3 = results.reactions.iter().find(|r| r.node_id == 5).unwrap().ry;
-    let r4 = results.reactions.iter().find(|r| r.node_id == 7).unwrap().ry;
-    let r5 = results.reactions.iter().find(|r| r.node_id == 9).unwrap().ry;
+    let r1 = results.reactions.iter().find(|r| r.node_id == 1).unwrap().rz;
+    let r2 = results.reactions.iter().find(|r| r.node_id == 3).unwrap().rz;
+    let r3 = results.reactions.iter().find(|r| r.node_id == 5).unwrap().rz;
+    let r4 = results.reactions.iter().find(|r| r.node_id == 7).unwrap().rz;
+    let r5 = results.reactions.iter().find(|r| r.node_id == 9).unwrap().rz;
 
     // Symmetry: R1 = R5, R2 = R4
     assert_close(r1, r5, 0.01, "4-span symmetry: R1 = R5");
@@ -380,7 +380,7 @@ fn validation_pattern_max_deflection_end_span() {
         .iter()
         .find(|d| d.node_id == 2)
         .unwrap()
-        .uy
+        .uz
         .abs();
 
     let d_pat = res_pat
@@ -388,7 +388,7 @@ fn validation_pattern_max_deflection_end_span() {
         .iter()
         .find(|d| d.node_id == 2)
         .unwrap()
-        .uy
+        .uz
         .abs();
 
     // Pattern loading should give larger deflection in span 1

@@ -110,7 +110,7 @@ fn validation_ret_wall_ext_gravity_sliding_stability() {
 
     // Base reaction (shear) should equal Pa = 75 kN/m
     let reaction = results.reactions.iter().find(|r| r.node_id == 1).unwrap();
-    assert_close(reaction.ry.abs(), pa, 0.03, "Solver base shear vs Pa");
+    assert_close(reaction.rz.abs(), pa, 0.03, "Solver base shear vs Pa");
 }
 
 // ================================================================
@@ -253,7 +253,7 @@ fn validation_ret_wall_ext_cantilever_stem_design() {
     // Fixed-end moment from solver
     let reaction = results.reactions.iter().find(|r| r.node_id == 1).unwrap();
     // Moment at fixed end should match M_base_analytical
-    assert_close(reaction.mz.abs(), m_base_analytical, 0.03, "Solver M_base vs analytical");
+    assert_close(reaction.my.abs(), m_base_analytical, 0.03, "Solver M_base vs analytical");
 
     // ACI 318 flexural design check (simplified)
     // Required rebar area: As = M / (0.9 * fy * jd)
@@ -349,8 +349,8 @@ fn validation_ret_wall_ext_counterfort_wall() {
     let r_right = results.reactions.iter().find(|r| r.node_id == n_elem + 1).unwrap();
 
     // Fixed-end moment for UDL on fixed-fixed beam = qL^2/12
-    assert_close(r_left.mz.abs(), m_support, 0.03, "Solver left support moment");
-    assert_close(r_right.mz.abs(), m_support, 0.03, "Solver right support moment");
+    assert_close(r_left.my.abs(), m_support, 0.03, "Solver left support moment");
+    assert_close(r_right.my.abs(), m_support, 0.03, "Solver right support moment");
 
     // Counterfort design: each counterfort resists the earth pressure
     // over its tributary width = s_cf
@@ -421,7 +421,7 @@ fn validation_ret_wall_ext_basement_wall_conditions() {
     let res_cantilever = linear::solve_2d(&input_cantilever).unwrap();
 
     let r_cant = res_cantilever.reactions.iter().find(|r| r.node_id == 1).unwrap();
-    let m_cant_base: f64 = r_cant.mz.abs();
+    let m_cant_base: f64 = r_cant.my.abs();
 
     // Analytical: M_base = Ka*gamma*H^3/6
     let m_cant_analytical: f64 = ka * gamma_s * h.powi(3) / 6.0;
@@ -437,7 +437,7 @@ fn validation_ret_wall_ext_basement_wall_conditions() {
     let res_propped = linear::solve_2d(&input_propped).unwrap();
 
     let r_prop_base = res_propped.reactions.iter().find(|r| r.node_id == 1).unwrap();
-    let m_prop_base: f64 = r_prop_base.mz.abs();
+    let m_prop_base: f64 = r_prop_base.my.abs();
 
     // The propped wall has significantly reduced base moment compared to cantilever.
     // For triangular load on propped cantilever: M_base = Pa*H/3 - R_top*H
@@ -459,8 +459,8 @@ fn validation_ret_wall_ext_basement_wall_conditions() {
     // Check that the top prop receives a horizontal reaction
     let r_prop_top = res_propped.reactions.iter().find(|r| r.node_id == n_elem + 1).unwrap();
     assert!(
-        r_prop_top.ry.abs() > 5.0,
-        "Top prop reaction = {:.1} kN/m (should be significant)", r_prop_top.ry.abs()
+        r_prop_top.rz.abs() > 5.0,
+        "Top prop reaction = {:.1} kN/m (should be significant)", r_prop_top.rz.abs()
     );
 }
 
@@ -584,8 +584,8 @@ fn validation_ret_wall_ext_sheet_pile_free_earth() {
         .find(|d| d.node_id == n_elem + 1).unwrap();
     // Top deflection should be small (propped condition)
     assert!(
-        tip_disp.uy.abs() < 0.1,
-        "Top deflection = {:.4} m (should be restrained by anchor)", tip_disp.uy.abs()
+        tip_disp.uz.abs() < 0.1,
+        "Top deflection = {:.4} m (should be restrained by anchor)", tip_disp.uz.abs()
     );
 }
 
@@ -677,7 +677,7 @@ fn validation_ret_wall_ext_surcharge_loading() {
 
     // Solver combined moment at base should match analytical total
     assert_close(
-        r_combined.mz.abs(), m_total_analytical, 0.04,
+        r_combined.my.abs(), m_total_analytical, 0.04,
         "Solver combined M_base vs analytical"
     );
 
@@ -702,10 +702,10 @@ fn validation_ret_wall_ext_surcharge_loading() {
     );
     let res_soil = linear::solve_2d(&input_soil).unwrap();
     let r_soil = res_soil.reactions.iter().find(|r| r.node_id == 1).unwrap();
-    assert_close(r_soil.mz.abs(), m_self, 0.04, "Solver soil-only M_base");
+    assert_close(r_soil.my.abs(), m_self, 0.04, "Solver soil-only M_base");
 
     // Surcharge contribution = combined - soil only (superposition)
-    let m_surcharge_solver: f64 = r_combined.mz.abs() - r_soil.mz.abs();
+    let m_surcharge_solver: f64 = r_combined.my.abs() - r_soil.my.abs();
     assert_close(m_surcharge_solver, delta_m, 0.05, "Surcharge contribution by superposition");
 }
 

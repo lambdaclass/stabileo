@@ -56,7 +56,7 @@ fn validation_ss_beam_midspan_shear_equilibrium() {
     let p = 36.0;
 
     let loads = vec![SolverLoad::Nodal(SolverNodalLoad {
-        node_id: 2, fx: 0.0, fy: -p, mz: 0.0,
+        node_id: 2, fx: 0.0, fz: -p, my: 0.0,
     })];
     let input = make_beam(2, l, E, A, IZ, "pinned", Some("rollerX"), loads);
     let results = linear::solve_2d(&input).unwrap();
@@ -85,8 +85,8 @@ fn validation_ss_beam_midspan_shear_equilibrium() {
     // Reactions: R_A = R_B = P/2
     let r_a = results.reactions.iter().find(|r| r.node_id == 1).unwrap();
     let r_b = results.reactions.iter().find(|r| r.node_id == 3).unwrap();
-    assert_close(r_a.ry, p / 2.0, 0.02, "SS beam: R_A = P/2");
-    assert_close(r_b.ry, p / 2.0, 0.02, "SS beam: R_B = P/2");
+    assert_close(r_a.rz, p / 2.0, 0.02, "SS beam: R_A = P/2");
+    assert_close(r_b.rz, p / 2.0, 0.02, "SS beam: R_B = P/2");
 }
 
 // ================================================================
@@ -134,11 +134,11 @@ fn validation_continuous_beam_interior_support_equilibrium() {
         .find(|r| r.node_id == int_node).unwrap();
 
     // Shear equilibrium: v_end_left - v_start_right + Ry = 0
-    let shear_residual: f64 = (ef_left.v_end - ef_right.v_start + r_int.ry).abs();
+    let shear_residual: f64 = (ef_left.v_end - ef_right.v_start + r_int.rz).abs();
     assert!(
         shear_residual < 0.5,
         "Continuous beam: shear equilibrium at node {}: residual={:.6}, v_end={:.4}, v_start={:.4}, Ry={:.4}",
-        int_node, shear_residual, ef_left.v_end, ef_right.v_start, r_int.ry
+        int_node, shear_residual, ef_left.v_end, ef_right.v_start, r_int.rz
     );
 
     // Moment continuity at roller (no moment restraint):
@@ -152,7 +152,7 @@ fn validation_continuous_beam_interior_support_equilibrium() {
 
     // Global vertical equilibrium
     let total_load: f64 = q.abs() * spans.iter().sum::<f64>();
-    let sum_ry: f64 = results.reactions.iter().map(|r| r.ry).sum();
+    let sum_ry: f64 = results.reactions.iter().map(|r| r.rz).sum();
     assert_close(sum_ry, total_load, 0.01, "Continuous beam: sum Ry = q*L_total");
 }
 
@@ -238,7 +238,7 @@ fn validation_free_node_point_load_equilibrium() {
     let fx = 8.0;
 
     let loads = vec![SolverLoad::Nodal(SolverNodalLoad {
-        node_id: 4, fx, fy: -p, mz: 0.0,
+        node_id: 4, fx, fz: -p, my: 0.0,
     })];
     let input = make_beam(3, l, E, A, IZ, "fixed", None, loads);
     let results = linear::solve_2d(&input).unwrap();
@@ -314,19 +314,19 @@ fn validation_fixed_support_reaction_balance() {
 
     // Left fixed support (node 1)
     let r_left = results.reactions.iter().find(|r| r.node_id == 1).unwrap();
-    assert_close(r_left.ry, r_exact, 0.02, "Fixed-fixed: R_A = qL/2");
-    assert_close(r_left.mz.abs(), m_exact, 0.05, "Fixed-fixed: M_A = qL^2/12");
+    assert_close(r_left.rz, r_exact, 0.02, "Fixed-fixed: R_A = qL/2");
+    assert_close(r_left.my.abs(), m_exact, 0.05, "Fixed-fixed: M_A = qL^2/12");
 
     // Right fixed support (node n+1)
     let r_right = results.reactions.iter().find(|r| r.node_id == n + 1).unwrap();
-    assert_close(r_right.ry, r_exact, 0.02, "Fixed-fixed: R_B = qL/2");
-    assert_close(r_right.mz.abs(), m_exact, 0.05, "Fixed-fixed: M_B = qL^2/12");
+    assert_close(r_right.rz, r_exact, 0.02, "Fixed-fixed: R_B = qL/2");
+    assert_close(r_right.my.abs(), m_exact, 0.05, "Fixed-fixed: M_B = qL^2/12");
 
     // By symmetry, reactions should be equal
-    assert_close(r_left.ry, r_right.ry, 0.02, "Fixed-fixed: R_A = R_B");
+    assert_close(r_left.rz, r_right.rz, 0.02, "Fixed-fixed: R_A = R_B");
 
     // Global equilibrium
-    let sum_ry: f64 = results.reactions.iter().map(|r| r.ry).sum();
+    let sum_ry: f64 = results.reactions.iter().map(|r| r.rz).sum();
     assert_close(sum_ry, q.abs() * l, 0.01, "Fixed-fixed: sum Ry = qL");
 
     // At all interior nodes (2..n), force continuity must hold
@@ -407,8 +407,8 @@ fn validation_interior_node_no_load_continuity() {
 
     let r_a = results.reactions.iter().find(|r| r.node_id == 1).unwrap();
     let r_b = results.reactions.iter().find(|r| r.node_id == 3).unwrap();
-    assert_close(r_a.ry, r_a_exact, 0.02, "Propped cantilever: R_A = 5qL/8");
-    assert_close(r_b.ry, r_b_exact, 0.02, "Propped cantilever: R_B = 3qL/8");
+    assert_close(r_a.rz, r_a_exact, 0.02, "Propped cantilever: R_A = 5qL/8");
+    assert_close(r_b.rz, r_b_exact, 0.02, "Propped cantilever: R_B = 3qL/8");
 }
 
 // ================================================================
@@ -475,13 +475,13 @@ fn validation_portal_base_reaction_moment() {
     let sum_rx: f64 = results.reactions.iter().map(|r| r.rx).sum();
     assert_close(sum_rx, -h_load, 0.01, "Portal combined: sum Rx = -H");
 
-    let sum_ry: f64 = results.reactions.iter().map(|r| r.ry).sum();
+    let sum_ry: f64 = results.reactions.iter().map(|r| r.rz).sum();
     // Two gravity loads (at nodes 2 and 3): total = 2 * g_load
     assert_close(sum_ry, -2.0 * g_load, 0.01, "Portal combined: sum Ry = -2G");
 
     // Base moments should be non-zero
-    assert!(r1.mz.abs() > 1.0, "Portal base node 1: moment non-trivial");
-    assert!(r4.mz.abs() > 1.0, "Portal base node 4: moment non-trivial");
+    assert!(r1.my.abs() > 1.0, "Portal base node 1: moment non-trivial");
+    assert!(r4.my.abs() > 1.0, "Portal base node 4: moment non-trivial");
 }
 
 // ================================================================
@@ -543,11 +543,11 @@ fn validation_multi_span_equilibrium_all_supports() {
             .find(|r| r.node_id == sup_node).unwrap();
 
         // Shear equilibrium: v_end_left - v_start_right + Ry = 0
-        let shear_res: f64 = (ef_left.v_end - ef_right.v_start + r_sup.ry).abs();
+        let shear_res: f64 = (ef_left.v_end - ef_right.v_start + r_sup.rz).abs();
         assert!(
             shear_res < 0.5,
             "Multi-span: shear equilibrium at node {}: residual={:.6}, v_end={:.4}, v_start={:.4}, Ry={:.4}",
-            sup_node, shear_res, ef_left.v_end, ef_right.v_start, r_sup.ry
+            sup_node, shear_res, ef_left.v_end, ef_right.v_start, r_sup.rz
         );
 
         // Moment continuity at roller (no moment restraint):
@@ -594,6 +594,6 @@ fn validation_multi_span_equilibrium_all_supports() {
 
     // Global vertical equilibrium
     let total_load: f64 = q.abs() * spans.iter().sum::<f64>();
-    let sum_ry: f64 = results.reactions.iter().map(|r| r.ry).sum();
+    let sum_ry: f64 = results.reactions.iter().map(|r| r.rz).sum();
     assert_close(sum_ry, total_load, 0.01, "Multi-span: sum Ry = q*L_total");
 }

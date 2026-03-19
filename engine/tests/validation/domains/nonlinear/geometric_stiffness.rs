@@ -56,7 +56,7 @@ fn validation_geom_euler_column() {
         }
     }
     let loads = vec![SolverLoad::Nodal(SolverNodalLoad {
-        node_id: n + 1, fx: f_perturb, fy: -p_test, mz: 0.0,
+        node_id: n + 1, fx: f_perturb, fz: -p_test, my: 0.0,
     })];
     let input = make_input(nodes, vec![(1, E, 0.3)], vec![(1, A, IZ)], elems,
         vec![(1, 1, "fixed")], loads);
@@ -94,7 +94,7 @@ fn validation_geom_sway_vs_braced() {
 
     // Sway (cantilever)
     let loads_sway = vec![SolverLoad::Nodal(SolverNodalLoad {
-        node_id: n + 1, fx: f_perturb, fy: -p, mz: 0.0,
+        node_id: n + 1, fx: f_perturb, fz: -p, my: 0.0,
     })];
     let input_sway = make_input(
         nodes.clone(), vec![(1, E, 0.3)], vec![(1, A, IZ)],
@@ -105,7 +105,7 @@ fn validation_geom_sway_vs_braced() {
 
     // Braced (fixed + guided at top)
     let loads_braced = vec![SolverLoad::Nodal(SolverNodalLoad {
-        node_id: n + 1, fx: f_perturb, fy: -p, mz: 0.0,
+        node_id: n + 1, fx: f_perturb, fz: -p, my: 0.0,
     })];
     let input_braced = make_input(
         nodes, vec![(1, E, 0.3)], vec![(1, A, IZ)],
@@ -175,7 +175,7 @@ fn validation_geom_weakest_governs() {
     let mut nodes_map = std::collections::HashMap::new();
     let nodes_vec = vec![(1, 0.0, 0.0), (2, 0.0, h), (3, w, h), (4, w, 0.0)];
     for &(id, x, y) in &nodes_vec {
-        nodes_map.insert(id.to_string(), SolverNode { id, x, y });
+        nodes_map.insert(id.to_string(), SolverNode { id, x, z: y });
     }
     let mut mats = std::collections::HashMap::new();
     mats.insert("1".to_string(), SolverMaterial { id: 1, e: E, nu: 0.3 });
@@ -198,15 +198,15 @@ fn validation_geom_weakest_governs() {
     let mut sups = std::collections::HashMap::new();
     sups.insert("1".to_string(), SolverSupport {
         id: 1, node_id: 1, support_type: "fixed".to_string(),
-        kx: None, ky: None, kz: None, dx: None, dy: None, drz: None, angle: None,
+        kx: None, ky: None, kz: None, dx: None, dz: None, dry: None, angle: None,
     });
     sups.insert("2".to_string(), SolverSupport {
         id: 2, node_id: 4, support_type: "fixed".to_string(),
-        kx: None, ky: None, kz: None, dx: None, dy: None, drz: None, angle: None,
+        kx: None, ky: None, kz: None, dx: None, dz: None, dry: None, angle: None,
     });
     let loads = vec![
-        SolverLoad::Nodal(SolverNodalLoad { node_id: 2, fx: f, fy: -p, mz: 0.0 }),
-        SolverLoad::Nodal(SolverNodalLoad { node_id: 3, fx: 0.0, fy: -p, mz: 0.0 }),
+        SolverLoad::Nodal(SolverNodalLoad { node_id: 2, fx: f, fz: -p, my: 0.0 }),
+        SolverLoad::Nodal(SolverNodalLoad { node_id: 3, fx: 0.0, fz: -p, my: 0.0 }),
     ];
     let input_weak = SolverInput {
         nodes: nodes_map, materials: mats, sections: secs,
@@ -246,23 +246,23 @@ fn validation_geom_beam_column() {
 
     // Lateral only
     let loads_lat = vec![SolverLoad::Nodal(SolverNodalLoad {
-        node_id: n + 1, fx: f_lat, fy: 0.0, mz: 0.0,
+        node_id: n + 1, fx: f_lat, fz: 0.0, my: 0.0,
     })];
     let input_lat = make_input(
         nodes.clone(), vec![(1, E, 0.3)], vec![(1, A, IZ)],
         elems.clone(), vec![(1, 1, "fixed")], loads_lat);
     let m_lat = pdelta::solve_pdelta_2d(&input_lat, 20, 1e-6).unwrap()
-        .results.reactions.iter().find(|r| r.node_id == 1).unwrap().mz.abs();
+        .results.reactions.iter().find(|r| r.node_id == 1).unwrap().my.abs();
 
     // Lateral + axial compression
     let loads_both = vec![SolverLoad::Nodal(SolverNodalLoad {
-        node_id: n + 1, fx: f_lat, fy: -p_axial, mz: 0.0,
+        node_id: n + 1, fx: f_lat, fz: -p_axial, my: 0.0,
     })];
     let input_both = make_input(
         nodes, vec![(1, E, 0.3)], vec![(1, A, IZ)],
         elems, vec![(1, 1, "fixed")], loads_both);
     let m_both = pdelta::solve_pdelta_2d(&input_both, 20, 1e-6).unwrap()
-        .results.reactions.iter().find(|r| r.node_id == 1).unwrap().mz.abs();
+        .results.reactions.iter().find(|r| r.node_id == 1).unwrap().my.abs();
 
     // Compression amplifies moment
     assert!(m_both > m_lat,
@@ -349,7 +349,7 @@ fn validation_geom_buckling_mode() {
         }
     }
     let loads = vec![SolverLoad::Nodal(SolverNodalLoad {
-        node_id: n + 1, fx: f, fy: -p, mz: 0.0,
+        node_id: n + 1, fx: f, fz: -p, my: 0.0,
     })];
     let input = make_input(nodes, vec![(1, E, 0.3)], vec![(1, A, IZ)], elems,
         vec![(1, 1, "fixed")], loads);

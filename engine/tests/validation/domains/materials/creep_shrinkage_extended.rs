@@ -484,9 +484,9 @@ fn validation_cs_ext_5_effective_modulus() {
     // Get midspan deflections
     let mid = n / 2 + 1;
     let d_short = res_short.displacements.iter()
-        .find(|d| d.node_id == mid).unwrap().uy.abs();
+        .find(|d| d.node_id == mid).unwrap().uz.abs();
     let d_long = res_long.displacements.iter()
-        .find(|d| d.node_id == mid).unwrap().uy.abs();
+        .find(|d| d.node_id == mid).unwrap().uz.abs();
 
     // Long-term deflection should be (1 + phi) times the short-term
     let ratio = d_long / d_short;
@@ -792,9 +792,9 @@ fn validation_cs_ext_8_long_term_deflection() {
     // Get midspan deflections
     let mid = n / 2 + 1;
     let d_short = res_s.displacements.iter()
-        .find(|d| d.node_id == mid).unwrap().uy.abs();
+        .find(|d| d.node_id == mid).unwrap().uz.abs();
     let d_long = res_l.displacements.iter()
-        .find(|d| d.node_id == mid).unwrap().uy.abs();
+        .find(|d| d.node_id == mid).unwrap().uz.abs();
 
     // Verify deflection ratio matches (1 + lambda)
     let ratio = d_long / d_short;

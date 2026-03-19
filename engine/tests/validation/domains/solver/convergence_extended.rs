@@ -53,7 +53,7 @@ fn validation_convergence_propped_cantilever_reaction() {
         }
         let results = linear::solve_2d(&input).unwrap();
         let r_right = results.reactions.iter().find(|r| r.node_id == n_nodes).unwrap();
-        let err = (r_right.ry - r_exact).abs() / r_exact;
+        let err = (r_right.rz - r_exact).abs() / r_exact;
         errors.push(err);
     }
 
@@ -102,7 +102,7 @@ fn validation_convergence_fixed_fixed_midspan_deflection() {
         let mid = n / 2 + 1;
         let d_mid = results.displacements.iter()
             .find(|d| d.node_id == mid).unwrap();
-        let err = (d_mid.uy.abs() - delta_exact).abs() / delta_exact;
+        let err = (d_mid.uz.abs() - delta_exact).abs() / delta_exact;
         errors.push(err);
     }
 
@@ -150,7 +150,7 @@ fn validation_convergence_cantilever_tip_rotation() {
         let results = linear::solve_2d(&input).unwrap();
         let d_tip = results.displacements.iter()
             .find(|d| d.node_id == n_nodes).unwrap();
-        let err = (d_tip.rz.abs() - theta_exact).abs() / theta_exact;
+        let err = (d_tip.ry.abs() - theta_exact).abs() / theta_exact;
         errors.push(err);
     }
 
@@ -192,13 +192,13 @@ fn validation_convergence_ss_beam_point_load_midspan() {
         let input = make_beam(
             n, length, E, A, IZ, "pinned", Some("rollerX"),
             vec![SolverLoad::Nodal(SolverNodalLoad {
-                node_id: mid, fx: 0.0, fy: p, mz: 0.0,
+                node_id: mid, fx: 0.0, fz: p, my: 0.0,
             })],
         );
         let results = linear::solve_2d(&input).unwrap();
         let d_mid = results.displacements.iter()
             .find(|d| d.node_id == mid).unwrap();
-        let err = (d_mid.uy.abs() - delta_exact).abs() / delta_exact;
+        let err = (d_mid.uz.abs() - delta_exact).abs() / delta_exact;
         errors.push(err);
     }
 
@@ -253,7 +253,7 @@ fn validation_convergence_two_span_center_reaction() {
         // Center support is at node (n+1)
         let center_node = n + 1;
         let r_center = results.reactions.iter().find(|r| r.node_id == center_node).unwrap();
-        let err = (r_center.ry - r_center_exact).abs() / r_center_exact;
+        let err = (r_center.rz - r_center_exact).abs() / r_center_exact;
         errors.push(err);
     }
 
@@ -301,7 +301,7 @@ fn validation_convergence_cantilever_root_moment() {
         let results = linear::solve_2d(&input).unwrap();
         // Root moment from reactions
         let r1 = results.reactions.iter().find(|r| r.node_id == 1).unwrap();
-        let err = (r1.mz.abs() - m_exact).abs() / m_exact;
+        let err = (r1.my.abs() - m_exact).abs() / m_exact;
         errors.push(err);
     }
 
@@ -416,7 +416,7 @@ fn validation_convergence_ss_triangular_load() {
         let mid = n / 2 + 1;
         let d_mid = results.displacements.iter()
             .find(|d| d.node_id == mid).unwrap();
-        let err = (d_mid.uy.abs() - delta_exact).abs() / delta_exact;
+        let err = (d_mid.uz.abs() - delta_exact).abs() / delta_exact;
         errors.push(err);
     }
 

@@ -69,8 +69,8 @@ fn validation_braced_frame_x_brace_minimal_sway() {
     let loads = vec![SolverLoad::Nodal(SolverNodalLoad {
         node_id: 2,
         fx: p,
-        fy: 0.0,
-        mz: 0.0,
+        fz: 0.0,
+        my: 0.0,
     })];
     let input_braced = make_input(
         nodes,
@@ -149,8 +149,8 @@ fn validation_braced_frame_k_brace_drift_reduction() {
     let loads = vec![SolverLoad::Nodal(SolverNodalLoad {
         node_id: 2,
         fx: p,
-        fy: 0.0,
-        mz: 0.0,
+        fz: 0.0,
+        my: 0.0,
     })];
 
     let input_k = make_input(
@@ -219,8 +219,8 @@ fn validation_braced_frame_single_diagonal_force() {
     let loads = vec![SolverLoad::Nodal(SolverNodalLoad {
         node_id: 2,
         fx: lateral,
-        fy: 0.0,
-        mz: 0.0,
+        fz: 0.0,
+        my: 0.0,
     })];
 
     let input = make_input(
@@ -297,8 +297,8 @@ fn validation_braced_frame_vs_unbraced_drift() {
     let loads = vec![SolverLoad::Nodal(SolverNodalLoad {
         node_id: 2,
         fx: p,
-        fy: 0.0,
-        mz: 0.0,
+        fz: 0.0,
+        my: 0.0,
     })];
     let input_braced = make_input(
         nodes,
@@ -368,8 +368,8 @@ fn validation_braced_frame_chevron_intersection() {
     let loads = vec![SolverLoad::Nodal(SolverNodalLoad {
         node_id: 2,
         fx: p,
-        fy: 0.0,
-        mz: 0.0,
+        fz: 0.0,
+        my: 0.0,
     })];
 
     let input = make_input(
@@ -391,7 +391,7 @@ fn validation_braced_frame_chevron_intersection() {
     // Global equilibrium
     let sum_rx: f64 = results.reactions.iter().map(|r| r.rx).sum();
     assert_close(sum_rx, -p, 0.02, "Chevron: ΣRx = -P");
-    let sum_ry: f64 = results.reactions.iter().map(|r| r.ry).sum();
+    let sum_ry: f64 = results.reactions.iter().map(|r| r.rz).sum();
     assert_close(sum_ry, 0.0, 0.02, "Chevron: ΣRy = 0");
 }
 
@@ -429,14 +429,14 @@ fn validation_braced_frame_gravity_only_brace_forces() {
         SolverLoad::Nodal(SolverNodalLoad {
             node_id: 2,
             fx: 0.0,
-            fy,
-            mz: 0.0,
+            fz: fy,
+            my: 0.0,
         }),
         SolverLoad::Nodal(SolverNodalLoad {
             node_id: 3,
             fx: 0.0,
-            fy,
-            mz: 0.0,
+            fz: fy,
+            my: 0.0,
         }),
     ];
 
@@ -471,7 +471,7 @@ fn validation_braced_frame_gravity_only_brace_forces() {
     }
 
     // Vertical equilibrium
-    let sum_ry: f64 = results.reactions.iter().map(|r| r.ry).sum();
+    let sum_ry: f64 = results.reactions.iter().map(|r| r.rz).sum();
     assert_close(sum_ry, -2.0 * fy, 0.02, "Gravity braced: ΣRy = 2|Fy|");
 }
 
@@ -522,14 +522,14 @@ fn validation_braced_frame_multistory_cumulative() {
         SolverLoad::Nodal(SolverNodalLoad {
             node_id: 2,
             fx: p,
-            fy: 0.0,
-            mz: 0.0,
+            fz: 0.0,
+            my: 0.0,
         }),
         SolverLoad::Nodal(SolverNodalLoad {
             node_id: 3,
             fx: p,
-            fy: 0.0,
-            mz: 0.0,
+            fz: 0.0,
+            my: 0.0,
         }),
     ];
 
@@ -595,14 +595,14 @@ fn validation_braced_frame_global_equilibrium() {
         SolverLoad::Nodal(SolverNodalLoad {
             node_id: 2,
             fx: px,
-            fy: py,
-            mz: 0.0,
+            fz: py,
+            my: 0.0,
         }),
         SolverLoad::Nodal(SolverNodalLoad {
             node_id: 3,
             fx: 0.0,
-            fy: py,
-            mz: 0.0,
+            fz: py,
+            my: 0.0,
         }),
     ];
 
@@ -621,7 +621,7 @@ fn validation_braced_frame_global_equilibrium() {
     assert_close(sum_rx, -px, 0.02, "Braced global: ΣRx = -Px");
 
     // ΣFy = 0: sum of vertical reactions equals total applied vertical
-    let total_fy = py + py; // two gravity loads
-    let sum_ry: f64 = results.reactions.iter().map(|r| r.ry).sum();
-    assert_close(sum_ry, -total_fy, 0.02, "Braced global: ΣRy = -ΣFy");
+    let total_fz = py + py; // two gravity loads
+    let sum_ry: f64 = results.reactions.iter().map(|r| r.rz).sum();
+    assert_close(sum_ry, -total_fz, 0.02, "Braced global: ΣRy = -ΣFy");
 }

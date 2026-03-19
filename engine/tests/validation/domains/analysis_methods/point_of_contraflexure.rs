@@ -208,7 +208,7 @@ fn validation_poc_fixed_fixed_point_load() {
     let dx = l / n as f64;
 
     let loads = vec![SolverLoad::Nodal(SolverNodalLoad {
-        node_id: mid_node, fx: 0.0, fy: -p, mz: 0.0,
+        node_id: mid_node, fx: 0.0, fz: -p, my: 0.0,
     })];
     let input = make_beam(n, l, E, A, IZ, "fixed", Some("fixed"), loads);
     let results = linear::solve_2d(&input).unwrap();
@@ -263,7 +263,7 @@ fn validation_poc_portal_column_midheight() {
     ];
     let sups = vec![(1, 1, "fixed"), (2, 4, "fixed")];
     let loads = vec![SolverLoad::Nodal(SolverNodalLoad {
-        node_id: 2, fx: f_lat, fy: 0.0, mz: 0.0,
+        node_id: 2, fx: f_lat, fz: 0.0, my: 0.0,
     })];
     let input = make_input(nodes, vec![(1, E, 0.3)], vec![(1, A, IZ)],
         elems, sups, loads);

@@ -50,18 +50,18 @@ fn validation_continuous_four_span_full_udl() {
     let total_nodes = total_elems + 1;
     let ql = q.abs() * span;
 
-    let r1 = results.reactions.iter().find(|r| r.node_id == 1).unwrap().ry;
-    let r2 = results.reactions.iter().find(|r| r.node_id == n + 1).unwrap().ry;
-    let _r3 = results.reactions.iter().find(|r| r.node_id == 2 * n + 1).unwrap().ry;
-    let r4 = results.reactions.iter().find(|r| r.node_id == 3 * n + 1).unwrap().ry;
-    let r5 = results.reactions.iter().find(|r| r.node_id == total_nodes).unwrap().ry;
+    let r1 = results.reactions.iter().find(|r| r.node_id == 1).unwrap().rz;
+    let r2 = results.reactions.iter().find(|r| r.node_id == n + 1).unwrap().rz;
+    let _r3 = results.reactions.iter().find(|r| r.node_id == 2 * n + 1).unwrap().rz;
+    let r4 = results.reactions.iter().find(|r| r.node_id == 3 * n + 1).unwrap().rz;
+    let r5 = results.reactions.iter().find(|r| r.node_id == total_nodes).unwrap().rz;
 
     // Symmetry: R1 ≈ R5, R2 ≈ R4
     assert_close(r1, r5, 0.01, "4-span: R1 = R5 by symmetry");
     assert_close(r2, r4, 0.01, "4-span: R2 = R4 by symmetry");
 
     // Equilibrium: sum = 4*q*L
-    let sum_ry: f64 = results.reactions.iter().map(|r| r.ry).sum();
+    let sum_ry: f64 = results.reactions.iter().map(|r| r.rz).sum();
     assert_close(sum_ry, 4.0 * ql, 0.02, "4-span: ΣR = 4qL");
 
     // End reactions are smaller than interior ones
@@ -94,10 +94,10 @@ fn validation_continuous_three_span_middle_loaded() {
 
     let total_nodes = 3 * n + 1;
 
-    let r1 = results.reactions.iter().find(|r| r.node_id == 1).unwrap().ry;
-    let r_b = results.reactions.iter().find(|r| r.node_id == n + 1).unwrap().ry;
-    let r_c = results.reactions.iter().find(|r| r.node_id == 2 * n + 1).unwrap().ry;
-    let r_d = results.reactions.iter().find(|r| r.node_id == total_nodes).unwrap().ry;
+    let r1 = results.reactions.iter().find(|r| r.node_id == 1).unwrap().rz;
+    let r_b = results.reactions.iter().find(|r| r.node_id == n + 1).unwrap().rz;
+    let r_c = results.reactions.iter().find(|r| r.node_id == 2 * n + 1).unwrap().rz;
+    let r_d = results.reactions.iter().find(|r| r.node_id == total_nodes).unwrap().rz;
 
     // By symmetry: R1 = R4, R_B = R_C
     assert_close(r1, r_d, 0.02, "Middle loaded: R1 = R4 by symmetry");
@@ -108,7 +108,7 @@ fn validation_continuous_three_span_middle_loaded() {
 
     // Equilibrium
     let total_load = q.abs() * span;
-    let sum_ry: f64 = results.reactions.iter().map(|r| r.ry).sum();
+    let sum_ry: f64 = results.reactions.iter().map(|r| r.rz).sum();
     assert_close(sum_ry, total_load, 0.02, "Middle loaded: ΣR = qL");
 }
 
@@ -145,13 +145,13 @@ fn validation_continuous_two_span_triangular() {
 
     let total_nodes = 2 * n + 1;
 
-    let r1 = results.reactions.iter().find(|r| r.node_id == 1).unwrap().ry;
-    let r_mid = results.reactions.iter().find(|r| r.node_id == n + 1).unwrap().ry;
-    let _r_end = results.reactions.iter().find(|r| r.node_id == total_nodes).unwrap().ry;
+    let r1 = results.reactions.iter().find(|r| r.node_id == 1).unwrap().rz;
+    let r_mid = results.reactions.iter().find(|r| r.node_id == n + 1).unwrap().rz;
+    let _r_end = results.reactions.iter().find(|r| r.node_id == total_nodes).unwrap().rz;
 
     // Total load = q*L/2 = 12*8/2 = 48
     let total_load = q.abs() * span / 2.0;
-    let sum_ry: f64 = results.reactions.iter().map(|r| r.ry).sum();
+    let sum_ry: f64 = results.reactions.iter().map(|r| r.rz).sum();
     assert_close(sum_ry, total_load, 0.02, "Triangular: ΣR = qL/2");
 
     // Load is concentrated toward the interior support,
@@ -185,12 +185,12 @@ fn validation_continuous_five_span_symmetry() {
     let total_nodes = total_elems + 1;
     let ql = q.abs() * span;
 
-    let r1 = results.reactions.iter().find(|r| r.node_id == 1).unwrap().ry;
-    let r2 = results.reactions.iter().find(|r| r.node_id == n + 1).unwrap().ry;
-    let r3 = results.reactions.iter().find(|r| r.node_id == 2 * n + 1).unwrap().ry;
-    let r4 = results.reactions.iter().find(|r| r.node_id == 3 * n + 1).unwrap().ry;
-    let r5 = results.reactions.iter().find(|r| r.node_id == 4 * n + 1).unwrap().ry;
-    let r6 = results.reactions.iter().find(|r| r.node_id == total_nodes).unwrap().ry;
+    let r1 = results.reactions.iter().find(|r| r.node_id == 1).unwrap().rz;
+    let r2 = results.reactions.iter().find(|r| r.node_id == n + 1).unwrap().rz;
+    let r3 = results.reactions.iter().find(|r| r.node_id == 2 * n + 1).unwrap().rz;
+    let r4 = results.reactions.iter().find(|r| r.node_id == 3 * n + 1).unwrap().rz;
+    let r5 = results.reactions.iter().find(|r| r.node_id == 4 * n + 1).unwrap().rz;
+    let r6 = results.reactions.iter().find(|r| r.node_id == total_nodes).unwrap().rz;
 
     // Symmetry checks
     assert_close(r1, r6, 0.01, "5-span: R1 = R6");
@@ -198,7 +198,7 @@ fn validation_continuous_five_span_symmetry() {
     assert_close(r3, r4, 0.01, "5-span: R3 = R4");
 
     // Equilibrium
-    let sum_ry: f64 = results.reactions.iter().map(|r| r.ry).sum();
+    let sum_ry: f64 = results.reactions.iter().map(|r| r.rz).sum();
     assert_close(sum_ry, 5.0 * ql, 0.02, "5-span: ΣR = 5qL");
 }
 
@@ -223,7 +223,7 @@ fn validation_continuous_two_span_point_at_support() {
     let mid_node = n + 1; // interior support node
 
     let loads = vec![SolverLoad::Nodal(SolverNodalLoad {
-        node_id: mid_node, fx: 0.0, fy: p, mz: 0.0,
+        node_id: mid_node, fx: 0.0, fz: p, my: 0.0,
     })];
 
     let input = make_continuous_beam(&[span, span], n, E, A, IZ, loads);
@@ -231,12 +231,12 @@ fn validation_continuous_two_span_point_at_support() {
 
     let total_nodes = 2 * n + 1;
 
-    let r1 = results.reactions.iter().find(|r| r.node_id == 1).unwrap().ry;
-    let r_mid = results.reactions.iter().find(|r| r.node_id == mid_node).unwrap().ry;
-    let r_end = results.reactions.iter().find(|r| r.node_id == total_nodes).unwrap().ry;
+    let r1 = results.reactions.iter().find(|r| r.node_id == 1).unwrap().rz;
+    let r_mid = results.reactions.iter().find(|r| r.node_id == mid_node).unwrap().rz;
+    let r_end = results.reactions.iter().find(|r| r.node_id == total_nodes).unwrap().rz;
 
     // Equilibrium: sum of reactions = P (magnitude)
-    let sum_ry: f64 = results.reactions.iter().map(|r| r.ry).sum();
+    let sum_ry: f64 = results.reactions.iter().map(|r| r.rz).sum();
     assert_close(sum_ry, p.abs(), 0.02, "Point at support: ΣR = P");
 
     // Load is applied at the support node directly, so the interior
@@ -278,21 +278,21 @@ fn validation_continuous_three_span_unequal_equilibrium() {
 
     // Equilibrium: total = q*(L1+L2+L3)
     let total_load = q.abs() * (l1 + l2 + l3);
-    let sum_ry: f64 = results.reactions.iter().map(|r| r.ry).sum();
+    let sum_ry: f64 = results.reactions.iter().map(|r| r.rz).sum();
     assert_close(sum_ry, total_load, 0.02, "3-span unequal: ΣR = q*ΣL");
 
     // All reactions must be positive (upward)
     for r in &results.reactions {
-        assert!(r.ry > 0.0,
-            "3-span unequal: all reactions positive, node {} has ry={:.4}", r.node_id, r.ry);
+        assert!(r.rz > 0.0,
+            "3-span unequal: all reactions positive, node {} has ry={:.4}", r.node_id, r.rz);
     }
 
     // The two supports bounding the longest span (L2) should carry
     // more than the end supports
-    let r_b = results.reactions.iter().find(|r| r.node_id == n + 1).unwrap().ry;
-    let r_c = results.reactions.iter().find(|r| r.node_id == 2 * n + 1).unwrap().ry;
-    let r_a = results.reactions.iter().find(|r| r.node_id == 1).unwrap().ry;
-    let r_d = results.reactions.iter().find(|r| r.node_id == total_nodes).unwrap().ry;
+    let r_b = results.reactions.iter().find(|r| r.node_id == n + 1).unwrap().rz;
+    let r_c = results.reactions.iter().find(|r| r.node_id == 2 * n + 1).unwrap().rz;
+    let r_a = results.reactions.iter().find(|r| r.node_id == 1).unwrap().rz;
+    let r_d = results.reactions.iter().find(|r| r.node_id == total_nodes).unwrap().rz;
 
     assert!(r_b > r_a, "3-span unequal: R_B > R_A: {:.4} > {:.4}", r_b, r_a);
     assert!(r_c > r_d, "3-span unequal: R_C > R_D: {:.4} > {:.4}", r_c, r_d);
@@ -356,8 +356,8 @@ fn validation_continuous_two_span_stiffness_ratio() {
     let mid_span1 = n / 2 + 1;
     let mid_span2 = n + n / 2 + 1;
 
-    let d1 = results.displacements.iter().find(|d| d.node_id == mid_span1).unwrap().uy.abs();
-    let d2 = results.displacements.iter().find(|d| d.node_id == mid_span2).unwrap().uy.abs();
+    let d1 = results.displacements.iter().find(|d| d.node_id == mid_span1).unwrap().uz.abs();
+    let d2 = results.displacements.iter().find(|d| d.node_id == mid_span2).unwrap().uz.abs();
 
     // Stiffer span (span 2) deflects less
     assert!(d2 < d1,
@@ -365,7 +365,7 @@ fn validation_continuous_two_span_stiffness_ratio() {
 
     // Equilibrium
     let total_load = q.abs() * 2.0 * span;
-    let sum_ry: f64 = results.reactions.iter().map(|r| r.ry).sum();
+    let sum_ry: f64 = results.reactions.iter().map(|r| r.rz).sum();
     assert_close(sum_ry, total_load, 0.02, "Stiffness ratio: ΣR = 2qL");
 }
 
@@ -411,8 +411,8 @@ fn validation_continuous_four_span_alternate_vs_full() {
 
     // Midspan of span 1 deflection
     let mid1 = n / 2 + 1;
-    let d_full = res_full.displacements.iter().find(|d| d.node_id == mid1).unwrap().uy.abs();
-    let d_alt = res_alt.displacements.iter().find(|d| d.node_id == mid1).unwrap().uy.abs();
+    let d_full = res_full.displacements.iter().find(|d| d.node_id == mid1).unwrap().uz.abs();
+    let d_alt = res_alt.displacements.iter().find(|d| d.node_id == mid1).unwrap().uz.abs();
 
     // Alternate loading: span 1 deflection exceeds full-load deflection
     assert!(d_alt > d_full,
@@ -420,6 +420,6 @@ fn validation_continuous_four_span_alternate_vs_full() {
 
     // Equilibrium for alternate loading: 2 spans loaded
     let total_alt = q.abs() * 2.0 * span;
-    let sum_alt: f64 = res_alt.reactions.iter().map(|r| r.ry).sum();
+    let sum_alt: f64 = res_alt.reactions.iter().map(|r| r.rz).sum();
     assert_close(sum_alt, total_alt, 0.02, "4-span alternate: ΣR = 2qL");
 }

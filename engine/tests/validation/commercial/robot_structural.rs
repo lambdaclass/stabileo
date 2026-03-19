@@ -44,7 +44,7 @@ fn validation_robot_ss_beam_midspan_point_load() {
         a: elem_len,
         p: -p,
         px: None,
-        mz: None,
+        my: None,
     })];
 
     let input = make_input(
@@ -65,8 +65,8 @@ fn validation_robot_ss_beam_midspan_point_load() {
         .iter()
         .find(|r| r.node_id == n + 1)
         .unwrap();
-    assert_close(r_a.ry, p / 2.0, 0.02, "Robot1 R_A = P/2");
-    assert_close(r_b.ry, p / 2.0, 0.02, "Robot1 R_B = P/2");
+    assert_close(r_a.rz, p / 2.0, 0.02, "Robot1 R_A = P/2");
+    assert_close(r_b.rz, p / 2.0, 0.02, "Robot1 R_B = P/2");
 
     // Midspan deflection: δ = PL³/(48EI)
     let delta_expected = p * l.powi(3) / (48.0 * E_EFF * IZ);
@@ -76,7 +76,7 @@ fn validation_robot_ss_beam_midspan_point_load() {
         .iter()
         .find(|d| d.node_id == mid_node)
         .unwrap();
-    assert_close(d_mid.uy.abs(), delta_expected, 0.02, "Robot1 δ = PL³/48EI");
+    assert_close(d_mid.uz.abs(), delta_expected, 0.02, "Robot1 δ = PL³/48EI");
 
     // Max moment: M_max = PL/4
     let m_expected = p * l / 4.0;
@@ -131,17 +131,17 @@ fn validation_robot_fixed_fixed_beam_udl() {
         .iter()
         .find(|r| r.node_id == n + 1)
         .unwrap();
-    assert_close(r1.mz.abs(), m_end_expected, 0.02, "Robot2 M_end_left = wL²/12");
+    assert_close(r1.my.abs(), m_end_expected, 0.02, "Robot2 M_end_left = wL²/12");
     assert_close(
-        r_end.mz.abs(),
+        r_end.my.abs(),
         m_end_expected,
         0.02,
         "Robot2 M_end_right = wL²/12",
     );
 
     // Reactions: R = wL/2 = 80 kN each (by symmetry)
-    assert_close(r1.ry, q * l / 2.0, 0.02, "Robot2 R_left = wL/2");
-    assert_close(r_end.ry, q * l / 2.0, 0.02, "Robot2 R_right = wL/2");
+    assert_close(r1.rz, q * l / 2.0, 0.02, "Robot2 R_left = wL/2");
+    assert_close(r_end.rz, q * l / 2.0, 0.02, "Robot2 R_right = wL/2");
 
     // Midspan deflection: δ = wL⁴/(384EI)
     let delta_expected = q * l.powi(4) / (384.0 * E_EFF * IZ);
@@ -152,7 +152,7 @@ fn validation_robot_fixed_fixed_beam_udl() {
         .find(|d| d.node_id == mid_node)
         .unwrap();
     assert_close(
-        d_mid.uy.abs(),
+        d_mid.uz.abs(),
         delta_expected,
         0.02,
         "Robot2 δ = wL⁴/384EI",
@@ -205,7 +205,7 @@ fn validation_robot_propped_cantilever_point_load() {
         a: elem_len,
         p: -p,
         px: None,
-        mz: None,
+        my: None,
     })];
 
     let input = make_input(
@@ -226,24 +226,24 @@ fn validation_robot_propped_cantilever_point_load() {
         .iter()
         .find(|r| r.node_id == n + 1)
         .unwrap();
-    assert_close(r_b.ry, r_prop_expected, 0.02, "Robot3 R_prop = 5P/16");
+    assert_close(r_b.rz, r_prop_expected, 0.02, "Robot3 R_prop = 5P/16");
 
     // Fixed reaction (left support): R_A = 11P/16
     let r_fixed_expected = 11.0 * p / 16.0;
     let r_a = results.reactions.iter().find(|r| r.node_id == 1).unwrap();
-    assert_close(r_a.ry, r_fixed_expected, 0.02, "Robot3 R_fixed = 11P/16");
+    assert_close(r_a.rz, r_fixed_expected, 0.02, "Robot3 R_fixed = 11P/16");
 
     // Fixed-end moment: M_A = 3PL/16
     let m_fixed_expected = 3.0 * p * l / 16.0;
     assert_close(
-        r_a.mz.abs(),
+        r_a.my.abs(),
         m_fixed_expected,
         0.02,
         "Robot3 M_fixed = 3PL/16",
     );
 
     // Equilibrium check
-    assert_close(r_a.ry + r_b.ry, p, 0.01, "Robot3 equilibrium ΣRy = P");
+    assert_close(r_a.rz + r_b.rz, p, 0.01, "Robot3 equilibrium ΣRy = P");
 }
 
 // ═══════════════════════════════════════════════════════════════
@@ -324,8 +324,8 @@ fn validation_robot_two_bay_portal_frame() {
     loads.push(SolverLoad::Nodal(SolverNodalLoad {
         node_id: 4,
         fx: h_load,
-        fy: 0.0,
-        mz: 0.0,
+        fz: 0.0,
+        my: 0.0,
     }));
     // UDL on both beams
     for i in 0..n_beam_elem {
@@ -360,7 +360,7 @@ fn validation_robot_two_bay_portal_frame() {
 
     // Global equilibrium: ΣRy = total gravity = q * 2W = 15 * 12 = 180 kN
     let total_gravity = q * 2.0 * w;
-    let sum_ry: f64 = results.reactions.iter().map(|r| r.ry).sum();
+    let sum_ry: f64 = results.reactions.iter().map(|r| r.rz).sum();
     assert_close(sum_ry, total_gravity, 0.02, "Robot4 ΣRy = total gravity");
 
     // Horizontal equilibrium: ΣRx + H = 0 → ΣRx = -H
@@ -389,11 +389,11 @@ fn validation_robot_two_bay_portal_frame() {
     let r1 = results.reactions.iter().find(|r| r.node_id == 1).unwrap();
     let r3 = results.reactions.iter().find(|r| r.node_id == 3).unwrap();
     assert!(
-        r2.ry > r1.ry && r2.ry > r3.ry,
+        r2.rz > r1.rz && r2.rz > r3.rz,
         "Robot4: interior column R2={:.2} should exceed edge columns R1={:.2}, R3={:.2}",
-        r2.ry,
-        r1.ry,
-        r3.ry
+        r2.rz,
+        r1.rz,
+        r3.rz
     );
 }
 
@@ -429,7 +429,7 @@ fn validation_robot_three_span_continuous_beam_udl() {
 
     // Total load = q * 3L = 25 * 24 = 600 kN
     let total_load = q * 3.0 * l_span;
-    let sum_ry: f64 = results.reactions.iter().map(|r| r.ry).sum();
+    let sum_ry: f64 = results.reactions.iter().map(|r| r.rz).sum();
     assert_close(sum_ry, total_load, 0.01, "Robot5 ΣRy = total load");
 
     // Outer reactions: R_outer = 0.4 qL
@@ -440,9 +440,9 @@ fn validation_robot_three_span_continuous_beam_udl() {
         .iter()
         .find(|r| r.node_id == total_elems + 1)
         .unwrap();
-    assert_close(r1.ry, r_outer_expected, 0.02, "Robot5 R_outer_left = 0.4qL");
+    assert_close(r1.rz, r_outer_expected, 0.02, "Robot5 R_outer_left = 0.4qL");
     assert_close(
-        r_end.ry,
+        r_end.rz,
         r_outer_expected,
         0.02,
         "Robot5 R_outer_right = 0.4qL",
@@ -463,23 +463,23 @@ fn validation_robot_three_span_continuous_beam_udl() {
         .find(|r| r.node_id == inner_node_2)
         .unwrap();
     assert_close(
-        r_in1.ry,
+        r_in1.rz,
         r_inner_expected,
         0.02,
         "Robot5 R_inner_1 = 1.1qL",
     );
     assert_close(
-        r_in2.ry,
+        r_in2.rz,
         r_inner_expected,
         0.02,
         "Robot5 R_inner_2 = 1.1qL",
     );
 
     // Symmetry of outer reactions
-    assert_close(r1.ry, r_end.ry, 0.01, "Robot5 outer reaction symmetry");
+    assert_close(r1.rz, r_end.rz, 0.01, "Robot5 outer reaction symmetry");
 
     // Symmetry of inner reactions
-    assert_close(r_in1.ry, r_in2.ry, 0.01, "Robot5 inner reaction symmetry");
+    assert_close(r_in1.rz, r_in2.rz, 0.01, "Robot5 inner reaction symmetry");
 }
 
 // ═══════════════════════════════════════════════════════════════
@@ -515,8 +515,8 @@ fn validation_robot_braced_frame_diagonal() {
     let loads = vec![SolverLoad::Nodal(SolverNodalLoad {
         node_id: 3,
         fx: h_load,
-        fy: 0.0,
-        mz: 0.0,
+        fz: 0.0,
+        my: 0.0,
     })];
 
     let iz_beam = 1e-3; // stiff beam
@@ -566,7 +566,7 @@ fn validation_robot_braced_frame_diagonal() {
 
     // Overturning check: sum of moments about base should be zero
     // ΣRy should sum to zero (no vertical applied loads)
-    let sum_ry: f64 = results.reactions.iter().map(|r| r.ry).sum();
+    let sum_ry: f64 = results.reactions.iter().map(|r| r.rz).sum();
     assert!(
         sum_ry.abs() < 0.5,
         "Robot6: ΣRy={:.4} should ≈ 0 (no gravity loads)",
@@ -589,8 +589,8 @@ fn validation_robot_braced_frame_diagonal() {
     let loads_ub = vec![SolverLoad::Nodal(SolverNodalLoad {
         node_id: 3,
         fx: h_load,
-        fy: 0.0,
-        mz: 0.0,
+        fz: 0.0,
+        my: 0.0,
     })];
     let input_ub = make_input(
         nodes_ub,
@@ -657,8 +657,8 @@ fn validation_robot_3d_cantilever_biaxial() {
         vec![SolverLoad3D::Nodal(SolverNodalLoad3D {
             node_id: n + 1,
             fx: 0.0,
-            fy: fy,
-            fz: fz,
+            fz: fy,
+            fy: fz,
             mx: 0.0,
             my: 0.0,
             mz: 0.0,
@@ -677,7 +677,7 @@ fn validation_robot_3d_cantilever_biaxial() {
     // δy = Fy·L³/(3EIz)
     let delta_y_expected = fy * l.powi(3) / (3.0 * E_EFF * iz);
     assert_close(
-        tip.uy.abs(),
+        tip.uz.abs(),
         delta_y_expected,
         0.02,
         "Robot7 δy = Fy·L³/(3EIz)",
@@ -694,11 +694,11 @@ fn validation_robot_3d_cantilever_biaxial() {
 
     // Base reactions: Fy_reaction = Fy, Fz_reaction = Fz
     let r_base = results.reactions.iter().find(|r| r.node_id == 1).unwrap();
-    assert_close(r_base.fy.abs(), fy, 0.02, "Robot7 base Fy reaction");
+    assert_close(r_base.fz.abs(), fy, 0.02, "Robot7 base Fy reaction");
     assert_close(r_base.fz.abs(), fz, 0.02, "Robot7 base Fz reaction");
 
     // Base moments: Mz = Fy·L, My = Fz·L
-    assert_close(r_base.mz.abs(), fy * l, 0.02, "Robot7 Mz = Fy·L");
+    assert_close(r_base.my.abs(), fy * l, 0.02, "Robot7 Mz = Fy·L");
     assert_close(r_base.my.abs(), fz * l, 0.02, "Robot7 My = Fz·L");
 }
 
@@ -781,8 +781,8 @@ fn validation_robot_warren_truss_bridge() {
         loads.push(SolverLoad::Nodal(SolverNodalLoad {
             node_id: i + 1,
             fx: 0.0,
-            fy: -p,
-            mz: 0.0,
+            fz: -p,
+            my: 0.0,
         }));
     }
 
@@ -807,11 +807,11 @@ fn validation_robot_warren_truss_bridge() {
         .iter()
         .find(|r| r.node_id == n_panels + 1)
         .unwrap();
-    assert_close(r_a.ry, total_load / 2.0, 0.02, "Robot8 R_A = total/2");
-    assert_close(r_b.ry, total_load / 2.0, 0.02, "Robot8 R_B = total/2");
+    assert_close(r_a.rz, total_load / 2.0, 0.02, "Robot8 R_A = total/2");
+    assert_close(r_b.rz, total_load / 2.0, 0.02, "Robot8 R_B = total/2");
 
     // Symmetry of reactions
-    assert_close(r_a.ry, r_b.ry, 0.01, "Robot8 reaction symmetry");
+    assert_close(r_a.rz, r_b.rz, 0.01, "Robot8 reaction symmetry");
 
     // Max bottom chord force at midspan by method of sections:
     // Cut through the panel containing the midspan bottom chord element.
@@ -859,9 +859,9 @@ fn validation_robot_warren_truss_bridge() {
         .find(|d| d.node_id == mid_node)
         .unwrap();
     assert!(
-        d_mid.uy < 0.0,
+        d_mid.uz < 0.0,
         "Robot8: midspan deflection uy={:.6} should be negative (downward)",
-        d_mid.uy
+        d_mid.uz
     );
 
     // Estimate deflection using simplified virtual work:
@@ -871,12 +871,12 @@ fn validation_robot_warren_truss_bridge() {
     // δ ≈ M*L/(8*E*A_chord*h²) rough estimate ≈ 675*18/(8*200e6*0.005*9) ≈ 0.0017m
     // Just verify it's positive and in a reasonable ballpark
     assert!(
-        d_mid.uy.abs() > 1e-5 && d_mid.uy.abs() < 0.1,
+        d_mid.uz.abs() > 1e-5 && d_mid.uz.abs() < 0.1,
         "Robot8: midspan deflection {:.6} should be in reasonable range",
-        d_mid.uy.abs()
+        d_mid.uz.abs()
     );
 
     // Equilibrium check
-    let sum_ry: f64 = results.reactions.iter().map(|r| r.ry).sum();
+    let sum_ry: f64 = results.reactions.iter().map(|r| r.rz).sum();
     assert_close(sum_ry, total_load, 0.01, "Robot8 ΣRy = total load");
 }

@@ -110,7 +110,7 @@ fn gerber_2span_global_equilibrium() {
     let l_total = 12.0;
     let total_load = q * l_total; // 120 kN
 
-    let sum_ry: f64 = results.reactions.iter().map(|r| r.ry).sum();
+    let sum_ry: f64 = results.reactions.iter().map(|r| r.rz).sum();
     let sum_rx: f64 = results.reactions.iter().map(|r| r.rx).sum();
 
     assert_close(sum_ry, total_load, 0.01, "Gerber 2span: ΣRy = total load");
@@ -180,10 +180,10 @@ fn gerber_hinge_increases_flexibility() {
 
     // Find max absolute vertical displacement in each case
     let max_uy_a = results_a.displacements.iter()
-        .map(|d| d.uy.abs())
+        .map(|d| d.uz.abs())
         .fold(0.0_f64, f64::max);
     let max_uy_b = results_b.displacements.iter()
-        .map(|d| d.uy.abs())
+        .map(|d| d.uz.abs())
         .fold(0.0_f64, f64::max);
 
     assert!(
@@ -248,7 +248,7 @@ fn gerber_3support_hinge_at_midspan() {
     );
 
     // Global equilibrium: total load = 10 * 16 = 160 kN
-    let sum_ry: f64 = results.reactions.iter().map(|r| r.ry).sum();
+    let sum_ry: f64 = results.reactions.iter().map(|r| r.rz).sum();
     assert_close(sum_ry, 160.0, 0.01, "Gerber 3-support: ΣRy = 160");
 }
 
@@ -326,7 +326,7 @@ fn gerber_3span_two_hinges() {
     );
 
     // Global equilibrium: total load = 10 * 18 = 180 kN
-    let sum_ry: f64 = results.reactions.iter().map(|r| r.ry).sum();
+    let sum_ry: f64 = results.reactions.iter().map(|r| r.rz).sum();
     assert_close(sum_ry, 180.0, 0.01, "Gerber 3span: ΣRy = 180");
 
     // Symmetry: structure and loading are symmetric about x=9.
@@ -334,11 +334,11 @@ fn gerber_3span_two_hinges() {
     // Reactions at node 3 and node 5 should be equal.
     let r1 = results.reactions.iter().find(|r| r.node_id == 1).unwrap();
     let r7 = results.reactions.iter().find(|r| r.node_id == 7).unwrap();
-    assert_close(r1.ry, r7.ry, 0.01, "Gerber 3span symmetry: R1 = R7");
+    assert_close(r1.rz, r7.rz, 0.01, "Gerber 3span symmetry: R1 = R7");
 
     let r3 = results.reactions.iter().find(|r| r.node_id == 3).unwrap();
     let r5 = results.reactions.iter().find(|r| r.node_id == 5).unwrap();
-    assert_close(r3.ry, r5.ry, 0.01, "Gerber 3span symmetry: R3 = R5");
+    assert_close(r3.rz, r5.rz, 0.01, "Gerber 3span symmetry: R3 = R5");
 }
 
 // ================================================================
@@ -396,11 +396,11 @@ fn gerber_hinges_at_support_independent_spans() {
     let r5 = results.reactions.iter().find(|r| r.node_id == 5).unwrap();
 
     // Each end support: q*L/2 = 30
-    assert_close(r1.ry, q * l / 2.0, 0.02, "Gerber independent spans: R_A = qL/2");
-    assert_close(r5.ry, q * l / 2.0, 0.02, "Gerber independent spans: R_C = qL/2");
+    assert_close(r1.rz, q * l / 2.0, 0.02, "Gerber independent spans: R_A = qL/2");
+    assert_close(r5.rz, q * l / 2.0, 0.02, "Gerber independent spans: R_C = qL/2");
 
     // Interior support: contributions from both spans = q*L/2 + q*L/2 = q*L
-    assert_close(r3.ry, q * l, 0.02, "Gerber independent spans: R_B = qL");
+    assert_close(r3.rz, q * l, 0.02, "Gerber independent spans: R_B = qL");
 
     // Moment at interior support hinge should be zero
     let ef2 = results.element_forces.iter().find(|e| e.element_id == 2).unwrap();
@@ -447,8 +447,8 @@ fn gerber_point_load_moment_zero_at_hinge() {
     let loads = vec![SolverLoad::Nodal(SolverNodalLoad {
         node_id: 4,
         fx: 0.0,
-        fy: -20.0,
-        mz: 0.0,
+        fz: -20.0,
+        my: 0.0,
     })];
 
     let input = make_input(nodes, vec![(1, E, 0.3)], vec![(1, A, IZ)], elems, sups, loads);
@@ -468,7 +468,7 @@ fn gerber_point_load_moment_zero_at_hinge() {
     );
 
     // Global equilibrium: total vertical load = 20 kN
-    let sum_ry: f64 = results.reactions.iter().map(|r| r.ry).sum();
+    let sum_ry: f64 = results.reactions.iter().map(|r| r.rz).sum();
     assert_close(sum_ry, 20.0, 0.01, "Gerber point load: ΣRy = P");
 
     // The point load is at midspan of span 2. With the hinge making the

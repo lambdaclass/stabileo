@@ -49,7 +49,7 @@ fn validation_ca_ssll010_lattice_truss() {
     ];
     let sups = vec![(1, 1, "pinned"), (2, 3, "rollerX")];
     let loads = vec![SolverLoad::Nodal(SolverNodalLoad {
-        node_id: 2, fx: 0.0, fy: -p, mz: 0.0,
+        node_id: 2, fx: 0.0, fz: -p, my: 0.0,
     })];
 
     let input = make_input(
@@ -60,14 +60,14 @@ fn validation_ca_ssll010_lattice_truss() {
     let results = linear::solve_2d(&input).unwrap();
 
     // Equilibrium: R1_y + R3_y = P
-    let sum_ry: f64 = results.reactions.iter().map(|r| r.ry).sum();
+    let sum_ry: f64 = results.reactions.iter().map(|r| r.rz).sum();
     assert_close(sum_ry, p, 0.01, "SSLL010 ΣRy = P");
 
     // By symmetry: R1_y = R3_y = P/2
     let r1 = results.reactions.iter().find(|r| r.node_id == 1).unwrap();
     let r3 = results.reactions.iter().find(|r| r.node_id == 3).unwrap();
-    assert_close(r1.ry, p / 2.0, 0.02, "SSLL010 R1 = P/2");
-    assert_close(r3.ry, p / 2.0, 0.02, "SSLL010 R3 = P/2");
+    assert_close(r1.rz, p / 2.0, 0.02, "SSLL010 R1 = P/2");
+    assert_close(r3.rz, p / 2.0, 0.02, "SSLL010 R3 = P/2");
 
     // Top chord force: by method of sections, cut through panel
     // Taking moment about node 2: F_top * 2 = R1 * 4 → F_top = R1*4/2 = 100 kN (tension)
@@ -98,7 +98,7 @@ fn validation_ca_ssll012_bar_load_cases() {
     // Case 1: Axial load
     let input1 = make_beam(n, l, E, a, iz, "pinned", Some("rollerX"),
         vec![SolverLoad::Nodal(SolverNodalLoad {
-            node_id: n + 1, fx: p, fy: 0.0, mz: 0.0,
+            node_id: n + 1, fx: p, fz: 0.0, my: 0.0,
         })]);
     let res1 = linear::solve_2d(&input1).unwrap();
     let d1 = res1.displacements.iter().find(|d| d.node_id == n + 1).unwrap();
@@ -154,7 +154,7 @@ fn validation_ca_ssll014_portal_pinned_base() {
     ];
     let sups = vec![(1, 1, "pinned"), (2, 4, "pinned")];
     let loads = vec![SolverLoad::Nodal(SolverNodalLoad {
-        node_id: 2, fx: h_load, fy: 0.0, mz: 0.0,
+        node_id: 2, fx: h_load, fz: 0.0, my: 0.0,
     })];
 
     let input_pin = make_input(
@@ -180,7 +180,7 @@ fn validation_ca_ssll014_portal_pinned_base() {
     let r1 = res_pin.reactions.iter().find(|r| r.node_id == 1).unwrap();
     // Pinned support: mz reaction should be 0 (or not present)
     // Actually mz field exists but should be 0 for pinned support
-    assert!(r1.mz.abs() < 0.1, "SSLL014: pinned base M={:.4} should ≈ 0", r1.mz);
+    assert!(r1.my.abs() < 0.1, "SSLL014: pinned base M={:.4} should ≈ 0", r1.my);
 
     // Equilibrium
     let sum_rx: f64 = res_pin.reactions.iter().map(|r| r.rx).sum();
@@ -232,7 +232,7 @@ fn validation_ca_ssll100_l_frame() {
 
     let sups = vec![(1, 1, "fixed")];
     let loads = vec![SolverLoad::Nodal(SolverNodalLoad {
-        node_id: tip_node, fx: 0.0, fy: -p, mz: 0.0,
+        node_id: tip_node, fx: 0.0, fz: -p, my: 0.0,
     })];
 
     let input = make_input(
@@ -249,20 +249,20 @@ fn validation_ca_ssll100_l_frame() {
     let d_tip = results.displacements.iter().find(|d| d.node_id == tip_node).unwrap();
     let delta_min = p * l_horiz.powi(3) / (3.0 * E_EFF * IZ);
     assert!(
-        d_tip.uy.abs() > delta_min * 0.9,
-        "SSLL100: tip δ={:.6} should > cantilever part {:.6}", d_tip.uy.abs(), delta_min
+        d_tip.uz.abs() > delta_min * 0.9,
+        "SSLL100: tip δ={:.6} should > cantilever part {:.6}", d_tip.uz.abs(), delta_min
     );
 
     // Base moment = P * (total horizontal distance) + ... depends on geometry
     // At minimum: M_base ≥ P * L_h (from the horizontal lever arm)
     let r_base = results.reactions.iter().find(|r| r.node_id == 1).unwrap();
     assert!(
-        r_base.mz.abs() >= p * l_horiz * 0.95,
-        "SSLL100: base M={:.4} should ≥ P*L_h={:.4}", r_base.mz.abs(), p * l_horiz
+        r_base.my.abs() >= p * l_horiz * 0.95,
+        "SSLL100: base M={:.4} should ≥ P*L_h={:.4}", r_base.my.abs(), p * l_horiz
     );
 
     // Equilibrium
-    assert_close(r_base.ry, p, 0.01, "SSLL100 R_y = P");
+    assert_close(r_base.rz, p, 0.01, "SSLL100 R_y = P");
 }
 
 // ═══════════════════════════════════════════════════════════════
@@ -289,14 +289,14 @@ fn validation_ca_ssll102_clamped_beam() {
             a: elem_len, // at end of element → actually at the node
             p: -p,
             px: None,
-            mz: None,
+            my: None,
         }),
         SolverLoad::PointOnElement(SolverPointLoadOnElement {
             element_id: 3 * n / 4,
             a: elem_len,
             p: -p,
             px: None,
-            mz: None,
+            my: None,
         }),
     ];
 
@@ -308,16 +308,16 @@ fn validation_ca_ssll102_clamped_beam() {
     let r_end = results.reactions.iter().find(|r| r.node_id == n + 1).unwrap();
 
     // Each support carries P (total 2P, symmetric)
-    assert_close(r1.ry, p, 0.02, "SSLL102 R1 = P");
-    assert_close(r_end.ry, p, 0.02, "SSLL102 R_end = P");
+    assert_close(r1.rz, p, 0.02, "SSLL102 R1 = P");
+    assert_close(r_end.rz, p, 0.02, "SSLL102 R_end = P");
 
     // Moments should be equal by symmetry
-    assert_close(r1.mz.abs(), r_end.mz.abs(), 0.05, "SSLL102 moment symmetry");
+    assert_close(r1.my.abs(), r_end.my.abs(), 0.05, "SSLL102 moment symmetry");
 
     // Midspan deflection should exist (nonzero, downward)
     let mid = n / 2 + 1;
     let d_mid = results.displacements.iter().find(|d| d.node_id == mid).unwrap();
-    assert!(d_mid.uy.abs() > 1e-10, "SSLL102: midspan should deflect");
+    assert!(d_mid.uz.abs() > 1e-10, "SSLL102: midspan should deflect");
 }
 
 // ═══════════════════════════════════════════════════════════════
@@ -382,7 +382,7 @@ fn validation_ca_ssll105_l_structure_buckling() {
 
     let sups = vec![(1, 1, "fixed")];
     let loads = vec![SolverLoad::Nodal(SolverNodalLoad {
-        node_id: tip, fx: 0.0, fy: -p, mz: 0.0,
+        node_id: tip, fx: 0.0, fz: -p, my: 0.0,
     })];
 
     let input = make_input(
@@ -436,8 +436,8 @@ fn validation_ca_ssll110_bars_self_weight() {
     // Total load = q*L = 50 kN → each support carries q*L/2 = 25 kN
     let r1 = results.reactions.iter().find(|r| r.node_id == 1).unwrap();
     let r_end = results.reactions.iter().find(|r| r.node_id == n + 1).unwrap();
-    assert_close(r1.ry, q * l / 2.0, 0.02, "SSLL110 R1 = qL/2");
-    assert_close(r_end.ry, q * l / 2.0, 0.02, "SSLL110 R_end = qL/2");
+    assert_close(r1.rz, q * l / 2.0, 0.02, "SSLL110 R1 = qL/2");
+    assert_close(r_end.rz, q * l / 2.0, 0.02, "SSLL110 R_end = qL/2");
 
     // Midspan moment = qL²/8
     let m_max: f64 = results.element_forces.iter()
@@ -490,7 +490,7 @@ fn validation_ca_ssll400_variable_section() {
     let sups = vec![(1, 1, "fixed")];
     let tip_node = total_n + 1;
     let loads = vec![SolverLoad::Nodal(SolverNodalLoad {
-        node_id: tip_node, fx: 0.0, fy: -p, mz: 0.0,
+        node_id: tip_node, fx: 0.0, fz: -p, my: 0.0,
     })];
 
     let secs: Vec<_> = sections.iter().map(|&(id, a, iz)| (id, a, iz)).collect();
@@ -518,12 +518,12 @@ fn validation_ca_ssll400_variable_section() {
     );
 
     let d_tip = results.displacements.iter().find(|d| d.node_id == tip_node).unwrap();
-    assert_close(d_tip.uy.abs(), delta_expected, 0.02, "SSLL400 variable section tip deflection");
+    assert_close(d_tip.uz.abs(), delta_expected, 0.02, "SSLL400 variable section tip deflection");
 
     // Base moment = P * L_total
     let r_base = results.reactions.iter().find(|r| r.node_id == 1).unwrap();
-    assert_close(r_base.mz.abs(), p * 9.0, 0.01, "SSLL400 M_base = P*L");
+    assert_close(r_base.my.abs(), p * 9.0, 0.01, "SSLL400 M_base = P*L");
 
     // Base shear = P
-    assert_close(r_base.ry, p, 0.01, "SSLL400 R_base = P");
+    assert_close(r_base.rz, p, 0.01, "SSLL400 R_base = P");
 }

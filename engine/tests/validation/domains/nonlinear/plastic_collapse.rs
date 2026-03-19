@@ -64,7 +64,7 @@ fn validation_plastic_ss_point_center() {
     let l = 6.0;
     let input = make_plastic_beam(l, "pinned", Some("rollerX"),
         vec![SolverLoad::PointOnElement(SolverPointLoadOnElement {
-            element_id: 1, a: l / 2.0, p: -1.0, px: None, mz: None,
+            element_id: 1, a: l / 2.0, p: -1.0, px: None, my: None,
         })]);
     let result = plastic::solve_plastic_2d(&input).unwrap();
 
@@ -109,7 +109,7 @@ fn validation_plastic_ff_point_center() {
     let n = 2; // Need midspan node for midspan hinge
     let input = make_plastic_beam_multi(n, l, "fixed", Some("fixed"),
         vec![SolverLoad::Nodal(SolverNodalLoad {
-            node_id: 2, fx: 0.0, fy: -1.0, mz: 0.0, // midspan node
+            node_id: 2, fx: 0.0, fz: -1.0, my: 0.0, // midspan node
         })]);
     let result = plastic::solve_plastic_2d(&input).unwrap();
 
@@ -237,7 +237,7 @@ fn validation_plastic_mp_override() {
     let l = 6.0;
     let base_input = make_plastic_beam(l, "pinned", Some("rollerX"),
         vec![SolverLoad::PointOnElement(SolverPointLoadOnElement {
-            element_id: 1, a: l / 2.0, p: -1.0, px: None, mz: None,
+            element_id: 1, a: l / 2.0, p: -1.0, px: None, my: None,
         })]);
     let result_full = plastic::solve_plastic_2d(&base_input).unwrap();
 
@@ -246,7 +246,7 @@ fn validation_plastic_mp_override() {
     overrides.insert("1".to_string(), MP / 2.0);
     let mut half_input = make_plastic_beam(l, "pinned", Some("rollerX"),
         vec![SolverLoad::PointOnElement(SolverPointLoadOnElement {
-            element_id: 1, a: l / 2.0, p: -1.0, px: None, mz: None,
+            element_id: 1, a: l / 2.0, p: -1.0, px: None, my: None,
         })]);
     half_input.mp_overrides = Some(overrides);
     let result_half = plastic::solve_plastic_2d(&half_input).unwrap();

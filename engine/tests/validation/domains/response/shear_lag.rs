@@ -50,13 +50,13 @@ fn validation_shear_lag_effective_width_deflection_increase() {
     let res_full = linear::solve_2d(&input_full).unwrap();
     let mid = n / 2 + 1; // node 3
     let delta_full = res_full.displacements.iter()
-        .find(|d| d.node_id == mid).unwrap().uy.abs();
+        .find(|d| d.node_id == mid).unwrap().uz.abs();
 
     // Reduced section beam
     let input_red = make_ss_beam_udl(n, l, E, A, iz_reduced, q);
     let res_red = linear::solve_2d(&input_red).unwrap();
     let delta_red = res_red.displacements.iter()
-        .find(|d| d.node_id == mid).unwrap().uy.abs();
+        .find(|d| d.node_id == mid).unwrap().uz.abs();
 
     // Ratio should be Iz_full / Iz_reduced = 1.25
     let ratio = delta_red / delta_full;
@@ -91,10 +91,10 @@ fn validation_shear_lag_reactions_unchanged_ss() {
     let res_red = linear::solve_2d(&input_red).unwrap();
 
     // Reactions at node 1 (pinned) and node n+1 (rollerX)
-    let ra_full = res_full.reactions.iter().find(|r| r.node_id == 1).unwrap().ry;
-    let rb_full = res_full.reactions.iter().find(|r| r.node_id == n + 1).unwrap().ry;
-    let ra_red = res_red.reactions.iter().find(|r| r.node_id == 1).unwrap().ry;
-    let rb_red = res_red.reactions.iter().find(|r| r.node_id == n + 1).unwrap().ry;
+    let ra_full = res_full.reactions.iter().find(|r| r.node_id == 1).unwrap().rz;
+    let rb_full = res_full.reactions.iter().find(|r| r.node_id == n + 1).unwrap().rz;
+    let ra_red = res_red.reactions.iter().find(|r| r.node_id == 1).unwrap().rz;
+    let rb_red = res_red.reactions.iter().find(|r| r.node_id == n + 1).unwrap().rz;
 
     // Exact: R_A = R_B = wL/2 = 10*8/2 = 40 kN
     let expected = q.abs() * l / 2.0;
@@ -148,14 +148,14 @@ fn validation_shear_lag_parallel_beams_equal_deflection() {
         (4, 6, "rollerX"),
     ];
     let loads = vec![SolverLoad::Nodal(SolverNodalLoad {
-        node_id: 2, fx: 0.0, fy: p, mz: 0.0,
+        node_id: 2, fx: 0.0, fz: p, my: 0.0,
     })];
 
     let input = make_input(nodes, mats, secs, elems, sups, loads);
     let results = linear::solve_2d(&input).unwrap();
 
-    let uy2 = results.displacements.iter().find(|d| d.node_id == 2).unwrap().uy;
-    let uy5 = results.displacements.iter().find(|d| d.node_id == 5).unwrap().uy;
+    let uy2 = results.displacements.iter().find(|d| d.node_id == 2).unwrap().uz;
+    let uy5 = results.displacements.iter().find(|d| d.node_id == 5).unwrap().uz;
 
     // With rigid link both should deflect similarly
     let diff = (uy2 - uy5).abs();
@@ -202,21 +202,21 @@ fn validation_shear_lag_load_sharing_parallel_beams() {
         (4, 6, "rollerX"),
     ];
     let loads = vec![SolverLoad::Nodal(SolverNodalLoad {
-        node_id: 2, fx: 0.0, fy: p, mz: 0.0,
+        node_id: 2, fx: 0.0, fz: p, my: 0.0,
     })];
 
     let input = make_input(nodes, mats, secs, elems, sups, loads);
     let results = linear::solve_2d(&input).unwrap();
 
     // Total vertical reactions
-    let sum_ry: f64 = results.reactions.iter().map(|r| r.ry).sum();
+    let sum_ry: f64 = results.reactions.iter().map(|r| r.rz).sum();
     let equil_err = (sum_ry - p.abs()).abs() / p.abs();
     assert!(equil_err < 0.01,
         "Total vertical reaction={:.4}, applied load={:.4}", sum_ry, p.abs());
 
     // Beam B reactions (nodes 4 and 6) should be nonzero
-    let ry4 = results.reactions.iter().find(|r| r.node_id == 4).unwrap().ry;
-    let ry6 = results.reactions.iter().find(|r| r.node_id == 6).unwrap().ry;
+    let ry4 = results.reactions.iter().find(|r| r.node_id == 4).unwrap().rz;
+    let ry6 = results.reactions.iter().find(|r| r.node_id == 6).unwrap().rz;
     let beam_b_total = ry4 + ry6;
     assert!(beam_b_total.abs() > 0.1,
         "Beam B should carry load through rigid link: R4={:.4}, R6={:.4}, total={:.4}",
@@ -243,12 +243,12 @@ fn validation_shear_lag_wide_vs_narrow_flange() {
     let res_wide = linear::solve_2d(&input_wide).unwrap();
     let mid = n / 2 + 1;
     let delta_wide = res_wide.displacements.iter()
-        .find(|d| d.node_id == mid).unwrap().uy.abs();
+        .find(|d| d.node_id == mid).unwrap().uz.abs();
 
     let input_narrow = make_ss_beam_udl(n, l, E, A, iz_narrow, q);
     let res_narrow = linear::solve_2d(&input_narrow).unwrap();
     let delta_narrow = res_narrow.displacements.iter()
-        .find(|d| d.node_id == mid).unwrap().uy.abs();
+        .find(|d| d.node_id == mid).unwrap().uz.abs();
 
     // Wide flange should deflect less
     assert!(delta_wide < delta_narrow,
@@ -284,7 +284,7 @@ fn validation_shear_lag_reduced_section_midspan() {
     let res_uniform = linear::solve_2d(&input_uniform).unwrap();
     let mid = n / 2 + 1; // node 3
     let delta_uniform = res_uniform.displacements.iter()
-        .find(|d| d.node_id == mid).unwrap().uy.abs();
+        .find(|d| d.node_id == mid).unwrap().uz.abs();
 
     // Non-uniform beam: elements 2,3 have reduced Iz
     let nodes = vec![
@@ -316,7 +316,7 @@ fn validation_shear_lag_reduced_section_midspan() {
     let input_red = make_input(nodes, mats, secs, elems, sups, loads);
     let res_red = linear::solve_2d(&input_red).unwrap();
     let delta_red = res_red.displacements.iter()
-        .find(|d| d.node_id == mid).unwrap().uy.abs();
+        .find(|d| d.node_id == mid).unwrap().uz.abs();
 
     // Reduced midspan section should give larger deflection
     assert!(delta_red > delta_uniform,
@@ -351,20 +351,20 @@ fn validation_shear_lag_cantilever_tip_load() {
     // Full section cantilever
     let input_full = make_beam(n, l, E, A, iz_full, "fixed", None,
         vec![SolverLoad::Nodal(SolverNodalLoad {
-            node_id: n + 1, fx: 0.0, fy: p, mz: 0.0,
+            node_id: n + 1, fx: 0.0, fz: p, my: 0.0,
         })]);
     let res_full = linear::solve_2d(&input_full).unwrap();
     let delta_full = res_full.displacements.iter()
-        .find(|d| d.node_id == n + 1).unwrap().uy.abs();
+        .find(|d| d.node_id == n + 1).unwrap().uz.abs();
 
     // Reduced section cantilever
     let input_eff = make_beam(n, l, E, A, iz_eff, "fixed", None,
         vec![SolverLoad::Nodal(SolverNodalLoad {
-            node_id: n + 1, fx: 0.0, fy: p, mz: 0.0,
+            node_id: n + 1, fx: 0.0, fz: p, my: 0.0,
         })]);
     let res_eff = linear::solve_2d(&input_eff).unwrap();
     let delta_eff = res_eff.displacements.iter()
-        .find(|d| d.node_id == n + 1).unwrap().uy.abs();
+        .find(|d| d.node_id == n + 1).unwrap().uz.abs();
 
     // Effective section deflects more
     assert!(delta_eff > delta_full,
@@ -380,8 +380,8 @@ fn validation_shear_lag_cantilever_tip_load() {
         ratio, expected, err * 100.0);
 
     // Root moment should be P*L = 40 kN-m for both (statically determinate)
-    let m_full = res_full.reactions.iter().find(|r| r.node_id == 1).unwrap().mz.abs();
-    let m_eff = res_eff.reactions.iter().find(|r| r.node_id == 1).unwrap().mz.abs();
+    let m_full = res_full.reactions.iter().find(|r| r.node_id == 1).unwrap().my.abs();
+    let m_eff = res_eff.reactions.iter().find(|r| r.node_id == 1).unwrap().my.abs();
     let m_exact = p.abs() * l;
     assert_close(m_full, m_exact, 0.01, "Root moment full");
     assert_close(m_eff, m_exact, 0.01, "Root moment effective");
@@ -412,25 +412,25 @@ fn validation_shear_lag_span_scaling() {
     let res_sf = linear::solve_2d(&input_sf).unwrap();
     let mid = n / 2 + 1;
     let delta_sf = res_sf.displacements.iter()
-        .find(|d| d.node_id == mid).unwrap().uy.abs();
+        .find(|d| d.node_id == mid).unwrap().uz.abs();
 
     // Short span - reduced section
     let input_sr = make_ss_beam_udl(n, l_short, E, A, iz_eff, q);
     let res_sr = linear::solve_2d(&input_sr).unwrap();
     let delta_sr = res_sr.displacements.iter()
-        .find(|d| d.node_id == mid).unwrap().uy.abs();
+        .find(|d| d.node_id == mid).unwrap().uz.abs();
 
     // Long span - full section
     let input_lf = make_ss_beam_udl(n, l_long, E, A, iz_full, q);
     let res_lf = linear::solve_2d(&input_lf).unwrap();
     let delta_lf = res_lf.displacements.iter()
-        .find(|d| d.node_id == mid).unwrap().uy.abs();
+        .find(|d| d.node_id == mid).unwrap().uz.abs();
 
     // Long span - reduced section
     let input_lr = make_ss_beam_udl(n, l_long, E, A, iz_eff, q);
     let res_lr = linear::solve_2d(&input_lr).unwrap();
     let delta_lr = res_lr.displacements.iter()
-        .find(|d| d.node_id == mid).unwrap().uy.abs();
+        .find(|d| d.node_id == mid).unwrap().uz.abs();
 
     // Both spans: deflection ratio due to reduced section = 1.25
     let ratio_short = delta_sr / delta_sf;

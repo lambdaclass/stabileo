@@ -99,13 +99,13 @@ fn geosynthetics_mse_wall_internal_stability() {
     let results = solve_2d(&input).expect("solve");
 
     // Reaction at each support = q * L / 2 = T_max at that depth
-    let sum_ry: f64 = results.reactions.iter().map(|r| r.ry).sum();
+    let sum_ry: f64 = results.reactions.iter().map(|r| r.rz).sum();
     assert_close(sum_ry, q_panel * l_span, 0.01, "panel equilibrium");
 
     // Each reaction = q * L / 2
     let r_expected: f64 = q_panel * l_span / 2.0;
     let r1 = results.reactions.iter().find(|r| r.node_id == 1).unwrap();
-    assert_close(r1.ry, r_expected, 0.02, "panel reaction = half total load");
+    assert_close(r1.rz, r_expected, 0.02, "panel reaction = half total load");
 }
 
 // ================================================================
@@ -269,7 +269,7 @@ fn geosynthetics_reinforced_slope_fos() {
     let results = solve_2d(&input).expect("solve");
 
     // Verify equilibrium
-    let sum_ry: f64 = results.reactions.iter().map(|r| r.ry).sum();
+    let sum_ry: f64 = results.reactions.iter().map(|r| r.rz).sum();
     assert_close(sum_ry, q_strip * l_strip, 0.02, "slope strip equilibrium");
 }
 
@@ -360,7 +360,7 @@ fn geosynthetics_geomembrane_strain() {
 
     let loads_fem = vec![
         SolverLoad::Nodal(SolverNodalLoad {
-            node_id: 2, fx: 0.0, fy: -p_required, mz: 0.0,
+            node_id: 2, fx: 0.0, fz: -p_required, my: 0.0,
         }),
     ];
     let input = make_beam(2, l, e_gm, a_mem, iz_mem, "pinned", Some("rollerX"), loads_fem);
@@ -368,7 +368,7 @@ fn geosynthetics_geomembrane_strain() {
 
     // Check deflection at midspan
     let mid_node = results.displacements.iter().find(|d| d.node_id == 2).unwrap();
-    assert_close(mid_node.uy.abs(), delta_design, 0.05, "membrane midspan deflection");
+    assert_close(mid_node.uz.abs(), delta_design, 0.05, "membrane midspan deflection");
 }
 
 // ================================================================
@@ -441,7 +441,7 @@ fn geosynthetics_bearing_capacity_improvement() {
 
     let loads_unreinf = vec![
         SolverLoad::Nodal(SolverNodalLoad {
-            node_id: 2, fx: 0.0, fy: p_load, mz: 0.0,
+            node_id: 2, fx: 0.0, fz: p_load, my: 0.0,
         }),
     ];
     let input_unreinf = make_beam(2, b * 2.0, e_soil, a_found, iz_found, "pinned", Some("rollerX"), loads_unreinf);
@@ -451,7 +451,7 @@ fn geosynthetics_bearing_capacity_improvement() {
     let iz_reinf: f64 = iz_found * 2.0;
     let loads_reinf = vec![
         SolverLoad::Nodal(SolverNodalLoad {
-            node_id: 2, fx: 0.0, fy: p_load, mz: 0.0,
+            node_id: 2, fx: 0.0, fz: p_load, my: 0.0,
         }),
     ];
     let input_reinf = make_beam(2, b * 2.0, e_soil, a_found, iz_reinf, "pinned", Some("rollerX"), loads_reinf);
@@ -462,9 +462,9 @@ fn geosynthetics_bearing_capacity_improvement() {
     let d_reinf = res_reinf.displacements.iter().find(|d| d.node_id == 2).unwrap();
 
     assert!(
-        d_reinf.uy.abs() < d_unreinf.uy.abs(),
+        d_reinf.uz.abs() < d_unreinf.uz.abs(),
         "Reinforced deflection {:.4}mm < unreinforced {:.4}mm",
-        d_reinf.uy.abs(), d_unreinf.uy.abs()
+        d_reinf.uz.abs(), d_unreinf.uz.abs()
     );
 }
 
@@ -555,7 +555,7 @@ fn geosynthetics_separation_filter_requirements() {
     let results = solve_2d(&input).expect("solve");
 
     // Equilibrium check
-    let sum_ry: f64 = results.reactions.iter().map(|r| r.ry).sum();
+    let sum_ry: f64 = results.reactions.iter().map(|r| r.rz).sum();
     let total_load: f64 = q_gt * l_span;
     assert_close(sum_ry, total_load, 0.02, "geotextile equilibrium");
 
@@ -651,7 +651,7 @@ fn geosynthetics_reinforced_embankment_soft_ground() {
     let results = solve_2d(&input).expect("solve");
 
     // Verify equilibrium
-    let sum_ry: f64 = results.reactions.iter().map(|r| r.ry).sum();
+    let sum_ry: f64 = results.reactions.iter().map(|r| r.rz).sum();
     let total_vert: f64 = q_vert.abs() * l_half;
     assert_close(sum_ry, total_vert, 0.03, "embankment base vertical equilibrium");
 
@@ -759,6 +759,6 @@ fn geosynthetics_wraparound_wall_tension() {
     let results = solve_2d(&input).expect("solve");
 
     // Total reaction should equal total lateral force
-    let sum_ry: f64 = results.reactions.iter().map(|r| r.ry).sum();
+    let sum_ry: f64 = results.reactions.iter().map(|r| r.rz).sum();
     assert_close(sum_ry, pa_total, 0.05, "wall facing total reaction ~ Pa");
 }

@@ -101,7 +101,7 @@ fn validation_plastic_ext_ss_midspan_point() {
     let l: f64 = 6.0;
     let input = make_plastic_beam(l, "pinned", Some("rollerX"),
         vec![SolverLoad::PointOnElement(SolverPointLoadOnElement {
-            element_id: 1, a: l / 2.0, p: -1.0, px: None, mz: None,
+            element_id: 1, a: l / 2.0, p: -1.0, px: None, my: None,
         })]);
     let result = plastic::solve_plastic_2d(&input).unwrap();
 
@@ -166,7 +166,7 @@ fn validation_plastic_ext_ff_midspan_point() {
     let n = 2; // 2 elements => midspan node at node 2
     let input = make_plastic_beam_multi(n, l, "fixed", Some("fixed"),
         vec![SolverLoad::Nodal(SolverNodalLoad {
-            node_id: 2, fx: 0.0, fy: -1.0, mz: 0.0,
+            node_id: 2, fx: 0.0, fz: -1.0, my: 0.0,
         })]);
     let result = plastic::solve_plastic_2d(&input).unwrap();
 
@@ -197,7 +197,7 @@ fn validation_plastic_ext_propped_cantilever_midspan() {
     let n = 2; // midspan node at node 2
     let input = make_plastic_beam_multi(n, l, "fixed", Some("rollerX"),
         vec![SolverLoad::Nodal(SolverNodalLoad {
-            node_id: 2, fx: 0.0, fy: -1.0, mz: 0.0,
+            node_id: 2, fx: 0.0, fz: -1.0, my: 0.0,
         })]);
     let result = plastic::solve_plastic_2d(&input).unwrap();
 
@@ -317,7 +317,7 @@ fn validation_plastic_ext_ff_third_point() {
     let n = 3; // 3 elements => nodes at L/3 and 2L/3
     let input = make_plastic_beam_multi(n, l, "fixed", Some("fixed"),
         vec![SolverLoad::Nodal(SolverNodalLoad {
-            node_id: 2, fx: 0.0, fy: -1.0, mz: 0.0, // node at L/3
+            node_id: 2, fx: 0.0, fz: -1.0, my: 0.0, // node at L/3
         })]);
     let result = plastic::solve_plastic_2d(&input).unwrap();
 

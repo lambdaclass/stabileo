@@ -25,7 +25,7 @@ use std::collections::HashMap;
 // ---------------------------------------------------------------------------
 
 fn node(id: usize, x: f64, y: f64) -> SolverNode {
-    SolverNode { id, x, y }
+    SolverNode { id, x, z: y }
 }
 
 fn frame(id: usize, ni: usize, nj: usize) -> SolverElement {
@@ -47,7 +47,7 @@ fn fixed(id: usize, node_id: usize) -> SolverSupport {
         node_id,
         support_type: "fixed".into(),
         kx: None, ky: None, kz: None,
-        dx: None, dy: None, drz: None,
+        dx: None, dz: None, dry: None,
         angle: None,
     }
 }
@@ -87,7 +87,7 @@ fn bar_gap_bar(gap: f64, force: f64, k_gap: f64, al: Option<f64>, al_max_iter: O
             (4, fixed(4, 4)),
         ]),
         loads: vec![
-            SolverLoad::Nodal(SolverNodalLoad { node_id: 2, fx: force, fy: 0.0, mz: 0.0 }),
+            SolverLoad::Nodal(SolverNodalLoad { node_id: 2, fx: force, fz: 0.0, my: 0.0 }),
         ],
         constraints: vec![],
         connectors: HashMap::new(),
@@ -137,7 +137,7 @@ fn bar_gap_wall(gap: f64, force: f64, k_gap: f64) -> ContactInput {
             (3, fixed(3, 3)),
         ]),
         loads: vec![
-            SolverLoad::Nodal(SolverNodalLoad { node_id: 2, fx: force, fy: 0.0, mz: 0.0 }),
+            SolverLoad::Nodal(SolverNodalLoad { node_id: 2, fx: force, fz: 0.0, my: 0.0 }),
         ],
         constraints: vec![],
         connectors: HashMap::new(),
@@ -264,8 +264,8 @@ fn benchmark_contact_multi_pair() {
             (6, fixed(6, 6)),
         ]),
         loads: vec![
-            SolverLoad::Nodal(SolverNodalLoad { node_id: 2, fx: 500.0, fy: 0.0, mz: 0.0 }),
-            SolverLoad::Nodal(SolverNodalLoad { node_id: 5, fx: 500.0, fy: 0.0, mz: 0.0 }),
+            SolverLoad::Nodal(SolverNodalLoad { node_id: 2, fx: 500.0, fz: 0.0, my: 0.0 }),
+            SolverLoad::Nodal(SolverNodalLoad { node_id: 5, fx: 500.0, fz: 0.0, my: 0.0 }),
         ],
         constraints: vec![],
         connectors: HashMap::new(),
@@ -430,8 +430,8 @@ fn benchmark_contact_friction_limit() {
             SolverLoad::Nodal(SolverNodalLoad {
                 node_id: 2,
                 fx: normal_force,
-                fy: tangential_force,
-                mz: 0.0,
+                fz: tangential_force,
+                my: 0.0,
             }),
         ],
         constraints: vec![],
@@ -543,7 +543,7 @@ fn benchmark_contact_3d_gap_closure() {
     // Fixed at node 1
     sups_map.insert("1".to_string(), dedaliano_engine::types::SolverSupport3D {
         node_id: 1,
-        rx: true, ry: true, rz: true, rrx: true, rry: true, rrz: true,
+        rx: true, rz: true, ry: true, rrx: true, rry: true, rrz: true,
         kx: None, ky: None, kz: None,
         krx: None, kry: None, krz: None,
         dx: None, dy: None, dz: None,
@@ -554,7 +554,7 @@ fn benchmark_contact_3d_gap_closure() {
     // Fixed at node 4
     sups_map.insert("2".to_string(), dedaliano_engine::types::SolverSupport3D {
         node_id: 4,
-        rx: true, ry: true, rz: true, rrx: true, rry: true, rrz: true,
+        rx: true, rz: true, ry: true, rrx: true, rry: true, rrz: true,
         kx: None, ky: None, kz: None,
         krx: None, kry: None, krz: None,
         dx: None, dy: None, dz: None,

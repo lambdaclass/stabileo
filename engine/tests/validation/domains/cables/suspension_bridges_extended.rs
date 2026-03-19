@@ -71,7 +71,7 @@ fn suspension_parabolic_cable_udl_thrust() {
         ];
         let sups = vec![(1, 1, "pinned"), (2, 3, "pinned")];
         let loads = vec![SolverLoad::Nodal(SolverNodalLoad {
-            node_id: 2, fx: 0.0, fy: -p, mz: 0.0,
+            node_id: 2, fx: 0.0, fz: -p, my: 0.0,
         })];
         let input = make_input(nodes, vec![(1, E_CABLE, 0.3)], vec![(1, A_CABLE, IZ_TRUSS)],
             elems, sups, loads);
@@ -140,7 +140,7 @@ fn suspension_cable_stayed_beam_bending_reduction() {
         ],
         vec![(1, 1, "pinned"), (2, 3, "rollerX")],
         vec![SolverLoad::Nodal(SolverNodalLoad {
-            node_id: 2, fx: 0.0, fy: -p, mz: 0.0,
+            node_id: 2, fx: 0.0, fz: -p, my: 0.0,
         })],
     );
     let res_beam = solve_2d(&input_beam).unwrap();
@@ -174,7 +174,7 @@ fn suspension_cable_stayed_beam_bending_reduction() {
             (3, 4, "fixed"),  // fixed: truss-only node needs rotation constrained
         ],
         vec![SolverLoad::Nodal(SolverNodalLoad {
-            node_id: 2, fx: 0.0, fy: -p, mz: 0.0,
+            node_id: 2, fx: 0.0, fz: -p, my: 0.0,
         })],
     );
     let res_stayed = solve_2d(&input_stayed).unwrap();
@@ -189,9 +189,9 @@ fn suspension_cable_stayed_beam_bending_reduction() {
 
     // Midspan deflection should also be reduced
     let d_beam = res_beam.displacements.iter()
-        .find(|d| d.node_id == 2).unwrap().uy;
+        .find(|d| d.node_id == 2).unwrap().uz;
     let d_stayed = res_stayed.displacements.iter()
-        .find(|d| d.node_id == 2).unwrap().uy;
+        .find(|d| d.node_id == 2).unwrap().uz;
 
     assert!(d_stayed.abs() < d_beam.abs(),
         "Cable stay reduces deflection: {:.6} < {:.6}", d_stayed.abs(), d_beam.abs());
@@ -241,7 +241,7 @@ fn suspension_stiffening_girder_deflection() {
     );
     let res_plain = solve_2d(&input_plain).unwrap();
     let d_plain: f64 = res_plain.displacements.iter()
-        .find(|d| d.node_id == 3).unwrap().uy;
+        .find(|d| d.node_id == 3).unwrap().uz;
 
     // (b) Beam with two hangers at quarter points going up to anchor nodes
     // Anchor nodes at quarter points above, pinned in place (simulate cable anchors)
@@ -283,7 +283,7 @@ fn suspension_stiffening_girder_deflection() {
     );
     let res_hung = solve_2d(&input_hung).unwrap();
     let d_hung: f64 = res_hung.displacements.iter()
-        .find(|d| d.node_id == 3).unwrap().uy;
+        .find(|d| d.node_id == 3).unwrap().uz;
 
     // Hangers reduce midspan deflection
     assert!(d_plain < 0.0, "Plain beam deflects downward: {:.6}", d_plain);
@@ -330,7 +330,7 @@ fn suspension_cable_tension_components() {
     ];
     let sups = vec![(1, 1, "pinned"), (2, 3, "pinned")];
     let loads = vec![SolverLoad::Nodal(SolverNodalLoad {
-        node_id: 2, fx: 0.0, fy: -p, mz: 0.0,
+        node_id: 2, fx: 0.0, fz: -p, my: 0.0,
     })];
 
     let input = make_input(nodes, vec![(1, E_CABLE, 0.3)], vec![(1, A_CABLE, IZ_TRUSS)],
@@ -347,7 +347,7 @@ fn suspension_cable_tension_components() {
     // Check reactions
     let r1 = results.reactions.iter().find(|r| r.node_id == 1).unwrap();
     assert_close(r1.rx.abs(), h_expected, 0.02, "Horizontal thrust H");
-    assert_close(r1.ry, v_expected, 0.02, "Vertical reaction V");
+    assert_close(r1.rz, v_expected, 0.02, "Vertical reaction V");
 
     // Cable tension from element forces
     let ef1 = results.element_forces.iter().find(|e| e.element_id == 1).unwrap();
@@ -432,7 +432,7 @@ fn suspension_hanger_force_distribution() {
 
     // Total load = q * L = 8 * 20 = 160 kN
     let total_load: f64 = q.abs() * span;
-    let sum_ry: f64 = results.reactions.iter().map(|r| r.ry).sum();
+    let sum_ry: f64 = results.reactions.iter().map(|r| r.rz).sum();
     assert_close(sum_ry, total_load, 0.02, "Total vertical equilibrium");
 
     // All three hangers should carry tension (pulling up on beam)
@@ -493,8 +493,8 @@ fn suspension_multi_span_cable_continuity() {
         (3, 5, "pinned"),
     ];
     let loads = vec![
-        SolverLoad::Nodal(SolverNodalLoad { node_id: 2, fx: 0.0, fy: -p, mz: 0.0 }),
-        SolverLoad::Nodal(SolverNodalLoad { node_id: 4, fx: 0.0, fy: -p, mz: 0.0 }),
+        SolverLoad::Nodal(SolverNodalLoad { node_id: 2, fx: 0.0, fz: -p, my: 0.0 }),
+        SolverLoad::Nodal(SolverNodalLoad { node_id: 4, fx: 0.0, fz: -p, my: 0.0 }),
     ];
 
     let input = make_input(nodes, vec![(1, E_CABLE, 0.3)], vec![(1, A_CABLE, IZ_TRUSS)],
@@ -502,7 +502,7 @@ fn suspension_multi_span_cable_continuity() {
     let results = solve_2d(&input).unwrap();
 
     // Total vertical load = 2*P
-    let sum_ry: f64 = results.reactions.iter().map(|r| r.ry).sum();
+    let sum_ry: f64 = results.reactions.iter().map(|r| r.rz).sum();
     assert_close(sum_ry, 2.0 * p, 0.02, "Multi-span: total vertical equilibrium");
 
     // Symmetric loading => interior support horizontal reaction ~ 0
@@ -514,7 +514,7 @@ fn suspension_multi_span_cable_continuity() {
     // Symmetric loading => equal vertical reactions at end supports
     let r1 = results.reactions.iter().find(|r| r.node_id == 1).unwrap();
     let r5 = results.reactions.iter().find(|r| r.node_id == 5).unwrap();
-    assert_close(r1.ry, r5.ry, 0.02, "Symmetric end support reactions");
+    assert_close(r1.rz, r5.rz, 0.02, "Symmetric end support reactions");
 
     // Horizontal thrust at end supports should match single-span formula
     let h_expected: f64 = p * span / (4.0 * sag);
@@ -560,7 +560,7 @@ fn suspension_cable_asymmetric_concentrated_load() {
         elems_asym,
         vec![(1, 1, "pinned"), (2, 3, "pinned")],
         vec![SolverLoad::Nodal(SolverNodalLoad {
-            node_id: 2, fx: 0.0, fy: -p, mz: 0.0,
+            node_id: 2, fx: 0.0, fz: -p, my: 0.0,
         })],
     );
     let res_asym = solve_2d(&input_asym).unwrap();
@@ -580,7 +580,7 @@ fn suspension_cable_asymmetric_concentrated_load() {
         elems_sym,
         vec![(1, 1, "pinned"), (2, 3, "pinned")],
         vec![SolverLoad::Nodal(SolverNodalLoad {
-            node_id: 2, fx: 0.0, fy: -p, mz: 0.0,
+            node_id: 2, fx: 0.0, fz: -p, my: 0.0,
         })],
     );
     let res_sym = solve_2d(&input_sym).unwrap();
@@ -588,17 +588,17 @@ fn suspension_cable_asymmetric_concentrated_load() {
     // Asymmetric case: reactions not equal
     let r1_asym = res_asym.reactions.iter().find(|r| r.node_id == 1).unwrap();
     let r3_asym = res_asym.reactions.iter().find(|r| r.node_id == 3).unwrap();
-    assert!((r1_asym.ry - r3_asym.ry).abs() > 0.1,
-        "Asymmetric: unequal reactions: {:.2} vs {:.2}", r1_asym.ry, r3_asym.ry);
+    assert!((r1_asym.rz - r3_asym.rz).abs() > 0.1,
+        "Asymmetric: unequal reactions: {:.2} vs {:.2}", r1_asym.rz, r3_asym.rz);
 
     // Symmetric case: equal reactions
     let r1_sym = res_sym.reactions.iter().find(|r| r.node_id == 1).unwrap();
     let r3_sym = res_sym.reactions.iter().find(|r| r.node_id == 3).unwrap();
-    assert_close(r1_sym.ry, r3_sym.ry, 0.02, "Symmetric: equal reactions");
+    assert_close(r1_sym.rz, r3_sym.rz, 0.02, "Symmetric: equal reactions");
 
     // Global equilibrium holds for both
-    let sum_ry_asym: f64 = res_asym.reactions.iter().map(|r| r.ry).sum();
-    let sum_ry_sym: f64 = res_sym.reactions.iter().map(|r| r.ry).sum();
+    let sum_ry_asym: f64 = res_asym.reactions.iter().map(|r| r.rz).sum();
+    let sum_ry_sym: f64 = res_sym.reactions.iter().map(|r| r.rz).sum();
     assert_close(sum_ry_asym, p, 0.02, "Asymmetric: vertical equilibrium");
     assert_close(sum_ry_sym, p, 0.02, "Symmetric: vertical equilibrium");
 
@@ -670,7 +670,7 @@ fn suspension_stiffened_vs_unstiffened_beam() {
     let res_plain = solve_2d(&input_plain).unwrap();
     let mid_node_plain = n_elem / 2 + 1; // node 3
     let d_plain: f64 = res_plain.displacements.iter()
-        .find(|d| d.node_id == mid_node_plain).unwrap().uy;
+        .find(|d| d.node_id == mid_node_plain).unwrap().uz;
 
     // === Stiffened: beam + cable truss ===
     // Beam nodes: 1..5 at y=0
@@ -726,7 +726,7 @@ fn suspension_stiffened_vs_unstiffened_beam() {
     );
     let res_stiff = solve_2d(&input_stiff).unwrap();
     let d_stiff: f64 = res_stiff.displacements.iter()
-        .find(|d| d.node_id == mid_node_plain).unwrap().uy;
+        .find(|d| d.node_id == mid_node_plain).unwrap().uz;
 
     // Both deflect downward
     assert!(d_plain < 0.0, "Plain beam deflects down: {:.6}", d_plain);
@@ -743,8 +743,8 @@ fn suspension_stiffened_vs_unstiffened_beam() {
 
     // Equilibrium check: total reactions = total load for both models
     let total_load: f64 = q.abs() * span;
-    let sum_ry_plain: f64 = res_plain.reactions.iter().map(|r| r.ry).sum();
-    let sum_ry_stiff: f64 = res_stiff.reactions.iter().map(|r| r.ry).sum();
+    let sum_ry_plain: f64 = res_plain.reactions.iter().map(|r| r.rz).sum();
+    let sum_ry_stiff: f64 = res_stiff.reactions.iter().map(|r| r.rz).sum();
     assert_close(sum_ry_plain, total_load, 0.02, "Plain beam equilibrium");
     assert_close(sum_ry_stiff, total_load, 0.02, "Stiffened beam equilibrium");
 }

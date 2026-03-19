@@ -66,8 +66,8 @@ fn validation_approx_ext_portal_method_two_story_shear() {
     let sups = vec![(1, 1, "fixed"), (2, 4, "fixed")];
 
     let loads = vec![
-        SolverLoad::Nodal(SolverNodalLoad { node_id: 2, fx: h1, fy: 0.0, mz: 0.0 }),
-        SolverLoad::Nodal(SolverNodalLoad { node_id: 5, fx: h2, fy: 0.0, mz: 0.0 }),
+        SolverLoad::Nodal(SolverNodalLoad { node_id: 2, fx: h1, fz: 0.0, my: 0.0 }),
+        SolverLoad::Nodal(SolverNodalLoad { node_id: 5, fx: h2, fz: 0.0, my: 0.0 }),
     ];
 
     let input = make_input(
@@ -151,17 +151,17 @@ fn validation_approx_ext_cantilever_method_axial_proportionality() {
 
     // Cantilever method: both columns equidistant from centroid
     // -> axial forces equal magnitude, opposite sign
-    let ry1_abs: f64 = r1.ry.abs();
-    let ry4_abs: f64 = r4.ry.abs();
+    let ry1_abs: f64 = r1.rz.abs();
+    let ry4_abs: f64 = r4.rz.abs();
 
     // Magnitudes should be equal (symmetric frame)
     assert_close(ry1_abs, ry4_abs, 0.02, "cantilever method: |Ry1| = |Ry4| for symmetric frame");
 
     // Opposite signs (one tension, one compression)
     assert!(
-        r1.ry * r4.ry < 0.0,
+        r1.rz * r4.rz < 0.0,
         "cantilever method: vertical reactions have opposite signs: Ry1={:.4}, Ry4={:.4}",
-        r1.ry, r4.ry
+        r1.rz, r4.rz
     );
 
     // Cantilever method prediction: axial = M_overturning * d_i / sum(d_i^2)
@@ -242,7 +242,7 @@ fn validation_approx_ext_two_moment_approximation() {
     // Also verify interior reaction
     let r_b = results.reactions.iter().find(|r| r.node_id == interior_node).unwrap();
     let exact_rb: f64 = 10.0 * w * l / 8.0; // = 120.0
-    assert_close(r_b.ry, exact_rb, 0.05, "two-moment: interior reaction 10wL/8");
+    assert_close(r_b.rz, exact_rb, 0.05, "two-moment: interior reaction 10wL/8");
 }
 
 // ================================================================
@@ -276,13 +276,13 @@ fn validation_approx_ext_fixed_beam_exact_moments() {
     let r1 = results.reactions.iter().find(|r| r.node_id == 1).unwrap();
     let r_end = results.reactions.iter().find(|r| r.node_id == n + 1).unwrap();
 
-    assert_close(r1.mz.abs(), analytical_end, 0.02,
+    assert_close(r1.my.abs(), analytical_end, 0.02,
         "fixed beam: left end moment wL^2/12");
-    assert_close(r_end.mz.abs(), analytical_end, 0.02,
+    assert_close(r_end.my.abs(), analytical_end, 0.02,
         "fixed beam: right end moment wL^2/12");
 
     // End moments should be equal in magnitude (symmetric loading and supports)
-    assert_close(r1.mz.abs(), r_end.mz.abs(), 0.01,
+    assert_close(r1.my.abs(), r_end.my.abs(), 0.01,
         "fixed beam: symmetric end moments");
 
     // Midspan moment from element forces
@@ -294,8 +294,8 @@ fn validation_approx_ext_fixed_beam_exact_moments() {
 
     // Verify vertical reactions are wL/2 each (symmetric)
     let analytical_ry: f64 = w * l / 2.0; // = 40.0
-    assert_close(r1.ry.abs(), analytical_ry, 0.02, "fixed beam: left reaction wL/2");
-    assert_close(r_end.ry.abs(), analytical_ry, 0.02, "fixed beam: right reaction wL/2");
+    assert_close(r1.rz.abs(), analytical_ry, 0.02, "fixed beam: left reaction wL/2");
+    assert_close(r_end.rz.abs(), analytical_ry, 0.02, "fixed beam: right reaction wL/2");
 }
 
 // ================================================================
@@ -339,7 +339,7 @@ fn validation_approx_ext_portal_knee_moment() {
     // Also verify the base moment. For fixed base: M_base + M_knee = V_col * h
     // where V_col = H/2 for symmetric portal.
     let r1 = results.reactions.iter().find(|r| r.node_id == 1).unwrap();
-    let base_moment: f64 = r1.mz.abs();
+    let base_moment: f64 = r1.my.abs();
     let col_shear: f64 = r1.rx.abs();
 
     // Column equilibrium: M_base + M_knee = V_col * h
@@ -386,7 +386,7 @@ fn validation_approx_ext_multi_bay_load_sharing() {
     let sups = vec![(1, 1, "fixed"), (2, 4, "fixed"), (3, 6, "fixed")];
 
     let loads = vec![
-        SolverLoad::Nodal(SolverNodalLoad { node_id: 2, fx: f_lat, fy: 0.0, mz: 0.0 }),
+        SolverLoad::Nodal(SolverNodalLoad { node_id: 2, fx: f_lat, fz: 0.0, my: 0.0 }),
     ];
 
     let input = make_input(
@@ -465,7 +465,7 @@ fn validation_approx_ext_inflection_point_location() {
     let n_col = 12; // fine mesh for resolution
 
     // Build portal frame with multiple elements per column
-    let dy: f64 = h / n_col as f64;
+    let dz: f64 = h / n_col as f64;
     let dx: f64 = w / 4.0; // 4 elements for the beam
 
     let mut nodes_vec = Vec::new();
@@ -473,7 +473,7 @@ fn validation_approx_ext_inflection_point_location() {
 
     // Left column: nodes 1 to n_col+1, x=0, y=0..h
     for i in 0..=n_col {
-        nodes_vec.push((node_id, 0.0, i as f64 * dy));
+        nodes_vec.push((node_id, 0.0, i as f64 * dz));
         node_id += 1;
     }
     let top_left = node_id - 1; // = n_col + 1
@@ -487,7 +487,7 @@ fn validation_approx_ext_inflection_point_location() {
 
     // Right column: from (w,h) down to (w,0), skip first node (shared with beam end)
     for i in 1..=n_col {
-        nodes_vec.push((node_id, w, h - i as f64 * dy));
+        nodes_vec.push((node_id, w, h - i as f64 * dz));
         node_id += 1;
     }
     let bottom_right = node_id - 1;
@@ -522,7 +522,7 @@ fn validation_approx_ext_inflection_point_location() {
     let sups = vec![(1, 1, "fixed"), (2, bottom_right, "fixed")];
 
     let loads = vec![
-        SolverLoad::Nodal(SolverNodalLoad { node_id: top_left, fx: f_lat, fy: 0.0, mz: 0.0 }),
+        SolverLoad::Nodal(SolverNodalLoad { node_id: top_left, fx: f_lat, fz: 0.0, my: 0.0 }),
     ];
 
     let input = make_input(
@@ -663,6 +663,6 @@ fn validation_approx_ext_gravity_aci_coefficients() {
 
     // Verify global equilibrium: total reaction = total load
     let total_load: f64 = w * l * 3.0; // = 270 kN
-    let sum_ry: f64 = results.reactions.iter().map(|r| r.ry).sum();
+    let sum_ry: f64 = results.reactions.iter().map(|r| r.rz).sum();
     assert_close(sum_ry, total_load, 0.02, "ACI coeff: global vertical equilibrium");
 }

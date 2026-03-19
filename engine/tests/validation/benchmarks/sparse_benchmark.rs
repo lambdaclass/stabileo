@@ -129,7 +129,7 @@ fn benchmark_conditioning_detection() {
     for i in 0..6 {
         nodes.insert(
             (i + 1).to_string(),
-            SolverNode { id: i + 1, x: i as f64 * 2.0, y: 0.0 },
+            SolverNode { id: i + 1, x: i as f64 * 2.0, z: 0.0 },
         );
     }
 
@@ -161,15 +161,15 @@ fn benchmark_conditioning_detection() {
     let mut supports = HashMap::new();
     supports.insert("1".to_string(), SolverSupport {
         id: 1, node_id: 1, support_type: "fixed".to_string(),
-        kx: None, ky: None, kz: None, dx: None, dy: None, drz: None, angle: None,
+        kx: None, ky: None, kz: None, dx: None, dz: None, dry: None, angle: None,
     });
     supports.insert("2".to_string(), SolverSupport {
         id: 2, node_id: 6, support_type: "pinned".to_string(),
-        kx: None, ky: None, kz: None, dx: None, dy: None, drz: None, angle: None,
+        kx: None, ky: None, kz: None, dx: None, dz: None, dry: None, angle: None,
     });
 
     let loads = vec![SolverLoad::Nodal(SolverNodalLoad {
-        node_id: 4, fx: 0.0, fy: -10.0, mz: 0.0,
+        node_id: 4, fx: 0.0, fz: -10.0, my: 0.0,
     })];
 
     let bad_input = SolverInput {
@@ -241,7 +241,7 @@ fn benchmark_sparse_cholesky_matches_dense() {
         .find(|d| d.node_id == mid_node)
         .unwrap();
 
-    assert_close(d_dense.uy.abs(), delta_analytical, 0.01, "dense vs analytical midspan deflection");
+    assert_close(d_dense.uz.abs(), delta_analytical, 0.01, "dense vs analytical midspan deflection");
 
     // Verify sparse solution vector has correct size and nonzero values
     assert_eq!(u_sparse.len(), nf);
@@ -250,7 +250,7 @@ fn benchmark_sparse_cholesky_matches_dense() {
 
     // Max displacement from dense should match sparse (same equations)
     let max_u_dense = results_dense.displacements.iter()
-        .map(|d| d.ux.abs().max(d.uy.abs()).max(d.rz.abs()))
+        .map(|d| d.ux.abs().max(d.uz.abs()).max(d.ry.abs()))
         .fold(0.0f64, f64::max);
 
     let ratio = max_u_sparse / max_u_dense.max(1e-20);
@@ -289,8 +289,8 @@ fn benchmark_large_model_cantilever_deflection() {
         vec![SolverLoad::Nodal(SolverNodalLoad {
             node_id: n + 1,
             fx: 0.0,
-            fy: p,
-            mz: 0.0,
+            fz: p,
+            my: 0.0,
         })],
     );
 
@@ -304,22 +304,22 @@ fn benchmark_large_model_cantilever_deflection() {
         .find(|d| d.node_id == n + 1)
         .expect("Tip node displacement not found");
 
-    let rel_err = (d_tip.uy.abs() - delta_exact).abs() / delta_exact;
+    let rel_err = (d_tip.uz.abs() - delta_exact).abs() / delta_exact;
 
     assert!(
         rel_err < 0.02,
         "200-element cantilever: tip uy={:.6e}, exact={:.6e}, error={:.4}%",
-        d_tip.uy.abs(), delta_exact, rel_err * 100.0
+        d_tip.uz.abs(), delta_exact, rel_err * 100.0
     );
 
     // Verify tip rotation: theta = PL^2 / (2EI)
     let theta_exact = p.abs() * length.powi(2) / (2.0 * e_eff * iz);
-    let rot_err = (d_tip.rz.abs() - theta_exact).abs() / theta_exact;
+    let rot_err = (d_tip.ry.abs() - theta_exact).abs() / theta_exact;
 
     assert!(
         rot_err < 0.02,
         "200-element cantilever: tip rz={:.6e}, exact={:.6e}, error={:.4}%",
-        d_tip.rz.abs(), theta_exact, rot_err * 100.0
+        d_tip.ry.abs(), theta_exact, rot_err * 100.0
     );
 
     // Verify midspan deflection follows deflection curve
@@ -332,16 +332,16 @@ fn benchmark_large_model_cantilever_deflection() {
         .find(|d| d.node_id == mid_node)
         .expect("Mid node displacement not found");
 
-    let mid_err = (d_mid.uy.abs() - delta_mid_exact).abs() / delta_mid_exact;
+    let mid_err = (d_mid.uz.abs() - delta_mid_exact).abs() / delta_mid_exact;
 
     assert!(
         mid_err < 0.02,
         "200-element cantilever: mid uy={:.6e}, exact={:.6e}, error={:.4}%",
-        d_mid.uy.abs(), delta_mid_exact, mid_err * 100.0
+        d_mid.uz.abs(), delta_mid_exact, mid_err * 100.0
     );
 
     // Check global equilibrium
-    let sum_ry: f64 = results.reactions.iter().map(|r| r.ry).sum();
+    let sum_ry: f64 = results.reactions.iter().map(|r| r.rz).sum();
     let imbalance = (sum_ry + p).abs();
     assert!(
         imbalance < 0.01,

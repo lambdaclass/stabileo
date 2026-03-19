@@ -154,9 +154,9 @@ fn validation_span_ratio_longer_span_attracts_more_load() {
 
     // Also verify via deflection: longer span deflects more
     let defl_mid1 = results.displacements.iter()
-        .find(|d| d.node_id == mid_span1_node).unwrap().uy.abs();
+        .find(|d| d.node_id == mid_span1_node).unwrap().uz.abs();
     let defl_mid2 = results.displacements.iter()
-        .find(|d| d.node_id == mid_span2_node).unwrap().uy.abs();
+        .find(|d| d.node_id == mid_span2_node).unwrap().uz.abs();
 
     assert!(
         defl_mid2 > defl_mid1,
@@ -249,9 +249,9 @@ fn validation_span_ratio_portal_wider_span_more_gravity_deflection() {
     let mid_beam_node = 2 + n_beam / 2;
 
     let defl_narrow: f64 = res_narrow.displacements.iter()
-        .find(|d| d.node_id == mid_beam_node).unwrap().uy.abs();
+        .find(|d| d.node_id == mid_beam_node).unwrap().uz.abs();
     let defl_wide: f64 = res_wide.displacements.iter()
-        .find(|d| d.node_id == mid_beam_node).unwrap().uy.abs();
+        .find(|d| d.node_id == mid_beam_node).unwrap().uz.abs();
 
     // The wider frame has a longer beam, so midspan deflection is larger
     assert!(
@@ -263,8 +263,8 @@ fn validation_span_ratio_portal_wider_span_more_gravity_deflection() {
     // Verify vertical equilibrium for both
     let total_load_narrow: f64 = q.abs() * w_narrow;
     let total_load_wide: f64 = q.abs() * w_wide;
-    let sum_ry_narrow: f64 = res_narrow.reactions.iter().map(|r| r.ry).sum();
-    let sum_ry_wide: f64 = res_wide.reactions.iter().map(|r| r.ry).sum();
+    let sum_ry_narrow: f64 = res_narrow.reactions.iter().map(|r| r.rz).sum();
+    let sum_ry_wide: f64 = res_wide.reactions.iter().map(|r| r.rz).sum();
 
     assert_close(sum_ry_narrow, total_load_narrow, 0.02, "narrow portal gravity equilibrium");
     assert_close(sum_ry_wide, total_load_wide, 0.02, "wide portal gravity equilibrium");
@@ -294,9 +294,9 @@ fn validation_span_ratio_ss_beam_deflection_l4() {
 
     let mid = n / 2 + 1;
     let defl_short: f64 = res_short.displacements.iter()
-        .find(|d| d.node_id == mid).unwrap().uy.abs();
+        .find(|d| d.node_id == mid).unwrap().uz.abs();
     let defl_long: f64 = res_long.displacements.iter()
-        .find(|d| d.node_id == mid).unwrap().uy.abs();
+        .find(|d| d.node_id == mid).unwrap().uz.abs();
 
     // Deflection ratio should be (2L/L)^4 = 16
     let ratio = defl_long / defl_short;
@@ -327,22 +327,22 @@ fn validation_span_ratio_cantilever_deflection_l3() {
     // --- Cantilever with span L ---
     let input_short = make_beam(n, l, E, A, IZ, "fixed", None,
         vec![SolverLoad::Nodal(SolverNodalLoad {
-            node_id: n + 1, fx: 0.0, fy: -p, mz: 0.0,
+            node_id: n + 1, fx: 0.0, fz: -p, my: 0.0,
         })]);
     let res_short = linear::solve_2d(&input_short).unwrap();
 
     // --- Cantilever with span 2L ---
     let input_long = make_beam(n, 2.0 * l, E, A, IZ, "fixed", None,
         vec![SolverLoad::Nodal(SolverNodalLoad {
-            node_id: n + 1, fx: 0.0, fy: -p, mz: 0.0,
+            node_id: n + 1, fx: 0.0, fz: -p, my: 0.0,
         })]);
     let res_long = linear::solve_2d(&input_long).unwrap();
 
     let tip = n + 1;
     let defl_short: f64 = res_short.displacements.iter()
-        .find(|d| d.node_id == tip).unwrap().uy.abs();
+        .find(|d| d.node_id == tip).unwrap().uz.abs();
     let defl_long: f64 = res_long.displacements.iter()
-        .find(|d| d.node_id == tip).unwrap().uy.abs();
+        .find(|d| d.node_id == tip).unwrap().uz.abs();
 
     // Deflection ratio should be (2L/L)^3 = 8
     let ratio = defl_long / defl_short;
@@ -393,9 +393,9 @@ fn validation_span_ratio_1_to_2_asymmetric_reactions() {
     let node_b = n_per_span + 1;
     let node_c = 2 * n_per_span + 1;
 
-    let r_a = results.reactions.iter().find(|r| r.node_id == node_a).unwrap().ry;
-    let r_b = results.reactions.iter().find(|r| r.node_id == node_b).unwrap().ry;
-    let r_c = results.reactions.iter().find(|r| r.node_id == node_c).unwrap().ry;
+    let r_a = results.reactions.iter().find(|r| r.node_id == node_a).unwrap().rz;
+    let r_b = results.reactions.iter().find(|r| r.node_id == node_b).unwrap().rz;
+    let r_c = results.reactions.iter().find(|r| r.node_id == node_c).unwrap().rz;
 
     // Verify equilibrium: sum of reactions = total load
     let total_load = q * (l1 + l2);
@@ -477,12 +477,12 @@ fn validation_span_ratio_three_span_shorter_middle() {
     // Max deflection in the middle span for both cases
     let max_defl_mid_a = res_a.displacements.iter()
         .filter(|d| d.node_id >= mid_span2_start_node && d.node_id <= mid_span2_end_node)
-        .map(|d| d.uy.abs())
+        .map(|d| d.uz.abs())
         .fold(0.0_f64, f64::max);
 
     let max_defl_mid_b = res_b.displacements.iter()
         .filter(|d| d.node_id >= mid_span2_start_node && d.node_id <= mid_span2_end_node)
-        .map(|d| d.uy.abs())
+        .map(|d| d.uz.abs())
         .fold(0.0_f64, f64::max);
 
     // With longer outer spans, larger support rotations propagate into the
@@ -496,12 +496,12 @@ fn validation_span_ratio_three_span_shorter_middle() {
     // The outer spans in case B are longer (2L vs L), so they deflect more
     let max_defl_outer_a = res_a.displacements.iter()
         .filter(|d| d.node_id >= 1 && d.node_id <= n_per_span + 1)
-        .map(|d| d.uy.abs())
+        .map(|d| d.uz.abs())
         .fold(0.0_f64, f64::max);
 
     let max_defl_outer_b = res_b.displacements.iter()
         .filter(|d| d.node_id >= 1 && d.node_id <= n_per_span + 1)
-        .map(|d| d.uy.abs())
+        .map(|d| d.uz.abs())
         .fold(0.0_f64, f64::max);
 
     assert!(
@@ -511,8 +511,8 @@ fn validation_span_ratio_three_span_shorter_middle() {
     );
 
     // Verify equilibrium for both cases
-    let sum_ry_a: f64 = res_a.reactions.iter().map(|r| r.ry).sum();
-    let sum_ry_b: f64 = res_b.reactions.iter().map(|r| r.ry).sum();
+    let sum_ry_a: f64 = res_a.reactions.iter().map(|r| r.rz).sum();
+    let sum_ry_b: f64 = res_b.reactions.iter().map(|r| r.rz).sum();
     assert_close(sum_ry_a, q * 3.0 * l, 0.02, "equal 3-span equilibrium");
     assert_close(sum_ry_b, q * (2.0 * l + l + 2.0 * l), 0.02, "long-outer 3-span equilibrium");
 }

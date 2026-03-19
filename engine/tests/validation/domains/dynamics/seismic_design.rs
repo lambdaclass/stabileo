@@ -54,10 +54,10 @@ fn validation_seismic_base_shear() {
     ];
     let sups = vec![(1, 1_usize, "fixed"), (2, 4, "fixed")];
     let loads = vec![
-        SolverLoad::Nodal(SolverNodalLoad { node_id: 2, fx: f1, fy: 0.0, mz: 0.0 }),
-        SolverLoad::Nodal(SolverNodalLoad { node_id: 5, fx: f1, fy: 0.0, mz: 0.0 }),
-        SolverLoad::Nodal(SolverNodalLoad { node_id: 3, fx: f2, fy: 0.0, mz: 0.0 }),
-        SolverLoad::Nodal(SolverNodalLoad { node_id: 6, fx: f2, fy: 0.0, mz: 0.0 }),
+        SolverLoad::Nodal(SolverNodalLoad { node_id: 2, fx: f1, fz: 0.0, my: 0.0 }),
+        SolverLoad::Nodal(SolverNodalLoad { node_id: 5, fx: f1, fz: 0.0, my: 0.0 }),
+        SolverLoad::Nodal(SolverNodalLoad { node_id: 3, fx: f2, fz: 0.0, my: 0.0 }),
+        SolverLoad::Nodal(SolverNodalLoad { node_id: 6, fx: f2, fz: 0.0, my: 0.0 }),
     ];
 
     let input = make_input(nodes, vec![(1, E, 0.3)], vec![(1, A, IZ)], elems, sups, loads);
@@ -120,8 +120,8 @@ fn validation_seismic_inverted_triangle() {
         let fi = f_base * i as f64;
         let n_l = 2 * i + 1;
         let n_r = 2 * i + 2;
-        loads.push(SolverLoad::Nodal(SolverNodalLoad { node_id: n_l, fx: fi, fy: 0.0, mz: 0.0 }));
-        loads.push(SolverLoad::Nodal(SolverNodalLoad { node_id: n_r, fx: fi, fy: 0.0, mz: 0.0 }));
+        loads.push(SolverLoad::Nodal(SolverNodalLoad { node_id: n_l, fx: fi, fz: 0.0, my: 0.0 }));
+        loads.push(SolverLoad::Nodal(SolverNodalLoad { node_id: n_r, fx: fi, fz: 0.0, my: 0.0 }));
     }
 
     let input = make_input(nodes, vec![(1, E, 0.3)], vec![(1, A, IZ)], elems, sups, loads);
@@ -344,8 +344,8 @@ fn validation_seismic_overturning() {
     ];
     let sups = vec![(1, 1_usize, "fixed"), (2, 4, "fixed")];
     let loads = vec![
-        SolverLoad::Nodal(SolverNodalLoad { node_id: 2, fx: f1, fy: 0.0, mz: 0.0 }),
-        SolverLoad::Nodal(SolverNodalLoad { node_id: 3, fx: f2, fy: 0.0, mz: 0.0 }),
+        SolverLoad::Nodal(SolverNodalLoad { node_id: 2, fx: f1, fz: 0.0, my: 0.0 }),
+        SolverLoad::Nodal(SolverNodalLoad { node_id: 3, fx: f2, fz: 0.0, my: 0.0 }),
     ];
 
     let input = make_input(nodes, vec![(1, E, 0.3)], vec![(1, A, IZ)], elems, sups, loads);
@@ -361,7 +361,7 @@ fn validation_seismic_overturning() {
     // Full moment equilibrium about origin:
     // Applied moments (lateral forces × heights) + reaction moments + reaction forces × arms = 0
     // -F1×h - F2×2h + M1 + M4 + Ry4×w = 0
-    let m_resisting = r1.mz + r4.mz + r4.ry * w;
+    let m_resisting = r1.my + r4.my + r4.rz * w;
     let err = (m_resisting - m_applied).abs() / m_applied;
     assert!(err < 0.02,
         "Overturning: M_resist={:.4}, M_applied={:.4}", m_resisting, m_applied);

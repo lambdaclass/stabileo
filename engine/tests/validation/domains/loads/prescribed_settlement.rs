@@ -46,7 +46,7 @@ fn validation_settlement_fixed_fixed() {
     for i in 0..=n {
         nodes_map.insert(
             (i + 1).to_string(),
-            SolverNode { id: i + 1, x: i as f64 * l / n as f64, y: 0.0 },
+            SolverNode { id: i + 1, x: i as f64 * l / n as f64, z: 0.0 },
         );
     }
     let mut mats = std::collections::HashMap::new();
@@ -68,11 +68,11 @@ fn validation_settlement_fixed_fixed() {
     let mut sups = std::collections::HashMap::new();
     sups.insert("1".to_string(), SolverSupport {
         id: 1, node_id: 1, support_type: "fixed".to_string(),
-        kx: None, ky: None, kz: None, dx: None, dy: None, drz: None, angle: None,
+        kx: None, ky: None, kz: None, dx: None, dz: None, dry: None, angle: None,
     });
     sups.insert("2".to_string(), SolverSupport {
         id: 2, node_id: n + 1, support_type: "fixed".to_string(),
-        kx: None, ky: None, kz: None, dx: None, dy: Some(delta), drz: None, angle: None,
+        kx: None, ky: None, kz: None, dx: None, dz: Some(delta), dry: None, angle: None,
     });
 
     let input = SolverInput {
@@ -86,14 +86,14 @@ fn validation_settlement_fixed_fixed() {
     let r1 = results.reactions.iter().find(|r| r.node_id == 1).unwrap();
     let r2 = results.reactions.iter().find(|r| r.node_id == n + 1).unwrap();
 
-    assert_close(r1.mz.abs(), m_exact, 0.05,
+    assert_close(r1.my.abs(), m_exact, 0.05,
         "Settlement: |M_A| = 6EIδ/L²");
-    assert_close(r2.mz.abs(), m_exact, 0.05,
+    assert_close(r2.my.abs(), m_exact, 0.05,
         "Settlement: |M_B| = 6EIδ/L²");
 
     // Settlement-induced shear: V = 12EIδ/L³
     let v_exact = 12.0 * e_eff * IZ * delta.abs() / (l * l * l);
-    assert_close(r1.ry.abs(), v_exact, 0.05,
+    assert_close(r1.rz.abs(), v_exact, 0.05,
         "Settlement: |V| = 12EIδ/L³");
 }
 
@@ -115,7 +115,7 @@ fn validation_settlement_propped() {
     for i in 0..=n {
         nodes_map.insert(
             (i + 1).to_string(),
-            SolverNode { id: i + 1, x: i as f64 * l / n as f64, y: 0.0 },
+            SolverNode { id: i + 1, x: i as f64 * l / n as f64, z: 0.0 },
         );
     }
     let mut mats = std::collections::HashMap::new();
@@ -137,11 +137,11 @@ fn validation_settlement_propped() {
     let mut sups = std::collections::HashMap::new();
     sups.insert("1".to_string(), SolverSupport {
         id: 1, node_id: 1, support_type: "fixed".to_string(),
-        kx: None, ky: None, kz: None, dx: None, dy: None, drz: None, angle: None,
+        kx: None, ky: None, kz: None, dx: None, dz: None, dry: None, angle: None,
     });
     sups.insert("2".to_string(), SolverSupport {
         id: 2, node_id: n + 1, support_type: "rollerX".to_string(),
-        kx: None, ky: None, kz: None, dx: None, dy: Some(delta), drz: None, angle: None,
+        kx: None, ky: None, kz: None, dx: None, dz: Some(delta), dry: None, angle: None,
     });
 
     let input = SolverInput {
@@ -151,7 +151,7 @@ fn validation_settlement_propped() {
     let results = linear::solve_2d(&input).unwrap();
 
     let r_roller = results.reactions.iter()
-        .find(|r| r.node_id == n + 1).unwrap().ry;
+        .find(|r| r.node_id == n + 1).unwrap().rz;
     let r_exact = 3.0 * e_eff * IZ * delta.abs() / (l * l * l);
 
     assert_close(r_roller.abs(), r_exact, 0.05,
@@ -183,7 +183,7 @@ fn validation_settlement_two_span() {
         };
         nodes_map.insert(
             (i + 1).to_string(),
-            SolverNode { id: i + 1, x, y: 0.0 },
+            SolverNode { id: i + 1, x, z: 0.0 },
         );
     }
     let mut mats = std::collections::HashMap::new();
@@ -205,15 +205,15 @@ fn validation_settlement_two_span() {
     let mut sups = std::collections::HashMap::new();
     sups.insert("1".to_string(), SolverSupport {
         id: 1, node_id: 1, support_type: "pinned".to_string(),
-        kx: None, ky: None, kz: None, dx: None, dy: None, drz: None, angle: None,
+        kx: None, ky: None, kz: None, dx: None, dz: None, dry: None, angle: None,
     });
     sups.insert("2".to_string(), SolverSupport {
         id: 2, node_id: n + 1, support_type: "rollerX".to_string(),
-        kx: None, ky: None, kz: None, dx: None, dy: Some(delta), drz: None, angle: None,
+        kx: None, ky: None, kz: None, dx: None, dz: Some(delta), dry: None, angle: None,
     });
     sups.insert("3".to_string(), SolverSupport {
         id: 3, node_id: total_nodes, support_type: "rollerX".to_string(),
-        kx: None, ky: None, kz: None, dx: None, dy: None, drz: None, angle: None,
+        kx: None, ky: None, kz: None, dx: None, dz: None, dry: None, angle: None,
     });
 
     let input = SolverInput {
@@ -223,12 +223,12 @@ fn validation_settlement_two_span() {
     let results = linear::solve_2d(&input).unwrap();
 
     // Vertical equilibrium: ΣRy = 0 (no external loads)
-    let sum_ry: f64 = results.reactions.iter().map(|r| r.ry).sum();
+    let sum_ry: f64 = results.reactions.iter().map(|r| r.rz).sum();
     assert!(sum_ry.abs() < 0.01, "Settlement: ΣRy ≈ 0: {:.6}", sum_ry);
 
     // Interior support should have a reaction (settlement induces forces)
     let r_int = results.reactions.iter()
-        .find(|r| r.node_id == n + 1).unwrap().ry;
+        .find(|r| r.node_id == n + 1).unwrap().rz;
     assert!(r_int.abs() > 0.0, "Settlement: interior reaction exists");
 }
 
@@ -252,7 +252,7 @@ fn validation_settlement_moment_formula() {
         for i in 0..=n {
             nodes_map.insert(
                 (i + 1).to_string(),
-                SolverNode { id: i + 1, x: i as f64 * l / n as f64, y: 0.0 },
+                SolverNode { id: i + 1, x: i as f64 * l / n as f64, z: 0.0 },
             );
         }
         let mut mats = std::collections::HashMap::new();
@@ -274,11 +274,11 @@ fn validation_settlement_moment_formula() {
         let mut sups = std::collections::HashMap::new();
         sups.insert("1".to_string(), SolverSupport {
             id: 1, node_id: 1, support_type: "fixed".to_string(),
-            kx: None, ky: None, kz: None, dx: None, dy: None, drz: None, angle: None,
+            kx: None, ky: None, kz: None, dx: None, dz: None, dry: None, angle: None,
         });
         sups.insert("2".to_string(), SolverSupport {
             id: 2, node_id: n + 1, support_type: "fixed".to_string(),
-            kx: None, ky: None, kz: None, dx: None, dy: Some(delta), drz: None, angle: None,
+            kx: None, ky: None, kz: None, dx: None, dz: Some(delta), dry: None, angle: None,
         });
 
         let input = SolverInput {
@@ -289,7 +289,7 @@ fn validation_settlement_moment_formula() {
 
         let m_exact = 6.0 * e_eff * IZ * delta.abs() / (l * l);
         let r1 = results.reactions.iter().find(|r| r.node_id == 1).unwrap();
-        assert_close(r1.mz.abs(), m_exact, 0.05,
+        assert_close(r1.my.abs(), m_exact, 0.05,
             &format!("M formula L={}: |M| = 6EIδ/L²", l));
     }
 }
@@ -311,7 +311,7 @@ fn validation_settlement_equal() {
     for i in 0..=n {
         nodes_map.insert(
             (i + 1).to_string(),
-            SolverNode { id: i + 1, x: i as f64 * l / n as f64, y: 0.0 },
+            SolverNode { id: i + 1, x: i as f64 * l / n as f64, z: 0.0 },
         );
     }
     let mut mats = std::collections::HashMap::new();
@@ -333,11 +333,11 @@ fn validation_settlement_equal() {
     let mut sups = std::collections::HashMap::new();
     sups.insert("1".to_string(), SolverSupport {
         id: 1, node_id: 1, support_type: "fixed".to_string(),
-        kx: None, ky: None, kz: None, dx: None, dy: Some(delta), drz: None, angle: None,
+        kx: None, ky: None, kz: None, dx: None, dz: Some(delta), dry: None, angle: None,
     });
     sups.insert("2".to_string(), SolverSupport {
         id: 2, node_id: n + 1, support_type: "fixed".to_string(),
-        kx: None, ky: None, kz: None, dx: None, dy: Some(delta), drz: None, angle: None,
+        kx: None, ky: None, kz: None, dx: None, dz: Some(delta), dry: None, angle: None,
     });
 
     let input = SolverInput {
@@ -354,7 +354,7 @@ fn validation_settlement_equal() {
 
     // All nodes should have the same settlement
     for d in &results.displacements {
-        assert_close(d.uy, delta, 0.001,
+        assert_close(d.uz, delta, 0.001,
             &format!("Equal settlement: all nodes at δ, node {}", d.node_id));
     }
 }
@@ -377,7 +377,7 @@ fn validation_settlement_rotation() {
     for i in 0..=n {
         nodes_map.insert(
             (i + 1).to_string(),
-            SolverNode { id: i + 1, x: i as f64 * l / n as f64, y: 0.0 },
+            SolverNode { id: i + 1, x: i as f64 * l / n as f64, z: 0.0 },
         );
     }
     let mut mats = std::collections::HashMap::new();
@@ -399,11 +399,11 @@ fn validation_settlement_rotation() {
     let mut sups = std::collections::HashMap::new();
     sups.insert("1".to_string(), SolverSupport {
         id: 1, node_id: 1, support_type: "fixed".to_string(),
-        kx: None, ky: None, kz: None, dx: None, dy: None, drz: None, angle: None,
+        kx: None, ky: None, kz: None, dx: None, dz: None, dry: None, angle: None,
     });
     sups.insert("2".to_string(), SolverSupport {
         id: 2, node_id: n + 1, support_type: "fixed".to_string(),
-        kx: None, ky: None, kz: None, dx: None, dy: None, drz: Some(theta), angle: None,
+        kx: None, ky: None, kz: None, dx: None, dz: None, dry: Some(theta), angle: None,
     });
 
     let input = SolverInput {
@@ -415,13 +415,13 @@ fn validation_settlement_rotation() {
     // Near end (B): M = 4EIθ/L
     let r2 = results.reactions.iter().find(|r| r.node_id == n + 1).unwrap();
     let m_near = 4.0 * e_eff * IZ * theta / l;
-    assert_close(r2.mz.abs(), m_near, 0.05,
+    assert_close(r2.my.abs(), m_near, 0.05,
         "Rotation: M_near = 4EIθ/L");
 
     // Far end (A): M = 2EIθ/L (carry-over factor = 0.5)
     let r1 = results.reactions.iter().find(|r| r.node_id == 1).unwrap();
     let m_far = 2.0 * e_eff * IZ * theta / l;
-    assert_close(r1.mz.abs(), m_far, 0.05,
+    assert_close(r1.my.abs(), m_far, 0.05,
         "Rotation: M_far = 2EIθ/L (COF=0.5)");
 }
 
@@ -445,7 +445,7 @@ fn validation_settlement_superposition() {
         for i in 0..=n {
             nodes_map.insert(
                 (i + 1).to_string(),
-                SolverNode { id: i + 1, x: i as f64 * l / n as f64, y: 0.0 },
+                SolverNode { id: i + 1, x: i as f64 * l / n as f64, z: 0.0 },
             );
         }
         let mut mats = std::collections::HashMap::new();
@@ -467,11 +467,11 @@ fn validation_settlement_superposition() {
         let mut sups = std::collections::HashMap::new();
         sups.insert("1".to_string(), SolverSupport {
             id: 1, node_id: 1, support_type: "fixed".to_string(),
-            kx: None, ky: None, kz: None, dx: None, dy: None, drz: None, angle: None,
+            kx: None, ky: None, kz: None, dx: None, dz: None, dry: None, angle: None,
         });
         sups.insert("2".to_string(), SolverSupport {
             id: 2, node_id: n + 1, support_type: "fixed".to_string(),
-            kx: None, ky: None, kz: None, dx: None, dy: dy_right, drz: None, angle: None,
+            kx: None, ky: None, kz: None, dx: None, dz: dy_right, dry: None, angle: None,
         });
         SolverInput { nodes: nodes_map, materials: mats, sections: secs, elements: elems, supports: sups, loads, constraints: vec![],  connectors: std::collections::HashMap::new() }
     };
@@ -484,15 +484,15 @@ fn validation_settlement_superposition() {
 
     // Load only
     let d_load = linear::solve_2d(&build(None, udl(q))).unwrap()
-        .displacements.iter().find(|d| d.node_id == mid).unwrap().uy;
+        .displacements.iter().find(|d| d.node_id == mid).unwrap().uz;
 
     // Settlement only
     let d_settle = linear::solve_2d(&build(Some(delta), vec![])).unwrap()
-        .displacements.iter().find(|d| d.node_id == mid).unwrap().uy;
+        .displacements.iter().find(|d| d.node_id == mid).unwrap().uz;
 
     // Combined
     let d_combined = linear::solve_2d(&build(Some(delta), udl(q))).unwrap()
-        .displacements.iter().find(|d| d.node_id == mid).unwrap().uy;
+        .displacements.iter().find(|d| d.node_id == mid).unwrap().uz;
 
     assert_close(d_combined, d_load + d_settle, 0.01,
         "Superposition: δ_combined = δ_load + δ_settle");
@@ -509,12 +509,12 @@ fn validation_settlement_linearity() {
     let l = 8.0;
     let n = 16;
 
-    let build = |dy: f64| {
+    let build = |dz: f64| {
         let mut nodes_map = std::collections::HashMap::new();
         for i in 0..=n {
             nodes_map.insert(
                 (i + 1).to_string(),
-                SolverNode { id: i + 1, x: i as f64 * l / n as f64, y: 0.0 },
+                SolverNode { id: i + 1, x: i as f64 * l / n as f64, z: 0.0 },
             );
         }
         let mut mats = std::collections::HashMap::new();
@@ -536,20 +536,20 @@ fn validation_settlement_linearity() {
         let mut sups = std::collections::HashMap::new();
         sups.insert("1".to_string(), SolverSupport {
             id: 1, node_id: 1, support_type: "fixed".to_string(),
-            kx: None, ky: None, kz: None, dx: None, dy: None, drz: None, angle: None,
+            kx: None, ky: None, kz: None, dx: None, dz: None, dry: None, angle: None,
         });
         sups.insert("2".to_string(), SolverSupport {
             id: 2, node_id: n + 1, support_type: "fixed".to_string(),
-            kx: None, ky: None, kz: None, dx: None, dy: Some(dy), drz: None, angle: None,
+            kx: None, ky: None, kz: None, dx: None, dz: Some(dz), dry: None, angle: None,
         });
         SolverInput { nodes: nodes_map, materials: mats, sections: secs, elements: elems, supports: sups, loads: vec![], constraints: vec![],  connectors: std::collections::HashMap::new() }
     };
 
     let r1 = linear::solve_2d(&build(-0.005)).unwrap();
-    let m1 = r1.reactions.iter().find(|r| r.node_id == 1).unwrap().mz;
+    let m1 = r1.reactions.iter().find(|r| r.node_id == 1).unwrap().my;
 
     let r2 = linear::solve_2d(&build(-0.010)).unwrap();
-    let m2 = r2.reactions.iter().find(|r| r.node_id == 1).unwrap().mz;
+    let m2 = r2.reactions.iter().find(|r| r.node_id == 1).unwrap().my;
 
     assert_close(m2 / m1, 2.0, 0.01, "Settlement linearity: 2δ → 2M");
 }

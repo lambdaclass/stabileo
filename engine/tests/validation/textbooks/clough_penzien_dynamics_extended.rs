@@ -443,8 +443,8 @@ fn validation_ext_6_harmonic_frf_peak() {
         SolverLoad::Nodal(SolverNodalLoad {
             node_id: n_nodes,
             fx: 0.0,
-            fy: -1.0, // unit harmonic force at tip
-            mz: 0.0,
+            fz: -1.0, // unit harmonic force at tip
+            my: 0.0,
         }),
     ]);
     let densities = make_densities();
@@ -540,7 +540,7 @@ fn validation_ext_7_cqc_vs_srss_comparison() {
             period: m.period,
             omega: m.omega,
             displacements: m.displacements.iter().map(|d| {
-                SpectralModeDisp { node_id: d.node_id, ux: d.ux, uy: d.uy, rz: d.rz }
+                SpectralModeDisp { node_id: d.node_id, ux: d.ux, uz: d.uz, ry: d.ry }
             }).collect(),
             participation_x: m.participation_x,
             participation_y: m.participation_y,
@@ -647,8 +647,8 @@ fn validation_ext_8_undamped_amplitude_stability() {
             loads: vec![SolverNodalLoad {
                 node_id: n_nodes,
                 fx: 0.0,
-                fy,
-                mz: 0.0,
+                fz: fy,
+                my: 0.0,
             }] });
     }
 
@@ -675,16 +675,16 @@ fn validation_ext_8_undamped_amplitude_stability() {
 
     // Divide the free vibration into two halves
     let free_start = pulse_steps + 5;
-    let total_free = tip.uy.len() - free_start;
+    let total_free = tip.uz.len() - free_start;
     let half = total_free / 2;
     let mid = free_start + half;
 
     // Peak in first half
-    let peak_first = tip.uy[free_start..mid].iter()
+    let peak_first = tip.uz[free_start..mid].iter()
         .cloned().fold(0.0_f64, |acc, v| acc.max(v.abs()));
 
     // Peak in second half
-    let peak_second = tip.uy[mid..].iter()
+    let peak_second = tip.uz[mid..].iter()
         .cloned().fold(0.0_f64, |acc, v| acc.max(v.abs()));
 
     assert!(

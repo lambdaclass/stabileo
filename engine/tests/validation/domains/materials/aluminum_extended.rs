@@ -176,8 +176,8 @@ fn validation_alu_ext_3_member_compression() {
         .find(|d| d.node_id == 5).unwrap();
     // Under -1 kN axial, small lateral displacement should be near zero
     assert!(
-        tip_disp.uy.abs() < 1e-3,
-        "Column lateral displacement {:.6} near zero for pure axial", tip_disp.uy
+        tip_disp.uz.abs() < 1e-3,
+        "Column lateral displacement {:.6} near zero for pure axial", tip_disp.uz
     );
 
     // Verify Euler load is in expected range (p_euler is already in kN)
@@ -257,9 +257,9 @@ fn validation_alu_ext_4_beam_ltb() {
 
     let mid = n / 2 + 1;
     let d_al: f64 = results_al.displacements.iter()
-        .find(|d| d.node_id == mid).unwrap().uy.abs();
+        .find(|d| d.node_id == mid).unwrap().uz.abs();
     let d_st: f64 = results_st.displacements.iter()
-        .find(|d| d.node_id == mid).unwrap().uy.abs();
+        .find(|d| d.node_id == mid).unwrap().uz.abs();
 
     // Deflection ratio should be E_steel/E_al
     let defl_ratio: f64 = d_al / d_st;
@@ -440,9 +440,9 @@ fn validation_alu_ext_7_deflection_comparison() {
 
     let mid = n / 2 + 1;
     let d_al: f64 = results_al.displacements.iter()
-        .find(|d| d.node_id == mid).unwrap().uy.abs();
+        .find(|d| d.node_id == mid).unwrap().uz.abs();
     let d_st: f64 = results_st.displacements.iter()
-        .find(|d| d.node_id == mid).unwrap().uy.abs();
+        .find(|d| d.node_id == mid).unwrap().uz.abs();
 
     // Solver deflection ratio
     let solver_ratio: f64 = d_al / d_st;

@@ -34,7 +34,7 @@ fn validation_nafems_fv2_axial_bar() {
         vec![(1, a, 0.0)],
         vec![(1, "truss", 1, 2, 1, 1, false, false)],
         vec![(1, 1, "pinned"), (2, 2, "rollerX")],
-        vec![SolverLoad::Nodal(SolverNodalLoad { node_id: 2, fx: f, fy: 0.0, mz: 0.0 })],
+        vec![SolverLoad::Nodal(SolverNodalLoad { node_id: 2, fx: f, fz: 0.0, my: 0.0 })],
     );
 
     let results = linear::solve_2d(&input).unwrap();
@@ -118,7 +118,7 @@ fn validation_nafems_fv32_ss_beam_udl() {
     // Midspan deflection
     let d_mid = results.displacements.iter().find(|d| d.node_id == mid).unwrap();
     let delta_exact = 5.0 * q.abs() * length.powi(4) / (384.0 * ei);
-    assert_close(d_mid.uy.abs(), delta_exact, 0.01, "NAFEMS FV32: δ_mid");
+    assert_close(d_mid.uz.abs(), delta_exact, 0.01, "NAFEMS FV32: δ_mid");
 
     // Midspan moment = qL²/8
     let m_exact = q.abs() * length * length / 8.0;
@@ -162,13 +162,13 @@ fn validation_nafems_fv52_cross_truss() {
             (5, "truss", 2, 3, 1, 1, false, false),  // diagonal 2
         ],
         vec![(1, 1, "pinned"), (2, 2, "pinned")],
-        vec![SolverLoad::Nodal(SolverNodalLoad { node_id: 4, fx: 0.0, fy: -p, mz: 0.0 })],
+        vec![SolverLoad::Nodal(SolverNodalLoad { node_id: 4, fx: 0.0, fz: -p, my: 0.0 })],
     );
 
     let results = linear::solve_2d(&input).unwrap();
 
     // Global equilibrium
-    let sum_ry: f64 = results.reactions.iter().map(|r| r.ry).sum();
+    let sum_ry: f64 = results.reactions.iter().map(|r| r.rz).sum();
     assert!((sum_ry - p).abs() < 0.01, "NAFEMS FV52: vertical equilibrium");
 
     // By symmetry of geometry (but asymmetric load), the diagonal members should
@@ -265,7 +265,7 @@ fn validation_nafems_le5_z_section_cantilever_3d() {
 
     // Tip should deflect in Y (primary bending direction)
     let delta_y_exact = p * length.powi(3) / (3.0 * e * 1000.0 * iz);
-    assert_close(tip.uy.abs(), delta_y_exact, 0.01,
+    assert_close(tip.uz.abs(), delta_y_exact, 0.01,
         "NAFEMS LE5: tip uy matches Euler-Bernoulli");
 
     // With Iy ≠ Iz but load only in Y, there's no coupling for a principal-axis-aligned section.
@@ -274,6 +274,6 @@ fn validation_nafems_le5_z_section_cantilever_3d() {
         "NAFEMS LE5: uz should be ~0 for principal-axis loading, got {:.6e}", tip.uz);
 
     // Verify global equilibrium
-    let sum_fy: f64 = results.reactions.iter().map(|r| r.fy).sum();
-    assert!((sum_fy - p).abs() < 0.01, "NAFEMS LE5: vertical equilibrium");
+    let sum_fz: f64 = results.reactions.iter().map(|r| r.fz).sum();
+    assert!((sum_fz - p).abs() < 0.01, "NAFEMS LE5: vertical equilibrium");
 }

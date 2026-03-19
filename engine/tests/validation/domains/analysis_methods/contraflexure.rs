@@ -128,7 +128,7 @@ fn validation_contraflexure_fixed_point_load() {
     let mid = n / 2 + 1;
 
     let loads = vec![SolverLoad::Nodal(SolverNodalLoad {
-        node_id: mid, fx: 0.0, fy: -p, mz: 0.0,
+        node_id: mid, fx: 0.0, fz: -p, my: 0.0,
     })];
     let input = make_beam(n, l, E, A, IZ, "fixed", Some("fixed"), loads);
     let results = linear::solve_2d(&input).unwrap();
@@ -201,14 +201,14 @@ fn validation_contraflexure_portal_column() {
     // For symmetric gravity on symmetric frame, base moments are equal
     let r1 = results.reactions.iter().find(|r| r.node_id == 1).unwrap();
     let r4 = results.reactions.iter().find(|r| r.node_id == 4).unwrap();
-    assert_close(r1.mz.abs(), r4.mz.abs(), 0.01,
+    assert_close(r1.my.abs(), r4.my.abs(), 0.01,
         "Portal: symmetric base moments");
 
     // Vertical reactions should be equal
-    assert_close(r1.ry, r4.ry, 0.02, "Portal: symmetric Ry");
+    assert_close(r1.rz, r4.rz, 0.02, "Portal: symmetric Ry");
 
     // Total vertical reaction = 2P (one P at each beam-column joint)
-    assert_close(r1.ry + r4.ry, 2.0 * p, 0.01, "Portal: ΣRy = 2P");
+    assert_close(r1.rz + r4.rz, 2.0 * p, 0.01, "Portal: ΣRy = 2P");
 
     // No horizontal reaction under symmetric gravity
     assert!(r1.rx.abs() < 1e-8, "Portal: Rx ≈ 0");
@@ -228,14 +228,14 @@ fn validation_contraflexure_propped_point() {
     let load_node = n / 3 + 1;
 
     let loads = vec![SolverLoad::Nodal(SolverNodalLoad {
-        node_id: load_node, fx: 0.0, fy: -p, mz: 0.0,
+        node_id: load_node, fx: 0.0, fz: -p, my: 0.0,
     })];
     let input = make_beam(n, l, E, A, IZ, "fixed", Some("rollerX"), loads);
     let results = linear::solve_2d(&input).unwrap();
 
     // Fixed end moment exists
     let r1 = results.reactions.iter().find(|r| r.node_id == 1).unwrap();
-    assert!(r1.mz.abs() > 0.0, "Fixed end moment exists");
+    assert!(r1.my.abs() > 0.0, "Fixed end moment exists");
 
     // Somewhere in the beam, moment changes sign
     let changes = find_sign_changes(&results, 1..=n);
@@ -257,7 +257,7 @@ fn validation_contraflexure_applied_moment() {
     let mid = n / 2 + 1;
 
     let loads = vec![SolverLoad::Nodal(SolverNodalLoad {
-        node_id: mid, fx: 0.0, fy: 0.0, mz: m0,
+        node_id: mid, fx: 0.0, fz: 0.0, my: m0,
     })];
     let input = make_beam(n, l, E, A, IZ, "fixed", Some("fixed"), loads);
     let results = linear::solve_2d(&input).unwrap();
@@ -266,13 +266,13 @@ fn validation_contraflexure_applied_moment() {
     let r2 = results.reactions.iter().find(|r| r.node_id == n + 1).unwrap();
 
     // Vertical equilibrium: ΣFy = 0
-    assert!((r1.ry + r2.ry).abs() < 0.01,
-        "Moment load: ΣFy = 0: {:.6}", r1.ry + r2.ry);
+    assert!((r1.rz + r2.rz).abs() < 0.01,
+        "Moment load: ΣFy = 0: {:.6}", r1.rz + r2.rz);
 
     // Moment equilibrium about left end: M_A + R_B*L + M_B + M₀ = 0
     // (signs depend on convention, verify sum is near zero)
-    let sum_r_mz = r1.mz + r2.mz;
-    let sum_applied = m0 + r2.ry * l;
+    let sum_r_mz = r1.my + r2.my;
+    let sum_applied = m0 + r2.rz * l;
     assert!((sum_r_mz + sum_applied).abs() < 0.1,
         "Moment equilibrium: {:.4}", sum_r_mz + sum_applied);
 }

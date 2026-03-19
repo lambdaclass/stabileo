@@ -50,7 +50,7 @@ fn validation_force_method_ext_fixed_asym_point() {
     let load_node = (a_dist / l * n as f64).round() as usize + 1;
 
     let loads = vec![SolverLoad::Nodal(SolverNodalLoad {
-        node_id: load_node, fx: 0.0, fy: -p, mz: 0.0,
+        node_id: load_node, fx: 0.0, fz: -p, my: 0.0,
     })];
     let input = make_beam(n, l, E, A, IZ, "fixed", Some("fixed"), loads);
     let results = linear::solve_2d(&input).unwrap();
@@ -61,17 +61,17 @@ fn validation_force_method_ext_fixed_asym_point() {
     // Reactions
     let ra_exact = p * b_dist * b_dist * (3.0 * a_dist + b_dist) / (l * l * l);
     let rb_exact = p * a_dist * a_dist * (a_dist + 3.0 * b_dist) / (l * l * l);
-    assert_close(r1.ry, ra_exact, 0.02, "Fixed asym: R_A = Pb²(3a+b)/L³");
-    assert_close(r2.ry, rb_exact, 0.02, "Fixed asym: R_B = Pa²(a+3b)/L³");
+    assert_close(r1.rz, ra_exact, 0.02, "Fixed asym: R_A = Pb²(3a+b)/L³");
+    assert_close(r2.rz, rb_exact, 0.02, "Fixed asym: R_B = Pa²(a+3b)/L³");
 
     // Equilibrium check
-    assert_close(r1.ry + r2.ry, p, 0.01, "Fixed asym: R_A + R_B = P");
+    assert_close(r1.rz + r2.rz, p, 0.01, "Fixed asym: R_A + R_B = P");
 
     // End moments (absolute values)
     let ma_exact = p * a_dist * b_dist * b_dist / (l * l);
     let mb_exact = p * a_dist * a_dist * b_dist / (l * l);
-    assert_close(r1.mz.abs(), ma_exact, 0.03, "Fixed asym: |M_A| = Pab²/L²");
-    assert_close(r2.mz.abs(), mb_exact, 0.03, "Fixed asym: |M_B| = Pa²b/L²");
+    assert_close(r1.my.abs(), ma_exact, 0.03, "Fixed asym: |M_A| = Pab²/L²");
+    assert_close(r2.my.abs(), mb_exact, 0.03, "Fixed asym: |M_B| = Pa²b/L²");
 }
 
 // ================================================================
@@ -104,22 +104,22 @@ fn validation_force_method_ext_three_span_udl() {
     let q_abs = q.abs();
 
     // End reactions: R_A = R_D = 0.4 q L
-    let r_a = results.reactions.iter().find(|r| r.node_id == 1).unwrap().ry;
+    let r_a = results.reactions.iter().find(|r| r.node_id == 1).unwrap().rz;
     let r_d_node = 3 * n_per_span + 1;
-    let r_d = results.reactions.iter().find(|r| r.node_id == r_d_node).unwrap().ry;
+    let r_d = results.reactions.iter().find(|r| r.node_id == r_d_node).unwrap().rz;
     assert_close(r_a, 0.4 * q_abs * span, 0.02, "3-span: R_A = 0.4qL");
     assert_close(r_d, 0.4 * q_abs * span, 0.02, "3-span: R_D = 0.4qL");
 
     // Interior reactions: R_B = R_C = 1.1 q L
     let r_b_node = n_per_span + 1;
     let r_c_node = 2 * n_per_span + 1;
-    let r_b = results.reactions.iter().find(|r| r.node_id == r_b_node).unwrap().ry;
-    let r_c = results.reactions.iter().find(|r| r.node_id == r_c_node).unwrap().ry;
+    let r_b = results.reactions.iter().find(|r| r.node_id == r_b_node).unwrap().rz;
+    let r_c = results.reactions.iter().find(|r| r.node_id == r_c_node).unwrap().rz;
     assert_close(r_b, 1.1 * q_abs * span, 0.02, "3-span: R_B = 1.1qL");
     assert_close(r_c, 1.1 * q_abs * span, 0.02, "3-span: R_C = 1.1qL");
 
     // Total reaction = total load = 3 q L
-    let total_r: f64 = results.reactions.iter().map(|r| r.ry).sum();
+    let total_r: f64 = results.reactions.iter().map(|r| r.rz).sum();
     assert_close(total_r, 3.0 * q_abs * span, 0.01, "3-span: sum R = 3qL");
 }
 
@@ -160,13 +160,13 @@ fn validation_force_method_ext_propped_triangular() {
 
     // Roller reaction = qL/10
     let r_roller = results.reactions.iter()
-        .find(|r| r.node_id == n + 1).unwrap().ry;
+        .find(|r| r.node_id == n + 1).unwrap().rz;
     assert_close(r_roller, q_abs * l / 10.0, 0.03,
         "Propped triangular: R_roller = qL/10");
 
     // Fixed reaction = 2qL/5
     let r_fix = results.reactions.iter()
-        .find(|r| r.node_id == 1).unwrap().ry;
+        .find(|r| r.node_id == 1).unwrap().rz;
     assert_close(r_fix, 2.0 * q_abs * l / 5.0, 0.03,
         "Propped triangular: R_fix = 2qL/5");
 
@@ -176,7 +176,7 @@ fn validation_force_method_ext_propped_triangular() {
 
     // Fixed end moment = qL²/15
     let m_fix = results.reactions.iter()
-        .find(|r| r.node_id == 1).unwrap().mz.abs();
+        .find(|r| r.node_id == 1).unwrap().my.abs();
     assert_close(m_fix, q_abs * l * l / 15.0, 0.03,
         "Propped triangular: |M_fix| = qL²/15");
 }
@@ -209,7 +209,7 @@ fn validation_force_method_ext_fixed_udl_deflection() {
     // Midspan node
     let mid_node = n / 2 + 1;
     let uy_mid = results.displacements.iter()
-        .find(|d| d.node_id == mid_node).unwrap().uy;
+        .find(|d| d.node_id == mid_node).unwrap().uz;
 
     // Analytical midspan deflection (downward → negative)
     let delta_exact = q.abs() * l.powi(4) / (384.0 * e_eff * IZ);
@@ -248,8 +248,8 @@ fn validation_force_method_ext_portal_lateral() {
 
     let r1 = results.reactions.iter().find(|r| r.node_id == 1).unwrap();
     let r4 = results.reactions.iter().find(|r| r.node_id == 4).unwrap();
-    eprintln!("R1: rx={:.6} ry={:.6} mz={:.6}", r1.rx, r1.ry, r1.mz);
-    eprintln!("R4: rx={:.6} ry={:.6} mz={:.6}", r4.rx, r4.ry, r4.mz);
+    eprintln!("R1: rx={:.6} ry={:.6} mz={:.6}", r1.rx, r1.rz, r1.my);
+    eprintln!("R4: rx={:.6} ry={:.6} mz={:.6}", r4.rx, r4.rz, r4.my);
 
     // Horizontal equilibrium: Rx1 + Rx4 + H = 0
     assert_close(r1.rx + r4.rx, -h_load, 0.01,
@@ -262,7 +262,7 @@ fn validation_force_method_ext_portal_lateral() {
         "Portal lateral: Rx4 ≈ -H/2");
 
     // Vertical equilibrium: sum Ry = 0 (no vertical applied load)
-    assert_close(r1.ry + r4.ry, 0.0, 0.01,
+    assert_close(r1.rz + r4.rz, 0.0, 0.01,
         "Portal lateral: sum Ry = 0");
 
     // Moment equilibrium about base 4:
@@ -271,8 +271,8 @@ fn validation_force_method_ext_portal_lateral() {
     // Or equivalently, the full overturning balance:
     //   |R1y * w| + M1 + M4 = H * h
     let overturning: f64 = h_load * h;
-    let couple = (r1.ry * w).abs();
-    let base_moments = r1.mz + r4.mz;
+    let couple = (r1.rz * w).abs();
+    let base_moments = r1.my + r4.my;
     assert_close(couple + base_moments, overturning, 0.05,
         "Portal lateral: R1y*w + M1 + M4 = H*h");
 }
@@ -314,19 +314,19 @@ fn validation_force_method_ext_two_span_point_load() {
     // Point load at midpoint of span 1 = node (n_per_span/2 + 1)
     let load_node = n_per_span / 2 + 1;
     let loads = vec![SolverLoad::Nodal(SolverNodalLoad {
-        node_id: load_node, fx: 0.0, fy: -p, mz: 0.0,
+        node_id: load_node, fx: 0.0, fz: -p, my: 0.0,
     })];
     let input = make_continuous_beam(&[span, span], n_per_span, E, A, IZ, loads);
     let results = linear::solve_2d(&input).unwrap();
 
     // Total vertical equilibrium
-    let total_ry: f64 = results.reactions.iter().map(|r| r.ry).sum();
+    let total_ry: f64 = results.reactions.iter().map(|r| r.rz).sum();
     assert_close(total_ry, p, 0.01,
         "2-span point: sum Ry = P");
 
     // DEBUG: print all reactions
     for r in &results.reactions {
-        eprintln!("Reaction node {}: ry={:.6}", r.node_id, r.ry);
+        eprintln!("Reaction node {}: ry={:.6}", r.node_id, r.rz);
     }
     // DEBUG: print element forces near interior support
     for ef in &results.element_forces {
@@ -344,7 +344,7 @@ fn validation_force_method_ext_two_span_point_load() {
     assert_close(m_b.abs(), m_b_exact, 0.03,
         "2-span point: |M_B| = 3PL/32");
 
-    let r_a = results.reactions.iter().find(|r| r.node_id == 1).unwrap().ry;
+    let r_a = results.reactions.iter().find(|r| r.node_id == 1).unwrap().rz;
     let r_a_exact = 13.0 * p / 32.0;
     assert_close(r_a, r_a_exact, 0.03,
         "2-span point: R_A = 13P/32");
@@ -378,10 +378,10 @@ fn validation_force_method_ext_fixed_third_point() {
     let node2 = 2 * n / 3 + 1;
     let loads = vec![
         SolverLoad::Nodal(SolverNodalLoad {
-            node_id: node1, fx: 0.0, fy: -p, mz: 0.0,
+            node_id: node1, fx: 0.0, fz: -p, my: 0.0,
         }),
         SolverLoad::Nodal(SolverNodalLoad {
-            node_id: node2, fx: 0.0, fy: -p, mz: 0.0,
+            node_id: node2, fx: 0.0, fz: -p, my: 0.0,
         }),
     ];
     let input = make_beam(n, l, E, A, IZ, "fixed", Some("fixed"), loads);
@@ -391,18 +391,18 @@ fn validation_force_method_ext_fixed_third_point() {
     let r2 = results.reactions.iter().find(|r| r.node_id == n + 1).unwrap();
 
     // Symmetric reactions: R_A = R_B = P (total load = 2P)
-    assert_close(r1.ry, p, 0.02, "Fixed third-point: R_A = P");
-    assert_close(r2.ry, p, 0.02, "Fixed third-point: R_B = P");
+    assert_close(r1.rz, p, 0.02, "Fixed third-point: R_A = P");
+    assert_close(r2.rz, p, 0.02, "Fixed third-point: R_B = P");
 
     // Equal end moments: |M_A| = |M_B| = 2PL/9
     let m_exact = 2.0 * p * l / 9.0;
-    assert_close(r1.mz.abs(), m_exact, 0.02,
+    assert_close(r1.my.abs(), m_exact, 0.02,
         "Fixed third-point: |M_A| = 2PL/9");
-    assert_close(r2.mz.abs(), m_exact, 0.02,
+    assert_close(r2.my.abs(), m_exact, 0.02,
         "Fixed third-point: |M_B| = 2PL/9");
 
     // Symmetry: |M_A| = |M_B|
-    assert_close(r1.mz.abs(), r2.mz.abs(), 0.01,
+    assert_close(r1.my.abs(), r2.my.abs(), 0.01,
         "Fixed third-point: |M_A| = |M_B| (symmetry)");
 }
 
@@ -442,9 +442,9 @@ fn validation_force_method_ext_propped_max_moment() {
     // Verify known reactions first
     let r_fix = results.reactions.iter().find(|r| r.node_id == 1).unwrap();
     let r_roller = results.reactions.iter().find(|r| r.node_id == n + 1).unwrap();
-    assert_close(r_fix.ry, 5.0 * q_abs * l / 8.0, 0.02,
+    assert_close(r_fix.rz, 5.0 * q_abs * l / 8.0, 0.02,
         "Propped UDL: R_fix = 5qL/8");
-    assert_close(r_roller.ry, 3.0 * q_abs * l / 8.0, 0.02,
+    assert_close(r_roller.rz, 3.0 * q_abs * l / 8.0, 0.02,
         "Propped UDL: R_roller = 3qL/8");
 
     // Find element containing x₀ = 5L/8

@@ -39,11 +39,11 @@ fn chimney_ext_cantilever_tip_wind() {
     let iz: f64 = 0.02;
     let ei: f64 = e * 1000.0 * iz; // 4,000,000 kN*m^2
     let n: usize = 8;
-    let dy: f64 = h / n as f64;
+    let dz: f64 = h / n as f64;
 
     // Build vertical cantilever: nodes at (0,0), (0,dy), ..., (0,H)
     let nodes: Vec<(usize, f64, f64)> = (0..=n)
-        .map(|i| (i + 1, 0.0, i as f64 * dy))
+        .map(|i| (i + 1, 0.0, i as f64 * dz))
         .collect();
     let elems: Vec<(usize, &str, usize, usize, usize, usize, bool, bool)> = (0..n)
         .map(|i| (i + 1, "frame", i + 1, i + 2, 1, 1, false, false))
@@ -52,8 +52,8 @@ fn chimney_ext_cantilever_tip_wind() {
     let loads = vec![SolverLoad::Nodal(SolverNodalLoad {
         node_id: n + 1,
         fx: p,
-        fy: 0.0,
-        mz: 0.0,
+        fz: 0.0,
+        my: 0.0,
     })];
 
     let input = make_input(nodes, vec![(1, e, 0.3)], vec![(1, a, iz)], elems, sups, loads);
@@ -67,10 +67,10 @@ fn chimney_ext_cantilever_tip_wind() {
     // Base reactions: Rx = -P (opposing), Mz = P*H
     let r1 = results.reactions.iter().find(|r| r.node_id == 1).unwrap();
     assert_close(r1.rx, -p, 0.01, "chimney base Rx");
-    assert_close(r1.mz.abs(), p * h, 0.01, "chimney base Mz");
+    assert_close(r1.my.abs(), p * h, 0.01, "chimney base Mz");
 
     // Vertical reaction should be zero (no vertical loads)
-    assert!(r1.ry.abs() < 1e-6, "chimney base Ry should be zero, got {:.6e}", r1.ry);
+    assert!(r1.rz.abs() < 1e-6, "chimney base Ry should be zero, got {:.6e}", r1.rz);
 }
 
 // ================================================================
@@ -95,10 +95,10 @@ fn chimney_ext_uniform_wind_pressure() {
     let iz: f64 = 0.02;
     let ei: f64 = e * 1000.0 * iz;
     let n: usize = 8;
-    let dy: f64 = h / n as f64;
+    let dz: f64 = h / n as f64;
 
     let nodes: Vec<(usize, f64, f64)> = (0..=n)
-        .map(|i| (i + 1, 0.0, i as f64 * dy))
+        .map(|i| (i + 1, 0.0, i as f64 * dz))
         .collect();
     let elems: Vec<(usize, &str, usize, usize, usize, usize, bool, bool)> = (0..n)
         .map(|i| (i + 1, "frame", i + 1, i + 2, 1, 1, false, false))
@@ -128,7 +128,7 @@ fn chimney_ext_uniform_wind_pressure() {
 
     // Base moment: M = q*H^2/2
     let r1 = results.reactions.iter().find(|r| r.node_id == 1).unwrap();
-    assert_close(r1.mz.abs(), q * h * h / 2.0, 0.01, "chimney UDL base Mz");
+    assert_close(r1.my.abs(), q * h * h / 2.0, 0.01, "chimney UDL base Mz");
 
     // Base shear: V = q*H
     assert_close(r1.rx.abs(), q * h, 0.01, "chimney UDL base Rx");
@@ -156,13 +156,13 @@ fn chimney_ext_self_weight_axial() {
     let iz: f64 = 0.02;
     let ea: f64 = e * 1000.0 * a; // 10,000,000 kN
     let n: usize = 8;
-    let dy: f64 = h / n as f64;
+    let dz: f64 = h / n as f64;
 
     let w_per_m: f64 = 3.0; // kN/m, self-weight per unit length
     let _w_total: f64 = w_per_m * h; // 120 kN total
 
     let nodes: Vec<(usize, f64, f64)> = (0..=n)
-        .map(|i| (i + 1, 0.0, i as f64 * dy))
+        .map(|i| (i + 1, 0.0, i as f64 * dz))
         .collect();
     let elems: Vec<(usize, &str, usize, usize, usize, usize, bool, bool)> = (0..n)
         .map(|i| (i + 1, "frame", i + 1, i + 2, 1, 1, false, false))
@@ -174,22 +174,22 @@ fn chimney_ext_self_weight_axial() {
     let mut loads = Vec::new();
     for i in 1..=n {
         let fy = if i == 1 || i == n {
-            -w_per_m * dy / 2.0 // half at first interior and top
+            -w_per_m * dz / 2.0 // half at first interior and top
         } else {
-            -w_per_m * dy
+            -w_per_m * dz
         };
         // Skip node 1 (supported), apply loads to nodes 2..=n+1
         loads.push(SolverLoad::Nodal(SolverNodalLoad {
             node_id: i + 1,
             fx: 0.0,
-            fy,
-            mz: 0.0,
+            fz: fy,
+            my: 0.0,
         }));
     }
 
     // Total applied load (compute before moving loads)
     let total_applied: f64 = loads.iter().map(|l| {
-        if let SolverLoad::Nodal(nl) = l { nl.fy } else { 0.0 }
+        if let SolverLoad::Nodal(nl) = l { nl.fz } else { 0.0 }
     }).sum::<f64>().abs();
 
     let input = make_input(nodes, vec![(1, e, 0.3)], vec![(1, a, iz)], elems, sups, loads);
@@ -197,23 +197,23 @@ fn chimney_ext_self_weight_axial() {
 
     // Base vertical reaction should equal total applied load
     let r1 = results.reactions.iter().find(|r| r.node_id == 1).unwrap();
-    assert_close(r1.ry, total_applied, 0.01, "chimney self-weight Ry");
+    assert_close(r1.rz, total_applied, 0.01, "chimney self-weight Ry");
 
     // No horizontal reaction (no horizontal loads)
     assert!(r1.rx.abs() < 1e-6, "chimney self-weight Rx should be zero");
 
     // No base moment (purely axial, symmetric)
-    assert!(r1.mz.abs() < 1e-4, "chimney self-weight Mz should be ~zero");
+    assert!(r1.my.abs() < 1e-4, "chimney self-weight Mz should be ~zero");
 
     // Top node should move downward (negative uy)
     let tip = results.displacements.iter().find(|d| d.node_id == n + 1).unwrap();
-    assert!(tip.uy < 0.0, "chimney top should deflect downward");
+    assert!(tip.uz < 0.0, "chimney top should deflect downward");
 
     // Approximate shortening: for linearly varying axial force,
     // delta = W*H / (2*EA) is the continuous solution.
     // With lumped nodal loads, we get a close approximation.
     let expected_shortening: f64 = total_applied * h / (2.0 * ea);
-    assert_close(tip.uy.abs(), expected_shortening, 0.15, "chimney self-weight shortening");
+    assert_close(tip.uz.abs(), expected_shortening, 0.15, "chimney self-weight shortening");
 }
 
 // ================================================================
@@ -239,13 +239,13 @@ fn chimney_ext_combined_wind_and_gravity() {
     let iz: f64 = 0.02;
     let ei: f64 = e * 1000.0 * iz;
     let n: usize = 8;
-    let dy: f64 = h / n as f64;
+    let dz: f64 = h / n as f64;
 
     let p_wind: f64 = 50.0; // kN, horizontal at top
     let w_total: f64 = 120.0; // kN, total vertical self-weight
 
     let nodes: Vec<(usize, f64, f64)> = (0..=n)
-        .map(|i| (i + 1, 0.0, i as f64 * dy))
+        .map(|i| (i + 1, 0.0, i as f64 * dz))
         .collect();
     let elems: Vec<(usize, &str, usize, usize, usize, usize, bool, bool)> = (0..n)
         .map(|i| (i + 1, "frame", i + 1, i + 2, 1, 1, false, false))
@@ -257,8 +257,8 @@ fn chimney_ext_combined_wind_and_gravity() {
     loads.push(SolverLoad::Nodal(SolverNodalLoad {
         node_id: n + 1,
         fx: p_wind,
-        fy: 0.0,
-        mz: 0.0,
+        fz: 0.0,
+        my: 0.0,
     }));
     // Self-weight: uniform distribution to interior nodes
     let w_per_node: f64 = w_total / n as f64;
@@ -266,8 +266,8 @@ fn chimney_ext_combined_wind_and_gravity() {
         loads.push(SolverLoad::Nodal(SolverNodalLoad {
             node_id: i + 1,
             fx: 0.0,
-            fy: -w_per_node,
-            mz: 0.0,
+            fz: -w_per_node,
+            my: 0.0,
         }));
     }
 
@@ -281,17 +281,17 @@ fn chimney_ext_combined_wind_and_gravity() {
     assert_close(tip.ux, expected_ux, 0.01, "combined: tip ux from wind");
 
     // Vertical deflection should be downward
-    assert!(tip.uy < 0.0, "combined: tip should deflect downward");
+    assert!(tip.uz < 0.0, "combined: tip should deflect downward");
 
     // Base reactions
     let r1 = results.reactions.iter().find(|r| r.node_id == 1).unwrap();
     assert_close(r1.rx, -p_wind, 0.01, "combined: base Rx = -P_wind");
-    assert_close(r1.ry, w_total, 0.01, "combined: base Ry = W_total");
+    assert_close(r1.rz, w_total, 0.01, "combined: base Ry = W_total");
 
     // Base moment from wind: M = P*H = 50*40 = 2000
     // Self-weight on a vertical cantilever produces no bending moment
     // (loads are along the element axis)
-    assert_close(r1.mz.abs(), p_wind * h, 0.02, "combined: base Mz from wind");
+    assert_close(r1.my.abs(), p_wind * h, 0.02, "combined: base Mz from wind");
 }
 
 // ================================================================
@@ -315,7 +315,7 @@ fn chimney_ext_guyed_propped_cantilever() {
     let a: f64 = 0.05;
     let iz: f64 = 0.02;
     let n: usize = 8;
-    let dy: f64 = h / n as f64;
+    let dz: f64 = h / n as f64;
 
     let p: f64 = 80.0; // kN, horizontal wind at top
 
@@ -323,7 +323,7 @@ fn chimney_ext_guyed_propped_cantilever() {
     let guy_node: usize = (3 * n / 4) + 1; // node 7
 
     let nodes: Vec<(usize, f64, f64)> = (0..=n)
-        .map(|i| (i + 1, 0.0, i as f64 * dy))
+        .map(|i| (i + 1, 0.0, i as f64 * dz))
         .collect();
     let elems: Vec<(usize, &str, usize, usize, usize, usize, bool, bool)> = (0..n)
         .map(|i| (i + 1, "frame", i + 1, i + 2, 1, 1, false, false))
@@ -334,8 +334,8 @@ fn chimney_ext_guyed_propped_cantilever() {
     let loads = vec![SolverLoad::Nodal(SolverNodalLoad {
         node_id: n + 1,
         fx: p,
-        fy: 0.0,
-        mz: 0.0,
+        fz: 0.0,
+        my: 0.0,
     })];
 
     let input = make_input(nodes, vec![(1, e, 0.3)], vec![(1, a, iz)], elems, sups, loads);
@@ -356,9 +356,9 @@ fn chimney_ext_guyed_propped_cantilever() {
     // because the guy wire provides intermediate support.
     let m_cantilever: f64 = p * h; // 3200 kN*m, moment if no guy wire
     assert!(
-        r_base.mz.abs() < m_cantilever,
+        r_base.my.abs() < m_cantilever,
         "guyed chimney: base moment {:.1} < cantilever moment {:.1}",
-        r_base.mz.abs(), m_cantilever
+        r_base.my.abs(), m_cantilever
     );
 
     // Tip deflection should be smaller than pure cantilever
@@ -409,7 +409,7 @@ fn chimney_ext_twin_connected_walkway() {
     assert_close(sum_rx, -p, 0.01, "twin chimney: horizontal equilibrium");
 
     // Vertical equilibrium: no vertical loads applied, sum Ry = 0
-    let sum_ry: f64 = results.reactions.iter().map(|r| r.ry).sum();
+    let sum_ry: f64 = results.reactions.iter().map(|r| r.rz).sum();
     assert_close(sum_ry, 0.0, 0.01, "twin chimney: vertical equilibrium");
 
     // Due to antisymmetric loading, base moments should be related.
@@ -422,20 +422,20 @@ fn chimney_ext_twin_connected_walkway() {
     // Sum of moments about base of left chimney (0,0) = 0:
     // M1 + M4 + Ry4*W - P*H = 0
     // (P at (0,H) in +x direction: moment about origin = -H*P)
-    let m_check: f64 = r1.mz + r4.mz + r4.ry * w - p * h;
+    let m_check: f64 = r1.my + r4.my + r4.rz * w - p * h;
     assert_close(m_check, 0.0, 0.02, "twin chimney: moment equilibrium about base-left");
 
     // Both bases should have non-zero moments
-    assert!(r1.mz.abs() > 1.0, "twin chimney: left base has moment");
-    assert!(r4.mz.abs() > 1.0, "twin chimney: right base has moment");
+    assert!(r1.my.abs() > 1.0, "twin chimney: left base has moment");
+    assert!(r4.my.abs() > 1.0, "twin chimney: right base has moment");
 
     // The connecting beam transfers load: both columns participate
     // so each base moment is less than P*H (pure cantilever moment)
     let m_cantilever: f64 = p * h;
     assert!(
-        r1.mz.abs() < m_cantilever,
+        r1.my.abs() < m_cantilever,
         "twin chimney: left moment {:.1} < cantilever {:.1}",
-        r1.mz.abs(), m_cantilever
+        r1.my.abs(), m_cantilever
     );
 }
 
@@ -464,10 +464,10 @@ fn chimney_ext_tapered_stepped_section() {
     let iz_top: f64 = 0.02;   // Top section
     let p: f64 = 50.0;        // kN, horizontal at top
     let n: usize = 8;
-    let dy: f64 = h / n as f64;
+    let dz: f64 = h / n as f64;
 
     let nodes: Vec<(usize, f64, f64)> = (0..=n)
-        .map(|i| (i + 1, 0.0, i as f64 * dy))
+        .map(|i| (i + 1, 0.0, i as f64 * dz))
         .collect();
     // Lower half uses section 1 (stiffer), upper half uses section 2
     let elems: Vec<(usize, &str, usize, usize, usize, usize, bool, bool)> = (0..n)
@@ -480,8 +480,8 @@ fn chimney_ext_tapered_stepped_section() {
     let loads = vec![SolverLoad::Nodal(SolverNodalLoad {
         node_id: n + 1,
         fx: p,
-        fy: 0.0,
-        mz: 0.0,
+        fz: 0.0,
+        my: 0.0,
     })];
 
     let input = make_input(
@@ -496,7 +496,7 @@ fn chimney_ext_tapered_stepped_section() {
 
     // Also solve uniform chimney with top section only (for comparison)
     let nodes_u: Vec<(usize, f64, f64)> = (0..=n)
-        .map(|i| (i + 1, 0.0, i as f64 * dy))
+        .map(|i| (i + 1, 0.0, i as f64 * dz))
         .collect();
     let elems_u: Vec<(usize, &str, usize, usize, usize, usize, bool, bool)> = (0..n)
         .map(|i| (i + 1, "frame", i + 1, i + 2, 1, 1, false, false))
@@ -505,8 +505,8 @@ fn chimney_ext_tapered_stepped_section() {
     let loads_u = vec![SolverLoad::Nodal(SolverNodalLoad {
         node_id: n + 1,
         fx: p,
-        fy: 0.0,
-        mz: 0.0,
+        fz: 0.0,
+        my: 0.0,
     })];
     let input_u = make_input(
         nodes_u,
@@ -522,7 +522,7 @@ fn chimney_ext_tapered_stepped_section() {
     let r_tapered = results_tapered.reactions.iter().find(|r| r.node_id == 1).unwrap();
     let r_uniform = results_uniform.reactions.iter().find(|r| r.node_id == 1).unwrap();
     assert_close(r_tapered.rx, r_uniform.rx, 0.01, "tapered vs uniform: base Rx");
-    assert_close(r_tapered.mz, r_uniform.mz, 0.01, "tapered vs uniform: base Mz");
+    assert_close(r_tapered.my, r_uniform.my, 0.01, "tapered vs uniform: base Mz");
 
     // Tapered chimney should have smaller tip deflection
     let tip_tapered = results_tapered.displacements.iter().find(|d| d.node_id == n + 1).unwrap();
@@ -535,7 +535,7 @@ fn chimney_ext_tapered_stepped_section() {
 
     // Verify equilibrium: Rx = -P, Mz = P*H
     assert_close(r_tapered.rx, -p, 0.01, "tapered: base Rx = -P");
-    assert_close(r_tapered.mz.abs(), p * h, 0.01, "tapered: base Mz = P*H");
+    assert_close(r_tapered.my.abs(), p * h, 0.01, "tapered: base Mz = P*H");
 }
 
 // ================================================================
@@ -563,7 +563,7 @@ fn chimney_ext_deflection_serviceability_limit() {
     let e_eff: f64 = e * 1000.0;
     let a: f64 = 0.10;
     let n: usize = 10;
-    let dy: f64 = h / n as f64;
+    let dz: f64 = h / n as f64;
 
     // Calculate minimum Iz for H/200 limit
     let delta_limit: f64 = h / 200.0; // 0.30 m
@@ -574,7 +574,7 @@ fn chimney_ext_deflection_serviceability_limit() {
     let ei: f64 = e_eff * iz;
 
     let nodes: Vec<(usize, f64, f64)> = (0..=n)
-        .map(|i| (i + 1, 0.0, i as f64 * dy))
+        .map(|i| (i + 1, 0.0, i as f64 * dz))
         .collect();
     let elems: Vec<(usize, &str, usize, usize, usize, usize, bool, bool)> = (0..n)
         .map(|i| (i + 1, "frame", i + 1, i + 2, 1, 1, false, false))
@@ -583,8 +583,8 @@ fn chimney_ext_deflection_serviceability_limit() {
     let loads = vec![SolverLoad::Nodal(SolverNodalLoad {
         node_id: n + 1,
         fx: p,
-        fy: 0.0,
-        mz: 0.0,
+        fz: 0.0,
+        my: 0.0,
     })];
 
     let input = make_input(nodes, vec![(1, e, 0.3)], vec![(1, a, iz)], elems, sups, loads);
@@ -607,11 +607,11 @@ fn chimney_ext_deflection_serviceability_limit() {
     // Verify base reactions
     let r1 = results.reactions.iter().find(|r| r.node_id == 1).unwrap();
     assert_close(r1.rx, -p, 0.01, "serviceability: base Rx");
-    assert_close(r1.mz.abs(), p * h, 0.01, "serviceability: base Mz");
+    assert_close(r1.my.abs(), p * h, 0.01, "serviceability: base Mz");
 
     // Now verify with Iz exactly at minimum: deflection should be ~= H/200
     let nodes2: Vec<(usize, f64, f64)> = (0..=n)
-        .map(|i| (i + 1, 0.0, i as f64 * dy))
+        .map(|i| (i + 1, 0.0, i as f64 * dz))
         .collect();
     let elems2: Vec<(usize, &str, usize, usize, usize, usize, bool, bool)> = (0..n)
         .map(|i| (i + 1, "frame", i + 1, i + 2, 1, 1, false, false))
@@ -620,8 +620,8 @@ fn chimney_ext_deflection_serviceability_limit() {
     let loads2 = vec![SolverLoad::Nodal(SolverNodalLoad {
         node_id: n + 1,
         fx: p,
-        fy: 0.0,
-        mz: 0.0,
+        fz: 0.0,
+        my: 0.0,
     })];
     let input2 = make_input(
         nodes2,

@@ -70,7 +70,7 @@ fn validation_stiffmod_internal_hinge_zero_moment() {
         "Hinge moment at m_end of elem 1 should be ~0: got {:.6}", ef1.m_end);
 
     // Global equilibrium: total load = 10 * 8 = 80 kN
-    let sum_ry: f64 = results.reactions.iter().map(|r| r.ry).sum();
+    let sum_ry: f64 = results.reactions.iter().map(|r| r.rz).sum();
     assert_close(sum_ry, 80.0, 0.02, "Hinge beam equilibrium: sum Ry = qL");
 }
 
@@ -139,7 +139,7 @@ fn validation_stiffmod_hinge_midspan_ss_beam() {
     // For SS beam with UDL: R = qL_half/2 from each side = 2 * q*L/2/2 = qL/2
     let r_mid = results.reactions.iter().find(|r| r.node_id == mid_node).unwrap();
     let expected_r_mid = q.abs() * l / 2.0; // total from both halves
-    assert_close(r_mid.ry, expected_r_mid, 0.03,
+    assert_close(r_mid.rz, expected_r_mid, 0.03,
         "Hinge midspan support reaction = qL/2");
 
     // Quarter-point deflection of each half-beam should match
@@ -151,10 +151,10 @@ fn validation_stiffmod_hinge_midspan_ss_beam() {
     let quarter_node = n / 4 + 1;
     let d_quarter = results.displacements.iter()
         .find(|d| d.node_id == quarter_node).unwrap();
-    let err = (d_quarter.uy.abs() - delta_half_ss).abs() / delta_half_ss;
+    let err = (d_quarter.uz.abs() - delta_half_ss).abs() / delta_half_ss;
     assert!(err < 0.05,
         "Quarter-span deflection: {:.6e} vs half-SS formula {:.6e}, err={:.1}%",
-        d_quarter.uy.abs(), delta_half_ss, err * 100.0);
+        d_quarter.uz.abs(), delta_half_ss, err * 100.0);
 }
 
 // ================================================================
@@ -201,8 +201,8 @@ fn validation_stiffmod_hinge_converts_fixed_to_propped() {
 
     // Left support moment should be ~0 (hinge released it)
     let r_left = results.reactions.iter().find(|r| r.node_id == 1).unwrap();
-    assert!(r_left.mz.abs() < 0.5,
-        "Hinge at left: moment should be ~0: Mz={:.6}", r_left.mz);
+    assert!(r_left.my.abs() < 0.5,
+        "Hinge at left: moment should be ~0: Mz={:.6}", r_left.my);
 
     // Propped cantilever UDL reactions:
     // R_pinned (left) = 3qL/8, R_fixed (right) = 5qL/8
@@ -210,11 +210,11 @@ fn validation_stiffmod_hinge_converts_fixed_to_propped() {
     let r_pinned_expected = 3.0 * total_load / 8.0;
     let r_fixed_expected = 5.0 * total_load / 8.0;
 
-    assert_close(r_left.ry, r_pinned_expected, 0.03,
+    assert_close(r_left.rz, r_pinned_expected, 0.03,
         "Propped cantilever: R_pinned = 3qL/8");
 
     let r_right = results.reactions.iter().find(|r| r.node_id == n_nodes).unwrap();
-    assert_close(r_right.ry, r_fixed_expected, 0.03,
+    assert_close(r_right.rz, r_fixed_expected, 0.03,
         "Propped cantilever: R_fixed = 5qL/8");
 
     // Verify midspan deflection matches propped cantilever formula
@@ -222,7 +222,7 @@ fn validation_stiffmod_hinge_converts_fixed_to_propped() {
     let e_eff = E * 1000.0;
     let delta_propped = q.abs() * l.powi(4) / (185.2 * e_eff * IZ);
     let max_defl = results.displacements.iter()
-        .map(|d| d.uy.abs())
+        .map(|d| d.uz.abs())
         .fold(0.0_f64, f64::max);
     let err = (max_defl - delta_propped).abs() / delta_propped;
     assert!(err < 0.05,
@@ -263,7 +263,7 @@ fn validation_stiffmod_doubling_iz_halves_deflection() {
         let input = make_input(nodes, vec![(1, E, 0.3)], vec![(1, A, iz)], elems, sups, loads);
         let results = linear::solve_2d(&input).unwrap();
         let mid = n / 2 + 1;
-        results.displacements.iter().find(|d| d.node_id == mid).unwrap().uy.abs()
+        results.displacements.iter().find(|d| d.node_id == mid).unwrap().uz.abs()
     };
 
     let defl_iz = build_ss_udl(IZ);
@@ -309,7 +309,7 @@ fn validation_stiffmod_mixed_cross_sections() {
     for i in 0..n_nodes {
         nodes_map.insert(
             (i + 1).to_string(),
-            SolverNode { id: i + 1, x: i as f64 * elem_len, y: 0.0 },
+            SolverNode { id: i + 1, x: i as f64 * elem_len, z: 0.0 },
         );
     }
 
@@ -342,12 +342,12 @@ fn validation_stiffmod_mixed_cross_sections() {
     sups_map.insert("1".to_string(), SolverSupport {
         id: 1, node_id: 1, support_type: "pinned".to_string(),
         kx: None, ky: None, kz: None,
-        dx: None, dy: None, drz: None, angle: None,
+        dx: None, dz: None, dry: None, angle: None,
     });
     sups_map.insert("2".to_string(), SolverSupport {
         id: 2, node_id: n_nodes, support_type: "rollerX".to_string(),
         kx: None, ky: None, kz: None,
-        dx: None, dy: None, drz: None, angle: None,
+        dx: None, dz: None, dry: None, angle: None,
     });
 
     let mut loads = Vec::new();
@@ -370,12 +370,12 @@ fn validation_stiffmod_mixed_cross_sections() {
     // Quarter-point of left half (weaker): node at L/4
     let quarter_left = n_per / 2 + 1; // midpoint of left half
     let d_left = results.displacements.iter()
-        .find(|d| d.node_id == quarter_left).unwrap().uy.abs();
+        .find(|d| d.node_id == quarter_left).unwrap().uz.abs();
 
     // Quarter-point of right half (stiffer): node at 3L/4
     let quarter_right = n_per + n_per / 2 + 1; // midpoint of right half
     let d_right = results.displacements.iter()
-        .find(|d| d.node_id == quarter_right).unwrap().uy.abs();
+        .find(|d| d.node_id == quarter_right).unwrap().uz.abs();
 
     // The stiffer half should deflect less
     assert!(d_left > d_right,
@@ -383,7 +383,7 @@ fn validation_stiffmod_mixed_cross_sections() {
         d_left, d_right);
 
     // Equilibrium
-    let sum_ry: f64 = results.reactions.iter().map(|r| r.ry).sum();
+    let sum_ry: f64 = results.reactions.iter().map(|r| r.rz).sum();
     assert_close(sum_ry, q.abs() * l, 0.02, "Mixed sections: equilibrium");
 }
 
@@ -415,7 +415,7 @@ fn validation_stiffmod_axial_release_truss_like() {
     ];
     let sups = vec![(1, 1_usize, "pinned"), (2, 2, "rollerX")];
     let loads = vec![SolverLoad::Nodal(SolverNodalLoad {
-        node_id: 3, fx: 0.0, fy: -20.0, mz: 0.0,
+        node_id: 3, fx: 0.0, fz: -20.0, my: 0.0,
     })];
 
     let input = make_input(nodes, vec![(1, E, 0.3)], vec![(1, A, IZ)], elems, sups, loads);
@@ -430,14 +430,14 @@ fn validation_stiffmod_axial_release_truss_like() {
     }
 
     // Equilibrium: sum Ry = 20
-    let sum_ry: f64 = results.reactions.iter().map(|r| r.ry).sum();
+    let sum_ry: f64 = results.reactions.iter().map(|r| r.rz).sum();
     assert_close(sum_ry, 20.0, 0.02, "Truss-like: equilibrium Ry");
 
     // By symmetry, both supports share the vertical load equally
     let r1 = results.reactions.iter().find(|r| r.node_id == 1).unwrap();
     let r2 = results.reactions.iter().find(|r| r.node_id == 2).unwrap();
-    assert_close(r1.ry, 10.0, 0.02, "Truss-like: symmetric R1y");
-    assert_close(r2.ry, 10.0, 0.02, "Truss-like: symmetric R2y");
+    assert_close(r1.rz, 10.0, 0.02, "Truss-like: symmetric R1y");
+    assert_close(r2.rz, 10.0, 0.02, "Truss-like: symmetric R2y");
 }
 
 // ================================================================
@@ -486,7 +486,7 @@ fn validation_stiffmod_hinge_increases_deflection() {
 
         // Find maximum deflection
         results.displacements.iter()
-            .map(|d| d.uy.abs())
+            .map(|d| d.uz.abs())
             .fold(0.0_f64, f64::max)
     };
 
@@ -562,7 +562,7 @@ fn validation_stiffmod_multi_bay_hinged_frame() {
     ];
 
     let loads = vec![SolverLoad::Nodal(SolverNodalLoad {
-        node_id: 5, fx: p, fy: 0.0, mz: 0.0,
+        node_id: 5, fx: p, fz: 0.0, my: 0.0,
     })];
 
     let input = make_input(nodes, vec![(1, E, 0.3)], vec![(1, A, IZ)], elems, sups, loads);

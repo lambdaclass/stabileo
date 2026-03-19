@@ -40,7 +40,7 @@ fn validation_truss_patch_test_uniform_strain() {
     let input = make_beam(
         n, length, E, A, IZ, "pinned", Some("rollerX"),
         vec![SolverLoad::Nodal(SolverNodalLoad {
-            node_id: n + 1, fx: f, fy: 0.0, mz: 0.0,
+            node_id: n + 1, fx: f, fz: 0.0, my: 0.0,
         })],
     );
 
@@ -95,7 +95,7 @@ fn validation_frame_patch_test_axial_only() {
         ],
         vec![(1, 1, "pinned"), (2, 3, "rollerX")],
         vec![SolverLoad::Nodal(SolverNodalLoad {
-            node_id: 3, fx: f, fy: 0.0, mz: 0.0,
+            node_id: 3, fx: f, fz: 0.0, my: 0.0,
         })],
     );
 
@@ -138,10 +138,10 @@ fn validation_beam_patch_test_pure_bending() {
         n, length, E, A, IZ, "pinned", Some("rollerX"),
         vec![
             SolverLoad::Nodal(SolverNodalLoad {
-                node_id: 1, fx: 0.0, fy: 0.0, mz: m_app,
+                node_id: 1, fx: 0.0, fz: 0.0, my: m_app,
             }),
             SolverLoad::Nodal(SolverNodalLoad {
-                node_id: n + 1, fx: 0.0, fy: 0.0, mz: -m_app,
+                node_id: n + 1, fx: 0.0, fz: 0.0, my: -m_app,
             }),
         ],
     );
@@ -158,7 +158,7 @@ fn validation_beam_patch_test_pure_bending() {
     }
 
     // All reactions should have zero vertical force (pure moment loading)
-    let sum_ry: f64 = results.reactions.iter().map(|r| r.ry).sum();
+    let sum_ry: f64 = results.reactions.iter().map(|r| r.rz).sum();
     assert!(
         sum_ry.abs() < 0.01,
         "Pure bending: ΣRy={:.6e}, should be 0", sum_ry
@@ -190,8 +190,8 @@ fn validation_rigid_body_zero_strain_energy() {
             "Rigid body: node {} ux={:.6e}, should be 0", d.node_id, d.ux
         );
         assert!(
-            d.uy.abs() < 1e-15,
-            "Rigid body: node {} uy={:.6e}, should be 0", d.node_id, d.uy
+            d.uz.abs() < 1e-15,
+            "Rigid body: node {} uy={:.6e}, should be 0", d.node_id, d.uz
         );
     }
 
@@ -231,7 +231,7 @@ fn validation_macneal_harder_straight_cantilever() {
         let input = make_beam(
             n, length, E, A, IZ, "fixed", None,
             vec![SolverLoad::Nodal(SolverNodalLoad {
-                node_id: n + 1, fx: 0.0, fy: p, mz: 0.0,
+                node_id: n + 1, fx: 0.0, fz: p, my: 0.0,
             })],
         );
 
@@ -241,7 +241,7 @@ fn validation_macneal_harder_straight_cantilever() {
 
         // Cubic elements should give exact result even for n=1
         assert_close(
-            d_tip.uy.abs(), delta_exact, 0.02,
+            d_tip.uz.abs(), delta_exact, 0.02,
             &format!("MacNeal-Harder straight beam (n={}): tip deflection", n),
         );
     }
@@ -267,7 +267,7 @@ fn validation_macneal_harder_tip_moment() {
     let input = make_beam(
         n, length, E, A, IZ, "fixed", None,
         vec![SolverLoad::Nodal(SolverNodalLoad {
-            node_id: n + 1, fx: 0.0, fy: 0.0, mz: m,
+            node_id: n + 1, fx: 0.0, fz: 0.0, my: m,
         })],
     );
 
@@ -276,11 +276,11 @@ fn validation_macneal_harder_tip_moment() {
         .find(|d| d.node_id == n + 1).unwrap();
 
     assert_close(
-        d_tip.uy.abs(), delta_exact, 0.02,
+        d_tip.uz.abs(), delta_exact, 0.02,
         "MacNeal-Harder tip moment: deflection",
     );
     assert_close(
-        d_tip.rz.abs(), theta_exact, 0.02,
+        d_tip.ry.abs(), theta_exact, 0.02,
         "MacNeal-Harder tip moment: rotation",
     );
 }
@@ -313,7 +313,7 @@ fn validation_argyris_kelsey_frame_patch_test() {
         ],
         vec![(1, 1, "pinned"), (2, 5, "rollerX")],
         vec![SolverLoad::Nodal(SolverNodalLoad {
-            node_id: 5, fx: f, fy: 0.0, mz: 0.0,
+            node_id: 5, fx: f, fz: 0.0, my: 0.0,
         })],
     );
 
@@ -345,7 +345,7 @@ fn validation_zero_load_zero_response() {
 
     for d in &results.displacements {
         assert!(
-            d.ux.abs() + d.uy.abs() + d.rz.abs() < 1e-15,
+            d.ux.abs() + d.uz.abs() + d.ry.abs() < 1e-15,
             "Zero load: node {} has non-zero displacement", d.node_id
         );
     }

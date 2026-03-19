@@ -42,8 +42,8 @@ fn validation_cross_section_doubling_iz_halves_deflection() {
     let res2 = linear::solve_2d(&input2).unwrap();
 
     let mid = n / 2 + 1;
-    let d1 = res1.displacements.iter().find(|d| d.node_id == mid).unwrap().uy.abs();
-    let d2 = res2.displacements.iter().find(|d| d.node_id == mid).unwrap().uy.abs();
+    let d1 = res1.displacements.iter().find(|d| d.node_id == mid).unwrap().uz.abs();
+    let d2 = res2.displacements.iter().find(|d| d.node_id == mid).unwrap().uz.abs();
 
     let ratio = d2 / d1;
     assert_close(ratio, 0.5, 0.02, "deflection ratio Iz2/Iz1");
@@ -71,15 +71,15 @@ fn validation_cross_section_iz_no_effect_on_determinate_reactions() {
     let res2 = linear::solve_2d(&input2).unwrap();
 
     // Sum vertical reactions
-    let ry1: f64 = res1.reactions.iter().map(|r| r.ry).sum();
-    let ry2: f64 = res2.reactions.iter().map(|r| r.ry).sum();
+    let ry1: f64 = res1.reactions.iter().map(|r| r.rz).sum();
+    let ry2: f64 = res2.reactions.iter().map(|r| r.rz).sum();
 
     assert_close(ry1, ry2, 0.02, "total vertical reaction Iz1 vs Iz2");
 
     // Check individual reactions match
     for r1 in &res1.reactions {
         let r2 = res2.reactions.iter().find(|r| r.node_id == r1.node_id).unwrap();
-        assert_close(r1.ry, r2.ry, 0.02,
+        assert_close(r1.rz, r2.rz, 0.02,
             &format!("reaction Ry at node {}", r1.node_id));
     }
 }
@@ -141,8 +141,8 @@ fn validation_cross_section_iz_affects_indeterminate_reactions() {
     let res_b = linear::solve_2d(&input_b).unwrap();
 
     // Interior support reaction at node 3 should differ between cases
-    let r_mid_a = res_a.reactions.iter().find(|r| r.node_id == 3).unwrap().ry;
-    let r_mid_b = res_b.reactions.iter().find(|r| r.node_id == 3).unwrap().ry;
+    let r_mid_a = res_a.reactions.iter().find(|r| r.node_id == 3).unwrap().rz;
+    let r_mid_b = res_b.reactions.iter().find(|r| r.node_id == 3).unwrap().rz;
 
     let diff = (r_mid_a - r_mid_b).abs();
     assert!(diff > 0.1,
@@ -151,8 +151,8 @@ fn validation_cross_section_iz_affects_indeterminate_reactions() {
 
     // Total vertical reaction must equal total load in both cases (equilibrium)
     let total_load = q.abs() * 12.0; // w * L_total
-    let total_ry_a: f64 = res_a.reactions.iter().map(|r| r.ry).sum();
-    let total_ry_b: f64 = res_b.reactions.iter().map(|r| r.ry).sum();
+    let total_ry_a: f64 = res_a.reactions.iter().map(|r| r.rz).sum();
+    let total_ry_b: f64 = res_b.reactions.iter().map(|r| r.rz).sum();
     assert_close(total_ry_a, total_load, 0.02, "equilibrium case A");
     assert_close(total_ry_b, total_load, 0.02, "equilibrium case B");
 }
@@ -176,19 +176,19 @@ fn validation_cross_section_area_no_effect_on_bending() {
 
     let input1 = make_beam(n, l, E, a1, iz, "pinned", Some("rollerX"),
         vec![SolverLoad::Nodal(SolverNodalLoad {
-            node_id: mid, fx: 0.0, fy: -10.0, mz: 0.0,
+            node_id: mid, fx: 0.0, fz: -10.0, my: 0.0,
         })]);
 
     let input2 = make_beam(n, l, E, a2, iz, "pinned", Some("rollerX"),
         vec![SolverLoad::Nodal(SolverNodalLoad {
-            node_id: mid, fx: 0.0, fy: -10.0, mz: 0.0,
+            node_id: mid, fx: 0.0, fz: -10.0, my: 0.0,
         })]);
 
     let res1 = linear::solve_2d(&input1).unwrap();
     let res2 = linear::solve_2d(&input2).unwrap();
 
-    let d1 = res1.displacements.iter().find(|d| d.node_id == mid).unwrap().uy;
-    let d2 = res2.displacements.iter().find(|d| d.node_id == mid).unwrap().uy;
+    let d1 = res1.displacements.iter().find(|d| d.node_id == mid).unwrap().uz;
+    let d2 = res2.displacements.iter().find(|d| d.node_id == mid).unwrap().uz;
 
     assert_close(d1, d2, 0.02, "midspan deflection A=0.01 vs A=0.1");
 }
@@ -212,12 +212,12 @@ fn validation_cross_section_area_affects_axial_displacement() {
 
     let input1 = make_beam(n, l, E, a1, iz, "fixed", None,
         vec![SolverLoad::Nodal(SolverNodalLoad {
-            node_id: n + 1, fx: p, fy: 0.0, mz: 0.0,
+            node_id: n + 1, fx: p, fz: 0.0, my: 0.0,
         })]);
 
     let input2 = make_beam(n, l, E, a2, iz, "fixed", None,
         vec![SolverLoad::Nodal(SolverNodalLoad {
-            node_id: n + 1, fx: p, fy: 0.0, mz: 0.0,
+            node_id: n + 1, fx: p, fz: 0.0, my: 0.0,
         })]);
 
     let res1 = linear::solve_2d(&input1).unwrap();
@@ -262,8 +262,8 @@ fn validation_cross_section_ei_scaling_equivalence() {
     let res2 = linear::solve_2d(&input2).unwrap();
 
     let mid = n / 2 + 1;
-    let d1 = res1.displacements.iter().find(|d| d.node_id == mid).unwrap().uy;
-    let d2 = res2.displacements.iter().find(|d| d.node_id == mid).unwrap().uy;
+    let d1 = res1.displacements.iter().find(|d| d.node_id == mid).unwrap().uz;
+    let d2 = res2.displacements.iter().find(|d| d.node_id == mid).unwrap().uz;
 
     assert_close(d1, d2, 0.02, "midspan deflection same EI product");
 }
@@ -297,7 +297,7 @@ fn validation_cross_section_portal_stiff_beam_reduces_sway() {
     ];
     let sups = vec![(1, 1, "fixed"), (2, 4, "fixed")];
     let loads = vec![SolverLoad::Nodal(SolverNodalLoad {
-        node_id: 2, fx: lateral_h, fy: 0.0, mz: 0.0,
+        node_id: 2, fx: lateral_h, fz: 0.0, my: 0.0,
     })];
 
     let input1 = make_input(nodes.clone(), mats.clone(), secs1, elems1, sups.clone(), loads.clone());
@@ -364,8 +364,8 @@ fn validation_cross_section_same_area_different_iz_efficiency() {
     let res2 = linear::solve_2d(&input2).unwrap();
 
     let mid = n / 2 + 1;
-    let d1 = res1.displacements.iter().find(|d| d.node_id == mid).unwrap().uy.abs();
-    let d2 = res2.displacements.iter().find(|d| d.node_id == mid).unwrap().uy.abs();
+    let d1 = res1.displacements.iter().find(|d| d.node_id == mid).unwrap().uz.abs();
+    let d2 = res2.displacements.iter().find(|d| d.node_id == mid).unwrap().uz.abs();
 
     // Higher Iz deflects less: d2/d1 = Iz1/Iz2 = 0.2
     let ratio = d2 / d1;
@@ -374,7 +374,7 @@ fn validation_cross_section_same_area_different_iz_efficiency() {
     // Verify both beams have identical reactions (determinate)
     for r1 in &res1.reactions {
         let r2 = res2.reactions.iter().find(|r| r.node_id == r1.node_id).unwrap();
-        assert_close(r1.ry, r2.ry, 0.02,
+        assert_close(r1.rz, r2.rz, 0.02,
             &format!("reaction Ry at node {} same A different Iz", r1.node_id));
     }
 }

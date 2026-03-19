@@ -48,12 +48,12 @@ fn validation_geometric_imperfection_offsets_node() {
 
     let node2 = input.nodes.values().find(|n| n.id == 2).unwrap();
     assert_close(node2.x, 5.01, 1e-6, "Node 2 x offset");
-    assert_close(node2.y, 0.02, 1e-6, "Node 2 y offset");
+    assert_close(node2.z, 0.02, 1e-6, "Node 2 y offset");
 
     // Node 1 should be unchanged
     let node1 = input.nodes.values().find(|n| n.id == 1).unwrap();
     assert_close(node1.x, 0.0, 1e-6, "Node 1 x unchanged");
-    assert_close(node1.y, 0.0, 1e-6, "Node 1 y unchanged");
+    assert_close(node1.z, 0.0, 1e-6, "Node 1 y unchanged");
 }
 
 // ================================================================
@@ -72,7 +72,7 @@ fn validation_notional_loads_2d_basic() {
         vec![(1, "frame", 1, 2, 1, 1, false, false)],
         vec![(1, 1, "fixed")],
         vec![SolverLoad::Nodal(SolverNodalLoad {
-            node_id: 2, fx: 0.0, fy: -100.0, mz: 0.0,
+            node_id: 2, fx: 0.0, fz: -100.0, my: 0.0,
         })],
     );
 
@@ -89,7 +89,7 @@ fn validation_notional_loads_2d_basic() {
         assert_eq!(nl.node_id, 2);
         // lateral = 0.005 * |−100| = 0.5
         assert_close(nl.fx, 0.5, 1e-6, "Notional fx = ratio * |gravity|");
-        assert_close(nl.fy, 0.0, 1e-6, "Notional fy = 0 (lateral in X)");
+        assert_close(nl.fz, 0.0, 1e-6, "Notional fy = 0 (lateral in X)");
     } else {
         panic!("Expected nodal load");
     }
@@ -128,7 +128,7 @@ fn validation_notional_loads_3d_direction() {
         assert_eq!(nl.node_id, 2);
         // lateral = 0.005 * 200 = 1.0 in X
         assert_close(nl.fx, 1.0, 1e-6, "3D notional fx");
-        assert_close(nl.fy, 0.0, 1e-6, "3D notional fy = 0");
+        assert_close(nl.fz, 0.0, 1e-6, "3D notional fy = 0");
         assert_close(nl.fz, 0.0, 1e-6, "3D notional fz = 0");
     } else {
         panic!("Expected 3D nodal load");
@@ -161,7 +161,7 @@ fn validation_imperfection_changes_response() {
             (i + 1, "frame", i + 1, i + 2, 1, 1, false, false)
         }).collect();
         let loads = vec![SolverLoad::Nodal(SolverNodalLoad {
-            node_id: n + 1, fx: 0.0, fy: p, mz: 0.0,
+            node_id: n + 1, fx: 0.0, fz: p, my: 0.0,
         })];
         make_input(
             nodes,
@@ -194,16 +194,16 @@ fn validation_imperfection_changes_response() {
         .find(|d| d.node_id == n + 1).unwrap();
 
     // The imperfection should change the response; tip deflections differ
-    let diff_uy = (tip_imp.uy - tip_clean.uy).abs();
+    let diff_uy = (tip_imp.uz - tip_clean.uz).abs();
     assert!(
         diff_uy > 1e-8,
         "Imperfection should alter tip deflection: clean_uy={:.8}, imp_uy={:.8}",
-        tip_clean.uy, tip_imp.uy
+        tip_clean.uz, tip_imp.uz
     );
 
     // Also verify the imperfected model still satisfies equilibrium:
     // sum of vertical reactions = applied vertical load
-    let sum_ry: f64 = res_imp.reactions.iter().map(|r| r.ry).sum();
+    let sum_ry: f64 = res_imp.reactions.iter().map(|r| r.rz).sum();
     assert_close(sum_ry, -p, 0.01, "Vertical equilibrium after imperfection");
 }
 
@@ -223,7 +223,7 @@ fn validation_notional_load_y_direction() {
         vec![(1, "frame", 1, 2, 1, 1, false, false)],
         vec![(1, 1, "fixed"), (2, 2, "rollerX")],
         vec![SolverLoad::Nodal(SolverNodalLoad {
-            node_id: 2, fx: -50.0, fy: 0.0, mz: 0.0,
+            node_id: 2, fx: -50.0, fz: 0.0, my: 0.0,
         })],
     );
 
@@ -239,7 +239,7 @@ fn validation_notional_load_y_direction() {
     if let SolverLoad::Nodal(nl) = &loads[0] {
         // lateral = 0.01 * |-50| = 0.5 in Y
         assert_close(nl.fx, 0.0, 1e-6, "No force in X for Y-direction notional");
-        assert_close(nl.fy, 0.5, 1e-6, "Notional fy = ratio * |gravity_x|");
+        assert_close(nl.fz, 0.5, 1e-6, "Notional fy = ratio * |gravity_x|");
     } else {
         panic!("Expected nodal load");
     }
@@ -267,7 +267,7 @@ fn validation_zero_imperfection_no_change() {
 
     // Save original coordinates
     let orig: Vec<(usize, f64, f64)> = input.nodes.values()
-        .map(|n| (n.id, n.x, n.y))
+        .map(|n| (n.id, n.x, n.z))
         .collect();
 
     let imperfections = vec![
@@ -281,7 +281,7 @@ fn validation_zero_imperfection_no_change() {
     for (id, ox, oy) in &orig {
         let node = input.nodes.values().find(|n| n.id == *id).unwrap();
         assert_close(node.x, *ox, 1e-12, &format!("Node {} x unchanged", id));
-        assert_close(node.y, *oy, 1e-12, &format!("Node {} y unchanged", id));
+        assert_close(node.z, *oy, 1e-12, &format!("Node {} y unchanged", id));
     }
 }
 
@@ -322,17 +322,17 @@ fn validation_multiple_node_imperfections() {
 
     let n1 = input.nodes.values().find(|n| n.id == 1).unwrap();
     assert_close(n1.x, 0.001, 1e-12, "Node 1 x");
-    assert_close(n1.y, 0.0, 1e-12, "Node 1 y");
+    assert_close(n1.z, 0.0, 1e-12, "Node 1 y");
     assert_close(n1.z, 0.0, 1e-12, "Node 1 z");
 
     let n2 = input.nodes.values().find(|n| n.id == 2).unwrap();
     assert_close(n2.x, 5.005, 1e-12, "Node 2 x");
-    assert_close(n2.y, 0.010, 1e-12, "Node 2 y");
+    assert_close(n2.z, 0.010, 1e-12, "Node 2 y");
     assert_close(n2.z, -0.002, 1e-12, "Node 2 z");
 
     let n3 = input.nodes.values().find(|n| n.id == 3).unwrap();
     assert_close(n3.x, 10.0, 1e-12, "Node 3 x");
-    assert_close(n3.y, 0.003, 1e-12, "Node 3 y");
+    assert_close(n3.z, 0.003, 1e-12, "Node 3 y");
     assert_close(n3.z, 0.007, 1e-12, "Node 3 z");
 }
 
@@ -359,9 +359,9 @@ fn validation_notional_load_multiple_gravity() {
         ],
         vec![(1, 1, "fixed")],
         vec![
-            SolverLoad::Nodal(SolverNodalLoad { node_id: 2, fx: 0.0, fy: -80.0, mz: 0.0 }),
-            SolverLoad::Nodal(SolverNodalLoad { node_id: 2, fx: 0.0, fy: -20.0, mz: 0.0 }),
-            SolverLoad::Nodal(SolverNodalLoad { node_id: 3, fx: 0.0, fy: -60.0, mz: 0.0 }),
+            SolverLoad::Nodal(SolverNodalLoad { node_id: 2, fx: 0.0, fz: -80.0, my: 0.0 }),
+            SolverLoad::Nodal(SolverNodalLoad { node_id: 2, fx: 0.0, fz: -20.0, my: 0.0 }),
+            SolverLoad::Nodal(SolverNodalLoad { node_id: 3, fx: 0.0, fz: -60.0, my: 0.0 }),
         ],
     );
 
@@ -385,10 +385,10 @@ fn validation_notional_load_multiple_gravity() {
     // Node 2: gravity = -80 + (-20) = -100, lateral = 0.005 * 100 = 0.5
     let nl2 = by_node.get(&2).expect("Notional load for node 2");
     assert_close(nl2.fx, 0.5, 1e-6, "Node 2 notional fx = 0.005 * 100");
-    assert_close(nl2.fy, 0.0, 1e-6, "Node 2 notional fy = 0");
+    assert_close(nl2.fz, 0.0, 1e-6, "Node 2 notional fy = 0");
 
     // Node 3: gravity = -60, lateral = 0.005 * 60 = 0.3
     let nl3 = by_node.get(&3).expect("Notional load for node 3");
     assert_close(nl3.fx, 0.3, 1e-6, "Node 3 notional fx = 0.005 * 60");
-    assert_close(nl3.fy, 0.0, 1e-6, "Node 3 notional fy = 0");
+    assert_close(nl3.fz, 0.0, 1e-6, "Node 3 notional fy = 0");
 }

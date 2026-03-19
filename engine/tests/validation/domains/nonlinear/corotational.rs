@@ -52,7 +52,7 @@ fn validation_corotational_vm14_eccentric_column() {
     // Eccentric load = axial P + moment M=P·e at loaded end only.
     // For single-end eccentricity: δ_mid = (e/2)·[sec(kL/2) - 1]
     let loads = vec![SolverLoad::Nodal(SolverNodalLoad {
-        node_id: n + 1, fx: -p, fy: 0.0, mz: p * ecc,
+        node_id: n + 1, fx: -p, fz: 0.0, my: p * ecc,
     })];
 
     let input = make_input(
@@ -68,7 +68,7 @@ fn validation_corotational_vm14_eccentric_column() {
     let mid = result.results.displacements.iter()
         .find(|d| d.node_id == mid_node).unwrap();
 
-    let computed = mid.uy.abs();
+    let computed = mid.uz.abs();
     let error = (computed - delta_analytical).abs() / delta_analytical;
     assert!(
         error < 0.05,
@@ -110,7 +110,7 @@ fn validation_corotational_mattiasson_elastica() {
         nodes, vec![(1, e_mpa, 0.3)], vec![(1, a, iz)],
         elems, vec![(1, 1, "fixed")],
         vec![SolverLoad::Nodal(SolverNodalLoad {
-            node_id: n + 1, fx: 0.0, fy: -p_load, mz: 0.0,
+            node_id: n + 1, fx: 0.0, fz: -p_load, my: 0.0,
         })],
     );
 
@@ -123,7 +123,7 @@ fn validation_corotational_mattiasson_elastica() {
     // Mattiasson reference for PL²/(EI) = 1.0:
     // u_tip/L ≈ 0.0566 (axial shortening), v_tip/L ≈ 0.3015 (lateral deflection)
     let u_ratio = tip.ux.abs() / l;
-    let v_ratio = tip.uy.abs() / l;
+    let v_ratio = tip.uz.abs() / l;
 
     let v_error = (v_ratio - 0.3015).abs() / 0.3015;
     assert!(
@@ -210,7 +210,7 @@ fn validation_corotational_williams_toggle() {
     let sups = vec![(1, 1, "pinned"), (2, 3, "pinned")];
 
     let loads = vec![SolverLoad::Nodal(SolverNodalLoad {
-        node_id: 2, fx: 0.0, fy: -p, mz: 0.0,
+        node_id: 2, fx: 0.0, fz: -p, my: 0.0,
     })];
 
     let input = make_input(
@@ -225,7 +225,7 @@ fn validation_corotational_williams_toggle() {
             if res.converged {
                 let apex = res.results.displacements.iter()
                     .find(|d| d.node_id == 2).unwrap();
-                assert!(apex.uy < 0.0, "Toggle apex should deflect down, got uy={:.6}", apex.uy);
+                assert!(apex.uz < 0.0, "Toggle apex should deflect down, got uy={:.6}", apex.uz);
             }
             assert!(res.iterations > 0, "Should have at least 1 iteration");
         },
@@ -247,7 +247,7 @@ fn validation_modified_nr_parity_2d() {
     let elems = vec![(1, "frame", 1, 2, 1, 1, false, false)];
     let sups = vec![(1, 1, "fixed")];
     let loads = vec![SolverLoad::Nodal(SolverNodalLoad {
-        node_id: 2, fx: 0.0, fy: -10.0, mz: 0.0,
+        node_id: 2, fx: 0.0, fz: -10.0, my: 0.0,
     })];
 
     let input = make_input(
@@ -264,7 +264,7 @@ fn validation_modified_nr_parity_2d() {
     let d_full = full.results.displacements.iter().find(|d| d.node_id == 2).unwrap();
     let d_mod = modified.results.displacements.iter().find(|d| d.node_id == 2).unwrap();
 
-    let rel_uy = (d_full.uy - d_mod.uy).abs() / d_full.uy.abs().max(1e-15);
+    let rel_uy = (d_full.uz - d_mod.uz).abs() / d_full.uz.abs().max(1e-15);
     let rel_ux = if d_full.ux.abs() > 1e-12 {
         (d_full.ux - d_mod.ux).abs() / d_full.ux.abs()
     } else {
@@ -274,7 +274,7 @@ fn validation_modified_nr_parity_2d() {
     assert!(
         rel_uy < 1e-4,
         "uy mismatch: full={:.8e}, modified={:.8e}, rel={:.4e}",
-        d_full.uy, d_mod.uy, rel_uy
+        d_full.uz, d_mod.uz, rel_uy
     );
     assert!(
         rel_ux < 1e-3,

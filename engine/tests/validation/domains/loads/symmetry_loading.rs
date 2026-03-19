@@ -50,9 +50,9 @@ fn validation_symmetry_ss_beam_udl_equal_reactions() {
 
     let expected = q.abs() * l / 2.0; // 50 kN
 
-    assert_close(r_a.ry, expected, 0.02, "R_A vertical reaction");
-    assert_close(r_b.ry, expected, 0.02, "R_B vertical reaction");
-    assert_close(r_a.ry, r_b.ry, 0.02, "R_A should equal R_B by symmetry");
+    assert_close(r_a.rz, expected, 0.02, "R_A vertical reaction");
+    assert_close(r_b.rz, expected, 0.02, "R_B vertical reaction");
+    assert_close(r_a.rz, r_b.rz, 0.02, "R_A should equal R_B by symmetry");
 }
 
 // ================================================================
@@ -82,9 +82,9 @@ fn validation_symmetry_ss_beam_udl_zero_midspan_rotation() {
     let mid_d = results.displacements.iter().find(|d| d.node_id == mid_node).unwrap();
 
     assert!(
-        mid_d.rz.abs() < 1e-8,
+        mid_d.ry.abs() < 1e-8,
         "Midspan rotation should be zero by symmetry, got rz={:.6e}",
-        mid_d.rz
+        mid_d.ry
     );
 }
 
@@ -103,10 +103,10 @@ fn validation_antisymmetry_zero_deflection_at_midspan() {
 
     let loads = vec![
         SolverLoad::Nodal(SolverNodalLoad {
-            node_id: 2, fx: 0.0, fy: -10.0, mz: 0.0, // downward at x=2.5
+            node_id: 2, fx: 0.0, fz: -10.0, my: 0.0, // downward at x=2.5
         }),
         SolverLoad::Nodal(SolverNodalLoad {
-            node_id: 4, fx: 0.0, fy: 10.0, mz: 0.0, // upward at x=7.5
+            node_id: 4, fx: 0.0, fz: 10.0, my: 0.0, // upward at x=7.5
         }),
     ];
 
@@ -117,9 +117,9 @@ fn validation_antisymmetry_zero_deflection_at_midspan() {
     let mid_d = results.displacements.iter().find(|d| d.node_id == mid_node).unwrap();
 
     assert!(
-        mid_d.uy.abs() < 1e-8,
+        mid_d.uz.abs() < 1e-8,
         "Midspan deflection should be zero for antisymmetric load, got uy={:.6e}",
-        mid_d.uy
+        mid_d.uz
     );
 }
 
@@ -137,10 +137,10 @@ fn validation_antisymmetry_zero_moment_at_midspan() {
 
     let loads = vec![
         SolverLoad::Nodal(SolverNodalLoad {
-            node_id: 2, fx: 0.0, fy: -10.0, mz: 0.0,
+            node_id: 2, fx: 0.0, fz: -10.0, my: 0.0,
         }),
         SolverLoad::Nodal(SolverNodalLoad {
-            node_id: 4, fx: 0.0, fy: 10.0, mz: 0.0,
+            node_id: 4, fx: 0.0, fz: 10.0, my: 0.0,
         }),
     ];
 
@@ -211,15 +211,15 @@ fn validation_antisymmetry_portal_lateral_load() {
     // For a lateral load on a symmetric portal, column base moments are equal
     // in magnitude (antisymmetric deformation pattern produces equal restraining moments).
     assert_close(
-        r1.mz.abs(), r4.mz.abs(), 0.02,
+        r1.my.abs(), r4.my.abs(), 0.02,
         "Base moments should be equal in magnitude"
     );
 
     // Vertical reactions should be equal and opposite (forming a couple to resist overturning)
     assert!(
-        (r1.ry + r4.ry).abs() < (r1.ry.abs() + r4.ry.abs()) * 0.02 + 1e-8,
+        (r1.rz + r4.rz).abs() < (r1.rz.abs() + r4.rz.abs()) * 0.02 + 1e-8,
         "Vertical reactions should be equal and opposite: ry1={:.6}, ry4={:.6}",
-        r1.ry, r4.ry
+        r1.rz, r4.rz
     );
 }
 
@@ -253,17 +253,17 @@ fn validation_symmetry_fixed_fixed_equal_end_moments() {
 
     // End moments should be equal in magnitude
     assert_close(
-        r_a.mz.abs(), r_b.mz.abs(), 0.02,
+        r_a.my.abs(), r_b.my.abs(), 0.02,
         "Fixed-fixed end moments should be equal in magnitude"
     );
 
     // Each should equal wL^2/12
     assert_close(
-        r_a.mz.abs(), expected_moment, 0.02,
+        r_a.my.abs(), expected_moment, 0.02,
         "Left end moment should equal wL^2/12"
     );
     assert_close(
-        r_b.mz.abs(), expected_moment, 0.02,
+        r_b.my.abs(), expected_moment, 0.02,
         "Right end moment should equal wL^2/12"
     );
 }
@@ -286,7 +286,7 @@ fn validation_superposition_symmetric_plus_antisymmetric() {
     // Case 1: P=20kN downward at node 2 only
     let loads_1 = vec![
         SolverLoad::Nodal(SolverNodalLoad {
-            node_id: 2, fx: 0.0, fy: -20.0, mz: 0.0,
+            node_id: 2, fx: 0.0, fz: -20.0, my: 0.0,
         }),
     ];
     let input_1 = make_beam(n, l, E, A, IZ, "pinned", Some("rollerX"), loads_1);
@@ -295,10 +295,10 @@ fn validation_superposition_symmetric_plus_antisymmetric() {
     // Case 2 (symmetric part): P=10kN at node 2 + P=10kN at node 4
     let loads_2 = vec![
         SolverLoad::Nodal(SolverNodalLoad {
-            node_id: 2, fx: 0.0, fy: -10.0, mz: 0.0,
+            node_id: 2, fx: 0.0, fz: -10.0, my: 0.0,
         }),
         SolverLoad::Nodal(SolverNodalLoad {
-            node_id: 4, fx: 0.0, fy: -10.0, mz: 0.0,
+            node_id: 4, fx: 0.0, fz: -10.0, my: 0.0,
         }),
     ];
     let input_2 = make_beam(n, l, E, A, IZ, "pinned", Some("rollerX"), loads_2);
@@ -307,10 +307,10 @@ fn validation_superposition_symmetric_plus_antisymmetric() {
     // Case 3 (antisymmetric part): P=10kN at node 2 + P=-10kN at node 4
     let loads_3 = vec![
         SolverLoad::Nodal(SolverNodalLoad {
-            node_id: 2, fx: 0.0, fy: -10.0, mz: 0.0,
+            node_id: 2, fx: 0.0, fz: -10.0, my: 0.0,
         }),
         SolverLoad::Nodal(SolverNodalLoad {
-            node_id: 4, fx: 0.0, fy: 10.0, mz: 0.0,
+            node_id: 4, fx: 0.0, fz: 10.0, my: 0.0,
         }),
     ];
     let input_3 = make_beam(n, l, E, A, IZ, "pinned", Some("rollerX"), loads_3);
@@ -322,21 +322,21 @@ fn validation_superposition_symmetric_plus_antisymmetric() {
         let d2 = results_2.displacements.iter().find(|d| d.node_id == node_id).unwrap();
         let d3 = results_3.displacements.iter().find(|d| d.node_id == node_id).unwrap();
 
-        let combined_uy = d2.uy + d3.uy;
+        let combined_uy = d2.uz + d3.uz;
         let combined_ux = d2.ux + d3.ux;
-        let combined_rz = d2.rz + d3.rz;
+        let combined_rz = d2.ry + d3.ry;
 
         // Check uy
-        if d1.uy.abs() > 1e-10 {
+        if d1.uz.abs() > 1e-10 {
             assert_close(
-                combined_uy, d1.uy, 0.02,
-                &format!("Node {} uy: case1 vs sym+antisym", node_id)
+                combined_uy, d1.uz, 0.02,
+                &format!("Node {} uz: case1 vs sym+antisym", node_id)
             );
         } else {
             assert!(
-                (combined_uy - d1.uy).abs() < 1e-8,
-                "Node {} uy: case1={:.6e}, sym+antisym={:.6e}",
-                node_id, d1.uy, combined_uy
+                (combined_uy - d1.uz).abs() < 1e-8,
+                "Node {} uz: case1={:.6e}, sym+antisym={:.6e}",
+                node_id, d1.uz, combined_uy
             );
         }
 
@@ -355,16 +355,16 @@ fn validation_superposition_symmetric_plus_antisymmetric() {
         }
 
         // Check rz
-        if d1.rz.abs() > 1e-10 {
+        if d1.ry.abs() > 1e-10 {
             assert_close(
-                combined_rz, d1.rz, 0.02,
-                &format!("Node {} rz: case1 vs sym+antisym", node_id)
+                combined_rz, d1.ry, 0.02,
+                &format!("Node {} ry: case1 vs sym+antisym", node_id)
             );
         } else {
             assert!(
-                (combined_rz - d1.rz).abs() < 1e-8,
-                "Node {} rz: case1={:.6e}, sym+antisym={:.6e}",
-                node_id, d1.rz, combined_rz
+                (combined_rz - d1.ry).abs() < 1e-8,
+                "Node {} ry: case1={:.6e}, sym+antisym={:.6e}",
+                node_id, d1.ry, combined_rz
             );
         }
     }

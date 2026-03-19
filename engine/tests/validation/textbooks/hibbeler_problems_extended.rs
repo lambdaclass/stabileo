@@ -55,13 +55,13 @@ fn validation_hibbeler_ext_triangular_load_ss_beam() {
     let input = make_beam(n, l, E, A, IZ, "pinned", Some("rollerX"), loads);
     let results = linear::solve_2d(&input).unwrap();
 
-    let ra = results.reactions.iter().find(|r| r.node_id == 1).unwrap().ry;
+    let ra = results.reactions.iter().find(|r| r.node_id == 1).unwrap().rz;
     let rb = results
         .reactions
         .iter()
         .find(|r| r.node_id == n + 1)
         .unwrap()
-        .ry;
+        .rz;
 
     // RA = wL/6 = 12*10/6 = 20
     // RB = wL/3 = 12*10/3 = 40
@@ -69,7 +69,7 @@ fn validation_hibbeler_ext_triangular_load_ss_beam() {
     assert_close(rb, w_max * l / 3.0, 0.02, "Triangular load: RB = wL/3");
 
     // Total load = wL/2 = 60
-    let sum_ry: f64 = results.reactions.iter().map(|r| r.ry).sum();
+    let sum_ry: f64 = results.reactions.iter().map(|r| r.rz).sum();
     assert_close(
         sum_ry,
         w_max * l / 2.0,
@@ -116,18 +116,18 @@ fn validation_hibbeler_ext_fixed_fixed_udl() {
         .unwrap();
 
     // Each reaction = wL/2
-    assert_close(ra.ry, w * l / 2.0, 0.02, "Fixed-fixed UDL: RA = wL/2");
-    assert_close(rb.ry, w * l / 2.0, 0.02, "Fixed-fixed UDL: RB = wL/2");
+    assert_close(ra.rz, w * l / 2.0, 0.02, "Fixed-fixed UDL: RA = wL/2");
+    assert_close(rb.rz, w * l / 2.0, 0.02, "Fixed-fixed UDL: RB = wL/2");
 
     // End moments = wL²/12
     assert_close(
-        ra.mz.abs(),
+        ra.my.abs(),
         w * l * l / 12.0,
         0.02,
         "Fixed-fixed UDL: MA = wL²/12",
     );
     assert_close(
-        rb.mz.abs(),
+        rb.my.abs(),
         w * l * l / 12.0,
         0.02,
         "Fixed-fixed UDL: MB = wL²/12",
@@ -142,7 +142,7 @@ fn validation_hibbeler_ext_fixed_fixed_udl() {
         .find(|d| d.node_id == mid)
         .unwrap();
     assert_close(
-        d_mid.uy.abs(),
+        d_mid.uz.abs(),
         delta_exact,
         0.03,
         "Fixed-fixed UDL: delta = wL⁴/(384EI)",
@@ -174,14 +174,14 @@ fn validation_hibbeler_ext_cantilever_two_loads() {
         SolverLoad::Nodal(SolverNodalLoad {
             node_id: 4, // x = 3m
             fx: 0.0,
-            fy: -p1,
-            mz: 0.0,
+            fz: -p1,
+            my: 0.0,
         }),
         SolverLoad::Nodal(SolverNodalLoad {
             node_id: n + 1, // x = 6m (tip)
             fx: 0.0,
-            fy: -p2,
-            mz: 0.0,
+            fz: -p2,
+            my: 0.0,
         }),
     ];
 
@@ -190,9 +190,9 @@ fn validation_hibbeler_ext_cantilever_two_loads() {
 
     // Fixed-end reactions
     let r = results.reactions.iter().find(|r| r.node_id == 1).unwrap();
-    assert_close(r.ry, p1 + p2, 0.02, "Cantilever 2 loads: R = P1+P2 = 15");
+    assert_close(r.rz, p1 + p2, 0.02, "Cantilever 2 loads: R = P1+P2 = 15");
     assert_close(
-        r.mz.abs(),
+        r.my.abs(),
         p1 * a_dist + p2 * l,
         0.02,
         "Cantilever 2 loads: M = P1*a + P2*L = 60",
@@ -210,7 +210,7 @@ fn validation_hibbeler_ext_cantilever_two_loads() {
         .find(|d| d.node_id == n + 1)
         .unwrap();
     assert_close(
-        tip.uy.abs(),
+        tip.uz.abs(),
         delta_total,
         0.02,
         "Cantilever 2 loads: tip deflection by superposition",
@@ -249,7 +249,7 @@ fn validation_hibbeler_ext_three_span_continuous() {
     let results = linear::solve_2d(&input).unwrap();
 
     // Total reaction = total load
-    let sum_ry: f64 = results.reactions.iter().map(|r| r.ry).sum();
+    let sum_ry: f64 = results.reactions.iter().map(|r| r.rz).sum();
     let total_load = 3.0 * w * span;
     assert_close(
         sum_ry,
@@ -260,13 +260,13 @@ fn validation_hibbeler_ext_three_span_continuous() {
 
     // Symmetry: R_A = R_D (node 1 and node 3*n_per+1)
     let n_total_nodes = 3 * n_per + 1;
-    let ra = results.reactions.iter().find(|r| r.node_id == 1).unwrap().ry;
+    let ra = results.reactions.iter().find(|r| r.node_id == 1).unwrap().rz;
     let rd = results
         .reactions
         .iter()
         .find(|r| r.node_id == n_total_nodes)
         .unwrap()
-        .ry;
+        .rz;
     assert_close(ra, rd, 0.02, "3-span symmetric: RA = RD");
 
     // Symmetry: R_B = R_C (interior supports)
@@ -277,13 +277,13 @@ fn validation_hibbeler_ext_three_span_continuous() {
         .iter()
         .find(|r| r.node_id == node_b)
         .unwrap()
-        .ry;
+        .rz;
     let rc = results
         .reactions
         .iter()
         .find(|r| r.node_id == node_c)
         .unwrap()
-        .ry;
+        .rz;
     assert_close(rb, rc, 0.02, "3-span symmetric: RB = RC");
 
     // For 3 equal spans with UDL:
@@ -313,21 +313,21 @@ fn validation_hibbeler_ext_ss_midspan_point_load() {
     let loads = vec![SolverLoad::Nodal(SolverNodalLoad {
         node_id: mid,
         fx: 0.0,
-        fy: -p,
-        mz: 0.0,
+        fz: -p,
+        my: 0.0,
     })];
 
     let input = make_beam(n, l, E, A, IZ, "pinned", Some("rollerX"), loads);
     let results = linear::solve_2d(&input).unwrap();
 
     // Reactions
-    let ra = results.reactions.iter().find(|r| r.node_id == 1).unwrap().ry;
+    let ra = results.reactions.iter().find(|r| r.node_id == 1).unwrap().rz;
     let rb = results
         .reactions
         .iter()
         .find(|r| r.node_id == n + 1)
         .unwrap()
-        .ry;
+        .rz;
     assert_close(ra, p / 2.0, 0.02, "SS midspan P: RA = P/2 = 12");
     assert_close(rb, p / 2.0, 0.02, "SS midspan P: RB = P/2 = 12");
 
@@ -339,7 +339,7 @@ fn validation_hibbeler_ext_ss_midspan_point_load() {
         .find(|d| d.node_id == mid)
         .unwrap();
     assert_close(
-        d_mid.uy.abs(),
+        d_mid.uz.abs(),
         delta_exact,
         0.02,
         "SS midspan P: delta = PL³/(48EI)",
@@ -379,8 +379,8 @@ fn validation_hibbeler_ext_propped_cantilever_center_load() {
     let loads = vec![SolverLoad::Nodal(SolverNodalLoad {
         node_id: mid,
         fx: 0.0,
-        fy: -p,
-        mz: 0.0,
+        fz: -p,
+        my: 0.0,
     })];
 
     let input = make_beam(n, l, E, A, IZ, "fixed", Some("rollerX"), loads);
@@ -395,13 +395,13 @@ fn validation_hibbeler_ext_propped_cantilever_center_load() {
         .unwrap();
 
     assert_close(
-        ra.ry,
+        ra.rz,
         11.0 * p / 16.0,
         0.02,
         "Propped cant center P: RA = 11P/16",
     );
     assert_close(
-        rb.ry,
+        rb.rz,
         5.0 * p / 16.0,
         0.02,
         "Propped cant center P: RB = 5P/16",
@@ -409,7 +409,7 @@ fn validation_hibbeler_ext_propped_cantilever_center_load() {
 
     // Fixed-end moment MA = 3PL/16
     assert_close(
-        ra.mz.abs(),
+        ra.my.abs(),
         3.0 * p * l / 16.0,
         0.02,
         "Propped cant center P: MA = 3PL/16",
@@ -423,7 +423,7 @@ fn validation_hibbeler_ext_propped_cantilever_center_load() {
         .find(|d| d.node_id == mid)
         .unwrap();
     assert_close(
-        d_mid.uy.abs(),
+        d_mid.uz.abs(),
         delta_exact,
         0.03,
         "Propped cant center P: delta = 7PL³/(768EI)",
@@ -450,7 +450,7 @@ fn validation_hibbeler_ext_portal_gravity_only() {
     let results = linear::solve_2d(&input).unwrap();
 
     // Vertical equilibrium: sum Ry = 2P
-    let sum_ry: f64 = results.reactions.iter().map(|r| r.ry).sum();
+    let sum_ry: f64 = results.reactions.iter().map(|r| r.rz).sum();
     assert_close(
         sum_ry,
         2.0 * p,
@@ -461,8 +461,8 @@ fn validation_hibbeler_ext_portal_gravity_only() {
     // By symmetry, each base carries P
     let r1 = results.reactions.iter().find(|r| r.node_id == 1).unwrap();
     let r4 = results.reactions.iter().find(|r| r.node_id == 4).unwrap();
-    assert_close(r1.ry, p, 0.02, "Portal gravity: R1y = P = 20");
-    assert_close(r4.ry, p, 0.02, "Portal gravity: R4y = P = 20");
+    assert_close(r1.rz, p, 0.02, "Portal gravity: R1y = P = 20");
+    assert_close(r4.rz, p, 0.02, "Portal gravity: R4y = P = 20");
 
     // No lateral load: sum Rx = 0
     let sum_rx: f64 = results.reactions.iter().map(|r| r.rx).sum();
@@ -534,7 +534,7 @@ fn validation_hibbeler_ext_cantilever_triangular_load() {
     let r = results.reactions.iter().find(|r| r.node_id == 1).unwrap();
     let total_load = w_max * l / 2.0;
     assert_close(
-        r.ry,
+        r.rz,
         total_load,
         0.02,
         "Cantilever triangular: R = wL/2 = 25",
@@ -543,7 +543,7 @@ fn validation_hibbeler_ext_cantilever_triangular_load() {
     // Fixed-end moment M = w_max * L² / 6
     let m_exact = w_max * l * l / 6.0;
     assert_close(
-        r.mz.abs(),
+        r.my.abs(),
         m_exact,
         0.03,
         "Cantilever triangular: M = w_max*L²/6 = 41.667",
@@ -557,7 +557,7 @@ fn validation_hibbeler_ext_cantilever_triangular_load() {
         .find(|d| d.node_id == n + 1)
         .unwrap();
     assert_close(
-        tip.uy.abs(),
+        tip.uz.abs(),
         delta_exact,
         0.03,
         "Cantilever triangular: delta = w_max*L⁴/(30EI)",

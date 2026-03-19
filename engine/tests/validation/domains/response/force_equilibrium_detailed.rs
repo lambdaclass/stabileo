@@ -36,20 +36,20 @@ fn equilibrium_global_vertical_ss_point_load() {
     let loads = vec![SolverLoad::Nodal(SolverNodalLoad {
         node_id: n / 2 + 1,
         fx: 0.0,
-        fy: -p,
-        mz: 0.0,
+        fz: -p,
+        my: 0.0,
     })];
     let input = make_beam(n, l, E, A, IZ, "pinned", Some("rollerX"), loads);
     let results = linear::solve_2d(&input).unwrap();
 
-    let sum_ry: f64 = results.reactions.iter().map(|r| r.ry).sum();
+    let sum_ry: f64 = results.reactions.iter().map(|r| r.rz).sum();
     assert_close(sum_ry, p, 1e-6, "SS point load: sum(Ry) = P");
 
     // Each reaction should be P/2 by symmetry
     let r_left = results.reactions.iter().find(|r| r.node_id == 1).unwrap();
     let r_right = results.reactions.iter().find(|r| r.node_id == n + 1).unwrap();
-    assert_close(r_left.ry, p / 2.0, 1e-6, "SS point load: R_left = P/2");
-    assert_close(r_right.ry, p / 2.0, 1e-6, "SS point load: R_right = P/2");
+    assert_close(r_left.rz, p / 2.0, 1e-6, "SS point load: R_left = P/2");
+    assert_close(r_right.rz, p / 2.0, 1e-6, "SS point load: R_right = P/2");
 
     // Horizontal reactions should be zero (no horizontal loads)
     let sum_rx: f64 = results.reactions.iter().map(|r| r.rx).sum();
@@ -71,14 +71,14 @@ fn equilibrium_global_vertical_ss_udl() {
     let results = linear::solve_2d(&input).unwrap();
 
     let total_load = q * l;
-    let sum_ry: f64 = results.reactions.iter().map(|r| r.ry).sum();
+    let sum_ry: f64 = results.reactions.iter().map(|r| r.rz).sum();
     assert_close(sum_ry, total_load, 1e-6, "SS UDL: sum(Ry) = q*L");
 
     // By symmetry each reaction = q*L/2
     let r_left = results.reactions.iter().find(|r| r.node_id == 1).unwrap();
     let r_right = results.reactions.iter().find(|r| r.node_id == n + 1).unwrap();
-    assert_close(r_left.ry, total_load / 2.0, 1e-6, "SS UDL: R_left = qL/2");
-    assert_close(r_right.ry, total_load / 2.0, 1e-6, "SS UDL: R_right = qL/2");
+    assert_close(r_left.rz, total_load / 2.0, 1e-6, "SS UDL: R_left = qL/2");
+    assert_close(r_right.rz, total_load / 2.0, 1e-6, "SS UDL: R_right = qL/2");
 }
 
 // ═══════════════════════════════════════════════════════════════
@@ -95,8 +95,8 @@ fn equilibrium_global_moment_cantilever_point_load() {
     let loads = vec![SolverLoad::Nodal(SolverNodalLoad {
         node_id: n + 1,
         fx: 0.0,
-        fy: -p,
-        mz: 0.0,
+        fz: -p,
+        my: 0.0,
     })];
     let input = make_beam(n, l, E, A, IZ, "fixed", None, loads);
     let results = linear::solve_2d(&input).unwrap();
@@ -105,20 +105,20 @@ fn equilibrium_global_moment_cantilever_point_load() {
     let r = results.reactions.iter().find(|r| r.node_id == 1).unwrap();
 
     // Vertical equilibrium: Ry = P
-    assert_close(r.ry, p, 1e-6, "Cantilever: Ry = P");
+    assert_close(r.rz, p, 1e-6, "Cantilever: Ry = P");
 
     // Moment equilibrium about the fixed support:
     // Applied load creates moment = -P * L about the support (clockwise)
     // Reaction moment Mz must balance it: Mz = P * L
     // The sign depends on convention; the magnitude must match.
-    assert_close(r.mz.abs(), p * l, 1e-6, "Cantilever: |Mz| = P*L");
+    assert_close(r.my.abs(), p * l, 1e-6, "Cantilever: |Mz| = P*L");
 
     // Global moment equilibrium about the tip (node n+1):
     // Ry * L + Mz - P * 0 = 0  =>  Ry * L + Mz = 0 (if P acts at the tip)
     // Actually: sum of moments about tip = Ry * (-L) + Mz + 0 = 0
     // i.e., Mz = Ry * L (with consistent signs from the solver)
     // We just verify: |Mz| = |Ry| * L
-    assert_close(r.mz.abs(), r.ry.abs() * l, 1e-6, "Cantilever: |Mz| = |Ry|*L");
+    assert_close(r.my.abs(), r.rz.abs() * l, 1e-6, "Cantilever: |Mz| = |Ry|*L");
 }
 
 // ═══════════════════════════════════════════════════════════════
@@ -148,7 +148,7 @@ fn equilibrium_global_moment_fixed_fixed_udl() {
     let results = linear::solve_2d(&input).unwrap();
 
     // Vertical equilibrium: sum Ry = q*L
-    let sum_ry: f64 = results.reactions.iter().map(|r| r.ry).sum();
+    let sum_ry: f64 = results.reactions.iter().map(|r| r.rz).sum();
     assert_close(sum_ry, q * l, 1e-6, "FF UDL: sum(Ry) = q*L");
 
     let r_left = results.reactions.iter().find(|r| r.node_id == 1).unwrap();
@@ -165,7 +165,7 @@ fn equilibrium_global_moment_fixed_fixed_udl() {
     // Note: the sign convention from the solver has downward loads as negative fy,
     // and reactions as positive ry (upward). Moments follow from there.
     // We check: Ry_right * L + Mz_left + Mz_right = q*L^2/2
-    let moment_residual = r_right.ry * l + r_left.mz + r_right.mz;
+    let moment_residual = r_right.rz * l + r_left.my + r_right.my;
     let expected_load_moment = q * l * l / 2.0;
     assert_close(
         moment_residual,
@@ -176,11 +176,11 @@ fn equilibrium_global_moment_fixed_fixed_udl() {
 
     // Also verify the known analytical values:
     // Ry_left = Ry_right = q*L/2 = 60
-    assert_close(r_left.ry, q * l / 2.0, 1e-4, "FF UDL: Ry_left = qL/2");
-    assert_close(r_right.ry, q * l / 2.0, 1e-4, "FF UDL: Ry_right = qL/2");
+    assert_close(r_left.rz, q * l / 2.0, 1e-4, "FF UDL: Ry_left = qL/2");
+    assert_close(r_right.rz, q * l / 2.0, 1e-4, "FF UDL: Ry_right = qL/2");
     // Mz = qL^2/12 = 100 at each end
-    assert_close(r_left.mz.abs(), q * l * l / 12.0, 0.02, "FF UDL: |Mz_left| = qL^2/12");
-    assert_close(r_right.mz.abs(), q * l * l / 12.0, 0.02, "FF UDL: |Mz_right| = qL^2/12");
+    assert_close(r_left.my.abs(), q * l * l / 12.0, 0.02, "FF UDL: |Mz_left| = qL^2/12");
+    assert_close(r_right.my.abs(), q * l * l / 12.0, 0.02, "FF UDL: |Mz_right| = qL^2/12");
 }
 
 // ═══════════════════════════════════════════════════════════════
@@ -202,7 +202,7 @@ fn equilibrium_horizontal_portal_lateral_load() {
     assert_close(sum_rx, -lateral, 1e-6, "Portal lateral: sum(Rx) = -H");
 
     // Vertical equilibrium: no vertical applied loads => sum(Ry) = 0
-    let sum_ry: f64 = results.reactions.iter().map(|r| r.ry).sum();
+    let sum_ry: f64 = results.reactions.iter().map(|r| r.rz).sum();
     assert_close(sum_ry, 0.0, 1e-4, "Portal lateral: sum(Ry) = 0");
 
     // Global moment equilibrium about node 1 (at origin (0,0)):
@@ -212,7 +212,7 @@ fn equilibrium_horizontal_portal_lateral_load() {
     // Equilibrium: -H*h + Mz_1 + Mz_4 + Ry_4 * w = 0
     let r1 = results.reactions.iter().find(|r| r.node_id == 1).unwrap();
     let r4 = results.reactions.iter().find(|r| r.node_id == 4).unwrap();
-    let moment_residual = -lateral * h + r1.mz + r4.mz + r4.ry * w;
+    let moment_residual = -lateral * h + r1.my + r4.my + r4.rz * w;
     assert!(
         moment_residual.abs() < 1e-3,
         "Portal lateral: moment equilibrium about node 1, residual = {:.6}",
@@ -235,8 +235,8 @@ fn equilibrium_element_shear_point_loaded_beam() {
     let loads = vec![SolverLoad::Nodal(SolverNodalLoad {
         node_id: n / 2 + 1, // node 3 at x = 5.0
         fx: 0.0,
-        fy: -p,
-        mz: 0.0,
+        fz: -p,
+        my: 0.0,
     })];
     let input = make_beam(n, l, E, A, IZ, "pinned", Some("rollerX"), loads);
     let results = linear::solve_2d(&input).unwrap();
@@ -369,7 +369,7 @@ fn equilibrium_joint_internal_node_continuous_beam() {
     );
 
     // Verify global vertical equilibrium as well
-    let sum_ry: f64 = results.reactions.iter().map(|r| r.ry).sum();
+    let sum_ry: f64 = results.reactions.iter().map(|r| r.rz).sum();
     assert_close(sum_ry, 2.0 * q * span, 1e-4, "Continuous beam: sum(Ry) = 2*q*L");
 
     // Additionally check moment continuity at every internal node

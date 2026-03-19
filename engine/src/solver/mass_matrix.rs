@@ -27,7 +27,7 @@ pub fn assemble_mass_matrix_2d(
         }
 
         let dx = node_j.x - node_i.x;
-        let dy = node_j.y - node_i.y;
+        let dy = node_j.z - node_i.z;
         let l = (dx * dx + dy * dy).sqrt();
         let cos = dx / l;
         let sin = dy / l;
@@ -613,7 +613,7 @@ pub fn compute_total_mass(
         let node_j = node_by_id[&elem.node_j];
         let density = densities.get(&elem.material_id.to_string()).copied().unwrap_or(0.0);
         let dx = node_j.x - node_i.x;
-        let dy = node_j.y - node_i.y;
+        let dy = node_j.z - node_i.z;
         let l = (dx * dx + dy * dy).sqrt();
         total += density * sec.a * l / 1000.0; // tonnes
     }

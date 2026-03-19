@@ -51,7 +51,7 @@ fn validation_notional_small_lateral() {
         }
     }
     let loads = vec![SolverLoad::Nodal(SolverNodalLoad {
-        node_id: n + 1, fx: f_notional, fy: -p_gravity, mz: 0.0,
+        node_id: n + 1, fx: f_notional, fz: -p_gravity, my: 0.0,
     })];
     let input = make_input(nodes, vec![(1, E, 0.3)], vec![(1, A, IZ)], elems,
         vec![(1, 1, "fixed")], loads);
@@ -61,7 +61,7 @@ fn validation_notional_small_lateral() {
 
     // Base moment from notional load = f_notional × H
     let m_notional = f_notional * h;
-    assert_close(r.mz.abs(), m_notional, 0.02,
+    assert_close(r.my.abs(), m_notional, 0.02,
         "Notional: M_base = αPH");
 
     // Base shear from notional
@@ -123,23 +123,23 @@ fn validation_notional_column_moment() {
         }
     }
     let loads_grav = vec![SolverLoad::Nodal(SolverNodalLoad {
-        node_id: n + 1, fx: 0.0, fy: -p, mz: 0.0,
+        node_id: n + 1, fx: 0.0, fz: -p, my: 0.0,
     })];
     let input_grav = make_input(
         nodes.clone(), vec![(1, E, 0.3)], vec![(1, A, IZ)],
         elems.clone(), vec![(1, 1, "fixed")], loads_grav);
     let m_grav = linear::solve_2d(&input_grav).unwrap()
-        .reactions.iter().find(|r| r.node_id == 1).unwrap().mz;
+        .reactions.iter().find(|r| r.node_id == 1).unwrap().my;
 
     // Gravity + notional
     let loads_both = vec![SolverLoad::Nodal(SolverNodalLoad {
-        node_id: n + 1, fx: alpha * p, fy: -p, mz: 0.0,
+        node_id: n + 1, fx: alpha * p, fz: -p, my: 0.0,
     })];
     let input_both = make_input(
         nodes, vec![(1, E, 0.3)], vec![(1, A, IZ)],
         elems, vec![(1, 1, "fixed")], loads_both);
     let m_both = linear::solve_2d(&input_both).unwrap()
-        .reactions.iter().find(|r| r.node_id == 1).unwrap().mz;
+        .reactions.iter().find(|r| r.node_id == 1).unwrap().my;
 
     // Gravity-only should have zero base moment (axial only, no eccentricity)
     assert!(m_grav.abs() < 1e-8,
@@ -192,10 +192,10 @@ fn validation_notional_multistory() {
 
         // Gravity at both nodes
         loads.push(SolverLoad::Nodal(SolverNodalLoad {
-            node_id: left, fx: alpha * p_floor, fy: -p_floor, mz: 0.0,
+            node_id: left, fx: alpha * p_floor, fz: -p_floor, my: 0.0,
         }));
         loads.push(SolverLoad::Nodal(SolverNodalLoad {
-            node_id: right, fx: 0.0, fy: -p_floor, mz: 0.0,
+            node_id: right, fx: 0.0, fz: -p_floor, my: 0.0,
         }));
     }
 
@@ -270,24 +270,24 @@ fn validation_notional_imperfection_equiv() {
         }
     }
     let loads_notional = vec![SolverLoad::Nodal(SolverNodalLoad {
-        node_id: n + 1, fx: alpha * p, fy: -p, mz: 0.0,
+        node_id: n + 1, fx: alpha * p, fz: -p, my: 0.0,
     })];
     let input_n = make_input(
         nodes.clone(), vec![(1, E, 0.3)], vec![(1, A, IZ)],
         elems.clone(), vec![(1, 1, "fixed")], loads_notional);
     let m_notional = linear::solve_2d(&input_n).unwrap()
-        .reactions.iter().find(|r| r.node_id == 1).unwrap().mz;
+        .reactions.iter().find(|r| r.node_id == 1).unwrap().my;
 
     // Method 2: Eccentric load = moment at top = P × e₀ = P × αH
     let e0 = alpha * h;
     let loads_eccentric = vec![SolverLoad::Nodal(SolverNodalLoad {
-        node_id: n + 1, fx: 0.0, fy: -p, mz: p * e0,
+        node_id: n + 1, fx: 0.0, fz: -p, my: p * e0,
     })];
     let input_e = make_input(
         nodes, vec![(1, E, 0.3)], vec![(1, A, IZ)],
         elems, vec![(1, 1, "fixed")], loads_eccentric);
     let m_eccentric = linear::solve_2d(&input_e).unwrap()
-        .reactions.iter().find(|r| r.node_id == 1).unwrap().mz;
+        .reactions.iter().find(|r| r.node_id == 1).unwrap().my;
 
     // Both methods should produce the same base moment (approximately)
     // Not exactly equal because notional load also creates shear,

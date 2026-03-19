@@ -131,8 +131,8 @@ fn validation_arch_ext_fixed_vs_three_hinge() {
                 SolverLoad::Nodal(SolverNodalLoad {
                     node_id: i + 1,
                     fx: 0.0,
-                    fy: -w * trib,
-                    mz: 0.0,
+                    fz: -w * trib,
+                    my: 0.0,
                 })
             })
             .collect()
@@ -152,22 +152,22 @@ fn validation_arch_ext_fixed_vs_three_hinge() {
 
     // Fixed arch should develop end moments
     assert!(
-        r_fixed_left.mz.abs() > 0.1,
+        r_fixed_left.my.abs() > 0.1,
         "Fixed arch should have support moments: Mz={:.4}",
-        r_fixed_left.mz
+        r_fixed_left.my
     );
 
     // Three-hinge arch should have zero end moments (pinned supports)
     assert!(
-        r_3h.mz.abs() < 0.01,
+        r_3h.my.abs() < 0.01,
         "Three-hinge arch should have zero support moment: Mz={:.6}",
-        r_3h.mz
+        r_3h.my
     );
 
     // Both arches must satisfy vertical equilibrium
     let total_load = w * l;
-    let sum_ry_3h: f64 = res_3h.reactions.iter().map(|r| r.ry).sum();
-    let sum_ry_fixed: f64 = res_fixed.reactions.iter().map(|r| r.ry).sum();
+    let sum_ry_3h: f64 = res_3h.reactions.iter().map(|r| r.rz).sum();
+    let sum_ry_fixed: f64 = res_fixed.reactions.iter().map(|r| r.rz).sum();
     assert_close(sum_ry_3h, total_load, 0.02, "Three-hinge: ΣRy = wL");
     assert_close(sum_ry_fixed, total_load, 0.02, "Fixed arch: ΣRy = wL");
 
@@ -237,7 +237,7 @@ fn validation_arch_ext_circular_non_funicular_bending() {
     );
 
     // Vertical equilibrium: total load from distributed loads
-    let sum_ry: f64 = results.reactions.iter().map(|r| r.ry).sum();
+    let sum_ry: f64 = results.reactions.iter().map(|r| r.rz).sum();
     assert!(
         sum_ry > 0.0,
         "Circular arch: ΣRy should resist downward load: {:.4}",
@@ -388,8 +388,8 @@ fn validation_arch_ext_truss_arch_zero_bending() {
             SolverLoad::Nodal(SolverNodalLoad {
                 node_id: i + 1,
                 fx: 0.0,
-                fy: -p,
-                mz: 0.0,
+                fz: -p,
+                my: 0.0,
             })
         })
         .collect();
@@ -444,7 +444,7 @@ fn validation_arch_ext_truss_arch_zero_bending() {
 
     // Vertical equilibrium: total load = (n_panels - 1) * P
     let total_load = (n_panels - 1) as f64 * p;
-    let sum_ry: f64 = results.reactions.iter().map(|r| r.ry).sum();
+    let sum_ry: f64 = results.reactions.iter().map(|r| r.rz).sum();
     assert_close(sum_ry, total_load, 0.01, "Truss arch: ΣRy = total load");
 }
 
@@ -479,8 +479,8 @@ fn validation_arch_ext_horizontal_wind_loading() {
         vec![SolverLoad::Nodal(SolverNodalLoad {
             node_id: crown_node,
             fx: p_h,
-            fy: 0.0,
-            mz: 0.0,
+            fz: 0.0,
+            my: 0.0,
         })],
     );
     let results = linear::solve_2d(&input).unwrap();
@@ -500,7 +500,7 @@ fn validation_arch_ext_horizontal_wind_loading() {
     // Vertical reactions should form a couple (equal and opposite)
     // because the horizontal load at crown height creates a moment about the base.
     // ΣFy = 0 (no vertical applied loads)
-    let sum_ry: f64 = results.reactions.iter().map(|r| r.ry).sum();
+    let sum_ry: f64 = results.reactions.iter().map(|r| r.rz).sum();
     assert!(
         sum_ry.abs() < p_h * 0.01,
         "Wind load: ΣRy should be ≈ 0: {:.6}",
@@ -508,13 +508,13 @@ fn validation_arch_ext_horizontal_wind_loading() {
     );
 
     // The vertical reactions form a couple: Ry_left ≈ -Ry_right
-    let ry_sum = (r_left.ry + r_right.ry).abs();
-    let ry_max = r_left.ry.abs().max(r_right.ry.abs());
+    let ry_sum = (r_left.rz + r_right.rz).abs();
+    let ry_max = r_left.rz.abs().max(r_right.rz.abs());
     assert!(
         ry_sum < ry_max * 0.02,
         "Wind load: Ry should be antisymmetric: left={:.4}, right={:.4}",
-        r_left.ry,
-        r_right.ry
+        r_left.rz,
+        r_right.rz
     );
 
     // Moment equilibrium about left support:
@@ -530,7 +530,7 @@ fn validation_arch_ext_horizontal_wind_loading() {
     let y_crown = h_rise;
     let ry_right_expected = p_h * y_crown / l;
     assert_close(
-        r_right.ry,
+        r_right.rz,
         ry_right_expected,
         0.05,
         "Wind load: Ry_right = P_h * h / L",
@@ -562,8 +562,8 @@ fn validation_arch_ext_crown_deflection_vs_rise() {
                 SolverLoad::Nodal(SolverNodalLoad {
                     node_id: i + 1,
                     fx: 0.0,
-                    fy: -w * trib,
-                    mz: 0.0,
+                    fz: -w * trib,
+                    my: 0.0,
                 })
             })
             .collect();
@@ -579,7 +579,7 @@ fn validation_arch_ext_crown_deflection_vs_rise() {
             .find(|d| d.node_id == crown_node)
             .unwrap();
         // Vertical deflection at crown (negative = downward)
-        d.uy.abs()
+        d.uz.abs()
     };
 
     let deflection_shallow = compute_crown_deflection(2.0);
@@ -636,8 +636,8 @@ fn validation_arch_ext_quarter_span_point_load_reactions() {
         vec![SolverLoad::Nodal(SolverNodalLoad {
             node_id: quarter_node,
             fx: 0.0,
-            fy: -p,
-            mz: 0.0,
+            fz: -p,
+            my: 0.0,
         })],
     );
     let results = linear::solve_2d(&input).unwrap();
@@ -656,20 +656,20 @@ fn validation_arch_ext_quarter_span_point_load_reactions() {
     let ry_left_expected = p - ry_right_expected;
 
     assert_close(
-        r_left.ry,
+        r_left.rz,
         ry_left_expected,
         0.02,
         "Quarter-span: Ry_left = P*(L-a)/L",
     );
     assert_close(
-        r_right.ry,
+        r_right.rz,
         ry_right_expected,
         0.02,
         "Quarter-span: Ry_right = P*a/L",
     );
 
     // Total vertical equilibrium
-    let sum_ry: f64 = results.reactions.iter().map(|r| r.ry).sum();
+    let sum_ry: f64 = results.reactions.iter().map(|r| r.rz).sum();
     assert_close(sum_ry, p, 0.01, "Quarter-span arch: ΣRy = P");
 
     // Horizontal equilibrium
@@ -732,20 +732,20 @@ fn validation_arch_ext_pinned_fixed_asymmetry() {
 
     // Pinned end: no moment reaction
     assert!(
-        r_left.mz.abs() < 0.01,
+        r_left.my.abs() < 0.01,
         "Pinned end should have Mz ≈ 0: {:.6}",
-        r_left.mz
+        r_left.my
     );
 
     // Fixed end: develops a moment reaction
     assert!(
-        r_right.mz.abs() > 0.1,
+        r_right.my.abs() > 0.1,
         "Fixed end should have non-zero Mz: {:.4}",
-        r_right.mz
+        r_right.my
     );
 
     // Vertical equilibrium still holds
-    let sum_ry: f64 = results.reactions.iter().map(|r| r.ry).sum();
+    let sum_ry: f64 = results.reactions.iter().map(|r| r.rz).sum();
     assert!(
         sum_ry > 0.0,
         "Pinned-fixed arch: ΣRy should be positive: {:.4}",
@@ -814,8 +814,8 @@ fn validation_arch_ext_superposition_principle() {
     let loads_b = vec![SolverLoad::Nodal(SolverNodalLoad {
         node_id: load_node,
         fx: 0.0,
-        fy: -p,
-        mz: 0.0,
+        fz: -p,
+        my: 0.0,
     })];
 
     // Load case C: both loads combined
@@ -833,8 +833,8 @@ fn validation_arch_ext_superposition_principle() {
     loads_c.push(SolverLoad::Nodal(SolverNodalLoad {
         node_id: load_node,
         fx: 0.0,
-        fy: -p,
-        mz: 0.0,
+        fz: -p,
+        my: 0.0,
     }));
 
     // Solve all three cases (two-hinge arch, no crown hinge)
@@ -858,8 +858,8 @@ fn validation_arch_ext_superposition_principle() {
         "Superposition: Rx_left(C) = Rx_left(A) + Rx_left(B)",
     );
     assert_close(
-        r_c_left.ry,
-        r_a_left.ry + r_b_left.ry,
+        r_c_left.rz,
+        r_a_left.rz + r_b_left.rz,
         0.01,
         "Superposition: Ry_left(C) = Ry_left(A) + Ry_left(B)",
     );
@@ -889,8 +889,8 @@ fn validation_arch_ext_superposition_principle() {
         "Superposition: ux_crown(C) = ux_crown(A) + ux_crown(B)",
     );
     assert_close(
-        d_c.uy,
-        d_a.uy + d_b.uy,
+        d_c.uz,
+        d_a.uz + d_b.uz,
         0.01,
         "Superposition: uy_crown(C) = uy_crown(A) + uy_crown(B)",
     );

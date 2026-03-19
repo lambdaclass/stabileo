@@ -53,18 +53,18 @@ fn validation_indet_ext_two_span_interior_reaction() {
 
     // R_B = 10qL/8 = 1.25 * q.abs() * span
     let r_b_exact = 10.0 * q.abs() * span / 8.0;
-    assert_close(r_int.ry, r_b_exact, 0.02,
+    assert_close(r_int.rz, r_b_exact, 0.02,
         "Two-span continuous: R_interior = 10qL/8");
 
     // End reactions: R_A = R_C = 3qL/8
     let r_end_exact = 3.0 * q.abs() * span / 8.0;
     let r_a = results.reactions.iter().find(|r| r.node_id == 1).unwrap();
     let r_c = results.reactions.iter().find(|r| r.node_id == n_total + 1).unwrap();
-    assert_close(r_a.ry, r_end_exact, 0.02, "Two-span continuous: R_A = 3qL/8");
-    assert_close(r_c.ry, r_end_exact, 0.02, "Two-span continuous: R_C = 3qL/8");
+    assert_close(r_a.rz, r_end_exact, 0.02, "Two-span continuous: R_A = 3qL/8");
+    assert_close(r_c.rz, r_end_exact, 0.02, "Two-span continuous: R_C = 3qL/8");
 
     // Total equilibrium: sum = 2qL
-    let sum_ry: f64 = results.reactions.iter().map(|r| r.ry).sum();
+    let sum_ry: f64 = results.reactions.iter().map(|r| r.rz).sum();
     assert_close(sum_ry, q.abs() * 2.0 * span, 0.01,
         "Two-span continuous: SumRy = 2qL");
 }
@@ -98,9 +98,9 @@ fn validation_indet_ext_ff_end_moment_and_midspan() {
     let m_end_exact = q.abs() * l * l / 12.0;
     let r1 = res_ff.reactions.iter().find(|r| r.node_id == 1).unwrap();
     let rn = res_ff.reactions.iter().find(|r| r.node_id == n + 1).unwrap();
-    assert_close(r1.mz.abs(), m_end_exact, 0.02,
+    assert_close(r1.my.abs(), m_end_exact, 0.02,
         "FF UDL: M_end_left = qL^2/12");
-    assert_close(rn.mz.abs(), m_end_exact, 0.02,
+    assert_close(rn.my.abs(), m_end_exact, 0.02,
         "FF UDL: M_end_right = qL^2/12");
 
     // Now build the SS beam for midspan moment comparison
@@ -109,8 +109,8 @@ fn validation_indet_ext_ff_end_moment_and_midspan() {
 
     // SS midspan deflection > FF midspan deflection (ratio = 5)
     let mid = n / 2 + 1;
-    let d_ss = res_ss.displacements.iter().find(|d| d.node_id == mid).unwrap().uy.abs();
-    let d_ff = res_ff.displacements.iter().find(|d| d.node_id == mid).unwrap().uy.abs();
+    let d_ss = res_ss.displacements.iter().find(|d| d.node_id == mid).unwrap().uz.abs();
+    let d_ff = res_ff.displacements.iter().find(|d| d.node_id == mid).unwrap().uz.abs();
     let ratio = d_ss / d_ff;
     assert_close(ratio, 5.0, 0.02,
         "FF vs SS deflection ratio = 5 under UDL");
@@ -147,21 +147,21 @@ fn validation_indet_ext_propped_cantilever_reactions() {
 
     // R_B (roller) = 3qL/8
     let r_b_exact = 3.0 * q.abs() * l / 8.0;
-    assert_close(r_b.ry, r_b_exact, 0.02,
+    assert_close(r_b.rz, r_b_exact, 0.02,
         "Propped cantilever: R_B = 3qL/8");
 
     // R_A (fixed) = 5qL/8
     let r_a_exact = 5.0 * q.abs() * l / 8.0;
-    assert_close(r_a.ry, r_a_exact, 0.02,
+    assert_close(r_a.rz, r_a_exact, 0.02,
         "Propped cantilever: R_A = 5qL/8");
 
     // M_A = qL^2/8
     let m_a_exact = q.abs() * l * l / 8.0;
-    assert_close(r_a.mz.abs(), m_a_exact, 0.02,
+    assert_close(r_a.my.abs(), m_a_exact, 0.02,
         "Propped cantilever: M_A = qL^2/8");
 
     // Equilibrium
-    let sum_ry: f64 = results.reactions.iter().map(|r| r.ry).sum();
+    let sum_ry: f64 = results.reactions.iter().map(|r| r.rz).sum();
     assert_close(sum_ry, q.abs() * l, 0.01,
         "Propped cantilever: SumRy = qL");
 }
@@ -190,7 +190,7 @@ fn validation_indet_ext_ff_symmetric_point_load() {
     let input = make_beam(
         n, l, E, A, IZ, "fixed", Some("fixed"),
         vec![SolverLoad::Nodal(SolverNodalLoad {
-            node_id: mid, fx: 0.0, fy: -p, mz: 0.0,
+            node_id: mid, fx: 0.0, fz: -p, my: 0.0,
         })],
     );
     let results = linear::solve_2d(&input).unwrap();
@@ -199,25 +199,25 @@ fn validation_indet_ext_ff_symmetric_point_load() {
     let rn = results.reactions.iter().find(|r| r.node_id == n + 1).unwrap();
 
     // Symmetric reactions: R_A = R_B = P/2
-    assert_close(r1.ry, p / 2.0, 0.02, "FF point load: R_A = P/2");
-    assert_close(rn.ry, p / 2.0, 0.02, "FF point load: R_B = P/2");
+    assert_close(r1.rz, p / 2.0, 0.02, "FF point load: R_A = P/2");
+    assert_close(rn.rz, p / 2.0, 0.02, "FF point load: R_B = P/2");
 
     // Symmetric end moments: |M_A| = |M_B| = PL/8
     let m_end_exact = p * l / 8.0;
-    assert_close(r1.mz.abs(), m_end_exact, 0.02,
+    assert_close(r1.my.abs(), m_end_exact, 0.02,
         "FF point load: M_A = PL/8");
-    assert_close(rn.mz.abs(), m_end_exact, 0.02,
+    assert_close(rn.my.abs(), m_end_exact, 0.02,
         "FF point load: M_B = PL/8");
 
     // End moments should be equal due to symmetry
-    let moment_diff = (r1.mz.abs() - rn.mz.abs()).abs();
+    let moment_diff = (r1.my.abs() - rn.my.abs()).abs();
     assert!(moment_diff < 0.01 * m_end_exact,
         "FF point load: M_A and M_B symmetric, diff={:.6}", moment_diff);
 
     // Midspan deflection: delta = PL^3/(192EI)
     let d_mid = results.displacements.iter().find(|d| d.node_id == mid).unwrap();
     let delta_exact = p * l.powi(3) / (192.0 * e_eff * IZ);
-    assert_close(d_mid.uy.abs(), delta_exact, 0.02,
+    assert_close(d_mid.uz.abs(), delta_exact, 0.02,
         "FF point load: delta_mid = PL^3/(192EI)");
 }
 
@@ -262,20 +262,20 @@ fn validation_indet_ext_three_span_reactions() {
 
     // End reactions: R_A = R_D = 0.4qL
     let r_end_exact = 0.4 * q.abs() * span;
-    assert_close(r_a.ry, r_end_exact, 0.02,
+    assert_close(r_a.rz, r_end_exact, 0.02,
         "Three-span: R_A = 0.4qL");
-    assert_close(r_d.ry, r_end_exact, 0.02,
+    assert_close(r_d.rz, r_end_exact, 0.02,
         "Three-span: R_D = 0.4qL");
 
     // Interior reactions: R_B = R_C = 1.1qL
     let r_int_exact = 1.1 * q.abs() * span;
-    assert_close(r_b.ry, r_int_exact, 0.02,
+    assert_close(r_b.rz, r_int_exact, 0.02,
         "Three-span: R_B = 1.1qL");
-    assert_close(r_c.ry, r_int_exact, 0.02,
+    assert_close(r_c.rz, r_int_exact, 0.02,
         "Three-span: R_C = 1.1qL");
 
     // Total equilibrium: sum = 3qL
-    let sum_ry: f64 = results.reactions.iter().map(|r| r.ry).sum();
+    let sum_ry: f64 = results.reactions.iter().map(|r| r.rz).sum();
     assert_close(sum_ry, q.abs() * 3.0 * span, 0.01,
         "Three-span: SumRy = 3qL");
 }
@@ -324,8 +324,8 @@ fn validation_indet_ext_portal_frame_lateral_load() {
         "Portal: ux_2={:.6}, ux_3={:.6} should be nearly equal", d2.ux, d3.ux);
 
     // Both bases have non-zero moment (fixed base indeterminacy)
-    assert!(r1.mz.abs() > 1.0, "Portal: left base moment non-zero");
-    assert!(r4.mz.abs() > 1.0, "Portal: right base moment non-zero");
+    assert!(r1.my.abs() > 1.0, "Portal: left base moment non-zero");
+    assert!(r4.my.abs() > 1.0, "Portal: right base moment non-zero");
 }
 
 // ================================================================
@@ -364,26 +364,26 @@ fn validation_indet_ext_end_rotation_ss_vs_ff() {
     // FF: end rotations must be zero (fixed support constraint)
     let d_ff_start = res_ff.displacements.iter().find(|d| d.node_id == 1).unwrap();
     let d_ff_end = res_ff.displacements.iter().find(|d| d.node_id == n + 1).unwrap();
-    assert!(d_ff_start.rz.abs() < 1e-10,
-        "FF end rotation at start = {:.6e}, must be 0", d_ff_start.rz);
-    assert!(d_ff_end.rz.abs() < 1e-10,
-        "FF end rotation at end = {:.6e}, must be 0", d_ff_end.rz);
+    assert!(d_ff_start.ry.abs() < 1e-10,
+        "FF end rotation at start = {:.6e}, must be 0", d_ff_start.ry);
+    assert!(d_ff_end.ry.abs() < 1e-10,
+        "FF end rotation at end = {:.6e}, must be 0", d_ff_end.ry);
 
     // SS: end rotations must be non-zero
     let d_ss_start = res_ss.displacements.iter().find(|d| d.node_id == 1).unwrap();
     let d_ss_end = res_ss.displacements.iter().find(|d| d.node_id == n + 1).unwrap();
-    assert!(d_ss_start.rz.abs() > 1e-8,
+    assert!(d_ss_start.ry.abs() > 1e-8,
         "SS end rotation at start must be non-zero");
-    assert!(d_ss_end.rz.abs() > 1e-8,
+    assert!(d_ss_end.ry.abs() > 1e-8,
         "SS end rotation at end must be non-zero");
 
     // SS analytical end rotation: theta = qL^3/(24EI)
     let theta_exact = q.abs() * l.powi(3) / (24.0 * e_eff * IZ);
-    assert_close(d_ss_start.rz.abs(), theta_exact, 0.02,
+    assert_close(d_ss_start.ry.abs(), theta_exact, 0.02,
         "SS UDL: end rotation = qL^3/(24EI)");
 
     // By symmetry, both end rotations have equal magnitude
-    let rot_diff = (d_ss_start.rz.abs() - d_ss_end.rz.abs()).abs();
+    let rot_diff = (d_ss_start.ry.abs() - d_ss_end.ry.abs()).abs();
     assert!(rot_diff < 0.01 * theta_exact,
         "SS UDL: end rotations symmetric, diff={:.6e}", rot_diff);
 }
@@ -412,7 +412,7 @@ fn validation_indet_ext_cantilever_superposition_vs_propped() {
 
     // Pure cantilever: fixed at start, free at end
     let mut loads_cant = vec![SolverLoad::Nodal(SolverNodalLoad {
-        node_id: n + 1, fx: 0.0, fy: -p, mz: 0.0,
+        node_id: n + 1, fx: 0.0, fz: -p, my: 0.0,
     })];
     for i in 1..=n {
         loads_cant.push(SolverLoad::Distributed(SolverDistributedLoad {
@@ -424,7 +424,7 @@ fn validation_indet_ext_cantilever_superposition_vs_propped() {
 
     // Propped cantilever: fixed at start, roller at end
     let mut loads_prop = vec![SolverLoad::Nodal(SolverNodalLoad {
-        node_id: n + 1, fx: 0.0, fy: -p, mz: 0.0,
+        node_id: n + 1, fx: 0.0, fz: -p, my: 0.0,
     })];
     for i in 1..=n {
         loads_prop.push(SolverLoad::Distributed(SolverDistributedLoad {
@@ -441,26 +441,26 @@ fn validation_indet_ext_cantilever_superposition_vs_propped() {
 
     let tip_cant = res_cant.displacements.iter()
         .find(|d| d.node_id == n + 1).unwrap();
-    assert_close(tip_cant.uy.abs(), delta_total, 0.02,
+    assert_close(tip_cant.uz.abs(), delta_total, 0.02,
         "Cantilever tip: delta = PL^3/(3EI) + qL^4/(8EI)");
 
     // Propped cantilever: tip (roller) has uy = 0 (constrained)
     let tip_prop = res_prop.displacements.iter()
         .find(|d| d.node_id == n + 1).unwrap();
-    assert!(tip_prop.uy.abs() < 1e-8,
-        "Propped cantilever: tip uy = {:.6e}, must be ~0 (roller)", tip_prop.uy);
+    assert!(tip_prop.uz.abs() < 1e-8,
+        "Propped cantilever: tip uy = {:.6e}, must be ~0 (roller)", tip_prop.uz);
 
     // Max deflection of propped cantilever (somewhere interior) must be
     // much less than cantilever tip deflection
     let max_prop_defl = res_prop.displacements.iter()
-        .map(|d| d.uy.abs())
+        .map(|d| d.uz.abs())
         .fold(0.0_f64, f64::max);
-    assert!(max_prop_defl < tip_cant.uy.abs(),
+    assert!(max_prop_defl < tip_cant.uz.abs(),
         "Propped max deflection ({:.6e}) < cantilever tip ({:.6e})",
-        max_prop_defl, tip_cant.uy.abs());
+        max_prop_defl, tip_cant.uz.abs());
 
     // Equilibrium for cantilever: R_A = P + qL (single support)
     let r_cant = res_cant.reactions.iter().find(|r| r.node_id == 1).unwrap();
-    assert_close(r_cant.ry, p + q.abs() * l, 0.02,
+    assert_close(r_cant.rz, p + q.abs() * l, 0.02,
         "Cantilever: R_A = P + qL");
 }

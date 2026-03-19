@@ -654,8 +654,8 @@ fn cable_advanced_ext_asymmetric_v_cable() {
         vec![SolverLoad::Nodal(SolverNodalLoad {
             node_id: 2,
             fx: 0.0,
-            fy: -p,
-            mz: 0.0,
+            fz: -p,
+            my: 0.0,
         })],
     );
     let results = linear::solve_2d(&input).unwrap();
@@ -690,7 +690,7 @@ fn cable_advanced_ext_asymmetric_v_cable() {
     );
 
     // Verify global equilibrium
-    let sum_ry: f64 = results.reactions.iter().map(|r| r.ry).sum();
+    let sum_ry: f64 = results.reactions.iter().map(|r| r.rz).sum();
     assert_close(sum_ry, p, 0.01, "Asymmetric V: vertical equilibrium");
 
     let sum_rx: f64 = results.reactions.iter().map(|r| r.rx).sum();
@@ -711,7 +711,7 @@ fn cable_advanced_ext_asymmetric_v_cable() {
         .find(|d| d.node_id == 2)
         .unwrap();
     assert!(
-        d2.uy < 0.0,
+        d2.uz < 0.0,
         "Asymmetric V: load point deflects downward"
     );
 
@@ -722,7 +722,7 @@ fn cable_advanced_ext_asymmetric_v_cable() {
         .iter()
         .find(|r| r.node_id == 3)
         .unwrap()
-        .ry;
+        .rz;
     let rx_right = results
         .reactions
         .iter()
@@ -734,7 +734,7 @@ fn cable_advanced_ext_asymmetric_v_cable() {
         .iter()
         .find(|r| r.node_id == 1)
         .unwrap()
-        .ry;
+        .rz;
     let rx_left = results
         .reactions
         .iter()
@@ -814,8 +814,8 @@ fn cable_advanced_ext_multi_cable_fan_truss() {
     let loads = vec![SolverLoad::Nodal(SolverNodalLoad {
         node_id: 2,
         fx: 0.0,
-        fy: -p,
-        mz: 0.0,
+        fz: -p,
+        my: 0.0,
     })];
 
     let input = make_input(
@@ -829,7 +829,7 @@ fn cable_advanced_ext_multi_cable_fan_truss() {
     let results = linear::solve_2d(&input).unwrap();
 
     // Total vertical equilibrium: sum(Ry) = P
-    let sum_ry: f64 = results.reactions.iter().map(|r| r.ry).sum();
+    let sum_ry: f64 = results.reactions.iter().map(|r| r.rz).sum();
     assert_close(sum_ry, p, 0.02, "Fan truss: vertical equilibrium");
 
     // Total horizontal equilibrium: sum(Rx) = 0
@@ -901,7 +901,7 @@ fn cable_advanced_ext_multi_cable_fan_truss() {
         .iter()
         .find(|d| d.node_id == 2)
         .unwrap();
-    assert!(d_top.uy < 0.0, "Fan truss: top node deflects downward");
+    assert!(d_top.uz < 0.0, "Fan truss: top node deflects downward");
 
     // By symmetry, horizontal displacement should be near zero
     assert!(

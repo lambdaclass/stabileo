@@ -67,8 +67,8 @@ fn validation_vierendeel_single_panel_moment_transfer() {
     let loads = vec![SolverLoad::Nodal(SolverNodalLoad {
         node_id: 2,
         fx: p,
-        fy: 0.0,
-        mz: 0.0,
+        fz: 0.0,
+        my: 0.0,
     })];
 
     let input = make_input(
@@ -86,7 +86,7 @@ fn validation_vierendeel_single_panel_moment_transfer() {
     assert_close(sum_rx, -p, 0.02, "Single panel Vierendeel: ΣRx = -P");
 
     // Vertical equilibrium: no vertical loads applied, so ΣRy ≈ 0
-    let sum_ry: f64 = results.reactions.iter().map(|r| r.ry).sum();
+    let sum_ry: f64 = results.reactions.iter().map(|r| r.rz).sum();
     assert_close(sum_ry, 0.0, 0.02, "Single panel Vierendeel: ΣRy = 0");
 
     // Both columns must carry nonzero bending moments (moment transfer)
@@ -181,8 +181,8 @@ fn validation_vierendeel_multi_panel_gravity() {
         loads.push(SolverLoad::Nodal(SolverNodalLoad {
             node_id: top_offset + i + 1,
             fx: 0.0,
-            fy: p,
-            mz: 0.0,
+            fz: p,
+            my: 0.0,
         }));
     }
 
@@ -198,7 +198,7 @@ fn validation_vierendeel_multi_panel_gravity() {
 
     // Vertical equilibrium: reactions should balance applied loads
     let total_applied: f64 = p * (n_panels - 1) as f64; // negative (downward)
-    let sum_ry: f64 = results.reactions.iter().map(|r| r.ry).sum();
+    let sum_ry: f64 = results.reactions.iter().map(|r| r.rz).sum();
     assert_close(sum_ry, -total_applied, 0.05, "Multi-panel Vierendeel: ΣRy");
 
     // Vertical members should carry bending moment (Vierendeel shear mechanism)
@@ -222,9 +222,9 @@ fn validation_vierendeel_multi_panel_gravity() {
     let mid_bottom_node = (n_panels / 2) + 1 + 1; // node 3 for 3-panel
     let d_mid = results.displacements.iter().find(|d| d.node_id == mid_bottom_node).unwrap();
     assert!(
-        d_mid.uy < 0.0,
+        d_mid.uz < 0.0,
         "Midspan bottom chord should deflect downward: uy={:.6}",
-        d_mid.uy
+        d_mid.uz
     );
 }
 
@@ -249,12 +249,12 @@ fn validation_vierendeel_double_vs_single_chord_stiffness() {
     let single_loads = vec![SolverLoad::Nodal(SolverNodalLoad {
         node_id: 3, // midspan node (5 nodes, node 3 is middle)
         fx: 0.0,
-        fy: p,
-        mz: 0.0,
+        fz: p,
+        my: 0.0,
     })];
     let input_single = make_beam(4, span, E, A_CHORD, IZ_CHORD, "pinned", Some("rollerX"), single_loads);
     let res_single = solve_2d(&input_single).expect("solve single");
-    let d_single = res_single.displacements.iter().find(|d| d.node_id == 3).unwrap().uy.abs();
+    let d_single = res_single.displacements.iter().find(|d| d.node_id == 3).unwrap().uz.abs();
 
     // --- Vierendeel girder (3 panels, 2 chords + 4 verticals) ---
     let pw = span / 3.0;
@@ -301,8 +301,8 @@ fn validation_vierendeel_double_vs_single_chord_stiffness() {
     let loads = vec![SolverLoad::Nodal(SolverNodalLoad {
         node_id: mid_top_node,
         fx: 0.0,
-        fy: p,
-        mz: 0.0,
+        fz: p,
+        my: 0.0,
     })];
 
     let input_vier = make_input(
@@ -316,7 +316,7 @@ fn validation_vierendeel_double_vs_single_chord_stiffness() {
     let res_vier = solve_2d(&input_vier).expect("solve vierendeel");
 
     // Get deflection at bottom chord node 2 (x = pw)
-    let d_vier = res_vier.displacements.iter().find(|d| d.node_id == 2).unwrap().uy.abs();
+    let d_vier = res_vier.displacements.iter().find(|d| d.node_id == 2).unwrap().uz.abs();
 
     // The Vierendeel girder should be stiffer than a single chord beam
     // because the two-chord system has greater effective depth.
@@ -395,8 +395,8 @@ fn validation_vierendeel_web_opening() {
     let loads = vec![SolverLoad::Nodal(SolverNodalLoad {
         node_id: 2,
         fx: 0.0,
-        fy: p,
-        mz: 0.0,
+        fz: p,
+        my: 0.0,
     })];
 
     let input = make_input(
@@ -414,7 +414,7 @@ fn validation_vierendeel_web_opening() {
     let results = solve_2d(&input).expect("solve");
 
     // Vertical equilibrium
-    let sum_ry: f64 = results.reactions.iter().map(|r| r.ry).sum();
+    let sum_ry: f64 = results.reactions.iter().map(|r| r.rz).sum();
     assert_close(sum_ry, -p, 0.05, "Web opening: ΣRy = -P");
 
     // Both chords (top and bottom) of the opening should carry bending
@@ -492,8 +492,8 @@ fn validation_vierendeel_lateral_sway_all_members() {
     let loads = vec![SolverLoad::Nodal(SolverNodalLoad {
         node_id: 4,
         fx: p,
-        fy: 0.0,
-        mz: 0.0,
+        fz: 0.0,
+        my: 0.0,
     })];
 
     let input_vier = make_input(
@@ -617,8 +617,8 @@ fn validation_vierendeel_panel_point_loading() {
     let loads = vec![SolverLoad::Nodal(SolverNodalLoad {
         node_id: load_node,
         fx: 0.0,
-        fy: p,
-        mz: 0.0,
+        fz: p,
+        my: 0.0,
     })];
 
     let input = make_input(
@@ -632,13 +632,13 @@ fn validation_vierendeel_panel_point_loading() {
     let results = solve_2d(&input).expect("solve");
 
     // Vertical equilibrium
-    let sum_ry: f64 = results.reactions.iter().map(|r| r.ry).sum();
+    let sum_ry: f64 = results.reactions.iter().map(|r| r.rz).sum();
     assert_close(sum_ry, -p, 0.05, "Panel point: ΣRy = -P");
 
     // Reactions: left reaction should be larger (load closer to left support)
     // Load at x=pw, span=n_panels*pw. R_left = P*(span-pw)/span = P*3/4
-    let r_left = results.reactions.iter().find(|r| r.node_id == 1).unwrap().ry;
-    let r_right = results.reactions.iter().find(|r| r.node_id == n_panels + 1).unwrap().ry;
+    let r_left = results.reactions.iter().find(|r| r.node_id == 1).unwrap().rz;
+    let r_right = results.reactions.iter().find(|r| r.node_id == n_panels + 1).unwrap().rz;
 
     assert!(
         r_left.abs() > r_right.abs(),
@@ -740,7 +740,7 @@ fn validation_vierendeel_udl_reversed_curvature() {
 
     // Vertical equilibrium
     let total_load: f64 = q * pw * n_panels as f64; // total downward load
-    let sum_ry: f64 = results.reactions.iter().map(|r| r.ry).sum();
+    let sum_ry: f64 = results.reactions.iter().map(|r| r.rz).sum();
     assert_close(sum_ry, -total_load, 0.05, "UDL Vierendeel: ΣRy");
 
     // Check for reversed curvature in top chord members.
@@ -842,8 +842,8 @@ fn validation_vierendeel_stiffness_ratio_effect() {
         let loads = vec![SolverLoad::Nodal(SolverNodalLoad {
             node_id: 4,
             fx: p,
-            fy: 0.0,
-            mz: 0.0,
+            fz: 0.0,
+            my: 0.0,
         })];
 
         let input = make_input(

@@ -67,13 +67,13 @@ fn bridge_two_span_continuous_udl() {
     let rb = results.reactions.iter().find(|r| r.node_id == node_b).unwrap();
     let rc = results.reactions.iter().find(|r| r.node_id == node_c).unwrap();
 
-    assert_close(ra.ry, r_end_expected, 0.02, "Two-span R_A = 3qL/8");
-    assert_close(rb.ry, r_int_expected, 0.02, "Two-span R_B = 5qL/4");
-    assert_close(rc.ry, r_end_expected, 0.02, "Two-span R_C = 3qL/8");
+    assert_close(ra.rz, r_end_expected, 0.02, "Two-span R_A = 3qL/8");
+    assert_close(rb.rz, r_int_expected, 0.02, "Two-span R_B = 5qL/4");
+    assert_close(rc.rz, r_end_expected, 0.02, "Two-span R_C = 3qL/8");
 
     // Equilibrium: sum of reactions = total load
     let total_load: f64 = q_abs * 2.0 * l;
-    let sum_ry: f64 = ra.ry + rb.ry + rc.ry;
+    let sum_ry: f64 = ra.rz + rb.rz + rc.rz;
     assert_close(sum_ry, total_load, 0.01, "Two-span equilibrium");
 
     // Hogging moment at interior support: M_B = -qL²/8
@@ -116,8 +116,8 @@ fn bridge_ss_midspan_point_load() {
         vec![SolverLoad::Nodal(SolverNodalLoad {
             node_id: mid_node,
             fx: 0.0,
-            fy: -p,
-            mz: 0.0,
+            fz: -p,
+            my: 0.0,
         })],
     );
 
@@ -126,13 +126,13 @@ fn bridge_ss_midspan_point_load() {
     // Reactions: each = P/2
     let ra = results.reactions.iter().find(|r| r.node_id == 1).unwrap();
     let rb = results.reactions.iter().find(|r| r.node_id == n + 1).unwrap();
-    assert_close(ra.ry, p / 2.0, 0.01, "SS midspan P: R_A = P/2");
-    assert_close(rb.ry, p / 2.0, 0.01, "SS midspan P: R_B = P/2");
+    assert_close(ra.rz, p / 2.0, 0.01, "SS midspan P: R_A = P/2");
+    assert_close(rb.rz, p / 2.0, 0.01, "SS midspan P: R_B = P/2");
 
     // Midspan deflection: delta = PL^3/(48EI)
     let delta_exact: f64 = p * l.powi(3) / (48.0 * e_eff * IZ);
     let mid_d = results.displacements.iter().find(|d| d.node_id == mid_node).unwrap();
-    assert_close(mid_d.uy.abs(), delta_exact, 0.02, "SS midspan P: delta = PL^3/(48EI)");
+    assert_close(mid_d.uz.abs(), delta_exact, 0.02, "SS midspan P: delta = PL^3/(48EI)");
 
     // Max moment at midspan: M = PL/4
     let m_expected: f64 = p * l / 4.0;
@@ -190,12 +190,12 @@ fn bridge_three_span_central_loading() {
     let rd = results.reactions.iter().find(|r| r.node_id == node_d).unwrap();
 
     // Symmetry check: R_A = R_D, R_B = R_C
-    assert_close(ra.ry, rd.ry, 0.02, "Three-span symmetry: R_A = R_D");
-    assert_close(rb.ry, rc.ry, 0.02, "Three-span symmetry: R_B = R_C");
+    assert_close(ra.rz, rd.rz, 0.02, "Three-span symmetry: R_A = R_D");
+    assert_close(rb.rz, rc.rz, 0.02, "Three-span symmetry: R_B = R_C");
 
     // Equilibrium: sum = qL (total load on center span)
     let total_load: f64 = q_abs * l;
-    let sum_ry: f64 = ra.ry + rb.ry + rc.ry + rd.ry;
+    let sum_ry: f64 = ra.rz + rb.rz + rc.rz + rd.rz;
     assert_close(sum_ry, total_load, 0.01, "Three-span equilibrium");
 
     // Three-moment equation for three equal spans, center loaded:
@@ -212,7 +212,7 @@ fn bridge_three_span_central_loading() {
     //   R_B_right = qL/2 + (M_C - M_B)/L = qL/2
     // Total R_B = qL/20 + qL/2 = 11qL/20
     let r_inner_expected: f64 = 11.0 * q_abs * l / 20.0;
-    assert_close(rb.ry, r_inner_expected, 0.05, "Three-span R_B = 11qL/20");
+    assert_close(rb.rz, r_inner_expected, 0.05, "Three-span R_B = 11qL/20");
 
     // Hogging moment at B and C: |M_B| = qL²/20
     let m_support_expected: f64 = q_abs * l * l / 20.0;
@@ -307,9 +307,9 @@ fn bridge_warren_truss_nodal_loads() {
     let sups = vec![(1, 1, "pinned"), (2, 5, "rollerX")];
 
     let loads = vec![
-        SolverLoad::Nodal(SolverNodalLoad { node_id: 2, fx: 0.0, fy: -p, mz: 0.0 }),
-        SolverLoad::Nodal(SolverNodalLoad { node_id: 3, fx: 0.0, fy: -p, mz: 0.0 }),
-        SolverLoad::Nodal(SolverNodalLoad { node_id: 4, fx: 0.0, fy: -p, mz: 0.0 }),
+        SolverLoad::Nodal(SolverNodalLoad { node_id: 2, fx: 0.0, fz: -p, my: 0.0 }),
+        SolverLoad::Nodal(SolverNodalLoad { node_id: 3, fx: 0.0, fz: -p, my: 0.0 }),
+        SolverLoad::Nodal(SolverNodalLoad { node_id: 4, fx: 0.0, fz: -p, my: 0.0 }),
     ];
 
     let input = make_input(
@@ -330,16 +330,16 @@ fn bridge_warren_truss_nodal_loads() {
     let ra = results.reactions.iter().find(|r| r.node_id == 1).unwrap();
     let rb = results.reactions.iter().find(|r| r.node_id == 5).unwrap();
 
-    assert_close(ra.ry, r_expected, 0.02, "Warren truss R_A = 3P/2");
-    assert_close(rb.ry, r_expected, 0.02, "Warren truss R_B = 3P/2");
+    assert_close(ra.rz, r_expected, 0.02, "Warren truss R_A = 3P/2");
+    assert_close(rb.rz, r_expected, 0.02, "Warren truss R_B = 3P/2");
 
     // Equilibrium
-    let sum_ry: f64 = ra.ry + rb.ry;
+    let sum_ry: f64 = ra.rz + rb.rz;
     assert_close(sum_ry, 3.0 * p, 0.01, "Truss vertical equilibrium");
 
     // Midspan bottom chord deflection should be downward
     let mid_d = results.displacements.iter().find(|d| d.node_id == 3).unwrap();
-    assert!(mid_d.uy < 0.0, "Truss midspan deflects downward");
+    assert!(mid_d.uz < 0.0, "Truss midspan deflects downward");
 }
 
 // ================================================================
@@ -419,18 +419,18 @@ fn bridge_overhanging_span_udl() {
     let ra = results.reactions.iter().find(|r| r.node_id == 1).unwrap();
     let rb = results.reactions.iter().find(|r| r.node_id == node_b_idx).unwrap();
 
-    assert_close(ra.ry, r_a_expected, 0.05, "Overhang R_A");
-    assert_close(rb.ry, r_b_expected, 0.05, "Overhang R_B");
+    assert_close(ra.rz, r_a_expected, 0.05, "Overhang R_A");
+    assert_close(rb.rz, r_b_expected, 0.05, "Overhang R_B");
 
     // Equilibrium
-    let sum_ry: f64 = ra.ry + rb.ry;
+    let sum_ry: f64 = ra.rz + rb.rz;
     assert_close(sum_ry, q_abs * total_l, 0.02, "Overhang equilibrium");
 
     // Free end of overhang deflects downward (negative uy)
     // The cantilever overhang causes downward tip deflection
     let tip = results.displacements.iter().find(|d| d.node_id == n + 1).unwrap();
     // Verify the tip has non-trivial deflection
-    assert!(tip.uy.abs() > 1e-6, "Overhang tip has non-zero deflection: uy={:.6e}", tip.uy);
+    assert!(tip.uz.abs() > 1e-6, "Overhang tip has non-zero deflection: uy={:.6e}", tip.uz);
 
     // Hogging moment at interior support B: M_B = qa²/2
     let m_b_expected: f64 = q_abs * a_over * a_over / 2.0;
@@ -476,8 +476,8 @@ fn bridge_two_axle_symmetric() {
         n, l, E, A, IZ,
         "pinned", Some("rollerX"),
         vec![
-            SolverLoad::Nodal(SolverNodalLoad { node_id: node1, fx: 0.0, fy: -p, mz: 0.0 }),
-            SolverLoad::Nodal(SolverNodalLoad { node_id: node2, fx: 0.0, fy: -p, mz: 0.0 }),
+            SolverLoad::Nodal(SolverNodalLoad { node_id: node1, fx: 0.0, fz: -p, my: 0.0 }),
+            SolverLoad::Nodal(SolverNodalLoad { node_id: node2, fx: 0.0, fz: -p, my: 0.0 }),
         ],
     );
 
@@ -486,8 +486,8 @@ fn bridge_two_axle_symmetric() {
     // Reactions: R_A = R_B = P (each support takes half of 2P)
     let ra = results.reactions.iter().find(|r| r.node_id == 1).unwrap();
     let rb = results.reactions.iter().find(|r| r.node_id == n + 1).unwrap();
-    assert_close(ra.ry, p, 0.02, "Two-axle R_A = P");
-    assert_close(rb.ry, p, 0.02, "Two-axle R_B = P");
+    assert_close(ra.rz, p, 0.02, "Two-axle R_A = P");
+    assert_close(rb.rz, p, 0.02, "Two-axle R_B = P");
 
     // Midspan moment: M = P*(L - d)/2
     let m_mid_expected: f64 = p * (l - d) / 2.0;
@@ -508,7 +508,7 @@ fn bridge_two_axle_symmetric() {
     let delta_expected: f64 = p * a_val * (3.0 * l * l - 4.0 * a_val * a_val) / (24.0 * e_eff * IZ);
 
     let mid_d = results.displacements.iter().find(|d| d.node_id == mid_node).unwrap();
-    assert_close(mid_d.uy.abs(), delta_expected, 0.03, "Two-axle midspan delta");
+    assert_close(mid_d.uz.abs(), delta_expected, 0.03, "Two-axle midspan delta");
 }
 
 // ================================================================
@@ -538,8 +538,8 @@ fn bridge_propped_cantilever_point_load() {
         vec![SolverLoad::Nodal(SolverNodalLoad {
             node_id: mid_node,
             fx: 0.0,
-            fy: -p,
-            mz: 0.0,
+            fz: -p,
+            my: 0.0,
         })],
     );
 
@@ -555,14 +555,14 @@ fn bridge_propped_cantilever_point_load() {
     let ra = results.reactions.iter().find(|r| r.node_id == 1).unwrap();
     let rb = results.reactions.iter().find(|r| r.node_id == n + 1).unwrap();
 
-    assert_close(ra.ry, r_a_expected, 0.02, "Propped cantilever R_A = 11P/16");
-    assert_close(rb.ry, r_b_expected, 0.02, "Propped cantilever R_B = 5P/16");
+    assert_close(ra.rz, r_a_expected, 0.02, "Propped cantilever R_A = 11P/16");
+    assert_close(rb.rz, r_b_expected, 0.02, "Propped cantilever R_B = 5P/16");
 
     // Fixed end moment
-    assert_close(ra.mz.abs(), m_a_expected, 0.02, "Propped cantilever M_A = 3PL/16");
+    assert_close(ra.my.abs(), m_a_expected, 0.02, "Propped cantilever M_A = 3PL/16");
 
     // Equilibrium
-    let sum_ry: f64 = ra.ry + rb.ry;
+    let sum_ry: f64 = ra.rz + rb.rz;
     assert_close(sum_ry, p, 0.01, "Propped cantilever equilibrium");
 
     // Midspan moment = 5PL/32
@@ -631,13 +631,13 @@ fn bridge_two_span_unequal_udl() {
     let rb = results.reactions.iter().find(|r| r.node_id == node_b).unwrap();
     let rc = results.reactions.iter().find(|r| r.node_id == node_c).unwrap();
 
-    assert_close(ra.ry, r_a_expected, 0.03, "Unequal spans R_A");
-    assert_close(rb.ry, r_b_expected, 0.03, "Unequal spans R_B");
-    assert_close(rc.ry, r_c_expected, 0.03, "Unequal spans R_C");
+    assert_close(ra.rz, r_a_expected, 0.03, "Unequal spans R_A");
+    assert_close(rb.rz, r_b_expected, 0.03, "Unequal spans R_B");
+    assert_close(rc.rz, r_c_expected, 0.03, "Unequal spans R_C");
 
     // Equilibrium
     let total_load: f64 = q_abs * (l1 + l2);
-    let sum_ry: f64 = ra.ry + rb.ry + rc.ry;
+    let sum_ry: f64 = ra.rz + rb.rz + rc.rz;
     assert_close(sum_ry, total_load, 0.01, "Unequal spans equilibrium");
 
     // Interior support moment
@@ -652,8 +652,8 @@ fn bridge_two_span_unequal_udl() {
     let d1 = results.displacements.iter().find(|d| d.node_id == mid1_node).unwrap();
     let d2 = results.displacements.iter().find(|d| d.node_id == mid2_node).unwrap();
     assert!(
-        d2.uy.abs() > d1.uy.abs(),
+        d2.uz.abs() > d1.uz.abs(),
         "Longer span has larger deflection: |{:.6}| > |{:.6}|",
-        d2.uy, d1.uy
+        d2.uz, d1.uz
     );
 }

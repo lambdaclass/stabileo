@@ -60,8 +60,8 @@ fn validation_rigid_vs_pinned_beam_column_sway() {
         vec![SolverLoad::Nodal(SolverNodalLoad {
             node_id: 2,
             fx: lateral,
-            fy: 0.0,
-            mz: 0.0,
+            fz: 0.0,
+            my: 0.0,
         })],
     );
     let pinned_results = linear::solve_2d(&pinned_input).unwrap();
@@ -105,8 +105,8 @@ fn validation_moment_at_hinge_is_zero() {
         vec![SolverLoad::Nodal(SolverNodalLoad {
             node_id: 2,
             fx: lateral,
-            fy: 0.0,
-            mz: 0.0,
+            fz: 0.0,
+            my: 0.0,
         })],
     );
     let results = linear::solve_2d(&input).unwrap();
@@ -271,8 +271,8 @@ fn validation_hinge_count_vs_flexibility() {
     let loads = vec![SolverLoad::Nodal(SolverNodalLoad {
         node_id: 2,
         fx: lateral,
-        fy: 0.0,
-        mz: 0.0,
+        fz: 0.0,
+        my: 0.0,
     })];
 
     // Case A: 0 hinges (fully rigid)
@@ -391,14 +391,14 @@ fn validation_fixed_vs_ss_deflection_ratio() {
         .iter()
         .find(|d| d.node_id == mid_node)
         .unwrap()
-        .uy
+        .uz
         .abs();
     let delta_ss = results_ss
         .displacements
         .iter()
         .find(|d| d.node_id == mid_node)
         .unwrap()
-        .uy
+        .uz
         .abs();
 
     let ratio = delta_ss / delta_ff;
@@ -436,8 +436,8 @@ fn validation_t_junction_joint_equilibrium() {
     let loads = vec![SolverLoad::Nodal(SolverNodalLoad {
         node_id: 2,
         fx: 0.0,
-        fy: -20.0,
-        mz: 0.0,
+        fz: -20.0,
+        my: 0.0,
     })];
 
     let input = make_input(
@@ -503,8 +503,8 @@ fn validation_moment_distribution_stiff_vs_flexible() {
     let loads = vec![SolverLoad::Nodal(SolverNodalLoad {
         node_id: 2,
         fx: 0.0,
-        fy: -20.0,
-        mz: 0.0,
+        fz: -20.0,
+        my: 0.0,
     })];
 
     // Case A: both beams Iz=1e-4

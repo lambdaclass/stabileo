@@ -34,14 +34,14 @@ fn validation_poe_midspan_deflection() {
     let p = 10.0;
     // Single element SS beam with point load at midspan (a = absolute distance = L/2)
     let loads = vec![SolverLoad::PointOnElement(SolverPointLoadOnElement {
-        element_id: 1, a: l / 2.0, p: -p, px: None, mz: None,
+        element_id: 1, a: l / 2.0, p: -p, px: None, my: None,
     })];
     let input = make_beam(1, l, E, A, IZ, "pinned", Some("rollerX"), loads);
     let results = linear::solve_2d(&input).unwrap();
 
     // Reactions: R = P/2 each
-    let r1 = results.reactions.iter().find(|r| r.node_id == 1).unwrap().ry;
-    let r2 = results.reactions.iter().find(|r| r.node_id == 2).unwrap().ry;
+    let r1 = results.reactions.iter().find(|r| r.node_id == 1).unwrap().rz;
+    let r2 = results.reactions.iter().find(|r| r.node_id == 2).unwrap().rz;
     assert_close(r1, p / 2.0, 0.02, "PoE midspan: R1 = P/2");
     assert_close(r2, p / 2.0, 0.02, "PoE midspan: R2 = P/2");
 }
@@ -63,13 +63,13 @@ fn validation_poe_quarter_span() {
     let n = 4;
     let elem_len = l / n as f64;
     let loads = vec![SolverLoad::PointOnElement(SolverPointLoadOnElement {
-        element_id: 1, a: elem_len, p: -p, px: None, mz: None,
+        element_id: 1, a: elem_len, p: -p, px: None, my: None,
     })];
     let input = make_beam(n, l, E, A, IZ, "pinned", Some("rollerX"), loads);
     let results = linear::solve_2d(&input).unwrap();
 
-    let r1 = results.reactions.iter().find(|r| r.node_id == 1).unwrap().ry;
-    let r_end = results.reactions.iter().find(|r| r.node_id == n + 1).unwrap().ry;
+    let r1 = results.reactions.iter().find(|r| r.node_id == 1).unwrap().rz;
+    let r_end = results.reactions.iter().find(|r| r.node_id == n + 1).unwrap().rz;
 
     assert_close(r1 + r_end, p, 0.02, "PoE quarter: ΣR = P");
     assert_close(r1, 0.75 * p, 0.02, "PoE quarter: R1 = 3P/4");
@@ -93,17 +93,17 @@ fn validation_poe_cantilever() {
     let elem_len = l / n as f64;
     let dist = elem_len / 2.0;
     let loads = vec![SolverLoad::PointOnElement(SolverPointLoadOnElement {
-        element_id: 1, a: dist, p: -p, px: None, mz: None,
+        element_id: 1, a: dist, p: -p, px: None, my: None,
     })];
     let input = make_beam(n, l, E, A, IZ, "fixed", None, loads);
     let results = linear::solve_2d(&input).unwrap();
 
     // Base reaction: Ry = P
     let r1 = results.reactions.iter().find(|r| r.node_id == 1).unwrap();
-    assert_close(r1.ry, p, 0.02, "Cantilever PoE: Ry = P");
+    assert_close(r1.rz, p, 0.02, "Cantilever PoE: Ry = P");
 
     // Base moment = P × distance from base
-    assert_close(r1.mz.abs(), p * dist, 0.05, "Cantilever PoE: M = P × d");
+    assert_close(r1.my.abs(), p * dist, 0.05, "Cantilever PoE: M = P × d");
 }
 
 // ================================================================
@@ -121,7 +121,7 @@ fn validation_poe_axial_load() {
 
     let elem_len = l / n as f64;
     let loads = vec![SolverLoad::PointOnElement(SolverPointLoadOnElement {
-        element_id: 2, a: elem_len / 2.0, p: 0.0, px: Some(px), mz: None,
+        element_id: 2, a: elem_len / 2.0, p: 0.0, px: Some(px), my: None,
     })];
     let input = make_beam(n, l, E, A, IZ, "pinned", Some("rollerX"), loads);
     let results = linear::solve_2d(&input).unwrap();
@@ -145,14 +145,14 @@ fn validation_poe_moment_load() {
 
     let elem_len = l / n as f64;
     let loads = vec![SolverLoad::PointOnElement(SolverPointLoadOnElement {
-        element_id: 2, a: elem_len / 2.0, p: 0.0, px: None, mz: Some(m),
+        element_id: 2, a: elem_len / 2.0, p: 0.0, px: None, my: Some(m),
     })];
     let input = make_beam(n, l, E, A, IZ, "pinned", Some("rollerX"), loads);
     let results = linear::solve_2d(&input).unwrap();
 
     // Concentrated moment on SS beam: reactions form a couple (ΣRy = 0)
-    let r1 = results.reactions.iter().find(|r| r.node_id == 1).unwrap().ry;
-    let r_end = results.reactions.iter().find(|r| r.node_id == n + 1).unwrap().ry;
+    let r1 = results.reactions.iter().find(|r| r.node_id == 1).unwrap().rz;
+    let r_end = results.reactions.iter().find(|r| r.node_id == n + 1).unwrap().rz;
 
     // ΣRy = 0 (moment creates no net vertical force)
     assert!(( r1 + r_end).abs() < 0.01,
@@ -182,17 +182,17 @@ fn validation_poe_multiple_loads() {
     let elem_len = l / n as f64;
     let loads = vec![
         SolverLoad::PointOnElement(SolverPointLoadOnElement {
-            element_id: 2, a: elem_len * 0.25, p: -p1, px: None, mz: None,
+            element_id: 2, a: elem_len * 0.25, p: -p1, px: None, my: None,
         }),
         SolverLoad::PointOnElement(SolverPointLoadOnElement {
-            element_id: 2, a: elem_len * 0.75, p: -p2, px: None, mz: None,
+            element_id: 2, a: elem_len * 0.75, p: -p2, px: None, my: None,
         }),
     ];
     let input = make_beam(n, l, E, A, IZ, "pinned", Some("rollerX"), loads);
     let results = linear::solve_2d(&input).unwrap();
 
     // Total reaction = p1 + p2
-    let sum_ry: f64 = results.reactions.iter().map(|r| r.ry).sum();
+    let sum_ry: f64 = results.reactions.iter().map(|r| r.rz).sum();
     assert_close(sum_ry, p1 + p2, 0.02,
         "Multiple PoE: ΣR = P1 + P2");
 }
@@ -212,21 +212,21 @@ fn validation_poe_at_node_equivalence() {
 
     // PointOnElement at end of element 3 (a=1.0)
     let loads_poe = vec![SolverLoad::PointOnElement(SolverPointLoadOnElement {
-        element_id: mid, a: 1.0, p: -p, px: None, mz: None,
+        element_id: mid, a: 1.0, p: -p, px: None, my: None,
     })];
     let input_poe = make_beam(n, l, E, A, IZ, "pinned", Some("rollerX"), loads_poe);
     let res_poe = linear::solve_2d(&input_poe).unwrap();
 
     // Equivalent nodal load at node mid+1
     let loads_nodal = vec![SolverLoad::Nodal(SolverNodalLoad {
-        node_id: mid + 1, fx: 0.0, fy: -p, mz: 0.0,
+        node_id: mid + 1, fx: 0.0, fz: -p, my: 0.0,
     })];
     let input_nodal = make_beam(n, l, E, A, IZ, "pinned", Some("rollerX"), loads_nodal);
     let res_nodal = linear::solve_2d(&input_nodal).unwrap();
 
     // Deflections should match
-    let d_poe = res_poe.displacements.iter().find(|d| d.node_id == mid + 1).unwrap().uy;
-    let d_nodal = res_nodal.displacements.iter().find(|d| d.node_id == mid + 1).unwrap().uy;
+    let d_poe = res_poe.displacements.iter().find(|d| d.node_id == mid + 1).unwrap().uz;
+    let d_nodal = res_nodal.displacements.iter().find(|d| d.node_id == mid + 1).unwrap().uz;
 
     assert_close(d_poe, d_nodal, 0.02,
         "PoE at node ≈ nodal load");
@@ -249,19 +249,19 @@ fn validation_poe_equilibrium() {
     let elem_len = l / n as f64;
     let loads = vec![
         SolverLoad::PointOnElement(SolverPointLoadOnElement {
-            element_id: 1, a: elem_len * 0.5, p: -p1, px: None, mz: None,
+            element_id: 1, a: elem_len * 0.5, p: -p1, px: None, my: None,
         }),
         SolverLoad::PointOnElement(SolverPointLoadOnElement {
-            element_id: 3, a: elem_len * 0.3, p: -p2, px: None, mz: None,
+            element_id: 3, a: elem_len * 0.3, p: -p2, px: None, my: None,
         }),
         SolverLoad::PointOnElement(SolverPointLoadOnElement {
-            element_id: 4, a: elem_len * 0.8, p: -p3, px: None, mz: None,
+            element_id: 4, a: elem_len * 0.8, p: -p3, px: None, my: None,
         }),
     ];
     let input = make_beam(n, l, E, A, IZ, "pinned", Some("rollerX"), loads);
     let results = linear::solve_2d(&input).unwrap();
 
-    let sum_ry: f64 = results.reactions.iter().map(|r| r.ry).sum();
+    let sum_ry: f64 = results.reactions.iter().map(|r| r.rz).sum();
     assert_close(sum_ry, p1 + p2 + p3, 0.02,
         "PoE equilibrium: ΣR = ΣP");
 }

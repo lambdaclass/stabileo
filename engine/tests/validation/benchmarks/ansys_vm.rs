@@ -53,7 +53,7 @@ fn validation_vm1_statically_indeterminate_3bar_truss() {
     ];
 
     let loads = vec![SolverLoad::Nodal(SolverNodalLoad {
-        node_id: 4, fx: 0.0, fy: -p, mz: 0.0,
+        node_id: 4, fx: 0.0, fz: -p, my: 0.0,
     })];
 
     let input = make_input(
@@ -144,11 +144,11 @@ fn validation_vm2_beam_with_overhangs() {
     let r_a = results.reactions.iter().find(|r| r.node_id == sup_node_a).unwrap();
     let r_b = results.reactions.iter().find(|r| r.node_id == sup_node_b).unwrap();
 
-    assert_close(r_a.ry, 50.0, 0.02, "VM2 R_A");
-    assert_close(r_b.ry, 50.0, 0.02, "VM2 R_B");
+    assert_close(r_a.rz, 50.0, 0.02, "VM2 R_A");
+    assert_close(r_b.rz, 50.0, 0.02, "VM2 R_B");
 
     // Symmetry check
-    assert_close(r_a.ry, r_b.ry, 0.01, "VM2 symmetry R_A=R_B");
+    assert_close(r_a.rz, r_b.rz, 0.01, "VM2 symmetry R_A=R_B");
 }
 
 // ═══════════════════════════════════════════════════════════════
@@ -180,7 +180,7 @@ fn validation_vm4_hinged_v_truss() {
 
     let sups = vec![(1, 1, "pinned"), (2, 2, "pinned")];
     let loads = vec![SolverLoad::Nodal(SolverNodalLoad {
-        node_id: 3, fx: 0.0, fy: -p, mz: 0.0,
+        node_id: 3, fx: 0.0, fz: -p, my: 0.0,
     })];
 
     let input = make_input(
@@ -204,8 +204,8 @@ fn validation_vm4_hinged_v_truss() {
     assert_close(r2.rx.abs(), h_expected, 0.01, "VM4 H_reaction right");
 
     // Vertical reaction = P/2 each
-    assert_close(r1.ry, p / 2.0, 0.01, "VM4 V_reaction left");
-    assert_close(r2.ry, p / 2.0, 0.01, "VM4 V_reaction right");
+    assert_close(r1.rz, p / 2.0, 0.01, "VM4 V_reaction left");
+    assert_close(r2.rz, p / 2.0, 0.01, "VM4 V_reaction right");
 }
 
 // ═══════════════════════════════════════════════════════════════
@@ -243,7 +243,7 @@ fn validation_vm10_ss_beam_eccentric_load() {
             a: a_local,
             p: -p,
             px: None,
-            mz: None,
+            my: None,
         })],
     );
 
@@ -256,14 +256,14 @@ fn validation_vm10_ss_beam_eccentric_load() {
     let r_a = results.reactions.iter().find(|r| r.node_id == 1).unwrap();
     let r_b = results.reactions.iter().find(|r| r.node_id == n + 1).unwrap();
 
-    assert_close(r_a.ry, r_a_expected, 0.02, "VM10 R_A");
-    assert_close(r_b.ry, r_b_expected, 0.02, "VM10 R_B");
+    assert_close(r_a.rz, r_a_expected, 0.02, "VM10 R_A");
+    assert_close(r_b.rz, r_b_expected, 0.02, "VM10 R_B");
 
     // Deflection at load point: δ = P*a²*b²/(3*E_eff*I*L)
     let delta_expected = p * a * a * b * b / (3.0 * E_EFF * iz * l);
     let load_node = (a / elem_len) as usize + 1;
     let d = results.displacements.iter().find(|d| d.node_id == load_node).unwrap();
-    assert_close(d.uy.abs(), delta_expected, 0.02, "VM10 deflection");
+    assert_close(d.uz.abs(), delta_expected, 0.02, "VM10 deflection");
 }
 
 // ═══════════════════════════════════════════════════════════════
@@ -299,7 +299,7 @@ fn validation_vm12_3d_cantilever_biaxial() {
     let delta_y_expected = fy * l.powi(3) / (3.0 * E_EFF * iz);
     let delta_z_expected = fz * l.powi(3) / (3.0 * E_EFF * iy);
 
-    assert_close(tip.uy.abs(), delta_y_expected, 0.02, "VM12 δy");
+    assert_close(tip.uz.abs(), delta_y_expected, 0.02, "VM12 δy");
     assert_close(tip.uz.abs(), delta_z_expected, 0.02, "VM12 δz");
 }
 
@@ -332,7 +332,7 @@ fn validation_vm1_equilibrium() {
     ];
     let sups = vec![(1, 1, "pinned"), (2, 2, "pinned"), (3, 3, "pinned")];
     let loads = vec![SolverLoad::Nodal(SolverNodalLoad {
-        node_id: 4, fx: 0.0, fy: -p, mz: 0.0 })];
+        node_id: 4, fx: 0.0, fz: -p, my: 0.0 })];
 
     let input = make_input(
         nodes, vec![(1, E, 0.3)],
@@ -343,7 +343,7 @@ fn validation_vm1_equilibrium() {
     let results = linear::solve_2d(&input).unwrap();
 
     let sum_rx: f64 = results.reactions.iter().map(|r| r.rx).sum();
-    let sum_ry: f64 = results.reactions.iter().map(|r| r.ry).sum();
+    let sum_ry: f64 = results.reactions.iter().map(|r| r.rz).sum();
 
     assert!(sum_rx.abs() < 0.01, "VM1 ΣFx={:.6} ≠ 0", sum_rx);
     assert_close(sum_ry, p, 0.01, "VM1 ΣFy");
@@ -399,9 +399,9 @@ fn validation_vm2_deflection_symmetry() {
         let d_left = results.displacements.iter().find(|d| d.node_id == left_node).unwrap();
         let d_right = results.displacements.iter().find(|d| d.node_id == right_node).unwrap();
         assert!(
-            (d_left.uy - d_right.uy).abs() < 1e-6,
+            (d_left.uz - d_right.uz).abs() < 1e-6,
             "Symmetry: node {} uy={:.6} vs node {} uy={:.6}",
-            left_node, d_left.uy, right_node, d_right.uy
+            left_node, d_left.uz, right_node, d_right.uz
         );
     }
 }

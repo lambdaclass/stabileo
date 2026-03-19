@@ -50,7 +50,7 @@ fn eccentric_beam_column_offset_kinematics() {
     ];
     let loads = vec![
         SolverLoad::Nodal(SolverNodalLoad {
-            node_id: 4, fx: fx_load, fy: 0.0, mz: 0.0,
+            node_id: 4, fx: fx_load, fz: 0.0, my: 0.0,
         }),
     ];
 
@@ -74,15 +74,15 @@ fn eccentric_beam_column_offset_kinematics() {
 
     // Rigid body kinematics check:
     //   slave_ux = master_ux - offset_y * master_rz
-    let expected_slave_ux = d_master.ux - offset_y * d_master.rz;
+    let expected_slave_ux = d_master.ux - offset_y * d_master.ry;
     assert_close(d_slave.ux, expected_slave_ux, 1e-4, "slave_ux rigid body kinematics");
 
     //   slave_uy = master_uy + offset_x * master_rz (offset_x = 0)
-    let expected_slave_uy = d_master.uy + 0.0 * d_master.rz;
-    assert_close(d_slave.uy, expected_slave_uy, 1e-4, "slave_uy rigid body kinematics");
+    let expected_slave_uy = d_master.uz + 0.0 * d_master.ry;
+    assert_close(d_slave.uz, expected_slave_uy, 1e-4, "slave_uy rigid body kinematics");
 
     // slave_rz = master_rz (rotation is shared)
-    assert_close(d_slave.rz, d_master.rz, 1e-4, "slave_rz = master_rz");
+    assert_close(d_slave.ry, d_master.ry, 1e-4, "slave_rz = master_rz");
 }
 
 // ---------------------------------------------------------------------------
@@ -118,7 +118,7 @@ fn eccentric_connection_load_equilibrium() {
     ];
     let loads = vec![
         SolverLoad::Nodal(SolverNodalLoad {
-            node_id: 4, fx: 0.0, fy: p_load, mz: 0.0,
+            node_id: 4, fx: 0.0, fz: p_load, my: 0.0,
         }),
     ];
 
@@ -136,7 +136,7 @@ fn eccentric_connection_load_equilibrium() {
     let results = linear::solve_2d(&input).unwrap();
 
     // Global vertical equilibrium: sum of ry reactions must equal -p_load (balance the load)
-    let sum_ry: f64 = results.reactions.iter().map(|r| r.ry).sum();
+    let sum_ry: f64 = results.reactions.iter().map(|r| r.rz).sum();
     assert_close(sum_ry, -p_load, 1e-3, "vertical equilibrium sum(Ry) = -P");
 
     // Global horizontal equilibrium: sum of rx reactions ~ 0 (no horizontal load)
@@ -146,7 +146,7 @@ fn eccentric_connection_load_equilibrium() {
     // Rigid body kinematics between master and slave
     let d_master = results.displacements.iter().find(|d| d.node_id == 2).unwrap();
     let d_slave = results.displacements.iter().find(|d| d.node_id == 4).unwrap();
-    let expected_slave_ux = d_master.ux - offset_y * d_master.rz;
+    let expected_slave_ux = d_master.ux - offset_y * d_master.ry;
     assert_close(d_slave.ux, expected_slave_ux, 1e-4, "slave_ux kinematics with load");
 }
 
@@ -177,7 +177,7 @@ fn eccentric_connection_constraint_forces_nonzero() {
     ];
     let loads = vec![
         SolverLoad::Nodal(SolverNodalLoad {
-            node_id: 4, fx: fx_load, fy: 0.0, mz: 0.0,
+            node_id: 4, fx: fx_load, fz: 0.0, my: 0.0,
         }),
     ];
 

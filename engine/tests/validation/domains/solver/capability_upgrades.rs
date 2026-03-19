@@ -68,11 +68,11 @@ fn capability_vm11_triangular_load_cantilever() {
     // Exact tip deflection for linearly varying load (q=0 at fixed, q_max at free):
     // delta = 11 * q_max * L^4 / (120 * E * I)
     let delta_exact = 11.0 * q_max.abs() * l.powi(4) / (120.0 * e_eff * iz);
-    let err_delta = (tip.uy.abs() - delta_exact).abs() / delta_exact;
+    let err_delta = (tip.uz.abs() - delta_exact).abs() / delta_exact;
     assert!(
         err_delta < 0.02,
         "VM11 delta_tip: computed={:.6e}, exact 11qL^4/(120EI)={:.6e}, error={:.2}%",
-        tip.uy.abs(),
+        tip.uz.abs(),
         delta_exact,
         err_delta * 100.0
     );
@@ -84,22 +84,22 @@ fn capability_vm11_triangular_load_cantilever() {
         .iter()
         .find(|r| r.node_id == 1)
         .unwrap();
-    let err_m = (r.mz.abs() - m_exact).abs() / m_exact;
+    let err_m = (r.my.abs() - m_exact).abs() / m_exact;
     assert!(
         err_m < 0.02,
         "VM11 M_fixed: computed={:.4}, exact q*L^2/3={:.4}, error={:.2}%",
-        r.mz.abs(),
+        r.my.abs(),
         m_exact,
         err_m * 100.0
     );
 
     // Exact fixed-end reaction: R = q_max * L / 2
     let r_exact = q_max.abs() * l / 2.0;
-    let err_r = (r.ry - r_exact).abs() / r_exact;
+    let err_r = (r.rz - r_exact).abs() / r_exact;
     assert!(
         err_r < 0.02,
         "VM11 R_fixed: computed={:.4}, exact q*L/2={:.4}, error={:.2}%",
-        r.ry,
+        r.rz,
         r_exact,
         err_r * 100.0
     );
@@ -152,8 +152,8 @@ fn capability_vm14a_mattiasson_elastica() {
         vec![SolverLoad::Nodal(SolverNodalLoad {
             node_id: n + 1,
             fx: 0.0,
-            fy: -p_load,
-            mz: 0.0,
+            fz: -p_load,
+            my: 0.0,
         })],
     );
 
@@ -170,7 +170,7 @@ fn capability_vm14a_mattiasson_elastica() {
     // Mattiasson reference for PL^2/(EI) = 1.0:
     // v_tip/L = 0.3015 (lateral deflection)
     // u_tip/L = 0.0566 (axial shortening)
-    let v_ratio = tip.uy.abs() / l;
+    let v_ratio = tip.uz.abs() / l;
     let u_ratio = tip.ux.abs() / l;
 
     let v_error = (v_ratio - 0.3015).abs() / 0.3015;
@@ -237,8 +237,8 @@ fn capability_vm15_plastic_collapse_fixed_beam() {
     let loads = vec![SolverLoad::Nodal(SolverNodalLoad {
         node_id: mid_node,
         fx: 0.0,
-        fy: -p_apply,
-        mz: 0.0,
+        fz: -p_apply,
+        my: 0.0,
     })];
 
     let solver = make_beam(n, l, e, a_sec, iz_sec, "fixed", Some("fixed"), loads);
@@ -301,8 +301,8 @@ fn capability_vm15_plastic_collapse_fixed_beam() {
     let loads_e = vec![SolverLoad::Nodal(SolverNodalLoad {
         node_id: mid_node,
         fx: 0.0,
-        fy: -p_elastic,
-        mz: 0.0,
+        fz: -p_elastic,
+        my: 0.0,
     })];
     let solver_e = make_beam(n, l, e, a_sec, iz_sec, "fixed", Some("fixed"), loads_e);
 
@@ -364,7 +364,7 @@ fn capability_vm15_plastic_collapse_fixed_beam() {
         .iter()
         .find(|d| d.node_id == mid_node)
         .unwrap()
-        .uy
+        .uz
         .abs();
 
     let err_disp = (mid_disp_elastic - delta_elastic_theory).abs() / delta_elastic_theory;
@@ -485,8 +485,8 @@ fn capability_vm18_quarter_circle_out_of_plane() {
         SolverSupport3D {
             node_id: 1,
             rx: true,
-            ry: true,
             rz: true,
+            ry: true,
             rrx: true,
             rry: true,
             rrz: true,
@@ -497,8 +497,8 @@ fn capability_vm18_quarter_circle_out_of_plane() {
             kry: None,
             krz: None,
             dx: None,
-            dy: None,
             dz: None,
+            dy: None,
             drx: None,
             dry: None,
             drz: None,
@@ -515,8 +515,8 @@ fn capability_vm18_quarter_circle_out_of_plane() {
     let loads = vec![SolverLoad3D::Nodal(SolverNodalLoad3D {
         node_id: 3,
         fx: 0.0,
-        fy: f_kn,
-        fz: 0.0,
+        fz: f_kn,
+        fy: 0.0,
         mx: 0.0,
         my: 0.0,
         mz: 0.0,
@@ -542,7 +542,7 @@ fn capability_vm18_quarter_circle_out_of_plane() {
         .iter()
         .find(|d| d.node_id == 3)
         .unwrap();
-    let computed = tip.uy.abs();
+    let computed = tip.uz.abs();
 
     let error = (computed - delta_ref).abs() / delta_ref;
     assert!(
@@ -684,8 +684,8 @@ fn capability_vm44_roark_circular_ring() {
         SolverSupport3D {
             node_id: 1,
             rx: true,
-            ry: true,
             rz: true,
+            ry: true,
             rrx: false,
             rry: false,
             rrz: false,
@@ -696,8 +696,8 @@ fn capability_vm44_roark_circular_ring() {
             kry: None,
             krz: None,
             dx: None,
-            dy: None,
             dz: None,
+            dy: None,
             drx: None,
             dry: None,
             drz: None,
@@ -714,8 +714,8 @@ fn capability_vm44_roark_circular_ring() {
         SolverSupport3D {
             node_id: 3,
             rx: true,
-            ry: false,
-            rz: true,
+            rz: false,
+            ry: true,
             rrx: false,
             rry: false,
             rrz: false,
@@ -726,8 +726,8 @@ fn capability_vm44_roark_circular_ring() {
             kry: None,
             krz: None,
             dx: None,
-            dy: None,
             dz: None,
+            dy: None,
             drx: None,
             dry: None,
             drz: None,
@@ -745,8 +745,8 @@ fn capability_vm44_roark_circular_ring() {
         SolverLoad3D::Nodal(SolverNodalLoad3D {
             node_id: 1,
             fx: 0.0,
-            fy: p,
-            fz: 0.0,
+            fz: p,
+            fy: 0.0,
             mx: 0.0,
             my: 0.0,
             mz: 0.0,
@@ -755,8 +755,8 @@ fn capability_vm44_roark_circular_ring() {
         SolverLoad3D::Nodal(SolverNodalLoad3D {
             node_id: 3,
             fx: 0.0,
-            fy: -p,
-            fz: 0.0,
+            fz: -p,
+            fy: 0.0,
             mx: 0.0,
             my: 0.0,
             mz: 0.0,
@@ -786,7 +786,7 @@ fn capability_vm44_roark_circular_ring() {
         .iter()
         .find(|d| d.node_id == 3)
         .unwrap();
-    let computed = top.uy.abs();
+    let computed = top.uz.abs();
 
     let error = (computed - delta_ref).abs() / delta_ref;
     assert!(

@@ -105,7 +105,7 @@ fn aluminum_truss_panel_deflection() {
     ];
     let sups_al = vec![(1, 1_usize, "pinned"), (2, 2_usize, "pinned")];
     let loads_al = vec![SolverLoad::Nodal(SolverNodalLoad {
-        node_id: 3, fx: 0.0, fy: p, mz: 0.0,
+        node_id: 3, fx: 0.0, fz: p, my: 0.0,
     })];
     let input_al = make_input(nodes_al, mats_al, secs_al, elems_al, sups_al, loads_al);
     let results_al = linear::solve_2d(&input_al).unwrap();
@@ -121,7 +121,7 @@ fn aluminum_truss_panel_deflection() {
     ];
     let sups_st = vec![(1, 1_usize, "pinned"), (2, 2_usize, "pinned")];
     let loads_st = vec![SolverLoad::Nodal(SolverNodalLoad {
-        node_id: 3, fx: 0.0, fy: p, mz: 0.0,
+        node_id: 3, fx: 0.0, fz: p, my: 0.0,
     })];
     let input_st = make_input(nodes_st, mats_st, secs_st, elems_st, sups_st, loads_st);
     let results_st = linear::solve_2d(&input_st).unwrap();
@@ -131,14 +131,14 @@ fn aluminum_truss_panel_deflection() {
     let d_st = results_st.displacements.iter().find(|d| d.node_id == 3).unwrap();
 
     // Deflection ratio should equal E_steel/E_al since delta ~ 1/E
-    let defl_ratio: f64 = d_al.uy / d_st.uy;
+    let defl_ratio: f64 = d_al.uz / d_st.uz;
     let e_ratio: f64 = e_steel / E_AL;
     crate::common::assert_close(defl_ratio, e_ratio, 0.02, "Truss deflection ratio Al/Steel");
 
     // Verify reactions are identical (same load, same geometry)
     let r1_al = results_al.reactions.iter().find(|r| r.node_id == 1).unwrap();
     let r1_st = results_st.reactions.iter().find(|r| r.node_id == 1).unwrap();
-    crate::common::assert_close(r1_al.ry, r1_st.ry, 0.01, "Reaction R1y same for Al and Steel");
+    crate::common::assert_close(r1_al.rz, r1_st.rz, 0.01, "Reaction R1y same for Al and Steel");
 }
 
 // ================================================================
@@ -238,7 +238,7 @@ fn aluminum_welded_beam_haz_capacity() {
 
     let mid_node = n / 2 + 1;
     let mid_d = results.displacements.iter().find(|d| d.node_id == mid_node).unwrap();
-    crate::common::assert_close(mid_d.uy.abs(), delta_exact, 0.02, "Al beam midspan deflection");
+    crate::common::assert_close(mid_d.uz.abs(), delta_exact, 0.02, "Al beam midspan deflection");
 
     // Maximum moment: M = q*L^2/8
     let m_max: f64 = q.abs() * l * l / 8.0; // kN.m = 25.0
@@ -415,13 +415,13 @@ fn aluminum_continuous_beam_two_span() {
     let r_b = results.reactions.iter().find(|r| r.node_id == mid_node).unwrap();
     let r_c = results.reactions.iter().find(|r| r.node_id == end_node).unwrap();
 
-    crate::common::assert_close(r_a.ry, r_end_expected, 0.02, "R_A = 3qL/8");
-    crate::common::assert_close(r_b.ry, r_mid_expected, 0.02, "R_B = 10qL/8");
-    crate::common::assert_close(r_c.ry, r_end_expected, 0.02, "R_C = 3qL/8");
+    crate::common::assert_close(r_a.rz, r_end_expected, 0.02, "R_A = 3qL/8");
+    crate::common::assert_close(r_b.rz, r_mid_expected, 0.02, "R_B = 10qL/8");
+    crate::common::assert_close(r_c.rz, r_end_expected, 0.02, "R_C = 3qL/8");
 
     // Equilibrium check: sum of reactions = total load
     let total_load: f64 = q_abs * 2.0 * l;
-    let sum_ry: f64 = results.reactions.iter().map(|r| r.ry).sum();
+    let sum_ry: f64 = results.reactions.iter().map(|r| r.rz).sum();
     crate::common::assert_close(sum_ry, total_load, 0.01, "Equilibrium: sum Ry = q*2L");
 
     // Moment at central support: M_B = -q*L^2/8 (hogging)
@@ -463,7 +463,7 @@ fn aluminum_portal_frame_lateral() {
     crate::common::assert_close(sum_rx, -lateral_h, 0.02, "Sum Rx = -H");
 
     // Total vertical reactions must be zero (no vertical load)
-    let sum_ry: f64 = results.reactions.iter().map(|r| r.ry).sum();
+    let sum_ry: f64 = results.reactions.iter().map(|r| r.rz).sum();
     crate::common::assert_close(sum_ry, 0.0, 0.05, "Sum Ry = 0");
 
     // For a symmetric portal with equal columns (fixed-fixed), each column
@@ -481,15 +481,15 @@ fn aluminum_portal_frame_lateral() {
     // M_base is related to the stiffness distribution. With same EI for both
     // columns and beam, each fixed base moment is nonzero.
     assert!(
-        r1.mz.abs() > 0.0 && r4.mz.abs() > 0.0,
-        "Base moments are nonzero: M1={:.2}, M4={:.2}", r1.mz, r4.mz
+        r1.my.abs() > 0.0 && r4.my.abs() > 0.0,
+        "Base moments are nonzero: M1={:.2}, M4={:.2}", r1.my, r4.my
     );
 
     // Global moment equilibrium about base of left column:
     // H*h + R4_x * 0 - R4_y * w - M1 - M4 = 0 (approximately)
     // Check: H*h = sum of base moments + R4_y * w
     let overturning: f64 = lateral_h * h;
-    let resisting: f64 = r1.mz.abs() + r4.mz.abs() + r4.ry.abs() * w;
+    let resisting: f64 = r1.my.abs() + r4.my.abs() + r4.rz.abs() * w;
     crate::common::assert_close(overturning, resisting, 0.05, "Moment equilibrium about base");
 }
 
@@ -510,7 +510,7 @@ fn aluminum_portal_frame_lateral() {
 fn aluminum_effective_width_method() {
     let e: f64 = 69_600.0;     // MPa
     let nu: f64 = 0.33;
-    let fy: f64 = 241.0;       // MPa (6061-T6)
+    let fz: f64 = 241.0;       // MPa (6061-T6)
     let pi: f64 = std::f64::consts::PI;
 
     // Plate buckling coefficient for internal element under uniform compression
@@ -519,7 +519,7 @@ fn aluminum_effective_width_method() {
     // Case 1: Compact plate (b/t = 12), expect full effective width
     let bt_compact: f64 = 12.0;
     let sigma_cr_1: f64 = k * pi * pi * e / (12.0 * (1.0 - nu * nu)) * (1.0 / bt_compact).powi(2);
-    let lambda_p_1: f64 = (fy / sigma_cr_1).sqrt();
+    let lambda_p_1: f64 = (fz / sigma_cr_1).sqrt();
 
     // For b/t=12: sigma_cr is high, lambda_p should be < 0.673
     let rho_1: f64 = if lambda_p_1 <= 0.673 {
@@ -532,7 +532,7 @@ fn aluminum_effective_width_method() {
     // Case 2: Slender plate (b/t = 40), expect reduced effective width
     let bt_slender: f64 = 40.0;
     let sigma_cr_2: f64 = k * pi * pi * e / (12.0 * (1.0 - nu * nu)) * (1.0 / bt_slender).powi(2);
-    let lambda_p_2: f64 = (fy / sigma_cr_2).sqrt();
+    let lambda_p_2: f64 = (fz / sigma_cr_2).sqrt();
 
     // lambda_p_2 should be > 0.673 for b/t=40
     assert!(
@@ -555,7 +555,7 @@ fn aluminum_effective_width_method() {
     // Case 3: Very slender plate (b/t = 60)
     let bt_very_slender: f64 = 60.0;
     let sigma_cr_3: f64 = k * pi * pi * e / (12.0 * (1.0 - nu * nu)) * (1.0 / bt_very_slender).powi(2);
-    let lambda_p_3: f64 = (fy / sigma_cr_3).sqrt();
+    let lambda_p_3: f64 = (fz / sigma_cr_3).sqrt();
     let rho_3: f64 = if lambda_p_3 <= 0.673 {
         1.0
     } else {

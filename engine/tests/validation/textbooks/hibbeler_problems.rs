@@ -65,14 +65,14 @@ fn validation_hibbeler_overhanging_beam() {
     }
     // Point load at C (tip of overhang)
     loads.push(SolverLoad::Nodal(SolverNodalLoad {
-        node_id: n_total + 1, fx: 0.0, fy: -p, mz: 0.0,
+        node_id: n_total + 1, fx: 0.0, fz: -p, my: 0.0,
     }));
 
     let input = make_input(nodes, vec![(1, E, 0.3)], vec![(1, A, IZ)], elems, sups, loads);
     let results = linear::solve_2d(&input).unwrap();
 
-    let ra = results.reactions.iter().find(|r| r.node_id == 1).unwrap().ry;
-    let rb = results.reactions.iter().find(|r| r.node_id == n_ab + 1).unwrap().ry;
+    let ra = results.reactions.iter().find(|r| r.node_id == 1).unwrap().rz;
+    let rb = results.reactions.iter().find(|r| r.node_id == n_ab + 1).unwrap().rz;
 
     assert_close(ra, 16.0, 0.02, "Hibbeler overhanging: RA = 16 kN");
     assert_close(rb, 32.0, 0.02, "Hibbeler overhanging: RB = 32 kN");
@@ -95,14 +95,14 @@ fn validation_hibbeler_internal_forces() {
 
     let input = make_beam(n, l, E, A, IZ, "pinned", Some("rollerX"),
         vec![SolverLoad::Nodal(SolverNodalLoad {
-            node_id: load_node, fx: 0.0, fy: -p, mz: 0.0,
+            node_id: load_node, fx: 0.0, fz: -p, my: 0.0,
         })]);
 
     let results = linear::solve_2d(&input).unwrap();
 
     // Reactions
-    let ra = results.reactions.iter().find(|r| r.node_id == 1).unwrap().ry;
-    let rb = results.reactions.iter().find(|r| r.node_id == n + 1).unwrap().ry;
+    let ra = results.reactions.iter().find(|r| r.node_id == 1).unwrap().rz;
+    let rb = results.reactions.iter().find(|r| r.node_id == n + 1).unwrap().rz;
     assert_close(ra, 12.0, 0.02, "Hibbeler: RA = Pb/L = 12");
     assert_close(rb, 8.0, 0.02, "Hibbeler: RB = Pa/L = 8");
 
@@ -139,7 +139,7 @@ fn validation_hibbeler_ss_deflection() {
     let delta_exact = 5.0 * q.abs() * l.powi(4) / (384.0 * e_eff * IZ);
     let mid = n / 2 + 1;
     let d_mid = results.displacements.iter().find(|d| d.node_id == mid).unwrap();
-    assert_close(d_mid.uy.abs(), delta_exact, 0.02,
+    assert_close(d_mid.uz.abs(), delta_exact, 0.02,
         "Hibbeler SS deflection: δ = 5wL⁴/(384EI)");
 }
 
@@ -176,11 +176,11 @@ fn validation_hibbeler_propped_cantilever_udl() {
     // Note: fixed end takes less vertical reaction (3/8), prop takes more (5/8)
     // Actually for propped cantilever with UDL: R_fixed = 5wL/8, R_prop = 3wL/8
     // M_fixed = wL²/8
-    assert_close(ra.ry, 5.0 * w * l / 8.0, 0.02,
+    assert_close(ra.rz, 5.0 * w * l / 8.0, 0.02,
         "Hibbeler propped: R_fixed = 5wL/8");
-    assert_close(rb.ry, 3.0 * w * l / 8.0, 0.02,
+    assert_close(rb.rz, 3.0 * w * l / 8.0, 0.02,
         "Hibbeler propped: R_prop = 3wL/8");
-    assert_close(ra.mz.abs(), ma_exact, 0.02,
+    assert_close(ra.my.abs(), ma_exact, 0.02,
         "Hibbeler propped: M_fixed = wL²/8");
 }
 
@@ -202,7 +202,7 @@ fn validation_hibbeler_fixed_fixed_center_load() {
     let mid = n / 2 + 1;
     let input = make_beam(n, l, E, A, IZ, "fixed", Some("fixed"),
         vec![SolverLoad::Nodal(SolverNodalLoad {
-            node_id: mid, fx: 0.0, fy: -p, mz: 0.0,
+            node_id: mid, fx: 0.0, fz: -p, my: 0.0,
         })]);
 
     let results = linear::solve_2d(&input).unwrap();
@@ -211,17 +211,17 @@ fn validation_hibbeler_fixed_fixed_center_load() {
     let rb = results.reactions.iter().find(|r| r.node_id == n + 1).unwrap();
 
     // Reactions = P/2
-    assert_close(ra.ry, p / 2.0, 0.02, "Hibbeler fixed-fixed: RA = P/2");
-    assert_close(rb.ry, p / 2.0, 0.02, "Hibbeler fixed-fixed: RB = P/2");
+    assert_close(ra.rz, p / 2.0, 0.02, "Hibbeler fixed-fixed: RA = P/2");
+    assert_close(rb.rz, p / 2.0, 0.02, "Hibbeler fixed-fixed: RB = P/2");
 
     // Moments = PL/8
-    assert_close(ra.mz.abs(), p * l / 8.0, 0.02,
+    assert_close(ra.my.abs(), p * l / 8.0, 0.02,
         "Hibbeler fixed-fixed: MA = PL/8");
 
     // Midspan deflection
     let delta_exact = p * l.powi(3) / (192.0 * e_eff * IZ);
     let d_mid = results.displacements.iter().find(|d| d.node_id == mid).unwrap();
-    assert_close(d_mid.uy.abs(), delta_exact, 0.02,
+    assert_close(d_mid.uz.abs(), delta_exact, 0.02,
         "Hibbeler fixed-fixed: δ = PL³/(192EI)");
 }
 
@@ -270,7 +270,7 @@ fn validation_hibbeler_moment_distribution_two_span() {
     let results = linear::solve_2d(&input).unwrap();
 
     // Equilibrium
-    let sum_ry: f64 = results.reactions.iter().map(|r| r.ry).sum();
+    let sum_ry: f64 = results.reactions.iter().map(|r| r.rz).sum();
     let total_load = q.abs() * l;
     assert_close(sum_ry, total_load, 0.02,
         "Hibbeler two-span: ΣRy = wL (load on span 1 only)");
@@ -307,7 +307,7 @@ fn validation_hibbeler_stiffness_matrix() {
 
     let input = make_beam(1, l, E, A, IZ, "fixed", None,
         vec![SolverLoad::Nodal(SolverNodalLoad {
-            node_id: 2, fx: 0.0, fy: -p, mz: 0.0,
+            node_id: 2, fx: 0.0, fz: -p, my: 0.0,
         })]);
 
     let results = linear::solve_2d(&input).unwrap();
@@ -315,18 +315,18 @@ fn validation_hibbeler_stiffness_matrix() {
 
     // Tip deflection
     let delta_exact = p * l.powi(3) / (3.0 * e_eff * IZ);
-    assert_close(tip.uy.abs(), delta_exact, 0.01,
+    assert_close(tip.uz.abs(), delta_exact, 0.01,
         "Hibbeler stiffness: δ = PL³/(3EI)");
 
     // Tip rotation
     let theta_exact = p * l.powi(2) / (2.0 * e_eff * IZ);
-    assert_close(tip.rz.abs(), theta_exact, 0.01,
+    assert_close(tip.ry.abs(), theta_exact, 0.01,
         "Hibbeler stiffness: θ = PL²/(2EI)");
 
     // Fixed-end reactions: Ry = P, Mz = PL
     let r = results.reactions.iter().find(|r| r.node_id == 1).unwrap();
-    assert_close(r.ry, p, 0.01, "Hibbeler stiffness: R = P");
-    assert_close(r.mz.abs(), p * l, 0.01, "Hibbeler stiffness: M = PL");
+    assert_close(r.rz, p, 0.01, "Hibbeler stiffness: R = P");
+    assert_close(r.my.abs(), p * l, 0.01, "Hibbeler stiffness: M = PL");
 }
 
 // ================================================================
@@ -355,7 +355,7 @@ fn validation_hibbeler_portal_frame_stiffness() {
     let r1 = results.reactions.iter().find(|r| r.node_id == 1).unwrap();
     let r4 = results.reactions.iter().find(|r| r.node_id == 4).unwrap();
 
-    let m_sum = -p * h + r1.mz + r4.mz + r4.ry * w;
+    let m_sum = -p * h + r1.my + r4.my + r4.rz * w;
     assert!(m_sum.abs() < p * h * 0.02,
         "Hibbeler portal moment equilibrium: residual={:.4}", m_sum);
 

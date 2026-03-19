@@ -49,7 +49,7 @@ const E_EFF: f64 = E * 1000.0;
 fn cfs_web_crippling_iof() {
     // All dimensions in mm for the crippling formula (standard practice)
     let t: f64 = 1.5;         // mm
-    let fy: f64 = 350.0;      // MPa
+    let fz: f64 = 350.0;      // MPa
     let theta: f64 = 90.0_f64.to_radians();
     let r: f64 = 3.0;         // mm, inside bend radius
     let n: f64 = 50.0;        // mm, bearing length
@@ -61,12 +61,12 @@ fn cfs_web_crippling_iof() {
     let h1: f64 = 150.0;      // mm
     let h2: f64 = 250.0;      // mm (deeper section)
 
-    let pn_1: f64 = c * t * t * fy * theta.sin()
+    let pn_1: f64 = c * t * t * fz * theta.sin()
         * (1.0 - c_r * (r / t).sqrt())
         * (1.0 + c_n * (n / t).sqrt())
         * (1.0 - c_h * (h1 / t).sqrt());
 
-    let pn_2: f64 = c * t * t * fy * theta.sin()
+    let pn_2: f64 = c * t * t * fz * theta.sin()
         * (1.0 - c_r * (r / t).sqrt())
         * (1.0 + c_n * (n / t).sqrt())
         * (1.0 - c_h * (h2 / t).sqrt());
@@ -115,7 +115,7 @@ fn cfs_web_crippling_iof() {
 
     // R_interior = 1.25 * |w| * L
     let r_expected: f64 = 1.25 * w.abs() * l;
-    assert_close(r_mid.ry, r_expected, 0.03, "Interior reaction (web crippling check)");
+    assert_close(r_mid.rz, r_expected, 0.03, "Interior reaction (web crippling check)");
 }
 
 // ================================================================
@@ -133,9 +133,9 @@ fn cfs_web_crippling_iof() {
 
 #[test]
 fn cfs_dsm_column_local_global() {
-    let fy: f64 = 345.0;      // MPa
+    let fz: f64 = 345.0;      // MPa
     let ag: f64 = 480.0;      // mm^2
-    let py: f64 = fy * ag / 1000.0; // kN = 165.6
+    let py: f64 = fz * ag / 1000.0; // kN = 165.6
 
     // Global buckling (flexural)
     let pcre: f64 = 120.0;    // kN
@@ -204,7 +204,7 @@ fn cfs_shear_buckling_web() {
     let h: f64 = 200.0;
     let a: f64 = 600.0;
     let nu: f64 = 0.3;
-    let fy: f64 = 350.0;
+    let fz: f64 = 350.0;
     let e_mpa: f64 = 203_000.0;
 
     // Shear buckling coefficient
@@ -220,7 +220,7 @@ fn cfs_shear_buckling_web() {
 
     assert!(fcr_v > 0.0, "Critical shear stress: {:.1} MPa", fcr_v);
 
-    let fy_v: f64 = fy / (3.0_f64).sqrt();
+    let fy_v: f64 = fz / (3.0_f64).sqrt();
 
     let lambda_v: f64 = (fy_v / fcr_v).sqrt();
     let vn_ratio: f64 = if lambda_v <= 0.815 {
@@ -253,8 +253,8 @@ fn cfs_shear_buckling_web() {
         vec![SolverLoad::Nodal(SolverNodalLoad {
             node_id: mid_node,
             fx: 0.0,
-            fy: p,
-            mz: 0.0,
+            fz: p,
+            my: 0.0,
         })],
     );
 
@@ -315,7 +315,7 @@ fn cfs_hat_section_purlin_gravity() {
         .find(|d| d.node_id == mid_node)
         .unwrap();
 
-    assert_close(mid_d.uy.abs(), delta_exact, 0.05, "Hat purlin midspan deflection");
+    assert_close(mid_d.uz.abs(), delta_exact, 0.05, "Hat purlin midspan deflection");
 
     // Check maximum moment at midspan
     let mid_elem = n_elems / 2;
@@ -326,11 +326,11 @@ fn cfs_hat_section_purlin_gravity() {
     assert_close(ef.m_end.abs(), m_max_exact, 0.05, "Hat purlin midspan moment");
 
     // LTB check: Mn = Sf * Fy if fully braced
-    let fy: f64 = 500.0;   // MPa (G500 steel)
+    let fz: f64 = 500.0;   // MPa (G500 steel)
     let _sf: f64 = iz_hat / 0.05 * 1e6; // mm^3: I(m^4)/y(m) -> m^3, *1e9 -> mm^3
     // Actually: Se = I/y in m^3, Mn = Se * fy (MPa) = Se(m^3)*fy(N/m^2*1e6)
     // Simpler: Mn(kN-m) = I(m^4)/(h/2)(m) * fy(MPa) * 1000
-    let mn_braced: f64 = iz_hat / 0.05 * fy * 1000.0; // kN-m
+    let mn_braced: f64 = iz_hat / 0.05 * fz * 1000.0; // kN-m
     let demand_ratio: f64 = m_max_exact / mn_braced;
     assert!(
         demand_ratio > 0.0 && demand_ratio < 5.0,
@@ -355,7 +355,7 @@ fn cfs_tension_member_net_section() {
     // Dimensions in mm for net section calculation
     let ag: f64 = 750.0;      // mm^2
     let t: f64 = 1.5;         // mm
-    let fy: f64 = 350.0;      // MPa
+    let fz: f64 = 350.0;      // MPa
     let fu: f64 = 450.0;      // MPa
 
     let n_holes: f64 = 2.0;
@@ -370,7 +370,7 @@ fn cfs_tension_member_net_section() {
     // = 708 * 0.75 = 531 mm^2
 
     // Capacity modes
-    let pn_yield: f64 = ag * fy / 1000.0;   // kN, yielding on gross section
+    let pn_yield: f64 = ag * fz / 1000.0;   // kN, yielding on gross section
     let pn_fracture: f64 = ae * fu / 1000.0; // kN, fracture on net section
 
     // Net section fracture should be less than gross yielding
@@ -400,8 +400,8 @@ fn cfs_tension_member_net_section() {
         vec![SolverLoad::Nodal(SolverNodalLoad {
             node_id: 2,
             fx: p_applied,
-            fy: 0.0,
-            mz: 0.0,
+            fz: 0.0,
+            my: 0.0,
         })],
     );
 
@@ -444,8 +444,8 @@ fn cfs_roof_truss_panel() {
         vec![SolverLoad::Nodal(SolverNodalLoad {
             node_id: 3,
             fx: 0.0,
-            fy: -p,
-            mz: 0.0,
+            fz: -p,
+            my: 0.0,
         })],
     );
 
@@ -460,8 +460,8 @@ fn cfs_roof_truss_panel() {
     // Reactions: symmetric triangle => R1y = R2y = P/2
     let r1 = results.reactions.iter().find(|r| r.node_id == 1).unwrap();
     let r2 = results.reactions.iter().find(|r| r.node_id == 2).unwrap();
-    assert_close(r1.ry, p / 2.0, 0.01, "R1y");
-    assert_close(r2.ry, p / 2.0, 0.01, "R2y");
+    assert_close(r1.rz, p / 2.0, 0.01, "R1y");
+    assert_close(r2.rz, p / 2.0, 0.01, "R2y");
 
     // Method of joints at node 1:
     // Left diagonal: length = sqrt(2^2 + 2^2) = 2*sqrt(2) = 2.828 m
@@ -538,8 +538,8 @@ fn cfs_thermal_bridging_stiffness() {
         vec![SolverLoad::Nodal(SolverNodalLoad {
             node_id: n_elems + 1,
             fx: 0.0,
-            fy: p,
-            mz: 0.0,
+            fz: p,
+            my: 0.0,
         })],
     );
 
@@ -548,7 +548,7 @@ fn cfs_thermal_bridging_stiffness() {
         .find(|d| d.node_id == n_elems + 1)
         .unwrap();
 
-    assert_close(tip.uy.abs(), delta_full, 0.05, "Cantilever stud deflection (full I)");
+    assert_close(tip.uz.abs(), delta_full, 0.05, "Cantilever stud deflection (full I)");
 
     // Verify reduced-I case with solver
     let input_red = make_beam(
@@ -562,8 +562,8 @@ fn cfs_thermal_bridging_stiffness() {
         vec![SolverLoad::Nodal(SolverNodalLoad {
             node_id: n_elems + 1,
             fx: 0.0,
-            fy: p,
-            mz: 0.0,
+            fz: p,
+            my: 0.0,
         })],
     );
 
@@ -572,10 +572,10 @@ fn cfs_thermal_bridging_stiffness() {
         .find(|d| d.node_id == n_elems + 1)
         .unwrap();
 
-    assert_close(tip_red.uy.abs(), delta_reduced, 0.05, "Cantilever stud deflection (reduced I)");
+    assert_close(tip_red.uz.abs(), delta_reduced, 0.05, "Cantilever stud deflection (reduced I)");
 
     // Solver ratio should match analytical ratio
-    let solver_ratio: f64 = tip_red.uy.abs() / tip.uy.abs();
+    let solver_ratio: f64 = tip_red.uz.abs() / tip.uz.abs();
     assert_close(solver_ratio, 1.0 / alpha, 0.05, "Solver deflection ratio matches 1/alpha");
 }
 
@@ -594,14 +594,14 @@ fn cfs_thermal_bridging_stiffness() {
 
 #[test]
 fn cfs_effective_section_modulus_iteration() {
-    let fy: f64 = 350.0;      // MPa
+    let fz: f64 = 350.0;      // MPa
     let k: f64 = 4.0;         // buckling coefficient for SS edges
     let e_mpa: f64 = 203_000.0;
 
     // Section 1: thick flange
     let b1: f64 = 60.0;       // mm
     let t1: f64 = 2.0;        // mm
-    let lambda1: f64 = (b1 / t1) / (1.052 * k.sqrt()) * (fy / e_mpa).sqrt();
+    let lambda1: f64 = (b1 / t1) / (1.052 * k.sqrt()) * (fz / e_mpa).sqrt();
     let rho1: f64 = if lambda1 <= 0.673 {
         1.0
     } else {
@@ -610,7 +610,7 @@ fn cfs_effective_section_modulus_iteration() {
 
     // Section 2: thin flange
     let t2: f64 = 1.0;        // mm
-    let lambda2: f64 = (b1 / t2) / (1.052 * k.sqrt()) * (fy / e_mpa).sqrt();
+    let lambda2: f64 = (b1 / t2) / (1.052 * k.sqrt()) * (fz / e_mpa).sqrt();
     let rho2: f64 = if lambda2 <= 0.673 {
         1.0
     } else {
@@ -641,8 +641,8 @@ fn cfs_effective_section_modulus_iteration() {
     assert!(se_2 < se_1, "Se_thin = {:.0} < Se_thick = {:.0} mm^3", se_2, se_1);
 
     // Moment capacity: Mn = Se * Fy
-    let mn_1: f64 = se_1 * fy / 1e6; // kN-m
-    let mn_2: f64 = se_2 * fy / 1e6; // kN-m
+    let mn_1: f64 = se_1 * fz / 1e6; // kN-m
+    let mn_2: f64 = se_2 * fz / 1e6; // kN-m
 
     assert!(mn_2 < mn_1, "Mn_thin = {:.2} < Mn_thick = {:.2} kN-m", mn_2, mn_1);
 
@@ -684,5 +684,5 @@ fn cfs_effective_section_modulus_iteration() {
         .unwrap();
 
     let delta_expected: f64 = 5.0 * q.abs() * span.powi(4) / (384.0 * E_EFF * i_eff_m4);
-    assert_close(mid_d.uy.abs(), delta_expected, 0.05, "SS beam deflection with effective I");
+    assert_close(mid_d.uz.abs(), delta_expected, 0.05, "SS beam deflection with effective I");
 }

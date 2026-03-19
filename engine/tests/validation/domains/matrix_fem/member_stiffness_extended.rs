@@ -45,7 +45,7 @@ fn validation_axial_stiffness_ea_over_l() {
         n, l, E, A, IZ,
         "fixed", None,
         vec![SolverLoad::Nodal(SolverNodalLoad {
-            node_id: 2, fx: p, fy: 0.0, mz: 0.0,
+            node_id: 2, fx: p, fz: 0.0, my: 0.0,
         })],
     );
 
@@ -62,8 +62,8 @@ fn validation_axial_stiffness_ea_over_l() {
     assert_close(k_computed, k_exact, 0.01, "axial stiffness k = EA/L");
 
     // Transverse displacement should be negligible
-    assert!(tip.uy.abs() < 1e-8,
-        "axial load: uy should be ~0, got {:.6e}", tip.uy);
+    assert!(tip.uz.abs() < 1e-8,
+        "axial load: uy should be ~0, got {:.6e}", tip.uz);
 }
 
 // ================================================================
@@ -87,7 +87,7 @@ fn validation_bending_stiffness_cantilever_vs_fixed_fixed() {
         n, l, E, A, IZ,
         "fixed", None,
         vec![SolverLoad::Nodal(SolverNodalLoad {
-            node_id: n + 1, fx: 0.0, fy: -p, mz: 0.0,
+            node_id: n + 1, fx: 0.0, fz: -p, my: 0.0,
         })],
     );
     let res_cant = linear::solve_2d(&input_cant).unwrap();
@@ -99,7 +99,7 @@ fn validation_bending_stiffness_cantilever_vs_fixed_fixed() {
         n, l, E, A, IZ,
         "fixed", Some("fixed"),
         vec![SolverLoad::Nodal(SolverNodalLoad {
-            node_id: mid, fx: 0.0, fy: -p, mz: 0.0,
+            node_id: mid, fx: 0.0, fz: -p, my: 0.0,
         })],
     );
     let res_ff = linear::solve_2d(&input_ff).unwrap();
@@ -109,18 +109,18 @@ fn validation_bending_stiffness_cantilever_vs_fixed_fixed() {
     let delta_cant_exact = p * l.powi(3) / (3.0 * E_EFF * IZ);
     let delta_ff_exact = p * l.powi(3) / (192.0 * E_EFF * IZ);
 
-    let err_cant: f64 = (tip_cant.uy.abs() - delta_cant_exact).abs() / delta_cant_exact;
+    let err_cant: f64 = (tip_cant.uz.abs() - delta_cant_exact).abs() / delta_cant_exact;
     assert!(err_cant < 0.02,
         "cantilever delta: actual={:.6e}, exact={:.6e}, err={:.2}%",
-        tip_cant.uy.abs(), delta_cant_exact, err_cant * 100.0);
+        tip_cant.uz.abs(), delta_cant_exact, err_cant * 100.0);
 
-    let err_ff: f64 = (mid_ff.uy.abs() - delta_ff_exact).abs() / delta_ff_exact;
+    let err_ff: f64 = (mid_ff.uz.abs() - delta_ff_exact).abs() / delta_ff_exact;
     assert!(err_ff < 0.05,
         "fixed-fixed delta: actual={:.6e}, exact={:.6e}, err={:.2}%",
-        mid_ff.uy.abs(), delta_ff_exact, err_ff * 100.0);
+        mid_ff.uz.abs(), delta_ff_exact, err_ff * 100.0);
 
     // Stiffness ratio: fixed-fixed is 64x stiffer than cantilever
-    let ratio: f64 = tip_cant.uy.abs() / mid_ff.uy.abs();
+    let ratio: f64 = tip_cant.uz.abs() / mid_ff.uz.abs();
     assert_close(ratio, 64.0, 0.05, "stiffness ratio k_ff/k_cant = 64");
 }
 
@@ -145,22 +145,22 @@ fn validation_stiffness_proportional_to_i() {
         n, l, E, A, iz1,
         "fixed", None,
         vec![SolverLoad::Nodal(SolverNodalLoad {
-            node_id: n + 1, fx: 0.0, fy: -p, mz: 0.0,
+            node_id: n + 1, fx: 0.0, fz: -p, my: 0.0,
         })],
     );
     let input2 = make_beam(
         n, l, E, A, iz2,
         "fixed", None,
         vec![SolverLoad::Nodal(SolverNodalLoad {
-            node_id: n + 1, fx: 0.0, fy: -p, mz: 0.0,
+            node_id: n + 1, fx: 0.0, fz: -p, my: 0.0,
         })],
     );
 
     let res1 = linear::solve_2d(&input1).unwrap();
     let res2 = linear::solve_2d(&input2).unwrap();
 
-    let d1 = res1.displacements.iter().find(|d| d.node_id == n + 1).unwrap().uy.abs();
-    let d2 = res2.displacements.iter().find(|d| d.node_id == n + 1).unwrap().uy.abs();
+    let d1 = res1.displacements.iter().find(|d| d.node_id == n + 1).unwrap().uz.abs();
+    let d2 = res2.displacements.iter().find(|d| d.node_id == n + 1).unwrap().uz.abs();
 
     // d1 should be exactly 2 * d2 (doubling I halves deflection)
     let ratio: f64 = d1 / d2;
@@ -195,22 +195,22 @@ fn validation_stiffness_inversely_proportional_to_l_cubed() {
         n1, l1, E, A, IZ,
         "fixed", None,
         vec![SolverLoad::Nodal(SolverNodalLoad {
-            node_id: n1 + 1, fx: 0.0, fy: -p, mz: 0.0,
+            node_id: n1 + 1, fx: 0.0, fz: -p, my: 0.0,
         })],
     );
     let input2 = make_beam(
         n2, l2, E, A, IZ,
         "fixed", None,
         vec![SolverLoad::Nodal(SolverNodalLoad {
-            node_id: n2 + 1, fx: 0.0, fy: -p, mz: 0.0,
+            node_id: n2 + 1, fx: 0.0, fz: -p, my: 0.0,
         })],
     );
 
     let res1 = linear::solve_2d(&input1).unwrap();
     let res2 = linear::solve_2d(&input2).unwrap();
 
-    let d1 = res1.displacements.iter().find(|d| d.node_id == n1 + 1).unwrap().uy.abs();
-    let d2 = res2.displacements.iter().find(|d| d.node_id == n2 + 1).unwrap().uy.abs();
+    let d1 = res1.displacements.iter().find(|d| d.node_id == n1 + 1).unwrap().uz.abs();
+    let d2 = res2.displacements.iter().find(|d| d.node_id == n2 + 1).unwrap().uz.abs();
 
     // d2 / d1 should be (L2/L1)^3 = 2^3 = 8
     let ratio: f64 = d2 / d1;
@@ -244,22 +244,22 @@ fn validation_stiffness_proportional_to_e() {
         n, l, e1, A, IZ,
         "fixed", None,
         vec![SolverLoad::Nodal(SolverNodalLoad {
-            node_id: n + 1, fx: 0.0, fy: -p, mz: 0.0,
+            node_id: n + 1, fx: 0.0, fz: -p, my: 0.0,
         })],
     );
     let input2 = make_beam(
         n, l, e2, A, IZ,
         "fixed", None,
         vec![SolverLoad::Nodal(SolverNodalLoad {
-            node_id: n + 1, fx: 0.0, fy: -p, mz: 0.0,
+            node_id: n + 1, fx: 0.0, fz: -p, my: 0.0,
         })],
     );
 
     let res1 = linear::solve_2d(&input1).unwrap();
     let res2 = linear::solve_2d(&input2).unwrap();
 
-    let d1 = res1.displacements.iter().find(|d| d.node_id == n + 1).unwrap().uy.abs();
-    let d2 = res2.displacements.iter().find(|d| d.node_id == n + 1).unwrap().uy.abs();
+    let d1 = res1.displacements.iter().find(|d| d.node_id == n + 1).unwrap().uz.abs();
+    let d2 = res2.displacements.iter().find(|d| d.node_id == n + 1).unwrap().uz.abs();
 
     // d1 should be exactly 2 * d2 (doubling E halves deflection)
     let ratio: f64 = d1 / d2;
@@ -294,7 +294,7 @@ fn validation_rotational_stiffness_cantilever_tip_moment() {
         n, l, E, A, IZ,
         "fixed", None,
         vec![SolverLoad::Nodal(SolverNodalLoad {
-            node_id: n + 1, fx: 0.0, fy: 0.0, mz: m,
+            node_id: n + 1, fx: 0.0, fz: 0.0, my: m,
         })],
     );
 
@@ -303,16 +303,16 @@ fn validation_rotational_stiffness_cantilever_tip_moment() {
 
     // theta = ML / (EI)
     let theta_exact = m * l / (E_EFF * IZ);
-    assert_close(tip.rz, theta_exact, 0.02, "tip rotation theta = ML/(EI)");
+    assert_close(tip.ry, theta_exact, 0.02, "tip rotation theta = ML/(EI)");
 
     // Rotational stiffness: k_rot = M / theta = EI / L
     let k_rot_exact = E_EFF * IZ / l;
-    let k_rot_computed: f64 = m / tip.rz;
+    let k_rot_computed: f64 = m / tip.ry;
     assert_close(k_rot_computed, k_rot_exact, 0.02, "rotational stiffness k = EI/L");
 
     // Also check tip deflection: delta = ML^2/(2EI)
     let delta_exact = m * l * l / (2.0 * E_EFF * IZ);
-    assert_close(tip.uy.abs(), delta_exact, 0.02, "tip deflection delta = ML^2/(2EI)");
+    assert_close(tip.uz.abs(), delta_exact, 0.02, "tip deflection delta = ML^2/(2EI)");
 }
 
 // ================================================================
@@ -389,7 +389,7 @@ fn validation_combined_axial_bending_independence() {
         n, l, E, A, IZ,
         "fixed", None,
         vec![SolverLoad::Nodal(SolverNodalLoad {
-            node_id: n + 1, fx: p_axial, fy: 0.0, mz: 0.0,
+            node_id: n + 1, fx: p_axial, fz: 0.0, my: 0.0,
         })],
     );
     let res_axial = linear::solve_2d(&input_axial).unwrap();
@@ -400,7 +400,7 @@ fn validation_combined_axial_bending_independence() {
         n, l, E, A, IZ,
         "fixed", None,
         vec![SolverLoad::Nodal(SolverNodalLoad {
-            node_id: n + 1, fx: 0.0, fy: -p_trans, mz: 0.0,
+            node_id: n + 1, fx: 0.0, fz: -p_trans, my: 0.0,
         })],
     );
     let res_trans = linear::solve_2d(&input_trans).unwrap();
@@ -411,7 +411,7 @@ fn validation_combined_axial_bending_independence() {
         n, l, E, A, IZ,
         "fixed", None,
         vec![SolverLoad::Nodal(SolverNodalLoad {
-            node_id: n + 1, fx: p_axial, fy: -p_trans, mz: 0.0,
+            node_id: n + 1, fx: p_axial, fz: -p_trans, my: 0.0,
         })],
     );
     let res_combined = linear::solve_2d(&input_combined).unwrap();
@@ -422,11 +422,11 @@ fn validation_combined_axial_bending_independence() {
         "combined ux matches pure axial ux");
 
     // Transverse displacement from combined should match pure bending
-    assert_close(tip_combined.uy, tip_trans.uy, 0.02,
+    assert_close(tip_combined.uz, tip_trans.uz, 0.02,
         "combined uy matches pure bending uy");
 
     // Rotation from combined should match pure bending
-    assert_close(tip_combined.rz, tip_trans.rz, 0.02,
+    assert_close(tip_combined.ry, tip_trans.ry, 0.02,
         "combined rz matches pure bending rz");
 
     // Verify against analytical formulas
@@ -434,6 +434,6 @@ fn validation_combined_axial_bending_independence() {
     let uy_exact = -p_trans * l.powi(3) / (3.0 * E_EFF * IZ);
     assert_close(tip_combined.ux, ux_exact, 0.02,
         "combined ux = PL/(EA)");
-    assert_close(tip_combined.uy, uy_exact, 0.02,
+    assert_close(tip_combined.uz, uy_exact, 0.02,
         "combined uy = PL^3/(3EI)");
 }

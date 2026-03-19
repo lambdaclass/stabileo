@@ -80,24 +80,24 @@ fn validation_tri_ext_propped_cantilever_equilibrium() {
 
     // Global equilibrium: R_A_y + R_B_y = qL/2 (total load)
     let total_load = q * l / 2.0;
-    assert_close(r_a.ry + r_b.ry, total_load, 0.01,
+    assert_close(r_a.rz + r_b.rz, total_load, 0.01,
         "Propped cantilever tri: sum Ry = qL/2");
 
     // Fixed end has a moment reaction, roller does not
-    assert!(r_a.mz.abs() > 0.1,
-        "Propped cantilever tri: fixed end should have moment, got {:.6}", r_a.mz);
+    assert!(r_a.my.abs() > 0.1,
+        "Propped cantilever tri: fixed end should have moment, got {:.6}", r_a.my);
 
     // The fixed end takes more load than the roller since load is
     // heavier near B but the fixed end provides moment restraint.
     // Both reactions should be positive (upward).
-    assert!(r_a.ry > 0.0, "R_A should be upward: {:.6}", r_a.ry);
-    assert!(r_b.ry > 0.0, "R_B should be upward: {:.6}", r_b.ry);
+    assert!(r_a.rz > 0.0, "R_A should be upward: {:.6}", r_a.rz);
+    assert!(r_b.rz > 0.0, "R_B should be upward: {:.6}", r_b.rz);
 
     // More of the load goes to the roller end since the load is heavier
     // near B. But with fixed support, R_A still gets a significant share.
     // Just check both are reasonable fractions of total load.
-    assert!(r_a.ry > 0.05 * total_load, "R_A should be at least 5% of total");
-    assert!(r_b.ry > 0.05 * total_load, "R_B should be at least 5% of total");
+    assert!(r_a.rz > 0.05 * total_load, "R_A should be at least 5% of total");
+    assert!(r_b.rz > 0.05 * total_load, "R_B should be at least 5% of total");
 }
 
 // ================================================================
@@ -127,7 +127,7 @@ fn validation_tri_ext_cantilever_zero_at_root() {
     let results = linear::solve_2d(&input).unwrap();
 
     let tip = results.displacements.iter().find(|d| d.node_id == n + 1).unwrap();
-    let delta_computed: f64 = tip.uy.abs();
+    let delta_computed: f64 = tip.uz.abs();
 
     // Analytical: delta_tip = 11*q*L^4 / (120*E*I)
     let delta_exact: f64 = 11.0 * q * l.powi(4) / (120.0 * e_eff * IZ);
@@ -137,12 +137,12 @@ fn validation_tri_ext_cantilever_zero_at_root() {
 
     // Reactions: R_y = qL/2, M_A = qL^2/3 (about centroid at 2L/3)
     let r1 = results.reactions.iter().find(|r| r.node_id == 1).unwrap();
-    assert_close(r1.ry, q * l / 2.0, 0.02,
+    assert_close(r1.rz, q * l / 2.0, 0.02,
         "Cantilever tri (0 at root): R = qL/2");
 
     // Moment at fixed end: M = qL^2/3
     // (integral of q*x/L * x dx from 0 to L = qL^2/3)
-    assert_close(r1.mz.abs(), q * l * l / 3.0, 0.05,
+    assert_close(r1.my.abs(), q * l * l / 3.0, 0.05,
         "Cantilever tri (0 at root): M = qL^2/3");
 }
 
@@ -177,7 +177,7 @@ fn validation_tri_ext_ss_max_deflection() {
 
     // Find maximum deflection across all nodes
     let max_disp: f64 = results.displacements.iter()
-        .map(|d| d.uy.abs())
+        .map(|d| d.uz.abs())
         .fold(0.0_f64, f64::max);
 
     // Analytical max deflection: delta_max = 0.01304 * qL^4/(EI)
@@ -189,7 +189,7 @@ fn validation_tri_ext_ss_max_deflection() {
     // Max deflection occurs near x = 0.5193*L
     // Find the node with the largest deflection
     let max_node = results.displacements.iter()
-        .max_by(|a, b| a.uy.abs().partial_cmp(&b.uy.abs()).unwrap())
+        .max_by(|a, b| a.uz.abs().partial_cmp(&b.uz.abs()).unwrap())
         .unwrap();
     let x_max_computed: f64 = (max_node.node_id as f64 - 1.0) * l / n as f64;
     let x_max_exact: f64 = 0.5193 * l;
@@ -248,9 +248,9 @@ fn validation_tri_ext_two_span_continuous() {
     let node_b = n_per_span + 1;
     let node_c = n_total + 1;
 
-    let r_a = results.reactions.iter().find(|r| r.node_id == node_a).unwrap().ry;
-    let r_b = results.reactions.iter().find(|r| r.node_id == node_b).unwrap().ry;
-    let r_c = results.reactions.iter().find(|r| r.node_id == node_c).unwrap().ry;
+    let r_a = results.reactions.iter().find(|r| r.node_id == node_a).unwrap().rz;
+    let r_b = results.reactions.iter().find(|r| r.node_id == node_b).unwrap().rz;
+    let r_c = results.reactions.iter().find(|r| r.node_id == node_c).unwrap().rz;
 
     // Global equilibrium: R_A + R_B + R_C = qL/2
     let total_load: f64 = q * l / 2.0;
@@ -303,8 +303,8 @@ fn validation_tri_ext_antisymmetric_load() {
     let input = make_beam(n, l, E, A, IZ, "pinned", Some("rollerX"), loads);
     let results = linear::solve_2d(&input).unwrap();
 
-    let r_a = results.reactions.iter().find(|r| r.node_id == 1).unwrap().ry;
-    let r_b = results.reactions.iter().find(|r| r.node_id == n + 1).unwrap().ry;
+    let r_a = results.reactions.iter().find(|r| r.node_id == 1).unwrap().rz;
+    let r_b = results.reactions.iter().find(|r| r.node_id == n + 1).unwrap().rz;
 
     // Net load is zero, so R_A + R_B = 0
     assert_close(r_a + r_b, 0.0, 0.01,
@@ -324,7 +324,7 @@ fn validation_tri_ext_antisymmetric_load() {
     // By antisymmetry, midspan deflection should be zero
     let mid_node = n / 2 + 1;
     let d_mid: f64 = results.displacements.iter()
-        .find(|d| d.node_id == mid_node).unwrap().uy.abs();
+        .find(|d| d.node_id == mid_node).unwrap().uz.abs();
 
     // Should be exactly zero by antisymmetry (within numerical tolerance)
     assert!(d_mid < 1e-10,
@@ -354,16 +354,16 @@ fn validation_tri_ext_fixed_fixed_reversed_moments() {
     let input_fwd = make_beam(n, l, E, A, IZ, "fixed", Some("fixed"), loads_fwd);
     let res_fwd = linear::solve_2d(&input_fwd).unwrap();
 
-    let m_a_fwd: f64 = res_fwd.reactions.iter().find(|r| r.node_id == 1).unwrap().mz;
-    let m_b_fwd: f64 = res_fwd.reactions.iter().find(|r| r.node_id == n + 1).unwrap().mz;
+    let m_a_fwd: f64 = res_fwd.reactions.iter().find(|r| r.node_id == 1).unwrap().my;
+    let m_b_fwd: f64 = res_fwd.reactions.iter().find(|r| r.node_id == n + 1).unwrap().my;
 
     // Reversed: q at A, 0 at B
     let loads_rev = triangular_loads(n, -q, 0.0);
     let input_rev = make_beam(n, l, E, A, IZ, "fixed", Some("fixed"), loads_rev);
     let res_rev = linear::solve_2d(&input_rev).unwrap();
 
-    let m_a_rev: f64 = res_rev.reactions.iter().find(|r| r.node_id == 1).unwrap().mz;
-    let m_b_rev: f64 = res_rev.reactions.iter().find(|r| r.node_id == n + 1).unwrap().mz;
+    let m_a_rev: f64 = res_rev.reactions.iter().find(|r| r.node_id == 1).unwrap().my;
+    let m_b_rev: f64 = res_rev.reactions.iter().find(|r| r.node_id == n + 1).unwrap().my;
 
     // Forward: |M_A| = qL^2/30, |M_B| = qL^2/20
     let m_small: f64 = q * l * l / 30.0;
@@ -409,7 +409,7 @@ fn validation_tri_ext_cantilever_tip_rotation() {
     let results = linear::solve_2d(&input).unwrap();
 
     let tip = results.displacements.iter().find(|d| d.node_id == n + 1).unwrap();
-    let theta_computed: f64 = tip.rz.abs();
+    let theta_computed: f64 = tip.ry.abs();
 
     // Analytical: theta_tip = qL^3 / (24EI)
     let theta_exact: f64 = q * l.powi(3) / (24.0 * e_eff * IZ);
@@ -418,7 +418,7 @@ fn validation_tri_ext_cantilever_tip_rotation() {
         "Cantilever tri (q at root): theta_tip = qL^3/(24EI)");
 
     // Also verify tip deflection: delta = qL^4/(30EI)
-    let delta_computed: f64 = tip.uy.abs();
+    let delta_computed: f64 = tip.uz.abs();
     let delta_exact: f64 = q * l.powi(4) / (30.0 * e_eff * IZ);
     assert_close(delta_computed, delta_exact, 0.05,
         "Cantilever tri (q at root): delta_tip = qL^4/(30EI)");

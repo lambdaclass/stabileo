@@ -55,7 +55,7 @@ fn validation_truss_3bar_triangle() {
         ],
         vec![(1, 1, "pinned"), (2, 2, "rollerX")],
         vec![SolverLoad::Nodal(SolverNodalLoad {
-            node_id: 3, fx: 0.0, fy: -p, mz: 0.0,
+            node_id: 3, fx: 0.0, fz: -p, my: 0.0,
         })],
     );
     let results = linear::solve_2d(&input).unwrap();
@@ -69,12 +69,12 @@ fn validation_truss_3bar_triangle() {
     // Check reactions (symmetric triangle: R1y = R2y = P/2 = 15)
     let r1 = results.reactions.iter().find(|r| r.node_id == 1).unwrap();
     let r2 = results.reactions.iter().find(|r| r.node_id == 2).unwrap();
-    assert_close(r1.ry, 15.0, 0.02, "R1y");
-    assert_close(r2.ry, 15.0, 0.02, "R2y");
+    assert_close(r1.rz, 15.0, 0.02, "R1y");
+    assert_close(r2.rz, 15.0, 0.02, "R2y");
 
     // Global equilibrium: ΣRx = 0, ΣRy = P
     let sum_rx: f64 = results.reactions.iter().map(|r| r.rx).sum();
-    let sum_ry: f64 = results.reactions.iter().map(|r| r.ry).sum();
+    let sum_ry: f64 = results.reactions.iter().map(|r| r.rz).sum();
     assert_close(sum_rx, 0.0, 0.02, "ΣRx");
     assert_close(sum_ry, p, 0.02, "ΣRy");
 
@@ -111,7 +111,7 @@ fn validation_truss_single_bar_axial() {
         ],
         vec![(1, 1, "pinned"), (2, 2, "rollerX")],
         vec![SolverLoad::Nodal(SolverNodalLoad {
-            node_id: 2, fx, fy: 0.0, mz: 0.0,
+            node_id: 2, fx, fz: 0.0, my: 0.0,
         })],
     );
     let results = linear::solve_2d(&input).unwrap();
@@ -166,7 +166,7 @@ fn validation_truss_warren_2panel_diagonals() {
         ],
         vec![(1, 1, "pinned"), (2, 3, "rollerX")],
         vec![SolverLoad::Nodal(SolverNodalLoad {
-            node_id: 2, fx: 0.0, fy: -p, mz: 0.0,
+            node_id: 2, fx: 0.0, fz: -p, my: 0.0,
         })],
     );
     let results = linear::solve_2d(&input).unwrap();
@@ -174,11 +174,11 @@ fn validation_truss_warren_2panel_diagonals() {
     // Reactions: symmetric loading about midspan
     let r1 = results.reactions.iter().find(|r| r.node_id == 1).unwrap();
     let r3 = results.reactions.iter().find(|r| r.node_id == 3).unwrap();
-    assert_close(r1.ry, 25.0, 0.02, "warren R1y");
-    assert_close(r3.ry, 25.0, 0.02, "warren R3y");
+    assert_close(r1.rz, 25.0, 0.02, "warren R1y");
+    assert_close(r3.rz, 25.0, 0.02, "warren R3y");
 
     // Global equilibrium
-    let sum_ry: f64 = results.reactions.iter().map(|r| r.ry).sum();
+    let sum_ry: f64 = results.reactions.iter().map(|r| r.rz).sum();
     assert_close(sum_ry, p, 0.02, "warren ΣRy");
 
     // All moments zero (truss behavior)
@@ -231,7 +231,7 @@ fn validation_truss_zero_force_members() {
         ],
         vec![(1, 1, "pinned"), (2, 2, "rollerX")],
         vec![SolverLoad::Nodal(SolverNodalLoad {
-            node_id: 3, fx: 0.0, fy: -p, mz: 0.0,
+            node_id: 3, fx: 0.0, fz: -p, my: 0.0,
         })],
     );
     let results = linear::solve_2d(&input).unwrap();
@@ -294,7 +294,7 @@ fn validation_truss_k_truss_symmetry() {
         ],
         vec![(1, 1, "pinned"), (2, 3, "rollerX")],
         vec![SolverLoad::Nodal(SolverNodalLoad {
-            node_id: 5, fx: 0.0, fy: -p, mz: 0.0,
+            node_id: 5, fx: 0.0, fz: -p, my: 0.0,
         })],
     );
     let results = linear::solve_2d(&input).unwrap();
@@ -302,8 +302,8 @@ fn validation_truss_k_truss_symmetry() {
     // Symmetric reactions
     let r1 = results.reactions.iter().find(|r| r.node_id == 1).unwrap();
     let r3 = results.reactions.iter().find(|r| r.node_id == 3).unwrap();
-    assert_close(r1.ry, p / 2.0, 0.02, "K-truss R1y");
-    assert_close(r3.ry, p / 2.0, 0.02, "K-truss R3y");
+    assert_close(r1.rz, p / 2.0, 0.02, "K-truss R1y");
+    assert_close(r3.rz, p / 2.0, 0.02, "K-truss R3y");
 
     // Left diagonal (elem 8: 1→5) and right diagonal (elem 9: 5→3)
     // By symmetry, they should have equal magnitude axial forces.
@@ -354,14 +354,14 @@ fn validation_truss_deflection_virtual_work() {
         elems_data.clone(),
         vec![(1, 1, "pinned"), (2, 2, "rollerX")],
         vec![SolverLoad::Nodal(SolverNodalLoad {
-            node_id: 3, fx: 0.0, fy: -p, mz: 0.0,
+            node_id: 3, fx: 0.0, fz: -p, my: 0.0,
         })],
     );
     let results = linear::solve_2d(&input).unwrap();
 
     // Get FEM deflection at node 3
     let disp3 = results.displacements.iter().find(|d| d.node_id == 3).unwrap();
-    let fem_delta_y = disp3.uy; // should be negative (downward)
+    let fem_delta_y = disp3.uz; // should be negative (downward)
 
     // Virtual work: delta = Σ(N * n * L) / (E_eff * A)
     // With unit load in same direction as real load, n_i = N_i / P
@@ -438,8 +438,8 @@ fn validation_truss_all_moments_zero() {
         ],
         vec![(1, 1, "pinned"), (2, 4, "rollerX")],
         vec![
-            SolverLoad::Nodal(SolverNodalLoad { node_id: 6, fx: 0.0, fy: -p, mz: 0.0 }),
-            SolverLoad::Nodal(SolverNodalLoad { node_id: 7, fx: 0.0, fy: -p, mz: 0.0 }),
+            SolverLoad::Nodal(SolverNodalLoad { node_id: 6, fx: 0.0, fz: -p, my: 0.0 }),
+            SolverLoad::Nodal(SolverNodalLoad { node_id: 7, fx: 0.0, fz: -p, my: 0.0 }),
         ],
     );
     let results = linear::solve_2d(&input).unwrap();
@@ -509,37 +509,37 @@ fn validation_truss_pratt_global_equilibrium() {
         ],
         vec![(1, 1, "pinned"), (2, 6, "rollerX")],
         vec![
-            SolverLoad::Nodal(SolverNodalLoad { node_id: 7, fx: 0.0, fy: -20.0, mz: 0.0 }),
-            SolverLoad::Nodal(SolverNodalLoad { node_id: 8, fx: 10.0, fy: -30.0, mz: 0.0 }),
-            SolverLoad::Nodal(SolverNodalLoad { node_id: 9, fx: 0.0, fy: -25.0, mz: 0.0 }),
-            SolverLoad::Nodal(SolverNodalLoad { node_id: 10, fx: 0.0, fy: -15.0, mz: 0.0 }),
+            SolverLoad::Nodal(SolverNodalLoad { node_id: 7, fx: 0.0, fz: -20.0, my: 0.0 }),
+            SolverLoad::Nodal(SolverNodalLoad { node_id: 8, fx: 10.0, fz: -30.0, my: 0.0 }),
+            SolverLoad::Nodal(SolverNodalLoad { node_id: 9, fx: 0.0, fz: -25.0, my: 0.0 }),
+            SolverLoad::Nodal(SolverNodalLoad { node_id: 10, fx: 0.0, fz: -15.0, my: 0.0 }),
         ],
     );
     let results = linear::solve_2d(&input).unwrap();
 
     // Applied loads
     let total_fx: f64 = 10.0; // only horizontal load at node 8
-    let total_fy: f64 = 20.0 + 30.0 + 25.0 + 15.0; // = 90 downward
+    let total_fz: f64 = 20.0 + 30.0 + 25.0 + 15.0; // = 90 downward
 
     // Reaction sums
     let sum_rx: f64 = results.reactions.iter().map(|r| r.rx).sum();
-    let sum_ry: f64 = results.reactions.iter().map(|r| r.ry).sum();
+    let sum_ry: f64 = results.reactions.iter().map(|r| r.rz).sum();
 
     // ΣRx + ΣFx = 0 => ΣRx = -ΣFx
     assert_close(sum_rx, -total_fx, 0.02, "Pratt ΣRx equilibrium");
     // ΣRy = total downward load (reactions are upward)
-    assert_close(sum_ry, total_fy, 0.02, "Pratt ΣRy equilibrium");
+    assert_close(sum_ry, total_fz, 0.02, "Pratt ΣRy equilibrium");
 
     // Moment equilibrium about node 1:
     // R6y * 15 = 20*3 + 30*6 + 25*9 + 15*12 + 10*4 (horizontal load at height 4, clockwise)
     // R6y * 15 = 60 + 180 + 225 + 180 + 40 = 685
     // R6y = 685/15 = 45.667
     let r6 = results.reactions.iter().find(|r| r.node_id == 6).unwrap();
-    assert_close(r6.ry, 685.0 / 15.0, 0.02, "Pratt R6y by moment");
+    assert_close(r6.rz, 685.0 / 15.0, 0.02, "Pratt R6y by moment");
 
     // R1y = 90 - R6y = 90 - 45.667 = 44.333
     let r1 = results.reactions.iter().find(|r| r.node_id == 1).unwrap();
-    assert_close(r1.ry, 90.0 - 685.0 / 15.0, 0.02, "Pratt R1y by moment");
+    assert_close(r1.rz, 90.0 - 685.0 / 15.0, 0.02, "Pratt R1y by moment");
 
     // All moments zero (truss behavior)
     for ef in &results.element_forces {

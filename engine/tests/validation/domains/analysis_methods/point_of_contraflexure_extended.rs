@@ -119,8 +119,8 @@ fn validation_poc_ext_propped_cantilever_udl_from_roller() {
         .iter()
         .find(|r| r.node_id == n + 1)
         .unwrap();
-    assert_close(r_a.ry, 5.0 * q.abs() * l / 8.0, 0.02, "Propped UDL: R_A = 5qL/8");
-    assert_close(r_b.ry, 3.0 * q.abs() * l / 8.0, 0.02, "Propped UDL: R_B = 3qL/8");
+    assert_close(r_a.rz, 5.0 * q.abs() * l / 8.0, 0.02, "Propped UDL: R_A = 5qL/8");
+    assert_close(r_b.rz, 3.0 * q.abs() * l / 8.0, 0.02, "Propped UDL: R_B = 3qL/8");
 
     // Find contraflexure point
     let pts = find_contraflexure_points(&results, 1..=n);
@@ -244,8 +244,8 @@ fn validation_poc_ext_propped_cantilever_midspan_load() {
     let loads = vec![SolverLoad::Nodal(SolverNodalLoad {
         node_id: mid_node,
         fx: 0.0,
-        fy: -p,
-        mz: 0.0,
+        fz: -p,
+        my: 0.0,
     })];
     let input = make_beam(n, l, E, A, IZ, "fixed", Some("rollerX"), loads);
     let results = linear::solve_2d(&input).unwrap();
@@ -257,10 +257,10 @@ fn validation_poc_ext_propped_cantilever_midspan_load() {
         .iter()
         .find(|r| r.node_id == n + 1)
         .unwrap();
-    assert_close(r_b.ry, 5.0 * p / 16.0, 0.03, "Propped mid P: R_B = 5P/16");
-    assert_close(r_a.ry, 11.0 * p / 16.0, 0.03, "Propped mid P: R_A = 11P/16");
+    assert_close(r_b.rz, 5.0 * p / 16.0, 0.03, "Propped mid P: R_B = 5P/16");
+    assert_close(r_a.rz, 11.0 * p / 16.0, 0.03, "Propped mid P: R_A = 11P/16");
     assert_close(
-        r_a.mz.abs(),
+        r_a.my.abs(),
         3.0 * p * l / 16.0,
         0.03,
         "Propped mid P: M_A = 3PL/16",
@@ -377,7 +377,7 @@ fn validation_poc_ext_two_span_udl_sign_change() {
 
     // Vertical equilibrium
     let total_load: f64 = q.abs() * 2.0 * span;
-    let sum_ry: f64 = results.reactions.iter().map(|r| r.ry).sum();
+    let sum_ry: f64 = results.reactions.iter().map(|r| r.rz).sum();
     assert_close(sum_ry, total_load, 0.02, "Two-span UDL: sum Ry = 2qL");
 }
 
@@ -501,8 +501,8 @@ fn validation_poc_ext_fixed_fixed_end_moment() {
     let loads = vec![SolverLoad::Nodal(SolverNodalLoad {
         node_id: mid_node,
         fx: 0.0,
-        fy: 0.0,
-        mz: m0,
+        fz: 0.0,
+        my: m0,
     })];
     let input = make_beam(n, l, E, A, IZ, "fixed", Some("fixed"), loads);
     let results = linear::solve_2d(&input).unwrap();
@@ -516,18 +516,18 @@ fn validation_poc_ext_fixed_fixed_end_moment() {
 
     // Both end moments should be non-zero
     assert!(
-        r1.mz.abs() > 0.1,
+        r1.my.abs() > 0.1,
         "Fixed-fixed moment: left end moment exists: {:.4}",
-        r1.mz
+        r1.my
     );
     assert!(
-        r2.mz.abs() > 0.1,
+        r2.my.abs() > 0.1,
         "Fixed-fixed moment: right end moment exists: {:.4}",
-        r2.mz
+        r2.my
     );
 
     // Vertical equilibrium: sum Ry ~ 0 (only moment applied, no transverse load)
-    let sum_ry: f64 = results.reactions.iter().map(|r| r.ry).sum();
+    let sum_ry: f64 = results.reactions.iter().map(|r| r.rz).sum();
     assert!(
         sum_ry.abs() < 0.01,
         "Fixed-fixed moment: sum Ry ~ 0: {:.6}",
@@ -536,7 +536,7 @@ fn validation_poc_ext_fixed_fixed_end_moment() {
 
     // Moment equilibrium about left end:
     // M_A + R_B * L + M_B + M0 = 0
-    let moment_balance: f64 = r1.mz + r2.ry * l + r2.mz + m0;
+    let moment_balance: f64 = r1.my + r2.rz * l + r2.my + m0;
     assert!(
         moment_balance.abs() < 1.0,
         "Fixed-fixed moment: moment equilibrium: {:.4}",
@@ -660,7 +660,7 @@ fn validation_poc_ext_continuous_beam_hogging_sagging() {
 
     // Vertical equilibrium
     let total_load: f64 = q.abs() * 3.0 * span;
-    let sum_ry: f64 = results.reactions.iter().map(|r| r.ry).sum();
+    let sum_ry: f64 = results.reactions.iter().map(|r| r.rz).sum();
     assert_close(
         sum_ry,
         total_load,
@@ -714,7 +714,7 @@ fn validation_poc_ext_propped_cantilever_triangular() {
 
     // Vertical equilibrium: sum of reactions = total load = q_max * L / 2
     let total_load: f64 = q_max.abs() * l / 2.0;
-    let sum_ry: f64 = results.reactions.iter().map(|r| r.ry).sum();
+    let sum_ry: f64 = results.reactions.iter().map(|r| r.rz).sum();
     assert_close(
         sum_ry,
         total_load,
@@ -725,9 +725,9 @@ fn validation_poc_ext_propped_cantilever_triangular() {
     // Fixed end should have a moment reaction
     let r_a = results.reactions.iter().find(|r| r.node_id == 1).unwrap();
     assert!(
-        r_a.mz.abs() > 0.1,
+        r_a.my.abs() > 0.1,
         "Propped tri: fixed end moment exists: {:.4}",
-        r_a.mz
+        r_a.my
     );
 
     // Contraflexure should exist

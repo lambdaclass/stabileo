@@ -64,8 +64,8 @@ fn validation_braced_frame_eccentric_brace_link_forces() {
     let loads = vec![SolverLoad::Nodal(SolverNodalLoad {
         node_id: 2,
         fx: p,
-        fy: 0.0,
-        mz: 0.0,
+        fz: 0.0,
+        my: 0.0,
     })];
 
     let input = make_input(
@@ -157,8 +157,8 @@ fn validation_braced_frame_column_overturning_forces() {
     let loads = vec![SolverLoad::Nodal(SolverNodalLoad {
         node_id: 2,
         fx: p,
-        fy: 0.0,
-        mz: 0.0,
+        fz: 0.0,
+        my: 0.0,
     })];
 
     let input = make_input(
@@ -186,13 +186,13 @@ fn validation_braced_frame_column_overturning_forces() {
         .iter()
         .find(|r| r.node_id == 1)
         .unwrap()
-        .ry;
+        .rz;
     let ry_right = results
         .reactions
         .iter()
         .find(|r| r.node_id == 4)
         .unwrap()
-        .ry;
+        .rz;
 
     // Vertical reactions should form a couple
     // Sum should be ~0 (no net vertical load)
@@ -263,9 +263,9 @@ fn validation_braced_frame_three_story_alternating() {
     ];
     let sups = vec![(1, 1_usize, "fixed"), (2, 5, "fixed")];
     let loads = vec![
-        SolverLoad::Nodal(SolverNodalLoad { node_id: 2, fx: p, fy: 0.0, mz: 0.0 }),
-        SolverLoad::Nodal(SolverNodalLoad { node_id: 3, fx: p, fy: 0.0, mz: 0.0 }),
-        SolverLoad::Nodal(SolverNodalLoad { node_id: 4, fx: p, fy: 0.0, mz: 0.0 }),
+        SolverLoad::Nodal(SolverNodalLoad { node_id: 2, fx: p, fz: 0.0, my: 0.0 }),
+        SolverLoad::Nodal(SolverNodalLoad { node_id: 3, fx: p, fz: 0.0, my: 0.0 }),
+        SolverLoad::Nodal(SolverNodalLoad { node_id: 4, fx: p, fz: 0.0, my: 0.0 }),
     ];
 
     let input = make_input(
@@ -363,7 +363,7 @@ fn validation_braced_frame_distributed_gravity() {
     // Vertical equilibrium: total applied = q * w (downward, so negative)
     // Reactions should sum to |q * w| upward
     let total_applied: f64 = q * w; // negative
-    let sum_ry: f64 = results.reactions.iter().map(|r| r.ry).sum();
+    let sum_ry: f64 = results.reactions.iter().map(|r| r.rz).sum();
     assert_close(sum_ry, -total_applied, 0.02, "Distributed gravity: SumRy = q*L");
 
     // No horizontal load => horizontal reactions should sum to zero
@@ -425,8 +425,8 @@ fn validation_braced_frame_asymmetric_column_shear() {
     let loads = vec![SolverLoad::Nodal(SolverNodalLoad {
         node_id: 2,
         fx: p,
-        fy: 0.0,
-        mz: 0.0,
+        fz: 0.0,
+        my: 0.0,
     })];
 
     let input = make_input(
@@ -506,8 +506,8 @@ fn validation_braced_frame_pin_vs_fixed_base() {
         let loads = vec![SolverLoad::Nodal(SolverNodalLoad {
             node_id: 2,
             fx: p,
-            fy: 0.0,
-            mz: 0.0,
+            fz: 0.0,
+            my: 0.0,
         })];
         let input = make_input(
             nodes,
@@ -595,8 +595,8 @@ fn validation_braced_frame_overturning_moment_balance() {
     ];
     let sups = vec![(1, 1_usize, "fixed"), (2, 4, "fixed")];
     let loads = vec![
-        SolverLoad::Nodal(SolverNodalLoad { node_id: 2, fx: p1, fy: 0.0, mz: 0.0 }),
-        SolverLoad::Nodal(SolverNodalLoad { node_id: 3, fx: p2, fy: 0.0, mz: 0.0 }),
+        SolverLoad::Nodal(SolverNodalLoad { node_id: 2, fx: p1, fz: 0.0, my: 0.0 }),
+        SolverLoad::Nodal(SolverNodalLoad { node_id: 3, fx: p2, fz: 0.0, my: 0.0 }),
     ];
 
     let input = make_input(
@@ -622,9 +622,9 @@ fn validation_braced_frame_overturning_moment_balance() {
     //   M_applied + Rx_1*0 + Ry_1*0 + Mz_1 + Rx_4*0 + Ry_4*w + Mz_4 = 0
     //   => M_applied + Mz_1 + Ry_4*w + Mz_4 = 0
 
-    let ry_4 = results.reactions.iter().find(|r| r.node_id == 4).unwrap().ry;
-    let mz_1 = results.reactions.iter().find(|r| r.node_id == 1).unwrap().mz;
-    let mz_4 = results.reactions.iter().find(|r| r.node_id == 4).unwrap().mz;
+    let ry_4 = results.reactions.iter().find(|r| r.node_id == 4).unwrap().rz;
+    let mz_1 = results.reactions.iter().find(|r| r.node_id == 1).unwrap().my;
+    let mz_4 = results.reactions.iter().find(|r| r.node_id == 4).unwrap().my;
 
     // Convention: positive applied moment is counterclockwise.
     // Reactions resist applied loads, so the total reaction moment
@@ -683,8 +683,8 @@ fn validation_braced_frame_stiffness_vs_brace_area() {
         let loads = vec![SolverLoad::Nodal(SolverNodalLoad {
             node_id: 2,
             fx: p,
-            fy: 0.0,
-            mz: 0.0,
+            fz: 0.0,
+            my: 0.0,
         })];
         let input = make_input(
             nodes,

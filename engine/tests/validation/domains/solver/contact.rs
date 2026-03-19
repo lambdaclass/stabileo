@@ -14,8 +14,8 @@ use dedaliano_engine::solver::contact::*;
 use dedaliano_engine::types::*;
 use std::collections::HashMap;
 
-fn node(id: usize, x: f64, y: f64) -> SolverNode {
-    SolverNode { id, x, y }
+fn node(id: usize, x: f64, z: f64) -> SolverNode {
+    SolverNode { id, x, z }
 }
 
 fn frame(id: usize, ni: usize, nj: usize) -> SolverElement {
@@ -37,7 +37,7 @@ fn fixed(id: usize, node_id: usize) -> SolverSupport {
         node_id,
         support_type: "fixed".into(),
         kx: None, ky: None, kz: None,
-        dx: None, dy: None, drz: None,
+        dx: None, dz: None, dry: None,
         angle: None,
     }
 }
@@ -80,7 +80,7 @@ fn test_tension_only_bar_goes_slack() {
         ]),
         loads: vec![
             // Rightward force → compresses element 2 (from (2,0) toward (1,1))
-            SolverLoad::Nodal(SolverNodalLoad { node_id: 3, fx: 100.0, fy: 0.0, mz: 0.0 }),
+            SolverLoad::Nodal(SolverNodalLoad { node_id: 3, fx: 100.0, fz: 0.0, my: 0.0 }),
         ],
         constraints: vec![],
         connectors: HashMap::new(),
@@ -134,7 +134,7 @@ fn test_gap_closes_under_compression() {
             (3, fixed(3, 3)),
         ]),
         loads: vec![
-            SolverLoad::Nodal(SolverNodalLoad { node_id: 2, fx: 500.0, fy: 0.0, mz: 0.0 }),
+            SolverLoad::Nodal(SolverNodalLoad { node_id: 2, fx: 500.0, fz: 0.0, my: 0.0 }),
         ],
         constraints: vec![],
         connectors: HashMap::new(),
@@ -198,7 +198,7 @@ fn test_compression_only_element() {
             (2, fixed(2, 2)),
         ]),
         loads: vec![
-            SolverLoad::Nodal(SolverNodalLoad { node_id: 3, fx: 0.0, fy: -50.0, mz: 0.0 }),
+            SolverLoad::Nodal(SolverNodalLoad { node_id: 3, fx: 0.0, fz: -50.0, my: 0.0 }),
         ],
         constraints: vec![],
         connectors: HashMap::new(),
@@ -247,7 +247,7 @@ fn test_oscillation_damping() {
             (3, fixed(3, 3)),
         ]),
         loads: vec![
-            SolverLoad::Nodal(SolverNodalLoad { node_id: 2, fx: 500.0, fy: 0.0, mz: 0.0 }),
+            SolverLoad::Nodal(SolverNodalLoad { node_id: 2, fx: 500.0, fz: 0.0, my: 0.0 }),
         ],
         constraints: vec![],
         connectors: HashMap::new(),
@@ -304,7 +304,7 @@ fn test_gap_friction_coulomb_limit() {
             (3, fixed(3, 3)),
         ]),
         loads: vec![
-            SolverLoad::Nodal(SolverNodalLoad { node_id: 2, fx: 10.0, fy: 500.0, mz: 0.0 }),
+            SolverLoad::Nodal(SolverNodalLoad { node_id: 2, fx: 10.0, fz: 500.0, my: 0.0 }),
         ],
         constraints: vec![],
         connectors: HashMap::new(),
@@ -382,7 +382,7 @@ fn test_multiple_gaps_mixed_states() {
             (5, fixed(5, 5)),
         ]),
         loads: vec![
-            SolverLoad::Nodal(SolverNodalLoad { node_id: 2, fx: 500.0, fy: 0.0, mz: 0.0 }),
+            SolverLoad::Nodal(SolverNodalLoad { node_id: 2, fx: 500.0, fz: 0.0, my: 0.0 }),
         ],
         constraints: vec![],
         connectors: HashMap::new(),
@@ -440,7 +440,7 @@ fn test_augmented_lagrangian_reduces_penetration() {
                 (3, fixed(3, 3)),
             ]),
             loads: vec![
-                SolverLoad::Nodal(SolverNodalLoad { node_id: 2, fx: 500.0, fy: 0.0, mz: 0.0 }),
+                SolverLoad::Nodal(SolverNodalLoad { node_id: 2, fx: 500.0, fz: 0.0, my: 0.0 }),
             ],
             constraints: vec![],
             connectors: HashMap::new(),
@@ -504,7 +504,7 @@ fn test_convergence_stable_problem() {
         ]),
         loads: vec![
             // Tensile load at tip
-            SolverLoad::Nodal(SolverNodalLoad { node_id: 3, fx: 100.0, fy: 0.0, mz: 0.0 }),
+            SolverLoad::Nodal(SolverNodalLoad { node_id: 3, fx: 100.0, fz: 0.0, my: 0.0 }),
         ],
         constraints: vec![],
         connectors: HashMap::new(),

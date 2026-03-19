@@ -62,7 +62,7 @@ fn validation_classification_braced_no_sway() {
     let secs = vec![(1, A, IZ), (2, A * 100.0, IZ)];
     let sups = vec![(1, 1, "fixed"), (2, 4, "fixed")];
     let loads = vec![SolverLoad::Nodal(SolverNodalLoad {
-        node_id: 2, fx: p, fy: 0.0, mz: 0.0,
+        node_id: 2, fx: p, fz: 0.0, my: 0.0,
     })];
 
     let input_braced = make_input(nodes, vec![(1, E, 0.3)], secs, elems, sups, loads);
@@ -197,7 +197,7 @@ fn validation_classification_pinned_vs_fixed_base_sway() {
     ];
     let sups_pinned = vec![(1, 1, "pinned"), (2, 4, "pinned")];
     let loads = vec![SolverLoad::Nodal(SolverNodalLoad {
-        node_id: 2, fx: p, fy: 0.0, mz: 0.0,
+        node_id: 2, fx: p, fz: 0.0, my: 0.0,
     })];
 
     let input_pinned = make_input(nodes, vec![(1, E, 0.3)], vec![(1, A, IZ)],
@@ -250,8 +250,8 @@ fn validation_classification_symmetric_gravity_no_sway() {
         "Symmetric gravity: ux at node 3 should be 0, got {:.6e}", ux3);
 
     // Vertical reactions at bases should be equal (symmetric)
-    let r1 = results.reactions.iter().find(|r| r.node_id == 1).unwrap().ry;
-    let r4 = results.reactions.iter().find(|r| r.node_id == 4).unwrap().ry;
+    let r1 = results.reactions.iter().find(|r| r.node_id == 1).unwrap().rz;
+    let r4 = results.reactions.iter().find(|r| r.node_id == 4).unwrap().rz;
     let err = (r1 - r4).abs() / r1.abs().max(1e-12);
     assert!(err < 1e-8,
         "Symmetric gravity: R1={:.6} and R4={:.6} should be equal", r1, r4);
@@ -284,7 +284,7 @@ fn validation_classification_asymmetric_gravity_sway() {
     ];
     let sups = vec![(1, 1, "fixed"), (2, 4, "fixed")];
     let loads = vec![SolverLoad::Nodal(SolverNodalLoad {
-        node_id: 2, fx: 0.0, fy: -p, mz: 0.0,
+        node_id: 2, fx: 0.0, fz: -p, my: 0.0,
     })];
 
     let input = make_input(nodes, vec![(1, E, 0.3)], vec![(1, A, IZ)],
@@ -292,7 +292,7 @@ fn validation_classification_asymmetric_gravity_sway() {
     let results = linear::solve_2d(&input).unwrap();
 
     let ux2 = results.displacements.iter().find(|d| d.node_id == 2).unwrap().ux;
-    let uy2 = results.displacements.iter().find(|d| d.node_id == 2).unwrap().uy;
+    let uy2 = results.displacements.iter().find(|d| d.node_id == 2).unwrap().uz;
 
     // Lateral drift must exist (non-zero) due to asymmetry
     assert!(ux2.abs() > 1e-12,
@@ -304,7 +304,7 @@ fn validation_classification_asymmetric_gravity_sway() {
         ux2.abs(), uy2.abs());
 
     // Global equilibrium: ΣFy = applied gravity load
-    let sum_ry: f64 = results.reactions.iter().map(|r| r.ry).sum();
+    let sum_ry: f64 = results.reactions.iter().map(|r| r.rz).sum();
     let err = (sum_ry - p).abs() / p;
     assert!(err < 0.01,
         "ΣRy={:.4} should equal P={:.1}", sum_ry, p);
@@ -383,7 +383,7 @@ fn validation_classification_sway_sensitivity_to_column_stiffness() {
     let secs = vec![(1, A, IZ), (2, A, iz_col)];
     let sups = vec![(1, 1, "fixed"), (2, 4, "fixed")];
     let loads = vec![SolverLoad::Nodal(SolverNodalLoad {
-        node_id: 2, fx: p, fy: 0.0, mz: 0.0,
+        node_id: 2, fx: p, fz: 0.0, my: 0.0,
     })];
 
     let input_stiff = make_input(nodes, vec![(1, E, 0.3)], secs, elems, sups, loads);

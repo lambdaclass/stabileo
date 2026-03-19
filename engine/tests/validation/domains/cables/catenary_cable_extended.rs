@@ -69,7 +69,7 @@ fn validation_parabolic_sag_horizontal_thrust() {
         ];
         let sups = vec![(1, 1, "pinned"), (2, 3, "pinned")];
         let loads = vec![SolverLoad::Nodal(SolverNodalLoad {
-            node_id: 2, fx: 0.0, fy: -p, mz: 0.0,
+            node_id: 2, fx: 0.0, fz: -p, my: 0.0,
         })];
 
         let input = make_input(
@@ -93,7 +93,7 @@ fn validation_parabolic_sag_horizontal_thrust() {
             &format!("Parabolic H at sag={}", sag));
 
         // Vertical equilibrium
-        let sum_ry: f64 = results.reactions.iter().map(|r| r.ry).sum();
+        let sum_ry: f64 = results.reactions.iter().map(|r| r.rz).sum();
         assert_close(sum_ry, p, 0.02,
             &format!("Parabolic vertical eq at sag={}", sag));
 
@@ -254,10 +254,10 @@ fn validation_multi_span_cable() {
     // Loads at sag nodes
     let loads = vec![
         SolverLoad::Nodal(SolverNodalLoad {
-            node_id: 2, fx: 0.0, fy: -p, mz: 0.0,
+            node_id: 2, fx: 0.0, fz: -p, my: 0.0,
         }),
         SolverLoad::Nodal(SolverNodalLoad {
-            node_id: 4, fx: 0.0, fy: -p, mz: 0.0,
+            node_id: 4, fx: 0.0, fz: -p, my: 0.0,
         }),
     ];
 
@@ -272,22 +272,22 @@ fn validation_multi_span_cable() {
     let results = solve_2d(&input).unwrap();
 
     // Global vertical equilibrium
-    let sum_ry: f64 = results.reactions.iter().map(|r| r.ry).sum();
+    let sum_ry: f64 = results.reactions.iter().map(|r| r.rz).sum();
     assert_close(sum_ry, 2.0 * p, 0.02, "Multi-span cable sum_ry");
 
     // Symmetry: end supports should have equal vertical reactions
     let r1 = results.reactions.iter().find(|r| r.node_id == 1).unwrap();
     let r5 = results.reactions.iter().find(|r| r.node_id == 5).unwrap();
-    assert_close(r1.ry, r5.ry, 0.02, "Multi-span cable: symmetric end reactions");
+    assert_close(r1.rz, r5.rz, 0.02, "Multi-span cable: symmetric end reactions");
 
     // Intermediate support should carry vertical reaction from both spans
     let r3 = results.reactions.iter().find(|r| r.node_id == 3).unwrap();
     // By symmetry, each span contributes P/2 to the intermediate support
     // So R3_y = P/2 + P/2 = P
-    assert_close(r3.ry, p, 0.05, "Multi-span cable: intermediate support vertical");
+    assert_close(r3.rz, p, 0.05, "Multi-span cable: intermediate support vertical");
 
     // Each end support: R_y = P/2
-    assert_close(r1.ry, p / 2.0, 0.05, "Multi-span cable: left end vertical");
+    assert_close(r1.rz, p / 2.0, 0.05, "Multi-span cable: left end vertical");
 
     // Horizontal equilibrium
     let sum_rx: f64 = results.reactions.iter().map(|r| r.rx).sum();
@@ -358,7 +358,7 @@ fn validation_cable_concentrated_load_arbitrary() {
     ];
     let sups = vec![(1, 1, "pinned"), (2, 3, "pinned")];
     let loads = vec![SolverLoad::Nodal(SolverNodalLoad {
-        node_id: 2, fx: 0.0, fy: -p, mz: 0.0,
+        node_id: 2, fx: 0.0, fz: -p, my: 0.0,
     })];
 
     let input = make_input(
@@ -379,8 +379,8 @@ fn validation_cable_concentrated_load_arbitrary() {
     let r1 = results.reactions.iter().find(|r| r.node_id == 1).unwrap();
     let r3 = results.reactions.iter().find(|r| r.node_id == 3).unwrap();
 
-    assert_close(r1.ry, r1_y_expected, 0.03, "Cable off-center: R1_y");
-    assert_close(r3.ry, r3_y_expected, 0.03, "Cable off-center: R3_y");
+    assert_close(r1.rz, r1_y_expected, 0.03, "Cable off-center: R1_y");
+    assert_close(r3.rz, r3_y_expected, 0.03, "Cable off-center: R3_y");
     assert_close(r1.rx.abs(), h_expected, 0.03, "Cable off-center: H");
 
     // Analytical tensions
@@ -476,7 +476,7 @@ fn validation_inclined_cable() {
     ];
     let sups = vec![(1, 1, "pinned"), (2, 3, "pinned")];
     let loads = vec![SolverLoad::Nodal(SolverNodalLoad {
-        node_id: 2, fx: 0.0, fy: -p, mz: 0.0,
+        node_id: 2, fx: 0.0, fz: -p, my: 0.0,
     })];
 
     let input = make_input(
@@ -490,7 +490,7 @@ fn validation_inclined_cable() {
     let results = solve_2d(&input).unwrap();
 
     // Global equilibrium checks
-    let sum_ry: f64 = results.reactions.iter().map(|r| r.ry).sum();
+    let sum_ry: f64 = results.reactions.iter().map(|r| r.rz).sum();
     let sum_rx: f64 = results.reactions.iter().map(|r| r.rx).sum();
     assert_close(sum_ry, p, 0.02, "Inclined cable: vertical equilibrium");
     assert!(sum_rx.abs() < 0.1,

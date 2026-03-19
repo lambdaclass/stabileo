@@ -43,13 +43,13 @@ fn validation_h_convergence_cantilever_tip() {
         let input = make_beam(
             n, length, E, A, IZ, "fixed", None,
             vec![SolverLoad::Nodal(SolverNodalLoad {
-                node_id: n + 1, fx: 0.0, fy: p, mz: 0.0,
+                node_id: n + 1, fx: 0.0, fz: p, my: 0.0,
             })],
         );
         let results = linear::solve_2d(&input).unwrap();
         let d_tip = results.displacements.iter()
             .find(|d| d.node_id == n + 1).unwrap();
-        let err = (d_tip.uy.abs() - delta_exact).abs() / delta_exact;
+        let err = (d_tip.uz.abs() - delta_exact).abs() / delta_exact;
         errors.push(err);
     }
 
@@ -95,7 +95,7 @@ fn validation_h_convergence_ss_beam_udl() {
         let mid = n / 2 + 1;
         let d_mid = results.displacements.iter()
             .find(|d| d.node_id == mid).unwrap();
-        let err = (d_mid.uy.abs() - delta_exact).abs() / delta_exact;
+        let err = (d_mid.uz.abs() - delta_exact).abs() / delta_exact;
         errors.push(err);
     }
 
@@ -139,7 +139,7 @@ fn validation_h_convergence_reactions() {
         let input = make_ss_beam_udl(n, length, E, A, IZ, q);
         let results = linear::solve_2d(&input).unwrap();
         let r1 = results.reactions.iter().find(|r| r.node_id == 1).unwrap();
-        let err = (r1.ry - r_exact).abs() / r_exact;
+        let err = (r1.rz - r_exact).abs() / r_exact;
         errors.push(err);
     }
 
@@ -175,7 +175,7 @@ fn validation_h_convergence_end_moment() {
         }
         let results = linear::solve_2d(&input).unwrap();
         let r1 = results.reactions.iter().find(|r| r.node_id == 1).unwrap();
-        let err = (r1.mz.abs() - m_exact).abs() / m_exact;
+        let err = (r1.my.abs() - m_exact).abs() / m_exact;
         errors.push(err);
     }
 
@@ -216,10 +216,10 @@ fn validation_newmark_period_elongation() {
     let force_history = vec![
         TimeForceRecord {
             time: 0.0,
-            loads: vec![SolverNodalLoad { node_id: tip_node, fx: 0.0, fy: -100.0, mz: 0.0 }] },
+            loads: vec![SolverNodalLoad { node_id: tip_node, fx: 0.0, fz: -100.0, my: 0.0 }] },
         TimeForceRecord {
             time: dt,
-            loads: vec![SolverNodalLoad { node_id: tip_node, fx: 0.0, fy: 0.0, mz: 0.0 }] },
+            loads: vec![SolverNodalLoad { node_id: tip_node, fx: 0.0, fz: 0.0, my: 0.0 }] },
     ];
 
     let th_input = TimeHistoryInput {
@@ -241,7 +241,7 @@ fn validation_newmark_period_elongation() {
 
     let tip_hist = th_res.node_histories.iter()
         .find(|nh| nh.node_id == tip_node).unwrap();
-    let uy = &tip_hist.uy;
+    let uy = &tip_hist.uz;
 
     // Count zero crossings to measure period
     let mut crossings = Vec::new();
@@ -287,10 +287,10 @@ fn validation_newmark_energy_conservation() {
     let force_history = vec![
         TimeForceRecord {
             time: 0.0,
-            loads: vec![SolverNodalLoad { node_id: tip_node, fx: 0.0, fy: -100.0, mz: 0.0 }] },
+            loads: vec![SolverNodalLoad { node_id: tip_node, fx: 0.0, fz: -100.0, my: 0.0 }] },
         TimeForceRecord {
             time: dt,
-            loads: vec![SolverNodalLoad { node_id: tip_node, fx: 0.0, fy: 0.0, mz: 0.0 }] },
+            loads: vec![SolverNodalLoad { node_id: tip_node, fx: 0.0, fz: 0.0, my: 0.0 }] },
     ];
 
     let th_input = TimeHistoryInput {
@@ -312,7 +312,7 @@ fn validation_newmark_energy_conservation() {
 
     let tip_hist = th_res.node_histories.iter()
         .find(|nh| nh.node_id == tip_node).unwrap();
-    let uy = &tip_hist.uy;
+    let uy = &tip_hist.uz;
 
     // Find peak amplitudes in second half vs first half
     let mid = uy.len() / 2;
@@ -351,8 +351,8 @@ fn validation_richardson_extrapolation() {
     let res_coarse = linear::solve_2d(&input_coarse).unwrap();
     let res_fine = linear::solve_2d(&input_fine).unwrap();
 
-    let d_coarse = res_coarse.displacements.iter().find(|d| d.node_id == 3).unwrap().uy.abs();
-    let d_fine = res_fine.displacements.iter().find(|d| d.node_id == 5).unwrap().uy.abs();
+    let d_coarse = res_coarse.displacements.iter().find(|d| d.node_id == 3).unwrap().uz.abs();
+    let d_fine = res_fine.displacements.iter().find(|d| d.node_id == 5).unwrap().uz.abs();
 
     // Richardson extrapolation assuming O(h²): p=2
     let d_richardson = d_fine + (d_fine - d_coarse) / 3.0;

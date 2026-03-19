@@ -122,7 +122,7 @@ pub fn assemble_2d_sparse(input: &SolverInput, dof_num: &DofNumbering) -> Triple
         let sec = sec_map[&elem.section_id];
 
         let dx = node_j.x - node_i.x;
-        let dy = node_j.y - node_i.y;
+        let dy = node_j.z - node_i.z;
         let l = (dx * dx + dy * dy).sqrt();
         let cos = dx / l;
         let sin = dy / l;
@@ -176,9 +176,9 @@ pub fn assemble_2d_sparse(input: &SolverInput, dof_num: &DofNumbering) -> Triple
     for load in &input.loads {
         if let SolverLoad::Nodal(nl) = load {
             if let Some(&d) = dof_num.map.get(&(nl.node_id, 0)) { f_global[d] += nl.fx; }
-            if let Some(&d) = dof_num.map.get(&(nl.node_id, 1)) { f_global[d] += nl.fy; }
+            if let Some(&d) = dof_num.map.get(&(nl.node_id, 1)) { f_global[d] += nl.fz; }
             if dof_num.dofs_per_node >= 3 {
-                if let Some(&d) = dof_num.map.get(&(nl.node_id, 2)) { f_global[d] += nl.mz; }
+                if let Some(&d) = dof_num.map.get(&(nl.node_id, 2)) { f_global[d] += nl.my; }
             }
         }
     }
@@ -291,7 +291,7 @@ pub fn assemble_elements_parallel_2d(input: &SolverInput, dof_num: &DofNumbering
         let sec = sec_map[&elem.section_id];
 
         let dx = node_j.x - node_i.x;
-        let dy = node_j.y - node_i.y;
+        let dy = node_j.z - node_i.z;
         let l = (dx * dx + dy * dy).sqrt();
         let cos = dx / l;
         let sin = dy / l;
@@ -361,7 +361,7 @@ pub fn assemble_elements_parallel_2d(input: &SolverInput, dof_num: &DofNumbering
                     }
                     SolverLoad::PointOnElement(pl) if pl.element_id == elem.id => {
                         let px = pl.px.unwrap_or(0.0);
-                        let mz = pl.mz.unwrap_or(0.0);
+                        let mz = pl.my.unwrap_or(0.0);
                         let mut fef = fef_point_load_2d(pl.p, px, mz, pl.a, l);
                         adjust_fef_for_hinges(&mut fef, l, elem.hinge_start, elem.hinge_end);
                         let fef_global = transform_force(&fef, &t, 6);
@@ -416,9 +416,9 @@ pub fn assemble_elements_parallel_2d(input: &SolverInput, dof_num: &DofNumbering
     for load in &input.loads {
         if let SolverLoad::Nodal(nl) = load {
             if let Some(&d) = dof_num.map.get(&(nl.node_id, 0)) { f_global[d] += nl.fx; }
-            if let Some(&d) = dof_num.map.get(&(nl.node_id, 1)) { f_global[d] += nl.fy; }
+            if let Some(&d) = dof_num.map.get(&(nl.node_id, 1)) { f_global[d] += nl.fz; }
             if dof_num.dofs_per_node >= 3 {
-                if let Some(&d) = dof_num.map.get(&(nl.node_id, 2)) { f_global[d] += nl.mz; }
+                if let Some(&d) = dof_num.map.get(&(nl.node_id, 2)) { f_global[d] += nl.my; }
             }
         }
     }
@@ -1360,8 +1360,8 @@ mod tests {
 
     fn make_simple_beam() -> SolverInput {
         let mut nodes = HashMap::new();
-        nodes.insert("1".to_string(), SolverNode { id: 1, x: 0.0, y: 0.0 });
-        nodes.insert("2".to_string(), SolverNode { id: 2, x: 5.0, y: 0.0 });
+        nodes.insert("1".to_string(), SolverNode { id: 1, x: 0.0, z: 0.0 });
+        nodes.insert("2".to_string(), SolverNode { id: 2, x: 5.0, z: 0.0 });
 
         let mut materials = HashMap::new();
         materials.insert("1".to_string(), SolverMaterial { id: 1, e: 200_000.0, nu: 0.3 });
@@ -1387,7 +1387,7 @@ mod tests {
             node_id: 1,
             support_type: "fixed".to_string(),
             kx: None, ky: None, kz: None,
-            dx: None, dy: None, drz: None,
+            dx: None, dz: None, dry: None,
             angle: None,
         });
         supports.insert("2".to_string(), SolverSupport {
@@ -1395,15 +1395,15 @@ mod tests {
             node_id: 2,
             support_type: "pinned".to_string(),
             kx: None, ky: None, kz: None,
-            dx: None, dy: None, drz: None,
+            dx: None, dz: None, dry: None,
             angle: None,
         });
 
         let loads = vec![SolverLoad::Nodal(SolverNodalLoad {
             node_id: 2,
             fx: 0.0,
-            fy: -10.0,
-            mz: 0.0,
+            fz: -10.0,
+            my: 0.0,
         })];
 
         SolverInput {

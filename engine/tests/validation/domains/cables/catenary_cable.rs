@@ -63,7 +63,7 @@ fn validation_cable_single_point_load() {
     ];
     let sups = vec![(1, 1, "pinned"), (2, 3, "pinned")];
     let loads = vec![SolverLoad::Nodal(SolverNodalLoad {
-        node_id: 2, fx: 0.0, fy: -p, mz: 0.0,
+        node_id: 2, fx: 0.0, fz: -p, my: 0.0,
     })];
 
     let input = make_input(nodes, vec![(1, E, 0.3)], vec![(1, A, IZ)],
@@ -79,8 +79,8 @@ fn validation_cable_single_point_load() {
     let r1 = results.reactions.iter().find(|r| r.node_id == 1).unwrap();
     let r3 = results.reactions.iter().find(|r| r.node_id == 3).unwrap();
 
-    assert_close(r1.ry, v_expected, 0.02, "Cable R1_y");
-    assert_close(r3.ry, v_expected, 0.02, "Cable R3_y");
+    assert_close(r1.rz, v_expected, 0.02, "Cable R1_y");
+    assert_close(r3.rz, v_expected, 0.02, "Cable R3_y");
     assert_close(r1.rx.abs(), h_expected, 0.02, "Cable H (left support)");
 
     // Axial forces should equal cable tension
@@ -132,7 +132,7 @@ fn validation_cable_asymmetric_load() {
     ];
     let sups = vec![(1, 1, "pinned"), (2, 3, "pinned")];
     let loads = vec![SolverLoad::Nodal(SolverNodalLoad {
-        node_id: 2, fx: 0.0, fy: -p, mz: 0.0,
+        node_id: 2, fx: 0.0, fz: -p, my: 0.0,
     })];
 
     let input = make_input(nodes, vec![(1, E, 0.3)], vec![(1, A, IZ)],
@@ -167,7 +167,7 @@ fn validation_cable_asymmetric_load() {
     assert!(ef2.n_start > 0.0, "Bar 2 should be tension: {:.4}", ef2.n_start);
 
     // Global equilibrium
-    let sum_ry: f64 = results.reactions.iter().map(|r| r.ry).sum();
+    let sum_ry: f64 = results.reactions.iter().map(|r| r.rz).sum();
     let sum_rx: f64 = results.reactions.iter().map(|r| r.rx).sum();
     assert_close(sum_ry, p, 0.01, "Asymmetric cable sum_ry");
     assert!(sum_rx.abs() < 1e-6,
@@ -208,7 +208,7 @@ fn validation_cable_sag_effect_on_thrust() {
         ];
         let sups = vec![(1, 1, "pinned"), (2, 3, "pinned")];
         let loads = vec![SolverLoad::Nodal(SolverNodalLoad {
-            node_id: 2, fx: 0.0, fy: -p, mz: 0.0,
+            node_id: 2, fx: 0.0, fz: -p, my: 0.0,
         })];
         let input = make_input(nodes, vec![(1, E, 0.3)], vec![(1, A, IZ)],
             elems, sups, loads);
@@ -283,10 +283,10 @@ fn validation_cable_triangulated_truss() {
     // Loads at bottom chord nodes
     let loads = vec![
         SolverLoad::Nodal(SolverNodalLoad {
-            node_id: 5, fx: 0.0, fy: -p, mz: 0.0,
+            node_id: 5, fx: 0.0, fz: -p, my: 0.0,
         }),
         SolverLoad::Nodal(SolverNodalLoad {
-            node_id: 6, fx: 0.0, fy: -p, mz: 0.0,
+            node_id: 6, fx: 0.0, fz: -p, my: 0.0,
         }),
     ];
 
@@ -297,15 +297,15 @@ fn validation_cable_triangulated_truss() {
     let results = linear::solve_2d(&input).unwrap();
 
     // Vertical equilibrium
-    let sum_ry: f64 = results.reactions.iter().map(|r| r.ry).sum();
+    let sum_ry: f64 = results.reactions.iter().map(|r| r.rz).sum();
     assert_close(sum_ry, total_load, 0.01, "Triangulated cable sum_ry");
 
     // Symmetric structure and loading -> equal vertical reactions
     let r1 = results.reactions.iter().find(|r| r.node_id == 1).unwrap();
     let r4 = results.reactions.iter().find(|r| r.node_id == 4).unwrap();
-    let err_sym = (r1.ry - r4.ry).abs() / r1.ry.abs().max(1e-12);
+    let err_sym = (r1.rz - r4.rz).abs() / r1.rz.abs().max(1e-12);
     assert!(err_sym < 0.01,
-        "Symmetric reactions: R1={:.4}, R4={:.4}", r1.ry, r4.ry);
+        "Symmetric reactions: R1={:.4}, R4={:.4}", r1.rz, r4.rz);
 
     // Bottom chord (element 4) should be in tension (cable behavior)
     let ef_bottom = results.element_forces.iter().find(|f| f.element_id == 4).unwrap();
@@ -354,7 +354,7 @@ fn validation_cable_all_tension_check() {
         ];
         let sups = vec![(1, 1, "pinned"), (2, 3, "pinned")];
         let loads = vec![SolverLoad::Nodal(SolverNodalLoad {
-            node_id: 2, fx: 0.0, fy: -p, mz: 0.0,
+            node_id: 2, fx: 0.0, fz: -p, my: 0.0,
         })];
 
         let input = make_input(nodes, vec![(1, E, 0.3)], vec![(1, A, IZ)],
@@ -377,7 +377,7 @@ fn validation_cable_all_tension_check() {
         }
 
         // Global equilibrium
-        let sum_ry: f64 = results.reactions.iter().map(|r| r.ry).sum();
+        let sum_ry: f64 = results.reactions.iter().map(|r| r.rz).sum();
         assert_close(sum_ry, p, 0.02,
             &format!("V-cable (sag={}, P={}) sum_ry", sag, p));
     }
@@ -413,7 +413,7 @@ fn validation_cable_vs_arch_axial_sign() {
     ];
     let cable_sups = vec![(1, 1, "pinned"), (2, 3, "pinned")];
     let cable_loads = vec![SolverLoad::Nodal(SolverNodalLoad {
-        node_id: 2, fx: 0.0, fy: -p, mz: 0.0,
+        node_id: 2, fx: 0.0, fz: -p, my: 0.0,
     })];
     let cable_input = make_input(cable_nodes, vec![(1, E, 0.3)], vec![(1, A, IZ)],
         cable_elems, cable_sups, cable_loads);
@@ -431,7 +431,7 @@ fn validation_cable_vs_arch_axial_sign() {
     ];
     let arch_sups = vec![(1, 1, "pinned"), (2, 3, "pinned")];
     let arch_loads = vec![SolverLoad::Nodal(SolverNodalLoad {
-        node_id: 2, fx: 0.0, fy: -p, mz: 0.0,
+        node_id: 2, fx: 0.0, fz: -p, my: 0.0,
     })];
     let arch_input = make_input(arch_nodes, vec![(1, E, 0.3)], vec![(1, A, IZ)],
         arch_elems, arch_sups, arch_loads);
@@ -493,7 +493,7 @@ fn validation_cable_shallow_amplification() {
         ];
         let sups = vec![(1, 1, "pinned"), (2, 3, "pinned")];
         let loads = vec![SolverLoad::Nodal(SolverNodalLoad {
-            node_id: 2, fx: 0.0, fy: -p, mz: 0.0,
+            node_id: 2, fx: 0.0, fz: -p, my: 0.0,
         })];
         let input = make_input(nodes, vec![(1, E, 0.3)], vec![(1, A, IZ)],
             elems, sups, loads);
@@ -593,7 +593,7 @@ fn validation_cable_horizontal_equilibrium() {
     ];
     let sups = vec![(1, 1, "pinned"), (2, 3, "pinned")];
     let loads = vec![SolverLoad::Nodal(SolverNodalLoad {
-        node_id: 2, fx: f_horiz, fy: -p_vert, mz: 0.0,
+        node_id: 2, fx: f_horiz, fz: -p_vert, my: 0.0,
     })];
 
     let input = make_input(nodes, vec![(1, E, 0.3)], vec![(1, A, IZ)],
@@ -601,7 +601,7 @@ fn validation_cable_horizontal_equilibrium() {
     let results = linear::solve_2d(&input).unwrap();
 
     // Vertical equilibrium: sum_ry = P (reactions balance downward load)
-    let sum_ry: f64 = results.reactions.iter().map(|r| r.ry).sum();
+    let sum_ry: f64 = results.reactions.iter().map(|r| r.rz).sum();
     assert_close(sum_ry, p_vert, 0.01, "Combined load sum_ry");
 
     // Horizontal equilibrium: sum_rx = -F (reactions balance rightward load)
@@ -615,12 +615,12 @@ fn validation_cable_horizontal_equilibrium() {
     //   => R3_y = 35/8 = 4.375
     let r3 = results.reactions.iter().find(|r| r.node_id == 3).unwrap();
     let r3_y_expected = (p_vert * (span / 2.0) - f_horiz * sag) / span;
-    assert_close(r3.ry, r3_y_expected, 0.02, "R3_y from moment equilibrium");
+    assert_close(r3.rz, r3_y_expected, 0.02, "R3_y from moment equilibrium");
 
     // R1_y = P - R3_y
     let r1 = results.reactions.iter().find(|r| r.node_id == 1).unwrap();
     let r1_y_expected = p_vert - r3_y_expected;
-    assert_close(r1.ry, r1_y_expected, 0.02, "R1_y from vertical equilibrium");
+    assert_close(r1.rz, r1_y_expected, 0.02, "R1_y from vertical equilibrium");
 
     // Verify individual tensions from analytical solution
     let l_bar = ((span / 2.0).powi(2) + sag.powi(2)).sqrt(); // sqrt(17)

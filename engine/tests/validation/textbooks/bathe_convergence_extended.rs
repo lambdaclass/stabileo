@@ -51,7 +51,7 @@ fn validation_bathe_ext_1_superposition_principle() {
     let input_a = make_beam(
         n, length, E, A, IZ, "fixed", None,
         vec![SolverLoad::Nodal(SolverNodalLoad {
-            node_id: tip_node, fx: 0.0, fy: p, mz: 0.0,
+            node_id: tip_node, fx: 0.0, fz: p, my: 0.0,
         })],
     );
     let res_a = linear::solve_2d(&input_a).unwrap();
@@ -71,7 +71,7 @@ fn validation_bathe_ext_1_superposition_principle() {
     let mut input_c = make_beam(
         n, length, E, A, IZ, "fixed", None,
         vec![SolverLoad::Nodal(SolverNodalLoad {
-            node_id: tip_node, fx: 0.0, fy: p, mz: 0.0,
+            node_id: tip_node, fx: 0.0, fz: p, my: 0.0,
         })],
     );
     for i in 1..=n {
@@ -83,18 +83,18 @@ fn validation_bathe_ext_1_superposition_principle() {
     let tip_c = res_c.displacements.iter().find(|d| d.node_id == tip_node).unwrap();
 
     // Superposition: u_c = u_a + u_b
-    let uy_sum = tip_a.uy + tip_b.uy;
-    assert_close(tip_c.uy, uy_sum, 0.001, "Superposition: uy combined vs sum");
+    let uy_sum = tip_a.uz + tip_b.uz;
+    assert_close(tip_c.uz, uy_sum, 0.001, "Superposition: uy combined vs sum");
 
-    let rz_sum = tip_a.rz + tip_b.rz;
-    assert_close(tip_c.rz, rz_sum, 0.001, "Superposition: rz combined vs sum");
+    let rz_sum = tip_a.ry + tip_b.ry;
+    assert_close(tip_c.ry, rz_sum, 0.001, "Superposition: rz combined vs sum");
 
     // Also check an interior node
     let mid_node = n / 2 + 1;
     let mid_a = res_a.displacements.iter().find(|d| d.node_id == mid_node).unwrap();
     let mid_b = res_b.displacements.iter().find(|d| d.node_id == mid_node).unwrap();
     let mid_c = res_c.displacements.iter().find(|d| d.node_id == mid_node).unwrap();
-    assert_close(mid_c.uy, mid_a.uy + mid_b.uy, 0.001, "Superposition: midpoint uy");
+    assert_close(mid_c.uz, mid_a.uz + mid_b.uz, 0.001, "Superposition: midpoint uy");
 }
 
 // ================================================================
@@ -139,8 +139,8 @@ fn validation_bathe_ext_2_strain_energy_convergence() {
         for i in 0..n {
             let n_i = i + 1;
             let n_j = i + 2;
-            let uy_i = results.displacements.iter().find(|d| d.node_id == n_i).unwrap().uy;
-            let uy_j = results.displacements.iter().find(|d| d.node_id == n_j).unwrap().uy;
+            let uy_i = results.displacements.iter().find(|d| d.node_id == n_i).unwrap().uz;
+            let uy_j = results.displacements.iter().find(|d| d.node_id == n_j).unwrap().uz;
             // Work = (1/2) * integral(q * v dx) over element, trapezoid rule
             // q is downward negative, v is downward negative => product is positive
             strain_energy += 0.5 * q.abs() * (uy_i.abs() + uy_j.abs()) / 2.0 * elem_len;
@@ -211,13 +211,13 @@ fn validation_bathe_ext_3_propped_cantilever_convergence() {
         // Check roller reaction
         let r_roller = results.reactions.iter()
             .find(|r| r.node_id == n + 1).unwrap();
-        let err_r = (r_roller.ry.abs() - r_roller_exact).abs() / r_roller_exact;
+        let err_r = (r_roller.rz.abs() - r_roller_exact).abs() / r_roller_exact;
         reaction_errors.push(err_r);
 
         // Check fixed-end moment
         let r_fixed = results.reactions.iter()
             .find(|r| r.node_id == 1).unwrap();
-        let err_m = (r_fixed.mz.abs() - m_fixed_exact).abs() / m_fixed_exact;
+        let err_m = (r_fixed.my.abs() - m_fixed_exact).abs() / m_fixed_exact;
         moment_errors.push(err_m);
     }
 
@@ -309,8 +309,8 @@ fn validation_bathe_ext_4_triangular_load_convergence() {
         let r_left = results.reactions.iter().find(|r| r.node_id == 1).unwrap();
         let r_right = results.reactions.iter().find(|r| r.node_id == n_nodes).unwrap();
 
-        let err_l = (r_left.ry.abs() - r_left_exact).abs() / r_left_exact;
-        let err_r = (r_right.ry.abs() - r_right_exact).abs() / r_right_exact;
+        let err_l = (r_left.rz.abs() - r_left_exact).abs() / r_left_exact;
+        let err_r = (r_right.rz.abs() - r_right_exact).abs() / r_right_exact;
         errors_left.push(err_l);
         errors_right.push(err_r);
     }
@@ -508,7 +508,7 @@ fn validation_bathe_ext_7_equilibrium_satisfaction() {
         let mut input = make_beam(
             n, length, E, A, IZ, "fixed", None,
             vec![SolverLoad::Nodal(SolverNodalLoad {
-                node_id: tip_node, fx: 0.0, fy: p_tip, mz: 0.0,
+                node_id: tip_node, fx: 0.0, fz: p_tip, my: 0.0,
             })],
         );
         for i in 1..=n {
@@ -522,7 +522,7 @@ fn validation_bathe_ext_7_equilibrium_satisfaction() {
         let total_applied_fy: f64 = q * length + p_tip;
 
         // Sum of reaction forces in Y
-        let sum_ry: f64 = results.reactions.iter().map(|r| r.ry).sum();
+        let sum_ry: f64 = results.reactions.iter().map(|r| r.rz).sum();
 
         // Equilibrium: sum_ry + total_applied = 0
         // (reactions oppose the applied loads)
@@ -536,15 +536,15 @@ fn validation_bathe_ext_7_equilibrium_satisfaction() {
         // Moment equilibrium about the fixed support (node 1, x=0):
         // Applied moment from UDL: integral(q*x dx, 0..L) = q*L^2/2
         // Applied moment from tip load: P_tip * L
-        // Reaction moment at support: sum_mz from reactions
+        // Reaction moment at support: sum_my from reactions
         let applied_moment: f64 = q * length * length / 2.0 + p_tip * length;
-        let sum_mz: f64 = results.reactions.iter().map(|r| r.mz).sum();
-        let residual_m = (sum_mz + applied_moment).abs();
+        let sum_my: f64 = results.reactions.iter().map(|r| r.my).sum();
+        let residual_m = (sum_my + applied_moment).abs();
 
         assert!(
             residual_m < 1e-4,
-            "Moment equilibrium n={}: residual={:.6e}, sum_mz={:.6}, applied_m={:.6}",
-            n, residual_m, sum_mz, applied_moment
+            "Moment equilibrium n={}: residual={:.6e}, sum_my={:.6}, applied_m={:.6}",
+            n, residual_m, sum_my, applied_moment
         );
     }
 }
@@ -587,7 +587,7 @@ fn validation_bathe_ext_8_scaling_invariance() {
     let d1_mid = res1.displacements.iter().find(|d| d.node_id == mid_node).unwrap();
     let d2_mid = res2.displacements.iter().find(|d| d.node_id == mid_node).unwrap();
     assert_close(
-        d2_mid.uy, alpha * d1_mid.uy, 0.001,
+        d2_mid.uz, alpha * d1_mid.uz, 0.001,
         "Scaling: midspan displacement proportionality",
     );
 
@@ -595,7 +595,7 @@ fn validation_bathe_ext_8_scaling_invariance() {
     let r1_left = res1.reactions.iter().find(|r| r.node_id == 1).unwrap();
     let r2_left = res2.reactions.iter().find(|r| r.node_id == 1).unwrap();
     assert_close(
-        r2_left.ry, alpha * r1_left.ry, 0.001,
+        r2_left.rz, alpha * r1_left.rz, 0.001,
         "Scaling: left reaction proportionality",
     );
 
@@ -617,7 +617,7 @@ fn validation_bathe_ext_8_scaling_invariance() {
     let d1_q = res1.displacements.iter().find(|d| d.node_id == quarter_node).unwrap();
     let d2_q = res2.displacements.iter().find(|d| d.node_id == quarter_node).unwrap();
     assert_close(
-        d2_q.rz, alpha * d1_q.rz, 0.001,
+        d2_q.ry, alpha * d1_q.ry, 0.001,
         "Scaling: quarter-span rotation proportionality",
     );
 }

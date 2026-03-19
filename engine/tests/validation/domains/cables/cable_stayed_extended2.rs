@@ -176,7 +176,7 @@ fn validation_cstay2_fan_cable_arrangement() {
     // Verify global vertical equilibrium
     let total_deck_length: f64 = 5.0 * dx;
     let total_load: f64 = w * total_deck_length;
-    let sum_ry: f64 = results.reactions.iter().map(|r| r.ry).sum();
+    let sum_ry: f64 = results.reactions.iter().map(|r| r.rz).sum();
     assert_close(sum_ry, total_load, 0.02, "Fan arrangement: vertical equilibrium");
 }
 
@@ -354,7 +354,7 @@ fn validation_cstay2_harp_cable_pattern() {
 
     // Verify global equilibrium
     let total_load: f64 = w * 4.0 * dx;
-    let sum_ry: f64 = results.reactions.iter().map(|r| r.ry).sum();
+    let sum_ry: f64 = results.reactions.iter().map(|r| r.rz).sum();
     assert_close(sum_ry, total_load, 0.02, "Harp pattern: vertical equilibrium");
 }
 
@@ -500,12 +500,12 @@ fn validation_cstay2_backstay_anchorage() {
 
     // Verify equilibrium for both models
     let total_load_with: f64 = w * (l_main + l_back);
-    let sum_ry_with: f64 = results_with.reactions.iter().map(|r| r.ry).sum();
+    let sum_ry_with: f64 = results_with.reactions.iter().map(|r| r.rz).sum();
     assert_close(sum_ry_with, total_load_with, 0.02,
         "Backstay model: vertical equilibrium");
 
     let total_load_without: f64 = w * l_main;
-    let sum_ry_without: f64 = results_without.reactions.iter().map(|r| r.ry).sum();
+    let sum_ry_without: f64 = results_without.reactions.iter().map(|r| r.rz).sum();
     assert_close(sum_ry_without, total_load_without, 0.02,
         "No backstay model: vertical equilibrium");
 }
@@ -651,7 +651,7 @@ fn validation_cstay2_deck_girder_bending() {
 
     // Equilibrium check
     let total_load: f64 = w * l_total;
-    let sum_ry: f64 = results.reactions.iter().map(|r| r.ry).sum();
+    let sum_ry: f64 = results.reactions.iter().map(|r| r.rz).sum();
     assert_close(sum_ry, total_load, 0.02, "Deck bending: vertical equilibrium");
 }
 
@@ -705,7 +705,7 @@ fn validation_cstay2_tower_design() {
 
     let loads_sym = vec![
         SolverLoad::Nodal(SolverNodalLoad {
-            node_id: 1, fx: 0.0, fy: -p, mz: 0.0,
+            node_id: 1, fx: 0.0, fz: -p, my: 0.0,
         }),
     ];
 
@@ -745,7 +745,7 @@ fn validation_cstay2_tower_design() {
     // Case 2: Asymmetric horizontal load produces tower bending
     let loads_asym = vec![
         SolverLoad::Nodal(SolverNodalLoad {
-            node_id: 1, fx: 50.0, fy: -p, mz: 0.0,
+            node_id: 1, fx: 50.0, fz: -p, my: 0.0,
         }),
     ];
 
@@ -786,10 +786,10 @@ fn validation_cstay2_tower_design() {
         "Asymmetric: cable forces differ: left={:.2}, right={:.2}", t_left_asym, t_right_asym);
 
     // Equilibrium for both cases
-    let sum_ry_sym: f64 = results_sym.reactions.iter().map(|r| r.ry).sum();
+    let sum_ry_sym: f64 = results_sym.reactions.iter().map(|r| r.rz).sum();
     assert_close(sum_ry_sym, p, 0.02, "Tower design symmetric: equilibrium");
 
-    let sum_ry_asym: f64 = results_asym.reactions.iter().map(|r| r.ry).sum();
+    let sum_ry_asym: f64 = results_asym.reactions.iter().map(|r| r.rz).sum();
     assert_close(sum_ry_asym, p, 0.02, "Tower design asymmetric: equilibrium");
 }
 
@@ -887,11 +887,11 @@ fn validation_cstay2_cable_pretension_effects() {
         }),
         // Pretension effect at deck anchor (upward + toward tower)
         SolverLoad::Nodal(SolverNodalLoad {
-            node_id: 2, fx: fx_pretension, fy: fy_pretension, mz: 0.0,
+            node_id: 2, fx: fx_pretension, fz: fy_pretension, my: 0.0,
         }),
         // Equal and opposite at tower top
         SolverLoad::Nodal(SolverNodalLoad {
-            node_id: 3, fx: -fx_pretension, fy: -fy_pretension, mz: 0.0,
+            node_id: 3, fx: -fx_pretension, fz: -fy_pretension, my: 0.0,
         }),
     ];
 
@@ -915,9 +915,9 @@ fn validation_cstay2_cable_pretension_effects() {
 
     // Compare deck deflections at node 2
     let uy_no_pt = results_no_pt.displacements.iter()
-        .find(|d| d.node_id == 2).unwrap().uy;
+        .find(|d| d.node_id == 2).unwrap().uz;
     let uy_with_pt = results_with_pt.displacements.iter()
-        .find(|d| d.node_id == 2).unwrap().uy;
+        .find(|d| d.node_id == 2).unwrap().uz;
 
     // Without pretension, deck deflects downward (uy < 0)
     assert!(uy_no_pt < 0.0,
@@ -934,7 +934,7 @@ fn validation_cstay2_cable_pretension_effects() {
 
     // Equilibrium checks
     let total_load_no_pt: f64 = w * l_deck;
-    let sum_ry_no_pt: f64 = results_no_pt.reactions.iter().map(|r| r.ry).sum();
+    let sum_ry_no_pt: f64 = results_no_pt.reactions.iter().map(|r| r.rz).sum();
     assert_close(sum_ry_no_pt, total_load_no_pt, 0.02,
         "No pretension: equilibrium");
 
@@ -1062,17 +1062,17 @@ fn validation_cstay2_asymmetric_live_load() {
 
     // Under full loading: symmetric deflections at cable anchors
     let uy_left_full = results_full.displacements.iter()
-        .find(|d| d.node_id == 2).unwrap().uy;
+        .find(|d| d.node_id == 2).unwrap().uz;
     let uy_right_full = results_full.displacements.iter()
-        .find(|d| d.node_id == 5).unwrap().uy;
+        .find(|d| d.node_id == 5).unwrap().uz;
     assert_close(uy_left_full, uy_right_full, 0.05,
         "Full load: symmetric deflections");
 
     // Under partial loading: asymmetric deflections
     let uy_left_partial = results_left.displacements.iter()
-        .find(|d| d.node_id == 2).unwrap().uy;
+        .find(|d| d.node_id == 2).unwrap().uz;
     let uy_right_partial = results_left.displacements.iter()
-        .find(|d| d.node_id == 5).unwrap().uy;
+        .find(|d| d.node_id == 5).unwrap().uz;
 
     // Loaded (left) side deflects downward
     assert!(uy_left_partial < 0.0,
@@ -1103,11 +1103,11 @@ fn validation_cstay2_asymmetric_live_load() {
         defl_per_load_partial, defl_per_load_full);
 
     // Equilibrium checks
-    let sum_ry_full: f64 = results_full.reactions.iter().map(|r| r.ry).sum();
+    let sum_ry_full: f64 = results_full.reactions.iter().map(|r| r.rz).sum();
     assert_close(sum_ry_full, w * total_length, 0.02,
         "Full load: equilibrium");
 
-    let sum_ry_left: f64 = results_left.reactions.iter().map(|r| r.ry).sum();
+    let sum_ry_left: f64 = results_left.reactions.iter().map(|r| r.rz).sum();
     assert_close(sum_ry_left, w * 35.0, 0.02,
         "Partial load: equilibrium");
 }
@@ -1205,7 +1205,7 @@ fn validation_cstay2_cable_sag_ernst_modulus() {
             ],
             vec![(1, 1, "pinned"), (2, 4, "fixed")],
             vec![SolverLoad::Nodal(SolverNodalLoad {
-                node_id: 2, fx: 0.0, fy: -100.0, mz: 0.0,
+                node_id: 2, fx: 0.0, fz: -100.0, my: 0.0,
             })],
         )
     };
@@ -1218,9 +1218,9 @@ fn validation_cstay2_cable_sag_ernst_modulus() {
     let results_ernst = solve_2d(&build_model(e_input_ernst)).unwrap();
 
     let defl_full = results_full.displacements.iter()
-        .find(|d| d.node_id == 2).unwrap().uy.abs();
+        .find(|d| d.node_id == 2).unwrap().uz.abs();
     let defl_ernst = results_ernst.displacements.iter()
-        .find(|d| d.node_id == 2).unwrap().uy.abs();
+        .find(|d| d.node_id == 2).unwrap().uz.abs();
 
     // Structure with Ernst (reduced) modulus deflects more
     assert!(defl_ernst > defl_full,
@@ -1245,8 +1245,8 @@ fn validation_cstay2_cable_sag_ernst_modulus() {
         t_full, t_ernst, force_diff * 100.0);
 
     // Equilibrium check for both
-    let sum_ry_full: f64 = results_full.reactions.iter().map(|r| r.ry).sum();
-    let sum_ry_ernst: f64 = results_ernst.reactions.iter().map(|r| r.ry).sum();
+    let sum_ry_full: f64 = results_full.reactions.iter().map(|r| r.rz).sum();
+    let sum_ry_ernst: f64 = results_ernst.reactions.iter().map(|r| r.rz).sum();
     assert_close(sum_ry_full, 100.0, 0.02, "Full E: equilibrium");
     assert_close(sum_ry_ernst, 100.0, 0.02, "Ernst E: equilibrium");
 }

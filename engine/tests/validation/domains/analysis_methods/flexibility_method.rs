@@ -52,7 +52,7 @@ fn validation_flexibility_propped_redundant() {
 
     // R_B = 3qL/8 (from flexibility method)
     let r_exact = 3.0 * q.abs() * l / 8.0;
-    assert_close(r_end.ry, r_exact, 0.02,
+    assert_close(r_end.rz, r_exact, 0.02,
         "Flexibility: R_B = 3qL/8");
 }
 
@@ -79,11 +79,11 @@ fn validation_flexibility_fixed_fixed() {
 
     // M = qL²/12
     let m_exact = q.abs() * l * l / 12.0;
-    assert_close(r1.mz.abs(), m_exact, 0.02, "Fixed-fixed: M_left = qL²/12");
-    assert_close(r_end.mz.abs(), m_exact, 0.02, "Fixed-fixed: M_right = qL²/12");
+    assert_close(r1.my.abs(), m_exact, 0.02, "Fixed-fixed: M_left = qL²/12");
+    assert_close(r_end.my.abs(), m_exact, 0.02, "Fixed-fixed: M_right = qL²/12");
 
     // R = qL/2
-    assert_close(r1.ry, q.abs() * l / 2.0, 0.02, "Fixed-fixed: R = qL/2");
+    assert_close(r1.rz, q.abs() * l / 2.0, 0.02, "Fixed-fixed: R = qL/2");
 }
 
 // ================================================================
@@ -108,7 +108,7 @@ fn validation_flexibility_two_span() {
 
     // Interior reaction = 5qL/4 (from flexibility: redundant = interior reaction)
     let r_exact = 5.0 * q.abs() * span / 4.0;
-    assert_close(r_int.ry, r_exact, 0.02,
+    assert_close(r_int.rz, r_exact, 0.02,
         "Flexibility: R_interior = 5qL/4");
 }
 
@@ -141,7 +141,7 @@ fn validation_flexibility_redundant_truss() {
         ],
         vec![(1, 1, "pinned"), (2, 2, "rollerX")],
         vec![SolverLoad::Nodal(SolverNodalLoad {
-            node_id: 3, fx: p, fy: 0.0, mz: 0.0,
+            node_id: 3, fx: p, fz: 0.0, my: 0.0,
         })],
     );
     let results = linear::solve_2d(&input).unwrap();
@@ -170,7 +170,7 @@ fn validation_flexibility_coefficient() {
 
     // Apply unit load at tip of cantilever
     let loads = vec![SolverLoad::Nodal(SolverNodalLoad {
-        node_id: n + 1, fx: 0.0, fy: -1.0, mz: 0.0,
+        node_id: n + 1, fx: 0.0, fz: -1.0, my: 0.0,
     })];
     let input = make_beam(n, l, E, A, IZ, "fixed", None, loads);
     let results = linear::solve_2d(&input).unwrap();
@@ -179,7 +179,7 @@ fn validation_flexibility_coefficient() {
 
     // δ_11 = L³/(3EI) — flexibility coefficient at tip of cantilever
     let f11 = l * l * l / (3.0 * e_eff * IZ);
-    assert_close(tip.uy.abs(), f11, 0.02,
+    assert_close(tip.uz.abs(), f11, 0.02,
         "Flexibility coefficient: δ_11 = L³/(3EI)");
 }
 
@@ -203,13 +203,13 @@ fn validation_flexibility_compatibility() {
 
     // At roller support: uy = 0 (compatibility condition)
     let d_end = results.displacements.iter().find(|d| d.node_id == n + 1).unwrap();
-    assert!(d_end.uy.abs() < 1e-10,
-        "Compatibility: δ_B = 0 at roller: {:.6e}", d_end.uy);
+    assert!(d_end.uz.abs() < 1e-10,
+        "Compatibility: δ_B = 0 at roller: {:.6e}", d_end.uz);
 
     // At fixed support: uy = 0, rz = 0
     let d1 = results.displacements.iter().find(|d| d.node_id == 1).unwrap();
-    assert!(d1.uy.abs() < 1e-10, "Compatibility: δ_A = 0 at fixed");
-    assert!(d1.rz.abs() < 1e-10, "Compatibility: θ_A = 0 at fixed");
+    assert!(d1.uz.abs() < 1e-10, "Compatibility: δ_A = 0 at fixed");
+    assert!(d1.ry.abs() < 1e-10, "Compatibility: θ_A = 0 at fixed");
 }
 
 // ================================================================
@@ -227,7 +227,7 @@ fn validation_flexibility_propped_point() {
 
     let load_node = (a / l * n as f64).round() as usize + 1;
     let loads = vec![SolverLoad::Nodal(SolverNodalLoad {
-        node_id: load_node, fx: 0.0, fy: -p, mz: 0.0,
+        node_id: load_node, fx: 0.0, fz: -p, my: 0.0,
     })];
     let input = make_beam(n, l, E, A, IZ, "fixed", Some("rollerX"), loads);
     let results = linear::solve_2d(&input).unwrap();
@@ -236,7 +236,7 @@ fn validation_flexibility_propped_point() {
 
     // R_B = Pa²(3L-a)/(2L³)
     let r_exact = p * a * a * (3.0 * l - a) / (2.0 * l * l * l);
-    assert_close(r_end.ry, r_exact, 0.05,
+    assert_close(r_end.rz, r_exact, 0.05,
         "Flexibility: R_B = Pa²(3L-a)/(2L³)");
 }
 
@@ -260,19 +260,19 @@ fn validation_flexibility_three_span() {
 
     // Total load = 3qL
     let total_load = 3.0 * q.abs() * span;
-    let sum_ry: f64 = results.reactions.iter().map(|r| r.ry).sum();
+    let sum_ry: f64 = results.reactions.iter().map(|r| r.rz).sum();
     assert_close(sum_ry, total_load, 0.02,
         "Three-span: ΣR = 3qL");
 
     // By symmetry: end reactions are equal
     let r1 = results.reactions.iter().find(|r| r.node_id == 1).unwrap();
     let r_end = results.reactions.iter().find(|r| r.node_id == 3 * n + 1).unwrap();
-    assert_close(r1.ry, r_end.ry, 0.01,
+    assert_close(r1.rz, r_end.rz, 0.01,
         "Three-span: R_left = R_right");
 
     // Interior reactions are equal
     let r_b = results.reactions.iter().find(|r| r.node_id == n + 1).unwrap();
     let r_c = results.reactions.iter().find(|r| r.node_id == 2 * n + 1).unwrap();
-    assert_close(r_b.ry, r_c.ry, 0.01,
+    assert_close(r_b.rz, r_c.rz, 0.01,
         "Three-span: R_B = R_C");
 }

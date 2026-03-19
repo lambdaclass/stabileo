@@ -57,7 +57,7 @@ fn validation_hinge_midspan_propped() {
     // Point load at quarter span (on left half)
     let quarter = n / 4 + 1;
     let loads = vec![SolverLoad::Nodal(SolverNodalLoad {
-        node_id: quarter, fx: 0.0, fy: -p, mz: 0.0,
+        node_id: quarter, fx: 0.0, fz: -p, my: 0.0,
     })];
 
     let input = make_input(nodes, vec![(1, E, 0.3)], vec![(1, A, IZ)], elems, sups, loads);
@@ -74,7 +74,7 @@ fn validation_hinge_midspan_propped() {
         "Hinge moment should be ~0: M_start={:.6}", ef_after.m_start);
 
     // Equilibrium
-    let sum_ry: f64 = results.reactions.iter().map(|r| r.ry).sum();
+    let sum_ry: f64 = results.reactions.iter().map(|r| r.rz).sum();
     assert_close(sum_ry, p, 0.01, "Hinge propped beam: ΣRy = P");
 }
 
@@ -112,7 +112,7 @@ fn validation_hinge_at_fixed_end() {
     // Midspan point load
     let mid = n / 2 + 1;
     let loads = vec![SolverLoad::Nodal(SolverNodalLoad {
-        node_id: mid, fx: 0.0, fy: -p, mz: 0.0,
+        node_id: mid, fx: 0.0, fz: -p, my: 0.0,
     })];
 
     let input = make_input(nodes.clone(), vec![(1, E, 0.3)], vec![(1, A, IZ)],
@@ -121,11 +121,11 @@ fn validation_hinge_at_fixed_end() {
 
     // The hinge at the fixed end means moment = 0 there → effectively pinned-roller = SS beam
     let r_left = results_hinge.reactions.iter().find(|r| r.node_id == 1).unwrap();
-    assert!(r_left.mz.abs() < 0.1,
-        "Hinge at fixed end: moment should be ~0: Mz={:.6}", r_left.mz);
+    assert!(r_left.my.abs() < 0.1,
+        "Hinge at fixed end: moment should be ~0: Mz={:.6}", r_left.my);
 
     // Reactions should be like SS beam: R_left = P/2, R_right = P/2
-    assert_close(r_left.ry, p / 2.0, 0.02,
+    assert_close(r_left.rz, p / 2.0, 0.02,
         "Hinge at fixed = SS beam: R_left = P/2");
 }
 
@@ -191,7 +191,7 @@ fn validation_gerber_beam() {
 
     // Equilibrium
     let total_load = q.abs() * (l1 + l2);
-    let sum_ry: f64 = results.reactions.iter().map(|r| r.ry).sum();
+    let sum_ry: f64 = results.reactions.iter().map(|r| r.rz).sum();
     assert_close(sum_ry, total_load, 0.02, "Gerber beam: ΣRy = total load");
 }
 
@@ -222,7 +222,7 @@ fn validation_hinge_portal_frame() {
     ];
     let sups = vec![(1, 1_usize, "fixed"), (2, 4, "fixed")];
     let loads = vec![SolverLoad::Nodal(SolverNodalLoad {
-        node_id: 2, fx: p, fy: 0.0, mz: 0.0,
+        node_id: 2, fx: p, fz: 0.0, my: 0.0,
     })];
 
     let input = make_input(nodes, vec![(1, E, 0.3)], vec![(1, A, IZ)], elems, sups, loads);
@@ -243,7 +243,7 @@ fn validation_hinge_portal_frame() {
 
     // With hinges at beam level, columns act as independent cantilevers
     // Each column base moment ≈ R_x × h
-    assert!(r1.mz.abs() > 0.1, "Column base should have moment");
+    assert!(r1.my.abs() > 0.1, "Column base should have moment");
 }
 
 // ================================================================
@@ -268,7 +268,7 @@ fn validation_hinge_both_ends_truss_like() {
     ];
     let sups = vec![(1, 1_usize, "pinned"), (2, 2, "rollerX")];
     let loads = vec![SolverLoad::Nodal(SolverNodalLoad {
-        node_id: 2, fx: p, fy: 0.0, mz: 0.0,
+        node_id: 2, fx: p, fz: 0.0, my: 0.0,
     })];
 
     let input = make_input(nodes, vec![(1, E, 0.3)], vec![(1, A, IZ)], elems, sups, loads);
@@ -320,7 +320,7 @@ fn validation_hinge_fixed_to_propped() {
     // Midspan point load
     let mid = n / 2 + 1;
     let loads = vec![SolverLoad::Nodal(SolverNodalLoad {
-        node_id: mid, fx: 0.0, fy: -p, mz: 0.0,
+        node_id: mid, fx: 0.0, fz: -p, my: 0.0,
     })];
 
     let input = make_input(nodes, vec![(1, E, 0.3)], vec![(1, A, IZ)], elems, sups, loads);
@@ -328,15 +328,15 @@ fn validation_hinge_fixed_to_propped() {
 
     // Right support moment should be ~0 (hinge releases it)
     let r_right = results.reactions.iter().find(|r| r.node_id == n_nodes).unwrap();
-    assert!(r_right.mz.abs() < 0.5,
-        "Hinge at right: moment ~0: Mz={:.6}", r_right.mz);
+    assert!(r_right.my.abs() < 0.5,
+        "Hinge at right: moment ~0: Mz={:.6}", r_right.my);
 
     // This is now a propped cantilever with midspan load.
     // R_prop = 5P/16, R_fixed = 11P/16 (for center load on propped cantilever)
     let r_left = results.reactions.iter().find(|r| r.node_id == 1).unwrap();
-    assert_close(r_left.ry, 11.0 * p / 16.0, 0.03,
+    assert_close(r_left.rz, 11.0 * p / 16.0, 0.03,
         "Propped cantilever: R_fixed = 11P/16");
-    assert_close(r_right.ry, 5.0 * p / 16.0, 0.03,
+    assert_close(r_right.rz, 5.0 * p / 16.0, 0.03,
         "Propped cantilever: R_prop = 5P/16");
 }
 
@@ -372,13 +372,13 @@ fn validation_hinge_increases_deflection() {
         let sups = vec![(1, 1_usize, "fixed"), (2, n_nodes, "fixed")];
         let mid = n / 2 + 1;
         let loads = vec![SolverLoad::Nodal(SolverNodalLoad {
-            node_id: mid, fx: 0.0, fy: -p, mz: 0.0,
+            node_id: mid, fx: 0.0, fz: -p, my: 0.0,
         })];
 
         let input = make_input(nodes, vec![(1, E, 0.3)], vec![(1, A, IZ)], elems, sups, loads);
         let results = linear::solve_2d(&input).unwrap();
         let d_mid = results.displacements.iter().find(|d| d.node_id == mid).unwrap();
-        d_mid.uy.abs()
+        d_mid.uz.abs()
     };
 
     let defl_no_hinge = build(false);
@@ -448,7 +448,7 @@ fn validation_hinge_equilibrium() {
 
     // Global equilibrium: ΣRy = total load
     let total_load = q.abs() * 3.0 * l;
-    let sum_ry: f64 = results.reactions.iter().map(|r| r.ry).sum();
+    let sum_ry: f64 = results.reactions.iter().map(|r| r.rz).sum();
     assert_close(sum_ry, total_load, 0.02,
         "Hinge equilibrium: ΣRy = total load");
 

@@ -52,10 +52,10 @@ fn validation_deflection_fixed_fixed_udl() {
     // δ_max = qL⁴/(384EI) for fixed-fixed beam
     let delta_exact = q.abs() * l.powi(4) / (384.0 * e_eff * IZ);
 
-    let error = (mid_d.uy.abs() - delta_exact).abs() / delta_exact;
+    let error = (mid_d.uz.abs() - delta_exact).abs() / delta_exact;
     assert!(error < 0.05,
         "Fixed-fixed UDL: midspan={:.6e}, exact qL⁴/(384EI)={:.6e}, err={:.1}%",
-        mid_d.uy.abs(), delta_exact, error * 100.0);
+        mid_d.uz.abs(), delta_exact, error * 100.0);
 }
 
 // ================================================================
@@ -72,7 +72,7 @@ fn validation_deflection_fixed_fixed_center_point() {
     let mid = n / 2 + 1;
     let input = make_beam(n, l, E, A, IZ, "fixed", Some("fixed"),
         vec![SolverLoad::Nodal(SolverNodalLoad {
-            node_id: mid, fx: 0.0, fy: -p, mz: 0.0,
+            node_id: mid, fx: 0.0, fz: -p, my: 0.0,
         })]);
 
     let results = linear::solve_2d(&input).unwrap();
@@ -81,10 +81,10 @@ fn validation_deflection_fixed_fixed_center_point() {
     // δ = PL³/(192EI)
     let delta_exact = p * l.powi(3) / (192.0 * e_eff * IZ);
 
-    let error = (mid_d.uy.abs() - delta_exact).abs() / delta_exact;
+    let error = (mid_d.uz.abs() - delta_exact).abs() / delta_exact;
     assert!(error < 0.05,
         "Fixed-fixed center point: δ={:.6e}, exact PL³/(192EI)={:.6e}, err={:.1}%",
-        mid_d.uy.abs(), delta_exact, error * 100.0);
+        mid_d.uz.abs(), delta_exact, error * 100.0);
 }
 
 // ================================================================
@@ -100,7 +100,7 @@ fn validation_deflection_cantilever_tip_moment() {
 
     let input = make_beam(n, l, E, A, IZ, "fixed", None,
         vec![SolverLoad::Nodal(SolverNodalLoad {
-            node_id: n + 1, fx: 0.0, fy: 0.0, mz: m,
+            node_id: n + 1, fx: 0.0, fz: 0.0, my: m,
         })]);
 
     let results = linear::solve_2d(&input).unwrap();
@@ -108,17 +108,17 @@ fn validation_deflection_cantilever_tip_moment() {
 
     // δ_tip = ML²/(2EI)
     let delta_exact = m * l * l / (2.0 * e_eff * IZ);
-    let err_d = (tip.uy.abs() - delta_exact).abs() / delta_exact;
+    let err_d = (tip.uz.abs() - delta_exact).abs() / delta_exact;
     assert!(err_d < 0.05,
         "Cantilever moment δ={:.6e}, exact ML²/(2EI)={:.6e}, err={:.1}%",
-        tip.uy.abs(), delta_exact, err_d * 100.0);
+        tip.uz.abs(), delta_exact, err_d * 100.0);
 
     // θ_tip = ML/(EI)
     let theta_exact = m * l / (e_eff * IZ);
-    let err_t = (tip.rz.abs() - theta_exact).abs() / theta_exact;
+    let err_t = (tip.ry.abs() - theta_exact).abs() / theta_exact;
     assert!(err_t < 0.05,
         "Cantilever moment θ={:.6e}, exact ML/(EI)={:.6e}, err={:.1}%",
-        tip.rz.abs(), theta_exact, err_t * 100.0);
+        tip.ry.abs(), theta_exact, err_t * 100.0);
 }
 
 // ================================================================
@@ -141,10 +141,10 @@ fn validation_deflection_four_point_bending() {
     let input = make_beam(n, l, E, A, IZ, "pinned", Some("rollerX"),
         vec![
             SolverLoad::Nodal(SolverNodalLoad {
-                node_id: load_node_1, fx: 0.0, fy: -p, mz: 0.0,
+                node_id: load_node_1, fx: 0.0, fz: -p, my: 0.0,
             }),
             SolverLoad::Nodal(SolverNodalLoad {
-                node_id: load_node_2, fx: 0.0, fy: -p, mz: 0.0,
+                node_id: load_node_2, fx: 0.0, fz: -p, my: 0.0,
             }),
         ]);
 
@@ -155,10 +155,10 @@ fn validation_deflection_four_point_bending() {
     // δ_midspan = 23PL³/(648EI) for two symmetric third-point loads
     let delta_exact = 23.0 * p * l.powi(3) / (648.0 * e_eff * IZ);
 
-    let error = (mid_d.uy.abs() - delta_exact).abs() / delta_exact;
+    let error = (mid_d.uz.abs() - delta_exact).abs() / delta_exact;
     assert!(error < 0.05,
         "4-point bending: midspan δ={:.6e}, exact 23PL³/(648EI)={:.6e}, err={:.1}%",
-        mid_d.uy.abs(), delta_exact, error * 100.0);
+        mid_d.uz.abs(), delta_exact, error * 100.0);
 }
 
 // ================================================================
@@ -187,7 +187,7 @@ fn validation_deflection_propped_cantilever_udl() {
 
     // Find maximum deflection among all nodes
     let max_defl = results.displacements.iter()
-        .map(|d| d.uy.abs())
+        .map(|d| d.uz.abs())
         .fold(0.0_f64, f64::max);
 
     // δ_max = qL⁴/(185.2 EI)
@@ -225,10 +225,10 @@ fn validation_deflection_cantilever_udl() {
     // δ_tip = qL⁴/(8EI)
     let delta_exact = q.abs() * l.powi(4) / (8.0 * e_eff * IZ);
 
-    let error = (tip.uy.abs() - delta_exact).abs() / delta_exact;
+    let error = (tip.uz.abs() - delta_exact).abs() / delta_exact;
     assert!(error < 0.05,
         "Cantilever UDL: tip={:.6e}, exact qL⁴/(8EI)={:.6e}, err={:.1}%",
-        tip.uy.abs(), delta_exact, error * 100.0);
+        tip.uz.abs(), delta_exact, error * 100.0);
 }
 
 // ================================================================
@@ -249,7 +249,7 @@ fn validation_deflection_ss_quarter_point() {
 
     let input = make_beam(n, l, E, A, IZ, "pinned", Some("rollerX"),
         vec![SolverLoad::Nodal(SolverNodalLoad {
-            node_id: load_node, fx: 0.0, fy: -p, mz: 0.0,
+            node_id: load_node, fx: 0.0, fz: -p, my: 0.0,
         })]);
 
     let results = linear::solve_2d(&input).unwrap();
@@ -262,10 +262,10 @@ fn validation_deflection_ss_quarter_point() {
     let b = 3.0 * l / 4.0;
     let delta_exact = p * a * a * b * b / (3.0 * e_eff * IZ * l);
 
-    let error = (load_d.uy.abs() - delta_exact).abs() / delta_exact;
+    let error = (load_d.uz.abs() - delta_exact).abs() / delta_exact;
     assert!(error < 0.05,
         "SS quarter-point: δ={:.6e}, exact Pa²b²/(3EIL)={:.6e}, err={:.1}%",
-        load_d.uy.abs(), delta_exact, error * 100.0);
+        load_d.uz.abs(), delta_exact, error * 100.0);
 }
 
 // ================================================================
@@ -301,8 +301,8 @@ fn validation_deflection_cantilever_triangular() {
     // δ_tip = q_max·L⁴/(30EI) for load decreasing from max at fixed end to zero at free end
     let delta_exact = q_max.abs() * l.powi(4) / (30.0 * e_eff * IZ);
 
-    let error = (tip.uy.abs() - delta_exact).abs() / delta_exact;
+    let error = (tip.uz.abs() - delta_exact).abs() / delta_exact;
     assert!(error < 0.05,
         "Cantilever triangular: tip={:.6e}, exact qL⁴/(30EI)={:.6e}, err={:.1}%",
-        tip.uy.abs(), delta_exact, error * 100.0);
+        tip.uz.abs(), delta_exact, error * 100.0);
 }

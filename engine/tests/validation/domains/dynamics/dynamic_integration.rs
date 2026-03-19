@@ -99,16 +99,16 @@ fn validation_dynamic_1_free_vibration_period() {
             loads: vec![SolverNodalLoad {
                 node_id: tip_node,
                 fx: 0.0,
-                fy: -50.0,
-                mz: 0.0,
+                fz: -50.0,
+                my: 0.0,
             }] },
         TimeForceRecord {
             time: dt,
             loads: vec![SolverNodalLoad {
                 node_id: tip_node,
                 fx: 0.0,
-                fy: 0.0,
-                mz: 0.0,
+                fz: 0.0,
+                my: 0.0,
             }] },
     ];
 
@@ -131,7 +131,7 @@ fn validation_dynamic_1_free_vibration_period() {
         .iter()
         .find(|h| h.node_id == tip_node)
         .unwrap();
-    let uy = &tip.uy;
+    let uy = &tip.uz;
 
     // Find zero crossings after initial transient
     let mut crossings = Vec::new();
@@ -195,8 +195,8 @@ fn validation_dynamic_2_step_load_response() {
         vec![SolverLoad::Nodal(SolverNodalLoad {
             node_id: tip_node,
             fx: 0.0,
-            fy: p,
-            mz: 0.0,
+            fz: p,
+            my: 0.0,
         })],
     );
     let static_res = dedaliano_engine::solver::linear::solve_2d(&static_input).unwrap();
@@ -205,7 +205,7 @@ fn validation_dynamic_2_step_load_response() {
         .iter()
         .find(|d| d.node_id == tip_node)
         .unwrap()
-        .uy;
+        .uz;
 
     // Dynamic: constant step load over many periods
     let t_modal = fundamental_period(n_elem, length, DENSITY);
@@ -219,8 +219,8 @@ fn validation_dynamic_2_step_load_response() {
             loads: vec![SolverNodalLoad {
                 node_id: tip_node,
                 fx: 0.0,
-                fy: p,
-                mz: 0.0,
+                fz: p,
+                my: 0.0,
             }] });
     }
 
@@ -244,7 +244,7 @@ fn validation_dynamic_2_step_load_response() {
         .find(|h| h.node_id == tip_node)
         .unwrap();
     let u_max = tip
-        .uy
+        .uz
         .iter()
         .cloned()
         .fold(0.0_f64, |a, b| a.max(b.abs()));
@@ -294,8 +294,8 @@ fn validation_dynamic_3_damped_decay() {
             loads: vec![SolverNodalLoad {
                 node_id: tip_node,
                 fx: 0.0,
-                fy,
-                mz: 0.0,
+                fz: fy,
+                my: 0.0,
             }] });
     }
 
@@ -318,7 +318,7 @@ fn validation_dynamic_3_damped_decay() {
         .iter()
         .find(|h| h.node_id == tip_node)
         .unwrap();
-    let uy = &tip.uy;
+    let uy = &tip.uz;
 
     // Find peaks (local maxima in |uy|) — same-sign peaks for log decrement
     let mut pos_peaks = Vec::new();
@@ -409,8 +409,8 @@ fn validation_dynamic_4_harmonic_resonance() {
         vec![SolverLoad::Nodal(SolverNodalLoad {
             node_id: tip_node,
             fx: 0.0,
-            fy: -10.0,
-            mz: 0.0,
+            fz: -10.0,
+            my: 0.0,
         })],
     );
     let mut densities = HashMap::new();
@@ -502,8 +502,8 @@ fn validation_dynamic_5_harmonic_static_limit() {
         vec![SolverLoad::Nodal(SolverNodalLoad {
             node_id: tip_node,
             fx: 0.0,
-            fy: p,
-            mz: 0.0,
+            fz: p,
+            my: 0.0,
         })],
     );
     let static_res = dedaliano_engine::solver::linear::solve_2d(&static_input).unwrap();
@@ -512,7 +512,7 @@ fn validation_dynamic_5_harmonic_static_limit() {
         .iter()
         .find(|d| d.node_id == tip_node)
         .unwrap()
-        .uy
+        .uz
         .abs();
 
     // Harmonic at very low frequency
@@ -527,8 +527,8 @@ fn validation_dynamic_5_harmonic_static_limit() {
         vec![SolverLoad::Nodal(SolverNodalLoad {
             node_id: tip_node,
             fx: 0.0,
-            fy: p,
-            mz: 0.0,
+            fz: p,
+            my: 0.0,
         })],
     );
     let mut densities = HashMap::new();
@@ -596,16 +596,16 @@ fn validation_dynamic_6_newmark_energy_conservation() {
             loads: vec![SolverNodalLoad {
                 node_id: tip_node,
                 fx: 0.0,
-                fy: -50.0,
-                mz: 0.0,
+                fz: -50.0,
+                my: 0.0,
             }] },
         TimeForceRecord {
             time: dt,
             loads: vec![SolverNodalLoad {
                 node_id: tip_node,
                 fx: 0.0,
-                fy: 0.0,
-                mz: 0.0,
+                fz: 0.0,
+                my: 0.0,
             }] },
     ];
 
@@ -628,7 +628,7 @@ fn validation_dynamic_6_newmark_energy_conservation() {
         .iter()
         .find(|h| h.node_id == tip_node)
         .unwrap();
-    let uy = &tip.uy;
+    let uy = &tip.uz;
 
     // Compare early and late amplitude envelopes
     let steps_per_period = (t_modal / dt) as usize;
@@ -695,16 +695,16 @@ fn validation_dynamic_7_hht_alpha_damping() {
             loads: vec![SolverNodalLoad {
                 node_id: tip_node,
                 fx: 0.0,
-                fy: -50.0,
-                mz: 0.0,
+                fz: -50.0,
+                my: 0.0,
             }] },
         TimeForceRecord {
             time: dt,
             loads: vec![SolverNodalLoad {
                 node_id: tip_node,
                 fx: 0.0,
-                fy: 0.0,
-                mz: 0.0,
+                fz: 0.0,
+                my: 0.0,
             }] },
     ];
 
@@ -728,7 +728,7 @@ fn validation_dynamic_7_hht_alpha_damping() {
         .iter()
         .find(|h| h.node_id == tip_node)
         .unwrap();
-    let uy_hht = &tip_hht.uy;
+    let uy_hht = &tip_hht.uz;
 
     // Run standard Newmark for comparison (same parameters, no alpha)
     let input_newmark = make_cantilever_th(
@@ -750,7 +750,7 @@ fn validation_dynamic_7_hht_alpha_damping() {
         .iter()
         .find(|h| h.node_id == tip_node)
         .unwrap();
-    let uy_newmark = &tip_newmark.uy;
+    let uy_newmark = &tip_newmark.uz;
 
     let steps_per_period = (t_modal / dt) as usize;
 
@@ -882,16 +882,16 @@ fn validation_dynamic_8_multi_dof_modes() {
             loads: vec![SolverNodalLoad {
                 node_id: 5,
                 fx: 100.0,
-                fy: 0.0,
-                mz: 0.0,
+                fz: 0.0,
+                my: 0.0,
             }] },
         TimeForceRecord {
             time: dt,
             loads: vec![SolverNodalLoad {
                 node_id: 5,
                 fx: 0.0,
-                fy: 0.0,
-                mz: 0.0,
+                fz: 0.0,
+                my: 0.0,
             }] },
     ];
 

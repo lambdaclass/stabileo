@@ -43,7 +43,7 @@ fn validation_two_bar_v_truss_symmetric() {
         ],
         vec![(1, 1, "pinned"), (2, 2, "rollerX")],
         vec![SolverLoad::Nodal(SolverNodalLoad {
-            node_id: 3, fx: 0.0, fy: -100.0, mz: 0.0,
+            node_id: 3, fx: 0.0, fz: -100.0, my: 0.0,
         })],
     );
     let results = linear::solve_2d(&input).unwrap();
@@ -51,8 +51,8 @@ fn validation_two_bar_v_truss_symmetric() {
     // Reactions
     let r1 = results.reactions.iter().find(|r| r.node_id == 1).unwrap();
     let r2 = results.reactions.iter().find(|r| r.node_id == 2).unwrap();
-    assert_close(r1.ry, 50.0, 0.02, "V-truss R1y");
-    assert_close(r2.ry, 50.0, 0.02, "V-truss R2y");
+    assert_close(r1.rz, 50.0, 0.02, "V-truss R1y");
+    assert_close(r2.rz, 50.0, 0.02, "V-truss R2y");
 
     // Member forces
     let sin45: f64 = (std::f64::consts::PI / 4.0).sin();
@@ -106,7 +106,7 @@ fn validation_three_bar_truss_horizontal_load() {
         ],
         vec![(1, 1, "pinned"), (2, 2, "rollerX")],
         vec![SolverLoad::Nodal(SolverNodalLoad {
-            node_id: 3, fx: 60.0, fy: 0.0, mz: 0.0,
+            node_id: 3, fx: 60.0, fz: 0.0, my: 0.0,
         })],
     );
     let results = linear::solve_2d(&input).unwrap();
@@ -114,8 +114,8 @@ fn validation_three_bar_truss_horizontal_load() {
     // Reactions
     let r1 = results.reactions.iter().find(|r| r.node_id == 1).unwrap();
     let r2 = results.reactions.iter().find(|r| r.node_id == 2).unwrap();
-    assert_close(r1.ry, -45.0, 0.02, "3bar R1y");
-    assert_close(r2.ry, 45.0, 0.02, "3bar R2y");
+    assert_close(r1.rz, -45.0, 0.02, "3bar R1y");
+    assert_close(r2.rz, 45.0, 0.02, "3bar R2y");
     assert_close(r1.rx, -60.0, 0.02, "3bar R1x");
 
     // Member forces by method of joints
@@ -188,7 +188,7 @@ fn validation_pratt_3_panel_bottom_load() {
         ],
         vec![(1, 1, "pinned"), (2, 4, "rollerX")],
         vec![SolverLoad::Nodal(SolverNodalLoad {
-            node_id: 2, fx: 0.0, fy: -120.0, mz: 0.0,
+            node_id: 2, fx: 0.0, fz: -120.0, my: 0.0,
         })],
     );
     let results = linear::solve_2d(&input).unwrap();
@@ -196,11 +196,11 @@ fn validation_pratt_3_panel_bottom_load() {
     // Reactions
     let r1 = results.reactions.iter().find(|r| r.node_id == 1).unwrap();
     let r4 = results.reactions.iter().find(|r| r.node_id == 4).unwrap();
-    assert_close(r1.ry, 80.0, 0.02, "pratt3 R1y");
-    assert_close(r4.ry, 40.0, 0.02, "pratt3 R4y");
+    assert_close(r1.rz, 80.0, 0.02, "pratt3 R1y");
+    assert_close(r4.rz, 40.0, 0.02, "pratt3 R4y");
 
     // Global equilibrium
-    let sum_ry: f64 = results.reactions.iter().map(|r| r.ry).sum();
+    let sum_ry: f64 = results.reactions.iter().map(|r| r.rz).sum();
     assert_close(sum_ry, 120.0, 0.01, "pratt3 ΣRy");
 
     // Bottom chord 1-2 (tension) from method of joints at node 1
@@ -261,7 +261,7 @@ fn validation_two_bar_axial_stiffness() {
         ],
         vec![(1, 1, "pinned"), (2, 2, "rollerX")],
         vec![SolverLoad::Nodal(SolverNodalLoad {
-            node_id: 3, fx: 0.0, fy: -p, mz: 0.0,
+            node_id: 3, fx: 0.0, fz: -p, my: 0.0,
         })],
     );
     let results = linear::solve_2d(&input).unwrap();
@@ -271,7 +271,7 @@ fn validation_two_bar_axial_stiffness() {
     let expected_dy: f64 = -2.0 * p * sqrt2 / (E_EFF * A);
 
     let d3 = results.displacements.iter().find(|d| d.node_id == 3).unwrap();
-    assert_close(d3.uy, expected_dy, 0.03, "two-bar axial δy");
+    assert_close(d3.uz, expected_dy, 0.03, "two-bar axial δy");
 
     // Axial forces: both inclined bars should be in compression
     let expected_n: f64 = -p * sqrt2 / 2.0; // ≈ -70.71
@@ -339,7 +339,7 @@ fn validation_right_angle_truss_345() {
         ],
         vec![(1, 1, "pinned"), (2, 2, "pinned")],
         vec![SolverLoad::Nodal(SolverNodalLoad {
-            node_id: 3, fx: 50.0, fy: 0.0, mz: 0.0,
+            node_id: 3, fx: 50.0, fz: 0.0, my: 0.0,
         })],
     );
     let results = linear::solve_2d(&input).unwrap();
@@ -347,8 +347,8 @@ fn validation_right_angle_truss_345() {
     // Reactions
     let r1 = results.reactions.iter().find(|r| r.node_id == 1).unwrap();
     let r2 = results.reactions.iter().find(|r| r.node_id == 2).unwrap();
-    assert_close(r1.ry, -37.5, 0.02, "345 R1y");
-    assert_close(r2.ry, 37.5, 0.02, "345 R2y");
+    assert_close(r1.rz, -37.5, 0.02, "345 R1y");
+    assert_close(r2.rz, 37.5, 0.02, "345 R2y");
 
     // Equilibrium
     let sum_rx: f64 = results.reactions.iter().map(|r| r.rx).sum();
@@ -406,7 +406,7 @@ fn validation_diamond_truss() {
         ],
         vec![(1, 1, "pinned"), (2, 3, "rollerX")],
         vec![SolverLoad::Nodal(SolverNodalLoad {
-            node_id: 2, fx: 0.0, fy: -120.0, mz: 0.0,
+            node_id: 2, fx: 0.0, fz: -120.0, my: 0.0,
         })],
     );
     let results = linear::solve_2d(&input).unwrap();
@@ -414,8 +414,8 @@ fn validation_diamond_truss() {
     // Reactions
     let r1 = results.reactions.iter().find(|r| r.node_id == 1).unwrap();
     let r3 = results.reactions.iter().find(|r| r.node_id == 3).unwrap();
-    assert_close(r1.ry, 60.0, 0.02, "diamond R1y");
-    assert_close(r3.ry, 60.0, 0.02, "diamond R3y");
+    assert_close(r1.rz, 60.0, 0.02, "diamond R1y");
+    assert_close(r3.rz, 60.0, 0.02, "diamond R3y");
 
     // Member forces
     let sqrt13: f64 = 13.0_f64.sqrt();
@@ -432,7 +432,7 @@ fn validation_diamond_truss() {
     assert_close(ef3.n_start.abs(), ef4.n_start.abs(), 0.02, "diamond bottom symmetry");
 
     // Global equilibrium
-    let sum_ry: f64 = results.reactions.iter().map(|r| r.ry).sum();
+    let sum_ry: f64 = results.reactions.iter().map(|r| r.rz).sum();
     assert_close(sum_ry, 120.0, 0.01, "diamond ΣRy");
 }
 
@@ -482,7 +482,7 @@ fn validation_parallel_bars_displacement() {
         ],
         vec![(1, 1, "pinned"), (2, 3, "pinned")],
         vec![SolverLoad::Nodal(SolverNodalLoad {
-            node_id: 2, fx: 0.0, fy: -100.0, mz: 0.0,
+            node_id: 2, fx: 0.0, fz: -100.0, my: 0.0,
         })],
     );
     let results = linear::solve_2d(&input).unwrap();
@@ -490,8 +490,8 @@ fn validation_parallel_bars_displacement() {
     // Reactions
     let r1 = results.reactions.iter().find(|r| r.node_id == 1).unwrap();
     let r3 = results.reactions.iter().find(|r| r.node_id == 3).unwrap();
-    assert_close(r1.ry, 50.0, 0.02, "parallel R1y");
-    assert_close(r3.ry, 50.0, 0.02, "parallel R3y");
+    assert_close(r1.rz, 50.0, 0.02, "parallel R1y");
+    assert_close(r3.rz, 50.0, 0.02, "parallel R3y");
 
     // Member forces (compression)
     let expected_n: f64 = -250.0 / 3.0; // ≈ -83.33
@@ -503,7 +503,7 @@ fn validation_parallel_bars_displacement() {
     // Displacement at node 2
     let expected_dy: f64 = -6250.0 / (9.0 * E_EFF * A); // negative (downward)
     let d2 = results.displacements.iter().find(|d| d.node_id == 2).unwrap();
-    assert_close(d2.uy, expected_dy, 0.03, "parallel bar δy");
+    assert_close(d2.uz, expected_dy, 0.03, "parallel bar δy");
 }
 
 // ═══════════════════════════════════════════════════════════════
@@ -557,7 +557,7 @@ fn validation_k_truss_asymmetric_load() {
         ],
         vec![(1, 1, "pinned"), (2, 4, "rollerX")],
         vec![SolverLoad::Nodal(SolverNodalLoad {
-            node_id: 5, fx: 0.0, fy: -90.0, mz: 0.0,
+            node_id: 5, fx: 0.0, fz: -90.0, my: 0.0,
         })],
     );
     let results = linear::solve_2d(&input).unwrap();
@@ -565,11 +565,11 @@ fn validation_k_truss_asymmetric_load() {
     // Reactions
     let r1 = results.reactions.iter().find(|r| r.node_id == 1).unwrap();
     let r4 = results.reactions.iter().find(|r| r.node_id == 4).unwrap();
-    assert_close(r1.ry, 60.0, 0.02, "K-truss R1y");
-    assert_close(r4.ry, 30.0, 0.02, "K-truss R4y");
+    assert_close(r1.rz, 60.0, 0.02, "K-truss R1y");
+    assert_close(r4.rz, 30.0, 0.02, "K-truss R4y");
 
     // Global equilibrium
-    let sum_ry: f64 = results.reactions.iter().map(|r| r.ry).sum();
+    let sum_ry: f64 = results.reactions.iter().map(|r| r.rz).sum();
     assert_close(sum_ry, 90.0, 0.01, "K-truss ΣRy");
 
     // Top chord force: F56 = -40 kN (compression) from method of sections

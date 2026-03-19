@@ -52,7 +52,7 @@ fn run_spectral_ss_beam(
             period: m.period,
             omega: m.omega,
             displacements: m.displacements.iter().map(|d| {
-                SpectralModeDisp { node_id: d.node_id, ux: d.ux, uy: d.uy, rz: d.rz }
+                SpectralModeDisp { node_id: d.node_id, ux: d.ux, uz: d.uz, ry: d.ry }
             }).collect(),
             participation_x: m.participation_x,
             participation_y: m.participation_y,
@@ -277,7 +277,7 @@ fn validation_spectral_zero_spectrum_zero_response() {
     );
 
     for d in &result.displacements {
-        assert!(d.ux.abs() < 1e-10 && d.uy.abs() < 1e-10,
+        assert!(d.ux.abs() < 1e-10 && d.uz.abs() < 1e-10,
             "Zero spectrum: node {} has nonzero displacement", d.node_id);
     }
 }

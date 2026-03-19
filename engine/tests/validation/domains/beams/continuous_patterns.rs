@@ -50,9 +50,9 @@ fn validation_continuous_two_span_symmetric() {
     let ql = q.abs() * span;
 
     // Reactions: R1 = R3 = 3qL/8, R2 = 10qL/8
-    let r1 = results.reactions.iter().find(|r| r.node_id == 1).unwrap().ry;
-    let r_mid = results.reactions.iter().find(|r| r.node_id == mid_node).unwrap().ry;
-    let r_end = results.reactions.iter().find(|r| r.node_id == total_nodes).unwrap().ry;
+    let r1 = results.reactions.iter().find(|r| r.node_id == 1).unwrap().rz;
+    let r_mid = results.reactions.iter().find(|r| r.node_id == mid_node).unwrap().rz;
+    let r_end = results.reactions.iter().find(|r| r.node_id == total_nodes).unwrap().rz;
 
     assert_close(r1, 3.0 * ql / 8.0, 0.02, "2-span: R1 = 3qL/8");
     assert_close(r_mid, 10.0 * ql / 8.0, 0.02, "2-span: R_center = 10qL/8");
@@ -94,8 +94,8 @@ fn validation_continuous_three_span_checkerboard() {
     let mid_span1 = n / 2 + 1;
     let mid_span3 = 2 * n + n / 2 + 1;
 
-    let d1 = results.displacements.iter().find(|d| d.node_id == mid_span1).unwrap().uy;
-    let d3 = results.displacements.iter().find(|d| d.node_id == mid_span3).unwrap().uy;
+    let d1 = results.displacements.iter().find(|d| d.node_id == mid_span1).unwrap().uz;
+    let d3 = results.displacements.iter().find(|d| d.node_id == mid_span3).unwrap().uz;
 
     let err = (d1 - d3).abs() / d1.abs().max(1e-10);
     assert!(err < 0.05,
@@ -135,8 +135,8 @@ fn validation_continuous_alternate_positive_moment() {
 
     // Midspan deflection in span 1 should be larger with alternate loading
     let mid1 = n / 2 + 1;
-    let d_full = res_full.displacements.iter().find(|d| d.node_id == mid1).unwrap().uy.abs();
-    let d_alt = res_alt.displacements.iter().find(|d| d.node_id == mid1).unwrap().uy.abs();
+    let d_full = res_full.displacements.iter().find(|d| d.node_id == mid1).unwrap().uz.abs();
+    let d_alt = res_alt.displacements.iter().find(|d| d.node_id == mid1).unwrap().uz.abs();
 
     assert!(d_alt > d_full,
         "Alternate loading: more span 1 deflection: {:.6e} > {:.6e}", d_alt, d_full);
@@ -175,8 +175,8 @@ fn validation_continuous_adjacent_negative_moment() {
 
     // Interior support reaction (node n+1) should be larger with both loaded
     let mid_node = n + 1;
-    let r_both = res_both.reactions.iter().find(|r| r.node_id == mid_node).unwrap().ry;
-    let r_one = res_one.reactions.iter().find(|r| r.node_id == mid_node).unwrap().ry;
+    let r_both = res_both.reactions.iter().find(|r| r.node_id == mid_node).unwrap().rz;
+    let r_one = res_one.reactions.iter().find(|r| r.node_id == mid_node).unwrap().rz;
 
     assert!(r_both > r_one,
         "Both spans → larger interior reaction: {:.4} > {:.4}", r_both, r_one);
@@ -209,9 +209,9 @@ fn validation_continuous_unequal_spans() {
     let total_nodes = total_elems + 1;
     let mid_node = n + 1;
 
-    let r1 = results.reactions.iter().find(|r| r.node_id == 1).unwrap().ry;
-    let r_mid = results.reactions.iter().find(|r| r.node_id == mid_node).unwrap().ry;
-    let r_end = results.reactions.iter().find(|r| r.node_id == total_nodes).unwrap().ry;
+    let r1 = results.reactions.iter().find(|r| r.node_id == 1).unwrap().rz;
+    let r_mid = results.reactions.iter().find(|r| r.node_id == mid_node).unwrap().rz;
+    let r_end = results.reactions.iter().find(|r| r.node_id == total_nodes).unwrap().rz;
 
     // Total load = q * (span1 + span2)
     let total_load = q.abs() * (span1 + span2);
@@ -249,7 +249,7 @@ fn validation_continuous_span_count_effect() {
         let results = linear::solve_2d(&input).unwrap();
 
         // First interior support (node n+1)
-        results.reactions.iter().find(|r| r.node_id == n + 1).unwrap().ry
+        results.reactions.iter().find(|r| r.node_id == n + 1).unwrap().rz
     };
 
     let r_2span = get_interior_reaction(2);
@@ -307,8 +307,8 @@ fn validation_continuous_fixed_ends() {
 
     // Midspan deflection should be less with fixed ends
     let mid1 = n / 2 + 1;
-    let d_pinned = res_pinned.displacements.iter().find(|d| d.node_id == mid1).unwrap().uy.abs();
-    let d_fixed = res_fixed.displacements.iter().find(|d| d.node_id == mid1).unwrap().uy.abs();
+    let d_pinned = res_pinned.displacements.iter().find(|d| d.node_id == mid1).unwrap().uz.abs();
+    let d_fixed = res_fixed.displacements.iter().find(|d| d.node_id == mid1).unwrap().uz.abs();
 
     assert!(d_fixed < d_pinned,
         "Fixed ends: less deflection: {:.6e} < {:.6e}", d_fixed, d_pinned);
@@ -344,7 +344,7 @@ fn validation_continuous_pattern_equilibrium() {
 
     // Total load = q * 2 * span (two spans loaded)
     let total_load = q.abs() * 2.0 * span;
-    let sum_ry: f64 = results.reactions.iter().map(|r| r.ry).sum();
+    let sum_ry: f64 = results.reactions.iter().map(|r| r.rz).sum();
     assert_close(sum_ry, total_load, 0.02,
         "Pattern equilibrium: ΣR = total load");
 }

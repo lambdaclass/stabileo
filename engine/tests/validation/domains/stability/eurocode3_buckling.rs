@@ -90,8 +90,8 @@ fn validation_ec3_fixed_vs_pinned_base() {
     ];
     let sups = vec![(1, 1, "pinned"), (2, 4, "pinned")];
     let loads = vec![
-        SolverLoad::Nodal(SolverNodalLoad { node_id: 2, fx: h_load, fy: -p, mz: 0.0 }),
-        SolverLoad::Nodal(SolverNodalLoad { node_id: 3, fx: 0.0, fy: -p, mz: 0.0 }),
+        SolverLoad::Nodal(SolverNodalLoad { node_id: 2, fx: h_load, fz: -p, my: 0.0 }),
+        SolverLoad::Nodal(SolverNodalLoad { node_id: 3, fx: 0.0, fz: -p, my: 0.0 }),
     ];
     let pinned_input = make_input(
         nodes, vec![(1, E, 0.3)], vec![(1, A, IZ)], elems, sups, loads,
@@ -140,10 +140,10 @@ fn validation_ec3_multi_story_sway_alpha_cr() {
 
     let loads = vec![
         // Gravity at joints
-        SolverLoad::Nodal(SolverNodalLoad { node_id: 3, fx: 30.0, fy: -300.0, mz: 0.0 }),
-        SolverLoad::Nodal(SolverNodalLoad { node_id: 4, fx: 0.0, fy: -300.0, mz: 0.0 }),
-        SolverLoad::Nodal(SolverNodalLoad { node_id: 5, fx: 30.0, fy: -300.0, mz: 0.0 }),
-        SolverLoad::Nodal(SolverNodalLoad { node_id: 6, fx: 0.0, fy: -300.0, mz: 0.0 }),
+        SolverLoad::Nodal(SolverNodalLoad { node_id: 3, fx: 30.0, fz: -300.0, my: 0.0 }),
+        SolverLoad::Nodal(SolverNodalLoad { node_id: 4, fx: 0.0, fz: -300.0, my: 0.0 }),
+        SolverLoad::Nodal(SolverNodalLoad { node_id: 5, fx: 30.0, fz: -300.0, my: 0.0 }),
+        SolverLoad::Nodal(SolverNodalLoad { node_id: 6, fx: 0.0, fz: -300.0, my: 0.0 }),
     ];
 
     let input = make_input(
@@ -234,8 +234,8 @@ fn validation_ec3_braced_frame_high_alpha_cr() {
 
     let sups = vec![(1, 1, "fixed"), (2, 4, "fixed")];
     let loads = vec![
-        SolverLoad::Nodal(SolverNodalLoad { node_id: 2, fx: h_load, fy: -p, mz: 0.0 }),
-        SolverLoad::Nodal(SolverNodalLoad { node_id: 3, fx: 0.0, fy: -p, mz: 0.0 }),
+        SolverLoad::Nodal(SolverNodalLoad { node_id: 2, fx: h_load, fz: -p, my: 0.0 }),
+        SolverLoad::Nodal(SolverNodalLoad { node_id: 3, fx: 0.0, fz: -p, my: 0.0 }),
     ];
 
     let input = make_input(

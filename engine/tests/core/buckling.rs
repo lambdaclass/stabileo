@@ -93,7 +93,7 @@ fn euler_cantilever_4_elements() {
         elems,
         vec![(1, 1, "fixed")],  // Only fixed at base
         vec![SolverLoad::Nodal(SolverNodalLoad {
-            node_id: n_elem + 1, fx: -p, fy: 0.0, mz: 0.0,
+            node_id: n_elem + 1, fx: -p, fz: 0.0, my: 0.0,
         })],
     );
     let result = buckling::solve_buckling_2d(&input, 4).unwrap();
@@ -143,7 +143,7 @@ fn euler_fixed_fixed_4_elements() {
         elems,
         vec![(1, 1, "fixed"), (2, n_elem + 1, "rollerX")],
         vec![SolverLoad::Nodal(SolverNodalLoad {
-            node_id: n_elem + 1, fx: -p, fy: 0.0, mz: 0.0,
+            node_id: n_elem + 1, fx: -p, fz: 0.0, my: 0.0,
         })],
     );
     let result = buckling::solve_buckling_2d(&input, 4).unwrap();

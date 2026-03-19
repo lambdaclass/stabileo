@@ -68,7 +68,7 @@ fn validation_soap_film_equal_biaxial_stress() {
     ];
     let sups = vec![(1, 1, "pinned"), (2, 3, "pinned")];
     let loads = vec![SolverLoad::Nodal(SolverNodalLoad {
-        node_id: 2, fx: 0.0, fy: -p, mz: 0.0,
+        node_id: 2, fx: 0.0, fz: -p, my: 0.0,
     })];
 
     let input = make_input(nodes, vec![(1, e, 0.3)], vec![(1, a, 0.0)],
@@ -76,13 +76,13 @@ fn validation_soap_film_equal_biaxial_stress() {
     let results = solve_2d(&input).expect("solve");
 
     // Global equilibrium: sum of vertical reactions = P
-    let sum_ry: f64 = results.reactions.iter().map(|r| r.ry).sum();
+    let sum_ry: f64 = results.reactions.iter().map(|r| r.rz).sum();
     assert_close(sum_ry, p, 0.01, "Soap film: vertical equilibrium");
 
     // Symmetric structure => equal vertical reactions at both supports
     let r1 = results.reactions.iter().find(|r| r.node_id == 1).unwrap();
     let r3 = results.reactions.iter().find(|r| r.node_id == 3).unwrap();
-    assert_close(r1.ry, r3.ry, 0.02, "Soap film: symmetric reactions");
+    assert_close(r1.rz, r3.rz, 0.02, "Soap film: symmetric reactions");
 
     // Equal biaxial: both elements carry exactly the same tension
     let ef1 = results.element_forces.iter().find(|f| f.element_id == 1).unwrap();
@@ -117,7 +117,7 @@ fn validation_soap_film_equal_biaxial_stress() {
     let input2 = make_input(nodes2, vec![(1, e, 0.3)], vec![(1, a, 0.0)],
         elems2, vec![(1, 1, "pinned"), (2, 3, "pinned")],
         vec![SolverLoad::Nodal(SolverNodalLoad {
-            node_id: 2, fx: 0.0, fy: -p2, mz: 0.0,
+            node_id: 2, fx: 0.0, fz: -p2, my: 0.0,
         })]);
     let results2 = solve_2d(&input2).expect("solve");
 
@@ -130,7 +130,7 @@ fn validation_soap_film_equal_biaxial_stress() {
 
     // Center node deflects downward
     let d2 = results.displacements.iter().find(|d| d.node_id == 2).unwrap();
-    assert!(d2.uy < 0.0, "Soap film: center deflects downward, uy={:.6}", d2.uy);
+    assert!(d2.uz < 0.0, "Soap film: center deflects downward, uy={:.6}", d2.uz);
 }
 
 // ================================================================
@@ -204,7 +204,7 @@ fn validation_catenary_vs_parabolic() {
     ];
     let sups = vec![(1, 1, "pinned"), (2, 3, "pinned")];
     let loads = vec![SolverLoad::Nodal(SolverNodalLoad {
-        node_id: 2, fx: 0.0, fy: -p_equiv, mz: 0.0,
+        node_id: 2, fx: 0.0, fz: -p_equiv, my: 0.0,
     })];
 
     let input = make_input(nodes, vec![(1, e, 0.3)], vec![(1, a, 0.0)],
@@ -252,15 +252,15 @@ fn validation_pretension_stiffness_effect() {
         ];
         let sups = vec![(1, 1, "pinned"), (2, 3, "pinned")];
         let loads = vec![SolverLoad::Nodal(SolverNodalLoad {
-            node_id: 2, fx: 0.0, fy: -p, mz: 0.0,
+            node_id: 2, fx: 0.0, fz: -p, my: 0.0,
         })];
 
         let input = make_input(nodes, vec![(1, e, 0.3)], vec![(1, a, 0.0)],
             elems, sups, loads);
         let results = solve_2d(&input).expect("solve");
-        let uy: f64 = results.displacements.iter()
-            .find(|d| d.node_id == 2).unwrap().uy.abs();
-        deflections.push(uy);
+        let uz: f64 = results.displacements.iter()
+            .find(|d| d.node_id == 2).unwrap().uz.abs();
+        deflections.push(uz);
     }
 
     // Monotonic: more area => less deflection
@@ -295,7 +295,7 @@ fn validation_pretension_stiffness_effect() {
         ];
         let sups = vec![(1, 1, "pinned"), (2, 3, "pinned")];
         let loads = vec![SolverLoad::Nodal(SolverNodalLoad {
-            node_id: 2, fx: 0.0, fy: -p, mz: 0.0,
+            node_id: 2, fx: 0.0, fz: -p, my: 0.0,
         })];
 
         let input = make_input(nodes, vec![(1, e, 0.3)], vec![(1, a, 0.0)],
@@ -367,7 +367,7 @@ fn validation_cable_net_point_load() {
     ];
 
     let loads = vec![SolverLoad::Nodal(SolverNodalLoad {
-        node_id: 3, fx: 0.0, fy: -p, mz: 0.0,
+        node_id: 3, fx: 0.0, fz: -p, my: 0.0,
     })];
 
     let input = make_input(nodes, vec![(1, e, 0.3)], vec![(1, a, 0.0)],
@@ -375,7 +375,7 @@ fn validation_cable_net_point_load() {
     let results = solve_2d(&input).expect("solve");
 
     // Vertical equilibrium
-    let sum_ry: f64 = results.reactions.iter().map(|r| r.ry).sum();
+    let sum_ry: f64 = results.reactions.iter().map(|r| r.rz).sum();
     assert_close(sum_ry, p, 0.01, "Cable net: vertical equilibrium");
 
     // Horizontal equilibrium
@@ -384,7 +384,7 @@ fn validation_cable_net_point_load() {
 
     // Center node deflects downward
     let d3 = results.displacements.iter().find(|d| d.node_id == 3).unwrap();
-    assert!(d3.uy < 0.0, "Cable net: center deflects down, uy={:.6}", d3.uy);
+    assert!(d3.uz < 0.0, "Cable net: center deflects down, uy={:.6}", d3.uz);
 
     // All members should be in tension (cable net behavior)
     for ef in &results.element_forces {
@@ -450,7 +450,7 @@ fn validation_anticlastic_saddle_shape() {
 
     let sups = vec![(1, 1, "pinned"), (2, 2, "pinned")];
     let loads = vec![SolverLoad::Nodal(SolverNodalLoad {
-        node_id: 3, fx: 0.0, fy: -p, mz: 0.0,
+        node_id: 3, fx: 0.0, fz: -p, my: 0.0,
     })];
 
     let input = make_input(nodes, vec![(1, e, 0.3)], vec![(1, a, 0.0)],
@@ -487,7 +487,7 @@ fn validation_anticlastic_saddle_shape() {
     let input_deep = make_input(nodes_deep, vec![(1, e, 0.3)], vec![(1, a, 0.0)],
         elems_deep, vec![(1, 1, "pinned"), (2, 2, "pinned")],
         vec![SolverLoad::Nodal(SolverNodalLoad {
-            node_id: 3, fx: 0.0, fy: -p, mz: 0.0,
+            node_id: 3, fx: 0.0, fz: -p, my: 0.0,
         })]);
     let results_deep = solve_2d(&input_deep).expect("solve");
 
@@ -542,7 +542,7 @@ fn validation_wind_uplift_pretension() {
     ];
     let sups_above = vec![(1, 1, "pinned"), (2, 3, "pinned")];
     let loads_up = vec![SolverLoad::Nodal(SolverNodalLoad {
-        node_id: 2, fx: 0.0, fy: p_uplift, mz: 0.0,  // upward
+        node_id: 2, fx: 0.0, fz: p_uplift, my: 0.0,  // upward
     })];
 
     let input_above = make_input(nodes_above, vec![(1, e, 0.3)], vec![(1, a, 0.0)],
@@ -574,7 +574,7 @@ fn validation_wind_uplift_pretension() {
     ];
     let sups_below = vec![(1, 1, "pinned"), (2, 3, "pinned")];
     let loads_up2 = vec![SolverLoad::Nodal(SolverNodalLoad {
-        node_id: 2, fx: 0.0, fy: p_uplift, mz: 0.0,
+        node_id: 2, fx: 0.0, fz: p_uplift, my: 0.0,
     })];
 
     let input_below = make_input(nodes_below, vec![(1, e, 0.3)], vec![(1, a, 0.0)],
@@ -661,7 +661,7 @@ fn validation_ring_beam_tension() {
     ];
 
     let loads = vec![SolverLoad::Nodal(SolverNodalLoad {
-        node_id: 2, fx: 0.0, fy: -p, mz: 0.0,
+        node_id: 2, fx: 0.0, fz: -p, my: 0.0,
     })];
 
     let input = make_input(
@@ -673,14 +673,14 @@ fn validation_ring_beam_tension() {
     let results = solve_2d(&input).expect("solve");
 
     // Global equilibrium
-    let sum_ry: f64 = results.reactions.iter().map(|r| r.ry).sum();
+    let sum_ry: f64 = results.reactions.iter().map(|r| r.rz).sum();
     assert_close(sum_ry, p, 0.01, "Ring beam: vertical equilibrium");
 
     // Symmetric reactions
     let r1 = results.reactions.iter().find(|r| r.node_id == 1).unwrap();
     let r3 = results.reactions.iter().find(|r| r.node_id == 3).unwrap();
-    assert_close(r1.ry, r3.ry, 0.02, "Ring beam: symmetric vertical reactions");
-    assert_close(r1.ry, p / 2.0, 0.02, "Ring beam: each support carries P/2");
+    assert_close(r1.rz, r3.rz, 0.02, "Ring beam: symmetric vertical reactions");
+    assert_close(r1.rz, p / 2.0, 0.02, "Ring beam: each support carries P/2");
 
     // Cable geometry
     let cable_len: f64 = (w * w + h * h).sqrt();
@@ -726,7 +726,7 @@ fn validation_ring_beam_tension() {
     let input_s = make_input(nodes_s, vec![(1, e, 0.3)], vec![(1, a, 0.0)],
         elems_s, vec![(1, 1, "pinned"), (2, 3, "pinned")],
         vec![SolverLoad::Nodal(SolverNodalLoad {
-            node_id: 2, fx: 0.0, fy: -p, mz: 0.0,
+            node_id: 2, fx: 0.0, fz: -p, my: 0.0,
         })]);
     let results_s = solve_2d(&input_s).expect("solve");
     let h_ring_shallow: f64 = results_s.reactions.iter()
@@ -811,7 +811,7 @@ fn validation_fabric_biaxial_stress() {
     ];
     let sups = vec![(1, 1, "pinned"), (2, 3, "pinned")];
     let loads = vec![SolverLoad::Nodal(SolverNodalLoad {
-        node_id: 2, fx: 0.0, fy: -p_load, mz: 0.0,
+        node_id: 2, fx: 0.0, fz: -p_load, my: 0.0,
     })];
 
     let input = make_input(nodes, vec![(1, e, 0.3)], vec![(1, a, 0.0)],
@@ -837,7 +837,7 @@ fn validation_fabric_biaxial_stress() {
 
     // Part 3: Scaling check - doubling load doubles tension
     let loads_2x = vec![SolverLoad::Nodal(SolverNodalLoad {
-        node_id: 2, fx: 0.0, fy: -2.0 * p_load, mz: 0.0,
+        node_id: 2, fx: 0.0, fz: -2.0 * p_load, my: 0.0,
     })];
     let input_2x = make_input(
         vec![(1, 0.0, 0.0), (2, span / 2.0, -sag), (3, span, 0.0)],

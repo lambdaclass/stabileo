@@ -121,7 +121,7 @@ fn validation_pdelta_tension_stiffening() {
     }
 
     let loads = vec![SolverLoad::Nodal(SolverNodalLoad {
-        node_id: n + 1, fx: f_lat, fy: f_tension, mz: 0.0,  // +fy = upward = tension
+        node_id: n + 1, fx: f_lat, fz: f_tension, my: 0.0,  // +fy = upward = tension
     })];
     let input = make_input(nodes, vec![(1, E, 0.3)], vec![(1, A, IZ)], elems,
         vec![(1, 1, "fixed")], loads);
@@ -189,7 +189,7 @@ fn validation_pdelta_effective_length() {
 
     // Sway case: cantilever (fixed-free)
     let loads_sway = vec![SolverLoad::Nodal(SolverNodalLoad {
-        node_id: n + 1, fx: f_lat, fy: -p_grav, mz: 0.0,
+        node_id: n + 1, fx: f_lat, fz: -p_grav, my: 0.0,
     })];
     let input_sway = make_input(
         nodes.clone(), vec![(1, E, 0.3)], vec![(1, A, IZ)],
@@ -201,7 +201,7 @@ fn validation_pdelta_effective_length() {
 
     // Non-sway case: fixed-guided (lateral restrained at top)
     let loads_ns = vec![SolverLoad::Nodal(SolverNodalLoad {
-        node_id: n + 1, fx: f_lat, fy: -p_grav, mz: 0.0,
+        node_id: n + 1, fx: f_lat, fz: -p_grav, my: 0.0,
     })];
     let input_ns = make_input(
         nodes, vec![(1, E, 0.3)], vec![(1, A, IZ)],
@@ -259,10 +259,10 @@ fn validation_pdelta_multistory_accumulation() {
         elems.push((eid, "frame", left, right, 1, 1, false, false)); eid += 1;
 
         loads.push(SolverLoad::Nodal(SolverNodalLoad {
-            node_id: left, fx: f, fy: -p, mz: 0.0,
+            node_id: left, fx: f, fz: -p, my: 0.0,
         }));
         loads.push(SolverLoad::Nodal(SolverNodalLoad {
-            node_id: right, fx: 0.0, fy: -p, mz: 0.0,
+            node_id: right, fx: 0.0, fz: -p, my: 0.0,
         }));
     }
 
@@ -310,11 +310,11 @@ fn validation_pdelta_moment_amplification() {
 
     // First-order base moment
     let lin = linear::solve_2d(&input).unwrap();
-    let m_lin = lin.reactions.iter().find(|r| r.node_id == 1).unwrap().mz.abs();
+    let m_lin = lin.reactions.iter().find(|r| r.node_id == 1).unwrap().my.abs();
 
     // P-delta base moment
     let pd = pdelta::solve_pdelta_2d(&input, 20, 1e-6).unwrap();
-    let m_pd = pd.results.reactions.iter().find(|r| r.node_id == 1).unwrap().mz.abs();
+    let m_pd = pd.results.reactions.iter().find(|r| r.node_id == 1).unwrap().my.abs();
 
     // P-delta moment should be larger (amplified)
     assert!(m_pd > m_lin,

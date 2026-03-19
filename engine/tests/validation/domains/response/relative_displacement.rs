@@ -51,7 +51,7 @@ fn validation_reldispl_chord_rotation_cantilever() {
     let elems: Vec<_> = (0..n).map(|i| (i + 1, "frame", i + 1, i + 2, 1, 1, false, false)).collect();
     let sups = vec![(1, 1, "fixed")];
     let loads = vec![SolverLoad::Nodal(SolverNodalLoad {
-        node_id: n + 1, fx: lateral, fy: 0.0, mz: 0.0,
+        node_id: n + 1, fx: lateral, fz: 0.0, my: 0.0,
     })];
     let input = make_input(nodes, vec![(1, E, 0.3)], vec![(1, A, IZ)], elems, sups, loads);
     let results = linear::solve_2d(&input).unwrap();
@@ -108,8 +108,8 @@ fn validation_reldispl_interstory_drift_two_story() {
     ];
     let sups = vec![(1, 1, "fixed"), (2, 2, "fixed")];
     let loads = vec![
-        SolverLoad::Nodal(SolverNodalLoad { node_id: 3, fx: h1, fy: 0.0, mz: 0.0 }),
-        SolverLoad::Nodal(SolverNodalLoad { node_id: 5, fx: h2, fy: 0.0, mz: 0.0 }),
+        SolverLoad::Nodal(SolverNodalLoad { node_id: 3, fx: h1, fz: 0.0, my: 0.0 }),
+        SolverLoad::Nodal(SolverNodalLoad { node_id: 5, fx: h2, fz: 0.0, my: 0.0 }),
     ];
 
     let input = make_input(nodes, vec![(1, E, 0.3)], vec![(1, A, IZ)], elems, sups, loads);
@@ -167,7 +167,7 @@ fn validation_reldispl_relative_vertical_between_beams() {
     let mid = n / 2 + 1;
     let input_loaded = make_beam(n, l, E, A, IZ, "pinned", Some("rollerX"),
         vec![SolverLoad::Nodal(SolverNodalLoad {
-            node_id: mid, fx: 0.0, fy: -p, mz: 0.0,
+            node_id: mid, fx: 0.0, fz: -p, my: 0.0,
         })]);
     let res_loaded = linear::solve_2d(&input_loaded).unwrap();
 
@@ -175,8 +175,8 @@ fn validation_reldispl_relative_vertical_between_beams() {
     let input_unloaded = make_beam(n, l, E, A, IZ, "pinned", Some("rollerX"), vec![]);
     let res_unloaded = linear::solve_2d(&input_unloaded).unwrap();
 
-    let d_loaded = res_loaded.displacements.iter().find(|d| d.node_id == mid).unwrap().uy;
-    let d_unloaded = res_unloaded.displacements.iter().find(|d| d.node_id == mid).unwrap().uy;
+    let d_loaded = res_loaded.displacements.iter().find(|d| d.node_id == mid).unwrap().uz;
+    let d_unloaded = res_unloaded.displacements.iter().find(|d| d.node_id == mid).unwrap().uz;
 
     // Relative displacement = d_loaded - d_unloaded
     let d_relative = (d_loaded - d_unloaded).abs();
@@ -211,7 +211,7 @@ fn validation_reldispl_axial_elongation() {
     // Horizontal bar, fixed at left, axial load at right
     let input = make_beam(n, l, E, A, IZ, "fixed", None,
         vec![SolverLoad::Nodal(SolverNodalLoad {
-            node_id: 2, fx: p, fy: 0.0, mz: 0.0,
+            node_id: 2, fx: p, fz: 0.0, my: 0.0,
         })]);
     let results = linear::solve_2d(&input).unwrap();
 
@@ -259,12 +259,12 @@ fn validation_reldispl_joint_opening_angle() {
 
     let input = make_beam(n, l, E, A, IZ, "pinned", Some("rollerX"),
         vec![SolverLoad::Nodal(SolverNodalLoad {
-            node_id: mid, fx: 0.0, fy: -p, mz: 0.0,
+            node_id: mid, fx: 0.0, fz: -p, my: 0.0,
         })]);
     let results = linear::solve_2d(&input).unwrap();
 
-    let rz_start = results.displacements.iter().find(|d| d.node_id == 1).unwrap().rz;
-    let rz_end = results.displacements.iter().find(|d| d.node_id == n + 1).unwrap().rz;
+    let rz_start = results.displacements.iter().find(|d| d.node_id == 1).unwrap().ry;
+    let rz_end = results.displacements.iter().find(|d| d.node_id == n + 1).unwrap().ry;
 
     // For SS beam with midspan point load: θ_A = -PL²/(16EI), θ_B = +PL²/(16EI)
     let theta_exact = p * l * l / (16.0 * e_eff * IZ);
@@ -279,8 +279,8 @@ fn validation_reldispl_joint_opening_angle() {
         "Symmetric loading: equal end rotations");
 
     // Joint opening angle (change in angle across midspan element):
-    let rz_mid_left = results.displacements.iter().find(|d| d.node_id == mid - 1).unwrap().rz;
-    let rz_mid_right = results.displacements.iter().find(|d| d.node_id == mid + 1).unwrap().rz;
+    let rz_mid_left = results.displacements.iter().find(|d| d.node_id == mid - 1).unwrap().ry;
+    let rz_mid_right = results.displacements.iter().find(|d| d.node_id == mid + 1).unwrap().ry;
     // Rotation changes sign at midspan (kink in elastic curve)
     assert!(rz_mid_left * rz_mid_right < 0.0 || rz_mid_left.abs() + rz_mid_right.abs() > 0.0,
         "Rotation changes around midspan load point");
@@ -321,8 +321,8 @@ fn validation_reldispl_differential_deflection_parallel_beams() {
     let input2 = make_beam(n, l, E, A, IZ, "pinned", Some("rollerX"), vec![]);
     let res2 = linear::solve_2d(&input2).unwrap();
 
-    let d1_mid = res1.displacements.iter().find(|d| d.node_id == n / 2 + 1).unwrap().uy;
-    let d2_mid = res2.displacements.iter().find(|d| d.node_id == n / 2 + 1).unwrap().uy;
+    let d1_mid = res1.displacements.iter().find(|d| d.node_id == n / 2 + 1).unwrap().uz;
+    let d2_mid = res2.displacements.iter().find(|d| d.node_id == n / 2 + 1).unwrap().uz;
 
     // Differential deflection
     let d_diff = (d1_mid - d2_mid).abs();
@@ -333,7 +333,7 @@ fn validation_reldispl_differential_deflection_parallel_beams() {
         "Differential deflection = 5qL⁴/(384EI)");
 
     // Beam 2 has zero deflection everywhere
-    let max_d2: f64 = res2.displacements.iter().map(|d| d.uy.abs()).fold(0.0, f64::max);
+    let max_d2: f64 = res2.displacements.iter().map(|d| d.uz.abs()).fold(0.0, f64::max);
     assert!(max_d2 < 1e-10, "Unloaded beam: zero deflections everywhere");
 }
 
@@ -362,12 +362,12 @@ fn validation_reldispl_relative_end_rotation_asymmetric() {
     // Fixed at left (A), roller at right (B)
     let input = make_beam(n, l, E, A, IZ, "fixed", Some("rollerX"),
         vec![SolverLoad::Nodal(SolverNodalLoad {
-            node_id: load_node, fx: 0.0, fy: -p, mz: 0.0,
+            node_id: load_node, fx: 0.0, fz: -p, my: 0.0,
         })]);
     let results = linear::solve_2d(&input).unwrap();
 
-    let rz_a = results.displacements.iter().find(|d| d.node_id == 1).unwrap().rz;
-    let rz_b = results.displacements.iter().find(|d| d.node_id == n + 1).unwrap().rz;
+    let rz_a = results.displacements.iter().find(|d| d.node_id == 1).unwrap().ry;
+    let rz_b = results.displacements.iter().find(|d| d.node_id == n + 1).unwrap().ry;
 
     // Fixed end: no rotation (rz_A = 0 for fully fixed support)
     assert!(rz_a.abs() < 1e-10,
@@ -383,7 +383,7 @@ fn validation_reldispl_relative_end_rotation_asymmetric() {
         "Relative rotation must be non-zero: {:.6e}", rel_rotation);
 
     // The midspan rotation should be between the end rotations in magnitude
-    let rz_mid = results.displacements.iter().find(|d| d.node_id == n / 2 + 1).unwrap().rz;
+    let rz_mid = results.displacements.iter().find(|d| d.node_id == n / 2 + 1).unwrap().ry;
     assert!(rz_mid.abs() < rz_b.abs() * 1.5,
         "Midspan rotation {:.6e} should be in range of end rotation {:.6e}",
         rz_mid.abs(), rz_b.abs());
@@ -431,7 +431,7 @@ fn validation_reldispl_compatibility_shared_node() {
         (3, 4, "fixed"),
     ];
     let loads = vec![SolverLoad::Nodal(SolverNodalLoad {
-        node_id: 2, fx: 0.0, fy: -15.0, mz: 0.0,
+        node_id: 2, fx: 0.0, fz: -15.0, my: 0.0,
     })];
 
     let input = make_input(nodes, vec![(1, E, 0.3)], vec![(1, A, IZ)], elems, sups, loads);
@@ -441,24 +441,24 @@ fn validation_reldispl_compatibility_shared_node() {
     // The solver gives a single displacement vector — compatibility is implicit.
     // We verify that the node has well-defined displacements.
     let d2 = results.displacements.iter().find(|d| d.node_id == 2).unwrap();
-    assert!(d2.uy.is_finite(), "Shared node 2: uy must be finite");
+    assert!(d2.uz.is_finite(), "Shared node 2: uy must be finite");
     assert!(d2.ux.is_finite(), "Shared node 2: ux must be finite");
 
     // Supports at nodes 1, 3: zero vertical displacement (compatibility with ground)
     let d1 = results.displacements.iter().find(|d| d.node_id == 1).unwrap();
     let d3 = results.displacements.iter().find(|d| d.node_id == 3).unwrap();
-    assert!(d1.uy.abs() < 1e-10,
-        "Pinned support node 1: uy = 0 (compatibility), got {:.6e}", d1.uy);
-    assert!(d3.uy.abs() < 1e-10,
-        "Roller support node 3: uy = 0, got {:.6e}", d3.uy);
+    assert!(d1.uz.abs() < 1e-10,
+        "Pinned support node 1: uy = 0 (compatibility), got {:.6e}", d1.uz);
+    assert!(d3.uz.abs() < 1e-10,
+        "Roller support node 3: uy = 0, got {:.6e}", d3.uz);
 
     // Fixed node 4: all displacements = 0
     let d4 = results.displacements.iter().find(|d| d.node_id == 4).unwrap();
     assert!(d4.ux.abs() < 1e-10, "Fixed node 4: ux = 0");
-    assert!(d4.uy.abs() < 1e-10, "Fixed node 4: uy = 0");
-    assert!(d4.rz.abs() < 1e-10, "Fixed node 4: rz = 0");
+    assert!(d4.uz.abs() < 1e-10, "Fixed node 4: uy = 0");
+    assert!(d4.ry.abs() < 1e-10, "Fixed node 4: rz = 0");
 
     // Global equilibrium
-    let sum_ry: f64 = results.reactions.iter().map(|r| r.ry).sum();
+    let sum_ry: f64 = results.reactions.iter().map(|r| r.rz).sum();
     assert_close(sum_ry, 15.0, 0.01, "T-frame: ΣRy = 15 kN");
 }

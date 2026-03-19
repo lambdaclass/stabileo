@@ -103,10 +103,10 @@ pub fn combine_results(input: &CombinationInput) -> Option<AnalysisResults> {
     let tr = &template.results;
 
     let mut displacements: Vec<Displacement> = tr.displacements.iter()
-        .map(|d| Displacement { node_id: d.node_id, ux: 0.0, uy: 0.0, rz: 0.0 })
+        .map(|d| Displacement { node_id: d.node_id, ux: 0.0, uz: 0.0, ry: 0.0 })
         .collect();
     let mut reactions: Vec<Reaction> = tr.reactions.iter()
-        .map(|r| Reaction { node_id: r.node_id, rx: 0.0, ry: 0.0, mz: 0.0 })
+        .map(|r| Reaction { node_id: r.node_id, rx: 0.0, rz: 0.0, my: 0.0 })
         .collect();
     let mut element_forces: Vec<ElementForces> = tr.element_forces.iter()
         .map(|f| ElementForces {
@@ -130,15 +130,15 @@ pub fn combine_results(input: &CombinationInput) -> Option<AnalysisResults> {
         for (i, d) in r.displacements.iter().enumerate() {
             if i < displacements.len() {
                 displacements[i].ux += f * d.ux;
-                displacements[i].uy += f * d.uy;
-                displacements[i].rz += f * d.rz;
+                displacements[i].uz += f * d.uz;
+                displacements[i].ry += f * d.ry;
             }
         }
         for (i, rx) in r.reactions.iter().enumerate() {
             if i < reactions.len() {
                 reactions[i].rx += f * rx.rx;
-                reactions[i].ry += f * rx.ry;
-                reactions[i].mz += f * rx.mz;
+                reactions[i].rz += f * rx.rz;
+                reactions[i].my += f * rx.my;
             }
         }
         for (i, ef) in r.element_forces.iter().enumerate() {
@@ -179,15 +179,15 @@ pub fn compute_envelope(results: &[AnalysisResults]) -> Option<FullEnvelope> {
         for (i, d) in r.displacements.iter().enumerate() {
             if i < displacements.len() {
                 if d.ux.abs() > displacements[i].ux.abs() { displacements[i].ux = d.ux; }
-                if d.uy.abs() > displacements[i].uy.abs() { displacements[i].uy = d.uy; }
-                if d.rz.abs() > displacements[i].rz.abs() { displacements[i].rz = d.rz; }
+                if d.uz.abs() > displacements[i].uz.abs() { displacements[i].uz = d.uz; }
+                if d.ry.abs() > displacements[i].ry.abs() { displacements[i].ry = d.ry; }
             }
         }
         for (i, rx) in r.reactions.iter().enumerate() {
             if i < reactions.len() {
                 if rx.rx.abs() > reactions[i].rx.abs() { reactions[i].rx = rx.rx; }
-                if rx.ry.abs() > reactions[i].ry.abs() { reactions[i].ry = rx.ry; }
-                if rx.mz.abs() > reactions[i].mz.abs() { reactions[i].mz = rx.mz; }
+                if rx.rz.abs() > reactions[i].rz.abs() { reactions[i].rz = rx.rz; }
+                if rx.my.abs() > reactions[i].my.abs() { reactions[i].my = rx.my; }
             }
         }
         for (i, ef) in r.element_forces.iter().enumerate() {

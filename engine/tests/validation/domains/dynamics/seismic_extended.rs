@@ -115,8 +115,8 @@ fn seismic_extended_elf_base_shear() {
         total_applied += 2.0 * fi; // applied to both left and right nodes
         let nl = 2 * (i + 1) + 1;
         let nr = 2 * (i + 1) + 2;
-        loads.push(SolverLoad::Nodal(SolverNodalLoad { node_id: nl, fx: fi, fy: 0.0, mz: 0.0 }));
-        loads.push(SolverLoad::Nodal(SolverNodalLoad { node_id: nr, fx: fi, fy: 0.0, mz: 0.0 }));
+        loads.push(SolverLoad::Nodal(SolverNodalLoad { node_id: nl, fx: fi, fz: 0.0, my: 0.0 }));
+        loads.push(SolverLoad::Nodal(SolverNodalLoad { node_id: nr, fx: fi, fz: 0.0, my: 0.0 }));
     }
 
     let input = make_input(nodes, vec![(1, E, 0.3)], vec![(1, A, IZ)], elems, sups, loads);
@@ -279,8 +279,8 @@ fn seismic_extended_drift_limit_check() {
         let fi = f_base * i as f64;
         let nl = 2 * i + 1;
         let nr = 2 * i + 2;
-        loads.push(SolverLoad::Nodal(SolverNodalLoad { node_id: nl, fx: fi, fy: 0.0, mz: 0.0 }));
-        loads.push(SolverLoad::Nodal(SolverNodalLoad { node_id: nr, fx: fi, fy: 0.0, mz: 0.0 }));
+        loads.push(SolverLoad::Nodal(SolverNodalLoad { node_id: nl, fx: fi, fz: 0.0, my: 0.0 }));
+        loads.push(SolverLoad::Nodal(SolverNodalLoad { node_id: nr, fx: fi, fz: 0.0, my: 0.0 }));
     }
 
     let input = make_input(nodes, vec![(1, E, 0.3)], vec![(1, A, IZ)], elems, sups, loads);
@@ -359,9 +359,9 @@ fn seismic_extended_pdelta_stability_coefficient() {
     ];
     let sups = vec![(1, 1_usize, "fixed"), (2, 4, "fixed")];
     let loads = vec![
-        SolverLoad::Nodal(SolverNodalLoad { node_id: 2, fx: lateral, fy: 0.0, mz: 0.0 }),
-        SolverLoad::Nodal(SolverNodalLoad { node_id: 2, fx: 0.0, fy: gravity, mz: 0.0 }),
-        SolverLoad::Nodal(SolverNodalLoad { node_id: 3, fx: 0.0, fy: gravity, mz: 0.0 }),
+        SolverLoad::Nodal(SolverNodalLoad { node_id: 2, fx: lateral, fz: 0.0, my: 0.0 }),
+        SolverLoad::Nodal(SolverNodalLoad { node_id: 2, fx: 0.0, fz: gravity, my: 0.0 }),
+        SolverLoad::Nodal(SolverNodalLoad { node_id: 3, fx: 0.0, fz: gravity, my: 0.0 }),
     ];
 
     let input = make_input(nodes, vec![(1, E, 0.3)], vec![(1, A, IZ)], elems, sups, loads);
@@ -555,7 +555,7 @@ fn seismic_extended_redundancy_factor() {
     // Case 1: rho = 1.0
     let rho_1 = 1.0;
     let loads_1 = vec![
-        SolverLoad::Nodal(SolverNodalLoad { node_id: 2, fx: rho_1 * qe, fy: 0.0, mz: 0.0 }),
+        SolverLoad::Nodal(SolverNodalLoad { node_id: 2, fx: rho_1 * qe, fz: 0.0, my: 0.0 }),
     ];
     let input_1 = make_input(
         nodes.clone(), vec![(1, E, 0.3)], vec![(1, A, IZ)],
@@ -566,7 +566,7 @@ fn seismic_extended_redundancy_factor() {
     // Case 2: rho = 1.3
     let rho_13 = 1.3;
     let loads_13 = vec![
-        SolverLoad::Nodal(SolverNodalLoad { node_id: 2, fx: rho_13 * qe, fy: 0.0, mz: 0.0 }),
+        SolverLoad::Nodal(SolverNodalLoad { node_id: 2, fx: rho_13 * qe, fz: 0.0, my: 0.0 }),
     ];
     let input_13 = make_input(
         nodes.clone(), vec![(1, E, 0.3)], vec![(1, A, IZ)],
@@ -631,8 +631,8 @@ fn seismic_extended_torsional_irregularity() {
     // Symmetric loading: equal forces at both top nodes
     let v_total = 20.0; // kN
     let loads_sym = vec![
-        SolverLoad::Nodal(SolverNodalLoad { node_id: 2, fx: v_total / 2.0, fy: 0.0, mz: 0.0 }),
-        SolverLoad::Nodal(SolverNodalLoad { node_id: 3, fx: v_total / 2.0, fy: 0.0, mz: 0.0 }),
+        SolverLoad::Nodal(SolverNodalLoad { node_id: 2, fx: v_total / 2.0, fz: 0.0, my: 0.0 }),
+        SolverLoad::Nodal(SolverNodalLoad { node_id: 3, fx: v_total / 2.0, fz: 0.0, my: 0.0 }),
     ];
     let input_sym = make_input(
         nodes.clone(), vec![(1, E, 0.3)], vec![(1, A, IZ)],
@@ -647,8 +647,8 @@ fn seismic_extended_torsional_irregularity() {
     let f_right = v_total / 2.0 * (1.0 - eccentricity_ratio);
 
     let loads_ecc = vec![
-        SolverLoad::Nodal(SolverNodalLoad { node_id: 2, fx: f_left, fy: 0.0, mz: 0.0 }),
-        SolverLoad::Nodal(SolverNodalLoad { node_id: 3, fx: f_right, fy: 0.0, mz: 0.0 }),
+        SolverLoad::Nodal(SolverNodalLoad { node_id: 2, fx: f_left, fz: 0.0, my: 0.0 }),
+        SolverLoad::Nodal(SolverNodalLoad { node_id: 3, fx: f_right, fz: 0.0, my: 0.0 }),
     ];
     let input_ecc = make_input(
         nodes.clone(), vec![(1, E, 0.3)], vec![(1, A, IZ)],
@@ -792,8 +792,8 @@ fn seismic_extended_vertical_distribution() {
         let fi_half = fx[i] / 2.0;
         let nl = 2 * (i + 1) + 1;
         let nr = 2 * (i + 1) + 2;
-        loads.push(SolverLoad::Nodal(SolverNodalLoad { node_id: nl, fx: fi_half, fy: 0.0, mz: 0.0 }));
-        loads.push(SolverLoad::Nodal(SolverNodalLoad { node_id: nr, fx: fi_half, fy: 0.0, mz: 0.0 }));
+        loads.push(SolverLoad::Nodal(SolverNodalLoad { node_id: nl, fx: fi_half, fz: 0.0, my: 0.0 }));
+        loads.push(SolverLoad::Nodal(SolverNodalLoad { node_id: nr, fx: fi_half, fz: 0.0, my: 0.0 }));
     }
 
     let input = make_input(nodes, vec![(1, E, 0.3)], vec![(1, A, IZ)], elems, sups, loads);

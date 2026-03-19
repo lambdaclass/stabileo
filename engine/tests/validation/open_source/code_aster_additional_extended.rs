@@ -48,19 +48,19 @@ fn validation_ca_ssll108a_propped_cantilever_udl() {
     // Reaction at roller (right end): R_B = 3*q*L/8 = 36 kN
     let r_b = results.reactions.iter().find(|r| r.node_id == n + 1).unwrap();
     let rb_expected = 3.0 * q * l / 8.0;
-    assert_close(r_b.ry, rb_expected, 0.02, "SSLL108a R_B = 3qL/8");
+    assert_close(r_b.rz, rb_expected, 0.02, "SSLL108a R_B = 3qL/8");
 
     // Reaction at fixed end: R_A = 5*q*L/8 = 60 kN
     let r_a = results.reactions.iter().find(|r| r.node_id == 1).unwrap();
     let ra_expected = 5.0 * q * l / 8.0;
-    assert_close(r_a.ry, ra_expected, 0.02, "SSLL108a R_A = 5qL/8");
+    assert_close(r_a.rz, ra_expected, 0.02, "SSLL108a R_A = 5qL/8");
 
     // Fixed-end moment: M_A = q*L^2/8 = 96 kN.m
     let ma_expected = q * l * l / 8.0;
-    assert_close(r_a.mz.abs(), ma_expected, 0.02, "SSLL108a M_A = qL^2/8");
+    assert_close(r_a.my.abs(), ma_expected, 0.02, "SSLL108a M_A = qL^2/8");
 
     // Equilibrium: sum of vertical reactions = total load
-    let sum_ry: f64 = results.reactions.iter().map(|r| r.ry).sum();
+    let sum_ry: f64 = results.reactions.iter().map(|r| r.rz).sum();
     assert_close(sum_ry, q * l, 0.01, "SSLL108a sum Ry = qL");
 
     // Max positive moment at x = 3L/8: M_max = 9*q*L^2/128 = 54 kN.m
@@ -137,16 +137,16 @@ fn validation_ca_ssll109a_asymmetric_two_span() {
     let node_b = n_per_span + 1;
     let node_c = 2 * n_per_span + 1;
 
-    let r_a = results.reactions.iter().find(|r| r.node_id == node_a).unwrap().ry;
-    let r_b = results.reactions.iter().find(|r| r.node_id == node_b).unwrap().ry;
-    let r_c = results.reactions.iter().find(|r| r.node_id == node_c).unwrap().ry;
+    let r_a = results.reactions.iter().find(|r| r.node_id == node_a).unwrap().rz;
+    let r_b = results.reactions.iter().find(|r| r.node_id == node_b).unwrap().rz;
+    let r_c = results.reactions.iter().find(|r| r.node_id == node_c).unwrap().rz;
 
     assert_close(r_a, ra_expected, 0.03, "SSLL109a R_A");
     assert_close(r_b, rb_expected, 0.03, "SSLL109a R_B");
     assert_close(r_c, rc_expected, 0.03, "SSLL109a R_C");
 
     // Sum of reactions = total load
-    let sum_ry: f64 = results.reactions.iter().map(|r| r.ry).sum();
+    let sum_ry: f64 = results.reactions.iter().map(|r| r.rz).sum();
     assert_close(sum_ry, total_load, 0.01, "SSLL109a sum Ry = q(L1+L2)");
 
     // Interior support moment
@@ -204,11 +204,11 @@ fn validation_ca_ssll111a_triangular_load() {
     let r_a = results.reactions.iter().find(|r| r.node_id == 1).unwrap();
     let r_b = results.reactions.iter().find(|r| r.node_id == n + 1).unwrap();
 
-    assert_close(r_a.ry, ra_expected, 0.02, "SSLL111a R_A = qL/6");
-    assert_close(r_b.ry, rb_expected, 0.02, "SSLL111a R_B = qL/3");
+    assert_close(r_a.rz, ra_expected, 0.02, "SSLL111a R_A = qL/6");
+    assert_close(r_b.rz, rb_expected, 0.02, "SSLL111a R_B = qL/3");
 
     // Equilibrium
-    let sum_ry: f64 = results.reactions.iter().map(|r| r.ry).sum();
+    let sum_ry: f64 = results.reactions.iter().map(|r| r.rz).sum();
     assert_close(sum_ry, total_load, 0.01, "SSLL111a sum Ry = qL/2");
 
     // Max moment at x = L/sqrt(3): M_max = q*L^2 / (9*sqrt(3))
@@ -228,9 +228,9 @@ fn validation_ca_ssll111a_triangular_load() {
     let mid_node = n / 2 + 1;
     let d_mid = results.displacements.iter().find(|d| d.node_id == mid_node).unwrap();
     assert!(
-        d_mid.uy.abs() < delta_udl,
+        d_mid.uz.abs() < delta_udl,
         "SSLL111a triangular deflection {:.6e} < UDL deflection {:.6e}",
-        d_mid.uy.abs(), delta_udl
+        d_mid.uz.abs(), delta_udl
     );
 }
 
@@ -262,7 +262,7 @@ fn validation_ca_ssll112a_two_bar_truss() {
     ];
     let sups = vec![(1, 1, "pinned"), (2, 2, "pinned")];
     let loads = vec![SolverLoad::Nodal(SolverNodalLoad {
-        node_id: 3, fx: 0.0, fy: -p, mz: 0.0,
+        node_id: 3, fx: 0.0, fz: -p, my: 0.0,
     })];
 
     let input = make_input(
@@ -289,13 +289,13 @@ fn validation_ca_ssll112a_two_bar_truss() {
     // Vertical deflection at apex: delta = P*L / (2*A*E*sin^2(theta))
     let delta_expected = p * l_bar / (2.0 * a_bar * E_EFF * sin_theta * sin_theta);
     let d_apex = results.displacements.iter().find(|d| d.node_id == 3).unwrap();
-    assert_close(d_apex.uy.abs(), delta_expected, 0.02, "SSLL112a apex deflection");
+    assert_close(d_apex.uz.abs(), delta_expected, 0.02, "SSLL112a apex deflection");
 
     // Reactions: by symmetry R1_y = R2_y = P/2
     let r1 = results.reactions.iter().find(|r| r.node_id == 1).unwrap();
     let r2 = results.reactions.iter().find(|r| r.node_id == 2).unwrap();
-    assert_close(r1.ry, p / 2.0, 0.02, "SSLL112a R1_y = P/2");
-    assert_close(r2.ry, p / 2.0, 0.02, "SSLL112a R2_y = P/2");
+    assert_close(r1.rz, p / 2.0, 0.02, "SSLL112a R1_y = P/2");
+    assert_close(r2.rz, p / 2.0, 0.02, "SSLL112a R2_y = P/2");
 }
 
 // ═══════════════════════════════════════════════════════════════
@@ -321,7 +321,7 @@ fn validation_ca_ssll113a_fixed_beam_third_point_load() {
     let load_node = n / 3 + 1;
 
     let loads = vec![SolverLoad::Nodal(SolverNodalLoad {
-        node_id: load_node, fx: 0.0, fy: -p, mz: 0.0,
+        node_id: load_node, fx: 0.0, fz: -p, my: 0.0,
     })];
 
     let input = make_beam(n, l, E, A, IZ, "fixed", Some("fixed"), loads);
@@ -340,8 +340,8 @@ fn validation_ca_ssll113a_fixed_beam_third_point_load() {
     let r_a = results.reactions.iter().find(|r| r.node_id == 1).unwrap();
     let r_b = results.reactions.iter().find(|r| r.node_id == n + 1).unwrap();
 
-    assert_close(r_a.ry, ra_expected, 0.02, "SSLL113a R_A = Pb^2(3a+b)/L^3");
-    assert_close(r_b.ry, rb_expected, 0.02, "SSLL113a R_B = Pa^2(a+3b)/L^3");
+    assert_close(r_a.rz, ra_expected, 0.02, "SSLL113a R_A = Pb^2(3a+b)/L^3");
+    assert_close(r_b.rz, rb_expected, 0.02, "SSLL113a R_B = Pa^2(a+3b)/L^3");
 
     // Fixed-end moments:
     // M_A = P*a*b^2 / L^2
@@ -349,11 +349,11 @@ fn validation_ca_ssll113a_fixed_beam_third_point_load() {
     let ma_expected = p * a_pos * b_pos.powi(2) / l.powi(2);
     let mb_expected = p * a_pos.powi(2) * b_pos / l.powi(2);
 
-    assert_close(r_a.mz.abs(), ma_expected, 0.03, "SSLL113a M_A = Pab^2/L^2");
-    assert_close(r_b.mz.abs(), mb_expected, 0.03, "SSLL113a M_B = Pa^2b/L^2");
+    assert_close(r_a.my.abs(), ma_expected, 0.03, "SSLL113a M_A = Pab^2/L^2");
+    assert_close(r_b.my.abs(), mb_expected, 0.03, "SSLL113a M_B = Pa^2b/L^2");
 
     // Equilibrium
-    let sum_ry: f64 = results.reactions.iter().map(|r| r.ry).sum();
+    let sum_ry: f64 = results.reactions.iter().map(|r| r.rz).sum();
     assert_close(sum_ry, p, 0.01, "SSLL113a sum Ry = P");
 
     // The moment at the load point should equal R_A * a - M_A
@@ -418,7 +418,7 @@ fn validation_ca_ssll114a_k_truss_panel() {
 
     let sups = vec![(1, 1, "pinned"), (2, 3, "rollerX")];
     let loads = vec![SolverLoad::Nodal(SolverNodalLoad {
-        node_id: 5, fx: 0.0, fy: -p, mz: 0.0,
+        node_id: 5, fx: 0.0, fz: -p, my: 0.0,
     })];
 
     let input = make_input(
@@ -430,8 +430,8 @@ fn validation_ca_ssll114a_k_truss_panel() {
     // By symmetry: R1_y = R3_y = P/2
     let r1 = results.reactions.iter().find(|r| r.node_id == 1).unwrap();
     let r3 = results.reactions.iter().find(|r| r.node_id == 3).unwrap();
-    assert_close(r1.ry, p / 2.0, 0.02, "SSLL114a R1 = P/2");
-    assert_close(r3.ry, p / 2.0, 0.02, "SSLL114a R3 = P/2");
+    assert_close(r1.rz, p / 2.0, 0.02, "SSLL114a R1 = P/2");
+    assert_close(r3.rz, p / 2.0, 0.02, "SSLL114a R3 = P/2");
 
     // Center vertical (element 6, node 2->5) carries compression
     let ef_vert = results.element_forces.iter().find(|e| e.element_id == 6).unwrap();
@@ -439,7 +439,7 @@ fn validation_ca_ssll114a_k_truss_panel() {
         "SSLL114a center vertical should be in compression, got N={:.4}", ef_vert.n_start);
 
     // Equilibrium: sum Ry = P
-    let sum_ry: f64 = results.reactions.iter().map(|r| r.ry).sum();
+    let sum_ry: f64 = results.reactions.iter().map(|r| r.rz).sum();
     assert_close(sum_ry, p, 0.01, "SSLL114a sum Ry = P");
 
     // By symmetry, bar forces in left panel should mirror right panel
@@ -509,11 +509,11 @@ fn validation_ca_ssll115a_portal_gravity() {
     let r_left = results.reactions.iter().find(|r| r.node_id == 1).unwrap();
     let r_right = results.reactions.iter().find(|r| r.node_id == 4).unwrap();
 
-    assert_close(r_left.ry, total_load / 2.0, 0.03, "SSLL115a R_left = qW/2");
-    assert_close(r_right.ry, total_load / 2.0, 0.03, "SSLL115a R_right = qW/2");
+    assert_close(r_left.rz, total_load / 2.0, 0.03, "SSLL115a R_left = qW/2");
+    assert_close(r_right.rz, total_load / 2.0, 0.03, "SSLL115a R_right = qW/2");
 
     // Base moments should be equal by symmetry
-    assert_close(r_left.mz.abs(), r_right.mz.abs(), 0.05, "SSLL115a base moment symmetry");
+    assert_close(r_left.my.abs(), r_right.my.abs(), 0.05, "SSLL115a base moment symmetry");
 
     // Beam midspan moment should be less than simply-supported value q*W^2/8
     // For a portal frame with fixed bases, the joint moments reduce the midspan moment.
@@ -531,7 +531,7 @@ fn validation_ca_ssll115a_portal_gravity() {
     assert!(ef_beam.m_end.abs() > 1.0, "SSLL115a beam end moment nonzero (frame action)");
 
     // Equilibrium
-    let sum_ry: f64 = results.reactions.iter().map(|r| r.ry).sum();
+    let sum_ry: f64 = results.reactions.iter().map(|r| r.rz).sum();
     assert_close(sum_ry, total_load, 0.01, "SSLL115a sum Ry = qW");
 }
 
@@ -599,12 +599,12 @@ fn validation_ca_ssll117a_stepped_cantilever_partial_udl() {
     // Base shear = total load on outer half = q * L/2 = 45 kN
     let total_load = q * l_half;
     let r_base = results.reactions.iter().find(|r| r.node_id == 1).unwrap();
-    assert_close(r_base.ry, total_load, 0.02, "SSLL117a V_base = q*L/2");
+    assert_close(r_base.rz, total_load, 0.02, "SSLL117a V_base = q*L/2");
 
     // Base moment: centroid of load is at x = L/2 + L/4 = 3L/4 from left
     // M_base = q*(L/2)*(3L/4) = 3qL^2/8 = 3*15*36/8 = 202.5 kN.m
     let m_base_expected = q * l_half * (l_half + l_half / 2.0);
-    assert_close(r_base.mz.abs(), m_base_expected, 0.02, "SSLL117a M_base = q(L/2)(3L/4)");
+    assert_close(r_base.my.abs(), m_base_expected, 0.02, "SSLL117a M_base = q(L/2)(3L/4)");
 
     // Tip deflection by integration (virtual work with two segments):
     // Segment 1 (root, 0 < x < L/2, I = 2I):
@@ -653,12 +653,12 @@ fn validation_ca_ssll117a_stepped_cantilever_partial_udl() {
 
     let delta_expected = int1 + int2;
     let d_tip = results.displacements.iter().find(|d| d.node_id == tip_node).unwrap();
-    assert_close(d_tip.uy.abs(), delta_expected, 0.05, "SSLL117a tip deflection by virtual work");
+    assert_close(d_tip.uz.abs(), delta_expected, 0.05, "SSLL117a tip deflection by virtual work");
 
     // Tip deflection should be larger than if entire beam had root stiffness (2I)
     // and smaller than if entire beam had tip stiffness (I)
     // For uniform cantilever with partial UDL on outer half:
     //   delta_uniform_I = q*L^4 * (7/384) ... actually complex.
     // Just verify it's positive and nonzero.
-    assert!(d_tip.uy.abs() > 1e-6, "SSLL117a tip deflection should be nonzero");
+    assert!(d_tip.uz.abs() > 1e-6, "SSLL117a tip deflection should be nonzero");
 }

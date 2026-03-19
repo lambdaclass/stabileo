@@ -42,7 +42,7 @@ fn stress_resultants_dm_dx_equals_v_unloaded() {
     let input = make_beam(
         n, l, E, A, IZ, "pinned", Some("rollerX"),
         vec![SolverLoad::Nodal(SolverNodalLoad {
-            node_id: 3, fx: 0.0, fy: p, mz: 0.0,
+            node_id: 3, fx: 0.0, fz: p, my: 0.0,
         })],
     );
     let results = linear::solve_2d(&input).unwrap();
@@ -81,7 +81,7 @@ fn stress_resultants_constant_shear_unloaded_span() {
     let input = make_beam(
         n, l, E, A, IZ, "pinned", Some("rollerX"),
         vec![SolverLoad::Nodal(SolverNodalLoad {
-            node_id: 3, fx: 0.0, fy: p, mz: 0.0,
+            node_id: 3, fx: 0.0, fz: p, my: 0.0,
         })],
     );
     let results = linear::solve_2d(&input).unwrap();
@@ -181,7 +181,7 @@ fn stress_resultants_axial_zero_no_axial_load() {
     let input = make_beam(
         n, l, E, A, IZ, "fixed", None,
         vec![SolverLoad::Nodal(SolverNodalLoad {
-            node_id: n + 1, fx: 0.0, fy: p, mz: 0.0,
+            node_id: n + 1, fx: 0.0, fz: p, my: 0.0,
         })],
     );
     let results = linear::solve_2d(&input).unwrap();
@@ -250,8 +250,8 @@ fn stress_resultants_single_element_equilibrium() {
     // Verify reactions match
     let r_a = results.reactions.iter().find(|r| r.node_id == 1).unwrap();
     let r_b = results.reactions.iter().find(|r| r.node_id == 2).unwrap();
-    assert_close(r_a.ry, r_expected, REL_TOL, "R_A");
-    assert_close(r_b.ry, r_expected, REL_TOL, "R_B");
+    assert_close(r_a.rz, r_expected, REL_TOL, "R_A");
+    assert_close(r_b.rz, r_expected, REL_TOL, "R_B");
 }
 
 // ================================================================
@@ -322,7 +322,7 @@ fn stress_resultants_shear_jump_at_point_load() {
     let input = make_beam(
         n, l, E, A, IZ, "pinned", Some("rollerX"),
         vec![SolverLoad::Nodal(SolverNodalLoad {
-            node_id: 3, fx: 0.0, fy: p, mz: 0.0,
+            node_id: 3, fx: 0.0, fz: p, my: 0.0,
         })],
     );
     let results = linear::solve_2d(&input).unwrap();

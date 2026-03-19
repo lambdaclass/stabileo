@@ -64,8 +64,8 @@ fn validation_rotation_ext_ss_triangular_load() {
     // θ_B = 8qL³/(360EI) — rotation at right (larger rotation side)
     let theta_b: f64 = 8.0 * q_max.abs() * l.powi(3) / (360.0 * e_eff * IZ);
 
-    let rz_a = results.displacements.iter().find(|d| d.node_id == 1).unwrap().rz;
-    let rz_b = results.displacements.iter().find(|d| d.node_id == n + 1).unwrap().rz;
+    let rz_a = results.displacements.iter().find(|d| d.node_id == 1).unwrap().ry;
+    let rz_b = results.displacements.iter().find(|d| d.node_id == n + 1).unwrap().ry;
 
     assert_close(rz_a.abs(), theta_a, 0.03,
         "SS triangular: θ_A = 7qL³/(360EI)");
@@ -97,7 +97,7 @@ fn validation_rotation_ext_cantilever_intermediate_load() {
 
     let load_node = (a / l * n as f64).round() as usize + 1;
     let loads = vec![SolverLoad::Nodal(SolverNodalLoad {
-        node_id: load_node, fx: 0.0, fy: -p, mz: 0.0,
+        node_id: load_node, fx: 0.0, fz: -p, my: 0.0,
     })];
     let input = make_beam(n, l, E, A, IZ, "fixed", None, loads);
     let results = linear::solve_2d(&input).unwrap();
@@ -105,7 +105,7 @@ fn validation_rotation_ext_cantilever_intermediate_load() {
     // Rotation at load point: θ(a) = Pa²/(2EI)
     let theta_at_a: f64 = p * a.powi(2) / (2.0 * e_eff * IZ);
     let rz_at_a = results.displacements.iter()
-        .find(|d| d.node_id == load_node).unwrap().rz;
+        .find(|d| d.node_id == load_node).unwrap().ry;
 
     assert_close(rz_at_a.abs(), theta_at_a, 0.02,
         "Cantilever intermediate: θ(a) = Pa²/(2EI)");
@@ -113,7 +113,7 @@ fn validation_rotation_ext_cantilever_intermediate_load() {
     // Tip rotation should equal the rotation at load point
     // (beyond the load, there is no moment, so slope stays constant)
     let rz_tip = results.displacements.iter()
-        .find(|d| d.node_id == n + 1).unwrap().rz;
+        .find(|d| d.node_id == n + 1).unwrap().ry;
 
     assert_close(rz_tip.abs(), theta_at_a, 0.02,
         "Cantilever intermediate: θ_tip = θ(a) (constant beyond load)");
@@ -136,7 +136,7 @@ fn validation_rotation_ext_ss_end_moment() {
     let e_eff: f64 = E * 1000.0;
 
     let loads = vec![SolverLoad::Nodal(SolverNodalLoad {
-        node_id: 1, fx: 0.0, fy: 0.0, mz: m,
+        node_id: 1, fx: 0.0, fz: 0.0, my: m,
     })];
     let input = make_beam(n, l, E, A, IZ, "pinned", Some("rollerX"), loads);
     let results = linear::solve_2d(&input).unwrap();
@@ -146,8 +146,8 @@ fn validation_rotation_ext_ss_end_moment() {
     // θ_B = ML/(6EI) at the far end
     let theta_b: f64 = m * l / (6.0 * e_eff * IZ);
 
-    let rz_a = results.displacements.iter().find(|d| d.node_id == 1).unwrap().rz;
-    let rz_b = results.displacements.iter().find(|d| d.node_id == n + 1).unwrap().rz;
+    let rz_a = results.displacements.iter().find(|d| d.node_id == 1).unwrap().ry;
+    let rz_b = results.displacements.iter().find(|d| d.node_id == n + 1).unwrap().ry;
 
     assert_close(rz_a.abs(), theta_a, 0.02,
         "SS end moment: θ_A = ML/(3EI)");
@@ -191,12 +191,12 @@ fn validation_rotation_ext_continuous_asymmetric() {
         .find(|d| d.node_id == interior_node).unwrap();
 
     // Interior support deflection should be zero
-    assert!(d_int.uy.abs() < 1e-10,
+    assert!(d_int.uz.abs() < 1e-10,
         "Continuous asymm: δ at interior = 0");
 
     // Rotation at interior support: θ_B = qL³/(48EI) for load on one span
     let theta_b: f64 = q.abs() * span.powi(3) / (48.0 * e_eff * IZ);
-    assert_close(d_int.rz.abs(), theta_b, 0.05,
+    assert_close(d_int.ry.abs(), theta_b, 0.05,
         "Continuous asymm: θ_B = qL³/(48EI)");
 }
 
@@ -218,7 +218,7 @@ fn validation_rotation_ext_propped_midspan_load() {
 
     let mid = n / 2 + 1;
     let loads = vec![SolverLoad::Nodal(SolverNodalLoad {
-        node_id: mid, fx: 0.0, fy: -p, mz: 0.0,
+        node_id: mid, fx: 0.0, fz: -p, my: 0.0,
     })];
     let input = make_beam(n, l, E, A, IZ, "fixed", Some("rollerX"), loads);
     let results = linear::solve_2d(&input).unwrap();
@@ -226,21 +226,21 @@ fn validation_rotation_ext_propped_midspan_load() {
     // Roller reaction: R_B = 5P/16
     let r_b_expected: f64 = 5.0 * p / 16.0;
     let r_b = results.reactions.iter()
-        .find(|r| r.node_id == n + 1).unwrap().ry;
+        .find(|r| r.node_id == n + 1).unwrap().rz;
     assert_close(r_b.abs(), r_b_expected, 0.02,
         "Propped midspan: R_B = 5P/16");
 
     // Rotation at roller: θ_B = 7PL²/(768EI)
     let theta_b: f64 = 7.0 * p * l.powi(2) / (768.0 * e_eff * IZ);
     let rz_b = results.displacements.iter()
-        .find(|d| d.node_id == n + 1).unwrap().rz;
+        .find(|d| d.node_id == n + 1).unwrap().ry;
 
     assert_close(rz_b.abs(), theta_b, 0.05,
         "Propped midspan: θ_B = 7PL²/(768EI)");
 
     // Fixed end should have zero rotation
     let rz_fixed = results.displacements.iter()
-        .find(|d| d.node_id == 1).unwrap().rz;
+        .find(|d| d.node_id == 1).unwrap().ry;
     assert!(rz_fixed.abs() < 1e-10,
         "Propped midspan: fixed end θ = 0");
 }
@@ -269,18 +269,18 @@ fn validation_rotation_ext_superposition() {
         .collect();
     let input1 = make_beam(n, l, E, A, IZ, "pinned", Some("rollerX"), loads_udl);
     let res1 = linear::solve_2d(&input1).unwrap();
-    let rz1_a = res1.displacements.iter().find(|d| d.node_id == 1).unwrap().rz;
-    let rz1_b = res1.displacements.iter().find(|d| d.node_id == n + 1).unwrap().rz;
+    let rz1_a = res1.displacements.iter().find(|d| d.node_id == 1).unwrap().ry;
+    let rz1_b = res1.displacements.iter().find(|d| d.node_id == n + 1).unwrap().ry;
 
     // Load case 2: midspan point load only
     let mid = n / 2 + 1;
     let loads_pt = vec![SolverLoad::Nodal(SolverNodalLoad {
-        node_id: mid, fx: 0.0, fy: -p, mz: 0.0,
+        node_id: mid, fx: 0.0, fz: -p, my: 0.0,
     })];
     let input2 = make_beam(n, l, E, A, IZ, "pinned", Some("rollerX"), loads_pt);
     let res2 = linear::solve_2d(&input2).unwrap();
-    let rz2_a = res2.displacements.iter().find(|d| d.node_id == 1).unwrap().rz;
-    let rz2_b = res2.displacements.iter().find(|d| d.node_id == n + 1).unwrap().rz;
+    let rz2_a = res2.displacements.iter().find(|d| d.node_id == 1).unwrap().ry;
+    let rz2_b = res2.displacements.iter().find(|d| d.node_id == n + 1).unwrap().ry;
 
     // Load case 3: both loads combined
     let mut loads_both: Vec<SolverLoad> = (1..=n)
@@ -289,12 +289,12 @@ fn validation_rotation_ext_superposition() {
         }))
         .collect();
     loads_both.push(SolverLoad::Nodal(SolverNodalLoad {
-        node_id: mid, fx: 0.0, fy: -p, mz: 0.0,
+        node_id: mid, fx: 0.0, fz: -p, my: 0.0,
     }));
     let input3 = make_beam(n, l, E, A, IZ, "pinned", Some("rollerX"), loads_both);
     let res3 = linear::solve_2d(&input3).unwrap();
-    let rz3_a = res3.displacements.iter().find(|d| d.node_id == 1).unwrap().rz;
-    let rz3_b = res3.displacements.iter().find(|d| d.node_id == n + 1).unwrap().rz;
+    let rz3_a = res3.displacements.iter().find(|d| d.node_id == 1).unwrap().ry;
+    let rz3_b = res3.displacements.iter().find(|d| d.node_id == n + 1).unwrap().ry;
 
     // Combined should equal sum of individual
     assert_close(rz3_a, rz1_a + rz2_a, 0.001,
@@ -328,8 +328,8 @@ fn validation_rotation_ext_ss_two_symmetric_loads() {
     let n2 = 2 * n / 3 + 1;  // node at 2L/3
 
     let loads = vec![
-        SolverLoad::Nodal(SolverNodalLoad { node_id: n1, fx: 0.0, fy: -p, mz: 0.0 }),
-        SolverLoad::Nodal(SolverNodalLoad { node_id: n2, fx: 0.0, fy: -p, mz: 0.0 }),
+        SolverLoad::Nodal(SolverNodalLoad { node_id: n1, fx: 0.0, fz: -p, my: 0.0 }),
+        SolverLoad::Nodal(SolverNodalLoad { node_id: n2, fx: 0.0, fz: -p, my: 0.0 }),
     ];
     let input = make_beam(n, l, E, A, IZ, "pinned", Some("rollerX"), loads);
     let results = linear::solve_2d(&input).unwrap();
@@ -349,8 +349,8 @@ fn validation_rotation_ext_ss_two_symmetric_loads() {
     let theta_a2: f64 = p * b2 * (l * l - b2 * b2) / (6.0 * l * e_eff * IZ);
     let theta_a_total: f64 = theta_a1 + theta_a2;
 
-    let rz_a = results.displacements.iter().find(|d| d.node_id == 1).unwrap().rz;
-    let rz_b = results.displacements.iter().find(|d| d.node_id == n + 1).unwrap().rz;
+    let rz_a = results.displacements.iter().find(|d| d.node_id == 1).unwrap().ry;
+    let rz_b = results.displacements.iter().find(|d| d.node_id == n + 1).unwrap().ry;
 
     assert_close(rz_a.abs(), theta_a_total, 0.02,
         "SS two symmetric loads: θ_A by superposition");
@@ -362,7 +362,7 @@ fn validation_rotation_ext_ss_two_symmetric_loads() {
     // Midspan slope = 0 by symmetry
     let mid = n / 2 + 1;
     let rz_mid = results.displacements.iter()
-        .find(|d| d.node_id == mid).unwrap().rz;
+        .find(|d| d.node_id == mid).unwrap().ry;
     assert!(rz_mid.abs() < 1e-10,
         "SS two symmetric loads: θ_mid = 0 by symmetry");
 
@@ -407,7 +407,7 @@ fn validation_rotation_ext_cantilever_partial_udl() {
     // Since M(x) = 0 for x > a, slope is constant beyond load
     let theta_tip: f64 = q.abs() * a.powi(3) / (6.0 * e_eff * IZ);
     let rz_tip = results.displacements.iter()
-        .find(|d| d.node_id == n + 1).unwrap().rz;
+        .find(|d| d.node_id == n + 1).unwrap().ry;
 
     assert_close(rz_tip.abs(), theta_tip, 0.02,
         "Cantilever partial UDL: θ_tip = qa³/(6EI)");
@@ -415,7 +415,7 @@ fn validation_rotation_ext_cantilever_partial_udl() {
     // Rotation at the end of the loaded portion equals tip rotation
     let load_end_node = n_loaded + 1;
     let rz_at_a = results.displacements.iter()
-        .find(|d| d.node_id == load_end_node).unwrap().rz;
+        .find(|d| d.node_id == load_end_node).unwrap().ry;
 
     assert_close(rz_at_a.abs(), rz_tip.abs(), 0.001,
         "Cantilever partial UDL: θ(a) = θ_tip (constant slope beyond load)");
@@ -423,14 +423,14 @@ fn validation_rotation_ext_cantilever_partial_udl() {
     // Tip deflection: δ_tip = qa³(4L-a)/(24EI)
     let delta_tip: f64 = q.abs() * a.powi(3) * (4.0 * l - a) / (24.0 * e_eff * IZ);
     let uy_tip = results.displacements.iter()
-        .find(|d| d.node_id == n + 1).unwrap().uy;
+        .find(|d| d.node_id == n + 1).unwrap().uz;
 
     assert_close(uy_tip.abs(), delta_tip, 0.02,
         "Cantilever partial UDL: δ_tip = qa³(4L-a)/(24EI)");
 
     // Fixed end rotation must be zero
     let rz_fixed = results.displacements.iter()
-        .find(|d| d.node_id == 1).unwrap().rz;
+        .find(|d| d.node_id == 1).unwrap().ry;
     assert!(rz_fixed.abs() < 1e-10,
         "Cantilever partial UDL: fixed end θ = 0");
 }

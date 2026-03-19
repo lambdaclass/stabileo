@@ -57,7 +57,7 @@ fn validation_plastic_cantilever_point() {
 
     let solver = make_beam(n, l, E, A_SEC, IZ_SEC, "fixed", None,
         vec![SolverLoad::Nodal(SolverNodalLoad {
-            node_id: n + 1, fx: 0.0, fy: -1.0, mz: 0.0,
+            node_id: n + 1, fx: 0.0, fz: -1.0, my: 0.0,
         })]);
 
     let input = make_plastic(solver);
@@ -86,8 +86,8 @@ fn validation_plastic_two_span_point_loads() {
     let mid1 = n_per / 2 + 1;
     let mid2 = n_per + n_per / 2 + 1;
     let loads = vec![
-        SolverLoad::Nodal(SolverNodalLoad { node_id: mid1, fx: 0.0, fy: -1.0, mz: 0.0 }),
-        SolverLoad::Nodal(SolverNodalLoad { node_id: mid2, fx: 0.0, fy: -1.0, mz: 0.0 }),
+        SolverLoad::Nodal(SolverNodalLoad { node_id: mid1, fx: 0.0, fz: -1.0, my: 0.0 }),
+        SolverLoad::Nodal(SolverNodalLoad { node_id: mid2, fx: 0.0, fz: -1.0, my: 0.0 }),
     ];
 
     let solver = make_continuous_beam(&[l_span, l_span], n_per, E, A_SEC, IZ_SEC, loads);
@@ -134,7 +134,7 @@ fn validation_plastic_portal_beam_mechanism() {
     ];
     let sups = vec![(1, 1, "fixed"), (2, 5, "fixed")];
     let loads = vec![SolverLoad::Nodal(SolverNodalLoad {
-        node_id: 3, fx: 0.0, fy: -1.0, mz: 0.0,
+        node_id: 3, fx: 0.0, fz: -1.0, my: 0.0,
     })];
 
     let solver = make_input(nodes, vec![(1, E, 0.3)], vec![(1, A_SEC, IZ_SEC)],
@@ -192,7 +192,7 @@ fn validation_plastic_hinge_count() {
     // SS beam: 1 hinge for collapse
     let solver_ss = make_beam(1, l, E, A_SEC, IZ_SEC, "pinned", Some("rollerX"),
         vec![SolverLoad::PointOnElement(SolverPointLoadOnElement {
-            element_id: 1, a: l / 2.0, p: -1.0, px: None, mz: None,
+            element_id: 1, a: l / 2.0, p: -1.0, px: None, my: None,
         })]);
     let input_ss = make_plastic(solver_ss);
     let result_ss = plastic::solve_plastic_2d(&input_ss).unwrap();
@@ -204,7 +204,7 @@ fn validation_plastic_hinge_count() {
     let n = 4;
     let solver_ff = make_beam(n, l, E, A_SEC, IZ_SEC, "fixed", Some("fixed"),
         vec![SolverLoad::Nodal(SolverNodalLoad {
-            node_id: n / 2 + 1, fx: 0.0, fy: -1.0, mz: 0.0,
+            node_id: n / 2 + 1, fx: 0.0, fz: -1.0, my: 0.0,
         })]);
     let input_ff = make_plastic(solver_ff);
     let result_ff = plastic::solve_plastic_2d(&input_ff).unwrap();
@@ -227,7 +227,7 @@ fn validation_plastic_linear_scaling_with_mp() {
     // Base case
     let solver = make_beam(1, l, E, A_SEC, IZ_SEC, "pinned", Some("rollerX"),
         vec![SolverLoad::PointOnElement(SolverPointLoadOnElement {
-            element_id: 1, a: l / 2.0, p: -1.0, px: None, mz: None,
+            element_id: 1, a: l / 2.0, p: -1.0, px: None, my: None,
         })]);
     let input_base = make_plastic(solver);
     let result_base = plastic::solve_plastic_2d(&input_base).unwrap();
@@ -237,7 +237,7 @@ fn validation_plastic_linear_scaling_with_mp() {
     overrides.insert("1".to_string(), MP * 2.0);
     let solver2 = make_beam(1, l, E, A_SEC, IZ_SEC, "pinned", Some("rollerX"),
         vec![SolverLoad::PointOnElement(SolverPointLoadOnElement {
-            element_id: 1, a: l / 2.0, p: -1.0, px: None, mz: None,
+            element_id: 1, a: l / 2.0, p: -1.0, px: None, my: None,
         })]);
     let mut input_double = make_plastic(solver2);
     input_double.mp_overrides = Some(overrides);
@@ -264,7 +264,7 @@ fn validation_plastic_redundancy() {
     let mid = n / 2 + 1;
     let solver_ff = make_beam(n, l, E, A_SEC, IZ_SEC, "fixed", Some("fixed"),
         vec![SolverLoad::Nodal(SolverNodalLoad {
-            node_id: mid, fx: 0.0, fy: -1.0, mz: 0.0,
+            node_id: mid, fx: 0.0, fz: -1.0, my: 0.0,
         })]);
     let input_ff = make_plastic(solver_ff);
     let result_ff = plastic::solve_plastic_2d(&input_ff).unwrap();
@@ -272,7 +272,7 @@ fn validation_plastic_redundancy() {
     // SS: 3 reactions, 3 equations → redundancy = 0
     let solver_ss = make_beam(1, l, E, A_SEC, IZ_SEC, "pinned", Some("rollerX"),
         vec![SolverLoad::PointOnElement(SolverPointLoadOnElement {
-            element_id: 1, a: l / 2.0, p: -1.0, px: None, mz: None,
+            element_id: 1, a: l / 2.0, p: -1.0, px: None, my: None,
         })]);
     let input_ss = make_plastic(solver_ss);
     let result_ss = plastic::solve_plastic_2d(&input_ss).unwrap();

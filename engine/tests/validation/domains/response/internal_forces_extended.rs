@@ -39,7 +39,7 @@ fn validation_forces_ext_fixed_fixed_center_point() {
     let mid_node = n / 2 + 1; // node 5
     let input = make_beam(n, l, E, A, IZ, "fixed", Some("fixed"),
         vec![SolverLoad::Nodal(SolverNodalLoad {
-            node_id: mid_node, fx: 0.0, fy: -p, mz: 0.0,
+            node_id: mid_node, fx: 0.0, fz: -p, my: 0.0,
         })]);
 
     let results = linear::solve_2d(&input).unwrap();
@@ -47,14 +47,14 @@ fn validation_forces_ext_fixed_fixed_center_point() {
     // Each reaction = P/2
     let r1 = results.reactions.iter().find(|r| r.node_id == 1).unwrap();
     let rn = results.reactions.iter().find(|r| r.node_id == n + 1).unwrap();
-    assert_close(r1.ry, p / 2.0, 0.02, "FF center point R1_y");
-    assert_close(rn.ry, p / 2.0, 0.02, "FF center point Rn_y");
+    assert_close(r1.rz, p / 2.0, 0.02, "FF center point R1_y");
+    assert_close(rn.rz, p / 2.0, 0.02, "FF center point Rn_y");
 
     // Fixed end moments = PL/8
     let m_fixed = p * l / 8.0;
     // At node 1 the moment reaction should be PL/8 (hogging, negative convention)
-    assert_close(r1.mz.abs(), m_fixed, 0.05, "FF center point M_fixed_start");
-    assert_close(rn.mz.abs(), m_fixed, 0.05, "FF center point M_fixed_end");
+    assert_close(r1.my.abs(), m_fixed, 0.05, "FF center point M_fixed_start");
+    assert_close(rn.my.abs(), m_fixed, 0.05, "FF center point M_fixed_end");
 
     // Midspan moment = PL/8 (sagging)
     let ef_mid = results.element_forces.iter()
@@ -78,7 +78,7 @@ fn validation_forces_ext_cantilever_end_moment() {
 
     let input = make_beam(n, l, E, A, IZ, "fixed", None,
         vec![SolverLoad::Nodal(SolverNodalLoad {
-            node_id: n + 1, fx: 0.0, fy: 0.0, mz: m_app,
+            node_id: n + 1, fx: 0.0, fz: 0.0, my: m_app,
         })]);
 
     let results = linear::solve_2d(&input).unwrap();
@@ -104,7 +104,7 @@ fn validation_forces_ext_cantilever_end_moment() {
     let delta_exact = m_app * l * l / (2.0 * e_eff * IZ);
     let tip_disp = results.displacements.iter()
         .find(|d| d.node_id == n + 1).unwrap();
-    assert_close(tip_disp.uy.abs(), delta_exact, 0.02, "Cantilever end moment tip deflection");
+    assert_close(tip_disp.uz.abs(), delta_exact, 0.02, "Cantilever end moment tip deflection");
 }
 
 // ================================================================
@@ -143,12 +143,12 @@ fn validation_forces_ext_ss_triangular_load() {
     let ra_actual = results.reactions.iter().find(|r| r.node_id == 1).unwrap();
     let rb_actual = results.reactions.iter().find(|r| r.node_id == n + 1).unwrap();
 
-    assert_close(ra_actual.ry, r_a, 0.03, "SS triangular R_A");
-    assert_close(rb_actual.ry, r_b, 0.03, "SS triangular R_B");
+    assert_close(ra_actual.rz, r_a, 0.03, "SS triangular R_A");
+    assert_close(rb_actual.rz, r_b, 0.03, "SS triangular R_B");
 
     // Total load = qL/2 = 54; R_A + R_B should equal it
     let total_load = q_max.abs() * l / 2.0;
-    let sum_ry: f64 = results.reactions.iter().map(|r| r.ry).sum();
+    let sum_ry: f64 = results.reactions.iter().map(|r| r.rz).sum();
     assert_close(sum_ry, total_load, 0.02, "SS triangular sum reactions");
 }
 
@@ -169,7 +169,7 @@ fn validation_forces_ext_propped_cantilever_center_point() {
     let mid_node = n / 2 + 1;
     let input = make_beam(n, l, E, A, IZ, "fixed", Some("rollerX"),
         vec![SolverLoad::Nodal(SolverNodalLoad {
-            node_id: mid_node, fx: 0.0, fy: -p, mz: 0.0,
+            node_id: mid_node, fx: 0.0, fz: -p, my: 0.0,
         })]);
 
     let results = linear::solve_2d(&input).unwrap();
@@ -182,9 +182,9 @@ fn validation_forces_ext_propped_cantilever_center_point() {
     let r_at_roller = results.reactions.iter().find(|r| r.node_id == n + 1).unwrap();
     let r_at_fixed = results.reactions.iter().find(|r| r.node_id == 1).unwrap();
 
-    assert_close(r_at_roller.ry, r_roller, 0.03, "Propped cantilever center P: R_roller");
-    assert_close(r_at_fixed.ry, r_fixed_y, 0.03, "Propped cantilever center P: R_fixed");
-    assert_close(r_at_fixed.mz.abs(), m_fixed, 0.05, "Propped cantilever center P: M_fixed");
+    assert_close(r_at_roller.rz, r_roller, 0.03, "Propped cantilever center P: R_roller");
+    assert_close(r_at_fixed.rz, r_fixed_y, 0.03, "Propped cantilever center P: R_fixed");
+    assert_close(r_at_fixed.my.abs(), m_fixed, 0.05, "Propped cantilever center P: M_fixed");
 }
 
 // ================================================================
@@ -222,9 +222,9 @@ fn validation_forces_ext_two_span_continuous_udl() {
     let r_mid = results.reactions.iter().find(|r| r.node_id == n_per_span + 1).unwrap();
     let r_end_node = results.reactions.iter().find(|r| r.node_id == total_elems + 1).unwrap();
 
-    assert_close(r1.ry, r_end, 0.03, "Two-span continuous R_left");
-    assert_close(r_mid.ry, r_center, 0.03, "Two-span continuous R_center");
-    assert_close(r_end_node.ry, r_end, 0.03, "Two-span continuous R_right");
+    assert_close(r1.rz, r_end, 0.03, "Two-span continuous R_left");
+    assert_close(r_mid.rz, r_center, 0.03, "Two-span continuous R_center");
+    assert_close(r_end_node.rz, r_end, 0.03, "Two-span continuous R_right");
 
     // Moment at center support = qL²/8
     let m_center = q.abs() * span * span / 8.0;
@@ -263,7 +263,7 @@ fn validation_forces_ext_portal_frame_lateral() {
 
     // Vertical reactions should be equal and opposite (frame antisymmetric loading)
     // R1_y + R4_y = 0 (no vertical applied load)
-    let sum_ry: f64 = results.reactions.iter().map(|r| r.ry).sum();
+    let sum_ry: f64 = results.reactions.iter().map(|r| r.rz).sum();
     assert!(sum_ry.abs() < 0.5,
         "Portal frame sum Ry should be ~0: {:.4}", sum_ry);
 }
@@ -309,7 +309,7 @@ fn validation_forces_ext_overhang_point_load() {
 
     // Point load at tip (last node)
     let loads = vec![SolverLoad::Nodal(SolverNodalLoad {
-        node_id: n_total + 1, fx: 0.0, fy: -p, mz: 0.0,
+        node_id: n_total + 1, fx: 0.0, fz: -p, my: 0.0,
     })];
 
     let input = make_input(
@@ -331,8 +331,8 @@ fn validation_forces_ext_overhang_point_load() {
     let r_pinned = results.reactions.iter().find(|r| r.node_id == 1).unwrap();
     let r_roller = results.reactions.iter().find(|r| r.node_id == n_main + 1).unwrap();
 
-    assert_close(r_roller.ry, r_roller_exact, 0.03, "Overhang R_roller");
-    assert_close(r_pinned.ry, r_pinned_exact, 0.03, "Overhang R_pinned");
+    assert_close(r_roller.rz, r_roller_exact, 0.03, "Overhang R_roller");
+    assert_close(r_pinned.rz, r_pinned_exact, 0.03, "Overhang R_pinned");
 
     // Moment at roller support = P * L_oh (hogging)
     let m_at_roller = p * l_oh;
@@ -374,17 +374,17 @@ fn validation_forces_ext_fixed_pinned_udl() {
     let r_at_fixed = results.reactions.iter().find(|r| r.node_id == 1).unwrap();
     let r_at_pinned = results.reactions.iter().find(|r| r.node_id == n + 1).unwrap();
 
-    assert_close(r_at_fixed.ry, r_fixed_y, 0.03, "Fixed-pinned UDL R_fixed");
-    assert_close(r_at_pinned.ry, r_pinned_y, 0.03, "Fixed-pinned UDL R_pinned");
-    assert_close(r_at_fixed.mz.abs(), m_fixed, 0.05, "Fixed-pinned UDL M_fixed");
+    assert_close(r_at_fixed.rz, r_fixed_y, 0.03, "Fixed-pinned UDL R_fixed");
+    assert_close(r_at_pinned.rz, r_pinned_y, 0.03, "Fixed-pinned UDL R_pinned");
+    assert_close(r_at_fixed.my.abs(), m_fixed, 0.05, "Fixed-pinned UDL M_fixed");
 
     // Global equilibrium: sum of reactions = total load
     let total_load = q.abs() * l;
-    let sum_ry: f64 = results.reactions.iter().map(|r| r.ry).sum();
+    let sum_ry: f64 = results.reactions.iter().map(|r| r.rz).sum();
     assert_close(sum_ry, total_load, 0.02, "Fixed-pinned UDL sum reactions");
 
     // Pinned end has zero moment
-    let r_pin_mz = r_at_pinned.mz;
+    let r_pin_mz = r_at_pinned.my;
     assert!(r_pin_mz.abs() < 1.0,
         "Fixed-pinned UDL: pinned end moment should be ~0, got {:.4}", r_pin_mz);
 }

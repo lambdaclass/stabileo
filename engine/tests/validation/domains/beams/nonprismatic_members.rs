@@ -48,7 +48,7 @@ fn validation_nonprismatic_stepped_beam() {
         .collect();
     let input_u = make_beam(n, l, E, A, IZ, "pinned", Some("rollerX"), loads_u);
     let d_u = linear::solve_2d(&input_u).unwrap()
-        .displacements.iter().find(|d| d.node_id == n / 2 + 1).unwrap().uy;
+        .displacements.iter().find(|d| d.node_id == n / 2 + 1).unwrap().uz;
 
     // Uniform 2×IZ (stiffer reference)
     let loads_2: Vec<SolverLoad> = (1..=n)
@@ -58,7 +58,7 @@ fn validation_nonprismatic_stepped_beam() {
         .collect();
     let input_2 = make_beam(n, l, E, A, 2.0 * IZ, "pinned", Some("rollerX"), loads_2);
     let d_2 = linear::solve_2d(&input_2).unwrap()
-        .displacements.iter().find(|d| d.node_id == n / 2 + 1).unwrap().uy;
+        .displacements.iter().find(|d| d.node_id == n / 2 + 1).unwrap().uz;
 
     // Stepped: left half 2×IZ, right half IZ
     let mut nodes = std::collections::HashMap::new();
@@ -66,7 +66,7 @@ fn validation_nonprismatic_stepped_beam() {
     for i in 0..=n {
         nodes.insert(
             (i + 1).to_string(),
-            SolverNode { id: i + 1, x: i as f64 * l / n as f64, y: 0.0 },
+            SolverNode { id: i + 1, x: i as f64 * l / n as f64, z: 0.0 },
         );
     }
     let mut mats = std::collections::HashMap::new();
@@ -88,11 +88,11 @@ fn validation_nonprismatic_stepped_beam() {
     let mut sups = std::collections::HashMap::new();
     sups.insert("1".to_string(), SolverSupport {
         id: 1, node_id: 1, support_type: "pinned".to_string(),
-        kx: None, ky: None, kz: None, dx: None, dy: None, drz: None, angle: None,
+        kx: None, ky: None, kz: None, dx: None, dz: None, dry: None, angle: None,
     });
     sups.insert("2".to_string(), SolverSupport {
         id: 2, node_id: n + 1, support_type: "rollerX".to_string(),
-        kx: None, ky: None, kz: None, dx: None, dy: None, drz: None, angle: None,
+        kx: None, ky: None, kz: None, dx: None, dz: None, dry: None, angle: None,
     });
 
     let loads_s: Vec<SolverLoad> = (1..=n)
@@ -103,7 +103,7 @@ fn validation_nonprismatic_stepped_beam() {
 
     let input_s = SolverInput { nodes, materials: mats, sections: secs, elements: elems, supports: sups, loads: loads_s, constraints: vec![] , connectors: std::collections::HashMap::new() };
     let d_s = linear::solve_2d(&input_s).unwrap()
-        .displacements.iter().find(|d| d.node_id == n / 2 + 1).unwrap().uy;
+        .displacements.iter().find(|d| d.node_id == n / 2 + 1).unwrap().uz;
 
     // Stepped deflection should be between uniform cases
     assert!(d_s.abs() > d_2.abs() && d_s.abs() < d_u.abs(),
@@ -136,7 +136,7 @@ fn validation_nonprismatic_tapered_cantilever() {
         let x = i as f64 * l / n as f64;
         nodes.insert(
             (i + 1).to_string(),
-            SolverNode { id: i + 1, x, y: 0.0 },
+            SolverNode { id: i + 1, x, z: 0.0 },
         );
     }
 
@@ -161,11 +161,11 @@ fn validation_nonprismatic_tapered_cantilever() {
     let mut sups = std::collections::HashMap::new();
     sups.insert("1".to_string(), SolverSupport {
         id: 1, node_id: 1, support_type: "fixed".to_string(),
-        kx: None, ky: None, kz: None, dx: None, dy: None, drz: None, angle: None,
+        kx: None, ky: None, kz: None, dx: None, dz: None, dry: None, angle: None,
     });
 
     let loads = vec![SolverLoad::Nodal(SolverNodalLoad {
-        node_id: n + 1, fx: 0.0, fy: -p, mz: 0.0,
+        node_id: n + 1, fx: 0.0, fz: -p, my: 0.0,
     })];
 
     let input = SolverInput {
@@ -173,15 +173,15 @@ fn validation_nonprismatic_tapered_cantilever() {
     let results = linear::solve_2d(&input).unwrap();
 
     let tip = results.displacements.iter()
-        .find(|d| d.node_id == n + 1).unwrap().uy;
+        .find(|d| d.node_id == n + 1).unwrap().uz;
 
     // Compare with uniform cantilever (I = I₀ throughout)
     let loads_u = vec![SolverLoad::Nodal(SolverNodalLoad {
-        node_id: n + 1, fx: 0.0, fy: -p, mz: 0.0,
+        node_id: n + 1, fx: 0.0, fz: -p, my: 0.0,
     })];
     let input_u = make_beam(n, l, E, A, i0, "fixed", None, loads_u);
     let tip_u = linear::solve_2d(&input_u).unwrap()
-        .displacements.iter().find(|d| d.node_id == n + 1).unwrap().uy;
+        .displacements.iter().find(|d| d.node_id == n + 1).unwrap().uz;
 
     // Tapered beam (larger I near tip) should deflect less than uniform I₀
     assert!(tip.abs() < tip_u.abs(),
@@ -214,7 +214,7 @@ fn validation_nonprismatic_haunched() {
     for i in 0..=n {
         nodes.insert(
             (i + 1).to_string(),
-            SolverNode { id: i + 1, x: i as f64 * l / n as f64, y: 0.0 },
+            SolverNode { id: i + 1, x: i as f64 * l / n as f64, z: 0.0 },
         );
     }
 
@@ -241,11 +241,11 @@ fn validation_nonprismatic_haunched() {
     let mut sups = std::collections::HashMap::new();
     sups.insert("1".to_string(), SolverSupport {
         id: 1, node_id: 1, support_type: "fixed".to_string(),
-        kx: None, ky: None, kz: None, dx: None, dy: None, drz: None, angle: None,
+        kx: None, ky: None, kz: None, dx: None, dz: None, dry: None, angle: None,
     });
     sups.insert("2".to_string(), SolverSupport {
         id: 2, node_id: n + 1, support_type: "fixed".to_string(),
-        kx: None, ky: None, kz: None, dx: None, dy: None, drz: None, angle: None,
+        kx: None, ky: None, kz: None, dx: None, dz: None, dry: None, angle: None,
     });
 
     let loads: Vec<SolverLoad> = (1..=n)
@@ -257,7 +257,7 @@ fn validation_nonprismatic_haunched() {
     let input = SolverInput {
         nodes, materials: mats, sections: secs, elements: elems, supports: sups, loads, constraints: vec![],  connectors: std::collections::HashMap::new() };
     let d_haunch = linear::solve_2d(&input).unwrap()
-        .displacements.iter().find(|d| d.node_id == n / 2 + 1).unwrap().uy;
+        .displacements.iter().find(|d| d.node_id == n / 2 + 1).unwrap().uz;
 
     // Compare with uniform beam using midspan I
     let loads_u: Vec<SolverLoad> = (1..=n)
@@ -267,7 +267,7 @@ fn validation_nonprismatic_haunched() {
         .collect();
     let input_u = make_beam(n, l, E, A, i_mid, "fixed", Some("fixed"), loads_u);
     let d_uniform = linear::solve_2d(&input_u).unwrap()
-        .displacements.iter().find(|d| d.node_id == n / 2 + 1).unwrap().uy;
+        .displacements.iter().find(|d| d.node_id == n / 2 + 1).unwrap().uz;
 
     // Haunched beam should deflect less at midspan (stiffer at supports)
     assert!(d_haunch.abs() < d_uniform.abs(),
@@ -297,7 +297,7 @@ fn validation_nonprismatic_convergence() {
         for i in 0..=n {
             nodes.insert(
                 (i + 1).to_string(),
-                SolverNode { id: i + 1, x: i as f64 * l / n as f64, y: 0.0 },
+                SolverNode { id: i + 1, x: i as f64 * l / n as f64, z: 0.0 },
             );
         }
         secs.insert("1".to_string(), SolverSection { id: 1, a: A, iz: 2.0 * IZ, as_y: None });
@@ -318,17 +318,17 @@ fn validation_nonprismatic_convergence() {
         let mut sups = std::collections::HashMap::new();
         sups.insert("1".to_string(), SolverSupport {
             id: 1, node_id: 1, support_type: "fixed".to_string(),
-            kx: None, ky: None, kz: None, dx: None, dy: None, drz: None, angle: None,
+            kx: None, ky: None, kz: None, dx: None, dz: None, dry: None, angle: None,
         });
 
         let loads = vec![SolverLoad::Nodal(SolverNodalLoad {
-            node_id: n + 1, fx: 0.0, fy: -p, mz: 0.0,
+            node_id: n + 1, fx: 0.0, fz: -p, my: 0.0,
         })];
 
         let input = SolverInput {
             nodes, materials: mats, sections: secs, elements: elems, supports: sups, loads, constraints: vec![],  connectors: std::collections::HashMap::new() };
         let d = linear::solve_2d(&input).unwrap()
-            .displacements.iter().find(|d| d.node_id == n + 1).unwrap().uy;
+            .displacements.iter().find(|d| d.node_id == n + 1).unwrap().uz;
         deflections.push(d);
     }
 
@@ -383,7 +383,7 @@ fn validation_nonprismatic_stepped_column() {
 
     let mut nodes_map = std::collections::HashMap::new();
     for &(id, x, y) in &nodes {
-        nodes_map.insert(id.to_string(), SolverNode { id, x, y });
+        nodes_map.insert(id.to_string(), SolverNode { id, x, z: y });
     }
     let mut elems_map = std::collections::HashMap::new();
     for &(id, etype, ni, nj, mid, sid, hs, he) in &elems {
@@ -395,11 +395,11 @@ fn validation_nonprismatic_stepped_column() {
     let mut sups_map = std::collections::HashMap::new();
     sups_map.insert("1".to_string(), SolverSupport {
         id: 1, node_id: 1, support_type: "fixed".to_string(),
-        kx: None, ky: None, kz: None, dx: None, dy: None, drz: None, angle: None,
+        kx: None, ky: None, kz: None, dx: None, dz: None, dry: None, angle: None,
     });
 
     let loads = vec![SolverLoad::Nodal(SolverNodalLoad {
-        node_id: total_n + 1, fx: f, fy: 0.0, mz: 0.0,
+        node_id: total_n + 1, fx: f, fz: 0.0, my: 0.0,
     })];
 
     let input = SolverInput {
@@ -419,7 +419,7 @@ fn validation_nonprismatic_stepped_column() {
         }
     }
     let loads_u = vec![SolverLoad::Nodal(SolverNodalLoad {
-        node_id: total_n + 1, fx: f, fy: 0.0, mz: 0.0,
+        node_id: total_n + 1, fx: f, fz: 0.0, my: 0.0,
     })];
     let input_u = make_input(nodes_u, vec![(1, E, 0.3)], vec![(1, A, IZ)], elems_u,
         vec![(1, 1, "fixed")], loads_u);
@@ -452,7 +452,7 @@ fn validation_nonprismatic_variable_effect() {
         .collect();
     let input_base = make_beam(n, l, E, A, IZ, "pinned", Some("rollerX"), loads);
     let d_base = linear::solve_2d(&input_base).unwrap()
-        .displacements.iter().find(|d| d.node_id == n / 2 + 1).unwrap().uy;
+        .displacements.iter().find(|d| d.node_id == n / 2 + 1).unwrap().uz;
 
     // All doubled: uniform 2×IZ
     let loads2: Vec<SolverLoad> = (1..=n)
@@ -462,7 +462,7 @@ fn validation_nonprismatic_variable_effect() {
         .collect();
     let input_double = make_beam(n, l, E, A, 2.0 * IZ, "pinned", Some("rollerX"), loads2);
     let d_double = linear::solve_2d(&input_double).unwrap()
-        .displacements.iter().find(|d| d.node_id == n / 2 + 1).unwrap().uy;
+        .displacements.iter().find(|d| d.node_id == n / 2 + 1).unwrap().uz;
 
     // δ ∝ 1/I for uniform beam
     assert_close(d_base / d_double, 2.0, 0.02,
@@ -495,7 +495,7 @@ fn validation_nonprismatic_composite_materials() {
         .collect();
     let input_s = make_beam(n, l, e_steel, A, IZ, "pinned", Some("rollerX"), loads_s);
     let d_steel = linear::solve_2d(&input_s).unwrap()
-        .displacements.iter().find(|d| d.node_id == mid_node).unwrap().uy;
+        .displacements.iter().find(|d| d.node_id == mid_node).unwrap().uz;
 
     // All aluminum
     let loads_a: Vec<SolverLoad> = (1..=n)
@@ -505,14 +505,14 @@ fn validation_nonprismatic_composite_materials() {
         .collect();
     let input_a = make_beam(n, l, e_aluminum, A, IZ, "pinned", Some("rollerX"), loads_a);
     let d_aluminum = linear::solve_2d(&input_a).unwrap()
-        .displacements.iter().find(|d| d.node_id == mid_node).unwrap().uy;
+        .displacements.iter().find(|d| d.node_id == mid_node).unwrap().uz;
 
     // Composite: left=steel, right=aluminum
     let mut nodes_map = std::collections::HashMap::new();
     for i in 0..=n {
         nodes_map.insert(
             (i + 1).to_string(),
-            SolverNode { id: i + 1, x: i as f64 * l / n as f64, y: 0.0 },
+            SolverNode { id: i + 1, x: i as f64 * l / n as f64, z: 0.0 },
         );
     }
     let mut mats = std::collections::HashMap::new();
@@ -536,11 +536,11 @@ fn validation_nonprismatic_composite_materials() {
     let mut sups = std::collections::HashMap::new();
     sups.insert("1".to_string(), SolverSupport {
         id: 1, node_id: 1, support_type: "pinned".to_string(),
-        kx: None, ky: None, kz: None, dx: None, dy: None, drz: None, angle: None,
+        kx: None, ky: None, kz: None, dx: None, dz: None, dry: None, angle: None,
     });
     sups.insert("2".to_string(), SolverSupport {
         id: 2, node_id: n + 1, support_type: "rollerX".to_string(),
-        kx: None, ky: None, kz: None, dx: None, dy: None, drz: None, angle: None,
+        kx: None, ky: None, kz: None, dx: None, dz: None, dry: None, angle: None,
     });
 
     let loads_c: Vec<SolverLoad> = (1..=n)
@@ -556,7 +556,7 @@ fn validation_nonprismatic_composite_materials() {
     connectors: std::collections::HashMap::new(),
     };
     let d_composite = linear::solve_2d(&input_c).unwrap()
-        .displacements.iter().find(|d| d.node_id == mid_node).unwrap().uy;
+        .displacements.iter().find(|d| d.node_id == mid_node).unwrap().uz;
 
     // Composite should be between all-steel and all-aluminum
     assert!(d_composite.abs() > d_steel.abs() && d_composite.abs() < d_aluminum.abs(),
@@ -589,7 +589,7 @@ fn validation_nonprismatic_gradual_vs_abrupt() {
     for i in 0..=n {
         nodes1.insert(
             (i + 1).to_string(),
-            SolverNode { id: i + 1, x: i as f64 * l / n as f64, y: 0.0 },
+            SolverNode { id: i + 1, x: i as f64 * l / n as f64, z: 0.0 },
         );
     }
     for i in 0..n {
@@ -607,11 +607,11 @@ fn validation_nonprismatic_gradual_vs_abrupt() {
     let mut sups1 = std::collections::HashMap::new();
     sups1.insert("1".to_string(), SolverSupport {
         id: 1, node_id: 1, support_type: "fixed".to_string(),
-        kx: None, ky: None, kz: None, dx: None, dy: None, drz: None, angle: None,
+        kx: None, ky: None, kz: None, dx: None, dz: None, dry: None, angle: None,
     });
     sups1.insert("2".to_string(), SolverSupport {
         id: 2, node_id: n + 1, support_type: "fixed".to_string(),
-        kx: None, ky: None, kz: None, dx: None, dy: None, drz: None, angle: None,
+        kx: None, ky: None, kz: None, dx: None, dz: None, dry: None, angle: None,
     });
 
     let loads1: Vec<SolverLoad> = (1..=n)
@@ -627,13 +627,13 @@ fn validation_nonprismatic_gradual_vs_abrupt() {
     connectors: std::collections::HashMap::new(),
     };
     let d_abrupt = linear::solve_2d(&input1).unwrap()
-        .displacements.iter().find(|d| d.node_id == n / 2 + 1).unwrap().uy;
+        .displacements.iter().find(|d| d.node_id == n / 2 + 1).unwrap().uz;
 
     // Both approaches should produce reasonable deflections
     assert!(d_abrupt.abs() > 0.0, "Abrupt: non-zero deflection");
 
     // Equilibrium check
     let r = linear::solve_2d(&input1).unwrap();
-    let sum_ry: f64 = r.reactions.iter().map(|r| r.ry).sum();
+    let sum_ry: f64 = r.reactions.iter().map(|r| r.rz).sum();
     assert_close(sum_ry, q.abs() * l, 0.01, "Abrupt: ΣRy = qL");
 }

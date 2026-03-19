@@ -322,12 +322,12 @@ fn validation_moving_5_influence_reaction() {
         let loads = vec![SolverLoad::Nodal(SolverNodalLoad {
             node_id: i,
             fx: 0.0,
-            fy: -1.0,
-            mz: 0.0,
+            fz: -1.0,
+            my: 0.0,
         })];
         let input = make_beam(n, l, E, A, IZ, "pinned", Some("rollerX"), loads);
         let results = linear::solve_2d(&input).unwrap();
-        let ra = results.reactions.iter().find(|r| r.node_id == 1).unwrap().ry;
+        let ra = results.reactions.iter().find(|r| r.node_id == 1).unwrap().rz;
         il_ra.push(ra);
     }
 
@@ -369,8 +369,8 @@ fn validation_moving_6_influence_moment() {
         let loads = vec![SolverLoad::Nodal(SolverNodalLoad {
             node_id: i,
             fx: 0.0,
-            fy: -1.0,
-            mz: 0.0,
+            fz: -1.0,
+            my: 0.0,
         })];
         let input = make_beam(n, l, E, A, IZ, "pinned", Some("rollerX"), loads);
         let results = linear::solve_2d(&input).unwrap();
@@ -541,8 +541,8 @@ fn validation_moving_8_muller_breslau_il() {
         let loads = vec![SolverLoad::Nodal(SolverNodalLoad {
             node_id: i,
             fx: 0.0,
-            fy: -1.0,
-            mz: 0.0,
+            fz: -1.0,
+            my: 0.0,
         })];
         let input = make_beam(n, l, E, A, IZ, "pinned", Some("rollerX"), loads);
         let results = linear::solve_2d(&input).unwrap();
@@ -596,8 +596,8 @@ fn validation_moving_8_muller_breslau_il() {
     let loads_b = vec![SolverLoad::Nodal(SolverNodalLoad {
         node_id: load_at_b_node,
         fx: 0.0,
-        fy: -1.0,
-        mz: 0.0,
+        fz: -1.0,
+        my: 0.0,
     })];
     let input_b = make_beam(n, l, E, A, IZ, "pinned", Some("rollerX"), loads_b);
     let results_b = linear::solve_2d(&input_b).unwrap();
@@ -612,8 +612,8 @@ fn validation_moving_8_muller_breslau_il() {
     let loads_a = vec![SolverLoad::Nodal(SolverNodalLoad {
         node_id: load_at_a_node,
         fx: 0.0,
-        fy: -1.0,
-        mz: 0.0,
+        fz: -1.0,
+        my: 0.0,
     })];
     let input_a = make_beam(n, l, E, A, IZ, "pinned", Some("rollerX"), loads_a);
     let results_a = linear::solve_2d(&input_a).unwrap();

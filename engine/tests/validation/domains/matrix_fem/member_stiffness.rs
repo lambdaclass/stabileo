@@ -36,7 +36,7 @@ fn validation_stiffness_axial() {
 
     // Cantilever with axial load → δ = PL/(EA) → k = EA/L
     let loads = vec![SolverLoad::Nodal(SolverNodalLoad {
-        node_id: 2, fx: p, fy: 0.0, mz: 0.0,
+        node_id: 2, fx: p, fz: 0.0, my: 0.0,
     })];
     let input = make_beam(n, l, E, A, IZ, "fixed", None, loads);
     let results = linear::solve_2d(&input).unwrap();
@@ -63,13 +63,13 @@ fn validation_stiffness_translational() {
     // Use fixed-fixed with center load
     // Actually: single element cantilever → k = 3EI/L³
     let loads = vec![SolverLoad::Nodal(SolverNodalLoad {
-        node_id: 2, fx: 0.0, fy: -p, mz: 0.0,
+        node_id: 2, fx: 0.0, fz: -p, my: 0.0,
     })];
     let input = make_beam(n, l, E, A, IZ, "fixed", None, loads);
     let results = linear::solve_2d(&input).unwrap();
 
     let tip = results.displacements.iter().find(|d| d.node_id == 2).unwrap();
-    let k_bend = p / tip.uy.abs();
+    let k_bend = p / tip.uz.abs();
     let k_exact = 3.0 * e_eff * IZ / (l * l * l);
     assert_close(k_bend, k_exact, 0.02,
         "Cantilever bending stiffness: k = 3EI/L³");
@@ -88,13 +88,13 @@ fn validation_stiffness_rotational() {
 
     // Cantilever with end moment → θ = ML/(EI) → k_rot = EI/L
     let loads = vec![SolverLoad::Nodal(SolverNodalLoad {
-        node_id: 2, fx: 0.0, fy: 0.0, mz: m,
+        node_id: 2, fx: 0.0, fz: 0.0, my: m,
     })];
     let input = make_beam(n, l, E, A, IZ, "fixed", None, loads);
     let results = linear::solve_2d(&input).unwrap();
 
     let tip = results.displacements.iter().find(|d| d.node_id == 2).unwrap();
-    let k_rot = m / tip.rz;
+    let k_rot = m / tip.ry;
     let k_exact = e_eff * IZ / l; // EI/L for cantilever (free end)
     assert_close(k_rot, k_exact, 0.02,
         "Rotational: k = EI/L for cantilever");
@@ -115,7 +115,7 @@ fn validation_stiffness_carry_over() {
     let mut nodes = std::collections::HashMap::new();
     for i in 0..=n {
         nodes.insert((i + 1).to_string(), SolverNode {
-            id: i + 1, x: i as f64 * l / n as f64, y: 0.0,
+            id: i + 1, x: i as f64 * l / n as f64, z: 0.0,
         });
     }
     let mut mats = std::collections::HashMap::new();
@@ -135,13 +135,13 @@ fn validation_stiffness_carry_over() {
         id: 1, node_id: 1,
         support_type: "fixed".to_string(),
         kx: None, ky: None, kz: None,
-        dx: None, dy: None, drz: None, angle: None,
+        dx: None, dz: None, dry: None, angle: None,
     });
     sups.insert("2".to_string(), SolverSupport {
         id: 2, node_id: n + 1,
         support_type: "fixed".to_string(),
         kx: None, ky: None, kz: None,
-        dx: None, dy: None, drz: Some(theta), angle: None,
+        dx: None, dz: None, dry: Some(theta), angle: None,
     });
 
     let input = SolverInput {
@@ -157,13 +157,13 @@ fn validation_stiffness_carry_over() {
     let m_near = 4.0 * e_eff * IZ * theta / l;
     let m_far = 2.0 * e_eff * IZ * theta / l;
 
-    assert_close(r_near.mz.abs(), m_near, 0.05,
+    assert_close(r_near.my.abs(), m_near, 0.05,
         "Carry-over: M_near = 4EIθ/L");
-    assert_close(r_far.mz.abs(), m_far, 0.05,
+    assert_close(r_far.my.abs(), m_far, 0.05,
         "Carry-over: M_far = 2EIθ/L");
 
     // Verify COF
-    let cof = r_far.mz.abs() / r_near.mz.abs();
+    let cof = r_far.my.abs() / r_near.my.abs();
     assert_close(cof, 0.5, 0.05, "Carry-over factor = 0.5");
 }
 
@@ -183,20 +183,20 @@ fn validation_stiffness_modified() {
     // Simpler: compare cantilever stiffness (EI/L) vs fixed-end (4EI/L)
     // Cantilever: moment at tip → θ = ML/(EI)
     let loads_c = vec![SolverLoad::Nodal(SolverNodalLoad {
-        node_id: n + 1, fx: 0.0, fy: 0.0, mz: p,
+        node_id: n + 1, fx: 0.0, fz: 0.0, my: p,
     })];
     let input_c = make_beam(n, l, E, A, IZ, "fixed", None, loads_c);
     let theta_c = linear::solve_2d(&input_c).unwrap()
-        .displacements.iter().find(|d| d.node_id == n + 1).unwrap().rz;
+        .displacements.iter().find(|d| d.node_id == n + 1).unwrap().ry;
     let k_c = p / theta_c; // EI/L
 
     // Propped cantilever: moment at roller end
     let loads_p = vec![SolverLoad::Nodal(SolverNodalLoad {
-        node_id: n + 1, fx: 0.0, fy: 0.0, mz: p,
+        node_id: n + 1, fx: 0.0, fz: 0.0, my: p,
     })];
     let input_p = make_beam(n, l, E, A, IZ, "fixed", Some("rollerX"), loads_p);
     let theta_p = linear::solve_2d(&input_p).unwrap()
-        .displacements.iter().find(|d| d.node_id == n + 1).unwrap().rz;
+        .displacements.iter().find(|d| d.node_id == n + 1).unwrap().ry;
     let k_p = p / theta_p;
 
     // Cantilever: k = EI/L, Propped: k should be different
@@ -216,11 +216,11 @@ fn validation_stiffness_length_effect() {
     let mut stiffnesses = Vec::new();
     for l in &[3.0, 5.0, 8.0] {
         let loads = vec![SolverLoad::Nodal(SolverNodalLoad {
-            node_id: n + 1, fx: 0.0, fy: -p, mz: 0.0,
+            node_id: n + 1, fx: 0.0, fz: -p, my: 0.0,
         })];
         let input = make_beam(n, *l, E, A, IZ, "fixed", None, loads);
         let d = linear::solve_2d(&input).unwrap()
-            .displacements.iter().find(|d| d.node_id == n + 1).unwrap().uy.abs();
+            .displacements.iter().find(|d| d.node_id == n + 1).unwrap().uz.abs();
         stiffnesses.push(p / d);
     }
 
@@ -243,19 +243,19 @@ fn validation_stiffness_e_effect() {
 
     // E = 200 GPa
     let loads1 = vec![SolverLoad::Nodal(SolverNodalLoad {
-        node_id: n + 1, fx: 0.0, fy: -p, mz: 0.0,
+        node_id: n + 1, fx: 0.0, fz: -p, my: 0.0,
     })];
     let input1 = make_beam(n, l, E, A, IZ, "fixed", None, loads1);
     let d1 = linear::solve_2d(&input1).unwrap()
-        .displacements.iter().find(|d| d.node_id == n + 1).unwrap().uy.abs();
+        .displacements.iter().find(|d| d.node_id == n + 1).unwrap().uz.abs();
 
     // E = 400 GPa (double)
     let loads2 = vec![SolverLoad::Nodal(SolverNodalLoad {
-        node_id: n + 1, fx: 0.0, fy: -p, mz: 0.0,
+        node_id: n + 1, fx: 0.0, fz: -p, my: 0.0,
     })];
     let input2 = make_beam(n, l, 2.0 * E, A, IZ, "fixed", None, loads2);
     let d2 = linear::solve_2d(&input2).unwrap()
-        .displacements.iter().find(|d| d.node_id == n + 1).unwrap().uy.abs();
+        .displacements.iter().find(|d| d.node_id == n + 1).unwrap().uz.abs();
 
     // δ ∝ 1/E → d1/d2 = 2.0
     assert_close(d1 / d2, 2.0, 0.02,
@@ -273,18 +273,18 @@ fn validation_stiffness_i_effect() {
     let p = 10.0;
 
     let loads1 = vec![SolverLoad::Nodal(SolverNodalLoad {
-        node_id: n + 1, fx: 0.0, fy: -p, mz: 0.0,
+        node_id: n + 1, fx: 0.0, fz: -p, my: 0.0,
     })];
     let input1 = make_beam(n, l, E, A, IZ, "fixed", None, loads1);
     let d1 = linear::solve_2d(&input1).unwrap()
-        .displacements.iter().find(|d| d.node_id == n + 1).unwrap().uy.abs();
+        .displacements.iter().find(|d| d.node_id == n + 1).unwrap().uz.abs();
 
     let loads2 = vec![SolverLoad::Nodal(SolverNodalLoad {
-        node_id: n + 1, fx: 0.0, fy: -p, mz: 0.0,
+        node_id: n + 1, fx: 0.0, fz: -p, my: 0.0,
     })];
     let input2 = make_beam(n, l, E, A, 3.0 * IZ, "fixed", None, loads2);
     let d2 = linear::solve_2d(&input2).unwrap()
-        .displacements.iter().find(|d| d.node_id == n + 1).unwrap().uy.abs();
+        .displacements.iter().find(|d| d.node_id == n + 1).unwrap().uz.abs();
 
     // δ ∝ 1/I → d1/d2 = 3.0
     assert_close(d1 / d2, 3.0, 0.02,

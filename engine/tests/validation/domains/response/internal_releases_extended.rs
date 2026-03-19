@@ -80,13 +80,13 @@ fn validation_hinge_propped_cantilever_udl() {
 
     // Global equilibrium
     let total_load = q.abs() * l;
-    let sum_ry: f64 = results.reactions.iter().map(|r| r.ry).sum();
+    let sum_ry: f64 = results.reactions.iter().map(|r| r.rz).sum();
     assert_close(sum_ry, total_load, 0.02, "Propped+hinge UDL: sum Ry = qL");
 
     // Fixed support should carry a moment (not zero)
     let r_left = results.reactions.iter().find(|r| r.node_id == 1).unwrap();
-    assert!(r_left.mz.abs() > 1.0,
-        "Fixed support should have moment: Mz={:.6}", r_left.mz);
+    assert!(r_left.my.abs() > 1.0,
+        "Fixed support should have moment: Mz={:.6}", r_left.my);
 }
 
 // ================================================================
@@ -158,7 +158,7 @@ fn validation_hinge_two_span_antisymmetric() {
         "Hinge moment: M_end={:.6}", ef_before.m_end);
 
     // Net applied load is zero (equal and opposite UDLs), so sum Ry should be ~0
-    let sum_ry: f64 = results.reactions.iter().map(|r| r.ry).sum();
+    let sum_ry: f64 = results.reactions.iter().map(|r| r.rz).sum();
     assert!(sum_ry.abs() < 1.0,
         "Antisymmetric load: sum Ry should be ~0, got {:.6}", sum_ry);
 }
@@ -200,8 +200,8 @@ fn validation_hinge_quarter_span_fixed_fixed() {
     let loads = vec![SolverLoad::Nodal(SolverNodalLoad {
         node_id: mid,
         fx: 0.0,
-        fy: -p,
-        mz: 0.0,
+        fz: -p,
+        my: 0.0,
     })];
 
     let input = make_input(nodes, vec![(1, E, 0.3)], vec![(1, A, IZ)], elems, sups, loads);
@@ -218,18 +218,18 @@ fn validation_hinge_quarter_span_fixed_fixed() {
         "Hinge at L/4: M_start should be ~0: {:.6}", ef_after.m_start);
 
     // Global equilibrium: sum Ry = P
-    let sum_ry: f64 = results.reactions.iter().map(|r| r.ry).sum();
+    let sum_ry: f64 = results.reactions.iter().map(|r| r.rz).sum();
     assert_close(sum_ry, p, 0.02, "Hinge quarter span: sum Ry = P");
 
     // Both fixed supports should have moment reactions
     let r_left = results.reactions.iter().find(|r| r.node_id == 1).unwrap();
     let r_right = results.reactions.iter().find(|r| r.node_id == n_nodes).unwrap();
-    assert!(r_right.mz.abs() > 0.1,
-        "Right fixed support should have moment: Mz={:.6}", r_right.mz);
+    assert!(r_right.my.abs() > 0.1,
+        "Right fixed support should have moment: Mz={:.6}", r_right.my);
 
     // Free body of left segment (fixed end to hinge at L/4):
     // M_hinge = 0. The magnitudes of Mz_reaction and Ry_left * (L/4) must match.
-    assert_close(r_left.mz.abs(), (r_left.ry * (l / 4.0)).abs(), 0.05,
+    assert_close(r_left.my.abs(), (r_left.rz * (l / 4.0)).abs(), 0.05,
         "Left moment magnitude from free body: |M_left| = |Ry_left * L/4|");
 }
 
@@ -259,8 +259,8 @@ fn validation_hinge_portal_single_side() {
     let loads = vec![SolverLoad::Nodal(SolverNodalLoad {
         node_id: 2,
         fx: p,
-        fy: 0.0,
-        mz: 0.0,
+        fz: 0.0,
+        my: 0.0,
     })];
 
     let input = make_input(nodes, vec![(1, E, 0.3)], vec![(1, A, IZ)], elems, sups, loads);
@@ -321,8 +321,8 @@ fn validation_three_hinged_triangular_frame() {
     let loads = vec![SolverLoad::Nodal(SolverNodalLoad {
         node_id: 2,
         fx: 0.0,
-        fy: -p,
-        mz: 0.0,
+        fz: -p,
+        my: 0.0,
     })];
 
     let input = make_input(nodes, vec![(1, E, 0.3)], vec![(1, A, IZ)], elems, sups, loads);
@@ -341,8 +341,8 @@ fn validation_three_hinged_triangular_frame() {
     // Each support carries P/2 vertically
     let r_left = results.reactions.iter().find(|r| r.node_id == 1).unwrap();
     let r_right = results.reactions.iter().find(|r| r.node_id == 3).unwrap();
-    assert_close(r_left.ry, p / 2.0, 0.02, "Three-hinge: Ry_left = P/2");
-    assert_close(r_right.ry, p / 2.0, 0.02, "Three-hinge: Ry_right = P/2");
+    assert_close(r_left.rz, p / 2.0, 0.02, "Three-hinge: Ry_left = P/2");
+    assert_close(r_right.rz, p / 2.0, 0.02, "Three-hinge: Ry_right = P/2");
 
     // Horizontal thrust: The magnitude is PL/(4H).
     // The sign depends on solver convention; verify magnitude.
@@ -394,8 +394,8 @@ fn validation_hinge_propped_at_three_quarter() {
     let loads = vec![SolverLoad::Nodal(SolverNodalLoad {
         node_id: mid,
         fx: 0.0,
-        fy: -p,
-        mz: 0.0,
+        fz: -p,
+        my: 0.0,
     })];
 
     let input = make_input(nodes, vec![(1, E, 0.3)], vec![(1, A, IZ)], elems, sups, loads);
@@ -412,13 +412,13 @@ fn validation_hinge_propped_at_three_quarter() {
         "Propped hinge 3L/4: M_start={:.6}", ef_after.m_start);
 
     // Global equilibrium: sum Ry = P
-    let sum_ry: f64 = results.reactions.iter().map(|r| r.ry).sum();
+    let sum_ry: f64 = results.reactions.iter().map(|r| r.rz).sum();
     assert_close(sum_ry, p, 0.02, "Propped hinge 3L/4: sum Ry = P");
 
     // The fixed support should have a moment reaction
     let r_fixed = results.reactions.iter().find(|r| r.node_id == 1).unwrap();
-    assert!(r_fixed.mz.abs() > 0.1,
-        "Fixed support should have moment: Mz={:.6}", r_fixed.mz);
+    assert!(r_fixed.my.abs() > 0.1,
+        "Fixed support should have moment: Mz={:.6}", r_fixed.my);
 
     // Compare with no-hinge propped cantilever: hinge should increase midspan deflection
     let elems_no_hinge: Vec<_> = (0..n)
@@ -428,7 +428,7 @@ fn validation_hinge_propped_at_three_quarter() {
         .map(|i| (i + 1, i as f64 * elem_len, 0.0))
         .collect();
     let loads2 = vec![SolverLoad::Nodal(SolverNodalLoad {
-        node_id: mid, fx: 0.0, fy: -p, mz: 0.0,
+        node_id: mid, fx: 0.0, fz: -p, my: 0.0,
     })];
     let sups2 = vec![(1, 1_usize, "fixed"), (2, n_nodes, "rollerX")];
     let input_no_hinge = make_input(nodes2, vec![(1, E, 0.3)], vec![(1, A, IZ)],
@@ -436,9 +436,9 @@ fn validation_hinge_propped_at_three_quarter() {
     let results_no_hinge = linear::solve_2d(&input_no_hinge).unwrap();
 
     let d_hinge = results.displacements.iter()
-        .find(|d| d.node_id == mid).unwrap().uy.abs();
+        .find(|d| d.node_id == mid).unwrap().uz.abs();
     let d_no_hinge = results_no_hinge.displacements.iter()
-        .find(|d| d.node_id == mid).unwrap().uy.abs();
+        .find(|d| d.node_id == mid).unwrap().uz.abs();
     assert!(d_hinge > d_no_hinge,
         "Hinge should increase deflection: {:.6e} > {:.6e}", d_hinge, d_no_hinge);
 }
@@ -497,9 +497,9 @@ fn validation_hinge_fixed_fixed_symmetric_udl() {
     let total_load = q.abs() * l;
     let r_left = results.reactions.iter().find(|r| r.node_id == 1).unwrap();
     let r_right = results.reactions.iter().find(|r| r.node_id == n_nodes).unwrap();
-    assert_close(r_left.ry, total_load / 2.0, 0.02,
+    assert_close(r_left.rz, total_load / 2.0, 0.02,
         "Symmetric hinge fixed beam: Ry_left = qL/2");
-    assert_close(r_right.ry, total_load / 2.0, 0.02,
+    assert_close(r_right.rz, total_load / 2.0, 0.02,
         "Symmetric hinge fixed beam: Ry_right = qL/2");
 
     // Moments at both hinges should be zero
@@ -512,21 +512,21 @@ fn validation_hinge_fixed_fixed_symmetric_udl() {
         "Right hinge moment: M_end={:.6}", ef_h2.m_end);
 
     // By symmetry, the reaction moments at both ends should be equal in magnitude
-    assert_close(r_left.mz.abs(), r_right.mz.abs(), 0.03,
+    assert_close(r_left.my.abs(), r_right.my.abs(), 0.03,
         "Symmetric moments at fixed ends");
 
     // Deflections should be symmetric about midspan
     let mid = n / 2 + 1;
     let d_left_third = results.displacements.iter()
-        .find(|d| d.node_id == n / 3 + 1).unwrap().uy;
+        .find(|d| d.node_id == n / 3 + 1).unwrap().uz;
     let d_right_third = results.displacements.iter()
-        .find(|d| d.node_id == 2 * n / 3 + 1).unwrap().uy;
+        .find(|d| d.node_id == 2 * n / 3 + 1).unwrap().uz;
     assert_close(d_left_third, d_right_third, 0.02,
         "Symmetric deflections at L/3 and 2L/3");
 
     // Midspan deflection should be the largest (most negative)
     let d_mid = results.displacements.iter()
-        .find(|d| d.node_id == mid).unwrap().uy;
+        .find(|d| d.node_id == mid).unwrap().uz;
     assert!(d_mid < d_left_third,
         "Midspan deflection should be larger: {:.6e} < {:.6e}", d_mid, d_left_third);
 }
@@ -569,7 +569,7 @@ fn validation_hinge_with_element_point_load() {
         a: elem_len / 2.0,
         p: -p,
         px: None,
-        mz: None,
+        my: None,
     })];
 
     let input = make_input(nodes, vec![(1, E, 0.3)], vec![(1, A, IZ)], elems, sups, loads);
@@ -586,13 +586,13 @@ fn validation_hinge_with_element_point_load() {
         "Hinge with element load: M_start={:.6}", ef_after.m_start);
 
     // Global vertical equilibrium: sum Ry = P
-    let sum_ry: f64 = results.reactions.iter().map(|r| r.ry).sum();
+    let sum_ry: f64 = results.reactions.iter().map(|r| r.rz).sum();
     assert_close(sum_ry, p, 0.02, "Hinge + element load: sum Ry = P");
 
     // The fixed support should have a nonzero moment (load is on left half)
     let r_fixed = results.reactions.iter().find(|r| r.node_id == 1).unwrap();
-    assert!(r_fixed.mz.abs() > 1.0,
-        "Fixed support moment should be significant: Mz={:.6}", r_fixed.mz);
+    assert!(r_fixed.my.abs() > 1.0,
+        "Fixed support moment should be significant: Mz={:.6}", r_fixed.my);
 
     // Compare with no-hinge version: hinge should increase deflection
     let elems_no_hinge: Vec<_> = (0..n)
@@ -606,7 +606,7 @@ fn validation_hinge_with_element_point_load() {
         a: elem_len / 2.0,
         p: -p,
         px: None,
-        mz: None,
+        my: None,
     })];
     let sups2 = vec![(1, 1_usize, "fixed"), (2, n_nodes, "rollerX")];
     let input_no_hinge = make_input(nodes2, vec![(1, E, 0.3)], vec![(1, A, IZ)],
@@ -615,9 +615,9 @@ fn validation_hinge_with_element_point_load() {
 
     let mid_node = n / 2 + 1;
     let d_hinge = results.displacements.iter()
-        .find(|d| d.node_id == mid_node).unwrap().uy.abs();
+        .find(|d| d.node_id == mid_node).unwrap().uz.abs();
     let d_no_hinge = results_no_hinge.displacements.iter()
-        .find(|d| d.node_id == mid_node).unwrap().uy.abs();
+        .find(|d| d.node_id == mid_node).unwrap().uz.abs();
     assert!(d_hinge > d_no_hinge,
         "Hinge should increase deflection: {:.6e} > {:.6e}", d_hinge, d_no_hinge);
 }

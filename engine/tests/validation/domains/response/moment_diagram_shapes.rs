@@ -31,8 +31,8 @@ fn validation_ss_point_load_triangular_diagram() {
     let loads = vec![SolverLoad::Nodal(SolverNodalLoad {
         node_id: n / 2 + 1,
         fx: 0.0,
-        fy: -p,
-        mz: 0.0,
+        fz: -p,
+        my: 0.0,
     })];
     let input = make_beam(n, l, E, A, IZ, "pinned", Some("rollerX"), loads);
     let results = linear::solve_2d(&input).unwrap();
@@ -142,8 +142,8 @@ fn validation_cantilever_point_load_linear_diagram() {
     let loads = vec![SolverLoad::Nodal(SolverNodalLoad {
         node_id: n + 1,
         fx: 0.0,
-        fy: -p,
-        mz: 0.0,
+        fz: -p,
+        my: 0.0,
     })];
     let input = make_beam(n, l, E, A, IZ, "fixed", None, loads);
     let results = linear::solve_2d(&input).unwrap();
@@ -300,14 +300,14 @@ fn validation_ss_two_point_loads_trapezoidal() {
         SolverLoad::Nodal(SolverNodalLoad {
             node_id: n / 3 + 1, // node 4 at x=3
             fx: 0.0,
-            fy: -p,
-            mz: 0.0,
+            fz: -p,
+            my: 0.0,
         }),
         SolverLoad::Nodal(SolverNodalLoad {
             node_id: 2 * n / 3 + 1, // node 7 at x=6
             fx: 0.0,
-            fy: -p,
-            mz: 0.0,
+            fz: -p,
+            my: 0.0,
         }),
     ];
     let input = make_beam(n, l, E, A, IZ, "pinned", Some("rollerX"), loads);
@@ -413,7 +413,7 @@ fn validation_propped_cantilever_moment_boundary() {
 
     // Verify via reactions: the reaction moment at the fixed support should match
     let r_fixed = results.reactions.iter().find(|r| r.node_id == 1).unwrap();
-    assert_close(r_fixed.mz.abs(), m_fixed_expected, 0.03, "Propped cantilever: reaction Mz at fixed end");
+    assert_close(r_fixed.my.abs(), m_fixed_expected, 0.03, "Propped cantilever: reaction Mz at fixed end");
 }
 
 // ================================================================

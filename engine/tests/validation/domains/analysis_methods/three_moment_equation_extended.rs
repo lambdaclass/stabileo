@@ -138,7 +138,7 @@ fn validation_tme_ext_two_spans_different_loads() {
 
     // Also check total equilibrium
     let total_load = q1.abs() * span + q2.abs() * span;
-    let sum_ry: f64 = results.reactions.iter().map(|r| r.ry).sum();
+    let sum_ry: f64 = results.reactions.iter().map(|r| r.rz).sum();
     assert_close(sum_ry, total_load, 0.02,
         "TME 2-span different loads: sum(Ry) = total load");
 }
@@ -171,9 +171,9 @@ fn validation_tme_ext_three_spans_point_loads() {
     let mid3 = 2 * n + n / 2 + 1;   // midspan node of span 3
 
     let loads = vec![
-        SolverLoad::Nodal(SolverNodalLoad { node_id: mid1, fx: 0.0, fy: -p, mz: 0.0 }),
-        SolverLoad::Nodal(SolverNodalLoad { node_id: mid2, fx: 0.0, fy: -p, mz: 0.0 }),
-        SolverLoad::Nodal(SolverNodalLoad { node_id: mid3, fx: 0.0, fy: -p, mz: 0.0 }),
+        SolverLoad::Nodal(SolverNodalLoad { node_id: mid1, fx: 0.0, fz: -p, my: 0.0 }),
+        SolverLoad::Nodal(SolverNodalLoad { node_id: mid2, fx: 0.0, fz: -p, my: 0.0 }),
+        SolverLoad::Nodal(SolverNodalLoad { node_id: mid3, fx: 0.0, fz: -p, my: 0.0 }),
     ];
     let input = make_continuous_beam(&[span, span, span], n, E, A, IZ, loads);
     let results = linear::solve_2d(&input).unwrap();
@@ -227,23 +227,23 @@ fn validation_tme_ext_propped_cantilever_udl() {
     // Fixed-end moment: M_A = qL^2/8
     let m_a_exact = q_abs * length * length / 8.0;
     let r_a = results.reactions.iter().find(|r| r.node_id == 1).unwrap();
-    assert_close(r_a.mz.abs(), m_a_exact, 0.05,
+    assert_close(r_a.my.abs(), m_a_exact, 0.05,
         "Propped cantilever: M_A = qL^2/8");
 
     // Reactions
     let r_a_exact = 5.0 * q_abs * length / 8.0;
     let r_b_exact = 3.0 * q_abs * length / 8.0;
 
-    assert_close(r_a.ry, r_a_exact, 0.05,
+    assert_close(r_a.rz, r_a_exact, 0.05,
         "Propped cantilever: R_A = 5qL/8");
 
     let r_b = results.reactions.iter().find(|r| r.node_id == n + 1).unwrap();
-    assert_close(r_b.ry, r_b_exact, 0.05,
+    assert_close(r_b.rz, r_b_exact, 0.05,
         "Propped cantilever: R_B = 3qL/8");
 
     // Total equilibrium
     let total_load = q_abs * length;
-    let sum_ry: f64 = results.reactions.iter().map(|r| r.ry).sum();
+    let sum_ry: f64 = results.reactions.iter().map(|r| r.rz).sum();
     assert_close(sum_ry, total_load, 0.02,
         "Propped cantilever: equilibrium");
 }
@@ -292,7 +292,7 @@ fn validation_tme_ext_five_spans_symmetry() {
     // End reactions: R_A = R_F
     let r_a = results.reactions.iter().find(|r| r.node_id == 1).unwrap();
     let r_f = results.reactions.iter().find(|r| r.node_id == 5 * n + 1).unwrap();
-    assert_close(r_a.ry, r_f.ry, 0.01,
+    assert_close(r_a.rz, r_f.rz, 0.01,
         "5-span symmetry: R_A = R_F");
 
     // Interior reactions: R_B = R_E, R_C = R_D
@@ -301,14 +301,14 @@ fn validation_tme_ext_five_spans_symmetry() {
     let r_d = results.reactions.iter().find(|r| r.node_id == 3 * n + 1).unwrap();
     let r_e = results.reactions.iter().find(|r| r.node_id == 4 * n + 1).unwrap();
 
-    assert_close(r_b.ry, r_e.ry, 0.01,
+    assert_close(r_b.rz, r_e.rz, 0.01,
         "5-span symmetry: R_B = R_E");
-    assert_close(r_c.ry, r_d.ry, 0.01,
+    assert_close(r_c.rz, r_d.rz, 0.01,
         "5-span symmetry: R_C = R_D");
 
     // Total equilibrium
     let total_load = 5.0 * q_abs * span;
-    let sum_ry: f64 = results.reactions.iter().map(|r| r.ry).sum();
+    let sum_ry: f64 = results.reactions.iter().map(|r| r.rz).sum();
     assert_close(sum_ry, total_load, 0.02,
         "5-span: total equilibrium");
 }
@@ -374,7 +374,7 @@ fn validation_tme_ext_two_spans_triangular_load() {
 
     // Total load = q*L/2
     let total_load = q_abs * span / 2.0;
-    let sum_ry: f64 = results.reactions.iter().map(|r| r.ry).sum();
+    let sum_ry: f64 = results.reactions.iter().map(|r| r.rz).sum();
     assert_close(sum_ry, total_load, 0.02,
         "TME triangular: total equilibrium");
 
@@ -392,8 +392,8 @@ fn validation_tme_ext_two_spans_triangular_load() {
     // span 2 is unloaded but its left end has a hogging moment pushing it up.
     let mid2 = n + n / 2 + 1;
     let d2 = results.displacements.iter().find(|d| d.node_id == mid2).unwrap();
-    assert!(d2.uy > 0.0,
-        "TME triangular: unloaded span should deflect upward, got {:.6}", d2.uy);
+    assert!(d2.uz > 0.0,
+        "TME triangular: unloaded span should deflect upward, got {:.6}", d2.uz);
 
     // The reaction at end C (right end of span 2) should be downward (negative)
     // because the unloaded span has upward camber from hogging moment at B,
@@ -401,8 +401,8 @@ fn validation_tme_ext_two_spans_triangular_load() {
     // are positive upward. The roller at C would have a downward reaction
     // (negative) to hold the beam down.
     let r_c = results.reactions.iter().find(|r| r.node_id == 2 * n + 1).unwrap();
-    assert!(r_c.ry < 0.0,
-        "TME triangular: R_C should be negative (downward), got {:.4}", r_c.ry);
+    assert!(r_c.rz < 0.0,
+        "TME triangular: R_C should be negative (downward), got {:.4}", r_c.rz);
 }
 
 // ================================================================
@@ -447,7 +447,7 @@ fn validation_tme_ext_four_spans_checkerboard() {
 
     // Total applied load: 2 spans loaded
     let total_load = 2.0 * q_abs * span;
-    let sum_ry: f64 = results.reactions.iter().map(|r| r.ry).sum();
+    let sum_ry: f64 = results.reactions.iter().map(|r| r.rz).sum();
     assert_close(sum_ry, total_load, 0.02,
         "4-span checkerboard: total equilibrium");
 
@@ -538,19 +538,19 @@ fn validation_tme_ext_two_unequal_deflection() {
     let d2 = results.displacements.iter().find(|d| d.node_id == mid2).unwrap();
 
     // Span 2 (long span) should deflect downward
-    assert!(d2.uy < 0.0,
-        "TME unequal: span 2 midspan should deflect down, got {:.6}", d2.uy);
+    assert!(d2.uz < 0.0,
+        "TME unequal: span 2 midspan should deflect down, got {:.6}", d2.uz);
 
     // Span 1 (short span) may deflect upward because the large hogging moment
     // at the interior support (driven by the long span) overwhelms the sagging
     // from UDL on the short span. The key check is that the longer span
     // deflects significantly more in absolute terms.
-    assert!(d2.uy.abs() > d1.uy.abs(),
-        "TME unequal: longer span deflects more: {:.6} vs {:.6}", d2.uy.abs(), d1.uy.abs());
+    assert!(d2.uz.abs() > d1.uz.abs(),
+        "TME unequal: longer span deflects more: {:.6} vs {:.6}", d2.uz.abs(), d1.uz.abs());
 
     // Total equilibrium
     let total_load = q_abs * (l1 + l2);
-    let sum_ry: f64 = results.reactions.iter().map(|r| r.ry).sum();
+    let sum_ry: f64 = results.reactions.iter().map(|r| r.rz).sum();
     assert_close(sum_ry, total_load, 0.02,
         "TME unequal: total equilibrium");
 }

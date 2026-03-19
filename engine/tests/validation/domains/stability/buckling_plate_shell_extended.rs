@@ -771,14 +771,14 @@ fn validation_stiffened_panel_frame_idealization() {
         SolverLoad::Nodal(SolverNodalLoad {
             node_id: 5,
             fx: 0.0,
-            fy: -p,
-            mz: 0.0,
+            fz: -p,
+            my: 0.0,
         }),
         SolverLoad::Nodal(SolverNodalLoad {
             node_id: 6,
             fx: 0.0,
-            fy: -p,
-            mz: 0.0,
+            fz: -p,
+            my: 0.0,
         }),
     ];
 

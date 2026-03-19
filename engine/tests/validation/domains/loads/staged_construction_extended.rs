@@ -28,7 +28,7 @@ const IZ: f64 = 1e-4;     // m^4
 fn make_nodes(coords: &[(usize, f64, f64)]) -> HashMap<String, SolverNode> {
     let mut map = HashMap::new();
     for &(id, x, y) in coords {
-        map.insert(id.to_string(), SolverNode { id, x, y });
+        map.insert(id.to_string(), SolverNode { id, x, z: y });
     }
     map
 }
@@ -62,7 +62,7 @@ fn make_supports(sups: &[(usize, usize, &str)]) -> HashMap<String, SolverSupport
         map.insert(id.to_string(), SolverSupport {
             id, node_id, support_type: stype.into(),
             kx: None, ky: None, kz: None,
-            dx: None, dy: None, drz: None, angle: None,
+            dx: None, dz: None, dry: None, angle: None,
         });
     }
     map
@@ -153,9 +153,9 @@ fn validation_staged_ext_1_two_phase_beam() {
     // The staged and single-stage solutions must differ at node 2,
     // because in staged construction the stage 1 cantilever deflection is locked in.
     let staged_uy2 = staged_results.final_results.displacements.iter()
-        .find(|d| d.node_id == 2).unwrap().uy;
+        .find(|d| d.node_id == 2).unwrap().uz;
     let single_uy2 = single_results.final_results.displacements.iter()
-        .find(|d| d.node_id == 2).unwrap().uy;
+        .find(|d| d.node_id == 2).unwrap().uz;
 
     let diff = (staged_uy2 - single_uy2).abs();
     assert!(
@@ -168,7 +168,7 @@ fn validation_staged_ext_1_two_phase_beam() {
     let e_kn = E * 1000.0;
     let cant_deflection = q * l.powi(4) / (8.0 * e_kn * IZ);
     let stage1_uy2 = staged_results.stages[0].results.displacements.iter()
-        .find(|d| d.node_id == 2).unwrap().uy;
+        .find(|d| d.node_id == 2).unwrap().uz;
 
     assert_close(stage1_uy2, cant_deflection, 0.02,
         "Stage 1 cantilever tip deflection");
@@ -209,10 +209,10 @@ fn validation_staged_ext_2_support_addition() {
 
     let loads = vec![
         SolverLoad::Nodal(SolverNodalLoad {
-            node_id: 2, fx: 0.0, fy: p, mz: 0.0,
+            node_id: 2, fx: 0.0, fz: p, my: 0.0,
         }),
         SolverLoad::Nodal(SolverNodalLoad {
-            node_id: 2, fx: 0.0, fy: p, mz: 0.0,
+            node_id: 2, fx: 0.0, fz: p, my: 0.0,
         }),
     ];
 
@@ -251,7 +251,7 @@ fn validation_staged_ext_2_support_addition() {
         nodes, materials, sections, elements, supports,
         loads: vec![
             SolverLoad::Nodal(SolverNodalLoad {
-                node_id: 2, fx: 0.0, fy: 2.0 * p, mz: 0.0,
+                node_id: 2, fx: 0.0, fz: 2.0 * p, my: 0.0,
             }),
         ],
         stages: vec![ConstructionStage {
@@ -270,9 +270,9 @@ fn validation_staged_ext_2_support_addition() {
     // in the staged case, stage 1 load acts on a 2-element structure
     // while in single-stage, both loads act on the 3-element structure.
     let staged_uy2 = staged_results.final_results.displacements.iter()
-        .find(|d| d.node_id == 2).unwrap().uy;
+        .find(|d| d.node_id == 2).unwrap().uz;
     let single_uy2 = single_results.final_results.displacements.iter()
-        .find(|d| d.node_id == 2).unwrap().uy;
+        .find(|d| d.node_id == 2).unwrap().uz;
 
     let diff = (staged_uy2 - single_uy2).abs();
     assert!(
@@ -283,7 +283,7 @@ fn validation_staged_ext_2_support_addition() {
 
     // Stage 1: node 2 should deflect downward
     let s1_uy2 = staged_results.stages[0].results.displacements.iter()
-        .find(|d| d.node_id == 2).unwrap().uy;
+        .find(|d| d.node_id == 2).unwrap().uz;
     assert!(
         s1_uy2 < -1e-6,
         "Stage 1: node 2 should deflect downward: uy={}", s1_uy2
@@ -291,7 +291,7 @@ fn validation_staged_ext_2_support_addition() {
 
     // Final reactions: sum(Ry) should balance 2*P
     let sum_ry: f64 = staged_results.final_results.reactions.iter()
-        .map(|r| r.ry).sum();
+        .map(|r| r.rz).sum();
     assert_close(sum_ry, -2.0 * p, 0.05,
         "Final vertical equilibrium");
 }
@@ -340,10 +340,10 @@ fn validation_staged_ext_3_element_activation() {
 
     let loads = vec![
         SolverLoad::Nodal(SolverNodalLoad {
-            node_id: 2, fx: p1, fy: 0.0, mz: 0.0,
+            node_id: 2, fx: p1, fz: 0.0, my: 0.0,
         }),
         SolverLoad::Nodal(SolverNodalLoad {
-            node_id: 2, fx: p2, fy: 0.0, mz: 0.0,
+            node_id: 2, fx: p2, fz: 0.0, my: 0.0,
         }),
     ];
 
@@ -500,9 +500,9 @@ fn validation_staged_ext_4_sequential_loading() {
 
     // Compare midspan deflection
     let staged_uy2 = staged_results.final_results.displacements.iter()
-        .find(|d| d.node_id == 2).unwrap().uy;
+        .find(|d| d.node_id == 2).unwrap().uz;
     let single_uy2 = single_results.final_results.displacements.iter()
-        .find(|d| d.node_id == 2).unwrap().uy;
+        .find(|d| d.node_id == 2).unwrap().uz;
 
     assert_close(staged_uy2, single_uy2, 0.01,
         "Sequential loading: staged vs single midspan deflection");
@@ -523,7 +523,7 @@ fn validation_staged_ext_4_sequential_loading() {
     for (sr, er) in staged_results.final_results.reactions.iter()
         .zip(single_results.final_results.reactions.iter())
     {
-        assert_close(sr.ry, er.ry, 0.01,
+        assert_close(sr.rz, er.rz, 0.01,
             &format!("Sequential: node {} reaction ry", sr.node_id));
     }
 }
@@ -562,11 +562,11 @@ fn validation_staged_ext_5_prop_removal() {
     let loads = vec![
         // Stage 1 load
         SolverLoad::Nodal(SolverNodalLoad {
-            node_id: 2, fx: 0.0, fy: p, mz: 0.0,
+            node_id: 2, fx: 0.0, fz: p, my: 0.0,
         }),
         // Stage 3 load (same magnitude, on cantilever)
         SolverLoad::Nodal(SolverNodalLoad {
-            node_id: 2, fx: 0.0, fy: p, mz: 0.0,
+            node_id: 2, fx: 0.0, fz: p, my: 0.0,
         }),
     ];
 
@@ -607,7 +607,7 @@ fn validation_staged_ext_5_prop_removal() {
 
     // Stage 1: two-span beam. Node 2 deflects.
     let s1_uy2 = results.stages[0].results.displacements.iter()
-        .find(|d| d.node_id == 2).unwrap().uy;
+        .find(|d| d.node_id == 2).unwrap().uz;
     assert!(
         s1_uy2 < 0.0,
         "Stage 1: node 2 should deflect downward: uy={}", s1_uy2
@@ -630,7 +630,7 @@ fn validation_staged_ext_5_prop_removal() {
 
     // Stage 3: load on cantilever. Node 2 deflects further.
     let s3_uy2 = results.stages[2].results.displacements.iter()
-        .find(|d| d.node_id == 2).unwrap().uy;
+        .find(|d| d.node_id == 2).unwrap().uz;
     assert!(
         s3_uy2 < s1_uy2,
         "Stage 3: cantilever tip should deflect more: s3={:.6}, s1={:.6}",
@@ -640,7 +640,7 @@ fn validation_staged_ext_5_prop_removal() {
     // Incremental deflection from stage 3 (cantilever) should be larger
     // in magnitude than stage 1 (two-span beam) for the same load.
     let s2_uy2 = results.stages[1].results.displacements.iter()
-        .find(|d| d.node_id == 2).unwrap().uy;
+        .find(|d| d.node_id == 2).unwrap().uz;
     let incr_stage3 = (s3_uy2 - s2_uy2).abs();
     let incr_stage1 = s1_uy2.abs();
 
@@ -691,14 +691,14 @@ fn validation_staged_ext_6_frame_erection() {
     let loads = vec![
         // Stage 1: gravity on column tops
         SolverLoad::Nodal(SolverNodalLoad {
-            node_id: 2, fx: 0.0, fy: p_gravity, mz: 0.0,
+            node_id: 2, fx: 0.0, fz: p_gravity, my: 0.0,
         }),
         SolverLoad::Nodal(SolverNodalLoad {
-            node_id: 3, fx: 0.0, fy: p_gravity, mz: 0.0,
+            node_id: 3, fx: 0.0, fz: p_gravity, my: 0.0,
         }),
         // Stage 2: lateral load
         SolverLoad::Nodal(SolverNodalLoad {
-            node_id: 2, fx: p_lateral, fy: 0.0, mz: 0.0,
+            node_id: 2, fx: p_lateral, fz: 0.0, my: 0.0,
         }),
     ];
 
@@ -796,13 +796,13 @@ fn validation_staged_ext_7_cumulative_displacement() {
 
     let loads = vec![
         SolverLoad::Nodal(SolverNodalLoad {
-            node_id: 2, fx: 0.0, fy: p1, mz: 0.0,
+            node_id: 2, fx: 0.0, fz: p1, my: 0.0,
         }),
         SolverLoad::Nodal(SolverNodalLoad {
-            node_id: 2, fx: 0.0, fy: p2, mz: 0.0,
+            node_id: 2, fx: 0.0, fz: p2, my: 0.0,
         }),
         SolverLoad::Nodal(SolverNodalLoad {
-            node_id: 2, fx: 0.0, fy: p3, mz: 0.0,
+            node_id: 2, fx: 0.0, fz: p3, my: 0.0,
         }),
     ];
 
@@ -844,7 +844,7 @@ fn validation_staged_ext_7_cumulative_displacement() {
     // Collect midspan deflections at each stage
     let uy_stages: Vec<f64> = results.stages.iter().map(|s| {
         s.results.displacements.iter()
-            .find(|d| d.node_id == 2).unwrap().uy
+            .find(|d| d.node_id == 2).unwrap().uz
     }).collect();
 
     // Displacements should be negative (downward) and increase in magnitude
@@ -863,7 +863,7 @@ fn validation_staged_ext_7_cumulative_displacement() {
     let delta_analytical = p_total * l.powi(3) / (48.0 * e_kn * IZ);
 
     let final_uy2 = results.final_results.displacements.iter()
-        .find(|d| d.node_id == 2).unwrap().uy;
+        .find(|d| d.node_id == 2).unwrap().uz;
 
     assert_close(final_uy2, delta_analytical, 0.05,
         "Final cumulative deflection matches analytical PL^3/(48EI)");
@@ -907,10 +907,10 @@ fn validation_staged_ext_8_staged_vs_instantaneous() {
 
     let loads_staged = vec![
         SolverLoad::Nodal(SolverNodalLoad {
-            node_id: 2, fx: 0.0, fy: p1, mz: 0.0,
+            node_id: 2, fx: 0.0, fz: p1, my: 0.0,
         }),
         SolverLoad::Nodal(SolverNodalLoad {
-            node_id: 2, fx: 0.0, fy: p2, mz: 0.0,
+            node_id: 2, fx: 0.0, fz: p2, my: 0.0,
         }),
     ];
 
@@ -947,7 +947,7 @@ fn validation_staged_ext_8_staged_vs_instantaneous() {
     // --- Instantaneous: all at once ---
     let loads_combined = vec![
         SolverLoad::Nodal(SolverNodalLoad {
-            node_id: 2, fx: 0.0, fy: p_total, mz: 0.0,
+            node_id: 2, fx: 0.0, fz: p_total, my: 0.0,
         }),
     ];
     let single_input = StagedInput {
@@ -969,8 +969,8 @@ fn validation_staged_ext_8_staged_vs_instantaneous() {
     for (sd, ed) in staged_results.final_results.displacements.iter()
         .zip(single_results.final_results.displacements.iter())
     {
-        assert_close(sd.uy, ed.uy, 0.01,
-            &format!("Node {} uy: staged vs instantaneous", sd.node_id));
+        assert_close(sd.uz, ed.uz, 0.01,
+            &format!("Node {} uz: staged vs instantaneous", sd.node_id));
         assert_close(sd.ux, ed.ux, 0.01,
             &format!("Node {} ux: staged vs instantaneous", sd.node_id));
     }
@@ -995,9 +995,9 @@ fn validation_staged_ext_8_staged_vs_instantaneous() {
     {
         assert_close(sr.rx, er.rx, 0.01,
             &format!("Node {} rx", sr.node_id));
-        assert_close(sr.ry, er.ry, 0.01,
+        assert_close(sr.rz, er.rz, 0.01,
             &format!("Node {} ry", sr.node_id));
-        assert_close(sr.mz, er.mz, 0.01,
+        assert_close(sr.my, er.my, 0.01,
             &format!("Node {} mz", sr.node_id));
     }
 }

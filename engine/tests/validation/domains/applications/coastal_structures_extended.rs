@@ -75,7 +75,7 @@ fn coastal_wave_force_vertical_wall() {
     let f_total: f64 = f_hydro + f_dyn;
 
     let r_base = results.reactions.iter().find(|r| r.node_id == 1).unwrap();
-    assert_close(r_base.ry.abs(), f_total, 0.03, "Base shear: hydrostatic + dynamic");
+    assert_close(r_base.rz.abs(), f_total, 0.03, "Base shear: hydrostatic + dynamic");
 
     // Analytical base moment:
     //   M_hydrostatic = rho_g * d^3 / 6  (triangular load on cantilever)
@@ -85,7 +85,7 @@ fn coastal_wave_force_vertical_wall() {
     let m_dyn: f64 = p_dyn * d * d / 2.0;
     let m_total: f64 = m_hydro + m_dyn;
 
-    assert_close(r_base.mz.abs(), m_total, 0.03,
+    assert_close(r_base.my.abs(), m_total, 0.03,
         "Base moment: hydrostatic + dynamic superposition");
 }
 
@@ -144,23 +144,23 @@ fn coastal_breakwater_armor_hudson() {
     let results = solve_2d(&input).expect("solve");
 
     // Total vertical reaction = |q_armor| * span
-    let total_ry: f64 = results.reactions.iter().map(|r| r.ry).sum();
+    let total_ry: f64 = results.reactions.iter().map(|r| r.rz).sum();
     let expected_ry: f64 = q_armor.abs() * span;
     assert_close(total_ry, expected_ry, 0.02, "Total reaction = armor weight on crest");
 
     // Each support: half the total
     let r_left = results.reactions.iter().find(|r| r.node_id == 1).unwrap();
-    assert_close(r_left.ry, expected_ry / 2.0, 0.02, "Left support = half total");
+    assert_close(r_left.rz, expected_ry / 2.0, 0.02, "Left support = half total");
 
     // Midspan deflection: 5*q*L^4 / (384*EI)
     let mid_node = n / 2 + 1;
     let mid_d = results.displacements.iter().find(|d| d.node_id == mid_node).unwrap();
     let delta_exact: f64 = 5.0 * q_armor.abs() * span.powi(4) / (384.0 * e_eff * iz);
-    let error: f64 = (mid_d.uy.abs() - delta_exact).abs() / delta_exact;
+    let error: f64 = (mid_d.uz.abs() - delta_exact).abs() / delta_exact;
     assert!(
         error < 0.05,
         "Midspan deflection: solver={:.6e}, exact={:.6e}, err={:.1}%",
-        mid_d.uy.abs(), delta_exact, error * 100.0
+        mid_d.uz.abs(), delta_exact, error * 100.0
     );
 }
 
@@ -207,22 +207,22 @@ fn coastal_overtopping_crest_wall() {
     // Base shear = p * h_wall
     let f_total: f64 = p_overtop * h_wall;
     let r_base = results.reactions.iter().find(|r| r.node_id == 1).unwrap();
-    assert_close(r_base.ry.abs(), f_total, 0.02,
+    assert_close(r_base.rz.abs(), f_total, 0.02,
         "Overtopping base shear = p * H_wall");
 
     // Base moment for uniform load on cantilever: M = p * h^2 / 2
     let m_base: f64 = p_overtop * h_wall * h_wall / 2.0;
-    assert_close(r_base.mz.abs(), m_base, 0.02,
+    assert_close(r_base.my.abs(), m_base, 0.02,
         "Overtopping base moment = p*H^2/2");
 
     // Tip deflection for uniform load cantilever: delta = q*L^4 / (8*EI)
     let tip = results.displacements.iter().find(|d| d.node_id == n + 1).unwrap();
     let delta_exact: f64 = p_overtop * h_wall.powi(4) / (8.0 * e_eff * iz);
-    let error: f64 = (tip.uy.abs() - delta_exact).abs() / delta_exact;
+    let error: f64 = (tip.uz.abs() - delta_exact).abs() / delta_exact;
     assert!(
         error < 0.05,
         "Crest wall tip deflection: solver={:.6e}, exact={:.6e}, err={:.1}%",
-        tip.uy.abs(), delta_exact, error * 100.0
+        tip.uz.abs(), delta_exact, error * 100.0
     );
 }
 
@@ -293,7 +293,7 @@ fn coastal_wave_runup_iribarren() {
     let input_smooth = make_beam(n, h_wall, e, a_sec, iz, "fixed", None, loads_smooth);
     let res_smooth = solve_2d(&input_smooth).expect("solve smooth");
     let m_smooth: f64 = res_smooth.reactions.iter()
-        .find(|r| r.node_id == 1).unwrap().mz.abs();
+        .find(|r| r.node_id == 1).unwrap().my.abs();
 
     // Rough slope: load covers only ru_rough / h_wall fraction
     let h_loaded_rough: f64 = ru_rough.min(h_wall);
@@ -318,7 +318,7 @@ fn coastal_wave_runup_iribarren() {
     let input_rough = make_beam(n, h_wall, e, a_sec, iz, "fixed", None, loads_rough);
     let res_rough = solve_2d(&input_rough).expect("solve rough");
     let m_rough: f64 = res_rough.reactions.iter()
-        .find(|r| r.node_id == 1).unwrap().mz.abs();
+        .find(|r| r.node_id == 1).unwrap().my.abs();
 
     // Smooth slope (higher run-up) must produce greater base moment
     assert!(
@@ -329,9 +329,9 @@ fn coastal_wave_runup_iribarren() {
 
     // Rough slope base shear should be less than smooth slope
     let v_smooth: f64 = res_smooth.reactions.iter()
-        .find(|r| r.node_id == 1).unwrap().ry.abs();
+        .find(|r| r.node_id == 1).unwrap().rz.abs();
     let v_rough: f64 = res_rough.reactions.iter()
-        .find(|r| r.node_id == 1).unwrap().ry.abs();
+        .find(|r| r.node_id == 1).unwrap().rz.abs();
     assert!(
         v_smooth > v_rough,
         "Smooth shear {:.1} > rough shear {:.1} kN", v_smooth, v_rough
@@ -402,7 +402,7 @@ fn coastal_seawall_wave_impact() {
     let f_analytical: f64 = 0.5 * p_max * (x_hi - x_lo);
 
     let r_base = results.reactions.iter().find(|r| r.node_id == 1).unwrap();
-    assert_close(r_base.ry.abs(), f_analytical, 0.05,
+    assert_close(r_base.rz.abs(), f_analytical, 0.05,
         "Wave impact base shear = triangle area");
 
     // Analytical base moment: centroid of triangular load at x_peak from base
@@ -411,7 +411,7 @@ fn coastal_seawall_wave_impact() {
     let x_centroid: f64 = (x_lo + x_peak + x_hi) / 3.0;
     let m_analytical: f64 = f_analytical * x_centroid;
 
-    assert_close(r_base.mz.abs(), m_analytical, 0.05,
+    assert_close(r_base.my.abs(), m_analytical, 0.05,
         "Wave impact base moment = F * x_centroid");
 }
 
@@ -458,25 +458,25 @@ fn coastal_jetty_beam_wave_load() {
     let results = solve_2d(&input).expect("solve");
 
     // Total reaction (downward to resist upward load)
-    let total_ry: f64 = results.reactions.iter().map(|r| r.ry).sum();
+    let total_ry: f64 = results.reactions.iter().map(|r| r.rz).sum();
     let expected_ry: f64 = -(q * span); // negative (downward)
     assert_close(total_ry, expected_ry, 0.02,
         "Jetty beam total reaction = -q*L");
 
     // Each reaction = -q*L/2
     let r_left = results.reactions.iter().find(|r| r.node_id == 1).unwrap();
-    assert_close(r_left.ry, expected_ry / 2.0, 0.02,
+    assert_close(r_left.rz, expected_ry / 2.0, 0.02,
         "Left support reaction = -q*L/2");
 
     // Midspan deflection: 5*q*L^4 / (384*EI)
     let mid_node = n / 2 + 1;
     let mid_d = results.displacements.iter().find(|d| d.node_id == mid_node).unwrap();
     let delta_exact: f64 = 5.0 * q.abs() * span.powi(4) / (384.0 * e_eff * iz);
-    let error: f64 = (mid_d.uy.abs() - delta_exact).abs() / delta_exact;
+    let error: f64 = (mid_d.uz.abs() - delta_exact).abs() / delta_exact;
     assert!(
         error < 0.05,
         "Jetty deck deflection: solver={:.6e}, exact={:.6e}, err={:.1}%",
-        mid_d.uy.abs(), delta_exact, error * 100.0
+        mid_d.uz.abs(), delta_exact, error * 100.0
     );
 }
 
@@ -527,14 +527,14 @@ fn coastal_rubble_mound_sliding() {
     let results = solve_2d(&input).expect("solve");
 
     // Verify total reaction = net vertical load
-    let total_ry: f64 = results.reactions.iter().map(|r| r.ry).sum();
+    let total_ry: f64 = results.reactions.iter().map(|r| r.rz).sum();
     assert_close(total_ry, v_net, 0.02,
         "Total reaction = caisson weight - uplift");
 
     // Symmetric reactions
     let r_left = results.reactions.iter().find(|r| r.node_id == 1).unwrap();
     let r_right = results.reactions.iter().find(|r| r.node_id == n + 1).unwrap();
-    assert_close(r_left.ry, r_right.ry, 0.02,
+    assert_close(r_left.rz, r_right.rz, 0.02,
         "Symmetric base reactions for uniform load");
 
     // Sliding factor of safety (analytical)
@@ -548,7 +548,7 @@ fn coastal_rubble_mound_sliding() {
     );
 
     // Verify each reaction is half the net load
-    assert_close(r_left.ry, v_net / 2.0, 0.02,
+    assert_close(r_left.rz, v_net / 2.0, 0.02,
         "Each support = v_net/2");
 }
 
@@ -603,7 +603,7 @@ fn coastal_combined_wave_current_pier() {
     let results = solve_2d(&input).expect("solve");
 
     // Total vertical reaction = 2 * deck_weight (two point loads)
-    let total_ry: f64 = results.reactions.iter().map(|r| r.ry).sum();
+    let total_ry: f64 = results.reactions.iter().map(|r| r.rz).sum();
     assert_close(total_ry, -2.0 * deck_weight, 0.02,
         "Total vertical reaction = total deck weight");
 
@@ -623,12 +623,12 @@ fn coastal_combined_wave_current_pier() {
     // M1 + M4 + (Rx1 + Rx4) * 0 = 0 is not correct; moment equilibrium about
     // any base point includes the lateral force moment.
     // Global moment about node 1 base:
-    // sum_mz + R4_y * w + F_lateral * h + deck_weight * 0 + deck_weight * w = 0
+    // sum_my + R4_y * w + F_lateral * h + deck_weight * 0 + deck_weight * w = 0
     // But simpler: just verify equilibrium holds
-    let sum_mz: f64 = r_base1.mz + r_base4.mz;
+    let sum_my: f64 = r_base1.my + r_base4.my;
     assert!(
-        sum_mz.abs() > 0.1,
-        "Base moments are non-zero: sum = {:.1} kN-m", sum_mz
+        sum_my.abs() > 0.1,
+        "Base moments are non-zero: sum = {:.1} kN-m", sum_my
     );
 
     // Verify each base has horizontal reaction (shear shared between columns)

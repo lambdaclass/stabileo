@@ -87,16 +87,16 @@ fn validation_two_span_shear_balance_at_interior() {
     let r_int = results.reactions.iter().find(|r| r.node_id == interior_node).unwrap();
 
     // Joint equilibrium: v_end_left - v_start_right + Ry = 0
-    let residual: f64 = (ef4.v_end - ef5.v_start + r_int.ry).abs();
+    let residual: f64 = (ef4.v_end - ef5.v_start + r_int.rz).abs();
     assert!(
         residual < 0.5,
         "Two-span shear balance at interior: residual={:.6}, Ry={:.4}, v4_end={:.4}, v5_start={:.4}",
-        residual, r_int.ry, ef4.v_end, ef5.v_start
+        residual, r_int.rz, ef4.v_end, ef5.v_start
     );
 
     // Also verify total vertical equilibrium
     let total_load: f64 = q.abs() * spans.iter().sum::<f64>();
-    let sum_ry: f64 = results.reactions.iter().map(|r| r.ry).sum();
+    let sum_ry: f64 = results.reactions.iter().map(|r| r.rz).sum();
     assert_close(sum_ry, total_load, 0.01, "Two-span: global vert. equilibrium");
 }
 
@@ -174,7 +174,7 @@ fn validation_fixed_beam_shear_jump_at_load_point() {
 
     let mid_node = n / 2 + 1; // node 5
     let loads = vec![SolverLoad::Nodal(SolverNodalLoad {
-        node_id: mid_node, fx: 0.0, fy: -p, mz: 0.0,
+        node_id: mid_node, fx: 0.0, fz: -p, my: 0.0,
     })];
     let input = make_beam(n, l, E, A, IZ, "fixed", Some("fixed"), loads);
     let results = linear::solve_2d(&input).unwrap();
@@ -203,13 +203,13 @@ fn validation_fixed_beam_shear_jump_at_load_point() {
     // By symmetry, reactions should be P/2
     let r1 = results.reactions.iter().find(|r| r.node_id == 1).unwrap();
     let r_end = results.reactions.iter().find(|r| r.node_id == n + 1).unwrap();
-    assert_close(r1.ry, p / 2.0, 0.02, "Fixed beam: R_A = P/2");
-    assert_close(r_end.ry, p / 2.0, 0.02, "Fixed beam: R_B = P/2");
+    assert_close(r1.rz, p / 2.0, 0.02, "Fixed beam: R_A = P/2");
+    assert_close(r_end.rz, p / 2.0, 0.02, "Fixed beam: R_B = P/2");
 
     // Fixed-end moments = PL/8
     let fem = p * l / 8.0;
-    assert_close(r1.mz.abs(), fem, 0.02, "Fixed beam: M_A = PL/8");
-    assert_close(r_end.mz.abs(), fem, 0.02, "Fixed beam: M_B = PL/8");
+    assert_close(r1.my.abs(), fem, 0.02, "Fixed beam: M_A = PL/8");
+    assert_close(r_end.my.abs(), fem, 0.02, "Fixed beam: M_B = PL/8");
 }
 
 // ================================================================
@@ -316,7 +316,7 @@ fn validation_three_span_force_balance_all_interior() {
             .find(|r| r.node_id == int_node).unwrap();
 
         // Shear equilibrium: v_end_left - v_start_right + Ry = 0
-        let shear_residual: f64 = (ef_left.v_end - ef_right.v_start + r_int.ry).abs();
+        let shear_residual: f64 = (ef_left.v_end - ef_right.v_start + r_int.rz).abs();
         assert!(
             shear_residual < 0.5,
             "Three-span shear balance at node {}: residual={:.6}",
@@ -335,7 +335,7 @@ fn validation_three_span_force_balance_all_interior() {
 
     // Global vertical equilibrium
     let total_load: f64 = q.abs() * spans.iter().sum::<f64>();
-    let sum_ry: f64 = results.reactions.iter().map(|r| r.ry).sum();
+    let sum_ry: f64 = results.reactions.iter().map(|r| r.rz).sum();
     assert_close(sum_ry, total_load, 0.01, "Three-span: sum Ry = q*L_total");
 }
 
@@ -375,7 +375,7 @@ fn validation_l_frame_force_transfer_at_corner() {
         ],
         vec![(1, 1, "fixed")],
         vec![SolverLoad::Nodal(SolverNodalLoad {
-            node_id: 3, fx: 0.0, fy: -p, mz: 0.0,
+            node_id: 3, fx: 0.0, fz: -p, my: 0.0,
         })],
     );
     let results = linear::solve_2d(&input).unwrap();
@@ -385,7 +385,7 @@ fn validation_l_frame_force_transfer_at_corner() {
 
     // Global equilibrium checks first
     let r1 = &results.reactions[0];
-    assert_close(r1.ry, p, 0.02, "L-frame: R_y = P");
+    assert_close(r1.rz, p, 0.02, "L-frame: R_y = P");
 
     // Moment equilibrium at node 2 (no applied moment):
     // m_end_col - m_start_beam = 0
@@ -409,7 +409,7 @@ fn validation_l_frame_force_transfer_at_corner() {
     // plus any secondary effect from column shear * h
     // For the pure cantilever L-frame: M_base = P * w = 30 * 6 = 180
     let m_base_expected = p * w;
-    assert_close(r1.mz.abs(), m_base_expected, 0.05, "L-frame: M_base = P*w");
+    assert_close(r1.my.abs(), m_base_expected, 0.05, "L-frame: M_base = P*w");
 }
 
 // ================================================================
@@ -453,12 +453,12 @@ fn validation_propped_cantilever_element_force_consistency() {
     let r_a = results.reactions.iter().find(|r| r.node_id == 1).unwrap();
     let r_b = results.reactions.iter().find(|r| r.node_id == n + 1).unwrap();
 
-    assert_close(r_a.ry, r_a_exact, 0.02, "Propped cantilever: R_A = 5qL/8");
-    assert_close(r_b.ry, r_b_exact, 0.02, "Propped cantilever: R_B = 3qL/8");
-    assert_close(r_a.mz.abs(), m_a_exact, 0.02, "Propped cantilever: M_A = qL^2/8");
+    assert_close(r_a.rz, r_a_exact, 0.02, "Propped cantilever: R_A = 5qL/8");
+    assert_close(r_b.rz, r_b_exact, 0.02, "Propped cantilever: R_B = 3qL/8");
+    assert_close(r_a.my.abs(), m_a_exact, 0.02, "Propped cantilever: M_A = qL^2/8");
 
     // Global equilibrium: sum Ry = qL
-    let sum_ry: f64 = results.reactions.iter().map(|r| r.ry).sum();
+    let sum_ry: f64 = results.reactions.iter().map(|r| r.rz).sum();
     assert_close(sum_ry, q.abs() * l, 0.01, "Propped cantilever: sum Ry = qL");
 
     // The last element's j-end moment should be ~0 at the roller (free rotation)
@@ -531,8 +531,8 @@ fn validation_symmetric_portal_antisymmetric_moments() {
     let r4 = results.reactions.iter().find(|r| r.node_id == 4).unwrap();
 
     // By symmetry: base reactions are equal
-    assert_close(r1.ry, r4.ry, 0.02, "Symmetric portal: R1_y = R4_y");
-    assert_close(r1.ry, g, 0.02, "Symmetric portal: R1_y = G");
+    assert_close(r1.rz, r4.rz, 0.02, "Symmetric portal: R1_y = R4_y");
+    assert_close(r1.rz, g, 0.02, "Symmetric portal: R1_y = G");
 
     // Horizontal reactions are zero (no lateral load, symmetric structure)
     assert!(
@@ -547,7 +547,7 @@ fn validation_symmetric_portal_antisymmetric_moments() {
     );
 
     // Base moments equal in magnitude (same sign due to symmetry)
-    assert_close(r1.mz.abs(), r4.mz.abs(), 0.02, "Symmetric portal: |M1| = |M4|");
+    assert_close(r1.my.abs(), r4.my.abs(), 0.02, "Symmetric portal: |M1| = |M4|");
 
     // Moment balance at node 2: m_end_col1 - m_start_beam = 0
     let m_residual_2: f64 = (ef1.m_end - ef2.m_start).abs();

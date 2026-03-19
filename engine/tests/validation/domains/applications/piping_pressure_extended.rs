@@ -70,7 +70,7 @@ fn piping_barlow_hoop_stress() {
     // Model: pinned-rollerX beam, apply longitudinal tension at free end
     let input = make_beam(n, l_pipe, e_steel, a_pipe, iz_pipe, "pinned", Some("rollerX"),
         vec![SolverLoad::Nodal(SolverNodalLoad {
-            node_id: n + 1, fx: f_long, fy: 0.0, mz: 0.0,
+            node_id: n + 1, fx: f_long, fz: 0.0, my: 0.0,
         })]);
     let results = solve_2d(&input).expect("solve");
 
@@ -156,7 +156,7 @@ fn piping_lame_thick_wall_equations() {
 
     let input = make_beam(n, l_pipe, e_steel, a_pipe, iz_pipe, "pinned", Some("rollerX"),
         vec![SolverLoad::Nodal(SolverNodalLoad {
-            node_id: n + 1, fx: f_long, fy: 0.0, mz: 0.0,
+            node_id: n + 1, fx: f_long, fz: 0.0, my: 0.0,
         })]);
     let results = solve_2d(&input).expect("solve");
 
@@ -232,7 +232,7 @@ fn piping_pressure_vessel_head_types() {
 
     let input = make_beam(n, l_cyl, e_steel, a_shell, iz_shell, "pinned", Some("rollerX"),
         vec![SolverLoad::Nodal(SolverNodalLoad {
-            node_id: n + 1, fx: f_long, fy: 0.0, mz: 0.0,
+            node_id: n + 1, fx: f_long, fz: 0.0, my: 0.0,
         })]);
     let results = solve_2d(&input).expect("solve");
 
@@ -308,12 +308,12 @@ fn piping_span_deflection_self_weight() {
     let mid_disp = results.displacements.iter()
         .find(|d| d.node_id == mid_node).unwrap();
 
-    assert_close(mid_disp.uy.abs(), delta_exact, 0.05, "Pipe span midspan deflection");
+    assert_close(mid_disp.uz.abs(), delta_exact, 0.05, "Pipe span midspan deflection");
 
     // Analytical reactions: R = w*L/2
     let r_exact: f64 = w_total * l_span / 2.0;
     let r1 = results.reactions.iter().find(|r| r.node_id == 1).unwrap();
-    assert_close(r1.ry.abs(), r_exact, 0.02, "Pipe support reaction");
+    assert_close(r1.rz.abs(), r_exact, 0.02, "Pipe support reaction");
 
     // Midspan moment: M = w*L²/8
     let m_mid_exact: f64 = w_total * l_span.powi(2) / 8.0;
@@ -471,7 +471,7 @@ fn piping_support_spring_rate() {
     let input_cantilever = make_beam(n, l_pipe, e_steel, a_pipe, iz_pipe,
         "fixed", None,
         vec![SolverLoad::Nodal(SolverNodalLoad {
-            node_id: n + 1, fx: 0.0, fy: f_tip, mz: 0.0,
+            node_id: n + 1, fx: 0.0, fz: f_tip, my: 0.0,
         })]);
     let results_cant = solve_2d(&input_cantilever).expect("solve cantilever");
 
@@ -479,7 +479,7 @@ fn piping_support_spring_rate() {
     let mut input_spring = make_beam(n, l_pipe, e_steel, a_pipe, iz_pipe,
         "fixed", None,
         vec![SolverLoad::Nodal(SolverNodalLoad {
-            node_id: n + 1, fx: 0.0, fy: f_tip, mz: 0.0,
+            node_id: n + 1, fx: 0.0, fz: f_tip, my: 0.0,
         })]);
 
     // Add spring support at tip
@@ -488,7 +488,7 @@ fn piping_support_spring_rate() {
         node_id: n + 1,
         support_type: "spring".to_string(),
         kx: Some(0.0), ky: Some(k_spring), kz: Some(0.0),
-        dx: None, dy: None, drz: None, angle: None,
+        dx: None, dz: None, dry: None, angle: None,
     });
 
     let results_spring = solve_2d(&input_spring).expect("solve spring");
@@ -499,15 +499,15 @@ fn piping_support_spring_rate() {
 
     let tip_cant = results_cant.displacements.iter()
         .find(|d| d.node_id == n + 1).unwrap();
-    assert_close(tip_cant.uy.abs(), delta_cant_exact, 0.05, "Pure cantilever tip deflection");
+    assert_close(tip_cant.uz.abs(), delta_cant_exact, 0.05, "Pure cantilever tip deflection");
 
     // With spring: the deflection should be reduced
     let tip_spring = results_spring.displacements.iter()
         .find(|d| d.node_id == n + 1).unwrap();
 
     assert!(
-        tip_spring.uy.abs() < tip_cant.uy.abs(),
-        "Spring reduces deflection: {:.6} < {:.6}", tip_spring.uy.abs(), tip_cant.uy.abs()
+        tip_spring.uz.abs() < tip_cant.uz.abs(),
+        "Spring reduces deflection: {:.6} < {:.6}", tip_spring.uz.abs(), tip_cant.uz.abs()
     );
 
     // Analytical check: cantilever with elastic support at tip
@@ -517,7 +517,7 @@ fn piping_support_spring_rate() {
     let k_eff: f64 = k_beam + k_spring;
     let delta_spring_exact: f64 = f_tip.abs() / k_eff;
 
-    assert_close(tip_spring.uy.abs(), delta_spring_exact, 0.05,
+    assert_close(tip_spring.uz.abs(), delta_spring_exact, 0.05,
         "Spring-supported cantilever deflection");
 
     // Spring force: F_spring = k_spring * δ_tip
@@ -527,7 +527,7 @@ fn piping_support_spring_rate() {
     // Fixed end reaction = total load - spring reaction
     let r_fixed = results_spring.reactions.iter()
         .find(|r| r.node_id == 1).unwrap();
-    assert_close(r_fixed.ry.abs(), f_beam_tip, 0.10, "Fixed end reaction with spring support");
+    assert_close(r_fixed.rz.abs(), f_beam_tip, 0.10, "Fixed end reaction with spring support");
 }
 
 // ================================================================
@@ -623,7 +623,7 @@ fn piping_nozzle_reinforcement_area() {
     let f_long: f64 = p_int * pi * r_shell.powi(2); // kN
 
     let loads = vec![SolverLoad::Nodal(SolverNodalLoad {
-        node_id: n + 1, fx: f_long, fy: 0.0, mz: 0.0,
+        node_id: n + 1, fx: f_long, fz: 0.0, my: 0.0,
     })];
 
     let input = make_input(nodes, mats, secs, elems, sups, loads);
@@ -774,13 +774,13 @@ fn piping_elbow_flexibility_factor() {
         .find(|d| d.node_id == mid_node).unwrap();
 
     assert!(
-        mid_flex.uy.abs() > mid_rigid.uy.abs(),
+        mid_flex.uz.abs() > mid_rigid.uz.abs(),
         "Flexible elbow deflection {:.6} > rigid {:.6}",
-        mid_flex.uy.abs(), mid_rigid.uy.abs()
+        mid_flex.uz.abs(), mid_rigid.uz.abs()
     );
 
     // The flexibility ratio should be > 1
-    let flex_ratio: f64 = mid_flex.uy.abs() / mid_rigid.uy.abs();
+    let flex_ratio: f64 = mid_flex.uz.abs() / mid_rigid.uz.abs();
     assert!(
         flex_ratio > 1.0,
         "Elbow flexibility ratio = {:.3} > 1.0", flex_ratio
@@ -789,12 +789,12 @@ fn piping_elbow_flexibility_factor() {
     // Verify analytical midspan deflection for the uniform-I (rigid) case
     let e_eff: f64 = e_steel * 1000.0;
     let delta_rigid_exact: f64 = 5.0 * q.abs() * l_total.powi(4) / (384.0 * e_eff * iz_pipe);
-    assert_close(mid_rigid.uy.abs(), delta_rigid_exact, 0.05,
+    assert_close(mid_rigid.uz.abs(), delta_rigid_exact, 0.05,
         "Rigid case midspan deflection matches SS beam formula");
 
     // Both cases should have same total reactions (equilibrium)
-    let r_rigid_sum: f64 = results_rigid.reactions.iter().map(|r| r.ry).sum::<f64>();
-    let r_flex_sum: f64 = results_flex.reactions.iter().map(|r| r.ry).sum::<f64>();
+    let r_rigid_sum: f64 = results_rigid.reactions.iter().map(|r| r.rz).sum::<f64>();
+    let r_flex_sum: f64 = results_flex.reactions.iter().map(|r| r.rz).sum::<f64>();
     let total_load: f64 = q.abs() * l_total;
     assert_close(r_rigid_sum.abs(), total_load, 0.02, "Rigid case vertical equilibrium");
     assert_close(r_flex_sum.abs(), total_load, 0.02, "Flexible case vertical equilibrium");

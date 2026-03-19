@@ -47,7 +47,7 @@ fn validation_truss_simple_triangle() {
     ];
     let sups = vec![(1, 1, "pinned"), (2, 2, "rollerX")];
     let loads = vec![SolverLoad::Nodal(SolverNodalLoad {
-        node_id: 3, fx: 0.0, fy: -p, mz: 0.0,
+        node_id: 3, fx: 0.0, fz: -p, my: 0.0,
     })];
 
     let input = make_input(nodes, vec![(1, E, 0.3)], vec![(1, A, IZ)],
@@ -57,10 +57,10 @@ fn validation_truss_simple_triangle() {
     // Each support takes P/2
     let r1 = results.reactions.iter().find(|r| r.node_id == 1).unwrap();
     let r2 = results.reactions.iter().find(|r| r.node_id == 2).unwrap();
-    let err_r1 = (r1.ry - p / 2.0).abs() / (p / 2.0);
-    let err_r2 = (r2.ry - p / 2.0).abs() / (p / 2.0);
-    assert!(err_r1 < 0.01, "R1_y={:.4}, expected P/2={:.4}", r1.ry, p / 2.0);
-    assert!(err_r2 < 0.01, "R2_y={:.4}, expected P/2={:.4}", r2.ry, p / 2.0);
+    let err_r1 = (r1.rz - p / 2.0).abs() / (p / 2.0);
+    let err_r2 = (r2.rz - p / 2.0).abs() / (p / 2.0);
+    assert!(err_r1 < 0.01, "R1_y={:.4}, expected P/2={:.4}", r1.rz, p / 2.0);
+    assert!(err_r2 < 0.01, "R2_y={:.4}, expected P/2={:.4}", r2.rz, p / 2.0);
 
     // Symmetric: left and right diagonal forces should be equal
     let ef1 = results.element_forces.iter().find(|f| f.element_id == 2).unwrap();
@@ -125,7 +125,7 @@ fn validation_truss_pratt_method_of_sections() {
     let mut loads = Vec::new();
     for i in 0..n_panels {
         loads.push(SolverLoad::Nodal(SolverNodalLoad {
-            node_id: n_panels + 2 + i, fx: 0.0, fy: -p, mz: 0.0,
+            node_id: n_panels + 2 + i, fx: 0.0, fz: -p, my: 0.0,
         }));
     }
 
@@ -135,7 +135,7 @@ fn validation_truss_pratt_method_of_sections() {
 
     // Equilibrium: each support takes nP/2
     let total_load = n_panels as f64 * p;
-    let sum_ry: f64 = results.reactions.iter().map(|r| r.ry).sum();
+    let sum_ry: f64 = results.reactions.iter().map(|r| r.rz).sum();
     let err = (sum_ry - total_load).abs() / total_load;
     assert!(err < 0.01,
         "Pratt equilibrium: ΣRy={:.4}, total={:.4}", sum_ry, total_load);
@@ -200,7 +200,7 @@ fn validation_truss_warren_symmetric() {
     let mut loads = Vec::new();
     for i in 1..n_panels {
         loads.push(SolverLoad::Nodal(SolverNodalLoad {
-            node_id: i + 1, fx: 0.0, fy: -p, mz: 0.0,
+            node_id: i + 1, fx: 0.0, fz: -p, my: 0.0,
         }));
     }
 
@@ -209,8 +209,8 @@ fn validation_truss_warren_symmetric() {
     let results = linear::solve_2d(&input).unwrap();
 
     // Reactions should be equal (symmetry)
-    let r1 = results.reactions.iter().find(|r| r.node_id == 1).unwrap().ry;
-    let r2 = results.reactions.iter().find(|r| r.node_id == n_panels + 1).unwrap().ry;
+    let r1 = results.reactions.iter().find(|r| r.node_id == 1).unwrap().rz;
+    let r2 = results.reactions.iter().find(|r| r.node_id == n_panels + 1).unwrap().rz;
     let err = (r1 - r2).abs() / r1.abs().max(1e-12);
     assert!(err < 0.01,
         "Warren symmetry: R1={:.4}, R2={:.4}", r1, r2);
@@ -268,7 +268,7 @@ fn validation_truss_cantilever_deflection() {
     // Fixed at left: both bottom and top left nodes
     let sups = vec![(1, 1, "pinned"), (2, n_panels + 2, "pinned")];
     let loads = vec![SolverLoad::Nodal(SolverNodalLoad {
-        node_id: n_panels + 1, fx: 0.0, fy: -p, mz: 0.0,
+        node_id: n_panels + 1, fx: 0.0, fz: -p, my: 0.0,
     })];
 
     let input = make_input(nodes, vec![(1, E, 0.3)], vec![(1, A, IZ)],
@@ -277,11 +277,11 @@ fn validation_truss_cantilever_deflection() {
 
     // Tip should deflect downward
     let tip = results.displacements.iter().find(|d| d.node_id == n_panels + 1).unwrap();
-    assert!(tip.uy < 0.0,
-        "Cantilever truss tip should deflect down: uy={:.6e}", tip.uy);
+    assert!(tip.uz < 0.0,
+        "Cantilever truss tip should deflect down: uy={:.6e}", tip.uz);
 
     // Equilibrium
-    let sum_ry: f64 = results.reactions.iter().map(|r| r.ry).sum();
+    let sum_ry: f64 = results.reactions.iter().map(|r| r.rz).sum();
     let err = (sum_ry - p).abs() / p;
     assert!(err < 0.01,
         "Cantilever truss equilibrium: ΣRy={:.4}, P={:.4}", sum_ry, p);
@@ -315,7 +315,7 @@ fn validation_truss_settlement_effect() {
     // Without settlement
     let sups_no = vec![(1, 1, "pinned"), (2, 2, "rollerX")];
     let loads = vec![SolverLoad::Nodal(SolverNodalLoad {
-        node_id: 3, fx: p, fy: 0.0, mz: 0.0,
+        node_id: 3, fx: p, fz: 0.0, my: 0.0,
     })];
 
     let input_no = make_input(nodes.clone(), vec![(1, E, 0.3)], vec![(1, A, IZ)],
@@ -328,18 +328,18 @@ fn validation_truss_settlement_effect() {
         id: 1, node_id: 1,
         support_type: "pinned".to_string(),
         kx: None, ky: None, kz: None,
-        dx: None, dy: None, drz: None, angle: None,
+        dx: None, dz: None, dry: None, angle: None,
     });
     sups_map.insert("2".to_string(), SolverSupport {
         id: 2, node_id: 2,
         support_type: "rollerX".to_string(),
         kx: None, ky: None, kz: None,
-        dx: None, dy: Some(-0.001), drz: None, angle: None,
+        dx: None, dz: Some(-0.001), dry: None, angle: None,
     });
 
     let mut nodes_map = std::collections::HashMap::new();
     for (id, x, y) in &nodes {
-        nodes_map.insert(id.to_string(), SolverNode { id: *id, x: *x, y: *y });
+        nodes_map.insert(id.to_string(), SolverNode { id: *id, x: *x, z: *y });
     }
     let mut mats_map = std::collections::HashMap::new();
     mats_map.insert("1".to_string(), SolverMaterial { id: 1, e: E, nu: 0.3 });
@@ -353,7 +353,7 @@ fn validation_truss_settlement_effect() {
         });
     }
     let loads_settle = vec![SolverLoad::Nodal(SolverNodalLoad {
-        node_id: 3, fx: p, fy: 0.0, mz: 0.0,
+        node_id: 3, fx: p, fz: 0.0, my: 0.0,
     })];
 
     let input_settle = SolverInput {
@@ -369,7 +369,7 @@ fn validation_truss_settlement_effect() {
     let n3_settle = res_settle.displacements.iter().find(|d| d.node_id == 3).unwrap();
 
     // The settlement should change displacements (even slightly)
-    let diff = (n3_no.ux - n3_settle.ux).abs() + (n3_no.uy - n3_settle.uy).abs();
+    let diff = (n3_no.ux - n3_settle.ux).abs() + (n3_no.uz - n3_settle.uz).abs();
     assert!(diff > 1e-12,
         "Settlement should affect displacements: diff={:.6e}", diff);
 }
@@ -404,7 +404,7 @@ fn validation_truss_zero_force_members() {
     ];
     let sups = vec![(1, 1, "pinned"), (2, 2, "rollerX")];
     let loads = vec![SolverLoad::Nodal(SolverNodalLoad {
-        node_id: 3, fx: 0.0, fy: -p, mz: 0.0,
+        node_id: 3, fx: 0.0, fz: -p, my: 0.0,
     })];
 
     let input = make_input(nodes, vec![(1, E, 0.3)], vec![(1, A, IZ)],
@@ -491,20 +491,20 @@ fn validation_truss_stiffness_scaling() {
     ];
     let sups = vec![(1, 1, "pinned"), (2, 2, "rollerX")];
     let loads = vec![SolverLoad::Nodal(SolverNodalLoad {
-        node_id: 3, fx: 0.0, fy: -p, mz: 0.0,
+        node_id: 3, fx: 0.0, fz: -p, my: 0.0,
     })];
 
     // Area A
     let input1 = make_input(nodes.clone(), vec![(1, E, 0.3)], vec![(1, A, IZ)],
         elems.clone(), sups.clone(), loads.clone());
     let res1 = linear::solve_2d(&input1).unwrap();
-    let d1 = res1.displacements.iter().find(|d| d.node_id == 3).unwrap().uy.abs();
+    let d1 = res1.displacements.iter().find(|d| d.node_id == 3).unwrap().uz.abs();
 
     // Area 2A
     let input2 = make_input(nodes, vec![(1, E, 0.3)], vec![(1, 2.0 * A, IZ)],
         elems, sups, loads);
     let res2 = linear::solve_2d(&input2).unwrap();
-    let d2 = res2.displacements.iter().find(|d| d.node_id == 3).unwrap().uy.abs();
+    let d2 = res2.displacements.iter().find(|d| d.node_id == 3).unwrap().uz.abs();
 
     // δ ∝ 1/A → d1/d2 ≈ 2
     let ratio = d1 / d2;

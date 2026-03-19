@@ -74,7 +74,7 @@ pub fn compute_influence_line(input: &InfluenceLineInput) -> Result<InfluenceLin
 
     // Pre-compute node positions
     let node_pos: HashMap<usize, (f64, f64)> = input.solver.nodes.values()
-        .map(|n| (n.id, (n.x, n.y)))
+        .map(|n| (n.id, (n.x, n.z)))
         .collect();
 
     let mut points = Vec::new();
@@ -108,7 +108,7 @@ pub fn compute_influence_line(input: &InfluenceLineInput) -> Result<InfluenceLin
                     a,
                     p: p_perp,
                     px: None,
-                    mz: None,
+                    my: None,
                 }));
             }
 
@@ -118,14 +118,14 @@ pub fn compute_influence_line(input: &InfluenceLineInput) -> Result<InfluenceLin
                 loads.push(SolverLoad::Nodal(SolverNodalLoad {
                     node_id: elem.node_i,
                     fx: fi * cos_theta,
-                    fy: fi * sin_theta,
-                    mz: 0.0,
+                    fz: fi * sin_theta,
+                    my: 0.0,
                 }));
                 loads.push(SolverLoad::Nodal(SolverNodalLoad {
                     node_id: elem.node_j,
                     fx: fj * cos_theta,
-                    fy: fj * sin_theta,
-                    mz: 0.0,
+                    fz: fj * sin_theta,
+                    my: 0.0,
                 }));
             }
 
@@ -172,9 +172,9 @@ fn extract_value(
             if let Some(node_id) = target_node_id {
                 if let Some(reaction) = result.reactions.iter().find(|r| r.node_id == node_id) {
                     match quantity {
-                        "Ry" => reaction.ry,
+                        "Ry" | "Rz" => reaction.rz,
                         "Rx" => reaction.rx,
-                        "Mz" => reaction.mz,
+                        "Mz" | "My" => reaction.my,
                         _ => 0.0,
                     }
                 } else {

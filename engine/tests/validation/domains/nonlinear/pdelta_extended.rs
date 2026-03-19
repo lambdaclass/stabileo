@@ -60,10 +60,10 @@ fn validation_pdelta_ext_1_single_column_amplification() {
         vec![(1, 1, "pinned"), (2, n + 1, "rollerX")],
         vec![
             SolverLoad::Nodal(SolverNodalLoad {
-                node_id: n + 1, fx: -p_axial, fy: 0.0, mz: 0.0,
+                node_id: n + 1, fx: -p_axial, fz: 0.0, my: 0.0,
             }),
             SolverLoad::Nodal(SolverNodalLoad {
-                node_id: mid_node, fx: 0.0, fy: h_lateral, mz: 0.0,
+                node_id: mid_node, fx: 0.0, fz: h_lateral, my: 0.0,
             }),
         ],
     );
@@ -75,9 +75,9 @@ fn validation_pdelta_ext_1_single_column_amplification() {
     assert!(pd_res.is_stable, "should be stable at P/Pe = 0.3");
 
     let lin_uy = lin_res.displacements.iter()
-        .find(|d| d.node_id == mid_node).unwrap().uy.abs();
+        .find(|d| d.node_id == mid_node).unwrap().uz.abs();
     let pd_uy = pd_res.results.displacements.iter()
-        .find(|d| d.node_id == mid_node).unwrap().uy.abs();
+        .find(|d| d.node_id == mid_node).unwrap().uz.abs();
 
     let actual_b2 = pd_uy / lin_uy;
 
@@ -135,10 +135,10 @@ fn validation_pdelta_ext_2_two_story_drift_amplification() {
     let px = 15.0;   // lateral force at each floor (left side)
     let py = -80.0;  // gravity at each top node
     let loads = vec![
-        SolverLoad::Nodal(SolverNodalLoad { node_id: 2, fx: px, fy: py, mz: 0.0 }),
-        SolverLoad::Nodal(SolverNodalLoad { node_id: 5, fx: 0.0, fy: py, mz: 0.0 }),
-        SolverLoad::Nodal(SolverNodalLoad { node_id: 3, fx: px, fy: py, mz: 0.0 }),
-        SolverLoad::Nodal(SolverNodalLoad { node_id: 6, fx: 0.0, fy: py, mz: 0.0 }),
+        SolverLoad::Nodal(SolverNodalLoad { node_id: 2, fx: px, fz: py, my: 0.0 }),
+        SolverLoad::Nodal(SolverNodalLoad { node_id: 5, fx: 0.0, fz: py, my: 0.0 }),
+        SolverLoad::Nodal(SolverNodalLoad { node_id: 3, fx: px, fz: py, my: 0.0 }),
+        SolverLoad::Nodal(SolverNodalLoad { node_id: 6, fx: 0.0, fz: py, my: 0.0 }),
     ];
 
     let input = make_input(
@@ -220,7 +220,7 @@ fn validation_pdelta_ext_3_leaning_column_destabilization() {
     ];
     let sups_a = vec![(1, 1_usize, "fixed"), (2, 4, "fixed")];
     let loads_a = vec![
-        SolverLoad::Nodal(SolverNodalLoad { node_id: 2, fx: p_lateral, fy: p_gravity, mz: 0.0 }),
+        SolverLoad::Nodal(SolverNodalLoad { node_id: 2, fx: p_lateral, fz: p_gravity, my: 0.0 }),
     ];
     let input_a = make_input(
         nodes_a, vec![(1, E, 0.3)], vec![(1, a, iz)], elems_a, sups_a, loads_a,
@@ -237,8 +237,8 @@ fn validation_pdelta_ext_3_leaning_column_destabilization() {
     ];
     let sups_b = vec![(1, 1_usize, "fixed"), (2, 4, "pinned")];
     let loads_b = vec![
-        SolverLoad::Nodal(SolverNodalLoad { node_id: 2, fx: p_lateral, fy: 0.0, mz: 0.0 }),
-        SolverLoad::Nodal(SolverNodalLoad { node_id: 3, fx: 0.0, fy: p_gravity, mz: 0.0 }),
+        SolverLoad::Nodal(SolverNodalLoad { node_id: 2, fx: p_lateral, fz: 0.0, my: 0.0 }),
+        SolverLoad::Nodal(SolverNodalLoad { node_id: 3, fx: 0.0, fz: p_gravity, my: 0.0 }),
     ];
     let input_b = make_input(
         nodes_b, vec![(1, E, 0.3)], vec![(1, a, iz)], elems_b, sups_b, loads_b,
@@ -293,7 +293,7 @@ fn validation_pdelta_ext_4_gravity_load_column_compression() {
             }),
             // Small lateral perturbation at node 2
             SolverLoad::Nodal(SolverNodalLoad {
-                node_id: 2, fx: p_perturb, fy: 0.0, mz: 0.0,
+                node_id: 2, fx: p_perturb, fz: 0.0, my: 0.0,
             }),
         ];
         let input = make_input(
@@ -358,10 +358,10 @@ fn validation_pdelta_ext_5_soft_story_detection() {
     let px = 10.0;
     let py = -60.0;
     let loads = vec![
-        SolverLoad::Nodal(SolverNodalLoad { node_id: 2, fx: px, fy: py, mz: 0.0 }),
-        SolverLoad::Nodal(SolverNodalLoad { node_id: 5, fx: 0.0, fy: py, mz: 0.0 }),
-        SolverLoad::Nodal(SolverNodalLoad { node_id: 3, fx: px, fy: py, mz: 0.0 }),
-        SolverLoad::Nodal(SolverNodalLoad { node_id: 6, fx: 0.0, fy: py, mz: 0.0 }),
+        SolverLoad::Nodal(SolverNodalLoad { node_id: 2, fx: px, fz: py, my: 0.0 }),
+        SolverLoad::Nodal(SolverNodalLoad { node_id: 5, fx: 0.0, fz: py, my: 0.0 }),
+        SolverLoad::Nodal(SolverNodalLoad { node_id: 3, fx: px, fz: py, my: 0.0 }),
+        SolverLoad::Nodal(SolverNodalLoad { node_id: 6, fx: 0.0, fz: py, my: 0.0 }),
     ];
 
     let input = make_input(
@@ -447,10 +447,10 @@ fn validation_pdelta_ext_6_multiple_load_increments_near_pcr() {
             vec![(1, 1, "pinned"), (2, n + 1, "rollerX")],
             vec![
                 SolverLoad::Nodal(SolverNodalLoad {
-                    node_id: n + 1, fx: -p_axial, fy: 0.0, mz: 0.0,
+                    node_id: n + 1, fx: -p_axial, fz: 0.0, my: 0.0,
                 }),
                 SolverLoad::Nodal(SolverNodalLoad {
-                    node_id: mid_node, fx: 0.0, fy: h_lateral, mz: 0.0,
+                    node_id: mid_node, fx: 0.0, fz: h_lateral, my: 0.0,
                 }),
             ],
         );
@@ -464,9 +464,9 @@ fn validation_pdelta_ext_6_multiple_load_increments_near_pcr() {
         );
 
         let lin_uy = lin_res.displacements.iter()
-            .find(|d| d.node_id == mid_node).unwrap().uy.abs();
+            .find(|d| d.node_id == mid_node).unwrap().uz.abs();
         let pd_uy = pd_res.results.displacements.iter()
-            .find(|d| d.node_id == mid_node).unwrap().uy.abs();
+            .find(|d| d.node_id == mid_node).unwrap().uz.abs();
 
         let actual_b2 = pd_uy / lin_uy;
 
@@ -521,8 +521,8 @@ fn validation_pdelta_ext_7_symmetric_frame_preserves_symmetry() {
     ];
     let sups = vec![(1, 1_usize, "fixed"), (2, 4, "fixed")];
     let loads = vec![
-        SolverLoad::Nodal(SolverNodalLoad { node_id: 2, fx: 0.0, fy: p_gravity, mz: 0.0 }),
-        SolverLoad::Nodal(SolverNodalLoad { node_id: 3, fx: 0.0, fy: p_gravity, mz: 0.0 }),
+        SolverLoad::Nodal(SolverNodalLoad { node_id: 2, fx: 0.0, fz: p_gravity, my: 0.0 }),
+        SolverLoad::Nodal(SolverNodalLoad { node_id: 3, fx: 0.0, fz: p_gravity, my: 0.0 }),
     ];
 
     let input = make_input(
@@ -551,25 +551,25 @@ fn validation_pdelta_ext_7_symmetric_frame_preserves_symmetry() {
 
     // Vertical displacements at nodes 2 and 3 should be equal
     let uy2 = pd_res.results.displacements.iter()
-        .find(|d| d.node_id == 2).unwrap().uy;
+        .find(|d| d.node_id == 2).unwrap().uz;
     let uy3 = pd_res.results.displacements.iter()
-        .find(|d| d.node_id == 3).unwrap().uy;
+        .find(|d| d.node_id == 3).unwrap().uz;
 
     assert_close(uy2, uy3, 0.01, "Symmetric vertical displacement");
 
     // Vertical reactions should be equal
     let ry1 = pd_res.results.reactions.iter()
-        .find(|r| r.node_id == 1).unwrap().ry;
+        .find(|r| r.node_id == 1).unwrap().rz;
     let ry4 = pd_res.results.reactions.iter()
-        .find(|r| r.node_id == 4).unwrap().ry;
+        .find(|r| r.node_id == 4).unwrap().rz;
 
     assert_close(ry1, ry4, 0.01, "Symmetric vertical reactions");
 
     // Base moments should be equal in magnitude
     let mz1 = pd_res.results.reactions.iter()
-        .find(|r| r.node_id == 1).unwrap().mz;
+        .find(|r| r.node_id == 1).unwrap().my;
     let mz4 = pd_res.results.reactions.iter()
-        .find(|r| r.node_id == 4).unwrap().mz;
+        .find(|r| r.node_id == 4).unwrap().my;
 
     assert_close(mz1.abs(), mz4.abs(), 0.01, "Symmetric base moments (magnitude)");
 }
@@ -604,8 +604,8 @@ fn validation_pdelta_ext_8_braced_vs_unbraced_comparison() {
     ];
     let sups_ub = vec![(1, 1_usize, "fixed"), (2, 4, "fixed")];
     let loads_ub = vec![
-        SolverLoad::Nodal(SolverNodalLoad { node_id: 2, fx: p_lateral, fy: p_gravity, mz: 0.0 }),
-        SolverLoad::Nodal(SolverNodalLoad { node_id: 3, fx: 0.0, fy: p_gravity, mz: 0.0 }),
+        SolverLoad::Nodal(SolverNodalLoad { node_id: 2, fx: p_lateral, fz: p_gravity, my: 0.0 }),
+        SolverLoad::Nodal(SolverNodalLoad { node_id: 3, fx: 0.0, fz: p_gravity, my: 0.0 }),
     ];
     let input_ub = make_input(
         nodes_ub, vec![(1, E, 0.3)], vec![(1, a, iz)], elems_ub, sups_ub, loads_ub,
@@ -628,8 +628,8 @@ fn validation_pdelta_ext_8_braced_vs_unbraced_comparison() {
         (3, 2, "rollerY"), // lateral brace
     ];
     let loads_br = vec![
-        SolverLoad::Nodal(SolverNodalLoad { node_id: 2, fx: p_lateral, fy: p_gravity, mz: 0.0 }),
-        SolverLoad::Nodal(SolverNodalLoad { node_id: 3, fx: 0.0, fy: p_gravity, mz: 0.0 }),
+        SolverLoad::Nodal(SolverNodalLoad { node_id: 2, fx: p_lateral, fz: p_gravity, my: 0.0 }),
+        SolverLoad::Nodal(SolverNodalLoad { node_id: 3, fx: 0.0, fz: p_gravity, my: 0.0 }),
     ];
     let input_br = make_input(
         nodes_br, vec![(1, E, 0.3)], vec![(1, a, iz)], elems_br, sups_br, loads_br,
@@ -666,10 +666,10 @@ fn validation_pdelta_ext_8_braced_vs_unbraced_comparison() {
     );
 
     // (c) Column base moment amplification: unbraced should have bigger moments
-    let ub_m_sum: f64 = pd_ub.results.reactions.iter().map(|r| r.mz.abs()).sum();
-    let br_m_sum: f64 = pd_br.results.reactions.iter().map(|r| r.mz.abs()).sum();
-    let lin_ub_m_sum: f64 = lin_ub.reactions.iter().map(|r| r.mz.abs()).sum();
-    let lin_br_m_sum: f64 = lin_br.reactions.iter().map(|r| r.mz.abs()).sum();
+    let ub_m_sum: f64 = pd_ub.results.reactions.iter().map(|r| r.my.abs()).sum();
+    let br_m_sum: f64 = pd_br.results.reactions.iter().map(|r| r.my.abs()).sum();
+    let lin_ub_m_sum: f64 = lin_ub.reactions.iter().map(|r| r.my.abs()).sum();
+    let lin_br_m_sum: f64 = lin_br.reactions.iter().map(|r| r.my.abs()).sum();
 
     let ub_moment_af = ub_m_sum / lin_ub_m_sum.max(1e-15);
     let br_moment_af = br_m_sum / lin_br_m_sum.max(1e-15);

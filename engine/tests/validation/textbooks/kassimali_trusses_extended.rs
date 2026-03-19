@@ -65,7 +65,7 @@ const IZ: f64 = 1e-8;
 #[test]
 fn validation_kassimali_ext_1_triangular_truss_inclined_load() {
     let fx: f64 = 12.0;
-    let fy: f64 = 24.0;
+    let fz: f64 = 24.0;
 
     let input = make_input(
         vec![(1, 0.0, 0.0), (2, 6.0, 0.0), (3, 3.0, 4.0)],
@@ -80,8 +80,8 @@ fn validation_kassimali_ext_1_triangular_truss_inclined_load() {
         vec![SolverLoad::Nodal(SolverNodalLoad {
             node_id: 3,
             fx,
-            fy: -fy,
-            mz: 0.0,
+            fz: -fz,
+            my: 0.0,
         })],
     );
     let results = linear::solve_2d(&input).unwrap();
@@ -97,8 +97,8 @@ fn validation_kassimali_ext_1_triangular_truss_inclined_load() {
     //   R2y at (6,0): Mz = 6*R2y
     //   ΣM = -120 + 6*R2y = 0 → R2y = 20
     //   ΣFy: R1y + 20 - 24 = 0 → R1y = 4
-    assert_close(r2.ry, 20.0, 0.03, "Triang inclined: R2y = 20 kN");
-    assert_close(r1.ry, 4.0, 0.03, "Triang inclined: R1y = 4 kN");
+    assert_close(r2.rz, 20.0, 0.03, "Triang inclined: R2y = 20 kN");
+    assert_close(r1.rz, 4.0, 0.03, "Triang inclined: R1y = 4 kN");
     assert_close(r1.rx, -12.0, 0.03, "Triang inclined: R1x = -12 kN");
 
     // Member forces
@@ -111,8 +111,8 @@ fn validation_kassimali_ext_1_triangular_truss_inclined_load() {
     assert_close(ef3.n_start, 15.0, 0.03, "Triang inclined: F_12 = 15 kN");
 
     // Global equilibrium
-    let sum_ry: f64 = results.reactions.iter().map(|r| r.ry).sum();
-    assert_close(sum_ry, fy, 0.02, "Triang inclined: ΣRy = Fy");
+    let sum_ry: f64 = results.reactions.iter().map(|r| r.rz).sum();
+    assert_close(sum_ry, fz, 0.02, "Triang inclined: ΣRy = Fy");
 }
 
 // ================================================================
@@ -154,8 +154,8 @@ fn validation_kassimali_ext_2_symmetric_triangle_apex_load() {
         vec![SolverLoad::Nodal(SolverNodalLoad {
             node_id: 3,
             fx: 0.0,
-            fy: -p,
-            mz: 0.0,
+            fz: -p,
+            my: 0.0,
         })],
     );
     let results = linear::solve_2d(&input).unwrap();
@@ -163,8 +163,8 @@ fn validation_kassimali_ext_2_symmetric_triangle_apex_load() {
     // Symmetric reactions
     let r1 = results.reactions.iter().find(|r| r.node_id == 1).unwrap();
     let r2 = results.reactions.iter().find(|r| r.node_id == 2).unwrap();
-    assert_close(r1.ry, p / 2.0, 0.02, "Symm triangle: R1y = P/2");
-    assert_close(r2.ry, p / 2.0, 0.02, "Symm triangle: R2y = P/2");
+    assert_close(r1.rz, p / 2.0, 0.02, "Symm triangle: R1y = P/2");
+    assert_close(r2.rz, p / 2.0, 0.02, "Symm triangle: R2y = P/2");
 
     // Diagonals: F = -30 kN (compression)
     let f_exact: f64 = -p / (2.0 * 3.0 / 5.0); // -36/1.2 = -30
@@ -238,14 +238,14 @@ fn validation_kassimali_ext_3_cantilever_truss_2panel() {
         vec![SolverLoad::Nodal(SolverNodalLoad {
             node_id: 4,
             fx: 0.0,
-            fy: -p,
-            mz: 0.0,
+            fz: -p,
+            my: 0.0,
         })],
     );
     let results = linear::solve_2d(&input).unwrap();
 
     // Global equilibrium
-    let sum_ry: f64 = results.reactions.iter().map(|r| r.ry).sum();
+    let sum_ry: f64 = results.reactions.iter().map(|r| r.rz).sum();
     assert_close(sum_ry, p, 0.02, "Cantilever truss: ΣRy = P");
 
     // Diagonal 1-4: F_14 = -25 kN (compression)
@@ -331,8 +331,8 @@ fn validation_kassimali_ext_4_parallel_chord_3panel() {
     ];
 
     let loads = vec![
-        SolverLoad::Nodal(SolverNodalLoad { node_id: 2, fx: 0.0, fy: -p, mz: 0.0 }),
-        SolverLoad::Nodal(SolverNodalLoad { node_id: 3, fx: 0.0, fy: -p, mz: 0.0 }),
+        SolverLoad::Nodal(SolverNodalLoad { node_id: 2, fx: 0.0, fz: -p, my: 0.0 }),
+        SolverLoad::Nodal(SolverNodalLoad { node_id: 3, fx: 0.0, fz: -p, my: 0.0 }),
     ];
 
     let input = make_input(
@@ -348,11 +348,11 @@ fn validation_kassimali_ext_4_parallel_chord_3panel() {
     // Symmetric reactions: R1y = R4y = P = 20 kN
     let r1 = results.reactions.iter().find(|r| r.node_id == 1).unwrap();
     let r4 = results.reactions.iter().find(|r| r.node_id == 4).unwrap();
-    assert_close(r1.ry, p, 0.02, "3-panel: R1y = P");
-    assert_close(r4.ry, p, 0.02, "3-panel: R4y = P");
+    assert_close(r1.rz, p, 0.02, "3-panel: R1y = P");
+    assert_close(r4.rz, p, 0.02, "3-panel: R4y = P");
 
     // Total equilibrium
-    let sum_ry: f64 = results.reactions.iter().map(|r| r.ry).sum();
+    let sum_ry: f64 = results.reactions.iter().map(|r| r.rz).sum();
     assert_close(sum_ry, 2.0 * p, 0.02, "3-panel: ΣRy = 2P");
 
     // Bottom chord at center (member 2: 2->3) should be in tension
@@ -449,8 +449,8 @@ fn validation_kassimali_ext_5_asymmetric_horizontal_load() {
         vec![SolverLoad::Nodal(SolverNodalLoad {
             node_id: 3,
             fx,
-            fy: 0.0,
-            mz: 0.0,
+            fz: 0.0,
+            my: 0.0,
         })],
     );
     let results = linear::solve_2d(&input).unwrap();
@@ -464,8 +464,8 @@ fn validation_kassimali_ext_5_asymmetric_horizontal_load() {
     //   -120 + 6*R2y = 0 → R2y = 20
     //   ΣFy: R1y + 20 = 0 → R1y = -20
     assert_close(r1.rx, -30.0, 0.02, "Asymm horiz: R1x = -30");
-    assert_close(r2.ry, 20.0, 0.03, "Asymm horiz: R2y = 20");
-    assert_close(r1.ry, -20.0, 0.03, "Asymm horiz: R1y = -20");
+    assert_close(r2.rz, 20.0, 0.03, "Asymm horiz: R2y = 20");
+    assert_close(r1.rz, -20.0, 0.03, "Asymm horiz: R1y = -20");
 
     // Member forces
     let ef1 = results.element_forces.iter().find(|e| e.element_id == 1).unwrap();
@@ -531,8 +531,8 @@ fn validation_kassimali_ext_6_diamond_truss() {
         vec![SolverLoad::Nodal(SolverNodalLoad {
             node_id: 2,
             fx: 0.0,
-            fy: -p,
-            mz: 0.0,
+            fz: -p,
+            my: 0.0,
         })],
     );
     let results = linear::solve_2d(&input).unwrap();
@@ -540,12 +540,12 @@ fn validation_kassimali_ext_6_diamond_truss() {
     // Symmetric reactions
     let r1 = results.reactions.iter().find(|r| r.node_id == 1).unwrap();
     let r3 = results.reactions.iter().find(|r| r.node_id == 3).unwrap();
-    assert_close(r1.ry, p / 2.0, 0.02, "Diamond: R1y = P/2");
-    assert_close(r3.ry, p / 2.0, 0.02, "Diamond: R3y = P/2");
+    assert_close(r1.rz, p / 2.0, 0.02, "Diamond: R1y = P/2");
+    assert_close(r3.rz, p / 2.0, 0.02, "Diamond: R3y = P/2");
     assert_close(r1.rx, 0.0, 0.02, "Diamond: R1x = 0");
 
     // Global equilibrium
-    let sum_ry: f64 = results.reactions.iter().map(|r| r.ry).sum();
+    let sum_ry: f64 = results.reactions.iter().map(|r| r.rz).sum();
     assert_close(sum_ry, p, 0.02, "Diamond: ΣRy = P");
 
     // Symmetry: |F_12| = |F_23| and |F_34| = |F_41|
@@ -681,8 +681,8 @@ fn validation_kassimali_ext_7_right_triangle_truss() {
         vec![SolverLoad::Nodal(SolverNodalLoad {
             node_id: 3,
             fx,
-            fy: 0.0,
-            mz: 0.0,
+            fz: 0.0,
+            my: 0.0,
         })],
     );
     let results = linear::solve_2d(&input).unwrap();
@@ -692,8 +692,8 @@ fn validation_kassimali_ext_7_right_triangle_truss() {
     let r2 = results.reactions.iter().find(|r| r.node_id == 2).unwrap();
 
     assert_close(r1.rx, -20.0, 0.02, "Right-tri: R1x = -20");
-    assert_close(r1.ry, -15.0, 0.03, "Right-tri: R1y = -15");
-    assert_close(r2.ry, 15.0, 0.03, "Right-tri: R2y = 15");
+    assert_close(r1.rz, -15.0, 0.03, "Right-tri: R1y = -15");
+    assert_close(r2.rz, 15.0, 0.03, "Right-tri: R2y = 15");
 
     // Member forces
     let ef1 = results.element_forces.iter().find(|e| e.element_id == 1).unwrap();
@@ -706,7 +706,7 @@ fn validation_kassimali_ext_7_right_triangle_truss() {
     assert_close(ef3.n_start, 20.0, 0.03, "Right-tri: F_12 = 20 kN (tension)");
 
     // Equilibrium check: no vertical applied load, so ΣRy = 0
-    let sum_ry: f64 = results.reactions.iter().map(|r| r.ry).sum();
+    let sum_ry: f64 = results.reactions.iter().map(|r| r.rz).sum();
     assert!(
         sum_ry.abs() < 0.1,
         "Right-tri: ΣRy = 0 (no vertical load), got {:.4}",
@@ -755,20 +755,20 @@ fn validation_kassimali_ext_8_fan_truss_symmetric() {
         vec![SolverLoad::Nodal(SolverNodalLoad {
             node_id: 4,
             fx: 0.0,
-            fy: -p,
-            mz: 0.0,
+            fz: -p,
+            my: 0.0,
         })],
     );
     let results = linear::solve_2d(&input).unwrap();
 
     // Global vertical equilibrium
-    let sum_ry: f64 = results.reactions.iter().map(|r| r.ry).sum();
+    let sum_ry: f64 = results.reactions.iter().map(|r| r.rz).sum();
     assert_close(sum_ry, p, 0.02, "Fan truss: ΣRy = P");
 
     // Symmetric reactions: R1y = R3y
     let r1 = results.reactions.iter().find(|r| r.node_id == 1).unwrap();
     let r3 = results.reactions.iter().find(|r| r.node_id == 3).unwrap();
-    assert_close(r1.ry, r3.ry, 0.02, "Fan truss: R1y = R3y (symmetry)");
+    assert_close(r1.rz, r3.rz, 0.02, "Fan truss: R1y = R3y (symmetry)");
 
     // No horizontal reaction at pinned support (symmetric)
     assert_close(r1.rx, 0.0, 0.02, "Fan truss: R1x = 0 (symmetric)");

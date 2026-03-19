@@ -73,9 +73,9 @@ fn validation_lc_ext_asce7_lrfd_governing() {
     let res_c2 = solve_udl(q_c2);
     let res_c5 = solve_udl(q_c5);
 
-    let d_c1: f64 = res_c1.displacements.iter().find(|d| d.node_id == mid).unwrap().uy.abs();
-    let d_c2: f64 = res_c2.displacements.iter().find(|d| d.node_id == mid).unwrap().uy.abs();
-    let d_c5: f64 = res_c5.displacements.iter().find(|d| d.node_id == mid).unwrap().uy.abs();
+    let d_c1: f64 = res_c1.displacements.iter().find(|d| d.node_id == mid).unwrap().uz.abs();
+    let d_c2: f64 = res_c2.displacements.iter().find(|d| d.node_id == mid).unwrap().uz.abs();
+    let d_c5: f64 = res_c5.displacements.iter().find(|d| d.node_id == mid).unwrap().uz.abs();
 
     // Combo 2 (1.2D+1.6L) governs for maximum gravity
     assert!(d_c2 > d_c1, "LRFD: 1.2D+1.6L > 1.4D: {:.6e} > {:.6e}", d_c2, d_c1);
@@ -85,11 +85,11 @@ fn validation_lc_ext_asce7_lrfd_governing() {
     // Solve D and L separately
     let res_d = solve_udl(q_d);
     let res_l = solve_udl(q_l);
-    let d_d: f64 = res_d.displacements.iter().find(|d| d.node_id == mid).unwrap().uy;
-    let d_l: f64 = res_l.displacements.iter().find(|d| d.node_id == mid).unwrap().uy;
+    let d_d: f64 = res_d.displacements.iter().find(|d| d.node_id == mid).unwrap().uz;
+    let d_l: f64 = res_l.displacements.iter().find(|d| d.node_id == mid).unwrap().uz;
 
     let d_c2_super: f64 = 1.2 * d_d + 1.6 * d_l;
-    let d_c2_actual: f64 = res_c2.displacements.iter().find(|d| d.node_id == mid).unwrap().uy;
+    let d_c2_actual: f64 = res_c2.displacements.iter().find(|d| d.node_id == mid).unwrap().uz;
     assert_close(d_c2_actual, d_c2_super, 0.01, "LRFD combo2 superposition");
 
     // Verify ratio: deflections scale linearly with total factored load
@@ -126,21 +126,21 @@ fn validation_lc_ext_asd_combinations() {
     // Dead only
     let input_d = make_portal_frame(h, w, E, A, IZ, 0.0, g_d);
     let res_d = linear::solve_2d(&input_d).unwrap();
-    let ry_d: f64 = res_d.reactions.iter().find(|r| r.node_id == 1).unwrap().ry;
-    let mz_d: f64 = res_d.reactions.iter().find(|r| r.node_id == 1).unwrap().mz;
+    let ry_d: f64 = res_d.reactions.iter().find(|r| r.node_id == 1).unwrap().rz;
+    let mz_d: f64 = res_d.reactions.iter().find(|r| r.node_id == 1).unwrap().my;
     let drift_d: f64 = res_d.displacements.iter().find(|d| d.node_id == 2).unwrap().ux;
 
     // Live only
     let input_l = make_portal_frame(h, w, E, A, IZ, 0.0, g_l);
     let res_l = linear::solve_2d(&input_l).unwrap();
-    let ry_l: f64 = res_l.reactions.iter().find(|r| r.node_id == 1).unwrap().ry;
-    let mz_l: f64 = res_l.reactions.iter().find(|r| r.node_id == 1).unwrap().mz;
+    let ry_l: f64 = res_l.reactions.iter().find(|r| r.node_id == 1).unwrap().rz;
+    let mz_l: f64 = res_l.reactions.iter().find(|r| r.node_id == 1).unwrap().my;
 
     // Wind only
     let input_w = make_portal_frame(h, w, E, A, IZ, f_w, 0.0);
     let res_w = linear::solve_2d(&input_w).unwrap();
-    let ry_w: f64 = res_w.reactions.iter().find(|r| r.node_id == 1).unwrap().ry;
-    let mz_w: f64 = res_w.reactions.iter().find(|r| r.node_id == 1).unwrap().mz;
+    let ry_w: f64 = res_w.reactions.iter().find(|r| r.node_id == 1).unwrap().rz;
+    let mz_w: f64 = res_w.reactions.iter().find(|r| r.node_id == 1).unwrap().my;
     let drift_w: f64 = res_w.displacements.iter().find(|d| d.node_id == 2).unwrap().ux;
 
     // ASD Combo 2: D + L
@@ -158,7 +158,7 @@ fn validation_lc_ext_asd_combinations() {
     // Verify direct solve matches superposition for combo 4
     let input_c4 = make_portal_frame(h, w, E, A, IZ, 0.75 * f_w, g_d + 0.75 * g_l);
     let res_c4 = linear::solve_2d(&input_c4).unwrap();
-    let ry_c4_direct: f64 = res_c4.reactions.iter().find(|r| r.node_id == 1).unwrap().ry;
+    let ry_c4_direct: f64 = res_c4.reactions.iter().find(|r| r.node_id == 1).unwrap().rz;
     assert_close(ry_c4_direct, ry_c4, 0.01, "ASD combo4 Ry superposition");
 
     // D+L governs for max vertical reaction (pure gravity)
@@ -231,10 +231,10 @@ fn validation_lc_ext_en1990_fundamental_combination() {
     let res_q2 = solve_udl(qk2);
     let res_q3 = solve_udl(qk3);
 
-    let d_g: f64 = res_g.displacements.iter().find(|d| d.node_id == mid).unwrap().uy;
-    let d_q1: f64 = res_q1.displacements.iter().find(|d| d.node_id == mid).unwrap().uy;
-    let d_q2: f64 = res_q2.displacements.iter().find(|d| d.node_id == mid).unwrap().uy;
-    let d_q3: f64 = res_q3.displacements.iter().find(|d| d.node_id == mid).unwrap().uy;
+    let d_g: f64 = res_g.displacements.iter().find(|d| d.node_id == mid).unwrap().uz;
+    let d_q1: f64 = res_q1.displacements.iter().find(|d| d.node_id == mid).unwrap().uz;
+    let d_q2: f64 = res_q2.displacements.iter().find(|d| d.node_id == mid).unwrap().uz;
+    let d_q3: f64 = res_q3.displacements.iter().find(|d| d.node_id == mid).unwrap().uz;
 
     // EN 1990 fundamental combination (Eq. 6.10)
     let d_combo_super: f64 = gamma_g * d_g
@@ -245,7 +245,7 @@ fn validation_lc_ext_en1990_fundamental_combination() {
     // Direct solve with factored combined load
     let q_factored: f64 = gamma_g * gk + gamma_q * qk1 + gamma_q * psi_0_wind * qk2 + gamma_q * psi_0_snow * qk3;
     let res_direct = solve_udl(q_factored);
-    let d_direct: f64 = res_direct.displacements.iter().find(|d| d.node_id == mid).unwrap().uy;
+    let d_direct: f64 = res_direct.displacements.iter().find(|d| d.node_id == mid).unwrap().uz;
 
     // Superposition must match direct solve
     assert_close(d_combo_super, d_direct, 0.01, "EN1990 combo: superposition = direct");
@@ -265,11 +265,11 @@ fn validation_lc_ext_en1990_fundamental_combination() {
     assert!(d_q2 > 0.0, "EN1990: wind uplift gives positive deflection");
 
     // Reaction verification
-    let r_direct: f64 = res_direct.reactions.iter().find(|r| r.node_id == 1).unwrap().ry;
-    let r_super: f64 = gamma_g * res_g.reactions.iter().find(|r| r.node_id == 1).unwrap().ry
-        + gamma_q * res_q1.reactions.iter().find(|r| r.node_id == 1).unwrap().ry
-        + gamma_q * psi_0_wind * res_q2.reactions.iter().find(|r| r.node_id == 1).unwrap().ry
-        + gamma_q * psi_0_snow * res_q3.reactions.iter().find(|r| r.node_id == 1).unwrap().ry;
+    let r_direct: f64 = res_direct.reactions.iter().find(|r| r.node_id == 1).unwrap().rz;
+    let r_super: f64 = gamma_g * res_g.reactions.iter().find(|r| r.node_id == 1).unwrap().rz
+        + gamma_q * res_q1.reactions.iter().find(|r| r.node_id == 1).unwrap().rz
+        + gamma_q * psi_0_wind * res_q2.reactions.iter().find(|r| r.node_id == 1).unwrap().rz
+        + gamma_q * psi_0_snow * res_q3.reactions.iter().find(|r| r.node_id == 1).unwrap().rz;
     assert_close(r_direct, r_super, 0.01, "EN1990 combo: reaction superposition");
 }
 
@@ -332,8 +332,8 @@ fn validation_lc_ext_pattern_loading() {
     // Midspan node of span 1 (midpoint of 8-element span)
     let mid_span1 = n_per / 2 + 1;
 
-    let d_full: f64 = res_full.displacements.iter().find(|d| d.node_id == mid_span1).unwrap().uy.abs();
-    let d_pattern_a: f64 = res_a.displacements.iter().find(|d| d.node_id == mid_span1).unwrap().uy.abs();
+    let d_full: f64 = res_full.displacements.iter().find(|d| d.node_id == mid_span1).unwrap().uz.abs();
+    let d_pattern_a: f64 = res_a.displacements.iter().find(|d| d.node_id == mid_span1).unwrap().uz.abs();
 
     // Pattern A gives larger midspan deflection in span 1 than full load
     // because unloaded span 2 allows more rotation at interior support
@@ -355,8 +355,8 @@ fn validation_lc_ext_pattern_loading() {
         "Pattern B > full at support B: {:.6e} > {:.6e}", m_b_pattern_b, m_b_full);
 
     // Verify reactions at support B
-    let rb_full: f64 = res_full.reactions.iter().find(|r| r.node_id == support_b_node).unwrap().ry.abs();
-    let rb_b: f64 = res_b.reactions.iter().find(|r| r.node_id == support_b_node).unwrap().ry.abs();
+    let rb_full: f64 = res_full.reactions.iter().find(|r| r.node_id == support_b_node).unwrap().rz.abs();
+    let rb_b: f64 = res_b.reactions.iter().find(|r| r.node_id == support_b_node).unwrap().rz.abs();
     // Pattern B produces larger reaction at support B (both adjacent spans loaded)
     assert!(rb_b > rb_full * 0.95,
         "Pattern B reaction at B significant: {:.4}", rb_b);
@@ -427,7 +427,7 @@ fn validation_lc_ext_envelope_max_min() {
 
     // Collect midspan deflections of span 1 across all cases
     let d1_cases: Vec<f64> = [&res1, &res2, &res3, &res4].iter()
-        .map(|r| r.displacements.iter().find(|d| d.node_id == mid1).unwrap().uy.abs())
+        .map(|r| r.displacements.iter().find(|d| d.node_id == mid1).unwrap().uz.abs())
         .collect();
 
     // Case 2 (LL on span 1) gives max deflection in span 1
@@ -446,7 +446,7 @@ fn validation_lc_ext_envelope_max_min() {
 
     // Shear at support B: reaction at interior support
     let v_b_cases: Vec<f64> = [&res1, &res2, &res3, &res4].iter()
-        .map(|r| r.reactions.iter().find(|rx| rx.node_id == support_b).unwrap().ry.abs())
+        .map(|r| r.reactions.iter().find(|rx| rx.node_id == support_b).unwrap().rz.abs())
         .collect();
 
     // Case 4 gives max shear at support B
@@ -458,7 +458,7 @@ fn validation_lc_ext_envelope_max_min() {
     assert_close(min_m_b, m_b_cases[0], 0.01, "Envelope: Case 1 min hogging at B");
 
     // By symmetry, Case 2 and Case 3 give equal deflection in their respective spans
-    let d2_case3: f64 = res3.displacements.iter().find(|d| d.node_id == mid2).unwrap().uy.abs();
+    let d2_case3: f64 = res3.displacements.iter().find(|d| d.node_id == mid2).unwrap().uz.abs();
     assert_close(d1_cases[1], d2_case3, 0.02, "Envelope: symmetric pattern equal deflections");
 }
 
@@ -501,8 +501,8 @@ fn validation_lc_ext_counteracting_uplift() {
     let res_d = solve_udl(q_d);
     let res_w = solve_udl(q_w);
 
-    let ry_d: f64 = res_d.reactions.iter().find(|r| r.node_id == 1).unwrap().ry;
-    let ry_w: f64 = res_w.reactions.iter().find(|r| r.node_id == 1).unwrap().ry;
+    let ry_d: f64 = res_d.reactions.iter().find(|r| r.node_id == 1).unwrap().rz;
+    let ry_w: f64 = res_w.reactions.iter().find(|r| r.node_id == 1).unwrap().rz;
 
     // D produces positive (upward) reactions supporting the beam
     assert!(ry_d > 0.0, "Dead load: positive reaction (upward support)");
@@ -522,7 +522,7 @@ fn validation_lc_ext_counteracting_uplift() {
 
     // Verify direct solve matches superposition
     let res_combo = solve_udl(q_net);
-    let ry_combo_direct: f64 = res_combo.reactions.iter().find(|r| r.node_id == 1).unwrap().ry;
+    let ry_combo_direct: f64 = res_combo.reactions.iter().find(|r| r.node_id == 1).unwrap().rz;
     assert_close(ry_combo, ry_combo_direct, 0.01, "Uplift combo: superposition = direct");
 
     // Analytical: for SS beam with net upward UDL q_net > 0,
@@ -586,7 +586,7 @@ fn validation_lc_ext_companion_action_factors() {
             .collect();
         let input = make_beam(n, l, E, A, IZ, "pinned", Some("rollerX"), loads);
         let res = linear::solve_2d(&input).unwrap();
-        res.displacements.iter().find(|d| d.node_id == mid).unwrap().uy.abs()
+        res.displacements.iter().find(|d| d.node_id == mid).unwrap().uz.abs()
     };
 
     // Individual case deflections
@@ -689,7 +689,7 @@ fn validation_lc_ext_thermal_combination() {
         }
         if apply_live {
             loads.push(SolverLoad::Nodal(SolverNodalLoad {
-                node_id: mid, fx: 0.0, fy: factor_l * p_l, mz: 0.0,
+                node_id: mid, fx: 0.0, fz: factor_l * p_l, my: 0.0,
             }));
         }
         if apply_thermal {
@@ -699,10 +699,10 @@ fn validation_lc_ext_thermal_combination() {
             let q_pt = n / 4 + 1;       // quarter-span node
             let three_q = 3 * n / 4 + 1; // three-quarter-span node
             loads.push(SolverLoad::Nodal(SolverNodalLoad {
-                node_id: q_pt, fx: 0.0, fy: 0.0, mz: factor_t * m_thermal,
+                node_id: q_pt, fx: 0.0, fz: 0.0, my: factor_t * m_thermal,
             }));
             loads.push(SolverLoad::Nodal(SolverNodalLoad {
-                node_id: three_q, fx: 0.0, fy: 0.0, mz: -factor_t * m_thermal,
+                node_id: three_q, fx: 0.0, fz: 0.0, my: -factor_t * m_thermal,
             }));
         }
         let input = make_beam(n, l, E, A, IZ, "fixed", Some("fixed"), loads);
@@ -718,28 +718,28 @@ fn validation_lc_ext_thermal_combination() {
     let res_combo = build_case(true, true, true, 1.2, 1.0, 1.0);
 
     // Superposition check on displacements
-    let d_d: f64 = res_d.displacements.iter().find(|d| d.node_id == mid).unwrap().uy;
-    let d_l: f64 = res_l.displacements.iter().find(|d| d.node_id == mid).unwrap().uy;
-    let d_t: f64 = res_t.displacements.iter().find(|d| d.node_id == mid).unwrap().uy;
-    let d_combo: f64 = res_combo.displacements.iter().find(|d| d.node_id == mid).unwrap().uy;
+    let d_d: f64 = res_d.displacements.iter().find(|d| d.node_id == mid).unwrap().uz;
+    let d_l: f64 = res_l.displacements.iter().find(|d| d.node_id == mid).unwrap().uz;
+    let d_t: f64 = res_t.displacements.iter().find(|d| d.node_id == mid).unwrap().uz;
+    let d_combo: f64 = res_combo.displacements.iter().find(|d| d.node_id == mid).unwrap().uz;
 
     let d_super: f64 = 1.2 * d_d + 1.0 * d_l + 1.0 * d_t;
     assert_close(d_combo, d_super, 0.02, "Thermal combo: deflection superposition");
 
     // Superposition check on reactions
-    let ry_d: f64 = res_d.reactions.iter().find(|r| r.node_id == 1).unwrap().ry;
-    let ry_l: f64 = res_l.reactions.iter().find(|r| r.node_id == 1).unwrap().ry;
-    let ry_t: f64 = res_t.reactions.iter().find(|r| r.node_id == 1).unwrap().ry;
-    let ry_combo: f64 = res_combo.reactions.iter().find(|r| r.node_id == 1).unwrap().ry;
+    let ry_d: f64 = res_d.reactions.iter().find(|r| r.node_id == 1).unwrap().rz;
+    let ry_l: f64 = res_l.reactions.iter().find(|r| r.node_id == 1).unwrap().rz;
+    let ry_t: f64 = res_t.reactions.iter().find(|r| r.node_id == 1).unwrap().rz;
+    let ry_combo: f64 = res_combo.reactions.iter().find(|r| r.node_id == 1).unwrap().rz;
 
     let ry_super: f64 = 1.2 * ry_d + 1.0 * ry_l + 1.0 * ry_t;
     assert_close(ry_combo, ry_super, 0.02, "Thermal combo: reaction superposition");
 
     // Moment superposition at fixed end
-    let mz_d: f64 = res_d.reactions.iter().find(|r| r.node_id == 1).unwrap().mz;
-    let mz_l: f64 = res_l.reactions.iter().find(|r| r.node_id == 1).unwrap().mz;
-    let mz_t: f64 = res_t.reactions.iter().find(|r| r.node_id == 1).unwrap().mz;
-    let mz_combo: f64 = res_combo.reactions.iter().find(|r| r.node_id == 1).unwrap().mz;
+    let mz_d: f64 = res_d.reactions.iter().find(|r| r.node_id == 1).unwrap().my;
+    let mz_l: f64 = res_l.reactions.iter().find(|r| r.node_id == 1).unwrap().my;
+    let mz_t: f64 = res_t.reactions.iter().find(|r| r.node_id == 1).unwrap().my;
+    let mz_combo: f64 = res_combo.reactions.iter().find(|r| r.node_id == 1).unwrap().my;
 
     let mz_super: f64 = 1.2 * mz_d + 1.0 * mz_l + 1.0 * mz_t;
     assert_close(mz_combo, mz_super, 0.02, "Thermal combo: moment superposition");

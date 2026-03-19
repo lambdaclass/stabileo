@@ -36,7 +36,7 @@ const PI: f64 = std::f64::consts::PI;
 fn validation_cfs_ext_1_effective_width_compression() {
     let w: f64 = 200.0;         // mm, flat width
     let t: f64 = 1.0;           // mm, thickness
-    let fy: f64 = 345.0;        // MPa, yield stress
+    let fz: f64 = 345.0;        // MPa, yield stress
     let e: f64 = 203_000.0;     // MPa, modulus
     let nu: f64 = 0.3;
     let k: f64 = 4.0;           // buckling coefficient (SS both edges)
@@ -49,7 +49,7 @@ fn validation_cfs_ext_1_effective_width_compression() {
         "f_cr = {:.2} MPa should be ~18 MPa", f_cr);
 
     // Slenderness
-    let lambda = (fy / f_cr).sqrt();
+    let lambda = (fz / f_cr).sqrt();
     assert!(lambda > 0.673,
         "lambda = {:.3} must exceed 0.673 for width reduction", lambda);
 
@@ -75,7 +75,7 @@ fn validation_cfs_ext_1_effective_width_compression() {
     // Verify: thicker plate => higher f_cr, lower lambda, higher rho
     let t2: f64 = 2.0;
     let f_cr_2 = k * PI * PI * e / (12.0 * (1.0 - nu * nu)) * (t2 / w).powi(2);
-    let lambda_2 = (fy / f_cr_2).sqrt();
+    let lambda_2 = (fz / f_cr_2).sqrt();
     let rho_2 = if lambda_2 <= 0.673 { 1.0 } else { (1.0 - 0.22 / lambda_2) / lambda_2 };
     assert!(rho_2 > rho, "Thicker plate: rho={:.3} > {:.3}", rho_2, rho);
 }
@@ -101,14 +101,14 @@ fn validation_cfs_ext_2_distortional_buckling() {
     let t: f64 = 1.5;         // mm
     let b_o: f64 = 65.0;      // mm, out-to-out flange width
     let k_d: f64 = 0.90;      // distortional buckling coefficient
-    let fy: f64 = 350.0;      // MPa
+    let fz: f64 = 350.0;      // MPa
     let a_g: f64 = 400.0;     // mm^2, gross area
 
     // Critical distortional buckling stress
     let f_crd = k_d * PI * PI * e / (12.0 * (1.0 - nu * nu)) * (t / b_o).powi(2);
 
     // Squash load and distortional buckling load
-    let p_y = fy * a_g;                   // N
+    let p_y = fz * a_g;                   // N
     let p_crd = f_crd * a_g;              // N
 
     // Distortional slenderness
@@ -161,9 +161,9 @@ fn validation_cfs_ext_2_distortional_buckling() {
 
 #[test]
 fn validation_cfs_ext_3_dsm_flexure() {
-    let fy: f64 = 340.0;           // MPa
+    let fz: f64 = 340.0;           // MPa
     let s_f: f64 = 18_000.0;       // mm^3, gross section modulus
-    let my = fy * s_f / 1e6;       // kN-m = 6.12
+    let my = fz * s_f / 1e6;       // kN-m = 6.12
 
     // Buckling moments (from elastic buckling analysis)
     let m_cre = 1.2 * my;  // global elastic lateral-torsional
@@ -238,9 +238,9 @@ fn validation_cfs_ext_3_dsm_flexure() {
 
 #[test]
 fn validation_cfs_ext_4_dsm_compression() {
-    let fy: f64 = 345.0;          // MPa
+    let fz: f64 = 345.0;          // MPa
     let a_g: f64 = 520.0;         // mm^2
-    let p_y = fy * a_g / 1e3;     // kN = 179.4
+    let p_y = fz * a_g / 1e3;     // kN = 179.4
 
     // Elastic buckling loads (from analysis)
     let p_cre = 0.80 * p_y;  // global
@@ -314,7 +314,7 @@ fn validation_cfs_ext_4_dsm_compression() {
 fn validation_cfs_ext_5_c_section_properties() {
     let e: f64 = 203_000.0;     // MPa
     let nu: f64 = 0.3;
-    let fy: f64 = 350.0;        // MPa
+    let fz: f64 = 350.0;        // MPa
     let t: f64 = 1.5;           // mm
 
     // C-section geometry
@@ -343,7 +343,7 @@ fn validation_cfs_ext_5_c_section_properties() {
     let mut prev_a_eff = a_gross + 1.0;
 
     for &ratio in &stress_levels {
-        let f_applied = ratio * fy;
+        let f_applied = ratio * fz;
 
         // Web: stiffened (k=4.0), under bending gradient but simplified as uniform here
         let web_eff = effective_width(web, f_applied, 4.0);
@@ -366,7 +366,7 @@ fn validation_cfs_ext_5_c_section_properties() {
     }
 
     // At low stress (f/fy=0.25), flanges and lips should be fully effective
-    let f_low = 0.25 * fy;
+    let f_low = 0.25 * fz;
     let flange_eff_low = effective_width(flange, f_low, 4.0);
     let lip_eff_low = effective_width(lip, f_low, 0.43);
 
@@ -376,7 +376,7 @@ fn validation_cfs_ext_5_c_section_properties() {
         "C-section: lips fully effective at f/fy=0.25");
 
     // At full yield (f/fy=1.0), web should be significantly reduced
-    let web_eff_full = effective_width(web, fy, 4.0);
+    let web_eff_full = effective_width(web, fz, 4.0);
     let web_reduction = web_eff_full / web;
     assert!(web_reduction < 0.7,
         "C-section: web reduction ratio={:.3} at fy (expect < 0.7)", web_reduction);
@@ -398,7 +398,7 @@ fn validation_cfs_ext_5_c_section_properties() {
 #[test]
 fn validation_cfs_ext_6_web_crippling() {
     let t: f64 = 1.2;           // mm, web thickness
-    let fy: f64 = 350.0;        // MPa
+    let fz: f64 = 350.0;        // MPa
     let theta: f64 = 90.0_f64.to_radians();  // angle between web and bearing surface
     let r: f64 = 3.0;           // mm, inside bend radius
     let h: f64 = 150.0;         // mm, flat depth of web
@@ -411,7 +411,7 @@ fn validation_cfs_ext_6_web_crippling() {
     let c_h: f64 = 0.02;
 
     // Web crippling nominal strength
-    let p_n = c * t * t * fy * theta.sin()
+    let p_n = c * t * t * fz * theta.sin()
         * (1.0 - c_r * (r / t).sqrt())
         * (1.0 + c_n * (n_bearing / t).sqrt())
         * (1.0 - c_h * (h / t).sqrt());
@@ -425,7 +425,7 @@ fn validation_cfs_ext_6_web_crippling() {
     let factor_n = 1.0 + c_n * nt;    // 1 + 0.35*6.455 = 3.259
     let factor_h = 1.0 - c_h * ht;    // 1 - 0.02*11.18 = 0.7764
 
-    let p_n_expected = c * t * t * fy * 1.0  // sin(90)=1
+    let p_n_expected = c * t * t * fz * 1.0  // sin(90)=1
         * factor_r * factor_n * factor_h;
 
     assert_close(p_n, p_n_expected, 0.001, "Web crippling: P_n");
@@ -446,7 +446,7 @@ fn validation_cfs_ext_6_web_crippling() {
     // Verify: larger bearing length => higher capacity
     let n2: f64 = 100.0;
     let factor_n2 = 1.0 + c_n * (n2 / t).sqrt();
-    let p_n_2 = c * t * t * fy * theta.sin()
+    let p_n_2 = c * t * t * fz * theta.sin()
         * factor_r * factor_n2 * factor_h;
     assert!(p_n_2 > p_n,
         "Larger bearing: P_n={:.1}N > {:.1}N", p_n_2, p_n);
@@ -545,7 +545,7 @@ fn validation_cfs_ext_7_screw_connection() {
 
 #[test]
 fn validation_cfs_ext_8_purlin_design() {
-    let fy: f64 = 350.0;          // MPa
+    let fz: f64 = 350.0;          // MPa
     let e_steel: f64 = 203_000.0; // MPa
     let l: f64 = 7.0;             // m, span
     let q: f64 = 1.5;             // kN/m, UDL (gravity)
@@ -558,7 +558,7 @@ fn validation_cfs_ext_8_purlin_design() {
 
     // --- (a) Bending check ---
     let m_max = q * l * l / 8.0;  // kN-m
-    let m_n = r_factor * fy * s_f / 1e6; // kN-m
+    let m_n = r_factor * fz * s_f / 1e6; // kN-m
     let bending_ratio = m_max / m_n;
 
     assert_close(m_max, 1.5 * 49.0 / 8.0, 0.001, "Purlin: M_max = qL^2/8");
@@ -567,7 +567,7 @@ fn validation_cfs_ext_8_purlin_design() {
 
     // --- (b) Shear check ---
     let v_max = q * l / 2.0;       // kN
-    let v_n = 0.6 * fy * a_w / 1e3; // kN
+    let v_n = 0.6 * fz * a_w / 1e3; // kN
     let shear_ratio = v_max / v_n;
 
     assert_close(v_max, 1.5 * 7.0 / 2.0, 0.001, "Purlin: V_max = qL/2");
@@ -602,7 +602,7 @@ fn validation_cfs_ext_8_purlin_design() {
     let d_mid = results.displacements.iter()
         .find(|d| d.node_id == mid_node)
         .unwrap()
-        .uy.abs();
+        .uz.abs();
 
     // Solver deflection should match formula (solver uses E_eff = E*1000 = e_steel)
     let e_eff = e_solver * 1000.0;  // = e_steel

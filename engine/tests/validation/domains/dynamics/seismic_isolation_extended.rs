@@ -79,8 +79,8 @@ fn validation_seis_iso_ext_1_lrb_effective_stiffness() {
 
     // Build model
     let mut nodes = HashMap::new();
-    nodes.insert("1".to_string(), SolverNode { id: 1, x: 0.0, y: 0.0 });
-    nodes.insert("2".to_string(), SolverNode { id: 2, x: l, y: 0.0 });
+    nodes.insert("1".to_string(), SolverNode { id: 1, x: 0.0, z: 0.0 });
+    nodes.insert("2".to_string(), SolverNode { id: 2, x: l, z: 0.0 });
 
     let mut mats = HashMap::new();
     mats.insert("1".to_string(), SolverMaterial { id: 1, e, nu: 0.3 });
@@ -100,16 +100,16 @@ fn validation_seis_iso_ext_1_lrb_effective_stiffness() {
     sups.insert("1".to_string(), SolverSupport {
         id: 1, node_id: 1, support_type: "fixed".to_string(),
         kx: None, ky: None, kz: None,
-        dx: None, dy: None, drz: None, angle: None,
+        dx: None, dz: None, dry: None, angle: None,
     });
     sups.insert("2".to_string(), SolverSupport {
         id: 2, node_id: 2, support_type: "spring".to_string(),
         kx: Some(k_spring), ky: None, kz: None,
-        dx: None, dy: None, drz: None, angle: None,
+        dx: None, dz: None, dry: None, angle: None,
     });
 
     let loads = vec![SolverLoad::Nodal(SolverNodalLoad {
-        node_id: 2, fx: f_applied, fy: 0.0, mz: 0.0,
+        node_id: 2, fx: f_applied, fz: 0.0, my: 0.0,
     })];
 
     let input = SolverInput { nodes, materials: mats, sections: secs, elements: elems, supports: sups, loads, constraints: vec![],  connectors: HashMap::new() };
@@ -199,8 +199,8 @@ fn validation_seis_iso_ext_2_fps_period() {
     let delta_exact = f_restoring / (k_beam + k_gravity);
 
     let mut nodes = HashMap::new();
-    nodes.insert("1".to_string(), SolverNode { id: 1, x: 0.0, y: 0.0 });
-    nodes.insert("2".to_string(), SolverNode { id: 2, x: l, y: 0.0 });
+    nodes.insert("1".to_string(), SolverNode { id: 1, x: 0.0, z: 0.0 });
+    nodes.insert("2".to_string(), SolverNode { id: 2, x: l, z: 0.0 });
 
     let mut mats = HashMap::new();
     mats.insert("1".to_string(), SolverMaterial { id: 1, e, nu: 0.3 });
@@ -220,16 +220,16 @@ fn validation_seis_iso_ext_2_fps_period() {
     sups.insert("1".to_string(), SolverSupport {
         id: 1, node_id: 1, support_type: "fixed".to_string(),
         kx: None, ky: None, kz: None,
-        dx: None, dy: None, drz: None, angle: None,
+        dx: None, dz: None, dry: None, angle: None,
     });
     sups.insert("2".to_string(), SolverSupport {
         id: 2, node_id: 2, support_type: "spring".to_string(),
         kx: Some(k_gravity), ky: None, kz: None,
-        dx: None, dy: None, drz: None, angle: None,
+        dx: None, dz: None, dry: None, angle: None,
     });
 
     let loads = vec![SolverLoad::Nodal(SolverNodalLoad {
-        node_id: 2, fx: f_restoring, fy: 0.0, mz: 0.0,
+        node_id: 2, fx: f_restoring, fz: 0.0, my: 0.0,
     })];
 
     let input = SolverInput { nodes, materials: mats, sections: secs, elements: elems, supports: sups, loads, constraints: vec![],  connectors: HashMap::new() };
@@ -371,8 +371,8 @@ fn validation_seis_iso_ext_4_design_displacement() {
     let delta_exact = v_b / (k_beam + k_eff_kn_m);
 
     let mut nodes = HashMap::new();
-    nodes.insert("1".to_string(), SolverNode { id: 1, x: 0.0, y: 0.0 });
-    nodes.insert("2".to_string(), SolverNode { id: 2, x: l, y: 0.0 });
+    nodes.insert("1".to_string(), SolverNode { id: 1, x: 0.0, z: 0.0 });
+    nodes.insert("2".to_string(), SolverNode { id: 2, x: l, z: 0.0 });
 
     let mut mats = HashMap::new();
     mats.insert("1".to_string(), SolverMaterial { id: 1, e, nu: 0.3 });
@@ -392,16 +392,16 @@ fn validation_seis_iso_ext_4_design_displacement() {
     sups.insert("1".to_string(), SolverSupport {
         id: 1, node_id: 1, support_type: "fixed".to_string(),
         kx: None, ky: None, kz: None,
-        dx: None, dy: None, drz: None, angle: None,
+        dx: None, dz: None, dry: None, angle: None,
     });
     sups.insert("2".to_string(), SolverSupport {
         id: 2, node_id: 2, support_type: "spring".to_string(),
         kx: Some(k_eff_kn_m), ky: None, kz: None,
-        dx: None, dy: None, drz: None, angle: None,
+        dx: None, dz: None, dry: None, angle: None,
     });
 
     let loads = vec![SolverLoad::Nodal(SolverNodalLoad {
-        node_id: 2, fx: v_b, fy: 0.0, mz: 0.0,
+        node_id: 2, fx: v_b, fz: 0.0, my: 0.0,
     })];
 
     let input = SolverInput { nodes, materials: mats, sections: secs, elements: elems, supports: sups, loads, constraints: vec![],  connectors: HashMap::new() };
@@ -504,10 +504,10 @@ fn validation_seis_iso_ext_5_superstructure_force() {
     let sups = vec![(1, 1_usize, "fixed"), (2, 4, "fixed")];
 
     let loads = vec![
-        SolverLoad::Nodal(SolverNodalLoad { node_id: 2, fx: f1 / 2.0, fy: 0.0, mz: 0.0 }),
-        SolverLoad::Nodal(SolverNodalLoad { node_id: 5, fx: f1 / 2.0, fy: 0.0, mz: 0.0 }),
-        SolverLoad::Nodal(SolverNodalLoad { node_id: 3, fx: f2 / 2.0, fy: 0.0, mz: 0.0 }),
-        SolverLoad::Nodal(SolverNodalLoad { node_id: 6, fx: f2 / 2.0, fy: 0.0, mz: 0.0 }),
+        SolverLoad::Nodal(SolverNodalLoad { node_id: 2, fx: f1 / 2.0, fz: 0.0, my: 0.0 }),
+        SolverLoad::Nodal(SolverNodalLoad { node_id: 5, fx: f1 / 2.0, fz: 0.0, my: 0.0 }),
+        SolverLoad::Nodal(SolverNodalLoad { node_id: 3, fx: f2 / 2.0, fz: 0.0, my: 0.0 }),
+        SolverLoad::Nodal(SolverNodalLoad { node_id: 6, fx: f2 / 2.0, fz: 0.0, my: 0.0 }),
     ];
 
     let input = make_input(nodes, vec![(1, e, 0.3)], vec![(1, a, iz)], elems, sups, loads);
@@ -586,8 +586,8 @@ fn validation_seis_iso_ext_6_period_shift_ratio() {
     // Case A: Fixed-base elastic demand
     let f_fixed = 100.0; // reference lateral force (kN)
     let loads_a = vec![
-        SolverLoad::Nodal(SolverNodalLoad { node_id: 2, fx: f_fixed, fy: 0.0, mz: 0.0 }),
-        SolverLoad::Nodal(SolverNodalLoad { node_id: 3, fx: f_fixed, fy: 0.0, mz: 0.0 }),
+        SolverLoad::Nodal(SolverNodalLoad { node_id: 2, fx: f_fixed, fz: 0.0, my: 0.0 }),
+        SolverLoad::Nodal(SolverNodalLoad { node_id: 3, fx: f_fixed, fz: 0.0, my: 0.0 }),
     ];
     let input_a = make_input(nodes.clone(), vec![(1, e, 0.3)], vec![(1, a, iz)],
         elems.clone(), sups.clone(), loads_a);
@@ -597,8 +597,8 @@ fn validation_seis_iso_ext_6_period_shift_ratio() {
     // Case B: Isolated demand = reduced force by period ratio
     let f_iso = f_fixed * sa_reduction;
     let loads_b = vec![
-        SolverLoad::Nodal(SolverNodalLoad { node_id: 2, fx: f_iso, fy: 0.0, mz: 0.0 }),
-        SolverLoad::Nodal(SolverNodalLoad { node_id: 3, fx: f_iso, fy: 0.0, mz: 0.0 }),
+        SolverLoad::Nodal(SolverNodalLoad { node_id: 2, fx: f_iso, fz: 0.0, my: 0.0 }),
+        SolverLoad::Nodal(SolverNodalLoad { node_id: 3, fx: f_iso, fz: 0.0, my: 0.0 }),
     ];
     let input_b = make_input(nodes, vec![(1, e, 0.3)], vec![(1, a, iz)],
         elems, sups, loads_b);
@@ -683,8 +683,8 @@ fn validation_seis_iso_ext_7_hdr_shear_modulus() {
     let delta_exact = f_design / (k_beam + k_h_kn_m);
 
     let mut nodes = HashMap::new();
-    nodes.insert("1".to_string(), SolverNode { id: 1, x: 0.0, y: 0.0 });
-    nodes.insert("2".to_string(), SolverNode { id: 2, x: l, y: 0.0 });
+    nodes.insert("1".to_string(), SolverNode { id: 1, x: 0.0, z: 0.0 });
+    nodes.insert("2".to_string(), SolverNode { id: 2, x: l, z: 0.0 });
 
     let mut mats = HashMap::new();
     mats.insert("1".to_string(), SolverMaterial { id: 1, e, nu: 0.3 });
@@ -704,16 +704,16 @@ fn validation_seis_iso_ext_7_hdr_shear_modulus() {
     sups.insert("1".to_string(), SolverSupport {
         id: 1, node_id: 1, support_type: "fixed".to_string(),
         kx: None, ky: None, kz: None,
-        dx: None, dy: None, drz: None, angle: None,
+        dx: None, dz: None, dry: None, angle: None,
     });
     sups.insert("2".to_string(), SolverSupport {
         id: 2, node_id: 2, support_type: "spring".to_string(),
         kx: Some(k_h_kn_m), ky: None, kz: None,
-        dx: None, dy: None, drz: None, angle: None,
+        dx: None, dz: None, dry: None, angle: None,
     });
 
     let loads = vec![SolverLoad::Nodal(SolverNodalLoad {
-        node_id: 2, fx: f_design, fy: 0.0, mz: 0.0,
+        node_id: 2, fx: f_design, fz: 0.0, my: 0.0,
     })];
 
     let input = SolverInput { nodes, materials: mats, sections: secs, elements: elems, supports: sups, loads, constraints: vec![],  connectors: HashMap::new() };
@@ -813,10 +813,10 @@ fn validation_seis_iso_ext_8_isolation_effectiveness() {
 
     // Fixed-base model
     let loads_fixed = vec![
-        SolverLoad::Nodal(SolverNodalLoad { node_id: 2, fx: f1_fixed / 2.0, fy: 0.0, mz: 0.0 }),
-        SolverLoad::Nodal(SolverNodalLoad { node_id: 5, fx: f1_fixed / 2.0, fy: 0.0, mz: 0.0 }),
-        SolverLoad::Nodal(SolverNodalLoad { node_id: 3, fx: f2_fixed / 2.0, fy: 0.0, mz: 0.0 }),
-        SolverLoad::Nodal(SolverNodalLoad { node_id: 6, fx: f2_fixed / 2.0, fy: 0.0, mz: 0.0 }),
+        SolverLoad::Nodal(SolverNodalLoad { node_id: 2, fx: f1_fixed / 2.0, fz: 0.0, my: 0.0 }),
+        SolverLoad::Nodal(SolverNodalLoad { node_id: 5, fx: f1_fixed / 2.0, fz: 0.0, my: 0.0 }),
+        SolverLoad::Nodal(SolverNodalLoad { node_id: 3, fx: f2_fixed / 2.0, fz: 0.0, my: 0.0 }),
+        SolverLoad::Nodal(SolverNodalLoad { node_id: 6, fx: f2_fixed / 2.0, fz: 0.0, my: 0.0 }),
     ];
     let input_fixed = make_input(nodes.clone(), vec![(1, e, 0.3)], vec![(1, a, iz)],
         elems.clone(), sups.clone(), loads_fixed);
@@ -826,10 +826,10 @@ fn validation_seis_iso_ext_8_isolation_effectiveness() {
 
     // Isolated model (same structure, reduced force)
     let loads_iso = vec![
-        SolverLoad::Nodal(SolverNodalLoad { node_id: 2, fx: f1_iso / 2.0, fy: 0.0, mz: 0.0 }),
-        SolverLoad::Nodal(SolverNodalLoad { node_id: 5, fx: f1_iso / 2.0, fy: 0.0, mz: 0.0 }),
-        SolverLoad::Nodal(SolverNodalLoad { node_id: 3, fx: f2_iso / 2.0, fy: 0.0, mz: 0.0 }),
-        SolverLoad::Nodal(SolverNodalLoad { node_id: 6, fx: f2_iso / 2.0, fy: 0.0, mz: 0.0 }),
+        SolverLoad::Nodal(SolverNodalLoad { node_id: 2, fx: f1_iso / 2.0, fz: 0.0, my: 0.0 }),
+        SolverLoad::Nodal(SolverNodalLoad { node_id: 5, fx: f1_iso / 2.0, fz: 0.0, my: 0.0 }),
+        SolverLoad::Nodal(SolverNodalLoad { node_id: 3, fx: f2_iso / 2.0, fz: 0.0, my: 0.0 }),
+        SolverLoad::Nodal(SolverNodalLoad { node_id: 6, fx: f2_iso / 2.0, fz: 0.0, my: 0.0 }),
     ];
     let input_iso = make_input(nodes, vec![(1, e, 0.3)], vec![(1, a, iz)],
         elems, sups, loads_iso);

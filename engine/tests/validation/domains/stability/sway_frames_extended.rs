@@ -71,8 +71,8 @@ fn validation_sway_braced_vs_unbraced_portal() {
     let loads = vec![SolverLoad::Nodal(SolverNodalLoad {
         node_id: 2,
         fx: p,
-        fy: 0.0,
-        mz: 0.0,
+        fz: 0.0,
+        my: 0.0,
     })];
 
     let input_braced = make_input(
@@ -147,8 +147,8 @@ fn validation_sway_lateral_stiffness_24ei_h3() {
     let loads = vec![SolverLoad::Nodal(SolverNodalLoad {
         node_id: 2,
         fx: p,
-        fy: 0.0,
-        mz: 0.0,
+        fz: 0.0,
+        my: 0.0,
     })];
 
     let input = make_input(
@@ -224,14 +224,14 @@ fn validation_sway_two_story_drift_increases_with_height() {
         SolverLoad::Nodal(SolverNodalLoad {
             node_id: 2,
             fx: p,
-            fy: 0.0,
-            mz: 0.0,
+            fz: 0.0,
+            my: 0.0,
         }),
         SolverLoad::Nodal(SolverNodalLoad {
             node_id: 5,
             fx: p,
-            fy: 0.0,
-            mz: 0.0,
+            fz: 0.0,
+            my: 0.0,
         }),
     ];
 
@@ -299,7 +299,7 @@ fn validation_sway_symmetric_gravity_zero_sway() {
     let sway_3: f64 = d3.ux.abs();
 
     // Vertical displacement for scale reference
-    let vert_2: f64 = d2.uy.abs();
+    let vert_2: f64 = d2.uz.abs();
 
     // Horizontal sway should be negligible compared to vertical deflection
     assert!(
@@ -361,14 +361,14 @@ fn validation_sway_asymmetric_portal_gravity_sway() {
         SolverLoad::Nodal(SolverNodalLoad {
             node_id: 2,
             fx: 0.0,
-            fy: gravity,
-            mz: 0.0,
+            fz: gravity,
+            my: 0.0,
         }),
         SolverLoad::Nodal(SolverNodalLoad {
             node_id: 3,
             fx: 0.0,
-            fy: gravity,
-            mz: 0.0,
+            fz: gravity,
+            my: 0.0,
         }),
     ];
 
@@ -398,7 +398,7 @@ fn validation_sway_asymmetric_portal_gravity_sway() {
     );
 
     // Vertical equilibrium
-    let sum_ry: f64 = results.reactions.iter().map(|r| r.ry).sum();
+    let sum_ry: f64 = results.reactions.iter().map(|r| r.rz).sum();
     assert_close(sum_ry, -2.0 * gravity, 0.02, "Asymmetric portal: sum_ry = -2G");
 }
 
@@ -449,16 +449,16 @@ fn validation_sway_doubling_load_doubles_sway() {
 
         // uy should double
         assert_close(
-            d2.uy,
-            2.0 * d1.uy,
+            d2.uz,
+            2.0 * d1.uz,
             0.01,
             &format!("Node {}: uy should double", node_id),
         );
 
         // rz should double
         assert_close(
-            d2.rz,
-            2.0 * d1.rz,
+            d2.ry,
+            2.0 * d1.ry,
             0.01,
             &format!("Node {}: rz should double", node_id),
         );
@@ -484,14 +484,14 @@ fn validation_sway_doubling_load_doubles_sway() {
             &format!("Node {}: rx should double", node_id),
         );
         assert_close(
-            r2.ry,
-            2.0 * r1.ry,
+            r2.rz,
+            2.0 * r1.rz,
             0.01,
             &format!("Node {}: ry should double", node_id),
         );
         assert_close(
-            r2.mz,
-            2.0 * r1.mz,
+            r2.my,
+            2.0 * r1.my,
             0.01,
             &format!("Node {}: mz should double", node_id),
         );
@@ -535,8 +535,8 @@ fn validation_sway_stiffer_columns_reduce_sway() {
         let loads = vec![SolverLoad::Nodal(SolverNodalLoad {
             node_id: 2,
             fx: p,
-            fy: 0.0,
-            mz: 0.0,
+            fz: 0.0,
+            my: 0.0,
         })];
         let input = make_input(
             nodes,
@@ -629,8 +629,8 @@ fn validation_sway_multi_bay_increases_stiffness() {
         let loads = vec![SolverLoad::Nodal(SolverNodalLoad {
             node_id: top_left,
             fx: p,
-            fy: 0.0,
-            mz: 0.0,
+            fz: 0.0,
+            my: 0.0,
         })];
 
         let input = make_input(nodes, vec![(1, E, 0.3)], vec![(1, A, IZ)], elems, sups, loads);

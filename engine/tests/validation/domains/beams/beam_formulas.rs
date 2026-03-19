@@ -27,23 +27,23 @@ fn validation_ss_midspan_point_load() {
     // Midspan node = n/2 + 1 = 5 at x=5
     let mut loads = vec![];
     loads.push(SolverLoad::Nodal(SolverNodalLoad {
-        node_id: n / 2 + 1, fx: 0.0, fy: -p, mz: 0.0,
+        node_id: n / 2 + 1, fx: 0.0, fz: -p, my: 0.0,
     }));
     let input = make_beam(n, l, E, A, IZ, "pinned", Some("rollerX"), loads);
     let results = linear::solve_2d(&input).unwrap();
 
     let mid = results.displacements.iter().find(|d| d.node_id == n / 2 + 1).unwrap();
     let expected_delta = p * l.powi(3) / (48.0 * EI);
-    assert_close(mid.uy.abs(), expected_delta, 0.01, "SS midspan δ");
+    assert_close(mid.uz.abs(), expected_delta, 0.01, "SS midspan δ");
 
     // Check reactions
     let r1 = results.reactions.iter().find(|r| r.node_id == 1).unwrap();
     let r_end = results.reactions.iter().find(|r| r.node_id == n + 1).unwrap();
-    assert_close(r1.ry, p / 2.0, 0.01, "SS R_A");
-    assert_close(r_end.ry, p / 2.0, 0.01, "SS R_B");
+    assert_close(r1.rz, p / 2.0, 0.01, "SS R_A");
+    assert_close(r_end.rz, p / 2.0, 0.01, "SS R_B");
 
     // Equilibrium
-    let sum_ry: f64 = results.reactions.iter().map(|r| r.ry).sum();
+    let sum_ry: f64 = results.reactions.iter().map(|r| r.rz).sum();
     assert_close(sum_ry, p, 0.01, "SS ΣRy = P");
 }
 
@@ -61,19 +61,19 @@ fn validation_ss_point_at_third() {
 
     let input = make_beam(n, l, E, A, IZ, "pinned", Some("rollerX"),
         vec![SolverLoad::Nodal(SolverNodalLoad {
-            node_id: load_node, fx: 0.0, fy: -p, mz: 0.0,
+            node_id: load_node, fx: 0.0, fz: -p, my: 0.0,
         })]);
     let results = linear::solve_2d(&input).unwrap();
 
     let r1 = results.reactions.iter().find(|r| r.node_id == 1).unwrap();
     let r_end = results.reactions.iter().find(|r| r.node_id == n + 1).unwrap();
-    assert_close(r1.ry, p * b / l, 0.01, "SS L/3 R_A");
-    assert_close(r_end.ry, p * a / l, 0.01, "SS L/3 R_B");
+    assert_close(r1.rz, p * b / l, 0.01, "SS L/3 R_A");
+    assert_close(r_end.rz, p * a / l, 0.01, "SS L/3 R_B");
 
     // δ at load point = Pa²b²/(3EIL)
     let expected_delta = p * a * a * b * b / (3.0 * EI * l);
     let d_load = results.displacements.iter().find(|d| d.node_id == load_node).unwrap();
-    assert_close(d_load.uy.abs(), expected_delta, 0.01, "SS L/3 δ");
+    assert_close(d_load.uz.abs(), expected_delta, 0.01, "SS L/3 δ");
 }
 
 #[test]
@@ -90,14 +90,14 @@ fn validation_ss_udl() {
 
     let mid = results.displacements.iter().find(|d| d.node_id == n / 2 + 1).unwrap();
     let expected_delta = 5.0 * q * l.powi(4) / (384.0 * EI);
-    assert_close(mid.uy.abs(), expected_delta, 0.01, "SS UDL δ_mid");
+    assert_close(mid.uz.abs(), expected_delta, 0.01, "SS UDL δ_mid");
 
     let d1 = results.displacements.iter().find(|d| d.node_id == 1).unwrap();
     let expected_theta = q * l.powi(3) / (24.0 * EI);
-    assert_close(d1.rz.abs(), expected_theta, 0.01, "SS UDL θ_A");
+    assert_close(d1.ry.abs(), expected_theta, 0.01, "SS UDL θ_A");
 
     // Reactions: R = qL/2 = 60
-    let sum_ry: f64 = results.reactions.iter().map(|r| r.ry).sum();
+    let sum_ry: f64 = results.reactions.iter().map(|r| r.rz).sum();
     assert_close(sum_ry, q * l, 0.01, "SS UDL ΣRy");
 }
 
@@ -126,11 +126,11 @@ fn validation_ss_triangular_load() {
 
     let r1 = results.reactions.iter().find(|r| r.node_id == 1).unwrap();
     let r_end = results.reactions.iter().find(|r| r.node_id == n + 1).unwrap();
-    assert_close(r1.ry, q0 * l / 6.0, 0.02, "tri R_A");
-    assert_close(r_end.ry, q0 * l / 3.0, 0.02, "tri R_B");
+    assert_close(r1.rz, q0 * l / 6.0, 0.02, "tri R_A");
+    assert_close(r_end.rz, q0 * l / 3.0, 0.02, "tri R_B");
 
     // Equilibrium: total load = q0*L/2 = 100
-    let sum_ry: f64 = results.reactions.iter().map(|r| r.ry).sum();
+    let sum_ry: f64 = results.reactions.iter().map(|r| r.rz).sum();
     assert_close(sum_ry, q0 * l / 2.0, 0.01, "tri ΣRy");
 }
 
@@ -150,17 +150,17 @@ fn validation_cantilever_tip_point_load() {
 
     let input = make_beam(n, l, E, A, IZ, "fixed", None,
         vec![SolverLoad::Nodal(SolverNodalLoad {
-            node_id: n + 1, fx: 0.0, fy: -p, mz: 0.0,
+            node_id: n + 1, fx: 0.0, fz: -p, my: 0.0,
         })]);
     let results = linear::solve_2d(&input).unwrap();
 
     let tip = results.displacements.iter().find(|d| d.node_id == n + 1).unwrap();
-    assert_close(tip.uy.abs(), p * l.powi(3) / (3.0 * EI), 0.01, "cantilever tip δ");
-    assert_close(tip.rz.abs(), p * l.powi(2) / (2.0 * EI), 0.01, "cantilever tip θ");
+    assert_close(tip.uz.abs(), p * l.powi(3) / (3.0 * EI), 0.01, "cantilever tip δ");
+    assert_close(tip.ry.abs(), p * l.powi(2) / (2.0 * EI), 0.01, "cantilever tip θ");
 
     let r1 = results.reactions.iter().find(|r| r.node_id == 1).unwrap();
-    assert_close(r1.ry, p, 0.01, "cantilever Ry");
-    assert_close(r1.mz.abs(), p * l, 0.01, "cantilever M_fixed");
+    assert_close(r1.rz, p, 0.01, "cantilever Ry");
+    assert_close(r1.my.abs(), p * l, 0.01, "cantilever M_fixed");
 }
 
 #[test]
@@ -184,12 +184,12 @@ fn validation_cantilever_udl() {
     let results = linear::solve_2d(&input).unwrap();
 
     let tip = results.displacements.iter().find(|d| d.node_id == n + 1).unwrap();
-    assert_close(tip.uy.abs(), q * l.powi(4) / (8.0 * EI), 0.01, "cantilever UDL δ");
-    assert_close(tip.rz.abs(), q * l.powi(3) / (6.0 * EI), 0.01, "cantilever UDL θ");
+    assert_close(tip.uz.abs(), q * l.powi(4) / (8.0 * EI), 0.01, "cantilever UDL δ");
+    assert_close(tip.ry.abs(), q * l.powi(3) / (6.0 * EI), 0.01, "cantilever UDL θ");
 
     let r1 = results.reactions.iter().find(|r| r.node_id == 1).unwrap();
-    assert_close(r1.ry, q * l, 0.01, "cantilever UDL Ry");
-    assert_close(r1.mz.abs(), q * l * l / 2.0, 0.01, "cantilever UDL M_fixed");
+    assert_close(r1.rz, q * l, 0.01, "cantilever UDL Ry");
+    assert_close(r1.my.abs(), q * l * l / 2.0, 0.01, "cantilever UDL M_fixed");
 }
 
 #[test]
@@ -203,13 +203,13 @@ fn validation_cantilever_tip_moment() {
 
     let input = make_beam(n, l, E, A, IZ, "fixed", None,
         vec![SolverLoad::Nodal(SolverNodalLoad {
-            node_id: n + 1, fx: 0.0, fy: 0.0, mz: m,
+            node_id: n + 1, fx: 0.0, fz: 0.0, my: m,
         })]);
     let results = linear::solve_2d(&input).unwrap();
 
     let tip = results.displacements.iter().find(|d| d.node_id == n + 1).unwrap();
-    assert_close(tip.uy.abs(), m * l * l / (2.0 * EI), 0.01, "cantilever moment δ");
-    assert_close(tip.rz.abs(), m * l / EI, 0.01, "cantilever moment θ");
+    assert_close(tip.uz.abs(), m * l * l / (2.0 * EI), 0.01, "cantilever moment δ");
+    assert_close(tip.ry.abs(), m * l / EI, 0.01, "cantilever moment θ");
 }
 
 #[test]
@@ -223,13 +223,13 @@ fn validation_cantilever_midlength_point() {
 
     let input = make_beam(n, l, E, A, IZ, "fixed", None,
         vec![SolverLoad::Nodal(SolverNodalLoad {
-            node_id: n / 2 + 1, fx: 0.0, fy: -p, mz: 0.0,
+            node_id: n / 2 + 1, fx: 0.0, fz: -p, my: 0.0,
         })]);
     let results = linear::solve_2d(&input).unwrap();
 
     let tip = results.displacements.iter().find(|d| d.node_id == n + 1).unwrap();
     let expected = p * a * a * (3.0 * l - a) / (6.0 * EI);
-    assert_close(tip.uy.abs(), expected, 0.01, "cantilever mid-load tip δ");
+    assert_close(tip.uz.abs(), expected, 0.01, "cantilever mid-load tip δ");
 }
 
 // ═══════════════════════════════════════════════════════════════
@@ -255,13 +255,13 @@ fn validation_propped_cantilever_udl() {
     let results = linear::solve_2d(&input).unwrap();
 
     let r_end = results.reactions.iter().find(|r| r.node_id == n + 1).unwrap();
-    assert_close(r_end.ry, 3.0 * q * l / 8.0, 0.01, "propped UDL R_roller");
+    assert_close(r_end.rz, 3.0 * q * l / 8.0, 0.01, "propped UDL R_roller");
 
     let r1 = results.reactions.iter().find(|r| r.node_id == 1).unwrap();
-    assert_close(r1.mz.abs(), q * l * l / 8.0, 0.02, "propped UDL M_fixed");
+    assert_close(r1.my.abs(), q * l * l / 8.0, 0.02, "propped UDL M_fixed");
 
     // Equilibrium
-    let sum_ry: f64 = results.reactions.iter().map(|r| r.ry).sum();
+    let sum_ry: f64 = results.reactions.iter().map(|r| r.rz).sum();
     assert_close(sum_ry, q * l, 0.01, "propped UDL ΣRy");
 }
 
@@ -275,15 +275,15 @@ fn validation_propped_cantilever_midspan_point() {
 
     let input = make_beam(n, l, E, A, IZ, "fixed", Some("rollerX"),
         vec![SolverLoad::Nodal(SolverNodalLoad {
-            node_id: n / 2 + 1, fx: 0.0, fy: -p, mz: 0.0,
+            node_id: n / 2 + 1, fx: 0.0, fz: -p, my: 0.0,
         })]);
     let results = linear::solve_2d(&input).unwrap();
 
     let r_end = results.reactions.iter().find(|r| r.node_id == n + 1).unwrap();
-    assert_close(r_end.ry, 5.0 * p / 16.0, 0.01, "propped point R_roller");
+    assert_close(r_end.rz, 5.0 * p / 16.0, 0.01, "propped point R_roller");
 
     let r1 = results.reactions.iter().find(|r| r.node_id == 1).unwrap();
-    assert_close(r1.mz.abs(), 3.0 * p * l / 16.0, 0.02, "propped point M_fixed");
+    assert_close(r1.my.abs(), 3.0 * p * l / 16.0, 0.02, "propped point M_fixed");
 }
 
 // ═══════════════════════════════════════════════════════════════
@@ -311,14 +311,14 @@ fn validation_fixed_fixed_udl() {
 
     let r1 = results.reactions.iter().find(|r| r.node_id == 1).unwrap();
     let r_end = results.reactions.iter().find(|r| r.node_id == n + 1).unwrap();
-    assert_close(r1.mz.abs(), q * l * l / 12.0, 0.02, "FF UDL M_end_A");
-    assert_close(r_end.mz.abs(), q * l * l / 12.0, 0.02, "FF UDL M_end_B");
+    assert_close(r1.my.abs(), q * l * l / 12.0, 0.02, "FF UDL M_end_A");
+    assert_close(r_end.my.abs(), q * l * l / 12.0, 0.02, "FF UDL M_end_B");
 
     let mid = results.displacements.iter().find(|d| d.node_id == n / 2 + 1).unwrap();
-    assert_close(mid.uy.abs(), q * l.powi(4) / (384.0 * EI), 0.02, "FF UDL δ_mid");
+    assert_close(mid.uz.abs(), q * l.powi(4) / (384.0 * EI), 0.02, "FF UDL δ_mid");
 
     // Equilibrium
-    let sum_ry: f64 = results.reactions.iter().map(|r| r.ry).sum();
+    let sum_ry: f64 = results.reactions.iter().map(|r| r.rz).sum();
     assert_close(sum_ry, q * l, 0.01, "FF UDL ΣRy");
 }
 
@@ -332,17 +332,17 @@ fn validation_fixed_fixed_midspan_point() {
 
     let input = make_beam(n, l, E, A, IZ, "fixed", Some("fixed"),
         vec![SolverLoad::Nodal(SolverNodalLoad {
-            node_id: n / 2 + 1, fx: 0.0, fy: -p, mz: 0.0,
+            node_id: n / 2 + 1, fx: 0.0, fz: -p, my: 0.0,
         })]);
     let results = linear::solve_2d(&input).unwrap();
 
     let r1 = results.reactions.iter().find(|r| r.node_id == 1).unwrap();
     let r_end = results.reactions.iter().find(|r| r.node_id == n + 1).unwrap();
-    assert_close(r1.mz.abs(), p * l / 8.0, 0.02, "FF point M_end_A");
-    assert_close(r_end.mz.abs(), p * l / 8.0, 0.02, "FF point M_end_B");
+    assert_close(r1.my.abs(), p * l / 8.0, 0.02, "FF point M_end_A");
+    assert_close(r_end.my.abs(), p * l / 8.0, 0.02, "FF point M_end_B");
 
     let mid = results.displacements.iter().find(|d| d.node_id == n / 2 + 1).unwrap();
-    assert_close(mid.uy.abs(), p * l.powi(3) / (192.0 * EI), 0.02, "FF point δ_mid");
+    assert_close(mid.uz.abs(), p * l.powi(3) / (192.0 * EI), 0.02, "FF point δ_mid");
 }
 
 // ═══════════════════════════════════════════════════════════════
@@ -365,18 +365,18 @@ fn validation_overhang_point_load() {
         ],
         vec![(1, 1, "pinned"), (2, 3, "rollerX")],
         vec![SolverLoad::Nodal(SolverNodalLoad {
-            node_id: 4, fx: 0.0, fy: -50.0, mz: 0.0,
+            node_id: 4, fx: 0.0, fz: -50.0, my: 0.0,
         })],
     );
     let results = linear::solve_2d(&input).unwrap();
 
     let r1 = results.reactions.iter().find(|r| r.node_id == 1).unwrap();
     let r3 = results.reactions.iter().find(|r| r.node_id == 3).unwrap();
-    assert_close(r1.ry, -18.75, 0.01, "overhang R_A");
-    assert_close(r3.ry, 68.75, 0.01, "overhang R_B");
+    assert_close(r1.rz, -18.75, 0.01, "overhang R_A");
+    assert_close(r3.rz, 68.75, 0.01, "overhang R_B");
 
     // Equilibrium
-    let sum_ry: f64 = results.reactions.iter().map(|r| r.ry).sum();
+    let sum_ry: f64 = results.reactions.iter().map(|r| r.rz).sum();
     assert_close(sum_ry, 50.0, 0.01, "overhang ΣRy");
 }
 
@@ -391,7 +391,7 @@ fn validation_beam_equilibrium_comprehensive() {
         ("SS+UDL", make_ss_beam_udl(8, 10.0, E, A, IZ, -12.0), 12.0 * 10.0),
         ("Cantilever+P", make_beam(8, 8.0, E, A, IZ, "fixed", None,
             vec![SolverLoad::Nodal(SolverNodalLoad {
-                node_id: 9, fx: 0.0, fy: -60.0, mz: 0.0,
+                node_id: 9, fx: 0.0, fz: -60.0, my: 0.0,
             })]), 60.0),
         ("FF+UDL", {
             let mut loads = Vec::new();
@@ -406,7 +406,7 @@ fn validation_beam_equilibrium_comprehensive() {
 
     for (label, input, total_load) in cases {
         let results = linear::solve_2d(&input).unwrap();
-        let sum_ry: f64 = results.reactions.iter().map(|r| r.ry).sum();
+        let sum_ry: f64 = results.reactions.iter().map(|r| r.rz).sum();
         assert!(
             (sum_ry - total_load).abs() < 0.5,
             "{}: ΣRy={:.4}, expected={:.4}", label, sum_ry, total_load

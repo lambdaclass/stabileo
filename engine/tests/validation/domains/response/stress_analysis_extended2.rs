@@ -61,7 +61,7 @@ fn validation_stress2_ext_mohrs_circle() {
     let input = make_beam(
         n, l, E, A, IZ, "fixed", None,
         vec![SolverLoad::Nodal(SolverNodalLoad {
-            node_id: n + 1, fx: 0.0, fy: p, mz: 0.0,
+            node_id: n + 1, fx: 0.0, fz: p, my: 0.0,
         })],
     );
     let results = linear::solve_2d(&input).unwrap();
@@ -148,10 +148,10 @@ fn validation_stress2_ext_von_mises_yield() {
         n, l, E, A, IZ, "fixed", None,
         vec![
             SolverLoad::Nodal(SolverNodalLoad {
-                node_id: tip_node, fx: p_axial, fy: 0.0, mz: 0.0,
+                node_id: tip_node, fx: p_axial, fz: 0.0, my: 0.0,
             }),
             SolverLoad::Nodal(SolverNodalLoad {
-                node_id: tip_node, fx: 0.0, fy: p_trans, mz: 0.0,
+                node_id: tip_node, fx: 0.0, fz: p_trans, my: 0.0,
             }),
         ],
     );
@@ -222,7 +222,7 @@ fn validation_stress2_ext_tresca_yield() {
     let input = make_beam(
         n, l, E, A, IZ, "fixed", None,
         vec![SolverLoad::Nodal(SolverNodalLoad {
-            node_id: n + 1, fx: 0.0, fy: p, mz: 0.0,
+            node_id: n + 1, fx: 0.0, fz: p, my: 0.0,
         })],
     );
     let results = linear::solve_2d(&input).unwrap();
@@ -308,7 +308,7 @@ fn validation_stress2_ext_combined_bending_torsion() {
     let input = make_beam(
         n, l, E, A, IZ, "fixed", None,
         vec![SolverLoad::Nodal(SolverNodalLoad {
-            node_id: n + 1, fx: 0.0, fy: p, mz: 0.0,
+            node_id: n + 1, fx: 0.0, fz: p, my: 0.0,
         })],
     );
     let results = linear::solve_2d(&input).unwrap();
@@ -388,7 +388,7 @@ fn validation_stress2_ext_stress_transformation() {
     let input = make_beam(
         n, l, E, A, IZ, "fixed", None,
         vec![SolverLoad::Nodal(SolverNodalLoad {
-            node_id: n + 1, fx: 0.0, fy: p, mz: 0.0,
+            node_id: n + 1, fx: 0.0, fz: p, my: 0.0,
         })],
     );
     let results = linear::solve_2d(&input).unwrap();
@@ -512,7 +512,7 @@ fn validation_stress2_ext_pressure_vessel() {
     let input = make_beam(
         1, l_bar, E, A, iz_sec, "pinned", Some("rollerX"),
         vec![SolverLoad::Nodal(SolverNodalLoad {
-            node_id: 2, fx: n_axial_kn, fy: 0.0, mz: 0.0,
+            node_id: 2, fx: n_axial_kn, fz: 0.0, my: 0.0,
         })],
     );
     let results = linear::solve_2d(&input).unwrap();
@@ -555,7 +555,7 @@ fn validation_stress2_ext_beam_stress_distribution() {
     let input = make_beam(
         n, l, E, A, IZ, "pinned", Some("rollerX"),
         vec![SolverLoad::Nodal(SolverNodalLoad {
-            node_id: 3, fx: 0.0, fy: p, mz: 0.0,
+            node_id: 3, fx: 0.0, fz: p, my: 0.0,
         })],
     );
     let results = linear::solve_2d(&input).unwrap();
@@ -683,7 +683,7 @@ fn validation_stress2_ext_stress_concentration() {
     let input = make_beam(
         2, l_bar, E, a_bar, iz_bar, "pinned", Some("rollerX"),
         vec![SolverLoad::Nodal(SolverNodalLoad {
-            node_id: 3, fx: p_axial, fy: 0.0, mz: 0.0,
+            node_id: 3, fx: p_axial, fz: 0.0, my: 0.0,
         })],
     );
     let results = linear::solve_2d(&input).unwrap();

@@ -53,9 +53,9 @@ fn validation_redistrib_fixed_fixed_udl_moments() {
     let m_end_exact = w * l * l / 12.0;
     let r1 = results.reactions.iter().find(|r| r.node_id == 1).unwrap();
     let r_end = results.reactions.iter().find(|r| r.node_id == n + 1).unwrap();
-    assert_close(r1.mz.abs(), m_end_exact, 0.02,
+    assert_close(r1.my.abs(), m_end_exact, 0.02,
         "Fixed-fixed end moment = qL²/12");
-    assert_close(r_end.mz.abs(), m_end_exact, 0.02,
+    assert_close(r_end.my.abs(), m_end_exact, 0.02,
         "Fixed-fixed far end moment = qL²/12");
 
     // Midspan moment from element forces at center element
@@ -100,7 +100,7 @@ fn validation_redistrib_two_span_interior_moment() {
 
     // End reactions: R_A = R_C = 3wL/8
     let r_a = results.reactions.iter().find(|r| r.node_id == 1).unwrap();
-    assert_close(r_a.ry, 3.0 * q.abs() * l / 8.0, 0.02,
+    assert_close(r_a.rz, 3.0 * q.abs() * l / 8.0, 0.02,
         "Two-span end reaction = 3wL/8");
 }
 
@@ -133,13 +133,13 @@ fn validation_redistrib_propped_cantilever_ratios() {
 
     // M_A = wL²/8
     let m_exact = w * l * l / 8.0;
-    assert_close(r_a.mz.abs(), m_exact, 0.02,
+    assert_close(r_a.my.abs(), m_exact, 0.02,
         "Propped cantilever M_A = wL²/8");
 
     // R_A = 5wL/8, R_B = 3wL/8
-    assert_close(r_a.ry, 5.0 * w * l / 8.0, 0.02,
+    assert_close(r_a.rz, 5.0 * w * l / 8.0, 0.02,
         "Propped cantilever R_A = 5wL/8");
-    assert_close(r_b.ry, 3.0 * w * l / 8.0, 0.02,
+    assert_close(r_b.rz, 3.0 * w * l / 8.0, 0.02,
         "Propped cantilever R_B = 3wL/8");
 }
 
@@ -168,8 +168,8 @@ fn validation_redistrib_adding_support_changes_diagram() {
 
     // For SS beam, moment at midspan is maximum and each end is zero
     let r1_ss = res_ss.reactions.iter().find(|r| r.node_id == 1).unwrap();
-    assert!(r1_ss.mz.abs() < 1e-3,
-        "SS beam: no fixed-end moment: mz={:.6e}", r1_ss.mz);
+    assert!(r1_ss.my.abs() < 1e-3,
+        "SS beam: no fixed-end moment: mz={:.6e}", r1_ss.my);
 
     // Case 2: With interior support at midspan (two spans of L/2)
     let l_half = l_total / 2.0;
@@ -191,8 +191,8 @@ fn validation_redistrib_adding_support_changes_diagram() {
 
     // The interior support reaction should be non-zero
     let r_mid = res_2span.reactions.iter().find(|r| r.node_id == n_per_half + 1).unwrap();
-    assert!(r_mid.ry > q.abs() * l_total * 0.5,
-        "Added interior support carries more than half load: R_mid={:.4}", r_mid.ry);
+    assert!(r_mid.rz > q.abs() * l_total * 0.5,
+        "Added interior support carries more than half load: R_mid={:.4}", r_mid.rz);
 }
 
 // ================================================================
@@ -230,8 +230,8 @@ fn validation_redistrib_stiffness_ratio_effect() {
     let r_a = results.reactions.iter().find(|r| r.node_id == 1).unwrap();
     let r_c = results.reactions.iter().find(|r| r.node_id == 2 * n_per_span + 1).unwrap();
     // Shorter span end carries less load (less area under its moment diagram)
-    assert!(r_a.ry < r_c.ry,
-        "Shorter span end reaction < longer span end: Ra={:.4}, Rc={:.4}", r_a.ry, r_c.ry);
+    assert!(r_a.rz < r_c.rz,
+        "Shorter span end reaction < longer span end: Ra={:.4}, Rc={:.4}", r_a.rz, r_c.rz);
 }
 
 // ================================================================
@@ -260,12 +260,12 @@ fn validation_redistrib_fixed_vs_pinned_far_end() {
     // Propped cantilever (fixed-pinned)
     let input_fp = make_beam(n, l, E, A, IZ, "fixed", Some("rollerX"), loads.clone());
     let res_fp = linear::solve_2d(&input_fp).unwrap();
-    let m_a_propped = res_fp.reactions.iter().find(|r| r.node_id == 1).unwrap().mz.abs();
+    let m_a_propped = res_fp.reactions.iter().find(|r| r.node_id == 1).unwrap().my.abs();
 
     // Fixed-fixed
     let input_ff = make_beam(n, l, E, A, IZ, "fixed", Some("fixed"), loads);
     let res_ff = linear::solve_2d(&input_ff).unwrap();
-    let m_a_fixed = res_ff.reactions.iter().find(|r| r.node_id == 1).unwrap().mz.abs();
+    let m_a_fixed = res_ff.reactions.iter().find(|r| r.node_id == 1).unwrap().my.abs();
 
     // Expected values
     let m_propped_exact = w * l * l / 8.0;   // = 80
@@ -330,14 +330,14 @@ fn validation_redistrib_three_span_symmetric_pattern() {
     // Reactions: R_A = R_D = 0.4wL
     let r_a = results.reactions.iter().find(|r| r.node_id == 1).unwrap();
     let r_d = results.reactions.iter().find(|r| r.node_id == 3 * n_per_span + 1).unwrap();
-    assert_close(r_a.ry, 0.4 * w * l, 0.02, "Three-span R_A = 0.4wL");
-    assert_close(r_d.ry, 0.4 * w * l, 0.02, "Three-span R_D = 0.4wL");
+    assert_close(r_a.rz, 0.4 * w * l, 0.02, "Three-span R_A = 0.4wL");
+    assert_close(r_d.rz, 0.4 * w * l, 0.02, "Three-span R_D = 0.4wL");
 
     // R_B = R_C = 1.1wL
     let r_b = results.reactions.iter().find(|r| r.node_id == n_per_span + 1).unwrap();
     let r_c = results.reactions.iter().find(|r| r.node_id == 2 * n_per_span + 1).unwrap();
-    assert_close(r_b.ry, 1.1 * w * l, 0.02, "Three-span R_B = 1.1wL");
-    assert_close(r_c.ry, 1.1 * w * l, 0.02, "Three-span R_C = 1.1wL");
+    assert_close(r_b.rz, 1.1 * w * l, 0.02, "Three-span R_B = 1.1wL");
+    assert_close(r_c.rz, 1.1 * w * l, 0.02, "Three-span R_C = 1.1wL");
 }
 
 // ================================================================
@@ -385,17 +385,17 @@ fn validation_redistrib_carry_over_factor() {
 
     // Fixed-fixed: M_A = qL²/12
     let m_ff_exact = w * l * l / 12.0;
-    assert_close(r1_ff.mz.abs(), m_ff_exact, 0.02,
+    assert_close(r1_ff.my.abs(), m_ff_exact, 0.02,
         "Fixed-fixed M_A = qL²/12");
 
     // Propped cantilever: M_A = qL²/8
     let m_fp_exact = w * l * l / 8.0;
-    assert_close(r1_fp.mz.abs(), m_fp_exact, 0.02,
+    assert_close(r1_fp.my.abs(), m_fp_exact, 0.02,
         "Propped cantilever M_A = qL²/8");
 
     // Ratio M_fp/M_ff = (qL²/8) / (qL²/12) = 3/2
     // This reflects that fixing far end (adding carry-over back) reduces near-end moment
-    let ratio = r1_fp.mz.abs() / r1_ff.mz.abs();
+    let ratio = r1_fp.my.abs() / r1_ff.my.abs();
     assert_close(ratio, 3.0 / 2.0, 0.02,
         "Carry-over effect: M_propped/M_fixed = 3/2");
 

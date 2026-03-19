@@ -230,7 +230,7 @@ pub fn solve_creep_shrinkage_2d(input: &CreepShrinkageInput) -> Result<CreepShri
             let ni = node_by_id.get(&elem.node_i).unwrap();
             let nj = node_by_id.get(&elem.node_j).unwrap();
             let dx = nj.x - ni.x;
-            let dy = nj.y - ni.y;
+            let dy = nj.z - ni.z;
             let l = (dx * dx + dy * dy).sqrt();
             let cos = dx / l;
             let sin = dy / l;
@@ -239,14 +239,14 @@ pub fn solve_creep_shrinkage_2d(input: &CreepShrinkageInput) -> Result<CreepShri
             cs_loads.push(SolverLoad::Nodal(SolverNodalLoad {
                 node_id: elem.node_i,
                 fx: n_sh * cos,
-                fy: n_sh * sin,
-                mz: 0.0,
+                fz: n_sh * sin,
+                my: 0.0,
             }));
             cs_loads.push(SolverLoad::Nodal(SolverNodalLoad {
                 node_id: elem.node_j,
                 fx: -n_sh * cos,
-                fy: -n_sh * sin,
-                mz: 0.0,
+                fz: -n_sh * sin,
+                my: 0.0,
             }));
         }
 

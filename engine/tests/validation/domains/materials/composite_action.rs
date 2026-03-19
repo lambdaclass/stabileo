@@ -54,21 +54,21 @@ fn validation_composite_parallel_load_sharing() {
     let iz1 = IZ;
     let input1 = make_beam(n, l, E, A, iz1, "pinned", Some("rollerX"),
         vec![SolverLoad::Nodal(SolverNodalLoad {
-            node_id: mid, fx: 0.0, fy: -p, mz: 0.0,
+            node_id: mid, fx: 0.0, fz: -p, my: 0.0,
         })]);
     let res1 = linear::solve_2d(&input1).unwrap();
     let delta1 = res1.displacements.iter()
-        .find(|d| d.node_id == mid).unwrap().uy.abs();
+        .find(|d| d.node_id == mid).unwrap().uz.abs();
 
     // Beam 2: 3× stiffer
     let iz2 = 3.0 * IZ;
     let input2 = make_beam(n, l, E, A, iz2, "pinned", Some("rollerX"),
         vec![SolverLoad::Nodal(SolverNodalLoad {
-            node_id: mid, fx: 0.0, fy: -p, mz: 0.0,
+            node_id: mid, fx: 0.0, fz: -p, my: 0.0,
         })]);
     let res2 = linear::solve_2d(&input2).unwrap();
     let delta2 = res2.displacements.iter()
-        .find(|d| d.node_id == mid).unwrap().uy.abs();
+        .find(|d| d.node_id == mid).unwrap().uz.abs();
 
     // When both beams are forced to have the same midspan deflection,
     // the force in each is proportional to its stiffness:
@@ -113,11 +113,11 @@ fn validation_composite_equivalent_combined_ei() {
     // Single beam with combined EI
     let input_combined = make_beam(n, l, E, A, iz_combined, "pinned", Some("rollerX"),
         vec![SolverLoad::Nodal(SolverNodalLoad {
-            node_id: mid, fx: 0.0, fy: -p, mz: 0.0,
+            node_id: mid, fx: 0.0, fz: -p, my: 0.0,
         })]);
     let res_combined = linear::solve_2d(&input_combined).unwrap();
     let delta_fem = res_combined.displacements.iter()
-        .find(|d| d.node_id == mid).unwrap().uy.abs();
+        .find(|d| d.node_id == mid).unwrap().uz.abs();
 
     let err = (delta_fem - delta_combined_exact).abs() / delta_combined_exact;
     assert!(err < 0.02,
@@ -127,11 +127,11 @@ fn validation_composite_equivalent_combined_ei() {
     // Also verify: δ_combined < δ_weaker_alone
     let input_weak = make_beam(n, l, E, A, iz1, "pinned", Some("rollerX"),
         vec![SolverLoad::Nodal(SolverNodalLoad {
-            node_id: mid, fx: 0.0, fy: -p, mz: 0.0,
+            node_id: mid, fx: 0.0, fz: -p, my: 0.0,
         })]);
     let res_weak = linear::solve_2d(&input_weak).unwrap();
     let delta_weak = res_weak.displacements.iter()
-        .find(|d| d.node_id == mid).unwrap().uy.abs();
+        .find(|d| d.node_id == mid).unwrap().uz.abs();
 
     assert!(delta_fem < delta_weak,
         "Composite δ={:.6e} should be less than weaker beam alone δ={:.6e}",
@@ -165,19 +165,19 @@ fn validation_composite_transformed_section() {
 
     let input_a = make_beam(n, l, e_a, A, IZ, "pinned", Some("rollerX"),
         vec![SolverLoad::Nodal(SolverNodalLoad {
-            node_id: mid, fx: 0.0, fy: -p, mz: 0.0,
+            node_id: mid, fx: 0.0, fz: -p, my: 0.0,
         })]);
     let res_a = linear::solve_2d(&input_a).unwrap();
     let delta_a = res_a.displacements.iter()
-        .find(|d| d.node_id == mid).unwrap().uy.abs();
+        .find(|d| d.node_id == mid).unwrap().uz.abs();
 
     let input_b = make_beam(n, l, e_b, A, IZ, "pinned", Some("rollerX"),
         vec![SolverLoad::Nodal(SolverNodalLoad {
-            node_id: mid, fx: 0.0, fy: -p, mz: 0.0,
+            node_id: mid, fx: 0.0, fz: -p, my: 0.0,
         })]);
     let res_b = linear::solve_2d(&input_b).unwrap();
     let delta_b = res_b.displacements.iter()
-        .find(|d| d.node_id == mid).unwrap().uy.abs();
+        .find(|d| d.node_id == mid).unwrap().uz.abs();
 
     // Deflections are inversely proportional to E (and hence EI):
     //   δ_A / δ_B = E_B / E_A
@@ -212,20 +212,20 @@ fn validation_composite_double_beam_stiffness() {
     // Single beam
     let input_single = make_beam(n, l, E, A, IZ, "pinned", Some("rollerX"),
         vec![SolverLoad::Nodal(SolverNodalLoad {
-            node_id: mid, fx: 0.0, fy: -p, mz: 0.0,
+            node_id: mid, fx: 0.0, fz: -p, my: 0.0,
         })]);
     let res_single = linear::solve_2d(&input_single).unwrap();
     let delta_single = res_single.displacements.iter()
-        .find(|d| d.node_id == mid).unwrap().uy.abs();
+        .find(|d| d.node_id == mid).unwrap().uz.abs();
 
     // Double beam (full composite action = 2× EI)
     let input_double = make_beam(n, l, E, A, 2.0 * IZ, "pinned", Some("rollerX"),
         vec![SolverLoad::Nodal(SolverNodalLoad {
-            node_id: mid, fx: 0.0, fy: -p, mz: 0.0,
+            node_id: mid, fx: 0.0, fz: -p, my: 0.0,
         })]);
     let res_double = linear::solve_2d(&input_double).unwrap();
     let delta_double = res_double.displacements.iter()
-        .find(|d| d.node_id == mid).unwrap().uy.abs();
+        .find(|d| d.node_id == mid).unwrap().uz.abs();
 
     // Full composite action: δ_double = δ_single / 2
     let ratio = delta_double / delta_single;
@@ -277,7 +277,7 @@ fn validation_composite_parallel_chord_axial() {
     let sups = vec![(1, 1, "pinned"), (2, 3, "rollerX")];
     // Apply loads at upper chord midspan (node 5)
     let loads = vec![SolverLoad::Nodal(SolverNodalLoad {
-        node_id: 5, fx: 0.0, fy: -p, mz: 0.0,
+        node_id: 5, fx: 0.0, fz: -p, my: 0.0,
     })];
 
     let input = make_input(nodes, vec![(1, E, 0.3)], vec![(1, A, IZ)],
@@ -285,14 +285,14 @@ fn validation_composite_parallel_chord_axial() {
     let results = linear::solve_2d(&input).unwrap();
 
     // Equilibrium: vertical reactions must balance applied load
-    let sum_ry: f64 = results.reactions.iter().map(|r| r.ry).sum();
+    let sum_ry: f64 = results.reactions.iter().map(|r| r.rz).sum();
     let err_eq = (sum_ry - p).abs() / p;
     assert!(err_eq < 0.01,
         "Parallel chords equilibrium: ΣRy={:.4}, P={:.1}", sum_ry, p);
 
     // Each support should carry half the load (symmetric)
-    let r1 = results.reactions.iter().find(|r| r.node_id == 1).unwrap().ry;
-    let r3 = results.reactions.iter().find(|r| r.node_id == 3).unwrap().ry;
+    let r1 = results.reactions.iter().find(|r| r.node_id == 1).unwrap().rz;
+    let r3 = results.reactions.iter().find(|r| r.node_id == 3).unwrap().rz;
     let err_sym = (r1 - r3).abs() / r1.max(1e-12);
     assert!(err_sym < 0.01,
         "Symmetric load: R1={:.4}, R3={:.4} should be equal", r1, r3);
@@ -333,20 +333,20 @@ fn validation_composite_series_vs_parallel_stiffness() {
     // Beam with iz1 alone (weaker beam)
     let input_1 = make_beam(n, l, E, A, iz1, "pinned", Some("rollerX"),
         vec![SolverLoad::Nodal(SolverNodalLoad {
-            node_id: mid, fx: 0.0, fy: -p, mz: 0.0,
+            node_id: mid, fx: 0.0, fz: -p, my: 0.0,
         })]);
     let res_1 = linear::solve_2d(&input_1).unwrap();
     let delta_1 = res_1.displacements.iter()
-        .find(|d| d.node_id == mid).unwrap().uy.abs();
+        .find(|d| d.node_id == mid).unwrap().uz.abs();
 
     // Beam with iz2 alone (stiffer beam)
     let input_2 = make_beam(n, l, E, A, iz2, "pinned", Some("rollerX"),
         vec![SolverLoad::Nodal(SolverNodalLoad {
-            node_id: mid, fx: 0.0, fy: -p, mz: 0.0,
+            node_id: mid, fx: 0.0, fz: -p, my: 0.0,
         })]);
     let res_2 = linear::solve_2d(&input_2).unwrap();
     let delta_2 = res_2.displacements.iter()
-        .find(|d| d.node_id == mid).unwrap().uy.abs();
+        .find(|d| d.node_id == mid).unwrap().uz.abs();
 
     // Parallel combination (same deflection, load splits): δ = P/(k1+k2)
     // Verify: 1/δ_parallel = 1/δ₁ + 1/δ₂ — NO, this is SERIES.
@@ -402,21 +402,21 @@ fn validation_composite_load_distribution_by_ei() {
     // Solve each beam with its share of the load
     let input1 = make_beam(n, l, E, A, iz1, "pinned", Some("rollerX"),
         vec![SolverLoad::Nodal(SolverNodalLoad {
-            node_id: mid, fx: 0.0, fy: -p1, mz: 0.0,
+            node_id: mid, fx: 0.0, fz: -p1, my: 0.0,
         })]);
     let res1 = linear::solve_2d(&input1).unwrap();
 
     let input2 = make_beam(n, l, E, A, iz2, "pinned", Some("rollerX"),
         vec![SolverLoad::Nodal(SolverNodalLoad {
-            node_id: mid, fx: 0.0, fy: -p2, mz: 0.0,
+            node_id: mid, fx: 0.0, fz: -p2, my: 0.0,
         })]);
     let res2 = linear::solve_2d(&input2).unwrap();
 
     // Both beams should have the same midspan deflection (compatibility condition)
     let delta1 = res1.displacements.iter()
-        .find(|d| d.node_id == mid).unwrap().uy;
+        .find(|d| d.node_id == mid).unwrap().uz;
     let delta2 = res2.displacements.iter()
-        .find(|d| d.node_id == mid).unwrap().uy;
+        .find(|d| d.node_id == mid).unwrap().uz;
 
     let err = (delta1 - delta2).abs() / delta1.abs();
     assert!(err < 1e-8,
@@ -462,30 +462,30 @@ fn validation_composite_deflection_smaller_than_weaker() {
         // Weaker beam alone
         let input_a = make_beam(n, l, E, A, iz_a, "pinned", Some("rollerX"),
             vec![SolverLoad::Nodal(SolverNodalLoad {
-                node_id: mid, fx: 0.0, fy: -p, mz: 0.0,
+                node_id: mid, fx: 0.0, fz: -p, my: 0.0,
             })]);
         let res_a = linear::solve_2d(&input_a).unwrap();
         let delta_a = res_a.displacements.iter()
-            .find(|d| d.node_id == mid).unwrap().uy.abs();
+            .find(|d| d.node_id == mid).unwrap().uz.abs();
 
         // Stronger beam alone
         let input_b = make_beam(n, l, E, A, iz_b, "pinned", Some("rollerX"),
             vec![SolverLoad::Nodal(SolverNodalLoad {
-                node_id: mid, fx: 0.0, fy: -p, mz: 0.0,
+                node_id: mid, fx: 0.0, fz: -p, my: 0.0,
             })]);
         let res_b = linear::solve_2d(&input_b).unwrap();
         let delta_b = res_b.displacements.iter()
-            .find(|d| d.node_id == mid).unwrap().uy.abs();
+            .find(|d| d.node_id == mid).unwrap().uz.abs();
 
         // Composite (full composite action = combined EI)
         let iz_comp = iz_a + iz_b;
         let input_comp = make_beam(n, l, E, A, iz_comp, "pinned", Some("rollerX"),
             vec![SolverLoad::Nodal(SolverNodalLoad {
-                node_id: mid, fx: 0.0, fy: -p, mz: 0.0,
+                node_id: mid, fx: 0.0, fz: -p, my: 0.0,
             })]);
         let res_comp = linear::solve_2d(&input_comp).unwrap();
         let delta_comp = res_comp.displacements.iter()
-            .find(|d| d.node_id == mid).unwrap().uy.abs();
+            .find(|d| d.node_id == mid).unwrap().uz.abs();
 
         assert!(delta_comp < delta_a,
             "Composite δ={:.6e} should be less than weaker beam δ={:.6e} (iz_a={}, iz_b={})",

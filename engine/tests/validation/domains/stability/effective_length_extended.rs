@@ -258,10 +258,10 @@ fn validation_ext_eff_len_frame_sway_buckling() {
     let p_grav: f64 = -200.0;
     let loads = vec![
         SolverLoad::Nodal(SolverNodalLoad {
-            node_id: 2, fx: 0.0, fy: p_grav, mz: 0.0,
+            node_id: 2, fx: 0.0, fz: p_grav, my: 0.0,
         }),
         SolverLoad::Nodal(SolverNodalLoad {
-            node_id: 3, fx: 0.0, fy: p_grav, mz: 0.0,
+            node_id: 3, fx: 0.0, fz: p_grav, my: 0.0,
         }),
     ];
     let input_unbraced = make_input(nodes, mats, secs, elems, sups, loads);
@@ -296,10 +296,10 @@ fn validation_ext_eff_len_frame_sway_buckling() {
     let sups_b = vec![(1, 1, "fixed"), (2, 4, "fixed")];
     let loads_b = vec![
         SolverLoad::Nodal(SolverNodalLoad {
-            node_id: 2, fx: 0.0, fy: p_grav, mz: 0.0,
+            node_id: 2, fx: 0.0, fz: p_grav, my: 0.0,
         }),
         SolverLoad::Nodal(SolverNodalLoad {
-            node_id: 3, fx: 0.0, fy: p_grav, mz: 0.0,
+            node_id: 3, fx: 0.0, fz: p_grav, my: 0.0,
         }),
     ];
     let input_braced = make_input(nodes_b, mats_b, secs_b, elems_b, sups_b, loads_b);

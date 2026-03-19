@@ -37,7 +37,7 @@ fn validation_virtual_work_ss_center() {
 
     let mid = n / 2 + 1;
     let loads = vec![SolverLoad::Nodal(SolverNodalLoad {
-        node_id: mid, fx: 0.0, fy: -p, mz: 0.0,
+        node_id: mid, fx: 0.0, fz: -p, my: 0.0,
     })];
     let input = make_beam(n, l, E, A, IZ, "pinned", Some("rollerX"), loads);
     let results = linear::solve_2d(&input).unwrap();
@@ -46,7 +46,7 @@ fn validation_virtual_work_ss_center() {
 
     // Virtual work: δ = PL³/(48EI)
     let delta_exact = p * l * l * l / (48.0 * e_eff * IZ);
-    assert_close(d_mid.uy.abs(), delta_exact, 0.02,
+    assert_close(d_mid.uz.abs(), delta_exact, 0.02,
         "Virtual work: SS center δ = PL³/(48EI)");
 }
 
@@ -63,7 +63,7 @@ fn validation_virtual_work_axial() {
 
     // Cantilever with axial tip load
     let loads = vec![SolverLoad::Nodal(SolverNodalLoad {
-        node_id: n + 1, fx: p, fy: 0.0, mz: 0.0,
+        node_id: n + 1, fx: p, fz: 0.0, my: 0.0,
     })];
     let input = make_beam(n, l, E, A, IZ, "fixed", None, loads);
     let results = linear::solve_2d(&input).unwrap();
@@ -76,8 +76,8 @@ fn validation_virtual_work_axial() {
         "Virtual work: axial δ = PL/(EA)");
 
     // No bending deflection
-    assert!(tip.uy.abs() < delta_exact * 0.01,
-        "Virtual work: no bending under axial load: {:.6e}", tip.uy);
+    assert!(tip.uz.abs() < delta_exact * 0.01,
+        "Virtual work: no bending under axial load: {:.6e}", tip.uz);
 }
 
 // ================================================================
@@ -143,7 +143,7 @@ fn validation_virtual_work_truss() {
         ],
         vec![(1, 1, "pinned"), (2, 2, "rollerX")],
         vec![SolverLoad::Nodal(SolverNodalLoad {
-            node_id: 3, fx: 0.0, fy: -p, mz: 0.0,
+            node_id: 3, fx: 0.0, fz: -p, my: 0.0,
         })],
     );
     let results = linear::solve_2d(&input).unwrap();
@@ -158,13 +158,13 @@ fn validation_virtual_work_truss() {
     let delta_bottom = (p * cos_a / (2.0 * sin_a)) * (cos_a / (2.0 * sin_a)) * (2.0 * w) / (e_eff * a_truss);
     let delta_exact = delta_diag + delta_bottom;
 
-    assert_close(d3.uy.abs(), delta_exact, 0.02,
+    assert_close(d3.uz.abs(), delta_exact, 0.02,
         "Truss: δ_v by virtual work");
 
     // Horizontal displacement should be small relative to vertical
     // (not exactly zero because supports are asymmetric: pinned vs roller)
-    assert!(d3.ux.abs() < d3.uy.abs(),
-        "Truss: |ux| < |uy|: {:.6e} vs {:.6e}", d3.ux.abs(), d3.uy.abs());
+    assert!(d3.ux.abs() < d3.uz.abs(),
+        "Truss: |ux| < |uy|: {:.6e} vs {:.6e}", d3.ux.abs(), d3.uz.abs());
 }
 
 // ================================================================
@@ -185,7 +185,7 @@ fn validation_virtual_work_eccentric() {
     let load_node = (a / l * n as f64).round() as usize + 1;
 
     let loads = vec![SolverLoad::Nodal(SolverNodalLoad {
-        node_id: load_node, fx: 0.0, fy: -p, mz: 0.0,
+        node_id: load_node, fx: 0.0, fz: -p, my: 0.0,
     })];
     let input = make_beam(n, l, E, A, IZ, "pinned", Some("rollerX"), loads);
     let results = linear::solve_2d(&input).unwrap();
@@ -194,7 +194,7 @@ fn validation_virtual_work_eccentric() {
 
     // δ = Pa²b²/(3EIL)
     let delta_exact = p * a * a * b * b / (3.0 * e_eff * IZ * l);
-    assert_close(d_load.uy.abs(), delta_exact, 0.02,
+    assert_close(d_load.uz.abs(), delta_exact, 0.02,
         "Eccentric: δ = Pa²b²/(3EIL)");
 }
 
@@ -214,7 +214,7 @@ fn validation_virtual_work_two_span() {
     let mid1 = n / 2 + 1; // midspan of first span
 
     let loads = vec![SolverLoad::Nodal(SolverNodalLoad {
-        node_id: mid1, fx: 0.0, fy: -p, mz: 0.0,
+        node_id: mid1, fx: 0.0, fz: -p, my: 0.0,
     })];
     let input = make_continuous_beam(&[span, span], n, E, A, IZ, loads);
     let results = linear::solve_2d(&input).unwrap();
@@ -222,19 +222,19 @@ fn validation_virtual_work_two_span() {
     let d_mid = results.displacements.iter().find(|d| d.node_id == mid1).unwrap();
 
     // Deflection should be non-zero and downward
-    assert!(d_mid.uy < 0.0,
-        "Two-span: deflection at load < 0: {:.6e}", d_mid.uy);
+    assert!(d_mid.uz < 0.0,
+        "Two-span: deflection at load < 0: {:.6e}", d_mid.uz);
 
     // Compare with SS single span: continuous beam should deflect less
     let loads_ss = vec![SolverLoad::Nodal(SolverNodalLoad {
-        node_id: mid1, fx: 0.0, fy: -p, mz: 0.0,
+        node_id: mid1, fx: 0.0, fz: -p, my: 0.0,
     })];
     let input_ss = make_beam(n, span, E, A, IZ, "pinned", Some("rollerX"), loads_ss);
     let results_ss = linear::solve_2d(&input_ss).unwrap();
     let d_ss = results_ss.displacements.iter().find(|d| d.node_id == mid1).unwrap();
 
-    assert!(d_mid.uy.abs() < d_ss.uy.abs(),
-        "Continuous < SS: {:.6e} < {:.6e}", d_mid.uy.abs(), d_ss.uy.abs());
+    assert!(d_mid.uz.abs() < d_ss.uz.abs(),
+        "Continuous < SS: {:.6e} < {:.6e}", d_mid.uz.abs(), d_ss.uz.abs());
 }
 
 // ================================================================
@@ -273,12 +273,12 @@ fn validation_virtual_work_self_weight() {
     let d_mid = results.displacements.iter().find(|d| d.node_id == mid).unwrap();
 
     let delta_exact = 5.0 * q.abs() * l * l * l * l / (384.0 * e_eff * IZ);
-    assert_close(d_mid.uy.abs(), delta_exact, 0.02,
+    assert_close(d_mid.uz.abs(), delta_exact, 0.02,
         "Self-weight bending: δ = 5qL⁴/(384EI)");
 
     // Verify reactions = qL/2 each
     let r1 = results.reactions.iter().find(|r| r.node_id == 1).unwrap();
-    assert_close(r1.ry, q.abs() * l / 2.0, 0.02,
+    assert_close(r1.rz, q.abs() * l / 2.0, 0.02,
         "Self-weight: R = qL/2");
 }
 
@@ -300,7 +300,7 @@ fn validation_virtual_work_combined_independence() {
 
     // Cantilever with both axial and transverse tip loads
     let loads_both = vec![SolverLoad::Nodal(SolverNodalLoad {
-        node_id: n + 1, fx: p_axial, fy: -p_transverse, mz: 0.0,
+        node_id: n + 1, fx: p_axial, fz: -p_transverse, my: 0.0,
     })];
     let input_both = make_beam(n, l, E, A, IZ, "fixed", None, loads_both);
     let res_both = linear::solve_2d(&input_both).unwrap();
@@ -308,7 +308,7 @@ fn validation_virtual_work_combined_independence() {
 
     // Axial only
     let loads_ax = vec![SolverLoad::Nodal(SolverNodalLoad {
-        node_id: n + 1, fx: p_axial, fy: 0.0, mz: 0.0,
+        node_id: n + 1, fx: p_axial, fz: 0.0, my: 0.0,
     })];
     let input_ax = make_beam(n, l, E, A, IZ, "fixed", None, loads_ax);
     let res_ax = linear::solve_2d(&input_ax).unwrap();
@@ -316,7 +316,7 @@ fn validation_virtual_work_combined_independence() {
 
     // Transverse only
     let loads_tr = vec![SolverLoad::Nodal(SolverNodalLoad {
-        node_id: n + 1, fx: 0.0, fy: -p_transverse, mz: 0.0,
+        node_id: n + 1, fx: 0.0, fz: -p_transverse, my: 0.0,
     })];
     let input_tr = make_beam(n, l, E, A, IZ, "fixed", None, loads_tr);
     let res_tr = linear::solve_2d(&input_tr).unwrap();
@@ -327,12 +327,12 @@ fn validation_virtual_work_combined_independence() {
         "Independence: ux(both) = ux(axial)");
 
     // uy from combined = uy from transverse only
-    assert_close(tip_both.uy, tip_tr.uy, 0.01,
+    assert_close(tip_both.uz, tip_tr.uz, 0.01,
         "Independence: uy(both) = uy(transverse)");
 
     // Verify exact values
     let delta_ax = p_axial * l / (e_eff * A);
     let delta_tr = p_transverse * l * l * l / (3.0 * e_eff * IZ);
     assert_close(tip_both.ux, delta_ax, 0.02, "Combined: ux = PL/(EA)");
-    assert_close(tip_both.uy.abs(), delta_tr, 0.02, "Combined: uy = PL³/(3EI)");
+    assert_close(tip_both.uz.abs(), delta_tr, 0.02, "Combined: uy = PL³/(3EI)");
 }

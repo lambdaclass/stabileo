@@ -98,16 +98,16 @@ fn triangular_load_equal_spans() {
     // Total load per span = q_max * L / 2 = 10 * 8 / 2 = 40 kN per span
     // Total = 80 kN
     let total_load: f64 = 80.0;
-    let sum_ry: f64 = reactions.iter().map(|r| r.ry).sum();
+    let sum_ry: f64 = reactions.iter().map(|r| r.rz).sum();
     assert_close(sum_ry, total_load, 0.02, "triangular: sum_ry = total load");
 
     // By symmetry: R_A = R_C
-    let r_a = reactions.iter().find(|r| r.node_id == 1).unwrap().ry;
+    let r_a = reactions.iter().find(|r| r.node_id == 1).unwrap().rz;
     let r_c = reactions
         .iter()
         .find(|r| r.node_id == 1 + 2 * n_per_span)
         .unwrap()
-        .ry;
+        .rz;
     assert_close(r_a, r_c, 0.02, "triangular: R_A = R_C by symmetry");
 
     // R_B should be the largest reaction (interior support takes more)
@@ -115,7 +115,7 @@ fn triangular_load_equal_spans() {
         .iter()
         .find(|r| r.node_id == 1 + n_per_span)
         .unwrap()
-        .ry;
+        .rz;
     assert!(
         r_b > r_a,
         "Interior reaction ({:.4}) should exceed end reaction ({:.4})",
@@ -168,7 +168,7 @@ fn point_on_element_midspan() {
         a: l / 2.0, // at midspan of span 1
         p: p_val,
         px: None,
-        mz: None,
+        my: None,
     })];
 
     let input = make_continuous_beam(&[l, l], n_per_span_single, E, A, IZ, loads);
@@ -180,20 +180,20 @@ fn point_on_element_midspan() {
     let p_abs: f64 = p_val.abs();
 
     // Equilibrium
-    let sum_ry: f64 = reactions.iter().map(|r| r.ry).sum();
+    let sum_ry: f64 = reactions.iter().map(|r| r.rz).sum();
     assert_close(sum_ry, p_abs, 1e-6, "PointOnElement: sum_ry = |P|");
 
-    let r_a = reactions.iter().find(|r| r.node_id == 1).unwrap().ry;
+    let r_a = reactions.iter().find(|r| r.node_id == 1).unwrap().rz;
     let r_b = reactions
         .iter()
         .find(|r| r.node_id == 1 + n_per_span_single)
         .unwrap()
-        .ry;
+        .rz;
     let r_c = reactions
         .iter()
         .find(|r| r.node_id == 1 + 2 * n_per_span_single)
         .unwrap()
-        .ry;
+        .rz;
 
     // Analytical: M_B = -27, R_A = 19.5, R_B = 33.0, R_C = -4.5
     let r_a_expected: f64 = 19.5;
@@ -261,7 +261,7 @@ fn shear_discontinuity_at_interior_support() {
         .iter()
         .find(|r| r.node_id == 1 + n_per_span)
         .unwrap()
-        .ry;
+        .rz;
 
     // For a horizontal beam with downward UDL:
     // v_end of span1-last-element is negative (downward shear at right end)
@@ -329,7 +329,7 @@ fn midspan_deflection_analytical() {
         .iter()
         .find(|d| d.node_id == mid_node)
         .unwrap()
-        .uy;
+        .uz;
 
     // Analytical: delta = q_abs * L^4 / (192 * EI), downward = negative
     let q_abs: f64 = q.abs();
@@ -378,19 +378,19 @@ fn symmetric_displacements_equal_spans_udl() {
             .iter()
             .find(|d| d.node_id == left_node)
             .unwrap()
-            .uy;
+            .uz;
         let uy_right = results
             .displacements
             .iter()
             .find(|d| d.node_id == right_node)
             .unwrap()
-            .uy;
+            .uz;
 
         assert_close(
             uy_left,
             uy_right,
             1e-6,
-            &format!("symmetry uy: node {} vs node {}", left_node, right_node),
+            &format!("symmetry uz: node {} vs node {}", left_node, right_node),
         );
 
         // Rotations should be antisymmetric: rz(left) = -rz(right)
@@ -399,20 +399,20 @@ fn symmetric_displacements_equal_spans_udl() {
             .iter()
             .find(|d| d.node_id == left_node)
             .unwrap()
-            .rz;
+            .ry;
         let rz_right = results
             .displacements
             .iter()
             .find(|d| d.node_id == right_node)
             .unwrap()
-            .rz;
+            .ry;
 
         assert_close(
             rz_left,
             -rz_right,
             1e-6,
             &format!(
-                "antisymmetry rz: node {} vs node {}",
+                "antisymmetry ry: node {} vs node {}",
                 left_node, right_node
             ),
         );
@@ -424,8 +424,8 @@ fn symmetric_displacements_equal_spans_udl() {
         .iter()
         .find(|d| d.node_id == mid_node)
         .unwrap();
-    assert_close(disp_mid.uy, 0.0, 1e-10, "interior support uy = 0");
-    assert_close(disp_mid.rz, 0.0, 1e-10, "interior support rz = 0 by symmetry");
+    assert_close(disp_mid.uz, 0.0, 1e-10, "interior support uy = 0");
+    assert_close(disp_mid.ry, 0.0, 1e-10, "interior support rz = 0 by symmetry");
 }
 
 // ─── Test 6: UDL on one span only ───────────────────────────────────────────
@@ -501,17 +501,17 @@ fn udl_on_one_span_only() {
     let mut reactions = results.reactions.clone();
     reactions.sort_by_key(|r| r.node_id);
 
-    let r_a = reactions.iter().find(|r| r.node_id == 1).unwrap().ry;
+    let r_a = reactions.iter().find(|r| r.node_id == 1).unwrap().rz;
     let r_b = reactions
         .iter()
         .find(|r| r.node_id == 1 + n_per_span)
         .unwrap()
-        .ry;
+        .rz;
     let r_c = reactions
         .iter()
         .find(|r| r.node_id == 1 + 2 * n_per_span)
         .unwrap()
-        .ry;
+        .rz;
 
     // Analytical values:
     let r_a_expected: f64 = 7.0 * q_abs * l / 16.0; // 42.0
@@ -519,7 +519,7 @@ fn udl_on_one_span_only() {
     let r_c_expected: f64 = -q_abs * l / 16.0; // -6.0 (uplift)
 
     // Total load = q_abs * L = 96
-    let sum_ry: f64 = reactions.iter().map(|r| r.ry).sum();
+    let sum_ry: f64 = reactions.iter().map(|r| r.rz).sum();
     assert_close(sum_ry, q_abs * l, 1e-6, "one-span UDL: sum_ry = wL");
 
     assert_close(r_a, r_a_expected, 0.01, "one-span UDL: R_A = 7wL/16");
@@ -583,7 +583,7 @@ fn different_stiffness_per_span_deflection() {
             SolverNode {
                 id: i + 1,
                 x: i as f64 * elem_len,
-                y: 0.0,
+                z: 0.0,
             },
         );
     }
@@ -650,8 +650,8 @@ fn different_stiffness_per_span_deflection() {
             ky: None,
             kz: None,
             dx: None,
-            dy: None,
-            drz: None,
+            dz: None,
+            dry: None,
             angle: None,
         },
     );
@@ -665,8 +665,8 @@ fn different_stiffness_per_span_deflection() {
             ky: None,
             kz: None,
             dx: None,
-            dy: None,
-            drz: None,
+            dz: None,
+            dry: None,
             angle: None,
         },
     );
@@ -680,8 +680,8 @@ fn different_stiffness_per_span_deflection() {
             ky: None,
             kz: None,
             dx: None,
-            dy: None,
-            drz: None,
+            dz: None,
+            dry: None,
             angle: None,
         },
     );
@@ -722,13 +722,13 @@ fn different_stiffness_per_span_deflection() {
         .iter()
         .find(|d| d.node_id == mid_span1)
         .unwrap()
-        .uy;
+        .uz;
     let uy_span2 = results
         .displacements
         .iter()
         .find(|d| d.node_id == mid_span2)
         .unwrap()
-        .uy;
+        .uz;
 
     assert!(
         uy_span1 < 0.0,
@@ -789,8 +789,8 @@ fn applied_moment_at_interior_support() {
     let loads = vec![SolverLoad::Nodal(SolverNodalLoad {
         node_id: interior_node,
         fx: 0.0,
-        fy: 0.0,
-        mz: m_0,
+        fz: 0.0,
+        my: m_0,
     })];
 
     let input = make_continuous_beam(&[l, l], n_per_span, E, A, IZ, loads);
@@ -799,20 +799,20 @@ fn applied_moment_at_interior_support() {
     let mut reactions = results.reactions.clone();
     reactions.sort_by_key(|r| r.node_id);
 
-    let r_a = reactions.iter().find(|r| r.node_id == 1).unwrap().ry;
+    let r_a = reactions.iter().find(|r| r.node_id == 1).unwrap().rz;
     let r_b = reactions
         .iter()
         .find(|r| r.node_id == interior_node)
         .unwrap()
-        .ry;
+        .rz;
     let r_c = reactions
         .iter()
         .find(|r| r.node_id == 1 + 2 * n_per_span)
         .unwrap()
-        .ry;
+        .rz;
 
     // Equilibrium: sum Ry = 0 (no vertical loads applied)
-    let sum_ry: f64 = reactions.iter().map(|r| r.ry).sum();
+    let sum_ry: f64 = reactions.iter().map(|r| r.rz).sum();
     assert_close(sum_ry, 0.0, 1e-6, "moment only: sum_ry = 0");
 
     // Moment about A: R_B*L + R_C*2L + M_0 = 0

@@ -181,8 +181,8 @@ fn test_line_search_improves_cantilever_convergence() {
         vec![SolverLoad::Nodal(SolverNodalLoad {
             node_id: n_elem + 1,
             fx: 0.0,
-            fy: -p_tip,
-            mz: 0.0,
+            fz: -p_tip,
+            my: 0.0,
         })],
     );
 

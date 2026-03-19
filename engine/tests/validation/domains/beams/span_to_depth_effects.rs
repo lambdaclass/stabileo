@@ -46,21 +46,21 @@ fn validation_span_depth_l_cubed_scaling_ss_beam() {
     let l_short = 4.0;
     let input_s = make_beam(n, l_short, E, A, IZ, "pinned", Some("rollerX"),
         vec![SolverLoad::Nodal(SolverNodalLoad {
-            node_id: n / 2 + 1, fx: 0.0, fy: -p, mz: 0.0,
+            node_id: n / 2 + 1, fx: 0.0, fz: -p, my: 0.0,
         })]);
     let res_s = linear::solve_2d(&input_s).unwrap();
     let d_short = res_s.displacements.iter()
-        .find(|d| d.node_id == n / 2 + 1).unwrap().uy.abs();
+        .find(|d| d.node_id == n / 2 + 1).unwrap().uz.abs();
 
     // Long beam: L = 8 m (twice as long)
     let l_long = 8.0;
     let input_l = make_beam(n, l_long, E, A, IZ, "pinned", Some("rollerX"),
         vec![SolverLoad::Nodal(SolverNodalLoad {
-            node_id: n / 2 + 1, fx: 0.0, fy: -p, mz: 0.0,
+            node_id: n / 2 + 1, fx: 0.0, fz: -p, my: 0.0,
         })]);
     let res_l = linear::solve_2d(&input_l).unwrap();
     let d_long = res_l.displacements.iter()
-        .find(|d| d.node_id == n / 2 + 1).unwrap().uy.abs();
+        .find(|d| d.node_id == n / 2 + 1).unwrap().uz.abs();
 
     // δ ∝ L³ → doubling L increases δ by factor of 8
     let ratio = d_long / d_short;
@@ -95,21 +95,21 @@ fn validation_span_depth_stocky_vs_slender_column() {
     let l_stocky = 3.0;
     let input_s = make_beam(n, l_stocky, E, A, IZ, "fixed", None,
         vec![SolverLoad::Nodal(SolverNodalLoad {
-            node_id: n + 1, fx: 0.0, fy: -p, mz: 0.0,
+            node_id: n + 1, fx: 0.0, fz: -p, my: 0.0,
         })]);
     let res_s = linear::solve_2d(&input_s).unwrap();
     let d_stocky = res_s.displacements.iter()
-        .find(|d| d.node_id == n + 1).unwrap().uy.abs();
+        .find(|d| d.node_id == n + 1).unwrap().uz.abs();
 
     // Slender column: L = 6 m (twice as tall)
     let l_slender = 6.0;
     let input_l = make_beam(n, l_slender, E, A, IZ, "fixed", None,
         vec![SolverLoad::Nodal(SolverNodalLoad {
-            node_id: n + 1, fx: 0.0, fy: -p, mz: 0.0,
+            node_id: n + 1, fx: 0.0, fz: -p, my: 0.0,
         })]);
     let res_l = linear::solve_2d(&input_l).unwrap();
     let d_slender = res_l.displacements.iter()
-        .find(|d| d.node_id == n + 1).unwrap().uy.abs();
+        .find(|d| d.node_id == n + 1).unwrap().uz.abs();
 
     // Stiffness k = 3EI/L³ → doubling L reduces k by 8, increases δ by 8
     let ratio = d_slender / d_stocky;
@@ -152,19 +152,19 @@ fn validation_span_depth_deep_beam_shear_contribution() {
 
     let input_standard = make_beam(n, l, E, a_standard, iz_standard, "pinned", Some("rollerX"),
         vec![SolverLoad::Nodal(SolverNodalLoad {
-            node_id: n / 2 + 1, fx: 0.0, fy: -p, mz: 0.0,
+            node_id: n / 2 + 1, fx: 0.0, fz: -p, my: 0.0,
         })]);
     let res_standard = linear::solve_2d(&input_standard).unwrap();
     let d_standard = res_standard.displacements.iter()
-        .find(|d| d.node_id == n / 2 + 1).unwrap().uy.abs();
+        .find(|d| d.node_id == n / 2 + 1).unwrap().uz.abs();
 
     let input_large_a = make_beam(n, l, E, a_large, iz_standard, "pinned", Some("rollerX"),
         vec![SolverLoad::Nodal(SolverNodalLoad {
-            node_id: n / 2 + 1, fx: 0.0, fy: -p, mz: 0.0,
+            node_id: n / 2 + 1, fx: 0.0, fz: -p, my: 0.0,
         })]);
     let res_large_a = linear::solve_2d(&input_large_a).unwrap();
     let d_large_a = res_large_a.displacements.iter()
-        .find(|d| d.node_id == n / 2 + 1).unwrap().uy.abs();
+        .find(|d| d.node_id == n / 2 + 1).unwrap().uz.abs();
 
     // Pure bending deflection (lower bound): PL³/(48EI)
     let d_bending_only = p * l.powi(3) / (48.0 * E_EFF * iz_standard);
@@ -207,7 +207,7 @@ fn validation_span_depth_l4_scaling_cantilever_udl() {
     }
     let input1 = make_beam(n, l1, E, A, IZ, "fixed", None, loads1);
     let res1 = linear::solve_2d(&input1).unwrap();
-    let d1 = res1.displacements.iter().find(|d| d.node_id == n + 1).unwrap().uy.abs();
+    let d1 = res1.displacements.iter().find(|d| d.node_id == n + 1).unwrap().uz.abs();
 
     // Long cantilever: L = 4 m (twice as long)
     let l2 = 4.0;
@@ -219,7 +219,7 @@ fn validation_span_depth_l4_scaling_cantilever_udl() {
     }
     let input2 = make_beam(n, l2, E, A, IZ, "fixed", None, loads2);
     let res2 = linear::solve_2d(&input2).unwrap();
-    let d2 = res2.displacements.iter().find(|d| d.node_id == n + 1).unwrap().uy.abs();
+    let d2 = res2.displacements.iter().find(|d| d.node_id == n + 1).unwrap().uz.abs();
 
     // δ ∝ L⁴ → doubling L increases δ by 16
     let ratio = d2 / d1;
@@ -253,14 +253,14 @@ fn validation_span_depth_relative_flexibility_grows_with_span() {
     let l1 = 6.0;
     let input1 = make_ss_beam_udl(n, l1, E, A, IZ, q);
     let res1 = linear::solve_2d(&input1).unwrap();
-    let d1 = res1.displacements.iter().find(|d| d.node_id == n / 2 + 1).unwrap().uy.abs();
+    let d1 = res1.displacements.iter().find(|d| d.node_id == n / 2 + 1).unwrap().uz.abs();
     let rel1 = d1 / l1; // δ/L
 
     // Long span: L = 12 m (twice as long)
     let l2 = 12.0;
     let input2 = make_ss_beam_udl(n, l2, E, A, IZ, q);
     let res2 = linear::solve_2d(&input2).unwrap();
-    let d2 = res2.displacements.iter().find(|d| d.node_id == n / 2 + 1).unwrap().uy.abs();
+    let d2 = res2.displacements.iter().find(|d| d.node_id == n / 2 + 1).unwrap().uz.abs();
     let rel2 = d2 / l2; // δ/L
 
     // δ/L ∝ L³ → doubling L increases δ/L by 8
@@ -295,20 +295,20 @@ fn validation_span_depth_stiffness_per_length() {
     let h1 = 3.0;
     let input1 = make_beam(n, h1, E, A, IZ, "fixed", None,
         vec![SolverLoad::Nodal(SolverNodalLoad {
-            node_id: n + 1, fx: 0.0, fy: -p, mz: 0.0,
+            node_id: n + 1, fx: 0.0, fz: -p, my: 0.0,
         })]);
     let res1 = linear::solve_2d(&input1).unwrap();
-    let d1 = res1.displacements.iter().find(|d| d.node_id == n + 1).unwrap().uy.abs();
+    let d1 = res1.displacements.iter().find(|d| d.node_id == n + 1).unwrap().uz.abs();
     let k1 = p / d1; // lateral stiffness [kN/m]
 
     // Medium column: h = 6 m (twice as tall)
     let h2 = 6.0;
     let input2 = make_beam(n, h2, E, A, IZ, "fixed", None,
         vec![SolverLoad::Nodal(SolverNodalLoad {
-            node_id: n + 1, fx: 0.0, fy: -p, mz: 0.0,
+            node_id: n + 1, fx: 0.0, fz: -p, my: 0.0,
         })]);
     let res2 = linear::solve_2d(&input2).unwrap();
-    let d2 = res2.displacements.iter().find(|d| d.node_id == n + 1).unwrap().uy.abs();
+    let d2 = res2.displacements.iter().find(|d| d.node_id == n + 1).unwrap().uz.abs();
     let k2 = p / d2;
 
     // k ∝ 1/h³ → k1/k2 = (h2/h1)³ = 8
@@ -342,21 +342,21 @@ fn validation_span_depth_section_efficiency() {
     let iz_shallow = IZ;
     let input_shallow = make_beam(n, l, E, A, iz_shallow, "pinned", Some("rollerX"),
         vec![SolverLoad::Nodal(SolverNodalLoad {
-            node_id: n / 2 + 1, fx: 0.0, fy: -p, mz: 0.0,
+            node_id: n / 2 + 1, fx: 0.0, fz: -p, my: 0.0,
         })]);
     let res_shallow = linear::solve_2d(&input_shallow).unwrap();
     let d_shallow = res_shallow.displacements.iter()
-        .find(|d| d.node_id == n / 2 + 1).unwrap().uy.abs();
+        .find(|d| d.node_id == n / 2 + 1).unwrap().uz.abs();
 
     // Deep section: I = 8*IZ (equivalent to doubling depth of rectangular section)
     let iz_deep = 8.0 * IZ;
     let input_deep = make_beam(n, l, E, A, iz_deep, "pinned", Some("rollerX"),
         vec![SolverLoad::Nodal(SolverNodalLoad {
-            node_id: n / 2 + 1, fx: 0.0, fy: -p, mz: 0.0,
+            node_id: n / 2 + 1, fx: 0.0, fz: -p, my: 0.0,
         })]);
     let res_deep = linear::solve_2d(&input_deep).unwrap();
     let d_deep = res_deep.displacements.iter()
-        .find(|d| d.node_id == n / 2 + 1).unwrap().uy.abs();
+        .find(|d| d.node_id == n / 2 + 1).unwrap().uz.abs();
 
     // δ ∝ 1/I → 8× larger I reduces δ by 8
     let ratio = d_shallow / d_deep;
@@ -396,17 +396,17 @@ fn validation_span_depth_l3_scaling_all_supports() {
     // --- Cantilever: δ = PL³/(3EI) ---
     let input_cant1 = make_beam(n, l_base, E, A, IZ, "fixed", None,
         vec![SolverLoad::Nodal(SolverNodalLoad {
-            node_id: n + 1, fx: 0.0, fy: -p, mz: 0.0,
+            node_id: n + 1, fx: 0.0, fz: -p, my: 0.0,
         })]);
     let d_cant1 = linear::solve_2d(&input_cant1).unwrap().displacements.iter()
-        .find(|d| d.node_id == n + 1).unwrap().uy.abs();
+        .find(|d| d.node_id == n + 1).unwrap().uz.abs();
 
     let input_cant2 = make_beam(n, l_double, E, A, IZ, "fixed", None,
         vec![SolverLoad::Nodal(SolverNodalLoad {
-            node_id: n + 1, fx: 0.0, fy: -p, mz: 0.0,
+            node_id: n + 1, fx: 0.0, fz: -p, my: 0.0,
         })]);
     let d_cant2 = linear::solve_2d(&input_cant2).unwrap().displacements.iter()
-        .find(|d| d.node_id == n + 1).unwrap().uy.abs();
+        .find(|d| d.node_id == n + 1).unwrap().uz.abs();
 
     assert_close(d_cant2 / d_cant1, expected_ratio, 0.03,
         "cantilever L³ scaling: ratio = (L2/L1)³");
@@ -414,17 +414,17 @@ fn validation_span_depth_l3_scaling_all_supports() {
     // --- Simply-supported: δ = PL³/(48EI) ---
     let input_ss1 = make_beam(n, l_base, E, A, IZ, "pinned", Some("rollerX"),
         vec![SolverLoad::Nodal(SolverNodalLoad {
-            node_id: n / 2 + 1, fx: 0.0, fy: -p, mz: 0.0,
+            node_id: n / 2 + 1, fx: 0.0, fz: -p, my: 0.0,
         })]);
     let d_ss1 = linear::solve_2d(&input_ss1).unwrap().displacements.iter()
-        .find(|d| d.node_id == n / 2 + 1).unwrap().uy.abs();
+        .find(|d| d.node_id == n / 2 + 1).unwrap().uz.abs();
 
     let input_ss2 = make_beam(n, l_double, E, A, IZ, "pinned", Some("rollerX"),
         vec![SolverLoad::Nodal(SolverNodalLoad {
-            node_id: n / 2 + 1, fx: 0.0, fy: -p, mz: 0.0,
+            node_id: n / 2 + 1, fx: 0.0, fz: -p, my: 0.0,
         })]);
     let d_ss2 = linear::solve_2d(&input_ss2).unwrap().displacements.iter()
-        .find(|d| d.node_id == n / 2 + 1).unwrap().uy.abs();
+        .find(|d| d.node_id == n / 2 + 1).unwrap().uz.abs();
 
     assert_close(d_ss2 / d_ss1, expected_ratio, 0.03,
         "SS beam L³ scaling: ratio = (L2/L1)³");
@@ -432,17 +432,17 @@ fn validation_span_depth_l3_scaling_all_supports() {
     // --- Fixed-fixed: δ = PL³/(192EI) ---
     let input_ff1 = make_beam(n, l_base, E, A, IZ, "fixed", Some("fixed"),
         vec![SolverLoad::Nodal(SolverNodalLoad {
-            node_id: n / 2 + 1, fx: 0.0, fy: -p, mz: 0.0,
+            node_id: n / 2 + 1, fx: 0.0, fz: -p, my: 0.0,
         })]);
     let d_ff1 = linear::solve_2d(&input_ff1).unwrap().displacements.iter()
-        .find(|d| d.node_id == n / 2 + 1).unwrap().uy.abs();
+        .find(|d| d.node_id == n / 2 + 1).unwrap().uz.abs();
 
     let input_ff2 = make_beam(n, l_double, E, A, IZ, "fixed", Some("fixed"),
         vec![SolverLoad::Nodal(SolverNodalLoad {
-            node_id: n / 2 + 1, fx: 0.0, fy: -p, mz: 0.0,
+            node_id: n / 2 + 1, fx: 0.0, fz: -p, my: 0.0,
         })]);
     let d_ff2 = linear::solve_2d(&input_ff2).unwrap().displacements.iter()
-        .find(|d| d.node_id == n / 2 + 1).unwrap().uy.abs();
+        .find(|d| d.node_id == n / 2 + 1).unwrap().uz.abs();
 
     assert_close(d_ff2 / d_ff1, expected_ratio, 0.03,
         "fixed-fixed L³ scaling: ratio = (L2/L1)³");

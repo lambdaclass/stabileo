@@ -51,24 +51,24 @@ fn validation_shm_ext_frequency_change_damage_detection() {
     // Intact beam: SS beam with point load at midspan
     let mid: usize = n / 2 + 1;
     let loads_intact = vec![SolverLoad::Nodal(SolverNodalLoad {
-        node_id: mid, fx: 0.0, fy: -p, mz: 0.0,
+        node_id: mid, fx: 0.0, fz: -p, my: 0.0,
     })];
     let input_intact = make_beam(n, l, E, A, IZ, "pinned", Some("rollerX"), loads_intact);
     let res_intact = linear::solve_2d(&input_intact).unwrap();
     let d_intact: f64 = res_intact.displacements.iter()
-        .find(|d| d.node_id == mid).unwrap().uy.abs();
+        .find(|d| d.node_id == mid).unwrap().uz.abs();
 
     // Damaged beam: 20% stiffness reduction (EI_d = 0.8 * EI)
     // Modeled as reduced E
     let damage_fraction: f64 = 0.20;
     let e_damaged: f64 = E * (1.0 - damage_fraction);
     let loads_damaged = vec![SolverLoad::Nodal(SolverNodalLoad {
-        node_id: mid, fx: 0.0, fy: -p, mz: 0.0,
+        node_id: mid, fx: 0.0, fz: -p, my: 0.0,
     })];
     let input_damaged = make_beam(n, l, e_damaged, A, IZ, "pinned", Some("rollerX"), loads_damaged);
     let res_damaged = linear::solve_2d(&input_damaged).unwrap();
     let d_damaged: f64 = res_damaged.displacements.iter()
-        .find(|d| d.node_id == mid).unwrap().uy.abs();
+        .find(|d| d.node_id == mid).unwrap().uz.abs();
 
     // Deflection is inversely proportional to EI: d_damaged/d_intact = EI/EI_d = 1/(1-alpha)
     let defl_ratio: f64 = d_damaged / d_intact;
@@ -153,10 +153,10 @@ fn validation_shm_ext_mode_shape_curvature_damage_index() {
     let mut phi_intact: Vec<f64> = vec![0.0; n_nodes];
     let mut phi_damaged: Vec<f64> = vec![0.0; n_nodes];
     for d in &res_intact.displacements {
-        phi_intact[d.node_id - 1] = d.uy;
+        phi_intact[d.node_id - 1] = d.uz;
     }
     for d in &res_damaged.displacements {
-        phi_damaged[d.node_id - 1] = d.uy;
+        phi_damaged[d.node_id - 1] = d.uz;
     }
 
     // Compute curvature via central differences: kappa_i = (phi[i+1] - 2*phi[i] + phi[i-1]) / dx^2
@@ -220,12 +220,12 @@ fn validation_shm_ext_flexibility_based_damage() {
     for node in 2..=n {
         // Intact
         let loads_i = vec![SolverLoad::Nodal(SolverNodalLoad {
-            node_id: node, fx: 0.0, fy: -p, mz: 0.0,
+            node_id: node, fx: 0.0, fz: -p, my: 0.0,
         })];
         let input_i = make_beam(n, l, E, A, IZ, "pinned", Some("rollerX"), loads_i);
         let res_i = linear::solve_2d(&input_i).unwrap();
         let d_ii: f64 = res_i.displacements.iter()
-            .find(|d| d.node_id == node).unwrap().uy.abs();
+            .find(|d| d.node_id == node).unwrap().uz.abs();
         flex_intact.push(d_ii);
 
         // Damaged
@@ -244,12 +244,12 @@ fn validation_shm_ext_flexibility_based_damage() {
             .collect();
         let sups = vec![(1, 1, "pinned"), (2, n_nodes, "rollerX")];
         let loads_d = vec![SolverLoad::Nodal(SolverNodalLoad {
-            node_id: node, fx: 0.0, fy: -p, mz: 0.0,
+            node_id: node, fx: 0.0, fz: -p, my: 0.0,
         })];
         let input_d = make_input(nodes, mats, secs, elems, sups, loads_d);
         let res_d = linear::solve_2d(&input_d).unwrap();
         let d_dd: f64 = res_d.displacements.iter()
-            .find(|d| d.node_id == node).unwrap().uy.abs();
+            .find(|d| d.node_id == node).unwrap().uz.abs();
         flex_damaged.push(d_dd);
     }
 
@@ -423,13 +423,13 @@ fn validation_shm_ext_modal_assurance_criterion() {
     let mut phi_heavy: Vec<f64> = vec![0.0; n_nodes];
 
     for d in &res_intact.displacements {
-        if d.node_id <= n_nodes { phi_intact[d.node_id - 1] = d.uy; }
+        if d.node_id <= n_nodes { phi_intact[d.node_id - 1] = d.uz; }
     }
     for d in &res_slight.displacements {
-        if d.node_id <= n_nodes { phi_slight[d.node_id - 1] = d.uy; }
+        if d.node_id <= n_nodes { phi_slight[d.node_id - 1] = d.uz; }
     }
     for d in &res_heavy.displacements {
-        if d.node_id <= n_nodes { phi_heavy[d.node_id - 1] = d.uy; }
+        if d.node_id <= n_nodes { phi_heavy[d.node_id - 1] = d.uz; }
     }
 
     // Compute MAC
@@ -487,7 +487,7 @@ fn validation_shm_ext_modal_assurance_criterion() {
 
     let mut phi_local: Vec<f64> = vec![0.0; n_nodes_loc];
     for d in &res_local.displacements {
-        if d.node_id <= n_nodes_loc { phi_local[d.node_id - 1] = d.uy; }
+        if d.node_id <= n_nodes_loc { phi_local[d.node_id - 1] = d.uz; }
     }
 
     // Normalize mode shapes to unit max before MAC
@@ -526,13 +526,13 @@ fn validation_shm_ext_load_rating_aashto_lrfr() {
     let e_eff: f64 = E * 1000.0; // kN/m^2
 
     // Section properties: W610x125 steel beam (approximate)
-    let fy: f64 = 345.0; // MPa yield stress
+    let fz: f64 = 345.0; // MPa yield stress
     let sx: f64 = 3220.0e-6; // m^3, elastic section modulus
     let zx: f64 = 3680.0e-6; // m^3, plastic section modulus
 
     // Capacity: phi * Mn = phi * Fy * Zx (compact section)
     let phi: f64 = 0.90; // resistance factor for flexure
-    let mn: f64 = fy * 1000.0 * zx; // kN-m (fy in kPa * Zx)
+    let mn: f64 = fz * 1000.0 * zx; // kN-m (fy in kPa * Zx)
     let capacity: f64 = phi * mn;
 
     // Dead loads
@@ -692,12 +692,12 @@ fn validation_shm_ext_stiffness_degradation_assessment() {
     for &alpha in &degradation_levels {
         let e_degraded: f64 = E * (1.0 - alpha);
         let loads = vec![SolverLoad::Nodal(SolverNodalLoad {
-            node_id: mid, fx: 0.0, fy: -p, mz: 0.0,
+            node_id: mid, fx: 0.0, fz: -p, my: 0.0,
         })];
         let input = make_beam(n, l, e_degraded, A, IZ, "pinned", Some("rollerX"), loads);
         let res = linear::solve_2d(&input).unwrap();
         let d_measured: f64 = res.displacements.iter()
-            .find(|d| d.node_id == mid).unwrap().uy.abs();
+            .find(|d| d.node_id == mid).unwrap().uz.abs();
 
         // Stiffness ratio: K_eff/K_theo = delta_theo/delta_meas
         let stiffness_ratio: f64 = delta_theoretical / d_measured;
@@ -727,12 +727,12 @@ fn validation_shm_ext_stiffness_degradation_assessment() {
     // For alpha = 0.25: d_measured/d_theoretical = 1/(1-0.25) = 1.333
     let e_25: f64 = E * 0.75;
     let loads_25 = vec![SolverLoad::Nodal(SolverNodalLoad {
-        node_id: mid, fx: 0.0, fy: -p, mz: 0.0,
+        node_id: mid, fx: 0.0, fz: -p, my: 0.0,
     })];
     let input_25 = make_beam(n, l, e_25, A, IZ, "pinned", Some("rollerX"), loads_25);
     let res_25 = linear::solve_2d(&input_25).unwrap();
     let d_25: f64 = res_25.displacements.iter()
-        .find(|d| d.node_id == mid).unwrap().uy.abs();
+        .find(|d| d.node_id == mid).unwrap().uz.abs();
 
     let defl_ratio_25: f64 = d_25 / delta_theoretical;
     let expected_defl_ratio: f64 = 1.0 / 0.75;

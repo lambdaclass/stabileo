@@ -19,8 +19,8 @@ use std::collections::HashMap;
 // Helper functions
 // ---------------------------------------------------------------------------
 
-fn node(id: usize, x: f64, y: f64) -> SolverNode {
-    SolverNode { id, x, y }
+fn node(id: usize, x: f64, z: f64) -> SolverNode {
+    SolverNode { id, x, z }
 }
 
 fn frame(id: usize, ni: usize, nj: usize) -> SolverElement {
@@ -42,7 +42,7 @@ fn fixed(id: usize, node_id: usize) -> SolverSupport {
         node_id,
         support_type: "fixed".into(),
         kx: None, ky: None, kz: None,
-        dx: None, dy: None, drz: None,
+        dx: None, dz: None, dry: None,
         angle: None,
     }
 }
@@ -53,7 +53,7 @@ fn pinned(id: usize, node_id: usize) -> SolverSupport {
         node_id,
         support_type: "pinned".into(),
         kx: None, ky: None, kz: None,
-        dx: None, dy: None, drz: None,
+        dx: None, dz: None, dry: None,
         angle: None,
     }
 }
@@ -64,7 +64,7 @@ fn roller_x(id: usize, node_id: usize) -> SolverSupport {
         node_id,
         support_type: "rollerX".into(),
         kx: None, ky: None, kz: None,
-        dx: None, dy: None, drz: None,
+        dx: None, dz: None, dry: None,
         angle: None,
     }
 }
@@ -118,7 +118,7 @@ fn three_span_beam() -> SolverInput {
             SolverLoad::Distributed(SolverDistributedLoad {
                 element_id: 3, q_i: -10.0, q_j: -10.0, a: None, b: None,
             }),
-            SolverLoad::Nodal(SolverNodalLoad { node_id: 2, fx: 0.0, fy: -50.0, mz: 0.0 }),
+            SolverLoad::Nodal(SolverNodalLoad { node_id: 2, fx: 0.0, fz: -50.0, my: 0.0 }),
         ],
         constraints: vec![],
         connectors: HashMap::new(),
@@ -149,7 +149,7 @@ fn five_node_cantilever() -> SolverInput {
         ]),
         supports: hm(vec![(1, fixed(1, 1))]),
         loads: vec![
-            SolverLoad::Nodal(SolverNodalLoad { node_id: 5, fx: 0.0, fy: -100.0, mz: 0.0 }),
+            SolverLoad::Nodal(SolverNodalLoad { node_id: 5, fx: 0.0, fz: -100.0, my: 0.0 }),
         ],
         constraints: vec![],
         connectors: HashMap::new(),
@@ -235,14 +235,14 @@ fn test_guyan_boundary_displacements_match_linear() {
             ld.node_id, gd.ux, ld.ux
         );
         assert!(
-            (gd.uy - ld.uy).abs() < tol,
-            "Node {} uy: Guyan {:.9} vs Linear {:.9}",
-            ld.node_id, gd.uy, ld.uy
+            (gd.uz - ld.uz).abs() < tol,
+            "Node {} uz: Guyan {:.9} vs Linear {:.9}",
+            ld.node_id, gd.uz, ld.uz
         );
         assert!(
-            (gd.rz - ld.rz).abs() < tol,
-            "Node {} rz: Guyan {:.9} vs Linear {:.9}",
-            ld.node_id, gd.rz, ld.rz
+            (gd.ry - ld.ry).abs() < tol,
+            "Node {} ry: Guyan {:.9} vs Linear {:.9}",
+            ld.node_id, gd.ry, ld.ry
         );
     }
 }
@@ -458,14 +458,14 @@ fn test_guyan_all_nodes_boundary_matches_linear() {
             ld.node_id, gd.ux, ld.ux
         );
         assert!(
-            (gd.uy - ld.uy).abs() < tol,
-            "Node {} uy: Guyan {:.12} vs Linear {:.12}",
-            ld.node_id, gd.uy, ld.uy
+            (gd.uz - ld.uz).abs() < tol,
+            "Node {} uz: Guyan {:.12} vs Linear {:.12}",
+            ld.node_id, gd.uz, ld.uz
         );
         assert!(
-            (gd.rz - ld.rz).abs() < tol,
-            "Node {} rz: Guyan {:.12} vs Linear {:.12}",
-            ld.node_id, gd.rz, ld.rz
+            (gd.ry - ld.ry).abs() < tol,
+            "Node {} ry: Guyan {:.12} vs Linear {:.12}",
+            ld.node_id, gd.ry, ld.ry
         );
     }
 }
@@ -553,14 +553,14 @@ fn test_guyan_reactions_match_linear() {
             lr.node_id, gr.rx, lr.rx
         );
         assert!(
-            (gr.ry - lr.ry).abs() < tol,
-            "Node {} ry: Guyan {:.6} vs Linear {:.6}",
-            lr.node_id, gr.ry, lr.ry
+            (gr.rz - lr.rz).abs() < tol,
+            "Node {} rz: Guyan {:.6} vs Linear {:.6}",
+            lr.node_id, gr.rz, lr.rz
         );
         assert!(
-            (gr.mz - lr.mz).abs() < tol,
-            "Node {} mz: Guyan {:.6} vs Linear {:.6}",
-            lr.node_id, gr.mz, lr.mz
+            (gr.my - lr.my).abs() < tol,
+            "Node {} my: Guyan {:.6} vs Linear {:.6}",
+            lr.node_id, gr.my, lr.my
         );
     }
 }

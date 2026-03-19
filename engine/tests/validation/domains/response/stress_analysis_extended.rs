@@ -97,7 +97,7 @@ fn stress_analysis_shear_stress_distribution() {
     let input = make_beam(
         n, l, E, A, IZ, "pinned", Some("rollerX"),
         vec![SolverLoad::Nodal(SolverNodalLoad {
-            node_id: 3, fx: 0.0, fy: p, mz: 0.0,
+            node_id: 3, fx: 0.0, fz: p, my: 0.0,
         })],
     );
     let results = linear::solve_2d(&input).unwrap();
@@ -154,10 +154,10 @@ fn stress_analysis_combined_bending_axial() {
         n, l, E, A, IZ, "fixed", None,
         vec![
             SolverLoad::Nodal(SolverNodalLoad {
-                node_id: tip_node, fx: p_axial, fy: 0.0, mz: 0.0,
+                node_id: tip_node, fx: p_axial, fz: 0.0, my: 0.0,
             }),
             SolverLoad::Nodal(SolverNodalLoad {
-                node_id: tip_node, fx: 0.0, fy: p_trans, mz: 0.0,
+                node_id: tip_node, fx: 0.0, fz: p_trans, my: 0.0,
             }),
         ],
     );
@@ -219,7 +219,7 @@ fn stress_analysis_principal_stress_transformation() {
     let input = make_beam(
         n, l, E, A, IZ, "fixed", None,
         vec![SolverLoad::Nodal(SolverNodalLoad {
-            node_id: n + 1, fx: 0.0, fy: p, mz: 0.0,
+            node_id: n + 1, fx: 0.0, fz: p, my: 0.0,
         })],
     );
     let results = linear::solve_2d(&input).unwrap();
@@ -296,7 +296,7 @@ fn stress_analysis_von_mises_equivalent() {
     let input = make_beam(
         n, l, E, A, IZ, "fixed", None,
         vec![SolverLoad::Nodal(SolverNodalLoad {
-            node_id: n + 1, fx: 0.0, fy: p, mz: 0.0,
+            node_id: n + 1, fx: 0.0, fz: p, my: 0.0,
         })],
     );
     let results = linear::solve_2d(&input).unwrap();

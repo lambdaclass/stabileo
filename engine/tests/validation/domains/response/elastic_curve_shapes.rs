@@ -61,7 +61,7 @@ fn validation_elastic_curve_shape_ss_udl_parabolic() {
             .iter()
             .find(|d| d.node_id == node_id)
             .unwrap()
-            .uy;
+            .uz;
         // Analytical: delta(x) = q*x*(L^3 - 2*L*x^2 + x^3) / (24*EI)
         // q is negative (downward), so delta is negative (downward).
         let delta_exact =
@@ -94,8 +94,8 @@ fn validation_elastic_curve_shape_cantilever_tip_load_cubic() {
     let loads = vec![SolverLoad::Nodal(SolverNodalLoad {
         node_id: n + 1,
         fx: 0.0,
-        fy: -p,
-        mz: 0.0,
+        fz: -p,
+        my: 0.0,
     })];
     let input = make_beam(n, l, E, A, IZ, "fixed", None, loads);
     let results = linear::solve_2d(&input).unwrap();
@@ -114,7 +114,7 @@ fn validation_elastic_curve_shape_cantilever_tip_load_cubic() {
             .iter()
             .find(|d| d.node_id == node_id)
             .unwrap()
-            .uy;
+            .uz;
         // Analytical: delta(x) = P/(6*EI) * (3*L*x^2 - x^3)  (downward positive in formula)
         // Solver returns negative uy for downward deflection.
         let delta_exact = p / (6.0 * ei) * (3.0 * l * x * x - x.powi(3));
@@ -147,8 +147,8 @@ fn validation_elastic_curve_shape_ss_midspan_point_load() {
     let loads = vec![SolverLoad::Nodal(SolverNodalLoad {
         node_id: mid,
         fx: 0.0,
-        fy: -p,
-        mz: 0.0,
+        fz: -p,
+        my: 0.0,
     })];
     let input = make_beam(n, l, E, A, IZ, "pinned", Some("rollerX"), loads);
     let results = linear::solve_2d(&input).unwrap();
@@ -165,7 +165,7 @@ fn validation_elastic_curve_shape_ss_midspan_point_load() {
             .iter()
             .find(|d| d.node_id == node_id)
             .unwrap()
-            .uy;
+            .uz;
         // For x <= L/2: delta(x) = P*x/(48*EI) * (3*L^2 - 4*x^2)
         let delta_exact = p * x / (48.0 * ei) * (3.0 * l * l - 4.0 * x * x);
         assert_close(
@@ -219,7 +219,7 @@ fn validation_elastic_curve_shape_fixed_fixed_udl_quartic() {
             .iter()
             .find(|d| d.node_id == node_id)
             .unwrap()
-            .uy;
+            .uz;
         // Analytical: delta(x) = q*x^2*(L-x)^2 / (24*EI)
         // q negative means downward, delta negative (downward).
         let delta_exact = q * x * x * (l - x) * (l - x) / (24.0 * ei);
@@ -276,7 +276,7 @@ fn validation_elastic_curve_shape_cantilever_udl_quartic() {
             .iter()
             .find(|d| d.node_id == node_id)
             .unwrap()
-            .uy;
+            .uz;
         // Analytical: delta(x) = q/(24*EI) * (x^4 - 4*L*x^3 + 6*L^2*x^2)
         let delta_exact = q / (24.0 * ei)
             * (x.powi(4) - 4.0 * l * x.powi(3) + 6.0 * l * l * x * x);
@@ -311,17 +311,17 @@ fn validation_elastic_curve_shape_max_at_midspan_symmetric() {
         .iter()
         .find(|d| d.node_id == mid)
         .unwrap()
-        .uy
+        .uz
         .abs();
 
     // Verify midspan has the largest absolute deflection
     for disp in &results.displacements {
         assert!(
-            d_mid >= disp.uy.abs() - 1e-12,
+            d_mid >= disp.uz.abs() - 1e-12,
             "Symmetric SS UDL: midspan |uy|={:.6e} should be >= node {} |uy|={:.6e}",
             d_mid,
             disp.node_id,
-            disp.uy.abs()
+            disp.uz.abs()
         );
     }
 }
@@ -359,17 +359,17 @@ fn validation_elastic_curve_shape_max_at_tip_cantilever() {
         .iter()
         .find(|d| d.node_id == tip_node)
         .unwrap()
-        .uy
+        .uz
         .abs();
 
     // Verify tip has the largest absolute deflection
     for disp in &results.displacements {
         assert!(
-            d_tip >= disp.uy.abs() - 1e-12,
+            d_tip >= disp.uz.abs() - 1e-12,
             "Cantilever UDL: tip |uy|={:.6e} should be >= node {} |uy|={:.6e}",
             d_tip,
             disp.node_id,
-            disp.uy.abs()
+            disp.uz.abs()
         );
     }
 }
@@ -401,7 +401,7 @@ fn validation_elastic_curve_shape_smooth_monotonic() {
             .iter()
             .find(|d| d.node_id == node_id)
             .unwrap()
-            .uy
+            .uz
             .abs();
         deflections.push((node_id, uy));
     }
@@ -428,7 +428,7 @@ fn validation_elastic_curve_shape_smooth_monotonic() {
             .iter()
             .find(|d| d.node_id == node_id)
             .unwrap()
-            .uy
+            .uz
             .abs();
         deflections_right.push((node_id, uy));
     }

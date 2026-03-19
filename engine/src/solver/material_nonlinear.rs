@@ -61,8 +61,8 @@ pub fn solve_nonlinear_material_2d(
         }
         let prescribed: [(usize, Option<f64>); 3] = [
             (0, sup.dx),
-            (1, sup.dy),
-            (2, sup.drz),
+            (1, sup.dz),
+            (2, sup.dry),
         ];
         for &(local_dof, val) in &prescribed {
             if let Some(v) = val {
@@ -309,7 +309,7 @@ fn assemble_tangent_stiffness(
         let sec = sec_by_id[&elem.section_id];
 
         let dx = node_j.x - node_i.x;
-        let dy = node_j.y - node_i.y;
+        let dy = node_j.z - node_i.z;
         let l = (dx * dx + dy * dy).sqrt();
         let cos = dx / l;
         let sin = dy / l;
@@ -463,7 +463,7 @@ fn compute_global_internal_forces(
         let sec = sec_by_id[&elem.section_id];
 
         let dx = node_j.x - node_i.x;
-        let dy = node_j.y - node_i.y;
+        let dy = node_j.z - node_i.z;
         let l = (dx * dx + dy * dy).sqrt();
         let cos = dx / l;
         let sin = dy / l;

@@ -47,15 +47,15 @@ fn validation_propped_udl() {
     let r_b = results.reactions.iter().find(|r| r.node_id == n + 1).unwrap();
 
     // R_B = 3qL/8
-    assert_close(r_b.ry, 3.0 * q.abs() * l / 8.0, 0.02,
+    assert_close(r_b.rz, 3.0 * q.abs() * l / 8.0, 0.02,
         "Propped UDL: R_B = 3qL/8");
 
     // R_A = 5qL/8
-    assert_close(r_a.ry, 5.0 * q.abs() * l / 8.0, 0.02,
+    assert_close(r_a.rz, 5.0 * q.abs() * l / 8.0, 0.02,
         "Propped UDL: R_A = 5qL/8");
 
     // M_A = qL²/8
-    assert_close(r_a.mz.abs(), q.abs() * l * l / 8.0, 0.02,
+    assert_close(r_a.my.abs(), q.abs() * l * l / 8.0, 0.02,
         "Propped UDL: M_A = qL²/8");
 }
 
@@ -71,7 +71,7 @@ fn validation_propped_center_load() {
 
     let mid = n / 2 + 1;
     let loads = vec![SolverLoad::Nodal(SolverNodalLoad {
-        node_id: mid, fx: 0.0, fy: -p, mz: 0.0,
+        node_id: mid, fx: 0.0, fz: -p, my: 0.0,
     })];
     let input = make_beam(n, l, E, A, IZ, "fixed", Some("rollerX"), loads);
     let results = linear::solve_2d(&input).unwrap();
@@ -80,15 +80,15 @@ fn validation_propped_center_load() {
     let r_b = results.reactions.iter().find(|r| r.node_id == n + 1).unwrap();
 
     // R_B = 5P/16 (load at midspan)
-    assert_close(r_b.ry, 5.0 * p / 16.0, 0.02,
+    assert_close(r_b.rz, 5.0 * p / 16.0, 0.02,
         "Propped center: R_B = 5P/16");
 
     // R_A = 11P/16
-    assert_close(r_a.ry, 11.0 * p / 16.0, 0.02,
+    assert_close(r_a.rz, 11.0 * p / 16.0, 0.02,
         "Propped center: R_A = 11P/16");
 
     // M_A = 3PL/16
-    assert_close(r_a.mz.abs(), 3.0 * p * l / 16.0, 0.02,
+    assert_close(r_a.my.abs(), 3.0 * p * l / 16.0, 0.02,
         "Propped center: M_A = 3PL/16");
 }
 
@@ -104,7 +104,7 @@ fn validation_propped_end_moment() {
 
     // Moment at roller end
     let loads = vec![SolverLoad::Nodal(SolverNodalLoad {
-        node_id: n + 1, fx: 0.0, fy: 0.0, mz: m_app,
+        node_id: n + 1, fx: 0.0, fz: 0.0, my: m_app,
     })];
     let input = make_beam(n, l, E, A, IZ, "fixed", Some("rollerX"), loads);
     let results = linear::solve_2d(&input).unwrap();
@@ -115,9 +115,9 @@ fn validation_propped_end_moment() {
     // For moment at roller end: R_B = 3M/(2L), R_A = -3M/(2L)
     // M_A = M/2 (carry-over)
     let r_exact = 3.0 * m_app / (2.0 * l);
-    assert_close(r_b.ry.abs(), r_exact, 0.05,
+    assert_close(r_b.rz.abs(), r_exact, 0.05,
         "Propped moment: R_B = 3M/(2L)");
-    assert_close(r_a.mz.abs(), m_app / 2.0, 0.05,
+    assert_close(r_a.my.abs(), m_app / 2.0, 0.05,
         "Propped moment: M_A = M/2");
 }
 
@@ -138,7 +138,7 @@ fn validation_propped_arbitrary_point() {
     let load_node = (a_frac * n as f64).round() as usize + 1;
 
     let loads = vec![SolverLoad::Nodal(SolverNodalLoad {
-        node_id: load_node, fx: 0.0, fy: -p, mz: 0.0,
+        node_id: load_node, fx: 0.0, fz: -p, my: 0.0,
     })];
     let input = make_beam(n, l, E, A, IZ, "fixed", Some("rollerX"), loads);
     let results = linear::solve_2d(&input).unwrap();
@@ -147,14 +147,14 @@ fn validation_propped_arbitrary_point() {
 
     // R_B = Pa²(3L-a)/(2L³)
     let r_exact = p * a * a * (3.0 * l - a) / (2.0 * l * l * l);
-    assert_close(r_b.ry, r_exact, 0.05,
+    assert_close(r_b.rz, r_exact, 0.05,
         "Propped arbitrary: R_B = Pa²(3L-a)/(2L³)");
 
     // M_A = Pa(L²-a²)/(2L²) ... actually M_A = Pab(L+b)/(2L²) where b = L-a
     let b = l - a;
     let m_a = p * a * b * (l + b) / (2.0 * l * l);
     let r_a = results.reactions.iter().find(|r| r.node_id == 1).unwrap();
-    assert_close(r_a.mz.abs(), m_a, 0.05,
+    assert_close(r_a.my.abs(), m_a, 0.05,
         "Propped arbitrary: M_A formula");
 }
 
@@ -182,7 +182,7 @@ fn validation_propped_max_deflection() {
 
     // Find node with maximum deflection
     let (max_node, max_d) = results.displacements.iter()
-        .map(|d| (d.node_id, d.uy.abs()))
+        .map(|d| (d.node_id, d.uz.abs()))
         .max_by(|a, b| a.1.partial_cmp(&b.1).unwrap()).unwrap();
 
     // For propped cantilever (fixed at A, roller at B) with UDL:
@@ -267,7 +267,7 @@ fn validation_propped_triangular() {
 
     // Total load = qL/2
     let total = q_max.abs() * l / 2.0;
-    let sum_ry: f64 = results.reactions.iter().map(|r| r.ry).sum();
+    let sum_ry: f64 = results.reactions.iter().map(|r| r.rz).sum();
     assert_close(sum_ry, total, 0.02,
         "Propped triangular: ΣRy = qL/2");
 }
@@ -285,7 +285,7 @@ fn validation_propped_sign_convention() {
     // Downward load at midspan
     let mid = n / 2 + 1;
     let loads = vec![SolverLoad::Nodal(SolverNodalLoad {
-        node_id: mid, fx: 0.0, fy: -p, mz: 0.0,
+        node_id: mid, fx: 0.0, fz: -p, my: 0.0,
     })];
     let input = make_beam(n, l, E, A, IZ, "fixed", Some("rollerX"), loads);
     let results = linear::solve_2d(&input).unwrap();
@@ -293,13 +293,13 @@ fn validation_propped_sign_convention() {
     // Reactions should be upward (positive)
     let r_a = results.reactions.iter().find(|r| r.node_id == 1).unwrap();
     let r_b = results.reactions.iter().find(|r| r.node_id == n + 1).unwrap();
-    assert!(r_a.ry > 0.0, "Sign: R_A > 0 (upward)");
-    assert!(r_b.ry > 0.0, "Sign: R_B > 0 (upward)");
+    assert!(r_a.rz > 0.0, "Sign: R_A > 0 (upward)");
+    assert!(r_b.rz > 0.0, "Sign: R_B > 0 (upward)");
 
     // Sum = P
-    assert_close(r_a.ry + r_b.ry, p, 0.02, "Sign: R_A + R_B = P");
+    assert_close(r_a.rz + r_b.rz, p, 0.02, "Sign: R_A + R_B = P");
 
     // Fixed-end moment should be counterclockwise (positive rz convention varies)
     // Just verify non-zero and reactions balance
-    assert!(r_a.mz.abs() > 0.0, "Sign: non-zero M_A");
+    assert!(r_a.my.abs() > 0.0, "Sign: non-zero M_A");
 }

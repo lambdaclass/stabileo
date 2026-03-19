@@ -16,8 +16,8 @@ use std::collections::HashMap;
 
 // ==================== Helpers ====================
 
-fn node(id: usize, x: f64, y: f64) -> SolverNode {
-    SolverNode { id, x, y }
+fn node(id: usize, x: f64, z: f64) -> SolverNode {
+    SolverNode { id, x, z }
 }
 
 fn frame(id: usize, ni: usize, nj: usize) -> SolverElement {
@@ -39,7 +39,7 @@ fn fixed(id: usize, node_id: usize) -> SolverSupport {
         node_id,
         support_type: "fixed".into(),
         kx: None, ky: None, kz: None,
-        dx: None, dy: None, drz: None,
+        dx: None, dz: None, dry: None,
         angle: None,
     }
 }
@@ -50,7 +50,7 @@ fn pinned(id: usize, node_id: usize) -> SolverSupport {
         node_id,
         support_type: "pinned".into(),
         kx: None, ky: None, kz: None,
-        dx: None, dy: None, drz: None,
+        dx: None, dz: None, dry: None,
         angle: None,
     }
 }
@@ -68,7 +68,7 @@ fn beam_section() -> SolverSection {
 }
 
 /// Build a cantilever beam: node 0 fixed, node 1 free at (L, 0).
-fn make_cantilever(l: f64, fy: f64) -> SolverInput {
+fn make_cantilever(l: f64, fz: f64) -> SolverInput {
     SolverInput {
         nodes: hm(vec![
             (0, node(0, 0.0, 0.0)),
@@ -79,7 +79,7 @@ fn make_cantilever(l: f64, fy: f64) -> SolverInput {
         elements: hm(vec![(1, frame(1, 0, 1))]),
         supports: hm(vec![(0, fixed(0, 0))]),
         loads: vec![SolverLoad::Nodal(SolverNodalLoad {
-            node_id: 1, fx: 0.0, fy: fy, mz: 0.0,
+            node_id: 1, fx: 0.0, fz: fz, my: 0.0,
         })],
         constraints: vec![],
         connectors: HashMap::new(),
@@ -114,7 +114,7 @@ fn make_portal_frame(w: f64, h: f64, fx: f64) -> SolverInput {
             (4, fixed(4, 4)),
         ]),
         loads: vec![SolverLoad::Nodal(SolverNodalLoad {
-            node_id: 2, fx: fx, fy: 0.0, mz: 0.0,
+            node_id: 2, fx: fx, fz: 0.0, my: 0.0,
         })],
         constraints: vec![],
         connectors: HashMap::new(),
@@ -148,7 +148,7 @@ fn make_toggle_frame(half_span: f64, rise: f64, p: f64) -> SolverInput {
             (2, pinned(2, 2)),
         ]),
         loads: vec![SolverLoad::Nodal(SolverNodalLoad {
-            node_id: 3, fx: 0.0, fy: -p, mz: 0.0,
+            node_id: 3, fx: 0.0, fz: -p, my: 0.0,
         })],
         constraints: vec![],
         connectors: HashMap::new(),
@@ -193,9 +193,9 @@ fn test_arc_length_traces_load_displacement_path() {
     // Tip displacement (node 1) should be nonzero at the final state
     let d1 = result.results.displacements.iter().find(|d| d.node_id == 1).unwrap();
     assert!(
-        d1.uy.abs() > 1e-10,
+        d1.uz.abs() > 1e-10,
         "Tip displacement should be nonzero, got uy = {}",
-        d1.uy
+        d1.uz
     );
 
     // Every converged step should have a control_displacement recorded
@@ -357,16 +357,16 @@ fn test_displacement_control_matches_load_factor() {
     // Control DOF should reach its target in both cases
     let d1_r1 = result_1.results.displacements.iter().find(|d| d.node_id == 1).unwrap();
     assert!(
-        (d1_r1.uy - target_1).abs() < 1e-4,
+        (d1_r1.uz - target_1).abs() < 1e-4,
         "Run 1: control DOF should reach target: got {} expected {}",
-        d1_r1.uy, target_1
+        d1_r1.uz, target_1
     );
 
     let d1_r2 = result_2.results.displacements.iter().find(|d| d.node_id == 1).unwrap();
     assert!(
-        (d1_r2.uy - target_2).abs() < 1e-4,
+        (d1_r2.uz - target_2).abs() < 1e-4,
         "Run 2: control DOF should reach target: got {} expected {}",
-        d1_r2.uy, target_2
+        d1_r2.uz, target_2
     );
 
     // Load factor should scale proportionally with displacement.

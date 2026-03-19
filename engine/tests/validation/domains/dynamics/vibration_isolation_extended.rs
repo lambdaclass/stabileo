@@ -115,8 +115,8 @@ fn validation_vib_iso_ext_single_dof_transmissibility() {
 
     // Build axial model
     let mut nodes = HashMap::new();
-    nodes.insert("1".to_string(), SolverNode { id: 1, x: 0.0, y: 0.0 });
-    nodes.insert("2".to_string(), SolverNode { id: 2, x: l, y: 0.0 });
+    nodes.insert("1".to_string(), SolverNode { id: 1, x: 0.0, z: 0.0 });
+    nodes.insert("2".to_string(), SolverNode { id: 2, x: l, z: 0.0 });
 
     let mut mats = HashMap::new();
     mats.insert("1".to_string(), SolverMaterial { id: 1, e, nu: 0.3 });
@@ -135,16 +135,16 @@ fn validation_vib_iso_ext_single_dof_transmissibility() {
     sups.insert("1".to_string(), SolverSupport {
         id: 1, node_id: 1, support_type: "fixed".to_string(),
         kx: None, ky: None, kz: None,
-        dx: None, dy: None, drz: None, angle: None,
+        dx: None, dz: None, dry: None, angle: None,
     });
     sups.insert("2".to_string(), SolverSupport {
         id: 2, node_id: 2, support_type: "spring".to_string(),
         kx: Some(k_spring), ky: None, kz: None,
-        dx: None, dy: None, drz: None, angle: None,
+        dx: None, dz: None, dry: None, angle: None,
     });
 
     let loads = vec![SolverLoad::Nodal(SolverNodalLoad {
-        node_id: 2, fx: f_applied, fy: 0.0, mz: 0.0,
+        node_id: 2, fx: f_applied, fz: 0.0, my: 0.0,
     })];
 
     let input = SolverInput {
@@ -310,8 +310,8 @@ fn validation_vib_iso_ext_rubber_bearing_stiffness() {
     let delta_exact: f64 = f_applied / (k_beam + k_h);
 
     let mut nodes = HashMap::new();
-    nodes.insert("1".to_string(), SolverNode { id: 1, x: 0.0, y: 0.0 });
-    nodes.insert("2".to_string(), SolverNode { id: 2, x: l, y: 0.0 });
+    nodes.insert("1".to_string(), SolverNode { id: 1, x: 0.0, z: 0.0 });
+    nodes.insert("2".to_string(), SolverNode { id: 2, x: l, z: 0.0 });
 
     let mut mats = HashMap::new();
     mats.insert("1".to_string(), SolverMaterial { id: 1, e, nu: 0.3 });
@@ -330,16 +330,16 @@ fn validation_vib_iso_ext_rubber_bearing_stiffness() {
     sups.insert("1".to_string(), SolverSupport {
         id: 1, node_id: 1, support_type: "fixed".to_string(),
         kx: None, ky: None, kz: None,
-        dx: None, dy: None, drz: None, angle: None,
+        dx: None, dz: None, dry: None, angle: None,
     });
     sups.insert("2".to_string(), SolverSupport {
         id: 2, node_id: 2, support_type: "spring".to_string(),
         kx: Some(k_h), ky: None, kz: None,
-        dx: None, dy: None, drz: None, angle: None,
+        dx: None, dz: None, dry: None, angle: None,
     });
 
     let loads = vec![SolverLoad::Nodal(SolverNodalLoad {
-        node_id: 2, fx: f_applied, fy: 0.0, mz: 0.0,
+        node_id: 2, fx: f_applied, fz: 0.0, my: 0.0,
     })];
 
     let input = SolverInput {
@@ -437,8 +437,8 @@ fn validation_vib_iso_ext_steel_spring_isolator() {
     let delta_exact: f64 = f_applied_kn / (k_beam + k_spring_kn);
 
     let mut nodes = HashMap::new();
-    nodes.insert("1".to_string(), SolverNode { id: 1, x: 0.0, y: 0.0 });
-    nodes.insert("2".to_string(), SolverNode { id: 2, x: l, y: 0.0 });
+    nodes.insert("1".to_string(), SolverNode { id: 1, x: 0.0, z: 0.0 });
+    nodes.insert("2".to_string(), SolverNode { id: 2, x: l, z: 0.0 });
 
     let mut mats = HashMap::new();
     mats.insert("1".to_string(), SolverMaterial { id: 1, e, nu: 0.3 });
@@ -457,16 +457,16 @@ fn validation_vib_iso_ext_steel_spring_isolator() {
     sups.insert("1".to_string(), SolverSupport {
         id: 1, node_id: 1, support_type: "fixed".to_string(),
         kx: None, ky: None, kz: None,
-        dx: None, dy: None, drz: None, angle: None,
+        dx: None, dz: None, dry: None, angle: None,
     });
     sups.insert("2".to_string(), SolverSupport {
         id: 2, node_id: 2, support_type: "spring".to_string(),
         kx: Some(k_spring_kn), ky: None, kz: None,
-        dx: None, dy: None, drz: None, angle: None,
+        dx: None, dz: None, dry: None, angle: None,
     });
 
     let loads = vec![SolverLoad::Nodal(SolverNodalLoad {
-        node_id: 2, fx: f_applied_kn, fy: 0.0, mz: 0.0,
+        node_id: 2, fx: f_applied_kn, fz: 0.0, my: 0.0,
     })];
 
     let input = SolverInput {
@@ -580,8 +580,8 @@ fn validation_vib_iso_ext_inertia_block_foundation() {
 
     // Build model for the original case
     let mut nodes = HashMap::new();
-    nodes.insert("1".to_string(), SolverNode { id: 1, x: 0.0, y: 0.0 });
-    nodes.insert("2".to_string(), SolverNode { id: 2, x: l, y: 0.0 });
+    nodes.insert("1".to_string(), SolverNode { id: 1, x: 0.0, z: 0.0 });
+    nodes.insert("2".to_string(), SolverNode { id: 2, x: l, z: 0.0 });
 
     let mut mats = HashMap::new();
     mats.insert("1".to_string(), SolverMaterial { id: 1, e, nu: 0.3 });
@@ -600,16 +600,16 @@ fn validation_vib_iso_ext_inertia_block_foundation() {
     sups.insert("1".to_string(), SolverSupport {
         id: 1, node_id: 1, support_type: "fixed".to_string(),
         kx: None, ky: None, kz: None,
-        dx: None, dy: None, drz: None, angle: None,
+        dx: None, dz: None, dry: None, angle: None,
     });
     sups.insert("2".to_string(), SolverSupport {
         id: 2, node_id: 2, support_type: "spring".to_string(),
         kx: Some(k_spring_kn), ky: None, kz: None,
-        dx: None, dy: None, drz: None, angle: None,
+        dx: None, dz: None, dry: None, angle: None,
     });
 
     let loads = vec![SolverLoad::Nodal(SolverNodalLoad {
-        node_id: 2, fx: f_original, fy: 0.0, mz: 0.0,
+        node_id: 2, fx: f_original, fz: 0.0, my: 0.0,
     })];
 
     let input = SolverInput {
@@ -716,8 +716,8 @@ fn validation_vib_iso_ext_viscoelastic_damper() {
     let delta_exact: f64 = f_applied / (k_beam + k_d);
 
     let mut nodes = HashMap::new();
-    nodes.insert("1".to_string(), SolverNode { id: 1, x: 0.0, y: 0.0 });
-    nodes.insert("2".to_string(), SolverNode { id: 2, x: l, y: 0.0 });
+    nodes.insert("1".to_string(), SolverNode { id: 1, x: 0.0, z: 0.0 });
+    nodes.insert("2".to_string(), SolverNode { id: 2, x: l, z: 0.0 });
 
     let mut mats = HashMap::new();
     mats.insert("1".to_string(), SolverMaterial { id: 1, e, nu: 0.3 });
@@ -736,16 +736,16 @@ fn validation_vib_iso_ext_viscoelastic_damper() {
     sups.insert("1".to_string(), SolverSupport {
         id: 1, node_id: 1, support_type: "fixed".to_string(),
         kx: None, ky: None, kz: None,
-        dx: None, dy: None, drz: None, angle: None,
+        dx: None, dz: None, dry: None, angle: None,
     });
     sups.insert("2".to_string(), SolverSupport {
         id: 2, node_id: 2, support_type: "spring".to_string(),
         kx: Some(k_d), ky: None, kz: None,
-        dx: None, dy: None, drz: None, angle: None,
+        dx: None, dz: None, dry: None, angle: None,
     });
 
     let loads = vec![SolverLoad::Nodal(SolverNodalLoad {
-        node_id: 2, fx: f_applied, fy: 0.0, mz: 0.0,
+        node_id: 2, fx: f_applied, fz: 0.0, my: 0.0,
     })];
 
     let input = SolverInput {
@@ -861,8 +861,8 @@ fn validation_vib_iso_ext_active_vibration_control() {
 
     // Uncontrolled
     let loads_full = vec![
-        SolverLoad::Nodal(SolverNodalLoad { node_id: 2, fx: f_full, fy: 0.0, mz: 0.0 }),
-        SolverLoad::Nodal(SolverNodalLoad { node_id: 3, fx: f_full, fy: 0.0, mz: 0.0 }),
+        SolverLoad::Nodal(SolverNodalLoad { node_id: 2, fx: f_full, fz: 0.0, my: 0.0 }),
+        SolverLoad::Nodal(SolverNodalLoad { node_id: 3, fx: f_full, fz: 0.0, my: 0.0 }),
     ];
     let input_full = make_input(nodes.clone(), vec![(1, e, 0.3)], vec![(1, a, iz)],
         elems.clone(), sups.clone(), loads_full);
@@ -872,8 +872,8 @@ fn validation_vib_iso_ext_active_vibration_control() {
 
     // Controlled (reduced force represents reduced resonant amplitude)
     let loads_reduced = vec![
-        SolverLoad::Nodal(SolverNodalLoad { node_id: 2, fx: f_reduced, fy: 0.0, mz: 0.0 }),
-        SolverLoad::Nodal(SolverNodalLoad { node_id: 3, fx: f_reduced, fy: 0.0, mz: 0.0 }),
+        SolverLoad::Nodal(SolverNodalLoad { node_id: 2, fx: f_reduced, fz: 0.0, my: 0.0 }),
+        SolverLoad::Nodal(SolverNodalLoad { node_id: 3, fx: f_reduced, fz: 0.0, my: 0.0 }),
     ];
     let input_reduced = make_input(nodes, vec![(1, e, 0.3)], vec![(1, a, iz)],
         elems, sups, loads_reduced);
@@ -1007,10 +1007,10 @@ fn validation_vib_iso_ext_machine_foundation_design() {
 
     let loads = vec![
         SolverLoad::Nodal(SolverNodalLoad {
-            node_id: 2, fx: f_unbalance_kn / 2.0, fy: 0.0, mz: 0.0,
+            node_id: 2, fx: f_unbalance_kn / 2.0, fz: 0.0, my: 0.0,
         }),
         SolverLoad::Nodal(SolverNodalLoad {
-            node_id: 3, fx: f_unbalance_kn / 2.0, fy: 0.0, mz: 0.0,
+            node_id: 3, fx: f_unbalance_kn / 2.0, fz: 0.0, my: 0.0,
         }),
     ];
 
@@ -1024,7 +1024,7 @@ fn validation_vib_iso_ext_machine_foundation_design() {
         "Machine foundation: horizontal equilibrium");
 
     // Vertical equilibrium: no vertical load => ry should be near zero sum
-    let sum_ry: f64 = results.reactions.iter().map(|r| r.ry).sum::<f64>().abs();
+    let sum_ry: f64 = results.reactions.iter().map(|r| r.rz).sum::<f64>().abs();
     assert!(sum_ry < 0.01,
         "Machine foundation: vertical reactions sum near zero = {:.6}", sum_ry);
 

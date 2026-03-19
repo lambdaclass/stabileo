@@ -16,7 +16,7 @@ fn make_input(
 ) -> SolverInput {
     let mut nodes_map = HashMap::new();
     for (id, x, y) in nodes {
-        nodes_map.insert(id.to_string(), SolverNode { id, x, y });
+        nodes_map.insert(id.to_string(), SolverNode { id, x, z: y });
     }
     let mut mats_map = HashMap::new();
     for (id, e, nu) in mats {
@@ -54,8 +54,8 @@ fn make_input(
                 ky: None,
                 kz: None,
                 dx: None,
-                dy: None,
-                drz: None,
+                dz: None,
+                dry: None,
                 angle: None,
             },
         );
@@ -347,7 +347,7 @@ fn make_mixed_frame_slab_3d(n_stories: usize, nx: usize, ny: usize) -> SolverInp
     let mut sid = 1;
     for &base in &base_ids {
         supports.insert(sid.to_string(), SolverSupport3D {
-            node_id: base, rx: true, ry: true, rz: true,
+            node_id: base, rx: true, rz: true, ry: true,
             rrx: true, rry: true, rrz: true,
             kx: None, ky: None, kz: None,
             krx: None, kry: None, krz: None,
@@ -434,7 +434,7 @@ fn make_flat_plate_3d(nx: usize, ny: usize) -> SolverInput3D {
     boundary.dedup();
     for &n in &boundary {
         supports.insert(sid.to_string(), SolverSupport3D {
-            node_id: n, rx: false, ry: false, rz: true,
+            node_id: n, rx: false, rz: false, ry: true,
             rrx: false, rry: false, rrz: false,
             kx: None, ky: None, kz: None,
             krx: None, kry: None, krz: None,
@@ -447,7 +447,7 @@ fn make_flat_plate_3d(nx: usize, ny: usize) -> SolverInput3D {
     }
     // Pin one corner fully
     supports.insert(sid.to_string(), SolverSupport3D {
-        node_id: grid[0][0], rx: true, ry: true, rz: true,
+        node_id: grid[0][0], rx: true, rz: true, ry: true,
         rrx: false, rry: false, rrz: false,
         kx: None, ky: None, kz: None,
         krx: None, kry: None, krz: None,
@@ -683,7 +683,7 @@ fn make_flat_plate_quad9(nx: usize, ny: usize) -> SolverInput3D {
     boundary.dedup();
     for &n in &boundary {
         supports.insert(sid.to_string(), SolverSupport3D {
-            node_id: n, rx: false, ry: false, rz: true,
+            node_id: n, rx: false, rz: false, ry: true,
             rrx: false, rry: false, rrz: false,
             kx: None, ky: None, kz: None,
             krx: None, kry: None, krz: None,
@@ -695,7 +695,7 @@ fn make_flat_plate_quad9(nx: usize, ny: usize) -> SolverInput3D {
         sid += 1;
     }
     supports.insert(sid.to_string(), SolverSupport3D {
-        node_id: grid[0][0], rx: true, ry: true, rz: true,
+        node_id: grid[0][0], rx: true, rz: true, ry: true,
         rrx: false, rry: false, rrz: false,
         kx: None, ky: None, kz: None,
         krx: None, kry: None, krz: None,
@@ -787,7 +787,7 @@ fn make_hemisphere_curved_shell(n: usize) -> SolverInput3D {
     // Bottom edge (i=0): constrain UZ (pole region)
     for j in 0..np {
         supports.insert(sid.to_string(), SolverSupport3D {
-            node_id: grid[0][j], rx: false, ry: false, rz: true,
+            node_id: grid[0][j], rx: false, rz: false, ry: true,
             rrx: false, rry: false, rrz: false,
             kx: None, ky: None, kz: None,
             krx: None, kry: None, krz: None,
@@ -801,7 +801,7 @@ fn make_hemisphere_curved_shell(n: usize) -> SolverInput3D {
     // Left edge (j=0): constrain UY (symmetry)
     for i in 1..np {
         supports.insert(sid.to_string(), SolverSupport3D {
-            node_id: grid[i][0], rx: false, ry: true, rz: false,
+            node_id: grid[i][0], rx: false, rz: true, ry: false,
             rrx: false, rry: false, rrz: false,
             kx: None, ky: None, kz: None,
             krx: None, kry: None, krz: None,
@@ -815,7 +815,7 @@ fn make_hemisphere_curved_shell(n: usize) -> SolverInput3D {
     // Right edge (j=n): constrain UX (symmetry)
     for i in 1..np {
         supports.insert(sid.to_string(), SolverSupport3D {
-            node_id: grid[i][n], rx: true, ry: false, rz: false,
+            node_id: grid[i][n], rx: true, rz: false, ry: false,
             rrx: false, rry: false, rrz: false,
             kx: None, ky: None, kz: None,
             krx: None, kry: None, krz: None,
@@ -828,7 +828,7 @@ fn make_hemisphere_curved_shell(n: usize) -> SolverInput3D {
     }
     // Pin pole node
     supports.insert(sid.to_string(), SolverSupport3D {
-        node_id: grid[0][0], rx: true, ry: true, rz: true,
+        node_id: grid[0][0], rx: true, rz: true, ry: true,
         rrx: false, rry: false, rrz: false,
         kx: None, ky: None, kz: None,
         krx: None, kry: None, krz: None,

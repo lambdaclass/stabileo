@@ -234,7 +234,7 @@ fn assemble_truss_corotational(
     n: usize,
 ) {
     let dx0 = node_j.x - node_i.x;
-    let dy0 = node_j.y - node_i.y;
+    let dy0 = node_j.z - node_i.z;
     let l0 = (dx0 * dx0 + dy0 * dy0).sqrt();
 
     let u_xi = dof_num.global_dof(elem.node_i, 0).map(|d| u_full[d]).unwrap_or(0.0);
@@ -243,7 +243,7 @@ fn assemble_truss_corotational(
     let u_yj = dof_num.global_dof(elem.node_j, 1).map(|d| u_full[d]).unwrap_or(0.0);
 
     let dx_n = (node_j.x + u_xj) - (node_i.x + u_xi);
-    let dy_n = (node_j.y + u_yj) - (node_i.y + u_yi);
+    let dy_n = (node_j.z + u_yj) - (node_i.z + u_yi);
     let l_n = (dx_n * dx_n + dy_n * dy_n).sqrt();
 
     if l_n < 1e-15 {
@@ -309,7 +309,7 @@ fn assemble_frame_corotational(
     n: usize,
 ) {
     let dx0 = node_j.x - node_i.x;
-    let dy0 = node_j.y - node_i.y;
+    let dy0 = node_j.z - node_i.z;
     let l0 = (dx0 * dx0 + dy0 * dy0).sqrt();
     let alpha_0 = dy0.atan2(dx0);
 
@@ -318,7 +318,7 @@ fn assemble_frame_corotational(
 
     // Deformed geometry
     let dx_n = (node_j.x + u_elem[3]) - (node_i.x + u_elem[0]);
-    let dy_n = (node_j.y + u_elem[4]) - (node_i.y + u_elem[1]);
+    let dy_n = (node_j.z + u_elem[4]) - (node_i.z + u_elem[1]);
     let l_n = (dx_n * dx_n + dy_n * dy_n).sqrt();
 
     if l_n < 1e-15 {
@@ -481,7 +481,7 @@ fn subtract_element_fef(
             }
             SolverLoad::PointOnElement(pl) if pl.element_id == elem.id => {
                 let px = pl.px.unwrap_or(0.0);
-                let mz = pl.mz.unwrap_or(0.0);
+                let mz = pl.my.unwrap_or(0.0);
                 let mut fef = fef_point_load_2d(pl.p, px, mz, pl.a, l);
                 adjust_fef_for_hinges(&mut fef, l, elem.hinge_start, elem.hinge_end);
 
@@ -694,7 +694,7 @@ fn compute_corotational_forces(
 
         if elem.elem_type == "truss" || elem.elem_type == "cable" {
             let dx0 = node_j.x - node_i.x;
-            let dy0 = node_j.y - node_i.y;
+            let dy0 = node_j.z - node_i.z;
             let l0 = (dx0 * dx0 + dy0 * dy0).sqrt();
 
             let u_xi = dof_num.global_dof(elem.node_i, 0).map(|d| u_full[d]).unwrap_or(0.0);
@@ -703,7 +703,7 @@ fn compute_corotational_forces(
             let u_yj = dof_num.global_dof(elem.node_j, 1).map(|d| u_full[d]).unwrap_or(0.0);
 
             let dx_n = (node_j.x + u_xj) - (node_i.x + u_xi);
-            let dy_n = (node_j.y + u_yj) - (node_i.y + u_yi);
+            let dy_n = (node_j.z + u_yj) - (node_i.z + u_yi);
             let l_n = (dx_n * dx_n + dy_n * dy_n).sqrt();
 
             let d_axial = l_n - l0;
@@ -727,7 +727,7 @@ fn compute_corotational_forces(
             });
         } else {
             let dx0 = node_j.x - node_i.x;
-            let dy0 = node_j.y - node_i.y;
+            let dy0 = node_j.z - node_i.z;
             let l0 = (dx0 * dx0 + dy0 * dy0).sqrt();
             let alpha_0 = dy0.atan2(dx0);
 
@@ -735,7 +735,7 @@ fn compute_corotational_forces(
             let u_elem: Vec<f64> = elem_dofs.iter().map(|&d| u_full[d]).collect();
 
             let dx_n = (node_j.x + u_elem[3]) - (node_i.x + u_elem[0]);
-            let dy_n = (node_j.y + u_elem[4]) - (node_i.y + u_elem[1]);
+            let dy_n = (node_j.z + u_elem[4]) - (node_i.z + u_elem[1]);
             let l_n = (dx_n * dx_n + dy_n * dy_n).sqrt();
             let alpha_n = dy_n.atan2(dx_n);
 
@@ -789,7 +789,7 @@ fn compute_corotational_forces(
                             a: pl.a,
                             p: pl.p,
                             px: pl.px,
-                            mz: pl.mz,
+                            my: pl.my,
                         });
                     }
                     _ => {}
@@ -1637,8 +1637,8 @@ mod tests {
 
     fn cantilever_input(length: f64, load_fy: f64) -> SolverInput {
         let mut nodes = HashMap::new();
-        nodes.insert("1".into(), SolverNode { id: 1, x: 0.0, y: 0.0 });
-        nodes.insert("2".into(), SolverNode { id: 2, x: length, y: 0.0 });
+        nodes.insert("1".into(), SolverNode { id: 1, x: 0.0, z: 0.0 });
+        nodes.insert("2".into(), SolverNode { id: 2, x: length, z: 0.0 });
 
         let mut materials = HashMap::new();
         materials.insert("1".into(), SolverMaterial { id: 1, e: 200.0, nu: 0.3 });
@@ -1664,7 +1664,7 @@ mod tests {
             node_id: 1,
             support_type: "fixed".into(),
             kx: None, ky: None, kz: None,
-            dx: None, dy: None, drz: None,
+            dx: None, dz: None, dry: None,
             angle: None,
         });
 
@@ -1672,8 +1672,8 @@ mod tests {
             SolverLoad::Nodal(SolverNodalLoad {
                 node_id: 2,
                 fx: 0.0,
-                fy: load_fy,
-                mz: 0.0,
+                fz: load_fy,
+                my: 0.0,
             }),
         ];
 
@@ -1696,11 +1696,11 @@ mod tests {
         let cor_d = corot.results.displacements.iter().find(|d| d.node_id == 2).unwrap();
 
         // For very small loads, uy should match closely
-        let rel_tol_uy = (lin_d.uy - cor_d.uy).abs() / lin_d.uy.abs().max(1e-15);
+        let rel_tol_uy = (lin_d.uz - cor_d.uz).abs() / lin_d.uz.abs().max(1e-15);
         assert!(
             rel_tol_uy < 1e-3,
             "uy relative mismatch too large: linear={}, corot={}, rel={}",
-            lin_d.uy, cor_d.uy, rel_tol_uy
+            lin_d.uz, cor_d.uz, rel_tol_uy
         );
 
         // ux: linear gives 0, co-rotational gives a small shortening
@@ -1725,8 +1725,8 @@ mod tests {
     #[test]
     fn test_corotational_axial_truss() {
         let mut nodes = HashMap::new();
-        nodes.insert("1".into(), SolverNode { id: 1, x: 0.0, y: 0.0 });
-        nodes.insert("2".into(), SolverNode { id: 2, x: 5.0, y: 0.0 });
+        nodes.insert("1".into(), SolverNode { id: 1, x: 0.0, z: 0.0 });
+        nodes.insert("2".into(), SolverNode { id: 2, x: 5.0, z: 0.0 });
 
         let mut materials = HashMap::new();
         materials.insert("1".into(), SolverMaterial { id: 1, e: 200.0, nu: 0.3 });
@@ -1752,7 +1752,7 @@ mod tests {
             node_id: 1,
             support_type: "pinned".into(),
             kx: None, ky: None, kz: None,
-            dx: None, dy: None, drz: None,
+            dx: None, dz: None, dry: None,
             angle: None,
         });
         supports.insert("2".into(), SolverSupport {
@@ -1760,7 +1760,7 @@ mod tests {
             node_id: 2,
             support_type: "rollerX".into(),
             kx: None, ky: None, kz: None,
-            dx: None, dy: None, drz: None,
+            dx: None, dz: None, dry: None,
             angle: None,
         });
 
@@ -1768,8 +1768,8 @@ mod tests {
             SolverLoad::Nodal(SolverNodalLoad {
                 node_id: 2,
                 fx: 100.0,
-                fy: 0.0,
-                mz: 0.0,
+                fz: 0.0,
+                my: 0.0,
             }),
         ];
 
@@ -1788,8 +1788,8 @@ mod tests {
     #[test]
     fn test_no_free_dofs_error() {
         let mut nodes = HashMap::new();
-        nodes.insert("1".into(), SolverNode { id: 1, x: 0.0, y: 0.0 });
-        nodes.insert("2".into(), SolverNode { id: 2, x: 3.0, y: 0.0 });
+        nodes.insert("1".into(), SolverNode { id: 1, x: 0.0, z: 0.0 });
+        nodes.insert("2".into(), SolverNode { id: 2, x: 3.0, z: 0.0 });
 
         let mut materials = HashMap::new();
         materials.insert("1".into(), SolverMaterial { id: 1, e: 200.0, nu: 0.3 });
@@ -1813,12 +1813,12 @@ mod tests {
         supports.insert("1".into(), SolverSupport {
             id: 1, node_id: 1, support_type: "fixed".into(),
             kx: None, ky: None, kz: None,
-            dx: None, dy: None, drz: None, angle: None,
+            dx: None, dz: None, dry: None, angle: None,
         });
         supports.insert("2".into(), SolverSupport {
             id: 2, node_id: 2, support_type: "fixed".into(),
             kx: None, ky: None, kz: None,
-            dx: None, dy: None, drz: None, angle: None,
+            dx: None, dz: None, dry: None, angle: None,
         });
 
         let input = SolverInput {
@@ -1835,9 +1835,9 @@ mod tests {
     #[test]
     fn test_corotational_two_element_frame() {
         let mut nodes = HashMap::new();
-        nodes.insert("1".into(), SolverNode { id: 1, x: 0.0, y: 0.0 });
-        nodes.insert("2".into(), SolverNode { id: 2, x: 3.0, y: 0.0 });
-        nodes.insert("3".into(), SolverNode { id: 3, x: 3.0, y: 3.0 });
+        nodes.insert("1".into(), SolverNode { id: 1, x: 0.0, z: 0.0 });
+        nodes.insert("2".into(), SolverNode { id: 2, x: 3.0, z: 0.0 });
+        nodes.insert("3".into(), SolverNode { id: 3, x: 3.0, z: 3.0 });
 
         let mut materials = HashMap::new();
         materials.insert("1".into(), SolverMaterial { id: 1, e: 200.0, nu: 0.3 });
@@ -1861,17 +1861,17 @@ mod tests {
         supports.insert("1".into(), SolverSupport {
             id: 1, node_id: 1, support_type: "fixed".into(),
             kx: None, ky: None, kz: None,
-            dx: None, dy: None, drz: None, angle: None,
+            dx: None, dz: None, dry: None, angle: None,
         });
         supports.insert("2".into(), SolverSupport {
             id: 2, node_id: 3, support_type: "pinned".into(),
             kx: None, ky: None, kz: None,
-            dx: None, dy: None, drz: None, angle: None,
+            dx: None, dz: None, dry: None, angle: None,
         });
 
         let loads = vec![
             SolverLoad::Nodal(SolverNodalLoad {
-                node_id: 2, fx: -5.0, fy: -5.0, mz: 0.0,
+                node_id: 2, fx: -5.0, fz: -5.0, my: 0.0,
             }),
         ];
 

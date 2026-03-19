@@ -84,7 +84,7 @@ fn validation_md_propped_cantilever() {
     // Fixed-end moment at A for propped cantilever with UDL:
     // M_A = qL²/8
     let m_exact = q.abs() * l * l / 8.0;
-    assert_close(r1.mz.abs(), m_exact, 0.02,
+    assert_close(r1.my.abs(), m_exact, 0.02,
         "MD propped: M_A = qL²/8");
 }
 
@@ -109,7 +109,7 @@ fn validation_md_portal_no_sway() {
     ];
     let sups = vec![(1, 1, "fixed"), (2, 4, "fixed")];
     let loads = vec![SolverLoad::Nodal(SolverNodalLoad {
-        node_id: 2, fx: 0.0, fy: -p, mz: 0.0,
+        node_id: 2, fx: 0.0, fz: -p, my: 0.0,
     })];
     let input = make_input(nodes, vec![(1, E, 0.3)], vec![(1, A, IZ)], elems, sups, loads);
     let results = linear::solve_2d(&input).unwrap();
@@ -117,7 +117,7 @@ fn validation_md_portal_no_sway() {
     // Both columns should have similar stiffness contributions
     // Since load is at a joint, there are no FEMs in the beam
     // Moment distributes between column and beam based on relative stiffness
-    let sum_ry: f64 = results.reactions.iter().map(|r| r.ry).sum();
+    let sum_ry: f64 = results.reactions.iter().map(|r| r.rz).sum();
     assert_close(sum_ry, p, 0.02, "Portal no-sway: ΣRy = P");
 
     // No horizontal force → no lateral reaction (approximately)
@@ -215,7 +215,7 @@ fn validation_md_fem_baseline() {
 
     // FEM = qL²/12
     let fem = q.abs() * l * l / 12.0;
-    assert_close(r1.mz.abs(), fem, 0.02,
+    assert_close(r1.my.abs(), fem, 0.02,
         "MD FEM: M = qL²/12 for fixed-fixed");
 }
 
@@ -234,14 +234,14 @@ fn validation_md_carry_over() {
 
     // Direct test: cantilever with end moment
     let loads_c = vec![SolverLoad::Nodal(SolverNodalLoad {
-        node_id: n + 1, fx: 0.0, fy: 0.0, mz: m_app,
+        node_id: n + 1, fx: 0.0, fz: 0.0, my: m_app,
     })];
     let input_c = make_beam(n, l, E, A, IZ, "fixed", None, loads_c);
     let res_c = linear::solve_2d(&input_c).unwrap();
 
     // For cantilever with end moment: R_mz = M (direct equilibrium, no carry-over)
     let r_base = res_c.reactions.iter().find(|r| r.node_id == 1).unwrap();
-    assert_close(r_base.mz.abs(), m_app, 0.02,
+    assert_close(r_base.my.abs(), m_app, 0.02,
         "Carry-over: M_base = M_applied for cantilever");
 
     // For fixed-fixed with one end rotated: M_near = 4EIθ/L, M_far = 2EIθ/L
@@ -281,7 +281,7 @@ fn validation_md_frame_sway() {
 
     // Sum of base moments + F×h should balance
     // (accounting for column heights in equilibrium)
-    let _m_sum = r1.mz + r4.mz;
+    let _m_sum = r1.my + r4.my;
     let rx_sum = r1.rx + r4.rx;
     assert_close(rx_sum, -f, 0.02, "MD sway: ΣRx = -F");
 }

@@ -83,18 +83,18 @@ fn hydraulic_spillway_pier_cantilever() {
     // Total applied load = q_max * H / 2
     let total_load = q_max * h / 2.0;
     let r1 = results.reactions.iter().find(|r| r.node_id == 1).unwrap();
-    assert_close(r1.ry, total_load, 0.02, "Spillway pier Ry");
+    assert_close(r1.rz, total_load, 0.02, "Spillway pier Ry");
 
     // Fixed-end moment = q_max * H^2 / 6
     // (For triangular load max at support: M = W * H/3 = (qH/2) * H/3 = qH^2/6)
     let m_fixed = q_max * h * h / 6.0;
-    assert_close(r1.mz.abs(), m_fixed, 0.03, "Spillway pier M_fixed");
+    assert_close(r1.my.abs(), m_fixed, 0.03, "Spillway pier M_fixed");
 
     // Tip deflection: delta = q_max * H^4 / (30 * EI)
     // (Triangular load decreasing from support: Roark Table 8)
     let delta_exact = q_max * h.powi(4) / (30.0 * ei);
     let tip = results.displacements.iter().find(|d| d.node_id == n + 1).unwrap();
-    assert_close(tip.uy.abs(), delta_exact, 0.05, "Spillway pier tip deflection");
+    assert_close(tip.uz.abs(), delta_exact, 0.05, "Spillway pier tip deflection");
 }
 
 // ================================================================
@@ -141,19 +141,19 @@ fn hydraulic_intake_tower_cantilever() {
 
     // Reaction = q * H
     let r1 = results.reactions.iter().find(|r| r.node_id == 1).unwrap();
-    assert_close(r1.ry, q * h, 0.02, "Intake tower Ry");
+    assert_close(r1.rz, q * h, 0.02, "Intake tower Ry");
 
     // Fixed-end moment = q * H^2 / 2
-    assert_close(r1.mz.abs(), q * h * h / 2.0, 0.02, "Intake tower M_fixed");
+    assert_close(r1.my.abs(), q * h * h / 2.0, 0.02, "Intake tower M_fixed");
 
     // Tip deflection = q * H^4 / (8 * EI)
     let delta_exact = q * h.powi(4) / (8.0 * ei);
     let tip = results.displacements.iter().find(|d| d.node_id == n + 1).unwrap();
-    assert_close(tip.uy.abs(), delta_exact, 0.02, "Intake tower tip deflection");
+    assert_close(tip.uz.abs(), delta_exact, 0.02, "Intake tower tip deflection");
 
     // Tip rotation = q * H^3 / (6 * EI)
     let theta_exact = q * h.powi(3) / (6.0 * ei);
-    assert_close(tip.rz.abs(), theta_exact, 0.02, "Intake tower tip rotation");
+    assert_close(tip.ry.abs(), theta_exact, 0.02, "Intake tower tip rotation");
 }
 
 // ================================================================
@@ -206,17 +206,17 @@ fn hydraulic_canal_lining_slab() {
     // Reactions: each = q*L/2
     let r1 = results.reactions.iter().find(|r| r.node_id == 1).unwrap();
     let r_end = results.reactions.iter().find(|r| r.node_id == n + 1).unwrap();
-    assert_close(r1.ry, q * l / 2.0, 0.02, "Canal slab R_A");
-    assert_close(r_end.ry, q * l / 2.0, 0.02, "Canal slab R_B");
+    assert_close(r1.rz, q * l / 2.0, 0.02, "Canal slab R_A");
+    assert_close(r_end.rz, q * l / 2.0, 0.02, "Canal slab R_B");
 
     // Equilibrium
-    let sum_ry: f64 = results.reactions.iter().map(|r| r.ry).sum();
+    let sum_ry: f64 = results.reactions.iter().map(|r| r.rz).sum();
     assert_close(sum_ry, q * l, 0.01, "Canal slab equilibrium");
 
     // Midspan deflection = 5*q*L^4/(384*EI)
     let delta_exact = 5.0 * q * l.powi(4) / (384.0 * ei);
     let mid = results.displacements.iter().find(|d| d.node_id == n / 2 + 1).unwrap();
-    assert_close(mid.uy.abs(), delta_exact, 0.02, "Canal slab midspan deflection");
+    assert_close(mid.uz.abs(), delta_exact, 0.02, "Canal slab midspan deflection");
 }
 
 // ================================================================
@@ -269,18 +269,18 @@ fn hydraulic_penstock_pipe_span() {
     // Reactions
     let r1 = results.reactions.iter().find(|r| r.node_id == 1).unwrap();
     let r_end = results.reactions.iter().find(|r| r.node_id == n + 1).unwrap();
-    assert_close(r1.ry, q * l / 2.0, 0.02, "Penstock R_A");
-    assert_close(r_end.ry, q * l / 2.0, 0.02, "Penstock R_B");
+    assert_close(r1.rz, q * l / 2.0, 0.02, "Penstock R_A");
+    assert_close(r_end.rz, q * l / 2.0, 0.02, "Penstock R_B");
 
     // Midspan deflection
     let delta_exact = 5.0 * q * l.powi(4) / (384.0 * ei);
     let mid = results.displacements.iter().find(|d| d.node_id == n / 2 + 1).unwrap();
-    assert_close(mid.uy.abs(), delta_exact, 0.02, "Penstock midspan deflection");
+    assert_close(mid.uz.abs(), delta_exact, 0.02, "Penstock midspan deflection");
 
     // End rotation
     let theta_exact = q * l.powi(3) / (24.0 * ei);
     let d1 = results.displacements.iter().find(|d| d.node_id == 1).unwrap();
-    assert_close(d1.rz.abs(), theta_exact, 0.02, "Penstock end rotation");
+    assert_close(d1.ry.abs(), theta_exact, 0.02, "Penstock end rotation");
 }
 
 // ================================================================
@@ -330,12 +330,12 @@ fn hydraulic_stilling_basin_slab() {
     let r_b = results.reactions.iter().find(|r| r.node_id == n_per_span + 1).unwrap();
     let r_c = results.reactions.iter().find(|r| r.node_id == n_total + 1).unwrap();
 
-    assert_close(r_a.ry, 3.0 * q * l / 8.0, 0.03, "Stilling basin R_A");
-    assert_close(r_b.ry, 10.0 * q * l / 8.0, 0.03, "Stilling basin R_B");
-    assert_close(r_c.ry, 3.0 * q * l / 8.0, 0.03, "Stilling basin R_C");
+    assert_close(r_a.rz, 3.0 * q * l / 8.0, 0.03, "Stilling basin R_A");
+    assert_close(r_b.rz, 10.0 * q * l / 8.0, 0.03, "Stilling basin R_B");
+    assert_close(r_c.rz, 3.0 * q * l / 8.0, 0.03, "Stilling basin R_C");
 
     // Equilibrium: total load = 2*q*L
-    let sum_ry: f64 = results.reactions.iter().map(|r| r.ry).sum();
+    let sum_ry: f64 = results.reactions.iter().map(|r| r.rz).sum();
     assert_close(sum_ry, 2.0 * q * l, 0.01, "Stilling basin equilibrium");
 
     // Interior support moment: |M_B| = q*L^2/8
@@ -388,23 +388,23 @@ fn hydraulic_fish_ladder_baffles() {
 
     // Reaction
     let r1 = results.reactions.iter().find(|r| r.node_id == 1).unwrap();
-    assert_close(r1.ry, q * h, 0.02, "Fish ladder baffle Ry");
+    assert_close(r1.rz, q * h, 0.02, "Fish ladder baffle Ry");
 
     // Fixed-end moment
-    assert_close(r1.mz.abs(), q * h * h / 2.0, 0.02, "Fish ladder baffle M_fixed");
+    assert_close(r1.my.abs(), q * h * h / 2.0, 0.02, "Fish ladder baffle M_fixed");
 
     // Tip deflection
     let delta_exact = q * h.powi(4) / (8.0 * ei);
     let tip = results.displacements.iter().find(|d| d.node_id == n + 1).unwrap();
-    assert_close(tip.uy.abs(), delta_exact, 0.02, "Fish ladder baffle tip deflection");
+    assert_close(tip.uz.abs(), delta_exact, 0.02, "Fish ladder baffle tip deflection");
 
     // Verify proportionality: deflection at midspan should be less than tip
     let mid = results.displacements.iter().find(|d| d.node_id == n / 2 + 1).unwrap();
     assert!(
-        mid.uy.abs() < tip.uy.abs(),
+        mid.uz.abs() < tip.uz.abs(),
         "Midspan deflection {:.6e} < tip {:.6e}",
-        mid.uy.abs(),
-        tip.uy.abs()
+        mid.uz.abs(),
+        tip.uz.abs()
     );
 }
 
@@ -451,17 +451,17 @@ fn hydraulic_flume_support_beam() {
 
     // Roller reaction = 3*q*L/8
     let r_end = results.reactions.iter().find(|r| r.node_id == n + 1).unwrap();
-    assert_close(r_end.ry, 3.0 * q * l / 8.0, 0.02, "Flume beam R_roller");
+    assert_close(r_end.rz, 3.0 * q * l / 8.0, 0.02, "Flume beam R_roller");
 
     // Fixed reaction = 5*q*L/8
     let r1 = results.reactions.iter().find(|r| r.node_id == 1).unwrap();
-    assert_close(r1.ry, 5.0 * q * l / 8.0, 0.02, "Flume beam R_fixed");
+    assert_close(r1.rz, 5.0 * q * l / 8.0, 0.02, "Flume beam R_fixed");
 
     // Fixed-end moment = q*L^2/8
-    assert_close(r1.mz.abs(), q * l * l / 8.0, 0.02, "Flume beam M_fixed");
+    assert_close(r1.my.abs(), q * l * l / 8.0, 0.02, "Flume beam M_fixed");
 
     // Equilibrium
-    let sum_ry: f64 = results.reactions.iter().map(|r| r.ry).sum();
+    let sum_ry: f64 = results.reactions.iter().map(|r| r.rz).sum();
     assert_close(sum_ry, q * l, 0.01, "Flume beam equilibrium");
 
     // Maximum deflection for propped cantilever with UDL:
@@ -470,7 +470,7 @@ fn hydraulic_flume_support_beam() {
     let node_near_max = (0.4215 * n as f64).round() as usize + 1;
     let d_max_node = results.displacements.iter().find(|d| d.node_id == node_near_max).unwrap();
     let delta_approx = q * l.powi(4) / (185.0 * ei);
-    assert_close(d_max_node.uy.abs(), delta_approx, 0.10, "Flume beam max deflection");
+    assert_close(d_max_node.uz.abs(), delta_approx, 0.10, "Flume beam max deflection");
 }
 
 // ================================================================
@@ -518,19 +518,19 @@ fn hydraulic_weir_crest_structure() {
     // Reactions: each = q*L/2
     let r1 = results.reactions.iter().find(|r| r.node_id == 1).unwrap();
     let r_end = results.reactions.iter().find(|r| r.node_id == n + 1).unwrap();
-    assert_close(r1.ry, q * l / 2.0, 0.02, "Weir R_A");
-    assert_close(r_end.ry, q * l / 2.0, 0.02, "Weir R_B");
+    assert_close(r1.rz, q * l / 2.0, 0.02, "Weir R_A");
+    assert_close(r_end.rz, q * l / 2.0, 0.02, "Weir R_B");
 
     // End moments: |M| = q*L^2/12
-    assert_close(r1.mz.abs(), q * l * l / 12.0, 0.03, "Weir M_end_A");
-    assert_close(r_end.mz.abs(), q * l * l / 12.0, 0.03, "Weir M_end_B");
+    assert_close(r1.my.abs(), q * l * l / 12.0, 0.03, "Weir M_end_A");
+    assert_close(r_end.my.abs(), q * l * l / 12.0, 0.03, "Weir M_end_B");
 
     // Midspan deflection = q*L^4/(384*EI)
     let delta_exact = q * l.powi(4) / (384.0 * ei);
     let mid = results.displacements.iter().find(|d| d.node_id == n / 2 + 1).unwrap();
-    assert_close(mid.uy.abs(), delta_exact, 0.03, "Weir midspan deflection");
+    assert_close(mid.uz.abs(), delta_exact, 0.03, "Weir midspan deflection");
 
     // Equilibrium
-    let sum_ry: f64 = results.reactions.iter().map(|r| r.ry).sum();
+    let sum_ry: f64 = results.reactions.iter().map(|r| r.rz).sum();
     assert_close(sum_ry, q * l, 0.01, "Weir equilibrium");
 }

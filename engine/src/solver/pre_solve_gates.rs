@@ -128,7 +128,7 @@ pub fn check_near_duplicate_nodes_2d(input: &SolverInput) -> Vec<StructuredDiagn
             let ni = input.nodes.values().find(|n| n.id == el.node_i)?;
             let nj = input.nodes.values().find(|n| n.id == el.node_j)?;
             let dx = nj.x - ni.x;
-            let dy = nj.y - ni.y;
+            let dy = nj.z - ni.z;
             Some((dx * dx + dy * dy).sqrt())
         })
         .fold(0.0f64, f64::max)
@@ -140,7 +140,7 @@ pub fn check_near_duplicate_nodes_2d(input: &SolverInput) -> Vec<StructuredDiagn
     for i in 0..n {
         for j in (i + 1)..n {
             let dx = nodes[j].x - nodes[i].x;
-            let dy = nodes[j].y - nodes[i].y;
+            let dy = nodes[j].z - nodes[i].z;
             let dist = (dx * dx + dy * dy).sqrt();
             if dist < tol {
                 diags.push(

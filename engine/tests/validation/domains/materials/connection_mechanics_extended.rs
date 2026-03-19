@@ -52,7 +52,7 @@ fn validation_hinge_releases_moment_at_joint() {
     let input_a = make_beam(
         n, l, E, A, IZ, "pinned", Some("rollerX"),
         vec![SolverLoad::Nodal(SolverNodalLoad {
-            node_id: 4, fx: 0.0, fy: -p, mz: 0.0,
+            node_id: 4, fx: 0.0, fz: -p, my: 0.0,
         })],
     );
     let res_a = linear::solve_2d(&input_a).unwrap();
@@ -60,11 +60,11 @@ fn validation_hinge_releases_moment_at_joint() {
     // Midspan deflection for SS beam with center point load: PL^3/(48EI)
     let delta_exact: f64 = p * l.powi(3) / (48.0 * e_eff * IZ);
     let mid_a = res_a.displacements.iter().find(|d| d.node_id == 4).unwrap();
-    let err_a: f64 = (mid_a.uy.abs() - delta_exact).abs() / delta_exact;
+    let err_a: f64 = (mid_a.uz.abs() - delta_exact).abs() / delta_exact;
     assert!(
         err_a < 0.02,
         "Continuous beam midspan deflection: actual={:.6e}, exact={:.6e}, err={:.2}%",
-        mid_a.uy.abs(), delta_exact, err_a * 100.0
+        mid_a.uz.abs(), delta_exact, err_a * 100.0
     );
 
     // Case B: Two separate beams joined at node 3 (x=3.0m) with hinges.
@@ -86,7 +86,7 @@ fn validation_hinge_releases_moment_at_joint() {
         ],
         vec![(1, 1, "pinned"), (2, 7, "rollerX")],
         vec![SolverLoad::Nodal(SolverNodalLoad {
-            node_id: 4, fx: 0.0, fy: -p, mz: 0.0,
+            node_id: 4, fx: 0.0, fz: -p, my: 0.0,
         })],
     );
     let res_b = linear::solve_2d(&input_b).unwrap();
@@ -108,9 +108,9 @@ fn validation_hinge_releases_moment_at_joint() {
     // Beam with hinge should deflect more than continuous beam
     let mid_b = res_b.displacements.iter().find(|d| d.node_id == 4).unwrap();
     assert!(
-        mid_b.uy.abs() > mid_a.uy.abs(),
+        mid_b.uz.abs() > mid_a.uz.abs(),
         "Hinged beam deflects more: hinged={:.6e} > continuous={:.6e}",
-        mid_b.uy.abs(), mid_a.uy.abs()
+        mid_b.uz.abs(), mid_a.uz.abs()
     );
 }
 
@@ -140,7 +140,7 @@ fn validation_truss_bar_axial_only() {
         vec![(1, "frame", 1, 2, 1, 1, true, true)],
         vec![(1, 1, "pinned"), (2, 2, "rollerX")],
         vec![SolverLoad::Nodal(SolverNodalLoad {
-            node_id: 2, fx: p, fy: 0.0, mz: 0.0,
+            node_id: 2, fx: p, fz: 0.0, my: 0.0,
         })],
     );
 
@@ -205,35 +205,35 @@ fn validation_propped_cantilever_reactions() {
     // R_A (fixed end, node 1)
     let ra = results.reactions.iter().find(|r| r.node_id == 1).unwrap();
     let ra_exact: f64 = 5.0 * q_abs * l / 8.0;
-    let err_ra: f64 = (ra.ry - ra_exact).abs() / ra_exact;
+    let err_ra: f64 = (ra.rz - ra_exact).abs() / ra_exact;
     assert!(
         err_ra < 0.02,
         "R_A: actual={:.4}, exact 5qL/8={:.4}, err={:.2}%",
-        ra.ry, ra_exact, err_ra * 100.0
+        ra.rz, ra_exact, err_ra * 100.0
     );
 
     // R_B (roller end, last node)
     let rb = results.reactions.iter().find(|r| r.node_id == n + 1).unwrap();
     let rb_exact: f64 = 3.0 * q_abs * l / 8.0;
-    let err_rb: f64 = (rb.ry - rb_exact).abs() / rb_exact;
+    let err_rb: f64 = (rb.rz - rb_exact).abs() / rb_exact;
     assert!(
         err_rb < 0.02,
         "R_B: actual={:.4}, exact 3qL/8={:.4}, err={:.2}%",
-        rb.ry, rb_exact, err_rb * 100.0
+        rb.rz, rb_exact, err_rb * 100.0
     );
 
     // Fixed end moment M_A = qL^2/8 (hogging, negative by convention)
     let ma_exact: f64 = q_abs * l * l / 8.0;
-    let err_ma: f64 = (ra.mz.abs() - ma_exact).abs() / ma_exact;
+    let err_ma: f64 = (ra.my.abs() - ma_exact).abs() / ma_exact;
     assert!(
         err_ma < 0.02,
         "M_A: actual={:.4}, exact qL^2/8={:.4}, err={:.2}%",
-        ra.mz.abs(), ma_exact, err_ma * 100.0
+        ra.my.abs(), ma_exact, err_ma * 100.0
     );
 
     // Total vertical reaction = total load
     let total_load: f64 = q_abs * l;
-    let total_reaction: f64 = ra.ry + rb.ry;
+    let total_reaction: f64 = ra.rz + rb.rz;
     let err_eq: f64 = (total_reaction - total_load).abs() / total_load;
     assert!(
         err_eq < 0.01,
@@ -331,9 +331,9 @@ fn validation_two_span_beam_with_hinge() {
     let disp_a = res_a.displacements.iter().find(|d| d.node_id == mid_node).unwrap();
     let disp_b = res_b.displacements.iter().find(|d| d.node_id == mid_node).unwrap();
     assert!(
-        disp_b.uy.abs() > disp_a.uy.abs() * 0.9,
+        disp_b.uz.abs() > disp_a.uz.abs() * 0.9,
         "Hinged beam deflection at node {}: {:.6e} vs continuous: {:.6e}",
-        mid_node, disp_b.uy.abs(), disp_a.uy.abs()
+        mid_node, disp_b.uz.abs(), disp_a.uz.abs()
     );
 }
 
@@ -370,7 +370,7 @@ fn validation_portal_frame_pinned_vs_fixed_bases() {
         ],
         vec![(1, 1, "pinned"), (2, 4, "pinned")],
         vec![SolverLoad::Nodal(SolverNodalLoad {
-            node_id: 2, fx: f_lat, fy: 0.0, mz: 0.0,
+            node_id: 2, fx: f_lat, fz: 0.0, my: 0.0,
         })],
     );
     let res_pinned = linear::solve_2d(&input_pinned).unwrap();
@@ -379,28 +379,28 @@ fn validation_portal_frame_pinned_vs_fixed_bases() {
     let r1_fixed = res_fixed.reactions.iter().find(|r| r.node_id == 1).unwrap();
     let r4_fixed = res_fixed.reactions.iter().find(|r| r.node_id == 4).unwrap();
     assert!(
-        r1_fixed.mz.abs() > 1.0,
+        r1_fixed.my.abs() > 1.0,
         "Fixed base moment at node 1: {:.4} should be significant",
-        r1_fixed.mz
+        r1_fixed.my
     );
     assert!(
-        r4_fixed.mz.abs() > 1.0,
+        r4_fixed.my.abs() > 1.0,
         "Fixed base moment at node 4: {:.4} should be significant",
-        r4_fixed.mz
+        r4_fixed.my
     );
 
     // Pinned bases should have zero moment reactions
     let r1_pinned = res_pinned.reactions.iter().find(|r| r.node_id == 1).unwrap();
     let r4_pinned = res_pinned.reactions.iter().find(|r| r.node_id == 4).unwrap();
     assert!(
-        r1_pinned.mz.abs() < 1e-3,
+        r1_pinned.my.abs() < 1e-3,
         "Pinned base moment at node 1: {:.6} should be ~0",
-        r1_pinned.mz
+        r1_pinned.my
     );
     assert!(
-        r4_pinned.mz.abs() < 1e-3,
+        r4_pinned.my.abs() < 1e-3,
         "Pinned base moment at node 4: {:.6} should be ~0",
-        r4_pinned.mz
+        r4_pinned.my
     );
 
     // Lateral drift: pinned bases should produce larger drift
@@ -465,7 +465,7 @@ fn validation_three_bar_truss_equilibrium() {
         ],
         vec![(1, 1, "pinned"), (2, 2, "rollerX")],
         vec![SolverLoad::Nodal(SolverNodalLoad {
-            node_id: 3, fx: 0.0, fy: -p, mz: 0.0,
+            node_id: 3, fx: 0.0, fz: -p, my: 0.0,
         })],
     );
 
@@ -474,17 +474,17 @@ fn validation_three_bar_truss_equilibrium() {
     // By symmetry, vertical reactions should be P/2 each
     let r1 = results.reactions.iter().find(|r| r.node_id == 1).unwrap();
     let r2 = results.reactions.iter().find(|r| r.node_id == 2).unwrap();
-    let err_r1: f64 = (r1.ry - p / 2.0).abs() / (p / 2.0);
+    let err_r1: f64 = (r1.rz - p / 2.0).abs() / (p / 2.0);
     assert!(
         err_r1 < 0.02,
         "R1_y: actual={:.4}, expected P/2={:.4}, err={:.2}%",
-        r1.ry, p / 2.0, err_r1 * 100.0
+        r1.rz, p / 2.0, err_r1 * 100.0
     );
-    let err_r2: f64 = (r2.ry - p / 2.0).abs() / (p / 2.0);
+    let err_r2: f64 = (r2.rz - p / 2.0).abs() / (p / 2.0);
     assert!(
         err_r2 < 0.02,
         "R2_y: actual={:.4}, expected P/2={:.4}, err={:.2}%",
-        r2.ry, p / 2.0, err_r2 * 100.0
+        r2.rz, p / 2.0, err_r2 * 100.0
     );
 
     // Inclined bar force: compression N = P/(2*sin(theta))
@@ -606,17 +606,17 @@ fn validation_propped_cantilever_with_internal_hinge() {
     let q_abs: f64 = q.abs();
     let rb_exact: f64 = q_abs * l / 4.0;
     let rb = results.reactions.iter().find(|r| r.node_id == n + 1).unwrap();
-    let err_rb: f64 = (rb.ry - rb_exact).abs() / rb_exact;
+    let err_rb: f64 = (rb.rz - rb_exact).abs() / rb_exact;
     assert!(
         err_rb < 0.02,
         "Roller R_B: actual={:.4}, exact qL/4={:.4}, err={:.2}%",
-        rb.ry, rb_exact, err_rb * 100.0
+        rb.rz, rb_exact, err_rb * 100.0
     );
 
     // Total vertical equilibrium: R_A + R_B = qL
     let ra = results.reactions.iter().find(|r| r.node_id == 1).unwrap();
     let total_load: f64 = q_abs * l;
-    let total_r: f64 = ra.ry + rb.ry;
+    let total_r: f64 = ra.rz + rb.rz;
     let err_eq: f64 = (total_r - total_load).abs() / total_load;
     assert!(
         err_eq < 0.01,
@@ -626,9 +626,9 @@ fn validation_propped_cantilever_with_internal_hinge() {
 
     // Fixed end should have moment reaction
     assert!(
-        ra.mz.abs() > 1.0,
+        ra.my.abs() > 1.0,
         "Fixed end moment should be significant: {:.4}",
-        ra.mz
+        ra.my
     );
 }
 
@@ -663,7 +663,7 @@ fn validation_mixed_base_portal_frame() {
         ],
         vec![(1, 1, "fixed"), (2, 4, "pinned")],
         vec![SolverLoad::Nodal(SolverNodalLoad {
-            node_id: 2, fx: f_lat, fy: 0.0, mz: 0.0,
+            node_id: 2, fx: f_lat, fz: 0.0, my: 0.0,
         })],
     );
     let res_mixed = linear::solve_2d(&input_mixed).unwrap();
@@ -684,7 +684,7 @@ fn validation_mixed_base_portal_frame() {
         ],
         vec![(1, 1, "pinned"), (2, 4, "pinned")],
         vec![SolverLoad::Nodal(SolverNodalLoad {
-            node_id: 2, fx: f_lat, fy: 0.0, mz: 0.0,
+            node_id: 2, fx: f_lat, fz: 0.0, my: 0.0,
         })],
     );
     let res_pp = linear::solve_2d(&input_pp).unwrap();
@@ -706,17 +706,17 @@ fn validation_mixed_base_portal_frame() {
     // Fixed base (node 1) should have non-zero moment reaction
     let r1_mixed = res_mixed.reactions.iter().find(|r| r.node_id == 1).unwrap();
     assert!(
-        r1_mixed.mz.abs() > 1.0,
+        r1_mixed.my.abs() > 1.0,
         "Fixed base moment: {:.4} should be significant",
-        r1_mixed.mz
+        r1_mixed.my
     );
 
     // Pinned base (node 4) should have zero moment reaction
     let r4_mixed = res_mixed.reactions.iter().find(|r| r.node_id == 4).unwrap();
     assert!(
-        r4_mixed.mz.abs() < 1e-3,
+        r4_mixed.my.abs() < 1e-3,
         "Pinned base moment: {:.6} should be ~0",
-        r4_mixed.mz
+        r4_mixed.my
     );
 
     // Horizontal equilibrium: sum of horizontal reactions = lateral load

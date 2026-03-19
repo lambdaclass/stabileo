@@ -91,8 +91,8 @@ fn sports_arena_long_span_roof_truss() {
         loads.push(SolverLoad::Nodal(SolverNodalLoad {
             node_id: i + 1,
             fx: 0.0,
-            fy: -p_node,
-            mz: 0.0,
+            fz: -p_node,
+            my: 0.0,
         }));
     }
 
@@ -114,8 +114,8 @@ fn sports_arena_long_span_roof_truss() {
     let r1 = results.reactions.iter().find(|r| r.node_id == 1).unwrap();
     let r_end = results.reactions.iter().find(|r| r.node_id == n_panels + 1).unwrap();
 
-    assert_close(r1.ry, r_exact, 0.02, "Roof truss: left reaction");
-    assert_close(r_end.ry, r_exact, 0.02, "Roof truss: right reaction");
+    assert_close(r1.rz, r_exact, 0.02, "Roof truss: left reaction");
+    assert_close(r_end.rz, r_exact, 0.02, "Roof truss: right reaction");
 
     // Maximum bottom chord tension at midspan
     // For a Pratt truss with n_panels loaded at interior bottom nodes,
@@ -145,7 +145,7 @@ fn sports_arena_long_span_roof_truss() {
         "Roof truss: max bottom chord force from section cut");
 
     // Global equilibrium
-    let sum_ry: f64 = results.reactions.iter().map(|r| r.ry).sum();
+    let sum_ry: f64 = results.reactions.iter().map(|r| r.rz).sum();
     assert_close(sum_ry, total_load, 0.01, "Roof truss: vertical equilibrium");
 }
 
@@ -199,27 +199,27 @@ fn sports_arena_cantilever_grandstand() {
     let tip_disp = results.displacements.iter()
         .find(|d| d.node_id == tip_node).unwrap();
 
-    assert_close(tip_disp.uy.abs(), delta_exact, 0.05,
+    assert_close(tip_disp.uz.abs(), delta_exact, 0.05,
         "Grandstand cantilever: tip deflection");
 
     // Fixed-end moment: M = q*L^2 / 2
     let m_fixed_exact: f64 = q.abs() * l.powi(2) / 2.0;
     let r1 = results.reactions.iter().find(|r| r.node_id == 1).unwrap();
 
-    assert_close(r1.mz.abs(), m_fixed_exact, 0.03,
+    assert_close(r1.my.abs(), m_fixed_exact, 0.03,
         "Grandstand cantilever: fixed-end moment");
 
     // Fixed-end shear: V = q*L
     let v_fixed_exact: f64 = q.abs() * l;
-    assert_close(r1.ry.abs(), v_fixed_exact, 0.03,
+    assert_close(r1.rz.abs(), v_fixed_exact, 0.03,
         "Grandstand cantilever: fixed-end shear");
 
     // Serviceability check: delta < L/250
     let delta_limit: f64 = l / 250.0;
     assert!(
-        tip_disp.uy.abs() < delta_limit,
+        tip_disp.uz.abs() < delta_limit,
         "Grandstand deflection {:.4} m < L/250 = {:.4} m",
-        tip_disp.uy.abs(), delta_limit
+        tip_disp.uz.abs(), delta_limit
     );
 }
 
@@ -271,7 +271,7 @@ fn sports_arena_crowd_dynamic_loading() {
     let mid_disp = results.displacements.iter()
         .find(|d| d.node_id == mid_node).unwrap();
 
-    assert_close(mid_disp.uy.abs(), delta_exact, 0.05,
+    assert_close(mid_disp.uz.abs(), delta_exact, 0.05,
         "Crowd loading: midspan deflection");
 
     // Midspan moment: M = q*L^2 / 8
@@ -290,7 +290,7 @@ fn sports_arena_crowd_dynamic_loading() {
     // Reactions: R = q*L/2
     let r_exact: f64 = q_design.abs() * l / 2.0;
     let r1 = results.reactions.iter().find(|r| r.node_id == 1).unwrap();
-    assert_close(r1.ry.abs(), r_exact, 0.03,
+    assert_close(r1.rz.abs(), r_exact, 0.03,
         "Crowd loading: support reaction");
 
     // Dynamic amplification verification: compare with static case
@@ -313,7 +313,7 @@ fn sports_arena_crowd_dynamic_loading() {
         .find(|d| d.node_id == mid_node).unwrap();
 
     // Dynamic deflection / static deflection should equal DAF
-    let ratio: f64 = mid_disp.uy.abs() / mid_static.uy.abs();
+    let ratio: f64 = mid_disp.uz.abs() / mid_static.uz.abs();
     assert_close(ratio, daf, 0.02, "Crowd loading: DAF amplification ratio");
 }
 
@@ -367,8 +367,8 @@ fn sports_arena_retractable_roof_track_beam() {
     let loads = vec![SolverLoad::Nodal(SolverNodalLoad {
         node_id: load_node,
         fx: 0.0,
-        fy: p_roof,
-        mz: 0.0,
+        fz: p_roof,
+        my: 0.0,
     })];
 
     let input = make_input(
@@ -396,29 +396,29 @@ fn sports_arena_retractable_roof_track_beam() {
     let r_c = results.reactions.iter().find(|r| r.node_id == n_nodes).unwrap();
 
     // Verify global equilibrium: sum of reactions = applied load
-    let sum_ry: f64 = results.reactions.iter().map(|r| r.ry).sum();
+    let sum_ry: f64 = results.reactions.iter().map(|r| r.rz).sum();
     assert_close(sum_ry, p_abs, 0.02,
         "Track beam: vertical equilibrium");
 
     // The loaded span support (R_A) should carry a significant portion
     // R_A should be between P/4 and P/2 (bounded by SS and fixed-end cases)
     assert!(
-        r_a.ry > p_abs * 0.25 && r_a.ry < p_abs * 0.55,
-        "Track beam: R_A = {:.2} kN in expected range", r_a.ry
+        r_a.rz > p_abs * 0.25 && r_a.rz < p_abs * 0.55,
+        "Track beam: R_A = {:.2} kN in expected range", r_a.rz
     );
 
     // The interior support (R_B) should carry the largest reaction
     // because it is adjacent to the loaded span
     assert!(
-        r_b.ry.abs() > r_a.ry.abs(),
+        r_b.rz.abs() > r_a.rz.abs(),
         "Track beam: interior support R_B ({:.2}) > R_A ({:.2})",
-        r_b.ry, r_a.ry
+        r_b.rz, r_a.rz
     );
 
     // The far end reaction should be small (uplift or near-zero)
     assert!(
-        r_c.ry.abs() < p_abs * 0.10,
-        "Track beam: far end reaction is small ({:.2} kN)", r_c.ry
+        r_c.rz.abs() < p_abs * 0.10,
+        "Track beam: far end reaction is small ({:.2} kN)", r_c.rz
     );
 }
 
@@ -492,10 +492,10 @@ fn sports_arena_cable_stayed_roof() {
     // Symmetric loads at inner cable points
     let loads = vec![
         SolverLoad::Nodal(SolverNodalLoad {
-            node_id: 4, fx: 0.0, fy: -p_per_point, mz: 0.0,
+            node_id: 4, fx: 0.0, fz: -p_per_point, my: 0.0,
         }),
         SolverLoad::Nodal(SolverNodalLoad {
-            node_id: 5, fx: 0.0, fy: -p_per_point, mz: 0.0,
+            node_id: 5, fx: 0.0, fz: -p_per_point, my: 0.0,
         }),
     ];
 
@@ -539,7 +539,7 @@ fn sports_arena_cable_stayed_roof() {
     assert!(f_mast > 0.1, "Mast carries compressive force: {:.2} kN", f_mast);
 
     // Global equilibrium
-    let sum_ry: f64 = results.reactions.iter().map(|r| r.ry).sum();
+    let sum_ry: f64 = results.reactions.iter().map(|r| r.rz).sum();
     assert_close(sum_ry, 2.0 * p_per_point, 0.02,
         "Cable-stayed roof: vertical equilibrium");
 }
@@ -665,7 +665,7 @@ fn sports_arena_precast_terrace_unit() {
     let mid_disp = results.displacements.iter()
         .find(|d| d.node_id == mid_node).unwrap();
 
-    assert_close(mid_disp.uy.abs(), delta_exact, 0.05,
+    assert_close(mid_disp.uz.abs(), delta_exact, 0.05,
         "Terrace unit: midspan deflection");
 
     // Support reactions: R = q*L/2
@@ -673,9 +673,9 @@ fn sports_arena_precast_terrace_unit() {
     let r1 = results.reactions.iter().find(|r| r.node_id == 1).unwrap();
     let r_end = results.reactions.iter().find(|r| r.node_id == n + 1).unwrap();
 
-    assert_close(r1.ry.abs(), r_exact, 0.03,
+    assert_close(r1.rz.abs(), r_exact, 0.03,
         "Terrace unit: left reaction");
-    assert_close(r_end.ry.abs(), r_exact, 0.03,
+    assert_close(r_end.rz.abs(), r_exact, 0.03,
         "Terrace unit: right reaction");
 
     // Midspan moment: M = q*L^2 / 8
@@ -690,9 +690,9 @@ fn sports_arena_precast_terrace_unit() {
     // Serviceability check: delta < L/350 (for precast concrete)
     let delta_limit: f64 = l / 350.0;
     assert!(
-        mid_disp.uy.abs() < delta_limit,
+        mid_disp.uz.abs() < delta_limit,
         "Terrace deflection {:.4} m < L/350 = {:.4} m",
-        mid_disp.uy.abs(), delta_limit
+        mid_disp.uz.abs(), delta_limit
     );
 }
 
@@ -736,8 +736,8 @@ fn sports_arena_press_box_cantilever() {
     loads.push(SolverLoad::Nodal(SolverNodalLoad {
         node_id: n + 1,
         fx: 0.0,
-        fy: p_tip,
-        mz: 0.0,
+        fz: p_tip,
+        my: 0.0,
     }));
 
     let input = make_beam(n, l, e_steel, a_sec, iz_sec, "fixed", None, loads);
@@ -754,19 +754,19 @@ fn sports_arena_press_box_cantilever() {
     let tip_disp = results.displacements.iter()
         .find(|d| d.node_id == tip_node).unwrap();
 
-    assert_close(tip_disp.uy.abs(), delta_total, 0.05,
+    assert_close(tip_disp.uz.abs(), delta_total, 0.05,
         "Press box: tip deflection (UDL + point load)");
 
     // Fixed-end moment: M = q*L^2/2 + P*L
     let m_fixed_exact: f64 = q.abs() * l.powi(2) / 2.0 + p_tip.abs() * l;
     let r1 = results.reactions.iter().find(|r| r.node_id == 1).unwrap();
 
-    assert_close(r1.mz.abs(), m_fixed_exact, 0.03,
+    assert_close(r1.my.abs(), m_fixed_exact, 0.03,
         "Press box: fixed-end moment");
 
     // Fixed-end shear: V = q*L + P
     let v_fixed_exact: f64 = q.abs() * l + p_tip.abs();
-    assert_close(r1.ry.abs(), v_fixed_exact, 0.03,
+    assert_close(r1.rz.abs(), v_fixed_exact, 0.03,
         "Press box: fixed-end shear");
 
     // Superposition check: combined deflection = sum of individual deflections
@@ -784,22 +784,22 @@ fn sports_arena_press_box_cantilever() {
     let input_udl = make_beam(n, l, e_steel, a_sec, iz_sec, "fixed", None, loads_udl_only);
     let results_udl = solve_2d(&input_udl).expect("solve UDL only");
     let tip_udl = results_udl.displacements.iter()
-        .find(|d| d.node_id == tip_node).unwrap().uy.abs();
+        .find(|d| d.node_id == tip_node).unwrap().uz.abs();
 
     // Verify tip-load-only case
     let loads_tip_only = vec![SolverLoad::Nodal(SolverNodalLoad {
         node_id: n + 1,
         fx: 0.0,
-        fy: p_tip,
-        mz: 0.0,
+        fz: p_tip,
+        my: 0.0,
     })];
     let input_tip = make_beam(n, l, e_steel, a_sec, iz_sec, "fixed", None, loads_tip_only);
     let results_tip = solve_2d(&input_tip).expect("solve tip only");
     let tip_point = results_tip.displacements.iter()
-        .find(|d| d.node_id == tip_node).unwrap().uy.abs();
+        .find(|d| d.node_id == tip_node).unwrap().uz.abs();
 
     // Superposition: combined = UDL-only + tip-only
     let superposition_sum: f64 = tip_udl + tip_point;
-    assert_close(tip_disp.uy.abs(), superposition_sum, 0.02,
+    assert_close(tip_disp.uz.abs(), superposition_sum, 0.02,
         "Press box: superposition principle verified");
 }

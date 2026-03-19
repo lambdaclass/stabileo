@@ -73,13 +73,13 @@ fn marine_morison_inline_force() {
 
     // The fixed support reaction moment
     let reaction = results.reactions.iter().find(|r| r.node_id == 1).unwrap();
-    let m_base_actual: f64 = reaction.mz.abs();
+    let m_base_actual: f64 = reaction.my.abs();
 
     assert_close(m_base_actual, m_base_expected, 0.02, "Morison drag: base moment");
 
     // Also verify total shear at base = q * L
     let v_base_expected: f64 = q_drag * l;
-    let v_base_actual: f64 = reaction.ry.abs();
+    let v_base_actual: f64 = reaction.rz.abs();
     assert_close(v_base_actual, v_base_expected, 0.02, "Morison drag: base shear");
 }
 
@@ -150,12 +150,12 @@ fn marine_hydrostatic_pressure_vertical() {
     // Base shear = q_bot * L / 2
     let v_base_expected: f64 = q_bot * depth / 2.0;
     let reaction = results.reactions.iter().find(|r| r.node_id == 1).unwrap();
-    assert_close(reaction.ry.abs(), v_base_expected, 0.02, "Hydrostatic: base shear");
+    assert_close(reaction.rz.abs(), v_base_expected, 0.02, "Hydrostatic: base shear");
 
     // Base moment for triangular load (max at root, zero at tip):
     // M_base = q_bot * L^2 / 6
     let m_base_expected: f64 = q_bot * depth * depth / 6.0;
-    assert_close(reaction.mz.abs(), m_base_expected, 0.02, "Hydrostatic: base moment");
+    assert_close(reaction.my.abs(), m_base_expected, 0.02, "Hydrostatic: base moment");
 }
 
 // ================================================================
@@ -214,8 +214,8 @@ fn marine_jacket_structure() {
         SolverLoad::Nodal(SolverNodalLoad {
             node_id: 2,
             fx: f_wave,
-            fy: 0.0,
-            mz: 0.0,
+            fz: 0.0,
+            my: 0.0,
         }),
     ];
 
@@ -236,7 +236,7 @@ fn marine_jacket_structure() {
 
     // Overturning moment about base = F_wave * h
     // Resisted by vertical reactions: sum(Ry * x) = F_wave * h
-    let sum_ry: f64 = results.reactions.iter().map(|r| r.ry).sum();
+    let sum_ry: f64 = results.reactions.iter().map(|r| r.rz).sum();
     // Vertical equilibrium (no gravity): sum Ry should be ~0
     assert_close(sum_ry, 0.0, 0.01, "Jacket: vertical equilibrium");
 }
@@ -271,8 +271,8 @@ fn marine_monopile_lateral_load() {
     let loads = vec![SolverLoad::Nodal(SolverNodalLoad {
         node_id: n + 1,
         fx: 0.0,
-        fy: -p,
-        mz: 0.0,
+        fz: -p,
+        my: 0.0,
     })];
 
     let input = make_beam(n, l, e, a, iz, "fixed", None, loads);
@@ -282,15 +282,15 @@ fn marine_monopile_lateral_load() {
     let e_eff: f64 = e * 1000.0; // solver multiplies by 1000 internally
     let delta_expected: f64 = p * l.powi(3) / (3.0 * e_eff * iz);
     let tip = results.displacements.iter().find(|d| d.node_id == n + 1).unwrap();
-    assert_close(tip.uy.abs(), delta_expected, 0.02, "Monopile: tip deflection");
+    assert_close(tip.uz.abs(), delta_expected, 0.02, "Monopile: tip deflection");
 
     // Base moment: M = P * L
     let m_expected: f64 = p * l;
     let reaction = results.reactions.iter().find(|r| r.node_id == 1).unwrap();
-    assert_close(reaction.mz.abs(), m_expected, 0.01, "Monopile: base moment");
+    assert_close(reaction.my.abs(), m_expected, 0.01, "Monopile: base moment");
 
     // Base shear: V = P
-    assert_close(reaction.ry.abs(), p, 0.01, "Monopile: base shear");
+    assert_close(reaction.rz.abs(), p, 0.01, "Monopile: base shear");
 }
 
 // ================================================================
@@ -338,7 +338,7 @@ fn marine_wave_current_combination() {
     let input_wave = make_beam(n, l, e, a, iz, "fixed", None, loads_wave);
     let results_wave = solve_2d(&input_wave).expect("solve wave");
     let r_wave = results_wave.reactions.iter().find(|r| r.node_id == 1).unwrap();
-    let m_wave: f64 = r_wave.mz.abs();
+    let m_wave: f64 = r_wave.my.abs();
 
     // Solve combined case
     let mut loads_combined = Vec::new();
@@ -354,7 +354,7 @@ fn marine_wave_current_combination() {
     let input_combined = make_beam(n, l, e, a, iz, "fixed", None, loads_combined);
     let results_combined = solve_2d(&input_combined).expect("solve combined");
     let r_combined = results_combined.reactions.iter().find(|r| r.node_id == 1).unwrap();
-    let m_combined: f64 = r_combined.mz.abs();
+    let m_combined: f64 = r_combined.my.abs();
 
     // Analytical moments: M = q * L^2 / 2
     let m_wave_expected: f64 = q_wave * l * l / 2.0;
@@ -439,12 +439,12 @@ fn marine_buoyancy_submerged_tubular() {
     let delta_expected: f64 = 5.0 * w_sub * l.powi(4) / (384.0 * e_eff * iz);
     let mid_node = n / 2 + 1;
     let mid_d = results.displacements.iter().find(|d| d.node_id == mid_node).unwrap();
-    assert_close(mid_d.uy.abs(), delta_expected, 0.05, "Buoyancy: midspan deflection");
+    assert_close(mid_d.uz.abs(), delta_expected, 0.05, "Buoyancy: midspan deflection");
 
     // Each support carries half the total load
     let r_expected: f64 = w_sub * l / 2.0;
     let r1 = results.reactions.iter().find(|r| r.node_id == 1).unwrap();
-    assert_close(r1.ry.abs(), r_expected, 0.02, "Buoyancy: support reaction");
+    assert_close(r1.rz.abs(), r_expected, 0.02, "Buoyancy: support reaction");
 }
 
 // ================================================================
@@ -508,11 +508,11 @@ fn marine_deck_load_path() {
     let r1 = results.reactions.iter().find(|r| r.node_id == 1).unwrap();
     let r4 = results.reactions.iter().find(|r| r.node_id == 4).unwrap();
 
-    let ry_sum: f64 = r1.ry + r4.ry;
+    let ry_sum: f64 = r1.rz + r4.rz;
     assert_close(ry_sum, total_load, 0.01, "Deck load: vertical equilibrium");
 
     // Symmetry: each leg carries approximately half
-    assert_close(r1.ry, r4.ry, 0.01, "Deck load: symmetric leg reactions");
+    assert_close(r1.rz, r4.rz, 0.01, "Deck load: symmetric leg reactions");
 
     // No net horizontal load: sum of horizontal reactions = 0
     let rx_sum: f64 = r1.rx + r4.rx;
@@ -590,10 +590,10 @@ fn marine_environmental_load_combination() {
 
     // Superposition: combined displacement = wave + current displacement
     let ux_super: f64 = d2_wave.ux + d2_current.ux;
-    let uy_super: f64 = d2_wave.uy + d2_current.uy;
+    let uy_super: f64 = d2_wave.uz + d2_current.uz;
 
     assert_close(d2_combined.ux, ux_super, 0.01, "Env combo: superposition ux");
-    assert_close(d2_combined.uy, uy_super, 0.01, "Env combo: superposition uy");
+    assert_close(d2_combined.uz, uy_super, 0.01, "Env combo: superposition uy");
 
     // Combined reactions should also superpose
     let r1_wave = results_wave.reactions.iter().find(|r| r.node_id == 1).unwrap();
@@ -603,6 +603,6 @@ fn marine_environmental_load_combination() {
     let rx_super: f64 = r1_wave.rx + r1_current.rx;
     assert_close(r1_combined.rx, rx_super, 0.01, "Env combo: superposition rx");
 
-    let mz_super: f64 = r1_wave.mz + r1_current.mz;
-    assert_close(r1_combined.mz, mz_super, 0.01, "Env combo: superposition mz");
+    let mz_super: f64 = r1_wave.my + r1_current.my;
+    assert_close(r1_combined.my, mz_super, 0.01, "Env combo: superposition mz");
 }

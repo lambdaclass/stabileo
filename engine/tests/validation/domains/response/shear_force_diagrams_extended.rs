@@ -61,8 +61,8 @@ fn validation_sfd_ext_triangular_load() {
     let rb = 2.0 * w_total / 3.0;  // right reaction (upward)
 
     // Check reactions
-    let ry_left: f64 = results.reactions.iter().find(|r| r.node_id == 1).unwrap().ry;
-    let ry_right: f64 = results.reactions.iter().find(|r| r.node_id == n + 1).unwrap().ry;
+    let ry_left: f64 = results.reactions.iter().find(|r| r.node_id == 1).unwrap().rz;
+    let ry_right: f64 = results.reactions.iter().find(|r| r.node_id == n + 1).unwrap().rz;
 
     assert_close(ry_left, ra, 0.02, "Triangular load: R_A = qL/6");
     assert_close(ry_right, rb, 0.02, "Triangular load: R_B = qL/3");
@@ -101,8 +101,8 @@ fn validation_sfd_ext_propped_cantilever_udl() {
     let rb = 3.0 * q.abs() * l / 8.0;
 
     // Check via reactions
-    let ry_fixed: f64 = results.reactions.iter().find(|r| r.node_id == 1).unwrap().ry;
-    let ry_roller: f64 = results.reactions.iter().find(|r| r.node_id == n + 1).unwrap().ry;
+    let ry_fixed: f64 = results.reactions.iter().find(|r| r.node_id == 1).unwrap().rz;
+    let ry_roller: f64 = results.reactions.iter().find(|r| r.node_id == n + 1).unwrap().rz;
 
     assert_close(ry_fixed, ra, 0.02, "Propped cantilever UDL: R_A = 5qL/8");
     assert_close(ry_roller, rb, 0.02, "Propped cantilever UDL: R_B = 3qL/8");
@@ -143,16 +143,16 @@ fn validation_sfd_ext_two_span_udl() {
     let rb = 5.0 * q.abs() * span / 4.0;
 
     // Check end reactions
-    let ry_a: f64 = results.reactions.iter().find(|r| r.node_id == 1).unwrap().ry;
+    let ry_a: f64 = results.reactions.iter().find(|r| r.node_id == 1).unwrap().rz;
     assert_close(ry_a, ra, 0.03, "Two-span UDL: R_A = 3qL/8");
 
     let last_node = total_elements + 1;
-    let ry_c: f64 = results.reactions.iter().find(|r| r.node_id == last_node).unwrap().ry;
+    let ry_c: f64 = results.reactions.iter().find(|r| r.node_id == last_node).unwrap().rz;
     assert_close(ry_c, ra, 0.03, "Two-span UDL: R_C = 3qL/8 (symmetry)");
 
     // Check interior reaction (at node n_per_span + 1)
     let mid_node = n_per_span + 1;
-    let ry_b: f64 = results.reactions.iter().find(|r| r.node_id == mid_node).unwrap().ry;
+    let ry_b: f64 = results.reactions.iter().find(|r| r.node_id == mid_node).unwrap().rz;
     assert_close(ry_b, rb, 0.03, "Two-span UDL: R_B = 5qL/4");
 
     // V jump at interior support: difference between end of span 1 and start of span 2
@@ -177,14 +177,14 @@ fn validation_sfd_ext_two_symmetric_loads() {
 
     // Loads at L/3 (node 4) and 2L/3 (node 7) for 9-element beam
     let loads = vec![
-        SolverLoad::Nodal(SolverNodalLoad { node_id: 4, fx: 0.0, fy: -p, mz: 0.0 }),
-        SolverLoad::Nodal(SolverNodalLoad { node_id: 7, fx: 0.0, fy: -p, mz: 0.0 }),
+        SolverLoad::Nodal(SolverNodalLoad { node_id: 4, fx: 0.0, fz: -p, my: 0.0 }),
+        SolverLoad::Nodal(SolverNodalLoad { node_id: 7, fx: 0.0, fz: -p, my: 0.0 }),
     ];
     let input = make_beam(n, l, E, A, IZ, "pinned", Some("rollerX"), loads);
     let results = linear::solve_2d(&input).unwrap();
 
     // Reactions: R_A = R_B = P (by symmetry, total load = 2P)
-    let ry_a: f64 = results.reactions.iter().find(|r| r.node_id == 1).unwrap().ry;
+    let ry_a: f64 = results.reactions.iter().find(|r| r.node_id == 1).unwrap().rz;
     assert_close(ry_a, p, 0.02, "Symmetric loads: R_A = P");
 
     // Between loads (elements 4..6): V should be ~0
@@ -216,7 +216,7 @@ fn validation_sfd_ext_cantilever_tip_load() {
     let p = 25.0;
 
     let loads = vec![SolverLoad::Nodal(SolverNodalLoad {
-        node_id: n + 1, fx: 0.0, fy: -p, mz: 0.0,
+        node_id: n + 1, fx: 0.0, fz: -p, my: 0.0,
     })];
     let input = make_beam(n, l, E, A, IZ, "fixed", None, loads);
     let results = linear::solve_2d(&input).unwrap();
@@ -253,7 +253,7 @@ fn validation_sfd_ext_fixed_beam_center_load() {
 
     let mid = n / 2 + 1; // node at midspan
     let loads = vec![SolverLoad::Nodal(SolverNodalLoad {
-        node_id: mid, fx: 0.0, fy: -p, mz: 0.0,
+        node_id: mid, fx: 0.0, fz: -p, my: 0.0,
     })];
     let input = make_beam(n, l, E, A, IZ, "fixed", Some("fixed"), loads);
     let results = linear::solve_2d(&input).unwrap();
@@ -275,7 +275,7 @@ fn validation_sfd_ext_fixed_beam_center_load() {
     assert_close(v_jump, p, 0.02, "Fixed-fixed center P: V jump = P at midspan");
 
     // Check reaction
-    let ry_a: f64 = results.reactions.iter().find(|r| r.node_id == 1).unwrap().ry;
+    let ry_a: f64 = results.reactions.iter().find(|r| r.node_id == 1).unwrap().rz;
     assert_close(ry_a, p / 2.0, 0.02, "Fixed-fixed center P: R_A = P/2");
 }
 
@@ -350,8 +350,8 @@ fn validation_sfd_ext_partial_udl() {
     let rb = q.abs() * l / 8.0;
     let ra = w_total - rb; // = 3qL/8
 
-    let ry_a: f64 = results.reactions.iter().find(|r| r.node_id == 1).unwrap().ry;
-    let ry_b: f64 = results.reactions.iter().find(|r| r.node_id == n + 1).unwrap().ry;
+    let ry_a: f64 = results.reactions.iter().find(|r| r.node_id == 1).unwrap().rz;
+    let ry_b: f64 = results.reactions.iter().find(|r| r.node_id == n + 1).unwrap().rz;
     assert_close(ry_a, ra, 0.02, "Partial UDL: R_A = 3qL/8");
     assert_close(ry_b, rb, 0.02, "Partial UDL: R_B = qL/8");
 

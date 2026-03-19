@@ -39,7 +39,7 @@ fn cantilever_fiber_2d(
     material: FiberMaterial,
     fy: f64,
     fz: f64,
-    mz: f64,
+    my: f64,
     n_increments: usize,
     max_iter: usize,
     tolerance: f64,
@@ -48,8 +48,8 @@ fn cantilever_fiber_2d(
     let iz = b * h * h * h / 12.0;
 
     let mut nodes = HashMap::new();
-    nodes.insert("0".into(), SolverNode { id: 0, x: 0.0, y: 0.0 });
-    nodes.insert("1".into(), SolverNode { id: 1, x: length, y: 0.0 });
+    nodes.insert("0".into(), SolverNode { id: 0, x: 0.0, z: 0.0 });
+    nodes.insert("1".into(), SolverNode { id: 1, x: length, z: 0.0 });
 
     let mut materials = HashMap::new();
     // E in MPa -- the solver multiplies by 1000 to get kN/m^2 internally.
@@ -78,16 +78,16 @@ fn cantilever_fiber_2d(
         node_id: 0,
         support_type: "fixed".into(),
         kx: None, ky: None, kz: None,
-        dx: None, dy: None, drz: None, angle: None,
+        dx: None, dz: None, dry: None, angle: None,
     });
 
     let mut loads = Vec::new();
-    if fy.abs() > 0.0 || fz.abs() > 0.0 || mz.abs() > 0.0 {
+    if fy.abs() > 0.0 || fz.abs() > 0.0 || my.abs() > 0.0 {
         loads.push(SolverLoad::Nodal(SolverNodalLoad {
             node_id: 1,
             fx: fz, // fx in solver convention
-            fy,
-            mz,
+            fz,
+            my,
         }));
     }
 
@@ -152,22 +152,22 @@ fn fiber_elastic_section_matches_linear_solver() {
         .find(|d| d.node_id == 1).unwrap();
 
     // Compare vertical displacement at the tip
-    let rel_err_uy = (fiber_d.uy - linear_d.uy).abs() / linear_d.uy.abs().max(1e-15);
+    let rel_err_uy = (fiber_d.uz - linear_d.uz).abs() / linear_d.uz.abs().max(1e-15);
     assert!(
         rel_err_uy < 0.10,
         "Fiber elastic uy should match linear solver: fiber={:.6e}, linear={:.6e}, rel_err={:.4}",
-        fiber_d.uy, linear_d.uy, rel_err_uy,
+        fiber_d.uz, linear_d.uz, rel_err_uy,
     );
 
     // Also verify against closed-form delta = PL^3/(3EI)
     let e_kn_m2 = 200_000.0 * 1000.0;
     let iz = b * h.powi(3) / 12.0;
     let analytical = p.abs() * length.powi(3) / (3.0 * e_kn_m2 * iz);
-    let rel_err_analytical = (fiber_d.uy.abs() - analytical).abs() / analytical;
+    let rel_err_analytical = (fiber_d.uz.abs() - analytical).abs() / analytical;
     assert!(
         rel_err_analytical < 0.10,
         "Fiber elastic uy vs analytical: fiber={:.6e}, analytical={:.6e}, rel_err={:.4}",
-        fiber_d.uy.abs(), analytical, rel_err_analytical,
+        fiber_d.uz.abs(), analytical, rel_err_analytical,
     );
 }
 
@@ -326,7 +326,7 @@ fn load_displacement_monotonically_increasing() {
         assert!(result.converged, "Fiber nonlinear solver must converge at increment {inc}");
         let d = result.results.displacements.iter()
             .find(|d| d.node_id == 1).unwrap();
-        displacements.push(d.uy.abs());
+        displacements.push(d.uz.abs());
     }
 
     assert!(
@@ -387,9 +387,9 @@ fn fiber_forces_zero_axial_under_pure_bending() {
     let d1 = result.results.displacements.iter()
         .find(|d| d.node_id == 1).unwrap();
     assert!(
-        d1.ux.abs() < d1.uy.abs() * 0.05 + 1e-10,
+        d1.ux.abs() < d1.uz.abs() * 0.05 + 1e-10,
         "Horizontal displacement should be negligible: ux={:.6e}, uy={:.6e}",
-        d1.ux, d1.uy,
+        d1.ux, d1.uz,
     );
 }
 
@@ -410,9 +410,9 @@ fn symmetric_section_symmetric_response() {
 
     // Build a 2-element model
     let mut nodes = HashMap::new();
-    nodes.insert("0".into(), SolverNode { id: 0, x: 0.0, y: 0.0 });
-    nodes.insert("1".into(), SolverNode { id: 1, x: half_l, y: 0.0 });
-    nodes.insert("2".into(), SolverNode { id: 2, x: 2.0 * half_l, y: 0.0 });
+    nodes.insert("0".into(), SolverNode { id: 0, x: 0.0, z: 0.0 });
+    nodes.insert("1".into(), SolverNode { id: 1, x: half_l, z: 0.0 });
+    nodes.insert("2".into(), SolverNode { id: 2, x: 2.0 * half_l, z: 0.0 });
 
     let a = b * h;
     let iz = b * h * h * h / 12.0;
@@ -440,17 +440,17 @@ fn symmetric_section_symmetric_response() {
     supports.insert("0".into(), SolverSupport {
         id: 0, node_id: 0, support_type: "pinned".into(),
         kx: None, ky: None, kz: None,
-        dx: None, dy: None, drz: None, angle: None,
+        dx: None, dz: None, dry: None, angle: None,
     });
     // Roller at node 2 (fixed in y only, free to slide in x)
     supports.insert("2".into(), SolverSupport {
         id: 2, node_id: 2, support_type: "rollerX".into(),
         kx: None, ky: None, kz: None,
-        dx: None, dy: None, drz: None, angle: None,
+        dx: None, dz: None, dry: None, angle: None,
     });
 
     let loads = vec![SolverLoad::Nodal(SolverNodalLoad {
-        node_id: 1, fx: 0.0, fy: p, mz: 0.0,
+        node_id: 1, fx: 0.0, fz: p, my: 0.0,
     })];
 
     let solver = SolverInput {
@@ -480,18 +480,18 @@ fn symmetric_section_symmetric_response() {
 
     // Midspan should deflect the most
     let d1 = result.results.displacements.iter().find(|d| d.node_id == 1).unwrap();
-    assert!(d1.uy < 0.0, "Midspan should deflect downward");
+    assert!(d1.uz < 0.0, "Midspan should deflect downward");
 
     // End rotations should be equal in magnitude, opposite in sign
     let d0 = result.results.displacements.iter().find(|d| d.node_id == 0).unwrap();
     let d2 = result.results.displacements.iter().find(|d| d.node_id == 2).unwrap();
 
-    let rz_diff = (d0.rz.abs() - d2.rz.abs()).abs();
-    let rz_avg = (d0.rz.abs() + d2.rz.abs()) / 2.0;
+    let rz_diff = (d0.ry.abs() - d2.ry.abs()).abs();
+    let rz_avg = (d0.ry.abs() + d2.ry.abs()) / 2.0;
     assert!(
         rz_diff / rz_avg.max(1e-15) < 0.15,
         "End rotations should be symmetric: rz0={:.6e}, rz2={:.6e}",
-        d0.rz, d2.rz,
+        d0.ry, d2.ry,
     );
 }
 
@@ -680,10 +680,10 @@ fn fiber_modified_nr_parity() {
     let d_full = r_full.results.displacements.iter().find(|d| d.node_id == 1).unwrap();
     let d_mod = r_mod.results.displacements.iter().find(|d| d.node_id == 1).unwrap();
 
-    let rel_uy = (d_full.uy - d_mod.uy).abs() / d_full.uy.abs().max(1e-15);
+    let rel_uy = (d_full.uz - d_mod.uz).abs() / d_full.uz.abs().max(1e-15);
     assert!(
         rel_uy < 1e-4,
         "uy mismatch: full={:.8e}, modified={:.8e}, rel={:.4e}",
-        d_full.uy, d_mod.uy, rel_uy
+        d_full.uz, d_mod.uz, rel_uy
     );
 }

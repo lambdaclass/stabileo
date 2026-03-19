@@ -66,8 +66,8 @@ fn validation_mixed_braced_frame_diagonal() {
     let loads = vec![SolverLoad::Nodal(SolverNodalLoad {
         node_id: 2,
         fx: p,
-        fy: 0.0,
-        mz: 0.0,
+        fz: 0.0,
+        my: 0.0,
     })];
 
     let input_braced = make_input(
@@ -138,8 +138,8 @@ fn validation_mixed_truss_zero_moment_shear() {
     let loads = vec![SolverLoad::Nodal(SolverNodalLoad {
         node_id: 2,
         fx: p,
-        fy: 0.0,
-        mz: 0.0,
+        fz: 0.0,
+        my: 0.0,
     })];
 
     let input = make_input(
@@ -220,8 +220,8 @@ fn validation_mixed_cable_stay() {
     let loads_plain = vec![SolverLoad::Nodal(SolverNodalLoad {
         node_id: 2,
         fx: 0.0,
-        fy: -p,
-        mz: 0.0,
+        fz: -p,
+        my: 0.0,
     })];
     let input_plain = make_input(
         nodes_plain,
@@ -237,7 +237,7 @@ fn validation_mixed_cable_stay() {
         .iter()
         .find(|d| d.node_id == 2)
         .unwrap()
-        .uy
+        .uz
         .abs();
 
     // Now the cable-stayed beam
@@ -262,8 +262,8 @@ fn validation_mixed_cable_stay() {
     let loads = vec![SolverLoad::Nodal(SolverNodalLoad {
         node_id: 2,
         fx: 0.0,
-        fy: -p,
-        mz: 0.0,
+        fz: -p,
+        my: 0.0,
     })];
 
     let input_stay = make_input(
@@ -294,7 +294,7 @@ fn validation_mixed_cable_stay() {
         .iter()
         .find(|d| d.node_id == 2)
         .unwrap()
-        .uy
+        .uz
         .abs();
     assert!(
         defl_stay < defl_plain,
@@ -323,8 +323,8 @@ fn validation_mixed_truss_vs_frame_behavior() {
     let loads = vec![SolverLoad::Nodal(SolverNodalLoad {
         node_id: 3,
         fx: 0.0,
-        fy: -p,
-        mz: 0.0,
+        fz: -p,
+        my: 0.0,
     })];
 
     // Case A: truss elements
@@ -402,14 +402,14 @@ fn validation_mixed_truss_vs_frame_behavior() {
         .iter()
         .find(|d| d.node_id == 3)
         .unwrap()
-        .uy
+        .uz
         .abs();
     let d_frame = res_frame
         .displacements
         .iter()
         .find(|d| d.node_id == 3)
         .unwrap()
-        .uy
+        .uz
         .abs();
     assert!(
         (d_truss - d_frame).abs() > 1e-10,
@@ -450,20 +450,20 @@ fn validation_mixed_global_equilibrium() {
         SolverLoad::Nodal(SolverNodalLoad {
             node_id: 2,
             fx: px,
-            fy: 0.0,
-            mz: 0.0,
+            fz: 0.0,
+            my: 0.0,
         }),
         SolverLoad::Nodal(SolverNodalLoad {
             node_id: 2,
             fx: 0.0,
-            fy: py,
-            mz: 0.0,
+            fz: py,
+            my: 0.0,
         }),
         SolverLoad::Nodal(SolverNodalLoad {
             node_id: 3,
             fx: 0.0,
-            fy: py,
-            mz: 0.0,
+            fz: py,
+            my: 0.0,
         }),
     ];
 
@@ -482,7 +482,7 @@ fn validation_mixed_global_equilibrium() {
     assert_close(sum_rx, -px, 0.02, "Mixed equilibrium: sum_Rx = -Px");
 
     // Vertical equilibrium: sum_Ry + 2*py = 0
-    let sum_ry: f64 = results.reactions.iter().map(|r| r.ry).sum();
+    let sum_ry: f64 = results.reactions.iter().map(|r| r.rz).sum();
     assert_close(
         sum_ry,
         -2.0 * py,
@@ -524,8 +524,8 @@ fn validation_mixed_stiff_vs_flexible_brace() {
         let loads = vec![SolverLoad::Nodal(SolverNodalLoad {
             node_id: 2,
             fx: p,
-            fy: 0.0,
-            mz: 0.0,
+            fz: 0.0,
+            my: 0.0,
         })];
 
         let input = make_input(
@@ -615,8 +615,8 @@ fn validation_mixed_k_brace() {
     let loads = vec![SolverLoad::Nodal(SolverNodalLoad {
         node_id: 2,
         fx: p,
-        fy: 0.0,
-        mz: 0.0,
+        fz: 0.0,
+        my: 0.0,
     })];
 
     let input_braced = make_input(
@@ -707,8 +707,8 @@ fn validation_mixed_parallel_axial_stiffness() {
     let loads = vec![SolverLoad::Nodal(SolverNodalLoad {
         node_id: 2,
         fx: p,
-        fy: 0.0,
-        mz: 0.0,
+        fz: 0.0,
+        my: 0.0,
     })];
 
     let input = make_input(

@@ -40,18 +40,18 @@ fn validation_ext_ss_beam_udl_deflection_rotation() {
     // Midspan deflection: delta = 5*q*L^4 / (384*EI)
     let delta_exact: f64 = 5.0 * q * l.powi(4) / (384.0 * e_eff * IZ);
     let mid = results.displacements.iter().find(|d| d.node_id == n / 2 + 1).unwrap();
-    assert_close(mid.uy.abs(), delta_exact, 0.02, "SS UDL midspan deflection");
+    assert_close(mid.uz.abs(), delta_exact, 0.02, "SS UDL midspan deflection");
 
     // End rotation at support A: theta_A = q*L^3 / (24*EI)
     let theta_exact: f64 = q * l.powi(3) / (24.0 * e_eff * IZ);
     let d1 = results.displacements.iter().find(|d| d.node_id == 1).unwrap();
-    assert_close(d1.rz.abs(), theta_exact, 0.02, "SS UDL end rotation theta_A");
+    assert_close(d1.ry.abs(), theta_exact, 0.02, "SS UDL end rotation theta_A");
 
     // Reactions: R_A = R_B = q*L/2
     let r_a = results.reactions.iter().find(|r| r.node_id == 1).unwrap();
     let r_b = results.reactions.iter().find(|r| r.node_id == n + 1).unwrap();
-    assert_close(r_a.ry, q * l / 2.0, 0.01, "SS UDL reaction R_A");
-    assert_close(r_b.ry, q * l / 2.0, 0.01, "SS UDL reaction R_B");
+    assert_close(r_a.rz, q * l / 2.0, 0.01, "SS UDL reaction R_A");
+    assert_close(r_b.rz, q * l / 2.0, 0.01, "SS UDL reaction R_B");
 }
 
 // ================================================================
@@ -74,7 +74,7 @@ fn validation_ext_cantilever_tip_load_full() {
     let input = make_beam(
         n, l, E, A, IZ, "fixed", None,
         vec![SolverLoad::Nodal(SolverNodalLoad {
-            node_id: n + 1, fx: 0.0, fy: -p, mz: 0.0,
+            node_id: n + 1, fx: 0.0, fz: -p, my: 0.0,
         })],
     );
     let results = linear::solve_2d(&input).unwrap();
@@ -82,16 +82,16 @@ fn validation_ext_cantilever_tip_load_full() {
     // Tip deflection: delta = P*L^3/(3*EI)
     let delta_exact: f64 = p * l.powi(3) / (3.0 * e_eff * IZ);
     let tip = results.displacements.iter().find(|d| d.node_id == n + 1).unwrap();
-    assert_close(tip.uy.abs(), delta_exact, 0.01, "Cantilever tip deflection");
+    assert_close(tip.uz.abs(), delta_exact, 0.01, "Cantilever tip deflection");
 
     // Tip rotation: theta = P*L^2/(2*EI)
     let theta_exact: f64 = p * l.powi(2) / (2.0 * e_eff * IZ);
-    assert_close(tip.rz.abs(), theta_exact, 0.01, "Cantilever tip rotation");
+    assert_close(tip.ry.abs(), theta_exact, 0.01, "Cantilever tip rotation");
 
     // Fixed-end reaction: Ry = P, Mz = P*L
     let r1 = results.reactions.iter().find(|r| r.node_id == 1).unwrap();
-    assert_close(r1.ry, p, 0.01, "Cantilever reaction Ry");
-    assert_close(r1.mz.abs(), p * l, 0.01, "Cantilever fixed-end moment");
+    assert_close(r1.rz, p, 0.01, "Cantilever reaction Ry");
+    assert_close(r1.my.abs(), p * l, 0.01, "Cantilever fixed-end moment");
 }
 
 // ================================================================
@@ -124,18 +124,18 @@ fn validation_ext_fixed_fixed_udl_moments() {
     // Midspan deflection: delta = q*L^4/(384*EI)
     let delta_exact: f64 = q * l.powi(4) / (384.0 * e_eff * IZ);
     let mid = results.displacements.iter().find(|d| d.node_id == n / 2 + 1).unwrap();
-    assert_close(mid.uy.abs(), delta_exact, 0.05, "Fixed-fixed UDL midspan deflection");
+    assert_close(mid.uz.abs(), delta_exact, 0.05, "Fixed-fixed UDL midspan deflection");
 
     // Fixed-end moments: M = q*L^2/12
     let m_exact: f64 = q * l * l / 12.0;
     let r_a = results.reactions.iter().find(|r| r.node_id == 1).unwrap();
     let r_b = results.reactions.iter().find(|r| r.node_id == n + 1).unwrap();
-    assert_close(r_a.mz.abs(), m_exact, 0.02, "Fixed-fixed M_A");
-    assert_close(r_b.mz.abs(), m_exact, 0.02, "Fixed-fixed M_B");
+    assert_close(r_a.my.abs(), m_exact, 0.02, "Fixed-fixed M_A");
+    assert_close(r_b.my.abs(), m_exact, 0.02, "Fixed-fixed M_B");
 
     // Reactions: R = q*L/2 each
-    assert_close(r_a.ry, q * l / 2.0, 0.01, "Fixed-fixed R_A");
-    assert_close(r_b.ry, q * l / 2.0, 0.01, "Fixed-fixed R_B");
+    assert_close(r_a.rz, q * l / 2.0, 0.01, "Fixed-fixed R_A");
+    assert_close(r_b.rz, q * l / 2.0, 0.01, "Fixed-fixed R_B");
 }
 
 // ================================================================
@@ -168,25 +168,25 @@ fn validation_ext_propped_cantilever_udl_reactions() {
 
     // Reaction at roller end (node n+1): R_B = 3*q*L/8
     let r_b = results.reactions.iter().find(|r| r.node_id == n + 1).unwrap();
-    assert_close(r_b.ry, 3.0 * q * l / 8.0, 0.02, "Propped cantilever R_B = 3qL/8");
+    assert_close(r_b.rz, 3.0 * q * l / 8.0, 0.02, "Propped cantilever R_B = 3qL/8");
 
     // Reaction at fixed end (node 1): R_A = 5*q*L/8
     let r_a = results.reactions.iter().find(|r| r.node_id == 1).unwrap();
-    assert_close(r_a.ry, 5.0 * q * l / 8.0, 0.02, "Propped cantilever R_A = 5qL/8");
+    assert_close(r_a.rz, 5.0 * q * l / 8.0, 0.02, "Propped cantilever R_A = 5qL/8");
 
     // Fixed-end moment: M_A = q*L^2/8
     let m_a_exact: f64 = q * l * l / 8.0;
-    assert_close(r_a.mz.abs(), m_a_exact, 0.02, "Propped cantilever M_A = qL^2/8");
+    assert_close(r_a.my.abs(), m_a_exact, 0.02, "Propped cantilever M_A = qL^2/8");
 
     // Equilibrium check: total vertical load = q*L = 100
-    let sum_ry: f64 = results.reactions.iter().map(|r| r.ry).sum();
+    let sum_ry: f64 = results.reactions.iter().map(|r| r.rz).sum();
     assert_close(sum_ry, q * l, 0.01, "Propped cantilever equilibrium SumRy = qL");
 
     // Maximum deflection: delta_max approx q*L^4/(185*EI)
     let delta_approx: f64 = q * l.powi(4) / (185.0 * e_eff * IZ);
     // Find maximum deflection among all nodes
     let max_uy: f64 = results.displacements.iter()
-        .map(|d| d.uy.abs())
+        .map(|d| d.uz.abs())
         .fold(0.0_f64, |a, b| a.max(b));
     assert_close(max_uy, delta_approx, 0.05, "Propped cantilever delta_max approx qL^4/(185EI)");
 }
@@ -221,15 +221,15 @@ fn validation_ext_two_span_continuous_reactions() {
     // End reactions: R_A = R_C = 3*q*L/8 = 30
     let r_a = results.reactions.iter().find(|r| r.node_id == 1).unwrap();
     let r_c = results.reactions.iter().find(|r| r.node_id == n_total + 1).unwrap();
-    assert_close(r_a.ry, 3.0 * q * l / 8.0, 0.02, "2-span R_A = 3qL/8");
-    assert_close(r_c.ry, 3.0 * q * l / 8.0, 0.02, "2-span R_C = 3qL/8");
+    assert_close(r_a.rz, 3.0 * q * l / 8.0, 0.02, "2-span R_A = 3qL/8");
+    assert_close(r_c.rz, 3.0 * q * l / 8.0, 0.02, "2-span R_C = 3qL/8");
 
     // Interior support reaction: R_B = 10*q*L/8 = 100
     let r_b = results.reactions.iter().find(|r| r.node_id == n_per_span + 1).unwrap();
-    assert_close(r_b.ry, 10.0 * q * l / 8.0, 0.02, "2-span R_B = 10qL/8");
+    assert_close(r_b.rz, 10.0 * q * l / 8.0, 0.02, "2-span R_B = 10qL/8");
 
     // Total vertical equilibrium: sum = 2*q*L = 160
-    let sum_ry: f64 = results.reactions.iter().map(|r| r.ry).sum();
+    let sum_ry: f64 = results.reactions.iter().map(|r| r.rz).sum();
     assert_close(sum_ry, 2.0 * q * l, 0.01, "2-span equilibrium SumRy = 2qL");
 
     // Interior support moment from element forces: M_B = q*L^2/8 = 80
@@ -279,13 +279,13 @@ fn validation_ext_portal_frame_lateral_equilibrium() {
     assert!(sway_diff < 0.001, "Portal sway: top nodes move together, diff={:.6}", sway_diff);
 
     // Vertical equilibrium: no vertical loads applied, so sum Ry = 0
-    let sum_ry: f64 = results.reactions.iter().map(|r| r.ry).sum();
+    let sum_ry: f64 = results.reactions.iter().map(|r| r.rz).sum();
     assert!(sum_ry.abs() < 0.1,
         "Portal vertical equilibrium: SumRy={:.6}, expected ~0", sum_ry);
 
     // Base moments should be non-zero (frame develops moments under lateral load)
-    assert!(r1.mz.abs() > 1.0, "Portal base moment M1 non-zero");
-    assert!(r4.mz.abs() > 1.0, "Portal base moment M4 non-zero");
+    assert!(r1.my.abs() > 1.0, "Portal base moment M1 non-zero");
+    assert!(r4.my.abs() > 1.0, "Portal base moment M4 non-zero");
 }
 
 // ================================================================
@@ -311,7 +311,7 @@ fn validation_ext_ss_asymmetric_point_load() {
     let input = make_beam(
         n, l, E, A, IZ, "pinned", Some("rollerX"),
         vec![SolverLoad::Nodal(SolverNodalLoad {
-            node_id: load_node, fx: 0.0, fy: -p, mz: 0.0,
+            node_id: load_node, fx: 0.0, fz: -p, my: 0.0,
         })],
     );
     let results = linear::solve_2d(&input).unwrap();
@@ -319,17 +319,17 @@ fn validation_ext_ss_asymmetric_point_load() {
     // Reactions
     let r_a = results.reactions.iter().find(|r| r.node_id == 1).unwrap();
     let r_b = results.reactions.iter().find(|r| r.node_id == n + 1).unwrap();
-    assert_close(r_a.ry, p * b / l, 0.01, "SS asym R_A = Pb/L");
-    assert_close(r_b.ry, p * a / l, 0.01, "SS asym R_B = Pa/L");
+    assert_close(r_a.rz, p * b / l, 0.01, "SS asym R_A = Pb/L");
+    assert_close(r_b.rz, p * a / l, 0.01, "SS asym R_B = Pa/L");
 
     // Equilibrium
-    let sum_ry: f64 = results.reactions.iter().map(|r| r.ry).sum();
+    let sum_ry: f64 = results.reactions.iter().map(|r| r.rz).sum();
     assert_close(sum_ry, p, 0.01, "SS asym equilibrium SumRy = P");
 
     // Deflection at load point: delta = P*a^2*b^2/(3*EI*L)
     let delta_exact: f64 = p * a.powi(2) * b.powi(2) / (3.0 * e_eff * IZ * l);
     let d_load = results.displacements.iter().find(|d| d.node_id == load_node).unwrap();
-    assert_close(d_load.uy.abs(), delta_exact, 0.01, "SS asym deflection at load point");
+    assert_close(d_load.uz.abs(), delta_exact, 0.01, "SS asym deflection at load point");
 }
 
 // ================================================================
@@ -365,17 +365,17 @@ fn validation_ext_three_span_continuous_reactions() {
     // End support reactions: R_A = R_D = 0.4*q*L = 24
     let r_a = results.reactions.iter().find(|r| r.node_id == 1).unwrap();
     let r_d = results.reactions.iter().find(|r| r.node_id == n_total + 1).unwrap();
-    assert_close(r_a.ry, 0.4 * q * l, 0.03, "3-span R_A = 0.4qL");
-    assert_close(r_d.ry, 0.4 * q * l, 0.03, "3-span R_D = 0.4qL");
+    assert_close(r_a.rz, 0.4 * q * l, 0.03, "3-span R_A = 0.4qL");
+    assert_close(r_d.rz, 0.4 * q * l, 0.03, "3-span R_D = 0.4qL");
 
     // Interior support reactions: R_B = R_C = 1.1*q*L = 66
     let r_b = results.reactions.iter().find(|r| r.node_id == n_per_span + 1).unwrap();
     let r_c = results.reactions.iter().find(|r| r.node_id == 2 * n_per_span + 1).unwrap();
-    assert_close(r_b.ry, 1.1 * q * l, 0.03, "3-span R_B = 1.1qL");
-    assert_close(r_c.ry, 1.1 * q * l, 0.03, "3-span R_C = 1.1qL");
+    assert_close(r_b.rz, 1.1 * q * l, 0.03, "3-span R_B = 1.1qL");
+    assert_close(r_c.rz, 1.1 * q * l, 0.03, "3-span R_C = 1.1qL");
 
     // Total vertical equilibrium: sum = 3*q*L = 180
-    let sum_ry: f64 = results.reactions.iter().map(|r| r.ry).sum();
+    let sum_ry: f64 = results.reactions.iter().map(|r| r.rz).sum();
     assert_close(sum_ry, 3.0 * q * l, 0.01, "3-span equilibrium SumRy = 3qL");
 
     // Interior moment at B: M_B = q*L^2/10 = 36
@@ -384,6 +384,6 @@ fn validation_ext_three_span_continuous_reactions() {
     assert_close(ef_at_b.m_end.abs(), m_b_expected, 0.05, "3-span M_B = qL^2/10");
 
     // Symmetry: R_A = R_D and R_B = R_C
-    assert_close(r_a.ry, r_d.ry, 0.01, "3-span symmetry R_A = R_D");
-    assert_close(r_b.ry, r_c.ry, 0.01, "3-span symmetry R_B = R_C");
+    assert_close(r_a.rz, r_d.rz, 0.01, "3-span symmetry R_A = R_D");
+    assert_close(r_b.rz, r_c.rz, 0.01, "3-span symmetry R_B = R_C");
 }

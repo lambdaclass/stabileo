@@ -90,12 +90,12 @@ fn validation_composite_extended_transformed_section_deflection() {
         n_elem, l, e_steel, a_total, iz_composite,
         "pinned", Some("rollerX"),
         vec![SolverLoad::Nodal(SolverNodalLoad {
-            node_id: mid, fx: 0.0, fy: -p, mz: 0.0,
+            node_id: mid, fx: 0.0, fz: -p, my: 0.0,
         })],
     );
     let res = linear::solve_2d(&input).unwrap();
     let delta_fem = res.displacements.iter()
-        .find(|d| d.node_id == mid).unwrap().uy.abs();
+        .find(|d| d.node_id == mid).unwrap().uz.abs();
 
     assert_close(delta_fem, delta_exact, 0.02,
         "Transformed section composite beam midspan deflection");
@@ -156,7 +156,7 @@ fn validation_composite_extended_full_vs_partial() {
     // Solve all three cases
     let load = |mid_node| {
         vec![SolverLoad::Nodal(SolverNodalLoad {
-            node_id: mid_node, fx: 0.0, fy: -p, mz: 0.0,
+            node_id: mid_node, fx: 0.0, fz: -p, my: 0.0,
         })]
     };
 
@@ -168,11 +168,11 @@ fn validation_composite_extended_full_vs_partial() {
         "pinned", Some("rollerX"), load(mid));
 
     let delta_bare = linear::solve_2d(&input_bare).unwrap()
-        .displacements.iter().find(|d| d.node_id == mid).unwrap().uy.abs();
+        .displacements.iter().find(|d| d.node_id == mid).unwrap().uz.abs();
     let delta_partial = linear::solve_2d(&input_partial).unwrap()
-        .displacements.iter().find(|d| d.node_id == mid).unwrap().uy.abs();
+        .displacements.iter().find(|d| d.node_id == mid).unwrap().uz.abs();
     let delta_full = linear::solve_2d(&input_full).unwrap()
-        .displacements.iter().find(|d| d.node_id == mid).unwrap().uy.abs();
+        .displacements.iter().find(|d| d.node_id == mid).unwrap().uz.abs();
 
     // Full composite is stiffest
     assert!(delta_full < delta_partial,
@@ -248,13 +248,13 @@ fn validation_composite_extended_ec_es_transformed_udl() {
     let input_normal = make_ss_beam_udl(n_elem, l, e_steel, a_normal, iz_normal, q);
     let res_normal = linear::solve_2d(&input_normal).unwrap();
     let delta_normal_fem = res_normal.displacements.iter()
-        .find(|d| d.node_id == mid).unwrap().uy.abs();
+        .find(|d| d.node_id == mid).unwrap().uz.abs();
 
     // FEM: high-strength concrete composite
     let input_high = make_ss_beam_udl(n_elem, l, e_steel, a_high, iz_high, q);
     let res_high = linear::solve_2d(&input_high).unwrap();
     let delta_high_fem = res_high.displacements.iter()
-        .find(|d| d.node_id == mid).unwrap().uy.abs();
+        .find(|d| d.node_id == mid).unwrap().uz.abs();
 
     assert_close(delta_normal_fem, delta_normal_exact, 0.02,
         "Composite UDL deflection (normal concrete)");
@@ -323,11 +323,11 @@ fn validation_composite_extended_effective_width() {
         let input = make_beam(n_elem, l, e_steel, a_tot, iz_comp,
             "pinned", Some("rollerX"),
             vec![SolverLoad::Nodal(SolverNodalLoad {
-                node_id: mid, fx: 0.0, fy: -p, mz: 0.0,
+                node_id: mid, fx: 0.0, fz: -p, my: 0.0,
             })]);
         let res = linear::solve_2d(&input).unwrap();
         let delta = res.displacements.iter()
-            .find(|d| d.node_id == mid).unwrap().uy.abs();
+            .find(|d| d.node_id == mid).unwrap().uz.abs();
         deltas.push(delta);
     }
 
@@ -405,7 +405,7 @@ fn validation_composite_extended_column_axial() {
         n_elem, l, e_steel, a_transformed, iz_small,
         "fixed", None,
         vec![SolverLoad::Nodal(SolverNodalLoad {
-            node_id: tip, fx: -p_axial, fy: 0.0, mz: 0.0,
+            node_id: tip, fx: -p_axial, fz: 0.0, my: 0.0,
         })],
     );
     let res = linear::solve_2d(&input).unwrap();
@@ -473,7 +473,7 @@ fn validation_composite_extended_two_material_truss() {
 
     let sups = vec![(1, 1, "pinned"), (2, 2, "pinned")];
     let loads = vec![SolverLoad::Nodal(SolverNodalLoad {
-        node_id: 3, fx: 0.0, fy: -p, mz: 0.0,
+        node_id: 3, fx: 0.0, fz: -p, my: 0.0,
     })];
 
     let input = make_input(
@@ -484,12 +484,12 @@ fn validation_composite_extended_two_material_truss() {
     let res = linear::solve_2d(&input).unwrap();
 
     // Equilibrium: sum of vertical reactions = P
-    let sum_ry: f64 = res.reactions.iter().map(|r| r.ry).sum();
+    let sum_ry: f64 = res.reactions.iter().map(|r| r.rz).sum();
     assert_close(sum_ry, p, 0.01, "Two-material truss vertical equilibrium");
 
     // Symmetry: both supports carry equal vertical reaction
-    let r1_y = res.reactions.iter().find(|r| r.node_id == 1).unwrap().ry;
-    let r2_y = res.reactions.iter().find(|r| r.node_id == 2).unwrap().ry;
+    let r1_y = res.reactions.iter().find(|r| r.node_id == 1).unwrap().rz;
+    let r2_y = res.reactions.iter().find(|r| r.node_id == 2).unwrap().rz;
     assert_close(r1_y, r2_y, 0.01, "Two-material truss symmetric reactions");
     assert_close(r1_y, p / 2.0, 0.01, "Two-material truss reaction = P/2");
 
@@ -511,15 +511,15 @@ fn validation_composite_extended_two_material_truss() {
         ],
         vec![(1, 1, "pinned"), (2, 2, "pinned")],
         vec![SolverLoad::Nodal(SolverNodalLoad {
-            node_id: 3, fx: 0.0, fy: -p, mz: 0.0,
+            node_id: 3, fx: 0.0, fz: -p, my: 0.0,
         })],
     );
     let res_all_steel = linear::solve_2d(&input_all_steel).unwrap();
 
     let delta_mixed = res.displacements.iter()
-        .find(|d| d.node_id == 3).unwrap().uy.abs();
+        .find(|d| d.node_id == 3).unwrap().uz.abs();
     let delta_all_steel = res_all_steel.displacements.iter()
-        .find(|d| d.node_id == 3).unwrap().uy.abs();
+        .find(|d| d.node_id == 3).unwrap().uz.abs();
 
     // Mixed (aluminum diagonals) should deflect more than all-steel
     assert!(delta_mixed > delta_all_steel,
@@ -562,7 +562,7 @@ fn validation_composite_extended_mixed_material_frame_drift() {
     let nodes = vec![(1, 0.0, 0.0), (2, 0.0, h), (3, w, h), (4, w, 0.0)];
     let sups = vec![(1, 1, "fixed"), (2, 4, "fixed")];
     let loads = vec![SolverLoad::Nodal(SolverNodalLoad {
-        node_id: 2, fx: f_lateral, fy: 0.0, mz: 0.0,
+        node_id: 2, fx: f_lateral, fz: 0.0, my: 0.0,
     })];
 
     // (a) All steel
@@ -713,9 +713,9 @@ fn validation_composite_extended_temperature_effects() {
 
     // Check reaction moments at fixed supports
     let m_react_a = res_a.reactions.iter()
-        .find(|r| r.node_id == 1).unwrap().mz.abs();
+        .find(|r| r.node_id == 1).unwrap().my.abs();
     let m_react_b = res_b.reactions.iter()
-        .find(|r| r.node_id == 1).unwrap().mz.abs();
+        .find(|r| r.node_id == 1).unwrap().my.abs();
 
     assert_close(m_react_a, m_exact_a, 0.05,
         "Thermal moment case A (bare steel)");
@@ -743,7 +743,7 @@ fn validation_composite_extended_temperature_effects() {
 
     let res_ss = linear::solve_2d(&make_ss_thermal(a_a, iz_a)).unwrap();
     let m_ss = res_ss.reactions.iter()
-        .find(|r| r.node_id == 1).unwrap().mz.abs();
+        .find(|r| r.node_id == 1).unwrap().my.abs();
     // Pinned support has no moment reaction
     assert!(m_ss < 1e-3,
         "SS beam thermal gradient should give ~zero moment reaction, got {:.6}", m_ss);
@@ -751,7 +751,7 @@ fn validation_composite_extended_temperature_effects() {
     // The SS beam should still deflect upward/downward due to curvature
     let mid = n_elem / 2 + 1;
     let delta_ss = res_ss.displacements.iter()
-        .find(|d| d.node_id == mid).unwrap().uy.abs();
+        .find(|d| d.node_id == mid).unwrap().uz.abs();
     let delta_ss_exact = alpha * dt_gradient * l.powi(2) / (8.0 * h_a);
     assert_close(delta_ss, delta_ss_exact, 0.05,
         "SS beam thermal deflection");

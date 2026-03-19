@@ -39,10 +39,10 @@ fn mode_to_dof_vec(mode: &ModeShape, dof_num: &dof::DofNumbering) -> Vec<f64> {
             if let Some(idx) = dof_num.global_dof(d.node_id, 0) { phi[idx] = d.ux; }
         }
         if dof_num.dofs_per_node >= 2 {
-            if let Some(idx) = dof_num.global_dof(d.node_id, 1) { phi[idx] = d.uy; }
+            if let Some(idx) = dof_num.global_dof(d.node_id, 1) { phi[idx] = d.uz; }
         }
         if dof_num.dofs_per_node >= 3 {
-            if let Some(idx) = dof_num.global_dof(d.node_id, 2) { phi[idx] = d.rz; }
+            if let Some(idx) = dof_num.global_dof(d.node_id, 2) { phi[idx] = d.ry; }
         }
     }
     phi

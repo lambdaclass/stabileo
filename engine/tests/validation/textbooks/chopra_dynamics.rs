@@ -54,7 +54,7 @@ fn validation_chopra_sdof_undamped_period() {
         let fy = if i < pulse_steps { -100.0 } else { 0.0 };
         force_history.push(TimeForceRecord {
             time: t,
-            loads: vec![SolverNodalLoad { node_id: n_nodes, fx: 0.0, fy, mz: 0.0 }] });
+            loads: vec![SolverNodalLoad { node_id: n_nodes, fx: 0.0, fz: fy, my: 0.0 }] });
     }
 
     let input = TimeHistoryInput {
@@ -76,7 +76,7 @@ fn validation_chopra_sdof_undamped_period() {
 
     // Extract tip displacement history
     let tip = result.node_histories.iter().find(|h| h.node_id == n_nodes).unwrap();
-    let uy = &tip.uy;
+    let uy = &tip.uz;
 
     // Find period from zero crossings (after initial transient)
     let start_idx = (pulse_steps + 5).min(uy.len() - 1);
@@ -124,11 +124,11 @@ fn validation_chopra_step_load_daf() {
     // Static solution first
     let static_input = make_beam(
         n, length, E, A, IZ, "fixed", None,
-        vec![SolverLoad::Nodal(SolverNodalLoad { node_id: n_nodes, fx: 0.0, fy: p, mz: 0.0 })],
+        vec![SolverLoad::Nodal(SolverNodalLoad { node_id: n_nodes, fx: 0.0, fz: p, my: 0.0 })],
     );
     let static_res = dedaliano_engine::solver::linear::solve_2d(&static_input).unwrap();
     let u_static = static_res.displacements.iter()
-        .find(|d| d.node_id == n_nodes).unwrap().uy;
+        .find(|d| d.node_id == n_nodes).unwrap().uz;
 
     // Dynamic: constant step load
     let solver = make_beam(n, length, E, A, IZ, "fixed", None, vec![]);
@@ -146,7 +146,7 @@ fn validation_chopra_step_load_daf() {
     for i in 0..=n_steps {
         force_history.push(TimeForceRecord {
             time: i as f64 * dt,
-            loads: vec![SolverNodalLoad { node_id: n_nodes, fx: 0.0, fy: p, mz: 0.0 }] });
+            loads: vec![SolverNodalLoad { node_id: n_nodes, fx: 0.0, fz: p, my: 0.0 }] });
     }
 
     let input = TimeHistoryInput {
@@ -164,7 +164,7 @@ fn validation_chopra_step_load_daf() {
     let result = time_integration::solve_time_history_2d(&input).unwrap();
 
     let tip = result.node_histories.iter().find(|h| h.node_id == n_nodes).unwrap();
-    let u_max = tip.uy.iter().cloned().fold(0.0_f64, |a, b| a.max(b.abs()));
+    let u_max = tip.uz.iter().cloned().fold(0.0_f64, |a, b| a.max(b.abs()));
 
     let daf = u_max / u_static.abs();
 
@@ -208,7 +208,7 @@ fn validation_chopra_rayleigh_damping_decay() {
         let fy = if i < pulse_steps { -200.0 } else { 0.0 };
         force_history.push(TimeForceRecord {
             time: t,
-            loads: vec![SolverNodalLoad { node_id: n_nodes, fx: 0.0, fy, mz: 0.0 }] });
+            loads: vec![SolverNodalLoad { node_id: n_nodes, fx: 0.0, fz: fy, my: 0.0 }] });
     }
 
     let input = TimeHistoryInput {
@@ -227,7 +227,7 @@ fn validation_chopra_rayleigh_damping_decay() {
     let result = time_integration::solve_time_history_2d(&input).unwrap();
 
     let tip = result.node_histories.iter().find(|h| h.node_id == n_nodes).unwrap();
-    let uy = &tip.uy;
+    let uy = &tip.uz;
 
     // Find peaks (local maxima in |uy|)
     let mut peaks = Vec::new();
@@ -361,8 +361,8 @@ fn validation_chopra_newmark_energy_conservation() {
             time: i as f64 * dt,
             loads: vec![SolverNodalLoad {
                 node_id: n_nodes, fx: 0.0,
-                fy: if i < 2 { -100.0 } else { 0.0 },
-                mz: 0.0,
+                fz: if i < 2 { -100.0 } else { 0.0 },
+                my: 0.0,
             }] });
     }
 
@@ -382,7 +382,7 @@ fn validation_chopra_newmark_energy_conservation() {
     let result = time_integration::solve_time_history_2d(&input).unwrap();
 
     let tip = result.node_histories.iter().find(|h| h.node_id == n_nodes).unwrap();
-    let uy = &tip.uy;
+    let uy = &tip.uz;
 
     // Compare early vs late amplitude
     let early_end = (2.0 * t_modal / dt) as usize;
@@ -432,8 +432,8 @@ fn validation_chopra_hht_numerical_dissipation() {
             time: i as f64 * dt,
             loads: vec![SolverNodalLoad {
                 node_id: n_nodes, fx: 0.0,
-                fy: if i < 2 { -100.0 } else { 0.0 },
-                mz: 0.0,
+                fz: if i < 2 { -100.0 } else { 0.0 },
+                my: 0.0,
             }] });
     }
 
@@ -453,7 +453,7 @@ fn validation_chopra_hht_numerical_dissipation() {
     let result = time_integration::solve_time_history_2d(&input).unwrap();
 
     let tip = result.node_histories.iter().find(|h| h.node_id == n_nodes).unwrap();
-    let uy = &tip.uy;
+    let uy = &tip.uz;
 
     let early_end = (2.0 * t_modal / dt) as usize;
     let late_start = ((n_periods - 2) as f64 * t_modal / dt) as usize;

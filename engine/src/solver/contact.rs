@@ -354,7 +354,7 @@ pub fn solve_contact_2d(input: &ContactInput) -> Result<ContactResult, String> {
                         let sec = sec_by_id[&elem.section_id];
 
                         let dx = nj.x - ni.x;
-                        let dy = nj.y - ni.y;
+                        let dy = nj.z - ni.z;
                         let l = (dx * dx + dy * dy).sqrt();
                         let cos = dx / l;
                         let sin = dy / l;
@@ -611,7 +611,7 @@ pub fn solve_contact_2d(input: &ContactInput) -> Result<ContactResult, String> {
                     let sec = sec_by_id[&elem.section_id];
 
                     let dx = nj.x - ni.x;
-                    let dy = nj.y - ni.y;
+                    let dy = nj.z - ni.z;
                     let l = (dx * dx + dy * dy).sqrt();
                     let cos = dx / l;
                     let sin = dy / l;
@@ -1342,7 +1342,7 @@ fn get_deformed_pos_2d(
 ) -> (f64, f64) {
     let node = node_by_id.get(&node_id);
     let x0 = node.map(|n| n.x).unwrap_or(0.0);
-    let y0 = node.map(|n| n.y).unwrap_or(0.0);
+    let y0 = node.map(|n| n.z).unwrap_or(0.0);
     let ux = dof_num.global_dof(node_id, 0).map(|d| u_full.get(d).copied().unwrap_or(0.0)).unwrap_or(0.0);
     let uy = dof_num.global_dof(node_id, 1).map(|d| u_full.get(d).copied().unwrap_or(0.0)).unwrap_or(0.0);
     (x0 + ux, y0 + uy)

@@ -91,7 +91,7 @@ fn validation_truss_ext_warren_method_of_sections() {
     ];
 
     let loads = vec![SolverLoad::Nodal(SolverNodalLoad {
-        node_id: 7, fx: 0.0, fy: -p, mz: 0.0,
+        node_id: 7, fx: 0.0, fz: -p, my: 0.0,
     })];
 
     let input = make_input(
@@ -103,11 +103,11 @@ fn validation_truss_ext_warren_method_of_sections() {
     // Reactions: sum_M_node1: R5*12 = P*4.5 => R5 = 15; R1 = 25
     let r1 = results.reactions.iter().find(|r| r.node_id == 1).unwrap();
     let r5 = results.reactions.iter().find(|r| r.node_id == 5).unwrap();
-    assert_close(r1.ry, 25.0, 0.02, "Warren sections: R1 = 25 kN");
-    assert_close(r5.ry, 15.0, 0.02, "Warren sections: R5 = 15 kN");
+    assert_close(r1.rz, 25.0, 0.02, "Warren sections: R1 = 25 kN");
+    assert_close(r5.rz, 15.0, 0.02, "Warren sections: R5 = 15 kN");
 
     // Global equilibrium
-    let sum_ry: f64 = results.reactions.iter().map(|r| r.ry).sum();
+    let sum_ry: f64 = results.reactions.iter().map(|r| r.rz).sum();
     assert_close(sum_ry, p, 0.02, "Warren sections: sum Ry = P");
 
     // Top chord should be in compression (gravity load)
@@ -202,9 +202,9 @@ fn validation_truss_ext_pratt_method_of_joints() {
     ];
 
     let loads = vec![
-        SolverLoad::Nodal(SolverNodalLoad { node_id: 2, fx: 0.0, fy: -p, mz: 0.0 }),
-        SolverLoad::Nodal(SolverNodalLoad { node_id: 3, fx: 0.0, fy: -p, mz: 0.0 }),
-        SolverLoad::Nodal(SolverNodalLoad { node_id: 4, fx: 0.0, fy: -p, mz: 0.0 }),
+        SolverLoad::Nodal(SolverNodalLoad { node_id: 2, fx: 0.0, fz: -p, my: 0.0 }),
+        SolverLoad::Nodal(SolverNodalLoad { node_id: 3, fx: 0.0, fz: -p, my: 0.0 }),
+        SolverLoad::Nodal(SolverNodalLoad { node_id: 4, fx: 0.0, fz: -p, my: 0.0 }),
     ];
 
     let input = make_input(
@@ -216,11 +216,11 @@ fn validation_truss_ext_pratt_method_of_joints() {
     // Symmetric: R1 = R5 = 3P/2 = 45
     let r1 = results.reactions.iter().find(|r| r.node_id == 1).unwrap();
     let r5 = results.reactions.iter().find(|r| r.node_id == 5).unwrap();
-    assert_close(r1.ry, 1.5 * p, 0.02, "Pratt joints: R1 = 3P/2");
-    assert_close(r5.ry, 1.5 * p, 0.02, "Pratt joints: R5 = 3P/2");
+    assert_close(r1.rz, 1.5 * p, 0.02, "Pratt joints: R1 = 3P/2");
+    assert_close(r5.rz, 1.5 * p, 0.02, "Pratt joints: R5 = 3P/2");
 
     // Equilibrium
-    let sum_ry: f64 = results.reactions.iter().map(|r| r.ry).sum();
+    let sum_ry: f64 = results.reactions.iter().map(|r| r.rz).sum();
     assert_close(sum_ry, 3.0 * p, 0.02, "Pratt joints: sum Ry = 3P");
 
     // Pratt diagonals should be in TENSION under gravity loading
@@ -302,9 +302,9 @@ fn validation_truss_ext_howe_vs_pratt_diagonals() {
     ];
 
     let loads = vec![
-        SolverLoad::Nodal(SolverNodalLoad { node_id: 2, fx: 0.0, fy: -p, mz: 0.0 }),
-        SolverLoad::Nodal(SolverNodalLoad { node_id: 3, fx: 0.0, fy: -p, mz: 0.0 }),
-        SolverLoad::Nodal(SolverNodalLoad { node_id: 4, fx: 0.0, fy: -p, mz: 0.0 }),
+        SolverLoad::Nodal(SolverNodalLoad { node_id: 2, fx: 0.0, fz: -p, my: 0.0 }),
+        SolverLoad::Nodal(SolverNodalLoad { node_id: 3, fx: 0.0, fz: -p, my: 0.0 }),
+        SolverLoad::Nodal(SolverNodalLoad { node_id: 4, fx: 0.0, fz: -p, my: 0.0 }),
     ];
 
     let input = make_input(
@@ -316,8 +316,8 @@ fn validation_truss_ext_howe_vs_pratt_diagonals() {
     // Same reactions as Pratt (same loading, same supports)
     let r1 = results.reactions.iter().find(|r| r.node_id == 1).unwrap();
     let r5 = results.reactions.iter().find(|r| r.node_id == 5).unwrap();
-    assert_close(r1.ry, 1.5 * p, 0.02, "Howe: R1 = 3P/2");
-    assert_close(r5.ry, 1.5 * p, 0.02, "Howe: R5 = 3P/2");
+    assert_close(r1.rz, 1.5 * p, 0.02, "Howe: R1 = 3P/2");
+    assert_close(r5.rz, 1.5 * p, 0.02, "Howe: R5 = 3P/2");
 
     // Howe diagonals should be in COMPRESSION under gravity
     let ef14 = results.element_forces.iter().find(|e| e.element_id == 14).unwrap();
@@ -340,7 +340,7 @@ fn validation_truss_ext_howe_vs_pratt_diagonals() {
         "Howe: bottom chord in tension: N={:.4}", ef_bot.n_start);
 
     // Equilibrium
-    let sum_ry: f64 = results.reactions.iter().map(|r| r.ry).sum();
+    let sum_ry: f64 = results.reactions.iter().map(|r| r.rz).sum();
     assert_close(sum_ry, 3.0 * p, 0.02, "Howe: sum Ry = 3P");
 }
 
@@ -397,7 +397,7 @@ fn validation_truss_ext_k_truss_zero_force() {
     ];
 
     let loads = vec![SolverLoad::Nodal(SolverNodalLoad {
-        node_id: 5, fx: 0.0, fy: -p, mz: 0.0,
+        node_id: 5, fx: 0.0, fz: -p, my: 0.0,
     })];
 
     let input = make_input(
@@ -407,7 +407,7 @@ fn validation_truss_ext_k_truss_zero_force() {
     let results = linear::solve_2d(&input).unwrap();
 
     // Global equilibrium
-    let sum_ry: f64 = results.reactions.iter().map(|r| r.ry).sum();
+    let sum_ry: f64 = results.reactions.iter().map(|r| r.rz).sum();
     assert_close(sum_ry, p, 0.02, "K-truss ZF: sum Ry = P");
 
     // Zero-force members: elements 13 and 14 connect to unloaded node 8
@@ -498,7 +498,7 @@ fn validation_truss_ext_deflection_virtual_work() {
         ],
         vec![(1, 1, "pinned"), (2, 2, "rollerX")],
         vec![SolverLoad::Nodal(SolverNodalLoad {
-            node_id: 3, fx: 0.0, fy: -p, mz: 0.0,
+            node_id: 3, fx: 0.0, fz: -p, my: 0.0,
         })],
     );
     let results = linear::solve_2d(&input).unwrap();
@@ -508,7 +508,7 @@ fn validation_truss_ext_deflection_virtual_work() {
     // Virtual work deflection is negative (downward)
     // Solver uy should match the virtual work result
     // delta_vw is positive (we computed absolute deflection), solver uy is negative (downward)
-    assert_close(tip.uy.abs(), delta_vw.abs(), 0.05,
+    assert_close(tip.uz.abs(), delta_vw.abs(), 0.05,
         "Virtual work: solver delta vs analytical");
 
     // Also verify member forces match analytical
@@ -565,7 +565,7 @@ fn validation_truss_ext_maxwell_diagram_equilibrium() {
     ];
 
     let loads = vec![SolverLoad::Nodal(SolverNodalLoad {
-        node_id: 4, fx: 0.0, fy: -p, mz: 0.0,
+        node_id: 4, fx: 0.0, fz: -p, my: 0.0,
     })];
 
     let input = make_input(
@@ -576,15 +576,15 @@ fn validation_truss_ext_maxwell_diagram_equilibrium() {
 
     // Global equilibrium
     let sum_rx: f64 = results.reactions.iter().map(|r| r.rx).sum();
-    let sum_ry: f64 = results.reactions.iter().map(|r| r.ry).sum();
+    let sum_ry: f64 = results.reactions.iter().map(|r| r.rz).sum();
     assert_close(sum_ry, p, 0.02, "Maxwell: sum Ry = P");
     assert!(sum_rx.abs() < 0.01, "Maxwell: sum Rx = 0");
 
     // Symmetric reactions: R1 = R3 = P/2
     let r1 = results.reactions.iter().find(|r| r.node_id == 1).unwrap();
     let r3 = results.reactions.iter().find(|r| r.node_id == 3).unwrap();
-    assert_close(r1.ry, p / 2.0, 0.02, "Maxwell: R1 = P/2");
-    assert_close(r3.ry, p / 2.0, 0.02, "Maxwell: R3 = P/2");
+    assert_close(r1.rz, p / 2.0, 0.02, "Maxwell: R1 = P/2");
+    assert_close(r3.rz, p / 2.0, 0.02, "Maxwell: R3 = P/2");
 
     // Maxwell diagram symmetry: |F_1-4| = |F_4-3| (left upper = right upper)
     let ef1 = results.element_forces.iter().find(|e| e.element_id == 1).unwrap();
@@ -671,7 +671,7 @@ fn validation_truss_ext_influence_line_moving_load() {
 
     for &load_node in &load_positions {
         let loads = vec![SolverLoad::Nodal(SolverNodalLoad {
-            node_id: load_node, fx: 0.0, fy: -p_unit, mz: 0.0,
+            node_id: load_node, fx: 0.0, fz: -p_unit, my: 0.0,
         })];
 
         let input = make_input(
@@ -686,7 +686,7 @@ fn validation_truss_ext_influence_line_moving_load() {
         influence_values.push(ef8.n_start);
 
         // Verify equilibrium for each load position
-        let sum_ry: f64 = results.reactions.iter().map(|r| r.ry).sum();
+        let sum_ry: f64 = results.reactions.iter().map(|r| r.rz).sum();
         assert_close(sum_ry, p_unit, 0.02,
             &format!("IL: equilibrium for load at node {}", load_node));
     }
@@ -703,7 +703,7 @@ fn validation_truss_ext_influence_line_moving_load() {
     let critical_node = load_positions[max_idx];
 
     let loads = vec![SolverLoad::Nodal(SolverNodalLoad {
-        node_id: critical_node, fx: 0.0, fy: -p_large, mz: 0.0,
+        node_id: critical_node, fx: 0.0, fz: -p_large, my: 0.0,
     })];
     let input = make_input(
         base_nodes.clone(), vec![(1, E, 0.3)], vec![(1, A_TRUSS, IZ_TRUSS)],
@@ -721,8 +721,8 @@ fn validation_truss_ext_influence_line_moving_load() {
 
     // Superposition: load at both positions simultaneously
     let loads_both = vec![
-        SolverLoad::Nodal(SolverNodalLoad { node_id: 2, fx: 0.0, fy: -p_large, mz: 0.0 }),
-        SolverLoad::Nodal(SolverNodalLoad { node_id: 3, fx: 0.0, fy: -p_large, mz: 0.0 }),
+        SolverLoad::Nodal(SolverNodalLoad { node_id: 2, fx: 0.0, fz: -p_large, my: 0.0 }),
+        SolverLoad::Nodal(SolverNodalLoad { node_id: 3, fx: 0.0, fz: -p_large, my: 0.0 }),
     ];
     let input_both = make_input(
         base_nodes, vec![(1, E, 0.3)], vec![(1, A_TRUSS, IZ_TRUSS)],
@@ -844,8 +844,8 @@ fn validation_truss_ext_space_truss_tension_coefficients() {
     let apex = results.displacements.iter().find(|d| d.node_id == 4).unwrap();
     assert!(apex.ux.abs() < 1e-8,
         "Space truss: apex ux = 0 by symmetry: {:.6e}", apex.ux);
-    assert!(apex.uy.abs() < 1e-8,
-        "Space truss: apex uy = 0 by symmetry: {:.6e}", apex.uy);
+    assert!(apex.uz.abs() < 1e-8,
+        "Space truss: apex uy = 0 by symmetry: {:.6e}", apex.uz);
     assert!(apex.uz < 0.0,
         "Space truss: apex moves downward: uz={:.6e}", apex.uz);
 }

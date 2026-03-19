@@ -47,18 +47,18 @@ fn validation_reaction_ss_beam_udl_symmetric() {
 
     let r_exact = q.abs() * l / 2.0; // = 60.0
 
-    assert_close(r_a.ry, r_exact, 0.01,
+    assert_close(r_a.rz, r_exact, 0.01,
         "SS UDL: R_A = qL/2");
-    assert_close(r_b.ry, r_exact, 0.01,
+    assert_close(r_b.rz, r_exact, 0.01,
         "SS UDL: R_B = qL/2");
 
     // Symmetry: R_A = R_B
-    assert_close(r_a.ry, r_b.ry, 0.01,
+    assert_close(r_a.rz, r_b.rz, 0.01,
         "SS UDL: R_A = R_B (symmetry)");
 
     // Total equilibrium
     let total_load = q.abs() * l;
-    assert_close(r_a.ry + r_b.ry, total_load, 0.01,
+    assert_close(r_a.rz + r_b.rz, total_load, 0.01,
         "SS UDL: R_A + R_B = qL");
 
     // No horizontal reactions
@@ -84,7 +84,7 @@ fn validation_reaction_ss_beam_offset_point_load() {
     let load_node = (a_frac * n as f64).round() as usize + 1; // node 7
 
     let loads = vec![SolverLoad::Nodal(SolverNodalLoad {
-        node_id: load_node, fx: 0.0, fy: -p, mz: 0.0,
+        node_id: load_node, fx: 0.0, fz: -p, my: 0.0,
     })];
     let input = make_beam(n, l, E, A, IZ, "pinned", Some("rollerX"), loads);
     let results = linear::solve_2d(&input).unwrap();
@@ -94,16 +94,16 @@ fn validation_reaction_ss_beam_offset_point_load() {
 
     // R_A = Pb/L
     let ra_exact = p * b / l; // = 30 * 6 / 9 = 20
-    assert_close(r_a.ry, ra_exact, 0.01,
+    assert_close(r_a.rz, ra_exact, 0.01,
         "SS offset load: R_A = Pb/L");
 
     // R_B = Pa/L
     let rb_exact = p * a / l; // = 30 * 3 / 9 = 10
-    assert_close(r_b.ry, rb_exact, 0.01,
+    assert_close(r_b.rz, rb_exact, 0.01,
         "SS offset load: R_B = Pa/L");
 
     // Total equilibrium
-    assert_close(r_a.ry + r_b.ry, p, 0.01,
+    assert_close(r_a.rz + r_b.rz, p, 0.01,
         "SS offset load: R_A + R_B = P");
 }
 
@@ -122,7 +122,7 @@ fn validation_reaction_cantilever_tip_load() {
     let p = 25.0;
 
     let loads = vec![SolverLoad::Nodal(SolverNodalLoad {
-        node_id: n + 1, fx: 0.0, fy: -p, mz: 0.0,
+        node_id: n + 1, fx: 0.0, fz: -p, my: 0.0,
     })];
     let input = make_beam(n, l, E, A, IZ, "fixed", None, loads);
     let results = linear::solve_2d(&input).unwrap();
@@ -130,11 +130,11 @@ fn validation_reaction_cantilever_tip_load() {
     let r_a = results.reactions.iter().find(|r| r.node_id == 1).unwrap();
 
     // Vertical reaction = P
-    assert_close(r_a.ry, p, 0.01,
+    assert_close(r_a.rz, p, 0.01,
         "Cantilever tip: Ry = P");
 
     // Moment reaction = PL (check absolute value)
-    assert_close(r_a.mz.abs(), p * l, 0.01,
+    assert_close(r_a.my.abs(), p * l, 0.01,
         "Cantilever tip: |Mz| = PL");
 
     // Only one reaction point
@@ -174,28 +174,28 @@ fn validation_reaction_fixed_fixed_udl() {
     let m_exact = q.abs() * l * l / 12.0; // = 53.333...
 
     // Vertical reactions
-    assert_close(r_a.ry, r_exact, 0.02,
+    assert_close(r_a.rz, r_exact, 0.02,
         "Fixed-fixed UDL: R_A = qL/2");
-    assert_close(r_b.ry, r_exact, 0.02,
+    assert_close(r_b.rz, r_exact, 0.02,
         "Fixed-fixed UDL: R_B = qL/2");
 
     // Symmetry
-    assert_close(r_a.ry, r_b.ry, 0.01,
+    assert_close(r_a.rz, r_b.rz, 0.01,
         "Fixed-fixed UDL: R_A = R_B (symmetry)");
 
     // Fixed-end moments (absolute values)
-    assert_close(r_a.mz.abs(), m_exact, 0.02,
+    assert_close(r_a.my.abs(), m_exact, 0.02,
         "Fixed-fixed UDL: |M_A| = qL^2/12");
-    assert_close(r_b.mz.abs(), m_exact, 0.02,
+    assert_close(r_b.my.abs(), m_exact, 0.02,
         "Fixed-fixed UDL: |M_B| = qL^2/12");
 
     // Moments should be equal in magnitude (symmetry)
-    assert_close(r_a.mz.abs(), r_b.mz.abs(), 0.01,
+    assert_close(r_a.my.abs(), r_b.my.abs(), 0.01,
         "Fixed-fixed UDL: |M_A| = |M_B| (symmetry)");
 
     // Total equilibrium
     let total_load = q.abs() * l;
-    assert_close(r_a.ry + r_b.ry, total_load, 0.01,
+    assert_close(r_a.rz + r_b.rz, total_load, 0.01,
         "Fixed-fixed UDL: R_A + R_B = qL");
 }
 
@@ -225,26 +225,26 @@ fn validation_reaction_propped_cantilever_udl() {
 
     // R_A = 5qL/8
     let ra_exact = 5.0 * q.abs() * l / 8.0; // = 50.0
-    assert_close(r_a.ry, ra_exact, 0.02,
+    assert_close(r_a.rz, ra_exact, 0.02,
         "Propped UDL: R_A = 5qL/8");
 
     // R_B = 3qL/8
     let rb_exact = 3.0 * q.abs() * l / 8.0; // = 30.0
-    assert_close(r_b.ry, rb_exact, 0.02,
+    assert_close(r_b.rz, rb_exact, 0.02,
         "Propped UDL: R_B = 3qL/8");
 
     // M_A = qL^2/8
     let ma_exact = q.abs() * l * l / 8.0; // = 80.0
-    assert_close(r_a.mz.abs(), ma_exact, 0.02,
+    assert_close(r_a.my.abs(), ma_exact, 0.02,
         "Propped UDL: |M_A| = qL^2/8");
 
     // No moment at roller
-    assert_close(r_b.mz, 0.0, 0.01,
+    assert_close(r_b.my, 0.0, 0.01,
         "Propped UDL: M_B = 0 (roller)");
 
     // Total equilibrium
     let total_load = q.abs() * l;
-    assert_close(r_a.ry + r_b.ry, total_load, 0.01,
+    assert_close(r_a.rz + r_b.rz, total_load, 0.01,
         "Propped UDL: R_A + R_B = qL");
 }
 
@@ -277,23 +277,23 @@ fn validation_reaction_two_span_continuous_udl() {
 
     // End reactions: R_A = R_C = 3qL/8
     let r_end_exact = 3.0 * q.abs() * span / 8.0; // = 22.5
-    assert_close(r_a.ry, r_end_exact, 0.02,
+    assert_close(r_a.rz, r_end_exact, 0.02,
         "Two-span UDL: R_A = 3qL/8");
-    assert_close(r_c.ry, r_end_exact, 0.02,
+    assert_close(r_c.rz, r_end_exact, 0.02,
         "Two-span UDL: R_C = 3qL/8");
 
     // Symmetry: R_A = R_C
-    assert_close(r_a.ry, r_c.ry, 0.01,
+    assert_close(r_a.rz, r_c.rz, 0.01,
         "Two-span UDL: R_A = R_C (symmetry)");
 
     // Interior reaction: R_B = 10qL/8 = 5qL/4
     let r_int_exact = 10.0 * q.abs() * span / 8.0; // = 75.0
-    assert_close(r_b.ry, r_int_exact, 0.02,
+    assert_close(r_b.rz, r_int_exact, 0.02,
         "Two-span UDL: R_B = 10qL/8");
 
     // Total equilibrium: R_A + R_B + R_C = 2qL
     let total_load = q.abs() * 2.0 * span;
-    let total_reaction = r_a.ry + r_b.ry + r_c.ry;
+    let total_reaction = r_a.rz + r_b.rz + r_c.rz;
     assert_close(total_reaction, total_load, 0.01,
         "Two-span UDL: sum R = 2qL");
 }
@@ -324,7 +324,7 @@ fn validation_reaction_portal_frame_gravity() {
     let total_gravity = 2.0 * p_gravity.abs();
 
     // Sum of vertical reactions = total gravity
-    let sum_ry: f64 = results.reactions.iter().map(|r| r.ry).sum();
+    let sum_ry: f64 = results.reactions.iter().map(|r| r.rz).sum();
     assert_close(sum_ry, total_gravity, 0.01,
         "Portal gravity: sum Ry = total gravity load");
 
@@ -334,11 +334,11 @@ fn validation_reaction_portal_frame_gravity() {
         "Portal gravity: sum Rx = 0");
 
     // By symmetry, vertical reactions at both bases should be equal
-    assert_close(r1.ry, r4.ry, 0.01,
+    assert_close(r1.rz, r4.rz, 0.01,
         "Portal gravity: R1_y = R4_y (symmetry)");
 
     // Each vertical reaction = total_gravity / 2
-    assert_close(r1.ry, total_gravity / 2.0, 0.01,
+    assert_close(r1.rz, total_gravity / 2.0, 0.01,
         "Portal gravity: R1_y = total/2");
 
     // By symmetry, horizontal reactions should be equal and opposite (sum = 0)
@@ -369,7 +369,7 @@ fn validation_reaction_cantilever_combined_loading() {
         }))
         .collect();
     loads.push(SolverLoad::Nodal(SolverNodalLoad {
-        node_id: n + 1, fx: 0.0, fy: -p, mz: 0.0,
+        node_id: n + 1, fx: 0.0, fz: -p, my: 0.0,
     }));
 
     let input = make_beam(n, l, E, A, IZ, "fixed", None, loads);
@@ -379,12 +379,12 @@ fn validation_reaction_cantilever_combined_loading() {
 
     // Vertical reaction: R = P + qL
     let r_exact = p + q.abs() * l; // = 15 + 40 = 55
-    assert_close(r_a.ry, r_exact, 0.02,
+    assert_close(r_a.rz, r_exact, 0.02,
         "Cantilever combined: Ry = P + qL");
 
     // Moment reaction: M = PL + qL^2/2
     let m_exact = p * l + q.abs() * l * l / 2.0; // = 75 + 100 = 175
-    assert_close(r_a.mz.abs(), m_exact, 0.02,
+    assert_close(r_a.my.abs(), m_exact, 0.02,
         "Cantilever combined: |Mz| = PL + qL^2/2");
 
     // No horizontal reaction

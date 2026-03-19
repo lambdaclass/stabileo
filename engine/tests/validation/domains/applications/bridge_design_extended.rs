@@ -47,11 +47,11 @@ fn bridge_ext_aashto_hl93_lane_load() {
     let r_expected: f64 = q * l / 2.0;
     let r_left = results.reactions.iter().find(|r| r.node_id == 1).unwrap();
     let r_right = results.reactions.iter().find(|r| r.node_id == n + 1).unwrap();
-    assert_close(r_left.ry, r_expected, 0.02, "HL-93 lane R_left");
-    assert_close(r_right.ry, r_expected, 0.02, "HL-93 lane R_right");
+    assert_close(r_left.rz, r_expected, 0.02, "HL-93 lane R_left");
+    assert_close(r_right.rz, r_expected, 0.02, "HL-93 lane R_right");
 
     // Total vertical equilibrium: sum_Ry = q*L
-    let sum_ry: f64 = results.reactions.iter().map(|r| r.ry).sum();
+    let sum_ry: f64 = results.reactions.iter().map(|r| r.rz).sum();
     assert_close(sum_ry, q * l, 0.02, "HL-93 lane equilibrium");
 
     // Midspan deflection should be downward and match analytical formula
@@ -61,8 +61,8 @@ fn bridge_ext_aashto_hl93_lane_load() {
     let delta_analytical: f64 = 5.0 * q * l.powi(4) / (384.0 * e_kn * IZ);
     let mid_node = n / 2 + 1;
     let d_mid = results.displacements.iter().find(|d| d.node_id == mid_node).unwrap();
-    assert!(d_mid.uy < 0.0, "HL-93 lane: midspan deflects downward");
-    assert_close(d_mid.uy.abs(), delta_analytical, 0.05, "HL-93 lane midspan deflection");
+    assert!(d_mid.uz < 0.0, "HL-93 lane: midspan deflects downward");
+    assert_close(d_mid.uz.abs(), delta_analytical, 0.05, "HL-93 lane midspan deflection");
 }
 
 // ================================================================
@@ -137,8 +137,8 @@ fn bridge_ext_through_truss_pratt() {
         loads.push(SolverLoad::Nodal(SolverNodalLoad {
             node_id: i + 1,
             fx: 0.0,
-            fy: -p,
-            mz: 0.0,
+            fz: -p,
+            my: 0.0,
         }));
     }
 
@@ -155,12 +155,12 @@ fn bridge_ext_through_truss_pratt() {
     let results = solve_2d(&input).unwrap();
 
     // Vertical equilibrium
-    let sum_ry: f64 = results.reactions.iter().map(|r| r.ry).sum();
+    let sum_ry: f64 = results.reactions.iter().map(|r| r.rz).sum();
     assert_close(sum_ry, total_load, 0.02, "Pratt truss total Ry");
 
     // Symmetric reactions
-    let r1 = results.reactions.iter().find(|r| r.node_id == 1).unwrap().ry;
-    let r2 = results.reactions.iter().find(|r| r.node_id == n_panels + 1).unwrap().ry;
+    let r1 = results.reactions.iter().find(|r| r.node_id == 1).unwrap().rz;
+    let r2 = results.reactions.iter().find(|r| r.node_id == n_panels + 1).unwrap().rz;
     assert_close(r1, r2, 0.05, "Pratt truss symmetric reactions");
     assert_close(r1, total_load / 2.0, 0.05, "Pratt truss R = W/2");
 
@@ -199,25 +199,25 @@ fn bridge_ext_box_girder_eccentric_load() {
     // Case 1: Symmetric loading — P/2 on each girder at midspan
     let input1 = make_beam(n, l, E, A, IZ, "pinned", Some("rollerX"),
         vec![SolverLoad::Nodal(SolverNodalLoad {
-            node_id: mid_node, fx: 0.0, fy: -p / 2.0, mz: 0.0,
+            node_id: mid_node, fx: 0.0, fz: -p / 2.0, my: 0.0,
         })]);
     let res1 = solve_2d(&input1).unwrap();
 
     let input2 = make_beam(n, l, E, A, IZ, "pinned", Some("rollerX"),
         vec![SolverLoad::Nodal(SolverNodalLoad {
-            node_id: mid_node, fx: 0.0, fy: -p / 2.0, mz: 0.0,
+            node_id: mid_node, fx: 0.0, fz: -p / 2.0, my: 0.0,
         })]);
     let res2 = solve_2d(&input2).unwrap();
 
     // Symmetric: both girders have equal reactions and deflections
     let d1_sym: f64 = res1.displacements.iter()
-        .find(|d| d.node_id == mid_node).unwrap().uy;
+        .find(|d| d.node_id == mid_node).unwrap().uz;
     let d2_sym: f64 = res2.displacements.iter()
-        .find(|d| d.node_id == mid_node).unwrap().uy;
+        .find(|d| d.node_id == mid_node).unwrap().uz;
     assert_close(d1_sym, d2_sym, 0.02, "Box girder symmetric: equal deflections");
 
     // Total reaction of each girder = P/2
-    let sum_ry1: f64 = res1.reactions.iter().map(|r| r.ry).sum();
+    let sum_ry1: f64 = res1.reactions.iter().map(|r| r.rz).sum();
     assert_close(sum_ry1, p / 2.0, 0.02, "Box girder symmetric: girder 1 Ry = P/2");
 
     // Case 2: Eccentric loading — 70% on girder 1, 30% on girder 2
@@ -225,27 +225,27 @@ fn bridge_ext_box_girder_eccentric_load() {
     let frac_far: f64 = 0.30;
     let input_near = make_beam(n, l, E, A, IZ, "pinned", Some("rollerX"),
         vec![SolverLoad::Nodal(SolverNodalLoad {
-            node_id: mid_node, fx: 0.0, fy: -p * frac_near, mz: 0.0,
+            node_id: mid_node, fx: 0.0, fz: -p * frac_near, my: 0.0,
         })]);
     let res_near = solve_2d(&input_near).unwrap();
 
     let input_far = make_beam(n, l, E, A, IZ, "pinned", Some("rollerX"),
         vec![SolverLoad::Nodal(SolverNodalLoad {
-            node_id: mid_node, fx: 0.0, fy: -p * frac_far, mz: 0.0,
+            node_id: mid_node, fx: 0.0, fz: -p * frac_far, my: 0.0,
         })]);
     let res_far = solve_2d(&input_far).unwrap();
 
     // Eccentric: near girder carries more
-    let sum_ry_near: f64 = res_near.reactions.iter().map(|r| r.ry).sum();
-    let sum_ry_far: f64 = res_far.reactions.iter().map(|r| r.ry).sum();
+    let sum_ry_near: f64 = res_near.reactions.iter().map(|r| r.rz).sum();
+    let sum_ry_far: f64 = res_far.reactions.iter().map(|r| r.rz).sum();
     assert_close(sum_ry_near, p * frac_near, 0.02, "Box girder eccentric: near Ry = 0.7P");
     assert_close(sum_ry_far, p * frac_far, 0.02, "Box girder eccentric: far Ry = 0.3P");
 
     // Near girder deflects more than far girder
     let d_near: f64 = res_near.displacements.iter()
-        .find(|d| d.node_id == mid_node).unwrap().uy.abs();
+        .find(|d| d.node_id == mid_node).unwrap().uz.abs();
     let d_far: f64 = res_far.displacements.iter()
-        .find(|d| d.node_id == mid_node).unwrap().uy.abs();
+        .find(|d| d.node_id == mid_node).unwrap().uz.abs();
     assert!(d_near > d_far,
         "Near girder deflects more: {:.6e} > {:.6e}", d_near, d_far);
 
@@ -330,26 +330,26 @@ fn bridge_ext_integral_abutment() {
 
     // Total vertical equilibrium: sum Ry = q * 2L
     let total_load: f64 = q * 2.0 * l;
-    let sum_ry: f64 = results.reactions.iter().map(|r| r.ry).sum();
+    let sum_ry: f64 = results.reactions.iter().map(|r| r.rz).sum();
     assert_close(sum_ry, total_load, 0.02, "Integral abutment total Ry");
 
     // Fixed ends should have moment reactions (non-zero Mz)
     let r_left = results.reactions.iter().find(|r| r.node_id == 1).unwrap();
     let r_right = results.reactions.iter().find(|r| r.node_id == end_node).unwrap();
-    assert!(r_left.mz.abs() > 1.0,
-        "Integral abutment: left fixed-end moment = {:.2}", r_left.mz);
-    assert!(r_right.mz.abs() > 1.0,
-        "Integral abutment: right fixed-end moment = {:.2}", r_right.mz);
+    assert!(r_left.my.abs() > 1.0,
+        "Integral abutment: left fixed-end moment = {:.2}", r_left.my);
+    assert!(r_right.my.abs() > 1.0,
+        "Integral abutment: right fixed-end moment = {:.2}", r_right.my);
 
     // By symmetry, fixed-end moments should be equal in magnitude
-    assert_close(r_left.mz.abs(), r_right.mz.abs(), 0.05,
+    assert_close(r_left.my.abs(), r_right.my.abs(), 0.05,
         "Integral abutment: symmetric fixed-end moments");
 
     // The interior support should carry more load than either end
     let r_interior = results.reactions.iter().find(|r| r.node_id == interior_node).unwrap();
-    assert!(r_interior.ry > r_left.ry,
+    assert!(r_interior.rz > r_left.rz,
         "Interior support ({:.1}) > left end ({:.1})",
-        r_interior.ry, r_left.ry);
+        r_interior.rz, r_left.rz);
 }
 
 // ================================================================
@@ -400,14 +400,14 @@ fn bridge_ext_pier_cap_distribution() {
         SolverLoad::Nodal(SolverNodalLoad {
             node_id: 1,
             fx: 0.0,
-            fy: -p1,
-            mz: 0.0,
+            fz: -p1,
+            my: 0.0,
         }),
         SolverLoad::Nodal(SolverNodalLoad {
             node_id: n + 1,
             fx: 0.0,
-            fy: -p2,
-            mz: 0.0,
+            fz: -p2,
+            my: 0.0,
         }),
     ];
 
@@ -423,8 +423,8 @@ fn bridge_ext_pier_cap_distribution() {
 
     // Symmetric case: V = P1 + P2, M = 0
     let r_col = results.reactions.iter().find(|r| r.node_id == center_node).unwrap();
-    assert_close(r_col.ry, p1 + p2, 0.02, "Pier cap: V_column = P1 + P2");
-    assert_close(r_col.mz.abs(), 0.0, 0.05, "Pier cap: M_column = 0 (symmetric)");
+    assert_close(r_col.rz, p1 + p2, 0.02, "Pier cap: V_column = P1 + P2");
+    assert_close(r_col.my.abs(), 0.0, 0.05, "Pier cap: M_column = 0 (symmetric)");
 
     // Now test asymmetric case: P1 = 80, P2 = 40
     let p2_asym: f64 = 40.0;
@@ -438,14 +438,14 @@ fn bridge_ext_pier_cap_distribution() {
         SolverLoad::Nodal(SolverNodalLoad {
             node_id: 1,
             fx: 0.0,
-            fy: -p1,
-            mz: 0.0,
+            fz: -p1,
+            my: 0.0,
         }),
         SolverLoad::Nodal(SolverNodalLoad {
             node_id: n + 1,
             fx: 0.0,
-            fy: -p2_asym,
-            mz: 0.0,
+            fz: -p2_asym,
+            my: 0.0,
         }),
     ];
     let input2 = make_input(
@@ -459,14 +459,14 @@ fn bridge_ext_pier_cap_distribution() {
     let results2 = solve_2d(&input2).unwrap();
 
     let r_col2 = results2.reactions.iter().find(|r| r.node_id == center_node).unwrap();
-    assert_close(r_col2.ry, p1 + p2_asym, 0.02, "Pier cap asymmetric: V_column");
+    assert_close(r_col2.rz, p1 + p2_asym, 0.02, "Pier cap asymmetric: V_column");
 
     // Moment should be non-zero for asymmetric loading
     // M = P1*a - P2*a = a*(P1 - P2) = 5*(80-40) = 200 kN*m
     let m_expected: f64 = a * (p1 - p2_asym);
-    assert!(r_col2.mz.abs() > 10.0,
-        "Pier cap asymmetric: M_column should be non-zero, got {:.2}", r_col2.mz);
-    assert_close(r_col2.mz.abs(), m_expected, 0.05, "Pier cap asymmetric: M = a*(P1-P2)");
+    assert!(r_col2.my.abs() > 10.0,
+        "Pier cap asymmetric: M_column should be non-zero, got {:.2}", r_col2.my);
+    assert_close(r_col2.my.abs(), m_expected, 0.05, "Pier cap asymmetric: M = a*(P1-P2)");
 }
 
 // ================================================================
@@ -525,9 +525,9 @@ fn bridge_ext_deck_slab_effective_width() {
 
     let mid_node = n / 2 + 1;
     let delta_full: f64 = res_full.displacements.iter()
-        .find(|d| d.node_id == mid_node).unwrap().uy.abs();
+        .find(|d| d.node_id == mid_node).unwrap().uz.abs();
     let delta_eff: f64 = res_eff.displacements.iter()
-        .find(|d| d.node_id == mid_node).unwrap().uy.abs();
+        .find(|d| d.node_id == mid_node).unwrap().uz.abs();
 
     // Effective width beam should deflect more (less stiff)
     assert!(delta_eff > delta_full,
@@ -541,8 +541,8 @@ fn bridge_ext_deck_slab_effective_width() {
         "Deck slab: delta_eff/delta_full = I_full/I_eff");
 
     // Both beams should have same reactions (same load, same span)
-    let sum_full: f64 = res_full.reactions.iter().map(|r| r.ry).sum();
-    let sum_eff: f64 = res_eff.reactions.iter().map(|r| r.ry).sum();
+    let sum_full: f64 = res_full.reactions.iter().map(|r| r.rz).sum();
+    let sum_eff: f64 = res_eff.reactions.iter().map(|r| r.rz).sum();
     assert_close(sum_full, sum_eff, 0.02, "Deck slab: same reactions regardless of stiffness");
 }
 
@@ -589,8 +589,8 @@ fn bridge_ext_bearing_pad_thermal_load() {
     let loads = vec![SolverLoad::Nodal(SolverNodalLoad {
         node_id: n + 1,
         fx: f_thermal,
-        fy: 0.0,
-        mz: 0.0,
+        fz: 0.0,
+        my: 0.0,
     })];
 
     let input = make_beam(n, l, E, A, IZ, "pinned", Some("rollerX"), loads);
@@ -661,8 +661,8 @@ fn bridge_ext_elastomeric_bearing_3d_pier() {
     let loads = vec![SolverLoad3D::Nodal(SolverNodalLoad3D {
         node_id: n + 1,
         fx: p_lateral,
-        fy: 0.0,
         fz: 0.0,
+        fy: 0.0,
         mx: 0.0,
         my: 0.0,
         mz: 0.0,

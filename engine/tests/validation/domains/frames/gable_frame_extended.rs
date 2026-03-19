@@ -79,9 +79,9 @@ fn validation_gable_extended_symmetric_gravity() {
     let g = -30.0; // downward load per node
 
     let loads = vec![
-        SolverLoad::Nodal(SolverNodalLoad { node_id: 2, fx: 0.0, fy: g, mz: 0.0 }),
-        SolverLoad::Nodal(SolverNodalLoad { node_id: 3, fx: 0.0, fy: g, mz: 0.0 }),
-        SolverLoad::Nodal(SolverNodalLoad { node_id: 4, fx: 0.0, fy: g, mz: 0.0 }),
+        SolverLoad::Nodal(SolverNodalLoad { node_id: 2, fx: 0.0, fz: g, my: 0.0 }),
+        SolverLoad::Nodal(SolverNodalLoad { node_id: 3, fx: 0.0, fz: g, my: 0.0 }),
+        SolverLoad::Nodal(SolverNodalLoad { node_id: 4, fx: 0.0, fz: g, my: 0.0 }),
     ];
     let input = build_gable(h, w, rise, "pinned", "rollerX", loads);
     let results = solve_2d(&input).expect("solve");
@@ -92,11 +92,11 @@ fn validation_gable_extended_symmetric_gravity() {
     let total_load: f64 = 3.0 * g;
 
     // Vertical equilibrium: sum of vertical reactions equals total gravity
-    assert_close(r1.ry + r5.ry, -total_load, 0.01, "Symmetric gravity: sum Ry = -total_load");
+    assert_close(r1.rz + r5.rz, -total_load, 0.01, "Symmetric gravity: sum Ry = -total_load");
 
     // By symmetry, each vertical reaction should be half the total
-    assert_close(r1.ry, -total_load / 2.0, 0.01, "Symmetric gravity: Ry1 = total/2");
-    assert_close(r5.ry, -total_load / 2.0, 0.01, "Symmetric gravity: Ry5 = total/2");
+    assert_close(r1.rz, -total_load / 2.0, 0.01, "Symmetric gravity: Ry1 = total/2");
+    assert_close(r5.rz, -total_load / 2.0, 0.01, "Symmetric gravity: Ry5 = total/2");
 
     // RollerX at node 5 has zero horizontal reaction
     assert_close(r5.rx, 0.0, 0.01, "Symmetric gravity: Rx5 = 0 (rollerX)");
@@ -122,7 +122,7 @@ fn validation_gable_extended_lateral_base_shear() {
     let f_lat = 20.0;
 
     let loads = vec![
-        SolverLoad::Nodal(SolverNodalLoad { node_id: 2, fx: f_lat, fy: 0.0, mz: 0.0 }),
+        SolverLoad::Nodal(SolverNodalLoad { node_id: 2, fx: f_lat, fz: 0.0, my: 0.0 }),
     ];
     let input = build_gable(h, w, rise, "fixed", "fixed", loads);
     let results = solve_2d(&input).expect("solve");
@@ -135,7 +135,7 @@ fn validation_gable_extended_lateral_base_shear() {
         "Lateral load: horizontal equilibrium");
 
     // Vertical equilibrium: no vertical load so Ry1 + Ry5 = 0
-    assert_close(r1.ry + r5.ry, 0.0, 0.01,
+    assert_close(r1.rz + r5.rz, 0.0, 0.01,
         "Lateral load: vertical equilibrium");
 
     // Both columns should carry part of the shear (both Rx nonzero)
@@ -143,8 +143,8 @@ fn validation_gable_extended_lateral_base_shear() {
     assert!(r5.rx.abs() > 1.0, "Lateral load: right column carries shear");
 
     // Both bases develop moment
-    assert!(r1.mz.abs() > 0.1, "Lateral load: base moment at node 1");
-    assert!(r5.mz.abs() > 0.1, "Lateral load: base moment at node 5");
+    assert!(r1.my.abs() > 0.1, "Lateral load: base moment at node 1");
+    assert!(r5.my.abs() > 0.1, "Lateral load: base moment at node 5");
 }
 
 // ================================================================
@@ -167,7 +167,7 @@ fn validation_gable_extended_ridge_point_load() {
     let p = -40.0; // downward
 
     let loads = vec![
-        SolverLoad::Nodal(SolverNodalLoad { node_id: 3, fx: 0.0, fy: p, mz: 0.0 }),
+        SolverLoad::Nodal(SolverNodalLoad { node_id: 3, fx: 0.0, fz: p, my: 0.0 }),
     ];
     let input = build_gable(h, w, rise, "fixed", "fixed", loads);
     let results = solve_2d(&input).expect("solve");
@@ -176,10 +176,10 @@ fn validation_gable_extended_ridge_point_load() {
     let r5 = results.reactions.iter().find(|r| r.node_id == 5).unwrap();
 
     // Vertical equilibrium
-    assert_close(r1.ry + r5.ry, -p, 0.01, "Ridge load: Ry1 + Ry5 = -P");
+    assert_close(r1.rz + r5.rz, -p, 0.01, "Ridge load: Ry1 + Ry5 = -P");
 
     // By symmetry: Ry1 = Ry5 = P/2 (approx, fixed bases also carry moment)
-    assert_close(r1.ry, r5.ry, 0.02, "Ridge load: Ry1 ~ Ry5 by symmetry");
+    assert_close(r1.rz, r5.rz, 0.02, "Ridge load: Ry1 ~ Ry5 by symmetry");
 
     // Horizontal equilibrium: Rx1 + Rx5 = 0
     assert_close(r1.rx + r5.rx, 0.0, 0.01, "Ridge load: Rx1 + Rx5 = 0");
@@ -234,11 +234,11 @@ fn validation_gable_extended_unbalanced_snow() {
     // dx = w/2, dy = rise. Local Y in global coords = (-sin(theta), cos(theta)).
     // Total global force: Fx = -q * dy = -q * rise, Fy = q * dx = q * (w/2).
     let applied_fx: f64 = -q * rise;
-    let applied_fy: f64 = q * (w / 2.0);
+    let applied_fz: f64 = q * (w / 2.0);
 
     // Vertical: sum of Ry must balance total applied vertical load component
-    let sum_ry: f64 = r1.ry + r5.ry;
-    assert_close(sum_ry + applied_fy, 0.0, 0.05,
+    let sum_ry: f64 = r1.rz + r5.rz;
+    assert_close(sum_ry + applied_fz, 0.0, 0.05,
         "Unbalanced snow: vertical equilibrium");
 
     // Horizontal equilibrium: Rx1 + Rx5 + applied_fx = 0
@@ -247,14 +247,14 @@ fn validation_gable_extended_unbalanced_snow() {
         "Unbalanced snow: horizontal equilibrium");
 
     // Reactions should NOT be symmetric (load is on one side only)
-    assert!((r1.ry - r5.ry).abs() > 0.5,
+    assert!((r1.rz - r5.rz).abs() > 0.5,
         "Unbalanced snow: unequal vertical reactions Ry1={:.3} Ry5={:.3}",
-        r1.ry, r5.ry);
+        r1.rz, r5.rz);
 
     // Left base should carry more vertical reaction since load is on left rafter
-    assert!(r1.ry > r5.ry,
+    assert!(r1.rz > r5.rz,
         "Unbalanced snow: left base Ry1={:.3} > right base Ry5={:.3}",
-        r1.ry, r5.ry);
+        r1.rz, r5.rz);
 }
 
 // ================================================================
@@ -276,9 +276,9 @@ fn validation_gable_extended_rafter_thrust() {
     let g = -25.0;
 
     let loads = vec![
-        SolverLoad::Nodal(SolverNodalLoad { node_id: 2, fx: 0.0, fy: g, mz: 0.0 }),
-        SolverLoad::Nodal(SolverNodalLoad { node_id: 3, fx: 0.0, fy: g, mz: 0.0 }),
-        SolverLoad::Nodal(SolverNodalLoad { node_id: 4, fx: 0.0, fy: g, mz: 0.0 }),
+        SolverLoad::Nodal(SolverNodalLoad { node_id: 2, fx: 0.0, fz: g, my: 0.0 }),
+        SolverLoad::Nodal(SolverNodalLoad { node_id: 3, fx: 0.0, fz: g, my: 0.0 }),
+        SolverLoad::Nodal(SolverNodalLoad { node_id: 4, fx: 0.0, fz: g, my: 0.0 }),
     ];
     let input = build_gable(h, w, rise, "pinned", "pinned", loads);
     let results = solve_2d(&input).expect("solve");
@@ -295,11 +295,11 @@ fn validation_gable_extended_rafter_thrust() {
 
     // Vertical equilibrium
     let total_gravity: f64 = 3.0 * g;
-    assert_close(r1.ry + r5.ry, -total_gravity, 0.01, "Rafter thrust: vertical equilibrium");
+    assert_close(r1.rz + r5.rz, -total_gravity, 0.01, "Rafter thrust: vertical equilibrium");
 
     // For pinned supports, moment reaction is zero
-    assert_close(r1.mz, 0.0, 0.01, "Rafter thrust: Mz1 = 0 (pinned)");
-    assert_close(r5.mz, 0.0, 0.01, "Rafter thrust: Mz5 = 0 (pinned)");
+    assert_close(r1.my, 0.0, 0.01, "Rafter thrust: Mz1 = 0 (pinned)");
+    assert_close(r5.my, 0.0, 0.01, "Rafter thrust: Mz5 = 0 (pinned)");
 }
 
 // ================================================================
@@ -322,7 +322,7 @@ fn validation_gable_extended_knee_brace_effect() {
 
     // --- Unbraced gable (pinned bases) ---
     let loads_unbraced = vec![
-        SolverLoad::Nodal(SolverNodalLoad { node_id: 2, fx: f_lat, fy: 0.0, mz: 0.0 }),
+        SolverLoad::Nodal(SolverNodalLoad { node_id: 2, fx: f_lat, fz: 0.0, my: 0.0 }),
     ];
     let input_unbraced = build_gable(h, w, rise, "pinned", "pinned", loads_unbraced);
     let res_unbraced = solve_2d(&input_unbraced).expect("solve");
@@ -351,7 +351,7 @@ fn validation_gable_extended_knee_brace_effect() {
     ];
     let sups = vec![(1, 1, "pinned"), (2, 5, "pinned")];
     let loads = vec![
-        SolverLoad::Nodal(SolverNodalLoad { node_id: 2, fx: f_lat, fy: 0.0, mz: 0.0 }),
+        SolverLoad::Nodal(SolverNodalLoad { node_id: 2, fx: f_lat, fz: 0.0, my: 0.0 }),
     ];
     let input_braced = make_input(
         nodes,
@@ -399,7 +399,7 @@ fn validation_gable_extended_pitch_angle_effect() {
     // Shallow pitch: rise = 1.5 m
     let rise_shallow = 1.5;
     let loads_shallow = vec![
-        SolverLoad::Nodal(SolverNodalLoad { node_id: 3, fx: 0.0, fy: p, mz: 0.0 }),
+        SolverLoad::Nodal(SolverNodalLoad { node_id: 3, fx: 0.0, fz: p, my: 0.0 }),
     ];
     let input_shallow = build_gable(h, w, rise_shallow, "pinned", "pinned", loads_shallow);
     let res_shallow = solve_2d(&input_shallow).expect("solve");
@@ -409,7 +409,7 @@ fn validation_gable_extended_pitch_angle_effect() {
     // Steep pitch: rise = 5.0 m
     let rise_steep = 5.0;
     let loads_steep = vec![
-        SolverLoad::Nodal(SolverNodalLoad { node_id: 3, fx: 0.0, fy: p, mz: 0.0 }),
+        SolverLoad::Nodal(SolverNodalLoad { node_id: 3, fx: 0.0, fz: p, my: 0.0 }),
     ];
     let input_steep = build_gable(h, w, rise_steep, "pinned", "pinned", loads_steep);
     let res_steep = solve_2d(&input_steep).expect("solve");
@@ -419,9 +419,9 @@ fn validation_gable_extended_pitch_angle_effect() {
     // Both should satisfy vertical equilibrium
     let r5_shallow = res_shallow.reactions.iter().find(|r| r.node_id == 5).unwrap();
     let r5_steep = res_steep.reactions.iter().find(|r| r.node_id == 5).unwrap();
-    assert_close(r1_shallow.ry + r5_shallow.ry, -p, 0.01,
+    assert_close(r1_shallow.rz + r5_shallow.rz, -p, 0.01,
         "Shallow pitch: vertical equilibrium");
-    assert_close(r1_steep.ry + r5_steep.ry, -p, 0.01,
+    assert_close(r1_steep.rz + r5_steep.rz, -p, 0.01,
         "Steep pitch: vertical equilibrium");
 
     // Steeper pitch should have less horizontal thrust
@@ -434,9 +434,9 @@ fn validation_gable_extended_pitch_angle_effect() {
     // Ridge vertical deflection: steeper pitch should deflect less vertically
     // (stiffer in the vertical direction due to more vertical rafter orientation)
     let d_ridge_shallow: f64 = res_shallow.displacements.iter()
-        .find(|d| d.node_id == 3).unwrap().uy.abs();
+        .find(|d| d.node_id == 3).unwrap().uz.abs();
     let d_ridge_steep: f64 = res_steep.displacements.iter()
-        .find(|d| d.node_id == 3).unwrap().uy.abs();
+        .find(|d| d.node_id == 3).unwrap().uz.abs();
     assert!(d_ridge_steep < d_ridge_shallow,
         "Pitch effect: steep deflection {:.6} < shallow deflection {:.6}",
         d_ridge_steep, d_ridge_shallow);
@@ -463,18 +463,18 @@ fn validation_gable_extended_fixed_vs_pinned_base() {
 
     // --- Pinned-base gable ---
     let loads_p = vec![
-        SolverLoad::Nodal(SolverNodalLoad { node_id: 2, fx: f_lat, fy: g, mz: 0.0 }),
-        SolverLoad::Nodal(SolverNodalLoad { node_id: 3, fx: 0.0, fy: g, mz: 0.0 }),
-        SolverLoad::Nodal(SolverNodalLoad { node_id: 4, fx: 0.0, fy: g, mz: 0.0 }),
+        SolverLoad::Nodal(SolverNodalLoad { node_id: 2, fx: f_lat, fz: g, my: 0.0 }),
+        SolverLoad::Nodal(SolverNodalLoad { node_id: 3, fx: 0.0, fz: g, my: 0.0 }),
+        SolverLoad::Nodal(SolverNodalLoad { node_id: 4, fx: 0.0, fz: g, my: 0.0 }),
     ];
     let input_pinned = build_gable(h, w, rise, "pinned", "pinned", loads_p);
     let res_pinned = solve_2d(&input_pinned).expect("solve");
 
     // --- Fixed-base gable ---
     let loads_f = vec![
-        SolverLoad::Nodal(SolverNodalLoad { node_id: 2, fx: f_lat, fy: g, mz: 0.0 }),
-        SolverLoad::Nodal(SolverNodalLoad { node_id: 3, fx: 0.0, fy: g, mz: 0.0 }),
-        SolverLoad::Nodal(SolverNodalLoad { node_id: 4, fx: 0.0, fy: g, mz: 0.0 }),
+        SolverLoad::Nodal(SolverNodalLoad { node_id: 2, fx: f_lat, fz: g, my: 0.0 }),
+        SolverLoad::Nodal(SolverNodalLoad { node_id: 3, fx: 0.0, fz: g, my: 0.0 }),
+        SolverLoad::Nodal(SolverNodalLoad { node_id: 4, fx: 0.0, fz: g, my: 0.0 }),
     ];
     let input_fixed = build_gable(h, w, rise, "fixed", "fixed", loads_f);
     let res_fixed = solve_2d(&input_fixed).expect("solve");
@@ -482,14 +482,14 @@ fn validation_gable_extended_fixed_vs_pinned_base() {
     // Fixed bases should have nonzero moment reactions
     let r1_fixed = res_fixed.reactions.iter().find(|r| r.node_id == 1).unwrap();
     let r5_fixed = res_fixed.reactions.iter().find(|r| r.node_id == 5).unwrap();
-    assert!(r1_fixed.mz.abs() > 0.1, "Fixed base: Mz1 nonzero");
-    assert!(r5_fixed.mz.abs() > 0.1, "Fixed base: Mz5 nonzero");
+    assert!(r1_fixed.my.abs() > 0.1, "Fixed base: Mz1 nonzero");
+    assert!(r5_fixed.my.abs() > 0.1, "Fixed base: Mz5 nonzero");
 
     // Pinned bases should have zero moment reactions
     let r1_pinned = res_pinned.reactions.iter().find(|r| r.node_id == 1).unwrap();
     let r5_pinned = res_pinned.reactions.iter().find(|r| r.node_id == 5).unwrap();
-    assert_close(r1_pinned.mz, 0.0, 0.01, "Pinned base: Mz1 = 0");
-    assert_close(r5_pinned.mz, 0.0, 0.01, "Pinned base: Mz5 = 0");
+    assert_close(r1_pinned.my, 0.0, 0.01, "Pinned base: Mz1 = 0");
+    assert_close(r5_pinned.my, 0.0, 0.01, "Pinned base: Mz5 = 0");
 
     // Fixed-base frame should be stiffer: less lateral displacement at eave
     let d_eave_pinned: f64 = res_pinned.displacements.iter()
@@ -513,13 +513,13 @@ fn validation_gable_extended_fixed_vs_pinned_base() {
     );
 
     // Vertical: sum Ry + applied Fy = 0
-    let total_fy: f64 = 3.0 * g;
+    let total_fz: f64 = 3.0 * g;
     assert_close(
-        r1_fixed.ry + r5_fixed.ry + total_fy, 0.0, 0.01,
+        r1_fixed.rz + r5_fixed.rz + total_fz, 0.0, 0.01,
         "Fixed base: vertical equilibrium",
     );
     assert_close(
-        r1_pinned.ry + r5_pinned.ry + total_fy, 0.0, 0.01,
+        r1_pinned.rz + r5_pinned.rz + total_fz, 0.0, 0.01,
         "Pinned base: vertical equilibrium",
     );
 }

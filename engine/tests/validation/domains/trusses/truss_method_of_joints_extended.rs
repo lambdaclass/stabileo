@@ -64,7 +64,7 @@ fn validation_ext_joints_simple_triangle() {
         ],
         vec![(1, 1, "pinned"), (2, 2, "rollerX")],
         vec![SolverLoad::Nodal(SolverNodalLoad {
-            node_id: 3, fx: 0.0, fy: -p, mz: 0.0,
+            node_id: 3, fx: 0.0, fz: -p, my: 0.0,
         })],
     );
     let results = linear::solve_2d(&input).unwrap();
@@ -72,8 +72,8 @@ fn validation_ext_joints_simple_triangle() {
     // Reactions: R1y = R2y = P/2 = 12 kN
     let r1 = results.reactions.iter().find(|r| r.node_id == 1).unwrap();
     let r2 = results.reactions.iter().find(|r| r.node_id == 2).unwrap();
-    assert_close(r1.ry, 12.0, 0.02, "Triangle R1y = P/2");
-    assert_close(r2.ry, 12.0, 0.02, "Triangle R2y = P/2");
+    assert_close(r1.rz, 12.0, 0.02, "Triangle R1y = P/2");
+    assert_close(r2.rz, 12.0, 0.02, "Triangle R2y = P/2");
 
     // Bottom chord: N = PL/(4H) = 24*6/(4*4) = 9 kN tension
     let ef_chord = results.element_forces.iter()
@@ -161,7 +161,7 @@ fn validation_ext_joints_warren_4panel() {
     ];
     let sups = vec![(1, 1, "pinned"), (2, 5, "rollerX")];
     let loads = vec![SolverLoad::Nodal(SolverNodalLoad {
-        node_id: 3, fx: 0.0, fy: -p, mz: 0.0,
+        node_id: 3, fx: 0.0, fz: -p, my: 0.0,
     })];
 
     let input = make_input(nodes, vec![(1, E, 0.3)], vec![(1, A, IZ)],
@@ -171,8 +171,8 @@ fn validation_ext_joints_warren_4panel() {
     // Reactions
     let r1 = results.reactions.iter().find(|r| r.node_id == 1).unwrap();
     let r5 = results.reactions.iter().find(|r| r.node_id == 5).unwrap();
-    assert_close(r1.ry, p / 2.0, 0.02, "Warren R1y = P/2");
-    assert_close(r5.ry, p / 2.0, 0.02, "Warren R5y = P/2");
+    assert_close(r1.rz, p / 2.0, 0.02, "Warren R1y = P/2");
+    assert_close(r5.rz, p / 2.0, 0.02, "Warren R5y = P/2");
 
     // Bottom chord panel 2 (elem 2, nodes 2-3) in tension
     let ef_bot2 = results.element_forces.iter()
@@ -252,9 +252,9 @@ fn validation_ext_joints_pratt_truss_pattern() {
         (17, "frame", 5, 9,  1, 1, true, true),  // panel 4 diagonal (mirror)
     ];
     let loads = vec![
-        SolverLoad::Nodal(SolverNodalLoad { node_id: 2, fx: 0.0, fy: -p, mz: 0.0 }),
-        SolverLoad::Nodal(SolverNodalLoad { node_id: 3, fx: 0.0, fy: -p, mz: 0.0 }),
-        SolverLoad::Nodal(SolverNodalLoad { node_id: 4, fx: 0.0, fy: -p, mz: 0.0 }),
+        SolverLoad::Nodal(SolverNodalLoad { node_id: 2, fx: 0.0, fz: -p, my: 0.0 }),
+        SolverLoad::Nodal(SolverNodalLoad { node_id: 3, fx: 0.0, fz: -p, my: 0.0 }),
+        SolverLoad::Nodal(SolverNodalLoad { node_id: 4, fx: 0.0, fz: -p, my: 0.0 }),
     ];
     let sups = vec![(1, 1, "pinned"), (2, 5, "rollerX")];
 
@@ -265,8 +265,8 @@ fn validation_ext_joints_pratt_truss_pattern() {
     // Reactions: R1y = R5y = 3P/2 = 30 by symmetry
     let r1 = results.reactions.iter().find(|r| r.node_id == 1).unwrap();
     let r5 = results.reactions.iter().find(|r| r.node_id == 5).unwrap();
-    assert_close(r1.ry, 3.0 * p / 2.0, 0.02, "Pratt R1y = 3P/2");
-    assert_close(r5.ry, 3.0 * p / 2.0, 0.02, "Pratt R5y = 3P/2");
+    assert_close(r1.rz, 3.0 * p / 2.0, 0.02, "Pratt R1y = 3P/2");
+    assert_close(r5.rz, 3.0 * p / 2.0, 0.02, "Pratt R5y = 3P/2");
 
     // Interior verticals (elems 10, 11, 12) should carry tension
     // under gravity loading in a Pratt truss
@@ -295,7 +295,7 @@ fn validation_ext_joints_pratt_truss_pattern() {
         "Pratt bottom chord center in tension: N={:.4}", ef_bot_center.n_start);
 
     // Global equilibrium
-    let sum_ry: f64 = results.reactions.iter().map(|r| r.ry).sum();
+    let sum_ry: f64 = results.reactions.iter().map(|r| r.rz).sum();
     assert_close(sum_ry, 3.0 * p, 0.02, "Pratt SumRy = 3P");
 }
 
@@ -357,7 +357,7 @@ fn validation_ext_joints_k_truss_simple() {
     ];
     let sups = vec![(1, 1, "pinned"), (2, 3, "rollerX")];
     let loads = vec![SolverLoad::Nodal(SolverNodalLoad {
-        node_id: 5, fx: 0.0, fy: -p, mz: 0.0,
+        node_id: 5, fx: 0.0, fz: -p, my: 0.0,
     })];
 
     let input = make_input(nodes, vec![(1, E, 0.3)], vec![(1, A, IZ)],
@@ -367,11 +367,11 @@ fn validation_ext_joints_k_truss_simple() {
     // By symmetry: R1y = R3y = P/2
     let r1 = results.reactions.iter().find(|r| r.node_id == 1).unwrap();
     let r3 = results.reactions.iter().find(|r| r.node_id == 3).unwrap();
-    assert_close(r1.ry, p / 2.0, 0.02, "K-truss R1y = P/2");
-    assert_close(r3.ry, p / 2.0, 0.02, "K-truss R3y = P/2");
+    assert_close(r1.rz, p / 2.0, 0.02, "K-truss R1y = P/2");
+    assert_close(r3.rz, p / 2.0, 0.02, "K-truss R3y = P/2");
 
     // Global equilibrium
-    let sum_ry: f64 = results.reactions.iter().map(|r| r.ry).sum();
+    let sum_ry: f64 = results.reactions.iter().map(|r| r.rz).sum();
     assert_close(sum_ry, p, 0.02, "K-truss SumRy = P");
 
     // Symmetry: left K-node member forces should mirror right K-node
@@ -443,8 +443,8 @@ fn validation_ext_joints_symmetric_loading() {
         (14, "frame", 7, 4, 1, 1, true, true),  // top-right to bottom-right
     ];
     let loads = vec![
-        SolverLoad::Nodal(SolverNodalLoad { node_id: 6, fx: 0.0, fy: -p, mz: 0.0 }),
-        SolverLoad::Nodal(SolverNodalLoad { node_id: 7, fx: 0.0, fy: -p, mz: 0.0 }),
+        SolverLoad::Nodal(SolverNodalLoad { node_id: 6, fx: 0.0, fz: -p, my: 0.0 }),
+        SolverLoad::Nodal(SolverNodalLoad { node_id: 7, fx: 0.0, fz: -p, my: 0.0 }),
     ];
     let sups = vec![(1, 1, "pinned"), (2, 4, "rollerX")];
 
@@ -455,8 +455,8 @@ fn validation_ext_joints_symmetric_loading() {
     // Symmetric reactions: R1y = R4y = P = 30
     let r1 = results.reactions.iter().find(|r| r.node_id == 1).unwrap();
     let r4 = results.reactions.iter().find(|r| r.node_id == 4).unwrap();
-    assert_close(r1.ry, p, 0.02, "Symmetric R1y = P");
-    assert_close(r4.ry, p, 0.02, "Symmetric R4y = P");
+    assert_close(r1.rz, p, 0.02, "Symmetric R1y = P");
+    assert_close(r4.rz, p, 0.02, "Symmetric R4y = P");
 
     // Mirror symmetry: bottom chord 1-2 matches 3-4
     let ef_bc1 = results.element_forces.iter().find(|e| e.element_id == 1).unwrap();
@@ -489,7 +489,7 @@ fn validation_ext_joints_symmetric_loading() {
         "Symmetric: |vert 1-5| = |vert 4-8|");
 
     // Global equilibrium
-    let sum_ry: f64 = results.reactions.iter().map(|r| r.ry).sum();
+    let sum_ry: f64 = results.reactions.iter().map(|r| r.rz).sum();
     assert_close(sum_ry, 2.0 * p, 0.02, "Symmetric SumRy = 2P");
 }
 
@@ -550,7 +550,7 @@ fn validation_ext_joints_cantilever_truss() {
         (2, 4, "pinned"),
     ];
     let loads = vec![SolverLoad::Nodal(SolverNodalLoad {
-        node_id: 3, fx: 0.0, fy: -p, mz: 0.0,
+        node_id: 3, fx: 0.0, fz: -p, my: 0.0,
     })];
 
     let input = make_input(nodes, vec![(1, E, 0.3)], vec![(1, A, IZ)],
@@ -558,14 +558,14 @@ fn validation_ext_joints_cantilever_truss() {
     let results = linear::solve_2d(&input).unwrap();
 
     // Global equilibrium: SumRy = P
-    let sum_ry: f64 = results.reactions.iter().map(|r| r.ry).sum();
+    let sum_ry: f64 = results.reactions.iter().map(|r| r.rz).sum();
     assert_close(sum_ry, p, 0.02, "Cantilever SumRy = P");
 
     // Free tip deflects downward
     let tip = results.displacements.iter()
         .find(|d| d.node_id == 3).unwrap();
-    assert!(tip.uy < 0.0,
-        "Cantilever free tip deflects down: uy={:.6}", tip.uy);
+    assert!(tip.uz < 0.0,
+        "Cantilever free tip deflects down: uy={:.6}", tip.uz);
 
     // Cantilever under hogging: top chord at wall is in TENSION
     // Bottom chord at wall (elem 1, 1-2) is in COMPRESSION
@@ -639,7 +639,7 @@ fn validation_ext_joints_horizontal_load() {
     ];
     let sups = vec![(1, 1, "pinned"), (2, 2, "rollerX")];
     let loads = vec![SolverLoad::Nodal(SolverNodalLoad {
-        node_id: 3, fx: fx_load, fy: 0.0, mz: 0.0,
+        node_id: 3, fx: fx_load, fz: 0.0, my: 0.0,
     })];
 
     let input = make_input(nodes, vec![(1, E, 0.3)], vec![(1, A, IZ)],
@@ -658,14 +658,14 @@ fn validation_ext_joints_horizontal_load() {
     //   R2y at node 2 (distance w) creates moment -R2y*w CCW.
     //   => -R2y*w + Fx*h = 0 => R2y = Fx*h/w = 20*4/6 = 13.333 (upward)
     let r2y_expected: f64 = fx_load * h / w;
-    assert_close(r2.ry, r2y_expected, 0.02, "Horiz truss R2y");
+    assert_close(r2.rz, r2y_expected, 0.02, "Horiz truss R2y");
 
     // R1y = -R2y = -13.333 (downward)
-    assert_close(r1.ry, -r2y_expected, 0.02, "Horiz truss R1y");
+    assert_close(r1.rz, -r2y_expected, 0.02, "Horiz truss R1y");
 
     // Global equilibrium checks
     let sum_rx: f64 = results.reactions.iter().map(|r| r.rx).sum();
-    let sum_ry: f64 = results.reactions.iter().map(|r| r.ry).sum();
+    let sum_ry: f64 = results.reactions.iter().map(|r| r.rz).sum();
     assert_close(sum_rx, -fx_load, 0.02, "Horiz truss SumRx = -Fx");
     assert_close(sum_ry, 0.0, 0.02, "Horiz truss SumRy = 0");
 
@@ -739,9 +739,9 @@ fn validation_ext_joints_fan_truss() {
     ];
     let sups = vec![(1, 1, "pinned"), (2, 5, "rollerX")];
     let loads = vec![
-        SolverLoad::Nodal(SolverNodalLoad { node_id: 2, fx: 0.0, fy: -p, mz: 0.0 }),
-        SolverLoad::Nodal(SolverNodalLoad { node_id: 3, fx: 0.0, fy: -p, mz: 0.0 }),
-        SolverLoad::Nodal(SolverNodalLoad { node_id: 4, fx: 0.0, fy: -p, mz: 0.0 }),
+        SolverLoad::Nodal(SolverNodalLoad { node_id: 2, fx: 0.0, fz: -p, my: 0.0 }),
+        SolverLoad::Nodal(SolverNodalLoad { node_id: 3, fx: 0.0, fz: -p, my: 0.0 }),
+        SolverLoad::Nodal(SolverNodalLoad { node_id: 4, fx: 0.0, fz: -p, my: 0.0 }),
     ];
 
     let input = make_input(nodes, vec![(1, E, 0.3)], vec![(1, A, IZ)],
@@ -751,11 +751,11 @@ fn validation_ext_joints_fan_truss() {
     // Reactions: by symmetry R1y = R5y = 3P/2 = 30
     let r1 = results.reactions.iter().find(|r| r.node_id == 1).unwrap();
     let r5 = results.reactions.iter().find(|r| r.node_id == 5).unwrap();
-    assert_close(r1.ry, 3.0 * p / 2.0, 0.02, "Fan R1y = 3P/2");
-    assert_close(r5.ry, 3.0 * p / 2.0, 0.02, "Fan R5y = 3P/2");
+    assert_close(r1.rz, 3.0 * p / 2.0, 0.02, "Fan R1y = 3P/2");
+    assert_close(r5.rz, 3.0 * p / 2.0, 0.02, "Fan R5y = 3P/2");
 
     // Global equilibrium
-    let sum_ry: f64 = results.reactions.iter().map(|r| r.ry).sum();
+    let sum_ry: f64 = results.reactions.iter().map(|r| r.rz).sum();
     assert_close(sum_ry, 3.0 * p, 0.02, "Fan SumRy = 3P");
 
     // Symmetry: outermost fan members equal

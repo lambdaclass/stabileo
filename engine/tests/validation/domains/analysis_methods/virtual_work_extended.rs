@@ -49,7 +49,7 @@ fn validation_vw_ext_unit_load_ss_midspan() {
 
     let mid = n / 2 + 1;
     let loads = vec![SolverLoad::Nodal(SolverNodalLoad {
-        node_id: mid, fx: 0.0, fy: -p, mz: 0.0,
+        node_id: mid, fx: 0.0, fz: -p, my: 0.0,
     })];
     let input = make_beam(n, l, E, A, IZ, "pinned", Some("rollerX"), loads);
     let results = linear::solve_2d(&input).unwrap();
@@ -59,14 +59,14 @@ fn validation_vw_ext_unit_load_ss_midspan() {
     // Unit load method analytical result
     let delta_exact: f64 = p * l.powi(3) / (48.0 * e_eff * IZ);
 
-    assert_close(d_mid.uy.abs(), delta_exact, 0.02,
+    assert_close(d_mid.uz.abs(), delta_exact, 0.02,
         "Unit load method: SS midspan delta = PL^3/(48EI)");
 
     // Also verify reactions: R_A = R_B = P/2
     let r_a = results.reactions.iter().find(|r| r.node_id == 1).unwrap();
     let r_b = results.reactions.iter().find(|r| r.node_id == n + 1).unwrap();
-    assert_close(r_a.ry, p / 2.0, 0.02, "Unit load: R_A = P/2");
-    assert_close(r_b.ry, p / 2.0, 0.02, "Unit load: R_B = P/2");
+    assert_close(r_a.rz, p / 2.0, 0.02, "Unit load: R_A = P/2");
+    assert_close(r_b.rz, p / 2.0, 0.02, "Unit load: R_B = P/2");
 }
 
 // ================================================================
@@ -90,7 +90,7 @@ fn validation_vw_ext_castigliano_cantilever_tip() {
 
     let tip_node = n + 1;
     let loads = vec![SolverLoad::Nodal(SolverNodalLoad {
-        node_id: tip_node, fx: 0.0, fy: -p, mz: 0.0,
+        node_id: tip_node, fx: 0.0, fz: -p, my: 0.0,
     })];
     let input = make_beam(n, l, E, A, IZ, "fixed", None, loads);
     let results = linear::solve_2d(&input).unwrap();
@@ -99,19 +99,19 @@ fn validation_vw_ext_castigliano_cantilever_tip() {
 
     // Castigliano: delta = dU/dP = PL^3/(3EI)
     let delta_exact: f64 = p * l.powi(3) / (3.0 * e_eff * IZ);
-    assert_close(tip.uy.abs(), delta_exact, 0.02,
+    assert_close(tip.uz.abs(), delta_exact, 0.02,
         "Castigliano: cantilever tip delta = PL^3/(3EI)");
 
     // Strain energy: U = P^2 L^3 / (6EI)
     let u_exact: f64 = p.powi(2) * l.powi(3) / (6.0 * e_eff * IZ);
     // External work: W = 0.5 * P * delta
-    let w_external = 0.5 * p * tip.uy.abs();
+    let w_external = 0.5 * p * tip.uz.abs();
     assert_close(w_external, u_exact, 0.02,
         "Castigliano: U = P^2 L^3/(6EI) = 0.5*P*delta");
 
     // Verify tip rotation: theta = PL^2/(2EI)
     let theta_exact: f64 = p * l.powi(2) / (2.0 * e_eff * IZ);
-    assert_close(tip.rz.abs(), theta_exact, 0.02,
+    assert_close(tip.ry.abs(), theta_exact, 0.02,
         "Castigliano: cantilever tip theta = PL^2/(2EI)");
 }
 
@@ -139,21 +139,21 @@ fn validation_vw_ext_betti_reciprocal() {
 
     // Case 1: Load at A, measure displacement at B
     let loads_1 = vec![SolverLoad::Nodal(SolverNodalLoad {
-        node_id: node_a, fx: 0.0, fy: -p, mz: 0.0,
+        node_id: node_a, fx: 0.0, fz: -p, my: 0.0,
     })];
     let input_1 = make_beam(n, l, E, A, IZ, "pinned", Some("rollerX"), loads_1);
     let res_1 = linear::solve_2d(&input_1).unwrap();
     let delta_b_from_a = res_1.displacements.iter()
-        .find(|d| d.node_id == node_b).unwrap().uy;
+        .find(|d| d.node_id == node_b).unwrap().uz;
 
     // Case 2: Load at B, measure displacement at A
     let loads_2 = vec![SolverLoad::Nodal(SolverNodalLoad {
-        node_id: node_b, fx: 0.0, fy: -p, mz: 0.0,
+        node_id: node_b, fx: 0.0, fz: -p, my: 0.0,
     })];
     let input_2 = make_beam(n, l, E, A, IZ, "pinned", Some("rollerX"), loads_2);
     let res_2 = linear::solve_2d(&input_2).unwrap();
     let delta_a_from_b = res_2.displacements.iter()
-        .find(|d| d.node_id == node_a).unwrap().uy;
+        .find(|d| d.node_id == node_a).unwrap().uz;
 
     // Betti: P * delta_b_from_a = P * delta_a_from_b
     // i.e. f12 = f21 (flexibility coefficients are symmetric)
@@ -203,10 +203,10 @@ fn validation_vw_ext_strain_energy_patterns() {
     let node_2 = 2 * n / 3 + 1;  // 2L/3
     let loads_a = vec![
         SolverLoad::Nodal(SolverNodalLoad {
-            node_id: node_1, fx: 0.0, fy: -p, mz: 0.0,
+            node_id: node_1, fx: 0.0, fz: -p, my: 0.0,
         }),
         SolverLoad::Nodal(SolverNodalLoad {
-            node_id: node_2, fx: 0.0, fy: -p, mz: 0.0,
+            node_id: node_2, fx: 0.0, fz: -p, my: 0.0,
         }),
     ];
     let input_a = make_beam(n, l, E, A, IZ, "pinned", Some("rollerX"), loads_a);
@@ -216,10 +216,10 @@ fn validation_vw_ext_strain_energy_patterns() {
     let d2 = res_a.displacements.iter().find(|d| d.node_id == node_2).unwrap();
 
     // External work = 0.5 * P * delta_1 + 0.5 * P * delta_2
-    let u_ext = 0.5 * p * d1.uy.abs() + 0.5 * p * d2.uy.abs();
+    let u_ext = 0.5 * p * d1.uz.abs() + 0.5 * p * d2.uz.abs();
 
     // By symmetry, delta_1 = delta_2
-    assert_close(d1.uy.abs(), d2.uy.abs(), 0.01,
+    assert_close(d1.uz.abs(), d2.uz.abs(), 0.01,
         "Four-point bending: symmetric deflections");
 
     // Analytical strain energy for four-point bending:
@@ -256,7 +256,7 @@ fn validation_vw_ext_strain_energy_patterns() {
             let x_frac: f64 = (d.node_id - 1) as f64 / n as f64;
             let q_at_x: f64 = q_max.abs() * x_frac;
             let weight: f64 = if d.node_id == 1 || d.node_id == n + 1 { 0.5 } else { 1.0 };
-            0.5 * q_at_x * d.uy.abs() * dx * weight
+            0.5 * q_at_x * d.uz.abs() * dx * weight
         })
         .sum();
 
@@ -307,30 +307,30 @@ fn validation_vw_ext_complementary_vw_propped() {
     // f_BB = L^3/(3EI) (tip deflection per unit upward load)
     // R_B = delta_q / f_BB = 3qL/8
     let r_b_exact: f64 = 3.0 * q.abs() * l / 8.0;
-    assert_close(r_b.ry, r_b_exact, 0.02,
+    assert_close(r_b.rz, r_b_exact, 0.02,
         "Complementary VW: R_B = 3qL/8");
 
     // R_A = qL - R_B = 5qL/8
     let r_a_exact: f64 = 5.0 * q.abs() * l / 8.0;
-    assert_close(r_a.ry, r_a_exact, 0.02,
+    assert_close(r_a.rz, r_a_exact, 0.02,
         "Complementary VW: R_A = 5qL/8");
 
     // Fixed-end moment: M_A = qL^2/2 - R_B*L = qL^2/8
     let m_a_exact: f64 = q.abs() * l.powi(2) / 8.0;
-    assert_close(r_a.mz.abs(), m_a_exact, 0.02,
+    assert_close(r_a.my.abs(), m_a_exact, 0.02,
         "Complementary VW: M_A = qL^2/8");
 
     // Verify zero displacement at roller (compatibility condition)
     let d_b = results.displacements.iter()
         .find(|d| d.node_id == n + 1).unwrap();
-    assert!(d_b.uy.abs() < 1e-6,
-        "Complementary VW: roller displacement = 0: {:.2e}", d_b.uy.abs());
+    assert!(d_b.uz.abs() < 1e-6,
+        "Complementary VW: roller displacement = 0: {:.2e}", d_b.uz.abs());
 
     // Cross-check: maximum deflection
     // For propped cantilever with UDL: delta_max = qL^4/(185EI) approximately
     // More precise: delta_max at x = L(15-sqrt(33))/16
     let max_uy: f64 = results.displacements.iter()
-        .map(|d| d.uy.abs())
+        .map(|d| d.uz.abs())
         .fold(0.0_f64, f64::max);
     let delta_approx: f64 = q.abs() * l.powi(4) / (185.0 * e_eff * IZ);
     // Allow 15% tolerance for approximate formula
@@ -362,21 +362,21 @@ fn validation_vw_ext_maxwell_reciprocal_multispan() {
 
     // Case 1: Load at node_i, measure displacement at node_j
     let loads_1 = vec![SolverLoad::Nodal(SolverNodalLoad {
-        node_id: node_i, fx: 0.0, fy: -p, mz: 0.0,
+        node_id: node_i, fx: 0.0, fz: -p, my: 0.0,
     })];
     let input_1 = make_continuous_beam(&[span, span], n, E, A, IZ, loads_1);
     let res_1 = linear::solve_2d(&input_1).unwrap();
     let delta_j_from_i = res_1.displacements.iter()
-        .find(|d| d.node_id == node_j).unwrap().uy;
+        .find(|d| d.node_id == node_j).unwrap().uz;
 
     // Case 2: Load at node_j, measure displacement at node_i
     let loads_2 = vec![SolverLoad::Nodal(SolverNodalLoad {
-        node_id: node_j, fx: 0.0, fy: -p, mz: 0.0,
+        node_id: node_j, fx: 0.0, fz: -p, my: 0.0,
     })];
     let input_2 = make_continuous_beam(&[span, span], n, E, A, IZ, loads_2);
     let res_2 = linear::solve_2d(&input_2).unwrap();
     let delta_i_from_j = res_2.displacements.iter()
-        .find(|d| d.node_id == node_i).unwrap().uy;
+        .find(|d| d.node_id == node_i).unwrap().uz;
 
     // Maxwell: delta_ij = delta_ji
     // (flexibility coefficients are symmetric even for indeterminate structures)
@@ -418,13 +418,13 @@ fn validation_vw_ext_minimum_potential_energy() {
 
     let mid = n / 2 + 1;
     let loads = vec![SolverLoad::Nodal(SolverNodalLoad {
-        node_id: mid, fx: 0.0, fy: -p, mz: 0.0,
+        node_id: mid, fx: 0.0, fz: -p, my: 0.0,
     })];
     let input = make_beam(n, l, E, A, IZ, "pinned", Some("rollerX"), loads);
     let results = linear::solve_2d(&input).unwrap();
 
     let d_mid = results.displacements.iter().find(|d| d.node_id == mid).unwrap();
-    let delta_solver: f64 = d_mid.uy.abs();
+    let delta_solver: f64 = d_mid.uz.abs();
 
     // Solver solution: Pi = U - W = 0.5*P*delta - P*delta = -0.5*P*delta
     // (At equilibrium, Pi = -U for conservative loading)
@@ -489,14 +489,14 @@ fn validation_vw_ext_dummy_load_rotation() {
 
     let mid = n / 2 + 1;
     let loads = vec![SolverLoad::Nodal(SolverNodalLoad {
-        node_id: mid, fx: 0.0, fy: -p, mz: 0.0,
+        node_id: mid, fx: 0.0, fz: -p, my: 0.0,
     })];
     let input = make_beam(n, l, E, A, IZ, "pinned", Some("rollerX"), loads);
     let results = linear::solve_2d(&input).unwrap();
 
     // Slope at left support (node 1)
     let d_a = results.displacements.iter().find(|d| d.node_id == 1).unwrap();
-    let theta_a_solver: f64 = d_a.rz.abs();
+    let theta_a_solver: f64 = d_a.ry.abs();
 
     // Analytical: theta_A = PL^2/(16EI) for SS beam with center load
     let theta_exact: f64 = p * l.powi(2) / (16.0 * e_eff * IZ);
@@ -505,7 +505,7 @@ fn validation_vw_ext_dummy_load_rotation() {
 
     // By symmetry, slope at right support has equal magnitude
     let d_b = results.displacements.iter().find(|d| d.node_id == n + 1).unwrap();
-    let theta_b_solver: f64 = d_b.rz.abs();
+    let theta_b_solver: f64 = d_b.ry.abs();
     assert_close(theta_b_solver, theta_exact, 0.02,
         "Dummy load: theta_B = PL^2/(16EI) by symmetry");
 
@@ -514,10 +514,10 @@ fn validation_vw_ext_dummy_load_rotation() {
     let dm = 0.001;
     let loads_with_m = vec![
         SolverLoad::Nodal(SolverNodalLoad {
-            node_id: mid, fx: 0.0, fy: -p, mz: 0.0,
+            node_id: mid, fx: 0.0, fz: -p, my: 0.0,
         }),
         SolverLoad::Nodal(SolverNodalLoad {
-            node_id: 1, fx: 0.0, fy: 0.0, mz: dm,
+            node_id: 1, fx: 0.0, fz: 0.0, my: dm,
         }),
     ];
     let input_m = make_beam(n, l, E, A, IZ, "pinned", Some("rollerX"), loads_with_m);
@@ -526,11 +526,11 @@ fn validation_vw_ext_dummy_load_rotation() {
     // U_with_m = 0.5 * P * delta_mid_new + 0.5 * dm * theta_A_new
     let d_mid_new = res_m.displacements.iter().find(|d| d.node_id == mid).unwrap();
     let d_a_new = res_m.displacements.iter().find(|d| d.node_id == 1).unwrap();
-    let u_with: f64 = 0.5 * p * d_mid_new.uy.abs() + 0.5 * dm * d_a_new.rz;
+    let u_with: f64 = 0.5 * p * d_mid_new.uz.abs() + 0.5 * dm * d_a_new.ry;
 
     // U_without = 0.5 * P * delta_mid_original
     let d_mid_orig = results.displacements.iter().find(|d| d.node_id == mid).unwrap();
-    let u_without: f64 = 0.5 * p * d_mid_orig.uy.abs();
+    let u_without: f64 = 0.5 * p * d_mid_orig.uz.abs();
 
     // theta = dU/dM ≈ (U_with - U_without) / dm
     let theta_numerical: f64 = (u_with - u_without) / dm;

@@ -95,13 +95,13 @@ fn parking_post_tensioned_flat_slab() {
     // Check reactions: R = w_net * L / 2
     let r_exact: f64 = w_net * l / 2.0;
     let r1 = results.reactions.iter().find(|r| r.node_id == 1).unwrap();
-    assert_close(r1.ry.abs(), r_exact.abs(), 0.03, "PT slab support reaction");
+    assert_close(r1.rz.abs(), r_exact.abs(), 0.03, "PT slab support reaction");
 
     // Check midspan deflection
     let mid_node = n / 2 + 1;
     let mid_disp = results.displacements.iter()
         .find(|d| d.node_id == mid_node).unwrap();
-    assert_close(mid_disp.uy.abs(), delta_exact.abs(), 0.05, "PT slab midspan deflection");
+    assert_close(mid_disp.uz.abs(), delta_exact.abs(), 0.05, "PT slab midspan deflection");
 
     // Check midspan moment from element forces (approximate at internal node)
     // For a SS beam, moment at midspan = R*L/2 - w_net*(L/2)^2/2 = w_net*L^2/8
@@ -110,8 +110,8 @@ fn parking_post_tensioned_flat_slab() {
     // Verify deflection is within L/250 serviceability limit
     let deflection_limit: f64 = l / 250.0;
     assert!(
-        mid_disp.uy.abs() < deflection_limit,
-        "Deflection {:.4} m < L/250 = {:.4} m", mid_disp.uy.abs(), deflection_limit
+        mid_disp.uz.abs() < deflection_limit,
+        "Deflection {:.4} m < L/250 = {:.4} m", mid_disp.uz.abs(), deflection_limit
     );
 }
 
@@ -180,12 +180,12 @@ fn parking_ramp_slope_effects() {
     let mid_disp = results.displacements.iter()
         .find(|d| d.node_id == mid_node).unwrap();
 
-    assert_close(mid_disp.uy.abs(), delta_exact, 0.05, "Ramp beam midspan deflection");
+    assert_close(mid_disp.uz.abs(), delta_exact, 0.05, "Ramp beam midspan deflection");
 
     // Verify reactions
     let r_exact: f64 = w_transverse * l_horiz / 2.0;
     let r1 = results.reactions.iter().find(|r| r.node_id == 1).unwrap();
-    assert_close(r1.ry.abs(), r_exact, 0.03, "Ramp beam support reaction");
+    assert_close(r1.rz.abs(), r_exact, 0.03, "Ramp beam support reaction");
 
     // Verify that slope effect is small for typical parking ramps
     let reduction: f64 = 1.0 - alpha.cos();
@@ -237,7 +237,7 @@ fn parking_vehicle_barrier_loading() {
     // make_beam lays along X; we treat X as the vertical direction of the post
     // and fy as the horizontal impact force
     let loads = vec![SolverLoad::Nodal(SolverNodalLoad {
-        node_id: n + 1, fx: 0.0, fy: p_barrier, mz: 0.0,
+        node_id: n + 1, fx: 0.0, fz: p_barrier, my: 0.0,
     })];
 
     let input = make_beam(n, h_barrier, e_conc, a_post, iz_post, "fixed", None, loads);
@@ -253,14 +253,14 @@ fn parking_vehicle_barrier_loading() {
     // Check tip deflection
     let tip_disp = results.displacements.iter()
         .find(|d| d.node_id == n + 1).unwrap();
-    assert_close(tip_disp.uy.abs(), delta_exact, 0.05, "Barrier post tip deflection");
+    assert_close(tip_disp.uz.abs(), delta_exact, 0.05, "Barrier post tip deflection");
 
     // Check base reaction moment
     let r_base = results.reactions.iter().find(|r| r.node_id == 1).unwrap();
-    assert_close(r_base.mz.abs(), m_base_exact, 0.03, "Barrier post base moment");
+    assert_close(r_base.my.abs(), m_base_exact, 0.03, "Barrier post base moment");
 
     // Check horizontal reaction equals applied load
-    assert_close(r_base.ry.abs(), p_barrier, 0.02, "Barrier post base shear");
+    assert_close(r_base.rz.abs(), p_barrier, 0.02, "Barrier post base shear");
 
     // Verify the IBC load value
     let p_ibc_lb: f64 = 6000.0;       // lb
@@ -321,18 +321,18 @@ fn parking_long_span_beam_deflection() {
     let mid_disp = results.displacements.iter()
         .find(|d| d.node_id == mid_node).unwrap();
 
-    assert_close(mid_disp.uy.abs(), delta_total_exact, 0.05, "DT total load deflection");
+    assert_close(mid_disp.uz.abs(), delta_total_exact, 0.05, "DT total load deflection");
 
     // Verify reactions
     let r_exact: f64 = w_total * l / 2.0;
     let r1 = results.reactions.iter().find(|r| r.node_id == 1).unwrap();
-    assert_close(r1.ry.abs(), r_exact, 0.03, "DT support reaction");
+    assert_close(r1.rz.abs(), r_exact, 0.03, "DT support reaction");
 
     // Check L/240 limit for total load
     let limit_240: f64 = l / 240.0;
     assert!(
-        mid_disp.uy.abs() < limit_240,
-        "Total deflection {:.4} m < L/240 = {:.4} m", mid_disp.uy.abs(), limit_240
+        mid_disp.uz.abs() < limit_240,
+        "Total deflection {:.4} m < L/240 = {:.4} m", mid_disp.uz.abs(), limit_240
     );
 
     // Check L/360 limit for live load only
@@ -408,15 +408,15 @@ fn parking_open_deck_drainage_slope() {
     let mid_disp = results.displacements.iter()
         .find(|d| d.node_id == mid_node).unwrap();
 
-    assert_close(mid_disp.uy.abs(), delta_exact, 0.05, "Drainage slope beam midspan deflection");
+    assert_close(mid_disp.uz.abs(), delta_exact, 0.05, "Drainage slope beam midspan deflection");
 
     // Verify reactions (symmetric for uniform load on SS beam)
     let r_exact: f64 = w_total * l / 2.0;
     let r1 = results.reactions.iter().find(|r| r.node_id == 1).unwrap();
     let r_end = results.reactions.iter().find(|r| r.node_id == n + 1).unwrap();
 
-    assert_close(r1.ry.abs(), r_exact, 0.03, "Drainage beam left reaction");
-    assert_close(r_end.ry.abs(), r_exact, 0.03, "Drainage beam right reaction");
+    assert_close(r1.rz.abs(), r_exact, 0.03, "Drainage beam left reaction");
+    assert_close(r_end.rz.abs(), r_exact, 0.03, "Drainage beam right reaction");
 
     // Verify drainage slope geometry
     let depth_variation: f64 = (h_max - h_min) / h_avg;
@@ -429,8 +429,8 @@ fn parking_open_deck_drainage_slope() {
     // Serviceability check: L/250 for parking
     let limit: f64 = l / 250.0;
     assert!(
-        mid_disp.uy.abs() < limit,
-        "Deflection {:.4} m < L/250 = {:.4} m", mid_disp.uy.abs(), limit
+        mid_disp.uz.abs() < limit,
+        "Deflection {:.4} m < L/250 = {:.4} m", mid_disp.uz.abs(), limit
     );
 }
 
@@ -495,19 +495,19 @@ fn parking_column_punching_shear() {
     let mid_node = n_per_span + 1;
     let r_mid = results.reactions.iter().find(|r| r.node_id == mid_node).unwrap();
 
-    assert_close(r_mid.ry.abs(), r_mid_exact, 0.05, "Interior column reaction (5qL/4)");
+    assert_close(r_mid.rz.abs(), r_mid_exact, 0.05, "Interior column reaction (5qL/4)");
 
     // End column reaction: R_end = 3qL/8
     let r_end_exact: f64 = 3.0 * w_total * l_span / 8.0;
     let r1 = results.reactions.iter().find(|r| r.node_id == 1).unwrap();
-    assert_close(r1.ry.abs(), r_end_exact, 0.05, "End column reaction (3qL/8)");
+    assert_close(r1.rz.abs(), r_end_exact, 0.05, "End column reaction (3qL/8)");
 
     // Punching shear check at interior column
     // Critical perimeter: b_0 = 4*(col_size + d)
     let b_0: f64 = 4.0 * (col_size + d_slab);
     // V_u for punching = total interior column reaction (from all contributing strips)
     // For full slab analysis, multiply strip reaction by load width factor
-    let v_u: f64 = r_mid.ry.abs(); // kN (this is the strip contribution)
+    let v_u: f64 = r_mid.rz.abs(); // kN (this is the strip contribution)
 
     // Punching shear stress: v = V / (b0 * d) [kN/m^2 => kPa]
     let v_punch: f64 = v_u / (b_0 * d_slab);
@@ -524,7 +524,7 @@ fn parking_column_punching_shear() {
     );
 
     // Verify total equilibrium
-    let sum_ry: f64 = results.reactions.iter().map(|r| r.ry).sum::<f64>();
+    let sum_ry: f64 = results.reactions.iter().map(|r| r.rz).sum::<f64>();
     let total_load: f64 = w_total * 2.0 * l_span;
     assert_close(sum_ry.abs(), total_load, 0.03, "Punching shear model total equilibrium");
 }
@@ -579,7 +579,7 @@ fn parking_expansion_joint_spacing() {
     // on a pinned-rollerX beam. The roller allows free axial movement.
     // Verify the axial displacement = P*L/(E*A) which equals delta_free.
     let loads = vec![SolverLoad::Nodal(SolverNodalLoad {
-        node_id: n + 1, fx: n_restrained, fy: 0.0, mz: 0.0,
+        node_id: n + 1, fx: n_restrained, fz: 0.0, my: 0.0,
     })];
 
     let input = make_beam(n, l, e_conc, a_beam, iz_beam, "pinned", Some("rollerX"), loads);
@@ -706,7 +706,7 @@ fn parking_helical_ramp_analysis() {
     let total_v: f64 = w_total * chord;
 
     // Sum of vertical reactions must equal total vertical load
-    let sum_ry: f64 = results.reactions.iter().map(|r| r.ry).sum::<f64>();
+    let sum_ry: f64 = results.reactions.iter().map(|r| r.rz).sum::<f64>();
     assert_close(sum_ry.abs(), total_v, 0.03, "Helical ramp vertical equilibrium");
 
     // Each column should carry approximately half the total load (symmetric frame)
@@ -714,8 +714,8 @@ fn parking_helical_ramp_analysis() {
     let r4 = results.reactions.iter().find(|r| r.node_id == 4).unwrap();
 
     let r_avg: f64 = total_v / 2.0;
-    assert_close(r1.ry.abs(), r_avg, 0.10, "Left column vertical reaction (approx half)");
-    assert_close(r4.ry.abs(), r_avg, 0.10, "Right column vertical reaction (approx half)");
+    assert_close(r1.rz.abs(), r_avg, 0.10, "Left column vertical reaction (approx half)");
+    assert_close(r4.rz.abs(), r_avg, 0.10, "Right column vertical reaction (approx half)");
 
     // Ramp beam end moment depends on relative stiffness of beam and columns.
     // For a portal with flexible columns, beam end moments are smaller than

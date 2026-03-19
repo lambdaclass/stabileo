@@ -46,7 +46,7 @@ fn validation_corotational_vm14_eccentric_column() {
     let input = make_beam(
         n, l, E, A, IZ, "fixed", None,
         vec![SolverLoad::Nodal(SolverNodalLoad {
-            node_id: n + 1, fx: p_axial, fy: p_lateral, mz: 0.0,
+            node_id: n + 1, fx: p_axial, fz: p_lateral, my: 0.0,
         })],
     );
 
@@ -55,9 +55,9 @@ fn validation_corotational_vm14_eccentric_column() {
 
     let corot = corot_res.expect("VM14 corotational solve must succeed");
     let tip_lin = lin_res.displacements.iter()
-        .find(|d| d.node_id == n + 1).unwrap().uy.abs();
+        .find(|d| d.node_id == n + 1).unwrap().uz.abs();
     let tip_corot = corot.results.displacements.iter()
-        .find(|d| d.node_id == n + 1).unwrap().uy.abs();
+        .find(|d| d.node_id == n + 1).unwrap().uz.abs();
 
     assert!(corot.converged, "VM14-like should converge");
     assert!(tip_lin > 1e-8, "Linear should deflect");
@@ -87,7 +87,7 @@ fn validation_corotational_small_load_equals_linear() {
     let input = make_beam(
         n, l, E, A, IZ, "fixed", None,
         vec![SolverLoad::Nodal(SolverNodalLoad {
-            node_id: tip_node, fx: 0.0, fy: p_small, mz: 0.0,
+            node_id: tip_node, fx: 0.0, fz: p_small, my: 0.0,
         })],
     );
 
@@ -96,9 +96,9 @@ fn validation_corotational_small_load_equals_linear() {
 
     let corot = corot_res.expect("small-load corotational solve must succeed");
     let lin_uy = lin_res.displacements.iter()
-        .find(|d| d.node_id == tip_node).unwrap().uy;
+        .find(|d| d.node_id == tip_node).unwrap().uz;
     let corot_uy = corot.results.displacements.iter()
-        .find(|d| d.node_id == tip_node).unwrap().uy;
+        .find(|d| d.node_id == tip_node).unwrap().uz;
 
     if lin_uy.abs() > 1e-12 {
         let ratio = corot_uy / lin_uy;
@@ -126,7 +126,7 @@ fn validation_corotational_large_load_stiffening() {
     let input = make_beam(
         n, l, E, A, IZ, "fixed", None,
         vec![SolverLoad::Nodal(SolverNodalLoad {
-            node_id: tip_node, fx: 0.0, fy: p_large, mz: 0.0,
+            node_id: tip_node, fx: 0.0, fz: p_large, my: 0.0,
         })],
     );
 
@@ -135,9 +135,9 @@ fn validation_corotational_large_load_stiffening() {
 
     let corot = corot_res.expect("large-load corotational solve must succeed");
     let lin_uy = lin_res.displacements.iter()
-        .find(|d| d.node_id == tip_node).unwrap().uy;
+        .find(|d| d.node_id == tip_node).unwrap().uz;
     let corot_uy = corot.results.displacements.iter()
-        .find(|d| d.node_id == tip_node).unwrap().uy;
+        .find(|d| d.node_id == tip_node).unwrap().uz;
 
     // Both should be negative (downward)
     assert!(lin_uy < 0.0, "Linear should deflect down");
@@ -166,7 +166,7 @@ fn validation_corotational_convergence_monitoring() {
     let input = make_beam(
         n, l, E, A, IZ, "fixed", None,
         vec![SolverLoad::Nodal(SolverNodalLoad {
-            node_id: tip_node, fx: 0.0, fy: -100.0, mz: 0.0,
+            node_id: tip_node, fx: 0.0, fz: -100.0, my: 0.0,
         })],
     );
 
@@ -191,7 +191,7 @@ fn validation_corotational_increments_convergence() {
     let input = make_beam(
         n, l, E, A, IZ, "fixed", None,
         vec![SolverLoad::Nodal(SolverNodalLoad {
-            node_id: tip_node, fx: 0.0, fy: p, mz: 0.0,
+            node_id: tip_node, fx: 0.0, fz: p, my: 0.0,
         })],
     );
 
@@ -207,9 +207,9 @@ fn validation_corotational_increments_convergence() {
     assert!(many.converged, "Many-increments solve should converge");
 
     let uy_few = few.results.displacements.iter()
-        .find(|d| d.node_id == tip_node).unwrap().uy;
+        .find(|d| d.node_id == tip_node).unwrap().uz;
     let uy_many = many.results.displacements.iter()
-        .find(|d| d.node_id == tip_node).unwrap().uy;
+        .find(|d| d.node_id == tip_node).unwrap().uz;
 
     // Results should be similar (converged to same answer)
     if uy_few.abs() > 1e-8 {

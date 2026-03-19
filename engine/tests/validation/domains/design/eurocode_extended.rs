@@ -204,14 +204,14 @@ fn validation_ec_ext_2_ec3_lateral_torsional() {
         vec![(1, "frame", 1, 2, 1, 1, false, false)],
         vec![(1, 1, "pinned"), (2, 2, "rollerX")],
         vec![
-            SolverLoad::Nodal(SolverNodalLoad { node_id: 1, fx: 0.0, fy: 0.0, mz: moment }),
-            SolverLoad::Nodal(SolverNodalLoad { node_id: 2, fx: 0.0, fy: 0.0, mz: -moment }),
+            SolverLoad::Nodal(SolverNodalLoad { node_id: 1, fx: 0.0, fz: 0.0, my: moment }),
+            SolverLoad::Nodal(SolverNodalLoad { node_id: 2, fx: 0.0, fz: 0.0, my: -moment }),
         ],
     );
     let result = linear::solve_2d(&input).unwrap();
 
     // Verify the beam is in equilibrium (no vertical reactions for pure moment)
-    let sum_ry: f64 = result.reactions.iter().map(|r| r.ry).sum();
+    let sum_ry: f64 = result.reactions.iter().map(|r| r.rz).sum();
     assert!(
         sum_ry.abs() < 1e-6,
         "Pure moment loading should have zero vertical reactions, got {:.6}",
@@ -440,8 +440,8 @@ fn validation_ec_ext_4_ec8_design_spectrum() {
 
 #[test]
 fn validation_ec_ext_5_ec3_effective_width() {
-    let fy: f64 = 355.0; // S355 steel
-    let epsilon: f64 = (235.0_f64 / fy).sqrt(); // = 0.8136
+    let fz: f64 = 355.0; // S355 steel
+    let epsilon: f64 = (235.0_f64 / fz).sqrt(); // = 0.8136
 
     // Case 1: Internal element under uniform compression (psi = 1.0, k_sigma = 4.0)
     let k_sigma_comp: f64 = 4.0;
@@ -522,7 +522,7 @@ fn validation_ec_ext_5_ec3_effective_width() {
     let col_input = make_column(10, col_length, E, A, IZ, "pinned", "rollerX", -1.0);
     let buck = buckling::solve_buckling_2d(&col_input, 1).unwrap();
     let n_cr = buck.modes[0].load_factor;
-    let n_pl = A * 1000.0 * fy; // squash load (A in m^2, fy in MPa -> kN)
+    let n_pl = A * 1000.0 * fz; // squash load (A in m^2, fy in MPa -> kN)
 
     // lambda_bar = sqrt(N_pl / N_cr) for global buckling
     let lambda_bar_global = (n_pl / n_cr).sqrt();
@@ -737,7 +737,7 @@ fn validation_ec_ext_7_ec0_combinations() {
 
     // Simply-supported beam: R = q*L/2
     let expected_reaction = q_uls * beam_length / 2.0;
-    let max_ry = result.reactions.iter().map(|r| r.ry).fold(0.0_f64, f64::max);
+    let max_ry = result.reactions.iter().map(|r| r.rz).fold(0.0_f64, f64::max);
     assert_close(max_ry, expected_reaction, 0.05, "EC0 beam reaction under ULS load");
 
     // Verify the combination factors are self-consistent
@@ -919,7 +919,7 @@ fn validation_ec_ext_8_ec3_joint_classification() {
         .iter()
         .find(|d| d.node_id == 2)
         .unwrap()
-        .uy
+        .uz
         .abs();
     // The pinned-joint frame should deflect more (or equally, since load is on beam)
     // For distributed load on beam span, the effect of end fixity is:
@@ -933,8 +933,8 @@ fn validation_ec_ext_8_ec3_joint_classification() {
     );
 
     // Both analyses should produce valid equilibrium
-    let sum_ry_rigid: f64 = result_rigid.reactions.iter().map(|r| r.ry).sum();
-    let sum_ry_pinned: f64 = result_pinned.reactions.iter().map(|r| r.ry).sum();
+    let sum_ry_rigid: f64 = result_rigid.reactions.iter().map(|r| r.rz).sum();
+    let sum_ry_pinned: f64 = result_pinned.reactions.iter().map(|r| r.rz).sum();
     let total_applied = load.abs() * beam_length;
 
     assert_close(

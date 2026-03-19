@@ -76,13 +76,13 @@ fn validation_laminate_rule_of_mixtures() {
     let n = 8;
 
     let loads = vec![SolverLoad::Nodal(SolverNodalLoad {
-        node_id: n + 1, fx: 0.0, fy: -p, mz: 0.0,
+        node_id: n + 1, fx: 0.0, fz: -p, my: 0.0,
     })];
     let input = make_beam(n, l, e1_rom, a_sec, iz, "fixed", None, loads);
     let results = solve_2d(&input).expect("solve");
 
     let delta_fem: f64 = results.displacements.iter()
-        .find(|d| d.node_id == n + 1).unwrap().uy.abs();
+        .find(|d| d.node_id == n + 1).unwrap().uz.abs();
     let delta_exact: f64 = p * l.powi(3) / (3.0 * e1_rom * 1000.0 * iz);
 
     assert_close(delta_fem, delta_exact, 0.01, "ROM beam deflection with E1");
@@ -264,12 +264,12 @@ fn validation_laminate_tsai_wu_failure() {
     let p_safe: f64 = 10.0;
 
     let loads = vec![SolverLoad::Nodal(SolverNodalLoad {
-        node_id: n + 1, fx: 0.0, fy: -p_safe, mz: 0.0,
+        node_id: n + 1, fx: 0.0, fz: -p_safe, my: 0.0,
     })];
     let input = make_beam(n, l, e_composite, a_sec, iz, "fixed", None, loads);
     let results = solve_2d(&input).expect("solve");
     let delta: f64 = results.displacements.iter()
-        .find(|d| d.node_id == n + 1).unwrap().uy.abs();
+        .find(|d| d.node_id == n + 1).unwrap().uz.abs();
     let delta_exact: f64 = p_safe * l.powi(3) / (3.0 * e_composite * 1000.0 * iz);
     assert_close(delta, delta_exact, 0.01, "Tsai-Wu beam deflection check");
 }
@@ -483,20 +483,20 @@ fn validation_laminate_crossply_vs_angleply() {
     let e_angleply: f64 = qbar11_angleply * denom; // approximate Ex
 
     let loads_cp = vec![SolverLoad::Nodal(SolverNodalLoad {
-        node_id: n + 1, fx: 0.0, fy: -p, mz: 0.0,
+        node_id: n + 1, fx: 0.0, fz: -p, my: 0.0,
     })];
     let input_cp = make_beam(n, l, e_crossply, a_sec, iz, "fixed", None, loads_cp);
     let res_cp = solve_2d(&input_cp).expect("solve");
     let delta_cp: f64 = res_cp.displacements.iter()
-        .find(|d| d.node_id == n + 1).unwrap().uy.abs();
+        .find(|d| d.node_id == n + 1).unwrap().uz.abs();
 
     let loads_ap = vec![SolverLoad::Nodal(SolverNodalLoad {
-        node_id: n + 1, fx: 0.0, fy: -p, mz: 0.0,
+        node_id: n + 1, fx: 0.0, fz: -p, my: 0.0,
     })];
     let input_ap = make_beam(n, l, e_angleply, a_sec, iz, "fixed", None, loads_ap);
     let res_ap = solve_2d(&input_ap).expect("solve");
     let delta_ap: f64 = res_ap.displacements.iter()
-        .find(|d| d.node_id == n + 1).unwrap().uy.abs();
+        .find(|d| d.node_id == n + 1).unwrap().uz.abs();
 
     assert!(
         delta_cp < delta_ap,
@@ -581,13 +581,13 @@ fn validation_laminate_beam_equivalent_ei() {
 
     // FEM solver
     let loads = vec![SolverLoad::Nodal(SolverNodalLoad {
-        node_id: n + 1, fx: 0.0, fy: -p, mz: 0.0,
+        node_id: n + 1, fx: 0.0, fz: -p, my: 0.0,
     })];
     let a_sec: f64 = b_m * h_m;
     let input = make_beam(n, l, e_eff, a_sec, iz, "fixed", None, loads);
     let results = solve_2d(&input).expect("solve");
     let delta_fem: f64 = results.displacements.iter()
-        .find(|d| d.node_id == n + 1).unwrap().uy.abs();
+        .find(|d| d.node_id == n + 1).unwrap().uz.abs();
 
     assert_close(delta_fem, delta_exact, 0.01, "Laminate beam EI from D11");
 
@@ -799,12 +799,12 @@ fn validation_laminate_effective_modulus() {
     let n = 8;
 
     let loads = vec![SolverLoad::Nodal(SolverNodalLoad {
-        node_id: n + 1, fx: 0.0, fy: -p, mz: 0.0,
+        node_id: n + 1, fx: 0.0, fz: -p, my: 0.0,
     })];
     let input = make_beam(n, l, ex, a_sec, iz, "fixed", None, loads);
     let results = solve_2d(&input).expect("solve");
     let delta_fem: f64 = results.displacements.iter()
-        .find(|d| d.node_id == n + 1).unwrap().uy.abs();
+        .find(|d| d.node_id == n + 1).unwrap().uz.abs();
     let delta_exact: f64 = p * l.powi(3) / (3.0 * ex * 1000.0 * iz);
 
     assert_close(delta_fem, delta_exact, 0.01, "Effective modulus beam deflection");
@@ -812,30 +812,30 @@ fn validation_laminate_effective_modulus() {
     // Verify: beam with Ex gives same deflection as beam with equivalent E
     // (since Ex already is the effective modulus, this is a tautology check)
     let loads2 = vec![SolverLoad::Nodal(SolverNodalLoad {
-        node_id: n + 1, fx: 0.0, fy: -p, mz: 0.0,
+        node_id: n + 1, fx: 0.0, fz: -p, my: 0.0,
     })];
     let input2 = make_beam(n, l, ey, a_sec, iz, "fixed", None, loads2);
     let res2 = solve_2d(&input2).expect("solve");
     let delta_fem2: f64 = res2.displacements.iter()
-        .find(|d| d.node_id == n + 1).unwrap().uy.abs();
+        .find(|d| d.node_id == n + 1).unwrap().uz.abs();
     assert_close(delta_fem, delta_fem2, 1e-10, "Ex = Ey gives same deflection");
 
     // Also verify the laminate is stiffer than pure E2 but softer than pure E1
     let loads_e2 = vec![SolverLoad::Nodal(SolverNodalLoad {
-        node_id: n + 1, fx: 0.0, fy: -p, mz: 0.0,
+        node_id: n + 1, fx: 0.0, fz: -p, my: 0.0,
     })];
     let input_e2 = make_beam(n, l, e2, a_sec, iz, "fixed", None, loads_e2);
     let res_e2 = solve_2d(&input_e2).expect("solve");
     let delta_e2: f64 = res_e2.displacements.iter()
-        .find(|d| d.node_id == n + 1).unwrap().uy.abs();
+        .find(|d| d.node_id == n + 1).unwrap().uz.abs();
 
     let loads_e1 = vec![SolverLoad::Nodal(SolverNodalLoad {
-        node_id: n + 1, fx: 0.0, fy: -p, mz: 0.0,
+        node_id: n + 1, fx: 0.0, fz: -p, my: 0.0,
     })];
     let input_e1 = make_beam(n, l, e1, a_sec, iz, "fixed", None, loads_e1);
     let res_e1 = solve_2d(&input_e1).expect("solve");
     let delta_e1: f64 = res_e1.displacements.iter()
-        .find(|d| d.node_id == n + 1).unwrap().uy.abs();
+        .find(|d| d.node_id == n + 1).unwrap().uz.abs();
 
     assert!(
         delta_fem > delta_e1 && delta_fem < delta_e2,

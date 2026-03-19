@@ -58,7 +58,7 @@ pub fn solve_2d(input: &SolverInput) -> Result<AnalysisResults, String> {
     for sup in input.supports.values() {
         if sup.support_type == "spring" { continue; } // spring DOFs are free
         let prescribed: [(usize, Option<f64>); 3] = [
-            (0, sup.dx), (1, sup.dy), (2, sup.drz),
+            (0, sup.dx), (1, sup.dz), (2, sup.dry),
         ];
         for &(local_dof, val) in &prescribed {
             if let Some(v) = val {
@@ -933,13 +933,13 @@ fn sparse_diagonal_conditioning(k: &CscMatrix) -> f64 {
 pub(crate) fn build_displacements_2d(dof_num: &DofNumbering, u: &[f64]) -> Vec<Displacement> {
     dof_num.node_order.iter().map(|&node_id| {
         let ux = dof_num.global_dof(node_id, 0).map(|d| u[d]).unwrap_or(0.0);
-        let uy = dof_num.global_dof(node_id, 1).map(|d| u[d]).unwrap_or(0.0);
-        let rz = if dof_num.dofs_per_node >= 3 {
+        let uz = dof_num.global_dof(node_id, 1).map(|d| u[d]).unwrap_or(0.0);
+        let ry = if dof_num.dofs_per_node >= 3 {
             dof_num.global_dof(node_id, 2).map(|d| u[d]).unwrap_or(0.0)
         } else {
             0.0
         };
-        Displacement { node_id, ux, uy, rz }
+        Displacement { node_id, ux, uz, ry }
     }).collect()
 }
 
@@ -973,14 +973,14 @@ pub(crate) fn build_reactions_2d(
     let mut reactions = Vec::new();
     for sup in input.supports.values() {
         let mut rx = 0.0;
-        let mut ry = 0.0;
-        let mut mz = 0.0;
+        let mut rz = 0.0;
+        let mut my = 0.0;
 
         if sup.support_type == "spring" {
             // Spring reaction: R = -k * u
             let ux = dof_num.global_dof(sup.node_id, 0).map(|d| u_full[d]).unwrap_or(0.0);
-            let uy = dof_num.global_dof(sup.node_id, 1).map(|d| u_full[d]).unwrap_or(0.0);
-            let rz_disp = if dof_num.dofs_per_node >= 3 {
+            let uz = dof_num.global_dof(sup.node_id, 1).map(|d| u_full[d]).unwrap_or(0.0);
+            let ry_disp = if dof_num.dofs_per_node >= 3 {
                 dof_num.global_dof(sup.node_id, 2).map(|d| u_full[d]).unwrap_or(0.0)
             } else { 0.0 };
 
@@ -995,17 +995,17 @@ pub(crate) fn build_reactions_2d(
                     let k_xx = kx * c * c + ky * s * s;
                     let k_yy = kx * s * s + ky * c * c;
                     let k_xy = (kx - ky) * s * c;
-                    rx = -(k_xx * ux + k_xy * uy);
-                    ry = -(k_xy * ux + k_yy * uy);
+                    rx = -(k_xx * ux + k_xy * uz);
+                    rz = -(k_xy * ux + k_yy * uz);
                 } else {
                     rx = -kx * ux;
-                    ry = -ky * uy;
+                    rz = -ky * uz;
                 }
             } else {
                 rx = -kx * ux;
-                ry = -ky * uy;
+                rz = -ky * uz;
             }
-            mz = -kz * rz_disp;
+            my = -kz * ry_disp;
         } else {
             // Rigid support: reaction from restrained partition
             if let Some(&d) = dof_num.map.get(&(sup.node_id, 0)) {
@@ -1017,14 +1017,14 @@ pub(crate) fn build_reactions_2d(
             if let Some(&d) = dof_num.map.get(&(sup.node_id, 1)) {
                 if d >= nf {
                     let idx = d - nf;
-                    ry = reactions_vec[idx];
+                    rz = reactions_vec[idx];
                 }
             }
             if dof_num.dofs_per_node >= 3 {
                 if let Some(&d) = dof_num.map.get(&(sup.node_id, 2)) {
                     if d >= nf {
                         let idx = d - nf;
-                        mz = reactions_vec[idx];
+                        my = reactions_vec[idx];
                     }
                 }
             }
@@ -1032,7 +1032,7 @@ pub(crate) fn build_reactions_2d(
 
         reactions.push(Reaction {
             node_id: sup.node_id,
-            rx, ry, mz,
+            rx, rz, my,
         });
     }
     reactions
@@ -1156,7 +1156,7 @@ pub(crate) fn compute_internal_forces_2d(
         let sec = sec_map[&elem.section_id];
 
         let dx = node_j.x - node_i.x;
-        let dy = node_j.y - node_i.y;
+        let dy = node_j.z - node_i.z;
         let l = (dx * dx + dy * dy).sqrt();
         let cos = dx / l;
         let sin = dy / l;
@@ -1254,7 +1254,7 @@ pub(crate) fn compute_internal_forces_2d(
                     }
                     SolverLoad::PointOnElement(pl) if pl.element_id == elem.id => {
                         let px = pl.px.unwrap_or(0.0);
-                        let mz = pl.mz.unwrap_or(0.0);
+                        let mz = pl.my.unwrap_or(0.0);
                         let mut fef = crate::element::fef_point_load_2d(pl.p, px, mz, pl.a, l);
                         crate::element::adjust_fef_for_hinges(&mut fef, l, elem.hinge_start, elem.hinge_end);
                         for i in 0..6 {
@@ -1264,7 +1264,7 @@ pub(crate) fn compute_internal_forces_2d(
                             a: pl.a,
                             p: pl.p,
                             px: pl.px,
-                            mz: pl.mz,
+                            my: pl.my,
                         });
                     }
                     SolverLoad::Thermal(tl) if tl.element_id == elem.id => {

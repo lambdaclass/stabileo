@@ -139,7 +139,7 @@ fn validation_rigid_body_ss_beam_valid() {
 
     // Load at midspan node (node 2 with n=2 elements)
     let loads = vec![SolverLoad::Nodal(SolverNodalLoad {
-        node_id: 2, fx: 0.0, fy: -p, mz: 0.0,
+        node_id: 2, fx: 0.0, fz: -p, my: 0.0,
     })];
     let input = make_beam(n, l, E, A, IZ, "pinned", Some("rollerX"), loads);
 
@@ -154,8 +154,8 @@ fn validation_rigid_body_ss_beam_valid() {
     let results = linear::solve_2d(&input).unwrap();
 
     // Reactions: R_A = R_B = P/2 (midspan load, symmetric)
-    let r_a = results.reactions.iter().find(|r| r.node_id == 1).unwrap().ry;
-    let r_b = results.reactions.iter().find(|r| r.node_id == n + 1).unwrap().ry;
+    let r_a = results.reactions.iter().find(|r| r.node_id == 1).unwrap().rz;
+    let r_b = results.reactions.iter().find(|r| r.node_id == n + 1).unwrap().rz;
     assert_close(r_a, p / 2.0, 0.02, "SS beam: R_A = P/2");
     assert_close(r_b, p / 2.0, 0.02, "SS beam: R_B = P/2");
 }
@@ -199,16 +199,16 @@ fn validation_rigid_body_fixed_fixed_zero_disp() {
     let d_end   = results.displacements.iter().find(|d| d.node_id == n + 1).unwrap();
 
     assert!(d_start.ux.abs() < 1e-10, "Fixed end ux should be 0: got {:.2e}", d_start.ux);
-    assert!(d_start.uy.abs() < 1e-10, "Fixed end uy should be 0: got {:.2e}", d_start.uy);
-    assert!(d_start.rz.abs() < 1e-10, "Fixed end rz should be 0: got {:.2e}", d_start.rz);
+    assert!(d_start.uz.abs() < 1e-10, "Fixed end uy should be 0: got {:.2e}", d_start.uz);
+    assert!(d_start.ry.abs() < 1e-10, "Fixed end rz should be 0: got {:.2e}", d_start.ry);
     assert!(d_end.ux.abs() < 1e-10, "Fixed end ux should be 0: got {:.2e}", d_end.ux);
-    assert!(d_end.uy.abs() < 1e-10, "Fixed end uy should be 0: got {:.2e}", d_end.uy);
-    assert!(d_end.rz.abs() < 1e-10, "Fixed end rz should be 0: got {:.2e}", d_end.rz);
+    assert!(d_end.uz.abs() < 1e-10, "Fixed end uy should be 0: got {:.2e}", d_end.uz);
+    assert!(d_end.ry.abs() < 1e-10, "Fixed end rz should be 0: got {:.2e}", d_end.ry);
 
     // Interior nodes should have non-zero displacements under load
     let d_mid = results.displacements.iter().find(|d| d.node_id == n / 2 + 1).unwrap();
-    assert!(d_mid.uy.abs() > 1e-6,
-        "Interior node should deflect: uy={:.2e}", d_mid.uy);
+    assert!(d_mid.uz.abs() > 1e-6,
+        "Interior node should deflect: uy={:.2e}", d_mid.uz);
 }
 
 // ================================================================
@@ -297,7 +297,7 @@ fn validation_rigid_body_truss_minimum_supports() {
         ],
         vec![(1, 1, "pinned"), (2, 2, "rollerX")],
         vec![SolverLoad::Nodal(SolverNodalLoad {
-            node_id: 3, fx: 0.0, fy: -p, mz: 0.0,
+            node_id: 3, fx: 0.0, fz: -p, my: 0.0,
         })],
     );
 
@@ -312,7 +312,7 @@ fn validation_rigid_body_truss_minimum_supports() {
     let results = linear::solve_2d(&input).unwrap();
 
     // Equilibrium: vertical reactions sum to P
-    let sum_ry: f64 = results.reactions.iter().map(|r| r.ry).sum();
+    let sum_ry: f64 = results.reactions.iter().map(|r| r.rz).sum();
     assert_close(sum_ry, p, 0.01, "Truss ΣRy = P");
 
     // Horizontal reactions sum to zero (no horizontal load)
@@ -321,8 +321,8 @@ fn validation_rigid_body_truss_minimum_supports() {
         "Truss ΣRx = 0, got {:.6}", sum_rx);
 
     // By symmetry (apex at midspan), R_A = R_B = P/2
-    let r_a = results.reactions.iter().find(|r| r.node_id == 1).unwrap().ry;
-    let r_b = results.reactions.iter().find(|r| r.node_id == 2).unwrap().ry;
+    let r_a = results.reactions.iter().find(|r| r.node_id == 1).unwrap().rz;
+    let r_b = results.reactions.iter().find(|r| r.node_id == 2).unwrap().rz;
     assert_close(r_a, p / 2.0, 0.02, "Truss R_A = P/2");
     assert_close(r_b, p / 2.0, 0.02, "Truss R_B = P/2");
 }
@@ -368,7 +368,7 @@ fn validation_rigid_body_3d_fully_restrained_valid() {
     // Tip deflection: δ = PL³/(3EI_z) for Fy load
     let delta_exact = p * l.powi(3) / (3.0 * e_eff * IZ);
     let tip = results.displacements.iter().find(|d| d.node_id == n + 1).unwrap();
-    assert_close(tip.uy.abs(), delta_exact, 0.05,
+    assert_close(tip.uz.abs(), delta_exact, 0.05,
         "3D cantilever: δ = PL³/(3EI)");
 
     // Root node (node 1) should have zero displacements (fully fixed)
@@ -377,11 +377,11 @@ fn validation_rigid_body_3d_fully_restrained_valid() {
     assert!(root.uy.abs() < 1e-10, "Root uy=0: got {:.2e}", root.uy);
     assert!(root.uz.abs() < 1e-10, "Root uz=0: got {:.2e}", root.uz);
     assert!(root.rx.abs() < 1e-10, "Root rx=0: got {:.2e}", root.rx);
-    assert!(root.ry.abs() < 1e-10, "Root ry=0: got {:.2e}", root.ry);
-    assert!(root.rz.abs() < 1e-10, "Root rz=0: got {:.2e}", root.rz);
+    assert!(root.rz.abs() < 1e-10, "Root ry=0: got {:.2e}", root.rz);
+    assert!(root.ry.abs() < 1e-10, "Root rz=0: got {:.2e}", root.ry);
 
     // Fixed end reaction: Fy = P, Mz = -P*L
     let r_root = results.reactions.iter().find(|r| r.node_id == 1).unwrap();
-    assert_close(r_root.fy, p, 0.01, "3D cantilever: root reaction Fy = P");
-    assert_close(r_root.mz.abs(), p * l, 0.02, "3D cantilever: root moment Mz = PL");
+    assert_close(r_root.fz, p, 0.01, "3D cantilever: root reaction Fy = P");
+    assert_close(r_root.my.abs(), p * l, 0.02, "3D cantilever: root moment Mz = PL");
 }

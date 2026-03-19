@@ -209,7 +209,7 @@ fn validation_superposition_principle() {
     let input_p1 = make_beam(
         4, l, E, A, IZ, "fixed", None,
         vec![SolverLoad::Nodal(SolverNodalLoad {
-            node_id: 5, fx: 0.0, fy: p_tip, mz: 0.0,
+            node_id: 5, fx: 0.0, fz: p_tip, my: 0.0,
         })],
     );
     let result_p1 = linear::solve_2d(&input_p1).unwrap();
@@ -226,7 +226,7 @@ fn validation_superposition_principle() {
 
     // Load case combined: tip load + UDL
     let mut loads_combined = vec![SolverLoad::Nodal(SolverNodalLoad {
-        node_id: 5, fx: 0.0, fy: p_tip, mz: 0.0,
+        node_id: 5, fx: 0.0, fz: p_tip, my: 0.0,
     })];
     for i in 1..=4 {
         loads_combined.push(SolverLoad::Distributed(SolverDistributedLoad {
@@ -242,12 +242,12 @@ fn validation_superposition_principle() {
         let d2 = result_p2.displacements.iter().find(|d| d.node_id == dc.node_id).unwrap();
 
         let ux_sum = d1.ux + d2.ux;
-        let uy_sum = d1.uy + d2.uy;
-        let rz_sum = d1.rz + d2.rz;
+        let uy_sum = d1.uz + d2.uz;
+        let rz_sum = d1.ry + d2.ry;
 
         assert_close(dc.ux, ux_sum, 1e-10, &format!("Superposition ux node {}", dc.node_id));
-        assert_close(dc.uy, uy_sum, 1e-10, &format!("Superposition uy node {}", dc.node_id));
-        assert_close(dc.rz, rz_sum, 1e-10, &format!("Superposition rz node {}", dc.node_id));
+        assert_close(dc.uz, uy_sum, 1e-10, &format!("Superposition uy node {}", dc.node_id));
+        assert_close(dc.ry, rz_sum, 1e-10, &format!("Superposition rz node {}", dc.node_id));
     }
 
     // Also check reactions obey superposition
@@ -256,8 +256,8 @@ fn validation_superposition_principle() {
         let r2 = result_p2.reactions.iter().find(|r| r.node_id == rc.node_id).unwrap();
 
         assert_close(rc.rx, r1.rx + r2.rx, 1e-8, &format!("Superposition Rx node {}", rc.node_id));
-        assert_close(rc.ry, r1.ry + r2.ry, 1e-8, &format!("Superposition Ry node {}", rc.node_id));
-        assert_close(rc.mz, r1.mz + r2.mz, 1e-8, &format!("Superposition Mz node {}", rc.node_id));
+        assert_close(rc.rz, r1.rz + r2.rz, 1e-8, &format!("Superposition Ry node {}", rc.node_id));
+        assert_close(rc.my, r1.my + r2.my, 1e-8, &format!("Superposition Mz node {}", rc.node_id));
     }
 }
 
@@ -300,7 +300,7 @@ fn validation_mesh_refinement_convergence() {
             .find(|d| d.node_id == mid_node)
             .unwrap();
 
-        let deflection = d_mid.uy.abs();
+        let deflection = d_mid.uz.abs();
         let error = (deflection - delta_exact).abs() / delta_exact;
         errors.push((n_elem, error));
     }
@@ -348,7 +348,7 @@ fn validation_condition_number_effect() {
     let input_good = make_beam(
         2, l, E, A, IZ, "fixed", None,
         vec![SolverLoad::Nodal(SolverNodalLoad {
-            node_id: 3, fx: 0.0, fy: p, mz: 0.0,
+            node_id: 3, fx: 0.0, fz: p, my: 0.0,
         })],
     );
     let result_good = linear::solve_2d(&input_good).unwrap();
@@ -367,7 +367,7 @@ fn validation_condition_number_effect() {
         ],
         vec![(1, 1, "fixed")],
         vec![SolverLoad::Nodal(SolverNodalLoad {
-            node_id: 3, fx: 0.0, fy: p, mz: 0.0,
+            node_id: 3, fx: 0.0, fz: p, my: 0.0,
         })],
     );
     let result_ill = linear::solve_2d(&input_ill).unwrap();
@@ -377,17 +377,17 @@ fn validation_condition_number_effect() {
     assert!(!result_ill.displacements.is_empty(), "Ill-conditioned solve must succeed");
 
     // Equilibrium must hold for both: sum of reactions = applied load
-    let ry_good: f64 = result_good.reactions.iter().map(|r| r.ry).sum();
+    let ry_good: f64 = result_good.reactions.iter().map(|r| r.rz).sum();
     assert_close(ry_good, -p, 1e-6, "Well-conditioned vertical equilibrium");
 
-    let ry_ill: f64 = result_ill.reactions.iter().map(|r| r.ry).sum();
+    let ry_ill: f64 = result_ill.reactions.iter().map(|r| r.rz).sum();
     assert_close(ry_ill, -p, 1e-6, "Ill-conditioned vertical equilibrium");
 
     // Ill-conditioned tip deflection should be larger (flexible second span)
     let tip_good = result_good.displacements.iter()
-        .find(|d| d.node_id == 3).unwrap().uy;
+        .find(|d| d.node_id == 3).unwrap().uz;
     let tip_ill = result_ill.displacements.iter()
-        .find(|d| d.node_id == 3).unwrap().uy;
+        .find(|d| d.node_id == 3).unwrap().uz;
 
     // The flexible span dominates, so the ill-conditioned case deflects more
     assert!(
@@ -427,16 +427,16 @@ fn validation_load_scaling_linearity() {
     for d2 in &result2.displacements {
         let d1 = result1.displacements.iter().find(|d| d.node_id == d2.node_id).unwrap();
         assert_close(d2.ux, d1.ux * scale, 1e-10, &format!("Scaling ux node {}", d2.node_id));
-        assert_close(d2.uy, d1.uy * scale, 1e-10, &format!("Scaling uy node {}", d2.node_id));
-        assert_close(d2.rz, d1.rz * scale, 1e-10, &format!("Scaling rz node {}", d2.node_id));
+        assert_close(d2.uz, d1.uz * scale, 1e-10, &format!("Scaling uy node {}", d2.node_id));
+        assert_close(d2.ry, d1.ry * scale, 1e-10, &format!("Scaling rz node {}", d2.node_id));
     }
 
     // Check reaction scaling
     for r2 in &result2.reactions {
         let r1 = result1.reactions.iter().find(|r| r.node_id == r2.node_id).unwrap();
         assert_close(r2.rx, r1.rx * scale, 1e-10, &format!("Scaling Rx node {}", r2.node_id));
-        assert_close(r2.ry, r1.ry * scale, 1e-10, &format!("Scaling Ry node {}", r2.node_id));
-        assert_close(r2.mz, r1.mz * scale, 1e-10, &format!("Scaling Mz node {}", r2.node_id));
+        assert_close(r2.rz, r1.rz * scale, 1e-10, &format!("Scaling Ry node {}", r2.node_id));
+        assert_close(r2.my, r1.my * scale, 1e-10, &format!("Scaling Mz node {}", r2.node_id));
     }
 
     // Check element force scaling
@@ -493,9 +493,9 @@ fn validation_sparse_vs_dense_equivalence() {
     let mid_node_large = 16; // node 16 of 31 nodes (0, 0.333.., ..., 5.0, ..., 10.0)
 
     let uy_small = result_small.displacements.iter()
-        .find(|d| d.node_id == mid_node_small).unwrap().uy;
+        .find(|d| d.node_id == mid_node_small).unwrap().uz;
     let uy_large = result_large.displacements.iter()
-        .find(|d| d.node_id == mid_node_large).unwrap().uy;
+        .find(|d| d.node_id == mid_node_large).unwrap().uz;
 
     // For a SS beam under UDL, any number of elements gives exact midspan deflection
     // (beam elements represent cubic exactly). So both should match closely.
@@ -505,9 +505,9 @@ fn validation_sparse_vs_dense_equivalence() {
     // Also compare reactions: both meshes must give identical support reactions
     // R_left = q*L/2 for SS beam under UDL
     let r_left_small = result_small.reactions.iter()
-        .find(|r| r.node_id == 1).unwrap().ry;
+        .find(|r| r.node_id == 1).unwrap().rz;
     let r_left_large = result_large.reactions.iter()
-        .find(|r| r.node_id == 1).unwrap().ry;
+        .find(|r| r.node_id == 1).unwrap().rz;
 
     assert_close(r_left_small, r_left_large, 1e-8,
         "Sparse vs dense left reaction must match");
@@ -551,10 +551,10 @@ fn validation_energy_consistency() {
         4, 8.0, E, A, IZ, "fixed", None,
         vec![
             SolverLoad::Nodal(SolverNodalLoad {
-                node_id: 5, fx: 0.0, fy: p_tip, mz: m_tip,
+                node_id: 5, fx: 0.0, fz: p_tip, my: m_tip,
             }),
             SolverLoad::Nodal(SolverNodalLoad {
-                node_id: 3, fx: h_mid, fy: 0.0, mz: 0.0,
+                node_id: 3, fx: h_mid, fz: 0.0, my: 0.0,
             }),
         ],
     );
@@ -565,7 +565,7 @@ fn validation_energy_consistency() {
     let d5 = result.displacements.iter().find(|d| d.node_id == 5).unwrap();
     let d3 = result.displacements.iter().find(|d| d.node_id == 3).unwrap();
 
-    let w_ext = 0.5 * (p_tip * d5.uy + m_tip * d5.rz + h_mid * d3.ux);
+    let w_ext = 0.5 * (p_tip * d5.uz + m_tip * d5.ry + h_mid * d3.ux);
 
     // Internal strain energy from element forces and displacements
     // U_int = (1/2) * sum_elements [ N_i*u_xi + V_i*u_yi + M_i*rz_i + N_j*u_xj + V_j*u_yj + M_j*rz_j ]
@@ -594,8 +594,8 @@ fn validation_energy_consistency() {
     let mut u_full = vec![0.0; n];
     for disp in &result.displacements {
         if let Some(&d) = dof_num.map.get(&(disp.node_id, 0)) { u_full[d] = disp.ux; }
-        if let Some(&d) = dof_num.map.get(&(disp.node_id, 1)) { u_full[d] = disp.uy; }
-        if let Some(&d) = dof_num.map.get(&(disp.node_id, 2)) { u_full[d] = disp.rz; }
+        if let Some(&d) = dof_num.map.get(&(disp.node_id, 1)) { u_full[d] = disp.uz; }
+        if let Some(&d) = dof_num.map.get(&(disp.node_id, 2)) { u_full[d] = disp.ry; }
     }
 
     // Compute U_stiffness = (1/2) * u^T * K * u (free DOFs only)

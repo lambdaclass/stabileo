@@ -281,14 +281,14 @@ fn scale_results(results: &AnalysisResults, factor: f64) -> AnalysisResults {
         displacements: results.displacements.iter().map(|d| Displacement {
             node_id: d.node_id,
             ux: d.ux * factor,
-            uy: d.uy * factor,
-            rz: d.rz * factor,
+            uz: d.uz * factor,
+            ry: d.ry * factor,
         }).collect(),
         reactions: results.reactions.iter().map(|r| Reaction {
             node_id: r.node_id,
             rx: r.rx * factor,
-            ry: r.ry * factor,
-            mz: r.mz * factor,
+            rz: r.rz * factor,
+            my: r.my * factor,
         }).collect(),
         element_forces: results.element_forces.iter().map(|ef| ElementForces {
             element_id: ef.element_id,

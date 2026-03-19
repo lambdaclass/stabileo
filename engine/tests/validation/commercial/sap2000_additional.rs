@@ -119,9 +119,9 @@ fn validation_sap_ext_multistory_gravity_lateral() {
 
     // Loads: lateral at left column floor nodes + gravity UDL on beams
     let mut loads = Vec::new();
-    loads.push(SolverLoad::Nodal(SolverNodalLoad { node_id: 2, fx: f1, fy: 0.0, mz: 0.0 }));
-    loads.push(SolverLoad::Nodal(SolverNodalLoad { node_id: 3, fx: f2, fy: 0.0, mz: 0.0 }));
-    loads.push(SolverLoad::Nodal(SolverNodalLoad { node_id: 4, fx: f3, fy: 0.0, mz: 0.0 }));
+    loads.push(SolverLoad::Nodal(SolverNodalLoad { node_id: 2, fx: f1, fz: 0.0, my: 0.0 }));
+    loads.push(SolverLoad::Nodal(SolverNodalLoad { node_id: 3, fx: f2, fz: 0.0, my: 0.0 }));
+    loads.push(SolverLoad::Nodal(SolverNodalLoad { node_id: 4, fx: f3, fz: 0.0, my: 0.0 }));
 
     // Distributed loads on beam elements (columns are eids 1-6, beams start at 7)
     let first_beam_eid = 7;
@@ -149,7 +149,7 @@ fn validation_sap_ext_multistory_gravity_lateral() {
 
     // (b) Global vertical equilibrium: sum Ry = total gravity
     let total_gravity = q.abs() * w * 3.0; // 3 floors * q * w
-    let sum_ry: f64 = results.reactions.iter().map(|r| r.ry).sum();
+    let sum_ry: f64 = results.reactions.iter().map(|r| r.rz).sum();
     assert_close(sum_ry, total_gravity, 0.02, "SAPX1 sum Ry = total gravity");
 
     // (c) Overturning moment about base: OTM = F1*y1 + F2*y2 + F3*y3
@@ -213,7 +213,7 @@ fn validation_sap_ext_two_bay_portal_sway() {
     ];
 
     let loads = vec![
-        SolverLoad::Nodal(SolverNodalLoad { node_id: 2, fx: h_load, fy: 0.0, mz: 0.0 }),
+        SolverLoad::Nodal(SolverNodalLoad { node_id: 2, fx: h_load, fz: 0.0, my: 0.0 }),
     ];
 
     let input = make_input(
@@ -264,9 +264,9 @@ fn validation_sap_ext_two_bay_portal_sway() {
     // and that the overturning moment (H*h) is resisted by the base moments
     // and vertical reaction couple. Rather than an exact formula (which requires
     // careful sign convention), verify the base moments are nonzero.
-    let r_left_mz = r_left.mz.abs();
-    let r_int_mz = r_int.mz.abs();
-    let r_right_mz = r_right.mz.abs();
+    let r_left_mz = r_left.my.abs();
+    let r_int_mz = r_int.my.abs();
+    let r_right_mz = r_right.my.abs();
     let total_base_moment = r_left_mz + r_int_mz + r_right_mz;
     assert!(
         total_base_moment > 10.0,
@@ -355,12 +355,12 @@ fn validation_sap_ext_pattern_loading_envelope() {
 
     // (d) Equilibrium check for full loading
     let total_load_full = q * 3.0 * l;
-    let sum_ry_full: f64 = res_full.reactions.iter().map(|r| r.ry).sum();
+    let sum_ry_full: f64 = res_full.reactions.iter().map(|r| r.rz).sum();
     assert_close(sum_ry_full, total_load_full, 0.02, "SAPX3 full load equilibrium");
 
     // (e) Equilibrium check for pattern loading
     let total_load_pat = q * 2.0 * l; // only 2 spans loaded
-    let sum_ry_pat: f64 = res_pat.reactions.iter().map(|r| r.ry).sum();
+    let sum_ry_pat: f64 = res_pat.reactions.iter().map(|r| r.rz).sum();
     assert_close(sum_ry_pat, total_load_pat, 0.02, "SAPX3 pattern load equilibrium");
 }
 
@@ -393,7 +393,7 @@ fn validation_sap_ext_pdelta_column() {
     let mut nodes_map = HashMap::new();
     for i in 0..n_nodes {
         nodes_map.insert((i + 1).to_string(), SolverNode {
-            id: i + 1, x: 0.0, y: i as f64 * elem_len,
+            id: i + 1, x: 0.0, z: i as f64 * elem_len,
         });
     }
 
@@ -417,12 +417,12 @@ fn validation_sap_ext_pdelta_column() {
     sups_map.insert("1".to_string(), SolverSupport {
         id: 1, node_id: 1, support_type: "fixed".to_string(),
         kx: None, ky: None, kz: None,
-        dx: None, dy: None, drz: None, angle: None,
+        dx: None, dz: None, dry: None, angle: None,
     });
 
     let loads = vec![
         SolverLoad::Nodal(SolverNodalLoad {
-            node_id: n_nodes, fx: h_lat, fy: p_axial, mz: 0.0,
+            node_id: n_nodes, fx: h_lat, fz: p_axial, my: 0.0,
         }),
     ];
 
@@ -736,7 +736,7 @@ fn validation_sap_ext_warren_truss_bridge() {
     let mut loads = Vec::new();
     for i in 2..=n_panels {
         loads.push(SolverLoad::Nodal(SolverNodalLoad {
-            node_id: i, fx: 0.0, fy: -p, mz: 0.0,
+            node_id: i, fx: 0.0, fz: -p, my: 0.0,
         }));
     }
 
@@ -749,14 +749,14 @@ fn validation_sap_ext_warren_truss_bridge() {
 
     // (a) Vertical equilibrium: sum Ry = total load
     let total_load = (n_panels - 1) as f64 * p; // 5 * 100 = 500 kN
-    let sum_ry: f64 = results.reactions.iter().map(|r| r.ry).sum();
+    let sum_ry: f64 = results.reactions.iter().map(|r| r.rz).sum();
     assert_close(sum_ry, total_load, 0.02, "SAPX7 sum_Ry = total load");
 
     // (b) Symmetry: left and right reactions should be equal
     let r_left = results.reactions.iter().find(|r| r.node_id == 1).unwrap();
     let r_right = results.reactions.iter().find(|r| r.node_id == n_panels + 1).unwrap();
-    assert_close(r_left.ry, r_right.ry, 0.02, "SAPX7 symmetry: R_left = R_right");
-    assert_close(r_left.ry, total_load / 2.0, 0.02, "SAPX7 R_left = P_total/2");
+    assert_close(r_left.rz, r_right.rz, 0.02, "SAPX7 symmetry: R_left = R_right");
+    assert_close(r_left.rz, total_load / 2.0, 0.02, "SAPX7 R_left = P_total/2");
 
     // (c) Horizontal reaction at pinned support should be zero (no horizontal load)
     assert!(r_left.rx.abs() < 0.1, "SAPX7 Rx should be ~ 0, got {:.4}", r_left.rx);
@@ -773,9 +773,9 @@ fn validation_sap_ext_warren_truss_bridge() {
     // (e) Maximum deflection should be at midspan (node 4, center of bottom chord)
     let mid_node = (n_panels / 2) + 1; // node 4
     let d_mid = results.displacements.iter()
-        .find(|d| d.node_id == mid_node).unwrap().uy.abs();
+        .find(|d| d.node_id == mid_node).unwrap().uz.abs();
     let d_quarter = results.displacements.iter()
-        .find(|d| d.node_id == 2).unwrap().uy.abs();
+        .find(|d| d.node_id == 2).unwrap().uz.abs();
     assert!(
         d_mid > d_quarter,
         "SAPX7 midspan delta={:.6} > quarter delta={:.6}", d_mid, d_quarter
@@ -817,7 +817,7 @@ fn validation_sap_ext_propped_cantilever_settlement() {
     let mut nodes_map = HashMap::new();
     for i in 0..n_nodes {
         nodes_map.insert((i + 1).to_string(), SolverNode {
-            id: i + 1, x: i as f64 * elem_len, y: 0.0,
+            id: i + 1, x: i as f64 * elem_len, z: 0.0,
         });
     }
 
@@ -842,13 +842,13 @@ fn validation_sap_ext_propped_cantilever_settlement() {
     sups_map.insert("1".to_string(), SolverSupport {
         id: 1, node_id: 1, support_type: "fixed".to_string(),
         kx: None, ky: None, kz: None,
-        dx: None, dy: None, drz: None, angle: None,
+        dx: None, dz: None, dry: None, angle: None,
     });
     // Roller at right with prescribed vertical displacement
     sups_map.insert("2".to_string(), SolverSupport {
         id: 2, node_id: n_nodes, support_type: "rollerX".to_string(),
         kx: None, ky: None, kz: None,
-        dx: None, dy: Some(delta), drz: None, angle: None,
+        dx: None, dz: Some(delta), dry: None, angle: None,
     });
 
     let input = SolverInput {
@@ -860,22 +860,22 @@ fn validation_sap_ext_propped_cantilever_settlement() {
 
     // (a) The right end should have the prescribed displacement
     let d_end = results.displacements.iter().find(|d| d.node_id == n_nodes).unwrap();
-    assert_close(d_end.uy, delta, 0.02, "SAPX8 prescribed delta at roller");
+    assert_close(d_end.uz, delta, 0.02, "SAPX8 prescribed delta at roller");
 
     // (b) Reaction at roller: R = 3EI*delta/L^3
     let r_roller_expected = 3.0 * E_EFF * IZ * delta.abs() / l.powi(3);
     let r_roller = results.reactions.iter().find(|r| r.node_id == n_nodes).unwrap();
-    assert_close(r_roller.ry.abs(), r_roller_expected, 0.05, "SAPX8 R_roller = 3EI*delta/L^3");
+    assert_close(r_roller.rz.abs(), r_roller_expected, 0.05, "SAPX8 R_roller = 3EI*delta/L^3");
 
     // (c) Fixed-end moment: M = 3EI*delta/L^2
     // For propped cantilever (fixed-roller), roller settlement delta:
     //   R_roller = 3EI*delta/L^3, M_fixed = R_roller * L = 3EI*delta/L^2
     let m_fixed_expected = 3.0 * E_EFF * IZ * delta.abs() / (l * l);
     let r_fixed = results.reactions.iter().find(|r| r.node_id == 1).unwrap();
-    assert_close(r_fixed.mz.abs(), m_fixed_expected, 0.05, "SAPX8 M_fixed = 3EI*delta/L^2");
+    assert_close(r_fixed.my.abs(), m_fixed_expected, 0.05, "SAPX8 M_fixed = 3EI*delta/L^2");
 
     // (d) Vertical equilibrium: sum Ry = 0 (no external load)
-    let sum_ry: f64 = results.reactions.iter().map(|r| r.ry).sum();
+    let sum_ry: f64 = results.reactions.iter().map(|r| r.rz).sum();
     assert!(
         sum_ry.abs() < 0.1,
         "SAPX8 sum_Ry should ~ 0 (no load): got {:.6}", sum_ry
@@ -890,9 +890,9 @@ fn validation_sap_ext_propped_cantilever_settlement() {
 
     // (f) The deflection at the fixed end should be zero
     let d_fixed = results.displacements.iter().find(|d| d.node_id == 1).unwrap();
-    assert!(d_fixed.uy.abs() < 1e-10, "SAPX8 fixed end uy should be 0");
+    assert!(d_fixed.uz.abs() < 1e-10, "SAPX8 fixed end uy should be 0");
     assert!(d_fixed.ux.abs() < 1e-10, "SAPX8 fixed end ux should be 0");
-    assert!(d_fixed.rz.abs() < 1e-10, "SAPX8 fixed end rz should be 0");
+    assert!(d_fixed.ry.abs() < 1e-10, "SAPX8 fixed end rz should be 0");
 
     // (g) Shear should be constant along the beam (no external loads)
     // V = R_roller = 3EI*delta/L^3

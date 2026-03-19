@@ -90,14 +90,14 @@ fn validation_frac_ext_griffith_energy_release_compliance() {
     let mid_node = n_elem / 2 + 1;
 
     let loads_full = vec![SolverLoad::Nodal(SolverNodalLoad {
-        node_id: mid_node, fx: 0.0, fy: -p_load, mz: 0.0,
+        node_id: mid_node, fx: 0.0, fz: -p_load, my: 0.0,
     })];
     let input_full = make_beam(n_elem, l, e_mpa, a_full, iz_full,
         "pinned", Some("rollerX"), loads_full);
     let results_full = linear::solve_2d(&input_full).unwrap();
 
     let delta_full = results_full.displacements.iter()
-        .find(|d| d.node_id == mid_node).unwrap().uy.abs();
+        .find(|d| d.node_id == mid_node).unwrap().uz.abs();
 
     // Analytical midspan deflection: delta = P*L^3 / (48*E*I)
     let delta_analytical: f64 = p_load * l.powi(3) / (48.0 * e_eff * iz_full);
@@ -205,7 +205,7 @@ fn validation_frac_ext_edge_crack_sif_geometry_correction() {
     let p_tip: f64 = 500.0;
 
     let loads = vec![SolverLoad::Nodal(SolverNodalLoad {
-        node_id: tip_node, fx: 0.0, fy: -p_tip, mz: 0.0,
+        node_id: tip_node, fx: 0.0, fz: -p_tip, my: 0.0,
     })];
     let input = make_beam(n_elem, l_beam, e_mpa, a_section, iz_section,
         "fixed", None, loads);
@@ -215,7 +215,7 @@ fn validation_frac_ext_edge_crack_sif_geometry_correction() {
     let e_eff: f64 = e_mpa * 1000.0;
     let delta_expected: f64 = p_tip * l_beam.powi(3) / (3.0 * e_eff * iz_section);
     let delta_actual = results.displacements.iter()
-        .find(|d| d.node_id == tip_node).unwrap().uy.abs();
+        .find(|d| d.node_id == tip_node).unwrap().uz.abs();
     assert_close(delta_actual, delta_expected, 0.02,
         "Edge crack: cantilever beam deflection");
 }
@@ -411,13 +411,13 @@ fn validation_frac_ext_critical_crack_length() {
     let a_full: f64 = b_thick * depth_full;
 
     let loads_test = vec![SolverLoad::Nodal(SolverNodalLoad {
-        node_id: mid_node, fx: 0.0, fy: -p_test, mz: 0.0,
+        node_id: mid_node, fx: 0.0, fz: -p_test, my: 0.0,
     })];
     let input_full = make_beam(n_elem, l_beam, e_mpa, a_full, iz_full,
         "pinned", Some("rollerX"), loads_test);
     let res_full = linear::solve_2d(&input_full).unwrap();
     let delta_full = res_full.displacements.iter()
-        .find(|d| d.node_id == mid_node).unwrap().uy.abs();
+        .find(|d| d.node_id == mid_node).unwrap().uz.abs();
 
     // Expected: delta = P*L^3/(48*E*I)
     let delta_full_expected: f64 = p_test * l_beam.powi(3) / (48.0 * e_eff * iz_full);
@@ -512,14 +512,14 @@ fn validation_frac_ext_j_integral_path_independence() {
     let mid_node = n_elem / 2 + 1;
 
     let loads = vec![SolverLoad::Nodal(SolverNodalLoad {
-        node_id: mid_node, fx: 0.0, fy: -p_load, mz: 0.0,
+        node_id: mid_node, fx: 0.0, fz: -p_load, my: 0.0,
     })];
     let input = make_beam(n_elem, l_beam, e_mpa, a_sect, iz_sect,
         "pinned", Some("rollerX"), loads);
     let results = linear::solve_2d(&input).unwrap();
 
     let delta = results.displacements.iter()
-        .find(|d| d.node_id == mid_node).unwrap().uy.abs();
+        .find(|d| d.node_id == mid_node).unwrap().uz.abs();
     let u_external: f64 = 0.5 * p_load * delta;
     let u_bending: f64 = p_load * p_load * l_beam.powi(3) / (96.0 * e_eff * iz_sect);
 
@@ -728,20 +728,20 @@ fn validation_frac_ext_mixed_mode_keff() {
     let p_shear: f64 = 200.0;
 
     let loads = vec![SolverLoad::Nodal(SolverNodalLoad {
-        node_id: mid_node, fx: 0.0, fy: -p_shear, mz: 0.0,
+        node_id: mid_node, fx: 0.0, fz: -p_shear, my: 0.0,
     })];
     let input = make_beam(n_elem, l_beam, e_mpa, a_sect, iz_sect,
         "pinned", Some("rollerX"), loads);
     let results = linear::solve_2d(&input).unwrap();
 
     // Verify equilibrium: sum of reactions = applied load
-    let sum_ry: f64 = results.reactions.iter().map(|r| r.ry).sum();
+    let sum_ry: f64 = results.reactions.iter().map(|r| r.rz).sum();
     assert_close(sum_ry, p_shear, 0.01,
         "Mixed mode: beam equilibrium check");
 
     // Verify midspan deflection: delta = P*L^3/(48*E*I)
     let delta_mid = results.displacements.iter()
-        .find(|d| d.node_id == mid_node).unwrap().uy.abs();
+        .find(|d| d.node_id == mid_node).unwrap().uz.abs();
     let delta_expected: f64 = p_shear * l_beam.powi(3) / (48.0 * e_eff * iz_sect);
     assert_close(delta_mid, delta_expected, 0.02,
         "Mixed mode: beam deflection verification");
@@ -903,7 +903,7 @@ fn validation_frac_ext_bs7910_fad_level2() {
     let p_needed: f64 = sigma_app * 4.0 * iz_sect / (l_beam * c_dist);
 
     let loads = vec![SolverLoad::Nodal(SolverNodalLoad {
-        node_id: mid_node, fx: 0.0, fy: -p_needed, mz: 0.0,
+        node_id: mid_node, fx: 0.0, fz: -p_needed, my: 0.0,
     })];
     let input = make_beam(n_elem, l_beam, e_mpa, a_sect, iz_sect,
         "pinned", Some("rollerX"), loads);
@@ -911,13 +911,13 @@ fn validation_frac_ext_bs7910_fad_level2() {
 
     // Verify midspan deflection
     let delta = results.displacements.iter()
-        .find(|d| d.node_id == mid_node).unwrap().uy.abs();
+        .find(|d| d.node_id == mid_node).unwrap().uz.abs();
     let delta_expected: f64 = p_needed * l_beam.powi(3) / (48.0 * e_eff * iz_sect);
     assert_close(delta, delta_expected, 0.02,
         "FAD Level 2: beam deflection verification");
 
     // Verify reactions
-    let sum_ry: f64 = results.reactions.iter().map(|r| r.ry).sum();
+    let sum_ry: f64 = results.reactions.iter().map(|r| r.rz).sum();
     assert_close(sum_ry, p_needed, 0.01,
         "FAD Level 2: vertical equilibrium");
 }

@@ -53,7 +53,7 @@ fn validation_braced_x_brace_stiffness() {
     ];
     let sups = vec![(1, 1_usize, "fixed"), (2, 4, "fixed")];
     let loads = vec![SolverLoad::Nodal(SolverNodalLoad {
-        node_id: 2, fx: p, fy: 0.0, mz: 0.0,
+        node_id: 2, fx: p, fz: 0.0, my: 0.0,
     })];
 
     let input_braced = make_input(nodes, vec![(1, E, 0.3)],
@@ -93,7 +93,7 @@ fn validation_braced_single_diagonal() {
     ];
     let sups = vec![(1, 1_usize, "pinned"), (2, 4, "pinned")];
     let loads = vec![SolverLoad::Nodal(SolverNodalLoad {
-        node_id: 2, fx: p, fy: 0.0, mz: 0.0,
+        node_id: 2, fx: p, fz: 0.0, my: 0.0,
     })];
 
     let input = make_input(nodes, vec![(1, E, 0.3)],
@@ -139,7 +139,7 @@ fn validation_braced_chevron() {
     ];
     let sups = vec![(1, 1_usize, "fixed"), (2, 5, "fixed")];
     let loads = vec![SolverLoad::Nodal(SolverNodalLoad {
-        node_id: 2, fx: p, fy: 0.0, mz: 0.0,
+        node_id: 2, fx: p, fz: 0.0, my: 0.0,
     })];
 
     let input = make_input(nodes, vec![(1, E, 0.3)],
@@ -184,7 +184,7 @@ fn validation_braced_stiffness_comparison() {
         }
         let sups = vec![(1, 1_usize, "fixed"), (2, 4, "fixed")];
         let loads = vec![SolverLoad::Nodal(SolverNodalLoad {
-            node_id: 2, fx: p, fy: 0.0, mz: 0.0,
+            node_id: 2, fx: p, fz: 0.0, my: 0.0,
         })];
         let input = make_input(nodes, vec![(1, E, 0.3)],
             vec![(1, A_FRAME, IZ), (2, A_BRACE, 0.0)], elems, sups, loads);
@@ -235,8 +235,8 @@ fn validation_braced_multistory_drift() {
     ];
     let sups = vec![(1, 1_usize, "fixed"), (2, 4, "fixed")];
     let loads = vec![
-        SolverLoad::Nodal(SolverNodalLoad { node_id: 2, fx: p, fy: 0.0, mz: 0.0 }),
-        SolverLoad::Nodal(SolverNodalLoad { node_id: 3, fx: p, fy: 0.0, mz: 0.0 }),
+        SolverLoad::Nodal(SolverNodalLoad { node_id: 2, fx: p, fz: 0.0, my: 0.0 }),
+        SolverLoad::Nodal(SolverNodalLoad { node_id: 3, fx: p, fz: 0.0, my: 0.0 }),
     ];
 
     let input = make_input(nodes, vec![(1, E, 0.3)],
@@ -279,7 +279,7 @@ fn validation_braced_brace_force() {
     ];
     let sups = vec![(1, 1_usize, "pinned"), (2, 4, "pinned")];
     let loads = vec![SolverLoad::Nodal(SolverNodalLoad {
-        node_id: 2, fx: p, fy: 0.0, mz: 0.0,
+        node_id: 2, fx: p, fz: 0.0, my: 0.0,
     })];
 
     let input = make_input(nodes, vec![(1, E, 0.3)],
@@ -328,9 +328,9 @@ fn validation_braced_equilibrium() {
     ];
     let sups = vec![(1, 1_usize, "fixed"), (2, 4, "fixed")];
     let loads = vec![
-        SolverLoad::Nodal(SolverNodalLoad { node_id: 2, fx: px, fy: 0.0, mz: 0.0 }),
-        SolverLoad::Nodal(SolverNodalLoad { node_id: 2, fx: 0.0, fy: py, mz: 0.0 }),
-        SolverLoad::Nodal(SolverNodalLoad { node_id: 3, fx: 0.0, fy: py, mz: 0.0 }),
+        SolverLoad::Nodal(SolverNodalLoad { node_id: 2, fx: px, fz: 0.0, my: 0.0 }),
+        SolverLoad::Nodal(SolverNodalLoad { node_id: 2, fx: 0.0, fz: py, my: 0.0 }),
+        SolverLoad::Nodal(SolverNodalLoad { node_id: 3, fx: 0.0, fz: py, my: 0.0 }),
     ];
 
     let input = make_input(nodes, vec![(1, E, 0.3)],
@@ -342,7 +342,7 @@ fn validation_braced_equilibrium() {
     assert_close(sum_rx, -px, 0.02, "Braced equilibrium: ΣRx = -Px");
 
     // ΣFy = 0
-    let sum_ry: f64 = results.reactions.iter().map(|r| r.ry).sum();
+    let sum_ry: f64 = results.reactions.iter().map(|r| r.rz).sum();
     assert_close(sum_ry, -2.0 * py, 0.02, "Braced equilibrium: ΣRy = -2Py");
 }
 
@@ -370,7 +370,7 @@ fn validation_braced_tension_compression() {
     ];
     let sups = vec![(1, 1_usize, "pinned"), (2, 4, "pinned")];
     let loads = vec![SolverLoad::Nodal(SolverNodalLoad {
-        node_id: 2, fx: p, fy: 0.0, mz: 0.0,
+        node_id: 2, fx: p, fz: 0.0, my: 0.0,
     })];
 
     let input = make_input(nodes, vec![(1, E, 0.3)],

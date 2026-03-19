@@ -47,8 +47,8 @@ fn validation_pdelta_amplification() {
     ];
     let sups = vec![(1, 1_usize, "fixed"), (2, 4, "fixed")];
     let loads = vec![
-        SolverLoad::Nodal(SolverNodalLoad { node_id: 2, fx: p_lateral, fy: p_gravity, mz: 0.0 }),
-        SolverLoad::Nodal(SolverNodalLoad { node_id: 3, fx: 0.0, fy: p_gravity, mz: 0.0 }),
+        SolverLoad::Nodal(SolverNodalLoad { node_id: 2, fx: p_lateral, fz: p_gravity, my: 0.0 }),
+        SolverLoad::Nodal(SolverNodalLoad { node_id: 3, fx: 0.0, fz: p_gravity, my: 0.0 }),
     ];
 
     let input = make_input(nodes, vec![(1, E, 0.3)], vec![(1, A, IZ)], elems, sups, loads);
@@ -91,15 +91,15 @@ fn validation_pdelta_cantilever_moment() {
     let input = make_beam(n, l, E, A, IZ, "fixed", None,
         vec![
             SolverLoad::Nodal(SolverNodalLoad {
-                node_id: n + 1, fx: p_axial, fy: -h_force, mz: 0.0,
+                node_id: n + 1, fx: p_axial, fz: -h_force, my: 0.0,
             }),
         ]);
 
     let res_linear = linear::solve_2d(&input).unwrap();
     let res_pdelta = pdelta::solve_pdelta_2d(&input, 20, 1e-6).unwrap();
 
-    let m_linear = res_linear.reactions.iter().find(|r| r.node_id == 1).unwrap().mz.abs();
-    let m_pdelta = res_pdelta.results.reactions.iter().find(|r| r.node_id == 1).unwrap().mz.abs();
+    let m_linear = res_linear.reactions.iter().find(|r| r.node_id == 1).unwrap().my.abs();
+    let m_pdelta = res_pdelta.results.reactions.iter().find(|r| r.node_id == 1).unwrap().my.abs();
 
     // P-delta moment should be larger
     assert!(m_pdelta > m_linear,
@@ -127,13 +127,13 @@ fn validation_pdelta_stiffness_effect() {
         // Horizontal beam: axial compression (fx<0) + lateral load (fy)
         let input = make_beam(n, l, E, A, iz, "fixed", None,
             vec![SolverLoad::Nodal(SolverNodalLoad {
-                node_id: n + 1, fx: p_axial, fy: -h_force, mz: 0.0,
+                node_id: n + 1, fx: p_axial, fz: -h_force, my: 0.0,
             })]);
 
         let d_linear = linear::solve_2d(&input).unwrap()
-            .displacements.iter().find(|d| d.node_id == n + 1).unwrap().uy.abs();
+            .displacements.iter().find(|d| d.node_id == n + 1).unwrap().uz.abs();
         let d_pdelta = pdelta::solve_pdelta_2d(&input, 20, 1e-6).unwrap()
-            .results.displacements.iter().find(|d| d.node_id == n + 1).unwrap().uy.abs();
+            .results.displacements.iter().find(|d| d.node_id == n + 1).unwrap().uz.abs();
         d_pdelta / d_linear
     };
 
@@ -159,7 +159,7 @@ fn validation_pdelta_no_gravity() {
 
     let input = make_beam(n, l, E, A, IZ, "fixed", None,
         vec![SolverLoad::Nodal(SolverNodalLoad {
-            node_id: n + 1, fx: h_force, fy: 0.0, mz: 0.0,
+            node_id: n + 1, fx: h_force, fz: 0.0, my: 0.0,
         })]);
 
     let res_linear = linear::solve_2d(&input).unwrap();
@@ -195,8 +195,8 @@ fn validation_pdelta_gravity_effect() {
         ];
         let sups = vec![(1, 1_usize, "fixed"), (2, 4, "fixed")];
         let loads = vec![
-            SolverLoad::Nodal(SolverNodalLoad { node_id: 2, fx: p_lateral, fy: gravity, mz: 0.0 }),
-            SolverLoad::Nodal(SolverNodalLoad { node_id: 3, fx: 0.0, fy: gravity, mz: 0.0 }),
+            SolverLoad::Nodal(SolverNodalLoad { node_id: 2, fx: p_lateral, fz: gravity, my: 0.0 }),
+            SolverLoad::Nodal(SolverNodalLoad { node_id: 3, fx: 0.0, fz: gravity, my: 0.0 }),
         ];
         let input = make_input(nodes, vec![(1, E, 0.3)], vec![(1, A, IZ)], elems, sups, loads);
         pdelta::solve_pdelta_2d(&input, 20, 1e-6).unwrap()
@@ -231,8 +231,8 @@ fn validation_pdelta_equilibrium() {
     ];
     let sups = vec![(1, 1_usize, "fixed"), (2, 4, "fixed")];
     let loads = vec![
-        SolverLoad::Nodal(SolverNodalLoad { node_id: 2, fx: px, fy: py, mz: 0.0 }),
-        SolverLoad::Nodal(SolverNodalLoad { node_id: 3, fx: 0.0, fy: py, mz: 0.0 }),
+        SolverLoad::Nodal(SolverNodalLoad { node_id: 2, fx: px, fz: py, my: 0.0 }),
+        SolverLoad::Nodal(SolverNodalLoad { node_id: 3, fx: 0.0, fz: py, my: 0.0 }),
     ];
 
     let input = make_input(nodes, vec![(1, E, 0.3)], vec![(1, A, IZ)], elems, sups, loads);
@@ -243,7 +243,7 @@ fn validation_pdelta_equilibrium() {
     assert_close(sum_rx, -px, 0.02, "P-delta: ΣRx = -Px");
 
     // ΣRy = -2Py
-    let sum_ry: f64 = results.results.reactions.iter().map(|r| r.ry).sum();
+    let sum_ry: f64 = results.results.reactions.iter().map(|r| r.rz).sum();
     assert_close(sum_ry, -2.0 * py, 0.02, "P-delta: ΣRy = total gravity");
 }
 
@@ -269,8 +269,8 @@ fn validation_pdelta_portal_moment_amplification() {
     ];
     let sups = vec![(1, 1_usize, "fixed"), (2, 4, "fixed")];
     let loads = vec![
-        SolverLoad::Nodal(SolverNodalLoad { node_id: 2, fx: px, fy: py, mz: 0.0 }),
-        SolverLoad::Nodal(SolverNodalLoad { node_id: 3, fx: 0.0, fy: py, mz: 0.0 }),
+        SolverLoad::Nodal(SolverNodalLoad { node_id: 2, fx: px, fz: py, my: 0.0 }),
+        SolverLoad::Nodal(SolverNodalLoad { node_id: 3, fx: 0.0, fz: py, my: 0.0 }),
     ];
 
     let input = make_input(nodes, vec![(1, E, 0.3)], vec![(1, A, IZ)], elems, sups, loads);
@@ -279,8 +279,8 @@ fn validation_pdelta_portal_moment_amplification() {
     let res_pdelta = pdelta::solve_pdelta_2d(&input, 20, 1e-6).unwrap();
 
     // Sum of absolute column base moments should be amplified
-    let m_linear: f64 = res_linear.reactions.iter().map(|r| r.mz.abs()).sum();
-    let m_pdelta: f64 = res_pdelta.results.reactions.iter().map(|r| r.mz.abs()).sum();
+    let m_linear: f64 = res_linear.reactions.iter().map(|r| r.my.abs()).sum();
+    let m_pdelta: f64 = res_pdelta.results.reactions.iter().map(|r| r.my.abs()).sum();
 
     assert!(m_pdelta > m_linear,
         "P-delta amplifies column moments: {:.4} > {:.4}", m_pdelta, m_linear);
@@ -313,10 +313,10 @@ fn validation_pdelta_two_story_drift() {
     ];
     let sups = vec![(1, 1_usize, "fixed"), (2, 4, "fixed")];
     let loads = vec![
-        SolverLoad::Nodal(SolverNodalLoad { node_id: 2, fx: px, fy: py, mz: 0.0 }),
-        SolverLoad::Nodal(SolverNodalLoad { node_id: 5, fx: px, fy: py, mz: 0.0 }),
-        SolverLoad::Nodal(SolverNodalLoad { node_id: 3, fx: px, fy: py, mz: 0.0 }),
-        SolverLoad::Nodal(SolverNodalLoad { node_id: 6, fx: px, fy: py, mz: 0.0 }),
+        SolverLoad::Nodal(SolverNodalLoad { node_id: 2, fx: px, fz: py, my: 0.0 }),
+        SolverLoad::Nodal(SolverNodalLoad { node_id: 5, fx: px, fz: py, my: 0.0 }),
+        SolverLoad::Nodal(SolverNodalLoad { node_id: 3, fx: px, fz: py, my: 0.0 }),
+        SolverLoad::Nodal(SolverNodalLoad { node_id: 6, fx: px, fz: py, my: 0.0 }),
     ];
 
     let input = make_input(nodes, vec![(1, E, 0.3)], vec![(1, A, IZ)], elems, sups, loads);

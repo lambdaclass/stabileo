@@ -36,8 +36,8 @@ fn validation_staad_v1_cantilever_end_load() {
         vec![SolverLoad::Nodal(SolverNodalLoad {
             node_id: n + 1,
             fx: 0.0,
-            fy: -p,
-            mz: 0.0,
+            fz: -p,
+            my: 0.0,
         })],
     );
 
@@ -46,16 +46,16 @@ fn validation_staad_v1_cantilever_end_load() {
     // Tip deflection: delta = PL^3 / (3EI)
     let delta_expected = p * l.powi(3) / (3.0 * E_EFF * IZ);
     let tip = results.displacements.iter().find(|d| d.node_id == n + 1).unwrap();
-    assert_close(tip.uy.abs(), delta_expected, 0.01, "V1 tip deflection PL³/3EI");
+    assert_close(tip.uz.abs(), delta_expected, 0.01, "V1 tip deflection PL³/3EI");
 
     // Tip rotation: theta = PL^2 / (2EI)
     let theta_expected = p * l.powi(2) / (2.0 * E_EFF * IZ);
-    assert_close(tip.rz.abs(), theta_expected, 0.01, "V1 tip rotation PL²/2EI");
+    assert_close(tip.ry.abs(), theta_expected, 0.01, "V1 tip rotation PL²/2EI");
 
     // Base reactions: shear = P, moment = P*L
     let r_base = results.reactions.iter().find(|r| r.node_id == 1).unwrap();
-    assert_close(r_base.ry, p, 0.01, "V1 base shear = P");
-    assert_close(r_base.mz.abs(), p * l, 0.01, "V1 base moment = PL");
+    assert_close(r_base.rz, p, 0.01, "V1 base shear = P");
+    assert_close(r_base.my.abs(), p * l, 0.01, "V1 base moment = PL");
 }
 
 // ═══════════════════════════════════════════════════════════════
@@ -80,7 +80,7 @@ fn validation_staad_v2_ss_beam_udl() {
     let delta_expected = 5.0 * w * l.powi(4) / (384.0 * E_EFF * IZ);
     let mid_node = n / 2 + 1;
     let d_mid = results.displacements.iter().find(|d| d.node_id == mid_node).unwrap();
-    assert_close(d_mid.uy.abs(), delta_expected, 0.01, "V2 midspan deflection 5wL⁴/384EI");
+    assert_close(d_mid.uz.abs(), delta_expected, 0.01, "V2 midspan deflection 5wL⁴/384EI");
 
     // Maximum moment: wL^2 / 8
     let m_expected = w * l * l / 8.0;
@@ -92,8 +92,8 @@ fn validation_staad_v2_ss_beam_udl() {
     // End reactions: wL / 2 each
     let r_left = results.reactions.iter().find(|r| r.node_id == 1).unwrap();
     let r_right = results.reactions.iter().find(|r| r.node_id == n + 1).unwrap();
-    assert_close(r_left.ry, w * l / 2.0, 0.01, "V2 R_left = wL/2");
-    assert_close(r_right.ry, w * l / 2.0, 0.01, "V2 R_right = wL/2");
+    assert_close(r_left.rz, w * l / 2.0, 0.01, "V2 R_left = wL/2");
+    assert_close(r_right.rz, w * l / 2.0, 0.01, "V2 R_right = wL/2");
 }
 
 // ═══════════════════════════════════════════════════════════════
@@ -131,24 +131,24 @@ fn validation_staad_v3_continuous_beam_two_spans() {
 
     // Total load = w * 2L = 320 kN
     let total_load = w * 2.0 * l_span;
-    let sum_ry: f64 = results.reactions.iter().map(|r| r.ry).sum();
+    let sum_ry: f64 = results.reactions.iter().map(|r| r.rz).sum();
     assert_close(sum_ry, total_load, 0.01, "V3 total equilibrium");
 
     // Outer reactions: R_outer = 3wL/8 = 3*20*8/8 = 60 kN each
     let r_outer_expected = 3.0 * w * l_span / 8.0;
     let r1 = results.reactions.iter().find(|r| r.node_id == 1).unwrap();
     let r_end = results.reactions.iter().find(|r| r.node_id == n_total + 1).unwrap();
-    assert_close(r1.ry, r_outer_expected, 0.02, "V3 R_left = 3wL/8");
-    assert_close(r_end.ry, r_outer_expected, 0.02, "V3 R_right = 3wL/8");
+    assert_close(r1.rz, r_outer_expected, 0.02, "V3 R_left = 3wL/8");
+    assert_close(r_end.rz, r_outer_expected, 0.02, "V3 R_right = 3wL/8");
 
     // Center reaction: R_center = 10wL/8 = 200 kN
     let r_center_expected = 10.0 * w * l_span / 8.0;
     let center_node = n_per + 1;
     let r_center = results.reactions.iter().find(|r| r.node_id == center_node).unwrap();
-    assert_close(r_center.ry, r_center_expected, 0.02, "V3 R_center = 10wL/8");
+    assert_close(r_center.rz, r_center_expected, 0.02, "V3 R_center = 10wL/8");
 
     // Symmetry: outer reactions should be equal
-    assert_close(r1.ry, r_end.ry, 0.01, "V3 symmetry R_left = R_right");
+    assert_close(r1.rz, r_end.rz, 0.01, "V3 symmetry R_left = R_right");
 }
 
 // ═══════════════════════════════════════════════════════════════
@@ -195,7 +195,7 @@ fn validation_staad_v4_plane_truss() {
 
     let sups = vec![(1, 1, "pinned"), (2, 5, "rollerX")];
     let loads = vec![SolverLoad::Nodal(SolverNodalLoad {
-        node_id: 3, fx: 0.0, fy: -p, mz: 0.0,
+        node_id: 3, fx: 0.0, fz: -p, my: 0.0,
     })];
 
     let input = make_input(
@@ -208,8 +208,8 @@ fn validation_staad_v4_plane_truss() {
     // Reactions: R1_y = R5_y = P/2 = 50 kN (symmetric)
     let r1 = results.reactions.iter().find(|r| r.node_id == 1).unwrap();
     let r5 = results.reactions.iter().find(|r| r.node_id == 5).unwrap();
-    assert_close(r1.ry, p / 2.0, 0.01, "V4 R_left = P/2");
-    assert_close(r5.ry, p / 2.0, 0.01, "V4 R_right = P/2");
+    assert_close(r1.rz, p / 2.0, 0.01, "V4 R_left = P/2");
+    assert_close(r5.rz, p / 2.0, 0.01, "V4 R_right = P/2");
 
     // Top chord force by method of sections:
     // Cut through panel 2-3 bottom, 7 top, diagonal 6-3.
@@ -221,7 +221,7 @@ fn validation_staad_v4_plane_truss() {
     assert_close(ef_top.n_start.abs(), f_top_expected, 0.02, "V4 top chord force = 100 kN");
 
     // Equilibrium: sum of vertical reactions = applied load
-    let sum_ry: f64 = results.reactions.iter().map(|r| r.ry).sum();
+    let sum_ry: f64 = results.reactions.iter().map(|r| r.rz).sum();
     assert_close(sum_ry, p, 0.01, "V4 vertical equilibrium");
 
     // The vertical member at midspan (elem 8: node 3 to 7) should carry zero
@@ -434,8 +434,8 @@ fn validation_staad_v6_portal_frame_sway() {
     let loads = vec![SolverLoad::Nodal(SolverNodalLoad {
         node_id: left_top,
         fx: h_load,
-        fy: 0.0,
-        mz: 0.0,
+        fz: 0.0,
+        my: 0.0,
     })];
 
     let input = make_input(
@@ -454,7 +454,7 @@ fn validation_staad_v6_portal_frame_sway() {
     assert_close(sum_rx.abs(), h_load, 0.01, "V6 horizontal equilibrium");
 
     // Anti-symmetric: sum of vertical reactions = 0 (no vertical load)
-    let sum_ry: f64 = results.reactions.iter().map(|r| r.ry).sum();
+    let sum_ry: f64 = results.reactions.iter().map(|r| r.rz).sum();
     assert!(sum_ry.abs() < 0.01, "V6 vertical equilibrium: sum_ry={:.6} should be ~0", sum_ry);
 
     // Column base moments: by slope-deflection
@@ -467,8 +467,8 @@ fn validation_staad_v6_portal_frame_sway() {
     // Moment check: both base moments should be nonzero (fixed supports).
     // For a fixed-base portal with lateral load, the base moments have
     // the same sign (both resisting the overturning).
-    assert!(r1.mz.abs() > 1.0, "V6 left base moment should be nonzero");
-    assert!(r_rb.mz.abs() > 1.0, "V6 right base moment should be nonzero");
+    assert!(r1.my.abs() > 1.0, "V6 left base moment should be nonzero");
+    assert!(r_rb.my.abs() > 1.0, "V6 right base moment should be nonzero");
 
     // Column base moment analytical: for fixed-base portal with equal I,
     // M_base = H*h/2 * (3+k)/(2*(6+k)) ... but this depends on which column.
@@ -555,16 +555,16 @@ fn validation_staad_v7_gerber_beam_hinge() {
     // R_C = w*L2/2 = 15*4/2 = 30 kN
     let r_c_expected = w * l2 / 2.0;
     let r_c = results.reactions.iter().find(|r| r.node_id == end_node).unwrap();
-    assert_close(r_c.ry, r_c_expected, 0.02, "V7 R_C = wL2/2");
+    assert_close(r_c.rz, r_c_expected, 0.02, "V7 R_C = wL2/2");
 
     // Vertical equilibrium: R_A + R_C = w*(L1+L2)
     let total_load = w * (l1 + l2);
     let r_a = results.reactions.iter().find(|r| r.node_id == 1).unwrap();
-    assert_close(r_a.ry + r_c.ry, total_load, 0.01, "V7 vertical equilibrium");
+    assert_close(r_a.rz + r_c.rz, total_load, 0.01, "V7 vertical equilibrium");
 
     // R_A = total_load - R_C = 150 - 30 = 120 kN
     let r_a_expected = total_load - r_c_expected;
-    assert_close(r_a.ry, r_a_expected, 0.02, "V7 R_A");
+    assert_close(r_a.rz, r_a_expected, 0.02, "V7 R_A");
 
     // Moment at hinge should be zero:
     // Check the element forces at the hinge. The last element of span AB
@@ -600,7 +600,7 @@ fn validation_staad_v7_gerber_beam_hinge() {
     let m_a_expected = r_a_expected * l1 - w * l1 * l1 / 2.0;
     // The solver reports base moment as reaction; it should be the negative of the
     // internal moment convention. Check magnitude.
-    assert_close(r_a.mz.abs(), m_a_expected.abs(), 0.02, "V7 M_A base moment");
+    assert_close(r_a.my.abs(), m_a_expected.abs(), 0.02, "V7 M_A base moment");
 }
 
 // ═══════════════════════════════════════════════════════════════
@@ -635,7 +635,7 @@ fn validation_staad_v8_beam_spring_support() {
     for i in 0..n_nodes {
         nodes_map.insert(
             (i + 1).to_string(),
-            SolverNode { id: i + 1, x: i as f64 * elem_len, y: 0.0 },
+            SolverNode { id: i + 1, x: i as f64 * elem_len, z: 0.0 },
         );
     }
 
@@ -667,19 +667,19 @@ fn validation_staad_v8_beam_spring_support() {
     sups_map.insert("1".to_string(), SolverSupport {
         id: 1, node_id: 1, support_type: "pinned".to_string(),
         kx: None, ky: None, kz: None,
-        dx: None, dy: None, drz: None, angle: None,
+        dx: None, dz: None, dry: None, angle: None,
     });
     // Roller at right end
     sups_map.insert("2".to_string(), SolverSupport {
         id: 2, node_id: n_nodes, support_type: "rollerX".to_string(),
         kx: None, ky: None, kz: None,
-        dx: None, dy: None, drz: None, angle: None,
+        dx: None, dz: None, dry: None, angle: None,
     });
     // Vertical spring at midspan
     sups_map.insert("3".to_string(), SolverSupport {
         id: 3, node_id: mid_node, support_type: "spring".to_string(),
         kx: None, ky: Some(k_spring), kz: None,
-        dx: None, dy: None, drz: None, angle: None,
+        dx: None, dz: None, dry: None, angle: None,
     });
 
     // UDL on all elements
@@ -714,24 +714,24 @@ fn validation_staad_v8_beam_spring_support() {
     let r_spring_expected = delta_0 / (1.0 / k_spring + flex_mid);
 
     let r_spring = results.reactions.iter().find(|r| r.node_id == mid_node).unwrap();
-    assert_close(r_spring.ry.abs(), r_spring_expected, 0.02, "V8 spring reaction");
+    assert_close(r_spring.rz.abs(), r_spring_expected, 0.02, "V8 spring reaction");
 
     // Total vertical equilibrium: R_left + R_right + R_spring = wL
     let total_load = w * l;
-    let sum_ry: f64 = results.reactions.iter().map(|r| r.ry).sum();
+    let sum_ry: f64 = results.reactions.iter().map(|r| r.rz).sum();
     assert_close(sum_ry, total_load, 0.01, "V8 vertical equilibrium");
 
     // Spring deflection should satisfy R = k * delta
     let d_mid = results.displacements.iter().find(|d| d.node_id == mid_node).unwrap();
-    let spring_force_from_k = k_spring * d_mid.uy.abs();
-    assert_close(r_spring.ry.abs(), spring_force_from_k, 0.02, "V8 R_spring = k * delta");
+    let spring_force_from_k = k_spring * d_mid.uz.abs();
+    assert_close(r_spring.rz.abs(), spring_force_from_k, 0.02, "V8 R_spring = k * delta");
 
     // End reactions: by symmetry they should be equal
     let r_left = results.reactions.iter().find(|r| r.node_id == 1).unwrap();
     let r_right = results.reactions.iter().find(|r| r.node_id == n_nodes).unwrap();
-    assert_close(r_left.ry, r_right.ry, 0.01, "V8 symmetry R_left = R_right");
+    assert_close(r_left.rz, r_right.rz, 0.01, "V8 symmetry R_left = R_right");
 
     // Each end reaction = (wL - R_spring) / 2
     let r_end_expected = (total_load - r_spring_expected) / 2.0;
-    assert_close(r_left.ry, r_end_expected, 0.02, "V8 end reaction");
+    assert_close(r_left.rz, r_end_expected, 0.02, "V8 end reaction");
 }

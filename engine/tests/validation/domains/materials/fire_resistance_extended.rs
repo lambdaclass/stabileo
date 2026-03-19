@@ -67,7 +67,7 @@ fn validation_fire_ext_1_steel_beam_elevated_temperature() {
 
     // Deflection should scale inversely with E
     // delta_fire / delta_ambient = E_ambient / E_fire = 1/kE
-    let deflection_ratio = d_fire.uy.abs() / d_ambient.uy.abs();
+    let deflection_ratio = d_fire.uz.abs() / d_ambient.uz.abs();
     let expected_ratio = 1.0 / ke_400;
 
     assert_close(deflection_ratio, expected_ratio, 0.05,
@@ -76,7 +76,7 @@ fn validation_fire_ext_1_steel_beam_elevated_temperature() {
     // Analytical midspan deflection: 5qL^4/(384EI)
     let e_eff_ambient = e_ambient * 1000.0; // kN/m^2
     let expected_delta_ambient = 5.0 * q.abs() * l.powi(4) / (384.0 * e_eff_ambient * iz);
-    assert_close(d_ambient.uy.abs(), expected_delta_ambient, 0.05,
+    assert_close(d_ambient.uz.abs(), expected_delta_ambient, 0.05,
         "Ambient midspan deflection");
 
     // Euler buckling load comparison (fixed-fixed column analog):
@@ -136,7 +136,7 @@ fn validation_fire_ext_2_thermal_gradient_restrained_vs_free() {
         .find(|d| d.node_id == mid_node).unwrap();
     let expected_delta_ss = ALPHA * dt_gradient * l * l / (8.0 * h_sec);
 
-    assert_close(d_mid_ss.uy.abs(), expected_delta_ss, 0.10,
+    assert_close(d_mid_ss.uz.abs(), expected_delta_ss, 0.10,
         "SS beam thermal gradient midspan deflection");
 
     // Moments should be near zero (statically determinate, free curvature)
@@ -162,14 +162,14 @@ fn validation_fire_ext_2_thermal_gradient_restrained_vs_free() {
     let expected_m = e_eff * iz * ALPHA * dt_gradient / h_sec;
 
     let r_start = results_ff.reactions.iter().find(|r| r.node_id == 1).unwrap();
-    assert_close(r_start.mz.abs(), expected_m, 0.10,
+    assert_close(r_start.my.abs(), expected_m, 0.10,
         "FF beam thermal gradient end moment");
 
     // Fixed-fixed beam should have near-zero midspan deflection
     let d_mid_ff = results_ff.displacements.iter()
         .find(|d| d.node_id == mid_node).unwrap();
-    assert!(d_mid_ff.uy.abs() < expected_delta_ss * 0.05,
-        "FF beam: midspan deflection should be ~0, got {:.6e}", d_mid_ff.uy);
+    assert!(d_mid_ff.uz.abs() < expected_delta_ss * 0.05,
+        "FF beam: midspan deflection should be ~0, got {:.6e}", d_mid_ff.uz);
 
     // The moment in the restrained case should be significant
     assert!(expected_m > 10.0,
@@ -230,7 +230,7 @@ fn validation_fire_ext_3_fire_compartment_frame() {
 
     // Global equilibrium: sum of reactions = 0 (thermal is self-equilibrating)
     let sum_rx: f64 = results.reactions.iter().map(|r| r.rx).sum();
-    let sum_ry: f64 = results.reactions.iter().map(|r| r.ry).sum();
+    let sum_ry: f64 = results.reactions.iter().map(|r| r.rz).sum();
     assert!(sum_rx.abs() < 1.0,
         "Fire frame: ΣRx should be ~0, got {:.4}", sum_rx);
     assert!(sum_ry.abs() < 1.0,
@@ -299,8 +299,8 @@ fn validation_fire_ext_4_steel_strength_reduction_en1993() {
         let loads = vec![SolverLoad::Nodal(SolverNodalLoad {
             node_id: n / 2 + 1,
             fx: 0.0,
-            fy: p,
-            mz: 0.0,
+            fz: p,
+            my: 0.0,
         })];
         make_beam(n, l, e_val, a, iz, "pinned", Some("rollerX"), loads)
     };
@@ -312,11 +312,11 @@ fn validation_fire_ext_4_steel_strength_reduction_en1993() {
     let mid_node = n / 2 + 1;
 
     let delta_ambient = results_ambient.displacements.iter()
-        .find(|d| d.node_id == mid_node).unwrap().uy.abs();
+        .find(|d| d.node_id == mid_node).unwrap().uz.abs();
     let delta_400 = results_400.displacements.iter()
-        .find(|d| d.node_id == mid_node).unwrap().uy.abs();
+        .find(|d| d.node_id == mid_node).unwrap().uz.abs();
     let delta_600 = results_600.displacements.iter()
-        .find(|d| d.node_id == mid_node).unwrap().uy.abs();
+        .find(|d| d.node_id == mid_node).unwrap().uz.abs();
 
     // Deflection scales as 1/kE
     assert_close(delta_400 / delta_ambient, 1.0 / ke_400, 0.02,
@@ -326,11 +326,11 @@ fn validation_fire_ext_4_steel_strength_reduction_en1993() {
 
     // Reactions should be unchanged (statically determinate)
     let r_ambient = results_ambient.reactions.iter()
-        .find(|r| r.node_id == 1).unwrap().ry;
+        .find(|r| r.node_id == 1).unwrap().rz;
     let r_400 = results_400.reactions.iter()
-        .find(|r| r.node_id == 1).unwrap().ry;
+        .find(|r| r.node_id == 1).unwrap().rz;
     let r_600 = results_600.reactions.iter()
-        .find(|r| r.node_id == 1).unwrap().ry;
+        .find(|r| r.node_id == 1).unwrap().rz;
 
     assert_close(r_400, r_ambient, 0.001,
         "400 degC: reactions unchanged for determinate beam");
@@ -413,7 +413,7 @@ fn validation_fire_ext_5_critical_temperature_calculation() {
 
         let mid_node = n / 2 + 1;
         let delta = results.displacements.iter()
-            .find(|d| d.node_id == mid_node).unwrap().uy.abs();
+            .find(|d| d.node_id == mid_node).unwrap().uz.abs();
 
         // Deflection must increase monotonically with temperature
         if theta > 20.0 {
@@ -443,9 +443,9 @@ fn validation_fire_ext_5_critical_temperature_calculation() {
     let input_300 = make_ss_beam_udl(n, l, e_300, a, iz, q);
     let input_600 = make_ss_beam_udl(n, l, e_600, a, iz, q);
     let d_300 = linear::solve_2d(&input_300).unwrap().displacements.iter()
-        .find(|d| d.node_id == n / 2 + 1).unwrap().uy.abs();
+        .find(|d| d.node_id == n / 2 + 1).unwrap().uz.abs();
     let d_600 = linear::solve_2d(&input_600).unwrap().displacements.iter()
-        .find(|d| d.node_id == n / 2 + 1).unwrap().uy.abs();
+        .find(|d| d.node_id == n / 2 + 1).unwrap().uz.abs();
 
     let ratio = d_600 / d_300;
     let expected_ratio = 0.800 / 0.310;
@@ -500,7 +500,7 @@ fn validation_fire_ext_6_fire_one_side_bowing() {
     let d_mid_free = results_free.displacements.iter()
         .find(|d| d.node_id == mid_node).unwrap();
 
-    assert_close(d_mid_free.uy.abs(), expected_bow, 0.10,
+    assert_close(d_mid_free.uz.abs(), expected_bow, 0.10,
         "Free column bow at midheight");
 
     // No moments in determinate structure
@@ -526,14 +526,14 @@ fn validation_fire_ext_6_fire_one_side_bowing() {
     let expected_m = e_eff * iz * ALPHA * dt_gradient / h_sec;
 
     let r1 = results_fixed.reactions.iter().find(|r| r.node_id == 1).unwrap();
-    assert_close(r1.mz.abs(), expected_m, 0.10,
+    assert_close(r1.my.abs(), expected_m, 0.10,
         "Restrained column end moment from gradient");
 
     // No midspan deflection in fixed-fixed
     let d_mid_fixed = results_fixed.displacements.iter()
         .find(|d| d.node_id == mid_node).unwrap();
-    assert!(d_mid_fixed.uy.abs() < expected_bow * 0.05,
-        "Fixed column: no bowing, uy={:.6e}", d_mid_fixed.uy);
+    assert!(d_mid_fixed.uz.abs() < expected_bow * 0.05,
+        "Fixed column: no bowing, uy={:.6e}", d_mid_fixed.uz);
 
     // Bowing displacement is significant for fire design
     assert!(expected_bow > 0.001,
@@ -718,14 +718,14 @@ fn validation_fire_ext_8_superposition_thermal_mechanical() {
             .find(|d| d.node_id == d_comb.node_id).unwrap();
 
         let ux_sum = d_mech.ux + d_therm.ux;
-        let uy_sum = d_mech.uy + d_therm.uy;
-        let rz_sum = d_mech.rz + d_therm.rz;
+        let uy_sum = d_mech.uz + d_therm.uz;
+        let rz_sum = d_mech.ry + d_therm.ry;
 
         assert_close(d_comb.ux, ux_sum, 0.02,
             &format!("Superposition ux at node {}", d_comb.node_id));
-        assert_close(d_comb.uy, uy_sum, 0.02,
+        assert_close(d_comb.uz, uy_sum, 0.02,
             &format!("Superposition uy at node {}", d_comb.node_id));
-        assert_close(d_comb.rz, rz_sum, 0.02,
+        assert_close(d_comb.ry, rz_sum, 0.02,
             &format!("Superposition rz at node {}", d_comb.node_id));
     }
 
@@ -738,9 +738,9 @@ fn validation_fire_ext_8_superposition_thermal_mechanical() {
 
         assert_close(r_comb.rx, r_mech.rx + r_therm.rx, 0.02,
             &format!("Superposition Rx at node {}", r_comb.node_id));
-        assert_close(r_comb.ry, r_mech.ry + r_therm.ry, 0.02,
+        assert_close(r_comb.rz, r_mech.rz + r_therm.rz, 0.02,
             &format!("Superposition Ry at node {}", r_comb.node_id));
-        assert_close(r_comb.mz, r_mech.mz + r_therm.mz, 0.02,
+        assert_close(r_comb.my, r_mech.my + r_therm.my, 0.02,
             &format!("Superposition Mz at node {}", r_comb.node_id));
     }
 
@@ -771,6 +771,6 @@ fn validation_fire_ext_8_superposition_thermal_mechanical() {
     // Fixed-fixed beam under UDL: M_end = q*L^2/12
     let expected_m_end = q.abs() * l * l / 12.0;
     let r1_mech = results_mech.reactions.iter().find(|r| r.node_id == 1).unwrap();
-    assert_close(r1_mech.mz.abs(), expected_m_end, 0.10,
+    assert_close(r1_mech.my.abs(), expected_m_end, 0.10,
         "Mechanical-only end moment qL^2/12");
 }

@@ -93,7 +93,7 @@ pub fn solve_staged_2d(input: &StagedInput) -> Result<StagedAnalysisResults, Str
         for sup in stage_solver_input.supports.values() {
             if sup.support_type == "spring" { continue; }
             let prescribed: [(usize, Option<f64>); 3] = [
-                (0, sup.dx), (1, sup.dy), (2, sup.drz),
+                (0, sup.dx), (1, sup.dz), (2, sup.dry),
             ];
             for &(local_dof, val) in &prescribed {
                 if let Some(v) = val {
@@ -314,7 +314,7 @@ fn assemble_staged_2d(
         let sec = sec_by_id[&elem.section_id];
 
         let dx = node_j.x - node_i.x;
-        let dy = node_j.y - node_i.y;
+        let dy = node_j.z - node_i.z;
         let l = (dx * dx + dy * dy).sqrt();
         let cos = dx / l;
         let sin = dy / l;
@@ -370,11 +370,11 @@ fn assemble_staged_2d(
                 f_global[d] += nl.fx;
             }
             if let Some(&d) = dof_num.map.get(&(nl.node_id, 1)) {
-                f_global[d] += nl.fy;
+                f_global[d] += nl.fz;
             }
             if dof_num.dofs_per_node >= 3 {
                 if let Some(&d) = dof_num.map.get(&(nl.node_id, 2)) {
-                    f_global[d] += nl.mz;
+                    f_global[d] += nl.my;
                 }
             }
         }
@@ -390,7 +390,7 @@ fn assemble_staged_2d(
             let node_j = node_by_id[&elem.node_j];
 
             let dx = node_j.x - node_i.x;
-            let dy = node_j.y - node_i.y;
+            let dy = node_j.z - node_i.z;
             let l = (dx * dx + dy * dy).sqrt();
             let cos = dx / l;
             let sin_a = dy / l;
@@ -611,7 +611,7 @@ fn iterate_cables_staged_2d(
         let sec = sec_by_id[&elem.section_id];
 
         let dx = node_j.x - node_i.x;
-        let dy = node_j.y - node_i.y;
+        let dy = node_j.z - node_i.z;
         let l0 = (dx * dx + dy * dy).sqrt();
         let e = mat.e * 1000.0;
 

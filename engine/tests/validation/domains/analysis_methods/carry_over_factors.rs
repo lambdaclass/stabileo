@@ -51,7 +51,7 @@ fn validation_carry_over_factor_half() {
     ];
     let sups = vec![(1, 1, "fixed"), (2, 3, "fixed")];
     let loads = vec![SolverLoad::Nodal(SolverNodalLoad {
-        node_id: 2, fx: 0.0, fy: 0.0, mz: 10.0,
+        node_id: 2, fx: 0.0, fz: 0.0, my: 10.0,
     })];
 
     let input = make_input(nodes, mats, secs, elems, sups, loads);
@@ -64,12 +64,12 @@ fn validation_carry_over_factor_half() {
     let r1 = results.reactions.iter().find(|r| r.node_id == 1).unwrap();
     let r3 = results.reactions.iter().find(|r| r.node_id == 3).unwrap();
 
-    assert_close(r1.mz.abs(), m1_expected, 0.02, "Carry-over to node 1");
-    assert_close(r3.mz.abs(), m3_expected, 0.02, "Carry-over to node 3");
+    assert_close(r1.my.abs(), m1_expected, 0.02, "Carry-over to node 1");
+    assert_close(r3.my.abs(), m3_expected, 0.02, "Carry-over to node 3");
 
     // Verify the ratio of far-end moments = ratio of distribution factors * 0.5 each
     // i.e. M1/M3 = DF_12/DF_23 = 4/3
-    let ratio = r1.mz.abs() / r3.mz.abs();
+    let ratio = r1.my.abs() / r3.my.abs();
     assert_close(ratio, 4.0 / 3.0, 0.02, "Carry-over moment ratio M1/M3");
 }
 
@@ -95,7 +95,7 @@ fn validation_distribution_factor_ratio() {
     ];
     let sups = vec![(1, 1, "fixed"), (2, 3, "fixed")];
     let loads = vec![SolverLoad::Nodal(SolverNodalLoad {
-        node_id: 2, fx: 0.0, fy: 0.0, mz: 10.0,
+        node_id: 2, fx: 0.0, fz: 0.0, my: 10.0,
     })];
 
     let input = make_input(nodes, mats, secs, elems, sups, loads);
@@ -149,7 +149,7 @@ fn validation_carry_over_zero_pinned_far_end() {
     // Node 1 fixed, node 3 pinned (rotation free, translation fixed)
     let sups = vec![(1, 1, "fixed"), (2, 3, "pinned")];
     let loads = vec![SolverLoad::Nodal(SolverNodalLoad {
-        node_id: 2, fx: 0.0, fy: 0.0, mz: 10.0,
+        node_id: 2, fx: 0.0, fz: 0.0, my: 10.0,
     })];
 
     let input = make_input(nodes, mats, secs, elems, sups, loads);
@@ -163,12 +163,12 @@ fn validation_carry_over_zero_pinned_far_end() {
 
     // Fixed far end: should have nonzero carry-over moment
     let r1 = results.reactions.iter().find(|r| r.node_id == 1).unwrap();
-    assert!(r1.mz.abs() > 1.0,
-        "Fixed far end should have nonzero carry-over moment, got {:.6}", r1.mz);
+    assert!(r1.my.abs() > 1.0,
+        "Fixed far end should have nonzero carry-over moment, got {:.6}", r1.my);
 
     // Expected carry-over to node 1 = 0.5 * 10 * 4/7 = 20/7 ~ 2.857
     let m1_expected = 20.0 / 7.0;
-    assert_close(r1.mz.abs(), m1_expected, 0.05, "Carry-over to fixed far end");
+    assert_close(r1.my.abs(), m1_expected, 0.05, "Carry-over to fixed far end");
 }
 
 // ================================================================
@@ -195,7 +195,7 @@ fn validation_stiffness_4ei_vs_3ei() {
     ];
     let sups = vec![(1, 1, "fixed"), (2, 3, "pinned")];
     let loads = vec![SolverLoad::Nodal(SolverNodalLoad {
-        node_id: 2, fx: 0.0, fy: 0.0, mz: 14.0,
+        node_id: 2, fx: 0.0, fz: 0.0, my: 14.0,
     })];
 
     let input = make_input(nodes, mats, secs, elems, sups, loads);
@@ -215,7 +215,7 @@ fn validation_stiffness_4ei_vs_3ei() {
 
     // Carry-over to node 1 (fixed) = 0.5 * 8 = 4
     let r1 = results.reactions.iter().find(|r| r.node_id == 1).unwrap();
-    assert_close(r1.mz.abs(), 4.0, 0.02, "Carry-over moment to fixed end");
+    assert_close(r1.my.abs(), 4.0, 0.02, "Carry-over moment to fixed end");
 
     // No moment at pinned end
     assert!(ef2.m_end.abs() < 0.05,
@@ -242,7 +242,7 @@ fn validation_equal_stiffness_equal_distribution() {
     ];
     let sups = vec![(1, 1, "fixed"), (2, 3, "fixed")];
     let loads = vec![SolverLoad::Nodal(SolverNodalLoad {
-        node_id: 2, fx: 0.0, fy: 0.0, mz: 20.0,
+        node_id: 2, fx: 0.0, fz: 0.0, my: 20.0,
     })];
 
     let input = make_input(nodes, mats, secs, elems, sups, loads);
@@ -265,11 +265,11 @@ fn validation_equal_stiffness_equal_distribution() {
     let r1 = results.reactions.iter().find(|r| r.node_id == 1).unwrap();
     let r3 = results.reactions.iter().find(|r| r.node_id == 3).unwrap();
 
-    assert_close(r1.mz.abs(), 5.0, 0.02, "Carry-over to node 1");
-    assert_close(r3.mz.abs(), 5.0, 0.02, "Carry-over to node 3");
+    assert_close(r1.my.abs(), 5.0, 0.02, "Carry-over to node 1");
+    assert_close(r3.my.abs(), 5.0, 0.02, "Carry-over to node 3");
 
     // By symmetry, the two carry-over moments should be equal
-    let ratio = r1.mz.abs() / r3.mz.abs();
+    let ratio = r1.my.abs() / r3.my.abs();
     assert_close(ratio, 1.0, 0.01, "Symmetric carry-over ratio");
 }
 
@@ -306,7 +306,7 @@ fn validation_three_members_equal_distribution() {
         (3, 4, "fixed"),
     ];
     let loads = vec![SolverLoad::Nodal(SolverNodalLoad {
-        node_id: 2, fx: 0.0, fy: 0.0, mz: 30.0,
+        node_id: 2, fx: 0.0, fz: 0.0, my: 30.0,
     })];
 
     let input = make_input(nodes, mats, secs, elems, sups, loads);
@@ -317,13 +317,13 @@ fn validation_three_members_equal_distribution() {
     let r3 = results.reactions.iter().find(|r| r.node_id == 3).unwrap();
     let r4 = results.reactions.iter().find(|r| r.node_id == 4).unwrap();
 
-    assert_close(r1.mz.abs(), 5.0, 0.02, "Carry-over to node 1");
-    assert_close(r3.mz.abs(), 5.0, 0.02, "Carry-over to node 3");
-    assert_close(r4.mz.abs(), 5.0, 0.02, "Carry-over to node 4");
+    assert_close(r1.my.abs(), 5.0, 0.02, "Carry-over to node 1");
+    assert_close(r3.my.abs(), 5.0, 0.02, "Carry-over to node 3");
+    assert_close(r4.my.abs(), 5.0, 0.02, "Carry-over to node 4");
 
     // All three carry-over moments should be equal (DF = 1/3 each)
-    let m_avg = (r1.mz.abs() + r3.mz.abs() + r4.mz.abs()) / 3.0;
-    let max_dev = [r1.mz.abs(), r3.mz.abs(), r4.mz.abs()]
+    let m_avg = (r1.my.abs() + r3.my.abs() + r4.my.abs()) / 3.0;
+    let max_dev = [r1.my.abs(), r3.my.abs(), r4.my.abs()]
         .iter()
         .map(|m| (m - m_avg).abs())
         .fold(0.0_f64, f64::max);
@@ -356,7 +356,7 @@ fn validation_unequal_lengths_distribution() {
     ];
     let sups = vec![(1, 1, "fixed"), (2, 3, "fixed")];
     let loads = vec![SolverLoad::Nodal(SolverNodalLoad {
-        node_id: 2, fx: 0.0, fy: 0.0, mz: 12.0,
+        node_id: 2, fx: 0.0, fz: 0.0, my: 12.0,
     })];
 
     let input = make_input(nodes, mats, secs, elems, sups, loads);
@@ -368,11 +368,11 @@ fn validation_unequal_lengths_distribution() {
 
     // Tolerance 4% to account for axial deformation coupling in FEM
     // (moment distribution ignores axial effects; FEM includes them)
-    assert_close(r1.mz.abs(), 4.0, 0.04, "Carry-over to node 1 (short beam)");
-    assert_close(r3.mz.abs(), 2.0, 0.04, "Carry-over to node 3 (long beam)");
+    assert_close(r1.my.abs(), 4.0, 0.04, "Carry-over to node 1 (short beam)");
+    assert_close(r3.my.abs(), 2.0, 0.04, "Carry-over to node 3 (long beam)");
 
     // Ratio of carry-over moments = DF1/DF2 = 2/1
-    let ratio = r1.mz.abs() / r3.mz.abs();
+    let ratio = r1.my.abs() / r3.my.abs();
     assert_close(ratio, 2.0, 0.04, "Carry-over ratio (short/long)");
 
     // Distribution at joint: elem 1 m_end ~ 8, elem 2 m_start ~ 4
@@ -475,15 +475,15 @@ fn validation_two_span_fem_redistribution() {
     let r_end_exact = 3.0 * w * l / 8.0;
     let r_mid_exact = 10.0 * w * l / 8.0;
 
-    let ra = results.reactions.iter().find(|r| r.node_id == 1).unwrap().ry;
+    let ra = results.reactions.iter().find(|r| r.node_id == 1).unwrap().rz;
     let rb = results.reactions.iter()
-        .find(|r| r.node_id == n_per_span + 1).unwrap().ry;
+        .find(|r| r.node_id == n_per_span + 1).unwrap().rz;
 
     assert_close(ra, r_end_exact, 0.05, "End reaction R_A = 3wL/8");
     assert_close(rb, r_mid_exact, 0.05, "Interior reaction R_B = 5wL/4");
 
     // Equilibrium: total reactions = total applied load = 2*w*L
     let total_load = 2.0 * w * l;
-    let sum_ry: f64 = results.reactions.iter().map(|r| r.ry).sum();
+    let sum_ry: f64 = results.reactions.iter().map(|r| r.rz).sum();
     assert_close(sum_ry, total_load, 0.01, "Global vertical equilibrium");
 }

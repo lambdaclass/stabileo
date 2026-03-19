@@ -61,10 +61,10 @@ fn crane_runway_beam_wheel_loads() {
 
     let loads = vec![
         SolverLoad::Nodal(SolverNodalLoad {
-            node_id: node1, fx: 0.0, fy: -p_wheel, mz: 0.0,
+            node_id: node1, fx: 0.0, fz: -p_wheel, my: 0.0,
         }),
         SolverLoad::Nodal(SolverNodalLoad {
-            node_id: node2, fx: 0.0, fy: -p_wheel, mz: 0.0,
+            node_id: node2, fx: 0.0, fz: -p_wheel, my: 0.0,
         }),
     ];
 
@@ -72,7 +72,7 @@ fn crane_runway_beam_wheel_loads() {
     let results = solve_2d(&input).expect("solve");
 
     // Total vertical reaction must equal sum of wheel loads
-    let sum_ry: f64 = results.reactions.iter().map(|r| r.ry).sum();
+    let sum_ry: f64 = results.reactions.iter().map(|r| r.rz).sum();
     assert_close(sum_ry, 2.0 * p_wheel, 0.02, "Runway: total reaction = 2P");
 
     // Reactions by statics: R_A = P*(L-x1)/L + P*(L-x2)/L
@@ -81,8 +81,8 @@ fn crane_runway_beam_wheel_loads() {
     let r_a = results.reactions.iter().find(|r| r.node_id == 1).unwrap();
     let r_b = results.reactions.iter().find(|r| r.node_id == n + 1).unwrap();
 
-    assert_close(r_a.ry, r_a_exact, 0.03, "Runway: R_A by statics");
-    assert_close(r_b.ry, r_b_exact, 0.03, "Runway: R_B by statics");
+    assert_close(r_a.rz, r_a_exact, 0.03, "Runway: R_A by statics");
+    assert_close(r_b.rz, r_b_exact, 0.03, "Runway: R_B by statics");
 
     // Maximum bending moment should be between the two wheel loads.
     // M at critical section (under first wheel):
@@ -102,8 +102,8 @@ fn crane_runway_beam_wheel_loads() {
         .find(|d| d.node_id == mid_node).unwrap();
     let defl_limit: f64 = l / 600.0;
     assert!(
-        mid_disp.uy.abs() < defl_limit,
-        "Runway deflection {:.4} m < L/600 = {:.4} m", mid_disp.uy.abs(), defl_limit
+        mid_disp.uz.abs() < defl_limit,
+        "Runway deflection {:.4} m < L/600 = {:.4} m", mid_disp.uz.abs(), defl_limit
     );
 }
 
@@ -140,7 +140,7 @@ fn crane_gantry_leg_portal_action() {
     let results = solve_2d(&input).expect("solve");
 
     // Vertical equilibrium: sum Ry = total applied vertical
-    let sum_ry: f64 = results.reactions.iter().map(|r| r.ry).sum();
+    let sum_ry: f64 = results.reactions.iter().map(|r| r.rz).sum();
     let total_vertical: f64 = 2.0 * p_vertical.abs(); // two nodes loaded
     assert_close(sum_ry, total_vertical, 0.02, "Gantry: vertical equilibrium");
 
@@ -151,15 +151,15 @@ fn crane_gantry_leg_portal_action() {
     // Base moments should be non-zero (fixed supports)
     let r1 = results.reactions.iter().find(|r| r.node_id == 1).unwrap();
     let r4 = results.reactions.iter().find(|r| r.node_id == 4).unwrap();
-    assert!(r1.mz.abs() > 0.0, "Gantry: base moment at node 1 non-zero");
-    assert!(r4.mz.abs() > 0.0, "Gantry: base moment at node 4 non-zero");
+    assert!(r1.my.abs() > 0.0, "Gantry: base moment at node 1 non-zero");
+    assert!(r4.my.abs() > 0.0, "Gantry: base moment at node 4 non-zero");
 
     // Moment equilibrium about base:
     // M_overturning = F_lateral * h + P_vert * 0 (vertical loads on centerline don't cause overturning directly,
     // but they load at nodes 2 and 3 which are at x=0 and x=w)
     // Base moments + vertical reaction couple must resist overturning
-    let m_base_sum: f64 = r1.mz.abs() + r4.mz.abs();
-    let r_vert_couple: f64 = (r1.ry - r4.ry).abs() * w / 2.0;
+    let m_base_sum: f64 = r1.my.abs() + r4.my.abs();
+    let r_vert_couple: f64 = (r1.rz - r4.rz).abs() * w / 2.0;
     let m_overturn: f64 = p_lateral * h;
     // The vertical loads at top create moments too, but they are symmetric about the span
     // So overturning from lateral: F*h should be resisted by base moments + couple
@@ -204,7 +204,7 @@ fn crane_jib_cantilever_tip_load() {
     }
     // Add tip point load at free end
     loads.push(SolverLoad::Nodal(SolverNodalLoad {
-        node_id: n + 1, fx: 0.0, fy: p_hook, mz: 0.0,
+        node_id: n + 1, fx: 0.0, fz: p_hook, my: 0.0,
     }));
 
     let input = make_beam(n, l, e_steel, a_jib, iz_jib, "fixed", None, loads);
@@ -222,16 +222,16 @@ fn crane_jib_cantilever_tip_load() {
     let tip_disp = results.displacements.iter()
         .find(|d| d.node_id == n + 1).unwrap();
 
-    assert_close(tip_disp.uy.abs(), delta_total, 0.05, "Jib: tip deflection (P + q)");
+    assert_close(tip_disp.uz.abs(), delta_total, 0.05, "Jib: tip deflection (P + q)");
 
     // Fixed-end reaction: R = P + q*L
     let total_load: f64 = p_hook.abs() + q_self.abs() * l;
     let r_fixed = results.reactions.iter().find(|r| r.node_id == 1).unwrap();
-    assert_close(r_fixed.ry, total_load, 0.02, "Jib: fixed-end vertical reaction");
+    assert_close(r_fixed.rz, total_load, 0.02, "Jib: fixed-end vertical reaction");
 
     // Fixed-end moment: M = P*L + q*L^2/2
     let m_fixed_exact: f64 = p_hook.abs() * l + q_self.abs() * l * l / 2.0;
-    assert_close(r_fixed.mz.abs(), m_fixed_exact, 0.03, "Jib: fixed-end moment");
+    assert_close(r_fixed.my.abs(), m_fixed_exact, 0.03, "Jib: fixed-end moment");
 
     // Shear at fixed end should equal total load
     let ef_first = results.element_forces.iter()
@@ -269,11 +269,11 @@ fn crane_tower_mast_axial_and_wind() {
     let loads = vec![
         // Axial load at tip (compression along beam axis)
         SolverLoad::Nodal(SolverNodalLoad {
-            node_id: n + 1, fx: p_axial, fy: 0.0, mz: 0.0,
+            node_id: n + 1, fx: p_axial, fz: 0.0, my: 0.0,
         }),
         // Lateral load at tip (transverse)
         SolverLoad::Nodal(SolverNodalLoad {
-            node_id: n + 1, fx: 0.0, fy: f_wind, mz: 0.0,
+            node_id: n + 1, fx: 0.0, fz: f_wind, my: 0.0,
         }),
     ];
 
@@ -291,20 +291,20 @@ fn crane_tower_mast_axial_and_wind() {
 
     // Lateral deflection at tip from wind: delta = F*H^3/(3EI)
     let delta_wind_exact: f64 = f_wind * h.powi(3) / (3.0 * e_eff * iz_mast);
-    assert_close(tip_disp.uy.abs(), delta_wind_exact, 0.10, "Tower: tip lateral deflection");
+    assert_close(tip_disp.uz.abs(), delta_wind_exact, 0.10, "Tower: tip lateral deflection");
 
     // Base reactions
     let r_base = results.reactions.iter().find(|r| r.node_id == 1).unwrap();
 
     // Vertical reaction = lateral wind force
-    assert_close(r_base.ry.abs(), f_wind, 0.02, "Tower: base shear from wind");
+    assert_close(r_base.rz.abs(), f_wind, 0.02, "Tower: base shear from wind");
 
     // Horizontal reaction = axial load
     assert_close(r_base.rx.abs(), p_axial.abs(), 0.02, "Tower: base axial reaction");
 
     // Base moment from wind: M = F_wind * H
     let m_base_exact: f64 = f_wind * h;
-    assert_close(r_base.mz.abs(), m_base_exact, 0.05, "Tower: base moment from wind");
+    assert_close(r_base.my.abs(), m_base_exact, 0.05, "Tower: base moment from wind");
 }
 
 // ================================================================
@@ -338,7 +338,7 @@ fn crane_outrigger_pad_loading() {
     // Central point load at midspan
     let mid_node = n / 2 + 1;
     let loads = vec![SolverLoad::Nodal(SolverNodalLoad {
-        node_id: mid_node, fx: 0.0, fy: p_leg, mz: 0.0,
+        node_id: mid_node, fx: 0.0, fz: p_leg, my: 0.0,
     })];
 
     let input = make_beam(n, l, e_steel, a_beam, iz_beam, "pinned", Some("rollerX"), loads);
@@ -351,8 +351,8 @@ fn crane_outrigger_pad_loading() {
     let r1 = results.reactions.iter().find(|r| r.node_id == 1).unwrap();
     let r2 = results.reactions.iter().find(|r| r.node_id == n + 1).unwrap();
 
-    assert_close(r1.ry, r_each_exact, 0.02, "Outrigger: left pad reaction = P/2");
-    assert_close(r2.ry, r_each_exact, 0.02, "Outrigger: right pad reaction = P/2");
+    assert_close(r1.rz, r_each_exact, 0.02, "Outrigger: left pad reaction = P/2");
+    assert_close(r2.rz, r_each_exact, 0.02, "Outrigger: right pad reaction = P/2");
 
     // Maximum moment = P*L/4 at midspan
     let m_max_exact: f64 = p_leg.abs() * l / 4.0;
@@ -367,7 +367,7 @@ fn crane_outrigger_pad_loading() {
     let mid_disp = results.displacements.iter()
         .find(|d| d.node_id == mid_node).unwrap();
 
-    assert_close(mid_disp.uy.abs(), delta_exact, 0.05, "Outrigger: midspan deflection");
+    assert_close(mid_disp.uz.abs(), delta_exact, 0.05, "Outrigger: midspan deflection");
 
     // Ground bearing pressure check: pad area required
     // Allowable bearing = 200 kPa (typical compacted ground)
@@ -411,7 +411,7 @@ fn crane_girder_fatigue_stress_range() {
     // Case 1: Wheel at midspan (maximum moment position)
     let mid_node = n / 2 + 1;
     let loads_mid = vec![SolverLoad::Nodal(SolverNodalLoad {
-        node_id: mid_node, fx: 0.0, fy: -p_wheel, mz: 0.0,
+        node_id: mid_node, fx: 0.0, fz: -p_wheel, my: 0.0,
     })];
 
     let input_mid = make_beam(n, l, e_steel, a_beam, iz_beam, "pinned", Some("rollerX"), loads_mid);
@@ -427,7 +427,7 @@ fn crane_girder_fatigue_stress_range() {
 
     // Case 2: Wheel near support (minimum moment at midspan)
     let loads_end = vec![SolverLoad::Nodal(SolverNodalLoad {
-        node_id: 2, fx: 0.0, fy: -p_wheel, mz: 0.0,
+        node_id: 2, fx: 0.0, fz: -p_wheel, my: 0.0,
     })];
 
     let input_end = make_beam(n, l, e_steel, a_beam, iz_beam, "pinned", Some("rollerX"), loads_end);
@@ -453,10 +453,10 @@ fn crane_girder_fatigue_stress_range() {
 
     // The maximum stress alone should be well below yield
     let sigma_max_mpa: f64 = sigma_max / 1000.0;
-    let fy: f64 = 350.0; // MPa
+    let fz: f64 = 350.0; // MPa
     assert!(
-        sigma_max_mpa < fy,
-        "Fatigue: max stress {:.1} MPa < yield {:.1} MPa", sigma_max_mpa, fy
+        sigma_max_mpa < fz,
+        "Fatigue: max stress {:.1} MPa < yield {:.1} MPa", sigma_max_mpa, fz
     );
 
     // Verify the moment ratio: wheel near support gives much smaller midspan moment
@@ -494,7 +494,7 @@ fn crane_hook_block_load_path() {
     // Point load at midspan of first span
     let load_node = n_per_span / 2 + 1;
     let loads = vec![SolverLoad::Nodal(SolverNodalLoad {
-        node_id: load_node, fx: 0.0, fy: -p_hook, mz: 0.0,
+        node_id: load_node, fx: 0.0, fz: -p_hook, my: 0.0,
     })];
 
     let input = make_continuous_beam(
@@ -503,7 +503,7 @@ fn crane_hook_block_load_path() {
     let results = solve_2d(&input).expect("solve");
 
     // Total reaction must equal applied load
-    let sum_ry: f64 = results.reactions.iter().map(|r| r.ry).sum();
+    let sum_ry: f64 = results.reactions.iter().map(|r| r.rz).sum();
     assert_close(sum_ry, p_hook, 0.02, "Hook: total reaction = P");
 
     // Interior support node
@@ -515,25 +515,25 @@ fn crane_hook_block_load_path() {
     let r_c = results.reactions.iter().find(|r| r.node_id == end_node).unwrap();
 
     // All reactions should be finite and reasonable
-    assert!(r_a.ry > 0.0, "Hook: R_A > 0 (upward)");
-    assert!(r_b.ry > 0.0, "Hook: R_B > 0 (interior support upward)");
+    assert!(r_a.rz > 0.0, "Hook: R_A > 0 (upward)");
+    assert!(r_b.rz > 0.0, "Hook: R_B > 0 (interior support upward)");
 
     // Interior reaction should be significant (it carries a large share)
     assert!(
-        r_b.ry > p_hook * 0.2,
-        "Hook: interior reaction {:.1} > 20% of P", r_b.ry
+        r_b.rz > p_hook * 0.2,
+        "Hook: interior reaction {:.1} > 20% of P", r_b.rz
     );
 
     // The end support of the unloaded span should have a small reaction
     // (due to continuity effect). It could be slightly negative (uplift)
     // or small positive.
     assert!(
-        r_c.ry.abs() < p_hook * 0.2,
-        "Hook: far end reaction {:.2} kN is small (< 20% of P)", r_c.ry
+        r_c.rz.abs() < p_hook * 0.2,
+        "Hook: far end reaction {:.2} kN is small (< 20% of P)", r_c.rz
     );
 
     // Equilibrium check
-    let r_total: f64 = r_a.ry + r_b.ry + r_c.ry;
+    let r_total: f64 = r_a.rz + r_b.rz + r_c.rz;
     assert_close(r_total, p_hook, 0.02, "Hook: ΣR = P equilibrium");
 
     // Load path: the loaded span should carry most bending
@@ -590,11 +590,11 @@ fn crane_bumper_impact_force() {
     let loads = vec![
         // Horizontal impact force
         SolverLoad::Nodal(SolverNodalLoad {
-            node_id: n + 1, fx: f_impact, fy: 0.0, mz: 0.0,
+            node_id: n + 1, fx: f_impact, fz: 0.0, my: 0.0,
         }),
         // Eccentricity moment (rail above NA)
         SolverLoad::Nodal(SolverNodalLoad {
-            node_id: n + 1, fx: 0.0, fy: 0.0, mz: m_eccentric,
+            node_id: n + 1, fx: 0.0, fz: 0.0, my: m_eccentric,
         }),
     ];
 
@@ -625,8 +625,8 @@ fn crane_bumper_impact_force() {
     let r2 = results.reactions.iter().find(|r| r.node_id == n + 1).unwrap();
 
     // Vertical reactions form a couple to resist the end moment
-    // R1.ry and R2.ry should be equal and opposite (from moment only)
-    let r_couple: f64 = (r1.ry - r2.ry).abs() / 2.0;
+    // R1.rz and R2.rz should be equal and opposite (from moment only)
+    let r_couple: f64 = (r1.rz - r2.rz).abs() / 2.0;
     assert_close(r_couple, r_moment_exact, 0.10, "Bumper: vertical reaction couple from eccentricity");
 
     // Horizontal reaction at pinned end equals impact force

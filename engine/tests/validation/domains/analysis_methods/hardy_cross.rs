@@ -62,9 +62,9 @@ fn validation_hardy_cross_two_span_equal_udl() {
     // Reactions: R_A = R_C = 3wL/8, R_B = 10wL/8 = 5wL/4
     let r_end = 3.0 * q.abs() * l / 8.0;
     let r_mid = 10.0 * q.abs() * l / 8.0;
-    let ra = results.reactions.iter().find(|r| r.node_id == 1).unwrap().ry;
+    let ra = results.reactions.iter().find(|r| r.node_id == 1).unwrap().rz;
     let rb = results.reactions.iter()
-        .find(|r| r.node_id == n_per_span + 1).unwrap().ry;
+        .find(|r| r.node_id == n_per_span + 1).unwrap().rz;
 
     let err_ra = (ra - r_end).abs() / r_end;
     let err_rb = (rb - r_mid).abs() / r_mid;
@@ -215,7 +215,7 @@ fn validation_hardy_cross_two_span_unequal() {
 
     // Equilibrium check: sum of reactions = total load
     let total_load = w * (l1 + l2);
-    let sum_ry: f64 = results.reactions.iter().map(|r| r.ry).sum();
+    let sum_ry: f64 = results.reactions.iter().map(|r| r.rz).sum();
     let err_eq = (sum_ry - total_load).abs() / total_load;
     assert!(err_eq < 0.01,
         "Equilibrium: ΣRy={:.4}, expected wL_total={:.4}", sum_ry, total_load);
@@ -239,7 +239,7 @@ fn validation_hardy_cross_point_load_one_span() {
     let mid_node = n_per_span / 2 + 1;
     let input = make_continuous_beam(&[l, l], n_per_span, E, A, IZ,
         vec![SolverLoad::Nodal(SolverNodalLoad {
-            node_id: mid_node, fx: 0.0, fy: -p, mz: 0.0,
+            node_id: mid_node, fx: 0.0, fz: -p, my: 0.0,
         })]);
 
     let results = linear::solve_2d(&input).unwrap();
@@ -254,7 +254,7 @@ fn validation_hardy_cross_point_load_one_span() {
         "Point load M_B: {:.4}, expected 3PL/32={:.4}", ef.m_end.abs(), m_exact);
 
     // Equilibrium: sum of reactions = P
-    let sum_ry: f64 = results.reactions.iter().map(|r| r.ry).sum();
+    let sum_ry: f64 = results.reactions.iter().map(|r| r.rz).sum();
     let err_eq = (sum_ry - p).abs() / p;
     assert!(err_eq < 0.01,
         "Equilibrium: ΣRy={:.4}, expected P={:.4}", sum_ry, p);
@@ -304,7 +304,7 @@ fn validation_hardy_cross_pattern_loading() {
 
     // Equilibrium: total reaction = 2 × wL
     let total_load = 2.0 * q.abs() * l;
-    let sum_ry: f64 = results.reactions.iter().map(|r| r.ry).sum();
+    let sum_ry: f64 = results.reactions.iter().map(|r| r.rz).sum();
     let err = (sum_ry - total_load).abs() / total_load;
     assert!(err < 0.01,
         "Pattern loading equilibrium: ΣRy={:.4}, expected 2wL={:.4}", sum_ry, total_load);
@@ -343,7 +343,7 @@ fn validation_hardy_cross_portal_lateral() {
         "Portal ΣRx={:.4}, expected -P={:.4}", sum_rx, -p);
 
     // Vertical equilibrium (no gravity): ΣRy ≈ 0
-    let sum_ry: f64 = results.reactions.iter().map(|r| r.ry).sum();
+    let sum_ry: f64 = results.reactions.iter().map(|r| r.rz).sum();
     assert!(sum_ry.abs() < p * 0.01,
         "Portal ΣRy={:.6} should be ≈ 0", sum_ry);
 
@@ -351,7 +351,7 @@ fn validation_hardy_cross_portal_lateral() {
     // -P×h + M_left + M_right + Ry_right × w = 0
     let r_left = results.reactions.iter().find(|r| r.node_id == 1).unwrap();
     let r_right = results.reactions.iter().find(|r| r.node_id == 4).unwrap();
-    let m_eq = -p * h + r_left.mz + r_right.mz + r_right.ry * w;
+    let m_eq = -p * h + r_left.my + r_right.my + r_right.rz * w;
     assert!(m_eq.abs() < p * h * 0.01,
         "Portal moment equilibrium residual: {:.6}", m_eq);
 }
@@ -383,20 +383,20 @@ fn validation_hardy_cross_propped_cantilever() {
     // M_fixed = wL²/8
     let m_exact = w * l * l / 8.0;
     let r_fixed = results.reactions.iter().find(|r| r.node_id == 1).unwrap();
-    let err_m = (r_fixed.mz.abs() - m_exact).abs() / m_exact;
+    let err_m = (r_fixed.my.abs() - m_exact).abs() / m_exact;
     assert!(err_m < 0.05,
-        "Propped M_fixed: {:.4}, expected wL²/8={:.4}", r_fixed.mz.abs(), m_exact);
+        "Propped M_fixed: {:.4}, expected wL²/8={:.4}", r_fixed.my.abs(), m_exact);
 
     // R_prop = 3wL/8
     let r_prop_exact = 3.0 * w * l / 8.0;
-    let r_prop = results.reactions.iter().find(|r| r.node_id == n + 1).unwrap().ry;
+    let r_prop = results.reactions.iter().find(|r| r.node_id == n + 1).unwrap().rz;
     let err_rp = (r_prop - r_prop_exact).abs() / r_prop_exact;
     assert!(err_rp < 0.05,
         "R_prop={:.4}, expected 3wL/8={:.4}", r_prop, r_prop_exact);
 
     // R_fixed = 5wL/8
     let r_fixed_exact = 5.0 * w * l / 8.0;
-    let err_rf = (r_fixed.ry - r_fixed_exact).abs() / r_fixed_exact;
+    let err_rf = (r_fixed.rz - r_fixed_exact).abs() / r_fixed_exact;
     assert!(err_rf < 0.05,
-        "R_fixed={:.4}, expected 5wL/8={:.4}", r_fixed.ry, r_fixed_exact);
+        "R_fixed={:.4}, expected 5wL/8={:.4}", r_fixed.rz, r_fixed_exact);
 }

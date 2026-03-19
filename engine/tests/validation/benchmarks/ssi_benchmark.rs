@@ -39,7 +39,7 @@ fn build_pile_2d(
     for i in 0..n_nodes {
         nodes.insert(
             (i + 1).to_string(),
-            SolverNode { id: i + 1, x: 0.0, y: -(i as f64) * dy },
+            SolverNode { id: i + 1, x: 0.0, z: -(i as f64) * dy },
         );
     }
 
@@ -73,7 +73,7 @@ fn build_pile_2d(
         node_id: n_nodes,
         support_type: "pinned".to_string(),
         kx: None, ky: None, kz: None,
-        dx: None, dy: None, drz: None, angle: None,
+        dx: None, dz: None, dry: None, angle: None,
     });
 
     SolverInput {
@@ -122,8 +122,8 @@ fn benchmark_ssi_soft_clay_lateral_pile() {
     solver.loads.push(SolverLoad::Nodal(SolverNodalLoad {
         node_id: 1,
         fx: h_load,
-        fy: 0.0,
-        mz: 0.0,
+        fz: 0.0,
+        my: 0.0,
     }));
 
     // p-y springs at each interior node (not at top or bottom support)
@@ -226,8 +226,8 @@ fn benchmark_ssi_sand_py_pile() {
     solver.loads.push(SolverLoad::Nodal(SolverNodalLoad {
         node_id: 1,
         fx: h_load,
-        fy: 0.0,
-        mz: 0.0,
+        fz: 0.0,
+        my: 0.0,
     }));
 
     let dy = length / n_elem as f64;
@@ -316,8 +316,8 @@ fn benchmark_ssi_tz_shaft_friction() {
     solver.loads.push(SolverLoad::Nodal(SolverNodalLoad {
         node_id: 1,
         fx: 0.0,
-        fy: axial_load,
-        mz: 0.0,
+        fz: axial_load,
+        my: 0.0,
     }));
 
     let dy = length / n_elem as f64;
@@ -350,8 +350,8 @@ fn benchmark_ssi_tz_shaft_friction() {
         .find(|d| d.node_id == 1)
         .expect("Top node displacement not found");
     assert!(
-        d_top.uy.abs() > 1e-8,
-        "Pile top should settle, got uy={:.6e}", d_top.uy
+        d_top.uz.abs() > 1e-8,
+        "Pile top should settle, got uy={:.6e}", d_top.uz
     );
 
     // Load transfer: top springs should carry more load than bottom
@@ -365,7 +365,7 @@ fn benchmark_ssi_tz_shaft_friction() {
 
         eprintln!(
             "t-z: top_uy={:.6e}, top_spring_reaction={:.4}, bottom_spring_reaction={:.4}",
-            d_top.uy, top_reaction, bottom_reaction
+            d_top.uz, top_reaction, bottom_reaction
         );
 
         // Top springs should carry more load (they see more displacement)
@@ -500,8 +500,8 @@ fn benchmark_ssi_vertical_pile_capacity() {
     solver.loads.push(SolverLoad::Nodal(SolverNodalLoad {
         node_id: 1,
         fx: 0.0,
-        fy: axial_load,
-        mz: 0.0,
+        fz: axial_load,
+        my: 0.0,
     }));
 
     let dy = length / n_elem as f64;
@@ -534,18 +534,18 @@ fn benchmark_ssi_vertical_pile_capacity() {
         .find(|d| d.node_id == 1)
         .expect("Top node displacement not found");
     assert!(
-        d_top.uy.abs() > 1e-8,
-        "Pile top should settle, got uy={:.6e}", d_top.uy
+        d_top.uz.abs() > 1e-8,
+        "Pile top should settle, got uy={:.6e}", d_top.uz
     );
 
     // Settlement should be reasonable (not infinite, not zero)
     assert!(
-        d_top.uy.abs() < 1.0,
-        "Pile settlement should be reasonable (<1m), got uy={:.6e}", d_top.uy
+        d_top.uz.abs() < 1.0,
+        "Pile settlement should be reasonable (<1m), got uy={:.6e}", d_top.uz
     );
     assert!(
-        d_top.uy.is_finite(),
-        "Pile settlement should be finite, got uy={:.6e}", d_top.uy
+        d_top.uz.is_finite(),
+        "Pile settlement should be finite, got uy={:.6e}", d_top.uz
     );
 
     // Spring reactions should be nonzero (load is transferred to soil)
@@ -572,20 +572,20 @@ fn benchmark_ssi_vertical_pile_capacity() {
 
     eprintln!(
         "Vertical pile: top_uy={:.6e}, total_spring_reaction={:.4}, iterations={}",
-        d_top.uy, total_spring_reaction, result.iterations
+        d_top.uz, total_spring_reaction, result.iterations
     );
 
     // Verify displacement profile is monotonically decreasing with depth
     // (top settles more than bottom since load comes from top)
-    let top_settlement = d_top.uy.abs();
+    let top_settlement = d_top.uz.abs();
     let mid_node = n_elem / 2 + 1;
     let d_mid = result.results.displacements.iter()
         .find(|d| d.node_id == mid_node);
     if let Some(dm) = d_mid {
         assert!(
-            top_settlement >= dm.uy.abs() * 0.5,
+            top_settlement >= dm.uz.abs() * 0.5,
             "Top should settle at least as much as mid: top={:.6e}, mid={:.6e}",
-            top_settlement, dm.uy.abs()
+            top_settlement, dm.uz.abs()
         );
     }
 }

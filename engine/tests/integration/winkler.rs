@@ -6,7 +6,7 @@ use std::collections::HashMap;
 
 fn support_3d_fixed(node_id: usize) -> SolverSupport3D {
     SolverSupport3D {
-        node_id, rx: true, ry: true, rz: true, rrx: true, rry: true, rrz: true,
+        node_id, rx: true, rz: true, ry: true, rrx: true, rry: true, rrz: true,
         kx: None, ky: None, kz: None, krx: None, kry: None, krz: None,
         dx: None, dy: None, dz: None, drx: None, dry: None, drz: None,
         rw: None, kw: None,
@@ -16,7 +16,7 @@ fn support_3d_fixed(node_id: usize) -> SolverSupport3D {
 
 fn support_3d_pinned(node_id: usize) -> SolverSupport3D {
     SolverSupport3D {
-        node_id, rx: true, ry: true, rz: true, rrx: false, rry: false, rrz: false,
+        node_id, rx: true, rz: true, ry: true, rrx: false, rry: false, rrz: false,
         kx: None, ky: None, kz: None, krx: None, kry: None, krz: None,
         dx: None, dy: None, dz: None, drx: None, dry: None, drz: None,
         rw: None, kw: None,
@@ -42,7 +42,7 @@ fn make_2d_beam_on_foundation(
     let dx = length / n_elements as f64;
 
     for i in 0..=n_elements {
-        nodes.insert(i.to_string(), SolverNode { id: i, x: i as f64 * dx, y: 0.0 });
+        nodes.insert(i.to_string(), SolverNode { id: i, x: i as f64 * dx, z: 0.0 });
     }
 
     for i in 0..n_elements {
@@ -55,11 +55,11 @@ fn make_2d_beam_on_foundation(
 
     supports.insert("0".to_string(), SolverSupport {
         id: 0, node_id: 0, support_type: "pinned".to_string(),
-        kx: None, ky: None, kz: None, dx: None, dy: None, drz: None, angle: None,
+        kx: None, ky: None, kz: None, dx: None, dz: None, dry: None, angle: None,
     });
     supports.insert("1".to_string(), SolverSupport {
         id: 1, node_id: n_elements, support_type: "rollerX".to_string(),
-        kx: None, ky: None, kz: None, dx: None, dy: None, drz: None, angle: None,
+        kx: None, ky: None, kz: None, dx: None, dz: None, dry: None, angle: None,
     });
 
     let mut materials = HashMap::new();
@@ -148,12 +148,12 @@ fn winkler_2d_uniform_load_reduces_deflection() {
     input_no.foundation_springs.clear();
     let res_no = solve_winkler_2d(&input_no).unwrap();
     let mid = n / 2;
-    let defl_no = res_no.displacements.iter().find(|d| d.node_id == mid).unwrap().uy;
+    let defl_no = res_no.displacements.iter().find(|d| d.node_id == mid).unwrap().uz;
 
     // With Winkler foundation kf = 1e6 N/m/m
     let input_with = make_2d_beam_on_foundation(l, n, 1e6, loads);
     let res_with = solve_winkler_2d(&input_with).unwrap();
-    let defl_with = res_with.displacements.iter().find(|d| d.node_id == mid).unwrap().uy;
+    let defl_with = res_with.displacements.iter().find(|d| d.node_id == mid).unwrap().uz;
 
     assert!(defl_with.abs() < defl_no.abs(),
         "Foundation should reduce deflection: with={:.6e}, without={:.6e}", defl_with, defl_no);
@@ -170,12 +170,12 @@ fn winkler_2d_point_load_equilibrium() {
 
     let input = make_2d_beam_on_foundation(l, n_elem, 5e5, vec![
         SolverLoad::PointOnElement(SolverPointLoadOnElement {
-            element_id: 2, a: 1.0, p, px: None, mz: None,
+            element_id: 2, a: 1.0, p, px: None, my: None,
         }),
     ]);
 
     let result = solve_winkler_2d(&input).unwrap();
-    let total_ry: f64 = result.reactions.iter().map(|r| r.ry).sum();
+    let total_ry: f64 = result.reactions.iter().map(|r| r.rz).sum();
 
     assert!(result.reactions.len() >= 2);
     assert!(total_ry.abs() < p.abs(),
@@ -193,8 +193,8 @@ fn winkler_2d_stiff_foundation_small_deflection() {
 
     let result = solve_winkler_2d(&input).unwrap();
     for d in &result.displacements {
-        assert!(d.uy.abs() < 1e-8,
-            "Node {} deflection {:.2e} should be ~0", d.node_id, d.uy);
+        assert!(d.uz.abs() < 1e-8,
+            "Node {} deflection {:.2e} should be ~0", d.node_id, d.uz);
     }
 }
 
@@ -218,8 +218,8 @@ fn winkler_2d_zero_foundation_matches_standard() {
     let res_zero = solve_winkler_2d(&input_zero).unwrap();
 
     for (ds, dz) in res_std.displacements.iter().zip(res_zero.displacements.iter()) {
-        assert!((ds.uy - dz.uy).abs() < 1e-10,
-            "Node {}: standard={:.6e}, zero_found={:.6e}", ds.node_id, ds.uy, dz.uy);
+        assert!((ds.uz - dz.uz).abs() < 1e-10,
+            "Node {}: standard={:.6e}, zero_found={:.6e}", ds.node_id, ds.uz, dz.uz);
     }
 }
 
@@ -250,8 +250,8 @@ fn winkler_3d_biaxial_foundation() {
     let result = solve_winkler_3d(&input).unwrap();
     let mid = result.displacements.iter().find(|d| d.node_id == 4).unwrap();
 
-    assert!(mid.uy.abs() > mid.uz.abs(),
-        "Larger Y load → larger Y deflection: uy={:.6e}, uz={:.6e}", mid.uy, mid.uz);
+    assert!(mid.uz.abs() > mid.uz.abs(),
+        "Larger Y load → larger Y deflection: uy={:.6e}, uz={:.6e}", mid.uy, mid.uy);
     assert!(mid.uy < 0.0, "uy should be negative: {:.6e}", mid.uy);
     assert!(mid.uz > 0.0, "uz should be positive: {:.6e}", mid.uz);
 }

@@ -47,14 +47,14 @@ fn validation_nafems_le1_load_distribution() {
         ],
         vec![(1, 1, "pinned"), (2, 3, "pinned")],
         vec![SolverLoad::Nodal(SolverNodalLoad {
-            node_id: 2, fx: 0.0, fy: -p, mz: 0.0,
+            node_id: 2, fx: 0.0, fz: -p, my: 0.0,
         })],
     );
 
     let results = linear::solve_2d(&input).unwrap();
 
     // Global vertical equilibrium: ΣR_y = P
-    let sum_ry: f64 = results.reactions.iter().map(|r| r.ry).sum();
+    let sum_ry: f64 = results.reactions.iter().map(|r| r.rz).sum();
     assert_close(sum_ry, p, 1e-10, "NAFEMS LE1: ΣR_y = P (vertical equilibrium)");
 
     // Global horizontal equilibrium: ΣR_x = 0
@@ -65,8 +65,8 @@ fn validation_nafems_le1_load_distribution() {
     // By symmetry of the geometry, both reactions should be P/2
     let r1 = results.reactions.iter().find(|r| r.node_id == 1).unwrap();
     let r3 = results.reactions.iter().find(|r| r.node_id == 3).unwrap();
-    assert_close(r1.ry, p / 2.0, 1e-10, "NAFEMS LE1: R1_y = P/2 (symmetry)");
-    assert_close(r3.ry, p / 2.0, 1e-10, "NAFEMS LE1: R3_y = P/2 (symmetry)");
+    assert_close(r1.rz, p / 2.0, 1e-10, "NAFEMS LE1: R1_y = P/2 (symmetry)");
+    assert_close(r3.rz, p / 2.0, 1e-10, "NAFEMS LE1: R3_y = P/2 (symmetry)");
 
     // Truss elements should carry only axial force (no shear)
     for ef in &results.element_forces {
@@ -339,8 +339,8 @@ fn validation_nafems_t2_thermal_expansion_free_bar() {
 
     // Vertical displacement should be zero
     for d in &results.displacements {
-        assert!(d.uy.abs() < 1e-8,
-            "NAFEMS T2: node {} uy should be 0, got {:.6e}", d.node_id, d.uy);
+        assert!(d.uz.abs() < 1e-8,
+            "NAFEMS T2: node {} uy should be 0, got {:.6e}", d.node_id, d.uz);
     }
 }
 
@@ -373,7 +373,7 @@ fn validation_nafems_r0001_ss_beam_udl() {
     let mid = n / 2 + 1;
     let d_mid = results.displacements.iter().find(|d| d.node_id == mid).unwrap();
     let delta_exact = 5.0 * q.abs() * length.powi(4) / (384.0 * e_eff * iz);
-    assert_close(d_mid.uy.abs(), delta_exact, 0.01,
+    assert_close(d_mid.uz.abs(), delta_exact, 0.01,
         "NAFEMS R0001: δ_mid = 5qL⁴/(384EI)");
 
     // 2. Midspan moment: M = qL²/8
@@ -388,13 +388,13 @@ fn validation_nafems_r0001_ss_beam_udl() {
     let r_exact = q.abs() * length / 2.0;
     let r1 = results.reactions.iter().find(|r| r.node_id == 1).unwrap();
     let rn = results.reactions.iter().find(|r| r.node_id == n + 1).unwrap();
-    assert_close(r1.ry, r_exact, 0.01,
+    assert_close(r1.rz, r_exact, 0.01,
         "NAFEMS R0001: R_left = qL/2");
-    assert_close(rn.ry, r_exact, 0.01,
+    assert_close(rn.rz, r_exact, 0.01,
         "NAFEMS R0001: R_right = qL/2");
 
     // 4. Global equilibrium: ΣR_y = qL (total load)
-    let sum_ry: f64 = results.reactions.iter().map(|r| r.ry).sum();
+    let sum_ry: f64 = results.reactions.iter().map(|r| r.rz).sum();
     let total_load = q.abs() * length;
     assert_close(sum_ry, total_load, 0.01,
         "NAFEMS R0001: global vertical equilibrium");
@@ -457,14 +457,14 @@ fn validation_nafems_r0015_three_bar_truss() {
             (3, 4, "pinned"),
         ],
         vec![SolverLoad::Nodal(SolverNodalLoad {
-            node_id: 2, fx: 0.0, fy: -p, mz: 0.0,
+            node_id: 2, fx: 0.0, fz: -p, my: 0.0,
         })],
     );
 
     let results = linear::solve_2d(&input).unwrap();
 
     // Global equilibrium
-    let sum_ry: f64 = results.reactions.iter().map(|r| r.ry).sum();
+    let sum_ry: f64 = results.reactions.iter().map(|r| r.rz).sum();
     assert_close(sum_ry, p, 0.01, "NAFEMS R0015: vertical equilibrium ΣR_y = P");
 
     let sum_rx: f64 = results.reactions.iter().map(|r| r.rx).sum();
@@ -511,7 +511,7 @@ fn validation_nafems_r0015_three_bar_truss() {
 
     // Node 2 should deflect downward
     let d2 = results.displacements.iter().find(|d| d.node_id == 2).unwrap();
-    assert!(d2.uy < 0.0, "NAFEMS R0015: apex should deflect downward: uy={:.6e}", d2.uy);
+    assert!(d2.uz < 0.0, "NAFEMS R0015: apex should deflect downward: uy={:.6e}", d2.uz);
 }
 
 // ================================================================
@@ -555,7 +555,7 @@ fn validation_nafems_r0024_portal_lateral_load() {
         "NAFEMS R0024: ΣR_x = -P (horizontal equilibrium)");
 
     // 2. Global vertical equilibrium: ΣR_y = 0 (no vertical load)
-    let sum_ry: f64 = results.reactions.iter().map(|r| r.ry).sum();
+    let sum_ry: f64 = results.reactions.iter().map(|r| r.rz).sum();
     assert!(sum_ry.abs() < 0.1,
         "NAFEMS R0024: ΣR_y ≈ 0 (no vertical applied load), got {:.4}", sum_ry);
 
@@ -568,7 +568,7 @@ fn validation_nafems_r0024_portal_lateral_load() {
     let r1 = results.reactions.iter().find(|r| r.node_id == 1).unwrap();
     let r4 = results.reactions.iter().find(|r| r.node_id == 4).unwrap();
 
-    let moment_check = -p * h + r1.mz + r4.mz + r4.ry * w;
+    let moment_check = -p * h + r1.my + r4.my + r4.rz * w;
     assert!(moment_check.abs() < 0.5,
         "NAFEMS R0024: moment equilibrium about base: residual = {:.4}", moment_check);
 
@@ -617,6 +617,6 @@ fn validation_nafems_r0024_portal_lateral_load() {
     // 7. Column base moments: for equal-section portal under lateral sway
     // M_base = 6EI/h² × δ × factor
     // Both columns develop base moments; the loaded column has larger moment
-    assert!(r1.mz.abs() > 0.0, "NAFEMS R0024: left base moment should be nonzero");
-    assert!(r4.mz.abs() > 0.0, "NAFEMS R0024: right base moment should be nonzero");
+    assert!(r1.my.abs() > 0.0, "NAFEMS R0024: left base moment should be nonzero");
+    assert!(r4.my.abs() > 0.0, "NAFEMS R0024: right base moment should be nonzero");
 }

@@ -83,8 +83,8 @@ fn validation_ec3_euler_column_fixed_free() {
     let loads = vec![SolverLoad::Nodal(SolverNodalLoad {
         node_id: n_nodes,
         fx: 0.0,
-        fy: p_applied,
-        mz: 0.0,
+        fz: p_applied,
+        my: 0.0,
     })];
 
     let input = make_input(
@@ -254,8 +254,8 @@ fn validation_ec3_stiffness_proportionality() {
     let loads = vec![SolverLoad::Nodal(SolverNodalLoad {
         node_id: n_nodes,
         fx: p_applied,
-        fy: 0.0,
-        mz: 0.0,
+        fz: 0.0,
+        my: 0.0,
     })];
     let input2 = make_input(
         nodes,
@@ -348,9 +348,9 @@ fn validation_ec3_two_bay_frame_alpha_cr() {
     let sups = vec![(1, 1, "fixed"), (2, 2, "fixed"), (3, 3, "fixed")];
 
     let loads = vec![
-        SolverLoad::Nodal(SolverNodalLoad { node_id: 4, fx: h_load, fy: -p, mz: 0.0 }),
-        SolverLoad::Nodal(SolverNodalLoad { node_id: 5, fx: 0.0, fy: -p, mz: 0.0 }),
-        SolverLoad::Nodal(SolverNodalLoad { node_id: 6, fx: 0.0, fy: -p, mz: 0.0 }),
+        SolverLoad::Nodal(SolverNodalLoad { node_id: 4, fx: h_load, fz: -p, my: 0.0 }),
+        SolverLoad::Nodal(SolverNodalLoad { node_id: 5, fx: 0.0, fz: -p, my: 0.0 }),
+        SolverLoad::Nodal(SolverNodalLoad { node_id: 6, fx: 0.0, fz: -p, my: 0.0 }),
     ];
 
     let input = make_input(

@@ -46,7 +46,7 @@ fn validation_single_element_cantilever_tip_load() {
         1, l, E, A, IZ,
         "fixed", None,
         vec![SolverLoad::Nodal(SolverNodalLoad {
-            node_id: 2, fx: 0.0, fy: -p, mz: 0.0,
+            node_id: 2, fx: 0.0, fz: -p, my: 0.0,
         })],
     );
     let results = linear::solve_2d(&input).unwrap();
@@ -54,12 +54,12 @@ fn validation_single_element_cantilever_tip_load() {
     let tip = results.displacements.iter().find(|d| d.node_id == 2).unwrap();
     let expected_delta = p * l.powi(3) / (3.0 * e_eff * IZ);
 
-    assert_close(tip.uy.abs(), expected_delta, 0.02, "single elem cantilever tip delta");
+    assert_close(tip.uz.abs(), expected_delta, 0.02, "single elem cantilever tip delta");
 
     // Also verify reaction at fixed end
     let r1 = results.reactions.iter().find(|r| r.node_id == 1).unwrap();
-    assert_close(r1.ry, p, 0.02, "single elem cantilever Ry");
-    assert_close(r1.mz.abs(), p * l, 0.02, "single elem cantilever M_fixed");
+    assert_close(r1.rz, p, 0.02, "single elem cantilever Ry");
+    assert_close(r1.my.abs(), p * l, 0.02, "single elem cantilever M_fixed");
 }
 
 // ================================================================
@@ -81,7 +81,7 @@ fn validation_single_element_axial_bar() {
         1, l, E, A, IZ,
         "fixed", None,
         vec![SolverLoad::Nodal(SolverNodalLoad {
-            node_id: 2, fx: p_axial, fy: 0.0, mz: 0.0,
+            node_id: 2, fx: p_axial, fz: 0.0, my: 0.0,
         })],
     );
     let results = linear::solve_2d(&input).unwrap();
@@ -92,7 +92,7 @@ fn validation_single_element_axial_bar() {
     assert_close(tip.ux, expected_delta, 0.02, "axial bar tip delta");
 
     // Transverse displacement should be zero
-    assert!(tip.uy.abs() < 1e-10, "axial bar should have no transverse displacement");
+    assert!(tip.uz.abs() < 1e-10, "axial bar should have no transverse displacement");
 
     // Reaction at fixed end
     let r1 = results.reactions.iter().find(|r| r.node_id == 1).unwrap();
@@ -117,7 +117,7 @@ fn validation_two_element_vs_one_element_cantilever() {
         1, l, E, A, IZ,
         "fixed", None,
         vec![SolverLoad::Nodal(SolverNodalLoad {
-            node_id: 2, fx: 0.0, fy: -p, mz: 0.0,
+            node_id: 2, fx: 0.0, fz: -p, my: 0.0,
         })],
     );
     let results_1 = linear::solve_2d(&input_1).unwrap();
@@ -128,26 +128,26 @@ fn validation_two_element_vs_one_element_cantilever() {
         2, l, E, A, IZ,
         "fixed", None,
         vec![SolverLoad::Nodal(SolverNodalLoad {
-            node_id: 3, fx: 0.0, fy: -p, mz: 0.0,
+            node_id: 3, fx: 0.0, fz: -p, my: 0.0,
         })],
     );
     let results_2 = linear::solve_2d(&input_2).unwrap();
     let tip_2 = results_2.displacements.iter().find(|d| d.node_id == 3).unwrap();
 
     // Both should agree to high precision
-    let rel_diff = (tip_1.uy - tip_2.uy).abs() / tip_1.uy.abs().max(1e-20);
+    let rel_diff = (tip_1.uz - tip_2.uz).abs() / tip_1.uz.abs().max(1e-20);
     assert!(
         rel_diff < 0.02,
         "1-elem tip delta={:.6e}, 2-elem tip delta={:.6e}, rel_diff={:.4}%",
-        tip_1.uy, tip_2.uy, rel_diff * 100.0
+        tip_1.uz, tip_2.uz, rel_diff * 100.0
     );
 
     // Rotations should also match
-    let rot_diff = (tip_1.rz - tip_2.rz).abs() / tip_1.rz.abs().max(1e-20);
+    let rot_diff = (tip_1.ry - tip_2.ry).abs() / tip_1.ry.abs().max(1e-20);
     assert!(
         rot_diff < 0.02,
         "1-elem tip rz={:.6e}, 2-elem tip rz={:.6e}, rel_diff={:.4}%",
-        tip_1.rz, tip_2.rz, rot_diff * 100.0
+        tip_1.ry, tip_2.ry, rot_diff * 100.0
     );
 }
 
@@ -171,7 +171,7 @@ fn validation_stiffness_scales_with_e() {
             1, l, e_val, A, IZ,
             "fixed", None,
             vec![SolverLoad::Nodal(SolverNodalLoad {
-                node_id: 2, fx: 0.0, fy: -p, mz: 0.0,
+                node_id: 2, fx: 0.0, fz: -p, my: 0.0,
             })],
         )
     };
@@ -183,14 +183,14 @@ fn validation_stiffness_scales_with_e() {
     let tip_2 = results_2.displacements.iter().find(|d| d.node_id == 2).unwrap();
 
     // delta_1 / delta_2 should be 2.0 (double E -> half displacement)
-    let ratio = tip_1.uy.abs() / tip_2.uy.abs();
+    let ratio = tip_1.uz.abs() / tip_2.uz.abs();
     assert_close(ratio, 2.0, 0.02, "E scaling: delta ratio");
 
     // Reactions should be identical (same load, same geometry)
     let r1_a = results_1.reactions.iter().find(|r| r.node_id == 1).unwrap();
     let r1_b = results_2.reactions.iter().find(|r| r.node_id == 1).unwrap();
-    assert_close(r1_a.ry, r1_b.ry, 0.02, "E scaling: Ry unchanged");
-    assert_close(r1_a.mz, r1_b.mz, 0.02, "E scaling: Mz unchanged");
+    assert_close(r1_a.rz, r1_b.rz, 0.02, "E scaling: Ry unchanged");
+    assert_close(r1_a.my, r1_b.my, 0.02, "E scaling: Mz unchanged");
 }
 
 // ================================================================
@@ -213,7 +213,7 @@ fn validation_stiffness_scales_with_iz() {
             1, l, E, A, iz_val,
             "fixed", None,
             vec![SolverLoad::Nodal(SolverNodalLoad {
-                node_id: 2, fx: 0.0, fy: -p, mz: 0.0,
+                node_id: 2, fx: 0.0, fz: -p, my: 0.0,
             })],
         )
     };
@@ -225,13 +225,13 @@ fn validation_stiffness_scales_with_iz() {
     let tip_2 = results_2.displacements.iter().find(|d| d.node_id == 2).unwrap();
 
     // delta_1 / delta_2 should be 2.0 (double Iz -> half displacement)
-    let ratio = tip_1.uy.abs() / tip_2.uy.abs();
+    let ratio = tip_1.uz.abs() / tip_2.uz.abs();
     assert_close(ratio, 2.0, 0.02, "Iz scaling: delta ratio");
 
     // Reactions should be identical
     let r1_a = results_1.reactions.iter().find(|r| r.node_id == 1).unwrap();
     let r1_b = results_2.reactions.iter().find(|r| r.node_id == 1).unwrap();
-    assert_close(r1_a.ry, r1_b.ry, 0.02, "Iz scaling: Ry unchanged");
+    assert_close(r1_a.rz, r1_b.rz, 0.02, "Iz scaling: Ry unchanged");
 }
 
 // ================================================================
@@ -254,7 +254,7 @@ fn validation_stiffness_scales_inversely_with_l_cubed() {
             1, length, E, A, IZ,
             "fixed", None,
             vec![SolverLoad::Nodal(SolverNodalLoad {
-                node_id: 2, fx: 0.0, fy: -p, mz: 0.0,
+                node_id: 2, fx: 0.0, fz: -p, my: 0.0,
             })],
         )
     };
@@ -266,15 +266,15 @@ fn validation_stiffness_scales_inversely_with_l_cubed() {
     let tip_2 = results_2.displacements.iter().find(|d| d.node_id == 2).unwrap();
 
     // delta_2 / delta_1 should be (L2/L1)^3 = 8
-    let ratio = tip_2.uy.abs() / tip_1.uy.abs();
+    let ratio = tip_2.uz.abs() / tip_1.uz.abs();
     assert_close(ratio, 8.0, 0.02, "L^3 scaling: delta ratio");
 
     // Also verify absolute values against formula
     let e_eff = E * 1000.0;
     let expected_1 = p * l1.powi(3) / (3.0 * e_eff * IZ);
     let expected_2 = p * l2.powi(3) / (3.0 * e_eff * IZ);
-    assert_close(tip_1.uy.abs(), expected_1, 0.02, "L^3 scaling: delta_short");
-    assert_close(tip_2.uy.abs(), expected_2, 0.02, "L^3 scaling: delta_long");
+    assert_close(tip_1.uz.abs(), expected_1, 0.02, "L^3 scaling: delta_short");
+    assert_close(tip_2.uz.abs(), expected_2, 0.02, "L^3 scaling: delta_long");
 }
 
 // ================================================================
@@ -296,7 +296,7 @@ fn validation_fixed_fixed_center_point_load() {
         2, l, E, A, IZ,
         "fixed", Some("fixed"),
         vec![SolverLoad::Nodal(SolverNodalLoad {
-            node_id: 2, fx: 0.0, fy: -p, mz: 0.0,
+            node_id: 2, fx: 0.0, fz: -p, my: 0.0,
         })],
     );
     let results = linear::solve_2d(&input).unwrap();
@@ -304,20 +304,20 @@ fn validation_fixed_fixed_center_point_load() {
     let mid = results.displacements.iter().find(|d| d.node_id == 2).unwrap();
     let expected_delta = p * l.powi(3) / (192.0 * e_eff * IZ);
 
-    assert_close(mid.uy.abs(), expected_delta, 0.02, "FF center point delta");
+    assert_close(mid.uz.abs(), expected_delta, 0.02, "FF center point delta");
 
     // Reactions: by symmetry each support carries P/2 vertically
     let r1 = results.reactions.iter().find(|r| r.node_id == 1).unwrap();
     let r3 = results.reactions.iter().find(|r| r.node_id == 3).unwrap();
-    assert_close(r1.ry, p / 2.0, 0.02, "FF center point R_A");
-    assert_close(r3.ry, p / 2.0, 0.02, "FF center point R_B");
+    assert_close(r1.rz, p / 2.0, 0.02, "FF center point R_A");
+    assert_close(r3.rz, p / 2.0, 0.02, "FF center point R_B");
 
     // End moments: M = PL/8
-    assert_close(r1.mz.abs(), p * l / 8.0, 0.05, "FF center point M_A");
-    assert_close(r3.mz.abs(), p * l / 8.0, 0.05, "FF center point M_B");
+    assert_close(r1.my.abs(), p * l / 8.0, 0.05, "FF center point M_A");
+    assert_close(r3.my.abs(), p * l / 8.0, 0.05, "FF center point M_B");
 
     // Equilibrium
-    let sum_ry: f64 = results.reactions.iter().map(|r| r.ry).sum();
+    let sum_ry: f64 = results.reactions.iter().map(|r| r.rz).sum();
     assert_close(sum_ry, p, 0.02, "FF center point equilibrium");
 }
 
@@ -380,6 +380,6 @@ fn validation_element_equilibrium() {
     }
 
     // Global check: total vertical reaction = total applied load
-    let sum_ry: f64 = results.reactions.iter().map(|r| r.ry).sum();
+    let sum_ry: f64 = results.reactions.iter().map(|r| r.rz).sum();
     assert_close(sum_ry, q * l, 0.02, "element equilibrium global Ry");
 }

@@ -42,7 +42,7 @@ fn validation_mcguire_1_assembly_2elem() {
     let input = make_beam(
         2, l, E, A, IZ, "fixed", None,
         vec![SolverLoad::Nodal(SolverNodalLoad {
-            node_id: 3, fx: 0.0, fy: p, mz: 0.0,
+            node_id: 3, fx: 0.0, fz: p, my: 0.0,
         })],
     );
 
@@ -53,11 +53,11 @@ fn validation_mcguire_1_assembly_2elem() {
     let expected_uy = (p * 1e3) * l.powi(3) / (3.0 * ei); // p is in kN, convert to N
     let tip = results.displacements.iter().find(|d| d.node_id == 3).unwrap();
 
-    assert_close(tip.uy, expected_uy, 0.01, "Cantilever tip uy = PL^3/(3EI)");
+    assert_close(tip.uz, expected_uy, 0.01, "Cantilever tip uy = PL^3/(3EI)");
 
     // Tip rotation: PL^2 / (2EI)
     let expected_rz = (p * 1e3) * l.powi(2) / (2.0 * ei);
-    assert_close(tip.rz, expected_rz, 0.01, "Cantilever tip rz = PL^2/(2EI)");
+    assert_close(tip.ry, expected_rz, 0.01, "Cantilever tip rz = PL^2/(2EI)");
 
     // Interior node (node 2) displacement: P*(L/2)^2*(3L - L/2) / (6EI)
     // For cantilever with load at tip, deflection at x = L/2:
@@ -65,14 +65,14 @@ fn validation_mcguire_1_assembly_2elem() {
     let x_mid = l / 2.0;
     let expected_mid = (p * 1e3) * x_mid.powi(2) * (3.0 * l - x_mid) / (6.0 * ei);
     let mid = results.displacements.iter().find(|d| d.node_id == 2).unwrap();
-    assert_close(mid.uy, expected_mid, 0.01, "Cantilever mid uy");
+    assert_close(mid.uz, expected_mid, 0.01, "Cantilever mid uy");
 
     // Verify fixed-end reactions: Ry = -P, |Mz| = |P|*L
     let r = results.reactions.iter().find(|r| r.node_id == 1).unwrap();
-    assert_close(r.ry, -p, 0.01, "Fixed-end Ry = -P");
+    assert_close(r.rz, -p, 0.01, "Fixed-end Ry = -P");
     // The reaction moment at the fixed end resists the applied load.
     // For a downward tip load (P<0), the reaction moment is positive (counterclockwise).
-    assert_close(r.mz.abs(), (p * l).abs(), 0.02, "Fixed-end |Mz| = |P*L|");
+    assert_close(r.my.abs(), (p * l).abs(), 0.02, "Fixed-end |Mz| = |P*L|");
 }
 
 // ================================================================
@@ -114,7 +114,7 @@ fn validation_mcguire_2_geometric_stiffness() {
 
     // Linear case: lateral load only
     let loads_linear = vec![SolverLoad::Nodal(SolverNodalLoad {
-        node_id: n_nodes, fx: 0.0, fy: h_lateral / 1e3, mz: 0.0, // kN
+        node_id: n_nodes, fx: 0.0, fz: h_lateral / 1e3, my: 0.0, // kN
     })];
     let input_linear = make_input(
         nodes.clone(),
@@ -128,7 +128,7 @@ fn validation_mcguire_2_geometric_stiffness() {
     // P-delta case: axial + lateral load
     let loads_pdelta = vec![
         SolverLoad::Nodal(SolverNodalLoad {
-            node_id: n_nodes, fx: -p_axial / 1e3, fy: h_lateral / 1e3, mz: 0.0,
+            node_id: n_nodes, fx: -p_axial / 1e3, fz: h_lateral / 1e3, my: 0.0,
         }),
     ];
     let input_pdelta = make_input(
@@ -144,8 +144,8 @@ fn validation_mcguire_2_geometric_stiffness() {
     let pd = pdelta::solve_pdelta_2d(&input_pdelta, 50, 1e-6).unwrap();
     assert!(pd.converged, "P-delta should converge at 0.3*P_cr");
 
-    let lin_tip = lin.displacements.iter().find(|d| d.node_id == n_nodes).unwrap().uy.abs();
-    let pd_tip = pd.results.displacements.iter().find(|d| d.node_id == n_nodes).unwrap().uy.abs();
+    let lin_tip = lin.displacements.iter().find(|d| d.node_id == n_nodes).unwrap().uz.abs();
+    let pd_tip = pd.results.displacements.iter().find(|d| d.node_id == n_nodes).unwrap().uz.abs();
 
     let amplification = pd_tip / lin_tip;
     let expected_amp = 1.0 / (1.0 - 0.3); // 1.4286
@@ -205,7 +205,7 @@ fn validation_mcguire_3_portal_assembly() {
     // No vertical load => vertical reactions should be equal and opposite (couple)
     let r1 = results.reactions.iter().find(|r| r.node_id == 1).unwrap();
     let r4 = results.reactions.iter().find(|r| r.node_id == 4).unwrap();
-    assert_close(r1.ry + r4.ry, 0.0, 0.01, "Portal sum_ry = 0 (no vertical load)");
+    assert_close(r1.rz + r4.rz, 0.0, 0.01, "Portal sum_ry = 0 (no vertical load)");
 
     // Verify element forces: all elements should have nonzero moments
     for ef in &results.element_forces {
@@ -266,13 +266,13 @@ fn validation_mcguire_4_pdelta_frame() {
 
     let loads = vec![
         // Lateral loads
-        SolverLoad::Nodal(SolverNodalLoad { node_id: 3, fx: h_lat, fy: 0.0, mz: 0.0 }),
-        SolverLoad::Nodal(SolverNodalLoad { node_id: 5, fx: h_lat, fy: 0.0, mz: 0.0 }),
+        SolverLoad::Nodal(SolverNodalLoad { node_id: 3, fx: h_lat, fz: 0.0, my: 0.0 }),
+        SolverLoad::Nodal(SolverNodalLoad { node_id: 5, fx: h_lat, fz: 0.0, my: 0.0 }),
         // Gravity loads at each floor on both columns
-        SolverLoad::Nodal(SolverNodalLoad { node_id: 3, fx: 0.0, fy: -p_gravity, mz: 0.0 }),
-        SolverLoad::Nodal(SolverNodalLoad { node_id: 4, fx: 0.0, fy: -p_gravity, mz: 0.0 }),
-        SolverLoad::Nodal(SolverNodalLoad { node_id: 5, fx: 0.0, fy: -p_gravity, mz: 0.0 }),
-        SolverLoad::Nodal(SolverNodalLoad { node_id: 6, fx: 0.0, fy: -p_gravity, mz: 0.0 }),
+        SolverLoad::Nodal(SolverNodalLoad { node_id: 3, fx: 0.0, fz: -p_gravity, my: 0.0 }),
+        SolverLoad::Nodal(SolverNodalLoad { node_id: 4, fx: 0.0, fz: -p_gravity, my: 0.0 }),
+        SolverLoad::Nodal(SolverNodalLoad { node_id: 5, fx: 0.0, fz: -p_gravity, my: 0.0 }),
+        SolverLoad::Nodal(SolverNodalLoad { node_id: 6, fx: 0.0, fz: -p_gravity, my: 0.0 }),
     ];
 
     let input = make_input(
@@ -316,7 +316,7 @@ fn validation_mcguire_4_pdelta_frame() {
     );
 
     // Vertical equilibrium: sum of vertical reactions = total gravity load
-    let sum_ry: f64 = pd.results.reactions.iter().map(|r| r.ry).sum();
+    let sum_ry: f64 = pd.results.reactions.iter().map(|r| r.rz).sum();
     let total_gravity = 4.0 * p_gravity; // 4 nodes with gravity loads
     assert!(
         (sum_ry - total_gravity).abs() < 5.0,
@@ -376,31 +376,31 @@ fn validation_mcguire_5_3d_space_frame() {
     // Tip should deflect primarily in Y (direction of load)
     let tip = results.displacements.iter().find(|d| d.node_id == 3).unwrap();
     assert!(
-        tip.uy.abs() > 1e-6,
+        tip.uz.abs() > 1e-6,
         "Beam tip should deflect in Y, uy={:.6e}", tip.uy
     );
     assert!(
-        tip.uy < 0.0,
-        "Beam tip uy should be negative (downward), got {:.6e}", tip.uy
+        tip.uz < 0.0,
+        "Beam tip uy should be negative (downward), got {:.6e}", tip.uz
     );
 
     // Joint node 2 should also deflect (column flexibility)
     let joint = results.displacements.iter().find(|d| d.node_id == 2).unwrap();
     assert!(
-        joint.uy.abs() > 1e-8,
+        joint.uz.abs() > 1e-8,
         "Joint should deflect in Y due to column bending, uy={:.6e}", joint.uy
     );
 
     // Tip deflection should be greater than joint deflection (beam adds to column)
     assert!(
-        tip.uy.abs() > joint.uy.abs(),
+        tip.uz.abs() > joint.uz.abs(),
         "Tip deflection {:.6e} should exceed joint {:.6e}",
-        tip.uy.abs(), joint.uy.abs()
+        tip.uz.abs(), joint.uz.abs()
     );
 
     // Global force equilibrium
-    let sum_fy: f64 = results.reactions.iter().map(|r| r.fy).sum();
-    assert_close(sum_fy, -fy_tip, 0.02, "3D L-frame sum_fy = -applied");
+    let sum_fz: f64 = results.reactions.iter().map(|r| r.fz).sum();
+    assert_close(sum_fz, -fy_tip, 0.02, "3D L-frame sum_fz = -applied");
 
     let sum_fx: f64 = results.reactions.iter().map(|r| r.fx).sum();
     let sum_fz: f64 = results.reactions.iter().map(|r| r.fz).sum();
@@ -482,7 +482,7 @@ fn validation_mcguire_6_truss_assembly() {
     ];
 
     let loads = vec![SolverLoad::Nodal(SolverNodalLoad {
-        node_id: 3, fx: 0.0, fy: p, mz: 0.0,
+        node_id: 3, fx: 0.0, fz: p, my: 0.0,
     })];
 
     let input = make_input(
@@ -491,7 +491,7 @@ fn validation_mcguire_6_truss_assembly() {
     let results = linear::solve_2d(&input).unwrap();
 
     // Global vertical equilibrium: sum_ry = -P = 100
-    let sum_ry: f64 = results.reactions.iter().map(|r| r.ry).sum();
+    let sum_ry: f64 = results.reactions.iter().map(|r| r.rz).sum();
     assert_close(sum_ry, -p, 0.01, "Truss sum_ry = -P");
 
     // No horizontal load => sum_rx = 0
@@ -655,12 +655,12 @@ fn validation_mcguire_8_moment_redistribution() {
     let rb = results.reactions.iter().find(|r| r.node_id == mid_node).unwrap();
     let rc = results.reactions.iter().find(|r| r.node_id == right_node).unwrap();
 
-    assert_close(ra.ry, r_a_expected, 0.02, "R_A = 3qL/8");
-    assert_close(rb.ry, r_b_expected, 0.02, "R_B = 10qL/8");
-    assert_close(rc.ry, r_c_expected, 0.02, "R_C = 3qL/8");
+    assert_close(ra.rz, r_a_expected, 0.02, "R_A = 3qL/8");
+    assert_close(rb.rz, r_b_expected, 0.02, "R_B = 10qL/8");
+    assert_close(rc.rz, r_c_expected, 0.02, "R_C = 3qL/8");
 
     // Global vertical equilibrium: R_A + R_B + R_C = 2*q*L (total load)
-    let total_reaction = ra.ry + rb.ry + rc.ry;
+    let total_reaction = ra.rz + rb.rz + rc.rz;
     let total_load = 2.0 * q_abs * l;
     assert_close(total_reaction, total_load, 0.01, "Global vertical equilibrium");
 
@@ -693,5 +693,5 @@ fn validation_mcguire_8_moment_redistribution() {
     );
 
     // Symmetry: end reactions should be equal (symmetric structure + loading)
-    assert_close(ra.ry, rc.ry, 0.02, "Symmetric end reactions R_A = R_C");
+    assert_close(ra.rz, rc.rz, 0.02, "Symmetric end reactions R_A = R_C");
 }

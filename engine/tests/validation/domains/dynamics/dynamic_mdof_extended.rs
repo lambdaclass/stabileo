@@ -419,9 +419,9 @@ fn validation_dyn_mdof_ext_rayleigh_quotient_upper_bound() {
         .find(|d| d.node_id == tip_node)
         .unwrap();
     assert!(
-        tip_disp.uy.abs() > 1e-10,
+        tip_disp.uz.abs() > 1e-10,
         "Static tip deflection should be nonzero: uy={:.6e}",
-        tip_disp.uy
+        tip_disp.uz
     );
 
     // Rayleigh quotient from static shape: use u_static as trial vector

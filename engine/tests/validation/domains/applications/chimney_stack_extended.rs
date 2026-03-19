@@ -75,11 +75,11 @@ fn chimney_along_wind_triangular_profile() {
 
     // Base reaction moment (at node 1)
     let r = results.reactions.iter().find(|r| r.node_id == 1).unwrap();
-    assert_close(r.mz.abs(), m_base_exact, 0.03, "Along-wind: M_base = qH²/3");
+    assert_close(r.my.abs(), m_base_exact, 0.03, "Along-wind: M_base = qH²/3");
 
     // Total vertical reaction should equal total load = |q_max| * H / 2
     let total_load: f64 = q_max.abs() * h / 2.0;
-    assert_close(r.ry.abs(), total_load, 0.03, "Along-wind: Ry = qH/2");
+    assert_close(r.rz.abs(), total_load, 0.03, "Along-wind: Ry = qH/2");
 }
 
 // ================================================================
@@ -117,8 +117,8 @@ fn chimney_vortex_shedding_equivalent_load() {
     let loads = vec![SolverLoad::Nodal(SolverNodalLoad {
         node_id: n + 1,
         fx: 0.0,
-        fy: -f_vortex,
-        mz: 0.0,
+        fz: -f_vortex,
+        my: 0.0,
     })];
 
     let input = make_beam(n, h, E_CONC, A_CHIMNEY, IZ_CHIMNEY, "fixed", None, loads);
@@ -129,11 +129,11 @@ fn chimney_vortex_shedding_equivalent_load() {
     let delta_exact: f64 = f_vortex * h.powi(3) / (3.0 * e_eff * IZ_CHIMNEY);
     let d_tip = results.displacements.iter().find(|d| d.node_id == n + 1).unwrap();
 
-    assert_close(d_tip.uy.abs(), delta_exact, 0.02, "Vortex: tip deflection = FL³/(3EI)");
+    assert_close(d_tip.uz.abs(), delta_exact, 0.02, "Vortex: tip deflection = FL³/(3EI)");
 
     // Base moment = F * H
     let r = results.reactions.iter().find(|r| r.node_id == 1).unwrap();
-    assert_close(r.mz.abs(), f_vortex * h, 0.02, "Vortex: M_base = F*H");
+    assert_close(r.my.abs(), f_vortex * h, 0.02, "Vortex: M_base = F*H");
 }
 
 // ================================================================
@@ -165,8 +165,8 @@ fn chimney_self_weight_axial() {
     let loads = vec![SolverLoad::Nodal(SolverNodalLoad {
         node_id: n + 1,
         fx: -w_total, // compression
-        fy: 0.0,
-        mz: 0.0,
+        fz: 0.0,
+        my: 0.0,
     })];
 
     let input = make_beam(n, h, E_CONC, A_CHIMNEY, IZ_CHIMNEY, "fixed", None, loads);
@@ -206,7 +206,7 @@ fn chimney_combined_wind_selfweight() {
     let input_axial = make_beam(
         n, h, E_CONC, A_CHIMNEY, IZ_CHIMNEY, "fixed", None,
         vec![SolverLoad::Nodal(SolverNodalLoad {
-            node_id: n + 1, fx: -w_total, fy: 0.0, mz: 0.0,
+            node_id: n + 1, fx: -w_total, fz: 0.0, my: 0.0,
         })],
     );
     let res_axial = linear::solve_2d(&input_axial).expect("solve axial");
@@ -215,7 +215,7 @@ fn chimney_combined_wind_selfweight() {
     let input_wind = make_beam(
         n, h, E_CONC, A_CHIMNEY, IZ_CHIMNEY, "fixed", None,
         vec![SolverLoad::Nodal(SolverNodalLoad {
-            node_id: n + 1, fx: 0.0, fy: f_wind, mz: 0.0,
+            node_id: n + 1, fx: 0.0, fz: f_wind, my: 0.0,
         })],
     );
     let res_wind = linear::solve_2d(&input_wind).expect("solve wind");
@@ -224,7 +224,7 @@ fn chimney_combined_wind_selfweight() {
     let input_combined = make_beam(
         n, h, E_CONC, A_CHIMNEY, IZ_CHIMNEY, "fixed", None,
         vec![SolverLoad::Nodal(SolverNodalLoad {
-            node_id: n + 1, fx: -w_total, fy: f_wind, mz: 0.0,
+            node_id: n + 1, fx: -w_total, fz: f_wind, my: 0.0,
         })],
     );
     let res_combined = linear::solve_2d(&input_combined).expect("solve combined");
@@ -232,9 +232,9 @@ fn chimney_combined_wind_selfweight() {
     // Superposition check: tip deflection uy (combined) = uy (wind)
     // (axial load doesn't cause transverse deflection in linear analysis)
     let uy_wind = res_wind.displacements.iter()
-        .find(|d| d.node_id == n + 1).unwrap().uy;
+        .find(|d| d.node_id == n + 1).unwrap().uz;
     let uy_combined = res_combined.displacements.iter()
-        .find(|d| d.node_id == n + 1).unwrap().uy;
+        .find(|d| d.node_id == n + 1).unwrap().uz;
     assert_close(uy_combined, uy_wind, 0.02, "Combined: uy = uy_wind (linear)");
 
     // Superposition check: tip ux (combined) = ux (axial)
@@ -246,7 +246,7 @@ fn chimney_combined_wind_selfweight() {
 
     // Base moment from wind: M_base = |F_wind| * H
     let r_combined = res_combined.reactions.iter().find(|r| r.node_id == 1).unwrap();
-    assert_close(r_combined.mz.abs(), f_wind.abs() * h, 0.02, "Combined: M_base = F_wind*H");
+    assert_close(r_combined.my.abs(), f_wind.abs() * h, 0.02, "Combined: M_base = F_wind*H");
 
     // Combined stress check: σ = N/A ± M*y/I (verify both are nonzero)
     let sigma_axial: f64 = w_total / A_CHIMNEY;   // MPa-scale (kN/m²)
@@ -311,14 +311,14 @@ fn chimney_temperature_gradient() {
     let delta_exact: f64 = alpha * dt_gradient * h * h / (2.0 * d);
 
     let d_tip = results.displacements.iter().find(|d| d.node_id == n + 1).unwrap();
-    assert_close(d_tip.uy.abs(), delta_exact, 0.05,
+    assert_close(d_tip.uz.abs(), delta_exact, 0.05,
         "Thermal gradient: δ_tip = α*ΔT*L²/(2d)");
 
     // For a cantilever, the base moment should be zero (free to deform)
     // Actually for cantilever with thermal gradient, M is constant = 0
     // because the cantilever is free to curve. Reactions have zero moment.
     let r = results.reactions.iter().find(|r| r.node_id == 1).unwrap();
-    assert_close(r.mz, 0.0, 0.05, "Thermal gradient cantilever: M_base ≈ 0");
+    assert_close(r.my, 0.0, 0.05, "Thermal gradient cantilever: M_base ≈ 0");
 }
 
 // ================================================================
@@ -365,7 +365,7 @@ fn chimney_tapered_stepped_column() {
 
     let sups = vec![(1, 1_usize, "fixed")];
     let loads = vec![SolverLoad::Nodal(SolverNodalLoad {
-        node_id: n + 1, fx: 0.0, fy: p, mz: 0.0,
+        node_id: n + 1, fx: 0.0, fz: p, my: 0.0,
     })];
 
     let input_stepped = make_input(
@@ -378,29 +378,29 @@ fn chimney_tapered_stepped_column() {
     );
     let res_stepped = linear::solve_2d(&input_stepped).expect("solve stepped");
     let d_stepped = res_stepped.displacements.iter()
-        .find(|d| d.node_id == n + 1).unwrap().uy.abs();
+        .find(|d| d.node_id == n + 1).unwrap().uz.abs();
 
     // Uniform large section
     let input_large = make_beam(
         n, h, E_CONC, a1, iz1, "fixed", None,
         vec![SolverLoad::Nodal(SolverNodalLoad {
-            node_id: n + 1, fx: 0.0, fy: p, mz: 0.0,
+            node_id: n + 1, fx: 0.0, fz: p, my: 0.0,
         })],
     );
     let res_large = linear::solve_2d(&input_large).expect("solve large");
     let d_large = res_large.displacements.iter()
-        .find(|d| d.node_id == n + 1).unwrap().uy.abs();
+        .find(|d| d.node_id == n + 1).unwrap().uz.abs();
 
     // Uniform small section
     let input_small = make_beam(
         n, h, E_CONC, a2, iz2, "fixed", None,
         vec![SolverLoad::Nodal(SolverNodalLoad {
-            node_id: n + 1, fx: 0.0, fy: p, mz: 0.0,
+            node_id: n + 1, fx: 0.0, fz: p, my: 0.0,
         })],
     );
     let res_small = linear::solve_2d(&input_small).expect("solve small");
     let d_small = res_small.displacements.iter()
-        .find(|d| d.node_id == n + 1).unwrap().uy.abs();
+        .find(|d| d.node_id == n + 1).unwrap().uz.abs();
 
     // Ordering: d_large < d_stepped < d_small
     assert!(
@@ -417,7 +417,7 @@ fn chimney_tapered_stepped_column() {
     // Base moment should be identical for all (same load, same height)
     let m_exact: f64 = p.abs() * h;
     let r_stepped = res_stepped.reactions.iter().find(|r| r.node_id == 1).unwrap();
-    assert_close(r_stepped.mz.abs(), m_exact, 0.02,
+    assert_close(r_stepped.my.abs(), m_exact, 0.02,
         "Stepped: M_base = P*H");
 }
 
@@ -448,14 +448,14 @@ fn chimney_guy_wire_spring_support() {
     let input_free = make_beam(
         n, h, E_CONC, A_CHIMNEY, IZ_CHIMNEY, "fixed", None,
         vec![SolverLoad::Nodal(SolverNodalLoad {
-            node_id: n + 1, fx: 0.0, fy: p, mz: 0.0,
+            node_id: n + 1, fx: 0.0, fz: p, my: 0.0,
         })],
     );
     let res_free = linear::solve_2d(&input_free).expect("solve free");
     let d_free_tip = res_free.displacements.iter()
-        .find(|d| d.node_id == n + 1).unwrap().uy.abs();
+        .find(|d| d.node_id == n + 1).unwrap().uz.abs();
     let m_free_base = res_free.reactions.iter()
-        .find(|r| r.node_id == 1).unwrap().mz.abs();
+        .find(|r| r.node_id == 1).unwrap().my.abs();
 
     // Guyed cantilever: add spring support at mid-height
     // Build manually since make_beam doesn't support spring supports
@@ -468,13 +468,13 @@ fn chimney_guy_wire_spring_support() {
         .collect();
 
     let loads_guyed = vec![SolverLoad::Nodal(SolverNodalLoad {
-        node_id: n + 1, fx: 0.0, fy: p, mz: 0.0,
+        node_id: n + 1, fx: 0.0, fz: p, my: 0.0,
     })];
 
     // Build support map with fixed base + spring at mid-height
     let mut nodes_map = HashMap::new();
     for (id, x, y) in &nodes {
-        nodes_map.insert(id.to_string(), SolverNode { id: *id, x: *x, y: *y });
+        nodes_map.insert(id.to_string(), SolverNode { id: *id, x: *x, z: *y });
     }
     let mut mats_map = HashMap::new();
     mats_map.insert("1".to_string(), SolverMaterial { id: 1, e: E_CONC, nu: 0.3 });
@@ -492,12 +492,12 @@ fn chimney_guy_wire_spring_support() {
     sups_map.insert("1".to_string(), SolverSupport {
         id: 1, node_id: 1, support_type: "fixed".to_string(),
         kx: None, ky: None, kz: None,
-        dx: None, dy: None, drz: None, angle: None,
+        dx: None, dz: None, dry: None, angle: None,
     });
     sups_map.insert("2".to_string(), SolverSupport {
         id: 2, node_id: mid_node, support_type: "spring".to_string(),
         kx: None, ky: Some(ky), kz: None,
-        dx: None, dy: None, drz: None, angle: None,
+        dx: None, dz: None, dry: None, angle: None,
     });
 
     let input_guyed = SolverInput {
@@ -509,7 +509,7 @@ fn chimney_guy_wire_spring_support() {
     let res_guyed = linear::solve_2d(&input_guyed).expect("solve guyed");
 
     let d_guyed_tip = res_guyed.displacements.iter()
-        .find(|d| d.node_id == n + 1).unwrap().uy.abs();
+        .find(|d| d.node_id == n + 1).unwrap().uz.abs();
 
     // Guy wire should reduce tip deflection
     assert!(
@@ -520,7 +520,7 @@ fn chimney_guy_wire_spring_support() {
 
     // Base moment should be reduced by guy wire
     let r_guyed = res_guyed.reactions.iter().find(|r| r.node_id == 1).unwrap();
-    let m_guyed_base: f64 = r_guyed.mz.abs();
+    let m_guyed_base: f64 = r_guyed.my.abs();
     assert!(
         m_guyed_base < m_free_base,
         "Guy wire reduces base moment: guyed={:.2} < free={:.2}",
@@ -529,11 +529,11 @@ fn chimney_guy_wire_spring_support() {
 
     // Verify spring reaction: F_spring = ky * u_mid
     let u_mid = res_guyed.displacements.iter()
-        .find(|d| d.node_id == mid_node).unwrap().uy;
+        .find(|d| d.node_id == mid_node).unwrap().uz;
     let f_spring_expected: f64 = (ky * u_mid).abs();
 
     // Global equilibrium: sum of Ry at fixed support + spring reaction = total applied load
-    let ry_fixed: f64 = r_guyed.ry;
+    let ry_fixed: f64 = r_guyed.rz;
     // The spring reaction is ky * u (sign depends on displacement direction)
     let ry_spring: f64 = -ky * u_mid; // spring reaction opposes displacement
     let total_applied: f64 = p; // applied at tip
@@ -598,8 +598,8 @@ fn chimney_pdelta_amplification() {
     let loads = vec![SolverLoad::Nodal(SolverNodalLoad {
         node_id: n + 1,
         fx: -p_axial, // compression
-        fy: -f_lateral, // lateral
-        mz: 0.0,
+        fz: -f_lateral, // lateral
+        my: 0.0,
     })];
 
     let input = make_input(
@@ -614,7 +614,7 @@ fn chimney_pdelta_amplification() {
     // Linear analysis
     let res_linear = linear::solve_2d(&input).expect("solve linear");
     let d_lin = res_linear.displacements.iter()
-        .find(|d| d.node_id == n + 1).unwrap().uy.abs();
+        .find(|d| d.node_id == n + 1).unwrap().uz.abs();
 
     // P-delta analysis
     use dedaliano_engine::solver::pdelta;
@@ -623,7 +623,7 @@ fn chimney_pdelta_amplification() {
     assert!(pd_result.is_stable, "Column should be stable at 30% P_cr");
 
     let d_pd = pd_result.results.displacements.iter()
-        .find(|d| d.node_id == n + 1).unwrap().uy.abs();
+        .find(|d| d.node_id == n + 1).unwrap().uz.abs();
 
     // P-delta displacement should be larger than linear
     assert!(

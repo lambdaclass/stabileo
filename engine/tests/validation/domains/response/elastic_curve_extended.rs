@@ -44,7 +44,7 @@ fn validation_ecurve_ext_double_integration_cantilever() {
     let e_eff: f64 = E * 1000.0;
 
     let loads = vec![SolverLoad::Nodal(SolverNodalLoad {
-        node_id: n + 1, fx: 0.0, fy: -p, mz: 0.0,
+        node_id: n + 1, fx: 0.0, fz: -p, my: 0.0,
     })];
     let input = make_beam(n, l, E, A, IZ, "fixed", None, loads);
     let results = linear::solve_2d(&input).unwrap();
@@ -53,12 +53,12 @@ fn validation_ecurve_ext_double_integration_cantilever() {
 
     // delta_tip = PL^3 / (3EI)
     let delta_tip_exact: f64 = p * l.powi(3) / (3.0 * e_eff * IZ);
-    assert_close(tip.uy.abs(), delta_tip_exact, 0.02,
+    assert_close(tip.uz.abs(), delta_tip_exact, 0.02,
         "Double integration: delta_tip = PL^3/(3EI)");
 
     // theta_tip = PL^2 / (2EI)
     let theta_tip_exact: f64 = p * l.powi(2) / (2.0 * e_eff * IZ);
-    assert_close(tip.rz.abs(), theta_tip_exact, 0.02,
+    assert_close(tip.ry.abs(), theta_tip_exact, 0.02,
         "Double integration: theta_tip = PL^2/(2EI)");
 
     // Intermediate check at x = L/2 (node n/2 + 1)
@@ -66,7 +66,7 @@ fn validation_ecurve_ext_double_integration_cantilever() {
     let mid_node = n / 2 + 1;
     let d_mid = results.displacements.iter().find(|d| d.node_id == mid_node).unwrap();
     let delta_mid_exact: f64 = 5.0 * p * l.powi(3) / (48.0 * e_eff * IZ);
-    assert_close(d_mid.uy.abs(), delta_mid_exact, 0.02,
+    assert_close(d_mid.uz.abs(), delta_mid_exact, 0.02,
         "Double integration: delta(L/2) = 5PL^3/(48EI)");
 }
 
@@ -104,22 +104,22 @@ fn validation_ecurve_ext_conjugate_beam_ss_udl() {
     let d_a = results.displacements.iter().find(|d| d.node_id == 1).unwrap();
     let d_b = results.displacements.iter().find(|d| d.node_id == n + 1).unwrap();
     let theta_exact: f64 = q.abs() * l.powi(3) / (24.0 * e_eff * IZ);
-    assert_close(d_a.rz.abs(), theta_exact, 0.02,
+    assert_close(d_a.ry.abs(), theta_exact, 0.02,
         "Conjugate beam: theta_A = qL^3/(24EI)");
     // By symmetry, both end slopes are equal in magnitude
-    assert_close(d_a.rz.abs(), d_b.rz.abs(), 0.01,
+    assert_close(d_a.ry.abs(), d_b.ry.abs(), 0.01,
         "Conjugate beam: |theta_A| = |theta_B| (symmetry)");
 
     // Midspan deflection: delta_mid = 5qL^4/(384EI)
     let mid = n / 2 + 1;
     let d_mid = results.displacements.iter().find(|d| d.node_id == mid).unwrap();
     let delta_exact: f64 = 5.0 * q.abs() * l.powi(4) / (384.0 * e_eff * IZ);
-    assert_close(d_mid.uy.abs(), delta_exact, 0.02,
+    assert_close(d_mid.uz.abs(), delta_exact, 0.02,
         "Conjugate beam: delta_mid = 5qL^4/(384EI)");
 
     // Midspan slope = 0 (by symmetry)
-    assert!(d_mid.rz.abs() < 1e-10,
-        "Conjugate beam: theta_mid = 0 (symmetry): {:.6e}", d_mid.rz);
+    assert!(d_mid.ry.abs() < 1e-10,
+        "Conjugate beam: theta_mid = 0 (symmetry): {:.6e}", d_mid.ry);
 }
 
 // ================================================================
@@ -146,7 +146,7 @@ fn validation_ecurve_ext_moment_area_mohr() {
 
     let mid = n / 2 + 1;
     let loads = vec![SolverLoad::Nodal(SolverNodalLoad {
-        node_id: mid, fx: 0.0, fy: -p, mz: 0.0,
+        node_id: mid, fx: 0.0, fz: -p, my: 0.0,
     })];
     let input = make_beam(n, l, E, A, IZ, "pinned", Some("rollerX"), loads);
     let results = linear::solve_2d(&input).unwrap();
@@ -154,18 +154,18 @@ fn validation_ecurve_ext_moment_area_mohr() {
     // Slope at A: theta_A = PL^2/(16EI)
     let d_a = results.displacements.iter().find(|d| d.node_id == 1).unwrap();
     let theta_a_exact: f64 = p * l.powi(2) / (16.0 * e_eff * IZ);
-    assert_close(d_a.rz.abs(), theta_a_exact, 0.02,
+    assert_close(d_a.ry.abs(), theta_a_exact, 0.02,
         "Moment area: theta_A = PL^2/(16EI)");
 
     // First theorem: slope change A to midspan = theta_A (since theta_mid = 0)
     let d_mid = results.displacements.iter().find(|d| d.node_id == mid).unwrap();
-    let slope_change: f64 = (d_a.rz - d_mid.rz).abs();
+    let slope_change: f64 = (d_a.ry - d_mid.ry).abs();
     assert_close(slope_change, theta_a_exact, 0.02,
         "Moment area 1st theorem: slope change A->mid = theta_A");
 
     // Midspan deflection: delta_mid = PL^3/(48EI)
     let delta_exact: f64 = p * l.powi(3) / (48.0 * e_eff * IZ);
-    assert_close(d_mid.uy.abs(), delta_exact, 0.02,
+    assert_close(d_mid.uz.abs(), delta_exact, 0.02,
         "Moment area: delta_mid = PL^3/(48EI)");
 
     // Second theorem check: tangential deviation t_{B/A}
@@ -173,7 +173,7 @@ fn validation_ecurve_ext_moment_area_mohr() {
     // which equals the midspan deflection by geometry (tangent at A
     // passes through A, deviation at B from that tangent = delta_B + theta_A * L)
     // Actually: delta_B = 0 (support), so t_{B/A} = theta_A * L
-    let t_ba: f64 = d_a.rz.abs() * l;
+    let t_ba: f64 = d_a.ry.abs() * l;
     let t_ba_exact: f64 = p * l.powi(3) / (16.0 * e_eff * IZ);
     assert_close(t_ba, t_ba_exact, 0.03,
         "Moment area 2nd theorem: t_BA = PL^3/(16EI)");
@@ -207,10 +207,10 @@ fn validation_ecurve_ext_macaulay_brackets() {
 
     let loads = vec![
         SolverLoad::Nodal(SolverNodalLoad {
-            node_id: node_1, fx: 0.0, fy: -p1, mz: 0.0,
+            node_id: node_1, fx: 0.0, fz: -p1, my: 0.0,
         }),
         SolverLoad::Nodal(SolverNodalLoad {
-            node_id: node_2, fx: 0.0, fy: -p2, mz: 0.0,
+            node_id: node_2, fx: 0.0, fz: -p2, my: 0.0,
         }),
     ];
     let input = make_beam(n, l, E, A, IZ, "pinned", Some("rollerX"), loads);
@@ -224,8 +224,8 @@ fn validation_ecurve_ext_macaulay_brackets() {
 
     let r_a = results.reactions.iter().find(|r| r.node_id == 1).unwrap();
     let r_b = results.reactions.iter().find(|r| r.node_id == n + 1).unwrap();
-    assert_close(r_a.ry, r_a_exact, 0.02, "Macaulay: R_A");
-    assert_close(r_b.ry, r_b_exact, 0.02, "Macaulay: R_B");
+    assert_close(r_a.rz, r_a_exact, 0.02, "Macaulay: R_A");
+    assert_close(r_b.rz, r_b_exact, 0.02, "Macaulay: R_B");
 
     // Deflection at load point 1 using singularity function integration:
     // delta(a1) = (R_A*a1^3/6) / (EI)  [no Macaulay terms active yet]
@@ -252,11 +252,11 @@ fn validation_ecurve_ext_macaulay_brackets() {
 
     let delta_total_a1: f64 = delta_p1_at_a1 + delta_p2_at_a1;
     let d1 = results.displacements.iter().find(|d| d.node_id == node_1).unwrap();
-    assert_close(d1.uy.abs(), delta_total_a1, 0.03,
+    assert_close(d1.uz.abs(), delta_total_a1, 0.03,
         "Macaulay: deflection at load point 1");
 
     // Verify equilibrium: R_A + R_B = P1 + P2
-    assert_close(r_a.ry + r_b.ry, p1 + p2, 0.01,
+    assert_close(r_a.rz + r_b.rz, p1 + p2, 0.01,
         "Macaulay: sum of reactions = sum of loads");
 }
 
@@ -283,7 +283,7 @@ fn validation_ecurve_ext_superposition() {
 
     // Case A: point load only
     let loads_a = vec![SolverLoad::Nodal(SolverNodalLoad {
-        node_id: mid, fx: 0.0, fy: -p, mz: 0.0,
+        node_id: mid, fx: 0.0, fz: -p, my: 0.0,
     })];
     let input_a = make_beam(n, l, E, A, IZ, "pinned", Some("rollerX"), loads_a);
     let results_a = linear::solve_2d(&input_a).unwrap();
@@ -306,29 +306,29 @@ fn validation_ecurve_ext_superposition() {
         }))
         .collect();
     loads_c.push(SolverLoad::Nodal(SolverNodalLoad {
-        node_id: mid, fx: 0.0, fy: -p, mz: 0.0,
+        node_id: mid, fx: 0.0, fz: -p, my: 0.0,
     }));
     let input_c = make_beam(n, l, E, A, IZ, "pinned", Some("rollerX"), loads_c);
     let results_c = linear::solve_2d(&input_c).unwrap();
     let d_c = results_c.displacements.iter().find(|d| d.node_id == mid).unwrap();
 
     // Superposition: delta_C = delta_A + delta_B
-    let sum_uy: f64 = d_a.uy + d_b.uy;
-    assert_close(d_c.uy, sum_uy, 0.01,
+    let sum_uy: f64 = d_a.uz + d_b.uz;
+    assert_close(d_c.uz, sum_uy, 0.01,
         "Superposition: delta_combined = delta_point + delta_UDL");
 
     // Also verify slopes superpose
-    let sum_rz: f64 = d_a.rz + d_b.rz;
-    assert_close(d_c.rz, sum_rz, 0.01,
+    let sum_rz: f64 = d_a.ry + d_b.ry;
+    assert_close(d_c.ry, sum_rz, 0.01,
         "Superposition: theta_combined = theta_point + theta_UDL");
 
     // Verify each component against exact formulas
     let delta_a_exact: f64 = p * l.powi(3) / (48.0 * e_eff * IZ);
-    assert_close(d_a.uy.abs(), delta_a_exact, 0.02,
+    assert_close(d_a.uz.abs(), delta_a_exact, 0.02,
         "Superposition: delta_point = PL^3/(48EI)");
 
     let delta_b_exact: f64 = 5.0 * q.abs() * l.powi(4) / (384.0 * e_eff * IZ);
-    assert_close(d_b.uy.abs(), delta_b_exact, 0.02,
+    assert_close(d_b.uz.abs(), delta_b_exact, 0.02,
         "Superposition: delta_UDL = 5qL^4/(384EI)");
 }
 
@@ -356,14 +356,14 @@ fn validation_ecurve_ext_max_deflection_location() {
 
     let load_node = (a / l * n as f64).round() as usize + 1;
     let loads = vec![SolverLoad::Nodal(SolverNodalLoad {
-        node_id: load_node, fx: 0.0, fy: -p, mz: 0.0,
+        node_id: load_node, fx: 0.0, fz: -p, my: 0.0,
     })];
     let input = make_beam(n, l, E, A, IZ, "pinned", Some("rollerX"), loads);
     let results = linear::solve_2d(&input).unwrap();
 
     // Find node with maximum deflection
     let max_disp = results.displacements.iter()
-        .max_by(|a, b| a.uy.abs().partial_cmp(&b.uy.abs()).unwrap())
+        .max_by(|a, b| a.uz.abs().partial_cmp(&b.uz.abs()).unwrap())
         .unwrap();
     let x_max_fem: f64 = (max_disp.node_id - 1) as f64 * l / n as f64;
 
@@ -379,17 +379,17 @@ fn validation_ecurve_ext_max_deflection_location() {
     // delta_max = P*b*(L^2 - b^2)^(3/2) / (9*sqrt(3)*L*EI)
     let l2_b2: f64 = l.powi(2) - b.powi(2);
     let delta_max_exact: f64 = p * b * l2_b2.powf(1.5) / (9.0 * 3.0_f64.sqrt() * l * e_eff * IZ);
-    assert_close(max_disp.uy.abs(), delta_max_exact, 0.03,
+    assert_close(max_disp.uz.abs(), delta_max_exact, 0.03,
         "Max defl value: delta_max = Pb(L^2-b^2)^(3/2)/(9*sqrt(3)*L*EI)");
 
     // The slope at the maximum deflection point should be approximately zero.
     // With a discrete mesh the node may not land exactly at the zero-slope point,
     // so we check that the slope is small relative to the end slope.
     let d_a = results.displacements.iter().find(|d| d.node_id == 1).unwrap();
-    let end_slope: f64 = d_a.rz.abs();
-    assert!(max_disp.rz.abs() < 0.05 * end_slope,
+    let end_slope: f64 = d_a.ry.abs();
+    assert!(max_disp.ry.abs() < 0.05 * end_slope,
         "Max defl: slope at max deflection point small vs end slope: {:.6e} vs {:.6e}",
-        max_disp.rz.abs(), end_slope);
+        max_disp.ry.abs(), end_slope);
 }
 
 // ================================================================
@@ -425,22 +425,22 @@ fn validation_ecurve_ext_propped_cantilever_compatibility() {
 
     // R_B = 3qL/8 (from compatibility)
     let r_b_exact: f64 = 3.0 * q.abs() * l / 8.0;
-    assert_close(r_b.ry, r_b_exact, 0.02,
+    assert_close(r_b.rz, r_b_exact, 0.02,
         "Propped compatibility: R_B = 3qL/8");
 
     // R_A = qL - R_B = 5qL/8
     let r_a_exact: f64 = 5.0 * q.abs() * l / 8.0;
-    assert_close(r_a.ry, r_a_exact, 0.02,
+    assert_close(r_a.rz, r_a_exact, 0.02,
         "Propped compatibility: R_A = 5qL/8");
 
     // M_A = qL^2/8 (fixed-end moment)
     let m_a_exact: f64 = q.abs() * l.powi(2) / 8.0;
-    assert_close(r_a.mz.abs(), m_a_exact, 0.02,
+    assert_close(r_a.my.abs(), m_a_exact, 0.02,
         "Propped compatibility: M_A = qL^2/8");
 
     // Maximum deflection: delta_max = qL^4/(185.2*EI)
     let max_defl: f64 = results.displacements.iter()
-        .map(|d| d.uy.abs())
+        .map(|d| d.uz.abs())
         .fold(0.0_f64, f64::max);
     let delta_max_exact: f64 = q.abs() * l.powi(4) / (185.2 * e_eff * IZ);
     assert_close(max_defl, delta_max_exact, 0.05,
@@ -448,8 +448,8 @@ fn validation_ecurve_ext_propped_cantilever_compatibility() {
 
     // Verify compatibility: deflection at roller = 0
     let d_b = results.displacements.iter().find(|d| d.node_id == n + 1).unwrap();
-    assert!(d_b.uy.abs() < 1e-10,
-        "Propped compatibility: delta_B = 0 (support): {:.6e}", d_b.uy);
+    assert!(d_b.uz.abs() < 1e-10,
+        "Propped compatibility: delta_B = 0 (support): {:.6e}", d_b.uz);
 }
 
 // ================================================================
@@ -499,7 +499,7 @@ fn validation_ecurve_ext_continuous_beam_deflections() {
     let interior_node = n + 1;
     let r_int = results.reactions.iter().find(|r| r.node_id == interior_node).unwrap();
     let r_center_exact: f64 = 5.0 * q.abs() * span / 4.0;
-    assert_close(r_int.ry, r_center_exact, 0.02,
+    assert_close(r_int.rz, r_center_exact, 0.02,
         "Continuous: R_center = 5qL/4");
 
     // Midspan deflection of first span: delta = qL^4/(192EI)
@@ -511,17 +511,17 @@ fn validation_ecurve_ext_continuous_beam_deflections() {
     let mid1 = n / 2 + 1;
     let d_mid1 = results.displacements.iter().find(|d| d.node_id == mid1).unwrap();
     let delta_exact: f64 = q.abs() * span.powi(4) / (192.0 * e_eff * IZ);
-    assert_close(d_mid1.uy.abs(), delta_exact, 0.05,
+    assert_close(d_mid1.uz.abs(), delta_exact, 0.05,
         "Continuous: midspan delta = qL^4/(192EI)");
 
     // By symmetry, midspan deflections of both spans should be equal
     let mid2 = n + n / 2 + 1;
     let d_mid2 = results.displacements.iter().find(|d| d.node_id == mid2).unwrap();
-    assert_close(d_mid1.uy, d_mid2.uy, 0.01,
+    assert_close(d_mid1.uz, d_mid2.uz, 0.01,
         "Continuous: symmetric midspan deflections");
 
     // Deflection at interior support = 0
     let d_int = results.displacements.iter().find(|d| d.node_id == interior_node).unwrap();
-    assert!(d_int.uy.abs() < 1e-10,
-        "Continuous: delta at interior support = 0: {:.6e}", d_int.uy);
+    assert!(d_int.uz.abs() < 1e-10,
+        "Continuous: delta at interior support = 0: {:.6e}", d_int.uz);
 }

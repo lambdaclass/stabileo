@@ -113,7 +113,7 @@ fn test_json_round_trip() {
         vec![(1, 0.15, 0.003125)],
         vec![(1, "frame", 1, 2, 1, 1, false, false)],
         vec![(1, 1, "fixed")],
-        vec![SolverLoad::Nodal(SolverNodalLoad { node_id: 2, fx: 0.0, fy: -50.0, mz: 0.0 })],
+        vec![SolverLoad::Nodal(SolverNodalLoad { node_id: 2, fx: 0.0, fz: -50.0, my: 0.0 })],
     );
     let results = solve_2d(&input).unwrap();
 
@@ -159,7 +159,7 @@ fn test_snapshot_stable_output() {
         vec![(1, 0.15, 0.003125)],
         vec![(1, "frame", 1, 2, 1, 1, false, false)],
         vec![(1, 1, "fixed")],
-        vec![SolverLoad::Nodal(SolverNodalLoad { node_id: 2, fx: 0.0, fy: -50.0, mz: 0.0 })],
+        vec![SolverLoad::Nodal(SolverNodalLoad { node_id: 2, fx: 0.0, fz: -50.0, my: 0.0 })],
     );
     let results = solve_2d(&input).unwrap();
 
@@ -235,7 +235,7 @@ fn test_no_data_governing_absent_in_json() {
         vec![(1, 0.15, 0.003125)],
         vec![(1, "frame", 1, 2, 1, 1, false, false)],
         vec![(1, 1, "fixed")],
-        vec![SolverLoad::Nodal(SolverNodalLoad { node_id: 2, fx: 0.0, fy: -50.0, mz: 0.0 })],
+        vec![SolverLoad::Nodal(SolverNodalLoad { node_id: 2, fx: 0.0, fz: -50.0, my: 0.0 })],
     );
     let results = solve_2d(&input).unwrap();
 
@@ -677,7 +677,7 @@ fn test_regression_cantilever_steel_workflow() {
         vec![(1, 0.01, 0.0001)],  // Steel section: A=0.01 m², Iz=1e-4 m⁴
         vec![(1, "frame", 1, 2, 1, 1, false, false)],
         vec![(1, 1, "fixed")],
-        vec![SolverLoad::Nodal(SolverNodalLoad { node_id: 2, fx: 0.0, fy: p, mz: 0.0 })],
+        vec![SolverLoad::Nodal(SolverNodalLoad { node_id: 2, fx: 0.0, fz: p, my: 0.0 })],
     );
     let results = solve_2d(&input).unwrap();
 
@@ -849,7 +849,7 @@ fn test_schema_version_present_in_json() {
         vec![(1, 0.15, 0.003125)],
         vec![(1, "frame", 1, 2, 1, 1, false, false)],
         vec![(1, 1, "fixed")],
-        vec![SolverLoad::Nodal(SolverNodalLoad { node_id: 2, fx: 0.0, fy: -50.0, mz: 0.0 })],
+        vec![SolverLoad::Nodal(SolverNodalLoad { node_id: 2, fx: 0.0, fz: -50.0, my: 0.0 })],
     );
     let results = solve_2d(&input).unwrap();
 

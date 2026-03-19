@@ -48,10 +48,10 @@ fn validation_fem_ext_two_symmetric_point_loads() {
 
     let loads = vec![
         SolverLoad::Nodal(SolverNodalLoad {
-            node_id: load_node_left, fx: 0.0, fy: -p, mz: 0.0,
+            node_id: load_node_left, fx: 0.0, fz: -p, my: 0.0,
         }),
         SolverLoad::Nodal(SolverNodalLoad {
-            node_id: load_node_right, fx: 0.0, fy: -p, mz: 0.0,
+            node_id: load_node_right, fx: 0.0, fz: -p, my: 0.0,
         }),
     ];
     let input = make_beam(n, l, E, A, IZ, "fixed", Some("fixed"), loads);
@@ -61,8 +61,8 @@ fn validation_fem_ext_two_symmetric_point_loads() {
     let r_end = results.reactions.iter().find(|r| r.node_id == n + 1).unwrap();
 
     // By symmetry each support carries P
-    assert_close(r1.ry, p, 0.02, "Two sym loads: R_left = P");
-    assert_close(r_end.ry, p, 0.02, "Two sym loads: R_right = P");
+    assert_close(r1.rz, p, 0.02, "Two sym loads: R_left = P");
+    assert_close(r_end.rz, p, 0.02, "Two sym loads: R_right = P");
 
     // End moment by superposition:
     // For left load at a from left: M_left = P*a*b^2/L^2 where b = L - a
@@ -71,11 +71,11 @@ fn validation_fem_ext_two_symmetric_point_loads() {
     let b_dist = l - a_dist;
     let m_end = p * a_dist * b_dist / l;
     // By symmetry, both end moments should be equal
-    assert_close(r1.mz.abs(), m_end, 0.03, "Two sym loads: M_left = Pa(L-a)/L");
-    assert_close(r_end.mz.abs(), m_end, 0.03, "Two sym loads: M_right = Pa(L-a)/L");
+    assert_close(r1.my.abs(), m_end, 0.03, "Two sym loads: M_left = Pa(L-a)/L");
+    assert_close(r_end.my.abs(), m_end, 0.03, "Two sym loads: M_right = Pa(L-a)/L");
 
     // Vertical equilibrium: sum = 2P
-    let sum_ry: f64 = results.reactions.iter().map(|r| r.ry).sum();
+    let sum_ry: f64 = results.reactions.iter().map(|r| r.rz).sum();
     assert_close(sum_ry, 2.0 * p, 0.01, "Two sym loads: ΣRy = 2P");
 }
 
@@ -108,13 +108,13 @@ fn validation_fem_ext_fixed_fixed_udl_deflection() {
 
     // delta_max = q*L^4 / (384*E*I)
     let delta_exact: f64 = q.abs() * l.powi(4) / (384.0 * e_eff * IZ);
-    assert_close(mid_d.uy.abs(), delta_exact, 0.03,
+    assert_close(mid_d.uz.abs(), delta_exact, 0.03,
         "FF UDL deflection: delta = qL^4/(384EI)");
 
     // Also verify end moments: M = qL^2/12
     let r1 = results.reactions.iter().find(|r| r.node_id == 1).unwrap();
     let fem: f64 = q.abs() * l * l / 12.0;
-    assert_close(r1.mz.abs(), fem, 0.02, "FF UDL: M_end = qL^2/12");
+    assert_close(r1.my.abs(), fem, 0.02, "FF UDL: M_end = qL^2/12");
 }
 
 // ================================================================
@@ -148,20 +148,20 @@ fn validation_fem_ext_cantilever_udl() {
 
     // delta_tip = qL^4 / (8EI)
     let delta_exact: f64 = q.abs() * l.powi(4) / (8.0 * e_eff * IZ);
-    assert_close(tip.uy.abs(), delta_exact, 0.02,
+    assert_close(tip.uz.abs(), delta_exact, 0.02,
         "Cantilever UDL: delta_tip = qL^4/(8EI)");
 
     // theta_tip = qL^3 / (6EI)
     let theta_exact: f64 = q.abs() * l.powi(3) / (6.0 * e_eff * IZ);
-    assert_close(tip.rz.abs(), theta_exact, 0.02,
+    assert_close(tip.ry.abs(), theta_exact, 0.02,
         "Cantilever UDL: theta_tip = qL^3/(6EI)");
 
     // Base reactions
     let r1 = results.reactions.iter().find(|r| r.node_id == 1).unwrap();
     let m_base: f64 = q.abs() * l * l / 2.0;
     let r_base: f64 = q.abs() * l;
-    assert_close(r1.mz.abs(), m_base, 0.02, "Cantilever UDL: M_base = qL^2/2");
-    assert_close(r1.ry, r_base, 0.02, "Cantilever UDL: R_base = qL");
+    assert_close(r1.my.abs(), m_base, 0.02, "Cantilever UDL: M_base = qL^2/2");
+    assert_close(r1.rz, r_base, 0.02, "Cantilever UDL: R_base = qL");
 }
 
 // ================================================================
@@ -182,7 +182,7 @@ fn validation_fem_ext_propped_cantilever_midspan_point() {
 
     let mid = n / 2 + 1; // node 6 at x = 5.0
     let loads = vec![SolverLoad::Nodal(SolverNodalLoad {
-        node_id: mid, fx: 0.0, fy: -p, mz: 0.0,
+        node_id: mid, fx: 0.0, fz: -p, my: 0.0,
     })];
     let input = make_beam(n, l, E, A, IZ, "fixed", Some("rollerX"), loads);
     let results = linear::solve_2d(&input).unwrap();
@@ -192,21 +192,21 @@ fn validation_fem_ext_propped_cantilever_midspan_point() {
 
     // R_roller = 5P/16
     let r_roller = 5.0 * p / 16.0;
-    assert_close(r_end.ry, r_roller, 0.02,
+    assert_close(r_end.rz, r_roller, 0.02,
         "Propped midspan P: R_roller = 5P/16");
 
     // R_fixed = 11P/16
     let r_fixed = 11.0 * p / 16.0;
-    assert_close(r1.ry, r_fixed, 0.02,
+    assert_close(r1.rz, r_fixed, 0.02,
         "Propped midspan P: R_fixed = 11P/16");
 
     // M_fixed = 3PL/16
     let m_fixed = 3.0 * p * l / 16.0;
-    assert_close(r1.mz.abs(), m_fixed, 0.02,
+    assert_close(r1.my.abs(), m_fixed, 0.02,
         "Propped midspan P: M_fixed = 3PL/16");
 
     // Vertical equilibrium
-    let sum_ry: f64 = results.reactions.iter().map(|r| r.ry).sum();
+    let sum_ry: f64 = results.reactions.iter().map(|r| r.rz).sum();
     assert_close(sum_ry, p, 0.01, "Propped midspan P: ΣRy = P");
 }
 
@@ -238,8 +238,8 @@ fn validation_fem_ext_fixed_fixed_midspan_moment() {
     let r1 = results.reactions.iter().find(|r| r.node_id == 1).unwrap();
     let r_end = results.reactions.iter().find(|r| r.node_id == n + 1).unwrap();
     let m_end: f64 = q.abs() * l * l / 12.0;
-    assert_close(r1.mz.abs(), m_end, 0.02, "FF UDL: hogging M_end = qL^2/12");
-    assert_close(r_end.mz.abs(), m_end, 0.02, "FF UDL: hogging M_end_B = qL^2/12");
+    assert_close(r1.my.abs(), m_end, 0.02, "FF UDL: hogging M_end = qL^2/12");
+    assert_close(r_end.my.abs(), m_end, 0.02, "FF UDL: hogging M_end_B = qL^2/12");
 
     // Midspan sagging moment = qL^2/24
     // At the midspan element (element n/2), the end moment m_end gives the
@@ -289,16 +289,16 @@ fn validation_fem_ext_two_span_continuous_udl() {
 
     // Interior reaction = 5qL/4
     let r_int_exact: f64 = 5.0 * q.abs() * span / 4.0;
-    assert_close(r_interior.ry, r_int_exact, 0.02,
+    assert_close(r_interior.rz, r_int_exact, 0.02,
         "2-span UDL: R_interior = 5qL/4");
 
     // End reactions = 3qL/8
     let r_end_exact: f64 = 3.0 * q.abs() * span / 8.0;
-    assert_close(r_left.ry, r_end_exact, 0.02, "2-span UDL: R_left = 3qL/8");
-    assert_close(r_right.ry, r_end_exact, 0.02, "2-span UDL: R_right = 3qL/8");
+    assert_close(r_left.rz, r_end_exact, 0.02, "2-span UDL: R_left = 3qL/8");
+    assert_close(r_right.rz, r_end_exact, 0.02, "2-span UDL: R_right = 3qL/8");
 
     // Total vertical equilibrium: 2 * qL
-    let sum_ry: f64 = results.reactions.iter().map(|r| r.ry).sum();
+    let sum_ry: f64 = results.reactions.iter().map(|r| r.rz).sum();
     let total_load: f64 = q.abs() * span * 2.0;
     assert_close(sum_ry, total_load, 0.01, "2-span UDL: ΣRy = 2qL");
 }
@@ -322,7 +322,7 @@ fn validation_fem_ext_cantilever_tip_point() {
     let e_eff: f64 = E * 1000.0;
 
     let loads = vec![SolverLoad::Nodal(SolverNodalLoad {
-        node_id: n + 1, fx: 0.0, fy: -p, mz: 0.0,
+        node_id: n + 1, fx: 0.0, fz: -p, my: 0.0,
     })];
     let input = make_beam(n, l, E, A, IZ, "fixed", None, loads);
     let results = linear::solve_2d(&input).unwrap();
@@ -331,18 +331,18 @@ fn validation_fem_ext_cantilever_tip_point() {
 
     // delta_tip = PL^3 / (3EI)
     let delta_exact: f64 = p * l.powi(3) / (3.0 * e_eff * IZ);
-    assert_close(tip.uy.abs(), delta_exact, 0.02,
+    assert_close(tip.uz.abs(), delta_exact, 0.02,
         "Cantilever tip P: delta = PL^3/(3EI)");
 
     // theta_tip = PL^2 / (2EI)
     let theta_exact: f64 = p * l.powi(2) / (2.0 * e_eff * IZ);
-    assert_close(tip.rz.abs(), theta_exact, 0.02,
+    assert_close(tip.ry.abs(), theta_exact, 0.02,
         "Cantilever tip P: theta = PL^2/(2EI)");
 
     // Base reactions
     let r1 = results.reactions.iter().find(|r| r.node_id == 1).unwrap();
-    assert_close(r1.ry, p, 0.01, "Cantilever tip P: R_base = P");
-    assert_close(r1.mz.abs(), p * l, 0.01, "Cantilever tip P: M_base = PL");
+    assert_close(r1.rz, p, 0.01, "Cantilever tip P: R_base = P");
+    assert_close(r1.my.abs(), p * l, 0.01, "Cantilever tip P: M_base = PL");
 }
 
 // ================================================================
@@ -367,10 +367,10 @@ fn validation_fem_ext_quarter_point_loads() {
     // Loads at L/4 = node 5, and 3L/4 = node 13
     let loads = vec![
         SolverLoad::Nodal(SolverNodalLoad {
-            node_id: 5, fx: 0.0, fy: -p, mz: 0.0,
+            node_id: 5, fx: 0.0, fz: -p, my: 0.0,
         }),
         SolverLoad::Nodal(SolverNodalLoad {
-            node_id: 13, fx: 0.0, fy: -p, mz: 0.0,
+            node_id: 13, fx: 0.0, fz: -p, my: 0.0,
         }),
     ];
     let input = make_beam(n, l, E, A, IZ, "fixed", Some("fixed"), loads);
@@ -380,15 +380,15 @@ fn validation_fem_ext_quarter_point_loads() {
     let r_end = results.reactions.iter().find(|r| r.node_id == n + 1).unwrap();
 
     // Each support carries P by symmetry
-    assert_close(r1.ry, p, 0.02, "Quarter-point: R_left = P");
-    assert_close(r_end.ry, p, 0.02, "Quarter-point: R_right = P");
+    assert_close(r1.rz, p, 0.02, "Quarter-point: R_left = P");
+    assert_close(r_end.rz, p, 0.02, "Quarter-point: R_right = P");
 
     // End moments = 3PL/16
     let m_end: f64 = 3.0 * p * l / 16.0;
-    assert_close(r1.mz.abs(), m_end, 0.03, "Quarter-point: M_left = 3PL/16");
-    assert_close(r_end.mz.abs(), m_end, 0.03, "Quarter-point: M_right = 3PL/16");
+    assert_close(r1.my.abs(), m_end, 0.03, "Quarter-point: M_left = 3PL/16");
+    assert_close(r_end.my.abs(), m_end, 0.03, "Quarter-point: M_right = 3PL/16");
 
     // Vertical equilibrium
-    let sum_ry: f64 = results.reactions.iter().map(|r| r.ry).sum();
+    let sum_ry: f64 = results.reactions.iter().map(|r| r.rz).sum();
     assert_close(sum_ry, 2.0 * p, 0.01, "Quarter-point: ΣRy = 2P");
 }

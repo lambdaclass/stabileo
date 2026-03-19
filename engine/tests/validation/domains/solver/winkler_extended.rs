@@ -53,7 +53,7 @@ fn make_winkler_beam(
         nodes_map.insert(id.to_string(), SolverNode {
             id,
             x: i as f64 * elem_len,
-            y: 0.0,
+            z: 0.0,
         });
     }
 
@@ -97,8 +97,8 @@ fn make_winkler_beam(
             ky: Some(ky_node),
             kz: None,
             dx: None,
-            dy: None,
-            drz: None,
+            dz: None,
+            dry: None,
             angle: None,
         });
     }
@@ -131,7 +131,7 @@ fn winkler_deflection_at(
         .iter()
         .find(|d| d.node_id == node_id)
         .unwrap()
-        .uy
+        .uz
 }
 
 // ================================================================
@@ -162,8 +162,8 @@ fn validation_winkler_infinite_beam_point_load_hetenyi() {
     let loads = vec![SolverLoad::Nodal(SolverNodalLoad {
         node_id: mid_node,
         fx: 0.0,
-        fy: -p,
-        mz: 0.0,
+        fz: -p,
+        my: 0.0,
     })];
 
     let input = make_winkler_beam(n, l, k_soil, E, A, IZ, loads);
@@ -177,7 +177,7 @@ fn validation_winkler_infinite_beam_point_load_hetenyi() {
         .iter()
         .find(|d| d.node_id == mid_node)
         .unwrap();
-    let delta_computed = mid.uy.abs();
+    let delta_computed = mid.uz.abs();
 
     // With 100 elements and beta*L=5*pi, expect within 5%
     let error = (delta_computed - delta_hetenyi).abs() / delta_hetenyi;
@@ -190,7 +190,7 @@ fn validation_winkler_infinite_beam_point_load_hetenyi() {
     );
 
     // Also verify deflection is downward
-    assert!(mid.uy < 0.0, "Deflection should be downward: uy={:.6e}", mid.uy);
+    assert!(mid.uz < 0.0, "Deflection should be downward: uy={:.6e}", mid.uz);
 }
 
 // ================================================================
@@ -224,8 +224,8 @@ fn validation_winkler_semi_infinite_end_load_decay() {
     let loads = vec![SolverLoad::Nodal(SolverNodalLoad {
         node_id: 1,
         fx: 0.0,
-        fy: -p,
-        mz: 0.0,
+        fz: -p,
+        my: 0.0,
     })];
 
     let input = make_winkler_beam(n, l, k_soil, E, A, IZ, loads);
@@ -237,7 +237,7 @@ fn validation_winkler_semi_infinite_end_load_decay() {
         .iter()
         .find(|d| d.node_id == 1)
         .unwrap()
-        .uy
+        .uz
         .abs();
 
     // Deflection should decay with distance from load.
@@ -251,7 +251,7 @@ fn validation_winkler_semi_infinite_end_load_decay() {
         .iter()
         .find(|d| d.node_id == node_at_zero)
         .unwrap()
-        .uy
+        .uz
         .abs();
 
     // At x = pi/(2*beta), the analytical solution has cos(pi/2)=0 and the
@@ -269,7 +269,7 @@ fn validation_winkler_semi_infinite_end_load_decay() {
         .iter()
         .find(|d| d.node_id == n + 1)
         .unwrap()
-        .uy
+        .uz
         .abs();
     assert!(
         d_far < d_end * 0.05,
@@ -308,8 +308,8 @@ fn validation_winkler_short_beam_rigid_approximation() {
     let loads = vec![SolverLoad::Nodal(SolverNodalLoad {
         node_id: mid_node,
         fx: 0.0,
-        fy: -p,
-        mz: 0.0,
+        fz: -p,
+        my: 0.0,
     })];
 
     let input = make_winkler_beam(n, l, k_soil, E, A, IZ, loads);
@@ -323,7 +323,7 @@ fn validation_winkler_short_beam_rigid_approximation() {
         .iter()
         .find(|d| d.node_id == mid_node)
         .unwrap()
-        .uy
+        .uz
         .abs();
 
     // For a truly rigid beam, all nodes deflect equally.
@@ -346,14 +346,14 @@ fn validation_winkler_short_beam_rigid_approximation() {
         .iter()
         .find(|d| d.node_id == 1)
         .unwrap()
-        .uy
+        .uz
         .abs();
     let d_end2 = results
         .displacements
         .iter()
         .find(|d| d.node_id == n + 1)
         .unwrap()
-        .uy
+        .uz
         .abs();
 
     // End deflections should be at least 40% of midspan for a short beam
@@ -395,8 +395,8 @@ fn validation_winkler_varying_spring_stiffness() {
         let loads = vec![SolverLoad::Nodal(SolverNodalLoad {
             node_id: mid_node,
             fx: 0.0,
-            fy: -p,
-            mz: 0.0,
+            fz: -p,
+            my: 0.0,
         })];
 
         let d = winkler_deflection_at(n, l, k, E, A, IZ, loads, mid_node).abs();
@@ -456,16 +456,16 @@ fn validation_winkler_foundation_modulus_proportionality() {
     let loads1 = vec![SolverLoad::Nodal(SolverNodalLoad {
         node_id: mid_node,
         fx: 0.0,
-        fy: -p1,
-        mz: 0.0,
+        fz: -p1,
+        my: 0.0,
     })];
     let d1 = winkler_deflection_at(n, l, k_soil, E, A, IZ, loads1, mid_node).abs();
 
     let loads2 = vec![SolverLoad::Nodal(SolverNodalLoad {
         node_id: mid_node,
         fx: 0.0,
-        fy: -p2,
-        mz: 0.0,
+        fz: -p2,
+        my: 0.0,
     })];
     let d2 = winkler_deflection_at(n, l, k_soil, E, A, IZ, loads2, mid_node).abs();
 
@@ -480,16 +480,16 @@ fn validation_winkler_foundation_modulus_proportionality() {
     let loads_k1 = vec![SolverLoad::Nodal(SolverNodalLoad {
         node_id: mid_node,
         fx: 0.0,
-        fy: -p1,
-        mz: 0.0,
+        fz: -p1,
+        my: 0.0,
     })];
     let d_k1 = winkler_deflection_at(n, l, k_soil, E, A, IZ, loads_k1, mid_node).abs();
 
     let loads_k2 = vec![SolverLoad::Nodal(SolverNodalLoad {
         node_id: mid_node,
         fx: 0.0,
-        fy: -p1,
-        mz: 0.0,
+        fz: -p1,
+        my: 0.0,
     })];
     let d_k2 = winkler_deflection_at(n, l2, k2, E, A, IZ, loads_k2, mid_node).abs();
 
@@ -534,8 +534,8 @@ fn validation_winkler_stiffness_ratio_limits() {
     let loads_a = vec![SolverLoad::Nodal(SolverNodalLoad {
         node_id: mid_node,
         fx: 0.0,
-        fy: -p,
-        mz: 0.0,
+        fz: -p,
+        my: 0.0,
     })];
     let input_a = make_winkler_beam(n, l, k_soft, E, A, iz_stiff, loads_a);
     let results_a = linear::solve_2d(&input_a).unwrap();
@@ -545,14 +545,14 @@ fn validation_winkler_stiffness_ratio_limits() {
         .iter()
         .find(|d| d.node_id == mid_node)
         .unwrap()
-        .uy
+        .uz
         .abs();
     let d_end_a = results_a
         .displacements
         .iter()
         .find(|d| d.node_id == 1)
         .unwrap()
-        .uy
+        .uz
         .abs();
 
     // For stiff beam, end deflection should be a substantial fraction of midspan
@@ -574,8 +574,8 @@ fn validation_winkler_stiffness_ratio_limits() {
     let loads_b = vec![SolverLoad::Nodal(SolverNodalLoad {
         node_id: mid_node,
         fx: 0.0,
-        fy: -p,
-        mz: 0.0,
+        fz: -p,
+        my: 0.0,
     })];
     let input_b = make_winkler_beam(n, l, k_stiff, E, A, iz_flex, loads_b);
     let results_b = linear::solve_2d(&input_b).unwrap();
@@ -585,14 +585,14 @@ fn validation_winkler_stiffness_ratio_limits() {
         .iter()
         .find(|d| d.node_id == mid_node)
         .unwrap()
-        .uy
+        .uz
         .abs();
     let d_end_b = results_b
         .displacements
         .iter()
         .find(|d| d.node_id == 1)
         .unwrap()
-        .uy
+        .uz
         .abs();
 
     // For flexible beam on stiff foundation, deflection is localized:
@@ -642,8 +642,8 @@ fn validation_winkler_moment_load_hetenyi() {
     let loads = vec![SolverLoad::Nodal(SolverNodalLoad {
         node_id: mid_node,
         fx: 0.0,
-        fy: 0.0,
-        mz: m0,
+        fz: 0.0,
+        my: m0,
     })];
 
     let input = make_winkler_beam(n, l, k_soil, E, A, IZ, loads);
@@ -663,9 +663,9 @@ fn validation_winkler_moment_load_hetenyi() {
     // at the exact load point for symmetric infinite beam. The key behavior is:
     // 1. There should be a nonzero rotation at the moment point
     assert!(
-        mid.rz.abs() > 1e-8,
+        mid.ry.abs() > 1e-8,
         "Moment load produces rotation: rz={:.6e}",
-        mid.rz
+        mid.ry
     );
 
     // 2. The deflection profile should be antisymmetric about the moment point
@@ -675,13 +675,13 @@ fn validation_winkler_moment_load_hetenyi() {
         .iter()
         .find(|d| d.node_id == mid_node - 5)
         .unwrap()
-        .uy;
+        .uz;
     let d_right = results
         .displacements
         .iter()
         .find(|d| d.node_id == mid_node + 5)
         .unwrap()
-        .uy;
+        .uz;
 
     // Left and right of moment should have opposite sign deflections
     // (or at least very different magnitudes showing antisymmetry)
@@ -732,8 +732,8 @@ fn validation_winkler_superposition_multiple_loads() {
     let loads_1 = vec![SolverLoad::Nodal(SolverNodalLoad {
         node_id: node_a,
         fx: 0.0,
-        fy: -p1,
-        mz: 0.0,
+        fz: -p1,
+        my: 0.0,
     })];
     let input_1 = make_winkler_beam(n, l, k_soil, E, A, IZ, loads_1);
     let results_1 = linear::solve_2d(&input_1).unwrap();
@@ -742,8 +742,8 @@ fn validation_winkler_superposition_multiple_loads() {
     let loads_2 = vec![SolverLoad::Nodal(SolverNodalLoad {
         node_id: node_b,
         fx: 0.0,
-        fy: -p2,
-        mz: 0.0,
+        fz: -p2,
+        my: 0.0,
     })];
     let input_2 = make_winkler_beam(n, l, k_soil, E, A, IZ, loads_2);
     let results_2 = linear::solve_2d(&input_2).unwrap();
@@ -753,14 +753,14 @@ fn validation_winkler_superposition_multiple_loads() {
         SolverLoad::Nodal(SolverNodalLoad {
             node_id: node_a,
             fx: 0.0,
-            fy: -p1,
-            mz: 0.0,
+            fz: -p1,
+            my: 0.0,
         }),
         SolverLoad::Nodal(SolverNodalLoad {
             node_id: node_b,
             fx: 0.0,
-            fy: -p2,
-            mz: 0.0,
+            fz: -p2,
+            my: 0.0,
         }),
     ];
     let input_combined = make_winkler_beam(n, l, k_soil, E, A, IZ, loads_combined);
@@ -774,19 +774,19 @@ fn validation_winkler_superposition_multiple_loads() {
             .iter()
             .find(|d| d.node_id == nid)
             .unwrap()
-            .uy;
+            .uz;
         let d2 = results_2
             .displacements
             .iter()
             .find(|d| d.node_id == nid)
             .unwrap()
-            .uy;
+            .uz;
         let d_comb = results_combined
             .displacements
             .iter()
             .find(|d| d.node_id == nid)
             .unwrap()
-            .uy;
+            .uz;
 
         let d_super = d1 + d2;
         let denom = d_comb.abs().max(1e-10);

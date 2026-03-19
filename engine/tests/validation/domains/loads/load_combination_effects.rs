@@ -49,7 +49,7 @@ fn validation_lce_udl_plus_point_superposition() {
         let mut loads = Vec::new();
         if apply_point {
             loads.push(SolverLoad::Nodal(SolverNodalLoad {
-                node_id: mid, fx: 0.0, fy: -p, mz: 0.0,
+                node_id: mid, fx: 0.0, fz: -p, my: 0.0,
             }));
         }
         if apply_udl {
@@ -68,15 +68,15 @@ fn validation_lce_udl_plus_point_superposition() {
     let rc = build(true, true);
 
     // Reaction at node 1: superposition
-    let r1a = ra.reactions.iter().find(|r| r.node_id == 1).unwrap().ry;
-    let r1b = rb.reactions.iter().find(|r| r.node_id == 1).unwrap().ry;
-    let r1c = rc.reactions.iter().find(|r| r.node_id == 1).unwrap().ry;
+    let r1a = ra.reactions.iter().find(|r| r.node_id == 1).unwrap().rz;
+    let r1b = rb.reactions.iter().find(|r| r.node_id == 1).unwrap().rz;
+    let r1c = rc.reactions.iter().find(|r| r.node_id == 1).unwrap().rz;
     assert_close(r1c, r1a + r1b, 0.01, "LCE superposition: R1y_C = R1y_A + R1y_B");
 
     // Midspan deflection: superposition
-    let da = ra.displacements.iter().find(|d| d.node_id == mid).unwrap().uy;
-    let db = rb.displacements.iter().find(|d| d.node_id == mid).unwrap().uy;
-    let dc = rc.displacements.iter().find(|d| d.node_id == mid).unwrap().uy;
+    let da = ra.displacements.iter().find(|d| d.node_id == mid).unwrap().uz;
+    let db = rb.displacements.iter().find(|d| d.node_id == mid).unwrap().uz;
+    let dc = rc.displacements.iter().find(|d| d.node_id == mid).unwrap().uz;
     assert_close(dc, da + db, 0.01, "LCE superposition: δ_C = δ_A + δ_B");
 
     // Independent analytical checks
@@ -111,7 +111,7 @@ fn validation_lce_opposing_loads_cancellation() {
 
     let loads: Vec<SolverLoad> = {
         let mut v = vec![SolverLoad::Nodal(SolverNodalLoad {
-            node_id: n + 1, fx: 0.0, fy: -p1, mz: 0.0,
+            node_id: n + 1, fx: 0.0, fz: -p1, my: 0.0,
         })];
         for i in 1..=n {
             v.push(SolverLoad::Distributed(SolverDistributedLoad {
@@ -127,13 +127,13 @@ fn validation_lce_opposing_loads_cancellation() {
     // Net vertical load = P1_down − w_up * L = 30 − 30 = 0
     // Fixed-end reaction Ry should be ~0
     let r1 = results.reactions.iter().find(|r| r.node_id == 1).unwrap();
-    assert!(r1.ry.abs() < 0.5,
-        "Opposing loads: Ry should ≈ 0, got {:.4}", r1.ry);
+    assert!(r1.rz.abs() < 0.5,
+        "Opposing loads: Ry should ≈ 0, got {:.4}", r1.rz);
 
     // But moment at fixed end is NOT zero (they don't cancel in moments)
     // M_fixed = P1·L − w_up·L²/2 = 30·5 − 6·25/2 = 150 − 75 = 75 kN·m
     let m_exact = p1 * l - w_up * l * l / 2.0;
-    assert_close(r1.mz.abs(), m_exact, 0.02,
+    assert_close(r1.my.abs(), m_exact, 0.02,
         "Opposing loads: M_fixed = P1·L − wL²/2");
 }
 
@@ -164,40 +164,40 @@ fn validation_lce_symmetric_antisymmetric_decomposition() {
 
     // Direct combined
     let combined_loads = vec![
-        SolverLoad::Nodal(SolverNodalLoad { node_id: n1, fx: 0.0, fy: -p1, mz: 0.0 }),
-        SolverLoad::Nodal(SolverNodalLoad { node_id: n2, fx: 0.0, fy: -p2, mz: 0.0 }),
+        SolverLoad::Nodal(SolverNodalLoad { node_id: n1, fx: 0.0, fz: -p1, my: 0.0 }),
+        SolverLoad::Nodal(SolverNodalLoad { node_id: n2, fx: 0.0, fz: -p2, my: 0.0 }),
     ];
     let input_direct = make_beam(n, l, E, A, IZ, "pinned", Some("rollerX"), combined_loads);
     let res_direct = linear::solve_2d(&input_direct).unwrap();
 
     // Symmetric component alone
     let sym_loads = vec![
-        SolverLoad::Nodal(SolverNodalLoad { node_id: n1, fx: 0.0, fy: -p_sym, mz: 0.0 }),
-        SolverLoad::Nodal(SolverNodalLoad { node_id: n2, fx: 0.0, fy: -p_sym, mz: 0.0 }),
+        SolverLoad::Nodal(SolverNodalLoad { node_id: n1, fx: 0.0, fz: -p_sym, my: 0.0 }),
+        SolverLoad::Nodal(SolverNodalLoad { node_id: n2, fx: 0.0, fz: -p_sym, my: 0.0 }),
     ];
     let input_sym = make_beam(n, l, E, A, IZ, "pinned", Some("rollerX"), sym_loads);
     let res_sym = linear::solve_2d(&input_sym).unwrap();
 
     // Antisymmetric component alone
     let anti_loads = vec![
-        SolverLoad::Nodal(SolverNodalLoad { node_id: n1, fx: 0.0, fy: -p_anti, mz: 0.0 }),
-        SolverLoad::Nodal(SolverNodalLoad { node_id: n2, fx: 0.0, fy: p_anti, mz: 0.0 }),
+        SolverLoad::Nodal(SolverNodalLoad { node_id: n1, fx: 0.0, fz: -p_anti, my: 0.0 }),
+        SolverLoad::Nodal(SolverNodalLoad { node_id: n2, fx: 0.0, fz: p_anti, my: 0.0 }),
     ];
     let input_anti = make_beam(n, l, E, A, IZ, "pinned", Some("rollerX"), anti_loads);
     let res_anti = linear::solve_2d(&input_anti).unwrap();
 
     // Check that direct = symmetric + antisymmetric at midspan
     let mid = n / 2 + 1;
-    let d_direct = res_direct.displacements.iter().find(|d| d.node_id == mid).unwrap().uy;
-    let d_sym = res_sym.displacements.iter().find(|d| d.node_id == mid).unwrap().uy;
-    let d_anti = res_anti.displacements.iter().find(|d| d.node_id == mid).unwrap().uy;
+    let d_direct = res_direct.displacements.iter().find(|d| d.node_id == mid).unwrap().uz;
+    let d_sym = res_sym.displacements.iter().find(|d| d.node_id == mid).unwrap().uz;
+    let d_anti = res_anti.displacements.iter().find(|d| d.node_id == mid).unwrap().uz;
     assert_close(d_direct, d_sym + d_anti, 0.01,
         "Sym+anti decomposition: δ_mid");
 
     // Check reaction superposition at node 1
-    let r_direct = res_direct.reactions.iter().find(|r| r.node_id == 1).unwrap().ry;
-    let r_sym = res_sym.reactions.iter().find(|r| r.node_id == 1).unwrap().ry;
-    let r_anti = res_anti.reactions.iter().find(|r| r.node_id == 1).unwrap().ry;
+    let r_direct = res_direct.reactions.iter().find(|r| r.node_id == 1).unwrap().rz;
+    let r_sym = res_sym.reactions.iter().find(|r| r.node_id == 1).unwrap().rz;
+    let r_anti = res_anti.reactions.iter().find(|r| r.node_id == 1).unwrap().rz;
     assert_close(r_direct, r_sym + r_anti, 0.01,
         "Sym+anti decomposition: R1y");
 }
@@ -231,7 +231,7 @@ fn validation_lce_discrete_loads_vs_udl() {
     let mut discrete_loads = Vec::new();
     for i in 2..=(n_elem) {
         discrete_loads.push(SolverLoad::Nodal(SolverNodalLoad {
-            node_id: i, fx: 0.0, fy: -w_per_load, mz: 0.0,
+            node_id: i, fx: 0.0, fz: -w_per_load, my: 0.0,
         }));
     }
     let input_discrete = make_beam(n_elem, l, E, A, IZ, "pinned", Some("rollerX"), discrete_loads);
@@ -247,8 +247,8 @@ fn validation_lce_discrete_loads_vs_udl() {
     let res_udl = linear::solve_2d(&input_udl).unwrap();
 
     let mid = n_elem / 2 + 1;
-    let d_discrete = res_discrete.displacements.iter().find(|d| d.node_id == mid).unwrap().uy;
-    let d_udl = res_udl.displacements.iter().find(|d| d.node_id == mid).unwrap().uy;
+    let d_discrete = res_discrete.displacements.iter().find(|d| d.node_id == mid).unwrap().uz;
+    let d_udl = res_udl.displacements.iter().find(|d| d.node_id == mid).unwrap().uz;
 
     // Both should be close to exact UDL deflection
     let delta_exact = 5.0 * w_udl * l.powi(4) / (384.0 * e_eff * IZ);
@@ -288,12 +288,12 @@ fn validation_lce_end_moment_plus_transverse() {
         let mut loads = Vec::new();
         if apply_p {
             loads.push(SolverLoad::Nodal(SolverNodalLoad {
-                node_id: mid, fx: 0.0, fy: -p, mz: 0.0,
+                node_id: mid, fx: 0.0, fz: -p, my: 0.0,
             }));
         }
         if apply_m {
             loads.push(SolverLoad::Nodal(SolverNodalLoad {
-                node_id: 1, fx: 0.0, fy: 0.0, mz: m0,
+                node_id: 1, fx: 0.0, fz: 0.0, my: m0,
             }));
         }
         let input = make_beam(n, l, E, A, IZ, "fixed", Some("fixed"), loads);
@@ -305,16 +305,16 @@ fn validation_lce_end_moment_plus_transverse() {
     let res_both = build(true, true);
 
     // Superposition: reaction Ry at node 1
-    let ry_p = res_p.reactions.iter().find(|r| r.node_id == 1).unwrap().ry;
-    let ry_m = res_m.reactions.iter().find(|r| r.node_id == 1).unwrap().ry;
-    let ry_both = res_both.reactions.iter().find(|r| r.node_id == 1).unwrap().ry;
+    let ry_p = res_p.reactions.iter().find(|r| r.node_id == 1).unwrap().rz;
+    let ry_m = res_m.reactions.iter().find(|r| r.node_id == 1).unwrap().rz;
+    let ry_both = res_both.reactions.iter().find(|r| r.node_id == 1).unwrap().rz;
     assert_close(ry_both, ry_p + ry_m, 0.01,
         "End moment + transverse: superposition Ry");
 
     // From P alone on fixed-fixed: R = P/2, M_ends = PL/8
     assert_close(ry_p, p / 2.0, 0.02,
         "Fixed-fixed beam, midspan P: R = P/2");
-    let mz_p = res_p.reactions.iter().find(|r| r.node_id == 1).unwrap().mz;
+    let mz_p = res_p.reactions.iter().find(|r| r.node_id == 1).unwrap().my;
     let m_fixed_p_exact = p * l / 8.0;
     assert_close(mz_p.abs(), m_fixed_p_exact, 0.02,
         "Fixed-fixed beam, midspan P: M_end = PL/8");
@@ -349,7 +349,7 @@ fn validation_lce_axial_preload_plus_lateral_udl() {
         let mut loads = Vec::new();
         if axial {
             loads.push(SolverLoad::Nodal(SolverNodalLoad {
-                node_id: n + 1, fx: n_pre, fy: 0.0, mz: 0.0,
+                node_id: n + 1, fx: n_pre, fz: 0.0, my: 0.0,
             }));
         }
         if lateral {
@@ -374,7 +374,7 @@ fn validation_lce_axial_preload_plus_lateral_udl() {
     // Superposition of displacements
     assert_close(tip_combined.ux, tip_axial.ux + tip_lateral.ux, 0.01,
         "Axial+lateral: superposition ux");
-    assert_close(tip_combined.uy, tip_axial.uy + tip_lateral.uy, 0.01,
+    assert_close(tip_combined.uz, tip_axial.uz + tip_lateral.uz, 0.01,
         "Axial+lateral: superposition uy");
 
     // Analytical check — axial tip displacement
@@ -384,7 +384,7 @@ fn validation_lce_axial_preload_plus_lateral_udl() {
 
     // Analytical check — cantilever tip deflection under UDL
     let dy_exact = w.abs() * l.powi(4) / (8.0 * e_eff * IZ);
-    assert_close(tip_lateral.uy.abs(), dy_exact, 0.02,
+    assert_close(tip_lateral.uz.abs(), dy_exact, 0.02,
         "Cantilever UDL: δy = wL⁴/8EI");
 }
 
@@ -414,11 +414,11 @@ fn validation_lce_moving_load_max_at_midspan() {
 
     let deflect_at = |load_node: usize| -> f64 {
         let loads = vec![SolverLoad::Nodal(SolverNodalLoad {
-            node_id: load_node, fx: 0.0, fy: -p, mz: 0.0,
+            node_id: load_node, fx: 0.0, fz: -p, my: 0.0,
         })];
         let input = make_beam(n, l, E, A, IZ, "pinned", Some("rollerX"), loads);
         let results = linear::solve_2d(&input).unwrap();
-        results.displacements.iter().find(|d| d.node_id == mid).unwrap().uy
+        results.displacements.iter().find(|d| d.node_id == mid).unwrap().uz
     };
 
     let d_mid_load = deflect_at(mid);
@@ -468,7 +468,7 @@ fn validation_lce_load_reversal_symmetry() {
         // Point load at midspan of span 1
         let mid_span1 = n_per / 2 + 1;
         loads.push(SolverLoad::Nodal(SolverNodalLoad {
-            node_id: mid_span1, fx: 0.0, fy: sign * (-p), mz: 0.0,
+            node_id: mid_span1, fx: 0.0, fz: sign * (-p), my: 0.0,
         }));
         // UDL on span 2
         for i in (n_per + 1)..=(2 * n_per) {
@@ -486,16 +486,16 @@ fn validation_lce_load_reversal_symmetry() {
     // Every reaction must flip sign
     for r_pos in &res_pos.reactions {
         let r_neg = res_neg.reactions.iter().find(|r| r.node_id == r_pos.node_id).unwrap();
-        assert_close(r_neg.ry, -r_pos.ry, 0.01,
+        assert_close(r_neg.rz, -r_pos.rz, 0.01,
             &format!("Load reversal: Ry at node {} reversed", r_pos.node_id));
-        assert_close(r_neg.mz, -r_pos.mz, 0.01,
+        assert_close(r_neg.my, -r_pos.my, 0.01,
             &format!("Load reversal: Mz at node {} reversed", r_pos.node_id));
     }
 
     // Every displacement must flip sign
     for d_pos in &res_pos.displacements {
         let d_neg = res_neg.displacements.iter().find(|d| d.node_id == d_pos.node_id).unwrap();
-        assert_close(d_neg.uy, -d_pos.uy, 0.01,
+        assert_close(d_neg.uz, -d_pos.uz, 0.01,
             &format!("Load reversal: uy at node {} reversed", d_pos.node_id));
     }
 }

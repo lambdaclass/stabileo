@@ -76,7 +76,7 @@ fn mass_law_transmission_loss() {
     let mid_node = 3; // node 3 is at midspan for 4-element beam
     let mid_disp: f64 = results.displacements.iter()
         .find(|d| d.node_id == mid_node)
-        .unwrap().uy.abs();
+        .unwrap().uz.abs();
 
     assert_close(mid_disp, delta_theory, 0.02, "SS beam midspan deflection");
 
@@ -130,7 +130,7 @@ fn stc_rating_from_mass_law() {
         2, l, e_mpa, a, iz,
         "pinned", Some("rollerX"),
         vec![SolverLoad::Nodal(SolverNodalLoad {
-            node_id: 2, fx: 0.0, fy: -10.0, mz: 0.0,
+            node_id: 2, fx: 0.0, fz: -10.0, my: 0.0,
         })],
     );
     let results = solve_2d(&input).expect("solve");
@@ -138,7 +138,7 @@ fn stc_rating_from_mass_law() {
     // Verify we get a valid deflection (beam works)
     let mid_dy: f64 = results.displacements.iter()
         .find(|d| d.node_id == 2)
-        .unwrap().uy.abs();
+        .unwrap().uz.abs();
     assert!(mid_dy > 0.0, "Beam deflects under load");
 
     // Mass law TL at standard 1/3-octave frequencies
@@ -255,7 +255,7 @@ fn coincidence_frequency_from_bending_stiffness() {
         4, l, e_mpa, a, iz,
         "fixed", Some("fixed"),
         vec![SolverLoad::Nodal(SolverNodalLoad {
-            node_id: 3, fx: 0.0, fy: -1.0, mz: 0.0,
+            node_id: 3, fx: 0.0, fz: -1.0, my: 0.0,
         })],
     );
     let results = solve_2d(&input).expect("solve");
@@ -263,7 +263,7 @@ fn coincidence_frequency_from_bending_stiffness() {
     // Verify beam deflects (stiffness is working)
     let mid_dy: f64 = results.displacements.iter()
         .find(|d| d.node_id == 3)
-        .unwrap().uy.abs();
+        .unwrap().uz.abs();
     assert!(mid_dy > 0.0, "Fixed-fixed beam deflects");
 
     // Flexural rigidity D = E*Iz (for unit width, plane stress)
@@ -340,13 +340,13 @@ fn double_wall_improvement_from_cavity() {
         2, l, e_gypsum, a_leaf, iz_leaf,
         "pinned", Some("rollerX"),
         vec![SolverLoad::Nodal(SolverNodalLoad {
-            node_id: 2, fx: 0.0, fy: -0.1, mz: 0.0,
+            node_id: 2, fx: 0.0, fz: -0.1, my: 0.0,
         })],
     );
     let results = solve_2d(&input).expect("solve");
     let leaf_dy: f64 = results.displacements.iter()
         .find(|d| d.node_id == 2)
-        .unwrap().uy.abs();
+        .unwrap().uz.abs();
     assert!(leaf_dy > 0.0, "Single leaf deflects");
 
     // Double wall parameters
@@ -436,7 +436,7 @@ fn floor_impact_aisc_dg11_walking() {
 
     let delta_sw: f64 = results.displacements.iter()
         .find(|d| d.node_id == 3)
-        .unwrap().uy.abs();
+        .unwrap().uz.abs();
     let delta_theory: f64 = 5.0 * w_per_m * l.powi(4) / (384.0 * e_kn * iz);
     assert_close(delta_sw, delta_theory, 0.02, "Self-weight deflection");
 
@@ -519,13 +519,13 @@ fn vibration_isolation_transmissibility() {
         2, l, e_steel, a, iz,
         "pinned", Some("rollerX"),
         vec![SolverLoad::Nodal(SolverNodalLoad {
-            node_id: 2, fx: 0.0, fy: -f_machine, mz: 0.0,
+            node_id: 2, fx: 0.0, fz: -f_machine, my: 0.0,
         })],
     );
     let results = solve_2d(&input).expect("solve");
 
     // Verify load transfer through reactions
-    let total_ry: f64 = results.reactions.iter().map(|r| r.ry).sum::<f64>();
+    let total_ry: f64 = results.reactions.iter().map(|r| r.rz).sum::<f64>();
     assert_close(total_ry, f_machine, 0.01, "Machine weight transferred");
 
     // Undamped transmissibility at various frequency ratios
@@ -600,13 +600,13 @@ fn modal_density_beam_and_plate() {
         4, l, e_mpa, a, iz,
         "pinned", Some("rollerX"),
         vec![SolverLoad::Nodal(SolverNodalLoad {
-            node_id: 3, fx: 0.0, fy: -100.0, mz: 0.0,
+            node_id: 3, fx: 0.0, fz: -100.0, my: 0.0,
         })],
     );
     let results = solve_2d(&input).expect("solve");
     let mid_dy: f64 = results.displacements.iter()
         .find(|d| d.node_id == 3)
-        .unwrap().uy.abs();
+        .unwrap().uz.abs();
     assert!(mid_dy > 0.0, "Beam deflects");
 
     let e_pa: f64 = e_mpa * 1.0e6;
@@ -713,13 +713,13 @@ fn radiation_efficiency_panel() {
         4, lx, e_steel_mpa, a_strip, iz_strip,
         "pinned", Some("rollerX"),
         vec![SolverLoad::Nodal(SolverNodalLoad {
-            node_id: 3, fx: 0.0, fy: -0.01, mz: 0.0,
+            node_id: 3, fx: 0.0, fz: -0.01, my: 0.0,
         })],
     );
     let results = solve_2d(&input).expect("solve");
     let strip_dy: f64 = results.displacements.iter()
         .find(|d| d.node_id == 3)
-        .unwrap().uy.abs();
+        .unwrap().uz.abs();
     assert!(strip_dy > 0.0, "Panel strip deflects");
 
     // Radiation efficiency above fc (Maidanik):

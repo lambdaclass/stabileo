@@ -66,11 +66,11 @@ fn validation_ghali_1_force_method_2span() {
         .unwrap();
 
     // Interior reaction: R_B = 10*w*L/8 = 1.25*w*L = 112.5
-    assert_close(r_b.ry, 1.25 * w * l, 0.02, "Ghali1: R_B = 1.25wL");
+    assert_close(r_b.rz, 1.25 * w * l, 0.02, "Ghali1: R_B = 1.25wL");
 
     // End reactions: R_A = R_C = 3*w*L/8 = 33.75
-    assert_close(r_a.ry, 3.0 * w * l / 8.0, 0.02, "Ghali1: R_A = 3wL/8");
-    assert_close(r_c.ry, 3.0 * w * l / 8.0, 0.02, "Ghali1: R_C = 3wL/8");
+    assert_close(r_a.rz, 3.0 * w * l / 8.0, 0.02, "Ghali1: R_A = 3wL/8");
+    assert_close(r_c.rz, 3.0 * w * l / 8.0, 0.02, "Ghali1: R_C = 3wL/8");
 
     // Interior moment M_B = -wL^2/8 = -67.5
     // Check via element forces at the interior support
@@ -88,7 +88,7 @@ fn validation_ghali_1_force_method_2span() {
     );
 
     // Global equilibrium: sum Ry = 2*w*L = 180
-    let sum_ry: f64 = results.reactions.iter().map(|r| r.ry).sum();
+    let sum_ry: f64 = results.reactions.iter().map(|r| r.rz).sum();
     assert_close(sum_ry, 2.0 * w * l, 0.01, "Ghali1: equilibrium");
 }
 
@@ -117,8 +117,8 @@ fn validation_ghali_2_propped_cantilever_point() {
     let loads = vec![SolverLoad::Nodal(SolverNodalLoad {
         node_id: load_node,
         fx: 0.0,
-        fy: -p,
-        mz: 0.0,
+        fz: -p,
+        my: 0.0,
     })];
     let input = make_beam(n, l, E, A, IZ, "fixed", Some("rollerX"), loads);
     let results = linear::solve_2d(&input).unwrap();
@@ -132,17 +132,17 @@ fn validation_ghali_2_propped_cantilever_point() {
 
     // R_B = P*a^2*(3L - a) / (2L^3)
     let r_b_exact = p * a * a * (3.0 * l - a) / (2.0 * l * l * l);
-    assert_close(r_b.ry, r_b_exact, 0.03, "Ghali2: R_B = Pa^2(3L-a)/(2L^3)");
+    assert_close(r_b.rz, r_b_exact, 0.03, "Ghali2: R_B = Pa^2(3L-a)/(2L^3)");
 
     // R_A = P - R_B
-    assert_close(r_a.ry, p - r_b_exact, 0.03, "Ghali2: R_A = P - R_B");
+    assert_close(r_a.rz, p - r_b_exact, 0.03, "Ghali2: R_A = P - R_B");
 
     // M_A = P*a*b*(L + b) / (2L^2)
     let m_a_exact = p * a * b * (l + b) / (2.0 * l * l);
-    assert_close(r_a.mz.abs(), m_a_exact, 0.03, "Ghali2: M_A formula");
+    assert_close(r_a.my.abs(), m_a_exact, 0.03, "Ghali2: M_A formula");
 
     // Equilibrium
-    assert_close(r_a.ry + r_b.ry, p, 0.01, "Ghali2: equilibrium");
+    assert_close(r_a.rz + r_b.rz, p, 0.01, "Ghali2: equilibrium");
 }
 
 // ================================================================
@@ -199,7 +199,7 @@ fn validation_ghali_3_portal_sway_stiffness() {
     );
     let mut nodes_map = HashMap::new();
     for (id, x, y) in &nodes {
-        nodes_map.insert(id.to_string(), SolverNode { id: *id, x: *x, y: *y });
+        nodes_map.insert(id.to_string(), SolverNode { id: *id, x: *x, z: *y });
     }
     let mut elems_map = HashMap::new();
     // Columns use section 1, beam uses section 2 (stiff)
@@ -253,8 +253,8 @@ fn validation_ghali_3_portal_sway_stiffness() {
             ky: None,
             kz: None,
             dx: None,
-            dy: None,
-            drz: None,
+            dz: None,
+            dry: None,
             angle: None,
         },
     );
@@ -268,8 +268,8 @@ fn validation_ghali_3_portal_sway_stiffness() {
             ky: None,
             kz: None,
             dx: None,
-            dy: None,
-            drz: None,
+            dz: None,
+            dry: None,
             angle: None,
         },
     );
@@ -282,8 +282,8 @@ fn validation_ghali_3_portal_sway_stiffness() {
         loads: vec![SolverLoad::Nodal(SolverNodalLoad {
             node_id: 2,
             fx: f,
-            fy: 0.0,
-            mz: 0.0,
+            fz: 0.0,
+            my: 0.0,
         })], constraints: vec![],
         connectors: HashMap::new(), };
     let results_rigid = linear::solve_2d(&input_rigid).unwrap();
@@ -387,13 +387,13 @@ fn validation_ghali_4_symmetric_frame() {
     let r4 = results.reactions.iter().find(|r| r.node_id == 4).unwrap();
 
     // Vertical reactions should be equal: each = q*w/2
-    assert_close(r1.ry, r4.ry, 0.001, "Ghali4: symmetric Ry");
-    assert_close(r1.ry, q * w / 2.0, 0.02, "Ghali4: R = qw/2");
+    assert_close(r1.rz, r4.rz, 0.001, "Ghali4: symmetric Ry");
+    assert_close(r1.rz, q * w / 2.0, 0.02, "Ghali4: R = qw/2");
 
     // Base moments should be equal in magnitude
     assert_close(
-        r1.mz.abs(),
-        r4.mz.abs(),
+        r1.my.abs(),
+        r4.my.abs(),
         0.001,
         "Ghali4: symmetric |Mz|",
     );
@@ -407,7 +407,7 @@ fn validation_ghali_4_symmetric_frame() {
     );
 
     // Equilibrium
-    let sum_ry: f64 = results.reactions.iter().map(|r| r.ry).sum();
+    let sum_ry: f64 = results.reactions.iter().map(|r| r.rz).sum();
     assert_close(sum_ry, q * w, 0.01, "Ghali4: equilibrium");
 }
 
@@ -472,7 +472,7 @@ fn validation_ghali_5_continuous_3span_pattern() {
     let results_full = linear::solve_2d(&input_full).unwrap();
 
     // Pattern load equilibrium: total load = q*(L1 + L3) = 15*(6+6) = 180
-    let sum_ry_pattern: f64 = results_pattern.reactions.iter().map(|r| r.ry).sum();
+    let sum_ry_pattern: f64 = results_pattern.reactions.iter().map(|r| r.rz).sum();
     assert_close(
         sum_ry_pattern,
         q * (l1 + l3),
@@ -481,7 +481,7 @@ fn validation_ghali_5_continuous_3span_pattern() {
     );
 
     // Full load equilibrium: total load = q*(L1+L2+L3) = 15*20 = 300
-    let sum_ry_full: f64 = results_full.reactions.iter().map(|r| r.ry).sum();
+    let sum_ry_full: f64 = results_full.reactions.iter().map(|r| r.rz).sum();
     assert_close(
         sum_ry_full,
         q * (l1 + l2 + l3),
@@ -505,14 +505,14 @@ fn validation_ghali_5_continuous_3span_pattern() {
         .iter()
         .find(|d| d.node_id == mid_node_span1)
         .unwrap()
-        .uy
+        .uz
         .abs();
     let defl_full = results_full
         .displacements
         .iter()
         .find(|d| d.node_id == mid_node_span1)
         .unwrap()
-        .uy
+        .uz
         .abs();
     assert!(
         defl_pattern > defl_full * 0.8,
@@ -532,7 +532,7 @@ fn validation_ghali_5_continuous_3span_pattern() {
         .iter()
         .find(|r| r.node_id == 3 * n_per_span + 1)
         .unwrap();
-    assert_close(r_a.ry, r_d.ry, 0.02, "Ghali5: pattern symmetry R_A = R_D");
+    assert_close(r_a.rz, r_d.rz, 0.02, "Ghali5: pattern symmetry R_A = R_D");
 }
 
 // ================================================================
@@ -568,14 +568,14 @@ fn validation_ghali_6_stiffness_modification() {
 
         let mut nodes_map = HashMap::new();
         let mut nid = 1_usize;
-        nodes_map.insert(nid.to_string(), SolverNode { id: nid, x: 0.0, y: 0.0 });
+        nodes_map.insert(nid.to_string(), SolverNode { id: nid, x: 0.0, z: 0.0 });
         nid += 1;
         for span_idx in 0..2 {
             let span_start_x = span_idx as f64 * l;
             for j in 1..=n_per_span {
                 nodes_map.insert(
                     nid.to_string(),
-                    SolverNode { id: nid, x: span_start_x + j as f64 * elem_len, y: 0.0 },
+                    SolverNode { id: nid, x: span_start_x + j as f64 * elem_len, z: 0.0 },
                 );
                 nid += 1;
             }
@@ -600,15 +600,15 @@ fn validation_ghali_6_stiffness_modification() {
         let mut sups_map = HashMap::new();
         sups_map.insert("1".to_string(), SolverSupport {
             id: 1, node_id: 1, support_type: "pinned".to_string(),
-            kx: None, ky: None, kz: None, dx: None, dy: None, drz: None, angle: None,
+            kx: None, ky: None, kz: None, dx: None, dz: None, dry: None, angle: None,
         });
         sups_map.insert("2".to_string(), SolverSupport {
             id: 2, node_id: n_per_span + 1, support_type: "rollerX".to_string(),
-            kx: None, ky: None, kz: None, dx: None, dy: None, drz: None, angle: None,
+            kx: None, ky: None, kz: None, dx: None, dz: None, dry: None, angle: None,
         });
         sups_map.insert("3".to_string(), SolverSupport {
             id: 3, node_id: n_nodes, support_type: right_support.to_string(),
-            kx: None, ky: None, kz: None, dx: None, dy: None, drz: None, angle: None,
+            kx: None, ky: None, kz: None, dx: None, dz: None, dry: None, angle: None,
         });
 
         // UDL on span 1 only
@@ -647,9 +647,9 @@ fn validation_ghali_6_stiffness_modification() {
     assert!(m_b_b > 0.1, "Ghali6: case_b M_B is positive: {:.4}", m_b_b);
 
     // Equilibrium for both: total load = q*L = 60
-    let sum_a: f64 = results_a.reactions.iter().map(|r| r.ry).sum();
+    let sum_a: f64 = results_a.reactions.iter().map(|r| r.rz).sum();
     assert_close(sum_a, q * l, 0.01, "Ghali6: case_a equilibrium");
-    let sum_b: f64 = results_b.reactions.iter().map(|r| r.ry).sum();
+    let sum_b: f64 = results_b.reactions.iter().map(|r| r.rz).sum();
     assert_close(sum_b, q * l, 0.01, "Ghali6: case_b equilibrium");
 
     // Case (a): far end should have a reaction moment (fixed support)
@@ -657,8 +657,8 @@ fn validation_ghali_6_stiffness_modification() {
     let r_c_a = results_a.reactions.iter()
         .find(|r| r.node_id == n_nodes_a).unwrap();
     assert!(
-        r_c_a.mz.abs() > 0.1,
-        "Ghali6: fixed end C has moment reaction: {:.4}", r_c_a.mz
+        r_c_a.my.abs() > 0.1,
+        "Ghali6: fixed end C has moment reaction: {:.4}", r_c_a.my
     );
 
     // Case (b): roller end has no moment (roller support)
@@ -666,8 +666,8 @@ fn validation_ghali_6_stiffness_modification() {
     let d_c_b = results_b.displacements.iter()
         .find(|d| d.node_id == n_nodes_a).unwrap();
     assert!(
-        d_c_b.rz.abs() > 1e-8,
-        "Ghali6: roller end C rotates freely: rz={:.8}", d_c_b.rz
+        d_c_b.ry.abs() > 1e-8,
+        "Ghali6: roller end C rotates freely: rz={:.8}", d_c_b.ry
     );
 }
 
@@ -735,7 +735,7 @@ fn validation_ghali_7_frame_moment_distribution() {
 
     // Global equilibrium: total vertical load = q*(w1 + w2)
     let total_load = q * (w1 + w2);
-    let sum_ry: f64 = results.reactions.iter().map(|r| r.ry).sum();
+    let sum_ry: f64 = results.reactions.iter().map(|r| r.rz).sum();
     assert_close(sum_ry, total_load, 0.01, "Ghali7: vertical equilibrium");
 
     // No net lateral load, so sum Rx should be ~0
@@ -753,26 +753,26 @@ fn validation_ghali_7_frame_moment_distribution() {
     let r_ext2 = results.reactions.iter().find(|r| r.node_id == 3).unwrap();
 
     assert!(
-        r_int.ry > r_ext1.ry,
+        r_int.rz > r_ext1.rz,
         "Ghali7: interior col ({:.2}) > left col ({:.2})",
-        r_int.ry,
-        r_ext1.ry
+        r_int.rz,
+        r_ext1.rz
     );
     assert!(
-        r_int.ry > r_ext2.ry,
+        r_int.rz > r_ext2.rz,
         "Ghali7: interior col ({:.2}) > right col ({:.2})",
-        r_int.ry,
-        r_ext2.ry
+        r_int.rz,
+        r_ext2.rz
     );
 
     // Base moments should all be nonzero (fixed bases)
     assert!(
-        r_ext1.mz.abs() > 1.0,
+        r_ext1.my.abs() > 1.0,
         "Ghali7: base moment col 1 nonzero"
     );
-    assert!(r_int.mz.abs() > 1.0, "Ghali7: base moment col 2 nonzero");
+    assert!(r_int.my.abs() > 1.0, "Ghali7: base moment col 2 nonzero");
     assert!(
-        r_ext2.mz.abs() > 1.0,
+        r_ext2.my.abs() > 1.0,
         "Ghali7: base moment col 3 nonzero"
     );
 
@@ -781,11 +781,11 @@ fn validation_ghali_7_frame_moment_distribution() {
     // For gravity-only loading: sum of base moments should be related
     // to beam fixed-end moments carried down the columns.
     // Just verify sum of base Mz is nonzero and bounded.
-    let sum_mz: f64 = results.reactions.iter().map(|r| r.mz).sum();
+    let sum_my: f64 = results.reactions.iter().map(|r| r.my).sum();
     assert!(
-        sum_mz.abs() < q * (w1 + w2) * (w1 + w2),
+        sum_my.abs() < q * (w1 + w2) * (w1 + w2),
         "Ghali7: base moment sum bounded: {:.4}",
-        sum_mz
+        sum_my
     );
 
     // The longer span (bay 2 = 8m) should produce larger beam FEM
@@ -845,7 +845,7 @@ fn validation_ghali_8_settlement_continuous() {
         SolverNode {
             id: node_id,
             x: 0.0,
-            y: 0.0,
+            z: 0.0,
         },
     );
     node_id += 1;
@@ -857,7 +857,7 @@ fn validation_ghali_8_settlement_continuous() {
                 SolverNode {
                     id: node_id,
                     x: x + j as f64 * elem_len,
-                    y: 0.0,
+                    z: 0.0,
                 },
             );
             node_id += 1;
@@ -918,8 +918,8 @@ fn validation_ghali_8_settlement_continuous() {
             ky: None,
             kz: None,
             dx: None,
-            dy: None,
-            drz: None,
+            dz: None,
+            dry: None,
             angle: None,
         },
     );
@@ -933,8 +933,8 @@ fn validation_ghali_8_settlement_continuous() {
             ky: None,
             kz: None,
             dx: None,
-            dy: Some(delta),
-            drz: None,
+            dz: Some(delta),
+            dry: None,
             angle: None,
         },
     );
@@ -948,8 +948,8 @@ fn validation_ghali_8_settlement_continuous() {
             ky: None,
             kz: None,
             dx: None,
-            dy: None,
-            drz: None,
+            dz: None,
+            dry: None,
             angle: None,
         },
     );
@@ -963,8 +963,8 @@ fn validation_ghali_8_settlement_continuous() {
             ky: None,
             kz: None,
             dx: None,
-            dy: None,
-            drz: None,
+            dz: None,
+            dry: None,
             angle: None,
         },
     );
@@ -980,7 +980,7 @@ fn validation_ghali_8_settlement_continuous() {
     let results = linear::solve_2d(&input).unwrap();
 
     // No external loads: sum of reactions = 0
-    let sum_ry: f64 = results.reactions.iter().map(|r| r.ry).sum();
+    let sum_ry: f64 = results.reactions.iter().map(|r| r.rz).sum();
     assert!(
         sum_ry.abs() < 0.1,
         "Ghali8: no load, sum_ry = {:.6}",
@@ -994,9 +994,9 @@ fn validation_ghali_8_settlement_continuous() {
         .find(|r| r.node_id == node_b)
         .unwrap();
     assert!(
-        r_b.ry.abs() > 0.01,
+        r_b.rz.abs() > 0.01,
         "Ghali8: settlement induces reaction at B: {:.6}",
-        r_b.ry
+        r_b.rz
     );
 
     // Node B should have the prescribed displacement
@@ -1005,7 +1005,7 @@ fn validation_ghali_8_settlement_continuous() {
         .iter()
         .find(|d| d.node_id == node_b)
         .unwrap();
-    assert_close(d_b.uy, delta, 0.01, "Ghali8: prescribed settlement at B");
+    assert_close(d_b.uz, delta, 0.01, "Ghali8: prescribed settlement at B");
 
     // Settlement-induced moment at B: approximately 6EI*delta/L^2
     // For continuous beam, the actual moment depends on the span configuration,
@@ -1038,11 +1038,11 @@ fn validation_ghali_8_settlement_continuous() {
         .find(|r| r.node_id == node_c)
         .unwrap();
     assert!(
-        r_a.ry.abs() > 0.001,
+        r_a.rz.abs() > 0.001,
         "Ghali8: settlement induces reaction at A"
     );
     assert!(
-        r_c.ry.abs() > 0.001,
+        r_c.rz.abs() > 0.001,
         "Ghali8: settlement induces reaction at C"
     );
 
@@ -1058,8 +1058,8 @@ fn validation_ghali_8_settlement_continuous() {
             ky: None,
             kz: None,
             dx: None,
-            dy: None,
-            drz: None,
+            dz: None,
+            dry: None,
             angle: None,
         },
     );
@@ -1073,8 +1073,8 @@ fn validation_ghali_8_settlement_continuous() {
             ky: None,
             kz: None,
             dx: None,
-            dy: Some(2.0 * delta),
-            drz: None,
+            dz: Some(2.0 * delta),
+            dry: None,
             angle: None,
         },
     );
@@ -1088,8 +1088,8 @@ fn validation_ghali_8_settlement_continuous() {
             ky: None,
             kz: None,
             dx: None,
-            dy: None,
-            drz: None,
+            dz: None,
+            dry: None,
             angle: None,
         },
     );
@@ -1103,8 +1103,8 @@ fn validation_ghali_8_settlement_continuous() {
             ky: None,
             kz: None,
             dx: None,
-            dy: None,
-            drz: None,
+            dz: None,
+            dry: None,
             angle: None,
         },
     );
@@ -1118,7 +1118,7 @@ fn validation_ghali_8_settlement_continuous() {
         SolverNode {
             id: nid2,
             x: 0.0,
-            y: 0.0,
+            z: 0.0,
         },
     );
     nid2 += 1;
@@ -1130,7 +1130,7 @@ fn validation_ghali_8_settlement_continuous() {
                 SolverNode {
                     id: nid2,
                     x: x2 + j as f64 * elem_len,
-                    y: 0.0,
+                    z: 0.0,
                 },
             );
             nid2 += 1;
@@ -1190,7 +1190,7 @@ fn validation_ghali_8_settlement_continuous() {
         .find(|r| r.node_id == node_b)
         .unwrap();
     assert_close(
-        r_b2.ry / r_b.ry,
+        r_b2.rz / r_b.rz,
         2.0,
         0.02,
         "Ghali8: linearity, 2*delta => 2*R_B",

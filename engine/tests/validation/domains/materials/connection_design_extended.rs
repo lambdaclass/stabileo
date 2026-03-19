@@ -64,16 +64,16 @@ fn validation_bolt_group_elastic_analysis_eccentric_shear() {
     // -- Solver: SS beam with midspan point load --
     let mid = n / 2 + 1;
     let loads = vec![SolverLoad::Nodal(SolverNodalLoad {
-        node_id: mid, fx: 0.0, fy: -p, mz: 0.0,
+        node_id: mid, fx: 0.0, fz: -p, my: 0.0,
     })];
     let input = make_beam(n, l, E, A, IZ, "pinned", Some("rollerX"), loads);
     let results = solve_2d(&input).unwrap();
 
     // Verify reaction at left support
     let r_a = results.reactions.iter().find(|r| r.node_id == 1).unwrap();
-    assert_close(r_a.ry, p / 2.0, 0.02, "R_A = P/2");
+    assert_close(r_a.rz, p / 2.0, 0.02, "R_A = P/2");
 
-    let v: f64 = r_a.ry; // connection shear demand from solver
+    let v: f64 = r_a.rz; // connection shear demand from solver
 
     // -- Bolt group elastic analysis --
     let _g: f64 = 100.0;  // mm, gauge
@@ -164,8 +164,8 @@ fn validation_fillet_weld_capacity_cantilever() {
 
     // Verify reaction at fixed support
     let r1 = results.reactions.iter().find(|r| r.node_id == 1).unwrap();
-    let v_base: f64 = r1.ry;
-    let m_base: f64 = r1.mz;
+    let v_base: f64 = r1.rz;
+    let m_base: f64 = r1.my;
     assert_close(v_base, q * l, 0.02, "V_base = q*L");
     assert_close(m_base.abs(), q * l * l / 2.0, 0.02, "M_base = q*L^2/2");
 
@@ -329,7 +329,7 @@ fn validation_base_plate_design_cantilever_column() {
     // Axial load (along element axis) and transverse load at tip
     let loads = vec![
         SolverLoad::Nodal(SolverNodalLoad {
-            node_id: n + 1, fx: -p_axial, fy: h_lateral, mz: 0.0,
+            node_id: n + 1, fx: -p_axial, fz: h_lateral, my: 0.0,
         }),
     ];
     let input = make_beam(n, l, E, A, IZ, "fixed", None, loads);
@@ -338,8 +338,8 @@ fn validation_base_plate_design_cantilever_column() {
     // Base reaction
     let r1 = results.reactions.iter().find(|r| r.node_id == 1).unwrap();
     assert_close(r1.rx, p_axial, 0.05, "Base Rx = P");
-    assert_close(r1.ry.abs(), h_lateral, 0.05, "Base Ry = H");
-    let m_base: f64 = r1.mz.abs();
+    assert_close(r1.rz.abs(), h_lateral, 0.05, "Base Ry = H");
+    let m_base: f64 = r1.my.abs();
     assert_close(m_base, h_lateral * l, 0.05, "Base Mz = H*L");
 
     // -- Base plate bearing design --
@@ -442,7 +442,7 @@ fn validation_gusset_plate_whitmore_section() {
     let sups = vec![(1, 1, "pinned"), (2, 4, "pinned")];
     let h_load: f64 = 100.0;
     let loads = vec![SolverLoad::Nodal(SolverNodalLoad {
-        node_id: 2, fx: h_load, fy: 0.0, mz: 0.0,
+        node_id: 2, fx: h_load, fz: 0.0, my: 0.0,
     })];
 
     let input = make_input(nodes, mats, secs, elems, sups, loads);
@@ -456,7 +456,7 @@ fn validation_gusset_plate_whitmore_section() {
 
     // -- Gusset plate Whitmore section check --
     let t_gusset: f64 = 12.0;     // mm
-    let fy: f64 = 345.0;          // MPa
+    let fz: f64 = 345.0;          // MPa
     let _fu: f64 = 450.0;         // MPa
     let g_bolt: f64 = 80.0;       // mm, bolt gauge
     let s_bolt: f64 = 65.0;       // mm, bolt pitch
@@ -472,7 +472,7 @@ fn validation_gusset_plate_whitmore_section() {
     assert!(l_w > g_bolt, "Whitmore width > gauge: {:.2} > {:.2}", l_w, g_bolt);
 
     // Whitmore section tensile yielding capacity
-    let rn_whitmore: f64 = fy * l_w * t_gusset / 1000.0; // kN
+    let rn_whitmore: f64 = fz * l_w * t_gusset / 1000.0; // kN
     let phi_rn_whitmore: f64 = 0.90 * rn_whitmore;
     assert!(phi_rn_whitmore > 0.0, "Whitmore yielding capacity: {:.2} kN", phi_rn_whitmore);
 
@@ -485,10 +485,10 @@ fn validation_gusset_plate_whitmore_section() {
 
     // Euler buckling stress
     let fe: f64 = PI * PI * 200_000.0 / (kl_r * kl_r);
-    assert!(fe > fy, "Fe > Fy: inelastic region");
+    assert!(fe > fz, "Fe > Fy: inelastic region");
 
     // AISC column curve (inelastic)
-    let fcr: f64 = 0.658_f64.powf(fy / fe) * fy;
+    let fcr: f64 = 0.658_f64.powf(fz / fe) * fz;
     let pn_buckling: f64 = fcr * l_w * t_gusset / 1000.0;
     let phi_pn_buckling: f64 = 0.90 * pn_buckling;
 
@@ -542,7 +542,7 @@ fn validation_prying_action_propped_cantilever() {
 
     // Reaction at roller (node n+1)
     let r_prop = results.reactions.iter().find(|r| r.node_id == n + 1).unwrap();
-    let v_prop: f64 = r_prop.ry; // negative => downward reaction for upward load
+    let v_prop: f64 = r_prop.rz; // negative => downward reaction for upward load
 
     // For propped cantilever (fixed-roller) with uniform upward load:
     // R_roller = 3*q*L/8, R_fixed = 5*q*L/8
@@ -559,11 +559,11 @@ fn validation_prying_action_propped_cantilever() {
     let a_prime: f64 = 35.0;       // mm
     let p_trib: f64 = 90.0;        // mm
     let t_f: f64 = 14.0;           // mm, flange thickness
-    let fy: f64 = 345.0;           // MPa
+    let fz: f64 = 345.0;           // MPa
     let phi_b: f64 = 0.90;
 
     // Required flange thickness for no prying
-    let t_req: f64 = (4.0 * t_bolt * 1000.0 * b_prime / (phi_b * p_trib * fy)).sqrt();
+    let t_req: f64 = (4.0 * t_bolt * 1000.0 * b_prime / (phi_b * p_trib * fz)).sqrt();
     assert!(t_req > 0.0, "Required thickness: {:.2} mm", t_req);
 
     if t_f < t_req {
@@ -738,7 +738,7 @@ fn validation_column_splice_portal_frame() {
     let m_splice: f64 = (m_col_base + m_col_top) / 2.0;
 
     // Verify equilibrium: sum of vertical reactions = total gravity
-    let sum_ry: f64 = results.reactions.iter().map(|r| r.ry).sum::<f64>();
+    let sum_ry: f64 = results.reactions.iter().map(|r| r.rz).sum::<f64>();
     assert_close(sum_ry, -2.0 * p_gravity, 0.05, "Vertical equilibrium");
 
     // Verify horizontal equilibrium

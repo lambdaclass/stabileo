@@ -63,7 +63,7 @@ fn timber_ext2_glulam_beam_deflection_gl28h() {
     let mid_d = results.displacements.iter()
         .find(|dd| dd.node_id == mid_node).unwrap();
 
-    assert_close(mid_d.uy.abs(), delta_exact, 0.05, "GL28h midspan deflection");
+    assert_close(mid_d.uz.abs(), delta_exact, 0.05, "GL28h midspan deflection");
 
     // EC5 serviceability check: L/300
     let _limit_l300: f64 = l / 300.0;
@@ -75,7 +75,7 @@ fn timber_ext2_glulam_beam_deflection_gl28h() {
 
     // Verify reactions: each support carries half the total load
     let total_load: f64 = q.abs() * l;
-    let r1 = results.reactions.iter().find(|r| r.node_id == 1).unwrap().ry;
+    let r1 = results.reactions.iter().find(|r| r.node_id == 1).unwrap().rz;
     assert_close(r1, total_load / 2.0, 0.02, "GL28h left reaction = qL/2");
 }
 
@@ -138,7 +138,7 @@ fn timber_ext2_clt_panel_bending_5ply() {
     let mid_d = results.displacements.iter()
         .find(|dd| dd.node_id == mid_node).unwrap();
 
-    assert_close(mid_d.uy.abs(), delta_exact, 0.05, "CLT 5-ply midspan deflection");
+    assert_close(mid_d.uz.abs(), delta_exact, 0.05, "CLT 5-ply midspan deflection");
 
     // Verify maximum bending moment: M_max = qL^2/8
     let m_max_exact: f64 = q.abs() * l * l / 8.0;
@@ -197,7 +197,7 @@ fn timber_ext2_portal_frame_lateral_gravity() {
     assert_close(sum_rx, -f_lateral, 0.02, "Portal frame: sum Rx = -F_h");
 
     // Verify global vertical equilibrium: sum of Ry = -2*P_gravity (upward = positive)
-    let sum_ry: f64 = results.reactions.iter().map(|r| r.ry).sum();
+    let sum_ry: f64 = results.reactions.iter().map(|r| r.rz).sum();
     let total_gravity: f64 = 2.0 * p_gravity.abs();
     assert_close(sum_ry, total_gravity, 0.02, "Portal frame: sum Ry = 2P");
 
@@ -215,7 +215,7 @@ fn timber_ext2_portal_frame_lateral_gravity() {
     // Applied: -H*F_h + W*p_gravity (p_gravity is negative for downward)
     // Reaction: Mz1 + Mz4 + W*Ry4
     let applied_moment: f64 = -h_frame * f_lateral + w_frame * p_gravity;
-    let reaction_moment: f64 = r1.mz + r4.mz + w_frame * r4.ry;
+    let reaction_moment: f64 = r1.my + r4.my + w_frame * r4.rz;
     let total_moment: f64 = applied_moment + reaction_moment;
     assert!(
         total_moment.abs() < 1.0,
@@ -266,7 +266,7 @@ fn timber_ext2_notched_beam_shear_verification() {
     let input = make_beam(
         n, l, e_df, a, iz, "pinned", Some("rollerX"),
         vec![SolverLoad::Nodal(SolverNodalLoad {
-            node_id: mid_node, fx: 0.0, fy: -p, mz: 0.0,
+            node_id: mid_node, fx: 0.0, fz: -p, my: 0.0,
         })],
     );
     let results = solve_2d(&input).unwrap();
@@ -302,7 +302,7 @@ fn timber_ext2_notched_beam_shear_verification() {
         "NDS notch capacity factor = (d_n/d)^2 = 0.5625");
 
     // Verify equilibrium: sum of reactions = applied load
-    let sum_ry: f64 = results.reactions.iter().map(|r| r.ry).sum();
+    let sum_ry: f64 = results.reactions.iter().map(|r| r.rz).sum();
     assert_close(sum_ry, p, 0.02, "Notched beam: reaction equilibrium");
 }
 
@@ -372,9 +372,9 @@ fn timber_ext2_howe_truss_symmetric() {
 
     // Symmetric loads at top chord nodes
     let loads = vec![
-        SolverLoad::Nodal(SolverNodalLoad { node_id: 6, fx: 0.0, fy: -p_load, mz: 0.0 }),
-        SolverLoad::Nodal(SolverNodalLoad { node_id: 7, fx: 0.0, fy: -p_load, mz: 0.0 }),
-        SolverLoad::Nodal(SolverNodalLoad { node_id: 8, fx: 0.0, fy: -p_load, mz: 0.0 }),
+        SolverLoad::Nodal(SolverNodalLoad { node_id: 6, fx: 0.0, fz: -p_load, my: 0.0 }),
+        SolverLoad::Nodal(SolverNodalLoad { node_id: 7, fx: 0.0, fz: -p_load, my: 0.0 }),
+        SolverLoad::Nodal(SolverNodalLoad { node_id: 8, fx: 0.0, fz: -p_load, my: 0.0 }),
     ];
 
     let input = make_input(
@@ -391,12 +391,12 @@ fn timber_ext2_howe_truss_symmetric() {
     let total_load: f64 = 3.0 * p_load;
 
     // Vertical equilibrium
-    let sum_ry: f64 = results.reactions.iter().map(|r| r.ry).sum();
+    let sum_ry: f64 = results.reactions.iter().map(|r| r.rz).sum();
     assert_close(sum_ry, total_load, 0.02, "Howe truss: sum Ry = 3P");
 
     // Symmetric reactions: R1 = R5 = 3P/2 = 15 kN
-    let r1 = results.reactions.iter().find(|r| r.node_id == 1).unwrap().ry;
-    let r5 = results.reactions.iter().find(|r| r.node_id == 5).unwrap().ry;
+    let r1 = results.reactions.iter().find(|r| r.node_id == 1).unwrap().rz;
+    let r5 = results.reactions.iter().find(|r| r.node_id == 5).unwrap().rz;
     assert_close(r1, total_load / 2.0, 0.02, "Howe truss: R1 = 3P/2");
     assert_close(r5, total_load / 2.0, 0.02, "Howe truss: R5 = 3P/2");
     assert_close(r1, r5, 0.02, "Howe truss: symmetric reactions R1 = R5");
@@ -469,7 +469,7 @@ fn timber_ext2_plywood_i_joist_deflection() {
     let mid_d = results.displacements.iter()
         .find(|dd| dd.node_id == mid_node).unwrap();
 
-    assert_close(mid_d.uy.abs(), delta_exact, 0.05, "I-joist midspan deflection");
+    assert_close(mid_d.uz.abs(), delta_exact, 0.05, "I-joist midspan deflection");
 
     // Verify the I-joist has adequate stiffness (deflection < L/360)
     let limit_l360: f64 = l / 360.0;
@@ -478,7 +478,7 @@ fn timber_ext2_plywood_i_joist_deflection() {
 
     // Verify reactions
     let total_load: f64 = q.abs() * l;
-    let r1 = results.reactions.iter().find(|r| r.node_id == 1).unwrap().ry;
+    let r1 = results.reactions.iter().find(|r| r.node_id == 1).unwrap().rz;
     assert_close(r1, total_load / 2.0, 0.02, "I-joist: R1 = qL/2");
 
     // Max moment = qL^2/8
@@ -606,9 +606,9 @@ fn timber_ext2_diaphragm_deep_beam_analogy() {
 
     // Reactions at shear walls: R = wL/2
     let r_exact: f64 = w.abs() * l / 2.0;
-    let r1 = results.reactions.iter().find(|r| r.node_id == 1).unwrap().ry;
+    let r1 = results.reactions.iter().find(|r| r.node_id == 1).unwrap().rz;
     let r_end = results.reactions.iter()
-        .find(|r| r.node_id == n + 1).unwrap().ry;
+        .find(|r| r.node_id == n + 1).unwrap().rz;
     assert_close(r1, r_exact, 0.02, "Diaphragm: R_left = wL/2");
     assert_close(r_end, r_exact, 0.02, "Diaphragm: R_right = wL/2");
 
@@ -629,7 +629,7 @@ fn timber_ext2_diaphragm_deep_beam_analogy() {
     let mid_node = n / 2 + 1;
     let mid_d = results.displacements.iter()
         .find(|dd| dd.node_id == mid_node).unwrap();
-    assert_close(mid_d.uy.abs(), delta_exact, 0.05, "Diaphragm: midspan deflection");
+    assert_close(mid_d.uz.abs(), delta_exact, 0.05, "Diaphragm: midspan deflection");
 
     // Verify deflection is reasonable for a stiff diaphragm
     // Typical limit: L/600 for rigid diaphragm classification
@@ -640,6 +640,6 @@ fn timber_ext2_diaphragm_deep_beam_analogy() {
     );
 
     // Global equilibrium check
-    let sum_ry: f64 = results.reactions.iter().map(|r| r.ry).sum();
+    let sum_ry: f64 = results.reactions.iter().map(|r| r.rz).sum();
     assert_close(sum_ry, w.abs() * l, 0.02, "Diaphragm: total reaction = wL");
 }

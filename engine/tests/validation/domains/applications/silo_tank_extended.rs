@@ -117,7 +117,7 @@ fn silo_janssen_pressure_wall_strip() {
     let delta_approx: f64 = p_avg * h_strip.powi(4) / (8.0 * e_eff * iz_strip);
 
     // FEM result should be in the same order of magnitude
-    assert_close(tip.uy.abs(), delta_approx, 0.35, "Janssen wall strip deflection");
+    assert_close(tip.uz.abs(), delta_approx, 0.35, "Janssen wall strip deflection");
 }
 
 // ================================================================
@@ -168,14 +168,14 @@ fn tank_hydrostatic_cantilever_wall() {
     let e_eff: f64 = e * 1000.0;
     let delta_exact: f64 = q_max * h_water.powi(4) / (30.0 * e_eff * iz_wall);
 
-    assert_close(tip.uy.abs(), delta_exact, 0.05,
+    assert_close(tip.uz.abs(), delta_exact, 0.05,
         "Hydrostatic cantilever wall tip deflection");
 
     // Verify base reaction moment: M_base = q_max * L^2 / 6
     let m_base_exact: f64 = q_max * h_water.powi(2) / 6.0;
     let base_reaction = results.reactions.iter()
         .find(|r| r.node_id == 1).unwrap();
-    assert_close(base_reaction.mz.abs(), m_base_exact, 0.02,
+    assert_close(base_reaction.my.abs(), m_base_exact, 0.02,
         "Hydrostatic cantilever base moment");
 }
 
@@ -259,7 +259,7 @@ fn tank_wind_buckling_shell() {
 
     // Deflection should be positive (non-zero) under wind
     assert!(
-        mid_d.uy.abs() > 0.0,
+        mid_d.uz.abs() > 0.0,
         "Shell strip deflects under wind pressure"
     );
 
@@ -322,7 +322,7 @@ fn tank_ring_beam_stiffener() {
 
     // Verify moments exist at fixed bases (frame action)
     let has_base_moments = results.reactions.iter()
-        .any(|r| r.mz.abs() > 1.0);
+        .any(|r| r.my.abs() > 1.0);
     assert!(has_base_moments, "Ring stiffener frame has base moments");
 }
 
@@ -382,12 +382,12 @@ fn hopper_conical_section_support_ring() {
     let input = make_beam(n, span, e, a_ring, iz_ring,
         "pinned", Some("rollerX"),
         vec![SolverLoad::Nodal(SolverNodalLoad {
-            node_id: mid_node, fx: 0.0, fy: p_mid, mz: 0.0,
+            node_id: mid_node, fx: 0.0, fz: p_mid, my: 0.0,
         })]);
     let results = solve_2d(&input).expect("solve");
 
     // Verify vertical equilibrium
-    let sum_ry: f64 = results.reactions.iter().map(|r| r.ry).sum();
+    let sum_ry: f64 = results.reactions.iter().map(|r| r.rz).sum();
     assert_close(sum_ry, -p_mid, 0.01, "Hopper ring vertical equilibrium");
 
     // Midspan deflection: delta = P*L^3/(48*E*I)
@@ -395,7 +395,7 @@ fn hopper_conical_section_support_ring() {
     let delta_exact: f64 = p_mid.abs() * span.powi(3) / (48.0 * e_eff * iz_ring);
     let mid_d = results.displacements.iter()
         .find(|d| d.node_id == mid_node).unwrap();
-    assert_close(mid_d.uy.abs(), delta_exact, 0.02,
+    assert_close(mid_d.uz.abs(), delta_exact, 0.02,
         "Hopper ring midspan deflection");
 }
 
@@ -470,7 +470,7 @@ fn tank_sloshing_frequency() {
     let tip = results.displacements.iter()
         .find(|d| d.node_id == n + 1).unwrap();
     assert!(
-        tip.uy.abs() > 0.0,
+        tip.uz.abs() > 0.0,
         "Sloshing causes wall deflection"
     );
 
@@ -556,7 +556,7 @@ fn tank_foundation_ring_beam() {
     let results = solve_2d(&input).expect("solve");
 
     // Global vertical equilibrium: sum of reactions = total load
-    let sum_ry: f64 = results.reactions.iter().map(|r| r.ry).sum();
+    let sum_ry: f64 = results.reactions.iter().map(|r| r.rz).sum();
     let total_load: f64 = w_per_m * half_circ;
     assert_close(sum_ry, total_load, 0.02,
         "Foundation ring vertical equilibrium");
@@ -564,9 +564,9 @@ fn tank_foundation_ring_beam() {
     // Interior support reactions should be larger than end reactions
     // (continuous beam effect)
     let end_ry: f64 = results.reactions.iter()
-        .find(|r| r.node_id == 1).unwrap().ry;
+        .find(|r| r.node_id == 1).unwrap().rz;
     let interior_ry: f64 = results.reactions.iter()
-        .find(|r| r.node_id == n_per_span + 1).unwrap().ry;
+        .find(|r| r.node_id == n_per_span + 1).unwrap().rz;
     assert!(
         interior_ry.abs() > end_ry.abs(),
         "Interior reaction {:.2} > end reaction {:.2}",
@@ -646,11 +646,11 @@ fn tank_combined_hydrostatic_wind() {
     // Superposition: combined deflection = hydrostatic + wind deflections
     // (linear analysis)
     let max_defl_hydro: f64 = results_hydro.displacements.iter()
-        .map(|d| d.uy.abs()).fold(0.0_f64, f64::max);
+        .map(|d| d.uz.abs()).fold(0.0_f64, f64::max);
     let max_defl_wind: f64 = results_wind.displacements.iter()
-        .map(|d| d.uy.abs()).fold(0.0_f64, f64::max);
+        .map(|d| d.uz.abs()).fold(0.0_f64, f64::max);
     let max_defl_combined: f64 = results_combined.displacements.iter()
-        .map(|d| d.uy.abs()).fold(0.0_f64, f64::max);
+        .map(|d| d.uz.abs()).fold(0.0_f64, f64::max);
 
     // Combined should be greater than either individual case
     assert!(
@@ -667,15 +667,15 @@ fn tank_combined_hydrostatic_wind() {
     // Verify superposition principle (linear analysis)
     // Find node with max deflection in combined case and check superposition there
     let max_node_combined = results_combined.displacements.iter()
-        .max_by(|a, b| a.uy.abs().partial_cmp(&b.uy.abs()).unwrap())
+        .max_by(|a, b| a.uz.abs().partial_cmp(&b.uz.abs()).unwrap())
         .unwrap();
     let node_id = max_node_combined.node_id;
 
     let uy_hydro = results_hydro.displacements.iter()
-        .find(|d| d.node_id == node_id).unwrap().uy;
+        .find(|d| d.node_id == node_id).unwrap().uz;
     let uy_wind = results_wind.displacements.iter()
-        .find(|d| d.node_id == node_id).unwrap().uy;
-    let uy_combined = max_node_combined.uy;
+        .find(|d| d.node_id == node_id).unwrap().uz;
+    let uy_combined = max_node_combined.uz;
     let uy_superposed: f64 = uy_hydro + uy_wind;
 
     assert_close(uy_combined, uy_superposed, 0.01,
@@ -683,9 +683,9 @@ fn tank_combined_hydrostatic_wind() {
 
     // Base moment for combined case should exceed individual cases
     let m_base_combined: f64 = results_combined.reactions.iter()
-        .find(|r| r.node_id == 1).unwrap().mz.abs();
+        .find(|r| r.node_id == 1).unwrap().my.abs();
     let m_base_hydro: f64 = results_hydro.reactions.iter()
-        .find(|r| r.node_id == 1).unwrap().mz.abs();
+        .find(|r| r.node_id == 1).unwrap().my.abs();
     assert!(
         m_base_combined > m_base_hydro,
         "Combined base moment {:.2} > hydrostatic base moment {:.2}",

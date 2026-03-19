@@ -88,7 +88,7 @@ pub fn solve_moving_loads_2d(input: &MovingLoadInput) -> Result<MovingLoadEnvelo
                     a: local_pos,
                     p: perp_force * seg.cos.powi(2).max(0.0).sqrt().copysign(1.0),
                     px: None,
-                    mz: None,
+                    my: None,
                 }));
 
                 // For vertical loads on non-horizontal members, add axial component as well
@@ -106,7 +106,7 @@ pub fn solve_moving_loads_2d(input: &MovingLoadInput) -> Result<MovingLoadEnvelo
                         a: local_pos,
                         p: p_perp,
                         px: Some(p_axial),
-                        mz: None,
+                        my: None,
                     }));
                 }
             }
@@ -172,7 +172,7 @@ fn build_load_path(
         let ni = node_by_id[&elem.node_i];
         let nj = node_by_id[&elem.node_j];
         let dx = nj.x - ni.x;
-        let dy = nj.y - ni.y;
+        let dy = nj.z - ni.z;
         let l = (dx * dx + dy * dy).sqrt();
         let cos = dx / l;
         let sin = dy / l;

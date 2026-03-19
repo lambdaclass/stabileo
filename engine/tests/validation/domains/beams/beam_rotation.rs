@@ -48,8 +48,8 @@ fn validation_rotation_ss_udl() {
     let results = linear::solve_2d(&input).unwrap();
 
     let theta_expected = q.abs() * l.powi(3) / (24.0 * e_eff * IZ);
-    let rz1 = results.displacements.iter().find(|d| d.node_id == 1).unwrap().rz;
-    let rz_end = results.displacements.iter().find(|d| d.node_id == n + 1).unwrap().rz;
+    let rz1 = results.displacements.iter().find(|d| d.node_id == 1).unwrap().ry;
+    let rz_end = results.displacements.iter().find(|d| d.node_id == n + 1).unwrap().ry;
 
     // End rotations should be equal magnitude, opposite sign
     assert_close(rz1.abs(), theta_expected, 0.02,
@@ -76,14 +76,14 @@ fn validation_rotation_ss_point() {
 
     let mid = n / 2 + 1;
     let loads = vec![SolverLoad::Nodal(SolverNodalLoad {
-        node_id: mid, fx: 0.0, fy: -p, mz: 0.0,
+        node_id: mid, fx: 0.0, fz: -p, my: 0.0,
     })];
     let input = make_beam(n, l, E, A, IZ, "pinned", Some("rollerX"), loads);
     let results = linear::solve_2d(&input).unwrap();
 
     let theta_expected = p * l.powi(2) / (16.0 * e_eff * IZ);
-    let rz1 = results.displacements.iter().find(|d| d.node_id == 1).unwrap().rz;
-    let rz_end = results.displacements.iter().find(|d| d.node_id == n + 1).unwrap().rz;
+    let rz1 = results.displacements.iter().find(|d| d.node_id == 1).unwrap().ry;
+    let rz_end = results.displacements.iter().find(|d| d.node_id == n + 1).unwrap().ry;
 
     assert_close(rz1.abs(), theta_expected, 0.02,
         "SS point: θ = PL²/(16EI)");
@@ -106,19 +106,19 @@ fn validation_rotation_cantilever_tip() {
     let e_eff = E * 1000.0;
 
     let loads = vec![SolverLoad::Nodal(SolverNodalLoad {
-        node_id: n + 1, fx: 0.0, fy: -p, mz: 0.0,
+        node_id: n + 1, fx: 0.0, fz: -p, my: 0.0,
     })];
     let input = make_beam(n, l, E, A, IZ, "fixed", None, loads);
     let results = linear::solve_2d(&input).unwrap();
 
     let theta_expected = p * l.powi(2) / (2.0 * e_eff * IZ);
-    let rz_tip = results.displacements.iter().find(|d| d.node_id == n + 1).unwrap().rz;
+    let rz_tip = results.displacements.iter().find(|d| d.node_id == n + 1).unwrap().ry;
 
     assert_close(rz_tip.abs(), theta_expected, 0.02,
         "Cantilever: θ_tip = PL²/(2EI)");
 
     // Fixed end should have zero rotation
-    let rz_fixed = results.displacements.iter().find(|d| d.node_id == 1).unwrap().rz;
+    let rz_fixed = results.displacements.iter().find(|d| d.node_id == 1).unwrap().ry;
     assert!(rz_fixed.abs() < 1e-10, "Cantilever: fixed end θ = 0");
 }
 
@@ -144,7 +144,7 @@ fn validation_rotation_cantilever_udl() {
     let results = linear::solve_2d(&input).unwrap();
 
     let theta_expected = q.abs() * l.powi(3) / (6.0 * e_eff * IZ);
-    let rz_tip = results.displacements.iter().find(|d| d.node_id == n + 1).unwrap().rz;
+    let rz_tip = results.displacements.iter().find(|d| d.node_id == n + 1).unwrap().ry;
 
     assert_close(rz_tip.abs(), theta_expected, 0.02,
         "Cantilever UDL: θ_tip = qL³/(6EI)");
@@ -168,15 +168,15 @@ fn validation_rotation_fixed_end() {
     let input = make_beam(n, l, E, A, IZ, "fixed", Some("fixed"), loads);
     let results = linear::solve_2d(&input).unwrap();
 
-    let rz1 = results.displacements.iter().find(|d| d.node_id == 1).unwrap().rz;
-    let rz_end = results.displacements.iter().find(|d| d.node_id == n + 1).unwrap().rz;
+    let rz1 = results.displacements.iter().find(|d| d.node_id == 1).unwrap().ry;
+    let rz_end = results.displacements.iter().find(|d| d.node_id == n + 1).unwrap().ry;
 
     assert!(rz1.abs() < 1e-10, "Fixed-fixed: θ at node 1 = 0");
     assert!(rz_end.abs() < 1e-10, "Fixed-fixed: θ at node n+1 = 0");
 
     // Midspan rotation should also be zero by symmetry
     let rz_mid = results.displacements.iter()
-        .find(|d| d.node_id == n / 2 + 1).unwrap().rz;
+        .find(|d| d.node_id == n / 2 + 1).unwrap().ry;
     assert!(rz_mid.abs() < 1e-10, "Fixed-fixed UDL: θ at midspan = 0");
 }
 
@@ -204,13 +204,13 @@ fn validation_rotation_propped_roller() {
 
     let theta_roller = q.abs() * l.powi(3) / (48.0 * e_eff * IZ);
     let rz_roller = results.displacements.iter()
-        .find(|d| d.node_id == n + 1).unwrap().rz;
+        .find(|d| d.node_id == n + 1).unwrap().ry;
 
     assert_close(rz_roller.abs(), theta_roller, 0.02,
         "Propped: θ_roller = qL³/(48EI)");
 
     // Fixed end rotation = 0
-    let rz_fixed = results.displacements.iter().find(|d| d.node_id == 1).unwrap().rz;
+    let rz_fixed = results.displacements.iter().find(|d| d.node_id == 1).unwrap().ry;
     assert!(rz_fixed.abs() < 1e-10, "Propped: fixed end θ = 0");
 }
 
@@ -226,11 +226,11 @@ fn validation_rotation_l_squared() {
     let get_rotation = |l: f64| -> f64 {
         let mid = n / 2 + 1;
         let loads = vec![SolverLoad::Nodal(SolverNodalLoad {
-            node_id: mid, fx: 0.0, fy: -p, mz: 0.0,
+            node_id: mid, fx: 0.0, fz: -p, my: 0.0,
         })];
         let input = make_beam(n, l, E, A, IZ, "pinned", Some("rollerX"), loads);
         let results = linear::solve_2d(&input).unwrap();
-        results.displacements.iter().find(|d| d.node_id == 1).unwrap().rz.abs()
+        results.displacements.iter().find(|d| d.node_id == 1).unwrap().ry.abs()
     };
 
     let theta_6 = get_rotation(6.0);
@@ -257,17 +257,17 @@ fn validation_rotation_antisymmetric() {
     // Apply opposite end moments: +M at left, -M at right
     let loads = vec![
         SolverLoad::Nodal(SolverNodalLoad {
-            node_id: 1, fx: 0.0, fy: 0.0, mz: m,
+            node_id: 1, fx: 0.0, fz: 0.0, my: m,
         }),
         SolverLoad::Nodal(SolverNodalLoad {
-            node_id: n + 1, fx: 0.0, fy: 0.0, mz: -m,
+            node_id: n + 1, fx: 0.0, fz: 0.0, my: -m,
         }),
     ];
     let input = make_beam(n, l, E, A, IZ, "pinned", Some("rollerX"), loads);
     let results = linear::solve_2d(&input).unwrap();
 
-    let rz1 = results.displacements.iter().find(|d| d.node_id == 1).unwrap().rz;
-    let rz_end = results.displacements.iter().find(|d| d.node_id == n + 1).unwrap().rz;
+    let rz1 = results.displacements.iter().find(|d| d.node_id == 1).unwrap().ry;
+    let rz_end = results.displacements.iter().find(|d| d.node_id == n + 1).unwrap().ry;
 
     // Antisymmetric loading → rotations at both ends have opposite signs
     assert!(rz1 * rz_end < 0.0,

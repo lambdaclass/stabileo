@@ -52,7 +52,7 @@ fn validation_hibbeler_ext_1_conjugate_beam() {
     let input = make_beam(
         n, l, E, A, IZ, "pinned", Some("rollerX"),
         vec![SolverLoad::Nodal(SolverNodalLoad {
-            node_id: load_node, fx: 0.0, fy: -p, mz: 0.0,
+            node_id: load_node, fx: 0.0, fz: -p, my: 0.0,
         })],
     );
     let results = linear::solve_2d(&input).unwrap();
@@ -67,14 +67,14 @@ fn validation_hibbeler_ext_1_conjugate_beam() {
 
     // Left support: positive rotation (beam slopes down to the right)
     // Right support: negative rotation (beam slopes down to the left from right end)
-    assert_close(d_a.rz.abs(), theta_a_exact, 0.03,
+    assert_close(d_a.ry.abs(), theta_a_exact, 0.03,
         "Conjugate beam: theta_A = Pab(L+b)/(6LEI)");
-    assert_close(d_b.rz.abs(), theta_b_exact, 0.03,
+    assert_close(d_b.ry.abs(), theta_b_exact, 0.03,
         "Conjugate beam: theta_B = Pab(L+a)/(6LEI)");
 
     // Additionally verify theta_A > theta_B (load closer to A, so A has larger slope)
     // Actually: a < b, so (L+b) > (L+a), meaning theta_A > theta_B.
-    assert!(d_a.rz.abs() > d_b.rz.abs(),
+    assert!(d_a.ry.abs() > d_b.ry.abs(),
         "Conjugate beam: theta_A > theta_B since load closer to A");
 }
 
@@ -161,13 +161,13 @@ fn validation_hibbeler_ext_2_virtual_work_frame() {
     let results = linear::solve_2d(&input).unwrap();
 
     // Verify equilibrium: total vertical reactions = w * L_beam
-    let sum_ry: f64 = results.reactions.iter().map(|r| r.ry).sum();
+    let sum_ry: f64 = results.reactions.iter().map(|r| r.rz).sum();
     assert_close(sum_ry, w * l_beam, 0.02,
         "Virtual work frame: SumRy = w*L");
 
     // The beam tip (pinned) should have zero displacement (it's a support)
     let d_tip = results.displacements.iter().find(|d| d.node_id == tip_node).unwrap();
-    assert!(d_tip.ux.abs() < 1e-6 && d_tip.uy.abs() < 1e-6,
+    assert!(d_tip.ux.abs() < 1e-6 && d_tip.uz.abs() < 1e-6,
         "Virtual work frame: beam tip pinned, zero displacement");
 
     // The column-beam joint should have horizontal displacement
@@ -193,14 +193,14 @@ fn validation_hibbeler_ext_2_virtual_work_frame() {
     let d_beam_mid = results.displacements.iter()
         .find(|d| d.node_id == beam_mid_node).unwrap();
     let delta_beam_approx = w * l_beam.powi(4) / (185.0 * e_eff * IZ);
-    assert!(d_beam_mid.uy.abs() > delta_beam_approx * 0.1,
+    assert!(d_beam_mid.uz.abs() > delta_beam_approx * 0.1,
         "Virtual work frame: beam midspan has vertical deflection: uy={:.6e}, approx={:.6e}",
-        d_beam_mid.uy, delta_beam_approx);
+        d_beam_mid.uz, delta_beam_approx);
 
     // Verify moment at fixed base is non-zero
     let r_base = results.reactions.iter().find(|r| r.node_id == 1).unwrap();
-    assert!(r_base.mz.abs() > 1.0,
-        "Virtual work frame: fixed base has moment reaction: Mz={:.4}", r_base.mz);
+    assert!(r_base.my.abs() > 1.0,
+        "Virtual work frame: fixed base has moment reaction: Mz={:.4}", r_base.my);
 
     // Check that total number of elements processed is correct
     assert_eq!(results.element_forces.len(), n_total_elements,
@@ -290,10 +290,10 @@ fn validation_hibbeler_ext_3_three_moment_2span() {
     let total_load = w * (l1 + l2);
     let rb_exact = rb1 + rb2;
 
-    let ra = results.reactions.iter().find(|r| r.node_id == 1).unwrap().ry;
-    let rb = results.reactions.iter().find(|r| r.node_id == interior_node).unwrap().ry;
+    let ra = results.reactions.iter().find(|r| r.node_id == 1).unwrap().rz;
+    let rb = results.reactions.iter().find(|r| r.node_id == interior_node).unwrap().rz;
     let last_node = 2 * n_per + 1;
-    let rc = results.reactions.iter().find(|r| r.node_id == last_node).unwrap().ry;
+    let rc = results.reactions.iter().find(|r| r.node_id == last_node).unwrap().rz;
 
     assert_close(ra, ra_exact, 0.03,
         &format!("Three-moment: R_A = {:.2}", ra_exact));
@@ -303,7 +303,7 @@ fn validation_hibbeler_ext_3_three_moment_2span() {
         &format!("Three-moment: R_C = {:.2}", rc_exact));
 
     // Equilibrium
-    let sum_ry: f64 = results.reactions.iter().map(|r| r.ry).sum();
+    let sum_ry: f64 = results.reactions.iter().map(|r| r.rz).sum();
     assert_close(sum_ry, total_load, 0.02,
         "Three-moment: SumRy = w*(L1+L2)");
 }
@@ -353,7 +353,7 @@ fn validation_hibbeler_ext_4_moment_distribution_frame() {
         "Moment dist frame: SumRx = -P (horizontal equilibrium)");
 
     // Vertical equilibrium: sum_ry = 0 (no gravity loads)
-    let sum_ry: f64 = results.reactions.iter().map(|r| r.ry).sum();
+    let sum_ry: f64 = results.reactions.iter().map(|r| r.rz).sum();
     assert!(sum_ry.abs() < 0.1,
         "Moment dist frame: SumRy ~= 0 (no gravity): {:.6}", sum_ry);
 
@@ -373,7 +373,7 @@ fn validation_hibbeler_ext_4_moment_distribution_frame() {
 
     // Moment equilibrium about base-left:
     // P*H + M1 + M4 + R4y * L = 0
-    let moment_eq = -p * h + r1.mz + r4.mz + r4.ry * l;
+    let moment_eq = -p * h + r1.my + r4.my + r4.rz * l;
     assert!(moment_eq.abs() < p * h * 0.02,
         "Moment dist frame: moment equilibrium: residual={:.4}", moment_eq);
 
@@ -385,7 +385,7 @@ fn validation_hibbeler_ext_4_moment_distribution_frame() {
     //   |M_base| = 3*P*H/10 = 3*30*4/10 = 36.0 kN.m
     let m_base_exact = 3.0 * p * h / 10.0;
     // Both bases should have similar absolute moment
-    assert_close(r1.mz.abs(), m_base_exact, 0.05,
+    assert_close(r1.my.abs(), m_base_exact, 0.05,
         &format!("Moment dist frame: M_base = 3PH/10 = {:.2}", m_base_exact));
 }
 
@@ -478,7 +478,7 @@ fn validation_hibbeler_ext_5_truss_method_sections() {
     let mut loads = Vec::new();
     for i in 1..n_panels {
         loads.push(SolverLoad::Nodal(SolverNodalLoad {
-            node_id: i + 1, fx: 0.0, fy: -p, mz: 0.0,
+            node_id: i + 1, fx: 0.0, fz: -p, my: 0.0,
         }));
     }
 
@@ -493,8 +493,8 @@ fn validation_hibbeler_ext_5_truss_method_sections() {
     let results = linear::solve_2d(&input).unwrap();
 
     // Reactions: symmetric loading (loads at x=4,8,12 on 16m span)
-    let ra = results.reactions.iter().find(|r| r.node_id == 1).unwrap().ry;
-    let re = results.reactions.iter().find(|r| r.node_id == n_panels + 1).unwrap().ry;
+    let ra = results.reactions.iter().find(|r| r.node_id == 1).unwrap().rz;
+    let re = results.reactions.iter().find(|r| r.node_id == n_panels + 1).unwrap().rz;
     let total_load = (n_panels - 1) as f64 * p; // 30 kN
     assert_close(ra, total_load / 2.0, 0.02,
         "Warren truss: R_A = 15 kN (symmetric)");
@@ -531,7 +531,7 @@ fn validation_hibbeler_ext_5_truss_method_sections() {
         &format!("Warren truss: bottom chord force = {:.2} kN", f_bot_exact));
 
     // Global equilibrium
-    let sum_ry: f64 = results.reactions.iter().map(|r| r.ry).sum();
+    let sum_ry: f64 = results.reactions.iter().map(|r| r.rz).sum();
     assert_close(sum_ry, total_load, 0.01,
         "Warren truss: SumRy = total load");
 }
@@ -561,12 +561,12 @@ fn validation_hibbeler_ext_6_influence_line_beam() {
         let input = make_beam(
             n, l, E, A, IZ, "pinned", Some("rollerX"),
             vec![SolverLoad::Nodal(SolverNodalLoad {
-                node_id: load_node, fx: 0.0, fy: -p, mz: 0.0,
+                node_id: load_node, fx: 0.0, fz: -p, my: 0.0,
             })],
         );
         let results = linear::solve_2d(&input).unwrap();
 
-        let ra = results.reactions.iter().find(|r| r.node_id == 1).unwrap().ry;
+        let ra = results.reactions.iter().find(|r| r.node_id == 1).unwrap().rz;
         let x = (load_node - 1) as f64 * (l / n as f64);
         let ra_exact = p * (1.0 - x / l);
 
@@ -610,17 +610,17 @@ fn validation_hibbeler_ext_7_fixed_beam_settlement() {
     sups_map.insert("1".to_string(), SolverSupport {
         id: 1, node_id: 1, support_type: "fixed".to_string(),
         kx: None, ky: None, kz: None,
-        dx: None, dy: None, drz: None, angle: None,
+        dx: None, dz: None, dry: None, angle: None,
     });
     sups_map.insert("2".to_string(), SolverSupport {
         id: 2, node_id: n_nodes, support_type: "fixed".to_string(),
         kx: None, ky: None, kz: None,
-        dx: None, dy: Some(-delta), drz: None, angle: None,
+        dx: None, dz: Some(-delta), dry: None, angle: None,
     });
 
     let mut nodes_map = HashMap::new();
     for (id, x, y) in &nodes {
-        nodes_map.insert(id.to_string(), SolverNode { id: *id, x: *x, y: *y });
+        nodes_map.insert(id.to_string(), SolverNode { id: *id, x: *x, z: *y });
     }
     let mut mats_map = HashMap::new();
     mats_map.insert("1".to_string(), SolverMaterial { id: 1, e: E, nu: 0.3 });
@@ -648,25 +648,25 @@ fn validation_hibbeler_ext_7_fixed_beam_settlement() {
     let r_right = results.reactions.iter().find(|r| r.node_id == n_nodes).unwrap();
 
     // Moments at fixed ends
-    assert_close(r_left.mz.abs(), m_exact, 0.03,
+    assert_close(r_left.my.abs(), m_exact, 0.03,
         &format!("Settlement: M_left = 6EI*delta/L^2 = {:.4}", m_exact));
-    assert_close(r_right.mz.abs(), m_exact, 0.03,
+    assert_close(r_right.my.abs(), m_exact, 0.03,
         &format!("Settlement: M_right = 6EI*delta/L^2 = {:.4}", m_exact));
 
     // Shear forces
-    assert_close(r_left.ry.abs(), v_exact, 0.03,
+    assert_close(r_left.rz.abs(), v_exact, 0.03,
         &format!("Settlement: V = 12EI*delta/L^3 = {:.4}", v_exact));
-    assert_close(r_right.ry.abs(), v_exact, 0.03,
+    assert_close(r_right.rz.abs(), v_exact, 0.03,
         "Settlement: V_right = 12EI*delta/L^3");
 
     // No external loads, so equilibrium: sum_ry = 0
-    let sum_ry: f64 = results.reactions.iter().map(|r| r.ry).sum();
+    let sum_ry: f64 = results.reactions.iter().map(|r| r.rz).sum();
     assert!(sum_ry.abs() < v_exact * 0.02,
         "Settlement: SumRy = 0 (no external loads): {:.6}", sum_ry);
 
     // Right support should have displacement = -delta
     let d_right = results.displacements.iter().find(|d| d.node_id == n_nodes).unwrap();
-    assert_close(d_right.uy, -delta, 0.01,
+    assert_close(d_right.uz, -delta, 0.01,
         "Settlement: right support displaced by -delta");
 }
 
@@ -746,10 +746,10 @@ fn validation_hibbeler_ext_8_cable_structure() {
     // With 3 panels, there's no exact center bottom node. Put P/2 at nodes 2 and 3.
     let loads = vec![
         SolverLoad::Nodal(SolverNodalLoad {
-            node_id: 2, fx: 0.0, fy: -p / 2.0, mz: 0.0,
+            node_id: 2, fx: 0.0, fz: -p / 2.0, my: 0.0,
         }),
         SolverLoad::Nodal(SolverNodalLoad {
-            node_id: 3, fx: 0.0, fy: -p / 2.0, mz: 0.0,
+            node_id: 3, fx: 0.0, fz: -p / 2.0, my: 0.0,
         }),
     ];
 
@@ -764,8 +764,8 @@ fn validation_hibbeler_ext_8_cable_structure() {
     let results = linear::solve_2d(&input).unwrap();
 
     // Symmetric reactions
-    let ra = results.reactions.iter().find(|r| r.node_id == 1).unwrap().ry;
-    let rd = results.reactions.iter().find(|r| r.node_id == n_panels + 1).unwrap().ry;
+    let ra = results.reactions.iter().find(|r| r.node_id == 1).unwrap().rz;
+    let rd = results.reactions.iter().find(|r| r.node_id == n_panels + 1).unwrap().rz;
     assert_close(ra, p / 2.0, 0.02, "Cable truss: R_A = P/2 = 15 kN");
     assert_close(rd, p / 2.0, 0.02, "Cable truss: R_D = P/2 = 15 kN");
 
@@ -820,6 +820,6 @@ fn validation_hibbeler_ext_8_cable_structure() {
         "Cable truss: top chord force ~ bottom chord force in magnitude");
 
     // Global equilibrium
-    let sum_ry: f64 = results.reactions.iter().map(|r| r.ry).sum();
+    let sum_ry: f64 = results.reactions.iter().map(|r| r.rz).sum();
     assert_close(sum_ry, p, 0.01, "Cable truss: SumRy = P");
 }

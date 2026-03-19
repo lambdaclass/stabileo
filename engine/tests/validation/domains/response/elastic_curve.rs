@@ -47,13 +47,13 @@ fn validation_elastic_curve_ss_udl() {
     let results = linear::solve_2d(&input).unwrap();
 
     let d_mid = results.displacements.iter()
-        .find(|d| d.node_id == mid).unwrap().uy.abs();
+        .find(|d| d.node_id == mid).unwrap().uz.abs();
     let d_exact = 5.0 * q.abs() * l.powi(4) / (384.0 * e_eff * IZ);
     assert_close(d_mid, d_exact, 0.02, "SS UDL: δ = 5wL⁴/(384EI)");
 
     // Midspan deflection is the maximum (check it's larger than quarter-point)
     let d_quarter = results.displacements.iter()
-        .find(|d| d.node_id == n / 4 + 1).unwrap().uy.abs();
+        .find(|d| d.node_id == n / 4 + 1).unwrap().uz.abs();
     assert!(d_mid > d_quarter, "SS UDL: midspan > quarter-point");
 }
 
@@ -70,13 +70,13 @@ fn validation_elastic_curve_ss_point() {
     let mid = n / 2 + 1;
 
     let loads = vec![SolverLoad::Nodal(SolverNodalLoad {
-        node_id: mid, fx: 0.0, fy: -p, mz: 0.0,
+        node_id: mid, fx: 0.0, fz: -p, my: 0.0,
     })];
     let input = make_beam(n, l, E, A, IZ, "pinned", Some("rollerX"), loads);
     let results = linear::solve_2d(&input).unwrap();
 
     let d_mid = results.displacements.iter()
-        .find(|d| d.node_id == mid).unwrap().uy.abs();
+        .find(|d| d.node_id == mid).unwrap().uz.abs();
     let d_exact = p * l.powi(3) / (48.0 * e_eff * IZ);
     assert_close(d_mid, d_exact, 0.02, "SS point: δ = PL³/(48EI)");
 }
@@ -93,13 +93,13 @@ fn validation_elastic_curve_cantilever_slope() {
     let e_eff = E * 1000.0;
 
     let loads = vec![SolverLoad::Nodal(SolverNodalLoad {
-        node_id: n + 1, fx: 0.0, fy: -p, mz: 0.0,
+        node_id: n + 1, fx: 0.0, fz: -p, my: 0.0,
     })];
     let input = make_beam(n, l, E, A, IZ, "fixed", None, loads);
     let results = linear::solve_2d(&input).unwrap();
 
     let theta_tip = results.displacements.iter()
-        .find(|d| d.node_id == n + 1).unwrap().rz.abs();
+        .find(|d| d.node_id == n + 1).unwrap().ry.abs();
     let theta_exact = p * l * l / (2.0 * e_eff * IZ);
     assert_close(theta_tip, theta_exact, 0.02, "Cantilever: θ = PL²/(2EI)");
 }
@@ -130,8 +130,8 @@ fn validation_elastic_curve_cantilever_udl() {
 
     let tip = results.displacements.iter()
         .find(|d| d.node_id == n + 1).unwrap();
-    let delta_tip = tip.uy.abs();
-    let theta_tip = tip.rz.abs();
+    let delta_tip = tip.uz.abs();
+    let theta_tip = tip.ry.abs();
 
     let delta_exact = q.abs() * l.powi(4) / (8.0 * e_eff * IZ);
     let theta_exact = q.abs() * l.powi(3) / (6.0 * e_eff * IZ);
@@ -167,9 +167,9 @@ fn validation_elastic_curve_symmetry() {
     // Deflection at x and L-x should be equal
     for k in 1..n {
         let d_left = results.displacements.iter()
-            .find(|d| d.node_id == k + 1).unwrap().uy;
+            .find(|d| d.node_id == k + 1).unwrap().uz;
         let d_right = results.displacements.iter()
-            .find(|d| d.node_id == n + 1 - k).unwrap().uy;
+            .find(|d| d.node_id == n + 1 - k).unwrap().uz;
         assert!((d_left - d_right).abs() < 1e-10,
             "Symmetry: δ({}) = δ({}): {:.6e} vs {:.6e}",
             k, n - k, d_left, d_right);
@@ -198,7 +198,7 @@ fn validation_elastic_curve_overhang() {
     for i in 0..=n_total {
         nodes_map.insert(
             (i + 1).to_string(),
-            SolverNode { id: i + 1, x: i as f64 * l_total / n_total as f64, y: 0.0 },
+            SolverNode { id: i + 1, x: i as f64 * l_total / n_total as f64, z: 0.0 },
         );
     }
     let mut mats = std::collections::HashMap::new();
@@ -223,16 +223,16 @@ fn validation_elastic_curve_overhang() {
     let mut sups = std::collections::HashMap::new();
     sups.insert("1".to_string(), SolverSupport {
         id: 1, node_id: 1, support_type: "pinned".to_string(),
-        kx: None, ky: None, kz: None, dx: None, dy: None, drz: None, angle: None,
+        kx: None, ky: None, kz: None, dx: None, dz: None, dry: None, angle: None,
     });
     sups.insert("2".to_string(), SolverSupport {
         id: 2, node_id: support_idx, support_type: "rollerX".to_string(),
-        kx: None, ky: None, kz: None, dx: None, dy: None, drz: None, angle: None,
+        kx: None, ky: None, kz: None, dx: None, dz: None, dry: None, angle: None,
     });
 
     // Load at tip of overhang
     let loads = vec![SolverLoad::Nodal(SolverNodalLoad {
-        node_id: n_total + 1, fx: 0.0, fy: -p, mz: 0.0,
+        node_id: n_total + 1, fx: 0.0, fz: -p, my: 0.0,
     })];
     let input = SolverInput {
         nodes: nodes_map, materials: mats, sections: secs,
@@ -242,13 +242,13 @@ fn validation_elastic_curve_overhang() {
 
     // Overhang tip deflects downward
     let d_tip = results.displacements.iter()
-        .find(|d| d.node_id == n_total + 1).unwrap().uy;
+        .find(|d| d.node_id == n_total + 1).unwrap().uz;
     assert!(d_tip < 0.0, "Overhang: tip deflects down: {:.6e}", d_tip);
 
     // Main span midpoint deflects upward (positive)
     let mid_main = n_main / 2 + 1;
     let d_mid = results.displacements.iter()
-        .find(|d| d.node_id == mid_main).unwrap().uy;
+        .find(|d| d.node_id == mid_main).unwrap().uz;
     assert!(d_mid > 0.0, "Overhang: main span deflects up: {:.6e}", d_mid);
 }
 
@@ -271,7 +271,7 @@ fn validation_elastic_curve_stiffness() {
         .collect();
     let input1 = make_beam(n, l, E, A, IZ, "pinned", Some("rollerX"), loads1);
     let d1 = linear::solve_2d(&input1).unwrap()
-        .displacements.iter().find(|d| d.node_id == mid).unwrap().uy.abs();
+        .displacements.iter().find(|d| d.node_id == mid).unwrap().uz.abs();
 
     // 3x IZ
     let loads2: Vec<SolverLoad> = (1..=n)
@@ -281,7 +281,7 @@ fn validation_elastic_curve_stiffness() {
         .collect();
     let input2 = make_beam(n, l, E, A, 3.0 * IZ, "pinned", Some("rollerX"), loads2);
     let d2 = linear::solve_2d(&input2).unwrap()
-        .displacements.iter().find(|d| d.node_id == mid).unwrap().uy.abs();
+        .displacements.iter().find(|d| d.node_id == mid).unwrap().uz.abs();
 
     // δ ∝ 1/I → d1/d2 = 3
     assert_close(d1 / d2, 3.0, 0.02, "Stiffness: δ ∝ 1/I");
@@ -302,7 +302,7 @@ fn validation_elastic_curve_couple() {
     let mid = n / 2 + 1;
 
     let loads = vec![SolverLoad::Nodal(SolverNodalLoad {
-        node_id: mid, fx: 0.0, fy: 0.0, mz: m0,
+        node_id: mid, fx: 0.0, fz: 0.0, my: m0,
     })];
     let input = make_beam(n, l, E, A, IZ, "pinned", Some("rollerX"), loads);
     let results = linear::solve_2d(&input).unwrap();
@@ -310,9 +310,9 @@ fn validation_elastic_curve_couple() {
     // Antisymmetric: δ(x) = -δ(L-x)
     for k in 1..n / 2 {
         let d_left = results.displacements.iter()
-            .find(|d| d.node_id == k + 1).unwrap().uy;
+            .find(|d| d.node_id == k + 1).unwrap().uz;
         let d_right = results.displacements.iter()
-            .find(|d| d.node_id == n + 1 - k).unwrap().uy;
+            .find(|d| d.node_id == n + 1 - k).unwrap().uz;
         assert!((d_left + d_right).abs() < 1e-10,
             "Couple antisymmetry: δ({}) + δ({}) ≈ 0: {:.6e}",
             k, n - k, d_left + d_right);
@@ -320,7 +320,7 @@ fn validation_elastic_curve_couple() {
 
     // Midspan deflection should be zero (antisymmetric)
     let d_mid = results.displacements.iter()
-        .find(|d| d.node_id == mid).unwrap().uy;
+        .find(|d| d.node_id == mid).unwrap().uz;
     assert!(d_mid.abs() < 1e-10,
         "Couple: δ_mid ≈ 0: {:.6e}", d_mid);
 }

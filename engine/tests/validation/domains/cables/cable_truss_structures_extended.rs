@@ -78,8 +78,8 @@ fn validation_k_truss_zero_force_members() {
     let loads = vec![SolverLoad::Nodal(SolverNodalLoad {
         node_id: 2,
         fx: 0.0,
-        fy: -p,
-        mz: 0.0,
+        fz: -p,
+        my: 0.0,
     })];
 
     let input = make_input(
@@ -93,7 +93,7 @@ fn validation_k_truss_zero_force_members() {
     let results = linear::solve_2d(&input).unwrap();
 
     // Equilibrium: sum of vertical reactions = P
-    let sum_ry: f64 = results.reactions.iter().map(|r| r.ry).sum();
+    let sum_ry: f64 = results.reactions.iter().map(|r| r.rz).sum();
     assert_close(sum_ry, p, 0.01, "K-truss: vertical equilibrium");
 
     // The center vertical (elem 6, node 2 to node 5) should carry significant force
@@ -199,8 +199,8 @@ fn validation_truss_asymmetric_loading() {
     let loads = vec![SolverLoad::Nodal(SolverNodalLoad {
         node_id: 2,
         fx: 0.0,
-        fy: -p,
-        mz: 0.0,
+        fz: -p,
+        my: 0.0,
     })];
 
     let input = make_input(
@@ -214,7 +214,7 @@ fn validation_truss_asymmetric_loading() {
     let results = linear::solve_2d(&input).unwrap();
 
     // ΣFy = P
-    let sum_ry: f64 = results.reactions.iter().map(|r| r.ry).sum();
+    let sum_ry: f64 = results.reactions.iter().map(|r| r.rz).sum();
     assert_close(sum_ry, p, 0.01, "Asymmetric: vertical equilibrium");
 
     // By statics: R_left = P * (span - panel_w) / span
@@ -225,13 +225,13 @@ fn validation_truss_asymmetric_loading() {
         .iter()
         .find(|r| r.node_id == 1)
         .unwrap()
-        .ry;
+        .rz;
     let r_right = results
         .reactions
         .iter()
         .find(|r| r.node_id == n_panels + 1)
         .unwrap()
-        .ry;
+        .rz;
 
     assert_close(r_left, r_left_exact, 0.02, "Asymmetric: R_left = P*(L-a)/L");
     assert_close(
@@ -293,8 +293,8 @@ fn validation_three_bar_truss_textbook() {
     let loads = vec![SolverLoad::Nodal(SolverNodalLoad {
         node_id: 4,
         fx: 0.0,
-        fy: -p,
-        mz: 0.0,
+        fz: -p,
+        my: 0.0,
     })];
 
     let input = make_input(
@@ -308,7 +308,7 @@ fn validation_three_bar_truss_textbook() {
     let results = linear::solve_2d(&input).unwrap();
 
     // Equilibrium: total vertical reaction = P
-    let sum_ry: f64 = results.reactions.iter().map(|r| r.ry).sum();
+    let sum_ry: f64 = results.reactions.iter().map(|r| r.rz).sum();
     assert_close(sum_ry, p, 0.01, "Three-bar: vertical equilibrium");
 
     // By symmetry: left and right diagonal bars carry equal forces
@@ -406,14 +406,14 @@ fn validation_scissors_truss_force_pattern() {
         SolverLoad::Nodal(SolverNodalLoad {
             node_id: 3,
             fx: 0.0,
-            fy: -p,
-            mz: 0.0,
+            fz: -p,
+            my: 0.0,
         }),
         SolverLoad::Nodal(SolverNodalLoad {
             node_id: 4,
             fx: 0.0,
-            fy: -p,
-            mz: 0.0,
+            fz: -p,
+            my: 0.0,
         }),
     ];
 
@@ -428,7 +428,7 @@ fn validation_scissors_truss_force_pattern() {
     let results = linear::solve_2d(&input).unwrap();
 
     // Equilibrium
-    let sum_ry: f64 = results.reactions.iter().map(|r| r.ry).sum();
+    let sum_ry: f64 = results.reactions.iter().map(|r| r.rz).sum();
     assert_close(sum_ry, 2.0 * p, 0.01, "Scissors: ΣRy = 2P");
 
     // Symmetric loading → symmetric reactions
@@ -437,13 +437,13 @@ fn validation_scissors_truss_force_pattern() {
         .iter()
         .find(|r| r.node_id == 1)
         .unwrap()
-        .ry;
+        .rz;
     let r2 = results
         .reactions
         .iter()
         .find(|r| r.node_id == 2)
         .unwrap()
-        .ry;
+        .rz;
     assert_close(r1, r2, 0.02, "Scissors: symmetric reactions");
 
     // By symmetry, the two crossing diagonals carry equal force magnitudes
@@ -531,8 +531,8 @@ fn validation_compound_truss_diamond() {
     let loads = vec![SolverLoad::Nodal(SolverNodalLoad {
         node_id: 3,
         fx: 0.0,
-        fy: -p,
-        mz: 0.0,
+        fz: -p,
+        my: 0.0,
     })];
 
     let input = make_input(
@@ -546,7 +546,7 @@ fn validation_compound_truss_diamond() {
     let results = linear::solve_2d(&input).unwrap();
 
     // Equilibrium: ΣRy = P
-    let sum_ry: f64 = results.reactions.iter().map(|r| r.ry).sum();
+    let sum_ry: f64 = results.reactions.iter().map(|r| r.rz).sum();
     assert_close(sum_ry, p, 0.01, "Diamond truss: ΣRy = P");
 
     // By symmetry: equal vertical reactions
@@ -555,13 +555,13 @@ fn validation_compound_truss_diamond() {
         .iter()
         .find(|r| r.node_id == 1)
         .unwrap()
-        .ry;
+        .rz;
     let r2 = results
         .reactions
         .iter()
         .find(|r| r.node_id == 2)
         .unwrap()
-        .ry;
+        .rz;
     assert_close(r1, r2, 0.02, "Diamond: symmetric reactions");
     assert_close(r1, p / 2.0, 0.02, "Diamond: R1 = P/2");
 
@@ -620,7 +620,7 @@ fn validation_compound_truss_diamond() {
         .iter()
         .find(|d| d.node_id == 3)
         .unwrap();
-    assert!(d3.uy < 0.0, "Diamond: loaded node deflects down");
+    assert!(d3.uz < 0.0, "Diamond: loaded node deflects down");
 }
 
 // ================================================================
@@ -655,8 +655,8 @@ fn validation_truss_cantilever_bracket() {
     let loads = vec![SolverLoad::Nodal(SolverNodalLoad {
         node_id: 3,
         fx: 0.0,
-        fy: -p,
-        mz: 0.0,
+        fz: -p,
+        my: 0.0,
     })];
 
     let input = make_input(
@@ -670,7 +670,7 @@ fn validation_truss_cantilever_bracket() {
     let results = linear::solve_2d(&input).unwrap();
 
     // Equilibrium
-    let sum_ry: f64 = results.reactions.iter().map(|r| r.ry).sum();
+    let sum_ry: f64 = results.reactions.iter().map(|r| r.rz).sum();
     assert_close(sum_ry, p, 0.01, "Cantilever bracket: ΣRy = P");
 
     // Method of joints at node 3:
@@ -723,9 +723,9 @@ fn validation_truss_cantilever_bracket() {
         .find(|d| d.node_id == 3)
         .unwrap();
     assert!(
-        d3.uy < 0.0,
+        d3.uz < 0.0,
         "Cantilever bracket: tip deflects down: uy={:.6e}",
-        d3.uy
+        d3.uz
     );
 }
 
@@ -788,8 +788,8 @@ fn validation_truss_maxwell_reciprocal() {
     let loads_a = vec![SolverLoad::Nodal(SolverNodalLoad {
         node_id: 2,
         fx: 0.0,
-        fy: -p,
-        mz: 0.0,
+        fz: -p,
+        my: 0.0,
     })];
     let input_a = make_input(
         nodes.clone(),
@@ -805,14 +805,14 @@ fn validation_truss_maxwell_reciprocal() {
         .iter()
         .find(|d| d.node_id == 3)
         .unwrap()
-        .uy;
+        .uz;
 
     // Case B: load at node 3, measure deflection at node 2
     let loads_b = vec![SolverLoad::Nodal(SolverNodalLoad {
         node_id: 3,
         fx: 0.0,
-        fy: -p,
-        mz: 0.0,
+        fz: -p,
+        my: 0.0,
     })];
     let input_b = make_input(
         nodes,
@@ -828,7 +828,7 @@ fn validation_truss_maxwell_reciprocal() {
         .iter()
         .find(|d| d.node_id == 2)
         .unwrap()
-        .uy;
+        .uz;
 
     // Maxwell's reciprocal theorem: δ_AB = δ_BA
     assert_close(
@@ -873,8 +873,8 @@ fn validation_truss_stiffness_scaling_area() {
         let loads = vec![SolverLoad::Nodal(SolverNodalLoad {
             node_id: 3,
             fx: 0.0,
-            fy: -p,
-            mz: 0.0,
+            fz: -p,
+            my: 0.0,
         })];
         let input = make_input(
             nodes,
@@ -935,13 +935,13 @@ fn validation_truss_stiffness_scaling_area() {
         .iter()
         .find(|d| d.node_id == 3)
         .unwrap()
-        .uy;
+        .uz;
     let d_double = results_double
         .displacements
         .iter()
         .find(|d| d.node_id == 3)
         .unwrap()
-        .uy;
+        .uz;
 
     // Both negative (downward), so d_base/d_double ≈ 2.0
     let ratio = d_base / d_double;

@@ -14,7 +14,7 @@ pub fn apply_geometric_imperfections_2d(input: &mut SolverInput, imperfections: 
     for imp in imperfections {
         if let Some(node) = input.nodes.values_mut().find(|n| n.id == imp.node_id) {
             node.x += imp.dx;
-            node.y += imp.dy;
+            node.z += imp.dy;
         }
     }
 }
@@ -45,7 +45,7 @@ pub fn notional_loads_2d(
     let mut gravity_per_node: std::collections::HashMap<usize, f64> = std::collections::HashMap::new();
     for load in &input.loads {
         if let SolverLoad::Nodal(nl) = load {
-            let grav_force = if grav == 0 { nl.fx } else { nl.fy };
+            let grav_force = if grav == 0 { nl.fx } else { nl.fz };
             *gravity_per_node.entry(nl.node_id).or_insert(0.0) += grav_force;
         }
     }
@@ -53,12 +53,12 @@ pub fn notional_loads_2d(
     for (node_id, grav_force) in gravity_per_node {
         if grav_force.abs() < 1e-15 { continue; }
         let lateral = notional.ratio * grav_force.abs();
-        let (fx, fy) = if dir == 0 { (lateral, 0.0) } else { (0.0, lateral) };
+        let (fx, fz) = if dir == 0 { (lateral, 0.0) } else { (0.0, lateral) };
         loads.push(SolverLoad::Nodal(SolverNodalLoad {
             node_id,
             fx,
-            fy,
-            mz: 0.0,
+            fz,
+            my: 0.0,
         }));
     }
     loads

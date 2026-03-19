@@ -38,9 +38,9 @@ fn validation_stiffness_positive_definite() {
 
     // Apply loads in various directions
     let loads = vec![
-        SolverLoad::Nodal(SolverNodalLoad { node_id: 2, fx: p, fy: 0.0, mz: 0.0 }),
-        SolverLoad::Nodal(SolverNodalLoad { node_id: 4, fx: 0.0, fy: -p, mz: 0.0 }),
-        SolverLoad::Nodal(SolverNodalLoad { node_id: 6, fx: 0.0, fy: 0.0, mz: p }),
+        SolverLoad::Nodal(SolverNodalLoad { node_id: 2, fx: p, fz: 0.0, my: 0.0 }),
+        SolverLoad::Nodal(SolverNodalLoad { node_id: 4, fx: 0.0, fz: -p, my: 0.0 }),
+        SolverLoad::Nodal(SolverNodalLoad { node_id: 6, fx: 0.0, fz: 0.0, my: p }),
     ];
     let input = make_beam(n, l, E, A, IZ, "fixed", Some("fixed"), loads);
     let results = linear::solve_2d(&input).unwrap();
@@ -48,8 +48,8 @@ fn validation_stiffness_positive_definite() {
     // All displacements should be finite (no NaN or inf)
     for d in &results.displacements {
         assert!(d.ux.is_finite(), "Positive def: ux finite at node {}", d.node_id);
-        assert!(d.uy.is_finite(), "Positive def: uy finite at node {}", d.node_id);
-        assert!(d.rz.is_finite(), "Positive def: rz finite at node {}", d.node_id);
+        assert!(d.uz.is_finite(), "Positive def: uy finite at node {}", d.node_id);
+        assert!(d.ry.is_finite(), "Positive def: rz finite at node {}", d.node_id);
     }
 
     // Strain energy = ½ΣF·u should be positive
@@ -57,7 +57,7 @@ fn validation_stiffness_positive_definite() {
     let d2 = results.displacements.iter().find(|d| d.node_id == 2).unwrap();
     let d4 = results.displacements.iter().find(|d| d.node_id == 4).unwrap();
     let d6 = results.displacements.iter().find(|d| d.node_id == 6).unwrap();
-    let energy = 0.5 * (p * d2.ux + (-p) * d4.uy + p * d6.rz);
+    let energy = 0.5 * (p * d2.ux + (-p) * d4.uz + p * d6.ry);
     assert!(energy > 0.0,
         "Positive def: strain energy > 0: {:.6e}", energy);
 }
@@ -75,19 +75,19 @@ fn validation_stiffness_symmetry() {
     for (node_i, node_j) in &[(3, 7), (2, 6), (4, 8)] {
         // Force at i, displacement at j
         let loads_i = vec![SolverLoad::Nodal(SolverNodalLoad {
-            node_id: *node_i, fx: 0.0, fy: -1.0, mz: 0.0,
+            node_id: *node_i, fx: 0.0, fz: -1.0, my: 0.0,
         })];
         let input_i = make_beam(n, l, E, A, IZ, "fixed", Some("fixed"), loads_i);
         let d_ji = linear::solve_2d(&input_i).unwrap()
-            .displacements.iter().find(|d| d.node_id == *node_j).unwrap().uy;
+            .displacements.iter().find(|d| d.node_id == *node_j).unwrap().uz;
 
         // Force at j, displacement at i
         let loads_j = vec![SolverLoad::Nodal(SolverNodalLoad {
-            node_id: *node_j, fx: 0.0, fy: -1.0, mz: 0.0,
+            node_id: *node_j, fx: 0.0, fz: -1.0, my: 0.0,
         })];
         let input_j = make_beam(n, l, E, A, IZ, "fixed", Some("fixed"), loads_j);
         let d_ij = linear::solve_2d(&input_j).unwrap()
-            .displacements.iter().find(|d| d.node_id == *node_i).unwrap().uy;
+            .displacements.iter().find(|d| d.node_id == *node_i).unwrap().uz;
 
         assert_close(d_ji, d_ij, 0.001,
             &format!("Symmetry K[{},{}] = K[{},{}]", node_i, node_j, node_j, node_i));
@@ -110,7 +110,7 @@ fn validation_stiffness_rigid_body() {
     // SS beam: axial DOFs are unrestrained except at pinned end
     // The beam should still give correct transverse deflections
     let loads = vec![SolverLoad::Nodal(SolverNodalLoad {
-        node_id: n / 2 + 1, fx: 0.0, fy: -p, mz: 0.0,
+        node_id: n / 2 + 1, fx: 0.0, fz: -p, my: 0.0,
     })];
     let input = make_beam(n, l, E, A, IZ, "pinned", Some("rollerX"), loads);
     let results = linear::solve_2d(&input).unwrap();
@@ -120,7 +120,7 @@ fn validation_stiffness_rigid_body() {
     let mid = n / 2 + 1;
     let d_mid = results.displacements.iter().find(|d| d.node_id == mid).unwrap();
 
-    assert_close(d_mid.uy.abs(), delta_exact, 0.02,
+    assert_close(d_mid.uz.abs(), delta_exact, 0.02,
         "Rigid body: correct transverse with free axial");
 }
 
@@ -153,7 +153,7 @@ fn validation_stiffness_4ei_l() {
     // θ = M / (8EI/L) = ML/(8EI).
 
     let loads2 = vec![SolverLoad::Nodal(SolverNodalLoad {
-        node_id: n + 1, fx: 0.0, fy: 0.0, mz: m,
+        node_id: n + 1, fx: 0.0, fz: 0.0, my: m,
     })];
     let input = make_continuous_beam(&[l, l], n, E, A, IZ, loads2);
     let results = linear::solve_2d(&input).unwrap();
@@ -165,7 +165,7 @@ fn validation_stiffness_4ei_l() {
     // θ = M/(6EI/L) = ML/(6EI)
     let theta_exact = m * l / (6.0 * e_eff * IZ);
     let d_int = results.displacements.iter().find(|d| d.node_id == n + 1).unwrap();
-    assert_close(d_int.rz.abs(), theta_exact, 0.05,
+    assert_close(d_int.ry.abs(), theta_exact, 0.05,
         "Stiffness: θ = ML/(6EI) at interior of two-span");
 }
 
@@ -183,7 +183,7 @@ fn validation_stiffness_3ei_l() {
     // Propped cantilever: fixed at left, roller at right
     // Apply moment at right end (roller allows rotation)
     let loads = vec![SolverLoad::Nodal(SolverNodalLoad {
-        node_id: n + 1, fx: 0.0, fy: 0.0, mz: m,
+        node_id: n + 1, fx: 0.0, fz: 0.0, my: m,
     })];
     let input = make_beam(n, l, E, A, IZ, "fixed", Some("rollerX"), loads);
     let results = linear::solve_2d(&input).unwrap();
@@ -192,7 +192,7 @@ fn validation_stiffness_3ei_l() {
 
     // θ = M × L / (3EI) for far-end-fixed stiffness (seen from roller end)
     let theta_exact = m * l / (3.0 * e_eff * IZ);
-    assert_close(d_end.rz.abs(), theta_exact, 0.05,
+    assert_close(d_end.ry.abs(), theta_exact, 0.05,
         "Stiffness 3EI/L: θ = ML/(3EI)");
 }
 
@@ -211,21 +211,21 @@ fn validation_stiffness_assembly() {
 
     // Single element (2 nodes)
     let loads1 = vec![SolverLoad::Nodal(SolverNodalLoad {
-        node_id: mid_node, fx: 0.0, fy: -p, mz: 0.0,
+        node_id: mid_node, fx: 0.0, fz: -p, my: 0.0,
     })];
     let input1 = make_beam(2, l, E, A, IZ, "pinned", Some("rollerX"), loads1);
     let d1 = linear::solve_2d(&input1).unwrap()
-        .displacements.iter().find(|d| d.node_id == mid_node).unwrap().uy;
+        .displacements.iter().find(|d| d.node_id == mid_node).unwrap().uz;
 
     // Multi-element (12 elements)
     let n2 = 12;
     let mid2 = n2 / 2 + 1;
     let loads2 = vec![SolverLoad::Nodal(SolverNodalLoad {
-        node_id: mid2, fx: 0.0, fy: -p, mz: 0.0,
+        node_id: mid2, fx: 0.0, fz: -p, my: 0.0,
     })];
     let input2 = make_beam(n2, l, E, A, IZ, "pinned", Some("rollerX"), loads2);
     let d2 = linear::solve_2d(&input2).unwrap()
-        .displacements.iter().find(|d| d.node_id == mid2).unwrap().uy;
+        .displacements.iter().find(|d| d.node_id == mid2).unwrap().uz;
 
     // Both should give same midspan deflection
     assert_close(d1, d2, 0.01,
@@ -251,11 +251,11 @@ fn validation_stiffness_condensation() {
     // Test with 1, 2, 4, 8 elements
     for n in &[1, 2, 4, 8] {
         let loads = vec![SolverLoad::Nodal(SolverNodalLoad {
-            node_id: n + 1, fx: 0.0, fy: -p, mz: 0.0,
+            node_id: n + 1, fx: 0.0, fz: -p, my: 0.0,
         })];
         let input = make_beam(*n, l, E, A, IZ, "fixed", None, loads);
         let results = linear::solve_2d(&input).unwrap();
-        let d_tip = results.displacements.iter().find(|d| d.node_id == n + 1).unwrap().uy;
+        let d_tip = results.displacements.iter().find(|d| d.node_id == n + 1).unwrap().uz;
 
         assert_close(d_tip.abs(), delta_exact, 0.02,
             &format!("Condensation: n={} gives PL³/(3EI)", n));
@@ -290,12 +290,12 @@ fn validation_stiffness_sparse_dense() {
 
     // Fixed-fixed + UDL: δ = qL⁴/(384EI)
     let delta_exact = q.abs() * l * l * l * l / (384.0 * e_eff * IZ);
-    assert_close(d_mid.uy.abs(), delta_exact, 0.02,
+    assert_close(d_mid.uz.abs(), delta_exact, 0.02,
         "Sparse/dense: fixed UDL midspan");
 
     // Reactions at both ends should be equal
     let r1 = results.reactions.iter().find(|r| r.node_id == 1).unwrap();
     let r_end = results.reactions.iter().find(|r| r.node_id == n + 1).unwrap();
-    assert_close(r1.ry, r_end.ry, 0.01,
+    assert_close(r1.rz, r_end.rz, 0.01,
         "Sparse/dense: symmetric reactions");
 }

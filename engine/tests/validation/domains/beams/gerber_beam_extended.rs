@@ -103,9 +103,9 @@ fn gerber_fixed_roller_hinge_reactions() {
     let r_a = results.reactions.iter().find(|r| r.node_id == 1).unwrap();
     let r_c = results.reactions.iter().find(|r| r.node_id == 6).unwrap();
 
-    assert_close(r_a.ry, r_a_exact, 0.02, "Gerber fixed-roller: R_A");
-    assert_close(r_c.ry, r_c_exact, 0.02, "Gerber fixed-roller: R_C");
-    assert_close(r_a.mz, m_a_exact, 0.02, "Gerber fixed-roller: M_A");
+    assert_close(r_a.rz, r_a_exact, 0.02, "Gerber fixed-roller: R_A");
+    assert_close(r_c.rz, r_c_exact, 0.02, "Gerber fixed-roller: R_C");
+    assert_close(r_a.my, m_a_exact, 0.02, "Gerber fixed-roller: M_A");
 
     // Hinge moment must be zero
     let ef3 = results.element_forces.iter().find(|e| e.element_id == 3).unwrap();
@@ -214,12 +214,12 @@ fn gerber_asymmetric_2span_exact_reactions() {
     let r_b = results.reactions.iter().find(|r| r.node_id == 5).unwrap();
     let r_c = results.reactions.iter().find(|r| r.node_id == 11).unwrap();
 
-    assert_close(r_a.ry, r_a_exact, 0.05, "Asymmetric Gerber: R_A = -3");
-    assert_close(r_b.ry, r_b_exact, 0.02, "Asymmetric Gerber: R_B = 105");
-    assert_close(r_c.ry, r_c_exact, 0.02, "Asymmetric Gerber: R_C = 18");
+    assert_close(r_a.rz, r_a_exact, 0.05, "Asymmetric Gerber: R_A = -3");
+    assert_close(r_b.rz, r_b_exact, 0.02, "Asymmetric Gerber: R_B = 105");
+    assert_close(r_c.rz, r_c_exact, 0.02, "Asymmetric Gerber: R_C = 18");
 
     // Global equilibrium check
-    let sum_ry: f64 = results.reactions.iter().map(|r| r.ry).sum();
+    let sum_ry: f64 = results.reactions.iter().map(|r| r.rz).sum();
     assert_close(sum_ry, q * 10.0, 0.01, "Asymmetric Gerber: sum Ry = qL");
 
     // Hinge moment at node 8 must be zero
@@ -282,8 +282,8 @@ fn gerber_point_load_reactions() {
     let loads = vec![SolverLoad::Nodal(SolverNodalLoad {
         node_id: 4,
         fx: 0.0,
-        fy: -p,
-        mz: 0.0,
+        fz: -p,
+        my: 0.0,
     })];
 
     let input = make_input(nodes, vec![(1, E, 0.3)], vec![(1, A, IZ)], elems, sups, loads);
@@ -294,12 +294,12 @@ fn gerber_point_load_reactions() {
     let r_b = results.reactions.iter().find(|r| r.node_id == 3).unwrap();
     let r_c = results.reactions.iter().find(|r| r.node_id == 5).unwrap();
 
-    assert!(r_a.ry.abs() < 0.5, "Gerber point load: R_A ~ 0, got {:.4}", r_a.ry);
-    assert_close(r_b.ry, 12.0, 0.02, "Gerber point load: R_B = 12");
-    assert_close(r_c.ry, 12.0, 0.02, "Gerber point load: R_C = 12");
+    assert!(r_a.rz.abs() < 0.5, "Gerber point load: R_A ~ 0, got {:.4}", r_a.rz);
+    assert_close(r_b.rz, 12.0, 0.02, "Gerber point load: R_B = 12");
+    assert_close(r_c.rz, 12.0, 0.02, "Gerber point load: R_C = 12");
 
     // Global equilibrium
-    let sum_ry: f64 = results.reactions.iter().map(|r| r.ry).sum();
+    let sum_ry: f64 = results.reactions.iter().map(|r| r.rz).sum();
     assert_close(sum_ry, p, 0.01, "Gerber point load: sum Ry = P");
 
     // Moment at hinge = 0
@@ -388,12 +388,12 @@ fn gerber_overhanging_hinge_reactions() {
     let r_b = results.reactions.iter().find(|r| r.node_id == 3).unwrap();
     let r_c = results.reactions.iter().find(|r| r.node_id == 5).unwrap();
 
-    assert_close(r_a.ry, r_a_exact, 0.02, "Overhanging Gerber: R_A = 22.5");
-    assert_close(r_b.ry, r_b_exact, 0.02, "Overhanging Gerber: R_B = 67.5");
-    assert_close(r_c.ry, r_c_exact, 0.02, "Overhanging Gerber: R_C = 60");
+    assert_close(r_a.rz, r_a_exact, 0.02, "Overhanging Gerber: R_A = 22.5");
+    assert_close(r_b.rz, r_b_exact, 0.02, "Overhanging Gerber: R_B = 67.5");
+    assert_close(r_c.rz, r_c_exact, 0.02, "Overhanging Gerber: R_C = 60");
 
     // Global equilibrium: R_A + R_B + R_C = q * 15 = 150
-    let sum_ry: f64 = results.reactions.iter().map(|r| r.ry).sum();
+    let sum_ry: f64 = results.reactions.iter().map(|r| r.rz).sum();
     assert_close(sum_ry, q * 15.0, 0.01, "Overhanging Gerber: sum Ry = 150");
 
     // Hinge moment at node 4 (x=9) = 0
@@ -469,7 +469,7 @@ fn gerber_hinges_at_support_deflection_matches_ss() {
     let delta_ss = 5.0 * q * l_span.powi(4) / (384.0 * e_eff * IZ);
 
     assert_close(
-        mid_d.uy.abs(), delta_ss, 0.05,
+        mid_d.uz.abs(), delta_ss, 0.05,
         "Gerber independent span deflection matches SS formula"
     );
 }
@@ -531,21 +531,21 @@ fn gerber_3span_two_hinges_superposition() {
 
     // Case 1: P=20 at node 4 (x=9, midspan of span 2)
     let loads_1 = vec![SolverLoad::Nodal(SolverNodalLoad {
-        node_id: 4, fx: 0.0, fy: -20.0, mz: 0.0,
+        node_id: 4, fx: 0.0, fz: -20.0, my: 0.0,
     })];
     // Case 2: P=15 at node 1 (x=0)... no, that's at a support.
     // Case 2: P=15 at node 4 (x=9) + P=10 at node 2 (x=3)
     // Actually the simplest superposition test: case A + case B = case AB
     let loads_2 = vec![SolverLoad::Nodal(SolverNodalLoad {
-        node_id: 2, fx: 0.0, fy: -15.0, mz: 0.0,
+        node_id: 2, fx: 0.0, fz: -15.0, my: 0.0,
     })];
     // Combined
     let loads_combined = vec![
         SolverLoad::Nodal(SolverNodalLoad {
-            node_id: 4, fx: 0.0, fy: -20.0, mz: 0.0,
+            node_id: 4, fx: 0.0, fz: -20.0, my: 0.0,
         }),
         SolverLoad::Nodal(SolverNodalLoad {
-            node_id: 2, fx: 0.0, fy: -15.0, mz: 0.0,
+            node_id: 2, fx: 0.0, fz: -15.0, my: 0.0,
         }),
     ];
 
@@ -559,18 +559,18 @@ fn gerber_3span_two_hinges_superposition() {
 
     // For each support node, check R_combined = R_1 + R_2
     for &nid in &[1_usize, 3, 5, 7] {
-        let ry_1 = res_1.reactions.iter().find(|r| r.node_id == nid).unwrap().ry;
-        let ry_2 = res_2.reactions.iter().find(|r| r.node_id == nid).unwrap().ry;
-        let ry_c = res_c.reactions.iter().find(|r| r.node_id == nid).unwrap().ry;
+        let ry_1 = res_1.reactions.iter().find(|r| r.node_id == nid).unwrap().rz;
+        let ry_2 = res_2.reactions.iter().find(|r| r.node_id == nid).unwrap().rz;
+        let ry_c = res_c.reactions.iter().find(|r| r.node_id == nid).unwrap().rz;
         assert_close(ry_c, ry_1 + ry_2, 0.02,
             &format!("Superposition: Ry at node {} combined = sum", nid));
     }
 
     // Also check displacements superpose
     for &nid in &[2_usize, 4, 6] {
-        let uy_1 = res_1.displacements.iter().find(|d| d.node_id == nid).unwrap().uy;
-        let uy_2 = res_2.displacements.iter().find(|d| d.node_id == nid).unwrap().uy;
-        let uy_c = res_c.displacements.iter().find(|d| d.node_id == nid).unwrap().uy;
+        let uy_1 = res_1.displacements.iter().find(|d| d.node_id == nid).unwrap().uz;
+        let uy_2 = res_2.displacements.iter().find(|d| d.node_id == nid).unwrap().uz;
+        let uy_c = res_c.displacements.iter().find(|d| d.node_id == nid).unwrap().uz;
         assert_close(uy_c, uy_1 + uy_2, 0.02,
             &format!("Superposition: uy at node {} combined = sum", nid));
     }
@@ -653,10 +653,10 @@ fn gerber_rotation_discontinuity_at_hinge() {
 
     // The max deflection should be larger with the hinge (more flexible)
     let max_uy_cont = res_cont.displacements.iter()
-        .map(|d| d.uy.abs())
+        .map(|d| d.uz.abs())
         .fold(0.0_f64, f64::max);
     let max_uy_hinge = res_hinge.displacements.iter()
-        .map(|d| d.uy.abs())
+        .map(|d| d.uz.abs())
         .fold(0.0_f64, f64::max);
 
     assert!(
@@ -666,8 +666,8 @@ fn gerber_rotation_discontinuity_at_hinge() {
     );
 
     // The rotation at node 2 should differ between cases
-    let rz_cont = res_cont.displacements.iter().find(|d| d.node_id == 2).unwrap().rz;
-    let rz_hinge = res_hinge.displacements.iter().find(|d| d.node_id == 2).unwrap().rz;
+    let rz_cont = res_cont.displacements.iter().find(|d| d.node_id == 2).unwrap().ry;
+    let rz_hinge = res_hinge.displacements.iter().find(|d| d.node_id == 2).unwrap().ry;
 
     // Rotations should be different (hinge allows rotation release)
     let rz_diff: f64 = (rz_hinge - rz_cont).abs();
@@ -772,9 +772,9 @@ fn gerber_moment_diagram_shape() {
     let r_b = results.reactions.iter().find(|r| r.node_id == 5).unwrap();
     let r_c = results.reactions.iter().find(|r| r.node_id == 9).unwrap();
 
-    assert_close(r_a.ry, r_a_exact, 0.02, "Gerber moment shape: R_A = 20");
-    assert_close(r_b.ry, r_b_exact, 0.02, "Gerber moment shape: R_B = 120");
-    assert_close(r_c.ry, r_c_exact, 0.02, "Gerber moment shape: R_C = 20");
+    assert_close(r_a.rz, r_a_exact, 0.02, "Gerber moment shape: R_A = 20");
+    assert_close(r_b.rz, r_b_exact, 0.02, "Gerber moment shape: R_B = 120");
+    assert_close(r_c.rz, r_c_exact, 0.02, "Gerber moment shape: R_C = 20");
 
     // Moment at hinge (node 3, x=4) = 0
     let ef2 = results.element_forces.iter().find(|e| e.element_id == 2).unwrap();
@@ -808,6 +808,6 @@ fn gerber_moment_diagram_shape() {
         "Gerber moment at x=12 should be ~0, got {:.4}", ef6.m_end);
 
     // Global equilibrium
-    let sum_ry: f64 = results.reactions.iter().map(|r| r.ry).sum();
+    let sum_ry: f64 = results.reactions.iter().map(|r| r.rz).sum();
     assert_close(sum_ry, q * l_total, 0.01, "Gerber moment shape: sum Ry = qL");
 }

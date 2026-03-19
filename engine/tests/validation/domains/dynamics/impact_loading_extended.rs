@@ -47,12 +47,12 @@ fn validation_imp_ext_sudden_load_daf() {
     let input = make_beam(
         n, l, e, a, iz, "pinned", Some("rollerX"),
         vec![SolverLoad::Nodal(SolverNodalLoad {
-            node_id: mid, fx: 0.0, fy: -p, mz: 0.0,
+            node_id: mid, fx: 0.0, fz: -p, my: 0.0,
         })],
     );
     let res = linear::solve_2d(&input).unwrap();
     let delta_static = res.displacements.iter()
-        .find(|d| d.node_id == mid).unwrap().uy.abs();
+        .find(|d| d.node_id == mid).unwrap().uz.abs();
 
     // Analytical: delta_st = P*L^3 / (48*EI)
     let e_eff: f64 = e * 1000.0; // solver multiplies E by 1000
@@ -71,7 +71,7 @@ fn validation_imp_ext_sudden_load_daf() {
     assert_close(daf, 2.0, 0.01, "sudden load DAF = 2.0");
 
     // Dynamic reaction = DAF * static reaction
-    let ry_static: f64 = res.reactions.iter().map(|r| r.ry).sum::<f64>();
+    let ry_static: f64 = res.reactions.iter().map(|r| r.rz).sum::<f64>();
     let ry_dynamic: f64 = daf * ry_static;
     let ry_dynamic_expected: f64 = daf * p; // total reaction = applied load
     assert_close(ry_dynamic, ry_dynamic_expected, 0.02, "dynamic reaction = DAF * P");
@@ -107,12 +107,12 @@ fn validation_imp_ext_falling_weight() {
     let input = make_beam(
         n, l, e, a, iz, "pinned", Some("rollerX"),
         vec![SolverLoad::Nodal(SolverNodalLoad {
-            node_id: mid, fx: 0.0, fy: -w, mz: 0.0,
+            node_id: mid, fx: 0.0, fz: -w, my: 0.0,
         })],
     );
     let res = linear::solve_2d(&input).unwrap();
     let delta_st = res.displacements.iter()
-        .find(|d| d.node_id == mid).unwrap().uy.abs();
+        .find(|d| d.node_id == mid).unwrap().uz.abs();
 
     let delta_st_exact: f64 = w * l.powi(3) / (48.0 * e_eff * iz);
     assert_close(delta_st, delta_st_exact, 0.02, "static deflection under W");
@@ -201,12 +201,12 @@ fn validation_imp_ext_energy_equivalence() {
     let input = make_beam(
         n, l, e, a, iz, "pinned", Some("rollerX"),
         vec![SolverLoad::Nodal(SolverNodalLoad {
-            node_id: mid, fx: 0.0, fy: -w, mz: 0.0,
+            node_id: mid, fx: 0.0, fz: -w, my: 0.0,
         })],
     );
     let res = linear::solve_2d(&input).unwrap();
     let delta_solver = res.displacements.iter()
-        .find(|d| d.node_id == mid).unwrap().uy.abs();
+        .find(|d| d.node_id == mid).unwrap().uz.abs();
 
     assert_close(delta_solver, delta_st, 0.02, "solver static deflection matches k=48EI/L^3");
 
@@ -255,12 +255,12 @@ fn validation_imp_ext_ss_beam_equivalent_force() {
     let input_eq = make_beam(
         n, l, e, a, iz, "pinned", Some("rollerX"),
         vec![SolverLoad::Nodal(SolverNodalLoad {
-            node_id: mid, fx: 0.0, fy: -p_eq, mz: 0.0,
+            node_id: mid, fx: 0.0, fz: -p_eq, my: 0.0,
         })],
     );
     let res_eq = linear::solve_2d(&input_eq).unwrap();
     let delta_eq = res_eq.displacements.iter()
-        .find(|d| d.node_id == mid).unwrap().uy.abs();
+        .find(|d| d.node_id == mid).unwrap().uz.abs();
 
     // Expected dynamic deflection
     let delta_dyn_expected: f64 = daf * delta_st;
@@ -280,7 +280,7 @@ fn validation_imp_ext_ss_beam_equivalent_force() {
         "midspan moment under equivalent static force");
 
     // Reactions under P_eq = P_eq / 2 at each support (symmetric)
-    let ry_total: f64 = res_eq.reactions.iter().map(|r| r.ry).sum();
+    let ry_total: f64 = res_eq.reactions.iter().map(|r| r.rz).sum();
     assert_close(ry_total, p_eq, 0.02, "total reaction = P_eq");
 }
 
@@ -330,34 +330,34 @@ fn validation_imp_ext_crane_aisc_impact() {
     let input_static = make_beam(
         n, l, e, a, iz, "pinned", Some("rollerX"),
         vec![SolverLoad::Nodal(SolverNodalLoad {
-            node_id: mid, fx: 0.0, fy: -p_wheel_static, mz: 0.0,
+            node_id: mid, fx: 0.0, fz: -p_wheel_static, my: 0.0,
         })],
     );
     let res_static = linear::solve_2d(&input_static).unwrap();
     let delta_static = res_static.displacements.iter()
-        .find(|d| d.node_id == mid).unwrap().uy.abs();
+        .find(|d| d.node_id == mid).unwrap().uz.abs();
 
     // With cab-operated impact
     let input_cab = make_beam(
         n, l, e, a, iz, "pinned", Some("rollerX"),
         vec![SolverLoad::Nodal(SolverNodalLoad {
-            node_id: mid, fx: 0.0, fy: -p_wheel_cab, mz: 0.0,
+            node_id: mid, fx: 0.0, fz: -p_wheel_cab, my: 0.0,
         })],
     );
     let res_cab = linear::solve_2d(&input_cab).unwrap();
     let delta_cab = res_cab.displacements.iter()
-        .find(|d| d.node_id == mid).unwrap().uy.abs();
+        .find(|d| d.node_id == mid).unwrap().uz.abs();
 
     // With pendant-operated impact
     let input_pendant = make_beam(
         n, l, e, a, iz, "pinned", Some("rollerX"),
         vec![SolverLoad::Nodal(SolverNodalLoad {
-            node_id: mid, fx: 0.0, fy: -p_wheel_pendant, mz: 0.0,
+            node_id: mid, fx: 0.0, fz: -p_wheel_pendant, my: 0.0,
         })],
     );
     let res_pendant = linear::solve_2d(&input_pendant).unwrap();
     let delta_pendant = res_pendant.displacements.iter()
-        .find(|d| d.node_id == mid).unwrap().uy.abs();
+        .find(|d| d.node_id == mid).unwrap().uz.abs();
 
     // Linear scaling: delta_cab / delta_static = ci_cab
     assert_close(delta_cab / delta_static, ci_cab, 0.02,
@@ -423,23 +423,23 @@ fn validation_imp_ext_aashto_vehicle_impact() {
     let input_no_im = make_beam(
         n, l, e, a, iz, "pinned", Some("rollerX"),
         vec![SolverLoad::Nodal(SolverNodalLoad {
-            node_id: mid, fx: 0.0, fy: -p_truck, mz: 0.0,
+            node_id: mid, fx: 0.0, fz: -p_truck, my: 0.0,
         })],
     );
     let res_no_im = linear::solve_2d(&input_no_im).unwrap();
     let delta_no_im = res_no_im.displacements.iter()
-        .find(|d| d.node_id == mid).unwrap().uy.abs();
+        .find(|d| d.node_id == mid).unwrap().uz.abs();
 
     // With IM (Strength)
     let input_with_im = make_beam(
         n, l, e, a, iz, "pinned", Some("rollerX"),
         vec![SolverLoad::Nodal(SolverNodalLoad {
-            node_id: mid, fx: 0.0, fy: -p_truck_strength, mz: 0.0,
+            node_id: mid, fx: 0.0, fz: -p_truck_strength, my: 0.0,
         })],
     );
     let res_with_im = linear::solve_2d(&input_with_im).unwrap();
     let delta_with_im = res_with_im.displacements.iter()
-        .find(|d| d.node_id == mid).unwrap().uy.abs();
+        .find(|d| d.node_id == mid).unwrap().uz.abs();
 
     // Deflection ratio should be 1.33
     assert_close(delta_with_im / delta_no_im, 1.0 + im_strength, 0.02,
@@ -548,12 +548,12 @@ fn validation_imp_ext_blast_triangular_pulse() {
     let input = make_beam(
         n, l, e, a, iz, "pinned", Some("rollerX"),
         vec![SolverLoad::Nodal(SolverNodalLoad {
-            node_id: mid, fx: 0.0, fy: -p_equiv, mz: 0.0,
+            node_id: mid, fx: 0.0, fz: -p_equiv, my: 0.0,
         })],
     );
     let res = linear::solve_2d(&input).unwrap();
     let delta_solver = res.displacements.iter()
-        .find(|d| d.node_id == mid).unwrap().uy.abs();
+        .find(|d| d.node_id == mid).unwrap().uz.abs();
 
     let delta_equiv_expected: f64 = daf_approx * delta_st;
     assert_close(delta_solver, delta_equiv_expected, 0.03,
@@ -679,12 +679,12 @@ fn validation_imp_ext_ramp_loading() {
     let input = make_beam(
         n, l, e, a, iz, "pinned", Some("rollerX"),
         vec![SolverLoad::Nodal(SolverNodalLoad {
-            node_id: mid, fx: 0.0, fy: -p, mz: 0.0,
+            node_id: mid, fx: 0.0, fz: -p, my: 0.0,
         })],
     );
     let res = linear::solve_2d(&input).unwrap();
     let delta_solver = res.displacements.iter()
-        .find(|d| d.node_id == mid).unwrap().uy.abs();
+        .find(|d| d.node_id == mid).unwrap().uz.abs();
 
     assert_close(delta_solver, delta_st, 0.02,
         "solver static deflection for ramp baseline");

@@ -35,8 +35,8 @@ fn make_v_cable(
         vec![SolverLoad::Nodal(SolverNodalLoad {
             node_id: 2,
             fx: 0.0,
-            fy: load_y,
-            mz: 0.0,
+            fz: load_y,
+            my: 0.0,
         })],
     )
 }
@@ -54,7 +54,7 @@ fn cable_v_shape_horizontal_thrust() {
 
     // Check that node 2 displaces downward
     let d2 = result.results.displacements.iter().find(|d| d.node_id == 2).unwrap();
-    assert!(d2.uy < 0.0, "Sag node should deflect downward");
+    assert!(d2.uz < 0.0, "Sag node should deflect downward");
 
     // Cable elements should be in tension (positive N)
     for ef in &result.results.element_forces {
@@ -66,8 +66,8 @@ fn cable_v_shape_horizontal_thrust() {
     let r3 = result.results.reactions.iter().find(|r| r.node_id == 3).unwrap();
 
     // Vertical reactions: each ≈ P/2 = 5 kN
-    assert!((r1.ry - 5.0).abs() < 1.0, "ry1={}", r1.ry);
-    assert!((r3.ry - 5.0).abs() < 1.0, "ry3={}", r3.ry);
+    assert!((r1.rz - 5.0).abs() < 1.0, "ry1={}", r1.rz);
+    assert!((r3.rz - 5.0).abs() < 1.0, "ry3={}", r3.rz);
 }
 
 #[test]
@@ -86,8 +86,8 @@ fn cable_tension_only_behavior() {
         vec![SolverLoad::Nodal(SolverNodalLoad {
             node_id: 2,
             fx: 0.0,
-            fy: -5.0, // Downward load on sag point
-            mz: 0.0,
+            fz: -5.0, // Downward load on sag point
+            my: 0.0,
         })],
     );
 
@@ -123,8 +123,8 @@ fn cable_with_truss_comparison() {
         vec![SolverLoad::Nodal(SolverNodalLoad {
             node_id: 2,
             fx: 0.0,
-            fy: -20.0,
-            mz: 0.0,
+            fz: -20.0,
+            my: 0.0,
         })],
     );
 
@@ -139,8 +139,8 @@ fn cable_with_truss_comparison() {
     // Without self-weight, cable with Ernst modulus = truss (no sag correction)
     assert!((d_cable.ux - d_truss.ux).abs() < 0.01,
         "Cable ux={:.6} vs truss ux={:.6}", d_cable.ux, d_truss.ux);
-    assert!((d_cable.uy - d_truss.uy).abs() < 0.01,
-        "Cable uy={:.6} vs truss uy={:.6}", d_cable.uy, d_truss.uy);
+    assert!((d_cable.uz - d_truss.uz).abs() < 0.01,
+        "Cable uy={:.6} vs truss uy={:.6}", d_cable.uz, d_truss.uz);
 }
 
 #[test]
@@ -163,9 +163,9 @@ fn cable_ernst_modulus_reduces_stiffness() {
 
     // Cable with sag correction should deflect more (lower stiffness)
     // or at least produce different results
-    let diff = (d_heavy.uy - d_light.uy).abs();
+    let diff = (d_heavy.uz - d_light.uz).abs();
     // The Ernst effect should be noticeable for this geometry
-    assert!(diff >= 0.0, "Ernst effect: heavy_uy={:.6}, light_uy={:.6}", d_heavy.uy, d_light.uy);
+    assert!(diff >= 0.0, "Ernst effect: heavy_uy={:.6}, light_uy={:.6}", d_heavy.uz, d_light.uz);
 }
 
 #[test]
@@ -180,8 +180,8 @@ fn cable_no_cables_delegates_to_linear() {
         vec![SolverLoad::Nodal(SolverNodalLoad {
             node_id: 2,
             fx: 0.0,
-            fy: -10.0,
-            mz: 0.0,
+            fz: -10.0,
+            my: 0.0,
         })],
     );
 
@@ -196,7 +196,7 @@ fn cable_no_cables_delegates_to_linear() {
     // Results should match linear
     let d_cable = cable_result.results.displacements.iter().find(|d| d.node_id == 2).unwrap();
     let d_linear = linear_result.displacements.iter().find(|d| d.node_id == 2).unwrap();
-    assert!((d_cable.uy - d_linear.uy).abs() < 1e-10);
+    assert!((d_cable.uz - d_linear.uz).abs() < 1e-10);
 }
 
 #[test]
@@ -218,8 +218,8 @@ fn cable_mixed_frame_and_cable() {
         vec![SolverLoad::Nodal(SolverNodalLoad {
             node_id: 2,
             fx: 0.0,
-            fy: -10.0,
-            mz: 0.0,
+            fz: -10.0,
+            my: 0.0,
         })],
     );
 
@@ -230,7 +230,7 @@ fn cable_mixed_frame_and_cable() {
 
     // Node 2 should deflect downward
     let d2 = result.results.displacements.iter().find(|d| d.node_id == 2).unwrap();
-    assert!(d2.uy < 0.0, "Loaded node should deflect down");
+    assert!(d2.uz < 0.0, "Loaded node should deflect down");
 
     // Cable should be in tension
     assert!(!result.cable_forces.is_empty());
@@ -256,8 +256,8 @@ fn cable_analytical_thrust_check() {
     let r3 = result.results.reactions.iter().find(|r| r.node_id == 3).unwrap();
 
     // Each support takes V = P/2 = 25 kN (approximately)
-    assert!((r1.ry - 25.0).abs() < 2.0, "ry1={}", r1.ry);
-    assert!((r3.ry - 25.0).abs() < 2.0, "ry3={}", r3.ry);
+    assert!((r1.rz - 25.0).abs() < 2.0, "ry1={}", r1.rz);
+    assert!((r3.rz - 25.0).abs() < 2.0, "ry3={}", r3.rz);
 
     // Horizontal thrust should be approximately 125 kN
     // The exact value depends on geometry update, but should be close
@@ -300,7 +300,7 @@ fn cable_3d_simple() {
     let mut supports = HashMap::new();
     supports.insert("1".to_string(), SolverSupport3D {
         node_id: 1,
-        rx: true, ry: true, rz: true, rrx: true, rry: true, rrz: true,
+        rx: true, rz: true, ry: true, rrx: true, rry: true, rrz: true,
         kx: None, ky: None, kz: None, krx: None, kry: None, krz: None,
         dx: None, dy: None, dz: None, drx: None, dry: None, drz: None,
         rw: None, kw: None,
@@ -308,7 +308,7 @@ fn cable_3d_simple() {
     });
     supports.insert("2".to_string(), SolverSupport3D {
         node_id: 3,
-        rx: true, ry: true, rz: true, rrx: true, rry: true, rrz: true,
+        rx: true, rz: true, ry: true, rrx: true, rry: true, rrz: true,
         kx: None, ky: None, kz: None, krx: None, kry: None, krz: None,
         dx: None, dy: None, dz: None, drx: None, dry: None, drz: None,
         rw: None, kw: None,
@@ -317,7 +317,7 @@ fn cable_3d_simple() {
     // Cables lie in the XZ plane — node 2 has zero Y-stiffness, so restrain Y
     supports.insert("3".to_string(), SolverSupport3D {
         node_id: 2,
-        rx: false, ry: true, rz: false, rrx: false, rry: false, rrz: false,
+        rx: false, rz: true, ry: false, rrx: false, rry: false, rrz: false,
         kx: None, ky: None, kz: None, krx: None, kry: None, krz: None,
         dx: None, dy: None, dz: None, drx: None, dry: None, drz: None,
         rw: None, kw: None,

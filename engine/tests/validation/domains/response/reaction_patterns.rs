@@ -41,7 +41,7 @@ fn validation_reactions_determinate() {
     let load_node = (a_frac * n as f64) as usize + 1;
 
     let loads = vec![SolverLoad::Nodal(SolverNodalLoad {
-        node_id: load_node, fx: 0.0, fy: -p, mz: 0.0,
+        node_id: load_node, fx: 0.0, fz: -p, my: 0.0,
     })];
     let input = make_beam(n, l, E, A, IZ, "pinned", Some("rollerX"), loads);
     let results = linear::solve_2d(&input).unwrap();
@@ -50,10 +50,10 @@ fn validation_reactions_determinate() {
     let r_end = results.reactions.iter().find(|r| r.node_id == n + 1).unwrap();
 
     // R_A = P*(L-a)/L = P*(1-0.3) = 0.7P
-    assert_close(r1.ry, p * (1.0 - a_frac), 0.01,
+    assert_close(r1.rz, p * (1.0 - a_frac), 0.01,
         "Determinate: R_A = P*(L-a)/L");
     // R_B = P*a/L = 0.3P
-    assert_close(r_end.ry, p * a_frac, 0.01,
+    assert_close(r_end.rz, p * a_frac, 0.01,
         "Determinate: R_B = P*a/L");
     // No horizontal reaction
     assert_close(r1.rx, 0.0, 0.01, "Determinate: Rx = 0");
@@ -83,13 +83,13 @@ fn validation_reactions_indeterminate() {
     let r1 = results.reactions.iter().find(|r| r.node_id == 1).unwrap();
     let r_end = results.reactions.iter().find(|r| r.node_id == n + 1).unwrap();
 
-    assert_close(r1.ry, 5.0 * q.abs() * l / 8.0, 0.02,
+    assert_close(r1.rz, 5.0 * q.abs() * l / 8.0, 0.02,
         "Indeterminate: R_A = 5qL/8");
-    assert_close(r_end.ry, 3.0 * q.abs() * l / 8.0, 0.02,
+    assert_close(r_end.rz, 3.0 * q.abs() * l / 8.0, 0.02,
         "Indeterminate: R_B = 3qL/8");
 
     // Fixed-end moment: M_A = qL²/8
-    assert_close(r1.mz.abs(), q.abs() * l.powi(2) / 8.0, 0.02,
+    assert_close(r1.my.abs(), q.abs() * l.powi(2) / 8.0, 0.02,
         "Indeterminate: M_A = qL²/8");
 }
 
@@ -118,17 +118,17 @@ fn validation_reactions_continuous() {
     let r_end = results.reactions.iter().find(|r| r.node_id == 2 * n + 1).unwrap();
 
     // Interior reaction is larger than exterior
-    assert!(r_int.ry > r1.ry,
+    assert!(r_int.rz > r1.rz,
         "Continuous: interior ({:.2}) > exterior ({:.2})",
-        r_int.ry, r1.ry);
+        r_int.rz, r1.rz);
 
     // Total reaction = total load
-    let total = r1.ry + r_int.ry + r_end.ry;
+    let total = r1.rz + r_int.rz + r_end.rz;
     assert_close(total, q.abs() * 2.0 * span, 0.01,
         "Continuous: ΣR = qL_total");
 
     // Symmetry: R1 = R_end
-    assert_close(r1.ry, r_end.ry, 0.01,
+    assert_close(r1.rz, r_end.rz, 0.01,
         "Continuous: exterior reactions equal");
 }
 
@@ -154,17 +154,17 @@ fn validation_reactions_fixed_symmetric() {
     let r_end = results.reactions.iter().find(|r| r.node_id == n + 1).unwrap();
 
     // By symmetry: equal vertical reactions
-    assert_close(r1.ry, r_end.ry, 0.01,
+    assert_close(r1.rz, r_end.rz, 0.01,
         "Fixed-fixed: R_A = R_B");
 
     // Each = qL/2
-    assert_close(r1.ry, q.abs() * l / 2.0, 0.01,
+    assert_close(r1.rz, q.abs() * l / 2.0, 0.01,
         "Fixed-fixed: R = qL/2");
 
     // Equal moments: |M_A| = |M_B| = qL²/12
-    assert_close(r1.mz.abs(), q.abs() * l.powi(2) / 12.0, 0.02,
+    assert_close(r1.my.abs(), q.abs() * l.powi(2) / 12.0, 0.02,
         "Fixed-fixed: M = qL²/12");
-    assert_close(r1.mz.abs(), r_end.mz.abs(), 0.01,
+    assert_close(r1.my.abs(), r_end.my.abs(), 0.01,
         "Fixed-fixed: |M_A| = |M_B|");
 }
 
@@ -181,7 +181,7 @@ fn validation_reactions_cantilever() {
 
     let loads = vec![
         SolverLoad::Nodal(SolverNodalLoad {
-            node_id: n + 1, fx: 0.0, fy: -p, mz: m_app,
+            node_id: n + 1, fx: 0.0, fz: -p, my: m_app,
         }),
     ];
     let input = make_beam(n, l, E, A, IZ, "fixed", None, loads);
@@ -190,11 +190,11 @@ fn validation_reactions_cantilever() {
     let r1 = results.reactions.iter().find(|r| r.node_id == 1).unwrap();
 
     // Ry = P (upward)
-    assert_close(r1.ry, p, 0.01, "Cantilever: Ry = P");
+    assert_close(r1.rz, p, 0.01, "Cantilever: Ry = P");
 
     // Mz = P*L - M_applied (resisting both)
     let m_expected = p * l - m_app;
-    assert_close(r1.mz, m_expected, 0.02,
+    assert_close(r1.my, m_expected, 0.02,
         "Cantilever: M = P*L - M_app");
 }
 
@@ -232,7 +232,7 @@ fn validation_reactions_overhang_uplift() {
 
     // Load at overhang tip
     let loads = vec![SolverLoad::Nodal(SolverNodalLoad {
-        node_id: n + 1, fx: 0.0, fy: -p, mz: 0.0,
+        node_id: n + 1, fx: 0.0, fz: -p, my: 0.0,
     })];
 
     let input = make_input(
@@ -244,14 +244,14 @@ fn validation_reactions_overhang_uplift() {
     let r2 = results.reactions.iter().find(|r| r.node_id == n_span + 1).unwrap();
 
     // Support at span end carries more than P (lever arm effect)
-    assert!(r2.ry > p, "Overhang: R2 > P due to lever arm");
+    assert!(r2.rz > p, "Overhang: R2 > P due to lever arm");
 
     // Pinned support reacts downward (uplift)
-    assert!(r1.ry < 0.0, "Overhang: R1 < 0 (uplift/downward reaction)");
+    assert!(r1.rz < 0.0, "Overhang: R1 < 0 (uplift/downward reaction)");
 
     // By statics: R1 = -P*overhang/span
     let r1_expected = -p * overhang / span;
-    assert_close(r1.ry, r1_expected, 0.02,
+    assert_close(r1.rz, r1_expected, 0.02,
         "Overhang: R1 = -P*a/L");
 }
 
@@ -273,7 +273,7 @@ fn validation_reactions_portal() {
     let r4 = results.reactions.iter().find(|r| r.node_id == 4).unwrap();
 
     // ΣFy = 0
-    assert_close(r1.ry + r4.ry, 2.0 * g.abs(), 0.01,
+    assert_close(r1.rz + r4.rz, 2.0 * g.abs(), 0.01,
         "Portal: ΣRy = 2|g|");
 
     // ΣFx = 0
@@ -311,14 +311,14 @@ fn validation_reactions_three_span() {
     let r4 = results.reactions.iter().find(|r| r.node_id == 3 * n + 1).unwrap();
 
     // Total reaction = total load = q * 3L
-    let total = r1.ry + r2.ry + r3.ry + r4.ry;
+    let total = r1.rz + r2.rz + r3.rz + r4.rz;
     assert_close(total, q.abs() * 3.0 * span, 0.01,
         "3-span: ΣR = qL_total");
 
     // By symmetry: R1 = R4, R2 = R3
-    assert_close(r1.ry, r4.ry, 0.01, "3-span: R1 = R4 (symmetry)");
-    assert_close(r2.ry, r3.ry, 0.01, "3-span: R2 = R3 (symmetry)");
+    assert_close(r1.rz, r4.rz, 0.01, "3-span: R1 = R4 (symmetry)");
+    assert_close(r2.rz, r3.rz, 0.01, "3-span: R2 = R3 (symmetry)");
 
     // Interior reactions > exterior reactions
-    assert!(r2.ry > r1.ry, "3-span: interior > exterior");
+    assert!(r2.rz > r1.rz, "3-span: interior > exterior");
 }

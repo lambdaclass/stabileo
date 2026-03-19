@@ -55,7 +55,7 @@ fn validation_braced_vs_unbraced_sway() {
     ];
     let sups = vec![(1, 1_usize, "fixed"), (2, 4, "fixed")];
     let loads = vec![SolverLoad::Nodal(SolverNodalLoad {
-        node_id: 2, fx: lateral, fy: 0.0, mz: 0.0,
+        node_id: 2, fx: lateral, fz: 0.0, my: 0.0,
     })];
 
     let input_braced = make_input(
@@ -107,10 +107,10 @@ fn validation_symmetric_gravity_no_sway() {
         "Node 3 ux should be ~0 for symmetric gravity: {:.6e}", d3.ux);
 
     // Vertical displacements should be equal (downward)
-    assert_close(d2.uy, d3.uy, 0.02, "Symmetric gravity: uy at nodes 2 and 3");
+    assert_close(d2.uz, d3.uz, 0.02, "Symmetric gravity: uy at nodes 2 and 3");
 
     // Vertical equilibrium: sum of vertical reactions = total gravity load
-    let sum_ry: f64 = results.reactions.iter().map(|r| r.ry).sum();
+    let sum_ry: f64 = results.reactions.iter().map(|r| r.rz).sum();
     assert_close(sum_ry, -2.0 * gravity, 0.02, "Gravity equilibrium ΣRy");
 }
 
@@ -143,7 +143,7 @@ fn validation_fixed_vs_pinned_base_sway() {
     ];
     let sups = vec![(1, 1_usize, "pinned"), (2, 4, "pinned")];
     let loads = vec![SolverLoad::Nodal(SolverNodalLoad {
-        node_id: 2, fx: lateral, fy: 0.0, mz: 0.0,
+        node_id: 2, fx: lateral, fz: 0.0, my: 0.0,
     })];
 
     let input_pinned = make_input(nodes, vec![(1, E, 0.3)], vec![(1, A, IZ)],
@@ -159,11 +159,11 @@ fn validation_fixed_vs_pinned_base_sway() {
 
     // Fixed base should have nonzero base moments
     let r1_fixed = res_fixed.reactions.iter().find(|r| r.node_id == 1).unwrap();
-    assert!(r1_fixed.mz.abs() > 1.0, "Fixed base should have moment: Mz={:.4}", r1_fixed.mz);
+    assert!(r1_fixed.my.abs() > 1.0, "Fixed base should have moment: Mz={:.4}", r1_fixed.my);
 
     // Pinned base should have zero base moments
     let r1_pinned = res_pinned.reactions.iter().find(|r| r.node_id == 1).unwrap();
-    assert!(r1_pinned.mz.abs() < 0.01, "Pinned base Mz should be ~0: {:.6}", r1_pinned.mz);
+    assert!(r1_pinned.my.abs() < 0.01, "Pinned base Mz should be ~0: {:.6}", r1_pinned.my);
 }
 
 // ================================================================
@@ -195,7 +195,7 @@ fn validation_rigid_vs_hinged_beam_sway() {
     ];
     let sups = vec![(1, 1_usize, "fixed"), (2, 4, "fixed")];
     let loads = vec![SolverLoad::Nodal(SolverNodalLoad {
-        node_id: 2, fx: lateral, fy: 0.0, mz: 0.0,
+        node_id: 2, fx: lateral, fz: 0.0, my: 0.0,
     })];
 
     let input_hinged = make_input(nodes, vec![(1, E, 0.3)], vec![(1, A, IZ)],
@@ -251,7 +251,7 @@ fn validation_two_bay_lateral_distribution() {
         (1, 1_usize, "fixed"), (2, 3, "fixed"), (3, 5, "fixed"),
     ];
     let loads = vec![SolverLoad::Nodal(SolverNodalLoad {
-        node_id: 2, fx: lateral, fy: 0.0, mz: 0.0,
+        node_id: 2, fx: lateral, fz: 0.0, my: 0.0,
     })];
 
     let input = make_input(nodes, vec![(1, E, 0.3)], vec![(1, A, IZ)],
@@ -307,7 +307,7 @@ fn validation_strong_beam_weak_column() {
     ];
     let sups = vec![(1, 1_usize, "fixed"), (2, 4, "fixed")];
     let loads = vec![SolverLoad::Nodal(SolverNodalLoad {
-        node_id: 2, fx: lateral, fy: 0.0, mz: 0.0,
+        node_id: 2, fx: lateral, fz: 0.0, my: 0.0,
     })];
 
     let input = make_input(
@@ -355,7 +355,7 @@ fn validation_weak_beam_strong_column() {
     ];
     let sups = vec![(1, 1_usize, "fixed"), (2, 4, "fixed")];
     let loads = vec![SolverLoad::Nodal(SolverNodalLoad {
-        node_id: 2, fx: lateral, fy: 0.0, mz: 0.0,
+        node_id: 2, fx: lateral, fz: 0.0, my: 0.0,
     })];
 
     let input = make_input(
@@ -411,7 +411,7 @@ fn validation_gravity_changes_moment_distribution() {
     ];
     let sups = vec![(1, 1_usize, "fixed"), (2, 4, "fixed")];
     let loads_lateral = vec![SolverLoad::Nodal(SolverNodalLoad {
-        node_id: 2, fx: lateral, fy: 0.0, mz: 0.0,
+        node_id: 2, fx: lateral, fz: 0.0, my: 0.0,
     })];
 
     let input_lateral = make_input(
@@ -423,7 +423,7 @@ fn validation_gravity_changes_moment_distribution() {
     // Case 2: Lateral + distributed gravity on beam
     let loads_combined = vec![
         SolverLoad::Nodal(SolverNodalLoad {
-            node_id: 2, fx: lateral, fy: 0.0, mz: 0.0,
+            node_id: 2, fx: lateral, fz: 0.0, my: 0.0,
         }),
         SolverLoad::Distributed(SolverDistributedLoad {
             element_id: 2, q_i: q_gravity, q_j: q_gravity, a: None, b: None,
@@ -443,16 +443,16 @@ fn validation_gravity_changes_moment_distribution() {
     let r1_comb = res_combined.reactions.iter().find(|r| r.node_id == 1).unwrap();
     let r4_comb = res_combined.reactions.iter().find(|r| r.node_id == 4).unwrap();
 
-    let m1_diff = (r1_comb.mz - r1_lat.mz).abs();
-    let m4_diff = (r4_comb.mz - r4_lat.mz).abs();
+    let m1_diff = (r1_comb.my - r1_lat.my).abs();
+    let m4_diff = (r4_comb.my - r4_lat.my).abs();
 
     assert!(m1_diff > 1.0 || m4_diff > 1.0,
         "Distributed gravity should change base moments: ΔM1={:.4}, ΔM4={:.4}",
         m1_diff, m4_diff);
 
     // Vertical reactions should increase (gravity adds vertical load)
-    let ry_lat_sum: f64 = res_lateral.reactions.iter().map(|r| r.ry).sum();
-    let ry_comb_sum: f64 = res_combined.reactions.iter().map(|r| r.ry).sum();
+    let ry_lat_sum: f64 = res_lateral.reactions.iter().map(|r| r.rz).sum();
+    let ry_comb_sum: f64 = res_combined.reactions.iter().map(|r| r.rz).sum();
     let ry_diff = (ry_comb_sum - ry_lat_sum).abs();
     assert!(ry_diff > 10.0,
         "Combined loading should add vertical reactions: ΔRy={:.4}", ry_diff);

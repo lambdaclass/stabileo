@@ -533,8 +533,8 @@ mod tests {
 
     fn make_cantilever() -> SolverInput {
         let mut nodes = HashMap::new();
-        nodes.insert("0".into(), SolverNode { id: 0, x: 0.0, y: 0.0 });
-        nodes.insert("1".into(), SolverNode { id: 1, x: 5.0, y: 0.0 });
+        nodes.insert("0".into(), SolverNode { id: 0, x: 0.0, z: 0.0 });
+        nodes.insert("1".into(), SolverNode { id: 1, x: 5.0, z: 0.0 });
 
         let mut materials = HashMap::new();
         materials.insert("1".into(), SolverMaterial { id: 1, e: 200_000.0, nu: 0.3 });
@@ -553,13 +553,13 @@ mod tests {
         supports.insert("0".into(), SolverSupport {
             id: 0, node_id: 0, support_type: "fixed".into(),
             kx: None, ky: None, kz: None,
-            dx: None, dy: None, drz: None, angle: None,
+            dx: None, dz: None, dry: None, angle: None,
         });
 
         SolverInput {
             nodes, materials, sections, elements, supports,
             loads: vec![SolverLoad::Nodal(SolverNodalLoad {
-                node_id: 1, fx: 0.0, fy: -10.0, mz: 0.0,
+                node_id: 1, fx: 0.0, fz: -10.0, my: 0.0,
             })],
             constraints: vec![],
             connectors: HashMap::new(),
@@ -585,8 +585,8 @@ mod tests {
         // Control DOF should reach target
         let d1 = result.results.displacements.iter().find(|d| d.node_id == 1).unwrap();
         assert!(
-            (d1.uy - (-0.01)).abs() < 1e-4,
-            "Control DOF: got {} expected -0.01", d1.uy
+            (d1.uz - (-0.01)).abs() < 1e-4,
+            "Control DOF: got {} expected -0.01", d1.uz
         );
     }
 

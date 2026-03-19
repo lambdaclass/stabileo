@@ -65,7 +65,7 @@ fn staging_ext_shored_slab_midspan_prop() {
         .unwrap();
     let r_mid_expected = 10.0 * q.abs() * l_span / 8.0; // = 25.0 kN
     assert_close(
-        r_mid.ry,
+        r_mid.rz,
         r_mid_expected,
         0.03,
         "Shored slab: interior reaction R_mid = 10qL/8",
@@ -138,7 +138,7 @@ fn staging_ext_reshoring_load_path() {
         .unwrap();
     let r_reshore_expected = 3.0 * q.abs() * l / 8.0; // = 9.0 kN
     assert_close(
-        r_reshore.ry,
+        r_reshore.rz,
         r_reshore_expected,
         0.02,
         "Reshoring: R_reshore = 3qL/8",
@@ -152,7 +152,7 @@ fn staging_ext_reshoring_load_path() {
         .unwrap();
     let r_fixed_expected = 5.0 * q.abs() * l / 8.0; // = 15.0 kN
     assert_close(
-        r_fixed.ry,
+        r_fixed.rz,
         r_fixed_expected,
         0.02,
         "Reshoring: R_fixed = 5qL/8",
@@ -160,7 +160,7 @@ fn staging_ext_reshoring_load_path() {
 
     // Equilibrium: R_fixed + R_reshore = qL
     let total_load = q.abs() * l; // = 24.0 kN
-    let sum_ry: f64 = results.reactions.iter().map(|r| r.ry).sum();
+    let sum_ry: f64 = results.reactions.iter().map(|r| r.rz).sum();
     assert_close(sum_ry, total_load, 0.02, "Reshoring: sum reactions = qL");
 }
 
@@ -228,14 +228,14 @@ fn staging_ext_temporary_bracing_sway() {
         SolverLoad::Nodal(SolverNodalLoad {
             node_id: 2,
             fx: f_lat,
-            fy: 0.0,
-            mz: 0.0,
+            fz: 0.0,
+            my: 0.0,
         }),
         SolverLoad::Nodal(SolverNodalLoad {
             node_id: 3,
             fx: -f_lat * 0.5,
-            fy: 0.0,
-            mz: 0.0,
+            fz: 0.0,
+            my: 0.0,
         }),
     ];
     let input_braced = make_input(
@@ -301,7 +301,7 @@ fn staging_ext_segmental_cantilever_deflection() {
         .iter()
         .find(|d| d.node_id == n2 + 1)
         .unwrap()
-        .uy
+        .uz
         .abs();
 
     // Build cantilever with 4 segments (12m total)
@@ -325,7 +325,7 @@ fn staging_ext_segmental_cantilever_deflection() {
         .iter()
         .find(|d| d.node_id == n4 + 1)
         .unwrap()
-        .uy
+        .uz
         .abs();
 
     // delta = qL^4/(8EI), so ratio should be (L4/L2)^4 = 2^4 = 16
@@ -369,7 +369,7 @@ fn staging_ext_falsework_beam_deflection() {
         .iter()
         .find(|d| d.node_id == mid_node)
         .unwrap()
-        .uy
+        .uz
         .abs();
 
     // Exact: 5qL^4/(384EI)
@@ -393,8 +393,8 @@ fn staging_ext_falsework_beam_deflection() {
         .find(|r| r.node_id == n + 1)
         .unwrap();
     let r_expected = q.abs() * l / 2.0;
-    assert_close(r1.ry, r_expected, 0.02, "Falsework beam: R1 = qL/2");
-    assert_close(r2.ry, r_expected, 0.02, "Falsework beam: R2 = qL/2");
+    assert_close(r1.rz, r_expected, 0.02, "Falsework beam: R1 = qL/2");
+    assert_close(r2.rz, r_expected, 0.02, "Falsework beam: R2 = qL/2");
 
     // EN 12812 deflection limit: L/270
     let limit = l / 270.0;
@@ -465,7 +465,7 @@ fn staging_ext_three_level_shoring() {
 
     // Total load = q * 3 * L_span
     let total_load = q.abs() * 3.0 * l_span; // = 45.0 kN
-    let sum_ry: f64 = results.reactions.iter().map(|r| r.ry).sum();
+    let sum_ry: f64 = results.reactions.iter().map(|r| r.rz).sum();
     assert_close(
         sum_ry,
         total_load,
@@ -511,13 +511,13 @@ fn staging_ext_three_level_shoring() {
         .iter()
         .find(|r| r.node_id == 1)
         .unwrap()
-        .ry;
+        .rz;
     let r_last = results
         .reactions
         .iter()
         .find(|r| r.node_id == 3 * n_per_span + 1)
         .unwrap()
-        .ry;
+        .rz;
     assert_close(
         r_first,
         r_last,
@@ -608,14 +608,14 @@ fn staging_ext_sequential_load_superposition() {
         .unwrap();
 
     assert_close(
-        r_sw.ry + r_ll.ry,
-        r_combined.ry,
+        r_sw.rz + r_ll.rz,
+        r_combined.rz,
         0.01,
         "Superposition: R_A(sw) + R_A(ll) = R_A(combined)",
     );
     assert_close(
-        r_sw.mz + r_ll.mz,
-        r_combined.mz,
+        r_sw.my + r_ll.my,
+        r_combined.my,
         0.01,
         "Superposition: M_A(sw) + M_A(ll) = M_A(combined)",
     );
@@ -627,19 +627,19 @@ fn staging_ext_sequential_load_superposition() {
         .iter()
         .find(|d| d.node_id == mid_node)
         .unwrap()
-        .uy;
+        .uz;
     let d_ll = results_ll
         .displacements
         .iter()
         .find(|d| d.node_id == mid_node)
         .unwrap()
-        .uy;
+        .uz;
     let d_combined = results_combined
         .displacements
         .iter()
         .find(|d| d.node_id == mid_node)
         .unwrap()
-        .uy;
+        .uz;
 
     assert_close(
         d_sw + d_ll,
@@ -649,7 +649,7 @@ fn staging_ext_sequential_load_superposition() {
     );
 
     // Verify fixed-fixed beam formula: M_end = qL^2/12
-    let m_end_combined = r_combined.mz.abs();
+    let m_end_combined = r_combined.my.abs();
     let m_expected = q_total.abs() * l * l / 12.0;
     assert_close(
         m_end_combined,
@@ -702,7 +702,7 @@ fn staging_ext_prop_removal_effect() {
         .iter()
         .find(|d| d.node_id == mid_node)
         .unwrap()
-        .uy
+        .uz
         .abs();
     assert!(
         d_propped_mid < 1e-8,
@@ -720,7 +720,7 @@ fn staging_ext_prop_removal_effect() {
         .iter()
         .find(|d| d.node_id == n_total / 2 + 1)
         .unwrap()
-        .uy
+        .uz
         .abs();
 
     // Exact: 5qL^4/(384EI)

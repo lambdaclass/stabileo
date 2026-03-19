@@ -162,7 +162,7 @@ fn validation_transfer_carry_over_moment() {
     // Carry-over to A: M_A = M_B / 2 (Hardy Cross carry-over factor = 1/2 for far-fixed).
     let input = make_beam(n, l, E, A, IZ, "fixed", Some("rollerX"),
         vec![SolverLoad::Nodal(SolverNodalLoad {
-            node_id: n + 1, fx: 0.0, fy: 0.0, mz: m_applied,
+            node_id: n + 1, fx: 0.0, fz: 0.0, my: m_applied,
         })]);
 
     let results = linear::solve_2d(&input).unwrap();
@@ -170,15 +170,15 @@ fn validation_transfer_carry_over_moment() {
     // The carry-over moment at the fixed end = M_applied / 2
     let m_carry_over = m_applied / 2.0;
     let r_fixed = results.reactions.iter().find(|r| r.node_id == 1).unwrap();
-    let m_err = (r_fixed.mz.abs() - m_carry_over).abs() / m_carry_over;
+    let m_err = (r_fixed.my.abs() - m_carry_over).abs() / m_carry_over;
     assert!(m_err < 0.02,
         "Carry-over: M_fixed={:.4}, expected M/2={:.4}, err={:.1}%",
-        r_fixed.mz.abs(), m_carry_over, m_err * 100.0);
+        r_fixed.my.abs(), m_carry_over, m_err * 100.0);
 
     // The applied-end reaction moment should be the full moment (roller provides no moment)
     let r_roller = results.reactions.iter().find(|r| r.node_id == n + 1).unwrap();
-    assert!(r_roller.mz.abs() < 1e-6,
-        "Roller end moment should be zero, got {:.6e}", r_roller.mz);
+    assert!(r_roller.my.abs() < 1e-6,
+        "Roller end moment should be zero, got {:.6e}", r_roller.my);
 }
 
 // ================================================================
@@ -293,7 +293,7 @@ fn validation_transfer_two_span_intermediate() {
 
     // Reaction from solver should also match
     let rb_reaction = results.reactions.iter()
-        .find(|r| r.node_id == n_per + 1).unwrap().ry;
+        .find(|r| r.node_id == n_per + 1).unwrap().rz;
     let err_r = (rb_reaction - r_b_exact).abs() / r_b_exact;
     assert!(err_r < 0.02,
         "Two-span R_B reaction: {:.4}, exact 10qL/8={:.4}, err={:.1}%",
@@ -320,20 +320,20 @@ fn validation_transfer_mesh_independence() {
     // Coarse mesh: 2 elements
     let input_coarse = make_beam(2, l, E, A, IZ, "fixed", None,
         vec![SolverLoad::Nodal(SolverNodalLoad {
-            node_id: 3, fx: 0.0, fy: -p, mz: 0.0,
+            node_id: 3, fx: 0.0, fz: -p, my: 0.0,
         })]);
     let res_coarse = linear::solve_2d(&input_coarse).unwrap();
     let tip_coarse = res_coarse.displacements.iter()
-        .find(|d| d.node_id == 3).unwrap().uy.abs();
+        .find(|d| d.node_id == 3).unwrap().uz.abs();
 
     // Fine mesh: 10 elements
     let input_fine = make_beam(10, l, E, A, IZ, "fixed", None,
         vec![SolverLoad::Nodal(SolverNodalLoad {
-            node_id: 11, fx: 0.0, fy: -p, mz: 0.0,
+            node_id: 11, fx: 0.0, fz: -p, my: 0.0,
         })]);
     let res_fine = linear::solve_2d(&input_fine).unwrap();
     let tip_fine = res_fine.displacements.iter()
-        .find(|d| d.node_id == 11).unwrap().uy.abs();
+        .find(|d| d.node_id == 11).unwrap().uz.abs();
 
     // Both should agree to within 1%
     let diff = (tip_coarse - tip_fine).abs() / tip_fine;
@@ -371,7 +371,7 @@ fn validation_transfer_nodal_load_shear_continuity() {
     let mid = n / 2 + 1; // node 5 for n=8
     let input = make_beam(n, l, E, A, IZ, "pinned", Some("rollerX"),
         vec![SolverLoad::Nodal(SolverNodalLoad {
-            node_id: mid, fx: 0.0, fy: -p, mz: 0.0,
+            node_id: mid, fx: 0.0, fz: -p, my: 0.0,
         })]);
     let results = linear::solve_2d(&input).unwrap();
 
@@ -428,21 +428,21 @@ fn validation_transfer_global_equilibrium() {
     }
     // Additional point load at node 5
     loads.push(SolverLoad::Nodal(SolverNodalLoad {
-        node_id: p_node, fx: 5.0, fy: p, mz: 0.0,
+        node_id: p_node, fx: 5.0, fz: p, my: 0.0,
     }));
 
     let input = make_beam(n, l, E, A, IZ, "pinned", Some("rollerX"), loads);
     let results = linear::solve_2d(&input).unwrap();
 
     // Total applied vertical load: UDL + point
-    let total_fy = q * l + p;  // negative (downward)
+    let total_fz = q * l + p;  // negative (downward)
 
-    // Sum of vertical reactions must equal -total_fy
-    let sum_ry: f64 = results.reactions.iter().map(|r| r.ry).sum();
-    let err_fy = (sum_ry + total_fy).abs() / total_fy.abs();
+    // Sum of vertical reactions must equal -total_fz
+    let sum_ry: f64 = results.reactions.iter().map(|r| r.rz).sum();
+    let err_fy = (sum_ry + total_fz).abs() / total_fz.abs();
     assert!(err_fy < 0.01,
         "ΣFy equilibrium: ΣRy={:.4}, applied Fy={:.4}, err={:.1}%",
-        sum_ry, total_fy, err_fy * 100.0);
+        sum_ry, total_fz, err_fy * 100.0);
 
     // Sum of horizontal reactions must equal -applied Fx
     let sum_rx: f64 = results.reactions.iter().map(|r| r.rx).sum();
@@ -455,7 +455,7 @@ fn validation_transfer_global_equilibrium() {
     let x_p = (p_node - 1) as f64 * (l / n as f64);
     let m_applied = q * l * l / 2.0 + p * x_p + 5.0 * 0.0; // Fy components only
     let r_right = results.reactions.iter()
-        .find(|r| r.node_id == n + 1).unwrap().ry;
+        .find(|r| r.node_id == n + 1).unwrap().rz;
     let m_from_right = r_right * l;
     let err_m = (m_from_right + m_applied).abs() / m_applied.abs();
     assert!(err_m < 0.01,

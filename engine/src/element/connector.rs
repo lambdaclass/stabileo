@@ -176,7 +176,7 @@ pub fn assemble_connectors_2d(
         let nj = match node_by_id.get(&conn.node_j) { Some(n) => n, None => continue };
 
         let dx = nj.x - ni.x;
-        let dy = nj.y - ni.y;
+        let dy = nj.z - ni.z;
         let l = (dx * dx + dy * dy).sqrt();
         let (cos, sin) = if l > 1e-15 { (dx / l, dy / l) } else { (1.0, 0.0) };
 

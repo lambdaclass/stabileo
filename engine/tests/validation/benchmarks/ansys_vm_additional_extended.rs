@@ -73,11 +73,11 @@ fn validation_vm42_cantilever_triangular_load() {
 
     // V = q*L/2
     let v_expected = q_max * l / 2.0;
-    assert_close(r.ry, v_expected, 0.02, "VM42 V = qL/2");
+    assert_close(r.rz, v_expected, 0.02, "VM42 V = qL/2");
 
     // M = q*L^2/3 (moment = integral_0^L (q*x/L)*x dx = q*L^2/3)
     let m_expected = q_max * l * l / 3.0;
-    assert_close(r.mz.abs(), m_expected, 0.02, "VM42 M = qL^2/3");
+    assert_close(r.my.abs(), m_expected, 0.02, "VM42 M = qL^2/3");
 
     // Tip deflection: delta = 11*q*L^4 / (120*EI)
     // (for triangular load zero at fixed end, max q at free end)
@@ -89,14 +89,14 @@ fn validation_vm42_cantilever_triangular_load() {
         .find(|d| d.node_id == n + 1)
         .unwrap();
     assert_close(
-        tip.uy.abs(),
+        tip.uz.abs(),
         delta_expected,
         0.03,
         "VM42 tip deflection = 11qL^4/(120EI)",
     );
 
     // Equilibrium check
-    assert_close(r.ry, v_expected, 0.01, "VM42 equilibrium");
+    assert_close(r.rz, v_expected, 0.01, "VM42 equilibrium");
 }
 
 // ================================================================
@@ -138,8 +138,8 @@ fn validation_vm43_propped_cantilever_midspan_load() {
         vec![SolverLoad::Nodal(SolverNodalLoad {
             node_id: mid_node,
             fx: 0.0,
-            fy: -p,
-            mz: 0.0,
+            fz: -p,
+            my: 0.0,
         })],
     );
 
@@ -155,18 +155,18 @@ fn validation_vm43_propped_cantilever_midspan_load() {
 
     // R_B = 5P/16
     let rb_expected = 5.0 * p / 16.0;
-    assert_close(r_b.ry, rb_expected, 0.02, "VM43 R_B = 5P/16");
+    assert_close(r_b.rz, rb_expected, 0.02, "VM43 R_B = 5P/16");
 
     // R_A = 11P/16
     let ra_expected = 11.0 * p / 16.0;
-    assert_close(r_a.ry, ra_expected, 0.02, "VM43 R_A = 11P/16");
+    assert_close(r_a.rz, ra_expected, 0.02, "VM43 R_A = 11P/16");
 
     // Fixed-end moment M_A = 3PL/16
     let ma_expected = 3.0 * p * l / 16.0;
-    assert_close(r_a.mz.abs(), ma_expected, 0.03, "VM43 M_A = 3PL/16");
+    assert_close(r_a.my.abs(), ma_expected, 0.03, "VM43 M_A = 3PL/16");
 
     // Equilibrium
-    let sum_ry = r_a.ry + r_b.ry;
+    let sum_ry = r_a.rz + r_b.rz;
     assert_close(sum_ry, p, 0.01, "VM43 equilibrium");
 
     // Midspan deflection: delta = 7PL^3 / (768*EI)
@@ -178,7 +178,7 @@ fn validation_vm43_propped_cantilever_midspan_load() {
         .find(|d| d.node_id == mid_node)
         .unwrap();
     assert_close(
-        d_mid.uy.abs(),
+        d_mid.uz.abs(),
         delta_expected,
         0.03,
         "VM43 delta_mid = 7PL^3/(768EI)",
@@ -233,19 +233,19 @@ fn validation_vm44_two_span_udl_both() {
         .iter()
         .find(|r| r.node_id == node_a)
         .unwrap()
-        .ry;
+        .rz;
     let r_b = results
         .reactions
         .iter()
         .find(|r| r.node_id == node_b)
         .unwrap()
-        .ry;
+        .rz;
     let r_c = results
         .reactions
         .iter()
         .find(|r| r.node_id == node_c)
         .unwrap()
-        .ry;
+        .rz;
 
     let q_abs = q.abs();
 
@@ -335,18 +335,18 @@ fn validation_vm45_propped_cantilever_udl() {
 
     // R_B = 3qL/8
     let rb_expected = 3.0 * q_abs * l / 8.0;
-    assert_close(r_b.ry, rb_expected, 0.02, "VM45 R_B = 3qL/8");
+    assert_close(r_b.rz, rb_expected, 0.02, "VM45 R_B = 3qL/8");
 
     // R_A = 5qL/8
     let ra_expected = 5.0 * q_abs * l / 8.0;
-    assert_close(r_a.ry, ra_expected, 0.02, "VM45 R_A = 5qL/8");
+    assert_close(r_a.rz, ra_expected, 0.02, "VM45 R_A = 5qL/8");
 
     // Fixed-end moment M_A = qL^2/8
     let ma_expected = q_abs * l * l / 8.0;
-    assert_close(r_a.mz.abs(), ma_expected, 0.02, "VM45 M_A = qL^2/8");
+    assert_close(r_a.my.abs(), ma_expected, 0.02, "VM45 M_A = qL^2/8");
 
     // Equilibrium
-    let sum_ry = r_a.ry + r_b.ry;
+    let sum_ry = r_a.rz + r_b.rz;
     assert_close(sum_ry, q_abs * l, 0.01, "VM45 equilibrium");
 
     // The zero-shear point is at x = 5L/8 from the fixed end.
@@ -453,8 +453,8 @@ fn validation_vm46_warren_truss_central_load() {
     let loads = vec![SolverLoad::Nodal(SolverNodalLoad {
         node_id: 3,
         fx: 0.0,
-        fy: -p,
-        mz: 0.0,
+        fz: -p,
+        my: 0.0,
     })];
 
     let input = make_input(
@@ -472,11 +472,11 @@ fn validation_vm46_warren_truss_central_load() {
     let r_left = results.reactions.iter().find(|r| r.node_id == 1).unwrap();
     let r_right = results.reactions.iter().find(|r| r.node_id == 5).unwrap();
 
-    assert_close(r_left.ry, p / 2.0, 0.02, "VM46 R_left = P/2");
-    assert_close(r_right.ry, p / 2.0, 0.02, "VM46 R_right = P/2");
+    assert_close(r_left.rz, p / 2.0, 0.02, "VM46 R_left = P/2");
+    assert_close(r_right.rz, p / 2.0, 0.02, "VM46 R_right = P/2");
 
     // Equilibrium
-    let sum_ry: f64 = results.reactions.iter().map(|r| r.ry).sum();
+    let sum_ry: f64 = results.reactions.iter().map(|r| r.rz).sum();
     assert_close(sum_ry, p, 0.01, "VM46 equilibrium");
 
     // Central bottom chord force (elements 2 and 3: between nodes 2-3 and 3-4)
@@ -566,8 +566,8 @@ fn validation_vm47_3d_cantilever_torsion() {
         vec![SolverLoad3D::Nodal(SolverNodalLoad3D {
             node_id: n + 1,
             fx: 0.0,
-            fy: 0.0,
             fz: 0.0,
+            fy: 0.0,
             mx: torque,
             my: 0.0,
             mz: 0.0,
@@ -596,9 +596,9 @@ fn validation_vm47_3d_cantilever_torsion() {
 
     // No bending deflection (pure torsion)
     assert!(
-        tip.uy.abs() < 1e-8,
+        tip.uz.abs() < 1e-8,
         "VM47: no Y deflection for pure torsion, uy={:.6e}",
-        tip.uy
+        tip.uz
     );
     assert!(
         tip.uz.abs() < 1e-8,
@@ -688,8 +688,8 @@ fn validation_vm48_asymmetric_portal_sway() {
     let loads = vec![SolverLoad::Nodal(SolverNodalLoad {
         node_id: 3,
         fx: 0.0,
-        fy: -p,
-        mz: 0.0,
+        fz: -p,
+        my: 0.0,
     })];
 
     let input = make_input(
@@ -707,7 +707,7 @@ fn validation_vm48_asymmetric_portal_sway() {
     let r_d = results.reactions.iter().find(|r| r.node_id == 5).unwrap();
 
     // Vertical equilibrium: R_A_y + R_D_y = P
-    let sum_ry = r_a.ry + r_d.ry;
+    let sum_ry = r_a.rz + r_d.rz;
     assert_close(sum_ry, p, 0.01, "VM48 vertical equilibrium");
 
     // Horizontal equilibrium: R_A_x + R_D_x = 0
@@ -727,14 +727,14 @@ fn validation_vm48_asymmetric_portal_sway() {
 
     // Base moments should be non-zero (fixed supports)
     assert!(
-        r_a.mz.abs() > 1.0,
+        r_a.my.abs() > 1.0,
         "VM48: left base moment should be non-zero, mz={:.4}",
-        r_a.mz
+        r_a.my
     );
     assert!(
-        r_d.mz.abs() > 1.0,
+        r_d.my.abs() > 1.0,
         "VM48: right base moment should be non-zero, mz={:.4}",
-        r_d.mz
+        r_d.my
     );
 
     // Lateral displacement at beam level should be non-zero (sway)
@@ -756,7 +756,7 @@ fn validation_vm48_asymmetric_portal_sway() {
     // Right column stiffness: k2 ~ 12EI/h2^3
     // Since h1 < h2, the left column is stiffer laterally
     assert!(
-        r_a.ry.abs() != r_d.ry.abs(),
+        r_a.rz.abs() != r_d.rz.abs(),
         "VM48: reactions should be unequal due to asymmetry",
     );
 }
@@ -829,7 +829,7 @@ fn validation_vm49_continuous_beam_settlement() {
 
     let mut nodes_map = HashMap::new();
     for (id, x, y) in &nodes {
-        nodes_map.insert(id.to_string(), SolverNode { id: *id, x: *x, y: *y });
+        nodes_map.insert(id.to_string(), SolverNode { id: *id, x: *x, z: *y });
     }
     let mut mats_map = HashMap::new();
     mats_map.insert(
@@ -879,8 +879,8 @@ fn validation_vm49_continuous_beam_settlement() {
             ky: None,
             kz: None,
             dx: None,
-            dy: None,
-            drz: None,
+            dz: None,
+            dry: None,
             angle: None,
         },
     );
@@ -894,8 +894,8 @@ fn validation_vm49_continuous_beam_settlement() {
             ky: None,
             kz: None,
             dx: None,
-            dy: Some(delta_s), // settlement
-            drz: None,
+            dz: Some(delta_s), // settlement
+            dry: None,
             angle: None,
         },
     );
@@ -909,8 +909,8 @@ fn validation_vm49_continuous_beam_settlement() {
             ky: None,
             kz: None,
             dx: None,
-            dy: None,
-            drz: None,
+            dz: None,
+            dry: None,
             angle: None,
         },
     );
@@ -948,7 +948,7 @@ fn validation_vm49_continuous_beam_settlement() {
         .find(|d| d.node_id == node_b)
         .unwrap();
     assert_close(
-        d_b.uy,
+        d_b.uz,
         delta_s,
         0.01,
         "VM49 settlement displacement at B",
@@ -1008,7 +1008,7 @@ fn validation_vm49_continuous_beam_settlement() {
     );
 
     // Equilibrium should still hold
-    let sum_ry: f64 = results.reactions.iter().map(|r| r.ry).sum();
+    let sum_ry: f64 = results.reactions.iter().map(|r| r.rz).sum();
     assert_close(
         sum_ry,
         2.0 * q_abs * l,

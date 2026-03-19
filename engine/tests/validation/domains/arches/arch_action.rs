@@ -85,7 +85,7 @@ fn validation_arch_action_three_hinge_thrust_formula() {
             // Tributary horizontal length: dx/2 at ends, dx in interior
             let trib = if i == 0 || i == n { dx / 2.0 } else { dx };
             SolverLoad::Nodal(SolverNodalLoad {
-                node_id: i + 1, fx: 0.0, fy: -w * trib, mz: 0.0,
+                node_id: i + 1, fx: 0.0, fz: -w * trib, my: 0.0,
             })
         })
         .collect();
@@ -111,8 +111,8 @@ fn validation_arch_action_three_hinge_thrust_formula() {
 
     // Vertical reactions: each = wL/2 by symmetry (total load = wL)
     let r_v_exact = w * l / 2.0;
-    assert_close(r_left.ry, r_v_exact, 0.02, "Three-hinge: R_left = wL/2");
-    assert_close(r_right.ry, r_v_exact, 0.02, "Three-hinge: R_right = wL/2");
+    assert_close(r_left.rz, r_v_exact, 0.02, "Three-hinge: R_left = wL/2");
+    assert_close(r_right.rz, r_v_exact, 0.02, "Three-hinge: R_right = wL/2");
 }
 
 // ================================================================
@@ -215,7 +215,7 @@ fn validation_arch_action_tied_arch_tie_force() {
         "Tie force={:.4} should be ≈ H={:.4}", tie_ef.n_start.abs(), h_expected);
 
     // Vertical equilibrium: ΣRy = wL
-    let sum_ry: f64 = results.reactions.iter().map(|r| r.ry).sum();
+    let sum_ry: f64 = results.reactions.iter().map(|r| r.rz).sum();
     let total_load = w * l;
     assert_close(sum_ry, total_load, 0.02, "Tied arch: ΣRy = wL");
 }
@@ -381,7 +381,7 @@ fn validation_arch_action_portal_frame_thrust() {
         "Portal thrust should be symmetric: Rx1={:.4}, Rx4={:.4}", r1.rx, r4.rx);
 
     // Vertical equilibrium: ΣRy = wL
-    let sum_ry: f64 = results.reactions.iter().map(|r| r.ry).sum();
+    let sum_ry: f64 = results.reactions.iter().map(|r| r.rz).sum();
     assert_close(sum_ry, w * l_beam, 0.01, "Portal frame: ΣRy = wL");
 }
 
@@ -482,7 +482,7 @@ fn validation_arch_action_global_equilibrium() {
         }))
         .collect();
     loads.push(SolverLoad::Nodal(SolverNodalLoad {
-        node_id: quarter_node, fx: 0.0, fy: -p, mz: 0.0,
+        node_id: quarter_node, fx: 0.0, fz: -p, my: 0.0,
     }));
 
     let input = make_input(nodes, vec![(1, E, 0.3)], vec![(1, A, IZ)], elems, sups, loads);
@@ -494,9 +494,9 @@ fn validation_arch_action_global_equilibrium() {
         "Arch equilibrium ΣFx: {:.6}, should be ≈ 0", sum_rx);
 
     // ΣFy = total applied load = wL + P
-    let total_fy = w * l + p;
-    let sum_ry: f64 = results.reactions.iter().map(|r| r.ry).sum();
-    assert_close(sum_ry, total_fy, 0.01, "Arch equilibrium ΣFy = wL + P");
+    let total_fz = w * l + p;
+    let sum_ry: f64 = results.reactions.iter().map(|r| r.rz).sum();
+    assert_close(sum_ry, total_fz, 0.01, "Arch equilibrium ΣFy = wL + P");
 
     // ΣM about node 1 (left support, origin)
     // Right support at (L, 0): Rx_right × 0 + Ry_right × L = 0 ... + external moments
@@ -504,7 +504,7 @@ fn validation_arch_action_global_equilibrium() {
     let x_quarter = (quarter_node - 1) as f64 * l / n as f64;
     let m_ext = -(w * l * l / 2.0 + p * x_quarter);
     let r_right = results.reactions.iter().find(|r| r.node_id == n + 1).unwrap();
-    let m_reaction = r_right.ry * l; // Ry_right × L (Rx_right has zero y-arm at y=0)
+    let m_reaction = r_right.rz * l; // Ry_right × L (Rx_right has zero y-arm at y=0)
     let m_residual = m_reaction + m_ext;
     assert!(m_residual.abs() < 0.01 * (w * l * l + p * l),
         "Arch moment equilibrium about left support: residual={:.6}", m_residual);

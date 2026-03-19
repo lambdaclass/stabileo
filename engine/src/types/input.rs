@@ -9,7 +9,7 @@ pub struct SolverNode {
     pub id: usize,
     pub x: f64,
     #[serde(rename = "z", alias = "y")]
-    pub y: f64,
+    pub z: f64,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -60,9 +60,9 @@ pub struct SolverSupport {
     #[serde(default)]
     pub dx: Option<f64>,
     #[serde(default, rename = "dz", alias = "dy")]
-    pub dy: Option<f64>,
+    pub dz: Option<f64>,
     #[serde(default, rename = "dry", alias = "drz")]
-    pub drz: Option<f64>,
+    pub dry: Option<f64>,
     #[serde(default)]
     pub angle: Option<f64>,
 }
@@ -73,9 +73,9 @@ pub struct SolverNodalLoad {
     pub node_id: usize,
     pub fx: f64,
     #[serde(rename = "fz", alias = "fy")]
-    pub fy: f64,
+    pub fz: f64,
     #[serde(rename = "my", alias = "mz")]
-    pub mz: f64,
+    pub my: f64,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -101,7 +101,7 @@ pub struct SolverPointLoadOnElement {
     #[serde(default)]
     pub px: Option<f64>,
     #[serde(default, rename = "my", alias = "mz")]
-    pub mz: Option<f64>,
+    pub my: Option<f64>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -556,9 +556,9 @@ pub struct SpectralModeDisp {
     pub node_id: usize,
     pub ux: f64,
     #[serde(rename = "uz", alias = "uy")]
-    pub uy: f64,
+    pub uz: f64,
     #[serde(rename = "ry", alias = "rz")]
-    pub rz: f64,
+    pub ry: f64,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

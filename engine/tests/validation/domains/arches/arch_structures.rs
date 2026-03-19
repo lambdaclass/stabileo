@@ -88,12 +88,12 @@ fn validation_arch_three_hinge_parabolic_udl() {
         "Horizontal balance: Rx_left={:.4}, Rx_right={:.4}", r_left.rx, r_right.rx);
 
     // Vertical reactions: symmetric loading → equal vertical reactions
-    let diff_v = (r_left.ry - r_right.ry).abs() / r_left.ry;
+    let diff_v = (r_left.rz - r_right.rz).abs() / r_left.rz;
     assert!(diff_v < 0.05,
-        "Symmetric Ry: left={:.4}, right={:.4}", r_left.ry, r_right.ry);
+        "Symmetric Ry: left={:.4}, right={:.4}", r_left.rz, r_right.rz);
 
     // Equilibrium: ΣRy = total load
-    let sum_ry: f64 = results.reactions.iter().map(|r| r.ry).sum();
+    let sum_ry: f64 = results.reactions.iter().map(|r| r.rz).sum();
     assert!(sum_ry > 0.0, "Reactions should resist downward load: ΣRy={:.4}", sum_ry);
 }
 
@@ -128,7 +128,7 @@ fn validation_arch_two_hinge_semicircular() {
     // Point load at crown (midspan node)
     let crown = n / 2 + 1;
     let loads = vec![SolverLoad::Nodal(SolverNodalLoad {
-        node_id: crown, fx: 0.0, fy: -p, mz: 0.0,
+        node_id: crown, fx: 0.0, fz: -p, my: 0.0,
     })];
 
     let input = make_input(nodes, vec![(1, E, 0.3)], vec![(1, A, IZ)], elems, sups, loads);
@@ -138,9 +138,9 @@ fn validation_arch_two_hinge_semicircular() {
     let r_left = results.reactions.iter().find(|r| r.node_id == 1).unwrap();
     let r_right = results.reactions.iter().find(|r| r.node_id == n + 1).unwrap();
 
-    let err_v = ((r_left.ry + r_right.ry) - p).abs() / p;
+    let err_v = ((r_left.rz + r_right.rz) - p).abs() / p;
     assert!(err_v < 0.01,
-        "Semicircle ΣRy: {:.4}, expected P={:.4}", r_left.ry + r_right.ry, p);
+        "Semicircle ΣRy: {:.4}, expected P={:.4}", r_left.rz + r_right.rz, p);
 
     // Horizontal reactions should be equal and opposite
     let err_h = (r_left.rx + r_right.rx).abs() / r_left.rx.abs().max(0.1);
@@ -237,7 +237,7 @@ fn validation_arch_tied() {
     let results = linear::solve_2d(&input).unwrap();
 
     // Equilibrium
-    let sum_ry: f64 = results.reactions.iter().map(|r| r.ry).sum();
+    let sum_ry: f64 = results.reactions.iter().map(|r| r.rz).sum();
     let total_load = q.abs() * l;
     let err = (sum_ry - total_load).abs() / total_load;
     assert!(err < 0.02,
@@ -292,7 +292,7 @@ fn validation_arch_asymmetric_load() {
 
     // Equilibrium: total load = q × L/2
     let total = q.abs() * l / 2.0;
-    let sum_ry: f64 = results.reactions.iter().map(|r| r.ry).sum();
+    let sum_ry: f64 = results.reactions.iter().map(|r| r.rz).sum();
     let err = (sum_ry - total).abs() / total;
     assert!(err < 0.02,
         "Asymmetric arch ΣRy: {:.4}, expected {:.4}", sum_ry, total);
@@ -371,8 +371,8 @@ fn validation_arch_flat_high_thrust() {
         "Flat arch H: {:.4}, expected {:.4}", r_left.rx.abs(), h_expected);
 
     // H should exceed Ry
-    assert!(r_left.rx.abs() > r_left.ry,
-        "Flat arch: H={:.4} should exceed Ry={:.4}", r_left.rx.abs(), r_left.ry);
+    assert!(r_left.rx.abs() > r_left.rz,
+        "Flat arch: H={:.4} should exceed Ry={:.4}", r_left.rx.abs(), r_left.rz);
 }
 
 // ================================================================
@@ -393,7 +393,7 @@ fn validation_arch_equilibrium() {
     let input = make_parabolic_arch(n, l, f_rise, E, A, IZ,
         "pinned", "pinned", true,
         vec![SolverLoad::Nodal(SolverNodalLoad {
-            node_id: quarter, fx: 0.0, fy: -p, mz: 0.0,
+            node_id: quarter, fx: 0.0, fz: -p, my: 0.0,
         })]);
 
     let results = linear::solve_2d(&input).unwrap();
@@ -404,7 +404,7 @@ fn validation_arch_equilibrium() {
         "Arch ΣRx: {:.6}, should be ≈ 0", sum_rx);
 
     // ΣFy = P
-    let sum_ry: f64 = results.reactions.iter().map(|r| r.ry).sum();
+    let sum_ry: f64 = results.reactions.iter().map(|r| r.rz).sum();
     let err = (sum_ry - p).abs() / p;
     assert!(err < 0.01,
         "Arch ΣRy: {:.4}, expected P={:.4}", sum_ry, p);
@@ -417,7 +417,7 @@ fn validation_arch_equilibrium() {
     // Moment about left pin: Ry_right × L - P × x_quarter + Rx_right × 0 = 0
     // Note: Rx_right acts at (L, 0), no moment arm for moment about (0,0) from Rx.
     // Actually Rx_right acts at y=0, so its moment about (0,0) is Rx_right × 0 = 0.
-    let m_residual = r_right.ry * l - p * x_quarter;
+    let m_residual = r_right.rz * l - p * x_quarter;
     let err_m = m_residual.abs() / (p * l);
     assert!(err_m < 0.02,
         "Arch moment equilibrium: residual={:.4}", m_residual);

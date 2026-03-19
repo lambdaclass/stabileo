@@ -50,7 +50,7 @@ fn validation_stiffness_ratio_stiffer_column_attracts_more_moment() {
     ];
     let sups1 = vec![(1, 1, "fixed"), (2, 4, "fixed")];
     let loads1 = vec![SolverLoad::Nodal(SolverNodalLoad {
-        node_id: 2, fx: f_lat, fy: 0.0, mz: 0.0,
+        node_id: 2, fx: f_lat, fz: 0.0, my: 0.0,
     })];
     let input1 = make_input(
         nodes1, vec![(1, E, 0.3)],
@@ -69,7 +69,7 @@ fn validation_stiffness_ratio_stiffer_column_attracts_more_moment() {
     ];
     let sups2 = vec![(1, 1, "fixed"), (2, 4, "fixed")];
     let loads2 = vec![SolverLoad::Nodal(SolverNodalLoad {
-        node_id: 2, fx: f_lat, fy: 0.0, mz: 0.0,
+        node_id: 2, fx: f_lat, fz: 0.0, my: 0.0,
     })];
     let input2 = make_input(
         nodes2, vec![(1, E, 0.3)],
@@ -79,14 +79,14 @@ fn validation_stiffness_ratio_stiffer_column_attracts_more_moment() {
     let res2 = linear::solve_2d(&input2).unwrap();
 
     // In symmetric case (res1), base moments at nodes 1 and 4 should be equal
-    let m_base1_sym: f64 = res1.reactions.iter().find(|r| r.node_id == 1).unwrap().mz.abs();
-    let m_base4_sym: f64 = res1.reactions.iter().find(|r| r.node_id == 4).unwrap().mz.abs();
+    let m_base1_sym: f64 = res1.reactions.iter().find(|r| r.node_id == 1).unwrap().my.abs();
+    let m_base4_sym: f64 = res1.reactions.iter().find(|r| r.node_id == 4).unwrap().my.abs();
     let ratio_sym = m_base1_sym / m_base4_sym;
     assert_close(ratio_sym, 1.0, 0.05, "Symmetric columns: equal base moments");
 
     // In asymmetric case (res2), the stiffer right column should attract more moment
-    let m_base1_asym: f64 = res2.reactions.iter().find(|r| r.node_id == 1).unwrap().mz.abs();
-    let m_base4_asym: f64 = res2.reactions.iter().find(|r| r.node_id == 4).unwrap().mz.abs();
+    let m_base1_asym: f64 = res2.reactions.iter().find(|r| r.node_id == 1).unwrap().my.abs();
+    let m_base4_asym: f64 = res2.reactions.iter().find(|r| r.node_id == 4).unwrap().my.abs();
     assert!(
         m_base4_asym > m_base1_asym,
         "Stiffer column should attract more moment: M_stiff={:.4} > M_flex={:.4}",
@@ -118,7 +118,7 @@ fn validation_stiffness_ratio_stiffer_beam_reduces_sway() {
         ];
         let sups = vec![(1, 1, "fixed"), (2, 4, "fixed")];
         let loads = vec![SolverLoad::Nodal(SolverNodalLoad {
-            node_id: 2, fx: f_lat, fy: 0.0, mz: 0.0,
+            node_id: 2, fx: f_lat, fz: 0.0, my: 0.0,
         })];
         let input = make_input(
             nodes, vec![(1, E, 0.3)],
@@ -220,9 +220,9 @@ fn validation_stiffness_ratio_continuous_beam_redistribution() {
 
     // Get interior support reactions
     let ry_mid1: f64 = res1.reactions.iter()
-        .find(|r| r.node_id == n_per_span + 1).unwrap().ry;
+        .find(|r| r.node_id == n_per_span + 1).unwrap().rz;
     let ry_mid2: f64 = res2.reactions.iter()
-        .find(|r| r.node_id == n_per_span + 1).unwrap().ry;
+        .find(|r| r.node_id == n_per_span + 1).unwrap().rz;
 
     // The support reaction should differ between the two cases because
     // a stiffer span 1 changes the compatibility at the interior support
@@ -309,7 +309,7 @@ fn validation_stiffness_ratio_unequal_heights_shear_attraction() {
     ];
     let sups = vec![(1, 1, "fixed"), (2, 4, "fixed")];
     let loads = vec![SolverLoad::Nodal(SolverNodalLoad {
-        node_id: 2, fx: f_lat, fy: 0.0, mz: 0.0,
+        node_id: 2, fx: f_lat, fz: 0.0, my: 0.0,
     })];
     let input = make_input(
         nodes, vec![(1, E, 0.3)],
@@ -355,11 +355,11 @@ fn validation_stiffness_ratio_deflection_inversely_proportional_to_i() {
 
     let solve_deflection = |iz: f64| -> f64 {
         let loads = vec![SolverLoad::Nodal(SolverNodalLoad {
-            node_id: mid, fx: 0.0, fy: p, mz: 0.0,
+            node_id: mid, fx: 0.0, fz: p, my: 0.0,
         })];
         let input = make_beam(n, l, E, A, iz, "pinned", Some("rollerX"), loads);
         let results = linear::solve_2d(&input).unwrap();
-        results.displacements.iter().find(|d| d.node_id == mid).unwrap().uy.abs()
+        results.displacements.iter().find(|d| d.node_id == mid).unwrap().uz.abs()
     };
 
     let d1 = solve_deflection(IZ);
@@ -414,7 +414,7 @@ fn validation_stiffness_ratio_two_bay_interior_column_shear() {
     ];
     let sups = vec![(1, 1, "fixed"), (2, 4, "fixed"), (3, 6, "fixed")];
     let loads = vec![SolverLoad::Nodal(SolverNodalLoad {
-        node_id: 2, fx: f_lat, fy: 0.0, mz: 0.0,
+        node_id: 2, fx: f_lat, fz: 0.0, my: 0.0,
     })];
     let input = make_input(
         nodes, vec![(1, E, 0.3)],
@@ -478,7 +478,7 @@ fn validation_stiffness_ratio_very_stiff_beam_fixed_fixed_columns() {
     ];
     let sups = vec![(1, 1, "fixed"), (2, 4, "fixed")];
     let loads = vec![SolverLoad::Nodal(SolverNodalLoad {
-        node_id: 2, fx: f_lat, fy: 0.0, mz: 0.0,
+        node_id: 2, fx: f_lat, fz: 0.0, my: 0.0,
     })];
     let input = make_input(
         nodes, vec![(1, E, 0.3)],
@@ -492,8 +492,8 @@ fn validation_stiffness_ratio_very_stiff_beam_fixed_fixed_columns() {
     //   M_base = M_top = V*h/2 = (F/2)*h/2 = F*h/4
     let m_expected = f_lat * h / 4.0;
 
-    let m_base1: f64 = results.reactions.iter().find(|r| r.node_id == 1).unwrap().mz.abs();
-    let m_base4: f64 = results.reactions.iter().find(|r| r.node_id == 4).unwrap().mz.abs();
+    let m_base1: f64 = results.reactions.iter().find(|r| r.node_id == 1).unwrap().my.abs();
+    let m_base4: f64 = results.reactions.iter().find(|r| r.node_id == 4).unwrap().my.abs();
 
     assert_close(m_base1, m_expected, 0.05,
         "Left column base moment ~ F*h/4");
@@ -501,8 +501,8 @@ fn validation_stiffness_ratio_very_stiff_beam_fixed_fixed_columns() {
         "Right column base moment ~ F*h/4");
 
     // Column top rotations should be near zero (rigid beam enforces compatibility)
-    let rz2: f64 = results.displacements.iter().find(|d| d.node_id == 2).unwrap().rz.abs();
-    let rz3: f64 = results.displacements.iter().find(|d| d.node_id == 3).unwrap().rz.abs();
+    let rz2: f64 = results.displacements.iter().find(|d| d.node_id == 2).unwrap().ry.abs();
+    let rz3: f64 = results.displacements.iter().find(|d| d.node_id == 3).unwrap().ry.abs();
     assert!(
         rz2 < 1e-4,
         "Column top rotation near zero (rigid beam): rz2={:.6}", rz2
@@ -582,7 +582,7 @@ fn validation_stiffness_ratio_moment_distribution_at_joint() {
         (2, beam_end_node, "fixed"),
     ];
     let loads = vec![SolverLoad::Nodal(SolverNodalLoad {
-        node_id: joint_node, fx: 0.0, fy: 0.0, mz: m_applied,
+        node_id: joint_node, fx: 0.0, fz: 0.0, my: m_applied,
     })];
     let input = make_input(
         nodes, vec![(1, E, 0.3)],

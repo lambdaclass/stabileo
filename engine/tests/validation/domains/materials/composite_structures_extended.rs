@@ -53,7 +53,7 @@ fn validation_composite_ext_k_bracing_vs_diagonal() {
         (4, "truss", 1, 3, 1, 2, false, false), // single diagonal
     ];
     let loads_sd = vec![SolverLoad::Nodal(SolverNodalLoad {
-        node_id: 2, fx: p, fy: 0.0, mz: 0.0,
+        node_id: 2, fx: p, fz: 0.0, my: 0.0,
     })];
     let input_sd = make_input(nodes_sd, vec![(1, E, 0.3)],
         vec![(1, A, IZ), (2, a_brace, 0.0)],
@@ -76,7 +76,7 @@ fn validation_composite_ext_k_bracing_vs_diagonal() {
         (7, "truss", 6, 2, 1, 2, false, false),  // K-brace upper diagonal
     ];
     let loads_kb = vec![SolverLoad::Nodal(SolverNodalLoad {
-        node_id: 2, fx: p, fy: 0.0, mz: 0.0,
+        node_id: 2, fx: p, fz: 0.0, my: 0.0,
     })];
     let input_kb = make_input(nodes_kb, vec![(1, E, 0.3)],
         vec![(1, A, IZ), (2, a_brace, 0.0)],
@@ -128,29 +128,29 @@ fn validation_composite_ext_stepped_beam() {
         elems.push((i + 1, "frame", i + 1, i + 2, 1, sec, false, false));
     }
     let loads = vec![SolverLoad::Nodal(SolverNodalLoad {
-        node_id: mid, fx: 0.0, fy: -p, mz: 0.0,
+        node_id: mid, fx: 0.0, fz: -p, my: 0.0,
     })];
     let input_stepped = make_input(nodes, vec![(1, E, 0.3)],
         vec![(1, A, iz_large), (2, A, iz_small)],
         elems, vec![(1, 1, "pinned"), (2, n_nodes, "rollerX")], loads);
     let d_stepped = linear::solve_2d(&input_stepped).unwrap()
-        .displacements.iter().find(|d| d.node_id == mid).unwrap().uy.abs();
+        .displacements.iter().find(|d| d.node_id == mid).unwrap().uz.abs();
 
     // Uniform beam with large section
     let input_large = make_beam(n, l, E, A, iz_large, "pinned", Some("rollerX"),
         vec![SolverLoad::Nodal(SolverNodalLoad {
-            node_id: mid, fx: 0.0, fy: -p, mz: 0.0,
+            node_id: mid, fx: 0.0, fz: -p, my: 0.0,
         })]);
     let d_large = linear::solve_2d(&input_large).unwrap()
-        .displacements.iter().find(|d| d.node_id == mid).unwrap().uy.abs();
+        .displacements.iter().find(|d| d.node_id == mid).unwrap().uz.abs();
 
     // Uniform beam with small section
     let input_small = make_beam(n, l, E, A, iz_small, "pinned", Some("rollerX"),
         vec![SolverLoad::Nodal(SolverNodalLoad {
-            node_id: mid, fx: 0.0, fy: -p, mz: 0.0,
+            node_id: mid, fx: 0.0, fz: -p, my: 0.0,
         })]);
     let d_small = linear::solve_2d(&input_small).unwrap()
-        .displacements.iter().find(|d| d.node_id == mid).unwrap().uy.abs();
+        .displacements.iter().find(|d| d.node_id == mid).unwrap().uz.abs();
 
     // Stepped beam deflection must be between uniform large and uniform small
     assert!(d_stepped > d_large,
@@ -189,7 +189,7 @@ fn validation_composite_ext_mixed_support_portal() {
         (3, "frame", 4, 3, 1, 1, false, false),
     ];
     let loads = vec![SolverLoad::Nodal(SolverNodalLoad {
-        node_id: 2, fx: p, fy: 0.0, mz: 0.0,
+        node_id: 2, fx: p, fz: 0.0, my: 0.0,
     })];
     let input_fp = make_input(nodes, vec![(1, E, 0.3)], vec![(1, A, IZ)],
         elems, vec![(1, 1, "fixed"), (2, 4, "pinned")], loads);
@@ -207,8 +207,8 @@ fn validation_composite_ext_mixed_support_portal() {
 
     // Fixed support should have a moment reaction, pinned should not
     let r_fixed = results_fp.reactions.iter().find(|r| r.node_id == 1).unwrap();
-    assert!(r_fixed.mz.abs() > 1e-6,
-        "Fixed support should have moment reaction: mz={:.4}", r_fixed.mz);
+    assert!(r_fixed.my.abs() > 1e-6,
+        "Fixed support should have moment reaction: mz={:.4}", r_fixed.my);
 }
 
 // ================================================================
@@ -250,12 +250,12 @@ fn validation_composite_ext_multi_story_gravity() {
     ];
     // Apply gravity at each floor node
     let loads = vec![
-        SolverLoad::Nodal(SolverNodalLoad { node_id: 3, fx: 0.0, fy: -p_floor, mz: 0.0 }),
-        SolverLoad::Nodal(SolverNodalLoad { node_id: 4, fx: 0.0, fy: -p_floor, mz: 0.0 }),
-        SolverLoad::Nodal(SolverNodalLoad { node_id: 5, fx: 0.0, fy: -p_floor, mz: 0.0 }),
-        SolverLoad::Nodal(SolverNodalLoad { node_id: 6, fx: 0.0, fy: -p_floor, mz: 0.0 }),
-        SolverLoad::Nodal(SolverNodalLoad { node_id: 7, fx: 0.0, fy: -p_floor, mz: 0.0 }),
-        SolverLoad::Nodal(SolverNodalLoad { node_id: 8, fx: 0.0, fy: -p_floor, mz: 0.0 }),
+        SolverLoad::Nodal(SolverNodalLoad { node_id: 3, fx: 0.0, fz: -p_floor, my: 0.0 }),
+        SolverLoad::Nodal(SolverNodalLoad { node_id: 4, fx: 0.0, fz: -p_floor, my: 0.0 }),
+        SolverLoad::Nodal(SolverNodalLoad { node_id: 5, fx: 0.0, fz: -p_floor, my: 0.0 }),
+        SolverLoad::Nodal(SolverNodalLoad { node_id: 6, fx: 0.0, fz: -p_floor, my: 0.0 }),
+        SolverLoad::Nodal(SolverNodalLoad { node_id: 7, fx: 0.0, fz: -p_floor, my: 0.0 }),
+        SolverLoad::Nodal(SolverNodalLoad { node_id: 8, fx: 0.0, fz: -p_floor, my: 0.0 }),
     ];
     let input = make_input(nodes, vec![(1, E, 0.3)], vec![(1, A, IZ)],
         elems, vec![(1, 1, "fixed"), (2, 2, "fixed")], loads);
@@ -263,13 +263,13 @@ fn validation_composite_ext_multi_story_gravity() {
 
     // Total applied gravity = 6 * p_floor
     let total_gravity = 6.0 * p_floor;
-    let sum_ry: f64 = results.reactions.iter().map(|r| r.ry).sum();
+    let sum_ry: f64 = results.reactions.iter().map(|r| r.rz).sum();
     assert_close(sum_ry, total_gravity, 0.02,
         "Multi-story gravity: sum Ry = total gravity");
 
     // Symmetric loading and geometry: each base reaction ~ total/2
-    let r1 = results.reactions.iter().find(|r| r.node_id == 1).unwrap().ry;
-    let r2 = results.reactions.iter().find(|r| r.node_id == 2).unwrap().ry;
+    let r1 = results.reactions.iter().find(|r| r.node_id == 1).unwrap().rz;
+    let r2 = results.reactions.iter().find(|r| r.node_id == 2).unwrap().rz;
     let half_gravity = total_gravity / 2.0;
     assert_close(r1, half_gravity, 0.02, "Left base reaction ~ total/2");
     assert_close(r2, half_gravity, 0.02, "Right base reaction ~ total/2");
@@ -305,11 +305,11 @@ fn validation_composite_ext_propped_cantilever_section() {
     // Uniform propped cantilever
     let input_u = make_beam(n, l, E, A, IZ, "fixed", Some("rollerX"),
         vec![SolverLoad::Nodal(SolverNodalLoad {
-            node_id: mid, fx: 0.0, fy: -p, mz: 0.0,
+            node_id: mid, fx: 0.0, fz: -p, my: 0.0,
         })]);
     let results_u = linear::solve_2d(&input_u).unwrap();
     let d_uniform = results_u.displacements.iter()
-        .find(|d| d.node_id == mid).unwrap().uy.abs();
+        .find(|d| d.node_id == mid).unwrap().uz.abs();
 
     // Stiffer near fixed end: left half IZ*2, right half IZ
     let n_nodes = n + 1;
@@ -323,20 +323,20 @@ fn validation_composite_ext_propped_cantilever_section() {
         elems.push((i + 1, "frame", i + 1, i + 2, 1, sec, false, false));
     }
     let loads = vec![SolverLoad::Nodal(SolverNodalLoad {
-        node_id: mid, fx: 0.0, fy: -p, mz: 0.0,
+        node_id: mid, fx: 0.0, fz: -p, my: 0.0,
     })];
     let input_s = make_input(nodes, vec![(1, E, 0.3)],
         vec![(1, A, 2.0 * IZ), (2, A, IZ)],
         elems, vec![(1, 1, "fixed"), (2, n_nodes, "rollerX")], loads);
     let d_stiffened = linear::solve_2d(&input_s).unwrap()
-        .displacements.iter().find(|d| d.node_id == mid).unwrap().uy.abs();
+        .displacements.iter().find(|d| d.node_id == mid).unwrap().uz.abs();
 
     // Stiffened near fixed end should deflect less
     assert!(d_stiffened < d_uniform,
         "Stiffened propped cantilever {:.6e} < uniform {:.6e}", d_stiffened, d_uniform);
 
     // Verify equilibrium of uniform case
-    let sum_ry: f64 = results_u.reactions.iter().map(|r| r.ry).sum();
+    let sum_ry: f64 = results_u.reactions.iter().map(|r| r.rz).sum();
     assert_close(sum_ry, p, 0.02, "Propped cantilever: sum Ry = P");
 }
 
@@ -388,13 +388,13 @@ fn validation_composite_ext_two_bay_interior_column() {
 
     // Total applied gravity = q1 * w + q2 * w
     let total_gravity = (q1 + q2) * w;
-    let sum_ry: f64 = results.reactions.iter().map(|r| r.ry).sum();
+    let sum_ry: f64 = results.reactions.iter().map(|r| r.rz).sum();
     assert_close(sum_ry, total_gravity, 0.02, "Two-bay: sum Ry = (q1+q2)*w");
 
     // Interior column reaction should be larger than each exterior
-    let r_left = results.reactions.iter().find(|r| r.node_id == 1).unwrap().ry;
-    let r_interior = results.reactions.iter().find(|r| r.node_id == 2).unwrap().ry;
-    let r_right = results.reactions.iter().find(|r| r.node_id == 3).unwrap().ry;
+    let r_left = results.reactions.iter().find(|r| r.node_id == 1).unwrap().rz;
+    let r_interior = results.reactions.iter().find(|r| r.node_id == 2).unwrap().rz;
+    let r_right = results.reactions.iter().find(|r| r.node_id == 3).unwrap().rz;
 
     assert!(r_interior > r_left,
         "Interior col {:.4} > left exterior {:.4}", r_interior, r_left);
@@ -465,8 +465,8 @@ fn validation_composite_ext_warren_truss() {
     ];
     // Symmetric loads at interior bottom-chord nodes
     let loads = vec![
-        SolverLoad::Nodal(SolverNodalLoad { node_id: 2, fx: 0.0, fy: -p, mz: 0.0 }),
-        SolverLoad::Nodal(SolverNodalLoad { node_id: 4, fx: 0.0, fy: -p, mz: 0.0 }),
+        SolverLoad::Nodal(SolverNodalLoad { node_id: 2, fx: 0.0, fz: -p, my: 0.0 }),
+        SolverLoad::Nodal(SolverNodalLoad { node_id: 4, fx: 0.0, fz: -p, my: 0.0 }),
     ];
     // Use frame with hinges for truss behavior (as per convention: hinge_start=true, hinge_end=true, Iz=1e-8)
     let input = make_input(nodes, vec![(1, E, 0.3)],
@@ -475,19 +475,19 @@ fn validation_composite_ext_warren_truss() {
     let results = linear::solve_2d(&input).unwrap();
 
     // Vertical equilibrium
-    let sum_ry: f64 = results.reactions.iter().map(|r| r.ry).sum();
+    let sum_ry: f64 = results.reactions.iter().map(|r| r.rz).sum();
     assert_close(sum_ry, 2.0 * p, 0.02, "Warren truss: sum Ry = 2P");
 
     // Symmetric reactions (loads at nodes 2 and 4 are symmetric about midspan node 3)
-    let r1 = results.reactions.iter().find(|r| r.node_id == 1).unwrap().ry;
-    let r5 = results.reactions.iter().find(|r| r.node_id == 5).unwrap().ry;
+    let r1 = results.reactions.iter().find(|r| r.node_id == 1).unwrap().rz;
+    let r5 = results.reactions.iter().find(|r| r.node_id == 5).unwrap().rz;
     let err_sym = (r1 - r5).abs() / r1.abs().max(1e-12);
     assert!(err_sym < 0.02,
         "Symmetric reactions: R1={:.4}, R5={:.4}", r1, r5);
 
     // Symmetric deflection at loaded nodes
-    let d2 = results.displacements.iter().find(|d| d.node_id == 2).unwrap().uy;
-    let d4 = results.displacements.iter().find(|d| d.node_id == 4).unwrap().uy;
+    let d2 = results.displacements.iter().find(|d| d.node_id == 2).unwrap().uz;
+    let d4 = results.displacements.iter().find(|d| d.node_id == 4).unwrap().uz;
     let err_def = (d2 - d4).abs() / d2.abs().max(1e-12);
     assert!(err_def < 0.02,
         "Symmetric deflection: d2={:.6e}, d4={:.6e}", d2, d4);
@@ -531,7 +531,7 @@ fn validation_composite_ext_vierendeel_frame() {
         (7, "frame", 7, 8, 1, 1, false, false),
     ];
     let loads_vf = vec![SolverLoad::Nodal(SolverNodalLoad {
-        node_id: 5, fx: p, fy: 0.0, mz: 0.0,
+        node_id: 5, fx: p, fz: 0.0, my: 0.0,
     })];
     let input_vf = make_input(nodes, vec![(1, E, 0.3)], vec![(1, A, IZ)],
         elems, vec![(1, 1, "fixed"), (2, 2, "fixed"), (3, 3, "fixed"), (4, 4, "fixed")],
@@ -543,7 +543,7 @@ fn validation_composite_ext_vierendeel_frame() {
     assert_close(sum_rx, -p, 0.02, "Vierendeel: sum Rx = -P");
 
     // Vertical equilibrium (no vertical loads applied)
-    let sum_ry: f64 = results.reactions.iter().map(|r| r.ry).sum();
+    let sum_ry: f64 = results.reactions.iter().map(|r| r.rz).sum();
     assert!(sum_ry.abs() < 1e-4,
         "Vierendeel: sum Ry ~ 0 (no gravity): {:.6e}", sum_ry);
 
@@ -567,7 +567,7 @@ fn validation_composite_ext_vierendeel_frame() {
         (8, "truss", 1, 6, 1, 2, false, false), // diagonal brace
     ];
     let loads_b = vec![SolverLoad::Nodal(SolverNodalLoad {
-        node_id: 5, fx: p, fy: 0.0, mz: 0.0,
+        node_id: 5, fx: p, fz: 0.0, my: 0.0,
     })];
     let input_b = make_input(nodes_b, vec![(1, E, 0.3)],
         vec![(1, A, IZ), (2, 0.003, 0.0)],

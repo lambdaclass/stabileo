@@ -40,7 +40,7 @@ fn validation_stiffness_superposition() {
 
     // Load case 1: point load at node 3
     let loads1 = vec![SolverLoad::Nodal(SolverNodalLoad {
-        node_id: 3, fx: 0.0, fy: -p1, mz: 0.0,
+        node_id: 3, fx: 0.0, fz: -p1, my: 0.0,
     })];
     let input1 = make_beam(n, l, E, A, IZ, "fixed", Some("fixed"), loads1);
     let res1 = linear::solve_2d(&input1).unwrap();
@@ -48,7 +48,7 @@ fn validation_stiffness_superposition() {
 
     // Load case 2: point load at node 7
     let loads2 = vec![SolverLoad::Nodal(SolverNodalLoad {
-        node_id: 7, fx: 0.0, fy: -p2, mz: 0.0,
+        node_id: 7, fx: 0.0, fz: -p2, my: 0.0,
     })];
     let input2 = make_beam(n, l, E, A, IZ, "fixed", Some("fixed"), loads2);
     let res2 = linear::solve_2d(&input2).unwrap();
@@ -57,10 +57,10 @@ fn validation_stiffness_superposition() {
     // Combined load case
     let loads_both = vec![
         SolverLoad::Nodal(SolverNodalLoad {
-            node_id: 3, fx: 0.0, fy: -p1, mz: 0.0,
+            node_id: 3, fx: 0.0, fz: -p1, my: 0.0,
         }),
         SolverLoad::Nodal(SolverNodalLoad {
-            node_id: 7, fx: 0.0, fy: -p2, mz: 0.0,
+            node_id: 7, fx: 0.0, fz: -p2, my: 0.0,
         }),
     ];
     let input_both = make_beam(n, l, E, A, IZ, "fixed", Some("fixed"), loads_both);
@@ -68,9 +68,9 @@ fn validation_stiffness_superposition() {
     let d_both = res_both.displacements.iter().find(|d| d.node_id == check_node).unwrap();
 
     // Superposition check: uy_combined = uy_1 + uy_2
-    assert_close(d_both.uy, d1.uy + d2.uy, 0.01,
+    assert_close(d_both.uz, d1.uz + d2.uz, 0.01,
         "Superposition: uy combined = uy1 + uy2");
-    assert_close(d_both.rz, d1.rz + d2.rz, 0.01,
+    assert_close(d_both.ry, d1.ry + d2.ry, 0.01,
         "Superposition: rz combined = rz1 + rz2");
 }
 
@@ -124,7 +124,7 @@ fn validation_stiffness_carryover_factor() {
 
     let m_app = 10.0;
     let loads = vec![SolverLoad::Nodal(SolverNodalLoad {
-        node_id: n / 2 + 1, fx: 0.0, fy: 0.0, mz: m_app,
+        node_id: n / 2 + 1, fx: 0.0, fz: 0.0, my: m_app,
     })];
     let input = make_beam(n, l, E, A, IZ, "fixed", Some("fixed"), loads);
     let results = linear::solve_2d(&input).unwrap();
@@ -132,7 +132,7 @@ fn validation_stiffness_carryover_factor() {
     // The interior node rotation
     let mid = n / 2 + 1;
     let d_mid = results.displacements.iter().find(|d| d.node_id == mid).unwrap();
-    let theta = d_mid.rz;
+    let theta = d_mid.ry;
 
     // For a fixed-fixed beam of half-span (L/2), stiffness at near end = 4EI/(L/2).
     // The moment carried to the far (fixed) end = COF * moment at near end.
@@ -164,7 +164,7 @@ fn validation_stiffness_axial_flexural_independence() {
 
     // Cantilever with only axial load at tip
     let loads = vec![SolverLoad::Nodal(SolverNodalLoad {
-        node_id: n + 1, fx: p_axial, fy: 0.0, mz: 0.0,
+        node_id: n + 1, fx: p_axial, fz: 0.0, my: 0.0,
     })];
     let input = make_beam(n, l, E, A, IZ, "fixed", None, loads);
     let results = linear::solve_2d(&input).unwrap();
@@ -180,10 +180,10 @@ fn validation_stiffness_axial_flexural_independence() {
 
     // All transverse displacements and rotations should be zero
     for d in &results.displacements {
-        assert!(d.uy.abs() < 1e-10,
-            "Axial independence: uy should be zero at node {}, got {:.2e}", d.node_id, d.uy);
-        assert!(d.rz.abs() < 1e-10,
-            "Axial independence: rz should be zero at node {}, got {:.2e}", d.node_id, d.rz);
+        assert!(d.uz.abs() < 1e-10,
+            "Axial independence: uy should be zero at node {}, got {:.2e}", d.node_id, d.uz);
+        assert!(d.ry.abs() < 1e-10,
+            "Axial independence: rz should be zero at node {}, got {:.2e}", d.node_id, d.ry);
     }
 }
 
@@ -254,14 +254,14 @@ fn validation_stiffness_distribution_factors() {
     // Apply moment at interior support
     let interior_node = n + 1;
     let loads = vec![SolverLoad::Nodal(SolverNodalLoad {
-        node_id: interior_node, fx: 0.0, fy: 0.0, mz: m_app,
+        node_id: interior_node, fx: 0.0, fz: 0.0, my: m_app,
     })];
     let input = make_continuous_beam(&[l1, l2], n, E, A, IZ, loads);
     let results = linear::solve_2d(&input).unwrap();
 
     // Rotation at interior node
     let d_int = results.displacements.iter().find(|d| d.node_id == interior_node).unwrap();
-    let theta = d_int.rz;
+    let theta = d_int.ry;
 
     // Moment taken by span 1 = k1 * theta, by span 2 = k2 * theta
     let m1 = k1 * theta;
@@ -338,10 +338,10 @@ fn validation_stiffness_antisymmetry() {
     // Nodes 3 and 9 are symmetric about node 6 (midpoint) for n=10 (11 nodes).
     let loads = vec![
         SolverLoad::Nodal(SolverNodalLoad {
-            node_id: 3, fx: 0.0, fy: -p, mz: 0.0,
+            node_id: 3, fx: 0.0, fz: -p, my: 0.0,
         }),
         SolverLoad::Nodal(SolverNodalLoad {
-            node_id: 9, fx: 0.0, fy: p, mz: 0.0,
+            node_id: 9, fx: 0.0, fz: p, my: 0.0,
         }),
     ];
     let input = make_beam(n, l, E, A, IZ, "pinned", Some("rollerX"), loads);
@@ -350,18 +350,18 @@ fn validation_stiffness_antisymmetry() {
     // Midpoint (node 6) should have zero vertical displacement
     let mid = n / 2 + 1; // node 6
     let d_mid = results.displacements.iter().find(|d| d.node_id == mid).unwrap();
-    assert!(d_mid.uy.abs() < 1e-8,
-        "Anti-symmetry: midpoint uy = {:.2e}, expected ~0", d_mid.uy);
+    assert!(d_mid.uz.abs() < 1e-8,
+        "Anti-symmetry: midpoint uy = {:.2e}, expected ~0", d_mid.uz);
 
     // Symmetric nodes should have equal and opposite vertical displacements
     let d3 = results.displacements.iter().find(|d| d.node_id == 3).unwrap();
     let d9 = results.displacements.iter().find(|d| d.node_id == 9).unwrap();
-    assert_close(d3.uy, -d9.uy, 0.01,
+    assert_close(d3.uz, -d9.uz, 0.01,
         "Anti-symmetry: uy(3) = -uy(9)");
 
     // Rotations at symmetric points should be equal (not opposite) for anti-symmetric loading
-    let d3_rz = d3.rz;
-    let d9_rz = d9.rz;
+    let d3_rz = d3.ry;
+    let d9_rz = d9.ry;
     assert_close(d3_rz, d9_rz, 0.01,
         "Anti-symmetry: rz(3) = rz(9)");
 }
@@ -385,7 +385,7 @@ fn validation_stiffness_unit_displacement() {
     // Fixed-fixed beam with unit midspan load
     let mid = n / 2 + 1;
     let loads = vec![SolverLoad::Nodal(SolverNodalLoad {
-        node_id: mid, fx: 0.0, fy: -p, mz: 0.0,
+        node_id: mid, fx: 0.0, fz: -p, my: 0.0,
     })];
     let input = make_beam(n, l, E, A, IZ, "fixed", Some("fixed"), loads);
     let results = linear::solve_2d(&input).unwrap();
@@ -394,11 +394,11 @@ fn validation_stiffness_unit_displacement() {
 
     // For fixed-fixed beam with midspan load: delta = PL^3 / (192 EI)
     let delta_exact = p * l.powi(3) / (192.0 * e_eff * IZ);
-    assert_close(d_mid.uy.abs(), delta_exact, 0.02,
+    assert_close(d_mid.uz.abs(), delta_exact, 0.02,
         "Unit displacement: delta = PL^3/(192EI)");
 
     // Effective stiffness k = P / delta = 192EI/L^3
-    let k_eff = p / d_mid.uy.abs();
+    let k_eff = p / d_mid.uz.abs();
     let k_exact = 192.0 * e_eff * IZ / l.powi(3);
     assert_close(k_eff, k_exact, 0.02,
         "Unit displacement: k = 192EI/L^3");

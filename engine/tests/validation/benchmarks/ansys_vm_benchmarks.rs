@@ -70,8 +70,8 @@ fn validation_ansys_vm22_cantilever_axial_bending() {
     let loads = vec![SolverLoad::Nodal(SolverNodalLoad {
         node_id: n_elem + 1,
         fx: -n_axial, // compression
-        fy: -p_lat,   // lateral
-        mz: 0.0,
+        fz: -p_lat,   // lateral
+        my: 0.0,
     })];
 
     let input = make_input(
@@ -90,7 +90,7 @@ fn validation_ansys_vm22_cantilever_axial_bending() {
         .iter()
         .find(|d| d.node_id == n_elem + 1)
         .unwrap();
-    assert_close(tip_lin.uy.abs(), delta_1st, 0.03, "VM22 1st-order tip deflection");
+    assert_close(tip_lin.uz.abs(), delta_1st, 0.03, "VM22 1st-order tip deflection");
 
     // P-delta solution (second-order)
     let pd = pdelta::solve_pdelta_2d(&input, 30, 1e-6).unwrap();
@@ -106,14 +106,14 @@ fn validation_ansys_vm22_cantilever_axial_bending() {
 
     // P-delta deflection should exceed linear
     assert!(
-        tip_pd.uy.abs() > tip_lin.uy.abs(),
+        tip_pd.uz.abs() > tip_lin.uz.abs(),
         "VM22: P-delta deflection ({:.6}) should exceed linear ({:.6})",
-        tip_pd.uy.abs(),
-        tip_lin.uy.abs()
+        tip_pd.uz.abs(),
+        tip_lin.uz.abs()
     );
 
     // Amplification should be close to analytical 1/(1-N/Pcr)
-    let actual_af = tip_pd.uy.abs() / tip_lin.uy.abs();
+    let actual_af = tip_pd.uz.abs() / tip_lin.uz.abs();
     assert!(
         (actual_af - af_approx).abs() / af_approx < 0.15,
         "VM22: amplification actual={:.4}, expected~{:.4}",
@@ -200,14 +200,14 @@ fn validation_ansys_vm23_winkler_foundation() {
         .iter()
         .find(|d| d.node_id == mid)
         .unwrap()
-        .uy
+        .uz
         .abs();
     let d_beam = res_beam
         .displacements
         .iter()
         .find(|d| d.node_id == mid)
         .unwrap()
-        .uy
+        .uz
         .abs();
 
     // Foundation should significantly reduce deflection
@@ -248,7 +248,7 @@ fn validation_ansys_vm23_winkler_foundation() {
 
     // Equilibrium: sum of reactions + foundation forces should equal total load
     let total_load = q.abs() * l;
-    let sum_ry: f64 = res_winkler.reactions.iter().map(|r| r.ry).sum();
+    let sum_ry: f64 = res_winkler.reactions.iter().map(|r| r.rz).sum();
     // Foundation carries some load too, so reactions < total_load
     assert!(
         sum_ry < total_load,
@@ -309,19 +309,19 @@ fn validation_ansys_vm26_two_span_partial_udl() {
         .iter()
         .find(|r| r.node_id == node_a)
         .unwrap()
-        .ry;
+        .rz;
     let r_b = results
         .reactions
         .iter()
         .find(|r| r.node_id == node_b)
         .unwrap()
-        .ry;
+        .rz;
     let r_c = results
         .reactions
         .iter()
         .find(|r| r.node_id == node_c)
         .unwrap()
-        .ry;
+        .rz;
 
     // Three-moment equation for two equal spans, UDL on span 1:
     // M_B = -q*L^2/16 (hogging at interior support)
@@ -418,7 +418,7 @@ fn validation_ansys_vm27_ss_beam_thermal_gradient() {
         .unwrap();
 
     assert_close(
-        d_mid.uy.abs(),
+        d_mid.uz.abs(),
         delta_expected,
         0.05,
         "VM27 midspan deflection = alpha*dT*L^2/(8h)",
@@ -447,14 +447,14 @@ fn validation_ansys_vm27_ss_beam_thermal_gradient() {
         .find(|r| r.node_id == n + 1)
         .unwrap();
     assert!(
-        r_left.ry.abs() < 0.5,
+        r_left.rz.abs() < 0.5,
         "VM27: left reaction Ry={:.4} should be ~0",
-        r_left.ry
+        r_left.rz
     );
     assert!(
-        r_right.ry.abs() < 0.5,
+        r_right.rz.abs() < 0.5,
         "VM27: right reaction Ry={:.4} should be ~0",
-        r_right.ry
+        r_right.rz
     );
 }
 
@@ -500,8 +500,8 @@ fn validation_ansys_vm30_3d_space_truss() {
     let loads = vec![SolverLoad3D::Nodal(SolverNodalLoad3D {
         node_id: 4,
         fx: 0.0,
-        fy: 0.0,
-        fz: -p,
+        fz: 0.0,
+        fy: -p,
         mx: 0.0,
         my: 0.0,
         mz: 0.0,
@@ -544,9 +544,9 @@ fn validation_ansys_vm30_3d_space_truss() {
 
     // Horizontal equilibrium (by symmetry, net Fx = Fy = 0)
     let sum_fx: f64 = results.reactions.iter().map(|r| r.fx).sum();
-    let sum_fy: f64 = results.reactions.iter().map(|r| r.fy).sum();
+    let sum_fz: f64 = results.reactions.iter().map(|r| r.fz).sum();
     assert!(sum_fx.abs() < 0.1, "VM30 sum_fx={:.4} should be ~0", sum_fx);
-    assert!(sum_fy.abs() < 0.1, "VM30 sum_fy={:.4} should be ~0", sum_fy);
+    assert!(sum_fz.abs() < 0.1, "VM30 sum_fz={:.4} should be ~0", sum_fz);
 
     // Apex displacement should be purely downward (by symmetry)
     let apex = results
@@ -555,10 +555,10 @@ fn validation_ansys_vm30_3d_space_truss() {
         .find(|d| d.node_id == 4)
         .unwrap();
     assert!(
-        apex.ux.abs() < 1e-6 && apex.uy.abs() < 1e-6,
+        apex.ux.abs() < 1e-6 && apex.uz.abs() < 1e-6,
         "VM30: apex should have no lateral displacement, got ux={:.6e}, uy={:.6e}",
         apex.ux,
-        apex.uy
+        apex.uz
     );
     assert!(
         apex.uz < 0.0,
@@ -624,8 +624,8 @@ fn validation_ansys_vm33_indeterminate_3bar_truss() {
     let loads = vec![SolverLoad::Nodal(SolverNodalLoad {
         node_id: 4,
         fx: 0.0,
-        fy: -p,
-        mz: 0.0,
+        fz: -p,
+        my: 0.0,
     })];
 
     let input = make_input(
@@ -716,7 +716,7 @@ fn validation_ansys_vm33_indeterminate_3bar_truss() {
     );
 
     // Equilibrium
-    let sum_ry: f64 = results.reactions.iter().map(|r| r.ry).sum();
+    let sum_ry: f64 = results.reactions.iter().map(|r| r.rz).sum();
     assert_close(sum_ry, p, 0.01, "VM33 equilibrium");
 }
 
@@ -835,9 +835,9 @@ fn validation_ansys_vm34_thermal_two_bar_truss() {
         .find(|d| d.node_id == 2)
         .unwrap();
     assert!(
-        d2.uy.abs() < 1e-8,
+        d2.uz.abs() < 1e-8,
         "VM34: junction should have no lateral displacement, uy={:.6e}",
-        d2.uy
+        d2.uz
     );
 
     // Junction displacement: bar 1 expands, but force constrains it
@@ -919,8 +919,8 @@ fn validation_ansys_vm40_large_deflection_cantilever() {
         vec![SolverLoad::Nodal(SolverNodalLoad {
             node_id: n + 1,
             fx: 0.0,
-            fy: -p_load,
-            mz: 0.0,
+            fz: -p_load,
+            my: 0.0,
         })],
     );
 
@@ -931,7 +931,7 @@ fn validation_ansys_vm40_large_deflection_cantilever() {
         .iter()
         .find(|d| d.node_id == n + 1)
         .unwrap();
-    let delta_lin = tip_lin.uy.abs();
+    let delta_lin = tip_lin.uz.abs();
 
     // Linear theory: delta = P*L^3/(3EI) = 1000*1/(3*1000) = 1/3 = 0.3333L
     let delta_lin_expected = p_load * l.powi(3) / (3.0 * ei);
@@ -955,7 +955,7 @@ fn validation_ansys_vm40_large_deflection_cantilever() {
 
     // Mattiasson reference: v_tip/L = 0.3015 for P*L^2/(EI) = 1.0
     let v_tip_ref = 0.3015 * l;
-    let v_tip_computed = tip.uy.abs();
+    let v_tip_computed = tip.uz.abs();
 
     // u_tip/L = 0.0566 (horizontal shortening)
     let u_tip_ref = 0.0566 * l;

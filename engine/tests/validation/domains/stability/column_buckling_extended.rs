@@ -105,38 +105,38 @@ fn validation_col_buck_ext_euler_four_bcs() {
     // (a) Pinned–Pinned: "pinned" at start, "rollerX" at end
     let mid = n / 2 + 1;
     let loads_pp = vec![SolverLoad::Nodal(SolverNodalLoad {
-        node_id: mid, fx: 0.0, fy: p_lateral, mz: 0.0,
+        node_id: mid, fx: 0.0, fz: p_lateral, my: 0.0,
     })];
     let input_pp = make_beam(n, l, E, a, iz, "pinned", Some("rollerX"), loads_pp);
     let d_pp = linear::solve_2d(&input_pp).unwrap()
-        .displacements.iter().find(|d| d.node_id == mid).unwrap().uy.abs();
+        .displacements.iter().find(|d| d.node_id == mid).unwrap().uz.abs();
 
     // (b) Fixed–Fixed: "fixed" at start, "guidedX" at end
     //     guidedX = uy and rz restrained, ux free → simulates fixed-end sliding in X
     let loads_ff = vec![SolverLoad::Nodal(SolverNodalLoad {
-        node_id: mid, fx: 0.0, fy: p_lateral, mz: 0.0,
+        node_id: mid, fx: 0.0, fz: p_lateral, my: 0.0,
     })];
     let input_ff = make_beam(n, l, E, a, iz, "fixed", Some("guidedX"), loads_ff);
     let d_ff = linear::solve_2d(&input_ff).unwrap()
-        .displacements.iter().find(|d| d.node_id == mid).unwrap().uy.abs();
+        .displacements.iter().find(|d| d.node_id == mid).unwrap().uz.abs();
 
     // (c) Fixed–Pinned: "fixed" at start, "rollerX" at end
     let loads_fp = vec![SolverLoad::Nodal(SolverNodalLoad {
-        node_id: mid, fx: 0.0, fy: p_lateral, mz: 0.0,
+        node_id: mid, fx: 0.0, fz: p_lateral, my: 0.0,
     })];
     let input_fp = make_beam(n, l, E, a, iz, "fixed", Some("rollerX"), loads_fp);
     let d_fp = linear::solve_2d(&input_fp).unwrap()
-        .displacements.iter().find(|d| d.node_id == mid).unwrap().uy.abs();
+        .displacements.iter().find(|d| d.node_id == mid).unwrap().uz.abs();
 
     // (d) Pinned–Free (cantilever): "fixed" at start, free end (no end support)
     //     For cantilever, measure tip deflection (node n+1)
     let tip = n + 1;
     let loads_pf = vec![SolverLoad::Nodal(SolverNodalLoad {
-        node_id: tip, fx: 0.0, fy: p_lateral, mz: 0.0,
+        node_id: tip, fx: 0.0, fz: p_lateral, my: 0.0,
     })];
     let input_pf = make_beam(n, l, E, a, iz, "fixed", None, loads_pf);
     let d_pf = linear::solve_2d(&input_pf).unwrap()
-        .displacements.iter().find(|d| d.node_id == tip).unwrap().uy.abs();
+        .displacements.iter().find(|d| d.node_id == tip).unwrap().uz.abs();
 
     // Cantilever is most flexible, fixed-fixed is stiffest
     // d_pf > d_pp > d_fp > d_ff
@@ -182,17 +182,17 @@ fn validation_col_buck_ext_euler_four_bcs() {
 
 #[test]
 fn validation_col_buck_ext_aisc_column_curve() {
-    let fy: f64 = 345.0;          // MPa, A992 steel
+    let fz: f64 = 345.0;          // MPa, A992 steel
     let e_steel: f64 = 200_000.0; // MPa
     let pi: f64 = std::f64::consts::PI;
 
     // W14x48 section properties
     let a_w14: f64 = 9_030.0;  // mm² (AISC manual)
     let iy_w14: f64 = 51.3e6;  // mm⁴ (weak axis)
-    let ry: f64 = (iy_w14 / a_w14).sqrt(); // radius of gyration, mm
+    let rz: f64 = (iy_w14 / a_w14).sqrt(); // radius of gyration, mm
 
     // Transition slenderness ratio
-    let kl_r_transition: f64 = 4.71 * (e_steel / fy).sqrt();
+    let kl_r_transition: f64 = 4.71 * (e_steel / fz).sqrt();
 
     // Test points: (KL/r, expected_equation)
     // Below transition → E3-2 (inelastic)
@@ -214,8 +214,8 @@ fn validation_col_buck_ext_aisc_column_curve() {
         // Determine which equation governs
         let (fcr, eq_used): (f64, &str) = if *kl_r <= kl_r_transition {
             // E3-2: Fcr = 0.658^(Fy/Fe) * Fy
-            let ratio: f64 = fy / fe;
-            let fcr_val: f64 = 0.658_f64.powf(ratio) * fy;
+            let ratio: f64 = fz / fe;
+            let fcr_val: f64 = 0.658_f64.powf(ratio) * fz;
             (fcr_val, "E3-2")
         } else {
             // E3-3: Fcr = 0.877 * Fe
@@ -228,14 +228,14 @@ fn validation_col_buck_ext_aisc_column_curve() {
             "AISC curve: KL/r={:.1}, expected {}, got {}", kl_r, expected_eq, eq_used);
 
         // Fcr must be positive and <= Fy
-        assert!(fcr > 0.0 && fcr <= fy,
+        assert!(fcr > 0.0 && fcr <= fz,
             "AISC curve: KL/r={:.1}, Fcr={:.1} should be in (0, Fy={}]",
-            kl_r, fcr, fy);
+            kl_r, fcr, fz);
 
         // At the transition point, both equations should give similar results
         if (*kl_r - kl_r_transition).abs() < 2.0 {
             let fe_trans: f64 = pi.powi(2) * e_steel / (kl_r_transition * kl_r_transition);
-            let fcr_e32: f64 = 0.658_f64.powf(fy / fe_trans) * fy;
+            let fcr_e32: f64 = 0.658_f64.powf(fz / fe_trans) * fz;
             let fcr_e33: f64 = 0.877 * fe_trans;
             // At the exact transition, E3-2 and E3-3 should be close
             // (they meet at Fe = 0.44*Fy)
@@ -246,12 +246,12 @@ fn validation_col_buck_ext_aisc_column_curve() {
 
     // Verify Fcr decreases monotonically with increasing KL/r
     let slenderness_values: Vec<f64> = vec![20.0, 50.0, 80.0, 110.0, 140.0, 170.0, 200.0];
-    let mut prev_fcr: f64 = fy + 1.0;
+    let mut prev_fcr: f64 = fz + 1.0;
     for kl_r in slenderness_values {
         let fe: f64 = pi.powi(2) * e_steel / (kl_r * kl_r);
         let fcr: f64 = if kl_r <= kl_r_transition {
-            let ratio: f64 = fy / fe;
-            0.658_f64.powf(ratio) * fy
+            let ratio: f64 = fz / fe;
+            0.658_f64.powf(ratio) * fz
         } else {
             0.877 * fe
         };
@@ -264,19 +264,19 @@ fn validation_col_buck_ext_aisc_column_curve() {
     // Verify specific AISC manual values for W14x48, Fy=345 MPa
     // At KL/r = 0 (theoretical): Fcr ≈ Fy = 345 MPa
     let fe_zero: f64 = pi.powi(2) * e_steel / (1.0_f64 * 1.0);
-    let fcr_zero: f64 = 0.658_f64.powf(fy / fe_zero) * fy;
-    assert_close(fcr_zero, fy, 0.01,
+    let fcr_zero: f64 = 0.658_f64.powf(fz / fe_zero) * fz;
+    assert_close(fcr_zero, fz, 0.01,
         "AISC curve: Fcr → Fy as KL/r → 0");
 
     // Nominal capacity Pn = Fcr * A for a specific slenderness
     let kl_r_test: f64 = 80.0;
     let fe_test: f64 = pi.powi(2) * e_steel / (kl_r_test * kl_r_test);
-    let fcr_test: f64 = 0.658_f64.powf(fy / fe_test) * fy;
+    let fcr_test: f64 = 0.658_f64.powf(fz / fe_test) * fz;
     let pn: f64 = fcr_test * a_w14 / 1000.0; // kN
     assert!(pn > 0.0, "AISC curve: Pn = {:.1} kN for KL/r={}", pn, kl_r_test);
 
     // Cross-check: at ry computed above, KL/r=80 corresponds to KL = 80 * ry
-    let kl: f64 = kl_r_test * ry; // mm
+    let kl: f64 = kl_r_test * rz; // mm
     assert!(kl > 0.0, "AISC curve: KL = {:.0} mm", kl);
 }
 
@@ -423,34 +423,34 @@ fn validation_col_buck_ext_ec3_chi_curves() {
 
 #[test]
 fn validation_col_buck_ext_inelastic_tangent_modulus() {
-    let fy: f64 = 345.0;          // MPa, A992 steel
+    let fz: f64 = 345.0;          // MPa, A992 steel
     let e_steel: f64 = 200_000.0; // MPa
     let pi: f64 = std::f64::consts::PI;
     let n_ro: f64 = 15.0;         // Ramberg-Osgood exponent for structural steel
 
     // Slenderness at elastic/inelastic transition
     // sigma_euler = Fy → pi²E/(KL/r)² = Fy → KL/r = pi*sqrt(E/Fy)
-    let kl_r_transition: f64 = pi * (e_steel / fy).sqrt();
+    let kl_r_transition: f64 = pi * (e_steel / fz).sqrt();
 
     // At the transition point, tangent modulus = Euler
     let sigma_euler_trans: f64 = pi.powi(2) * e_steel / (kl_r_transition * kl_r_transition);
-    assert_close(sigma_euler_trans, fy, 0.01,
+    assert_close(sigma_euler_trans, fz, 0.01,
         "Inelastic: Euler stress = Fy at transition KL/r");
 
     // Ramberg-Osgood tangent modulus function
     let tangent_modulus = |sigma: f64| -> f64 {
-        let ratio: f64 = sigma / fy;
-        let denom: f64 = 1.0 + 0.002 * n_ro / e_steel * ratio.powf(n_ro - 1.0) * fy;
+        let ratio: f64 = sigma / fz;
+        let denom: f64 = 1.0 + 0.002 * n_ro / e_steel * ratio.powf(n_ro - 1.0) * fz;
         e_steel / denom
     };
 
     // At low stress (elastic range): E_t ≈ E
-    let et_low: f64 = tangent_modulus(0.1 * fy);
+    let et_low: f64 = tangent_modulus(0.1 * fz);
     assert_close(et_low, e_steel, 0.01,
         "Inelastic: E_t ≈ E at low stress");
 
     // At sigma = Fy: E_t < E (significant reduction)
-    let et_yield: f64 = tangent_modulus(fy);
+    let et_yield: f64 = tangent_modulus(fz);
     assert!(et_yield < e_steel,
         "Inelastic: E_t at Fy ({:.0}) < E ({:.0})", et_yield, e_steel);
 
@@ -458,7 +458,7 @@ fn validation_col_buck_ext_inelastic_tangent_modulus() {
     let stresses: Vec<f64> = vec![0.1, 0.3, 0.5, 0.7, 0.9, 0.95, 1.0];
     let mut prev_et: f64 = e_steel + 1.0;
     for &ratio in &stresses {
-        let sigma: f64 = ratio * fy;
+        let sigma: f64 = ratio * fz;
         let et: f64 = tangent_modulus(sigma);
         assert!(et < prev_et + 1.0,
             "Inelastic: E_t decreases: sigma/Fy={:.2}, E_t={:.0}, prev={:.0}",
@@ -473,26 +473,26 @@ fn validation_col_buck_ext_inelastic_tangent_modulus() {
 
         if kl_r > kl_r_transition {
             // Elastic range: Euler governs (sigma_euler < Fy)
-            assert!(sigma_euler < fy,
+            assert!(sigma_euler < fz,
                 "Elastic range: KL/r={:.0}, sigma_euler={:.1} < Fy={:.1}",
-                kl_r, sigma_euler, fy);
+                kl_r, sigma_euler, fz);
         } else {
             // Inelastic range: tangent modulus critical stress < Euler prediction
             // Solve iteratively: sigma_cr = pi²*Et(sigma_cr)/(KL/r)²
-            let mut sigma_cr: f64 = fy.min(sigma_euler); // initial guess
+            let mut sigma_cr: f64 = fz.min(sigma_euler); // initial guess
             for _ in 0..20 {
                 let et: f64 = tangent_modulus(sigma_cr);
                 let new_sigma: f64 = pi.powi(2) * et / (kl_r * kl_r);
-                sigma_cr = 0.5 * (sigma_cr + new_sigma.min(fy));
+                sigma_cr = 0.5 * (sigma_cr + new_sigma.min(fz));
             }
 
             // Tangent modulus stress must be <= Euler stress and <= Fy
             assert!(sigma_cr <= sigma_euler + 1.0,
                 "Inelastic: KL/r={:.0}, sigma_t={:.1} <= sigma_euler={:.1}",
                 kl_r, sigma_cr, sigma_euler);
-            assert!(sigma_cr <= fy + 1.0,
+            assert!(sigma_cr <= fz + 1.0,
                 "Inelastic: KL/r={:.0}, sigma_t={:.1} <= Fy={:.1}",
-                kl_r, sigma_cr, fy);
+                kl_r, sigma_cr, fz);
         }
     }
 
@@ -500,8 +500,8 @@ fn validation_col_buck_ext_inelastic_tangent_modulus() {
     let kl_r_low: f64 = 10.0;
     let sigma_euler_low: f64 = pi.powi(2) * e_steel / (kl_r_low * kl_r_low);
     // Euler would give a very high stress, but tangent modulus limits to ≈Fy
-    assert!(sigma_euler_low > fy,
-        "Stocky column: Euler stress ({:.0}) > Fy ({:.0})", sigma_euler_low, fy);
+    assert!(sigma_euler_low > fz,
+        "Stocky column: Euler stress ({:.0}) > Fy ({:.0})", sigma_euler_low, fz);
 }
 
 // ================================================================
@@ -552,10 +552,10 @@ fn validation_col_buck_ext_frame_sway_vs_nonsway() {
     let sups = vec![(1, 1, "pinned"), (2, 4, "pinned")];
     let loads = vec![
         SolverLoad::Nodal(SolverNodalLoad {
-            node_id: 2, fx: f_lateral, fy: f_gravity, mz: 0.0,
+            node_id: 2, fx: f_lateral, fz: f_gravity, my: 0.0,
         }),
         SolverLoad::Nodal(SolverNodalLoad {
-            node_id: 3, fx: 0.0, fy: f_gravity, mz: 0.0,
+            node_id: 3, fx: 0.0, fz: f_gravity, my: 0.0,
         }),
     ];
     let input_sway = make_input(
@@ -593,13 +593,13 @@ fn validation_col_buck_ext_frame_sway_vs_nonsway() {
     // Verify that column base moments differ between braced and sway
     // In braced frame: columns develop base moments (fixed base)
     let m_base_braced: f64 = res_braced.reactions.iter()
-        .find(|r| r.node_id == 1).unwrap().mz.abs();
+        .find(|r| r.node_id == 1).unwrap().my.abs();
     assert!(m_base_braced > 0.0,
         "Braced frame: non-zero base moment = {:.4}", m_base_braced);
 
     // In sway frame: pinned bases have no moment
     let m_base_sway: f64 = res_sway.reactions.iter()
-        .find(|r| r.node_id == 1).unwrap().mz.abs();
+        .find(|r| r.node_id == 1).unwrap().my.abs();
     assert!(m_base_sway < 1e-6,
         "Sway frame: zero base moment = {:.6e}", m_base_sway);
 }
@@ -676,7 +676,7 @@ fn validation_col_buck_ext_stepped_column_energy() {
     }).collect();
     let sups = vec![(1, 1, "pinned"), (2, n + 1, "rollerX")];
     let loads = vec![SolverLoad::Nodal(SolverNodalLoad {
-        node_id: mid, fx: 0.0, fy: p_lateral, mz: 0.0,
+        node_id: mid, fx: 0.0, fz: p_lateral, my: 0.0,
     })];
     let input_stepped = make_input(
         nodes,
@@ -687,31 +687,31 @@ fn validation_col_buck_ext_stepped_column_energy() {
         loads,
     );
     let d_stepped = linear::solve_2d(&input_stepped).unwrap()
-        .displacements.iter().find(|d| d.node_id == mid).unwrap().uy.abs();
+        .displacements.iter().find(|d| d.node_id == mid).unwrap().uz.abs();
 
     // (b) Uniform column with I_avg
     let loads_avg = vec![SolverLoad::Nodal(SolverNodalLoad {
-        node_id: mid, fx: 0.0, fy: p_lateral, mz: 0.0,
+        node_id: mid, fx: 0.0, fz: p_lateral, my: 0.0,
     })];
     let input_avg = make_beam(n, l, E, a, iz_avg, "pinned", Some("rollerX"), loads_avg);
     let d_avg = linear::solve_2d(&input_avg).unwrap()
-        .displacements.iter().find(|d| d.node_id == mid).unwrap().uy.abs();
+        .displacements.iter().find(|d| d.node_id == mid).unwrap().uz.abs();
 
     // (c) Uniform column with I1 (stiffer, less deflection)
     let loads_i1 = vec![SolverLoad::Nodal(SolverNodalLoad {
-        node_id: mid, fx: 0.0, fy: p_lateral, mz: 0.0,
+        node_id: mid, fx: 0.0, fz: p_lateral, my: 0.0,
     })];
     let input_i1 = make_beam(n, l, E, a, iz1, "pinned", Some("rollerX"), loads_i1);
     let d_i1 = linear::solve_2d(&input_i1).unwrap()
-        .displacements.iter().find(|d| d.node_id == mid).unwrap().uy.abs();
+        .displacements.iter().find(|d| d.node_id == mid).unwrap().uz.abs();
 
     // (d) Uniform column with I2 (more flexible, more deflection)
     let loads_i2 = vec![SolverLoad::Nodal(SolverNodalLoad {
-        node_id: mid, fx: 0.0, fy: p_lateral, mz: 0.0,
+        node_id: mid, fx: 0.0, fz: p_lateral, my: 0.0,
     })];
     let input_i2 = make_beam(n, l, E, a, iz2, "pinned", Some("rollerX"), loads_i2);
     let d_i2 = linear::solve_2d(&input_i2).unwrap()
-        .displacements.iter().find(|d| d.node_id == mid).unwrap().uy.abs();
+        .displacements.iter().find(|d| d.node_id == mid).unwrap().uz.abs();
 
     // Deflection ordering: d_i2 > d_stepped > d_i1
     // (stepped is between the two extremes)
@@ -754,7 +754,7 @@ fn validation_col_buck_ext_stepped_column_energy() {
 
 #[test]
 fn validation_col_buck_ext_perry_robertson_imperfection() {
-    let fy: f64 = 355.0;          // MPa, S355
+    let fz: f64 = 355.0;          // MPa, S355
     let e_steel: f64 = 200_000.0; // MPa
     let pi: f64 = std::f64::consts::PI;
 
@@ -785,8 +785,8 @@ fn validation_col_buck_ext_perry_robertson_imperfection() {
         let eta: f64 = e0_mm * c / (r * r);
 
         // Perry-Robertson critical stress (Eq. from Perry, 1886)
-        let term: f64 = (fy + (1.0 + eta) * sigma_e) / 2.0;
-        let discriminant: f64 = term * term - fy * sigma_e;
+        let term: f64 = (fz + (1.0 + eta) * sigma_e) / 2.0;
+        let discriminant: f64 = term * term - fz * sigma_e;
         assert!(discriminant >= 0.0,
             "Perry: discriminant >= 0 at KL/r={:.0}", kl_r);
         let sigma_perry: f64 = term - discriminant.sqrt();
@@ -794,8 +794,8 @@ fn validation_col_buck_ext_perry_robertson_imperfection() {
         // Perry stress must be positive and below both Fy and Euler
         assert!(sigma_perry > 0.0,
             "Perry: sigma > 0 at KL/r={:.0}: {:.1}", kl_r, sigma_perry);
-        assert!(sigma_perry <= fy + 1.0,
-            "Perry: sigma <= Fy at KL/r={:.0}: {:.1} vs {:.1}", kl_r, sigma_perry, fy);
+        assert!(sigma_perry <= fz + 1.0,
+            "Perry: sigma <= Fy at KL/r={:.0}: {:.1} vs {:.1}", kl_r, sigma_perry, fz);
         assert!(sigma_perry <= sigma_e + 1.0,
             "Perry: sigma <= sigma_e at KL/r={:.0}: {:.1} vs {:.1}",
             kl_r, sigma_perry, sigma_e);
@@ -823,11 +823,11 @@ fn validation_col_buck_ext_perry_robertson_imperfection() {
     // Small lateral load representing perfect column
     let f_lat_perfect = 1.0; // kN
     let loads_perfect = vec![SolverLoad::Nodal(SolverNodalLoad {
-        node_id: mid, fx: 0.0, fy: f_lat_perfect, mz: 0.0,
+        node_id: mid, fx: 0.0, fz: f_lat_perfect, my: 0.0,
     })];
     let input_perfect = make_beam(n, l_m, E, a_m, iz_m, "pinned", Some("rollerX"), loads_perfect);
     let d_perfect = linear::solve_2d(&input_perfect).unwrap()
-        .displacements.iter().find(|d| d.node_id == mid).unwrap().uy.abs();
+        .displacements.iter().find(|d| d.node_id == mid).unwrap().uz.abs();
 
     // Column with additional imperfection load (simulating e0 = L/500)
     let e0_m: f64 = l_m / 500.0;
@@ -835,11 +835,11 @@ fn validation_col_buck_ext_perry_robertson_imperfection() {
     let f_equiv_imperfection: f64 = 8.0 * p_axial * e0_m / (l_m * l_m);
     let f_lat_imperfect: f64 = f_lat_perfect + f_equiv_imperfection;
     let loads_imperfect = vec![SolverLoad::Nodal(SolverNodalLoad {
-        node_id: mid, fx: 0.0, fy: f_lat_imperfect, mz: 0.0,
+        node_id: mid, fx: 0.0, fz: f_lat_imperfect, my: 0.0,
     })];
     let input_imperfect = make_beam(n, l_m, E, a_m, iz_m, "pinned", Some("rollerX"), loads_imperfect);
     let d_imperfect = linear::solve_2d(&input_imperfect).unwrap()
-        .displacements.iter().find(|d| d.node_id == mid).unwrap().uy.abs();
+        .displacements.iter().find(|d| d.node_id == mid).unwrap().uz.abs();
 
     // Imperfect column deflects more
     assert!(d_imperfect > d_perfect,
@@ -883,7 +883,7 @@ fn validation_col_buck_ext_perry_robertson_imperfection() {
 
 #[test]
 fn validation_col_buck_ext_beam_column_interaction() {
-    let fy: f64 = 345.0;          // MPa, A992 steel
+    let fz: f64 = 345.0;          // MPa, A992 steel
     let e_steel: f64 = 200_000.0; // MPa
     let pi: f64 = std::f64::consts::PI;
     let phi_c: f64 = 0.90;        // LRFD resistance factor (compression)
@@ -899,18 +899,18 @@ fn validation_col_buck_ext_beam_column_interaction() {
     // Assume KL/r_y = 80 for column capacity calculation
     let kl_r: f64 = 80.0;
     let fe: f64 = pi.powi(2) * e_steel / (kl_r * kl_r);
-    let kl_r_transition: f64 = 4.71 * (e_steel / fy).sqrt();
+    let kl_r_transition: f64 = 4.71 * (e_steel / fz).sqrt();
 
     let fcr: f64 = if kl_r <= kl_r_transition {
-        let ratio: f64 = fy / fe;
-        0.658_f64.powf(ratio) * fy
+        let ratio: f64 = fz / fe;
+        0.658_f64.powf(ratio) * fz
     } else {
         0.877 * fe
     };
 
     let pn: f64 = fcr * a_w14 / 1000.0;    // kN
     let pc: f64 = phi_c * pn;                // kN (design compressive capacity)
-    let mnx: f64 = fy * zx / 1e6;           // kN·m (plastic moment capacity)
+    let mnx: f64 = fz * zx / 1e6;           // kN·m (plastic moment capacity)
     let mcx: f64 = phi_b * mnx;              // kN·m (design flexural capacity)
 
     assert!(pc > 0.0, "AISC H1: Pc = {:.1} kN > 0", pc);
@@ -975,7 +975,7 @@ fn validation_col_buck_ext_beam_column_interaction() {
     let f_trans: f64 = 10.0;     // kN transverse at tip
 
     let loads = vec![SolverLoad::Nodal(SolverNodalLoad {
-        node_id: n + 1, fx: -p_applied, fy: f_trans, mz: 0.0,
+        node_id: n + 1, fx: -p_applied, fz: f_trans, my: 0.0,
     })];
     let input = make_beam(n, l, E, a_m, iz_m, "fixed", None, loads);
     let results = linear::solve_2d(&input).unwrap();
@@ -1014,6 +1014,6 @@ fn validation_col_buck_ext_beam_column_interaction() {
     // Verify equilibrium at fixed base
     let r = results.reactions.iter().find(|r| r.node_id == 1).unwrap();
     assert_close(r.rx, p_applied, 0.02, "AISC H1: Rx = P_axial");
-    assert_close(r.ry, -f_trans, 0.02, "AISC H1: Ry = -F_trans");
-    assert_close(r.mz.abs(), m_base_expected, 0.02, "AISC H1: Mz = F_trans × L");
+    assert_close(r.rz, -f_trans, 0.02, "AISC H1: Ry = -F_trans");
+    assert_close(r.my.abs(), m_base_expected, 0.02, "AISC H1: Mz = F_trans × L");
 }

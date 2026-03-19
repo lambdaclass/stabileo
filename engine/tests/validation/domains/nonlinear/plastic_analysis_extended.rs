@@ -212,13 +212,13 @@ fn validation_plas_ext_propped_cantilever_collapse() {
     // M_A (fixed end) = wL^2/8 = 10*64/8 = 80 kN*m
     let m_fixed_expected: f64 = q.abs() * l * l / 8.0;
     let r_a = results.reactions.iter().find(|r| r.node_id == 1).unwrap();
-    assert_close(r_a.mz.abs(), m_fixed_expected, 0.03,
+    assert_close(r_a.my.abs(), m_fixed_expected, 0.03,
         "Propped elastic: M_fixed = wL^2/8");
 
     // R_B = 3qL/8
     let r_b = results.reactions.iter().find(|r| r.node_id == n + 1).unwrap();
     let rb_expected: f64 = 3.0 * q.abs() * l / 8.0;
-    assert_close(r_b.ry, rb_expected, 0.03,
+    assert_close(r_b.rz, rb_expected, 0.03,
         "Propped elastic: R_B = 3qL/8");
 }
 
@@ -287,7 +287,7 @@ fn validation_plas_ext_portal_combined_mechanism() {
         "Portal elastic: horizontal equilibrium");
 
     // Vertical equilibrium
-    let sum_ry: f64 = results.reactions.iter().map(|r| r.ry).sum();
+    let sum_ry: f64 = results.reactions.iter().map(|r| r.rz).sum();
     let total_gravity: f64 = 2.0 * w_ref; // Two nodal gravity loads
     assert_close(sum_ry, total_gravity, 0.03,
         "Portal elastic: vertical equilibrium");
@@ -358,7 +358,7 @@ fn validation_plas_ext_upper_bound_theorem() {
     let p_load = 20.0;
     let mid = n / 2 + 1;
     let loads = vec![SolverLoad::Nodal(SolverNodalLoad {
-        node_id: mid, fx: 0.0, fy: -p_load, mz: 0.0,
+        node_id: mid, fx: 0.0, fz: -p_load, my: 0.0,
     })];
     let input = make_beam(n, l, E, A, IZ, "pinned", Some("rollerX"), loads);
     let results = linear::solve_2d(&input).unwrap();
@@ -431,7 +431,7 @@ fn validation_plas_ext_lower_bound_theorem() {
     let p_load = 30.0;
     let mid = n / 2 + 1;
     let loads = vec![SolverLoad::Nodal(SolverNodalLoad {
-        node_id: mid, fx: 0.0, fy: -p_load, mz: 0.0,
+        node_id: mid, fx: 0.0, fz: -p_load, my: 0.0,
     })];
     let input = make_beam(n, l, E, A, IZ, "fixed", Some("rollerX"), loads);
     let results = linear::solve_2d(&input).unwrap();
@@ -439,12 +439,12 @@ fn validation_plas_ext_lower_bound_theorem() {
     // M_fixed = 3PL/16
     let m_fixed_expected: f64 = 3.0 * p_load * l / 16.0;
     let r_a = results.reactions.iter().find(|r| r.node_id == 1).unwrap();
-    assert_close(r_a.mz.abs(), m_fixed_expected, 0.03,
+    assert_close(r_a.my.abs(), m_fixed_expected, 0.03,
         "Propped elastic: M_A = 3PL/16");
 
     // Equilibrium check: R_A + R_B = P
     let r_b = results.reactions.iter().find(|r| r.node_id == n + 1).unwrap();
-    assert_close(r_a.ry + r_b.ry, p_load, 0.02,
+    assert_close(r_a.rz + r_b.rz, p_load, 0.02,
         "Propped elastic: R_A + R_B = P");
 }
 
@@ -512,19 +512,19 @@ fn validation_plas_ext_two_span_continuous_collapse() {
     let r_int = results.reactions.iter()
         .find(|r| r.node_id == interior_node).unwrap();
     let r_int_expected: f64 = 5.0 * q.abs() * l / 4.0;
-    assert_close(r_int.ry, r_int_expected, 0.03,
+    assert_close(r_int.rz, r_int_expected, 0.03,
         "Two-span elastic: R_interior = 5qL/4");
 
     // End reactions = 3qL/8
     let r_end = results.reactions.iter()
         .find(|r| r.node_id == 1).unwrap();
     let r_end_expected: f64 = 3.0 * q.abs() * l / 8.0;
-    assert_close(r_end.ry, r_end_expected, 0.03,
+    assert_close(r_end.rz, r_end_expected, 0.03,
         "Two-span elastic: R_end = 3qL/8");
 
     // Total equilibrium
     let total_load: f64 = q.abs() * 2.0 * l;
-    let total_reaction: f64 = results.reactions.iter().map(|r| r.ry).sum();
+    let total_reaction: f64 = results.reactions.iter().map(|r| r.rz).sum();
     assert_close(total_reaction, total_load, 0.02,
         "Two-span elastic: total equilibrium");
 

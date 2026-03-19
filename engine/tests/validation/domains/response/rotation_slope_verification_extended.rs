@@ -50,22 +50,22 @@ fn validation_ext_ss_udl_end_rotation_symmetry() {
     let d_b = results.displacements.iter().find(|d| d.node_id == n + 1).unwrap();
 
     // Both ends should have the same magnitude of rotation
-    assert_close(d_a.rz.abs(), theta_exact, 0.02, "SS UDL ext theta_A magnitude");
-    assert_close(d_b.rz.abs(), theta_exact, 0.02, "SS UDL ext theta_B magnitude");
+    assert_close(d_a.ry.abs(), theta_exact, 0.02, "SS UDL ext theta_A magnitude");
+    assert_close(d_b.ry.abs(), theta_exact, 0.02, "SS UDL ext theta_B magnitude");
 
     // Symmetry: magnitudes should be equal
-    let diff_ratio: f64 = (d_a.rz.abs() - d_b.rz.abs()).abs() / theta_exact;
+    let diff_ratio: f64 = (d_a.ry.abs() - d_b.ry.abs()).abs() / theta_exact;
     assert!(
         diff_ratio < 0.01,
         "SS UDL end rotations should be equal by symmetry: theta_A={:.6e}, theta_B={:.6e}",
-        d_a.rz, d_b.rz
+        d_a.ry, d_b.ry
     );
 
     // Opposite signs
     assert!(
-        d_a.rz * d_b.rz < 0.0,
+        d_a.ry * d_b.ry < 0.0,
         "SS UDL end slopes should have opposite signs: theta_A={:.6e}, theta_B={:.6e}",
-        d_a.rz, d_b.rz
+        d_a.ry, d_b.ry
     );
 }
 
@@ -85,7 +85,7 @@ fn validation_ext_cantilever_tip_load_rotation() {
 
     let input = make_beam(n, l, E, A, IZ, "fixed", None,
         vec![SolverLoad::Nodal(SolverNodalLoad {
-            node_id: n + 1, fx: 0.0, fy: -p, mz: 0.0,
+            node_id: n + 1, fx: 0.0, fz: -p, my: 0.0,
         })]);
 
     let results = linear::solve_2d(&input).unwrap();
@@ -93,13 +93,13 @@ fn validation_ext_cantilever_tip_load_rotation() {
     let tip = results.displacements.iter().find(|d| d.node_id == n + 1).unwrap();
     let theta_exact: f64 = p * l.powi(2) / (2.0 * e_eff * IZ);
 
-    assert_close(tip.rz.abs(), theta_exact, 0.02, "Cantilever tip load ext theta_tip");
+    assert_close(tip.ry.abs(), theta_exact, 0.02, "Cantilever tip load ext theta_tip");
 
     // Fixed end must have zero rotation
     let fixed = results.displacements.iter().find(|d| d.node_id == 1).unwrap();
     assert!(
-        fixed.rz.abs() < 1e-10,
-        "Fixed end rotation should be zero, got {:.6e}", fixed.rz
+        fixed.ry.abs() < 1e-10,
+        "Fixed end rotation should be zero, got {:.6e}", fixed.ry
     );
 
     // Rotation should increase monotonically from fixed to free end
@@ -107,10 +107,10 @@ fn validation_ext_cantilever_tip_load_rotation() {
     for i in 1..=n + 1 {
         let d = results.displacements.iter().find(|d| d.node_id == i).unwrap();
         assert!(
-            d.rz.abs() >= prev_rz - 1e-12,
+            d.ry.abs() >= prev_rz - 1e-12,
             "Rotation should increase from fixed to free end at node {}", i
         );
-        prev_rz = d.rz.abs();
+        prev_rz = d.ry.abs();
     }
 }
 
@@ -141,13 +141,13 @@ fn validation_ext_cantilever_udl_tip_rotation() {
     let tip = results.displacements.iter().find(|d| d.node_id == n + 1).unwrap();
     let theta_exact: f64 = q * l.powi(3) / (6.0 * e_eff * IZ);
 
-    assert_close(tip.rz.abs(), theta_exact, 0.02, "Cantilever UDL ext theta_tip");
+    assert_close(tip.ry.abs(), theta_exact, 0.02, "Cantilever UDL ext theta_tip");
 
     // Fixed end must have zero rotation
     let fixed = results.displacements.iter().find(|d| d.node_id == 1).unwrap();
     assert!(
-        fixed.rz.abs() < 1e-10,
-        "Fixed end rotation should be zero, got {:.6e}", fixed.rz
+        fixed.ry.abs() < 1e-10,
+        "Fixed end rotation should be zero, got {:.6e}", fixed.ry
     );
 }
 
@@ -168,7 +168,7 @@ fn validation_ext_ss_midspan_point_end_rotation() {
     let mid = n / 2 + 1;
     let input = make_beam(n, l, E, A, IZ, "pinned", Some("rollerX"),
         vec![SolverLoad::Nodal(SolverNodalLoad {
-            node_id: mid, fx: 0.0, fy: -p, mz: 0.0,
+            node_id: mid, fx: 0.0, fz: -p, my: 0.0,
         })]);
 
     let results = linear::solve_2d(&input).unwrap();
@@ -178,22 +178,22 @@ fn validation_ext_ss_midspan_point_end_rotation() {
     let d_a = results.displacements.iter().find(|d| d.node_id == 1).unwrap();
     let d_b = results.displacements.iter().find(|d| d.node_id == n + 1).unwrap();
 
-    assert_close(d_a.rz.abs(), theta_exact, 0.02, "SS midspan P ext theta_A");
-    assert_close(d_b.rz.abs(), theta_exact, 0.02, "SS midspan P ext theta_B");
+    assert_close(d_a.ry.abs(), theta_exact, 0.02, "SS midspan P ext theta_A");
+    assert_close(d_b.ry.abs(), theta_exact, 0.02, "SS midspan P ext theta_B");
 
     // Symmetry: magnitudes should be equal
-    let diff_ratio: f64 = (d_a.rz.abs() - d_b.rz.abs()).abs() / theta_exact;
+    let diff_ratio: f64 = (d_a.ry.abs() - d_b.ry.abs()).abs() / theta_exact;
     assert!(
         diff_ratio < 0.01,
         "SS midspan P end rotations should be equal: theta_A={:.6e}, theta_B={:.6e}",
-        d_a.rz, d_b.rz
+        d_a.ry, d_b.ry
     );
 
     // Midspan rotation should be zero by symmetry
     let d_mid = results.displacements.iter().find(|d| d.node_id == mid).unwrap();
     assert!(
-        d_mid.rz.abs() < 1e-10,
-        "SS midspan P midspan rotation should be zero, got {:.6e}", d_mid.rz
+        d_mid.ry.abs() < 1e-10,
+        "SS midspan P midspan rotation should be zero, got {:.6e}", d_mid.ry
     );
 }
 
@@ -224,19 +224,19 @@ fn validation_ext_fixed_fixed_zero_rotation() {
     let d_b = results.displacements.iter().find(|d| d.node_id == n + 1).unwrap();
 
     assert!(
-        d_a.rz.abs() < 1e-10,
-        "Fixed-fixed end A rotation should be zero, got {:.6e}", d_a.rz
+        d_a.ry.abs() < 1e-10,
+        "Fixed-fixed end A rotation should be zero, got {:.6e}", d_a.ry
     );
     assert!(
-        d_b.rz.abs() < 1e-10,
-        "Fixed-fixed end B rotation should be zero, got {:.6e}", d_b.rz
+        d_b.ry.abs() < 1e-10,
+        "Fixed-fixed end B rotation should be zero, got {:.6e}", d_b.ry
     );
 
     // Interior nodes should have nonzero rotation (beam deflects)
     let mid = n / 2;
     let d_interior = results.displacements.iter().find(|d| d.node_id == mid).unwrap();
     assert!(
-        d_interior.rz.abs() > 1e-12,
+        d_interior.ry.abs() > 1e-12,
         "Interior node of fixed-fixed beam should have nonzero rotation"
     );
 }
@@ -270,20 +270,20 @@ fn validation_ext_propped_cantilever_rotation_check() {
     // Fixed end A: zero rotation
     let d_a = results.displacements.iter().find(|d| d.node_id == 1).unwrap();
     assert!(
-        d_a.rz.abs() < 1e-10,
-        "Propped cantilever fixed end rotation should be zero, got {:.6e}", d_a.rz
+        d_a.ry.abs() < 1e-10,
+        "Propped cantilever fixed end rotation should be zero, got {:.6e}", d_a.ry
     );
 
     // Roller end B: nonzero rotation
     let d_b = results.displacements.iter().find(|d| d.node_id == n + 1).unwrap();
     assert!(
-        d_b.rz.abs() > 1e-8,
-        "Propped cantilever roller end should have nonzero rotation, got {:.6e}", d_b.rz
+        d_b.ry.abs() > 1e-8,
+        "Propped cantilever roller end should have nonzero rotation, got {:.6e}", d_b.ry
     );
 
     // Verify analytical value: theta_B = qL^3/(48EI)
     let theta_exact: f64 = q * l.powi(3) / (48.0 * e_eff * IZ);
-    assert_close(d_b.rz.abs(), theta_exact, 0.05, "Propped cantilever ext theta_B");
+    assert_close(d_b.ry.abs(), theta_exact, 0.05, "Propped cantilever ext theta_B");
 }
 
 // ================================================================
@@ -304,7 +304,7 @@ fn validation_ext_ss_end_moment_rotations() {
 
     let input = make_beam(n, l, E, A, IZ, "pinned", Some("rollerX"),
         vec![SolverLoad::Nodal(SolverNodalLoad {
-            node_id: 1, fx: 0.0, fy: 0.0, mz: m,
+            node_id: 1, fx: 0.0, fz: 0.0, my: m,
         })]);
 
     let results = linear::solve_2d(&input).unwrap();
@@ -315,11 +315,11 @@ fn validation_ext_ss_end_moment_rotations() {
     let d_a = results.displacements.iter().find(|d| d.node_id == 1).unwrap();
     let d_b = results.displacements.iter().find(|d| d.node_id == n + 1).unwrap();
 
-    assert_close(d_a.rz.abs(), theta_a_exact, 0.02, "SS end moment ext theta_A");
-    assert_close(d_b.rz.abs(), theta_b_exact, 0.02, "SS end moment ext theta_B");
+    assert_close(d_a.ry.abs(), theta_a_exact, 0.02, "SS end moment ext theta_A");
+    assert_close(d_b.ry.abs(), theta_b_exact, 0.02, "SS end moment ext theta_B");
 
     // theta_A should be exactly twice theta_B
-    let ratio: f64 = d_a.rz.abs() / d_b.rz.abs();
+    let ratio: f64 = d_a.ry.abs() / d_b.ry.abs();
     assert_close(ratio, 2.0, 0.02, "SS end moment theta_A/theta_B ratio");
 }
 
@@ -341,7 +341,7 @@ fn validation_ext_cantilever_tip_moment_constant_curvature() {
 
     let input = make_beam(n, l, E, A, IZ, "fixed", None,
         vec![SolverLoad::Nodal(SolverNodalLoad {
-            node_id: n + 1, fx: 0.0, fy: 0.0, mz: m,
+            node_id: n + 1, fx: 0.0, fz: 0.0, my: m,
         })]);
 
     let results = linear::solve_2d(&input).unwrap();
@@ -349,13 +349,13 @@ fn validation_ext_cantilever_tip_moment_constant_curvature() {
     let tip = results.displacements.iter().find(|d| d.node_id == n + 1).unwrap();
     let theta_exact: f64 = m * l / (e_eff * IZ);
 
-    assert_close(tip.rz.abs(), theta_exact, 0.02, "Cantilever tip moment ext theta_tip");
+    assert_close(tip.ry.abs(), theta_exact, 0.02, "Cantilever tip moment ext theta_tip");
 
     // Fixed end must have zero rotation
     let fixed = results.displacements.iter().find(|d| d.node_id == 1).unwrap();
     assert!(
-        fixed.rz.abs() < 1e-10,
-        "Fixed end rotation should be zero, got {:.6e}", fixed.rz
+        fixed.ry.abs() < 1e-10,
+        "Fixed end rotation should be zero, got {:.6e}", fixed.ry
     );
 
     // Constant curvature means rotation varies linearly along beam.
@@ -366,7 +366,7 @@ fn validation_ext_cantilever_tip_moment_constant_curvature() {
         let x: f64 = (i - 1) as f64 * elem_len;
         let theta_expected: f64 = m * x / (e_eff * IZ);
         assert_close(
-            d.rz.abs(), theta_expected, 0.02,
+            d.ry.abs(), theta_expected, 0.02,
             &format!("Cantilever tip moment rotation at x={:.1}", x)
         );
     }

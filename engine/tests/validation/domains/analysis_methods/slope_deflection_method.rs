@@ -83,8 +83,8 @@ fn validation_sdm_fixed_fixed_udl_moments() {
     // Verify end rotations = 0 (fixed boundary)
     let d1 = results.displacements.iter().find(|d| d.node_id == 1).unwrap();
     let d_end = results.displacements.iter().find(|d| d.node_id == n + 1).unwrap();
-    assert!(d1.rz.abs() < 1e-10, "SDM Q1: θ_left = 0 (fixed)");
-    assert!(d_end.rz.abs() < 1e-10, "SDM Q1: θ_right = 0 (fixed)");
+    assert!(d1.ry.abs() < 1e-10, "SDM Q1: θ_left = 0 (fixed)");
+    assert!(d_end.ry.abs() < 1e-10, "SDM Q1: θ_right = 0 (fixed)");
 
     // Just use e_eff to silence unused warning
     let _ = e_eff;
@@ -118,7 +118,7 @@ fn validation_sdm_fixed_pinned_central_load() {
     // Central load at midspan node
     let mid = n / 2 + 1;
     let loads = vec![SolverLoad::Nodal(SolverNodalLoad {
-        node_id: mid, fx: 0.0, fy: -p, mz: 0.0,
+        node_id: mid, fx: 0.0, fz: -p, my: 0.0,
     })];
     let input = make_beam(n, l, E, A, IZ, "fixed", Some("rollerX"), loads);
     let results = linear::solve_2d(&input).unwrap();
@@ -142,7 +142,7 @@ fn validation_sdm_fixed_pinned_central_load() {
     let d_roller = results.displacements.iter().find(|d| d.node_id == n + 1).unwrap();
     let theta_b_exact = p * l * l * l / (48.0 * e_eff * IZ);
     // The rotation should be of order theta_b_exact
-    assert!(d_roller.rz.abs() > 0.0,
+    assert!(d_roller.ry.abs() > 0.0,
         "SDM Q2: θ_B ≠ 0 at roller end");
     let _ = theta_b_exact;
 }
@@ -190,13 +190,13 @@ fn validation_sdm_two_span_unequal_interior_rotation() {
         .find(|d| d.node_id == interior_node).unwrap();
 
     // With asymmetric loading, the interior rotation must be non-zero
-    assert!(d_int.rz.abs() > 1e-8,
-        "SDM Q3: θ_interior ≠ 0 for asymmetric loading: {:.6e}", d_int.rz);
+    assert!(d_int.ry.abs() > 1e-8,
+        "SDM Q3: θ_interior ≠ 0 for asymmetric loading: {:.6e}", d_int.ry);
 
     // Reaction at B should be positive (upward)
     let r_b = results.reactions.iter().find(|r| r.node_id == interior_node).unwrap();
-    assert!(r_b.ry > 0.0,
-        "SDM Q3: R_B > 0 (interior support reacts upward): {:.4}", r_b.ry);
+    assert!(r_b.rz > 0.0,
+        "SDM Q3: R_B > 0 (interior support reacts upward): {:.4}", r_b.rz);
 
     // Since span 1 is loaded and span 2 is not, the interior support
     // carries more than if only span 1 were simply supported (load shared by B)
@@ -204,7 +204,7 @@ fn validation_sdm_two_span_unequal_interior_rotation() {
     let r_end = results.reactions.iter().find(|r| r.node_id == 2 * n + 1).unwrap();
 
     // End of span 2 should have small reaction (no load on span 2)
-    assert!(r_end.ry < r1.ry,
+    assert!(r_end.rz < r1.rz,
         "SDM Q3: R_C < R_A since span 2 is unloaded");
 }
 
@@ -286,8 +286,8 @@ fn validation_sdm_symmetric_zero_rotation() {
 
     let d_center_sym = res_sym.displacements.iter()
         .find(|d| d.node_id == n + 1).unwrap();
-    assert!(d_center_sym.rz.abs() < 1e-10,
-        "SDM Q5: symmetric beam, θ_center = 0: {:.6e}", d_center_sym.rz);
+    assert!(d_center_sym.ry.abs() < 1e-10,
+        "SDM Q5: symmetric beam, θ_center = 0: {:.6e}", d_center_sym.ry);
 
     // Case B: asymmetric loading → θ_interior ≠ 0
     let loads_asym: Vec<SolverLoad> = (1..=n)
@@ -300,8 +300,8 @@ fn validation_sdm_symmetric_zero_rotation() {
 
     let d_center_asym = res_asym.displacements.iter()
         .find(|d| d.node_id == n + 1).unwrap();
-    assert!(d_center_asym.rz.abs() > 1e-10,
-        "SDM Q5: asymmetric loading, θ_center ≠ 0: {:.6e}", d_center_asym.rz);
+    assert!(d_center_asym.ry.abs() > 1e-10,
+        "SDM Q5: asymmetric loading, θ_center ≠ 0: {:.6e}", d_center_asym.ry);
 }
 
 // ================================================================
@@ -330,7 +330,7 @@ fn validation_sdm_carryover_factor() {
     // Apply moment at roller (near-end in SDM parlance).
     // The fixed end reaction moment = 0.5 * M_applied (carryover = 0.5).
     let loads = vec![SolverLoad::Nodal(SolverNodalLoad {
-        node_id: n + 1, fx: 0.0, fy: 0.0, mz: m_applied,
+        node_id: n + 1, fx: 0.0, fz: 0.0, my: m_applied,
     })];
     let input = make_beam(n, l, E, A, IZ, "fixed", Some("rollerX"), loads);
     let results = linear::solve_2d(&input).unwrap();
@@ -344,13 +344,13 @@ fn validation_sdm_carryover_factor() {
     // The near-end stiffness is 3EI/L (roller), far end gets COF = 0.5
     // M_far = M_near * COF where M_near = M_applied × 3EI/L / (3EI/L) = M_applied
     // So M_far = 0.5 * M_applied
-    assert_close(r1.mz.abs(), m_applied / 2.0, 0.05,
+    assert_close(r1.my.abs(), m_applied / 2.0, 0.05,
         "SDM Q6: COF = 0.5, M_far = M_applied / 2");
 
     // Roller end rotation must be non-zero
     let d_roller = results.displacements.iter().find(|d| d.node_id == n + 1).unwrap();
-    assert!(d_roller.rz.abs() > 0.0,
-        "SDM Q6: θ_roller ≠ 0: {:.6e}", d_roller.rz);
+    assert!(d_roller.ry.abs() > 0.0,
+        "SDM Q6: θ_roller ≠ 0: {:.6e}", d_roller.ry);
 }
 
 // ================================================================
@@ -387,21 +387,21 @@ fn validation_sdm_stiffness_coefficient() {
     // Case A: both ends of the single element in question have fixed far ends
     // Use: fixed at node 1, apply moment at node 2, fixed at node 3
     let loads_a = vec![SolverLoad::Nodal(SolverNodalLoad {
-        node_id: n, fx: 0.0, fy: 0.0, mz: m,
+        node_id: n, fx: 0.0, fz: 0.0, my: m,
     })];
     let input_a = make_beam(n, l, E, A, IZ, "fixed", Some("fixed"), loads_a);
     let res_a = linear::solve_2d(&input_a).unwrap();
     let theta_a = res_a.displacements.iter()
-        .find(|d| d.node_id == n).unwrap().rz;
+        .find(|d| d.node_id == n).unwrap().ry;
 
     // Case B: fixed at node 1, apply moment at node 2, rollerX (pinned) at node 3
     let loads_b = vec![SolverLoad::Nodal(SolverNodalLoad {
-        node_id: n, fx: 0.0, fy: 0.0, mz: m,
+        node_id: n, fx: 0.0, fz: 0.0, my: m,
     })];
     let input_b = make_beam(n, l, E, A, IZ, "fixed", Some("rollerX"), loads_b);
     let res_b = linear::solve_2d(&input_b).unwrap();
     let theta_b = res_b.displacements.iter()
-        .find(|d| d.node_id == n).unwrap().rz;
+        .find(|d| d.node_id == n).unwrap().ry;
 
     // From slope-deflection: M = K * θ, so θ = M / K
     // For two elements in series: the net rotation accounts for both spans.
@@ -470,7 +470,7 @@ fn validation_sdm_joint_equilibrium_all_joints() {
 
     // Verify global equilibrium as sanity check
     let total_load = q * (spans[0] + spans[1] + spans[2]);
-    let sum_ry: f64 = results.reactions.iter().map(|r| r.ry).sum();
+    let sum_ry: f64 = results.reactions.iter().map(|r| r.rz).sum();
     assert_close(sum_ry, -total_load, 0.01,
         "SDM Q8: ΣRy = total load (global equilibrium)");
 }

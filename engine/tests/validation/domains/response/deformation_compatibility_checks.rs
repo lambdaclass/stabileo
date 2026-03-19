@@ -72,12 +72,12 @@ fn validation_rotation_continuous_multi_element_beam() {
             * (l.powi(3) - 6.0 * l * x.powi(2) + 4.0 * x.powi(3));
 
         let tol = 0.02;
-        let diff = (d.rz.abs() - theta_analytical.abs()).abs();
+        let diff = (d.ry.abs() - theta_analytical.abs()).abs();
         let denom = theta_analytical.abs().max(1e-6);
         assert!(
             diff / denom < tol || diff < 1e-8,
             "Node {}: |rz|={:.8}, expected |theta|={:.8}, rel_err={:.4}%",
-            node_id, d.rz.abs(), theta_analytical.abs(), diff / denom * 100.0
+            node_id, d.ry.abs(), theta_analytical.abs(), diff / denom * 100.0
         );
     }
 }
@@ -119,7 +119,7 @@ fn validation_displacement_continuous_multi_element_beam() {
             * (l.powi(3) - 2.0 * l * x.powi(2) + x.powi(3));
 
         // Solver convention: downward load gives negative uy
-        let uy_magnitude = d.uy.abs();
+        let uy_magnitude = d.uz.abs();
         let v_magnitude = v_analytical.abs();
 
         let tol = 0.02;
@@ -171,10 +171,10 @@ fn validation_portal_frame_corner_compatibility() {
     );
 
     // Both corners must have non-zero rotation (rigid joints transfer moment)
-    assert!(d2.rz.abs() > 1e-10,
-        "Corner node 2 must have non-zero rotation, got rz={:.2e}", d2.rz);
-    assert!(d3.rz.abs() > 1e-10,
-        "Corner node 3 must have non-zero rotation, got rz={:.2e}", d3.rz);
+    assert!(d2.ry.abs() > 1e-10,
+        "Corner node 2 must have non-zero rotation, got rz={:.2e}", d2.ry);
+    assert!(d3.ry.abs() > 1e-10,
+        "Corner node 3 must have non-zero rotation, got rz={:.2e}", d3.ry);
 
     // The displacement at each corner is unique — verify there is only one
     // displacement entry per node (the FEM guarantees this).
@@ -227,7 +227,7 @@ fn validation_t_junction_rotation_compatibility() {
         ],
         vec![(1, 1, "pinned"), (2, 3, "rollerX")],
         vec![SolverLoad::Nodal(SolverNodalLoad {
-            node_id: 4, fx: p, fy: 0.0, mz: 0.0,
+            node_id: 4, fx: p, fz: 0.0, my: 0.0,
         })],
     );
     let results = linear::solve_2d(&input).unwrap();
@@ -242,8 +242,8 @@ fn validation_t_junction_rotation_compatibility() {
 
     // The rotation at node 2 must be non-zero (moment is transferred
     // through the rigid joint from the post to the beam)
-    assert!(d2.rz.abs() > 1e-10,
-        "T-junction: node 2 rz must be non-zero, got {:.2e}", d2.rz);
+    assert!(d2.ry.abs() > 1e-10,
+        "T-junction: node 2 rz must be non-zero, got {:.2e}", d2.ry);
 
     // All three elements meeting at node 2 must carry moment.
     // Element 1 end (node_j = 2) should have non-zero m_end.
@@ -319,11 +319,11 @@ fn validation_hinge_allows_rotation_discontinuity() {
     // The node displacement is well-defined even though rotations differ
     // on each side of the hinge (the solver resolves this internally).
     let d2 = results.displacements.iter().find(|d| d.node_id == 2).unwrap();
-    assert!(d2.uy.abs() > 1e-10,
+    assert!(d2.uz.abs() > 1e-10,
         "Hinge node should have non-zero vertical displacement");
 
     // Equilibrium check
-    let sum_ry: f64 = results.reactions.iter().map(|r| r.ry).sum();
+    let sum_ry: f64 = results.reactions.iter().map(|r| r.rz).sum();
     assert_close(sum_ry, q * l, 0.02, "Hinge beam: sum_Ry = qL");
 }
 
@@ -367,24 +367,24 @@ fn validation_fixed_support_zero_displacement() {
     let d1 = results.displacements.iter().find(|d| d.node_id == 1).unwrap();
     assert!(d1.ux.abs() < 1e-8,
         "Fixed left: ux should be 0, got {:.2e}", d1.ux);
-    assert!(d1.uy.abs() < 1e-8,
-        "Fixed left: uy should be 0, got {:.2e}", d1.uy);
-    assert!(d1.rz.abs() < 1e-8,
-        "Fixed left: rz should be 0, got {:.2e}", d1.rz);
+    assert!(d1.uz.abs() < 1e-8,
+        "Fixed left: uy should be 0, got {:.2e}", d1.uz);
+    assert!(d1.ry.abs() < 1e-8,
+        "Fixed left: rz should be 0, got {:.2e}", d1.ry);
 
     // Node n_nodes (right fixed support): ux=uy=rz=0
     let d_end = results.displacements.iter().find(|d| d.node_id == n_nodes).unwrap();
     assert!(d_end.ux.abs() < 1e-8,
         "Fixed right: ux should be 0, got {:.2e}", d_end.ux);
-    assert!(d_end.uy.abs() < 1e-8,
-        "Fixed right: uy should be 0, got {:.2e}", d_end.uy);
-    assert!(d_end.rz.abs() < 1e-8,
-        "Fixed right: rz should be 0, got {:.2e}", d_end.rz);
+    assert!(d_end.uz.abs() < 1e-8,
+        "Fixed right: uy should be 0, got {:.2e}", d_end.uz);
+    assert!(d_end.ry.abs() < 1e-8,
+        "Fixed right: rz should be 0, got {:.2e}", d_end.ry);
 
     // Interior nodes should have non-zero uy (beam deflects under load)
     let d_mid = results.displacements.iter().find(|d| d.node_id == n / 2 + 1).unwrap();
-    assert!(d_mid.uy.abs() > 1e-10,
-        "Fixed-fixed beam: midspan should deflect, got uy={:.2e}", d_mid.uy);
+    assert!(d_mid.uz.abs() > 1e-10,
+        "Fixed-fixed beam: midspan should deflect, got uy={:.2e}", d_mid.uz);
 }
 
 // ================================================================
@@ -418,26 +418,26 @@ fn validation_pinned_support_zero_translation_nonzero_rotation() {
     let d1 = results.displacements.iter().find(|d| d.node_id == 1).unwrap();
     assert!(d1.ux.abs() < 1e-8,
         "Pinned left: ux should be 0, got {:.2e}", d1.ux);
-    assert!(d1.uy.abs() < 1e-8,
-        "Pinned left: uy should be 0, got {:.2e}", d1.uy);
+    assert!(d1.uz.abs() < 1e-8,
+        "Pinned left: uy should be 0, got {:.2e}", d1.uz);
 
     // Node 1 rotation should be non-zero
     // Analytical: theta_left = +qL^3/(24EI) for downward load
     let theta_analytical = q * l.powi(3) / (24.0 * e_eff * IZ);
-    assert!(d1.rz.abs() > 1e-10,
-        "Pinned left: rz should be non-zero, got {:.2e}", d1.rz);
-    assert_close(d1.rz.abs(), theta_analytical, 0.02,
+    assert!(d1.ry.abs() > 1e-10,
+        "Pinned left: rz should be non-zero, got {:.2e}", d1.ry);
+    assert_close(d1.ry.abs(), theta_analytical, 0.02,
         "Pinned left: rz matches beam theory");
 
     // Node n_nodes (rollerX): uy = 0, but rz != 0
     let d_end = results.displacements.iter().find(|d| d.node_id == n_nodes).unwrap();
-    assert!(d_end.uy.abs() < 1e-8,
-        "Roller right: uy should be 0, got {:.2e}", d_end.uy);
-    assert!(d_end.rz.abs() > 1e-10,
-        "Roller right: rz should be non-zero, got {:.2e}", d_end.rz);
+    assert!(d_end.uz.abs() < 1e-8,
+        "Roller right: uy should be 0, got {:.2e}", d_end.uz);
+    assert!(d_end.ry.abs() > 1e-10,
+        "Roller right: rz should be non-zero, got {:.2e}", d_end.ry);
 
     // By symmetry of SS beam with symmetric UDL, end slopes are equal in magnitude
-    assert_close(d1.rz.abs(), d_end.rz.abs(), 0.01,
+    assert_close(d1.ry.abs(), d_end.ry.abs(), 0.01,
         "SS beam symmetric UDL: |rz_left| = |rz_right|");
 }
 
@@ -470,14 +470,14 @@ fn validation_axial_compatibility_portal_frame() {
     let d3 = results.displacements.iter().find(|d| d.node_id == 3).unwrap();
 
     // Both top nodes should deflect downward (negative uy) under gravity
-    assert!(d2.uy < 0.0,
-        "Axial compat: node 2 uy should be negative (downward), got {:.8}", d2.uy);
-    assert!(d3.uy < 0.0,
-        "Axial compat: node 3 uy should be negative (downward), got {:.8}", d3.uy);
+    assert!(d2.uz < 0.0,
+        "Axial compat: node 2 uy should be negative (downward), got {:.8}", d2.uz);
+    assert!(d3.uz < 0.0,
+        "Axial compat: node 3 uy should be negative (downward), got {:.8}", d3.uz);
 
     // By symmetry (equal gravity loads, symmetric geometry), the vertical
     // displacement at nodes 2 and 3 should be equal.
-    assert_close(d2.uy, d3.uy, 0.01,
+    assert_close(d2.uz, d3.uz, 0.01,
         "Axial compat: uy at node 2 and node 3 should be equal by symmetry");
 
     // The beam (element 2, nodes 2-3) is horizontal. The vertical displacement
@@ -492,7 +492,7 @@ fn validation_axial_compatibility_portal_frame() {
     // The vertical displacement at the top should be approximately equal
     // to the column axial shortening (there is also some beam bending
     // contribution, but it's small for equal loads).
-    assert_close(d2.uy.abs(), delta_axial, 0.02,
+    assert_close(d2.uz.abs(), delta_axial, 0.02,
         "Axial compat: uy at top ~ column axial shortening PL/(EA)");
 
     // The beam's end forces should show consistent behavior:
@@ -504,7 +504,7 @@ fn validation_axial_compatibility_portal_frame() {
         ef_beam.v_start);
 
     // Global equilibrium
-    let sum_ry: f64 = results.reactions.iter().map(|r| r.ry).sum();
+    let sum_ry: f64 = results.reactions.iter().map(|r| r.rz).sum();
     assert_close(sum_ry, 2.0 * p_grav.abs(), 0.01,
         "Axial compat: sum_Ry = 2*P_gravity");
 }

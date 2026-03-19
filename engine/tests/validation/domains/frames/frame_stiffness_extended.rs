@@ -44,27 +44,27 @@ fn validation_ext_propped_cantilever_point_load() {
 
     let input = make_beam(n, l, E, A, IZ, "fixed", Some("rollerX"),
         vec![SolverLoad::Nodal(SolverNodalLoad {
-            node_id: mid_node, fx: 0.0, fy: -p, mz: 0.0,
+            node_id: mid_node, fx: 0.0, fz: -p, my: 0.0,
         })]);
     let results = linear::solve_2d(&input).unwrap();
 
     // Analytical midspan deflection: 7PL^3 / (768 EI)
     let delta_expected = 7.0 * p * l.powi(3) / (768.0 * e_eff * IZ);
     let delta_actual = results.displacements.iter()
-        .find(|d| d.node_id == mid_node).unwrap().uy.abs();
+        .find(|d| d.node_id == mid_node).unwrap().uz.abs();
     assert_close(delta_actual, delta_expected, 0.02, "Propped cantilever midspan deflection");
 
     // Roller reaction (right end, node n+1) = 5P/16
     let r_right_expected = 5.0 * p / 16.0;
     let n_nodes = n + 1;
     let r_right_actual = results.reactions.iter()
-        .find(|r| r.node_id == n_nodes).unwrap().ry;
+        .find(|r| r.node_id == n_nodes).unwrap().rz;
     assert_close(r_right_actual, r_right_expected, 0.02, "Propped cantilever roller reaction");
 
     // Fixed-end moment at left support = 3PL/16 (positive = CCW)
     let m_fixed_expected = 3.0 * p * l / 16.0;
     let m_fixed_actual = results.reactions.iter()
-        .find(|r| r.node_id == 1).unwrap().mz;
+        .find(|r| r.node_id == 1).unwrap().my;
     assert_close(m_fixed_actual.abs(), m_fixed_expected, 0.02, "Propped cantilever fixed-end moment");
 }
 
@@ -103,17 +103,17 @@ fn validation_ext_fixed_fixed_beam_udl() {
     let delta_expected = w * l.powi(4) / (384.0 * e_eff * IZ);
     let mid_node = n / 2 + 1;
     let delta_actual = results.displacements.iter()
-        .find(|d| d.node_id == mid_node).unwrap().uy.abs();
+        .find(|d| d.node_id == mid_node).unwrap().uz.abs();
     assert_close(delta_actual, delta_expected, 0.02, "Fixed-fixed UDL midspan deflection");
 
     // End moments: wL^2/12
     let m_end_expected = w * l.powi(2) / 12.0;
-    let m_left = results.reactions.iter().find(|r| r.node_id == 1).unwrap().mz.abs();
+    let m_left = results.reactions.iter().find(|r| r.node_id == 1).unwrap().my.abs();
     assert_close(m_left, m_end_expected, 0.02, "Fixed-fixed UDL end moment");
 
     // Reactions: wL/2 each
     let r_expected = w * l / 2.0;
-    let r_left = results.reactions.iter().find(|r| r.node_id == 1).unwrap().ry;
+    let r_left = results.reactions.iter().find(|r| r.node_id == 1).unwrap().rz;
     assert_close(r_left, r_expected, 0.02, "Fixed-fixed UDL vertical reaction");
 }
 
@@ -137,20 +137,20 @@ fn validation_ext_cantilever_end_moment() {
 
     let input = make_beam(n, l, E, A, IZ, "fixed", None,
         vec![SolverLoad::Nodal(SolverNodalLoad {
-            node_id: tip_node, fx: 0.0, fy: 0.0, mz: m_app,
+            node_id: tip_node, fx: 0.0, fz: 0.0, my: m_app,
         })]);
     let results = linear::solve_2d(&input).unwrap();
 
     // Tip rotation: ML/(EI)
     let theta_expected = m_app * l / (e_eff * IZ);
     let theta_actual = results.displacements.iter()
-        .find(|d| d.node_id == tip_node).unwrap().rz;
+        .find(|d| d.node_id == tip_node).unwrap().ry;
     assert_close(theta_actual.abs(), theta_expected, 0.02, "Cantilever end moment: tip rotation");
 
     // Tip deflection: ML^2/(2EI)
     let delta_expected = m_app * l.powi(2) / (2.0 * e_eff * IZ);
     let delta_actual = results.displacements.iter()
-        .find(|d| d.node_id == tip_node).unwrap().uy;
+        .find(|d| d.node_id == tip_node).unwrap().uz;
     assert_close(delta_actual.abs(), delta_expected, 0.02, "Cantilever end moment: tip deflection");
 
     // Shear at fixed support should be zero (pure bending)
@@ -194,17 +194,17 @@ fn validation_ext_two_span_continuous_udl() {
     // Interior support node: node at x = span
     let center_node = n_per_span + 1;
     let r_center = results.reactions.iter()
-        .find(|r| r.node_id == center_node).unwrap().ry;
+        .find(|r| r.node_id == center_node).unwrap().rz;
     let r_center_expected = 5.0 * w * span / 4.0;
     assert_close(r_center, r_center_expected, 0.02, "Two-span center reaction");
 
     // End reactions = 3wL/8
-    let r_left = results.reactions.iter().find(|r| r.node_id == 1).unwrap().ry;
+    let r_left = results.reactions.iter().find(|r| r.node_id == 1).unwrap().rz;
     let r_left_expected = 3.0 * w * span / 8.0;
     assert_close(r_left, r_left_expected, 0.02, "Two-span left end reaction");
 
     // Global equilibrium: sum Ry = 2wL
-    let sum_ry: f64 = results.reactions.iter().map(|r| r.ry).sum();
+    let sum_ry: f64 = results.reactions.iter().map(|r| r.rz).sum();
     let total_load = 2.0 * w * span;
     assert_close(sum_ry, total_load, 0.01, "Two-span equilibrium");
 }
@@ -245,8 +245,8 @@ fn validation_ext_portal_beam_udl_moments() {
     let results = linear::solve_2d(&input).unwrap();
 
     // Symmetry: both base moments should be equal in magnitude
-    let m_left = results.reactions.iter().find(|r| r.node_id == 1).unwrap().mz;
-    let m_right = results.reactions.iter().find(|r| r.node_id == 4).unwrap().mz;
+    let m_left = results.reactions.iter().find(|r| r.node_id == 1).unwrap().my;
+    let m_right = results.reactions.iter().find(|r| r.node_id == 4).unwrap().my;
     let diff = (m_left.abs() - m_right.abs()).abs();
     let avg = (m_left.abs() + m_right.abs()) / 2.0;
     assert!(diff / avg.max(1e-12) < 0.01,
@@ -275,7 +275,7 @@ fn validation_ext_portal_beam_udl_moments() {
         m_left.abs(), m_base_approx * 0.5, fem_beam);
 
     // Vertical equilibrium: sum Ry = qL
-    let sum_ry: f64 = results.reactions.iter().map(|r| r.ry).sum();
+    let sum_ry: f64 = results.reactions.iter().map(|r| r.rz).sum();
     let total_load = q * w_span;
     assert_close(sum_ry, total_load, 0.01, "Portal UDL vertical equilibrium");
 }
@@ -303,7 +303,7 @@ fn validation_ext_fixed_pinned_third_point_load() {
 
     let input = make_beam(n, l, E, A, IZ, "fixed", Some("pinned"),
         vec![SolverLoad::Nodal(SolverNodalLoad {
-            node_id: load_node, fx: 0.0, fy: -p, mz: 0.0,
+            node_id: load_node, fx: 0.0, fz: -p, my: 0.0,
         })]);
     let results = linear::solve_2d(&input).unwrap();
 
@@ -312,18 +312,18 @@ fn validation_ext_fixed_pinned_third_point_load() {
     let r_right_expected = p * a_pos.powi(2) * (3.0 * l - a_pos) / (2.0 * l.powi(3));
     let n_nodes = n + 1;
     let r_right = results.reactions.iter()
-        .find(|r| r.node_id == n_nodes).unwrap().ry;
+        .find(|r| r.node_id == n_nodes).unwrap().rz;
     assert_close(r_right, r_right_expected, 0.02, "Fixed-pinned Rb at L/3 load");
 
     // Left reaction by equilibrium
     let r_left_expected = p - r_right_expected;
-    let r_left = results.reactions.iter().find(|r| r.node_id == 1).unwrap().ry;
+    let r_left = results.reactions.iter().find(|r| r.node_id == 1).unwrap().rz;
     assert_close(r_left, r_left_expected, 0.02, "Fixed-pinned Ra at L/3 load");
 
     // Fixed-end moment at left:
     // M_A = -Pab(L + b) / (2L^2)
     let m_fixed_expected = p * a_pos * b_pos * (l + b_pos) / (2.0 * l.powi(2));
-    let m_fixed = results.reactions.iter().find(|r| r.node_id == 1).unwrap().mz;
+    let m_fixed = results.reactions.iter().find(|r| r.node_id == 1).unwrap().my;
     // The sign convention: positive counterclockwise. The fixed moment resists
     // the load, so it should be positive (counterclockwise) for downward load at L/3.
     assert_close(m_fixed.abs(), m_fixed_expected, 0.03, "Fixed-pinned fixed-end moment");
@@ -364,10 +364,10 @@ fn validation_ext_three_span_continuous_symmetry() {
     let node_c = 2 * n_per_span + 1;      // 2nd interior
     let node_d = 3 * n_per_span + 1;      // right end
 
-    let r_a = results.reactions.iter().find(|r| r.node_id == node_a).unwrap().ry;
-    let r_b = results.reactions.iter().find(|r| r.node_id == node_b).unwrap().ry;
-    let r_c = results.reactions.iter().find(|r| r.node_id == node_c).unwrap().ry;
-    let r_d = results.reactions.iter().find(|r| r.node_id == node_d).unwrap().ry;
+    let r_a = results.reactions.iter().find(|r| r.node_id == node_a).unwrap().rz;
+    let r_b = results.reactions.iter().find(|r| r.node_id == node_b).unwrap().rz;
+    let r_c = results.reactions.iter().find(|r| r.node_id == node_c).unwrap().rz;
+    let r_d = results.reactions.iter().find(|r| r.node_id == node_d).unwrap().rz;
 
     // Symmetry: R_A = R_D and R_B = R_C
     assert_close(r_a, r_d, 0.02, "Three-span symmetry: R_A vs R_D");
@@ -380,7 +380,7 @@ fn validation_ext_three_span_continuous_symmetry() {
     assert_close(r_b, r_int_expected, 0.02, "Three-span interior reaction");
 
     // Global equilibrium: sum Ry = 3wL
-    let sum_ry: f64 = results.reactions.iter().map(|r| r.ry).sum();
+    let sum_ry: f64 = results.reactions.iter().map(|r| r.rz).sum();
     let total_load = 3.0 * w * span;
     assert_close(sum_ry, total_load, 0.01, "Three-span equilibrium");
 }
@@ -419,19 +419,19 @@ fn validation_ext_propped_cantilever_udl() {
 
     // Fixed-end moment: wL^2/8
     let m_fixed_expected = w * l.powi(2) / 8.0;
-    let m_fixed = results.reactions.iter().find(|r| r.node_id == 1).unwrap().mz;
+    let m_fixed = results.reactions.iter().find(|r| r.node_id == 1).unwrap().my;
     assert_close(m_fixed.abs(), m_fixed_expected, 0.02, "Propped cantilever UDL fixed moment");
 
     // Roller reaction: 3wL/8
     let n_nodes = n + 1;
     let r_roller_expected = 3.0 * w * l / 8.0;
     let r_roller = results.reactions.iter()
-        .find(|r| r.node_id == n_nodes).unwrap().ry;
+        .find(|r| r.node_id == n_nodes).unwrap().rz;
     assert_close(r_roller, r_roller_expected, 0.02, "Propped cantilever UDL roller reaction");
 
     // Fixed reaction: 5wL/8
     let r_fixed_expected = 5.0 * w * l / 8.0;
-    let r_fixed = results.reactions.iter().find(|r| r.node_id == 1).unwrap().ry;
+    let r_fixed = results.reactions.iter().find(|r| r.node_id == 1).unwrap().rz;
     assert_close(r_fixed, r_fixed_expected, 0.02, "Propped cantilever UDL fixed reaction");
 
     // Max deflection: wL^4 / (185 EI) approximately (exact = wL^4/(185.2 EI))
@@ -439,7 +439,7 @@ fn validation_ext_propped_cantilever_udl() {
     let delta_max_expected = w * l.powi(4) / (185.0 * e_eff * IZ);
     // Find max deflection among all nodes
     let delta_max_actual = results.displacements.iter()
-        .map(|d| d.uy.abs())
+        .map(|d| d.uz.abs())
         .fold(0.0_f64, f64::max);
     assert_close(delta_max_actual, delta_max_expected, 0.03, "Propped cantilever UDL max deflection");
 }

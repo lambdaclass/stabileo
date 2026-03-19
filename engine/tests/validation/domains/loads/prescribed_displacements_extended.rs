@@ -48,7 +48,7 @@ fn build_beam_maps(
     for i in 0..n_nodes {
         nodes_map.insert(
             (i + 1).to_string(),
-            SolverNode { id: i + 1, x: i as f64 * elem_len, y: 0.0 },
+            SolverNode { id: i + 1, x: i as f64 * elem_len, z: 0.0 },
         );
     }
     let mut mats_map = HashMap::new();
@@ -101,12 +101,12 @@ fn test_fixed_fixed_beam_support_settlement() {
     sups_map.insert("1".to_string(), SolverSupport {
         id: 1, node_id: 1, support_type: "fixed".to_string(),
         kx: None, ky: None, kz: None,
-        dx: None, dy: None, drz: None, angle: None,
+        dx: None, dz: None, dry: None, angle: None,
     });
     sups_map.insert("2".to_string(), SolverSupport {
         id: 2, node_id: n_nodes, support_type: "fixed".to_string(),
         kx: None, ky: None, kz: None,
-        dx: None, dy: Some(-delta), drz: None, angle: None,
+        dx: None, dz: Some(-delta), dry: None, angle: None,
     });
 
     let input = SolverInput {
@@ -123,23 +123,23 @@ fn test_fixed_fixed_beam_support_settlement() {
     let r_right = results.reactions.iter().find(|r| r.node_id == n_nodes).unwrap();
 
     // Both end moments should equal 6EI*delta/L^2
-    assert_close(r_left.mz.abs(), m_exact, 0.03,
+    assert_close(r_left.my.abs(), m_exact, 0.03,
         "Fixed-fixed settlement: |M_left| = 6EI*delta/L^2");
-    assert_close(r_right.mz.abs(), m_exact, 0.03,
+    assert_close(r_right.my.abs(), m_exact, 0.03,
         "Fixed-fixed settlement: |M_right| = 6EI*delta/L^2");
 
     // Shear = 12EI*delta/L^3
-    assert_close(r_left.ry.abs(), v_exact, 0.03,
+    assert_close(r_left.rz.abs(), v_exact, 0.03,
         "Fixed-fixed settlement: |V| = 12EI*delta/L^3");
 
     // Equilibrium: sum of vertical reactions = 0 (no external loads)
-    let sum_ry: f64 = results.reactions.iter().map(|r| r.ry).sum();
+    let sum_ry: f64 = results.reactions.iter().map(|r| r.rz).sum();
     assert!(sum_ry.abs() < v_exact * 0.02,
         "Fixed-fixed settlement equilibrium: sum_Ry={:.6}", sum_ry);
 
     // Prescribed displacement check
     let d_right = results.displacements.iter().find(|d| d.node_id == n_nodes).unwrap();
-    assert_close(d_right.uy, -delta, 0.01,
+    assert_close(d_right.uz, -delta, 0.01,
         "Fixed-fixed settlement: uy at right = -delta");
 }
 
@@ -167,12 +167,12 @@ fn test_propped_cantilever_roller_settlement() {
     sups_map.insert("1".to_string(), SolverSupport {
         id: 1, node_id: 1, support_type: "fixed".to_string(),
         kx: None, ky: None, kz: None,
-        dx: None, dy: None, drz: None, angle: None,
+        dx: None, dz: None, dry: None, angle: None,
     });
     sups_map.insert("2".to_string(), SolverSupport {
         id: 2, node_id: n_nodes, support_type: "rollerX".to_string(),
         kx: None, ky: None, kz: None,
-        dx: None, dy: Some(-delta), drz: None, angle: None,
+        dx: None, dz: Some(-delta), dry: None, angle: None,
     });
 
     let input = SolverInput {
@@ -184,23 +184,23 @@ fn test_propped_cantilever_roller_settlement() {
     // M_fixed = 3EI*delta/L^2
     let m_exact: f64 = 3.0 * ei * delta / (l * l);
     let r_left = results.reactions.iter().find(|r| r.node_id == 1).unwrap();
-    assert_close(r_left.mz.abs(), m_exact, 0.03,
+    assert_close(r_left.my.abs(), m_exact, 0.03,
         "Propped cantilever settlement: |M_fixed| = 3EI*delta/L^2");
 
     // R_roller = 3EI*delta/L^3
     let v_exact: f64 = 3.0 * ei * delta / (l * l * l);
     let r_right = results.reactions.iter().find(|r| r.node_id == n_nodes).unwrap();
-    assert_close(r_right.ry.abs(), v_exact, 0.03,
+    assert_close(r_right.rz.abs(), v_exact, 0.03,
         "Propped cantilever settlement: |R_roller| = 3EI*delta/L^3");
 
     // Equilibrium: sum Ry = 0
-    let sum_ry: f64 = results.reactions.iter().map(|r| r.ry).sum();
+    let sum_ry: f64 = results.reactions.iter().map(|r| r.rz).sum();
     assert!(sum_ry.abs() < v_exact * 0.02,
         "Propped cantilever settlement equilibrium: sum_Ry={:.6}", sum_ry);
 
     // Prescribed displacement at roller
     let d_right = results.displacements.iter().find(|d| d.node_id == n_nodes).unwrap();
-    assert_close(d_right.uy, -delta, 0.01,
+    assert_close(d_right.uz, -delta, 0.01,
         "Propped cantilever settlement: uy at roller = -delta");
 }
 
@@ -228,7 +228,7 @@ fn test_two_span_interior_support_settlement() {
     for i in 0..n_nodes {
         nodes_map.insert(
             (i + 1).to_string(),
-            SolverNode { id: i + 1, x: i as f64 * elem_len, y: 0.0 },
+            SolverNode { id: i + 1, x: i as f64 * elem_len, z: 0.0 },
         );
     }
     let mut mats_map = HashMap::new();
@@ -253,17 +253,17 @@ fn test_two_span_interior_support_settlement() {
     sups_map.insert("1".to_string(), SolverSupport {
         id: 1, node_id: 1, support_type: "pinned".to_string(),
         kx: None, ky: None, kz: None,
-        dx: None, dy: None, drz: None, angle: None,
+        dx: None, dz: None, dry: None, angle: None,
     });
     sups_map.insert("2".to_string(), SolverSupport {
         id: 2, node_id: mid_node, support_type: "rollerX".to_string(),
         kx: None, ky: None, kz: None,
-        dx: None, dy: Some(-delta), drz: None, angle: None,
+        dx: None, dz: Some(-delta), dry: None, angle: None,
     });
     sups_map.insert("3".to_string(), SolverSupport {
         id: 3, node_id: n_nodes, support_type: "rollerX".to_string(),
         kx: None, ky: None, kz: None,
-        dx: None, dy: None, drz: None, angle: None,
+        dx: None, dz: None, dry: None, angle: None,
     });
 
     let input = SolverInput {
@@ -273,29 +273,29 @@ fn test_two_span_interior_support_settlement() {
     let results = linear::solve_2d(&input).unwrap();
 
     // Equilibrium: sum Ry = 0
-    let sum_ry: f64 = results.reactions.iter().map(|r| r.ry).sum();
+    let sum_ry: f64 = results.reactions.iter().map(|r| r.rz).sum();
     assert!(sum_ry.abs() < 0.01,
         "Two-span settlement equilibrium: sum_Ry={:.6}", sum_ry);
 
     // Interior support displacement must match prescribed value
     let d_mid = results.displacements.iter().find(|d| d.node_id == mid_node).unwrap();
-    assert_close(d_mid.uy, -delta, 0.01,
+    assert_close(d_mid.uz, -delta, 0.01,
         "Two-span settlement: uy at mid = -delta");
 
     // Settlement should induce a non-zero reaction at the interior support
     let r_mid = results.reactions.iter().find(|r| r.node_id == mid_node).unwrap();
-    assert!(r_mid.ry.abs() > 0.1,
-        "Two-span settlement: interior reaction is non-zero: Ry={:.6}", r_mid.ry);
+    assert!(r_mid.rz.abs() > 0.1,
+        "Two-span settlement: interior reaction is non-zero: Ry={:.6}", r_mid.rz);
 
     // Settlement induces moments in elements near the interior support.
     // By symmetry (equal spans), end-span element forces on each side of mid
     // should have equal magnitudes.
     let r_left = results.reactions.iter().find(|r| r.node_id == 1).unwrap();
     let r_right = results.reactions.iter().find(|r| r.node_id == n_nodes).unwrap();
-    let diff: f64 = (r_left.ry.abs() - r_right.ry.abs()).abs();
-    let max_r: f64 = r_left.ry.abs().max(r_right.ry.abs()).max(1e-10);
+    let diff: f64 = (r_left.rz.abs() - r_right.rz.abs()).abs();
+    let max_r: f64 = r_left.rz.abs().max(r_right.rz.abs()).max(1e-10);
     assert!(diff / max_r < 0.03,
-        "Two-span settlement symmetry: R_left={:.6}, R_right={:.6}", r_left.ry, r_right.ry);
+        "Two-span settlement symmetry: R_left={:.6}, R_right={:.6}", r_left.rz, r_right.rz);
 }
 
 // ================================================================
@@ -315,7 +315,7 @@ fn test_portal_frame_differential_settlement() {
 
     let mut nodes_map = HashMap::new();
     for &(id, x, y) in &[(1, 0.0, 0.0), (2, 0.0, h), (3, w, h), (4, w, 0.0)] {
-        nodes_map.insert(id.to_string(), SolverNode { id, x, y });
+        nodes_map.insert(id.to_string(), SolverNode { id, x, z: y });
     }
     let mut mats_map = HashMap::new();
     mats_map.insert("1".to_string(), SolverMaterial { id: 1, e: E, nu: 0.3 });
@@ -333,12 +333,12 @@ fn test_portal_frame_differential_settlement() {
     sups_map.insert("1".to_string(), SolverSupport {
         id: 1, node_id: 1, support_type: "fixed".to_string(),
         kx: None, ky: None, kz: None,
-        dx: None, dy: None, drz: None, angle: None,
+        dx: None, dz: None, dry: None, angle: None,
     });
     sups_map.insert("2".to_string(), SolverSupport {
         id: 2, node_id: 4, support_type: "fixed".to_string(),
         kx: None, ky: None, kz: None,
-        dx: None, dy: Some(-delta), drz: None, angle: None,
+        dx: None, dz: Some(-delta), dry: None, angle: None,
     });
 
     let input = SolverInput {
@@ -348,7 +348,7 @@ fn test_portal_frame_differential_settlement() {
     let results = linear::solve_2d(&input).unwrap();
 
     // Global equilibrium (no external loads): sum Ry = 0, sum Rx = 0
-    let sum_ry: f64 = results.reactions.iter().map(|r| r.ry).sum();
+    let sum_ry: f64 = results.reactions.iter().map(|r| r.rz).sum();
     let sum_rx: f64 = results.reactions.iter().map(|r| r.rx).sum();
     assert!(sum_ry.abs() < 0.01,
         "Portal settlement: sum_Ry should be ~0: {:.6}", sum_ry);
@@ -357,7 +357,7 @@ fn test_portal_frame_differential_settlement() {
 
     // Prescribed displacement at settling node
     let d4 = results.displacements.iter().find(|d| d.node_id == 4).unwrap();
-    assert_close(d4.uy, -delta, 0.01,
+    assert_close(d4.uz, -delta, 0.01,
         "Portal settlement: uy at node 4 = -delta");
 
     // Settlement induces sway at beam level: nodes 2 and 3 should have
@@ -379,7 +379,7 @@ fn test_portal_frame_differential_settlement() {
     // Moment equilibrium about any point: sum Mz + sum(Ry * x) + sum(Rx * y) = 0
     let r1 = results.reactions.iter().find(|r| r.node_id == 1).unwrap();
     let r4 = results.reactions.iter().find(|r| r.node_id == 4).unwrap();
-    let moment_about_origin: f64 = r1.mz + r4.mz + r4.ry * w;
+    let moment_about_origin: f64 = r1.my + r4.my + r4.rz * w;
     // r1 is at origin so its Ry*x = 0, Rx*y = 0
     // r4 is at (w, 0) so Ry*w contributes, Rx*0 = 0
     assert!(moment_about_origin.abs() < 1.0,
@@ -410,12 +410,12 @@ fn test_fixed_beam_prescribed_rotation() {
     sups_map.insert("1".to_string(), SolverSupport {
         id: 1, node_id: 1, support_type: "fixed".to_string(),
         kx: None, ky: None, kz: None,
-        dx: None, dy: None, drz: None, angle: None,
+        dx: None, dz: None, dry: None, angle: None,
     });
     sups_map.insert("2".to_string(), SolverSupport {
         id: 2, node_id: n_nodes, support_type: "fixed".to_string(),
         kx: None, ky: None, kz: None,
-        dx: None, dy: None, drz: Some(theta), angle: None,
+        dx: None, dz: None, dry: Some(theta), angle: None,
     });
 
     let input = SolverInput {
@@ -427,27 +427,27 @@ fn test_fixed_beam_prescribed_rotation() {
     // M_near (at B) = 4EI*theta/L
     let m_near: f64 = 4.0 * ei * theta / l;
     let r_right = results.reactions.iter().find(|r| r.node_id == n_nodes).unwrap();
-    assert_close(r_right.mz.abs(), m_near, 0.05,
+    assert_close(r_right.my.abs(), m_near, 0.05,
         "Prescribed rotation: |M_near| = 4EI*theta/L");
 
     // M_far (at A) = 2EI*theta/L (carry-over factor = 0.5)
     let m_far: f64 = 2.0 * ei * theta / l;
     let r_left = results.reactions.iter().find(|r| r.node_id == 1).unwrap();
-    assert_close(r_left.mz.abs(), m_far, 0.05,
+    assert_close(r_left.my.abs(), m_far, 0.05,
         "Prescribed rotation: |M_far| = 2EI*theta/L (COF=0.5)");
 
     // Shear V = 6EI*theta/L^2
     let v_exact: f64 = 6.0 * ei * theta / (l * l);
-    assert_close(r_left.ry.abs(), v_exact, 0.05,
+    assert_close(r_left.rz.abs(), v_exact, 0.05,
         "Prescribed rotation: |V| = 6EI*theta/L^2");
 
     // Prescribed rotation must be present in displacements
     let d_right = results.displacements.iter().find(|d| d.node_id == n_nodes).unwrap();
-    assert_close(d_right.rz, theta, 0.01,
+    assert_close(d_right.ry, theta, 0.01,
         "Prescribed rotation: rz at right = theta");
 
     // Equilibrium
-    let sum_ry: f64 = results.reactions.iter().map(|r| r.ry).sum();
+    let sum_ry: f64 = results.reactions.iter().map(|r| r.rz).sum();
     assert!(sum_ry.abs() < v_exact * 0.02,
         "Prescribed rotation equilibrium: sum_Ry={:.6}", sum_ry);
 }
@@ -472,12 +472,12 @@ fn test_ss_beam_equal_settlement_zero_forces() {
     sups_map.insert("1".to_string(), SolverSupport {
         id: 1, node_id: 1, support_type: "pinned".to_string(),
         kx: None, ky: None, kz: None,
-        dx: None, dy: Some(-delta), drz: None, angle: None,
+        dx: None, dz: Some(-delta), dry: None, angle: None,
     });
     sups_map.insert("2".to_string(), SolverSupport {
         id: 2, node_id: n_nodes, support_type: "rollerX".to_string(),
         kx: None, ky: None, kz: None,
-        dx: None, dy: Some(-delta), drz: None, angle: None,
+        dx: None, dz: Some(-delta), dry: None, angle: None,
     });
 
     let input = SolverInput {
@@ -500,14 +500,14 @@ fn test_ss_beam_equal_settlement_zero_forces() {
 
     // All nodes should have the same vertical displacement = -delta
     for d in &results.displacements {
-        assert_close(d.uy, -delta, 0.001,
+        assert_close(d.uz, -delta, 0.001,
             &format!("Equal SS settlement: all nodes at -delta, node {}", d.node_id));
     }
 
     // All reactions should be zero
     for r in &results.reactions {
-        assert!(r.ry.abs() < 1e-6,
-            "Equal SS settlement: Ry=0 at node {}, got {:.6e}", r.node_id, r.ry);
+        assert!(r.rz.abs() < 1e-6,
+            "Equal SS settlement: Ry=0 at node {}, got {:.6e}", r.node_id, r.rz);
     }
 }
 
@@ -553,7 +553,7 @@ fn test_continuous_beam_middle_settlement_symmetry() {
     for i in 0..n_nodes {
         nodes_map.insert(
             (i + 1).to_string(),
-            SolverNode { id: i + 1, x: i as f64 * elem_len, y: 0.0 },
+            SolverNode { id: i + 1, x: i as f64 * elem_len, z: 0.0 },
         );
     }
     let mut mats_map = HashMap::new();
@@ -579,13 +579,13 @@ fn test_continuous_beam_middle_settlement_symmetry() {
     sups_map.insert("1".to_string(), SolverSupport {
         id: 1, node_id: 1, support_type: "pinned".to_string(),
         kx: None, ky: None, kz: None,
-        dx: None, dy: None, drz: None, angle: None,
+        dx: None, dz: None, dry: None, angle: None,
     });
     // RollerX at middle with settlement
     sups_map.insert("2".to_string(), SolverSupport {
         id: 2, node_id: mid_node, support_type: "rollerX".to_string(),
         kx: None, ky: None, kz: None,
-        dx: None, dy: Some(-delta), drz: None, angle: None,
+        dx: None, dz: Some(-delta), dry: None, angle: None,
     });
     // RollerX at right end (use pinned for symmetry with left)
     // To have true symmetry, both end supports should be the same type.
@@ -596,7 +596,7 @@ fn test_continuous_beam_middle_settlement_symmetry() {
     sups_map.insert("3".to_string(), SolverSupport {
         id: 3, node_id: n_nodes, support_type: "rollerX".to_string(),
         kx: None, ky: None, kz: None,
-        dx: None, dy: None, drz: None, angle: None,
+        dx: None, dz: None, dry: None, angle: None,
     });
 
     let input = SolverInput {
@@ -608,19 +608,19 @@ fn test_continuous_beam_middle_settlement_symmetry() {
     // Symmetry: R_A (ry) should equal R_C (ry) in magnitude
     let r_left = results.reactions.iter().find(|r| r.node_id == 1).unwrap();
     let r_right = results.reactions.iter().find(|r| r.node_id == n_nodes).unwrap();
-    let diff_ry: f64 = (r_left.ry - r_right.ry).abs();
-    let max_ry: f64 = r_left.ry.abs().max(r_right.ry.abs()).max(1e-10);
+    let diff_ry: f64 = (r_left.rz - r_right.rz).abs();
+    let max_ry: f64 = r_left.rz.abs().max(r_right.rz.abs()).max(1e-10);
     assert!(diff_ry / max_ry < 0.03,
-        "Symmetry: R_left={:.6}, R_right={:.6}", r_left.ry, r_right.ry);
+        "Symmetry: R_left={:.6}, R_right={:.6}", r_left.rz, r_right.rz);
 
     // Equilibrium
-    let sum_ry: f64 = results.reactions.iter().map(|r| r.ry).sum();
+    let sum_ry: f64 = results.reactions.iter().map(|r| r.rz).sum();
     assert!(sum_ry.abs() < 0.01,
         "Continuous beam settlement equilibrium: sum_Ry={:.6}", sum_ry);
 
     // Prescribed displacement at middle
     let d_mid = results.displacements.iter().find(|d| d.node_id == mid_node).unwrap();
-    assert_close(d_mid.uy, -delta, 0.01,
+    assert_close(d_mid.uz, -delta, 0.01,
         "Continuous beam settlement: uy at mid = -delta");
 
     // By three-moment equation for equal spans with centre support settlement:
@@ -667,12 +667,12 @@ fn test_fixed_fixed_equal_settlement_zero_forces() {
     sups_map.insert("1".to_string(), SolverSupport {
         id: 1, node_id: 1, support_type: "fixed".to_string(),
         kx: None, ky: None, kz: None,
-        dx: None, dy: Some(-delta), drz: None, angle: None,
+        dx: None, dz: Some(-delta), dry: None, angle: None,
     });
     sups_map.insert("2".to_string(), SolverSupport {
         id: 2, node_id: n_nodes, support_type: "fixed".to_string(),
         kx: None, ky: None, kz: None,
-        dx: None, dy: Some(-delta), drz: None, angle: None,
+        dx: None, dz: Some(-delta), dry: None, angle: None,
     });
 
     let input = SolverInput {
@@ -697,21 +697,21 @@ fn test_fixed_fixed_equal_settlement_zero_forces() {
 
     // All nodes should have the same vertical displacement = -delta
     for d in &results.displacements {
-        assert_close(d.uy, -delta, 0.001,
+        assert_close(d.uz, -delta, 0.001,
             &format!("Equal fixed settlement: uy=-delta at node {}", d.node_id));
     }
 
     // All reactions should be zero (no load, rigid body motion only)
     for r in &results.reactions {
-        assert!(r.ry.abs() < 1e-6,
-            "Equal fixed settlement: Ry=0 at node {}, got {:.6e}", r.node_id, r.ry);
-        assert!(r.mz.abs() < 1e-6,
-            "Equal fixed settlement: Mz=0 at node {}, got {:.6e}", r.node_id, r.mz);
+        assert!(r.rz.abs() < 1e-6,
+            "Equal fixed settlement: Ry=0 at node {}, got {:.6e}", r.node_id, r.rz);
+        assert!(r.my.abs() < 1e-6,
+            "Equal fixed settlement: Mz=0 at node {}, got {:.6e}", r.node_id, r.my);
     }
 
     // Rotations should all be zero (pure translation, no chord rotation)
     for d in &results.displacements {
-        assert!(d.rz.abs() < 1e-8,
-            "Equal fixed settlement: rz=0 at node {}, got {:.6e}", d.node_id, d.rz);
+        assert!(d.ry.abs() < 1e-8,
+            "Equal fixed settlement: rz=0 at node {}, got {:.6e}", d.node_id, d.ry);
     }
 }

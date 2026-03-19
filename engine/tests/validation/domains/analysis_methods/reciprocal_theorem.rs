@@ -63,19 +63,19 @@ fn validation_reciprocal_unit_load_quarter_span() {
 
     // System 1: unit load at A, measure uy at B
     let loads_1 = vec![SolverLoad::Nodal(SolverNodalLoad {
-        node_id: node_a, fx: 0.0, fy: -p, mz: 0.0,
+        node_id: node_a, fx: 0.0, fz: -p, my: 0.0,
     })];
     let input_1 = make_beam(n, l, E, A, IZ, "pinned", Some("rollerX"), loads_1);
     let d_b_from_a = linear::solve_2d(&input_1).unwrap()
-        .displacements.iter().find(|d| d.node_id == node_b).unwrap().uy;
+        .displacements.iter().find(|d| d.node_id == node_b).unwrap().uz;
 
     // System 2: unit load at B, measure uy at A
     let loads_2 = vec![SolverLoad::Nodal(SolverNodalLoad {
-        node_id: node_b, fx: 0.0, fy: -p, mz: 0.0,
+        node_id: node_b, fx: 0.0, fz: -p, my: 0.0,
     })];
     let input_2 = make_beam(n, l, E, A, IZ, "pinned", Some("rollerX"), loads_2);
     let d_a_from_b = linear::solve_2d(&input_2).unwrap()
-        .displacements.iter().find(|d| d.node_id == node_a).unwrap().uy;
+        .displacements.iter().find(|d| d.node_id == node_a).unwrap().uz;
 
     // Maxwell: δ_BA = δ_AB
     assert_close(d_b_from_a, d_a_from_b, 0.01,
@@ -103,19 +103,19 @@ fn validation_reciprocal_rotations() {
 
     // Unit moment at A, measure θ at B
     let loads_a = vec![SolverLoad::Nodal(SolverNodalLoad {
-        node_id: node_a, fx: 0.0, fy: 0.0, mz: m,
+        node_id: node_a, fx: 0.0, fz: 0.0, my: m,
     })];
     let input_a = make_beam(n, l, E, A, IZ, "pinned", Some("rollerX"), loads_a);
     let theta_b_from_a = linear::solve_2d(&input_a).unwrap()
-        .displacements.iter().find(|d| d.node_id == node_b).unwrap().rz;
+        .displacements.iter().find(|d| d.node_id == node_b).unwrap().ry;
 
     // Unit moment at B, measure θ at A
     let loads_b = vec![SolverLoad::Nodal(SolverNodalLoad {
-        node_id: node_b, fx: 0.0, fy: 0.0, mz: m,
+        node_id: node_b, fx: 0.0, fz: 0.0, my: m,
     })];
     let input_b = make_beam(n, l, E, A, IZ, "pinned", Some("rollerX"), loads_b);
     let theta_a_from_b = linear::solve_2d(&input_b).unwrap()
-        .displacements.iter().find(|d| d.node_id == node_a).unwrap().rz;
+        .displacements.iter().find(|d| d.node_id == node_a).unwrap().ry;
 
     // Maxwell: θ_B(M@A) = θ_A(M@B)
     assert_close(theta_b_from_a, theta_a_from_b, 0.01,
@@ -146,19 +146,19 @@ fn validation_reciprocal_mixed_force_moment() {
 
     // Unit force P = 1 at A, measure θ at B
     let loads_p = vec![SolverLoad::Nodal(SolverNodalLoad {
-        node_id: node_a, fx: 0.0, fy: -1.0, mz: 0.0,
+        node_id: node_a, fx: 0.0, fz: -1.0, my: 0.0,
     })];
     let input_p = make_beam(n, l, E, A, IZ, "pinned", Some("rollerX"), loads_p);
     let theta_b = linear::solve_2d(&input_p).unwrap()
-        .displacements.iter().find(|d| d.node_id == node_b).unwrap().rz;
+        .displacements.iter().find(|d| d.node_id == node_b).unwrap().ry;
 
     // Unit moment M = 1 at B, measure δ at A
     let loads_m = vec![SolverLoad::Nodal(SolverNodalLoad {
-        node_id: node_b, fx: 0.0, fy: 0.0, mz: 1.0,
+        node_id: node_b, fx: 0.0, fz: 0.0, my: 1.0,
     })];
     let input_m = make_beam(n, l, E, A, IZ, "pinned", Some("rollerX"), loads_m);
     let delta_a = linear::solve_2d(&input_m).unwrap()
-        .displacements.iter().find(|d| d.node_id == node_a).unwrap().uy;
+        .displacements.iter().find(|d| d.node_id == node_a).unwrap().uz;
 
     // Maxwell: θ_B(P@A) = δ_A(M@B), note sign because moment and force
     // work against/with each other depending on convention
@@ -190,19 +190,19 @@ fn validation_reciprocal_continuous_beam() {
 
     // Load at i, measure at j
     let loads_i = vec![SolverLoad::Nodal(SolverNodalLoad {
-        node_id: node_i, fx: 0.0, fy: -p, mz: 0.0,
+        node_id: node_i, fx: 0.0, fz: -p, my: 0.0,
     })];
     let input_i = make_continuous_beam(&[span, span], n_per_span, E, A, IZ, loads_i);
     let d_j_from_i = linear::solve_2d(&input_i).unwrap()
-        .displacements.iter().find(|d| d.node_id == node_j).unwrap().uy;
+        .displacements.iter().find(|d| d.node_id == node_j).unwrap().uz;
 
     // Load at j, measure at i
     let loads_j = vec![SolverLoad::Nodal(SolverNodalLoad {
-        node_id: node_j, fx: 0.0, fy: -p, mz: 0.0,
+        node_id: node_j, fx: 0.0, fz: -p, my: 0.0,
     })];
     let input_j = make_continuous_beam(&[span, span], n_per_span, E, A, IZ, loads_j);
     let d_i_from_j = linear::solve_2d(&input_j).unwrap()
-        .displacements.iter().find(|d| d.node_id == node_i).unwrap().uy;
+        .displacements.iter().find(|d| d.node_id == node_i).unwrap().uz;
 
     assert_close(d_j_from_i, d_i_from_j, 0.01,
         "Maxwell Q4: continuous beam δ_ji = δ_ij");
@@ -239,7 +239,7 @@ fn validation_reciprocal_portal_frame() {
     ];
     let sups = vec![(1, 1, "fixed"), (2, 4, "fixed")];
     let loads_3 = vec![SolverLoad::Nodal(SolverNodalLoad {
-        node_id: 3, fx: 1.0, fy: 0.0, mz: 0.0,
+        node_id: 3, fx: 1.0, fz: 0.0, my: 0.0,
     })];
     let input_2 = make_input(nodes, vec![(1, E, 0.3)], vec![(1, A, IZ)],
         elems, sups, loads_3);
@@ -287,7 +287,7 @@ fn validation_reciprocal_3d_maxwell() {
     let input_1 = make_3d_beam(n, l, E, nu, A, iy, IZ, j,
         fixed.clone(), None, loads_1);
     let uy_b_from_a = linear::solve_3d(&input_1).unwrap()
-        .displacements.iter().find(|d| d.node_id == node_b).unwrap().uy;
+        .displacements.iter().find(|d| d.node_id == node_b).unwrap().uz;
 
     // System 2: Fy = -1 at B, measure uy at A
     let loads_2 = vec![SolverLoad3D::Nodal(SolverNodalLoad3D {
@@ -297,7 +297,7 @@ fn validation_reciprocal_3d_maxwell() {
     let input_2 = make_3d_beam(n, l, E, nu, A, iy, IZ, j,
         fixed, None, loads_2);
     let uy_a_from_b = linear::solve_3d(&input_2).unwrap()
-        .displacements.iter().find(|d| d.node_id == node_a).unwrap().uy;
+        .displacements.iter().find(|d| d.node_id == node_a).unwrap().uz;
 
     // Maxwell: f_{uy_B, Fy_A} = f_{uy_A, Fy_B}
     assert_close(uy_b_from_a, uy_a_from_b, 0.01,
@@ -331,13 +331,13 @@ fn validation_reciprocal_flexibility_matrix_symmetry() {
     let mut f = [[0.0_f64; 3]; 3];
     for (col, &load_node) in nodes.iter().enumerate() {
         let loads = vec![SolverLoad::Nodal(SolverNodalLoad {
-            node_id: load_node, fx: 0.0, fy: -p, mz: 0.0,
+            node_id: load_node, fx: 0.0, fz: -p, my: 0.0,
         })];
         let input = make_beam(n, l, E, A, IZ, "pinned", Some("rollerX"), loads);
         let results = linear::solve_2d(&input).unwrap();
         for (row, &meas_node) in nodes.iter().enumerate() {
             f[row][col] = results.displacements.iter()
-                .find(|d| d.node_id == meas_node).unwrap().uy;
+                .find(|d| d.node_id == meas_node).unwrap().uz;
         }
     }
 
@@ -383,23 +383,23 @@ fn validation_reciprocal_betti_truss() {
 
     // System 1: P1 at apex (node 3)
     let loads_1 = vec![SolverLoad::Nodal(SolverNodalLoad {
-        node_id: 3, fx: 0.0, fy: -p1, mz: 0.0,
+        node_id: 3, fx: 0.0, fz: -p1, my: 0.0,
     })];
     let input_1 = make_input(nodes.clone(), vec![(1, E, 0.3)], vec![(1, A, IZ)],
         elems.clone(), sups.clone(), loads_1);
     let res_1 = linear::solve_2d(&input_1).unwrap();
     // Deflection at node 2 in system 1
-    let d2_sys1 = res_1.displacements.iter().find(|d| d.node_id == 2).unwrap().uy;
+    let d2_sys1 = res_1.displacements.iter().find(|d| d.node_id == 2).unwrap().uz;
 
     // System 2: P2 at node 2 (bottom right)
     let loads_2 = vec![SolverLoad::Nodal(SolverNodalLoad {
-        node_id: 2, fx: 0.0, fy: -p2, mz: 0.0,
+        node_id: 2, fx: 0.0, fz: -p2, my: 0.0,
     })];
     let input_2 = make_input(nodes, vec![(1, E, 0.3)], vec![(1, A, IZ)],
         elems, sups, loads_2);
     let res_2 = linear::solve_2d(&input_2).unwrap();
     // Deflection at apex (node 3) in system 2
-    let d3_sys2 = res_2.displacements.iter().find(|d| d.node_id == 3).unwrap().uy;
+    let d3_sys2 = res_2.displacements.iter().find(|d| d.node_id == 3).unwrap().uz;
 
     // Betti: P1 * d_apex^(2) = P2 * d_2^(1)
     let work_1_on_2 = p1 * d3_sys2; // P1 acts at apex through sys2 displacement at apex

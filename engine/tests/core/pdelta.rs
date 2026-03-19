@@ -62,7 +62,7 @@ fn pdelta_equilibrium() {
     let pdelta = pdelta::solve_pdelta_2d(&input, 20, 1e-4).unwrap();
 
     let sum_rx: f64 = pdelta.results.reactions.iter().map(|r| r.rx).sum();
-    let sum_ry: f64 = pdelta.results.reactions.iter().map(|r| r.ry).sum();
+    let sum_ry: f64 = pdelta.results.reactions.iter().map(|r| r.rz).sum();
 
     // ΣFx = reactions + applied ≈ 0
     assert!(

@@ -47,10 +47,10 @@ fn validation_stability_euler_pinned() {
     let input = make_beam(n, l, E, A, IZ, "pinned", Some("rollerX"),
         vec![
             SolverLoad::Nodal(SolverNodalLoad {
-                node_id: n + 1, fx: p_axial, fy: 0.0, mz: 0.0,
+                node_id: n + 1, fx: p_axial, fz: 0.0, my: 0.0,
             }),
             SolverLoad::Nodal(SolverNodalLoad {
-                node_id: n / 2 + 1, fx: 0.0, fy: -h_perturb, mz: 0.0,
+                node_id: n / 2 + 1, fx: 0.0, fz: -h_perturb, my: 0.0,
             }),
         ]);
 
@@ -62,9 +62,9 @@ fn validation_stability_euler_pinned() {
 
     // Amplification should be approximately 1/(1-P/Pcr) = 1/(1-0.5) = 2.0
     let d_linear = res_linear.displacements.iter()
-        .find(|d| d.node_id == n / 2 + 1).unwrap().uy.abs();
+        .find(|d| d.node_id == n / 2 + 1).unwrap().uz.abs();
     let d_pdelta = res_pdelta.results.displacements.iter()
-        .find(|d| d.node_id == n / 2 + 1).unwrap().uy.abs();
+        .find(|d| d.node_id == n / 2 + 1).unwrap().uz.abs();
 
     let amp = d_pdelta / d_linear;
     // Should be approximately 2.0 (theoretical B2 factor)
@@ -94,7 +94,7 @@ fn validation_stability_cantilever() {
     let input = make_beam(n, l, E, A, IZ, "fixed", None,
         vec![
             SolverLoad::Nodal(SolverNodalLoad {
-                node_id: n + 1, fx: p_axial, fy: -h_perturb, mz: 0.0,
+                node_id: n + 1, fx: p_axial, fz: -h_perturb, my: 0.0,
             }),
         ]);
 
@@ -103,9 +103,9 @@ fn validation_stability_cantilever() {
 
     // Amplification should reflect cantilever's lower Pcr
     let d_linear = linear::solve_2d(&input).unwrap()
-        .displacements.iter().find(|d| d.node_id == n + 1).unwrap().uy.abs();
+        .displacements.iter().find(|d| d.node_id == n + 1).unwrap().uz.abs();
     let d_pdelta = res_pdelta.results.displacements.iter()
-        .find(|d| d.node_id == n + 1).unwrap().uy.abs();
+        .find(|d| d.node_id == n + 1).unwrap().uz.abs();
     let amp = d_pdelta / d_linear;
 
     // At 40% Pcr: B2 ≈ 1/(1-0.4) ≈ 1.67
@@ -134,10 +134,10 @@ fn validation_stability_fixed_pinned() {
     let input = make_beam(n, l, E, A, IZ, "fixed", Some("rollerX"),
         vec![
             SolverLoad::Nodal(SolverNodalLoad {
-                node_id: n + 1, fx: p_axial, fy: 0.0, mz: 0.0,
+                node_id: n + 1, fx: p_axial, fz: 0.0, my: 0.0,
             }),
             SolverLoad::Nodal(SolverNodalLoad {
-                node_id: n / 2 + 1, fx: 0.0, fy: -h_perturb, mz: 0.0,
+                node_id: n / 2 + 1, fx: 0.0, fz: -h_perturb, my: 0.0,
             }),
         ]);
 
@@ -146,9 +146,9 @@ fn validation_stability_fixed_pinned() {
 
     // Amplification should be approximately 1/(1-0.5) = 2.0
     let d_linear = linear::solve_2d(&input).unwrap()
-        .displacements.iter().find(|d| d.node_id == n / 2 + 1).unwrap().uy.abs();
+        .displacements.iter().find(|d| d.node_id == n / 2 + 1).unwrap().uz.abs();
     let d_pdelta = res.results.displacements.iter()
-        .find(|d| d.node_id == n / 2 + 1).unwrap().uy.abs();
+        .find(|d| d.node_id == n / 2 + 1).unwrap().uz.abs();
 
     let amp = d_pdelta / d_linear;
     assert!(amp > 1.3 && amp < 4.0,
@@ -176,10 +176,10 @@ fn validation_stability_fixed_fixed() {
     let input = make_beam(n, l, E, A, IZ, "fixed", Some("fixed"),
         vec![
             SolverLoad::Nodal(SolverNodalLoad {
-                node_id: n + 1, fx: p_axial, fy: 0.0, mz: 0.0,
+                node_id: n + 1, fx: p_axial, fz: 0.0, my: 0.0,
             }),
             SolverLoad::Nodal(SolverNodalLoad {
-                node_id: n / 2 + 1, fx: 0.0, fy: -h_perturb, mz: 0.0,
+                node_id: n / 2 + 1, fx: 0.0, fz: -h_perturb, my: 0.0,
             }),
         ]);
 
@@ -212,27 +212,27 @@ fn validation_stability_effective_length_ranking() {
 
         let mut loads = vec![
             SolverLoad::Nodal(SolverNodalLoad {
-                node_id: tip, fx: p, fy: 0.0, mz: 0.0,
+                node_id: tip, fx: p, fz: 0.0, my: 0.0,
             }),
         ];
         // Add lateral perturbation
         if end.is_none() {
             // Cantilever: lateral at tip
             loads.push(SolverLoad::Nodal(SolverNodalLoad {
-                node_id: tip, fx: 0.0, fy: -h, mz: 0.0,
+                node_id: tip, fx: 0.0, fz: -h, my: 0.0,
             }));
         } else {
             // Others: lateral at midspan
             loads.push(SolverLoad::Nodal(SolverNodalLoad {
-                node_id: mid, fx: 0.0, fy: -h, mz: 0.0,
+                node_id: mid, fx: 0.0, fz: -h, my: 0.0,
             }));
         }
 
         let input = make_beam(n, l, E, A, IZ, start, end, loads);
         let d_lin = linear::solve_2d(&input).unwrap()
-            .displacements.iter().find(|d| d.node_id == mid).unwrap().uy.abs();
+            .displacements.iter().find(|d| d.node_id == mid).unwrap().uz.abs();
         let d_pd = pdelta::solve_pdelta_2d(&input, 30, 1e-8).unwrap()
-            .results.displacements.iter().find(|d| d.node_id == mid).unwrap().uy.abs();
+            .results.displacements.iter().find(|d| d.node_id == mid).unwrap().uz.abs();
         if d_lin > 1e-15 { d_pd / d_lin } else { 1.0 }
     };
 
@@ -266,13 +266,13 @@ fn validation_stability_near_critical_amplification() {
         let p = -ratio * p_euler;
         let input = make_beam(n, l, E, A, IZ, "pinned", Some("rollerX"),
             vec![
-                SolverLoad::Nodal(SolverNodalLoad { node_id: n + 1, fx: p, fy: 0.0, mz: 0.0 }),
-                SolverLoad::Nodal(SolverNodalLoad { node_id: n / 2 + 1, fx: 0.0, fy: -h, mz: 0.0 }),
+                SolverLoad::Nodal(SolverNodalLoad { node_id: n + 1, fx: p, fz: 0.0, my: 0.0 }),
+                SolverLoad::Nodal(SolverNodalLoad { node_id: n / 2 + 1, fx: 0.0, fz: -h, my: 0.0 }),
             ]);
         let d_lin = linear::solve_2d(&input).unwrap()
-            .displacements.iter().find(|d| d.node_id == n / 2 + 1).unwrap().uy.abs();
+            .displacements.iter().find(|d| d.node_id == n / 2 + 1).unwrap().uz.abs();
         let d_pd = pdelta::solve_pdelta_2d(&input, 50, 1e-10).unwrap()
-            .results.displacements.iter().find(|d| d.node_id == n / 2 + 1).unwrap().uy.abs();
+            .results.displacements.iter().find(|d| d.node_id == n / 2 + 1).unwrap().uz.abs();
         d_pd / d_lin
     };
 
@@ -311,13 +311,13 @@ fn validation_stability_ei_proportionality() {
         let p = -0.4 * p_euler; // always 40% of this column's Pcr
         let input = make_beam(n, l, E, A, iz, "pinned", Some("rollerX"),
             vec![
-                SolverLoad::Nodal(SolverNodalLoad { node_id: n + 1, fx: p, fy: 0.0, mz: 0.0 }),
-                SolverLoad::Nodal(SolverNodalLoad { node_id: n / 2 + 1, fx: 0.0, fy: -h, mz: 0.0 }),
+                SolverLoad::Nodal(SolverNodalLoad { node_id: n + 1, fx: p, fz: 0.0, my: 0.0 }),
+                SolverLoad::Nodal(SolverNodalLoad { node_id: n / 2 + 1, fx: 0.0, fz: -h, my: 0.0 }),
             ]);
         let d_lin = linear::solve_2d(&input).unwrap()
-            .displacements.iter().find(|d| d.node_id == n / 2 + 1).unwrap().uy.abs();
+            .displacements.iter().find(|d| d.node_id == n / 2 + 1).unwrap().uz.abs();
         let d_pd = pdelta::solve_pdelta_2d(&input, 30, 1e-8).unwrap()
-            .results.displacements.iter().find(|d| d.node_id == n / 2 + 1).unwrap().uy.abs();
+            .results.displacements.iter().find(|d| d.node_id == n / 2 + 1).unwrap().uz.abs();
         d_pd / d_lin
     };
 
@@ -351,14 +351,14 @@ fn validation_stability_length_effect() {
     let get_amp = |l: f64| -> f64 {
         let input = make_beam(n, l, E, A, IZ, "pinned", Some("rollerX"),
             vec![
-                SolverLoad::Nodal(SolverNodalLoad { node_id: n + 1, fx: p, fy: 0.0, mz: 0.0 }),
-                SolverLoad::Nodal(SolverNodalLoad { node_id: n / 2 + 1, fx: 0.0, fy: -h, mz: 0.0 }),
+                SolverLoad::Nodal(SolverNodalLoad { node_id: n + 1, fx: p, fz: 0.0, my: 0.0 }),
+                SolverLoad::Nodal(SolverNodalLoad { node_id: n / 2 + 1, fx: 0.0, fz: -h, my: 0.0 }),
             ]);
         let d_lin = linear::solve_2d(&input).unwrap()
-            .displacements.iter().find(|d| d.node_id == n / 2 + 1).unwrap().uy.abs();
+            .displacements.iter().find(|d| d.node_id == n / 2 + 1).unwrap().uz.abs();
         let res = pdelta::solve_pdelta_2d(&input, 30, 1e-8).unwrap();
         let d_pd = res.results.displacements.iter()
-            .find(|d| d.node_id == n / 2 + 1).unwrap().uy.abs();
+            .find(|d| d.node_id == n / 2 + 1).unwrap().uz.abs();
         d_pd / d_lin
     };
 

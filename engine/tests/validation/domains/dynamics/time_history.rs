@@ -78,12 +78,12 @@ fn validation_time_history_sdof_free_vibration_period() {
         TimeForceRecord {
             time: 0.0,
             loads: vec![SolverNodalLoad {
-                node_id: tip_node, fx: 0.0, fy: 10.0, mz: 0.0,
+                node_id: tip_node, fx: 0.0, fz: 10.0, my: 0.0,
             }] },
         TimeForceRecord {
             time: dt,
             loads: vec![SolverNodalLoad {
-                node_id: tip_node, fx: 0.0, fy: 0.0, mz: 0.0,
+                node_id: tip_node, fx: 0.0, fz: 0.0, my: 0.0,
             }] },
     ];
 
@@ -92,7 +92,7 @@ fn validation_time_history_sdof_free_vibration_period() {
 
     let tip_hist = result.node_histories.iter()
         .find(|nh| nh.node_id == tip_node).unwrap();
-    let uy = &tip_hist.uy;
+    let uy = &tip_hist.uz;
 
     // Find zero crossings
     let mut zero_crossings = Vec::new();
@@ -154,7 +154,7 @@ fn validation_time_history_sdof_step_load_daf() {
         force_history.push(TimeForceRecord {
             time: i as f64 * dt,
             loads: vec![SolverNodalLoad {
-                node_id: tip_node, fx: 0.0, fy: p, mz: 0.0,
+                node_id: tip_node, fx: 0.0, fz: p, my: 0.0,
             }] });
     }
 
@@ -164,7 +164,7 @@ fn validation_time_history_sdof_step_load_daf() {
     let tip_hist = result.node_histories.iter()
         .find(|nh| nh.node_id == tip_node).unwrap();
 
-    let max_abs_uy = tip_hist.uy.iter()
+    let max_abs_uy = tip_hist.uz.iter()
         .cloned()
         .fold(0.0_f64, |a, b| a.max(b.abs()));
 
@@ -199,12 +199,12 @@ fn validation_time_history_newmark_energy_conservation() {
         TimeForceRecord {
             time: 0.0,
             loads: vec![SolverNodalLoad {
-                node_id: tip_node, fx: 0.0, fy: 10.0, mz: 0.0,
+                node_id: tip_node, fx: 0.0, fz: 10.0, my: 0.0,
             }] },
         TimeForceRecord {
             time: dt,
             loads: vec![SolverNodalLoad {
-                node_id: tip_node, fx: 0.0, fy: 0.0, mz: 0.0,
+                node_id: tip_node, fx: 0.0, fz: 0.0, my: 0.0,
             }] },
     ];
 
@@ -213,7 +213,7 @@ fn validation_time_history_newmark_energy_conservation() {
 
     let tip_hist = result.node_histories.iter()
         .find(|nh| nh.node_id == tip_node).unwrap();
-    let uy = &tip_hist.uy;
+    let uy = &tip_hist.uz;
 
     let steps_per_period = (t_period / dt) as usize;
     let first_max = uy[..steps_per_period.min(uy.len())]
@@ -254,12 +254,12 @@ fn validation_time_history_hht_numerical_dissipation() {
         TimeForceRecord {
             time: 0.0,
             loads: vec![SolverNodalLoad {
-                node_id: tip_node, fx: 0.0, fy: 10.0, mz: 0.0,
+                node_id: tip_node, fx: 0.0, fz: 10.0, my: 0.0,
             }] },
         TimeForceRecord {
             time: dt,
             loads: vec![SolverNodalLoad {
-                node_id: tip_node, fx: 0.0, fy: 0.0, mz: 0.0,
+                node_id: tip_node, fx: 0.0, fz: 0.0, my: 0.0,
             }] },
     ];
 
@@ -272,7 +272,7 @@ fn validation_time_history_hht_numerical_dissipation() {
 
     let tip_hist = result.node_histories.iter()
         .find(|nh| nh.node_id == tip_node).unwrap();
-    let uy = &tip_hist.uy;
+    let uy = &tip_hist.uz;
 
     let steps_per_period = (t_period / dt) as usize;
     let early_max = uy[..2 * steps_per_period.min(uy.len())]

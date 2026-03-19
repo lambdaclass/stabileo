@@ -109,8 +109,8 @@ fn portal_two_bay_interior_column_double_shear() {
         vec![SolverLoad::Nodal(SolverNodalLoad {
             node_id: 2,
             fx: 30.0,
-            fy: 0.0,
-            mz: 0.0,
+            fz: 0.0,
+            my: 0.0,
         })],
     );
 
@@ -189,14 +189,14 @@ fn portal_two_story_story_shear_accumulation() {
             SolverLoad::Nodal(SolverNodalLoad {
                 node_id: 2,
                 fx: 20.0,
-                fy: 0.0,
-                mz: 0.0,
+                fz: 0.0,
+                my: 0.0,
             }),
             SolverLoad::Nodal(SolverNodalLoad {
                 node_id: 5,
                 fx: 10.0,
-                fy: 0.0,
-                mz: 0.0,
+                fz: 0.0,
+                my: 0.0,
             }),
         ],
     );
@@ -263,8 +263,8 @@ fn portal_inflection_point_at_mid_height() {
         vec![SolverLoad::Nodal(SolverNodalLoad {
             node_id: 3,
             fx: 20.0,
-            fy: 0.0,
-            mz: 0.0,
+            fz: 0.0,
+            my: 0.0,
         })],
     );
 
@@ -397,8 +397,8 @@ fn portal_three_bay_exterior_vs_interior_shear_ratio() {
         vec![SolverLoad::Nodal(SolverNodalLoad {
             node_id: 2,
             fx: 60.0,
-            fy: 0.0,
-            mz: 0.0,
+            fz: 0.0,
+            my: 0.0,
         })],
     );
 
@@ -496,8 +496,8 @@ fn portal_accuracy_single_bay_exact_vs_two_bay_approx() {
         vec![SolverLoad::Nodal(SolverNodalLoad {
             node_id: 2,
             fx: lateral,
-            fy: 0.0,
-            mz: 0.0,
+            fz: 0.0,
+            my: 0.0,
         })],
     );
 
@@ -571,8 +571,8 @@ fn portal_global_equilibrium_three_bay() {
         vec![SolverLoad::Nodal(SolverNodalLoad {
             node_id: 2,
             fx: lateral,
-            fy: 0.0,
-            mz: 0.0,
+            fz: 0.0,
+            my: 0.0,
         })],
     );
 
@@ -594,7 +594,7 @@ fn portal_global_equilibrium_three_bay() {
     );
 
     // (b) Sum of vertical reactions = 0 (no gravity)
-    let sum_ry = r1.ry + r4.ry + r6.ry + r8.ry;
+    let sum_ry = r1.rz + r4.rz + r6.rz + r8.rz;
     assert!(
         sum_ry.abs() < 1e-6,
         "Sum of vertical reactions should be zero, got {:.8}",
@@ -608,8 +608,8 @@ fn portal_global_equilibrium_three_bay() {
     //     M_reactions = sum(x_i * ry_i - 0 * rx_i) + sum(mz_i) = sum(x_i * ry_i) + sum(mz_i)
     //   Equilibrium: M_applied + M_reactions = 0
     let m_applied = -(h * lateral); // -4 * 60 = -240 kN.m
-    let m_reactions = r1.ry * 0.0 + r4.ry * 5.0 + r6.ry * 10.0 + r8.ry * 15.0
-        + r1.mz + r4.mz + r6.mz + r8.mz;
+    let m_reactions = r1.rz * 0.0 + r4.rz * 5.0 + r6.rz * 10.0 + r8.rz * 15.0
+        + r1.my + r4.my + r6.my + r8.my;
 
     let residual = m_applied + m_reactions;
     assert!(

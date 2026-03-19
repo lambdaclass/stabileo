@@ -254,7 +254,7 @@ fn blast_equivalent_static_beam() {
     let e: f64 = 200_000.0;      // MPa (solver multiplies by 1000 → kN/m^2)
     let iz: f64 = 2.22e-4;       // m^4, moment of inertia
     let a: f64 = 1.24e-2;        // m^2, cross-section area
-    let fy: f64 = 350.0;         // MPa, yield strength
+    let fz: f64 = 350.0;         // MPa, yield strength
 
     // Blast parameters
     let p_blast: f64 = 50.0;     // kPa, peak reflected pressure on facade
@@ -283,7 +283,7 @@ fn blast_equivalent_static_beam() {
         .expect("Midspan node displacement");
 
     // Compare FEM deflection to analytical
-    crate::common::assert_close(mid_disp.uy.abs(), delta_st, 0.02, "Midspan deflection vs analytical");
+    crate::common::assert_close(mid_disp.uz.abs(), delta_st, 0.02, "Midspan deflection vs analytical");
 
     // Maximum bending moment: M = q*L^2/8
     let m_max_analytical: f64 = q_blast * l * l / 8.0;
@@ -295,7 +295,7 @@ fn blast_equivalent_static_beam() {
     // Elastic capacity check
     assert!(
         sigma_max > 0.0,
-        "Max bending stress: {:.0} MPa (fy = {:.0} MPa)", sigma_max, fy
+        "Max bending stress: {:.0} MPa (fy = {:.0} MPa)", sigma_max, fz
     );
 
     // DLF for typical blast td/T ratio
@@ -398,11 +398,11 @@ fn blast_portal_frame_sway() {
     // Column base moments should be nonzero (fixed supports)
     let base_moment_left: f64 = result.reactions.iter()
         .find(|r| r.node_id == 1)
-        .map(|r| r.mz.abs())
+        .map(|r| r.my.abs())
         .unwrap_or(0.0);
     let base_moment_right: f64 = result.reactions.iter()
         .find(|r| r.node_id == 4)
-        .map(|r| r.mz.abs())
+        .map(|r| r.my.abs())
         .unwrap_or(0.0);
 
     assert!(
@@ -485,7 +485,7 @@ fn blast_energy_absorption_steel() {
         .expect("Midspan displacement");
 
     // FEM deflection should match x_el (elastic deflection at ultimate load)
-    crate::common::assert_close(mid_disp.uy.abs(), x_el, 0.03, "Elastic deflection at Ru");
+    crate::common::assert_close(mid_disp.uz.abs(), x_el, 0.03, "Elastic deflection at Ru");
 
     let _mp = mp;
 }
@@ -603,7 +603,7 @@ fn blast_progressive_collapse_catenary() {
     let e: f64 = 200_000.0;      // MPa
     let a_sec: f64 = 1.08e-2;    // m^2
     let iz: f64 = 3.15e-4;       // m^4
-    let fy: f64 = 350.0;         // MPa
+    let fz: f64 = 350.0;         // MPa
 
     // Gravity load on beam
     let w_dead: f64 = 25.0;      // kN/m, dead load
@@ -617,7 +617,7 @@ fn blast_progressive_collapse_catenary() {
 
     // Plastic moment capacity
     let zx: f64 = 1.51e-3;       // m^3, plastic section modulus
-    let mp: f64 = zx * fy * 1000.0; // = 528.5 kN*m
+    let mp: f64 = zx * fz * 1000.0; // = 528.5 kN*m
 
     // FEM verification: SS beam with double span under gravity
     let input = crate::common::make_ss_beam_udl(12, l_new, e, a_sec, iz, -w_total);
@@ -633,7 +633,7 @@ fn blast_progressive_collapse_catenary() {
     let ei: f64 = e * 1000.0 * iz;
     let delta_analytical: f64 = 5.0 * w_total * l_new.powi(4) / (384.0 * ei);
 
-    crate::common::assert_close(mid_disp.uy.abs(), delta_analytical, 0.02, "Bridging span deflection");
+    crate::common::assert_close(mid_disp.uz.abs(), delta_analytical, 0.02, "Bridging span deflection");
 
     // Catenary force required at a given sag
     // Assume allowable sag = L/20 for progressive collapse scenario
@@ -643,7 +643,7 @@ fn blast_progressive_collapse_catenary() {
     // = 27.5 * 144 / 4.8 = 825 kN
 
     // Axial capacity
-    let t_capacity: f64 = a_sec * fy * 1000.0; // kN
+    let t_capacity: f64 = a_sec * fz * 1000.0; // kN
     // = 0.0108 * 350000 = 3780 kN
 
     assert!(

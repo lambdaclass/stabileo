@@ -73,7 +73,7 @@ fn solar_ground_mount_racking_purlin() {
     // Check reaction: R = qL/2
     let r_exact: f64 = q.abs() * l / 2.0;
     let r1 = results.reactions.iter().find(|r| r.node_id == 1).unwrap();
-    assert_close(r1.ry.abs(), r_exact, 0.03, "Ground-mount purlin reaction");
+    assert_close(r1.rz.abs(), r_exact, 0.03, "Ground-mount purlin reaction");
 
     // Check midspan deflection: delta = 5qL^4/(384EI)
     let e_eff: f64 = e_steel * 1000.0;
@@ -81,7 +81,7 @@ fn solar_ground_mount_racking_purlin() {
     let mid_node = n / 2 + 1;
     let mid_disp = results.displacements.iter()
         .find(|d| d.node_id == mid_node).unwrap();
-    assert_close(mid_disp.uy.abs(), delta_exact, 0.05, "Ground-mount purlin midspan deflection");
+    assert_close(mid_disp.uz.abs(), delta_exact, 0.05, "Ground-mount purlin midspan deflection");
 
     // Verify midspan moment via element forces near midspan
     // Element at midspan: element n/2 has m_end close to M_max
@@ -138,7 +138,7 @@ fn solar_rooftop_ballasted_system() {
     let total_load: f64 = q.abs() * total_length;
 
     // Sum of vertical reactions equals total load
-    let sum_ry: f64 = results.reactions.iter().map(|r| r.ry).sum::<f64>();
+    let sum_ry: f64 = results.reactions.iter().map(|r| r.rz).sum::<f64>();
     assert_close(sum_ry.abs(), total_load, 0.02, "Ballasted system total reaction");
 
     // For 3-span continuous beam with equal UDL:
@@ -150,8 +150,8 @@ fn solar_rooftop_ballasted_system() {
     let mid_node_1 = n_per_span + 1; // first internal support
     let r_int1 = results.reactions.iter().find(|r| r.node_id == mid_node_1).unwrap();
 
-    assert_close(r1.ry.abs(), r_end_exact, 0.05, "Ballasted end support reaction");
-    assert_close(r_int1.ry.abs(), r_int_exact, 0.05, "Ballasted internal support reaction");
+    assert_close(r1.rz.abs(), r_end_exact, 0.05, "Ballasted end support reaction");
+    assert_close(r_int1.rz.abs(), r_int_exact, 0.05, "Ballasted internal support reaction");
 
     // Deflection check: should be small for short span aluminum rail
     let quarter_node = n_per_span / 2 + 1;
@@ -159,8 +159,8 @@ fn solar_rooftop_ballasted_system() {
         .find(|d| d.node_id == quarter_node).unwrap();
     let limit: f64 = span / 180.0; // L/180 serviceability limit
     assert!(
-        mid_disp.uy.abs() < limit,
-        "Rail deflection {:.5} m < L/180 = {:.5} m", mid_disp.uy.abs(), limit
+        mid_disp.uz.abs() < limit,
+        "Rail deflection {:.5} m < L/180 = {:.5} m", mid_disp.uz.abs(), limit
     );
 }
 
@@ -215,7 +215,7 @@ fn solar_tracker_torque_tube() {
     // Reaction: R = qL/2
     let r_exact: f64 = q.abs() * l / 2.0;
     let r1 = results.reactions.iter().find(|r| r.node_id == 1).unwrap();
-    assert_close(r1.ry.abs(), r_exact, 0.02, "Tracker tube support reaction");
+    assert_close(r1.rz.abs(), r_exact, 0.02, "Tracker tube support reaction");
 
     // Midspan deflection: delta = 5qL^4/(384EI)
     let e_eff: f64 = e_steel * 1000.0;
@@ -223,16 +223,16 @@ fn solar_tracker_torque_tube() {
     let mid_node = n / 2 + 1;
     let mid_disp = results.displacements.iter()
         .find(|d| d.node_id == mid_node).unwrap();
-    assert_close(mid_disp.uy.abs(), delta_exact, 0.05, "Tracker tube midspan deflection");
+    assert_close(mid_disp.uz.abs(), delta_exact, 0.05, "Tracker tube midspan deflection");
 
     // Bending stress check: sigma = M*c/I
     let c: f64 = d_outer / 2.0;
     let sigma_kpa: f64 = m_exact * c / iz_tube; // kN/m^2
     let sigma_mpa: f64 = sigma_kpa / 1000.0;
-    let fy: f64 = 250.0; // MPa, ASTM A500 Gr B
+    let fz: f64 = 250.0; // MPa, ASTM A500 Gr B
     assert!(
-        sigma_mpa < fy,
-        "Tube bending stress {:.1} MPa < yield {:.1} MPa", sigma_mpa, fy
+        sigma_mpa < fz,
+        "Tube bending stress {:.1} MPa < yield {:.1} MPa", sigma_mpa, fz
     );
 
     // Verify element forces near midspan
@@ -282,14 +282,14 @@ fn solar_carport_canopy_portal() {
 
     // Vertical equilibrium: sum(Ry) = total gravity
     let total_gravity: f64 = 2.0 * p_gravity.abs();
-    let sum_ry: f64 = results.reactions.iter().map(|r| r.ry).sum::<f64>();
+    let sum_ry: f64 = results.reactions.iter().map(|r| r.rz).sum::<f64>();
     assert_close(sum_ry.abs(), total_gravity, 0.02, "Carport vertical equilibrium");
 
     // Both bases are fixed, so both have moment reactions
     let r1 = results.reactions.iter().find(|r| r.node_id == 1).unwrap();
     let r4 = results.reactions.iter().find(|r| r.node_id == 4).unwrap();
-    assert!(r1.mz.abs() > 0.0, "Left base moment is non-zero");
-    assert!(r4.mz.abs() > 0.0, "Right base moment is non-zero");
+    assert!(r1.my.abs() > 0.0, "Left base moment is non-zero");
+    assert!(r4.my.abs() > 0.0, "Right base moment is non-zero");
 
     // Sway at beam level: lateral displacement at top of column
     let d2 = results.displacements.iter().find(|d| d.node_id == 2).unwrap();
@@ -355,8 +355,8 @@ fn solar_wind_uplift_cantilever() {
     let m_exact: f64 = q * l * l / 2.0;
 
     let r1 = results.reactions.iter().find(|r| r.node_id == 1).unwrap();
-    assert_close(r1.ry.abs(), r_exact, 0.03, "Wind uplift cantilever reaction");
-    assert_close(r1.mz.abs(), m_exact, 0.05, "Wind uplift cantilever fixed-end moment");
+    assert_close(r1.rz.abs(), r_exact, 0.03, "Wind uplift cantilever reaction");
+    assert_close(r1.my.abs(), m_exact, 0.05, "Wind uplift cantilever fixed-end moment");
 
     // Tip deflection: delta = qL^4/(8EI)
     let e_eff: f64 = e_alum * 1000.0;
@@ -364,10 +364,10 @@ fn solar_wind_uplift_cantilever() {
     let tip_node = n + 1;
     let tip_disp = results.displacements.iter()
         .find(|d| d.node_id == tip_node).unwrap();
-    assert_close(tip_disp.uy.abs(), delta_exact, 0.05, "Wind uplift tip deflection");
+    assert_close(tip_disp.uz.abs(), delta_exact, 0.05, "Wind uplift tip deflection");
 
     // Verify uplift direction: positive uy means upward
-    assert!(tip_disp.uy > 0.0, "Tip deflects upward due to wind uplift");
+    assert!(tip_disp.uz > 0.0, "Tip deflects upward due to wind uplift");
 
     // Stress check at fixed end: sigma = M*c/I
     // For aluminum rail, approximate depth 40 mm
@@ -438,11 +438,11 @@ fn solar_snow_sliding_triangular_load() {
     let r1 = results.reactions.iter().find(|r| r.node_id == 1).unwrap();
     let rn = results.reactions.iter().find(|r| r.node_id == (n + 1)).unwrap();
 
-    assert_close(r1.ry.abs(), r_left_exact, 0.05, "Snow sliding left reaction (q=0 end)");
-    assert_close(rn.ry.abs(), r_right_exact, 0.05, "Snow sliding right reaction (q=max end)");
+    assert_close(r1.rz.abs(), r_left_exact, 0.05, "Snow sliding left reaction (q=0 end)");
+    assert_close(rn.rz.abs(), r_right_exact, 0.05, "Snow sliding right reaction (q=max end)");
 
     // Verify total vertical equilibrium
-    let sum_ry: f64 = results.reactions.iter().map(|r| r.ry).sum::<f64>();
+    let sum_ry: f64 = results.reactions.iter().map(|r| r.rz).sum::<f64>();
     assert_close(sum_ry.abs(), total_load, 0.03, "Snow sliding total reaction equilibrium");
 
     // Maximum moment at x = L/sqrt(3) from left: M = qL^2 / (9*sqrt(3))
@@ -505,7 +505,7 @@ fn solar_panel_deflection_serviceability() {
     let total_load: f64 = q.abs() * total_length;
 
     // Vertical equilibrium
-    let sum_ry: f64 = results.reactions.iter().map(|r| r.ry).sum::<f64>();
+    let sum_ry: f64 = results.reactions.iter().map(|r| r.rz).sum::<f64>();
     assert_close(sum_ry.abs(), total_load, 0.02, "Rail total reaction");
 
     // For 2-span continuous beam with equal UDL:
@@ -517,13 +517,13 @@ fn solar_panel_deflection_serviceability() {
     let mid_node = n_per_span + 1;
     let r_int = results.reactions.iter().find(|r| r.node_id == mid_node).unwrap();
 
-    assert_close(r1.ry.abs(), r_end_exact, 0.05, "Rail end reaction (3qL/8)");
-    assert_close(r_int.ry.abs(), r_int_exact, 0.05, "Rail internal reaction (5qL/4)");
+    assert_close(r1.rz.abs(), r_end_exact, 0.05, "Rail end reaction (3qL/8)");
+    assert_close(r_int.rz.abs(), r_int_exact, 0.05, "Rail internal reaction (5qL/4)");
 
     // Find maximum deflection in first span
     let mut max_deflection: f64 = 0.0;
     for d in &results.displacements {
-        let def: f64 = d.uy.abs();
+        let def: f64 = d.uz.abs();
         if def > max_deflection {
             max_deflection = def;
         }
@@ -588,7 +588,7 @@ fn solar_foundation_pile_lateral() {
     // Pile is vertical, but we model horizontally (beam along X, load in Y)
     // Fixed at left (ground fixity point), free at right (top of pile)
     let loads = vec![SolverLoad::Nodal(SolverNodalLoad {
-        node_id: n + 1, fx: 0.0, fy: p_lateral, mz: 0.0,
+        node_id: n + 1, fx: 0.0, fz: p_lateral, my: 0.0,
     })];
 
     let input = make_beam(n, l_total, e_steel, a_pile, iz_pile, "fixed", None, loads);
@@ -600,8 +600,8 @@ fn solar_foundation_pile_lateral() {
     let m_exact: f64 = p_lateral * l_total;
 
     let r1 = results.reactions.iter().find(|r| r.node_id == 1).unwrap();
-    assert_close(r1.ry.abs(), r_exact, 0.02, "Pile lateral reaction");
-    assert_close(r1.mz.abs(), m_exact, 0.03, "Pile fixed-end moment");
+    assert_close(r1.rz.abs(), r_exact, 0.02, "Pile lateral reaction");
+    assert_close(r1.my.abs(), m_exact, 0.03, "Pile fixed-end moment");
 
     // Tip deflection: delta = PL^3/(3EI)
     let e_eff: f64 = e_steel * 1000.0;
@@ -609,7 +609,7 @@ fn solar_foundation_pile_lateral() {
     let tip_node = n + 1;
     let tip_disp = results.displacements.iter()
         .find(|d| d.node_id == tip_node).unwrap();
-    assert_close(tip_disp.uy.abs(), delta_exact, 0.03, "Pile tip lateral deflection");
+    assert_close(tip_disp.uz.abs(), delta_exact, 0.03, "Pile tip lateral deflection");
 
     // Moment at ground line (x = l_fixity from fixed end)
     // M(x) = P*(L - x), so at ground line: M_gl = P * h_above
@@ -629,10 +629,10 @@ fn solar_foundation_pile_lateral() {
     let c: f64 = depth / 2.0;
     let sigma_kpa: f64 = m_exact * c / iz_pile;
     let sigma_mpa: f64 = sigma_kpa / 1000.0;
-    let fy: f64 = 345.0; // MPa, A992 Grade 50
+    let fz: f64 = 345.0; // MPa, A992 Grade 50
     assert!(
-        sigma_mpa < fy,
-        "Pile bending stress {:.1} MPa < yield {:.1} MPa", sigma_mpa, fy
+        sigma_mpa < fz,
+        "Pile bending stress {:.1} MPa < yield {:.1} MPa", sigma_mpa, fz
     );
 
     // Verify Broms fixity depth is in a physically reasonable range

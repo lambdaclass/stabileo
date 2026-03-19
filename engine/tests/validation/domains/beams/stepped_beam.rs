@@ -66,7 +66,7 @@ fn make_stepped_ss_beam(
     let mut node_id = 1;
     nodes_map.insert(
         node_id.to_string(),
-        SolverNode { id: node_id, x, y: 0.0 },
+        SolverNode { id: node_id, x, z: 0.0 },
     );
     node_id += 1;
 
@@ -76,7 +76,7 @@ fn make_stepped_ss_beam(
             x += elem_len;
             nodes_map.insert(
                 node_id.to_string(),
-                SolverNode { id: node_id, x, y: 0.0 },
+                SolverNode { id: node_id, x, z: 0.0 },
             );
             node_id += 1;
         }
@@ -113,11 +113,11 @@ fn make_stepped_ss_beam(
     let mut sups_map = HashMap::new();
     sups_map.insert("1".to_string(), SolverSupport {
         id: 1, node_id: 1, support_type: "pinned".to_string(),
-        kx: None, ky: None, kz: None, dx: None, dy: None, drz: None, angle: None,
+        kx: None, ky: None, kz: None, dx: None, dz: None, dry: None, angle: None,
     });
     sups_map.insert("2".to_string(), SolverSupport {
         id: 2, node_id: total_nodes, support_type: "rollerX".to_string(),
-        kx: None, ky: None, kz: None, dx: None, dy: None, drz: None, angle: None,
+        kx: None, ky: None, kz: None, dx: None, dz: None, dry: None, angle: None,
     });
 
     SolverInput {
@@ -161,7 +161,7 @@ fn make_stepped_cantilever(
     let mut node_id = 1;
     nodes_map.insert(
         node_id.to_string(),
-        SolverNode { id: node_id, x, y: 0.0 },
+        SolverNode { id: node_id, x, z: 0.0 },
     );
     node_id += 1;
 
@@ -171,7 +171,7 @@ fn make_stepped_cantilever(
             x += elem_len;
             nodes_map.insert(
                 node_id.to_string(),
-                SolverNode { id: node_id, x, y: 0.0 },
+                SolverNode { id: node_id, x, z: 0.0 },
             );
             node_id += 1;
         }
@@ -206,7 +206,7 @@ fn make_stepped_cantilever(
     let mut sups_map = HashMap::new();
     sups_map.insert("1".to_string(), SolverSupport {
         id: 1, node_id: 1, support_type: "fixed".to_string(),
-        kx: None, ky: None, kz: None, dx: None, dy: None, drz: None, angle: None,
+        kx: None, ky: None, kz: None, dx: None, dz: None, dry: None, angle: None,
     });
 
     SolverInput {
@@ -260,9 +260,9 @@ fn validation_stepped_beam_two_segment_stiffness() {
     let right_q_node = n_per + n_per / 2 + 1;
 
     let d_left = results.displacements.iter()
-        .find(|d| d.node_id == left_q_node).unwrap().uy.abs();
+        .find(|d| d.node_id == left_q_node).unwrap().uz.abs();
     let d_right = results.displacements.iter()
-        .find(|d| d.node_id == right_q_node).unwrap().uy.abs();
+        .find(|d| d.node_id == right_q_node).unwrap().uz.abs();
 
     // Right segment (IZ) is less stiff → deflects more than left segment (2×IZ) at its quarter-point
     assert!(
@@ -296,7 +296,7 @@ fn validation_stepped_cantilever_tip_deflection() {
     let tip_node = 2 * n_per + 1;
 
     let loads = vec![SolverLoad::Nodal(SolverNodalLoad {
-        node_id: tip_node, fx: 0.0, fy: -p, mz: 0.0,
+        node_id: tip_node, fx: 0.0, fz: -p, my: 0.0,
     })];
 
     // Stepped: root half 2×IZ, tip half IZ
@@ -308,7 +308,7 @@ fn validation_stepped_cantilever_tip_deflection() {
     );
     let d_stepped = linear::solve_2d(&input_stepped).unwrap()
         .displacements.iter()
-        .find(|d| d.node_id == tip_node).unwrap().uy.abs();
+        .find(|d| d.node_id == tip_node).unwrap().uz.abs();
 
     // Uniform 2×IZ cantilever (stiffer, less deflection)
     let l_total = l1 + l2;
@@ -317,7 +317,7 @@ fn validation_stepped_cantilever_tip_deflection() {
     );
     let d_2i = linear::solve_2d(&input_2i).unwrap()
         .displacements.iter()
-        .find(|d| d.node_id == 2 * n_per + 1).unwrap().uy.abs();
+        .find(|d| d.node_id == 2 * n_per + 1).unwrap().uz.abs();
 
     // Uniform IZ cantilever (weaker, more deflection)
     let input_1i = make_beam(
@@ -325,7 +325,7 @@ fn validation_stepped_cantilever_tip_deflection() {
     );
     let d_1i = linear::solve_2d(&input_1i).unwrap()
         .displacements.iter()
-        .find(|d| d.node_id == 2 * n_per + 1).unwrap().uy.abs();
+        .find(|d| d.node_id == 2 * n_per + 1).unwrap().uz.abs();
 
     // Stepped deflection must be between the two uniform cases
     assert!(
@@ -374,7 +374,7 @@ fn validation_stepped_beam_reaction_redistribution() {
     for i in 0..=total_elems {
         nodes_map.insert(
             (i + 1).to_string(),
-            SolverNode { id: i + 1, x: i as f64 * elem_len, y: 0.0 },
+            SolverNode { id: i + 1, x: i as f64 * elem_len, z: 0.0 },
         );
     }
     for i in 0..total_elems {
@@ -393,11 +393,11 @@ fn validation_stepped_beam_reaction_redistribution() {
     let mut sups_map = HashMap::new();
     sups_map.insert("1".to_string(), SolverSupport {
         id: 1, node_id: 1, support_type: "fixed".to_string(),
-        kx: None, ky: None, kz: None, dx: None, dy: None, drz: None, angle: None,
+        kx: None, ky: None, kz: None, dx: None, dz: None, dry: None, angle: None,
     });
     sups_map.insert("2".to_string(), SolverSupport {
         id: 2, node_id: total_nodes, support_type: "rollerX".to_string(),
-        kx: None, ky: None, kz: None, dx: None, dy: None, drz: None, angle: None,
+        kx: None, ky: None, kz: None, dx: None, dz: None, dry: None, angle: None,
     });
 
     let loads: Vec<SolverLoad> = (1..=total_elems)
@@ -419,7 +419,7 @@ fn validation_stepped_beam_reaction_redistribution() {
 
     // Right reaction (roller at tip of stiffer half)
     let r_right_stepped = results_stepped.reactions.iter()
-        .find(|r| r.node_id == total_nodes).unwrap().ry;
+        .find(|r| r.node_id == total_nodes).unwrap().rz;
 
     // Uniform propped cantilever: R_right = 3/8 * q * (2L) = 3/8 * 10 * 12 = 45
     let r_right_uniform = 3.0 / 8.0 * q.abs() * 2.0 * l;
@@ -432,7 +432,7 @@ fn validation_stepped_beam_reaction_redistribution() {
     );
 
     // Equilibrium
-    let sum_ry: f64 = results_stepped.reactions.iter().map(|r| r.ry).sum();
+    let sum_ry: f64 = results_stepped.reactions.iter().map(|r| r.rz).sum();
     assert_close(sum_ry, total_load, 0.02, "Stepped reaction: ΣRy = qL_total");
 }
 
@@ -512,7 +512,7 @@ fn validation_stepped_beam_stiffness_doubling() {
     let input_u = make_beam(n, l, E, A, IZ, "fixed", Some("rollerX"), loads_u);
     let res_u = linear::solve_2d(&input_u).unwrap();
     let r_b_uniform = res_u.reactions.iter()
-        .find(|r| r.node_id == n + 1).unwrap().ry;
+        .find(|r| r.node_id == n + 1).unwrap().rz;
 
     // Doubled IZ everywhere: tip reaction unchanged (statically determined ratio)
     let loads_2: Vec<SolverLoad> = (1..=n)
@@ -523,16 +523,16 @@ fn validation_stepped_beam_stiffness_doubling() {
     let input_2 = make_beam(n, l, E, A, 2.0 * IZ, "fixed", Some("rollerX"), loads_2);
     let res_2 = linear::solve_2d(&input_2).unwrap();
     let r_b_double = res_2.reactions.iter()
-        .find(|r| r.node_id == n + 1).unwrap().ry;
+        .find(|r| r.node_id == n + 1).unwrap().rz;
 
     // For uniform beam, reaction doesn't depend on EI (statically determined pattern)
     assert_close(r_b_uniform, r_b_double, 0.02, "Propped cantilever R_B: EI-independent");
 
     // Now check deflection: uniform IZ vs uniform 2×IZ → deflection halved
     let d_u = res_u.displacements.iter()
-        .find(|d| d.node_id == n / 2 + 1).unwrap().uy.abs();
+        .find(|d| d.node_id == n / 2 + 1).unwrap().uz.abs();
     let d_2 = res_2.displacements.iter()
-        .find(|d| d.node_id == n / 2 + 1).unwrap().uy.abs();
+        .find(|d| d.node_id == n / 2 + 1).unwrap().uz.abs();
 
     assert_close(d_u / d_2, 2.0, 0.03, "Stiffness doubling: deflection halved");
 }
@@ -576,8 +576,8 @@ fn validation_stepped_beam_three_segment_symmetric() {
     let res_sym = linear::solve_2d(&input_sym).unwrap();
 
     // Reactions at both ends must be equal (symmetric structure + symmetric load)
-    let r_a = res_sym.reactions.iter().find(|r| r.node_id == 1).unwrap().ry;
-    let r_b = res_sym.reactions.iter().find(|r| r.node_id == total_elems + 1).unwrap().ry;
+    let r_a = res_sym.reactions.iter().find(|r| r.node_id == 1).unwrap().rz;
+    let r_b = res_sym.reactions.iter().find(|r| r.node_id == total_elems + 1).unwrap().rz;
     assert_close(r_a, r_b, 0.02, "Three-segment symmetric: R_A = R_B");
     assert_close(r_a, q.abs() * total_l / 2.0, 0.02, "Three-segment: R_A = qL/2");
 }
@@ -617,7 +617,7 @@ fn validation_stepped_beam_vs_uniform_midspan() {
     let input_u = make_beam(total_elems, l, E, A, IZ, "pinned", Some("rollerX"), loads_u);
     let d_uniform = linear::solve_2d(&input_u).unwrap()
         .displacements.iter()
-        .find(|d| d.node_id == total_elems / 2 + 1).unwrap().uy.abs();
+        .find(|d| d.node_id == total_elems / 2 + 1).unwrap().uz.abs();
 
     // Uniform 2×IZ (stiffest)
     let loads_2: Vec<SolverLoad> = (1..=total_elems)
@@ -628,7 +628,7 @@ fn validation_stepped_beam_vs_uniform_midspan() {
     let input_2 = make_beam(total_elems, l, E, A, 2.0 * IZ, "pinned", Some("rollerX"), loads_2);
     let d_double = linear::solve_2d(&input_2).unwrap()
         .displacements.iter()
-        .find(|d| d.node_id == total_elems / 2 + 1).unwrap().uy.abs();
+        .find(|d| d.node_id == total_elems / 2 + 1).unwrap().uz.abs();
 
     // Stepped: left half 2×IZ, right half IZ
     let input_s = make_stepped_ss_beam(
@@ -639,7 +639,7 @@ fn validation_stepped_beam_vs_uniform_midspan() {
     );
     let d_stepped = linear::solve_2d(&input_s).unwrap()
         .displacements.iter()
-        .find(|d| d.node_id == mid_node).unwrap().uy.abs();
+        .find(|d| d.node_id == mid_node).unwrap().uz.abs();
 
     // Stepped deflection at midspan must lie between uniform extremes
     assert!(
@@ -675,7 +675,7 @@ fn validation_stepped_beam_shear_continuity() {
     // The section-change node is node n_per+1 — no load is applied there.
     let load_node = n_per + n_per / 2 + 1;
     let loads = vec![SolverLoad::Nodal(SolverNodalLoad {
-        node_id: load_node, fx: 0.0, fy: -p, mz: 0.0,
+        node_id: load_node, fx: 0.0, fz: -p, my: 0.0,
     })];
 
     let input = make_stepped_ss_beam(
@@ -704,7 +704,7 @@ fn validation_stepped_beam_shear_continuity() {
     );
 
     // Global equilibrium
-    let sum_ry: f64 = results.reactions.iter().map(|r| r.ry).sum();
+    let sum_ry: f64 = results.reactions.iter().map(|r| r.rz).sum();
     assert_close(sum_ry, p, 0.02, "Shear continuity: ΣRy = P");
 
     // Verify total number of elements

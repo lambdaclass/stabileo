@@ -40,7 +40,7 @@ fn validation_pure_tension() {
 
     let input = make_beam(n, l, E, A, IZ, "pinned", Some("rollerX"),
         vec![SolverLoad::Nodal(SolverNodalLoad {
-            node_id: 2, fx: f, fy: 0.0, mz: 0.0,
+            node_id: 2, fx: f, fz: 0.0, my: 0.0,
         })]);
 
     let results = linear::solve_2d(&input).unwrap();
@@ -56,7 +56,7 @@ fn validation_pure_tension() {
     assert_close(ef.n_end.abs(), f, 0.02, "tension |n_end| = F");
 
     // No transverse displacement
-    assert!(d2.uy.abs() < 1e-6, "tension: uy should be zero, got {:.6e}", d2.uy);
+    assert!(d2.uz.abs() < 1e-6, "tension: uy should be zero, got {:.6e}", d2.uz);
 
     // No shear or moment
     assert!(ef.v_start.abs() < 1e-4, "tension: V should be zero");
@@ -78,7 +78,7 @@ fn validation_pure_compression() {
 
     let input = make_beam(n, l, E, A, IZ, "pinned", Some("rollerX"),
         vec![SolverLoad::Nodal(SolverNodalLoad {
-            node_id: 2, fx: f, fy: 0.0, mz: 0.0,
+            node_id: 2, fx: f, fz: 0.0, my: 0.0,
         })]);
 
     let results = linear::solve_2d(&input).unwrap();
@@ -115,11 +115,11 @@ fn validation_axial_proportional_to_load() {
 
     let input1 = make_beam(n, l, E, A, IZ, "pinned", Some("rollerX"),
         vec![SolverLoad::Nodal(SolverNodalLoad {
-            node_id: 2, fx: f1, fy: 0.0, mz: 0.0,
+            node_id: 2, fx: f1, fz: 0.0, my: 0.0,
         })]);
     let input2 = make_beam(n, l, E, A, IZ, "pinned", Some("rollerX"),
         vec![SolverLoad::Nodal(SolverNodalLoad {
-            node_id: 2, fx: f2, fy: 0.0, mz: 0.0,
+            node_id: 2, fx: f2, fz: 0.0, my: 0.0,
         })]);
 
     let res1 = linear::solve_2d(&input1).unwrap();
@@ -154,11 +154,11 @@ fn validation_axial_proportional_to_length() {
 
     let input1 = make_beam(1, l1, E, A, IZ, "pinned", Some("rollerX"),
         vec![SolverLoad::Nodal(SolverNodalLoad {
-            node_id: 2, fx: f, fy: 0.0, mz: 0.0,
+            node_id: 2, fx: f, fz: 0.0, my: 0.0,
         })]);
     let input2 = make_beam(1, l2, E, A, IZ, "pinned", Some("rollerX"),
         vec![SolverLoad::Nodal(SolverNodalLoad {
-            node_id: 2, fx: f, fy: 0.0, mz: 0.0,
+            node_id: 2, fx: f, fz: 0.0, my: 0.0,
         })]);
 
     let res1 = linear::solve_2d(&input1).unwrap();
@@ -195,7 +195,7 @@ fn validation_combined_axial_bending_independence() {
 
     let input = make_beam(n, l, E, A, IZ, "fixed", None,
         vec![SolverLoad::Nodal(SolverNodalLoad {
-            node_id: n + 1, fx, fy, mz: 0.0,
+            node_id: n + 1, fx, fz: fy, my: 0.0,
         })]);
 
     let results = linear::solve_2d(&input).unwrap();
@@ -209,27 +209,27 @@ fn validation_combined_axial_bending_independence() {
     // Transverse displacement: uy = Fy*L^3 / (3*EI)
     let ei = E_EFF * IZ;
     let uy_expected = fy * l.powi(3) / (3.0 * ei);
-    assert_close(d_tip.uy, uy_expected, 0.02, "combined: uy = Fy*L^3/(3EI)");
+    assert_close(d_tip.uz, uy_expected, 0.02, "combined: uy = Fy*L^3/(3EI)");
 
     // Verify independence: run axial-only and bending-only, compare
     let input_axial = make_beam(n, l, E, A, IZ, "fixed", None,
         vec![SolverLoad::Nodal(SolverNodalLoad {
-            node_id: n + 1, fx, fy: 0.0, mz: 0.0,
+            node_id: n + 1, fx, fz: 0.0, my: 0.0,
         })]);
     let input_bend = make_beam(n, l, E, A, IZ, "fixed", None,
         vec![SolverLoad::Nodal(SolverNodalLoad {
-            node_id: n + 1, fx: 0.0, fy, mz: 0.0,
+            node_id: n + 1, fx: 0.0, fz: fy, my: 0.0,
         })]);
 
     let res_axial = linear::solve_2d(&input_axial).unwrap();
     let res_bend = linear::solve_2d(&input_bend).unwrap();
 
     let ux_only = res_axial.displacements.iter().find(|d| d.node_id == n + 1).unwrap().ux;
-    let uy_only = res_bend.displacements.iter().find(|d| d.node_id == n + 1).unwrap().uy;
+    let uy_only = res_bend.displacements.iter().find(|d| d.node_id == n + 1).unwrap().uz;
 
     // Combined should equal sum of separate effects (superposition)
     assert_close(d_tip.ux, ux_only, 0.02, "superposition: ux combined = ux axial-only");
-    assert_close(d_tip.uy, uy_only, 0.02, "superposition: uy combined = uy bend-only");
+    assert_close(d_tip.uz, uy_only, 0.02, "superposition: uy combined = uy bend-only");
 }
 
 // ================================================================
@@ -256,11 +256,11 @@ fn validation_portal_column_axial_gravity() {
     let total_gravity = 2.0 * gravity.abs();
 
     // Each column reaction = total_gravity / 2
-    assert_close(r1.ry, total_gravity / 2.0, 0.02, "portal col 1 Ry = W/2");
-    assert_close(r4.ry, total_gravity / 2.0, 0.02, "portal col 4 Ry = W/2");
+    assert_close(r1.rz, total_gravity / 2.0, 0.02, "portal col 1 Ry = W/2");
+    assert_close(r4.rz, total_gravity / 2.0, 0.02, "portal col 4 Ry = W/2");
 
     // Global equilibrium
-    let sum_ry: f64 = results.reactions.iter().map(|r| r.ry).sum();
+    let sum_ry: f64 = results.reactions.iter().map(|r| r.rz).sum();
     assert_close(sum_ry, total_gravity, 0.02, "portal gravity: sum Ry = total W");
 
     // Column axial forces: each column carries gravity load per node
@@ -306,14 +306,14 @@ fn validation_inclined_member_axial() {
         ],
         vec![(1, 1, "pinned"), (2, 2, "rollerX")],
         vec![SolverLoad::Nodal(SolverNodalLoad {
-            node_id: 3, fx: 0.0, fy: -50.0, mz: 0.0,
+            node_id: 3, fx: 0.0, fz: -50.0, my: 0.0,
         })],
     );
 
     let results = linear::solve_2d(&input).unwrap();
 
     // Global equilibrium: sum Ry = 50
-    let sum_ry: f64 = results.reactions.iter().map(|r| r.ry).sum();
+    let sum_ry: f64 = results.reactions.iter().map(|r| r.rz).sum();
     assert_close(sum_ry, 50.0, 0.02, "inclined truss: sum Ry = 50");
 
     // Horizontal equilibrium: sum Rx = 0
@@ -341,7 +341,7 @@ fn validation_inclined_member_axial() {
     // At node 1 (pinned): horizontal reaction = sum of horizontal components of members meeting here
     // At node 2 (rollerX): vertical reaction only
     // Total vertical equilibrium
-    assert_close(r1.ry + r2.ry, 50.0, 0.02, "inclined: sum Ry matches applied load");
+    assert_close(r1.rz + r2.rz, 50.0, 0.02, "inclined: sum Ry matches applied load");
 }
 
 // ================================================================
@@ -365,7 +365,7 @@ fn validation_axial_force_constant_along_member() {
 
     let input = make_beam(n, l, E, A, IZ, "fixed", None,
         vec![SolverLoad::Nodal(SolverNodalLoad {
-            node_id: n + 1, fx, fy, mz: 0.0,
+            node_id: n + 1, fx, fz: fy, my: 0.0,
         })]);
 
     let results = linear::solve_2d(&input).unwrap();

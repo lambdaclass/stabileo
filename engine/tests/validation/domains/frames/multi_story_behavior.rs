@@ -56,7 +56,7 @@ fn validation_two_story_lateral_drift() {
     ];
     let sups = vec![(1, 1, "fixed"), (2, 4, "fixed")];
     let loads = vec![
-        SolverLoad::Nodal(SolverNodalLoad { node_id: 2, fx: lateral, fy: 0.0, mz: 0.0 }),
+        SolverLoad::Nodal(SolverNodalLoad { node_id: 2, fx: lateral, fz: 0.0, my: 0.0 }),
     ];
 
     let input = make_input(nodes, vec![(1, E, 0.3)], vec![(1, A, IZ)], elems, sups, loads);
@@ -101,7 +101,7 @@ fn validation_two_story_shear_distribution() {
     ];
     let sups = vec![(1, 1, "fixed"), (2, 4, "fixed")];
     let loads = vec![
-        SolverLoad::Nodal(SolverNodalLoad { node_id: 5, fx: lateral, fy: 0.0, mz: 0.0 }),
+        SolverLoad::Nodal(SolverNodalLoad { node_id: 5, fx: lateral, fz: 0.0, my: 0.0 }),
     ];
 
     let input = make_input(nodes, vec![(1, E, 0.3)], vec![(1, A, IZ)], elems, sups, loads);
@@ -157,7 +157,7 @@ fn validation_two_story_symmetric_gravity_no_sway() {
     // Allow small numerical noise from element orientation asymmetry (column
     // element directions create minor axial-coupling effects).
     let d_max = results.displacements.iter()
-        .map(|d| d.uy.abs())
+        .map(|d| d.uz.abs())
         .fold(0.0_f64, f64::max);
 
     for nid in &[2, 3, 5, 6] {
@@ -197,7 +197,7 @@ fn validation_two_story_inter_story_drift() {
     ];
     let sups = vec![(1, 1, "fixed"), (2, 4, "fixed")];
     let loads = vec![
-        SolverLoad::Nodal(SolverNodalLoad { node_id: 5, fx: lateral, fy: 0.0, mz: 0.0 }),
+        SolverLoad::Nodal(SolverNodalLoad { node_id: 5, fx: lateral, fz: 0.0, my: 0.0 }),
     ];
 
     let input = make_input(nodes, vec![(1, E, 0.3)], vec![(1, A, IZ)], elems, sups, loads);
@@ -248,10 +248,10 @@ fn validation_two_story_column_axial_gravity() {
     ];
     let sups = vec![(1, 1, "fixed"), (2, 4, "fixed")];
     let loads = vec![
-        SolverLoad::Nodal(SolverNodalLoad { node_id: 2, fx: 0.0, fy: -p, mz: 0.0 }),
-        SolverLoad::Nodal(SolverNodalLoad { node_id: 3, fx: 0.0, fy: -p, mz: 0.0 }),
-        SolverLoad::Nodal(SolverNodalLoad { node_id: 5, fx: 0.0, fy: -p, mz: 0.0 }),
-        SolverLoad::Nodal(SolverNodalLoad { node_id: 6, fx: 0.0, fy: -p, mz: 0.0 }),
+        SolverLoad::Nodal(SolverNodalLoad { node_id: 2, fx: 0.0, fz: -p, my: 0.0 }),
+        SolverLoad::Nodal(SolverNodalLoad { node_id: 3, fx: 0.0, fz: -p, my: 0.0 }),
+        SolverLoad::Nodal(SolverNodalLoad { node_id: 5, fx: 0.0, fz: -p, my: 0.0 }),
+        SolverLoad::Nodal(SolverNodalLoad { node_id: 6, fx: 0.0, fz: -p, my: 0.0 }),
     ];
 
     let input = make_input(nodes, vec![(1, E, 0.3)], vec![(1, A, IZ)], elems, sups, loads);
@@ -263,12 +263,12 @@ fn validation_two_story_column_axial_gravity() {
     // Sum of base vertical reactions = total gravity
     let r1 = results.reactions.iter().find(|r| r.node_id == 1).unwrap();
     let r4 = results.reactions.iter().find(|r| r.node_id == 4).unwrap();
-    let sum_ry = r1.ry + r4.ry;
+    let sum_ry = r1.rz + r4.rz;
     assert_close(sum_ry, total_gravity, 0.01, "Sum Ry = total gravity");
 
     // Symmetric case: each base reaction = total_gravity / 2 = 2P
-    assert_close(r1.ry, total_gravity / 2.0, 0.01, "Ry at node 1 = 2P");
-    assert_close(r4.ry, total_gravity / 2.0, 0.01, "Ry at node 4 = 2P");
+    assert_close(r1.rz, total_gravity / 2.0, 0.01, "Ry at node 1 = 2P");
+    assert_close(r4.rz, total_gravity / 2.0, 0.01, "Ry at node 4 = 2P");
 }
 
 // ================================================================
@@ -295,7 +295,7 @@ fn validation_stiffer_columns_reduce_drift() {
             (3, "frame", 3, 4, 1, 1, false, false),
         ],
         vec![(1, 1, "fixed"), (2, 4, "fixed")],
-        vec![SolverLoad::Nodal(SolverNodalLoad { node_id: 2, fx: lateral, fy: 0.0, mz: 0.0 })],
+        vec![SolverLoad::Nodal(SolverNodalLoad { node_id: 2, fx: lateral, fz: 0.0, my: 0.0 })],
     );
     let r_normal = linear::solve_2d(&input_normal).unwrap();
     let drift_normal = r_normal.displacements.iter()
@@ -313,7 +313,7 @@ fn validation_stiffer_columns_reduce_drift() {
             (3, "frame", 3, 4, 1, 1, false, false),
         ],
         vec![(1, 1, "fixed"), (2, 4, "fixed")],
-        vec![SolverLoad::Nodal(SolverNodalLoad { node_id: 2, fx: lateral, fy: 0.0, mz: 0.0 })],
+        vec![SolverLoad::Nodal(SolverNodalLoad { node_id: 2, fx: lateral, fz: 0.0, my: 0.0 })],
     );
     let r_stiff = linear::solve_2d(&input_stiff).unwrap();
     let drift_stiff = r_stiff.displacements.iter()
@@ -351,7 +351,7 @@ fn validation_base_moment_lateral_load() {
             (3, "frame", 3, 4, 1, 1, false, false),
         ],
         vec![(1, 1, "fixed"), (2, 4, "fixed")],
-        vec![SolverLoad::Nodal(SolverNodalLoad { node_id: 2, fx: lateral, fy: 0.0, mz: 0.0 })],
+        vec![SolverLoad::Nodal(SolverNodalLoad { node_id: 2, fx: lateral, fz: 0.0, my: 0.0 })],
     );
     let results = linear::solve_2d(&input).unwrap();
 
@@ -361,7 +361,7 @@ fn validation_base_moment_lateral_load() {
     // Moment equilibrium about node 1 (base left):
     //   -H*h + Mz_1 + Mz_4 + Ry_4 * w = 0
     let m_overturning = lateral * h;
-    let m_resisting = r1.mz + r4.mz + r4.ry * w;
+    let m_resisting = r1.my + r4.my + r4.rz * w;
 
     assert_close(m_resisting, m_overturning, 0.01,
         "Moment equilibrium: resisting = overturning");
@@ -390,7 +390,7 @@ fn validation_cantilever_vs_portal_drift() {
             (1, "frame", 1, 2, 1, 1, false, false),
         ],
         vec![(1, 1, "fixed")],
-        vec![SolverLoad::Nodal(SolverNodalLoad { node_id: 2, fx: lateral, fy: 0.0, mz: 0.0 })],
+        vec![SolverLoad::Nodal(SolverNodalLoad { node_id: 2, fx: lateral, fz: 0.0, my: 0.0 })],
     );
     let r_cantilever = linear::solve_2d(&input_cantilever).unwrap();
     let drift_cantilever = r_cantilever.displacements.iter()
@@ -407,7 +407,7 @@ fn validation_cantilever_vs_portal_drift() {
             (3, "frame", 3, 4, 1, 1, false, false),
         ],
         vec![(1, 1, "fixed"), (2, 4, "fixed")],
-        vec![SolverLoad::Nodal(SolverNodalLoad { node_id: 2, fx: lateral, fy: 0.0, mz: 0.0 })],
+        vec![SolverLoad::Nodal(SolverNodalLoad { node_id: 2, fx: lateral, fz: 0.0, my: 0.0 })],
     );
     let r_portal = linear::solve_2d(&input_portal).unwrap();
     let drift_portal = r_portal.displacements.iter()

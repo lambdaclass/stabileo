@@ -109,10 +109,10 @@ fn validation_cable_multi_point_loaded() {
     let sups = vec![(1, 1, "pinned"), (2, 4, "pinned")];
     let loads = vec![
         SolverLoad::Nodal(SolverNodalLoad {
-            node_id: 2, fx: 0.0, fy: -p, mz: 0.0,
+            node_id: 2, fx: 0.0, fz: -p, my: 0.0,
         }),
         SolverLoad::Nodal(SolverNodalLoad {
-            node_id: 3, fx: 0.0, fy: -p, mz: 0.0,
+            node_id: 3, fx: 0.0, fz: -p, my: 0.0,
         }),
     ];
 
@@ -127,8 +127,8 @@ fn validation_cable_multi_point_loaded() {
     // Vertical reactions: symmetric loading, V1 = V2 = P each
     let r1 = results.reactions.iter().find(|r| r.node_id == 1).unwrap();
     let r4 = results.reactions.iter().find(|r| r.node_id == 4).unwrap();
-    crate::common::assert_close(r1.ry, p, 0.02, "V_left = P");
-    crate::common::assert_close(r4.ry, p, 0.02, "V_right = P");
+    crate::common::assert_close(r1.rz, p, 0.02, "V_left = P");
+    crate::common::assert_close(r4.rz, p, 0.02, "V_right = P");
 
     // Horizontal reactions should equal H
     crate::common::assert_close(r1.rx.abs(), h_expected, 0.02, "H_left");
@@ -199,7 +199,7 @@ fn validation_cable_unequal_support_heights() {
     ];
     let sups = vec![(1, 1, "pinned"), (2, 3, "pinned")];
     let loads = vec![SolverLoad::Nodal(SolverNodalLoad {
-        node_id: 2, fx: 0.0, fy: -p, mz: 0.0,
+        node_id: 2, fx: 0.0, fz: -p, my: 0.0,
     })];
 
     let input = make_input(nodes, vec![(1, E, 0.3)], vec![(1, A_CABLE, IZ_TRUSS)],
@@ -223,7 +223,7 @@ fn validation_cable_unequal_support_heights() {
     assert!(ef2.n_start > 0.0, "Bar 2 tension: {:.4}", ef2.n_start);
 
     // Global equilibrium
-    let sum_ry: f64 = results.reactions.iter().map(|r| r.ry).sum();
+    let sum_ry: f64 = results.reactions.iter().map(|r| r.rz).sum();
     let sum_rx: f64 = results.reactions.iter().map(|r| r.rx).sum();
     crate::common::assert_close(sum_ry, p, 0.01, "Unequal heights sum_ry");
     crate::common::assert_close(sum_rx.abs(), 0.0, 0.01, "Unequal heights sum_rx");
@@ -234,11 +234,11 @@ fn validation_cable_unequal_support_heights() {
     // R1_y = -T1 * (-1)/L1 = T1/L1 (reaction must point up)
     let r1 = results.reactions.iter().find(|r| r.node_id == 1).unwrap();
     let r1_y_expected: f64 = t1_expected * 1.0 / l1; // = 3.0
-    crate::common::assert_close(r1.ry, r1_y_expected, 0.02, "R1_y unequal heights");
+    crate::common::assert_close(r1.rz, r1_y_expected, 0.02, "R1_y unequal heights");
 
     // R3_y: by vertical equilibrium, R3_y = P - R1_y = 15 - 3 = 12
     let r3 = results.reactions.iter().find(|r| r.node_id == 3).unwrap();
-    crate::common::assert_close(r3.ry, p - r1_y_expected, 0.02, "R3_y unequal heights");
+    crate::common::assert_close(r3.rz, p - r1_y_expected, 0.02, "R3_y unequal heights");
 }
 
 // ================================================================
@@ -304,20 +304,20 @@ fn validation_cable_stayed_fan_configuration() {
         (2, A_CABLE, IZ_TRUSS),    // cable/tower section
     ];
     let loads = vec![SolverLoad::Nodal(SolverNodalLoad {
-        node_id: 2, fx: 0.0, fy: -p, mz: 0.0,
+        node_id: 2, fx: 0.0, fz: -p, my: 0.0,
     })];
 
     let input = make_input(nodes, vec![(1, E, 0.3)], secs, elems, sups, loads);
     let results = linear::solve_2d(&input).unwrap();
 
     // Global equilibrium
-    let sum_ry: f64 = results.reactions.iter().map(|r| r.ry).sum();
+    let sum_ry: f64 = results.reactions.iter().map(|r| r.rz).sum();
     crate::common::assert_close(sum_ry, p, 0.02, "Cable-stayed sum_ry");
 
     // Symmetric reactions
     let r1 = results.reactions.iter().find(|r| r.node_id == 1).unwrap();
     let r3 = results.reactions.iter().find(|r| r.node_id == 3).unwrap();
-    crate::common::assert_close(r1.ry, r3.ry, 0.02, "Cable-stayed: symmetric Ry");
+    crate::common::assert_close(r1.rz, r3.rz, 0.02, "Cable-stayed: symmetric Ry");
 
     // Both stays should carry equal tension (by symmetry)
     let stay_left = results.element_forces.iter().find(|e| e.element_id == 4).unwrap();
@@ -340,7 +340,7 @@ fn validation_cable_stayed_fan_configuration() {
 
     // Midspan node should deflect downward
     let d_mid = results.displacements.iter().find(|d| d.node_id == 2).unwrap();
-    assert!(d_mid.uy < 0.0, "Midspan deflects down: uy={:.6}", d_mid.uy);
+    assert!(d_mid.uz < 0.0, "Midspan deflects down: uy={:.6}", d_mid.uz);
 }
 
 // ================================================================
@@ -371,12 +371,12 @@ fn validation_cable_deflection_inversely_proportional_to_e() {
         ];
         let sups = vec![(1, 1, "pinned"), (2, 3, "pinned")];
         let loads = vec![SolverLoad::Nodal(SolverNodalLoad {
-            node_id: 2, fx: 0.0, fy: -p, mz: 0.0,
+            node_id: 2, fx: 0.0, fz: -p, my: 0.0,
         })];
         let input = make_input(nodes, vec![(1, e_val, 0.3)], vec![(1, A_CABLE, IZ_TRUSS)],
             elems, sups, loads);
         let results = linear::solve_2d(&input).unwrap();
-        results.displacements.iter().find(|d| d.node_id == 2).unwrap().uy.abs()
+        results.displacements.iter().find(|d| d.node_id == 2).unwrap().uz.abs()
     };
 
     let e1: f64 = 200_000.0;
@@ -453,10 +453,10 @@ fn validation_cable_w_shaped_network() {
     ];
     let loads = vec![
         SolverLoad::Nodal(SolverNodalLoad {
-            node_id: 2, fx: 0.0, fy: -p, mz: 0.0,
+            node_id: 2, fx: 0.0, fz: -p, my: 0.0,
         }),
         SolverLoad::Nodal(SolverNodalLoad {
-            node_id: 4, fx: 0.0, fy: -p, mz: 0.0,
+            node_id: 4, fx: 0.0, fz: -p, my: 0.0,
         }),
     ];
 
@@ -465,13 +465,13 @@ fn validation_cable_w_shaped_network() {
     let results = linear::solve_2d(&input).unwrap();
 
     // Global equilibrium
-    let sum_ry: f64 = results.reactions.iter().map(|r| r.ry).sum();
+    let sum_ry: f64 = results.reactions.iter().map(|r| r.rz).sum();
     crate::common::assert_close(sum_ry, 2.0 * p, 0.01, "W-cable sum_ry");
 
     // By symmetry: R1 = R5
     let r1 = results.reactions.iter().find(|r| r.node_id == 1).unwrap();
     let r5 = results.reactions.iter().find(|r| r.node_id == 5).unwrap();
-    crate::common::assert_close(r1.ry, r5.ry, 0.02, "W-cable: R1_y = R5_y");
+    crate::common::assert_close(r1.rz, r5.rz, 0.02, "W-cable: R1_y = R5_y");
     crate::common::assert_close(r1.rx.abs(), r5.rx.abs(), 0.02, "W-cable: |R1_x| = |R5_x|");
 
     // Member length
@@ -492,7 +492,7 @@ fn validation_cable_w_shaped_network() {
 
     // Central support carries vertical load from both V-cables
     let r3 = results.reactions.iter().find(|r| r.node_id == 3).unwrap();
-    crate::common::assert_close(r3.ry, p, 0.02, "W-cable: R3_y = P (center support)");
+    crate::common::assert_close(r3.rz, p, 0.02, "W-cable: R3_y = P (center support)");
 }
 
 // ================================================================
@@ -532,7 +532,7 @@ fn validation_cable_horizontal_with_lateral_load() {
     ];
     let sups = vec![(1, 1, "pinned"), (2, 3, "pinned")];
     let loads = vec![SolverLoad::Nodal(SolverNodalLoad {
-        node_id: 2, fx: f_lat, fy: -p_vert, mz: 0.0,
+        node_id: 2, fx: f_lat, fz: -p_vert, my: 0.0,
     })];
 
     let input = make_input(nodes, vec![(1, E, 0.3)], vec![(1, A_CABLE, IZ_TRUSS)],
@@ -540,7 +540,7 @@ fn validation_cable_horizontal_with_lateral_load() {
     let results = linear::solve_2d(&input).unwrap();
 
     // Global equilibrium
-    let sum_ry: f64 = results.reactions.iter().map(|r| r.ry).sum();
+    let sum_ry: f64 = results.reactions.iter().map(|r| r.rz).sum();
     let sum_rx: f64 = results.reactions.iter().map(|r| r.rx).sum();
     crate::common::assert_close(sum_ry, p_vert, 0.01, "Horiz cable sum_ry");
     crate::common::assert_close(sum_rx, -f_lat, 0.01, "Horiz cable sum_rx");
@@ -632,7 +632,7 @@ fn validation_cable_vs_arch_equal_thrust_magnitude() {
         cable_elems,
         vec![(1, 1, "pinned"), (2, 3, "pinned")],
         vec![SolverLoad::Nodal(SolverNodalLoad {
-            node_id: 2, fx: 0.0, fy: -p, mz: 0.0,
+            node_id: 2, fx: 0.0, fz: -p, my: 0.0,
         })],
     );
     let cable_results = linear::solve_2d(&cable_input).unwrap();
@@ -655,7 +655,7 @@ fn validation_cable_vs_arch_equal_thrust_magnitude() {
         arch_elems,
         vec![(1, 1, "pinned"), (2, 3, "pinned")],
         vec![SolverLoad::Nodal(SolverNodalLoad {
-            node_id: 2, fx: 0.0, fy: -p, mz: 0.0,
+            node_id: 2, fx: 0.0, fz: -p, my: 0.0,
         })],
     );
     let arch_results = linear::solve_2d(&arch_input).unwrap();
@@ -779,7 +779,7 @@ fn validation_cable_strut_roof_truss() {
     let mut loads = Vec::new();
     for i in 1..n_bays {
         loads.push(SolverLoad::Nodal(SolverNodalLoad {
-            node_id: n_bays + 2 + i, fx: 0.0, fy: -p, mz: 0.0,
+            node_id: n_bays + 2 + i, fx: 0.0, fz: -p, my: 0.0,
         }));
     }
 
@@ -790,13 +790,13 @@ fn validation_cable_strut_roof_truss() {
     let results = linear::solve_2d(&input).unwrap();
 
     // Global equilibrium
-    let sum_ry: f64 = results.reactions.iter().map(|r| r.ry).sum();
+    let sum_ry: f64 = results.reactions.iter().map(|r| r.rz).sum();
     crate::common::assert_close(sum_ry, total_load, 0.02, "Cable-strut sum_ry");
 
     // Symmetric loading and geometry -> equal reactions
     let r_left = results.reactions.iter().find(|r| r.node_id == bot_left_node).unwrap();
     let r_right = results.reactions.iter().find(|r| r.node_id == bot_right_node).unwrap();
-    crate::common::assert_close(r_left.ry, r_right.ry, 0.02, "Cable-strut: symmetric Ry");
+    crate::common::assert_close(r_left.rz, r_right.rz, 0.02, "Cable-strut: symmetric Ry");
 
     // Bottom chord midspan element should be in tension (cable behavior)
     // Bottom chord element IDs: n_bays+1 through 2*n_bays

@@ -160,8 +160,8 @@ fn validation_corot_ext_pure_axial_frame() {
     let loads = vec![SolverLoad::Nodal(SolverNodalLoad {
         node_id: n + 1,
         fx: p,
-        fy: 0.0,
-        mz: 0.0,
+        fz: 0.0,
+        my: 0.0,
     })];
 
     let input = make_input(
@@ -195,7 +195,7 @@ fn validation_corot_ext_pure_axial_frame() {
     // All transverse displacements should be essentially zero
     for d in &result.results.displacements {
         assert_close(
-            d.uy,
+            d.uz,
             0.0,
             0.05,
             &format!("Node {} uy should be zero for pure axial", d.node_id),
@@ -242,15 +242,15 @@ fn validation_corot_ext_fixed_fixed_column_stiffness_reduction() {
         SolverLoad::Nodal(SolverNodalLoad {
             node_id: n + 1,
             fx: -p_axial,
-            fy: 0.0,
-            mz: 0.0,
+            fz: 0.0,
+            my: 0.0,
         }),
         // Small lateral perturbation at midspan
         SolverLoad::Nodal(SolverNodalLoad {
             node_id: n / 2 + 1,
             fx: 0.0,
-            fy: p_lateral,
-            mz: 0.0,
+            fz: p_lateral,
+            my: 0.0,
         }),
     ];
 
@@ -281,14 +281,14 @@ fn validation_corot_ext_fixed_fixed_column_stiffness_reduction() {
 
     // Corotational should show more lateral deflection due to geometric softening
     assert!(
-        mid_corot.uy.abs() >= mid_lin.uy.abs() * 0.95,
+        mid_corot.uz.abs() >= mid_lin.uz.abs() * 0.95,
         "Compression should amplify lateral deflection: corot={:.6e}, linear={:.6e}",
-        mid_corot.uy.abs(),
-        mid_lin.uy.abs()
+        mid_corot.uz.abs(),
+        mid_lin.uz.abs()
     );
 
     // The amplification should be bounded — we're well below Pcr
-    let amp: f64 = mid_corot.uy.abs() / mid_lin.uy.abs().max(1e-15);
+    let amp: f64 = mid_corot.uz.abs() / mid_lin.uz.abs().max(1e-15);
     assert!(
         amp < 5.0,
         "Amplification at 40% Pcr should be moderate, got {:.2}",
@@ -350,8 +350,8 @@ fn validation_corot_ext_l_frame_tip_load() {
     let loads = vec![SolverLoad::Nodal(SolverNodalLoad {
         node_id: tip_node,
         fx: p,
-        fy: 0.0,
-        mz: 0.0,
+        fz: 0.0,
+        my: 0.0,
     })];
 
     let input = make_input(
@@ -405,7 +405,7 @@ fn validation_corot_ext_l_frame_tip_load() {
         .find(|d| d.node_id == corner_node)
         .unwrap();
     assert!(
-        corner_corot.ux.abs() > 1e-10 || corner_corot.uy.abs() > 1e-10,
+        corner_corot.ux.abs() > 1e-10 || corner_corot.uz.abs() > 1e-10,
         "Corner node should displace"
     );
 }
@@ -446,14 +446,14 @@ fn validation_corot_ext_symmetric_displacements() {
         SolverLoad::Nodal(SolverNodalLoad {
             node_id: qtr1_node,
             fx: 0.0,
-            fy: -p,
-            mz: 0.0,
+            fz: -p,
+            my: 0.0,
         }),
         SolverLoad::Nodal(SolverNodalLoad {
             node_id: qtr3_node,
             fx: 0.0,
-            fy: -p,
-            mz: 0.0,
+            fz: -p,
+            my: 0.0,
         }),
     ];
 
@@ -484,16 +484,16 @@ fn validation_corot_ext_symmetric_displacements() {
 
     // Vertical displacements at symmetric points should be equal
     assert_close(
-        qtr1.uy,
-        qtr3.uy,
+        qtr1.uz,
+        qtr3.uz,
         0.01,
         "Symmetric quarter-point vertical displacements",
     );
 
     // Rotations should be equal in magnitude but opposite in sign
     assert_close(
-        qtr1.rz.abs(),
-        qtr3.rz.abs(),
+        qtr1.ry.abs(),
+        qtr3.ry.abs(),
         0.05,
         "Symmetric quarter-point rotation magnitudes",
     );
@@ -507,10 +507,10 @@ fn validation_corot_ext_symmetric_displacements() {
         .find(|d| d.node_id == mid_node)
         .unwrap();
     assert!(
-        mid.uy.abs() >= qtr1.uy.abs() * 0.99,
+        mid.uz.abs() >= qtr1.uz.abs() * 0.99,
         "Midspan deflection {:.6e} should be >= quarter-point {:.6e}",
-        mid.uy.abs(),
-        qtr1.uy.abs()
+        mid.uz.abs(),
+        qtr1.uz.abs()
     );
 }
 
@@ -542,11 +542,11 @@ fn validation_corot_ext_global_equilibrium() {
     // Lateral: 15 kN at node 2 in x
     // Gravity: -30 kN at nodes 2 and 3 in y (total = -60 kN)
     let applied_fx: f64 = p_lateral;
-    let applied_fy: f64 = 2.0 * p_gravity;
+    let applied_fz: f64 = 2.0 * p_gravity;
 
     // Sum of reactions
     let sum_rx: f64 = result.results.reactions.iter().map(|r| r.rx).sum();
-    let sum_ry: f64 = result.results.reactions.iter().map(|r| r.ry).sum();
+    let sum_ry: f64 = result.results.reactions.iter().map(|r| r.rz).sum();
 
     // Equilibrium: reactions + applied = 0
     assert_close(
@@ -556,7 +556,7 @@ fn validation_corot_ext_global_equilibrium() {
         "Horizontal equilibrium (Σrx + Σfx)",
     );
     assert_close(
-        sum_ry + applied_fy,
+        sum_ry + applied_fz,
         0.0,
         0.05,
         "Vertical equilibrium (Σry + Σfy)",
@@ -636,14 +636,14 @@ fn validation_corot_ext_cantilever_distributed_load() {
 
     // Linear FEM should match analytical formula
     assert_close(
-        tip_lin.uy,
+        tip_lin.uz,
         delta_linear_analytical,
         0.05,
         "Linear FEM tip deflection vs analytical qL^4/(8EI)",
     );
 
     // For moderate distributed load, corotational should be close to linear
-    let ratio: f64 = tip_corot.uy / tip_lin.uy;
+    let ratio: f64 = tip_corot.uz / tip_lin.uz;
     assert!(
         ratio > 0.8 && ratio < 1.2,
         "Corot/linear deflection ratio={:.4} should be close to 1 for moderate UDL",
@@ -658,7 +658,7 @@ fn validation_corot_ext_cantilever_distributed_load() {
         .iter()
         .find(|r| r.node_id == 1)
         .unwrap()
-        .ry;
+        .rz;
 
     assert_close(
         reaction_ry + total_load,

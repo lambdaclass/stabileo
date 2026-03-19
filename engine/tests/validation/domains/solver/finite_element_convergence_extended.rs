@@ -43,7 +43,7 @@ fn validation_ss_beam_udl_coarse_vs_fine_midspan() {
         .iter()
         .find(|d| d.node_id == 2)
         .unwrap()
-        .uy
+        .uz
         .abs();
 
     // Fine mesh: 16 elements, midspan node = 9
@@ -54,7 +54,7 @@ fn validation_ss_beam_udl_coarse_vs_fine_midspan() {
         .iter()
         .find(|d| d.node_id == 9)
         .unwrap()
-        .uy
+        .uz
         .abs();
 
     let err_coarse: f64 = (d_coarse - delta_exact).abs() / delta_exact;
@@ -115,8 +115,8 @@ fn validation_cantilever_point_load_mesh_convergence() {
             vec![SolverLoad::Nodal(SolverNodalLoad {
                 node_id: tip_node,
                 fx: 0.0,
-                fy: p,
-                mz: 0.0,
+                fz: p,
+                my: 0.0,
             })],
         );
         let results = linear::solve_2d(&input).unwrap();
@@ -125,7 +125,7 @@ fn validation_cantilever_point_load_mesh_convergence() {
             .iter()
             .find(|d| d.node_id == tip_node)
             .unwrap()
-            .uy
+            .uz
             .abs();
         let err: f64 = (d_tip - delta_exact).abs() / delta_exact;
         deflections.push(d_tip);
@@ -195,7 +195,7 @@ fn validation_fixed_fixed_beam_udl_convergence() {
             .iter()
             .find(|d| d.node_id == mid_node)
             .unwrap()
-            .uy
+            .uz
             .abs();
 
         let err: f64 = (d_mid - delta_exact).abs() / delta_exact;
@@ -264,13 +264,13 @@ fn validation_reaction_force_convergence() {
             .iter()
             .find(|r| r.node_id == 1)
             .unwrap()
-            .ry;
+            .rz;
         let r_right: f64 = results
             .reactions
             .iter()
             .find(|r| r.node_id == n + 1)
             .unwrap()
-            .ry;
+            .rz;
 
         let err_l: f64 = (r_left - r_exact).abs() / r_exact;
         let err_r: f64 = (r_right - r_exact).abs() / r_exact;
@@ -300,13 +300,13 @@ fn validation_reaction_force_convergence() {
             .iter()
             .find(|r| r.node_id == 1)
             .unwrap()
-            .ry;
+            .rz;
         let r_right: f64 = results
             .reactions
             .iter()
             .find(|r| r.node_id == n + 1)
             .unwrap()
-            .ry;
+            .rz;
 
         assert_close(
             r_left,
@@ -565,8 +565,8 @@ fn validation_portal_frame_sway_convergence() {
         let loads = vec![SolverLoad::Nodal(SolverNodalLoad {
             node_id: top_left_node,
             fx: f_lat,
-            fy: 0.0,
-            mz: 0.0,
+            fz: 0.0,
+            my: 0.0,
         })];
 
         let input = make_input(
@@ -676,7 +676,7 @@ fn validation_two_span_continuous_beam_interior_reaction() {
             .iter()
             .find(|r| r.node_id == interior_node)
             .unwrap()
-            .ry;
+            .rz;
 
         let err: f64 = (r_int - r_interior_exact).abs() / r_interior_exact;
         errors_interior.push(err);
@@ -688,14 +688,14 @@ fn validation_two_span_continuous_beam_interior_reaction() {
                 .iter()
                 .find(|r| r.node_id == 1)
                 .unwrap()
-                .ry;
+                .rz;
             let end_node = 2 * n_per_span + 1;
             let r_c: f64 = results
                 .reactions
                 .iter()
                 .find(|r| r.node_id == end_node)
                 .unwrap()
-                .ry;
+                .rz;
 
             assert_close(
                 r_a,
@@ -712,7 +712,7 @@ fn validation_two_span_continuous_beam_interior_reaction() {
 
             // Global equilibrium: R_A + R_B + R_C = q * 2L
             let total_load: f64 = q.abs() * 2.0 * span;
-            let sum_ry: f64 = results.reactions.iter().map(|r| r.ry).sum();
+            let sum_ry: f64 = results.reactions.iter().map(|r| r.rz).sum();
             assert_close(sum_ry, total_load, 0.01, "global vertical equilibrium");
         }
     }

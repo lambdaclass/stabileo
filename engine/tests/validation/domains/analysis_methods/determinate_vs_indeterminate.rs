@@ -31,8 +31,8 @@ fn validation_ss_beam_reactions_independent_of_ei() {
     let loads = vec![SolverLoad::Nodal(SolverNodalLoad {
         node_id: n / 2 + 1,
         fx: 0.0,
-        fy: -p,
-        mz: 0.0,
+        fz: -p,
+        my: 0.0,
     })];
 
     // Baseline: E=200_000, Iz=1e-4
@@ -58,14 +58,14 @@ fn validation_ss_beam_reactions_independent_of_ei() {
     let r3_b = res3.reactions.iter().find(|r| r.node_id == n + 1).unwrap();
 
     // Expected from statics: R_A = R_B = P/2 = 50
-    assert_close(r1_a.ry, p / 2.0, 0.02, "SS base R_A");
-    assert_close(r1_b.ry, p / 2.0, 0.02, "SS base R_B");
+    assert_close(r1_a.rz, p / 2.0, 0.02, "SS base R_A");
+    assert_close(r1_b.rz, p / 2.0, 0.02, "SS base R_B");
 
-    assert_close(r2_a.ry, r1_a.ry, 0.02, "SS 2E R_A unchanged");
-    assert_close(r2_b.ry, r1_b.ry, 0.02, "SS 2E R_B unchanged");
+    assert_close(r2_a.rz, r1_a.rz, 0.02, "SS 2E R_A unchanged");
+    assert_close(r2_b.rz, r1_b.rz, 0.02, "SS 2E R_B unchanged");
 
-    assert_close(r3_a.ry, r1_a.ry, 0.02, "SS 3Iz R_A unchanged");
-    assert_close(r3_b.ry, r1_b.ry, 0.02, "SS 3Iz R_B unchanged");
+    assert_close(r3_a.rz, r1_a.rz, 0.02, "SS 3Iz R_A unchanged");
+    assert_close(r3_b.rz, r1_b.rz, 0.02, "SS 3Iz R_B unchanged");
 }
 
 // ═══════════════════════════════════════════════════════════════
@@ -91,8 +91,8 @@ fn validation_fixed_fixed_reactions_depend_on_ei() {
         vec![SolverLoad::Nodal(SolverNodalLoad {
             node_id: load_node,
             fx: 0.0,
-            fy: -p,
-            mz: 0.0,
+            fz: -p,
+            my: 0.0,
         })],
     );
     let res_uniform = linear::solve_2d(&input_uniform).unwrap();
@@ -109,8 +109,8 @@ fn validation_fixed_fixed_reactions_depend_on_ei() {
     let loads = vec![SolverLoad::Nodal(SolverNodalLoad {
         node_id: load_node,
         fx: 0.0,
-        fy: -p,
-        mz: 0.0,
+        fz: -p,
+        my: 0.0,
     })];
     let input_varied = make_input(
         nodes,
@@ -123,8 +123,8 @@ fn validation_fixed_fixed_reactions_depend_on_ei() {
     let res_varied = linear::solve_2d(&input_varied).unwrap();
 
     // Both must satisfy equilibrium
-    let sum_ry_uniform: f64 = res_uniform.reactions.iter().map(|r| r.ry).sum();
-    let sum_ry_varied: f64 = res_varied.reactions.iter().map(|r| r.ry).sum();
+    let sum_ry_uniform: f64 = res_uniform.reactions.iter().map(|r| r.rz).sum();
+    let sum_ry_varied: f64 = res_varied.reactions.iter().map(|r| r.rz).sum();
     assert_close(sum_ry_uniform, p, 0.02, "FF uniform equilibrium");
     assert_close(sum_ry_varied, p, 0.02, "FF varied equilibrium");
 
@@ -132,18 +132,18 @@ fn validation_fixed_fixed_reactions_depend_on_ei() {
     let r_a_uniform = res_uniform.reactions.iter().find(|r| r.node_id == 1).unwrap();
     let r_a_varied = res_varied.reactions.iter().find(|r| r.node_id == 1).unwrap();
 
-    let ry_diff = (r_a_uniform.ry - r_a_varied.ry).abs();
+    let ry_diff = (r_a_uniform.rz - r_a_varied.rz).abs();
     assert!(
         ry_diff > 0.5,
         "FF reactions should change with EI: uniform R_A={:.3}, varied R_A={:.3}, diff={:.3}",
-        r_a_uniform.ry, r_a_varied.ry, ry_diff
+        r_a_uniform.rz, r_a_varied.rz, ry_diff
     );
 
-    let mz_diff = (r_a_uniform.mz - r_a_varied.mz).abs();
+    let mz_diff = (r_a_uniform.my - r_a_varied.my).abs();
     assert!(
         mz_diff > 0.5,
         "FF moment reactions should change with EI: uniform M_A={:.3}, varied M_A={:.3}, diff={:.3}",
-        r_a_uniform.mz, r_a_varied.mz, mz_diff
+        r_a_uniform.my, r_a_varied.my, mz_diff
     );
 }
 
@@ -165,8 +165,8 @@ fn validation_cantilever_reactions_from_statics() {
         vec![SolverLoad::Nodal(SolverNodalLoad {
             node_id: n + 1,
             fx: 0.0,
-            fy: -p,
-            mz: 0.0,
+            fz: -p,
+            my: 0.0,
         })],
     );
     let results = linear::solve_2d(&input).unwrap();
@@ -174,14 +174,14 @@ fn validation_cantilever_reactions_from_statics() {
     let r1 = results.reactions.iter().find(|r| r.node_id == 1).unwrap();
 
     // Vertical reaction = P (exact from equilibrium)
-    assert_close(r1.ry, p, 0.02, "cantilever Ry = P");
+    assert_close(r1.rz, p, 0.02, "cantilever Ry = P");
 
     // Fixed-end moment = P*L (exact from moment equilibrium about fixed end)
     // Sign: downward load at tip causes negative moment at fixed end in convention,
     // so the reaction moment is positive (counterclockwise to resist).
     let e_eff = E * 1000.0;
     let _ = e_eff; // E_EFF not needed for this purely static check
-    assert_close(r1.mz.abs(), p * l, 0.02, "cantilever M_fixed = P*L");
+    assert_close(r1.my.abs(), p * l, 0.02, "cantilever M_fixed = P*L");
 
     // Horizontal reaction should be zero (no horizontal loads)
     assert_close(r1.rx.abs(), 0.0, 0.02, "cantilever Rx = 0");
@@ -220,26 +220,26 @@ fn validation_propped_cantilever_1_degree_indeterminate() {
 
     // Analytical: R_roller = 3qL/8
     let expected_r_roller = 3.0 * q * l / 8.0;
-    assert_close(r_roller.ry, expected_r_roller, 0.02, "propped R_roller = 3qL/8");
+    assert_close(r_roller.rz, expected_r_roller, 0.02, "propped R_roller = 3qL/8");
 
     // This is NOT wL/2 (the SS beam value) -- verify the difference
     let ss_reaction = q * l / 2.0;
-    let diff = (r_roller.ry - ss_reaction).abs();
+    let diff = (r_roller.rz - ss_reaction).abs();
     assert!(
         diff > 1.0,
         "Propped cantilever roller reaction ({:.2}) should differ from SS ({:.2})",
-        r_roller.ry, ss_reaction
+        r_roller.rz, ss_reaction
     );
 
     // Fixed-end reaction: R_fixed = qL - 3qL/8 = 5qL/8
     let expected_r_fixed = 5.0 * q * l / 8.0;
-    assert_close(r_fixed.ry, expected_r_fixed, 0.02, "propped R_fixed = 5qL/8");
+    assert_close(r_fixed.rz, expected_r_fixed, 0.02, "propped R_fixed = 5qL/8");
 
     // Fixed-end moment: M_fixed = qL^2/8
-    assert_close(r_fixed.mz.abs(), q * l * l / 8.0, 0.02, "propped M_fixed = qL^2/8");
+    assert_close(r_fixed.my.abs(), q * l * l / 8.0, 0.02, "propped M_fixed = qL^2/8");
 
     // Equilibrium check
-    let sum_ry: f64 = results.reactions.iter().map(|r| r.ry).sum();
+    let sum_ry: f64 = results.reactions.iter().map(|r| r.rz).sum();
     assert_close(sum_ry, q * l, 0.02, "propped equilibrium");
 }
 
@@ -272,22 +272,22 @@ fn validation_determinate_reactions_unaffected_by_stiffness() {
     let expected = q * l / 2.0;
 
     // Both beams: R = qL/2
-    assert_close(r1_a.ry, expected, 0.02, "stiff beam R_A = qL/2");
-    assert_close(r1_b.ry, expected, 0.02, "stiff beam R_B = qL/2");
-    assert_close(r2_a.ry, expected, 0.02, "flexible beam R_A = qL/2");
-    assert_close(r2_b.ry, expected, 0.02, "flexible beam R_B = qL/2");
+    assert_close(r1_a.rz, expected, 0.02, "stiff beam R_A = qL/2");
+    assert_close(r1_b.rz, expected, 0.02, "stiff beam R_B = qL/2");
+    assert_close(r2_a.rz, expected, 0.02, "flexible beam R_A = qL/2");
+    assert_close(r2_b.rz, expected, 0.02, "flexible beam R_B = qL/2");
 
     // Reactions are identical between the two beams
-    assert_close(r1_a.ry, r2_a.ry, 0.02, "R_A same for both stiffnesses");
-    assert_close(r1_b.ry, r2_b.ry, 0.02, "R_B same for both stiffnesses");
+    assert_close(r1_a.rz, r2_a.rz, 0.02, "R_A same for both stiffnesses");
+    assert_close(r1_b.rz, r2_b.rz, 0.02, "R_B same for both stiffnesses");
 
     // Deflections, however, should differ (flexible beam deflects more)
     let d1_mid = res1.displacements.iter().find(|d| d.node_id == n / 2 + 1).unwrap();
     let d2_mid = res2.displacements.iter().find(|d| d.node_id == n / 2 + 1).unwrap();
     assert!(
-        d2_mid.uy.abs() > d1_mid.uy.abs() * 2.0,
+        d2_mid.uz.abs() > d1_mid.uz.abs() * 2.0,
         "Flexible beam should deflect much more: stiff={:.6}, flexible={:.6}",
-        d1_mid.uy.abs(), d2_mid.uy.abs()
+        d1_mid.uz.abs(), d2_mid.uz.abs()
     );
 }
 
@@ -327,12 +327,12 @@ fn validation_indeterminate_deflection_reduced_by_extra_support() {
 
     // Find max deflection in the single-span beam
     let max_defl_single = res_single.displacements.iter()
-        .map(|d| d.uy.abs())
+        .map(|d| d.uz.abs())
         .fold(0.0_f64, f64::max);
 
     // Find max deflection in the continuous beam
     let max_defl_cont = res_cont.displacements.iter()
-        .map(|d| d.uy.abs())
+        .map(|d| d.uz.abs())
         .fold(0.0_f64, f64::max);
 
     // The continuous beam should have much smaller max deflection.
@@ -347,8 +347,8 @@ fn validation_indeterminate_deflection_reduced_by_extra_support() {
     );
 
     // Both should satisfy equilibrium
-    let sum_ry_single: f64 = res_single.reactions.iter().map(|r| r.ry).sum();
-    let sum_ry_cont: f64 = res_cont.reactions.iter().map(|r| r.ry).sum();
+    let sum_ry_single: f64 = res_single.reactions.iter().map(|r| r.rz).sum();
+    let sum_ry_cont: f64 = res_cont.reactions.iter().map(|r| r.rz).sum();
     assert_close(sum_ry_single, q * l_single, 0.02, "single span equilibrium");
     assert_close(sum_ry_cont, q * 2.0 * l_span, 0.02, "continuous beam equilibrium");
 }
@@ -373,8 +373,8 @@ fn validation_fixed_fixed_degree_of_indeterminacy() {
         vec![SolverLoad::Nodal(SolverNodalLoad {
             node_id: 3,
             fx: 0.0,
-            fy: -p,
-            mz: 0.0,
+            fz: -p,
+            my: 0.0,
         })],
     );
     let results = linear::solve_2d(&input).unwrap();
@@ -386,37 +386,37 @@ fn validation_fixed_fixed_degree_of_indeterminacy() {
     // for a vertical-only load on a horizontal beam, but Ry and Mz at both ends
     // must be nonzero for asymmetric loading).
     assert!(
-        r_a.ry.abs() > 1.0,
-        "R_A vertical should be nonzero: {:.4}", r_a.ry
+        r_a.rz.abs() > 1.0,
+        "R_A vertical should be nonzero: {:.4}", r_a.rz
     );
     assert!(
-        r_b.ry.abs() > 1.0,
-        "R_B vertical should be nonzero: {:.4}", r_b.ry
+        r_b.rz.abs() > 1.0,
+        "R_B vertical should be nonzero: {:.4}", r_b.rz
     );
     assert!(
-        r_a.mz.abs() > 1.0,
-        "M_A should be nonzero: {:.4}", r_a.mz
+        r_a.my.abs() > 1.0,
+        "M_A should be nonzero: {:.4}", r_a.my
     );
     assert!(
-        r_b.mz.abs() > 1.0,
-        "M_B should be nonzero: {:.4}", r_b.mz
+        r_b.my.abs() > 1.0,
+        "M_B should be nonzero: {:.4}", r_b.my
     );
 
     // Total reaction count: 2 supports x 3 DOFs each = 6 reaction components
     // For a 2D beam, 3 equilibrium equations, so DI = 6 - 3 = 3.
     // Verify equilibrium is still satisfied despite the extra restraints.
-    let sum_ry: f64 = results.reactions.iter().map(|r| r.ry).sum();
+    let sum_ry: f64 = results.reactions.iter().map(|r| r.rz).sum();
     assert_close(sum_ry, p, 0.02, "FF equilibrium Ry");
 
     // Moment equilibrium about node 1: sum(Ry*x) + sum(Mz) = P*x_load
     // R_B * L + M_A + M_B = P * (2.5)
     let x_load = 2.5;
-    let moment_sum = r_b.ry * l + r_a.mz + r_b.mz;
+    let moment_sum = r_b.rz * l + r_a.my + r_b.my;
     assert_close(moment_sum, p * x_load, 0.05, "FF moment equilibrium");
 
     // For a determinate structure (SS beam), M_A and M_B would be zero.
     // Verify they are significantly nonzero here.
-    let sum_end_moments = r_a.mz.abs() + r_b.mz.abs();
+    let sum_end_moments = r_a.my.abs() + r_b.my.abs();
     assert!(
         sum_end_moments > 10.0,
         "End moments should be significant for indeterminate beam: {:.4}", sum_end_moments
@@ -451,8 +451,8 @@ fn validation_superposition_determinate_and_indeterminate() {
             vec![SolverLoad::Nodal(SolverNodalLoad {
                 node_id: node_a,
                 fx: 0.0,
-                fy: -p1,
-                mz: 0.0,
+                fz: -p1,
+                my: 0.0,
             })],
         );
         let res1 = linear::solve_2d(&input1).unwrap();
@@ -463,8 +463,8 @@ fn validation_superposition_determinate_and_indeterminate() {
             vec![SolverLoad::Nodal(SolverNodalLoad {
                 node_id: node_b,
                 fx: 0.0,
-                fy: -p2,
-                mz: 0.0,
+                fz: -p2,
+                my: 0.0,
             })],
         );
         let res2 = linear::solve_2d(&input2).unwrap();
@@ -476,14 +476,14 @@ fn validation_superposition_determinate_and_indeterminate() {
                 SolverLoad::Nodal(SolverNodalLoad {
                     node_id: node_a,
                     fx: 0.0,
-                    fy: -p1,
-                    mz: 0.0,
+                    fz: -p1,
+                    my: 0.0,
                 }),
                 SolverLoad::Nodal(SolverNodalLoad {
                     node_id: node_b,
                     fx: 0.0,
-                    fy: -p2,
-                    mz: 0.0,
+                    fz: -p2,
+                    my: 0.0,
                 }),
             ],
         );
@@ -495,15 +495,15 @@ fn validation_superposition_determinate_and_indeterminate() {
             let d2 = res2.displacements.iter().find(|d| d.node_id == node_id).unwrap();
             let dc = res_combined.displacements.iter().find(|d| d.node_id == node_id).unwrap();
 
-            let sum_uy = d1.uy + d2.uy;
-            let sum_rz = d1.rz + d2.rz;
+            let sum_uy = d1.uz + d2.uz;
+            let sum_rz = d1.ry + d2.ry;
 
             assert_close(
-                dc.uy, sum_uy, 0.02,
+                dc.uz, sum_uy, 0.02,
                 &format!("{} superposition uy node {}", label, node_id),
             );
             assert_close(
-                dc.rz, sum_rz, 0.02,
+                dc.ry, sum_rz, 0.02,
                 &format!("{} superposition rz node {}", label, node_id),
             );
         }
@@ -514,11 +514,11 @@ fn validation_superposition_determinate_and_indeterminate() {
             let r2 = res2.reactions.iter().find(|r| r.node_id == rc.node_id).unwrap();
 
             assert_close(
-                rc.ry, r1.ry + r2.ry, 0.02,
+                rc.rz, r1.rz + r2.rz, 0.02,
                 &format!("{} superposition Ry node {}", label, rc.node_id),
             );
             assert_close(
-                rc.mz, r1.mz + r2.mz, 0.02,
+                rc.my, r1.my + r2.my, 0.02,
                 &format!("{} superposition Mz node {}", label, rc.node_id),
             );
         }

@@ -213,14 +213,14 @@ fn validation_boundary_condition_pinned_vs_fixed() {
 
     // Fixed beam should be stiffer
     assert!(
-        mid_ff.uy.abs() < mid_ss.uy.abs(),
+        mid_ff.uz.abs() < mid_ss.uz.abs(),
         "Fixed beam should deflect less: |delta_ff|={:.6} vs |delta_ss|={:.6}",
-        mid_ff.uy.abs(),
-        mid_ss.uy.abs()
+        mid_ff.uz.abs(),
+        mid_ss.uz.abs()
     );
 
     // The ratio should be approximately 5
-    let ratio = mid_ss.uy.abs() / mid_ff.uy.abs();
+    let ratio = mid_ss.uz.abs() / mid_ff.uz.abs();
     assert_close(ratio, 5.0, 0.02, "delta_ss / delta_ff ratio");
 
     // Check theoretical values
@@ -228,8 +228,8 @@ fn validation_boundary_condition_pinned_vs_fixed() {
     let q_abs = q.abs();
     let delta_ss_exact = 5.0 * q_abs * l.powi(4) / (384.0 * ei);
     let delta_ff_exact = q_abs * l.powi(4) / (384.0 * ei);
-    assert_close(mid_ss.uy.abs(), delta_ss_exact, 0.01, "SS midspan deflection");
-    assert_close(mid_ff.uy.abs(), delta_ff_exact, 0.01, "FF midspan deflection");
+    assert_close(mid_ss.uz.abs(), delta_ss_exact, 0.01, "SS midspan deflection");
+    assert_close(mid_ff.uz.abs(), delta_ff_exact, 0.01, "FF midspan deflection");
 }
 
 // ================================================================
@@ -260,8 +260,8 @@ fn validation_condition_number_simple_beam() {
         vec![SolverLoad::Nodal(SolverNodalLoad {
             node_id: 3,
             fx: 0.0,
-            fy: -10.0,
-            mz: 0.0,
+            fz: -10.0,
+            my: 0.0,
         })],
     );
 
@@ -298,7 +298,7 @@ fn validation_condition_number_simple_beam() {
         .iter()
         .find(|d| d.node_id == 3)
         .unwrap();
-    assert!(d_mid.uy.abs() > 0.0, "Midspan deflection should be nonzero");
+    assert!(d_mid.uz.abs() > 0.0, "Midspan deflection should be nonzero");
 }
 
 // ================================================================
@@ -359,15 +359,15 @@ fn validation_load_vector_assembly_udl() {
     let r2 = results.reactions.iter().find(|r| r.node_id == n_elem + 1).unwrap();
 
     // Reactions should balance the load (upward = positive)
-    let total_ry = r1.ry + r2.ry;
+    let total_ry = r1.rz + r2.rz;
     assert_close(total_ry, q.abs() * l, 0.01, "Total vertical reaction = qL");
-    assert_close(r1.ry, q.abs() * l / 2.0, 0.01, "R1_y = qL/2");
-    assert_close(r2.ry, q.abs() * l / 2.0, 0.01, "R2_y = qL/2");
+    assert_close(r1.rz, q.abs() * l / 2.0, 0.01, "R1_y = qL/2");
+    assert_close(r2.rz, q.abs() * l / 2.0, 0.01, "R2_y = qL/2");
 
     // For fixed-fixed beam, fixed-end moments = qL^2/12
     let m_expected = q.abs() * l * l / 12.0;
-    assert_close(r1.mz.abs(), m_expected, 0.01, "|M1| = qL^2/12");
-    assert_close(r2.mz.abs(), m_expected, 0.01, "|M2| = qL^2/12");
+    assert_close(r1.my.abs(), m_expected, 0.01, "|M1| = qL^2/12");
+    assert_close(r2.my.abs(), m_expected, 0.01, "|M2| = qL^2/12");
 }
 
 // ================================================================
@@ -399,8 +399,8 @@ fn validation_superposition_separate_vs_combined() {
         vec![SolverLoad::Nodal(SolverNodalLoad {
             node_id: 4,
             fx: 0.0,
-            fy: -p1,
-            mz: 0.0,
+            fz: -p1,
+            my: 0.0,
         })],
     );
     let res1 = linear::solve_2d(&input1).unwrap();
@@ -417,8 +417,8 @@ fn validation_superposition_separate_vs_combined() {
         vec![SolverLoad::Nodal(SolverNodalLoad {
             node_id: 8,
             fx: 0.0,
-            fy: -p2,
-            mz: 0.0,
+            fz: -p2,
+            my: 0.0,
         })],
     );
     let res2 = linear::solve_2d(&input2).unwrap();
@@ -436,14 +436,14 @@ fn validation_superposition_separate_vs_combined() {
             SolverLoad::Nodal(SolverNodalLoad {
                 node_id: 4,
                 fx: 0.0,
-                fy: -p1,
-                mz: 0.0,
+                fz: -p1,
+                my: 0.0,
             }),
             SolverLoad::Nodal(SolverNodalLoad {
                 node_id: 8,
                 fx: 0.0,
-                fy: -p2,
-                mz: 0.0,
+                fz: -p2,
+                my: 0.0,
             }),
         ],
     );
@@ -468,14 +468,14 @@ fn validation_superposition_separate_vs_combined() {
             .unwrap();
 
         assert_close(
-            dc.uy,
-            d1.uy + d2.uy,
+            dc.uz,
+            d1.uz + d2.uz,
             1e-6,
             &format!("Superposition uy at node {}", check_node),
         );
         assert_close(
-            dc.rz,
-            d1.rz + d2.rz,
+            dc.ry,
+            d1.ry + d2.ry,
             1e-6,
             &format!("Superposition rz at node {}", check_node),
         );
@@ -486,8 +486,8 @@ fn validation_superposition_separate_vs_combined() {
     let r1_b = res2.reactions.iter().find(|r| r.node_id == 1).unwrap();
     let r1_c = res_c.reactions.iter().find(|r| r.node_id == 1).unwrap();
     assert_close(
-        r1_c.ry,
-        r1_a.ry + r1_b.ry,
+        r1_c.rz,
+        r1_a.rz + r1_b.rz,
         1e-6,
         "Superposition R1_y",
     );
@@ -586,7 +586,7 @@ fn validation_static_condensation_coarse_vs_fine() {
 
     let r1_c = res_coarse.reactions.iter().find(|r| r.node_id == 1).unwrap();
     let r1_f = res_fine.reactions.iter().find(|r| r.node_id == 1).unwrap();
-    assert_close(r1_c.ry, r1_f.ry, 0.01, "Left support reaction coarse vs fine");
+    assert_close(r1_c.rz, r1_f.rz, 0.01, "Left support reaction coarse vs fine");
 
     let rm_c = res_coarse
         .reactions
@@ -598,7 +598,7 @@ fn validation_static_condensation_coarse_vs_fine() {
         .iter()
         .find(|r| r.node_id == mid_fine_node)
         .unwrap();
-    assert_close(rm_c.ry, rm_f.ry, 0.01, "Middle support reaction coarse vs fine");
+    assert_close(rm_c.rz, rm_f.rz, 0.01, "Middle support reaction coarse vs fine");
 
     let rr_c = res_coarse
         .reactions
@@ -610,12 +610,12 @@ fn validation_static_condensation_coarse_vs_fine() {
         .iter()
         .find(|r| r.node_id == n_fine_nodes)
         .unwrap();
-    assert_close(rr_c.ry, rr_f.ry, 0.01, "Right support reaction coarse vs fine");
+    assert_close(rr_c.rz, rr_f.rz, 0.01, "Right support reaction coarse vs fine");
 
     // Total load = q * 2L = 6 * 24 = 144 kN
     let total_load = q.abs() * 2.0 * l;
-    let total_reaction_c: f64 = res_coarse.reactions.iter().map(|r| r.ry).sum();
-    let total_reaction_f: f64 = res_fine.reactions.iter().map(|r| r.ry).sum();
+    let total_reaction_c: f64 = res_coarse.reactions.iter().map(|r| r.rz).sum();
+    let total_reaction_f: f64 = res_fine.reactions.iter().map(|r| r.rz).sum();
     assert_close(total_reaction_c, total_load, 0.01, "Coarse total reaction = total load");
     assert_close(total_reaction_f, total_load, 0.01, "Fine total reaction = total load");
 
@@ -623,8 +623,8 @@ fn validation_static_condensation_coarse_vs_fine() {
     // By three-moment equation: R_mid = 5qL/4, R_end = 3qL/8
     let r_end_exact = 3.0 * q.abs() * l / 8.0;
     let r_mid_exact = 5.0 * q.abs() * l / 4.0;
-    assert_close(r1_c.ry, r_end_exact, 0.01, "Left support = 3qL/8");
-    assert_close(rm_c.ry, r_mid_exact, 0.01, "Middle support = 5qL/4");
+    assert_close(r1_c.rz, r_end_exact, 0.01, "Left support = 3qL/8");
+    assert_close(rm_c.rz, r_mid_exact, 0.01, "Middle support = 5qL/4");
 }
 
 // ================================================================
@@ -651,8 +651,8 @@ fn validation_positive_definiteness_stable_structure() {
         vec![SolverLoad::Nodal(SolverNodalLoad {
             node_id: 3,
             fx: 0.0,
-            fy: -10.0,
-            mz: 0.0,
+            fz: -10.0,
+            my: 0.0,
         })],
     );
 
@@ -715,8 +715,8 @@ fn validation_positive_definiteness_stable_structure() {
         vec![SolverLoad::Nodal(SolverNodalLoad {
             node_id: 3,
             fx: 0.0,
-            fy: -10.0,
-            mz: 0.0,
+            fz: -10.0,
+            my: 0.0,
         })],
     );
 

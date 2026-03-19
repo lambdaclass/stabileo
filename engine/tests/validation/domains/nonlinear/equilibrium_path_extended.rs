@@ -62,9 +62,9 @@ fn validation_path_ext_propped_cantilever_udl() {
 
     let r_left_expected = 5.0 * q.abs() * l / 8.0;   // 50 kN
     let r_right_expected = 3.0 * q.abs() * l / 8.0;   // 30 kN
-    assert_close(r_left.ry, r_left_expected, 0.02,
+    assert_close(r_left.rz, r_left_expected, 0.02,
         "Propped cantilever: R_left = 5qL/8");
-    assert_close(r_right.ry, r_right_expected, 0.02,
+    assert_close(r_right.rz, r_right_expected, 0.02,
         "Propped cantilever: R_right = 3qL/8");
 
     // Fixed-end moment: M = -qL^2/8 = -80 kN*m (hogging)
@@ -139,18 +139,18 @@ fn validation_path_ext_three_span_moment_continuity() {
     // By symmetry: reactions at end supports are equal
     let r_a = results.reactions.iter().find(|r| r.node_id == 1).unwrap();
     let r_d = results.reactions.iter().find(|r| r.node_id == 3 * n_per_span + 1).unwrap();
-    assert_close(r_a.ry, r_d.ry, 0.02,
+    assert_close(r_a.rz, r_d.rz, 0.02,
         "Three-span symmetry: R_A = R_D");
 
     // By symmetry: interior reactions are equal
     let r_b = results.reactions.iter().find(|r| r.node_id == node_b).unwrap();
     let r_c = results.reactions.iter().find(|r| r.node_id == 2 * n_per_span + 1).unwrap();
-    assert_close(r_b.ry, r_c.ry, 0.02,
+    assert_close(r_b.rz, r_c.rz, 0.02,
         "Three-span symmetry: R_B = R_C");
 
     // Global equilibrium: sum of reactions = total load
     let total_load = q.abs() * 3.0 * span; // 150 kN
-    let sum_ry: f64 = results.reactions.iter().map(|r| r.ry).sum();
+    let sum_ry: f64 = results.reactions.iter().map(|r| r.rz).sum();
     assert_close(sum_ry, total_load, 0.01,
         "Three-span: sum of reactions = total applied load");
 }
@@ -189,7 +189,7 @@ fn validation_path_ext_pdelta_portal_global_equilibrium() {
         "P-delta portal: sum(Rx) = -F_lateral");
 
     // Global vertical equilibrium: sum(Ry) = -2*F_grav (gravity at both top nodes)
-    let sum_ry: f64 = results.reactions.iter().map(|r| r.ry).sum();
+    let sum_ry: f64 = results.reactions.iter().map(|r| r.rz).sum();
     assert_close(sum_ry, -2.0 * f_grav, 0.02,
         "P-delta portal: sum(Ry) = -sum(F_gravity)");
 
@@ -240,7 +240,7 @@ fn validation_path_ext_corotational_cantilever_force_balance() {
         nodes, vec![(1, E, 0.3)], vec![(1, A, IZ)],
         elems, vec![(1, 1, "fixed")],
         vec![SolverLoad::Nodal(SolverNodalLoad {
-            node_id: n + 1, fx: 0.0, fy: -p, mz: 0.0,
+            node_id: n + 1, fx: 0.0, fz: -p, my: 0.0,
         })],
     );
 
@@ -312,7 +312,7 @@ fn validation_path_ext_two_bay_joint_equilibrium() {
         (1, 1_usize, "fixed"), (2, 4, "fixed"), (3, 6, "fixed"),
     ];
     let loads = vec![
-        SolverLoad::Nodal(SolverNodalLoad { node_id: 2, fx: f_lat, fy: 0.0, mz: 0.0 }),
+        SolverLoad::Nodal(SolverNodalLoad { node_id: 2, fx: f_lat, fz: 0.0, my: 0.0 }),
     ];
 
     let input = make_input(nodes, vec![(1, E, 0.3)], vec![(1, A, IZ)], elems, sups, loads);
@@ -410,7 +410,7 @@ fn validation_path_ext_overhanging_beam_moment_reversal() {
     // Point load at free end
     let loads = vec![
         SolverLoad::Nodal(SolverNodalLoad {
-            node_id: n_total + 1, fx: 0.0, fy: -p_tip, mz: 0.0,
+            node_id: n_total + 1, fx: 0.0, fz: -p_tip, my: 0.0,
         }),
     ];
 
@@ -438,7 +438,7 @@ fn validation_path_ext_overhanging_beam_moment_reversal() {
         "Overhang: |M at support| = P * L_over");
 
     // Global equilibrium
-    let sum_ry: f64 = results.reactions.iter().map(|r| r.ry).sum();
+    let sum_ry: f64 = results.reactions.iter().map(|r| r.rz).sum();
     assert_close(sum_ry, p_tip, 0.01,
         "Overhang: sum(Ry) = P");
 }
@@ -472,7 +472,7 @@ fn validation_path_ext_pdelta_linear_reaction_equivalence() {
     let sups = vec![(1, 1_usize, "fixed")];
     let loads = vec![
         SolverLoad::Nodal(SolverNodalLoad {
-            node_id: n + 1, fx: p_lateral, fy: p_axial, mz: 0.0,
+            node_id: n + 1, fx: p_lateral, fz: p_axial, my: 0.0,
         }),
     ];
 
@@ -484,7 +484,7 @@ fn validation_path_ext_pdelta_linear_reaction_equivalence() {
     // Linear analysis
     let res_lin = linear::solve_2d(&input).unwrap();
     let sum_rx_lin: f64 = res_lin.reactions.iter().map(|r| r.rx).sum();
-    let sum_ry_lin: f64 = res_lin.reactions.iter().map(|r| r.ry).sum();
+    let sum_ry_lin: f64 = res_lin.reactions.iter().map(|r| r.rz).sum();
     assert_close(sum_rx_lin, -p_lateral, 0.01,
         "Linear: sum(Rx) = -F_lateral");
     assert_close(sum_ry_lin, -p_axial, 0.01,
@@ -494,7 +494,7 @@ fn validation_path_ext_pdelta_linear_reaction_equivalence() {
     let res_pd = pdelta::solve_pdelta_2d(&input, 20, 1e-6).unwrap();
     assert!(res_pd.converged, "P-delta cantilever column should converge");
     let sum_rx_pd: f64 = res_pd.results.reactions.iter().map(|r| r.rx).sum();
-    let sum_ry_pd: f64 = res_pd.results.reactions.iter().map(|r| r.ry).sum();
+    let sum_ry_pd: f64 = res_pd.results.reactions.iter().map(|r| r.rz).sum();
     assert_close(sum_rx_pd, -p_lateral, 0.02,
         "P-delta: sum(Rx) = -F_lateral");
     assert_close(sum_ry_pd, -p_axial, 0.02,
@@ -541,8 +541,8 @@ fn validation_path_ext_antisymmetric_portal() {
     ];
     let sups = vec![(1, 1_usize, "fixed"), (2, 4, "fixed")];
     let loads = vec![
-        SolverLoad::Nodal(SolverNodalLoad { node_id: 2, fx: f, fy: 0.0, mz: 0.0 }),
-        SolverLoad::Nodal(SolverNodalLoad { node_id: 3, fx: -f, fy: 0.0, mz: 0.0 }),
+        SolverLoad::Nodal(SolverNodalLoad { node_id: 2, fx: f, fz: 0.0, my: 0.0 }),
+        SolverLoad::Nodal(SolverNodalLoad { node_id: 3, fx: -f, fz: 0.0, my: 0.0 }),
     ];
 
     let input = make_input(nodes, vec![(1, E, 0.3)], vec![(1, A, IZ)], elems, sups, loads);

@@ -120,14 +120,14 @@ fn validation_portal_two_story_cumulative_base_shear() {
         SolverLoad::Nodal(SolverNodalLoad {
             node_id: 2,
             fx: f1,
-            fy: 0.0,
-            mz: 0.0,
+            fz: 0.0,
+            my: 0.0,
         }),
         SolverLoad::Nodal(SolverNodalLoad {
             node_id: 5,
             fx: f2,
-            fy: 0.0,
-            mz: 0.0,
+            fz: 0.0,
+            my: 0.0,
         }),
     ];
 
@@ -211,8 +211,8 @@ fn validation_portal_multi_bay_interior_double_shear() {
     let loads = vec![SolverLoad::Nodal(SolverNodalLoad {
         node_id: 2,
         fx: f_lat,
-        fy: 0.0,
-        mz: 0.0,
+        fz: 0.0,
+        my: 0.0,
     })];
 
     let input = make_input(
@@ -361,8 +361,8 @@ fn validation_portal_inflection_point_mid_height() {
     let loads = vec![SolverLoad::Nodal(SolverNodalLoad {
         node_id: left_top,
         fx: f_lat,
-        fy: 0.0,
-        mz: 0.0,
+        fz: 0.0,
+        my: 0.0,
     })];
 
     let input = make_input(
@@ -460,8 +460,8 @@ fn validation_portal_two_bay_horizontal_equilibrium() {
     let loads = vec![SolverLoad::Nodal(SolverNodalLoad {
         node_id: 2,
         fx: f1,
-        fy: 0.0,
-        mz: 0.0,
+        fz: 0.0,
+        my: 0.0,
     })];
 
     let input = make_input(
@@ -484,7 +484,7 @@ fn validation_portal_two_bay_horizontal_equilibrium() {
     );
 
     // Vertical equilibrium: sum_ry = 0 (no vertical loads applied)
-    let sum_ry: f64 = results.reactions.iter().map(|r| r.ry).sum();
+    let sum_ry: f64 = results.reactions.iter().map(|r| r.rz).sum();
     assert!(
         sum_ry.abs() < 1e-6,
         "two-bay portal: vertical equilibrium sum_ry = 0, got {:.6e}",
@@ -503,13 +503,13 @@ fn validation_portal_two_bay_horizontal_equilibrium() {
     // Moment of force (Fx,Fy) at point (x,y): Mz = x*Fy - y*Fx.
     // Applied: F=(f1, 0) at (0, h) => Mz = 0*0 - h*f1 = -f1*h
     // Reactions at base nodes (y=0): rx contributes 0 (moment arm = 0).
-    // r1 at (0,0): Mz = r1.mz
-    // r5 at (w1,0): Mz = w1*r5.ry + r5.mz
-    // r6 at (w1+w2,0): Mz = (w1+w2)*r6.ry + r6.mz
+    // r1 at (0,0): Mz = r1.my
+    // r5 at (w1,0): Mz = w1*r5.rz + r5.my
+    // r6 at (w1+w2,0): Mz = (w1+w2)*r6.rz + r6.my
     let moment_sum: f64 = -f1 * h
-        + r1.mz
-        + r5.ry * w1 + r5.mz
-        + r6.ry * (w1 + w2) + r6.mz;
+        + r1.my
+        + r5.rz * w1 + r5.my
+        + r6.rz * (w1 + w2) + r6.my;
 
     assert!(
         moment_sum.abs() < 1e-4,
@@ -559,8 +559,8 @@ fn validation_portal_unequal_bays_moment_distribution() {
     let loads = vec![SolverLoad::Nodal(SolverNodalLoad {
         node_id: 2,
         fx: f_lat,
-        fy: 0.0,
-        mz: 0.0,
+        fz: 0.0,
+        my: 0.0,
     })];
 
     let input = make_input(
@@ -753,20 +753,20 @@ fn validation_portal_three_story_drift_increases_with_height() {
         SolverLoad::Nodal(SolverNodalLoad {
             node_id: 2,
             fx: f_lat,
-            fy: 0.0,
-            mz: 0.0,
+            fz: 0.0,
+            my: 0.0,
         }),
         SolverLoad::Nodal(SolverNodalLoad {
             node_id: 5,
             fx: f_lat,
-            fy: 0.0,
-            mz: 0.0,
+            fz: 0.0,
+            my: 0.0,
         }),
         SolverLoad::Nodal(SolverNodalLoad {
             node_id: 7,
             fx: f_lat,
-            fy: 0.0,
-            mz: 0.0,
+            fz: 0.0,
+            my: 0.0,
         }),
     ];
 

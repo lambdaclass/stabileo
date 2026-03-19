@@ -81,12 +81,12 @@ fn precast_ext_hollow_core_slab_flexure() {
 
     let mid = n / 2 + 1;
     let mid_d = results.displacements.iter().find(|d| d.node_id == mid).unwrap();
-    assert_close(mid_d.uy.abs(), delta_exact, 0.05, "HCS midspan deflection");
+    assert_close(mid_d.uz.abs(), delta_exact, 0.05, "HCS midspan deflection");
 
     // Reactions: each support carries q*L/2
     let r_expected: f64 = q_abs * l / 2.0;
     let r1 = results.reactions.iter().find(|r| r.node_id == 1).unwrap();
-    assert_close(r1.ry, r_expected, 0.02, "HCS left reaction");
+    assert_close(r1.rz, r_expected, 0.02, "HCS left reaction");
 
     // Midspan moment from element forces: M_max = q*L^2/8
     let m_max_expected: f64 = q_abs * l * l / 8.0;
@@ -144,9 +144,9 @@ fn precast_ext_double_tee_composite_beam() {
 
     let mid = n / 2 + 1;
     let delta_pc = res_pc.displacements.iter()
-        .find(|d| d.node_id == mid).unwrap().uy.abs();
+        .find(|d| d.node_id == mid).unwrap().uz.abs();
     let delta_comp = res_comp.displacements.iter()
-        .find(|d| d.node_id == mid).unwrap().uy.abs();
+        .find(|d| d.node_id == mid).unwrap().uz.abs();
 
     // Deflection ratio should equal I_pc / I_comp (inverse stiffness)
     let expected_ratio: f64 = iz_precast / iz_composite;
@@ -203,8 +203,8 @@ fn precast_ext_corbel_bracket_design() {
     let loads = vec![SolverLoad::Nodal(SolverNodalLoad {
         node_id: tip_node,
         fx: 0.0,
-        fy: -p,
-        mz: 0.0,
+        fz: -p,
+        my: 0.0,
     })];
 
     let input = make_beam(n, l, e_mpa, a_sec, iz, "fixed", None, loads);
@@ -214,15 +214,15 @@ fn precast_ext_corbel_bracket_design() {
     let delta_exact: f64 = p * l.powi(3) / (3.0 * e_eff * iz);
     let tip_d = results.displacements.iter()
         .find(|d| d.node_id == tip_node).unwrap();
-    assert_close(tip_d.uy.abs(), delta_exact, 0.05, "Corbel tip deflection");
+    assert_close(tip_d.uz.abs(), delta_exact, 0.05, "Corbel tip deflection");
 
     // Fixed-end reaction: Ry = P (upward)
     let r_fixed = results.reactions.iter().find(|r| r.node_id == 1).unwrap();
-    assert_close(r_fixed.ry, p, 0.02, "Corbel fixed-end shear reaction");
+    assert_close(r_fixed.rz, p, 0.02, "Corbel fixed-end shear reaction");
 
     // Fixed-end moment: M = P*L (the reaction moment resists the applied load)
     let m_fixed_expected: f64 = p * l;
-    assert_close(r_fixed.mz.abs(), m_fixed_expected, 0.02, "Corbel fixed-end moment");
+    assert_close(r_fixed.my.abs(), m_fixed_expected, 0.02, "Corbel fixed-end moment");
 
     // Element forces at the first element (near fixed end)
     let ef1 = results.element_forces.iter()
@@ -277,22 +277,22 @@ fn precast_ext_bearing_pad_deflection() {
     let mid = n / 2 + 1;
     let mid_d = results.displacements.iter()
         .find(|d| d.node_id == mid).unwrap();
-    assert_close(mid_d.uy.abs(), delta_exact, 0.05, "Bearing pad midspan deflection");
+    assert_close(mid_d.uz.abs(), delta_exact, 0.05, "Bearing pad midspan deflection");
 
     // Reactions: each support carries half the total load
     let total_load: f64 = q_abs * l;
     let r_expected: f64 = total_load / 2.0;
-    let sum_ry: f64 = results.reactions.iter().map(|r| r.ry).sum();
+    let sum_ry: f64 = results.reactions.iter().map(|r| r.rz).sum();
     assert_close(sum_ry, total_load, 0.02, "Bearing pad total vertical reaction");
 
     let r1 = results.reactions.iter().find(|r| r.node_id == 1).unwrap();
-    assert_close(r1.ry, r_expected, 0.02, "Bearing pad left reaction");
+    assert_close(r1.rz, r_expected, 0.02, "Bearing pad left reaction");
 
     // End rotation: theta = q*L^3 / (24*E*I) for SS beam with UDL
     let theta_exact: f64 = q_abs * l.powi(3) / (24.0 * e_eff * iz);
     let end_d = results.displacements.iter()
         .find(|d| d.node_id == 1).unwrap();
-    assert_close(end_d.rz.abs(), theta_exact, 0.05, "Bearing pad end rotation");
+    assert_close(end_d.ry.abs(), theta_exact, 0.05, "Bearing pad end rotation");
 }
 
 // ================================================================
@@ -345,7 +345,7 @@ fn precast_ext_shear_key_wall_connection() {
     let sups = vec![(1, 1_usize, "fixed"), (2, 4_usize, "fixed")];
     // Lateral load at top-left node
     let loads = vec![SolverLoad::Nodal(SolverNodalLoad {
-        node_id: 2, fx: p, fy: 0.0, mz: 0.0,
+        node_id: 2, fx: p, fz: 0.0, my: 0.0,
     })];
 
     let input = make_input(
@@ -454,19 +454,19 @@ fn precast_ext_frame_assembly() {
     let total_load: f64 = q_abs * w;
 
     // Vertical equilibrium
-    let sum_ry: f64 = results.reactions.iter().map(|r| r.ry).sum();
+    let sum_ry: f64 = results.reactions.iter().map(|r| r.rz).sum();
     assert_close(sum_ry, total_load, 0.02, "Frame assembly vertical equilibrium");
 
     // Each column base should carry approximately half the total load
     let r1 = results.reactions.iter().find(|r| r.node_id == 1).unwrap();
     let r4 = results.reactions.iter().find(|r| r.node_id == 4).unwrap();
-    assert_close(r1.ry, total_load / 2.0, 0.05, "Frame left column vertical reaction");
-    assert_close(r4.ry, total_load / 2.0, 0.05, "Frame right column vertical reaction");
+    assert_close(r1.rz, total_load / 2.0, 0.05, "Frame left column vertical reaction");
+    assert_close(r4.rz, total_load / 2.0, 0.05, "Frame right column vertical reaction");
 
     // With hinged beam ends, the base moments should be near zero
     // (no moment is transferred from beam to columns)
-    assert_close(r1.mz.abs(), 0.0, 0.15, "Frame left base moment near zero");
-    assert_close(r4.mz.abs(), 0.0, 0.15, "Frame right base moment near zero");
+    assert_close(r1.my.abs(), 0.0, 0.15, "Frame left base moment near zero");
+    assert_close(r4.my.abs(), 0.0, 0.15, "Frame right base moment near zero");
 
     // Beam element forces: with hinges, m_start and m_end should be near zero
     let ef_beam = results.element_forces.iter()
@@ -582,11 +582,11 @@ fn precast_ext_stair_flight() {
 
     let n = 8; // number of elements along the incline
     let dx: f64 = run / n as f64;
-    let dy: f64 = rise / n as f64;
+    let dz: f64 = rise / n as f64;
 
     // Create nodes along the incline
     let nodes: Vec<(usize, f64, f64)> = (0..=n)
-        .map(|i| (i + 1, i as f64 * dx, i as f64 * dy))
+        .map(|i| (i + 1, i as f64 * dx, i as f64 * dz))
         .collect();
     // Create elements
     let elems: Vec<(usize, &str, usize, usize, usize, usize, bool, bool)> = (0..n)
@@ -621,7 +621,7 @@ fn precast_ext_stair_flight() {
     let _total_vert_load: f64 = q_abs * elem_len * n as f64;
 
     // Vertical equilibrium: sum of Ry should equal total applied vertical component
-    let sum_ry: f64 = results.reactions.iter().map(|r| r.ry).sum();
+    let sum_ry: f64 = results.reactions.iter().map(|r| r.rz).sum();
     // The solver applies q in local coordinates; for an inclined member, the local
     // transverse direction has both vertical and horizontal components.
     // The vertical component of local transverse load = q * cos(theta)
@@ -644,7 +644,7 @@ fn precast_ext_stair_flight() {
     let mid_d = results.displacements.iter()
         .find(|d| d.node_id == mid).unwrap();
     // Midspan should deflect (uy should be negative for downward loading)
-    assert!(mid_d.uy.abs() > 0.0, "Stair midspan has vertical deflection");
+    assert!(mid_d.uz.abs() > 0.0, "Stair midspan has vertical deflection");
 
     // rollerX at top: restrains uy only, so Rx at top should be zero
     let r_top = results.reactions.iter()

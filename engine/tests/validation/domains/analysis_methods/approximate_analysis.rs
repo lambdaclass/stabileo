@@ -96,7 +96,7 @@ fn validation_approx_continuous_beam_interior_moment() {
         .unwrap();
     // Interior reaction for 2-span equal UDL = 10wL/8 = 75 kN
     let exact_rb = 10.0 * w * l / 8.0;
-    assert_close(r_b.ry, exact_rb, 0.05, "continuous beam R_B");
+    assert_close(r_b.rz, exact_rb, 0.05, "continuous beam R_B");
 }
 
 // ================================================================
@@ -187,7 +187,7 @@ fn validation_approx_fixed_beam_wl2_over_12() {
     let r1 = results.reactions.iter().find(|r| r.node_id == 1).unwrap();
     // The reaction moment at a fixed end of a beam with downward UDL is negative (counterclockwise).
     assert_close(
-        r1.mz.abs(),
+        r1.my.abs(),
         analytical_end,
         0.05,
         "fixed beam end moment wL^2/12",
@@ -242,7 +242,7 @@ fn validation_approx_cantilever_wl2_over_2() {
     // Reaction moment at fixed end
     let r1 = results.reactions.iter().find(|r| r.node_id == 1).unwrap();
     assert_close(
-        r1.mz.abs(),
+        r1.my.abs(),
         analytical_root,
         0.05,
         "cantilever root moment wL^2/2",
@@ -250,7 +250,7 @@ fn validation_approx_cantilever_wl2_over_2() {
 
     // Also verify vertical reaction = wL = 40 kN
     let analytical_ry = w * l; // = 40.0
-    assert_close(r1.ry.abs(), analytical_ry, 0.05, "cantilever vertical reaction wL");
+    assert_close(r1.rz.abs(), analytical_ry, 0.05, "cantilever vertical reaction wL");
 }
 
 // ================================================================
@@ -290,7 +290,7 @@ fn validation_approx_propped_cantilever() {
     let analytical_ma = w * l * l / 8.0; // = 45.0
     let r_a = results.reactions.iter().find(|r| r.node_id == 1).unwrap();
     assert_close(
-        r_a.mz.abs(),
+        r_a.my.abs(),
         analytical_ma,
         0.05,
         "propped cantilever M_A = wL^2/8",
@@ -299,14 +299,14 @@ fn validation_approx_propped_cantilever() {
     // Reactions: R_A = 5wL/8, R_B = 3wL/8
     let analytical_ra = 5.0 * w * l / 8.0; // = 37.5
     let analytical_rb = 3.0 * w * l / 8.0; // = 22.5
-    assert_close(r_a.ry, analytical_ra, 0.05, "propped cantilever R_A = 5wL/8");
+    assert_close(r_a.rz, analytical_ra, 0.05, "propped cantilever R_A = 5wL/8");
 
     let r_b = results
         .reactions
         .iter()
         .find(|r| r.node_id == end_node)
         .unwrap();
-    assert_close(r_b.ry, analytical_rb, 0.05, "propped cantilever R_B = 3wL/8");
+    assert_close(r_b.rz, analytical_rb, 0.05, "propped cantilever R_B = 3wL/8");
 }
 
 // ================================================================
@@ -351,7 +351,7 @@ fn validation_approx_deflection_l_over_360() {
         .iter()
         .find(|d| d.node_id == mid_node)
         .unwrap();
-    let fem_delta = mid_disp.uy.abs();
+    let fem_delta = mid_disp.uz.abs();
 
     // FEM should match analytical within 5%
     assert_close(
@@ -425,14 +425,14 @@ fn validation_approx_cantilever_method_lateral() {
         SolverLoad::Nodal(SolverNodalLoad {
             node_id: 2,
             fx: 20.0,
-            fy: 0.0,
-            mz: 0.0,
+            fz: 0.0,
+            my: 0.0,
         }),
         SolverLoad::Nodal(SolverNodalLoad {
             node_id: 5,
             fx: 10.0,
-            fy: 0.0,
-            mz: 0.0,
+            fz: 0.0,
+            my: 0.0,
         }),
     ];
 
@@ -581,7 +581,7 @@ fn validation_approx_moment_coefficient_table() {
     let res_ff = linear::solve_2d(&input_ff).unwrap();
 
     let r1_ff = res_ff.reactions.iter().find(|r| r.node_id == 1).unwrap();
-    let ff_end_moment = r1_ff.mz.abs();
+    let ff_end_moment = r1_ff.my.abs();
     let expected_ff_end = w * l * l / 12.0; // = 30.0
     assert_close(
         ff_end_moment,
@@ -613,7 +613,7 @@ fn validation_approx_moment_coefficient_table() {
         .iter()
         .find(|r| r.node_id == 1)
         .unwrap();
-    let cant_root = r1_cant.mz.abs();
+    let cant_root = r1_cant.my.abs();
     let expected_cant = w * l * l / 2.0; // = 180.0
     assert_close(
         cant_root,

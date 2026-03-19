@@ -39,12 +39,12 @@ fn validation_2span_equal_udl_reactions() {
     let r_b = results.reactions.iter().find(|r| r.node_id == n_per_span + 1).unwrap();
     let r_c = results.reactions.iter().find(|r| r.node_id == 2 * n_per_span + 1).unwrap();
 
-    assert_close(r_a.ry, 3.0 * q * l / 8.0, 0.02, "2span R_A");
-    assert_close(r_b.ry, 10.0 * q * l / 8.0, 0.02, "2span R_B");
-    assert_close(r_c.ry, 3.0 * q * l / 8.0, 0.02, "2span R_C");
+    assert_close(r_a.rz, 3.0 * q * l / 8.0, 0.02, "2span R_A");
+    assert_close(r_b.rz, 10.0 * q * l / 8.0, 0.02, "2span R_B");
+    assert_close(r_c.rz, 3.0 * q * l / 8.0, 0.02, "2span R_C");
 
     // Equilibrium: total load = 2*q*L = 160
-    let sum_ry: f64 = results.reactions.iter().map(|r| r.ry).sum();
+    let sum_ry: f64 = results.reactions.iter().map(|r| r.rz).sum();
     assert_close(sum_ry, 2.0 * q * l, 0.01, "2span ΣRy");
 }
 
@@ -83,7 +83,7 @@ fn validation_2span_point_at_midspan1() {
 
     let input = make_continuous_beam(&[l, l], n_per_span, E, A, IZ,
         vec![SolverLoad::Nodal(SolverNodalLoad {
-            node_id: load_node, fx: 0.0, fy: -p, mz: 0.0,
+            node_id: load_node, fx: 0.0, fz: -p, my: 0.0,
         })]);
     let results = linear::solve_2d(&input).unwrap();
 
@@ -96,7 +96,7 @@ fn validation_2span_point_at_midspan1() {
     );
 
     // Equilibrium
-    let sum_ry: f64 = results.reactions.iter().map(|r| r.ry).sum();
+    let sum_ry: f64 = results.reactions.iter().map(|r| r.rz).sum();
     assert_close(sum_ry, p, 0.01, "2span point ΣRy");
 }
 
@@ -132,7 +132,7 @@ fn validation_2span_unequal_udl() {
     let results = linear::solve_2d(&input).unwrap();
 
     // Equilibrium: total = q*(L1+L2) = 160
-    let sum_ry: f64 = results.reactions.iter().map(|r| r.ry).sum();
+    let sum_ry: f64 = results.reactions.iter().map(|r| r.rz).sum();
     assert_close(sum_ry, q * (l1 + l2), 0.01, "2span unequal ΣRy");
 
     // Interior moment at B should match three-moment equation
@@ -175,15 +175,15 @@ fn validation_3span_equal_udl_reactions() {
     let r_d = results.reactions.iter().find(|r| r.node_id == 3 * n_per_span + 1).unwrap();
 
     // End reactions: R_A = R_D = 0.4*qL = 28.8
-    assert_close(r_a.ry, 0.4 * q * l, 0.02, "3span R_A");
-    assert_close(r_d.ry, 0.4 * q * l, 0.02, "3span R_D");
+    assert_close(r_a.rz, 0.4 * q * l, 0.02, "3span R_A");
+    assert_close(r_d.rz, 0.4 * q * l, 0.02, "3span R_D");
 
     // Interior reactions: R_B = R_C = 1.1*qL = 79.2
-    assert_close(r_b.ry, 1.1 * q * l, 0.02, "3span R_B");
-    assert_close(r_c.ry, 1.1 * q * l, 0.02, "3span R_C");
+    assert_close(r_b.rz, 1.1 * q * l, 0.02, "3span R_B");
+    assert_close(r_c.rz, 1.1 * q * l, 0.02, "3span R_C");
 
     // Equilibrium: total = 3*q*L = 216
-    let sum_ry: f64 = results.reactions.iter().map(|r| r.ry).sum();
+    let sum_ry: f64 = results.reactions.iter().map(|r| r.rz).sum();
     assert_close(sum_ry, 3.0 * q * l, 0.01, "3span ΣRy");
 }
 
@@ -207,9 +207,9 @@ fn validation_3span_symmetry() {
 
     let r_a = results.reactions.iter().find(|r| r.node_id == 1).unwrap();
     let r_d = results.reactions.iter().find(|r| r.node_id == 3 * n_per_span + 1).unwrap();
-    assert_close(r_a.ry, r_d.ry, 0.001, "3span symmetry R_A = R_D");
+    assert_close(r_a.rz, r_d.rz, 0.001, "3span symmetry R_A = R_D");
 
     let r_b = results.reactions.iter().find(|r| r.node_id == n_per_span + 1).unwrap();
     let r_c = results.reactions.iter().find(|r| r.node_id == 2 * n_per_span + 1).unwrap();
-    assert_close(r_b.ry, r_c.ry, 0.001, "3span symmetry R_B = R_C");
+    assert_close(r_b.rz, r_c.rz, 0.001, "3span symmetry R_B = R_C");
 }

@@ -71,8 +71,8 @@ fn validation_semirigid_hinge_end() {
 
     // Fixed end should carry moment (> 0 since UDL present)
     let r1 = results.reactions.iter().find(|r| r.node_id == 1).unwrap();
-    assert!(r1.mz.abs() > 1.0,
-        "Fixed end: M ≠ 0: {:.4}", r1.mz);
+    assert!(r1.my.abs() > 1.0,
+        "Fixed end: M ≠ 0: {:.4}", r1.my);
 }
 
 // ================================================================
@@ -130,7 +130,7 @@ fn validation_semirigid_midspan_hinge() {
         "Hinge: M_start(right) = 0: {:.6e}", ef_right.m_start);
 
     // Equilibrium
-    let sum_ry: f64 = results.reactions.iter().map(|r| r.ry).sum();
+    let sum_ry: f64 = results.reactions.iter().map(|r| r.rz).sum();
     assert_close(sum_ry, q.abs() * l, 0.01, "Hinge: ΣRy = qL");
 }
 
@@ -164,7 +164,7 @@ fn validation_semirigid_portal_hinges() {
         ],
         vec![(1, 1, "fixed"), (2, 4, "fixed")],
         vec![SolverLoad::Nodal(SolverNodalLoad {
-            node_id: 2, fx: f, fy: 0.0, mz: 0.0,
+            node_id: 2, fx: f, fz: 0.0, my: 0.0,
         })],
     );
     let d_hinged = linear::solve_2d(&input_hinged).unwrap()
@@ -188,7 +188,7 @@ fn validation_semirigid_propped_to_ss() {
     let p = 10.0;
     // SS beam (reference)
     let loads = vec![SolverLoad::Nodal(SolverNodalLoad {
-        node_id: 2, fx: 0.0, fy: -p, mz: 0.0,
+        node_id: 2, fx: 0.0, fz: -p, my: 0.0,
     })];
     let input_ss = make_input(
         vec![(1, 0.0, 0.0), (2, l / 2.0, 0.0), (3, l, 0.0)],
@@ -202,11 +202,11 @@ fn validation_semirigid_propped_to_ss() {
         loads.clone(),
     );
     let d_ss = linear::solve_2d(&input_ss).unwrap()
-        .displacements.iter().find(|d| d.node_id == 2).unwrap().uy;
+        .displacements.iter().find(|d| d.node_id == 2).unwrap().uz;
 
     // Fixed-roller with hinge at start of first element
     let loads2 = vec![SolverLoad::Nodal(SolverNodalLoad {
-        node_id: 2, fx: 0.0, fy: -p, mz: 0.0,
+        node_id: 2, fx: 0.0, fz: -p, my: 0.0,
     })];
     let input_hinged = make_input(
         vec![(1, 0.0, 0.0), (2, l / 2.0, 0.0), (3, l, 0.0)],
@@ -220,7 +220,7 @@ fn validation_semirigid_propped_to_ss() {
         loads2,
     );
     let d_hinged = linear::solve_2d(&input_hinged).unwrap()
-        .displacements.iter().find(|d| d.node_id == 2).unwrap().uy;
+        .displacements.iter().find(|d| d.node_id == 2).unwrap().uz;
 
     // Should match SS beam behavior
     assert_close(d_hinged, d_ss, 0.02,
@@ -252,8 +252,8 @@ fn validation_semirigid_symmetric_hinges() {
         ],
         vec![(1, 1, "fixed"), (2, 4, "fixed")],
         vec![
-            SolverLoad::Nodal(SolverNodalLoad { node_id: 2, fx: 0.0, fy: -p, mz: 0.0 }),
-            SolverLoad::Nodal(SolverNodalLoad { node_id: 3, fx: 0.0, fy: -p, mz: 0.0 }),
+            SolverLoad::Nodal(SolverNodalLoad { node_id: 2, fx: 0.0, fz: -p, my: 0.0 }),
+            SolverLoad::Nodal(SolverNodalLoad { node_id: 3, fx: 0.0, fz: -p, my: 0.0 }),
         ],
     );
     let results = linear::solve_2d(&input).unwrap();
@@ -262,7 +262,7 @@ fn validation_semirigid_symmetric_hinges() {
     let r4 = results.reactions.iter().find(|r| r.node_id == 4).unwrap();
 
     // Equal vertical reactions
-    assert_close(r1.ry, r4.ry, 0.02, "Symmetric hinges: R1y = R4y");
+    assert_close(r1.rz, r4.rz, 0.02, "Symmetric hinges: R1y = R4y");
 
     // Zero horizontal reactions (symmetric)
     assert!(r1.rx.abs() < 1e-8,
@@ -293,7 +293,7 @@ fn validation_semirigid_moment_comparison() {
 
     // Fixed-fixed: max |M| at supports = qL²/12
     let m_support_nh = results_nh.reactions.iter()
-        .find(|r| r.node_id == 1).unwrap().mz.abs();
+        .find(|r| r.node_id == 1).unwrap().my.abs();
 
     // Same beam but with hinge at midspan
     // This changes the moment distribution significantly
@@ -326,7 +326,7 @@ fn validation_semirigid_moment_comparison() {
     let results_h = linear::solve_2d(&input_h).unwrap();
 
     let m_support_h = results_h.reactions.iter()
-        .find(|r| r.node_id == 1).unwrap().mz.abs();
+        .find(|r| r.node_id == 1).unwrap().my.abs();
 
     // With hinge, support moment should be larger (more load carried by supports)
     // since the midspan can no longer resist moment
@@ -365,14 +365,14 @@ fn validation_semirigid_three_hinge() {
         ],
         vec![(1, 1, "pinned"), (2, 5, "pinned")],
         vec![SolverLoad::Nodal(SolverNodalLoad {
-            node_id: 2, fx: f, fy: 0.0, mz: 0.0,
+            node_id: 2, fx: f, fz: 0.0, my: 0.0,
         })],
     );
     let results = linear::solve_2d(&input).unwrap();
 
     // Equilibrium: ΣFx = 0, ΣFy = 0
     let sum_rx: f64 = results.reactions.iter().map(|r| r.rx).sum();
-    let sum_ry: f64 = results.reactions.iter().map(|r| r.ry).sum();
+    let sum_ry: f64 = results.reactions.iter().map(|r| r.rz).sum();
     assert_close(sum_rx, -f, 0.01, "3-hinge: ΣRx = -F");
     assert_close(sum_ry, 0.0, 0.01, "3-hinge: ΣRy = 0");
 
@@ -389,7 +389,7 @@ fn validation_semirigid_three_hinge() {
     // R5y × (w/2) + R5x × h = 0
     // Global: R1y + R5y = 0 (no vertical load)
     let r5 = results.reactions.iter().find(|r| r.node_id == 5).unwrap();
-    assert_close(r5.ry, -r5.rx * h / (w / 2.0), 0.05,
+    assert_close(r5.rz, -r5.rx * h / (w / 2.0), 0.05,
         "3-hinge: moment about hinge");
 }
 
@@ -427,9 +427,9 @@ fn validation_semirigid_multibay_hinges() {
             (1, 1, "fixed"), (2, 3, "fixed"), (3, 5, "fixed"),
         ],
         vec![
-            SolverLoad::Nodal(SolverNodalLoad { node_id: 2, fx: 0.0, fy: -p, mz: 0.0 }),
-            SolverLoad::Nodal(SolverNodalLoad { node_id: 4, fx: 0.0, fy: -p, mz: 0.0 }),
-            SolverLoad::Nodal(SolverNodalLoad { node_id: 6, fx: 0.0, fy: -p, mz: 0.0 }),
+            SolverLoad::Nodal(SolverNodalLoad { node_id: 2, fx: 0.0, fz: -p, my: 0.0 }),
+            SolverLoad::Nodal(SolverNodalLoad { node_id: 4, fx: 0.0, fz: -p, my: 0.0 }),
+            SolverLoad::Nodal(SolverNodalLoad { node_id: 6, fx: 0.0, fz: -p, my: 0.0 }),
         ],
     );
     let results = linear::solve_2d(&input).unwrap();
@@ -448,6 +448,6 @@ fn validation_semirigid_multibay_hinges() {
         "Beam 2: M_end = 0: {:.6e}", ef5.m_end);
 
     // Total vertical reaction = total load
-    let sum_ry: f64 = results.reactions.iter().map(|r| r.ry).sum();
+    let sum_ry: f64 = results.reactions.iter().map(|r| r.rz).sum();
     assert_close(sum_ry, 3.0 * p, 0.01, "Multi-bay: ΣRy = 3P");
 }

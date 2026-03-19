@@ -47,11 +47,11 @@ fn assert_close_local(got: f64, expected: f64, rel_tol: f64, label: &str) {
 
 #[test]
 fn validation_steel_ext_1_compact_beam_moment() {
-    let fy: f64 = 345.0; // MPa, A992 steel
+    let fz: f64 = 345.0; // MPa, A992 steel
     let zx: f64 = 4010e3; // mm^3, W24x68 plastic section modulus
 
     // Compact section: M_n = M_p = F_y * Z_x
-    let mp: f64 = fy * zx; // N*mm
+    let mp: f64 = fz * zx; // N*mm
     let mp_knm: f64 = mp / 1e6; // kN*m
 
     let expected_mp: f64 = 1383.45; // kN*m
@@ -67,7 +67,7 @@ fn validation_steel_ext_1_compact_beam_moment() {
     );
 
     // Verify elastic moment
-    let my: f64 = fy * sx / 1e6; // kN*m
+    let my: f64 = fz * sx / 1e6; // kN*m
     assert!(
         mp_knm > my,
         "M_p = {:.1} > M_y = {:.1} (plastic > elastic)",
@@ -106,7 +106,7 @@ fn validation_steel_ext_1_compact_beam_moment() {
 
 #[test]
 fn validation_steel_ext_2_ltb_unbraced_length() {
-    let fy: f64 = 345.0;
+    let fz: f64 = 345.0;
     let zx: f64 = 1702e3; // mm^3
     let sx: f64 = 1506e3; // mm^3
     let lp: f64 = 2200.0; // mm
@@ -114,7 +114,7 @@ fn validation_steel_ext_2_ltb_unbraced_length() {
     let e: f64 = 200_000.0; // MPa
     let r_ts: f64 = 52.0; // mm, radius of gyration for LTB
 
-    let mp: f64 = fy * zx; // N*mm
+    let mp: f64 = fz * zx; // N*mm
 
     // Case A: L_b = L_p -> M_n = M_p
     let mn_a: f64 = mp;
@@ -124,7 +124,7 @@ fn validation_steel_ext_2_ltb_unbraced_length() {
     // Case B: Inelastic LTB, L_b = 4000 mm, C_b = 1.0
     let lb_b: f64 = 4000.0;
     let cb: f64 = 1.0;
-    let mr: f64 = 0.7 * fy * sx;
+    let mr: f64 = 0.7 * fz * sx;
     let mn_b_raw: f64 = cb * (mp - (mp - mr) * (lb_b - lp) / (lr - lp));
     let mn_b: f64 = mn_b_raw.min(mp);
 
@@ -153,9 +153,9 @@ fn validation_steel_ext_2_ltb_unbraced_length() {
 
     // F_cr should be less than 0.7*F_y (elastic range)
     assert!(
-        fcr < 0.7 * fy,
+        fcr < 0.7 * fz,
         "F_cr = {:.1} < 0.7*F_y = {:.1} (elastic LTB)",
-        fcr, 0.7 * fy
+        fcr, 0.7 * fz
     );
 }
 
@@ -188,14 +188,14 @@ fn validation_steel_ext_2_ltb_unbraced_length() {
 #[test]
 fn validation_steel_ext_3_column_curve() {
     let e: f64 = 200_000.0; // MPa
-    let fy: f64 = 345.0; // MPa
+    let fz: f64 = 345.0; // MPa
     let ag: f64 = 15_550.0; // mm^2, W14x82
     let r_min: f64 = 63.0; // mm
     let kl: f64 = 5000.0; // mm
     let phi_c: f64 = 0.90;
 
     let slenderness: f64 = kl / r_min;
-    let transition: f64 = 4.71 * (e / fy).sqrt();
+    let transition: f64 = 4.71 * (e / fz).sqrt();
 
     // Verify slenderness classification
     assert!(
@@ -208,7 +208,7 @@ fn validation_steel_ext_3_column_curve() {
     let fe: f64 = std::f64::consts::PI.powi(2) * e / (slenderness * slenderness);
 
     // Critical stress (inelastic)
-    let fcr: f64 = 0.658_f64.powf(fy / fe) * fy;
+    let fcr: f64 = 0.658_f64.powf(fz / fe) * fz;
 
     // Nominal capacity
     let pn: f64 = fcr * ag / 1e3; // kN
@@ -219,9 +219,9 @@ fn validation_steel_ext_3_column_curve() {
     assert_close_local(fe, expected_fe, 0.01, "Euler stress F_e");
 
     assert!(
-        fcr < fy,
+        fcr < fz,
         "F_cr = {:.1} < F_y = {:.1} (buckling reduces capacity)",
-        fcr, fy
+        fcr, fz
     );
 
     assert!(
@@ -272,7 +272,7 @@ fn validation_steel_ext_3_column_curve() {
 
 #[test]
 fn validation_steel_ext_4_web_shear_buckling() {
-    let fy: f64 = 345.0; // MPa
+    let fz: f64 = 345.0; // MPa
     let e: f64 = 200_000.0; // MPa
     let d: f64 = 1200.0; // mm, depth
     let tw: f64 = 8.0; // mm, web thickness
@@ -282,8 +282,8 @@ fn validation_steel_ext_4_web_shear_buckling() {
     let aw: f64 = d * tw; // mm^2
 
     // Slenderness limits
-    let limit_inelastic: f64 = 1.10 * (kv * e / fy).sqrt();
-    let limit_elastic: f64 = 1.37 * (kv * e / fy).sqrt();
+    let limit_inelastic: f64 = 1.10 * (kv * e / fz).sqrt();
+    let limit_elastic: f64 = 1.37 * (kv * e / fz).sqrt();
 
     // Classify web
     assert!(
@@ -293,7 +293,7 @@ fn validation_steel_ext_4_web_shear_buckling() {
     );
 
     // Shear coefficient for elastic buckling
-    let cv2: f64 = 1.51 * kv * e / (h_tw * h_tw * fy);
+    let cv2: f64 = 1.51 * kv * e / (h_tw * h_tw * fz);
 
     assert!(
         cv2 < 1.0,
@@ -302,7 +302,7 @@ fn validation_steel_ext_4_web_shear_buckling() {
     );
 
     // Nominal shear strength
-    let vn: f64 = 0.6 * fy * aw * cv2;
+    let vn: f64 = 0.6 * fz * aw * cv2;
     let vn_kn: f64 = vn / 1e3;
 
     // Expected from hand calculation
@@ -319,7 +319,7 @@ fn validation_steel_ext_4_web_shear_buckling() {
         h_tw_thick, limit_inelastic
     );
 
-    let vn_thick: f64 = 0.6 * fy * d * tw_thick * 1.0 / 1e3;
+    let vn_thick: f64 = 0.6 * fz * d * tw_thick * 1.0 / 1e3;
     assert!(
         vn_thick > vn_kn,
         "Thick web V_n = {:.0} > Slender web V_n = {:.0}",
@@ -648,7 +648,7 @@ fn validation_steel_ext_8_deflection_serviceability() {
     let delta_exact: f64 = 5.0 * w_abs * l.powi(4) / (384.0 * e_eff * iz);
 
     // Compare solver result to analytical
-    let solver_delta: f64 = mid_d.uy.abs();
+    let solver_delta: f64 = mid_d.uz.abs();
     let error = (solver_delta - delta_exact).abs() / delta_exact;
     assert!(
         error < 0.05,

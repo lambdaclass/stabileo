@@ -25,8 +25,8 @@ use std::collections::HashMap;
 // Helpers
 // ---------------------------------------------------------------------------
 
-fn node(id: usize, x: f64, y: f64) -> SolverNode {
-    SolverNode { id, x, y }
+fn node(id: usize, x: f64, z: f64) -> SolverNode {
+    SolverNode { id, x, z }
 }
 
 fn frame(id: usize, ni: usize, nj: usize) -> SolverElement {
@@ -73,7 +73,7 @@ fn cantilever_beam(n_elements: usize, length: f64) -> SolverInput {
         node_id: 1,
         support_type: "fixed".into(),
         kx: None, ky: None, kz: None,
-        dx: None, dy: None, drz: None,
+        dx: None, dz: None, dry: None,
         angle: None,
     })];
 
@@ -432,12 +432,12 @@ fn benchmark_guyan_boundary_sensitivity() {
 
     let mut beam = cantilever_beam(n_elements, length);
     beam.loads.push(SolverLoad::Nodal(SolverNodalLoad {
-        node_id: tip, fx: 0.0, fy: -10.0, mz: 0.0,
+        node_id: tip, fx: 0.0, fz: -10.0, my: 0.0,
     }));
 
     let full = dedaliano_engine::solver::linear::solve_2d(&beam).unwrap();
     let d_tip_full = full.displacements.iter()
-        .find(|d| d.node_id == tip).unwrap().uy;
+        .find(|d| d.node_id == tip).unwrap().uz;
 
     let cases: Vec<(&str, Vec<usize>)> = vec![
         ("tip_only", vec![tip]),
@@ -449,7 +449,7 @@ fn benchmark_guyan_boundary_sensitivity() {
         match guyan_reduce_2d(&GuyanInput { solver: beam.clone(), boundary_nodes: boundary.clone() }) {
             Ok(gr) => {
                 let d_tip = gr.displacements.iter()
-                    .find(|d| d.node_id == tip).map(|d| d.uy).unwrap_or(0.0);
+                    .find(|d| d.node_id == tip).map(|d| d.uz).unwrap_or(0.0);
                 let err = if d_tip_full.abs() > 1e-15 {
                     (d_tip - d_tip_full).abs() / d_tip_full.abs()
                 } else { 0.0 };
@@ -476,7 +476,7 @@ fn benchmark_guyan_static_parity() {
     for s in 0..3_usize {
         loads.push(SolverLoad::Nodal(SolverNodalLoad {
             node_id: 1 + n_per_span * s + n_per_span / 2,
-            fx: 0.0, fy: -20.0, mz: 0.0,
+            fx: 0.0, fz: -20.0, my: 0.0,
         }));
     }
 
@@ -493,7 +493,7 @@ fn benchmark_guyan_static_parity() {
             eprintln!("Guyan static parity: {} boundary, {} interior", gr.n_boundary, gr.n_interior);
             // Support nodes should have ~0 displacement
             for &nid in &support_nodes {
-                let d_full = full.displacements.iter().find(|d| d.node_id == nid).map(|d| d.uy).unwrap_or(0.0);
+                let d_full = full.displacements.iter().find(|d| d.node_id == nid).map(|d| d.uz).unwrap_or(0.0);
                 assert!(d_full.abs() < 1e-6, "Support node {} uy={:.6e} should be ~0", nid, d_full);
             }
             // Interior recovered displacements should be non-empty
@@ -587,11 +587,11 @@ fn benchmark_reduction_scaled_model() {
 
     let mut beam_loaded = beam.clone();
     beam_loaded.loads.push(SolverLoad::Nodal(SolverNodalLoad {
-        node_id: tip, fx: 0.0, fy: -5.0, mz: 0.0,
+        node_id: tip, fx: 0.0, fz: -5.0, my: 0.0,
     }));
 
     let full = dedaliano_engine::solver::linear::solve_2d(&beam_loaded).unwrap();
-    let d_tip_full = full.displacements.iter().find(|d| d.node_id == tip).unwrap().uy;
+    let d_tip_full = full.displacements.iter().find(|d| d.node_id == tip).unwrap().uz;
 
     let q1 = n_nodes / 4;
     let q2 = n_nodes / 2;
@@ -606,7 +606,7 @@ fn benchmark_reduction_scaled_model() {
     for i in 0..nb {
         assert!(gr.k_condensed[i * nb + i] > 0.0, "Guyan K diag[{}] not positive", i);
     }
-    let d_tip = gr.displacements.iter().find(|d| d.node_id == tip).map(|d| d.uy).unwrap_or(0.0);
+    let d_tip = gr.displacements.iter().find(|d| d.node_id == tip).map(|d| d.uz).unwrap_or(0.0);
     let err = (d_tip - d_tip_full).abs() / d_tip_full.abs().max(1e-15);
     eprintln!("40-elem Guyan: err={:.2}%", err * 100.0);
     assert!(err < 0.02, "Guyan static recovery error {:.2}% exceeds 2%", err * 100.0);

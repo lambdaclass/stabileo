@@ -72,8 +72,8 @@ fn two_span_equal_udl_interior_moment() {
         .find(|r| r.node_id == 2 * n_per_span + 1)
         .unwrap();
     let expected_r_end = 3.0 * q * l / 8.0; // 22.5
-    assert_close(r_a.ry, expected_r_end, 0.03, "2span R_A = 3qL/8");
-    assert_close(r_c.ry, expected_r_end, 0.03, "2span R_C = 3qL/8");
+    assert_close(r_a.rz, expected_r_end, 0.03, "2span R_A = 3qL/8");
+    assert_close(r_c.rz, expected_r_end, 0.03, "2span R_C = 3qL/8");
 
     // Interior reaction: R_B = 10qL/8 = 5qL/4
     let r_b = results
@@ -82,10 +82,10 @@ fn two_span_equal_udl_interior_moment() {
         .find(|r| r.node_id == n_per_span + 1)
         .unwrap();
     let expected_r_int = 5.0 * q * l / 4.0; // 75.0
-    assert_close(r_b.ry, expected_r_int, 0.03, "2span R_B = 5qL/4");
+    assert_close(r_b.rz, expected_r_int, 0.03, "2span R_B = 5qL/4");
 
     // Global equilibrium
-    let sum_ry: f64 = results.reactions.iter().map(|r| r.ry).sum();
+    let sum_ry: f64 = results.reactions.iter().map(|r| r.rz).sum();
     assert_close(sum_ry, 2.0 * q * l, 0.01, "2span equilibrium");
 }
 
@@ -143,19 +143,19 @@ fn three_span_three_moment_equation_reactions() {
     let node_d = 1 + 3 * n_per_span;
     let r_a = results.reactions.iter().find(|r| r.node_id == node_a).unwrap();
     let r_d = results.reactions.iter().find(|r| r.node_id == node_d).unwrap();
-    assert_close(r_a.ry, 0.4 * q * l, 0.03, "3span R_A = 0.4qL");
-    assert_close(r_d.ry, 0.4 * q * l, 0.03, "3span R_D = 0.4qL");
+    assert_close(r_a.rz, 0.4 * q * l, 0.03, "3span R_A = 0.4qL");
+    assert_close(r_d.rz, 0.4 * q * l, 0.03, "3span R_D = 0.4qL");
 
     // Interior reactions: R_B = R_C = 1.1*qL
     let node_b = 1 + n_per_span;
     let node_c = 1 + 2 * n_per_span;
     let r_b = results.reactions.iter().find(|r| r.node_id == node_b).unwrap();
     let r_c = results.reactions.iter().find(|r| r.node_id == node_c).unwrap();
-    assert_close(r_b.ry, 1.1 * q * l, 0.03, "3span R_B = 1.1qL");
-    assert_close(r_c.ry, 1.1 * q * l, 0.03, "3span R_C = 1.1qL");
+    assert_close(r_b.rz, 1.1 * q * l, 0.03, "3span R_B = 1.1qL");
+    assert_close(r_c.rz, 1.1 * q * l, 0.03, "3span R_C = 1.1qL");
 
     // Global equilibrium
-    let sum_ry: f64 = results.reactions.iter().map(|r| r.ry).sum();
+    let sum_ry: f64 = results.reactions.iter().map(|r| r.rz).sum();
     assert_close(sum_ry, 3.0 * q * l, 0.01, "3span equilibrium");
 }
 
@@ -199,21 +199,21 @@ fn propped_cantilever_roller_reaction() {
         .unwrap();
 
     // R_B = 3qL/8
-    assert_close(r_b.ry, 3.0 * q * l / 8.0, 0.02, "propped R_B = 3qL/8");
+    assert_close(r_b.rz, 3.0 * q * l / 8.0, 0.02, "propped R_B = 3qL/8");
 
     // R_A = 5qL/8
-    assert_close(r_a.ry, 5.0 * q * l / 8.0, 0.02, "propped R_A = 5qL/8");
+    assert_close(r_a.rz, 5.0 * q * l / 8.0, 0.02, "propped R_A = 5qL/8");
 
     // M_A = qL^2/8
     assert_close(
-        r_a.mz.abs(),
+        r_a.my.abs(),
         q * l * l / 8.0,
         0.02,
         "propped M_A = qL^2/8",
     );
 
     // Equilibrium
-    assert_close(r_a.ry + r_b.ry, q * l, 0.01, "propped equilibrium");
+    assert_close(r_a.rz + r_b.rz, q * l, 0.01, "propped equilibrium");
 }
 
 // ================================================================
@@ -301,7 +301,7 @@ fn pattern_loading_alternate_spans() {
     );
 
     // Equilibrium: total load = 2*q*L (only spans 1 and 3)
-    let sum_ry: f64 = results.reactions.iter().map(|r| r.ry).sum();
+    let sum_ry: f64 = results.reactions.iter().map(|r| r.rz).sum();
     assert_close(sum_ry, 2.0 * q * l, 0.01, "pattern equilibrium");
 }
 
@@ -367,7 +367,7 @@ fn unequal_spans_moment_redistribution() {
     );
 
     // Equilibrium
-    let sum_ry: f64 = results.reactions.iter().map(|r| r.ry).sum();
+    let sum_ry: f64 = results.reactions.iter().map(|r| r.rz).sum();
     assert_close(sum_ry, q * (l1 + l2), 0.01, "unequal spans equilibrium");
 }
 
@@ -398,7 +398,7 @@ fn settlement_of_interior_support() {
             SolverNode {
                 id: i + 1,
                 x: i as f64 * elem_len,
-                y: 0.0,
+                z: 0.0,
             },
         );
     }
@@ -451,8 +451,8 @@ fn settlement_of_interior_support() {
             ky: None,
             kz: None,
             dx: None,
-            dy: None,
-            drz: None,
+            dz: None,
+            dry: None,
             angle: None,
         },
     );
@@ -466,8 +466,8 @@ fn settlement_of_interior_support() {
             ky: None,
             kz: None,
             dx: None,
-            dy: Some(-delta),
-            drz: None,
+            dz: Some(-delta),
+            dry: None,
             angle: None,
         },
     );
@@ -481,8 +481,8 @@ fn settlement_of_interior_support() {
             ky: None,
             kz: None,
             dx: None,
-            dy: None,
-            drz: None,
+            dz: None,
+            dry: None,
             angle: None,
         },
     );
@@ -503,10 +503,10 @@ fn settlement_of_interior_support() {
         .iter()
         .find(|d| d.node_id == mid_node)
         .unwrap();
-    assert_close(d_mid.uy, -delta, 0.01, "settlement prescribed uy = -delta");
+    assert_close(d_mid.uz, -delta, 0.01, "settlement prescribed uy = -delta");
 
     // Equilibrium (no external loads): sum of reactions = 0
-    let sum_ry: f64 = results.reactions.iter().map(|r| r.ry).sum();
+    let sum_ry: f64 = results.reactions.iter().map(|r| r.rz).sum();
     assert!(
         sum_ry.abs() < 0.01,
         "settlement equilibrium: sum_ry={:.6}",
@@ -632,9 +632,9 @@ fn continuous_beam_with_cantilever_overhang() {
 
     // The cantilever tip should deflect downward (negative uy)
     assert!(
-        d_tip.uy < 0.0,
+        d_tip.uz < 0.0,
         "Overhang tip should deflect downward: uy={:.6}",
-        d_tip.uy,
+        d_tip.uz,
     );
 
     // Simple cantilever tip deflection: q*a^4/(8*EI)
@@ -643,9 +643,9 @@ fn continuous_beam_with_cantilever_overhang() {
     // The actual tip deflection should be at least the simple cantilever value
     // (the overhang also lifts at C due to rotation, making total deflection larger)
     assert!(
-        d_tip.uy.abs() > delta_simple_cant * 0.5,
+        d_tip.uz.abs() > delta_simple_cant * 0.5,
         "Tip deflection {:.6e} should be significant vs simple cantilever {:.6e}",
-        d_tip.uy.abs(),
+        d_tip.uz.abs(),
         delta_simple_cant,
     );
 
@@ -665,7 +665,7 @@ fn continuous_beam_with_cantilever_overhang() {
     );
 
     // Equilibrium
-    let sum_ry: f64 = results.reactions.iter().map(|r| r.ry).sum();
+    let sum_ry: f64 = results.reactions.iter().map(|r| r.rz).sum();
     assert_close(sum_ry, q * a, 0.01, "overhang equilibrium");
 }
 
@@ -720,9 +720,9 @@ fn five_span_symmetry() {
     let r_f = results.reactions.iter().find(|r| r.node_id == node_f).unwrap();
 
     // Symmetry of reactions
-    assert_close(r_a.ry, r_f.ry, 0.01, "5span R_A = R_F");
-    assert_close(r_b.ry, r_e.ry, 0.01, "5span R_B = R_E");
-    assert_close(r_c.ry, r_d.ry, 0.01, "5span R_C = R_D");
+    assert_close(r_a.rz, r_f.rz, 0.01, "5span R_A = R_F");
+    assert_close(r_b.rz, r_e.rz, 0.01, "5span R_B = R_E");
+    assert_close(r_c.rz, r_d.rz, 0.01, "5span R_C = R_D");
 
     // Symmetry of interior moments
     let ef_b = results
@@ -778,7 +778,7 @@ fn five_span_symmetry() {
         .iter()
         .find(|d| d.node_id == mid_span5)
         .unwrap();
-    assert_close(d1.uy, d5.uy, 0.02, "5span delta_span1 = delta_span5");
+    assert_close(d1.uz, d5.uz, 0.02, "5span delta_span1 = delta_span5");
 
     let mid_span2 = 1 + n_per_span + n_per_span / 2;
     let mid_span4 = 1 + 3 * n_per_span + n_per_span / 2;
@@ -792,9 +792,9 @@ fn five_span_symmetry() {
         .iter()
         .find(|d| d.node_id == mid_span4)
         .unwrap();
-    assert_close(d2.uy, d4.uy, 0.02, "5span delta_span2 = delta_span4");
+    assert_close(d2.uz, d4.uz, 0.02, "5span delta_span2 = delta_span4");
 
     // Global equilibrium
-    let sum_ry: f64 = results.reactions.iter().map(|r| r.ry).sum();
+    let sum_ry: f64 = results.reactions.iter().map(|r| r.rz).sum();
     assert_close(sum_ry, 5.0 * q * l, 0.01, "5span equilibrium");
 }

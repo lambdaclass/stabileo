@@ -50,7 +50,7 @@ fn validation_cable_v_shape() {
         ],
         vec![(1, 1, "pinned"), (2, 3, "pinned")],
         vec![SolverLoad::Nodal(SolverNodalLoad {
-            node_id: 2, fx: 0.0, fy: -p, mz: 0.0,
+            node_id: 2, fx: 0.0, fz: -p, my: 0.0,
         })],
     );
     let results = linear::solve_2d(&input).unwrap();
@@ -74,7 +74,7 @@ fn validation_cable_v_shape() {
 
     // Deflection at load point
     let d = results.displacements.iter().find(|d| d.node_id == 2).unwrap();
-    assert!(d.uy < 0.0, "V-cable: downward deflection");
+    assert!(d.uz < 0.0, "V-cable: downward deflection");
 }
 
 // ================================================================
@@ -132,7 +132,7 @@ fn validation_cable_warren_truss() {
     let mut loads = Vec::new();
     for i in 1..n_panels {
         loads.push(SolverLoad::Nodal(SolverNodalLoad {
-            node_id: i + 1, fx: 0.0, fy: -p, mz: 0.0,
+            node_id: i + 1, fx: 0.0, fz: -p, my: 0.0,
         }));
     }
 
@@ -147,13 +147,13 @@ fn validation_cable_warren_truss() {
     let results = linear::solve_2d(&input).unwrap();
 
     // Global equilibrium
-    let sum_ry: f64 = results.reactions.iter().map(|r| r.ry).sum();
+    let sum_ry: f64 = results.reactions.iter().map(|r| r.rz).sum();
     assert_close(sum_ry, (n_panels - 1) as f64 * p, 0.01,
         "Warren: ΣRy = total load");
 
     // Symmetric: left and right reactions should be equal
-    let r1 = results.reactions.iter().find(|r| r.node_id == 1).unwrap().ry;
-    let r2 = results.reactions.iter().find(|r| r.node_id == n_panels + 1).unwrap().ry;
+    let r1 = results.reactions.iter().find(|r| r.node_id == 1).unwrap().rz;
+    let r2 = results.reactions.iter().find(|r| r.node_id == n_panels + 1).unwrap().rz;
     assert_close(r1, r2, 0.02, "Warren: symmetric reactions");
 }
 
@@ -214,10 +214,10 @@ fn validation_cable_pratt_truss() {
 
     let loads = vec![
         SolverLoad::Nodal(SolverNodalLoad {
-            node_id: 2, fx: 0.0, fy: -p, mz: 0.0,
+            node_id: 2, fx: 0.0, fz: -p, my: 0.0,
         }),
         SolverLoad::Nodal(SolverNodalLoad {
-            node_id: 3, fx: 0.0, fy: -p, mz: 0.0,
+            node_id: 3, fx: 0.0, fz: -p, my: 0.0,
         }),
     ];
 
@@ -232,7 +232,7 @@ fn validation_cable_pratt_truss() {
     let results = linear::solve_2d(&input).unwrap();
 
     // Equilibrium
-    let sum_ry: f64 = results.reactions.iter().map(|r| r.ry).sum();
+    let sum_ry: f64 = results.reactions.iter().map(|r| r.rz).sum();
     assert_close(sum_ry, 2.0 * p, 0.01, "Pratt: ΣRy = 2P");
 
     // Bottom chord should be in tension (positive)
@@ -273,7 +273,7 @@ fn validation_cable_symmetric_stays() {
         ],
         vec![(1, 1, "pinned"), (2, 2, "pinned"), (3, 3, "pinned")],
         vec![SolverLoad::Nodal(SolverNodalLoad {
-            node_id: 4, fx: 0.0, fy: -p, mz: 0.0,
+            node_id: 4, fx: 0.0, fz: -p, my: 0.0,
         })],
     );
     let results = linear::solve_2d(&input).unwrap();
@@ -349,7 +349,7 @@ fn validation_cable_multi_panel() {
     let mut loads = Vec::new();
     for i in 1..n_panels {
         loads.push(SolverLoad::Nodal(SolverNodalLoad {
-            node_id: i + 1, fx: 0.0, fy: -p, mz: 0.0,
+            node_id: i + 1, fx: 0.0, fz: -p, my: 0.0,
         }));
     }
 
@@ -365,7 +365,7 @@ fn validation_cable_multi_panel() {
 
     // Total load = (n_panels-1) × P
     let total_load = (n_panels - 1) as f64 * p;
-    let sum_ry: f64 = results.reactions.iter().map(|r| r.ry).sum();
+    let sum_ry: f64 = results.reactions.iter().map(|r| r.rz).sum();
     assert_close(sum_ry, total_load, 0.01, "Multi-panel: ΣRy = (n-1)P");
 
     // Midspan bottom chord should have maximum tension
@@ -404,13 +404,13 @@ fn validation_cable_deflection_formula() {
         ],
         vec![(1, 1, "pinned"), (2, 2, "rollerX")],
         vec![SolverLoad::Nodal(SolverNodalLoad {
-            node_id: 3, fx: 0.0, fy: -p, mz: 0.0,
+            node_id: 3, fx: 0.0, fz: -p, my: 0.0,
         })],
     );
     let results = linear::solve_2d(&input).unwrap();
 
     let d_y = results.displacements.iter()
-        .find(|d| d.node_id == 3).unwrap().uy;
+        .find(|d| d.node_id == 3).unwrap().uz;
 
     // Virtual work: δ = Σ(F_i × f_i × L_i) / (A × E)
     // For symmetric truss with load at apex:
@@ -430,11 +430,11 @@ fn validation_cable_deflection_formula() {
         ],
         vec![(1, 1, "pinned"), (2, 2, "rollerX")],
         vec![SolverLoad::Nodal(SolverNodalLoad {
-            node_id: 3, fx: 0.0, fy: -p, mz: 0.0,
+            node_id: 3, fx: 0.0, fz: -p, my: 0.0,
         })],
     );
     let d_y2 = linear::solve_2d(&input2).unwrap()
-        .displacements.iter().find(|d| d.node_id == 3).unwrap().uy;
+        .displacements.iter().find(|d| d.node_id == 3).unwrap().uz;
 
     // δ ∝ 1/A
     assert_close(d_y2 / d_y, 2.0, 0.02, "Truss: δ ∝ 1/A");
@@ -466,11 +466,11 @@ fn validation_cable_pretension_stiffness() {
             ],
             vec![(1, 1, "pinned"), (2, 3, "pinned")],
             vec![SolverLoad::Nodal(SolverNodalLoad {
-                node_id: 2, fx: 0.0, fy: -p, mz: 0.0,
+                node_id: 2, fx: 0.0, fz: -p, my: 0.0,
             })],
         );
         let d = linear::solve_2d(&input).unwrap()
-            .displacements.iter().find(|d| d.node_id == 2).unwrap().uy.abs();
+            .displacements.iter().find(|d| d.node_id == 2).unwrap().uz.abs();
         deflections.push(d);
     }
 
@@ -517,20 +517,20 @@ fn validation_cable_fan_truss() {
         ],
         vec![(1, 1, "pinned"), (2, 5, "rollerX")],
         vec![
-            SolverLoad::Nodal(SolverNodalLoad { node_id: 2, fx: 0.0, fy: -p1, mz: 0.0 }),
-            SolverLoad::Nodal(SolverNodalLoad { node_id: 4, fx: 0.0, fy: -p2, mz: 0.0 }),
+            SolverLoad::Nodal(SolverNodalLoad { node_id: 2, fx: 0.0, fz: -p1, my: 0.0 }),
+            SolverLoad::Nodal(SolverNodalLoad { node_id: 4, fx: 0.0, fz: -p2, my: 0.0 }),
         ],
     );
     let results = linear::solve_2d(&input).unwrap();
 
     // Global equilibrium
-    let sum_ry: f64 = results.reactions.iter().map(|r| r.ry).sum();
+    let sum_ry: f64 = results.reactions.iter().map(|r| r.rz).sum();
     let sum_rx: f64 = results.reactions.iter().map(|r| r.rx).sum();
     assert_close(sum_ry, p1 + p2, 0.01, "Fan: ΣRy = P1 + P2");
     assert_close(sum_rx, 0.0, 0.01, "Fan: ΣRx = 0");
 
     // Asymmetric loading → unequal reactions
-    let r1 = results.reactions.iter().find(|r| r.node_id == 1).unwrap().ry;
-    let r5 = results.reactions.iter().find(|r| r.node_id == 5).unwrap().ry;
+    let r1 = results.reactions.iter().find(|r| r.node_id == 1).unwrap().rz;
+    let r5 = results.reactions.iter().find(|r| r.node_id == 5).unwrap().rz;
     assert!(r1 != r5, "Fan: asymmetric reactions: {:.4} vs {:.4}", r1, r5);
 }

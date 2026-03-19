@@ -71,8 +71,8 @@ fn validation_kassimali_1_simple_truss_3bar() {
         vec![SolverLoad::Nodal(SolverNodalLoad {
             node_id: 3,
             fx,
-            fy: -fy,
-            mz: 0.0,
+            fz: -fy,
+            my: 0.0,
         })],
     );
     let results = linear::solve_2d(&input).unwrap();
@@ -82,14 +82,14 @@ fn validation_kassimali_1_simple_truss_3bar() {
     let r2 = results.reactions.iter().find(|r| r.node_id == 2).unwrap();
 
     // ΣM about 1: R2y*4 = Fy*2 + Fx*3 = 20*2 + 10*3 = 70 → R2y = 17.5
-    assert_close(r2.ry, 17.5, 0.03, "Kassimali 3-bar: R2y = 17.5 kN");
+    assert_close(r2.rz, 17.5, 0.03, "Kassimali 3-bar: R2y = 17.5 kN");
     // R1y = Py - R2y = 20 - 17.5 = 2.5
-    assert_close(r1.ry, 2.5, 0.03, "Kassimali 3-bar: R1y = 2.5 kN");
+    assert_close(r1.rz, 2.5, 0.03, "Kassimali 3-bar: R1y = 2.5 kN");
     // R1x = -Fx = -10
     assert_close(r1.rx, -fx, 0.03, "Kassimali 3-bar: R1x = -10 kN");
 
     // Global equilibrium
-    let sum_ry: f64 = results.reactions.iter().map(|r| r.ry).sum();
+    let sum_ry: f64 = results.reactions.iter().map(|r| r.rz).sum();
     assert_close(sum_ry, fy, 0.02, "Kassimali 3-bar: ΣRy = Py");
 
     // Member 1 (1→3): at joint 1: ΣFy = R1y + F_13*sin(a) = 0
@@ -208,8 +208,8 @@ fn validation_kassimali_2_warren_truss_6panel() {
             SolverLoad::Nodal(SolverNodalLoad {
                 node_id: nid,
                 fx: 0.0,
-                fy: -p,
-                mz: 0.0,
+                fz: -p,
+                my: 0.0,
             })
         })
         .collect();
@@ -226,7 +226,7 @@ fn validation_kassimali_2_warren_truss_6panel() {
 
     // Total load = 5P = 100
     let total_load = 5.0 * p;
-    let sum_ry: f64 = results.reactions.iter().map(|r| r.ry).sum();
+    let sum_ry: f64 = results.reactions.iter().map(|r| r.rz).sum();
     assert_close(
         sum_ry,
         total_load,
@@ -237,8 +237,8 @@ fn validation_kassimali_2_warren_truss_6panel() {
     // Symmetric: R1 = R7 = 5P/2 = 50
     let r1 = results.reactions.iter().find(|r| r.node_id == 1).unwrap();
     let r7 = results.reactions.iter().find(|r| r.node_id == 7).unwrap();
-    assert_close(r1.ry, total_load / 2.0, 0.02, "Warren 6-panel: R1 = 5P/2");
-    assert_close(r7.ry, total_load / 2.0, 0.02, "Warren 6-panel: R7 = 5P/2");
+    assert_close(r1.rz, total_load / 2.0, 0.02, "Warren 6-panel: R1 = 5P/2");
+    assert_close(r7.rz, total_load / 2.0, 0.02, "Warren 6-panel: R7 = 5P/2");
 
     // Top chord should be in compression (under gravity loading)
     // Check first top chord member (element 7: nodes 8→9)
@@ -336,9 +336,9 @@ fn validation_kassimali_3_pratt_truss() {
     ];
 
     let loads = vec![
-        SolverLoad::Nodal(SolverNodalLoad { node_id: 2, fx: 0.0, fy: -p, mz: 0.0 }),
-        SolverLoad::Nodal(SolverNodalLoad { node_id: 3, fx: 0.0, fy: -p, mz: 0.0 }),
-        SolverLoad::Nodal(SolverNodalLoad { node_id: 4, fx: 0.0, fy: -p, mz: 0.0 }),
+        SolverLoad::Nodal(SolverNodalLoad { node_id: 2, fx: 0.0, fz: -p, my: 0.0 }),
+        SolverLoad::Nodal(SolverNodalLoad { node_id: 3, fx: 0.0, fz: -p, my: 0.0 }),
+        SolverLoad::Nodal(SolverNodalLoad { node_id: 4, fx: 0.0, fz: -p, my: 0.0 }),
     ];
 
     let input = make_input(
@@ -352,14 +352,14 @@ fn validation_kassimali_3_pratt_truss() {
     let results = linear::solve_2d(&input).unwrap();
 
     // Total vertical reaction = 3P = 30
-    let sum_ry: f64 = results.reactions.iter().map(|r| r.ry).sum();
+    let sum_ry: f64 = results.reactions.iter().map(|r| r.rz).sum();
     assert_close(sum_ry, 3.0 * p, 0.02, "Pratt: ΣRy = 3P");
 
     // Symmetric loading → equal reactions R1 = R5 = 3P/2 = 15
     let r1 = results.reactions.iter().find(|r| r.node_id == 1).unwrap();
     let r5 = results.reactions.iter().find(|r| r.node_id == 5).unwrap();
-    assert_close(r1.ry, 1.5 * p, 0.02, "Pratt: R1 = 3P/2");
-    assert_close(r5.ry, 1.5 * p, 0.02, "Pratt: R5 = 3P/2");
+    assert_close(r1.rz, 1.5 * p, 0.02, "Pratt: R1 = 3P/2");
+    assert_close(r5.rz, 1.5 * p, 0.02, "Pratt: R5 = 3P/2");
 
     // Pratt diagonals should be in tension under gravity
     let ef14 = results.element_forces.iter().find(|e| e.element_id == 14).unwrap();
@@ -462,9 +462,9 @@ fn validation_kassimali_4_howe_truss() {
     ];
 
     let loads = vec![
-        SolverLoad::Nodal(SolverNodalLoad { node_id: 2, fx: 0.0, fy: -p, mz: 0.0 }),
-        SolverLoad::Nodal(SolverNodalLoad { node_id: 3, fx: 0.0, fy: -p, mz: 0.0 }),
-        SolverLoad::Nodal(SolverNodalLoad { node_id: 4, fx: 0.0, fy: -p, mz: 0.0 }),
+        SolverLoad::Nodal(SolverNodalLoad { node_id: 2, fx: 0.0, fz: -p, my: 0.0 }),
+        SolverLoad::Nodal(SolverNodalLoad { node_id: 3, fx: 0.0, fz: -p, my: 0.0 }),
+        SolverLoad::Nodal(SolverNodalLoad { node_id: 4, fx: 0.0, fz: -p, my: 0.0 }),
     ];
 
     let input = make_input(
@@ -478,14 +478,14 @@ fn validation_kassimali_4_howe_truss() {
     let results = linear::solve_2d(&input).unwrap();
 
     // Total vertical reaction = 3P
-    let sum_ry: f64 = results.reactions.iter().map(|r| r.ry).sum();
+    let sum_ry: f64 = results.reactions.iter().map(|r| r.rz).sum();
     assert_close(sum_ry, 3.0 * p, 0.02, "Howe: ΣRy = 3P");
 
     // Symmetric: R1 = R5 = 3P/2
     let r1 = results.reactions.iter().find(|r| r.node_id == 1).unwrap();
     let r5 = results.reactions.iter().find(|r| r.node_id == 5).unwrap();
-    assert_close(r1.ry, 1.5 * p, 0.02, "Howe: R1 = 3P/2");
-    assert_close(r5.ry, 1.5 * p, 0.02, "Howe: R5 = 3P/2");
+    assert_close(r1.rz, 1.5 * p, 0.02, "Howe: R1 = 3P/2");
+    assert_close(r5.rz, 1.5 * p, 0.02, "Howe: R5 = 3P/2");
 
     // Howe diagonals should be in COMPRESSION under gravity
     // Diagonal 14: node 2(4,0) → node 6(0,4) — goes up-left
@@ -604,8 +604,8 @@ fn validation_kassimali_5_k_truss() {
     let loads = vec![SolverLoad::Nodal(SolverNodalLoad {
         node_id: 3,
         fx: 0.0,
-        fy: -p,
-        mz: 0.0,
+        fz: -p,
+        my: 0.0,
     })];
 
     let input = make_input(
@@ -619,14 +619,14 @@ fn validation_kassimali_5_k_truss() {
     let results = linear::solve_2d(&input).unwrap();
 
     // Global equilibrium
-    let sum_ry: f64 = results.reactions.iter().map(|r| r.ry).sum();
+    let sum_ry: f64 = results.reactions.iter().map(|r| r.rz).sum();
     assert_close(sum_ry, p, 0.02, "K-truss: ΣRy = P");
 
     // Symmetric load at midspan → R1 = R5 = P/2 = 20
     let r1 = results.reactions.iter().find(|r| r.node_id == 1).unwrap();
     let r5 = results.reactions.iter().find(|r| r.node_id == 5).unwrap();
-    assert_close(r1.ry, p / 2.0, 0.02, "K-truss: R1 = P/2");
-    assert_close(r5.ry, p / 2.0, 0.02, "K-truss: R5 = P/2");
+    assert_close(r1.rz, p / 2.0, 0.02, "K-truss: R1 = P/2");
+    assert_close(r5.rz, p / 2.0, 0.02, "K-truss: R5 = P/2");
 
     // All forces finite
     for ef in &results.element_forces {
@@ -711,20 +711,20 @@ fn validation_kassimali_6_determinate_frame() {
         SolverLoad::Nodal(SolverNodalLoad {
             node_id: 2,
             fx: 0.0,
-            fy: -total_load / 4.0,
-            mz: 0.0,
+            fz: -total_load / 4.0,
+            my: 0.0,
         }),
         SolverLoad::Nodal(SolverNodalLoad {
             node_id: 3,
             fx: 0.0,
-            fy: -total_load / 2.0,
-            mz: 0.0,
+            fz: -total_load / 2.0,
+            my: 0.0,
         }),
         SolverLoad::Nodal(SolverNodalLoad {
             node_id: 4,
             fx: 0.0,
-            fy: -total_load / 4.0,
-            mz: 0.0,
+            fz: -total_load / 4.0,
+            my: 0.0,
         }),
     ];
 
@@ -742,18 +742,18 @@ fn validation_kassimali_6_determinate_frame() {
     let results = linear::solve_2d(&input).unwrap();
 
     // Global vertical equilibrium: ΣRy = total load
-    let sum_ry: f64 = results.reactions.iter().map(|r| r.ry).sum();
+    let sum_ry: f64 = results.reactions.iter().map(|r| r.rz).sum();
     assert_close(sum_ry, total_load, 0.02, "3-hinge portal: ΣRy = wL");
 
     // Symmetric structure + symmetric load → R1y = R5y = wL/2
     let r1 = results.reactions.iter().find(|r| r.node_id == 1).unwrap();
     let r5 = results.reactions.iter().find(|r| r.node_id == 5).unwrap();
-    assert_close(r1.ry, total_load / 2.0, 0.03, "3-hinge portal: R1y = wL/2");
-    assert_close(r5.ry, total_load / 2.0, 0.03, "3-hinge portal: R5y = wL/2");
+    assert_close(r1.rz, total_load / 2.0, 0.03, "3-hinge portal: R1y = wL/2");
+    assert_close(r5.rz, total_load / 2.0, 0.03, "3-hinge portal: R5y = wL/2");
 
     // Moment at pin supports should be zero (pinned support → Mz = 0)
-    assert_close(r1.mz.abs(), 0.0, 0.05, "3-hinge portal: M at base left = 0");
-    assert_close(r5.mz.abs(), 0.0, 0.05, "3-hinge portal: M at base right = 0");
+    assert_close(r1.my.abs(), 0.0, 0.05, "3-hinge portal: M at base left = 0");
+    assert_close(r5.my.abs(), 0.0, 0.05, "3-hinge portal: M at base right = 0");
 
     // The hinge at node 3 means moment transmitted across the apex is zero.
     // Check: element 2 (ends at node 3) should have m_end ≈ 0
@@ -919,8 +919,8 @@ fn validation_kassimali_8_compound_truss() {
     let loads = vec![SolverLoad::Nodal(SolverNodalLoad {
         node_id: 5,
         fx: 0.0,
-        fy: -p,
-        mz: 0.0,
+        fz: -p,
+        my: 0.0,
     })];
 
     let input = make_input(
@@ -934,14 +934,14 @@ fn validation_kassimali_8_compound_truss() {
     let results = linear::solve_2d(&input).unwrap();
 
     // Global equilibrium
-    let sum_ry: f64 = results.reactions.iter().map(|r| r.ry).sum();
+    let sum_ry: f64 = results.reactions.iter().map(|r| r.rz).sum();
     assert_close(sum_ry, p, 0.02, "Compound Fink: ΣRy = P");
 
     // Symmetric structure + symmetric load → R1 = R7 = P/2
     let r1 = results.reactions.iter().find(|r| r.node_id == 1).unwrap();
     let r7 = results.reactions.iter().find(|r| r.node_id == 7).unwrap();
-    assert_close(r1.ry, p / 2.0, 0.02, "Compound Fink: R1 = P/2");
-    assert_close(r7.ry, p / 2.0, 0.02, "Compound Fink: R7 = P/2");
+    assert_close(r1.rz, p / 2.0, 0.02, "Compound Fink: R1 = P/2");
+    assert_close(r7.rz, p / 2.0, 0.02, "Compound Fink: R7 = P/2");
 
     // Symmetry of forces: left rafter members should equal right rafter members
     // Left rafter: elem 4 (1→3), elem 5 (3→5)

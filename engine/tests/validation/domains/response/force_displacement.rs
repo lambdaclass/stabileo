@@ -37,24 +37,24 @@ fn linear_proportionality_double_load_doubles_displacement() {
         n_elem, l, E, A, IZ,
         "pinned", Some("rollerX"),
         vec![SolverLoad::Nodal(SolverNodalLoad {
-            node_id: mid_node, fx: 0.0, fy: -10.0, mz: 0.0,
+            node_id: mid_node, fx: 0.0, fz: -10.0, my: 0.0,
         })],
     );
     let res1 = linear::solve_2d(&input1).unwrap();
     let uy1 = res1.displacements.iter()
-        .find(|d| d.node_id == mid_node).unwrap().uy;
+        .find(|d| d.node_id == mid_node).unwrap().uz;
 
     // Case 2: P = -20 kN at midspan
     let input2 = make_beam(
         n_elem, l, E, A, IZ,
         "pinned", Some("rollerX"),
         vec![SolverLoad::Nodal(SolverNodalLoad {
-            node_id: mid_node, fx: 0.0, fy: -20.0, mz: 0.0,
+            node_id: mid_node, fx: 0.0, fz: -20.0, my: 0.0,
         })],
     );
     let res2 = linear::solve_2d(&input2).unwrap();
     let uy2 = res2.displacements.iter()
-        .find(|d| d.node_id == mid_node).unwrap().uy;
+        .find(|d| d.node_id == mid_node).unwrap().uz;
 
     let ratio = uy2 / uy1;
     assert_close(ratio, 2.0, 0.02, "displacement ratio (2x load)");
@@ -74,24 +74,24 @@ fn linear_proportionality_double_load_doubles_reactions() {
         n_elem, l, E, A, IZ,
         "pinned", Some("rollerX"),
         vec![SolverLoad::Nodal(SolverNodalLoad {
-            node_id: mid_node, fx: 0.0, fy: -10.0, mz: 0.0,
+            node_id: mid_node, fx: 0.0, fz: -10.0, my: 0.0,
         })],
     );
     let res1 = linear::solve_2d(&input1).unwrap();
     let ry_a1 = res1.reactions.iter()
-        .find(|r| r.node_id == 1).unwrap().ry;
+        .find(|r| r.node_id == 1).unwrap().rz;
 
     // Case 2: P = -20 kN
     let input2 = make_beam(
         n_elem, l, E, A, IZ,
         "pinned", Some("rollerX"),
         vec![SolverLoad::Nodal(SolverNodalLoad {
-            node_id: mid_node, fx: 0.0, fy: -20.0, mz: 0.0,
+            node_id: mid_node, fx: 0.0, fz: -20.0, my: 0.0,
         })],
     );
     let res2 = linear::solve_2d(&input2).unwrap();
     let ry_a2 = res2.reactions.iter()
-        .find(|r| r.node_id == 1).unwrap().ry;
+        .find(|r| r.node_id == 1).unwrap().rz;
 
     let ratio = ry_a2 / ry_a1;
     assert_close(ratio, 2.0, 0.02, "reaction ratio (2x load)");
@@ -111,12 +111,12 @@ fn cantilever_bending_stiffness() {
         n_elem, l, E, A, IZ,
         "fixed", None,
         vec![SolverLoad::Nodal(SolverNodalLoad {
-            node_id: tip_node, fx: 0.0, fy: p, mz: 0.0,
+            node_id: tip_node, fx: 0.0, fz: p, my: 0.0,
         })],
     );
     let res = linear::solve_2d(&input).unwrap();
     let uy_tip = res.displacements.iter()
-        .find(|d| d.node_id == tip_node).unwrap().uy;
+        .find(|d| d.node_id == tip_node).unwrap().uz;
 
     // Analytical: delta = P*L^3 / (3*E*I)
     let ei = E_EFF * IZ;
@@ -149,7 +149,7 @@ fn axial_spring_stiffness() {
         vec![(1, "frame", 1, 2, 1, 1, false, false)],
         vec![(1, 1, "pinned"), (2, 2, "rollerX")],
         vec![SolverLoad::Nodal(SolverNodalLoad {
-            node_id: 2, fx: fx_applied, fy: 0.0, mz: 0.0,
+            node_id: 2, fx: fx_applied, fz: 0.0, my: 0.0,
         })],
     );
     let res = linear::solve_2d(&input).unwrap();
@@ -182,12 +182,12 @@ fn rotational_stiffness_cantilever_tip_moment() {
         n_elem, l, E, A, IZ,
         "fixed", None,
         vec![SolverLoad::Nodal(SolverNodalLoad {
-            node_id: tip_node, fx: 0.0, fy: 0.0, mz: m_applied,
+            node_id: tip_node, fx: 0.0, fz: 0.0, my: m_applied,
         })],
     );
     let res = linear::solve_2d(&input).unwrap();
     let rz_tip = res.displacements.iter()
-        .find(|d| d.node_id == tip_node).unwrap().rz;
+        .find(|d| d.node_id == tip_node).unwrap().ry;
 
     // Analytical: theta_tip = M*L / (EI)
     let ei = E_EFF * IZ;
@@ -218,24 +218,24 @@ fn flexibility_matrix_symmetry_maxwell() {
         n_elem, l, E, A, IZ,
         "pinned", Some("rollerX"),
         vec![SolverLoad::Nodal(SolverNodalLoad {
-            node_id: 2, fx: 0.0, fy: -p, mz: 0.0,
+            node_id: 2, fx: 0.0, fz: -p, my: 0.0,
         })],
     );
     let res_a = linear::solve_2d(&input_a).unwrap();
     let f_24 = res_a.displacements.iter()
-        .find(|d| d.node_id == 4).unwrap().uy;
+        .find(|d| d.node_id == 4).unwrap().uz;
 
     // Case B: load at node 4
     let input_b = make_beam(
         n_elem, l, E, A, IZ,
         "pinned", Some("rollerX"),
         vec![SolverLoad::Nodal(SolverNodalLoad {
-            node_id: 4, fx: 0.0, fy: -p, mz: 0.0,
+            node_id: 4, fx: 0.0, fz: -p, my: 0.0,
         })],
     );
     let res_b = linear::solve_2d(&input_b).unwrap();
     let f_42 = res_b.displacements.iter()
-        .find(|d| d.node_id == 2).unwrap().uy;
+        .find(|d| d.node_id == 2).unwrap().uz;
 
     // Maxwell's theorem: f_24 == f_42
     assert_close(f_24, f_42, 0.02, "Maxwell reciprocal theorem f_24 = f_42");
@@ -254,7 +254,7 @@ fn udl_midspan_deflection_analytical() {
     let input = make_ss_beam_udl(n_elem, l, E, A, IZ, q);
     let res = linear::solve_2d(&input).unwrap();
     let uy_mid = res.displacements.iter()
-        .find(|d| d.node_id == mid_node).unwrap().uy;
+        .find(|d| d.node_id == mid_node).unwrap().uz;
 
     // Analytical: delta = 5*q*L^4 / (384*EI)
     let ei = E_EFF * IZ;

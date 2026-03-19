@@ -103,7 +103,7 @@ fn rock_hoek_brown_failure() {
     let mid_disp = results.displacements.iter()
         .find(|dd| dd.node_id == mid_node).unwrap();
 
-    assert_close(mid_disp.uy.abs(), delta_exact, 0.05, "Hoek-Brown lining deflection");
+    assert_close(mid_disp.uz.abs(), delta_exact, 0.05, "Hoek-Brown lining deflection");
 }
 
 // ================================================================
@@ -193,7 +193,7 @@ fn rock_rmr_classification() {
     let mid_disp = results.displacements.iter()
         .find(|dd| dd.node_id == mid_node).unwrap();
 
-    assert_close(mid_disp.uy.abs(), delta_exact, 0.05, "RMR roof beam deflection");
+    assert_close(mid_disp.uz.abs(), delta_exact, 0.05, "RMR roof beam deflection");
 }
 
 // ================================================================
@@ -269,9 +269,9 @@ fn rock_gsi_modulus_estimation() {
 
     let mid_node = n_elem / 2 + 1;
     let disp_1 = results_1.displacements.iter()
-        .find(|dd| dd.node_id == mid_node).unwrap().uy.abs();
+        .find(|dd| dd.node_id == mid_node).unwrap().uz.abs();
     let disp_2 = results_2.displacements.iter()
-        .find(|dd| dd.node_id == mid_node).unwrap().uy.abs();
+        .find(|dd| dd.node_id == mid_node).unwrap().uz.abs();
 
     // Lower modulus => larger deflection (delta ~ 1/E)
     assert!(
@@ -366,10 +366,10 @@ fn rock_bolt_capacity() {
         }));
     }
     loads.push(SolverLoad::Nodal(SolverNodalLoad {
-        node_id: node_quarter, fx: 0.0, fy: bolt_force_up, mz: 0.0,
+        node_id: node_quarter, fx: 0.0, fz: bolt_force_up, my: 0.0,
     }));
     loads.push(SolverLoad::Nodal(SolverNodalLoad {
-        node_id: node_3quarter, fx: 0.0, fy: bolt_force_up, mz: 0.0,
+        node_id: node_3quarter, fx: 0.0, fz: bolt_force_up, my: 0.0,
     }));
 
     let input = make_beam(n_elem, b_tunnel, e_rock, a_sec, iz_sec, "pinned", Some("rollerX"), loads);
@@ -378,7 +378,7 @@ fn rock_bolt_capacity() {
     // With bolts, midspan deflection should be less than unbolted case
     let mid_node = n_elem / 2 + 1;
     let mid_disp_bolted = results.displacements.iter()
-        .find(|dd| dd.node_id == mid_node).unwrap().uy;
+        .find(|dd| dd.node_id == mid_node).unwrap().uz;
 
     // Unbolted case
     let mut loads_unbolted = Vec::new();
@@ -390,7 +390,7 @@ fn rock_bolt_capacity() {
     let input_unbolted = make_beam(n_elem, b_tunnel, e_rock, a_sec, iz_sec, "pinned", Some("rollerX"), loads_unbolted);
     let results_unbolted = solve_2d(&input_unbolted).expect("solve unbolted");
     let mid_disp_unbolted = results_unbolted.displacements.iter()
-        .find(|dd| dd.node_id == mid_node).unwrap().uy;
+        .find(|dd| dd.node_id == mid_node).unwrap().uz;
 
     assert!(
         mid_disp_bolted.abs() < mid_disp_unbolted.abs(),
@@ -492,7 +492,7 @@ fn rock_kirsch_circular_opening() {
     let mid_disp = results.displacements.iter()
         .find(|dd| dd.node_id == mid_node).unwrap();
 
-    assert_close(mid_disp.uy.abs(), delta_exact, 0.05, "Kirsch lining beam deflection");
+    assert_close(mid_disp.uz.abs(), delta_exact, 0.05, "Kirsch lining beam deflection");
 }
 
 // ================================================================
@@ -564,7 +564,7 @@ fn rock_insitu_stress() {
 
     // Total reaction at fixed end should equal total weight
     let total_weight: f64 = gamma * a_col * h_col; // kN
-    let sum_ry: f64 = results.reactions.iter().map(|r| r.ry).sum::<f64>();
+    let sum_ry: f64 = results.reactions.iter().map(|r| r.rz).sum::<f64>();
     assert_close(sum_ry.abs(), total_weight, 0.01, "Column self-weight equilibrium");
 
     // Stress at base: sigma = gamma * h_col (in kPa)
@@ -659,12 +659,12 @@ fn rock_slope_planar_failure() {
         let input = make_beam(
             n_elem, l_beam, e_steel, a_sec, iz_sec, "fixed", Some("rollerX"),
             vec![SolverLoad::Nodal(SolverNodalLoad {
-                node_id: n_elem + 1, fx: 0.0, fy: -f_support, mz: 0.0,
+                node_id: n_elem + 1, fx: 0.0, fz: -f_support, my: 0.0,
             })],
         );
         let results = solve_2d(&input).expect("solve slope support");
 
-        let sum_ry: f64 = results.reactions.iter().map(|r| r.ry).sum::<f64>();
+        let sum_ry: f64 = results.reactions.iter().map(|r| r.rz).sum::<f64>();
         assert_close(sum_ry, f_support, 0.01, "Slope support equilibrium");
     } else {
         // Slope is stable without support under dry conditions
@@ -681,12 +681,12 @@ fn rock_slope_planar_failure() {
         let input = make_beam(
             n_elem, l_beam, e_steel, a_sec, iz_sec, "fixed", Some("rollerX"),
             vec![SolverLoad::Nodal(SolverNodalLoad {
-                node_id: n_elem + 1, fx: 0.0, fy: -f_nominal, mz: 0.0,
+                node_id: n_elem + 1, fx: 0.0, fz: -f_nominal, my: 0.0,
             })],
         );
         let results = solve_2d(&input).expect("solve slope nominal");
 
-        let sum_ry: f64 = results.reactions.iter().map(|r| r.ry).sum::<f64>();
+        let sum_ry: f64 = results.reactions.iter().map(|r| r.rz).sum::<f64>();
         assert_close(sum_ry, f_nominal, 0.01, "Slope nominal equilibrium");
     }
 }
@@ -788,10 +788,10 @@ fn rock_barton_q_system_support() {
     let mid_disp = results.displacements.iter()
         .find(|dd| dd.node_id == mid_node).unwrap();
 
-    assert_close(mid_disp.uy.abs(), delta_exact, 0.05, "Q-system lining deflection");
+    assert_close(mid_disp.uz.abs(), delta_exact, 0.05, "Q-system lining deflection");
 
     // Verify reactions sum to total load
     let total_load: f64 = q_load.abs() * span;
-    let sum_ry: f64 = results.reactions.iter().map(|r| r.ry).sum::<f64>();
+    let sum_ry: f64 = results.reactions.iter().map(|r| r.rz).sum::<f64>();
     assert_close(sum_ry, total_load, 0.01, "Q-system lining reaction equilibrium");
 }

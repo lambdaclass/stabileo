@@ -214,7 +214,7 @@ fn validation_mdist_ext_three_span_mixed_loads() {
     // Point load at midspan of span 2: node at middle of span 2
     let mid_node_span2 = 1 + n_per_span + n_per_span / 2;
     loads.push(SolverLoad::Nodal(SolverNodalLoad {
-        node_id: mid_node_span2, fx: 0.0, fy: -p, mz: 0.0,
+        node_id: mid_node_span2, fx: 0.0, fz: -p, my: 0.0,
     }));
     // UDL on span 3
     for i in (2 * n_per_span)..(3 * n_per_span) {
@@ -243,7 +243,7 @@ fn validation_mdist_ext_three_span_mixed_loads() {
 
     // Equilibrium: total vertical reaction = total load
     let total_load: f64 = q * l1 + p + q * l3;
-    let sum_ry: f64 = results.reactions.iter().map(|r| r.ry).sum();
+    let sum_ry: f64 = results.reactions.iter().map(|r| r.rz).sum();
     assert_close(sum_ry, total_load, 0.02,
         "Three-span mixed: vertical equilibrium");
 }
@@ -347,8 +347,8 @@ fn validation_mdist_ext_portal_sway_correction() {
     let r1 = results.reactions.iter().find(|r| r.node_id == 1).unwrap();
     let r4 = results.reactions.iter().find(|r| r.node_id == 4).unwrap();
 
-    let m_base_left_solver: f64 = r1.mz.abs();
-    let m_base_right_solver: f64 = r4.mz.abs();
+    let m_base_left_solver: f64 = r1.my.abs();
+    let m_base_right_solver: f64 = r4.my.abs();
 
     // Compare base moments
     assert_close(m_base_left_solver, m_base_right_solver, 0.05,
@@ -359,7 +359,7 @@ fn validation_mdist_ext_portal_sway_correction() {
     // For a symmetric portal, both base moments are equal.
     // The exact value: for symmetric portal with H, columns share equally,
     // and by equilibrium about base: H*h = sum of all column base + top moments
-    let _m_sum_solver: f64 = r1.mz.abs() + r4.mz.abs();
+    let _m_sum_solver: f64 = r1.my.abs() + r4.my.abs();
 
     // Horizontal equilibrium
     let sum_rx: f64 = results.reactions.iter().map(|r| r.rx).sum();
@@ -374,7 +374,7 @@ fn validation_mdist_ext_portal_sway_correction() {
         "Portal sway: base/top moment ratio");
 
     // Verify moment equilibrium about left base
-    let m_eq: f64 = -lat * h + r1.mz + r4.mz + r4.ry * w;
+    let m_eq: f64 = -lat * h + r1.my + r4.my + r4.rz * w;
     assert!(m_eq.abs() < lat * h * 0.02,
         "Portal sway: moment equilibrium residual {:.6}", m_eq);
 }
@@ -485,7 +485,7 @@ fn validation_mdist_ext_modified_stiffness_pinned() {
 
     // Moment at A (fixed end)
     let r_a = results.reactions.iter().find(|r| r.node_id == 1).unwrap();
-    assert_close(r_a.mz.abs(), m_a_cross, 0.03,
+    assert_close(r_a.my.abs(), m_a_cross, 0.03,
         "Modified stiffness: M_A solver vs Cross");
 
     // Moment at B (interior support)
@@ -610,7 +610,7 @@ fn validation_mdist_ext_symmetric_frame() {
     // Check symmetry: left and right base moments should be equal
     let r1 = results.reactions.iter().find(|r| r.node_id == 1).unwrap();
     let r4 = results.reactions.iter().find(|r| r.node_id == 4).unwrap();
-    assert_close(r1.mz.abs(), r4.mz.abs(), 0.02,
+    assert_close(r1.my.abs(), r4.my.abs(), 0.02,
         "Symmetric frame: equal base moments");
 
     // No sway: horizontal reactions should be zero (symmetric loading)
@@ -619,7 +619,7 @@ fn validation_mdist_ext_symmetric_frame() {
         "Symmetric frame: no sway, sum_rx={:.6e}", sum_rx);
 
     // Compare solver base moment with Cross result
-    assert_close(r1.mz.abs(), m_base_cross, 0.05,
+    assert_close(r1.my.abs(), m_base_cross, 0.05,
         "Symmetric frame: base moment solver vs Cross");
 
     // Compare column top moment
@@ -629,7 +629,7 @@ fn validation_mdist_ext_symmetric_frame() {
         "Symmetric frame: column top moment solver vs Cross");
 
     // Equilibrium
-    let sum_ry: f64 = results.reactions.iter().map(|r| r.ry).sum();
+    let sum_ry: f64 = results.reactions.iter().map(|r| r.rz).sum();
     assert_close(sum_ry, q * w, 0.02,
         "Symmetric frame: vertical equilibrium");
 }
@@ -722,23 +722,23 @@ fn validation_mdist_ext_non_sway_unequal_columns() {
     sups_map.insert("1".to_string(), SolverSupport {
         id: 1, node_id: 1, support_type: "fixed".to_string(),
         kx: None, ky: None, kz: None,
-        dx: None, dy: None, drz: None, angle: None,
+        dx: None, dz: None, dry: None, angle: None,
     });
     sups_map.insert("2".to_string(), SolverSupport {
         id: 2, node_id: 4, support_type: "fixed".to_string(),
         kx: None, ky: None, kz: None,
-        dx: None, dy: None, drz: None, angle: None,
+        dx: None, dz: None, dry: None, angle: None,
     });
     // Horizontal roller at node 2: restrain ux only
     sups_map.insert("3".to_string(), SolverSupport {
         id: 3, node_id: 2, support_type: "rollerY".to_string(),
         kx: None, ky: None, kz: None,
-        dx: None, dy: None, drz: None, angle: None,
+        dx: None, dz: None, dry: None, angle: None,
     });
 
     let mut nodes_map = std::collections::HashMap::new();
     for &(id, x, y) in &nodes {
-        nodes_map.insert(id.to_string(), SolverNode { id, x, y });
+        nodes_map.insert(id.to_string(), SolverNode { id, x, z: y });
     }
     let mut mats_map = std::collections::HashMap::new();
     mats_map.insert("1".to_string(), SolverMaterial { id: 1, e: E, nu: 0.3 });
@@ -765,15 +765,15 @@ fn validation_mdist_ext_non_sway_unequal_columns() {
     let r4 = results.reactions.iter().find(|r| r.node_id == 4).unwrap();
 
     // Both columns carry non-trivial moment from beam load distribution
-    assert!(r1.mz.abs() > 0.1,
-        "Unequal cols: left base should carry moment: |M1|={:.4}", r1.mz.abs());
-    assert!(r4.mz.abs() > 0.1,
-        "Unequal cols: right base should carry moment: |M4|={:.4}", r4.mz.abs());
+    assert!(r1.my.abs() > 0.1,
+        "Unequal cols: left base should carry moment: |M1|={:.4}", r1.my.abs());
+    assert!(r4.my.abs() > 0.1,
+        "Unequal cols: right base should carry moment: |M4|={:.4}", r4.my.abs());
 
     // Hardy Cross (no-sway) is an approximation. The actual solver includes
     // sway effects from asymmetric column stiffness, so total base moment
     // magnitude should be close even though individual values may differ.
-    let total_solver: f64 = r1.mz.abs() + r4.mz.abs();
+    let total_solver: f64 = r1.my.abs() + r4.my.abs();
     let total_cross: f64 = m_base1_cross + m_base2_cross;
     assert_close(total_solver, total_cross, 0.15,
         "Unequal cols: total base moment solver vs Cross");
@@ -785,7 +785,7 @@ fn validation_mdist_ext_non_sway_unequal_columns() {
     assert!(ef_col2.m_start.abs() > 0.1, "Right col top moment should be non-zero");
 
     // Vertical equilibrium
-    let sum_ry: f64 = results.reactions.iter().map(|r| r.ry).sum();
+    let sum_ry: f64 = results.reactions.iter().map(|r| r.rz).sum();
     assert_close(sum_ry, q * w, 0.03,
         "Unequal cols: vertical equilibrium");
 }
@@ -931,17 +931,17 @@ fn validation_mdist_ext_multi_bay_gravity() {
     let r3 = results.reactions.iter().find(|r| r.node_id == 3).unwrap();
 
     // Symmetric loading on symmetric frame: outer columns equal, interior different
-    assert_close(r1.mz.abs(), r3.mz.abs(), 0.03,
+    assert_close(r1.my.abs(), r3.my.abs(), 0.03,
         "Multi-bay: symmetric outer base moments");
-    assert_close(r1.mz.abs(), m_base1_cross, 0.05,
+    assert_close(r1.my.abs(), m_base1_cross, 0.05,
         "Multi-bay: left base moment solver vs Cross");
-    assert_close(r2.mz.abs(), m_base2_cross, 0.05,
+    assert_close(r2.my.abs(), m_base2_cross, 0.05,
         "Multi-bay: center base moment solver vs Cross");
-    assert_close(r3.mz.abs(), m_base3_cross, 0.05,
+    assert_close(r3.my.abs(), m_base3_cross, 0.05,
         "Multi-bay: right base moment solver vs Cross");
 
     // Vertical equilibrium
-    let sum_ry: f64 = results.reactions.iter().map(|r| r.ry).sum();
+    let sum_ry: f64 = results.reactions.iter().map(|r| r.rz).sum();
     let total_load: f64 = q * w * 2.0;
     assert_close(sum_ry, total_load, 0.02,
         "Multi-bay: vertical equilibrium");
@@ -1022,7 +1022,7 @@ fn validation_mdist_ext_settlement() {
     let mut nodes_map = std::collections::HashMap::new();
     let mut x: f64 = 0.0;
     for i in 1..=total_nodes {
-        nodes_map.insert(i.to_string(), SolverNode { id: i, x, y: 0.0 });
+        nodes_map.insert(i.to_string(), SolverNode { id: i, x, z: 0.0 });
         if i < total_nodes {
             if i <= n_per_span {
                 x += elem_len;
@@ -1059,17 +1059,17 @@ fn validation_mdist_ext_settlement() {
     sups.insert("1".to_string(), SolverSupport {
         id: 1, node_id: 1, support_type: "pinned".to_string(),
         kx: None, ky: None, kz: None,
-        dx: None, dy: None, drz: None, angle: None,
+        dx: None, dz: None, dry: None, angle: None,
     });
     sups.insert("2".to_string(), SolverSupport {
         id: 2, node_id: interior_node, support_type: "rollerX".to_string(),
         kx: None, ky: None, kz: None,
-        dx: None, dy: Some(-delta), drz: None, angle: None,
+        dx: None, dz: Some(-delta), dry: None, angle: None,
     });
     sups.insert("3".to_string(), SolverSupport {
         id: 3, node_id: total_nodes, support_type: "rollerX".to_string(),
         kx: None, ky: None, kz: None,
-        dx: None, dy: None, drz: None, angle: None,
+        dx: None, dz: None, dry: None, angle: None,
     });
 
     let input = SolverInput {
@@ -1096,7 +1096,7 @@ fn validation_mdist_ext_settlement() {
         "Settlement: M_B solver vs Hardy Cross");
 
     // Equilibrium: no external loads, so sum of reactions = 0
-    let sum_ry: f64 = results.reactions.iter().map(|r| r.ry).sum();
+    let sum_ry: f64 = results.reactions.iter().map(|r| r.rz).sum();
     assert!(sum_ry.abs() < 1.0,
         "Settlement: vertical equilibrium (no ext loads), sum_ry={:.6e}", sum_ry);
 

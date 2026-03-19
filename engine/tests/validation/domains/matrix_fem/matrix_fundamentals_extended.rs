@@ -57,21 +57,21 @@ fn validation_matrix_symmetry_reciprocal_displacement() {
 
     // System A: unit load at node_i, measure displacement at node_j
     let loads_a = vec![SolverLoad::Nodal(SolverNodalLoad {
-        node_id: node_i, fx: 0.0, fy: -p, mz: 0.0,
+        node_id: node_i, fx: 0.0, fz: -p, my: 0.0,
     })];
     let input_a = make_beam(n, l, E, A, IZ, "pinned", Some("rollerX"), loads_a);
     let results_a = linear::solve_2d(&input_a).unwrap();
     let uy_j_from_i = results_a.displacements.iter()
-        .find(|d| d.node_id == node_j).unwrap().uy;
+        .find(|d| d.node_id == node_j).unwrap().uz;
 
     // System B: unit load at node_j, measure displacement at node_i
     let loads_b = vec![SolverLoad::Nodal(SolverNodalLoad {
-        node_id: node_j, fx: 0.0, fy: -p, mz: 0.0,
+        node_id: node_j, fx: 0.0, fz: -p, my: 0.0,
     })];
     let input_b = make_beam(n, l, E, A, IZ, "pinned", Some("rollerX"), loads_b);
     let results_b = linear::solve_2d(&input_b).unwrap();
     let uy_i_from_j = results_b.displacements.iter()
-        .find(|d| d.node_id == node_i).unwrap().uy;
+        .find(|d| d.node_id == node_i).unwrap().uz;
 
     // Maxwell reciprocal theorem: delta_ij = delta_ji
     assert_close(uy_j_from_i, uy_i_from_j, 0.001,
@@ -103,34 +103,34 @@ fn validation_matrix_linearity_double_load() {
 
     // Single load P
     let loads_1 = vec![SolverLoad::Nodal(SolverNodalLoad {
-        node_id: tip, fx: 0.0, fy: -p, mz: 0.0,
+        node_id: tip, fx: 0.0, fz: -p, my: 0.0,
     })];
     let input_1 = make_beam(n, l, E, A, IZ, "fixed", None, loads_1);
     let results_1 = linear::solve_2d(&input_1).unwrap();
     let tip_uy_1 = results_1.displacements.iter()
-        .find(|d| d.node_id == tip).unwrap().uy;
+        .find(|d| d.node_id == tip).unwrap().uz;
     let tip_rz_1 = results_1.displacements.iter()
-        .find(|d| d.node_id == tip).unwrap().rz;
+        .find(|d| d.node_id == tip).unwrap().ry;
 
     // Double load 2P
     let loads_2 = vec![SolverLoad::Nodal(SolverNodalLoad {
-        node_id: tip, fx: 0.0, fy: -2.0 * p, mz: 0.0,
+        node_id: tip, fx: 0.0, fz: -2.0 * p, my: 0.0,
     })];
     let input_2 = make_beam(n, l, E, A, IZ, "fixed", None, loads_2);
     let results_2 = linear::solve_2d(&input_2).unwrap();
     let tip_uy_2 = results_2.displacements.iter()
-        .find(|d| d.node_id == tip).unwrap().uy;
+        .find(|d| d.node_id == tip).unwrap().uz;
     let tip_rz_2 = results_2.displacements.iter()
-        .find(|d| d.node_id == tip).unwrap().rz;
+        .find(|d| d.node_id == tip).unwrap().ry;
 
     // Triple load 3P
     let loads_3 = vec![SolverLoad::Nodal(SolverNodalLoad {
-        node_id: tip, fx: 0.0, fy: -3.0 * p, mz: 0.0,
+        node_id: tip, fx: 0.0, fz: -3.0 * p, my: 0.0,
     })];
     let input_3 = make_beam(n, l, E, A, IZ, "fixed", None, loads_3);
     let results_3 = linear::solve_2d(&input_3).unwrap();
     let tip_uy_3 = results_3.displacements.iter()
-        .find(|d| d.node_id == tip).unwrap().uy;
+        .find(|d| d.node_id == tip).unwrap().uz;
 
     // Linearity: 2P -> 2*delta, 3P -> 3*delta
     assert_close(tip_uy_2, 2.0 * tip_uy_1, 0.001,
@@ -171,14 +171,14 @@ fn validation_matrix_superposition_combined_loads() {
 
     // Load A: point force at midspan
     let loads_a = vec![SolverLoad::Nodal(SolverNodalLoad {
-        node_id: mid, fx: 0.0, fy: -p, mz: 0.0,
+        node_id: mid, fx: 0.0, fz: -p, my: 0.0,
     })];
     let input_a = make_beam(n, l, E, A, IZ, "fixed", Some("rollerX"), loads_a);
     let results_a = linear::solve_2d(&input_a).unwrap();
 
     // Load B: moment at midspan
     let loads_b = vec![SolverLoad::Nodal(SolverNodalLoad {
-        node_id: mid, fx: 0.0, fy: 0.0, mz: m,
+        node_id: mid, fx: 0.0, fz: 0.0, my: m,
     })];
     let input_b = make_beam(n, l, E, A, IZ, "fixed", Some("rollerX"), loads_b);
     let results_b = linear::solve_2d(&input_b).unwrap();
@@ -186,10 +186,10 @@ fn validation_matrix_superposition_combined_loads() {
     // Combined: both loads simultaneously
     let loads_c = vec![
         SolverLoad::Nodal(SolverNodalLoad {
-            node_id: mid, fx: 0.0, fy: -p, mz: 0.0,
+            node_id: mid, fx: 0.0, fz: -p, my: 0.0,
         }),
         SolverLoad::Nodal(SolverNodalLoad {
-            node_id: mid, fx: 0.0, fy: 0.0, mz: m,
+            node_id: mid, fx: 0.0, fz: 0.0, my: m,
         }),
     ];
     let input_c = make_beam(n, l, E, A, IZ, "fixed", Some("rollerX"), loads_c);
@@ -204,16 +204,16 @@ fn validation_matrix_superposition_combined_loads() {
         let dc = results_c.displacements.iter()
             .find(|d| d.node_id == node_id).unwrap();
 
-        assert_close(dc.uy, da.uy + db.uy, 0.001,
+        assert_close(dc.uz, da.uz + db.uz, 0.001,
             &format!("Superposition uy at node {}", node_id));
-        assert_close(dc.rz, da.rz + db.rz, 0.001,
+        assert_close(dc.ry, da.ry + db.ry, 0.001,
             &format!("Superposition rz at node {}", node_id));
     }
 
     // Also verify superposition of reactions
-    let sum_ry_a: f64 = results_a.reactions.iter().map(|r| r.ry).sum();
-    let sum_ry_b: f64 = results_b.reactions.iter().map(|r| r.ry).sum();
-    let sum_ry_c: f64 = results_c.reactions.iter().map(|r| r.ry).sum();
+    let sum_ry_a: f64 = results_a.reactions.iter().map(|r| r.rz).sum();
+    let sum_ry_b: f64 = results_b.reactions.iter().map(|r| r.rz).sum();
+    let sum_ry_c: f64 = results_c.reactions.iter().map(|r| r.rz).sum();
     assert_close(sum_ry_c, sum_ry_a + sum_ry_b, 0.001,
         "Superposition: sum of Ry reactions");
 }
@@ -252,7 +252,7 @@ fn validation_matrix_positive_definiteness_strain_energy() {
     //   fx=f_lat at node 2 * ux_2
     //   fy=f_grav at node 2 * uy_2
     //   fy=f_grav at node 3 * uy_3
-    let work: f64 = f_lat * d2.ux + f_grav * d2.uy + f_grav * d3.uy;
+    let work: f64 = f_lat * d2.ux + f_grav * d2.uz + f_grav * d3.uz;
     let strain_energy: f64 = 0.5 * work;
 
     assert!(strain_energy > 0.0,
@@ -261,12 +261,12 @@ fn validation_matrix_positive_definiteness_strain_energy() {
     // Also verify with a different load pattern: pure moment at beam midspan
     let input2 = make_beam(4, 8.0, E, A, IZ, "fixed", Some("fixed"),
         vec![SolverLoad::Nodal(SolverNodalLoad {
-            node_id: 3, fx: 0.0, fy: 0.0, mz: 50.0,
+            node_id: 3, fx: 0.0, fz: 0.0, my: 50.0,
         })],
     );
     let results2 = linear::solve_2d(&input2).unwrap();
     let d_mid = results2.displacements.iter().find(|d| d.node_id == 3).unwrap();
-    let work2: f64 = 50.0 * d_mid.rz;
+    let work2: f64 = 50.0 * d_mid.ry;
     let se2: f64 = 0.5 * work2;
     assert!(se2 > 0.0,
         "Positive definiteness (moment load): U = {:.6e} > 0", se2);
@@ -276,7 +276,7 @@ fn validation_matrix_positive_definiteness_strain_energy() {
     let results3 = linear::solve_2d(&input3).unwrap();
     let d2_3 = results3.displacements.iter().find(|d| d.node_id == 2).unwrap();
     let d3_3 = results3.displacements.iter().find(|d| d.node_id == 3).unwrap();
-    let work3: f64 = 2.0 * f_lat * d2_3.ux + 2.0 * f_grav * d2_3.uy + 2.0 * f_grav * d3_3.uy;
+    let work3: f64 = 2.0 * f_lat * d2_3.ux + 2.0 * f_grav * d2_3.uz + 2.0 * f_grav * d3_3.uz;
     let se3: f64 = 0.5 * work3;
     // With 2x load, displacements are 2x, so work = 2F * 2u = 4 * F*u
     // Strain energy = 0.5 * 4 * F*u = 4 * U_original
@@ -312,7 +312,7 @@ fn validation_matrix_rigid_body_zero_bending() {
 
     // Cantilever with pure axial tip load (no transverse component)
     let loads = vec![SolverLoad::Nodal(SolverNodalLoad {
-        node_id: tip, fx: f_axial, fy: 0.0, mz: 0.0,
+        node_id: tip, fx: f_axial, fz: 0.0, my: 0.0,
     })];
     let input = make_beam(n, l, E, A, IZ, "fixed", None, loads);
     let results = linear::solve_2d(&input).unwrap();
@@ -343,10 +343,10 @@ fn validation_matrix_rigid_body_zero_bending() {
 
     // Transverse displacements should be zero everywhere.
     for d in &results.displacements {
-        assert!(d.uy.abs() < 1e-10,
-            "Rigid body: uy at node {} = {:.2e}, should be 0", d.node_id, d.uy);
-        assert!(d.rz.abs() < 1e-10,
-            "Rigid body: rz at node {} = {:.2e}, should be 0", d.node_id, d.rz);
+        assert!(d.uz.abs() < 1e-10,
+            "Rigid body: uy at node {} = {:.2e}, should be 0", d.node_id, d.uz);
+        assert!(d.ry.abs() < 1e-10,
+            "Rigid body: rz at node {} = {:.2e}, should be 0", d.node_id, d.ry);
     }
 }
 
@@ -391,7 +391,7 @@ fn validation_matrix_equilibrium_at_free_nodes() {
         ],
         vec![(1, 1, "pinned"), (2, 4, "rollerX")],
         vec![SolverLoad::Nodal(SolverNodalLoad {
-            node_id: 3, fx: 0.0, fy: -p, mz: 0.0,
+            node_id: 3, fx: 0.0, fz: -p, my: 0.0,
         })],
     );
     let results = linear::solve_2d(&input).unwrap();
@@ -429,7 +429,7 @@ fn validation_matrix_equilibrium_at_free_nodes() {
         "Equilibrium at node 3: shear jump = P (applied load)");
 
     // Global equilibrium: sum of reactions = sum of applied loads
-    let sum_ry: f64 = results.reactions.iter().map(|r| r.ry).sum();
+    let sum_ry: f64 = results.reactions.iter().map(|r| r.rz).sum();
     assert_close(sum_ry, p, 0.01, "Global equilibrium: sum Ry = P");
 }
 
@@ -459,7 +459,7 @@ fn validation_matrix_compatibility_continuous_displacements() {
     // Cantilever with tip load: nodes 1..5 along X.
     // Deflection curve should be monotonically increasing from root to tip.
     let loads = vec![SolverLoad::Nodal(SolverNodalLoad {
-        node_id: tip, fx: 0.0, fy: -p, mz: 0.0,
+        node_id: tip, fx: 0.0, fz: -p, my: 0.0,
     })];
     let input = make_beam(n, l, E, A, IZ, "fixed", None, loads);
     let results = linear::solve_2d(&input).unwrap();
@@ -475,22 +475,22 @@ fn validation_matrix_compatibility_continuous_displacements() {
     // monotonically decreasing (more negative) from root to tip.
     // Node 1 (fixed): uy = 0. Node 5 (tip): uy = most negative.
     let d1 = results.displacements.iter().find(|d| d.node_id == 1).unwrap();
-    assert!(d1.uy.abs() < 1e-10,
-        "Compatibility: fixed end uy = 0, got {:.2e}", d1.uy);
+    assert!(d1.uz.abs() < 1e-10,
+        "Compatibility: fixed end uy = 0, got {:.2e}", d1.uz);
 
     for i in 2..=tip {
         let d_prev = results.displacements.iter().find(|d| d.node_id == i - 1).unwrap();
         let d_curr = results.displacements.iter().find(|d| d.node_id == i).unwrap();
-        assert!(d_curr.uy <= d_prev.uy,
+        assert!(d_curr.uz <= d_prev.uz,
             "Compatibility: uy at node {} ({:.6}) <= uy at node {} ({:.6})",
-            i, d_curr.uy, i - 1, d_prev.uy);
+            i, d_curr.uz, i - 1, d_prev.uz);
     }
 
     // Verify analytical tip deflection: PL^3/(3EI)
     let e_eff = E * 1000.0;
     let expected: f64 = p * l.powi(3) / (3.0 * e_eff * IZ);
     let d_tip = results.displacements.iter().find(|d| d.node_id == tip).unwrap();
-    assert_close(d_tip.uy.abs(), expected, 0.02,
+    assert_close(d_tip.uz.abs(), expected, 0.02,
         "Compatibility: tip deflection = PL^3/(3EI)");
 
     // Verify rotation is also monotonically increasing in magnitude
@@ -498,9 +498,9 @@ fn validation_matrix_compatibility_continuous_displacements() {
     for i in 2..=tip {
         let d_prev = results.displacements.iter().find(|d| d.node_id == i - 1).unwrap();
         let d_curr = results.displacements.iter().find(|d| d.node_id == i).unwrap();
-        assert!(d_curr.rz.abs() >= d_prev.rz.abs() - 1e-10,
+        assert!(d_curr.ry.abs() >= d_prev.ry.abs() - 1e-10,
             "Compatibility: |rz| at node {} ({:.6}) >= |rz| at node {} ({:.6})",
-            i, d_curr.rz.abs(), i - 1, d_prev.rz.abs());
+            i, d_curr.ry.abs(), i - 1, d_prev.ry.abs());
     }
 }
 
@@ -533,7 +533,7 @@ fn validation_matrix_sign_convention_reactions() {
     // Propped cantilever: fixed at node 1, rollerX at node 6.
     // Point load at node 3.
     let loads = vec![SolverLoad::Nodal(SolverNodalLoad {
-        node_id: mid, fx: 0.0, fy: -p, mz: 0.0,
+        node_id: mid, fx: 0.0, fz: -p, my: 0.0,
     })];
     let input = make_beam(n, l, E, A, IZ, "fixed", Some("rollerX"), loads);
     let results = linear::solve_2d(&input).unwrap();
@@ -544,25 +544,25 @@ fn validation_matrix_sign_convention_reactions() {
     // At node 1 (fixed support), only element 1 is attached (i-end).
     // Reaction at support absorbs element forces. Check magnitudes match.
     let ef1 = results.element_forces.iter().find(|e| e.element_id == 1).unwrap();
-    assert_close(r1.ry.abs(), ef1.v_start.abs(), 0.01,
+    assert_close(r1.rz.abs(), ef1.v_start.abs(), 0.01,
         "Sign convention: |Ry(node 1)| = |V_start(elem 1)|");
-    assert_close(r1.mz.abs(), ef1.m_start.abs(), 0.01,
+    assert_close(r1.my.abs(), ef1.m_start.abs(), 0.01,
         "Sign convention: |Mz(node 1)| = |M_start(elem 1)|");
 
     // At the roller end (node n+1), only element n is attached (j-end).
     let ef_last = results.element_forces.iter().find(|e| e.element_id == n).unwrap();
-    assert_close(r_end.ry.abs(), ef_last.v_end.abs(), 0.01,
+    assert_close(r_end.rz.abs(), ef_last.v_end.abs(), 0.01,
         "Sign convention: |Ry(end node)| = |V_end(last elem)|");
 
     // Global equilibrium must hold: sum(Ry) = P
-    let sum_ry: f64 = results.reactions.iter().map(|r| r.ry).sum();
+    let sum_ry: f64 = results.reactions.iter().map(|r| r.rz).sum();
     assert_close(sum_ry, p, 0.01, "Sign convention: global equilibrium sum Ry = P");
 
     // Moment equilibrium about node 1:
-    // r1.mz + r_end.ry * L - P * x_load = 0
+    // r1.my + r_end.rz * L - P * x_load = 0
     let x_load: f64 = (mid as f64 - 1.0) * l / n as f64;
     let x_end: f64 = l;
-    let moment_about_1: f64 = r1.mz + r_end.ry * x_end - p * x_load;
+    let moment_about_1: f64 = r1.my + r_end.rz * x_end - p * x_load;
     assert!(moment_about_1.abs() < 1.0,
         "Sign convention: moment equilibrium about node 1, residual = {:.4}", moment_about_1);
 }

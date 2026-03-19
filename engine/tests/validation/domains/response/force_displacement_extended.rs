@@ -49,24 +49,24 @@ fn superposition_combined_load_equals_sum_of_individual() {
         n_elem, l, E, A, IZ,
         "pinned", Some("rollerX"),
         vec![SolverLoad::Nodal(SolverNodalLoad {
-            node_id: mid_node, fx: 0.0, fy: p1, mz: 0.0,
+            node_id: mid_node, fx: 0.0, fz: p1, my: 0.0,
         })],
     );
     let res_a = linear::solve_2d(&input_a).unwrap();
     let uy_mid_a = res_a.displacements.iter()
-        .find(|d| d.node_id == mid_node).unwrap().uy;
+        .find(|d| d.node_id == mid_node).unwrap().uz;
 
     // Case B: only P2 at quarter span
     let input_b = make_beam(
         n_elem, l, E, A, IZ,
         "pinned", Some("rollerX"),
         vec![SolverLoad::Nodal(SolverNodalLoad {
-            node_id: quarter_node, fx: 0.0, fy: p2, mz: 0.0,
+            node_id: quarter_node, fx: 0.0, fz: p2, my: 0.0,
         })],
     );
     let res_b = linear::solve_2d(&input_b).unwrap();
     let uy_mid_b = res_b.displacements.iter()
-        .find(|d| d.node_id == mid_node).unwrap().uy;
+        .find(|d| d.node_id == mid_node).unwrap().uz;
 
     // Case C: both loads simultaneously
     let input_c = make_beam(
@@ -74,16 +74,16 @@ fn superposition_combined_load_equals_sum_of_individual() {
         "pinned", Some("rollerX"),
         vec![
             SolverLoad::Nodal(SolverNodalLoad {
-                node_id: mid_node, fx: 0.0, fy: p1, mz: 0.0,
+                node_id: mid_node, fx: 0.0, fz: p1, my: 0.0,
             }),
             SolverLoad::Nodal(SolverNodalLoad {
-                node_id: quarter_node, fx: 0.0, fy: p2, mz: 0.0,
+                node_id: quarter_node, fx: 0.0, fz: p2, my: 0.0,
             }),
         ],
     );
     let res_c = linear::solve_2d(&input_c).unwrap();
     let uy_mid_c = res_c.displacements.iter()
-        .find(|d| d.node_id == mid_node).unwrap().uy;
+        .find(|d| d.node_id == mid_node).unwrap().uz;
 
     // Superposition: uy_mid_a + uy_mid_b == uy_mid_c
     let sum = uy_mid_a + uy_mid_b;
@@ -108,12 +108,12 @@ fn fixed_fixed_beam_center_point_stiffness() {
         n_elem, l, E, A, IZ,
         "fixed", Some("fixed"),
         vec![SolverLoad::Nodal(SolverNodalLoad {
-            node_id: mid_node, fx: 0.0, fy: p, mz: 0.0,
+            node_id: mid_node, fx: 0.0, fz: p, my: 0.0,
         })],
     );
     let res = linear::solve_2d(&input).unwrap();
     let uy_mid = res.displacements.iter()
-        .find(|d| d.node_id == mid_node).unwrap().uy;
+        .find(|d| d.node_id == mid_node).unwrap().uz;
 
     // Analytical: delta = P*L^3 / (192*EI)
     let ei = E_EFF * IZ;
@@ -152,12 +152,12 @@ fn propped_cantilever_midspan_point_load() {
         n_elem, l, E, A, IZ,
         "fixed", Some("rollerX"),
         vec![SolverLoad::Nodal(SolverNodalLoad {
-            node_id: mid_node, fx: 0.0, fy: p, mz: 0.0,
+            node_id: mid_node, fx: 0.0, fz: p, my: 0.0,
         })],
     );
     let res = linear::solve_2d(&input).unwrap();
     let uy_mid = res.displacements.iter()
-        .find(|d| d.node_id == mid_node).unwrap().uy;
+        .find(|d| d.node_id == mid_node).unwrap().uz;
 
     // Analytical: delta_center = 7*P*L^3 / (768*EI)
     // For propped cantilever (fixed-roller) with center point load
@@ -209,11 +209,11 @@ fn two_span_continuous_beam_symmetric_udl_reactions() {
     let right_node = 2 * n_per_span + 1; // node 9
 
     let ry_left = res.reactions.iter()
-        .find(|r| r.node_id == left_node).unwrap().ry;
+        .find(|r| r.node_id == left_node).unwrap().rz;
     let ry_center = res.reactions.iter()
-        .find(|r| r.node_id == center_node).unwrap().ry;
+        .find(|r| r.node_id == center_node).unwrap().rz;
     let ry_right = res.reactions.iter()
-        .find(|r| r.node_id == right_node).unwrap().ry;
+        .find(|r| r.node_id == right_node).unwrap().rz;
 
     // q is negative (downward), so reactions are positive (upward)
     // R_end = 3*|q|*L/8
@@ -273,7 +273,7 @@ fn inclined_truss_bar_elongation() {
         ],
         vec![(1, 1, "pinned"), (2, 2, "pinned")],
         vec![SolverLoad::Nodal(SolverNodalLoad {
-            node_id: 3, fx: 0.0, fy: p, mz: 0.0,
+            node_id: 3, fx: 0.0, fz: p, my: 0.0,
         })],
     );
     let res = linear::solve_2d(&input).unwrap();
@@ -292,7 +292,7 @@ fn inclined_truss_bar_elongation() {
     let ea = E_EFF * A;
     let uy_analytical = p * l / ea; // negative (downward)
 
-    assert_close(disp3.uy, uy_analytical, 0.05, "symmetric truss apex vertical displacement");
+    assert_close(disp3.uz, uy_analytical, 0.05, "symmetric truss apex vertical displacement");
 }
 
 // ---------------------------------------------------------------------------
@@ -324,7 +324,7 @@ fn cantilever_udl_tip_rotation() {
     let res = linear::solve_2d(&input).unwrap();
 
     let rz_tip = res.displacements.iter()
-        .find(|d| d.node_id == tip_node).unwrap().rz;
+        .find(|d| d.node_id == tip_node).unwrap().ry;
 
     // Analytical: theta_tip = q*L^3 / (6*EI)
     // q is negative (downward), so rotation is negative (clockwise)
@@ -352,15 +352,15 @@ fn ss_beam_end_rotation_midspan_point_load() {
         n_elem, l, E, A, IZ,
         "pinned", Some("rollerX"),
         vec![SolverLoad::Nodal(SolverNodalLoad {
-            node_id: mid_node, fx: 0.0, fy: p, mz: 0.0,
+            node_id: mid_node, fx: 0.0, fz: p, my: 0.0,
         })],
     );
     let res = linear::solve_2d(&input).unwrap();
 
     let rz_left = res.displacements.iter()
-        .find(|d| d.node_id == 1).unwrap().rz;
+        .find(|d| d.node_id == 1).unwrap().ry;
     let rz_right = res.displacements.iter()
-        .find(|d| d.node_id == n_elem + 1).unwrap().rz;
+        .find(|d| d.node_id == n_elem + 1).unwrap().ry;
 
     // Analytical: theta = P*L^2 / (16*EI)
     // P is negative, so theta_left is negative (slope down to right),
@@ -408,21 +408,21 @@ fn portal_frame_global_equilibrium_lateral_load() {
     assert_close(sum_rx, -h_load, 0.02, "portal frame horizontal equilibrium sum_rx = -H");
 
     // Vertical equilibrium: ry1 + ry4 = 0 (no vertical loads)
-    let sum_ry = r1.ry + r4.ry;
+    let sum_ry = r1.rz + r4.rz;
     assert!(sum_ry.abs() < 0.01,
         "portal frame vertical equilibrium: sum_ry={:.6}, expected ~0", sum_ry);
 
     // Moment equilibrium about node 1:
     // External: H * h (lateral load at height h, counterclockwise)
-    // Reactions: mz1 + mz4 + r4.rx * 0 (at same height) + r4.ry * w
-    // Sum_M_about_1 = H*h + mz1 + mz4 + r4.ry * w = 0
+    // Reactions: mz1 + mz4 + r4.rx * 0 (at same height) + r4.rz * w
+    // Sum_M_about_1 = H*h + mz1 + mz4 + r4.rz * w = 0
     // (r4.rx acts at (w,0) => moment arm for rx about (0,0) is 0 vertically
-    //  and r4.ry at (w,0) => moment arm is w horizontally)
+    //  and r4.rz at (w,0) => moment arm is w horizontally)
     // Moment about origin: M = x*Fy - y*Fx + Mz
     // External load (H, 0) at (0, h): M_ext = 0*0 - h*H = -H*h
-    // Reactions at (0,0): M1 = r1.mz
-    // Reactions at (w,0): M4 = w*r4.ry - 0*r4.rx + r4.mz = w*r4.ry + r4.mz
-    let sum_m: f64 = -h_load * h + r1.mz + r4.mz + r4.ry * w;
+    // Reactions at (0,0): M1 = r1.my
+    // Reactions at (w,0): M4 = w*r4.rz - 0*r4.rx + r4.my = w*r4.rz + r4.my
+    let sum_m: f64 = -h_load * h + r1.my + r4.my + r4.rz * w;
     assert!(sum_m.abs() < 0.5,
         "portal frame moment equilibrium about node 1: sum_M={:.6}, expected ~0", sum_m);
 

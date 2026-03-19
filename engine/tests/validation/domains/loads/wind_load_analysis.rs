@@ -61,7 +61,7 @@ fn validation_wind_uniform_base_shear() {
         "Wind uniform: base shear = w×H");
 
     // Overturning moment = w×H²/2
-    assert_close(r.mz.abs(), w_pressure * h * h / 2.0, 0.02,
+    assert_close(r.my.abs(), w_pressure * h * h / 2.0, 0.02,
         "Wind uniform: M_base = wH²/2");
 }
 
@@ -108,7 +108,7 @@ fn validation_wind_triangular_profile() {
 
     // Overturning moment = w_max × H² / 3 × (H/2) = w_max × H² / 6
     // Wait: for triangular load: M = ∫₀ᴴ w(y)×y dy = ∫₀ᴴ (w_max×y/H)×y dy = w_max×H²/3
-    assert_close(r.mz.abs(), w_max * h * h / 3.0, 0.02,
+    assert_close(r.my.abs(), w_max * h * h / 3.0, 0.02,
         "Wind triangular: M_base = wH²/3");
 }
 
@@ -217,9 +217,9 @@ fn validation_wind_multi_story_shear() {
     }
 
     let loads = vec![
-        SolverLoad::Nodal(SolverNodalLoad { node_id: 3, fx: f1, fy: 0.0, mz: 0.0 }),
-        SolverLoad::Nodal(SolverNodalLoad { node_id: 5, fx: f2, fy: 0.0, mz: 0.0 }),
-        SolverLoad::Nodal(SolverNodalLoad { node_id: 7, fx: f3, fy: 0.0, mz: 0.0 }),
+        SolverLoad::Nodal(SolverNodalLoad { node_id: 3, fx: f1, fz: 0.0, my: 0.0 }),
+        SolverLoad::Nodal(SolverNodalLoad { node_id: 5, fx: f2, fz: 0.0, my: 0.0 }),
+        SolverLoad::Nodal(SolverNodalLoad { node_id: 7, fx: f3, fz: 0.0, my: 0.0 }),
     ];
     let input = make_input(nodes, vec![(1, E, 0.3)], vec![(1, A, IZ)], elems, sups, loads);
     let results = linear::solve_2d(&input).unwrap();
@@ -282,7 +282,7 @@ fn validation_wind_suction_roof() {
     let results = linear::solve_2d(&input).unwrap();
 
     // Total upward force = q × w (approximately)
-    let sum_ry: f64 = results.reactions.iter().map(|r| r.ry).sum();
+    let sum_ry: f64 = results.reactions.iter().map(|r| r.rz).sum();
     let total_suction = q_suction * w * n_beam as f64 / (n_beam + 1) as f64;
     assert_close(sum_ry.abs(), total_suction, 0.10,
         "Wind suction: ΣRy ≈ q×w");
@@ -309,12 +309,12 @@ fn validation_wind_portal_moments() {
     let r1 = results.reactions.iter().find(|r| r.node_id == 1).unwrap();
     let r4 = results.reactions.iter().find(|r| r.node_id == 4).unwrap();
 
-    assert!(r1.mz.abs() > 0.0, "Wind portal: M1 ≠ 0");
-    assert!(r4.mz.abs() > 0.0, "Wind portal: M4 ≠ 0");
+    assert!(r1.my.abs() > 0.0, "Wind portal: M1 ≠ 0");
+    assert!(r4.my.abs() > 0.0, "Wind portal: M4 ≠ 0");
 
     // Global moment equilibrium about node 1 base
     let m_overturn = f * h;
-    let m_resist = r1.mz + r4.mz + r4.ry * w;
+    let m_resist = r1.my + r4.my + r4.rz * w;
     assert_close(m_resist.abs(), m_overturn, 0.05,
         "Wind portal: moment equilibrium");
 }
@@ -368,7 +368,7 @@ fn validation_wind_gravity_combination() {
     assert_close(sum_rx, -f_wind, 0.02, "W+G: ΣRx = -F_wind");
 
     // Vertical equilibrium: ΣRy = -2×f_grav (reactions balance applied load)
-    let sum_ry: f64 = results.reactions.iter().map(|r| r.ry).sum();
+    let sum_ry: f64 = results.reactions.iter().map(|r| r.rz).sum();
     assert_close(sum_ry, -2.0 * f_grav, 0.02, "W+G: ΣRy = -2×F_grav");
 
     // Combined drift should be same as wind-only drift

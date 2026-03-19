@@ -64,14 +64,14 @@ fn validation_weaver_1_propped_cantilever_stiffness() {
 
     // Roller is at end node (n+1), fixed is at node 1
     let r_end = results.reactions.iter().find(|r| r.node_id == (n + 1) as usize).unwrap();
-    assert_close(r_end.ry, r_roller, 0.02, "Weaver 1: R_roller = 3wL/8");
+    assert_close(r_end.rz, r_roller, 0.02, "Weaver 1: R_roller = 3wL/8");
 
     let r_start = results.reactions.iter().find(|r| r.node_id == 1).unwrap();
-    assert_close(r_start.ry, r_fixed, 0.02, "Weaver 1: R_fixed = 5wL/8");
-    assert_close(r_start.mz.abs(), m_fixed, 0.02, "Weaver 1: M_fixed = wL^2/8");
+    assert_close(r_start.rz, r_fixed, 0.02, "Weaver 1: R_fixed = 5wL/8");
+    assert_close(r_start.my.abs(), m_fixed, 0.02, "Weaver 1: M_fixed = wL^2/8");
 
     // Global equilibrium
-    let sum_ry: f64 = results.reactions.iter().map(|r| r.ry).sum();
+    let sum_ry: f64 = results.reactions.iter().map(|r| r.rz).sum();
     let total_load = w * length;
     assert_close(sum_ry, total_load, 0.01, "Weaver 1: sum Ry = wL");
 }
@@ -101,8 +101,8 @@ fn validation_weaver_2_fixed_beam_asymmetric() {
         vec![SolverLoad::Nodal(SolverNodalLoad {
             node_id: load_node,
             fx: 0.0,
-            fy: -p_val,
-            mz: 0.0,
+            fz: -p_val,
+            my: 0.0,
         })],
     );
 
@@ -117,16 +117,16 @@ fn validation_weaver_2_fixed_beam_asymmetric() {
     let r_a = results.reactions.iter().find(|r| r.node_id == 1).unwrap();
     let r_b = results.reactions.iter().find(|r| r.node_id == (n + 1) as usize).unwrap();
 
-    assert_close(r_a.mz.abs(), m_a_exact, 0.03, "Weaver 2: M_A = Pab^2/L^2");
-    assert_close(r_b.mz.abs(), m_b_exact, 0.03, "Weaver 2: M_B = Pa^2b/L^2");
+    assert_close(r_a.my.abs(), m_a_exact, 0.03, "Weaver 2: M_A = Pab^2/L^2");
+    assert_close(r_b.my.abs(), m_b_exact, 0.03, "Weaver 2: M_B = Pa^2b/L^2");
 
     // Vertical equilibrium
-    let sum_ry: f64 = results.reactions.iter().map(|r| r.ry).sum();
+    let sum_ry: f64 = results.reactions.iter().map(|r| r.rz).sum();
     assert_close(sum_ry, p_val, 0.01, "Weaver 2: sum Ry = P");
 
     // Reaction at A: R_A = P*b^2*(3a+b)/L^3
     let r_a_exact = p_val * _b * _b * (3.0 * a + _b) / (length.powi(3));
-    assert_close(r_a.ry, r_a_exact, 0.03, "Weaver 2: R_A = Pb^2(3a+b)/L^3");
+    assert_close(r_a.rz, r_a_exact, 0.03, "Weaver 2: R_A = Pb^2(3a+b)/L^3");
 }
 
 // ================================================================
@@ -161,7 +161,7 @@ fn validation_weaver_3_two_span_unequal() {
     let results = linear::solve_2d(&input).unwrap();
 
     // Global equilibrium
-    let sum_ry: f64 = results.reactions.iter().map(|r| r.ry).sum();
+    let sum_ry: f64 = results.reactions.iter().map(|r| r.rz).sum();
     let total_load = w * (l1 + l2);
     assert_close(sum_ry, total_load, 0.01, "Weaver 3: sum Ry = w*(L1+L2)");
 
@@ -190,9 +190,9 @@ fn validation_weaver_3_two_span_unequal() {
         .find(|r| r.node_id == (2 * n_per_span + 1))
         .unwrap();
     assert!(
-        r_int.ry > r_left.ry && r_int.ry > r_right.ry,
+        r_int.rz > r_left.rz && r_int.rz > r_right.rz,
         "Weaver 3: interior reaction ({:.2}) should be largest (left={:.2}, right={:.2})",
-        r_int.ry, r_left.ry, r_right.ry
+        r_int.rz, r_left.rz, r_right.rz
     );
 }
 
@@ -302,7 +302,7 @@ fn validation_weaver_4_frame_no_sway() {
     let results = linear::solve_2d(&input).unwrap();
 
     // Vertical equilibrium: total load = w * span
-    let sum_ry: f64 = results.reactions.iter().map(|r| r.ry).sum();
+    let sum_ry: f64 = results.reactions.iter().map(|r| r.rz).sum();
     assert_close(sum_ry, w * span, 0.01, "Weaver 4: sum Ry = w*L");
 
     // Horizontal equilibrium: sum Rx should be ~0 for symmetric case
@@ -315,7 +315,7 @@ fn validation_weaver_4_frame_no_sway() {
     // By symmetry: left and right base reactions should be equal
     let r_left = results.reactions.iter().find(|r| r.node_id == 1).unwrap();
     let r_right = results.reactions.iter().find(|r| r.node_id == right_bottom).unwrap();
-    assert_close(r_left.ry, r_right.ry, 0.02, "Weaver 4: symmetric Ry at bases");
+    assert_close(r_left.rz, r_right.rz, 0.02, "Weaver 4: symmetric Ry at bases");
 
     // Joint equilibrium at left corner: column end moment should equal beam start moment
     // (internal forces in local coordinates: at a joint, they balance each other).
@@ -424,8 +424,8 @@ fn validation_weaver_5_frame_with_sway() {
     loads.push(SolverLoad::Nodal(SolverNodalLoad {
         node_id: left_top,
         fx: h_load,
-        fy: 0.0,
-        mz: 0.0,
+        fz: 0.0,
+        my: 0.0,
     }));
 
     let input = make_input(
@@ -444,7 +444,7 @@ fn validation_weaver_5_frame_with_sway() {
     assert_close(sum_rx, -h_load, 0.02, "Weaver 5: sum Rx = -H");
 
     // Vertical equilibrium
-    let sum_ry: f64 = results.reactions.iter().map(|r| r.ry).sum();
+    let sum_ry: f64 = results.reactions.iter().map(|r| r.rz).sum();
     assert_close(sum_ry, w * span, 0.01, "Weaver 5: sum Ry = w*L");
 
     // Sway: both beam-level nodes should have positive lateral displacement
@@ -465,9 +465,9 @@ fn validation_weaver_5_frame_with_sway() {
     let r_left = results.reactions.iter().find(|r| r.node_id == 1).unwrap();
     let r_right = results.reactions.iter().find(|r| r.node_id == right_bottom).unwrap();
     assert!(
-        (r_left.mz - r_right.mz).abs() > 0.1,
+        (r_left.my - r_right.my).abs() > 0.1,
         "Weaver 5: base moments differ due to sway: left={:.4}, right={:.4}",
-        r_left.mz, r_right.mz
+        r_left.my, r_right.my
     );
 }
 
@@ -509,7 +509,7 @@ fn validation_weaver_6_grid_beam() {
     );
     let results_a = linear::solve_3d(&input_a).unwrap();
     let d_mid_a = results_a.displacements.iter()
-        .find(|d| d.node_id == mid).unwrap().uy.abs();
+        .find(|d| d.node_id == mid).unwrap().uz.abs();
 
     // --- Case B: Beam with perpendicular stub at midspan ---
     // Main beam along X, stub along Z from midspan node
@@ -575,7 +575,7 @@ fn validation_weaver_6_grid_beam() {
     let results_b = linear::solve_3d(&input_b).unwrap();
 
     let d_mid_b = results_b.displacements.iter()
-        .find(|d| d.node_id == mid).unwrap().uy.abs();
+        .find(|d| d.node_id == mid).unwrap().uz.abs();
 
     // The stub provides additional restraint, so deflection should be less
     assert!(
@@ -585,8 +585,8 @@ fn validation_weaver_6_grid_beam() {
     );
 
     // Vertical equilibrium for case B
-    let sum_fy: f64 = results_b.reactions.iter().map(|r| r.fy).sum();
-    assert_close(sum_fy, p, 0.02, "Weaver 6: sum Fy = P");
+    let sum_fz: f64 = results_b.reactions.iter().map(|r| r.fz).sum();
+    assert_close(sum_fz, p, 0.02, "Weaver 6: sum Fy = P");
 
     // Reference deflection for simply-supported beam with midspan load
     let e_eff = E * 1000.0;
@@ -750,7 +750,7 @@ fn validation_weaver_7_two_bay_frame() {
 
     // Vertical equilibrium
     let total_load = q_val * (w1 + w2);
-    let sum_ry: f64 = results.reactions.iter().map(|r| r.ry).sum();
+    let sum_ry: f64 = results.reactions.iter().map(|r| r.rz).sum();
     assert_close(sum_ry, total_load, 0.01, "Weaver 7: sum Ry = q*(w1+w2)");
 
     // Interior column carries more axial load than exterior columns
@@ -762,14 +762,14 @@ fn validation_weaver_7_two_bay_frame() {
         .find(|r| r.node_id == right_bottom).unwrap();
 
     assert!(
-        r_center.ry > r_left.ry,
+        r_center.rz > r_left.rz,
         "Weaver 7: center column carries more than left: center={:.4}, left={:.4}",
-        r_center.ry, r_left.ry
+        r_center.rz, r_left.rz
     );
     assert!(
-        r_center.ry > r_right.ry,
+        r_center.rz > r_right.rz,
         "Weaver 7: center column carries more than right: center={:.4}, right={:.4}",
-        r_center.ry, r_right.ry
+        r_center.rz, r_right.rz
     );
 
     // Horizontal equilibrium should be ~ 0 (no lateral loads)
@@ -895,8 +895,8 @@ fn validation_weaver_8_inclined_member() {
     let loads = vec![SolverLoad::Nodal(SolverNodalLoad {
         node_id: ridge_node,
         fx: 0.0,
-        fy: -p_ridge,
-        mz: 0.0,
+        fz: -p_ridge,
+        my: 0.0,
     })];
 
     let input = make_input(
@@ -911,18 +911,18 @@ fn validation_weaver_8_inclined_member() {
     let results = linear::solve_2d(&input).unwrap();
 
     // Vertical equilibrium
-    let sum_ry: f64 = results.reactions.iter().map(|r| r.ry).sum();
+    let sum_ry: f64 = results.reactions.iter().map(|r| r.rz).sum();
     assert_close(sum_ry, p_ridge, 0.01, "Weaver 8: sum Ry = P");
 
     // Symmetric structure + symmetric load => symmetric reactions
     let r_left = results.reactions.iter().find(|r| r.node_id == 1).unwrap();
     let r_right = results.reactions.iter()
         .find(|r| r.node_id == right_col_start).unwrap();
-    assert_close(r_left.ry, r_right.ry, 0.02, "Weaver 8: symmetric Ry");
-    assert_close(r_left.mz.abs(), r_right.mz.abs(), 0.02, "Weaver 8: symmetric Mz");
+    assert_close(r_left.rz, r_right.rz, 0.02, "Weaver 8: symmetric Ry");
+    assert_close(r_left.my.abs(), r_right.my.abs(), 0.02, "Weaver 8: symmetric Mz");
 
     // By symmetry, each base carries P/2 vertically
-    assert_close(r_left.ry, p_ridge / 2.0, 0.02, "Weaver 8: R_left = P/2");
+    assert_close(r_left.rz, p_ridge / 2.0, 0.02, "Weaver 8: R_left = P/2");
 
     // Inclined rafters cause horizontal thrust: Rx should be non-zero and equal/opposite
     // For symmetric gable with vertical load, the horizontal reactions are equal and opposite
@@ -940,8 +940,8 @@ fn validation_weaver_8_inclined_member() {
     let d_ridge = results.displacements.iter()
         .find(|d| d.node_id == ridge_node).unwrap();
     assert!(
-        d_ridge.uy < 0.0,
-        "Weaver 8: ridge deflects down: uy={:.6e}", d_ridge.uy
+        d_ridge.uz < 0.0,
+        "Weaver 8: ridge deflects down: uy={:.6e}", d_ridge.uz
     );
 
     // Moment at ridge: check that rafter end moments at ridge are equal by symmetry

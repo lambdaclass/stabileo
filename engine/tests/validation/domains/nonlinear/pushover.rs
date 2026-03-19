@@ -36,7 +36,7 @@ fn validation_pushover_cantilever_stiffness() {
     let input = make_beam(
         n, length, E, A, IZ, "fixed", None,
         vec![SolverLoad::Nodal(SolverNodalLoad {
-            node_id: n + 1, fx: 0.0, fy: -p, mz: 0.0,
+            node_id: n + 1, fx: 0.0, fz: -p, my: 0.0,
         })],
     );
 
@@ -44,7 +44,7 @@ fn validation_pushover_cantilever_stiffness() {
     let d_tip = results.displacements.iter()
         .find(|d| d.node_id == n + 1).unwrap();
 
-    let k_computed = p / d_tip.uy.abs();
+    let k_computed = p / d_tip.uz.abs();
 
     assert_close(
         k_computed, k_exact, 0.02,
@@ -79,7 +79,7 @@ fn validation_pushover_pdelta_stiffness_reduction() {
             vec![(1, "frame", 1, 2, 1, 1, false, false)],
             vec![(1, 1, "fixed")],
             vec![SolverLoad::Nodal(SolverNodalLoad {
-                node_id: 2, fx: h_load, fy: p_axial, mz: 0.0,
+                node_id: 2, fx: h_load, fz: p_axial, my: 0.0,
             })],
         );
 
@@ -128,21 +128,21 @@ fn validation_pushover_corotational_large_displacement() {
     let input = make_beam(
         n, length, E, A, IZ, "fixed", None,
         vec![SolverLoad::Nodal(SolverNodalLoad {
-            node_id: n + 1, fx: 0.0, fy: p, mz: 0.0,
+            node_id: n + 1, fx: 0.0, fz: p, my: 0.0,
         })],
     );
 
     // Linear solution
     let lin_res = linear::solve_2d(&input).unwrap();
     let lin_tip = lin_res.displacements.iter()
-        .find(|d| d.node_id == n + 1).unwrap().uy;
+        .find(|d| d.node_id == n + 1).unwrap().uz;
 
     // Corotational solution
     let corot_res = corotational::solve_corotational_2d(&input, 50, 1e-5, 10, false);
 
     let corot = corot_res.expect("pushover corotational solve must succeed");
     let corot_tip = corot.results.displacements.iter()
-        .find(|d| d.node_id == n + 1).unwrap().uy;
+        .find(|d| d.node_id == n + 1).unwrap().uz;
 
     // Both should deflect downward
     assert!(lin_tip < 0.0, "Linear: tip should deflect down");
@@ -218,7 +218,7 @@ fn validation_pushover_pdelta_near_critical() {
         vec![(1, "frame", 1, 2, 1, 1, false, false)],
         vec![(1, 1, "fixed")],
         vec![SolverLoad::Nodal(SolverNodalLoad {
-            node_id: 2, fx: 1.0, fy: p_axial, mz: 0.0,
+            node_id: 2, fx: 1.0, fz: p_axial, my: 0.0,
         })],
     );
 
@@ -256,22 +256,22 @@ fn validation_pushover_load_reversal_symmetry() {
     let input_pos = make_beam(
         n, length, E, A, IZ, "fixed", None,
         vec![SolverLoad::Nodal(SolverNodalLoad {
-            node_id: tip, fx: 0.0, fy: p, mz: 0.0,
+            node_id: tip, fx: 0.0, fz: p, my: 0.0,
         })],
     );
 
     let input_neg = make_beam(
         n, length, E, A, IZ, "fixed", None,
         vec![SolverLoad::Nodal(SolverNodalLoad {
-            node_id: tip, fx: 0.0, fy: -p, mz: 0.0,
+            node_id: tip, fx: 0.0, fz: -p, my: 0.0,
         })],
     );
 
     let res_pos = linear::solve_2d(&input_pos).unwrap();
     let res_neg = linear::solve_2d(&input_neg).unwrap();
 
-    let uy_pos = res_pos.displacements.iter().find(|d| d.node_id == tip).unwrap().uy;
-    let uy_neg = res_neg.displacements.iter().find(|d| d.node_id == tip).unwrap().uy;
+    let uy_pos = res_pos.displacements.iter().find(|d| d.node_id == tip).unwrap().uz;
+    let uy_neg = res_neg.displacements.iter().find(|d| d.node_id == tip).unwrap().uz;
 
     assert_close(
         uy_pos, -uy_neg, 0.001,

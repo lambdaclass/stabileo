@@ -56,9 +56,9 @@ pub fn solve_pdelta_2d(
     // Initialize with linear displacements
     for d in &linear_results.displacements {
         if let Some(&idx) = dof_num.map.get(&(d.node_id, 0)) { u_prev[idx] = d.ux; }
-        if let Some(&idx) = dof_num.map.get(&(d.node_id, 1)) { u_prev[idx] = d.uy; }
+        if let Some(&idx) = dof_num.map.get(&(d.node_id, 1)) { u_prev[idx] = d.uz; }
         if dof_num.dofs_per_node >= 3 {
-            if let Some(&idx) = dof_num.map.get(&(d.node_id, 2)) { u_prev[idx] = d.rz; }
+            if let Some(&idx) = dof_num.map.get(&(d.node_id, 2)) { u_prev[idx] = d.ry; }
         }
     }
 
@@ -217,8 +217,8 @@ fn compute_reactions_from_u(
 
     for sup in input.supports.values() {
         let mut rx = 0.0;
-        let mut ry = 0.0;
-        let mut mz = 0.0;
+        let mut rz = 0.0;
+        let mut my = 0.0;
 
         if let Some(&d) = dof_num.map.get(&(sup.node_id, 0)) {
             if d >= nf {
@@ -235,7 +235,7 @@ fn compute_reactions_from_u(
                 for j in 0..n {
                     r += asm.k[d * n + j] * u[j];
                 }
-                ry = r;
+                rz = r;
             }
         }
         if dof_num.dofs_per_node >= 3 {
@@ -245,12 +245,12 @@ fn compute_reactions_from_u(
                     for j in 0..n {
                         r += asm.k[d * n + j] * u[j];
                     }
-                    mz = r;
+                    my = r;
                 }
             }
         }
 
-        reactions.push(Reaction { node_id: sup.node_id, rx, ry, mz });
+        reactions.push(Reaction { node_id: sup.node_id, rx, rz, my });
     }
     reactions
 }

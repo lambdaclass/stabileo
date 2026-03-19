@@ -44,8 +44,8 @@ fn validation_work_energy_point_load_cantilever() {
     let loads = vec![SolverLoad::Nodal(SolverNodalLoad {
         node_id: n + 1,
         fx: 0.0,
-        fy: p,
-        mz: 0.0,
+        fz: p,
+        my: 0.0,
     })];
 
     let input = make_beam(n, l, E, A, IZ, "fixed", None, loads);
@@ -57,7 +57,7 @@ fn validation_work_energy_point_load_cantilever() {
         .iter()
         .find(|d| d.node_id == n + 1)
         .unwrap();
-    let delta_fem = tip.uy; // should be negative (downward)
+    let delta_fem = tip.uz; // should be negative (downward)
 
     // Analytical deflection: delta = PL^3 / (3EI)
     // P = -10, so delta_analytical = -10 * 64 / (3 * 20000) = -640/60000
@@ -95,8 +95,8 @@ fn validation_work_energy_moment_load_cantilever() {
     let loads = vec![SolverLoad::Nodal(SolverNodalLoad {
         node_id: n + 1,
         fx: 0.0,
-        fy: 0.0,
-        mz: m,
+        fz: 0.0,
+        my: m,
     })];
 
     let input = make_beam(n, l, E, A, IZ, "fixed", None, loads);
@@ -108,7 +108,7 @@ fn validation_work_energy_moment_load_cantilever() {
         .iter()
         .find(|d| d.node_id == n + 1)
         .unwrap();
-    let theta_fem = tip.rz; // rotation at tip
+    let theta_fem = tip.ry; // rotation at tip
 
     // Analytical rotation: theta = ML / (EI)
     let theta_analytical = m * l / EI;
@@ -148,8 +148,8 @@ fn validation_castigliano_ss_beam_midspan_load() {
     let loads = vec![SolverLoad::Nodal(SolverNodalLoad {
         node_id: mid_node,
         fx: 0.0,
-        fy: p,
-        mz: 0.0,
+        fz: p,
+        my: 0.0,
     })];
 
     let input = make_beam(n, l, E, A, IZ, "pinned", Some("rollerX"), loads);
@@ -161,7 +161,7 @@ fn validation_castigliano_ss_beam_midspan_load() {
         .iter()
         .find(|d| d.node_id == mid_node)
         .unwrap();
-    let delta_mid = mid.uy;
+    let delta_mid = mid.uz;
 
     // Analytical midspan deflection: delta = PL^3 / (48EI)
     let delta_analytical = p * l.powi(3) / (48.0 * EI);
@@ -207,7 +207,7 @@ fn validation_work_energy_udl_deflection() {
         .iter()
         .find(|d| d.node_id == mid_node)
         .unwrap();
-    let delta_mid = mid.uy;
+    let delta_mid = mid.uz;
 
     // Analytical: delta_mid = 5qL^4 / (384EI)
     let delta_analytical = 5.0 * q * l.powi(4) / (384.0 * EI);
@@ -253,8 +253,8 @@ fn validation_clapeyron_combined_loading() {
     let loads = vec![SolverLoad::Nodal(SolverNodalLoad {
         node_id: n + 1,
         fx,
-        fy,
-        mz: 0.0,
+        fz: fy,
+        my: 0.0,
     })];
 
     let input = make_beam(n, l, E, A, IZ, "fixed", None, loads);
@@ -267,7 +267,7 @@ fn validation_clapeyron_combined_loading() {
         .unwrap();
 
     // Clapeyron: 2U = F . u
-    let two_u = fx * tip.ux + fy * tip.uy;
+    let two_u = fx * tip.ux + fy * tip.uz;
 
     // Must be positive (positive definite stiffness)
     assert!(
@@ -275,7 +275,7 @@ fn validation_clapeyron_combined_loading() {
         "Clapeyron 2U = {} must be positive (ux={}, uy={})",
         two_u,
         tip.ux,
-        tip.uy
+        tip.uz
     );
 
     // Cross-check with individual strain energies:
@@ -314,8 +314,8 @@ fn validation_betti_reciprocal_theorem() {
     let loads_a = vec![SolverLoad::Nodal(SolverNodalLoad {
         node_id: 2,
         fx: 0.0,
-        fy: -1.0,
-        mz: 0.0,
+        fz: -1.0,
+        my: 0.0,
     })];
     let input_a = make_beam(n, l, E, A, IZ, "pinned", Some("rollerX"), loads_a);
     let results_a = linear::solve_2d(&input_a).unwrap();
@@ -324,8 +324,8 @@ fn validation_betti_reciprocal_theorem() {
     let loads_b = vec![SolverLoad::Nodal(SolverNodalLoad {
         node_id: 4,
         fx: 0.0,
-        fy: -1.0,
-        mz: 0.0,
+        fz: -1.0,
+        my: 0.0,
     })];
     let input_b = make_beam(n, l, E, A, IZ, "pinned", Some("rollerX"), loads_b);
     let results_b = linear::solve_2d(&input_b).unwrap();
@@ -336,7 +336,7 @@ fn validation_betti_reciprocal_theorem() {
         .iter()
         .find(|d| d.node_id == 4)
         .unwrap()
-        .uy;
+        .uz;
 
     // Get delta_B at node 2 (deflection at node 2 under state B loading)
     let delta_b_at_2 = results_b
@@ -344,7 +344,7 @@ fn validation_betti_reciprocal_theorem() {
         .iter()
         .find(|d| d.node_id == 2)
         .unwrap()
-        .uy;
+        .uz;
 
     // Betti's reciprocal theorem: delta_A_at_4 = delta_B_at_2
     assert_close(
@@ -382,8 +382,8 @@ fn validation_strain_energy_proportional_to_load_squared() {
     let loads1 = vec![SolverLoad::Nodal(SolverNodalLoad {
         node_id: mid_node,
         fx: 0.0,
-        fy: p1,
-        mz: 0.0,
+        fz: p1,
+        my: 0.0,
     })];
     let input1 = make_beam(n, l, E, A, IZ, "pinned", Some("rollerX"), loads1);
     let results1 = linear::solve_2d(&input1).unwrap();
@@ -392,15 +392,15 @@ fn validation_strain_energy_proportional_to_load_squared() {
         .iter()
         .find(|d| d.node_id == mid_node)
         .unwrap()
-        .uy;
+        .uz;
     let u1 = 0.5 * p1.abs() * delta1.abs();
 
     // Case 2
     let loads2 = vec![SolverLoad::Nodal(SolverNodalLoad {
         node_id: mid_node,
         fx: 0.0,
-        fy: p2,
-        mz: 0.0,
+        fz: p2,
+        my: 0.0,
     })];
     let input2 = make_beam(n, l, E, A, IZ, "pinned", Some("rollerX"), loads2);
     let results2 = linear::solve_2d(&input2).unwrap();
@@ -409,7 +409,7 @@ fn validation_strain_energy_proportional_to_load_squared() {
         .iter()
         .find(|d| d.node_id == mid_node)
         .unwrap()
-        .uy;
+        .uz;
     let u2 = 0.5 * p2.abs() * delta2.abs();
 
     // U2 / U1 should be (P2/P1)^2 = 4
@@ -467,7 +467,7 @@ fn validation_conservation_portal_frame() {
 
     // External work: W = 0.5 * sum(F_i * u_i)
     // Node 2 has fx=10, fy=-20; node 3 has fy=-20
-    let w_ext = 0.5 * (lateral * d2.ux + gravity * d2.uy + gravity * d3.uy);
+    let w_ext = 0.5 * (lateral * d2.ux + gravity * d2.uz + gravity * d3.uz);
 
     // Must be positive (forces do positive work)
     assert!(
@@ -475,8 +475,8 @@ fn validation_conservation_portal_frame() {
         "external work W_ext = {} must be positive (ux2={}, uy2={}, uy3={})",
         w_ext,
         d2.ux,
-        d2.uy,
-        d3.uy
+        d2.uz,
+        d3.uz
     );
 
     // Cross-check: W_ext should be consistent with the strain energy.
@@ -488,17 +488,17 @@ fn validation_conservation_portal_frame() {
     );
     // And vertical displacements at nodes 2 and 3 should be negative (downward, same as gravity)
     assert!(
-        d2.uy < 0.0,
+        d2.uz < 0.0,
         "vertical displacement at node 2 should be downward"
     );
     assert!(
-        d3.uy < 0.0,
+        d3.uz < 0.0,
         "vertical displacement at node 3 should be downward"
     );
 
     // Verify the individual work terms are each positive
     let w_lateral = 0.5 * lateral * d2.ux;
-    let w_gravity = 0.5 * gravity * (d2.uy + d3.uy);
+    let w_gravity = 0.5 * gravity * (d2.uz + d3.uz);
     assert!(w_lateral > 0.0, "lateral work component must be positive");
     assert!(w_gravity > 0.0, "gravity work component must be positive");
 }

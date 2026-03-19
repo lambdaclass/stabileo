@@ -90,7 +90,7 @@ fn validation_shell_ext_cylindrical_membrane() {
     let results = linear::solve_2d(&input).unwrap();
 
     // Reaction should be p*L/2 per unit width
-    let total_ry: f64 = results.reactions.iter().map(|r| r.ry).sum();
+    let total_ry: f64 = results.reactions.iter().map(|r| r.rz).sum();
     let expected_reaction: f64 = q_equiv.abs() * l;
     assert_close(total_ry, expected_reaction, 0.02, "Solver: total reaction = p*L");
 }
@@ -164,7 +164,7 @@ fn validation_shell_ext_spherical_membrane() {
     let results = linear::solve_2d(&input).unwrap();
 
     // Verify equilibrium: sum of vertical reactions = total applied load
-    let total_ry: f64 = results.reactions.iter().map(|r| r.ry).sum();
+    let total_ry: f64 = results.reactions.iter().map(|r| r.rz).sum();
     let expected_total: f64 = p_load.abs() * l;
     assert_close(total_ry, expected_total, 0.02, "Solver: equilibrium check");
 }
@@ -251,7 +251,7 @@ fn validation_shell_ext_bending_cylindrical() {
 
     let input = make_beam(n_elem, beam_l, e_solver, a_sec, iz_sec, "fixed", None,
         vec![SolverLoad::Nodal(SolverNodalLoad {
-            node_id: n_elem + 1, fx: 0.0, fy: tip_load, mz: 0.0,
+            node_id: n_elem + 1, fx: 0.0, fz: tip_load, my: 0.0,
         })]);
     let results = linear::solve_2d(&input).unwrap();
 
@@ -259,12 +259,12 @@ fn validation_shell_ext_bending_cylindrical() {
     let reaction = &results.reactions[0];
     let e_eff: f64 = e_solver * 1000.0;
     let expected_moment: f64 = tip_load.abs() * beam_l;
-    assert_close(reaction.mz.abs(), expected_moment, 0.03, "Solver: fixed-end moment = P*L");
+    assert_close(reaction.my.abs(), expected_moment, 0.03, "Solver: fixed-end moment = P*L");
 
     // Tip deflection = PL^3/(3EI)
     let tip_disp = results.displacements.iter().find(|d| d.node_id == n_elem + 1).unwrap();
     let delta_exact: f64 = tip_load.abs() * beam_l.powi(3) / (3.0 * e_eff * iz_sec);
-    assert_close(tip_disp.uy.abs(), delta_exact, 0.03, "Solver: cantilever tip deflection");
+    assert_close(tip_disp.uz.abs(), delta_exact, 0.03, "Solver: cantilever tip deflection");
 
     let _x_3beta = x_3beta;
 }
@@ -358,7 +358,7 @@ fn validation_shell_ext_conical_membrane_selfweight() {
     let input = make_ss_beam_udl(n_elem, l_horiz, e_solver, a_sec, iz_sec, q_vert);
     let results = linear::solve_2d(&input).unwrap();
 
-    let total_ry: f64 = results.reactions.iter().map(|r| r.ry).sum();
+    let total_ry: f64 = results.reactions.iter().map(|r| r.rz).sum();
     let expected_ry: f64 = q_vert.abs() * l_horiz;
     assert_close(total_ry, expected_ry, 0.02, "Solver: equilibrium for cone strip");
 }
@@ -443,7 +443,7 @@ fn validation_shell_ext_buckling_external_pressure() {
     let delta_exact: f64 = 5.0 * q_lat.abs() * l.powi(4) / (384.0 * e_eff * iz_sec);
     let mid_node = n_elem / 2 + 1;
     let mid_disp = results.displacements.iter().find(|d| d.node_id == mid_node).unwrap();
-    assert_close(mid_disp.uy.abs(), delta_exact, 0.05, "Solver: SS beam midspan deflection");
+    assert_close(mid_disp.uz.abs(), delta_exact, 0.05, "Solver: SS beam midspan deflection");
 }
 
 // ================================================================
@@ -529,7 +529,7 @@ fn validation_shell_ext_ring_stiffener_design() {
     let input = make_ss_beam_udl(n_elem, beam_l, e_solver, a_sec, iz_sec, -1.0);
     let results = linear::solve_2d(&input).unwrap();
 
-    let total_ry: f64 = results.reactions.iter().map(|r| r.ry).sum();
+    let total_ry: f64 = results.reactions.iter().map(|r| r.rz).sum();
     assert_close(total_ry, 1.0 * beam_l, 0.02, "Solver: stiffener beam equilibrium");
 }
 
@@ -641,7 +641,7 @@ fn validation_shell_ext_wind_loading_cylinder() {
     let input = make_ss_beam_udl(n_elem, strip_l, e_solver, a_sec, iz_sec, q_wind);
     let results = linear::solve_2d(&input).unwrap();
 
-    let total_ry: f64 = results.reactions.iter().map(|r| r.ry).sum();
+    let total_ry: f64 = results.reactions.iter().map(|r| r.rz).sum();
     let expected_ry: f64 = q_wind.abs() * strip_l;
     assert_close(total_ry, expected_ry, 0.02, "Solver: wind strip equilibrium");
 }
@@ -744,12 +744,12 @@ fn validation_shell_ext_dome_selfweight() {
     let results = linear::solve_2d(&input).unwrap();
 
     // Total vertical reaction should equal w * span
-    let total_ry: f64 = results.reactions.iter().map(|r| r.ry).sum();
+    let total_ry: f64 = results.reactions.iter().map(|r| r.rz).sum();
     let expected_ry: f64 = w * arch_span;
     assert_close(total_ry, expected_ry, 0.02, "Solver: dome arch strip equilibrium");
 
     // Midspan deflection should exist (non-zero)
     let mid_node = n_elem / 2 + 1;
     let mid_disp = results.displacements.iter().find(|d| d.node_id == mid_node).unwrap();
-    assert!(mid_disp.uy.abs() > 0.0, "Solver: dome strip deflects under self-weight");
+    assert!(mid_disp.uz.abs() > 0.0, "Solver: dome strip deflects under self-weight");
 }

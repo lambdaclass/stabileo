@@ -93,9 +93,9 @@ fn validation_dynamic_impulse_response() {
     for i in 0..n_steps {
         let t = i as f64 * dt;
         let loads = if i < impulse_steps {
-            vec![SolverNodalLoad { node_id: tip, fx: 0.0, fy: -f0, mz: 0.0 }]
+            vec![SolverNodalLoad { node_id: tip, fx: 0.0, fz: -f0, my: 0.0 }]
         } else {
-            vec![SolverNodalLoad { node_id: tip, fx: 0.0, fy: 0.0, mz: 0.0 }]
+            vec![SolverNodalLoad { node_id: tip, fx: 0.0, fz: 0.0, my: 0.0 }]
         };
         force_history.push(TimeForceRecord { time: t, loads });
     }
@@ -107,7 +107,7 @@ fn validation_dynamic_impulse_response() {
     // Find peak response
     let tip_hist = result.node_histories.iter()
         .find(|h| h.node_id == tip).unwrap();
-    let peak_uy = tip_hist.uy.iter().fold(0.0_f64, |a, &b| a.max(b.abs()));
+    let peak_uy = tip_hist.uz.iter().fold(0.0_f64, |a, &b| a.max(b.abs()));
 
     // The system should oscillate (peak > 0)
     assert!(peak_uy > 1e-8,
@@ -116,8 +116,8 @@ fn validation_dynamic_impulse_response() {
     // Check oscillation period matches natural frequency
     // Count zero crossings in uy after impulse
     let mut crossings = 0;
-    for i in (impulse_steps + 10)..tip_hist.uy.len() - 1 {
-        if tip_hist.uy[i] * tip_hist.uy[i + 1] < 0.0 {
+    for i in (impulse_steps + 10)..tip_hist.uz.len() - 1 {
+        if tip_hist.uz[i] * tip_hist.uz[i + 1] < 0.0 {
             crossings += 1;
         }
     }
@@ -158,7 +158,7 @@ fn validation_dynamic_resonance_growth() {
         let f = f0 * (omega1 * t).sin();
         force_history.push(TimeForceRecord {
             time: t,
-            loads: vec![SolverNodalLoad { node_id: tip, fx: 0.0, fy: f, mz: 0.0 }] });
+            loads: vec![SolverNodalLoad { node_id: tip, fx: 0.0, fz: f, my: 0.0 }] });
     }
 
     let input = make_time_input(solver, dt, n_steps, "newmark", 0.0,
@@ -169,9 +169,9 @@ fn validation_dynamic_resonance_growth() {
         .find(|h| h.node_id == tip).unwrap();
 
     // Compare first-half vs second-half peak amplitudes
-    let half = tip_hist.uy.len() / 2;
-    let peak_first = tip_hist.uy[..half].iter().fold(0.0_f64, |a, &b| a.max(b.abs()));
-    let peak_second = tip_hist.uy[half..].iter().fold(0.0_f64, |a, &b| a.max(b.abs()));
+    let half = tip_hist.uz.len() / 2;
+    let peak_first = tip_hist.uz[..half].iter().fold(0.0_f64, |a, &b| a.max(b.abs()));
+    let peak_second = tip_hist.uz[half..].iter().fold(0.0_f64, |a, &b| a.max(b.abs()));
 
     assert!(peak_second > peak_first * 1.2,
         "Resonance should grow: first_half_peak={:.6e}, second_half_peak={:.6e}",
@@ -208,7 +208,7 @@ fn validation_dynamic_newmark_unconditional_stability() {
         let f = if i < 3 { f0 } else { 0.0 };
         force_history.push(TimeForceRecord {
             time: t,
-            loads: vec![SolverNodalLoad { node_id: tip, fx: 0.0, fy: -f, mz: 0.0 }] });
+            loads: vec![SolverNodalLoad { node_id: tip, fx: 0.0, fz: -f, my: 0.0 }] });
     }
 
     let input = make_time_input(solver, dt, n_steps, "newmark", 0.02,
@@ -219,7 +219,7 @@ fn validation_dynamic_newmark_unconditional_stability() {
         .find(|h| h.node_id == tip).unwrap();
 
     // Response should be bounded (not blow up)
-    let peak = tip_hist.uy.iter().fold(0.0_f64, |a, &b| a.max(b.abs()));
+    let peak = tip_hist.uz.iter().fold(0.0_f64, |a, &b| a.max(b.abs()));
     assert!(peak < 1.0,
         "Large Δt should be stable: peak_uy={:.6e}", peak);
     assert!(peak > 1e-12,
@@ -258,13 +258,13 @@ fn validation_dynamic_daf_frequency_ratio() {
             let f = f0 * (omega_force * t).sin();
             fh.push(TimeForceRecord {
                 time: t,
-                loads: vec![SolverNodalLoad { node_id: tip, fx: 0.0, fy: f, mz: 0.0 }] });
+                loads: vec![SolverNodalLoad { node_id: tip, fx: 0.0, fz: f, my: 0.0 }] });
         }
         let input = make_time_input(solver.clone(), dt, n_steps, "newmark", 0.0,
             Some(fh), None);
         let res = time_integration::solve_time_history_2d(&input).unwrap();
         let hist = res.node_histories.iter().find(|h| h.node_id == tip).unwrap();
-        hist.uy.iter().fold(0.0_f64, |a, &b| a.max(b.abs()))
+        hist.uz.iter().fold(0.0_f64, |a, &b| a.max(b.abs()))
     };
 
     // Response at resonance (ω = ωn)
@@ -329,7 +329,7 @@ fn validation_dynamic_ground_motion_base_shear() {
     let tip_hist = result.node_histories.iter()
         .find(|h| h.node_id == n + 1).unwrap();
     let peak_ux = tip_hist.ux.iter().fold(0.0_f64, |a, &b| a.max(b.abs()));
-    let peak_uy = tip_hist.uy.iter().fold(0.0_f64, |a, &b| a.max(b.abs()));
+    let peak_uy = tip_hist.uz.iter().fold(0.0_f64, |a, &b| a.max(b.abs()));
     let peak = peak_ux.max(peak_uy);
     assert!(peak > 1e-10,
         "Ground motion should produce response, peak_ux={:.6e}, peak_uy={:.6e}",
@@ -366,7 +366,7 @@ fn validation_dynamic_hht_dissipation() {
             let f = if i < 2 { f0 } else { 0.0 };
             fh.push(TimeForceRecord {
                 time: t,
-                loads: vec![SolverNodalLoad { node_id: tip, fx: 0.0, fy: -f, mz: 0.0 }] });
+                loads: vec![SolverNodalLoad { node_id: tip, fx: 0.0, fz: -f, my: 0.0 }] });
         }
         fh
     };
@@ -386,8 +386,8 @@ fn validation_dynamic_hht_dissipation() {
 
     // Compare late-time oscillation amplitude
     let late_start = n_steps * 3 / 4;
-    let peak_nm = hist_nm.uy[late_start..].iter().fold(0.0_f64, |a, &b| a.max(b.abs()));
-    let peak_hht = hist_hht.uy[late_start..].iter().fold(0.0_f64, |a, &b| a.max(b.abs()));
+    let peak_nm = hist_nm.uz[late_start..].iter().fold(0.0_f64, |a, &b| a.max(b.abs()));
+    let peak_hht = hist_hht.uz[late_start..].iter().fold(0.0_f64, |a, &b| a.max(b.abs()));
 
     // HHT should have smaller (or equal) late-time amplitude due to dissipation
     assert!(peak_hht <= peak_nm * 1.1,
@@ -425,7 +425,7 @@ fn validation_dynamic_energy_conservation_free() {
         let f = if i == 0 { f0 } else { 0.0 };
         force_history.push(TimeForceRecord {
             time: t,
-            loads: vec![SolverNodalLoad { node_id: tip, fx: 0.0, fy: -f, mz: 0.0 }] });
+            loads: vec![SolverNodalLoad { node_id: tip, fx: 0.0, fz: -f, my: 0.0 }] });
     }
 
     let input = make_time_input(solver, dt, n_steps, "newmark", 0.0,
@@ -435,11 +435,11 @@ fn validation_dynamic_energy_conservation_free() {
     let hist = result.node_histories.iter().find(|h| h.node_id == tip).unwrap();
 
     // Compare peak amplitude in first quarter vs last quarter
-    let q1_end = hist.uy.len() / 4;
-    let q4_start = hist.uy.len() * 3 / 4;
+    let q1_end = hist.uz.len() / 4;
+    let q4_start = hist.uz.len() * 3 / 4;
 
-    let peak_q1 = hist.uy[10..q1_end].iter().fold(0.0_f64, |a, &b| a.max(b.abs()));
-    let peak_q4 = hist.uy[q4_start..].iter().fold(0.0_f64, |a, &b| a.max(b.abs()));
+    let peak_q1 = hist.uz[10..q1_end].iter().fold(0.0_f64, |a, &b| a.max(b.abs()));
+    let peak_q4 = hist.uz[q4_start..].iter().fold(0.0_f64, |a, &b| a.max(b.abs()));
 
     // Undamped: peak should remain nearly constant (within 15%)
     // Some numerical dissipation is expected from Newmark time integration
@@ -480,7 +480,7 @@ fn validation_dynamic_step_load_daf() {
         let t = i as f64 * dt;
         force_history.push(TimeForceRecord {
             time: t,
-            loads: vec![SolverNodalLoad { node_id: tip, fx: 0.0, fy: -f0, mz: 0.0 }] });
+            loads: vec![SolverNodalLoad { node_id: tip, fx: 0.0, fz: -f0, my: 0.0 }] });
     }
 
     let input = make_time_input(solver.clone(), dt, n_steps, "newmark", 0.0,
@@ -490,14 +490,14 @@ fn validation_dynamic_step_load_daf() {
     // Static deflection
     let static_input = make_beam(n, l, E, A, IZ, "fixed", None,
         vec![SolverLoad::Nodal(SolverNodalLoad {
-            node_id: tip, fx: 0.0, fy: -f0, mz: 0.0,
+            node_id: tip, fx: 0.0, fz: -f0, my: 0.0,
         })]);
     let static_res = dedaliano_engine::solver::linear::solve_2d(&static_input).unwrap();
     let u_static = static_res.displacements.iter()
-        .find(|d| d.node_id == tip).unwrap().uy.abs();
+        .find(|d| d.node_id == tip).unwrap().uz.abs();
 
     let hist = result.node_histories.iter().find(|h| h.node_id == tip).unwrap();
-    let peak = hist.uy.iter().fold(0.0_f64, |a, &b| a.max(b.abs()));
+    let peak = hist.uz.iter().fold(0.0_f64, |a, &b| a.max(b.abs()));
 
     let daf = peak / u_static;
 

@@ -70,7 +70,7 @@ fn glass_fin_beam_deflection_serviceability() {
     // Find midspan deflection
     let mid_node = n / 2 + 1;
     let mid_d = results.displacements.iter().find(|dd| dd.node_id == mid_node).unwrap();
-    let delta_solver: f64 = mid_d.uy.abs();
+    let delta_solver: f64 = mid_d.uz.abs();
 
     // Verify solver matches analytical
     assert_close(delta_solver, delta_exact, 0.05, "glass fin midspan deflection");
@@ -155,8 +155,8 @@ fn laminated_glass_effective_thickness_wolfel_bennison() {
     let results_b = linear::solve_2d(&input_b).expect("solve B");
 
     let mid = n / 2 + 1;
-    let delta_a: f64 = results_a.displacements.iter().find(|dd| dd.node_id == mid).unwrap().uy.abs();
-    let delta_b: f64 = results_b.displacements.iter().find(|dd| dd.node_id == mid).unwrap().uy.abs();
+    let delta_a: f64 = results_a.displacements.iter().find(|dd| dd.node_id == mid).unwrap().uz.abs();
+    let delta_b: f64 = results_b.displacements.iter().find(|dd| dd.node_id == mid).unwrap().uz.abs();
 
     // Deflection ratio should match (h_ef_1 / h_ef_0)^3
     let stiffness_ratio_expected: f64 = (h_ef_1 / h_ef_0).powi(3);
@@ -200,11 +200,11 @@ fn glass_column_euler_buckling_check() {
     let mid_node = n / 2 + 1;
     let input_no_axial = make_beam(n, h, E_GLASS, a, iz, "pinned", Some("rollerX"),
         vec![SolverLoad::Nodal(SolverNodalLoad {
-            node_id: mid_node, fx: 0.0, fy: -p_lateral, mz: 0.0,
+            node_id: mid_node, fx: 0.0, fz: -p_lateral, my: 0.0,
         })]);
     let results_no_axial = linear::solve_2d(&input_no_axial).expect("solve no axial");
     let delta_no_axial: f64 = results_no_axial.displacements.iter()
-        .find(|dd| dd.node_id == mid_node).unwrap().uy.abs();
+        .find(|dd| dd.node_id == mid_node).unwrap().uz.abs();
 
     // Euler critical load is a material/geometry property, verify it's reasonable
     // For 19mm glass fin: Pcr should be fairly small due to slenderness
@@ -268,9 +268,9 @@ fn glass_post_breakage_reduced_section() {
 
     let mid = n / 2 + 1;
     let delta_intact: f64 = results_intact.displacements.iter()
-        .find(|dd| dd.node_id == mid).unwrap().uy.abs();
+        .find(|dd| dd.node_id == mid).unwrap().uz.abs();
     let delta_damaged: f64 = results_damaged.displacements.iter()
-        .find(|dd| dd.node_id == mid).unwrap().uy.abs();
+        .find(|dd| dd.node_id == mid).unwrap().uz.abs();
 
     // Deflection ratio: delta_damaged / delta_intact = Iz_intact / Iz_damaged = 3/2
     let ratio_expected: f64 = 3.0 / 2.0;
@@ -320,13 +320,13 @@ fn glass_balustrade_cantilever_deflection() {
     let tip_node = n + 1;
     let input = make_beam(n, h, E_GLASS, a, iz, "fixed", None,
         vec![SolverLoad::Nodal(SolverNodalLoad {
-            node_id: tip_node, fx: 0.0, fy: -p_total, mz: 0.0,
+            node_id: tip_node, fx: 0.0, fz: -p_total, my: 0.0,
         })]);
 
     let results = linear::solve_2d(&input).expect("solve");
 
     let tip_d = results.displacements.iter().find(|dd| dd.node_id == tip_node).unwrap();
-    let delta_solver: f64 = tip_d.uy.abs();
+    let delta_solver: f64 = tip_d.uz.abs();
 
     // Analytical cantilever tip deflection: delta = P*L^3 / (3*E*Iz)
     let delta_exact: f64 = p_total * h.powi(3) / (3.0 * e_eff * iz);
@@ -429,7 +429,7 @@ fn glass_facade_wind_load_beam_strip() {
 
     let mid = n / 2 + 1;
     let delta_solver: f64 = results.displacements.iter()
-        .find(|dd| dd.node_id == mid).unwrap().uy.abs();
+        .find(|dd| dd.node_id == mid).unwrap().uz.abs();
 
     // Analytical: delta = 5*q*L^4 / (384*E*Iz)
     let delta_exact: f64 = 5.0 * q.abs() * span.powi(4) / (384.0 * e_eff * iz);
@@ -443,7 +443,7 @@ fn glass_facade_wind_load_beam_strip() {
 
     // Verify reactions sum to total load
     let total_load: f64 = q.abs() * span;
-    let sum_ry: f64 = results.reactions.iter().map(|r| r.ry).sum::<f64>();
+    let sum_ry: f64 = results.reactions.iter().map(|r| r.rz).sum::<f64>();
     assert_close(sum_ry, total_load, 0.01, "wind facade equilibrium");
 }
 
@@ -497,8 +497,8 @@ fn glass_beam_aspect_ratio_stiffness() {
     let results_b = linear::solve_2d(&input_b).expect("solve B");
 
     let mid = n / 2 + 1;
-    let delta_a: f64 = results_a.displacements.iter().find(|dd| dd.node_id == mid).unwrap().uy.abs();
-    let delta_b: f64 = results_b.displacements.iter().find(|dd| dd.node_id == mid).unwrap().uy.abs();
+    let delta_a: f64 = results_a.displacements.iter().find(|dd| dd.node_id == mid).unwrap().uz.abs();
+    let delta_b: f64 = results_b.displacements.iter().find(|dd| dd.node_id == mid).unwrap().uz.abs();
 
     // When UDL is proportional to width, deflection is the same (load/stiffness ratio is constant)
     // delta = 5*q*L^4 / (384*E*Iz) and q = q_per_m * w, Iz = w * t^3/12
@@ -527,8 +527,8 @@ fn glass_beam_aspect_ratio_stiffness() {
     let results_a2 = linear::solve_2d(&input_a2).expect("solve A2");
     let results_b2 = linear::solve_2d(&input_b2).expect("solve B2");
 
-    let delta_a2: f64 = results_a2.displacements.iter().find(|dd| dd.node_id == mid).unwrap().uy.abs();
-    let delta_b2: f64 = results_b2.displacements.iter().find(|dd| dd.node_id == mid).unwrap().uy.abs();
+    let delta_a2: f64 = results_a2.displacements.iter().find(|dd| dd.node_id == mid).unwrap().uz.abs();
+    let delta_b2: f64 = results_b2.displacements.iter().find(|dd| dd.node_id == mid).unwrap().uz.abs();
 
     // Wider beam (A) should deflect less: ratio = w_b / w_a = 0.5
     let ratio_expected: f64 = w_b / w_a; // 0.5

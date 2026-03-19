@@ -45,8 +45,8 @@ fn validation_ext_we_cantilever_tip_load() {
     let loads = vec![SolverLoad::Nodal(SolverNodalLoad {
         node_id: n + 1,
         fx: 0.0,
-        fy: p,
-        mz: 0.0,
+        fz: p,
+        my: 0.0,
     })];
 
     let input = make_beam(n, l, E, A, IZ, "fixed", None, loads);
@@ -60,10 +60,10 @@ fn validation_ext_we_cantilever_tip_load() {
 
     // Analytical deflection
     let delta_analytical: f64 = p * l.powi(3) / (3.0 * EI);
-    assert_close(tip.uy, delta_analytical, 1e-4, "cantilever tip deflection");
+    assert_close(tip.uz, delta_analytical, 1e-4, "cantilever tip deflection");
 
     // External work from FEM
-    let w_fem: f64 = 0.5 * p.abs() * tip.uy.abs();
+    let w_fem: f64 = 0.5 * p.abs() * tip.uz.abs();
 
     // Analytical strain energy: U = P²L³/(6EI)
     let w_analytical: f64 = p.powi(2) * l.powi(3) / (6.0 * EI);
@@ -93,8 +93,8 @@ fn validation_ext_we_ss_beam_midspan_point_load() {
     let loads = vec![SolverLoad::Nodal(SolverNodalLoad {
         node_id: mid_node,
         fx: 0.0,
-        fy: p,
-        mz: 0.0,
+        fz: p,
+        my: 0.0,
     })];
 
     let input = make_beam(n, l, E, A, IZ, "pinned", Some("rollerX"), loads);
@@ -108,10 +108,10 @@ fn validation_ext_we_ss_beam_midspan_point_load() {
 
     // Analytical midspan deflection: delta = PL³/(48EI)
     let delta_analytical: f64 = p * l.powi(3) / (48.0 * EI);
-    assert_close(mid.uy, delta_analytical, 1e-3, "SS midspan deflection");
+    assert_close(mid.uz, delta_analytical, 1e-3, "SS midspan deflection");
 
     // External work from FEM: W = 0.5 * |P| * |delta|
-    let w_fem: f64 = 0.5 * p.abs() * mid.uy.abs();
+    let w_fem: f64 = 0.5 * p.abs() * mid.uz.abs();
 
     // Analytical: W = P²L³/(96EI)
     let w_analytical: f64 = p.powi(2) * l.powi(3) / (96.0 * EI);
@@ -120,7 +120,7 @@ fn validation_ext_we_ss_beam_midspan_point_load() {
 
     // Sanity: work and deflection both positive/downward
     assert!(w_fem > 0.0, "work must be positive");
-    assert!(mid.uy < 0.0, "deflection should be downward");
+    assert!(mid.uz < 0.0, "deflection should be downward");
 }
 
 // ================================================================
@@ -159,7 +159,7 @@ fn validation_ext_we_ss_beam_udl_integral() {
             .iter()
             .find(|d| d.node_id == i)
             .unwrap()
-            .uy;
+            .uz;
         let weight = if i == 1 || i == n + 1 { 0.5 } else { 1.0 };
         integral_delta += weight * uy.abs() * dx;
     }
@@ -197,8 +197,8 @@ fn validation_ext_we_cantilever_tip_moment() {
     let loads = vec![SolverLoad::Nodal(SolverNodalLoad {
         node_id: n + 1,
         fx: 0.0,
-        fy: 0.0,
-        mz: m,
+        fz: 0.0,
+        my: m,
     })];
 
     let input = make_beam(n, l, E, A, IZ, "fixed", None, loads);
@@ -212,10 +212,10 @@ fn validation_ext_we_cantilever_tip_moment() {
 
     // Analytical rotation: theta = ML/(EI)
     let theta_analytical: f64 = m * l / EI;
-    assert_close(tip.rz, theta_analytical, 1e-4, "cantilever tip rotation");
+    assert_close(tip.ry, theta_analytical, 1e-4, "cantilever tip rotation");
 
     // External work from FEM: W = 0.5 * M * theta
-    let w_fem: f64 = 0.5 * m * tip.rz.abs();
+    let w_fem: f64 = 0.5 * m * tip.ry.abs();
 
     // Analytical: W = M²L/(2EI)
     let w_analytical: f64 = m.powi(2) * l / (2.0 * EI);
@@ -228,7 +228,7 @@ fn validation_ext_we_cantilever_tip_moment() {
     // Also verify the tip vertical displacement: delta = ML²/(2EI)
     let delta_analytical: f64 = m * l.powi(2) / (2.0 * EI);
     assert_close(
-        tip.uy.abs(),
+        tip.uz.abs(),
         delta_analytical.abs(),
         1e-4,
         "cantilever tip displacement under moment",
@@ -256,8 +256,8 @@ fn validation_ext_we_fixed_fixed_vs_ss_stiffness() {
     let loads_ff = vec![SolverLoad::Nodal(SolverNodalLoad {
         node_id: mid_node,
         fx: 0.0,
-        fy: p,
-        mz: 0.0,
+        fz: p,
+        my: 0.0,
     })];
     let input_ff = make_beam(n, l, E, A, IZ, "fixed", Some("fixed"), loads_ff);
     let results_ff = linear::solve_2d(&input_ff).unwrap();
@@ -268,12 +268,12 @@ fn validation_ext_we_fixed_fixed_vs_ss_stiffness() {
         .find(|d| d.node_id == mid_node)
         .unwrap();
 
-    let w_ff: f64 = 0.5 * p.abs() * mid_ff.uy.abs();
+    let w_ff: f64 = 0.5 * p.abs() * mid_ff.uz.abs();
 
     // Analytical: delta_ff = PL³/(192EI), W_ff = P²L³/(384EI)
     let delta_ff_analytical: f64 = p * l.powi(3) / (192.0 * EI);
     assert_close(
-        mid_ff.uy,
+        mid_ff.uz,
         delta_ff_analytical,
         1e-3,
         "fixed-fixed midspan deflection",
@@ -286,8 +286,8 @@ fn validation_ext_we_fixed_fixed_vs_ss_stiffness() {
     let loads_ss = vec![SolverLoad::Nodal(SolverNodalLoad {
         node_id: mid_node,
         fx: 0.0,
-        fy: p,
-        mz: 0.0,
+        fz: p,
+        my: 0.0,
     })];
     let input_ss = make_beam(n, l, E, A, IZ, "pinned", Some("rollerX"), loads_ss);
     let results_ss = linear::solve_2d(&input_ss).unwrap();
@@ -298,7 +298,7 @@ fn validation_ext_we_fixed_fixed_vs_ss_stiffness() {
         .find(|d| d.node_id == mid_node)
         .unwrap();
 
-    let w_ss: f64 = 0.5 * p.abs() * mid_ss.uy.abs();
+    let w_ss: f64 = 0.5 * p.abs() * mid_ss.uz.abs();
 
     // Fixed-fixed must be stiffer: W_ff < W_ss
     assert!(
@@ -378,11 +378,11 @@ fn validation_ext_we_portal_frame_lateral_sway() {
 
     // Support displacements should be zero (fixed supports)
     assert!(
-        d1.ux.abs() < 1e-10 && d1.uy.abs() < 1e-10,
+        d1.ux.abs() < 1e-10 && d1.uz.abs() < 1e-10,
         "fixed support node 1 should have zero displacement",
     );
     assert!(
-        d4.ux.abs() < 1e-10 && d4.uy.abs() < 1e-10,
+        d4.ux.abs() < 1e-10 && d4.uz.abs() < 1e-10,
         "fixed support node 4 should have zero displacement",
     );
 }
@@ -408,8 +408,8 @@ fn validation_ext_we_propped_cantilever_midspan() {
     let loads = vec![SolverLoad::Nodal(SolverNodalLoad {
         node_id: mid_node,
         fx: 0.0,
-        fy: p,
-        mz: 0.0,
+        fz: p,
+        my: 0.0,
     })];
 
     let input = make_beam(n, l, E, A, IZ, "fixed", Some("rollerX"), loads);
@@ -425,14 +425,14 @@ fn validation_ext_we_propped_cantilever_midspan() {
     // P is negative (downward), so delta is negative
     let delta_analytical: f64 = 7.0 * p * l.powi(3) / (768.0 * EI);
     assert_close(
-        mid.uy,
+        mid.uz,
         delta_analytical,
         0.02,
         "propped cantilever midspan deflection = 7PL³/(768EI)",
     );
 
     // External work from FEM
-    let w_fem: f64 = 0.5 * p.abs() * mid.uy.abs();
+    let w_fem: f64 = 0.5 * p.abs() * mid.uz.abs();
 
     // Analytical work: W = 0.5 * |P| * |7PL³/(768EI)|
     let w_analytical: f64 = 0.5 * p.abs() * (7.0 * p.abs() * l.powi(3) / (768.0 * EI));
@@ -450,9 +450,9 @@ fn validation_ext_we_propped_cantilever_midspan() {
     // Compare to SS beam with same load: propped cantilever is stiffer
     let delta_ss: f64 = p * l.powi(3) / (48.0 * EI);
     assert!(
-        mid.uy.abs() < delta_ss.abs(),
+        mid.uz.abs() < delta_ss.abs(),
         "propped cantilever deflection ({:.6e}) < SS deflection ({:.6e})",
-        mid.uy.abs(),
+        mid.uz.abs(),
         delta_ss.abs(),
     );
 }
@@ -488,14 +488,14 @@ fn validation_ext_we_two_forces_superposition() {
         SolverLoad::Nodal(SolverNodalLoad {
             node_id: node_a,
             fx: 0.0,
-            fy: p1,
-            mz: 0.0,
+            fz: p1,
+            my: 0.0,
         }),
         SolverLoad::Nodal(SolverNodalLoad {
             node_id: node_b,
             fx: 0.0,
-            fy: p2,
-            mz: 0.0,
+            fz: p2,
+            my: 0.0,
         }),
     ];
     let input_combined = make_beam(n, l, E, A, IZ, "pinned", Some("rollerX"), loads_combined);
@@ -506,13 +506,13 @@ fn validation_ext_we_two_forces_superposition() {
         .iter()
         .find(|d| d.node_id == node_a)
         .unwrap()
-        .uy;
+        .uz;
     let d_b_combined = results_combined
         .displacements
         .iter()
         .find(|d| d.node_id == node_b)
         .unwrap()
-        .uy;
+        .uz;
 
     // Total external work: W = 0.5 * (P1*d1 + P2*d2)
     // Note: P and d have same sign (both negative), so P*d is positive
@@ -532,8 +532,8 @@ fn validation_ext_we_two_forces_superposition() {
     let loads_1 = vec![SolverLoad::Nodal(SolverNodalLoad {
         node_id: node_a,
         fx: 0.0,
-        fy: p1,
-        mz: 0.0,
+        fz: p1,
+        my: 0.0,
     })];
     let input_1 = make_beam(n, l, E, A, IZ, "pinned", Some("rollerX"), loads_1);
     let results_1 = linear::solve_2d(&input_1).unwrap();
@@ -543,20 +543,20 @@ fn validation_ext_we_two_forces_superposition() {
         .iter()
         .find(|d| d.node_id == node_a)
         .unwrap()
-        .uy;
+        .uz;
     let d_b_case1 = results_1
         .displacements
         .iter()
         .find(|d| d.node_id == node_b)
         .unwrap()
-        .uy;
+        .uz;
 
     // Case 2: only P2 at node_b
     let loads_2 = vec![SolverLoad::Nodal(SolverNodalLoad {
         node_id: node_b,
         fx: 0.0,
-        fy: p2,
-        mz: 0.0,
+        fz: p2,
+        my: 0.0,
     })];
     let input_2 = make_beam(n, l, E, A, IZ, "pinned", Some("rollerX"), loads_2);
     let results_2 = linear::solve_2d(&input_2).unwrap();
@@ -566,13 +566,13 @@ fn validation_ext_we_two_forces_superposition() {
         .iter()
         .find(|d| d.node_id == node_a)
         .unwrap()
-        .uy;
+        .uz;
     let d_b_case2 = results_2
         .displacements
         .iter()
         .find(|d| d.node_id == node_b)
         .unwrap()
-        .uy;
+        .uz;
 
     // Superposition: displacements under combined loading should equal
     // sum of individual displacements

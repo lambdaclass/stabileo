@@ -60,8 +60,8 @@ fn railway_lm71_axle_loading_ss_bridge() {
         loads.push(SolverLoad::Nodal(SolverNodalLoad {
             node_id: nid,
             fx: 0.0,
-            fy: -p,
-            mz: 0.0,
+            fz: -p,
+            my: 0.0,
         }));
     }
 
@@ -69,14 +69,14 @@ fn railway_lm71_axle_loading_ss_bridge() {
     let results = solve_2d(&input).unwrap();
 
     // Check global equilibrium: sum Ry = 4 * 250 = 1000 kN
-    let sum_ry: f64 = results.reactions.iter().map(|r| r.ry).sum();
+    let sum_ry: f64 = results.reactions.iter().map(|r| r.rz).sum();
     let total_load: f64 = 4.0 * p;
     assert_close(sum_ry, total_load, 0.02, "LM71 equilibrium sum Ry");
 
     // Check symmetry of reactions (loads approximately symmetric)
     let r_left = results.reactions.iter().find(|r| r.node_id == 1).unwrap();
     let r_right = results.reactions.iter().find(|r| r.node_id == n + 1).unwrap();
-    assert_close(r_left.ry, r_right.ry, 0.05, "LM71 reaction symmetry");
+    assert_close(r_left.rz, r_right.rz, 0.05, "LM71 reaction symmetry");
 
     // Midspan moment: from statics with loads at nodes 9,10,12,13 on 20m span
     // R_left = (P*12 + P*11 + P*9 + P*8) / 20 = 250*40/20 = 500 kN
@@ -147,9 +147,9 @@ fn railway_dynamic_amplification_factor() {
 
     let mid = n / 2 + 1;
     let delta_static = res_static.displacements.iter()
-        .find(|d| d.node_id == mid).unwrap().uy.abs();
+        .find(|d| d.node_id == mid).unwrap().uz.abs();
     let delta_dyn = res_dyn.displacements.iter()
-        .find(|d| d.node_id == mid).unwrap().uy.abs();
+        .find(|d| d.node_id == mid).unwrap().uz.abs();
 
     // Verify linearity: delta_dyn / delta_static = phi_2
     let ratio = delta_dyn / delta_static;
@@ -200,8 +200,8 @@ fn railway_track_slab_multi_span() {
     let loads = vec![SolverLoad::Nodal(SolverNodalLoad {
         node_id: mid_node,
         fx: 0.0,
-        fy: -p,
-        mz: 0.0,
+        fz: -p,
+        my: 0.0,
     })];
 
     let spans: Vec<f64> = vec![l_span; n_spans];
@@ -209,7 +209,7 @@ fn railway_track_slab_multi_span() {
     let results = solve_2d(&input).unwrap();
 
     // Global equilibrium: sum Ry = P
-    let sum_ry: f64 = results.reactions.iter().map(|r| r.ry).sum();
+    let sum_ry: f64 = results.reactions.iter().map(|r| r.rz).sum();
     assert_close(sum_ry, p, 0.02, "Track slab equilibrium");
 
     // Support nodes: 1, 5, 9, 13, 17, 21
@@ -219,9 +219,9 @@ fn railway_track_slab_multi_span() {
     // Reactions at the two supports flanking the loaded span (nodes 9 and 13)
     // should be the largest
     let r_left_central = results.reactions.iter()
-        .find(|r| r.node_id == sup_nodes[2]).unwrap().ry;
+        .find(|r| r.node_id == sup_nodes[2]).unwrap().rz;
     let r_right_central = results.reactions.iter()
-        .find(|r| r.node_id == sup_nodes[3]).unwrap().ry;
+        .find(|r| r.node_id == sup_nodes[3]).unwrap().rz;
 
     // By symmetry about the loaded point, these two should be approximately equal
     assert_close(r_left_central, r_right_central, 0.05, "Central span support symmetry");
@@ -234,7 +234,7 @@ fn railway_track_slab_multi_span() {
 
     // Far-end support reactions should be smaller than central supports
     let r_far_left = results.reactions.iter()
-        .find(|r| r.node_id == sup_nodes[0]).unwrap().ry.abs();
+        .find(|r| r.node_id == sup_nodes[0]).unwrap().rz.abs();
     assert!(r_far_left < r_left_central.abs(),
         "Far support reaction {:.2} < central {:.2}", r_far_left, r_left_central.abs());
 }
@@ -278,8 +278,8 @@ fn railway_ocl_mast_cantilever() {
     let loads = vec![SolverLoad::Nodal(SolverNodalLoad {
         node_id: n_nodes,
         fx: f_wire,
-        fy: 0.0,
-        mz: 0.0,
+        fz: 0.0,
+        my: 0.0,
     })];
 
     let input = make_input(
@@ -301,14 +301,14 @@ fn railway_ocl_mast_cantilever() {
     // Base moment: M = F * H
     let m_base_exact: f64 = f_wire * h; // = 120 kN-m
     let r_base = results.reactions.iter().find(|r| r.node_id == 1).unwrap();
-    assert_close(r_base.mz.abs(), m_base_exact, 0.03, "OCL mast base moment");
+    assert_close(r_base.my.abs(), m_base_exact, 0.03, "OCL mast base moment");
 
     // Base horizontal reaction: R_x = -F
     assert_close(r_base.rx.abs(), f_wire, 0.02, "OCL mast base shear");
 
     // Verify no vertical reaction (no vertical loads)
-    assert!(r_base.ry.abs() < 1e-6,
-        "OCL mast vertical reaction should be zero: {:.6e}", r_base.ry);
+    assert!(r_base.rz.abs() < 1e-6,
+        "OCL mast vertical reaction should be zero: {:.6e}", r_base.rz);
 }
 
 // ================================================================
@@ -355,19 +355,19 @@ fn railway_platform_canopy_propped_cantilever() {
     // Roller reaction: R_B = 3qL/8
     let r_b = results.reactions.iter().find(|r| r.node_id == n_nodes).unwrap();
     let rb_expected: f64 = 3.0 * q_abs * l / 8.0; // = 11.25 kN
-    assert_close(r_b.ry, rb_expected, 0.03, "Canopy roller reaction R_B = 3qL/8");
+    assert_close(r_b.rz, rb_expected, 0.03, "Canopy roller reaction R_B = 3qL/8");
 
     // Fixed end reaction: R_A = 5qL/8
     let r_a = results.reactions.iter().find(|r| r.node_id == 1).unwrap();
     let ra_expected: f64 = 5.0 * q_abs * l / 8.0; // = 18.75 kN
-    assert_close(r_a.ry, ra_expected, 0.03, "Canopy fixed reaction R_A = 5qL/8");
+    assert_close(r_a.rz, ra_expected, 0.03, "Canopy fixed reaction R_A = 5qL/8");
 
     // Fixed end moment: M_A = qL^2/8
     let ma_expected: f64 = q_abs * l * l / 8.0; // = 22.5 kN-m
-    assert_close(r_a.mz.abs(), ma_expected, 0.05, "Canopy fixed moment M_A = qL^2/8");
+    assert_close(r_a.my.abs(), ma_expected, 0.05, "Canopy fixed moment M_A = qL^2/8");
 
     // Global equilibrium: R_A + R_B = qL
-    let sum_ry: f64 = results.reactions.iter().map(|r| r.ry).sum();
+    let sum_ry: f64 = results.reactions.iter().map(|r| r.rz).sum();
     assert_close(sum_ry, q_abs * l, 0.02, "Canopy equilibrium R_A + R_B = qL");
 }
 
@@ -419,16 +419,16 @@ fn railway_rail_structure_interaction_two_span() {
     let r_a = results.reactions.iter().find(|r| r.node_id == node_a).unwrap();
     let r_c = results.reactions.iter().find(|r| r.node_id == node_c).unwrap();
     let r_end_expected: f64 = 3.0 * q_abs * l / 8.0; // = 375 kN
-    assert_close(r_a.ry, r_end_expected, 0.03, "2-span end reaction R_A = 3qL/8");
-    assert_close(r_c.ry, r_end_expected, 0.03, "2-span end reaction R_C = 3qL/8");
+    assert_close(r_a.rz, r_end_expected, 0.03, "2-span end reaction R_A = 3qL/8");
+    assert_close(r_c.rz, r_end_expected, 0.03, "2-span end reaction R_C = 3qL/8");
 
     // Interior reaction: R_B = 5qL/4
     let r_b = results.reactions.iter().find(|r| r.node_id == node_b).unwrap();
     let r_int_expected: f64 = 5.0 * q_abs * l / 4.0; // = 1250 kN
-    assert_close(r_b.ry, r_int_expected, 0.03, "2-span interior reaction R_B = 5qL/4");
+    assert_close(r_b.rz, r_int_expected, 0.03, "2-span interior reaction R_B = 5qL/4");
 
     // Global equilibrium: R_A + R_B + R_C = 2*q*L
-    let sum_ry: f64 = results.reactions.iter().map(|r| r.ry).sum();
+    let sum_ry: f64 = results.reactions.iter().map(|r| r.rz).sum();
     assert_close(sum_ry, 2.0 * q_abs * l, 0.02, "2-span equilibrium");
 
     // Interior support hogging moment: M_B = q*L^2/8
@@ -477,8 +477,8 @@ fn railway_bridge_deck_acceleration_check() {
     let loads = vec![SolverLoad::Nodal(SolverNodalLoad {
         node_id: mid,
         fx: 0.0,
-        fy: -p_unit,
-        mz: 0.0,
+        fz: -p_unit,
+        my: 0.0,
     })];
 
     let input = make_beam(n, l, E, A, iz_bridge, "pinned", Some("rollerX"), loads);
@@ -486,7 +486,7 @@ fn railway_bridge_deck_acceleration_check() {
 
     // Midspan deflection under unit load
     let delta_fem = results.displacements.iter()
-        .find(|d| d.node_id == mid).unwrap().uy.abs();
+        .find(|d| d.node_id == mid).unwrap().uz.abs();
 
     // Analytical: delta = P*L^3 / (48*E*I)
     let delta_exact: f64 = p_unit * l.powi(3) / (48.0 * e_eff * iz_bridge);
@@ -510,7 +510,7 @@ fn railway_bridge_deck_acceleration_check() {
     // deflection at quarter points should follow the sine shape
     let quarter = n / 4 + 1;
     let delta_quarter = results.displacements.iter()
-        .find(|d| d.node_id == quarter).unwrap().uy.abs();
+        .find(|d| d.node_id == quarter).unwrap().uz.abs();
 
     // For SS beam with center load, delta at L/4 = P*L^3/(48EI) * 11/16
     // Wait, exact: delta(L/4) = P*(L/4) * (3*L^2 - 4*(L/4)^2) / (48*E*I)
@@ -559,14 +559,14 @@ fn railway_sleeper_beam_two_rail_loads() {
         SolverLoad::Nodal(SolverNodalLoad {
             node_id: node_left_rail,
             fx: 0.0,
-            fy: -p,
-            mz: 0.0,
+            fz: -p,
+            my: 0.0,
         }),
         SolverLoad::Nodal(SolverNodalLoad {
             node_id: node_right_rail,
             fx: 0.0,
-            fy: -p,
-            mz: 0.0,
+            fz: -p,
+            my: 0.0,
         }),
     ];
 
@@ -576,11 +576,11 @@ fn railway_sleeper_beam_two_rail_loads() {
     // Reactions: by symmetry, R_A = R_B = P
     let r_a = results.reactions.iter().find(|r| r.node_id == 1).unwrap();
     let r_b = results.reactions.iter().find(|r| r.node_id == n + 1).unwrap();
-    assert_close(r_a.ry, p, 0.05, "Sleeper left reaction R_A = P");
-    assert_close(r_b.ry, p, 0.05, "Sleeper right reaction R_B = P");
+    assert_close(r_a.rz, p, 0.05, "Sleeper left reaction R_A = P");
+    assert_close(r_b.rz, p, 0.05, "Sleeper right reaction R_B = P");
 
     // Global equilibrium
-    let sum_ry: f64 = results.reactions.iter().map(|r| r.ry).sum();
+    let sum_ry: f64 = results.reactions.iter().map(|r| r.rz).sum();
     assert_close(sum_ry, 2.0 * p, 0.02, "Sleeper equilibrium");
 
     // Moment between rails should be approximately constant and equal to P*a
@@ -598,7 +598,7 @@ fn railway_sleeper_beam_two_rail_loads() {
     // Midspan deflection: delta = P*a*(3L^2 - 4a^2) / (48*E*I)
     let mid = n / 2 + 1;
     let delta_mid = results.displacements.iter()
-        .find(|d| d.node_id == mid).unwrap().uy.abs();
+        .find(|d| d.node_id == mid).unwrap().uz.abs();
     let delta_exact: f64 = p * a * (3.0 * l * l - 4.0 * a * a) / (48.0 * e_eff * iz_sleeper);
     assert_close(delta_mid, delta_exact, 0.10, "Sleeper midspan deflection");
 }

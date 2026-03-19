@@ -53,8 +53,8 @@ const W10_IZ: f64 = 7.118e-5; // m^4 (strong axis)
 fn validation_dci_ext_aisc_h1_1b_low_axial() {
     let l: f64 = 6.0;
     let n: usize = 12;
-    let fy: f64 = 345.0; // MPa (A992 steel)
-    let fy_eff: f64 = fy * 1000.0; // kN/m^2
+    let fz: f64 = 345.0; // MPa (A992 steel)
+    let fy_eff: f64 = fz * 1000.0; // kN/m^2
 
     // Yield capacity
     let pc: f64 = fy_eff * W14_A;
@@ -77,14 +77,14 @@ fn validation_dci_ext_aisc_h1_1b_low_axial() {
         SolverLoad::Nodal(SolverNodalLoad {
             node_id: n + 1,
             fx: -pr,
-            fy: 0.0,
-            mz: 0.0,
+            fz: 0.0,
+            my: 0.0,
         }),
         SolverLoad::Nodal(SolverNodalLoad {
             node_id: mid,
             fx: 0.0,
-            fy: -p_lateral,
-            mz: 0.0,
+            fz: -p_lateral,
+            my: 0.0,
         }),
     ];
     let input = make_beam(n, l, E, W14_A, W14_IZ, "pinned", Some("rollerX"), loads);
@@ -204,8 +204,8 @@ fn validation_dci_ext_story_drift_limit() {
     let loads = vec![SolverLoad::Nodal(SolverNodalLoad {
         node_id: left_top,
         fx: f_lateral,
-        fy: 0.0,
-        mz: 0.0,
+        fz: 0.0,
+        my: 0.0,
     })];
 
     let input = make_input(nodes, mats, secs, elems, sups, loads);
@@ -319,7 +319,7 @@ fn validation_dci_ext_continuous_beam_moment_envelope() {
 
     // Vertical equilibrium: sum of reactions = total load
     let total_load: f64 = q.abs() * 2.0 * span;
-    let sum_ry: f64 = results.reactions.iter().map(|r| r.ry).sum();
+    let sum_ry: f64 = results.reactions.iter().map(|r| r.rz).sum();
     assert_close(sum_ry, total_load, 0.02,
         "Continuous beam: vertical equilibrium");
 }
@@ -363,8 +363,8 @@ fn validation_dci_ext_portal_frame_superposition() {
     let loads_lateral = vec![SolverLoad::Nodal(SolverNodalLoad {
         node_id: 2,
         fx: f_lateral,
-        fy: 0.0,
-        mz: 0.0,
+        fz: 0.0,
+        my: 0.0,
     })];
     let input_lat = make_input(
         nodes.clone(), mats.clone(), secs.clone(), elems.clone(), sups.clone(),
@@ -391,8 +391,8 @@ fn validation_dci_ext_portal_frame_superposition() {
         SolverLoad::Nodal(SolverNodalLoad {
             node_id: 2,
             fx: f_lateral,
-            fy: 0.0,
-            mz: 0.0,
+            fz: 0.0,
+            my: 0.0,
         }),
         SolverLoad::Distributed(SolverDistributedLoad {
             element_id: 2,
@@ -415,7 +415,7 @@ fn validation_dci_ext_portal_frame_superposition() {
 
     assert_close(d_comb_2.ux, d_lat_2.ux + d_grav_2.ux, 0.01,
         "Superposition: ux at node 2");
-    assert_close(d_comb_2.uy, d_lat_2.uy + d_grav_2.uy, 0.01,
+    assert_close(d_comb_2.uz, d_lat_2.uz + d_grav_2.uz, 0.01,
         "Superposition: uy at node 2");
 
     // Also check node 3
@@ -425,7 +425,7 @@ fn validation_dci_ext_portal_frame_superposition() {
 
     assert_close(d_comb_3.ux, d_lat_3.ux + d_grav_3.ux, 0.01,
         "Superposition: ux at node 3");
-    assert_close(d_comb_3.uy, d_lat_3.uy + d_grav_3.uy, 0.01,
+    assert_close(d_comb_3.uz, d_lat_3.uz + d_grav_3.uz, 0.01,
         "Superposition: uy at node 3");
 
     // Superposition check on element forces: moment at base of left column
@@ -457,8 +457,8 @@ fn validation_dci_ext_portal_frame_superposition() {
 fn validation_dci_ext_euler_vs_aisc_column_curve() {
     let l: f64 = 5.0;
     let n: usize = 10;
-    let fy: f64 = 345.0; // MPa (A992)
-    let fy_eff: f64 = fy * 1000.0; // kN/m^2
+    let fz: f64 = 345.0; // MPa (A992)
+    let fy_eff: f64 = fz * 1000.0; // kN/m^2
     let pi: f64 = std::f64::consts::PI;
 
     let r: f64 = (W14_IZ / W14_A).sqrt(); // radius of gyration
@@ -510,14 +510,14 @@ fn validation_dci_ext_euler_vs_aisc_column_curve() {
         SolverLoad::Nodal(SolverNodalLoad {
             node_id: n + 1,
             fx: -p_applied,
-            fy: 0.0,
-            mz: 0.0,
+            fz: 0.0,
+            my: 0.0,
         }),
         SolverLoad::Nodal(SolverNodalLoad {
             node_id: n / 2 + 1,
             fx: 0.0,
-            fy: -1.0, // small lateral perturbation
-            mz: 0.0,
+            fz: -1.0, // small lateral perturbation
+            my: 0.0,
         }),
     ];
     let input = make_beam(n, l, E, W14_A, W14_IZ, "pinned", Some("rollerX"), loads);
@@ -584,7 +584,7 @@ fn validation_dci_ext_propped_cantilever_serviceability() {
 
     // Find maximum vertical displacement (negative = downward)
     let max_uy: f64 = results.displacements.iter()
-        .map(|d| d.uy.abs())
+        .map(|d| d.uz.abs())
         .fold(0.0_f64, f64::max);
 
     // Should be close to the analytical maximum
@@ -616,7 +616,7 @@ fn validation_dci_ext_propped_cantilever_serviceability() {
     // Reaction at roller support: R_roller = 3qL/8
     let r_roller = results.reactions.iter()
         .find(|r| r.node_id == n + 1).unwrap();
-    let ry_roller: f64 = r_roller.ry.abs();
+    let ry_roller: f64 = r_roller.rz.abs();
     let ry_expected: f64 = 3.0 * q.abs() * l / 8.0;
     assert_close(ry_roller, ry_expected, 0.03,
         "Propped cantilever: roller reaction = 3qL/8");
@@ -667,7 +667,7 @@ fn validation_dci_ext_weld_group_eccentricity() {
     // End reaction at left support
     let r_left = results.reactions.iter()
         .find(|r| r.node_id == 1).unwrap();
-    let v_conn: f64 = r_left.ry.abs();
+    let v_conn: f64 = r_left.rz.abs();
 
     // For SS beam with UDL: R = qL/2
     let v_expected: f64 = q.abs() * l / 2.0;
@@ -800,24 +800,24 @@ fn validation_dci_ext_multistory_column_load_accumulation() {
     let loads = vec![
         // Gravity at floor level (nodes 2, 5)
         SolverLoad::Nodal(SolverNodalLoad {
-            node_id: 2, fx: 0.0, fy: p_floor, mz: 0.0,
+            node_id: 2, fx: 0.0, fz: p_floor, my: 0.0,
         }),
         SolverLoad::Nodal(SolverNodalLoad {
-            node_id: 5, fx: 0.0, fy: p_floor, mz: 0.0,
+            node_id: 5, fx: 0.0, fz: p_floor, my: 0.0,
         }),
         // Gravity at roof level (nodes 3, 6)
         SolverLoad::Nodal(SolverNodalLoad {
-            node_id: 3, fx: 0.0, fy: p_floor, mz: 0.0,
+            node_id: 3, fx: 0.0, fz: p_floor, my: 0.0,
         }),
         SolverLoad::Nodal(SolverNodalLoad {
-            node_id: 6, fx: 0.0, fy: p_floor, mz: 0.0,
+            node_id: 6, fx: 0.0, fz: p_floor, my: 0.0,
         }),
         // Lateral loads
         SolverLoad::Nodal(SolverNodalLoad {
-            node_id: 2, fx: f_lat_1, fy: 0.0, mz: 0.0,
+            node_id: 2, fx: f_lat_1, fz: 0.0, my: 0.0,
         }),
         SolverLoad::Nodal(SolverNodalLoad {
-            node_id: 3, fx: f_lat_2, fy: 0.0, mz: 0.0,
+            node_id: 3, fx: f_lat_2, fz: 0.0, my: 0.0,
         }),
     ];
 
@@ -826,7 +826,7 @@ fn validation_dci_ext_multistory_column_load_accumulation() {
 
     // Vertical equilibrium: total gravity = 4 * p_floor (4 joints)
     let total_gravity: f64 = 4.0 * p_floor; // negative (downward)
-    let sum_ry: f64 = results.reactions.iter().map(|r| r.ry).sum();
+    let sum_ry: f64 = results.reactions.iter().map(|r| r.rz).sum();
     assert_close(sum_ry, -total_gravity, 0.02,
         "Multi-story: vertical equilibrium");
 

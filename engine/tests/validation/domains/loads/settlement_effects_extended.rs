@@ -32,7 +32,7 @@ fn build_beam_nodes(n: usize, l: f64) -> HashMap<String, SolverNode> {
             SolverNode {
                 id: i + 1,
                 x: i as f64 * l / n as f64,
-                y: 0.0,
+                z: 0.0,
             },
         );
     }
@@ -115,8 +115,8 @@ fn settlement_ext_ss_beam_uniform_settlement_rigid_body() {
             ky: None,
             kz: None,
             dx: None,
-            dy: Some(-delta),
-            drz: None,
+            dz: Some(-delta),
+            dry: None,
             angle: None,
         },
     );
@@ -130,8 +130,8 @@ fn settlement_ext_ss_beam_uniform_settlement_rigid_body() {
             ky: None,
             kz: None,
             dx: None,
-            dy: Some(-delta),
-            drz: None,
+            dz: Some(-delta),
+            dry: None,
             angle: None,
         },
     );
@@ -171,7 +171,7 @@ fn settlement_ext_ss_beam_uniform_settlement_rigid_body() {
     // All nodes should have uy = -delta
     for d in &results.displacements {
         assert_close(
-            d.uy,
+            d.uz,
             -delta,
             0.02,
             &format!(
@@ -210,8 +210,8 @@ fn settlement_ext_fixed_fixed_differential_settlement() {
             ky: None,
             kz: None,
             dx: None,
-            dy: None,
-            drz: None,
+            dz: None,
+            dry: None,
             angle: None,
         },
     );
@@ -225,8 +225,8 @@ fn settlement_ext_fixed_fixed_differential_settlement() {
             ky: None,
             kz: None,
             dx: None,
-            dy: Some(-delta),
-            drz: None,
+            dz: Some(-delta),
+            dry: None,
             angle: None,
         },
     );
@@ -249,7 +249,7 @@ fn settlement_ext_fixed_fixed_differential_settlement() {
         .find(|r| r.node_id == 1)
         .unwrap();
     assert_close(
-        r1.mz.abs(),
+        r1.my.abs(),
         m_exact,
         0.05,
         "FF diff settlement: M_left = 6EI*delta/L²",
@@ -261,7 +261,7 @@ fn settlement_ext_fixed_fixed_differential_settlement() {
         .find(|r| r.node_id == n + 1)
         .unwrap();
     assert_close(
-        r2.mz.abs(),
+        r2.my.abs(),
         m_exact,
         0.05,
         "FF diff settlement: M_right = 6EI*delta/L²",
@@ -270,14 +270,14 @@ fn settlement_ext_fixed_fixed_differential_settlement() {
     // R = 12EI*delta/L³
     let r_exact: f64 = 12.0 * e_eff * IZ * delta / (l * l * l);
     assert_close(
-        r1.ry.abs(),
+        r1.rz.abs(),
         r_exact,
         0.05,
         "FF diff settlement: R = 12EI*delta/L³",
     );
 
     // Equilibrium: sum of vertical reactions = 0
-    let sum_ry: f64 = results.reactions.iter().map(|r| r.ry).sum();
+    let sum_ry: f64 = results.reactions.iter().map(|r| r.rz).sum();
     assert!(
         sum_ry.abs() < 0.01,
         "FF diff settlement: vertical equilibrium, sum_ry = {:.6e}",
@@ -312,8 +312,8 @@ fn settlement_ext_propped_cantilever_roller_settlement() {
             ky: None,
             kz: None,
             dx: None,
-            dy: None,
-            drz: None,
+            dz: None,
+            dry: None,
             angle: None,
         },
     );
@@ -327,8 +327,8 @@ fn settlement_ext_propped_cantilever_roller_settlement() {
             ky: None,
             kz: None,
             dx: None,
-            dy: Some(-delta),
-            drz: None,
+            dz: Some(-delta),
+            dry: None,
             angle: None,
         },
     );
@@ -351,7 +351,7 @@ fn settlement_ext_propped_cantilever_roller_settlement() {
         .find(|r| r.node_id == n + 1)
         .unwrap();
     assert_close(
-        r_b.ry.abs(),
+        r_b.rz.abs(),
         r_b_exact,
         0.05,
         "Propped cantilever settlement: R_B = 3EI*delta/L³",
@@ -365,7 +365,7 @@ fn settlement_ext_propped_cantilever_roller_settlement() {
         .find(|r| r.node_id == 1)
         .unwrap();
     assert_close(
-        r_a.mz.abs(),
+        r_a.my.abs(),
         m_a_exact,
         0.05,
         "Propped cantilever settlement: M_A = 3EI*delta/L²",
@@ -378,7 +378,7 @@ fn settlement_ext_propped_cantilever_roller_settlement() {
         .find(|d| d.node_id == n + 1)
         .unwrap();
     assert_close(
-        d_end.uy,
+        d_end.uz,
         -delta,
         0.02,
         "Propped cantilever settlement: prescribed uy at roller",
@@ -407,7 +407,7 @@ fn settlement_ext_two_span_middle_support_settlement() {
             SolverNode {
                 id: i + 1,
                 x: i as f64 * span / n_per_span as f64,
-                y: 0.0,
+                z: 0.0,
             },
         );
     }
@@ -424,8 +424,8 @@ fn settlement_ext_two_span_middle_support_settlement() {
             ky: None,
             kz: None,
             dx: None,
-            dy: None,
-            drz: None,
+            dz: None,
+            dry: None,
             angle: None,
         },
     );
@@ -440,8 +440,8 @@ fn settlement_ext_two_span_middle_support_settlement() {
             ky: None,
             kz: None,
             dx: None,
-            dy: Some(-delta),
-            drz: None,
+            dz: Some(-delta),
+            dry: None,
             angle: None,
         },
     );
@@ -456,8 +456,8 @@ fn settlement_ext_two_span_middle_support_settlement() {
             ky: None,
             kz: None,
             dx: None,
-            dy: None,
-            drz: None,
+            dz: None,
+            dry: None,
             angle: None,
         },
     );
@@ -473,7 +473,7 @@ fn settlement_ext_two_span_middle_support_settlement() {
     let results = linear::solve_2d(&input).unwrap();
 
     // Equilibrium: sum of vertical reactions = 0 (no external loads)
-    let sum_ry: f64 = results.reactions.iter().map(|r| r.ry).sum();
+    let sum_ry: f64 = results.reactions.iter().map(|r| r.rz).sum();
     assert!(
         sum_ry.abs() < 0.01,
         "Two-span settlement: vertical equilibrium, sum_ry = {:.6e}",
@@ -493,8 +493,8 @@ fn settlement_ext_two_span_middle_support_settlement() {
         .find(|r| r.node_id == total_n + 1)
         .unwrap();
     assert_close(
-        r_left.ry,
-        r_right.ry,
+        r_left.rz,
+        r_right.rz,
         0.05,
         "Two-span settlement: symmetric outer reactions",
     );
@@ -506,7 +506,7 @@ fn settlement_ext_two_span_middle_support_settlement() {
         .find(|d| d.node_id == n_per_span + 1)
         .unwrap();
     assert_close(
-        d_mid.uy,
+        d_mid.uz,
         -delta,
         0.02,
         "Two-span settlement: prescribed uy at middle support",
@@ -551,8 +551,8 @@ fn settlement_ext_fixed_fixed_prescribed_rotation() {
             ky: None,
             kz: None,
             dx: None,
-            dy: None,
-            drz: None,
+            dz: None,
+            dry: None,
             angle: None,
         },
     );
@@ -566,8 +566,8 @@ fn settlement_ext_fixed_fixed_prescribed_rotation() {
             ky: None,
             kz: None,
             dx: None,
-            dy: None,
-            drz: Some(theta),
+            dz: None,
+            dry: Some(theta),
             angle: None,
         },
     );
@@ -590,7 +590,7 @@ fn settlement_ext_fixed_fixed_prescribed_rotation() {
         .find(|r| r.node_id == n + 1)
         .unwrap();
     assert_close(
-        r_near.mz.abs(),
+        r_near.my.abs(),
         m_near_exact,
         0.05,
         "FF prescribed rotation: M_near = 4EI*theta/L",
@@ -604,7 +604,7 @@ fn settlement_ext_fixed_fixed_prescribed_rotation() {
         .find(|r| r.node_id == 1)
         .unwrap();
     assert_close(
-        r_far.mz.abs(),
+        r_far.my.abs(),
         m_far_exact,
         0.05,
         "FF prescribed rotation: M_far = 2EI*theta/L",
@@ -617,7 +617,7 @@ fn settlement_ext_fixed_fixed_prescribed_rotation() {
         .find(|d| d.node_id == n + 1)
         .unwrap();
     assert_close(
-        d_end.rz,
+        d_end.ry,
         theta,
         0.02,
         "FF prescribed rotation: prescribed theta achieved",
@@ -630,7 +630,7 @@ fn settlement_ext_fixed_fixed_prescribed_rotation() {
         .find(|d| d.node_id == 1)
         .unwrap();
     assert!(
-        d_start.uy.abs() < 1e-10,
+        d_start.uz.abs() < 1e-10,
         "FF prescribed rotation: no vertical displacement at left end",
     );
 }
@@ -661,7 +661,7 @@ fn settlement_ext_continuous_beam_central_settlement_symmetric() {
             SolverNode {
                 id: i + 1,
                 x: i as f64 * span / n_per_span as f64,
-                y: 0.0,
+                z: 0.0,
             },
         );
     }
@@ -680,8 +680,8 @@ fn settlement_ext_continuous_beam_central_settlement_symmetric() {
             ky: None,
             kz: None,
             dx: None,
-            dy: None,
-            drz: None,
+            dz: None,
+            dry: None,
             angle: None,
         },
     );
@@ -695,8 +695,8 @@ fn settlement_ext_continuous_beam_central_settlement_symmetric() {
             ky: None,
             kz: None,
             dx: None,
-            dy: None,
-            drz: None,
+            dz: None,
+            dry: None,
             angle: None,
         },
     );
@@ -710,8 +710,8 @@ fn settlement_ext_continuous_beam_central_settlement_symmetric() {
             ky: None,
             kz: None,
             dx: None,
-            dy: Some(-delta),
-            drz: None,
+            dz: Some(-delta),
+            dry: None,
             angle: None,
         },
     );
@@ -725,8 +725,8 @@ fn settlement_ext_continuous_beam_central_settlement_symmetric() {
             ky: None,
             kz: None,
             dx: None,
-            dy: None,
-            drz: None,
+            dz: None,
+            dry: None,
             angle: None,
         },
     );
@@ -740,8 +740,8 @@ fn settlement_ext_continuous_beam_central_settlement_symmetric() {
             ky: None,
             kz: None,
             dx: None,
-            dy: None,
-            drz: None,
+            dz: None,
+            dry: None,
             angle: None,
         },
     );
@@ -757,7 +757,7 @@ fn settlement_ext_continuous_beam_central_settlement_symmetric() {
     let results = linear::solve_2d(&input).unwrap();
 
     // Equilibrium: sum Ry = 0
-    let sum_ry: f64 = results.reactions.iter().map(|r| r.ry).sum();
+    let sum_ry: f64 = results.reactions.iter().map(|r| r.rz).sum();
     assert!(
         sum_ry.abs() < 0.01,
         "Continuous symmetric settlement: vertical equilibrium, sum_ry = {:.6e}",
@@ -776,8 +776,8 @@ fn settlement_ext_continuous_beam_central_settlement_symmetric() {
         .find(|r| r.node_id == total_n + 1)
         .unwrap();
     assert_close(
-        r_left_outer.ry,
-        r_right_outer.ry,
+        r_left_outer.rz,
+        r_right_outer.rz,
         0.05,
         "Continuous symmetric settlement: outer reactions equal",
     );
@@ -793,8 +793,8 @@ fn settlement_ext_continuous_beam_central_settlement_symmetric() {
         .find(|r| r.node_id == 3 * n_per_span + 1)
         .unwrap();
     assert_close(
-        r_left_inner.ry,
-        r_right_inner.ry,
+        r_left_inner.rz,
+        r_right_inner.rz,
         0.05,
         "Continuous symmetric settlement: inner reactions equal",
     );
@@ -806,7 +806,7 @@ fn settlement_ext_continuous_beam_central_settlement_symmetric() {
         .find(|d| d.node_id == mid_node)
         .unwrap();
     assert_close(
-        d_mid.uy,
+        d_mid.uz,
         -delta,
         0.02,
         "Continuous symmetric settlement: prescribed uy at center",
@@ -828,10 +828,10 @@ fn settlement_ext_portal_frame_base_settlement() {
 
     // Nodes: 1(0,0), 2(0,h), 3(w,h), 4(w,0)
     let mut nodes = HashMap::new();
-    nodes.insert("1".to_string(), SolverNode { id: 1, x: 0.0, y: 0.0 });
-    nodes.insert("2".to_string(), SolverNode { id: 2, x: 0.0, y: h });
-    nodes.insert("3".to_string(), SolverNode { id: 3, x: w, y: h });
-    nodes.insert("4".to_string(), SolverNode { id: 4, x: w, y: 0.0 });
+    nodes.insert("1".to_string(), SolverNode { id: 1, x: 0.0, z: 0.0 });
+    nodes.insert("2".to_string(), SolverNode { id: 2, x: 0.0, z: h });
+    nodes.insert("3".to_string(), SolverNode { id: 3, x: w, z: h });
+    nodes.insert("4".to_string(), SolverNode { id: 4, x: w, z: 0.0 });
 
     // Three frame elements: col1 (1-2), beam (2-3), col2 (3-4)
     let mut elems = HashMap::new();
@@ -887,8 +887,8 @@ fn settlement_ext_portal_frame_base_settlement() {
             ky: None,
             kz: None,
             dx: None,
-            dy: None,
-            drz: None,
+            dz: None,
+            dry: None,
             angle: None,
         },
     );
@@ -903,8 +903,8 @@ fn settlement_ext_portal_frame_base_settlement() {
             ky: None,
             kz: None,
             dx: None,
-            dy: Some(-delta),
-            drz: None,
+            dz: Some(-delta),
+            dry: None,
             angle: None,
         },
     );
@@ -920,7 +920,7 @@ fn settlement_ext_portal_frame_base_settlement() {
     let results = linear::solve_2d(&input).unwrap();
 
     // Vertical equilibrium: sum Ry = 0 (no external vertical loads)
-    let sum_ry: f64 = results.reactions.iter().map(|r| r.ry).sum();
+    let sum_ry: f64 = results.reactions.iter().map(|r| r.rz).sum();
     assert!(
         sum_ry.abs() < 0.1,
         "Portal settlement: vertical equilibrium, sum_ry = {:.6e}",
@@ -948,14 +948,14 @@ fn settlement_ext_portal_frame_base_settlement() {
         .unwrap();
     // Both should have non-zero moments
     assert!(
-        r1.mz.abs() > 0.001,
+        r1.my.abs() > 0.001,
         "Portal settlement: non-zero moment at left base, got {:.6e}",
-        r1.mz
+        r1.my
     );
     assert!(
-        r4.mz.abs() > 0.001,
+        r4.my.abs() > 0.001,
         "Portal settlement: non-zero moment at right base, got {:.6e}",
-        r4.mz
+        r4.my
     );
 
     // Right base should have the prescribed settlement
@@ -965,7 +965,7 @@ fn settlement_ext_portal_frame_base_settlement() {
         .find(|d| d.node_id == 4)
         .unwrap();
     assert_close(
-        d4.uy,
+        d4.uz,
         -delta,
         0.02,
         "Portal settlement: prescribed uy at right base",
@@ -974,7 +974,7 @@ fn settlement_ext_portal_frame_base_settlement() {
     // Moment equilibrium: sum of all moments about origin = 0
     // M1 + M4 + Ry1*0 + Ry4*w - Rx1*0 - Rx4*0 = 0
     // (simplified: moment equilibrium is implicitly satisfied by the solver)
-    let m_sum: f64 = r1.mz + r4.mz + r4.ry * w;
+    let m_sum: f64 = r1.my + r4.my + r4.rz * w;
     assert!(
         m_sum.abs() < 1.0,
         "Portal settlement: moment equilibrium about left base, residual = {:.6e}",
@@ -1008,8 +1008,8 @@ fn settlement_ext_fixed_beam_equal_settlement_no_forces() {
             ky: None,
             kz: None,
             dx: None,
-            dy: Some(-delta),
-            drz: None,
+            dz: Some(-delta),
+            dry: None,
             angle: None,
         },
     );
@@ -1023,8 +1023,8 @@ fn settlement_ext_fixed_beam_equal_settlement_no_forces() {
             ky: None,
             kz: None,
             dx: None,
-            dy: Some(-delta),
-            drz: None,
+            dz: Some(-delta),
+            dry: None,
             angle: None,
         },
     );
@@ -1076,7 +1076,7 @@ fn settlement_ext_fixed_beam_equal_settlement_no_forces() {
     // All nodes should have uy = -delta (pure downward translation)
     for d in &results.displacements {
         assert_close(
-            d.uy,
+            d.uz,
             -delta,
             0.02,
             &format!(
@@ -1089,10 +1089,10 @@ fn settlement_ext_fixed_beam_equal_settlement_no_forces() {
     // No rotations anywhere
     for d in &results.displacements {
         assert!(
-            d.rz.abs() < 1e-8,
+            d.ry.abs() < 1e-8,
             "Fixed equal settlement: node {} rotation should be ~0, got {:.6e}",
             d.node_id,
-            d.rz
+            d.ry
         );
     }
 }

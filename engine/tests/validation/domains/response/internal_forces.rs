@@ -73,7 +73,7 @@ fn validation_forces_cantilever_point() {
 
     let input = make_beam(n, l, E, A, IZ, "fixed", None,
         vec![SolverLoad::Nodal(SolverNodalLoad {
-            node_id: n + 1, fx: 0.0, fy: -p, mz: 0.0,
+            node_id: n + 1, fx: 0.0, fz: -p, my: 0.0,
         })]);
 
     let results = linear::solve_2d(&input).unwrap();
@@ -145,7 +145,7 @@ fn validation_forces_ss_center_point() {
     let mid = n / 2 + 1;
     let input = make_beam(n, l, E, A, IZ, "pinned", Some("rollerX"),
         vec![SolverLoad::Nodal(SolverNodalLoad {
-            node_id: mid, fx: 0.0, fy: -p, mz: 0.0,
+            node_id: mid, fx: 0.0, fz: -p, my: 0.0,
         })]);
 
     let results = linear::solve_2d(&input).unwrap();
@@ -253,10 +253,10 @@ fn validation_forces_constant_moment_zone() {
     let input = make_beam(n, l, E, A, IZ, "pinned", Some("rollerX"),
         vec![
             SolverLoad::Nodal(SolverNodalLoad {
-                node_id: n / 3 + 1, fx: 0.0, fy: -p, mz: 0.0,
+                node_id: n / 3 + 1, fx: 0.0, fz: -p, my: 0.0,
             }),
             SolverLoad::Nodal(SolverNodalLoad {
-                node_id: 2 * n / 3 + 1, fx: 0.0, fy: -p, mz: 0.0,
+                node_id: 2 * n / 3 + 1, fx: 0.0, fz: -p, my: 0.0,
             }),
         ]);
 

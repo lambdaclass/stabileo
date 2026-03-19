@@ -80,8 +80,8 @@ fn validation_neal_1_ss_beam_central() {
     let loads = vec![SolverLoad::Nodal(SolverNodalLoad {
         node_id: 2,
         fx: 0.0,
-        fy: -1.0,
-        mz: 0.0,
+        fz: -1.0,
+        my: 0.0,
     })];
 
     let input = make_plastic_beam(n, l, "pinned", Some("rollerX"), loads);
@@ -151,8 +151,8 @@ fn validation_neal_3_propped_cantilever() {
     let loads = vec![SolverLoad::Nodal(SolverNodalLoad {
         node_id: 2,
         fx: 0.0,
-        fy: -1.0,
-        mz: 0.0,
+        fz: -1.0,
+        my: 0.0,
     })];
 
     let input = make_plastic_beam(n, l, "fixed", Some("rollerX"), loads);
@@ -202,8 +202,8 @@ fn validation_neal_4_portal_combined() {
     let loads_beam = vec![SolverLoad::Nodal(SolverNodalLoad {
         node_id: 3,
         fx: 0.0,
-        fy: -1.0,
-        mz: 0.0,
+        fz: -1.0,
+        my: 0.0,
     })];
     let solver_beam =
         make_input(nodes.clone(), vec![(1, E_EFF, 0.3)], vec![(1, A_SEC, IZ_SEC)],
@@ -215,8 +215,8 @@ fn validation_neal_4_portal_combined() {
     let loads_sway = vec![SolverLoad::Nodal(SolverNodalLoad {
         node_id: 2,
         fx: 1.0,
-        fy: 0.0,
-        mz: 0.0,
+        fz: 0.0,
+        my: 0.0,
     })];
     let solver_sway =
         make_input(nodes.clone(), vec![(1, E_EFF, 0.3)], vec![(1, A_SEC, IZ_SEC)],
@@ -229,14 +229,14 @@ fn validation_neal_4_portal_combined() {
         SolverLoad::Nodal(SolverNodalLoad {
             node_id: 2,
             fx: 1.0,
-            fy: 0.0,
-            mz: 0.0,
+            fz: 0.0,
+            my: 0.0,
         }),
         SolverLoad::Nodal(SolverNodalLoad {
             node_id: 3,
             fx: 0.0,
-            fy: -1.0,
-            mz: 0.0,
+            fz: -1.0,
+            my: 0.0,
         }),
     ];
     let solver_combined =
@@ -349,8 +349,8 @@ fn validation_neal_6_three_hinge_collapse() {
     let loads = vec![SolverLoad::Nodal(SolverNodalLoad {
         node_id: 3, // at x = 2.0 = L/3
         fx: 0.0,
-        fy: -1.0,
-        mz: 0.0,
+        fz: -1.0,
+        my: 0.0,
     })];
 
     let input = make_plastic_beam(n, l, "fixed", Some("fixed"), loads);
@@ -454,14 +454,14 @@ fn validation_neal_8_upper_lower_bound() {
         SolverLoad::Nodal(SolverNodalLoad {
             node_id: 2,
             fx: 1.0,
-            fy: 0.0,
-            mz: 0.0,
+            fz: 0.0,
+            my: 0.0,
         }),
         SolverLoad::Nodal(SolverNodalLoad {
             node_id: 3,
             fx: 0.0,
-            fy: -2.0,
-            mz: 0.0,
+            fz: -2.0,
+            my: 0.0,
         }),
     ];
 

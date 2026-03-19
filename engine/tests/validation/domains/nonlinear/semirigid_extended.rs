@@ -46,7 +46,7 @@ fn make_semirigid_beam(
     let mut nodes = HashMap::new();
     for i in 0..n_nodes {
         nodes.insert((i + 1).to_string(), SolverNode {
-            id: i + 1, x: i as f64 * elem_len, y: 0.0,
+            id: i + 1, x: i as f64 * elem_len, z: 0.0,
         });
     }
 
@@ -72,14 +72,14 @@ fn make_semirigid_beam(
     sups.insert("1".to_string(), SolverSupport {
         id: 1, node_id: 1, support_type: "pinned".to_string(),
         kx: None, ky: None, kz: kz_start,
-        dx: None, dy: None, drz: None, angle: None,
+        dx: None, dz: None, dry: None, angle: None,
     });
 
     // End support: rollerX + optional rotational spring
     sups.insert("2".to_string(), SolverSupport {
         id: 2, node_id: n_nodes, support_type: "rollerX".to_string(),
         kx: None, ky: None, kz: kz_end,
-        dx: None, dy: None, drz: None, angle: None,
+        dx: None, dz: None, dry: None, angle: None,
     });
 
     SolverInput { nodes, materials: mats, sections: secs, elements: elems, supports: sups, loads, constraints: vec![],  connectors: HashMap::new() }
@@ -118,14 +118,14 @@ fn validation_sr_ext_1_rigid_vs_pinned_moment() {
 
     // SS beam: end moments should be ~0
     let r_ss_1 = res_ss.reactions.iter().find(|r| r.node_id == 1).unwrap();
-    assert!(r_ss_1.mz.abs() < 0.1,
-        "SS beam: end moment should be ~0: {:.6}", r_ss_1.mz);
+    assert!(r_ss_1.my.abs() < 0.1,
+        "SS beam: end moment should be ~0: {:.6}", r_ss_1.my);
 
     // Fixed-fixed: end moment = qL^2/12
     let q_abs: f64 = q.abs();
     let m_ff_expected: f64 = q_abs * l.powi(2) / 12.0;
     let r_ff_1 = res_ff.reactions.iter().find(|r| r.node_id == 1).unwrap();
-    assert_close(r_ff_1.mz.abs(), m_ff_expected, 0.05,
+    assert_close(r_ff_1.my.abs(), m_ff_expected, 0.05,
         "Fixed-fixed: end moment = qL^2/12");
 
     // The midspan moment of FF beam should be less than SS beam
@@ -221,34 +221,34 @@ fn validation_sr_ext_3_ec3_classification() {
     let res_ss = linear::solve_2d(&input_ss).unwrap();
     let mid_node = n / 2 + 1;
     let d_pinned: f64 = res_ss.displacements.iter()
-        .find(|d| d.node_id == mid_node).unwrap().uy.abs();
+        .find(|d| d.node_id == mid_node).unwrap().uz.abs();
 
     // Nominally pinned zone: k = 0.1 * EI/L (well below boundary)
     let k_nom_pin: f64 = 0.1 * ei / l;
     let input_np = make_semirigid_beam(n, l, Some(k_nom_pin), Some(k_nom_pin), loads_fn());
     let res_np = linear::solve_2d(&input_np).unwrap();
     let d_nom_pin: f64 = res_np.displacements.iter()
-        .find(|d| d.node_id == mid_node).unwrap().uy.abs();
+        .find(|d| d.node_id == mid_node).unwrap().uz.abs();
 
     // Semi-rigid zone: k = 5 * EI/L (between boundaries)
     let k_semi: f64 = 5.0 * ei / l;
     let input_sr = make_semirigid_beam(n, l, Some(k_semi), Some(k_semi), loads_fn());
     let res_sr = linear::solve_2d(&input_sr).unwrap();
     let d_semi: f64 = res_sr.displacements.iter()
-        .find(|d| d.node_id == mid_node).unwrap().uy.abs();
+        .find(|d| d.node_id == mid_node).unwrap().uz.abs();
 
     // Rigid zone: k = 100 * EI/L (well above boundary)
     let k_rigid: f64 = 100.0 * ei / l;
     let input_rig = make_semirigid_beam(n, l, Some(k_rigid), Some(k_rigid), loads_fn());
     let res_rig = linear::solve_2d(&input_rig).unwrap();
     let d_rigid: f64 = res_rig.displacements.iter()
-        .find(|d| d.node_id == mid_node).unwrap().uy.abs();
+        .find(|d| d.node_id == mid_node).unwrap().uz.abs();
 
     // Fixed-fixed reference
     let input_ff = make_beam(n, l, E, A, IZ, "fixed", Some("fixed"), loads_fn());
     let res_ff = linear::solve_2d(&input_ff).unwrap();
     let d_fixed: f64 = res_ff.displacements.iter()
-        .find(|d| d.node_id == mid_node).unwrap().uy.abs();
+        .find(|d| d.node_id == mid_node).unwrap().uz.abs();
 
     // Nominally pinned should be close to pure SS
     let ratio_pin: f64 = d_nom_pin / d_pinned;
@@ -311,7 +311,7 @@ fn validation_sr_ext_4_portal_sway_semi_rigid() {
         ],
         vec![(1, 1, "pinned"), (2, 4, "pinned")],
         vec![SolverLoad::Nodal(SolverNodalLoad {
-            node_id: 2, fx: f, fy: 0.0, mz: 0.0,
+            node_id: 2, fx: f, fz: 0.0, my: 0.0,
         })],
     );
     let res_pinned = linear::solve_2d(&input_pinned).unwrap();
@@ -320,10 +320,10 @@ fn validation_sr_ext_4_portal_sway_semi_rigid() {
 
     // Semi-rigid base portal: pinned bases + rotational springs
     let mut nodes = HashMap::new();
-    nodes.insert("1".to_string(), SolverNode { id: 1, x: 0.0, y: 0.0 });
-    nodes.insert("2".to_string(), SolverNode { id: 2, x: 0.0, y: h });
-    nodes.insert("3".to_string(), SolverNode { id: 3, x: w, y: h });
-    nodes.insert("4".to_string(), SolverNode { id: 4, x: w, y: 0.0 });
+    nodes.insert("1".to_string(), SolverNode { id: 1, x: 0.0, z: 0.0 });
+    nodes.insert("2".to_string(), SolverNode { id: 2, x: 0.0, z: h });
+    nodes.insert("3".to_string(), SolverNode { id: 3, x: w, z: h });
+    nodes.insert("4".to_string(), SolverNode { id: 4, x: w, z: 0.0 });
 
     let mut mats = HashMap::new();
     mats.insert("1".to_string(), SolverMaterial { id: 1, e: E, nu: 0.3 });
@@ -349,16 +349,16 @@ fn validation_sr_ext_4_portal_sway_semi_rigid() {
     sups.insert("1".to_string(), SolverSupport {
         id: 1, node_id: 1, support_type: "pinned".to_string(),
         kx: None, ky: None, kz: Some(k_semi),
-        dx: None, dy: None, drz: None, angle: None,
+        dx: None, dz: None, dry: None, angle: None,
     });
     sups.insert("2".to_string(), SolverSupport {
         id: 2, node_id: 4, support_type: "pinned".to_string(),
         kx: None, ky: None, kz: Some(k_semi),
-        dx: None, dy: None, drz: None, angle: None,
+        dx: None, dz: None, dry: None, angle: None,
     });
 
     let loads = vec![SolverLoad::Nodal(SolverNodalLoad {
-        node_id: 2, fx: f, fy: 0.0, mz: 0.0,
+        node_id: 2, fx: f, fz: 0.0, my: 0.0,
     })];
 
     let input_semi = SolverInput {
@@ -441,7 +441,7 @@ fn validation_sr_ext_5_moment_redistribution() {
             "k={:.0e}: End moment should be > 0: {:.4}", k_theta, m_end);
 
         // Equilibrium
-        let sum_ry: f64 = results.reactions.iter().map(|r| r.ry).sum();
+        let sum_ry: f64 = results.reactions.iter().map(|r| r.rz).sum();
         assert_close(sum_ry, q_abs * l, 0.02,
             &format!("k={:.0e}: vertical equilibrium", k_theta));
     }
@@ -488,7 +488,7 @@ fn validation_sr_ext_6_connection_rotation() {
     // Get rotation at the spring node (node 1)
     let disp_1 = results.displacements.iter()
         .find(|d| d.node_id == 1).unwrap();
-    let theta: f64 = disp_1.rz.abs();
+    let theta: f64 = disp_1.ry.abs();
 
     // Get moment at the spring from element forces
     let ef1 = results.element_forces.iter()
@@ -507,7 +507,7 @@ fn validation_sr_ext_6_connection_rotation() {
 
     // Equilibrium
     let q_abs: f64 = q.abs();
-    let sum_ry: f64 = results.reactions.iter().map(|r| r.ry).sum();
+    let sum_ry: f64 = results.reactions.iter().map(|r| r.rz).sum();
     assert_close(sum_ry, q_abs * l, 0.02, "Connection rotation: vertical equilibrium");
 }
 
@@ -542,7 +542,7 @@ fn validation_sr_ext_7_effective_length() {
         (0..n).map(|i| (i + 1, "frame", i + 1, i + 2, 1, 1, false, false)).collect(),
         vec![(1, 1, "fixed")],
         vec![SolverLoad::Nodal(SolverNodalLoad {
-            node_id: n + 1, fx: f, fy: 0.0, mz: 0.0,
+            node_id: n + 1, fx: f, fz: 0.0, my: 0.0,
         })],
     );
     let res_fixed = linear::solve_2d(&input_fixed).unwrap();
@@ -560,7 +560,7 @@ fn validation_sr_ext_7_effective_length() {
     let mut nodes = HashMap::new();
     for i in 0..=n {
         nodes.insert((i + 1).to_string(), SolverNode {
-            id: i + 1, x: 0.0, y: i as f64 * elem_len,
+            id: i + 1, x: 0.0, z: i as f64 * elem_len,
         });
     }
     let mut mats = HashMap::new();
@@ -580,14 +580,14 @@ fn validation_sr_ext_7_effective_length() {
     sups_soft.insert("1".to_string(), SolverSupport {
         id: 1, node_id: 1, support_type: "pinned".to_string(),
         kx: None, ky: None, kz: Some(k_soft),
-        dx: None, dy: None, drz: None, angle: None,
+        dx: None, dz: None, dry: None, angle: None,
     });
     let input_soft = SolverInput {
         nodes: nodes.clone(), materials: mats.clone(), sections: secs.clone(),
         elements: elems.clone(),
         supports: sups_soft,
         loads: vec![SolverLoad::Nodal(SolverNodalLoad {
-            node_id: n + 1, fx: f, fy: 0.0, mz: 0.0,
+            node_id: n + 1, fx: f, fz: 0.0, my: 0.0,
         })], constraints: vec![],
         connectors: HashMap::new(), };
     let res_soft = linear::solve_2d(&input_soft).unwrap();
@@ -600,13 +600,13 @@ fn validation_sr_ext_7_effective_length() {
     sups_semi.insert("1".to_string(), SolverSupport {
         id: 1, node_id: 1, support_type: "pinned".to_string(),
         kx: None, ky: None, kz: Some(k_semi),
-        dx: None, dy: None, drz: None, angle: None,
+        dx: None, dz: None, dry: None, angle: None,
     });
     let input_semi = SolverInput {
         nodes, materials: mats, sections: secs, elements: elems,
         supports: sups_semi,
         loads: vec![SolverLoad::Nodal(SolverNodalLoad {
-            node_id: n + 1, fx: f, fy: 0.0, mz: 0.0,
+            node_id: n + 1, fx: f, fz: 0.0, my: 0.0,
         })], constraints: vec![],
         connectors: HashMap::new(), };
     let res_semi = linear::solve_2d(&input_semi).unwrap();
@@ -669,7 +669,7 @@ fn validation_sr_ext_8_fixity_factor() {
     let input_fixed = make_beam(n, l, E, A, IZ, "fixed", Some("rollerX"), loads_fn());
     let res_fixed = linear::solve_2d(&input_fixed).unwrap();
     let m_fixed: f64 = res_fixed.reactions.iter()
-        .find(|r| r.node_id == 1).unwrap().mz.abs();
+        .find(|r| r.node_id == 1).unwrap().my.abs();
 
     // Verify propped cantilever end moment = qL^2/8
     assert_close(m_fixed, m_fixed_ref, 0.05,

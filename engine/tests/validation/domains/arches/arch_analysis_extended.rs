@@ -66,8 +66,8 @@ fn make_projected_nodal_loads(n: usize, l: f64, w: f64) -> Vec<SolverLoad> {
             SolverLoad::Nodal(SolverNodalLoad {
                 node_id: i + 1,
                 fx: 0.0,
-                fy: -w * trib,
-                mz: 0.0,
+                fz: -w * trib,
+                my: 0.0,
             })
         })
         .collect()
@@ -108,8 +108,8 @@ fn validation_arch_ext_1_three_hinge_parabolic() {
 
     // Vertical reactions: V = wL/2 = 12 * 16 / 2 = 96 kN
     let v_exact = w * l / 2.0;
-    assert_close(r_left.ry, v_exact, 0.02, "V_left = wL/2");
-    assert_close(r_right.ry, v_exact, 0.02, "V_right = wL/2");
+    assert_close(r_left.rz, v_exact, 0.02, "V_left = wL/2");
+    assert_close(r_right.rz, v_exact, 0.02, "V_right = wL/2");
 
     // Bending moments should be near zero (funicular shape)
     let max_moment = results.element_forces.iter()
@@ -155,7 +155,7 @@ fn validation_arch_ext_2_two_hinge_circular() {
     // Point load at crown
     let crown = n / 2 + 1;
     let loads = vec![SolverLoad::Nodal(SolverNodalLoad {
-        node_id: crown, fx: 0.0, fy: -p, mz: 0.0,
+        node_id: crown, fx: 0.0, fz: -p, my: 0.0,
     })];
 
     let input = make_input(nodes, vec![(1, E, 0.3)], vec![(1, A, IZ)], elems, sups, loads);
@@ -165,11 +165,11 @@ fn validation_arch_ext_2_two_hinge_circular() {
     let r_right = results.reactions.iter().find(|r| r.node_id == n + 1).unwrap();
 
     // Vertical equilibrium: V_left + V_right = P
-    let sum_ry = r_left.ry + r_right.ry;
+    let sum_ry = r_left.rz + r_right.rz;
     assert_close(sum_ry, p, 0.01, "Circular arch: sum Ry = P");
 
     // Symmetry: V_left = V_right = P/2
-    assert_close(r_left.ry, p / 2.0, 0.02, "Circular arch: V_left = P/2");
+    assert_close(r_left.rz, p / 2.0, 0.02, "Circular arch: V_left = P/2");
 
     // Horizontal reactions equal and opposite
     let h_sum = (r_left.rx + r_right.rx).abs();
@@ -249,7 +249,7 @@ fn validation_arch_ext_3_tied_arch_tension() {
         "Tie force={:.4} should be close to H={:.4}", tie_ef.n_start.abs(), h_expected);
 
     // Vertical equilibrium: sum Ry should balance total load
-    let sum_ry: f64 = results.reactions.iter().map(|r| r.ry).sum();
+    let sum_ry: f64 = results.reactions.iter().map(|r| r.rz).sum();
     assert!(sum_ry > 0.0, "Sum Ry should be positive (resisting downward load)");
 
     // Verify the tie is in tension (not compression)
@@ -370,7 +370,7 @@ fn validation_arch_ext_5_asymmetric_loading() {
 
     // Equilibrium: sum Ry = total applied load = w * L/2
     let total_half = w * l / 2.0;
-    let sum_ry: f64 = res_half.reactions.iter().map(|r| r.ry).sum();
+    let sum_ry: f64 = res_half.reactions.iter().map(|r| r.rz).sum();
     // Distributed load is per element length not projected, so use a loose check
     assert!(sum_ry > 0.0, "Reactions should resist downward load");
     // The actual total load is close to w * L/2 (with arc-length correction)
@@ -416,7 +416,7 @@ fn validation_arch_ext_6_segmented_arch_convergence() {
         // Point load at crown node
         let crown_node = n / 2 + 1;
         let loads = vec![SolverLoad::Nodal(SolverNodalLoad {
-            node_id: crown_node, fx: 0.0, fy: -p, mz: 0.0,
+            node_id: crown_node, fx: 0.0, fz: -p, my: 0.0,
         })];
 
         let input = make_input(nodes, vec![(1, E, 0.3)], vec![(1, A, IZ)], elems, sups, loads);
@@ -425,7 +425,7 @@ fn validation_arch_ext_6_segmented_arch_convergence() {
         // Get crown deflection (vertical displacement at crown node)
         let crown_disp = results.displacements.iter()
             .find(|d| d.node_id == crown_node).unwrap();
-        crown_deflections.push(crown_disp.uy.abs());
+        crown_deflections.push(crown_disp.uz.abs());
     }
 
     // Convergence: difference between successive refinements should decrease

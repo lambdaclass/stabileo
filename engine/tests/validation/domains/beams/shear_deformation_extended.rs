@@ -75,7 +75,7 @@ fn make_timoshenko_beam(
             SolverNode {
                 id,
                 x: i as f64 * elem_len,
-                y: 0.0,
+                z: 0.0,
             },
         );
     }
@@ -130,8 +130,8 @@ fn make_timoshenko_beam(
             ky: None,
             kz: None,
             dx: None,
-            dy: None,
-            drz: None,
+            dz: None,
+            dry: None,
             angle: None,
         },
     );
@@ -146,8 +146,8 @@ fn make_timoshenko_beam(
                 ky: None,
                 kz: None,
                 dx: None,
-                dy: None,
-                drz: None,
+                dz: None,
+                dry: None,
                 angle: None,
             },
         );
@@ -185,7 +185,7 @@ fn make_timoshenko_continuous_beam(
         SolverNode {
             id: node_id,
             x: 0.0,
-            y: 0.0,
+            z: 0.0,
         },
     );
     node_id += 1;
@@ -197,7 +197,7 @@ fn make_timoshenko_continuous_beam(
                 SolverNode {
                     id: node_id,
                     x: x + j as f64 * elem_len,
-                    y: 0.0,
+                    z: 0.0,
                 },
             );
             node_id += 1;
@@ -256,8 +256,8 @@ fn make_timoshenko_continuous_beam(
             ky: None,
             kz: None,
             dx: None,
-            dy: None,
-            drz: None,
+            dz: None,
+            dry: None,
             angle: None,
         },
     );
@@ -274,8 +274,8 @@ fn make_timoshenko_continuous_beam(
                 ky: None,
                 kz: None,
                 dx: None,
-                dy: None,
-                drz: None,
+                dz: None,
+                dry: None,
                 angle: None,
             },
         );
@@ -333,8 +333,8 @@ fn validation_shear_def_ext_deflection_vs_ld_ratio() {
         let loads_t = vec![SolverLoad::Nodal(SolverNodalLoad {
             node_id: mid_node,
             fx: 0.0,
-            fy: -p,
-            mz: 0.0,
+            fz: -p,
+            my: 0.0,
         })];
         let input_t =
             make_timoshenko_beam(n, l, a, iz, Some(as_y), "pinned", Some("rollerX"), loads_t);
@@ -344,8 +344,8 @@ fn validation_shear_def_ext_deflection_vs_ld_ratio() {
         let loads_eb = vec![SolverLoad::Nodal(SolverNodalLoad {
             node_id: mid_node,
             fx: 0.0,
-            fy: -p,
-            mz: 0.0,
+            fz: -p,
+            my: 0.0,
         })];
         let input_eb = make_timoshenko_beam(n, l, a, iz, None, "pinned", Some("rollerX"), loads_eb);
         let res_eb = linear::solve_2d(&input_eb).unwrap();
@@ -355,14 +355,14 @@ fn validation_shear_def_ext_deflection_vs_ld_ratio() {
             .iter()
             .find(|dd| dd.node_id == mid_node)
             .unwrap()
-            .uy
+            .uz
             .abs();
         let d_eb = res_eb
             .displacements
             .iter()
             .find(|dd| dd.node_id == mid_node)
             .unwrap()
-            .uy
+            .uz
             .abs();
 
         // Timoshenko parameter phi = 12*E*I / (G*As*L^2)
@@ -439,8 +439,8 @@ fn validation_shear_def_ext_short_beam_shear_contribution() {
     let loads = vec![SolverLoad::Nodal(SolverNodalLoad {
         node_id: mid_node,
         fx: 0.0,
-        fy: -p,
-        mz: 0.0,
+        fz: -p,
+        my: 0.0,
     })];
     let input = make_timoshenko_beam(n, l, a, iz, Some(as_y), "pinned", Some("rollerX"), loads);
     let results = linear::solve_2d(&input).unwrap();
@@ -450,7 +450,7 @@ fn validation_shear_def_ext_short_beam_shear_contribution() {
         .iter()
         .find(|dd| dd.node_id == mid_node)
         .unwrap()
-        .uy
+        .uz
         .abs();
 
     // Analytical components
@@ -473,8 +473,8 @@ fn validation_shear_def_ext_short_beam_shear_contribution() {
     let loads_eb = vec![SolverLoad::Nodal(SolverNodalLoad {
         node_id: mid_node,
         fx: 0.0,
-        fy: -p,
-        mz: 0.0,
+        fz: -p,
+        my: 0.0,
     })];
     let input_eb = make_timoshenko_beam(n, l, a, iz, None, "pinned", Some("rollerX"), loads_eb);
     let res_eb = linear::solve_2d(&input_eb).unwrap();
@@ -483,7 +483,7 @@ fn validation_shear_def_ext_short_beam_shear_contribution() {
         .iter()
         .find(|dd| dd.node_id == mid_node)
         .unwrap()
-        .uy
+        .uz
         .abs();
 
     assert_close(d_eb, delta_bending, 0.02, "Short beam EB bending component");
@@ -519,8 +519,8 @@ fn validation_shear_def_ext_long_beam_convergence() {
     let loads_t = vec![SolverLoad::Nodal(SolverNodalLoad {
         node_id: tip_node,
         fx: 0.0,
-        fy: -p,
-        mz: 0.0,
+        fz: -p,
+        my: 0.0,
     })];
     let input_t = make_timoshenko_beam(n, l, a, iz, Some(as_y), "fixed", None, loads_t);
     let res_t = linear::solve_2d(&input_t).unwrap();
@@ -529,15 +529,15 @@ fn validation_shear_def_ext_long_beam_convergence() {
         .iter()
         .find(|dd| dd.node_id == tip_node)
         .unwrap()
-        .uy
+        .uz
         .abs();
 
     // Euler-Bernoulli beam
     let loads_eb = vec![SolverLoad::Nodal(SolverNodalLoad {
         node_id: tip_node,
         fx: 0.0,
-        fy: -p,
-        mz: 0.0,
+        fz: -p,
+        my: 0.0,
     })];
     let input_eb = make_timoshenko_beam(n, l, a, iz, None, "fixed", None, loads_eb);
     let res_eb = linear::solve_2d(&input_eb).unwrap();
@@ -546,7 +546,7 @@ fn validation_shear_def_ext_long_beam_convergence() {
         .iter()
         .find(|dd| dd.node_id == tip_node)
         .unwrap()
-        .uy
+        .uz
         .abs();
 
     // Analytical values
@@ -625,8 +625,8 @@ fn validation_shear_def_ext_cantilever_exact_formula() {
         let loads = vec![SolverLoad::Nodal(SolverNodalLoad {
             node_id: tip_node,
             fx: 0.0,
-            fy: -p,
-            mz: 0.0,
+            fz: -p,
+            my: 0.0,
         })];
         let input = make_timoshenko_beam(n, l, a, iz_val, Some(as_y), "fixed", None, loads);
         let results = linear::solve_2d(&input).unwrap();
@@ -636,7 +636,7 @@ fn validation_shear_def_ext_cantilever_exact_formula() {
             .iter()
             .find(|dd| dd.node_id == tip_node)
             .unwrap()
-            .uy
+            .uz
             .abs();
 
         // Exact Timoshenko formula
@@ -657,7 +657,7 @@ fn validation_shear_def_ext_cantilever_exact_formula() {
             .iter()
             .find(|dd| dd.node_id == tip_node)
             .unwrap()
-            .rz
+            .ry
             .abs();
         let theta_exact: f64 = p * l * l / (2.0 * e_eff() * iz_val);
         assert_close(
@@ -729,7 +729,7 @@ fn validation_shear_def_ext_shear_correction_factors() {
         .iter()
         .find(|dd| dd.node_id == mid_node)
         .unwrap()
-        .uy
+        .uz
         .abs();
 
     let w_abs: f64 = w.abs();
@@ -781,7 +781,7 @@ fn validation_shear_def_ext_shear_correction_factors() {
         .iter()
         .find(|dd| dd.node_id == mid_node)
         .unwrap()
-        .uy
+        .uz
         .abs();
 
     let delta_b_i: f64 = 5.0 * w_abs * l.powi(4) / (384.0 * e_eff() * iz_ibeam);
@@ -825,7 +825,7 @@ fn validation_shear_def_ext_shear_correction_factors() {
         .iter()
         .find(|dd| dd.node_id == mid_node)
         .unwrap()
-        .uy
+        .uz
         .abs();
 
     let delta_b_c: f64 = 5.0 * w_abs * l.powi(4) / (384.0 * e_eff() * iz_circ);
@@ -909,8 +909,8 @@ fn validation_shear_def_ext_fixed_fixed_moments() {
     let loads_t = vec![SolverLoad::Nodal(SolverNodalLoad {
         node_id: mid_node,
         fx: 0.0,
-        fy: -p,
-        mz: 0.0,
+        fz: -p,
+        my: 0.0,
     })];
     let input_t =
         make_timoshenko_beam(n, l, a, iz, Some(as_y), "fixed", Some("fixed"), loads_t);
@@ -920,8 +920,8 @@ fn validation_shear_def_ext_fixed_fixed_moments() {
     let loads_eb = vec![SolverLoad::Nodal(SolverNodalLoad {
         node_id: mid_node,
         fx: 0.0,
-        fy: -p,
-        mz: 0.0,
+        fz: -p,
+        my: 0.0,
     })];
     let input_eb =
         make_timoshenko_beam(n, l, a, iz, None, "fixed", Some("fixed"), loads_eb);
@@ -932,14 +932,14 @@ fn validation_shear_def_ext_fixed_fixed_moments() {
         .iter()
         .find(|dd| dd.node_id == mid_node)
         .unwrap()
-        .uy
+        .uz
         .abs();
     let d_eb_mid = res_eb
         .displacements
         .iter()
         .find(|dd| dd.node_id == mid_node)
         .unwrap()
-        .uy
+        .uz
         .abs();
 
     // Timoshenko midspan deflection for fixed-fixed, center point load
@@ -974,7 +974,7 @@ fn validation_shear_def_ext_fixed_fixed_moments() {
         .iter()
         .find(|r| r.node_id == 1)
         .unwrap()
-        .mz
+        .my
         .abs();
 
     assert_close(
@@ -992,7 +992,7 @@ fn validation_shear_def_ext_fixed_fixed_moments() {
         .iter()
         .find(|r| r.node_id == 1)
         .unwrap()
-        .mz
+        .my
         .abs();
 
     assert_close(
@@ -1008,13 +1008,13 @@ fn validation_shear_def_ext_fixed_fixed_moments() {
         .iter()
         .find(|r| r.node_id == 1)
         .unwrap()
-        .ry;
+        .rz;
     let r_right_t = res_t
         .reactions
         .iter()
         .find(|r| r.node_id == n + 1)
         .unwrap()
-        .ry;
+        .rz;
     assert_close(r_left_t, r_right_t, 0.01, "Fixed-fixed Timoshenko reaction symmetry");
     assert_close(r_left_t, p / 2.0, 0.01, "Fixed-fixed Timoshenko R = P/2");
 }
@@ -1057,8 +1057,8 @@ fn validation_shear_def_ext_deep_beam_shear_dominates() {
     let loads_t = vec![SolverLoad::Nodal(SolverNodalLoad {
         node_id: tip_node,
         fx: 0.0,
-        fy: -p,
-        mz: 0.0,
+        fz: -p,
+        my: 0.0,
     })];
     let input_t = make_timoshenko_beam(n, l, a, iz, Some(as_y), "fixed", None, loads_t);
     let res_t = linear::solve_2d(&input_t).unwrap();
@@ -1068,7 +1068,7 @@ fn validation_shear_def_ext_deep_beam_shear_dominates() {
         .iter()
         .find(|dd| dd.node_id == tip_node)
         .unwrap()
-        .uy
+        .uz
         .abs();
 
     // Analytical decomposition
@@ -1091,8 +1091,8 @@ fn validation_shear_def_ext_deep_beam_shear_dominates() {
     let loads_eb = vec![SolverLoad::Nodal(SolverNodalLoad {
         node_id: tip_node,
         fx: 0.0,
-        fy: -p,
-        mz: 0.0,
+        fz: -p,
+        my: 0.0,
     })];
     let input_eb = make_timoshenko_beam(n, l, a, iz, None, "fixed", None, loads_eb);
     let res_eb = linear::solve_2d(&input_eb).unwrap();
@@ -1101,7 +1101,7 @@ fn validation_shear_def_ext_deep_beam_shear_dominates() {
         .iter()
         .find(|dd| dd.node_id == tip_node)
         .unwrap()
-        .uy
+        .uz
         .abs();
 
     // EB deflection matches bending-only analytical
@@ -1211,8 +1211,8 @@ fn validation_shear_def_ext_continuous_beam_redistribution() {
     let total_load: f64 = w_abs * 2.0 * span; // total load on both spans
 
     // Global equilibrium: sum of vertical reactions = total load
-    let sum_ry_t: f64 = res_t.reactions.iter().map(|r| r.ry).sum();
-    let sum_ry_eb: f64 = res_eb.reactions.iter().map(|r| r.ry).sum();
+    let sum_ry_t: f64 = res_t.reactions.iter().map(|r| r.rz).sum();
+    let sum_ry_eb: f64 = res_eb.reactions.iter().map(|r| r.rz).sum();
     assert_close(sum_ry_t, total_load, 0.01, "Continuous Timoshenko equilibrium");
     assert_close(sum_ry_eb, total_load, 0.01, "Continuous EB equilibrium");
 
@@ -1223,7 +1223,7 @@ fn validation_shear_def_ext_continuous_beam_redistribution() {
         .iter()
         .find(|r| r.node_id == middle_support_node)
         .unwrap()
-        .ry;
+        .rz;
     let r_mid_eb_exact: f64 = 5.0 * w_abs * span / 4.0;
 
     assert_close(
@@ -1239,7 +1239,7 @@ fn validation_shear_def_ext_continuous_beam_redistribution() {
         .iter()
         .find(|r| r.node_id == 1)
         .unwrap()
-        .ry;
+        .rz;
     let r_end_eb_exact: f64 = 3.0 * w_abs * span / 8.0;
     assert_close(
         r_end_eb,
@@ -1254,7 +1254,7 @@ fn validation_shear_def_ext_continuous_beam_redistribution() {
         .iter()
         .find(|r| r.node_id == middle_support_node)
         .unwrap()
-        .ry;
+        .rz;
 
     // The middle support moment (hogging) from element forces
     // Element just left of middle support: element n_per_span
@@ -1310,14 +1310,14 @@ fn validation_shear_def_ext_continuous_beam_redistribution() {
         .iter()
         .find(|dd| dd.node_id == mid_span1_node)
         .unwrap()
-        .uy
+        .uz
         .abs();
     let d_mid_eb = res_eb
         .displacements
         .iter()
         .find(|dd| dd.node_id == mid_span1_node)
         .unwrap()
-        .uy
+        .uz
         .abs();
 
     assert!(

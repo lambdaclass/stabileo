@@ -130,8 +130,8 @@ fn validation_matnonlin_ss_third_points() {
     // Below collapse
     let p_below = 0.4 * pc;
     let loads_below = vec![
-        SolverLoad::Nodal(SolverNodalLoad { node_id: 3, fx: 0.0, fy: -p_below, mz: 0.0 }),
-        SolverLoad::Nodal(SolverNodalLoad { node_id: 5, fx: 0.0, fy: -p_below, mz: 0.0 }),
+        SolverLoad::Nodal(SolverNodalLoad { node_id: 3, fx: 0.0, fz: -p_below, my: 0.0 }),
+        SolverLoad::Nodal(SolverNodalLoad { node_id: 5, fx: 0.0, fz: -p_below, my: 0.0 }),
     ];
     let solver_below = make_beam(n, l, E, A_SEC, IZ_SEC, "pinned", Some("rollerX"), loads_below);
     let input_below = make_nonlinear_input(solver_below, 0.01, 20);
@@ -141,8 +141,8 @@ fn validation_matnonlin_ss_third_points() {
     // Above collapse
     let p_above = 1.5 * pc;
     let loads_above = vec![
-        SolverLoad::Nodal(SolverNodalLoad { node_id: 3, fx: 0.0, fy: -p_above, mz: 0.0 }),
-        SolverLoad::Nodal(SolverNodalLoad { node_id: 5, fx: 0.0, fy: -p_above, mz: 0.0 }),
+        SolverLoad::Nodal(SolverNodalLoad { node_id: 3, fx: 0.0, fz: -p_above, my: 0.0 }),
+        SolverLoad::Nodal(SolverNodalLoad { node_id: 5, fx: 0.0, fz: -p_above, my: 0.0 }),
     ];
     let solver_above = make_beam(n, l, E, A_SEC, IZ_SEC, "pinned", Some("rollerX"), loads_above);
     let input_above = make_nonlinear_input(solver_above, 0.01, 20);
@@ -155,9 +155,9 @@ fn validation_matnonlin_ss_third_points() {
     // Displacement above collapse should exceed linear proportional estimate
     let mid = n / 2 + 1;
     let disp_below = res_below.results.displacements.iter()
-        .find(|d| d.node_id == mid).unwrap().uy.abs();
+        .find(|d| d.node_id == mid).unwrap().uz.abs();
     let disp_above = res_above.results.displacements.iter()
-        .find(|d| d.node_id == mid).unwrap().uy.abs();
+        .find(|d| d.node_id == mid).unwrap().uz.abs();
     let linear_proj = disp_below * (p_above / p_below);
     assert!(
         disp_above > linear_proj * 0.8,
@@ -212,7 +212,7 @@ fn validation_matnonlin_load_factor_monotonic() {
     let p = 100.0; // Well below Mp/L
 
     let loads = vec![SolverLoad::Nodal(SolverNodalLoad {
-        node_id: n + 1, fx: 0.0, fy: -p, mz: 0.0,
+        node_id: n + 1, fx: 0.0, fz: -p, my: 0.0,
     })];
 
     // Run with increasing increments
@@ -249,7 +249,7 @@ fn validation_matnonlin_hardening_effect() {
     let p = 1.1 * pc;
     let mid = n / 2 + 1;
     let loads = vec![SolverLoad::Nodal(SolverNodalLoad {
-        node_id: mid, fx: 0.0, fy: -p, mz: 0.0,
+        node_id: mid, fx: 0.0, fz: -p, my: 0.0,
     })];
 
     // EPP (α = 0.001, near zero)
@@ -264,9 +264,9 @@ fn validation_matnonlin_hardening_effect() {
 
     // Hardening model should handle load better (higher load factor or smaller displacement)
     let disp_epp = res_epp.results.displacements.iter()
-        .find(|d| d.node_id == mid).unwrap().uy.abs();
+        .find(|d| d.node_id == mid).unwrap().uz.abs();
     let disp_hard = res_hard.results.displacements.iter()
-        .find(|d| d.node_id == mid).unwrap().uy.abs();
+        .find(|d| d.node_id == mid).unwrap().uz.abs();
 
     // With hardening, either better convergence or smaller displacement
     if res_hard.converged && res_epp.converged {
@@ -298,7 +298,7 @@ fn validation_matnonlin_cantilever_exact_mp() {
 
     // Apply moment = Mp at tip
     let loads = vec![SolverLoad::Nodal(SolverNodalLoad {
-        node_id: n + 1, fx: 0.0, fy: 0.0, mz: MP,
+        node_id: n + 1, fx: 0.0, fz: 0.0, my: MP,
     })];
 
     let solver = make_beam(n, l, E, A_SEC, IZ_SEC, "fixed", None, loads);

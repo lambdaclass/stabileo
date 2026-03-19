@@ -55,17 +55,17 @@ fn validation_fef_udl_fixed_fixed() {
 
     // FEF moments = wL²/12 (magnitude)
     let fem = q.abs() * l * l / 12.0;
-    assert_close(r1.mz.abs(), fem, 0.02, "UDL FEF: M_left = wL²/12");
-    assert_close(r_end.mz.abs(), fem, 0.02, "UDL FEF: M_right = wL²/12");
+    assert_close(r1.my.abs(), fem, 0.02, "UDL FEF: M_left = wL²/12");
+    assert_close(r_end.my.abs(), fem, 0.02, "UDL FEF: M_right = wL²/12");
 
     // Vertical reactions = wL/2
     let r_exact = q.abs() * l / 2.0;
-    assert_close(r1.ry, r_exact, 0.02, "UDL FEF: R_left = wL/2");
-    assert_close(r_end.ry, r_exact, 0.02, "UDL FEF: R_right = wL/2");
+    assert_close(r1.rz, r_exact, 0.02, "UDL FEF: R_left = wL/2");
+    assert_close(r_end.rz, r_exact, 0.02, "UDL FEF: R_right = wL/2");
 
     // Global equilibrium: sum of vertical reactions = total load
     let total = q.abs() * l;
-    let sum_ry: f64 = results.reactions.iter().map(|r| r.ry).sum();
+    let sum_ry: f64 = results.reactions.iter().map(|r| r.rz).sum();
     assert_close(sum_ry, total, 0.01, "UDL FEF: ΣRy = wL");
 }
 
@@ -85,7 +85,7 @@ fn validation_fef_midspan_point_load() {
 
     let mid_node = n / 2 + 1; // node 5 for n=8
     let loads = vec![SolverLoad::Nodal(SolverNodalLoad {
-        node_id: mid_node, fx: 0.0, fy: -p, mz: 0.0,
+        node_id: mid_node, fx: 0.0, fz: -p, my: 0.0,
     })];
     let input = make_beam(n, l, E, A, IZ, "fixed", Some("fixed"), loads);
     let results = linear::solve_2d(&input).unwrap();
@@ -95,12 +95,12 @@ fn validation_fef_midspan_point_load() {
 
     // FEF moment = PL/8
     let fem = p * l / 8.0;
-    assert_close(r1.mz.abs(), fem, 0.02, "Midspan FEF: M = PL/8");
-    assert_close(r_end.mz.abs(), fem, 0.02, "Midspan FEF: M_end = PL/8");
+    assert_close(r1.my.abs(), fem, 0.02, "Midspan FEF: M = PL/8");
+    assert_close(r_end.my.abs(), fem, 0.02, "Midspan FEF: M_end = PL/8");
 
     // Equal reactions = P/2
-    assert_close(r1.ry, p / 2.0, 0.02, "Midspan FEF: R = P/2");
-    assert_close(r_end.ry, p / 2.0, 0.02, "Midspan FEF: R_end = P/2");
+    assert_close(r1.rz, p / 2.0, 0.02, "Midspan FEF: R = P/2");
+    assert_close(r_end.rz, p / 2.0, 0.02, "Midspan FEF: R_end = P/2");
 }
 
 // ================================================================
@@ -124,7 +124,7 @@ fn validation_fef_quarter_span_point_load() {
     let b = l - a;                                     // 6.0 m from right
 
     let loads = vec![SolverLoad::Nodal(SolverNodalLoad {
-        node_id: load_node, fx: 0.0, fy: -p, mz: 0.0,
+        node_id: load_node, fx: 0.0, fz: -p, my: 0.0,
     })];
     let input = make_beam(n, l, E, A, IZ, "fixed", Some("fixed"), loads);
     let results = linear::solve_2d(&input).unwrap();
@@ -137,21 +137,21 @@ fn validation_fef_quarter_span_point_load() {
     // M_B = P a² b / L²
     let m_b = p * a * a * b / (l * l);
 
-    assert_close(r1.mz.abs(), m_a, 0.05, "Quarter-span FEF: M_A = Pab²/L²");
-    assert_close(r_end.mz.abs(), m_b, 0.05, "Quarter-span FEF: M_B = Pa²b/L²");
+    assert_close(r1.my.abs(), m_a, 0.05, "Quarter-span FEF: M_A = Pab²/L²");
+    assert_close(r_end.my.abs(), m_b, 0.05, "Quarter-span FEF: M_B = Pa²b/L²");
 
     // M_A > M_B for load closer to left (a < b)
     assert!(
-        r1.mz.abs() > r_end.mz.abs(),
+        r1.my.abs() > r_end.my.abs(),
         "Quarter-span: M_A > M_B for a < b: M_A={:.4}, M_B={:.4}",
-        r1.mz.abs(), r_end.mz.abs()
+        r1.my.abs(), r_end.my.abs()
     );
 
     // Reaction equilibrium: R_A = P b²(L+2a)/L³, R_B = P a²(L+2b)/L³
     let r_a_exact = p * b * b * (l + 2.0 * a) / l.powi(3);
     let r_b_exact = p * a * a * (l + 2.0 * b) / l.powi(3);
-    assert_close(r1.ry, r_a_exact, 0.05, "Quarter-span: R_A = Pb²(L+2a)/L³");
-    assert_close(r_end.ry, r_b_exact, 0.05, "Quarter-span: R_B = Pa²(L+2b)/L³");
+    assert_close(r1.rz, r_a_exact, 0.05, "Quarter-span: R_A = Pb²(L+2a)/L³");
+    assert_close(r_end.rz, r_b_exact, 0.05, "Quarter-span: R_B = Pa²(L+2b)/L³");
 }
 
 // ================================================================
@@ -193,19 +193,19 @@ fn validation_fef_triangular_load() {
     let m_right = q.abs() * l * l / 20.0;
 
     // Allow 10% tolerance due to piecewise linear approximation
-    assert_close(r1.mz.abs(), m_left, 0.10, "Triangular FEF: M_left ≈ qL²/30");
-    assert_close(r_end.mz.abs(), m_right, 0.10, "Triangular FEF: M_right ≈ qL²/20");
+    assert_close(r1.my.abs(), m_left, 0.10, "Triangular FEF: M_left ≈ qL²/30");
+    assert_close(r_end.my.abs(), m_right, 0.10, "Triangular FEF: M_right ≈ qL²/20");
 
     // Right end moment must exceed left end moment
     assert!(
-        r_end.mz.abs() > r1.mz.abs(),
+        r_end.my.abs() > r1.my.abs(),
         "Triangular FEF: M_right > M_left: {:.4} > {:.4}",
-        r_end.mz.abs(), r1.mz.abs()
+        r_end.my.abs(), r1.my.abs()
     );
 
     // Total vertical reaction = qL/2 (total triangular load)
     let total = q.abs() * l / 2.0;
-    let sum_ry: f64 = results.reactions.iter().map(|r| r.ry).sum();
+    let sum_ry: f64 = results.reactions.iter().map(|r| r.rz).sum();
     assert_close(sum_ry, total, 0.02, "Triangular FEF: ΣRy = qL/2");
 }
 
@@ -241,28 +241,28 @@ fn validation_fef_partial_udl_left_half() {
 
     // Total applied load = q * L/2
     let total = q.abs() * l / 2.0;
-    let sum_ry: f64 = results.reactions.iter().map(|r| r.ry).sum();
+    let sum_ry: f64 = results.reactions.iter().map(|r| r.rz).sum();
     assert_close(sum_ry, total, 0.02, "Partial UDL FEF: ΣRy = wL/2");
 
     // Left reaction should be larger (load is on left half)
     assert!(
-        r1.ry > r_end.ry,
-        "Partial UDL FEF: R_left > R_right: {:.4} > {:.4}", r1.ry, r_end.ry
+        r1.rz > r_end.rz,
+        "Partial UDL FEF: R_left > R_right: {:.4} > {:.4}", r1.rz, r_end.rz
     );
 
     // Moment at left should be larger than moment at right
     // (load closer to left end → larger FEF moment at left)
     assert!(
-        r1.mz.abs() > r_end.mz.abs(),
+        r1.my.abs() > r_end.my.abs(),
         "Partial UDL FEF: |M_left| > |M_right|: {:.4} > {:.4}",
-        r1.mz.abs(), r_end.mz.abs()
+        r1.my.abs(), r_end.my.abs()
     );
 
     // Check analytical FEF: M_A = 11wL²/192, M_B = 5wL²/192
     let m_a_exact = 11.0 * q.abs() * l * l / 192.0;
     let m_b_exact = 5.0 * q.abs() * l * l / 192.0;
-    assert_close(r1.mz.abs(), m_a_exact, 0.05, "Partial UDL FEF: M_A = 11wL²/192");
-    assert_close(r_end.mz.abs(), m_b_exact, 0.05, "Partial UDL FEF: M_B = 5wL²/192");
+    assert_close(r1.my.abs(), m_a_exact, 0.05, "Partial UDL FEF: M_A = 11wL²/192");
+    assert_close(r_end.my.abs(), m_b_exact, 0.05, "Partial UDL FEF: M_B = 5wL²/192");
 }
 
 // ================================================================
@@ -295,13 +295,13 @@ fn validation_fef_udl_moment_sign_and_propped() {
     let r_end_ff = res_ff.reactions.iter().find(|r| r.node_id == n + 1).unwrap();
 
     // Moments must be equal in magnitude (symmetric)
-    assert_close(r1_ff.mz.abs(), r_end_ff.mz.abs(), 0.02,
+    assert_close(r1_ff.my.abs(), r_end_ff.my.abs(), 0.02,
         "UDL fixed-fixed: |M_left| = |M_right|");
 
     // For UDL: moments have opposite signs at the two ends (both hogging)
     // In the solver sign convention, both reaction moments should be non-zero
-    assert!(r1_ff.mz.abs() > 1.0, "Fixed-fixed UDL: non-zero left moment");
-    assert!(r_end_ff.mz.abs() > 1.0, "Fixed-fixed UDL: non-zero right moment");
+    assert!(r1_ff.my.abs() > 1.0, "Fixed-fixed UDL: non-zero left moment");
+    assert!(r_end_ff.my.abs() > 1.0, "Fixed-fixed UDL: non-zero right moment");
 
     // Propped cantilever (fixed at left, roller at right) with UDL
     let input_pc = make_beam(n, l, E, A, IZ, "fixed", Some("rollerX"), loads);
@@ -312,15 +312,15 @@ fn validation_fef_udl_moment_sign_and_propped() {
 
     // Propped cantilever: R_prop = 3wL/8
     let r_prop_exact = 3.0 * q.abs() * l / 8.0;
-    assert_close(r_end_pc.ry, r_prop_exact, 0.02, "Propped cantilever: R_prop = 3wL/8");
+    assert_close(r_end_pc.rz, r_prop_exact, 0.02, "Propped cantilever: R_prop = 3wL/8");
 
     // Fixed end: R_fixed = 5wL/8
     let r_fixed_exact = 5.0 * q.abs() * l / 8.0;
-    assert_close(r1_pc.ry, r_fixed_exact, 0.02, "Propped cantilever: R_fixed = 5wL/8");
+    assert_close(r1_pc.rz, r_fixed_exact, 0.02, "Propped cantilever: R_fixed = 5wL/8");
 
     // Fixed end moment: M_fixed = wL²/8
     let m_fixed_exact = q.abs() * l * l / 8.0;
-    assert_close(r1_pc.mz.abs(), m_fixed_exact, 0.02, "Propped cantilever: M = wL²/8");
+    assert_close(r1_pc.my.abs(), m_fixed_exact, 0.02, "Propped cantilever: M = wL²/8");
 }
 
 // ================================================================
@@ -347,17 +347,17 @@ fn validation_fef_reactions_sum_to_total_load() {
         .collect();
     let input1 = make_beam(n, l, E, A, IZ, "fixed", Some("fixed"), loads_udl);
     let res1 = linear::solve_2d(&input1).unwrap();
-    let sum1: f64 = res1.reactions.iter().map(|r| r.ry).sum();
+    let sum1: f64 = res1.reactions.iter().map(|r| r.rz).sum();
     assert_close(sum1, q.abs() * l, 0.01, "FEF sum (UDL): ΣRy = wL");
 
     // Test 2: Point load at L/3
     let load_node = n / 3 + 1;
     let loads_pt = vec![SolverLoad::Nodal(SolverNodalLoad {
-        node_id: load_node, fx: 0.0, fy: p, mz: 0.0,
+        node_id: load_node, fx: 0.0, fz: p, my: 0.0,
     })];
     let input2 = make_beam(n, l, E, A, IZ, "fixed", Some("fixed"), loads_pt);
     let res2 = linear::solve_2d(&input2).unwrap();
-    let sum2: f64 = res2.reactions.iter().map(|r| r.ry).sum();
+    let sum2: f64 = res2.reactions.iter().map(|r| r.rz).sum();
     assert_close(sum2, p.abs(), 0.01, "FEF sum (point): ΣRy = P");
 
     // Test 3: Triangular load (0 to q)
@@ -372,7 +372,7 @@ fn validation_fef_reactions_sum_to_total_load() {
         .collect();
     let input3 = make_beam(n, l, E, A, IZ, "fixed", Some("fixed"), loads_tri);
     let res3 = linear::solve_2d(&input3).unwrap();
-    let sum3: f64 = res3.reactions.iter().map(|r| r.ry).sum();
+    let sum3: f64 = res3.reactions.iter().map(|r| r.rz).sum();
     let total_tri = q.abs() * l / 2.0;
     assert_close(sum3, total_tri, 0.02, "FEF sum (triangular): ΣRy = qL/2");
 
@@ -383,11 +383,11 @@ fn validation_fef_reactions_sum_to_total_load() {
         }))
         .collect();
     loads_comb.push(SolverLoad::Nodal(SolverNodalLoad {
-        node_id: n / 2 + 1, fx: 0.0, fy: p, mz: 0.0,
+        node_id: n / 2 + 1, fx: 0.0, fz: p, my: 0.0,
     }));
     let input4 = make_beam(n, l, E, A, IZ, "fixed", Some("fixed"), loads_comb);
     let res4 = linear::solve_2d(&input4).unwrap();
-    let sum4: f64 = res4.reactions.iter().map(|r| r.ry).sum();
+    let sum4: f64 = res4.reactions.iter().map(|r| r.rz).sum();
     let total_comb = q.abs() * l + p.abs();
     assert_close(sum4, total_comb, 0.02, "FEF sum (combined): ΣRy = wL + P");
 }
@@ -412,7 +412,7 @@ fn validation_fef_third_span_point_load() {
     // Load at node 4 = L/3 from left (each element = 1 m)
     let load_node = 4;
     let loads = vec![SolverLoad::Nodal(SolverNodalLoad {
-        node_id: load_node, fx: 0.0, fy: -p, mz: 0.0,
+        node_id: load_node, fx: 0.0, fz: -p, my: 0.0,
     })];
     let input = make_beam(n, l, E, A, IZ, "fixed", Some("fixed"), loads);
     let results = linear::solve_2d(&input).unwrap();
@@ -427,23 +427,23 @@ fn validation_fef_third_span_point_load() {
     let m_a = p * a * b * b / (l * l); // = 27 × 3 × 36 / 81 = 36
     let m_b = p * a * a * b / (l * l); // = 27 × 9 × 6 / 81 = 18
 
-    assert_close(r1.mz.abs(), m_a, 0.05, "Third-span FEF: M_A = Pab²/L²");
-    assert_close(r_end.mz.abs(), m_b, 0.05, "Third-span FEF: M_B = Pa²b/L²");
+    assert_close(r1.my.abs(), m_a, 0.05, "Third-span FEF: M_A = Pab²/L²");
+    assert_close(r_end.my.abs(), m_b, 0.05, "Third-span FEF: M_B = Pa²b/L²");
 
     // Moment at left (closer to load) should be larger than at right
     assert!(
-        r1.mz.abs() > r_end.mz.abs(),
-        "Third-span FEF: M_A > M_B: {:.4} > {:.4}", r1.mz.abs(), r_end.mz.abs()
+        r1.my.abs() > r_end.my.abs(),
+        "Third-span FEF: M_A > M_B: {:.4} > {:.4}", r1.my.abs(), r_end.my.abs()
     );
 
     // Reaction formulas: R_A = Pb²(3a+b)/L³, R_B = Pa²(a+3b)/L³
     // Note: Standard formula uses R_A = Pb²(L+2a)/L³ = Pb²(3a+b)/L³ when a+b=L
     let r_a_exact = p * b * b * (l + 2.0 * a) / l.powi(3);
     let r_b_exact = p * a * a * (l + 2.0 * b) / l.powi(3);
-    assert_close(r1.ry, r_a_exact, 0.05, "Third-span FEF: R_A exact");
-    assert_close(r_end.ry, r_b_exact, 0.05, "Third-span FEF: R_B exact");
+    assert_close(r1.rz, r_a_exact, 0.05, "Third-span FEF: R_A exact");
+    assert_close(r_end.rz, r_b_exact, 0.05, "Third-span FEF: R_B exact");
 
     // Equilibrium
-    let sum_ry: f64 = results.reactions.iter().map(|r| r.ry).sum();
+    let sum_ry: f64 = results.reactions.iter().map(|r| r.rz).sum();
     assert_close(sum_ry, p, 0.01, "Third-span FEF: ΣRy = P");
 }

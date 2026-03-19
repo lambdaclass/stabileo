@@ -62,7 +62,7 @@ fn validation_bc_fixed_vs_ss_deflection_ratio() {
     let d_ss = results_ss.displacements.iter().find(|d| d.node_id == mid).unwrap();
 
     // Ratio of SS to fixed-fixed midspan deflection should be 5
-    let ratio = d_ss.uy.abs() / d_ff.uy.abs();
+    let ratio = d_ss.uz.abs() / d_ff.uz.abs();
     assert_close(ratio, 5.0, 0.02,
         "BC effect: SS/fixed-fixed deflection ratio = 5");
 }
@@ -107,7 +107,7 @@ fn validation_bc_cantilever_vs_ss_deflection_ratio() {
         .find(|d| d.node_id == mid).unwrap();
 
     // Ratio = cantilever tip / SS midspan = 9.6
-    let ratio = tip.uy.abs() / d_ss.uy.abs();
+    let ratio = tip.uz.abs() / d_ss.uz.abs();
     assert_close(ratio, 9.6, 0.02,
         "BC effect: cantilever/SS deflection ratio = 9.6");
 }
@@ -139,10 +139,10 @@ fn validation_bc_fixed_end_zero_rotation() {
         .find(|d| d.node_id == n + 1).unwrap();
 
     // Fixed supports enforce zero rotation
-    assert!(d_start.rz.abs() < 1e-10,
-        "BC effect: fixed start rz = {:.6e}, expected 0", d_start.rz);
-    assert!(d_end.rz.abs() < 1e-10,
-        "BC effect: fixed end rz = {:.6e}, expected 0", d_end.rz);
+    assert!(d_start.ry.abs() < 1e-10,
+        "BC effect: fixed start rz = {:.6e}, expected 0", d_start.ry);
+    assert!(d_end.ry.abs() < 1e-10,
+        "BC effect: fixed end rz = {:.6e}, expected 0", d_end.ry);
 }
 
 // ================================================================
@@ -191,7 +191,7 @@ fn validation_bc_roller_allows_horizontal_movement() {
 
     // Pinned at start, rollerX at end, axial load at free-to-slide end
     let loads = vec![SolverLoad::Nodal(SolverNodalLoad {
-        node_id: n + 1, fx: p_axial, fy: 0.0, mz: 0.0,
+        node_id: n + 1, fx: p_axial, fz: 0.0, my: 0.0,
     })];
     let input = make_beam(n, l, E, A, IZ, "pinned", Some("rollerX"), loads);
     let results = linear::solve_2d(&input).unwrap();
@@ -244,16 +244,16 @@ fn validation_bc_fixed_fixed_reactions() {
 
     // Vertical reaction: R = qL/2
     let r_exact = q.abs() * l / 2.0;
-    assert_close(r_start.ry, r_exact, 0.02,
+    assert_close(r_start.rz, r_exact, 0.02,
         "BC effect: fixed-fixed R_start = qL/2");
-    assert_close(r_end.ry, r_exact, 0.02,
+    assert_close(r_end.rz, r_exact, 0.02,
         "BC effect: fixed-fixed R_end = qL/2");
 
     // Fixed-end moment: M = qL^2/12
     let m_exact = q.abs() * l * l / 12.0;
-    assert_close(r_start.mz.abs(), m_exact, 0.02,
+    assert_close(r_start.my.abs(), m_exact, 0.02,
         "BC effect: fixed-fixed M_start = qL^2/12");
-    assert_close(r_end.mz.abs(), m_exact, 0.02,
+    assert_close(r_end.my.abs(), m_exact, 0.02,
         "BC effect: fixed-fixed M_end = qL^2/12");
 }
 
@@ -293,13 +293,13 @@ fn validation_bc_propped_vs_fixed_deflection() {
 
     // Max deflection for propped cantilever
     let max_propped = results_propped.displacements.iter()
-        .map(|d| d.uy.abs())
+        .map(|d| d.uz.abs())
         .fold(0.0_f64, f64::max);
 
     // Max deflection for fixed-fixed (at midspan)
     let mid = n / 2 + 1;
     let max_ff = results_ff.displacements.iter()
-        .find(|d| d.node_id == mid).unwrap().uy.abs();
+        .find(|d| d.node_id == mid).unwrap().uz.abs();
 
     // Propped deflection must exceed fixed-fixed
     assert!(max_propped > max_ff,
@@ -335,7 +335,7 @@ fn validation_bc_fixity_reduces_deflection() {
     let input_ss = make_ss_beam_udl(n, l, E, A, IZ, q);
     let results_ss = linear::solve_2d(&input_ss).unwrap();
     let max_ss = results_ss.displacements.iter()
-        .map(|d| d.uy.abs())
+        .map(|d| d.uz.abs())
         .fold(0.0_f64, f64::max);
 
     // Propped cantilever (fixed + rollerX)
@@ -347,7 +347,7 @@ fn validation_bc_fixity_reduces_deflection() {
     let input_propped = make_beam(n, l, E, A, IZ, "fixed", Some("rollerX"), loads_propped);
     let results_propped = linear::solve_2d(&input_propped).unwrap();
     let max_propped = results_propped.displacements.iter()
-        .map(|d| d.uy.abs())
+        .map(|d| d.uz.abs())
         .fold(0.0_f64, f64::max);
 
     // Fixed-fixed
@@ -359,7 +359,7 @@ fn validation_bc_fixity_reduces_deflection() {
     let input_ff = make_beam(n, l, E, A, IZ, "fixed", Some("fixed"), loads_ff);
     let results_ff = linear::solve_2d(&input_ff).unwrap();
     let max_ff = results_ff.displacements.iter()
-        .map(|d| d.uy.abs())
+        .map(|d| d.uz.abs())
         .fold(0.0_f64, f64::max);
 
     // Verify ordering: SS > propped > fixed-fixed

@@ -58,17 +58,17 @@ fn validation_cantilever_chain_displacement_continuity() {
         "fixed",
         None,
         vec![SolverLoad::Nodal(SolverNodalLoad {
-            node_id: n + 1, fx: 0.0, fy: -p, mz: 0.0,
+            node_id: n + 1, fx: 0.0, fz: -p, my: 0.0,
         })],
     );
     let results = linear::solve_2d(&input).unwrap();
 
     // Fixed end (node 1) must have zero displacement
     let d1 = results.displacements.iter().find(|d| d.node_id == 1).unwrap();
-    assert!(d1.uy.abs() < 1e-8,
-        "Cantilever fixed end: uy should be 0, got {:.2e}", d1.uy);
-    assert!(d1.rz.abs() < 1e-8,
-        "Cantilever fixed end: rz should be 0, got {:.2e}", d1.rz);
+    assert!(d1.uz.abs() < 1e-8,
+        "Cantilever fixed end: uy should be 0, got {:.2e}", d1.uz);
+    assert!(d1.ry.abs() < 1e-8,
+        "Cantilever fixed end: rz should be 0, got {:.2e}", d1.ry);
 
     // Check deflection at every interior node and at the tip
     for i in 1..=n {
@@ -83,19 +83,19 @@ fn validation_cantilever_chain_displacement_continuity() {
         let v_analytical = p * x.powi(2) / (6.0 * e_eff * IZ) * (3.0 * l - x);
 
         let tol = 0.02;
-        let diff = (d.uy.abs() - v_analytical).abs();
+        let diff = (d.uz.abs() - v_analytical).abs();
         let denom = v_analytical.max(1e-10);
         assert!(
             diff / denom < tol || diff < 1e-10,
             "Node {}: |uy|={:.8}, expected={:.8}, rel_err={:.4}%",
-            node_id, d.uy.abs(), v_analytical, diff / denom * 100.0
+            node_id, d.uz.abs(), v_analytical, diff / denom * 100.0
         );
     }
 
     // Tip deflection: PL^3/(3EI)
     let tip = results.displacements.iter().find(|d| d.node_id == n + 1).unwrap();
     let delta_tip = p * l.powi(3) / (3.0 * e_eff * IZ);
-    assert_close(tip.uy.abs(), delta_tip, 0.02,
+    assert_close(tip.uz.abs(), delta_tip, 0.02,
         "Cantilever tip: delta = PL^3/(3EI)");
 }
 
@@ -130,7 +130,7 @@ fn validation_asymmetric_l_frame_corner_compatibility() {
         ],
         vec![(1, 1, "fixed"), (2, 3, "fixed")],
         vec![SolverLoad::Nodal(SolverNodalLoad {
-            node_id: 2, fx, fy, mz: 0.0,
+            node_id: 2, fx, fz: fy, my: 0.0,
         })],
     );
     let results = linear::solve_2d(&input).unwrap();
@@ -144,10 +144,10 @@ fn validation_asymmetric_l_frame_corner_compatibility() {
     // Corner must deflect (non-zero ux, uy, rz)
     assert!(d2.ux.abs() > 1e-10,
         "L-frame corner: ux should be non-zero, got {:.2e}", d2.ux);
-    assert!(d2.uy.abs() > 1e-10,
-        "L-frame corner: uy should be non-zero, got {:.2e}", d2.uy);
-    assert!(d2.rz.abs() > 1e-10,
-        "L-frame corner: rz should be non-zero, got {:.2e}", d2.rz);
+    assert!(d2.uz.abs() > 1e-10,
+        "L-frame corner: uy should be non-zero, got {:.2e}", d2.uz);
+    assert!(d2.ry.abs() > 1e-10,
+        "L-frame corner: rz should be non-zero, got {:.2e}", d2.ry);
 
     // Both elements at node 2 carry moment (rigid joint transfers moment)
     let ef1 = results.element_forces.iter().find(|e| e.element_id == 1).unwrap();
@@ -159,7 +159,7 @@ fn validation_asymmetric_l_frame_corner_compatibility() {
 
     // Global equilibrium: sum of horizontal reactions = -fx, sum of vertical = -fy
     let sum_rx: f64 = results.reactions.iter().map(|r| r.rx).sum();
-    let sum_ry: f64 = results.reactions.iter().map(|r| r.ry).sum();
+    let sum_ry: f64 = results.reactions.iter().map(|r| r.rz).sum();
     assert_close(sum_rx, -fx, 0.02, "L-frame: sum_Rx = -Fx");
     assert_close(sum_ry, -fy, 0.02, "L-frame: sum_Ry = -Fy");
 }
@@ -206,7 +206,7 @@ fn validation_k_brace_five_member_hub_compatibility() {
         elems,
         sups,
         vec![SolverLoad::Nodal(SolverNodalLoad {
-            node_id: 1, fx: 0.0, fy: -p, mz: 0.0,
+            node_id: 1, fx: 0.0, fz: -p, my: 0.0,
         })],
     );
     let results = linear::solve_2d(&input).unwrap();
@@ -220,8 +220,8 @@ fn validation_k_brace_five_member_hub_compatibility() {
     let d_hub = hub_entries[0];
 
     // Hub must deflect downward under vertical load
-    assert!(d_hub.uy < 0.0,
-        "K-brace hub: uy should be negative (downward), got {:.8}", d_hub.uy);
+    assert!(d_hub.uz < 0.0,
+        "K-brace hub: uy should be negative (downward), got {:.8}", d_hub.uz);
 
     // All five elements must carry axial force (each arm is loaded
     // through the hub's shared DOFs)
@@ -235,7 +235,7 @@ fn validation_k_brace_five_member_hub_compatibility() {
     }
 
     // Global equilibrium
-    let sum_ry: f64 = results.reactions.iter().map(|r| r.ry).sum();
+    let sum_ry: f64 = results.reactions.iter().map(|r| r.rz).sum();
     assert_close(sum_ry, p, 0.02, "K-brace hub: sum_Ry = P");
 }
 
@@ -286,13 +286,13 @@ fn validation_propped_cantilever_compatibility() {
 
     // Fixed end (node 1): uy=0, rz=0
     let d1 = results.displacements.iter().find(|d| d.node_id == 1).unwrap();
-    assert!(d1.uy.abs() < 1e-8, "Propped: fixed end uy=0, got {:.2e}", d1.uy);
-    assert!(d1.rz.abs() < 1e-8, "Propped: fixed end rz=0, got {:.2e}", d1.rz);
+    assert!(d1.uz.abs() < 1e-8, "Propped: fixed end uy=0, got {:.2e}", d1.uz);
+    assert!(d1.ry.abs() < 1e-8, "Propped: fixed end rz=0, got {:.2e}", d1.ry);
 
     // Roller end (node n_nodes): uy=0, but rz!=0
     let d_end = results.displacements.iter().find(|d| d.node_id == n_nodes).unwrap();
-    assert!(d_end.uy.abs() < 1e-8, "Propped: roller end uy=0, got {:.2e}", d_end.uy);
-    assert!(d_end.rz.abs() > 1e-10, "Propped: roller end rz should be non-zero, got {:.2e}", d_end.rz);
+    assert!(d_end.uz.abs() < 1e-8, "Propped: roller end uy=0, got {:.2e}", d_end.uz);
+    assert!(d_end.ry.abs() > 1e-10, "Propped: roller end rz should be non-zero, got {:.2e}", d_end.ry);
 
     // Maximum deflection: qL^4/(185*EI) approximately, at x ~ 0.4215*L
     // Use exact formula: delta_max = qL^4/(185*EI) (common approximation)
@@ -300,15 +300,15 @@ fn validation_propped_cantilever_compatibility() {
 
     // Find the node with maximum |uy|
     let max_disp = results.displacements.iter()
-        .max_by(|a, b| a.uy.abs().partial_cmp(&b.uy.abs()).unwrap())
+        .max_by(|a, b| a.uz.abs().partial_cmp(&b.uz.abs()).unwrap())
         .unwrap();
-    assert_close(max_disp.uy.abs(), delta_max_approx, 0.05,
+    assert_close(max_disp.uz.abs(), delta_max_approx, 0.05,
         "Propped cantilever: max deflection ~ qL^4/(185EI)");
 
     // Verify reaction at roller: R = 3qL/8
     let r_roller = results.reactions.iter().find(|r| r.node_id == n_nodes).unwrap();
     let r_expected = 3.0 * q * l / 8.0;
-    assert_close(r_roller.ry, r_expected, 0.02,
+    assert_close(r_roller.rz, r_expected, 0.02,
         "Propped cantilever: roller reaction = 3qL/8");
 }
 
@@ -345,7 +345,7 @@ fn validation_moment_load_rotation_continuity() {
         ],
         vec![(1, 1, "pinned"), (2, 3, "rollerX")],
         vec![SolverLoad::Nodal(SolverNodalLoad {
-            node_id: 2, fx: 0.0, fy: 0.0, mz: m0,
+            node_id: 2, fx: 0.0, fz: 0.0, my: m0,
         })],
     );
     let results = linear::solve_2d(&input).unwrap();
@@ -357,8 +357,8 @@ fn validation_moment_load_rotation_continuity() {
     let d2 = results.displacements.iter().find(|d| d.node_id == 2).unwrap();
 
     // Node 2 must have non-zero rotation (moment applied directly)
-    assert!(d2.rz.abs() > 1e-10,
-        "Moment load: node 2 rz should be non-zero, got {:.2e}", d2.rz);
+    assert!(d2.ry.abs() > 1e-10,
+        "Moment load: node 2 rz should be non-zero, got {:.2e}", d2.ry);
 
     // Both elements carry moment through the rigid connection at node 2
     let ef1 = results.element_forces.iter().find(|e| e.element_id == 1).unwrap();
@@ -377,11 +377,11 @@ fn validation_moment_load_rotation_continuity() {
     //         = M0*3L^3/8 / (6*L^2*EI) = M0*L/(16EI)
     let theta_a = m0 * l / (16.0 * e_eff * IZ);
     let d1 = results.displacements.iter().find(|d| d.node_id == 1).unwrap();
-    assert_close(d1.rz.abs(), theta_a, 0.05,
+    assert_close(d1.ry.abs(), theta_a, 0.05,
         "Moment load: left end slope = M0*L/(16EI)");
 
     // Equilibrium: sum of vertical reactions = 0 (no vertical load applied)
-    let sum_ry: f64 = results.reactions.iter().map(|r| r.ry).sum();
+    let sum_ry: f64 = results.reactions.iter().map(|r| r.rz).sum();
     assert!(sum_ry.abs() < 1e-6,
         "Moment load: sum_Ry should be ~0 (no vertical load), got {:.6}", sum_ry);
 }
@@ -436,18 +436,18 @@ fn validation_trapezoidal_load_displacement_continuity() {
     // Support nodes: uy = 0
     let d_start = results.displacements.iter().find(|d| d.node_id == 1).unwrap();
     let d_end = results.displacements.iter().find(|d| d.node_id == n_nodes).unwrap();
-    assert!(d_start.uy.abs() < 1e-8,
-        "Trapezoidal: left support uy=0, got {:.2e}", d_start.uy);
-    assert!(d_end.uy.abs() < 1e-8,
-        "Trapezoidal: right support uy=0, got {:.2e}", d_end.uy);
+    assert!(d_start.uz.abs() < 1e-8,
+        "Trapezoidal: left support uy=0, got {:.2e}", d_start.uz);
+    assert!(d_end.uz.abs() < 1e-8,
+        "Trapezoidal: right support uy=0, got {:.2e}", d_end.uz);
 
     // All interior nodes must deflect downward (negative uy for downward load)
     for i in 1..n {
         let node_id = i + 1;
         let d = results.displacements.iter().find(|d| d.node_id == node_id).unwrap();
-        assert!(d.uy < 0.0,
+        assert!(d.uz < 0.0,
             "Trapezoidal: interior node {} should have negative uy, got {:.8}",
-            node_id, d.uy);
+            node_id, d.uz);
     }
 
     // Verify continuity: the deflection curve should be smooth.
@@ -455,7 +455,7 @@ fn validation_trapezoidal_load_displacement_continuity() {
     // differences between adjacent nodes. The second difference should
     // be bounded (no sharp discontinuities).
     let uy_values: Vec<f64> = (1..=n_nodes)
-        .map(|nid| results.displacements.iter().find(|d| d.node_id == nid).unwrap().uy)
+        .map(|nid| results.displacements.iter().find(|d| d.node_id == nid).unwrap().uz)
         .collect();
     for i in 1..(n_nodes - 1) {
         let second_diff = (uy_values[i + 1] - 2.0 * uy_values[i] + uy_values[i - 1]).abs();
@@ -468,7 +468,7 @@ fn validation_trapezoidal_load_displacement_continuity() {
 
     // Equilibrium: total load = average intensity * span
     let total_load = (q_left + q_right) / 2.0 * l;
-    let sum_ry: f64 = results.reactions.iter().map(|r| r.ry).sum();
+    let sum_ry: f64 = results.reactions.iter().map(|r| r.rz).sum();
     assert_close(sum_ry, total_load, 0.02,
         "Trapezoidal: sum_Ry = average_q * L");
 }
@@ -520,7 +520,7 @@ fn validation_two_bay_portal_interior_column_compatibility() {
             (3, 6, "fixed"),
         ],
         vec![SolverLoad::Nodal(SolverNodalLoad {
-            node_id: 2, fx: f_lat, fy: 0.0, mz: 0.0,
+            node_id: 2, fx: f_lat, fz: 0.0, my: 0.0,
         })],
     );
     let results = linear::solve_2d(&input).unwrap();
@@ -534,8 +534,8 @@ fn validation_two_bay_portal_interior_column_compatibility() {
     let d3 = d3_entries[0];
 
     // Interior node must have non-zero rotation (moments transfer from beams to column)
-    assert!(d3.rz.abs() > 1e-10,
-        "Two-bay: interior node rz must be non-zero, got {:.2e}", d3.rz);
+    assert!(d3.ry.abs() > 1e-10,
+        "Two-bay: interior node rz must be non-zero, got {:.2e}", d3.ry);
 
     // All three elements at node 3 carry moment
     // Element 2 (left beam, end at node 3): m_end
@@ -619,7 +619,7 @@ fn validation_overhanging_beam_compatibility() {
 
     // Point load at overhang tip (node n_nodes)
     let loads = vec![SolverLoad::Nodal(SolverNodalLoad {
-        node_id: n_nodes, fx: 0.0, fy: -p, mz: 0.0,
+        node_id: n_nodes, fx: 0.0, fz: -p, my: 0.0,
     })];
 
     let input = make_input(nodes, vec![(1, E, 0.3)], vec![(1, A, IZ)], elems, sups, loads);
@@ -628,26 +628,26 @@ fn validation_overhanging_beam_compatibility() {
     // Interior support (node n_span+1): uy must be zero
     let d_int = results.displacements.iter()
         .find(|d| d.node_id == interior_sup_node).unwrap();
-    assert!(d_int.uy.abs() < 1e-8,
-        "Overhang: interior support uy=0, got {:.2e}", d_int.uy);
+    assert!(d_int.uz.abs() < 1e-8,
+        "Overhang: interior support uy=0, got {:.2e}", d_int.uz);
 
     // Left support (node 1): uy must be zero
     let d1 = results.displacements.iter().find(|d| d.node_id == 1).unwrap();
-    assert!(d1.uy.abs() < 1e-8,
-        "Overhang: left support uy=0, got {:.2e}", d1.uy);
+    assert!(d1.uz.abs() < 1e-8,
+        "Overhang: left support uy=0, got {:.2e}", d1.uz);
 
     // Interior support rotation must be non-zero (roller allows rotation)
-    assert!(d_int.rz.abs() > 1e-10,
-        "Overhang: interior support rz should be non-zero, got {:.2e}", d_int.rz);
+    assert!(d_int.ry.abs() > 1e-10,
+        "Overhang: interior support rz should be non-zero, got {:.2e}", d_int.ry);
 
     // Overhang tip (node n_nodes) deflects downward
     let d_tip = results.displacements.iter().find(|d| d.node_id == n_nodes).unwrap();
-    assert!(d_tip.uy < 0.0,
-        "Overhang: tip should deflect downward, got uy={:.8}", d_tip.uy);
+    assert!(d_tip.uz < 0.0,
+        "Overhang: tip should deflect downward, got uy={:.8}", d_tip.uz);
 
     // Analytical tip deflection: P*a^2*(L+a)/(3*E*I)
     let delta_tip_analytical = p * a.powi(2) * (l + a) / (3.0 * e_eff * IZ);
-    assert_close(d_tip.uy.abs(), delta_tip_analytical, 0.05,
+    assert_close(d_tip.uz.abs(), delta_tip_analytical, 0.05,
         "Overhang: tip deflection = P*a^2*(L+a)/(3EI)");
 
     // Reactions: R_interior = P*(L+a)/L, R_left = -P*a/L
@@ -655,12 +655,12 @@ fn validation_overhanging_beam_compatibility() {
     let r_left = results.reactions.iter().find(|r| r.node_id == 1).unwrap();
     let r_int_expected = p * (l + a) / l;
     let r_left_expected = -p * a / l;
-    assert_close(r_int.ry, r_int_expected, 0.02,
+    assert_close(r_int.rz, r_int_expected, 0.02,
         "Overhang: interior reaction = P*(L+a)/L");
-    assert_close(r_left.ry, r_left_expected, 0.02,
+    assert_close(r_left.rz, r_left_expected, 0.02,
         "Overhang: left reaction = -P*a/L");
 
     // Global equilibrium
-    let sum_ry: f64 = results.reactions.iter().map(|r| r.ry).sum();
+    let sum_ry: f64 = results.reactions.iter().map(|r| r.rz).sum();
     assert_close(sum_ry, p, 0.02, "Overhang: sum_Ry = P");
 }

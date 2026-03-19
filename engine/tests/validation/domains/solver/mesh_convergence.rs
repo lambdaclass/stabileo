@@ -47,9 +47,9 @@ fn validation_mesh_coarse_fine_same_reactions() {
     let r1_coarse = res_coarse.reactions.iter().find(|r| r.node_id == 1).unwrap();
     let r1_fine = res_fine.reactions.iter().find(|r| r.node_id == 1).unwrap();
 
-    assert_close(r1_coarse.ry, r_exact, 0.01, "Coarse mesh reaction = qL/2");
-    assert_close(r1_fine.ry, r_exact, 0.01, "Fine mesh reaction = qL/2");
-    assert_close(r1_coarse.ry, r1_fine.ry, 1e-8, "Reactions identical coarse vs fine");
+    assert_close(r1_coarse.rz, r_exact, 0.01, "Coarse mesh reaction = qL/2");
+    assert_close(r1_fine.rz, r_exact, 0.01, "Fine mesh reaction = qL/2");
+    assert_close(r1_coarse.rz, r1_fine.rz, 1e-8, "Reactions identical coarse vs fine");
 }
 
 // ================================================================
@@ -76,12 +76,12 @@ fn validation_mesh_deflection_converges() {
         let input = make_beam(
             n, l, E, A, IZ, "fixed", None,
             vec![SolverLoad::Nodal(SolverNodalLoad {
-                node_id: n + 1, fx: 0.0, fy: p, mz: 0.0,
+                node_id: n + 1, fx: 0.0, fz: p, my: 0.0,
             })],
         );
         let results = linear::solve_2d(&input).unwrap();
         let d_tip = results.displacements.iter()
-            .find(|d| d.node_id == n + 1).unwrap().uy.abs();
+            .find(|d| d.node_id == n + 1).unwrap().uz.abs();
         let err = (d_tip - delta_exact).abs() / delta_exact;
 
         // Error must be non-increasing with refinement (monotone convergence)
@@ -121,8 +121,8 @@ fn validation_mesh_four_vs_twenty_elements() {
     let res_20 = linear::solve_2d(&input_20).unwrap();
 
     // Midspan node: node 3 for n=4, node 11 for n=20
-    let d4 = res_4.displacements.iter().find(|d| d.node_id == 3).unwrap().uy.abs();
-    let d20 = res_20.displacements.iter().find(|d| d.node_id == 11).unwrap().uy.abs();
+    let d4 = res_4.displacements.iter().find(|d| d.node_id == 3).unwrap().uz.abs();
+    let d20 = res_20.displacements.iter().find(|d| d.node_id == 11).unwrap().uz.abs();
 
     assert_close(d4, delta_exact, 0.02, "4-element SS UDL midspan deflection");
     assert_close(d20, delta_exact, 0.01, "20-element SS UDL midspan deflection");
@@ -207,7 +207,7 @@ fn validation_mesh_shear_converges() {
         let input = make_beam(
             n, l, E, A, IZ, "pinned", Some("rollerX"),
             vec![SolverLoad::Nodal(SolverNodalLoad {
-                node_id: mid, fx: 0.0, fy: -p, mz: 0.0,
+                node_id: mid, fx: 0.0, fz: -p, my: 0.0,
             })],
         );
         let results = linear::solve_2d(&input).unwrap();
@@ -245,21 +245,21 @@ fn validation_mesh_single_vs_multi_element_cantilever() {
     let input_1 = make_beam(
         1, l, E, A, IZ, "fixed", None,
         vec![SolverLoad::Nodal(SolverNodalLoad {
-            node_id: 2, fx: 0.0, fy: -p, mz: 0.0,
+            node_id: 2, fx: 0.0, fz: -p, my: 0.0,
         })],
     );
     let res_1 = linear::solve_2d(&input_1).unwrap();
-    let d1 = res_1.displacements.iter().find(|d| d.node_id == 2).unwrap().uy.abs();
+    let d1 = res_1.displacements.iter().find(|d| d.node_id == 2).unwrap().uz.abs();
 
     // 10 elements
     let input_10 = make_beam(
         10, l, E, A, IZ, "fixed", None,
         vec![SolverLoad::Nodal(SolverNodalLoad {
-            node_id: 11, fx: 0.0, fy: -p, mz: 0.0,
+            node_id: 11, fx: 0.0, fz: -p, my: 0.0,
         })],
     );
     let res_10 = linear::solve_2d(&input_10).unwrap();
-    let d10 = res_10.displacements.iter().find(|d| d.node_id == 11).unwrap().uy.abs();
+    let d10 = res_10.displacements.iter().find(|d| d.node_id == 11).unwrap().uz.abs();
 
     // Both must be very accurate (nodal load → exact for Hermite)
     assert_close(d1, delta_exact, 0.001, "Single element: exact tip deflection");
@@ -306,7 +306,7 @@ fn validation_mesh_reaction_mesh_independence() {
         let input = make_beam(
             n, l, E, A, IZ, "pinned", Some("rollerX"),
             vec![SolverLoad::Nodal(SolverNodalLoad {
-                node_id: load_node, fx: 0.0, fy: -p, mz: 0.0,
+                node_id: load_node, fx: 0.0, fz: -p, my: 0.0,
             })],
         );
         let results = linear::solve_2d(&input).unwrap();
@@ -314,9 +314,9 @@ fn validation_mesh_reaction_mesh_independence() {
         let r1 = results.reactions.iter().find(|r| r.node_id == 1).unwrap();
         let rn = results.reactions.iter().find(|r| r.node_id == n + 1).unwrap();
 
-        assert_close(r1.ry, r_a, 0.01,
+        assert_close(r1.rz, r_a, 0.01,
             &format!("Reaction R_A n={}, x_load={:.3}", n, x_load));
-        assert_close(rn.ry, r_b, 0.01,
+        assert_close(rn.rz, r_b, 0.01,
             &format!("Reaction R_B n={}, x_load={:.3}", n, x_load));
     }
 
@@ -326,7 +326,7 @@ fn validation_mesh_reaction_mesh_independence() {
         let input = make_ss_beam_udl(n, l, E, A, IZ, q);
         let results = linear::solve_2d(&input).unwrap();
         let r1 = results.reactions.iter().find(|r| r.node_id == 1).unwrap();
-        assert_close(r1.ry, q.abs() * l / 2.0, 0.001,
+        assert_close(r1.rz, q.abs() * l / 2.0, 0.001,
             &format!("UDL reaction R_A n={}", n));
     }
 
@@ -361,13 +361,13 @@ fn validation_mesh_energy_norm_converges() {
         let input = make_beam(
             n, l, E, A, IZ, "fixed", None,
             vec![SolverLoad::Nodal(SolverNodalLoad {
-                node_id: n + 1, fx: 0.0, fy: -p, mz: 0.0,
+                node_id: n + 1, fx: 0.0, fz: -p, my: 0.0,
             })],
         );
         let results = linear::solve_2d(&input).unwrap();
 
         let d_tip = results.displacements.iter()
-            .find(|d| d.node_id == n + 1).unwrap().uy.abs();
+            .find(|d| d.node_id == n + 1).unwrap().uz.abs();
         let u_computed = 0.5 * p * d_tip; // Clapeyron: U = ½Pδ
 
         let err = (u_computed - u_exact).abs() / u_exact;

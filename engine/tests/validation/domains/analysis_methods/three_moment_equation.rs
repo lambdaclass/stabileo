@@ -152,7 +152,7 @@ fn validation_three_moment_point_load() {
 
     let mid1 = n / 2 + 1;
     let loads = vec![SolverLoad::Nodal(SolverNodalLoad {
-        node_id: mid1, fx: 0.0, fy: -p, mz: 0.0,
+        node_id: mid1, fx: 0.0, fz: -p, my: 0.0,
     })];
     let input = make_continuous_beam(&[span, span], n, E, A, IZ, loads);
     let results = linear::solve_2d(&input).unwrap();
@@ -225,21 +225,21 @@ fn validation_three_moment_interior_reaction() {
 
     // R_center = 10qL/8 = 5qL/4
     let r_exact = 5.0 * q.abs() * span / 4.0;
-    assert_close(r_int.ry, r_exact, 0.02,
+    assert_close(r_int.rz, r_exact, 0.02,
         "Three-moment: R_center = 5qL/4");
 
     // End reactions = 3qL/8 each
     let r1 = results.reactions.iter().find(|r| r.node_id == 1).unwrap();
     let r_end = results.reactions.iter().find(|r| r.node_id == 2 * n + 1).unwrap();
     let r_end_exact = 3.0 * q.abs() * span / 8.0;
-    assert_close(r1.ry, r_end_exact, 0.02,
+    assert_close(r1.rz, r_end_exact, 0.02,
         "Three-moment: R_end = 3qL/8");
-    assert_close(r_end.ry, r_end_exact, 0.02,
+    assert_close(r_end.rz, r_end_exact, 0.02,
         "Three-moment: R_end2 = 3qL/8");
 
     // Total equilibrium
     let total_load = q.abs() * 2.0 * span;
-    let total_reaction = r1.ry + r_int.ry + r_end.ry;
+    let total_reaction = r1.rz + r_int.rz + r_end.rz;
     assert_close(total_reaction, total_load, 0.02,
         "Three-moment: ΣR = qL_total");
 }
@@ -305,13 +305,13 @@ fn validation_three_moment_symmetry() {
     // End reactions should be equal (symmetry)
     let r1 = results.reactions.iter().find(|r| r.node_id == 1).unwrap();
     let r_end = results.reactions.iter().find(|r| r.node_id == 3 * n + 1).unwrap();
-    assert_close(r1.ry, r_end.ry, 0.01,
+    assert_close(r1.rz, r_end.rz, 0.01,
         "3-span symmetry: R_left = R_right");
 
     // Interior support reactions should be equal
     let r_b = results.reactions.iter().find(|r| r.node_id == n + 1).unwrap();
     let r_c = results.reactions.iter().find(|r| r.node_id == 2 * n + 1).unwrap();
-    assert_close(r_b.ry, r_c.ry, 0.01,
+    assert_close(r_b.rz, r_c.rz, 0.01,
         "3-span symmetry: R_B = R_C");
 
     // Deflections in span 1 and span 3 should be symmetric
@@ -319,6 +319,6 @@ fn validation_three_moment_symmetry() {
     let mid3 = 2 * n + n / 2 + 1;
     let d1 = results.displacements.iter().find(|d| d.node_id == mid1).unwrap();
     let d3 = results.displacements.iter().find(|d| d.node_id == mid3).unwrap();
-    assert_close(d1.uy, d3.uy, 0.01,
+    assert_close(d1.uz, d3.uz, 0.01,
         "3-span symmetry: δ_span1 = δ_span3");
 }

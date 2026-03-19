@@ -77,7 +77,7 @@ fn validation_local_forces_cantilever() {
     let p = 15.0;
 
     let loads = vec![SolverLoad::Nodal(SolverNodalLoad {
-        node_id: n + 1, fx: 0.0, fy: -p, mz: 0.0,
+        node_id: n + 1, fx: 0.0, fz: -p, my: 0.0,
     })];
     let input = make_beam(n, l, E, A, IZ, "fixed", None, loads);
     let results = linear::solve_2d(&input).unwrap();
@@ -136,9 +136,9 @@ fn validation_local_forces_fixed_udl() {
     // End moments: M = qL²/12
     let r1 = results.reactions.iter().find(|r| r.node_id == 1).unwrap();
     let r2 = results.reactions.iter().find(|r| r.node_id == n + 1).unwrap();
-    assert_close(r1.mz.abs(), q.abs() * l * l / 12.0, 0.02,
+    assert_close(r1.my.abs(), q.abs() * l * l / 12.0, 0.02,
         "Fixed UDL: M_A = qL²/12");
-    assert_close(r2.mz.abs(), q.abs() * l * l / 12.0, 0.02,
+    assert_close(r2.my.abs(), q.abs() * l * l / 12.0, 0.02,
         "Fixed UDL: M_B = qL²/12");
 }
 
@@ -157,7 +157,7 @@ fn validation_local_forces_consistency() {
     let mid = n / 2 + 1;
 
     let loads = vec![SolverLoad::Nodal(SolverNodalLoad {
-        node_id: mid, fx: 0.0, fy: -p, mz: 0.0,
+        node_id: mid, fx: 0.0, fz: -p, my: 0.0,
     })];
     let input = make_beam(n, l, E, A, IZ, "pinned", Some("rollerX"), loads);
     let results = linear::solve_2d(&input).unwrap();
@@ -192,7 +192,7 @@ fn validation_local_forces_axial_truss() {
     // Simple horizontal truss bar (axial-only element)
     // Under axial load, N = P throughout
     let loads = vec![SolverLoad::Nodal(SolverNodalLoad {
-        node_id: n + 1, fx: p, fy: 0.0, mz: 0.0,
+        node_id: n + 1, fx: p, fz: 0.0, my: 0.0,
     })];
     let input = make_beam(n, l, E, A, IZ, "pinned", Some("rollerX"), loads);
     let results = linear::solve_2d(&input).unwrap();
@@ -232,11 +232,11 @@ fn validation_local_forces_portal_equilibrium() {
     assert_close(r1.rx + r4.rx, -f_lat, 0.01, "Portal: ΣRx = -F_lat");
 
     // ΣFy = 0: reactions balance gravity (two nodes loaded)
-    assert_close(r1.ry + r4.ry, -2.0 * g, 0.01, "Portal: ΣRy = -2g");
+    assert_close(r1.rz + r4.rz, -2.0 * g, 0.01, "Portal: ΣRy = -2g");
 
     // Both base moments should be non-zero (fixed supports resist frame action)
-    assert!(r1.mz.abs() > 0.1, "Portal: base moment at 1 exists");
-    assert!(r4.mz.abs() > 0.1, "Portal: base moment at 4 exists");
+    assert!(r1.my.abs() > 0.1, "Portal: base moment at 1 exists");
+    assert!(r4.my.abs() > 0.1, "Portal: base moment at 4 exists");
 }
 
 // ================================================================
@@ -254,7 +254,7 @@ fn validation_local_forces_shear_jump() {
     let mid = n / 2;
 
     let loads = vec![SolverLoad::Nodal(SolverNodalLoad {
-        node_id: mid + 1, fx: 0.0, fy: -p, mz: 0.0,
+        node_id: mid + 1, fx: 0.0, fz: -p, my: 0.0,
     })];
     let input = make_beam(n, l, E, A, IZ, "pinned", Some("rollerX"), loads);
     let results = linear::solve_2d(&input).unwrap();
@@ -304,7 +304,7 @@ fn validation_local_forces_continuous() {
 
     // Shear jump at interior support = interior reaction
     let r_int = results.reactions.iter()
-        .find(|r| r.node_id == n + 1).unwrap().ry;
+        .find(|r| r.node_id == n + 1).unwrap().rz;
     let v_jump = (ef_span1_end.v_end - ef_span2_start.v_start).abs();
     assert_close(v_jump, r_int.abs(), 0.05,
         "Continuous: shear jump = reaction");

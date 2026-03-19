@@ -61,14 +61,14 @@ fn validation_ext_propped_redistribution_ratio() {
     // Fixed-end moment: M_A = qL^2/8
     let r_a = results.reactions.iter().find(|r| r.node_id == 1).unwrap();
     let m_fixed_expected: f64 = q.abs() * l * l / 8.0;
-    assert_close(r_a.mz.abs(), m_fixed_expected, 0.02,
+    assert_close(r_a.my.abs(), m_fixed_expected, 0.02,
         "Propped redistribution: M_fixed = qL^2/8");
 
     // Reactions: R_A = 5qL/8, R_B = 3qL/8
     let r_b = results.reactions.iter().find(|r| r.node_id == n + 1).unwrap();
-    assert_close(r_a.ry, 5.0 * q.abs() * l / 8.0, 0.02,
+    assert_close(r_a.rz, 5.0 * q.abs() * l / 8.0, 0.02,
         "Propped redistribution: R_A = 5qL/8");
-    assert_close(r_b.ry, 3.0 * q.abs() * l / 8.0, 0.02,
+    assert_close(r_b.rz, 3.0 * q.abs() * l / 8.0, 0.02,
         "Propped redistribution: R_B = 3qL/8");
 
     // Maximum sagging moment at x ≈ 5L/8.
@@ -102,11 +102,11 @@ fn validation_ext_propped_redistribution_ratio() {
 
     // Verify EI consistency: deflection at roller is zero
     let d_b = results.displacements.iter().find(|d| d.node_id == n + 1).unwrap();
-    assert!(d_b.uy.abs() < 1e-6, "Roller deflection ≈ 0");
+    assert!(d_b.uz.abs() < 1e-6, "Roller deflection ≈ 0");
 
     // Maximum deflection magnitude check (qualitative)
     let d_max: f64 = results.displacements.iter()
-        .map(|d| d.uy.abs())
+        .map(|d| d.uz.abs())
         .fold(0.0_f64, f64::max);
     // delta_max ≈ qL^4 / (185 EI)
     let d_approx: f64 = q.abs() * l.powi(4) / (185.0 * e_eff * IZ);
@@ -151,15 +151,15 @@ fn validation_ext_fixed_beam_moment_envelope() {
     let r_b = results.reactions.iter().find(|r| r.node_id == n + 1).unwrap();
     let m_end_expected: f64 = q.abs() * l * l / 12.0;
 
-    assert_close(r_a.mz.abs(), m_end_expected, 0.02,
+    assert_close(r_a.my.abs(), m_end_expected, 0.02,
         "Fixed beam envelope: M_A = qL^2/12");
-    assert_close(r_b.mz.abs(), m_end_expected, 0.02,
+    assert_close(r_b.my.abs(), m_end_expected, 0.02,
         "Fixed beam envelope: M_B = qL^2/12");
 
     // Reactions by symmetry: R_A = R_B = qL/2
-    assert_close(r_a.ry, q.abs() * l / 2.0, 0.02,
+    assert_close(r_a.rz, q.abs() * l / 2.0, 0.02,
         "Fixed beam envelope: R_A = qL/2");
-    assert_close(r_b.ry, q.abs() * l / 2.0, 0.02,
+    assert_close(r_b.rz, q.abs() * l / 2.0, 0.02,
         "Fixed beam envelope: R_B = qL/2");
 
     // Midspan moment: M_mid = qL^2/24
@@ -228,13 +228,13 @@ fn validation_ext_two_span_redistribution() {
     // Interior support reaction: R_B = 5qL/4
     let r_b = results.reactions.iter().find(|r| r.node_id == n + 1).unwrap();
     let r_b_expected: f64 = 5.0 * q.abs() * span / 4.0;
-    assert_close(r_b.ry, r_b_expected, 0.02,
+    assert_close(r_b.rz, r_b_expected, 0.02,
         "Two-span redistribution: R_B = 5qL/4");
 
     // End reactions: R_end = 3qL/8
     let r_a = results.reactions.iter().find(|r| r.node_id == 1).unwrap();
     let r_end_expected: f64 = 3.0 * q.abs() * span / 8.0;
-    assert_close(r_a.ry, r_end_expected, 0.02,
+    assert_close(r_a.rz, r_end_expected, 0.02,
         "Two-span redistribution: R_A = 3qL/8");
 
     // Hogging moment at interior support: M_B = qL^2/8
@@ -277,7 +277,7 @@ fn validation_ext_two_span_redistribution() {
     // Equilibrium check: sum of reactions = total load
     let r_c = results.reactions.iter().find(|r| r.node_id == 2 * n + 1).unwrap();
     let total_load: f64 = q.abs() * 2.0 * span;
-    let sum_reactions: f64 = r_a.ry + r_b.ry + r_c.ry;
+    let sum_reactions: f64 = r_a.rz + r_b.rz + r_c.rz;
     assert_close(sum_reactions, total_load, 0.02,
         "Two-span redistribution: equilibrium");
 }
@@ -315,7 +315,7 @@ fn validation_ext_portal_sway_elastic_moments() {
         "Portal sway: horizontal equilibrium");
 
     // Sum of vertical reactions ≈ 0 (no gravity load)
-    let sum_ry: f64 = results.reactions.iter().map(|r| r.ry).sum();
+    let sum_ry: f64 = results.reactions.iter().map(|r| r.rz).sum();
     assert!(sum_ry.abs() < 0.5,
         "Portal sway: vertical equilibrium, sum_ry = {:.4}", sum_ry);
 
@@ -327,8 +327,8 @@ fn validation_ext_portal_sway_elastic_moments() {
     // Sum of base moments + vertical couple = overturning moment
     let r1 = results.reactions.iter().find(|r| r.node_id == 1).unwrap();
     let r4 = results.reactions.iter().find(|r| r.node_id == 4).unwrap();
-    let base_moments: f64 = r1.mz + r4.mz;
-    let vertical_couple: f64 = r4.ry * w; // R4_y * W (couple from vertical reactions)
+    let base_moments: f64 = r1.my + r4.my;
+    let vertical_couple: f64 = r4.rz * w; // R4_y * W (couple from vertical reactions)
     let total_resisting: f64 = base_moments.abs() + vertical_couple.abs();
 
     // The overturning moment should be balanced (within tolerance)
@@ -338,7 +338,7 @@ fn validation_ext_portal_sway_elastic_moments() {
 
     // Both base moments should be of the same sign (resisting sway)
     // and the absolute values should be similar due to frame symmetry in stiffness
-    assert!(r1.mz.abs() > 0.0 && r4.mz.abs() > 0.0,
+    assert!(r1.my.abs() > 0.0 && r4.my.abs() > 0.0,
         "Portal sway: both bases have non-zero moments");
 
     // Maximum elastic moment in frame
@@ -392,7 +392,7 @@ fn validation_ext_propped_cantilever_load_factor() {
 
     let mid = n / 2 + 1;
     let loads = vec![SolverLoad::Nodal(SolverNodalLoad {
-        node_id: mid, fx: 0.0, fy: -p, mz: 0.0,
+        node_id: mid, fx: 0.0, fz: -p, my: 0.0,
     })];
     let input = make_beam(n, l, E, A, IZ, "fixed", Some("rollerX"), loads);
     let results = linear::solve_2d(&input).unwrap();
@@ -401,14 +401,14 @@ fn validation_ext_propped_cantilever_load_factor() {
     let r_a = results.reactions.iter().find(|r| r.node_id == 1).unwrap();
     let r_b = results.reactions.iter().find(|r| r.node_id == n + 1).unwrap();
 
-    assert_close(r_a.ry, 11.0 * p / 16.0, 0.02,
+    assert_close(r_a.rz, 11.0 * p / 16.0, 0.02,
         "Propped LF: R_A = 11P/16");
-    assert_close(r_b.ry, 5.0 * p / 16.0, 0.02,
+    assert_close(r_b.rz, 5.0 * p / 16.0, 0.02,
         "Propped LF: R_B = 5P/16");
 
     // Fixed-end moment: M_A = 3PL/16
     let m_a_expected: f64 = 3.0 * p * l / 16.0;
-    assert_close(r_a.mz.abs(), m_a_expected, 0.02,
+    assert_close(r_a.my.abs(), m_a_expected, 0.02,
         "Propped LF: M_A = 3PL/16");
 
     // Midspan moment: M_mid = 5PL/32
@@ -437,7 +437,7 @@ fn validation_ext_propped_cantilever_load_factor() {
         "Propped LF: elastic-to-plastic factor = 1.125");
 
     // Equilibrium: R_A + R_B = P
-    assert_close(r_a.ry + r_b.ry, p, 0.02,
+    assert_close(r_a.rz + r_b.rz, p, 0.02,
         "Propped LF: vertical equilibrium");
 }
 
@@ -466,7 +466,7 @@ fn validation_ext_fixed_beam_offcenter() {
 
     let load_node = (n as f64 / 3.0).round() as usize + 1;
     let loads = vec![SolverLoad::Nodal(SolverNodalLoad {
-        node_id: load_node, fx: 0.0, fy: -p, mz: 0.0,
+        node_id: load_node, fx: 0.0, fz: -p, my: 0.0,
     })];
     let input = make_beam(n, l, E, A, IZ, "fixed", Some("fixed"), loads);
     let results = linear::solve_2d(&input).unwrap();
@@ -478,13 +478,13 @@ fn validation_ext_fixed_beam_offcenter() {
     let b_load: f64 = l - a_load;
     let m_a_expected: f64 = p * a_load * b_load * b_load / (l * l);
     // M_A = 27 * 3 * 36 / 81 = 27 * 108/81 = 27 * 4/3 = 36
-    assert_close(r_a.mz.abs(), m_a_expected, 0.05,
+    assert_close(r_a.my.abs(), m_a_expected, 0.05,
         "Fixed off-center: M_A = Pab^2/L^2");
 
     // M_B = P*a^2*b/L^2
     let m_b_expected: f64 = p * a_load * a_load * b_load / (l * l);
     // M_B = 27 * 9 * 6 / 81 = 27 * 54/81 = 27 * 2/3 = 18
-    assert_close(r_b.mz.abs(), m_b_expected, 0.05,
+    assert_close(r_b.my.abs(), m_b_expected, 0.05,
         "Fixed off-center: M_B = Pa^2b/L^2");
 
     // Ratio of end moments: M_A/M_B = b/a = 2
@@ -509,7 +509,7 @@ fn validation_ext_fixed_beam_offcenter() {
         "Fixed off-center: plastic load factor = 4/3");
 
     // Equilibrium
-    assert_close(r_a.ry + r_b.ry, p, 0.02,
+    assert_close(r_a.rz + r_b.rz, p, 0.02,
         "Fixed off-center: vertical equilibrium");
 }
 
@@ -549,7 +549,7 @@ fn validation_ext_three_span_elastic_moments() {
 
     // Equilibrium: total reaction = total load
     let total_load: f64 = q.abs() * 3.0 * span;
-    let sum_ry: f64 = results.reactions.iter().map(|r| r.ry).sum();
+    let sum_ry: f64 = results.reactions.iter().map(|r| r.rz).sum();
     assert_close(sum_ry, total_load, 0.02,
         "Three-span: equilibrium");
 
@@ -559,9 +559,9 @@ fn validation_ext_three_span_elastic_moments() {
     let r2 = results.reactions.iter().find(|r| r.node_id == n + 1).unwrap();
     let r3 = results.reactions.iter().find(|r| r.node_id == 2 * n + 1).unwrap();
 
-    assert_close(r1.ry, r4.ry, 0.02,
+    assert_close(r1.rz, r4.rz, 0.02,
         "Three-span: R1 = R4 by symmetry");
-    assert_close(r2.ry, r3.ry, 0.02,
+    assert_close(r2.rz, r3.rz, 0.02,
         "Three-span: R2 = R3 by symmetry");
 
     // Standard results for 3-span continuous beam (equal spans, UDL):
@@ -569,9 +569,9 @@ fn validation_ext_three_span_elastic_moments() {
     // M at interior supports = qL^2/10
     let r_end_expected: f64 = 0.4 * q.abs() * span;
     let r_int_expected: f64 = 1.1 * q.abs() * span;
-    assert_close(r1.ry, r_end_expected, 0.02,
+    assert_close(r1.rz, r_end_expected, 0.02,
         "Three-span: R_end = 0.4qL");
-    assert_close(r2.ry, r_int_expected, 0.02,
+    assert_close(r2.rz, r_int_expected, 0.02,
         "Three-span: R_int = 1.1qL");
 
     // Interior support moment: M_int = qL^2/10
@@ -654,7 +654,7 @@ fn validation_ext_portal_gravity_lateral_interaction() {
 
         assert_close(d_comb.ux, d_lat.ux + d_grav.ux, 0.02,
             &format!("Superposition ux at node {}", node_id));
-        assert_close(d_comb.uy, d_lat.uy + d_grav.uy, 0.02,
+        assert_close(d_comb.uz, d_lat.uz + d_grav.uz, 0.02,
             &format!("Superposition uy at node {}", node_id));
     }
 
@@ -666,9 +666,9 @@ fn validation_ext_portal_gravity_lateral_interaction() {
 
         assert_close(r_comb.rx, r_lat.rx + r_grav.rx, 0.02,
             &format!("Superposition rx at node {}", node_id));
-        assert_close(r_comb.ry, r_lat.ry + r_grav.ry, 0.02,
+        assert_close(r_comb.rz, r_lat.rz + r_grav.rz, 0.02,
             &format!("Superposition ry at node {}", node_id));
-        assert_close(r_comb.mz, r_lat.mz + r_grav.mz, 0.05,
+        assert_close(r_comb.my, r_lat.my + r_grav.my, 0.05,
             &format!("Superposition mz at node {}", node_id));
     }
 
@@ -690,14 +690,14 @@ fn validation_ext_portal_gravity_lateral_interaction() {
     // Gravity alone: symmetric, so base moments should be equal
     let r1_grav = res_grav.reactions.iter().find(|r| r.node_id == 1).unwrap();
     let r4_grav = res_grav.reactions.iter().find(|r| r.node_id == 4).unwrap();
-    assert_close(r1_grav.mz.abs(), r4_grav.mz.abs(), 0.05,
+    assert_close(r1_grav.my.abs(), r4_grav.my.abs(), 0.05,
         "Gravity: symmetric base moments");
 
     // Lateral load breaks symmetry in the combined case
     let r1_comb = res_combined.reactions.iter().find(|r| r.node_id == 1).unwrap();
     let r4_comb = res_combined.reactions.iter().find(|r| r.node_id == 4).unwrap();
     // The windward base should have a different moment than leeward
-    let mz_diff: f64 = (r1_comb.mz.abs() - r4_comb.mz.abs()).abs();
+    let mz_diff: f64 = (r1_comb.my.abs() - r4_comb.my.abs()).abs();
     assert!(mz_diff > 0.1,
         "Combined: asymmetric base moments, diff = {:.3}", mz_diff);
 

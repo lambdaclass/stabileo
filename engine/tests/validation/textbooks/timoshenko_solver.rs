@@ -66,7 +66,7 @@ fn make_timoshenko_beam(
         nodes_map.insert(id.to_string(), SolverNode {
             id,
             x: i as f64 * elem_len,
-            y: 0.0,
+            z: 0.0,
         });
     }
 
@@ -97,7 +97,7 @@ fn make_timoshenko_beam(
         node_id: 1,
         support_type: start_support.to_string(),
         kx: None, ky: None, kz: None,
-        dx: None, dy: None, drz: None, angle: None,
+        dx: None, dz: None, dry: None, angle: None,
     });
     if let Some(es) = end_support {
         sups_map.insert("2".to_string(), SolverSupport {
@@ -105,7 +105,7 @@ fn make_timoshenko_beam(
             node_id: n_nodes,
             support_type: es.to_string(),
             kx: None, ky: None, kz: None,
-            dx: None, dy: None, drz: None, angle: None,
+            dx: None, dz: None, dry: None, angle: None,
         });
     }
 
@@ -135,7 +135,7 @@ fn validation_timoshenko_deep_cantilever() {
     let p = 100.0; // kN
 
     let loads = vec![SolverLoad::Nodal(SolverNodalLoad {
-        node_id: n + 1, fx: 0.0, fy: -p, mz: 0.0,
+        node_id: n + 1, fx: 0.0, fz: -p, my: 0.0,
     })];
     let input = make_timoshenko_beam(n, l, Some(AS_Y), "fixed", None, loads);
     let results = linear::solve_2d(&input).unwrap();
@@ -154,10 +154,10 @@ fn validation_timoshenko_deep_cantilever() {
         "Shear contribution should be > 5% for L/d=2, got {:.2}%", shear_fraction * 100.0);
 
     // Compare with analytical (1% tolerance)
-    let rel_err = (d_tip.uy.abs() - delta_timo).abs() / delta_timo;
+    let rel_err = (d_tip.uz.abs() - delta_timo).abs() / delta_timo;
     assert!(rel_err < 0.01,
         "Deep cantilever Timoshenko: actual={:.6e}, expected={:.6e}, err={:.4}%",
-        d_tip.uy.abs(), delta_timo, rel_err * 100.0);
+        d_tip.uz.abs(), delta_timo, rel_err * 100.0);
 }
 
 // ================================================================
@@ -192,10 +192,10 @@ fn validation_timoshenko_ss_deep_udl() {
     let delta_shear = w_abs * l * l / (8.0 * g_eff() * AS_Y);
     let delta_timo = delta_bending + delta_shear;
 
-    let rel_err = (d_mid.uy.abs() - delta_timo).abs() / delta_timo;
+    let rel_err = (d_mid.uz.abs() - delta_timo).abs() / delta_timo;
     assert!(rel_err < 0.01,
         "SS deep beam UDL: actual={:.6e}, expected={:.6e}, err={:.4}%",
-        d_mid.uy.abs(), delta_timo, rel_err * 100.0);
+        d_mid.uz.abs(), delta_timo, rel_err * 100.0);
 }
 
 // ================================================================
@@ -213,7 +213,7 @@ fn validation_timoshenko_slender_beam() {
     let p = 100.0;
 
     let loads = vec![SolverLoad::Nodal(SolverNodalLoad {
-        node_id: n + 1, fx: 0.0, fy: -p, mz: 0.0,
+        node_id: n + 1, fx: 0.0, fz: -p, my: 0.0,
     })];
 
     // Solve with Timoshenko (asY set)
@@ -234,16 +234,16 @@ fn validation_timoshenko_slender_beam() {
         "Slender beam: shear fraction should be < 1%, got {:.4}%", shear_fraction * 100.0);
 
     // Timoshenko result should be very close to EB (within 1%)
-    let rel_err_vs_eb = (d_tip_timo.uy.abs() - delta_eb).abs() / delta_eb;
+    let rel_err_vs_eb = (d_tip_timo.uz.abs() - delta_eb).abs() / delta_eb;
     assert!(rel_err_vs_eb < 0.01,
         "Slender beam: Timoshenko close to EB, diff = {:.4}%", rel_err_vs_eb * 100.0);
 
     // And should match Timoshenko formula
     let delta_total = delta_eb + delta_shear;
-    let rel_err = (d_tip_timo.uy.abs() - delta_total).abs() / delta_total;
+    let rel_err = (d_tip_timo.uz.abs() - delta_total).abs() / delta_total;
     assert!(rel_err < 0.01,
         "Slender beam Timoshenko formula: actual={:.6e}, expected={:.6e}, err={:.4}%",
-        d_tip_timo.uy.abs(), delta_total, rel_err * 100.0);
+        d_tip_timo.uz.abs(), delta_total, rel_err * 100.0);
 }
 
 // ================================================================
@@ -263,7 +263,7 @@ fn validation_timoshenko_fixed_fixed_deep() {
 
     let mid = n / 2 + 1;
     let loads = vec![SolverLoad::Nodal(SolverNodalLoad {
-        node_id: mid, fx: 0.0, fy: -p, mz: 0.0,
+        node_id: mid, fx: 0.0, fz: -p, my: 0.0,
     })];
     let input = make_timoshenko_beam(n, l, Some(AS_Y), "fixed", Some("fixed"), loads);
     let results = linear::solve_2d(&input).unwrap();
@@ -281,10 +281,10 @@ fn validation_timoshenko_fixed_fixed_deep() {
     assert!(shear_fraction > 0.10,
         "Fixed-fixed deep: shear should be > 10%, got {:.2}%", shear_fraction * 100.0);
 
-    let rel_err = (d_mid.uy.abs() - delta_timo).abs() / delta_timo;
+    let rel_err = (d_mid.uz.abs() - delta_timo).abs() / delta_timo;
     assert!(rel_err < 0.01,
         "Fixed-fixed deep Timoshenko: actual={:.6e}, expected={:.6e}, err={:.4}%",
-        d_mid.uy.abs(), delta_timo, rel_err * 100.0);
+        d_mid.uz.abs(), delta_timo, rel_err * 100.0);
 }
 
 // ================================================================
@@ -330,9 +330,9 @@ fn validation_timoshenko_propped_cantilever() {
     let results_eb = linear::solve_2d(&input_eb).unwrap();
 
     let r_roller_timo = results_timo.reactions.iter()
-        .find(|r| r.node_id == n + 1).unwrap().ry;
+        .find(|r| r.node_id == n + 1).unwrap().rz;
     let r_roller_eb = results_eb.reactions.iter()
-        .find(|r| r.node_id == n + 1).unwrap().ry;
+        .find(|r| r.node_id == n + 1).unwrap().rz;
 
     // EB roller reaction: 3wL/8
     let w_abs = w.abs();
@@ -354,8 +354,8 @@ fn validation_timoshenko_propped_cantilever() {
 
     // Total equilibrium must still hold for both
     let total_load = w_abs * l;
-    let sum_ry_timo: f64 = results_timo.reactions.iter().map(|r| r.ry).sum();
-    let sum_ry_eb: f64 = results_eb.reactions.iter().map(|r| r.ry).sum();
+    let sum_ry_timo: f64 = results_timo.reactions.iter().map(|r| r.rz).sum();
+    let sum_ry_eb: f64 = results_eb.reactions.iter().map(|r| r.rz).sum();
     assert_close(sum_ry_eb, total_load, 0.01,
         "Propped EB: sum R = wL");
     assert_close(sum_ry_timo, total_load, 0.01,
@@ -363,9 +363,9 @@ fn validation_timoshenko_propped_cantilever() {
 
     // Fixed-end moment should also change
     let m_fixed_timo = results_timo.reactions.iter()
-        .find(|r| r.node_id == 1).unwrap().mz.abs();
+        .find(|r| r.node_id == 1).unwrap().my.abs();
     let m_fixed_eb = results_eb.reactions.iter()
-        .find(|r| r.node_id == 1).unwrap().mz.abs();
+        .find(|r| r.node_id == 1).unwrap().my.abs();
     let m_fixed_eb_exact = w_abs * l * l / 8.0;
     assert_close(m_fixed_eb, m_fixed_eb_exact, 0.02,
         "Propped EB: M_fixed = wL^2/8");
@@ -443,7 +443,7 @@ fn validation_timoshenko_3d_deep_beam() {
     // Fixed support: all 6 DOFs restrained
     sups_map.insert("1".to_string(), SolverSupport3D {
         node_id: 1,
-        rx: true, ry: true, rz: true, rrx: true, rry: true, rrz: true,
+        rx: true, rz: true, ry: true, rrx: true, rry: true, rrz: true,
         kx: None, ky: None, kz: None, krx: None, kry: None, krz: None,
         dx: None, dy: None, dz: None, drx: None, dry: None, drz: None,
         normal_x: None, normal_y: None, normal_z: None, is_inclined: None,
@@ -482,10 +482,10 @@ fn validation_timoshenko_3d_deep_beam() {
     let delta_z_shear = pz.abs() * l / (g_eff() * as_z);
     let delta_z_timo = delta_z_bending + delta_z_shear;
 
-    let rel_err_y = (d_tip.uy.abs() - delta_y_timo).abs() / delta_y_timo;
+    let rel_err_y = (d_tip.uz.abs() - delta_y_timo).abs() / delta_y_timo;
     assert!(rel_err_y < 0.01,
         "3D deep beam Y: actual={:.6e}, expected={:.6e}, err={:.4}%",
-        d_tip.uy.abs(), delta_y_timo, rel_err_y * 100.0);
+        d_tip.uz.abs(), delta_y_timo, rel_err_y * 100.0);
 
     let rel_err_z = (d_tip.uz.abs() - delta_z_timo).abs() / delta_z_timo;
     assert!(rel_err_z < 0.01,
@@ -509,7 +509,7 @@ fn validation_timoshenko_short_column() {
     let p = 100.0;
 
     let loads = vec![SolverLoad::Nodal(SolverNodalLoad {
-        node_id: n + 1, fx: 0.0, fy: -p, mz: 0.0,
+        node_id: n + 1, fx: 0.0, fz: -p, my: 0.0,
     })];
     let input = make_timoshenko_beam(n, l, Some(AS_Y), "fixed", None, loads);
     let results = linear::solve_2d(&input).unwrap();
@@ -527,10 +527,10 @@ fn validation_timoshenko_short_column() {
         "Short column: shear fraction should be large, got {:.2}%", shear_fraction * 100.0);
 
     // Verify the large shear correction is captured
-    let rel_err = (d_tip.uy.abs() - delta_timo).abs() / delta_timo;
+    let rel_err = (d_tip.uz.abs() - delta_timo).abs() / delta_timo;
     assert!(rel_err < 0.01,
         "Short column Timoshenko: actual={:.6e}, expected={:.6e}, err={:.4}%",
-        d_tip.uy.abs(), delta_timo, rel_err * 100.0);
+        d_tip.uz.abs(), delta_timo, rel_err * 100.0);
 }
 
 // ================================================================
@@ -550,22 +550,22 @@ fn validation_timoshenko_vs_euler_bernoulli() {
 
     // Timoshenko (with shear area)
     let loads_timo = vec![SolverLoad::Nodal(SolverNodalLoad {
-        node_id: n + 1, fx: 0.0, fy: -p, mz: 0.0,
+        node_id: n + 1, fx: 0.0, fz: -p, my: 0.0,
     })];
     let input_timo = make_timoshenko_beam(n, l, Some(AS_Y), "fixed", None, loads_timo);
     let results_timo = linear::solve_2d(&input_timo).unwrap();
 
     // Euler-Bernoulli (without shear area)
     let loads_eb = vec![SolverLoad::Nodal(SolverNodalLoad {
-        node_id: n + 1, fx: 0.0, fy: -p, mz: 0.0,
+        node_id: n + 1, fx: 0.0, fz: -p, my: 0.0,
     })];
     let input_eb = make_timoshenko_beam(n, l, None, "fixed", None, loads_eb);
     let results_eb = linear::solve_2d(&input_eb).unwrap();
 
     let d_timo = results_timo.displacements.iter()
-        .find(|d| d.node_id == n + 1).unwrap().uy.abs();
+        .find(|d| d.node_id == n + 1).unwrap().uz.abs();
     let d_eb = results_eb.displacements.iter()
-        .find(|d| d.node_id == n + 1).unwrap().uy.abs();
+        .find(|d| d.node_id == n + 1).unwrap().uz.abs();
 
     // Timoshenko deflection must be larger than Euler-Bernoulli
     assert!(d_timo > d_eb,

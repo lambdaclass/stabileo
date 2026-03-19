@@ -42,13 +42,13 @@ fn validation_ss_beam_global_equilibrium() {
     let input = make_beam(
         n, l, E, A, IZ, "pinned", Some("rollerX"),
         vec![SolverLoad::Nodal(SolverNodalLoad {
-            node_id: n / 2 + 1, fx: 0.0, fy: -p, mz: 0.0,
+            node_id: n / 2 + 1, fx: 0.0, fz: -p, my: 0.0,
         })],
     );
     let results = linear::solve_2d(&input).unwrap();
 
     // Sum of vertical reactions = applied downward load P
-    let sum_ry: f64 = results.reactions.iter().map(|r| r.ry).sum();
+    let sum_ry: f64 = results.reactions.iter().map(|r| r.rz).sum();
     assert_close(sum_ry, p, 1e-4, "SS beam: sum Ry = P");
 
     // Sum of horizontal reactions = 0 (no horizontal load)
@@ -62,8 +62,8 @@ fn validation_ss_beam_global_equilibrium() {
     // Individual reactions: R_A = R_B = P/2 by symmetry
     let ra = results.reactions.iter().find(|r| r.node_id == 1).unwrap();
     let rb = results.reactions.iter().find(|r| r.node_id == n + 1).unwrap();
-    assert_close(ra.ry, p / 2.0, 1e-4, "SS beam: R_A = P/2");
-    assert_close(rb.ry, p / 2.0, 1e-4, "SS beam: R_B = P/2");
+    assert_close(ra.rz, p / 2.0, 1e-4, "SS beam: R_A = P/2");
+    assert_close(rb.rz, p / 2.0, 1e-4, "SS beam: R_B = P/2");
 }
 
 // ================================================================
@@ -84,14 +84,14 @@ fn validation_cantilever_global_equilibrium() {
     let input = make_beam(
         n, l, E, A, IZ, "fixed", None,
         vec![SolverLoad::Nodal(SolverNodalLoad {
-            node_id: n + 1, fx: 0.0, fy: -p, mz: m_tip,
+            node_id: n + 1, fx: 0.0, fz: -p, my: m_tip,
         })],
     );
     let results = linear::solve_2d(&input).unwrap();
 
     // Vertical equilibrium: R_y = P
     let r = &results.reactions[0];
-    assert_close(r.ry, p, 1e-4, "Cantilever: R_y = P");
+    assert_close(r.rz, p, 1e-4, "Cantilever: R_y = P");
 
     // Horizontal equilibrium: R_x = 0
     assert!(
@@ -109,7 +109,7 @@ fn validation_cantilever_global_equilibrium() {
     // Reaction moments: R_y * 0 + M_fixed (both at x=0)
     // So M_fixed = P*L - m_tip = 270
     let m_expected = p * l - m_tip;
-    assert_close(r.mz.abs(), m_expected, 0.01, "Cantilever: M_fixed = P*L - M_tip");
+    assert_close(r.my.abs(), m_expected, 0.01, "Cantilever: M_fixed = P*L - M_tip");
 }
 
 // ================================================================
@@ -130,7 +130,7 @@ fn validation_portal_vertical_equilibrium() {
     let results = linear::solve_2d(&input).unwrap();
 
     // Total vertical reaction = total gravity = 2*G
-    let sum_ry: f64 = results.reactions.iter().map(|r| r.ry).sum();
+    let sum_ry: f64 = results.reactions.iter().map(|r| r.rz).sum();
     let total_gravity = 2.0 * g;
     assert_close(sum_ry, total_gravity, 1e-4, "Portal vertical: sum Ry = 2G");
 
@@ -145,8 +145,8 @@ fn validation_portal_vertical_equilibrium() {
     // By symmetry, each base carries half
     let r1 = results.reactions.iter().find(|r| r.node_id == 1).unwrap();
     let r4 = results.reactions.iter().find(|r| r.node_id == 4).unwrap();
-    assert_close(r1.ry, g, 0.01, "Portal vertical: R1_y = G (symmetry)");
-    assert_close(r4.ry, g, 0.01, "Portal vertical: R4_y = G (symmetry)");
+    assert_close(r1.rz, g, 0.01, "Portal vertical: R1_y = G (symmetry)");
+    assert_close(r4.rz, g, 0.01, "Portal vertical: R4_y = G (symmetry)");
 }
 
 // ================================================================
@@ -170,7 +170,7 @@ fn validation_portal_horizontal_equilibrium() {
     assert_close(sum_rx, -h_load, 1e-4, "Portal horizontal: sum Rx = -H");
 
     // Vertical equilibrium: no gravity => sum Ry = 0
-    let sum_ry: f64 = results.reactions.iter().map(|r| r.ry).sum();
+    let sum_ry: f64 = results.reactions.iter().map(|r| r.rz).sum();
     assert!(
         sum_ry.abs() < 0.01,
         "Portal horizontal: sum Ry should be ~0, got {:.6}",
@@ -219,8 +219,8 @@ fn validation_portal_moment_equilibrium_about_base() {
     let applied_moment = 0.0 * 0.0 - h * h_load;
 
     // Reactions: node 1 at (0,0), node 4 at (w,0)
-    let m_r1 = 0.0 * r1.ry - 0.0 * r1.rx + r1.mz;
-    let m_r4 = w * r4.ry - 0.0 * r4.rx + r4.mz;
+    let m_r1 = 0.0 * r1.rz - 0.0 * r1.rx + r1.my;
+    let m_r4 = w * r4.rz - 0.0 * r4.rx + r4.my;
     let reaction_moment = m_r1 + m_r4;
 
     let residual = applied_moment + reaction_moment;
@@ -251,7 +251,7 @@ fn validation_multi_element_beam_udl_equilibrium() {
     let total_load = q.abs() * l; // 180 kN
 
     // Vertical equilibrium: sum Ry = total load
-    let sum_ry: f64 = results.reactions.iter().map(|r| r.ry).sum();
+    let sum_ry: f64 = results.reactions.iter().map(|r| r.rz).sum();
     assert_close(sum_ry, total_load, 1e-4, "Multi-elem UDL: sum Ry = qL");
 
     // Horizontal equilibrium: sum Rx = 0
@@ -265,14 +265,14 @@ fn validation_multi_element_beam_udl_equilibrium() {
     // By symmetry, each support carries half
     let ra = results.reactions.iter().find(|r| r.node_id == 1).unwrap();
     let rb = results.reactions.iter().find(|r| r.node_id == n + 1).unwrap();
-    assert_close(ra.ry, total_load / 2.0, 1e-4, "Multi-elem UDL: R_A = qL/2");
-    assert_close(rb.ry, total_load / 2.0, 1e-4, "Multi-elem UDL: R_B = qL/2");
+    assert_close(ra.rz, total_load / 2.0, 1e-4, "Multi-elem UDL: R_A = qL/2");
+    assert_close(rb.rz, total_load / 2.0, 1e-4, "Multi-elem UDL: R_B = qL/2");
 
     // Moment equilibrium about left support:
     // Applied load resultant = q*L at L/2. Moment = q*L*(L/2) = 180*6 = 1080.
     // R_B * L = q*L*L/2 => R_B = qL/2 (consistent with above)
     // Check: R_B * L - qL*L/2 = 0
-    let moment_residual = rb.ry * l - total_load * l / 2.0;
+    let moment_residual = rb.rz * l - total_load * l / 2.0;
     assert!(
         moment_residual.abs() < 0.1,
         "Multi-elem UDL: moment equilibrium residual = {:.6}",
@@ -312,10 +312,10 @@ fn validation_l_frame_combined_loading_equilibrium() {
         vec![(1, 1, "fixed")],
         vec![
             SolverLoad::Nodal(SolverNodalLoad {
-                node_id: 3, fx: 25.0, fy: -40.0, mz: 0.0,
+                node_id: 3, fx: 25.0, fz: -40.0, my: 0.0,
             }),
             SolverLoad::Nodal(SolverNodalLoad {
-                node_id: 2, fx: 0.0, fy: 0.0, mz: 15.0,
+                node_id: 2, fx: 0.0, fz: 0.0, my: 15.0,
             }),
         ],
     );
@@ -327,7 +327,7 @@ fn validation_l_frame_combined_loading_equilibrium() {
     assert_close(r1.rx, -25.0, 1e-4, "L-frame: R_x = -25");
 
     // Vertical equilibrium: R_y - 40 = 0
-    assert_close(r1.ry, 40.0, 1e-4, "L-frame: R_y = 40");
+    assert_close(r1.rz, 40.0, 1e-4, "L-frame: R_y = 40");
 
     // Moment equilibrium about origin (node 1 at (0,0)):
     // Convention: moment from force F at (x,y) = x*Fy - y*Fx (2D cross product).
@@ -343,13 +343,13 @@ fn validation_l_frame_combined_loading_equilibrium() {
         w * (-40.0) - h * 25.0  // x*Fy - y*Fx for load at node 3 (6,4)
         + 15.0;                 // Direct moment at node 2
 
-    let reaction_moment_about_origin = r1.mz; // R1 at origin, so only direct moment
+    let reaction_moment_about_origin = r1.my; // R1 at origin, so only direct moment
     let residual = applied_moment_about_origin + reaction_moment_about_origin;
 
     assert!(
         residual.abs() < 0.1,
         "L-frame moment equilibrium: residual={:.6}, applied={:.4}, reaction_mz={:.4}",
-        residual, applied_moment_about_origin, r1.mz
+        residual, applied_moment_about_origin, r1.my
     );
 }
 
@@ -390,7 +390,7 @@ fn validation_continuous_beam_3span_equilibrium() {
     let total_load = q.abs() * l_total; // 192
 
     // Vertical equilibrium: sum Ry = total load
-    let sum_ry: f64 = results.reactions.iter().map(|r| r.ry).sum();
+    let sum_ry: f64 = results.reactions.iter().map(|r| r.rz).sum();
     assert_close(sum_ry, total_load, 0.01, "3-span continuous: sum Ry = qL_total");
 
     // Horizontal equilibrium: sum Rx = 0
@@ -420,7 +420,7 @@ fn validation_continuous_beam_3span_equilibrium() {
     let mut moment_sum = 0.0;
     for (i, &node_id) in support_nodes.iter().enumerate() {
         let r = results.reactions.iter().find(|r| r.node_id == node_id).unwrap();
-        moment_sum += r.ry * x_positions[i];
+        moment_sum += r.rz * x_positions[i];
     }
 
     // The distributed load resultant moment about x=0:
@@ -438,9 +438,9 @@ fn validation_continuous_beam_3span_equilibrium() {
     for &node_id in &support_nodes {
         let r = results.reactions.iter().find(|r| r.node_id == node_id).unwrap();
         assert!(
-            r.ry > 0.0,
+            r.rz > 0.0,
             "3-span continuous: reaction at node {} should be upward, got Ry={:.4}",
-            node_id, r.ry
+            node_id, r.rz
         );
     }
 }

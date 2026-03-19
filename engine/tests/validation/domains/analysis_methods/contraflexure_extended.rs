@@ -87,14 +87,14 @@ fn validation_contraflexure_ext_propped_triangular() {
         .find(|r| r.node_id == n + 1)
         .unwrap();
     assert_close(
-        r1.ry + r2.ry,
+        r1.rz + r2.rz,
         total_load,
         0.02,
         "Propped tri: sum Ry = qL/2",
     );
 
     // Fixed end should have a moment reaction
-    assert!(r1.mz.abs() > 0.1, "Propped tri: fixed end moment exists");
+    assert!(r1.my.abs() > 0.1, "Propped tri: fixed end moment exists");
 
     // Contraflexure should exist between fixed end and midspan
     let changes = find_sign_changes(&results, 1..=n);
@@ -133,8 +133,8 @@ fn validation_contraflexure_ext_fixed_asymmetric_load() {
     let loads = vec![SolverLoad::Nodal(SolverNodalLoad {
         node_id: load_node,
         fx: 0.0,
-        fy: -p,
-        mz: 0.0,
+        fz: -p,
+        my: 0.0,
     })];
     let input = make_beam(n, l, E, A, IZ, "fixed", Some("fixed"), loads);
     let results = linear::solve_2d(&input).unwrap();
@@ -155,13 +155,13 @@ fn validation_contraflexure_ext_fixed_asymmetric_load() {
 
     // Check fixed end moments (sign convention may vary, compare magnitudes)
     assert_close(
-        r1.mz.abs(),
+        r1.my.abs(),
         m_a_exact,
         0.03,
         "Fixed asym: |M_A| = Pab^2/L^2",
     );
     assert_close(
-        r2.mz.abs(),
+        r2.my.abs(),
         m_b_exact,
         0.03,
         "Fixed asym: |M_B| = Pa^2 b/L^2",
@@ -251,7 +251,7 @@ fn validation_contraflexure_ext_two_span_unequal() {
 
     // Vertical equilibrium: sum of reactions = total load
     let total_load = q.abs() * (span1 + span2);
-    let sum_ry: f64 = results.reactions.iter().map(|r| r.ry).sum();
+    let sum_ry: f64 = results.reactions.iter().map(|r| r.rz).sum();
     assert_close(sum_ry, total_load, 0.02, "Unequal spans: sum Ry = qL_total");
 }
 
@@ -308,7 +308,7 @@ fn validation_contraflexure_ext_four_span() {
 
     // Vertical equilibrium
     let total_load = q.abs() * 4.0 * span;
-    let sum_ry: f64 = results.reactions.iter().map(|r| r.ry).sum();
+    let sum_ry: f64 = results.reactions.iter().map(|r| r.rz).sum();
     assert_close(sum_ry, total_load, 0.02, "4-span: sum Ry = 4qL");
 }
 
@@ -355,14 +355,14 @@ fn validation_contraflexure_ext_fixed_pinned_udl() {
         .find(|r| r.node_id == n + 1)
         .unwrap();
     assert!(
-        r_right.mz.abs() > 1.0,
+        r_right.my.abs() > 1.0,
         "Fixed-pinned: fixed end moment exists"
     );
 
     // Left support (pinned) has no moment reaction
     let r_left = results.reactions.iter().find(|r| r.node_id == 1).unwrap();
     assert!(
-        r_left.mz.abs() < 1e-6,
+        r_left.my.abs() < 1e-6,
         "Fixed-pinned: pinned end has no moment"
     );
 
@@ -387,13 +387,13 @@ fn validation_contraflexure_ext_fixed_pinned_udl() {
     let r_pinned_exact = q.abs() * l * 3.0 / 8.0;
     let r_fixed_exact = q.abs() * l * 5.0 / 8.0;
     assert_close(
-        r_left.ry,
+        r_left.rz,
         r_pinned_exact,
         0.02,
         "Fixed-pinned: R_pinned = 3qL/8",
     );
     assert_close(
-        r_right.ry,
+        r_right.rz,
         r_fixed_exact,
         0.02,
         "Fixed-pinned: R_fixed = 5qL/8",
@@ -428,14 +428,14 @@ fn validation_contraflexure_ext_portal_lateral() {
 
     // No vertical load applied, so vertical reactions should be equal and opposite
     assert!(
-        (r1.ry + r4.ry).abs() < 0.01,
+        (r1.rz + r4.rz).abs() < 0.01,
         "Portal lat: sum Ry = 0: {:.6}",
-        r1.ry + r4.ry
+        r1.rz + r4.rz
     );
 
     // Both base moments should exist (non-zero)
-    assert!(r1.mz.abs() > 0.1, "Portal lat: base moment at node 1");
-    assert!(r4.mz.abs() > 0.1, "Portal lat: base moment at node 4");
+    assert!(r1.my.abs() > 0.1, "Portal lat: base moment at node 1");
+    assert!(r4.my.abs() > 0.1, "Portal lat: base moment at node 4");
 
     // For a portal frame with lateral load, the windward column (elem 1)
     // has moment that changes sign along its height (contraflexure in column).
@@ -484,14 +484,14 @@ fn validation_contraflexure_ext_fixed_two_symmetric_loads() {
         SolverLoad::Nodal(SolverNodalLoad {
             node_id: node_1,
             fx: 0.0,
-            fy: -p,
-            mz: 0.0,
+            fz: -p,
+            my: 0.0,
         }),
         SolverLoad::Nodal(SolverNodalLoad {
             node_id: node_2,
             fx: 0.0,
-            fy: -p,
-            mz: 0.0,
+            fz: -p,
+            my: 0.0,
         }),
     ];
     let input = make_beam(n, l, E, A, IZ, "fixed", Some("fixed"), loads);
@@ -504,11 +504,11 @@ fn validation_contraflexure_ext_fixed_two_symmetric_loads() {
         .iter()
         .find(|r| r.node_id == n + 1)
         .unwrap();
-    assert_close(r1.ry, r2.ry, 0.02, "Symm loads: equal Ry");
-    assert_close(r1.mz.abs(), r2.mz.abs(), 0.02, "Symm loads: equal |Mz|");
+    assert_close(r1.rz, r2.rz, 0.02, "Symm loads: equal Ry");
+    assert_close(r1.my.abs(), r2.my.abs(), 0.02, "Symm loads: equal |Mz|");
 
     // Total vertical reaction = 2P
-    assert_close(r1.ry + r2.ry, 2.0 * p, 0.01, "Symm loads: sum Ry = 2P");
+    assert_close(r1.rz + r2.rz, 2.0 * p, 0.01, "Symm loads: sum Ry = 2P");
 
     // Two contraflexure points should exist
     let changes = find_sign_changes(&results, 1..=n);
@@ -606,7 +606,7 @@ fn validation_contraflexure_ext_three_span_alternating() {
 
     // Vertical equilibrium: total load = 2 * q * span (spans 1 and 3)
     let total_load = q.abs() * 2.0 * span;
-    let sum_ry: f64 = results.reactions.iter().map(|r| r.ry).sum();
+    let sum_ry: f64 = results.reactions.iter().map(|r| r.rz).sum();
     assert_close(
         sum_ry,
         total_load,

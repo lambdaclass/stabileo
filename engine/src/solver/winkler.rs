@@ -74,7 +74,7 @@ pub fn solve_winkler_2d(input: &WinklerInput) -> Result<AnalysisResults, String>
     for sup in input.solver.supports.values() {
         if sup.support_type == "spring" { continue; }
         let prescribed: [(usize, Option<f64>); 3] = [
-            (0, sup.dx), (1, sup.dy), (2, sup.drz),
+            (0, sup.dx), (1, sup.dz), (2, sup.dry),
         ];
         for &(local_dof, val) in &prescribed {
             if let Some(v) = val {
@@ -290,7 +290,7 @@ fn add_foundation_2d(
     let node_i = node_by_id[&elem.node_i];
     let node_j = node_by_id[&elem.node_j];
     let dx = node_j.x - node_i.x;
-    let dy = node_j.y - node_i.y;
+    let dy = node_j.z - node_i.z;
     let l = (dx * dx + dy * dy).sqrt();
     let cos = dx / l;
     let sin = dy / l;

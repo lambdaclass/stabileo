@@ -51,7 +51,7 @@ fn validation_svc_ext_1_floor_beam_l360() {
 
     let mid = n / 2 + 1;
     let d_mid: f64 = results.displacements.iter()
-        .find(|d| d.node_id == mid).unwrap().uy.abs();
+        .find(|d| d.node_id == mid).unwrap().uz.abs();
 
     // Analytical: delta = 5 * w * L^4 / (384 * E * I)
     let delta_exact: f64 = 5.0 * q_live.abs() * l.powi(4) / (384.0 * e_eff * IZ);
@@ -88,13 +88,13 @@ fn validation_svc_ext_2_cantilever_l180() {
     let e_eff: f64 = E * 1000.0;
 
     let loads = vec![SolverLoad::Nodal(SolverNodalLoad {
-        node_id: n + 1, fx: 0.0, fy: -p, mz: 0.0,
+        node_id: n + 1, fx: 0.0, fz: -p, my: 0.0,
     })];
     let input = make_beam(n, l, E, A, IZ, "fixed", None, loads);
     let results = linear::solve_2d(&input).unwrap();
 
     let tip: f64 = results.displacements.iter()
-        .find(|d| d.node_id == n + 1).unwrap().uy.abs();
+        .find(|d| d.node_id == n + 1).unwrap().uz.abs();
 
     // Analytical: delta = P * L^3 / (3 * E * I)
     let delta_exact: f64 = p * l.powi(3) / (3.0 * e_eff * IZ);
@@ -233,7 +233,7 @@ fn validation_svc_ext_5_long_term_deflection() {
 
     let mid = n / 2 + 1;
     let delta_imm: f64 = results.displacements.iter()
-        .find(|d| d.node_id == mid).unwrap().uy.abs();
+        .find(|d| d.node_id == mid).unwrap().uz.abs();
 
     // Verify immediate deflection against formula
     let delta_exact: f64 = 5.0 * q_sustained.abs() * l.powi(4) / (384.0 * e_eff * IZ);
@@ -327,7 +327,7 @@ fn validation_svc_ext_6_ponding_check() {
 
     let mid = n / 2 + 1;
     let d_mid: f64 = results.displacements.iter()
-        .find(|d| d.node_id == mid).unwrap().uy.abs();
+        .find(|d| d.node_id == mid).unwrap().uz.abs();
 
     let delta_exact: f64 = 5.0 * q_rain.abs() * l_p.powi(4) / (384.0 * e_eff * IZ);
     assert_close(d_mid, delta_exact, 0.02, "Ponding: initial rain deflection");
@@ -389,9 +389,9 @@ fn validation_svc_ext_7_interstory_drift() {
 
     // Lateral loads at each floor level (left node)
     let loads = vec![
-        SolverLoad::Nodal(SolverNodalLoad { node_id: 3, fx: f, fy: 0.0, mz: 0.0 }),
-        SolverLoad::Nodal(SolverNodalLoad { node_id: 5, fx: f, fy: 0.0, mz: 0.0 }),
-        SolverLoad::Nodal(SolverNodalLoad { node_id: 7, fx: f, fy: 0.0, mz: 0.0 }),
+        SolverLoad::Nodal(SolverNodalLoad { node_id: 3, fx: f, fz: 0.0, my: 0.0 }),
+        SolverLoad::Nodal(SolverNodalLoad { node_id: 5, fx: f, fz: 0.0, my: 0.0 }),
+        SolverLoad::Nodal(SolverNodalLoad { node_id: 7, fx: f, fz: 0.0, my: 0.0 }),
     ];
 
     let sups = vec![(1, 1, "fixed"), (2, 2, "fixed")];
@@ -458,7 +458,7 @@ fn validation_svc_ext_8_camber_requirement() {
         .collect();
     let input_d = make_beam(n, l, E, A, IZ, "pinned", Some("rollerX"), loads_d);
     let d_dead: f64 = linear::solve_2d(&input_d).unwrap()
-        .displacements.iter().find(|d| d.node_id == mid).unwrap().uy.abs();
+        .displacements.iter().find(|d| d.node_id == mid).unwrap().uz.abs();
 
     // Live load deflection
     let loads_l: Vec<SolverLoad> = (1..=n)
@@ -468,7 +468,7 @@ fn validation_svc_ext_8_camber_requirement() {
         .collect();
     let input_l = make_beam(n, l, E, A, IZ, "pinned", Some("rollerX"), loads_l);
     let d_live: f64 = linear::solve_2d(&input_l).unwrap()
-        .displacements.iter().find(|d| d.node_id == mid).unwrap().uy.abs();
+        .displacements.iter().find(|d| d.node_id == mid).unwrap().uz.abs();
 
     // Total deflection
     let loads_t: Vec<SolverLoad> = (1..=n)
@@ -478,7 +478,7 @@ fn validation_svc_ext_8_camber_requirement() {
         .collect();
     let input_t = make_beam(n, l, E, A, IZ, "pinned", Some("rollerX"), loads_t);
     let d_total: f64 = linear::solve_2d(&input_t).unwrap()
-        .displacements.iter().find(|d| d.node_id == mid).unwrap().uy.abs();
+        .displacements.iter().find(|d| d.node_id == mid).unwrap().uz.abs();
 
     // Verify superposition: dead + live = total
     assert_close(d_dead + d_live, d_total, 0.01,

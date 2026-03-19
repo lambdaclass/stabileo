@@ -52,10 +52,10 @@ fn validation_chen_lui_1_beam_column_amplification() {
         vec![(1, 1, "pinned"), (2, n + 1, "rollerX")],
         vec![
             SolverLoad::Nodal(SolverNodalLoad {
-                node_id: n + 1, fx: -p_axial, fy: 0.0, mz: 0.0,
+                node_id: n + 1, fx: -p_axial, fz: 0.0, my: 0.0,
             }),
             SolverLoad::Nodal(SolverNodalLoad {
-                node_id: mid_node, fx: 0.0, fy: h_lateral, mz: 0.0,
+                node_id: mid_node, fx: 0.0, fz: h_lateral, my: 0.0,
             }),
         ],
     );
@@ -64,8 +64,8 @@ fn validation_chen_lui_1_beam_column_amplification() {
     let pd_res = pdelta::solve_pdelta_2d(&input, 30, 1e-6).unwrap();
     assert!(pd_res.converged, "should converge at P/Pcr = {:.3}", p_axial / pcr);
 
-    let lin_uy = lin_res.displacements.iter().find(|d| d.node_id == mid_node).unwrap().uy.abs();
-    let pd_uy = pd_res.results.displacements.iter().find(|d| d.node_id == mid_node).unwrap().uy.abs();
+    let lin_uy = lin_res.displacements.iter().find(|d| d.node_id == mid_node).unwrap().uz.abs();
+    let pd_uy = pd_res.results.displacements.iter().find(|d| d.node_id == mid_node).unwrap().uz.abs();
 
     let actual_af = pd_uy / lin_uy;
 
@@ -108,7 +108,7 @@ fn validation_chen_lui_2_effective_length_fixed_free() {
         elems,
         vec![(1, 1, "fixed")], // fixed base, free tip (no end support)
         vec![SolverLoad::Nodal(SolverNodalLoad {
-            node_id: n + 1, fx: -p_ref, fy: 0.0, mz: 0.0,
+            node_id: n + 1, fx: -p_ref, fz: 0.0, my: 0.0,
         })],
     );
 
@@ -155,8 +155,8 @@ fn validation_chen_lui_3_sway_frame_critical_load() {
     ];
     let sups = vec![(1, 1_usize, "fixed"), (2, 4, "fixed")];
     let loads = vec![
-        SolverLoad::Nodal(SolverNodalLoad { node_id: 2, fx: 0.0, fy: -p_ref, mz: 0.0 }),
-        SolverLoad::Nodal(SolverNodalLoad { node_id: 3, fx: 0.0, fy: -p_ref, mz: 0.0 }),
+        SolverLoad::Nodal(SolverNodalLoad { node_id: 2, fx: 0.0, fz: -p_ref, my: 0.0 }),
+        SolverLoad::Nodal(SolverNodalLoad { node_id: 3, fx: 0.0, fz: -p_ref, my: 0.0 }),
     ];
 
     let input = make_input(nodes, vec![(1, E, 0.3)], vec![(1, a, iz)], elems, sups, loads);
@@ -207,8 +207,8 @@ fn validation_chen_lui_4_braced_vs_unbraced() {
     ];
     let sups_ub = vec![(1, 1_usize, "fixed"), (2, 4, "fixed")];
     let loads_ub = vec![
-        SolverLoad::Nodal(SolverNodalLoad { node_id: 2, fx: 0.0, fy: -p_ref, mz: 0.0 }),
-        SolverLoad::Nodal(SolverNodalLoad { node_id: 3, fx: 0.0, fy: -p_ref, mz: 0.0 }),
+        SolverLoad::Nodal(SolverNodalLoad { node_id: 2, fx: 0.0, fz: -p_ref, my: 0.0 }),
+        SolverLoad::Nodal(SolverNodalLoad { node_id: 3, fx: 0.0, fz: -p_ref, my: 0.0 }),
     ];
     let input_ub = make_input(nodes_ub, vec![(1, E, 0.3)], vec![(1, a, iz)], elems_ub, sups_ub, loads_ub);
     let result_ub = buckling::solve_buckling_2d(&input_ub, 1).unwrap();
@@ -228,8 +228,8 @@ fn validation_chen_lui_4_braced_vs_unbraced() {
         (3, 2, "rollerY"), // lateral brace at beam level
     ];
     let loads_br = vec![
-        SolverLoad::Nodal(SolverNodalLoad { node_id: 2, fx: 0.0, fy: -p_ref, mz: 0.0 }),
-        SolverLoad::Nodal(SolverNodalLoad { node_id: 3, fx: 0.0, fy: -p_ref, mz: 0.0 }),
+        SolverLoad::Nodal(SolverNodalLoad { node_id: 2, fx: 0.0, fz: -p_ref, my: 0.0 }),
+        SolverLoad::Nodal(SolverNodalLoad { node_id: 3, fx: 0.0, fz: -p_ref, my: 0.0 }),
     ];
     let input_br = make_input(nodes_br, vec![(1, E, 0.3)], vec![(1, a, iz)], elems_br, sups_br, loads_br);
     let result_br = buckling::solve_buckling_2d(&input_br, 1).unwrap();
@@ -285,10 +285,10 @@ fn validation_chen_lui_5_pdelta_convergence() {
         vec![(1, 1, "pinned"), (2, n + 1, "rollerX")],
         vec![
             SolverLoad::Nodal(SolverNodalLoad {
-                node_id: n + 1, fx: -p_axial, fy: 0.0, mz: 0.0,
+                node_id: n + 1, fx: -p_axial, fz: 0.0, my: 0.0,
             }),
             SolverLoad::Nodal(SolverNodalLoad {
-                node_id: mid_node, fx: 0.0, fy: h_lateral, mz: 0.0,
+                node_id: mid_node, fx: 0.0, fz: h_lateral, my: 0.0,
             }),
         ],
     );
@@ -299,8 +299,8 @@ fn validation_chen_lui_5_pdelta_convergence() {
     // Should converge (P < Pcr)
     assert!(pd_res.converged, "should converge at P/Pcr = 0.5");
 
-    let lin_uy = lin_res.displacements.iter().find(|d| d.node_id == mid_node).unwrap().uy.abs();
-    let pd_uy = pd_res.results.displacements.iter().find(|d| d.node_id == mid_node).unwrap().uy.abs();
+    let lin_uy = lin_res.displacements.iter().find(|d| d.node_id == mid_node).unwrap().uz.abs();
+    let pd_uy = pd_res.results.displacements.iter().find(|d| d.node_id == mid_node).unwrap().uz.abs();
 
     let actual_af = pd_uy / lin_uy;
 
@@ -356,7 +356,7 @@ fn validation_chen_lui_6_initial_imperfection() {
         vec![(1, 1, "fixed")], // cantilever: fixed base, free tip
         vec![
             SolverLoad::Nodal(SolverNodalLoad {
-                node_id: n + 1, fx: -p_axial, fy: h_notional, mz: 0.0,
+                node_id: n + 1, fx: -p_axial, fz: h_notional, my: 0.0,
             }),
         ],
     );
@@ -366,8 +366,8 @@ fn validation_chen_lui_6_initial_imperfection() {
     assert!(pd_res.converged, "should converge");
 
     // Moments at fixed base (node 1)
-    let m_linear = lin_res.reactions.iter().find(|r| r.node_id == 1).unwrap().mz.abs();
-    let m_pdelta = pd_res.results.reactions.iter().find(|r| r.node_id == 1).unwrap().mz.abs();
+    let m_linear = lin_res.reactions.iter().find(|r| r.node_id == 1).unwrap().my.abs();
+    let m_pdelta = pd_res.results.reactions.iter().find(|r| r.node_id == 1).unwrap().my.abs();
 
     // First-order moment should be approximately H × L
     assert_close(m_linear, h_notional * l, 0.05, "Linear base moment ≈ H × L");
@@ -380,8 +380,8 @@ fn validation_chen_lui_6_initial_imperfection() {
     );
 
     // Displacement amplification
-    let lin_uy = lin_res.displacements.iter().find(|d| d.node_id == n + 1).unwrap().uy.abs();
-    let pd_uy = pd_res.results.displacements.iter().find(|d| d.node_id == n + 1).unwrap().uy.abs();
+    let lin_uy = lin_res.displacements.iter().find(|d| d.node_id == n + 1).unwrap().uz.abs();
+    let pd_uy = pd_res.results.displacements.iter().find(|d| d.node_id == n + 1).unwrap().uz.abs();
     assert!(
         pd_uy > lin_uy,
         "P-delta tip displacement {:.6e} should exceed linear {:.6e}",
@@ -420,7 +420,7 @@ fn validation_chen_lui_7_leaning_column() {
     ];
     let sups_mf = vec![(1, 1_usize, "fixed"), (2, 4, "fixed")];
     let loads_mf = vec![
-        SolverLoad::Nodal(SolverNodalLoad { node_id: 2, fx: 0.0, fy: -p_ref, mz: 0.0 }),
+        SolverLoad::Nodal(SolverNodalLoad { node_id: 2, fx: 0.0, fz: -p_ref, my: 0.0 }),
     ];
     let input_mf = make_input(nodes_mf, vec![(1, E, 0.3)], vec![(1, a, iz)], elems_mf, sups_mf, loads_mf);
     let result_mf = buckling::solve_buckling_2d(&input_mf, 1).unwrap();
@@ -436,7 +436,7 @@ fn validation_chen_lui_7_leaning_column() {
     ];
     let sups_lc = vec![(1, 1_usize, "fixed"), (2, 4, "pinned")];
     let loads_lc = vec![
-        SolverLoad::Nodal(SolverNodalLoad { node_id: 3, fx: 0.0, fy: -p_ref, mz: 0.0 }),
+        SolverLoad::Nodal(SolverNodalLoad { node_id: 3, fx: 0.0, fz: -p_ref, my: 0.0 }),
     ];
     let input_lc = make_input(nodes_lc, vec![(1, E, 0.3)], vec![(1, a, iz)], elems_lc, sups_lc, loads_lc);
     let result_lc = buckling::solve_buckling_2d(&input_lc, 1).unwrap();
@@ -498,10 +498,10 @@ fn validation_chen_lui_8_two_story_sway() {
     ];
     let sups = vec![(1, 1_usize, "fixed"), (2, 4, "fixed")];
     let loads = vec![
-        SolverLoad::Nodal(SolverNodalLoad { node_id: 2, fx: px, fy: py, mz: 0.0 }),
-        SolverLoad::Nodal(SolverNodalLoad { node_id: 5, fx: 0.0, fy: py, mz: 0.0 }),
-        SolverLoad::Nodal(SolverNodalLoad { node_id: 3, fx: px, fy: py, mz: 0.0 }),
-        SolverLoad::Nodal(SolverNodalLoad { node_id: 6, fx: 0.0, fy: py, mz: 0.0 }),
+        SolverLoad::Nodal(SolverNodalLoad { node_id: 2, fx: px, fz: py, my: 0.0 }),
+        SolverLoad::Nodal(SolverNodalLoad { node_id: 5, fx: 0.0, fz: py, my: 0.0 }),
+        SolverLoad::Nodal(SolverNodalLoad { node_id: 3, fx: px, fz: py, my: 0.0 }),
+        SolverLoad::Nodal(SolverNodalLoad { node_id: 6, fx: 0.0, fz: py, my: 0.0 }),
     ];
 
     let input = make_input(nodes, vec![(1, E, 0.3)], vec![(1, a, iz)], elems, sups, loads);

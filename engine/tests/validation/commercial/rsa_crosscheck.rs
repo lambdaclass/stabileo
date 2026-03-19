@@ -56,7 +56,7 @@ fn validation_rsa_vs_th_cantilever_order_of_magnitude() {
         SpectralModeInput {
             frequency: m.frequency, period: m.period, omega: m.omega,
             displacements: m.displacements.iter().map(|d| {
-                SpectralModeDisp { node_id: d.node_id, ux: d.ux, uy: d.uy, rz: d.rz }
+                SpectralModeDisp { node_id: d.node_id, ux: d.ux, uz: d.uz, ry: d.ry }
             }).collect(),
             participation_x: m.participation_x,
             participation_y: m.participation_y,
@@ -83,7 +83,7 @@ fn validation_rsa_vs_th_cantilever_order_of_magnitude() {
     // RSA tip displacement
     let rsa_tip = spectral_res.displacements.iter()
         .find(|d| d.node_id == tip_node)
-        .map(|d| d.uy.abs())
+        .map(|d| d.uz.abs())
         .unwrap_or(0.0);
 
     // Both should be non-zero
@@ -123,7 +123,7 @@ fn validation_rsa_base_shear_effective_mass() {
         SpectralModeInput {
             frequency: m.frequency, period: m.period, omega: m.omega,
             displacements: m.displacements.iter().map(|d| {
-                SpectralModeDisp { node_id: d.node_id, ux: d.ux, uy: d.uy, rz: d.rz }
+                SpectralModeDisp { node_id: d.node_id, ux: d.ux, uz: d.uz, ry: d.ry }
             }).collect(),
             participation_x: m.participation_x,
             participation_y: m.participation_y,
@@ -194,7 +194,7 @@ fn validation_rsa_srss_vs_cqc_separated_modes() {
         SpectralModeInput {
             frequency: m.frequency, period: m.period, omega: m.omega,
             displacements: m.displacements.iter().map(|d| {
-                SpectralModeDisp { node_id: d.node_id, ux: d.ux, uy: d.uy, rz: d.rz }
+                SpectralModeDisp { node_id: d.node_id, ux: d.ux, uz: d.uz, ry: d.ry }
             }).collect(),
             participation_x: m.participation_x,
             participation_y: m.participation_y,
@@ -262,7 +262,7 @@ fn validation_rsa_reduction_factor() {
         SpectralModeInput {
             frequency: m.frequency, period: m.period, omega: m.omega,
             displacements: m.displacements.iter().map(|d| {
-                SpectralModeDisp { node_id: d.node_id, ux: d.ux, uy: d.uy, rz: d.rz }
+                SpectralModeDisp { node_id: d.node_id, ux: d.ux, uz: d.uz, ry: d.ry }
             }).collect(),
             participation_x: m.participation_x,
             participation_y: m.participation_y,

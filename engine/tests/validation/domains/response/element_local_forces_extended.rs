@@ -50,7 +50,7 @@ fn validation_ext_propped_cantilever_udl() {
     // Roller reaction R_B = 3qL/8
     let r_b = results.reactions.iter().find(|r| r.node_id == n + 1).unwrap();
     let r_b_expected = 3.0 * q.abs() * l / 8.0;
-    assert_close(r_b.ry, r_b_expected, 0.02,
+    assert_close(r_b.rz, r_b_expected, 0.02,
         "Propped cantilever UDL: R_B = 3qL/8");
 
     // Shear at fixed end: V_A = 5qL/8
@@ -62,7 +62,7 @@ fn validation_ext_propped_cantilever_udl() {
     // Fixed-end moment: M_A = qL²/8
     let r_a = results.reactions.iter().find(|r| r.node_id == 1).unwrap();
     let m_a_expected = q.abs() * l * l / 8.0;
-    assert_close(r_a.mz.abs(), m_a_expected, 0.02,
+    assert_close(r_a.my.abs(), m_a_expected, 0.02,
         "Propped cantilever UDL: M_A = qL²/8");
 }
 
@@ -82,7 +82,7 @@ fn validation_ext_fixed_central_point_load() {
     let mid = n / 2 + 1; // midspan node
 
     let loads = vec![SolverLoad::Nodal(SolverNodalLoad {
-        node_id: mid, fx: 0.0, fy: -p, mz: 0.0,
+        node_id: mid, fx: 0.0, fz: -p, my: 0.0,
     })];
     let input = make_beam(n, l, E, A, IZ, "fixed", Some("fixed"), loads);
     let results = linear::solve_2d(&input).unwrap();
@@ -90,16 +90,16 @@ fn validation_ext_fixed_central_point_load() {
     // End reactions: each = P/2 by symmetry
     let r_a = results.reactions.iter().find(|r| r.node_id == 1).unwrap();
     let r_b = results.reactions.iter().find(|r| r.node_id == n + 1).unwrap();
-    assert_close(r_a.ry, p / 2.0, 0.02,
+    assert_close(r_a.rz, p / 2.0, 0.02,
         "Fixed central P: R_A = P/2");
-    assert_close(r_b.ry, p / 2.0, 0.02,
+    assert_close(r_b.rz, p / 2.0, 0.02,
         "Fixed central P: R_B = P/2");
 
     // End moments: M = PL/8
     let m_expected = p * l / 8.0;
-    assert_close(r_a.mz.abs(), m_expected, 0.02,
+    assert_close(r_a.my.abs(), m_expected, 0.02,
         "Fixed central P: M_A = PL/8");
-    assert_close(r_b.mz.abs(), m_expected, 0.02,
+    assert_close(r_b.my.abs(), m_expected, 0.02,
         "Fixed central P: M_B = PL/8");
 
     // Shear left of load (element before midspan)
@@ -140,7 +140,7 @@ fn validation_ext_cantilever_udl() {
     // Moment at fixed end: M = qL²/2
     let r1 = results.reactions.iter().find(|r| r.node_id == 1).unwrap();
     let m_expected = q.abs() * l * l / 2.0;
-    assert_close(r1.mz.abs(), m_expected, 0.02,
+    assert_close(r1.my.abs(), m_expected, 0.02,
         "Cantilever UDL: M(0) = qL²/2");
 
     // Shear at free end (last element end) ≈ 0
@@ -192,17 +192,17 @@ fn validation_ext_ss_triangular_load() {
     // R_A = qL/6 (where q = |q_max|)
     let r_a = results.reactions.iter().find(|r| r.node_id == 1).unwrap();
     let r_a_expected = q_max.abs() * l / 6.0;
-    assert_close(r_a.ry, r_a_expected, 0.03,
+    assert_close(r_a.rz, r_a_expected, 0.03,
         "SS triangular: R_A = qL/6");
 
     // R_B = qL/3
     let r_b = results.reactions.iter().find(|r| r.node_id == n + 1).unwrap();
     let r_b_expected = q_max.abs() * l / 3.0;
-    assert_close(r_b.ry, r_b_expected, 0.03,
+    assert_close(r_b.rz, r_b_expected, 0.03,
         "SS triangular: R_B = qL/3");
 
     // Total reaction = qL/2 (total load = q*L/2)
-    let total_r = r_a.ry + r_b.ry;
+    let total_r = r_a.rz + r_b.rz;
     let total_load = q_max.abs() * l / 2.0;
     assert_close(total_r, total_load, 0.02,
         "SS triangular: R_A + R_B = qL/2");
@@ -235,31 +235,31 @@ fn validation_ext_two_span_point_loads() {
     let mid2 = n + n / 2 + 1; // midspan of span 2
     let loads = vec![
         SolverLoad::Nodal(SolverNodalLoad {
-            node_id: mid1, fx: 0.0, fy: -p, mz: 0.0,
+            node_id: mid1, fx: 0.0, fz: -p, my: 0.0,
         }),
         SolverLoad::Nodal(SolverNodalLoad {
-            node_id: mid2, fx: 0.0, fy: -p, mz: 0.0,
+            node_id: mid2, fx: 0.0, fz: -p, my: 0.0,
         }),
     ];
     let input = make_continuous_beam(&[span, span], n, E, A, IZ, loads);
     let results = linear::solve_2d(&input).unwrap();
 
     // Global equilibrium: sum of vertical reactions = 2P
-    let sum_ry: f64 = results.reactions.iter().map(|r| r.ry).sum();
+    let sum_ry: f64 = results.reactions.iter().map(|r| r.rz).sum();
     assert_close(sum_ry, 2.0 * p, 0.02,
         "Two-span P: ΣR_y = 2P");
 
     // By symmetry, R_A = R_C (end reactions are equal)
     let r_a = results.reactions.iter().find(|r| r.node_id == 1).unwrap();
     let r_c = results.reactions.iter().find(|r| r.node_id == 2 * n + 1).unwrap();
-    assert_close(r_a.ry, r_c.ry, 0.02,
+    assert_close(r_a.rz, r_c.rz, 0.02,
         "Two-span P: R_A = R_C by symmetry");
 
     // Interior reaction is larger than end reactions (load channeling)
     let r_b = results.reactions.iter().find(|r| r.node_id == n + 1).unwrap();
-    assert!(r_b.ry > r_a.ry,
+    assert!(r_b.rz > r_a.rz,
         "Two-span P: interior reaction ({:.4}) > end reaction ({:.4})",
-        r_b.ry, r_a.ry);
+        r_b.rz, r_a.rz);
 
     // Moment continuity at interior support
     let ef_end_span1 = results.element_forces.iter()
@@ -284,17 +284,17 @@ fn validation_ext_two_span_point_loads() {
 fn validation_ext_inclined_member_decomposition() {
     let p = 25.0;
     let dx: f64 = 3.0;
-    let dy: f64 = 4.0;
-    let length: f64 = (dx * dx + dy * dy).sqrt();
+    let dz: f64 = 4.0;
+    let length: f64 = (dx * dx + dz * dz).sqrt();
     let cos_t = dx / length; // 3/5
-    let sin_t = dy / length; // 4/5
+    let sin_t = dz / length; // 4/5
 
     // Single element from (0,0) to (3,4)
-    let nodes = vec![(1, 0.0, 0.0), (2, dx, dy)];
+    let nodes = vec![(1, 0.0, 0.0), (2, dx, dz)];
     let elems = vec![(1, "frame", 1, 2, 1, 1, false, false)];
     let sups = vec![(1, 1, "fixed")];
     let loads = vec![SolverLoad::Nodal(SolverNodalLoad {
-        node_id: 2, fx: 0.0, fy: -p, mz: 0.0,
+        node_id: 2, fx: 0.0, fz: -p, my: 0.0,
     })];
 
     let input = make_input(
@@ -318,7 +318,7 @@ fn validation_ext_inclined_member_decomposition() {
 
     // Equilibrium check: reaction at base
     let r1 = results.reactions.iter().find(|r| r.node_id == 1).unwrap();
-    assert_close(r1.ry, p, 0.01, "Inclined member: R_y = P");
+    assert_close(r1.rz, p, 0.01, "Inclined member: R_y = P");
     assert_close(r1.rx.abs(), 0.0, 0.02,
         "Inclined member: R_x ≈ 0 (no horizontal applied load)");
 }
@@ -351,10 +351,10 @@ fn validation_ext_antisymmetric_loading() {
 
     let loads = vec![
         SolverLoad::Nodal(SolverNodalLoad {
-            node_id: quarter1, fx: 0.0, fy: p, mz: 0.0, // upward at L/4
+            node_id: quarter1, fx: 0.0, fz: p, my: 0.0, // upward at L/4
         }),
         SolverLoad::Nodal(SolverNodalLoad {
-            node_id: quarter3, fx: 0.0, fy: -p, mz: 0.0, // downward at 3L/4
+            node_id: quarter3, fx: 0.0, fz: -p, my: 0.0, // downward at 3L/4
         }),
     ];
     let input = make_beam(n, l, E, A, IZ, "pinned", Some("rollerX"), loads);
@@ -364,11 +364,11 @@ fn validation_ext_antisymmetric_loading() {
     let r_a = results.reactions.iter().find(|r| r.node_id == 1).unwrap();
     let r_b = results.reactions.iter().find(|r| r.node_id == n + 1).unwrap();
     // Sum of reactions = sum of loads = p - p = 0
-    assert_close((r_a.ry + r_b.ry).abs(), 0.0, 0.02,
+    assert_close((r_a.rz + r_b.rz).abs(), 0.0, 0.02,
         "Antisymmetric: ΣR_y = 0 (net load is zero)");
 
     // R_A = P/2
-    assert_close(r_a.ry.abs(), p / 2.0, 0.02,
+    assert_close(r_a.rz.abs(), p / 2.0, 0.02,
         "Antisymmetric: |R_A| = P/2");
 
     // Moment at midspan should be zero (antisymmetric)
@@ -412,7 +412,7 @@ fn validation_ext_three_span_udl_symmetry() {
     let results = linear::solve_2d(&input).unwrap();
 
     // Total vertical reaction = total load = q * 3L
-    let sum_ry: f64 = results.reactions.iter().map(|r| r.ry).sum();
+    let sum_ry: f64 = results.reactions.iter().map(|r| r.rz).sum();
     let total_load = q.abs() * 3.0 * span;
     assert_close(sum_ry, total_load, 0.02,
         "Three-span UDL: ΣR_y = 3qL");
@@ -420,27 +420,27 @@ fn validation_ext_three_span_udl_symmetry() {
     // By symmetry: R_A = R_D (end supports)
     let r_a = results.reactions.iter().find(|r| r.node_id == 1).unwrap();
     let r_d = results.reactions.iter().find(|r| r.node_id == 3 * n + 1).unwrap();
-    assert_close(r_a.ry, r_d.ry, 0.02,
+    assert_close(r_a.rz, r_d.rz, 0.02,
         "Three-span UDL: R_A = R_D by symmetry");
 
     // By symmetry: R_B = R_C (interior supports)
     let r_b = results.reactions.iter().find(|r| r.node_id == n + 1).unwrap();
     let r_c = results.reactions.iter().find(|r| r.node_id == 2 * n + 1).unwrap();
-    assert_close(r_b.ry, r_c.ry, 0.02,
+    assert_close(r_b.rz, r_c.rz, 0.02,
         "Three-span UDL: R_B = R_C by symmetry");
 
     // Interior reactions > end reactions (load channeling effect)
-    assert!(r_b.ry > r_a.ry,
+    assert!(r_b.rz > r_a.rz,
         "Three-span UDL: interior reaction ({:.4}) > end reaction ({:.4})",
-        r_b.ry, r_a.ry);
+        r_b.rz, r_a.rz);
 
     // R_A ≈ 0.4*qL (analytical from three-moment equation)
     let r_a_expected = 0.4 * q.abs() * span;
-    assert_close(r_a.ry, r_a_expected, 0.03,
+    assert_close(r_a.rz, r_a_expected, 0.03,
         "Three-span UDL: R_A ≈ 0.4qL");
 
     // R_B ≈ 1.1*qL
     let r_b_expected = 1.1 * q.abs() * span;
-    assert_close(r_b.ry, r_b_expected, 0.03,
+    assert_close(r_b.rz, r_b_expected, 0.03,
         "Three-span UDL: R_B ≈ 1.1qL");
 }

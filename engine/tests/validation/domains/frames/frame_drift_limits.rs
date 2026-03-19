@@ -157,8 +157,8 @@ fn validation_two_story_drift() {
     let sups = vec![(1, 1_usize, "fixed"), (2, 4, "fixed")];
 
     let loads = vec![
-        SolverLoad::Nodal(SolverNodalLoad { node_id: 2, fx: 20.0, fy: 0.0, mz: 0.0 }),
-        SolverLoad::Nodal(SolverNodalLoad { node_id: 5, fx: 10.0, fy: 0.0, mz: 0.0 }),
+        SolverLoad::Nodal(SolverNodalLoad { node_id: 2, fx: 20.0, fz: 0.0, my: 0.0 }),
+        SolverLoad::Nodal(SolverNodalLoad { node_id: 5, fx: 10.0, fz: 0.0, my: 0.0 }),
     ];
 
     let input = make_input(
@@ -234,7 +234,7 @@ fn validation_bracing_reduces_drift() {
     ];
     let sups = vec![(1, 1_usize, "fixed"), (2, 4, "fixed")];
     let loads = vec![SolverLoad::Nodal(SolverNodalLoad {
-        node_id: 2, fx: lateral, fy: 0.0, mz: 0.0,
+        node_id: 2, fx: lateral, fz: 0.0, my: 0.0,
     })];
 
     let input_braced = make_input(
@@ -374,9 +374,9 @@ fn validation_symmetric_gravity_no_lateral_drift() {
     );
 
     // Both should deflect downward (negative uy)
-    assert!(d2.uy < 0.0, "node 2 should deflect downward: uy={:.6e}", d2.uy);
-    assert!(d3.uy < 0.0, "node 3 should deflect downward: uy={:.6e}", d3.uy);
+    assert!(d2.uz < 0.0, "node 2 should deflect downward: uy={:.6e}", d2.uz);
+    assert!(d3.uz < 0.0, "node 3 should deflect downward: uy={:.6e}", d3.uz);
 
     // Symmetric: both vertical displacements should be equal
-    assert_close(d2.uy, d3.uy, 0.01, "symmetric vertical displacement");
+    assert_close(d2.uz, d3.uz, 0.01, "symmetric vertical displacement");
 }

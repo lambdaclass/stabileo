@@ -69,7 +69,7 @@ fn highrise_outrigger_system_base_moment_reduction() {
     }
     let sups_bare = vec![(1, 1, "fixed")];
     let loads_bare = vec![SolverLoad::Nodal(SolverNodalLoad {
-        node_id: n_core + 1, fx: f_wind, fy: 0.0, mz: 0.0,
+        node_id: n_core + 1, fx: f_wind, fz: 0.0, my: 0.0,
     })];
     let input_bare = make_input(
         nodes_bare,
@@ -82,7 +82,7 @@ fn highrise_outrigger_system_base_moment_reduction() {
     let res_bare = solve_2d(&input_bare).expect("bare core solve");
 
     let m_base_bare: f64 = res_bare.reactions.iter()
-        .find(|r| r.node_id == 1).unwrap().mz.abs();
+        .find(|r| r.node_id == 1).unwrap().my.abs();
 
     // ---- Model WITH outrigger at mid-height ----
     // Nodes: core nodes 1..11 (y=0..40), plus perimeter columns on each side
@@ -121,7 +121,7 @@ fn highrise_outrigger_system_base_moment_reduction() {
         (3, 201, "pinned"),  // right perimeter column base
     ];
     let loads = vec![SolverLoad::Nodal(SolverNodalLoad {
-        node_id: n_core + 1, fx: f_wind, fy: 0.0, mz: 0.0,
+        node_id: n_core + 1, fx: f_wind, fz: 0.0, my: 0.0,
     })];
 
     // Materials: 1 = concrete
@@ -137,7 +137,7 @@ fn highrise_outrigger_system_base_moment_reduction() {
     let res_outrigger = solve_2d(&input_outrigger).expect("outrigger solve");
 
     let m_base_outrigger: f64 = res_outrigger.reactions.iter()
-        .find(|r| r.node_id == 1).unwrap().mz.abs();
+        .find(|r| r.node_id == 1).unwrap().my.abs();
 
     // Analytical: cantilever base moment = F * H = 20 * 40 = 800 kN*m
     let m_cantilever: f64 = f_wind * h_total;
@@ -217,7 +217,7 @@ fn highrise_belt_truss_drift_reduction() {
     ];
     let sups_plain = vec![(1, 1, "fixed"), (2, 5, "fixed")];
     let loads_plain = vec![SolverLoad::Nodal(SolverNodalLoad {
-        node_id: 4, fx: f_lateral, fy: 0.0, mz: 0.0,
+        node_id: 4, fx: f_lateral, fz: 0.0, my: 0.0,
     })];
     let input_plain = make_input(
         nodes_plain,
@@ -255,7 +255,7 @@ fn highrise_belt_truss_drift_reduction() {
     ];
     let sups_belt = vec![(1, 1, "fixed"), (2, 5, "fixed")];
     let loads_belt = vec![SolverLoad::Nodal(SolverNodalLoad {
-        node_id: 4, fx: f_lateral, fy: 0.0, mz: 0.0,
+        node_id: 4, fx: f_lateral, fz: 0.0, my: 0.0,
     })];
     let input_belt = make_input(
         nodes_belt,
@@ -367,7 +367,7 @@ fn highrise_tube_structure_lateral_stiffness() {
     // Lateral wind load at top of leftmost column
     let top_left_node = n_stories + 1; // top of first column
     let loads = vec![SolverLoad::Nodal(SolverNodalLoad {
-        node_id: top_left_node, fx: f_wind, fy: 0.0, mz: 0.0,
+        node_id: top_left_node, fx: f_wind, fz: 0.0, my: 0.0,
     })];
 
     let input = make_input(
@@ -402,7 +402,7 @@ fn highrise_tube_structure_lateral_stiffness() {
 
     // Base moments in the columns should be non-zero (fixed-base moment resistance)
     let m_base_left: f64 = results.reactions.iter()
-        .find(|r| r.node_id == 1).unwrap().mz.abs();
+        .find(|r| r.node_id == 1).unwrap().my.abs();
     assert!(
         m_base_left > 0.1,
         "Left column base moment: Mz = {:.4} kN*m", m_base_left
@@ -417,7 +417,7 @@ fn highrise_tube_structure_lateral_stiffness() {
     );
 
     // Vertical equilibrium: no gravity loads applied, so ry should be near zero
-    let sum_ry: f64 = results.reactions.iter().map(|r| r.ry).sum();
+    let sum_ry: f64 = results.reactions.iter().map(|r| r.rz).sum();
     assert_close(sum_ry, 0.0, 0.05, "Tube structure vertical equilibrium");
 }
 
@@ -498,7 +498,7 @@ fn highrise_bundled_tube_shear_distribution() {
     // Lateral load at top-left
     let top_left = n_stories + 1; // top of column 0
     let loads = vec![SolverLoad::Nodal(SolverNodalLoad {
-        node_id: top_left, fx: f_lateral, fy: 0.0, mz: 0.0,
+        node_id: top_left, fx: f_lateral, fz: 0.0, my: 0.0,
     })];
 
     let input = make_input(
@@ -639,7 +639,7 @@ fn highrise_diagrid_facade_axial_efficiency() {
     // Lateral load at top-left
     let top_left = n_stories + 1;
     let loads = vec![SolverLoad::Nodal(SolverNodalLoad {
-        node_id: top_left, fx: f_lateral, fy: 0.0, mz: 0.0,
+        node_id: top_left, fx: f_lateral, fz: 0.0, my: 0.0,
     })];
 
     let input = make_input(
@@ -786,7 +786,7 @@ fn highrise_core_wall_shear_lag() {
     // Lateral load at top of web column
     let top_web = nodes_per_col + 1 + n_stories;
     let loads = vec![SolverLoad::Nodal(SolverNodalLoad {
-        node_id: top_web, fx: f_lateral, fy: 0.0, mz: 0.0,
+        node_id: top_web, fx: f_lateral, fz: 0.0, my: 0.0,
     })];
 
     let input = make_input(
@@ -805,11 +805,11 @@ fn highrise_core_wall_shear_lag() {
 
     // Web column carries most of the base moment (shear lag effect)
     let m_web_base: f64 = results.reactions.iter()
-        .find(|r| r.node_id == nodes_per_col + 1).unwrap().mz.abs();
+        .find(|r| r.node_id == nodes_per_col + 1).unwrap().my.abs();
     let m_left_base: f64 = results.reactions.iter()
-        .find(|r| r.node_id == 1).unwrap().mz.abs();
+        .find(|r| r.node_id == 1).unwrap().my.abs();
     let m_right_base: f64 = results.reactions.iter()
-        .find(|r| r.node_id == 2 * nodes_per_col + 1).unwrap().mz.abs();
+        .find(|r| r.node_id == 2 * nodes_per_col + 1).unwrap().my.abs();
 
     // Web should carry the dominant share of the moment
     let total_m: f64 = m_web_base + m_left_base + m_right_base;
@@ -914,10 +914,10 @@ fn highrise_mega_column_transfer() {
 
     let loads = vec![
         SolverLoad::Nodal(SolverNodalLoad {
-            node_id: 9, fx: 0.0, fy: p_gravity, mz: 0.0,
+            node_id: 9, fx: 0.0, fz: p_gravity, my: 0.0,
         }),
         SolverLoad::Nodal(SolverNodalLoad {
-            node_id: 10, fx: 0.0, fy: p_gravity, mz: 0.0,
+            node_id: 10, fx: 0.0, fz: p_gravity, my: 0.0,
         }),
     ];
 
@@ -939,19 +939,19 @@ fn highrise_mega_column_transfer() {
     let total_gravity: f64 = 2.0 * p_gravity.abs();
 
     // Vertical equilibrium: sum of vertical reactions = total gravity
-    let sum_ry: f64 = results.reactions.iter().map(|r| r.ry).sum();
+    let sum_ry: f64 = results.reactions.iter().map(|r| r.rz).sum();
     assert_close(sum_ry, total_gravity, 0.02, "Transfer vertical equilibrium");
 
     // By symmetry, left and right lower columns carry equal loads
     let ry_left: f64 = results.reactions.iter()
-        .find(|r| r.node_id == 1).unwrap().ry;
+        .find(|r| r.node_id == 1).unwrap().rz;
     let ry_right: f64 = results.reactions.iter()
-        .find(|r| r.node_id == 3).unwrap().ry;
+        .find(|r| r.node_id == 3).unwrap().rz;
     assert_close(ry_left, ry_right, 0.05, "Symmetric outer column reactions");
 
     // Center column carries a share of the load
     let ry_center: f64 = results.reactions.iter()
-        .find(|r| r.node_id == 2).unwrap().ry;
+        .find(|r| r.node_id == 2).unwrap().rz;
     assert!(
         ry_center > 0.0,
         "Center lower column carries load: Ry = {:.2} kN", ry_center
@@ -1062,11 +1062,11 @@ fn highrise_differential_shortening() {
     for story in 1..=n_stories {
         // Core column floor node
         loads.push(SolverLoad::Nodal(SolverNodalLoad {
-            node_id: 1 + story, fx: 0.0, fy: p_floor, mz: 0.0,
+            node_id: 1 + story, fx: 0.0, fz: p_floor, my: 0.0,
         }));
         // Perimeter column floor node
         loads.push(SolverLoad::Nodal(SolverNodalLoad {
-            node_id: nodes_per_col + 1 + story, fx: 0.0, fy: p_floor, mz: 0.0,
+            node_id: nodes_per_col + 1 + story, fx: 0.0, fz: p_floor, my: 0.0,
         }));
     }
 
@@ -1116,9 +1116,9 @@ fn highrise_differential_shortening() {
     let top_perim_node = nodes_per_col + n_stories + 1;
 
     let uy_core: f64 = results.displacements.iter()
-        .find(|d| d.node_id == top_core_node).unwrap().uy;
+        .find(|d| d.node_id == top_core_node).unwrap().uz;
     let uy_perim: f64 = results.displacements.iter()
-        .find(|d| d.node_id == top_perim_node).unwrap().uy;
+        .find(|d| d.node_id == top_perim_node).unwrap().uz;
 
     // Both columns shorten (negative uy) under gravity
     assert!(uy_core < 0.0, "Core shortens under gravity: uy = {:.6}", uy_core);
@@ -1151,6 +1151,6 @@ fn highrise_differential_shortening() {
 
     // Vertical equilibrium: sum of reactions = total applied gravity
     let total_gravity: f64 = 2.0 * n_stories as f64 * p_floor.abs();
-    let sum_ry: f64 = results.reactions.iter().map(|r| r.ry).sum();
+    let sum_ry: f64 = results.reactions.iter().map(|r| r.rz).sum();
     assert_close(sum_ry, total_gravity, 0.02, "Differential shortening vertical equilibrium");
 }

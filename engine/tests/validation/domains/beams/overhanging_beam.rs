@@ -55,8 +55,8 @@ fn validation_overhang_tip_load_reactions() {
     let loads = vec![SolverLoad::Nodal(SolverNodalLoad {
         node_id: 5,
         fx: 0.0,
-        fy: -10.0,
-        mz: 0.0,
+        fz: -10.0,
+        my: 0.0,
     })];
 
     let input = make_input(nodes, mats, secs, elems, sups, loads);
@@ -68,11 +68,11 @@ fn validation_overhang_tip_load_reactions() {
     let r1_expected = 10.0 - 100.0 / 6.0; // -6.667
     let r3_expected = 100.0 / 6.0;          // 16.667
 
-    assert_close(r1.ry, r1_expected, 1e-3, "R1 ry (should be negative / downward)");
-    assert_close(r3.ry, r3_expected, 1e-3, "R3 ry (upward)");
+    assert_close(r1.rz, r1_expected, 1e-3, "R1 ry (should be negative / downward)");
+    assert_close(r3.rz, r3_expected, 1e-3, "R3 ry (upward)");
 
     // Verify the support at node 1 pushes downward (negative reaction)
-    assert!(r1.ry < 0.0, "R1 should be negative (hold-down): got {}", r1.ry);
+    assert!(r1.rz < 0.0, "R1 should be negative (hold-down): got {}", r1.rz);
 }
 
 // ================================================================
@@ -121,11 +121,11 @@ fn validation_overhang_udl_reactions() {
     let r1 = results.reactions.iter().find(|r| r.node_id == 1).unwrap();
     let r3 = results.reactions.iter().find(|r| r.node_id == 3).unwrap();
 
-    assert_close(r1.ry, 8.333333, 1e-3, "R1 ry");
-    assert_close(r3.ry, 41.666667, 1e-3, "R3 ry");
+    assert_close(r1.rz, 8.333333, 1e-3, "R1 ry");
+    assert_close(r3.rz, 41.666667, 1e-3, "R3 ry");
 
     // Global vertical equilibrium: sum of reactions = total applied load
-    let sum_ry: f64 = results.reactions.iter().map(|r| r.ry).sum();
+    let sum_ry: f64 = results.reactions.iter().map(|r| r.rz).sum();
     assert_close(sum_ry, 50.0, 1e-3, "Sum Ry = total UDL load");
 }
 
@@ -160,8 +160,8 @@ fn validation_overhang_moment_at_interior_support() {
     let loads = vec![SolverLoad::Nodal(SolverNodalLoad {
         node_id: 5,
         fx: 0.0,
-        fy: -10.0,
-        mz: 0.0,
+        fz: -10.0,
+        my: 0.0,
     })];
 
     let input = make_input(nodes, mats, secs, elems, sups, loads);
@@ -210,8 +210,8 @@ fn validation_overhang_uplift_at_support() {
     let loads = vec![SolverLoad::Nodal(SolverNodalLoad {
         node_id: 5,
         fx: 0.0,
-        fy: -10.0,
-        mz: 0.0,
+        fz: -10.0,
+        my: 0.0,
     })];
 
     let input = make_input(nodes, mats, secs, elems, sups, loads);
@@ -220,14 +220,14 @@ fn validation_overhang_uplift_at_support() {
     let r1 = results.reactions.iter().find(|r| r.node_id == 1).unwrap();
     let r3 = results.reactions.iter().find(|r| r.node_id == 3).unwrap();
 
-    assert_close(r1.ry, -15.0, 1e-3, "R1 ry (hold-down / uplift)");
-    assert_close(r3.ry, 25.0, 1e-3, "R3 ry (upward)");
+    assert_close(r1.rz, -15.0, 1e-3, "R1 ry (hold-down / uplift)");
+    assert_close(r3.rz, 25.0, 1e-3, "R3 ry (upward)");
 
     // Confirm the reaction at node 1 is genuinely downward (negative)
     assert!(
-        r1.ry < 0.0,
+        r1.rz < 0.0,
         "Support at node 1 must provide hold-down (ry < 0): got {}",
-        r1.ry
+        r1.rz
     );
 }
 
@@ -263,14 +263,14 @@ fn validation_double_overhang_symmetric() {
         SolverLoad::Nodal(SolverNodalLoad {
             node_id: 1,
             fx: 0.0,
-            fy: -10.0,
-            mz: 0.0,
+            fz: -10.0,
+            my: 0.0,
         }),
         SolverLoad::Nodal(SolverNodalLoad {
             node_id: 5,
             fx: 0.0,
-            fy: -10.0,
-            mz: 0.0,
+            fz: -10.0,
+            my: 0.0,
         }),
     ];
 
@@ -280,11 +280,11 @@ fn validation_double_overhang_symmetric() {
     let r2 = results.reactions.iter().find(|r| r.node_id == 2).unwrap();
     let r4 = results.reactions.iter().find(|r| r.node_id == 4).unwrap();
 
-    assert_close(r2.ry, 10.0, 1e-3, "R2 ry (symmetric, should equal 10)");
-    assert_close(r4.ry, 10.0, 1e-3, "R4 ry (symmetric, should equal 10)");
+    assert_close(r2.rz, 10.0, 1e-3, "R2 ry (symmetric, should equal 10)");
+    assert_close(r4.rz, 10.0, 1e-3, "R4 ry (symmetric, should equal 10)");
 
     // Reactions should be equal by symmetry
-    assert_close(r2.ry, r4.ry, 1e-6, "R2 = R4 by symmetry");
+    assert_close(r2.rz, r4.rz, 1e-6, "R2 = R4 by symmetry");
 }
 
 // ================================================================
@@ -316,8 +316,8 @@ fn validation_overhang_deflection_directions() {
     let loads = vec![SolverLoad::Nodal(SolverNodalLoad {
         node_id: 5,
         fx: 0.0,
-        fy: -10.0,
-        mz: 0.0,
+        fz: -10.0,
+        my: 0.0,
     })];
 
     let input = make_input(nodes, mats, secs, elems, sups, loads);
@@ -328,16 +328,16 @@ fn validation_overhang_deflection_directions() {
 
     // Tip deflects downward
     assert!(
-        d5.uy < 0.0,
+        d5.uz < 0.0,
         "Tip node 5 should deflect downward: uy = {}",
-        d5.uy
+        d5.uz
     );
 
     // Midspan of main beam deflects upward (overhang effect)
     assert!(
-        d2.uy > 0.0,
+        d2.uz > 0.0,
         "Midspan node 2 should deflect upward due to overhang: uy = {}",
-        d2.uy
+        d2.uz
     );
 }
 
@@ -393,7 +393,7 @@ fn validation_double_overhang_udl_equilibrium() {
     let results = linear::solve_2d(&input).unwrap();
 
     // Vertical equilibrium
-    let sum_ry: f64 = results.reactions.iter().map(|r| r.ry).sum();
+    let sum_ry: f64 = results.reactions.iter().map(|r| r.rz).sum();
     assert_close(sum_ry, 88.0, 1e-3, "Sum Ry = total UDL (88 kN)");
 
     // Individual reactions
@@ -401,8 +401,8 @@ fn validation_double_overhang_udl_equilibrium() {
     let r4 = results.reactions.iter().find(|r| r.node_id == 4).unwrap();
 
     // R_4 * 6 = 308  =>  R_4 = 51.333
-    assert_close(r4.ry, 308.0 / 6.0, 1e-3, "R4 ry from moment equilibrium");
-    assert_close(r2.ry, 88.0 - 308.0 / 6.0, 1e-3, "R2 ry from force equilibrium");
+    assert_close(r4.rz, 308.0 / 6.0, 1e-3, "R4 ry from moment equilibrium");
+    assert_close(r2.rz, 88.0 - 308.0 / 6.0, 1e-3, "R2 ry from force equilibrium");
 }
 
 // ================================================================

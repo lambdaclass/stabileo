@@ -35,19 +35,19 @@ fn flexibility_symmetry_proves_k_symmetric() {
 
     // Case A: load at node 2, measure at node 4
     let loads_a = vec![SolverLoad::Nodal(SolverNodalLoad {
-        node_id: 2, fx: 0.0, fy: -p, mz: 0.0,
+        node_id: 2, fx: 0.0, fz: -p, my: 0.0,
     })];
     let input_a = make_beam(n, l, E, A, IZ, "pinned", Some("rollerX"), loads_a);
     let res_a = linear::solve_2d(&input_a).unwrap();
-    let f_24 = res_a.displacements.iter().find(|d| d.node_id == 4).unwrap().uy;
+    let f_24 = res_a.displacements.iter().find(|d| d.node_id == 4).unwrap().uz;
 
     // Case B: load at node 4, measure at node 2
     let loads_b = vec![SolverLoad::Nodal(SolverNodalLoad {
-        node_id: 4, fx: 0.0, fy: -p, mz: 0.0,
+        node_id: 4, fx: 0.0, fz: -p, my: 0.0,
     })];
     let input_b = make_beam(n, l, E, A, IZ, "pinned", Some("rollerX"), loads_b);
     let res_b = linear::solve_2d(&input_b).unwrap();
-    let f_42 = res_b.displacements.iter().find(|d| d.node_id == 2).unwrap().uy;
+    let f_42 = res_b.displacements.iter().find(|d| d.node_id == 2).unwrap().uz;
 
     // Maxwell's reciprocal theorem: f_24 = f_42
     assert_close(f_24, f_42, 1e-10, "flexibility symmetry f_24 == f_42");
@@ -69,23 +69,23 @@ fn positive_work_under_load() {
     let fy = -10.0;
 
     let loads = vec![SolverLoad::Nodal(SolverNodalLoad {
-        node_id: n + 1, fx, fy, mz: 0.0,
+        node_id: n + 1, fx, fz: fy, my: 0.0,
     })];
     let input = make_beam(n, l, E, A, IZ, "fixed", None, loads);
     let results = linear::solve_2d(&input).unwrap();
 
     let tip = results.displacements.iter().find(|d| d.node_id == n + 1).unwrap();
-    let work = fx * tip.ux + fy * tip.uy;
+    let work = fx * tip.ux + fy * tip.uz;
 
     assert!(
         work > 0.0,
         "Work must be positive (W = {:.6}), ux={:.6}, uy={:.6}",
-        work, tip.ux, tip.uy
+        work, tip.ux, tip.uz
     );
 
     // Also verify directions: ux > 0 (fx positive), uy < 0 (fy negative)
     assert!(tip.ux > 0.0, "ux should be positive for positive fx");
-    assert!(tip.uy < 0.0, "uy should be negative for negative fy");
+    assert!(tip.uz < 0.0, "uy should be negative for negative fy");
 }
 
 // ═══════════════════════════════════════════════════════════════
@@ -105,14 +105,14 @@ fn superposition_of_load_cases() {
 
     // Case A
     let loads_a = vec![SolverLoad::Nodal(SolverNodalLoad {
-        node_id: 2, fx: 0.0, fy: -10.0, mz: 0.0,
+        node_id: 2, fx: 0.0, fz: -10.0, my: 0.0,
     })];
     let input_a = make_beam(n, l, E, A, IZ, "pinned", Some("rollerX"), loads_a);
     let res_a = linear::solve_2d(&input_a).unwrap();
 
     // Case B
     let loads_b = vec![SolverLoad::Nodal(SolverNodalLoad {
-        node_id: 4, fx: 0.0, fy: -15.0, mz: 0.0,
+        node_id: 4, fx: 0.0, fz: -15.0, my: 0.0,
     })];
     let input_b = make_beam(n, l, E, A, IZ, "pinned", Some("rollerX"), loads_b);
     let res_b = linear::solve_2d(&input_b).unwrap();
@@ -120,10 +120,10 @@ fn superposition_of_load_cases() {
     // Case C: both loads
     let loads_c = vec![
         SolverLoad::Nodal(SolverNodalLoad {
-            node_id: 2, fx: 0.0, fy: -10.0, mz: 0.0,
+            node_id: 2, fx: 0.0, fz: -10.0, my: 0.0,
         }),
         SolverLoad::Nodal(SolverNodalLoad {
-            node_id: 4, fx: 0.0, fy: -15.0, mz: 0.0,
+            node_id: 4, fx: 0.0, fz: -15.0, my: 0.0,
         }),
     ];
     let input_c = make_beam(n, l, E, A, IZ, "pinned", Some("rollerX"), loads_c);
@@ -136,7 +136,7 @@ fn superposition_of_load_cases() {
         let dc = res_c.displacements.iter().find(|d| d.node_id == node_id).unwrap();
 
         assert_close(
-            dc.uy, da.uy + db.uy, 1e-10,
+            dc.uz, da.uz + db.uz, 1e-10,
             &format!("superposition uy at node {}", node_id),
         );
         assert_close(
@@ -144,7 +144,7 @@ fn superposition_of_load_cases() {
             &format!("superposition ux at node {}", node_id),
         );
         assert_close(
-            dc.rz, da.rz + db.rz, 1e-10,
+            dc.ry, da.ry + db.ry, 1e-10,
             &format!("superposition rz at node {}", node_id),
         );
     }
@@ -167,7 +167,7 @@ fn stiffness_proportional_to_e() {
 
     let make_case = |e: f64| {
         let loads = vec![SolverLoad::Nodal(SolverNodalLoad {
-            node_id: n / 2 + 1, fx: 0.0, fy: -p, mz: 0.0,
+            node_id: n / 2 + 1, fx: 0.0, fz: -p, my: 0.0,
         })];
         make_beam(n, l, e, A, IZ, "pinned", Some("rollerX"), loads)
     };
@@ -175,8 +175,8 @@ fn stiffness_proportional_to_e() {
     let res1 = linear::solve_2d(&make_case(e1)).unwrap();
     let res2 = linear::solve_2d(&make_case(e2)).unwrap();
 
-    let d1 = res1.displacements.iter().find(|d| d.node_id == n / 2 + 1).unwrap().uy.abs();
-    let d2 = res2.displacements.iter().find(|d| d.node_id == n / 2 + 1).unwrap().uy.abs();
+    let d1 = res1.displacements.iter().find(|d| d.node_id == n / 2 + 1).unwrap().uz.abs();
+    let d2 = res2.displacements.iter().find(|d| d.node_id == n / 2 + 1).unwrap().uz.abs();
 
     let ratio = d2 / d1;
     assert_close(ratio, 0.5, 1e-10, "deflection ratio E2/E1 = 0.5");
@@ -198,7 +198,7 @@ fn stiffness_inversely_proportional_to_l_cubed() {
 
     let make_cantilever = |l: f64| {
         let loads = vec![SolverLoad::Nodal(SolverNodalLoad {
-            node_id: n + 1, fx: 0.0, fy: -p, mz: 0.0,
+            node_id: n + 1, fx: 0.0, fz: -p, my: 0.0,
         })];
         make_beam(n, l, E, A, IZ, "fixed", None, loads)
     };
@@ -206,8 +206,8 @@ fn stiffness_inversely_proportional_to_l_cubed() {
     let res1 = linear::solve_2d(&make_cantilever(l1)).unwrap();
     let res2 = linear::solve_2d(&make_cantilever(l2)).unwrap();
 
-    let d1 = res1.displacements.iter().find(|d| d.node_id == n + 1).unwrap().uy.abs();
-    let d2 = res2.displacements.iter().find(|d| d.node_id == n + 1).unwrap().uy.abs();
+    let d1 = res1.displacements.iter().find(|d| d.node_id == n + 1).unwrap().uz.abs();
+    let d2 = res2.displacements.iter().find(|d| d.node_id == n + 1).unwrap().uz.abs();
 
     let ratio = d2 / d1;
     let expected = (l2 / l1).powi(3); // 8.0
@@ -231,7 +231,7 @@ fn mesh_independence_for_tip_load() {
     let make_cantilever = |n: usize| {
         let n_nodes = n + 1;
         let loads = vec![SolverLoad::Nodal(SolverNodalLoad {
-            node_id: n_nodes, fx: 0.0, fy: -p, mz: 0.0,
+            node_id: n_nodes, fx: 0.0, fz: -p, my: 0.0,
         })];
         make_beam(n, l, E, A, IZ, "fixed", None, loads)
     };
@@ -239,8 +239,8 @@ fn mesh_independence_for_tip_load() {
     let res1 = linear::solve_2d(&make_cantilever(1)).unwrap();
     let res4 = linear::solve_2d(&make_cantilever(4)).unwrap();
 
-    let d1 = res1.displacements.iter().find(|d| d.node_id == 2).unwrap().uy;
-    let d4 = res4.displacements.iter().find(|d| d.node_id == 5).unwrap().uy;
+    let d1 = res1.displacements.iter().find(|d| d.node_id == 2).unwrap().uz;
+    let d4 = res4.displacements.iter().find(|d| d.node_id == 5).unwrap().uz;
 
     assert_close(d1, d4, 1e-10, "mesh-independent tip displacement");
 
@@ -267,14 +267,14 @@ fn energy_conservation_external_work_equals_strain_energy() {
     let p = 10.0;
 
     let loads = vec![SolverLoad::Nodal(SolverNodalLoad {
-        node_id: n + 1, fx: 0.0, fy: -p, mz: 0.0,
+        node_id: n + 1, fx: 0.0, fz: -p, my: 0.0,
     })];
     let input = make_beam(n, l, E, A, IZ, "fixed", None, loads);
     let results = linear::solve_2d(&input).unwrap();
 
     let tip = results.displacements.iter().find(|d| d.node_id == n + 1).unwrap();
     // External work: W = 0.5 * |F| * |delta| = 0.5 * P * |uy|
-    let w_ext = 0.5 * p * tip.uy.abs();
+    let w_ext = 0.5 * p * tip.uz.abs();
 
     // Analytical strain energy for cantilever with tip load:
     // U = P^2 * L^3 / (6 * E * I)
@@ -304,7 +304,7 @@ fn stiffness_consistent_under_rotation() {
     let elems = vec![(1, "frame", 1, 2, 1, 1, false, false)];
     let sups = vec![(1, 1, "fixed")];
     let loads = vec![SolverLoad::Nodal(SolverNodalLoad {
-        node_id: 2, fx: 0.0, fy: -p, mz: 0.0,
+        node_id: 2, fx: 0.0, fz: -p, my: 0.0,
     })];
 
     let input = make_input(nodes, mats, secs, elems, sups, loads);
@@ -317,13 +317,13 @@ fn stiffness_consistent_under_rotation() {
     assert_close(r.rx, 0.0, 1e-8, "rx equilibrium (no horizontal load)");
 
     // Vertical equilibrium: ry - P = 0 => ry = P
-    assert_close(r.ry, p, 1e-8, "ry equilibrium");
+    assert_close(r.rz, p, 1e-8, "ry equilibrium");
 
     // Moment about node 1: reaction moment balances applied load moment.
     // P acts downward at x=3, moment arm = 3. Solver convention gives mz = +P*3.
-    assert_close(r.mz, p * 3.0, 1e-6, "moment equilibrium at base");
+    assert_close(r.my, p * 3.0, 1e-6, "moment equilibrium at base");
 
     // The free end should displace
     let tip = results.displacements.iter().find(|d| d.node_id == 2).unwrap();
-    assert!(tip.uy < 0.0, "tip should deflect downward");
+    assert!(tip.uz < 0.0, "tip should deflect downward");
 }

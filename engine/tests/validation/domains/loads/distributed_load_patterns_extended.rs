@@ -64,22 +64,22 @@ fn validation_fixed_fixed_beam_udl_reactions() {
 
     // Reactions: R_A = R_B = qL/2 = 12*6/2 = 36 kN
     let ry_exact = q.abs() * l / 2.0;
-    assert_close(r_a.ry, ry_exact, 0.02, "Fixed-fixed UDL: R_A = qL/2");
-    assert_close(r_b.ry, ry_exact, 0.02, "Fixed-fixed UDL: R_B = qL/2");
+    assert_close(r_a.rz, ry_exact, 0.02, "Fixed-fixed UDL: R_A = qL/2");
+    assert_close(r_b.rz, ry_exact, 0.02, "Fixed-fixed UDL: R_B = qL/2");
 
     // Symmetry check on reactions
-    assert_close(r_a.ry, r_b.ry, 0.02, "Fixed-fixed UDL: R_A = R_B");
+    assert_close(r_a.rz, r_b.rz, 0.02, "Fixed-fixed UDL: R_A = R_B");
 
     // End moments: M = qL^2/12 = 12*36/12 = 36 kN·m
     let m_exact = q.abs() * l * l / 12.0;
     assert_close(
-        r_a.mz.abs(),
+        r_a.my.abs(),
         m_exact,
         0.02,
         "Fixed-fixed UDL: M_A = qL^2/12",
     );
     assert_close(
-        r_b.mz.abs(),
+        r_b.my.abs(),
         m_exact,
         0.02,
         "Fixed-fixed UDL: M_B = qL^2/12",
@@ -125,13 +125,13 @@ fn validation_trapezoidal_load_ss_beam() {
     let input = make_beam(n, l, E, A, IZ, "pinned", Some("rollerX"), loads);
     let results = linear::solve_2d(&input).unwrap();
 
-    let r_a = results.reactions.iter().find(|r| r.node_id == 1).unwrap().ry;
+    let r_a = results.reactions.iter().find(|r| r.node_id == 1).unwrap().rz;
     let r_b = results
         .reactions
         .iter()
         .find(|r| r.node_id == n + 1)
         .unwrap()
-        .ry;
+        .rz;
 
     // UDL part: q_u = 5, R_Au = 5*10/2 = 25, R_Bu = 25
     // Tri part: q_t = 10, R_At = 10*10/6, R_Bt = 10*10/3
@@ -219,9 +219,9 @@ fn validation_superposition_two_partial_loads() {
     let res_c = linear::solve_2d(&input_c).unwrap();
 
     // Check reactions: combined = A + B
-    let r_a_a = res_a.reactions.iter().find(|r| r.node_id == 1).unwrap().ry;
-    let r_a_b = res_b.reactions.iter().find(|r| r.node_id == 1).unwrap().ry;
-    let r_a_c = res_c.reactions.iter().find(|r| r.node_id == 1).unwrap().ry;
+    let r_a_a = res_a.reactions.iter().find(|r| r.node_id == 1).unwrap().rz;
+    let r_a_b = res_b.reactions.iter().find(|r| r.node_id == 1).unwrap().rz;
+    let r_a_c = res_c.reactions.iter().find(|r| r.node_id == 1).unwrap().rz;
     assert_close(
         r_a_c,
         r_a_a + r_a_b,
@@ -234,19 +234,19 @@ fn validation_superposition_two_partial_loads() {
         .iter()
         .find(|r| r.node_id == n + 1)
         .unwrap()
-        .ry;
+        .rz;
     let r_b_b = res_b
         .reactions
         .iter()
         .find(|r| r.node_id == n + 1)
         .unwrap()
-        .ry;
+        .rz;
     let r_b_c = res_c
         .reactions
         .iter()
         .find(|r| r.node_id == n + 1)
         .unwrap()
-        .ry;
+        .rz;
     assert_close(
         r_b_c,
         r_b_a + r_b_b,
@@ -261,19 +261,19 @@ fn validation_superposition_two_partial_loads() {
         .iter()
         .find(|d| d.node_id == mid)
         .unwrap()
-        .uy;
+        .uz;
     let d_b = res_b
         .displacements
         .iter()
         .find(|d| d.node_id == mid)
         .unwrap()
-        .uy;
+        .uz;
     let d_c = res_c
         .displacements
         .iter()
         .find(|d| d.node_id == mid)
         .unwrap()
-        .uy;
+        .uz;
     assert_close(
         d_c,
         d_a + d_b,
@@ -333,24 +333,24 @@ fn validation_triple_udl_triple_deflection() {
         .iter()
         .find(|d| d.node_id == tip)
         .unwrap()
-        .uy;
+        .uz;
     let d3 = res3
         .displacements
         .iter()
         .find(|d| d.node_id == tip)
         .unwrap()
-        .uy;
+        .uz;
 
     let ratio = d3 / d1;
     assert_close(ratio, 3.0, 0.02, "Triple UDL: deflection ratio = 3");
 
     // Reactions also scale by 3
-    let ry1 = res1.reactions.iter().find(|r| r.node_id == 1).unwrap().ry;
-    let ry3 = res3.reactions.iter().find(|r| r.node_id == 1).unwrap().ry;
+    let ry1 = res1.reactions.iter().find(|r| r.node_id == 1).unwrap().rz;
+    let ry3 = res3.reactions.iter().find(|r| r.node_id == 1).unwrap().rz;
     assert_close(ry3 / ry1, 3.0, 0.02, "Triple UDL: reaction ratio = 3");
 
-    let mz1 = res1.reactions.iter().find(|r| r.node_id == 1).unwrap().mz;
-    let mz3 = res3.reactions.iter().find(|r| r.node_id == 1).unwrap().mz;
+    let mz1 = res1.reactions.iter().find(|r| r.node_id == 1).unwrap().my;
+    let mz3 = res3.reactions.iter().find(|r| r.node_id == 1).unwrap().my;
     assert_close(mz3 / mz1, 3.0, 0.02, "Triple UDL: moment ratio = 3");
 }
 
@@ -391,13 +391,13 @@ fn validation_symmetric_triangular_load_ss_beam() {
     let input = make_beam(n, l, E, A, IZ, "pinned", Some("rollerX"), loads);
     let results = linear::solve_2d(&input).unwrap();
 
-    let r_a = results.reactions.iter().find(|r| r.node_id == 1).unwrap().ry;
+    let r_a = results.reactions.iter().find(|r| r.node_id == 1).unwrap().rz;
     let r_b = results
         .reactions
         .iter()
         .find(|r| r.node_id == n + 1)
         .unwrap()
-        .ry;
+        .rz;
 
     // Total load = q_max * L / 2; by symmetry R_A = R_B = q_max*L/4
     let r_exact = q_max * l / 4.0;
@@ -454,7 +454,7 @@ fn validation_cantilever_reversed_triangular_load() {
 
     // Ry = q_max * L / 2 = 10 * 4 / 2 = 20
     assert_close(
-        r1.ry,
+        r1.rz,
         q_max * l / 2.0,
         0.02,
         "Cantilever rev tri: Ry = q_max*L/2",
@@ -462,7 +462,7 @@ fn validation_cantilever_reversed_triangular_load() {
 
     // M = q_max * L^2 / 3 = 10 * 16 / 3 = 53.333
     assert_close(
-        r1.mz.abs(),
+        r1.my.abs(),
         q_max * l * l / 3.0,
         0.05,
         "Cantilever rev tri: M = q_max*L^2/3",
@@ -476,7 +476,7 @@ fn validation_cantilever_reversed_triangular_load() {
         .find(|d| d.node_id == n + 1)
         .unwrap();
     assert_close(
-        tip.uy.abs(),
+        tip.uz.abs(),
         delta_exact,
         0.05,
         "Cantilever rev tri: delta = 11*q_max*L^4/(120EI)",
@@ -529,25 +529,25 @@ fn validation_partial_span_udl_right_half() {
     let input_right = make_beam(n, l, E, A, IZ, "pinned", Some("rollerX"), loads_right);
     let res_right = linear::solve_2d(&input_right).unwrap();
 
-    let r_a_left = res_left.reactions.iter().find(|r| r.node_id == 1).unwrap().ry;
+    let r_a_left = res_left.reactions.iter().find(|r| r.node_id == 1).unwrap().rz;
     let r_b_left = res_left
         .reactions
         .iter()
         .find(|r| r.node_id == n + 1)
         .unwrap()
-        .ry;
+        .rz;
     let r_a_right = res_right
         .reactions
         .iter()
         .find(|r| r.node_id == 1)
         .unwrap()
-        .ry;
+        .rz;
     let r_b_right = res_right
         .reactions
         .iter()
         .find(|r| r.node_id == n + 1)
         .unwrap()
-        .ry;
+        .rz;
 
     // Mirror symmetry: R_A(left) = R_B(right), R_B(left) = R_A(right)
     assert_close(
@@ -622,16 +622,16 @@ fn validation_propped_cantilever_udl() {
 
     // R_B = 3qL/8 = 3*10*6/8 = 22.5
     let r_b_exact = 3.0 * q.abs() * l / 8.0;
-    assert_close(r_b.ry, r_b_exact, 0.02, "Propped cantilever: R_B = 3qL/8");
+    assert_close(r_b.rz, r_b_exact, 0.02, "Propped cantilever: R_B = 3qL/8");
 
     // R_A = 5qL/8 = 5*10*6/8 = 37.5
     let r_a_exact = 5.0 * q.abs() * l / 8.0;
-    assert_close(r_a.ry, r_a_exact, 0.02, "Propped cantilever: R_A = 5qL/8");
+    assert_close(r_a.rz, r_a_exact, 0.02, "Propped cantilever: R_A = 5qL/8");
 
     // Fixed-end moment: M_A = qL^2/8 = 10*36/8 = 45
     let m_a_exact = q.abs() * l * l / 8.0;
     assert_close(
-        r_a.mz.abs(),
+        r_a.my.abs(),
         m_a_exact,
         0.02,
         "Propped cantilever: M_A = qL^2/8",
@@ -640,7 +640,7 @@ fn validation_propped_cantilever_udl() {
     // Equilibrium: R_A + R_B = qL = 60
     let total = q.abs() * l;
     assert_close(
-        r_a.ry + r_b.ry,
+        r_a.rz + r_b.rz,
         total,
         0.02,
         "Propped cantilever: equilibrium",

@@ -48,11 +48,11 @@ fn timber_nds_beam_deflection() {
     let mid = n / 2 + 1;
     let mid_d = results.displacements.iter().find(|dd| dd.node_id == mid).unwrap();
 
-    let error = (mid_d.uy.abs() - delta_exact).abs() / delta_exact;
+    let error = (mid_d.uz.abs() - delta_exact).abs() / delta_exact;
     assert!(
         error < 0.05,
         "NDS beam deflection: midspan={:.6e}, exact 5qL^4/(384EI)={:.6e}, err={:.2}%",
-        mid_d.uy.abs(), delta_exact, error * 100.0
+        mid_d.uz.abs(), delta_exact, error * 100.0
     );
 
     // NDS serviceability: L/360 live load limit
@@ -64,7 +64,7 @@ fn timber_nds_beam_deflection() {
         delta_exact, l / 100.0
     );
     // Report whether it passes L/360
-    let _passes_l360 = mid_d.uy.abs() < limit_l360;
+    let _passes_l360 = mid_d.uz.abs() < limit_l360;
 }
 
 // ================================================================
@@ -153,11 +153,11 @@ fn timber_glulam_beam_deflection_and_moment() {
 
     let mid = n / 2 + 1;
     let mid_d = results.displacements.iter().find(|dd| dd.node_id == mid).unwrap();
-    let error_d = (mid_d.uy.abs() - delta_exact).abs() / delta_exact;
+    let error_d = (mid_d.uz.abs() - delta_exact).abs() / delta_exact;
     assert!(
         error_d < 0.05,
         "Glulam deflection: FEM={:.6e}, exact={:.6e}, err={:.2}%",
-        mid_d.uy.abs(), delta_exact, error_d * 100.0
+        mid_d.uz.abs(), delta_exact, error_d * 100.0
     );
 
     // Maximum moment for SS beam with UDL: M_max = qL^2 / 8
@@ -210,7 +210,7 @@ fn timber_beam_column_interaction() {
     }
     // Axial compression at the free end
     loads.push(SolverLoad::Nodal(SolverNodalLoad {
-        node_id: n + 1, fx: p_axial, fy: 0.0, mz: 0.0,
+        node_id: n + 1, fx: p_axial, fz: 0.0, my: 0.0,
     }));
 
     let input = make_beam(n, l, e_spf, a, iz, "fixed", None, loads);
@@ -282,7 +282,7 @@ fn timber_notched_beam_shear() {
     let input = make_beam(
         n, l, e_df, a, iz, "pinned", Some("rollerX"),
         vec![SolverLoad::Nodal(SolverNodalLoad {
-            node_id: mid, fx: 0.0, fy: -p, mz: 0.0,
+            node_id: mid, fx: 0.0, fz: -p, my: 0.0,
         })],
     );
     let results = linear::solve_2d(&input).unwrap();
@@ -373,7 +373,7 @@ fn timber_two_span_continuous_beam() {
 
     // End reactions: R = 3qL/8
     let r_end_exact = 3.0 * q.abs() * span / 8.0;
-    let r1 = results.reactions.iter().find(|r| r.node_id == 1).unwrap().ry;
+    let r1 = results.reactions.iter().find(|r| r.node_id == 1).unwrap().rz;
     let error_r = (r1.abs() - r_end_exact).abs() / r_end_exact;
     assert!(
         error_r < 0.05,
@@ -383,7 +383,7 @@ fn timber_two_span_continuous_beam() {
 
     // Interior reaction: R = 10qL/8 = 5qL/4
     let r_mid_exact = 5.0 * q.abs() * span / 4.0;
-    let r_mid = results.reactions.iter().find(|r| r.node_id == interior_node).unwrap().ry;
+    let r_mid = results.reactions.iter().find(|r| r.node_id == interior_node).unwrap().rz;
     let error_rm = (r_mid.abs() - r_mid_exact).abs() / r_mid_exact;
     assert!(
         error_rm < 0.05,
@@ -442,9 +442,9 @@ fn timber_roof_truss_symmetric_snow() {
 
     // Snow loads at top chord panel points (nodes 4, 5, 6)
     let loads = vec![
-        SolverLoad::Nodal(SolverNodalLoad { node_id: 4, fx: 0.0, fy: -p_snow, mz: 0.0 }),
-        SolverLoad::Nodal(SolverNodalLoad { node_id: 5, fx: 0.0, fy: -p_snow, mz: 0.0 }),
-        SolverLoad::Nodal(SolverNodalLoad { node_id: 6, fx: 0.0, fy: -p_snow, mz: 0.0 }),
+        SolverLoad::Nodal(SolverNodalLoad { node_id: 4, fx: 0.0, fz: -p_snow, my: 0.0 }),
+        SolverLoad::Nodal(SolverNodalLoad { node_id: 5, fx: 0.0, fz: -p_snow, my: 0.0 }),
+        SolverLoad::Nodal(SolverNodalLoad { node_id: 6, fx: 0.0, fz: -p_snow, my: 0.0 }),
     ];
 
     let input = make_input(
@@ -459,12 +459,12 @@ fn timber_roof_truss_symmetric_snow() {
 
     // Total vertical load = 3 * P_snow
     let total_load = 3.0 * p_snow;
-    let sum_ry: f64 = results.reactions.iter().map(|r| r.ry).sum();
+    let sum_ry: f64 = results.reactions.iter().map(|r| r.rz).sum();
     assert_close(sum_ry, total_load, 0.01, "Truss: sum Ry = total load");
 
     // Symmetric loading -> equal vertical reactions
-    let r1 = results.reactions.iter().find(|r| r.node_id == 1).unwrap().ry;
-    let r3 = results.reactions.iter().find(|r| r.node_id == 3).unwrap().ry;
+    let r1 = results.reactions.iter().find(|r| r.node_id == 1).unwrap().rz;
+    let r3 = results.reactions.iter().find(|r| r.node_id == 3).unwrap().rz;
     assert_close(r1, r3, 0.02, "Truss: symmetric reactions R1 = R3");
     assert_close(r1, total_load / 2.0, 0.02, "Truss: each reaction = total/2");
 
@@ -509,7 +509,7 @@ fn timber_long_term_creep_deflection() {
 
     let mid = n / 2 + 1;
     let mid_d = results.displacements.iter().find(|dd| dd.node_id == mid).unwrap();
-    let delta_initial_fem = mid_d.uy.abs();
+    let delta_initial_fem = mid_d.uz.abs();
 
     // Verify initial deflection
     let error = (delta_initial_fem - delta_initial_exact).abs() / delta_initial_exact;

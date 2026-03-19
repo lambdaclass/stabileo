@@ -43,13 +43,13 @@ fn validation_flex_stiff_unit_load() {
     let mid = n / 2 + 1;
 
     let loads = vec![SolverLoad::Nodal(SolverNodalLoad {
-        node_id: mid, fx: 0.0, fy: -p, mz: 0.0,
+        node_id: mid, fx: 0.0, fz: -p, my: 0.0,
     })];
     let input = make_beam(n, l, E, A, IZ, "pinned", Some("rollerX"), loads);
     let results = linear::solve_2d(&input).unwrap();
 
     let d_mid = results.displacements.iter()
-        .find(|d| d.node_id == mid).unwrap().uy.abs();
+        .find(|d| d.node_id == mid).unwrap().uz.abs();
     let d_exact = p * l.powi(3) / (48.0 * e_eff * IZ);
     assert_close(d_mid, d_exact, 0.02, "Unit load: δ = PL³/(48EI)");
 }
@@ -68,19 +68,19 @@ fn validation_flex_stiff_reciprocity() {
 
     // Case 1: load at node 5, measure at node 15
     let loads1 = vec![SolverLoad::Nodal(SolverNodalLoad {
-        node_id: 5, fx: 0.0, fy: -1.0, mz: 0.0,
+        node_id: 5, fx: 0.0, fz: -1.0, my: 0.0,
     })];
     let input1 = make_beam(n, l, E, A, IZ, "pinned", Some("rollerX"), loads1);
     let d_ij = linear::solve_2d(&input1).unwrap()
-        .displacements.iter().find(|d| d.node_id == 15).unwrap().uy;
+        .displacements.iter().find(|d| d.node_id == 15).unwrap().uz;
 
     // Case 2: load at node 15, measure at node 5
     let loads2 = vec![SolverLoad::Nodal(SolverNodalLoad {
-        node_id: 15, fx: 0.0, fy: -1.0, mz: 0.0,
+        node_id: 15, fx: 0.0, fz: -1.0, my: 0.0,
     })];
     let input2 = make_beam(n, l, E, A, IZ, "pinned", Some("rollerX"), loads2);
     let d_ji = linear::solve_2d(&input2).unwrap()
-        .displacements.iter().find(|d| d.node_id == 5).unwrap().uy;
+        .displacements.iter().find(|d| d.node_id == 5).unwrap().uz;
 
     assert_close(d_ij, d_ji, 0.001, "Reciprocity: δ_ij = δ_ji");
 }
@@ -100,19 +100,19 @@ fn validation_flex_stiff_k_proportionality() {
 
     // E = 200_000
     let loads1 = vec![SolverLoad::Nodal(SolverNodalLoad {
-        node_id: n + 1, fx: 0.0, fy: -p, mz: 0.0,
+        node_id: n + 1, fx: 0.0, fz: -p, my: 0.0,
     })];
     let input1 = make_beam(n, l, E, A, IZ, "fixed", None, loads1);
     let d1 = linear::solve_2d(&input1).unwrap()
-        .displacements.iter().find(|d| d.node_id == n + 1).unwrap().uy.abs();
+        .displacements.iter().find(|d| d.node_id == n + 1).unwrap().uz.abs();
 
     // E = 400_000
     let loads2 = vec![SolverLoad::Nodal(SolverNodalLoad {
-        node_id: n + 1, fx: 0.0, fy: -p, mz: 0.0,
+        node_id: n + 1, fx: 0.0, fz: -p, my: 0.0,
     })];
     let input2 = make_beam(n, l, 2.0 * E, A, IZ, "fixed", None, loads2);
     let d2 = linear::solve_2d(&input2).unwrap()
-        .displacements.iter().find(|d| d.node_id == n + 1).unwrap().uy.abs();
+        .displacements.iter().find(|d| d.node_id == n + 1).unwrap().uz.abs();
 
     // δ ∝ 1/E → d1/d2 = 2
     assert_close(d1 / d2, 2.0, 0.01, "K ∝ E: doubling E halves δ");
@@ -132,20 +132,20 @@ fn validation_flex_stiff_f_proportionality() {
     // L = 4
     let l1 = 4.0;
     let loads1 = vec![SolverLoad::Nodal(SolverNodalLoad {
-        node_id: n + 1, fx: 0.0, fy: -p, mz: 0.0,
+        node_id: n + 1, fx: 0.0, fz: -p, my: 0.0,
     })];
     let input1 = make_beam(n, l1, E, A, IZ, "fixed", None, loads1);
     let d1 = linear::solve_2d(&input1).unwrap()
-        .displacements.iter().find(|d| d.node_id == n + 1).unwrap().uy.abs();
+        .displacements.iter().find(|d| d.node_id == n + 1).unwrap().uz.abs();
 
     // L = 8 (doubled)
     let l2 = 8.0;
     let loads2 = vec![SolverLoad::Nodal(SolverNodalLoad {
-        node_id: n + 1, fx: 0.0, fy: -p, mz: 0.0,
+        node_id: n + 1, fx: 0.0, fz: -p, my: 0.0,
     })];
     let input2 = make_beam(n, l2, E, A, IZ, "fixed", None, loads2);
     let d2 = linear::solve_2d(&input2).unwrap()
-        .displacements.iter().find(|d| d.node_id == n + 1).unwrap().uy.abs();
+        .displacements.iter().find(|d| d.node_id == n + 1).unwrap().uz.abs();
 
     // δ ∝ L³ → d2/d1 = (L2/L1)³ = 8
     assert_close(d2 / d1, 8.0, 0.02, "δ ∝ L³: doubling L → 8× deflection");
@@ -186,7 +186,7 @@ fn validation_flex_stiff_carry_over() {
         .collect();
     let input_ff = make_beam(n, l, E, A, IZ, "fixed", Some("fixed"), loads_ff);
     let rf = linear::solve_2d(&input_ff).unwrap();
-    let m_ff = rf.reactions.iter().find(|r| r.node_id == 1).unwrap().mz.abs();
+    let m_ff = rf.reactions.iter().find(|r| r.node_id == 1).unwrap().my.abs();
 
     // Fixed-pinned (propped cantilever)
     let loads_fp: Vec<SolverLoad> = (1..=n)
@@ -196,7 +196,7 @@ fn validation_flex_stiff_carry_over() {
         .collect();
     let input_fp = make_beam(n, l, E, A, IZ, "fixed", Some("rollerX"), loads_fp);
     let rp = linear::solve_2d(&input_fp).unwrap();
-    let m_fp = rp.reactions.iter().find(|r| r.node_id == 1).unwrap().mz.abs();
+    let m_fp = rp.reactions.iter().find(|r| r.node_id == 1).unwrap().my.abs();
 
     // Fixed-fixed: M = qL²/12, Fixed-pinned: M = qL²/8
     let m_ff_exact = q.abs() * l * l / 12.0;
@@ -234,9 +234,9 @@ fn validation_flex_stiff_distribution() {
     let results = linear::solve_2d(&input).unwrap();
 
     // For equal spans with symmetric loading, end reactions should be equal
-    let r_end1 = results.reactions.iter().find(|r| r.node_id == 1).unwrap().ry;
+    let r_end1 = results.reactions.iter().find(|r| r.node_id == 1).unwrap().rz;
     let r_end2 = results.reactions.iter()
-        .find(|r| r.node_id == 2 * n + 1).unwrap().ry;
+        .find(|r| r.node_id == 2 * n + 1).unwrap().rz;
     assert_close(r_end1, r_end2, 0.02, "Distribution: symmetric end reactions");
 }
 
@@ -261,7 +261,7 @@ fn validation_flex_stiff_release() {
         .collect();
     let input1 = make_beam(n, l, E, A, IZ, "fixed", Some("fixed"), loads1);
     let r1 = linear::solve_2d(&input1).unwrap();
-    let d1_mid = r1.displacements.iter().find(|d| d.node_id == n / 2 + 1).unwrap().uy.abs();
+    let d1_mid = r1.displacements.iter().find(|d| d.node_id == n / 2 + 1).unwrap().uz.abs();
 
     // Fixed-pinned (released one end)
     let loads2: Vec<SolverLoad> = (1..=n)
@@ -271,7 +271,7 @@ fn validation_flex_stiff_release() {
         .collect();
     let input2 = make_beam(n, l, E, A, IZ, "fixed", Some("rollerX"), loads2);
     let r2 = linear::solve_2d(&input2).unwrap();
-    let d2_mid = r2.displacements.iter().find(|d| d.node_id == n / 2 + 1).unwrap().uy.abs();
+    let d2_mid = r2.displacements.iter().find(|d| d.node_id == n / 2 + 1).unwrap().uz.abs();
 
     // Pinned-pinned (both released)
     let loads3: Vec<SolverLoad> = (1..=n)
@@ -281,7 +281,7 @@ fn validation_flex_stiff_release() {
         .collect();
     let input3 = make_beam(n, l, E, A, IZ, "pinned", Some("rollerX"), loads3);
     let r3 = linear::solve_2d(&input3).unwrap();
-    let d3_mid = r3.displacements.iter().find(|d| d.node_id == n / 2 + 1).unwrap().uy.abs();
+    let d3_mid = r3.displacements.iter().find(|d| d.node_id == n / 2 + 1).unwrap().uz.abs();
 
     // More fixity → less deflection
     assert!(d1_mid < d2_mid, "Fixed-fixed < fixed-pinned: {:.6e} < {:.6e}", d1_mid, d2_mid);
@@ -309,7 +309,7 @@ fn validation_flex_stiff_symmetry() {
     // Load case A: point load at L/3 (node 6)
     let pa = 7.0;
     let loads_a = vec![SolverLoad::Nodal(SolverNodalLoad {
-        node_id: 6, fx: 0.0, fy: -pa, mz: 0.0,
+        node_id: 6, fx: 0.0, fz: -pa, my: 0.0,
     })];
     let input_a = make_beam(n, l, E, A, IZ, "fixed", Some("fixed"), loads_a);
     let ra = linear::solve_2d(&input_a).unwrap();
@@ -317,16 +317,16 @@ fn validation_flex_stiff_symmetry() {
     // Load case B: point load at 2L/3 (node 12)
     let pb = 11.0;
     let loads_b = vec![SolverLoad::Nodal(SolverNodalLoad {
-        node_id: 12, fx: 0.0, fy: -pb, mz: 0.0,
+        node_id: 12, fx: 0.0, fz: -pb, my: 0.0,
     })];
     let input_b = make_beam(n, l, E, A, IZ, "fixed", Some("fixed"), loads_b);
     let rb = linear::solve_2d(&input_b).unwrap();
 
     // Betti's theorem: PA * u_B(at A) = PB * u_A(at B)
     // u_A(at B) = displacement at node 12 due to load PA at node 6
-    let u_a_at_b = ra.displacements.iter().find(|d| d.node_id == 12).unwrap().uy;
+    let u_a_at_b = ra.displacements.iter().find(|d| d.node_id == 12).unwrap().uz;
     // u_B(at A) = displacement at node 6 due to load PB at node 12
-    let u_b_at_a = rb.displacements.iter().find(|d| d.node_id == 6).unwrap().uy;
+    let u_b_at_a = rb.displacements.iter().find(|d| d.node_id == 6).unwrap().uz;
 
     // Work of A through B's displacements = Work of B through A's displacements
     assert_close(pa * u_b_at_a, pb * u_a_at_b, 0.001,

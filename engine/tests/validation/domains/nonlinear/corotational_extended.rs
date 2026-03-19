@@ -59,7 +59,7 @@ fn validation_corotational_ext_williams_toggle() {
 
     // Sub-limit load first
     let loads_small = vec![SolverLoad::Nodal(SolverNodalLoad {
-        node_id: 2, fx: 0.0, fy: -p_small, mz: 0.0,
+        node_id: 2, fx: 0.0, fz: -p_small, my: 0.0,
     })];
 
     let input = make_input(
@@ -75,13 +75,13 @@ fn validation_corotational_ext_williams_toggle() {
                     .find(|d| d.node_id == 2).unwrap();
                 // Apex should deflect downward
                 assert!(
-                    apex.uy < 0.0,
-                    "Williams toggle: apex should deflect down, got uy={:.6e}", apex.uy
+                    apex.uz < 0.0,
+                    "Williams toggle: apex should deflect down, got uy={:.6e}", apex.uz
                 );
                 // Deflection should be reasonable (not huge for small load)
                 assert!(
-                    apex.uy.abs() < 2.0 * rise,
-                    "Williams toggle: deflection should be reasonable, got |uy|={:.6e}", apex.uy.abs()
+                    apex.uz.abs() < 2.0 * rise,
+                    "Williams toggle: deflection should be reasonable, got |uy|={:.6e}", apex.uz.abs()
                 );
             }
         }
@@ -98,7 +98,7 @@ fn validation_corotational_ext_williams_toggle() {
     let p_limit_approx = 2.0 * E_EFF * a * sin_alpha.powi(3);
 
     let loads_large = vec![SolverLoad::Nodal(SolverNodalLoad {
-        node_id: 2, fx: 0.0, fy: -1.5 * p_limit_approx, mz: 0.0,
+        node_id: 2, fx: 0.0, fz: -1.5 * p_limit_approx, my: 0.0,
     })];
 
     let input_large = make_input(
@@ -153,7 +153,7 @@ fn validation_corotational_ext_cantilever_large_rotation() {
         nodes, vec![(1, E, 0.3)], vec![(1, a, iz)],
         elems, vec![(1, 1, "fixed")],
         vec![SolverLoad::Nodal(SolverNodalLoad {
-            node_id: n + 1, fx: 0.0, fy: 0.0, mz: m_applied,
+            node_id: n + 1, fx: 0.0, fz: 0.0, my: m_applied,
         })],
     );
 
@@ -169,7 +169,7 @@ fn validation_corotational_ext_cantilever_large_rotation() {
     let exact_uy = r * (1.0 - theta_target.cos()); // upward if positive moment
 
     // Tip rotation should be close to 45 degrees
-    let tip_rot = tip.rz.abs();
+    let tip_rot = tip.ry.abs();
     let rot_error = (tip_rot - theta_target).abs() / theta_target;
     assert!(
         rot_error < 0.15,
@@ -180,11 +180,11 @@ fn validation_corotational_ext_cantilever_large_rotation() {
     // The tip should have noticeable lateral deflection
     let uy_ref = exact_uy.abs();
     if uy_ref > 1e-6 {
-        let uy_error = (tip.uy.abs() - uy_ref).abs() / uy_ref;
+        let uy_error = (tip.uz.abs() - uy_ref).abs() / uy_ref;
         assert!(
             uy_error < 0.25,
-            "Tip uy: computed={:.6e}, expected={:.6e}, error={:.1}%",
-            tip.uy.abs(), uy_ref, uy_error * 100.0
+            "Tip uz: computed={:.6e}, expected={:.6e}, error={:.1}%",
+            tip.uz.abs(), uy_ref, uy_error * 100.0
         );
     }
 
@@ -196,7 +196,7 @@ fn validation_corotational_ext_cantilever_large_rotation() {
     // The corotational solver captures chord shortening
     // For pure moment, the x-displacement is modest but non-zero
     assert!(
-        tip.ux.abs() > 1e-6 || tip.uy.abs() > 1e-4,
+        tip.ux.abs() > 1e-6 || tip.uz.abs() > 1e-4,
         "Large rotation should produce notable displacement"
     );
 }
@@ -250,7 +250,7 @@ fn validation_corotational_ext_lee_frame() {
     let sups = vec![(1, 1, "fixed")]; // fixed at base
 
     let loads = vec![SolverLoad::Nodal(SolverNodalLoad {
-        node_id: tip_node, fx: 0.0, fy: -p, mz: 0.0,
+        node_id: tip_node, fx: 0.0, fz: -p, my: 0.0,
     })];
 
     let input = make_input(
@@ -268,15 +268,15 @@ fn validation_corotational_ext_lee_frame() {
 
     // Tip should deflect downward significantly
     assert!(
-        tip.uy < 0.0,
-        "Lee frame tip should deflect downward, got uy={:.6e}", tip.uy
+        tip.uz < 0.0,
+        "Lee frame tip should deflect downward, got uy={:.6e}", tip.uz
     );
 
     // The corner should also show some lateral displacement (sway)
     // due to the coupling between vertical load and frame flexibility
     // Even with vertical-only load, the L-shape creates sway
     assert!(
-        corner.ux.abs() > 1e-8 || corner.uy.abs() > 1e-8,
+        corner.ux.abs() > 1e-8 || corner.uz.abs() > 1e-8,
         "Corner should show displacement in L-frame"
     );
 
@@ -286,12 +286,12 @@ fn validation_corotational_ext_lee_frame() {
         .find(|d| d.node_id == tip_node).unwrap();
 
     // Both should deflect downward
-    assert!(tip_lin.uy < 0.0, "Linear tip should also deflect down");
+    assert!(tip_lin.uz < 0.0, "Linear tip should also deflect down");
 
     // Corotational and linear should give different results for moderate loads
     // (the difference depends on load level; at least verify both produce results)
-    let ratio = if tip_lin.uy.abs() > 1e-12 {
-        tip.uy / tip_lin.uy
+    let ratio = if tip_lin.uz.abs() > 1e-12 {
+        tip.uz / tip_lin.uz
     } else {
         1.0
     };
@@ -339,7 +339,7 @@ fn validation_corotational_ext_fixed_arch_snapthrough() {
     // Small load: should converge
     let p_small = 10.0;
     let loads_small = vec![SolverLoad::Nodal(SolverNodalLoad {
-        node_id: crown_node, fx: 0.0, fy: -p_small, mz: 0.0,
+        node_id: crown_node, fx: 0.0, fz: -p_small, my: 0.0,
     })];
 
     let input_small = make_input(
@@ -353,14 +353,14 @@ fn validation_corotational_ext_fixed_arch_snapthrough() {
     let crown_small = result_small.results.displacements.iter()
         .find(|d| d.node_id == crown_node).unwrap();
     assert!(
-        crown_small.uy < 0.0,
-        "Crown should deflect downward, got uy={:.6e}", crown_small.uy
+        crown_small.uz < 0.0,
+        "Crown should deflect downward, got uy={:.6e}", crown_small.uz
     );
 
     // Moderate load: verify deflection increases with load
     let p_moderate = 50.0;
     let loads_moderate = vec![SolverLoad::Nodal(SolverNodalLoad {
-        node_id: crown_node, fx: 0.0, fy: -p_moderate, mz: 0.0,
+        node_id: crown_node, fx: 0.0, fz: -p_moderate, my: 0.0,
     })];
 
     let input_moderate = make_input(
@@ -375,14 +375,14 @@ fn validation_corotational_ext_fixed_arch_snapthrough() {
                 let crown_mod = res.results.displacements.iter()
                     .find(|d| d.node_id == crown_node).unwrap();
                 assert!(
-                    crown_mod.uy < 0.0,
-                    "Crown should deflect down for moderate load, got uy={:.6e}", crown_mod.uy
+                    crown_mod.uz < 0.0,
+                    "Crown should deflect down for moderate load, got uy={:.6e}", crown_mod.uz
                 );
                 // Larger load should give larger deflection
                 assert!(
-                    crown_mod.uy.abs() > crown_small.uy.abs() * 0.8,
+                    crown_mod.uz.abs() > crown_small.uz.abs() * 0.8,
                     "Higher load should give >= deflection: mod={:.6e} vs small={:.6e}",
-                    crown_mod.uy.abs(), crown_small.uy.abs()
+                    crown_mod.uz.abs(), crown_small.uz.abs()
                 );
             }
         }
@@ -394,7 +394,7 @@ fn validation_corotational_ext_fixed_arch_snapthrough() {
     // Large load (near/past limit): verify graceful behavior
     let p_large = 500.0;
     let loads_large = vec![SolverLoad::Nodal(SolverNodalLoad {
-        node_id: crown_node, fx: 0.0, fy: -p_large, mz: 0.0,
+        node_id: crown_node, fx: 0.0, fz: -p_large, my: 0.0,
     })];
 
     let input_large = make_input(
@@ -454,7 +454,7 @@ fn validation_corotational_ext_shallow_arch_rise_ratio() {
         let crown_node = n_half + 1;
 
         let loads = vec![SolverLoad::Nodal(SolverNodalLoad {
-            node_id: crown_node, fx: 0.0, fy: -p_test, mz: 0.0,
+            node_id: crown_node, fx: 0.0, fz: -p_test, my: 0.0,
         })];
 
         let input = make_input(
@@ -467,7 +467,7 @@ fn validation_corotational_ext_shallow_arch_rise_ratio() {
             Ok(res) if res.converged => {
                 let crown = res.results.displacements.iter()
                     .find(|d| d.node_id == crown_node).unwrap();
-                crown_deflections.push(Some(crown.uy));
+                crown_deflections.push(Some(crown.uz));
             }
             _ => {
                 crown_deflections.push(None);
@@ -551,7 +551,7 @@ fn validation_corotational_ext_elastica_comparison() {
             nodes, vec![(1, e_mpa, 0.3)], vec![(1, a, iz)],
             elems, vec![(1, 1, "fixed")],
             vec![SolverLoad::Nodal(SolverNodalLoad {
-                node_id: n + 1, fx: 0.0, fy: -p_load, mz: 0.0,
+                node_id: n + 1, fx: 0.0, fz: -p_load, my: 0.0,
             })],
         );
 
@@ -561,7 +561,7 @@ fn validation_corotational_ext_elastica_comparison() {
         let tip = result.results.displacements.iter()
             .find(|d| d.node_id == n + 1).unwrap();
 
-        let v_ratio = tip.uy.abs() / l;
+        let v_ratio = tip.uz.abs() / l;
         let error = (v_ratio - expected_v).abs() / expected_v;
 
         assert!(
@@ -623,10 +623,10 @@ fn validation_corotational_ext_post_buckling_column() {
 
         let loads = vec![
             SolverLoad::Nodal(SolverNodalLoad {
-                node_id: n + 1, fx: -p_axial, fy: 0.0, mz: 0.0,
+                node_id: n + 1, fx: -p_axial, fz: 0.0, my: 0.0,
             }),
             SolverLoad::Nodal(SolverNodalLoad {
-                node_id: mid_node, fx: 0.0, fy: perturbation, mz: 0.0,
+                node_id: mid_node, fx: 0.0, fz: perturbation, my: 0.0,
             }),
         ];
 
@@ -644,7 +644,7 @@ fn validation_corotational_ext_post_buckling_column() {
 
         let mid = result.results.displacements.iter()
             .find(|d| d.node_id == mid_node).unwrap();
-        mid_deflections.push(mid.uy.abs());
+        mid_deflections.push(mid.uz.abs());
     }
 
     // At 80% P_cr, lateral deflection should be amplified compared to 50% P_cr
@@ -697,7 +697,7 @@ fn validation_corotational_ext_two_bar_truss_snapthrough() {
     // Small load — well within elastic range
     let p_small = 5.0;
     let loads_small = vec![SolverLoad::Nodal(SolverNodalLoad {
-        node_id: 2, fx: 0.0, fy: -p_small, mz: 0.0,
+        node_id: 2, fx: 0.0, fz: -p_small, my: 0.0,
     })];
 
     let input_small = make_input(
@@ -711,8 +711,8 @@ fn validation_corotational_ext_two_bar_truss_snapthrough() {
     let apex_small = result_small.results.displacements.iter()
         .find(|d| d.node_id == 2).unwrap();
     assert!(
-        apex_small.uy < 0.0,
-        "Apex should deflect down for small load, got uy={:.6e}", apex_small.uy
+        apex_small.uz < 0.0,
+        "Apex should deflect down for small load, got uy={:.6e}", apex_small.uz
     );
 
     // Track load-deflection: increasing load levels
@@ -721,7 +721,7 @@ fn validation_corotational_ext_two_bar_truss_snapthrough() {
 
     for &p in &load_levels {
         let loads = vec![SolverLoad::Nodal(SolverNodalLoad {
-            node_id: 2, fx: 0.0, fy: -p, mz: 0.0,
+            node_id: 2, fx: 0.0, fz: -p, my: 0.0,
         })];
 
         let input = make_input(
@@ -734,7 +734,7 @@ fn validation_corotational_ext_two_bar_truss_snapthrough() {
             Ok(res) if res.converged => {
                 let apex = res.results.displacements.iter()
                     .find(|d| d.node_id == 2).unwrap();
-                load_disp_curve.push((p, apex.uy));
+                load_disp_curve.push((p, apex.uz));
             }
             _ => {
                 // Convergence failure at this load level — we may have hit the limit point

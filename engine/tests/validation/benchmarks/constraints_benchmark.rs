@@ -57,7 +57,7 @@ fn validation_rigid_diaphragm_floor() {
     let fx_load = 50.0; // kN horizontal load at master
     let loads = vec![
         SolverLoad::Nodal(SolverNodalLoad {
-            node_id: 1, fx: fx_load, fy: 0.0, mz: 0.0,
+            node_id: 1, fx: fx_load, fz: 0.0, my: 0.0,
         }),
     ];
 
@@ -79,16 +79,16 @@ fn validation_rigid_diaphragm_floor() {
     // Node 2 offset from master: dx = 0-3 = -3, dy = h-h = 0
     // ux_2 = ux_master - (0) * rz = ux_master
     // uy_2 = uy_master + (-3) * rz
-    let expected_ux_2 = d_master.ux - 0.0 * d_master.rz;
-    let expected_uy_2 = d_master.uy + (-3.0) * d_master.rz;
+    let expected_ux_2 = d_master.ux - 0.0 * d_master.ry;
+    let expected_uy_2 = d_master.uz + (-3.0) * d_master.ry;
     assert_close(d2.ux, expected_ux_2, 1e-4, "diaphragm node2 ux");
-    assert_close(d2.uy, expected_uy_2, 1e-4, "diaphragm node2 uy");
+    assert_close(d2.uz, expected_uy_2, 1e-4, "diaphragm node2 uy");
 
     // Node 3 offset from master: dx = 6-3 = 3, dy = h-h = 0
-    let expected_ux_3 = d_master.ux - 0.0 * d_master.rz;
-    let expected_uy_3 = d_master.uy + 3.0 * d_master.rz;
+    let expected_ux_3 = d_master.ux - 0.0 * d_master.ry;
+    let expected_uy_3 = d_master.uz + 3.0 * d_master.ry;
     assert_close(d3.ux, expected_ux_3, 1e-4, "diaphragm node3 ux");
-    assert_close(d3.uy, expected_uy_3, 1e-4, "diaphragm node3 uy");
+    assert_close(d3.uz, expected_uy_3, 1e-4, "diaphragm node3 uy");
 
     // Horizontal equilibrium
     let sum_rx: f64 = results.reactions.iter().map(|r| r.rx).sum();
@@ -112,7 +112,7 @@ fn validation_rigid_link_moment_transfer() {
     // Reference: cantilever with moment at tip
     let ref_loads = vec![
         SolverLoad::Nodal(SolverNodalLoad {
-            node_id: 2, fx: 0.0, fy: 0.0, mz: mz_applied,
+            node_id: 2, fx: 0.0, fz: 0.0, my: mz_applied,
         }),
     ];
     let ref_input = make_beam(2, l, E, A, IZ, "fixed", Some("free"), ref_loads);
@@ -133,7 +133,7 @@ fn validation_rigid_link_moment_transfer() {
     let sups = vec![(1, 1, "fixed")];
     let loads = vec![
         SolverLoad::Nodal(SolverNodalLoad {
-            node_id: 4, fx: 0.0, fy: 0.0, mz: mz_applied,
+            node_id: 4, fx: 0.0, fz: 0.0, my: mz_applied,
         }),
     ];
 
@@ -156,18 +156,18 @@ fn validation_rigid_link_moment_transfer() {
     let ref_d_tip = ref_results.displacements.iter()
         .find(|d| d.node_id == 3)
         .unwrap();
-    assert_close(d3.uy, ref_d_tip.uy, 1e-3, "rigid link uy transfer");
-    assert_close(d3.rz, ref_d_tip.rz, 1e-3, "rigid link rz transfer");
+    assert_close(d3.uz, ref_d_tip.uz, 1e-3, "rigid link uy transfer");
+    assert_close(d3.ry, ref_d_tip.ry, 1e-3, "rigid link rz transfer");
 
     // Slave should have identical displacements to master (zero offset)
     let d4 = results.displacements.iter().find(|d| d.node_id == 4).unwrap();
     assert_close(d4.ux, d3.ux, 1e-6, "rigid link slave ux = master ux");
-    assert_close(d4.uy, d3.uy, 1e-6, "rigid link slave uy = master uy");
-    assert_close(d4.rz, d3.rz, 1e-6, "rigid link slave rz = master rz");
+    assert_close(d4.uz, d3.uz, 1e-6, "rigid link slave uy = master uy");
+    assert_close(d4.ry, d3.ry, 1e-6, "rigid link slave rz = master rz");
 
     // Equilibrium check: moment at base reaction should equal applied moment
     let r1 = results.reactions.iter().find(|r| r.node_id == 1).unwrap();
-    assert_close(r1.mz, -mz_applied, 1e-3, "rigid link base moment reaction");
+    assert_close(r1.my, -mz_applied, 1e-3, "rigid link base moment reaction");
 }
 
 // ================================================================
@@ -202,7 +202,7 @@ fn validation_equal_dof_vertical() {
     ];
     let loads = vec![
         SolverLoad::Nodal(SolverNodalLoad {
-            node_id: 2, fx: 0.0, fy: p_load, mz: 0.0,
+            node_id: 2, fx: 0.0, fz: p_load, my: 0.0,
         }),
     ];
 
@@ -221,11 +221,11 @@ fn validation_equal_dof_vertical() {
     let d4 = results.displacements.iter().find(|d| d.node_id == 4).unwrap();
 
     // uy must be equal
-    assert_close(d2.uy, d4.uy, 1e-6, "equalDOF uy_2 = uy_4");
+    assert_close(d2.uz, d4.uz, 1e-6, "equalDOF uy_2 = uy_4");
 
     // Both should deflect downward (load is negative)
-    assert!(d2.uy < 0.0, "node 2 should deflect down, got {}", d2.uy);
-    assert!(d4.uy < 0.0, "node 4 should deflect down, got {}", d4.uy);
+    assert!(d2.uz < 0.0, "node 2 should deflect down, got {}", d2.uz);
+    assert!(d4.uz < 0.0, "node 4 should deflect down, got {}", d4.uz);
 
     // ux and rz should NOT be coupled
     // Beam B has no direct horizontal load, but equal uy coupling introduces
@@ -234,7 +234,7 @@ fn validation_equal_dof_vertical() {
     // (This is a soft check — they could coincidentally be close.)
 
     // Equilibrium: sum of vertical reactions = -p_load
-    let sum_ry: f64 = results.reactions.iter().map(|r| r.ry).sum();
+    let sum_ry: f64 = results.reactions.iter().map(|r| r.rz).sum();
     assert_close(sum_ry, -p_load, 1e-3, "equalDOF vertical equilibrium");
 }
 
@@ -269,7 +269,7 @@ fn validation_mpc_prescribed_ratio() {
     ];
     let loads = vec![
         SolverLoad::Nodal(SolverNodalLoad {
-            node_id: 2, fx: 0.0, fy: p_load, mz: 0.0,
+            node_id: 2, fx: 0.0, fz: p_load, my: 0.0,
         }),
     ];
 
@@ -291,11 +291,11 @@ fn validation_mpc_prescribed_ratio() {
 
     // Check ratio: uy_4 / uy_2 ≈ 2.0
     assert!(
-        d2.uy.abs() > 1e-10,
+        d2.uz.abs() > 1e-10,
         "node 2 should have nonzero deflection, got {}",
-        d2.uy
+        d2.uz
     );
-    let ratio = d4.uy / d2.uy;
+    let ratio = d4.uz / d2.uz;
     assert_close(ratio, 2.0, 1e-4, "MPC ratio uy_4/uy_2 = 2.0");
 
     // Global equilibrium: sum of all support reactions must balance the applied load.
@@ -309,12 +309,12 @@ fn validation_mpc_prescribed_ratio() {
     // by checking each beam individually.
     // Beam A (node 1 fixed): its reaction should be nonzero since load is at node 2.
     let r1 = results.reactions.iter().find(|r| r.node_id == 1).unwrap();
-    assert!(r1.ry.abs() > 1e-6, "beam A should carry load, r1_ry={}", r1.ry);
+    assert!(r1.rz.abs() > 1e-6, "beam A should carry load, r1_ry={}", r1.rz);
     // Beam B (node 3 fixed): its reaction should also be nonzero (constraint pulls it).
     let r3 = results.reactions.iter().find(|r| r.node_id == 3).unwrap();
-    assert!(r3.ry.abs() > 1e-6, "beam B should carry load via MPC, r3_ry={}", r3.ry);
+    assert!(r3.rz.abs() > 1e-6, "beam B should carry load via MPC, r3_ry={}", r3.rz);
     // Both beams deflect in the same direction
-    assert!(r1.ry > 0.0 && r3.ry > 0.0, "both reactions should be upward (positive)");
+    assert!(r1.rz > 0.0 && r3.rz > 0.0, "both reactions should be upward (positive)");
 }
 
 // ================================================================
@@ -369,7 +369,7 @@ fn benchmark_diaphragm_3d_floor() {
 
     // No NaN/Inf in displacements
     for d in &results.displacements {
-        assert!(d.ux.is_finite() && d.uy.is_finite() && d.uz.is_finite(),
+        assert!(d.ux.is_finite() && d.uz.is_finite() && d.uz.is_finite(),
             "NaN/Inf at node {}", d.node_id);
     }
 
@@ -386,7 +386,7 @@ fn benchmark_diaphragm_3d_floor() {
     eprintln!("3D diaphragm ux: min={:.6e}, max={:.6e}", ux_min, ux_max);
     for &nid in &[5, 6, 7, 8] {
         let d = results.displacements.iter().find(|d| d.node_id == nid).unwrap();
-        eprintln!("  node {}: ux={:.6e}, uy={:.6e}, rz={:.6e}", nid, d.ux, d.uy, d.rz);
+        eprintln!("  node {}: ux={:.6e}, uy={:.6e}, rz={:.6e}", nid, d.ux, d.uy, d.ry);
     }
 
     // Rigid diaphragm: all floor nodes should drift in same direction and similar order
@@ -429,7 +429,7 @@ fn benchmark_eccentric_connection() {
     ];
     let p = -20.0; // vertical load at beam-column junction
     let loads = vec![SolverLoad::Nodal(SolverNodalLoad {
-        node_id: 2, fx: 0.0, fy: p, mz: 0.0,
+        node_id: 2, fx: 0.0, fz: p, my: 0.0,
     })];
 
     let mut input = make_input(nodes, vec![(1, E, 0.3)], vec![(1, A, IZ)], elems, sups, loads);
@@ -453,11 +453,11 @@ fn benchmark_eccentric_connection() {
 
     eprintln!(
         "Eccentric: beam tip uy={:.6e}, col node uy={:.6e}, offset={:.3}",
-        d2.uy, d3.uy, offset
+        d2.uz, d3.uz, offset
     );
 
     // Both should have nonzero displacement
-    assert!(d2.uy.abs() > 1e-10, "Beam tip should deflect");
+    assert!(d2.uz.abs() > 1e-10, "Beam tip should deflect");
 
     // Column element forces should show moment due to eccentricity
     let col_forces = results.element_forces.iter().find(|ef| ef.element_id == 2);
@@ -496,7 +496,7 @@ fn benchmark_chained_equal_dof() {
     ];
     let sups = vec![(1, 1, "fixed"), (2, 3, "fixed"), (3, 5, "fixed")];
     let loads = vec![SolverLoad::Nodal(SolverNodalLoad {
-        node_id: 2, fx: 0.0, fy: -15.0, mz: 0.0,
+        node_id: 2, fx: 0.0, fz: -15.0, my: 0.0,
     })];
 
     let mut input = make_input(nodes, vec![(1, E, 0.3)], vec![(1, A, IZ)], elems, sups, loads);
@@ -521,16 +521,16 @@ fn benchmark_chained_equal_dof() {
 
     eprintln!(
         "Chained EqualDOF: uy_A={:.6e}, uy_B={:.6e}, uy_C={:.6e}",
-        d2.uy, d4.uy, d6.uy
+        d2.uz, d4.uz, d6.uz
     );
 
     // All three should be equal
-    assert_close(d2.uy, d4.uy, 1e-6, "chained uy A=B");
-    assert_close(d4.uy, d6.uy, 1e-6, "chained uy B=C");
-    assert_close(d2.uy, d6.uy, 1e-6, "chained uy A=C");
+    assert_close(d2.uz, d4.uz, 1e-6, "chained uy A=B");
+    assert_close(d4.uz, d6.uz, 1e-6, "chained uy B=C");
+    assert_close(d2.uz, d6.uz, 1e-6, "chained uy A=C");
 
     // All should deflect downward
-    assert!(d2.uy < 0.0, "All tips should deflect down");
+    assert!(d2.uz < 0.0, "All tips should deflect down");
 }
 
 // ================================================================
@@ -563,7 +563,7 @@ fn benchmark_connector_axial_spring() {
     ];
     // Axial load pushing right on node 4
     let loads = vec![SolverLoad::Nodal(SolverNodalLoad {
-        node_id: 4, fx: p, fy: 0.0, mz: 0.0,
+        node_id: 4, fx: p, fz: 0.0, my: 0.0,
     })];
 
     let mut input = make_input(nodes, vec![(1, E, 0.3)], vec![(1, A, IZ)], elems, sups, loads);
@@ -665,7 +665,7 @@ fn benchmark_connector_3d_bearing() {
 
     // Axial relative displacement should be tiny (high stiffness)
     let axial_rel = (d3.ux - d2.ux).abs();
-    let shear_rel = (d3.uy - d2.uy).abs();
+    let shear_rel = (d3.uz - d2.uz).abs();
 
     eprintln!(
         "3D bearing: axial_rel={:.6e}, shear_rel={:.6e}, ratio={:.1}",
@@ -685,10 +685,10 @@ fn benchmark_connector_3d_bearing() {
 
     // Reactions should balance applied loads (fx=10, fy=5 at node 2)
     let sum_fx: f64 = results.reactions.iter().map(|r| r.fx).sum();
-    let sum_fy: f64 = results.reactions.iter().map(|r| r.fy).sum();
-    eprintln!("3D bearing equilibrium: Σfx={:.4}, Σfy={:.4}", sum_fx, sum_fy);
+    let sum_fz: f64 = results.reactions.iter().map(|r| r.fz).sum();
+    eprintln!("3D bearing equilibrium: Σfx={:.4}, Σfy={:.4}", sum_fx, sum_fz);
     assert!((sum_fx + 10.0).abs() < 0.5, "X equilibrium: Σfx={:.4}", sum_fx);
-    assert!((sum_fy + 5.0).abs() < 0.5, "Y equilibrium: Σfy={:.4}", sum_fy);
+    assert!((sum_fz + 5.0).abs() < 0.5, "Y equilibrium: Σfy={:.4}", sum_fz);
 }
 
 // ================================================================
@@ -715,7 +715,7 @@ fn benchmark_corotational_constraint_forces() {
     ];
     let sups = vec![(1, 1, "fixed"), (4, 4, "fixed")];
     let loads = vec![SolverLoad::Nodal(SolverNodalLoad {
-        node_id: 3, fx: 20.0, fy: 0.0, mz: 0.0,
+        node_id: 3, fx: 20.0, fz: 0.0, my: 0.0,
     })];
 
     let mut input = make_input(nodes, vec![(1, E, 0.3)], vec![(1, A, IZ)], elems, sups, loads);
@@ -783,7 +783,7 @@ fn benchmark_constraint_force_parity_across_solvers() {
     ];
     let loads = vec![
         SolverLoad::Nodal(SolverNodalLoad {
-            node_id: 1, fx: 10.0, fy: 0.0, mz: 0.0,
+            node_id: 1, fx: 10.0, fz: 0.0, my: 0.0,
         }),
     ];
 

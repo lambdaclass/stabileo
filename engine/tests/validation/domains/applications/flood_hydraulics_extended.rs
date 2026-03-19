@@ -92,8 +92,8 @@ fn flood_wall_hydrostatic_pressure() {
 
     // Check base reaction (vertical shear at fixed support)
     let r_base = results.reactions.iter().find(|r| r.node_id == 1).unwrap();
-    assert_close(r_base.ry.abs(), f_total, 0.03, "Flood wall base shear reaction");
-    assert_close(r_base.mz.abs(), m_base_exact, 0.05, "Flood wall base moment");
+    assert_close(r_base.rz.abs(), f_total, 0.03, "Flood wall base shear reaction");
+    assert_close(r_base.my.abs(), m_base_exact, 0.05, "Flood wall base moment");
 
     // Tip deflection of cantilever under triangular load:
     // delta = gamma_w * H^4 / (30 * E * I)
@@ -102,7 +102,7 @@ fn flood_wall_hydrostatic_pressure() {
     let tip_node = n + 1;
     let tip_disp = results.displacements.iter()
         .find(|d| d.node_id == tip_node).unwrap();
-    assert_close(tip_disp.uy.abs(), delta_exact, 0.10, "Flood wall tip deflection");
+    assert_close(tip_disp.uz.abs(), delta_exact, 0.10, "Flood wall tip deflection");
 
     // Verify hydrostatic pressure values
     assert_close(f_total, 0.5 * 9.81 * 9.0, 0.001, "Hydrostatic force value");
@@ -153,8 +153,8 @@ fn flood_debris_impact_on_pier() {
     let loads = vec![SolverLoad::Nodal(SolverNodalLoad {
         node_id: mid_node,
         fx: 0.0,
-        fy: f_impact,
-        mz: 0.0,
+        fz: f_impact,
+        my: 0.0,
     })];
 
     let input = make_beam(n, h_pier, e_conc, a_pier, iz_pier, "fixed", Some("fixed"), loads);
@@ -171,16 +171,16 @@ fn flood_debris_impact_on_pier() {
     // Check reactions (each end takes half the lateral load)
     let r1 = results.reactions.iter().find(|r| r.node_id == 1).unwrap();
     let r_end = results.reactions.iter().find(|r| r.node_id == n + 1).unwrap();
-    let sum_ry: f64 = (r1.ry + r_end.ry).abs();
+    let sum_ry: f64 = (r1.rz + r_end.rz).abs();
     assert_close(sum_ry, f_impact, 0.02, "Pier lateral equilibrium");
 
     // Check end moment
-    assert_close(r1.mz.abs(), m_end_exact, 0.05, "Pier fixed-end moment");
+    assert_close(r1.my.abs(), m_end_exact, 0.05, "Pier fixed-end moment");
 
     // Check midspan deflection
     let mid_disp = results.displacements.iter()
         .find(|d| d.node_id == mid_node).unwrap();
-    assert_close(mid_disp.uy.abs(), delta_exact, 0.05, "Pier midspan deflection under debris impact");
+    assert_close(mid_disp.uz.abs(), delta_exact, 0.05, "Pier midspan deflection under debris impact");
 
     // Verify the pier can resist the impact (stress check)
     let sigma_bending: f64 = m_end_exact * (d_pier / 2.0) / iz_pier; // kN/m^2
@@ -226,8 +226,8 @@ fn flood_scour_effect_on_bridge_pile() {
     let loads_orig = vec![SolverLoad::Nodal(SolverNodalLoad {
         node_id: n + 1,
         fx: 0.0,
-        fy: p_lateral,
-        mz: 0.0,
+        fz: p_lateral,
+        my: 0.0,
     })];
     let input_orig = make_beam(n, l_above, e_steel, a_pile, iz_pile, "fixed", None, loads_orig);
     let results_orig = solve_2d(&input_orig).expect("solve original");
@@ -236,8 +236,8 @@ fn flood_scour_effect_on_bridge_pile() {
     let loads_scour = vec![SolverLoad::Nodal(SolverNodalLoad {
         node_id: n + 1,
         fx: 0.0,
-        fy: p_lateral,
-        mz: 0.0,
+        fz: p_lateral,
+        my: 0.0,
     })];
     let input_scour = make_beam(n, l_scoured, e_steel, a_pile, iz_pile, "fixed", None, loads_scour);
     let results_scour = solve_2d(&input_scour).expect("solve scoured");
@@ -252,12 +252,12 @@ fn flood_scour_effect_on_bridge_pile() {
     let tip_scour = results_scour.displacements.iter()
         .find(|d| d.node_id == n + 1).unwrap();
 
-    assert_close(tip_orig.uy.abs(), delta_orig_exact, 0.05, "Pile tip deflection (no scour)");
-    assert_close(tip_scour.uy.abs(), delta_scour_exact, 0.05, "Pile tip deflection (scoured)");
+    assert_close(tip_orig.uz.abs(), delta_orig_exact, 0.05, "Pile tip deflection (no scour)");
+    assert_close(tip_scour.uz.abs(), delta_scour_exact, 0.05, "Pile tip deflection (scoured)");
 
     // Scour amplification factor: (L_scoured / L_above)^3
     let amplification_exact: f64 = (l_scoured / l_above).powi(3);
-    let amplification_fem: f64 = tip_scour.uy.abs() / tip_orig.uy.abs();
+    let amplification_fem: f64 = tip_scour.uz.abs() / tip_orig.uz.abs();
     assert_close(amplification_fem, amplification_exact, 0.05, "Scour deflection amplification");
 
     // Base moment comparison: M = P * L
@@ -265,11 +265,11 @@ fn flood_scour_effect_on_bridge_pile() {
     let m_scour_exact: f64 = p_lateral * l_scoured;
     let r_orig = results_orig.reactions.iter().find(|r| r.node_id == 1).unwrap();
     let r_scour = results_scour.reactions.iter().find(|r| r.node_id == 1).unwrap();
-    assert_close(r_orig.mz.abs(), m_orig_exact, 0.03, "Base moment (no scour)");
-    assert_close(r_scour.mz.abs(), m_scour_exact, 0.03, "Base moment (scoured)");
+    assert_close(r_orig.my.abs(), m_orig_exact, 0.03, "Base moment (no scour)");
+    assert_close(r_scour.my.abs(), m_scour_exact, 0.03, "Base moment (scoured)");
 
     // Moment increase ratio
-    let moment_ratio: f64 = r_scour.mz.abs() / r_orig.mz.abs();
+    let moment_ratio: f64 = r_scour.my.abs() / r_orig.my.abs();
     let moment_ratio_exact: f64 = l_scoured / l_above;
     assert_close(moment_ratio, moment_ratio_exact, 0.03, "Scour moment amplification");
 }
@@ -346,10 +346,10 @@ fn flood_levee_slope_stability_frame() {
 
     // Verify overturning resistance
     let m_overturning: f64 = f_net * h_wall;
-    let sum_base_mz: f64 = r1.mz.abs() + r4.mz.abs();
-    let r_vert_diff: f64 = (r1.ry - r4.ry).abs();
+    let sum_base_my: f64 = r1.my.abs() + r4.my.abs();
+    let r_vert_diff: f64 = (r1.rz - r4.rz).abs();
     let m_couple: f64 = r_vert_diff * w_base / 2.0;
-    let m_total_resist: f64 = sum_base_mz + m_couple;
+    let m_total_resist: f64 = sum_base_my + m_couple;
     assert_close(m_total_resist, m_overturning, 0.10, "Levee wall moment equilibrium");
 }
 
@@ -420,15 +420,15 @@ fn flood_culvert_headwall() {
     let m_base_exact: f64 = q_coeff * h_wall.powi(3) / 6.0;
 
     let r_base = results.reactions.iter().find(|r| r.node_id == 1).unwrap();
-    assert_close(r_base.ry.abs(), f_total, 0.05, "Culvert headwall base shear");
-    assert_close(r_base.mz.abs(), m_base_exact, 0.05, "Culvert headwall base moment");
+    assert_close(r_base.rz.abs(), f_total, 0.05, "Culvert headwall base shear");
+    assert_close(r_base.my.abs(), m_base_exact, 0.05, "Culvert headwall base moment");
 
     // Tip deflection: delta = q_coeff * H^4 / (30 * E * I) [triangular load cantilever]
     let e_eff: f64 = e_conc * 1000.0;
     let delta_exact: f64 = q_coeff * h_wall.powi(4) / (30.0 * e_eff * iz_wall);
     let tip_disp = results.displacements.iter()
         .find(|d| d.node_id == n + 1).unwrap();
-    assert_close(tip_disp.uy.abs(), delta_exact, 0.10, "Culvert headwall tip deflection");
+    assert_close(tip_disp.uz.abs(), delta_exact, 0.10, "Culvert headwall tip deflection");
 
     // Verify combined pressure exceeds either component alone
     let f_water_only: f64 = 0.5 * gamma_w * h_wall * h_wall;
@@ -495,14 +495,14 @@ fn flood_floodgate_beam() {
     // Reactions: R = q * L / 2
     let r_exact: f64 = q_abs * l_span / 2.0;
     let r1 = results.reactions.iter().find(|r| r.node_id == 1).unwrap();
-    assert_close(r1.ry.abs(), r_exact, 0.03, "Floodgate beam support reaction");
+    assert_close(r1.rz.abs(), r_exact, 0.03, "Floodgate beam support reaction");
 
     // Midspan deflection: delta = 5*q*L^4 / (384*E*I)
     let delta_exact: f64 = 5.0 * q_abs * l_span.powi(4) / (384.0 * e_eff * iz_beam);
     let mid_node = n / 2 + 1;
     let mid_disp = results.displacements.iter()
         .find(|d| d.node_id == mid_node).unwrap();
-    assert_close(mid_disp.uy.abs(), delta_exact, 0.05, "Floodgate beam midspan deflection");
+    assert_close(mid_disp.uz.abs(), delta_exact, 0.05, "Floodgate beam midspan deflection");
 
     // Check midspan moment via element forces (element at midspan)
     let mid_elem = n / 2;
@@ -514,8 +514,8 @@ fn flood_floodgate_beam() {
     // Serviceability check: deflection < L/360
     let deflection_limit: f64 = l_span / 360.0;
     assert!(
-        mid_disp.uy.abs() < deflection_limit,
-        "Gate beam deflection {:.4} m < L/360 = {:.4} m", mid_disp.uy.abs(), deflection_limit
+        mid_disp.uz.abs() < deflection_limit,
+        "Gate beam deflection {:.4} m < L/360 = {:.4} m", mid_disp.uz.abs(), deflection_limit
     );
 }
 
@@ -575,8 +575,8 @@ fn flood_wave_overtopping_levee_crown_wall() {
     loads.push(SolverLoad::Nodal(SolverNodalLoad {
         node_id: load_node,
         fx: 0.0,
-        fy: -f_wave,
-        mz: 0.0,
+        fz: -f_wave,
+        my: 0.0,
     }));
 
     // Add uniform runup pressure as distributed load on all elements
@@ -597,7 +597,7 @@ fn flood_wave_overtopping_levee_crown_wall() {
     // Base shear must balance total applied force
     let f_total_applied: f64 = f_wave + f_runup;
     let r_base = results.reactions.iter().find(|r| r.node_id == 1).unwrap();
-    assert_close(r_base.ry.abs(), f_total_applied, 0.05, "Crown wall base shear");
+    assert_close(r_base.rz.abs(), f_total_applied, 0.05, "Crown wall base shear");
 
     // Base moment: from point load + UDL
     // Point load contribution: M_point = F_wave * a (where a = load_node position)
@@ -607,7 +607,7 @@ fn flood_wave_overtopping_levee_crown_wall() {
     let m_udl: f64 = q_runup * h_wall.powi(2) / 2.0;
     let m_base_exact: f64 = m_point + m_udl;
 
-    assert_close(r_base.mz.abs(), m_base_exact, 0.05, "Crown wall base moment");
+    assert_close(r_base.my.abs(), m_base_exact, 0.05, "Crown wall base moment");
 
     // Verify impulsive pressure is significantly larger than hydrostatic
     let p_hydrostatic: f64 = gamma_w * h_wall;
@@ -725,7 +725,7 @@ fn flood_barrier_combined_loading() {
     let total_load: f64 = q_abs * total_length;
 
     // Sum of vertical reactions should equal total load
-    let sum_ry: f64 = results.reactions.iter().map(|r| r.ry).sum::<f64>();
+    let sum_ry: f64 = results.reactions.iter().map(|r| r.rz).sum::<f64>();
     assert_close(sum_ry.abs(), total_load, 0.03, "Flood barrier total reaction");
 
     // For 2-span continuous beam with equal UDL:
@@ -737,8 +737,8 @@ fn flood_barrier_combined_loading() {
     let r_mid = results.reactions.iter().find(|r| r.node_id == mid_node).unwrap();
     let r_end1 = results.reactions.iter().find(|r| r.node_id == 1).unwrap();
 
-    assert_close(r_mid.ry.abs(), r_mid_exact, 0.05, "Barrier internal support reaction (5qL/4)");
-    assert_close(r_end1.ry.abs(), r_end_exact, 0.05, "Barrier end support reaction (3qL/8)");
+    assert_close(r_mid.rz.abs(), r_mid_exact, 0.05, "Barrier internal support reaction (5qL/4)");
+    assert_close(r_end1.rz.abs(), r_end_exact, 0.05, "Barrier end support reaction (3qL/8)");
 
     // Serviceability: deflection < L/250
     let quarter_node = n_per_span / 2 + 1;
@@ -746,9 +746,9 @@ fn flood_barrier_combined_loading() {
         .find(|d| d.node_id == quarter_node).unwrap();
     let defl_limit: f64 = l_span / 250.0;
     assert!(
-        mid_disp.uy.abs() < defl_limit,
+        mid_disp.uz.abs() < defl_limit,
         "Barrier deflection {:.5} m < L/250 = {:.4} m",
-        mid_disp.uy.abs(), defl_limit
+        mid_disp.uz.abs(), defl_limit
     );
 
     // Verify hydrodynamic adds meaningful contribution

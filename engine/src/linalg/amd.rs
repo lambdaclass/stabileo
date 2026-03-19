@@ -279,7 +279,7 @@ mod tests {
 
         let mut nodes = HashMap::new();
         for i in 0..=n_elem {
-            nodes.insert((i+1).to_string(), SolverNode { id: i+1, x: i as f64 * elem_len, y: 0.0 });
+            nodes.insert((i+1).to_string(), SolverNode { id: i+1, x: i as f64 * elem_len, z: 0.0 });
         }
         let mut mats = HashMap::new();
         mats.insert("1".to_string(), SolverMaterial { id: 1, e, nu: 0.3 });
@@ -296,10 +296,10 @@ mod tests {
         let mut sups = HashMap::new();
         sups.insert("1".to_string(), SolverSupport { id: 1, node_id: 1,
             support_type: "pinned".to_string(),
-            kx: None, ky: None, kz: None, dx: None, dy: None, drz: None, angle: None });
+            kx: None, ky: None, kz: None, dx: None, dz: None, dry: None, angle: None });
         sups.insert("2".to_string(), SolverSupport { id: 2, node_id: n_elem+1,
             support_type: "rollerX".to_string(),
-            kx: None, ky: None, kz: None, dx: None, dy: None, drz: None, angle: None });
+            kx: None, ky: None, kz: None, dx: None, dz: None, dry: None, angle: None });
         let mut loads = Vec::new();
         for i in 0..n_elem {
             loads.push(SolverLoad::Distributed(SolverDistributedLoad {

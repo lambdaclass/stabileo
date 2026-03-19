@@ -36,7 +36,7 @@ fn validation_sap_simple_beam_udl() {
     let mid = n / 2 + 1;
     let d_mid = results.displacements.iter().find(|d| d.node_id == mid).unwrap();
     let delta_expected = 5.0 * q_abs * l.powi(4) / (384.0 * E_EFF * IZ);
-    assert_close(d_mid.uy.abs(), delta_expected, 0.02, "SAP1 δ_max");
+    assert_close(d_mid.uz.abs(), delta_expected, 0.02, "SAP1 δ_max");
 
     // Max moment
     let m_max: f64 = results.element_forces.iter()
@@ -81,7 +81,7 @@ fn validation_sap_continuous_3span_reactions() {
 
     // Total load = q * 3L = 360 kN. Sum of reactions should equal this.
     let total_load = q * 3.0 * l_span;
-    let sum_ry: f64 = results.reactions.iter().map(|r| r.ry).sum();
+    let sum_ry: f64 = results.reactions.iter().map(|r| r.rz).sum();
     assert_close(sum_ry, total_load, 0.01, "SAP2 ΣRy = total load");
 
     // Outer supports should carry less than inner supports
@@ -90,10 +90,10 @@ fn validation_sap_continuous_3span_reactions() {
     let r_end = results.reactions.iter().find(|r| r.node_id == n_total + 1).unwrap();
 
     // Outer reactions should be roughly 0.4qL
-    assert_close(r1.ry, 0.4 * q * l_span, 0.05, "SAP2 R_outer");
+    assert_close(r1.rz, 0.4 * q * l_span, 0.05, "SAP2 R_outer");
 
     // Symmetry
-    assert_close(r1.ry, r_end.ry, 0.02, "SAP2 symmetry outer reactions");
+    assert_close(r1.rz, r_end.rz, 0.02, "SAP2 symmetry outer reactions");
 }
 
 // ═══════════════════════════════════════════════════════════════
@@ -122,7 +122,7 @@ fn validation_sap_portal_lateral_stiffness() {
     ];
     let sups = vec![(1, 1, "fixed"), (2, 4, "fixed")];
     let loads = vec![SolverLoad::Nodal(SolverNodalLoad {
-        node_id: 2, fx: h_load, fy: 0.0, mz: 0.0,
+        node_id: 2, fx: h_load, fz: 0.0, my: 0.0,
     })];
 
     let input = make_input(
@@ -233,8 +233,8 @@ fn validation_sap_braced_leaning_column() {
     ];
     let sups_br = vec![(1, 1, "fixed"), (2, 4, "fixed")];
     let loads_br = vec![
-        SolverLoad::Nodal(SolverNodalLoad { node_id: 2, fx: 10.0, fy: -p, mz: 0.0 }),
-        SolverLoad::Nodal(SolverNodalLoad { node_id: 3, fx: 0.0, fy: -p, mz: 0.0 }),
+        SolverLoad::Nodal(SolverNodalLoad { node_id: 2, fx: 10.0, fz: -p, my: 0.0 }),
+        SolverLoad::Nodal(SolverNodalLoad { node_id: 3, fx: 0.0, fz: -p, my: 0.0 }),
     ];
     let input_br = make_input(
         nodes_br, vec![(1, E, 0.3)],
@@ -259,9 +259,9 @@ fn validation_sap_braced_leaning_column() {
     ];
     let sups_lc = vec![(1, 1, "fixed"), (2, 4, "fixed"), (3, 5, "pinned")];
     let loads_lc = vec![
-        SolverLoad::Nodal(SolverNodalLoad { node_id: 2, fx: 10.0, fy: -p, mz: 0.0 }),
-        SolverLoad::Nodal(SolverNodalLoad { node_id: 3, fx: 0.0, fy: -p, mz: 0.0 }),
-        SolverLoad::Nodal(SolverNodalLoad { node_id: 6, fx: 0.0, fy: -p, mz: 0.0 }),
+        SolverLoad::Nodal(SolverNodalLoad { node_id: 2, fx: 10.0, fz: -p, my: 0.0 }),
+        SolverLoad::Nodal(SolverNodalLoad { node_id: 3, fx: 0.0, fz: -p, my: 0.0 }),
+        SolverLoad::Nodal(SolverNodalLoad { node_id: 6, fx: 0.0, fz: -p, my: 0.0 }),
     ];
     let input_lc = make_input(
         nodes_lc, vec![(1, E, 0.3)],
@@ -308,7 +308,7 @@ fn validation_sap_end_releases() {
     ];
     let sups = vec![(1, 1, "fixed"), (2, 4, "fixed")];
     let loads = vec![SolverLoad::Nodal(SolverNodalLoad {
-        node_id: 2, fx: p, fy: 0.0, mz: 0.0,
+        node_id: 2, fx: p, fz: 0.0, my: 0.0,
     })];
     let input_hinged = make_input(
         nodes, vec![(1, E, 0.3)], vec![(1, A, IZ)],
@@ -355,7 +355,7 @@ fn validation_sap_spring_support() {
     let mut nodes_map = HashMap::new();
     for i in 0..n_nodes {
         nodes_map.insert((i + 1).to_string(), SolverNode {
-            id: i + 1, x: i as f64 * elem_len, y: 0.0,
+            id: i + 1, x: i as f64 * elem_len, z: 0.0,
         });
     }
 
@@ -380,17 +380,17 @@ fn validation_sap_spring_support() {
     sups_map.insert("1".to_string(), SolverSupport {
         id: 1, node_id: 1, support_type: "fixed".to_string(),
         kx: None, ky: None, kz: None,
-        dx: None, dy: None, drz: None, angle: None,
+        dx: None, dz: None, dry: None, angle: None,
     });
     // Spring at right (only vertical spring)
     sups_map.insert("2".to_string(), SolverSupport {
         id: 2, node_id: n_nodes, support_type: "spring".to_string(),
         kx: None, ky: Some(k_spring), kz: None,
-        dx: None, dy: None, drz: None, angle: None,
+        dx: None, dz: None, dry: None, angle: None,
     });
 
     let loads = vec![SolverLoad::Nodal(SolverNodalLoad {
-        node_id: n_nodes, fx: 0.0, fy: -p, mz: 0.0,
+        node_id: n_nodes, fx: 0.0, fz: -p, my: 0.0,
     })];
 
     let input = SolverInput {
@@ -402,19 +402,19 @@ fn validation_sap_spring_support() {
 
     // The spring end should have nonzero vertical displacement
     let d_end = results.displacements.iter().find(|d| d.node_id == n_nodes).unwrap();
-    assert!(d_end.uy.abs() > 1e-8, "SAP7: spring end should deflect");
+    assert!(d_end.uz.abs() > 1e-8, "SAP7: spring end should deflect");
 
     // Spring reaction = k * δ
     let r_spring = results.reactions.iter().find(|r| r.node_id == n_nodes).unwrap();
-    let spring_reaction = r_spring.ry;
+    let spring_reaction = r_spring.rz;
 
     // Spring force should match k·δ (spring pushes up if deflected down)
-    let expected_spring_r = k_spring * d_end.uy.abs();
+    let expected_spring_r = k_spring * d_end.uz.abs();
     assert_close(spring_reaction.abs(), expected_spring_r, 0.05, "SAP7 R_spring = k·δ");
 
     // Equilibrium: fixed reaction + spring reaction = P
     let r_fixed = results.reactions.iter().find(|r| r.node_id == 1).unwrap();
-    assert_close(r_fixed.ry + spring_reaction, p, 0.02, "SAP7 equilibrium");
+    assert_close(r_fixed.rz + spring_reaction, p, 0.02, "SAP7 equilibrium");
 }
 
 // ═══════════════════════════════════════════════════════════════
@@ -436,7 +436,7 @@ fn validation_sap_prescribed_displacement() {
     let mut nodes_map = HashMap::new();
     for i in 0..n_nodes {
         nodes_map.insert((i + 1).to_string(), SolverNode {
-            id: i + 1, x: i as f64 * elem_len, y: 0.0,
+            id: i + 1, x: i as f64 * elem_len, z: 0.0,
         });
     }
 
@@ -460,13 +460,13 @@ fn validation_sap_prescribed_displacement() {
     sups_map.insert("1".to_string(), SolverSupport {
         id: 1, node_id: 1, support_type: "fixed".to_string(),
         kx: None, ky: None, kz: None,
-        dx: None, dy: None, drz: None, angle: None,
+        dx: None, dz: None, dry: None, angle: None,
     });
     // Right end: fixed with prescribed vertical settlement
     sups_map.insert("2".to_string(), SolverSupport {
         id: 2, node_id: n_nodes, support_type: "fixed".to_string(),
         kx: None, ky: None, kz: None,
-        dx: None, dy: Some(delta), drz: None, angle: None,
+        dx: None, dz: Some(delta), dry: None, angle: None,
     });
 
     let input = SolverInput {
@@ -484,16 +484,16 @@ fn validation_sap_prescribed_displacement() {
     let r_end = results.reactions.iter().find(|r| r.node_id == n_nodes).unwrap();
 
     // Both ends should have nonzero moment
-    assert!(r1.mz.abs() > 0.1, "SAP8: left moment should be nonzero");
-    assert!(r_end.mz.abs() > 0.1, "SAP8: right moment should be nonzero");
+    assert!(r1.my.abs() > 0.1, "SAP8: left moment should be nonzero");
+    assert!(r_end.my.abs() > 0.1, "SAP8: right moment should be nonzero");
 
     // Moments should approximately match 6EIδ/L²
-    assert_close(r1.mz.abs(), m_expected, 0.05, "SAP8 M_left = 6EIδ/L²");
+    assert_close(r1.my.abs(), m_expected, 0.05, "SAP8 M_left = 6EIδ/L²");
 
     // Vertical reactions should be equal and opposite (no external load)
     assert!(
-        (r1.ry + r_end.ry).abs() < 0.5,
-        "SAP8: ΣRy={:.4} should ≈ 0 (no external load)", r1.ry + r_end.ry
+        (r1.rz + r_end.rz).abs() < 0.5,
+        "SAP8: ΣRy={:.4} should ≈ 0 (no external load)", r1.rz + r_end.rz
     );
 }
 
@@ -560,26 +560,26 @@ fn validation_sap_cantilever_stiffness() {
     // Unit vertical load at tip
     let input_p = make_beam(n, l, E, A, IZ, "fixed", None,
         vec![SolverLoad::Nodal(SolverNodalLoad {
-            node_id: n + 1, fx: 0.0, fy: -1.0, mz: 0.0,
+            node_id: n + 1, fx: 0.0, fz: -1.0, my: 0.0,
         })]);
 
     let res_p = linear::solve_2d(&input_p).unwrap();
     let d_p = res_p.displacements.iter().find(|d| d.node_id == n + 1).unwrap();
 
-    let k_yy_actual = 1.0 / d_p.uy.abs();
+    let k_yy_actual = 1.0 / d_p.uz.abs();
     let k_yy_theory = 3.0 * E_EFF * IZ / l.powi(3);
     assert_close(k_yy_actual, k_yy_theory, 0.02, "SAP10 k_yy = 3EI/L³");
 
     // Unit moment at tip
     let input_m = make_beam(n, l, E, A, IZ, "fixed", None,
         vec![SolverLoad::Nodal(SolverNodalLoad {
-            node_id: n + 1, fx: 0.0, fy: 0.0, mz: 1.0,
+            node_id: n + 1, fx: 0.0, fz: 0.0, my: 1.0,
         })]);
 
     let res_m = linear::solve_2d(&input_m).unwrap();
     let d_m = res_m.displacements.iter().find(|d| d.node_id == n + 1).unwrap();
 
-    let k_tt_actual = 1.0 / d_m.rz.abs();
+    let k_tt_actual = 1.0 / d_m.ry.abs();
     let k_tt_theory = E_EFF * IZ / l;
     assert_close(k_tt_actual, k_tt_theory, 0.02, "SAP10 k_θθ = EI/L");
 }

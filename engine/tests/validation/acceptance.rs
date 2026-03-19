@@ -66,7 +66,7 @@ fn acceptance_3a_industrial_nave() {
 
     // No NaN/Inf in displacements
     for d in &result.displacements {
-        assert!(d.ux.is_finite() && d.uy.is_finite() && d.uz.is_finite(),
+        assert!(d.ux.is_finite() && d.uz.is_finite() && d.uz.is_finite(),
             "NaN/Inf at node {}", d.node_id);
     }
 
@@ -99,7 +99,7 @@ fn acceptance_3b_building_case1() {
 
     // No NaN/Inf
     for d in &result.displacements {
-        assert!(d.ux.is_finite() && d.uy.is_finite() && d.uz.is_finite(),
+        assert!(d.ux.is_finite() && d.uz.is_finite() && d.uz.is_finite(),
             "NaN/Inf at node {}", d.node_id);
     }
 
@@ -109,7 +109,7 @@ fn acceptance_3b_building_case1() {
 
     // Displacements reasonable
     let max_disp = result.displacements.iter()
-        .map(|d| d.ux.abs().max(d.uy.abs()).max(d.uz.abs()))
+        .map(|d| d.ux.abs().max(d.uz.abs()).max(d.uz.abs()))
         .fold(0.0_f64, f64::max);
     assert!(max_disp > 1e-8, "All displacements near zero");
     assert!(max_disp < 1.0, "Displacements unreasonably large: {:.4}", max_disp);
@@ -163,13 +163,13 @@ fn acceptance_3c_large_2d_frame() {
         // Lateral at left node
         loads.push(SolverLoad::Nodal(SolverNodalLoad {
             node_id: j * cols + 1,
-            fx: 10.0, fy: 0.0, mz: 0.0,
+            fx: 10.0, fz: 0.0, my: 0.0,
         }));
         // Gravity at each floor node
         for i in 0..=n_bays {
             loads.push(SolverLoad::Nodal(SolverNodalLoad {
                 node_id: j * cols + i + 1,
-                fx: 0.0, fy: -50.0, mz: 0.0,
+                fx: 0.0, fz: -50.0, my: 0.0,
             }));
         }
     }
@@ -188,7 +188,7 @@ fn acceptance_3c_large_2d_frame() {
 
     // No NaN/Inf
     for d in &result.displacements {
-        assert!(d.ux.is_finite() && d.uy.is_finite(), "NaN/Inf at node {}", d.node_id);
+        assert!(d.ux.is_finite() && d.uz.is_finite(), "NaN/Inf at node {}", d.node_id);
     }
 
     // Reactions exist
@@ -207,7 +207,7 @@ fn acceptance_3c_large_2d_frame() {
     let mid_disp = result.displacements.iter()
         .find(|d| d.node_id == mid_floor_node);
     if let Some(md) = mid_disp {
-        assert!(md.uy < 0.0, "Mid-floor should deflect downward, got uy={:.6}", md.uy);
+        assert!(md.uz < 0.0, "Mid-floor should deflect downward, got uy={:.6}", md.uz);
     }
 
     // P-Delta: verify convergence and amplification > 1.0
@@ -251,7 +251,7 @@ fn acceptance_3d_continuous_beam_mixed_loads() {
             let mid_node = 1 + span_idx * n_per_span + n_per_span / 2;
             loads.push(SolverLoad::Nodal(SolverNodalLoad {
                 node_id: mid_node,
-                fx: 0.0, fy: -50.0, mz: 0.0,
+                fx: 0.0, fz: -50.0, my: 0.0,
             }));
         }
     }
@@ -262,7 +262,7 @@ fn acceptance_3d_continuous_beam_mixed_loads() {
     let settlement_node = 1 + 3 * n_per_span;
     for sup in input.supports.values_mut() {
         if sup.node_id == settlement_node {
-            sup.dy = Some(-0.005); // 5mm settlement
+            sup.dz = Some(-0.005); // 5mm settlement
         }
     }
 
@@ -274,11 +274,11 @@ fn acceptance_3d_continuous_beam_mixed_loads() {
 
     // No NaN/Inf
     for d in &result.displacements {
-        assert!(d.ux.is_finite() && d.uy.is_finite(), "NaN/Inf at node {}", d.node_id);
+        assert!(d.ux.is_finite() && d.uz.is_finite(), "NaN/Inf at node {}", d.node_id);
     }
 
     // Global equilibrium: sum of reactions ≈ total applied load
-    let sum_ry: f64 = result.reactions.iter().map(|r| r.ry).sum();
+    let sum_ry: f64 = result.reactions.iter().map(|r| r.rz).sum();
     let total_udl = q * total_length;
     let total_point: f64 = spans.iter().enumerate()
         .filter(|(i, _)| i % 2 == 0)
@@ -296,10 +296,10 @@ fn acceptance_3d_continuous_beam_mixed_loads() {
         let mid_disp = result.displacements.iter()
             .find(|d| d.node_id == mid_node)
             .expect("Midspan node not found");
-        assert!(mid_disp.uy < 0.0,
-            "Span {} midspan deflection should be downward, got {:.6}", span_idx, mid_disp.uy);
-        assert!(mid_disp.uy > -0.1,
-            "Span {} midspan deflection unreasonably large: {:.6}", span_idx, mid_disp.uy);
+        assert!(mid_disp.uz < 0.0,
+            "Span {} midspan deflection should be downward, got {:.6}", span_idx, mid_disp.uz);
+        assert!(mid_disp.uz > -0.1,
+            "Span {} midspan deflection unreasonably large: {:.6}", span_idx, mid_disp.uz);
     }
 }
 
@@ -393,7 +393,7 @@ fn acceptance_3e_mixed_frame_shell() {
     for (i, &nid) in base_ids.iter().enumerate() {
         supports.insert((i + 1).to_string(), SolverSupport3D {
             node_id: nid,
-            rx: true, ry: true, rz: true,
+            rx: true, rz: true, ry: true,
             rrx: true, rry: true, rrz: true,
             kx: None, ky: None, kz: None,
             krx: None, kry: None, krz: None,
@@ -441,7 +441,7 @@ fn acceptance_3e_mixed_frame_shell() {
 
     // No NaN/Inf
     for d in &result.displacements {
-        assert!(d.ux.is_finite() && d.uy.is_finite() && d.uz.is_finite(),
+        assert!(d.ux.is_finite() && d.uz.is_finite() && d.uz.is_finite(),
             "NaN/Inf at node {}", d.node_id);
     }
 
@@ -579,7 +579,7 @@ fn acceptance_4a_steel_building_diaphragms() {
 
     // 1. No NaN/Inf
     for d in &result.displacements {
-        assert!(d.ux.is_finite() && d.uy.is_finite() && d.uz.is_finite(),
+        assert!(d.ux.is_finite() && d.uz.is_finite() && d.uz.is_finite(),
             "NaN/Inf at node {}", d.node_id);
     }
 
@@ -591,12 +591,12 @@ fn acceptance_4a_steel_building_diaphragms() {
         let master_node = input.nodes.values().find(|n| n.id == 19).unwrap();
         let dx = slave_node.x - master_node.x;
         let dy = slave_node.y - master_node.y;
-        let expected_ux = master19.ux - dy * master19.rz;
-        let expected_uy = master19.uy + dx * master19.rz;
+        let expected_ux = master19.ux - dy * master19.ry;
+        let expected_uy = master19.uz + dx * master19.ry;
         assert!((slave.ux - expected_ux).abs() < 1e-4,
             "Diaphragm ux mismatch at node {}: got {:.8}, expected {:.8}", slave_id, slave.ux, expected_ux);
-        assert!((slave.uy - expected_uy).abs() < 1e-4,
-            "Diaphragm uy mismatch at node {}: got {:.8}, expected {:.8}", slave_id, slave.uy, expected_uy);
+        assert!((slave.uz - expected_uy).abs() < 1e-4,
+            "Diaphragm uy mismatch at node {}: got {:.8}, expected {:.8}", slave_id, slave.uz, expected_uy);
     }
 
     // 3. Vertical equilibrium: reactions should be non-trivial and balance gravity
@@ -623,7 +623,7 @@ fn acceptance_4a_steel_building_diaphragms() {
     // 6. Eccentric node 25 follows rigid-body from master 20
     let master20 = result.displacements.iter().find(|d| d.node_id == 20).unwrap();
     let slave25 = result.displacements.iter().find(|d| d.node_id == 25).unwrap();
-    let expected_ux_25 = master20.ux - 0.3 * master20.rz;
+    let expected_ux_25 = master20.ux - 0.3 * master20.ry;
     assert!((slave25.ux - expected_ux_25).abs() < 1e-3,
         "Eccentric node 25 ux: got {:.8}, expected {:.8}", slave25.ux, expected_ux_25);
 }
@@ -717,7 +717,7 @@ fn acceptance_4b_frame_quad_slab() {
     for (i, &nid) in base_ids.iter().enumerate() {
         supports.insert((i + 1).to_string(), SolverSupport3D {
             node_id: nid,
-            rx: true, ry: true, rz: true, rrx: true, rry: true, rrz: true,
+            rx: true, rz: true, ry: true, rrx: true, rry: true, rrz: true,
             kx: None, ky: None, kz: None, krx: None, kry: None, krz: None,
             dx: None, dy: None, dz: None, drx: None, dry: None, drz: None,
             normal_x: None, normal_y: None, normal_z: None,
@@ -807,10 +807,10 @@ fn acceptance_4c_contact_uplift() {
 
     // Gravity: fy=-20 kN at top nodes; Lateral: fx=+500 kN at node 5 (high overturning)
     let loads = vec![
-        SolverLoad::Nodal(SolverNodalLoad { node_id: 5, fx: 500.0, fy: -20.0, mz: 0.0 }),
-        SolverLoad::Nodal(SolverNodalLoad { node_id: 6, fx: 0.0, fy: -20.0, mz: 0.0 }),
-        SolverLoad::Nodal(SolverNodalLoad { node_id: 7, fx: 0.0, fy: -20.0, mz: 0.0 }),
-        SolverLoad::Nodal(SolverNodalLoad { node_id: 8, fx: 0.0, fy: -20.0, mz: 0.0 }),
+        SolverLoad::Nodal(SolverNodalLoad { node_id: 5, fx: 500.0, fz: -20.0, my: 0.0 }),
+        SolverLoad::Nodal(SolverNodalLoad { node_id: 6, fx: 0.0, fz: -20.0, my: 0.0 }),
+        SolverLoad::Nodal(SolverNodalLoad { node_id: 7, fx: 0.0, fz: -20.0, my: 0.0 }),
+        SolverLoad::Nodal(SolverNodalLoad { node_id: 8, fx: 0.0, fz: -20.0, my: 0.0 }),
     ];
 
     let solver = make_input(nodes, vec![(1, e, 0.3)], vec![(1, a, iz)], elems, sups, loads);
@@ -838,7 +838,7 @@ fn acceptance_4c_contact_uplift() {
 
     // 2. No NaN/Inf
     for d in &result.results.displacements {
-        assert!(d.ux.is_finite() && d.uy.is_finite(),
+        assert!(d.ux.is_finite() && d.uz.is_finite(),
             "NaN/Inf at node {}", d.node_id);
     }
 
@@ -849,8 +849,8 @@ fn acceptance_4c_contact_uplift() {
     let react1 = result.results.reactions.iter().find(|r| r.node_id == 1);
     if let Some(r) = react1 {
         // If uplift kicked in, reaction is zero or absent. If still in contact, it may be tensile.
-        assert!(r.ry <= 0.001,
-            "Node 1 should uplift (ry ≤ 0), got ry={:.4}", r.ry);
+        assert!(r.rz <= 0.001,
+            "Node 1 should uplift (ry ≤ 0), got ry={:.4}", r.rz);
     }
     // Absence of reaction for node 1 also valid (uplift = support removed)
 
@@ -858,10 +858,10 @@ fn acceptance_4c_contact_uplift() {
     let react4 = result.results.reactions.iter()
         .find(|r| r.node_id == 4)
         .expect("Leeward node 4 should have reaction");
-    assert!(react4.ry > 0.0, "Leeward node 4 should have positive ry, got {:.4}", react4.ry);
+    assert!(react4.rz > 0.0, "Leeward node 4 should have positive ry, got {:.4}", react4.rz);
 
     // 6. Total vertical reaction ≈ total gravity (80 kN)
-    let sum_ry: f64 = result.results.reactions.iter().map(|r| r.ry).sum();
+    let sum_ry: f64 = result.results.reactions.iter().map(|r| r.rz).sum();
     assert!((sum_ry - 80.0).abs() < 5.0,
         "Total ry should ≈ 80, got {:.2}", sum_ry);
 }
@@ -905,10 +905,10 @@ fn acceptance_4d_fiber_pushover() {
 
     // --- Part A: Elastic check ---
     let loads_elastic = vec![
-        SolverLoad::Nodal(SolverNodalLoad { node_id: 3, fx: 5.0, fy: -20.0, mz: 0.0 }),
-        SolverLoad::Nodal(SolverNodalLoad { node_id: 4, fx: 0.0, fy: -20.0, mz: 0.0 }),
-        SolverLoad::Nodal(SolverNodalLoad { node_id: 5, fx: 5.0, fy: -20.0, mz: 0.0 }),
-        SolverLoad::Nodal(SolverNodalLoad { node_id: 6, fx: 0.0, fy: -20.0, mz: 0.0 }),
+        SolverLoad::Nodal(SolverNodalLoad { node_id: 3, fx: 5.0, fz: -20.0, my: 0.0 }),
+        SolverLoad::Nodal(SolverNodalLoad { node_id: 4, fx: 0.0, fz: -20.0, my: 0.0 }),
+        SolverLoad::Nodal(SolverNodalLoad { node_id: 5, fx: 5.0, fz: -20.0, my: 0.0 }),
+        SolverLoad::Nodal(SolverNodalLoad { node_id: 6, fx: 0.0, fz: -20.0, my: 0.0 }),
     ];
 
     // Sections for linear comparison: col A=0.09, Iz=6.75e-4; beam A=0.15, Iz=3.125e-3
@@ -943,20 +943,20 @@ fn acceptance_4d_fiber_pushover() {
             assert!(rel < 0.05, "Node {} ux mismatch: linear={:.6}, fiber={:.6}, rel={:.4}",
                 ld.node_id, ld.ux, fd.ux, rel);
         }
-        if ld.uy.abs() > 1e-8 {
-            let rel = (fd.uy - ld.uy).abs() / ld.uy.abs();
+        if ld.uz.abs() > 1e-8 {
+            let rel = (fd.uz - ld.uz).abs() / ld.uz.abs();
             assert!(rel < 0.05, "Node {} uy mismatch: linear={:.6}, fiber={:.6}, rel={:.4}",
-                ld.node_id, ld.uy, fd.uy, rel);
+                ld.node_id, ld.uz, fd.uz, rel);
         }
     }
 
     // --- Part B: Yielding check ---
     // Column Mp ≈ fy × Z ≈ 250 × (0.3×0.3²/4) ≈ 1687 kN·m, so need very high lateral
     let loads_yield = vec![
-        SolverLoad::Nodal(SolverNodalLoad { node_id: 3, fx: 3000.0, fy: -100.0, mz: 0.0 }),
-        SolverLoad::Nodal(SolverNodalLoad { node_id: 4, fx: 0.0, fy: -100.0, mz: 0.0 }),
-        SolverLoad::Nodal(SolverNodalLoad { node_id: 5, fx: 3000.0, fy: -100.0, mz: 0.0 }),
-        SolverLoad::Nodal(SolverNodalLoad { node_id: 6, fx: 0.0, fy: -100.0, mz: 0.0 }),
+        SolverLoad::Nodal(SolverNodalLoad { node_id: 3, fx: 3000.0, fz: -100.0, my: 0.0 }),
+        SolverLoad::Nodal(SolverNodalLoad { node_id: 4, fx: 0.0, fz: -100.0, my: 0.0 }),
+        SolverLoad::Nodal(SolverNodalLoad { node_id: 5, fx: 3000.0, fz: -100.0, my: 0.0 }),
+        SolverLoad::Nodal(SolverNodalLoad { node_id: 6, fx: 0.0, fz: -100.0, my: 0.0 }),
     ];
 
     let solver_yield = make_input(
@@ -1042,10 +1042,10 @@ fn acceptance_4e_guyan_vs_full() {
     let mut loads = Vec::new();
     for level in 1..6 {
         let left = level * 2 + 1;
-        loads.push(SolverLoad::Nodal(SolverNodalLoad { node_id: left, fx: 10.0, fy: 0.0, mz: 0.0 }));
+        loads.push(SolverLoad::Nodal(SolverNodalLoad { node_id: left, fx: 10.0, fz: 0.0, my: 0.0 }));
         let right = level * 2 + 2;
-        loads.push(SolverLoad::Nodal(SolverNodalLoad { node_id: left, fx: 0.0, fy: -50.0, mz: 0.0 }));
-        loads.push(SolverLoad::Nodal(SolverNodalLoad { node_id: right, fx: 0.0, fy: -50.0, mz: 0.0 }));
+        loads.push(SolverLoad::Nodal(SolverNodalLoad { node_id: left, fx: 0.0, fz: -50.0, my: 0.0 }));
+        loads.push(SolverLoad::Nodal(SolverNodalLoad { node_id: right, fx: 0.0, fz: -50.0, my: 0.0 }));
     }
 
     let solver_input = make_input(
@@ -1074,10 +1074,10 @@ fn acceptance_4e_guyan_vs_full() {
             .unwrap_or_else(|| panic!("Guyan missing node {}", fd.node_id));
         assert!((gd.ux - fd.ux).abs() < 1e-10,
             "Node {} ux: full={:.12}, guyan={:.12}", fd.node_id, fd.ux, gd.ux);
-        assert!((gd.uy - fd.uy).abs() < 1e-10,
-            "Node {} uy: full={:.12}, guyan={:.12}", fd.node_id, fd.uy, gd.uy);
-        assert!((gd.rz - fd.rz).abs() < 1e-10,
-            "Node {} rz: full={:.12}, guyan={:.12}", fd.node_id, fd.rz, gd.rz);
+        assert!((gd.uz - fd.uz).abs() < 1e-10,
+            "Node {} uz: full={:.12}, guyan={:.12}", fd.node_id, fd.uz, gd.uz);
+        assert!((gd.ry - fd.ry).abs() < 1e-10,
+            "Node {} ry: full={:.12}, guyan={:.12}", fd.node_id, fd.ry, gd.ry);
     }
 
     // 3. K_condensed symmetric: |K[i,j] - K[j,i]| < 1e-12
@@ -1113,10 +1113,10 @@ fn acceptance_4e_guyan_vs_full() {
             .unwrap_or_else(|| panic!("Guyan missing reaction at node {}", fr.node_id));
         assert!((gr.rx - fr.rx).abs() < 1e-8,
             "Node {} rx: full={:.12}, guyan={:.12}", fr.node_id, fr.rx, gr.rx);
-        assert!((gr.ry - fr.ry).abs() < 1e-8,
-            "Node {} ry: full={:.12}, guyan={:.12}", fr.node_id, fr.ry, gr.ry);
-        assert!((gr.mz - fr.mz).abs() < 1e-8,
-            "Node {} mz: full={:.12}, guyan={:.12}", fr.node_id, fr.mz, gr.mz);
+        assert!((gr.rz - fr.rz).abs() < 1e-8,
+            "Node {} rz: full={:.12}, guyan={:.12}", fr.node_id, fr.rz, gr.rz);
+        assert!((gr.my - fr.my).abs() < 1e-8,
+            "Node {} my: full={:.12}, guyan={:.12}", fr.node_id, fr.my, gr.my);
     }
 
     // 6. n_boundary + n_interior == total_free_dofs
@@ -1180,7 +1180,7 @@ fn acceptance_4f_shell_cantilever() {
         let nid = grid[0][j];
         supports.insert(nid.to_string(), SolverSupport3D {
             node_id: nid,
-            rx: true, ry: true, rz: true, rrx: true, rry: true, rrz: true,
+            rx: true, rz: true, ry: true, rrx: true, rry: true, rrz: true,
             kx: None, ky: None, kz: None, krx: None, kry: None, krz: None,
             dx: None, dy: None, dz: None, drx: None, dry: None, drz: None,
             normal_x: None, normal_y: None, normal_z: None,
@@ -1252,7 +1252,7 @@ fn acceptance_4f_shell_cantilever() {
 
     // 5. No NaN/Inf in displacements
     for d in &result.displacements {
-        assert!(d.ux.is_finite() && d.uy.is_finite() && d.uz.is_finite(),
+        assert!(d.ux.is_finite() && d.uz.is_finite() && d.uz.is_finite(),
             "NaN/Inf at node {}", d.node_id);
     }
 }
@@ -1284,7 +1284,7 @@ fn acceptance_4g_contact_gap_closure() {
         (2, 4, "fixed"),
     ];
     let loads = vec![
-        SolverLoad::Nodal(SolverNodalLoad { node_id: 2, fx: 50.0, fy: 0.0, mz: 0.0 }),
+        SolverLoad::Nodal(SolverNodalLoad { node_id: 2, fx: 50.0, fz: 0.0, my: 0.0 }),
     ];
 
     let solver = make_input(nodes, vec![(1, e, 0.3)], vec![(1, a, iz)], elems, sups, loads);
@@ -1350,7 +1350,7 @@ fn acceptance_4g_contact_gap_closure() {
 
     // 7. No NaN/Inf
     for d in &result.results.displacements {
-        assert!(d.ux.is_finite() && d.uy.is_finite(),
+        assert!(d.ux.is_finite() && d.uz.is_finite(),
             "NaN/Inf at node {}", d.node_id);
     }
 }
@@ -1445,7 +1445,7 @@ fn acceptance_4h_mixed_frame_shell_diaphragm() {
     for (i, &nid) in base_ids.iter().enumerate() {
         supports.insert((i + 1).to_string(), SolverSupport3D {
             node_id: nid,
-            rx: true, ry: true, rz: true, rrx: true, rry: true, rrz: true,
+            rx: true, rz: true, ry: true, rrx: true, rry: true, rrz: true,
             kx: None, ky: None, kz: None, krx: None, kry: None, krz: None,
             dx: None, dy: None, dz: None, drx: None, dry: None, drz: None,
             normal_x: None, normal_y: None, normal_z: None,
@@ -1502,7 +1502,7 @@ fn acceptance_4h_mixed_frame_shell_diaphragm() {
 
     // 1. No NaN/Inf
     for d in &result.displacements {
-        assert!(d.ux.is_finite() && d.uy.is_finite() && d.uz.is_finite(),
+        assert!(d.ux.is_finite() && d.uz.is_finite() && d.uz.is_finite(),
             "NaN/Inf at node {}", d.node_id);
     }
 
@@ -1590,7 +1590,7 @@ fn acceptance_4i_contact_tension_only_bracing() {
 
     // Lateral load at roof level (rightward)
     let loads = vec![
-        SolverLoad::Nodal(SolverNodalLoad { node_id: 3, fx: 100.0, fy: 0.0, mz: 0.0 }),
+        SolverLoad::Nodal(SolverNodalLoad { node_id: 3, fx: 100.0, fz: 0.0, my: 0.0 }),
     ];
 
     let solver = make_input(
@@ -1656,7 +1656,7 @@ fn acceptance_4i_contact_tension_only_bracing() {
 
     // 4. No NaN/Inf
     for d in &result.results.displacements {
-        assert!(d.ux.is_finite() && d.uy.is_finite(),
+        assert!(d.ux.is_finite() && d.uz.is_finite(),
             "NaN/Inf at node {}", d.node_id);
     }
 
@@ -1688,8 +1688,8 @@ fn acceptance_5a_corotational_2d_diaphragm() {
     ];
     let sups = vec![(1, 1, "fixed"), (2, 2, "fixed")];
     let loads = vec![
-        SolverLoad::Nodal(SolverNodalLoad { node_id: 3, fx: 50.0, fy: -30.0, mz: 0.0 }),
-        SolverLoad::Nodal(SolverNodalLoad { node_id: 4, fx: 0.0, fy: -30.0, mz: 0.0 }),
+        SolverLoad::Nodal(SolverNodalLoad { node_id: 3, fx: 50.0, fz: -30.0, my: 0.0 }),
+        SolverLoad::Nodal(SolverNodalLoad { node_id: 4, fx: 0.0, fz: -30.0, my: 0.0 }),
     ];
 
     let mut solver = make_input(nodes, vec![(1, e, 0.3)], vec![(1, a, iz)], elems, sups, loads);
@@ -1711,7 +1711,7 @@ fn acceptance_5a_corotational_2d_diaphragm() {
 
     // 2. Finite displacements
     for d in &result.results.displacements {
-        assert!(d.ux.is_finite() && d.uy.is_finite() && d.rz.is_finite(),
+        assert!(d.ux.is_finite() && d.uz.is_finite() && d.ry.is_finite(),
             "NaN/Inf at node {}", d.node_id);
     }
 
@@ -1796,7 +1796,7 @@ fn acceptance_5b_corotational_3d_rigid_link() {
 
     // 2. Finite displacements
     for d in &result.results.displacements {
-        assert!(d.ux.is_finite() && d.uy.is_finite() && d.uz.is_finite(),
+        assert!(d.ux.is_finite() && d.uz.is_finite() && d.uz.is_finite(),
             "NaN/Inf at node {}", d.node_id);
     }
 
@@ -1921,7 +1921,7 @@ fn acceptance_5c_corotational_3d_diaphragm() {
 
     // 2. Finite displacements
     for d in &result.results.displacements {
-        assert!(d.ux.is_finite() && d.uy.is_finite() && d.uz.is_finite(),
+        assert!(d.ux.is_finite() && d.uz.is_finite() && d.uz.is_finite(),
             "NaN/Inf at node {}", d.node_id);
     }
 
@@ -2033,7 +2033,7 @@ fn acceptance_5d_corotational_3d_linear_parity() {
             .unwrap_or_else(|| panic!("Corotational missing node {}", ld.node_id));
 
         for (name, lv, cv) in [
-            ("ux", ld.ux, cd.ux), ("uy", ld.uy, cd.uy), ("uz", ld.uz, cd.uz),
+            ("ux", ld.ux, cd.ux), ("uy", ld.uy, cd.uy), ("uz", ld.uy, cd.uy),
         ] {
             if lv.abs() > 1e-12 {
                 let rel = (cv - lv).abs() / lv.abs();
@@ -2065,8 +2065,8 @@ fn acceptance_5e_arc_length_diaphragm() {
     ];
     let sups = vec![(1, 1, "fixed"), (2, 2, "fixed")];
     let loads = vec![
-        SolverLoad::Nodal(SolverNodalLoad { node_id: 3, fx: 50.0, fy: -20.0, mz: 0.0 }),
-        SolverLoad::Nodal(SolverNodalLoad { node_id: 4, fx: 0.0, fy: -20.0, mz: 0.0 }),
+        SolverLoad::Nodal(SolverNodalLoad { node_id: 3, fx: 50.0, fz: -20.0, my: 0.0 }),
+        SolverLoad::Nodal(SolverNodalLoad { node_id: 4, fx: 0.0, fz: -20.0, my: 0.0 }),
     ];
 
     let mut solver = make_input(nodes, vec![(1, e, 0.3)], vec![(1, a, iz)], elems, sups, loads);
@@ -2098,7 +2098,7 @@ fn acceptance_5e_arc_length_diaphragm() {
 
     // 2. Finite displacements
     for d in &result.results.displacements {
-        assert!(d.ux.is_finite() && d.uy.is_finite(),
+        assert!(d.ux.is_finite() && d.uz.is_finite(),
             "NaN/Inf at node {}", d.node_id);
     }
 
@@ -2134,7 +2134,7 @@ fn acceptance_5f_arc_length_rigid_link_parity() {
     ];
     let sups = vec![(1, 1, "fixed"), (2, 2, "fixed")];
     let loads = vec![
-        SolverLoad::Nodal(SolverNodalLoad { node_id: 5, fx: 1e-3, fy: -1e-3, mz: 0.0 }),
+        SolverLoad::Nodal(SolverNodalLoad { node_id: 5, fx: 1e-3, fz: -1e-3, my: 0.0 }),
     ];
 
     let mut solver = make_input(nodes, vec![(1, e, 0.3)], vec![(1, a, iz)], elems, sups, loads);
@@ -2167,7 +2167,7 @@ fn acceptance_5f_arc_length_rigid_link_parity() {
     // Arc-length converged and produced finite results with constraint
     assert!(arc_result.steps.iter().any(|s| s.converged), "No arc-length steps converged");
     for d in &arc_result.results.displacements {
-        assert!(d.ux.is_finite() && d.uy.is_finite(),
+        assert!(d.ux.is_finite() && d.uz.is_finite(),
             "NaN/Inf at node {}", d.node_id);
     }
 
@@ -2206,10 +2206,10 @@ fn acceptance_5g_fiber_nonlinear_2d_diaphragm() {
     ];
     let sups = vec![(1, 1, "fixed"), (2, 2, "fixed")];
     let loads = vec![
-        SolverLoad::Nodal(SolverNodalLoad { node_id: 3, fx: 10.0, fy: -30.0, mz: 0.0 }),
-        SolverLoad::Nodal(SolverNodalLoad { node_id: 4, fx: 0.0, fy: -30.0, mz: 0.0 }),
-        SolverLoad::Nodal(SolverNodalLoad { node_id: 5, fx: 10.0, fy: -30.0, mz: 0.0 }),
-        SolverLoad::Nodal(SolverNodalLoad { node_id: 6, fx: 0.0, fy: -30.0, mz: 0.0 }),
+        SolverLoad::Nodal(SolverNodalLoad { node_id: 3, fx: 10.0, fz: -30.0, my: 0.0 }),
+        SolverLoad::Nodal(SolverNodalLoad { node_id: 4, fx: 0.0, fz: -30.0, my: 0.0 }),
+        SolverLoad::Nodal(SolverNodalLoad { node_id: 5, fx: 10.0, fz: -30.0, my: 0.0 }),
+        SolverLoad::Nodal(SolverNodalLoad { node_id: 6, fx: 0.0, fz: -30.0, my: 0.0 }),
     ];
 
     let mut solver = make_input(
@@ -2256,7 +2256,7 @@ fn acceptance_5g_fiber_nonlinear_2d_diaphragm() {
 
     // 2. Finite displacements
     for d in &result.results.displacements {
-        assert!(d.ux.is_finite() && d.uy.is_finite(),
+        assert!(d.ux.is_finite() && d.uz.is_finite(),
             "NaN/Inf at node {}", d.node_id);
     }
 
@@ -2397,7 +2397,7 @@ fn acceptance_5i_contact_2d_rigid_link() {
     ];
     let sups = vec![(1, 1, "fixed"), (2, 4, "fixed")];
     let loads = vec![
-        SolverLoad::Nodal(SolverNodalLoad { node_id: 5, fx: 50.0, fy: 0.0, mz: 0.0 }),
+        SolverLoad::Nodal(SolverNodalLoad { node_id: 5, fx: 50.0, fz: 0.0, my: 0.0 }),
     ];
 
     let mut solver = make_input(nodes, vec![(1, e, 0.3)], vec![(1, a, iz)], elems, sups, loads);
@@ -2436,7 +2436,7 @@ fn acceptance_5i_contact_2d_rigid_link() {
 
     // 2. Finite displacements
     for d in &result.results.displacements {
-        assert!(d.ux.is_finite() && d.uy.is_finite(),
+        assert!(d.ux.is_finite() && d.uz.is_finite(),
             "NaN/Inf at node {}", d.node_id);
     }
 
@@ -2524,7 +2524,7 @@ fn acceptance_5j_contact_3d_rigid_link() {
 
     // 2. Finite displacements
     for d in &result.results.displacements {
-        assert!(d.ux.is_finite() && d.uy.is_finite() && d.uz.is_finite(),
+        assert!(d.ux.is_finite() && d.uz.is_finite() && d.uz.is_finite(),
             "NaN/Inf at node {}", d.node_id);
     }
 
@@ -2558,7 +2558,7 @@ fn acceptance_5k_time_integration_2d_diaphragm() {
     ];
     let sups = vec![(1, 1, "fixed"), (2, 2, "fixed")];
     let loads = vec![
-        SolverLoad::Nodal(SolverNodalLoad { node_id: 3, fx: 100.0, fy: 0.0, mz: 0.0 }),
+        SolverLoad::Nodal(SolverNodalLoad { node_id: 3, fx: 100.0, fz: 0.0, my: 0.0 }),
     ];
 
     let mut solver = make_input(nodes, vec![(1, e, 0.3)], vec![(1, a, iz)], elems, sups, loads);
@@ -2688,7 +2688,7 @@ fn acceptance_5l_time_integration_3d_rigid_link() {
 
     // 2. Finite peak displacements
     for d in &result.peak_displacements {
-        assert!(d.ux.is_finite() && d.uy.is_finite() && d.uz.is_finite(),
+        assert!(d.ux.is_finite() && d.uz.is_finite() && d.uz.is_finite(),
             "NaN/Inf peak at node {}", d.node_id);
     }
 
@@ -2770,7 +2770,7 @@ where
 fn sup3d_full(node_id: usize) -> SolverSupport3D {
     SolverSupport3D {
         node_id,
-        rx: true, ry: true, rz: true, rrx: true, rry: true, rrz: true,
+        rx: true, rz: true, ry: true, rrx: true, rry: true, rrz: true,
         kx: None, ky: None, kz: None,
         krx: None, kry: None, krz: None,
         dx: None, dy: None, dz: None,
@@ -2780,7 +2780,7 @@ fn sup3d_full(node_id: usize) -> SolverSupport3D {
     }
 }
 
-fn sup3d_custom(node_id: usize, rx: bool, ry: bool, rz: bool, rrx: bool, rry: bool, rrz: bool) -> SolverSupport3D {
+fn sup3d_custom(node_id: usize, rx: bool, rz: bool, ry: bool, rrx: bool, rry: bool, rrz: bool) -> SolverSupport3D {
     SolverSupport3D {
         node_id,
         rx, ry, rz, rrx, rry, rrz,
@@ -2882,7 +2882,7 @@ fn acceptance_6a_q9_shell_cantilever() {
 
     // 5. No NaN/Inf
     for d in &result.displacements {
-        assert!(d.ux.is_finite() && d.uy.is_finite() && d.uz.is_finite(),
+        assert!(d.ux.is_finite() && d.uz.is_finite() && d.uz.is_finite(),
             "NaN/Inf at node {}", d.node_id);
     }
 
@@ -3028,7 +3028,7 @@ fn acceptance_6b_mixed_beam_q9_slab() {
 
     // 1. No NaN/Inf
     for d in &result.displacements {
-        assert!(d.ux.is_finite() && d.uy.is_finite() && d.uz.is_finite(),
+        assert!(d.ux.is_finite() && d.uz.is_finite() && d.uz.is_finite(),
             "NaN/Inf at node {}", d.node_id);
     }
 
@@ -3156,7 +3156,7 @@ fn acceptance_6c_q9_cylindrical_tank() {
 
     // 1. No NaN/Inf
     for d in &result.displacements {
-        assert!(d.ux.is_finite() && d.uy.is_finite() && d.uz.is_finite(),
+        assert!(d.ux.is_finite() && d.uz.is_finite() && d.uz.is_finite(),
             "NaN/Inf at node {}", d.node_id);
     }
 
@@ -3171,7 +3171,7 @@ fn acceptance_6c_q9_cylindrical_tank() {
         .expect("Mid-wall node not found");
 
     let theta_mid = (mid_i as f64 / (rows - 1) as f64) * pi / 2.0;
-    let radial_disp = mid_disp.ux * theta_mid.cos() + mid_disp.uy * theta_mid.sin();
+    let radial_disp = mid_disp.ux * theta_mid.cos() + mid_disp.uz * theta_mid.sin();
     assert!(radial_disp > 0.0,
         "Wall should bulge outward under internal pressure, radial={:.6e}", radial_disp);
 
@@ -3180,7 +3180,7 @@ fn acceptance_6c_q9_cylindrical_tank() {
         let nid = grid[i][0];
         result.displacements.iter()
             .find(|d| d.node_id == nid)
-            .map(|d| (d.ux * d.ux + d.uy * d.uy + d.uz * d.uz).sqrt())
+            .map(|d| (d.ux * d.ux + d.uz * d.uz + d.uz * d.uz).sqrt())
             .unwrap_or(0.0)
     }).collect();
     let base_max = base_disps.iter().cloned().fold(0.0_f64, f64::max);
@@ -3239,8 +3239,8 @@ fn acceptance_6d_q9_modal_plate() {
                 supports.insert(sid.to_string(), sup3d_custom(
                     grid[i][j],
                     is_origin,                      // rx: pin origin
-                    is_origin || is_x_edge,         // ry: pin x-edge
-                    true,                           // rz: all edges
+                    is_origin || is_x_edge,         // rz: pin x-edge
+                    true,                           // ry: all edges
                     false, false, false,
                 ));
                 sid += 1;

@@ -56,7 +56,7 @@ fn validation_propped_ext_udl_midspan_deflection() {
 
     // delta_mid = qL^4 / (192 EI)
     let delta_exact = q.abs() * l.powi(4) / (192.0 * e_eff * IZ);
-    assert_close(d_mid.uy.abs(), delta_exact, 0.03,
+    assert_close(d_mid.uz.abs(), delta_exact, 0.03,
         "Propped ext UDL midspan deflection: qL^4/(192EI)");
 }
 
@@ -80,7 +80,7 @@ fn validation_propped_ext_quarter_point_load() {
     let load_node = (n as f64 / 4.0).round() as usize + 1; // node at L/4
 
     let loads = vec![SolverLoad::Nodal(SolverNodalLoad {
-        node_id: load_node, fx: 0.0, fy: -p, mz: 0.0,
+        node_id: load_node, fx: 0.0, fz: -p, my: 0.0,
     })];
     let input = make_beam(n, l, E, A, IZ, "fixed", Some("rollerX"), loads);
     let results = linear::solve_2d(&input).unwrap();
@@ -90,17 +90,17 @@ fn validation_propped_ext_quarter_point_load() {
 
     // R_B = Pa^2(3L - a) / (2L^3)
     let r_b_exact = p * a_val.powi(2) * (3.0 * l - a_val) / (2.0 * l.powi(3));
-    assert_close(r_b.ry, r_b_exact, 0.03,
+    assert_close(r_b.rz, r_b_exact, 0.03,
         "Propped ext quarter load: R_B = Pa^2(3L-a)/(2L^3)");
 
     // R_A = P - R_B
     let r_a_exact = p - r_b_exact;
-    assert_close(r_a.ry, r_a_exact, 0.03,
+    assert_close(r_a.rz, r_a_exact, 0.03,
         "Propped ext quarter load: R_A = P - R_B");
 
     // M_A = Pab(L+b) / (2L^2)
     let m_a_exact = p * a_val * b_val * (l + b_val) / (2.0 * l.powi(2));
-    assert_close(r_a.mz.abs(), m_a_exact, 0.05,
+    assert_close(r_a.my.abs(), m_a_exact, 0.05,
         "Propped ext quarter load: M_A = Pab(L+b)/(2L^2)");
 }
 
@@ -124,10 +124,10 @@ fn validation_propped_ext_two_symmetric_loads() {
 
     let loads = vec![
         SolverLoad::Nodal(SolverNodalLoad {
-            node_id: node_1, fx: 0.0, fy: -p, mz: 0.0,
+            node_id: node_1, fx: 0.0, fz: -p, my: 0.0,
         }),
         SolverLoad::Nodal(SolverNodalLoad {
-            node_id: node_2, fx: 0.0, fy: -p, mz: 0.0,
+            node_id: node_2, fx: 0.0, fz: -p, my: 0.0,
         }),
     ];
     let input = make_beam(n, l, E, A, IZ, "fixed", Some("rollerX"), loads);
@@ -142,11 +142,11 @@ fn validation_propped_ext_two_symmetric_loads() {
     let r_b1 = p * a1.powi(2) * (3.0 * l - a1) / (2.0 * l.powi(3));
     let r_b2 = p * a2.powi(2) * (3.0 * l - a2) / (2.0 * l.powi(3));
     let r_b_exact = r_b1 + r_b2;
-    assert_close(r_b.ry, r_b_exact, 0.03,
+    assert_close(r_b.rz, r_b_exact, 0.03,
         "Propped ext two loads: R_B by superposition");
 
     // Vertical equilibrium: R_A + R_B = 2P
-    assert_close(r_a.ry + r_b.ry, 2.0 * p, 0.02,
+    assert_close(r_a.rz + r_b.rz, 2.0 * p, 0.02,
         "Propped ext two loads: R_A + R_B = 2P");
 }
 
@@ -179,7 +179,7 @@ fn validation_propped_ext_roller_end_slope() {
 
     // theta_B = qL^3 / (48EI)
     let theta_exact = q.abs() * l.powi(3) / (48.0 * e_eff * IZ);
-    assert_close(d_b.rz.abs(), theta_exact, 0.03,
+    assert_close(d_b.ry.abs(), theta_exact, 0.03,
         "Propped ext roller slope: theta_B = qL^3/(48EI)");
 }
 
@@ -209,17 +209,17 @@ fn validation_propped_ext_shear_at_fixed_end() {
 
     // R_A = 5qL/8 (upward reaction for downward load)
     let r_a_exact = 5.0 * q.abs() * l / 8.0;
-    assert_close(r_a.ry, r_a_exact, 0.02,
+    assert_close(r_a.rz, r_a_exact, 0.02,
         "Propped ext shear: R_A = 5qL/8");
 
     // R_B = 3qL/8
     let r_b = results.reactions.iter().find(|r| r.node_id == n + 1).unwrap();
     let r_b_exact = 3.0 * q.abs() * l / 8.0;
-    assert_close(r_b.ry, r_b_exact, 0.02,
+    assert_close(r_b.rz, r_b_exact, 0.02,
         "Propped ext shear: R_B = 3qL/8");
 
     // Equilibrium: R_A + R_B = qL
-    assert_close(r_a.ry + r_b.ry, q.abs() * l, 0.02,
+    assert_close(r_a.rz + r_b.rz, q.abs() * l, 0.02,
         "Propped ext shear: equilibrium R_A + R_B = qL");
 }
 
@@ -243,7 +243,7 @@ fn validation_propped_ext_three_quarter_load() {
     let load_node = (3 * n / 4) + 1; // node at 3L/4
 
     let loads = vec![SolverLoad::Nodal(SolverNodalLoad {
-        node_id: load_node, fx: 0.0, fy: -p, mz: 0.0,
+        node_id: load_node, fx: 0.0, fz: -p, my: 0.0,
     })];
     let input = make_beam(n, l, E, A, IZ, "fixed", Some("rollerX"), loads);
     let results = linear::solve_2d(&input).unwrap();
@@ -253,17 +253,17 @@ fn validation_propped_ext_three_quarter_load() {
 
     // R_B = Pa^2(3L - a) / (2L^3)
     let r_b_exact = p * a_val.powi(2) * (3.0 * l - a_val) / (2.0 * l.powi(3));
-    assert_close(r_b.ry, r_b_exact, 0.03,
+    assert_close(r_b.rz, r_b_exact, 0.03,
         "Propped ext 3L/4 load: R_B");
 
     // R_A = P - R_B
     let r_a_exact = p - r_b_exact;
-    assert_close(r_a.ry, r_a_exact, 0.03,
+    assert_close(r_a.rz, r_a_exact, 0.03,
         "Propped ext 3L/4 load: R_A = P - R_B");
 
     // M_A = Pab(L + b) / (2L^2)
     let m_a_exact = p * a_val * b_val * (l + b_val) / (2.0 * l.powi(2));
-    assert_close(r_a.mz.abs(), m_a_exact, 0.05,
+    assert_close(r_a.my.abs(), m_a_exact, 0.05,
         "Propped ext 3L/4 load: M_A");
 }
 
@@ -312,7 +312,7 @@ fn validation_propped_ext_max_sagging_moment() {
 
     // Also verify R_A = 5qL/8
     let r_a = results.reactions.iter().find(|r| r.node_id == 1).unwrap();
-    assert_close(r_a.ry, 5.0 * q.abs() * l / 8.0, 0.02,
+    assert_close(r_a.rz, 5.0 * q.abs() * l / 8.0, 0.02,
         "Propped ext max sag moment: R_A = 5qL/8");
 }
 
@@ -346,11 +346,11 @@ fn validation_propped_ext_moment_equilibrium() {
 
     // Verify analytical values first
     let r_b_exact = 3.0 * q.abs() * l / 8.0;
-    assert_close(r_b.ry, r_b_exact, 0.02,
+    assert_close(r_b.rz, r_b_exact, 0.02,
         "Propped ext equil: R_B = 3qL/8");
 
     let m_a_exact = q.abs() * l.powi(2) / 8.0;
-    assert_close(r_a.mz.abs(), m_a_exact, 0.02,
+    assert_close(r_a.my.abs(), m_a_exact, 0.02,
         "Propped ext equil: M_A = qL^2/8");
 
     // Moment equilibrium about A (taking CCW as positive):
@@ -360,16 +360,16 @@ fn validation_propped_ext_moment_equilibrium() {
     // = 0
     //
     // Using solver values (with sign conventions):
-    //   R_B.ry is positive (upward), contributes +R_B*L
+    //   R_B.rz is positive (upward), contributes +R_B*L
     //   Total load = |q|*L downward at L/2, contributes -|q|*L*(L/2)
-    //   M_A: r_a.mz is the reaction moment (negative = CW for sagging)
+    //   M_A: r_a.my is the reaction moment (negative = CW for sagging)
     //
     // Check: R_B*L + M_A_reaction - |q|*L^2/2 = 0
-    let moment_sum = r_b.ry * l + r_a.mz - q.abs() * l.powi(2) / 2.0;
+    let moment_sum = r_b.rz * l + r_a.my - q.abs() * l.powi(2) / 2.0;
     assert!(moment_sum.abs() < 1.0,
         "Propped ext equil: moment about A = {:.6}, expected ~0", moment_sum);
 
     // Also check vertical equilibrium: R_A + R_B = |q|*L
-    assert_close(r_a.ry + r_b.ry, q.abs() * l, 0.02,
+    assert_close(r_a.rz + r_b.rz, q.abs() * l, 0.02,
         "Propped ext equil: vertical R_A + R_B = qL");
 }

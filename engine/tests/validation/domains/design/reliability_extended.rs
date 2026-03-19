@@ -53,7 +53,7 @@ fn validation_strength_reserve_factor() {
     // Helper to get midspan moment for a given point load
     let get_max_moment = |p: f64| -> f64 {
         let loads = vec![SolverLoad::Nodal(SolverNodalLoad {
-            node_id: mid, fx: 0.0, fy: -p, mz: 0.0,
+            node_id: mid, fx: 0.0, fz: -p, my: 0.0,
         })];
         let input = make_beam(n, l, E, A, IZ, "pinned", Some("rollerX"), loads);
         let results = linear::solve_2d(&input).unwrap();
@@ -131,8 +131,8 @@ fn validation_load_factor_proportionality() {
         .collect();
     let input_base = make_beam(n, l, E, A, IZ, "pinned", Some("rollerX"), loads_base);
     let r_base = linear::solve_2d(&input_base).unwrap();
-    let d_base = r_base.displacements.iter().find(|d| d.node_id == mid).unwrap().uy;
-    let ry_base = r_base.reactions.iter().find(|r| r.node_id == 1).unwrap().ry;
+    let d_base = r_base.displacements.iter().find(|d| d.node_id == mid).unwrap().uz;
+    let ry_base = r_base.reactions.iter().find(|r| r.node_id == 1).unwrap().rz;
     let m_base = r_base.element_forces.iter()
         .find(|e| e.element_id == n / 2).unwrap().m_end;
 
@@ -145,8 +145,8 @@ fn validation_load_factor_proportionality() {
         .collect();
     let input_2 = make_beam(n, l, E, A, IZ, "pinned", Some("rollerX"), loads_2);
     let r_2 = linear::solve_2d(&input_2).unwrap();
-    let d_2 = r_2.displacements.iter().find(|d| d.node_id == mid).unwrap().uy;
-    let ry_2 = r_2.reactions.iter().find(|r| r.node_id == 1).unwrap().ry;
+    let d_2 = r_2.displacements.iter().find(|d| d.node_id == mid).unwrap().uz;
+    let ry_2 = r_2.reactions.iter().find(|r| r.node_id == 1).unwrap().rz;
     let m_2 = r_2.element_forces.iter()
         .find(|e| e.element_id == n / 2).unwrap().m_end;
 
@@ -163,8 +163,8 @@ fn validation_load_factor_proportionality() {
         .collect();
     let input_35 = make_beam(n, l, E, A, IZ, "pinned", Some("rollerX"), loads_35);
     let r_35 = linear::solve_2d(&input_35).unwrap();
-    let d_35 = r_35.displacements.iter().find(|d| d.node_id == mid).unwrap().uy;
-    let ry_35 = r_35.reactions.iter().find(|r| r.node_id == 1).unwrap().ry;
+    let d_35 = r_35.displacements.iter().find(|d| d.node_id == mid).unwrap().uz;
+    let ry_35 = r_35.reactions.iter().find(|r| r.node_id == 1).unwrap().rz;
     let m_35 = r_35.element_forces.iter()
         .find(|e| e.element_id == n / 2).unwrap().m_end;
 
@@ -210,8 +210,8 @@ fn validation_partial_safety_factors() {
         .collect();
     let input_d = make_beam(n, l, E, A, IZ, "pinned", Some("rollerX"), loads_d);
     let rd = linear::solve_2d(&input_d).unwrap();
-    let d_dead = rd.displacements.iter().find(|d| d.node_id == mid).unwrap().uy;
-    let ry_dead = rd.reactions.iter().find(|r| r.node_id == 1).unwrap().ry;
+    let d_dead = rd.displacements.iter().find(|d| d.node_id == mid).unwrap().uz;
+    let ry_dead = rd.reactions.iter().find(|r| r.node_id == 1).unwrap().rz;
 
     // Live load only
     let loads_l: Vec<SolverLoad> = (1..=n)
@@ -221,8 +221,8 @@ fn validation_partial_safety_factors() {
         .collect();
     let input_l = make_beam(n, l, E, A, IZ, "pinned", Some("rollerX"), loads_l);
     let rl = linear::solve_2d(&input_l).unwrap();
-    let d_live = rl.displacements.iter().find(|d| d.node_id == mid).unwrap().uy;
-    let ry_live = rl.reactions.iter().find(|r| r.node_id == 1).unwrap().ry;
+    let d_live = rl.displacements.iter().find(|d| d.node_id == mid).unwrap().uz;
+    let ry_live = rl.reactions.iter().find(|r| r.node_id == 1).unwrap().rz;
 
     // Factored combination: gamma_G * G + gamma_Q * Q
     let q_factored = gamma_g * q_dead + gamma_q * q_live;
@@ -235,8 +235,8 @@ fn validation_partial_safety_factors() {
         .collect();
     let input_f = make_beam(n, l, E, A, IZ, "pinned", Some("rollerX"), loads_f);
     let rf = linear::solve_2d(&input_f).unwrap();
-    let d_factored = rf.displacements.iter().find(|d| d.node_id == mid).unwrap().uy;
-    let ry_factored = rf.reactions.iter().find(|r| r.node_id == 1).unwrap().ry;
+    let d_factored = rf.displacements.iter().find(|d| d.node_id == mid).unwrap().uz;
+    let ry_factored = rf.reactions.iter().find(|r| r.node_id == 1).unwrap().rz;
 
     // Superposition: factored = gamma_G * dead + gamma_Q * live
     assert_close(d_factored, gamma_g * d_dead + gamma_q * d_live, 0.001,
@@ -253,7 +253,7 @@ fn validation_partial_safety_factors() {
         .collect();
     let input_s = make_beam(n, l, E, A, IZ, "pinned", Some("rollerX"), loads_s);
     let rs = linear::solve_2d(&input_s).unwrap();
-    let d_service = rs.displacements.iter().find(|d| d.node_id == mid).unwrap().uy;
+    let d_service = rs.displacements.iter().find(|d| d.node_id == mid).unwrap().uz;
 
     // Factored response is larger than unfactored
     assert!(d_factored.abs() > d_service.abs(),
@@ -367,7 +367,7 @@ fn validation_limit_state_checks() {
 
     // -- Serviceability Limit State: deflection --
     let d_mid = results.displacements.iter()
-        .find(|d| d.node_id == mid).unwrap().uy.abs();
+        .find(|d| d.node_id == mid).unwrap().uz.abs();
 
     let delta_exact = 5.0 * q.abs() * l.powi(4) / (384.0 * e_eff * IZ);
     assert_close(d_mid, delta_exact, 0.02, "SLS: midspan deflection");
@@ -444,8 +444,8 @@ fn validation_asce7_load_combinations() {
         .collect();
     let input_c1 = make_beam(n, l, E, A, IZ, "pinned", Some("rollerX"), loads_c1);
     let r_c1 = linear::solve_2d(&input_c1).unwrap();
-    let d_c1 = r_c1.displacements.iter().find(|d| d.node_id == mid).unwrap().uy.abs();
-    let ry_c1 = r_c1.reactions.iter().find(|r| r.node_id == 1).unwrap().ry;
+    let d_c1 = r_c1.displacements.iter().find(|d| d.node_id == mid).unwrap().uz.abs();
+    let ry_c1 = r_c1.reactions.iter().find(|r| r.node_id == 1).unwrap().rz;
     let m_c1 = r_c1.element_forces.iter()
         .find(|e| e.element_id == n / 2).unwrap().m_end.abs();
 
@@ -458,8 +458,8 @@ fn validation_asce7_load_combinations() {
         .collect();
     let input_c2 = make_beam(n, l, E, A, IZ, "pinned", Some("rollerX"), loads_c2);
     let r_c2 = linear::solve_2d(&input_c2).unwrap();
-    let d_c2 = r_c2.displacements.iter().find(|d| d.node_id == mid).unwrap().uy.abs();
-    let ry_c2 = r_c2.reactions.iter().find(|r| r.node_id == 1).unwrap().ry;
+    let d_c2 = r_c2.displacements.iter().find(|d| d.node_id == mid).unwrap().uz.abs();
+    let ry_c2 = r_c2.reactions.iter().find(|r| r.node_id == 1).unwrap().rz;
     let m_c2 = r_c2.element_forces.iter()
         .find(|e| e.element_id == n / 2).unwrap().m_end.abs();
 
@@ -520,7 +520,7 @@ fn validation_resistance_variability() {
             .collect();
         let input = make_beam(n, l, e_val, A, IZ, "pinned", Some("rollerX"), loads);
         let results = linear::solve_2d(&input).unwrap();
-        results.displacements.iter().find(|d| d.node_id == mid).unwrap().uy.abs()
+        results.displacements.iter().find(|d| d.node_id == mid).unwrap().uz.abs()
     };
 
     // Nominal E
@@ -618,7 +618,7 @@ fn validation_redundancy_check() {
     let a_truss = 0.001;
     let supports = vec![(1, 1, "pinned"), (2, 3, "rollerX")];
     let loads = vec![SolverLoad::Nodal(SolverNodalLoad {
-        node_id: 5, fx: 0.0, fy: -p, mz: 0.0,
+        node_id: 5, fx: 0.0, fz: -p, my: 0.0,
     })];
 
     // Solve full truss
@@ -632,7 +632,7 @@ fn validation_redundancy_check() {
     );
     let r_full = linear::solve_2d(&input_full).unwrap();
     let d_full = r_full.displacements.iter()
-        .find(|d| d.node_id == 5).unwrap().uy;
+        .find(|d| d.node_id == 5).unwrap().uz;
 
     // Verify full truss solves successfully with downward deflection
     assert!(d_full < 0.0, "Full truss: node 5 deflects downward");
@@ -662,7 +662,7 @@ fn validation_redundancy_check() {
     );
     let r_reduced = linear::solve_2d(&input_reduced).unwrap();
     let d_reduced = r_reduced.displacements.iter()
-        .find(|d| d.node_id == 5).unwrap().uy;
+        .find(|d| d.node_id == 5).unwrap().uz;
 
     // Structure is still stable (solver succeeds)
     assert!(d_reduced < 0.0, "Reduced truss: still deflects downward (stable)");
@@ -672,8 +672,8 @@ fn validation_redundancy_check() {
         "Reduced truss more flexible: {:.6e} > {:.6e}", d_reduced.abs(), d_full.abs());
 
     // Reactions should still satisfy equilibrium: sum(Ry) = P
-    let sum_ry_full: f64 = r_full.reactions.iter().map(|r| r.ry).sum();
-    let sum_ry_reduced: f64 = r_reduced.reactions.iter().map(|r| r.ry).sum();
+    let sum_ry_full: f64 = r_full.reactions.iter().map(|r| r.rz).sum();
+    let sum_ry_reduced: f64 = r_reduced.reactions.iter().map(|r| r.rz).sum();
     assert_close(sum_ry_full, p, 0.01, "Full truss: vertical equilibrium");
     assert_close(sum_ry_reduced, p, 0.01, "Reduced truss: vertical equilibrium");
 

@@ -130,7 +130,7 @@ pub fn assemble_2d(input: &SolverInput, dof_num: &DofNumbering) -> AssemblyResul
         let sec = sec_map[&elem.section_id];
 
         let dx = node_j.x - node_i.x;
-        let dy = node_j.y - node_i.y;
+        let dy = node_j.z - node_i.z;
         let l = (dx * dx + dy * dy).sqrt();
         let cos = dx / l;
         let sin = dy / l;
@@ -195,11 +195,11 @@ pub fn assemble_2d(input: &SolverInput, dof_num: &DofNumbering) -> AssemblyResul
                 f_global[d] += nl.fx;
             }
             if let Some(&d) = dof_num.map.get(&(nl.node_id, 1)) {
-                f_global[d] += nl.fy;
+                f_global[d] += nl.fz;
             }
             if dof_num.dofs_per_node >= 3 {
                 if let Some(&d) = dof_num.map.get(&(nl.node_id, 2)) {
-                    f_global[d] += nl.mz;
+                    f_global[d] += nl.my;
                 }
             }
         }
@@ -329,7 +329,7 @@ pub fn assemble_element_loads_2d(
             }
             SolverLoad::PointOnElement(pl) if pl.element_id == elem.id => {
                 let px = pl.px.unwrap_or(0.0);
-                let mz = pl.mz.unwrap_or(0.0);
+                let mz = pl.my.unwrap_or(0.0);
                 let mut fef = fef_point_load_2d(pl.p, px, mz, pl.a, l);
 
                 adjust_fef_for_hinges(&mut fef, l, elem.hinge_start, elem.hinge_end);
@@ -1354,7 +1354,7 @@ pub fn assemble_sparse_2d(input: &SolverInput, dof_num: &DofNumbering) -> Sparse
         let sec = sec_map[&elem.section_id];
 
         let dx = node_j.x - node_i.x;
-        let dy = node_j.y - node_i.y;
+        let dy = node_j.z - node_i.z;
         let l = (dx * dx + dy * dy).sqrt();
         let cos = dx / l;
         let sin = dy / l;
@@ -1415,7 +1415,7 @@ pub fn assemble_sparse_2d(input: &SolverInput, dof_num: &DofNumbering) -> Sparse
         let ni = match node_map_2d.get(&conn.node_i) { Some(n) => n, None => continue };
         let nj = match node_map_2d.get(&conn.node_j) { Some(n) => n, None => continue };
         let dx = nj.x - ni.x;
-        let dy = nj.y - ni.y;
+        let dy = nj.z - ni.z;
         let l = (dx * dx + dy * dy).sqrt();
         let (cos, sin) = if l > 1e-15 { (dx / l, dy / l) } else { (1.0, 0.0) };
         let ke = crate::element::connector::connector_stiffness_2d(
@@ -1443,9 +1443,9 @@ pub fn assemble_sparse_2d(input: &SolverInput, dof_num: &DofNumbering) -> Sparse
     for load in &input.loads {
         if let SolverLoad::Nodal(nl) = load {
             if let Some(&d) = dof_num.map.get(&(nl.node_id, 0)) { f_global[d] += nl.fx; }
-            if let Some(&d) = dof_num.map.get(&(nl.node_id, 1)) { f_global[d] += nl.fy; }
+            if let Some(&d) = dof_num.map.get(&(nl.node_id, 1)) { f_global[d] += nl.fz; }
             if dof_num.dofs_per_node >= 3 {
-                if let Some(&d) = dof_num.map.get(&(nl.node_id, 2)) { f_global[d] += nl.mz; }
+                if let Some(&d) = dof_num.map.get(&(nl.node_id, 2)) { f_global[d] += nl.my; }
             }
         }
     }

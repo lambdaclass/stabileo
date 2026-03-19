@@ -39,14 +39,14 @@ fn validation_load_path_direct() {
         vec![(1, "frame", 1, 2, 1, 1, false, false)],
         vec![(1, 1, "fixed")],
         vec![SolverLoad::Nodal(SolverNodalLoad {
-            node_id: 2, fx: 0.0, fy: -p, mz: 0.0,
+            node_id: 2, fx: 0.0, fz: -p, my: 0.0,
         })],
     );
     let results = linear::solve_2d(&input).unwrap();
 
     // Full load transfers to foundation
     let r = results.reactions.iter().find(|r| r.node_id == 1).unwrap();
-    assert_close(r.ry, p, 0.02, "Direct path: R = P");
+    assert_close(r.rz, p, 0.02, "Direct path: R = P");
 
     // No lateral reaction (load is vertical on vertical column)
     assert!(r.rx.abs() < 0.1, "Direct path: Rx ≈ 0");
@@ -78,15 +78,15 @@ fn validation_load_path_indirect() {
         (4, "frame", 5, 4, 1, 1, false, false),
     ];
     let loads = vec![SolverLoad::Nodal(SolverNodalLoad {
-        node_id: 3, fx: 0.0, fy: -p, mz: 0.0,
+        node_id: 3, fx: 0.0, fz: -p, my: 0.0,
     })];
     let input = make_input(nodes, vec![(1, E, 0.3)], vec![(1, A, IZ)], elems,
         vec![(1, 1, "fixed"), (2, 5, "fixed")], loads);
     let results = linear::solve_2d(&input).unwrap();
 
     // Both columns should carry vertical load
-    let r1 = results.reactions.iter().find(|r| r.node_id == 1).unwrap().ry;
-    let r5 = results.reactions.iter().find(|r| r.node_id == 5).unwrap().ry;
+    let r1 = results.reactions.iter().find(|r| r.node_id == 1).unwrap().rz;
+    let r5 = results.reactions.iter().find(|r| r.node_id == 5).unwrap().rz;
 
     assert!(r1 > 0.0, "Indirect: left column carries load");
     assert!(r5 > 0.0, "Indirect: right column carries load");
@@ -104,7 +104,7 @@ fn validation_load_path_overturning() {
     let p = 15.0;
 
     let loads = vec![SolverLoad::Nodal(SolverNodalLoad {
-        node_id: n + 1, fx: 0.0, fy: -p, mz: 0.0,
+        node_id: n + 1, fx: 0.0, fz: -p, my: 0.0,
     })];
     let input = make_beam(n, l, E, A, IZ, "fixed", None, loads);
     let results = linear::solve_2d(&input).unwrap();
@@ -112,11 +112,11 @@ fn validation_load_path_overturning() {
     let r = results.reactions.iter().find(|r| r.node_id == 1).unwrap();
 
     // Overturning moment at base = P × L
-    assert_close(r.mz.abs(), p * l, 0.02,
+    assert_close(r.my.abs(), p * l, 0.02,
         "Overturning: M = P×L");
 
     // Shear at base = P
-    assert_close(r.ry, p, 0.02, "Overturning: V = P");
+    assert_close(r.rz, p, 0.02, "Overturning: V = P");
 }
 
 // ================================================================
@@ -141,7 +141,7 @@ fn validation_load_path_truss_flow() {
         ],
         vec![(1, 1, "pinned"), (2, 2, "rollerX")],
         vec![SolverLoad::Nodal(SolverNodalLoad {
-            node_id: 3, fx: 0.0, fy: -p, mz: 0.0,
+            node_id: 3, fx: 0.0, fz: -p, my: 0.0,
         })],
     );
     let results = linear::solve_2d(&input).unwrap();
@@ -233,20 +233,20 @@ fn validation_load_path_redistribution() {
 
     // Load at one corner
     let loads = vec![SolverLoad::Nodal(SolverNodalLoad {
-        node_id: 2, fx: 0.0, fy: -p, mz: 0.0,
+        node_id: 2, fx: 0.0, fz: -p, my: 0.0,
     })];
 
     // Standard IZ
     let input1 = make_input(nodes.clone(), vec![(1, E, 0.3)],
         vec![(1, A, IZ)], elems.clone(), sups.clone(), loads.clone());
     let r1_std = linear::solve_2d(&input1).unwrap();
-    let r4_std = r1_std.reactions.iter().find(|r| r.node_id == 4).unwrap().ry;
+    let r4_std = r1_std.reactions.iter().find(|r| r.node_id == 4).unwrap().rz;
 
     // Stiff beam
     let input2 = make_input(nodes, vec![(1, E, 0.3)],
         vec![(1, A, iz_stiff)], elems, sups, loads);
     let r2_stiff = linear::solve_2d(&input2).unwrap();
-    let r4_stiff = r2_stiff.reactions.iter().find(|r| r.node_id == 4).unwrap().ry;
+    let r4_stiff = r2_stiff.reactions.iter().find(|r| r.node_id == 4).unwrap().rz;
 
     // Stiffer beam redistributes more load to far column
     assert!(r4_stiff > r4_std,
@@ -284,10 +284,10 @@ fn validation_load_path_multi_story() {
         (6, "frame", 5, 6, 1, 1, false, false), // beam floor 2
     ];
     let loads = vec![
-        SolverLoad::Nodal(SolverNodalLoad { node_id: 5, fx: 0.0, fy: -p2, mz: 0.0 }),
-        SolverLoad::Nodal(SolverNodalLoad { node_id: 6, fx: 0.0, fy: -p2, mz: 0.0 }),
-        SolverLoad::Nodal(SolverNodalLoad { node_id: 3, fx: 0.0, fy: -p1, mz: 0.0 }),
-        SolverLoad::Nodal(SolverNodalLoad { node_id: 4, fx: 0.0, fy: -p1, mz: 0.0 }),
+        SolverLoad::Nodal(SolverNodalLoad { node_id: 5, fx: 0.0, fz: -p2, my: 0.0 }),
+        SolverLoad::Nodal(SolverNodalLoad { node_id: 6, fx: 0.0, fz: -p2, my: 0.0 }),
+        SolverLoad::Nodal(SolverNodalLoad { node_id: 3, fx: 0.0, fz: -p1, my: 0.0 }),
+        SolverLoad::Nodal(SolverNodalLoad { node_id: 4, fx: 0.0, fz: -p1, my: 0.0 }),
     ];
     let input = make_input(nodes, vec![(1, E, 0.3)], vec![(1, A, IZ)], elems,
         vec![(1, 1, "fixed"), (2, 2, "fixed")], loads);
@@ -295,13 +295,13 @@ fn validation_load_path_multi_story() {
 
     // Total gravity = 2P1 + 2P2
     let total = 2.0 * p1 + 2.0 * p2;
-    let sum_ry: f64 = results.reactions.iter().map(|r| r.ry).sum();
+    let sum_ry: f64 = results.reactions.iter().map(|r| r.rz).sum();
     assert_close(sum_ry, total, 0.02,
         "Multi-story: ΣRy = total gravity");
 
     // By symmetry: equal reactions at both bases
-    let r1 = results.reactions.iter().find(|r| r.node_id == 1).unwrap().ry;
-    let r2 = results.reactions.iter().find(|r| r.node_id == 2).unwrap().ry;
+    let r1 = results.reactions.iter().find(|r| r.node_id == 1).unwrap().rz;
+    let r2 = results.reactions.iter().find(|r| r.node_id == 2).unwrap().rz;
     assert_close(r1, r2, 0.02,
         "Multi-story: symmetric reactions");
 }

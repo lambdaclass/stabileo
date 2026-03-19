@@ -57,20 +57,20 @@ fn equal_spans_udl_reactions() {
     reactions.sort_by_key(|r| r.node_id);
 
     let total_load = q.abs() * 2.0 * l; // 120
-    let sum_ry: f64 = reactions.iter().map(|r| r.ry).sum();
+    let sum_ry: f64 = reactions.iter().map(|r| r.rz).sum();
     assert_close(sum_ry, total_load, 1e-6, "sum_ry = total_load");
 
-    let r_a = reactions.iter().find(|r| r.node_id == 1).unwrap().ry;
+    let r_a = reactions.iter().find(|r| r.node_id == 1).unwrap().rz;
     let r_b = reactions
         .iter()
         .find(|r| r.node_id == 1 + n_per_span)
         .unwrap()
-        .ry;
+        .rz;
     let r_c = reactions
         .iter()
         .find(|r| r.node_id == 1 + 2 * n_per_span)
         .unwrap()
-        .ry;
+        .rz;
 
     assert_close(r_a, 22.5, 1e-4, "R_A");
     assert_close(r_b, 75.0, 1e-4, "R_B");
@@ -103,20 +103,20 @@ fn unequal_spans_udl_reactions() {
     reactions.sort_by_key(|r| r.node_id);
 
     let total_load = q.abs() * (l1 + l2); // 120
-    let sum_ry: f64 = reactions.iter().map(|r| r.ry).sum();
+    let sum_ry: f64 = reactions.iter().map(|r| r.rz).sum();
     assert_close(sum_ry, total_load, 1e-6, "sum_ry = total_load");
 
-    let r_a = reactions.iter().find(|r| r.node_id == 1).unwrap().ry;
+    let r_a = reactions.iter().find(|r| r.node_id == 1).unwrap().rz;
     let r_b = reactions
         .iter()
         .find(|r| r.node_id == 1 + n_per_span)
         .unwrap()
-        .ry;
+        .rz;
     let r_c = reactions
         .iter()
         .find(|r| r.node_id == 1 + 2 * n_per_span)
         .unwrap()
-        .ry;
+        .rz;
 
     assert_close(r_a, 5.0, 1e-3, "R_A (unequal)");
     assert_close(r_b, 82.5, 1e-3, "R_B (unequal)");
@@ -143,8 +143,8 @@ fn point_load_midspan_equilibrium() {
     let loads = vec![SolverLoad::Nodal(SolverNodalLoad {
         node_id: 2,
         fx: 0.0,
-        fy: p,
-        mz: 0.0,
+        fz: p,
+        my: 0.0,
     })];
 
     let input = make_continuous_beam(&[l, l], n_per_span, E, A, IZ, loads);
@@ -154,20 +154,20 @@ fn point_load_midspan_equilibrium() {
     reactions.sort_by_key(|r| r.node_id);
 
     // Equilibrium: sum of vertical reactions must equal |P|.
-    let sum_ry: f64 = reactions.iter().map(|r| r.ry).sum();
+    let sum_ry: f64 = reactions.iter().map(|r| r.rz).sum();
     assert_close(sum_ry, p.abs(), 1e-6, "sum_ry = |P|");
 
-    let r_a = reactions.iter().find(|r| r.node_id == 1).unwrap().ry;
+    let r_a = reactions.iter().find(|r| r.node_id == 1).unwrap().rz;
     let r_b = reactions
         .iter()
         .find(|r| r.node_id == 1 + n_per_span)
         .unwrap()
-        .ry;
+        .rz;
     let r_c = reactions
         .iter()
         .find(|r| r.node_id == 1 + 2 * n_per_span)
         .unwrap()
-        .ry;
+        .rz;
 
     // Verify analytical values from force method.
     assert_close(r_a, 12.1875, 1e-3, "R_A (point load)");
@@ -254,7 +254,7 @@ fn deflection_three_support_vs_simply_supported() {
         .iter()
         .find(|d| d.node_id == 5)
         .unwrap()
-        .uy;
+        .uz;
 
     // Continuous beam: midspan of span 1 at x=3 (node 3 for n_per_span=4).
     let uy_cont_mid = results_cont
@@ -262,7 +262,7 @@ fn deflection_three_support_vs_simply_supported() {
         .iter()
         .find(|d| d.node_id == 3)
         .unwrap()
-        .uy;
+        .uz;
 
     // Both deflections should be downward (negative).
     assert!(uy_ss_mid < 0.0, "SS midspan deflection should be negative");
@@ -302,7 +302,7 @@ fn support_settlement_changes_reactions() {
             SolverNode {
                 id: i + 1,
                 x: i as f64 * elem_len,
-                y: 0.0,
+                z: 0.0,
             },
         );
     }
@@ -360,8 +360,8 @@ fn support_settlement_changes_reactions() {
             ky: None,
             kz: None,
             dx: None,
-            dy: None,
-            drz: None,
+            dz: None,
+            dry: None,
             angle: None,
         },
     );
@@ -375,8 +375,8 @@ fn support_settlement_changes_reactions() {
             ky: None,
             kz: None,
             dx: None,
-            dy: Some(-0.01),
-            drz: None,
+            dz: Some(-0.01),
+            dry: None,
             angle: None,
         },
     );
@@ -390,15 +390,15 @@ fn support_settlement_changes_reactions() {
             ky: None,
             kz: None,
             dx: None,
-            dy: None,
-            drz: None,
+            dz: None,
+            dry: None,
             angle: None,
         },
     );
 
     // Unsettled case.
     let mut sups_unsettled = sups_settled.clone();
-    sups_unsettled.get_mut("2").unwrap().dy = None;
+    sups_unsettled.get_mut("2").unwrap().dz = None;
 
     let loads = udl_loads(total_elems, q);
 
@@ -426,8 +426,8 @@ fn support_settlement_changes_reactions() {
 
     // Both must satisfy equilibrium: sum_ry = total_load.
     let total_load = q.abs() * 2.0 * l; // 100
-    let sum_settled: f64 = results_settled.reactions.iter().map(|r| r.ry).sum();
-    let sum_unsettled: f64 = results_unsettled.reactions.iter().map(|r| r.ry).sum();
+    let sum_settled: f64 = results_settled.reactions.iter().map(|r| r.rz).sum();
+    let sum_unsettled: f64 = results_unsettled.reactions.iter().map(|r| r.rz).sum();
     assert_close(sum_settled, total_load, 1e-4, "settled sum_ry");
     assert_close(sum_unsettled, total_load, 1e-4, "unsettled sum_ry");
 
@@ -437,13 +437,13 @@ fn support_settlement_changes_reactions() {
         .iter()
         .find(|r| r.node_id == interior_node)
         .unwrap()
-        .ry;
+        .rz;
     let rb_unsettled = results_unsettled
         .reactions
         .iter()
         .find(|r| r.node_id == interior_node)
         .unwrap()
-        .ry;
+        .rz;
 
     let diff = (rb_settled - rb_unsettled).abs();
     assert!(
@@ -533,7 +533,7 @@ fn three_support_full_equilibrium() {
     reactions.sort_by_key(|r| r.node_id);
 
     let total_load = q.abs() * (l1 + l2); // 144
-    let sum_ry: f64 = reactions.iter().map(|r| r.ry).sum();
+    let sum_ry: f64 = reactions.iter().map(|r| r.rz).sum();
 
     // Check 1: sum of vertical reactions = total load.
     assert_close(sum_ry, total_load, 1e-6, "sum Ry = total load");
@@ -543,17 +543,17 @@ fn three_support_full_equilibrium() {
     let x_b = l1;
     let x_c = l1 + l2;
 
-    let r_a = reactions.iter().find(|r| r.node_id == 1).unwrap().ry;
+    let r_a = reactions.iter().find(|r| r.node_id == 1).unwrap().rz;
     let r_b = reactions
         .iter()
         .find(|r| r.node_id == 1 + n_per_span)
         .unwrap()
-        .ry;
+        .rz;
     let r_c = reactions
         .iter()
         .find(|r| r.node_id == 1 + 2 * n_per_span)
         .unwrap()
-        .ry;
+        .rz;
 
     let total_length = l1 + l2;
 

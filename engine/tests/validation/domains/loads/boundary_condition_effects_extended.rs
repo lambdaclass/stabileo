@@ -49,7 +49,7 @@ fn validation_bce_settlement_moment() {
     for i in 0..=n {
         nodes.insert(
             (i + 1).to_string(),
-            SolverNode { id: i + 1, x: i as f64 * elem_len, y: 0.0 },
+            SolverNode { id: i + 1, x: i as f64 * elem_len, z: 0.0 },
         );
     }
     let mut mats = HashMap::new();
@@ -72,12 +72,12 @@ fn validation_bce_settlement_moment() {
     sups.insert("1".to_string(), SolverSupport {
         id: 1, node_id: 1, support_type: "fixed".to_string(),
         kx: None, ky: None, kz: None,
-        dx: None, dy: None, drz: None, angle: None,
+        dx: None, dz: None, dry: None, angle: None,
     });
     sups.insert("2".to_string(), SolverSupport {
         id: 2, node_id: n + 1, support_type: "fixed".to_string(),
         kx: None, ky: None, kz: None,
-        dx: None, dy: Some(-delta), drz: None, angle: None,
+        dx: None, dz: Some(-delta), dry: None, angle: None,
     });
     let input = SolverInput {
         nodes, materials: mats, sections: secs,
@@ -90,14 +90,14 @@ fn validation_bce_settlement_moment() {
     let r1 = results.reactions.iter().find(|r| r.node_id == 1).unwrap();
     let r2 = results.reactions.iter().find(|r| r.node_id == n + 1).unwrap();
 
-    assert_close(r1.mz.abs(), m_exact, 0.05,
+    assert_close(r1.my.abs(), m_exact, 0.05,
         "BCE settlement: M_left = 6EIδ/L²");
-    assert_close(r2.mz.abs(), m_exact, 0.05,
+    assert_close(r2.my.abs(), m_exact, 0.05,
         "BCE settlement: M_right = 6EIδ/L²");
 
     // V = 12EIδ/L³
     let v_exact = 12.0 * e_eff * IZ * delta / (l * l * l);
-    assert_close(r1.ry.abs(), v_exact, 0.05,
+    assert_close(r1.rz.abs(), v_exact, 0.05,
         "BCE settlement: V = 12EIδ/L³");
 }
 
@@ -125,18 +125,18 @@ fn validation_bce_symmetric_reactions() {
 
     // Both vertical reactions should equal qL/2
     let r_exact = q.abs() * l / 2.0;
-    assert_close(r_left.ry, r_exact, 0.01,
+    assert_close(r_left.rz, r_exact, 0.01,
         "BCE symmetric: R_left = qL/2");
-    assert_close(r_right.ry, r_exact, 0.01,
+    assert_close(r_right.rz, r_exact, 0.01,
         "BCE symmetric: R_right = qL/2");
 
     // Deflections at L/4 and 3L/4 should be equal by symmetry
     let n_quarter = n / 4 + 1;       // node at L/4
     let n_three_quarter = 3 * n / 4 + 1; // node at 3L/4
     let d_quarter = results.displacements.iter()
-        .find(|d| d.node_id == n_quarter).unwrap().uy;
+        .find(|d| d.node_id == n_quarter).unwrap().uz;
     let d_three_quarter = results.displacements.iter()
-        .find(|d| d.node_id == n_three_quarter).unwrap().uy;
+        .find(|d| d.node_id == n_three_quarter).unwrap().uz;
 
     let sym_err: f64 = (d_quarter - d_three_quarter).abs();
     assert!(sym_err < 1e-10,
@@ -161,7 +161,7 @@ fn validation_bce_cantilever_tip_rotation() {
     let e_eff: f64 = E * 1000.0;
 
     let loads = vec![SolverLoad::Nodal(SolverNodalLoad {
-        node_id: n + 1, fx: 0.0, fy: -p, mz: 0.0,
+        node_id: n + 1, fx: 0.0, fz: -p, my: 0.0,
     })];
     let input = make_beam(n, l, E, A, IZ, "fixed", None, loads);
     let results = linear::solve_2d(&input).unwrap();
@@ -172,12 +172,12 @@ fn validation_bce_cantilever_tip_rotation() {
     // θ_tip = PL²/(2EI)
     let theta_exact = p * l * l / (2.0 * e_eff * IZ);
     // Negative rotation for downward load on cantilever extending along +x
-    assert_close(tip.rz.abs(), theta_exact, 0.02,
+    assert_close(tip.ry.abs(), theta_exact, 0.02,
         "BCE cantilever tip rotation: θ = PL²/(2EI)");
 
     // Also verify tip deflection: δ = PL³/(3EI)
     let delta_exact = p * l.powi(3) / (3.0 * e_eff * IZ);
-    assert_close(tip.uy.abs(), delta_exact, 0.02,
+    assert_close(tip.uz.abs(), delta_exact, 0.02,
         "BCE cantilever tip deflection: δ = PL³/(3EI)");
 }
 
@@ -208,13 +208,13 @@ fn validation_bce_ss_end_rotation_udl() {
     // θ = qL³/(24EI) (magnitude)
     let theta_exact = q.abs() * l.powi(3) / (24.0 * e_eff * IZ);
 
-    assert_close(d_left.rz.abs(), theta_exact, 0.02,
+    assert_close(d_left.ry.abs(), theta_exact, 0.02,
         "BCE SS end rotation left: θ = qL³/(24EI)");
-    assert_close(d_right.rz.abs(), theta_exact, 0.02,
+    assert_close(d_right.ry.abs(), theta_exact, 0.02,
         "BCE SS end rotation right: θ = qL³/(24EI)");
 
     // Both rotations should have equal magnitude (symmetric loading)
-    let rot_diff: f64 = (d_left.rz.abs() - d_right.rz.abs()).abs();
+    let rot_diff: f64 = (d_left.ry.abs() - d_right.ry.abs()).abs();
     assert!(rot_diff < 1e-10,
         "BCE SS end rotations equal by symmetry: diff = {:.6e}", rot_diff);
 }
@@ -291,10 +291,10 @@ fn validation_bce_internal_hinge_zero_moment() {
     let results_no_hinge = linear::solve_2d(&input_no_hinge).unwrap();
 
     let max_hinge: f64 = results.displacements.iter()
-        .map(|d| d.uy.abs())
+        .map(|d| d.uz.abs())
         .fold(0.0_f64, f64::max);
     let max_no_hinge: f64 = results_no_hinge.displacements.iter()
-        .map(|d| d.uy.abs())
+        .map(|d| d.uz.abs())
         .fold(0.0_f64, f64::max);
     assert!(max_hinge > max_no_hinge,
         "BCE internal hinge increases deflection: {:.6e} > {:.6e}", max_hinge, max_no_hinge);
@@ -320,7 +320,7 @@ fn validation_bce_fixed_fixed_midspan_point_load() {
     let mid = n / 2 + 1;
 
     let loads = vec![SolverLoad::Nodal(SolverNodalLoad {
-        node_id: mid, fx: 0.0, fy: -p, mz: 0.0,
+        node_id: mid, fx: 0.0, fz: -p, my: 0.0,
     })];
     let input = make_beam(n, l, E, A, IZ, "fixed", Some("fixed"), loads);
     let results = linear::solve_2d(&input).unwrap();
@@ -330,23 +330,23 @@ fn validation_bce_fixed_fixed_midspan_point_load() {
     let r2 = results.reactions.iter().find(|r| r.node_id == n + 1).unwrap();
 
     // R = P/2 each
-    assert_close(r1.ry, p / 2.0, 0.02,
+    assert_close(r1.rz, p / 2.0, 0.02,
         "BCE fixed-fixed P mid: R_left = P/2");
-    assert_close(r2.ry, p / 2.0, 0.02,
+    assert_close(r2.rz, p / 2.0, 0.02,
         "BCE fixed-fixed P mid: R_right = P/2");
 
     // M_fixed = PL/8
     let m_exact = p * l / 8.0;
-    assert_close(r1.mz.abs(), m_exact, 0.02,
+    assert_close(r1.my.abs(), m_exact, 0.02,
         "BCE fixed-fixed P mid: M_left = PL/8");
-    assert_close(r2.mz.abs(), m_exact, 0.02,
+    assert_close(r2.my.abs(), m_exact, 0.02,
         "BCE fixed-fixed P mid: M_right = PL/8");
 
     // δ_mid = PL³/(192 EI)
     let delta_exact = p * l.powi(3) / (192.0 * e_eff * IZ);
     let d_mid = results.displacements.iter()
         .find(|d| d.node_id == mid).unwrap();
-    assert_close(d_mid.uy.abs(), delta_exact, 0.05,
+    assert_close(d_mid.uz.abs(), delta_exact, 0.05,
         "BCE fixed-fixed P mid: δ = PL³/(192EI)");
 }
 
@@ -370,7 +370,7 @@ fn validation_bce_propped_cantilever_point_load() {
     let mid = n / 2 + 1;
 
     let loads = vec![SolverLoad::Nodal(SolverNodalLoad {
-        node_id: mid, fx: 0.0, fy: -p, mz: 0.0,
+        node_id: mid, fx: 0.0, fz: -p, my: 0.0,
     })];
     let input = make_beam(n, l, E, A, IZ, "fixed", Some("rollerX"), loads);
     let results = linear::solve_2d(&input).unwrap();
@@ -379,20 +379,20 @@ fn validation_bce_propped_cantilever_point_load() {
     let r_right = results.reactions.iter()
         .find(|r| r.node_id == n + 1).unwrap();
     let rb_exact = 5.0 * p / 16.0;
-    assert_close(r_right.ry, rb_exact, 0.02,
+    assert_close(r_right.rz, rb_exact, 0.02,
         "BCE propped cantilever: R_roller = 5P/16");
 
     // R_fixed (left end) = P - 5P/16 = 11P/16
     let r_left = results.reactions.iter()
         .find(|r| r.node_id == 1).unwrap();
     let ra_exact = 11.0 * p / 16.0;
-    assert_close(r_left.ry, ra_exact, 0.02,
+    assert_close(r_left.rz, ra_exact, 0.02,
         "BCE propped cantilever: R_fixed = 11P/16");
 
     // Fixed-end moment: M_A = 3PL/16 for load at midspan
     let ma_exact = 3.0 * p * l / 16.0;
     // The fixed end moment should be negative (hogging) for downward load
-    assert_close(r_left.mz.abs(), ma_exact, 0.05,
+    assert_close(r_left.my.abs(), ma_exact, 0.05,
         "BCE propped cantilever: M_fixed = 3PL/16");
 }
 
@@ -415,7 +415,7 @@ fn validation_bce_cantilever_end_moment() {
     let e_eff: f64 = E * 1000.0;
 
     let loads = vec![SolverLoad::Nodal(SolverNodalLoad {
-        node_id: n + 1, fx: 0.0, fy: 0.0, mz: m_app,
+        node_id: n + 1, fx: 0.0, fz: 0.0, my: m_app,
     })];
     let input = make_beam(n, l, E, A, IZ, "fixed", None, loads);
     let results = linear::solve_2d(&input).unwrap();
@@ -425,12 +425,12 @@ fn validation_bce_cantilever_end_moment() {
 
     // δ_tip = ML²/(2EI)
     let delta_exact = m_app * l * l / (2.0 * e_eff * IZ);
-    assert_close(tip.uy.abs(), delta_exact, 0.02,
+    assert_close(tip.uz.abs(), delta_exact, 0.02,
         "BCE cantilever moment: δ = ML²/(2EI)");
 
     // θ_tip = ML/(EI)
     let theta_exact = m_app * l / (e_eff * IZ);
-    assert_close(tip.rz.abs(), theta_exact, 0.02,
+    assert_close(tip.ry.abs(), theta_exact, 0.02,
         "BCE cantilever moment: θ = ML/(EI)");
 
     // Shear should be zero in all elements (pure bending)
@@ -446,9 +446,9 @@ fn validation_bce_cantilever_end_moment() {
     // Reaction moment at fixed end should equal applied moment (equilibrium)
     let r_fixed = results.reactions.iter()
         .find(|r| r.node_id == 1).unwrap();
-    assert_close(r_fixed.mz.abs(), m_app, 0.01,
+    assert_close(r_fixed.my.abs(), m_app, 0.01,
         "BCE cantilever moment: reaction M = applied M");
     // No vertical reaction (no transverse load)
-    assert!(r_fixed.ry.abs() < 1e-6,
-        "BCE cantilever moment: R_y = {:.6e}, expected ~0", r_fixed.ry);
+    assert!(r_fixed.rz.abs() < 1e-6,
+        "BCE cantilever moment: R_y = {:.6e}, expected ~0", r_fixed.rz);
 }

@@ -155,7 +155,7 @@ fn validation_redistrib_ext_two_span_unequal_loads() {
     //   R_A = w1*L/2 - |M_B|/L
     let r_a_exact = w1 * l / 2.0 - m_b_exact / l;
     let r_a = results.reactions.iter().find(|r| r.node_id == 1).unwrap();
-    assert_close(r_a.ry, r_a_exact, 0.03,
+    assert_close(r_a.rz, r_a_exact, 0.03,
         "Two-span unequal loads: R_A");
 
     // Span BC: sum moments about B => R_C*L = w2*L^2/2 - |M_B|
@@ -163,12 +163,12 @@ fn validation_redistrib_ext_two_span_unequal_loads() {
     let r_c = results.reactions.iter()
         .find(|r| r.node_id == 2 * n_per_span + 1).unwrap();
     let r_c_exact = w2 * l / 2.0 - m_b_exact / l;
-    assert_close(r_c.ry, r_c_exact, 0.03,
+    assert_close(r_c.rz, r_c_exact, 0.03,
         "Two-span unequal loads: R_C");
 
     // Global equilibrium: sum reactions = total load
     let total_load = w1 * l + w2 * l;
-    let sum_ry: f64 = results.reactions.iter().map(|r| r.ry).sum();
+    let sum_ry: f64 = results.reactions.iter().map(|r| r.rz).sum();
     assert_close(sum_ry, total_load, 0.01,
         "Two-span unequal loads: global equilibrium");
 }
@@ -192,7 +192,7 @@ fn validation_redistrib_ext_fixed_fixed_point_load() {
     // Apply point load at the midspan node
     let mid_node = n / 2 + 1; // node at L/2
     let loads = vec![SolverLoad::Nodal(SolverNodalLoad {
-        node_id: mid_node, fx: 0.0, fy: p, mz: 0.0,
+        node_id: mid_node, fx: 0.0, fz: p, my: 0.0,
     })];
 
     let input = make_beam(n, l, E, A, IZ, "fixed", Some("fixed"), loads);
@@ -205,19 +205,19 @@ fn validation_redistrib_ext_fixed_fixed_point_load() {
     let r1 = results.reactions.iter().find(|r| r.node_id == 1).unwrap();
     let r_end = results.reactions.iter().find(|r| r.node_id == n + 1).unwrap();
 
-    assert_close(r1.mz.abs(), m_exact, 0.02,
+    assert_close(r1.my.abs(), m_exact, 0.02,
         "Fixed-fixed point load: M_A = PL/8");
-    assert_close(r_end.mz.abs(), m_exact, 0.02,
+    assert_close(r_end.my.abs(), m_exact, 0.02,
         "Fixed-fixed point load: M_B = PL/8");
 
     // Reactions: R_A = R_B = P/2
-    assert_close(r1.ry, p_abs / 2.0, 0.02,
+    assert_close(r1.rz, p_abs / 2.0, 0.02,
         "Fixed-fixed point load: R_A = P/2");
-    assert_close(r_end.ry, p_abs / 2.0, 0.02,
+    assert_close(r_end.rz, p_abs / 2.0, 0.02,
         "Fixed-fixed point load: R_B = P/2");
 
     // Symmetry of end moments
-    assert_close(r1.mz.abs(), r_end.mz.abs(), 0.005,
+    assert_close(r1.my.abs(), r_end.my.abs(), 0.005,
         "Fixed-fixed point load: symmetry M_A = M_B");
 }
 
@@ -246,7 +246,7 @@ fn validation_redistrib_ext_propped_cantilever_point_load() {
 
     let mid_node = n / 2 + 1;
     let loads = vec![SolverLoad::Nodal(SolverNodalLoad {
-        node_id: mid_node, fx: 0.0, fy: p, mz: 0.0,
+        node_id: mid_node, fx: 0.0, fz: p, my: 0.0,
     })];
 
     let input = make_beam(n, l, E, A, IZ, "fixed", Some("rollerX"), loads);
@@ -257,22 +257,22 @@ fn validation_redistrib_ext_propped_cantilever_point_load() {
     // M_A = 3PL/16
     let m_a_exact = 3.0 * p_abs * l / 16.0;
     let r_a = results.reactions.iter().find(|r| r.node_id == 1).unwrap();
-    assert_close(r_a.mz.abs(), m_a_exact, 0.02,
+    assert_close(r_a.my.abs(), m_a_exact, 0.02,
         "Propped cantilever point load: M_A = 3PL/16");
 
     // R_A = 11P/16
     let r_a_exact = 11.0 * p_abs / 16.0;
-    assert_close(r_a.ry, r_a_exact, 0.02,
+    assert_close(r_a.rz, r_a_exact, 0.02,
         "Propped cantilever point load: R_A = 11P/16");
 
     // R_B = 5P/16
     let r_b_exact = 5.0 * p_abs / 16.0;
     let r_b = results.reactions.iter().find(|r| r.node_id == n + 1).unwrap();
-    assert_close(r_b.ry, r_b_exact, 0.02,
+    assert_close(r_b.rz, r_b_exact, 0.02,
         "Propped cantilever point load: R_B = 5P/16");
 
     // Equilibrium: R_A + R_B = P
-    assert_close(r_a.ry + r_b.ry, p_abs, 0.01,
+    assert_close(r_a.rz + r_b.rz, p_abs, 0.01,
         "Propped cantilever point load: equilibrium");
 }
 
@@ -340,7 +340,7 @@ fn validation_redistrib_ext_pattern_loading_center_span() {
     // For span AB (no load): R_A*L + M_B = 0 => R_A = -M_B/L = wL/20 (upward)
     let r_a = results.reactions.iter().find(|r| r.node_id == 1).unwrap();
     let r_a_exact = w * l / 20.0;
-    assert_close(r_a.ry.abs(), r_a_exact, 0.05,
+    assert_close(r_a.rz.abs(), r_a_exact, 0.05,
         "Pattern loading: R_A from redistribution");
 }
 
@@ -388,7 +388,7 @@ fn validation_redistrib_ext_two_span_different_lengths() {
     // For span AB: R_A*L1 = w*L1^2/2 - M_B => R_A = wL1/2 - M_B/L1
     let r_a_exact = w * l1 / 2.0 - m_b_exact / l1;
     let r_a = results.reactions.iter().find(|r| r.node_id == 1).unwrap();
-    assert_close(r_a.ry, r_a_exact, 0.03,
+    assert_close(r_a.rz, r_a_exact, 0.03,
         "Two-span different lengths: R_A");
 
     // For span BC: sum moments about B => R_C*L2 = w*L2^2/2 - |M_B|
@@ -396,12 +396,12 @@ fn validation_redistrib_ext_two_span_different_lengths() {
     let r_c_exact = w * l2 / 2.0 - m_b_exact / l2;
     let r_c = results.reactions.iter()
         .find(|r| r.node_id == 2 * n_per_span + 1).unwrap();
-    assert_close(r_c.ry, r_c_exact, 0.03,
+    assert_close(r_c.rz, r_c_exact, 0.03,
         "Two-span different lengths: R_C");
 
     // Global equilibrium
     let total_load = w * (l1 + l2);
-    let sum_ry: f64 = results.reactions.iter().map(|r| r.ry).sum();
+    let sum_ry: f64 = results.reactions.iter().map(|r| r.rz).sum();
     assert_close(sum_ry, total_load, 0.01,
         "Two-span different lengths: global equilibrium");
 }
@@ -474,17 +474,17 @@ fn validation_redistrib_ext_portal_frame_lateral_load() {
     //   Reaction moments: M1 + M4 + R4_y * w_span
     //   These must be equal: M1 + M4 + R4_y * w = H * h
     let overturning = h_load * h;
-    let resisting = r1.mz + r4.mz + r4.ry * w_span;
+    let resisting = r1.my + r4.my + r4.rz * w_span;
     assert_close(resisting, overturning, 0.02,
         "Portal lateral: moment equilibrium about base-left");
 
     // Vertical equilibrium: sum of vertical reactions = 0 (no vertical applied load)
-    let sum_ry: f64 = results.reactions.iter().map(|r| r.ry).sum();
+    let sum_ry: f64 = results.reactions.iter().map(|r| r.rz).sum();
     assert!(sum_ry.abs() < 0.01,
         "Portal lateral: vertical equilibrium, sum_ry={:.6}", sum_ry);
 
     // By antisymmetry, the two base moments should be approximately equal
-    assert_close(r1.mz, r4.mz, 0.02,
+    assert_close(r1.my, r4.my, 0.02,
         "Portal lateral: approximate symmetry of base moments");
 }
 
@@ -538,22 +538,22 @@ fn validation_redistrib_ext_propped_cantilever_triangular_load() {
     // R_B = 11wL/40
     let r_b_exact = 11.0 * w * l / 40.0;
     let r_b = results.reactions.iter().find(|r| r.node_id == n + 1).unwrap();
-    assert_close(r_b.ry, r_b_exact, 0.03,
+    assert_close(r_b.rz, r_b_exact, 0.03,
         "Propped cantilever triangular: R_B = 11wL/40");
 
     // R_A = 9wL/40
     let r_a_exact = 9.0 * w * l / 40.0;
     let r_a = results.reactions.iter().find(|r| r.node_id == 1).unwrap();
-    assert_close(r_a.ry, r_a_exact, 0.03,
+    assert_close(r_a.rz, r_a_exact, 0.03,
         "Propped cantilever triangular: R_A = 9wL/40");
 
     // M_A = 7wL^2/120 (hogging)
     let m_a_exact = 7.0 * w * l * l / 120.0;
-    assert_close(r_a.mz.abs(), m_a_exact, 0.03,
+    assert_close(r_a.my.abs(), m_a_exact, 0.03,
         "Propped cantilever triangular: M_A = 7wL^2/120");
 
     // Equilibrium: R_A + R_B = total load = wL/2
     let total_load = w * l / 2.0;
-    assert_close(r_a.ry + r_b.ry, total_load, 0.01,
+    assert_close(r_a.rz + r_b.rz, total_load, 0.01,
         "Propped cantilever triangular: vertical equilibrium");
 }

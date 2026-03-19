@@ -37,7 +37,7 @@ fn validation_load_point_on_element() {
 
     let input = make_beam(1, l, E, A, IZ, "pinned", Some("rollerX"),
         vec![SolverLoad::PointOnElement(SolverPointLoadOnElement {
-            element_id: 1, a: a_pos, p: -p, px: None, mz: None,
+            element_id: 1, a: a_pos, p: -p, px: None, my: None,
         })]);
 
     let results = linear::solve_2d(&input).unwrap();
@@ -47,8 +47,8 @@ fn validation_load_point_on_element() {
     let ra_exact = p * b_pos / l;
     let rb_exact = p * a_pos / l;
 
-    let ra = results.reactions.iter().find(|r| r.node_id == 1).unwrap().ry;
-    let rb = results.reactions.iter().find(|r| r.node_id == 2).unwrap().ry;
+    let ra = results.reactions.iter().find(|r| r.node_id == 1).unwrap().rz;
+    let rb = results.reactions.iter().find(|r| r.node_id == 2).unwrap().rz;
 
     let err_ra = (ra - ra_exact).abs() / ra_exact;
     let err_rb = (rb - rb_exact).abs() / rb_exact;
@@ -86,14 +86,14 @@ fn validation_load_trapezoidal() {
 
     // Total applied load = (q_i + q_j) × L / 2
     let total_load = (q_start.abs() + q_end.abs()) * l / 2.0;
-    let sum_ry: f64 = results.reactions.iter().map(|r| r.ry).sum();
+    let sum_ry: f64 = results.reactions.iter().map(|r| r.rz).sum();
     let err = (sum_ry - total_load).abs() / total_load;
     assert!(err < 0.01,
         "Trapezoidal equilibrium: ΣRy={:.4}, total={:.4}", sum_ry, total_load);
 
     // The reaction at the more heavily loaded end should be larger
-    let ra = results.reactions.iter().find(|r| r.node_id == 1).unwrap().ry;
-    let rb = results.reactions.iter().find(|r| r.node_id == n + 1).unwrap().ry;
+    let ra = results.reactions.iter().find(|r| r.node_id == 1).unwrap().rz;
+    let rb = results.reactions.iter().find(|r| r.node_id == n + 1).unwrap().rz;
     // q_end > q_start (both negative, but |q_end| > |q_start|), so right reaction > left
     assert!(rb > ra,
         "Right reaction should be larger: R_B={:.4}, R_A={:.4}", rb, ra);
@@ -115,15 +115,15 @@ fn validation_load_moment_at_midspan() {
     let mid = n / 2 + 1;
     let input = make_beam(n, l, E, A, IZ, "pinned", Some("rollerX"),
         vec![SolverLoad::Nodal(SolverNodalLoad {
-            node_id: mid, fx: 0.0, fy: 0.0, mz: m,
+            node_id: mid, fx: 0.0, fz: 0.0, my: m,
         })]);
 
     let results = linear::solve_2d(&input).unwrap();
 
     // Reactions form a couple: R_A = -M/L, R_B = M/L
     let r_exact = m / l;
-    let ra = results.reactions.iter().find(|r| r.node_id == 1).unwrap().ry;
-    let rb = results.reactions.iter().find(|r| r.node_id == n + 1).unwrap().ry;
+    let ra = results.reactions.iter().find(|r| r.node_id == 1).unwrap().rz;
+    let rb = results.reactions.iter().find(|r| r.node_id == n + 1).unwrap().rz;
 
     // Check they form a couple (equal and opposite)
     let err_sum = (ra + rb).abs() / r_exact;
@@ -151,14 +151,14 @@ fn validation_load_concentrated_moment_on_element() {
     let elem_len = l / n as f64;
     let input = make_beam(n, l, E, A, IZ, "pinned", Some("rollerX"),
         vec![SolverLoad::PointOnElement(SolverPointLoadOnElement {
-            element_id: 2, a: elem_len / 2.0, p: 0.0, px: None, mz: Some(m),
+            element_id: 2, a: elem_len / 2.0, p: 0.0, px: None, my: Some(m),
         })]);
 
     let results = linear::solve_2d(&input).unwrap();
 
     // Reactions should form a couple: R_A + R_B = 0
-    let ra = results.reactions.iter().find(|r| r.node_id == 1).unwrap().ry;
-    let rb = results.reactions.iter().find(|r| r.node_id == n + 1).unwrap().ry;
+    let ra = results.reactions.iter().find(|r| r.node_id == 1).unwrap().rz;
+    let rb = results.reactions.iter().find(|r| r.node_id == n + 1).unwrap().rz;
 
     // Sum should be zero (pure moment, no net vertical)
     let r_max = ra.abs().max(rb.abs()).max(1e-12);
@@ -196,7 +196,7 @@ fn validation_load_multiple_distributed() {
 
     let elem_len = l / n as f64;
     let total_load: f64 = qs.iter().map(|q| q.abs() * elem_len).sum();
-    let sum_ry: f64 = results.reactions.iter().map(|r| r.ry).sum();
+    let sum_ry: f64 = results.reactions.iter().map(|r| r.rz).sum();
 
     let err = (sum_ry - total_load).abs() / total_load;
     assert!(err < 0.01,
@@ -218,7 +218,7 @@ fn validation_load_horizontal_axial() {
 
     let input = make_beam(n, l, E, A, IZ, "pinned", Some("rollerX"),
         vec![SolverLoad::Nodal(SolverNodalLoad {
-            node_id: n + 1, fx, fy: 0.0, mz: 0.0,
+            node_id: n + 1, fx, fz: 0.0, my: 0.0,
         })]);
 
     let results = linear::solve_2d(&input).unwrap();
@@ -245,7 +245,7 @@ fn validation_load_axial_cantilever() {
 
     let input = make_beam(n, l, E, A, IZ, "fixed", None,
         vec![SolverLoad::Nodal(SolverNodalLoad {
-            node_id: n + 1, fx: p, fy: 0.0, mz: 0.0,
+            node_id: n + 1, fx: p, fz: 0.0, my: 0.0,
         })]);
 
     let results = linear::solve_2d(&input).unwrap();
@@ -270,12 +270,12 @@ fn validation_load_combined_axial_bending() {
     let l = 4.0;
     let n = 4;
     let fx = 50.0;
-    let fy = -10.0;
+    let fy: f64 = -10.0;
     let e_eff = E * 1000.0;
 
     let input = make_beam(n, l, E, A, IZ, "fixed", None,
         vec![SolverLoad::Nodal(SolverNodalLoad {
-            node_id: n + 1, fx, fy, mz: 0.0,
+            node_id: n + 1, fx, fz: fy, my: 0.0,
         })]);
 
     let results = linear::solve_2d(&input).unwrap();
@@ -289,7 +289,7 @@ fn validation_load_combined_axial_bending() {
 
     // Bending: δy = PL³/(3EI)
     let dy_exact = fy.abs() * l.powi(3) / (3.0 * e_eff * IZ);
-    let err_y = (tip.uy.abs() - dy_exact).abs() / dy_exact;
+    let err_y = (tip.uz.abs() - dy_exact).abs() / dy_exact;
     assert!(err_y < 0.05,
-        "Combined bending: uy={:.6e}, exact={:.6e}", tip.uy.abs(), dy_exact);
+        "Combined bending: uy={:.6e}, exact={:.6e}", tip.uz.abs(), dy_exact);
 }

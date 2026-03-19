@@ -85,18 +85,18 @@ fn validation_cable_ext_catenary_sag() {
         ],
         vec![(1, 1, "pinned"), (2, 3, "pinned")],
         vec![SolverLoad::Nodal(SolverNodalLoad {
-            node_id: 2, fx: 0.0, fy: -p, mz: 0.0,
+            node_id: 2, fx: 0.0, fz: -p, my: 0.0,
         })],
     );
     let results = linear::solve_2d(&input).unwrap();
 
     // Global equilibrium: total vertical reaction = applied load
-    let sum_ry: f64 = results.reactions.iter().map(|r| r.ry).sum();
+    let sum_ry: f64 = results.reactions.iter().map(|r| r.rz).sum();
     assert_close(sum_ry, p, 0.01, "Catenary: vertical equilibrium");
 
     // Symmetric reactions
-    let r_left = results.reactions.iter().find(|r| r.node_id == 1).unwrap().ry;
-    let r_right = results.reactions.iter().find(|r| r.node_id == 3).unwrap().ry;
+    let r_left = results.reactions.iter().find(|r| r.node_id == 1).unwrap().rz;
+    let r_right = results.reactions.iter().find(|r| r.node_id == 3).unwrap().rz;
     assert_close(r_left, r_right, 0.02, "Catenary: symmetric reactions");
     assert_close(r_left, p / 2.0, 0.02, "Catenary: V_A = P/2");
 
@@ -109,7 +109,7 @@ fn validation_cable_ext_catenary_sag() {
 
     // Verify the relationship: as area doubles, deflection halves
     let d_mid = results.displacements.iter()
-        .find(|d| d.node_id == 2).unwrap().uy.abs();
+        .find(|d| d.node_id == 2).unwrap().uz.abs();
     assert!(d_mid > 0.0, "Catenary: midspan deflects downward");
 
     let input2 = make_input(
@@ -122,11 +122,11 @@ fn validation_cable_ext_catenary_sag() {
         ],
         vec![(1, 1, "pinned"), (2, 3, "pinned")],
         vec![SolverLoad::Nodal(SolverNodalLoad {
-            node_id: 2, fx: 0.0, fy: -p, mz: 0.0,
+            node_id: 2, fx: 0.0, fz: -p, my: 0.0,
         })],
     );
     let d_mid2 = linear::solve_2d(&input2).unwrap()
-        .displacements.iter().find(|d| d.node_id == 2).unwrap().uy.abs();
+        .displacements.iter().find(|d| d.node_id == 2).unwrap().uz.abs();
 
     assert_close(d_mid / d_mid2, 2.0, 0.02, "Catenary: delta proportional to 1/A");
 
@@ -181,7 +181,7 @@ fn validation_cable_ext_point_load_parabolic() {
         ],
         vec![(1, 1, "pinned"), (2, 3, "pinned")],
         vec![SolverLoad::Nodal(SolverNodalLoad {
-            node_id: 2, fx: 0.0, fy: -p, mz: 0.0,
+            node_id: 2, fx: 0.0, fz: -p, my: 0.0,
         })],
     );
     let results = linear::solve_2d(&input).unwrap();
@@ -206,14 +206,14 @@ fn validation_cable_ext_point_load_parabolic() {
         "Point load: H = PL/(4d)");
 
     // Vertical reactions
-    let r1 = results.reactions.iter().find(|r| r.node_id == 1).unwrap().ry;
-    let r3 = results.reactions.iter().find(|r| r.node_id == 3).unwrap().ry;
+    let r1 = results.reactions.iter().find(|r| r.node_id == 1).unwrap().rz;
+    let r3 = results.reactions.iter().find(|r| r.node_id == 3).unwrap().rz;
     assert_close(r1, p / 2.0, 0.02, "Point load: V_A = P/2");
     assert_close(r3, p / 2.0, 0.02, "Point load: V_B = P/2");
 
     // Deflection at load point (should be downward)
     let d2 = results.displacements.iter().find(|d| d.node_id == 2).unwrap();
-    assert!(d2.uy < 0.0, "Point load: load node deflects downward");
+    assert!(d2.uz < 0.0, "Point load: load node deflects downward");
 
     // Verify cable thrust formula from element module
     // H = wL^2/(8f) with w=0 doesn't apply here (point load, not UDL).
@@ -274,13 +274,13 @@ fn validation_cable_ext_net_equilibrium() {
             (4, 5, "pinned"),
         ],
         vec![SolverLoad::Nodal(SolverNodalLoad {
-            node_id: 3, fx: 0.0, fy: -p, mz: 0.0,
+            node_id: 3, fx: 0.0, fz: -p, my: 0.0,
         })],
     );
     let results = linear::solve_2d(&input).unwrap();
 
     // Global equilibrium
-    let sum_ry: f64 = results.reactions.iter().map(|r| r.ry).sum();
+    let sum_ry: f64 = results.reactions.iter().map(|r| r.rz).sum();
     assert_close(sum_ry, p, 0.01, "Cable net: vertical equilibrium");
 
     let sum_rx: f64 = results.reactions.iter().map(|r| r.rx).sum();
@@ -303,7 +303,7 @@ fn validation_cable_ext_net_equilibrium() {
 
     // Center node should deflect downward under the load
     let d3 = results.displacements.iter().find(|d| d.node_id == 3).unwrap();
-    assert!(d3.uy < 0.0, "Cable net: center node deflects downward");
+    assert!(d3.uz < 0.0, "Cable net: center node deflects downward");
 }
 
 // ================================================================
@@ -344,13 +344,13 @@ fn validation_cable_ext_prestressed_equilibrium() {
             ],
             vec![(1, 1, "pinned"), (2, 3, "pinned")],
             vec![SolverLoad::Nodal(SolverNodalLoad {
-                node_id: 2, fx: 0.0, fy: -p, mz: 0.0,
+                node_id: 2, fx: 0.0, fz: -p, my: 0.0,
             })],
         );
         let results = linear::solve_2d(&input).unwrap();
 
         let d_y = results.displacements.iter()
-            .find(|d| d.node_id == 2).unwrap().uy.abs();
+            .find(|d| d.node_id == 2).unwrap().uz.abs();
         let f_1 = results.element_forces.iter()
             .find(|e| e.element_id == 1).unwrap().n_start.abs();
 
@@ -358,7 +358,7 @@ fn validation_cable_ext_prestressed_equilibrium() {
         forces.push(f_1);
 
         // Global equilibrium must hold for all cases
-        let sum_ry: f64 = results.reactions.iter().map(|r| r.ry).sum();
+        let sum_ry: f64 = results.reactions.iter().map(|r| r.rz).sum();
         assert_close(sum_ry, p, 0.01, "Prestressed: vertical equilibrium");
     }
 
@@ -441,12 +441,12 @@ fn validation_cable_ext_stayed_beam() {
         ],
         vec![(1, 1, "pinned"), (2, 3, "rollerX")],
         vec![SolverLoad::Nodal(SolverNodalLoad {
-            node_id: 2, fx: 0.0, fy: -p, mz: 0.0,
+            node_id: 2, fx: 0.0, fz: -p, my: 0.0,
         })],
     );
     let bare = linear::solve_2d(&input_bare).unwrap();
     let d_bare = bare.displacements.iter()
-        .find(|d| d.node_id == 2).unwrap().uy;
+        .find(|d| d.node_id == 2).unwrap().uz;
 
     // Now: beam with cable stay
     // Tower on top of node 1 (fixed base), cable from tower top to midspan
@@ -474,12 +474,12 @@ fn validation_cable_ext_stayed_beam() {
         ],
         vec![(1, 1, "fixed"), (2, 3, "rollerX")],
         vec![SolverLoad::Nodal(SolverNodalLoad {
-            node_id: 2, fx: 0.0, fy: -p, mz: 0.0,
+            node_id: 2, fx: 0.0, fz: -p, my: 0.0,
         })],
     );
     let stayed = linear::solve_2d(&input_stayed).unwrap();
     let d_stayed = stayed.displacements.iter()
-        .find(|d| d.node_id == 2).unwrap().uy;
+        .find(|d| d.node_id == 2).unwrap().uz;
 
     // Cable stay should reduce midspan deflection
     assert!(d_bare < 0.0, "Cable-stayed: bare beam deflects downward");
@@ -501,7 +501,7 @@ fn validation_cable_ext_stayed_beam() {
         "Cable-stayed: cable carries force: {:.4} kN", f_cable);
 
     // Global equilibrium
-    let sum_ry: f64 = stayed.reactions.iter().map(|r| r.ry).sum();
+    let sum_ry: f64 = stayed.reactions.iter().map(|r| r.rz).sum();
     assert_close(sum_ry, p, 0.02, "Cable-stayed: vertical equilibrium");
 }
 
@@ -555,7 +555,7 @@ fn validation_cable_ext_multi_segment() {
         eid += 1;
 
         loads.push(SolverLoad::Nodal(SolverNodalLoad {
-            node_id: mid, fx: 0.0, fy: -p, mz: 0.0,
+            node_id: mid, fx: 0.0, fz: -p, my: 0.0,
         }));
     }
 
@@ -577,16 +577,16 @@ fn validation_cable_ext_multi_segment() {
 
     // Total vertical equilibrium
     let total_load = n_spans as f64 * p;
-    let sum_ry: f64 = results.reactions.iter().map(|r| r.ry).sum();
+    let sum_ry: f64 = results.reactions.iter().map(|r| r.rz).sum();
     assert_close(sum_ry, total_load, 0.01, "Multi-segment: total vertical equilibrium");
 
     // By symmetry: end supports carry less than interior supports
     let r_end_left = results.reactions.iter()
-        .find(|r| r.node_id == 1).unwrap().ry;
+        .find(|r| r.node_id == 1).unwrap().rz;
     let r_end_right = results.reactions.iter()
-        .find(|r| r.node_id == 2 * n_spans + 1).unwrap().ry;
+        .find(|r| r.node_id == 2 * n_spans + 1).unwrap().rz;
     let r_interior = results.reactions.iter()
-        .find(|r| r.node_id == 3).unwrap().ry;
+        .find(|r| r.node_id == 3).unwrap().rz;
 
     // End supports are symmetric
     assert_close(r_end_left, r_end_right, 0.02, "Multi-segment: end support symmetry");
@@ -602,15 +602,15 @@ fn validation_cable_ext_multi_segment() {
         let mid_node = 2 * i + 2;
         let d = results.displacements.iter()
             .find(|d| d.node_id == mid_node).unwrap();
-        assert!(d.uy < 0.0,
+        assert!(d.uz < 0.0,
             "Multi-segment: midspan node {} deflects down", mid_node);
     }
 
     // Middle span midspan deflection equals outer span midspan (by symmetry)
     let d_outer = results.displacements.iter()
-        .find(|d| d.node_id == 2).unwrap().uy.abs();
+        .find(|d| d.node_id == 2).unwrap().uz.abs();
     let d_middle = results.displacements.iter()
-        .find(|d| d.node_id == 4).unwrap().uy.abs();
+        .find(|d| d.node_id == 4).unwrap().uz.abs();
     // Not exactly equal because interior supports have horizontal reactions,
     // but they should be of similar magnitude
     assert!(d_outer > 0.0 && d_middle > 0.0,

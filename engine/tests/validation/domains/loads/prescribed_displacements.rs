@@ -48,17 +48,17 @@ fn validation_settlement_fixed_fixed() {
     sups_map.insert("1".to_string(), SolverSupport {
         id: 1, node_id: 1, support_type: "fixed".to_string(),
         kx: None, ky: None, kz: None,
-        dx: None, dy: None, drz: None, angle: None,
+        dx: None, dz: None, dry: None, angle: None,
     });
     sups_map.insert("2".to_string(), SolverSupport {
         id: 2, node_id: n_nodes, support_type: "fixed".to_string(),
         kx: None, ky: None, kz: None,
-        dx: None, dy: Some(-delta), drz: None, angle: None,
+        dx: None, dz: Some(-delta), dry: None, angle: None,
     });
 
     let mut nodes_map = HashMap::new();
     for (id, x, y) in &nodes {
-        nodes_map.insert(id.to_string(), SolverNode { id: *id, x: *x, y: *y });
+        nodes_map.insert(id.to_string(), SolverNode { id: *id, x: *x, z: *y });
     }
     let mut mats_map = HashMap::new();
     mats_map.insert("1".to_string(), SolverMaterial { id: 1, e: E, nu: 0.3 });
@@ -85,15 +85,15 @@ fn validation_settlement_fixed_fixed() {
     let r_left = results.reactions.iter().find(|r| r.node_id == 1).unwrap();
 
     // Moments at supports
-    assert_close(r_left.mz.abs(), m_exact, 0.03,
+    assert_close(r_left.my.abs(), m_exact, 0.03,
         "Settlement fixed-fixed: M_left = 6EIδ/L²");
 
     // Shear forces = 12EIδ/L³
-    assert_close(r_left.ry.abs(), v_exact, 0.03,
+    assert_close(r_left.rz.abs(), v_exact, 0.03,
         "Settlement fixed-fixed: V = 12EIδ/L³");
 
     // Equilibrium: ΣFy = 0 (no external loads)
-    let sum_ry: f64 = results.reactions.iter().map(|r| r.ry).sum();
+    let sum_ry: f64 = results.reactions.iter().map(|r| r.rz).sum();
     assert!(sum_ry.abs() < v_exact * 0.01,
         "Settlement equilibrium: ΣRy={:.6}", sum_ry);
 }
@@ -132,17 +132,17 @@ fn validation_settlement_propped_cantilever() {
     sups_map.insert("1".to_string(), SolverSupport {
         id: 1, node_id: 1, support_type: "fixed".to_string(),
         kx: None, ky: None, kz: None,
-        dx: None, dy: None, drz: None, angle: None,
+        dx: None, dz: None, dry: None, angle: None,
     });
     sups_map.insert("2".to_string(), SolverSupport {
         id: 2, node_id: n_nodes, support_type: "rollerX".to_string(),
         kx: None, ky: None, kz: None,
-        dx: None, dy: Some(-delta), drz: None, angle: None,
+        dx: None, dz: Some(-delta), dry: None, angle: None,
     });
 
     let mut nodes_map = HashMap::new();
     for (id, x, y) in &nodes {
-        nodes_map.insert(id.to_string(), SolverNode { id: *id, x: *x, y: *y });
+        nodes_map.insert(id.to_string(), SolverNode { id: *id, x: *x, z: *y });
     }
     let mut mats_map = HashMap::new();
     mats_map.insert("1".to_string(), SolverMaterial { id: 1, e: E, nu: 0.3 });
@@ -166,13 +166,13 @@ fn validation_settlement_propped_cantilever() {
     let m_exact = 3.0 * ei * delta / (l * l);
     let r_left = results.reactions.iter().find(|r| r.node_id == 1).unwrap();
 
-    assert_close(r_left.mz.abs(), m_exact, 0.03,
+    assert_close(r_left.my.abs(), m_exact, 0.03,
         "Settlement propped cantilever: M = 3EIδ/L²");
 
     // R_roller = 3EIδ/L³
     let v_exact = 3.0 * ei * delta / (l * l * l);
     let r_right = results.reactions.iter().find(|r| r.node_id == n_nodes).unwrap();
-    assert_close(r_right.ry.abs(), v_exact, 0.03,
+    assert_close(r_right.rz.abs(), v_exact, 0.03,
         "Settlement propped cantilever: R = 3EIδ/L³");
 }
 
@@ -204,22 +204,22 @@ fn validation_settlement_continuous_two_span() {
     sups_map.insert("1".to_string(), SolverSupport {
         id: 1, node_id: 1, support_type: "pinned".to_string(),
         kx: None, ky: None, kz: None,
-        dx: None, dy: None, drz: None, angle: None,
+        dx: None, dz: None, dry: None, angle: None,
     });
     sups_map.insert("2".to_string(), SolverSupport {
         id: 2, node_id: mid_node, support_type: "rollerX".to_string(),
         kx: None, ky: None, kz: None,
-        dx: None, dy: Some(-delta), drz: None, angle: None,
+        dx: None, dz: Some(-delta), dry: None, angle: None,
     });
     sups_map.insert("3".to_string(), SolverSupport {
         id: 3, node_id: n_nodes, support_type: "rollerX".to_string(),
         kx: None, ky: None, kz: None,
-        dx: None, dy: None, drz: None, angle: None,
+        dx: None, dz: None, dry: None, angle: None,
     });
 
     let mut nodes_map = HashMap::new();
     for (id, x, y) in &nodes {
-        nodes_map.insert(id.to_string(), SolverNode { id: *id, x: *x, y: *y });
+        nodes_map.insert(id.to_string(), SolverNode { id: *id, x: *x, z: *y });
     }
     let mut mats_map = HashMap::new();
     mats_map.insert("1".to_string(), SolverMaterial { id: 1, e: E, nu: 0.3 });
@@ -243,19 +243,19 @@ fn validation_settlement_continuous_two_span() {
     // Internal moment at middle support should be non-zero
     // Check: displacement at middle support = -delta
     let d_mid = results.displacements.iter().find(|d| d.node_id == mid_node).unwrap();
-    assert_close(d_mid.uy, -delta, 0.01,
+    assert_close(d_mid.uz, -delta, 0.01,
         "Prescribed settlement: uy at mid support = -δ");
 
     // Equilibrium: ΣRy = 0 (no external loads)
-    let sum_ry: f64 = results.reactions.iter().map(|r| r.ry).sum();
+    let sum_ry: f64 = results.reactions.iter().map(|r| r.rz).sum();
     assert!(sum_ry.abs() < 0.01,
         "Settlement equilibrium: ΣRy={:.6}", sum_ry);
 
     // Middle support reaction should be downward (it's settling away from load)
     // and end reactions should be upward to balance
     let r_mid = results.reactions.iter().find(|r| r.node_id == mid_node).unwrap();
-    assert!(r_mid.ry.abs() > 0.1,
-        "Middle support should have reaction: Ry={:.6}", r_mid.ry);
+    assert!(r_mid.rz.abs() > 0.1,
+        "Middle support should have reaction: Ry={:.6}", r_mid.rz);
 }
 
 // ================================================================
@@ -286,12 +286,12 @@ fn validation_settlement_plus_load() {
     sups_map.insert("1".to_string(), SolverSupport {
         id: 1, node_id: 1, support_type: "pinned".to_string(),
         kx: None, ky: None, kz: None,
-        dx: None, dy: None, drz: None, angle: None,
+        dx: None, dz: None, dry: None, angle: None,
     });
     sups_map.insert("2".to_string(), SolverSupport {
         id: 2, node_id: n_nodes, support_type: "rollerX".to_string(),
         kx: None, ky: None, kz: None,
-        dx: None, dy: Some(-delta), drz: None, angle: None,
+        dx: None, dz: Some(-delta), dry: None, angle: None,
     });
 
     let mut loads = Vec::new();
@@ -303,7 +303,7 @@ fn validation_settlement_plus_load() {
 
     let mut nodes_map = HashMap::new();
     for (id, x, y) in &nodes {
-        nodes_map.insert(id.to_string(), SolverNode { id: *id, x: *x, y: *y });
+        nodes_map.insert(id.to_string(), SolverNode { id: *id, x: *x, z: *y });
     }
     let mut mats_map = HashMap::new();
     mats_map.insert("1".to_string(), SolverMaterial { id: 1, e: E, nu: 0.3 });
@@ -325,13 +325,13 @@ fn validation_settlement_plus_load() {
 
     // Equilibrium: ΣRy = total load
     let total_load = q.abs() * l;
-    let sum_ry: f64 = results.reactions.iter().map(|r| r.ry).sum();
+    let sum_ry: f64 = results.reactions.iter().map(|r| r.rz).sum();
     assert_close(sum_ry, total_load, 0.02,
         "Settlement + load: ΣRy = wL");
 
     // Right support displacement should be prescribed
     let d_right = results.displacements.iter().find(|d| d.node_id == n_nodes).unwrap();
-    assert_close(d_right.uy, -delta, 0.01,
+    assert_close(d_right.uz, -delta, 0.01,
         "Prescribed settlement: uy at right = -δ");
 
     // Midspan deflection should be larger than without settlement
@@ -340,8 +340,8 @@ fn validation_settlement_plus_load() {
     let d_mid = results.displacements.iter().find(|d| d.node_id == mid).unwrap();
     let e_eff = E * 1000.0;
     let delta_load_only = 5.0 * q.abs() * l.powi(4) / (384.0 * e_eff * IZ);
-    assert!(d_mid.uy.abs() > delta_load_only * 0.9,
-        "Settlement adds to deflection: uy={:.6e}, load-only={:.6e}", d_mid.uy, delta_load_only);
+    assert!(d_mid.uz.abs() > delta_load_only * 0.9,
+        "Settlement adds to deflection: uy={:.6e}, load-only={:.6e}", d_mid.uz, delta_load_only);
 }
 
 // ================================================================
@@ -371,12 +371,12 @@ fn validation_prescribed_rotation() {
     sups_map.insert("1".to_string(), SolverSupport {
         id: 1, node_id: 1, support_type: "fixed".to_string(),
         kx: None, ky: None, kz: None,
-        dx: None, dy: None, drz: Some(theta), angle: None,
+        dx: None, dz: None, dry: Some(theta), angle: None,
     });
 
     let mut nodes_map = HashMap::new();
     for (id, x, y) in &nodes {
-        nodes_map.insert(id.to_string(), SolverNode { id: *id, x: *x, y: *y });
+        nodes_map.insert(id.to_string(), SolverNode { id: *id, x: *x, z: *y });
     }
     let mut mats_map = HashMap::new();
     mats_map.insert("1".to_string(), SolverMaterial { id: 1, e: E, nu: 0.3 });
@@ -398,12 +398,12 @@ fn validation_prescribed_rotation() {
 
     // Rotation at fixed end should be prescribed
     let d_fixed = results.displacements.iter().find(|d| d.node_id == 1).unwrap();
-    assert_close(d_fixed.rz, theta, 0.01,
+    assert_close(d_fixed.ry, theta, 0.01,
         "Prescribed rotation: rz at fixed end = θ");
 
     // Tip deflection for cantilever with base rotation (no load): δ_tip = θ × L
     let d_tip = results.displacements.iter().find(|d| d.node_id == n_nodes).unwrap();
-    assert_close(d_tip.uy, theta * l, 0.02,
+    assert_close(d_tip.uz, theta * l, 0.02,
         "Prescribed rotation: tip deflection = θL");
 }
 
@@ -434,17 +434,17 @@ fn validation_prescribed_axial() {
     sups_map.insert("1".to_string(), SolverSupport {
         id: 1, node_id: 1, support_type: "fixed".to_string(),
         kx: None, ky: None, kz: None,
-        dx: None, dy: None, drz: None, angle: None,
+        dx: None, dz: None, dry: None, angle: None,
     });
     sups_map.insert("2".to_string(), SolverSupport {
         id: 2, node_id: n_nodes, support_type: "fixed".to_string(),
         kx: None, ky: None, kz: None,
-        dx: Some(dx), dy: None, drz: None, angle: None,
+        dx: Some(dx), dz: None, dry: None, angle: None,
     });
 
     let mut nodes_map = HashMap::new();
     for (id, x, y) in &nodes {
-        nodes_map.insert(id.to_string(), SolverNode { id: *id, x: *x, y: *y });
+        nodes_map.insert(id.to_string(), SolverNode { id: *id, x: *x, z: *y });
     }
     let mut mats_map = HashMap::new();
     mats_map.insert("1".to_string(), SolverMaterial { id: 1, e: E, nu: 0.3 });
@@ -499,17 +499,17 @@ fn validation_settlement_portal_frame() {
     sups_map.insert("1".to_string(), SolverSupport {
         id: 1, node_id: 1, support_type: "fixed".to_string(),
         kx: None, ky: None, kz: None,
-        dx: None, dy: None, drz: None, angle: None,
+        dx: None, dz: None, dry: None, angle: None,
     });
     sups_map.insert("2".to_string(), SolverSupport {
         id: 2, node_id: 4, support_type: "fixed".to_string(),
         kx: None, ky: None, kz: None,
-        dx: None, dy: Some(-delta), drz: None, angle: None,
+        dx: None, dz: Some(-delta), dry: None, angle: None,
     });
 
     let mut nodes_map = HashMap::new();
     for &(id, x, y) in &nodes {
-        nodes_map.insert(id.to_string(), SolverNode { id, x, y });
+        nodes_map.insert(id.to_string(), SolverNode { id, x, z: y });
     }
     let mut mats_map = HashMap::new();
     mats_map.insert("1".to_string(), SolverMaterial { id: 1, e: E, nu: 0.3 });
@@ -531,7 +531,7 @@ fn validation_settlement_portal_frame() {
 
     // Settlement creates parasitic forces in the frame
     // Equilibrium must hold: ΣRy = 0, ΣRx = 0
-    let sum_ry: f64 = results.reactions.iter().map(|r| r.ry).sum();
+    let sum_ry: f64 = results.reactions.iter().map(|r| r.rz).sum();
     let sum_rx: f64 = results.reactions.iter().map(|r| r.rx).sum();
     assert!(sum_ry.abs() < 0.01,
         "Frame settlement: ΣRy should be 0: {:.6}", sum_ry);
@@ -540,7 +540,7 @@ fn validation_settlement_portal_frame() {
 
     // Settling support should have prescribed displacement
     let d4 = results.displacements.iter().find(|d| d.node_id == 4).unwrap();
-    assert_close(d4.uy, -delta, 0.01,
+    assert_close(d4.uz, -delta, 0.01,
         "Frame settlement: uy at node 4 = -δ");
 
     // Beam should develop moments (settlement-induced)
@@ -582,17 +582,17 @@ fn validation_settlement_superposition() {
         sups_map.insert("1".to_string(), SolverSupport {
             id: 1, node_id: 1, support_type: "fixed".to_string(),
             kx: None, ky: None, kz: None,
-            dx: None, dy: None, drz: None, angle: None,
+            dx: None, dz: None, dry: None, angle: None,
         });
         sups_map.insert("2".to_string(), SolverSupport {
             id: 2, node_id: n_nodes, support_type: "fixed".to_string(),
             kx: None, ky: None, kz: None,
-            dx: None, dy: dy, drz: None, angle: None,
+            dx: None, dz: dy, dry: None, angle: None,
         });
 
         let loads = if apply_load {
             vec![SolverLoad::Nodal(SolverNodalLoad {
-                node_id: n / 2 + 1, fx: 0.0, fy: -p, mz: 0.0,
+                node_id: n / 2 + 1, fx: 0.0, fz: -p, my: 0.0,
             })]
         } else {
             vec![]
@@ -600,7 +600,7 @@ fn validation_settlement_superposition() {
 
         let mut nodes_map = HashMap::new();
         for (id, x, y) in &nodes {
-            nodes_map.insert(id.to_string(), SolverNode { id: *id, x: *x, y: *y });
+            nodes_map.insert(id.to_string(), SolverNode { id: *id, x: *x, z: *y });
         }
         let mut mats_map = HashMap::new();
         mats_map.insert("1".to_string(), SolverMaterial { id: 1, e: E, nu: 0.3 });
@@ -629,13 +629,13 @@ fn validation_settlement_superposition() {
     let r_settle = res_settle.reactions.iter().find(|r| r.node_id == 1).unwrap();
     let r_load = res_load.reactions.iter().find(|r| r.node_id == 1).unwrap();
 
-    let ry_sum = r_settle.ry + r_load.ry;
-    let err = (r_both.ry - ry_sum).abs() / r_both.ry.abs().max(0.1);
+    let ry_sum = r_settle.rz + r_load.rz;
+    let err = (r_both.rz - ry_sum).abs() / r_both.rz.abs().max(0.1);
     assert!(err < 0.02,
-        "Superposition Ry: combined={:.6}, settle+load={:.6}", r_both.ry, ry_sum);
+        "Superposition Ry: combined={:.6}, settle+load={:.6}", r_both.rz, ry_sum);
 
-    let mz_sum = r_settle.mz + r_load.mz;
-    let err_m = (r_both.mz - mz_sum).abs() / r_both.mz.abs().max(0.1);
+    let mz_sum = r_settle.my + r_load.my;
+    let err_m = (r_both.my - mz_sum).abs() / r_both.my.abs().max(0.1);
     assert!(err_m < 0.02,
-        "Superposition Mz: combined={:.6}, settle+load={:.6}", r_both.mz, mz_sum);
+        "Superposition Mz: combined={:.6}, settle+load={:.6}", r_both.my, mz_sum);
 }

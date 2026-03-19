@@ -51,7 +51,7 @@ fn validation_serviceability_l360() {
 
     let mid = n / 2 + 1;
     let d_mid = results.displacements.iter()
-        .find(|d| d.node_id == mid).unwrap().uy.abs();
+        .find(|d| d.node_id == mid).unwrap().uz.abs();
 
     // Analytical deflection
     let delta_exact = 5.0 * q.abs() * l.powi(4) / (384.0 * e_eff * IZ);
@@ -78,13 +78,13 @@ fn validation_serviceability_cantilever() {
     let e_eff = E * 1000.0;
 
     let loads = vec![SolverLoad::Nodal(SolverNodalLoad {
-        node_id: n + 1, fx: 0.0, fy: -p, mz: 0.0,
+        node_id: n + 1, fx: 0.0, fz: -p, my: 0.0,
     })];
     let input = make_beam(n, l, E, A, IZ, "fixed", None, loads);
     let results = linear::solve_2d(&input).unwrap();
 
     let tip = results.displacements.iter()
-        .find(|d| d.node_id == n + 1).unwrap().uy.abs();
+        .find(|d| d.node_id == n + 1).unwrap().uz.abs();
 
     let delta_exact = p * l.powi(3) / (3.0 * e_eff * IZ);
     assert_close(tip, delta_exact, 0.02, "Cantilever: δ = PL³/(3EI)");
@@ -118,7 +118,7 @@ fn validation_serviceability_l240() {
 
     let mid = n / 2 + 1;
     let d_total = results.displacements.iter()
-        .find(|d| d.node_id == mid).unwrap().uy.abs();
+        .find(|d| d.node_id == mid).unwrap().uz.abs();
 
     let delta_exact = 5.0 * q_total.abs() * l.powi(4) / (384.0 * e_eff * IZ);
     assert_close(d_total, delta_exact, 0.02, "L/240: total δ");
@@ -131,7 +131,7 @@ fn validation_serviceability_l240() {
         .collect();
     let input_d = make_beam(n, l, E, A, IZ, "pinned", Some("rollerX"), loads_d);
     let d_dead = linear::solve_2d(&input_d).unwrap()
-        .displacements.iter().find(|d| d.node_id == mid).unwrap().uy;
+        .displacements.iter().find(|d| d.node_id == mid).unwrap().uz;
 
     let loads_l: Vec<SolverLoad> = (1..=n)
         .map(|i| SolverLoad::Distributed(SolverDistributedLoad {
@@ -140,7 +140,7 @@ fn validation_serviceability_l240() {
         .collect();
     let input_l = make_beam(n, l, E, A, IZ, "pinned", Some("rollerX"), loads_l);
     let d_live = linear::solve_2d(&input_l).unwrap()
-        .displacements.iter().find(|d| d.node_id == mid).unwrap().uy;
+        .displacements.iter().find(|d| d.node_id == mid).unwrap().uz;
 
     assert_close(d_dead + d_live, -d_total, 0.01,
         "Superposition: δ_D + δ_L = δ_total");
@@ -196,7 +196,7 @@ fn validation_serviceability_camber() {
         .collect();
     let input_d = make_beam(n, l, E, A, IZ, "pinned", Some("rollerX"), loads_d);
     let d_dead = linear::solve_2d(&input_d).unwrap()
-        .displacements.iter().find(|d| d.node_id == mid).unwrap().uy.abs();
+        .displacements.iter().find(|d| d.node_id == mid).unwrap().uz.abs();
 
     // Live load deflection
     let loads_l: Vec<SolverLoad> = (1..=n)
@@ -206,7 +206,7 @@ fn validation_serviceability_camber() {
         .collect();
     let input_l = make_beam(n, l, E, A, IZ, "pinned", Some("rollerX"), loads_l);
     let d_live = linear::solve_2d(&input_l).unwrap()
-        .displacements.iter().find(|d| d.node_id == mid).unwrap().uy.abs();
+        .displacements.iter().find(|d| d.node_id == mid).unwrap().uz.abs();
 
     // Camber = d_dead → apparent deflection = d_live (not d_dead+d_live)
     // δ_live should be less than δ_total
@@ -242,7 +242,7 @@ fn validation_serviceability_ponding() {
 
     let mid = n / 2 + 1;
     let d_mid = results.displacements.iter()
-        .find(|d| d.node_id == mid).unwrap().uy.abs();
+        .find(|d| d.node_id == mid).unwrap().uz.abs();
 
     let delta_exact = 5.0 * q_rain.abs() * l.powi(4) / (384.0 * e_eff * IZ);
     assert_close(d_mid, delta_exact, 0.02, "Ponding: δ check");
@@ -274,7 +274,7 @@ fn validation_serviceability_multispan() {
         .collect();
     let input_ss = make_beam(n, span, E, A, IZ, "pinned", Some("rollerX"), loads_ss);
     let d_ss = linear::solve_2d(&input_ss).unwrap()
-        .displacements.iter().find(|d| d.node_id == n / 2 + 1).unwrap().uy.abs();
+        .displacements.iter().find(|d| d.node_id == n / 2 + 1).unwrap().uz.abs();
 
     // Three-span continuous beam
     let loads_cont: Vec<SolverLoad> = (1..=(3 * n))
@@ -288,7 +288,7 @@ fn validation_serviceability_multispan() {
     // Interior span midpoint (span 2)
     let mid_interior = n + n / 2 + 1;
     let d_interior = results_cont.displacements.iter()
-        .find(|d| d.node_id == mid_interior).unwrap().uy.abs();
+        .find(|d| d.node_id == mid_interior).unwrap().uz.abs();
 
     // Interior span deflection should be less than SS
     assert!(d_interior < d_ss,
@@ -315,7 +315,7 @@ fn validation_serviceability_depth_effect() {
         .collect();
     let input1 = make_beam(n, l, E, A, IZ, "pinned", Some("rollerX"), loads1);
     let d1 = linear::solve_2d(&input1).unwrap()
-        .displacements.iter().find(|d| d.node_id == n / 2 + 1).unwrap().uy.abs();
+        .displacements.iter().find(|d| d.node_id == n / 2 + 1).unwrap().uz.abs();
 
     // Double IZ
     let loads2: Vec<SolverLoad> = (1..=n)
@@ -325,7 +325,7 @@ fn validation_serviceability_depth_effect() {
         .collect();
     let input2 = make_beam(n, l, E, A, 2.0 * IZ, "pinned", Some("rollerX"), loads2);
     let d2 = linear::solve_2d(&input2).unwrap()
-        .displacements.iter().find(|d| d.node_id == n / 2 + 1).unwrap().uy.abs();
+        .displacements.iter().find(|d| d.node_id == n / 2 + 1).unwrap().uz.abs();
 
     // δ ∝ 1/I
     assert_close(d1 / d2, 2.0, 0.02, "Depth effect: δ ∝ 1/I");

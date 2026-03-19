@@ -82,9 +82,9 @@ fn heritage_masonry_arch_assessment() {
     let mut loads = Vec::new();
     for i in 0..n_nodes {
         let trib: f64 = if i == 0 || i == n_nodes - 1 { dx_elem / 2.0 } else { dx_elem };
-        let fy: f64 = -w_self * trib; // kN, downward
+        let fz: f64 = -w_self * trib; // kN, downward
         loads.push(SolverLoad::Nodal(SolverNodalLoad {
-            node_id: i + 1, fx: 0.0, fy, mz: 0.0,
+            node_id: i + 1, fx: 0.0, fz, my: 0.0,
         }));
     }
 
@@ -106,7 +106,7 @@ fn heritage_masonry_arch_assessment() {
 
     // Vertical equilibrium: sum of vertical reactions = total weight
     let total_weight: f64 = w_self * span; // projected horizontal length
-    let sum_ry: f64 = results.reactions.iter().map(|r| r.ry).sum::<f64>();
+    let sum_ry: f64 = results.reactions.iter().map(|r| r.rz).sum::<f64>();
     assert_close(sum_ry.abs(), total_weight, 0.10, "Vertical equilibrium of arch");
 }
 
@@ -171,7 +171,7 @@ fn heritage_timber_floor_diaphragm() {
     let mid_disp = results.displacements.iter()
         .find(|d| d.node_id == mid_node).unwrap();
 
-    assert_close(mid_disp.uy.abs(), delta_exact, 0.05,
+    assert_close(mid_disp.uz.abs(), delta_exact, 0.05,
                  "Timber joist midspan deflection");
 
     // Serviceability check: L/250 limit for timber floors
@@ -185,7 +185,7 @@ fn heritage_timber_floor_diaphragm() {
     // Reactions: R = qL/2
     let r_exact: f64 = q_per_joist.abs() * span / 2.0;
     let r1 = results.reactions.iter().find(|r| r.node_id == 1).unwrap();
-    assert_close(r1.ry.abs(), r_exact, 0.02, "Timber joist support reaction");
+    assert_close(r1.rz.abs(), r_exact, 0.02, "Timber joist support reaction");
 
     // Mid-span moment: M = qL^2/8
     let m_exact: f64 = q_per_joist.abs() * span * span / 8.0;
@@ -267,9 +267,9 @@ fn heritage_frp_strengthening_rc_beam() {
     // Midspan deflections
     let mid_node = n / 2 + 1;
     let delta_orig: f64 = results_orig.displacements.iter()
-        .find(|d| d.node_id == mid_node).unwrap().uy.abs();
+        .find(|d| d.node_id == mid_node).unwrap().uz.abs();
     let delta_str: f64 = results_str.displacements.iter()
-        .find(|d| d.node_id == mid_node).unwrap().uy.abs();
+        .find(|d| d.node_id == mid_node).unwrap().uz.abs();
 
     // The deflection ratio should equal the inverse stiffness ratio
     // delta_str / delta_orig = EI_orig / EI_composite = 1/stiffness_ratio
@@ -290,7 +290,7 @@ fn heritage_frp_strengthening_rc_beam() {
     // Reactions unchanged (same load): R = qL/2
     let r_expected: f64 = q.abs() * span / 2.0;
     let r1 = results_str.reactions.iter().find(|r| r.node_id == 1).unwrap();
-    assert_close(r1.ry.abs(), r_expected, 0.02,
+    assert_close(r1.rz.abs(), r_expected, 0.02,
                  "FRP beam support reaction unchanged");
 }
 
@@ -342,7 +342,7 @@ fn heritage_steel_jacketing_column() {
 
     // Solve original column: fixed-free cantilever with lateral tip load
     let loads_orig = vec![SolverLoad::Nodal(SolverNodalLoad {
-        node_id: n + 1, fx: 0.0, fy: p_lateral, mz: 0.0,
+        node_id: n + 1, fx: 0.0, fz: p_lateral, my: 0.0,
     })];
     let input_orig = make_beam(n, height, e_concrete, a_rc, iz_rc,
                                "fixed", None, loads_orig);
@@ -350,7 +350,7 @@ fn heritage_steel_jacketing_column() {
 
     // Solve jacketed column
     let loads_jack = vec![SolverLoad::Nodal(SolverNodalLoad {
-        node_id: n + 1, fx: 0.0, fy: p_lateral, mz: 0.0,
+        node_id: n + 1, fx: 0.0, fz: p_lateral, my: 0.0,
     })];
     let input_jack = make_beam(n, height, e_concrete, a_composite, iz_composite,
                                "fixed", None, loads_jack);
@@ -364,9 +364,9 @@ fn heritage_steel_jacketing_column() {
         / (3.0 * e_eff * iz_composite);
 
     let tip_orig: f64 = results_orig.displacements.iter()
-        .find(|d| d.node_id == n + 1).unwrap().uy.abs();
+        .find(|d| d.node_id == n + 1).unwrap().uz.abs();
     let tip_jack: f64 = results_jack.displacements.iter()
-        .find(|d| d.node_id == n + 1).unwrap().uy.abs();
+        .find(|d| d.node_id == n + 1).unwrap().uz.abs();
 
     assert_close(tip_orig, delta_orig_analytical, 0.05,
                  "Original column tip deflection");
@@ -454,7 +454,7 @@ fn heritage_base_isolation_retrofit() {
     ];
     let sups = vec![(1, 1, "fixed"), (2, 2, "fixed")];
     let loads = vec![SolverLoad::Nodal(SolverNodalLoad {
-        node_id: 5, fx: f_lateral, fy: 0.0, mz: 0.0,
+        node_id: 5, fx: f_lateral, fz: 0.0, my: 0.0,
     })];
 
     let input_iso = make_input(nodes, mats, secs, elems, sups, loads);
@@ -524,7 +524,7 @@ fn heritage_tie_rod_tension() {
     // Pinned at left, rollerX at right (restrained in Y, free in X)
     let sups = vec![(1, 1, "pinned"), (2, n + 1, "rollerX")];
     let loads = vec![SolverLoad::Nodal(SolverNodalLoad {
-        node_id: n + 1, fx: thrust, fy: 0.0, mz: 0.0,
+        node_id: n + 1, fx: thrust, fz: 0.0, my: 0.0,
     })];
 
     let input = make_input(nodes, vec![(1, e_iron, 0.3)], vec![(1, a_rod, iz_rod)],
@@ -615,7 +615,7 @@ fn heritage_urm_wall_out_of_plane() {
 
     let mid_node = n / 2 + 1;
     let mid_disp: f64 = results.displacements.iter()
-        .find(|d| d.node_id == mid_node).unwrap().uy.abs();
+        .find(|d| d.node_id == mid_node).unwrap().uz.abs();
 
     assert_close(mid_disp, delta_exact, 0.05,
                  "URM wall out-of-plane deflection");
@@ -626,7 +626,7 @@ fn heritage_urm_wall_out_of_plane() {
     // Check reactions: R = qL/2
     let r_expected: f64 = q_seismic.abs() * h_wall / 2.0;
     let r1 = results.reactions.iter().find(|r| r.node_id == 1).unwrap();
-    assert_close(r1.ry.abs(), r_expected, 0.02,
+    assert_close(r1.rz.abs(), r_expected, 0.02,
                  "URM wall support reaction");
 
     // Cracking check: flexural tensile stress = M*c / I
@@ -643,7 +643,7 @@ fn heritage_urm_wall_out_of_plane() {
     let _ = cracking_expected; // used for engineering interpretation
 
     // Verify equilibrium
-    let sum_ry: f64 = results.reactions.iter().map(|r| r.ry).sum::<f64>();
+    let sum_ry: f64 = results.reactions.iter().map(|r| r.rz).sum::<f64>();
     let total_load: f64 = q_seismic.abs() * h_wall;
     assert_close(sum_ry.abs(), total_load, 0.02,
                  "URM wall vertical equilibrium");
@@ -722,7 +722,7 @@ fn heritage_historic_truss_assessment() {
     ];
     let sups = vec![(1, 1, "pinned"), (2, 2, "rollerX")];
     let loads = vec![SolverLoad::Nodal(SolverNodalLoad {
-        node_id: 3, fx: 0.0, fy: w_total, mz: 0.0,
+        node_id: 3, fx: 0.0, fz: w_total, my: 0.0,
     })];
 
     let input = make_input(nodes, mats, secs, elems, sups, loads);
@@ -753,16 +753,16 @@ fn heritage_historic_truss_assessment() {
                  "Tie beam axial force");
 
     // Vertical equilibrium: reactions sum to total applied load
-    let sum_ry: f64 = results.reactions.iter().map(|r| r.ry).sum::<f64>();
+    let sum_ry: f64 = results.reactions.iter().map(|r| r.rz).sum::<f64>();
     assert_close(sum_ry.abs(), w_total.abs(), 0.02,
                  "Truss vertical equilibrium");
 
     // Symmetric loading: each support takes half the load
     let r1 = results.reactions.iter().find(|r| r.node_id == 1).unwrap();
     let r2 = results.reactions.iter().find(|r| r.node_id == 2).unwrap();
-    assert_close(r1.ry.abs(), w_total.abs() / 2.0, 0.02,
+    assert_close(r1.rz.abs(), w_total.abs() / 2.0, 0.02,
                  "Left support vertical reaction");
-    assert_close(r2.ry.abs(), w_total.abs() / 2.0, 0.02,
+    assert_close(r2.rz.abs(), w_total.abs() / 2.0, 0.02,
                  "Right support vertical reaction");
 
     // With no external horizontal load, the horizontal reaction at node 1

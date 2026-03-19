@@ -38,7 +38,7 @@ fn validation_reaction_ss_udl() {
     let r_exact = q.abs() * l / 2.0; // 40 kN each
 
     for r in &results.reactions {
-        let ry = r.ry;
+        let ry = r.rz;
         let error = (ry - r_exact).abs() / r_exact;
         assert!(error < 0.01,
             "SS UDL reaction: node {} Ry={:.4}, exact={:.4}, err={:.2}%",
@@ -58,22 +58,22 @@ fn validation_reaction_cantilever_point() {
 
     let input = make_beam(n, l, E, A, IZ, "fixed", None,
         vec![SolverLoad::Nodal(SolverNodalLoad {
-            node_id: n + 1, fx: 0.0, fy: -p, mz: 0.0,
+            node_id: n + 1, fx: 0.0, fz: -p, my: 0.0,
         })]);
 
     let results = linear::solve_2d(&input).unwrap();
     let r = &results.reactions[0]; // fixed support
 
     // Vertical reaction = P
-    let err_ry = (r.ry - p).abs() / p;
+    let err_ry = (r.rz - p).abs() / p;
     assert!(err_ry < 0.01,
-        "Cantilever Ry={:.4}, expected P={:.1}", r.ry, p);
+        "Cantilever Ry={:.4}, expected P={:.1}", r.rz, p);
 
     // Moment reaction = P × L (counterclockwise to resist clockwise moment)
     let m_exact = p * l;
-    let err_m = (r.mz.abs() - m_exact).abs() / m_exact;
+    let err_m = (r.my.abs() - m_exact).abs() / m_exact;
     assert!(err_m < 0.01,
-        "Cantilever Mz={:.4}, expected PL={:.1}", r.mz.abs(), m_exact);
+        "Cantilever Mz={:.4}, expected PL={:.1}", r.my.abs(), m_exact);
 }
 
 // ================================================================
@@ -103,19 +103,19 @@ fn validation_reaction_propped_cantilever_udl() {
     let r_roller = results.reactions.iter()
         .find(|r| r.node_id == n + 1).unwrap();
     let rb_exact = 3.0 * q.abs() * l / 8.0;
-    let err_rb = (r_roller.ry - rb_exact).abs() / rb_exact;
+    let err_rb = (r_roller.rz - rb_exact).abs() / rb_exact;
     assert!(err_rb < 0.02,
         "Propped cantilever R_B={:.4}, exact 3qL/8={:.4}, err={:.1}%",
-        r_roller.ry, rb_exact, err_rb * 100.0);
+        r_roller.rz, rb_exact, err_rb * 100.0);
 
     // R_A (fixed) = 5qL/8
     let r_fixed = results.reactions.iter()
         .find(|r| r.node_id == 1).unwrap();
     let ra_exact = 5.0 * q.abs() * l / 8.0;
-    let err_ra = (r_fixed.ry - ra_exact).abs() / ra_exact;
+    let err_ra = (r_fixed.rz - ra_exact).abs() / ra_exact;
     assert!(err_ra < 0.02,
         "Propped cantilever R_A={:.4}, exact 5qL/8={:.4}, err={:.1}%",
-        r_fixed.ry, ra_exact, err_ra * 100.0);
+        r_fixed.rz, ra_exact, err_ra * 100.0);
 }
 
 // ================================================================
@@ -147,9 +147,9 @@ fn validation_reaction_continuous_beam_udl() {
     // Middle reaction: R_B = 10qL/8
     let r_mid = 10.0 * q.abs() * l / 8.0;
 
-    let ra = results.reactions.iter().find(|r| r.node_id == 1).unwrap().ry;
-    let rb = results.reactions.iter().find(|r| r.node_id == n_per + 1).unwrap().ry;
-    let rc = results.reactions.iter().find(|r| r.node_id == n_total + 1).unwrap().ry;
+    let ra = results.reactions.iter().find(|r| r.node_id == 1).unwrap().rz;
+    let rb = results.reactions.iter().find(|r| r.node_id == n_per + 1).unwrap().rz;
+    let rc = results.reactions.iter().find(|r| r.node_id == n_total + 1).unwrap().rz;
 
     let err_ra = (ra - r_end).abs() / r_end;
     let err_rb = (rb - r_mid).abs() / r_mid;
@@ -180,7 +180,7 @@ fn validation_reaction_portal_base_shear() {
         "Base shear: ΣRx={:.4}, applied H={:.1}", sum_rx, h_load);
 
     // Sum of vertical reactions = 0 (no gravity load)
-    let sum_ry: f64 = results.reactions.iter().map(|r| r.ry).sum();
+    let sum_ry: f64 = results.reactions.iter().map(|r| r.rz).sum();
     assert!(sum_ry.abs() < 0.01,
         "No gravity: ΣRy={:.6} should be ≈ 0", sum_ry);
 }
@@ -203,7 +203,7 @@ fn validation_reaction_inclined_load() {
 
     let input = make_beam(n, l, E, A, IZ, "fixed", None,
         vec![SolverLoad::Nodal(SolverNodalLoad {
-            node_id: n + 1, fx, fy, mz: 0.0,
+            node_id: n + 1, fx, fz: fy, my: 0.0,
         })]);
 
     let results = linear::solve_2d(&input).unwrap();
@@ -215,9 +215,9 @@ fn validation_reaction_inclined_load() {
         "Inclined Rx={:.4}, expected -Fx={:.4}", r.rx, -fx);
 
     // Ry = -Fy = P·sin(45°)
-    let err_ry = (r.ry + fy).abs() / fy.abs();
+    let err_ry = (r.rz + fy).abs() / fy.abs();
     assert!(err_ry < 0.01,
-        "Inclined Ry={:.4}, expected -Fy={:.4}", r.ry, -fy);
+        "Inclined Ry={:.4}, expected -Fy={:.4}", r.rz, -fy);
 }
 
 // ================================================================
@@ -234,20 +234,20 @@ fn validation_reaction_superposition() {
     // Load at node 2 only
     let input1 = make_beam(n, l, E, A, IZ, "pinned", Some("rollerX"),
         vec![SolverLoad::Nodal(SolverNodalLoad {
-            node_id: 2, fx: 0.0, fy: p1, mz: 0.0,
+            node_id: 2, fx: 0.0, fz: p1, my: 0.0,
         })]);
 
     // Load at node 4 only
     let input2 = make_beam(n, l, E, A, IZ, "pinned", Some("rollerX"),
         vec![SolverLoad::Nodal(SolverNodalLoad {
-            node_id: 4, fx: 0.0, fy: p2, mz: 0.0,
+            node_id: 4, fx: 0.0, fz: p2, my: 0.0,
         })]);
 
     // Combined
     let input_both = make_beam(n, l, E, A, IZ, "pinned", Some("rollerX"),
         vec![
-            SolverLoad::Nodal(SolverNodalLoad { node_id: 2, fx: 0.0, fy: p1, mz: 0.0 }),
-            SolverLoad::Nodal(SolverNodalLoad { node_id: 4, fx: 0.0, fy: p2, mz: 0.0 }),
+            SolverLoad::Nodal(SolverNodalLoad { node_id: 2, fx: 0.0, fz: p1, my: 0.0 }),
+            SolverLoad::Nodal(SolverNodalLoad { node_id: 4, fx: 0.0, fz: p2, my: 0.0 }),
         ]);
 
     let res1 = linear::solve_2d(&input1).unwrap();
@@ -255,9 +255,9 @@ fn validation_reaction_superposition() {
     let res_both = linear::solve_2d(&input_both).unwrap();
 
     // R1_A + R2_A ≈ R_combined_A
-    let ra1 = res1.reactions.iter().find(|r| r.node_id == 1).unwrap().ry;
-    let ra2 = res2.reactions.iter().find(|r| r.node_id == 1).unwrap().ry;
-    let ra_both = res_both.reactions.iter().find(|r| r.node_id == 1).unwrap().ry;
+    let ra1 = res1.reactions.iter().find(|r| r.node_id == 1).unwrap().rz;
+    let ra2 = res2.reactions.iter().find(|r| r.node_id == 1).unwrap().rz;
+    let ra_both = res_both.reactions.iter().find(|r| r.node_id == 1).unwrap().rz;
 
     let err = (ra_both - (ra1 + ra2)).abs() / ra_both.abs().max(1e-12);
     assert!(err < 0.01,
@@ -294,7 +294,7 @@ fn validation_reaction_overhanging_beam() {
 
     // Load at tip of overhang
     let loads = vec![SolverLoad::Nodal(SolverNodalLoad {
-        node_id: n + 1, fx: 0.0, fy: -p, mz: 0.0,
+        node_id: n + 1, fx: 0.0, fz: -p, my: 0.0,
     })];
 
     let input = make_input(nodes, vec![(1, E, 0.3)], vec![(1, A, IZ)],
@@ -304,16 +304,16 @@ fn validation_reaction_overhanging_beam() {
 
     // The left support should have negative (downward) reaction = uplift
     let r_left = results.reactions.iter().find(|r| r.node_id == 1).unwrap();
-    assert!(r_left.ry < 0.0,
-        "Overhanging beam: left support should have uplift, Ry={:.4}", r_left.ry);
+    assert!(r_left.rz < 0.0,
+        "Overhanging beam: left support should have uplift, Ry={:.4}", r_left.rz);
 
     // The right support (at span end) should carry more than P
     let r_right = results.reactions.iter().find(|r| r.node_id == support_node).unwrap();
-    assert!(r_right.ry > p,
-        "Right support Ry={:.4} should exceed P={:.1}", r_right.ry, p);
+    assert!(r_right.rz > p,
+        "Right support Ry={:.4} should exceed P={:.1}", r_right.rz, p);
 
     // Equilibrium
-    let sum_ry: f64 = results.reactions.iter().map(|r| r.ry).sum();
+    let sum_ry: f64 = results.reactions.iter().map(|r| r.rz).sum();
     let err = (sum_ry - p).abs() / p;
     assert!(err < 0.01,
         "Equilibrium: ΣRy={:.4}, P={:.1}", sum_ry, p);

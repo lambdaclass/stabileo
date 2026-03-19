@@ -110,8 +110,8 @@ fn test_parity_ss_beam_combination_d_plus_l() {
     )).unwrap();
 
     // Verify individual case results (same as TS)
-    let ry1_d = result_d.reactions.iter().find(|r| r.node_id == 1).unwrap().ry;
-    let ry1_l = result_l.reactions.iter().find(|r| r.node_id == 1).unwrap().ry;
+    let ry1_d = result_d.reactions.iter().find(|r| r.node_id == 1).unwrap().rz;
+    let ry1_l = result_l.reactions.iter().find(|r| r.node_id == 1).unwrap().rz;
     assert!((ry1_d - 30.0).abs() < 0.01, "Ry1(D) should be 30, got {}", ry1_d);
     assert!((ry1_l - 15.0).abs() < 0.01, "Ry1(L) should be 15, got {}", ry1_l);
 
@@ -127,15 +127,15 @@ fn test_parity_ss_beam_combination_d_plus_l() {
         ],
     }).unwrap();
 
-    let ry1_combined = combined.reactions.iter().find(|r| r.node_id == 1).unwrap().ry;
-    let ry2_combined = combined.reactions.iter().find(|r| r.node_id == 2).unwrap().ry;
+    let ry1_combined = combined.reactions.iter().find(|r| r.node_id == 1).unwrap().rz;
+    let ry2_combined = combined.reactions.iter().find(|r| r.node_id == 2).unwrap().rz;
     assert!((ry1_combined - 60.0).abs() < 0.01, "Combined Ry1 should be 60, got {}", ry1_combined);
     assert!((ry2_combined - 60.0).abs() < 0.01, "Combined Ry2 should be 60, got {}", ry2_combined);
 
     // Check displacement superposition
-    let uy2_d = result_d.displacements.iter().find(|d| d.node_id == 2).unwrap().uy;
-    let uy2_l = result_l.displacements.iter().find(|d| d.node_id == 2).unwrap().uy;
-    let uy2_combined = combined.displacements.iter().find(|d| d.node_id == 2).unwrap().uy;
+    let uy2_d = result_d.displacements.iter().find(|d| d.node_id == 2).unwrap().uz;
+    let uy2_l = result_l.displacements.iter().find(|d| d.node_id == 2).unwrap().uz;
+    let uy2_combined = combined.displacements.iter().find(|d| d.node_id == 2).unwrap().uz;
     let expected_uy2 = 1.2 * uy2_d + 1.6 * uy2_l;
     assert!(
         (uy2_combined - expected_uy2).abs() < 1e-10,
@@ -147,7 +147,7 @@ fn test_parity_ss_beam_combination_d_plus_l() {
         factors: vec![CombinationFactor { case_id: 1, factor: 1.4 }],
         cases: vec![CaseEntry { case_id: 1, results: result_d }],
     }).unwrap();
-    let ry1_14d = combined_14d.reactions.iter().find(|r| r.node_id == 1).unwrap().ry;
+    let ry1_14d = combined_14d.reactions.iter().find(|r| r.node_id == 1).unwrap().rz;
     assert!((ry1_14d - 42.0).abs() < 0.01, "1.4D Ry1 should be 42, got {}", ry1_14d);
 }
 
@@ -180,12 +180,12 @@ fn test_parity_portal_frame_combination() {
 
     let result_w = solve_2d(&make_input(
         nodes, mats, secs, elems, sups,
-        vec![SolverLoad::Nodal(SolverNodalLoad { node_id: 2, fx: 10.0, fy: 0.0, mz: 0.0 })],
+        vec![SolverLoad::Nodal(SolverNodalLoad { node_id: 2, fx: 10.0, fz: 0.0, my: 0.0 })],
     )).unwrap();
 
     // Verify totals match TS expectations
-    let total_ry_d: f64 = result_d.reactions.iter().map(|r| r.ry).sum();
-    let total_ry_l: f64 = result_l.reactions.iter().map(|r| r.ry).sum();
+    let total_ry_d: f64 = result_d.reactions.iter().map(|r| r.rz).sum();
+    let total_ry_l: f64 = result_l.reactions.iter().map(|r| r.rz).sum();
     let total_rx_w: f64 = result_w.reactions.iter().map(|r| r.rx).sum();
     assert!((total_ry_d - 60.0).abs() < 1.0);
     assert!((total_ry_l - 30.0).abs() < 1.0);
@@ -205,7 +205,7 @@ fn test_parity_portal_frame_combination() {
         ],
     }).unwrap();
 
-    let total_ry: f64 = combined.reactions.iter().map(|r| r.ry).sum();
+    let total_ry: f64 = combined.reactions.iter().map(|r| r.rz).sum();
     let total_rx: f64 = combined.reactions.iter().map(|r| r.rx).sum();
     assert!((total_ry - 102.0).abs() < 1.0, "1.2D+L+1.6W total Ry should be 102, got {}", total_ry);
     assert!((total_rx + 16.0).abs() < 1.0, "1.2D+L+1.6W total Rx should be -16, got {}", total_rx);
@@ -221,7 +221,7 @@ fn test_parity_portal_frame_combination() {
             CaseEntry { case_id: 3, results: result_w },
         ],
     }).unwrap();
-    let total_ry_09d: f64 = combined_09d.reactions.iter().map(|r| r.ry).sum();
+    let total_ry_09d: f64 = combined_09d.reactions.iter().map(|r| r.rz).sum();
     assert!((total_ry_09d - 54.0).abs() < 1.0, "0.9D+1.6W total Ry should be 54, got {}", total_ry_09d);
 }
 
@@ -270,9 +270,9 @@ fn test_parity_envelope_extremes() {
     }).unwrap();
 
     // Verify reactions match TS expectations
-    let ry1_c1 = combo1.reactions.iter().find(|r| r.node_id == 1).unwrap().ry;
-    let ry1_c2 = combo2.reactions.iter().find(|r| r.node_id == 1).unwrap().ry;
-    let ry1_c3 = combo3.reactions.iter().find(|r| r.node_id == 1).unwrap().ry;
+    let ry1_c1 = combo1.reactions.iter().find(|r| r.node_id == 1).unwrap().rz;
+    let ry1_c2 = combo2.reactions.iter().find(|r| r.node_id == 1).unwrap().rz;
+    let ry1_c3 = combo3.reactions.iter().find(|r| r.node_id == 1).unwrap().rz;
     assert!((ry1_c1 - 42.0).abs() < 0.1, "Combo1 Ry1=42, got {}", ry1_c1);
     assert!((ry1_c2 - 60.0).abs() < 0.1, "Combo2 Ry1=60, got {}", ry1_c2);
     assert!((ry1_c3 - 27.0).abs() < 0.1, "Combo3 Ry1=27, got {}", ry1_c3);
@@ -288,7 +288,7 @@ fn test_parity_envelope_extremes() {
 
     // maxAbsResults should have max absolute Ry1 = 60
     let max_ry1 = envelope.max_abs_results.reactions.iter()
-        .find(|r| r.node_id == 1).unwrap().ry;
+        .find(|r| r.node_id == 1).unwrap().rz;
     assert!((max_ry1 - 60.0).abs() < 0.1, "Envelope maxAbs Ry1 should be 60, got {}", max_ry1);
 }
 
@@ -342,7 +342,7 @@ fn test_parity_superposition_principle() {
         let c = &combined.displacements[i];
         let d = &result_direct.displacements[i];
         assert!(
-            (c.ux - d.ux).abs() < 1e-8 && (c.uy - d.uy).abs() < 1e-8 && (c.rz - d.rz).abs() < 1e-8,
+            (c.ux - d.ux).abs() < 1e-8 && (c.uz - d.uz).abs() < 1e-8 && (c.ry - d.ry).abs() < 1e-8,
             "Displacement mismatch at node {}", c.node_id
         );
     }
@@ -350,7 +350,7 @@ fn test_parity_superposition_principle() {
         let c = &combined.reactions[i];
         let d = &result_direct.reactions[i];
         assert!(
-            (c.rx - d.rx).abs() < 1e-6 && (c.ry - d.ry).abs() < 1e-6 && (c.mz - d.mz).abs() < 1e-6,
+            (c.rx - d.rx).abs() < 1e-6 && (c.rz - d.rz).abs() < 1e-6 && (c.my - d.my).abs() < 1e-6,
             "Reaction mismatch at node {}", c.node_id
         );
     }
@@ -412,7 +412,7 @@ fn test_parity_diagram_values_cantilever() {
         vec![(1, 0.01, 0.0001)],
         vec![(1, "frame", 1, 2, 1, 1, false, false)],
         vec![(1, 1, "fixed")],
-        vec![SolverLoad::Nodal(SolverNodalLoad { node_id: 2, fx: 0.0, fy: -50.0, mz: 0.0 })],
+        vec![SolverLoad::Nodal(SolverNodalLoad { node_id: 2, fx: 0.0, fz: -50.0, my: 0.0 })],
     );
     let results = solve_2d(&input).unwrap();
     let ef = &results.element_forces[0];
@@ -443,18 +443,18 @@ fn test_parity_solver_ss_beam_point_load_deflection() {
             (2, "frame", 2, 3, 1, 1, false, false),
         ],
         vec![(1, 1, "pinned"), (2, 3, "rollerX")],
-        vec![SolverLoad::Nodal(SolverNodalLoad { node_id: 2, fx: 0.0, fy: -100.0, mz: 0.0 })],
+        vec![SolverLoad::Nodal(SolverNodalLoad { node_id: 2, fx: 0.0, fz: -100.0, my: 0.0 })],
     );
     let results = solve_2d(&input).unwrap();
 
     // Reactions: each 50 kN
-    let ry1 = results.reactions.iter().find(|r| r.node_id == 1).unwrap().ry;
-    let ry3 = results.reactions.iter().find(|r| r.node_id == 3).unwrap().ry;
+    let ry1 = results.reactions.iter().find(|r| r.node_id == 1).unwrap().rz;
+    let ry3 = results.reactions.iter().find(|r| r.node_id == 3).unwrap().rz;
     assert!((ry1 - 50.0).abs() < 0.01);
     assert!((ry3 - 50.0).abs() < 0.01);
 
     // Deflection: PL³/(48EI) with E in kN/m² (200e3 MPa = 200e6 kN/m²)
-    let uy2 = results.displacements.iter().find(|d| d.node_id == 2).unwrap().uy;
+    let uy2 = results.displacements.iter().find(|d| d.node_id == 2).unwrap().uz;
     let expected = -100.0 * 10.0_f64.powi(3) / (48.0 * 200e6 * 0.0001);
     assert!(
         (uy2 - expected).abs() / expected.abs() < 0.01,
@@ -493,7 +493,7 @@ fn test_parity_3d_envelope_json_roundtrip() {
     let mut supports = HashMap::new();
     supports.insert("1".to_string(), SolverSupport3D {
         node_id: 1,
-        rx: true, ry: true, rz: true, rrx: true, rry: true, rrz: true,
+        rx: true, rz: true, ry: true, rrx: true, rry: true, rrz: true,
         kx: None, ky: None, kz: None, krx: None, kry: None, krz: None,
         dx: None, dy: None, dz: None, drx: None, dry: None, drz: None,
         normal_x: None, normal_y: None, normal_z: None, is_inclined: None, rw: None, kw: None,
@@ -556,7 +556,7 @@ fn test_parity_3d_combination_superposition() {
         let mut supports = HashMap::new();
         supports.insert("1".to_string(), SolverSupport3D {
             node_id: 1,
-            rx: true, ry: true, rz: true, rrx: true, rry: true, rrz: true,
+            rx: true, rz: true, ry: true, rrx: true, rry: true, rrz: true,
             kx: None, ky: None, kz: None, krx: None, kry: None, krz: None,
             dx: None, dy: None, dz: None, drx: None, dry: None, drz: None,
             normal_x: None, normal_y: None, normal_z: None, is_inclined: None, rw: None, kw: None,
@@ -600,9 +600,9 @@ fn test_parity_3d_combination_superposition() {
         let c = &combined.displacements[i];
         let d = &r_direct.displacements[i];
         assert!(
-            (c.uy - d.uy).abs() < 1e-8 && (c.uz - d.uz).abs() < 1e-8,
+            (c.uz - d.uz).abs() < 1e-8 && (c.uz - d.uz).abs() < 1e-8,
             "3D displacement mismatch at node {}: combined uy={:.6} uz={:.6}, direct uy={:.6} uz={:.6}",
-            c.node_id, c.uy, c.uz, d.uy, d.uz
+            c.node_id, c.uz, c.uz, d.uz, d.uz
         );
     }
 
@@ -611,7 +611,7 @@ fn test_parity_3d_combination_superposition() {
         let c = &combined.reactions[i];
         let d = &r_direct.reactions[i];
         assert!(
-            (c.fy - d.fy).abs() < 1e-4 && (c.fz - d.fz).abs() < 1e-4,
+            (c.fz - d.fz).abs() < 1e-4 && (c.fz - d.fz).abs() < 1e-4,
             "3D reaction mismatch at node {}", c.node_id
         );
     }

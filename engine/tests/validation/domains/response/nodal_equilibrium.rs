@@ -43,7 +43,7 @@ fn validation_equilibrium_ss_beam() {
     let p = 20.0;
 
     let loads = vec![SolverLoad::Nodal(SolverNodalLoad {
-        node_id: 2, fx: 0.0, fy: -p, mz: 0.0,
+        node_id: 2, fx: 0.0, fz: -p, my: 0.0,
     })];
     let input = make_beam(n, l, E, A, IZ, "pinned", Some("rollerX"), loads);
     let results = linear::solve_2d(&input).unwrap();
@@ -95,7 +95,7 @@ fn validation_equilibrium_continuous_support() {
 
     // Shear jump at interior support = reaction
     let v_jump = (ef_left.v_end - ef_right.v_start).abs();
-    assert_close(v_jump, r_sup.ry.abs(), 0.05,
+    assert_close(v_jump, r_sup.rz.abs(), 0.05,
         "Continuous beam: shear jump = reaction at interior support");
 }
 
@@ -119,11 +119,11 @@ fn validation_equilibrium_portal_joint() {
     let r1 = results.reactions.iter().find(|r| r.node_id == 1).unwrap();
     let r4 = results.reactions.iter().find(|r| r.node_id == 4).unwrap();
     assert_close(r1.rx + r4.rx, -f_lat, 0.01, "Portal: ΣRx = -F_lat");
-    assert_close(r1.ry + r4.ry, 0.0, 0.01, "Portal: ΣRy = 0");
+    assert_close(r1.rz + r4.rz, 0.0, 0.01, "Portal: ΣRy = 0");
 
     // Both bases develop moments
-    assert!(r1.mz.abs() > 0.1, "Portal: base moment at 1");
-    assert!(r4.mz.abs() > 0.1, "Portal: base moment at 4");
+    assert!(r1.my.abs() > 0.1, "Portal: base moment at 1");
+    assert!(r4.my.abs() > 0.1, "Portal: base moment at 4");
 }
 
 // ================================================================
@@ -153,9 +153,9 @@ fn validation_equilibrium_multi_bay() {
     ];
     let sups = vec![(1, 1, "fixed"), (2, 4, "fixed"), (3, 6, "fixed")];
     let loads = vec![
-        SolverLoad::Nodal(SolverNodalLoad { node_id: 2, fx: 0.0, fy: g, mz: 0.0 }),
-        SolverLoad::Nodal(SolverNodalLoad { node_id: 3, fx: 0.0, fy: g, mz: 0.0 }),
-        SolverLoad::Nodal(SolverNodalLoad { node_id: 5, fx: 0.0, fy: g, mz: 0.0 }),
+        SolverLoad::Nodal(SolverNodalLoad { node_id: 2, fx: 0.0, fz: g, my: 0.0 }),
+        SolverLoad::Nodal(SolverNodalLoad { node_id: 3, fx: 0.0, fz: g, my: 0.0 }),
+        SolverLoad::Nodal(SolverNodalLoad { node_id: 5, fx: 0.0, fz: g, my: 0.0 }),
     ];
     let input = make_input(
         nodes, vec![(1, E, 0.3)], vec![(1, A, IZ)], elems, sups, loads,
@@ -163,7 +163,7 @@ fn validation_equilibrium_multi_bay() {
     let results = linear::solve_2d(&input).unwrap();
 
     // ΣRy = -3g (three loaded nodes)
-    let sum_ry: f64 = results.reactions.iter().map(|r| r.ry).sum();
+    let sum_ry: f64 = results.reactions.iter().map(|r| r.rz).sum();
     assert_close(sum_ry, -3.0 * g, 0.01, "Multi-bay: ΣRy = -3g");
 
     // ΣRx = 0 (no lateral load)
@@ -171,12 +171,12 @@ fn validation_equilibrium_multi_bay() {
     assert_close(sum_rx, 0.0, 0.01, "Multi-bay: ΣRx = 0");
 
     // By symmetry: outer column reactions should be equal
-    let ry_1 = results.reactions.iter().find(|r| r.node_id == 1).unwrap().ry;
-    let ry_6 = results.reactions.iter().find(|r| r.node_id == 6).unwrap().ry;
+    let ry_1 = results.reactions.iter().find(|r| r.node_id == 1).unwrap().rz;
+    let ry_6 = results.reactions.iter().find(|r| r.node_id == 6).unwrap().rz;
     assert_close(ry_1, ry_6, 0.02, "Multi-bay: symmetric outer column reactions");
 
     // All three columns carry upward reaction
-    let ry_4 = results.reactions.iter().find(|r| r.node_id == 4).unwrap().ry;
+    let ry_4 = results.reactions.iter().find(|r| r.node_id == 4).unwrap().rz;
     assert!(ry_1 > 0.0, "Multi-bay: left column reacts upward");
     assert!(ry_4 > 0.0, "Multi-bay: center column reacts upward");
     assert!(ry_6 > 0.0, "Multi-bay: right column reacts upward");
@@ -203,7 +203,7 @@ fn validation_equilibrium_truss_apex() {
     ];
     let sups = vec![(1, 1, "pinned"), (2, 2, "rollerX")];
     let loads = vec![SolverLoad::Nodal(SolverNodalLoad {
-        node_id: 3, fx: 0.0, fy: -p, mz: 0.0,
+        node_id: 3, fx: 0.0, fz: -p, my: 0.0,
     })];
     let input = make_input(
         nodes, vec![(1, E, 0.3)], vec![(1, A, IZ)], elems, sups, loads,
@@ -211,14 +211,14 @@ fn validation_equilibrium_truss_apex() {
     let results = linear::solve_2d(&input).unwrap();
 
     // Global equilibrium
-    let sum_ry: f64 = results.reactions.iter().map(|r| r.ry).sum();
+    let sum_ry: f64 = results.reactions.iter().map(|r| r.rz).sum();
     assert_close(sum_ry, p, 0.01, "Truss: ΣRy = P");
 
     // By symmetry: Ry1 = Ry2 = P/2
     let r1 = results.reactions.iter().find(|r| r.node_id == 1).unwrap();
     let r2 = results.reactions.iter().find(|r| r.node_id == 2).unwrap();
-    assert_close(r1.ry, p / 2.0, 0.01, "Truss: Ry1 = P/2");
-    assert_close(r2.ry, p / 2.0, 0.01, "Truss: Ry2 = P/2");
+    assert_close(r1.rz, p / 2.0, 0.01, "Truss: Ry1 = P/2");
+    assert_close(r2.rz, p / 2.0, 0.01, "Truss: Ry2 = P/2");
 
     // Both diagonal members should be in compression (negative axial)
     let ef1 = results.element_forces.iter().find(|e| e.element_id == 1).unwrap();
@@ -254,7 +254,7 @@ fn validation_equilibrium_distributed() {
 
     // Total vertical reaction = total UDL = q * L
     let total_load = q * l;
-    let sum_ry: f64 = results.reactions.iter().map(|r| r.ry).sum();
+    let sum_ry: f64 = results.reactions.iter().map(|r| r.rz).sum();
     assert_close(sum_ry, -total_load, 0.01,
         "UDL equilibrium: ΣRy = -qL");
 
@@ -265,7 +265,7 @@ fn validation_equilibrium_distributed() {
     // For fixed-fixed symmetric: reactions should be equal
     let r1 = results.reactions.iter().find(|r| r.node_id == 1).unwrap();
     let r_last = results.reactions.iter().find(|r| r.node_id == n + 1).unwrap();
-    assert_close(r1.ry, r_last.ry, 0.01,
+    assert_close(r1.rz, r_last.rz, 0.01,
         "UDL equilibrium: symmetric reactions for fixed-fixed");
 }
 
@@ -282,7 +282,7 @@ fn validation_equilibrium_cantilever_tip() {
     let m_z = 8.0;
 
     let loads = vec![SolverLoad::Nodal(SolverNodalLoad {
-        node_id: n + 1, fx: p_x, fy: p_y, mz: m_z,
+        node_id: n + 1, fx: p_x, fz: p_y, my: m_z,
     })];
     let input = make_beam(n, l, E, A, IZ, "fixed", None, loads);
     let results = linear::solve_2d(&input).unwrap();
@@ -293,12 +293,12 @@ fn validation_equilibrium_cantilever_tip() {
     assert_close(r1.rx, -p_x, 0.01, "Cantilever: Rx = -Px");
 
     // ΣFy = 0: Ry + Py = 0
-    assert_close(r1.ry, -p_y, 0.01, "Cantilever: Ry = -Py");
+    assert_close(r1.rz, -p_y, 0.01, "Cantilever: Ry = -Py");
 
     // ΣM about node 1 = 0: Mz_reaction + Py*L + Mz_applied = 0
     // Mz_reaction = -Py*L - Mz_applied = p_y_abs*L - mz = 10*6 - 8 = 52
     let m_expected = -p_y * l - m_z; // = 10*6 - 8 = 52
-    assert_close(r1.mz, m_expected, 0.02,
+    assert_close(r1.my, m_expected, 0.02,
         "Cantilever: Mz = -Py*L - Mz_applied");
 }
 
@@ -335,9 +335,9 @@ fn validation_equilibrium_three_story() {
     ];
     let sups = vec![(1, 1, "fixed"), (2, 5, "fixed")];
     let loads = vec![
-        SolverLoad::Nodal(SolverNodalLoad { node_id: 2, fx: f, fy: 0.0, mz: 0.0 }),
-        SolverLoad::Nodal(SolverNodalLoad { node_id: 3, fx: f, fy: 0.0, mz: 0.0 }),
-        SolverLoad::Nodal(SolverNodalLoad { node_id: 4, fx: f, fy: 0.0, mz: 0.0 }),
+        SolverLoad::Nodal(SolverNodalLoad { node_id: 2, fx: f, fz: 0.0, my: 0.0 }),
+        SolverLoad::Nodal(SolverNodalLoad { node_id: 3, fx: f, fz: 0.0, my: 0.0 }),
+        SolverLoad::Nodal(SolverNodalLoad { node_id: 4, fx: f, fz: 0.0, my: 0.0 }),
     ];
     let input = make_input(
         nodes, vec![(1, E, 0.3)], vec![(1, A, IZ)], elems, sups, loads,
@@ -349,14 +349,14 @@ fn validation_equilibrium_three_story() {
     assert_close(sum_rx, -3.0 * f, 0.01, "3-story: ΣRx = -3F");
 
     // No vertical loads → ΣRy = 0
-    let sum_ry: f64 = results.reactions.iter().map(|r| r.ry).sum();
+    let sum_ry: f64 = results.reactions.iter().map(|r| r.rz).sum();
     assert_close(sum_ry, 0.0, 0.01, "3-story: ΣRy = 0");
 
     // Base moments should be non-zero (overturning resistance)
     let r1 = results.reactions.iter().find(|r| r.node_id == 1).unwrap();
     let r5 = results.reactions.iter().find(|r| r.node_id == 5).unwrap();
-    assert!(r1.mz.abs() > 1.0, "3-story: base moment at node 1");
-    assert!(r5.mz.abs() > 1.0, "3-story: base moment at node 5");
+    assert!(r1.my.abs() > 1.0, "3-story: base moment at node 1");
+    assert!(r5.my.abs() > 1.0, "3-story: base moment at node 5");
 
     // Lateral drift should increase with height
     let d2 = results.displacements.iter().find(|d| d.node_id == 2).unwrap().ux;

@@ -107,8 +107,8 @@ fn validation_thermal_ss_gradient() {
     let expected_delta = ALPHA * dt_grad * L * L / (8.0 * H_SEC);
     // Allow 10% tolerance (h approximation and mesh discretization)
     assert!(
-        (d_mid.uy.abs() - expected_delta).abs() < expected_delta * 0.10,
-        "SS gradient δ_mid={:.6}, expected={:.6}", d_mid.uy.abs(), expected_delta
+        (d_mid.uz.abs() - expected_delta).abs() < expected_delta * 0.10,
+        "SS gradient δ_mid={:.6}, expected={:.6}", d_mid.uz.abs(), expected_delta
     );
 
     // No moment (free curvature, isostatic)
@@ -137,8 +137,8 @@ fn validation_thermal_cantilever_gradient() {
     let d_tip = results.displacements.iter().find(|d| d.node_id == 9).unwrap();
     let expected_delta = ALPHA * dt_grad * L * L / (2.0 * H_SEC);
     assert!(
-        (d_tip.uy.abs() - expected_delta).abs() < expected_delta * 0.10,
-        "cantilever gradient δ_tip={:.6}, expected={:.6}", d_tip.uy.abs(), expected_delta
+        (d_tip.uz.abs() - expected_delta).abs() < expected_delta * 0.10,
+        "cantilever gradient δ_tip={:.6}, expected={:.6}", d_tip.uz.abs(), expected_delta
     );
 }
 
@@ -159,8 +159,8 @@ fn validation_thermal_fixed_fixed_gradient() {
     let r1 = results.reactions.iter().find(|r| r.node_id == 1).unwrap();
     let expected_m = EI * ALPHA * dt_grad / H_SEC;
     assert!(
-        (r1.mz.abs() - expected_m).abs() < expected_m * 0.10,
-        "FF gradient M={:.4}, expected={:.4}", r1.mz.abs(), expected_m
+        (r1.my.abs() - expected_m).abs() < expected_m * 0.10,
+        "FF gradient M={:.4}, expected={:.4}", r1.my.abs(), expected_m
     );
 }
 
@@ -178,17 +178,17 @@ fn validation_settlement_ss_roller() {
     sups_map.insert("1".to_string(), SolverSupport {
         id: 1, node_id: 1, support_type: "pinned".to_string(),
         kx: None, ky: None, kz: None,
-        dx: None, dy: None, drz: None, angle: None,
+        dx: None, dz: None, dry: None, angle: None,
     });
     sups_map.insert("2".to_string(), SolverSupport {
         id: 2, node_id: 2, support_type: "rollerX".to_string(),
         kx: None, ky: None, kz: None,
-        dx: None, dy: Some(-delta0), drz: None, angle: None,
+        dx: None, dz: Some(-delta0), dry: None, angle: None,
     });
 
     let mut nodes_map = HashMap::new();
-    nodes_map.insert("1".to_string(), SolverNode { id: 1, x: 0.0, y: 0.0 });
-    nodes_map.insert("2".to_string(), SolverNode { id: 2, x: L, y: 0.0 });
+    nodes_map.insert("1".to_string(), SolverNode { id: 1, x: 0.0, z: 0.0 });
+    nodes_map.insert("2".to_string(), SolverNode { id: 2, x: L, z: 0.0 });
 
     let mut mats_map = HashMap::new();
     mats_map.insert("1".to_string(), SolverMaterial { id: 1, e: E, nu: 0.3 });
@@ -229,17 +229,17 @@ fn validation_settlement_propped_cantilever() {
     sups_map.insert("1".to_string(), SolverSupport {
         id: 1, node_id: 1, support_type: "fixed".to_string(),
         kx: None, ky: None, kz: None,
-        dx: None, dy: None, drz: None, angle: None,
+        dx: None, dz: None, dry: None, angle: None,
     });
     sups_map.insert("2".to_string(), SolverSupport {
         id: 2, node_id: 2, support_type: "rollerX".to_string(),
         kx: None, ky: None, kz: None,
-        dx: None, dy: Some(-delta0), drz: None, angle: None,
+        dx: None, dz: Some(-delta0), dry: None, angle: None,
     });
 
     let mut nodes_map = HashMap::new();
-    nodes_map.insert("1".to_string(), SolverNode { id: 1, x: 0.0, y: 0.0 });
-    nodes_map.insert("2".to_string(), SolverNode { id: 2, x: L, y: 0.0 });
+    nodes_map.insert("1".to_string(), SolverNode { id: 1, x: 0.0, z: 0.0 });
+    nodes_map.insert("2".to_string(), SolverNode { id: 2, x: L, z: 0.0 });
 
     let mut mats_map = HashMap::new();
     mats_map.insert("1".to_string(), SolverMaterial { id: 1, e: E, nu: 0.3 });
@@ -260,10 +260,10 @@ fn validation_settlement_propped_cantilever() {
 
     let r1 = results.reactions.iter().find(|r| r.node_id == 1).unwrap();
     let expected_m = 3.0 * EI * delta0 / (L * L);
-    assert_close(r1.mz.abs(), expected_m, 0.05, "propped settlement M_fixed");
+    assert_close(r1.my.abs(), expected_m, 0.05, "propped settlement M_fixed");
 
     let expected_r = 3.0 * EI * delta0 / (L.powi(3));
-    assert_close(r1.ry.abs(), expected_r, 0.05, "propped settlement R_fixed");
+    assert_close(r1.rz.abs(), expected_r, 0.05, "propped settlement R_fixed");
 }
 
 // ═══════════════════════════════════════════════════════════════
@@ -283,7 +283,7 @@ fn validation_settlement_fixed_fixed() {
     let mut nodes_map = HashMap::new();
     for i in 0..=n {
         nodes_map.insert((i + 1).to_string(), SolverNode {
-            id: i + 1, x: i as f64 * elem_len, y: 0.0,
+            id: i + 1, x: i as f64 * elem_len, z: 0.0,
         });
     }
 
@@ -306,12 +306,12 @@ fn validation_settlement_fixed_fixed() {
     sups_map.insert("1".to_string(), SolverSupport {
         id: 1, node_id: 1, support_type: "fixed".to_string(),
         kx: None, ky: None, kz: None,
-        dx: None, dy: None, drz: None, angle: None,
+        dx: None, dz: None, dry: None, angle: None,
     });
     sups_map.insert("2".to_string(), SolverSupport {
         id: 2, node_id: n + 1, support_type: "fixed".to_string(),
         kx: None, ky: None, kz: None,
-        dx: None, dy: Some(-delta0), drz: None, angle: None,
+        dx: None, dz: Some(-delta0), dry: None, angle: None,
     });
 
     let input = SolverInput {
@@ -323,8 +323,8 @@ fn validation_settlement_fixed_fixed() {
     let r1 = results.reactions.iter().find(|r| r.node_id == 1).unwrap();
     let expected_m = 6.0 * EI * delta0 / (l * l);
     let expected_v = 12.0 * EI * delta0 / (l.powi(3));
-    assert_close(r1.mz.abs(), expected_m, 0.05, "FF settlement M");
-    assert_close(r1.ry.abs(), expected_v, 0.05, "FF settlement V");
+    assert_close(r1.my.abs(), expected_m, 0.05, "FF settlement M");
+    assert_close(r1.rz.abs(), expected_v, 0.05, "FF settlement V");
 }
 
 // ═══════════════════════════════════════════════════════════════
@@ -342,7 +342,7 @@ fn validation_thermal_equilibrium() {
     let results = linear::solve_2d(&input).unwrap();
 
     let sum_rx: f64 = results.reactions.iter().map(|r| r.rx).sum();
-    let sum_ry: f64 = results.reactions.iter().map(|r| r.ry).sum();
+    let sum_ry: f64 = results.reactions.iter().map(|r| r.rz).sum();
     assert!(sum_rx.abs() < 1.0, "thermal eq: ΣRx={:.4}", sum_rx);
     assert!(sum_ry.abs() < 1.0, "thermal eq: ΣRy={:.4}", sum_ry);
 }
@@ -378,7 +378,7 @@ fn validation_thermal_settlement_superposition() {
         let mut nodes_map = HashMap::new();
         for i in 0..=n {
             nodes_map.insert((i + 1).to_string(), SolverNode {
-                id: i + 1, x: i as f64 * elem_len, y: 0.0,
+                id: i + 1, x: i as f64 * elem_len, z: 0.0,
             });
         }
 
@@ -401,12 +401,12 @@ fn validation_thermal_settlement_superposition() {
         sups_map.insert("1".to_string(), SolverSupport {
             id: 1, node_id: 1, support_type: "fixed".to_string(),
             kx: None, ky: None, kz: None,
-            dx: None, dy: None, drz: None, angle: None,
+            dx: None, dz: None, dry: None, angle: None,
         });
         sups_map.insert("2".to_string(), SolverSupport {
             id: 2, node_id: n + 1, support_type: "fixed".to_string(),
             kx: None, ky: None, kz: None,
-            dx: None, dy, drz: None, angle: None,
+            dx: None, dz: dy, dry: None, angle: None,
         });
 
         SolverInput { nodes: nodes_map, materials: mats_map, sections: secs_map,
@@ -428,7 +428,7 @@ fn validation_thermal_settlement_superposition() {
         "superposition Rx: combined={:.2}, sum={:.2}", rx1_b.rx, rx1_t.rx + rx1_s.rx
     );
     assert!(
-        (rx1_b.mz - (rx1_t.mz + rx1_s.mz)).abs() < 1.0,
-        "superposition Mz: combined={:.2}, sum={:.2}", rx1_b.mz, rx1_t.mz + rx1_s.mz
+        (rx1_b.my - (rx1_t.my + rx1_s.my)).abs() < 1.0,
+        "superposition Mz: combined={:.2}, sum={:.2}", rx1_b.my, rx1_t.my + rx1_s.my
     );
 }

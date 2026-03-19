@@ -56,13 +56,13 @@ fn industrial_pipe_rack_beam() {
     // Place pipe loads as nodal loads at the correct node positions.
     let loads = vec![
         SolverLoad::Nodal(SolverNodalLoad {
-            node_id: 3, fx: 0.0, fy: p1, mz: 0.0, // x=2m
+            node_id: 3, fx: 0.0, fz: p1, my: 0.0, // x=2m
         }),
         SolverLoad::Nodal(SolverNodalLoad {
-            node_id: 5, fx: 0.0, fy: p2, mz: 0.0, // x=4m
+            node_id: 5, fx: 0.0, fz: p2, my: 0.0, // x=4m
         }),
         SolverLoad::Nodal(SolverNodalLoad {
-            node_id: 7, fx: 0.0, fy: p3, mz: 0.0, // x=6m
+            node_id: 7, fx: 0.0, fz: p3, my: 0.0, // x=6m
         }),
     ];
 
@@ -78,8 +78,8 @@ fn industrial_pipe_rack_beam() {
     let r_a = results.reactions.iter().find(|r| r.node_id == 1).unwrap();
     let r_b = results.reactions.iter().find(|r| r.node_id == n + 1).unwrap();
 
-    assert_close(r_a.ry.abs(), r_a_exact, 0.03, "Pipe rack beam reaction A");
-    assert_close(r_b.ry.abs(), r_b_exact, 0.03, "Pipe rack beam reaction B");
+    assert_close(r_a.rz.abs(), r_a_exact, 0.03, "Pipe rack beam reaction A");
+    assert_close(r_b.rz.abs(), r_b_exact, 0.03, "Pipe rack beam reaction B");
 
     // Moment at midspan (under P2): M = R_A*a2 - P1*(a2 - a1)
     let m_mid_exact: f64 = r_a_exact * a2 - p1.abs() * (a2 - a1);
@@ -93,7 +93,7 @@ fn industrial_pipe_rack_beam() {
     assert_close(m_at_4, m_mid_exact, 0.05, "Pipe rack moment at midspan x=4m");
 
     // Verify total vertical equilibrium
-    let sum_ry: f64 = results.reactions.iter().map(|r| r.ry).sum::<f64>();
+    let sum_ry: f64 = results.reactions.iter().map(|r| r.rz).sum::<f64>();
     assert_close(sum_ry.abs(), total_load, 0.02, "Pipe rack vertical equilibrium");
 }
 
@@ -150,7 +150,7 @@ fn industrial_equipment_platform() {
             a: w / 2.0, // midspan of beam
             p: p_equip,
             px: None,
-            mz: None,
+            my: None,
         }),
     ];
 
@@ -163,11 +163,11 @@ fn industrial_equipment_platform() {
 
     let r_vert_expected: f64 = p_equip.abs() / 2.0; // = 40 kN each
 
-    assert_close(r1.ry.abs(), r_vert_expected, 0.05, "Equipment platform left reaction");
-    assert_close(r4.ry.abs(), r_vert_expected, 0.05, "Equipment platform right reaction");
+    assert_close(r1.rz.abs(), r_vert_expected, 0.05, "Equipment platform left reaction");
+    assert_close(r4.rz.abs(), r_vert_expected, 0.05, "Equipment platform right reaction");
 
     // Vertical equilibrium
-    let sum_ry: f64 = results.reactions.iter().map(|r| r.ry).sum::<f64>();
+    let sum_ry: f64 = results.reactions.iter().map(|r| r.rz).sum::<f64>();
     assert_close(sum_ry.abs(), p_equip.abs(), 0.02, "Equipment platform vertical equilibrium");
 
     // Symmetric => horizontal reactions should be equal and opposite (sway)
@@ -176,8 +176,8 @@ fn industrial_equipment_platform() {
     assert!(rx_sum < 0.5, "Horizontal equilibrium: sum_rx = {:.4} ≈ 0", rx_sum);
 
     // Base moments should be equal by symmetry
-    let m1: f64 = r1.mz.abs();
-    let m4: f64 = r4.mz.abs();
+    let m1: f64 = r1.my.abs();
+    let m4: f64 = r4.my.abs();
     let moment_diff: f64 = (m1 - m4).abs() / m1.max(1.0);
     assert!(moment_diff < 0.05, "Base moments symmetric: M1={:.2}, M4={:.2}", m1, m4);
 }
@@ -256,7 +256,7 @@ fn industrial_stair_access_platform() {
     let total_vert_load: f64 = total_transverse * cos_a;
 
     // Vertical reactions sum
-    let sum_ry: f64 = results.reactions.iter().map(|r| r.ry).sum::<f64>();
+    let sum_ry: f64 = results.reactions.iter().map(|r| r.rz).sum::<f64>();
     assert_close(sum_ry.abs(), total_vert_load, 0.05, "Stair stringer vertical equilibrium");
 
     // Bending moment at midspan for SS beam under uniform transverse load:
@@ -315,19 +315,19 @@ fn industrial_conveyor_support() {
     let total_load: f64 = q.abs() * 2.0 * span;
 
     // Vertical equilibrium
-    let sum_ry: f64 = results.reactions.iter().map(|r| r.ry).sum::<f64>();
+    let sum_ry: f64 = results.reactions.iter().map(|r| r.rz).sum::<f64>();
     assert_close(sum_ry.abs(), total_load, 0.02, "Conveyor support vertical equilibrium");
 
     // Internal support reaction: R_mid = 5qL/4
     let r_mid_exact: f64 = 5.0 * q.abs() * span / 4.0;
     let mid_node = n_per_span + 1;
     let r_mid = results.reactions.iter().find(|r| r.node_id == mid_node).unwrap();
-    assert_close(r_mid.ry.abs(), r_mid_exact, 0.05, "Conveyor internal support reaction");
+    assert_close(r_mid.rz.abs(), r_mid_exact, 0.05, "Conveyor internal support reaction");
 
     // End reactions: R_end = 3qL/8
     let r_end_exact: f64 = 3.0 * q.abs() * span / 8.0;
     let r_a = results.reactions.iter().find(|r| r.node_id == 1).unwrap();
-    assert_close(r_a.ry.abs(), r_end_exact, 0.05, "Conveyor end support reaction");
+    assert_close(r_a.rz.abs(), r_end_exact, 0.05, "Conveyor end support reaction");
 
     // Negative moment at internal support: M = qL^2/8
     let m_neg_exact: f64 = q.abs() * span * span / 8.0;
@@ -377,7 +377,7 @@ fn industrial_monorail_beam() {
             a: l / n as f64, // at end of element = midspan of beam
             p: p_total,
             px: None,
-            mz: None,
+            my: None,
         }),
     ];
 
@@ -389,8 +389,8 @@ fn industrial_monorail_beam() {
     let r_a = results.reactions.iter().find(|r| r.node_id == 1).unwrap();
     let r_b = results.reactions.iter().find(|r| r.node_id == n + 1).unwrap();
 
-    assert_close(r_a.ry.abs(), r_expected, 0.03, "Monorail reaction A");
-    assert_close(r_b.ry.abs(), r_expected, 0.03, "Monorail reaction B");
+    assert_close(r_a.rz.abs(), r_expected, 0.03, "Monorail reaction A");
+    assert_close(r_b.rz.abs(), r_expected, 0.03, "Monorail reaction B");
 
     // Midspan moment: M = PL/4
     let m_expected: f64 = p_total.abs() * l / 4.0;
@@ -411,14 +411,14 @@ fn industrial_monorail_beam() {
     let mid_disp = results.displacements.iter()
         .find(|d| d.node_id == mid_node).unwrap();
 
-    assert_close(mid_disp.uy.abs(), delta_expected, 0.10, "Monorail midspan deflection");
+    assert_close(mid_disp.uz.abs(), delta_expected, 0.10, "Monorail midspan deflection");
 
     // Deflection limit check: L/450 for monorail (CMAA)
     let delta_limit: f64 = l / 450.0;
     assert!(
-        mid_disp.uy.abs() < delta_limit,
+        mid_disp.uz.abs() < delta_limit,
         "Monorail deflection {:.4} m < L/450 = {:.4} m",
-        mid_disp.uy.abs(), delta_limit
+        mid_disp.uz.abs(), delta_limit
     );
 }
 
@@ -454,7 +454,7 @@ fn industrial_handrail_post() {
     // Lateral load (fy) at tip
     let loads = vec![
         SolverLoad::Nodal(SolverNodalLoad {
-            node_id: n + 1, fx: 0.0, fy: p_lateral, mz: 0.0,
+            node_id: n + 1, fx: 0.0, fz: p_lateral, my: 0.0,
         }),
     ];
 
@@ -465,10 +465,10 @@ fn industrial_handrail_post() {
     let m_base_expected: f64 = p_lateral * h;
     let r_base = results.reactions.iter().find(|r| r.node_id == 1).unwrap();
 
-    assert_close(r_base.mz.abs(), m_base_expected, 0.03, "Handrail post base moment");
+    assert_close(r_base.my.abs(), m_base_expected, 0.03, "Handrail post base moment");
 
     // Base shear: V = P
-    assert_close(r_base.ry.abs(), p_lateral, 0.03, "Handrail post base shear");
+    assert_close(r_base.rz.abs(), p_lateral, 0.03, "Handrail post base shear");
 
     // Tip deflection: delta = PL^3/(3EI)
     let e_eff: f64 = e_steel * 1000.0;
@@ -477,11 +477,11 @@ fn industrial_handrail_post() {
     let tip_disp = results.displacements.iter()
         .find(|d| d.node_id == n + 1).unwrap();
 
-    assert_close(tip_disp.uy.abs(), delta_expected, 0.03, "Handrail post tip deflection");
+    assert_close(tip_disp.uz.abs(), delta_expected, 0.03, "Handrail post tip deflection");
 
     // Tip rotation: theta = PL^2/(2EI)
     let theta_expected: f64 = p_lateral * h.powi(2) / (2.0 * e_eff * iz_post);
-    assert_close(tip_disp.rz.abs(), theta_expected, 0.05, "Handrail post tip rotation");
+    assert_close(tip_disp.ry.abs(), theta_expected, 0.05, "Handrail post tip rotation");
 
     // Verify element axial force is negligible (no axial load)
     let ef = results.element_forces.iter().find(|e| e.element_id == 1).unwrap();
@@ -543,12 +543,12 @@ fn industrial_grating_panel() {
     let mid_disp = results.displacements.iter()
         .find(|d| d.node_id == mid_node).unwrap();
 
-    assert_close(mid_disp.uy.abs(), delta_expected, 0.05, "Grating midspan deflection");
+    assert_close(mid_disp.uz.abs(), delta_expected, 0.05, "Grating midspan deflection");
 
     // Reactions: R = qL/2
     let r_expected: f64 = q.abs() * l / 2.0;
     let r_a = results.reactions.iter().find(|r| r.node_id == 1).unwrap();
-    assert_close(r_a.ry.abs(), r_expected, 0.02, "Grating support reaction");
+    assert_close(r_a.rz.abs(), r_expected, 0.02, "Grating support reaction");
 
     // Midspan moment: M = qL^2/8
     let m_expected: f64 = q.abs() * l * l / 8.0;
@@ -563,9 +563,9 @@ fn industrial_grating_panel() {
     // Deflection serviceability: L/250 for floor grating
     let delta_limit: f64 = l / 250.0;
     assert!(
-        mid_disp.uy.abs() < delta_limit,
+        mid_disp.uz.abs() < delta_limit,
         "Grating deflection {:.5} m < L/250 = {:.5} m",
-        mid_disp.uy.abs(), delta_limit
+        mid_disp.uz.abs(), delta_limit
     );
 }
 
@@ -611,14 +611,14 @@ fn industrial_equipment_skid_foundation() {
             a: 0.0,
             p: p_motor,
             px: None,
-            mz: None,
+            my: None,
         }),
         SolverLoad::PointOnElement(SolverPointLoadOnElement {
             element_id: elem_for_pump,
             a: 0.0,
             p: p_pump,
             px: None,
-            mz: None,
+            my: None,
         }),
     ];
 
@@ -629,15 +629,15 @@ fn industrial_equipment_skid_foundation() {
     let total_load: f64 = (p_motor + p_pump).abs();
 
     // Vertical equilibrium
-    let sum_ry: f64 = results.reactions.iter().map(|r| r.ry).sum::<f64>();
+    let sum_ry: f64 = results.reactions.iter().map(|r| r.rz).sum::<f64>();
     assert_close(sum_ry.abs(), total_load, 0.03, "Skid vertical equilibrium");
 
     // All reactions should be upward (positive ry) for downward loads
     for rxn in &results.reactions {
         assert!(
-            rxn.ry > -0.1,
+            rxn.rz > -0.1,
             "Support {} reaction should be upward, got ry = {:.3}",
-            rxn.node_id, rxn.ry
+            rxn.node_id, rxn.rz
         );
     }
 
@@ -650,9 +650,9 @@ fn industrial_equipment_skid_foundation() {
         .find(|r| r.node_id == total_elements + 1).unwrap();
 
     assert!(
-        r_mid.ry > r_end_1.ry && r_mid.ry > r_end_2.ry,
+        r_mid.rz > r_end_1.rz && r_mid.rz > r_end_2.rz,
         "Internal support carries most load: R_mid={:.2} > R_1={:.2}, R_n={:.2}",
-        r_mid.ry, r_end_1.ry, r_end_2.ry
+        r_mid.rz, r_end_1.rz, r_end_2.rz
     );
 
     // Check that beam deflects downward at load points
@@ -664,14 +664,14 @@ fn industrial_equipment_skid_foundation() {
     let disp_pump = results.displacements.iter()
         .find(|d| d.node_id == pump_node).unwrap();
 
-    assert!(disp_motor.uy < 0.0, "Motor location deflects downward");
-    assert!(disp_pump.uy < 0.0, "Pump location deflects downward");
+    assert!(disp_motor.uz < 0.0, "Motor location deflects downward");
+    assert!(disp_pump.uz < 0.0, "Pump location deflects downward");
 
     // Deflection should be small for a stiff skid beam
     let delta_limit: f64 = span / 360.0; // typical serviceability limit
     assert!(
-        disp_motor.uy.abs() < delta_limit,
+        disp_motor.uz.abs() < delta_limit,
         "Motor deflection {:.5} m < L/360 = {:.5} m",
-        disp_motor.uy.abs(), delta_limit
+        disp_motor.uz.abs(), delta_limit
     );
 }

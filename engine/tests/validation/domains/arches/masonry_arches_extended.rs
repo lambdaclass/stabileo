@@ -97,8 +97,8 @@ fn validation_masonry_three_hinge_arch_thrust() {
             SolverLoad::Nodal(SolverNodalLoad {
                 node_id: i + 1,
                 fx: 0.0,
-                fy: -w * trib,
-                mz: 0.0,
+                fz: -w * trib,
+                my: 0.0,
             })
         })
         .collect();
@@ -124,8 +124,8 @@ fn validation_masonry_three_hinge_arch_thrust() {
 
     // Vertical reactions: V = wL/2 = 12*8/2 = 48 kN each
     let v_exact: f64 = w * l / 2.0;
-    assert_close(r_left.ry, v_exact, 0.02, "Masonry arch: V_left = wL/2");
-    assert_close(r_right.ry, v_exact, 0.02, "Masonry arch: V_right = wL/2");
+    assert_close(r_left.rz, v_exact, 0.02, "Masonry arch: V_left = wL/2");
+    assert_close(r_right.rz, v_exact, 0.02, "Masonry arch: V_right = wL/2");
 }
 
 // ================================================================
@@ -186,8 +186,8 @@ fn validation_masonry_semicircular_self_weight() {
             SolverLoad::Nodal(SolverNodalLoad {
                 node_id: i + 1,
                 fx: 0.0,
-                fy: -gamma_a * trib,
-                mz: 0.0,
+                fz: -gamma_a * trib,
+                my: 0.0,
             })
         })
         .collect();
@@ -209,12 +209,12 @@ fn validation_masonry_semicircular_self_weight() {
     let total_weight: f64 = gamma_a * pi * radius;
 
     // Vertical equilibrium: sum of Ry = W
-    let sum_ry: f64 = results.reactions.iter().map(|r| r.ry).sum();
+    let sum_ry: f64 = results.reactions.iter().map(|r| r.rz).sum();
     assert_close(sum_ry, total_weight, 0.05,
         "Semicircular arch: sum Ry = total weight");
 
     // Symmetric reactions
-    let v_diff: f64 = (r_left.ry - r_right.ry).abs();
+    let v_diff: f64 = (r_left.rz - r_right.rz).abs();
     assert!(v_diff < total_weight * 0.05,
         "Symmetric vertical reactions: diff = {:.4}", v_diff);
 
@@ -272,8 +272,8 @@ fn validation_masonry_pointed_arch_lateral_force() {
     let loads_semi = vec![SolverLoad::Nodal(SolverNodalLoad {
         node_id: crown_node,
         fx: p_lateral,
-        fy: 0.0,
-        mz: 0.0,
+        fz: 0.0,
+        my: 0.0,
     })];
 
     let input_semi = make_input(
@@ -293,8 +293,8 @@ fn validation_masonry_pointed_arch_lateral_force() {
     let loads_pointed = vec![SolverLoad::Nodal(SolverNodalLoad {
         node_id: crown_node,
         fx: p_lateral,
-        fy: 0.0,
-        mz: 0.0,
+        fz: 0.0,
+        my: 0.0,
     })];
 
     let input_pointed = make_parabolic_arch_masonry(
@@ -330,9 +330,9 @@ fn validation_masonry_pointed_arch_lateral_force() {
 
     // Verify actual reactions reflect this: vertical reaction at left for pointed
     // should be larger in magnitude than for semicircular (lateral load at higher y)
-    assert!(r_left_pointed.ry.abs() > r_left_semi.ry.abs() * 0.9,
+    assert!(r_left_pointed.rz.abs() > r_left_semi.rz.abs() * 0.9,
         "Pointed arch |Ry_left| = {:.4}, semi |Ry_left| = {:.4}",
-        r_left_pointed.ry.abs(), r_left_semi.ry.abs());
+        r_left_pointed.rz.abs(), r_left_semi.rz.abs());
 }
 
 // ================================================================
@@ -366,7 +366,7 @@ fn validation_masonry_thrust_line_eccentricity() {
         .map(|i| {
             let trib = if i == 0 || i == n { dx / 2.0 } else { dx };
             SolverLoad::Nodal(SolverNodalLoad {
-                node_id: i + 1, fx: 0.0, fy: -w * trib, mz: 0.0,
+                node_id: i + 1, fx: 0.0, fz: -w * trib, my: 0.0,
             })
         })
         .collect();
@@ -397,7 +397,7 @@ fn validation_masonry_thrust_line_eccentricity() {
         .map(|i| {
             let trib = if i == 0 || i == n / 2 { dx / 2.0 } else { dx };
             SolverLoad::Nodal(SolverNodalLoad {
-                node_id: i + 1, fx: 0.0, fy: -w * trib, mz: 0.0,
+                node_id: i + 1, fx: 0.0, fz: -w * trib, my: 0.0,
             })
         })
         .collect();
@@ -454,7 +454,7 @@ fn validation_masonry_collapse_mechanism_approach() {
 
     // Case 1: Three-hinge arch (one crown hinge) — stable, statically determinate
     let loads_3h = vec![SolverLoad::Nodal(SolverNodalLoad {
-        node_id: quarter_node, fx: 0.0, fy: -p, mz: 0.0,
+        node_id: quarter_node, fx: 0.0, fz: -p, my: 0.0,
     })];
 
     let input_3h = make_parabolic_arch_masonry(
@@ -465,7 +465,7 @@ fn validation_masonry_collapse_mechanism_approach() {
 
     // Case 2: Two-hinge arch (no crown hinge) — stiffer, one degree indeterminate
     let loads_2h = vec![SolverLoad::Nodal(SolverNodalLoad {
-        node_id: quarter_node, fx: 0.0, fy: -p, mz: 0.0,
+        node_id: quarter_node, fx: 0.0, fz: -p, my: 0.0,
     })];
 
     let input_2h = make_parabolic_arch_masonry(
@@ -479,16 +479,16 @@ fn validation_masonry_collapse_mechanism_approach() {
     let max_disp_3h: f64 = res_3h.displacements.iter()
         .map(|d| {
             let ux: f64 = d.ux;
-            let uy: f64 = d.uy;
-            (ux * ux + uy * uy).sqrt()
+            let uz: f64 = d.uz;
+            (ux * ux + uz * uz).sqrt()
         })
         .fold(0.0_f64, f64::max);
 
     let max_disp_2h: f64 = res_2h.displacements.iter()
         .map(|d| {
             let ux: f64 = d.ux;
-            let uy: f64 = d.uy;
-            (ux * ux + uy * uy).sqrt()
+            let uz: f64 = d.uz;
+            (ux * ux + uz * uz).sqrt()
         })
         .fold(0.0_f64, f64::max);
 
@@ -497,8 +497,8 @@ fn validation_masonry_collapse_mechanism_approach() {
         max_disp_3h, max_disp_2h);
 
     // Both should still satisfy global equilibrium
-    let sum_ry_3h: f64 = res_3h.reactions.iter().map(|r| r.ry).sum();
-    let sum_ry_2h: f64 = res_2h.reactions.iter().map(|r| r.ry).sum();
+    let sum_ry_3h: f64 = res_3h.reactions.iter().map(|r| r.rz).sum();
+    let sum_ry_2h: f64 = res_2h.reactions.iter().map(|r| r.rz).sum();
     assert_close(sum_ry_3h, p, 0.02, "Three-hinge arch: sum Ry = P");
     assert_close(sum_ry_2h, p, 0.02, "Two-hinge arch: sum Ry = P");
 
@@ -550,7 +550,7 @@ fn validation_masonry_flat_arch_thrust() {
         .map(|i| {
             let trib = if i == 0 || i == n { dx / 2.0 } else { dx };
             SolverLoad::Nodal(SolverNodalLoad {
-                node_id: i + 1, fx: 0.0, fy: -w * trib, mz: 0.0,
+                node_id: i + 1, fx: 0.0, fz: -w * trib, my: 0.0,
             })
         })
         .collect();
@@ -577,11 +577,11 @@ fn validation_masonry_flat_arch_thrust() {
         "Flat arch: H/W = {:.4} should be > 2.0 (enormous thrust)", h_to_w_ratio);
 
     // H should exceed each vertical reaction
-    assert!(r_left.rx.abs() > r_left.ry,
-        "Flat arch: H={:.4} > V={:.4}", r_left.rx.abs(), r_left.ry);
+    assert!(r_left.rx.abs() > r_left.rz,
+        "Flat arch: H={:.4} > V={:.4}", r_left.rx.abs(), r_left.rz);
 
     // Vertical equilibrium
-    let sum_ry: f64 = results.reactions.iter().map(|r| r.ry).sum();
+    let sum_ry: f64 = results.reactions.iter().map(|r| r.rz).sum();
     assert_close(sum_ry, total_weight, 0.02, "Flat arch: sum Ry = wL");
 
     // Horizontal equilibrium
@@ -638,8 +638,8 @@ fn validation_masonry_arch_with_backfill() {
             SolverLoad::Nodal(SolverNodalLoad {
                 node_id: i + 1,
                 fx: 0.0,
-                fy: -w_local * trib,
-                mz: 0.0,
+                fz: -w_local * trib,
+                my: 0.0,
             })
         })
         .collect();
@@ -663,7 +663,7 @@ fn validation_masonry_arch_with_backfill() {
     let results = solve_2d(&input).unwrap();
 
     // Vertical equilibrium
-    let sum_ry: f64 = results.reactions.iter().map(|r| r.ry).sum();
+    let sum_ry: f64 = results.reactions.iter().map(|r| r.rz).sum();
     assert_close(sum_ry, total_load, 0.05,
         "Backfill arch: sum Ry = total backfill weight");
 
@@ -675,7 +675,7 @@ fn validation_masonry_arch_with_backfill() {
     // Symmetric loading → symmetric vertical reactions
     let r_left = results.reactions.iter().find(|r| r.node_id == 1).unwrap();
     let r_right = results.reactions.iter().find(|r| r.node_id == n + 1).unwrap();
-    let v_diff: f64 = (r_left.ry - r_right.ry).abs();
+    let v_diff: f64 = (r_left.rz - r_right.rz).abs();
     assert!(v_diff < total_load * 0.05,
         "Backfill arch: symmetric Ry, diff = {:.4}", v_diff);
 
@@ -763,7 +763,7 @@ fn validation_masonry_segmental_arch_self_weight() {
             .map(|i| {
                 let trib = if i == 0 || i == n { seg_arc / 2.0 } else { seg_arc };
                 SolverLoad::Nodal(SolverNodalLoad {
-                    node_id: i + 1, fx: 0.0, fy: -gamma_a * trib, mz: 0.0,
+                    node_id: i + 1, fx: 0.0, fz: -gamma_a * trib, my: 0.0,
                 })
             })
             .collect();
@@ -792,11 +792,11 @@ fn validation_masonry_segmental_arch_self_weight() {
     let res_deep = solve_2d(&input_deep).unwrap();
 
     // --- Verify equilibrium for both ---
-    let sum_ry_shallow: f64 = res_shallow.reactions.iter().map(|r| r.ry).sum();
+    let sum_ry_shallow: f64 = res_shallow.reactions.iter().map(|r| r.rz).sum();
     assert_close(sum_ry_shallow, w_shallow, 0.05,
         "Segmental (shallow): sum Ry = total weight");
 
-    let sum_ry_deep: f64 = res_deep.reactions.iter().map(|r| r.ry).sum();
+    let sum_ry_deep: f64 = res_deep.reactions.iter().map(|r| r.rz).sum();
     assert_close(sum_ry_deep, w_deep, 0.05,
         "Segmental (deep): sum Ry = total weight");
 

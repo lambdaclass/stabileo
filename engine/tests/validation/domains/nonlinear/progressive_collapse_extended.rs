@@ -91,7 +91,7 @@ fn progressive_collapse_column_removal_2bay_frame() {
     let res_intact = linear::solve_2d(&input_intact).unwrap();
 
     // Total vertical reaction must equal total applied load = 2 * q * L
-    let total_vert_intact: f64 = res_intact.reactions.iter().map(|r| r.ry).sum();
+    let total_vert_intact: f64 = res_intact.reactions.iter().map(|r| r.rz).sum();
     let total_applied = -Q_GRAV * 2.0 * l; // positive (upward reaction for downward load)
     assert_close(total_vert_intact, total_applied, 0.02, "intact vertical equilibrium");
 
@@ -99,7 +99,7 @@ fn progressive_collapse_column_removal_2bay_frame() {
     // Find reaction at node 4 (interior column base)
     let ry_interior = res_intact.reactions.iter()
         .find(|r| r.node_id == 4)
-        .map(|r| r.ry)
+        .map(|r| r.rz)
         .unwrap_or(0.0);
     assert!(
         ry_interior.abs() > 0.2 * total_applied,
@@ -143,7 +143,7 @@ fn progressive_collapse_column_removal_2bay_frame() {
     let res_damaged = linear::solve_2d(&input_damaged).unwrap();
 
     // Vertical equilibrium still holds in damaged structure
-    let total_vert_damaged: f64 = res_damaged.reactions.iter().map(|r| r.ry).sum();
+    let total_vert_damaged: f64 = res_damaged.reactions.iter().map(|r| r.rz).sum();
     assert_close(total_vert_damaged, total_applied, 0.02, "damaged vertical equilibrium");
 
     // Each exterior column now carries more than in the intact case
@@ -151,11 +151,11 @@ fn progressive_collapse_column_removal_2bay_frame() {
     // In damaged case, they each carry roughly 1/2 of total load
     let ry_left_intact = res_intact.reactions.iter()
         .find(|r| r.node_id == 1)
-        .map(|r| r.ry)
+        .map(|r| r.rz)
         .unwrap_or(0.0);
     let ry_left_damaged = res_damaged.reactions.iter()
         .find(|r| r.node_id == 1)
-        .map(|r| r.ry)
+        .map(|r| r.rz)
         .unwrap_or(0.0);
     assert!(
         ry_left_damaged.abs() > ry_left_intact.abs(),
@@ -166,11 +166,11 @@ fn progressive_collapse_column_removal_2bay_frame() {
     // Deflection at midspan (node 3) increases significantly
     let uy_mid_intact = res_intact.displacements.iter()
         .find(|d| d.node_id == 3)
-        .map(|d| d.uy.abs())
+        .map(|d| d.uz.abs())
         .unwrap_or(0.0);
     let uy_mid_damaged = res_damaged.displacements.iter()
         .find(|d| d.node_id == 3)
-        .map(|d| d.uy.abs())
+        .map(|d| d.uz.abs())
         .unwrap_or(0.0);
     assert!(
         uy_mid_damaged > uy_mid_intact,
@@ -224,10 +224,10 @@ fn progressive_collapse_catenary_action_after_support_loss() {
 
     // Max deflection in intact vs damaged
     let max_uy_intact: f64 = res_intact.displacements.iter()
-        .map(|d| d.uy.abs())
+        .map(|d| d.uz.abs())
         .fold(0.0_f64, f64::max);
     let max_uy_damaged: f64 = res_damaged.displacements.iter()
-        .map(|d| d.uy.abs())
+        .map(|d| d.uz.abs())
         .fold(0.0_f64, f64::max);
 
     // Damaged deflection should be much larger (span doubled -> delta ~ 16x for SS)
@@ -306,10 +306,10 @@ fn progressive_collapse_vierendeel_action() {
     // Gravity point loads at beam-column joints (representing floor loads)
     let p_floor: f64 = -60.0; // kN downward per joint
     let loads_intact = vec![
-        SolverLoad::Nodal(SolverNodalLoad { node_id: 2, fx: 0.0, fy: p_floor, mz: 0.0 }),
-        SolverLoad::Nodal(SolverNodalLoad { node_id: 3, fx: 0.0, fy: p_floor, mz: 0.0 }),
-        SolverLoad::Nodal(SolverNodalLoad { node_id: 5, fx: 0.0, fy: p_floor, mz: 0.0 }),
-        SolverLoad::Nodal(SolverNodalLoad { node_id: 6, fx: 0.0, fy: p_floor, mz: 0.0 }),
+        SolverLoad::Nodal(SolverNodalLoad { node_id: 2, fx: 0.0, fz: p_floor, my: 0.0 }),
+        SolverLoad::Nodal(SolverNodalLoad { node_id: 3, fx: 0.0, fz: p_floor, my: 0.0 }),
+        SolverLoad::Nodal(SolverNodalLoad { node_id: 5, fx: 0.0, fz: p_floor, my: 0.0 }),
+        SolverLoad::Nodal(SolverNodalLoad { node_id: 6, fx: 0.0, fz: p_floor, my: 0.0 }),
     ];
     let input_intact = make_input(
         nodes_intact,
@@ -342,10 +342,10 @@ fn progressive_collapse_vierendeel_action() {
         (1, 1, "fixed"),
     ];
     let loads_damaged = vec![
-        SolverLoad::Nodal(SolverNodalLoad { node_id: 2, fx: 0.0, fy: p_floor, mz: 0.0 }),
-        SolverLoad::Nodal(SolverNodalLoad { node_id: 3, fx: 0.0, fy: p_floor, mz: 0.0 }),
-        SolverLoad::Nodal(SolverNodalLoad { node_id: 5, fx: 0.0, fy: p_floor, mz: 0.0 }),
-        SolverLoad::Nodal(SolverNodalLoad { node_id: 6, fx: 0.0, fy: p_floor, mz: 0.0 }),
+        SolverLoad::Nodal(SolverNodalLoad { node_id: 2, fx: 0.0, fz: p_floor, my: 0.0 }),
+        SolverLoad::Nodal(SolverNodalLoad { node_id: 3, fx: 0.0, fz: p_floor, my: 0.0 }),
+        SolverLoad::Nodal(SolverNodalLoad { node_id: 5, fx: 0.0, fz: p_floor, my: 0.0 }),
+        SolverLoad::Nodal(SolverNodalLoad { node_id: 6, fx: 0.0, fz: p_floor, my: 0.0 }),
     ];
     let input_damaged = make_input(
         nodes_damaged,
@@ -359,7 +359,7 @@ fn progressive_collapse_vierendeel_action() {
 
     // Total vertical equilibrium: all load goes to left column base
     let total_applied = 4.0 * p_floor.abs(); // 240 kN total
-    let ry_left_damaged: f64 = res_damaged.reactions.iter().map(|r| r.ry).sum();
+    let ry_left_damaged: f64 = res_damaged.reactions.iter().map(|r| r.rz).sum();
     assert_close(ry_left_damaged, total_applied, 0.02,
         "all gravity load transfers to remaining support");
 
@@ -474,9 +474,9 @@ fn progressive_collapse_alternate_load_path_dcr() {
 
     // Compute DCR: max moment demand / capacity
     // Assume beam plastic moment capacity: M_pl = fy * Z
-    let fy: f64 = 355.0; // MPa
+    let fz: f64 = 355.0; // MPa
     let z_pl: f64 = 1.5e-3; // m^3, plastic section modulus
-    let m_capacity = fy * 1e3 * z_pl; // kN*m = 532.5
+    let m_capacity = fz * 1e3 * z_pl; // kN*m = 532.5
 
     let max_moment_demand: f64 = res_damaged.element_forces.iter()
         .map(|ef| ef.m_start.abs().max(ef.m_end.abs()))
@@ -549,8 +549,8 @@ fn progressive_collapse_tie_force_method() {
         SolverLoad::Nodal(SolverNodalLoad {
             node_id: n_elem + 1,
             fx: t_beam, // tension along beam axis
-            fy: 0.0,
-            mz: 0.0,
+            fz: 0.0,
+            my: 0.0,
         }),
     ];
     let input_tie = make_beam(n_elem, l_tie, E, A_BEAM, IZ_BEAM, "pinned", Some("rollerX"), loads_tie);
@@ -643,7 +643,7 @@ fn progressive_collapse_key_element_approach() {
     // Verify base reaction moment from solver
     let mz_base = res.reactions.iter()
         .find(|r| r.node_id == 1)
-        .map(|r| r.mz.abs())
+        .map(|r| r.my.abs())
         .unwrap_or(0.0);
     assert_close(mz_base, m_base_analytical, 0.05,
         "solver base moment matches cantilever formula");
@@ -726,7 +726,7 @@ fn progressive_collapse_two_column_removal() {
 
     // Total vertical load = 3 * q * L
     let total_load = Q_GRAV.abs() * 3.0 * l;
-    let total_ry_intact: f64 = res_intact.reactions.iter().map(|r| r.ry).sum();
+    let total_ry_intact: f64 = res_intact.reactions.iter().map(|r| r.rz).sum();
     assert_close(total_ry_intact, total_load, 0.02, "intact equilibrium");
 
     // --- Damaged: remove two interior columns (nodes 4, 6) ---
@@ -770,17 +770,17 @@ fn progressive_collapse_two_column_removal() {
     let res_damaged = linear::solve_2d(&input_damaged).unwrap();
 
     // Equilibrium still holds
-    let total_ry_damaged: f64 = res_damaged.reactions.iter().map(|r| r.ry).sum();
+    let total_ry_damaged: f64 = res_damaged.reactions.iter().map(|r| r.rz).sum();
     assert_close(total_ry_damaged, total_load, 0.02, "damaged equilibrium");
 
     // Deflection at midspan (node 5) should be very large compared to intact
     let uy_mid_intact = res_intact.displacements.iter()
         .find(|d| d.node_id == 5)
-        .map(|d| d.uy.abs())
+        .map(|d| d.uz.abs())
         .unwrap_or(0.0);
     let uy_mid_damaged = res_damaged.displacements.iter()
         .find(|d| d.node_id == 5)
-        .map(|d| d.uy.abs())
+        .map(|d| d.uz.abs())
         .unwrap_or(0.0);
     assert!(
         uy_mid_damaged > 10.0 * uy_mid_intact,
@@ -804,11 +804,11 @@ fn progressive_collapse_two_column_removal() {
     // The two remaining columns each carry half the total load
     let ry_left = res_damaged.reactions.iter()
         .find(|r| r.node_id == 1)
-        .map(|r| r.ry)
+        .map(|r| r.rz)
         .unwrap_or(0.0);
     let ry_right = res_damaged.reactions.iter()
         .find(|r| r.node_id == 8)
-        .map(|r| r.ry)
+        .map(|r| r.rz)
         .unwrap_or(0.0);
     // By symmetry, each should carry approximately half
     assert_close(ry_left, total_load / 2.0, 0.15,
@@ -857,7 +857,7 @@ fn progressive_collapse_redundancy_quantification() {
     let res_4span = linear::solve_2d(&input_4span).unwrap();
 
     let max_uy_4span: f64 = res_4span.displacements.iter()
-        .map(|d| d.uy.abs())
+        .map(|d| d.uz.abs())
         .fold(0.0_f64, f64::max);
 
     // Damaged: remove one interior support -> 3-span + 1 longer span
@@ -875,7 +875,7 @@ fn progressive_collapse_redundancy_quantification() {
     let res_damaged = linear::solve_2d(&input_damaged).unwrap();
 
     let max_uy_damaged: f64 = res_damaged.displacements.iter()
-        .map(|d| d.uy.abs())
+        .map(|d| d.uz.abs())
         .fold(0.0_f64, f64::max);
 
     // Redundancy factor: inverse of deflection amplification
@@ -909,7 +909,7 @@ fn progressive_collapse_redundancy_quantification() {
     let res_2span = linear::solve_2d(&input_2span).unwrap();
 
     let max_uy_2span: f64 = res_2span.displacements.iter()
-        .map(|d| d.uy.abs())
+        .map(|d| d.uz.abs())
         .fold(0.0_f64, f64::max);
 
     // Damaged 2-span: remove interior support -> single span 2L
@@ -924,7 +924,7 @@ fn progressive_collapse_redundancy_quantification() {
     let res_ss = linear::solve_2d(&input_ss).unwrap();
 
     let max_uy_ss: f64 = res_ss.displacements.iter()
-        .map(|d| d.uy.abs())
+        .map(|d| d.uz.abs())
         .fold(0.0_f64, f64::max);
 
     let beta_r_2span = max_uy_2span / max_uy_ss;

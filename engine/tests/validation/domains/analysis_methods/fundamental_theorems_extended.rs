@@ -34,18 +34,18 @@ fn validation_ext_maxwell_betti_continuous_beam() {
 
     let input_a = make_continuous_beam(
         &spans, n_per_span, E, A, IZ,
-        vec![SolverLoad::Nodal(SolverNodalLoad { node_id: node_i, fx: 0.0, fy: -1.0, mz: 0.0 })],
+        vec![SolverLoad::Nodal(SolverNodalLoad { node_id: node_i, fx: 0.0, fz: -1.0, my: 0.0 })],
     );
     let input_b = make_continuous_beam(
         &spans, n_per_span, E, A, IZ,
-        vec![SolverLoad::Nodal(SolverNodalLoad { node_id: node_j, fx: 0.0, fy: -1.0, mz: 0.0 })],
+        vec![SolverLoad::Nodal(SolverNodalLoad { node_id: node_j, fx: 0.0, fz: -1.0, my: 0.0 })],
     );
 
     let res_a = linear::solve_2d(&input_a).unwrap();
     let res_b = linear::solve_2d(&input_b).unwrap();
 
-    let d_a_at_j = res_a.displacements.iter().find(|d| d.node_id == node_j).unwrap().uy;
-    let d_b_at_i = res_b.displacements.iter().find(|d| d.node_id == node_i).unwrap().uy;
+    let d_a_at_j = res_a.displacements.iter().find(|d| d.node_id == node_j).unwrap().uz;
+    let d_b_at_i = res_b.displacements.iter().find(|d| d.node_id == node_i).unwrap().uz;
 
     assert_close(d_a_at_j, d_b_at_i, 1e-10,
         "Maxwell-Betti continuous beam: δ_{i,j} = δ_{j,i}");
@@ -82,7 +82,7 @@ fn validation_ext_clapeyron_ss_beam_udl() {
     // Exact midspan deflection: δ = 5qL⁴/(384EI)
     let delta_exact: f64 = 5.0 * q.abs() * l.powi(4) / (384.0 * e_eff * IZ);
 
-    assert_close(d_mid.uy.abs(), delta_exact, 0.02,
+    assert_close(d_mid.uz.abs(), delta_exact, 0.02,
         "Clapeyron UDL: midspan δ = 5qL⁴/(384EI)");
 
     // Also verify external work is positive via Clapeyron
@@ -92,8 +92,8 @@ fn validation_ext_clapeyron_ss_beam_udl() {
     // Σ R_y · u_y at supports should be zero (supports don't move for pinned/roller)
     let sup_1 = results.displacements.iter().find(|d| d.node_id == 1).unwrap();
     let sup_n = results.displacements.iter().find(|d| d.node_id == n + 1).unwrap();
-    assert!(sup_1.uy.abs() < 1e-10, "Pinned support uy must be zero");
-    assert!(sup_n.uy.abs() < 1e-10, "Roller support uy must be zero");
+    assert!(sup_1.uz.abs() < 1e-10, "Pinned support uy must be zero");
+    assert!(sup_n.uz.abs() < 1e-10, "Roller support uy must be zero");
 }
 
 // ================================================================
@@ -114,16 +114,16 @@ fn validation_ext_castigliano_rotation() {
 
     // Case 1: moment = m_val
     let input_1 = make_beam(n, l, E, A, IZ, "fixed", None,
-        vec![SolverLoad::Nodal(SolverNodalLoad { node_id: tip, fx: 0.0, fy: 0.0, mz: m_val })]);
+        vec![SolverLoad::Nodal(SolverNodalLoad { node_id: tip, fx: 0.0, fz: 0.0, my: m_val })]);
     // Case 2: moment = m_val + dm
     let input_2 = make_beam(n, l, E, A, IZ, "fixed", None,
-        vec![SolverLoad::Nodal(SolverNodalLoad { node_id: tip, fx: 0.0, fy: 0.0, mz: m_val + dm })]);
+        vec![SolverLoad::Nodal(SolverNodalLoad { node_id: tip, fx: 0.0, fz: 0.0, my: m_val + dm })]);
 
     let res_1 = linear::solve_2d(&input_1).unwrap();
     let res_2 = linear::solve_2d(&input_2).unwrap();
 
-    let rz_1 = res_1.displacements.iter().find(|d| d.node_id == tip).unwrap().rz;
-    let rz_2 = res_2.displacements.iter().find(|d| d.node_id == tip).unwrap().rz;
+    let rz_1 = res_1.displacements.iter().find(|d| d.node_id == tip).unwrap().ry;
+    let rz_2 = res_2.displacements.iter().find(|d| d.node_id == tip).unwrap().ry;
 
     // Strain energy: U = ½ M θ (linear system)
     let u1 = 0.5 * m_val * rz_1;
@@ -155,25 +155,25 @@ fn validation_ext_superposition_scaling() {
     let mid = n / 2 + 1;
 
     let input_base = make_beam(n, l, E, A, IZ, "pinned", Some("rollerX"),
-        vec![SolverLoad::Nodal(SolverNodalLoad { node_id: mid, fx: 0.0, fy: -p, mz: 0.0 })]);
+        vec![SolverLoad::Nodal(SolverNodalLoad { node_id: mid, fx: 0.0, fz: -p, my: 0.0 })]);
     let input_scaled = make_beam(n, l, E, A, IZ, "pinned", Some("rollerX"),
-        vec![SolverLoad::Nodal(SolverNodalLoad { node_id: mid, fx: 0.0, fy: -p * alpha, mz: 0.0 })]);
+        vec![SolverLoad::Nodal(SolverNodalLoad { node_id: mid, fx: 0.0, fz: -p * alpha, my: 0.0 })]);
 
     let res_base = linear::solve_2d(&input_base).unwrap();
     let res_scaled = linear::solve_2d(&input_scaled).unwrap();
 
     for ds in &res_scaled.displacements {
         let db = res_base.displacements.iter().find(|d| d.node_id == ds.node_id).unwrap();
-        assert_close(ds.uy, alpha * db.uy, 1e-10,
+        assert_close(ds.uz, alpha * db.uz, 1e-10,
             &format!("Scaling uy node {}: {}*δ", ds.node_id, alpha));
-        assert_close(ds.rz, alpha * db.rz, 1e-10,
+        assert_close(ds.ry, alpha * db.ry, 1e-10,
             &format!("Scaling rz node {}: {}*θ", ds.node_id, alpha));
     }
 
     // Also check reactions scale
     for rs in &res_scaled.reactions {
         let rb = res_base.reactions.iter().find(|r| r.node_id == rs.node_id).unwrap();
-        assert_close(rs.ry, alpha * rb.ry, 1e-10,
+        assert_close(rs.rz, alpha * rb.rz, 1e-10,
             &format!("Scaling reaction ry node {}", rs.node_id));
     }
 }
@@ -193,18 +193,18 @@ fn validation_ext_superposition_sign_reversal() {
     let p = 12.0;
 
     let input_pos = make_beam(n, l, E, A, IZ, "fixed", None,
-        vec![SolverLoad::Nodal(SolverNodalLoad { node_id: tip, fx: 0.0, fy: -p, mz: 0.0 })]);
+        vec![SolverLoad::Nodal(SolverNodalLoad { node_id: tip, fx: 0.0, fz: -p, my: 0.0 })]);
     let input_neg = make_beam(n, l, E, A, IZ, "fixed", None,
-        vec![SolverLoad::Nodal(SolverNodalLoad { node_id: tip, fx: 0.0, fy: p, mz: 0.0 })]);
+        vec![SolverLoad::Nodal(SolverNodalLoad { node_id: tip, fx: 0.0, fz: p, my: 0.0 })]);
 
     let res_pos = linear::solve_2d(&input_pos).unwrap();
     let res_neg = linear::solve_2d(&input_neg).unwrap();
 
     for dp in &res_pos.displacements {
         let dn = res_neg.displacements.iter().find(|d| d.node_id == dp.node_id).unwrap();
-        assert_close(dn.uy, -dp.uy, 1e-10,
+        assert_close(dn.uz, -dp.uz, 1e-10,
             &format!("Sign reversal uy node {}", dp.node_id));
-        assert_close(dn.rz, -dp.rz, 1e-10,
+        assert_close(dn.ry, -dp.ry, 1e-10,
             &format!("Sign reversal rz node {}", dp.node_id));
     }
 
@@ -245,13 +245,13 @@ fn validation_ext_global_equilibrium_portal() {
     for load in &input.loads {
         if let SolverLoad::Nodal(nl) = load {
             fx_applied += nl.fx;
-            fy_applied += nl.fy;
+            fy_applied += nl.fz;
         }
     }
 
     // Sum of reactions
     let rx_sum: f64 = results.reactions.iter().map(|r| r.rx).sum();
-    let ry_sum: f64 = results.reactions.iter().map(|r| r.ry).sum();
+    let ry_sum: f64 = results.reactions.iter().map(|r| r.rz).sum();
 
     // Force equilibrium: applied + reactions = 0
     assert_close(rx_sum + fx_applied, 0.0, 0.01,
@@ -293,7 +293,7 @@ fn validation_ext_work_energy_3d_cantilever() {
     let d_tip = results.displacements.iter().find(|d| d.node_id == tip).unwrap();
 
     // External work: W = ½ P |δ_y|
-    let w_ext: f64 = 0.5 * p * d_tip.uy.abs();
+    let w_ext: f64 = 0.5 * p * d_tip.uz.abs();
 
     // Analytical strain energy: U = P²L³/(6EI)
     let u_analytical: f64 = p * p * l.powi(3) / (6.0 * e_eff * IZ);
@@ -303,7 +303,7 @@ fn validation_ext_work_energy_3d_cantilever() {
 
     // Also verify tip deflection directly
     let delta_exact: f64 = p * l.powi(3) / (3.0 * e_eff * IZ);
-    assert_close(d_tip.uy.abs(), delta_exact, 0.02,
+    assert_close(d_tip.uz.abs(), delta_exact, 0.02,
         "3D cantilever tip deflection: δ = PL³/(3EI)");
 }
 
@@ -341,7 +341,7 @@ fn validation_ext_maxwell_betti_3d_mixed_dof() {
     let res_b = linear::solve_3d(&input_b).unwrap();
 
     // Fz at node_i → rotation ry at node_j
-    let ry_a_at_j = res_a.displacements.iter().find(|d| d.node_id == node_j).unwrap().ry;
+    let ry_a_at_j = res_a.displacements.iter().find(|d| d.node_id == node_j).unwrap().rz;
     // My at node_j → displacement uz at node_i
     let uz_b_at_i = res_b.displacements.iter().find(|d| d.node_id == node_i).unwrap().uz;
 

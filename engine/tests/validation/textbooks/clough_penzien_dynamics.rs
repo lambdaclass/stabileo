@@ -426,7 +426,7 @@ fn validation_clough_6_newmark_sdof_impulse() {
         let fy = if i < pulse_steps { -100.0 } else { 0.0 };
         force_history.push(TimeForceRecord {
             time: t,
-            loads: vec![SolverNodalLoad { node_id: n_nodes, fx: 0.0, fy, mz: 0.0 }] });
+            loads: vec![SolverNodalLoad { node_id: n_nodes, fx: 0.0, fz: fy, my: 0.0 }] });
     }
 
     let input = TimeHistoryInput {
@@ -448,7 +448,7 @@ fn validation_clough_6_newmark_sdof_impulse() {
 
     // Extract tip displacement history
     let tip = result.node_histories.iter().find(|h| h.node_id == n_nodes).unwrap();
-    let uy = &tip.uy;
+    let uy = &tip.uz;
 
     // Find zero crossings after the impulse
     let start_idx = (pulse_steps + 5).min(uy.len() - 1);
@@ -528,7 +528,7 @@ fn validation_clough_7_spectral_response_sdof() {
             period: m.period,
             omega: m.omega,
             displacements: m.displacements.iter().map(|d| {
-                SpectralModeDisp { node_id: d.node_id, ux: d.ux, uy: d.uy, rz: d.rz }
+                SpectralModeDisp { node_id: d.node_id, ux: d.ux, uz: d.uz, ry: d.ry }
             }).collect(),
             participation_x: m.participation_x,
             participation_y: m.participation_y,
@@ -619,7 +619,7 @@ fn validation_clough_8_damping_effect() {
             let fy = if i < pulse_steps { -100.0 } else { 0.0 };
             fh.push(TimeForceRecord {
                 time: t,
-                loads: vec![SolverNodalLoad { node_id: n_nodes, fx: 0.0, fy, mz: 0.0 }] });
+                loads: vec![SolverNodalLoad { node_id: n_nodes, fx: 0.0, fz: fy, my: 0.0 }] });
         }
         fh
     };
@@ -662,9 +662,9 @@ fn validation_clough_8_damping_effect() {
 
     // Look at peak after the impulse (skip initial transient)
     let skip = pulse_steps + 5;
-    let peak_undamped = tip_undamped.uy[skip..].iter()
+    let peak_undamped = tip_undamped.uz[skip..].iter()
         .cloned().fold(0.0_f64, |a, b| a.max(b.abs()));
-    let peak_damped = tip_damped.uy[skip..].iter()
+    let peak_damped = tip_damped.uz[skip..].iter()
         .cloned().fold(0.0_f64, |a, b| a.max(b.abs()));
 
     assert!(

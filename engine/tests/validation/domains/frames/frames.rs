@@ -31,14 +31,14 @@ fn validation_portal_lateral_load() {
     assert_close(sum_rx, -lateral, 0.01, "portal lateral ΣRx");
 
     // ΣRy = 0 (no vertical load)
-    let sum_ry: f64 = results.reactions.iter().map(|r| r.ry).sum();
+    let sum_ry: f64 = results.reactions.iter().map(|r| r.rz).sum();
     assert!(sum_ry.abs() < 0.5, "portal lateral ΣRy={:.4}, expected ~0", sum_ry);
 
     // Both base moments should be nonzero (fixed bases resist sway)
     let r1 = results.reactions.iter().find(|r| r.node_id == 1).unwrap();
     let r4 = results.reactions.iter().find(|r| r.node_id == 4).unwrap();
-    assert!(r1.mz.abs() > 5.0, "base moment 1 should be significant");
-    assert!(r4.mz.abs() > 5.0, "base moment 4 should be significant");
+    assert!(r1.my.abs() > 5.0, "base moment 1 should be significant");
+    assert!(r4.my.abs() > 5.0, "base moment 4 should be significant");
 
     // Sway should be positive (load direction)
     let d2 = results.displacements.iter().find(|d| d.node_id == 2).unwrap();
@@ -77,7 +77,7 @@ fn validation_portal_gravity_symmetric() {
     );
 
     // Equilibrium: total gravity = q*w = 120
-    let sum_ry: f64 = results.reactions.iter().map(|r| r.ry).sum();
+    let sum_ry: f64 = results.reactions.iter().map(|r| r.rz).sum();
     assert_close(sum_ry, 20.0 * w, 0.01, "portal gravity ΣRy");
 }
 
@@ -104,7 +104,7 @@ fn validation_portal_pinned_bases() {
         ],
         vec![(1, 1, "pinned"), (2, 4, "pinned")],
         vec![SolverLoad::Nodal(SolverNodalLoad {
-            node_id: 2, fx: lateral, fy: 0.0, mz: 0.0,
+            node_id: 2, fx: lateral, fz: 0.0, my: 0.0,
         })],
     );
     let results = linear::solve_2d(&input).unwrap();
@@ -112,8 +112,8 @@ fn validation_portal_pinned_bases() {
     // Base moments should be zero (pinned)
     let r1 = results.reactions.iter().find(|r| r.node_id == 1).unwrap();
     let r4 = results.reactions.iter().find(|r| r.node_id == 4).unwrap();
-    assert!(r1.mz.abs() < 0.01, "pinned base: Mz_1 should be ~0");
-    assert!(r4.mz.abs() < 0.01, "pinned base: Mz_4 should be ~0");
+    assert!(r1.my.abs() < 0.01, "pinned base: Mz_1 should be ~0");
+    assert!(r4.my.abs() < 0.01, "pinned base: Mz_4 should be ~0");
 
     // Compare sway: pinned base should deflect more than fixed base
     let fixed_input = make_portal_frame(h, w, E, A, IZ, lateral, 0.0);
@@ -170,7 +170,7 @@ fn validation_gerber_beam_hinge() {
     assert!(ef2.m_start.abs() < 1.0, "hinge: M_start_2={:.2}, should be ~0", ef2.m_start);
 
     // Equilibrium
-    let sum_ry: f64 = results.reactions.iter().map(|r| r.ry).sum();
+    let sum_ry: f64 = results.reactions.iter().map(|r| r.rz).sum();
     assert_close(sum_ry, q * l, 0.01, "gerber ΣRy");
 }
 
@@ -191,7 +191,7 @@ fn validation_fixed_fixed_settlement() {
     let mut nodes_map = std::collections::HashMap::new();
     for i in 0..=n {
         nodes_map.insert((i + 1).to_string(), SolverNode {
-            id: i + 1, x: i as f64 * elem_len, y: 0.0,
+            id: i + 1, x: i as f64 * elem_len, z: 0.0,
         });
     }
     let mut mats_map = std::collections::HashMap::new();
@@ -210,12 +210,12 @@ fn validation_fixed_fixed_settlement() {
     sups_map.insert("1".to_string(), SolverSupport {
         id: 1, node_id: 1, support_type: "fixed".to_string(),
         kx: None, ky: None, kz: None,
-        dx: None, dy: None, drz: None, angle: None,
+        dx: None, dz: None, dry: None, angle: None,
     });
     sups_map.insert("2".to_string(), SolverSupport {
         id: 2, node_id: n + 1, support_type: "fixed".to_string(),
         kx: None, ky: None, kz: None,
-        dx: None, dy: Some(-delta0), drz: None, angle: None,
+        dx: None, dz: Some(-delta0), dry: None, angle: None,
     });
 
     let input = SolverInput {
@@ -228,11 +228,11 @@ fn validation_fixed_fixed_settlement() {
     // M = 6EIδ/L² = 12.0 kN·m
     let r1 = results.reactions.iter().find(|r| r.node_id == 1).unwrap();
     let expected_m = 6.0 * EI * delta0 / (l * l);
-    assert_close(r1.mz.abs(), expected_m, 0.05, "settlement M");
+    assert_close(r1.my.abs(), expected_m, 0.05, "settlement M");
 
     // V = 12EIδ/L³ = 2.4 kN
     let expected_v = 12.0 * EI * delta0 / (l.powi(3));
-    assert_close(r1.ry.abs(), expected_v, 0.05, "settlement V");
+    assert_close(r1.rz.abs(), expected_v, 0.05, "settlement V");
 }
 
 // ═══════════════════════════════════════════════════════════════
@@ -277,17 +277,17 @@ fn validation_cantilever_tip_spring() {
     sups_map.insert("1".to_string(), SolverSupport {
         id: 1, node_id: 1, support_type: "fixed".to_string(),
         kx: None, ky: None, kz: None,
-        dx: None, dy: None, drz: None, angle: None,
+        dx: None, dz: None, dry: None, angle: None,
     });
     sups_map.insert("2".to_string(), SolverSupport {
         id: 2, node_id: n_nodes, support_type: "spring".to_string(),
         kx: None, ky: Some(ky), kz: None,
-        dx: None, dy: None, drz: None, angle: None,
+        dx: None, dz: None, dry: None, angle: None,
     });
 
     let mut nodes_map = std::collections::HashMap::new();
     for (id, x, y) in &nodes {
-        nodes_map.insert(id.to_string(), SolverNode { id: *id, x: *x, y: *y });
+        nodes_map.insert(id.to_string(), SolverNode { id: *id, x: *x, z: *y });
     }
     let mut mats_map = std::collections::HashMap::new();
     mats_map.insert("1".to_string(), SolverMaterial { id: 1, e: E, nu: 0.3 });
@@ -315,11 +315,11 @@ fn validation_cantilever_tip_spring() {
     // With spring, tip deflection should be much smaller
     let tip = results.displacements.iter().find(|d| d.node_id == n_nodes).unwrap();
     assert!(
-        tip.uy.abs() < delta_free * 0.5,
+        tip.uz.abs() < delta_free * 0.5,
         "spring should reduce deflection: δ={:.6}, free={:.6}",
-        tip.uy.abs(), delta_free
+        tip.uz.abs(), delta_free
     );
-    assert!(tip.uy.abs() > 0.0, "tip should still deflect");
+    assert!(tip.uz.abs() > 0.0, "tip should still deflect");
 }
 
 // ═══════════════════════════════════════════════════════════════
@@ -343,10 +343,10 @@ fn validation_symmetric_portal_reactions() {
         vec![(1, 1, "fixed"), (2, 4, "fixed")],
         vec![
             SolverLoad::Nodal(SolverNodalLoad {
-                node_id: 2, fx: 0.0, fy: -50.0, mz: 0.0,
+                node_id: 2, fx: 0.0, fz: -50.0, my: 0.0,
             }),
             SolverLoad::Nodal(SolverNodalLoad {
-                node_id: 3, fx: 0.0, fy: -50.0, mz: 0.0,
+                node_id: 3, fx: 0.0, fz: -50.0, my: 0.0,
             }),
         ],
     );
@@ -354,7 +354,7 @@ fn validation_symmetric_portal_reactions() {
 
     let r1 = results.reactions.iter().find(|r| r.node_id == 1).unwrap();
     let r4 = results.reactions.iter().find(|r| r.node_id == 4).unwrap();
-    assert_close(r1.ry, r4.ry, 0.001, "symmetric Ry");
+    assert_close(r1.rz, r4.rz, 0.001, "symmetric Ry");
     // Moments should be equal in magnitude (same sign due to symmetry)
-    assert_close(r1.mz.abs(), r4.mz.abs(), 0.001, "symmetric Mz");
+    assert_close(r1.my.abs(), r4.my.abs(), 0.001, "symmetric Mz");
 }

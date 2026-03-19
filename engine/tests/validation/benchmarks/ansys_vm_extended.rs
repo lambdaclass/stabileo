@@ -86,7 +86,7 @@ fn validation_vm7_ss_beam_thermal_gradient() {
     let mid = n / 2 + 1;
     let d_mid = results.displacements.iter().find(|d| d.node_id == mid).unwrap();
 
-    assert_close(d_mid.uy.abs(), delta_expected, 0.05,
+    assert_close(d_mid.uz.abs(), delta_expected, 0.05,
         "VM7 thermal gradient midspan deflection");
 
     // No bending moment (SS beam with uniform gradient = free to bow)
@@ -121,7 +121,7 @@ fn validation_vm8_planar_truss_triangle() {
     ];
     let sups = vec![(1, 1, "pinned"), (2, 2, "rollerX")];
     let loads = vec![SolverLoad::Nodal(SolverNodalLoad {
-        node_id: 3, fx: 0.0, fy: -p, mz: 0.0,
+        node_id: 3, fx: 0.0, fz: -p, my: 0.0,
     })];
 
     let input = make_input(
@@ -134,8 +134,8 @@ fn validation_vm8_planar_truss_triangle() {
     // By symmetry, R1_y = R2_y = P/2 = 25 kN
     let r1 = results.reactions.iter().find(|r| r.node_id == 1).unwrap();
     let r2 = results.reactions.iter().find(|r| r.node_id == 2).unwrap();
-    assert_close(r1.ry, p / 2.0, 0.01, "VM8 R1_y");
-    assert_close(r2.ry, p / 2.0, 0.01, "VM8 R2_y");
+    assert_close(r1.rz, p / 2.0, 0.01, "VM8 R1_y");
+    assert_close(r2.rz, p / 2.0, 0.01, "VM8 R2_y");
 
     // Inclined bars: F = P/(2sinθ) where θ=60°
     let theta = 60.0_f64.to_radians();
@@ -151,7 +151,7 @@ fn validation_vm8_planar_truss_triangle() {
     assert_close(ef3.n_start.abs(), f_bottom, 0.02, "VM8 bottom bar force");
 
     // Equilibrium
-    let sum_ry: f64 = results.reactions.iter().map(|r| r.ry).sum();
+    let sum_ry: f64 = results.reactions.iter().map(|r| r.rz).sum();
     assert_close(sum_ry, p, 0.01, "VM8 ΣRy = P");
 }
 
@@ -279,13 +279,13 @@ fn validation_vm13_indeterminate_portal() {
     let r_right = results.reactions.iter().find(|r| r.node_id == right_base).unwrap();
 
     // Vertical reactions: each = q*w/2 = 60 kN
-    assert_close(r_left.ry, q * w / 2.0, 0.02, "VM13 R_left_y");
-    assert_close(r_right.ry, q * w / 2.0, 0.02, "VM13 R_right_y");
+    assert_close(r_left.rz, q * w / 2.0, 0.02, "VM13 R_left_y");
+    assert_close(r_right.rz, q * w / 2.0, 0.02, "VM13 R_right_y");
 
     // By symmetry, |M_left_base| ≈ |M_right_base|
-    let rel = (r_left.mz.abs() - r_right.mz.abs()).abs()
-        / r_left.mz.abs().max(1.0);
-    assert!(rel < 0.05, "VM13 symmetry: M_left={:.4}, M_right={:.4}", r_left.mz, r_right.mz);
+    let rel = (r_left.my.abs() - r_right.my.abs()).abs()
+        / r_left.my.abs().max(1.0);
+    assert!(rel < 0.05, "VM13 symmetry: M_left={:.4}, M_right={:.4}", r_left.my, r_right.my);
 
     // Horizontal reactions should be equal and opposite
     assert!(
@@ -311,7 +311,7 @@ fn validation_vm14_cantilever_moment_load() {
 
     let input = make_beam(n, l, E, a, iz, "fixed", None,
         vec![SolverLoad::Nodal(SolverNodalLoad {
-            node_id: n + 1, fx: 0.0, fy: 0.0, mz: m })],
+            node_id: n + 1, fx: 0.0, fz: 0.0, my: m })],
     );
 
     let results = linear::solve_2d(&input).unwrap();
@@ -320,11 +320,11 @@ fn validation_vm14_cantilever_moment_load() {
 
     // δ = M·L²/(2·E_eff·I)
     let delta_expected = m * l * l / (2.0 * E_EFF * iz);
-    assert_close(tip.uy.abs(), delta_expected, 0.02, "VM14 tip deflection");
+    assert_close(tip.uz.abs(), delta_expected, 0.02, "VM14 tip deflection");
 
     // θ = M·L/(E_eff·I)
     let theta_expected = m * l / (E_EFF * iz);
-    assert_close(tip.rz.abs(), theta_expected, 0.02, "VM14 tip rotation");
+    assert_close(tip.ry.abs(), theta_expected, 0.02, "VM14 tip rotation");
 
     // No shear force (pure bending)
     for ef in &results.element_forces {
@@ -387,7 +387,7 @@ fn validation_vm3_stepped_cantilever() {
     let sups = vec![(1, 1, "fixed")];
     let tip_node = n_total + 1;
     let loads = vec![SolverLoad::Nodal(SolverNodalLoad {
-        node_id: tip_node, fx: 0.0, fy: -p, mz: 0.0,
+        node_id: tip_node, fx: 0.0, fz: -p, my: 0.0,
     })];
 
     let input = make_input(
@@ -416,14 +416,14 @@ fn validation_vm3_stepped_cantilever() {
                        + p / ei1 * ((l2 + l1).powi(3) / 3.0 - l2.powi(3) / 3.0);
 
     let d_tip = results.displacements.iter().find(|d| d.node_id == tip_node).unwrap();
-    assert_close(d_tip.uy.abs(), delta_expected, 0.02, "VM3 stepped cantilever tip deflection");
+    assert_close(d_tip.uz.abs(), delta_expected, 0.02, "VM3 stepped cantilever tip deflection");
 
     // Equilibrium: base reaction = P
     let r_base = results.reactions.iter().find(|r| r.node_id == 1).unwrap();
-    assert_close(r_base.ry, p, 0.01, "VM3 R_y = P");
+    assert_close(r_base.rz, p, 0.01, "VM3 R_y = P");
 
     // Base moment = P * (L₁ + L₂)
-    assert_close(r_base.mz.abs(), p * (l1 + l2), 0.02, "VM3 M_base");
+    assert_close(r_base.my.abs(), p * (l1 + l2), 0.02, "VM3 M_base");
 }
 
 // ═══════════════════════════════════════════════════════════════
@@ -453,7 +453,7 @@ fn validation_vm156_beam_column_pdelta() {
     let elems: Vec<_> = (0..n).map(|i| (i + 1, "frame", i + 1, i + 2, 1, 1, false, false)).collect();
 
     let mut loads = vec![SolverLoad::Nodal(SolverNodalLoad {
-        node_id: n + 1, fx: -p, fy: 0.0, mz: 0.0,
+        node_id: n + 1, fx: -p, fz: 0.0, my: 0.0,
     })];
     for i in 0..n {
         loads.push(SolverLoad::Distributed(SolverDistributedLoad {
@@ -473,8 +473,8 @@ fn validation_vm156_beam_column_pdelta() {
     assert!(pd.is_stable, "VM156 should be stable (P < Pe)");
 
     let mid = n / 2 + 1;
-    let lin_uy = lin.displacements.iter().find(|d| d.node_id == mid).unwrap().uy;
-    let pd_uy = pd.results.displacements.iter().find(|d| d.node_id == mid).unwrap().uy;
+    let lin_uy = lin.displacements.iter().find(|d| d.node_id == mid).unwrap().uz;
+    let pd_uy = pd.results.displacements.iter().find(|d| d.node_id == mid).unwrap().uz;
 
     let actual_amp = pd_uy.abs() / lin_uy.abs();
     assert!(
@@ -519,7 +519,7 @@ fn validation_vm21_tie_rod_tension_stiffening() {
 
     // With tension
     let mut loads_t = vec![SolverLoad::Nodal(SolverNodalLoad {
-        node_id: n + 1, fx: t, fy: 0.0, mz: 0.0, // positive = tension
+        node_id: n + 1, fx: t, fz: 0.0, my: 0.0, // positive = tension
     })];
     for i in 0..n {
         loads_t.push(SolverLoad::Distributed(SolverDistributedLoad {
@@ -536,8 +536,8 @@ fn validation_vm21_tie_rod_tension_stiffening() {
     let pd_t = pdelta::solve_pdelta_2d(&input_t, 30, 1e-5).unwrap();
 
     let mid = n / 2 + 1;
-    let d_no_t = res_no_t.displacements.iter().find(|d| d.node_id == mid).unwrap().uy.abs();
-    let d_t = pd_t.results.displacements.iter().find(|d| d.node_id == mid).unwrap().uy.abs();
+    let d_no_t = res_no_t.displacements.iter().find(|d| d.node_id == mid).unwrap().uz.abs();
+    let d_t = pd_t.results.displacements.iter().find(|d| d.node_id == mid).unwrap().uz.abs();
 
     // Tension stiffening: deflection with tension should be LESS than without
     assert!(
@@ -573,7 +573,7 @@ fn validation_vm8_equilibrium() {
     ];
     let sups = vec![(1, 1, "pinned"), (2, 2, "rollerX")];
     let loads = vec![SolverLoad::Nodal(SolverNodalLoad {
-        node_id: 3, fx: 0.0, fy: -p, mz: 0.0,
+        node_id: 3, fx: 0.0, fz: -p, my: 0.0,
     })];
 
     let input = make_input(
@@ -584,7 +584,7 @@ fn validation_vm8_equilibrium() {
     let results = linear::solve_2d(&input).unwrap();
 
     let sum_rx_val: f64 = results.reactions.iter().map(|r| r.rx).sum();
-    let sum_ry_val: f64 = results.reactions.iter().map(|r| r.ry).sum();
+    let sum_ry_val: f64 = results.reactions.iter().map(|r| r.rz).sum();
 
     assert!(sum_rx_val.abs() < 0.01, "VM8 ΣFx={:.6} ≠ 0", sum_rx_val);
     assert_close(sum_ry_val, p, 0.01, "VM8 ΣFy = P");
@@ -623,11 +623,11 @@ fn validation_vm9_3d_equilibrium() {
     let results = linear::solve_3d(&input).unwrap();
 
     let sum_fx: f64 = results.reactions.iter().map(|r| r.fx).sum();
-    let sum_fy: f64 = results.reactions.iter().map(|r| r.fy).sum();
+    let sum_fz: f64 = results.reactions.iter().map(|r| r.fz).sum();
     let sum_fz: f64 = results.reactions.iter().map(|r| r.fz).sum();
 
     assert!(sum_fx.abs() < 0.1, "VM9 ΣFx={:.4} ≠ 0", sum_fx);
-    assert!(sum_fy.abs() < 0.1, "VM9 ΣFy={:.4} ≠ 0", sum_fy);
+    assert!(sum_fz.abs() < 0.1, "VM9 ΣFy={:.4} ≠ 0", sum_fz);
     assert_close(sum_fz, p, 0.01, "VM9 ΣFz = P");
 }
 
@@ -700,12 +700,12 @@ fn validation_vm13_base_moments_nonzero() {
     let r1 = results.reactions.iter().find(|r| r.node_id == 1).unwrap();
     let r4 = results.reactions.iter().find(|r| r.node_id == 4).unwrap();
 
-    assert!(r1.mz.abs() > 1.0, "VM13: left base moment={:.4} should be nonzero", r1.mz);
-    assert!(r4.mz.abs() > 1.0, "VM13: right base moment={:.4} should be nonzero", r4.mz);
+    assert!(r1.my.abs() > 1.0, "VM13: left base moment={:.4} should be nonzero", r1.my);
+    assert!(r4.my.abs() > 1.0, "VM13: right base moment={:.4} should be nonzero", r4.my);
 
     // Symmetry
-    assert_close(r1.mz.abs(), r4.mz.abs(), 0.05, "VM13 base moment symmetry");
-    assert_close(r1.ry, r4.ry, 0.01, "VM13 vertical reaction symmetry");
+    assert_close(r1.my.abs(), r4.my.abs(), 0.05, "VM13 base moment symmetry");
+    assert_close(r1.rz, r4.rz, 0.01, "VM13 vertical reaction symmetry");
 }
 
 // ═══════════════════════════════════════════════════════════════
@@ -724,7 +724,7 @@ fn validation_vm14_curvature() {
 
     let input = make_beam(n, l, E, a, iz, "fixed", None,
         vec![SolverLoad::Nodal(SolverNodalLoad {
-            node_id: n + 1, fx: 0.0, fy: 0.0, mz: m })],
+            node_id: n + 1, fx: 0.0, fz: 0.0, my: m })],
     );
 
     let results = linear::solve_2d(&input).unwrap();
@@ -737,7 +737,7 @@ fn validation_vm14_curvature() {
     disps.sort_by_key(|d| d.node_id);
 
     for i in 1..disps.len() {
-        let dtheta = (disps[i].rz - disps[i - 1].rz).abs();
+        let dtheta = (disps[i].ry - disps[i - 1].ry).abs();
         let kappa_approx = dtheta / dx;
         assert_close(kappa_approx, kappa_expected, 0.05,
             &format!("VM14 κ between nodes {} and {}", disps[i-1].node_id, disps[i].node_id));
@@ -772,7 +772,7 @@ fn validation_vm156_moment_amplification() {
     let elems: Vec<_> = (0..n).map(|i| (i + 1, "frame", i + 1, i + 2, 1, 1, false, false)).collect();
 
     let mut loads = vec![SolverLoad::Nodal(SolverNodalLoad {
-        node_id: n + 1, fx: -p, fy: 0.0, mz: 0.0,
+        node_id: n + 1, fx: -p, fz: 0.0, my: 0.0,
     })];
     for i in 0..n {
         loads.push(SolverLoad::Distributed(SolverDistributedLoad {
@@ -827,7 +827,7 @@ fn validation_vm5_combined_thermal_axial() {
     let n = 6;
 
     let mut loads: Vec<SolverLoad> = vec![SolverLoad::Nodal(SolverNodalLoad {
-        node_id: n + 1, fx: p_axial, fy: 0.0, mz: 0.0,
+        node_id: n + 1, fx: p_axial, fz: 0.0, my: 0.0,
     })];
     for i in 0..n {
         loads.push(SolverLoad::Thermal(SolverThermalLoad {
@@ -862,7 +862,7 @@ fn validation_vm5_analytical_decomposition() {
     // Mechanical only
     let input_mech = make_beam(n, l, E, a, iz, "pinned", Some("rollerX"),
         vec![SolverLoad::Nodal(SolverNodalLoad {
-            node_id: n + 1, fx: p_axial, fy: 0.0, mz: 0.0,
+            node_id: n + 1, fx: p_axial, fz: 0.0, my: 0.0,
         })]);
     let res_mech = linear::solve_2d(&input_mech).unwrap();
     let d_mech = res_mech.displacements.iter().find(|d| d.node_id == n + 1).unwrap().ux;
@@ -877,7 +877,7 @@ fn validation_vm5_analytical_decomposition() {
 
     // Combined
     let mut loads_combined: Vec<SolverLoad> = vec![SolverLoad::Nodal(SolverNodalLoad {
-        node_id: n + 1, fx: p_axial, fy: 0.0, mz: 0.0,
+        node_id: n + 1, fx: p_axial, fz: 0.0, my: 0.0,
     })];
     for i in 0..n {
         loads_combined.push(SolverLoad::Thermal(SolverThermalLoad {

@@ -158,8 +158,8 @@ fn validation_euler_pinned_pinned_mode_shape_symmetry() {
     // Check symmetry: node i should have same |uy| as node (n_nodes+1 - i)
     // Nodes are numbered 1..9; midpoint is node 5
     for i in 1..=4 {
-        let uy_left = disps.iter().find(|d| d.node_id == i).unwrap().uy;
-        let uy_right = disps.iter().find(|d| d.node_id == n_nodes + 1 - i).unwrap().uy;
+        let uy_left = disps.iter().find(|d| d.node_id == i).unwrap().uz;
+        let uy_right = disps.iter().find(|d| d.node_id == n_nodes + 1 - i).unwrap().uz;
         let diff = (uy_left.abs() - uy_right.abs()).abs();
         let max_uy = uy_left.abs().max(uy_right.abs()).max(1e-12);
         let sym_error = diff / max_uy;
@@ -171,12 +171,12 @@ fn validation_euler_pinned_pinned_mode_shape_symmetry() {
     }
 
     // Also check that midpoint (node 5) has maximum |uy|
-    let uy_mid = disps.iter().find(|d| d.node_id == 5).unwrap().uy.abs();
+    let uy_mid = disps.iter().find(|d| d.node_id == 5).unwrap().uz.abs();
     for d in disps {
         assert!(
-            d.uy.abs() <= uy_mid * 1.01,
+            d.uz.abs() <= uy_mid * 1.01,
             "Midpoint should have max |uy|: node {} has |uy|={:.6} > mid={:.6}",
-            d.node_id, d.uy.abs(), uy_mid
+            d.node_id, d.uz.abs(), uy_mid
         );
     }
 }
@@ -240,8 +240,8 @@ fn validation_euler_boundary_condition_ordering() {
         vec![SolverLoad::Nodal(SolverNodalLoad {
             node_id: 9,
             fx: -P,
-            fy: 0.0,
-            mz: 0.0,
+            fz: 0.0,
+            my: 0.0,
         })],
     );
     let pcr_cf = buckling::solve_buckling_2d(&input_cf, 1).unwrap().modes[0].load_factor * P;

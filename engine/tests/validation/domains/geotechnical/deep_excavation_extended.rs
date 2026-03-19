@@ -88,8 +88,8 @@ fn deep_exc_cantilever_sheet_pile() {
 
     // Check reaction at fixed support (node n+1)
     let r_base = results.reactions.iter().find(|r| r.node_id == n + 1).unwrap();
-    assert_close(r_base.ry.abs(), total_force, 0.03, "Sheet pile: base shear = Pa");
-    assert_close(r_base.mz.abs(), m_base_exact, 0.03, "Sheet pile: base moment = gamma*Ka*H^3/6");
+    assert_close(r_base.rz.abs(), total_force, 0.03, "Sheet pile: base shear = Pa");
+    assert_close(r_base.my.abs(), m_base_exact, 0.03, "Sheet pile: base moment = gamma*Ka*H^3/6");
 
     // Verify embedment depth requirement: d >= 1.2*H for cantilever in phi=30 soil
     let kp: f64 = ((std::f64::consts::FRAC_PI_4 + phi / 2.0).tan()).powi(2);
@@ -99,7 +99,7 @@ fn deep_exc_cantilever_sheet_pile() {
 
     // Top deflection should be nonzero (free end)
     let d_top = results.displacements.iter().find(|d| d.node_id == 1).unwrap();
-    assert!(d_top.uy.abs() > 0.0, "Sheet pile: top deflects");
+    assert!(d_top.uz.abs() > 0.0, "Sheet pile: top deflects");
 }
 
 // ================================================================
@@ -134,7 +134,7 @@ fn deep_exc_single_anchored_wall() {
     for i in 0..n_nodes {
         let id = i + 1;
         nodes_map.insert(id.to_string(), SolverNode {
-            id, x: i as f64 * elem_len, y: 0.0,
+            id, x: i as f64 * elem_len, z: 0.0,
         });
     }
     let mut mats_map = HashMap::new();
@@ -162,14 +162,14 @@ fn deep_exc_single_anchored_wall() {
         id: 1, node_id: n_nodes,
         support_type: "fixed".to_string(),
         kx: None, ky: None, kz: None,
-        dx: None, dy: None, drz: None, angle: None,
+        dx: None, dz: None, dry: None, angle: None,
     });
     // Spring at anchor (lateral spring in y-direction)
     sups_map.insert("2".to_string(), SolverSupport {
         id: 2, node_id: anchor_node,
         support_type: "spring".to_string(),
         kx: None, ky: Some(k_anchor), kz: None,
-        dx: None, dy: None, drz: None, angle: None,
+        dx: None, dz: None, dry: None, angle: None,
     });
 
     // Triangular active pressure
@@ -194,13 +194,13 @@ fn deep_exc_single_anchored_wall() {
     let total_pa: f64 = 0.5 * gamma * ka * h * h;
 
     // Sum of reactions should equal total lateral force
-    let sum_ry: f64 = results.reactions.iter().map(|r| r.ry).sum::<f64>();
+    let sum_ry: f64 = results.reactions.iter().map(|r| r.rz).sum::<f64>();
     assert_close(sum_ry.abs(), total_pa, 0.05, "Anchored wall: sum Ry = Pa");
 
     // Anchor force: spring force = k * displacement at anchor node
     let d_anchor = results.displacements.iter()
         .find(|d| d.node_id == anchor_node).unwrap();
-    let f_anchor: f64 = k_anchor * d_anchor.uy.abs();
+    let f_anchor: f64 = k_anchor * d_anchor.uz.abs();
 
     // Anchor should carry a significant portion of the total force
     assert!(f_anchor > 0.1 * total_pa,
@@ -211,9 +211,9 @@ fn deep_exc_single_anchored_wall() {
     // Base moment should be less than for cantilever (anchor relieves it)
     let r_base = results.reactions.iter().find(|r| r.node_id == n_nodes).unwrap();
     let m_cantilever: f64 = gamma * ka * h * h * h / 6.0;
-    assert!(r_base.mz.abs() < m_cantilever,
+    assert!(r_base.my.abs() < m_cantilever,
         "Anchored wall base moment {:.1} < cantilever moment {:.1}",
-        r_base.mz.abs(), m_cantilever);
+        r_base.my.abs(), m_cantilever);
 }
 
 // ================================================================
@@ -245,7 +245,7 @@ fn deep_exc_multi_propped_wall() {
     for i in 0..n_nodes {
         let id = i + 1;
         nodes_map.insert(id.to_string(), SolverNode {
-            id, x: i as f64 * elem_len, y: 0.0,
+            id, x: i as f64 * elem_len, z: 0.0,
         });
     }
     let mut mats_map = HashMap::new();
@@ -275,7 +275,7 @@ fn deep_exc_multi_propped_wall() {
         id: sup_id, node_id: n_nodes,
         support_type: "fixed".to_string(),
         kx: None, ky: None, kz: None,
-        dx: None, dy: None, drz: None, angle: None,
+        dx: None, dz: None, dry: None, angle: None,
     });
     sup_id += 1;
 
@@ -288,7 +288,7 @@ fn deep_exc_multi_propped_wall() {
             id: sup_id, node_id: node,
             support_type: "spring".to_string(),
             kx: None, ky: Some(k_prop), kz: None,
-            dx: None, dy: None, drz: None, angle: None,
+            dx: None, dz: None, dry: None, angle: None,
         });
         sup_id += 1;
     }
@@ -315,12 +315,12 @@ fn deep_exc_multi_propped_wall() {
     let total_pa: f64 = 0.5 * gamma * ka * h * h;
 
     // Global equilibrium check
-    let sum_ry: f64 = results.reactions.iter().map(|r| r.ry).sum::<f64>();
+    let sum_ry: f64 = results.reactions.iter().map(|r| r.rz).sum::<f64>();
     // Also count spring forces from prop nodes
     let mut prop_force_total: f64 = 0.0;
     for &pn in &prop_nodes {
         let d = results.displacements.iter().find(|d| d.node_id == pn).unwrap();
-        prop_force_total += k_prop * d.uy.abs();
+        prop_force_total += k_prop * d.uz.abs();
     }
 
     assert_close(sum_ry.abs() + prop_force_total - sum_ry.abs(),
@@ -328,7 +328,7 @@ fn deep_exc_multi_propped_wall() {
 
     // The total equilibrium: base reaction + prop spring forces = total load
     let r_base = results.reactions.iter().find(|r| r.node_id == n_nodes).unwrap();
-    let total_resist: f64 = r_base.ry.abs() + prop_force_total;
+    let total_resist: f64 = r_base.rz.abs() + prop_force_total;
     assert_close(total_resist, total_pa, 0.10,
         "Multi-prop wall: equilibrium check");
 
@@ -337,9 +337,9 @@ fn deep_exc_multi_propped_wall() {
     // Compare with cantilever deflection (no props)
     // Cantilever: delta = p_max * H^4 / (30 * E * I)
     let delta_cantilever: f64 = p_max * h.powi(4) / (30.0 * e_wall * 1000.0 * iz_wall);
-    assert!(d_top.uy.abs() < delta_cantilever,
+    assert!(d_top.uz.abs() < delta_cantilever,
         "Multi-prop: top deflection {:.4e} < cantilever {:.4e}",
-        d_top.uy.abs(), delta_cantilever);
+        d_top.uz.abs(), delta_cantilever);
 
     // Maximum bending moment in multi-prop wall should be less than cantilever
     let m_max_wall: f64 = results.element_forces.iter()
@@ -384,7 +384,7 @@ fn deep_exc_apparent_earth_pressure() {
     for i in 0..n_nodes {
         let id = i + 1;
         nodes_map.insert(id.to_string(), SolverNode {
-            id, x: i as f64 * elem_len, y: 0.0,
+            id, x: i as f64 * elem_len, z: 0.0,
         });
     }
     let mut mats_map = HashMap::new();
@@ -413,7 +413,7 @@ fn deep_exc_apparent_earth_pressure() {
         id: sup_id, node_id: n_nodes,
         support_type: "fixed".to_string(),
         kx: None, ky: None, kz: None,
-        dx: None, dy: None, drz: None, angle: None,
+        dx: None, dz: None, dry: None, angle: None,
     });
     sup_id += 1;
 
@@ -425,7 +425,7 @@ fn deep_exc_apparent_earth_pressure() {
             id: sup_id, node_id: node,
             support_type: "spring".to_string(),
             kx: None, ky: Some(k_strut), kz: None,
-            dx: None, dy: None, drz: None, angle: None,
+            dx: None, dz: None, dry: None, angle: None,
         });
         sup_id += 1;
     }
@@ -450,17 +450,17 @@ fn deep_exc_apparent_earth_pressure() {
     let total_force: f64 = p_apparent * h;
 
     // Equilibrium: sum of all reactions
-    let sum_ry: f64 = results.reactions.iter().map(|r| r.ry).sum::<f64>();
+    let sum_ry: f64 = results.reactions.iter().map(|r| r.rz).sum::<f64>();
     let mut spring_ry: f64 = 0.0;
     for &sn in &strut_nodes {
         let d = results.displacements.iter().find(|d| d.node_id == sn).unwrap();
-        spring_ry += k_strut * d.uy.abs();
+        spring_ry += k_strut * d.uz.abs();
     }
     let total_reaction: f64 = sum_ry.abs() + spring_ry - sum_ry.abs() + sum_ry.abs();
     // Simplified: just check reaction sum is close to total force
     // (sum_ry from solver includes spring reactions implicitly for pinned/fixed supports)
     // Actually for spring supports, the solver does include them in reactions.
-    let sum_abs_ry: f64 = results.reactions.iter().map(|r| r.ry.abs()).sum::<f64>();
+    let sum_abs_ry: f64 = results.reactions.iter().map(|r| r.rz.abs()).sum::<f64>();
     assert!(sum_abs_ry > 0.5 * total_force,
         "Apparent pressure: reactions {:.1} vs load {:.1}", sum_abs_ry, total_force);
 
@@ -472,7 +472,7 @@ fn deep_exc_apparent_earth_pressure() {
     // Middle strut from FEM
     let d_mid = results.displacements.iter()
         .find(|d| d.node_id == strut_nodes[1]).unwrap();
-    let f_strut_fem: f64 = k_strut * d_mid.uy.abs();
+    let f_strut_fem: f64 = k_strut * d_mid.uz.abs();
 
     // FEM strut force should be in reasonable range of tributary estimate
     assert!(f_strut_fem > 0.3 * f_strut_trib && f_strut_fem < 3.0 * f_strut_trib,
@@ -529,7 +529,7 @@ fn deep_exc_bottom_heave_stability() {
         for i in 0..n_nodes {
             let id = i + 1;
             nodes_map.insert(id.to_string(), SolverNode {
-                id, x: i as f64 * elem_len, y: 0.0,
+                id, x: i as f64 * elem_len, z: 0.0,
             });
         }
         let mut mats_map = HashMap::new();
@@ -552,14 +552,14 @@ fn deep_exc_bottom_heave_stability() {
             id: 1, node_id: n_nodes,
             support_type: "spring".to_string(),
             kx: Some(k_base), ky: Some(k_base), kz: None,
-            dx: None, dy: None, drz: None, angle: None,
+            dx: None, dz: None, dry: None, angle: None,
         });
         // Prop at top to stabilize
         sups_map.insert("2".to_string(), SolverSupport {
             id: 2, node_id: 1,
             support_type: "spring".to_string(),
             kx: None, ky: Some(100_000.0), kz: None,
-            dx: None, dy: None, drz: None, angle: None,
+            dx: None, dz: None, dry: None, angle: None,
         });
         let loads: Vec<SolverLoad> = (1..=n)
             .map(|i| {
@@ -580,12 +580,12 @@ fn deep_exc_bottom_heave_stability() {
     // Stiff base (good soil)
     let res_stiff = solve_2d(&build_wall(500_000.0)).expect("solve stiff");
     let d_base_stiff = res_stiff.displacements.iter()
-        .find(|d| d.node_id == n + 1).unwrap().uy.abs();
+        .find(|d| d.node_id == n + 1).unwrap().uz.abs();
 
     // Soft base (poor soil, heave risk)
     let res_soft = solve_2d(&build_wall(5_000.0)).expect("solve soft");
     let d_base_soft = res_soft.displacements.iter()
-        .find(|d| d.node_id == n + 1).unwrap().uy.abs();
+        .find(|d| d.node_id == n + 1).unwrap().uz.abs();
 
     // Soft base should deflect more
     assert!(d_base_soft > d_base_stiff,
@@ -634,7 +634,7 @@ fn deep_exc_strut_load() {
     for i in 0..n_nodes {
         let id = i + 1;
         nodes_map.insert(id.to_string(), SolverNode {
-            id, x: i as f64 * elem_len, y: 0.0,
+            id, x: i as f64 * elem_len, z: 0.0,
         });
     }
     let mut mats_map = HashMap::new();
@@ -660,14 +660,14 @@ fn deep_exc_strut_load() {
         id: 1, node_id: n_nodes,
         support_type: "fixed".to_string(),
         kx: None, ky: None, kz: None,
-        dx: None, dy: None, drz: None, angle: None,
+        dx: None, dz: None, dry: None, angle: None,
     });
     // Spring strut
     sups_map.insert("2".to_string(), SolverSupport {
         id: 2, node_id: prop_node,
         support_type: "spring".to_string(),
         kx: None, ky: Some(k_strut), kz: None,
-        dx: None, dy: None, drz: None, angle: None,
+        dx: None, dz: None, dry: None, angle: None,
     });
 
     // Uniform pressure
@@ -692,7 +692,7 @@ fn deep_exc_strut_load() {
     // Strut force from FEM
     let d_strut = results.displacements.iter()
         .find(|d| d.node_id == prop_node).unwrap();
-    let f_strut: f64 = k_strut * d_strut.uy.abs();
+    let f_strut: f64 = k_strut * d_strut.uz.abs();
 
     // Strut should carry part of the total force
     assert!(f_strut > 0.0, "Strut force > 0: {:.1} kN", f_strut);
@@ -704,7 +704,7 @@ fn deep_exc_strut_load() {
 
     // Equilibrium: strut force + base reaction = total force
     // The spring reaction is included in solver reactions
-    let sum_ry: f64 = results.reactions.iter().map(|r| r.ry).sum::<f64>();
+    let sum_ry: f64 = results.reactions.iter().map(|r| r.rz).sum::<f64>();
     assert_close(sum_ry.abs(), total_force, 0.05,
         "Strut load: global equilibrium");
 
@@ -716,8 +716,8 @@ fn deep_exc_strut_load() {
         "Strut carries {:.0}% of total force", strut_fraction * 100.0);
 
     // Verify base shear and moment are nonzero
-    assert!(r_base.ry.abs() > 0.0, "Base shear nonzero");
-    assert!(r_base.mz.abs() > 0.0, "Base moment nonzero");
+    assert!(r_base.rz.abs() > 0.0, "Base shear nonzero");
+    assert!(r_base.my.abs() > 0.0, "Base moment nonzero");
 }
 
 // ================================================================
@@ -755,7 +755,7 @@ fn deep_exc_waling_beam() {
             a: a_local,
             p: -f_strut,
             px: None,
-            mz: None,
+            my: None,
         })
     }).collect();
 
@@ -767,12 +767,12 @@ fn deep_exc_waling_beam() {
     let total_load: f64 = 3.0 * f_strut;
 
     // Check equilibrium
-    let sum_ry: f64 = results.reactions.iter().map(|r| r.ry).sum();
+    let sum_ry: f64 = results.reactions.iter().map(|r| r.rz).sum();
     assert_close(sum_ry, total_load, 0.02, "Waling: equilibrium sum Ry = 3F");
 
     // By symmetry (loads at 3, 6, 9 on span 12), reactions should be equal
-    let r_left = results.reactions.iter().find(|r| r.node_id == 1).unwrap().ry;
-    let r_right = results.reactions.iter().find(|r| r.node_id == n + 1).unwrap().ry;
+    let r_left = results.reactions.iter().find(|r| r.node_id == 1).unwrap().rz;
+    let r_right = results.reactions.iter().find(|r| r.node_id == n + 1).unwrap().rz;
     assert_close(r_left, r_right, 0.02, "Waling: symmetric reactions");
     assert_close(r_left, total_load / 2.0, 0.02, "Waling: R = total/2");
 
@@ -793,11 +793,11 @@ fn deep_exc_waling_beam() {
     // Deflection at midspan
     let d_mid = results.displacements.iter()
         .find(|d| d.node_id == n / 2 + 1).unwrap();
-    assert!(d_mid.uy.abs() > 0.0, "Waling: midspan deflects");
+    assert!(d_mid.uz.abs() > 0.0, "Waling: midspan deflects");
 
     // Serviceability: deflection < L/360
     let delta_limit: f64 = l_waling / 360.0;
-    let delta_mid: f64 = d_mid.uy.abs();
+    let delta_mid: f64 = d_mid.uz.abs();
     // Just verify it is computed (may or may not pass serviceability)
     assert!(delta_mid > 0.0,
         "Waling deflection: {:.4} m (limit L/360 = {:.4} m)", delta_mid, delta_limit);
@@ -857,15 +857,15 @@ fn deep_exc_diaphragm_wall() {
     let r_top = results.reactions.iter().find(|r| r.node_id == 1).unwrap();
     let r_base = results.reactions.iter().find(|r| r.node_id == n + 1).unwrap();
 
-    assert_close(r_top.ry, r_roller_exact, 0.03,
+    assert_close(r_top.rz, r_roller_exact, 0.03,
         "Diaphragm wall: R_prop = 3qL/8");
-    assert_close(r_base.ry, r_fixed_exact, 0.03,
+    assert_close(r_base.rz, r_fixed_exact, 0.03,
         "Diaphragm wall: R_fixed = 5qL/8");
-    assert_close(r_base.mz.abs(), m_fixed_exact, 0.03,
+    assert_close(r_base.my.abs(), m_fixed_exact, 0.03,
         "Diaphragm wall: M_fixed = qL^2/8");
 
     // Equilibrium
-    assert_close(r_top.ry + r_base.ry, p_uniform * h, 0.02,
+    assert_close(r_top.rz + r_base.rz, p_uniform * h, 0.02,
         "Diaphragm wall: equilibrium");
 
     // Maximum span moment: M_max = 9qL^2/128 at x = 3L/8 from fixed end

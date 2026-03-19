@@ -90,7 +90,7 @@ fn validation_en1993_pdelta_vs_buckling_amplification() {
         vec![(1, "frame", 1, 2, 1, 1, false, false)],
         vec![(1, 1, "fixed")],
         vec![SolverLoad::Nodal(SolverNodalLoad {
-            node_id: 2, fx: h_lateral, fy: p_axial, mz: 0.0,
+            node_id: 2, fx: h_lateral, fz: p_axial, my: 0.0,
         })],
     );
 
@@ -234,7 +234,7 @@ fn validation_asce7_spectral_base_shear() {
             period: m.period,
             omega: m.omega,
             displacements: m.displacements.iter().map(|d| {
-                SpectralModeDisp { node_id: d.node_id, ux: d.ux, uy: d.uy, rz: d.rz }
+                SpectralModeDisp { node_id: d.node_id, ux: d.ux, uz: d.uz, ry: d.ry }
             }).collect(),
             participation_x: m.participation_x,
             participation_y: m.participation_y,
@@ -300,7 +300,7 @@ fn validation_asce7_importance_factor_scaling() {
         SpectralModeInput {
             frequency: m.frequency, period: m.period, omega: m.omega,
             displacements: m.displacements.iter().map(|d| {
-                SpectralModeDisp { node_id: d.node_id, ux: d.ux, uy: d.uy, rz: d.rz }
+                SpectralModeDisp { node_id: d.node_id, ux: d.ux, uz: d.uz, ry: d.ry }
             }).collect(),
             participation_x: m.participation_x,
             participation_y: m.participation_y,

@@ -41,21 +41,21 @@ fn validation_combined_axial_transverse_independence() {
     // Axial only
     let input_ax = make_beam(n, l, E, A, IZ, "fixed", None,
         vec![SolverLoad::Nodal(SolverNodalLoad {
-            node_id: n + 1, fx: px, fy: 0.0, mz: 0.0,
+            node_id: n + 1, fx: px, fz: 0.0, my: 0.0,
         })]);
     let res_ax = linear::solve_2d(&input_ax).unwrap();
 
     // Transverse only
     let input_tr = make_beam(n, l, E, A, IZ, "fixed", None,
         vec![SolverLoad::Nodal(SolverNodalLoad {
-            node_id: n + 1, fx: 0.0, fy: py, mz: 0.0,
+            node_id: n + 1, fx: 0.0, fz: py, my: 0.0,
         })]);
     let res_tr = linear::solve_2d(&input_tr).unwrap();
 
     // Combined
     let input_both = make_beam(n, l, E, A, IZ, "fixed", None,
         vec![SolverLoad::Nodal(SolverNodalLoad {
-            node_id: n + 1, fx: px, fy: py, mz: 0.0,
+            node_id: n + 1, fx: px, fz: py, my: 0.0,
         })]);
     let res_both = linear::solve_2d(&input_both).unwrap();
 
@@ -64,8 +64,8 @@ fn validation_combined_axial_transverse_independence() {
     let d_both = res_both.displacements.iter().find(|d| d.node_id == n + 1).unwrap();
 
     // Axial-only should have negligible transverse deflection
-    assert!(d_ax.uy.abs() < 1e-10,
-        "Axial-only: uy should be ~0, got {:.6e}", d_ax.uy);
+    assert!(d_ax.uz.abs() < 1e-10,
+        "Axial-only: uy should be ~0, got {:.6e}", d_ax.uz);
 
     // Transverse-only should have negligible axial displacement
     assert!(d_tr.ux.abs() < 1e-10,
@@ -78,13 +78,13 @@ fn validation_combined_axial_transverse_independence() {
 
     // Combined uy = transverse-only uy
     let uy_exact = py * l.powi(3) / (3.0 * e_eff * IZ);
-    assert_close(d_both.uy, uy_exact, 0.02,
+    assert_close(d_both.uz, uy_exact, 0.02,
         "Combined: uy = PyL^3/(3EI)");
 
     // Superposition: combined = axial + transverse
     assert_close(d_both.ux, d_ax.ux + d_tr.ux, 0.01,
         "Superposition: ux_both = ux_ax + ux_tr");
-    assert_close(d_both.uy, d_ax.uy + d_tr.uy, 0.01,
+    assert_close(d_both.uz, d_ax.uz + d_tr.uz, 0.01,
         "Superposition: uy_both = uy_ax + uy_tr");
 }
 
@@ -116,14 +116,14 @@ fn validation_combined_axial_distributed_propped() {
     // Combined: UDL + axial
     let mut loads_both = loads_udl;
     loads_both.push(SolverLoad::Nodal(SolverNodalLoad {
-        node_id: n + 1, fx: px, fy: 0.0, mz: 0.0,
+        node_id: n + 1, fx: px, fz: 0.0, my: 0.0,
     }));
     let input_both = make_beam(n, l, E, A, IZ, "fixed", Some("rollerX"), loads_both);
     let res_both = linear::solve_2d(&input_both).unwrap();
 
     // Vertical reactions should be the same (axial doesn't affect bending in linear analysis)
-    let ry_udl: f64 = res_udl.reactions.iter().map(|r| r.ry).sum();
-    let ry_both: f64 = res_both.reactions.iter().map(|r| r.ry).sum();
+    let ry_udl: f64 = res_udl.reactions.iter().map(|r| r.rz).sum();
+    let ry_both: f64 = res_both.reactions.iter().map(|r| r.rz).sum();
     assert_close(ry_udl, ry_both, 0.02,
         "Propped cantilever: Ry unchanged by axial load");
 
@@ -133,8 +133,8 @@ fn validation_combined_axial_distributed_propped() {
         "Propped cantilever: N = Px");
 
     // Moment at fixed end should match UDL-only case
-    let mz_udl = res_udl.reactions.iter().find(|r| r.node_id == 1).unwrap().mz;
-    let mz_both = res_both.reactions.iter().find(|r| r.node_id == 1).unwrap().mz;
+    let mz_udl = res_udl.reactions.iter().find(|r| r.node_id == 1).unwrap().my;
+    let mz_both = res_both.reactions.iter().find(|r| r.node_id == 1).unwrap().my;
     assert_close(mz_both, mz_udl, 0.02,
         "Propped cantilever: Mz_fixed unchanged by axial load");
 }
@@ -171,17 +171,17 @@ fn validation_combined_udl_superposition_ss() {
     let mid = n / 2 + 1;
 
     // Midspan deflection superposition
-    let d_q1 = res_q1.displacements.iter().find(|d| d.node_id == mid).unwrap().uy;
-    let d_q2 = res_q2.displacements.iter().find(|d| d.node_id == mid).unwrap().uy;
-    let d_sum = res_sum.displacements.iter().find(|d| d.node_id == mid).unwrap().uy;
+    let d_q1 = res_q1.displacements.iter().find(|d| d.node_id == mid).unwrap().uz;
+    let d_q2 = res_q2.displacements.iter().find(|d| d.node_id == mid).unwrap().uz;
+    let d_sum = res_sum.displacements.iter().find(|d| d.node_id == mid).unwrap().uz;
 
     assert_close(d_sum, d_q1 + d_q2, 0.01,
         "UDL superposition: δ(q1+q2) = δ(q1) + δ(q2)");
 
     // Reaction superposition
-    let r_q1 = res_q1.reactions.iter().find(|r| r.node_id == 1).unwrap().ry;
-    let r_q2 = res_q2.reactions.iter().find(|r| r.node_id == 1).unwrap().ry;
-    let r_sum = res_sum.reactions.iter().find(|r| r.node_id == 1).unwrap().ry;
+    let r_q1 = res_q1.reactions.iter().find(|r| r.node_id == 1).unwrap().rz;
+    let r_q2 = res_q2.reactions.iter().find(|r| r.node_id == 1).unwrap().rz;
+    let r_sum = res_sum.reactions.iter().find(|r| r.node_id == 1).unwrap().rz;
 
     assert_close(r_sum, r_q1 + r_q2, 0.01,
         "UDL superposition: R(q1+q2) = R(q1) + R(q2)");
@@ -214,13 +214,13 @@ fn validation_combined_multispan_point_superposition() {
         if load_span1 {
             let mid_span1 = n_per / 2 + 1;
             loads.push(SolverLoad::Nodal(SolverNodalLoad {
-                node_id: mid_span1, fx: 0.0, fy: -p1, mz: 0.0,
+                node_id: mid_span1, fx: 0.0, fz: -p1, my: 0.0,
             }));
         }
         if load_span3 {
             let mid_span3 = 2 * n_per + n_per / 2 + 1;
             loads.push(SolverLoad::Nodal(SolverNodalLoad {
-                node_id: mid_span3, fx: 0.0, fy: -p3, mz: 0.0,
+                node_id: mid_span3, fx: 0.0, fz: -p3, my: 0.0,
             }));
         }
         let input = make_continuous_beam(&[l, l, l], n_per, E, A, IZ, loads);
@@ -233,9 +233,9 @@ fn validation_combined_multispan_point_superposition() {
 
     // Check displacement superposition at several nodes
     for node_id in [n_per / 2 + 1, n_per + 1, 2 * n_per + n_per / 2 + 1] {
-        let d_both = res_both.displacements.iter().find(|d| d.node_id == node_id).unwrap().uy;
-        let d_s1 = res_s1.displacements.iter().find(|d| d.node_id == node_id).unwrap().uy;
-        let d_s3 = res_s3.displacements.iter().find(|d| d.node_id == node_id).unwrap().uy;
+        let d_both = res_both.displacements.iter().find(|d| d.node_id == node_id).unwrap().uz;
+        let d_s1 = res_s1.displacements.iter().find(|d| d.node_id == node_id).unwrap().uz;
+        let d_s3 = res_s3.displacements.iter().find(|d| d.node_id == node_id).unwrap().uz;
 
         let sum = d_s1 + d_s3;
         if d_both.abs() > 1e-10 {
@@ -247,9 +247,9 @@ fn validation_combined_multispan_point_superposition() {
     }
 
     // Reaction superposition at interior support
-    let r_both = res_both.reactions.iter().find(|r| r.node_id == n_per + 1).unwrap().ry;
-    let r_s1 = res_s1.reactions.iter().find(|r| r.node_id == n_per + 1).unwrap().ry;
-    let r_s3 = res_s3.reactions.iter().find(|r| r.node_id == n_per + 1).unwrap().ry;
+    let r_both = res_both.reactions.iter().find(|r| r.node_id == n_per + 1).unwrap().rz;
+    let r_s1 = res_s1.reactions.iter().find(|r| r.node_id == n_per + 1).unwrap().rz;
+    let r_s3 = res_s3.reactions.iter().find(|r| r.node_id == n_per + 1).unwrap().rz;
 
     assert_close(r_both, r_s1 + r_s3, 0.02,
         "Multi-span: reaction superposition at interior support");
@@ -275,7 +275,7 @@ fn validation_combined_symmetric_antisymmetric_decomposition() {
     // Original: single load at L/3
     let input_orig = make_beam(n, l, E, A, IZ, "pinned", Some("rollerX"),
         vec![SolverLoad::Nodal(SolverNodalLoad {
-            node_id: n_third, fx: 0.0, fy: -p, mz: 0.0,
+            node_id: n_third, fx: 0.0, fz: -p, my: 0.0,
         })]);
     let res_orig = linear::solve_2d(&input_orig).unwrap();
 
@@ -283,10 +283,10 @@ fn validation_combined_symmetric_antisymmetric_decomposition() {
     let input_sym = make_beam(n, l, E, A, IZ, "pinned", Some("rollerX"),
         vec![
             SolverLoad::Nodal(SolverNodalLoad {
-                node_id: n_third, fx: 0.0, fy: -p / 2.0, mz: 0.0,
+                node_id: n_third, fx: 0.0, fz: -p / 2.0, my: 0.0,
             }),
             SolverLoad::Nodal(SolverNodalLoad {
-                node_id: n_twothirds, fx: 0.0, fy: -p / 2.0, mz: 0.0,
+                node_id: n_twothirds, fx: 0.0, fz: -p / 2.0, my: 0.0,
             }),
         ]);
     let res_sym = linear::solve_2d(&input_sym).unwrap();
@@ -295,19 +295,19 @@ fn validation_combined_symmetric_antisymmetric_decomposition() {
     let input_anti = make_beam(n, l, E, A, IZ, "pinned", Some("rollerX"),
         vec![
             SolverLoad::Nodal(SolverNodalLoad {
-                node_id: n_third, fx: 0.0, fy: -p / 2.0, mz: 0.0,
+                node_id: n_third, fx: 0.0, fz: -p / 2.0, my: 0.0,
             }),
             SolverLoad::Nodal(SolverNodalLoad {
-                node_id: n_twothirds, fx: 0.0, fy: p / 2.0, mz: 0.0,
+                node_id: n_twothirds, fx: 0.0, fz: p / 2.0, my: 0.0,
             }),
         ]);
     let res_anti = linear::solve_2d(&input_anti).unwrap();
 
     // Superposition at every node
     for node_id in 1..=(n + 1) {
-        let d_orig = res_orig.displacements.iter().find(|d| d.node_id == node_id).unwrap().uy;
-        let d_sym = res_sym.displacements.iter().find(|d| d.node_id == node_id).unwrap().uy;
-        let d_anti = res_anti.displacements.iter().find(|d| d.node_id == node_id).unwrap().uy;
+        let d_orig = res_orig.displacements.iter().find(|d| d.node_id == node_id).unwrap().uz;
+        let d_sym = res_sym.displacements.iter().find(|d| d.node_id == node_id).unwrap().uz;
+        let d_anti = res_anti.displacements.iter().find(|d| d.node_id == node_id).unwrap().uz;
 
         let sum = d_sym + d_anti;
         if d_orig.abs() > 1e-10 {
@@ -344,14 +344,14 @@ fn validation_combined_eccentric_fixed_fixed() {
     // Point load only at midspan
     let input_point = make_beam(n, l, E, A, IZ, "fixed", Some("fixed"),
         vec![SolverLoad::Nodal(SolverNodalLoad {
-            node_id: mid_node, fx: 0.0, fy: py_mid, mz: 0.0,
+            node_id: mid_node, fx: 0.0, fz: py_mid, my: 0.0,
         })]);
     let res_point = linear::solve_2d(&input_point).unwrap();
 
     // Axial + moment at tip only
     let input_axmom = make_beam(n, l, E, A, IZ, "fixed", Some("fixed"),
         vec![SolverLoad::Nodal(SolverNodalLoad {
-            node_id: n + 1, fx: px, fy: 0.0, mz: m_end,
+            node_id: n + 1, fx: px, fz: 0.0, my: m_end,
         })]);
     let res_axmom = linear::solve_2d(&input_axmom).unwrap();
 
@@ -359,24 +359,24 @@ fn validation_combined_eccentric_fixed_fixed() {
     let input_combined = make_beam(n, l, E, A, IZ, "fixed", Some("fixed"),
         vec![
             SolverLoad::Nodal(SolverNodalLoad {
-                node_id: mid_node, fx: 0.0, fy: py_mid, mz: 0.0,
+                node_id: mid_node, fx: 0.0, fz: py_mid, my: 0.0,
             }),
             SolverLoad::Nodal(SolverNodalLoad {
-                node_id: n + 1, fx: px, fy: 0.0, mz: m_end,
+                node_id: n + 1, fx: px, fz: 0.0, my: m_end,
             }),
         ]);
     let res_combined = linear::solve_2d(&input_combined).unwrap();
 
     // Superposition of midspan deflection
-    let d_point = res_point.displacements.iter().find(|d| d.node_id == mid_node).unwrap().uy;
-    let d_axmom = res_axmom.displacements.iter().find(|d| d.node_id == mid_node).unwrap().uy;
-    let d_combined = res_combined.displacements.iter().find(|d| d.node_id == mid_node).unwrap().uy;
+    let d_point = res_point.displacements.iter().find(|d| d.node_id == mid_node).unwrap().uz;
+    let d_axmom = res_axmom.displacements.iter().find(|d| d.node_id == mid_node).unwrap().uz;
+    let d_combined = res_combined.displacements.iter().find(|d| d.node_id == mid_node).unwrap().uz;
 
     assert_close(d_combined, d_point + d_axmom, 0.01,
         "Fixed-fixed combined: midspan uy superposition");
 
     // Global equilibrium: sum_Ry = -py_mid
-    let sum_ry: f64 = res_combined.reactions.iter().map(|r| r.ry).sum();
+    let sum_ry: f64 = res_combined.reactions.iter().map(|r| r.rz).sum();
     assert_close(sum_ry, -py_mid, 0.02,
         "Fixed-fixed combined: ΣRy = -Py_mid");
 
@@ -421,9 +421,9 @@ fn validation_combined_portal_gravity_lateral_superposition() {
         "Portal frame: sway superposition");
 
     // Superposition of vertical displacement at node 2
-    let uy_grav = res_grav.displacements.iter().find(|d| d.node_id == 2).unwrap().uy;
-    let uy_lat = res_lat.displacements.iter().find(|d| d.node_id == 2).unwrap().uy;
-    let uy_both = res_both.displacements.iter().find(|d| d.node_id == 2).unwrap().uy;
+    let uy_grav = res_grav.displacements.iter().find(|d| d.node_id == 2).unwrap().uz;
+    let uy_lat = res_lat.displacements.iter().find(|d| d.node_id == 2).unwrap().uz;
+    let uy_both = res_both.displacements.iter().find(|d| d.node_id == 2).unwrap().uz;
 
     assert_close(uy_both, uy_grav + uy_lat, 0.01,
         "Portal frame: vertical displacement superposition");
@@ -437,16 +437,16 @@ fn validation_combined_portal_gravity_lateral_superposition() {
         assert_close(rx_both, rx_grav + rx_lat, 0.02,
             &format!("Portal frame: Rx superposition at node {}", node_id));
 
-        let ry_grav = res_grav.reactions.iter().find(|r| r.node_id == node_id).unwrap().ry;
-        let ry_lat = res_lat.reactions.iter().find(|r| r.node_id == node_id).unwrap().ry;
-        let ry_both = res_both.reactions.iter().find(|r| r.node_id == node_id).unwrap().ry;
+        let ry_grav = res_grav.reactions.iter().find(|r| r.node_id == node_id).unwrap().rz;
+        let ry_lat = res_lat.reactions.iter().find(|r| r.node_id == node_id).unwrap().rz;
+        let ry_both = res_both.reactions.iter().find(|r| r.node_id == node_id).unwrap().rz;
 
         assert_close(ry_both, ry_grav + ry_lat, 0.02,
             &format!("Portal frame: Ry superposition at node {}", node_id));
 
-        let mz_grav = res_grav.reactions.iter().find(|r| r.node_id == node_id).unwrap().mz;
-        let mz_lat = res_lat.reactions.iter().find(|r| r.node_id == node_id).unwrap().mz;
-        let mz_both = res_both.reactions.iter().find(|r| r.node_id == node_id).unwrap().mz;
+        let mz_grav = res_grav.reactions.iter().find(|r| r.node_id == node_id).unwrap().my;
+        let mz_lat = res_lat.reactions.iter().find(|r| r.node_id == node_id).unwrap().my;
+        let mz_both = res_both.reactions.iter().find(|r| r.node_id == node_id).unwrap().my;
 
         assert_close(mz_both, mz_grav + mz_lat, 0.02,
             &format!("Portal frame: Mz superposition at node {}", node_id));
@@ -475,12 +475,12 @@ fn validation_combined_axial_bar_superposition() {
         let mut loads = Vec::new();
         if load_a {
             loads.push(SolverLoad::Nodal(SolverNodalLoad {
-                node_id: node_a, fx: p1, fy: 0.0, mz: 0.0,
+                node_id: node_a, fx: p1, fz: 0.0, my: 0.0,
             }));
         }
         if load_b {
             loads.push(SolverLoad::Nodal(SolverNodalLoad {
-                node_id: node_b, fx: p2, fy: 0.0, mz: 0.0,
+                node_id: node_b, fx: p2, fz: 0.0, my: 0.0,
             }));
         }
         let input = make_beam(n, l, E, A, IZ, "fixed", Some("fixed"), loads);

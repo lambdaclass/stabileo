@@ -83,7 +83,7 @@ fn modal_to_spectral_modes(modal_res: &modal::ModalResult) -> Vec<SpectralModeIn
             period: m.period,
             omega: m.omega,
             displacements: m.displacements.iter().map(|d| {
-                SpectralModeDisp { node_id: d.node_id, ux: d.ux, uy: d.uy, rz: d.rz }
+                SpectralModeDisp { node_id: d.node_id, ux: d.ux, uz: d.uz, ry: d.ry }
             }).collect(),
             participation_x: m.participation_x,
             participation_y: m.participation_y,
@@ -209,7 +209,7 @@ fn validation_spectral_sdof_response_matches_sd() {
     // Tip displacement (node 2) should be non-zero and in the right ballpark
     let tip = result.displacements.iter().find(|d| d.node_id == 2);
     assert!(tip.is_some(), "Should have tip displacement");
-    let tip_uy = tip.unwrap().uy.abs();
+    let tip_uy = tip.unwrap().uz.abs();
     assert!(
         tip_uy > 1e-10,
         "SDOF tip displacement should be non-zero, got {:.2e}", tip_uy
@@ -500,7 +500,7 @@ fn validation_spectral_vs_static_equivalent_consistency() {
     // (spectral results are absolute values after combination)
     for d in &result.displacements {
         assert!(
-            d.uy.abs() >= 0.0,
+            d.uz.abs() >= 0.0,
             "Spectral displacements should be non-negative envelope values"
         );
     }

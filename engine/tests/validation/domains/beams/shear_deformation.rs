@@ -46,7 +46,7 @@ fn validation_shear_slender_eb_match() {
 
     let mid = n / 2 + 1;
     let loads = vec![SolverLoad::Nodal(SolverNodalLoad {
-        node_id: mid, fx: 0.0, fy: -p, mz: 0.0,
+        node_id: mid, fx: 0.0, fz: -p, my: 0.0,
     })];
     let input = make_beam(n, l, E, A, IZ, "pinned", Some("rollerX"), loads);
     let results = linear::solve_2d(&input).unwrap();
@@ -54,7 +54,7 @@ fn validation_shear_slender_eb_match() {
     let d_mid = results.displacements.iter().find(|d| d.node_id == mid).unwrap();
     let delta_eb = p * l.powi(3) / (48.0 * e_eff * IZ);
 
-    assert_close(d_mid.uy.abs(), delta_eb, 0.02,
+    assert_close(d_mid.uz.abs(), delta_eb, 0.02,
         "Slender EB: δ = PL³/(48EI)");
 }
 
@@ -73,11 +73,11 @@ fn validation_shear_l_cubed_scaling() {
     let solve_ss = |l: f64| -> f64 {
         let mid = n / 2 + 1;
         let loads = vec![SolverLoad::Nodal(SolverNodalLoad {
-            node_id: mid, fx: 0.0, fy: -p, mz: 0.0,
+            node_id: mid, fx: 0.0, fz: -p, my: 0.0,
         })];
         let input = make_beam(n, l, E, A, IZ, "pinned", Some("rollerX"), loads);
         let results = linear::solve_2d(&input).unwrap();
-        results.displacements.iter().find(|d| d.node_id == mid).unwrap().uy.abs()
+        results.displacements.iter().find(|d| d.node_id == mid).unwrap().uz.abs()
     };
 
     let d1 = solve_ss(6.0);
@@ -108,7 +108,7 @@ fn validation_shear_deep_beam_eb() {
 
     let mid = n / 2 + 1;
     let loads = vec![SolverLoad::Nodal(SolverNodalLoad {
-        node_id: mid, fx: 0.0, fy: -p, mz: 0.0,
+        node_id: mid, fx: 0.0, fz: -p, my: 0.0,
     })];
     let input = make_beam(n, l, E, a_deep, iz_deep, "pinned", Some("rollerX"), loads);
     let results = linear::solve_2d(&input).unwrap();
@@ -116,7 +116,7 @@ fn validation_shear_deep_beam_eb() {
     let d_mid = results.displacements.iter().find(|d| d.node_id == mid).unwrap();
     let delta_eb = p * l.powi(3) / (48.0 * e_eff * iz_deep);
 
-    assert_close(d_mid.uy.abs(), delta_eb, 0.02,
+    assert_close(d_mid.uz.abs(), delta_eb, 0.02,
         "Deep beam EB: solver gives EB result regardless of depth");
 }
 
@@ -132,7 +132,7 @@ fn validation_shear_cantilever_stiffness() {
     let e_eff = E * 1000.0;
 
     let loads = vec![SolverLoad::Nodal(SolverNodalLoad {
-        node_id: n + 1, fx: 0.0, fy: -p, mz: 0.0,
+        node_id: n + 1, fx: 0.0, fz: -p, my: 0.0,
     })];
     let input = make_beam(n, l, E, A, IZ, "fixed", None, loads);
     let results = linear::solve_2d(&input).unwrap();
@@ -140,11 +140,11 @@ fn validation_shear_cantilever_stiffness() {
     let d_tip = results.displacements.iter().find(|d| d.node_id == n + 1).unwrap();
     let delta_expected = p * l.powi(3) / (3.0 * e_eff * IZ);
 
-    assert_close(d_tip.uy.abs(), delta_expected, 0.02,
+    assert_close(d_tip.uz.abs(), delta_expected, 0.02,
         "Cantilever stiffness: δ = PL³/(3EI)");
 
     // Equivalent stiffness k = P/δ = 3EI/L³
-    let k = p / d_tip.uy.abs();
+    let k = p / d_tip.uz.abs();
     let k_expected = 3.0 * e_eff * IZ / l.powi(3);
     assert_close(k, k_expected, 0.02,
         "Cantilever: k = 3EI/L³");
@@ -163,13 +163,13 @@ fn validation_shear_ss_midpoint_stiffness() {
 
     let mid = n / 2 + 1;
     let loads = vec![SolverLoad::Nodal(SolverNodalLoad {
-        node_id: mid, fx: 0.0, fy: -p, mz: 0.0,
+        node_id: mid, fx: 0.0, fz: -p, my: 0.0,
     })];
     let input = make_beam(n, l, E, A, IZ, "pinned", Some("rollerX"), loads);
     let results = linear::solve_2d(&input).unwrap();
 
     let d_mid = results.displacements.iter().find(|d| d.node_id == mid).unwrap();
-    let k = p / d_mid.uy.abs();
+    let k = p / d_mid.uz.abs();
     let k_expected = 48.0 * e_eff * IZ / l.powi(3);
     assert_close(k, k_expected, 0.02,
         "SS midpoint: k = 48EI/L³");
@@ -188,13 +188,13 @@ fn validation_shear_fixed_midpoint_stiffness() {
 
     let mid = n / 2 + 1;
     let loads = vec![SolverLoad::Nodal(SolverNodalLoad {
-        node_id: mid, fx: 0.0, fy: -p, mz: 0.0,
+        node_id: mid, fx: 0.0, fz: -p, my: 0.0,
     })];
     let input = make_beam(n, l, E, A, IZ, "fixed", Some("fixed"), loads);
     let results = linear::solve_2d(&input).unwrap();
 
     let d_mid = results.displacements.iter().find(|d| d.node_id == mid).unwrap();
-    let k = p / d_mid.uy.abs();
+    let k = p / d_mid.uz.abs();
     let k_expected = 192.0 * e_eff * IZ / l.powi(3);
     assert_close(k, k_expected, 0.02,
         "Fixed-fixed midpoint: k = 192EI/L³");
@@ -236,14 +236,14 @@ fn validation_shear_overhang_scaling() {
         let sups = vec![(1, 1, "pinned"), (2, n_span + 1, "rollerX")];
 
         let loads = vec![SolverLoad::Nodal(SolverNodalLoad {
-            node_id: n + 1, fx: 0.0, fy: -p, mz: 0.0,
+            node_id: n + 1, fx: 0.0, fz: -p, my: 0.0,
         })];
 
         let input = make_input(
             nodes, vec![(1, E, 0.3)], vec![(1, A, IZ)], elems, sups, loads,
         );
         let results = linear::solve_2d(&input).unwrap();
-        results.displacements.iter().find(|d| d.node_id == n + 1).unwrap().uy.abs()
+        results.displacements.iter().find(|d| d.node_id == n + 1).unwrap().uz.abs()
     };
 
     let d1 = solve_overhang(2.0);
@@ -272,11 +272,11 @@ fn validation_shear_ei_proportionality() {
     let solve_with_iz = |iz: f64| -> f64 {
         let mid = n / 2 + 1;
         let loads = vec![SolverLoad::Nodal(SolverNodalLoad {
-            node_id: mid, fx: 0.0, fy: -p, mz: 0.0,
+            node_id: mid, fx: 0.0, fz: -p, my: 0.0,
         })];
         let input = make_beam(n, l, E, A, iz, "pinned", Some("rollerX"), loads);
         let results = linear::solve_2d(&input).unwrap();
-        results.displacements.iter().find(|d| d.node_id == mid).unwrap().uy.abs()
+        results.displacements.iter().find(|d| d.node_id == mid).unwrap().uz.abs()
     };
 
     let d1 = solve_with_iz(IZ);

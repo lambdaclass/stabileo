@@ -345,7 +345,7 @@ fn assemble_fiber_elements(
         let node_j = node_by_id[&elem.node_j];
 
         let dx = node_j.x - node_i.x;
-        let dy = node_j.y - node_i.y;
+        let dy = node_j.z - node_i.z;
         let l = (dx * dx + dy * dy).sqrt();
 
         // Get element DOFs
@@ -418,7 +418,7 @@ fn assemble_elastic_elements(
             let sec = sec_by_id[&elem.section_id];
             let e = mat.e * 1000.0;
             let dx = node_j.x - node_i.x;
-            let dy = node_j.y - node_i.y;
+            let dy = node_j.z - node_i.z;
             let l = (dx * dx + dy * dy).sqrt();
 
             let c = dx / l;
@@ -456,7 +456,7 @@ fn assemble_elastic_elements(
 
             let e = mat.e * 1000.0;
             let dx = node_j.x - node_i.x;
-            let dy = node_j.y - node_i.y;
+            let dy = node_j.z - node_i.z;
             let l = (dx * dx + dy * dy).sqrt();
 
             let k_local = crate::element::frame_local_stiffness_2d(
@@ -926,8 +926,8 @@ mod tests {
 
     fn make_cantilever_fiber() -> FiberNonlinearInput {
         let mut nodes = HashMap::new();
-        nodes.insert("0".into(), SolverNode { id: 0, x: 0.0, y: 0.0 });
-        nodes.insert("1".into(), SolverNode { id: 1, x: 5.0, y: 0.0 });
+        nodes.insert("0".into(), SolverNode { id: 0, x: 0.0, z: 0.0 });
+        nodes.insert("1".into(), SolverNode { id: 1, x: 5.0, z: 0.0 });
 
         let mut materials = HashMap::new();
         materials.insert("1".into(), SolverMaterial { id: 1, e: 200_000.0, nu: 0.3 });
@@ -946,13 +946,13 @@ mod tests {
         supports.insert("0".into(), SolverSupport {
             id: 0, node_id: 0, support_type: "fixed".into(),
             kx: None, ky: None, kz: None,
-            dx: None, dy: None, drz: None, angle: None,
+            dx: None, dz: None, dry: None, angle: None,
         });
 
         let solver = SolverInput {
             nodes, materials, sections, elements, supports,
             loads: vec![SolverLoad::Nodal(SolverNodalLoad {
-                node_id: 1, fx: 0.0, fy: -50.0, mz: 0.0,
+                node_id: 1, fx: 0.0, fz: -50.0, my: 0.0,
             })],
             constraints: vec![],
             connectors: HashMap::new(),
@@ -990,7 +990,7 @@ mod tests {
         let expected = p * l * l * l / (3.0 * e * iz);
 
         let d1 = result.results.displacements.iter().find(|d| d.node_id == 1).unwrap();
-        let got = d1.uy.abs();
+        let got = d1.uz.abs();
         assert!(
             (got - expected).abs() / expected < 0.1,
             "Tip deflection: got {} expected {} (error {}%)",
@@ -1009,7 +1009,7 @@ mod tests {
         input.n_increments = 10;
         // Increase load to cause yielding
         input.solver.loads = vec![SolverLoad::Nodal(SolverNodalLoad {
-            node_id: 1, fx: 0.0, fy: -500.0, mz: 0.0,
+            node_id: 1, fx: 0.0, fz: -500.0, my: 0.0,
         })];
 
         let result = solve_fiber_nonlinear_2d(&input).unwrap();

@@ -324,8 +324,8 @@ fn validation_ps_ext_4_load_balancing() {
     let mid_d = results.displacements.iter().find(|d| d.node_id == mid_node).unwrap();
 
     assert!(
-        mid_d.uy.abs() < 1e-8,
-        "Balanced beam midspan deflection should be ~0: uy = {:.3e}", mid_d.uy
+        mid_d.uz.abs() < 1e-8,
+        "Balanced beam midspan deflection should be ~0: uy = {:.3e}", mid_d.uz
     );
 
     // Also check: partial balancing (80%) should leave residual deflection
@@ -694,7 +694,7 @@ fn validation_ps_ext_8_concordant_tendon() {
     let results = linear::solve_2d(&input).unwrap();
 
     // Check total equilibrium: sum of reactions + applied load = 0
-    let sum_ry: f64 = results.reactions.iter().map(|r| r.ry).sum();
+    let sum_ry: f64 = results.reactions.iter().map(|r| r.rz).sum();
     let total_load: f64 = w_eq * l;  // total upward load
     assert!(
         (sum_ry + total_load).abs() < 0.01,

@@ -37,7 +37,7 @@ fn validation_kass_propped_cantilever() {
         a: elem_len,
         p: -p,
         px: None,
-        mz: None,
+        my: None,
     })];
 
     let input = make_beam(n, l, E, A, IZ, "fixed", Some("rollerX"), loads);
@@ -45,18 +45,18 @@ fn validation_kass_propped_cantilever() {
 
     // Roller reaction R_B = 5P/16
     let r_b = results.reactions.iter().find(|r| r.node_id == n + 1).unwrap();
-    assert_close(r_b.ry, 5.0 * p / 16.0, 0.03, "KASS propped R_B = 5P/16");
+    assert_close(r_b.rz, 5.0 * p / 16.0, 0.03, "KASS propped R_B = 5P/16");
 
     // Fixed reaction R_A = 11P/16
     let r_a = results.reactions.iter().find(|r| r.node_id == 1).unwrap();
-    assert_close(r_a.ry, 11.0 * p / 16.0, 0.03, "KASS propped R_A = 11P/16");
+    assert_close(r_a.rz, 11.0 * p / 16.0, 0.03, "KASS propped R_A = 11P/16");
 
     // Fixed-end moment M_A = 3PL/16
     let m_a_expected = 3.0 * p * l / 16.0;
-    assert_close(r_a.mz.abs(), m_a_expected, 0.05, "KASS propped M_A = 3PL/16");
+    assert_close(r_a.my.abs(), m_a_expected, 0.05, "KASS propped M_A = 3PL/16");
 
     // Equilibrium
-    assert_close(r_a.ry + r_b.ry, p, 0.01, "KASS propped equilibrium");
+    assert_close(r_a.rz + r_b.rz, p, 0.01, "KASS propped equilibrium");
 }
 
 // ═══════════════════════════════════════════════════════════════
@@ -87,20 +87,20 @@ fn validation_kass_fixed_partial_udl() {
 
     // Total load = q * L/2 = 100 kN
     let total_load = q * l / 2.0;
-    let sum_ry: f64 = results.reactions.iter().map(|r| r.ry).sum();
+    let sum_ry: f64 = results.reactions.iter().map(|r| r.rz).sum();
     assert_close(sum_ry, total_load, 0.02, "KASS partial UDL ΣRy = qL/2");
 
     // Left support carries more (load is on left half)
     let r_left = results.reactions.iter().find(|r| r.node_id == 1).unwrap();
     let r_right = results.reactions.iter().find(|r| r.node_id == n + 1).unwrap();
     assert!(
-        r_left.ry > r_right.ry,
-        "KASS partial UDL: R_left={:.2} should > R_right={:.2}", r_left.ry, r_right.ry
+        r_left.rz > r_right.rz,
+        "KASS partial UDL: R_left={:.2} should > R_right={:.2}", r_left.rz, r_right.rz
     );
 
     // Both supports should have nonzero moments
-    assert!(r_left.mz.abs() > 1.0, "KASS: left moment should be nonzero");
-    assert!(r_right.mz.abs() > 1.0, "KASS: right moment should be nonzero");
+    assert!(r_left.my.abs() > 1.0, "KASS: left moment should be nonzero");
+    assert!(r_right.my.abs() > 1.0, "KASS: right moment should be nonzero");
 }
 
 // ═══════════════════════════════════════════════════════════════
@@ -124,7 +124,7 @@ fn validation_kass_continuous_settlement() {
     let mut nodes_map = HashMap::new();
     for i in 0..n_nodes {
         nodes_map.insert((i + 1).to_string(), SolverNode {
-            id: i + 1, x: i as f64 * elem_len, y: 0.0,
+            id: i + 1, x: i as f64 * elem_len, z: 0.0,
         });
     }
     let mut mats_map = HashMap::new();
@@ -146,17 +146,17 @@ fn validation_kass_continuous_settlement() {
     sups_map.insert("1".to_string(), SolverSupport {
         id: 1, node_id: 1, support_type: "pinned".to_string(),
         kx: None, ky: None, kz: None,
-        dx: None, dy: None, drz: None, angle: None,
+        dx: None, dz: None, dry: None, angle: None,
     });
     sups_map.insert("2".to_string(), SolverSupport {
         id: 2, node_id: interior, support_type: "rollerX".to_string(),
         kx: None, ky: None, kz: None,
-        dx: None, dy: Some(delta), drz: None, angle: None,
+        dx: None, dz: Some(delta), dry: None, angle: None,
     });
     sups_map.insert("3".to_string(), SolverSupport {
         id: 3, node_id: n_nodes, support_type: "rollerX".to_string(),
         kx: None, ky: None, kz: None,
-        dx: None, dy: None, drz: None, angle: None,
+        dx: None, dz: None, dry: None, angle: None,
     });
 
     let input = SolverInput {
@@ -178,13 +178,13 @@ fn validation_kass_continuous_settlement() {
     if let Some(d) = d_int {
         // Should be close to delta (may be exact or approximate depending on solver)
         assert!(
-            (d.uy - delta).abs() < delta.abs() * 0.1 + 1e-6,
-            "KASS settlement: interior uy={:.6}, expected {:.6}", d.uy, delta
+            (d.uz - delta).abs() < delta.abs() * 0.1 + 1e-6,
+            "KASS settlement: interior uy={:.6}, expected {:.6}", d.uz, delta
         );
     }
 
     // Equilibrium: sum of reactions should be ≈ 0 (no external load)
-    let sum_ry: f64 = results.reactions.iter().map(|r| r.ry).sum();
+    let sum_ry: f64 = results.reactions.iter().map(|r| r.rz).sum();
     assert!(sum_ry.abs() < 1.0, "KASS settlement: ΣRy={:.4} should ≈ 0", sum_ry);
 }
 
@@ -250,12 +250,12 @@ fn validation_kass_multistory_frame() {
     for level in 1..=n_stories {
         // Lateral at left column
         loads.push(SolverLoad::Nodal(SolverNodalLoad {
-            node_id: node_id(0, level), fx: 20.0, fy: 0.0, mz: 0.0,
+            node_id: node_id(0, level), fx: 20.0, fz: 0.0, my: 0.0,
         }));
         // Gravity at all joints
         for col in 0..=n_bays {
             loads.push(SolverLoad::Nodal(SolverNodalLoad {
-                node_id: node_id(col, level), fx: 0.0, fy: -100.0, mz: 0.0,
+                node_id: node_id(col, level), fx: 0.0, fz: -100.0, my: 0.0,
             }));
         }
     }
@@ -272,7 +272,7 @@ fn validation_kass_multistory_frame() {
     assert_close(sum_rx.abs(), 60.0, 0.02, "KASS multi-story ΣRx = 60");
 
     // ΣRy = total gravity = 3 stories × 3 columns × 100 = 900 kN
-    let sum_ry: f64 = results.reactions.iter().map(|r| r.ry).sum();
+    let sum_ry: f64 = results.reactions.iter().map(|r| r.rz).sum();
     assert_close(sum_ry, 900.0, 0.02, "KASS multi-story ΣRy = 900");
 
     // Lateral drift should increase with height
@@ -308,7 +308,7 @@ fn validation_kass_truss_joints() {
     ];
     let sups = vec![(1, 1, "pinned"), (2, 3, "rollerX")];
     let loads = vec![SolverLoad::Nodal(SolverNodalLoad {
-        node_id: 4, fx: 0.0, fy: -p, mz: 0.0,
+        node_id: 4, fx: 0.0, fz: -p, my: 0.0,
     })];
 
     let input = make_input(
@@ -321,8 +321,8 @@ fn validation_kass_truss_joints() {
     // By symmetry: R1_y = R3_y = P/2 = 40 kN
     let r1 = results.reactions.iter().find(|r| r.node_id == 1).unwrap();
     let r3 = results.reactions.iter().find(|r| r.node_id == 3).unwrap();
-    assert_close(r1.ry, p / 2.0, 0.02, "KASS truss R1");
-    assert_close(r3.ry, p / 2.0, 0.02, "KASS truss R3");
+    assert_close(r1.rz, p / 2.0, 0.02, "KASS truss R1");
+    assert_close(r3.rz, p / 2.0, 0.02, "KASS truss R3");
 
     // Vertical bar (element 5, node 2→4): by method of joints at node 4,
     // the vertical bar carries the vertical component not balanced by inclined bars

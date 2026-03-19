@@ -53,8 +53,8 @@ fn validation_cracked_section_larger_deflection() {
     let res_cr = linear::solve_2d(&input_cr).unwrap();
 
     let mid = n / 2 + 1;
-    let d_g = res_g.displacements.iter().find(|d| d.node_id == mid).unwrap().uy.abs();
-    let d_cr = res_cr.displacements.iter().find(|d| d.node_id == mid).unwrap().uy.abs();
+    let d_g = res_g.displacements.iter().find(|d| d.node_id == mid).unwrap().uz.abs();
+    let d_cr = res_cr.displacements.iter().find(|d| d.node_id == mid).unwrap().uz.abs();
 
     // Cracked deflection must be larger
     assert!(d_cr > d_g,
@@ -95,8 +95,8 @@ fn validation_higher_grade_reduces_deflection() {
     let res_50 = linear::solve_2d(&input_50).unwrap();
 
     let mid = n / 2 + 1;
-    let d_30 = res_30.displacements.iter().find(|d| d.node_id == mid).unwrap().uy.abs();
-    let d_50 = res_50.displacements.iter().find(|d| d.node_id == mid).unwrap().uy.abs();
+    let d_30 = res_30.displacements.iter().find(|d| d.node_id == mid).unwrap().uz.abs();
+    let d_50 = res_50.displacements.iter().find(|d| d.node_id == mid).unwrap().uz.abs();
 
     // C50 deflection should be smaller
     assert!(d_50 < d_30,
@@ -155,9 +155,9 @@ fn validation_branson_effective_iz_bounded() {
     let res_e = linear::solve_2d(&input_e).unwrap();
 
     let mid = n / 2 + 1;
-    let d_g = res_g.displacements.iter().find(|d| d.node_id == mid).unwrap().uy.abs();
-    let d_cr = res_cr.displacements.iter().find(|d| d.node_id == mid).unwrap().uy.abs();
-    let d_e = res_e.displacements.iter().find(|d| d.node_id == mid).unwrap().uy.abs();
+    let d_g = res_g.displacements.iter().find(|d| d.node_id == mid).unwrap().uz.abs();
+    let d_cr = res_cr.displacements.iter().find(|d| d.node_id == mid).unwrap().uz.abs();
+    let d_e = res_e.displacements.iter().find(|d| d.node_id == mid).unwrap().uz.abs();
 
     // Deflection with Ie must be between those with Ig and Icr
     assert!(d_e > d_g && d_e < d_cr,
@@ -200,7 +200,7 @@ fn validation_creep_effective_modulus_deflection() {
 
     let tip_node = n + 1;
     let load = vec![SolverLoad::Nodal(SolverNodalLoad {
-        node_id: tip_node, fx: 0.0, fy: p, mz: 0.0,
+        node_id: tip_node, fx: 0.0, fz: p, my: 0.0,
     })];
 
     let input_short = make_beam(n, l, e_short, a, iz, "fixed", None, load.clone());
@@ -210,9 +210,9 @@ fn validation_creep_effective_modulus_deflection() {
     let res_long = linear::solve_2d(&input_long).unwrap();
 
     let d_short = res_short.displacements.iter()
-        .find(|d| d.node_id == tip_node).unwrap().uy.abs();
+        .find(|d| d.node_id == tip_node).unwrap().uz.abs();
     let d_long = res_long.displacements.iter()
-        .find(|d| d.node_id == tip_node).unwrap().uy.abs();
+        .find(|d| d.node_id == tip_node).unwrap().uz.abs();
 
     // Long-term deflection should be (1+phi) times short-term
     let ratio = d_long / d_short;
@@ -265,13 +265,13 @@ fn validation_shrinkage_equivalent_moment_cantilever() {
     let tip_node = n + 1;
     let input = make_beam(n, l, e, a, iz, "fixed", None,
         vec![SolverLoad::Nodal(SolverNodalLoad {
-            node_id: tip_node, fx: 0.0, fy: 0.0, mz: m_sh,
+            node_id: tip_node, fx: 0.0, fz: 0.0, my: m_sh,
         })]);
 
     let res = linear::solve_2d(&input).unwrap();
 
     let d_tip = res.displacements.iter()
-        .find(|d| d.node_id == tip_node).unwrap().uy.abs();
+        .find(|d| d.node_id == tip_node).unwrap().uz.abs();
 
     // delta_tip = M * L^2 / (2 * EI)
     let delta_exact = m_sh * l.powi(2) / (2.0 * e_eff * iz);
@@ -283,7 +283,7 @@ fn validation_shrinkage_equivalent_moment_cantilever() {
 
     // Also verify the tip rotation: theta = M*L/(EI)
     let theta_tip = res.displacements.iter()
-        .find(|d| d.node_id == tip_node).unwrap().rz.abs();
+        .find(|d| d.node_id == tip_node).unwrap().ry.abs();
     let theta_exact = m_sh * l / (e_eff * iz);
     let err_theta = (theta_tip - theta_exact).abs() / theta_exact;
     assert!(err_theta < 0.05,
@@ -320,8 +320,8 @@ fn validation_cracking_no_effect_determinate_reactions() {
     let res_cr = linear::solve_2d(&input_cr).unwrap();
 
     // Sum vertical reactions
-    let ry_g: f64 = res_g.reactions.iter().map(|r| r.ry).sum();
-    let ry_cr: f64 = res_cr.reactions.iter().map(|r| r.ry).sum();
+    let ry_g: f64 = res_g.reactions.iter().map(|r| r.rz).sum();
+    let ry_cr: f64 = res_cr.reactions.iter().map(|r| r.rz).sum();
 
     // Both should equal total applied load (absolute value)
     let total_load = q.abs() * l;
@@ -337,11 +337,11 @@ fn validation_cracking_no_effect_determinate_reactions() {
     // Individual reactions: each should be total_load / 2
     let expected_each = total_load / 2.0;
     for r in &res_g.reactions {
-        assert_close(r.ry, expected_each, 0.02,
+        assert_close(r.rz, expected_each, 0.02,
             &format!("Gross reaction at node {}", r.node_id));
     }
     for r in &res_cr.reactions {
-        assert_close(r.ry, expected_each, 0.02,
+        assert_close(r.rz, expected_each, 0.02,
             &format!("Cracked reaction at node {}", r.node_id));
     }
 }
@@ -432,9 +432,9 @@ fn validation_cracking_redistributes_continuous_beam() {
     let center_node = n_per_span + 1;
 
     let ry_center_uniform = res_uniform.reactions.iter()
-        .find(|r| r.node_id == center_node).unwrap().ry;
+        .find(|r| r.node_id == center_node).unwrap().rz;
     let ry_center_cracked = res_cracked.reactions.iter()
-        .find(|r| r.node_id == center_node).unwrap().ry;
+        .find(|r| r.node_id == center_node).unwrap().rz;
 
     // Cracking in span 1 makes it more flexible, so center reaction changes
     let diff = (ry_center_cracked - ry_center_uniform).abs();
@@ -445,8 +445,8 @@ fn validation_cracking_redistributes_continuous_beam() {
 
     // Total equilibrium must still hold for both cases
     let total_load = q.abs() * l_span; // load on span 1 only
-    let ry_total_uniform: f64 = res_uniform.reactions.iter().map(|r| r.ry).sum();
-    let ry_total_cracked: f64 = res_cracked.reactions.iter().map(|r| r.ry).sum();
+    let ry_total_uniform: f64 = res_uniform.reactions.iter().map(|r| r.rz).sum();
+    let ry_total_cracked: f64 = res_cracked.reactions.iter().map(|r| r.rz).sum();
     assert_close(ry_total_uniform, total_load, 0.01, "uniform total equilibrium");
     assert_close(ry_total_cracked, total_load, 0.01, "cracked total equilibrium");
 }
@@ -493,7 +493,7 @@ fn validation_stiffness_ratio_portal_frame_moments() {
     ];
     let sups = vec![(1, 1, "fixed"), (2, 4, "fixed")];
     let loads = vec![SolverLoad::Nodal(SolverNodalLoad {
-        node_id: 2, fx: f_lat, fy: 0.0, mz: 0.0,
+        node_id: 2, fx: f_lat, fz: 0.0, my: 0.0,
     })];
     let input_2 = make_input(nodes, mats, secs, elems, sups, loads);
     let res_2 = linear::solve_2d(&input_2).unwrap();
@@ -514,8 +514,8 @@ fn validation_stiffness_ratio_portal_frame_moments() {
 
     // Base moment distribution should change: sum of base moments
     // must equal F*h for overall equilibrium (moment about base)
-    let mz_base_1: f64 = res_1.reactions.iter().map(|r| r.mz.abs()).sum();
-    let mz_base_2: f64 = res_2.reactions.iter().map(|r| r.mz.abs()).sum();
+    let mz_base_1: f64 = res_1.reactions.iter().map(|r| r.my.abs()).sum();
+    let mz_base_2: f64 = res_2.reactions.iter().map(|r| r.my.abs()).sum();
 
     // Both should be consistent (not necessarily equal due to axial effects)
     assert!(mz_base_1 > 0.0, "Base moments must exist in case 1");

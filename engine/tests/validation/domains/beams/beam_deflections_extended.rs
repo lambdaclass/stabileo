@@ -42,7 +42,7 @@ fn validation_deflection_ss_center_point_load() {
 
     let input = make_beam(n, l, E, A, IZ, "pinned", Some("rollerX"),
         vec![SolverLoad::Nodal(SolverNodalLoad {
-            node_id: mid_node, fx: 0.0, fy: -p, mz: 0.0,
+            node_id: mid_node, fx: 0.0, fz: -p, my: 0.0,
         })]);
 
     let results = linear::solve_2d(&input).unwrap();
@@ -51,7 +51,7 @@ fn validation_deflection_ss_center_point_load() {
     // delta_mid = PL^3 / (48EI)
     let delta_exact: f64 = p * l.powi(3) / (48.0 * e_eff * IZ);
 
-    assert_close(mid_d.uy.abs(), delta_exact, 0.02,
+    assert_close(mid_d.uz.abs(), delta_exact, 0.02,
         "SS center point load: midspan deflection PL^3/(48EI)");
 }
 
@@ -85,7 +85,7 @@ fn validation_deflection_ss_udl_midspan() {
     // delta_mid = 5qL^4 / (384EI)
     let delta_exact: f64 = 5.0 * q.abs() * l.powi(4) / (384.0 * e_eff * IZ);
 
-    assert_close(mid_d.uy.abs(), delta_exact, 0.02,
+    assert_close(mid_d.uz.abs(), delta_exact, 0.02,
         "SS UDL: midspan deflection 5qL^4/(384EI)");
 }
 
@@ -108,7 +108,7 @@ fn validation_deflection_cantilever_tip_point_load() {
     let tip_node = n + 1;
     let input = make_beam(n, l, E, A, IZ, "fixed", None,
         vec![SolverLoad::Nodal(SolverNodalLoad {
-            node_id: tip_node, fx: 0.0, fy: -p, mz: 0.0,
+            node_id: tip_node, fx: 0.0, fz: -p, my: 0.0,
         })]);
 
     let results = linear::solve_2d(&input).unwrap();
@@ -116,12 +116,12 @@ fn validation_deflection_cantilever_tip_point_load() {
 
     // delta_tip = PL^3 / (3EI)
     let delta_exact: f64 = p * l.powi(3) / (3.0 * e_eff * IZ);
-    assert_close(tip.uy.abs(), delta_exact, 0.02,
+    assert_close(tip.uz.abs(), delta_exact, 0.02,
         "Cantilever tip load: deflection PL^3/(3EI)");
 
     // theta_tip = PL^2 / (2EI)
     let theta_exact: f64 = p * l.powi(2) / (2.0 * e_eff * IZ);
-    assert_close(tip.rz.abs(), theta_exact, 0.02,
+    assert_close(tip.ry.abs(), theta_exact, 0.02,
         "Cantilever tip load: rotation PL^2/(2EI)");
 }
 
@@ -155,7 +155,7 @@ fn validation_deflection_ss_udl_end_rotation() {
     // theta_end = qL^3 / (24EI), both ends have the same magnitude (symmetric)
     let theta_exact: f64 = q.abs() * l.powi(3) / (24.0 * e_eff * IZ);
 
-    assert_close(left.rz.abs(), theta_exact, 0.02,
+    assert_close(left.ry.abs(), theta_exact, 0.02,
         "SS UDL: end rotation qL^3/(24EI)");
 }
 
@@ -194,7 +194,7 @@ fn validation_deflection_two_span_continuous_udl() {
     // R_center = 5qL/4 (upward, so positive)
     let r_center_exact: f64 = 5.0 * q.abs() * span / 4.0;
 
-    assert_close(center_reaction.ry, r_center_exact, 0.03,
+    assert_close(center_reaction.rz, r_center_exact, 0.03,
         "Two-span continuous: center reaction 5qL/4");
 
     // End reactions R_A = R_C = 3qL/8
@@ -202,7 +202,7 @@ fn validation_deflection_two_span_continuous_udl() {
     let left_reaction = results.reactions.iter()
         .find(|r| r.node_id == 1).unwrap();
 
-    assert_close(left_reaction.ry, r_end_exact, 0.03,
+    assert_close(left_reaction.rz, r_end_exact, 0.03,
         "Two-span continuous: end reaction 3qL/8");
 }
 
@@ -232,10 +232,10 @@ fn validation_deflection_cantilever_two_point_loads() {
     let input = make_beam(n, l, E, A, IZ, "fixed", None,
         vec![
             SolverLoad::Nodal(SolverNodalLoad {
-                node_id: mid_node, fx: 0.0, fy: -p1, mz: 0.0,
+                node_id: mid_node, fx: 0.0, fz: -p1, my: 0.0,
             }),
             SolverLoad::Nodal(SolverNodalLoad {
-                node_id: tip_node, fx: 0.0, fy: -p2, mz: 0.0,
+                node_id: tip_node, fx: 0.0, fz: -p2, my: 0.0,
             }),
         ]);
 
@@ -248,7 +248,7 @@ fn validation_deflection_cantilever_two_point_loads() {
     let delta_p2: f64 = p2 * l.powi(3) / (3.0 * e_eff * IZ);
     let delta_exact: f64 = delta_p1 + delta_p2;
 
-    assert_close(tip.uy.abs(), delta_exact, 0.02,
+    assert_close(tip.uz.abs(), delta_exact, 0.02,
         "Cantilever two loads: tip deflection by superposition");
 }
 
@@ -276,7 +276,7 @@ fn validation_deflection_ss_point_load_third_span() {
 
     let input = make_beam(n, l, E, A, IZ, "pinned", Some("rollerX"),
         vec![SolverLoad::Nodal(SolverNodalLoad {
-            node_id: load_node, fx: 0.0, fy: -p, mz: 0.0,
+            node_id: load_node, fx: 0.0, fz: -p, my: 0.0,
         })]);
 
     let results = linear::solve_2d(&input).unwrap();
@@ -285,14 +285,14 @@ fn validation_deflection_ss_point_load_third_span() {
     // delta at load point = P * a^2 * b^2 / (3 * EI * L)
     let delta_load: f64 = p * a_pos.powi(2) * b_pos.powi(2) / (3.0 * e_eff * IZ * l);
 
-    assert_close(load_d.uy.abs(), delta_load, 0.02,
+    assert_close(load_d.uz.abs(), delta_load, 0.02,
         "SS load at L/3: deflection Pa^2*b^2/(3EIL)");
 
     // Also check reactions: R_left = P*b/L, R_right = P*a/L
     let r_left_exact: f64 = p * b_pos / l;
     let left_r = results.reactions.iter().find(|r| r.node_id == 1).unwrap();
 
-    assert_close(left_r.ry, r_left_exact, 0.02,
+    assert_close(left_r.rz, r_left_exact, 0.02,
         "SS load at L/3: left reaction Pb/L");
 }
 
@@ -321,7 +321,7 @@ fn validation_deflection_propped_cantilever_center_point() {
 
     let input = make_beam(n, l, E, A, IZ, "fixed", Some("rollerX"),
         vec![SolverLoad::Nodal(SolverNodalLoad {
-            node_id: mid_node, fx: 0.0, fy: -p, mz: 0.0,
+            node_id: mid_node, fx: 0.0, fz: -p, my: 0.0,
         })]);
 
     let results = linear::solve_2d(&input).unwrap();
@@ -329,23 +329,23 @@ fn validation_deflection_propped_cantilever_center_point() {
     // Roller reaction at right: R_B = 5P/16
     let r_b_exact: f64 = 5.0 * p / 16.0;
     let right_r = results.reactions.iter().find(|r| r.node_id == end_node).unwrap();
-    assert_close(right_r.ry, r_b_exact, 0.03,
+    assert_close(right_r.rz, r_b_exact, 0.03,
         "Propped cantilever center P: roller reaction 5P/16");
 
     // Fixed end reaction: R_A = 11P/16
     let r_a_exact: f64 = 11.0 * p / 16.0;
     let left_r = results.reactions.iter().find(|r| r.node_id == 1).unwrap();
-    assert_close(left_r.ry, r_a_exact, 0.03,
+    assert_close(left_r.rz, r_a_exact, 0.03,
         "Propped cantilever center P: fixed reaction 11P/16");
 
     // Deflection at midspan: delta = 7PL^3 / (768EI)
     let mid_d = results.displacements.iter().find(|d| d.node_id == mid_node).unwrap();
     let delta_exact: f64 = 7.0 * p * l.powi(3) / (768.0 * e_eff * IZ);
-    assert_close(mid_d.uy.abs(), delta_exact, 0.05,
+    assert_close(mid_d.uz.abs(), delta_exact, 0.05,
         "Propped cantilever center P: midspan deflection 7PL^3/(768EI)");
 
     // Fixed end moment: M_A = 3PL/16 (positive in solver convention = sagging)
     let m_a_exact: f64 = 3.0 * p * l / 16.0;
-    assert_close(left_r.mz.abs(), m_a_exact, 0.03,
+    assert_close(left_r.my.abs(), m_a_exact, 0.03,
         "Propped cantilever center P: fixed end moment 3PL/16");
 }

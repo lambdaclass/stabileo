@@ -36,7 +36,7 @@ fn validation_przemieniecki_axial_truss() {
         vec![(1, A, 0.0)], // truss (no IZ)
         vec![(1, "truss", 1, 2, 1, 1, false, false)],
         vec![(1, 1, "pinned"), (2, 2, "rollerX")],
-        vec![SolverLoad::Nodal(SolverNodalLoad { node_id: 2, fx: f, fy: 0.0, mz: 0.0 })],
+        vec![SolverLoad::Nodal(SolverNodalLoad { node_id: 2, fx: f, fz: 0.0, my: 0.0 })],
     );
 
     let results = linear::solve_2d(&input).unwrap();
@@ -76,13 +76,13 @@ fn validation_weaver_gere_l_frame() {
             (3, "frame", 4, 3, 1, 1, false, false), // right column
         ],
         vec![(1, 1, "fixed"), (2, 4, "fixed")],
-        vec![SolverLoad::Nodal(SolverNodalLoad { node_id: 2, fx: 0.0, fy: p, mz: 0.0 })],
+        vec![SolverLoad::Nodal(SolverNodalLoad { node_id: 2, fx: 0.0, fz: p, my: 0.0 })],
     );
 
     let results = linear::solve_2d(&input).unwrap();
 
     // Global equilibrium: ΣRy = -P
-    let sum_ry: f64 = results.reactions.iter().map(|r| r.ry).sum();
+    let sum_ry: f64 = results.reactions.iter().map(|r| r.rz).sum();
     assert!(
         (sum_ry - p.abs()).abs() < 0.1,
         "Weaver-Gere: ΣRy={:.4}, expected {:.4}", sum_ry, p.abs()
@@ -97,7 +97,7 @@ fn validation_weaver_gere_l_frame() {
 
     // Corner joint should deflect downward under vertical load
     let d2 = results.displacements.iter().find(|d| d.node_id == 2).unwrap();
-    assert!(d2.uy < 0.0, "Weaver-Gere: corner should deflect down, uy={:.6e}", d2.uy);
+    assert!(d2.uz < 0.0, "Weaver-Gere: corner should deflect down, uy={:.6e}", d2.uz);
 }
 
 
@@ -135,11 +135,11 @@ fn validation_mcguire_continuous_beam_udl() {
     if let Some(r) = r_mid {
         // For 2-span continuous beam with UDL: R_center = 5qL/4
         let r_exact = 5.0 * q.abs() * span / 4.0;
-        assert_close(r.ry, r_exact, 0.03, "McGuire: interior reaction R = 5qL/4");
+        assert_close(r.rz, r_exact, 0.03, "McGuire: interior reaction R = 5qL/4");
     }
 
     // Global equilibrium
-    let sum_ry: f64 = results.reactions.iter().map(|r| r.ry).sum();
+    let sum_ry: f64 = results.reactions.iter().map(|r| r.rz).sum();
     let total_load = q.abs() * 2.0 * span;
     assert_close(sum_ry, total_load, 0.01, "McGuire: ΣRy = total load");
 }
@@ -161,7 +161,7 @@ fn validation_hibbeler_propped_cantilever() {
     let input = make_beam(
         n, length, E, A, IZ, "fixed", Some("rollerX"),
         vec![SolverLoad::Nodal(SolverNodalLoad {
-            node_id: mid, fx: 0.0, fy: p, mz: 0.0,
+            node_id: mid, fx: 0.0, fz: p, my: 0.0,
         })],
     );
 
@@ -170,15 +170,15 @@ fn validation_hibbeler_propped_cantilever() {
     // R_B = 5P/16 (at roller end, node n+1)
     let r_end = results.reactions.iter().find(|r| r.node_id == n + 1).unwrap();
     let r_b_exact = 5.0 * p.abs() / 16.0;
-    assert_close(r_end.ry, r_b_exact, 0.02, "Hibbeler: R_B = 5P/16");
+    assert_close(r_end.rz, r_b_exact, 0.02, "Hibbeler: R_B = 5P/16");
 
     // M_A = -3PL/16 (at fixed end, node 1)
     let r_start = results.reactions.iter().find(|r| r.node_id == 1).unwrap();
     let m_a_exact = 3.0 * p.abs() * length / 16.0;
-    assert_close(r_start.mz.abs(), m_a_exact, 0.02, "Hibbeler: M_A = 3PL/16");
+    assert_close(r_start.my.abs(), m_a_exact, 0.02, "Hibbeler: M_A = 3PL/16");
 
     // Global equilibrium
-    let sum_ry: f64 = results.reactions.iter().map(|r| r.ry).sum();
+    let sum_ry: f64 = results.reactions.iter().map(|r| r.rz).sum();
     assert_close(sum_ry, p.abs(), 0.01, "Hibbeler: ΣRy = P");
 }
 
@@ -233,7 +233,7 @@ fn validation_kassimali_frame_combined_loads() {
     let results = linear::solve_2d(&input).unwrap();
 
     // Vertical equilibrium: ΣRy = total gravity = 2 × |q| (nodal loads at 2 beam-level nodes)
-    let sum_ry: f64 = results.reactions.iter().map(|r| r.ry).sum();
+    let sum_ry: f64 = results.reactions.iter().map(|r| r.rz).sum();
     let total_grav = 2.0 * q.abs();
     assert_close(sum_ry, total_grav, 0.02, "Kassimali: ΣRy = 2|q|");
 
@@ -294,9 +294,9 @@ fn validation_przemieniecki_warren_truss() {
         ],
         vec![(1, 1, "pinned"), (2, 5, "rollerX")],
         vec![
-            SolverLoad::Nodal(SolverNodalLoad { node_id: 6, fx: 0.0, fy: p, mz: 0.0 }),
-            SolverLoad::Nodal(SolverNodalLoad { node_id: 7, fx: 0.0, fy: p, mz: 0.0 }),
-            SolverLoad::Nodal(SolverNodalLoad { node_id: 8, fx: 0.0, fy: p, mz: 0.0 }),
+            SolverLoad::Nodal(SolverNodalLoad { node_id: 6, fx: 0.0, fz: p, my: 0.0 }),
+            SolverLoad::Nodal(SolverNodalLoad { node_id: 7, fx: 0.0, fz: p, my: 0.0 }),
+            SolverLoad::Nodal(SolverNodalLoad { node_id: 8, fx: 0.0, fz: p, my: 0.0 }),
         ],
     );
 
@@ -312,7 +312,7 @@ fn validation_przemieniecki_warren_truss() {
     }
 
     // Global equilibrium
-    let sum_ry: f64 = results.reactions.iter().map(|r| r.ry).sum();
+    let sum_ry: f64 = results.reactions.iter().map(|r| r.rz).sum();
     let total_load = 3.0 * p.abs();
     assert_close(sum_ry, total_load, 0.01, "Przemieniecki: ΣRy = total load");
 }
@@ -343,11 +343,11 @@ fn validation_weaver_gere_fixed_beam_udl() {
     // End moments: |M| = qL²/12
     let m_exact = q.abs() * length * length / 12.0;
     let r1 = results.reactions.iter().find(|r| r.node_id == 1).unwrap();
-    assert_close(r1.mz.abs(), m_exact, 0.02, "Weaver-Gere: M_end = qL²/12");
+    assert_close(r1.my.abs(), m_exact, 0.02, "Weaver-Gere: M_end = qL²/12");
 
     // Midspan deflection: δ = qL⁴/(384EI)
     let mid = n / 2 + 1;
     let d_mid = results.displacements.iter().find(|d| d.node_id == mid).unwrap();
     let delta_exact = q.abs() * length.powi(4) / (384.0 * ei);
-    assert_close(d_mid.uy.abs(), delta_exact, 0.02, "Weaver-Gere: δ_mid = qL⁴/(384EI)");
+    assert_close(d_mid.uz.abs(), delta_exact, 0.02, "Weaver-Gere: δ_mid = qL⁴/(384EI)");
 }

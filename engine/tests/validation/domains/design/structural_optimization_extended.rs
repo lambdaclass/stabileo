@@ -66,7 +66,7 @@ fn validation_opt_ext_fully_stressed_design() {
     let elems = vec![(1, "frame", 1, 2, 1, 1, true, true)];
     let sups = vec![(1, 1, "pinned"), (2, 2, "rollerX")];
     let loads = vec![SolverLoad::Nodal(SolverNodalLoad {
-        node_id: 2, fx: f_axial, fy: 0.0, mz: 0.0,
+        node_id: 2, fx: f_axial, fz: 0.0, my: 0.0,
     })];
 
     let input = make_input(nodes, vec![(1, e, 0.3)], vec![(1, a_opt, iz)], elems, sups, loads);
@@ -179,7 +179,7 @@ fn validation_opt_ext_minimum_weight_3bar_truss() {
         (3, 3, "pinned"),
     ];
     let loads = vec![SolverLoad::Nodal(SolverNodalLoad {
-        node_id: 4, fx: 0.0, fy: -p, mz: 0.0,
+        node_id: 4, fx: 0.0, fz: -p, my: 0.0,
     })];
 
     let input = make_input(
@@ -253,7 +253,7 @@ fn validation_opt_ext_compliance_sensitivity() {
         let elems = vec![(1, "frame", 1, 2, 1, 1, true, true)];
         let sups = vec![(1, 1, "pinned"), (2, 2, "rollerX")];
         let loads = vec![SolverLoad::Nodal(SolverNodalLoad {
-            node_id: 2, fx: f_axial, fy: 0.0, mz: 0.0,
+            node_id: 2, fx: f_axial, fz: 0.0, my: 0.0,
         })];
         let input = make_input(nodes, vec![(1, e, 0.3)], vec![(1, a, iz)], elems, sups, loads);
         linear::solve_2d(&input).unwrap()
@@ -364,7 +364,7 @@ fn validation_opt_ext_uniform_strength_beam() {
     // Fixed at node 1 (left end), free at tip (node n+1)
     let sups = vec![(1, 1, "fixed")];
     let loads = vec![SolverLoad::Nodal(SolverNodalLoad {
-        node_id: n + 1, fx: 0.0, fy: -p, mz: 0.0,
+        node_id: n + 1, fx: 0.0, fz: -p, my: 0.0,
     })];
 
     let input = make_input(nodes, vec![(1, e, 0.3)], secs, elems, sups, loads);
@@ -501,7 +501,7 @@ fn validation_opt_ext_section_selection() {
     // Check midspan deflection <= delta_allow
     let mid = n / 2 + 1;
     let delta_mid: f64 = results.displacements.iter()
-        .find(|d| d.node_id == mid).unwrap().uy.abs();
+        .find(|d| d.node_id == mid).unwrap().uz.abs();
     assert!(
         delta_mid <= delta_allow * 1.05, // 5% tolerance for FEM discretization
         "Section selection: midspan deflection {:.6e} exceeds L/360={:.6e}",
@@ -605,12 +605,12 @@ fn validation_opt_ext_stiffness_to_weight_ratio() {
         let input = make_beam(
             n, l, e, a, iz, "pinned", Some("rollerX"),
             vec![SolverLoad::Nodal(SolverNodalLoad {
-                node_id: mid, fx: 0.0, fy: -p, mz: 0.0,
+                node_id: mid, fx: 0.0, fz: -p, my: 0.0,
             })],
         );
         let results = linear::solve_2d(&input).unwrap();
         let delta: f64 = results.displacements.iter()
-            .find(|d| d.node_id == mid).unwrap().uy.abs();
+            .find(|d| d.node_id == mid).unwrap().uz.abs();
 
         // Verify against analytical: delta = P*L^3 / (48*E*I)
         let delta_exact: f64 = p * l.powi(3) / (48.0 * e_eff * iz);
@@ -711,7 +711,7 @@ fn validation_opt_ext_volume_fraction_utilization() {
     ];
     let sups = vec![(1, 1, "pinned"), (2, 2, "pinned")];
     let loads = vec![SolverLoad::Nodal(SolverNodalLoad {
-        node_id: 3, fx: 0.0, fy: -p, mz: 0.0,
+        node_id: 3, fx: 0.0, fz: -p, my: 0.0,
     })];
 
     let input = make_input(
@@ -749,7 +749,7 @@ fn validation_opt_ext_volume_fraction_utilization() {
     ];
     let sups2 = vec![(1, 1, "pinned"), (2, 2, "pinned")];
     let loads2 = vec![SolverLoad::Nodal(SolverNodalLoad {
-        node_id: 3, fx: 0.0, fy: -p, mz: 0.0,
+        node_id: 3, fx: 0.0, fz: -p, my: 0.0,
     })];
     let input2 = make_input(
         nodes2, vec![(1, e, 0.3)], vec![(1, a2, iz)], elems2, sups2, loads2,
@@ -819,7 +819,7 @@ fn validation_opt_ext_pareto_front_weight_deflection() {
         );
         let results = linear::solve_2d(&input).unwrap();
         let delta: f64 = results.displacements.iter()
-            .find(|d| d.node_id == mid).unwrap().uy.abs();
+            .find(|d| d.node_id == mid).unwrap().uz.abs();
 
         // Verify against analytical formula
         let delta_exact: f64 = 5.0 * q.abs() * l.powi(4) / (384.0 * e_eff * iz);

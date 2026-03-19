@@ -61,10 +61,10 @@ fn validation_five_span_checkerboard_symmetry() {
     let results = linear::solve_2d(&input).unwrap();
 
     // Midspan deflections
-    let uy1 = results.displacements.iter().find(|d| d.node_id == 2).unwrap().uy;
-    let uy2 = results.displacements.iter().find(|d| d.node_id == 4).unwrap().uy;
-    let uy4 = results.displacements.iter().find(|d| d.node_id == 8).unwrap().uy;
-    let uy5 = results.displacements.iter().find(|d| d.node_id == 10).unwrap().uy;
+    let uy1 = results.displacements.iter().find(|d| d.node_id == 2).unwrap().uz;
+    let uy2 = results.displacements.iter().find(|d| d.node_id == 4).unwrap().uz;
+    let uy4 = results.displacements.iter().find(|d| d.node_id == 8).unwrap().uz;
+    let uy5 = results.displacements.iter().find(|d| d.node_id == 10).unwrap().uz;
 
     // Symmetry: midspan 1 = midspan 5, midspan 2 = midspan 4
     assert_close(uy1, uy5, 0.01, "5-span checkerboard: uy(span1) = uy(span5)");
@@ -115,8 +115,8 @@ fn validation_four_span_alternate_loading_interior_deflection() {
     let res_alt = linear::solve_2d(&input_alt).unwrap();
 
     // Midspan deflection of span 2 at node 4
-    let d_all = res_all.displacements.iter().find(|d| d.node_id == 4).unwrap().uy.abs();
-    let d_alt = res_alt.displacements.iter().find(|d| d.node_id == 4).unwrap().uy.abs();
+    let d_all = res_all.displacements.iter().find(|d| d.node_id == 4).unwrap().uz.abs();
+    let d_alt = res_alt.displacements.iter().find(|d| d.node_id == 4).unwrap().uz.abs();
 
     // Alternate pattern gives larger deflection in loaded interior span
     assert!(
@@ -381,7 +381,7 @@ fn validation_five_span_skip_one_equilibrium() {
                 .iter()
                 .find(|r| r.node_id == nid)
                 .unwrap()
-                .ry
+                .rz
         })
         .sum();
 
@@ -393,18 +393,18 @@ fn validation_five_span_skip_one_equilibrium() {
     // (the unloaded spans may have small negative reactions, but
     // the overall sum must balance).
     // Actually check that end support reactions are positive
-    let r1 = results.reactions.iter().find(|r| r.node_id == 1).unwrap().ry;
-    let r11 = results.reactions.iter().find(|r| r.node_id == 11).unwrap().ry;
+    let r1 = results.reactions.iter().find(|r| r.node_id == 1).unwrap().rz;
+    let r11 = results.reactions.iter().find(|r| r.node_id == 11).unwrap().rz;
     assert!(r1 > 0.0, "R1 should be positive (upward): {:.4}", r1);
     assert!(r11 > 0.0, "R11 should be positive (upward): {:.4}", r11);
 
     // By symmetry, R1 = R11 and R3 = R9 and R5 = R7
     assert_close(r1, r11, 0.01, "5-span skip-one symmetry: R1 = R11");
-    let r3 = results.reactions.iter().find(|r| r.node_id == 3).unwrap().ry;
-    let r9 = results.reactions.iter().find(|r| r.node_id == 9).unwrap().ry;
+    let r3 = results.reactions.iter().find(|r| r.node_id == 3).unwrap().rz;
+    let r9 = results.reactions.iter().find(|r| r.node_id == 9).unwrap().rz;
     assert_close(r3, r9, 0.01, "5-span skip-one symmetry: R3 = R9");
-    let r5 = results.reactions.iter().find(|r| r.node_id == 5).unwrap().ry;
-    let r7 = results.reactions.iter().find(|r| r.node_id == 7).unwrap().ry;
+    let r5 = results.reactions.iter().find(|r| r.node_id == 5).unwrap().rz;
+    let r7 = results.reactions.iter().find(|r| r.node_id == 7).unwrap().rz;
     assert_close(r5, r7, 0.01, "5-span skip-one symmetry: R5 = R7");
 }
 

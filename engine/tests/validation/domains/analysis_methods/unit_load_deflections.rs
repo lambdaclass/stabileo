@@ -47,13 +47,13 @@ fn validation_unit_load_third_point() {
     let load_node = (n as f64 / 3.0).round() as usize + 1;
 
     let loads = vec![SolverLoad::Nodal(SolverNodalLoad {
-        node_id: load_node, fx: 0.0, fy: -p, mz: 0.0,
+        node_id: load_node, fx: 0.0, fz: -p, my: 0.0,
     })];
     let input = make_beam(n, l, E, A, IZ, "pinned", Some("rollerX"), loads);
     let results = linear::solve_2d(&input).unwrap();
 
     let d_load = results.displacements.iter()
-        .find(|d| d.node_id == load_node).unwrap().uy.abs();
+        .find(|d| d.node_id == load_node).unwrap().uz.abs();
 
     // δ at load point = Pa²b²/(3EIL)
     let delta_exact = p * a * a * b * b / (3.0 * e_eff * IZ * l);
@@ -81,14 +81,14 @@ fn validation_unit_load_quarter_points() {
     let mid = n / 2 + 1;
 
     let loads = vec![
-        SolverLoad::Nodal(SolverNodalLoad { node_id: n1, fx: 0.0, fy: -p, mz: 0.0 }),
-        SolverLoad::Nodal(SolverNodalLoad { node_id: n2, fx: 0.0, fy: -p, mz: 0.0 }),
+        SolverLoad::Nodal(SolverNodalLoad { node_id: n1, fx: 0.0, fz: -p, my: 0.0 }),
+        SolverLoad::Nodal(SolverNodalLoad { node_id: n2, fx: 0.0, fz: -p, my: 0.0 }),
     ];
     let input = make_beam(n, l, E, A, IZ, "pinned", Some("rollerX"), loads);
     let results = linear::solve_2d(&input).unwrap();
 
     let d_mid = results.displacements.iter()
-        .find(|d| d.node_id == mid).unwrap().uy.abs();
+        .find(|d| d.node_id == mid).unwrap().uz.abs();
 
     // δ_mid = Pa(3L²-4a²)/(24EI) for each load, by superposition × 2
     // For symmetric loads at a and L-a, midspan deflection = Pa(3L²-4a²)/(24EI)
@@ -129,7 +129,7 @@ fn validation_unit_load_cantilever_triangular() {
     let results = linear::solve_2d(&input).unwrap();
 
     let tip = results.displacements.iter()
-        .find(|d| d.node_id == n + 1).unwrap().uy.abs();
+        .find(|d| d.node_id == n + 1).unwrap().uz.abs();
 
     // δ = q_max × L⁴ / (30EI)
     let delta_exact = q_max.abs() * l.powi(4) / (30.0 * e_eff * IZ);
@@ -162,7 +162,7 @@ fn validation_unit_load_two_span() {
     // Maximum deflection occurs at midspan of each span
     let mid1 = n / 2 + 1;
     let d_mid = results.displacements.iter()
-        .find(|d| d.node_id == mid1).unwrap().uy.abs();
+        .find(|d| d.node_id == mid1).unwrap().uz.abs();
 
     // For two-span equal, UDL: δ_max ≈ qL⁴/(185EI)
     // More precisely: M_int = qL²/8 for each span, but with continuity
@@ -197,13 +197,13 @@ fn validation_unit_load_truss_deflection() {
         ],
         vec![(1, 1, "pinned"), (2, 2, "rollerX")],
         vec![SolverLoad::Nodal(SolverNodalLoad {
-            node_id: 3, fx: 0.0, fy: -p, mz: 0.0,
+            node_id: 3, fx: 0.0, fz: -p, my: 0.0,
         })],
     );
     let results = linear::solve_2d(&input).unwrap();
 
     let d_top = results.displacements.iter()
-        .find(|d| d.node_id == 3).unwrap().uy;
+        .find(|d| d.node_id == 3).unwrap().uz;
 
     // Joint deflection should be negative (downward) and non-zero
     assert!(d_top < 0.0, "Truss: apex deflects downward");
@@ -264,7 +264,7 @@ fn validation_unit_load_overhang() {
         } else {
             l1 + (i - n1) as f64 * l2 / n2 as f64
         };
-        nodes.insert((i + 1).to_string(), SolverNode { id: i + 1, x, y: 0.0 });
+        nodes.insert((i + 1).to_string(), SolverNode { id: i + 1, x, z: 0.0 });
     }
     let mut mats = std::collections::HashMap::new();
     mats.insert("1".to_string(), SolverMaterial { id: 1, e: E, nu: 0.3 });
@@ -283,17 +283,17 @@ fn validation_unit_load_overhang() {
         id: 1, node_id: 1,
         support_type: "pinned".to_string(),
         kx: None, ky: None, kz: None,
-        dx: None, dy: None, drz: None, angle: None,
+        dx: None, dz: None, dry: None, angle: None,
     });
     sups.insert("2".to_string(), SolverSupport {
         id: 2, node_id: n1 + 1,
         support_type: "rollerX".to_string(),
         kx: None, ky: None, kz: None,
-        dx: None, dy: None, drz: None, angle: None,
+        dx: None, dz: None, dry: None, angle: None,
     });
 
     let loads = vec![SolverLoad::Nodal(SolverNodalLoad {
-        node_id: n + 1, fx: 0.0, fy: -p, mz: 0.0,
+        node_id: n + 1, fx: 0.0, fz: -p, my: 0.0,
     })];
 
     let input = SolverInput {
@@ -306,7 +306,7 @@ fn validation_unit_load_overhang() {
 
     // δ_C = P×L2²(L1+L2)/(3EI)
     let delta_exact = p * l2 * l2 * (l1 + l2) / (3.0 * e_eff * IZ);
-    assert_close(tip.uy.abs(), delta_exact, 0.03,
+    assert_close(tip.uz.abs(), delta_exact, 0.03,
         "Overhang: δ_C = PL2²(L1+L2)/(3EI)");
 }
 
@@ -328,19 +328,19 @@ fn validation_unit_load_reciprocity() {
 
     // Case 1: load at A, measure at B
     let loads1 = vec![SolverLoad::Nodal(SolverNodalLoad {
-        node_id: node_a, fx: 0.0, fy: -p, mz: 0.0,
+        node_id: node_a, fx: 0.0, fz: -p, my: 0.0,
     })];
     let input1 = make_beam(n, l, E, A, IZ, "pinned", Some("rollerX"), loads1);
     let d_ab = linear::solve_2d(&input1).unwrap()
-        .displacements.iter().find(|d| d.node_id == node_b).unwrap().uy;
+        .displacements.iter().find(|d| d.node_id == node_b).unwrap().uz;
 
     // Case 2: load at B, measure at A
     let loads2 = vec![SolverLoad::Nodal(SolverNodalLoad {
-        node_id: node_b, fx: 0.0, fy: -p, mz: 0.0,
+        node_id: node_b, fx: 0.0, fz: -p, my: 0.0,
     })];
     let input2 = make_beam(n, l, E, A, IZ, "pinned", Some("rollerX"), loads2);
     let d_ba = linear::solve_2d(&input2).unwrap()
-        .displacements.iter().find(|d| d.node_id == node_a).unwrap().uy;
+        .displacements.iter().find(|d| d.node_id == node_a).unwrap().uz;
 
     // Maxwell's theorem: δ_AB = δ_BA
     assert_close(d_ab, d_ba, 0.01,

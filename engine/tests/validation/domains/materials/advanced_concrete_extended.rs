@@ -70,7 +70,7 @@ fn validation_strut_and_tie_deep_beam_shear_transfer() {
         n, l, e_conc, a_sec, iz_sec,
         "pinned", Some("rollerX"),
         vec![SolverLoad::Nodal(SolverNodalLoad {
-            node_id: mid, fx: 0.0, fy: -p, mz: 0.0,
+            node_id: mid, fx: 0.0, fz: -p, my: 0.0,
         })],
     );
     let results = solve_2d(&input).expect("solve");
@@ -78,11 +78,11 @@ fn validation_strut_and_tie_deep_beam_shear_transfer() {
     // Vertical reactions must each be P/2 = 50 kN
     let r1 = results.reactions.iter().find(|r| r.node_id == 1).unwrap();
     let r_end = results.reactions.iter().find(|r| r.node_id == n + 1).unwrap();
-    assert_close(r1.ry, p / 2.0, 0.02, "Deep beam R_left = P/2");
-    assert_close(r_end.ry, p / 2.0, 0.02, "Deep beam R_right = P/2");
+    assert_close(r1.rz, p / 2.0, 0.02, "Deep beam R_left = P/2");
+    assert_close(r_end.rz, p / 2.0, 0.02, "Deep beam R_right = P/2");
 
     // Equilibrium: sum of vertical reactions = P
-    let sum_ry: f64 = results.reactions.iter().map(|r| r.ry).sum();
+    let sum_ry: f64 = results.reactions.iter().map(|r| r.rz).sum();
     assert_close(sum_ry, p, 0.01, "Deep beam vertical equilibrium");
 
     // Strut-and-tie geometry verification
@@ -208,13 +208,13 @@ fn validation_t_beam_effective_width_stiffness() {
     let input_web = make_beam(n, l, e_conc, a_web, iz_web, "pinned", Some("rollerX"), loads_web);
     let res_web = solve_2d(&input_web).expect("solve web");
     let delta_web = res_web.displacements.iter()
-        .find(|d| d.node_id == mid).unwrap().uy.abs();
+        .find(|d| d.node_id == mid).unwrap().uz.abs();
 
     // Solve T-beam
     let input_t = make_beam(n, l, e_conc, a_t, iz_t, "pinned", Some("rollerX"), loads_t);
     let res_t = solve_2d(&input_t).expect("solve T-beam");
     let delta_t = res_t.displacements.iter()
-        .find(|d| d.node_id == mid).unwrap().uy.abs();
+        .find(|d| d.node_id == mid).unwrap().uz.abs();
 
     // T-beam deflects less than web-only
     assert!(delta_t < delta_web,
@@ -323,11 +323,11 @@ fn validation_concrete_torsion_cracking_torque() {
         n, l, e_conc, a_sec, iz_sec,
         "pinned", Some("rollerX"),
         vec![SolverLoad::Nodal(SolverNodalLoad {
-            node_id: n / 2 + 1, fx: 0.0, fy: -p, mz: 0.0,
+            node_id: n / 2 + 1, fx: 0.0, fz: -p, my: 0.0,
         })],
     );
     let results = solve_2d(&input).expect("solve");
-    let sum_ry: f64 = results.reactions.iter().map(|r| r.ry).sum();
+    let sum_ry: f64 = results.reactions.iter().map(|r| r.rz).sum();
     assert_close(sum_ry, p, 0.01, "Torsion beam equilibrium");
 }
 
@@ -386,7 +386,7 @@ fn validation_post_tensioned_load_balancing() {
     let input_dl = make_beam(n, l, e_conc, a_sec, iz_sec, "pinned", Some("rollerX"), loads_dl);
     let res_dl = solve_2d(&input_dl).expect("solve DL");
     let delta_dl = res_dl.displacements.iter()
-        .find(|d| d.node_id == mid).unwrap().uy.abs();
+        .find(|d| d.node_id == mid).unwrap().uz.abs();
 
     // Case 2: Beam with net load (DL - w_bal) ~ 0 applied as tiny residual
     // Apply a very small load to avoid zero-load case
@@ -400,7 +400,7 @@ fn validation_post_tensioned_load_balancing() {
     let input_balanced = make_beam(n, l, e_conc, a_sec, iz_sec, "pinned", Some("rollerX"), loads_balanced);
     let res_balanced = solve_2d(&input_balanced).expect("solve balanced");
     let delta_balanced = res_balanced.displacements.iter()
-        .find(|d| d.node_id == mid).unwrap().uy.abs();
+        .find(|d| d.node_id == mid).unwrap().uz.abs();
 
     // Under balanced condition, deflection is essentially zero compared to DL alone
     assert!(delta_balanced < delta_dl * 0.01,
@@ -643,7 +643,7 @@ fn validation_aci_moment_coefficients_vs_exact() {
 #[test]
 fn validation_development_length_bond_stress() {
     let db: f64 = 20.0;        // mm, #20 bar diameter
-    let fy: f64 = 420.0;       // MPa
+    let fz: f64 = 420.0;       // MPa
     let fc_prime: f64 = 28.0;  // MPa
     let lambda: f64 = 1.0;     // normal weight concrete
     let psi_t: f64 = 1.0;      // bottom bar
@@ -654,7 +654,7 @@ fn validation_development_length_bond_stress() {
     let psi_g: f64 = 1.0;
 
     // Development length
-    let ld_over_db: f64 = (fy * psi_t * psi_e * psi_s * psi_g)
+    let ld_over_db: f64 = (fz * psi_t * psi_e * psi_s * psi_g)
         / (1.1 * lambda * fc_prime.sqrt());
     let ld: f64 = ld_over_db * db;
     let ld_expected: f64 = 1443.2;  // mm
@@ -671,7 +671,7 @@ fn validation_development_length_bond_stress() {
     assert_close(ab, ab_expected, 0.01, "Bar area Ab");
 
     // Total bar force at yield
-    let f_bar: f64 = ab * fy;
+    let f_bar: f64 = ab * fz;
     let f_bar_expected: f64 = 131_947.0;
     assert_close(f_bar, f_bar_expected, 0.01, "Bar yield force");
 
@@ -681,7 +681,7 @@ fn validation_development_length_bond_stress() {
     assert_close(u_avg, u_avg_expected, 0.02, "Average bond stress");
 
     // Alternative: u_avg = db * fy / (4 * ld)
-    let u_avg_alt: f64 = db * fy / (4.0 * ld);
+    let u_avg_alt: f64 = db * fz / (4.0 * ld);
     assert_close(u_avg, u_avg_alt, 0.001, "Bond stress formula equivalence");
 
     // FEM verification: model bar embedment as a beam element
@@ -697,7 +697,7 @@ fn validation_development_length_bond_stress() {
         4, l_embed, e_steel, a_bar, iz_bar,
         "fixed", Some("rollerX"),
         vec![SolverLoad::Nodal(SolverNodalLoad {
-            node_id: 5, fx: p_applied, fy: 0.0, mz: 0.0,
+            node_id: 5, fx: p_applied, fz: 0.0, my: 0.0,
         })],
     );
     let results = solve_2d(&input).expect("solve");
@@ -824,13 +824,13 @@ fn validation_modular_ratio_transformed_section() {
         "pinned", Some("rollerX"), loads_g);
     let res_gross = solve_2d(&input_gross).expect("solve gross");
     let delta_gross = res_gross.displacements.iter()
-        .find(|dd| dd.node_id == mid).unwrap().uy.abs();
+        .find(|dd| dd.node_id == mid).unwrap().uz.abs();
 
     let input_cracked = make_beam(n_elem, l, e_c, a_sec, iz_cracked,
         "pinned", Some("rollerX"), loads_cr);
     let res_cracked = solve_2d(&input_cracked).expect("solve cracked");
     let delta_cracked = res_cracked.displacements.iter()
-        .find(|dd| dd.node_id == mid).unwrap().uy.abs();
+        .find(|dd| dd.node_id == mid).unwrap().uz.abs();
 
     // Cracked section deflects more
     assert!(delta_cracked > delta_gross,

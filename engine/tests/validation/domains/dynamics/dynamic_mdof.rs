@@ -106,12 +106,12 @@ fn validation_mdof_2story_free_vibration() {
         TimeForceRecord {
             time: 0.0,
             loads: vec![SolverNodalLoad {
-                node_id: 5, fx: 10.0, fy: 0.0, mz: 0.0,
+                node_id: 5, fx: 10.0, fz: 0.0, my: 0.0,
             }] },
         TimeForceRecord {
             time: dt,
             loads: vec![SolverNodalLoad {
-                node_id: 5, fx: 0.0, fy: 0.0, mz: 0.0,
+                node_id: 5, fx: 0.0, fz: 0.0, my: 0.0,
             }] },
     ];
 
@@ -282,12 +282,12 @@ fn validation_rayleigh_damping_ratio() {
         TimeForceRecord {
             time: 0.0,
             loads: vec![SolverNodalLoad {
-                node_id: tip_node, fx: 0.0, fy: 10.0, mz: 0.0,
+                node_id: tip_node, fx: 0.0, fz: 10.0, my: 0.0,
             }] },
         TimeForceRecord {
             time: dt,
             loads: vec![SolverNodalLoad {
-                node_id: tip_node, fx: 0.0, fy: 0.0, mz: 0.0,
+                node_id: tip_node, fx: 0.0, fz: 0.0, my: 0.0,
             }] },
     ];
 
@@ -300,7 +300,7 @@ fn validation_rayleigh_damping_ratio() {
 
     let tip_hist = result.node_histories.iter()
         .find(|nh| nh.node_id == tip_node).unwrap();
-    let uy = &tip_hist.uy;
+    let uy = &tip_hist.uz;
 
     // Measure early and late peak amplitudes
     let steps_per_period = (t1 / dt) as usize;
@@ -352,12 +352,12 @@ fn validation_newmark_vs_hht_undamped() {
         TimeForceRecord {
             time: 0.0,
             loads: vec![SolverNodalLoad {
-                node_id: tip_node, fx: 0.0, fy: 10.0, mz: 0.0,
+                node_id: tip_node, fx: 0.0, fz: 10.0, my: 0.0,
             }] },
         TimeForceRecord {
             time: dt,
             loads: vec![SolverNodalLoad {
-                node_id: tip_node, fx: 0.0, fy: 0.0, mz: 0.0,
+                node_id: tip_node, fx: 0.0, fz: 0.0, my: 0.0,
             }] },
     ];
 
@@ -380,14 +380,14 @@ fn validation_newmark_vs_hht_undamped() {
     let steps_per_period = (t1 / dt) as usize;
 
     // Newmark amplitude ratio
-    let uy_nm = &res_nm.node_histories.iter().find(|nh| nh.node_id == tip_node).unwrap().uy;
+    let uy_nm = &res_nm.node_histories.iter().find(|nh| nh.node_id == tip_node).unwrap().uz;
     let early_nm = uy_nm[..2 * steps_per_period.min(uy_nm.len())]
         .iter().cloned().fold(0.0_f64, |a, b| a.max(b.abs()));
     let late_nm = uy_nm[uy_nm.len().saturating_sub(2 * steps_per_period)..]
         .iter().cloned().fold(0.0_f64, |a, b| a.max(b.abs()));
 
     // HHT amplitude ratio
-    let uy_hht = &res_hht.node_histories.iter().find(|nh| nh.node_id == tip_node).unwrap().uy;
+    let uy_hht = &res_hht.node_histories.iter().find(|nh| nh.node_id == tip_node).unwrap().uz;
     let early_hht = uy_hht[..2 * steps_per_period.min(uy_hht.len())]
         .iter().cloned().fold(0.0_f64, |a, b| a.max(b.abs()));
     let late_hht = uy_hht[uy_hht.len().saturating_sub(2 * steps_per_period)..]
@@ -440,7 +440,7 @@ fn validation_step_load_mdof() {
     let solver_static = make_2story_frame(h, w);
     let mut static_input = solver_static;
     static_input.loads.push(SolverLoad::Nodal(SolverNodalLoad {
-        node_id: 5, fx: p, fy: 0.0, mz: 0.0,
+        node_id: 5, fx: p, fz: 0.0, my: 0.0,
     }));
     let res_static = linear::solve_2d(&static_input).unwrap();
     let u_static = res_static.displacements.iter()
@@ -452,7 +452,7 @@ fn validation_step_load_mdof() {
         force_history.push(TimeForceRecord {
             time: i as f64 * dt,
             loads: vec![SolverNodalLoad {
-                node_id: 5, fx: p, fy: 0.0, mz: 0.0,
+                node_id: 5, fx: p, fz: 0.0, my: 0.0,
             }] });
     }
 

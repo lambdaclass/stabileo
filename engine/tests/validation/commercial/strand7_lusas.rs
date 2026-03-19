@@ -61,7 +61,7 @@ fn validation_strand7_bm1_ss_beam_point_load() {
         a: a_local,
         p: -p,
         px: None,
-        mz: None,
+        my: None,
     })];
 
     let input = make_input(
@@ -83,11 +83,11 @@ fn validation_strand7_bm1_ss_beam_point_load() {
         .find(|r| r.node_id == n + 1)
         .unwrap();
 
-    assert_close(r_a.ry, p / 2.0, 0.02, "S7_BM1 R_A = P/2");
-    assert_close(r_b.ry, p / 2.0, 0.02, "S7_BM1 R_B = P/2");
+    assert_close(r_a.rz, p / 2.0, 0.02, "S7_BM1 R_A = P/2");
+    assert_close(r_b.rz, p / 2.0, 0.02, "S7_BM1 R_B = P/2");
 
     // Symmetry check
-    assert_close(r_a.ry, r_b.ry, 0.01, "S7_BM1 symmetry R_A = R_B");
+    assert_close(r_a.rz, r_b.rz, 0.01, "S7_BM1 symmetry R_A = R_B");
 
     // Check midspan deflection: delta = PL^3 / (48EI)
     let delta_expected = p * l.powi(3) / (48.0 * E_EFF * iz);
@@ -98,7 +98,7 @@ fn validation_strand7_bm1_ss_beam_point_load() {
         .find(|d| d.node_id == mid_node)
         .unwrap();
     assert_close(
-        d_mid.uy.abs(),
+        d_mid.uz.abs(),
         delta_expected,
         0.02,
         "S7_BM1 delta_mid = PL^3/48EI",
@@ -120,7 +120,7 @@ fn validation_strand7_bm1_ss_beam_point_load() {
     );
 
     // Global equilibrium
-    let sum_ry: f64 = results.reactions.iter().map(|r| r.ry).sum();
+    let sum_ry: f64 = results.reactions.iter().map(|r| r.rz).sum();
     assert_close(sum_ry, p, 0.01, "S7_BM1 vertical equilibrium");
 }
 
@@ -185,7 +185,7 @@ fn validation_strand7_bm2_cantilever_udl() {
         .find(|d| d.node_id == n + 1)
         .unwrap();
     assert_close(
-        tip.uy.abs(),
+        tip.uz.abs(),
         delta_expected,
         0.02,
         "S7_BM2 delta_tip = qL^4/8EI",
@@ -194,19 +194,19 @@ fn validation_strand7_bm2_cantilever_udl() {
     // Check fixed-end reaction: R = qL
     let r_fixed = results.reactions.iter().find(|r| r.node_id == 1).unwrap();
     let r_expected = q * l;
-    assert_close(r_fixed.ry, r_expected, 0.02, "S7_BM2 R = qL");
+    assert_close(r_fixed.rz, r_expected, 0.02, "S7_BM2 R = qL");
 
     // Check fixed-end moment: M = qL^2/2 (hogging at support)
     let m_expected = q * l * l / 2.0;
     assert_close(
-        r_fixed.mz.abs(),
+        r_fixed.my.abs(),
         m_expected,
         0.02,
         "S7_BM2 M_fixed = qL^2/2",
     );
 
     // Equilibrium check
-    let sum_ry: f64 = results.reactions.iter().map(|r| r.ry).sum();
+    let sum_ry: f64 = results.reactions.iter().map(|r| r.rz).sum();
     assert_close(sum_ry, q * l, 0.01, "S7_BM2 vertical equilibrium");
 }
 
@@ -283,20 +283,20 @@ fn validation_strand7_bm3_fixed_fixed_thermal() {
         .unwrap();
 
     assert_close(
-        r_left.mz.abs(),
+        r_left.my.abs(),
         m_expected,
         0.02,
         "S7_BM3 M_left = EI*alpha*dT/h",
     );
     assert_close(
-        r_right.mz.abs(),
+        r_right.my.abs(),
         m_expected,
         0.02,
         "S7_BM3 M_right = EI*alpha*dT/h",
     );
 
     // No external load, so sum of vertical reactions should be zero
-    let sum_ry: f64 = results.reactions.iter().map(|r| r.ry).sum();
+    let sum_ry: f64 = results.reactions.iter().map(|r| r.rz).sum();
     assert!(
         sum_ry.abs() < 0.5,
         "S7_BM3: sum_ry = {:.4} should be ~0 (no external load)",
@@ -307,9 +307,9 @@ fn validation_strand7_bm3_fixed_fixed_thermal() {
     // displacements should be very small (beam is fully restrained)
     for d in &results.displacements {
         assert!(
-            d.uy.abs() < 1e-4,
+            d.uz.abs() < 1e-4,
             "S7_BM3: node {} uy = {:.6} should be ~0 (fixed-fixed)",
-            d.node_id, d.uy
+            d.node_id, d.uz
         );
     }
 }
@@ -407,8 +407,8 @@ fn validation_strand7_bm4_pratt_truss() {
         loads.push(SolverLoad::Nodal(SolverNodalLoad {
             node_id: i,
             fx: 0.0,
-            fy: -p,
-            mz: 0.0,
+            fz: -p,
+            my: 0.0,
         }));
     }
 
@@ -427,7 +427,7 @@ fn validation_strand7_bm4_pratt_truss() {
     let total_load = (n_panels - 1) as f64 * p;
 
     // Equilibrium
-    let sum_ry: f64 = results.reactions.iter().map(|r| r.ry).sum();
+    let sum_ry: f64 = results.reactions.iter().map(|r| r.rz).sum();
     assert_close(sum_ry, total_load, 0.02, "S7_BM4 vertical equilibrium");
 
     // Symmetric reactions: R_A = R_B = total/2
@@ -438,12 +438,12 @@ fn validation_strand7_bm4_pratt_truss() {
         .find(|r| r.node_id == n_bottom)
         .unwrap();
     assert_close(
-        r_a.ry,
+        r_a.rz,
         total_load / 2.0,
         0.02,
         "S7_BM4 R_A = total_load/2",
     );
-    assert_close(r_a.ry, r_b.ry, 0.02, "S7_BM4 symmetry R_A = R_B");
+    assert_close(r_a.rz, r_b.rz, 0.02, "S7_BM4 symmetry R_A = R_B");
 
     // Midspan bending moment from method of sections:
     //   Cut at panel midpoint (x=6m):
@@ -452,7 +452,7 @@ fn validation_strand7_bm4_pratt_truss() {
     //   R_A = 45 kN
     //   M at x=6 (cutting just left): R_A*6 - P(at x=3)*3 = 45*6 - 30*3 = 180 kN-m
     //   Max bottom chord force = M/h = 180/3 = 60 kN (tension)
-    let m_midspan = r_a.ry * 6.0 - p * 3.0;
+    let m_midspan = r_a.rz * 6.0 - p * 3.0;
     let f_chord_expected = m_midspan / h;
 
     // Find the bottom chord element at midspan (element 2 or 3, at x=3..6 or 6..9)
@@ -541,14 +541,14 @@ fn validation_lusas_bm1_two_story_frame_lateral() {
         SolverLoad::Nodal(SolverNodalLoad {
             node_id: 3,
             fx: h1,
-            fy: 0.0,
-            mz: 0.0,
+            fz: 0.0,
+            my: 0.0,
         }),
         SolverLoad::Nodal(SolverNodalLoad {
             node_id: 5,
             fx: h2,
-            fy: 0.0,
-            mz: 0.0,
+            fz: 0.0,
+            my: 0.0,
         }),
     ];
 
@@ -652,11 +652,11 @@ fn validation_lusas_bm1_two_story_frame_lateral() {
     let r1 = results.reactions.iter().find(|r| r.node_id == 1).unwrap();
     let r2 = results.reactions.iter().find(|r| r.node_id == 2).unwrap();
     assert!(
-        r1.mz.abs() > 1.0,
+        r1.my.abs() > 1.0,
         "LUSAS_BM1: base moment at node 1 should be nonzero"
     );
     assert!(
-        r2.mz.abs() > 1.0,
+        r2.my.abs() > 1.0,
         "LUSAS_BM1: base moment at node 2 should be nonzero"
     );
 }
@@ -697,7 +697,7 @@ fn validation_lusas_bm2_continuous_beam_settlement() {
             SolverNode {
                 id: i + 1,
                 x: node_x,
-                y: 0.0,
+                z: 0.0,
             },
         );
         x = node_x;
@@ -760,8 +760,8 @@ fn validation_lusas_bm2_continuous_beam_settlement() {
             ky: None,
             kz: None,
             dx: None,
-            dy: None,
-            drz: None,
+            dz: None,
+            dry: None,
             angle: None,
         },
     );
@@ -777,8 +777,8 @@ fn validation_lusas_bm2_continuous_beam_settlement() {
             ky: None,
             kz: None,
             dx: None,
-            dy: Some(delta),
-            drz: None,
+            dz: Some(delta),
+            dry: None,
             angle: None,
         },
     );
@@ -796,8 +796,8 @@ fn validation_lusas_bm2_continuous_beam_settlement() {
                 ky: None,
                 kz: None,
                 dx: None,
-                dy: None,
-                drz: None,
+                dz: None,
+                dry: None,
                 angle: None,
             },
         );
@@ -815,7 +815,7 @@ fn validation_lusas_bm2_continuous_beam_settlement() {
     let results = linear::solve_2d(&input).unwrap();
 
     // 1. No external load: sum of reactions = 0
-    let sum_ry: f64 = results.reactions.iter().map(|r| r.ry).sum();
+    let sum_ry: f64 = results.reactions.iter().map(|r| r.rz).sum();
     assert!(
         sum_ry.abs() < 0.5,
         "LUSAS_BM2: sum_ry = {:.4} should be ~0 (no external load)",
@@ -829,7 +829,7 @@ fn validation_lusas_bm2_continuous_beam_settlement() {
         .find(|d| d.node_id == settlement_node)
         .unwrap();
     assert_close(
-        d_settlement.uy,
+        d_settlement.uz,
         delta,
         0.03,
         "LUSAS_BM2 settlement displacement",
@@ -842,9 +842,9 @@ fn validation_lusas_bm2_continuous_beam_settlement() {
         .find(|r| r.node_id == settlement_node)
         .unwrap();
     assert!(
-        r_settle.ry.abs() > 0.1,
+        r_settle.rz.abs() > 0.1,
         "LUSAS_BM2: settlement support reaction should be nonzero, got {:.4}",
-        r_settle.ry
+        r_settle.rz
     );
 
     // 4. Moments should be induced in the beam elements
@@ -907,8 +907,8 @@ fn validation_lusas_bm3_3d_torsion() {
         vec![SolverLoad3D::Nodal(SolverNodalLoad3D {
             node_id: n + 1,
             fx: 0.0,
-            fy: 0.0,
             fz: 0.0,
+            fy: 0.0,
             mx: torque,
             my: 0.0,
             mz: 0.0,
@@ -944,9 +944,9 @@ fn validation_lusas_bm3_3d_torsion() {
     // 3. No bending should occur (pure torsion problem)
     // Tip displacements in Y and Z should be negligible
     assert!(
-        tip.uy.abs() < 1e-8,
+        tip.uz.abs() < 1e-8,
         "LUSAS_BM3: uy at tip should be ~0, got {:.6e}",
-        tip.uy
+        tip.uz
     );
     assert!(
         tip.uz.abs() < 1e-8,

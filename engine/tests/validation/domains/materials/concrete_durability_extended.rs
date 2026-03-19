@@ -54,20 +54,20 @@ fn durability_ext_carbonation_depth_stiffness_reduction() {
     // Solve original beam
     let input_orig = make_beam(n, l, E_CONC, A_CONC, IZ_CONC, "pinned", Some("rollerX"),
         vec![SolverLoad::Nodal(SolverNodalLoad {
-            node_id: mid, fx: 0.0, fy: -p, mz: 0.0,
+            node_id: mid, fx: 0.0, fz: -p, my: 0.0,
         })]);
     let res_orig = solve_2d(&input_orig).unwrap();
     let delta_orig = res_orig.displacements.iter()
-        .find(|d| d.node_id == mid).unwrap().uy.abs();
+        .find(|d| d.node_id == mid).unwrap().uz.abs();
 
     // Solve carbonated beam (reduced EI)
     let input_carb = make_beam(n, l, E_CONC, A_CONC, iz_reduced, "pinned", Some("rollerX"),
         vec![SolverLoad::Nodal(SolverNodalLoad {
-            node_id: mid, fx: 0.0, fy: -p, mz: 0.0,
+            node_id: mid, fx: 0.0, fz: -p, my: 0.0,
         })]);
     let res_carb = solve_2d(&input_carb).unwrap();
     let delta_carb = res_carb.displacements.iter()
-        .find(|d| d.node_id == mid).unwrap().uy.abs();
+        .find(|d| d.node_id == mid).unwrap().uz.abs();
 
     // Analytical: deflection ratio = Iz_original / Iz_reduced
     let expected_ratio: f64 = 1.0 / iz_ratio;
@@ -149,12 +149,12 @@ fn durability_ext_chloride_penetration_section_loss() {
     let input_orig = make_beam(n, l, E_CONC, A_CONC, IZ_CONC, "pinned", Some("rollerX"), loads_orig);
     let res_orig = solve_2d(&input_orig).unwrap();
     let delta_orig = res_orig.displacements.iter()
-        .find(|d| d.node_id == mid).unwrap().uy.abs();
+        .find(|d| d.node_id == mid).unwrap().uz.abs();
 
     let input_corr = make_beam(n, l, E_CONC, A_CONC, iz_corroded, "pinned", Some("rollerX"), loads_corr);
     let res_corr = solve_2d(&input_corr).unwrap();
     let delta_corr = res_corr.displacements.iter()
-        .find(|d| d.node_id == mid).unwrap().uy.abs();
+        .find(|d| d.node_id == mid).unwrap().uz.abs();
 
     // Deflection ratio = Iz_orig / Iz_corroded
     let expected_ratio: f64 = IZ_CONC / iz_corroded;
@@ -223,25 +223,25 @@ fn durability_ext_corrosion_reduced_section_reactions() {
     let r_expected: f64 = q.abs() * l / 2.0;
 
     // Check reactions for original beam
-    let ry_orig_total: f64 = res_orig.reactions.iter().map(|r| r.ry).sum();
+    let ry_orig_total: f64 = res_orig.reactions.iter().map(|r| r.rz).sum();
     assert_close(ry_orig_total, q.abs() * l, 0.02, "Original beam total Ry");
 
     // Check reactions for corroded beam — must be identical
-    let ry_red_total: f64 = res_red.reactions.iter().map(|r| r.ry).sum();
+    let ry_red_total: f64 = res_red.reactions.iter().map(|r| r.rz).sum();
     assert_close(ry_red_total, q.abs() * l, 0.02, "Corroded beam total Ry");
 
     // Each support reaction should be q*L/2
-    let r1_orig = res_orig.reactions.iter().find(|r| r.node_id == 1).unwrap().ry;
-    let r1_red = res_red.reactions.iter().find(|r| r.node_id == 1).unwrap().ry;
+    let r1_orig = res_orig.reactions.iter().find(|r| r.node_id == 1).unwrap().rz;
+    let r1_red = res_red.reactions.iter().find(|r| r.node_id == 1).unwrap().rz;
     assert_close(r1_orig, r_expected, 0.02, "Original beam R1");
     assert_close(r1_red, r_expected, 0.02, "Corroded beam R1");
 
     // Deflections should differ (corroded beam deflects more)
     let mid = n / 2 + 1;
     let delta_orig = res_orig.displacements.iter()
-        .find(|d| d.node_id == mid).unwrap().uy.abs();
+        .find(|d| d.node_id == mid).unwrap().uz.abs();
     let delta_red = res_red.displacements.iter()
-        .find(|d| d.node_id == mid).unwrap().uy.abs();
+        .find(|d| d.node_id == mid).unwrap().uz.abs();
 
     assert!(delta_red > delta_orig,
         "Corroded beam delta={:.6e} should exceed original delta={:.6e}",
@@ -284,20 +284,20 @@ fn durability_ext_cfrp_strengthening_beam() {
     // Original (unstrengthened) beam
     let input_orig = make_beam(n, l, E_CONC, A_CONC, IZ_CONC, "pinned", Some("rollerX"),
         vec![SolverLoad::Nodal(SolverNodalLoad {
-            node_id: mid, fx: 0.0, fy: -p, mz: 0.0,
+            node_id: mid, fx: 0.0, fz: -p, my: 0.0,
         })]);
     let res_orig = solve_2d(&input_orig).unwrap();
     let delta_orig = res_orig.displacements.iter()
-        .find(|d| d.node_id == mid).unwrap().uy.abs();
+        .find(|d| d.node_id == mid).unwrap().uz.abs();
 
     // CFRP-strengthened beam
     let input_cfrp = make_beam(n, l, E_CONC, A_CONC, iz_strengthened, "pinned", Some("rollerX"),
         vec![SolverLoad::Nodal(SolverNodalLoad {
-            node_id: mid, fx: 0.0, fy: -p, mz: 0.0,
+            node_id: mid, fx: 0.0, fz: -p, my: 0.0,
         })]);
     let res_cfrp = solve_2d(&input_cfrp).unwrap();
     let delta_cfrp = res_cfrp.displacements.iter()
-        .find(|d| d.node_id == mid).unwrap().uy.abs();
+        .find(|d| d.node_id == mid).unwrap().uz.abs();
 
     // Deflection ratio: delta_orig / delta_strengthened = 1 + alpha
     let expected_ratio: f64 = 1.0 + alpha;
@@ -312,8 +312,8 @@ fn durability_ext_cfrp_strengthening_beam() {
         "CFRP beam midspan deflection vs analytical");
 
     // Reactions remain the same (static equilibrium independent of stiffness)
-    let r_orig: f64 = res_orig.reactions.iter().map(|r| r.ry).sum();
-    let r_cfrp: f64 = res_cfrp.reactions.iter().map(|r| r.ry).sum();
+    let r_orig: f64 = res_orig.reactions.iter().map(|r| r.rz).sum();
+    let r_cfrp: f64 = res_cfrp.reactions.iter().map(|r| r.rz).sum();
     assert_close(r_orig, p, 0.02, "Original beam total reaction");
     assert_close(r_cfrp, p, 0.02, "CFRP beam total reaction");
 }
@@ -389,21 +389,21 @@ fn durability_ext_patch_repair_differential_stiffness() {
 
     // Total reactions must equal total load for both cases
     let total_load: f64 = q.abs() * 2.0 * l_span;
-    let ry_sym: f64 = res_sym.reactions.iter().map(|r| r.ry).sum();
-    let ry_asym: f64 = res_asym.reactions.iter().map(|r| r.ry).sum();
+    let ry_sym: f64 = res_sym.reactions.iter().map(|r| r.rz).sum();
+    let ry_asym: f64 = res_asym.reactions.iter().map(|r| r.rz).sum();
     assert_close(ry_sym, total_load, 0.02, "Symmetric beam total Ry");
     assert_close(ry_asym, total_load, 0.02, "Asymmetric beam total Ry");
 
     // Interior support reaction for symmetric case: R_mid = 1.25 * q * L
     let r_mid_sym = res_sym.reactions.iter()
-        .find(|r| r.node_id == mid_node).unwrap().ry;
+        .find(|r| r.node_id == mid_node).unwrap().rz;
     let r_mid_expected: f64 = 1.25 * q.abs() * l_span;
     assert_close(r_mid_sym, r_mid_expected, 0.05,
         "Symmetric continuous beam interior reaction");
 
     // Asymmetric: weaker span deflects more, shifting load to the stiffer span
     let r_mid_asym = res_asym.reactions.iter()
-        .find(|r| r.node_id == mid_node).unwrap().ry;
+        .find(|r| r.node_id == mid_node).unwrap().rz;
 
     // The interior reaction should differ from the symmetric case
     // (asymmetric stiffness redistributes the interior reaction)
@@ -442,11 +442,11 @@ fn durability_ext_section_loss_moment_capacity() {
         let iz_eff: f64 = IZ_CONC * (1.0 - loss);
         let input = make_beam(n, l, E_CONC, A_CONC, iz_eff, "fixed", None,
             vec![SolverLoad::Nodal(SolverNodalLoad {
-                node_id: tip, fx: 0.0, fy: -p, mz: 0.0,
+                node_id: tip, fx: 0.0, fz: -p, my: 0.0,
             })]);
         let res = solve_2d(&input).unwrap();
         let delta = res.displacements.iter()
-            .find(|d| d.node_id == tip).unwrap().uy.abs();
+            .find(|d| d.node_id == tip).unwrap().uz.abs();
 
         // Analytical: delta = P*L^3 / (3*E*Iz)
         let delta_exact: f64 = p * l.powi(3) / (3.0 * e_eff * iz_eff);
@@ -521,29 +521,29 @@ fn durability_ext_asr_expansion_stiffness_degradation() {
     // Undamaged beam (small section)
     let input_orig = make_beam(n, l, E_CONC, A_CONC, iz_small, "pinned", Some("rollerX"),
         vec![SolverLoad::Nodal(SolverNodalLoad {
-            node_id: mid, fx: 0.0, fy: -p, mz: 0.0,
+            node_id: mid, fx: 0.0, fz: -p, my: 0.0,
         })]);
     let res_orig = solve_2d(&input_orig).unwrap();
     let delta_orig = res_orig.displacements.iter()
-        .find(|d| d.node_id == mid).unwrap().uy.abs();
+        .find(|d| d.node_id == mid).unwrap().uz.abs();
 
     // ASR-degraded beam (small section)
     let input_asr = make_beam(n, l, e_degraded, A_CONC, iz_small, "pinned", Some("rollerX"),
         vec![SolverLoad::Nodal(SolverNodalLoad {
-            node_id: mid, fx: 0.0, fy: -p, mz: 0.0,
+            node_id: mid, fx: 0.0, fz: -p, my: 0.0,
         })]);
     let res_asr = solve_2d(&input_asr).unwrap();
     let delta_asr = res_asr.displacements.iter()
-        .find(|d| d.node_id == mid).unwrap().uy.abs();
+        .find(|d| d.node_id == mid).unwrap().uz.abs();
 
     // ASR-degraded beam (large section)
     let input_asr_large = make_beam(n, l, e_degraded, A_CONC, iz_large, "pinned", Some("rollerX"),
         vec![SolverLoad::Nodal(SolverNodalLoad {
-            node_id: mid, fx: 0.0, fy: -p, mz: 0.0,
+            node_id: mid, fx: 0.0, fz: -p, my: 0.0,
         })]);
     let res_asr_large = solve_2d(&input_asr_large).unwrap();
     let delta_asr_large = res_asr_large.displacements.iter()
-        .find(|d| d.node_id == mid).unwrap().uy.abs();
+        .find(|d| d.node_id == mid).unwrap().uz.abs();
 
     // (a) ASR-degraded beam deflects more than undamaged
     let expected_degradation_ratio: f64 = 1.0 / e_ratio;
@@ -612,10 +612,10 @@ fn durability_ext_freeze_thaw_progressive_degradation() {
         let res = solve_2d(&input).unwrap();
 
         let delta = res.displacements.iter()
-            .find(|d| d.node_id == mid).unwrap().uy.abs();
+            .find(|d| d.node_id == mid).unwrap().uz.abs();
 
         // Equilibrium: total reactions = total load
-        let ry_total: f64 = res.reactions.iter().map(|r| r.ry).sum();
+        let ry_total: f64 = res.reactions.iter().map(|r| r.rz).sum();
         assert_close(ry_total, q.abs() * l, 0.02,
             &format!("Equilibrium at {} cycles", cycles));
 

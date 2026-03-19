@@ -490,7 +490,7 @@ fn validation_found_ext_mat_foundation_winkler() {
         for i in 0..n_nodes {
             let id = i + 1;
             nodes_map.insert(id.to_string(), SolverNode {
-                id, x: i as f64 * elem_len, y: 0.0,
+                id, x: i as f64 * elem_len, z: 0.0,
             });
         }
         let mut mats_map = HashMap::new();
@@ -516,12 +516,12 @@ fn validation_found_ext_mat_foundation_winkler() {
                 id: i + 1, node_id: i + 1,
                 support_type: "spring".to_string(),
                 kx, ky: Some(ky_node), kz: None,
-                dx: None, dy: None, drz: None, angle: None,
+                dx: None, dz: None, dry: None, angle: None,
             });
         }
         let loads = vec![
-            SolverLoad::Nodal(SolverNodalLoad { node_id: node_p1, fx: 0.0, fy: -p1, mz: 0.0 }),
-            SolverLoad::Nodal(SolverNodalLoad { node_id: node_p2, fx: 0.0, fy: -p2, mz: 0.0 }),
+            SolverLoad::Nodal(SolverNodalLoad { node_id: node_p1, fx: 0.0, fz: -p1, my: 0.0 }),
+            SolverLoad::Nodal(SolverNodalLoad { node_id: node_p2, fx: 0.0, fz: -p2, my: 0.0 }),
         ];
         SolverInput {
             nodes: nodes_map, materials: mats_map, sections: secs_map,
@@ -542,12 +542,12 @@ fn validation_found_ext_mat_foundation_winkler() {
         let trib = if i == 0 || i == n_nodes - 1 { elem_len / 2.0 } else { elem_len };
         let ky = k_soil * trib;
         let d = res_rigid.displacements.iter().find(|d| d.node_id == nid).unwrap();
-        reaction_rigid += ky * d.uy.abs();
+        reaction_rigid += ky * d.uz.abs();
     }
     assert_close(reaction_rigid, p_total, 0.05, "Rigid mat: equilibrium sum R = P");
 
     // Rigid mat: settlement should be nearly uniform
-    let disps_rigid: Vec<f64> = res_rigid.displacements.iter().map(|d| d.uy).collect();
+    let disps_rigid: Vec<f64> = res_rigid.displacements.iter().map(|d| d.uz).collect();
     let avg_rigid: f64 = disps_rigid.iter().sum::<f64>() / disps_rigid.len() as f64;
     let max_dev_rigid: f64 = disps_rigid.iter()
         .map(|&d| (d - avg_rigid).abs())
@@ -569,12 +569,12 @@ fn validation_found_ext_mat_foundation_winkler() {
         let trib = if i == 0 || i == n_nodes - 1 { elem_len / 2.0 } else { elem_len };
         let ky = k_soil * trib;
         let d = res_flex.displacements.iter().find(|d| d.node_id == nid).unwrap();
-        reaction_flex += ky * d.uy.abs();
+        reaction_flex += ky * d.uz.abs();
     }
     assert_close(reaction_flex, p_total, 0.05, "Flexible mat: equilibrium sum R = P");
 
     // Flexible mat: differential settlement should be larger
-    let disps_flex: Vec<f64> = res_flex.displacements.iter().map(|d| d.uy).collect();
+    let disps_flex: Vec<f64> = res_flex.displacements.iter().map(|d| d.uz).collect();
     let avg_flex: f64 = disps_flex.iter().sum::<f64>() / disps_flex.len() as f64;
     let max_dev_flex: f64 = disps_flex.iter()
         .map(|&d| (d - avg_flex).abs())
@@ -587,9 +587,9 @@ fn validation_found_ext_mat_foundation_winkler() {
     // Flexible mat: deflection under columns > deflection at edges
     let d_col = res_flex.displacements.iter().find(|d| d.node_id == node_p1).unwrap();
     let d_edge = res_flex.displacements.iter().find(|d| d.node_id == 1).unwrap();
-    assert!(d_col.uy.abs() > d_edge.uy.abs(),
+    assert!(d_col.uz.abs() > d_edge.uz.abs(),
         "Flexible mat: column settles more than edge: {:.6e} > {:.6e}",
-        d_col.uy.abs(), d_edge.uy.abs());
+        d_col.uz.abs(), d_edge.uz.abs());
 }
 
 // ================================================================

@@ -122,7 +122,7 @@ pub fn compute_diagram_value_at(
             for pl in &sorted_pl {
                 if pl.a < xi - 1e-10 {
                     value -= pl.p * (xi - pl.a);
-                    if let Some(mz) = pl.mz {
+                    if let Some(mz) = pl.my {
                         value -= mz;
                     }
                 }
@@ -238,7 +238,7 @@ pub fn compute_diagrams_2d(
             let ni = input.nodes.values().find(|n| n.id == elem.node_i);
             let nj = input.nodes.values().find(|n| n.id == elem.node_j);
             match (ni, nj) {
-                (Some(ni), Some(nj)) => (ni.x, ni.y, nj.x, nj.y),
+                (Some(ni), Some(nj)) => (ni.x, ni.z, nj.x, nj.z),
                 _ => (0.0, 0.0, ef.length, 0.0),
             }
         } else {

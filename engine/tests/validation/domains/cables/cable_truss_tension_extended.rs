@@ -58,7 +58,7 @@ fn validation_two_bar_symmetric_exact() {
         ],
         vec![(1, 1, "pinned"), (2, 3, "pinned")],
         vec![SolverLoad::Nodal(SolverNodalLoad {
-            node_id: 2, fx: 0.0, fy: -p, mz: 0.0,
+            node_id: 2, fx: 0.0, fz: -p, my: 0.0,
         })],
     );
     let results = linear::solve_2d(&input).unwrap();
@@ -74,7 +74,7 @@ fn validation_two_bar_symmetric_exact() {
 
     // Check deflection
     let d = results.displacements.iter().find(|d| d.node_id == 2).unwrap();
-    assert_close(d.uy.abs(), delta_y_analytical, 0.01,
+    assert_close(d.uz.abs(), delta_y_analytical, 0.01,
         "Two-bar: δ_y = PL/(2AE sin²α)");
 
     // Horizontal displacement should be zero by symmetry
@@ -121,7 +121,7 @@ fn validation_three_bar_120_degree() {
         ],
         vec![(1, 2, "pinned"), (2, 3, "pinned"), (3, 4, "pinned")],
         vec![SolverLoad::Nodal(SolverNodalLoad {
-            node_id: 1, fx: 0.0, fy: -p, mz: 0.0,
+            node_id: 1, fx: 0.0, fz: -p, my: 0.0,
         })],
     );
     let results = linear::solve_2d(&input).unwrap();
@@ -134,7 +134,7 @@ fn validation_three_bar_120_degree() {
         "Three-bar: bottom bars equal by symmetry");
 
     // Equilibrium: ΣRy = P
-    let sum_ry: f64 = results.reactions.iter().map(|r| r.ry).sum();
+    let sum_ry: f64 = results.reactions.iter().map(|r| r.rz).sum();
     assert_close(sum_ry, p, 0.01, "Three-bar: ΣRy = P");
 
     // Horizontal equilibrium
@@ -195,14 +195,14 @@ fn validation_parallel_chord_midspan_forces() {
         ],
         vec![(1, 1, "pinned"), (2, 3, "rollerX")],
         vec![SolverLoad::Nodal(SolverNodalLoad {
-            node_id: 2, fx: 0.0, fy: -p, mz: 0.0,
+            node_id: 2, fx: 0.0, fz: -p, my: 0.0,
         })],
     );
     let results = linear::solve_2d(&input).unwrap();
 
     // Reactions: by symmetry R1 = R3 = P/2
-    let r1 = results.reactions.iter().find(|r| r.node_id == 1).unwrap().ry;
-    let r3 = results.reactions.iter().find(|r| r.node_id == 3).unwrap().ry;
+    let r1 = results.reactions.iter().find(|r| r.node_id == 1).unwrap().rz;
+    let r3 = results.reactions.iter().find(|r| r.node_id == 3).unwrap().rz;
     assert_close(r1, p / 2.0, 0.01, "Parallel chord: R1 = P/2");
     assert_close(r3, p / 2.0, 0.01, "Parallel chord: R3 = P/2");
 
@@ -270,13 +270,13 @@ fn validation_zero_force_members() {
         ],
         vec![(1, 1, "pinned"), (2, 2, "rollerX"), (3, 4, "rollerX")],
         vec![SolverLoad::Nodal(SolverNodalLoad {
-            node_id: 3, fx: 0.0, fy: -20.0, mz: 0.0,
+            node_id: 3, fx: 0.0, fz: -20.0, my: 0.0,
         })],
     );
     let results = linear::solve_2d(&input).unwrap();
 
     // Equilibrium check
-    let sum_ry: f64 = results.reactions.iter().map(|r| r.ry).sum();
+    let sum_ry: f64 = results.reactions.iter().map(|r| r.rz).sum();
     assert_close(sum_ry, 20.0, 0.01, "Zero-force: ΣRy = P");
 
     // Node 4 is supported (rollerX) with only two members meeting there (4 and 5).
@@ -349,10 +349,10 @@ fn validation_x_braced_panel() {
         vec![(1, 1, "pinned"), (2, 2, "pinned")],
         vec![
             SolverLoad::Nodal(SolverNodalLoad {
-                node_id: 3, fx: p / 2.0, fy: 0.0, mz: 0.0,
+                node_id: 3, fx: p / 2.0, fz: 0.0, my: 0.0,
             }),
             SolverLoad::Nodal(SolverNodalLoad {
-                node_id: 4, fx: p / 2.0, fy: 0.0, mz: 0.0,
+                node_id: 4, fx: p / 2.0, fz: 0.0, my: 0.0,
             }),
         ],
     );
@@ -360,7 +360,7 @@ fn validation_x_braced_panel() {
 
     // Global equilibrium
     let sum_rx: f64 = results.reactions.iter().map(|r| r.rx).sum();
-    let sum_ry: f64 = results.reactions.iter().map(|r| r.ry).sum();
+    let sum_ry: f64 = results.reactions.iter().map(|r| r.rz).sum();
     assert_close(sum_rx, -p, 0.01, "X-brace: ΣRx = -P");
     assert_close(sum_ry, 0.0, 0.05, "X-brace: ΣRy ≈ 0");
 
@@ -438,18 +438,18 @@ fn validation_cantilever_truss_deflection() {
         ],
         vec![(1, 1, "pinned"), (2, 2, "pinned")],
         vec![SolverLoad::Nodal(SolverNodalLoad {
-            node_id: 5, fx: 0.0, fy: -p, mz: 0.0,
+            node_id: 5, fx: 0.0, fz: -p, my: 0.0,
         })],
     );
     let results = linear::solve_2d(&input).unwrap();
 
     // Equilibrium
-    let sum_ry: f64 = results.reactions.iter().map(|r| r.ry).sum();
+    let sum_ry: f64 = results.reactions.iter().map(|r| r.rz).sum();
     assert_close(sum_ry, p, 0.01, "Cantilever truss: ΣRy = P");
 
     // Tip deflection should be downward
     let d5 = results.displacements.iter().find(|d| d.node_id == 5).unwrap();
-    assert!(d5.uy < 0.0, "Cantilever truss: downward tip deflection");
+    assert!(d5.uz < 0.0, "Cantilever truss: downward tip deflection");
 
     // Virtual work calculation for tip deflection:
     // Compute δ = Σ(F_i × f_i × L_i) / (A × E) using actual element forces
@@ -479,7 +479,7 @@ fn validation_cantilever_truss_deflection() {
         delta_virtual += fi_actual * fi_virtual * li / (A_TRUSS * e_kn_m2);
     }
 
-    assert_close(d5.uy.abs(), delta_virtual.abs(), 0.02,
+    assert_close(d5.uz.abs(), delta_virtual.abs(), 0.02,
         "Cantilever truss: δ matches virtual work");
 }
 
@@ -545,7 +545,7 @@ fn validation_howe_truss_chord_pattern() {
     let mut loads = Vec::new();
     for i in 1..n_panels {
         loads.push(SolverLoad::Nodal(SolverNodalLoad {
-            node_id: i + 1, fx: 0.0, fy: -p, mz: 0.0,
+            node_id: i + 1, fx: 0.0, fz: -p, my: 0.0,
         }));
     }
 
@@ -561,8 +561,8 @@ fn validation_howe_truss_chord_pattern() {
 
     // Symmetric reactions: R1 = R4 = (n_panels-1)P/2
     let total_load = (n_panels - 1) as f64 * p;
-    let r1 = results.reactions.iter().find(|r| r.node_id == 1).unwrap().ry;
-    let r_end = results.reactions.iter().find(|r| r.node_id == n_panels + 1).unwrap().ry;
+    let r1 = results.reactions.iter().find(|r| r.node_id == 1).unwrap().rz;
+    let r_end = results.reactions.iter().find(|r| r.node_id == n_panels + 1).unwrap().rz;
     assert_close(r1, total_load / 2.0, 0.01, "Howe: R1 = total/2");
     assert_close(r_end, total_load / 2.0, 0.01, "Howe: R_end = total/2");
 
@@ -626,14 +626,14 @@ fn validation_diamond_horizontal_load() {
         ],
         vec![(1, 2, "pinned"), (2, 4, "pinned")],
         vec![SolverLoad::Nodal(SolverNodalLoad {
-            node_id: 3, fx: p, fy: 0.0, mz: 0.0,
+            node_id: 3, fx: p, fz: 0.0, my: 0.0,
         })],
     );
     let results = linear::solve_2d(&input).unwrap();
 
     // Equilibrium
     let sum_rx: f64 = results.reactions.iter().map(|r| r.rx).sum();
-    let sum_ry: f64 = results.reactions.iter().map(|r| r.ry).sum();
+    let sum_ry: f64 = results.reactions.iter().map(|r| r.rz).sum();
     assert_close(sum_rx, -p, 0.01, "Diamond: ΣRx = -P");
     assert_close(sum_ry, 0.0, 0.05, "Diamond: ΣRy ≈ 0");
 

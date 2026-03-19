@@ -121,8 +121,8 @@ fn validation_ltb_ext_elastic_critical_moment_uniform() {
         n, l, E, W410_A, W410_IY,
         "pinned", Some("rollerX"),
         vec![
-            SolverLoad::Nodal(SolverNodalLoad { node_id: 1, fx: 0.0, fy: 0.0, mz: m0 }),
-            SolverLoad::Nodal(SolverNodalLoad { node_id: n + 1, fx: 0.0, fy: 0.0, mz: -m0 }),
+            SolverLoad::Nodal(SolverNodalLoad { node_id: 1, fx: 0.0, fz: 0.0, my: m0 }),
+            SolverLoad::Nodal(SolverNodalLoad { node_id: n + 1, fx: 0.0, fz: 0.0, my: -m0 }),
         ],
     );
     let results = linear::solve_2d(&input).unwrap();
@@ -130,7 +130,7 @@ fn validation_ltb_ext_elastic_critical_moment_uniform() {
     // For uniform moment (equal and opposite end moments), the bending moment
     // is constant along the beam. The solver should produce zero vertical reactions
     // (no transverse load) and uniform rotation distribution.
-    let sum_ry: f64 = results.reactions.iter().map(|r| r.ry).sum();
+    let sum_ry: f64 = results.reactions.iter().map(|r| r.rz).sum();
     assert!(
         sum_ry.abs() < 0.1,
         "Uniform moment: vertical reactions should be ~0, got {:.4}",
@@ -232,7 +232,7 @@ fn validation_ltb_ext_moment_gradient_cb_factor() {
         n, l, E, W410_A, W410_IY,
         "pinned", Some("rollerX"),
         vec![SolverLoad::Nodal(SolverNodalLoad {
-            node_id: n / 2 + 1, fx: 0.0, fy: -p, mz: 0.0,
+            node_id: n / 2 + 1, fx: 0.0, fz: -p, my: 0.0,
         })],
     );
     let results = linear::solve_2d(&input).unwrap();
@@ -273,7 +273,7 @@ fn validation_ltb_ext_moment_gradient_cb_factor() {
 #[test]
 fn validation_ltb_ext_aisc_f2_lp_lr_transitions() {
     // Compute ry (weak-axis radius of gyration)
-    let ry: f64 = (W410_IZ / W410_A).sqrt();
+    let rz: f64 = (W410_IZ / W410_A).sqrt();
 
     // ho = d - tf (distance between flange centroids)
     let ho: f64 = W410_D - W410_TF;
@@ -291,7 +291,7 @@ fn validation_ltb_ext_aisc_f2_lp_lr_transitions() {
 
     // Lp = 1.76 * ry * sqrt(E/Fy)
     let e_over_fy: f64 = e / FY;
-    let lp: f64 = 1.76 * ry * e_over_fy.sqrt();
+    let lp: f64 = 1.76 * rz * e_over_fy.sqrt();
 
     // Lr calculation (AISC Eq. F2-6)
     // Lr = 1.95 * rts * (E/(0.7*Fy)) * sqrt(J*c/(Sx*ho)) *
@@ -363,14 +363,14 @@ fn validation_ltb_ext_aisc_f2_lp_lr_transitions() {
             n, lb_val, E, W410_A, W410_IY,
             "pinned", Some("rollerX"),
             vec![
-                SolverLoad::Nodal(SolverNodalLoad { node_id: 1, fx: 0.0, fy: 0.0, mz: m_applied }),
-                SolverLoad::Nodal(SolverNodalLoad { node_id: n + 1, fx: 0.0, fy: 0.0, mz: -m_applied }),
+                SolverLoad::Nodal(SolverNodalLoad { node_id: 1, fx: 0.0, fz: 0.0, my: m_applied }),
+                SolverLoad::Nodal(SolverNodalLoad { node_id: n + 1, fx: 0.0, fz: 0.0, my: -m_applied }),
             ],
         );
         let results = linear::solve_2d(&input).unwrap();
         let mid_node = n / 2 + 1;
         let _d_mid = results.displacements.iter()
-            .find(|d| d.node_id == mid_node).unwrap().uy;
+            .find(|d| d.node_id == mid_node).unwrap().uz;
         // Deflection under pure moment: theta = M*L/(EI), delta ~ M*L^2/(8*EI)
         // Just verify the solver succeeds for all zone lengths
         assert!(
@@ -411,7 +411,7 @@ fn validation_ltb_ext_ec3_chi_lt_reduction_factor() {
 
     // Use general formula: Mcr = (pi/L)*sqrt(EIz*(GJ + (pi/L)^2 * E*Cw))
     let wy: f64 = W410_ZX; // Class 1/2 section uses plastic modulus
-    let fy: f64 = FY;
+    let fz: f64 = FY;
 
     // Imperfection factor for curve b (typical rolled I-sections h/b > 2)
     let alpha_lt_general: f64 = 0.34;
@@ -429,7 +429,7 @@ fn validation_ltb_ext_ec3_chi_lt_reduction_factor() {
         let mcr: f64 = pi_l * (ei_z * (gj + pi_l.powi(2) * E_EFF * W410_CW)).sqrt();
 
         // Non-dimensional slenderness
-        let lambda_lt: f64 = (wy * fy / mcr).sqrt();
+        let lambda_lt: f64 = (wy * fz / mcr).sqrt();
 
         // General case (§6.3.2.2)
         let phi_general: f64 = 0.5 * (1.0 + alpha_lt_general * (lambda_lt - 0.2) + lambda_lt.powi(2));
@@ -509,7 +509,7 @@ fn validation_ltb_ext_ec3_chi_lt_reduction_factor() {
 
 #[test]
 fn validation_ltb_ext_mn_vs_lb_capacity_curve() {
-    let ry: f64 = (W410_IZ / W410_A).sqrt();
+    let rz: f64 = (W410_IZ / W410_A).sqrt();
     let e: f64 = E_EFF;
     let ho: f64 = W410_D - W410_TF;
     let rts: f64 = W410_RTS;
@@ -519,7 +519,7 @@ fn validation_ltb_ext_mn_vs_lb_capacity_curve() {
 
     // Compute Lp
     let e_over_fy: f64 = e / FY;
-    let lp: f64 = 1.76 * ry * e_over_fy.sqrt();
+    let lp: f64 = 1.76 * rz * e_over_fy.sqrt();
 
     // Compute Lr
     let term_inner: f64 = 0.7 * FY * W410_SX * ho / (e * W410_J * c);
@@ -592,8 +592,8 @@ fn validation_ltb_ext_mn_vs_lb_capacity_curve() {
             n, lb, E, W410_A, W410_IY,
             "pinned", Some("rollerX"),
             vec![
-                SolverLoad::Nodal(SolverNodalLoad { node_id: 1, fx: 0.0, fy: 0.0, mz: m_test }),
-                SolverLoad::Nodal(SolverNodalLoad { node_id: n + 1, fx: 0.0, fy: 0.0, mz: -m_test }),
+                SolverLoad::Nodal(SolverNodalLoad { node_id: 1, fx: 0.0, fz: 0.0, my: m_test }),
+                SolverLoad::Nodal(SolverNodalLoad { node_id: n + 1, fx: 0.0, fz: 0.0, my: -m_test }),
             ],
         );
         let results = linear::solve_2d(&input).unwrap();
@@ -601,14 +601,14 @@ fn validation_ltb_ext_mn_vs_lb_capacity_curve() {
             .find(|d| d.node_id == n / 2 + 1).unwrap();
 
         let delta_expected: f64 = m_test * lb.powi(2) / (8.0 * ei);
-        assert_close(mid.uy.abs(), delta_expected, 0.03,
+        assert_close(mid.uz.abs(), delta_expected, 0.03,
             &format!("Uniform moment deflection at L={:.1}", lb));
 
         if prev_delta > 0.0 {
-            assert!(mid.uy.abs() > prev_delta,
+            assert!(mid.uz.abs() > prev_delta,
                 "Deflection should increase with L: L={:.1}", lb);
         }
-        prev_delta = mid.uy.abs();
+        prev_delta = mid.uz.abs();
     }
 }
 
@@ -690,7 +690,7 @@ fn validation_ltb_ext_torsional_bracing_effectiveness() {
     let input_unbraced = make_ss_beam_udl(n, l, E, W410_A, W410_IY, -q);
     let res_unbraced = linear::solve_2d(&input_unbraced).unwrap();
     let d_unbraced = res_unbraced.displacements.iter()
-        .find(|d| d.node_id == n / 2 + 1).unwrap().uy.abs();
+        .find(|d| d.node_id == n / 2 + 1).unwrap().uz.abs();
 
     // Braced beam modeled as two-span continuous beam (intermediate support at midspan)
     // This is a lateral bracing analog: the intermediate support prevents lateral displacement
@@ -704,7 +704,7 @@ fn validation_ltb_ext_torsional_bracing_effectiveness() {
 
     // With intermediate support, max deflection occurs at L/4 and is less than unbraced midspan
     let d_braced_max = res_braced.displacements.iter()
-        .map(|d| d.uy.abs())
+        .map(|d| d.uz.abs())
         .fold(0.0_f64, |a, b| a.max(b));
 
     assert!(
@@ -825,8 +825,8 @@ fn validation_ltb_ext_monosymmetric_beta_x() {
         n, l, E, W410_A, W410_IY,
         "pinned", Some("rollerX"),
         vec![
-            SolverLoad::Nodal(SolverNodalLoad { node_id: 1, fx: 0.0, fy: 0.0, mz: m0 }),
-            SolverLoad::Nodal(SolverNodalLoad { node_id: n + 1, fx: 0.0, fy: 0.0, mz: -m0 }),
+            SolverLoad::Nodal(SolverNodalLoad { node_id: 1, fx: 0.0, fz: 0.0, my: m0 }),
+            SolverLoad::Nodal(SolverNodalLoad { node_id: n + 1, fx: 0.0, fz: 0.0, my: -m0 }),
         ],
     );
     let results = linear::solve_2d(&input).unwrap();
@@ -834,7 +834,7 @@ fn validation_ltb_ext_monosymmetric_beta_x() {
         .find(|d| d.node_id == n / 2 + 1).unwrap();
     let ei: f64 = e * W410_IY;
     let delta_expected: f64 = m0 * l.powi(2) / (8.0 * ei);
-    assert_close(mid.uy.abs(), delta_expected, 0.03, "Monosymmetric baseline deflection");
+    assert_close(mid.uz.abs(), delta_expected, 0.03, "Monosymmetric baseline deflection");
 }
 
 // ================================================================
@@ -962,14 +962,14 @@ fn validation_ltb_ext_warping_constant_cw_effect() {
         n, l_test, E, a_wide, iy_wide,
         "pinned", Some("rollerX"),
         vec![SolverLoad::Nodal(SolverNodalLoad {
-            node_id: n / 2 + 1, fx: 0.0, fy: -p, mz: 0.0,
+            node_id: n / 2 + 1, fx: 0.0, fz: -p, my: 0.0,
         })],
     );
     let input_narrow = make_beam(
         n, l_test, E, a_narrow, iy_narrow,
         "pinned", Some("rollerX"),
         vec![SolverLoad::Nodal(SolverNodalLoad {
-            node_id: n / 2 + 1, fx: 0.0, fy: -p, mz: 0.0,
+            node_id: n / 2 + 1, fx: 0.0, fz: -p, my: 0.0,
         })],
     );
 
@@ -977,9 +977,9 @@ fn validation_ltb_ext_warping_constant_cw_effect() {
     let res_narrow = linear::solve_2d(&input_narrow).unwrap();
 
     let d_wide = res_wide.displacements.iter()
-        .find(|d| d.node_id == n / 2 + 1).unwrap().uy.abs();
+        .find(|d| d.node_id == n / 2 + 1).unwrap().uz.abs();
     let d_narrow = res_narrow.displacements.iter()
-        .find(|d| d.node_id == n / 2 + 1).unwrap().uy.abs();
+        .find(|d| d.node_id == n / 2 + 1).unwrap().uz.abs();
 
     // Narrow section deflects more (lower Iy → delta ~ 1/I)
     assert!(

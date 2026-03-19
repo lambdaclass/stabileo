@@ -44,7 +44,7 @@ fn progressive_collapse_corner_column_removal() {
     // After column removal: model as a cantilever span
     // The beam that lost its support now cantilevers or spans double
     // Verify the intact model has reasonable reactions
-    let total_reaction: f64 = res_intact.reactions.iter().map(|r| r.ry.abs()).sum();
+    let total_reaction: f64 = res_intact.reactions.iter().map(|r| r.rz.abs()).sum();
     assert!(
         total_reaction > 0.0,
         "Intact structure should have non-zero reactions"
@@ -257,7 +257,7 @@ fn progressive_collapse_redundancy_factor() {
 
     // Get max displacement in intact model
     let max_disp_intact: f64 = res_intact.displacements.iter()
-        .map(|d| d.uy.abs())
+        .map(|d| d.uz.abs())
         .fold(0.0_f64, f64::max);
 
     // Damaged: remove middle support (2-span continuous → simple beam over 12m + 6m)

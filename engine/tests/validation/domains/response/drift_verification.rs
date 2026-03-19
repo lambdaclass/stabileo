@@ -43,7 +43,7 @@ fn validation_drift_cantilever() {
         }
     }
     let loads = vec![SolverLoad::Nodal(SolverNodalLoad {
-        node_id: n + 1, fx: p, fy: 0.0, mz: 0.0,
+        node_id: n + 1, fx: p, fz: 0.0, my: 0.0,
     })];
     let input = make_input(nodes, vec![(1, E, 0.3)], vec![(1, A, IZ)], elems,
         vec![(1, 1, "fixed")], loads);
@@ -78,7 +78,7 @@ fn validation_drift_fixed_fixed() {
         }
     }
     let loads = vec![SolverLoad::Nodal(SolverNodalLoad {
-        node_id: n + 1, fx: p, fy: 0.0, mz: 0.0,
+        node_id: n + 1, fx: p, fz: 0.0, my: 0.0,
     })];
     let input = make_input(nodes, vec![(1, E, 0.3)], vec![(1, A, IZ)], elems,
         vec![(1, 1, "fixed"), (2, n + 1, "guidedX")], loads);
@@ -185,9 +185,9 @@ fn validation_drift_multi_story_relative() {
     }
 
     let loads = vec![
-        SolverLoad::Nodal(SolverNodalLoad { node_id: 3, fx: f, fy: 0.0, mz: 0.0 }),
-        SolverLoad::Nodal(SolverNodalLoad { node_id: 5, fx: f, fy: 0.0, mz: 0.0 }),
-        SolverLoad::Nodal(SolverNodalLoad { node_id: 7, fx: f, fy: 0.0, mz: 0.0 }),
+        SolverLoad::Nodal(SolverNodalLoad { node_id: 3, fx: f, fz: 0.0, my: 0.0 }),
+        SolverLoad::Nodal(SolverNodalLoad { node_id: 5, fx: f, fz: 0.0, my: 0.0 }),
+        SolverLoad::Nodal(SolverNodalLoad { node_id: 7, fx: f, fz: 0.0, my: 0.0 }),
     ];
     let input = make_input(nodes, vec![(1, E, 0.3)], vec![(1, A, IZ)], elems, sups, loads);
     let results = linear::solve_2d(&input).unwrap();
@@ -238,7 +238,7 @@ fn validation_drift_stiffness_effect() {
         (3, "frame", 4, 3, 1, 1, false, false),
     ];
     let loads = vec![SolverLoad::Nodal(SolverNodalLoad {
-        node_id: 2, fx: f, fy: 0.0, mz: 0.0,
+        node_id: 2, fx: f, fz: 0.0, my: 0.0,
     })];
     let input2 = make_input(nodes, vec![(1, E, 0.3)], vec![(1, A, 2.0 * IZ)], elems,
         vec![(1, 1, "fixed"), (2, 4, "fixed")], loads);
@@ -271,7 +271,7 @@ fn validation_drift_height_effect() {
             }
         }
         let loads = vec![SolverLoad::Nodal(SolverNodalLoad {
-            node_id: n + 1, fx: p, fy: 0.0, mz: 0.0,
+            node_id: n + 1, fx: p, fz: 0.0, my: 0.0,
         })];
         let input = make_input(nodes, vec![(1, E, 0.3)], vec![(1, A, IZ)], elems,
             vec![(1, 1, "fixed")], loads);
@@ -310,7 +310,7 @@ fn validation_drift_axial_lateral() {
 
     // Lateral only
     let loads_lat = vec![SolverLoad::Nodal(SolverNodalLoad {
-        node_id: n + 1, fx: f_lat, fy: 0.0, mz: 0.0,
+        node_id: n + 1, fx: f_lat, fz: 0.0, my: 0.0,
     })];
     let input_lat = make_input(nodes.clone(), vec![(1, E, 0.3)], vec![(1, A, IZ)],
         elems.clone(), vec![(1, 1, "fixed")], loads_lat);
@@ -319,7 +319,7 @@ fn validation_drift_axial_lateral() {
 
     // Combined lateral + axial
     let loads_both = vec![SolverLoad::Nodal(SolverNodalLoad {
-        node_id: n + 1, fx: f_lat, fy: -f_axial, mz: 0.0,
+        node_id: n + 1, fx: f_lat, fz: -f_axial, my: 0.0,
     })];
     let input_both = make_input(nodes, vec![(1, E, 0.3)], vec![(1, A, IZ)],
         elems, vec![(1, 1, "fixed")], loads_both);

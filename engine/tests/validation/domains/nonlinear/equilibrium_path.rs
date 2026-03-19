@@ -285,9 +285,9 @@ fn validation_path_truss_nodal_equilibrium() {
     ];
     let sups_data = vec![(1, 1, "pinned"), (2, 5, "rollerX")];
     let loads_data = vec![
-        SolverLoad::Nodal(SolverNodalLoad { node_id: 2, fx: 0.0, fy: -p, mz: 0.0 }),
-        SolverLoad::Nodal(SolverNodalLoad { node_id: 3, fx: 0.0, fy: -p, mz: 0.0 }),
-        SolverLoad::Nodal(SolverNodalLoad { node_id: 4, fx: 0.0, fy: -p, mz: 0.0 }),
+        SolverLoad::Nodal(SolverNodalLoad { node_id: 2, fx: 0.0, fz: -p, my: 0.0 }),
+        SolverLoad::Nodal(SolverNodalLoad { node_id: 3, fx: 0.0, fz: -p, my: 0.0 }),
+        SolverLoad::Nodal(SolverNodalLoad { node_id: 4, fx: 0.0, fz: -p, my: 0.0 }),
     ];
     let input = make_input(
         nodes_data, vec![(1, E, 0.3)], vec![(1, A, IZ)],
@@ -296,7 +296,7 @@ fn validation_path_truss_nodal_equilibrium() {
     let results = linear::solve_2d(&input).unwrap();
 
     // Global equilibrium: ΣRy = 3P
-    let sum_ry: f64 = results.reactions.iter().map(|r| r.ry).sum();
+    let sum_ry: f64 = results.reactions.iter().map(|r| r.rz).sum();
     assert_close(sum_ry, 3.0 * p, 0.01, "Truss: ΣRy = 3P");
 
     // ΣRx = 0 (no horizontal loads)
@@ -306,8 +306,8 @@ fn validation_path_truss_nodal_equilibrium() {
     // By symmetry: R1 = R5 = 3P/2
     let r1 = results.reactions.iter().find(|r| r.node_id == 1).unwrap();
     let r5 = results.reactions.iter().find(|r| r.node_id == 5).unwrap();
-    assert_close(r1.ry, 3.0 * p / 2.0, 0.01, "Truss: R1 = 3P/2 (symmetry)");
-    assert_close(r5.ry, 3.0 * p / 2.0, 0.01, "Truss: R5 = 3P/2 (symmetry)");
+    assert_close(r1.rz, 3.0 * p / 2.0, 0.01, "Truss: R1 = 3P/2 (symmetry)");
+    assert_close(r5.rz, 3.0 * p / 2.0, 0.01, "Truss: R5 = 3P/2 (symmetry)");
 
     // All member forces must be finite
     for ef in &results.element_forces {
@@ -369,12 +369,12 @@ fn validation_path_continuous_shear_jump() {
 
     // Shear jump = |V_right_start - V_left_end| should equal the reaction magnitude
     let v_jump = (ef_right.v_start - ef_left.v_end).abs();
-    assert_close(v_jump, r_int.ry.abs(), 0.05,
+    assert_close(v_jump, r_int.rz.abs(), 0.05,
         "Continuous: shear jump at interior support = reaction");
 
     // Interior reaction should be 10qL/8 for equal spans (by three-moment equation)
     let r_expected = 5.0 * q.abs() * span / 4.0;
-    assert_close(r_int.ry.abs(), r_expected, 0.02,
+    assert_close(r_int.rz.abs(), r_expected, 0.02,
         "Continuous: interior reaction = 5qL/4");
 }
 

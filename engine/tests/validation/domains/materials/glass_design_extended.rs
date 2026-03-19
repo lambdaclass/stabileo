@@ -70,7 +70,7 @@ fn glass_fin_deflection_under_wind_load() {
     let results = linear::solve_2d(&input).unwrap();
 
     let mid = n / 2 + 1;
-    let d_mid = results.displacements.iter().find(|dd| dd.node_id == mid).unwrap().uy.abs();
+    let d_mid = results.displacements.iter().find(|dd| dd.node_id == mid).unwrap().uz.abs();
 
     // Analytical: delta = 5*q*L^4 / (384*E*Iz)
     let delta_exact: f64 = 5.0 * q.abs() * l.powi(4) / (384.0 * e_eff * iz);
@@ -155,7 +155,7 @@ fn laminated_glass_effective_thickness_deflection() {
     let results = linear::solve_2d(&input).unwrap();
 
     let mid = n / 2 + 1;
-    let d_mid = results.displacements.iter().find(|dd| dd.node_id == mid).unwrap().uy.abs();
+    let d_mid = results.displacements.iter().find(|dd| dd.node_id == mid).unwrap().uz.abs();
 
     // Analytical: delta = 5*q*L^4 / (384*E*Iz_eff)
     let delta_exact: f64 = 5.0 * q.abs() * l.powi(4) / (384.0 * e_eff * iz_eff);
@@ -216,21 +216,21 @@ fn glass_column_buckling_amplified_deflection() {
         SolverLoad::Nodal(SolverNodalLoad {
             node_id: n + 1,
             fx: -p_axial, // compression (negative along beam axis)
-            fy: 0.0,
-            mz: 0.0,
+            fz: 0.0,
+            my: 0.0,
         }),
         SolverLoad::Nodal(SolverNodalLoad {
             node_id: mid_node,
             fx: 0.0,
-            fy: f_lateral,
-            mz: 0.0,
+            fz: f_lateral,
+            my: 0.0,
         }),
     ];
     let input = make_beam(n, l, E_GLASS, a_col, iz_col, "pinned", Some("rollerX"), loads);
     let results = linear::solve_2d(&input).unwrap();
 
     let d_mid_actual = results.displacements.iter()
-        .find(|dd| dd.node_id == mid_node).unwrap().uy.abs();
+        .find(|dd| dd.node_id == mid_node).unwrap().uz.abs();
 
     // First-order deflection (no axial): delta_0 = P*L^3/(48*E*I) for center load on SS beam
     let delta_0: f64 = f_lateral.abs() * l.powi(3) / (48.0 * e_eff * iz_col);
@@ -310,8 +310,8 @@ fn glass_post_breakage_residual_single_ply() {
     let results_pre = linear::solve_2d(&input_pre).unwrap();
 
     let mid = n / 2 + 1;
-    let d_pre = results_pre.displacements.iter().find(|dd| dd.node_id == mid).unwrap().uy.abs();
-    let d_post = results_post.displacements.iter().find(|dd| dd.node_id == mid).unwrap().uy.abs();
+    let d_pre = results_pre.displacements.iter().find(|dd| dd.node_id == mid).unwrap().uz.abs();
+    let d_post = results_post.displacements.iter().find(|dd| dd.node_id == mid).unwrap().uz.abs();
 
     // Post-breakage deflection should be larger than pre-breakage
     assert!(
@@ -371,15 +371,15 @@ fn glass_balustrade_cantilever_line_load() {
     let loads = vec![SolverLoad::Nodal(SolverNodalLoad {
         node_id: n + 1,
         fx: 0.0,
-        fy: p_top,
-        mz: 0.0,
+        fz: p_top,
+        my: 0.0,
     })];
     let input = make_beam(n, h, E_GLASS, a_sec, iz_sec, "fixed", None, loads);
     let results = linear::solve_2d(&input).unwrap();
 
     // Tip deflection: delta = P*L^3/(3*E*I)
     let delta_exact: f64 = p_top.abs() * h.powi(3) / (3.0 * e_eff * iz_sec);
-    let d_tip = results.displacements.iter().find(|dd| dd.node_id == n + 1).unwrap().uy.abs();
+    let d_tip = results.displacements.iter().find(|dd| dd.node_id == n + 1).unwrap().uz.abs();
     assert_close(d_tip, delta_exact, 0.02, "Balustrade tip deflection P*L^3/(3EI)");
 
     // Fixed-end reactions: V = P, M = P * L
@@ -387,8 +387,8 @@ fn glass_balustrade_cantilever_line_load() {
     let v_expected: f64 = p_top.abs(); // 1.0 kN
     let m_expected: f64 = p_top.abs() * h; // 1.1 kN.m
 
-    assert_close(r_base.ry.abs(), v_expected, 0.02, "Balustrade base shear");
-    assert_close(r_base.mz.abs(), m_expected, 0.02, "Balustrade base moment");
+    assert_close(r_base.rz.abs(), v_expected, 0.02, "Balustrade base shear");
+    assert_close(r_base.my.abs(), m_expected, 0.02, "Balustrade base moment");
 
     // Serviceability: H/65 limit for glass balustrades (EN 16612)
     let limit_h65: f64 = h / 65.0;
@@ -464,8 +464,8 @@ fn glass_panel_thermal_stress_equivalent_load() {
     let loads = vec![SolverLoad::Nodal(SolverNodalLoad {
         node_id: n + 1,
         fx: -n_thermal, // push against the roller (compression)
-        fy: 0.0,
-        mz: 0.0,
+        fz: 0.0,
+        my: 0.0,
     })];
     let input = make_beam(n, l, E_GLASS, a_sec, iz_sec, "fixed", Some("rollerX"), loads);
     let results = linear::solve_2d(&input).unwrap();
@@ -530,9 +530,9 @@ fn glass_facade_two_span_continuous_wind_loading() {
     let node_b = n_per_span + 1;
     let node_c = 2 * n_per_span + 1;
 
-    let r_a = results.reactions.iter().find(|r| r.node_id == node_a).unwrap().ry;
-    let r_b = results.reactions.iter().find(|r| r.node_id == node_b).unwrap().ry;
-    let r_c = results.reactions.iter().find(|r| r.node_id == node_c).unwrap().ry;
+    let r_a = results.reactions.iter().find(|r| r.node_id == node_a).unwrap().rz;
+    let r_b = results.reactions.iter().find(|r| r.node_id == node_b).unwrap().rz;
+    let r_c = results.reactions.iter().find(|r| r.node_id == node_c).unwrap().rz;
 
     // Analytical for two equal spans with UDL:
     // R_A = R_C = 3qL/8, R_B = 10qL/8 = 5qL/4
@@ -610,9 +610,9 @@ fn glass_plate_aspect_ratio_beam_strip_deflection() {
 
     let mid = n / 2 + 1;
     let d_short = results_short.displacements.iter()
-        .find(|dd| dd.node_id == mid).unwrap().uy.abs();
+        .find(|dd| dd.node_id == mid).unwrap().uz.abs();
     let d_long = results_long.displacements.iter()
-        .find(|dd| dd.node_id == mid).unwrap().uy.abs();
+        .find(|dd| dd.node_id == mid).unwrap().uz.abs();
 
     // Deflection ratio = (L_long/L_short)^4 for SS beam with UDL
     let span_ratio: f64 = a_long / a_short;

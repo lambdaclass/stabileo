@@ -158,7 +158,7 @@ pub fn solve_cable_2d(
         let sec = sec_by_id[&elem.section_id];
 
         let dx = node_j.x - node_i.x;
-        let dy = node_j.y - node_i.y;
+        let dy = node_j.z - node_i.z;
         let l0 = (dx * dx + dy * dy).sqrt();
         let e = mat.e * 1000.0;
 

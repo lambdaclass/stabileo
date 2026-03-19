@@ -195,7 +195,7 @@ fn validation_ext_buckling_cantilever_third_mode() {
     // Cantilever: fixed at start, free at end (no end support)
     let input = make_beam(n, l, E, A, IZ, "fixed", None,
         vec![SolverLoad::Nodal(SolverNodalLoad {
-            node_id: n + 1, fx: -p, fy: 0.0, mz: 0.0,
+            node_id: n + 1, fx: -p, fz: 0.0, my: 0.0,
         })]);
 
     let result = buckling::solve_buckling_2d(&input, 3).unwrap();

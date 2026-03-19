@@ -147,10 +147,10 @@ fn seismic_design_ext_elf_base_shear_verification() {
         let nl = 2 * (i + 1) + 1;
         let nr = 2 * (i + 1) + 2;
         loads.push(SolverLoad::Nodal(SolverNodalLoad {
-            node_id: nl, fx: fi_half, fy: 0.0, mz: 0.0,
+            node_id: nl, fx: fi_half, fz: 0.0, my: 0.0,
         }));
         loads.push(SolverLoad::Nodal(SolverNodalLoad {
-            node_id: nr, fx: fi_half, fy: 0.0, mz: 0.0,
+            node_id: nr, fx: fi_half, fz: 0.0, my: 0.0,
         }));
     }
 
@@ -245,10 +245,10 @@ fn seismic_design_ext_vertical_distribution_k_exponent() {
         let nl = 2 * (i + 1) + 1;
         let nr = 2 * (i + 1) + 2;
         loads.push(SolverLoad::Nodal(SolverNodalLoad {
-            node_id: nl, fx: fi_half, fy: 0.0, mz: 0.0,
+            node_id: nl, fx: fi_half, fz: 0.0, my: 0.0,
         }));
         loads.push(SolverLoad::Nodal(SolverNodalLoad {
-            node_id: nr, fx: fi_half, fy: 0.0, mz: 0.0,
+            node_id: nr, fx: fi_half, fz: 0.0, my: 0.0,
         }));
     }
 
@@ -304,10 +304,10 @@ fn seismic_design_ext_story_drift_cd_amplification() {
         let nl = 2 * i + 1;
         let nr = 2 * i + 2;
         loads.push(SolverLoad::Nodal(SolverNodalLoad {
-            node_id: nl, fx: fi, fy: 0.0, mz: 0.0,
+            node_id: nl, fx: fi, fz: 0.0, my: 0.0,
         }));
         loads.push(SolverLoad::Nodal(SolverNodalLoad {
-            node_id: nr, fx: fi, fy: 0.0, mz: 0.0,
+            node_id: nr, fx: fi, fz: 0.0, my: 0.0,
         }));
     }
 
@@ -459,10 +459,10 @@ fn seismic_design_ext_torsional_irregularity_amplification() {
     // Case 1: Symmetric loading (no torsion)
     let loads_sym = vec![
         SolverLoad::Nodal(SolverNodalLoad {
-            node_id: 2, fx: v_total / 2.0, fy: 0.0, mz: 0.0,
+            node_id: 2, fx: v_total / 2.0, fz: 0.0, my: 0.0,
         }),
         SolverLoad::Nodal(SolverNodalLoad {
-            node_id: 3, fx: v_total / 2.0, fy: 0.0, mz: 0.0,
+            node_id: 3, fx: v_total / 2.0, fz: 0.0, my: 0.0,
         }),
     ];
     let input_sym = make_input(
@@ -488,10 +488,10 @@ fn seismic_design_ext_torsional_irregularity_amplification() {
 
     let loads_ecc = vec![
         SolverLoad::Nodal(SolverNodalLoad {
-            node_id: 2, fx: f_left, fy: 0.0, mz: 0.0,
+            node_id: 2, fx: f_left, fz: 0.0, my: 0.0,
         }),
         SolverLoad::Nodal(SolverNodalLoad {
-            node_id: 3, fx: f_right, fy: 0.0, mz: 0.0,
+            node_id: 3, fx: f_right, fz: 0.0, my: 0.0,
         }),
     ];
     let input_ecc = make_input(
@@ -614,10 +614,10 @@ fn seismic_design_ext_diaphragm_force_distribution() {
         let nl = 2 * (i + 1) + 1;
         let nr = 2 * (i + 1) + 2;
         loads.push(SolverLoad::Nodal(SolverNodalLoad {
-            node_id: nl, fx: fi_half, fy: 0.0, mz: 0.0,
+            node_id: nl, fx: fi_half, fz: 0.0, my: 0.0,
         }));
         loads.push(SolverLoad::Nodal(SolverNodalLoad {
-            node_id: nr, fx: fi_half, fy: 0.0, mz: 0.0,
+            node_id: nr, fx: fi_half, fz: 0.0, my: 0.0,
         }));
     }
 
@@ -659,10 +659,10 @@ fn seismic_design_ext_redundancy_factor_penalty() {
             let nl = 2 * (i + 1) + 1;
             let nr = 2 * (i + 1) + 2;
             loads.push(SolverLoad::Nodal(SolverNodalLoad {
-                node_id: nl, fx: fi, fy: 0.0, mz: 0.0,
+                node_id: nl, fx: fi, fz: 0.0, my: 0.0,
             }));
             loads.push(SolverLoad::Nodal(SolverNodalLoad {
-                node_id: nr, fx: fi, fy: 0.0, mz: 0.0,
+                node_id: nr, fx: fi, fz: 0.0, my: 0.0,
             }));
         }
         build_multi_story_frame(n_stories, h, w_bay, E, A, IZ, loads)
@@ -755,7 +755,7 @@ fn seismic_design_ext_dual_system_stiffness_comparison() {
     let sups_bf = vec![(1, 1_usize, "fixed"), (2, 4, "fixed")];
     let loads_bf = vec![
         SolverLoad::Nodal(SolverNodalLoad {
-            node_id: 2, fx: lateral, fy: 0.0, mz: 0.0,
+            node_id: 2, fx: lateral, fz: 0.0, my: 0.0,
         }),
     ];
 

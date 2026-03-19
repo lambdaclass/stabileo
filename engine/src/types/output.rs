@@ -8,9 +8,9 @@ pub struct Displacement {
     pub node_id: usize,
     pub ux: f64,
     #[serde(rename = "uz", alias = "uy")]
-    pub uy: f64,
+    pub uz: f64,
     #[serde(rename = "ry", alias = "rz")]
-    pub rz: f64,
+    pub ry: f64,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -19,9 +19,9 @@ pub struct Reaction {
     pub node_id: usize,
     pub rx: f64,
     #[serde(rename = "rz", alias = "ry")]
-    pub ry: f64,
+    pub rz: f64,
     #[serde(rename = "my", alias = "mz")]
-    pub mz: f64,
+    pub my: f64,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -32,7 +32,7 @@ pub struct PointLoadInfo {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub px: Option<f64>,
     #[serde(skip_serializing_if = "Option::is_none", rename = "my", alias = "mz")]
-    pub mz: Option<f64>,
+    pub my: Option<f64>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -514,10 +514,10 @@ impl SolverRunArtifact {
         let meta = results.solver_run_meta.clone()?;
 
         let max_disp = results.displacements.iter()
-            .flat_map(|d| [d.ux.abs(), d.uy.abs(), d.rz.abs()])
+            .flat_map(|d| [d.ux.abs(), d.uz.abs(), d.ry.abs()])
             .fold(0.0f64, f64::max);
         let max_rxn = results.reactions.iter()
-            .flat_map(|r| [r.rx.abs(), r.ry.abs(), r.mz.abs()])
+            .flat_map(|r| [r.rx.abs(), r.rz.abs(), r.my.abs()])
             .fold(0.0f64, f64::max);
 
         Some(Self {
@@ -814,15 +814,15 @@ pub struct NodeTimeHistory {
     pub node_id: usize,
     pub ux: Vec<f64>,
     #[serde(rename = "uz", alias = "uy")]
-    pub uy: Vec<f64>,
+    pub uz: Vec<f64>,
     #[serde(rename = "ry", alias = "rz")]
-    pub rz: Vec<f64>,
+    pub ry: Vec<f64>,
     pub vx: Vec<f64>,
     #[serde(rename = "vz", alias = "vy")]
-    pub vy: Vec<f64>,
+    pub vz: Vec<f64>,
     pub ax: Vec<f64>,
     #[serde(rename = "az", alias = "ay")]
-    pub ay: Vec<f64>,
+    pub az: Vec<f64>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

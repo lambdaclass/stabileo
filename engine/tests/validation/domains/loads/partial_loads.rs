@@ -56,8 +56,8 @@ fn validation_partial_full_span_equivalence() {
 
     // Midspan deflection should be identical
     let mid = n / 2 + 1;
-    let d_default = res_default.displacements.iter().find(|d| d.node_id == mid).unwrap().uy;
-    let d_explicit = res_explicit.displacements.iter().find(|d| d.node_id == mid).unwrap().uy;
+    let d_default = res_default.displacements.iter().find(|d| d.node_id == mid).unwrap().uz;
+    let d_explicit = res_explicit.displacements.iter().find(|d| d.node_id == mid).unwrap().uz;
 
     let err = (d_default - d_explicit).abs() / d_default.abs().max(1e-10);
     assert!(err < 0.01,
@@ -86,8 +86,8 @@ fn validation_partial_half_span_reactions() {
     let input = make_beam(n, l, E, A, IZ, "pinned", Some("rollerX"), loads);
     let results = linear::solve_2d(&input).unwrap();
 
-    let r1 = results.reactions.iter().find(|r| r.node_id == 1).unwrap().ry;
-    let r_end = results.reactions.iter().find(|r| r.node_id == n + 1).unwrap().ry;
+    let r1 = results.reactions.iter().find(|r| r.node_id == 1).unwrap().rz;
+    let r_end = results.reactions.iter().find(|r| r.node_id == n + 1).unwrap().rz;
 
     // Total load = q * L/2 = 10 * 4 = 40
     let total_load = q.abs() * l / 2.0;
@@ -131,8 +131,8 @@ fn validation_partial_triangular_load() {
     let input = make_beam(n, l, E, A, IZ, "pinned", Some("rollerX"), loads);
     let results = linear::solve_2d(&input).unwrap();
 
-    let r1 = results.reactions.iter().find(|r| r.node_id == 1).unwrap().ry;
-    let r_end = results.reactions.iter().find(|r| r.node_id == n + 1).unwrap().ry;
+    let r1 = results.reactions.iter().find(|r| r.node_id == 1).unwrap().rz;
+    let r_end = results.reactions.iter().find(|r| r.node_id == n + 1).unwrap().rz;
 
     // Total load = q*L/2 = 12*6/2 = 36
     let total = q.abs() * l / 2.0;
@@ -164,7 +164,7 @@ fn validation_partial_trapezoidal() {
         .collect();
     let input_uniform = make_beam(n, l, E, A, IZ, "pinned", Some("rollerX"), loads_uniform);
     let d_uniform = linear::solve_2d(&input_uniform).unwrap()
-        .displacements.iter().find(|d| d.node_id == n / 2 + 1).unwrap().uy.abs();
+        .displacements.iter().find(|d| d.node_id == n / 2 + 1).unwrap().uz.abs();
 
     // Trapezoidal: q/2 at left, q at right
     let loads_trap: Vec<SolverLoad> = (0..n)
@@ -181,7 +181,7 @@ fn validation_partial_trapezoidal() {
         .collect();
     let input_trap = make_beam(n, l, E, A, IZ, "pinned", Some("rollerX"), loads_trap);
     let d_trap = linear::solve_2d(&input_trap).unwrap()
-        .displacements.iter().find(|d| d.node_id == n / 2 + 1).unwrap().uy.abs();
+        .displacements.iter().find(|d| d.node_id == n / 2 + 1).unwrap().uz.abs();
 
     // Triangular: 0 at left, q at right
     let loads_tri: Vec<SolverLoad> = (0..n)
@@ -198,7 +198,7 @@ fn validation_partial_trapezoidal() {
         .collect();
     let input_tri = make_beam(n, l, E, A, IZ, "pinned", Some("rollerX"), loads_tri);
     let d_tri = linear::solve_2d(&input_tri).unwrap()
-        .displacements.iter().find(|d| d.node_id == n / 2 + 1).unwrap().uy.abs();
+        .displacements.iter().find(|d| d.node_id == n / 2 + 1).unwrap().uz.abs();
 
     // Trapezoidal deflection should be between triangular and uniform
     assert!(d_tri < d_trap && d_trap < d_uniform,
@@ -231,7 +231,7 @@ fn validation_partial_equilibrium() {
     let elem_len = l / n as f64;
     let total_load = q.abs() * 5.0 * elem_len;
 
-    let sum_ry: f64 = results.reactions.iter().map(|r| r.ry).sum();
+    let sum_ry: f64 = results.reactions.iter().map(|r| r.rz).sum();
     assert_close(sum_ry, total_load, 0.02,
         "Partial load: ΣR = total applied");
 }
@@ -260,7 +260,7 @@ fn validation_partial_cantilever_tip() {
     ];
     let input_tip = make_beam(n, l, E, A, IZ, "fixed", None, loads_tip);
     let res_tip = linear::solve_2d(&input_tip).unwrap();
-    let m_tip = res_tip.reactions.iter().find(|r| r.node_id == 1).unwrap().mz.abs();
+    let m_tip = res_tip.reactions.iter().find(|r| r.node_id == 1).unwrap().my.abs();
 
     // Load on first 2 elements (root region)
     let loads_root: Vec<SolverLoad> = vec![
@@ -273,7 +273,7 @@ fn validation_partial_cantilever_tip() {
     ];
     let input_root = make_beam(n, l, E, A, IZ, "fixed", None, loads_root);
     let res_root = linear::solve_2d(&input_root).unwrap();
-    let m_root = res_root.reactions.iter().find(|r| r.node_id == 1).unwrap().mz.abs();
+    let m_root = res_root.reactions.iter().find(|r| r.node_id == 1).unwrap().my.abs();
 
     // Tip load creates larger moment at the base
     assert!(m_tip > m_root,
@@ -295,21 +295,21 @@ fn validation_partial_point_on_element() {
 
     // Point load at midspan using PointOnElement (at end of element 3)
     let loads_poe = vec![SolverLoad::PointOnElement(SolverPointLoadOnElement {
-        element_id: 3, a: 1.0, p: -p, px: None, mz: None,
+        element_id: 3, a: 1.0, p: -p, px: None, my: None,
     })];
     let input_poe = make_beam(n, l, E, A, IZ, "pinned", Some("rollerX"), loads_poe);
     let res_poe = linear::solve_2d(&input_poe).unwrap();
 
     // Equivalent nodal load at same location (node 4 = midspan)
     let loads_nodal = vec![SolverLoad::Nodal(SolverNodalLoad {
-        node_id: 4, fx: 0.0, fy: -p, mz: 0.0,
+        node_id: 4, fx: 0.0, fz: -p, my: 0.0,
     })];
     let input_nodal = make_beam(n, l, E, A, IZ, "pinned", Some("rollerX"), loads_nodal);
     let res_nodal = linear::solve_2d(&input_nodal).unwrap();
 
     // Deflection at midspan should be very close
-    let d_poe = res_poe.displacements.iter().find(|d| d.node_id == 4).unwrap().uy;
-    let d_nodal = res_nodal.displacements.iter().find(|d| d.node_id == 4).unwrap().uy;
+    let d_poe = res_poe.displacements.iter().find(|d| d.node_id == 4).unwrap().uz;
+    let d_nodal = res_nodal.displacements.iter().find(|d| d.node_id == 4).unwrap().uz;
 
     assert_close(d_poe, d_nodal, 0.02,
         "PointOnElement at node ≈ nodal load");
@@ -337,14 +337,14 @@ fn validation_partial_symmetric_response() {
     let results = linear::solve_2d(&input).unwrap();
 
     // Reactions should be equal
-    let r1 = results.reactions.iter().find(|r| r.node_id == 1).unwrap().ry;
-    let r_end = results.reactions.iter().find(|r| r.node_id == n + 1).unwrap().ry;
+    let r1 = results.reactions.iter().find(|r| r.node_id == 1).unwrap().rz;
+    let r_end = results.reactions.iter().find(|r| r.node_id == n + 1).unwrap().rz;
     assert_close(r1, r_end, 0.02, "Symmetric partial: R1 = R_end");
 
     // Deflection profile should be symmetric
     for i in 1..=4 {
-        let d_left = results.displacements.iter().find(|d| d.node_id == i + 1).unwrap().uy;
-        let d_right = results.displacements.iter().find(|d| d.node_id == n + 1 - i).unwrap().uy;
+        let d_left = results.displacements.iter().find(|d| d.node_id == i + 1).unwrap().uz;
+        let d_right = results.displacements.iter().find(|d| d.node_id == n + 1 - i).unwrap().uz;
         let err = (d_left - d_right).abs() / d_left.abs().max(1e-10);
         assert!(err < 0.02,
             "Symmetric: node {}: {:.6e}, node {}: {:.6e}", i + 1, d_left, n + 1 - i, d_right);

@@ -128,7 +128,7 @@ fn validation_restrained_thermal_force() {
 
     // No lateral displacement
     let max_uy: f64 = results.displacements.iter()
-        .map(|d| d.uy.abs())
+        .map(|d| d.uz.abs())
         .fold(0.0_f64, f64::max);
     assert_close(max_uy, 0.0, 0.01, "restrained thermal: no lateral displacement");
 }
@@ -391,8 +391,8 @@ fn validation_portal_frame_thermal_column_bending() {
     assert!(ux2.abs() > 1e-6, "portal thermal: node 2 should move");
 
     // Column moment reactions at base should be non-zero
-    let mz1 = results.reactions.iter().find(|r| r.node_id == 1).unwrap().mz;
-    let mz4 = results.reactions.iter().find(|r| r.node_id == 4).unwrap().mz;
+    let mz1 = results.reactions.iter().find(|r| r.node_id == 1).unwrap().my;
+    let mz4 = results.reactions.iter().find(|r| r.node_id == 4).unwrap().my;
     assert!(mz1.abs() > 0.1, "portal thermal: base moment should develop");
     assert_close(mz1.abs(), mz4.abs(), 0.05,
         "portal thermal: symmetric base moments");
@@ -517,7 +517,7 @@ fn validation_temperature_gradient_curvature() {
     // The midspan node
     let mid_node = n / 2 + 1;
     let uy_mid = results.displacements.iter()
-        .find(|d| d.node_id == mid_node).unwrap().uy;
+        .find(|d| d.node_id == mid_node).unwrap().uz;
 
     // The deflection sign depends on convention: positive gradient (top hotter)
     // causes hogging (upward camber) in the solver, so uy should be positive
@@ -525,16 +525,16 @@ fn validation_temperature_gradient_curvature() {
         "temperature gradient: midspan deflection");
 
     // SS beam is determinate => no moment reactions
-    let max_mz: f64 = results.reactions.iter()
-        .map(|r| r.mz.abs())
+    let max_my: f64 = results.reactions.iter()
+        .map(|r| r.my.abs())
         .fold(0.0_f64, f64::max);
-    assert_close(max_mz, 0.0, 0.01,
+    assert_close(max_my, 0.0, 0.01,
         "temperature gradient SS: no moment reactions");
 
     // End rotations should equal kappa * L / 2
     let theta_expected = kappa * l / 2.0;
     let rot_end = results.displacements.iter()
-        .find(|d| d.node_id == n + 1).unwrap().rz;
+        .find(|d| d.node_id == n + 1).unwrap().ry;
     assert_close(rot_end.abs(), theta_expected, 0.05,
         "temperature gradient: end rotation");
 }

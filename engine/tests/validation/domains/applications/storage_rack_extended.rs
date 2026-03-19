@@ -69,8 +69,8 @@ fn validation_rack_upright_column_axial_capacity() {
     let loads = vec![SolverLoad::Nodal(SolverNodalLoad {
         node_id: 2,
         fx: 0.0,
-        fy: -p_applied,
-        mz: 0.0,
+        fz: -p_applied,
+        my: 0.0,
     })];
 
     let input = make_input(
@@ -99,7 +99,7 @@ fn validation_rack_upright_column_axial_capacity() {
     );
 
     // Vertical equilibrium: sum of vertical reactions = applied load
-    let sum_ry: f64 = results.reactions.iter().map(|r| r.ry).sum();
+    let sum_ry: f64 = results.reactions.iter().map(|r| r.rz).sum();
     assert_close(sum_ry, p_applied, 0.02, "Upright: vertical equilibrium");
 }
 
@@ -136,12 +136,12 @@ fn validation_rack_pallet_beam_moment() {
 
     // Check reactions: each support should carry wL/2
     let r_expected: f64 = w * span / 2.0;
-    let sum_ry: f64 = results.reactions.iter().map(|r| r.ry).sum();
+    let sum_ry: f64 = results.reactions.iter().map(|r| r.rz).sum();
     assert_close(sum_ry, w * span, 0.02, "Pallet beam: total vertical reaction = wL");
 
     // Each reaction ~ wL/2
     for r in &results.reactions {
-        assert_close(r.ry.abs(), r_expected, 0.05, "Pallet beam: each reaction ~ wL/2");
+        assert_close(r.rz.abs(), r_expected, 0.05, "Pallet beam: each reaction ~ wL/2");
     }
 }
 
@@ -236,7 +236,7 @@ fn validation_rack_semirigid_connector() {
             SolverNode {
                 id: i + 1,
                 x: i as f64 * elem_len,
-                y: 0.0,
+                z: 0.0,
             },
         );
     }
@@ -286,8 +286,8 @@ fn validation_rack_semirigid_connector() {
             ky: None,
             kz: Some(k_semi),
             dx: None,
-            dy: None,
-            drz: None,
+            dz: None,
+            dry: None,
             angle: None,
         },
     );
@@ -301,8 +301,8 @@ fn validation_rack_semirigid_connector() {
             ky: None,
             kz: Some(k_semi),
             dx: None,
-            dy: None,
-            drz: None,
+            dz: None,
+            dry: None,
             angle: None,
         },
     );
@@ -335,14 +335,14 @@ fn validation_rack_semirigid_connector() {
         .iter()
         .find(|d| d.node_id == mid_node)
         .unwrap()
-        .uy
+        .uz
         .abs();
     let uy_semi: f64 = res_semi
         .displacements
         .iter()
         .find(|d| d.node_id == mid_node)
         .unwrap()
-        .uy
+        .uz
         .abs();
 
     // Semi-rigid deflection must be less than pinned (springs resist rotation)
@@ -408,8 +408,8 @@ fn validation_rack_down_aisle_stability() {
     let loads = vec![SolverLoad::Nodal(SolverNodalLoad {
         node_id: 3,
         fx: h_force,
-        fy: 0.0,
-        mz: 0.0,
+        fz: 0.0,
+        my: 0.0,
     })];
 
     let input = make_input(
@@ -456,7 +456,7 @@ fn validation_rack_down_aisle_stability() {
     assert_close(sum_rx, -h_force, 0.02, "Down-aisle: horizontal equilibrium");
 
     // Vertical equilibrium (no vertical loads)
-    let sum_ry: f64 = results.reactions.iter().map(|r| r.ry).sum();
+    let sum_ry: f64 = results.reactions.iter().map(|r| r.rz).sum();
     assert_close(sum_ry, 0.0, 0.02, "Down-aisle: vertical equilibrium (no gravity)");
 }
 
@@ -505,8 +505,8 @@ fn validation_rack_cross_aisle_bracing() {
     let loads = vec![SolverLoad::Nodal(SolverNodalLoad {
         node_id: 2,
         fx: h_lat,
-        fy: 0.0,
-        mz: 0.0,
+        fz: 0.0,
+        my: 0.0,
     })];
 
     let input_braced = make_input(
@@ -592,8 +592,8 @@ fn validation_rack_base_plate_semirigid() {
     let loads_p = vec![SolverLoad::Nodal(SolverNodalLoad {
         node_id: 2,
         fx: h_lat,
-        fy: 0.0,
-        mz: 0.0,
+        fz: 0.0,
+        my: 0.0,
     })];
     let input_pinned = make_input(
         nodes_p,
@@ -616,10 +616,10 @@ fn validation_rack_base_plate_semirigid() {
     let k_base: f64 = 5.0 * ei_over_l;
 
     let mut nodes_sr = HashMap::new();
-    nodes_sr.insert("1".to_string(), SolverNode { id: 1, x: 0.0, y: 0.0 });
-    nodes_sr.insert("2".to_string(), SolverNode { id: 2, x: 0.0, y: h });
-    nodes_sr.insert("3".to_string(), SolverNode { id: 3, x: w_bay, y: h });
-    nodes_sr.insert("4".to_string(), SolverNode { id: 4, x: w_bay, y: 0.0 });
+    nodes_sr.insert("1".to_string(), SolverNode { id: 1, x: 0.0, z: 0.0 });
+    nodes_sr.insert("2".to_string(), SolverNode { id: 2, x: 0.0, z: h });
+    nodes_sr.insert("3".to_string(), SolverNode { id: 3, x: w_bay, z: h });
+    nodes_sr.insert("4".to_string(), SolverNode { id: 4, x: w_bay, z: 0.0 });
 
     let mut mats_sr = HashMap::new();
     mats_sr.insert("1".to_string(), SolverMaterial { id: 1, e: E_RACK, nu: 0.3 });
@@ -645,16 +645,16 @@ fn validation_rack_base_plate_semirigid() {
     sups_sr.insert("1".to_string(), SolverSupport {
         id: 1, node_id: 1, support_type: "pinned".to_string(),
         kx: None, ky: None, kz: Some(k_base),
-        dx: None, dy: None, drz: None, angle: None,
+        dx: None, dz: None, dry: None, angle: None,
     });
     sups_sr.insert("2".to_string(), SolverSupport {
         id: 2, node_id: 4, support_type: "pinned".to_string(),
         kx: None, ky: None, kz: Some(k_base),
-        dx: None, dy: None, drz: None, angle: None,
+        dx: None, dz: None, dry: None, angle: None,
     });
 
     let loads_sr = vec![SolverLoad::Nodal(SolverNodalLoad {
-        node_id: 2, fx: h_lat, fy: 0.0, mz: 0.0,
+        node_id: 2, fx: h_lat, fz: 0.0, my: 0.0,
     })];
 
     let input_semi = SolverInput {
@@ -843,12 +843,12 @@ fn validation_rack_progressive_collapse() {
     let uy_max_intact: f64 = res_intact
         .displacements
         .iter()
-        .map(|d| d.uy.abs())
+        .map(|d| d.uz.abs())
         .fold(0.0_f64, f64::max);
     let uy_max_collapsed: f64 = res_collapsed
         .displacements
         .iter()
-        .map(|d| d.uy.abs())
+        .map(|d| d.uz.abs())
         .fold(0.0_f64, f64::max);
 
     assert!(
@@ -860,8 +860,8 @@ fn validation_rack_progressive_collapse() {
 
     // Both cases must satisfy global vertical equilibrium
     let total_load: f64 = w_pallet * w_bay * 2.0; // total gravity load on two bays
-    let sum_ry_intact: f64 = res_intact.reactions.iter().map(|r| r.ry).sum();
+    let sum_ry_intact: f64 = res_intact.reactions.iter().map(|r| r.rz).sum();
     assert_close(sum_ry_intact, total_load, 0.02, "Intact: vertical equilibrium");
-    let sum_ry_collapsed: f64 = res_collapsed.reactions.iter().map(|r| r.ry).sum();
+    let sum_ry_collapsed: f64 = res_collapsed.reactions.iter().map(|r| r.rz).sum();
     assert_close(sum_ry_collapsed, total_load, 0.02, "Collapsed: vertical equilibrium");
 }

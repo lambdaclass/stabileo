@@ -31,7 +31,7 @@ pub fn add_geometric_stiffness_2d(
         let sec = sec_by_id[&elem.section_id];
 
         let dx = node_j.x - node_i.x;
-        let dy = node_j.y - node_i.y;
+        let dy = node_j.z - node_i.z;
         let l = (dx * dx + dy * dy).sqrt();
         let cos = dx / l;
         let sin = dy / l;
@@ -101,7 +101,7 @@ fn add_truss_kg_2d(
     let sec = sec_by_id[&elem.section_id];
 
     let dx = node_j.x - node_i.x;
-    let dy = node_j.y - node_i.y;
+    let dy = node_j.z - node_i.z;
     let l = (dx * dx + dy * dy).sqrt();
     let cos = dx / l;
     let sin = dy / l;
@@ -165,7 +165,7 @@ pub fn build_kg_from_forces_2d(
         let node_j = node_by_id[&elem.node_j];
 
         let dx = node_j.x - node_i.x;
-        let dy = node_j.y - node_i.y;
+        let dy = node_j.z - node_i.z;
         let l = (dx * dx + dy * dy).sqrt();
         let cos = dx / l;
         let sin = dy / l;

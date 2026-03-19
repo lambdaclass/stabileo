@@ -86,7 +86,7 @@ fn validation_cable_ext2_1_catenary_horizontal_tension() {
         ],
         vec![(1, 1, "pinned"), (2, 3, "pinned")],
         vec![SolverLoad::Nodal(SolverNodalLoad {
-            node_id: 2, fx: 0.0, fy: -p, mz: 0.0,
+            node_id: 2, fx: 0.0, fz: -p, my: 0.0,
         })],
     );
     let results = linear::solve_2d(&input).unwrap();
@@ -102,12 +102,12 @@ fn validation_cable_ext2_1_catenary_horizontal_tension() {
     assert_close(h_fem, h_pt_analytical, 0.02, "FEM horizontal thrust matches analytical");
 
     // Verify vertical equilibrium
-    let sum_ry: f64 = results.reactions.iter().map(|r| r.ry).sum();
+    let sum_ry: f64 = results.reactions.iter().map(|r| r.rz).sum();
     assert_close(sum_ry, p, 0.01, "Vertical equilibrium: sum(Ry) = P");
 
     // Verify symmetry of vertical reactions
-    let ry_left = results.reactions.iter().find(|r| r.node_id == 1).unwrap().ry;
-    let ry_right = results.reactions.iter().find(|r| r.node_id == 3).unwrap().ry;
+    let ry_left = results.reactions.iter().find(|r| r.node_id == 1).unwrap().rz;
+    let ry_right = results.reactions.iter().find(|r| r.node_id == 3).unwrap().rz;
     assert_close(ry_left, ry_right, 0.02, "Symmetric vertical reactions");
     assert_close(ry_left, p / 2.0, 0.02, "V_A = P/2");
 
@@ -170,13 +170,13 @@ fn validation_cable_ext2_2_cable_sag_ratio() {
             ],
             vec![(1, 1, "pinned"), (2, 3, "pinned")],
             vec![SolverLoad::Nodal(SolverNodalLoad {
-                node_id: 2, fx: 0.0, fy: -p, mz: 0.0,
+                node_id: 2, fx: 0.0, fz: -p, my: 0.0,
             })],
         );
         let results = linear::solve_2d(&input).unwrap();
 
         let uy = results.displacements.iter()
-            .find(|dd| dd.node_id == 2).unwrap().uy.abs();
+            .find(|dd| dd.node_id == 2).unwrap().uz.abs();
         let f = results.element_forces.iter()
             .find(|e| e.element_id == 1).unwrap().n_start.abs();
 
@@ -184,7 +184,7 @@ fn validation_cable_ext2_2_cable_sag_ratio() {
         forces.push(f);
 
         // Equilibrium check
-        let sum_ry: f64 = results.reactions.iter().map(|r| r.ry).sum();
+        let sum_ry: f64 = results.reactions.iter().map(|r| r.rz).sum();
         assert_close(sum_ry, p, 0.01,
             &format!("Sag ratio d={:.1}: vertical equilibrium", d));
     }
@@ -530,10 +530,10 @@ fn validation_cable_ext2_7_multi_span_cable() {
         ],
         vec![
             SolverLoad::Nodal(SolverNodalLoad {
-                node_id: 2, fx: 0.0, fy: -p, mz: 0.0,
+                node_id: 2, fx: 0.0, fz: -p, my: 0.0,
             }),
             SolverLoad::Nodal(SolverNodalLoad {
-                node_id: 4, fx: 0.0, fy: -p, mz: 0.0,
+                node_id: 4, fx: 0.0, fz: -p, my: 0.0,
             }),
         ],
     );
@@ -541,16 +541,16 @@ fn validation_cable_ext2_7_multi_span_cable() {
 
     // Total vertical equilibrium: sum(Ry) = 2P
     let total_load = 2.0 * p;
-    let sum_ry: f64 = results.reactions.iter().map(|r| r.ry).sum();
+    let sum_ry: f64 = results.reactions.iter().map(|r| r.rz).sum();
     assert_close(sum_ry, total_load, 0.01, "Multi-span: total vertical equilibrium");
 
     // Symmetry: end supports carry equal reactions
-    let r_left = results.reactions.iter().find(|r| r.node_id == 1).unwrap().ry;
-    let r_right = results.reactions.iter().find(|r| r.node_id == 5).unwrap().ry;
+    let r_left = results.reactions.iter().find(|r| r.node_id == 1).unwrap().rz;
+    let r_right = results.reactions.iter().find(|r| r.node_id == 5).unwrap().rz;
     assert_close(r_left, r_right, 0.02, "Multi-span: end supports symmetric");
 
     // Interior support carries more than each end support
-    let r_interior = results.reactions.iter().find(|r| r.node_id == 3).unwrap().ry;
+    let r_interior = results.reactions.iter().find(|r| r.node_id == 3).unwrap().rz;
     assert!(r_interior > r_left,
         "Multi-span: interior support ({:.2}) > end support ({:.2})",
         r_interior, r_left);
@@ -565,11 +565,11 @@ fn validation_cable_ext2_7_multi_span_cable() {
     // Both midspan nodes deflect downward
     let d2 = results.displacements.iter().find(|dd| dd.node_id == 2).unwrap();
     let d4 = results.displacements.iter().find(|dd| dd.node_id == 4).unwrap();
-    assert!(d2.uy < 0.0, "Multi-span: midspan node 2 deflects down");
-    assert!(d4.uy < 0.0, "Multi-span: midspan node 4 deflects down");
+    assert!(d2.uz < 0.0, "Multi-span: midspan node 2 deflects down");
+    assert!(d4.uz < 0.0, "Multi-span: midspan node 4 deflects down");
 
     // Symmetric deflections
-    assert_close(d2.uy.abs(), d4.uy.abs(), 0.02,
+    assert_close(d2.uz.abs(), d4.uz.abs(), 0.02,
         "Multi-span: symmetric midspan deflections");
 
     // Horizontal equilibrium
@@ -630,13 +630,13 @@ fn validation_cable_ext2_8_cable_pretension_effect() {
             ],
             vec![(1, 1, "pinned"), (2, 3, "pinned")],
             vec![SolverLoad::Nodal(SolverNodalLoad {
-                node_id: 2, fx: 0.0, fy: -p, mz: 0.0,
+                node_id: 2, fx: 0.0, fz: -p, my: 0.0,
             })],
         );
         let results = linear::solve_2d(&input).unwrap();
 
         let uy = results.displacements.iter()
-            .find(|dd| dd.node_id == 2).unwrap().uy.abs();
+            .find(|dd| dd.node_id == 2).unwrap().uz.abs();
         let f1 = results.element_forces.iter()
             .find(|e| e.element_id == 1).unwrap().n_start.abs();
 
@@ -644,7 +644,7 @@ fn validation_cable_ext2_8_cable_pretension_effect() {
         axial_forces.push(f1);
 
         // Equilibrium always holds
-        let sum_ry: f64 = results.reactions.iter().map(|r| r.ry).sum();
+        let sum_ry: f64 = results.reactions.iter().map(|r| r.rz).sum();
         assert_close(sum_ry, p, 0.01,
             &format!("Pretension A={:.4}: vertical equilibrium", a));
     }

@@ -45,16 +45,16 @@ fn validation_deflection_ss_two_symmetric_loads() {
 
     let loads = vec![
         SolverLoad::Nodal(SolverNodalLoad {
-            node_id: a_pos, fx: 0.0, fy: -p, mz: 0.0,
+            node_id: a_pos, fx: 0.0, fz: -p, my: 0.0,
         }),
         SolverLoad::Nodal(SolverNodalLoad {
-            node_id: b_pos, fx: 0.0, fy: -p, mz: 0.0,
+            node_id: b_pos, fx: 0.0, fz: -p, my: 0.0,
         }),
     ];
     let input = make_beam(n, l, E, A, IZ, "pinned", Some("rollerX"), loads);
     let results = linear::solve_2d(&input).unwrap();
 
-    let d_mid = results.displacements.iter().find(|d| d.node_id == mid).unwrap().uy.abs();
+    let d_mid = results.displacements.iter().find(|d| d.node_id == mid).unwrap().uz.abs();
 
     let a: f64 = l / 3.0;
     let delta_exact = p * a * (3.0 * l * l - 4.0 * a * a) / (24.0 * e_eff * IZ);
@@ -77,12 +77,12 @@ fn validation_deflection_cantilever_end_moment() {
     let e_eff = E * 1000.0;
 
     let loads = vec![SolverLoad::Nodal(SolverNodalLoad {
-        node_id: n + 1, fx: 0.0, fy: 0.0, mz: m,
+        node_id: n + 1, fx: 0.0, fz: 0.0, my: m,
     })];
     let input = make_beam(n, l, E, A, IZ, "fixed", None, loads);
     let results = linear::solve_2d(&input).unwrap();
 
-    let d_tip = results.displacements.iter().find(|d| d.node_id == n + 1).unwrap().uy.abs();
+    let d_tip = results.displacements.iter().find(|d| d.node_id == n + 1).unwrap().uz.abs();
 
     let delta_exact = m * l * l / (2.0 * e_eff * IZ);
     assert_close(d_tip, delta_exact, 0.02,
@@ -108,12 +108,12 @@ fn validation_deflection_cantilever_intermediate_load() {
     let a: f64 = l / 2.0;
 
     let loads = vec![SolverLoad::Nodal(SolverNodalLoad {
-        node_id: load_node, fx: 0.0, fy: -p, mz: 0.0,
+        node_id: load_node, fx: 0.0, fz: -p, my: 0.0,
     })];
     let input = make_beam(n, l, E, A, IZ, "fixed", None, loads);
     let results = linear::solve_2d(&input).unwrap();
 
-    let d_tip = results.displacements.iter().find(|d| d.node_id == n + 1).unwrap().uy.abs();
+    let d_tip = results.displacements.iter().find(|d| d.node_id == n + 1).unwrap().uz.abs();
 
     let delta_exact = p * a * a * (3.0 * l - a) / (6.0 * e_eff * IZ);
     assert_close(d_tip, delta_exact, 0.02,
@@ -140,13 +140,13 @@ fn validation_deflection_ss_offcenter_load() {
     let b: f64 = l - a;
 
     let loads = vec![SolverLoad::Nodal(SolverNodalLoad {
-        node_id: load_node, fx: 0.0, fy: -p, mz: 0.0,
+        node_id: load_node, fx: 0.0, fz: -p, my: 0.0,
     })];
     let input = make_beam(n, l, E, A, IZ, "pinned", Some("rollerX"), loads);
     let results = linear::solve_2d(&input).unwrap();
 
     let d_at_load = results.displacements.iter()
-        .find(|d| d.node_id == load_node).unwrap().uy.abs();
+        .find(|d| d.node_id == load_node).unwrap().uz.abs();
 
     let delta_exact = p * a * a * b * b / (3.0 * e_eff * IZ * l);
     assert_close(d_at_load, delta_exact, 0.02,
@@ -175,9 +175,9 @@ fn validation_deflection_fixed_zero_rotation() {
     let results = linear::solve_2d(&input).unwrap();
 
     let rot_start = results.displacements.iter()
-        .find(|d| d.node_id == 1).unwrap().rz.abs();
+        .find(|d| d.node_id == 1).unwrap().ry.abs();
     let rot_end = results.displacements.iter()
-        .find(|d| d.node_id == n + 1).unwrap().rz.abs();
+        .find(|d| d.node_id == n + 1).unwrap().ry.abs();
 
     assert!(rot_start < 1e-10,
         "Fixed end rotation at start should be zero, got {:.3e}", rot_start);
@@ -209,7 +209,7 @@ fn validation_deflection_linearity_double_i() {
         let input = make_beam(n, l, E, A, iz_val, "pinned", Some("rollerX"), loads);
         let results = linear::solve_2d(&input).unwrap();
         results.displacements.iter()
-            .find(|d| d.node_id == mid).unwrap().uy.abs()
+            .find(|d| d.node_id == mid).unwrap().uz.abs()
     };
 
     let d1 = solve_with_iz(IZ);
@@ -262,13 +262,13 @@ fn validation_deflection_propped_center_load() {
 
     let mid = n / 2 + 1;
     let loads = vec![SolverLoad::Nodal(SolverNodalLoad {
-        node_id: mid, fx: 0.0, fy: -p, mz: 0.0,
+        node_id: mid, fx: 0.0, fz: -p, my: 0.0,
     })];
     let input = make_beam(n, l, E, A, IZ, "fixed", Some("rollerX"), loads);
     let results = linear::solve_2d(&input).unwrap();
 
     let d_mid = results.displacements.iter()
-        .find(|d| d.node_id == mid).unwrap().uy.abs();
+        .find(|d| d.node_id == mid).unwrap().uz.abs();
 
     // Fixed-roller with center load: delta_center = 7PL^3 / (768EI)
     let delta_exact = 7.0 * p * l * l * l / (768.0 * e_eff * IZ);
@@ -321,7 +321,7 @@ fn validation_deflection_ss_half_span_udl() {
     let input_full = make_beam(n, l, E, A, IZ, "pinned", Some("rollerX"), loads_full);
     let results_full = linear::solve_2d(&input_full).unwrap();
     let d_full = results_full.displacements.iter()
-        .find(|d| d.node_id == mid).unwrap().uy.abs();
+        .find(|d| d.node_id == mid).unwrap().uz.abs();
 
     // Half-span UDL (left half only, elements 1 to n/2)
     let loads_half: Vec<SolverLoad> = (1..=(n / 2))
@@ -332,7 +332,7 @@ fn validation_deflection_ss_half_span_udl() {
     let input_half = make_beam(n, l, E, A, IZ, "pinned", Some("rollerX"), loads_half);
     let results_half = linear::solve_2d(&input_half).unwrap();
     let d_half = results_half.displacements.iter()
-        .find(|d| d.node_id == mid).unwrap().uy.abs();
+        .find(|d| d.node_id == mid).unwrap().uz.abs();
 
     // delta_full = 5qL^4/(384EI)
     let delta_full_exact = 5.0 * q.abs() * l.powi(4) / (384.0 * e_eff * IZ);

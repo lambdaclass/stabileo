@@ -59,7 +59,7 @@ fn validation_pg_ext_web_shear_buckling() {
     let tw: f64 = 10.0;         // mm, web thickness
     let d: f64 = 1400.0;        // mm, web clear depth
     let a: f64 = 2100.0;        // mm, stiffener spacing
-    let fy: f64 = 350.0;        // MPa, yield stress
+    let fz: f64 = 350.0;        // MPa, yield stress
 
     // Aspect ratio
     let aspect: f64 = a / d; // 1.5
@@ -88,7 +88,7 @@ fn validation_pg_ext_web_shear_buckling() {
     assert_close(tau_cr, 65.65, 0.03, "elastic critical shear stress tau_cr (MPa)");
 
     // Von Mises shear yield stress
-    let tau_y: f64 = fy / 3.0_f64.sqrt();
+    let tau_y: f64 = fz / 3.0_f64.sqrt();
     assert_close(tau_y, 202.07, 0.01, "shear yield stress tau_y (MPa)");
 
     // Web slenderness parameter
@@ -149,7 +149,7 @@ fn validation_pg_ext_web_shear_buckling() {
 #[test]
 fn validation_pg_ext_flange_proportioning() {
     let m: f64 = 4500.0e6;      // N*mm = 4500 kN*m
-    let fy: f64 = 345.0;        // MPa
+    let fz: f64 = 345.0;        // MPa
     let h: f64 = 1600.0;        // mm, total girder depth
     let tw: f64 = 12.0;         // mm, web thickness
     let dw: f64 = 1550.0;       // mm, web clear depth (h - 2*tf approx)
@@ -159,10 +159,10 @@ fn validation_pg_ext_flange_proportioning() {
     assert_close(aw, 18_600.0, 0.01, "web area A_w (mm^2)");
 
     // Required flange area from approximate formula
-    let af_req: f64 = m / (fy * h) - aw / 6.0;
+    let af_req: f64 = m / (fz * h) - aw / 6.0;
 
     // Expected: 4500e6 / (345*1600) - 18600/6 = 8152.2 - 3100 = 5052.2 mm^2
-    let term1: f64 = m / (fy * h);
+    let term1: f64 = m / (fz * h);
     assert_close(term1, 8152.2, 0.01, "M/(Fy*h) term");
 
     let term2: f64 = aw / 6.0;
@@ -197,7 +197,7 @@ fn validation_pg_ext_flange_proportioning() {
     // Verify flange compactness (bf/(2*tf) check per AISC Table B4.1b)
     let lambda_f: f64 = bf / (2.0 * tf);
     let e_steel: f64 = 200_000.0;
-    let lambda_pf: f64 = 0.38 * (e_steel / fy).sqrt();
+    let lambda_pf: f64 = 0.38 * (e_steel / fz).sqrt();
 
     assert_close(lambda_f, 8.75, 0.01, "flange slenderness b_f/(2*t_f)");
     assert_close(lambda_pf, 9.15, 0.02, "compact limit lambda_pf");
@@ -927,7 +927,7 @@ fn validation_pg_ext_deflection_web_flexibility() {
 
     // Compare solver result with analytical (both in meters)
     assert_close(
-        mid_d_pg.uy.abs(), delta_pg_theory, 0.05,
+        mid_d_pg.uz.abs(), delta_pg_theory, 0.05,
         "PG midspan deflection: solver vs 5qL^4/(384EI)"
     );
 
@@ -955,19 +955,19 @@ fn validation_pg_ext_deflection_web_flexibility() {
 
     // Compare solver result with analytical (both in meters)
     assert_close(
-        mid_d_w.uy.abs(), delta_w_theory, 0.05,
+        mid_d_w.uz.abs(), delta_w_theory, 0.05,
         "W-shape midspan deflection: solver vs 5qL^4/(384EI)"
     );
 
     // PG deflects less than W-shape (deeper section, much higher I)
     assert!(
-        mid_d_pg.uy.abs() < mid_d_w.uy.abs(),
+        mid_d_pg.uz.abs() < mid_d_w.uz.abs(),
         "PG deflection ({:.6e} m) < W-shape deflection ({:.6e} m)",
-        mid_d_pg.uy.abs(), mid_d_w.uy.abs()
+        mid_d_pg.uz.abs(), mid_d_w.uz.abs()
     );
 
     // Verify the deflection ratio matches the stiffness ratio
-    let solver_ratio: f64 = mid_d_w.uy.abs() / mid_d_pg.uy.abs();
+    let solver_ratio: f64 = mid_d_w.uz.abs() / mid_d_pg.uz.abs();
     assert_close(
         solver_ratio, stiffness_ratio, 0.05,
         "solver deflection ratio vs theoretical stiffness ratio"
@@ -976,8 +976,8 @@ fn validation_pg_ext_deflection_web_flexibility() {
     // Serviceability check: L/360 for live load (convert to meters)
     let l_360_m: f64 = l / 360.0;
     assert!(
-        mid_d_pg.uy.abs() < l_360_m,
+        mid_d_pg.uz.abs() < l_360_m,
         "PG deflection {:.4e} m < L/360 = {:.4e} m (serviceable)",
-        mid_d_pg.uy.abs(), l_360_m
+        mid_d_pg.uz.abs(), l_360_m
     );
 }

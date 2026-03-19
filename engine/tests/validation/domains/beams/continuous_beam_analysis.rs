@@ -117,15 +117,15 @@ fn validation_3span_equal_udl_reactions() {
     let r_d = results.reactions.iter().find(|r| r.node_id == node_d).unwrap();
 
     // End reactions: R_A = R_D = 0.4*qL = 20.0
-    assert_close(r_a.ry, 0.4 * q * l, 0.03, "3span R_A");
-    assert_close(r_d.ry, 0.4 * q * l, 0.03, "3span R_D");
+    assert_close(r_a.rz, 0.4 * q * l, 0.03, "3span R_A");
+    assert_close(r_d.rz, 0.4 * q * l, 0.03, "3span R_D");
 
     // Interior reactions: R_B = R_C = 1.1*qL = 55.0
-    assert_close(r_b.ry, 1.1 * q * l, 0.03, "3span R_B");
-    assert_close(r_c.ry, 1.1 * q * l, 0.03, "3span R_C");
+    assert_close(r_b.rz, 1.1 * q * l, 0.03, "3span R_B");
+    assert_close(r_c.rz, 1.1 * q * l, 0.03, "3span R_C");
 
     // Global equilibrium: sum = 3*q*L = 150
-    let sum_ry: f64 = results.reactions.iter().map(|r| r.ry).sum();
+    let sum_ry: f64 = results.reactions.iter().map(|r| r.rz).sum();
     assert_close(sum_ry, 3.0 * q * l, 0.01, "3span equilibrium");
 }
 
@@ -157,8 +157,8 @@ fn validation_2span_point_load_one_span() {
         vec![SolverLoad::Nodal(SolverNodalLoad {
             node_id: load_node,
             fx: 0.0,
-            fy: -p,
-            mz: 0.0,
+            fz: -p,
+            my: 0.0,
         })],
     );
     let results = linear::solve_2d(&input).unwrap();
@@ -175,7 +175,7 @@ fn validation_2span_point_load_one_span() {
     assert_close(ef_at_b.m_end.abs(), expected_mb, 0.05, "2span point M_B");
 
     // Equilibrium
-    let sum_ry: f64 = results.reactions.iter().map(|r| r.ry).sum();
+    let sum_ry: f64 = results.reactions.iter().map(|r| r.rz).sum();
     assert_close(sum_ry, p, 0.01, "2span point equilibrium");
 }
 
@@ -258,7 +258,7 @@ fn validation_4span_equal_udl_symmetry() {
     assert_close(m_c, expected_mc, 0.05, "4span M_C magnitude");
 
     // Global equilibrium
-    let sum_ry: f64 = results.reactions.iter().map(|r| r.ry).sum();
+    let sum_ry: f64 = results.reactions.iter().map(|r| r.rz).sum();
     assert_close(sum_ry, 4.0 * q * l, 0.01, "4span equilibrium");
 }
 
@@ -341,7 +341,7 @@ fn validation_alternating_loaded_unloaded_spans() {
     );
 
     // Equilibrium: total applied load = 2*q*L = 120 (only spans 1 and 3)
-    let sum_ry: f64 = results.reactions.iter().map(|r| r.ry).sum();
+    let sum_ry: f64 = results.reactions.iter().map(|r| r.rz).sum();
     assert_close(sum_ry, 2.0 * q * l, 0.01, "alternating equilibrium");
 }
 
@@ -500,7 +500,7 @@ fn validation_long_center_span_dominates() {
     assert_close(m_b, m_c, 0.02, "long center M_B = M_C symmetry");
 
     // Equilibrium
-    let sum_ry: f64 = results.reactions.iter().map(|r| r.ry).sum();
+    let sum_ry: f64 = results.reactions.iter().map(|r| r.rz).sum();
     assert_close(sum_ry, q * (l1 + l2 + l3), 0.01, "long center equilibrium");
 }
 
@@ -543,7 +543,7 @@ fn validation_continuity_reduces_max_deflection() {
         .iter()
         .find(|d| d.node_id == ss_mid_node)
         .unwrap()
-        .uy
+        .uz
         .abs();
 
     // Analytical: δ_ss = 5qL⁴/(384EI)
@@ -572,7 +572,7 @@ fn validation_continuity_reduces_max_deflection() {
         .iter()
         .find(|d| d.node_id == cont_mid_node)
         .unwrap()
-        .uy
+        .uz
         .abs();
 
     // Continuity should significantly reduce midspan deflection

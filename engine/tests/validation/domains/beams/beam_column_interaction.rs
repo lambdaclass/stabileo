@@ -41,24 +41,24 @@ fn validation_bc_tension_axial_independence() {
     // Bending only: midspan load
     let mid = n / 2 + 1;
     let loads_b = vec![SolverLoad::Nodal(SolverNodalLoad {
-        node_id: mid, fx: 0.0, fy: -p_trans, mz: 0.0,
+        node_id: mid, fx: 0.0, fz: -p_trans, my: 0.0,
     })];
     let input_b = make_beam(n, l, E, A, IZ, "pinned", Some("rollerX"), loads_b);
     let d_b = linear::solve_2d(&input_b).unwrap()
-        .displacements.iter().find(|d| d.node_id == mid).unwrap().uy;
+        .displacements.iter().find(|d| d.node_id == mid).unwrap().uz;
 
     // Combined axial tension + bending
     let loads_c = vec![
         SolverLoad::Nodal(SolverNodalLoad {
-            node_id: mid, fx: 0.0, fy: -p_trans, mz: 0.0,
+            node_id: mid, fx: 0.0, fz: -p_trans, my: 0.0,
         }),
         SolverLoad::Nodal(SolverNodalLoad {
-            node_id: n + 1, fx: p_axial, fy: 0.0, mz: 0.0,
+            node_id: n + 1, fx: p_axial, fz: 0.0, my: 0.0,
         }),
     ];
     let input_c = make_beam(n, l, E, A, IZ, "pinned", Some("rollerX"), loads_c);
     let d_c = linear::solve_2d(&input_c).unwrap()
-        .displacements.iter().find(|d| d.node_id == mid).unwrap().uy;
+        .displacements.iter().find(|d| d.node_id == mid).unwrap().uz;
 
     // In linear analysis (no geometric stiffness), transverse deflection
     // should be the same (axial and bending are uncoupled)
@@ -78,7 +78,7 @@ fn validation_bc_axial_distribution() {
 
     // Cantilever with axial load at tip
     let loads = vec![SolverLoad::Nodal(SolverNodalLoad {
-        node_id: n + 1, fx: p, fy: 0.0, mz: 0.0,
+        node_id: n + 1, fx: p, fz: 0.0, my: 0.0,
     })];
     let input = make_beam(n, l, E, A, IZ, "fixed", None, loads);
     let results = linear::solve_2d(&input).unwrap();
@@ -113,7 +113,7 @@ fn validation_bc_eccentric_load() {
 
     // Case 1: Apply moment directly at tip of cantilever
     let loads_m = vec![SolverLoad::Nodal(SolverNodalLoad {
-        node_id: n + 1, fx: 0.0, fy: 0.0, mz: m_app,
+        node_id: n + 1, fx: 0.0, fz: 0.0, my: m_app,
     })];
     let input_m = make_beam(n, l, E, A, IZ, "fixed", None, loads_m);
     let res_m = linear::solve_2d(&input_m).unwrap();
@@ -123,11 +123,11 @@ fn validation_bc_eccentric_load() {
     // Cantilever with end moment: δ = ML²/(2EI), θ = ML/(EI)
     let e_eff = E * 1000.0;
     let theta_exact = m_app * l / (e_eff * IZ);
-    assert_close(tip_m.rz.abs(), theta_exact, 0.02,
+    assert_close(tip_m.ry.abs(), theta_exact, 0.02,
         "Eccentric: θ = ML/(EI)");
 
     let delta_exact = m_app * l * l / (2.0 * e_eff * IZ);
-    assert_close(tip_m.uy.abs(), delta_exact, 0.02,
+    assert_close(tip_m.uz.abs(), delta_exact, 0.02,
         "Eccentric: δ = ML²/(2EI)");
 }
 
@@ -144,7 +144,7 @@ fn validation_bc_combined_resultants() {
 
     // Cantilever with both axial and transverse tip loads
     let loads = vec![SolverLoad::Nodal(SolverNodalLoad {
-        node_id: n + 1, fx: p_axial, fy: -p_trans, mz: 0.0,
+        node_id: n + 1, fx: p_axial, fz: -p_trans, my: 0.0,
     })];
     let input = make_beam(n, l, E, A, IZ, "fixed", None, loads);
     let results = linear::solve_2d(&input).unwrap();
@@ -177,7 +177,7 @@ fn validation_bc_equilibrium() {
 
     let loads = vec![
         SolverLoad::Nodal(SolverNodalLoad {
-            node_id: n + 1, fx: p_axial, fy: -p_trans, mz: 0.0,
+            node_id: n + 1, fx: p_axial, fz: -p_trans, my: 0.0,
         }),
     ];
     let input = make_beam(n, l, E, A, IZ, "fixed", None, loads);
@@ -187,10 +187,10 @@ fn validation_bc_equilibrium() {
 
     // Force equilibrium
     assert_close(r.rx, -p_axial, 0.02, "BC equil: Rx = -P_axial");
-    assert_close(r.ry, p_trans, 0.02, "BC equil: Ry = P_trans");
+    assert_close(r.rz, p_trans, 0.02, "BC equil: Ry = P_trans");
 
     // Moment equilibrium about fixed end
-    assert_close(r.mz.abs(), p_trans * l, 0.02,
+    assert_close(r.my.abs(), p_trans * l, 0.02,
         "BC equil: M = P_trans × L");
 }
 
@@ -207,25 +207,25 @@ fn validation_bc_symmetric_reactions() {
 
     // Without axial
     let loads1 = vec![SolverLoad::Nodal(SolverNodalLoad {
-        node_id: mid, fx: 0.0, fy: -p_trans, mz: 0.0,
+        node_id: mid, fx: 0.0, fz: -p_trans, my: 0.0,
     })];
     let input1 = make_beam(n, l, E, A, IZ, "pinned", Some("rollerX"), loads1);
     let r1 = linear::solve_2d(&input1).unwrap();
-    let ra1 = r1.reactions.iter().find(|r| r.node_id == 1).unwrap().ry;
+    let ra1 = r1.reactions.iter().find(|r| r.node_id == 1).unwrap().rz;
 
     // With axial (applied at roller end in X)
     let p_axial = 50.0;
     let loads2 = vec![
         SolverLoad::Nodal(SolverNodalLoad {
-            node_id: mid, fx: 0.0, fy: -p_trans, mz: 0.0,
+            node_id: mid, fx: 0.0, fz: -p_trans, my: 0.0,
         }),
         SolverLoad::Nodal(SolverNodalLoad {
-            node_id: n + 1, fx: p_axial, fy: 0.0, mz: 0.0,
+            node_id: n + 1, fx: p_axial, fz: 0.0, my: 0.0,
         }),
     ];
     let input2 = make_beam(n, l, E, A, IZ, "pinned", Some("rollerX"), loads2);
     let r2 = linear::solve_2d(&input2).unwrap();
-    let ra2 = r2.reactions.iter().find(|r| r.node_id == 1).unwrap().ry;
+    let ra2 = r2.reactions.iter().find(|r| r.node_id == 1).unwrap().rz;
 
     // Vertical reactions should be the same (linear analysis)
     assert_close(ra1, ra2, 0.01,
@@ -245,7 +245,7 @@ fn validation_bc_deflection_components() {
 
     // Cantilever with combined load
     let loads = vec![SolverLoad::Nodal(SolverNodalLoad {
-        node_id: n + 1, fx: -p, fy: -p, mz: 0.0,
+        node_id: n + 1, fx: -p, fz: -p, my: 0.0,
     })];
     let input = make_beam(n, l, E, A, IZ, "fixed", None, loads);
     let results = linear::solve_2d(&input).unwrap();
@@ -260,12 +260,12 @@ fn validation_bc_deflection_components() {
 
     // Bending deflection: δy = PL³/(3EI)
     let dy_exact = p * l * l * l / (3.0 * e_eff * IZ);
-    assert_close(tip.uy.abs(), dy_exact, 0.02,
+    assert_close(tip.uz.abs(), dy_exact, 0.02,
         "BC components: δy = PL³/(3EI)");
 
     // In linear analysis, these are independent
     // δx << δy typically (axial stiffness >> bending stiffness for slender beams)
-    assert!(tip.ux.abs() < tip.uy.abs(),
+    assert!(tip.ux.abs() < tip.uz.abs(),
         "BC: axial shortening < bending deflection");
 }
 
@@ -301,7 +301,7 @@ fn validation_bc_frame_column() {
     // Global equilibrium
     // make_portal_frame applies gravity_load at both nodes 2 and 3
     let sum_rx: f64 = results.reactions.iter().map(|r| r.rx).sum();
-    let sum_ry: f64 = results.reactions.iter().map(|r| r.ry).sum();
+    let sum_ry: f64 = results.reactions.iter().map(|r| r.rz).sum();
     assert_close(sum_rx, -f_lat, 0.02, "Frame equil: ΣRx = -F_lat");
     assert_close(sum_ry, -2.0 * f_grav, 0.02, "Frame equil: ΣRy = -2×F_grav");
 }

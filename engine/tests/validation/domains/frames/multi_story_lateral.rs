@@ -45,7 +45,7 @@ fn validation_lateral_single_bay_base_shear() {
     // Fixed-base portal: inflection points near mid-height of columns
     // Column moments at base should be significant
     let m_bases: Vec<f64> = results.reactions.iter()
-        .map(|r| r.mz.abs())
+        .map(|r| r.my.abs())
         .collect();
     for m in &m_bases {
         assert!(*m > 0.1,
@@ -84,8 +84,8 @@ fn validation_lateral_two_story_shear() {
     ];
     let sups = vec![(1, 1, "fixed"), (2, 2, "fixed")];
     let loads = vec![
-        SolverLoad::Nodal(SolverNodalLoad { node_id: 3, fx: f1, fy: 0.0, mz: 0.0 }),
-        SolverLoad::Nodal(SolverNodalLoad { node_id: 5, fx: f2, fy: 0.0, mz: 0.0 }),
+        SolverLoad::Nodal(SolverNodalLoad { node_id: 3, fx: f1, fz: 0.0, my: 0.0 }),
+        SolverLoad::Nodal(SolverNodalLoad { node_id: 5, fx: f2, fz: 0.0, my: 0.0 }),
     ];
 
     let input = make_input(nodes, vec![(1, E, 0.3)], vec![(1, A, IZ)], elems, sups, loads);
@@ -131,7 +131,7 @@ fn validation_lateral_two_bay_sharing() {
     ];
     let sups = vec![(1, 1, "fixed"), (2, 2, "fixed"), (3, 3, "fixed")];
     let loads = vec![
-        SolverLoad::Nodal(SolverNodalLoad { node_id: 4, fx: p, fy: 0.0, mz: 0.0 }),
+        SolverLoad::Nodal(SolverNodalLoad { node_id: 4, fx: p, fz: 0.0, my: 0.0 }),
     ];
 
     let input = make_input(nodes, vec![(1, E, 0.3)], vec![(1, A, IZ)], elems, sups, loads);
@@ -230,9 +230,9 @@ fn validation_lateral_overturning() {
     ];
     let sups = vec![(1, 1, "fixed"), (2, 2, "fixed")];
     let loads = vec![
-        SolverLoad::Nodal(SolverNodalLoad { node_id: 3, fx: f1, fy: 0.0, mz: 0.0 }),
-        SolverLoad::Nodal(SolverNodalLoad { node_id: 5, fx: f2, fy: 0.0, mz: 0.0 }),
-        SolverLoad::Nodal(SolverNodalLoad { node_id: 7, fx: f3, fy: 0.0, mz: 0.0 }),
+        SolverLoad::Nodal(SolverNodalLoad { node_id: 3, fx: f1, fz: 0.0, my: 0.0 }),
+        SolverLoad::Nodal(SolverNodalLoad { node_id: 5, fx: f2, fz: 0.0, my: 0.0 }),
+        SolverLoad::Nodal(SolverNodalLoad { node_id: 7, fx: f3, fz: 0.0, my: 0.0 }),
     ];
 
     let input = make_input(nodes, vec![(1, E, 0.3)], vec![(1, A, IZ)], elems, sups, loads);
@@ -246,7 +246,7 @@ fn validation_lateral_overturning() {
     let r2 = results.reactions.iter().find(|r| r.node_id == 2).unwrap();
 
     // Moment equilibrium about left base: ΣM = 0
-    let residual = -m_applied + r1.mz + r2.mz + r2.ry * w;
+    let residual = -m_applied + r1.my + r2.my + r2.rz * w;
     let err = residual.abs() / m_applied.abs();
     assert!(err < 0.01,
         "Overturning equilibrium: residual={:.4}, M_applied={:.4}", residual, m_applied);
@@ -320,7 +320,7 @@ fn validation_lateral_soft_story() {
     ];
     let sups = vec![(1, 1, "fixed"), (2, 2, "fixed")];
     let loads = vec![
-        SolverLoad::Nodal(SolverNodalLoad { node_id: 5, fx: p, fy: 0.0, mz: 0.0 }),
+        SolverLoad::Nodal(SolverNodalLoad { node_id: 5, fx: p, fz: 0.0, my: 0.0 }),
     ];
 
     let input = make_input(
@@ -384,7 +384,7 @@ fn validation_lateral_symmetric_no_sway() {
     let d4 = results.displacements.iter().find(|d| d.node_id == 4).unwrap().ux;
 
     let d_max = results.displacements.iter()
-        .map(|d| d.uy.abs())
+        .map(|d| d.uz.abs())
         .fold(0.0_f64, f64::max);
 
     // Lateral drift should be negligible compared to vertical deflection
@@ -397,7 +397,7 @@ fn validation_lateral_symmetric_no_sway() {
     // Symmetric reactions
     let r1 = results.reactions.iter().find(|r| r.node_id == 1).unwrap();
     let r2 = results.reactions.iter().find(|r| r.node_id == 2).unwrap();
-    let diff_ry = (r1.ry - r2.ry).abs() / r1.ry.abs();
+    let diff_ry = (r1.rz - r2.rz).abs() / r1.rz.abs();
     assert!(diff_ry < 0.01,
-        "Symmetric reactions: Ry1={:.4}, Ry2={:.4}", r1.ry, r2.ry);
+        "Symmetric reactions: Ry1={:.4}, Ry2={:.4}", r1.rz, r2.rz);
 }

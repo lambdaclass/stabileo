@@ -51,7 +51,7 @@ fn equilibrium_three_span_continuous_beam_udl() {
 
     // Vertical equilibrium: sum(Ry) = q * 3 * span
     let total_load = q * 3.0 * span;
-    let sum_ry: f64 = results.reactions.iter().map(|r| r.ry).sum();
+    let sum_ry: f64 = results.reactions.iter().map(|r| r.rz).sum();
     assert_close(sum_ry, total_load, 1e-6, "3-span UDL: sum(Ry) = 3*q*L");
 
     // Horizontal equilibrium: sum(Rx) = 0
@@ -67,9 +67,9 @@ fn equilibrium_three_span_continuous_beam_udl() {
     for r in &results.reactions {
         // x-coordinate of reaction node
         let node_x = (r.node_id - 1) as f64 * elem_len;
-        sum_reaction_moment += r.ry * node_x;
+        sum_reaction_moment += r.rz * node_x;
         // mz reactions also contribute (only present at fixed supports, none here)
-        sum_reaction_moment += r.mz;
+        sum_reaction_moment += r.my;
     }
     // Load moment about left support: integral of q * x dx from 0 to 3L
     // = q * (3L)^2 / 2
@@ -106,21 +106,21 @@ fn equilibrium_moment_about_midspan_ss_two_point_loads() {
         SolverLoad::Nodal(SolverNodalLoad {
             node_id: node_quarter,
             fx: 0.0,
-            fy: -p1,
-            mz: 0.0,
+            fz: -p1,
+            my: 0.0,
         }),
         SolverLoad::Nodal(SolverNodalLoad {
             node_id: node_three_quarter,
             fx: 0.0,
-            fy: -p2,
-            mz: 0.0,
+            fz: -p2,
+            my: 0.0,
         }),
     ];
     let input = make_beam(n, l, E, A, IZ, "pinned", Some("rollerX"), loads);
     let results = linear::solve_2d(&input).unwrap();
 
     // Vertical equilibrium
-    let sum_ry: f64 = results.reactions.iter().map(|r| r.ry).sum();
+    let sum_ry: f64 = results.reactions.iter().map(|r| r.rz).sum();
     assert_close(sum_ry, p1 + p2, 1e-6, "SS 2-load: sum(Ry) = P1 + P2");
 
     // Analytical reactions by statics:
@@ -131,24 +131,24 @@ fn equilibrium_moment_about_midspan_ss_two_point_loads() {
 
     let r_left = results.reactions.iter().find(|r| r.node_id == 1).unwrap();
     let r_right = results.reactions.iter().find(|r| r.node_id == n + 1).unwrap();
-    assert_close(r_left.ry, r_left_expected, 1e-6, "SS 2-load: R_left");
-    assert_close(r_right.ry, r_right_expected, 1e-6, "SS 2-load: R_right");
+    assert_close(r_left.rz, r_left_expected, 1e-6, "SS 2-load: R_left");
+    assert_close(r_right.rz, r_right_expected, 1e-6, "SS 2-load: R_right");
 
     // Moment equilibrium about midspan (x = L/2 = 6.0):
     // Sum of moments about midspan = 0
     // R_left * L/2 + R_right * (-L/2) - P1 * (L/2 - L/4) + P2 * (3L/4 - L/2) = 0
     // => R_left * L/2 - R_right * L/2 - P1 * L/4 + P2 * L/4 = 0
     let x_mid = l / 2.0;
-    let moment_about_mid = r_left.ry * x_mid
-        - r_right.ry * (l - x_mid)
+    let moment_about_mid = r_left.rz * x_mid
+        - r_right.rz * (l - x_mid)
         - p1 * (x_mid - l / 4.0)
         + p2 * (3.0 * l / 4.0 - x_mid);
     // Note: sign convention - downward loads create CW moment if load is to
     // the right of the point, CCW if to the left. Using consistent approach:
     // moment = sum(Ry_i * (x_i - x_ref)) - sum(P_j * (x_j - x_ref))
     // where Ry are upward reactions and P are downward loads.
-    let moment_check = r_left.ry * (0.0 - x_mid)
-        + r_right.ry * (l - x_mid)
+    let moment_check = r_left.rz * (0.0 - x_mid)
+        + r_right.rz * (l - x_mid)
         - p1 * (l / 4.0 - x_mid)
         - p2 * (3.0 * l / 4.0 - x_mid);
     assert!(
@@ -198,8 +198,8 @@ fn equilibrium_truss_triangle_axial_continuity() {
     let loads = vec![SolverLoad::Nodal(SolverNodalLoad {
         node_id: 3,
         fx: 0.0,
-        fy: -p,
-        mz: 0.0,
+        fz: -p,
+        my: 0.0,
     })];
     let input = make_input(
         nodes,
@@ -212,7 +212,7 @@ fn equilibrium_truss_triangle_axial_continuity() {
     let results = linear::solve_2d(&input).unwrap();
 
     // Global vertical equilibrium: sum(Ry) = P
-    let sum_ry: f64 = results.reactions.iter().map(|r| r.ry).sum();
+    let sum_ry: f64 = results.reactions.iter().map(|r| r.rz).sum();
     assert_close(sum_ry, p, 1e-6, "Truss triangle: sum(Ry) = P");
 
     // Global horizontal equilibrium: sum(Rx) = 0
@@ -222,8 +222,8 @@ fn equilibrium_truss_triangle_axial_continuity() {
     // By symmetry, each support takes P/2
     let r1 = results.reactions.iter().find(|r| r.node_id == 1).unwrap();
     let r2 = results.reactions.iter().find(|r| r.node_id == 2).unwrap();
-    assert_close(r1.ry, p / 2.0, 1e-6, "Truss triangle: Ry_1 = P/2");
-    assert_close(r2.ry, p / 2.0, 1e-6, "Truss triangle: Ry_2 = P/2");
+    assert_close(r1.rz, p / 2.0, 1e-6, "Truss triangle: Ry_1 = P/2");
+    assert_close(r2.rz, p / 2.0, 1e-6, "Truss triangle: Ry_2 = P/2");
 
     // For each truss element (no distributed load): n_start = n_end
     // (constant axial force along the element)
@@ -277,7 +277,7 @@ fn equilibrium_portal_combined_loading() {
 
     // Vertical equilibrium: sum(Ry) = -2 * gravity = 2|W|
     // gravity is negative (downward), reactions should be positive (upward)
-    let sum_ry: f64 = results.reactions.iter().map(|r| r.ry).sum();
+    let sum_ry: f64 = results.reactions.iter().map(|r| r.rz).sum();
     assert_close(sum_ry, -2.0 * gravity, 1e-4, "Portal combined: sum(Ry) = 2|W|");
 
     // Moment equilibrium about node 4 (w, 0) — bottom right:
@@ -306,7 +306,7 @@ fn equilibrium_portal_combined_loading() {
     // Moment from reactions about node 4:
     // Node 1 (0, 0): (0-w)*Ry_1 - (0-0)*Rx_1 + Mz_1 = -w*Ry_1 + Mz_1
     // Node 4 (w, 0): 0 + Mz_4
-    let reaction_moment_about_4 = -r1.ry * w + r1.mz + r4.mz;
+    let reaction_moment_about_4 = -r1.rz * w + r1.my + r4.my;
 
     // Equilibrium: applied + reaction = 0
     let residual: f64 = (applied_moment_about_4 + reaction_moment_about_4).abs();
@@ -346,19 +346,19 @@ fn equilibrium_propped_cantilever_force_continuity() {
     let results = linear::solve_2d(&input).unwrap();
 
     // Global vertical equilibrium
-    let sum_ry: f64 = results.reactions.iter().map(|r| r.ry).sum();
+    let sum_ry: f64 = results.reactions.iter().map(|r| r.rz).sum();
     assert_close(sum_ry, q * l, 1e-4, "Propped cantilever: sum(Ry) = q*L");
 
     // Analytical reactions for propped cantilever with UDL:
     // R_right (roller) = 3qL/8, R_left (fixed) = 5qL/8
     let r_left = results.reactions.iter().find(|r| r.node_id == 1).unwrap();
     let r_right = results.reactions.iter().find(|r| r.node_id == n + 1).unwrap();
-    assert_close(r_left.ry, 5.0 * q * l / 8.0, 1e-3, "Propped cantilever: R_left = 5qL/8");
-    assert_close(r_right.ry, 3.0 * q * l / 8.0, 1e-3, "Propped cantilever: R_right = 3qL/8");
+    assert_close(r_left.rz, 5.0 * q * l / 8.0, 1e-3, "Propped cantilever: R_left = 5qL/8");
+    assert_close(r_right.rz, 3.0 * q * l / 8.0, 1e-3, "Propped cantilever: R_right = 3qL/8");
 
     // Fixed-end moment: M_left = -qL^2/8 (hogging at fixed end)
     assert_close(
-        r_left.mz.abs(),
+        r_left.my.abs(),
         q * l * l / 8.0,
         1e-2,
         "Propped cantilever: |Mz_left| = qL^2/8",
@@ -411,15 +411,15 @@ fn equilibrium_fixed_pinned_beam_moment_about_midspan() {
     let loads = vec![SolverLoad::Nodal(SolverNodalLoad {
         node_id: n / 2 + 1, // midspan node = 5
         fx: 0.0,
-        fy: -p,
-        mz: 0.0,
+        fz: -p,
+        my: 0.0,
     })];
     // Fixed at left, pinned at right
     let input = make_beam(n, l, E, A, IZ, "fixed", Some("pinned"), loads);
     let results = linear::solve_2d(&input).unwrap();
 
     // Vertical equilibrium
-    let sum_ry: f64 = results.reactions.iter().map(|r| r.ry).sum();
+    let sum_ry: f64 = results.reactions.iter().map(|r| r.rz).sum();
     assert_close(sum_ry, p, 1e-6, "Fixed-pinned P@mid: sum(Ry) = P");
 
     // Horizontal equilibrium (no horizontal loads)
@@ -434,7 +434,7 @@ fn equilibrium_fixed_pinned_beam_moment_about_midspan() {
     // Applied P at (L/2, 0) about (L, 0): (L/2 - L)*(-P) = P*L/2
     // Reaction at (0,0): (0-L)*Ry_left + Mz_left = -L*Ry_left + Mz_left
     // Reaction at (L,0): Mz_right = 0
-    let moment_eq_right = -r_left.ry * l + r_left.mz + p * l / 2.0;
+    let moment_eq_right = -r_left.rz * l + r_left.my + p * l / 2.0;
     assert!(
         moment_eq_right.abs() < 1e-3,
         "Fixed-pinned P@mid: moment equilibrium about right support, residual = {:.6}",
@@ -446,7 +446,7 @@ fn equilibrium_fixed_pinned_beam_moment_about_midspan() {
     // Reaction at (0,0): (0-L/2)*Ry_left + Mz_left
     // Reaction at (L,0): (L-L/2)*Ry_right + Mz_right
     let x_mid = l / 2.0;
-    let moment_eq_mid = -r_left.ry * x_mid + r_left.mz + r_right.ry * x_mid + r_right.mz;
+    let moment_eq_mid = -r_left.rz * x_mid + r_left.my + r_right.rz * x_mid + r_right.my;
     assert!(
         moment_eq_mid.abs() < 1e-3,
         "Fixed-pinned P@mid: moment equilibrium about midspan, residual = {:.6}",
@@ -454,12 +454,12 @@ fn equilibrium_fixed_pinned_beam_moment_about_midspan() {
     );
 
     // The pinned support has no moment reaction
-    assert_close(r_right.mz, 0.0, 1e-6, "Fixed-pinned P@mid: Mz_right = 0 (pinned)");
+    assert_close(r_right.my, 0.0, 1e-6, "Fixed-pinned P@mid: Mz_right = 0 (pinned)");
 
     // Analytical results for fixed-pinned beam with P at midspan:
     // R_left = 11P/16, R_right = 5P/16
-    assert_close(r_left.ry, 11.0 * p / 16.0, 1e-3, "Fixed-pinned P@mid: R_left = 11P/16");
-    assert_close(r_right.ry, 5.0 * p / 16.0, 1e-3, "Fixed-pinned P@mid: R_right = 5P/16");
+    assert_close(r_left.rz, 11.0 * p / 16.0, 1e-3, "Fixed-pinned P@mid: R_left = 11P/16");
+    assert_close(r_right.rz, 5.0 * p / 16.0, 1e-3, "Fixed-pinned P@mid: R_right = 5P/16");
 }
 
 // ═══════════════════════════════════════════════════════════════
@@ -494,7 +494,7 @@ fn equilibrium_continuous_beam_shear_moment_consistency() {
     let elem_len = span / n_per_span as f64;
 
     // Global equilibrium
-    let sum_ry: f64 = results.reactions.iter().map(|r| r.ry).sum();
+    let sum_ry: f64 = results.reactions.iter().map(|r| r.rz).sum();
     assert_close(sum_ry, 2.0 * q * span, 1e-4, "Cont beam 2-span: sum(Ry) = 2*q*L");
 
     // The applied distributed load on each element (q_i in load definition)
@@ -566,7 +566,7 @@ fn equilibrium_asymmetric_two_span_continuous_beam() {
     let total_load = q * (l1 + l2);
 
     // Vertical equilibrium
-    let sum_ry: f64 = results.reactions.iter().map(|r| r.ry).sum();
+    let sum_ry: f64 = results.reactions.iter().map(|r| r.rz).sum();
     assert_close(sum_ry, total_load, 1e-4, "Asym 2-span: sum(Ry) = q*(L1+L2)");
 
     // Horizontal equilibrium
@@ -585,7 +585,7 @@ fn equilibrium_asymmetric_two_span_continuous_beam() {
 
     // Moment equilibrium about the left support (x=0):
     // R_mid * L1 + R_right * (L1 + L2) = q * (L1+L2)^2 / 2
-    let moment_left = r_mid.ry * l1 + r_right.ry * (l1 + l2);
+    let moment_left = r_mid.rz * l1 + r_right.rz * (l1 + l2);
     let load_moment_left = q * (l1 + l2).powi(2) / 2.0;
     assert_close(
         moment_left,
@@ -598,7 +598,7 @@ fn equilibrium_asymmetric_two_span_continuous_beam() {
     // R_left * (-L1) + R_right * L2 = q*(L1+L2)*((L1+L2)/2 - L1)
     // Using the general formula: sum(R_i * (x_i - x_ref)) = sum(load moments about x_ref)
     let x_ref = l1;
-    let reaction_moment_mid = r_left.ry * (0.0 - x_ref) + r_right.ry * ((l1 + l2) - x_ref);
+    let reaction_moment_mid = r_left.rz * (0.0 - x_ref) + r_right.rz * ((l1 + l2) - x_ref);
     // Load moment about x_ref: integral of q * (x - x_ref) dx from 0 to L1+L2
     // = q * [(L1+L2)^2/2 - x_ref*(L1+L2)]
     let load_moment_mid = q * ((l1 + l2).powi(2) / 2.0 - x_ref * (l1 + l2));
@@ -611,7 +611,7 @@ fn equilibrium_asymmetric_two_span_continuous_beam() {
 
     // Moment equilibrium about the right support (x=L1+L2):
     let x_ref_r = l1 + l2;
-    let reaction_moment_right = r_left.ry * (0.0 - x_ref_r) + r_mid.ry * (l1 - x_ref_r);
+    let reaction_moment_right = r_left.rz * (0.0 - x_ref_r) + r_mid.rz * (l1 - x_ref_r);
     // Load moment about right: integral of q * (x - x_ref_r) dx from 0 to L1+L2
     // = q * [(L1+L2)^2/2 - x_ref_r*(L1+L2)] = q * [-(L1+L2)^2/2]
     let load_moment_right = q * ((l1 + l2).powi(2) / 2.0 - x_ref_r * (l1 + l2));
@@ -623,7 +623,7 @@ fn equilibrium_asymmetric_two_span_continuous_beam() {
     );
 
     // Verify all three reactions are positive (upward for downward UDL)
-    assert!(r_left.ry > 0.0, "Asym 2-span: R_left > 0");
-    assert!(r_mid.ry > 0.0, "Asym 2-span: R_mid > 0");
-    assert!(r_right.ry > 0.0, "Asym 2-span: R_right > 0");
+    assert!(r_left.rz > 0.0, "Asym 2-span: R_left > 0");
+    assert!(r_mid.rz > 0.0, "Asym 2-span: R_mid > 0");
+    assert!(r_right.rz > 0.0, "Asym 2-span: R_right > 0");
 }

@@ -46,7 +46,7 @@ fn validation_ss_beam_udl_deflection_formula() {
     // δ_mid = 5qL⁴/(384EI)
     let delta_exact = 5.0 * q * l.powi(4) / (384.0 * e_eff * IZ);
 
-    assert_close(mid_d.uy.abs(), delta_exact, 0.02, "SS UDL midspan deflection formula");
+    assert_close(mid_d.uz.abs(), delta_exact, 0.02, "SS UDL midspan deflection formula");
 }
 
 // ================================================================
@@ -68,7 +68,7 @@ fn validation_l_over_360_limit_check() {
 
     let mid_node = n / 2 + 1;
     let mid_d = results.displacements.iter().find(|d| d.node_id == mid_node).unwrap();
-    let actual_delta = mid_d.uy.abs();
+    let actual_delta = mid_d.uz.abs();
 
     // Analytical deflection for comparison
     let delta_formula = 5.0 * q * l.powi(4) / (384.0 * e_eff * IZ);
@@ -116,7 +116,7 @@ fn validation_required_iz_for_l360() {
 
     let mid_node = n / 2 + 1;
     let mid_d = results.displacements.iter().find(|d| d.node_id == mid_node).unwrap();
-    let actual_delta = mid_d.uy.abs();
+    let actual_delta = mid_d.uz.abs();
 
     let target_delta = l / 360.0;
 
@@ -154,9 +154,9 @@ fn validation_fixed_fixed_5x_stiffer_than_ss() {
 
     let mid_node = n / 2 + 1;
     let delta_ss = results_ss.displacements.iter()
-        .find(|d| d.node_id == mid_node).unwrap().uy.abs();
+        .find(|d| d.node_id == mid_node).unwrap().uz.abs();
     let delta_ff = results_ff.displacements.iter()
-        .find(|d| d.node_id == mid_node).unwrap().uy.abs();
+        .find(|d| d.node_id == mid_node).unwrap().uz.abs();
 
     let ratio = delta_ss / delta_ff;
 
@@ -179,7 +179,7 @@ fn validation_cantilever_tip_deflection() {
 
     let input = make_beam(n, l, E, A, IZ, "fixed", None,
         vec![SolverLoad::Nodal(SolverNodalLoad {
-            node_id: n + 1, fx: 0.0, fy: -p, mz: 0.0,
+            node_id: n + 1, fx: 0.0, fz: -p, my: 0.0,
         })]);
     let results = linear::solve_2d(&input).unwrap();
 
@@ -188,7 +188,7 @@ fn validation_cantilever_tip_deflection() {
     // δ = PL³/(3EI)
     let delta_exact = p * l.powi(3) / (3.0 * e_eff * IZ);
 
-    assert_close(tip.uy.abs(), delta_exact, 0.02, "Cantilever tip deflection PL^3/(3EI)");
+    assert_close(tip.uz.abs(), delta_exact, 0.02, "Cantilever tip deflection PL^3/(3EI)");
 }
 
 // ================================================================
@@ -212,12 +212,12 @@ fn validation_cantilever_l_over_180_limit() {
 
     let input = make_beam(n, l, E, A, IZ, "fixed", None,
         vec![SolverLoad::Nodal(SolverNodalLoad {
-            node_id: n + 1, fx: 0.0, fy: -p_target, mz: 0.0,
+            node_id: n + 1, fx: 0.0, fz: -p_target, my: 0.0,
         })]);
     let results = linear::solve_2d(&input).unwrap();
 
     let tip = results.displacements.iter().find(|d| d.node_id == n + 1).unwrap();
-    let actual_delta = tip.uy.abs();
+    let actual_delta = tip.uz.abs();
 
     let limit_180 = l / 180.0;
 
@@ -259,11 +259,11 @@ fn validation_propped_vs_ss_deflection_ratio() {
     // SS midspan deflection
     let ss_mid_node = n / 2 + 1;
     let delta_ss = results_ss.displacements.iter()
-        .find(|d| d.node_id == ss_mid_node).unwrap().uy.abs();
+        .find(|d| d.node_id == ss_mid_node).unwrap().uz.abs();
 
     // Propped cantilever max deflection (scan all nodes)
     let delta_propped_max = results_propped.displacements.iter()
-        .map(|d| d.uy.abs())
+        .map(|d| d.uz.abs())
         .fold(0.0_f64, f64::max);
 
     // Ratio should be approximately 384/(185.2*5) ≈ 0.4147
@@ -303,7 +303,7 @@ fn validation_multispan_reduces_deflection() {
 
     let single_mid_node = n_per_span / 2 + 1;
     let delta_single = results_single.displacements.iter()
-        .find(|d| d.node_id == single_mid_node).unwrap().uy.abs();
+        .find(|d| d.node_id == single_mid_node).unwrap().uz.abs();
 
     // Two-span continuous beam, each span = L/2
     let l_span = l_total / 2.0;
@@ -321,7 +321,7 @@ fn validation_multispan_reduces_deflection() {
 
     // Find max deflection in the 2-span beam (midspan of each span)
     let delta_2span_max = results_2span.displacements.iter()
-        .map(|d| d.uy.abs())
+        .map(|d| d.uz.abs())
         .fold(0.0_f64, f64::max);
 
     // The 2-span beam must have significantly less deflection than single span

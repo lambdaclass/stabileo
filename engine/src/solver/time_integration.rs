@@ -98,12 +98,12 @@ pub fn solve_time_history_2d(
         NodeTimeHistoryBuilder {
             node_id,
             ux: Vec::with_capacity(n_out),
-            uy: Vec::with_capacity(n_out),
-            rz: Vec::with_capacity(n_out),
+            uz: Vec::with_capacity(n_out),
+            ry: Vec::with_capacity(n_out),
             vx: Vec::with_capacity(n_out),
-            vy: Vec::with_capacity(n_out),
+            vz: Vec::with_capacity(n_out),
             ax: Vec::with_capacity(n_out),
-            ay: Vec::with_capacity(n_out),
+            az: Vec::with_capacity(n_out),
         }
     }).collect();
 
@@ -186,12 +186,12 @@ pub fn solve_time_history_2d(
         NodeTimeHistory {
             node_id: h.node_id,
             ux: h.ux,
-            uy: h.uy,
-            rz: h.rz,
+            uz: h.uz,
+            ry: h.ry,
             vx: h.vx,
-            vy: h.vy,
+            vz: h.vz,
             ax: h.ax,
-            ay: h.ay,
+            az: h.az,
         }
     }).collect();
 
@@ -446,11 +446,11 @@ fn assemble_force_record(
             if d < nf { f[d] += load.fx * scale; }
         }
         if let Some(&d) = dof_num.map.get(&(load.node_id, 1)) {
-            if d < nf { f[d] += load.fy * scale; }
+            if d < nf { f[d] += load.fz * scale; }
         }
         if dof_num.dofs_per_node >= 3 {
             if let Some(&d) = dof_num.map.get(&(load.node_id, 2)) {
-                if d < nf { f[d] += load.mz * scale; }
+                if d < nf { f[d] += load.my * scale; }
             }
         }
     }
@@ -600,12 +600,12 @@ fn solve_with_factored(factored: &FactoredMatrix, b: &[f64], _n: usize) -> Vec<f
 struct NodeTimeHistoryBuilder {
     node_id: usize,
     ux: Vec<f64>,
-    uy: Vec<f64>,
-    rz: Vec<f64>,
+    uz: Vec<f64>,
+    ry: Vec<f64>,
     vx: Vec<f64>,
-    vy: Vec<f64>,
+    vz: Vec<f64>,
     ax: Vec<f64>,
-    ay: Vec<f64>,
+    az: Vec<f64>,
 }
 
 /// Record the current state into the history builders.
@@ -624,14 +624,14 @@ fn record_state(
         };
 
         histories[idx].ux.push(get_val(u, 0));
-        histories[idx].uy.push(get_val(u, 1));
-        histories[idx].rz.push(
+        histories[idx].uz.push(get_val(u, 1));
+        histories[idx].ry.push(
             if dof_num.dofs_per_node >= 3 { get_val(u, 2) } else { 0.0 }
         );
         histories[idx].vx.push(get_val(v, 0));
-        histories[idx].vy.push(get_val(v, 1));
+        histories[idx].vz.push(get_val(v, 1));
         histories[idx].ax.push(get_val(a, 0));
-        histories[idx].ay.push(get_val(a, 1));
+        histories[idx].az.push(get_val(a, 1));
     }
 }
 
@@ -644,21 +644,21 @@ fn build_peak_displacements(
 
     for hist in node_histories {
         let max_ux = hist.ux.iter().map(|v| v.abs()).fold(0.0_f64, f64::max);
-        let max_uy = hist.uy.iter().map(|v| v.abs()).fold(0.0_f64, f64::max);
-        let max_rz = hist.rz.iter().map(|v| v.abs()).fold(0.0_f64, f64::max);
+        let max_uy = hist.uz.iter().map(|v| v.abs()).fold(0.0_f64, f64::max);
+        let max_rz = hist.ry.iter().map(|v| v.abs()).fold(0.0_f64, f64::max);
 
         // Determine the sign of the peak (use the value with max absolute)
         let ux_peak = find_peak_with_sign(&hist.ux);
-        let uy_peak = find_peak_with_sign(&hist.uy);
-        let rz_peak = find_peak_with_sign(&hist.rz);
+        let uy_peak = find_peak_with_sign(&hist.uz);
+        let rz_peak = find_peak_with_sign(&hist.ry);
 
         let _ = (max_ux, max_uy, max_rz); // suppress unused warnings for the abs values
 
         peaks.push(Displacement {
             node_id: hist.node_id,
             ux: ux_peak,
-            uy: uy_peak,
-            rz: rz_peak,
+            uz: uy_peak,
+            ry: rz_peak,
         });
     }
 
@@ -716,37 +716,37 @@ fn compute_reactions_at_state(
     let mut reactions = Vec::new();
     for sup in solver_input.supports.values() {
         let mut rx = 0.0;
-        let mut ry = 0.0;
-        let mut mz = 0.0;
+        let mut rz = 0.0;
+        let mut my = 0.0;
 
         if sup.support_type == "spring" {
             // Spring reaction: R = -k * u
             let ux = dof_num.global_dof(sup.node_id, 0).map(|d| u_full[d]).unwrap_or(0.0);
-            let uy = dof_num.global_dof(sup.node_id, 1).map(|d| u_full[d]).unwrap_or(0.0);
-            let rz_disp = if dof_num.dofs_per_node >= 3 {
+            let uz = dof_num.global_dof(sup.node_id, 1).map(|d| u_full[d]).unwrap_or(0.0);
+            let ry_disp = if dof_num.dofs_per_node >= 3 {
                 dof_num.global_dof(sup.node_id, 2).map(|d| u_full[d]).unwrap_or(0.0)
             } else { 0.0 };
 
             rx = -sup.kx.unwrap_or(0.0) * ux;
-            ry = -sup.ky.unwrap_or(0.0) * uy;
-            mz = -sup.kz.unwrap_or(0.0) * rz_disp;
+            rz = -sup.ky.unwrap_or(0.0) * uz;
+            my = -sup.kz.unwrap_or(0.0) * ry_disp;
         } else {
             if let Some(&d) = dof_num.map.get(&(sup.node_id, 0)) {
                 if d >= nf { rx = reactions_vec[d - nf]; }
             }
             if let Some(&d) = dof_num.map.get(&(sup.node_id, 1)) {
-                if d >= nf { ry = reactions_vec[d - nf]; }
+                if d >= nf { rz = reactions_vec[d - nf]; }
             }
             if dof_num.dofs_per_node >= 3 {
                 if let Some(&d) = dof_num.map.get(&(sup.node_id, 2)) {
-                    if d >= nf { mz = reactions_vec[d - nf]; }
+                    if d >= nf { my = reactions_vec[d - nf]; }
                 }
             }
         }
 
         reactions.push(Reaction {
             node_id: sup.node_id,
-            rx, ry, mz,
+            rx, rz, my,
         });
     }
 
@@ -1251,8 +1251,8 @@ mod tests {
     /// Single frame element, steel E=200000 MPa, A=0.01 m^2, Iz=8.33e-6 m^4.
     fn make_cantilever() -> TimeHistoryInput {
         let mut nodes = HashMap::new();
-        nodes.insert("1".to_string(), SolverNode { id: 1, x: 0.0, y: 0.0 });
-        nodes.insert("2".to_string(), SolverNode { id: 2, x: 1.0, y: 0.0 });
+        nodes.insert("1".to_string(), SolverNode { id: 1, x: 0.0, z: 0.0 });
+        nodes.insert("2".to_string(), SolverNode { id: 2, x: 1.0, z: 0.0 });
 
         let mut materials = HashMap::new();
         materials.insert("1".to_string(), SolverMaterial { id: 1, e: 200000.0, nu: 0.3 });
@@ -1272,7 +1272,7 @@ mod tests {
         supports.insert("1".to_string(), SolverSupport {
             id: 1, node_id: 1, support_type: "fixed".to_string(),
             kx: None, ky: None, kz: None,
-            dx: None, dy: None, drz: None,
+            dx: None, dz: None, dry: None,
             angle: None,
         });
 
@@ -1317,7 +1317,7 @@ mod tests {
             for &u in &hist.ux {
                 assert!(u.abs() < 1e-10, "Expected zero displacement, got {}", u);
             }
-            for &u in &hist.uy {
+            for &u in &hist.uz {
                 assert!(u.abs() < 1e-10, "Expected zero displacement, got {}", u);
             }
         }
@@ -1350,10 +1350,10 @@ mod tests {
         input.force_history = Some(vec![
             TimeForceRecord {
                 time: 0.0,
-                loads: vec![SolverNodalLoad { node_id: 2, fx: 0.0, fy: -10.0, mz: 0.0 }] },
+                loads: vec![SolverNodalLoad { node_id: 2, fx: 0.0, fz: -10.0, my: 0.0 }] },
             TimeForceRecord {
                 time: 1.0,
-                loads: vec![SolverNodalLoad { node_id: 2, fx: 0.0, fy: -10.0, mz: 0.0 }] },
+                loads: vec![SolverNodalLoad { node_id: 2, fx: 0.0, fz: -10.0, my: 0.0 }] },
         ]);
         input.n_steps = 500;
         input.time_step = 0.001;
@@ -1362,12 +1362,12 @@ mod tests {
 
         // Node 2 should deflect in Y
         let node2_hist = result.node_histories.iter().find(|h| h.node_id == 2).unwrap();
-        let max_uy: f64 = node2_hist.uy.iter().map(|v| v.abs()).fold(0.0, f64::max);
+        let max_uy: f64 = node2_hist.uz.iter().map(|v| v.abs()).fold(0.0, f64::max);
         assert!(max_uy > 1e-6, "Expected non-zero Y displacement, got max_uy={}", max_uy);
 
         // Check that peak displacements are populated
         let peak_node2 = result.peak_displacements.iter().find(|d| d.node_id == 2).unwrap();
-        assert!(peak_node2.uy.abs() > 1e-6);
+        assert!(peak_node2.uz.abs() > 1e-6);
     }
 
     #[test]
@@ -1378,10 +1378,10 @@ mod tests {
         input.force_history = Some(vec![
             TimeForceRecord {
                 time: 0.0,
-                loads: vec![SolverNodalLoad { node_id: 2, fx: 0.0, fy: -10.0, mz: 0.0 }] },
+                loads: vec![SolverNodalLoad { node_id: 2, fx: 0.0, fz: -10.0, my: 0.0 }] },
             TimeForceRecord {
                 time: 0.01,
-                loads: vec![SolverNodalLoad { node_id: 2, fx: 0.0, fy: 0.0, mz: 0.0 }] },
+                loads: vec![SolverNodalLoad { node_id: 2, fx: 0.0, fz: 0.0, my: 0.0 }] },
         ]);
         input.n_steps = 200;
 
@@ -1389,7 +1389,7 @@ mod tests {
         assert!(result.method.contains("HHT"));
 
         let node2_hist = result.node_histories.iter().find(|h| h.node_id == 2).unwrap();
-        let max_uy: f64 = node2_hist.uy.iter().map(|v| v.abs()).fold(0.0, f64::max);
+        let max_uy: f64 = node2_hist.uz.iter().map(|v| v.abs()).fold(0.0, f64::max);
         assert!(max_uy > 1e-8, "HHT should produce non-zero response");
     }
 
@@ -1400,10 +1400,10 @@ mod tests {
         input.force_history = Some(vec![
             TimeForceRecord {
                 time: 0.0,
-                loads: vec![SolverNodalLoad { node_id: 2, fx: 0.0, fy: -10.0, mz: 0.0 }] },
+                loads: vec![SolverNodalLoad { node_id: 2, fx: 0.0, fz: -10.0, my: 0.0 }] },
             TimeForceRecord {
                 time: 0.001,
-                loads: vec![SolverNodalLoad { node_id: 2, fx: 0.0, fy: 0.0, mz: 0.0 }] },
+                loads: vec![SolverNodalLoad { node_id: 2, fx: 0.0, fz: 0.0, my: 0.0 }] },
         ]);
         input.n_steps = 1000;
         input.time_step = 0.001;
@@ -1413,9 +1413,9 @@ mod tests {
 
         // With damping, later oscillations should have smaller amplitude than early ones
         // Compare peak in first half vs second half
-        let half = node2_hist.uy.len() / 2;
-        let max_first_half: f64 = node2_hist.uy[..half].iter().map(|v| v.abs()).fold(0.0, f64::max);
-        let max_second_half: f64 = node2_hist.uy[half..].iter().map(|v| v.abs()).fold(0.0, f64::max);
+        let half = node2_hist.uz.len() / 2;
+        let max_first_half: f64 = node2_hist.uz[..half].iter().map(|v| v.abs()).fold(0.0, f64::max);
+        let max_second_half: f64 = node2_hist.uz[half..].iter().map(|v| v.abs()).fold(0.0, f64::max);
 
         // Damped response should decay
         assert!(
@@ -1433,10 +1433,10 @@ mod tests {
         input.force_history = Some(vec![
             TimeForceRecord {
                 time: 0.0,
-                loads: vec![SolverNodalLoad { node_id: 2, fx: 0.0, fy: -10.0, mz: 0.0 }] },
+                loads: vec![SolverNodalLoad { node_id: 2, fx: 0.0, fz: -10.0, my: 0.0 }] },
             TimeForceRecord {
                 time: 0.001,
-                loads: vec![SolverNodalLoad { node_id: 2, fx: 0.0, fy: 0.0, mz: 0.0 }] },
+                loads: vec![SolverNodalLoad { node_id: 2, fx: 0.0, fz: 0.0, my: 0.0 }] },
         ]);
         input.n_steps = 500;
         input.time_step = 0.001;
@@ -1446,8 +1446,8 @@ mod tests {
         let node2_hist = result.node_histories.iter().find(|h| h.node_id == 2).unwrap();
 
         // After the impulse, oscillation amplitude should not grow (stability check)
-        let max_early: f64 = node2_hist.uy[10..100].iter().map(|v| v.abs()).fold(0.0, f64::max);
-        let max_late: f64 = node2_hist.uy[400..].iter().map(|v| v.abs()).fold(0.0, f64::max);
+        let max_early: f64 = node2_hist.uz[10..100].iter().map(|v| v.abs()).fold(0.0, f64::max);
+        let max_late: f64 = node2_hist.uz[400..].iter().map(|v| v.abs()).fold(0.0, f64::max);
 
         // For unconditionally stable Newmark, amplitude should not grow significantly
         assert!(

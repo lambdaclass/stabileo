@@ -43,7 +43,7 @@ fn validation_ss_beam_midpoint_load_deflection() {
     let input = make_beam(
         n, l, E, A, IZ, "pinned", Some("rollerX"),
         vec![SolverLoad::Nodal(SolverNodalLoad {
-            node_id: mid_node, fx: 0.0, fy: -p, mz: 0.0,
+            node_id: mid_node, fx: 0.0, fz: -p, my: 0.0,
         })],
     );
     let results = linear::solve_2d(&input).unwrap();
@@ -53,7 +53,7 @@ fn validation_ss_beam_midpoint_load_deflection() {
     // delta = PL^3 / (48EI)
     let delta_exact = p * l.powi(3) / (48.0 * e_eff * IZ);
 
-    assert_close(mid_d.uy.abs(), delta_exact, 0.02, "SS midpoint load: PL^3/(48EI)");
+    assert_close(mid_d.uz.abs(), delta_exact, 0.02, "SS midpoint load: PL^3/(48EI)");
 }
 
 // ================================================================
@@ -83,10 +83,10 @@ fn validation_ss_beam_two_point_symmetric_loads() {
         n, l, E, A, IZ, "pinned", Some("rollerX"),
         vec![
             SolverLoad::Nodal(SolverNodalLoad {
-                node_id: node_a, fx: 0.0, fy: -p, mz: 0.0,
+                node_id: node_a, fx: 0.0, fz: -p, my: 0.0,
             }),
             SolverLoad::Nodal(SolverNodalLoad {
-                node_id: node_b, fx: 0.0, fy: -p, mz: 0.0,
+                node_id: node_b, fx: 0.0, fz: -p, my: 0.0,
             }),
         ],
     );
@@ -97,7 +97,7 @@ fn validation_ss_beam_two_point_symmetric_loads() {
     // delta = Pa(3L^2 - 4a^2) / (24EI)
     let delta_exact = p * a * (3.0 * l.powi(2) - 4.0 * a.powi(2)) / (24.0 * e_eff * IZ);
 
-    assert_close(mid_d.uy.abs(), delta_exact, 0.02, "SS two-point symmetric loads");
+    assert_close(mid_d.uz.abs(), delta_exact, 0.02, "SS two-point symmetric loads");
 }
 
 // ================================================================
@@ -131,7 +131,7 @@ fn validation_cantilever_udl_tip_deflection() {
     // delta_tip = qL^4 / (8EI)
     let delta_exact = q * l.powi(4) / (8.0 * e_eff * IZ);
 
-    assert_close(tip_d.uy.abs(), delta_exact, 0.02, "Cantilever UDL tip: qL^4/(8EI)");
+    assert_close(tip_d.uz.abs(), delta_exact, 0.02, "Cantilever UDL tip: qL^4/(8EI)");
 }
 
 // ================================================================
@@ -154,7 +154,7 @@ fn validation_fixed_fixed_midpoint_load_deflection() {
     let input = make_beam(
         n, l, E, A, IZ, "fixed", Some("fixed"),
         vec![SolverLoad::Nodal(SolverNodalLoad {
-            node_id: mid_node, fx: 0.0, fy: -p, mz: 0.0,
+            node_id: mid_node, fx: 0.0, fz: -p, my: 0.0,
         })],
     );
     let results = linear::solve_2d(&input).unwrap();
@@ -164,7 +164,7 @@ fn validation_fixed_fixed_midpoint_load_deflection() {
     // delta = PL^3 / (192EI)
     let delta_exact = p * l.powi(3) / (192.0 * e_eff * IZ);
 
-    assert_close(mid_d.uy.abs(), delta_exact, 0.02, "Fixed-fixed midpoint load: PL^3/(192EI)");
+    assert_close(mid_d.uz.abs(), delta_exact, 0.02, "Fixed-fixed midpoint load: PL^3/(192EI)");
 }
 
 // ================================================================
@@ -193,7 +193,7 @@ fn validation_l_over_240_total_load_limit() {
 
     let mid_node = n / 2 + 1;
     let mid_d = results.displacements.iter().find(|d| d.node_id == mid_node).unwrap();
-    let actual_delta = mid_d.uy.abs();
+    let actual_delta = mid_d.uz.abs();
 
     let target_delta = l / 240.0;
 
@@ -229,7 +229,7 @@ fn validation_propped_cantilever_midpoint_load_ratio() {
     let input_ss = make_beam(
         n, l, E, A, IZ, "pinned", Some("rollerX"),
         vec![SolverLoad::Nodal(SolverNodalLoad {
-            node_id: mid_node, fx: 0.0, fy: -p, mz: 0.0,
+            node_id: mid_node, fx: 0.0, fz: -p, my: 0.0,
         })],
     );
     let results_ss = linear::solve_2d(&input_ss).unwrap();
@@ -238,18 +238,18 @@ fn validation_propped_cantilever_midpoint_load_ratio() {
     let input_propped = make_beam(
         n, l, E, A, IZ, "fixed", Some("rollerX"),
         vec![SolverLoad::Nodal(SolverNodalLoad {
-            node_id: mid_node, fx: 0.0, fy: -p, mz: 0.0,
+            node_id: mid_node, fx: 0.0, fz: -p, my: 0.0,
         })],
     );
     let results_propped = linear::solve_2d(&input_propped).unwrap();
 
     let delta_ss = results_ss.displacements.iter()
-        .find(|d| d.node_id == mid_node).unwrap().uy.abs();
+        .find(|d| d.node_id == mid_node).unwrap().uz.abs();
 
     // For propped cantilever, max deflection is not necessarily at midspan
     // but we compare the midspan value for the ratio check.
     let delta_propped = results_propped.displacements.iter()
-        .find(|d| d.node_id == mid_node).unwrap().uy.abs();
+        .find(|d| d.node_id == mid_node).unwrap().uz.abs();
 
     // Ratio should be 7/16 = 0.4375
     let ratio = delta_propped / delta_ss;
@@ -283,13 +283,13 @@ fn validation_doubling_iz_halves_deflection() {
     let input_1 = make_ss_beam_udl(n, l, E, A, IZ, -q);
     let results_1 = linear::solve_2d(&input_1).unwrap();
     let delta_1 = results_1.displacements.iter()
-        .find(|d| d.node_id == mid_node).unwrap().uy.abs();
+        .find(|d| d.node_id == mid_node).unwrap().uz.abs();
 
     // Beam with 2 * Iz
     let input_2 = make_ss_beam_udl(n, l, E, A, 2.0 * IZ, -q);
     let results_2 = linear::solve_2d(&input_2).unwrap();
     let delta_2 = results_2.displacements.iter()
-        .find(|d| d.node_id == mid_node).unwrap().uy.abs();
+        .find(|d| d.node_id == mid_node).unwrap().uz.abs();
 
     // delta_1 / delta_2 should be 2.0
     let ratio = delta_1 / delta_2;
@@ -331,7 +331,7 @@ fn validation_three_span_less_than_two_span() {
     let results_2span = linear::solve_2d(&input_2span).unwrap();
 
     let delta_2span_max = results_2span.displacements.iter()
-        .map(|d| d.uy.abs())
+        .map(|d| d.uz.abs())
         .fold(0.0_f64, f64::max);
 
     // Three-span continuous beam (each span = 4 m)
@@ -349,7 +349,7 @@ fn validation_three_span_less_than_two_span() {
     let results_3span = linear::solve_2d(&input_3span).unwrap();
 
     let delta_3span_max = results_3span.displacements.iter()
-        .map(|d| d.uy.abs())
+        .map(|d| d.uz.abs())
         .fold(0.0_f64, f64::max);
 
     // Three-span max deflection must be less than two-span

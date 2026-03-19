@@ -111,11 +111,11 @@ fn frame_5_multi_bay() -> SolverInput {
         .collect();
 
     let mut loads = vec![SolverLoad::Nodal(SolverNodalLoad {
-        node_id: 2, fx: h_load, fy: 0.0, mz: 0.0,
+        node_id: 2, fx: h_load, fz: 0.0, my: 0.0,
     })];
     for i in 0..n_cols {
         loads.push(SolverLoad::Nodal(SolverNodalLoad {
-            node_id: 2 * i + 2, fx: 0.0, fy: -p, mz: 0.0,
+            node_id: 2 * i + 2, fx: 0.0, fz: -p, my: 0.0,
         }));
     }
 
@@ -197,10 +197,10 @@ fn frame_10_braced() -> SolverInput {
     let mut loads = Vec::new();
     for i in 1..=n_stories {
         loads.push(SolverLoad::Nodal(SolverNodalLoad {
-            node_id: left(i), fx: 10.0, fy: -200.0, mz: 0.0,
+            node_id: left(i), fx: 10.0, fz: -200.0, my: 0.0,
         }));
         loads.push(SolverLoad::Nodal(SolverNodalLoad {
-            node_id: right(i), fx: 0.0, fy: -200.0, mz: 0.0,
+            node_id: right(i), fx: 0.0, fz: -200.0, my: 0.0,
         }));
     }
 
@@ -280,10 +280,10 @@ fn frame_15_unbraced() -> SolverInput {
     let mut loads = Vec::new();
     for i in 1..=n_stories {
         loads.push(SolverLoad::Nodal(SolverNodalLoad {
-            node_id: left(i), fx: 15.0, fy: -400.0, mz: 0.0,
+            node_id: left(i), fx: 15.0, fz: -400.0, my: 0.0,
         }));
         loads.push(SolverLoad::Nodal(SolverNodalLoad {
-            node_id: right(i), fx: 0.0, fy: -400.0, mz: 0.0,
+            node_id: right(i), fx: 0.0, fz: -400.0, my: 0.0,
         }));
     }
 
@@ -368,12 +368,12 @@ fn frame_20_irregular() -> SolverInput {
 
     let loads = vec![
         // Asymmetric lateral
-        SolverLoad::Nodal(SolverNodalLoad { node_id: 4, fx: 25.0, fy: -300.0, mz: 0.0 }),
-        SolverLoad::Nodal(SolverNodalLoad { node_id: 5, fx: 0.0, fy: -350.0, mz: 0.0 }),
-        SolverLoad::Nodal(SolverNodalLoad { node_id: 6, fx: 0.0, fy: -250.0, mz: 0.0 }),
-        SolverLoad::Nodal(SolverNodalLoad { node_id: 7, fx: 20.0, fy: -200.0, mz: 0.0 }),
-        SolverLoad::Nodal(SolverNodalLoad { node_id: 8, fx: 0.0, fy: -250.0, mz: 0.0 }),
-        SolverLoad::Nodal(SolverNodalLoad { node_id: 9, fx: 0.0, fy: -150.0, mz: 0.0 }),
+        SolverLoad::Nodal(SolverNodalLoad { node_id: 4, fx: 25.0, fz: -300.0, my: 0.0 }),
+        SolverLoad::Nodal(SolverNodalLoad { node_id: 5, fx: 0.0, fz: -350.0, my: 0.0 }),
+        SolverLoad::Nodal(SolverNodalLoad { node_id: 6, fx: 0.0, fz: -250.0, my: 0.0 }),
+        SolverLoad::Nodal(SolverNodalLoad { node_id: 7, fx: 20.0, fz: -200.0, my: 0.0 }),
+        SolverLoad::Nodal(SolverNodalLoad { node_id: 8, fx: 0.0, fz: -250.0, my: 0.0 }),
+        SolverLoad::Nodal(SolverNodalLoad { node_id: 9, fx: 0.0, fz: -150.0, my: 0.0 }),
     ];
 
     make_input(nodes, vec![(1, E, 0.3)], vec![(1, A, IZ)], elems, sups, loads)
@@ -400,7 +400,7 @@ fn validation_mastan_frame20_moments() {
     let r3 = pd.results.reactions.iter().find(|r| r.node_id == 3).unwrap();
 
     // Different vertical reactions (asymmetric loading)
-    let diff = (r1.ry - r3.ry).abs();
+    let diff = (r1.rz - r3.rz).abs();
     assert!(diff > 1.0, "Frame20: reactions should be asymmetric, diff={:.2}", diff);
 }
 
@@ -515,12 +515,12 @@ fn validation_mastan_equilibrium_all() {
             _ => 0.0,
         }).sum();
         let sum_fy_loads: f64 = input.loads.iter().map(|l| match l {
-            SolverLoad::Nodal(n) => n.fy,
+            SolverLoad::Nodal(n) => n.fz,
             _ => 0.0,
         }).sum();
 
         let sum_rx: f64 = results.reactions.iter().map(|r| r.rx).sum();
-        let sum_ry: f64 = results.reactions.iter().map(|r| r.ry).sum();
+        let sum_ry: f64 = results.reactions.iter().map(|r| r.rz).sum();
 
         assert!(
             (sum_rx + sum_fx_loads).abs() < 1.0,

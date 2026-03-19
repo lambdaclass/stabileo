@@ -75,7 +75,7 @@ fn validation_bathe_1_h_refinement_cantilever() {
             .iter()
             .find(|d| d.node_id == n + 1)
             .unwrap();
-        let defl = d_tip.uy.abs();
+        let defl = d_tip.uz.abs();
         deflections.push(defl);
         let err = (defl - delta_exact).abs() / delta_exact;
         errors.push(err);
@@ -140,7 +140,7 @@ fn validation_bathe_2_richardson_extrapolation() {
             .iter()
             .find(|d| d.node_id == mid_node)
             .unwrap()
-            .uy
+            .uz
             .abs();
         midspan_deflections.push(d_mid);
     }
@@ -213,7 +213,7 @@ fn validation_bathe_3_stiffness_bound() {
             .iter()
             .find(|d| d.node_id == mid_node)
             .unwrap()
-            .uy
+            .uz
             .abs();
         deflections.push(d_mid);
     }
@@ -355,8 +355,8 @@ fn validation_bathe_5_patch_test_axial() {
     let loads = vec![SolverLoad::Nodal(SolverNodalLoad {
         node_id: n_nodes,
         fx: p_axial,
-        fy: 0.0,
-        mz: 0.0,
+        fz: 0.0,
+        my: 0.0,
     })];
 
     let input = make_input(
@@ -444,14 +444,14 @@ fn validation_bathe_6_patch_test_bending() {
         SolverLoad::Nodal(SolverNodalLoad {
             node_id: 1,
             fx: 0.0,
-            fy: 0.0,
-            mz: m_applied,
+            fz: 0.0,
+            my: m_applied,
         }),
         SolverLoad::Nodal(SolverNodalLoad {
             node_id: 4,
             fx: 0.0,
-            fy: 0.0,
-            mz: -m_applied,
+            fz: 0.0,
+            my: -m_applied,
         }),
     ];
 
@@ -659,8 +659,8 @@ fn validation_bathe_8_condition_number_effect() {
             vec![SolverLoad::Nodal(SolverNodalLoad {
                 node_id: n + 1,
                 fx: 0.0,
-                fy: -p_slender,
-                mz: 0.0,
+                fz: -p_slender,
+                my: 0.0,
             })],
         );
         let res_slender = linear::solve_2d(&input_slender).unwrap();
@@ -669,7 +669,7 @@ fn validation_bathe_8_condition_number_effect() {
             .iter()
             .find(|d| d.node_id == n + 1)
             .unwrap()
-            .uy
+            .uz
             .abs();
         let err_s = (d_slender - delta_exact_slender).abs() / delta_exact_slender;
         errors_slender.push(err_s);
@@ -686,8 +686,8 @@ fn validation_bathe_8_condition_number_effect() {
             vec![SolverLoad::Nodal(SolverNodalLoad {
                 node_id: n + 1,
                 fx: 0.0,
-                fy: -p_deep,
-                mz: 0.0,
+                fz: -p_deep,
+                my: 0.0,
             })],
         );
         let res_deep = linear::solve_2d(&input_deep).unwrap();
@@ -696,7 +696,7 @@ fn validation_bathe_8_condition_number_effect() {
             .iter()
             .find(|d| d.node_id == n + 1)
             .unwrap()
-            .uy
+            .uz
             .abs();
         let err_d = (d_deep - delta_exact_deep).abs() / delta_exact_deep;
         errors_deep.push(err_d);

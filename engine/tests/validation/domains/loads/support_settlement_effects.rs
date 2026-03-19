@@ -36,7 +36,7 @@ fn make_ff_beam_settlement(n: usize, l: f64, delta: Option<f64>) -> SolverInput 
     let mut nodes_map = HashMap::new();
     for i in 0..n_nodes {
         nodes_map.insert((i + 1).to_string(), SolverNode {
-            id: i + 1, x: i as f64 * elem_len, y: 0.0,
+            id: i + 1, x: i as f64 * elem_len, z: 0.0,
         });
     }
     let mut mats_map = HashMap::new();
@@ -56,12 +56,12 @@ fn make_ff_beam_settlement(n: usize, l: f64, delta: Option<f64>) -> SolverInput 
     sups_map.insert("1".to_string(), SolverSupport {
         id: 1, node_id: 1, support_type: "fixed".to_string(),
         kx: None, ky: None, kz: None,
-        dx: None, dy: None, drz: None, angle: None,
+        dx: None, dz: None, dry: None, angle: None,
     });
     sups_map.insert("2".to_string(), SolverSupport {
         id: 2, node_id: n_nodes, support_type: "fixed".to_string(),
         kx: None, ky: None, kz: None,
-        dx: None, dy: delta, drz: None, angle: None,
+        dx: None, dz: delta, dry: None, angle: None,
     });
     SolverInput {
         nodes: nodes_map, materials: mats_map, sections: secs_map,
@@ -104,22 +104,22 @@ fn validation_sse_middle_support_settlement() {
     sups_map.insert("1".to_string(), SolverSupport {
         id: 1, node_id: 1, support_type: "pinned".to_string(),
         kx: None, ky: None, kz: None,
-        dx: None, dy: None, drz: None, angle: None,
+        dx: None, dz: None, dry: None, angle: None,
     });
     sups_map.insert("2".to_string(), SolverSupport {
         id: 2, node_id: mid_node, support_type: "rollerX".to_string(),
         kx: None, ky: None, kz: None,
-        dx: None, dy: Some(-delta), drz: None, angle: None,
+        dx: None, dz: Some(-delta), dry: None, angle: None,
     });
     sups_map.insert("3".to_string(), SolverSupport {
         id: 3, node_id: n_nodes, support_type: "rollerX".to_string(),
         kx: None, ky: None, kz: None,
-        dx: None, dy: None, drz: None, angle: None,
+        dx: None, dz: None, dry: None, angle: None,
     });
 
     let mut nodes_map = HashMap::new();
     for (id, x, y) in &nodes {
-        nodes_map.insert(id.to_string(), SolverNode { id: *id, x: *x, y: *y });
+        nodes_map.insert(id.to_string(), SolverNode { id: *id, x: *x, z: *y });
     }
     let mut mats_map = HashMap::new();
     mats_map.insert("1".to_string(), SolverMaterial { id: 1, e: E, nu: 0.3 });
@@ -141,11 +141,11 @@ fn validation_sse_middle_support_settlement() {
 
     // Middle support prescribed displacement should be imposed
     let d_mid = results.displacements.iter().find(|d| d.node_id == mid_node).unwrap();
-    assert_close(d_mid.uy, -delta, 0.01,
+    assert_close(d_mid.uz, -delta, 0.01,
         "SSE middle support: prescribed uy = -δ");
 
     // Equilibrium (no external loads): ΣRy = 0
-    let sum_ry: f64 = results.reactions.iter().map(|r| r.ry).sum();
+    let sum_ry: f64 = results.reactions.iter().map(|r| r.rz).sum();
     assert!(sum_ry.abs() < 0.01,
         "SSE middle support equilibrium: ΣRy={:.6}", sum_ry);
 
@@ -196,22 +196,22 @@ fn validation_sse_continuous_end_settlement() {
     sups_map.insert("1".to_string(), SolverSupport {
         id: 1, node_id: 1, support_type: "pinned".to_string(),
         kx: None, ky: None, kz: None,
-        dx: None, dy: None, drz: None, angle: None,
+        dx: None, dz: None, dry: None, angle: None,
     });
     sups_map.insert("2".to_string(), SolverSupport {
         id: 2, node_id: mid_node, support_type: "rollerX".to_string(),
         kx: None, ky: None, kz: None,
-        dx: None, dy: None, drz: None, angle: None,
+        dx: None, dz: None, dry: None, angle: None,
     });
     sups_map.insert("3".to_string(), SolverSupport {
         id: 3, node_id: n_nodes, support_type: "rollerX".to_string(),
         kx: None, ky: None, kz: None,
-        dx: None, dy: Some(-delta), drz: None, angle: None,
+        dx: None, dz: Some(-delta), dry: None, angle: None,
     });
 
     let mut nodes_map = HashMap::new();
     for (id, x, y) in &nodes {
-        nodes_map.insert(id.to_string(), SolverNode { id: *id, x: *x, y: *y });
+        nodes_map.insert(id.to_string(), SolverNode { id: *id, x: *x, z: *y });
     }
     let mut mats_map = HashMap::new();
     mats_map.insert("1".to_string(), SolverMaterial { id: 1, e: E, nu: 0.3 });
@@ -233,11 +233,11 @@ fn validation_sse_continuous_end_settlement() {
 
     // Prescribed end displacement must be satisfied
     let d_end = results.displacements.iter().find(|d| d.node_id == n_nodes).unwrap();
-    assert_close(d_end.uy, -delta, 0.01,
+    assert_close(d_end.uz, -delta, 0.01,
         "SSE end settlement: prescribed uy at right = -δ");
 
     // Equilibrium: ΣRy = 0 (no external loads)
-    let sum_ry: f64 = results.reactions.iter().map(|r| r.ry).sum();
+    let sum_ry: f64 = results.reactions.iter().map(|r| r.rz).sum();
     assert!(sum_ry.abs() < 0.01,
         "SSE end settlement equilibrium: ΣRy={:.6}", sum_ry);
 }
@@ -268,20 +268,20 @@ fn validation_sse_fixed_fixed_end_settlement() {
 
     let r_left = results.reactions.iter().find(|r| r.node_id == 1).unwrap();
 
-    assert_close(r_left.mz.abs(), m_exact, 0.03,
+    assert_close(r_left.my.abs(), m_exact, 0.03,
         "SSE fixed-fixed: |M_left| = 6EIδ/L²");
-    assert_close(r_left.ry.abs(), v_exact, 0.03,
+    assert_close(r_left.rz.abs(), v_exact, 0.03,
         "SSE fixed-fixed: V = 12EIδ/L³");
 
     // Equilibrium: ΣRy = 0 (no external loads)
-    let sum_ry: f64 = results.reactions.iter().map(|r| r.ry).sum();
+    let sum_ry: f64 = results.reactions.iter().map(|r| r.rz).sum();
     assert!(sum_ry.abs() < v_exact * 0.01,
         "SSE fixed-fixed equilibrium: ΣRy={:.6}", sum_ry);
 
     // The prescribed settlement must be imposed
     let n_nodes = n + 1;
     let d_right = results.displacements.iter().find(|d| d.node_id == n_nodes).unwrap();
-    assert_close(d_right.uy, -delta, 0.01,
+    assert_close(d_right.uz, -delta, 0.01,
         "SSE fixed-fixed: prescribed uy at right = -δ");
 }
 
@@ -312,17 +312,17 @@ fn validation_sse_portal_frame_base_settlement() {
     sups_map.insert("1".to_string(), SolverSupport {
         id: 1, node_id: 1, support_type: "fixed".to_string(),
         kx: None, ky: None, kz: None,
-        dx: None, dy: None, drz: None, angle: None,
+        dx: None, dz: None, dry: None, angle: None,
     });
     sups_map.insert("2".to_string(), SolverSupport {
         id: 2, node_id: 4, support_type: "fixed".to_string(),
         kx: None, ky: None, kz: None,
-        dx: None, dy: Some(-delta), drz: None, angle: None,
+        dx: None, dz: Some(-delta), dry: None, angle: None,
     });
 
     let mut nodes_map = HashMap::new();
     for &(id, x, y) in &nodes {
-        nodes_map.insert(id.to_string(), SolverNode { id, x, y });
+        nodes_map.insert(id.to_string(), SolverNode { id, x, z: y });
     }
     let mut mats_map = HashMap::new();
     mats_map.insert("1".to_string(), SolverMaterial { id: 1, e: E, nu: 0.3 });
@@ -342,7 +342,7 @@ fn validation_sse_portal_frame_base_settlement() {
     let results = linear::solve_2d(&input).unwrap();
 
     // Global equilibrium (no applied loads)
-    let sum_ry: f64 = results.reactions.iter().map(|r| r.ry).sum();
+    let sum_ry: f64 = results.reactions.iter().map(|r| r.rz).sum();
     let sum_rx: f64 = results.reactions.iter().map(|r| r.rx).sum();
     assert!(sum_ry.abs() < 0.01,
         "Portal frame settlement: ΣRy={:.6} should be 0", sum_ry);
@@ -351,7 +351,7 @@ fn validation_sse_portal_frame_base_settlement() {
 
     // Settling support must be at prescribed position
     let d4 = results.displacements.iter().find(|d| d.node_id == 4).unwrap();
-    assert_close(d4.uy, -delta, 0.01,
+    assert_close(d4.uz, -delta, 0.01,
         "Portal frame settlement: prescribed uy at node 4 = -δ");
 
     // Settlement must induce non-zero moments (statically indeterminate frame)
@@ -394,17 +394,17 @@ fn validation_sse_propped_cantilever_roller_settlement() {
     sups_map.insert("1".to_string(), SolverSupport {
         id: 1, node_id: 1, support_type: "fixed".to_string(),
         kx: None, ky: None, kz: None,
-        dx: None, dy: None, drz: None, angle: None,
+        dx: None, dz: None, dry: None, angle: None,
     });
     sups_map.insert("2".to_string(), SolverSupport {
         id: 2, node_id: n_nodes, support_type: "rollerX".to_string(),
         kx: None, ky: None, kz: None,
-        dx: None, dy: Some(-delta), drz: None, angle: None,
+        dx: None, dz: Some(-delta), dry: None, angle: None,
     });
 
     let mut nodes_map = HashMap::new();
     for (id, x, y) in &nodes {
-        nodes_map.insert(id.to_string(), SolverNode { id: *id, x: *x, y: *y });
+        nodes_map.insert(id.to_string(), SolverNode { id: *id, x: *x, z: *y });
     }
     let mut mats_map = HashMap::new();
     mats_map.insert("1".to_string(), SolverMaterial { id: 1, e: E, nu: 0.3 });
@@ -426,18 +426,18 @@ fn validation_sse_propped_cantilever_roller_settlement() {
     // M_fixed = 3EIδ/L²
     let m_exact = 3.0 * ei() * delta / (l * l);
     let r_left = results.reactions.iter().find(|r| r.node_id == 1).unwrap();
-    assert_close(r_left.mz.abs(), m_exact, 0.03,
+    assert_close(r_left.my.abs(), m_exact, 0.03,
         "SSE propped cantilever: M_fixed = 3EIδ/L²");
 
     // R_roller = 3EIδ/L³
     let r_exact = 3.0 * ei() * delta / (l * l * l);
     let r_right = results.reactions.iter().find(|r| r.node_id == n_nodes).unwrap();
-    assert_close(r_right.ry.abs(), r_exact, 0.03,
+    assert_close(r_right.rz.abs(), r_exact, 0.03,
         "SSE propped cantilever: R_roller = 3EIδ/L³");
 
     // The prescribed settlement must be satisfied
     let d_right = results.displacements.iter().find(|d| d.node_id == n_nodes).unwrap();
-    assert_close(d_right.uy, -delta, 0.01,
+    assert_close(d_right.uz, -delta, 0.01,
         "SSE propped cantilever: prescribed uy at roller = -δ");
 }
 
@@ -475,22 +475,22 @@ fn validation_sse_moment_proportional_to_ei() {
         sups_map.insert("1".to_string(), SolverSupport {
             id: 1, node_id: 1, support_type: "pinned".to_string(),
             kx: None, ky: None, kz: None,
-            dx: None, dy: None, drz: None, angle: None,
+            dx: None, dz: None, dry: None, angle: None,
         });
         sups_map.insert("2".to_string(), SolverSupport {
             id: 2, node_id: mid_node, support_type: "rollerX".to_string(),
             kx: None, ky: None, kz: None,
-            dx: None, dy: Some(-delta), drz: None, angle: None,
+            dx: None, dz: Some(-delta), dry: None, angle: None,
         });
         sups_map.insert("3".to_string(), SolverSupport {
             id: 3, node_id: n_nodes, support_type: "rollerX".to_string(),
             kx: None, ky: None, kz: None,
-            dx: None, dy: None, drz: None, angle: None,
+            dx: None, dz: None, dry: None, angle: None,
         });
 
         let mut nodes_map = HashMap::new();
         for (id, x, y) in &nodes {
-            nodes_map.insert(id.to_string(), SolverNode { id: *id, x: *x, y: *y });
+            nodes_map.insert(id.to_string(), SolverNode { id: *id, x: *x, z: *y });
         }
         let mut mats_map = HashMap::new();
         mats_map.insert("1".to_string(), SolverMaterial { id: 1, e: e_val, nu: 0.3 });
@@ -559,17 +559,17 @@ fn validation_sse_stiff_vs_flexible_beam() {
         sups_map.insert("1".to_string(), SolverSupport {
             id: 1, node_id: 1, support_type: "fixed".to_string(),
             kx: None, ky: None, kz: None,
-            dx: None, dy: None, drz: None, angle: None,
+            dx: None, dz: None, dry: None, angle: None,
         });
         sups_map.insert("2".to_string(), SolverSupport {
             id: 2, node_id: n_nodes, support_type: "rollerX".to_string(),
             kx: None, ky: None, kz: None,
-            dx: None, dy: Some(-delta), drz: None, angle: None,
+            dx: None, dz: Some(-delta), dry: None, angle: None,
         });
 
         let mut nodes_map = HashMap::new();
         for (id, x, y) in &nodes {
-            nodes_map.insert(id.to_string(), SolverNode { id: *id, x: *x, y: *y });
+            nodes_map.insert(id.to_string(), SolverNode { id: *id, x: *x, z: *y });
         }
         let mut mats_map = HashMap::new();
         mats_map.insert("1".to_string(), SolverMaterial { id: 1, e: e_val, nu: 0.3 });
@@ -587,7 +587,7 @@ fn validation_sse_stiff_vs_flexible_beam() {
             elements: elems_map, supports: sups_map, loads: vec![], constraints: vec![],
             connectors: HashMap::new(), };
         let results = linear::solve_2d(&input).unwrap();
-        results.reactions.iter().find(|r| r.node_id == 1).unwrap().mz.abs()
+        results.reactions.iter().find(|r| r.node_id == 1).unwrap().my.abs()
     };
 
     let m_flexible = run_with_e(E / 4.0);
@@ -643,27 +643,27 @@ fn validation_sse_multiple_settlement_patterns() {
         sups_map.insert("1".to_string(), SolverSupport {
             id: 1, node_id: 1, support_type: "pinned".to_string(),
             kx: None, ky: None, kz: None,
-            dx: None, dy: None, drz: None, angle: None,
+            dx: None, dz: None, dry: None, angle: None,
         });
         sups_map.insert("2".to_string(), SolverSupport {
             id: 2, node_id: node_b, support_type: "rollerX".to_string(),
             kx: None, ky: None, kz: None,
-            dx: None, dy: if settle_b { Some(-delta) } else { None }, drz: None, angle: None,
+            dx: None, dz: if settle_b { Some(-delta) } else { None }, dry: None, angle: None,
         });
         sups_map.insert("3".to_string(), SolverSupport {
             id: 3, node_id: node_c, support_type: "rollerX".to_string(),
             kx: None, ky: None, kz: None,
-            dx: None, dy: None, drz: None, angle: None,
+            dx: None, dz: None, dry: None, angle: None,
         });
         sups_map.insert("4".to_string(), SolverSupport {
             id: 4, node_id: node_d, support_type: "rollerX".to_string(),
             kx: None, ky: None, kz: None,
-            dx: None, dy: if settle_d { Some(-delta) } else { None }, drz: None, angle: None,
+            dx: None, dz: if settle_d { Some(-delta) } else { None }, dry: None, angle: None,
         });
 
         let mut nodes_map = HashMap::new();
         for (id, x, y) in &nodes {
-            nodes_map.insert(id.to_string(), SolverNode { id: *id, x: *x, y: *y });
+            nodes_map.insert(id.to_string(), SolverNode { id: *id, x: *x, z: *y });
         }
         let mut mats_map = HashMap::new();
         mats_map.insert("1".to_string(), SolverMaterial { id: 1, e: E, nu: 0.3 });
@@ -688,9 +688,9 @@ fn validation_sse_multiple_settlement_patterns() {
     let res3 = build(true, true);   // both B and D settle
 
     // Superposition at node A (node 1)
-    let ry1 = res1.reactions.iter().find(|r| r.node_id == 1).unwrap().ry;
-    let ry2 = res2.reactions.iter().find(|r| r.node_id == 1).unwrap().ry;
-    let ry3 = res3.reactions.iter().find(|r| r.node_id == 1).unwrap().ry;
+    let ry1 = res1.reactions.iter().find(|r| r.node_id == 1).unwrap().rz;
+    let ry2 = res2.reactions.iter().find(|r| r.node_id == 1).unwrap().rz;
+    let ry3 = res3.reactions.iter().find(|r| r.node_id == 1).unwrap().rz;
 
     let sum_sep = ry1 + ry2;
     let denom = ry3.abs().max(0.1);

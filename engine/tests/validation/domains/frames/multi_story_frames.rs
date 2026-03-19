@@ -92,8 +92,8 @@ fn validation_frame_drift_proportional() {
 
     let get_drift = |f_lateral: f64| -> f64 {
         let loads = vec![
-            SolverLoad::Nodal(SolverNodalLoad { node_id: 3, fx: f_lateral, fy: 0.0, mz: 0.0 }),
-            SolverLoad::Nodal(SolverNodalLoad { node_id: 5, fx: f_lateral, fy: 0.0, mz: 0.0 }),
+            SolverLoad::Nodal(SolverNodalLoad { node_id: 3, fx: f_lateral, fz: 0.0, my: 0.0 }),
+            SolverLoad::Nodal(SolverNodalLoad { node_id: 5, fx: f_lateral, fz: 0.0, my: 0.0 }),
         ];
         let input = make_input(nodes.clone(), vec![(1, E, 0.3)], vec![(1, A, IZ)],
             elems.clone(), sups.clone(), loads);
@@ -123,9 +123,9 @@ fn validation_frame_increasing_drift() {
 
     // Lateral load at each floor level (left nodes)
     let loads = vec![
-        SolverLoad::Nodal(SolverNodalLoad { node_id: 1 + n_cols, fx: 5.0, fy: 0.0, mz: 0.0 }),
-        SolverLoad::Nodal(SolverNodalLoad { node_id: 1 + 2 * n_cols, fx: 5.0, fy: 0.0, mz: 0.0 }),
-        SolverLoad::Nodal(SolverNodalLoad { node_id: 1 + 3 * n_cols, fx: 5.0, fy: 0.0, mz: 0.0 }),
+        SolverLoad::Nodal(SolverNodalLoad { node_id: 1 + n_cols, fx: 5.0, fz: 0.0, my: 0.0 }),
+        SolverLoad::Nodal(SolverNodalLoad { node_id: 1 + 2 * n_cols, fx: 5.0, fz: 0.0, my: 0.0 }),
+        SolverLoad::Nodal(SolverNodalLoad { node_id: 1 + 3 * n_cols, fx: 5.0, fz: 0.0, my: 0.0 }),
     ];
     let input = make_input(nodes, vec![(1, E, 0.3)], vec![(1, A, IZ)], elems, sups, loads);
     let results = linear::solve_2d(&input).unwrap();
@@ -153,10 +153,10 @@ fn validation_frame_gravity_no_sway() {
 
     // Symmetric gravity at each floor
     let loads = vec![
-        SolverLoad::Nodal(SolverNodalLoad { node_id: 1 + n_cols, fx: 0.0, fy: -20.0, mz: 0.0 }),
-        SolverLoad::Nodal(SolverNodalLoad { node_id: 2 + n_cols, fx: 0.0, fy: -20.0, mz: 0.0 }),
-        SolverLoad::Nodal(SolverNodalLoad { node_id: 1 + 2 * n_cols, fx: 0.0, fy: -20.0, mz: 0.0 }),
-        SolverLoad::Nodal(SolverNodalLoad { node_id: 2 + 2 * n_cols, fx: 0.0, fy: -20.0, mz: 0.0 }),
+        SolverLoad::Nodal(SolverNodalLoad { node_id: 1 + n_cols, fx: 0.0, fz: -20.0, my: 0.0 }),
+        SolverLoad::Nodal(SolverNodalLoad { node_id: 2 + n_cols, fx: 0.0, fz: -20.0, my: 0.0 }),
+        SolverLoad::Nodal(SolverNodalLoad { node_id: 1 + 2 * n_cols, fx: 0.0, fz: -20.0, my: 0.0 }),
+        SolverLoad::Nodal(SolverNodalLoad { node_id: 2 + 2 * n_cols, fx: 0.0, fz: -20.0, my: 0.0 }),
     ];
     let input = make_input(nodes, vec![(1, E, 0.3)], vec![(1, A, IZ)], elems, sups, loads);
     let results = linear::solve_2d(&input).unwrap();
@@ -182,7 +182,7 @@ fn validation_frame_stiffness_effect() {
         let (nodes, elems, sups) = make_frame(2, 1, h, w);
         let n_cols = 2;
         let loads = vec![
-            SolverLoad::Nodal(SolverNodalLoad { node_id: 1 + 2 * n_cols, fx: 10.0, fy: 0.0, mz: 0.0 }),
+            SolverLoad::Nodal(SolverNodalLoad { node_id: 1 + 2 * n_cols, fx: 10.0, fz: 0.0, my: 0.0 }),
         ];
         let input = make_input(nodes, vec![(1, E, 0.3)], vec![(1, A, iz)], elems, sups, loads);
         let results = linear::solve_2d(&input).unwrap();
@@ -216,7 +216,7 @@ fn validation_frame_multi_bay() {
     let (nodes1, elems1, sups1) = make_frame(2, 1, h, w);
     let n_cols1 = 2;
     let loads1 = vec![
-        SolverLoad::Nodal(SolverNodalLoad { node_id: 1 + 2 * n_cols1, fx: 10.0, fy: 0.0, mz: 0.0 }),
+        SolverLoad::Nodal(SolverNodalLoad { node_id: 1 + 2 * n_cols1, fx: 10.0, fz: 0.0, my: 0.0 }),
     ];
     let input1 = make_input(nodes1, vec![(1, E, 0.3)], vec![(1, A, IZ)], elems1, sups1, loads1);
     let d_1bay = linear::solve_2d(&input1).unwrap()
@@ -226,7 +226,7 @@ fn validation_frame_multi_bay() {
     let (nodes2, elems2, sups2) = make_frame(2, 2, h, w);
     let n_cols2 = 3;
     let loads2 = vec![
-        SolverLoad::Nodal(SolverNodalLoad { node_id: 1 + 2 * n_cols2, fx: 10.0, fy: 0.0, mz: 0.0 }),
+        SolverLoad::Nodal(SolverNodalLoad { node_id: 1 + 2 * n_cols2, fx: 10.0, fz: 0.0, my: 0.0 }),
     ];
     let input2 = make_input(nodes2, vec![(1, E, 0.3)], vec![(1, A, IZ)], elems2, sups2, loads2);
     let d_2bay = linear::solve_2d(&input2).unwrap()
@@ -252,18 +252,18 @@ fn validation_frame_asymmetric_gravity() {
 
     // Load only on left column node
     let loads = vec![
-        SolverLoad::Nodal(SolverNodalLoad { node_id: 1 + n_cols, fx: 0.0, fy: -50.0, mz: 0.0 }),
+        SolverLoad::Nodal(SolverNodalLoad { node_id: 1 + n_cols, fx: 0.0, fz: -50.0, my: 0.0 }),
     ];
     let input = make_input(nodes, vec![(1, E, 0.3)], vec![(1, A, IZ)], elems, sups, loads);
     let results = linear::solve_2d(&input).unwrap();
 
     // Should have vertical deflection at loaded node
     let d_left = results.displacements.iter().find(|d| d.node_id == 1 + n_cols).unwrap();
-    assert!(d_left.uy < 0.0,
-        "Asymmetric gravity: loaded node deflects down: {:.6e}", d_left.uy);
+    assert!(d_left.uz < 0.0,
+        "Asymmetric gravity: loaded node deflects down: {:.6e}", d_left.uz);
 
     // Equilibrium
-    let sum_ry: f64 = results.reactions.iter().map(|r| r.ry).sum();
+    let sum_ry: f64 = results.reactions.iter().map(|r| r.rz).sum();
     assert_close(sum_ry, 50.0, 0.02, "Asymmetric gravity: ΣRy = P");
 }
 
@@ -291,12 +291,12 @@ fn validation_frame_beam_udl() {
     let results = linear::solve_2d(&input).unwrap();
 
     // Equilibrium: ΣRy = q × w
-    let sum_ry: f64 = results.reactions.iter().map(|r| r.ry).sum();
+    let sum_ry: f64 = results.reactions.iter().map(|r| r.rz).sum();
     assert_close(sum_ry, q.abs() * w, 0.02, "Frame UDL: ΣRy = qL");
 
     // Symmetric loading → equal vertical reactions
-    let r1 = results.reactions.iter().find(|r| r.node_id == 1).unwrap().ry;
-    let r2 = results.reactions.iter().find(|r| r.node_id == 2).unwrap().ry;
+    let r1 = results.reactions.iter().find(|r| r.node_id == 1).unwrap().rz;
+    let r2 = results.reactions.iter().find(|r| r.node_id == 2).unwrap().rz;
     assert_close(r1, r2, 0.02, "Frame UDL: symmetric reactions");
 }
 
@@ -316,8 +316,8 @@ fn validation_frame_combined_equilibrium() {
     let px = 8.0;
     let py = -30.0;
     let loads = vec![
-        SolverLoad::Nodal(SolverNodalLoad { node_id: 1 + 2 * n_cols, fx: px, fy: py, mz: 0.0 }),
-        SolverLoad::Nodal(SolverNodalLoad { node_id: 2 + 2 * n_cols, fx: 0.0, fy: py, mz: 0.0 }),
+        SolverLoad::Nodal(SolverNodalLoad { node_id: 1 + 2 * n_cols, fx: px, fz: py, my: 0.0 }),
+        SolverLoad::Nodal(SolverNodalLoad { node_id: 2 + 2 * n_cols, fx: 0.0, fz: py, my: 0.0 }),
     ];
     let input = make_input(nodes, vec![(1, E, 0.3)], vec![(1, A, IZ)], elems, sups, loads);
     let results = linear::solve_2d(&input).unwrap();
@@ -327,6 +327,6 @@ fn validation_frame_combined_equilibrium() {
     assert_close(sum_rx, -px, 0.02, "Frame equilibrium: ΣRx = -Px");
 
     // ΣRy = -2py
-    let sum_ry: f64 = results.reactions.iter().map(|r| r.ry).sum();
+    let sum_ry: f64 = results.reactions.iter().map(|r| r.rz).sum();
     assert_close(sum_ry, -2.0 * py, 0.02, "Frame equilibrium: ΣRy = -ΣPy");
 }

@@ -247,7 +247,7 @@ fn validation_vm35_tension_stiffening() {
 
     // With tension (P-delta)
     let mut loads_t = vec![SolverLoad::Nodal(SolverNodalLoad {
-        node_id: n + 1, fx: t, fy: 0.0, mz: 0.0,
+        node_id: n + 1, fx: t, fz: 0.0, my: 0.0,
     })];
     for i in 0..n {
         loads_t.push(SolverLoad::Distributed(SolverDistributedLoad {
@@ -270,9 +270,9 @@ fn validation_vm35_tension_stiffening() {
 
     let mid = n / 2 + 1;
     let d_no_t = res_no_t.displacements.iter()
-        .find(|d| d.node_id == mid).unwrap().uy.abs();
+        .find(|d| d.node_id == mid).unwrap().uz.abs();
     let d_t = res_t.results.displacements.iter()
-        .find(|d| d.node_id == mid).unwrap().uy.abs();
+        .find(|d| d.node_id == mid).unwrap().uz.abs();
 
     // Tension stiffening: deflection with tension should be LESS than without
     assert!(
@@ -470,10 +470,10 @@ fn validation_vm38_fixed_fixed_two_symmetric_loads() {
         n, l, E, a_sec, iz, "fixed", Some("fixed"),
         vec![
             SolverLoad::Nodal(SolverNodalLoad {
-                node_id: load_node_1, fx: 0.0, fy: -p, mz: 0.0,
+                node_id: load_node_1, fx: 0.0, fz: -p, my: 0.0,
             }),
             SolverLoad::Nodal(SolverNodalLoad {
-                node_id: load_node_2, fx: 0.0, fy: -p, mz: 0.0,
+                node_id: load_node_2, fx: 0.0, fz: -p, my: 0.0,
             }),
         ],
     );
@@ -484,24 +484,24 @@ fn validation_vm38_fixed_fixed_two_symmetric_loads() {
     let r_left = results.reactions.iter().find(|r| r.node_id == 1).unwrap();
     let r_right = results.reactions.iter().find(|r| r.node_id == n + 1).unwrap();
 
-    assert_close(r_left.ry, p, 0.02, "VM38 R_left = P");
-    assert_close(r_right.ry, p, 0.02, "VM38 R_right = P");
+    assert_close(r_left.rz, p, 0.02, "VM38 R_left = P");
+    assert_close(r_right.rz, p, 0.02, "VM38 R_right = P");
 
     // Fixed-end moments: M = 2PL/9
     let m_expected = 2.0 * p * l / 9.0;
-    assert_close(r_left.mz.abs(), m_expected, 0.03,
+    assert_close(r_left.my.abs(), m_expected, 0.03,
         "VM38 M_left = 2PL/9");
-    assert_close(r_right.mz.abs(), m_expected, 0.03,
+    assert_close(r_right.my.abs(), m_expected, 0.03,
         "VM38 M_right = 2PL/9");
 
     // Symmetry check
-    assert_close(r_left.mz.abs(), r_right.mz.abs(), 0.01,
+    assert_close(r_left.my.abs(), r_right.my.abs(), 0.01,
         "VM38 moment symmetry");
-    assert_close(r_left.ry, r_right.ry, 0.01,
+    assert_close(r_left.rz, r_right.rz, 0.01,
         "VM38 reaction symmetry");
 
     // Equilibrium
-    let sum_ry: f64 = results.reactions.iter().map(|r| r.ry).sum();
+    let sum_ry: f64 = results.reactions.iter().map(|r| r.rz).sum();
     assert_close(sum_ry, 2.0 * p, 0.01, "VM38 equilibrium");
 }
 
@@ -559,11 +559,11 @@ fn validation_vm39_cantilever_partial_udl() {
 
     // V = q * a
     let v_expected = q_abs * a_load;
-    assert_close(r.ry, v_expected, 0.02, "VM39 V = q*a");
+    assert_close(r.rz, v_expected, 0.02, "VM39 V = q*a");
 
     // M = q * a * (L - a/2)
     let m_expected = q_abs * a_load * (l - a_load / 2.0);
-    assert_close(r.mz.abs(), m_expected, 0.02, "VM39 M = q*a*(L - a/2)");
+    assert_close(r.my.abs(), m_expected, 0.02, "VM39 M = q*a*(L - a/2)");
 
     // Tip deflection by numerical integration of the virtual work formula.
     // I1 = integral_0^c (L-x)*((L+c)/2 - x) dx
@@ -580,11 +580,11 @@ fn validation_vm39_cantilever_partial_udl() {
 
     let tip = results.displacements.iter()
         .find(|d| d.node_id == n + 1).unwrap();
-    assert_close(tip.uy.abs(), delta_expected, 0.03,
+    assert_close(tip.uz.abs(), delta_expected, 0.03,
         "VM39 tip deflection");
 
     // Equilibrium: sum of reactions = total applied load
-    assert_close(r.ry, q_abs * a_load, 0.01, "VM39 equilibrium");
+    assert_close(r.rz, q_abs * a_load, 0.01, "VM39 equilibrium");
 }
 
 // ================================================================
@@ -697,7 +697,7 @@ fn validation_vm41_3d_l_frame_out_of_plane() {
 
     let delta_total = delta_bend1 + delta_rotation1 + delta_bend2 + delta_torsion;
 
-    assert_close(tip.uy.abs(), delta_total, 0.05,
+    assert_close(tip.uz.abs(), delta_total, 0.05,
         "VM41 tip Y deflection (bending + torsion)");
 
     // The torsion component should be significant (> 10% of total)
@@ -710,7 +710,7 @@ fn validation_vm41_3d_l_frame_out_of_plane() {
 
     // Equilibrium: fixed-end reactions should balance applied load
     let r_base = results.reactions.iter().find(|r| r.node_id == 1).unwrap();
-    assert_close(r_base.fy.abs(), fy, 0.02, "VM41 Fy equilibrium");
+    assert_close(r_base.fz.abs(), fy, 0.02, "VM41 Fy equilibrium");
 
     // Fixed-end should have a torque about x (from torsion in member 1)
     // and moments about y and z (from bending)

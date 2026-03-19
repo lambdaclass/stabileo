@@ -94,13 +94,13 @@ fn validation_conductor_sag_parabolic() {
 
     // Midspan node is node 3 (middle of 4 elements, 5 nodes)
     let d_mid = results.displacements.iter().find(|d| d.node_id == 3).unwrap();
-    let delta_fem: f64 = d_mid.uy.abs();
+    let delta_fem: f64 = d_mid.uz.abs();
 
     assert_close(delta_fem, delta_theory, 0.05, "Conductor beam midspan deflection");
 
     // Verify reactions sum to total load
     let total_load: f64 = q_abs * l_model;
-    let sum_ry: f64 = results.reactions.iter().map(|r| r.ry).sum();
+    let sum_ry: f64 = results.reactions.iter().map(|r| r.rz).sum();
     assert_close(sum_ry, total_load, 0.01, "Conductor: sum Ry = total weight");
 }
 
@@ -172,19 +172,19 @@ fn validation_wind_on_conductor() {
     let f_total: f64 = f_wind * span;
 
     // Reactions must balance total wind force (opposite sign)
-    let sum_ry: f64 = results.reactions.iter().map(|r| r.ry).sum();
+    let sum_ry: f64 = results.reactions.iter().map(|r| r.rz).sum();
     assert_close(sum_ry.abs(), f_total, 0.02, "Wind: |sum Ry| = total wind force");
 
     // Symmetric loading -> equal reactions (in magnitude)
-    let r1: f64 = results.reactions.iter().find(|r| r.node_id == 1).unwrap().ry;
-    let r5: f64 = results.reactions.iter().find(|r| r.node_id == n_elem + 1).unwrap().ry;
+    let r1: f64 = results.reactions.iter().find(|r| r.node_id == 1).unwrap().rz;
+    let r5: f64 = results.reactions.iter().find(|r| r.node_id == n_elem + 1).unwrap().rz;
     assert_close(r1.abs(), r5.abs(), 0.02, "Wind: symmetric reactions");
 
     // Midspan deflection: delta = 5*q*L^4/(384*EI)
     let e_eff: f64 = e * 1000.0;
     let delta_theory: f64 = 5.0 * f_wind * span.powi(4) / (384.0 * e_eff * iz);
     let d_mid = results.displacements.iter().find(|d| d.node_id == 3).unwrap();
-    assert_close(d_mid.uy.abs(), delta_theory, 0.05, "Wind: midspan deflection");
+    assert_close(d_mid.uz.abs(), delta_theory, 0.05, "Wind: midspan deflection");
 }
 
 // ================================================================
@@ -225,7 +225,7 @@ fn validation_tower_leg_compression() {
         ],
         vec![(1, 1, "pinned"), (2, 2, "pinned")],
         vec![SolverLoad::Nodal(SolverNodalLoad {
-            node_id: 3, fx: 0.0, fy: -p_total, mz: 0.0,
+            node_id: 3, fx: 0.0, fz: -p_total, my: 0.0,
         })],
     );
     let results = solve_2d(&input).expect("solve");
@@ -251,8 +251,8 @@ fn validation_tower_leg_compression() {
     // Reactions: each base carries half the total vertical load
     let r1 = results.reactions.iter().find(|r| r.node_id == 1).unwrap();
     let r2 = results.reactions.iter().find(|r| r.node_id == 2).unwrap();
-    assert_close(r1.ry, p_total / 2.0, 0.02, "Base 1: Ry = P/2");
-    assert_close(r2.ry, p_total / 2.0, 0.02, "Base 2: Ry = P/2");
+    assert_close(r1.rz, p_total / 2.0, 0.02, "Base 1: Ry = P/2");
+    assert_close(r2.rz, p_total / 2.0, 0.02, "Base 2: Ry = P/2");
 
     // No net horizontal reaction for symmetric vertical load
     let sum_rx: f64 = results.reactions.iter().map(|r| r.rx).sum();
@@ -294,7 +294,7 @@ fn validation_cross_arm_cantilever() {
         .collect();
     let sups = vec![(1, 1, "fixed")];
     let loads = vec![SolverLoad::Nodal(SolverNodalLoad {
-        node_id: n_elem + 1, fx: 0.0, fy: -p_cond, mz: 0.0,
+        node_id: n_elem + 1, fx: 0.0, fz: -p_cond, my: 0.0,
     })];
 
     let input = make_input(nodes, vec![(1, e, 0.3)], vec![(1, a, iz)], elems, sups, loads);
@@ -302,19 +302,19 @@ fn validation_cross_arm_cantilever() {
 
     // Reaction at fixed end
     let r = results.reactions.iter().find(|r| r.node_id == 1).unwrap();
-    assert_close(r.ry, p_cond, 0.02, "Cross-arm: Ry = P");
+    assert_close(r.rz, p_cond, 0.02, "Cross-arm: Ry = P");
     assert_close(r.rx, 0.0, 0.02, "Cross-arm: Rx = 0");
 
     // Moment at fixed end: M = P * L (positive for our convention)
     // The fixed support moment must balance P*L
     let m_base_theory: f64 = p_cond * arm_length;
-    assert_close(r.mz.abs(), m_base_theory, 0.02, "Cross-arm: M_base = P*L");
+    assert_close(r.my.abs(), m_base_theory, 0.02, "Cross-arm: M_base = P*L");
 
     // Tip deflection: delta = P*L^3 / (3*E*I)
     let e_eff: f64 = e * 1000.0; // kN/m^2
     let delta_theory: f64 = p_cond * arm_length.powi(3) / (3.0 * e_eff * iz);
     let d_tip = results.displacements.iter().find(|d| d.node_id == n_elem + 1).unwrap();
-    assert_close(d_tip.uy.abs(), delta_theory, 0.05, "Cross-arm: tip deflection");
+    assert_close(d_tip.uz.abs(), delta_theory, 0.05, "Cross-arm: tip deflection");
 
     // Shear is constant along the cantilever
     let ef1 = results.element_forces.iter().find(|e| e.element_id == 1).unwrap();
@@ -377,13 +377,13 @@ fn validation_wind_on_tower_body() {
     // The net vertical couple satisfies: R_up * w + sum(M_base) = F * h
     // So R_vert_diff < F*h/w in general. We just verify the pattern:
     //   - one base pushes down, the other pushes up (or both up but unequal)
-    let ry_diff: f64 = (r1.ry - r4.ry).abs();
+    let ry_diff: f64 = (r1.rz - r4.rz).abs();
     assert!(ry_diff > 1.0,
         "Wind: differential vertical reaction from overturning: {:.2}", ry_diff);
 
     // Global moment equilibrium: sum(Mz_base) + sum(Ry * x) = F * h
     // Verify vertical equilibrium (no vertical applied load):
-    let sum_ry: f64 = results.reactions.iter().map(|r| r.ry).sum();
+    let sum_ry: f64 = results.reactions.iter().map(|r| r.rz).sum();
     assert_close(sum_ry, 0.0, 0.02, "Wind: sum Ry = 0 (no vertical load)");
 
     // Top of frame displaces laterally
@@ -439,7 +439,7 @@ fn validation_foundation_reaction_overturning() {
         vec![(1, 1, "pinned"), (2, 2, "pinned")],
         vec![
             SolverLoad::Nodal(SolverNodalLoad {
-                node_id: 3, fx: f_wind, fy: -w_dead, mz: 0.0,
+                node_id: 3, fx: f_wind, fz: -w_dead, my: 0.0,
             }),
         ],
     );
@@ -450,20 +450,20 @@ fn validation_foundation_reaction_overturning() {
     let r2 = results.reactions.iter().find(|r| r.node_id == 2).unwrap();
 
     // Leeward base (node 2) in compression (positive Ry = upward reaction)
-    assert_close(r2.ry, r_leeward_theory, 0.02, "Foundation: leeward Ry (compression)");
+    assert_close(r2.rz, r_leeward_theory, 0.02, "Foundation: leeward Ry (compression)");
 
     // Windward base (node 1) may be in uplift (negative Ry means uplift)
-    assert_close(r1.ry, r_windward_theory, 0.02, "Foundation: windward Ry (uplift)");
+    assert_close(r1.rz, r_windward_theory, 0.02, "Foundation: windward Ry (uplift)");
 
     // Global equilibrium checks
-    let sum_ry: f64 = results.reactions.iter().map(|r| r.ry).sum();
+    let sum_ry: f64 = results.reactions.iter().map(|r| r.rz).sum();
     assert_close(sum_ry, w_dead, 0.02, "Foundation: sum Ry = dead weight");
 
     let sum_rx: f64 = results.reactions.iter().map(|r| r.rx).sum();
     assert_close(sum_rx, -f_wind, 0.02, "Foundation: sum Rx = -F_wind");
 
     // Verify windward base is indeed in uplift
-    assert!(r1.ry < 0.0, "Foundation: windward leg in uplift (Ry={:.2})", r1.ry);
+    assert!(r1.rz < 0.0, "Foundation: windward leg in uplift (Ry={:.2})", r1.rz);
 }
 
 // ================================================================
@@ -504,7 +504,7 @@ fn validation_broken_wire_condition() {
     let sups = vec![(1, 1, "fixed"), (2, 4, "fixed")];
     let loads = vec![
         SolverLoad::Nodal(SolverNodalLoad {
-            node_id: 2, fx: t_residual, fy: 0.0, mz: 0.0,
+            node_id: 2, fx: t_residual, fz: 0.0, my: 0.0,
         }),
     ];
 
@@ -530,18 +530,18 @@ fn validation_broken_wire_condition() {
 
     // Overturning creates differential vertical reactions
     // The horizontal load at height h creates a couple
-    let ry_diff: f64 = (r1.ry - r4.ry).abs();
+    let ry_diff: f64 = (r1.rz - r4.rz).abs();
     assert!(ry_diff > 0.1, "Broken wire: differential vertical reactions exist");
 
     // Verify moment equilibrium about base
     // Applied: T_residual * h
     // Resisted by: base moments + vertical couple
-    let sum_mz: f64 = results.reactions.iter().map(|r| r.mz).sum();
-    let moment_from_vert: f64 = r4.ry * w;
-    let total_resisting: f64 = sum_mz.abs() + moment_from_vert.abs();
+    let sum_my: f64 = results.reactions.iter().map(|r| r.my).sum();
+    let moment_from_vert: f64 = r4.rz * w;
+    let total_resisting: f64 = sum_my.abs() + moment_from_vert.abs();
     let applied_moment: f64 = t_residual * h;
     // The resisting moment system must balance the applied moment
-    // (sum_mz already accounts for correct signs internally)
+    // (sum_my already accounts for correct signs internally)
     // Just verify the frame doesn't collapse: sway displacement exists
     let d2 = results.displacements.iter().find(|d| d.node_id == 2).unwrap();
     assert!(d2.ux.abs() > 0.0, "Broken wire: frame sways at load point");
@@ -636,12 +636,12 @@ fn validation_ice_wind_combination() {
 
     // Total vertical load
     let total_gravity: f64 = w_total * span;
-    let sum_ry: f64 = results.reactions.iter().map(|r| r.ry).sum();
+    let sum_ry: f64 = results.reactions.iter().map(|r| r.rz).sum();
     assert_close(sum_ry, total_gravity, 0.02, "Ice+Wind: sum Ry = total gravity");
 
     // Midspan deflection increases due to heavier conductor
     let d_mid = results.displacements.iter().find(|d| d.node_id == 3).unwrap();
-    assert!(d_mid.uy < 0.0, "Ice+Wind: midspan deflects downward");
+    assert!(d_mid.uz < 0.0, "Ice+Wind: midspan deflects downward");
 
     // Compare deflection with bare conductor case
     let e_eff: f64 = e * 1000.0;
@@ -651,7 +651,7 @@ fn validation_ice_wind_combination() {
         "Ice loading increases deflection: {:.6} > {:.6}", delta_ice, delta_bare);
 
     // FEM deflection should match ice-loaded beam theory
-    assert_close(d_mid.uy.abs(), delta_ice, 0.05, "Ice+Wind: midspan deflection vs theory");
+    assert_close(d_mid.uz.abs(), delta_ice, 0.05, "Ice+Wind: midspan deflection vs theory");
 
     // Resultant angle from vertical: theta = atan(f_wind / w_total)
     let theta: f64 = (f_wind_ice / w_total).atan();

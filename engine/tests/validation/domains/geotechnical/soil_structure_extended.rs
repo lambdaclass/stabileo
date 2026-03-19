@@ -53,7 +53,7 @@ fn make_winkler_beam(
         nodes_map.insert(id.to_string(), SolverNode {
             id,
             x: i as f64 * elem_len,
-            y: 0.0,
+            z: 0.0,
         });
     }
 
@@ -97,8 +97,8 @@ fn make_winkler_beam(
             ky: Some(ky_node),
             kz: None,
             dx: None,
-            dy: None,
-            drz: None,
+            dz: None,
+            dry: None,
             angle: None,
         });
     }
@@ -126,10 +126,10 @@ fn make_portal_spring_base(
     loads: Vec<SolverLoad>,
 ) -> SolverInput {
     let mut nodes_map = HashMap::new();
-    nodes_map.insert("1".to_string(), SolverNode { id: 1, x: 0.0, y: 0.0 });
-    nodes_map.insert("2".to_string(), SolverNode { id: 2, x: 0.0, y: h });
-    nodes_map.insert("3".to_string(), SolverNode { id: 3, x: w, y: h });
-    nodes_map.insert("4".to_string(), SolverNode { id: 4, x: w, y: 0.0 });
+    nodes_map.insert("1".to_string(), SolverNode { id: 1, x: 0.0, z: 0.0 });
+    nodes_map.insert("2".to_string(), SolverNode { id: 2, x: 0.0, z: h });
+    nodes_map.insert("3".to_string(), SolverNode { id: 3, x: w, z: h });
+    nodes_map.insert("4".to_string(), SolverNode { id: 4, x: w, z: 0.0 });
 
     let mut mats_map = HashMap::new();
     mats_map.insert("1".to_string(), SolverMaterial { id: 1, e, nu: 0.3 });
@@ -159,12 +159,12 @@ fn make_portal_spring_base(
     sups_map.insert("1".to_string(), SolverSupport {
         id: 1, node_id: 1, support_type: "spring".to_string(),
         kx: Some(1e10), ky: Some(ky_base), kz: None,
-        dx: None, dy: None, drz: None, angle: None,
+        dx: None, dz: None, dry: None, angle: None,
     });
     sups_map.insert("2".to_string(), SolverSupport {
         id: 2, node_id: 4, support_type: "spring".to_string(),
         kx: Some(1e10), ky: Some(ky_base), kz: None,
-        dx: None, dy: None, drz: None, angle: None,
+        dx: None, dz: None, dry: None, angle: None,
     });
 
     SolverInput {
@@ -209,8 +209,8 @@ fn validation_ssi_beam_winkler_hetenyi() {
     let loads = vec![SolverLoad::Nodal(SolverNodalLoad {
         node_id: mid_node,
         fx: 0.0,
-        fy: -p,
-        mz: 0.0,
+        fz: -p,
+        my: 0.0,
     })];
 
     let input = make_winkler_beam(n, l, k_soil, E, A, IZ, loads);
@@ -224,7 +224,7 @@ fn validation_ssi_beam_winkler_hetenyi() {
         .iter()
         .find(|d| d.node_id == mid_node)
         .unwrap();
-    let delta_computed = mid.uy.abs();
+    let delta_computed = mid.uz.abs();
 
     let error_delta = (delta_computed - delta_hetenyi).abs() / delta_hetenyi;
     assert!(
@@ -234,7 +234,7 @@ fn validation_ssi_beam_winkler_hetenyi() {
     );
 
     // Deflection must be downward
-    assert!(mid.uy < 0.0, "Deflection should be downward: uy={:.6e}", mid.uy);
+    assert!(mid.uz < 0.0, "Deflection should be downward: uy={:.6e}", mid.uz);
 
     // --- Hetenyi closed-form moment ---
     let m_hetenyi = p / (4.0 * beta);
@@ -316,7 +316,7 @@ fn validation_ssi_mat_foundation_rigid_block() {
         .iter()
         .find(|d| d.node_id == mid_node)
         .unwrap()
-        .uy
+        .uz
         .abs();
 
     let error_mid = (d_mid - delta_expected).abs() / delta_expected;
@@ -332,7 +332,7 @@ fn validation_ssi_mat_foundation_rigid_block() {
         .iter()
         .find(|d| d.node_id == 1)
         .unwrap()
-        .uy
+        .uz
         .abs();
     let uniformity = d_end / d_mid;
     assert!(
@@ -343,7 +343,7 @@ fn validation_ssi_mat_foundation_rigid_block() {
 
     // Check total reaction equals total applied load
     let total_load = q_abs * l;
-    let total_reaction: f64 = results.reactions.iter().map(|r| r.ry).sum();
+    let total_reaction: f64 = results.reactions.iter().map(|r| r.rz).sum();
     let equil_error = (total_reaction - total_load).abs() / total_load;
     assert!(
         equil_error < 0.01,
@@ -397,7 +397,7 @@ fn validation_ssi_pile_group_cap_beam() {
         nodes_map.insert(id.to_string(), SolverNode {
             id,
             x: i as f64 * elem_len,
-            y: 0.0,
+            z: 0.0,
         });
     }
 
@@ -431,27 +431,27 @@ fn validation_ssi_pile_group_cap_beam() {
     sups_map.insert("1".to_string(), SolverSupport {
         id: 1, node_id: 1, support_type: "spring".to_string(),
         kx: Some(1e10), ky: Some(k_pile), kz: None,
-        dx: None, dy: None, drz: None, angle: None,
+        dx: None, dz: None, dry: None, angle: None,
     });
     // Center pile
     sups_map.insert("2".to_string(), SolverSupport {
         id: 2, node_id: mid_node, support_type: "spring".to_string(),
         kx: None, ky: Some(k_pile), kz: None,
-        dx: None, dy: None, drz: None, angle: None,
+        dx: None, dz: None, dry: None, angle: None,
     });
     // Right pile
     sups_map.insert("3".to_string(), SolverSupport {
         id: 3, node_id: end_node, support_type: "spring".to_string(),
         kx: None, ky: Some(k_pile), kz: None,
-        dx: None, dy: None, drz: None, angle: None,
+        dx: None, dz: None, dry: None, angle: None,
     });
 
     // Central load
     let loads = vec![SolverLoad::Nodal(SolverNodalLoad {
         node_id: mid_node,
         fx: 0.0,
-        fy: -p,
-        mz: 0.0,
+        fz: -p,
+        my: 0.0,
     })];
 
     let input = SolverInput {
@@ -466,7 +466,7 @@ fn validation_ssi_pile_group_cap_beam() {
     let results = linear::solve_2d(&input).unwrap();
 
     // Vertical equilibrium: sum of pile reactions = P
-    let total_reaction: f64 = results.reactions.iter().map(|r| r.ry).sum();
+    let total_reaction: f64 = results.reactions.iter().map(|r| r.rz).sum();
     assert_close(total_reaction, p, 0.01, "Pile group equilibrium: sum Ry = P");
 
     // Center pile should carry more load than edge piles
@@ -475,19 +475,19 @@ fn validation_ssi_pile_group_cap_beam() {
         .iter()
         .find(|r| r.node_id == mid_node)
         .unwrap()
-        .ry;
+        .rz;
     let r_left = results
         .reactions
         .iter()
         .find(|r| r.node_id == 1)
         .unwrap()
-        .ry;
+        .rz;
     let r_right = results
         .reactions
         .iter()
         .find(|r| r.node_id == end_node)
         .unwrap()
-        .ry;
+        .rz;
 
     assert!(
         r_center > r_left,
@@ -509,14 +509,14 @@ fn validation_ssi_pile_group_cap_beam() {
         .iter()
         .find(|d| d.node_id == mid_node)
         .unwrap()
-        .uy
+        .uz
         .abs();
     let d_edge = results
         .displacements
         .iter()
         .find(|d| d.node_id == 1)
         .unwrap()
-        .uy
+        .uz
         .abs();
 
     assert!(
@@ -586,7 +586,7 @@ fn validation_ssi_lateral_earth_pressure() {
         nodes_map.insert(id.to_string(), SolverNode {
             id,
             x: i as f64 * elem_len,
-            y: 0.0,
+            z: 0.0,
         });
     }
 
@@ -620,7 +620,7 @@ fn validation_ssi_lateral_earth_pressure() {
     sups_map.insert("1".to_string(), SolverSupport {
         id: 1, node_id: 1, support_type: "fixed".to_string(),
         kx: None, ky: None, kz: None,
-        dx: None, dy: None, drz: None, angle: None,
+        dx: None, dz: None, dry: None, angle: None,
     });
 
     // Triangular load: 0 at node 1 (base), p_max at node n+1 (top).
@@ -658,12 +658,12 @@ fn validation_ssi_lateral_earth_pressure() {
 
     // Check total horizontal reaction at base
     // For a horizontal beam with transverse load, the reaction is in Y direction.
-    let ry_base = results.reactions[0].ry;
+    let ry_base = results.reactions[0].rz;
     assert_close(ry_base.abs(), pa, 0.02,
         "Base reaction = total active force Pa");
 
     // Check base moment
-    let mz_base = results.reactions[0].mz;
+    let mz_base = results.reactions[0].my;
     assert_close(mz_base.abs(), m_base, 0.05,
         "Base moment = Pa * H/3");
 
@@ -723,7 +723,7 @@ fn validation_ssi_surcharge_loading() {
         .iter()
         .find(|d| d.node_id == mid_node)
         .unwrap()
-        .uy;
+        .uz;
 
     // --- Case B: Self-weight + surcharge ---
     let mut loads_b = Vec::new();
@@ -744,7 +744,7 @@ fn validation_ssi_surcharge_loading() {
         .iter()
         .find(|d| d.node_id == mid_node)
         .unwrap()
-        .uy;
+        .uz;
 
     // --- Case C: Surcharge only (for superposition check) ---
     let mut loads_c = Vec::new();
@@ -765,7 +765,7 @@ fn validation_ssi_surcharge_loading() {
         .iter()
         .find(|d| d.node_id == mid_node)
         .unwrap()
-        .uy;
+        .uz;
 
     // Superposition: delta_A + delta_C = delta_B
     let d_super = d_mid_a + d_mid_c;
@@ -825,8 +825,8 @@ fn validation_ssi_subgrade_modulus_effect() {
         let loads = vec![SolverLoad::Nodal(SolverNodalLoad {
             node_id: mid_node,
             fx: 0.0,
-            fy: -p,
-            mz: 0.0,
+            fz: -p,
+            my: 0.0,
         })];
 
         let input = make_winkler_beam(n, l, ks, E, A, IZ, loads);
@@ -837,7 +837,7 @@ fn validation_ssi_subgrade_modulus_effect() {
             .iter()
             .find(|d| d.node_id == mid_node)
             .unwrap()
-            .uy
+            .uz
             .abs();
         deflections.push(d_mid);
     }
@@ -904,8 +904,8 @@ fn validation_ssi_foundation_flexibility_ratio() {
     let loads_a = vec![SolverLoad::Nodal(SolverNodalLoad {
         node_id: mid_node,
         fx: 0.0,
-        fy: -p,
-        mz: 0.0,
+        fz: -p,
+        my: 0.0,
     })];
 
     let input_a = make_winkler_beam(n, l, k_soft, E, A, iz_rigid, loads_a);
@@ -916,14 +916,14 @@ fn validation_ssi_foundation_flexibility_ratio() {
         .iter()
         .find(|d| d.node_id == mid_node)
         .unwrap()
-        .uy
+        .uz
         .abs();
     let d_end_rigid = results_a
         .displacements
         .iter()
         .find(|d| d.node_id == 1)
         .unwrap()
-        .uy
+        .uz
         .abs();
 
     let uniformity_rigid = d_end_rigid / d_mid_rigid;
@@ -935,8 +935,8 @@ fn validation_ssi_foundation_flexibility_ratio() {
     let loads_b = vec![SolverLoad::Nodal(SolverNodalLoad {
         node_id: mid_node,
         fx: 0.0,
-        fy: -p,
-        mz: 0.0,
+        fz: -p,
+        my: 0.0,
     })];
 
     let input_b = make_winkler_beam(n, l, k_stiff, E, A, iz_flex, loads_b);
@@ -947,14 +947,14 @@ fn validation_ssi_foundation_flexibility_ratio() {
         .iter()
         .find(|d| d.node_id == mid_node)
         .unwrap()
-        .uy
+        .uz
         .abs();
     let d_end_flex = results_b
         .displacements
         .iter()
         .find(|d| d.node_id == 1)
         .unwrap()
-        .uy
+        .uz
         .abs();
 
     let uniformity_flex = d_end_flex / d_mid_flex;
@@ -987,14 +987,14 @@ fn validation_ssi_foundation_flexibility_ratio() {
         .iter()
         .find(|d| d.node_id == qtr_node)
         .unwrap()
-        .uy
+        .uz
         .abs();
     let d_qtr_flex = results_b
         .displacements
         .iter()
         .find(|d| d.node_id == qtr_node)
         .unwrap()
-        .uy
+        .uz
         .abs();
 
     let qtr_ratio_rigid = d_qtr_rigid / d_mid_rigid;
@@ -1036,7 +1036,7 @@ fn validation_ssi_spring_supported_portal() {
     let h_lateral = 50.0; // kN, lateral load at top-left
 
     let loads = vec![SolverLoad::Nodal(SolverNodalLoad {
-        node_id: 2, fx: h_lateral, fy: 0.0, mz: 0.0,
+        node_id: 2, fx: h_lateral, fz: 0.0, my: 0.0,
     })];
 
     // --- Case A: Effectively fixed base (very stiff springs) ---
@@ -1121,7 +1121,7 @@ fn validation_ssi_spring_supported_portal() {
 
     // Vertical equilibrium: no vertical load, so sum Ry should be ~0
     for (label, results) in [("A", &results_a), ("B", &results_b), ("C", &results_c)] {
-        let total_ry: f64 = results.reactions.iter().map(|r| r.ry).sum();
+        let total_ry: f64 = results.reactions.iter().map(|r| r.rz).sum();
         assert!(
             total_ry.abs() < 1.0,
             "Case {}: vertical equil: sum_Ry={:.4} should be ~0",
@@ -1137,13 +1137,13 @@ fn validation_ssi_spring_supported_portal() {
         .iter()
         .find(|d| d.node_id == 4)
         .unwrap()
-        .uy;
+        .uz;
     let settle_left_c = results_c
         .displacements
         .iter()
         .find(|d| d.node_id == 1)
         .unwrap()
-        .uy;
+        .uz;
 
     // Under lateral load, one base goes up and the other goes down
     // (overturning effect), so they should have opposite signs or

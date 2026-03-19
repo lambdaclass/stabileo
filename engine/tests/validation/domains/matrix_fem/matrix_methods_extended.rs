@@ -84,26 +84,26 @@ fn validation_mat_meth_ext_element_stiffness_6x6() {
     // Solve single-element cantilever: fixed at node 1, tip load at node 2
     let input = make_beam(1, l, E, A, IZ, "fixed", None,
         vec![SolverLoad::Nodal(SolverNodalLoad {
-            node_id: 2, fx: 0.0, fy: -p, mz: 0.0,
+            node_id: 2, fx: 0.0, fz: -p, my: 0.0,
         })]);
     let results = linear::solve_2d(&input).unwrap();
 
     // Exact tip displacement: delta = PL³/(3EI)
     let delta_exact = p * l3 / (3.0 * ei);
     let delta_fem = results.displacements.iter()
-        .find(|d| d.node_id == 2).unwrap().uy.abs();
+        .find(|d| d.node_id == 2).unwrap().uz.abs();
     assert_close(delta_fem, delta_exact, 0.01, "cantilever tip delta = PL^3/(3EI)");
 
     // Exact tip rotation: theta = PL²/(2EI)
     let theta_exact = p * l2 / (2.0 * ei);
     let theta_fem = results.displacements.iter()
-        .find(|d| d.node_id == 2).unwrap().rz.abs();
+        .find(|d| d.node_id == 2).unwrap().ry.abs();
     assert_close(theta_fem, theta_exact, 0.01, "cantilever tip theta = PL^2/(2EI)");
 
     // Exact fixed-end reaction moment: M = PL
     let m_exact = p * l;
     let m_reaction = results.reactions.iter()
-        .find(|r| r.node_id == 1).unwrap().mz.abs();
+        .find(|r| r.node_id == 1).unwrap().my.abs();
     assert_close(m_reaction, m_exact, 0.01, "fixed-end moment = PL");
 }
 
@@ -139,7 +139,7 @@ fn validation_mat_meth_ext_transformation_inclined_member() {
     // Horizontal beam: nodes along X-axis
     let input_horiz = make_beam(n, l, E, A, IZ, "pinned", Some("rollerX"),
         vec![SolverLoad::Nodal(SolverNodalLoad {
-            node_id: mid, fx: 0.0, fy: -p, mz: 0.0,
+            node_id: mid, fx: 0.0, fz: -p, my: 0.0,
         })]);
     let res_horiz = linear::solve_2d(&input_horiz).unwrap();
 
@@ -159,19 +159,19 @@ fn validation_mat_meth_ext_transformation_inclined_member() {
     // which for an inclined beam allows sliding along X-direction.
     let sups = vec![(1, 1, "pinned"), (2, n + 1, "rollerX")];
     let loads = vec![SolverLoad::Nodal(SolverNodalLoad {
-        node_id: mid, fx: 0.0, fy: -p, mz: 0.0,
+        node_id: mid, fx: 0.0, fz: -p, my: 0.0,
     })];
     let input_inclined = make_input(nodes, vec![(1, E, 0.3)], vec![(1, A, IZ)],
         elems, sups, loads);
     let res_inclined = linear::solve_2d(&input_inclined).unwrap();
 
     // Vertical reactions must be the same: P/2 at each support
-    let ry_horiz_1 = res_horiz.reactions.iter().find(|r| r.node_id == 1).unwrap().ry;
-    let ry_incl_1 = res_inclined.reactions.iter().find(|r| r.node_id == 1).unwrap().ry;
+    let ry_horiz_1 = res_horiz.reactions.iter().find(|r| r.node_id == 1).unwrap().rz;
+    let ry_incl_1 = res_inclined.reactions.iter().find(|r| r.node_id == 1).unwrap().rz;
     assert_close(ry_incl_1, ry_horiz_1, 0.05, "inclined ry_1 matches horizontal ry_1");
 
     // Total vertical reaction must balance applied load
-    let sum_ry_incl: f64 = res_inclined.reactions.iter().map(|r| r.ry).sum();
+    let sum_ry_incl: f64 = res_inclined.reactions.iter().map(|r| r.rz).sum();
     assert_close(sum_ry_incl, p, 0.02, "inclined sum_ry = P (equilibrium)");
 
     // Midspan vertical deflection: inclined beam has both ux and uy components.
@@ -180,9 +180,9 @@ fn validation_mat_meth_ext_transformation_inclined_member() {
     // The vertical component at midspan should be close to the horizontal
     // beam's midspan deflection scaled by the loading geometry.
     let delta_horiz = res_horiz.displacements.iter()
-        .find(|d| d.node_id == mid).unwrap().uy.abs();
+        .find(|d| d.node_id == mid).unwrap().uz.abs();
     let delta_incl_uy = res_inclined.displacements.iter()
-        .find(|d| d.node_id == mid).unwrap().uy.abs();
+        .find(|d| d.node_id == mid).unwrap().uz.abs();
 
     // The inclined beam under a purely vertical load has a component of that
     // load normal to the member axis = P*cos(alpha) causing bending.
@@ -226,19 +226,19 @@ fn validation_mat_meth_ext_assembly_two_element_beam() {
     // 2-element simply-supported beam, load at middle node (node 2)
     let input = make_beam(2, l, E, A, IZ, "pinned", Some("rollerX"),
         vec![SolverLoad::Nodal(SolverNodalLoad {
-            node_id: 2, fx: 0.0, fy: -p, mz: 0.0,
+            node_id: 2, fx: 0.0, fz: -p, my: 0.0,
         })]);
     let results = linear::solve_2d(&input).unwrap();
 
     // Exact midspan deflection: PL³/(48EI)
     let delta_exact = p * l.powi(3) / (48.0 * e_eff * IZ);
     let delta_fem = results.displacements.iter()
-        .find(|d| d.node_id == 2).unwrap().uy.abs();
+        .find(|d| d.node_id == 2).unwrap().uz.abs();
     assert_close(delta_fem, delta_exact, 0.01, "2-elem SS beam midspan delta = PL^3/(48EI)");
 
     // Reactions: P/2 at each support (symmetric loading on symmetric beam)
-    let ry_1 = results.reactions.iter().find(|r| r.node_id == 1).unwrap().ry;
-    let ry_3 = results.reactions.iter().find(|r| r.node_id == 3).unwrap().ry;
+    let ry_1 = results.reactions.iter().find(|r| r.node_id == 1).unwrap().rz;
+    let ry_3 = results.reactions.iter().find(|r| r.node_id == 3).unwrap().rz;
     assert_close(ry_1, p / 2.0, 0.01, "left reaction = P/2");
     assert_close(ry_3, p / 2.0, 0.01, "right reaction = P/2");
 
@@ -260,7 +260,7 @@ fn validation_mat_meth_ext_assembly_two_element_beam() {
     // Verify exact midspan rotation: for SS beam under center load,
     // the rotation at midspan is zero by symmetry.
     let rz_mid = results.displacements.iter()
-        .find(|d| d.node_id == 2).unwrap().rz.abs();
+        .find(|d| d.node_id == 2).unwrap().ry.abs();
     assert!(rz_mid < 1e-6,
         "midspan rotation should be zero by symmetry, got {:.6e}", rz_mid);
 }
@@ -297,12 +297,12 @@ fn validation_mat_meth_ext_bandwidth_dof_numbering() {
         let tip_node = n_elem + 1;
         let input = make_beam(n_elem, l, E, A, IZ, "fixed", None,
             vec![SolverLoad::Nodal(SolverNodalLoad {
-                node_id: tip_node, fx: 0.0, fy: -p, mz: 0.0,
+                node_id: tip_node, fx: 0.0, fz: -p, my: 0.0,
             })]);
         let results = linear::solve_2d(&input).unwrap();
 
         let delta_fem = results.displacements.iter()
-            .find(|d| d.node_id == tip_node).unwrap().uy.abs();
+            .find(|d| d.node_id == tip_node).unwrap().uz.abs();
 
         assert_close(delta_fem, delta_exact, 0.01,
             &format!("n={} cantilever tip delta", n_elem));
@@ -316,16 +316,16 @@ fn validation_mat_meth_ext_bandwidth_dof_numbering() {
     // Verify all mesh sizes agree with each other (mesh independence)
     let input_coarse = make_beam(2, l, E, A, IZ, "fixed", None,
         vec![SolverLoad::Nodal(SolverNodalLoad {
-            node_id: 3, fx: 0.0, fy: -p, mz: 0.0,
+            node_id: 3, fx: 0.0, fz: -p, my: 0.0,
         })]);
     let input_fine = make_beam(50, l, E, A, IZ, "fixed", None,
         vec![SolverLoad::Nodal(SolverNodalLoad {
-            node_id: 51, fx: 0.0, fy: -p, mz: 0.0,
+            node_id: 51, fx: 0.0, fz: -p, my: 0.0,
         })]);
     let delta_coarse = linear::solve_2d(&input_coarse).unwrap()
-        .displacements.iter().find(|d| d.node_id == 3).unwrap().uy.abs();
+        .displacements.iter().find(|d| d.node_id == 3).unwrap().uz.abs();
     let delta_fine = linear::solve_2d(&input_fine).unwrap()
-        .displacements.iter().find(|d| d.node_id == 51).unwrap().uy.abs();
+        .displacements.iter().find(|d| d.node_id == 51).unwrap().uz.abs();
     let diff = (delta_coarse - delta_fine).abs() / delta_fine;
     assert!(diff < 0.01,
         "coarse ({}) vs fine ({}) delta diff = {:.4}%",
@@ -363,12 +363,12 @@ fn validation_mat_meth_ext_condition_number_effect() {
     let mid = n / 2 + 1;
     let input_uniform = make_beam(n, l, E, A, IZ, "pinned", Some("rollerX"),
         vec![SolverLoad::Nodal(SolverNodalLoad {
-            node_id: mid, fx: 0.0, fy: -p, mz: 0.0,
+            node_id: mid, fx: 0.0, fz: -p, my: 0.0,
         })]);
     let res_uniform = linear::solve_2d(&input_uniform).unwrap();
 
     let delta_uniform = res_uniform.displacements.iter()
-        .find(|d| d.node_id == mid).unwrap().uy.abs();
+        .find(|d| d.node_id == mid).unwrap().uz.abs();
     let delta_exact = p * l.powi(3) / (48.0 * e_eff * IZ);
     assert_close(delta_uniform, delta_exact, 0.01, "uniform beam midspan delta");
 
@@ -389,19 +389,19 @@ fn validation_mat_meth_ext_condition_number_effect() {
     let secs = vec![(1, A, IZ), (2, A, iz_stiff)];
     let sups = vec![(1, 1, "pinned"), (2, 5, "rollerX")];
     let loads = vec![SolverLoad::Nodal(SolverNodalLoad {
-        node_id: 3, fx: 0.0, fy: -p, mz: 0.0,
+        node_id: 3, fx: 0.0, fz: -p, my: 0.0,
     })];
     let input_mixed = make_input(nodes, vec![(1, E, 0.3)], secs, elems, sups, loads);
     let res_mixed = linear::solve_2d(&input_mixed).unwrap();
 
     // Equilibrium check: reactions must sum to applied load
-    let sum_ry: f64 = res_mixed.reactions.iter().map(|r| r.ry).sum();
+    let sum_ry: f64 = res_mixed.reactions.iter().map(|r| r.rz).sum();
     assert_close(sum_ry, p, 0.01, "mixed stiffness equilibrium ΣRy = P");
 
     // The stepped beam deflection at midspan must be smaller than the
     // uniform (flexible) beam since the right half is stiffer.
     let delta_mixed = res_mixed.displacements.iter()
-        .find(|d| d.node_id == 3).unwrap().uy.abs();
+        .find(|d| d.node_id == 3).unwrap().uz.abs();
     assert!(delta_mixed < delta_uniform,
         "stepped beam delta={:.6e} should be < uniform delta={:.6e}",
         delta_mixed, delta_uniform);
@@ -410,11 +410,11 @@ fn validation_mat_meth_ext_condition_number_effect() {
     // (all elements with iz_stiff).
     let input_all_stiff = make_beam(n, l, E, A, iz_stiff, "pinned", Some("rollerX"),
         vec![SolverLoad::Nodal(SolverNodalLoad {
-            node_id: mid, fx: 0.0, fy: -p, mz: 0.0,
+            node_id: mid, fx: 0.0, fz: -p, my: 0.0,
         })]);
     let res_all_stiff = linear::solve_2d(&input_all_stiff).unwrap();
     let delta_all_stiff = res_all_stiff.displacements.iter()
-        .find(|d| d.node_id == mid).unwrap().uy.abs();
+        .find(|d| d.node_id == mid).unwrap().uz.abs();
     assert!(delta_mixed > delta_all_stiff,
         "stepped beam delta={:.6e} should be > all-stiff delta={:.6e}",
         delta_mixed, delta_all_stiff);
@@ -452,7 +452,7 @@ fn validation_mat_meth_ext_static_condensation() {
     // Load at the second support (node 3, between span 1 and span 2)
     let mut loads_coarse = Vec::new();
     loads_coarse.push(SolverLoad::Nodal(SolverNodalLoad {
-        node_id: 2, fx: 0.0, fy: -p, mz: 0.0,
+        node_id: 2, fx: 0.0, fz: -p, my: 0.0,
     }));
     let input_coarse = make_continuous_beam(&[span, span, span], 1, E, A, IZ, loads_coarse);
     let res_coarse = linear::solve_2d(&input_coarse).unwrap();
@@ -463,7 +463,7 @@ fn validation_mat_meth_ext_static_condensation() {
     let load_node = 1 + n_per; // node 5
     let mut loads_fine = Vec::new();
     loads_fine.push(SolverLoad::Nodal(SolverNodalLoad {
-        node_id: load_node, fx: 0.0, fy: -p, mz: 0.0,
+        node_id: load_node, fx: 0.0, fz: -p, my: 0.0,
     }));
     let input_fine = make_continuous_beam(&[span, span, span], n_per, E, A, IZ, loads_fine);
     let res_fine = linear::solve_2d(&input_fine).unwrap();
@@ -476,23 +476,23 @@ fn validation_mat_meth_ext_static_condensation() {
 
     for (&cn, &fn_id) in coarse_supports.iter().zip(fine_supports.iter()) {
         let ry_coarse = res_coarse.reactions.iter()
-            .find(|r| r.node_id == cn).unwrap().ry;
+            .find(|r| r.node_id == cn).unwrap().rz;
         let ry_fine = res_fine.reactions.iter()
-            .find(|r| r.node_id == fn_id).unwrap().ry;
+            .find(|r| r.node_id == fn_id).unwrap().rz;
         assert_close(ry_fine, ry_coarse, 0.02,
             &format!("condensation reaction at support coarse={} fine={}", cn, fn_id));
     }
 
     // Compare deflection at the loaded node: both models should agree
     let uy_coarse = res_coarse.displacements.iter()
-        .find(|d| d.node_id == 2).unwrap().uy;
+        .find(|d| d.node_id == 2).unwrap().uz;
     let uy_fine = res_fine.displacements.iter()
-        .find(|d| d.node_id == load_node).unwrap().uy;
+        .find(|d| d.node_id == load_node).unwrap().uz;
     assert_close(uy_fine, uy_coarse, 0.02, "condensation: loaded node uy");
 
     // Global equilibrium check for both models
-    let sum_ry_coarse: f64 = res_coarse.reactions.iter().map(|r| r.ry).sum();
-    let sum_ry_fine: f64 = res_fine.reactions.iter().map(|r| r.ry).sum();
+    let sum_ry_coarse: f64 = res_coarse.reactions.iter().map(|r| r.rz).sum();
+    let sum_ry_fine: f64 = res_fine.reactions.iter().map(|r| r.rz).sum();
     assert_close(sum_ry_coarse, p, 0.01, "coarse equilibrium ΣRy = P");
     assert_close(sum_ry_fine, p, 0.01, "fine equilibrium ΣRy = P");
 }
@@ -541,9 +541,9 @@ fn validation_mat_meth_ext_substructuring_interface() {
     let interface_node = 1 + n_per; // node 5 for n_per=4
 
     // Full model reactions at the three supports
-    let ry_left_full = res_full.reactions.iter().find(|r| r.node_id == 1).unwrap().ry;
-    let ry_mid_full = res_full.reactions.iter().find(|r| r.node_id == interface_node).unwrap().ry;
-    let ry_right_full = res_full.reactions.iter().find(|r| r.node_id == 1 + 2 * n_per).unwrap().ry;
+    let ry_left_full = res_full.reactions.iter().find(|r| r.node_id == 1).unwrap().rz;
+    let ry_mid_full = res_full.reactions.iter().find(|r| r.node_id == interface_node).unwrap().rz;
+    let ry_right_full = res_full.reactions.iter().find(|r| r.node_id == 1 + 2 * n_per).unwrap().rz;
 
     // By symmetry of equal spans under uniform load, left and right reactions are equal
     assert_close(ry_left_full, ry_right_full, 0.02, "symmetric reactions R_left = R_right");
@@ -563,14 +563,14 @@ fn validation_mat_meth_ext_substructuring_interface() {
     // Verify displacement continuity at the interface: the intermediate support
     // has zero vertical displacement (it's a support) but non-zero rotation.
     let uy_interface = res_full.displacements.iter()
-        .find(|d| d.node_id == interface_node).unwrap().uy.abs();
+        .find(|d| d.node_id == interface_node).unwrap().uz.abs();
     assert!(uy_interface < 1e-6,
         "interface support uy should be ~zero, got {:.6e}", uy_interface);
 
     // The rotation at the interface should be non-zero (continuity implies
     // both spans rotate the same amount at the common support).
     let rz_interface = res_full.displacements.iter()
-        .find(|d| d.node_id == interface_node).unwrap().rz;
+        .find(|d| d.node_id == interface_node).unwrap().ry;
     // By symmetry of equal spans + equal UDL, the rotation at the middle
     // support should be zero (antisymmetric deformation cancels).
     assert!(rz_interface.abs() < 1e-6,
@@ -621,21 +621,21 @@ fn validation_mat_meth_ext_flexibility_method_equivalence() {
     // Tip deflection of cantilever under UDL: delta_q = qL⁴/(8EI) (magnitude)
     let delta_q_exact = q.abs() * l.powi(4) / (8.0 * e_eff * IZ);
     let delta_q_fem = res_released.displacements.iter()
-        .find(|d| d.node_id == n + 1).unwrap().uy.abs();
+        .find(|d| d.node_id == n + 1).unwrap().uz.abs();
     assert_close(delta_q_fem, delta_q_exact, 0.02, "released structure tip delta = qL^4/(8EI)");
 
     // --- Part 2: Unit redundant force ---
     // Apply unit upward force at the free end of the cantilever.
     let input_unit = make_beam(n, l, E, A, IZ, "fixed", None,
         vec![SolverLoad::Nodal(SolverNodalLoad {
-            node_id: n + 1, fx: 0.0, fy: 1.0, mz: 0.0,
+            node_id: n + 1, fx: 0.0, fz: 1.0, my: 0.0,
         })]);
     let res_unit = linear::solve_2d(&input_unit).unwrap();
 
     // Tip deflection due to unit load: delta_R = L³/(3EI)
     let delta_r_exact = l.powi(3) / (3.0 * e_eff * IZ);
     let delta_r_fem = res_unit.displacements.iter()
-        .find(|d| d.node_id == n + 1).unwrap().uy.abs();
+        .find(|d| d.node_id == n + 1).unwrap().uz.abs();
     assert_close(delta_r_fem, delta_r_exact, 0.02, "unit load tip delta = L^3/(3EI)");
 
     // --- Part 3: Compatibility equation ---
@@ -658,7 +658,7 @@ fn validation_mat_meth_ext_flexibility_method_equivalence() {
 
     // Roller reaction from direct stiffness method
     let r_stiffness = res_propped.reactions.iter()
-        .find(|r| r.node_id == n + 1).unwrap().ry;
+        .find(|r| r.node_id == n + 1).unwrap().rz;
     assert_close(r_stiffness, r_exact, 0.02, "stiffness method R = 3qL/8");
 
     // --- Part 5: Force method = Stiffness method ---
@@ -669,19 +669,19 @@ fn validation_mat_meth_ext_flexibility_method_equivalence() {
     // Fixed-end moment: M_A = qL²/2 - R*L = qL²/8
     let m_a_exact = q.abs() * l * l / 8.0;
     let m_a_stiffness = res_propped.reactions.iter()
-        .find(|r| r.node_id == 1).unwrap().mz.abs();
+        .find(|r| r.node_id == 1).unwrap().my.abs();
     assert_close(m_a_stiffness, m_a_exact, 0.03, "fixed-end moment M_A = qL^2/8");
 
     // Verify the roller end has zero moment (as expected for roller support)
     let m_roller = res_propped.reactions.iter()
-        .find(|r| r.node_id == n + 1).unwrap().mz.abs();
+        .find(|r| r.node_id == n + 1).unwrap().my.abs();
     assert!(m_roller < 1e-6,
         "roller moment should be zero, got {:.6e}", m_roller);
 
     // Maximum deflection for propped cantilever occurs at x = L(1+√33)/16 ≈ 0.4215L
     // delta_max = qL⁴/(185EI) approximately. We just check it's positive and reasonable.
     let max_uy: f64 = res_propped.displacements.iter()
-        .map(|d| d.uy.abs())
+        .map(|d| d.uz.abs())
         .fold(0.0_f64, f64::max);
     assert!(max_uy > 0.0, "propped cantilever must deflect under UDL");
     assert!(max_uy < delta_q_exact,

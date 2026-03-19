@@ -20,9 +20,9 @@ fn make_three_node_beam() -> (
     HashMap<String, SolverSupport>,
 ) {
     let mut nodes = HashMap::new();
-    nodes.insert("1".into(), SolverNode { id: 1, x: 0.0, y: 0.0 });
-    nodes.insert("2".into(), SolverNode { id: 2, x: 5.0, y: 0.0 });
-    nodes.insert("3".into(), SolverNode { id: 3, x: 10.0, y: 0.0 });
+    nodes.insert("1".into(), SolverNode { id: 1, x: 0.0, z: 0.0 });
+    nodes.insert("2".into(), SolverNode { id: 2, x: 5.0, z: 0.0 });
+    nodes.insert("3".into(), SolverNode { id: 3, x: 10.0, z: 0.0 });
 
     let mut materials = HashMap::new();
     materials.insert("m1".into(), SolverMaterial { id: 1, e: 200_000.0, nu: 0.3 });
@@ -43,11 +43,11 @@ fn make_three_node_beam() -> (
     let mut supports = HashMap::new();
     supports.insert("s1".into(), SolverSupport {
         id: 1, node_id: 1, support_type: "fixed".into(),
-        kx: None, ky: None, kz: None, dx: None, dy: None, drz: None, angle: None,
+        kx: None, ky: None, kz: None, dx: None, dz: None, dry: None, angle: None,
     });
     supports.insert("s2".into(), SolverSupport {
         id: 2, node_id: 3, support_type: "pinned".into(),
-        kx: None, ky: None, kz: None, dx: None, dy: None, drz: None, angle: None,
+        kx: None, ky: None, kz: None, dx: None, dz: None, dry: None, angle: None,
     });
 
     (nodes, materials, sections, elements, supports)
@@ -60,7 +60,7 @@ fn single_stage_matches_normal_solve() {
 
     let loads = vec![
         SolverLoad::Nodal(SolverNodalLoad {
-            node_id: 2, fx: 0.0, fy: -100.0, mz: 0.0,
+            node_id: 2, fx: 0.0, fz: -100.0, my: 0.0,
         }),
     ];
 
@@ -92,9 +92,9 @@ fn single_stage_matches_normal_solve() {
 
     // Compare midspan deflection (node 2)
     let staged_uy = staged_results.final_results.displacements.iter()
-        .find(|d| d.node_id == 2).unwrap().uy;
+        .find(|d| d.node_id == 2).unwrap().uz;
     let normal_uy = normal_results.displacements.iter()
-        .find(|d| d.node_id == 2).unwrap().uy;
+        .find(|d| d.node_id == 2).unwrap().uz;
 
     assert!(
         (staged_uy - normal_uy).abs() < 1e-10,
@@ -110,10 +110,10 @@ fn two_stage_cantilever_then_span() {
 
     let loads = vec![
         SolverLoad::Nodal(SolverNodalLoad {
-            node_id: 2, fx: 0.0, fy: -50.0, mz: 0.0,
+            node_id: 2, fx: 0.0, fz: -50.0, my: 0.0,
         }),
         SolverLoad::Nodal(SolverNodalLoad {
-            node_id: 2, fx: 0.0, fy: -50.0, mz: 0.0,
+            node_id: 2, fx: 0.0, fz: -50.0, my: 0.0,
         }),
     ];
 
@@ -148,12 +148,12 @@ fn two_stage_cantilever_then_span() {
 
     // Stage 1: cantilever with 50 kN at tip
     let s1_uy = results.stages[0].results.displacements.iter()
-        .find(|d| d.node_id == 2).unwrap().uy;
+        .find(|d| d.node_id == 2).unwrap().uz;
     assert!(s1_uy < 0.0, "Stage 1: cantilever tip should deflect downward");
 
     // Stage 2: completed span — cumulative displacement should change
     let s2_uy = results.stages[1].results.displacements.iter()
-        .find(|d| d.node_id == 2).unwrap().uy;
+        .find(|d| d.node_id == 2).unwrap().uz;
     // Stage 2 adds support at node 3, so stiffness increases — but cumulative includes stage 1
     assert!(s2_uy < 0.0, "Stage 2: midspan should still be negative (cumulative)");
 }
@@ -167,9 +167,9 @@ fn two_stage_cantilever_then_span() {
 #[test]
 fn prestress_straight_tendon_camber() {
     let mut nodes = HashMap::new();
-    nodes.insert("1".into(), SolverNode { id: 1, x: 0.0, y: 0.0 });
-    nodes.insert("2".into(), SolverNode { id: 2, x: 5.0, y: 0.0 });
-    nodes.insert("3".into(), SolverNode { id: 3, x: 10.0, y: 0.0 });
+    nodes.insert("1".into(), SolverNode { id: 1, x: 0.0, z: 0.0 });
+    nodes.insert("2".into(), SolverNode { id: 2, x: 5.0, z: 0.0 });
+    nodes.insert("3".into(), SolverNode { id: 3, x: 10.0, z: 0.0 });
 
     let mut materials = HashMap::new();
     materials.insert("m1".into(), SolverMaterial { id: 1, e: 30_000.0, nu: 0.2 });
@@ -190,11 +190,11 @@ fn prestress_straight_tendon_camber() {
     let mut supports = HashMap::new();
     supports.insert("s1".into(), SolverSupport {
         id: 1, node_id: 1, support_type: "pinned".into(),
-        kx: None, ky: None, kz: None, dx: None, dy: None, drz: None, angle: None,
+        kx: None, ky: None, kz: None, dx: None, dz: None, dry: None, angle: None,
     });
     supports.insert("s2".into(), SolverSupport {
         id: 2, node_id: 3, support_type: "roller".into(),
-        kx: None, ky: None, kz: None, dx: None, dy: None, drz: None, angle: None,
+        kx: None, ky: None, kz: None, dx: None, dz: None, dry: None, angle: None,
     });
 
     let staged_input = StagedInput {
@@ -234,7 +234,7 @@ fn prestress_straight_tendon_camber() {
 
     // Midspan should deflect upward (positive Y) due to eccentric prestress
     let mid_uy = results.final_results.displacements.iter()
-        .find(|d| d.node_id == 2).unwrap().uy;
+        .find(|d| d.node_id == 2).unwrap().uz;
 
     assert!(
         mid_uy > 0.0,
@@ -266,7 +266,7 @@ fn prestress_parabolic_tendon() {
     for i in 0..=10 {
         nodes.insert(
             format!("{}", i + 1),
-            SolverNode { id: i + 1, x: i as f64, y: 0.0 },
+            SolverNode { id: i + 1, x: i as f64, z: 0.0 },
         );
     }
 
@@ -289,11 +289,11 @@ fn prestress_parabolic_tendon() {
     let mut supports = HashMap::new();
     supports.insert("s1".into(), SolverSupport {
         id: 1, node_id: 1, support_type: "pinned".into(),
-        kx: None, ky: None, kz: None, dx: None, dy: None, drz: None, angle: None,
+        kx: None, ky: None, kz: None, dx: None, dz: None, dry: None, angle: None,
     });
     supports.insert("s2".into(), SolverSupport {
         id: 2, node_id: 11, support_type: "roller".into(),
-        kx: None, ky: None, kz: None, dx: None, dy: None, drz: None, angle: None,
+        kx: None, ky: None, kz: None, dx: None, dz: None, dry: None, angle: None,
     });
 
     // Parabolic tendon: e=0 at supports, e_mid = 0.2m at midspan
@@ -334,7 +334,7 @@ fn prestress_parabolic_tendon() {
 
     // Midspan should deflect upward
     let mid_uy = results.final_results.displacements.iter()
-        .find(|d| d.node_id == 6).unwrap().uy;
+        .find(|d| d.node_id == 6).unwrap().uz;
 
     assert!(
         mid_uy > 0.0,
@@ -382,7 +382,7 @@ fn stage_with_no_elements() {
     assert_eq!(results.stages.len(), 1);
     // All displacements should be zero
     for d in &results.final_results.displacements {
-        assert!(d.uy.abs() < 1e-15);
+        assert!(d.uz.abs() < 1e-15);
     }
 }
 
@@ -393,7 +393,7 @@ fn element_removal_increases_deflection() {
 
     let loads = vec![
         SolverLoad::Nodal(SolverNodalLoad {
-            node_id: 2, fx: 0.0, fy: -100.0, mz: 0.0,
+            node_id: 2, fx: 0.0, fz: -100.0, my: 0.0,
         }),
     ];
 
@@ -427,12 +427,12 @@ fn element_removal_increases_deflection() {
 
     // Stage 1 has full span behavior
     let s1_uy = results.stages[0].results.displacements.iter()
-        .find(|d| d.node_id == 2).unwrap().uy;
+        .find(|d| d.node_id == 2).unwrap().uz;
 
     // Stage 2 becomes a cantilever — less stiff, but no new load,
     // so node 2 displacement changes due to redistribution
     let s2_uy = results.stages[1].results.displacements.iter()
-        .find(|d| d.node_id == 2).unwrap().uy;
+        .find(|d| d.node_id == 2).unwrap().uz;
 
     // Both stages should have negative deflection at node 2
     assert!(s1_uy < 0.0, "Stage 1 uy = {}", s1_uy);
@@ -448,9 +448,9 @@ fn three_stages_increasing_load() {
     let (nodes, materials, sections, elements, supports) = make_three_node_beam();
 
     let loads = vec![
-        SolverLoad::Nodal(SolverNodalLoad { node_id: 2, fx: 0.0, fy: -25.0, mz: 0.0 }),
-        SolverLoad::Nodal(SolverNodalLoad { node_id: 2, fx: 0.0, fy: -25.0, mz: 0.0 }),
-        SolverLoad::Nodal(SolverNodalLoad { node_id: 2, fx: 0.0, fy: -25.0, mz: 0.0 }),
+        SolverLoad::Nodal(SolverNodalLoad { node_id: 2, fx: 0.0, fz: -25.0, my: 0.0 }),
+        SolverLoad::Nodal(SolverNodalLoad { node_id: 2, fx: 0.0, fz: -25.0, my: 0.0 }),
+        SolverLoad::Nodal(SolverNodalLoad { node_id: 2, fx: 0.0, fz: -25.0, my: 0.0 }),
     ];
 
     let staged_input = StagedInput {
@@ -489,11 +489,11 @@ fn three_stages_increasing_load() {
     assert_eq!(results.stages.len(), 3);
 
     let uy1 = results.stages[0].results.displacements.iter()
-        .find(|d| d.node_id == 2).unwrap().uy;
+        .find(|d| d.node_id == 2).unwrap().uz;
     let uy2 = results.stages[1].results.displacements.iter()
-        .find(|d| d.node_id == 2).unwrap().uy;
+        .find(|d| d.node_id == 2).unwrap().uz;
     let uy3 = results.stages[2].results.displacements.iter()
-        .find(|d| d.node_id == 2).unwrap().uy;
+        .find(|d| d.node_id == 2).unwrap().uz;
 
     // Each stage adds 25 kN, so deflection should increase linearly
     // (same stiffness, cumulative displacement)
@@ -507,10 +507,10 @@ fn three_stages_increasing_load() {
 #[test]
 fn staged_braced_frame_matches_linear_results() {
     let mut nodes = HashMap::new();
-    nodes.insert("1".into(), SolverNode { id: 1, x: 0.0, y: 0.0 });
-    nodes.insert("2".into(), SolverNode { id: 2, x: 4.0, y: 0.0 });
-    nodes.insert("3".into(), SolverNode { id: 3, x: 0.0, y: 3.0 });
-    nodes.insert("4".into(), SolverNode { id: 4, x: 4.0, y: 3.0 });
+    nodes.insert("1".into(), SolverNode { id: 1, x: 0.0, z: 0.0 });
+    nodes.insert("2".into(), SolverNode { id: 2, x: 4.0, z: 0.0 });
+    nodes.insert("3".into(), SolverNode { id: 3, x: 0.0, z: 3.0 });
+    nodes.insert("4".into(), SolverNode { id: 4, x: 4.0, z: 3.0 });
 
     let mut materials = HashMap::new();
     materials.insert("m1".into(), SolverMaterial { id: 1, e: 200_000.0, nu: 0.3 });
@@ -540,15 +540,15 @@ fn staged_braced_frame_matches_linear_results() {
     let mut supports = HashMap::new();
     supports.insert("s1".into(), SolverSupport {
         id: 1, node_id: 1, support_type: "fixed".into(),
-        kx: None, ky: None, kz: None, dx: None, dy: None, drz: None, angle: None,
+        kx: None, ky: None, kz: None, dx: None, dz: None, dry: None, angle: None,
     });
     supports.insert("s2".into(), SolverSupport {
         id: 2, node_id: 2, support_type: "pinned".into(),
-        kx: None, ky: None, kz: None, dx: None, dy: None, drz: None, angle: None,
+        kx: None, ky: None, kz: None, dx: None, dz: None, dry: None, angle: None,
     });
 
     let loads = vec![SolverLoad::Nodal(SolverNodalLoad {
-        node_id: 4, fx: 50.0, fy: -25.0, mz: 0.0,
+        node_id: 4, fx: 50.0, fz: -25.0, my: 0.0,
     })];
 
     let normal_input = SolverInput {
@@ -586,8 +586,8 @@ fn staged_braced_frame_matches_linear_results() {
     for (staged_disp, normal_disp) in stage.displacements.iter().zip(normal.displacements.iter()) {
         assert_eq!(staged_disp.node_id, normal_disp.node_id);
         assert!((staged_disp.ux - normal_disp.ux).abs() < 1e-8);
-        assert!((staged_disp.uy - normal_disp.uy).abs() < 1e-8);
-        assert!((staged_disp.rz - normal_disp.rz).abs() < 1e-8);
+        assert!((staged_disp.uz - normal_disp.uz).abs() < 1e-8);
+        assert!((staged_disp.ry - normal_disp.ry).abs() < 1e-8);
     }
 
     let staged_brace = stage.element_forces.iter().find(|ef| ef.element_id == 4).unwrap();
@@ -608,18 +608,18 @@ fn staged_braced_frame_matches_linear_results() {
             normal_reaction.rx,
         );
         assert!(
-            (staged_reaction.ry - normal_reaction.ry).abs() < 1e-8,
+            (staged_reaction.rz - normal_reaction.rz).abs() < 1e-8,
             "node {} ry staged={} normal={}",
             staged_reaction.node_id,
-            staged_reaction.ry,
-            normal_reaction.ry,
+            staged_reaction.rz,
+            normal_reaction.rz,
         );
         assert!(
-            (staged_reaction.mz - normal_reaction.mz).abs() < 1e-8,
+            (staged_reaction.my - normal_reaction.my).abs() < 1e-8,
             "node {} mz staged={} normal={}",
             staged_reaction.node_id,
-            staged_reaction.mz,
-            normal_reaction.mz,
+            staged_reaction.my,
+            normal_reaction.my,
         );
     }
 }

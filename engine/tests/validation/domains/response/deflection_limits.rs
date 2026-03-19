@@ -42,7 +42,7 @@ fn validation_deflection_ss_udl() {
     let results = linear::solve_2d(&input).unwrap();
 
     let mid = n / 2 + 1;
-    let d_mid = results.displacements.iter().find(|d| d.node_id == mid).unwrap().uy.abs();
+    let d_mid = results.displacements.iter().find(|d| d.node_id == mid).unwrap().uz.abs();
 
     let delta_exact = 5.0 * q.abs() * l * l * l * l / (384.0 * e_eff * IZ);
     assert_close(d_mid, delta_exact, 0.02, "SS+UDL: δ = 5qL⁴/(384EI)");
@@ -61,12 +61,12 @@ fn validation_deflection_ss_center() {
 
     let mid = n / 2 + 1;
     let loads = vec![SolverLoad::Nodal(SolverNodalLoad {
-        node_id: mid, fx: 0.0, fy: -p, mz: 0.0,
+        node_id: mid, fx: 0.0, fz: -p, my: 0.0,
     })];
     let input = make_beam(n, l, E, A, IZ, "pinned", Some("rollerX"), loads);
     let results = linear::solve_2d(&input).unwrap();
 
-    let d_mid = results.displacements.iter().find(|d| d.node_id == mid).unwrap().uy.abs();
+    let d_mid = results.displacements.iter().find(|d| d.node_id == mid).unwrap().uz.abs();
 
     let delta_exact = p * l * l * l / (48.0 * e_eff * IZ);
     assert_close(d_mid, delta_exact, 0.02, "SS+P: δ = PL³/(48EI)");
@@ -91,7 +91,7 @@ fn validation_deflection_cantilever_udl() {
     let input = make_beam(n, l, E, A, IZ, "fixed", None, loads);
     let results = linear::solve_2d(&input).unwrap();
 
-    let d_tip = results.displacements.iter().find(|d| d.node_id == n + 1).unwrap().uy.abs();
+    let d_tip = results.displacements.iter().find(|d| d.node_id == n + 1).unwrap().uz.abs();
 
     let delta_exact = q.abs() * l * l * l * l / (8.0 * e_eff * IZ);
     assert_close(d_tip, delta_exact, 0.02, "Cantilever+UDL: δ = qL⁴/(8EI)");
@@ -109,12 +109,12 @@ fn validation_deflection_cantilever_tip() {
     let e_eff = E * 1000.0;
 
     let loads = vec![SolverLoad::Nodal(SolverNodalLoad {
-        node_id: n + 1, fx: 0.0, fy: -p, mz: 0.0,
+        node_id: n + 1, fx: 0.0, fz: -p, my: 0.0,
     })];
     let input = make_beam(n, l, E, A, IZ, "fixed", None, loads);
     let results = linear::solve_2d(&input).unwrap();
 
-    let d_tip = results.displacements.iter().find(|d| d.node_id == n + 1).unwrap().uy.abs();
+    let d_tip = results.displacements.iter().find(|d| d.node_id == n + 1).unwrap().uz.abs();
 
     let delta_exact = p * l * l * l / (3.0 * e_eff * IZ);
     assert_close(d_tip, delta_exact, 0.02, "Cantilever+P: δ = PL³/(3EI)");
@@ -140,7 +140,7 @@ fn validation_deflection_fixed_udl() {
     let results = linear::solve_2d(&input).unwrap();
 
     let mid = n / 2 + 1;
-    let d_mid = results.displacements.iter().find(|d| d.node_id == mid).unwrap().uy.abs();
+    let d_mid = results.displacements.iter().find(|d| d.node_id == mid).unwrap().uz.abs();
 
     let delta_exact = q.abs() * l * l * l * l / (384.0 * e_eff * IZ);
     assert_close(d_mid, delta_exact, 0.02, "Fixed+UDL: δ = qL⁴/(384EI)");
@@ -159,12 +159,12 @@ fn validation_deflection_fixed_center() {
 
     let mid = n / 2 + 1;
     let loads = vec![SolverLoad::Nodal(SolverNodalLoad {
-        node_id: mid, fx: 0.0, fy: -p, mz: 0.0,
+        node_id: mid, fx: 0.0, fz: -p, my: 0.0,
     })];
     let input = make_beam(n, l, E, A, IZ, "fixed", Some("fixed"), loads);
     let results = linear::solve_2d(&input).unwrap();
 
-    let d_mid = results.displacements.iter().find(|d| d.node_id == mid).unwrap().uy.abs();
+    let d_mid = results.displacements.iter().find(|d| d.node_id == mid).unwrap().uz.abs();
 
     let delta_exact = p * l * l * l / (192.0 * e_eff * IZ);
     assert_close(d_mid, delta_exact, 0.02, "Fixed+P: δ = PL³/(192EI)");
@@ -194,7 +194,7 @@ fn validation_deflection_propped_udl() {
 
     // Find maximum deflection
     let d_max = results.displacements.iter()
-        .map(|d| d.uy.abs())
+        .map(|d| d.uz.abs())
         .fold(0.0_f64, f64::max);
 
     // δ_max ≈ qL⁴/(185EI) (exact value is qL⁴/185.17EI)
@@ -224,7 +224,7 @@ fn validation_deflection_ranking() {
         let input = make_beam(n, l, E, A, IZ, start, end, loads);
         let results = linear::solve_2d(&input).unwrap();
         results.displacements.iter()
-            .map(|d| d.uy.abs())
+            .map(|d| d.uz.abs())
             .fold(0.0_f64, f64::max)
     };
 

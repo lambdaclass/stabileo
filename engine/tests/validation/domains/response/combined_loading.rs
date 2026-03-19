@@ -61,12 +61,12 @@ fn validation_combined_thermal_mechanical_ss() {
 
     // Midspan deflection should be the same (SS beam, uniform temp = free expansion)
     let mid = n / 2 + 1;
-    let d_mech = res_mech.displacements.iter().find(|d| d.node_id == mid).unwrap().uy;
-    let d_combined = res_combined.displacements.iter().find(|d| d.node_id == mid).unwrap().uy;
+    let d_mech = res_mech.displacements.iter().find(|d| d.node_id == mid).unwrap().uz;
+    let d_combined = res_combined.displacements.iter().find(|d| d.node_id == mid).unwrap().uz;
 
     let err = (d_mech - d_combined).abs() / d_mech.abs().max(1e-10);
     assert!(err < 0.02,
-        "SS beam: thermal shouldn't affect uy: mech={:.6e}, combined={:.6e}",
+        "SS beam: thermal shouldn't affect uz: mech={:.6e}, combined={:.6e}",
         d_mech, d_combined);
 
     // But axial displacement should differ (thermal expansion)
@@ -117,8 +117,8 @@ fn validation_combined_thermal_mechanical_fixed() {
     let res_combined = linear::solve_2d(&input_combined).unwrap();
 
     // Vertical reactions should be the same (thermal doesn't affect bending for uniform temp)
-    let ry_mech: f64 = res_mech.reactions.iter().map(|r| r.ry).sum();
-    let ry_combined: f64 = res_combined.reactions.iter().map(|r| r.ry).sum();
+    let ry_mech: f64 = res_mech.reactions.iter().map(|r| r.rz).sum();
+    let ry_combined: f64 = res_combined.reactions.iter().map(|r| r.rz).sum();
     assert_close(ry_mech, ry_combined, 0.02,
         "Fixed beam: thermal doesn't affect Ry");
 
@@ -156,7 +156,7 @@ fn validation_combined_udl_point_continuous() {
         if point {
             let mid_span2 = n_per + n_per / 2 + 1;
             loads.push(SolverLoad::Nodal(SolverNodalLoad {
-                node_id: mid_span2, fx: 0.0, fy: -p, mz: 0.0,
+                node_id: mid_span2, fx: 0.0, fz: -p, my: 0.0,
             }));
         }
         let input = make_continuous_beam(&[l, l], n_per, E, A, IZ, loads);
@@ -168,9 +168,9 @@ fn validation_combined_udl_point_continuous() {
     let res_point = build(false, true);
 
     // Superposition: reaction at node 1
-    let r_both = res_both.reactions.iter().find(|r| r.node_id == 1).unwrap().ry;
-    let r_udl = res_udl.reactions.iter().find(|r| r.node_id == 1).unwrap().ry;
-    let r_point = res_point.reactions.iter().find(|r| r.node_id == 1).unwrap().ry;
+    let r_both = res_both.reactions.iter().find(|r| r.node_id == 1).unwrap().rz;
+    let r_udl = res_udl.reactions.iter().find(|r| r.node_id == 1).unwrap().rz;
+    let r_point = res_point.reactions.iter().find(|r| r.node_id == 1).unwrap().rz;
 
     let err = (r_both - (r_udl + r_point)).abs() / r_both.abs().max(0.1);
     assert!(err < 0.02,
@@ -194,7 +194,7 @@ fn validation_combined_axial_bending() {
 
     let input = make_beam(n, l, E, A, IZ, "fixed", None,
         vec![SolverLoad::Nodal(SolverNodalLoad {
-            node_id: n + 1, fx: px, fy: -py, mz: 0.0,
+            node_id: n + 1, fx: px, fz: -py, my: 0.0,
         })]);
 
     let results = linear::solve_2d(&input).unwrap();
@@ -206,13 +206,13 @@ fn validation_combined_axial_bending() {
 
     // Fixed-end moment = py × L
     let r = results.reactions.iter().find(|r| r.node_id == 1).unwrap();
-    assert_close(r.mz.abs(), py * l, 0.02,
+    assert_close(r.my.abs(), py * l, 0.02,
         "Combined: M_fixed = Py × L");
 
     // Tip deflection in Y: δ = PyL³/(3EI) (independent of axial)
     let delta_exact = py * l.powi(3) / (3.0 * e_eff * IZ);
     let d_tip = results.displacements.iter().find(|d| d.node_id == n + 1).unwrap();
-    assert_close(d_tip.uy.abs(), delta_exact, 0.02,
+    assert_close(d_tip.uz.abs(), delta_exact, 0.02,
         "Combined: δy = PyL³/(3EI)");
 
     // Tip axial displacement: δx = PxL/(EA)
@@ -242,12 +242,12 @@ fn validation_combined_multiple_point_loads() {
         let mut loads = Vec::new();
         if load1 {
             loads.push(SolverLoad::Nodal(SolverNodalLoad {
-                node_id: n1, fx: 0.0, fy: -p1, mz: 0.0,
+                node_id: n1, fx: 0.0, fz: -p1, my: 0.0,
             }));
         }
         if load2 {
             loads.push(SolverLoad::Nodal(SolverNodalLoad {
-                node_id: n2, fx: 0.0, fy: -p2, mz: 0.0,
+                node_id: n2, fx: 0.0, fz: -p2, my: 0.0,
             }));
         }
         let input = make_beam(n, l, E, A, IZ, "pinned", Some("rollerX"), loads);
@@ -260,9 +260,9 @@ fn validation_combined_multiple_point_loads() {
 
     // Check midspan displacement superposition
     let mid = n / 2 + 1;
-    let d_both = res_both.displacements.iter().find(|d| d.node_id == mid).unwrap().uy;
-    let d_1 = res_1.displacements.iter().find(|d| d.node_id == mid).unwrap().uy;
-    let d_2 = res_2.displacements.iter().find(|d| d.node_id == mid).unwrap().uy;
+    let d_both = res_both.displacements.iter().find(|d| d.node_id == mid).unwrap().uz;
+    let d_1 = res_1.displacements.iter().find(|d| d.node_id == mid).unwrap().uz;
+    let d_2 = res_2.displacements.iter().find(|d| d.node_id == mid).unwrap().uz;
 
     let err = (d_both - (d_1 + d_2)).abs() / d_both.abs().max(1e-10);
     assert!(err < 0.02,
@@ -306,13 +306,13 @@ fn validation_combined_triangular_uniform() {
     // Total load = q_u × L + q_tri × L / 2
     let total_load = q_u.abs() * l + q_tri.abs() * l / 2.0;
     let r = results.reactions.iter().find(|r| r.node_id == 1).unwrap();
-    assert_close(r.ry, total_load, 0.03,
+    assert_close(r.rz, total_load, 0.03,
         "Combined loads: Ry = wL + qL/2");
 
     // Tip should deflect downward
     let d_tip = results.displacements.iter().find(|d| d.node_id == n + 1).unwrap();
-    assert!(d_tip.uy < 0.0,
-        "Combined loads: tip deflects down: uy={:.6e}", d_tip.uy);
+    assert!(d_tip.uz < 0.0,
+        "Combined loads: tip deflects down: uy={:.6e}", d_tip.uz);
 }
 
 // ================================================================
@@ -332,7 +332,7 @@ fn validation_combined_eccentric_load() {
     // Case 1: Eccentric = P axial + M at tip
     let input1 = make_beam(n, l, E, A, IZ, "fixed", None,
         vec![SolverLoad::Nodal(SolverNodalLoad {
-            node_id: n + 1, fx: p, fy: 0.0, mz: p * ecc,
+            node_id: n + 1, fx: p, fz: 0.0, my: p * ecc,
         })]);
     let res1 = linear::solve_2d(&input1).unwrap();
 
@@ -340,10 +340,10 @@ fn validation_combined_eccentric_load() {
     let input2 = make_beam(n, l, E, A, IZ, "fixed", None,
         vec![
             SolverLoad::Nodal(SolverNodalLoad {
-                node_id: n + 1, fx: p, fy: 0.0, mz: 0.0,
+                node_id: n + 1, fx: p, fz: 0.0, my: 0.0,
             }),
             SolverLoad::Nodal(SolverNodalLoad {
-                node_id: n + 1, fx: 0.0, fy: 0.0, mz: p * ecc,
+                node_id: n + 1, fx: 0.0, fz: 0.0, my: p * ecc,
             }),
         ]);
     let res2 = linear::solve_2d(&input2).unwrap();
@@ -353,8 +353,8 @@ fn validation_combined_eccentric_load() {
     let d2 = res2.displacements.iter().find(|d| d.node_id == n + 1).unwrap();
 
     assert_close(d1.ux, d2.ux, 0.01, "Eccentric: ux matches");
-    assert_close(d1.uy, d2.uy, 0.01, "Eccentric: uy matches");
-    assert_close(d1.rz, d2.rz, 0.01, "Eccentric: rz matches");
+    assert_close(d1.uz, d2.uz, 0.01, "Eccentric: uy matches");
+    assert_close(d1.ry, d2.ry, 0.01, "Eccentric: rz matches");
 }
 
 // ================================================================
@@ -382,8 +382,8 @@ fn validation_combined_three_load_equilibrium() {
     ];
     let sups = vec![(1, 1_usize, "fixed"), (2, 4, "fixed")];
     let loads = vec![
-        SolverLoad::Nodal(SolverNodalLoad { node_id: 2, fx: px, fy: py1, mz: 0.0 }),
-        SolverLoad::Nodal(SolverNodalLoad { node_id: 3, fx: 0.0, fy: py2, mz: 0.0 }),
+        SolverLoad::Nodal(SolverNodalLoad { node_id: 2, fx: px, fz: py1, my: 0.0 }),
+        SolverLoad::Nodal(SolverNodalLoad { node_id: 3, fx: 0.0, fz: py2, my: 0.0 }),
         SolverLoad::Distributed(SolverDistributedLoad {
             element_id: 2, q_i: q, q_j: q, a: None, b: None,
         }),
@@ -398,8 +398,8 @@ fn validation_combined_three_load_equilibrium() {
         "Three-load: ΣRx = -Px");
 
     // ΣFy = 0: total vertical = py1 + py2 + q × w
-    let total_fy = py1 + py2 + q * w;
-    let sum_ry: f64 = results.reactions.iter().map(|r| r.ry).sum();
-    assert_close(sum_ry, -total_fy, 0.02,
+    let total_fz = py1 + py2 + q * w;
+    let sum_ry: f64 = results.reactions.iter().map(|r| r.rz).sum();
+    assert_close(sum_ry, -total_fz, 0.02,
         "Three-load: ΣRy = -(py1 + py2 + qw)");
 }

@@ -118,8 +118,8 @@ fn cable_stayed_harp_parallel_forces() {
         ],
         vec![
             // Uniform-ish load at each deck node (not supports)
-            SolverLoad::Nodal(SolverNodalLoad { node_id: 2, fx: 0.0, fy: -p, mz: 0.0 }),
-            SolverLoad::Nodal(SolverNodalLoad { node_id: 4, fx: 0.0, fy: -p, mz: 0.0 }),
+            SolverLoad::Nodal(SolverNodalLoad { node_id: 2, fx: 0.0, fz: -p, my: 0.0 }),
+            SolverLoad::Nodal(SolverNodalLoad { node_id: 4, fx: 0.0, fz: -p, my: 0.0 }),
         ],
     );
 
@@ -142,7 +142,7 @@ fn cable_stayed_harp_parallel_forces() {
         "Harp: symmetric inner cable forces");
 
     // Global equilibrium: sum of vertical reactions = total load
-    let sum_ry: f64 = results.reactions.iter().map(|r| r.ry).sum();
+    let sum_ry: f64 = results.reactions.iter().map(|r| r.rz).sum();
     assert_close(sum_ry, 2.0 * p, 0.02, "Harp: vertical equilibrium");
 }
 
@@ -338,8 +338,8 @@ fn cable_stayed_asymmetric_live_load() {
         ],
         vec![
             // Live load only on left side
-            SolverLoad::Nodal(SolverNodalLoad { node_id: 1, fx: 0.0, fy: -p, mz: 0.0 }),
-            SolverLoad::Nodal(SolverNodalLoad { node_id: 2, fx: 0.0, fy: -p, mz: 0.0 }),
+            SolverLoad::Nodal(SolverNodalLoad { node_id: 1, fx: 0.0, fz: -p, my: 0.0 }),
+            SolverLoad::Nodal(SolverNodalLoad { node_id: 2, fx: 0.0, fz: -p, my: 0.0 }),
         ],
     );
 
@@ -366,7 +366,7 @@ fn cable_stayed_asymmetric_live_load() {
     );
 
     // Global equilibrium
-    let sum_ry: f64 = results.reactions.iter().map(|r| r.ry).sum();
+    let sum_ry: f64 = results.reactions.iter().map(|r| r.rz).sum();
     assert_close(sum_ry, 2.0 * p, 0.02, "Asymmetric: vertical equilibrium");
 
     // Tower top should deflect toward loaded (left) side => negative ux
@@ -443,8 +443,8 @@ fn cable_stayed_tower_axial_from_cables() {
         ],
         vec![
             // Load at mid-deck nodes (not at supports)
-            SolverLoad::Nodal(SolverNodalLoad { node_id: 2, fx: 0.0, fy: -p, mz: 0.0 }),
-            SolverLoad::Nodal(SolverNodalLoad { node_id: 4, fx: 0.0, fy: -p, mz: 0.0 }),
+            SolverLoad::Nodal(SolverNodalLoad { node_id: 2, fx: 0.0, fz: -p, my: 0.0 }),
+            SolverLoad::Nodal(SolverNodalLoad { node_id: 4, fx: 0.0, fz: -p, my: 0.0 }),
         ],
     );
 
@@ -480,7 +480,7 @@ fn cable_stayed_tower_axial_from_cables() {
     );
 
     // Equilibrium check
-    let sum_ry: f64 = results.reactions.iter().map(|r| r.ry).sum();
+    let sum_ry: f64 = results.reactions.iter().map(|r| r.rz).sum();
     assert_close(sum_ry, 2.0 * p, 0.02, "Tower axial: vertical equilibrium");
 }
 
@@ -611,7 +611,7 @@ fn cable_stayed_backstay_anchor() {
         ],
         vec![
             // Load at unsupported main span node
-            SolverLoad::Nodal(SolverNodalLoad { node_id: 3, fx: 0.0, fy: -p, mz: 0.0 }),
+            SolverLoad::Nodal(SolverNodalLoad { node_id: 3, fx: 0.0, fz: -p, my: 0.0 }),
         ],
     );
 
@@ -634,7 +634,7 @@ fn cable_stayed_backstay_anchor() {
     );
 
     // Equilibrium
-    let sum_ry: f64 = results.reactions.iter().map(|r| r.ry).sum();
+    let sum_ry: f64 = results.reactions.iter().map(|r| r.rz).sum();
     assert_close(sum_ry, p, 0.02, "Backstay: vertical equilibrium");
 
     // Tower should carry force (axial from cable vertical components)
@@ -768,14 +768,14 @@ fn cable_stayed_stiffness_influence_on_deflection() {
                 (3, 5, "rollerX"),
             ],
             vec![
-                SolverLoad::Nodal(SolverNodalLoad { node_id: 2, fx: 0.0, fy: -p, mz: 0.0 }),
-                SolverLoad::Nodal(SolverNodalLoad { node_id: 4, fx: 0.0, fy: -p, mz: 0.0 }),
+                SolverLoad::Nodal(SolverNodalLoad { node_id: 2, fx: 0.0, fz: -p, my: 0.0 }),
+                SolverLoad::Nodal(SolverNodalLoad { node_id: 4, fx: 0.0, fz: -p, my: 0.0 }),
             ],
         );
         let results = linear::solve_2d(&input).unwrap();
 
         let defl: f64 = results.displacements.iter()
-            .find(|d| d.node_id == 2).unwrap().uy.abs();
+            .find(|d| d.node_id == 2).unwrap().uz.abs();
         let f_cable: f64 = results.element_forces.iter()
             .find(|e| e.element_id == 7).unwrap().n_start.abs();
 
@@ -826,11 +826,11 @@ fn cable_stayed_stiffness_influence_on_deflection() {
             (3, 5, "rollerX"),
         ],
         vec![
-            SolverLoad::Nodal(SolverNodalLoad { node_id: 2, fx: 0.0, fy: -p, mz: 0.0 }),
-            SolverLoad::Nodal(SolverNodalLoad { node_id: 4, fx: 0.0, fy: -p, mz: 0.0 }),
+            SolverLoad::Nodal(SolverNodalLoad { node_id: 2, fx: 0.0, fz: -p, my: 0.0 }),
+            SolverLoad::Nodal(SolverNodalLoad { node_id: 4, fx: 0.0, fz: -p, my: 0.0 }),
         ],
     );
     let results_check = linear::solve_2d(&input_check).unwrap();
-    let sum_ry: f64 = results_check.reactions.iter().map(|r| r.ry).sum();
+    let sum_ry: f64 = results_check.reactions.iter().map(|r| r.rz).sum();
     assert_close(sum_ry, 2.0 * p, 0.02, "Stiffness influence: equilibrium");
 }

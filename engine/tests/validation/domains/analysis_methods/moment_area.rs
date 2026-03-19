@@ -35,7 +35,7 @@ fn validation_moment_area_ss_center_slope() {
 
     let mid = n / 2 + 1;
     let loads = vec![SolverLoad::Nodal(SolverNodalLoad {
-        node_id: mid, fx: 0.0, fy: -p, mz: 0.0,
+        node_id: mid, fx: 0.0, fz: -p, my: 0.0,
     })];
     let input = make_beam(n, l, E, A, IZ, "pinned", Some("rollerX"), loads);
     let results = linear::solve_2d(&input).unwrap();
@@ -44,7 +44,7 @@ fn validation_moment_area_ss_center_slope() {
 
     // End slope θ = PL²/(16EI)
     let theta_exact = p * l * l / (16.0 * e_eff * IZ);
-    assert_close(d1.rz.abs(), theta_exact, 0.02,
+    assert_close(d1.ry.abs(), theta_exact, 0.02,
         "Moment area: SS center load end slope = PL²/(16EI)");
 }
 
@@ -60,7 +60,7 @@ fn validation_moment_area_cantilever_tip_slope() {
     let e_eff = E * 1000.0;
 
     let loads = vec![SolverLoad::Nodal(SolverNodalLoad {
-        node_id: n + 1, fx: 0.0, fy: -p, mz: 0.0,
+        node_id: n + 1, fx: 0.0, fz: -p, my: 0.0,
     })];
     let input = make_beam(n, l, E, A, IZ, "fixed", None, loads);
     let results = linear::solve_2d(&input).unwrap();
@@ -69,7 +69,7 @@ fn validation_moment_area_cantilever_tip_slope() {
 
     // Tip slope θ = PL²/(2EI)
     let theta_exact = p * l * l / (2.0 * e_eff * IZ);
-    assert_close(tip.rz.abs(), theta_exact, 0.02,
+    assert_close(tip.ry.abs(), theta_exact, 0.02,
         "Moment area: cantilever tip slope = PL²/(2EI)");
 }
 
@@ -96,7 +96,7 @@ fn validation_moment_area_cantilever_udl_slope() {
 
     // Tip slope θ = qL³/(6EI)
     let theta_exact = q.abs() * l * l * l / (6.0 * e_eff * IZ);
-    assert_close(tip.rz.abs(), theta_exact, 0.02,
+    assert_close(tip.ry.abs(), theta_exact, 0.02,
         "Moment area: cantilever UDL tip slope = qL³/(6EI)");
 }
 
@@ -123,7 +123,7 @@ fn validation_moment_area_ss_udl_slope() {
 
     // End slope θ = qL³/(24EI)
     let theta_exact = q.abs() * l * l * l / (24.0 * e_eff * IZ);
-    assert_close(d1.rz.abs(), theta_exact, 0.02,
+    assert_close(d1.ry.abs(), theta_exact, 0.02,
         "Moment area: SS UDL end slope = qL³/(24EI)");
 }
 
@@ -152,7 +152,7 @@ fn validation_moment_area_propped_slope() {
 
     // θ at roller = qL³/(48EI) for propped cantilever
     let theta_exact = q.abs() * l * l * l / (48.0 * e_eff * IZ);
-    assert_close(d_end.rz.abs(), theta_exact, 0.05,
+    assert_close(d_end.ry.abs(), theta_exact, 0.05,
         "Moment area: propped cantilever slope at roller = qL³/(48EI)");
 }
 
@@ -173,7 +173,7 @@ fn validation_moment_area_tangential_deviation() {
     let e_eff = E * 1000.0;
 
     let loads = vec![SolverLoad::Nodal(SolverNodalLoad {
-        node_id: n + 1, fx: 0.0, fy: -p, mz: 0.0,
+        node_id: n + 1, fx: 0.0, fz: -p, my: 0.0,
     })];
     let input = make_beam(n, l, E, A, IZ, "fixed", None, loads);
     let results = linear::solve_2d(&input).unwrap();
@@ -185,11 +185,11 @@ fn validation_moment_area_tangential_deviation() {
     // θ = PL²/(2EI)
     let theta_exact = p * l * l / (2.0 * e_eff * IZ);
 
-    assert_close(tip.uy.abs(), delta_exact, 0.02, "Tangential deviation: δ");
-    assert_close(tip.rz.abs(), theta_exact, 0.02, "Tangential deviation: θ");
+    assert_close(tip.uz.abs(), delta_exact, 0.02, "Tangential deviation: δ");
+    assert_close(tip.ry.abs(), theta_exact, 0.02, "Tangential deviation: θ");
 
     // Consistency: δ/θ = 2L/3 for triangular moment diagram
-    let ratio = tip.uy.abs() / tip.rz.abs();
+    let ratio = tip.uz.abs() / tip.ry.abs();
     assert_close(ratio, 2.0 * l / 3.0, 0.02, "Tangential deviation: δ/θ = 2L/3");
 }
 
@@ -215,7 +215,7 @@ fn validation_moment_area_overhang() {
     let roller_node = (span / elem_len).round() as usize + 1;
 
     let loads = vec![SolverLoad::Nodal(SolverNodalLoad {
-        node_id: n + 1, fx: 0.0, fy: -p, mz: 0.0,
+        node_id: n + 1, fx: 0.0, fz: -p, my: 0.0,
     })];
     let input = make_beam(n, l_total, E, A, IZ, "pinned", None, loads);
 
@@ -226,7 +226,7 @@ fn validation_moment_area_overhang() {
         id: sup_id, node_id: roller_node,
         support_type: "rollerX".to_string(),
         kx: None, ky: None, kz: None,
-        dx: None, dy: None, drz: None, angle: None,
+        dx: None, dz: None, dry: None, angle: None,
     });
     let results = linear::solve_2d(&input).unwrap();
 
@@ -239,7 +239,7 @@ fn validation_moment_area_overhang() {
     // δ_free = θ × a + Pa³/(3EI) = PaL/(6EI)×a + Pa³/(3EI) = Pa²L/(6EI) + Pa³/(3EI)
     // = Pa²/(6EI) × (L + 2a)
     let delta_exact = p * overhang * overhang / (6.0 * e_eff * IZ) * (span + 2.0 * overhang);
-    assert_close(tip.uy.abs(), delta_exact, 0.05,
+    assert_close(tip.uz.abs(), delta_exact, 0.05,
         "Overhang: δ_tip = Pa²(L+2a)/(6EI)");
 }
 
@@ -267,15 +267,15 @@ fn validation_moment_area_slope_symmetry() {
     let d_end = results.displacements.iter().find(|d| d.node_id == n + 1).unwrap();
 
     // Slopes are equal magnitude, opposite sign
-    assert_close(d1.rz.abs(), d_end.rz.abs(), 0.01,
+    assert_close(d1.ry.abs(), d_end.ry.abs(), 0.01,
         "Slope symmetry: |θ_left| = |θ_right|");
     // Opposite sign (left rotates clockwise, right counterclockwise or vice versa)
-    assert!(d1.rz * d_end.rz < 0.0,
-        "Slope symmetry: opposite signs: {:.6e} vs {:.6e}", d1.rz, d_end.rz);
+    assert!(d1.ry * d_end.ry < 0.0,
+        "Slope symmetry: opposite signs: {:.6e} vs {:.6e}", d1.ry, d_end.ry);
 
     // Midspan slope = 0 (by symmetry)
     let mid = n / 2 + 1;
     let d_mid = results.displacements.iter().find(|d| d.node_id == mid).unwrap();
-    assert!(d_mid.rz.abs() < 1e-10,
-        "Slope symmetry: θ_mid ≈ 0: {:.6e}", d_mid.rz);
+    assert!(d_mid.ry.abs() < 1e-10,
+        "Slope symmetry: θ_mid ≈ 0: {:.6e}", d_mid.ry);
 }

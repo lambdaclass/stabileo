@@ -44,7 +44,7 @@ fn make_winkler_beam(
     // Create basic input first, then add spring supports
     let mut nodes_map = HashMap::new();
     for (id, x, y) in &nodes {
-        nodes_map.insert(id.to_string(), SolverNode { id: *id, x: *x, y: *y });
+        nodes_map.insert(id.to_string(), SolverNode { id: *id, x: *x, z: *y });
     }
     let mut mats_map = HashMap::new();
     mats_map.insert("1".to_string(), SolverMaterial { id: 1, e: E, nu: 0.3 });
@@ -71,7 +71,7 @@ fn make_winkler_beam(
             kx: None,
             ky: Some(ky_node),
             kz: None,
-            dx: None, dy: None, drz: None, angle: None,
+            dx: None, dz: None, dry: None, angle: None,
         });
     }
 
@@ -108,7 +108,7 @@ fn validation_winkler_point_load() {
     let mid_node = n / 2 + 1;
 
     let loads = vec![SolverLoad::Nodal(SolverNodalLoad {
-        node_id: mid_node, fx: 0.0, fy: -p, mz: 0.0,
+        node_id: mid_node, fx: 0.0, fz: -p, my: 0.0,
     })];
 
     let input = make_winkler_beam(n, l, k_soil, loads);
@@ -118,7 +118,7 @@ fn validation_winkler_point_load() {
     let delta_hetenyi = p * beta / (2.0 * k_soil);
 
     let mid = results.displacements.iter().find(|d| d.node_id == mid_node).unwrap();
-    let delta_computed = mid.uy.abs();
+    let delta_computed = mid.uz.abs();
 
     // Should be within 15% (finite length effects)
     let error = (delta_computed - delta_hetenyi).abs() / delta_hetenyi;
@@ -160,11 +160,11 @@ fn validation_winkler_uniform_load() {
     let mid_node = n / 2 + 1;
     let mid = results.displacements.iter().find(|d| d.node_id == mid_node).unwrap();
 
-    let error = (mid.uy.abs() - delta_expected).abs() / delta_expected;
+    let error = (mid.uz.abs() - delta_expected).abs() / delta_expected;
     assert!(
         error < 0.20,
         "Winkler UDL: computed={:.6e}, q/k={:.6e}, error={:.1}%",
-        mid.uy.abs(), delta_expected, error * 100.0
+        mid.uz.abs(), delta_expected, error * 100.0
     );
 }
 
@@ -185,14 +185,14 @@ fn validation_winkler_convergence() {
     for &n in &[20, 40, 80] {
         let mid_node = n / 2 + 1;
         let loads = vec![SolverLoad::Nodal(SolverNodalLoad {
-            node_id: mid_node, fx: 0.0, fy: -p, mz: 0.0,
+            node_id: mid_node, fx: 0.0, fz: -p, my: 0.0,
         })];
 
         let input = make_winkler_beam(n, l, k_soil, loads);
         let results = linear::solve_2d(&input).unwrap();
         let mid = results.displacements.iter().find(|d| d.node_id == mid_node).unwrap();
 
-        let error = (mid.uy.abs() - delta_hetenyi).abs() / delta_hetenyi;
+        let error = (mid.uz.abs() - delta_hetenyi).abs() / delta_hetenyi;
         errors.push(error);
     }
 
@@ -225,13 +225,13 @@ fn validation_winkler_short_beam() {
     let mid_node = n / 2 + 1;
 
     let loads = vec![SolverLoad::Nodal(SolverNodalLoad {
-        node_id: mid_node, fx: 0.0, fy: -p, mz: 0.0,
+        node_id: mid_node, fx: 0.0, fz: -p, my: 0.0,
     })];
 
     let input = make_winkler_beam(n, l, k_soil, loads);
     let results = linear::solve_2d(&input).unwrap();
     let mid = results.displacements.iter().find(|d| d.node_id == mid_node).unwrap();
-    let delta_computed = mid.uy.abs();
+    let delta_computed = mid.uz.abs();
 
     // Rigid body: δ = P/(k·L)
     let delta_rigid = p / (k_soil * l);

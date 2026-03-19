@@ -91,7 +91,7 @@ fn validation_gstiff_ext_geometric_stiffness_matrix_entries() {
     // Without axial load
     let loads_lat = vec![
         SolverLoad::Nodal(SolverNodalLoad {
-            node_id: mid_node, fx: 0.0, fy: f_lat, mz: 0.0,
+            node_id: mid_node, fx: 0.0, fz: f_lat, my: 0.0,
         }),
     ];
     let input_lat = make_input(
@@ -101,15 +101,15 @@ fn validation_gstiff_ext_geometric_stiffness_matrix_entries() {
         loads_lat,
     );
     let d_no_axial: f64 = linear::solve_2d(&input_lat).unwrap()
-        .displacements.iter().find(|d| d.node_id == mid_node).unwrap().uy.abs();
+        .displacements.iter().find(|d| d.node_id == mid_node).unwrap().uz.abs();
 
     // With axial compression (P-delta analysis)
     let loads_both = vec![
         SolverLoad::Nodal(SolverNodalLoad {
-            node_id: n + 1, fx: -p_axial, fy: 0.0, mz: 0.0,
+            node_id: n + 1, fx: -p_axial, fz: 0.0, my: 0.0,
         }),
         SolverLoad::Nodal(SolverNodalLoad {
-            node_id: mid_node, fx: 0.0, fy: f_lat, mz: 0.0,
+            node_id: mid_node, fx: 0.0, fz: f_lat, my: 0.0,
         }),
     ];
     let input_both = make_input(
@@ -120,7 +120,7 @@ fn validation_gstiff_ext_geometric_stiffness_matrix_entries() {
     );
     let pd_result = pdelta::solve_pdelta_2d(&input_both, 30, 1e-6).unwrap();
     let d_with_axial: f64 = pd_result.results.displacements.iter()
-        .find(|d| d.node_id == mid_node).unwrap().uy.abs();
+        .find(|d| d.node_id == mid_node).unwrap().uz.abs();
 
     // Deflection should increase (compression softens)
     assert!(d_with_axial > d_no_axial,
@@ -183,10 +183,10 @@ fn validation_gstiff_ext_string_stiffness() {
     // Tension applied as axial force at the end (positive = tension in this config)
     let loads = vec![
         SolverLoad::Nodal(SolverNodalLoad {
-            node_id: n + 1, fx: tension, fy: 0.0, mz: 0.0,
+            node_id: n + 1, fx: tension, fz: 0.0, my: 0.0,
         }),
         SolverLoad::Nodal(SolverNodalLoad {
-            node_id: mid_node, fx: 0.0, fy: f_lat, mz: 0.0,
+            node_id: mid_node, fx: 0.0, fz: f_lat, my: 0.0,
         }),
     ];
     let input = make_input(
@@ -200,7 +200,7 @@ fn validation_gstiff_ext_string_stiffness() {
     assert!(pd_result.converged, "Tensioned cable should converge");
 
     let delta: f64 = pd_result.results.displacements.iter()
-        .find(|d| d.node_id == mid_node).unwrap().uy.abs();
+        .find(|d| d.node_id == mid_node).unwrap().uz.abs();
 
     // String stiffness formula: delta = F*L/(4T) for midpoint load
     let _delta_string: f64 = f_lat * l / (4.0 * tension);
@@ -362,7 +362,7 @@ fn validation_gstiff_ext_stability_functions() {
     // Without axial load: stiffness = 4EI/L (fixed end, unit rotation)
     let loads_no_axial = vec![
         SolverLoad::Nodal(SolverNodalLoad {
-            node_id: n + 1, fx: 0.0, fy: 0.0, mz: m_applied,
+            node_id: n + 1, fx: 0.0, fz: 0.0, my: m_applied,
         }),
     ];
     let input_no_axial = make_input(
@@ -372,13 +372,13 @@ fn validation_gstiff_ext_stability_functions() {
         loads_no_axial,
     );
     let rz_no_axial: f64 = linear::solve_2d(&input_no_axial).unwrap()
-        .displacements.iter().find(|d| d.node_id == n + 1).unwrap().rz.abs();
+        .displacements.iter().find(|d| d.node_id == n + 1).unwrap().ry.abs();
 
     // With axial compression: the rotation should be larger
     // (compression reduces stiffness)
     let loads_with_axial = vec![
         SolverLoad::Nodal(SolverNodalLoad {
-            node_id: n + 1, fx: -p_axial, fy: 0.0, mz: m_applied,
+            node_id: n + 1, fx: -p_axial, fz: 0.0, my: m_applied,
         }),
     ];
     let input_with_axial = make_input(
@@ -390,7 +390,7 @@ fn validation_gstiff_ext_stability_functions() {
     let pd_result = pdelta::solve_pdelta_2d(&input_with_axial, 30, 1e-6).unwrap();
     assert!(pd_result.converged, "Should converge at P/Pe=0.3");
     let rz_with_axial: f64 = pd_result.results.displacements.iter()
-        .find(|d| d.node_id == n + 1).unwrap().rz.abs();
+        .find(|d| d.node_id == n + 1).unwrap().ry.abs();
 
     // With compression, rotation increases (stiffness decreases)
     assert!(rz_with_axial > rz_no_axial,
@@ -412,7 +412,7 @@ fn validation_gstiff_ext_stability_functions() {
     let p_axial_low: f64 = 0.1 * pe;
     let loads_low = vec![
         SolverLoad::Nodal(SolverNodalLoad {
-            node_id: n + 1, fx: -p_axial_low, fy: 0.0, mz: m_applied,
+            node_id: n + 1, fx: -p_axial_low, fz: 0.0, my: m_applied,
         }),
     ];
     let input_low = make_input(
@@ -423,7 +423,7 @@ fn validation_gstiff_ext_stability_functions() {
     );
     let pd_low = pdelta::solve_pdelta_2d(&input_low, 30, 1e-6).unwrap();
     let rz_low: f64 = pd_low.results.displacements.iter()
-        .find(|d| d.node_id == n + 1).unwrap().rz.abs();
+        .find(|d| d.node_id == n + 1).unwrap().ry.abs();
     let amp_low: f64 = rz_low / rz_no_axial;
 
     // Higher P/Pe should give larger amplification
@@ -472,10 +472,10 @@ fn validation_gstiff_ext_effective_length_eigenvalue() {
     let p_pp: f64 = 0.50 * pe_pinpin;
     let loads_pp = vec![
         SolverLoad::Nodal(SolverNodalLoad {
-            node_id: n + 1, fx: -p_pp, fy: 0.0, mz: 0.0,
+            node_id: n + 1, fx: -p_pp, fz: 0.0, my: 0.0,
         }),
         SolverLoad::Nodal(SolverNodalLoad {
-            node_id: n / 2 + 1, fx: 0.0, fy: f_perturb, mz: 0.0,
+            node_id: n / 2 + 1, fx: 0.0, fz: f_perturb, my: 0.0,
         }),
     ];
     let input_pp = make_input(
@@ -485,11 +485,11 @@ fn validation_gstiff_ext_effective_length_eigenvalue() {
         loads_pp,
     );
     let d_lin_pp: f64 = linear::solve_2d(&input_pp).unwrap()
-        .displacements.iter().find(|d| d.node_id == n / 2 + 1).unwrap().uy.abs();
+        .displacements.iter().find(|d| d.node_id == n / 2 + 1).unwrap().uz.abs();
     let pd_pp = pdelta::solve_pdelta_2d(&input_pp, 30, 1e-6).unwrap();
     assert!(pd_pp.converged, "Pin-pin at 50% Pcr should converge");
     let d_pd_pp: f64 = pd_pp.results.displacements.iter()
-        .find(|d| d.node_id == n / 2 + 1).unwrap().uy.abs();
+        .find(|d| d.node_id == n / 2 + 1).unwrap().uz.abs();
     let b2_pp: f64 = d_pd_pp / d_lin_pp;
 
     // Cantilever at 50% of its Pcr
@@ -503,7 +503,7 @@ fn validation_gstiff_ext_effective_length_eigenvalue() {
         .collect();
     let loads_cant = vec![
         SolverLoad::Nodal(SolverNodalLoad {
-            node_id: n + 1, fx: f_perturb, fy: -p_cant, mz: 0.0,
+            node_id: n + 1, fx: f_perturb, fz: -p_cant, my: 0.0,
         }),
     ];
     let input_cant = make_input(
@@ -573,7 +573,7 @@ fn validation_gstiff_ext_tension_stiffening() {
     // Without axial: linear deflection
     let loads_no_axial = vec![
         SolverLoad::Nodal(SolverNodalLoad {
-            node_id: mid_node, fx: 0.0, fy: f_lat, mz: 0.0,
+            node_id: mid_node, fx: 0.0, fz: f_lat, my: 0.0,
         }),
     ];
     let input_no_axial = make_input(
@@ -583,15 +583,15 @@ fn validation_gstiff_ext_tension_stiffening() {
         loads_no_axial,
     );
     let d_no_axial: f64 = linear::solve_2d(&input_no_axial).unwrap()
-        .displacements.iter().find(|d| d.node_id == mid_node).unwrap().uy.abs();
+        .displacements.iter().find(|d| d.node_id == mid_node).unwrap().uz.abs();
 
     // With tension: P-delta should reduce deflection
     let loads_tension = vec![
         SolverLoad::Nodal(SolverNodalLoad {
-            node_id: n + 1, fx: tension, fy: 0.0, mz: 0.0,
+            node_id: n + 1, fx: tension, fz: 0.0, my: 0.0,
         }),
         SolverLoad::Nodal(SolverNodalLoad {
-            node_id: mid_node, fx: 0.0, fy: f_lat, mz: 0.0,
+            node_id: mid_node, fx: 0.0, fz: f_lat, my: 0.0,
         }),
     ];
     let input_tension = make_input(
@@ -603,7 +603,7 @@ fn validation_gstiff_ext_tension_stiffening() {
     let pd_tension = pdelta::solve_pdelta_2d(&input_tension, 30, 1e-6).unwrap();
     assert!(pd_tension.converged, "Tension case should converge");
     let d_tension: f64 = pd_tension.results.displacements.iter()
-        .find(|d| d.node_id == mid_node).unwrap().uy.abs();
+        .find(|d| d.node_id == mid_node).unwrap().uz.abs();
 
     // Tension reduces deflection
     assert!(d_tension < d_no_axial,
@@ -612,10 +612,10 @@ fn validation_gstiff_ext_tension_stiffening() {
     // Now compare with compression at the same magnitude
     let loads_compression = vec![
         SolverLoad::Nodal(SolverNodalLoad {
-            node_id: n + 1, fx: -tension, fy: 0.0, mz: 0.0,
+            node_id: n + 1, fx: -tension, fz: 0.0, my: 0.0,
         }),
         SolverLoad::Nodal(SolverNodalLoad {
-            node_id: mid_node, fx: 0.0, fy: f_lat, mz: 0.0,
+            node_id: mid_node, fx: 0.0, fz: f_lat, my: 0.0,
         }),
     ];
     let input_compression = make_input(
@@ -627,7 +627,7 @@ fn validation_gstiff_ext_tension_stiffening() {
     let pd_compression = pdelta::solve_pdelta_2d(&input_compression, 30, 1e-6).unwrap();
     assert!(pd_compression.converged, "Compression case should converge");
     let d_compression: f64 = pd_compression.results.displacements.iter()
-        .find(|d| d.node_id == mid_node).unwrap().uy.abs();
+        .find(|d| d.node_id == mid_node).unwrap().uz.abs();
 
     // Verify ordering: d_tension < d_no_axial < d_compression
     assert!(d_tension < d_no_axial,
@@ -677,10 +677,10 @@ fn validation_gstiff_ext_leaning_column_stability() {
     let sups_a = vec![(1, 1_usize, "fixed"), (2, 4, "fixed")];
     let loads_a = vec![
         SolverLoad::Nodal(SolverNodalLoad {
-            node_id: 2, fx: p_lateral, fy: -p_gravity, mz: 0.0,
+            node_id: 2, fx: p_lateral, fz: -p_gravity, my: 0.0,
         }),
         SolverLoad::Nodal(SolverNodalLoad {
-            node_id: 3, fx: 0.0, fy: -p_gravity, mz: 0.0,
+            node_id: 3, fx: 0.0, fz: -p_gravity, my: 0.0,
         }),
     ];
     let input_a = make_input(
@@ -702,10 +702,10 @@ fn validation_gstiff_ext_leaning_column_stability() {
     let sups_b = vec![(1, 1_usize, "fixed"), (2, 4, "pinned")];
     let loads_b = vec![
         SolverLoad::Nodal(SolverNodalLoad {
-            node_id: 2, fx: p_lateral, fy: -p_gravity, mz: 0.0,
+            node_id: 2, fx: p_lateral, fz: -p_gravity, my: 0.0,
         }),
         SolverLoad::Nodal(SolverNodalLoad {
-            node_id: 3, fx: 0.0, fy: -p_gravity, mz: 0.0,
+            node_id: 3, fx: 0.0, fz: -p_gravity, my: 0.0,
         }),
     ];
     let input_b = make_input(
@@ -725,9 +725,9 @@ fn validation_gstiff_ext_leaning_column_stability() {
     // plus resist the P-delta effect from both columns' gravity.
     // Verify base moment in case (b) is larger than in case (a)
     let m_base_a: f64 = res_a.results.reactions.iter()
-        .find(|r| r.node_id == 1).unwrap().mz.abs();
+        .find(|r| r.node_id == 1).unwrap().my.abs();
     let m_base_b: f64 = res_b.results.reactions.iter()
-        .find(|r| r.node_id == 1).unwrap().mz.abs();
+        .find(|r| r.node_id == 1).unwrap().my.abs();
 
     assert!(m_base_b > m_base_a,
         "Moment column base moment larger with leaning col: {:.4} > {:.4}",
@@ -736,7 +736,7 @@ fn validation_gstiff_ext_leaning_column_stability() {
     // Also verify that the leaning column's base has essentially no moment
     // (pinned base with hinged column)
     let m_base_lean: f64 = res_b.results.reactions.iter()
-        .find(|r| r.node_id == 4).unwrap().mz.abs();
+        .find(|r| r.node_id == 4).unwrap().my.abs();
     assert!(m_base_lean < 1e-6,
         "Leaning column base moment ~ 0: {:.6e}", m_base_lean);
 }
@@ -776,7 +776,7 @@ fn validation_gstiff_ext_notional_load_equivalence() {
     // Approach 1: Notional load F = alpha * P at the top
     let f_notional: f64 = alpha * p_gravity;
     let loads_notional = vec![SolverLoad::Nodal(SolverNodalLoad {
-        node_id: n + 1, fx: f_notional, fy: -p_gravity, mz: 0.0,
+        node_id: n + 1, fx: f_notional, fz: -p_gravity, my: 0.0,
     })];
     let input_notional = make_input(
         nodes.clone(), vec![(1, E, 0.3)], vec![(1, A, IZ)],
@@ -788,7 +788,7 @@ fn validation_gstiff_ext_notional_load_equivalence() {
     // (representing the P-alpha*H eccentricity)
     let m_imperfection: f64 = p_gravity * alpha * h;
     let loads_imperfection = vec![SolverLoad::Nodal(SolverNodalLoad {
-        node_id: n + 1, fx: 0.0, fy: -p_gravity, mz: m_imperfection,
+        node_id: n + 1, fx: 0.0, fz: -p_gravity, my: m_imperfection,
     })];
     let input_imperfection = make_input(
         nodes.clone(), vec![(1, E, 0.3)], vec![(1, A, IZ)],
@@ -798,10 +798,10 @@ fn validation_gstiff_ext_notional_load_equivalence() {
 
     // Base moment from notional load
     let m_base_notional: f64 = res_notional.reactions.iter()
-        .find(|r| r.node_id == 1).unwrap().mz;
+        .find(|r| r.node_id == 1).unwrap().my;
     // Base moment from imperfection moment
     let m_base_imperfection: f64 = res_imperfection.reactions.iter()
-        .find(|r| r.node_id == 1).unwrap().mz;
+        .find(|r| r.node_id == 1).unwrap().my;
 
     // Both should produce base moment approximately equal to alpha*P*H
     let m_expected: f64 = alpha * p_gravity * h; // = 0.003 * 500 * 5 = 7.5 kN-m
@@ -835,7 +835,7 @@ fn validation_gstiff_ext_notional_load_equivalence() {
 
     // P-delta amplifies the base moment beyond the linear value
     let m_pd_notional: f64 = pd_notional.results.reactions.iter()
-        .find(|r| r.node_id == 1).unwrap().mz.abs();
+        .find(|r| r.node_id == 1).unwrap().my.abs();
     assert!(m_pd_notional > m_base_notional.abs(),
         "P-delta amplifies notional moment: {:.4} > {:.4}",
         m_pd_notional, m_base_notional.abs());

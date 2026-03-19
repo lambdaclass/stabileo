@@ -106,7 +106,7 @@ fn validation_vierendeel_frame_bending_dominated() {
     // 2-panel: Bottom 1,2,3; Top 4,5,6
     // Lateral load at top-left node (node 4)
     let loads = vec![SolverLoad::Nodal(SolverNodalLoad {
-        node_id: 4, fx: f, fy: 0.0, mz: 0.0,
+        node_id: 4, fx: f, fz: 0.0, my: 0.0,
     })];
     let input = make_vierendeel(2, w, h, loads);
     let results = linear::solve_2d(&input).unwrap();
@@ -160,7 +160,7 @@ fn validation_vierendeel_frame_panel_shear() {
     // Elements: bottom chord 1(1-2), top chord 2(3-4),
     //           left post 3(1-3), right post 4(2-4)
     let loads = vec![SolverLoad::Nodal(SolverNodalLoad {
-        node_id: 3, fx: f, fy: 0.0, mz: 0.0,
+        node_id: 3, fx: f, fz: 0.0, my: 0.0,
     })];
     let input = make_vierendeel(1, w, h, loads);
     let results = linear::solve_2d(&input).unwrap();
@@ -207,7 +207,7 @@ fn validation_vierendeel_frame_vs_braced() {
 
     // Vierendeel: no diagonal
     let loads_v = vec![SolverLoad::Nodal(SolverNodalLoad {
-        node_id: 3, fx: f, fy: 0.0, mz: 0.0,
+        node_id: 3, fx: f, fz: 0.0, my: 0.0,
     })];
     let input_v = make_vierendeel(1, w, h, loads_v);
     let d_vierendeel = linear::solve_2d(&input_v).unwrap()
@@ -227,7 +227,7 @@ fn validation_vierendeel_frame_vs_braced() {
     ];
     let sups_b = vec![(1, 1, "pinned"), (2, 2, "rollerX")];
     let loads_b = vec![SolverLoad::Nodal(SolverNodalLoad {
-        node_id: 3, fx: f, fy: 0.0, mz: 0.0,
+        node_id: 3, fx: f, fz: 0.0, my: 0.0,
     })];
     let input_b = make_input(
         nodes,
@@ -273,7 +273,7 @@ fn validation_vierendeel_frame_junction_moment() {
     // Use 2-panel instead: Bottom 1,2,3; Top 4,5,6
     // Load at node 5 (top mid-node)
     let loads = vec![SolverLoad::Nodal(SolverNodalLoad {
-        node_id: 5, fx: 0.0, fy: -p, mz: 0.0,
+        node_id: 5, fx: 0.0, fz: -p, my: 0.0,
     })];
     let input = make_vierendeel(2, w, h, loads);
     let results = linear::solve_2d(&input).unwrap();
@@ -326,8 +326,8 @@ fn validation_vierendeel_frame_multi_panel_udl() {
         loads.push(SolverLoad::Nodal(SolverNodalLoad {
             node_id: n_bottom + i + 1,
             fx: 0.0,
-            fy: -p_node,
-            mz: 0.0,
+            fz: -p_node,
+            my: 0.0,
         }));
     }
 
@@ -337,14 +337,14 @@ fn validation_vierendeel_frame_multi_panel_udl() {
     let total_load = p_node * n_top as f64;
 
     // Global vertical equilibrium
-    let sum_ry: f64 = results.reactions.iter().map(|r| r.ry).sum();
+    let sum_ry: f64 = results.reactions.iter().map(|r| r.rz).sum();
     assert_close(sum_ry, total_load, 0.02, "Multi-panel UDL: ΣRy = total load");
 
     // By symmetry, left and right reactions equal
     let r_left = results.reactions.iter()
-        .find(|r| r.node_id == 1).unwrap().ry;
+        .find(|r| r.node_id == 1).unwrap().rz;
     let r_right = results.reactions.iter()
-        .find(|r| r.node_id == n_bottom).unwrap().ry;
+        .find(|r| r.node_id == n_bottom).unwrap().rz;
     assert_close(r_left, r_right, 0.02, "Multi-panel UDL: symmetry R_left = R_right");
 
     // Each end reaction = total/2
@@ -375,13 +375,13 @@ fn validation_vierendeel_frame_deflection_vs_truss() {
     // Apply load at top-mid node (node 6 = second top node)
     let top_mid = n_bottom + 2; // node 6
     let loads_v = vec![SolverLoad::Nodal(SolverNodalLoad {
-        node_id: top_mid, fx: 0.0, fy: -p, mz: 0.0,
+        node_id: top_mid, fx: 0.0, fz: -p, my: 0.0,
     })];
     let input_v = make_vierendeel(n_panels, w, h, loads_v);
     let d_vierendeel = linear::solve_2d(&input_v).unwrap()
         .displacements.iter()
         .find(|d| d.node_id == top_mid).unwrap()
-        .uy.abs();
+        .uz.abs();
 
     // Truss: same geometry with diagonal in each panel
     // Nodes: bottom 1..4 (y=0), top 5..8 (y=h)
@@ -413,13 +413,13 @@ fn validation_vierendeel_frame_deflection_vs_truss() {
     }
     let sups_t = vec![(1, 1, "pinned"), (2, n_bottom, "rollerX")];
     let loads_t = vec![SolverLoad::Nodal(SolverNodalLoad {
-        node_id: top_mid, fx: 0.0, fy: -p, mz: 0.0,
+        node_id: top_mid, fx: 0.0, fz: -p, my: 0.0,
     })];
     let input_t = make_input(nodes, vec![(1, E, 0.3)], vec![(1, A, IZ)], elems, sups_t, loads_t);
     let d_truss = linear::solve_2d(&input_t).unwrap()
         .displacements.iter()
         .find(|d| d.node_id == top_mid).unwrap()
-        .uy.abs();
+        .uz.abs();
 
     assert!(
         d_vierendeel > d_truss,
@@ -447,20 +447,20 @@ fn validation_vierendeel_frame_global_equilibrium() {
     // Combined horizontal + vertical loading
     let loads = vec![
         SolverLoad::Nodal(SolverNodalLoad {
-            node_id: 5, fx, fy: 0.0, mz: 0.0,
+            node_id: 5, fx, fz: 0.0, my: 0.0,
         }),
         SolverLoad::Nodal(SolverNodalLoad {
-            node_id: 6, fx: 0.0, fy, mz: 0.0,
+            node_id: 6, fx: 0.0, fz: fy, my: 0.0,
         }),
         SolverLoad::Nodal(SolverNodalLoad {
-            node_id: 7, fx: 0.0, fy, mz: 0.0,
+            node_id: 7, fx: 0.0, fz: fy, my: 0.0,
         }),
     ];
     let input = make_vierendeel(3, w, h, loads);
     let results = linear::solve_2d(&input).unwrap();
 
     let sum_rx: f64 = results.reactions.iter().map(|r| r.rx).sum();
-    let sum_ry: f64 = results.reactions.iter().map(|r| r.ry).sum();
+    let sum_ry: f64 = results.reactions.iter().map(|r| r.rz).sum();
 
     assert_close(sum_rx, -fx, 0.02, "Global equilibrium: ΣRx = -ΣFx");
     assert_close(sum_ry, -2.0 * fy, 0.02, "Global equilibrium: ΣRy = -ΣFy");
@@ -495,8 +495,8 @@ fn validation_vierendeel_frame_symmetry() {
         loads.push(SolverLoad::Nodal(SolverNodalLoad {
             node_id: n_bottom + i + 1,
             fx: 0.0,
-            fy: -p,
-            mz: 0.0,
+            fz: -p,
+            my: 0.0,
         }));
     }
 
@@ -506,7 +506,7 @@ fn validation_vierendeel_frame_symmetry() {
     // End reactions must be equal
     let r_a = results.reactions.iter().find(|r| r.node_id == 1).unwrap();
     let r_e = results.reactions.iter().find(|r| r.node_id == n_bottom).unwrap();
-    assert_close(r_a.ry, r_e.ry, 0.02, "Symmetry: R_A = R_E");
+    assert_close(r_a.rz, r_e.rz, 0.02, "Symmetry: R_A = R_E");
 
     // No net horizontal reaction (no horizontal load applied)
     let sum_rx: f64 = results.reactions.iter().map(|r| r.rx).sum();
@@ -517,8 +517,8 @@ fn validation_vierendeel_frame_symmetry() {
 
     // Vertical deflections of symmetric top-chord nodes equal
     let d_top_left = results.displacements.iter()
-        .find(|d| d.node_id == n_bottom + 1).unwrap().uy;
+        .find(|d| d.node_id == n_bottom + 1).unwrap().uz;
     let d_top_right = results.displacements.iter()
-        .find(|d| d.node_id == n_bottom + n_top).unwrap().uy;
+        .find(|d| d.node_id == n_bottom + n_top).unwrap().uz;
     assert_close(d_top_left, d_top_right, 0.02, "Symmetry: δ_top_left = δ_top_right");
 }

@@ -75,7 +75,7 @@ fn fsi_westergaard_added_mass() {
     let input = make_beam(
         4, h, e_conc, col_a, col_iz, "fixed", None,
         vec![SolverLoad::Nodal(SolverNodalLoad {
-            node_id: 5, fx: 0.0, fy: tip_force, mz: 0.0,
+            node_id: 5, fx: 0.0, fz: tip_force, my: 0.0,
         })],
     );
     let results = solve_2d(&input).expect("solve");
@@ -84,7 +84,7 @@ fn fsi_westergaard_added_mass() {
     let ei: f64 = e_conc * 1000.0 * col_iz; // kN*m^2
     let delta_expected: f64 = tip_force * h.powi(3) / (3.0 * ei);
     let delta_actual = results.displacements.iter()
-        .find(|d| d.node_id == 5).unwrap().uy;
+        .find(|d| d.node_id == 5).unwrap().uz;
 
     assert_close(delta_actual.abs(), delta_expected.abs(), 0.05, "Westergaard tip deflection");
 }
@@ -155,7 +155,7 @@ fn fsi_radiation_damping() {
     let input = make_beam(
         2, 10.0, e_val, 0.01, 1e-4, "fixed", None,
         vec![SolverLoad::Nodal(SolverNodalLoad {
-            node_id: 3, fx: daf_with * 10.0, fy: 0.0, mz: 0.0,
+            node_id: 3, fx: daf_with * 10.0, fz: 0.0, my: 0.0,
         })],
     );
     let results = solve_2d(&input).expect("solve");
@@ -292,13 +292,13 @@ fn fsi_pipe_whip() {
     let input = make_beam(
         4, l_pipe, e_steel, a_cross, iz_pipe, "fixed", Some("pinned"),
         vec![SolverLoad::Nodal(SolverNodalLoad {
-            node_id: 3, fx: 0.0, fy: -f_thrust, mz: 0.0,
+            node_id: 3, fx: 0.0, fz: -f_thrust, my: 0.0,
         })],
     );
     let results = solve_2d(&input).expect("solve");
 
     // Reactions at both supports should balance the applied load
-    let ry_sum: f64 = results.reactions.iter().map(|r| r.ry).sum();
+    let ry_sum: f64 = results.reactions.iter().map(|r| r.rz).sum();
     assert_close(ry_sum, f_thrust, 0.01, "Pipe whip equilibrium");
 }
 
@@ -380,7 +380,7 @@ fn fsi_vortex_induced_vibration() {
     let results = solve_2d(&input).expect("solve");
 
     // Total reaction should equal total applied load
-    let ry_sum: f64 = results.reactions.iter().map(|r| r.ry).sum();
+    let ry_sum: f64 = results.reactions.iter().map(|r| r.rz).sum();
     let total_load: f64 = f_viv * l_span;
     assert_close(ry_sum, total_load, 0.02, "VIV load equilibrium");
 }
@@ -450,7 +450,7 @@ fn fsi_submerged_beam_frequency() {
     let input = make_beam(
         4, l_span, e_steel, a_steel, iz, "pinned", Some("rollerX"),
         vec![SolverLoad::Nodal(SolverNodalLoad {
-            node_id: 3, fx: 0.0, fy: -10.0, mz: 0.0,
+            node_id: 3, fx: 0.0, fz: -10.0, my: 0.0,
         })],
     );
     let results = solve_2d(&input).expect("solve");
@@ -459,7 +459,7 @@ fn fsi_submerged_beam_frequency() {
     // delta = P*L^3 / (48*EI)
     let delta_expected: f64 = 10.0 * l_span.powi(3) / (48.0 * ei);
     let delta_actual = results.displacements.iter()
-        .find(|d| d.node_id == 3).unwrap().uy.abs();
+        .find(|d| d.node_id == 3).unwrap().uz.abs();
 
     assert_close(delta_actual, delta_expected, 0.05, "Submerged beam static check");
 }
@@ -539,7 +539,7 @@ fn fsi_water_hammer() {
     let input = make_beam(
         2, l_pipe / 100.0, 200_000.0, 0.01, 1e-4, "fixed", Some("rollerX"),
         vec![SolverLoad::Nodal(SolverNodalLoad {
-            node_id: 3, fx: hoop_force, fy: 0.0, mz: 0.0,
+            node_id: 3, fx: hoop_force, fz: 0.0, my: 0.0,
         })],
     );
     let results = solve_2d(&input).expect("solve");
@@ -614,7 +614,7 @@ fn fsi_chopra_period_lengthening() {
     let input = make_beam(
         4, h, e_conc, col_a, col_iz, "fixed", None,
         vec![SolverLoad::Nodal(SolverNodalLoad {
-            node_id: 5, fx: f_test, fy: 0.0, mz: 0.0,
+            node_id: 5, fx: f_test, fz: 0.0, my: 0.0,
         })],
     );
     let results = solve_2d(&input).expect("solve");

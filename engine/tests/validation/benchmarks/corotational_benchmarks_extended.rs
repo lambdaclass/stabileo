@@ -45,7 +45,7 @@ fn validation_corotational_cantilever_end_moment() {
     let input = make_beam(
         n, l, E, A, IZ, "fixed", None,
         vec![SolverLoad::Nodal(SolverNodalLoad {
-            node_id: tip_node, fx: 0.0, fy: 0.0, mz: m_applied,
+            node_id: tip_node, fx: 0.0, fz: 0.0, my: m_applied,
         })],
     );
 
@@ -65,8 +65,8 @@ fn validation_corotational_cantilever_end_moment() {
     // a beam without shear (pure rotation at tip). But with many elements,
     // the corotational curling effect produces non-trivial uy.
     // The corotational solution should differ from linear.
-    let lin_rz = lin_disp.rz.abs();
-    let corot_rz = corot_disp.rz.abs();
+    let lin_rz = lin_disp.ry.abs();
+    let corot_rz = corot_disp.ry.abs();
 
     assert!(lin_rz > 0.1, "Linear should produce significant rotation: got {:.6}", lin_rz);
     assert!(corot_rz > 0.1, "Corotational should produce significant rotation: got {:.6}", corot_rz);
@@ -105,10 +105,10 @@ fn validation_corotational_tension_stiffening() {
         vec![(1, 1, "pinned"), (2, n + 1, "rollerX")],
         vec![
             SolverLoad::Nodal(SolverNodalLoad {
-                node_id: n + 1, fx: p_tension, fy: 0.0, mz: 0.0,
+                node_id: n + 1, fx: p_tension, fz: 0.0, my: 0.0,
             }),
             SolverLoad::Nodal(SolverNodalLoad {
-                node_id: mid_node, fx: 0.0, fy: p_lateral, mz: 0.0,
+                node_id: mid_node, fx: 0.0, fz: p_lateral, my: 0.0,
             }),
         ],
     );
@@ -117,13 +117,13 @@ fn validation_corotational_tension_stiffening() {
     let corot_res = corotational::solve_corotational_2d(&input, 50, 1e-6, 10, false);
 
     let lin_mid_uy = lin_res.displacements.iter()
-        .find(|d| d.node_id == mid_node).unwrap().uy;
+        .find(|d| d.node_id == mid_node).unwrap().uz;
 
     let corot = corot_res.expect("tension-stiffening corotational solve must succeed");
     assert!(corot.converged, "Tension stiffening case should converge");
 
     let corot_mid_uy = corot.results.displacements.iter()
-        .find(|d| d.node_id == mid_node).unwrap().uy;
+        .find(|d| d.node_id == mid_node).unwrap().uz;
 
     // Both should deflect downward
     assert!(lin_mid_uy < 0.0, "Linear should deflect down: {:.6e}", lin_mid_uy);
@@ -183,7 +183,7 @@ fn validation_corotational_shallow_arch() {
         elems,
         vec![(1, 1, "pinned"), (2, end_node, "rollerX")],
         vec![SolverLoad::Nodal(SolverNodalLoad {
-            node_id: apex_node, fx: 0.0, fy: p_moderate, mz: 0.0,
+            node_id: apex_node, fx: 0.0, fz: p_moderate, my: 0.0,
         })],
     );
 
@@ -192,7 +192,7 @@ fn validation_corotational_shallow_arch() {
     let corot = corot_res.expect("shallow-arch corotational solve must succeed");
     if corot.converged {
         let apex_uy = corot.results.displacements.iter()
-            .find(|d| d.node_id == apex_node).unwrap().uy;
+            .find(|d| d.node_id == apex_node).unwrap().uz;
 
         // Apex should deflect downward
         assert!(apex_uy < 0.0, "Apex should deflect downward: {:.6e}", apex_uy);
@@ -266,7 +266,7 @@ fn validation_corotational_equilibrium_preservation() {
     let input = make_beam(
         n, l, E, A, IZ, "fixed", None,
         vec![SolverLoad::Nodal(SolverNodalLoad {
-            node_id: tip_node, fx: 0.0, fy: p_transverse, mz: 0.0,
+            node_id: tip_node, fx: 0.0, fz: p_transverse, my: 0.0,
         })],
     );
 
@@ -277,7 +277,7 @@ fn validation_corotational_equilibrium_preservation() {
 
     // Sum of reactions
     let sum_rx: f64 = corot.results.reactions.iter().map(|r| r.rx).sum();
-    let sum_ry: f64 = corot.results.reactions.iter().map(|r| r.ry).sum();
+    let sum_ry: f64 = corot.results.reactions.iter().map(|r| r.rz).sum();
 
     // Applied loads
     let fx_applied: f64 = 0.0;
@@ -322,7 +322,7 @@ fn validation_corotational_mesh_convergence() {
         let input = make_beam(
             n, l, E, A, IZ, "fixed", None,
             vec![SolverLoad::Nodal(SolverNodalLoad {
-                node_id: tip_node, fx: 0.0, fy: p, mz: 0.0,
+                node_id: tip_node, fx: 0.0, fz: p, my: 0.0,
             })],
         );
 
@@ -331,7 +331,7 @@ fn validation_corotational_mesh_convergence() {
         if let Ok(corot) = corot_res {
             if corot.converged {
                 let tip_uy = corot.results.displacements.iter()
-                    .find(|d| d.node_id == tip_node).unwrap().uy;
+                    .find(|d| d.node_id == tip_node).unwrap().uz;
                 tip_uy_values.push(tip_uy);
             } else {
                 panic!("Mesh n={} did not converge", n);
@@ -375,7 +375,7 @@ fn validation_corotational_symmetry() {
     let input = make_beam(
         n, l, E, A, IZ, "fixed", Some("fixed"),
         vec![SolverLoad::Nodal(SolverNodalLoad {
-            node_id: mid_node, fx: 0.0, fy: p, mz: 0.0,
+            node_id: mid_node, fx: 0.0, fz: p, my: 0.0,
         })],
     );
 
@@ -389,9 +389,9 @@ fn validation_corotational_symmetry() {
     for i in 2..mid_node {
         let mirror = n + 2 - i;
         let uy_left = corot.results.displacements.iter()
-            .find(|d| d.node_id == i).unwrap().uy;
+            .find(|d| d.node_id == i).unwrap().uz;
         let uy_right = corot.results.displacements.iter()
-            .find(|d| d.node_id == mirror).unwrap().uy;
+            .find(|d| d.node_id == mirror).unwrap().uz;
 
         let diff = (uy_left - uy_right).abs();
         let scale = uy_left.abs().max(1e-10);
@@ -404,12 +404,12 @@ fn validation_corotational_symmetry() {
 
     // Midspan should have the maximum deflection
     let mid_uy = corot.results.displacements.iter()
-        .find(|d| d.node_id == mid_node).unwrap().uy.abs();
+        .find(|d| d.node_id == mid_node).unwrap().uz.abs();
     for disp in &corot.results.displacements {
         assert!(
-            disp.uy.abs() <= mid_uy * 1.01,
+            disp.uz.abs() <= mid_uy * 1.01,
             "Midspan should have max deflection: mid={:.6e}, node {} has {:.6e}",
-            mid_uy, disp.node_id, disp.uy.abs()
+            mid_uy, disp.node_id, disp.uz.abs()
         );
     }
 }
@@ -445,10 +445,10 @@ fn validation_corotational_beam_column_interaction() {
         vec![(1, 1, "pinned"), (2, n + 1, "rollerX")],
         vec![
             SolverLoad::Nodal(SolverNodalLoad {
-                node_id: n + 1, fx: p_axial, fy: 0.0, mz: 0.0,
+                node_id: n + 1, fx: p_axial, fz: 0.0, my: 0.0,
             }),
             SolverLoad::Nodal(SolverNodalLoad {
-                node_id: mid_node, fx: 0.0, fy: p_transverse, mz: 0.0,
+                node_id: mid_node, fx: 0.0, fz: p_transverse, my: 0.0,
             }),
         ],
     );
@@ -457,13 +457,13 @@ fn validation_corotational_beam_column_interaction() {
     let corot_res = corotational::solve_corotational_2d(&input, 80, 1e-6, 15, false);
 
     let lin_mid_uy = lin_res.displacements.iter()
-        .find(|d| d.node_id == mid_node).unwrap().uy;
+        .find(|d| d.node_id == mid_node).unwrap().uz;
 
     let corot = corot_res.expect("beam-column interaction corotational solve must succeed");
     assert!(corot.converged, "Beam-column at 30% Pcr should converge");
 
     let corot_mid_uy = corot.results.displacements.iter()
-        .find(|d| d.node_id == mid_node).unwrap().uy;
+        .find(|d| d.node_id == mid_node).unwrap().uz;
 
     // Both should deflect downward
     assert!(lin_mid_uy < 0.0, "Linear should deflect down: {:.6e}", lin_mid_uy);

@@ -158,8 +158,8 @@ fn validation_eq_eng_ext_equivalent_lateral_force() {
         let fi_half: f64 = fx[i] / 2.0;
         let nl = 2 * (i + 1) + 1;
         let nr = 2 * (i + 1) + 2;
-        loads.push(SolverLoad::Nodal(SolverNodalLoad { node_id: nl, fx: fi_half, fy: 0.0, mz: 0.0 }));
-        loads.push(SolverLoad::Nodal(SolverNodalLoad { node_id: nr, fx: fi_half, fy: 0.0, mz: 0.0 }));
+        loads.push(SolverLoad::Nodal(SolverNodalLoad { node_id: nl, fx: fi_half, fz: 0.0, my: 0.0 }));
+        loads.push(SolverLoad::Nodal(SolverNodalLoad { node_id: nr, fx: fi_half, fz: 0.0, my: 0.0 }));
         total_applied += fx[i];
     }
 
@@ -241,12 +241,12 @@ fn validation_eq_eng_ext_response_modification_factor() {
 
     // Apply unit base shear scaled by Cs for each system
     let loads_a = vec![
-        SolverLoad::Nodal(SolverNodalLoad { node_id: 2, fx: v_a / 2.0, fy: 0.0, mz: 0.0 }),
-        SolverLoad::Nodal(SolverNodalLoad { node_id: 3, fx: v_a / 2.0, fy: 0.0, mz: 0.0 }),
+        SolverLoad::Nodal(SolverNodalLoad { node_id: 2, fx: v_a / 2.0, fz: 0.0, my: 0.0 }),
+        SolverLoad::Nodal(SolverNodalLoad { node_id: 3, fx: v_a / 2.0, fz: 0.0, my: 0.0 }),
     ];
     let loads_b = vec![
-        SolverLoad::Nodal(SolverNodalLoad { node_id: 2, fx: v_b / 2.0, fy: 0.0, mz: 0.0 }),
-        SolverLoad::Nodal(SolverNodalLoad { node_id: 3, fx: v_b / 2.0, fy: 0.0, mz: 0.0 }),
+        SolverLoad::Nodal(SolverNodalLoad { node_id: 2, fx: v_b / 2.0, fz: 0.0, my: 0.0 }),
+        SolverLoad::Nodal(SolverNodalLoad { node_id: 3, fx: v_b / 2.0, fz: 0.0, my: 0.0 }),
     ];
 
     let input_a = make_input(nodes.clone(), vec![(1, E, 0.3)], vec![(1, A, IZ)], elems.clone(), sups.clone(), loads_a);
@@ -329,8 +329,8 @@ fn validation_eq_eng_ext_story_drift() {
         let fi: f64 = f_base * i as f64;
         let nl = 2 * i + 1;
         let nr = 2 * i + 2;
-        loads.push(SolverLoad::Nodal(SolverNodalLoad { node_id: nl, fx: fi, fy: 0.0, mz: 0.0 }));
-        loads.push(SolverLoad::Nodal(SolverNodalLoad { node_id: nr, fx: fi, fy: 0.0, mz: 0.0 }));
+        loads.push(SolverLoad::Nodal(SolverNodalLoad { node_id: nl, fx: fi, fz: 0.0, my: 0.0 }));
+        loads.push(SolverLoad::Nodal(SolverNodalLoad { node_id: nr, fx: fi, fz: 0.0, my: 0.0 }));
     }
 
     let input = make_input(nodes, vec![(1, E, 0.3)], vec![(1, A, IZ)], elems, sups, loads);
@@ -450,10 +450,10 @@ fn validation_eq_eng_ext_overstrength_factor() {
     let sups = vec![(1, 1_usize, "fixed"), (2, 4_usize, "fixed")];
 
     let loads_qe = vec![
-        SolverLoad::Nodal(SolverNodalLoad { node_id: 2, fx: qe, fy: 0.0, mz: 0.0 }),
+        SolverLoad::Nodal(SolverNodalLoad { node_id: 2, fx: qe, fz: 0.0, my: 0.0 }),
     ];
     let loads_omega = vec![
-        SolverLoad::Nodal(SolverNodalLoad { node_id: 2, fx: omega_smf * qe, fy: 0.0, mz: 0.0 }),
+        SolverLoad::Nodal(SolverNodalLoad { node_id: 2, fx: omega_smf * qe, fz: 0.0, my: 0.0 }),
     ];
 
     let input_qe = make_input(nodes.clone(), vec![(1, E, 0.3)], vec![(1, A, IZ)],
@@ -518,8 +518,8 @@ fn validation_eq_eng_ext_torsional_irregularity() {
 
     // Symmetric loading (no eccentricity)
     let loads_sym = vec![
-        SolverLoad::Nodal(SolverNodalLoad { node_id: 2, fx: v_total / 2.0, fy: 0.0, mz: 0.0 }),
-        SolverLoad::Nodal(SolverNodalLoad { node_id: 3, fx: v_total / 2.0, fy: 0.0, mz: 0.0 }),
+        SolverLoad::Nodal(SolverNodalLoad { node_id: 2, fx: v_total / 2.0, fz: 0.0, my: 0.0 }),
+        SolverLoad::Nodal(SolverNodalLoad { node_id: 3, fx: v_total / 2.0, fz: 0.0, my: 0.0 }),
     ];
     let input_sym = make_input(
         nodes.clone(), vec![(1, E, 0.3)], vec![(1, A, IZ)],
@@ -532,8 +532,8 @@ fn validation_eq_eng_ext_torsional_irregularity() {
     let f_left: f64 = v_total / 2.0 * (1.0 + ecc_ratio);
     let f_right: f64 = v_total / 2.0 * (1.0 - ecc_ratio);
     let loads_ecc = vec![
-        SolverLoad::Nodal(SolverNodalLoad { node_id: 2, fx: f_left, fy: 0.0, mz: 0.0 }),
-        SolverLoad::Nodal(SolverNodalLoad { node_id: 3, fx: f_right, fy: 0.0, mz: 0.0 }),
+        SolverLoad::Nodal(SolverNodalLoad { node_id: 2, fx: f_left, fz: 0.0, my: 0.0 }),
+        SolverLoad::Nodal(SolverNodalLoad { node_id: 3, fx: f_right, fz: 0.0, my: 0.0 }),
     ];
     let input_ecc = make_input(
         nodes, vec![(1, E, 0.3)], vec![(1, A, IZ)],
@@ -617,9 +617,9 @@ fn validation_eq_eng_ext_pdelta_effects() {
     ];
     let sups = vec![(1, 1_usize, "fixed"), (2, 4_usize, "fixed")];
     let loads = vec![
-        SolverLoad::Nodal(SolverNodalLoad { node_id: 2, fx: lateral, fy: 0.0, mz: 0.0 }),
-        SolverLoad::Nodal(SolverNodalLoad { node_id: 2, fx: 0.0, fy: gravity, mz: 0.0 }),
-        SolverLoad::Nodal(SolverNodalLoad { node_id: 3, fx: 0.0, fy: gravity, mz: 0.0 }),
+        SolverLoad::Nodal(SolverNodalLoad { node_id: 2, fx: lateral, fz: 0.0, my: 0.0 }),
+        SolverLoad::Nodal(SolverNodalLoad { node_id: 2, fx: 0.0, fz: gravity, my: 0.0 }),
+        SolverLoad::Nodal(SolverNodalLoad { node_id: 3, fx: 0.0, fz: gravity, my: 0.0 }),
     ];
 
     let input = make_input(nodes, vec![(1, E, 0.3)], vec![(1, A, IZ)], elems, sups, loads);
@@ -756,8 +756,8 @@ fn validation_eq_eng_ext_diaphragm_forces() {
     let fpx_applied: f64 = fpx_values[n_stories - 1];
     let beam_span: f64 = 10.0;
     let loads_diaphragm = vec![
-        SolverLoad::Nodal(SolverNodalLoad { node_id: 1, fx: fpx_applied / 2.0, fy: 0.0, mz: 0.0 }),
-        SolverLoad::Nodal(SolverNodalLoad { node_id: 2, fx: fpx_applied / 2.0, fy: 0.0, mz: 0.0 }),
+        SolverLoad::Nodal(SolverNodalLoad { node_id: 1, fx: fpx_applied / 2.0, fz: 0.0, my: 0.0 }),
+        SolverLoad::Nodal(SolverNodalLoad { node_id: 2, fx: fpx_applied / 2.0, fz: 0.0, my: 0.0 }),
     ];
     let input_diaphragm = make_beam(
         4, beam_span, E, A, IZ, "pinned", Some("pinned"), loads_diaphragm,
@@ -891,12 +891,12 @@ fn validation_eq_eng_ext_modal_combination_rules() {
     let sups = vec![(1, 1_usize, "fixed"), (2, 4_usize, "fixed")];
 
     let loads_srss = vec![
-        SolverLoad::Nodal(SolverNodalLoad { node_id: 2, fx: r_srss / 2.0, fy: 0.0, mz: 0.0 }),
-        SolverLoad::Nodal(SolverNodalLoad { node_id: 3, fx: r_srss / 2.0, fy: 0.0, mz: 0.0 }),
+        SolverLoad::Nodal(SolverNodalLoad { node_id: 2, fx: r_srss / 2.0, fz: 0.0, my: 0.0 }),
+        SolverLoad::Nodal(SolverNodalLoad { node_id: 3, fx: r_srss / 2.0, fz: 0.0, my: 0.0 }),
     ];
     let loads_cqc = vec![
-        SolverLoad::Nodal(SolverNodalLoad { node_id: 2, fx: r_cqc_close / 2.0, fy: 0.0, mz: 0.0 }),
-        SolverLoad::Nodal(SolverNodalLoad { node_id: 3, fx: r_cqc_close / 2.0, fy: 0.0, mz: 0.0 }),
+        SolverLoad::Nodal(SolverNodalLoad { node_id: 2, fx: r_cqc_close / 2.0, fz: 0.0, my: 0.0 }),
+        SolverLoad::Nodal(SolverNodalLoad { node_id: 3, fx: r_cqc_close / 2.0, fz: 0.0, my: 0.0 }),
     ];
 
     let input_srss = make_input(nodes.clone(), vec![(1, E, 0.3)], vec![(1, A, IZ)],

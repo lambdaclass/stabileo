@@ -9,8 +9,8 @@ use dedaliano_engine::solver::contact::*;
 use dedaliano_engine::types::*;
 use std::collections::HashMap;
 
-fn node(id: usize, x: f64, y: f64) -> SolverNode {
-    SolverNode { id, x, y }
+fn node(id: usize, x: f64, z: f64) -> SolverNode {
+    SolverNode { id, x, z }
 }
 
 fn frame(id: usize, ni: usize, nj: usize) -> SolverElement {
@@ -32,7 +32,7 @@ fn fixed(id: usize, node_id: usize) -> SolverSupport {
         node_id,
         support_type: "fixed".into(),
         kx: None, ky: None, kz: None,
-        dx: None, dy: None, drz: None,
+        dx: None, dz: None, dry: None,
         angle: None,
     }
 }
@@ -92,7 +92,7 @@ fn contact_real_5d_gap_closure_and_reopening() {
             (3, fixed(3, 3)),
         ]),
         loads: vec![
-            SolverLoad::Nodal(SolverNodalLoad { node_id: 2, fx: 500.0, fy: 0.0, mz: 0.0 }),
+            SolverLoad::Nodal(SolverNodalLoad { node_id: 2, fx: 500.0, fz: 0.0, my: 0.0 }),
         ],
         constraints: vec![],
         connectors: HashMap::new(),
@@ -134,7 +134,7 @@ fn contact_real_5d_gap_closure_and_reopening() {
         loads: vec![
             // Tiny force — not enough to close the 2mm gap
             // EA/L = 200*1000*0.01/1.0 = 2000. δ = F/(EA/L) = 0.001/2000 = 5e-7 << 0.002
-            SolverLoad::Nodal(SolverNodalLoad { node_id: 2, fx: 0.001, fy: 0.0, mz: 0.0 }),
+            SolverLoad::Nodal(SolverNodalLoad { node_id: 2, fx: 0.001, fz: 0.0, my: 0.0 }),
         ],
         constraints: vec![],
         connectors: HashMap::new(),
@@ -170,7 +170,7 @@ fn contact_real_5e_friction_limit() {
         ]),
         loads: vec![
             // Large upward force to close gap + horizontal force for friction
-            SolverLoad::Nodal(SolverNodalLoad { node_id: 2, fx: 20.0, fy: 500.0, mz: 0.0 }),
+            SolverLoad::Nodal(SolverNodalLoad { node_id: 2, fx: 20.0, fz: 500.0, my: 0.0 }),
         ],
         constraints: vec![],
         connectors: HashMap::new(),
@@ -245,7 +245,7 @@ fn contact_real_5f_progressive_gap_closure() {
             (5, fixed(5, 5)),
         ]),
         loads: vec![
-            SolverLoad::Nodal(SolverNodalLoad { node_id: 2, fx: 10.0, fy: 0.0, mz: 0.0 }),
+            SolverLoad::Nodal(SolverNodalLoad { node_id: 2, fx: 10.0, fz: 0.0, my: 0.0 }),
         ],
         constraints: vec![],
         connectors: HashMap::new(),

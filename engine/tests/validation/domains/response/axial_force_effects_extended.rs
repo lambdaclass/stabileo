@@ -57,7 +57,7 @@ fn validation_stepped_bar_different_areas() {
         ],
         vec![(1, 1, "fixed")],
         vec![SolverLoad::Nodal(SolverNodalLoad {
-            node_id: 3, fx: f, fy: 0.0, mz: 0.0,
+            node_id: 3, fx: f, fz: 0.0, my: 0.0,
         })],
     );
 
@@ -102,11 +102,11 @@ fn validation_axial_inversely_proportional_to_area() {
 
     let input1 = make_beam(1, l, E, a1, IZ, "fixed", None,
         vec![SolverLoad::Nodal(SolverNodalLoad {
-            node_id: 2, fx: f, fy: 0.0, mz: 0.0,
+            node_id: 2, fx: f, fz: 0.0, my: 0.0,
         })]);
     let input2 = make_beam(1, l, E, a2, IZ, "fixed", None,
         vec![SolverLoad::Nodal(SolverNodalLoad {
-            node_id: 2, fx: f, fy: 0.0, mz: 0.0,
+            node_id: 2, fx: f, fz: 0.0, my: 0.0,
         })]);
 
     let res1 = linear::solve_2d(&input1).unwrap();
@@ -163,21 +163,21 @@ fn validation_three_member_truss_forces() {
         ],
         vec![(1, 1, "pinned"), (2, 2, "rollerX")],
         vec![SolverLoad::Nodal(SolverNodalLoad {
-            node_id: 3, fx: 0.0, fy: -p, mz: 0.0,
+            node_id: 3, fx: 0.0, fz: -p, my: 0.0,
         })],
     );
 
     let results = linear::solve_2d(&input).unwrap();
 
     // Global equilibrium: sum Ry = P
-    let sum_ry: f64 = results.reactions.iter().map(|r| r.ry).sum();
+    let sum_ry: f64 = results.reactions.iter().map(|r| r.rz).sum();
     assert_close(sum_ry, p, 0.02, "3-member truss: sum Ry = P");
 
     // By symmetry, each support reaction = P/2
     let r1 = results.reactions.iter().find(|r| r.node_id == 1).unwrap();
     let r2 = results.reactions.iter().find(|r| r.node_id == 2).unwrap();
-    assert_close(r1.ry, p / 2.0, 0.02, "3-member truss: Ry1 = P/2");
-    assert_close(r2.ry, p / 2.0, 0.02, "3-member truss: Ry2 = P/2");
+    assert_close(r1.rz, p / 2.0, 0.02, "3-member truss: Ry1 = P/2");
+    assert_close(r2.rz, p / 2.0, 0.02, "3-member truss: Ry2 = P/2");
 
     // Diagonal members carry N = P/(2*sin(theta)) in compression
     let n_diag_expected = p / (2.0 * sin_theta);
@@ -236,7 +236,7 @@ fn validation_parallel_bars_stiffness_ratio() {
     // Separate bar with A1 only
     let input1 = make_beam(1, l, E, a1, IZ, "fixed", None,
         vec![SolverLoad::Nodal(SolverNodalLoad {
-            node_id: 2, fx: f, fy: 0.0, mz: 0.0,
+            node_id: 2, fx: f, fz: 0.0, my: 0.0,
         })]);
     let res1 = linear::solve_2d(&input1).unwrap();
     let ux_a1 = res1.displacements.iter().find(|d| d.node_id == 2).unwrap().ux;
@@ -244,7 +244,7 @@ fn validation_parallel_bars_stiffness_ratio() {
     // Separate bar with A2 only
     let input2 = make_beam(1, l, E, a2, IZ, "fixed", None,
         vec![SolverLoad::Nodal(SolverNodalLoad {
-            node_id: 2, fx: f, fy: 0.0, mz: 0.0,
+            node_id: 2, fx: f, fz: 0.0, my: 0.0,
         })]);
     let res2 = linear::solve_2d(&input2).unwrap();
     let ux_a2 = res2.displacements.iter().find(|d| d.node_id == 2).unwrap().ux;
@@ -252,7 +252,7 @@ fn validation_parallel_bars_stiffness_ratio() {
     // Separate bar with combined area A1+A2 (equivalent parallel system)
     let input_combined = make_beam(1, l, E, a_combined, IZ, "fixed", None,
         vec![SolverLoad::Nodal(SolverNodalLoad {
-            node_id: 2, fx: f, fy: 0.0, mz: 0.0,
+            node_id: 2, fx: f, fz: 0.0, my: 0.0,
         })]);
     let res_combined = linear::solve_2d(&input_combined).unwrap();
     let ux_combined = res_combined.displacements.iter()
@@ -315,8 +315,8 @@ fn validation_multi_segment_intermediate_loads() {
         ],
         vec![(1, 1, "fixed")],
         vec![
-            SolverLoad::Nodal(SolverNodalLoad { node_id: 2, fx: p1, fy: 0.0, mz: 0.0 }),
-            SolverLoad::Nodal(SolverNodalLoad { node_id: 3, fx: p2, fy: 0.0, mz: 0.0 }),
+            SolverLoad::Nodal(SolverNodalLoad { node_id: 2, fx: p1, fz: 0.0, my: 0.0 }),
+            SolverLoad::Nodal(SolverNodalLoad { node_id: 3, fx: p2, fz: 0.0, my: 0.0 }),
         ],
     );
 
@@ -401,7 +401,7 @@ fn validation_symmetric_howe_truss() {
         ],
         vec![(1, 1, "pinned"), (2, 5, "rollerX")],
         vec![SolverLoad::Nodal(SolverNodalLoad {
-            node_id: 7, fx: 0.0, fy: -p, mz: 0.0,
+            node_id: 7, fx: 0.0, fz: -p, my: 0.0,
         })],
     );
 
@@ -410,11 +410,11 @@ fn validation_symmetric_howe_truss() {
     // Symmetric reactions: each = P/2
     let r1 = results.reactions.iter().find(|r| r.node_id == 1).unwrap();
     let r5 = results.reactions.iter().find(|r| r.node_id == 5).unwrap();
-    assert_close(r1.ry, p / 2.0, 0.02, "Howe truss: Ry1 = P/2");
-    assert_close(r5.ry, p / 2.0, 0.02, "Howe truss: Ry5 = P/2");
+    assert_close(r1.rz, p / 2.0, 0.02, "Howe truss: Ry1 = P/2");
+    assert_close(r5.rz, p / 2.0, 0.02, "Howe truss: Ry5 = P/2");
 
     // Global equilibrium
-    let sum_ry: f64 = results.reactions.iter().map(|r| r.ry).sum();
+    let sum_ry: f64 = results.reactions.iter().map(|r| r.rz).sum();
     assert_close(sum_ry, p, 0.02, "Howe truss: sum Ry = P");
     let sum_rx: f64 = results.reactions.iter().map(|r| r.rx).sum();
     assert!(sum_rx.abs() < 0.5, "Howe truss: sum Rx ~= 0, got {:.4}", sum_rx);
@@ -489,21 +489,21 @@ fn validation_five_bar_truss_zero_force_member() {
         ],
         vec![(1, 1, "pinned"), (2, 2, "rollerX")],
         vec![SolverLoad::Nodal(SolverNodalLoad {
-            node_id: 3, fx: 0.0, fy: -p, mz: 0.0,
+            node_id: 3, fx: 0.0, fz: -p, my: 0.0,
         })],
     );
 
     let results = linear::solve_2d(&input).unwrap();
 
     // Global vertical equilibrium
-    let sum_ry: f64 = results.reactions.iter().map(|r| r.ry).sum();
+    let sum_ry: f64 = results.reactions.iter().map(|r| r.rz).sum();
     assert_close(sum_ry, p, 0.02, "5-bar truss: sum Ry = P");
 
     // By symmetry: each support reaction = P/2
     let r1 = results.reactions.iter().find(|r| r.node_id == 1).unwrap();
     let r2 = results.reactions.iter().find(|r| r.node_id == 2).unwrap();
-    assert_close(r1.ry, p / 2.0, 0.05, "5-bar truss: Ry1 = P/2");
-    assert_close(r2.ry, p / 2.0, 0.05, "5-bar truss: Ry2 = P/2");
+    assert_close(r1.rz, p / 2.0, 0.05, "5-bar truss: Ry1 = P/2");
+    assert_close(r2.rz, p / 2.0, 0.05, "5-bar truss: Ry2 = P/2");
 
     // Symmetric diagonal members carry equal magnitude
     let ef3 = results.element_forces.iter().find(|e| e.element_id == 3).unwrap();
@@ -574,7 +574,7 @@ fn validation_axial_superposition_multiple_loads() {
     // Load case A: P1 only
     let input_a = make_beam(n, l, E, A, IZ, "fixed", None,
         vec![SolverLoad::Nodal(SolverNodalLoad {
-            node_id: tip, fx: p1, fy: 0.0, mz: 0.0,
+            node_id: tip, fx: p1, fz: 0.0, my: 0.0,
         })]);
     let res_a = linear::solve_2d(&input_a).unwrap();
     let ux_a = res_a.displacements.iter().find(|d| d.node_id == tip).unwrap().ux;
@@ -583,7 +583,7 @@ fn validation_axial_superposition_multiple_loads() {
     // Load case B: P2 only
     let input_b = make_beam(n, l, E, A, IZ, "fixed", None,
         vec![SolverLoad::Nodal(SolverNodalLoad {
-            node_id: tip, fx: p2, fy: 0.0, mz: 0.0,
+            node_id: tip, fx: p2, fz: 0.0, my: 0.0,
         })]);
     let res_b = linear::solve_2d(&input_b).unwrap();
     let ux_b = res_b.displacements.iter().find(|d| d.node_id == tip).unwrap().ux;
@@ -592,7 +592,7 @@ fn validation_axial_superposition_multiple_loads() {
     // Combined: P1 + P2 at once
     let input_c = make_beam(n, l, E, A, IZ, "fixed", None,
         vec![SolverLoad::Nodal(SolverNodalLoad {
-            node_id: tip, fx: p1 + p2, fy: 0.0, mz: 0.0,
+            node_id: tip, fx: p1 + p2, fz: 0.0, my: 0.0,
         })]);
     let res_c = linear::solve_2d(&input_c).unwrap();
     let ux_c = res_c.displacements.iter().find(|d| d.node_id == tip).unwrap().ux;
@@ -626,10 +626,10 @@ fn validation_axial_superposition_multiple_loads() {
     let input_d = make_beam(n, l, E, A, IZ, "fixed", None,
         vec![
             SolverLoad::Nodal(SolverNodalLoad {
-                node_id: tip, fx: p1, fy: 0.0, mz: 0.0,
+                node_id: tip, fx: p1, fz: 0.0, my: 0.0,
             }),
             SolverLoad::Nodal(SolverNodalLoad {
-                node_id: tip, fx: p2, fy: 0.0, mz: 0.0,
+                node_id: tip, fx: p2, fz: 0.0, my: 0.0,
             }),
         ]);
     let res_d = linear::solve_2d(&input_d).unwrap();

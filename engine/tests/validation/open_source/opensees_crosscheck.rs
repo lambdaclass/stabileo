@@ -45,8 +45,8 @@ fn validation_opensees_1_ss_beam_point_load() {
     let loads = vec![SolverLoad::Nodal(SolverNodalLoad {
         node_id: n / 2 + 1,
         fx: 0.0,
-        fy: -p,
-        mz: 0.0,
+        fz: -p,
+        my: 0.0,
     })];
 
     let input = make_input(
@@ -59,14 +59,14 @@ fn validation_opensees_1_ss_beam_point_load() {
     // Reactions: R_A = R_B = P/2
     let r_a = results.reactions.iter().find(|r| r.node_id == 1).unwrap();
     let r_b = results.reactions.iter().find(|r| r.node_id == n + 1).unwrap();
-    assert_close(r_a.ry, p / 2.0, 0.01, "OS1 R_A = P/2");
-    assert_close(r_b.ry, p / 2.0, 0.01, "OS1 R_B = P/2");
+    assert_close(r_a.rz, p / 2.0, 0.01, "OS1 R_A = P/2");
+    assert_close(r_b.rz, p / 2.0, 0.01, "OS1 R_B = P/2");
 
     // Midspan deflection: delta = P*L^3 / (48*E*I)
     let delta_expected = p * l.powi(3) / (48.0 * E_EFF * iz);
     let mid_node = n / 2 + 1;
     let d_mid = results.displacements.iter().find(|d| d.node_id == mid_node).unwrap();
-    assert_close(d_mid.uy.abs(), delta_expected, 0.02, "OS1 delta_max");
+    assert_close(d_mid.uz.abs(), delta_expected, 0.02, "OS1 delta_max");
 
     // Maximum moment at midspan: M = P*L/4
     let m_expected = p * l / 4.0;
@@ -103,7 +103,7 @@ fn validation_opensees_2_portal_frame_lateral() {
     ];
     let sups = vec![(1, 1, "fixed"), (2, 4, "fixed")];
     let loads = vec![SolverLoad::Nodal(SolverNodalLoad {
-        node_id: 2, fx: h_load, fy: 0.0, mz: 0.0,
+        node_id: 2, fx: h_load, fz: 0.0, my: 0.0,
     })];
 
     let input = make_input(
@@ -142,11 +142,11 @@ fn validation_opensees_2_portal_frame_lateral() {
     let r4 = results.reactions.iter().find(|r| r.node_id == 4).unwrap();
     // For portal with equal columns and stiff beam under lateral load:
     // base moments sum to H*h (overturning equilibrium)
-    let sum_base_moments = r1.mz.abs() + r4.mz.abs();
+    let sum_base_moments = r1.my.abs() + r4.my.abs();
     // Moment equilibrium: sum_M = H*h - R_base_moment1 - R_base_moment2 = 0
     // is approximate since column shears contribute; just check both are nonzero
-    assert!(r1.mz.abs() > 1.0, "OS2: left base moment nonzero");
-    assert!(r4.mz.abs() > 1.0, "OS2: right base moment nonzero");
+    assert!(r1.my.abs() > 1.0, "OS2: left base moment nonzero");
+    assert!(r4.my.abs() > 1.0, "OS2: right base moment nonzero");
     assert!(sum_base_moments > 0.0, "OS2: base moments exist");
 }
 
@@ -195,7 +195,7 @@ fn validation_opensees_3_three_bar_truss() {
     ];
 
     let loads = vec![SolverLoad::Nodal(SolverNodalLoad {
-        node_id: 4, fx: 0.0, fy: -p, mz: 0.0,
+        node_id: 4, fx: 0.0, fz: -p, my: 0.0,
     })];
 
     let input = make_input(
@@ -226,13 +226,13 @@ fn validation_opensees_3_three_bar_truss() {
     assert_close(ef_outer3.n_start.abs(), f_outer_bar_expected, 0.02, "OS3 F_outer3");
 
     // Equilibrium
-    let sum_ry: f64 = results.reactions.iter().map(|r| r.ry).sum();
+    let sum_ry: f64 = results.reactions.iter().map(|r| r.rz).sum();
     assert_close(sum_ry, p, 0.01, "OS3 vertical equilibrium");
 
     // Displacement at loaded node
     let d4 = results.displacements.iter().find(|d| d.node_id == 4).unwrap();
     let delta_expected = p / k_total;
-    assert_close(d4.uy.abs(), delta_expected, 0.02, "OS3 vertical displacement");
+    assert_close(d4.uz.abs(), delta_expected, 0.02, "OS3 vertical displacement");
 }
 
 // ═══════════════════════════════════════════════════════════════
@@ -256,7 +256,7 @@ fn validation_opensees_4_cantilever_tip_load() {
 
     let input = make_beam(n, l, E, a_sec, iz, "fixed", None,
         vec![SolverLoad::Nodal(SolverNodalLoad {
-            node_id: n + 1, fx: 0.0, fy: -p, mz: 0.0,
+            node_id: n + 1, fx: 0.0, fz: -p, my: 0.0,
         })]);
 
     let results = linear::solve_2d(&input).unwrap();
@@ -264,16 +264,16 @@ fn validation_opensees_4_cantilever_tip_load() {
     // Tip deflection: delta = P*L^3 / (3*E*I)
     let delta_expected = p * l.powi(3) / (3.0 * E_EFF * iz);
     let d_tip = results.displacements.iter().find(|d| d.node_id == n + 1).unwrap();
-    assert_close(d_tip.uy.abs(), delta_expected, 0.02, "OS4 tip deflection");
+    assert_close(d_tip.uz.abs(), delta_expected, 0.02, "OS4 tip deflection");
 
     // Tip rotation: theta = P*L^2 / (2*E*I)
     let theta_expected = p * l.powi(2) / (2.0 * E_EFF * iz);
-    assert_close(d_tip.rz.abs(), theta_expected, 0.02, "OS4 tip rotation");
+    assert_close(d_tip.ry.abs(), theta_expected, 0.02, "OS4 tip rotation");
 
     // Base reaction: R_y = P, M_base = P*L
     let r_base = results.reactions.iter().find(|r| r.node_id == 1).unwrap();
-    assert_close(r_base.ry, p, 0.01, "OS4 R_base = P");
-    assert_close(r_base.mz.abs(), p * l, 0.01, "OS4 M_base = P*L");
+    assert_close(r_base.rz, p, 0.01, "OS4 R_base = P");
+    assert_close(r_base.my.abs(), p * l, 0.01, "OS4 M_base = P*L");
 
     // Shear should be constant = P along the beam
     for ef in &results.element_forces {
@@ -320,24 +320,24 @@ fn validation_opensees_5_two_span_continuous_beam() {
 
     // Total load = q * 2 * L = 200 kN
     let total_load = q * 2.0 * l_span;
-    let sum_ry: f64 = results.reactions.iter().map(|r| r.ry).sum();
+    let sum_ry: f64 = results.reactions.iter().map(|r| r.rz).sum();
     assert_close(sum_ry, total_load, 0.01, "OS5 total reaction = qL_total");
 
     // Outer reactions: R_A = R_C = 3qL/8
     let r_a = results.reactions.iter().find(|r| r.node_id == 1).unwrap();
     let r_c = results.reactions.iter().find(|r| r.node_id == n_total + 1).unwrap();
     let r_outer_expected = 3.0 * q * l_span / 8.0; // = 37.5 kN
-    assert_close(r_a.ry, r_outer_expected, 0.03, "OS5 R_A = 3qL/8");
-    assert_close(r_c.ry, r_outer_expected, 0.03, "OS5 R_C = 3qL/8");
+    assert_close(r_a.rz, r_outer_expected, 0.03, "OS5 R_A = 3qL/8");
+    assert_close(r_c.rz, r_outer_expected, 0.03, "OS5 R_C = 3qL/8");
 
     // Interior reaction: R_B = 10qL/8 = 5qL/4
     let mid_node = n_per + 1;
     let r_b = results.reactions.iter().find(|r| r.node_id == mid_node).unwrap();
     let r_inner_expected = 10.0 * q * l_span / 8.0; // = 125 kN
-    assert_close(r_b.ry, r_inner_expected, 0.03, "OS5 R_B = 10qL/8");
+    assert_close(r_b.rz, r_inner_expected, 0.03, "OS5 R_B = 10qL/8");
 
     // Symmetry: R_A = R_C
-    assert_close(r_a.ry, r_c.ry, 0.02, "OS5 symmetry R_A = R_C");
+    assert_close(r_a.rz, r_c.rz, 0.02, "OS5 symmetry R_A = R_C");
 
     // Interior moment at support B: M_B = -qL^2/8 (hogging)
     // Check element forces near the interior support
@@ -393,13 +393,13 @@ fn validation_opensees_6_two_story_frame() {
 
     let loads = vec![
         // Gravity
-        SolverLoad::Nodal(SolverNodalLoad { node_id: 3, fx: 0.0, fy: p_grav, mz: 0.0 }),
-        SolverLoad::Nodal(SolverNodalLoad { node_id: 4, fx: 0.0, fy: p_grav, mz: 0.0 }),
-        SolverLoad::Nodal(SolverNodalLoad { node_id: 5, fx: 0.0, fy: p_grav, mz: 0.0 }),
-        SolverLoad::Nodal(SolverNodalLoad { node_id: 6, fx: 0.0, fy: p_grav, mz: 0.0 }),
+        SolverLoad::Nodal(SolverNodalLoad { node_id: 3, fx: 0.0, fz: p_grav, my: 0.0 }),
+        SolverLoad::Nodal(SolverNodalLoad { node_id: 4, fx: 0.0, fz: p_grav, my: 0.0 }),
+        SolverLoad::Nodal(SolverNodalLoad { node_id: 5, fx: 0.0, fz: p_grav, my: 0.0 }),
+        SolverLoad::Nodal(SolverNodalLoad { node_id: 6, fx: 0.0, fz: p_grav, my: 0.0 }),
         // Lateral
-        SolverLoad::Nodal(SolverNodalLoad { node_id: 3, fx: h1, fy: 0.0, mz: 0.0 }),
-        SolverLoad::Nodal(SolverNodalLoad { node_id: 5, fx: h2, fy: 0.0, mz: 0.0 }),
+        SolverLoad::Nodal(SolverNodalLoad { node_id: 3, fx: h1, fz: 0.0, my: 0.0 }),
+        SolverLoad::Nodal(SolverNodalLoad { node_id: 5, fx: h2, fz: 0.0, my: 0.0 }),
     ];
 
     let input = make_input(
@@ -412,7 +412,7 @@ fn validation_opensees_6_two_story_frame() {
 
     // Global equilibrium: vertical reactions = total gravity
     let total_gravity = 4.0 * p_grav.abs();
-    let sum_ry: f64 = results.reactions.iter().map(|r| r.ry).sum();
+    let sum_ry: f64 = results.reactions.iter().map(|r| r.rz).sum();
     assert_close(sum_ry, total_gravity, 0.01, "OS6 vertical equilibrium");
 
     // Global equilibrium: horizontal reactions = total lateral
@@ -443,13 +443,13 @@ fn validation_opensees_6_two_story_frame() {
     let _overturning = h1 * h + h2 * 2.0 * h;
     let r1 = results.reactions.iter().find(|r| r.node_id == 1).unwrap();
     let r2 = results.reactions.iter().find(|r| r.node_id == 2).unwrap();
-    let _base_moment_sum = r1.mz + r2.mz; // these resist overturning
+    let _base_moment_sum = r1.my + r2.my; // these resist overturning
     // Vertical reactions also contribute: R1_y*0 + R2_y*w (couple)
     // Full moment equilibrium about node 1 base:
     // H1*h + H2*2h + P_grav*(0 + w + 0 + w) = R2_y*w + M1 + M2
     // Simplified check: base moments should be nonzero
-    assert!(r1.mz.abs() > 1.0, "OS6: base moment left nonzero");
-    assert!(r2.mz.abs() > 1.0, "OS6: base moment right nonzero");
+    assert!(r1.my.abs() > 1.0, "OS6: base moment left nonzero");
+    assert!(r2.my.abs() > 1.0, "OS6: base moment right nonzero");
 }
 
 // ═══════════════════════════════════════════════════════════════
@@ -510,9 +510,9 @@ fn validation_opensees_7_3d_space_truss() {
 
     // Horizontal equilibrium: sum Fx = 0, sum Fy = 0
     let sum_fx: f64 = results.reactions.iter().map(|r| r.fx).sum();
-    let sum_fy: f64 = results.reactions.iter().map(|r| r.fy).sum();
+    let sum_fz: f64 = results.reactions.iter().map(|r| r.fz).sum();
     assert!(sum_fx.abs() < 0.5, "OS7: sum_fx={:.4} should be ~0", sum_fx);
-    assert!(sum_fy.abs() < 0.5, "OS7: sum_fy={:.4} should be ~0", sum_fy);
+    assert!(sum_fz.abs() < 0.5, "OS7: sum_fz={:.4} should be ~0", sum_fz);
 
     // Apex should deflect downward
     let d_apex = results.displacements.iter().find(|d| d.node_id == 4).unwrap();
@@ -572,7 +572,7 @@ fn validation_opensees_8_pdelta_column() {
     let sups = vec![(1, 1, "fixed")];
     let loads = vec![
         SolverLoad::Nodal(SolverNodalLoad {
-            node_id: n + 1, fx: h_lateral, fy: -p_axial, mz: 0.0,
+            node_id: n + 1, fx: h_lateral, fz: -p_axial, my: 0.0,
         }),
     ];
 
@@ -621,8 +621,8 @@ fn validation_opensees_8_pdelta_column() {
     );
 
     // P-delta base moment should be amplified
-    let lin_m_base = lin_results.reactions.iter().find(|r| r.node_id == 1).unwrap().mz.abs();
-    let pd_m_base = pd_result.results.reactions.iter().find(|r| r.node_id == 1).unwrap().mz.abs();
+    let lin_m_base = lin_results.reactions.iter().find(|r| r.node_id == 1).unwrap().my.abs();
+    let pd_m_base = pd_result.results.reactions.iter().find(|r| r.node_id == 1).unwrap().my.abs();
 
     // Linear base moment = H * h = 50 kN*m
     assert_close(lin_m_base, h_lateral * h, 0.05, "OS8 linear M_base = H*h");

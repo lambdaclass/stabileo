@@ -65,11 +65,11 @@ fn validation_composite_modular_ratio_transformed_section() {
     // Solve with the transformed section (E = E_steel, I = I_tr)
     let input_tr = make_beam(n_elem, l, e_s, A, iz_tr, "pinned", Some("rollerX"),
         vec![SolverLoad::Nodal(SolverNodalLoad {
-            node_id: mid, fx: 0.0, fy: -p, mz: 0.0,
+            node_id: mid, fx: 0.0, fz: -p, my: 0.0,
         })]);
     let res_tr = linear::solve_2d(&input_tr).unwrap();
     let delta_tr = res_tr.displacements.iter()
-        .find(|d| d.node_id == mid).unwrap().uy.abs();
+        .find(|d| d.node_id == mid).unwrap().uz.abs();
 
     // Compute analytically: E_eff * I_tr should equal E_s * I_s + E_c * I_c
     // (since I_tr = I_s + I_c * E_c / E_s)
@@ -119,11 +119,11 @@ fn validation_composite_partial_interaction_envelope() {
     let solve = |iz: f64| -> f64 {
         let input = make_beam(n_elem, l, E, A, iz, "pinned", Some("rollerX"),
             vec![SolverLoad::Nodal(SolverNodalLoad {
-                node_id: mid, fx: 0.0, fy: -p, mz: 0.0,
+                node_id: mid, fx: 0.0, fz: -p, my: 0.0,
             })]);
         let res = linear::solve_2d(&input).unwrap();
         res.displacements.iter()
-            .find(|d| d.node_id == mid).unwrap().uy.abs()
+            .find(|d| d.node_id == mid).unwrap().uz.abs()
     };
 
     let delta_bare = solve(iz_bare);
@@ -180,11 +180,11 @@ fn validation_composite_three_material_superposition() {
 
     let input = make_beam(n_elem, l, e_ref, A, iz_eff, "pinned", Some("rollerX"),
         vec![SolverLoad::Nodal(SolverNodalLoad {
-            node_id: mid, fx: 0.0, fy: -p, mz: 0.0,
+            node_id: mid, fx: 0.0, fz: -p, my: 0.0,
         })]);
     let res = linear::solve_2d(&input).unwrap();
     let delta_fem = res.displacements.iter()
-        .find(|d| d.node_id == mid).unwrap().uy.abs();
+        .find(|d| d.node_id == mid).unwrap().uz.abs();
 
     // Analytical: delta = P * L^3 / (48 * EI_total)
     let delta_exact = p * l.powi(3) / (48.0 * ei_total);
@@ -197,11 +197,11 @@ fn validation_composite_three_material_superposition() {
     for (e_i, iz_i, label) in [(e1, iz1, "steel"), (e2, iz2, "aluminum"), (e3, iz3, "concrete")] {
         let input_i = make_beam(n_elem, l, e_i, A, iz_i, "pinned", Some("rollerX"),
             vec![SolverLoad::Nodal(SolverNodalLoad {
-                node_id: mid, fx: 0.0, fy: -p, mz: 0.0,
+                node_id: mid, fx: 0.0, fz: -p, my: 0.0,
             })]);
         let res_i = linear::solve_2d(&input_i).unwrap();
         let delta_i = res_i.displacements.iter()
-            .find(|d| d.node_id == mid).unwrap().uy.abs();
+            .find(|d| d.node_id == mid).unwrap().uz.abs();
         assert!(delta_fem < delta_i,
             "Composite delta={:.6e} should be less than {} alone delta={:.6e}",
             delta_fem, label, delta_i);
@@ -253,7 +253,7 @@ fn validation_composite_asymmetric_vierendeel_chord_forces() {
     let sups = vec![(1, 1, "pinned"), (2, 3, "rollerX")];
 
     let loads = vec![SolverLoad::Nodal(SolverNodalLoad {
-        node_id: 5, fx: 0.0, fy: -p, mz: 0.0,
+        node_id: 5, fx: 0.0, fz: -p, my: 0.0,
     })];
 
     let input = make_input(
@@ -267,7 +267,7 @@ fn validation_composite_asymmetric_vierendeel_chord_forces() {
     let results = linear::solve_2d(&input).unwrap();
 
     // Verify global equilibrium: sum of vertical reactions = P
-    let sum_ry: f64 = results.reactions.iter().map(|r| r.ry).sum();
+    let sum_ry: f64 = results.reactions.iter().map(|r| r.rz).sum();
     let err_eq = (sum_ry - p).abs() / p;
     assert!(err_eq < 0.01,
         "Vierendeel equilibrium: sum_Ry={:.4}, P={:.1}", sum_ry, p);
@@ -318,11 +318,11 @@ fn validation_composite_cantilever_tip_deflection() {
     // FEM solution with composite section
     let input = make_beam(n_elem, l, E, A, iz_comp, "fixed", None,
         vec![SolverLoad::Nodal(SolverNodalLoad {
-            node_id: tip, fx: 0.0, fy: -p, mz: 0.0,
+            node_id: tip, fx: 0.0, fz: -p, my: 0.0,
         })]);
     let res = linear::solve_2d(&input).unwrap();
     let delta_fem = res.displacements.iter()
-        .find(|d| d.node_id == tip).unwrap().uy.abs();
+        .find(|d| d.node_id == tip).unwrap().uz.abs();
 
     let err = (delta_fem - delta_exact).abs() / delta_exact;
     assert!(err < 0.02,
@@ -332,11 +332,11 @@ fn validation_composite_cantilever_tip_deflection() {
     // Verify ratio: delta_composite / delta_iz1_alone = iz1 / iz_comp
     let input_bare = make_beam(n_elem, l, E, A, iz1, "fixed", None,
         vec![SolverLoad::Nodal(SolverNodalLoad {
-            node_id: tip, fx: 0.0, fy: -p, mz: 0.0,
+            node_id: tip, fx: 0.0, fz: -p, my: 0.0,
         })]);
     let res_bare = linear::solve_2d(&input_bare).unwrap();
     let delta_bare = res_bare.displacements.iter()
-        .find(|d| d.node_id == tip).unwrap().uy.abs();
+        .find(|d| d.node_id == tip).unwrap().uz.abs();
 
     let expected_ratio = iz1 / iz_comp;
     let actual_ratio = delta_fem / delta_bare;
@@ -377,7 +377,7 @@ fn validation_composite_udl_deflection_formula() {
     let input = make_ss_beam_udl(n_elem, l, E, A, iz_comp, q);
     let res = linear::solve_2d(&input).unwrap();
     let delta_fem = res.displacements.iter()
-        .find(|d| d.node_id == mid).unwrap().uy.abs();
+        .find(|d| d.node_id == mid).unwrap().uz.abs();
 
     let err = (delta_fem - delta_exact).abs() / delta_exact;
     assert!(err < 0.02,
@@ -388,7 +388,7 @@ fn validation_composite_udl_deflection_formula() {
     let input_bare = make_ss_beam_udl(n_elem, l, E, A, iz1, q);
     let res_bare = linear::solve_2d(&input_bare).unwrap();
     let delta_bare = res_bare.displacements.iter()
-        .find(|d| d.node_id == mid).unwrap().uy.abs();
+        .find(|d| d.node_id == mid).unwrap().uz.abs();
 
     assert!(delta_fem < delta_bare,
         "Composite delta={:.6e} should be less than bare delta={:.6e}",
@@ -423,22 +423,22 @@ fn validation_composite_stiffness_proportionality() {
     // Baseline beam
     let input_base = make_beam(n_elem, l, E, A, IZ, "pinned", Some("rollerX"),
         vec![SolverLoad::Nodal(SolverNodalLoad {
-            node_id: mid, fx: 0.0, fy: -p, mz: 0.0,
+            node_id: mid, fx: 0.0, fz: -p, my: 0.0,
         })]);
     let res_base = linear::solve_2d(&input_base).unwrap();
     let delta_base = res_base.displacements.iter()
-        .find(|d| d.node_id == mid).unwrap().uy.abs();
+        .find(|d| d.node_id == mid).unwrap().uz.abs();
 
     // Test k = 2, 4, 8 (simulate adding composite layers)
     for k in [2.0_f64, 4.0, 8.0] {
         let iz_scaled = k * IZ;
         let input = make_beam(n_elem, l, E, A, iz_scaled, "pinned", Some("rollerX"),
             vec![SolverLoad::Nodal(SolverNodalLoad {
-                node_id: mid, fx: 0.0, fy: -p, mz: 0.0,
+                node_id: mid, fx: 0.0, fz: -p, my: 0.0,
             })]);
         let res = linear::solve_2d(&input).unwrap();
         let delta_scaled = res.displacements.iter()
-            .find(|d| d.node_id == mid).unwrap().uy.abs();
+            .find(|d| d.node_id == mid).unwrap().uz.abs();
 
         // delta_scaled = delta_base / k
         let expected = delta_base / k;
@@ -488,7 +488,7 @@ fn validation_composite_frame_lateral_stiffness() {
         ];
         let sups = vec![(1, 1, "fixed"), (2, 4, "fixed")];
         let loads = vec![SolverLoad::Nodal(SolverNodalLoad {
-            node_id: 2, fx: p_lateral, fy: 0.0, mz: 0.0,
+            node_id: 2, fx: p_lateral, fz: 0.0, my: 0.0,
         })];
 
         let input = make_input(
@@ -534,7 +534,7 @@ fn validation_composite_frame_lateral_stiffness() {
         ];
         let sups = vec![(1, 1, "fixed"), (2, 4, "fixed")];
         let loads = vec![SolverLoad::Nodal(SolverNodalLoad {
-            node_id: 2, fx: p_lateral, fy: 0.0, mz: 0.0,
+            node_id: 2, fx: p_lateral, fz: 0.0, my: 0.0,
         })];
         let input = make_input(
             nodes,

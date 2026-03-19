@@ -63,10 +63,10 @@ fn validation_compat_ext_antisymmetric_loading() {
         vec![(1, 1, "fixed"), (2, 4, "fixed")],
         vec![
             SolverLoad::Nodal(SolverNodalLoad {
-                node_id: 2, fx: f, fy: 0.0, mz: 0.0,
+                node_id: 2, fx: f, fz: 0.0, my: 0.0,
             }),
             SolverLoad::Nodal(SolverNodalLoad {
-                node_id: 3, fx: -f, fy: 0.0, mz: 0.0,
+                node_id: 3, fx: -f, fz: 0.0, my: 0.0,
             }),
         ],
     );
@@ -80,7 +80,7 @@ fn validation_compat_ext_antisymmetric_loading() {
         "Antisymmetric: ux at node 2 should equal -ux at node 3");
 
     // Vertical displacements should be equal (symmetric about midspan of beam)
-    assert_close(d2.uy, d3.uy, 0.02,
+    assert_close(d2.uz, d3.uz, 0.02,
         "Antisymmetric: uy at node 2 should equal uy at node 3");
 
     // Both nodes must sway (non-zero ux)
@@ -134,7 +134,7 @@ fn validation_compat_ext_grillage_hub_load_sharing() {
             (4, 5, "fixed"),
         ],
         vec![SolverLoad::Nodal(SolverNodalLoad {
-            node_id: 1, fx: 0.0, fy: -p, mz: 0.0,
+            node_id: 1, fx: 0.0, fz: -p, my: 0.0,
         })],
     );
     let results = linear::solve_2d(&input).unwrap();
@@ -146,22 +146,22 @@ fn validation_compat_ext_grillage_hub_load_sharing() {
         "Grillage hub: ux should be zero by symmetry, got {:.2e}", d_hub.ux);
 
     // Hub deflects downward under vertical load.
-    assert!(d_hub.uy < 0.0,
-        "Grillage hub: uy should be negative (downward), got {:.8}", d_hub.uy);
+    assert!(d_hub.uz < 0.0,
+        "Grillage hub: uy should be negative (downward), got {:.8}", d_hub.uz);
 
     // Global equilibrium: sum_Ry = P
-    let sum_ry: f64 = results.reactions.iter().map(|r| r.ry).sum();
+    let sum_ry: f64 = results.reactions.iter().map(|r| r.rz).sum();
     assert_close(sum_ry, p, 0.01, "Grillage hub: sum_Ry = P");
 
     // By symmetry, left and right arms carry equal vertical reaction.
-    let r2_ry = results.reactions.iter().find(|r| r.node_id == 2).unwrap().ry;
-    let r3_ry = results.reactions.iter().find(|r| r.node_id == 3).unwrap().ry;
+    let r2_ry = results.reactions.iter().find(|r| r.node_id == 2).unwrap().rz;
+    let r3_ry = results.reactions.iter().find(|r| r.node_id == 3).unwrap().rz;
     assert_close(r2_ry, r3_ry, 0.01,
         "Grillage hub: symmetric X-arm reactions should be equal");
 
     // Top and bottom arms carry equal vertical reaction.
-    let r4_ry = results.reactions.iter().find(|r| r.node_id == 4).unwrap().ry;
-    let r5_ry = results.reactions.iter().find(|r| r.node_id == 5).unwrap().ry;
+    let r4_ry = results.reactions.iter().find(|r| r.node_id == 4).unwrap().rz;
+    let r5_ry = results.reactions.iter().find(|r| r.node_id == 5).unwrap().rz;
     assert_close(r4_ry, r5_ry, 0.01,
         "Grillage hub: symmetric Y-arm reactions should be equal");
 }
@@ -197,7 +197,7 @@ fn validation_compat_ext_moment_equilibrium_at_rigid_joint() {
         ],
         vec![(1, 1, "fixed"), (2, 3, "fixed")],
         vec![SolverLoad::Nodal(SolverNodalLoad {
-            node_id: 2, fx: 0.0, fy: -p, mz: 0.0,
+            node_id: 2, fx: 0.0, fz: -p, my: 0.0,
         })],
     );
     let results = linear::solve_2d(&input).unwrap();
@@ -223,7 +223,7 @@ fn validation_compat_ext_moment_equilibrium_at_rigid_joint() {
         "L-frame: elem 2 m_start should be non-trivial, got {:.6}", ef2.m_start);
 
     // Global equilibrium
-    let sum_ry: f64 = results.reactions.iter().map(|r| r.ry).sum();
+    let sum_ry: f64 = results.reactions.iter().map(|r| r.rz).sum();
     assert_close(sum_ry, p, 0.02, "L-frame moment equil: sum_Ry = P");
 }
 
@@ -275,7 +275,7 @@ fn validation_compat_ext_stiffness_proportional_sharing() {
         ],
         vec![(1, 1, "fixed"), (2, 2, "fixed")],
         vec![SolverLoad::Nodal(SolverNodalLoad {
-            node_id: 3, fx: 0.0, fy: -p, mz: 0.0,
+            node_id: 3, fx: 0.0, fz: -p, my: 0.0,
         })],
     );
     let results = linear::solve_2d(&input).unwrap();
@@ -285,13 +285,13 @@ fn validation_compat_ext_stiffness_proportional_sharing() {
     let d3 = results.displacements.iter().find(|d| d.node_id == 3).unwrap();
     let d4 = results.displacements.iter().find(|d| d.node_id == 4).unwrap();
 
-    let uy_diff = (d3.uy - d4.uy).abs();
-    let uy_ref = d3.uy.abs().max(d4.uy.abs()).max(1e-10);
+    let uy_diff = (d3.uz - d4.uz).abs();
+    let uy_ref = d3.uz.abs().max(d4.uz.abs()).max(1e-10);
     // Link is not infinitely rigid (it has finite EI), but EA/L is large
     // so axial deformation of the link is small relative to cantilever deflection.
     assert!(uy_diff / uy_ref < 0.15,
-        "Linked tips: uy should be approximately equal, d3.uy={:.8}, d4.uy={:.8}",
-        d3.uy, d4.uy);
+        "Linked tips: uy should be approximately equal, d3.uz={:.8}, d4.uz={:.8}",
+        d3.uz, d4.uz);
 
     // The stiffer beam (beam 2) should attract more shear at its base.
     // Cantilever stiffness: k = 3EI/L^3.
@@ -300,8 +300,8 @@ fn validation_compat_ext_stiffness_proportional_sharing() {
     let ratio_expected = k2 / k1; // should be 4.0
 
     // Reaction at node 1 (base of beam 1) vs node 2 (base of beam 2).
-    let r1_ry = results.reactions.iter().find(|r| r.node_id == 1).unwrap().ry;
-    let r2_ry = results.reactions.iter().find(|r| r.node_id == 2).unwrap().ry;
+    let r1_ry = results.reactions.iter().find(|r| r.node_id == 1).unwrap().rz;
+    let r2_ry = results.reactions.iter().find(|r| r.node_id == 2).unwrap().rz;
 
     // Stiffer beam should carry more load.
     assert!(r2_ry.abs() > r1_ry.abs(),
@@ -314,7 +314,7 @@ fn validation_compat_ext_stiffness_proportional_sharing() {
         "Load sharing ratio: actual={:.2}, expected={:.2}", ratio_actual, ratio_expected);
 
     // Global equilibrium
-    let sum_ry: f64 = results.reactions.iter().map(|r| r.ry).sum();
+    let sum_ry: f64 = results.reactions.iter().map(|r| r.rz).sum();
     assert_close(sum_ry, p, 0.02, "Stiffness sharing: sum_Ry = P");
 }
 
@@ -350,7 +350,7 @@ fn validation_compat_ext_mesh_refinement_convergence() {
             .find(|d| d.node_id == mid_node)
             .unwrap();
 
-        let error = (d_mid.uy.abs() - delta_exact).abs() / delta_exact;
+        let error = (d_mid.uz.abs() - delta_exact).abs() / delta_exact;
 
         // Error should not grow with refinement (monotone convergence).
         assert!(error <= prev_error + 0.01,
@@ -409,31 +409,31 @@ fn validation_compat_ext_propped_cantilever_compatibility() {
 
     // Left fixed support: ux = uy = rz = 0
     let d_left = results.displacements.iter().find(|d| d.node_id == 1).unwrap();
-    assert!(d_left.uy.abs() < 1e-8,
-        "Propped cantilever: fixed end uy should be 0, got {:.2e}", d_left.uy);
-    assert!(d_left.rz.abs() < 1e-8,
-        "Propped cantilever: fixed end rz should be 0, got {:.2e}", d_left.rz);
+    assert!(d_left.uz.abs() < 1e-8,
+        "Propped cantilever: fixed end uy should be 0, got {:.2e}", d_left.uz);
+    assert!(d_left.ry.abs() < 1e-8,
+        "Propped cantilever: fixed end rz should be 0, got {:.2e}", d_left.ry);
 
     // Right roller: uy = 0 but rz != 0
     let d_right = results.displacements.iter().find(|d| d.node_id == n_nodes).unwrap();
-    assert!(d_right.uy.abs() < 1e-8,
-        "Propped cantilever: roller uy should be 0, got {:.2e}", d_right.uy);
-    assert!(d_right.rz.abs() > 1e-10,
-        "Propped cantilever: roller rz should be non-zero, got {:.2e}", d_right.rz);
+    assert!(d_right.uz.abs() < 1e-8,
+        "Propped cantilever: roller uy should be 0, got {:.2e}", d_right.uz);
+    assert!(d_right.ry.abs() > 1e-10,
+        "Propped cantilever: roller rz should be non-zero, got {:.2e}", d_right.ry);
 
     // Analytical slope at right end: theta = qL^3 / (48EI)
     let theta_right_analytical: f64 = q * l.powi(3) / (48.0 * e_eff * IZ);
-    assert_close(d_right.rz.abs(), theta_right_analytical, 0.03,
+    assert_close(d_right.ry.abs(), theta_right_analytical, 0.03,
         "Propped cantilever: roller slope matches beam theory");
 
     // Reaction at roller: R_right = 3qL/8
     let r_right = results.reactions.iter().find(|r| r.node_id == n_nodes).unwrap();
     let r_right_analytical = 3.0 * q * l / 8.0;
-    assert_close(r_right.ry, r_right_analytical, 0.02,
+    assert_close(r_right.rz, r_right_analytical, 0.02,
         "Propped cantilever: roller reaction = 3qL/8");
 
     // Global equilibrium
-    let sum_ry: f64 = results.reactions.iter().map(|r| r.ry).sum();
+    let sum_ry: f64 = results.reactions.iter().map(|r| r.rz).sum();
     assert_close(sum_ry, q * l, 0.01, "Propped cantilever: sum_Ry = qL");
 }
 
@@ -484,7 +484,7 @@ fn validation_compat_ext_two_bay_frame_sway() {
             (3, 5, "fixed"),
         ],
         vec![SolverLoad::Nodal(SolverNodalLoad {
-            node_id: 2, fx: f, fy: 0.0, mz: 0.0,
+            node_id: 2, fx: f, fz: 0.0, my: 0.0,
         })],
     );
     let results = linear::solve_2d(&input).unwrap();
@@ -507,9 +507,9 @@ fn validation_compat_ext_two_bay_frame_sway() {
         ux_range);
 
     // All three column tops have non-zero rotation (rigid joints).
-    assert!(d2.rz.abs() > 1e-10, "Two-bay: node 2 should rotate");
-    assert!(d4.rz.abs() > 1e-10, "Two-bay: node 4 should rotate");
-    assert!(d6.rz.abs() > 1e-10, "Two-bay: node 6 should rotate");
+    assert!(d2.ry.abs() > 1e-10, "Two-bay: node 2 should rotate");
+    assert!(d4.ry.abs() > 1e-10, "Two-bay: node 4 should rotate");
+    assert!(d6.ry.abs() > 1e-10, "Two-bay: node 6 should rotate");
 
     // Global horizontal equilibrium: sum_Rx = -F
     let sum_rx: f64 = results.reactions.iter().map(|r| r.rx).sum();
@@ -595,12 +595,12 @@ fn validation_compat_ext_mixed_hinge_rigid_joint() {
     // Displacements at all interior nodes should be non-zero (beam deflects).
     let d2 = results.displacements.iter().find(|d| d.node_id == 2).unwrap();
     let d3 = results.displacements.iter().find(|d| d.node_id == 3).unwrap();
-    assert!(d2.uy.abs() > 1e-10,
-        "Mixed: node 2 should deflect, got uy={:.2e}", d2.uy);
-    assert!(d3.uy.abs() > 1e-10,
-        "Mixed: node 3 should deflect, got uy={:.2e}", d3.uy);
+    assert!(d2.uz.abs() > 1e-10,
+        "Mixed: node 2 should deflect, got uy={:.2e}", d2.uz);
+    assert!(d3.uz.abs() > 1e-10,
+        "Mixed: node 3 should deflect, got uy={:.2e}", d3.uz);
 
     // Global equilibrium: sum_Ry = qL
-    let sum_ry: f64 = results.reactions.iter().map(|r| r.ry).sum();
+    let sum_ry: f64 = results.reactions.iter().map(|r| r.rz).sum();
     assert_close(sum_ry, q * l, 0.02, "Mixed hinge/rigid: sum_Ry = qL");
 }

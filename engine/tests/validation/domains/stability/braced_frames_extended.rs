@@ -74,7 +74,7 @@ fn validation_braced_ext_two_bay_load_sharing() {
         (3, 6, "pinned"),
     ];
     let loads = vec![SolverLoad::Nodal(SolverNodalLoad {
-        node_id: 2, fx: p, fy: 0.0, mz: 0.0,
+        node_id: 2, fx: p, fz: 0.0, my: 0.0,
     })];
 
     let input = make_input(
@@ -156,9 +156,9 @@ fn validation_braced_ext_three_story_drift_ratio() {
         (2, 2, "pinned"),
     ];
     let loads = vec![
-        SolverLoad::Nodal(SolverNodalLoad { node_id: 3, fx: p, fy: 0.0, mz: 0.0 }),
-        SolverLoad::Nodal(SolverNodalLoad { node_id: 5, fx: p, fy: 0.0, mz: 0.0 }),
-        SolverLoad::Nodal(SolverNodalLoad { node_id: 7, fx: p, fy: 0.0, mz: 0.0 }),
+        SolverLoad::Nodal(SolverNodalLoad { node_id: 3, fx: p, fz: 0.0, my: 0.0 }),
+        SolverLoad::Nodal(SolverNodalLoad { node_id: 5, fx: p, fz: 0.0, my: 0.0 }),
+        SolverLoad::Nodal(SolverNodalLoad { node_id: 7, fx: p, fz: 0.0, my: 0.0 }),
     ];
 
     let input = make_input(
@@ -248,8 +248,8 @@ fn validation_braced_ext_soft_story_effect() {
         (3, 3, "fixed"),
     ];
     let loads = vec![
-        SolverLoad::Nodal(SolverNodalLoad { node_id: 4, fx: p, fy: 0.0, mz: 0.0 }),
-        SolverLoad::Nodal(SolverNodalLoad { node_id: 7, fx: p, fy: 0.0, mz: 0.0 }),
+        SolverLoad::Nodal(SolverNodalLoad { node_id: 4, fx: p, fz: 0.0, my: 0.0 }),
+        SolverLoad::Nodal(SolverNodalLoad { node_id: 7, fx: p, fz: 0.0, my: 0.0 }),
     ];
 
     let input = make_input(
@@ -325,9 +325,9 @@ fn validation_braced_ext_two_bay_symmetric_gravity() {
         (3, 3, "fixed"),
     ];
     let loads = vec![
-        SolverLoad::Nodal(SolverNodalLoad { node_id: 4, fx: 0.0, fy, mz: 0.0 }),
-        SolverLoad::Nodal(SolverNodalLoad { node_id: 5, fx: 0.0, fy, mz: 0.0 }),
-        SolverLoad::Nodal(SolverNodalLoad { node_id: 6, fx: 0.0, fy, mz: 0.0 }),
+        SolverLoad::Nodal(SolverNodalLoad { node_id: 4, fx: 0.0, fz: fy, my: 0.0 }),
+        SolverLoad::Nodal(SolverNodalLoad { node_id: 5, fx: 0.0, fz: fy, my: 0.0 }),
+        SolverLoad::Nodal(SolverNodalLoad { node_id: 6, fx: 0.0, fz: fy, my: 0.0 }),
     ];
 
     let input = make_input(
@@ -341,23 +341,23 @@ fn validation_braced_ext_two_bay_symmetric_gravity() {
     let results = linear::solve_2d(&input).unwrap();
 
     // Outer column reactions (nodes 1 and 3) should be equal by symmetry
-    let ry_1 = results.reactions.iter().find(|r| r.node_id == 1).unwrap().ry;
-    let ry_3 = results.reactions.iter().find(|r| r.node_id == 3).unwrap().ry;
+    let ry_1 = results.reactions.iter().find(|r| r.node_id == 1).unwrap().rz;
+    let ry_3 = results.reactions.iter().find(|r| r.node_id == 3).unwrap().rz;
     assert_close(ry_1, ry_3, 0.02, "Symmetric: Ry(1) = Ry(3)");
 
     // Interior column (node 2) carries vertical load from two tributary bays.
     // With X-braces the load paths are complex, but interior column should
     // carry at least 30% of total vertical load (it serves both bays).
-    let ry_2 = results.reactions.iter().find(|r| r.node_id == 2).unwrap().ry;
-    let total_fy = 3.0 * fy.abs();
+    let ry_2 = results.reactions.iter().find(|r| r.node_id == 2).unwrap().rz;
+    let total_fz = 3.0 * fy.abs();
     assert!(
-        ry_2.abs() > total_fy * 0.30,
+        ry_2.abs() > total_fz * 0.30,
         "Interior column Ry ({:.4}) should carry >30% of total load ({:.4})",
-        ry_2.abs(), total_fy
+        ry_2.abs(), total_fz
     );
 
     // Total vertical equilibrium: ΣRy = 3|fy|
-    let sum_ry: f64 = results.reactions.iter().map(|r| r.ry).sum();
+    let sum_ry: f64 = results.reactions.iter().map(|r| r.rz).sum();
     assert_close(sum_ry, -3.0 * fy, 0.02, "Symmetric: ΣRy = 3|Fy|");
 
     // Horizontal reactions should sum to zero (no lateral load)
@@ -410,7 +410,7 @@ fn validation_braced_ext_three_bay_force_distribution() {
         (4, 4, "pinned"),
     ];
     let loads = vec![SolverLoad::Nodal(SolverNodalLoad {
-        node_id: 5, fx: p, fy: 0.0, mz: 0.0,
+        node_id: 5, fx: p, fz: 0.0, my: 0.0,
     })];
 
     let input = make_input(
@@ -492,9 +492,9 @@ fn validation_braced_ext_overturning_moment() {
         (2, 2, "pinned"),
     ];
     let loads = vec![
-        SolverLoad::Nodal(SolverNodalLoad { node_id: 3, fx: p1, fy: 0.0, mz: 0.0 }),
-        SolverLoad::Nodal(SolverNodalLoad { node_id: 5, fx: p2, fy: 0.0, mz: 0.0 }),
-        SolverLoad::Nodal(SolverNodalLoad { node_id: 7, fx: p3, fy: 0.0, mz: 0.0 }),
+        SolverLoad::Nodal(SolverNodalLoad { node_id: 3, fx: p1, fz: 0.0, my: 0.0 }),
+        SolverLoad::Nodal(SolverNodalLoad { node_id: 5, fx: p2, fz: 0.0, my: 0.0 }),
+        SolverLoad::Nodal(SolverNodalLoad { node_id: 7, fx: p3, fz: 0.0, my: 0.0 }),
     ];
 
     let input = make_input(
@@ -513,7 +513,7 @@ fn validation_braced_ext_overturning_moment() {
     // Restoring moment from vertical reactions
     // Taking moments about node 1: Ry_node2 * w contributes restoring moment
     // Ry_node1 * 0 = 0 (at pivot), and horizontal reactions at base contribute via lever arm = 0
-    let ry_2 = results.reactions.iter().find(|r| r.node_id == 2).unwrap().ry;
+    let ry_2 = results.reactions.iter().find(|r| r.node_id == 2).unwrap().rz;
 
     // Moment about left base: Ry_2 * w = M_overturn
     // Ry_1 * 0 = 0 (at pivot), Rx reactions at y=0 have zero lever arm.
@@ -534,7 +534,7 @@ fn validation_braced_ext_overturning_moment() {
     assert_close(sum_rx, -(p1 + p2 + p3), 0.02, "Overturning: ΣRx = -ΣP");
 
     // Total vertical equilibrium (no gravity loads, so ΣRy = 0)
-    let sum_ry: f64 = results.reactions.iter().map(|r| r.ry).sum();
+    let sum_ry: f64 = results.reactions.iter().map(|r| r.rz).sum();
     assert_close(sum_ry, 0.0, 0.02, "Overturning: ΣRy = 0");
 }
 
@@ -581,9 +581,9 @@ fn validation_braced_ext_two_bay_combined_equilibrium() {
         (3, 3, "fixed"),
     ];
     let loads = vec![
-        SolverLoad::Nodal(SolverNodalLoad { node_id: 4, fx: px, fy: fy_val, mz: 0.0 }),
-        SolverLoad::Nodal(SolverNodalLoad { node_id: 5, fx: 0.0, fy: fy_val, mz: 0.0 }),
-        SolverLoad::Nodal(SolverNodalLoad { node_id: 6, fx: 0.0, fy: fy_val, mz: 0.0 }),
+        SolverLoad::Nodal(SolverNodalLoad { node_id: 4, fx: px, fz: fy_val, my: 0.0 }),
+        SolverLoad::Nodal(SolverNodalLoad { node_id: 5, fx: 0.0, fz: fy_val, my: 0.0 }),
+        SolverLoad::Nodal(SolverNodalLoad { node_id: 6, fx: 0.0, fz: fy_val, my: 0.0 }),
     ];
 
     let input = make_input(
@@ -601,7 +601,7 @@ fn validation_braced_ext_two_bay_combined_equilibrium() {
     assert_close(sum_rx, -px, 0.02, "Combined: ΣRx = -Px");
 
     // Vertical equilibrium
-    let sum_ry: f64 = results.reactions.iter().map(|r| r.ry).sum();
+    let sum_ry: f64 = results.reactions.iter().map(|r| r.rz).sum();
     assert_close(sum_ry, -3.0 * fy_val, 0.02, "Combined: ΣRy = 3|Fy|");
 
     // Full moment equilibrium about node 1 (left base, at origin):
@@ -619,11 +619,11 @@ fn validation_braced_ext_two_bay_combined_equilibrium() {
     //   Node 1 (0, 0): -Ry_1 * 0 + Mz_1
     //   Node 2 (w, 0): -Ry_2 * w + Mz_2
     //   Node 3 (2w, 0): -Ry_3 * 2w + Mz_3
-    let ry_2 = results.reactions.iter().find(|r| r.node_id == 2).unwrap().ry;
-    let ry_3 = results.reactions.iter().find(|r| r.node_id == 3).unwrap().ry;
-    let mz_1 = results.reactions.iter().find(|r| r.node_id == 1).unwrap().mz;
-    let mz_2 = results.reactions.iter().find(|r| r.node_id == 2).unwrap().mz;
-    let mz_3 = results.reactions.iter().find(|r| r.node_id == 3).unwrap().mz;
+    let ry_2 = results.reactions.iter().find(|r| r.node_id == 2).unwrap().rz;
+    let ry_3 = results.reactions.iter().find(|r| r.node_id == 3).unwrap().rz;
+    let mz_1 = results.reactions.iter().find(|r| r.node_id == 1).unwrap().my;
+    let mz_2 = results.reactions.iter().find(|r| r.node_id == 2).unwrap().my;
+    let mz_3 = results.reactions.iter().find(|r| r.node_id == 3).unwrap().my;
 
     // Ry_1 * 0 = 0 (at pivot point), so omitted
     let m_reactions = -ry_2 * w - ry_3 * 2.0 * w + mz_1 + mz_2 + mz_3;
@@ -703,17 +703,17 @@ fn validation_braced_ext_column_axial_accumulation() {
     // Gravity loads at all floor and roof nodes (9 loaded nodes)
     let loads = vec![
         // Floor 1
-        SolverLoad::Nodal(SolverNodalLoad { node_id: 4,  fx: 0.0, fy: fy_floor, mz: 0.0 }),
-        SolverLoad::Nodal(SolverNodalLoad { node_id: 5,  fx: 0.0, fy: fy_floor, mz: 0.0 }),
-        SolverLoad::Nodal(SolverNodalLoad { node_id: 6,  fx: 0.0, fy: fy_floor, mz: 0.0 }),
+        SolverLoad::Nodal(SolverNodalLoad { node_id: 4,  fx: 0.0, fz: fy_floor, my: 0.0 }),
+        SolverLoad::Nodal(SolverNodalLoad { node_id: 5,  fx: 0.0, fz: fy_floor, my: 0.0 }),
+        SolverLoad::Nodal(SolverNodalLoad { node_id: 6,  fx: 0.0, fz: fy_floor, my: 0.0 }),
         // Floor 2
-        SolverLoad::Nodal(SolverNodalLoad { node_id: 7,  fx: 0.0, fy: fy_floor, mz: 0.0 }),
-        SolverLoad::Nodal(SolverNodalLoad { node_id: 8,  fx: 0.0, fy: fy_floor, mz: 0.0 }),
-        SolverLoad::Nodal(SolverNodalLoad { node_id: 9,  fx: 0.0, fy: fy_floor, mz: 0.0 }),
+        SolverLoad::Nodal(SolverNodalLoad { node_id: 7,  fx: 0.0, fz: fy_floor, my: 0.0 }),
+        SolverLoad::Nodal(SolverNodalLoad { node_id: 8,  fx: 0.0, fz: fy_floor, my: 0.0 }),
+        SolverLoad::Nodal(SolverNodalLoad { node_id: 9,  fx: 0.0, fz: fy_floor, my: 0.0 }),
         // Roof
-        SolverLoad::Nodal(SolverNodalLoad { node_id: 10, fx: 0.0, fy: fy_floor, mz: 0.0 }),
-        SolverLoad::Nodal(SolverNodalLoad { node_id: 11, fx: 0.0, fy: fy_floor, mz: 0.0 }),
-        SolverLoad::Nodal(SolverNodalLoad { node_id: 12, fx: 0.0, fy: fy_floor, mz: 0.0 }),
+        SolverLoad::Nodal(SolverNodalLoad { node_id: 10, fx: 0.0, fz: fy_floor, my: 0.0 }),
+        SolverLoad::Nodal(SolverNodalLoad { node_id: 11, fx: 0.0, fz: fy_floor, my: 0.0 }),
+        SolverLoad::Nodal(SolverNodalLoad { node_id: 12, fx: 0.0, fz: fy_floor, my: 0.0 }),
     ];
 
     let input = make_input(
@@ -750,7 +750,7 @@ fn validation_braced_ext_column_axial_accumulation() {
     );
 
     // Vertical equilibrium: total gravity = 9 * fy_floor
-    let sum_ry: f64 = results.reactions.iter().map(|r| r.ry).sum();
+    let sum_ry: f64 = results.reactions.iter().map(|r| r.rz).sum();
     assert_close(sum_ry, -9.0 * fy_floor, 0.02, "Column accumulation: ΣRy = 9|Fy|");
 
     // Horizontal equilibrium: no lateral loads

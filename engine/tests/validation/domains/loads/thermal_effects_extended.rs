@@ -155,8 +155,8 @@ fn validation_thermal_ext_ss_free_expansion_zero_forces() {
 
     // Zero vertical displacement (no curvature from uniform temperature)
     for d in &results.displacements {
-        assert!(d.uy.abs() < 1e-6,
-            "SS thermal uniform: uy at node {} = {:.6e}, expected ~0", d.node_id, d.uy);
+        assert!(d.uz.abs() < 1e-6,
+            "SS thermal uniform: uy at node {} = {:.6e}, expected ~0", d.node_id, d.uz);
     }
 }
 
@@ -405,13 +405,13 @@ fn validation_thermal_ext_propped_cantilever_expansion() {
 
     // Roller should have a vertical reaction
     let r_end = results_grad.reactions.iter().find(|r| r.node_id == end_node).unwrap();
-    assert_close(r_end.ry.abs(), r_roller_expected, 0.10,
+    assert_close(r_end.rz.abs(), r_roller_expected, 0.10,
         "Propped cantilever gradient: R_roller");
 
     // Fixed end moment
     let r1 = results_grad.reactions.iter().find(|r| r.node_id == 1).unwrap();
     let m_fixed_expected: f64 = 3.0 * EI * kappa / 2.0;
-    assert_close(r1.mz.abs(), m_fixed_expected, 0.10,
+    assert_close(r1.my.abs(), m_fixed_expected, 0.10,
         "Propped cantilever gradient: M_fixed");
 }
 
@@ -478,7 +478,7 @@ fn validation_thermal_ext_continuous_beam_partial_restraint() {
     }
 
     // All vertical reactions should be zero (no transverse loading)
-    let sum_ry: f64 = results.reactions.iter().map(|r| r.ry).sum();
+    let sum_ry: f64 = results.reactions.iter().map(|r| r.rz).sum();
     assert!(sum_ry.abs() < 1.0,
         "Continuous beam uniform thermal: sum_Ry = {:.4}, expected ~0", sum_ry);
 }
@@ -523,9 +523,9 @@ fn validation_thermal_ext_gradient_equivalent_moment() {
     let r1 = results.reactions.iter().find(|r| r.node_id == 1).unwrap();
     let r_end = results.reactions.iter().find(|r| r.node_id == n + 1).unwrap();
 
-    assert_close(r1.mz.abs(), expected_m, 0.10,
+    assert_close(r1.my.abs(), expected_m, 0.10,
         "Gradient moment at fixed end 1");
-    assert_close(r_end.mz.abs(), expected_m, 0.10,
+    assert_close(r_end.my.abs(), expected_m, 0.10,
         "Gradient moment at fixed end 2");
 
     // Zero shear (constant moment => V = dM/dx = 0)
@@ -542,8 +542,8 @@ fn validation_thermal_ext_gradient_equivalent_moment() {
 
     // Zero transverse displacement (fully restrained curvature)
     for d in &results.displacements {
-        assert!(d.uy.abs() < 1e-6,
-            "FF gradient: uy at node {} = {:.6e}, expected ~0", d.node_id, d.uy);
+        assert!(d.uz.abs() < 1e-6,
+            "FF gradient: uy at node {} = {:.6e}, expected ~0", d.node_id, d.uz);
     }
 
     // The equivalent moment formula: M = E*I*alpha*deltaT/h
@@ -639,7 +639,7 @@ fn validation_thermal_ext_two_span_moment_redistribution() {
         ef_span1_last.m_end, ef_span2_first.m_start, m_continuity_diff);
 
     // Equilibrium: sum of vertical reactions = 0 (no external transverse load)
-    let sum_ry: f64 = results.reactions.iter().map(|r| r.ry).sum();
+    let sum_ry: f64 = results.reactions.iter().map(|r| r.rz).sum();
     assert!(sum_ry.abs() < 1.0,
         "Two-span thermal gradient: sum_Ry = {:.4}, expected ~0", sum_ry);
 }

@@ -47,19 +47,19 @@ fn validation_deflection_ss_symmetry() {
     // Deflection at symmetric points should be equal
     for i in 1..=(n / 2) {
         let d_left = results.displacements.iter()
-            .find(|d| d.node_id == i + 1).unwrap().uy;
+            .find(|d| d.node_id == i + 1).unwrap().uz;
         let d_right = results.displacements.iter()
-            .find(|d| d.node_id == n + 1 - i).unwrap().uy;
+            .find(|d| d.node_id == n + 1 - i).unwrap().uz;
         assert_close(d_left, d_right, 0.01,
             &format!("SS symmetry: node {} = node {}", i + 1, n + 1 - i));
     }
 
     // Maximum deflection at midspan
     let d_mid = results.displacements.iter()
-        .find(|d| d.node_id == n / 2 + 1).unwrap().uy.abs();
+        .find(|d| d.node_id == n / 2 + 1).unwrap().uz.abs();
     for i in 2..=n {
         let d_i = results.displacements.iter()
-            .find(|d| d.node_id == i).unwrap().uy.abs();
+            .find(|d| d.node_id == i).unwrap().uz.abs();
         assert!(d_mid >= d_i - 1e-10,
             "SS UDL: midspan has max deflection");
     }
@@ -76,7 +76,7 @@ fn validation_deflection_cantilever_monotonic() {
     let p = 10.0;
 
     let loads = vec![SolverLoad::Nodal(SolverNodalLoad {
-        node_id: n + 1, fx: 0.0, fy: -p, mz: 0.0,
+        node_id: n + 1, fx: 0.0, fz: -p, my: 0.0,
     })];
     let input = make_beam(n, l, E, A, IZ, "fixed", None, loads);
     let results = linear::solve_2d(&input).unwrap();
@@ -85,7 +85,7 @@ fn validation_deflection_cantilever_monotonic() {
     let mut prev_d = 0.0;
     for i in 2..=n + 1 {
         let d = results.displacements.iter()
-            .find(|d| d.node_id == i).unwrap().uy.abs();
+            .find(|d| d.node_id == i).unwrap().uz.abs();
         assert!(d >= prev_d - 1e-10,
             "Cantilever monotonic: node {} ({:.6}) >= node {} ({:.6})",
             i, d, i - 1, prev_d);
@@ -94,7 +94,7 @@ fn validation_deflection_cantilever_monotonic() {
 
     // Tip should have the maximum deflection
     let d_tip = results.displacements.iter()
-        .find(|d| d.node_id == n + 1).unwrap().uy.abs();
+        .find(|d| d.node_id == n + 1).unwrap().uz.abs();
     assert!(d_tip > 0.0, "Cantilever: tip deflects");
 }
 
@@ -121,8 +121,8 @@ fn validation_deflection_propped_cantilever() {
     let results = linear::solve_2d(&input).unwrap();
 
     // Both ends should have zero vertical displacement
-    let d1 = results.displacements.iter().find(|d| d.node_id == 1).unwrap().uy;
-    let d_end = results.displacements.iter().find(|d| d.node_id == n + 1).unwrap().uy;
+    let d1 = results.displacements.iter().find(|d| d.node_id == 1).unwrap().uz;
+    let d_end = results.displacements.iter().find(|d| d.node_id == n + 1).unwrap().uz;
     assert!(d1.abs() < 1e-10, "Propped cantilever: fixed end uy=0");
     assert!(d_end.abs() < 1e-10, "Propped cantilever: roller end uy=0");
 
@@ -131,7 +131,7 @@ fn validation_deflection_propped_cantilever() {
     let mut max_node = 0;
     for i in 2..=n {
         let d = results.displacements.iter()
-            .find(|d| d.node_id == i).unwrap().uy.abs();
+            .find(|d| d.node_id == i).unwrap().uz.abs();
         if d > max_d {
             max_d = d;
             max_node = i;
@@ -171,16 +171,16 @@ fn validation_deflection_fixed_inflection() {
     // The rotation should change sign at the inflection points.
     // Near the ends, curvature is hogging; at midspan, curvature is sagging.
     let rz_fixed = results.displacements.iter()
-        .find(|d| d.node_id == 1).unwrap().rz;
+        .find(|d| d.node_id == 1).unwrap().ry;
     assert!(rz_fixed.abs() < 1e-10, "Fixed end: rotation = 0");
 
     // Find sign changes in rotation
     let mut sign_changes = Vec::new();
     for i in 2..=n {
         let rz_i = results.displacements.iter()
-            .find(|d| d.node_id == i).unwrap().rz;
+            .find(|d| d.node_id == i).unwrap().ry;
         let rz_next = results.displacements.iter()
-            .find(|d| d.node_id == i + 1).unwrap().rz;
+            .find(|d| d.node_id == i + 1).unwrap().ry;
         if rz_i * rz_next < 0.0 {
             sign_changes.push(i);
         }
@@ -215,7 +215,7 @@ fn validation_deflection_portal_sidesway() {
     ];
     let sups = vec![(1, 1, "fixed"), (2, 4, "fixed")];
     let loads = vec![SolverLoad::Nodal(SolverNodalLoad {
-        node_id: 2, fx: f_lat, fy: 0.0, mz: 0.0,
+        node_id: 2, fx: f_lat, fz: 0.0, my: 0.0,
     })];
     let input = make_input(
         nodes, vec![(1, E, 0.3)], vec![(1, A, IZ), (2, A, big_iz)],
@@ -263,13 +263,13 @@ fn validation_deflection_continuous_pattern() {
     // Span 1 midspan should deflect downward
     let mid1 = n / 2 + 1;
     let d_span1 = results.displacements.iter()
-        .find(|d| d.node_id == mid1).unwrap().uy;
+        .find(|d| d.node_id == mid1).unwrap().uz;
     assert!(d_span1 < 0.0, "Pattern loading: loaded span deflects down");
 
     // Span 2 midspan should deflect upward (hogging due to continuity)
     let mid2 = n + n / 2 + 1;
     let d_span2 = results.displacements.iter()
-        .find(|d| d.node_id == mid2).unwrap().uy;
+        .find(|d| d.node_id == mid2).unwrap().uz;
     assert!(d_span2 > 0.0,
         "Pattern loading: unloaded span deflects up ({:.6})", d_span2);
 }
@@ -287,7 +287,7 @@ fn validation_deflection_eccentric() {
     let input = make_portal_frame(h, w, E, A, IZ, 0.0, 0.0);
     let mut input = input;
     input.loads = vec![SolverLoad::Nodal(SolverNodalLoad {
-        node_id: 2, fx: 0.0, fy: -20.0, mz: 0.0,
+        node_id: 2, fx: 0.0, fz: -20.0, my: 0.0,
     })];
     let results = linear::solve_2d(&input).unwrap();
 
@@ -295,10 +295,10 @@ fn validation_deflection_eccentric() {
     let d3 = results.displacements.iter().find(|d| d.node_id == 3).unwrap();
 
     // Both beam-level nodes deflect down, but loaded side more
-    assert!(d2.uy < 0.0, "Eccentric: loaded node deflects down");
-    assert!(d2.uy.abs() > d3.uy.abs(),
+    assert!(d2.uz < 0.0, "Eccentric: loaded node deflects down");
+    assert!(d2.uz.abs() > d3.uz.abs(),
         "Eccentric: loaded side deflects more: {:.6} > {:.6}",
-        d2.uy.abs(), d3.uy.abs());
+        d2.uz.abs(), d3.uz.abs());
 
     // The eccentric load creates a slight sway
     assert!(d2.ux.abs() > 1e-8 || d3.ux.abs() > 1e-8,
@@ -330,8 +330,8 @@ fn validation_deflection_two_story_drift() {
     let sups = vec![(1, 1, "fixed"), (2, 4, "fixed")];
     // Lateral loads at each floor
     let loads = vec![
-        SolverLoad::Nodal(SolverNodalLoad { node_id: 2, fx: f, fy: 0.0, mz: 0.0 }),
-        SolverLoad::Nodal(SolverNodalLoad { node_id: 3, fx: f, fy: 0.0, mz: 0.0 }),
+        SolverLoad::Nodal(SolverNodalLoad { node_id: 2, fx: f, fz: 0.0, my: 0.0 }),
+        SolverLoad::Nodal(SolverNodalLoad { node_id: 3, fx: f, fz: 0.0, my: 0.0 }),
     ];
     let input = make_input(
         nodes, vec![(1, E, 0.3)], vec![(1, A, IZ)], elems, sups, loads,

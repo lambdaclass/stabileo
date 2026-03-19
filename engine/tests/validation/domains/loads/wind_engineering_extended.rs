@@ -162,7 +162,7 @@ fn wind_vortex_shedding_strouhal_frequency() {
     let n_elem = 10;
     let p_unit = 1.0; // kN
     let loads = vec![SolverLoad::Nodal(SolverNodalLoad {
-        node_id: n_elem + 1, fx: p_unit, fy: 0.0, mz: 0.0,
+        node_id: n_elem + 1, fx: p_unit, fz: 0.0, my: 0.0,
     })];
     let input = make_beam(n_elem, h, e_conc, a_chim, iz_chim, "fixed", None, loads);
     let results = linear::solve_2d(&input).unwrap();
@@ -236,9 +236,9 @@ fn wind_pressure_profile_multistory_story_shears() {
 
     // Apply wind loads at left-side nodes of each story
     let loads = vec![
-        SolverLoad::Nodal(SolverNodalLoad { node_id: 3, fx: f_story[0], fy: 0.0, mz: 0.0 }),
-        SolverLoad::Nodal(SolverNodalLoad { node_id: 5, fx: f_story[1], fy: 0.0, mz: 0.0 }),
-        SolverLoad::Nodal(SolverNodalLoad { node_id: 7, fx: f_story[2], fy: 0.0, mz: 0.0 }),
+        SolverLoad::Nodal(SolverNodalLoad { node_id: 3, fx: f_story[0], fz: 0.0, my: 0.0 }),
+        SolverLoad::Nodal(SolverNodalLoad { node_id: 5, fx: f_story[1], fz: 0.0, my: 0.0 }),
+        SolverLoad::Nodal(SolverNodalLoad { node_id: 7, fx: f_story[2], fz: 0.0, my: 0.0 }),
     ];
 
     let input = make_input(nodes, vec![(1, E, 0.3)], vec![(1, A, IZ)], elems, sups, loads);
@@ -407,9 +407,9 @@ fn wind_dynamic_amplification_resonant() {
 
     // Base moments should also scale by DAF
     let m_static = results_static.reactions.iter()
-        .find(|r| r.node_id == 1).unwrap().mz;
+        .find(|r| r.node_id == 1).unwrap().my;
     let m_dynamic = results_dynamic.reactions.iter()
-        .find(|r| r.node_id == 1).unwrap().mz;
+        .find(|r| r.node_id == 1).unwrap().my;
     let m_ratio = m_dynamic / m_static;
     assert_close(m_ratio, daf, 0.01, "moment amplification ratio = DAF");
 
@@ -454,9 +454,9 @@ fn wind_load_combination_envelope() {
     // Combination A: 1.0D + 0.75W
     // Combination B: 0.9D + 1.0W
     let ux_d = results_d.displacements.iter().find(|d| d.node_id == 2).unwrap().ux;
-    let uy_d = results_d.displacements.iter().find(|d| d.node_id == 2).unwrap().uy;
+    let uy_d = results_d.displacements.iter().find(|d| d.node_id == 2).unwrap().uz;
     let ux_w = results_w.displacements.iter().find(|d| d.node_id == 2).unwrap().ux;
-    let uy_w = results_w.displacements.iter().find(|d| d.node_id == 2).unwrap().uy;
+    let uy_w = results_w.displacements.iter().find(|d| d.node_id == 2).unwrap().uz;
 
     let ux_combo_a = 1.0 * ux_d + 0.75 * ux_w;
     let uy_combo_a = 1.0 * uy_d + 0.75 * uy_w;
@@ -467,7 +467,7 @@ fn wind_load_combination_envelope() {
     let input_combo_a = make_portal_frame(h, w, E, A, IZ, 0.75 * f_wind, 1.0 * g);
     let results_combo_a = linear::solve_2d(&input_combo_a).unwrap();
     let ux_direct_a = results_combo_a.displacements.iter().find(|d| d.node_id == 2).unwrap().ux;
-    let uy_direct_a = results_combo_a.displacements.iter().find(|d| d.node_id == 2).unwrap().uy;
+    let uy_direct_a = results_combo_a.displacements.iter().find(|d| d.node_id == 2).unwrap().uz;
 
     assert_close(ux_combo_a, ux_direct_a, 0.01, "Combo A ux superposition");
     assert_close(uy_combo_a, uy_direct_a, 0.01, "Combo A uy superposition");
@@ -476,7 +476,7 @@ fn wind_load_combination_envelope() {
     let input_combo_b = make_portal_frame(h, w, E, A, IZ, 1.0 * f_wind, 0.9 * g);
     let results_combo_b = linear::solve_2d(&input_combo_b).unwrap();
     let ux_direct_b = results_combo_b.displacements.iter().find(|d| d.node_id == 2).unwrap().ux;
-    let uy_direct_b = results_combo_b.displacements.iter().find(|d| d.node_id == 2).unwrap().uy;
+    let uy_direct_b = results_combo_b.displacements.iter().find(|d| d.node_id == 2).unwrap().uz;
 
     assert_close(ux_combo_b, ux_direct_b, 0.01, "Combo B ux superposition");
     assert_close(uy_combo_b, uy_direct_b, 0.01, "Combo B uy superposition");
@@ -554,9 +554,9 @@ fn wind_shielding_effect_reduced_cp() {
 
     // Base moment ratio
     let mz_full = results_full.reactions.iter()
-        .find(|r| r.node_id == 1).unwrap().mz;
+        .find(|r| r.node_id == 1).unwrap().my;
     let mz_shielded = results_shielded.reactions.iter()
-        .find(|r| r.node_id == 1).unwrap().mz;
+        .find(|r| r.node_id == 1).unwrap().my;
     let moment_ratio = mz_shielded / mz_full;
     assert_close(moment_ratio, eta_s, 0.01, "shielding: moment ratio = eta_s");
 
@@ -612,8 +612,8 @@ fn wind_interstory_drift_serviceability() {
     ];
     let sups = vec![(1, 1, "fixed"), (2, 2, "fixed")];
     let loads = vec![
-        SolverLoad::Nodal(SolverNodalLoad { node_id: 3, fx: f1, fy: 0.0, mz: 0.0 }),
-        SolverLoad::Nodal(SolverNodalLoad { node_id: 5, fx: f2, fy: 0.0, mz: 0.0 }),
+        SolverLoad::Nodal(SolverNodalLoad { node_id: 3, fx: f1, fz: 0.0, my: 0.0 }),
+        SolverLoad::Nodal(SolverNodalLoad { node_id: 5, fx: f2, fz: 0.0, my: 0.0 }),
     ];
 
     // Use a stiffer section to ensure drift compliance

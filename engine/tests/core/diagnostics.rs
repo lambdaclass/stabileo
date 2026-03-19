@@ -16,7 +16,7 @@ fn equilibrium_summary_2d_cantilever() {
         vec![(1, "frame", 1, 2, 1, 1, false, false)],
         vec![(1, 1, "fixed")],
         vec![SolverLoad::Nodal(SolverNodalLoad {
-            node_id: 2, fx: 0.0, fy: -10.0, mz: 0.0,
+            node_id: 2, fx: 0.0, fz: -10.0, my: 0.0,
         })],
     );
     let results = solve_2d(&input).unwrap();
@@ -104,7 +104,7 @@ fn structured_diagnostics_2d_solver_path() {
         vec![(1, "frame", 1, 2, 1, 1, false, false)],
         vec![(1, 1, "fixed")],
         vec![SolverLoad::Nodal(SolverNodalLoad {
-            node_id: 2, fx: 0.0, fy: -10.0, mz: 0.0,
+            node_id: 2, fx: 0.0, fz: -10.0, my: 0.0,
         })],
     );
     let results = solve_2d(&input).unwrap();
@@ -159,7 +159,7 @@ fn constraint_validation_conflicting() {
         ],
         vec![(1, 1, "fixed"), (2, 3, "pinned")],
         vec![SolverLoad::Nodal(SolverNodalLoad {
-            node_id: 2, fx: 0.0, fy: -10.0, mz: 0.0,
+            node_id: 2, fx: 0.0, fz: -10.0, my: 0.0,
         })],
     );
 
@@ -202,7 +202,7 @@ fn constraint_validation_clean_passes() {
         ],
         vec![(1, 1, "fixed"), (2, 3, "pinned")],
         vec![SolverLoad::Nodal(SolverNodalLoad {
-            node_id: 2, fx: 0.0, fy: -10.0, mz: 0.0,
+            node_id: 2, fx: 0.0, fz: -10.0, my: 0.0,
         })],
     );
 
@@ -295,7 +295,7 @@ fn diagnostics_parity_2d_dense() {
         vec![(1, "frame", 1, 2, 1, 1, false, false)],
         vec![(1, 1, "fixed")],
         vec![SolverLoad::Nodal(SolverNodalLoad {
-            node_id: 2, fx: 0.0, fy: -10.0, mz: 0.0,
+            node_id: 2, fx: 0.0, fz: -10.0, my: 0.0,
         })],
     );
     let r = solve_2d(&input).unwrap();
@@ -485,7 +485,7 @@ fn diagnostics_parity_contract_residual_describes_returned_solution() {
                 vec![(1, "frame", 1, 2, 1, 1, false, false)],
                 vec![(1, 1, "fixed")],
                 vec![SolverLoad::Nodal(SolverNodalLoad {
-                    node_id: 2, fx: 0.0, fy: -10.0, mz: 0.0,
+                    node_id: 2, fx: 0.0, fz: -10.0, my: 0.0,
                 })],
             );
             let r = solve_2d(&input).unwrap();
@@ -548,7 +548,7 @@ fn diagnostics_parity_constrained_2d() {
         ],
         vec![(1, 1, "fixed"), (2, 3, "pinned")],
         vec![SolverLoad::Nodal(SolverNodalLoad {
-            node_id: 2, fx: 0.0, fy: -10.0, mz: 0.0,
+            node_id: 2, fx: 0.0, fz: -10.0, my: 0.0,
         })],
     );
     base.constraints = vec![
@@ -650,7 +650,7 @@ fn pre_solve_disconnected_node_2d() {
         vec![(1, "frame", 0, 1, 1, 1, false, false)],
         vec![(1, 0, "fixed"), (2, 2, "fixed")],
         vec![SolverLoad::Nodal(SolverNodalLoad {
-            node_id: 1, fx: 0.0, fy: -10.0, mz: 0.0,
+            node_id: 1, fx: 0.0, fz: -10.0, my: 0.0,
         })],
     );
     let results = solve_2d(&input).unwrap();
@@ -673,7 +673,7 @@ fn pre_solve_near_duplicate_nodes_2d() {
         vec![(1, "frame", 0, 2, 1, 1, false, false)],
         vec![(1, 0, "fixed"), (2, 1, "fixed")],
         vec![SolverLoad::Nodal(SolverNodalLoad {
-            node_id: 2, fx: 0.0, fy: -10.0, mz: 0.0,
+            node_id: 2, fx: 0.0, fz: -10.0, my: 0.0,
         })],
     );
     let results = solve_2d(&input).unwrap();
@@ -699,7 +699,7 @@ fn pre_solve_instability_risk_truss_no_rotation() {
         vec![(1, "truss", 0, 1, 1, 1, false, false)],
         vec![(1, 0, "pinned"), (2, 1, "rollerX")],
         vec![SolverLoad::Nodal(SolverNodalLoad {
-            node_id: 1, fx: 10.0, fy: 0.0, mz: 0.0,
+            node_id: 1, fx: 10.0, fz: 0.0, my: 0.0,
         })],
     );
     let results = solve_2d(&input).unwrap();
@@ -731,7 +731,7 @@ fn pre_solve_clean_model_no_warnings() {
         vec![(1, "frame", 1, 2, 1, 1, false, false)],
         vec![(1, 1, "fixed")],
         vec![SolverLoad::Nodal(SolverNodalLoad {
-            node_id: 2, fx: 0.0, fy: -10.0, mz: 0.0,
+            node_id: 2, fx: 0.0, fz: -10.0, my: 0.0,
         })],
     );
     let results = solve_2d(&input).unwrap();
@@ -978,7 +978,7 @@ fn result_summary_2d_cantilever() {
         vec![(1, "frame", 1, 2, 1, 1, false, false)],
         vec![(1, 1, "fixed")],
         vec![SolverLoad::Nodal(SolverNodalLoad {
-            node_id: 2, fx: 0.0, fy: -10.0, mz: 0.0,
+            node_id: 2, fx: 0.0, fz: -10.0, my: 0.0,
         })],
     );
     let results = solve_2d(&input).unwrap();
@@ -1025,7 +1025,7 @@ fn solver_run_meta_2d_populated() {
         vec![(1, "frame", 1, 2, 1, 1, false, false)],
         vec![(1, 1, "fixed")],
         vec![SolverLoad::Nodal(SolverNodalLoad {
-            node_id: 2, fx: 0.0, fy: -10.0, mz: 0.0,
+            node_id: 2, fx: 0.0, fz: -10.0, my: 0.0,
         })],
     );
     let results = solve_2d(&input).unwrap();
@@ -1106,7 +1106,7 @@ fn solver_run_artifact_2d_roundtrip() {
         vec![(1, "frame", 1, 2, 1, 1, false, false)],
         vec![(1, 1, "fixed")],
         vec![SolverLoad::Nodal(SolverNodalLoad {
-            node_id: 2, fx: 0.0, fy: -10.0, mz: 0.0,
+            node_id: 2, fx: 0.0, fz: -10.0, my: 0.0,
         })],
     );
     let results = solve_2d(&input).unwrap();

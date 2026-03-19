@@ -51,13 +51,13 @@ fn validation_moment_area_ext_ss_udl_midspan_deflection() {
 
     // delta_mid = 5qL^4/(384EI)
     let delta_exact = 5.0 * q.abs() * l.powi(4) / (384.0 * e_eff * IZ);
-    assert_close(d_mid.uy.abs(), delta_exact, 0.02,
+    assert_close(d_mid.uz.abs(), delta_exact, 0.02,
         "Moment area ext: SS UDL midspan delta = 5qL^4/(384EI)");
 
     // Also verify end slope theta = qL^3/(24EI)
     let d1 = results.displacements.iter().find(|d| d.node_id == 1).unwrap();
     let theta_exact = q.abs() * l.powi(3) / (24.0 * e_eff * IZ);
-    assert_close(d1.rz.abs(), theta_exact, 0.02,
+    assert_close(d1.ry.abs(), theta_exact, 0.02,
         "Moment area ext: SS UDL end slope = qL^3/(24EI)");
 }
 
@@ -88,16 +88,16 @@ fn validation_moment_area_ext_cantilever_udl_deflection() {
 
     // delta_tip = qL^4/(8EI)
     let delta_exact = q.abs() * l.powi(4) / (8.0 * e_eff * IZ);
-    assert_close(tip.uy.abs(), delta_exact, 0.02,
+    assert_close(tip.uz.abs(), delta_exact, 0.02,
         "Moment area ext: cantilever UDL tip delta = qL^4/(8EI)");
 
     // theta_tip = qL^3/(6EI)
     let theta_exact = q.abs() * l.powi(3) / (6.0 * e_eff * IZ);
-    assert_close(tip.rz.abs(), theta_exact, 0.02,
+    assert_close(tip.ry.abs(), theta_exact, 0.02,
         "Moment area ext: cantilever UDL tip slope = qL^3/(6EI)");
 
     // delta/theta ratio = 3L/4 for parabolic M/EI diagram
-    let ratio = tip.uy.abs() / tip.rz.abs();
+    let ratio = tip.uz.abs() / tip.ry.abs();
     assert_close(ratio, 3.0 * l / 4.0, 0.02,
         "Moment area ext: cantilever UDL delta/theta = 3L/4");
 }
@@ -129,20 +129,20 @@ fn validation_moment_area_ext_fixed_fixed_udl() {
 
     // delta_mid = qL^4/(384EI) for fixed-fixed
     let delta_exact = q.abs() * l.powi(4) / (384.0 * e_eff * IZ);
-    assert_close(d_mid.uy.abs(), delta_exact, 0.03,
+    assert_close(d_mid.uz.abs(), delta_exact, 0.03,
         "Moment area ext: fixed-fixed UDL midspan delta = qL^4/(384EI)");
 
     // End slopes must be zero (fixed supports)
     let d1 = results.displacements.iter().find(|d| d.node_id == 1).unwrap();
     let d_end = results.displacements.iter().find(|d| d.node_id == n + 1).unwrap();
-    assert!(d1.rz.abs() < 1e-10,
-        "Moment area ext: fixed-fixed left slope = 0: {:.6e}", d1.rz);
-    assert!(d_end.rz.abs() < 1e-10,
-        "Moment area ext: fixed-fixed right slope = 0: {:.6e}", d_end.rz);
+    assert!(d1.ry.abs() < 1e-10,
+        "Moment area ext: fixed-fixed left slope = 0: {:.6e}", d1.ry);
+    assert!(d_end.ry.abs() < 1e-10,
+        "Moment area ext: fixed-fixed right slope = 0: {:.6e}", d_end.ry);
 
     // Compare to SS case: fixed-fixed deflection is 1/5 of SS deflection
     let delta_ss = 5.0 * q.abs() * l.powi(4) / (384.0 * e_eff * IZ);
-    assert_close(d_mid.uy.abs(), delta_ss / 5.0, 0.03,
+    assert_close(d_mid.uz.abs(), delta_ss / 5.0, 0.03,
         "Moment area ext: fixed-fixed delta = (1/5) SS delta");
 }
 
@@ -164,8 +164,8 @@ fn validation_moment_area_ext_four_point_bending() {
     let node_b = 2 * n / 3 + 1; // 2L/3
 
     let loads = vec![
-        SolverLoad::Nodal(SolverNodalLoad { node_id: node_a, fx: 0.0, fy: -p, mz: 0.0 }),
-        SolverLoad::Nodal(SolverNodalLoad { node_id: node_b, fx: 0.0, fy: -p, mz: 0.0 }),
+        SolverLoad::Nodal(SolverNodalLoad { node_id: node_a, fx: 0.0, fz: -p, my: 0.0 }),
+        SolverLoad::Nodal(SolverNodalLoad { node_id: node_b, fx: 0.0, fz: -p, my: 0.0 }),
     ];
     let input = make_beam(n, l, E, A, IZ, "pinned", Some("rollerX"), loads);
     let results = linear::solve_2d(&input).unwrap();
@@ -175,17 +175,17 @@ fn validation_moment_area_ext_four_point_bending() {
 
     // delta_mid = 23PL^3/(648EI)
     let delta_exact = 23.0 * p * l.powi(3) / (648.0 * e_eff * IZ);
-    assert_close(d_mid.uy.abs(), delta_exact, 0.03,
+    assert_close(d_mid.uz.abs(), delta_exact, 0.03,
         "Moment area ext: 4-point bending midspan delta = 23PL^3/(648EI)");
 
     // Midspan slope = 0 by symmetry
-    assert!(d_mid.rz.abs() < 1e-10,
-        "Moment area ext: 4-point bending midspan slope = 0: {:.6e}", d_mid.rz);
+    assert!(d_mid.ry.abs() < 1e-10,
+        "Moment area ext: 4-point bending midspan slope = 0: {:.6e}", d_mid.ry);
 
     // End slopes are equal magnitude, opposite sign
     let d1 = results.displacements.iter().find(|d| d.node_id == 1).unwrap();
     let d_end = results.displacements.iter().find(|d| d.node_id == n + 1).unwrap();
-    assert_close(d1.rz.abs(), d_end.rz.abs(), 0.01,
+    assert_close(d1.ry.abs(), d_end.ry.abs(), 0.01,
         "Moment area ext: 4-point bending symmetric end slopes");
 }
 
@@ -204,7 +204,7 @@ fn validation_moment_area_ext_cantilever_cubic_shape() {
     let e_eff = E * 1000.0;
 
     let loads = vec![SolverLoad::Nodal(SolverNodalLoad {
-        node_id: n + 1, fx: 0.0, fy: -p, mz: 0.0,
+        node_id: n + 1, fx: 0.0, fz: -p, my: 0.0,
     })];
     let input = make_beam(n, l, E, A, IZ, "fixed", None, loads);
     let results = linear::solve_2d(&input).unwrap();
@@ -217,14 +217,14 @@ fn validation_moment_area_ext_cantilever_cubic_shape() {
 
         // y(x) = P/(6EI) * (3Lx^2 - x^3)
         let delta_exact = p / (6.0 * e_eff * IZ) * (3.0 * l * x * x - x * x * x);
-        assert_close(d.uy.abs(), delta_exact, 0.02,
+        assert_close(d.uz.abs(), delta_exact, 0.02,
             &format!("Moment area ext: cantilever cubic at x/L={:.2}", frac));
     }
 
     // Verify tip value matches PL^3/(3EI)
     let tip = results.displacements.iter().find(|d| d.node_id == n + 1).unwrap();
     let delta_tip_exact = p * l.powi(3) / (3.0 * e_eff * IZ);
-    assert_close(tip.uy.abs(), delta_tip_exact, 0.02,
+    assert_close(tip.uz.abs(), delta_tip_exact, 0.02,
         "Moment area ext: cantilever tip delta = PL^3/(3EI)");
 }
 
@@ -246,7 +246,7 @@ fn validation_moment_area_ext_cantilever_end_moment() {
     let e_eff = E * 1000.0;
 
     let loads = vec![SolverLoad::Nodal(SolverNodalLoad {
-        node_id: n + 1, fx: 0.0, fy: 0.0, mz: m,
+        node_id: n + 1, fx: 0.0, fz: 0.0, my: m,
     })];
     let input = make_beam(n, l, E, A, IZ, "fixed", None, loads);
     let results = linear::solve_2d(&input).unwrap();
@@ -255,16 +255,16 @@ fn validation_moment_area_ext_cantilever_end_moment() {
 
     // theta = ML/(EI)
     let theta_exact = m * l / (e_eff * IZ);
-    assert_close(tip.rz.abs(), theta_exact, 0.02,
+    assert_close(tip.ry.abs(), theta_exact, 0.02,
         "Moment area ext: cantilever moment theta = ML/(EI)");
 
     // delta = ML^2/(2EI)
     let delta_exact = m * l * l / (2.0 * e_eff * IZ);
-    assert_close(tip.uy.abs(), delta_exact, 0.02,
+    assert_close(tip.uz.abs(), delta_exact, 0.02,
         "Moment area ext: cantilever moment delta = ML^2/(2EI)");
 
     // Ratio check: delta/theta = L/2
-    let ratio = tip.uy.abs() / tip.rz.abs();
+    let ratio = tip.uz.abs() / tip.ry.abs();
     assert_close(ratio, l / 2.0, 0.02,
         "Moment area ext: cantilever moment ratio delta/theta = L/2");
 
@@ -272,7 +272,7 @@ fn validation_moment_area_ext_cantilever_end_moment() {
     let mid = n / 2 + 1;
     let d_mid = results.displacements.iter().find(|d| d.node_id == mid).unwrap();
     let delta_mid_exact = m * (l / 2.0) * (l / 2.0) / (2.0 * e_eff * IZ);
-    assert_close(d_mid.uy.abs(), delta_mid_exact, 0.02,
+    assert_close(d_mid.uz.abs(), delta_mid_exact, 0.02,
         "Moment area ext: cantilever moment parabolic at L/2");
 }
 
@@ -314,12 +314,12 @@ fn validation_moment_area_ext_two_span_continuous() {
     let d_int = results.displacements.iter().find(|d| d.node_id == interior).unwrap();
 
     // Deflection at interior support = 0 (supported)
-    assert!(d_int.uy.abs() < 1e-10,
-        "Moment area ext: two-span interior support delta = 0: {:.6e}", d_int.uy);
+    assert!(d_int.uz.abs() < 1e-10,
+        "Moment area ext: two-span interior support delta = 0: {:.6e}", d_int.uz);
 
     // Slope at interior = 0 by symmetry (equal spans, equal loads)
-    assert!(d_int.rz.abs() < 1e-10,
-        "Moment area ext: two-span interior slope = 0 by symmetry: {:.6e}", d_int.rz);
+    assert!(d_int.ry.abs() < 1e-10,
+        "Moment area ext: two-span interior slope = 0 by symmetry: {:.6e}", d_int.ry);
 
     // Midspan of span 1 (node n/2 + 1)
     let mid1 = n / 2 + 1;
@@ -332,13 +332,13 @@ fn validation_moment_area_ext_two_span_continuous() {
     //   = ( 3qL/8 * L^3/48  -  q*L^4/384 ) / EI
     //   = ( 3qL^4/384 - qL^4/384 ) / EI = 2qL^4/(384EI) = qL^4/(192EI)
     let delta_mid_exact = q.abs() * span.powi(4) / (192.0 * e_eff * IZ);
-    assert_close(d_mid1.uy.abs(), delta_mid_exact, 0.03,
+    assert_close(d_mid1.uz.abs(), delta_mid_exact, 0.03,
         "Moment area ext: two-span midspan delta = qL^4/(192EI)");
 
     // Midspan of span 2 (node n + n/2 + 1) should be same by symmetry
     let mid2 = n + n / 2 + 1;
     let d_mid2 = results.displacements.iter().find(|d| d.node_id == mid2).unwrap();
-    assert_close(d_mid1.uy.abs(), d_mid2.uy.abs(), 0.01,
+    assert_close(d_mid1.uz.abs(), d_mid2.uz.abs(), 0.01,
         "Moment area ext: two-span symmetric midspan deflections");
 }
 
@@ -362,7 +362,7 @@ fn validation_moment_area_ext_ss_quarter_load_slopes() {
 
     let load_node = n / 4 + 1;
     let loads = vec![SolverLoad::Nodal(SolverNodalLoad {
-        node_id: load_node, fx: 0.0, fy: -p, mz: 0.0,
+        node_id: load_node, fx: 0.0, fz: -p, my: 0.0,
     })];
     let input = make_beam(n, l, E, A, IZ, "pinned", Some("rollerX"), loads);
     let results = linear::solve_2d(&input).unwrap();
@@ -370,13 +370,13 @@ fn validation_moment_area_ext_ss_quarter_load_slopes() {
     // Left end slope: theta_A = Pb(L^2 - b^2) / (6EIL)
     let theta_a_exact = p * b * (l * l - b * b) / (6.0 * e_eff * IZ * l);
     let d1 = results.displacements.iter().find(|d| d.node_id == 1).unwrap();
-    assert_close(d1.rz.abs(), theta_a_exact, 0.02,
+    assert_close(d1.ry.abs(), theta_a_exact, 0.02,
         "Moment area ext: SS quarter load left slope = Pb(L^2-b^2)/(6EIL)");
 
     // Right end slope: theta_B = Pa(L^2 - a^2) / (6EIL)
     let theta_b_exact = p * a * (l * l - a * a) / (6.0 * e_eff * IZ * l);
     let d_end = results.displacements.iter().find(|d| d.node_id == n + 1).unwrap();
-    assert_close(d_end.rz.abs(), theta_b_exact, 0.02,
+    assert_close(d_end.ry.abs(), theta_b_exact, 0.02,
         "Moment area ext: SS quarter load right slope = Pa(L^2-a^2)/(6EIL)");
 
     // theta_A > theta_B since load is closer to left support
@@ -384,13 +384,13 @@ fn validation_moment_area_ext_ss_quarter_load_slopes() {
     // theta_A = P*(3L/4)*(L^2 - 9L^2/16)/(6EIL) = P*(3L/4)*(7L^2/16)/(6EIL)
     // theta_B = P*(L/4)*(L^2 - L^2/16)/(6EIL) = P*(L/4)*(15L^2/16)/(6EIL)
     // theta_A/theta_B = (3/4 * 7/16) / (1/4 * 15/16) = (21/64)/(15/64) = 21/15 = 7/5
-    let ratio = d1.rz.abs() / d_end.rz.abs();
+    let ratio = d1.ry.abs() / d_end.ry.abs();
     assert_close(ratio, 7.0 / 5.0, 0.02,
         "Moment area ext: SS quarter load slope ratio = 7/5");
 
     // Deflection under load: delta = Pa^2*b^2 / (3EIL)
     let delta_exact = p * a * a * b * b / (3.0 * e_eff * IZ * l);
     let d_load = results.displacements.iter().find(|d| d.node_id == load_node).unwrap();
-    assert_close(d_load.uy.abs(), delta_exact, 0.02,
+    assert_close(d_load.uz.abs(), delta_exact, 0.02,
         "Moment area ext: SS quarter load delta under load = Pa^2b^2/(3EIL)");
 }

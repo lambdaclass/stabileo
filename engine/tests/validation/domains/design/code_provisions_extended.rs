@@ -54,7 +54,7 @@ fn validation_aisc360_euler_axial_stiffness_truss() {
         vec![(1, "frame", 1, 2, 1, 1, true, true)],
         vec![(1, 1, "pinned"), (2, 2, "rollerX")],
         vec![SolverLoad::Nodal(SolverNodalLoad {
-            node_id: 2, fx: p, fy: 0.0, mz: 0.0,
+            node_id: 2, fx: p, fz: 0.0, my: 0.0,
         })],
     );
     let results = linear::solve_2d(&input).unwrap();
@@ -101,7 +101,7 @@ fn validation_en1993_sway_drift_classification() {
 
     let input = make_beam(n, h, E, A, IZ, "fixed", None,
         vec![SolverLoad::Nodal(SolverNodalLoad {
-            node_id: n + 1, fx: h_load, fy: 0.0, mz: 0.0,
+            node_id: n + 1, fx: h_load, fz: 0.0, my: 0.0,
         })]);
     let results = linear::solve_2d(&input).unwrap();
 
@@ -168,7 +168,7 @@ fn validation_asce7_serviceability_deflection_limit() {
     let results = linear::solve_2d(&input).unwrap();
 
     let mid = n / 2 + 1;
-    let d_mid = results.displacements.iter().find(|d| d.node_id == mid).unwrap().uy.abs();
+    let d_mid = results.displacements.iter().find(|d| d.node_id == mid).unwrap().uz.abs();
 
     // The midspan deflection should be approximately L/360
     assert_close(d_mid, delta_allow, 0.03,
@@ -206,21 +206,21 @@ fn validation_aisc360_k_factor_stiffness_ratio() {
     // Case 1: Cantilever with transverse tip load → δ = PL³/(3EI)
     let input_cantilever = make_beam(n, l, E, A, IZ, "fixed", None,
         vec![SolverLoad::Nodal(SolverNodalLoad {
-            node_id: n + 1, fx: 0.0, fy: -p, mz: 0.0,
+            node_id: n + 1, fx: 0.0, fz: -p, my: 0.0,
         })]);
     let res_cantilever = linear::solve_2d(&input_cantilever).unwrap();
     let delta_cantilever = res_cantilever.displacements.iter()
-        .find(|d| d.node_id == n + 1).unwrap().uy.abs();
+        .find(|d| d.node_id == n + 1).unwrap().uz.abs();
 
     // Case 2: Fixed-fixed beam with center point load → δ = PL³/(192EI)
     let mid = n / 2 + 1;
     let input_fixed = make_beam(n, l, E, A, IZ, "fixed", Some("fixed"),
         vec![SolverLoad::Nodal(SolverNodalLoad {
-            node_id: mid, fx: 0.0, fy: -p, mz: 0.0,
+            node_id: mid, fx: 0.0, fz: -p, my: 0.0,
         })]);
     let res_fixed = linear::solve_2d(&input_fixed).unwrap();
     let delta_fixed = res_fixed.displacements.iter()
-        .find(|d| d.node_id == mid).unwrap().uy.abs();
+        .find(|d| d.node_id == mid).unwrap().uz.abs();
 
     // Verify analytical values
     let delta_cant_exact = p * l.powi(3) / (3.0 * e_eff * IZ);
@@ -272,7 +272,7 @@ fn validation_en1992_span_depth_deflection_scaling() {
         );
         let results = linear::solve_2d(&input).unwrap();
         let mid = n / 2 + 1;
-        results.displacements.iter().find(|d| d.node_id == mid).unwrap().uy.abs()
+        results.displacements.iter().find(|d| d.node_id == mid).unwrap().uz.abs()
     };
 
     let d1 = make_ss_beam(IZ);
@@ -317,11 +317,11 @@ fn validation_aisc360_weak_vs_strong_axis_stiffness() {
     // "Weak axis" cantilever: Iz = 1e-4, transverse load fy at tip
     let input_weak = make_beam(n, l, E, A, IZ, "fixed", None,
         vec![SolverLoad::Nodal(SolverNodalLoad {
-            node_id: n + 1, fx: 0.0, fy: -p, mz: 0.0,
+            node_id: n + 1, fx: 0.0, fz: -p, my: 0.0,
         })]);
     let res_weak = linear::solve_2d(&input_weak).unwrap();
     let delta_weak = res_weak.displacements.iter()
-        .find(|d| d.node_id == n + 1).unwrap().uy.abs();
+        .find(|d| d.node_id == n + 1).unwrap().uz.abs();
 
     // "Strong axis" cantilever: Iz = 4e-4 (4× stiffer)
     let iz_strong = 4.0 * IZ;
@@ -334,12 +334,12 @@ fn validation_aisc360_weak_vs_strong_axis_stiffness() {
         elems,
         vec![(1, 1, "fixed")],
         vec![SolverLoad::Nodal(SolverNodalLoad {
-            node_id: n + 1, fx: 0.0, fy: -p, mz: 0.0,
+            node_id: n + 1, fx: 0.0, fz: -p, my: 0.0,
         })],
     );
     let res_strong = linear::solve_2d(&input_strong).unwrap();
     let delta_strong = res_strong.displacements.iter()
-        .find(|d| d.node_id == n + 1).unwrap().uy.abs();
+        .find(|d| d.node_id == n + 1).unwrap().uz.abs();
 
     // Ratio: δ_weak / δ_strong = Iz_strong / Iz_weak = 4.0
     let ratio = delta_weak / delta_strong;
@@ -399,7 +399,7 @@ fn validation_en1993_bracing_stiffness_effect() {
         ],
         vec![(1, 1, "fixed"), (2, 4, "fixed")],
         vec![SolverLoad::Nodal(SolverNodalLoad {
-            node_id: 2, fx: h_force, fy: 0.0, mz: 0.0,
+            node_id: 2, fx: h_force, fz: 0.0, my: 0.0,
         })],
     );
     let res_braced = linear::solve_2d(&input_braced).unwrap();
@@ -460,7 +460,7 @@ fn validation_asce7_soft_story_check() {
             elems,
             vec![(1, 1, "fixed")],
             vec![SolverLoad::Nodal(SolverNodalLoad {
-                node_id: n + 1, fx: h_force, fy: 0.0, mz: 0.0,
+                node_id: n + 1, fx: h_force, fz: 0.0, my: 0.0,
             })],
         );
         let results = linear::solve_2d(&input).unwrap();

@@ -42,8 +42,8 @@ fn validation_load_path_ext_ss_beam_equal_reactions() {
     let loads = vec![SolverLoad::Nodal(SolverNodalLoad {
         node_id: mid_node,
         fx: 0.0,
-        fy: -p,
-        mz: 0.0,
+        fz: -p,
+        my: 0.0,
     })];
     let input = make_beam(n, l, E, A, IZ, "pinned", Some("rollerX"), loads);
     let results = linear::solve_2d(&input).unwrap();
@@ -56,11 +56,11 @@ fn validation_load_path_ext_ss_beam_equal_reactions() {
         .unwrap();
 
     // Both reactions should be P/2 = 20 kN (upward)
-    assert_close(r_a.ry, p / 2.0, 0.01, "SS midspan: R_A = P/2");
-    assert_close(r_b.ry, p / 2.0, 0.01, "SS midspan: R_B = P/2");
+    assert_close(r_a.rz, p / 2.0, 0.01, "SS midspan: R_A = P/2");
+    assert_close(r_b.rz, p / 2.0, 0.01, "SS midspan: R_B = P/2");
 
     // Reactions should be equal by symmetry
-    let diff: f64 = (r_a.ry - r_b.ry).abs();
+    let diff: f64 = (r_a.rz - r_b.rz).abs();
     assert!(
         diff < 0.01,
         "SS midspan: reactions should be equal, diff = {:.6}",
@@ -68,7 +68,7 @@ fn validation_load_path_ext_ss_beam_equal_reactions() {
     );
 
     // Vertical equilibrium: R_A + R_B = P
-    assert_close(r_a.ry + r_b.ry, p, 0.01, "SS midspan: R_A + R_B = P");
+    assert_close(r_a.rz + r_b.rz, p, 0.01, "SS midspan: R_A + R_B = P");
 
     // No horizontal reactions (pinned + roller, no horizontal load)
     assert!(
@@ -79,14 +79,14 @@ fn validation_load_path_ext_ss_beam_equal_reactions() {
 
     // No moment reactions at simple supports
     assert!(
-        r_a.mz.abs() < 1e-6,
+        r_a.my.abs() < 1e-6,
         "SS midspan: M_A = 0, got {:.6}",
-        r_a.mz
+        r_a.my
     );
     assert!(
-        r_b.mz.abs() < 1e-6,
+        r_b.my.abs() < 1e-6,
         "SS midspan: M_B = 0, got {:.6}",
-        r_b.mz
+        r_b.my
     );
 }
 
@@ -108,8 +108,8 @@ fn validation_load_path_ext_cantilever_full_transfer() {
     let loads = vec![SolverLoad::Nodal(SolverNodalLoad {
         node_id: n + 1,
         fx: 0.0,
-        fy: -p,
-        mz: 0.0,
+        fz: -p,
+        my: 0.0,
     })];
     let input = make_beam(n, l, E, A, IZ, "fixed", None, loads);
     let results = linear::solve_2d(&input).unwrap();
@@ -117,10 +117,10 @@ fn validation_load_path_ext_cantilever_full_transfer() {
     let r = results.reactions.iter().find(|r| r.node_id == 1).unwrap();
 
     // Entire vertical load transfers to the fixed support
-    assert_close(r.ry, p, 0.01, "Cantilever: R_y = P");
+    assert_close(r.rz, p, 0.01, "Cantilever: R_y = P");
 
     // Fixed-end moment = P * L
-    assert_close(r.mz.abs(), p * l, 0.01, "Cantilever: M = P*L");
+    assert_close(r.my.abs(), p * l, 0.01, "Cantilever: M = P*L");
 
     // No horizontal reaction (vertical load only)
     assert!(
@@ -180,8 +180,8 @@ fn validation_load_path_ext_two_span_load_on_span1() {
     let loads = vec![SolverLoad::Nodal(SolverNodalLoad {
         node_id: load_node,
         fx: 0.0,
-        fy: -p,
-        mz: 0.0,
+        fz: -p,
+        my: 0.0,
     })];
 
     let input = make_continuous_beam(&[l, l], n_per_span, E, A, IZ, loads);
@@ -209,39 +209,39 @@ fn validation_load_path_ext_two_span_load_on_span1() {
 
     // All three supports must have nonzero reactions
     assert!(
-        r_a.ry.abs() > 1.0,
+        r_a.rz.abs() > 1.0,
         "Two-span: R_A is nonzero, got {:.4}",
-        r_a.ry
+        r_a.rz
     );
     assert!(
-        r_b.ry.abs() > 1.0,
+        r_b.rz.abs() > 1.0,
         "Two-span: R_B is nonzero, got {:.4}",
-        r_b.ry
+        r_b.rz
     );
     // Span 2 has no direct load, but the far support still reacts
     // (the interior hogging moment pulls span 2 upward at C)
     assert!(
-        r_c.ry.abs() > 0.1,
+        r_c.rz.abs() > 0.1,
         "Two-span: R_C is nonzero (indirect path), got {:.4}",
-        r_c.ry
+        r_c.rz
     );
 
     // R_C should be negative (downward) because the hogging moment at B
     // lifts span 2 at its midspan and pushes node C down
     assert!(
-        r_c.ry < 0.0,
+        r_c.rz < 0.0,
         "Two-span: R_C < 0 (uplift), got {:.4}",
-        r_c.ry
+        r_c.rz
     );
 
     // Vertical equilibrium: R_A + R_B + R_C = P
-    let sum_ry: f64 = r_a.ry + r_b.ry + r_c.ry;
+    let sum_ry: f64 = r_a.rz + r_b.rz + r_c.rz;
     assert_close(sum_ry, p, 0.01, "Two-span: sum_Ry = P");
 
     // The loaded span carries the majority: R_A + R_B > P
     // (because R_C is negative, R_A + R_B must exceed P)
     assert!(
-        r_a.ry + r_b.ry > p,
+        r_a.rz + r_b.rz > p,
         "Two-span: R_A + R_B > P since R_C < 0"
     );
 
@@ -249,7 +249,7 @@ fn validation_load_path_ext_two_span_load_on_span1() {
     // M_B = -3PL/32 (three-moment equation)
     // R_C = M_B / L = -3PL / (32*L) = -3P/32
     let r_c_exact = -3.0 * p / 32.0;
-    assert_close(r_c.ry, r_c_exact, 0.05, "Two-span: R_C = -3P/32");
+    assert_close(r_c.rz, r_c_exact, 0.05, "Two-span: R_C = -3P/32");
 }
 
 // ================================================================
@@ -276,20 +276,20 @@ fn validation_load_path_ext_portal_gravity_symmetric() {
     let r4 = results.reactions.iter().find(|r| r.node_id == 4).unwrap();
 
     // Equal vertical reactions by symmetry: R1_y = R4_y = P (each column gets load P)
-    assert_close(r1.ry, r4.ry, 0.01, "Portal gravity: R1_y = R4_y (symmetry)");
+    assert_close(r1.rz, r4.rz, 0.01, "Portal gravity: R1_y = R4_y (symmetry)");
 
     // Total vertical reaction = 2P (two loads of P each)
     let total_p = 2.0 * p;
     assert_close(
-        r1.ry + r4.ry,
+        r1.rz + r4.rz,
         total_p,
         0.01,
         "Portal gravity: R1_y + R4_y = 2P",
     );
 
     // Each column carries P
-    assert_close(r1.ry, p, 0.01, "Portal gravity: R1_y = P");
-    assert_close(r4.ry, p, 0.01, "Portal gravity: R4_y = P");
+    assert_close(r1.rz, p, 0.01, "Portal gravity: R1_y = P");
+    assert_close(r4.rz, p, 0.01, "Portal gravity: R4_y = P");
 
     // Horizontal reactions should be zero by symmetry (no lateral load)
     let sum_rx: f64 = r1.rx + r4.rx;
@@ -300,7 +300,7 @@ fn validation_load_path_ext_portal_gravity_symmetric() {
     );
 
     // Equal moments at both bases by symmetry
-    let m_diff: f64 = (r1.mz.abs() - r4.mz.abs()).abs();
+    let m_diff: f64 = (r1.my.abs() - r4.my.abs()).abs();
     assert!(
         m_diff < 0.1,
         "Portal gravity: equal base moments, diff = {:.6}",
@@ -367,7 +367,7 @@ fn validation_load_path_ext_portal_lateral_distribution() {
     // Vertical reactions exist due to overturning moment (H*h)
     // Moment about base: H*h = R4_y * w => R4_y = H*h/w (approximate for portal method)
     // The two vertical reactions should be equal and opposite
-    let sum_ry: f64 = r1.ry + r4.ry;
+    let sum_ry: f64 = r1.rz + r4.rz;
     assert!(
         sum_ry.abs() < 0.5,
         "Portal lateral: sum_Ry approx 0, got {:.4}",
@@ -376,14 +376,14 @@ fn validation_load_path_ext_portal_lateral_distribution() {
 
     // Both bases should have nonzero moments (fixed supports resist rotation)
     assert!(
-        r1.mz.abs() > 1.0,
+        r1.my.abs() > 1.0,
         "Portal lateral: M1 nonzero, got {:.4}",
-        r1.mz
+        r1.my
     );
     assert!(
-        r4.mz.abs() > 1.0,
+        r4.my.abs() > 1.0,
         "Portal lateral: M4 nonzero, got {:.4}",
-        r4.mz
+        r4.my
     );
 }
 
@@ -432,8 +432,8 @@ fn validation_load_path_ext_truss_axial_only() {
         vec![SolverLoad::Nodal(SolverNodalLoad {
             node_id: 4,
             fx: 0.0,
-            fy: -p,
-            mz: 0.0,
+            fz: -p,
+            my: 0.0,
         })],
     );
     let results = linear::solve_2d(&input).unwrap();
@@ -441,11 +441,11 @@ fn validation_load_path_ext_truss_axial_only() {
     // Verify reactions: R_A + R_B = P (vertical equilibrium)
     let r1 = results.reactions.iter().find(|r| r.node_id == 1).unwrap();
     let r3 = results.reactions.iter().find(|r| r.node_id == 3).unwrap();
-    assert_close(r1.ry + r3.ry, p, 0.01, "Truss: sum_Ry = P");
+    assert_close(r1.rz + r3.rz, p, 0.01, "Truss: sum_Ry = P");
 
     // By symmetry: R1_y = R3_y = P/2
-    assert_close(r1.ry, p / 2.0, 0.02, "Truss: R1 = P/2");
-    assert_close(r3.ry, p / 2.0, 0.02, "Truss: R3 = P/2");
+    assert_close(r1.rz, p / 2.0, 0.02, "Truss: R1 = P/2");
+    assert_close(r3.rz, p / 2.0, 0.02, "Truss: R3 = P/2");
 
     // All members should carry only axial force (moments and shear ~ 0)
     for i in 1..=5 {
@@ -538,8 +538,8 @@ fn validation_load_path_ext_propped_cantilever_sharing() {
     let loads = vec![SolverLoad::Nodal(SolverNodalLoad {
         node_id: mid_node,
         fx: 0.0,
-        fy: -p,
-        mz: 0.0,
+        fz: -p,
+        my: 0.0,
     })];
     let input = make_beam(n, l, E, A, IZ, "fixed", Some("rollerX"), loads);
     let results = linear::solve_2d(&input).unwrap();
@@ -553,27 +553,27 @@ fn validation_load_path_ext_propped_cantilever_sharing() {
 
     // R_B = 5P/16 = 10.0 kN
     let r_b_exact = 5.0 * p / 16.0;
-    assert_close(r_b.ry, r_b_exact, 0.02, "Propped: R_B = 5P/16");
+    assert_close(r_b.rz, r_b_exact, 0.02, "Propped: R_B = 5P/16");
 
     // R_A = 11P/16 = 22.0 kN
     let r_a_exact = 11.0 * p / 16.0;
-    assert_close(r_a.ry, r_a_exact, 0.02, "Propped: R_A = 11P/16");
+    assert_close(r_a.rz, r_a_exact, 0.02, "Propped: R_A = 11P/16");
 
     // Fixed end carries MORE than the roller
     assert!(
-        r_a.ry > r_b.ry,
+        r_a.rz > r_b.rz,
         "Propped: fixed end carries more: R_A={:.4} > R_B={:.4}",
-        r_a.ry,
-        r_b.ry
+        r_a.rz,
+        r_b.rz
     );
 
     // Vertical equilibrium
-    assert_close(r_a.ry + r_b.ry, p, 0.01, "Propped: R_A + R_B = P");
+    assert_close(r_a.rz + r_b.rz, p, 0.01, "Propped: R_A + R_B = P");
 
     // Fixed-end moment = 3PL/16 = 48.0 kN*m
     let m_a_exact = 3.0 * p * l / 16.0;
     assert_close(
-        r_a.mz.abs(),
+        r_a.my.abs(),
         m_a_exact,
         0.02,
         "Propped: M_A = 3PL/16",
@@ -581,9 +581,9 @@ fn validation_load_path_ext_propped_cantilever_sharing() {
 
     // Roller has zero moment (simple support)
     assert!(
-        r_b.mz.abs() < 1e-6,
+        r_b.my.abs() < 1e-6,
         "Propped: M_B = 0, got {:.6}",
-        r_b.mz
+        r_b.my
     );
 
     // Deflection at midspan should be nonzero and downward
@@ -593,9 +593,9 @@ fn validation_load_path_ext_propped_cantilever_sharing() {
         .find(|d| d.node_id == mid_node)
         .unwrap();
     assert!(
-        d_mid.uy < 0.0,
+        d_mid.uz < 0.0,
         "Propped: midspan deflects downward, uy = {:.6}",
-        d_mid.uy
+        d_mid.uz
     );
 }
 
@@ -621,8 +621,8 @@ fn validation_load_path_ext_multi_span_adjacent_effects() {
     let loads = vec![SolverLoad::Nodal(SolverNodalLoad {
         node_id: load_node,
         fx: 0.0,
-        fy: -p,
-        mz: 0.0,
+        fz: -p,
+        my: 0.0,
     })];
 
     let input = make_continuous_beam(&[l, l, l], n_per_span, E, A, IZ, loads);
@@ -655,46 +655,46 @@ fn validation_load_path_ext_multi_span_adjacent_effects() {
         .unwrap();
 
     // Global equilibrium: sum of all reactions = P
-    let sum_ry: f64 = r_a.ry + r_b.ry + r_c.ry + r_d.ry;
+    let sum_ry: f64 = r_a.rz + r_b.rz + r_c.rz + r_d.rz;
     assert_close(sum_ry, p, 0.01, "Multi-span: sum_Ry = P");
 
     // Supports B and C (flanking the loaded span) carry the most load
     assert!(
-        r_b.ry.abs() > r_a.ry.abs(),
+        r_b.rz.abs() > r_a.rz.abs(),
         "Multi-span: R_B > R_A (B flanks loaded span)"
     );
     assert!(
-        r_c.ry.abs() > r_d.ry.abs(),
+        r_c.rz.abs() > r_d.rz.abs(),
         "Multi-span: R_C > R_D (C flanks loaded span)"
     );
 
     // By symmetry of the structure and load position (centered on span 2):
     // R_A = R_D and R_B = R_C
-    assert_close(r_a.ry, r_d.ry, 0.02, "Multi-span: R_A = R_D (symmetry)");
-    assert_close(r_b.ry, r_c.ry, 0.02, "Multi-span: R_B = R_C (symmetry)");
+    assert_close(r_a.rz, r_d.rz, 0.02, "Multi-span: R_A = R_D (symmetry)");
+    assert_close(r_b.rz, r_c.rz, 0.02, "Multi-span: R_B = R_C (symmetry)");
 
     // Adjacent span reactions (A and D) should be nonzero — key test for load path continuity
     assert!(
-        r_a.ry.abs() > 0.1,
+        r_a.rz.abs() > 0.1,
         "Multi-span: R_A nonzero (adjacent span effect), got {:.4}",
-        r_a.ry
+        r_a.rz
     );
     assert!(
-        r_d.ry.abs() > 0.1,
+        r_d.rz.abs() > 0.1,
         "Multi-span: R_D nonzero (adjacent span effect), got {:.4}",
-        r_d.ry
+        r_d.rz
     );
 
     // The far-end supports (A and D) should have negative reactions (uplift)
     // because the hogging moment at B and C lifts the outer spans
     assert!(
-        r_a.ry < 0.0,
+        r_a.rz < 0.0,
         "Multi-span: R_A < 0 (uplift from continuity), got {:.4}",
-        r_a.ry
+        r_a.rz
     );
     assert!(
-        r_d.ry < 0.0,
+        r_d.rz < 0.0,
         "Multi-span: R_D < 0 (uplift from continuity), got {:.4}",
-        r_d.ry
+        r_d.rz
     );
 }

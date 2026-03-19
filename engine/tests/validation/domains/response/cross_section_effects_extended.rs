@@ -39,18 +39,18 @@ fn validation_cross_section_ext_cantilever_deflection_vs_iz() {
 
     let input1 = make_beam(n, l, E, A, iz1, "fixed", None,
         vec![SolverLoad::Nodal(SolverNodalLoad {
-            node_id: n + 1, fx: 0.0, fy: p, mz: 0.0,
+            node_id: n + 1, fx: 0.0, fz: p, my: 0.0,
         })]);
     let input2 = make_beam(n, l, E, A, iz2, "fixed", None,
         vec![SolverLoad::Nodal(SolverNodalLoad {
-            node_id: n + 1, fx: 0.0, fy: p, mz: 0.0,
+            node_id: n + 1, fx: 0.0, fz: p, my: 0.0,
         })]);
 
     let res1 = linear::solve_2d(&input1).unwrap();
     let res2 = linear::solve_2d(&input2).unwrap();
 
-    let d1 = res1.displacements.iter().find(|d| d.node_id == n + 1).unwrap().uy;
-    let d2 = res2.displacements.iter().find(|d| d.node_id == n + 1).unwrap().uy;
+    let d1 = res1.displacements.iter().find(|d| d.node_id == n + 1).unwrap().uz;
+    let d2 = res2.displacements.iter().find(|d| d.node_id == n + 1).unwrap().uz;
 
     // Analytical: delta = PL^3 / (3EI)
     let delta_exact1 = p * l.powi(3) / (3.0 * e_eff * iz1);
@@ -107,8 +107,8 @@ fn validation_cross_section_ext_propped_cantilever_iz_redistribution() {
     let res_b = linear::solve_2d(&input_b).unwrap();
 
     // Roller reaction at right end should differ between cases
-    let r_right_a = res_a.reactions.iter().find(|r| r.node_id == n + 1).unwrap().ry;
-    let r_right_b = res_b.reactions.iter().find(|r| r.node_id == n + 1).unwrap().ry;
+    let r_right_a = res_a.reactions.iter().find(|r| r.node_id == n + 1).unwrap().rz;
+    let r_right_b = res_b.reactions.iter().find(|r| r.node_id == n + 1).unwrap().rz;
 
     let diff = (r_right_a - r_right_b).abs();
     assert!(diff > 0.1,
@@ -117,8 +117,8 @@ fn validation_cross_section_ext_propped_cantilever_iz_redistribution() {
 
     // Equilibrium must hold for both cases: sum Ry = w * L
     let total_load = q.abs() * l;
-    let total_ry_a: f64 = res_a.reactions.iter().map(|r| r.ry).sum();
-    let total_ry_b: f64 = res_b.reactions.iter().map(|r| r.ry).sum();
+    let total_ry_a: f64 = res_a.reactions.iter().map(|r| r.rz).sum();
+    let total_ry_b: f64 = res_b.reactions.iter().map(|r| r.rz).sum();
     assert_close(total_ry_a, total_load, 0.02, "equilibrium propped cantilever A");
     assert_close(total_ry_b, total_load, 0.02, "equilibrium propped cantilever B");
 }
@@ -142,11 +142,11 @@ fn validation_cross_section_ext_axial_displacement_independent_of_iz() {
 
     let input1 = make_beam(n, l, E, A, iz1, "fixed", None,
         vec![SolverLoad::Nodal(SolverNodalLoad {
-            node_id: n + 1, fx: p, fy: 0.0, mz: 0.0,
+            node_id: n + 1, fx: p, fz: 0.0, my: 0.0,
         })]);
     let input2 = make_beam(n, l, E, A, iz2, "fixed", None,
         vec![SolverLoad::Nodal(SolverNodalLoad {
-            node_id: n + 1, fx: p, fy: 0.0, mz: 0.0,
+            node_id: n + 1, fx: p, fz: 0.0, my: 0.0,
         })]);
 
     let res1 = linear::solve_2d(&input1).unwrap();
@@ -194,8 +194,8 @@ fn validation_cross_section_ext_fixed_fixed_beam_iz_scaling() {
     let res2 = linear::solve_2d(&make_ff_beam_udl(iz2)).unwrap();
 
     let mid = n / 2 + 1;
-    let d1 = res1.displacements.iter().find(|d| d.node_id == mid).unwrap().uy.abs();
-    let d2 = res2.displacements.iter().find(|d| d.node_id == mid).unwrap().uy.abs();
+    let d1 = res1.displacements.iter().find(|d| d.node_id == mid).unwrap().uz.abs();
+    let d2 = res2.displacements.iter().find(|d| d.node_id == mid).unwrap().uz.abs();
 
     // Ratio d2/d1 = Iz1/Iz2 = 1/3
     let ratio = d2 / d1;
@@ -243,7 +243,7 @@ fn validation_cross_section_ext_two_bay_portal_drift_vs_beam_iz() {
     ];
     let sups = vec![(1, 1, "fixed"), (2, 5, "fixed"), (3, 6, "fixed")];
     let loads = vec![SolverLoad::Nodal(SolverNodalLoad {
-        node_id: 2, fx: lateral, fy: 0.0, mz: 0.0,
+        node_id: 2, fx: lateral, fz: 0.0, my: 0.0,
     })];
 
     let input1 = make_input(nodes.clone(), mats.clone(), secs1, elems1, sups.clone(), loads.clone());
@@ -299,11 +299,11 @@ fn validation_cross_section_ext_quadruple_area_quarters_axial() {
 
     let input1 = make_beam(n, l, E, a1, iz, "fixed", None,
         vec![SolverLoad::Nodal(SolverNodalLoad {
-            node_id: n + 1, fx: p, fy: 0.0, mz: 0.0,
+            node_id: n + 1, fx: p, fz: 0.0, my: 0.0,
         })]);
     let input2 = make_beam(n, l, E, a2, iz, "fixed", None,
         vec![SolverLoad::Nodal(SolverNodalLoad {
-            node_id: n + 1, fx: p, fy: 0.0, mz: 0.0,
+            node_id: n + 1, fx: p, fz: 0.0, my: 0.0,
         })]);
 
     let res1 = linear::solve_2d(&input1).unwrap();
@@ -341,18 +341,18 @@ fn validation_cross_section_ext_cantilever_tip_rotation_vs_iz() {
 
     let input1 = make_beam(n, l, E, A, iz1, "fixed", None,
         vec![SolverLoad::Nodal(SolverNodalLoad {
-            node_id: n + 1, fx: 0.0, fy: p, mz: 0.0,
+            node_id: n + 1, fx: 0.0, fz: p, my: 0.0,
         })]);
     let input2 = make_beam(n, l, E, A, iz2, "fixed", None,
         vec![SolverLoad::Nodal(SolverNodalLoad {
-            node_id: n + 1, fx: 0.0, fy: p, mz: 0.0,
+            node_id: n + 1, fx: 0.0, fz: p, my: 0.0,
         })]);
 
     let res1 = linear::solve_2d(&input1).unwrap();
     let res2 = linear::solve_2d(&input2).unwrap();
 
-    let rz1 = res1.displacements.iter().find(|d| d.node_id == n + 1).unwrap().rz;
-    let rz2 = res2.displacements.iter().find(|d| d.node_id == n + 1).unwrap().rz;
+    let rz1 = res1.displacements.iter().find(|d| d.node_id == n + 1).unwrap().ry;
+    let rz2 = res2.displacements.iter().find(|d| d.node_id == n + 1).unwrap().ry;
 
     // Analytical: theta = PL^2 / (2EI)
     let theta_exact1 = p * l.powi(2) / (2.0 * e_eff * iz1);
@@ -392,21 +392,21 @@ fn validation_cross_section_ext_symmetric_frame_equal_iz_equal_moments() {
     ];
     let sups = vec![(1, 1, "fixed"), (2, 4, "fixed")];
     let loads = vec![
-        SolverLoad::Nodal(SolverNodalLoad { node_id: 2, fx: 0.0, fy: p_vert, mz: 0.0 }),
-        SolverLoad::Nodal(SolverNodalLoad { node_id: 3, fx: 0.0, fy: p_vert, mz: 0.0 }),
+        SolverLoad::Nodal(SolverNodalLoad { node_id: 2, fx: 0.0, fz: p_vert, my: 0.0 }),
+        SolverLoad::Nodal(SolverNodalLoad { node_id: 3, fx: 0.0, fz: p_vert, my: 0.0 }),
     ];
 
     let input_a = make_input(nodes.clone(), mats.clone(), secs_a, elems_a, sups.clone(), loads.clone());
     let res_a = linear::solve_2d(&input_a).unwrap();
 
     // Symmetric loading + symmetric structure -> equal base moments (absolute value)
-    let mz_left_a = res_a.reactions.iter().find(|r| r.node_id == 1).unwrap().mz.abs();
-    let mz_right_a = res_a.reactions.iter().find(|r| r.node_id == 4).unwrap().mz.abs();
+    let mz_left_a = res_a.reactions.iter().find(|r| r.node_id == 1).unwrap().my.abs();
+    let mz_right_a = res_a.reactions.iter().find(|r| r.node_id == 4).unwrap().my.abs();
     assert_close(mz_left_a, mz_right_a, 0.02, "symmetric frame equal base moments");
 
     // Equal vertical reactions too
-    let ry_left_a = res_a.reactions.iter().find(|r| r.node_id == 1).unwrap().ry;
-    let ry_right_a = res_a.reactions.iter().find(|r| r.node_id == 4).unwrap().ry;
+    let ry_left_a = res_a.reactions.iter().find(|r| r.node_id == 1).unwrap().rz;
+    let ry_right_a = res_a.reactions.iter().find(|r| r.node_id == 4).unwrap().rz;
     assert_close(ry_left_a, ry_right_a, 0.02, "symmetric frame equal vertical reactions");
 
     // Case B: unequal column Iz -> base moments should differ
@@ -422,8 +422,8 @@ fn validation_cross_section_ext_symmetric_frame_equal_iz_equal_moments() {
     let input_b = make_input(nodes, mats, secs_b, elems_b, sups, loads);
     let res_b = linear::solve_2d(&input_b).unwrap();
 
-    let mz_left_b = res_b.reactions.iter().find(|r| r.node_id == 1).unwrap().mz.abs();
-    let mz_right_b = res_b.reactions.iter().find(|r| r.node_id == 4).unwrap().mz.abs();
+    let mz_left_b = res_b.reactions.iter().find(|r| r.node_id == 1).unwrap().my.abs();
+    let mz_right_b = res_b.reactions.iter().find(|r| r.node_id == 4).unwrap().my.abs();
 
     // Stiffer column attracts more moment
     assert!(mz_right_b > mz_left_b,
@@ -432,6 +432,6 @@ fn validation_cross_section_ext_symmetric_frame_equal_iz_equal_moments() {
 
     // Verify vertical equilibrium
     let total_applied = 2.0 * p_vert.abs();
-    let total_ry_b: f64 = res_b.reactions.iter().map(|r| r.ry).sum();
+    let total_ry_b: f64 = res_b.reactions.iter().map(|r| r.rz).sum();
     assert_close(total_ry_b, total_applied, 0.02, "equilibrium asymmetric frame");
 }

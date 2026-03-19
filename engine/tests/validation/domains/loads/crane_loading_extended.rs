@@ -41,7 +41,7 @@ fn crane_wheel_static_reaction() {
         n, l, E, A, IZ,
         "pinned", Some("rollerX"),
         vec![SolverLoad::Nodal(SolverNodalLoad {
-            node_id: mid_node, fx: 0.0, fy: -p_wheel, mz: 0.0,
+            node_id: mid_node, fx: 0.0, fz: -p_wheel, my: 0.0,
         })],
     );
     let results = solve_2d(&input).expect("solve");
@@ -51,8 +51,8 @@ fn crane_wheel_static_reaction() {
     let r_left = results.reactions.iter().find(|r| r.node_id == 1).unwrap();
     let r_right = results.reactions.iter().find(|r| r.node_id == n + 1).unwrap();
 
-    assert_close(r_left.ry, r_expected, 0.01, "Left reaction Ry");
-    assert_close(r_right.ry, r_expected, 0.01, "Right reaction Ry");
+    assert_close(r_left.rz, r_expected, 0.01, "Left reaction Ry");
+    assert_close(r_right.rz, r_expected, 0.01, "Right reaction Ry");
 
     // Midspan moment: M = P*L/4
     let m_expected: f64 = p_wheel * l / 4.0; // = 420 kN-m
@@ -91,7 +91,7 @@ fn crane_impact_factor_25_percent() {
         n, l, E, A, IZ,
         "pinned", Some("rollerX"),
         vec![SolverLoad::Nodal(SolverNodalLoad {
-            node_id: mid_node, fx: 0.0, fy: -p_static, mz: 0.0,
+            node_id: mid_node, fx: 0.0, fz: -p_static, my: 0.0,
         })],
     );
     let res_static = solve_2d(&input_static).expect("solve static");
@@ -101,25 +101,25 @@ fn crane_impact_factor_25_percent() {
         n, l, E, A, IZ,
         "pinned", Some("rollerX"),
         vec![SolverLoad::Nodal(SolverNodalLoad {
-            node_id: mid_node, fx: 0.0, fy: -p_impact, mz: 0.0,
+            node_id: mid_node, fx: 0.0, fz: -p_impact, my: 0.0,
         })],
     );
     let res_impact = solve_2d(&input_impact).expect("solve impact");
 
     // Reactions should scale by 1.25
     let ry_static: f64 = res_static.reactions.iter()
-        .find(|r| r.node_id == 1).unwrap().ry;
+        .find(|r| r.node_id == 1).unwrap().rz;
     let ry_impact: f64 = res_impact.reactions.iter()
-        .find(|r| r.node_id == 1).unwrap().ry;
+        .find(|r| r.node_id == 1).unwrap().rz;
 
     let ratio: f64 = ry_impact / ry_static;
     assert_close(ratio, ci, 0.01, "Impact/static reaction ratio = 1.25");
 
     // Midspan deflection should also scale by 1.25 (linear solver)
     let d_static: f64 = res_static.displacements.iter()
-        .find(|d| d.node_id == mid_node).unwrap().uy.abs();
+        .find(|d| d.node_id == mid_node).unwrap().uz.abs();
     let d_impact: f64 = res_impact.displacements.iter()
-        .find(|d| d.node_id == mid_node).unwrap().uy.abs();
+        .find(|d| d.node_id == mid_node).unwrap().uz.abs();
 
     let defl_ratio: f64 = d_impact / d_static;
     assert_close(defl_ratio, ci, 0.01, "Impact/static deflection ratio = 1.25");
@@ -157,7 +157,7 @@ fn crane_lateral_force_20_percent() {
         n, l, E, A, IZ,
         "pinned", Some("rollerX"),
         vec![SolverLoad::Nodal(SolverNodalLoad {
-            node_id: mid_node, fx: h_lateral, fy: 0.0, mz: 0.0,
+            node_id: mid_node, fx: h_lateral, fz: 0.0, my: 0.0,
         })],
     );
     let results = solve_2d(&input).expect("solve");
@@ -209,10 +209,10 @@ fn crane_runway_two_wheel_moment() {
         "pinned", Some("rollerX"),
         vec![
             SolverLoad::Nodal(SolverNodalLoad {
-                node_id: node1, fx: 0.0, fy: -p, mz: 0.0,
+                node_id: node1, fx: 0.0, fz: -p, my: 0.0,
             }),
             SolverLoad::Nodal(SolverNodalLoad {
-                node_id: node2, fx: 0.0, fy: -p, mz: 0.0,
+                node_id: node2, fx: 0.0, fz: -p, my: 0.0,
             }),
         ],
     );
@@ -284,7 +284,7 @@ fn crane_bracket_eccentricity() {
     // and eccentricity moment at crane level
     let loads = vec![
         SolverLoad::Nodal(SolverNodalLoad {
-            node_id: crane_node, fx: 0.0, fy: -p_vertical, mz: m_ecc,
+            node_id: crane_node, fx: 0.0, fz: -p_vertical, my: m_ecc,
         }),
     ];
 
@@ -303,13 +303,13 @@ fn crane_bracket_eccentricity() {
 
     // Base reaction: Ry should equal P_vertical (vertical = axial for vertical column)
     let r_base = results.reactions.iter().find(|r| r.node_id == 1).unwrap();
-    assert_close(r_base.ry, p_vertical, 0.02, "Column base vertical reaction = P");
+    assert_close(r_base.rz, p_vertical, 0.02, "Column base vertical reaction = P");
 
     // Base moment should include the eccentricity moment.
     // The vertical load passes through the column centerline (no eccentricity
     // in the model itself), so the only moment source is the applied M_ecc.
     // M_base = m_ecc
-    assert_close(r_base.mz.abs(), m_ecc, 0.02, "Column base moment from eccentricity");
+    assert_close(r_base.my.abs(), m_ecc, 0.02, "Column base moment from eccentricity");
 }
 
 // ================================================================
@@ -342,7 +342,7 @@ fn crane_fatigue_stress_range() {
         n, l, E, A, IZ,
         "pinned", Some("rollerX"),
         vec![SolverLoad::Nodal(SolverNodalLoad {
-            node_id: mid_node, fx: 0.0, fy: -p_max, mz: 0.0,
+            node_id: mid_node, fx: 0.0, fz: -p_max, my: 0.0,
         })],
     );
     let res_max = solve_2d(&input_max).expect("solve max");
@@ -352,7 +352,7 @@ fn crane_fatigue_stress_range() {
         n, l, E, A, IZ,
         "pinned", Some("rollerX"),
         vec![SolverLoad::Nodal(SolverNodalLoad {
-            node_id: mid_node, fx: 0.0, fy: -p_min, mz: 0.0,
+            node_id: mid_node, fx: 0.0, fz: -p_min, my: 0.0,
         })],
     );
     let res_min = solve_2d(&input_min).expect("solve min");
@@ -430,10 +430,10 @@ fn crane_multiple_cranes_reduced() {
         "pinned", Some("rollerX"),
         vec![
             SolverLoad::Nodal(SolverNodalLoad {
-                node_id: node_c1, fx: 0.0, fy: -p_crane1, mz: 0.0,
+                node_id: node_c1, fx: 0.0, fz: -p_crane1, my: 0.0,
             }),
             SolverLoad::Nodal(SolverNodalLoad {
-                node_id: node_c2, fx: 0.0, fy: -p_crane2, mz: 0.0,
+                node_id: node_c2, fx: 0.0, fz: -p_crane2, my: 0.0,
             }),
         ],
     );
@@ -452,11 +452,11 @@ fn crane_multiple_cranes_reduced() {
     let r_a = results.reactions.iter().find(|r| r.node_id == 1).unwrap();
     let r_b = results.reactions.iter().find(|r| r.node_id == n + 1).unwrap();
 
-    assert_close(r_a.ry, r_a_expected, 0.02, "Left reaction (two cranes)");
-    assert_close(r_b.ry, r_b_expected, 0.02, "Right reaction (two cranes)");
+    assert_close(r_a.rz, r_a_expected, 0.02, "Left reaction (two cranes)");
+    assert_close(r_b.rz, r_b_expected, 0.02, "Right reaction (two cranes)");
 
     // Total reaction should equal total applied load
-    let total_reaction: f64 = r_a.ry + r_b.ry;
+    let total_reaction: f64 = r_a.rz + r_b.rz;
     let total_load: f64 = p_crane1 + p_crane2;
     assert_close(total_reaction, total_load, 0.01, "Total reaction = total load");
 
@@ -492,14 +492,14 @@ fn crane_runway_deflection_limit() {
         n, l, E, A, IZ,
         "pinned", Some("rollerX"),
         vec![SolverLoad::Nodal(SolverNodalLoad {
-            node_id: mid_node, fx: 0.0, fy: -p_service, mz: 0.0,
+            node_id: mid_node, fx: 0.0, fz: -p_service, my: 0.0,
         })],
     );
     let results = solve_2d(&input).expect("solve");
 
     let mid_d = results.displacements.iter()
         .find(|d| d.node_id == mid_node).unwrap();
-    let delta_solver: f64 = mid_d.uy.abs();
+    let delta_solver: f64 = mid_d.uz.abs();
 
     // Analytical: delta = P*L^3 / (48*E_eff*I)
     let e_eff: f64 = E * 1000.0; // kN/m^2
@@ -530,12 +530,12 @@ fn crane_runway_deflection_limit() {
         n, l, E, A, iz_stiff,
         "pinned", Some("rollerX"),
         vec![SolverLoad::Nodal(SolverNodalLoad {
-            node_id: mid_node, fx: 0.0, fy: -p_service, mz: 0.0,
+            node_id: mid_node, fx: 0.0, fz: -p_service, my: 0.0,
         })],
     );
     let res_stiff = solve_2d(&input_stiff).expect("solve stiff");
     let delta_stiff: f64 = res_stiff.displacements.iter()
-        .find(|d| d.node_id == mid_node).unwrap().uy.abs();
+        .find(|d| d.node_id == mid_node).unwrap().uz.abs();
 
     let stiffness_ratio: f64 = delta_solver / delta_stiff;
     assert_close(stiffness_ratio, 2.0, 0.02, "Doubling Iz halves deflection");

@@ -84,7 +84,7 @@ fn tunnel_overburden_pressure_on_box_section() {
 
     // Total vertical load on top slab = sigma_v * w = 200 * 4 = 800 kN
     let total_load: f64 = sigma_v * w;
-    let sum_ry: f64 = results.reactions.iter().map(|r| r.ry).sum();
+    let sum_ry: f64 = results.reactions.iter().map(|r| r.rz).sum();
 
     // Vertical equilibrium: sum of reactions = total applied load
     assert_close(sum_ry, total_load, 0.01, "vertical equilibrium sum_ry vs total_load");
@@ -92,7 +92,7 @@ fn tunnel_overburden_pressure_on_box_section() {
     // Both supports should carry approximately half the load (symmetric)
     let r_left = results.reactions.iter().find(|r| r.node_id == 1).unwrap();
     let r_right = results.reactions.iter().find(|r| r.node_id == 4).unwrap();
-    assert_close(r_left.ry, r_right.ry, 0.01, "symmetric vertical reactions");
+    assert_close(r_left.rz, r_right.rz, 0.01, "symmetric vertical reactions");
 
     // Horizontal reactions should be zero (no lateral load applied)
     let sum_rx: f64 = results.reactions.iter().map(|r| r.rx).sum();
@@ -158,7 +158,7 @@ fn tunnel_curtis_solution_crown_moment() {
 
     // Check end moment from FEM
     let m_end: f64 = results.reactions.iter()
-        .find(|r| r.node_id == 1).unwrap().mz.abs();
+        .find(|r| r.node_id == 1).unwrap().my.abs();
 
     assert_close(m_end, m_ff_expected, 0.02, "FEM end moment vs q*L^2/12");
 
@@ -211,19 +211,19 @@ fn tunnel_box_culvert_top_slab_moment() {
     // = 100 * 9 / 12 = 75 kN.m
 
     let r1 = results.reactions.iter().find(|r| r.node_id == 1).unwrap();
-    let m_end_fem: f64 = r1.mz.abs();
+    let m_end_fem: f64 = r1.my.abs();
     assert_close(m_end_fem, m_end_expected, 0.02, "box culvert M_end = qL^2/12");
 
     // Each support reaction should be q*L/2
     let ry_expected: f64 = q_earth * span / 2.0; // 150 kN
-    assert_close(r1.ry.abs(), ry_expected, 0.02, "box culvert support reaction qL/2");
+    assert_close(r1.rz.abs(), ry_expected, 0.02, "box culvert support reaction qL/2");
 
     // Maximum deflection: delta = q*L^4 / (384*EI)
     let e_actual: f64 = e * 1000.0; // solver converts MPa -> kN/m2
     let delta_expected: f64 = q_earth * span.powi(4) / (384.0 * e_actual * iz);
     let mid_node = n_elem / 2 + 1;
     let delta_fem: f64 = results.displacements.iter()
-        .find(|d| d.node_id == mid_node).unwrap().uy.abs();
+        .find(|d| d.node_id == mid_node).unwrap().uz.abs();
     assert_close(delta_fem, delta_expected, 0.05, "box culvert max deflection");
 }
 
@@ -283,7 +283,7 @@ fn tunnel_ground_reaction_curve_interaction() {
     // Fixed-fixed end moment: M = q*L^2/12 = 280 * 16 / 12 = 373.3 kN.m
     let m_expected: f64 = p_lining * beam_len * beam_len / 12.0;
     let m_fem: f64 = results.reactions.iter()
-        .find(|r| r.node_id == 1).unwrap().mz.abs();
+        .find(|r| r.node_id == 1).unwrap().my.abs();
     assert_close(m_fem, m_expected, 0.02, "GRC lining moment M=qL^2/12");
 
     // Compare with full overburden (no pre-convergence) moment
@@ -346,9 +346,9 @@ fn tunnel_segmental_lining_hoop_thrust() {
         let theta: f64 = 2.0 * std::f64::consts::PI * i as f64 / n_seg as f64;
         // Radial inward: fx = -f*cos(theta), fy = -f*sin(theta)
         let fx: f64 = -f_per_node * theta.cos();
-        let fy: f64 = -f_per_node * theta.sin();
+        let fz: f64 = -f_per_node * theta.sin();
         loads.push(SolverLoad::Nodal(SolverNodalLoad {
-            node_id: i + 1, fx, fy, mz: 0.0,
+            node_id: i + 1, fx, fz, my: 0.0,
         }));
     }
 
@@ -432,7 +432,7 @@ fn tunnel_surcharge_on_shallow_crown() {
     // Fixed-fixed: M_end = q*L^2/12 = 12.5 * 36 / 12 = 37.5 kN.m
     let m_end_expected: f64 = q_crown * d_tunnel * d_tunnel / 12.0;
     let m_fem: f64 = results.reactions.iter()
-        .find(|r| r.node_id == 1).unwrap().mz.abs();
+        .find(|r| r.node_id == 1).unwrap().my.abs();
     assert_close(m_fem, m_end_expected, 0.02, "surcharge crown M=qL^2/12");
 
     // Compare: if no spread (conservative), q = q_s
@@ -443,7 +443,7 @@ fn tunnel_surcharge_on_shallow_crown() {
     // Reaction: q_crown * L / 2 = 12.5 * 6 / 2 = 37.5 kN
     let ry_expected: f64 = q_crown * d_tunnel / 2.0;
     let ry_fem: f64 = results.reactions.iter()
-        .find(|r| r.node_id == 1).unwrap().ry.abs();
+        .find(|r| r.node_id == 1).unwrap().rz.abs();
     assert_close(ry_fem, ry_expected, 0.02, "surcharge reaction qL/2");
 }
 
@@ -532,7 +532,7 @@ fn tunnel_rectangular_portal_frame_soil_load() {
 
     // Vertical equilibrium: total vertical load = sigma_v * w
     let total_vert: f64 = sigma_v * w; // = 144 * 6 = 864 kN
-    let sum_ry: f64 = results.reactions.iter().map(|r| r.ry).sum();
+    let sum_ry: f64 = results.reactions.iter().map(|r| r.rz).sum();
     assert_close(sum_ry, total_vert, 0.02, "rect tunnel vertical equilibrium");
 
     // Horizontal equilibrium: left wall pushes right, right wall pushes left
@@ -546,10 +546,10 @@ fn tunnel_rectangular_portal_frame_soil_load() {
     // Both vertical reactions should be similar (symmetric vertical load)
     let r_left = results.reactions.iter().find(|r| r.node_id == 1).unwrap();
     let r_right = results.reactions.iter().find(|r| r.node_id == 4).unwrap();
-    let ry_diff: f64 = (r_left.ry - r_right.ry).abs();
-    let ry_avg: f64 = (r_left.ry + r_right.ry) / 2.0;
+    let ry_diff: f64 = (r_left.rz - r_right.rz).abs();
+    let ry_avg: f64 = (r_left.rz + r_right.rz) / 2.0;
     assert!(ry_diff / ry_avg < 0.05,
-        "vertical reactions nearly equal: left={:.1}, right={:.1}", r_left.ry, r_right.ry);
+        "vertical reactions nearly equal: left={:.1}, right={:.1}", r_left.rz, r_right.rz);
 }
 
 // ================================================================
@@ -609,9 +609,9 @@ fn tunnel_lining_thickness_effect() {
     // Both have same end moment (fixed-fixed: M = qL^2/12 regardless of EI)
     let m_end_expected: f64 = q_val * span * span / 12.0;
     let m_thin: f64 = res_thin.reactions.iter()
-        .find(|r| r.node_id == 1).unwrap().mz.abs();
+        .find(|r| r.node_id == 1).unwrap().my.abs();
     let m_thick: f64 = res_thick.reactions.iter()
-        .find(|r| r.node_id == 1).unwrap().mz.abs();
+        .find(|r| r.node_id == 1).unwrap().my.abs();
 
     assert_close(m_thin, m_end_expected, 0.02, "thin lining end moment");
     assert_close(m_thick, m_end_expected, 0.02, "thick lining end moment");
@@ -619,9 +619,9 @@ fn tunnel_lining_thickness_effect() {
     // Deflection: thick lining should deflect less
     let mid_node = n_elem / 2 + 1;
     let delta_thin: f64 = res_thin.displacements.iter()
-        .find(|d| d.node_id == mid_node).unwrap().uy.abs();
+        .find(|d| d.node_id == mid_node).unwrap().uz.abs();
     let delta_thick: f64 = res_thick.displacements.iter()
-        .find(|d| d.node_id == mid_node).unwrap().uy.abs();
+        .find(|d| d.node_id == mid_node).unwrap().uz.abs();
 
     assert!(delta_thick < delta_thin,
         "thick lining deflects less: {:.6e} < {:.6e}", delta_thick, delta_thin);

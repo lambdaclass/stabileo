@@ -43,7 +43,7 @@ fn validation_composite_truss_frame() {
         (4, "truss", 1, 3, 1, 2, false, false), // diagonal brace
     ];
     let loads = vec![SolverLoad::Nodal(SolverNodalLoad {
-        node_id: 2, fx: p, fy: 0.0, mz: 0.0,
+        node_id: 2, fx: p, fz: 0.0, my: 0.0,
     })];
     // Brace has smaller area
     let input = make_input(nodes, vec![(1, E, 0.3)], vec![(1, A, IZ), (2, 0.002, 0.0)],
@@ -77,20 +77,20 @@ fn validation_composite_different_materials() {
 
     // Cantilever with E = 200 GPa
     let loads1 = vec![SolverLoad::Nodal(SolverNodalLoad {
-        node_id: n + 1, fx: 0.0, fy: -p, mz: 0.0,
+        node_id: n + 1, fx: 0.0, fz: -p, my: 0.0,
     })];
     let input1 = make_beam(n, l, E, A, IZ, "fixed", None, loads1);
     let d_steel = linear::solve_2d(&input1).unwrap()
-        .displacements.iter().find(|d| d.node_id == n + 1).unwrap().uy.abs();
+        .displacements.iter().find(|d| d.node_id == n + 1).unwrap().uz.abs();
 
     // Cantilever with E = 70 GPa (aluminum)
     let e_al = 70_000.0;
     let loads2 = vec![SolverLoad::Nodal(SolverNodalLoad {
-        node_id: n + 1, fx: 0.0, fy: -p, mz: 0.0,
+        node_id: n + 1, fx: 0.0, fz: -p, my: 0.0,
     })];
     let input2 = make_beam(n, l, e_al, A, IZ, "fixed", None, loads2);
     let d_al = linear::solve_2d(&input2).unwrap()
-        .displacements.iter().find(|d| d.node_id == n + 1).unwrap().uy.abs();
+        .displacements.iter().find(|d| d.node_id == n + 1).unwrap().uz.abs();
 
     // δ ∝ 1/E → d_al/d_steel = E_steel/E_al
     assert_close(d_al / d_steel, E / e_al, 0.02,
@@ -109,18 +109,18 @@ fn validation_composite_tapered_beam() {
 
     // Uniform section cantilever
     let loads_u = vec![SolverLoad::Nodal(SolverNodalLoad {
-        node_id: n + 1, fx: 0.0, fy: -p, mz: 0.0,
+        node_id: n + 1, fx: 0.0, fz: -p, my: 0.0,
     })];
     let input_u = make_beam(n, l, E, A, IZ, "fixed", None, loads_u);
     let d_uniform = linear::solve_2d(&input_u).unwrap()
-        .displacements.iter().find(|d| d.node_id == n + 1).unwrap().uy.abs();
+        .displacements.iter().find(|d| d.node_id == n + 1).unwrap().uz.abs();
 
     // Tapered: larger section near fixed end, smaller at tip
     // Approximate with 3 different sections
     let mut nodes = std::collections::HashMap::new();
     for i in 0..=n {
         nodes.insert((i + 1).to_string(), SolverNode {
-            id: i + 1, x: i as f64 * l / n as f64, y: 0.0,
+            id: i + 1, x: i as f64 * l / n as f64, z: 0.0,
         });
     }
     let mut mats = std::collections::HashMap::new();
@@ -145,10 +145,10 @@ fn validation_composite_tapered_beam() {
         id: 1, node_id: 1,
         support_type: "fixed".to_string(),
         kx: None, ky: None, kz: None,
-        dx: None, dy: None, drz: None, angle: None,
+        dx: None, dz: None, dry: None, angle: None,
     });
     let loads_t = vec![SolverLoad::Nodal(SolverNodalLoad {
-        node_id: n + 1, fx: 0.0, fy: -p, mz: 0.0,
+        node_id: n + 1, fx: 0.0, fz: -p, my: 0.0,
     })];
     let input_t = SolverInput {
         nodes, materials: mats, sections: secs,
@@ -157,7 +157,7 @@ fn validation_composite_tapered_beam() {
     connectors: std::collections::HashMap::new(),
     };
     let d_tapered = linear::solve_2d(&input_t).unwrap()
-        .displacements.iter().find(|d| d.node_id == n + 1).unwrap().uy.abs();
+        .displacements.iter().find(|d| d.node_id == n + 1).unwrap().uz.abs();
 
     // Tapered beam with larger section at fixed end should be stiffer
     assert!(d_tapered < d_uniform,
@@ -187,7 +187,7 @@ fn validation_composite_hinge_rigid() {
         (3, "frame", 4, 3, 1, 1, false, false),
     ];
     let loads = vec![SolverLoad::Nodal(SolverNodalLoad {
-        node_id: 2, fx: p, fy: 0.0, mz: 0.0,
+        node_id: 2, fx: p, fz: 0.0, my: 0.0,
     })];
     let input_hinged = make_input(nodes, vec![(1, E, 0.3)], vec![(1, A, IZ)], elems,
         vec![(1, 1, "fixed"), (2, 4, "fixed")], loads);
@@ -226,7 +226,7 @@ fn validation_composite_braced_frame() {
         (5, "truss", 4, 2, 1, 2, false, false), // diagonal 2
     ];
     let loads = vec![SolverLoad::Nodal(SolverNodalLoad {
-        node_id: 2, fx: p, fy: 0.0, mz: 0.0,
+        node_id: 2, fx: p, fz: 0.0, my: 0.0,
     })];
     let input_xb = make_input(nodes, vec![(1, E, 0.3)],
         vec![(1, A, IZ), (2, 0.003, 0.0)],
@@ -265,7 +265,7 @@ fn validation_composite_outrigger() {
         (6, "frame", 5, 6, 1, 1, false, false),
     ];
     let loads1 = vec![SolverLoad::Nodal(SolverNodalLoad {
-        node_id: 5, fx: p, fy: 0.0, mz: 0.0,
+        node_id: 5, fx: p, fz: 0.0, my: 0.0,
     })];
     let input1 = make_input(nodes1, vec![(1, E, 0.3)], vec![(1, A, IZ)], elems1,
         vec![(1, 1, "fixed"), (2, 2, "fixed")], loads1);
@@ -287,7 +287,7 @@ fn validation_composite_outrigger() {
         (6, "frame", 5, 6, 1, 1, false, false),
     ];
     let loads2 = vec![SolverLoad::Nodal(SolverNodalLoad {
-        node_id: 5, fx: p, fy: 0.0, mz: 0.0,
+        node_id: 5, fx: p, fz: 0.0, my: 0.0,
     })];
     let input2 = make_input(nodes2, vec![(1, E, 0.3)],
         vec![(1, A, IZ), (2, A, 100.0 * IZ)],
@@ -330,21 +330,21 @@ fn validation_composite_transfer_beam() {
         (8, "frame", 7, 8, 1, 1, false, false), // roof beam
     ];
     let loads = vec![
-        SolverLoad::Nodal(SolverNodalLoad { node_id: 7, fx: 0.0, fy: -p, mz: 0.0 }),
-        SolverLoad::Nodal(SolverNodalLoad { node_id: 8, fx: 0.0, fy: -p, mz: 0.0 }),
+        SolverLoad::Nodal(SolverNodalLoad { node_id: 7, fx: 0.0, fz: -p, my: 0.0 }),
+        SolverLoad::Nodal(SolverNodalLoad { node_id: 8, fx: 0.0, fz: -p, my: 0.0 }),
     ];
     let input = make_input(nodes, vec![(1, E, 0.3)], vec![(1, A, IZ)], elems,
         vec![(1, 1, "fixed"), (2, 2, "fixed")], loads);
     let results = linear::solve_2d(&input).unwrap();
 
     // Total vertical reaction = 2P
-    let sum_ry: f64 = results.reactions.iter().map(|r| r.ry).sum();
+    let sum_ry: f64 = results.reactions.iter().map(|r| r.rz).sum();
     assert_close(sum_ry, 2.0 * p, 0.02,
         "Transfer beam: ΣRy = 2P");
 
     // Both base columns carry load
-    let r1 = results.reactions.iter().find(|r| r.node_id == 1).unwrap().ry;
-    let r2 = results.reactions.iter().find(|r| r.node_id == 2).unwrap().ry;
+    let r1 = results.reactions.iter().find(|r| r.node_id == 1).unwrap().rz;
+    let r2 = results.reactions.iter().find(|r| r.node_id == 2).unwrap().rz;
     assert!(r1 > 0.0, "Transfer: left col carries load");
     assert!(r2 > 0.0, "Transfer: right col carries load");
 }
@@ -367,7 +367,7 @@ fn validation_composite_different_sections() {
         (3, "frame", 4, 3, 1, 1, false, false), // stiff column
     ];
     let loads = vec![SolverLoad::Nodal(SolverNodalLoad {
-        node_id: 2, fx: p, fy: 0.0, mz: 0.0,
+        node_id: 2, fx: p, fz: 0.0, my: 0.0,
     })];
     let input_sf = make_input(nodes.clone(), vec![(1, E, 0.3)],
         vec![(1, A, 10.0 * IZ), (2, A, IZ)],

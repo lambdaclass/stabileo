@@ -65,8 +65,8 @@ fn validation_tri_ss_reactions() {
     let input = make_beam(n, l, E, A, IZ, "pinned", Some("rollerX"), loads);
     let results = linear::solve_2d(&input).unwrap();
 
-    let r_a = results.reactions.iter().find(|r| r.node_id == 1).unwrap().ry;
-    let r_b = results.reactions.iter().find(|r| r.node_id == n + 1).unwrap().ry;
+    let r_a = results.reactions.iter().find(|r| r.node_id == 1).unwrap().rz;
+    let r_b = results.reactions.iter().find(|r| r.node_id == n + 1).unwrap().rz;
 
     // Analytical: R_A = qL/6, R_B = qL/3
     let r_a_exact = q * l / 6.0;
@@ -121,11 +121,11 @@ fn validation_tri_ss_max_moment_location() {
 
     // Deflection should be maximum near x = L/√3 (roughly)
     let disp_at_max = results.displacements.iter()
-        .find(|d| d.node_id == node_at_max).unwrap().uy.abs();
+        .find(|d| d.node_id == node_at_max).unwrap().uz.abs();
     let disp_at_mid = results.displacements.iter()
-        .find(|d| d.node_id == n / 2 + 1).unwrap().uy.abs();
+        .find(|d| d.node_id == n / 2 + 1).unwrap().uz.abs();
     let disp_at_quarter = results.displacements.iter()
-        .find(|d| d.node_id == n / 4 + 1).unwrap().uy.abs();
+        .find(|d| d.node_id == n / 4 + 1).unwrap().uz.abs();
 
     // Max deflection near x = L/√3 > deflection at L/4 and comparable to L/2
     assert!(disp_at_max > disp_at_quarter,
@@ -161,7 +161,7 @@ fn validation_tri_cantilever_tip_deflection() {
     let results = linear::solve_2d(&input).unwrap();
 
     let tip = results.displacements.iter().find(|d| d.node_id == n + 1).unwrap();
-    let delta_computed = tip.uy.abs();
+    let delta_computed = tip.uz.abs();
 
     // Analytical: δ_tip = qL⁴/(30EI)
     let delta_exact = q * l.powi(4) / (30.0 * e_eff * IZ);
@@ -171,8 +171,8 @@ fn validation_tri_cantilever_tip_deflection() {
 
     // Reaction at fixed end: V = qL/2 (total load), M = qL²/6
     let r1 = results.reactions.iter().find(|r| r.node_id == 1).unwrap();
-    assert_close(r1.ry, q * l / 2.0, 0.02, "Cantilever tri: R = qL/2");
-    assert_close(r1.mz.abs(), q * l * l / 6.0, 0.05, "Cantilever tri: M = qL²/6");
+    assert_close(r1.rz, q * l / 2.0, 0.02, "Cantilever tri: R = qL/2");
+    assert_close(r1.my.abs(), q * l * l / 6.0, 0.05, "Cantilever tri: M = qL²/6");
 }
 
 // ================================================================
@@ -193,15 +193,15 @@ fn validation_tri_reversed_reactions() {
     let loads_fwd = triangular_loads(n, 0.0, -q);
     let input_fwd = make_beam(n, l, E, A, IZ, "pinned", Some("rollerX"), loads_fwd);
     let res_fwd = linear::solve_2d(&input_fwd).unwrap();
-    let r_a_fwd = res_fwd.reactions.iter().find(|r| r.node_id == 1).unwrap().ry;
-    let r_b_fwd = res_fwd.reactions.iter().find(|r| r.node_id == n + 1).unwrap().ry;
+    let r_a_fwd = res_fwd.reactions.iter().find(|r| r.node_id == 1).unwrap().rz;
+    let r_b_fwd = res_fwd.reactions.iter().find(|r| r.node_id == n + 1).unwrap().rz;
 
     // Reversed: q at A, 0 at B
     let loads_rev = triangular_loads(n, -q, 0.0);
     let input_rev = make_beam(n, l, E, A, IZ, "pinned", Some("rollerX"), loads_rev);
     let res_rev = linear::solve_2d(&input_rev).unwrap();
-    let r_a_rev = res_rev.reactions.iter().find(|r| r.node_id == 1).unwrap().ry;
-    let r_b_rev = res_rev.reactions.iter().find(|r| r.node_id == n + 1).unwrap().ry;
+    let r_a_rev = res_rev.reactions.iter().find(|r| r.node_id == 1).unwrap().rz;
+    let r_b_rev = res_rev.reactions.iter().find(|r| r.node_id == n + 1).unwrap().rz;
 
     // Forward: R_A = qL/6, R_B = qL/3
     assert_close(r_a_fwd, q * l / 6.0, 0.03, "Forward tri: R_A = qL/6");
@@ -254,23 +254,23 @@ fn validation_tri_trapezoidal_superposition() {
     let res_tri = linear::solve_2d(&input_tri).unwrap();
 
     // Superposition: reactions should add
-    let r_a_trap = res_trap.reactions.iter().find(|r| r.node_id == 1).unwrap().ry;
-    let r_a_udl  = res_udl.reactions.iter().find(|r| r.node_id == 1).unwrap().ry;
-    let r_a_tri  = res_tri.reactions.iter().find(|r| r.node_id == 1).unwrap().ry;
+    let r_a_trap = res_trap.reactions.iter().find(|r| r.node_id == 1).unwrap().rz;
+    let r_a_udl  = res_udl.reactions.iter().find(|r| r.node_id == 1).unwrap().rz;
+    let r_a_tri  = res_tri.reactions.iter().find(|r| r.node_id == 1).unwrap().rz;
     assert_close(r_a_trap, r_a_udl + r_a_tri, 0.01,
         "Superposition: R_A(trap) = R_A(udl) + R_A(tri)");
 
-    let r_b_trap = res_trap.reactions.iter().find(|r| r.node_id == n + 1).unwrap().ry;
-    let r_b_udl  = res_udl.reactions.iter().find(|r| r.node_id == n + 1).unwrap().ry;
-    let r_b_tri  = res_tri.reactions.iter().find(|r| r.node_id == n + 1).unwrap().ry;
+    let r_b_trap = res_trap.reactions.iter().find(|r| r.node_id == n + 1).unwrap().rz;
+    let r_b_udl  = res_udl.reactions.iter().find(|r| r.node_id == n + 1).unwrap().rz;
+    let r_b_tri  = res_tri.reactions.iter().find(|r| r.node_id == n + 1).unwrap().rz;
     assert_close(r_b_trap, r_b_udl + r_b_tri, 0.01,
         "Superposition: R_B(trap) = R_B(udl) + R_B(tri)");
 
     // Midspan deflection should also superpose
     let mid = n / 2 + 1;
-    let d_trap = res_trap.displacements.iter().find(|d| d.node_id == mid).unwrap().uy;
-    let d_udl  = res_udl.displacements.iter().find(|d| d.node_id == mid).unwrap().uy;
-    let d_tri  = res_tri.displacements.iter().find(|d| d.node_id == mid).unwrap().uy;
+    let d_trap = res_trap.displacements.iter().find(|d| d.node_id == mid).unwrap().uz;
+    let d_udl  = res_udl.displacements.iter().find(|d| d.node_id == mid).unwrap().uz;
+    let d_tri  = res_tri.displacements.iter().find(|d| d.node_id == mid).unwrap().uz;
     assert_close(d_trap, d_udl + d_tri, 0.01,
         "Superposition: δ_mid(trap) = δ_mid(udl) + δ_mid(tri)");
 }
@@ -304,18 +304,18 @@ fn validation_tri_fixed_fixed_end_moments() {
     let m_a_exact = q * l * l / 30.0;
     let m_b_exact = q * l * l / 20.0;
 
-    assert_close(r_a.mz.abs(), m_a_exact, 0.08, "Fixed-fixed tri: M_A = qL²/30");
-    assert_close(r_b.mz.abs(), m_b_exact, 0.08, "Fixed-fixed tri: M_B = qL²/20");
+    assert_close(r_a.my.abs(), m_a_exact, 0.08, "Fixed-fixed tri: M_A = qL²/30");
+    assert_close(r_b.my.abs(), m_b_exact, 0.08, "Fixed-fixed tri: M_B = qL²/20");
 
     // M_B > M_A (larger moment at the heavily loaded end)
-    assert!(r_b.mz.abs() > r_a.mz.abs(),
-        "Fixed-fixed tri: M_B > M_A: {:.4} > {:.4}", r_b.mz.abs(), r_a.mz.abs());
+    assert!(r_b.my.abs() > r_a.my.abs(),
+        "Fixed-fixed tri: M_B > M_A: {:.4} > {:.4}", r_b.my.abs(), r_a.my.abs());
 
     // Shear reactions: R_A = 3qL/20, R_B = 7qL/20
     let r_a_shear = q * l * 3.0 / 20.0;
     let r_b_shear = q * l * 7.0 / 20.0;
-    assert_close(r_a.ry, r_a_shear, 0.08, "Fixed-fixed tri: R_A = 3qL/20");
-    assert_close(r_b.ry, r_b_shear, 0.08, "Fixed-fixed tri: R_B = 7qL/20");
+    assert_close(r_a.rz, r_a_shear, 0.08, "Fixed-fixed tri: R_A = 3qL/20");
+    assert_close(r_b.rz, r_b_shear, 0.08, "Fixed-fixed tri: R_B = 7qL/20");
 }
 
 // ================================================================
@@ -346,20 +346,20 @@ fn validation_tri_vs_equivalent_point_load() {
     let load_node = (x_eq / l * n as f64).round() as usize + 1;
     let load_node = load_node.clamp(1, n + 1);
     let loads_pt = vec![SolverLoad::Nodal(SolverNodalLoad {
-        node_id: load_node, fx: 0.0, fy: -p_equiv, mz: 0.0,
+        node_id: load_node, fx: 0.0, fz: -p_equiv, my: 0.0,
     })];
     let input_pt = make_beam(n, l, E, A, IZ, "pinned", Some("rollerX"), loads_pt);
     let res_pt = linear::solve_2d(&input_pt).unwrap();
 
     // Reactions should be equal (same resultant force and location)
-    let r_a_tri = res_tri.reactions.iter().find(|r| r.node_id == 1).unwrap().ry;
-    let r_a_pt  = res_pt.reactions.iter().find(|r| r.node_id == 1).unwrap().ry;
+    let r_a_tri = res_tri.reactions.iter().find(|r| r.node_id == 1).unwrap().rz;
+    let r_a_pt  = res_pt.reactions.iter().find(|r| r.node_id == 1).unwrap().rz;
     assert_close(r_a_tri, r_a_pt, 0.05, "Tri vs equiv PL: R_A matches");
 
     // BUT midspan deflections should differ (different load distributions)
     let mid = n / 2 + 1;
-    let d_tri = res_tri.displacements.iter().find(|d| d.node_id == mid).unwrap().uy.abs();
-    let d_pt  = res_pt.displacements.iter().find(|d| d.node_id == mid).unwrap().uy.abs();
+    let d_tri = res_tri.displacements.iter().find(|d| d.node_id == mid).unwrap().uz.abs();
+    let d_pt  = res_pt.displacements.iter().find(|d| d.node_id == mid).unwrap().uz.abs();
 
     // Triangular load: max deflection near 2L/3, so midspan deflection is
     // smaller than for the equivalent point load at 2L/3.
@@ -430,6 +430,6 @@ fn validation_tri_ss_shear_pattern() {
         "Shear must change sign under triangular load");
 
     // Total vertical equilibrium: reactions = total load
-    let sum_ry: f64 = results.reactions.iter().map(|r| r.ry).sum();
+    let sum_ry: f64 = results.reactions.iter().map(|r| r.rz).sum();
     assert_close(sum_ry, q * l / 2.0, 0.01, "Tri SS: ΣR = qL/2");
 }

@@ -326,12 +326,12 @@ fn validation_str_dyn_ext_dynamic_amplification() {
     let static_input = make_beam(
         n, l, E, A, IZ, "fixed", None,
         vec![SolverLoad::Nodal(SolverNodalLoad {
-            node_id: n_nodes, fx: 0.0, fy: p, mz: 0.0,
+            node_id: n_nodes, fx: 0.0, fz: p, my: 0.0,
         })],
     );
     let static_res = linear::solve_2d(&static_input).unwrap();
     let u_static: f64 = static_res.displacements.iter()
-        .find(|d| d.node_id == n_nodes).unwrap().uy.abs();
+        .find(|d| d.node_id == n_nodes).unwrap().uz.abs();
 
     // Theoretical static deflection: PL³/(3EI)
     let ei: f64 = E * 1000.0 * IZ;

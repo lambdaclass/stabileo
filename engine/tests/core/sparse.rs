@@ -14,7 +14,7 @@ fn make_input(
 ) -> SolverInput {
     let mut nodes_map = HashMap::new();
     for (id, x, y) in nodes {
-        nodes_map.insert(id.to_string(), SolverNode { id, x, y });
+        nodes_map.insert(id.to_string(), SolverNode { id, x, z: y });
     }
     let mut mats_map = HashMap::new();
     for (id, e, nu) in mats {
@@ -35,7 +35,7 @@ fn make_input(
     for (id, nid, t) in sups {
         sups_map.insert(id.to_string(), SolverSupport {
             id, node_id: nid, support_type: t.to_string(),
-            kx: None, ky: None, kz: None, dx: None, dy: None, drz: None, angle: None,
+            kx: None, ky: None, kz: None, dx: None, dz: None, dry: None, angle: None,
         });
     }
     SolverInput { nodes: nodes_map, materials: mats_map, sections: secs_map, elements: elems_map, supports: sups_map, loads, constraints: vec![],  connectors: std::collections::HashMap::new() }
@@ -46,8 +46,8 @@ fn assert_results_close(a: &AnalysisResults, b: &AnalysisResults, tol: f64) {
     for (da, db) in a.displacements.iter().zip(b.displacements.iter()) {
         assert_eq!(da.node_id, db.node_id);
         assert!((da.ux - db.ux).abs() < tol, "node {} ux: {} vs {}", da.node_id, da.ux, db.ux);
-        assert!((da.uy - db.uy).abs() < tol, "node {} uy: {} vs {}", da.node_id, da.uy, db.uy);
-        assert!((da.rz - db.rz).abs() < tol, "node {} rz: {} vs {}", da.node_id, da.rz, db.rz);
+        assert!((da.uz - db.uz).abs() < tol, "node {} uz: {} vs {}", da.node_id, da.uz, db.uz);
+        assert!((da.ry - db.ry).abs() < tol, "node {} ry: {} vs {}", da.node_id, da.ry, db.ry);
     }
     // Compare element forces
     for (ea, eb) in a.element_forces.iter().zip(b.element_forces.iter()) {
@@ -73,7 +73,7 @@ fn test_ss_beam_sparse_vs_dense() {
     );
     let r = linear::solve_2d(&input).unwrap();
     let r1 = r.reactions.iter().find(|r| r.node_id == 1).unwrap();
-    assert!((r1.ry - 30.0).abs() < 0.5);
+    assert!((r1.rz - 30.0).abs() < 0.5);
 }
 
 #[test]
@@ -84,12 +84,12 @@ fn test_cantilever_sparse_vs_dense() {
         vec![(1, 0.15, 0.003125)],
         vec![(1, "frame", 1, 2, 1, 1, false, false)],
         vec![(1, 1, "fixed")],
-        vec![SolverLoad::Nodal(SolverNodalLoad { node_id: 2, fx: 0.0, fy: -50.0, mz: 0.0 })],
+        vec![SolverLoad::Nodal(SolverNodalLoad { node_id: 2, fx: 0.0, fz: -50.0, my: 0.0 })],
     );
     let r = linear::solve_2d(&input).unwrap();
     let r1 = r.reactions.iter().find(|r| r.node_id == 1).unwrap();
-    assert!((r1.ry - 50.0).abs() < 0.5);
-    assert!((r1.mz.abs() - 200.0).abs() < 1.0);
+    assert!((r1.rz - 50.0).abs() < 0.5);
+    assert!((r1.my.abs() - 200.0).abs() < 1.0);
 }
 
 #[test]
@@ -131,12 +131,12 @@ fn test_100_element_beam_forces_sparse() {
     let expected_deflection = 5.0 * q.abs() * l_total.powi(4) / (384.0 * e * iz);
     let mid_node = n_nodes / 2 + 1;
     let mid_disp = r.displacements.iter().find(|d| d.node_id == mid_node).unwrap();
-    let actual = mid_disp.uy.abs();
+    let actual = mid_disp.uz.abs();
     let rel_err = (actual - expected_deflection).abs() / expected_deflection;
     assert!(rel_err < 0.01, "Expected ~{:.6}, got {:.6}, rel_err={:.4}", expected_deflection, actual, rel_err);
 
     // Reactions should sum to total load
-    let total_reaction: f64 = r.reactions.iter().map(|r| r.ry).sum();
+    let total_reaction: f64 = r.reactions.iter().map(|r| r.rz).sum();
     let total_load = q.abs() * l_total;
     assert!((total_reaction - total_load).abs() < 0.01, "reactions={}, load={}", total_reaction, total_load);
 }

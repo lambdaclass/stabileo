@@ -47,14 +47,14 @@ fn validation_ss_beam_udl_end_slope() {
     let d_b = results.displacements.iter().find(|d| d.node_id == n + 1).unwrap();
 
     // Both ends should have the same magnitude of rotation
-    assert_close(d_a.rz.abs(), theta_exact, 0.02, "SS UDL theta_A magnitude");
-    assert_close(d_b.rz.abs(), theta_exact, 0.02, "SS UDL theta_B magnitude");
+    assert_close(d_a.ry.abs(), theta_exact, 0.02, "SS UDL theta_A magnitude");
+    assert_close(d_b.ry.abs(), theta_exact, 0.02, "SS UDL theta_B magnitude");
 
     // Opposite signs (symmetric loading on symmetric beam)
     assert!(
-        d_a.rz * d_b.rz < 0.0,
+        d_a.ry * d_b.ry < 0.0,
         "SS UDL end slopes should have opposite signs: theta_A={:.6e}, theta_B={:.6e}",
-        d_a.rz, d_b.rz
+        d_a.ry, d_b.ry
     );
 }
 
@@ -75,7 +75,7 @@ fn validation_ss_beam_midspan_point_end_slope() {
     let mid = n / 2 + 1;
     let input = make_beam(n, l, E, A, IZ, "pinned", Some("rollerX"),
         vec![SolverLoad::Nodal(SolverNodalLoad {
-            node_id: mid, fx: 0.0, fy: -p, mz: 0.0,
+            node_id: mid, fx: 0.0, fz: -p, my: 0.0,
         })]);
 
     let results = linear::solve_2d(&input).unwrap();
@@ -85,8 +85,8 @@ fn validation_ss_beam_midspan_point_end_slope() {
     let d_a = results.displacements.iter().find(|d| d.node_id == 1).unwrap();
     let d_b = results.displacements.iter().find(|d| d.node_id == n + 1).unwrap();
 
-    assert_close(d_a.rz.abs(), theta_exact, 0.02, "SS midspan P theta_A");
-    assert_close(d_b.rz.abs(), theta_exact, 0.02, "SS midspan P theta_B");
+    assert_close(d_a.ry.abs(), theta_exact, 0.02, "SS midspan P theta_A");
+    assert_close(d_b.ry.abs(), theta_exact, 0.02, "SS midspan P theta_B");
 }
 
 // ================================================================
@@ -105,7 +105,7 @@ fn validation_cantilever_tip_load_rotation() {
 
     let input = make_beam(n, l, E, A, IZ, "fixed", None,
         vec![SolverLoad::Nodal(SolverNodalLoad {
-            node_id: n + 1, fx: 0.0, fy: -p, mz: 0.0,
+            node_id: n + 1, fx: 0.0, fz: -p, my: 0.0,
         })]);
 
     let results = linear::solve_2d(&input).unwrap();
@@ -113,13 +113,13 @@ fn validation_cantilever_tip_load_rotation() {
     let tip = results.displacements.iter().find(|d| d.node_id == n + 1).unwrap();
     let theta_exact = p * l.powi(2) / (2.0 * e_eff * IZ);
 
-    assert_close(tip.rz.abs(), theta_exact, 0.02, "Cantilever tip load theta_tip");
+    assert_close(tip.ry.abs(), theta_exact, 0.02, "Cantilever tip load theta_tip");
 
     // Fixed end should have zero rotation
     let fixed = results.displacements.iter().find(|d| d.node_id == 1).unwrap();
     assert!(
-        fixed.rz.abs() < 1e-10,
-        "Fixed end rotation should be zero, got {:.6e}", fixed.rz
+        fixed.ry.abs() < 1e-10,
+        "Fixed end rotation should be zero, got {:.6e}", fixed.ry
     );
 }
 
@@ -150,7 +150,7 @@ fn validation_cantilever_udl_tip_rotation() {
     let tip = results.displacements.iter().find(|d| d.node_id == n + 1).unwrap();
     let theta_exact = q * l.powi(3) / (6.0 * e_eff * IZ);
 
-    assert_close(tip.rz.abs(), theta_exact, 0.02, "Cantilever UDL theta_tip");
+    assert_close(tip.ry.abs(), theta_exact, 0.02, "Cantilever UDL theta_tip");
 }
 
 // ================================================================
@@ -169,7 +169,7 @@ fn validation_cantilever_tip_moment_rotation() {
 
     let input = make_beam(n, l, E, A, IZ, "fixed", None,
         vec![SolverLoad::Nodal(SolverNodalLoad {
-            node_id: n + 1, fx: 0.0, fy: 0.0, mz: m,
+            node_id: n + 1, fx: 0.0, fz: 0.0, my: m,
         })]);
 
     let results = linear::solve_2d(&input).unwrap();
@@ -177,7 +177,7 @@ fn validation_cantilever_tip_moment_rotation() {
     let tip = results.displacements.iter().find(|d| d.node_id == n + 1).unwrap();
     let theta_exact = m * l / (e_eff * IZ);
 
-    assert_close(tip.rz.abs(), theta_exact, 0.02, "Cantilever tip moment theta_tip");
+    assert_close(tip.ry.abs(), theta_exact, 0.02, "Cantilever tip moment theta_tip");
 }
 
 // ================================================================
@@ -207,12 +207,12 @@ fn validation_fixed_fixed_udl_zero_end_rotations() {
     let d_b = results.displacements.iter().find(|d| d.node_id == n + 1).unwrap();
 
     assert!(
-        d_a.rz.abs() < 1e-10,
-        "Fixed-fixed end A rotation should be zero, got {:.6e}", d_a.rz
+        d_a.ry.abs() < 1e-10,
+        "Fixed-fixed end A rotation should be zero, got {:.6e}", d_a.ry
     );
     assert!(
-        d_b.rz.abs() < 1e-10,
-        "Fixed-fixed end B rotation should be zero, got {:.6e}", d_b.rz
+        d_b.ry.abs() < 1e-10,
+        "Fixed-fixed end B rotation should be zero, got {:.6e}", d_b.ry
     );
 }
 
@@ -243,13 +243,13 @@ fn validation_propped_cantilever_roller_end_rotation() {
     let d_b = results.displacements.iter().find(|d| d.node_id == n + 1).unwrap();
     let theta_exact = q * l.powi(3) / (48.0 * e_eff * IZ);
 
-    assert_close(d_b.rz.abs(), theta_exact, 0.05, "Propped cantilever theta_B");
+    assert_close(d_b.ry.abs(), theta_exact, 0.05, "Propped cantilever theta_B");
 
     // Fixed end should have zero rotation
     let d_a = results.displacements.iter().find(|d| d.node_id == 1).unwrap();
     assert!(
-        d_a.rz.abs() < 1e-10,
-        "Fixed end A rotation should be zero, got {:.6e}", d_a.rz
+        d_a.ry.abs() < 1e-10,
+        "Fixed end A rotation should be zero, got {:.6e}", d_a.ry
     );
 }
 
@@ -274,16 +274,16 @@ fn validation_ss_beam_symmetric_udl_midspan_rotation_zero() {
     let d_mid = results.displacements.iter().find(|d| d.node_id == mid).unwrap();
 
     assert!(
-        d_mid.rz.abs() < 1e-10,
-        "SS UDL midspan rotation should be zero by symmetry, got {:.6e}", d_mid.rz
+        d_mid.ry.abs() < 1e-10,
+        "SS UDL midspan rotation should be zero by symmetry, got {:.6e}", d_mid.ry
     );
 
     // Additionally verify the midspan has the maximum deflection
     // (confirming we are at the correct inflection point of slope)
     let max_defl = results.displacements.iter()
-        .map(|d| d.uy.abs())
+        .map(|d| d.uz.abs())
         .fold(0.0_f64, f64::max);
-    let mid_defl = d_mid.uy.abs();
+    let mid_defl = d_mid.uz.abs();
 
     assert!(
         (max_defl - mid_defl).abs() / max_defl < 0.01,

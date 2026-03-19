@@ -46,7 +46,7 @@ fn validation_comb_ext_zero_factor() {
 
     // Verify original has non-trivial results
     let mid_orig = res.displacements.iter().find(|d| d.node_id == n / 2 + 1).unwrap();
-    assert!(mid_orig.uy.abs() > 1e-10, "Original should have non-zero deflection");
+    assert!(mid_orig.uz.abs() > 1e-10, "Original should have non-zero deflection");
 
     // Combine with factor = 0.0
     let combo = CombinationInput {
@@ -58,15 +58,15 @@ fn validation_comb_ext_zero_factor() {
     // All displacements must be zero
     for d in &combined.displacements {
         assert_close(d.ux, 0.0, 1e-12, &format!("zero factor ux node {}", d.node_id));
-        assert_close(d.uy, 0.0, 1e-12, &format!("zero factor uy node {}", d.node_id));
-        assert_close(d.rz, 0.0, 1e-12, &format!("zero factor rz node {}", d.node_id));
+        assert_close(d.uz, 0.0, 1e-12, &format!("zero factor uy node {}", d.node_id));
+        assert_close(d.ry, 0.0, 1e-12, &format!("zero factor rz node {}", d.node_id));
     }
 
     // All reactions must be zero
     for r in &combined.reactions {
         assert_close(r.rx, 0.0, 1e-12, &format!("zero factor rx node {}", r.node_id));
-        assert_close(r.ry, 0.0, 1e-12, &format!("zero factor ry node {}", r.node_id));
-        assert_close(r.mz, 0.0, 1e-12, &format!("zero factor mz node {}", r.node_id));
+        assert_close(r.rz, 0.0, 1e-12, &format!("zero factor ry node {}", r.node_id));
+        assert_close(r.my, 0.0, 1e-12, &format!("zero factor mz node {}", r.node_id));
     }
 
     // All element forces must be zero
@@ -102,7 +102,7 @@ fn validation_comb_ext_distributive_property() {
 
     // LC2: Point load -25 kN at midspan
     let lc2_loads = vec![SolverLoad::Nodal(SolverNodalLoad {
-        node_id: n / 2 + 1, fx: 0.0, fy: -25.0, mz: 0.0,
+        node_id: n / 2 + 1, fx: 0.0, fz: -25.0, my: 0.0,
     })];
 
     // RHS: solve each separately, combine with factor a
@@ -133,7 +133,7 @@ fn validation_comb_ext_distributive_property() {
         }));
     }
     combined_loads.push(SolverLoad::Nodal(SolverNodalLoad {
-        node_id: n / 2 + 1, fx: 0.0, fy: -25.0, mz: 0.0,
+        node_id: n / 2 + 1, fx: 0.0, fz: -25.0, my: 0.0,
     }));
     let res_combined = linear::solve_2d(
         &make_beam(n, l, E, A, IZ, "pinned", Some("rollerX"), combined_loads),
@@ -148,15 +148,15 @@ fn validation_comb_ext_distributive_property() {
     // Compare all displacements
     for (l_d, r_d) in lhs.displacements.iter().zip(rhs.displacements.iter()) {
         assert_close(l_d.ux, r_d.ux, 1e-6, &format!("distributive ux node {}", l_d.node_id));
-        assert_close(l_d.uy, r_d.uy, 1e-6, &format!("distributive uy node {}", l_d.node_id));
-        assert_close(l_d.rz, r_d.rz, 1e-6, &format!("distributive rz node {}", l_d.node_id));
+        assert_close(l_d.uz, r_d.uz, 1e-6, &format!("distributive uy node {}", l_d.node_id));
+        assert_close(l_d.ry, r_d.ry, 1e-6, &format!("distributive rz node {}", l_d.node_id));
     }
 
     // Compare all reactions
     for (l_r, r_r) in lhs.reactions.iter().zip(rhs.reactions.iter()) {
         assert_close(l_r.rx, r_r.rx, 1e-6, &format!("distributive rx node {}", l_r.node_id));
-        assert_close(l_r.ry, r_r.ry, 1e-6, &format!("distributive ry node {}", l_r.node_id));
-        assert_close(l_r.mz, r_r.mz, 1e-6, &format!("distributive mz node {}", l_r.node_id));
+        assert_close(l_r.rz, r_r.rz, 1e-6, &format!("distributive ry node {}", l_r.node_id));
+        assert_close(l_r.my, r_r.my, 1e-6, &format!("distributive mz node {}", l_r.node_id));
     }
 
     // Compare element forces
@@ -289,8 +289,8 @@ fn validation_comb_ext_portal_frame_combo() {
     ];
     let sups = vec![(1, 1usize, "fixed"), (2, 4, "fixed")];
     let direct_loads = vec![
-        SolverLoad::Nodal(SolverNodalLoad { node_id: 2, fx: 15.0, fy: -27.0, mz: 0.0 }),
-        SolverLoad::Nodal(SolverNodalLoad { node_id: 3, fx: 0.0, fy: -27.0, mz: 0.0 }),
+        SolverLoad::Nodal(SolverNodalLoad { node_id: 2, fx: 15.0, fz: -27.0, my: 0.0 }),
+        SolverLoad::Nodal(SolverNodalLoad { node_id: 3, fx: 0.0, fz: -27.0, my: 0.0 }),
     ];
     let input_direct = make_input(
         nodes,
@@ -308,9 +308,9 @@ fn validation_comb_ext_portal_frame_combo() {
             .find(|d| d.node_id == d_comb.node_id).unwrap();
         assert_close(d_comb.ux, d_dir.ux, 1e-6,
             &format!("portal combo ux node {}", d_comb.node_id));
-        assert_close(d_comb.uy, d_dir.uy, 1e-6,
+        assert_close(d_comb.uz, d_dir.uz, 1e-6,
             &format!("portal combo uy node {}", d_comb.node_id));
-        assert_close(d_comb.rz, d_dir.rz, 1e-6,
+        assert_close(d_comb.ry, d_dir.ry, 1e-6,
             &format!("portal combo rz node {}", d_comb.node_id));
     }
 
@@ -320,9 +320,9 @@ fn validation_comb_ext_portal_frame_combo() {
             .find(|r| r.node_id == r_comb.node_id).unwrap();
         assert_close(r_comb.rx, r_dir.rx, 1e-5,
             &format!("portal combo rx node {}", r_comb.node_id));
-        assert_close(r_comb.ry, r_dir.ry, 1e-5,
+        assert_close(r_comb.rz, r_dir.rz, 1e-5,
             &format!("portal combo ry node {}", r_comb.node_id));
-        assert_close(r_comb.mz, r_dir.mz, 1e-5,
+        assert_close(r_comb.my, r_dir.my, 1e-5,
             &format!("portal combo mz node {}", r_comb.node_id));
     }
 }
@@ -343,7 +343,7 @@ fn validation_comb_ext_additive_decomposition() {
     let factor_b = total_factor - factor_a; // 0.9
 
     let loads = vec![SolverLoad::Nodal(SolverNodalLoad {
-        node_id: n / 2 + 1, fx: 0.0, fy: -30.0, mz: 0.0,
+        node_id: n / 2 + 1, fx: 0.0, fz: -30.0, my: 0.0,
     })];
 
     let input = make_beam(n, l, E, A, IZ, "pinned", Some("rollerX"), loads);
@@ -373,15 +373,15 @@ fn validation_comb_ext_additive_decomposition() {
     // All displacements should match
     for (l_d, r_d) in lhs.displacements.iter().zip(rhs.displacements.iter()) {
         assert_close(l_d.ux, r_d.ux, 1e-10, &format!("additive ux node {}", l_d.node_id));
-        assert_close(l_d.uy, r_d.uy, 1e-10, &format!("additive uy node {}", l_d.node_id));
-        assert_close(l_d.rz, r_d.rz, 1e-10, &format!("additive rz node {}", l_d.node_id));
+        assert_close(l_d.uz, r_d.uz, 1e-10, &format!("additive uy node {}", l_d.node_id));
+        assert_close(l_d.ry, r_d.ry, 1e-10, &format!("additive rz node {}", l_d.node_id));
     }
 
     // All reactions should match
     for (l_r, r_r) in lhs.reactions.iter().zip(rhs.reactions.iter()) {
         assert_close(l_r.rx, r_r.rx, 1e-10, &format!("additive rx node {}", l_r.node_id));
-        assert_close(l_r.ry, r_r.ry, 1e-10, &format!("additive ry node {}", l_r.node_id));
-        assert_close(l_r.mz, r_r.mz, 1e-10, &format!("additive mz node {}", l_r.node_id));
+        assert_close(l_r.rz, r_r.rz, 1e-10, &format!("additive ry node {}", l_r.node_id));
+        assert_close(l_r.my, r_r.my, 1e-10, &format!("additive mz node {}", l_r.node_id));
     }
 
     // All element forces should match
@@ -447,12 +447,12 @@ fn validation_comb_ext_envelope_max_abs_governing() {
         .find(|d| d.node_id == mid_id).unwrap();
 
     // The envelope should pick whichever has larger |uy|
-    let governing_uy = if res2_mid.uy.abs() >= res3_mid.uy.abs() {
-        res2_mid.uy
+    let governing_uy = if res2_mid.uz.abs() >= res3_mid.uz.abs() {
+        res2_mid.uz
     } else {
-        res3_mid.uy
+        res3_mid.uz
     };
-    assert_close(env_mid.uy, governing_uy, 1e-10,
+    assert_close(env_mid.uz, governing_uy, 1e-10,
         "envelope max_abs should pick governing uy");
 
     // Verify envelope reactions at node 1: case 2 should govern
@@ -460,7 +460,7 @@ fn validation_comb_ext_envelope_max_abs_governing() {
         .find(|r| r.node_id == 1).unwrap();
     let res2_r1 = res2.reactions.iter()
         .find(|r| r.node_id == 1).unwrap();
-    assert_close(env_r1.ry, res2_r1.ry, 1e-10,
+    assert_close(env_r1.rz, res2_r1.rz, 1e-10,
         "envelope max_abs should pick governing ry at support 1");
 }
 
@@ -541,19 +541,19 @@ fn validation_comb_ext_3d_distributed_combo() {
     let tip_comb = combined.displacements.iter().find(|d| d.node_id == tip_id).unwrap();
     let tip_dir = res_direct.displacements.iter().find(|d| d.node_id == tip_id).unwrap();
 
-    assert_close(tip_comb.uy, tip_dir.uy, 1e-6, "3D dist combo tip uy");
+    assert_close(tip_comb.uz, tip_dir.uz, 1e-6, "3D dist combo tip uy");
     assert_close(tip_comb.uz, tip_dir.uz, 1e-6, "3D dist combo tip uz");
-    assert_close(tip_comb.rz, tip_dir.rz, 1e-6, "3D dist combo tip rz");
-    assert_close(tip_comb.ry, tip_dir.ry, 1e-6, "3D dist combo tip ry");
+    assert_close(tip_comb.ry, tip_dir.ry, 1e-6, "3D dist combo tip rz");
+    assert_close(tip_comb.rz, tip_dir.rz, 1e-6, "3D dist combo tip ry");
 
     // Compare reactions at fixed support (node 1)
     let r1_comb = combined.reactions.iter().find(|r| r.node_id == 1).unwrap();
     let r1_dir = res_direct.reactions.iter().find(|r| r.node_id == 1).unwrap();
 
-    assert_close(r1_comb.fy, r1_dir.fy, 1e-5, "3D dist combo Fy reaction");
+    assert_close(r1_comb.fz, r1_dir.fz, 1e-5, "3D dist combo Fy reaction");
     assert_close(r1_comb.fz, r1_dir.fz, 1e-5, "3D dist combo Fz reaction");
     assert_close(r1_comb.my, r1_dir.my, 1e-5, "3D dist combo My reaction");
-    assert_close(r1_comb.mz, r1_dir.mz, 1e-5, "3D dist combo Mz reaction");
+    assert_close(r1_comb.my, r1_dir.my, 1e-5, "3D dist combo Mz reaction");
 
     // Compare element forces on the first element
     let ef1_comb = combined.element_forces.iter().find(|e| e.element_id == 1).unwrap();
@@ -587,7 +587,7 @@ fn validation_comb_ext_sls_quasi_permanent() {
 
     // LL: point load -15 kN at midspan
     let ll_loads = vec![SolverLoad::Nodal(SolverNodalLoad {
-        node_id: n / 2 + 1, fx: 0.0, fy: -15.0, mz: 0.0,
+        node_id: n / 2 + 1, fx: 0.0, fz: -15.0, my: 0.0,
     })];
 
     // Wind: UDL +6 kN/m (uplift)
@@ -642,9 +642,9 @@ fn validation_comb_ext_sls_quasi_permanent() {
     {
         assert_close(d_w.ux, d_nw.ux, 1e-12,
             &format!("SLS ux node {}", d_w.node_id));
-        assert_close(d_w.uy, d_nw.uy, 1e-12,
+        assert_close(d_w.uz, d_nw.uz, 1e-12,
             &format!("SLS uy node {}", d_w.node_id));
-        assert_close(d_w.rz, d_nw.rz, 1e-12,
+        assert_close(d_w.ry, d_nw.ry, 1e-12,
             &format!("SLS rz node {}", d_w.node_id));
     }
 
@@ -653,9 +653,9 @@ fn validation_comb_ext_sls_quasi_permanent() {
     {
         assert_close(r_w.rx, r_nw.rx, 1e-12,
             &format!("SLS rx node {}", r_w.node_id));
-        assert_close(r_w.ry, r_nw.ry, 1e-12,
+        assert_close(r_w.rz, r_nw.rz, 1e-12,
             &format!("SLS ry node {}", r_w.node_id));
-        assert_close(r_w.mz, r_nw.mz, 1e-12,
+        assert_close(r_w.my, r_nw.my, 1e-12,
             &format!("SLS mz node {}", r_w.node_id));
     }
 
@@ -666,7 +666,7 @@ fn validation_comb_ext_sls_quasi_permanent() {
         }))
         .collect();
     direct_loads.push(SolverLoad::Nodal(SolverNodalLoad {
-        node_id: n / 2 + 1, fx: 0.0, fy: 0.3 * (-15.0), mz: 0.0,
+        node_id: n / 2 + 1, fx: 0.0, fz: 0.3 * (-15.0), my: 0.0,
     }));
     let res_direct = linear::solve_2d(
         &make_beam(n, l, E, A, IZ, "pinned", Some("rollerX"), direct_loads),
@@ -676,12 +676,12 @@ fn validation_comb_ext_sls_quasi_permanent() {
         .find(|d| d.node_id == n / 2 + 1).unwrap();
     let mid_direct = res_direct.displacements.iter()
         .find(|d| d.node_id == n / 2 + 1).unwrap();
-    assert_close(mid_comb.uy, mid_direct.uy, 1e-6, "SLS midspan uy vs direct");
+    assert_close(mid_comb.uz, mid_direct.uz, 1e-6, "SLS midspan uy vs direct");
 
     // Compare reactions
     let r1_comb = combined_with_wind.reactions.iter()
         .find(|r| r.node_id == 1).unwrap();
     let r1_direct = res_direct.reactions.iter()
         .find(|r| r.node_id == 1).unwrap();
-    assert_close(r1_comb.ry, r1_direct.ry, 1e-6, "SLS R1_y vs direct");
+    assert_close(r1_comb.rz, r1_direct.rz, 1e-6, "SLS R1_y vs direct");
 }

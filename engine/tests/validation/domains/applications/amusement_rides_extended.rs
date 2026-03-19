@@ -63,7 +63,7 @@ fn ferris_wheel_spoke_tension() {
         ],
         vec![(1, 1, "pinned"), (2, 2, "pinned")],
         vec![SolverLoad::Nodal(SolverNodalLoad {
-            node_id: 3, fx: 0.0, fy: -p_gondola, mz: 0.0,
+            node_id: 3, fx: 0.0, fz: -p_gondola, my: 0.0,
         })],
     );
     let results = solve_2d(&input).expect("solve");
@@ -79,12 +79,12 @@ fn ferris_wheel_spoke_tension() {
         "Ferris wheel: spoke tension = P/(2*sin(alpha))");
 
     // Vertical equilibrium: sum of vertical reactions = P
-    let sum_ry: f64 = results.reactions.iter().map(|r| r.ry).sum();
+    let sum_ry: f64 = results.reactions.iter().map(|r| r.rz).sum();
     assert_close(sum_ry, p_gondola, 0.02, "Ferris wheel: vertical equilibrium");
 
     // Gondola should deflect downward
     let d3 = results.displacements.iter().find(|d| d.node_id == 3).unwrap();
-    assert!(d3.uy < 0.0, "Ferris wheel: gondola deflects downward");
+    assert!(d3.uz < 0.0, "Ferris wheel: gondola deflects downward");
 }
 
 // ================================================================
@@ -118,7 +118,7 @@ fn roller_coaster_track_beam() {
     // That corresponds to node: n_per_span + n_per_span/2 + 1 = 4 + 2 + 1 = 7
     let mid_node = n_per_span + n_per_span / 2 + 1;
     let loads = vec![SolverLoad::Nodal(SolverNodalLoad {
-        node_id: mid_node, fx: 0.0, fy: p_car, mz: 0.0,
+        node_id: mid_node, fx: 0.0, fz: p_car, my: 0.0,
     })];
 
     let input = make_continuous_beam(
@@ -132,13 +132,13 @@ fn roller_coaster_track_beam() {
     let results = solve_2d(&input).expect("solve");
 
     // Total vertical reaction = P
-    let sum_ry: f64 = results.reactions.iter().map(|r| r.ry).sum();
+    let sum_ry: f64 = results.reactions.iter().map(|r| r.rz).sum();
     assert_close(sum_ry, p_car.abs(), 0.02, "Coaster: total reaction = P");
 
     // Midspan deflection of the loaded span should be downward
     let mid_disp = results.displacements.iter()
         .find(|d| d.node_id == mid_node).unwrap();
-    assert!(mid_disp.uy < 0.0, "Coaster: track deflects downward at car position");
+    assert!(mid_disp.uz < 0.0, "Coaster: track deflects downward at car position");
 
     // The two interior supports (at span boundaries) should carry
     // the majority of the load. Support nodes are at:
@@ -152,14 +152,14 @@ fn roller_coaster_track_beam() {
 
     // By symmetry of loading in center span, both inner supports
     // should carry equal reactions
-    assert_close(r_li.ry, r_ri.ry, 0.05,
+    assert_close(r_li.rz, r_ri.rz, 0.05,
         "Coaster: symmetric inner support reactions");
 
     // Deflection should be small relative to span (serviceability)
     let deflection_limit: f64 = span / 300.0;
-    assert!(mid_disp.uy.abs() < deflection_limit,
+    assert!(mid_disp.uz.abs() < deflection_limit,
         "Coaster: deflection {:.5} m < L/300 = {:.5} m",
-        mid_disp.uy.abs(), deflection_limit);
+        mid_disp.uz.abs(), deflection_limit);
 }
 
 // ================================================================
@@ -188,7 +188,7 @@ fn observation_tower_wind_and_weight() {
     // Model tower along X (cantilever: fixed at node 1, free at tip)
     // Wind load acts in Y direction at the tip
     let loads = vec![SolverLoad::Nodal(SolverNodalLoad {
-        node_id: n + 1, fx: 0.0, fy: f_wind, mz: 0.0,
+        node_id: n + 1, fx: 0.0, fz: f_wind, my: 0.0,
     })];
 
     let input = make_beam(n, h_tower, e_steel, a_tower, iz_tower,
@@ -202,17 +202,17 @@ fn observation_tower_wind_and_weight() {
     let tip_disp = results.displacements.iter()
         .find(|d| d.node_id == n + 1).unwrap();
 
-    assert_close(tip_disp.uy.abs(), delta_p_exact, 0.03,
+    assert_close(tip_disp.uz.abs(), delta_p_exact, 0.03,
         "Tower: tip deflection from wind = PL^3/(3EI)");
 
     // Base reactions: horizontal reaction = wind load
     let r_base = results.reactions.iter().find(|r| r.node_id == 1).unwrap();
-    assert_close(r_base.ry.abs(), f_wind, 0.02,
+    assert_close(r_base.rz.abs(), f_wind, 0.02,
         "Tower: base horizontal reaction = wind force");
 
     // Base moment: M = F_wind * H
     let m_base_exact: f64 = f_wind * h_tower;
-    assert_close(r_base.mz.abs(), m_base_exact, 0.03,
+    assert_close(r_base.my.abs(), m_base_exact, 0.03,
         "Tower: base moment = F*H");
 
     // Root element should carry the full shear
@@ -246,7 +246,7 @@ fn carousel_beam_radial_arm() {
     let n: usize = 6;
 
     let loads = vec![SolverLoad::Nodal(SolverNodalLoad {
-        node_id: n + 1, fx: 0.0, fy: p_tip, mz: 0.0,
+        node_id: n + 1, fx: 0.0, fz: p_tip, my: 0.0,
     })];
 
     let input = make_beam(n, l_arm, e_steel, a_arm, iz_arm,
@@ -260,22 +260,22 @@ fn carousel_beam_radial_arm() {
     let tip_disp = results.displacements.iter()
         .find(|d| d.node_id == n + 1).unwrap();
 
-    assert_close(tip_disp.uy.abs(), delta_exact, 0.03,
+    assert_close(tip_disp.uz.abs(), delta_exact, 0.03,
         "Carousel: tip deflection = PL^3/(3EI)");
 
     // Root moment: M = P * L
     let m_root_exact: f64 = p_tip.abs() * l_arm;
     let r_base = results.reactions.iter().find(|r| r.node_id == 1).unwrap();
-    assert_close(r_base.mz.abs(), m_root_exact, 0.03,
+    assert_close(r_base.my.abs(), m_root_exact, 0.03,
         "Carousel: root moment = P*L");
 
     // Root shear = P
-    assert_close(r_base.ry.abs(), p_tip.abs(), 0.02,
+    assert_close(r_base.rz.abs(), p_tip.abs(), 0.02,
         "Carousel: root shear = P");
 
     // Tip rotation: theta = P*L^2/(2*E*I)
     let theta_exact: f64 = p_tip.abs() * l_arm.powi(2) / (2.0 * e_eff * iz_arm);
-    assert_close(tip_disp.rz.abs(), theta_exact, 0.05,
+    assert_close(tip_disp.ry.abs(), theta_exact, 0.05,
         "Carousel: tip rotation = PL^2/(2EI)");
 }
 
@@ -322,7 +322,7 @@ fn zip_line_cable_tension() {
         ],
         vec![(1, 1, "pinned"), (2, 3, "pinned")],
         vec![SolverLoad::Nodal(SolverNodalLoad {
-            node_id: 2, fx: 0.0, fy: -p_rider, mz: 0.0,
+            node_id: 2, fx: 0.0, fz: -p_rider, my: 0.0,
         })],
     );
     let results = solve_2d(&input).expect("solve");
@@ -339,12 +339,12 @@ fn zip_line_cable_tension() {
         "Zip line: cable tension = P/(2*sin(alpha))");
 
     // Vertical equilibrium
-    let sum_ry: f64 = results.reactions.iter().map(|r| r.ry).sum();
+    let sum_ry: f64 = results.reactions.iter().map(|r| r.rz).sum();
     assert_close(sum_ry, p_rider, 0.02, "Zip line: vertical equilibrium");
 
     // Midpoint should deflect downward
     let d2 = results.displacements.iter().find(|d| d.node_id == 2).unwrap();
-    assert!(d2.uy < 0.0, "Zip line: midpoint sags under load");
+    assert!(d2.uz < 0.0, "Zip line: midpoint sags under load");
 }
 
 // ================================================================
@@ -386,7 +386,7 @@ fn swing_ride_chain_tension() {
         ],
         vec![(1, 1, "pinned"), (2, 2, "pinned")],
         vec![SolverLoad::Nodal(SolverNodalLoad {
-            node_id: 3, fx: 0.0, fy: -p_seat, mz: 0.0,
+            node_id: 3, fx: 0.0, fz: -p_seat, my: 0.0,
         })],
     );
     let results = solve_2d(&input).expect("solve");
@@ -404,7 +404,7 @@ fn swing_ride_chain_tension() {
 
     // Each support carries half the vertical load
     let r1 = results.reactions.iter().find(|r| r.node_id == 1).unwrap();
-    assert_close(r1.ry, p_seat / 2.0, 0.02,
+    assert_close(r1.rz, p_seat / 2.0, 0.02,
         "Swing: each support carries P/2 vertically");
 
     // Horizontal reactions should be equal and opposite
@@ -461,7 +461,7 @@ fn water_slide_support_beam() {
     let mid_disp = results.displacements.iter()
         .find(|d| d.node_id == mid_node).unwrap();
 
-    assert_close(mid_disp.uy.abs(), delta_exact, 0.05,
+    assert_close(mid_disp.uz.abs(), delta_exact, 0.05,
         "Water slide: midspan deflection = 5qL^4/(384EI)");
 
     // Each reaction = q*L/2
@@ -469,9 +469,9 @@ fn water_slide_support_beam() {
     let r1 = results.reactions.iter().find(|r| r.node_id == 1).unwrap();
     let r_end = results.reactions.iter().find(|r| r.node_id == n + 1).unwrap();
 
-    assert_close(r1.ry.abs(), r_exact, 0.02,
+    assert_close(r1.rz.abs(), r_exact, 0.02,
         "Water slide: left reaction = qL/2");
-    assert_close(r_end.ry.abs(), r_exact, 0.02,
+    assert_close(r_end.rz.abs(), r_exact, 0.02,
         "Water slide: right reaction = qL/2");
 
     // Maximum bending moment at midspan: M = q*L^2/8
@@ -533,7 +533,7 @@ fn gondola_cable_station() {
         ],
         vec![(1, 1, "pinned"), (2, 3, "pinned")],
         vec![SolverLoad::Nodal(SolverNodalLoad {
-            node_id: 2, fx: 0.0, fy: -p_gondola, mz: 0.0,
+            node_id: 2, fx: 0.0, fz: -p_gondola, my: 0.0,
         })],
     );
     let results = solve_2d(&input).expect("solve");
@@ -563,7 +563,7 @@ fn gondola_cable_station() {
         "Gondola: symmetric horizontal reactions");
 
     // Vertical equilibrium
-    let sum_ry: f64 = results.reactions.iter().map(|r| r.ry).sum();
+    let sum_ry: f64 = results.reactions.iter().map(|r| r.rz).sum();
     assert_close(sum_ry, p_gondola, 0.02, "Gondola: vertical equilibrium");
 
     // Sag ratio check: smaller sag means higher tension

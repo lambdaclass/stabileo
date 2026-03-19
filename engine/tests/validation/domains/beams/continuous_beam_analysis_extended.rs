@@ -91,7 +91,7 @@ fn validation_5span_equal_udl_symmetry_and_equilibrium() {
     );
 
     // Global equilibrium: sum = 5*q*L = 250
-    let sum_ry: f64 = results.reactions.iter().map(|r| r.ry).sum();
+    let sum_ry: f64 = results.reactions.iter().map(|r| r.rz).sum();
     assert_close(sum_ry, 5.0 * q * l, 0.01, "5span equilibrium");
 }
 
@@ -143,17 +143,17 @@ fn validation_2span_equal_udl_moments_and_reactions() {
     let r_a = results.reactions.iter().find(|r| r.node_id == node_a).unwrap();
     let r_c = results.reactions.iter().find(|r| r.node_id == node_c).unwrap();
     let expected_r_end = 3.0 * q * l / 8.0; // 56.25
-    assert_close(r_a.ry, expected_r_end, 0.03, "2span R_A = 3qL/8");
-    assert_close(r_c.ry, expected_r_end, 0.03, "2span R_C = 3qL/8");
+    assert_close(r_a.rz, expected_r_end, 0.03, "2span R_A = 3qL/8");
+    assert_close(r_c.rz, expected_r_end, 0.03, "2span R_C = 3qL/8");
 
     // Interior reaction: R_B = 5qL/4
     let node_b = 1 + n_per_span;
     let r_b = results.reactions.iter().find(|r| r.node_id == node_b).unwrap();
     let expected_r_int = 5.0 * q * l / 4.0; // 187.5
-    assert_close(r_b.ry, expected_r_int, 0.03, "2span R_B = 5qL/4");
+    assert_close(r_b.rz, expected_r_int, 0.03, "2span R_B = 5qL/4");
 
     // Total equilibrium
-    let sum_ry: f64 = results.reactions.iter().map(|r| r.ry).sum();
+    let sum_ry: f64 = results.reactions.iter().map(|r| r.rz).sum();
     assert_close(sum_ry, 2.0 * q * l, 0.01, "2span equilibrium");
 }
 
@@ -201,7 +201,7 @@ fn validation_2span_unequal_interior_moment() {
     assert_close(ef_at_b.m_end.abs(), expected_mb, 0.05, "unequal M_B");
 
     // Equilibrium
-    let sum_ry: f64 = results.reactions.iter().map(|r| r.ry).sum();
+    let sum_ry: f64 = results.reactions.iter().map(|r| r.rz).sum();
     assert_close(sum_ry, q * (l1 + l2), 0.01, "unequal equilibrium");
 }
 
@@ -273,7 +273,7 @@ fn validation_3span_center_span_loaded_only() {
     assert_close(m_b, m_c, 0.02, "center loaded M_B = M_C");
 
     // Equilibrium: only center span loaded, total = q*L = 60
-    let sum_ry: f64 = results.reactions.iter().map(|r| r.ry).sum();
+    let sum_ry: f64 = results.reactions.iter().map(|r| r.rz).sum();
     assert_close(sum_ry, q * l, 0.01, "center loaded equilibrium");
 }
 
@@ -324,20 +324,20 @@ fn validation_3span_point_loads_all_midspans() {
         SolverLoad::Nodal(SolverNodalLoad {
             node_id: mid1,
             fx: 0.0,
-            fy: -p,
-            mz: 0.0,
+            fz: -p,
+            my: 0.0,
         }),
         SolverLoad::Nodal(SolverNodalLoad {
             node_id: mid2,
             fx: 0.0,
-            fy: -p,
-            mz: 0.0,
+            fz: -p,
+            my: 0.0,
         }),
         SolverLoad::Nodal(SolverNodalLoad {
             node_id: mid3,
             fx: 0.0,
-            fy: -p,
-            mz: 0.0,
+            fz: -p,
+            my: 0.0,
         }),
     ];
 
@@ -379,7 +379,7 @@ fn validation_3span_point_loads_all_midspans() {
     );
 
     // Equilibrium: total load = 3P = 90
-    let sum_ry: f64 = results.reactions.iter().map(|r| r.ry).sum();
+    let sum_ry: f64 = results.reactions.iter().map(|r| r.rz).sum();
     assert_close(sum_ry, 3.0 * p, 0.01, "3span point loads equilibrium");
 }
 
@@ -431,7 +431,7 @@ fn validation_span_count_effect_on_deflection() {
             .iter()
             .find(|d| d.node_id == mid_node)
             .unwrap()
-            .uy
+            .uz
             .abs();
 
         deflections.push(defl);
@@ -446,7 +446,7 @@ fn validation_span_count_effect_on_deflection() {
         );
 
         // Equilibrium check
-        let sum_ry: f64 = results.reactions.iter().map(|r| r.ry).sum();
+        let sum_ry: f64 = results.reactions.iter().map(|r| r.rz).sum();
         assert_close(
             sum_ry,
             n_spans as f64 * q * l,
@@ -570,7 +570,7 @@ fn validation_3span_end_span_loaded_moment_distribution() {
     assert_close(m_c, expected_mc_val, 0.10, "end span M_C = qL²/60");
 
     // Equilibrium: sum_Ry = q*L = 60
-    let sum_ry: f64 = results.reactions.iter().map(|r| r.ry).sum();
+    let sum_ry: f64 = results.reactions.iter().map(|r| r.rz).sum();
     assert_close(sum_ry, q * l, 0.01, "end span equilibrium");
 }
 
@@ -628,8 +628,8 @@ fn validation_2span_symmetric_deflection() {
 
     // Symmetry: midspan deflections should be equal
     assert_close(
-        d1.uy.abs(),
-        d2.uy.abs(),
+        d1.uz.abs(),
+        d2.uz.abs(),
         0.02,
         "2span symmetric δ_span1 = δ_span2",
     );
@@ -637,17 +637,17 @@ fn validation_2span_symmetric_deflection() {
     // Both deflections should be downward (negative uy for downward load)
     // and non-zero
     assert!(
-        d1.uy.abs() > 1e-10,
+        d1.uz.abs() > 1e-10,
         "Span 1 deflection should be non-zero: {:.6e}",
-        d1.uy,
+        d1.uz,
     );
 
     // Compare with SS deflection
     let delta_ss: f64 = 5.0 * q * l.powi(4) / (384.0 * e_eff * IZ);
     assert!(
-        d1.uy.abs() < delta_ss,
+        d1.uz.abs() < delta_ss,
         "Continuous deflection ({:.6e}) should be < SS ({:.6e})",
-        d1.uy.abs(),
+        d1.uz.abs(),
         delta_ss,
     );
 
@@ -659,9 +659,9 @@ fn validation_2span_symmetric_deflection() {
         .find(|d| d.node_id == interior_node)
         .unwrap();
     assert!(
-        d_int.uy.abs() < 1e-8,
+        d_int.uz.abs() < 1e-8,
         "Interior support deflection should be ~zero: {:.6e}",
-        d_int.uy,
+        d_int.uz,
     );
 
     // End reactions should be equal by symmetry
@@ -669,9 +669,9 @@ fn validation_2span_symmetric_deflection() {
     let node_c = 1 + 2 * n_per_span;
     let r_a = results.reactions.iter().find(|r| r.node_id == node_a).unwrap();
     let r_c = results.reactions.iter().find(|r| r.node_id == node_c).unwrap();
-    assert_close(r_a.ry, r_c.ry, 0.02, "2span symmetric R_A = R_C");
+    assert_close(r_a.rz, r_c.rz, 0.02, "2span symmetric R_A = R_C");
 
     // Equilibrium
-    let sum_ry: f64 = results.reactions.iter().map(|r| r.ry).sum();
+    let sum_ry: f64 = results.reactions.iter().map(|r| r.rz).sum();
     assert_close(sum_ry, 2.0 * q * l, 0.01, "2span symmetric equilibrium");
 }

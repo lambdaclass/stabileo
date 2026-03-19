@@ -129,7 +129,7 @@ fn validation_dynamic_ext_1_ground_acceleration_impulse() {
         .unwrap();
 
     let max_uy = tip
-        .uy
+        .uz
         .iter()
         .cloned()
         .fold(0.0_f64, |a, b| a.max(b.abs()));
@@ -142,8 +142,8 @@ fn validation_dynamic_ext_1_ground_acceleration_impulse() {
 
     // The response should oscillate (not monotonic) -- check for sign changes
     let mut sign_changes = 0usize;
-    for i in 1..tip.uy.len() {
-        if tip.uy[i - 1] * tip.uy[i] < 0.0 {
+    for i in 1..tip.uz.len() {
+        if tip.uz[i - 1] * tip.uz[i] < 0.0 {
             sign_changes += 1;
         }
     }
@@ -231,16 +231,16 @@ fn validation_dynamic_ext_3_force_scaling_linearity() {
                 loads: vec![SolverNodalLoad {
                     node_id: tip_node,
                     fx: 0.0,
-                    fy: force,
-                    mz: 0.0,
+                    fz: force,
+                    my: 0.0,
                 }] },
             TimeForceRecord {
                 time: dt,
                 loads: vec![SolverNodalLoad {
                     node_id: tip_node,
                     fx: 0.0,
-                    fy: 0.0,
-                    mz: 0.0,
+                    fz: 0.0,
+                    my: 0.0,
                 }] },
         ]
     };
@@ -261,13 +261,13 @@ fn validation_dynamic_ext_3_force_scaling_linearity() {
     let tip_1 = result_1.node_histories.iter().find(|h| h.node_id == tip_node).unwrap();
     let tip_2 = result_2.node_histories.iter().find(|h| h.node_id == tip_node).unwrap();
 
-    let n = tip_1.uy.len().min(tip_2.uy.len());
+    let n = tip_1.uz.len().min(tip_2.uz.len());
     let mut max_err = 0.0_f64;
     let mut max_amp = 0.0_f64;
 
     for i in 0..n {
-        let scaled = 2.0 * tip_1.uy[i];
-        let actual = tip_2.uy[i];
+        let scaled = 2.0 * tip_1.uz[i];
+        let actual = tip_2.uz[i];
         let err = (scaled - actual).abs();
         max_err = max_err.max(err);
         max_amp = max_amp.max(actual.abs());
@@ -331,8 +331,8 @@ fn validation_dynamic_ext_4_damped_forced_steady_state() {
             loads: vec![SolverNodalLoad {
                 node_id: tip_node,
                 fx: 0.0,
-                fy,
-                mz: 0.0,
+                fz: fy,
+                my: 0.0,
             }] });
     }
 
@@ -355,7 +355,7 @@ fn validation_dynamic_ext_4_damped_forced_steady_state() {
         .iter()
         .find(|h| h.node_id == tip_node)
         .unwrap();
-    let uy = &tip.uy;
+    let uy = &tip.uz;
 
     // Extract steady-state amplitude from last 5 forcing cycles
     let last_portion = (5.0 * t_force / dt) as usize;
@@ -422,16 +422,16 @@ fn validation_dynamic_ext_5_symmetry_identical_cantilevers() {
             loads: vec![SolverNodalLoad {
                 node_id: tip_node,
                 fx: 0.0,
-                fy: -100.0,
-                mz: 0.0,
+                fz: -100.0,
+                my: 0.0,
             }] },
         TimeForceRecord {
             time: dt,
             loads: vec![SolverNodalLoad {
                 node_id: tip_node,
                 fx: 0.0,
-                fy: 0.0,
-                mz: 0.0,
+                fz: 0.0,
+                my: 0.0,
             }] },
     ];
 
@@ -477,19 +477,19 @@ fn validation_dynamic_ext_5_symmetry_identical_cantilevers() {
 
     // Responses must be identical (deterministic solver)
     assert_eq!(
-        tip_a.uy.len(),
-        tip_b.uy.len(),
+        tip_a.uz.len(),
+        tip_b.uz.len(),
         "History lengths differ"
     );
 
-    for i in 0..tip_a.uy.len() {
-        let diff = (tip_a.uy[i] - tip_b.uy[i]).abs();
+    for i in 0..tip_a.uz.len() {
+        let diff = (tip_a.uz[i] - tip_b.uz[i]).abs();
         assert!(
             diff < 1e-12,
             "Step {}: uy_a={:.6e}, uy_b={:.6e}, diff={:.4e}",
             i,
-            tip_a.uy[i],
-            tip_b.uy[i],
+            tip_a.uz[i],
+            tip_b.uz[i],
             diff
         );
     }
@@ -535,16 +535,16 @@ fn validation_dynamic_ext_6_superposition_principle() {
             loads: vec![SolverNodalLoad {
                 node_id: tip_node,
                 fx: 0.0,
-                fy: -80.0,
-                mz: 0.0,
+                fz: -80.0,
+                my: 0.0,
             }] },
         TimeForceRecord {
             time: dt,
             loads: vec![SolverNodalLoad {
                 node_id: tip_node,
                 fx: 0.0,
-                fy: 0.0,
-                mz: 0.0,
+                fz: 0.0,
+                my: 0.0,
             }] },
     ];
 
@@ -555,16 +555,16 @@ fn validation_dynamic_ext_6_superposition_principle() {
             loads: vec![SolverNodalLoad {
                 node_id: mid_node,
                 fx: 0.0,
-                fy: -40.0,
-                mz: 0.0,
+                fz: -40.0,
+                my: 0.0,
             }] },
         TimeForceRecord {
             time: dt,
             loads: vec![SolverNodalLoad {
                 node_id: mid_node,
                 fx: 0.0,
-                fy: 0.0,
-                mz: 0.0,
+                fz: 0.0,
+                my: 0.0,
             }] },
     ];
 
@@ -576,14 +576,14 @@ fn validation_dynamic_ext_6_superposition_principle() {
                 SolverNodalLoad {
                     node_id: tip_node,
                     fx: 0.0,
-                    fy: -80.0,
-                    mz: 0.0,
+                    fz: -80.0,
+                    my: 0.0,
                 },
                 SolverNodalLoad {
                     node_id: mid_node,
                     fx: 0.0,
-                    fy: -40.0,
-                    mz: 0.0,
+                    fz: -40.0,
+                    my: 0.0,
                 },
             ] },
         TimeForceRecord {
@@ -592,14 +592,14 @@ fn validation_dynamic_ext_6_superposition_principle() {
                 SolverNodalLoad {
                     node_id: tip_node,
                     fx: 0.0,
-                    fy: 0.0,
-                    mz: 0.0,
+                    fz: 0.0,
+                    my: 0.0,
                 },
                 SolverNodalLoad {
                     node_id: mid_node,
                     fx: 0.0,
-                    fy: 0.0,
-                    mz: 0.0,
+                    fz: 0.0,
+                    my: 0.0,
                 },
             ] },
     ];
@@ -623,13 +623,13 @@ fn validation_dynamic_ext_6_superposition_principle() {
     let tip_c = result_c.node_histories.iter().find(|h| h.node_id == tip_node).unwrap();
 
     // Superposition: u_combined(t) = u_1(t) + u_2(t)
-    let n = tip1.uy.len().min(tip2.uy.len()).min(tip_c.uy.len());
+    let n = tip1.uz.len().min(tip2.uz.len()).min(tip_c.uz.len());
     let mut max_err = 0.0_f64;
     let mut max_amp = 0.0_f64;
 
     for i in 0..n {
-        let u_sum = tip1.uy[i] + tip2.uy[i];
-        let u_comb = tip_c.uy[i];
+        let u_sum = tip1.uz[i] + tip2.uz[i];
+        let u_comb = tip_c.uz[i];
         let err = (u_sum - u_comb).abs();
         max_err = max_err.max(err);
         max_amp = max_amp.max(u_comb.abs());
@@ -709,16 +709,16 @@ fn validation_dynamic_ext_7_portal_frame_sway_mode() {
             loads: vec![SolverNodalLoad {
                 node_id: 3,
                 fx: 50.0,
-                fy: 0.0,
-                mz: 0.0,
+                fz: 0.0,
+                my: 0.0,
             }] },
         TimeForceRecord {
             time: dt,
             loads: vec![SolverNodalLoad {
                 node_id: 3,
                 fx: 0.0,
-                fy: 0.0,
-                mz: 0.0,
+                fz: 0.0,
+                my: 0.0,
             }] },
     ];
 
@@ -752,7 +752,7 @@ fn validation_dynamic_ext_7_portal_frame_sway_mode() {
         .cloned()
         .fold(0.0_f64, |a, b| a.max(b.abs()));
     let max_uy = node3
-        .uy
+        .uz
         .iter()
         .cloned()
         .fold(0.0_f64, |a, b| a.max(b.abs()));
@@ -850,8 +850,8 @@ fn validation_dynamic_ext_8_harmonic_anti_resonance() {
         vec![SolverLoad::Nodal(SolverNodalLoad {
             node_id: tip_node,
             fx: 0.0,
-            fy: -10.0,
-            mz: 0.0,
+            fz: -10.0,
+            my: 0.0,
         })],
     );
     let mut densities = HashMap::new();

@@ -229,7 +229,7 @@ fn validation_moving_single_position_matches_static() {
             a: l / n as f64,
             p: -p,
             px: None,
-            mz: None,
+            my: None,
         })],
     );
 
@@ -281,12 +281,12 @@ fn validation_moving_equilibrium_per_position() {
             a: 1.0,
             p: -p,
             px: None,
-            mz: None,
+            my: None,
         })],
     );
 
     let results = linear::solve_2d(&input).unwrap();
-    let sum_ry: f64 = results.reactions.iter().map(|r| r.ry).sum();
+    let sum_ry: f64 = results.reactions.iter().map(|r| r.rz).sum();
 
     assert_close(sum_ry, p, 0.01, "Moving load equilibrium ΣRy=P");
 }

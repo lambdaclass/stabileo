@@ -52,7 +52,7 @@ fn validation_truss_v_shape_single_load() {
         ],
         vec![(1, 1, "pinned"), (2, 2, "pinned")],
         vec![SolverLoad::Nodal(SolverNodalLoad {
-            node_id: 3, fx: 0.0, fy: -p, mz: 0.0,
+            node_id: 3, fx: 0.0, fz: -p, my: 0.0,
         })],
     );
     let results = linear::solve_2d(&input).unwrap();
@@ -73,7 +73,7 @@ fn validation_truss_v_shape_single_load() {
 
     // Load node deflects downward
     let d = results.displacements.iter().find(|d| d.node_id == 3).unwrap();
-    assert!(d.uy < 0.0, "V-truss: node 3 deflects down");
+    assert!(d.uz < 0.0, "V-truss: node 3 deflects down");
 }
 
 // ================================================================
@@ -133,7 +133,7 @@ fn validation_truss_pratt_roof_load() {
     let mut loads = Vec::new();
     for i in 0..=n_panels {
         loads.push(SolverLoad::Nodal(SolverNodalLoad {
-            node_id: n_panels + 2 + i, fx: 0.0, fy: -p, mz: 0.0,
+            node_id: n_panels + 2 + i, fx: 0.0, fz: -p, my: 0.0,
         }));
     }
 
@@ -142,12 +142,12 @@ fn validation_truss_pratt_roof_load() {
     let results = linear::solve_2d(&input).unwrap();
 
     let total_load = (n_panels + 1) as f64 * p;
-    let sum_ry: f64 = results.reactions.iter().map(|r| r.ry).sum();
+    let sum_ry: f64 = results.reactions.iter().map(|r| r.rz).sum();
     assert_close(sum_ry, total_load, 0.01, "Pratt roof: ΣRy = total load");
 
     // By symmetry: equal reactions
-    let r1 = results.reactions.iter().find(|r| r.node_id == 1).unwrap().ry;
-    let r_end = results.reactions.iter().find(|r| r.node_id == n_panels + 1).unwrap().ry;
+    let r1 = results.reactions.iter().find(|r| r.node_id == 1).unwrap().rz;
+    let r_end = results.reactions.iter().find(|r| r.node_id == n_panels + 1).unwrap().rz;
     assert_close(r1, r_end, 0.02, "Pratt roof: symmetric reactions");
 
     // All members carry pure axial (V≈0, M≈0)
@@ -199,8 +199,8 @@ fn validation_truss_fan_diagonal_ratios() {
     let sups = vec![(1, 1, "pinned"), (2, 4, "rollerX")];
     // Loads at intermediate bottom nodes — these force the inner fans to carry load
     let loads = vec![
-        SolverLoad::Nodal(SolverNodalLoad { node_id: 2, fx: 0.0, fy: -p, mz: 0.0 }),
-        SolverLoad::Nodal(SolverNodalLoad { node_id: 3, fx: 0.0, fy: -p, mz: 0.0 }),
+        SolverLoad::Nodal(SolverNodalLoad { node_id: 2, fx: 0.0, fz: -p, my: 0.0 }),
+        SolverLoad::Nodal(SolverNodalLoad { node_id: 3, fx: 0.0, fz: -p, my: 0.0 }),
     ];
 
     let input = make_input(nodes, vec![(1, E, 0.3)], vec![(1, A, IZ_T)],
@@ -208,12 +208,12 @@ fn validation_truss_fan_diagonal_ratios() {
     let results = linear::solve_2d(&input).unwrap();
 
     // Equilibrium
-    let sum_ry: f64 = results.reactions.iter().map(|r| r.ry).sum();
+    let sum_ry: f64 = results.reactions.iter().map(|r| r.rz).sum();
     assert_close(sum_ry, 2.0 * p, 0.01, "Fan truss: ΣRy = 2P");
 
     // Symmetric loading → symmetric reaction
-    let r1 = results.reactions.iter().find(|r| r.node_id == 1).unwrap().ry;
-    let r4 = results.reactions.iter().find(|r| r.node_id == 4).unwrap().ry;
+    let r1 = results.reactions.iter().find(|r| r.node_id == 1).unwrap().rz;
+    let r4 = results.reactions.iter().find(|r| r.node_id == 4).unwrap().rz;
     assert_close(r1, r4, 0.02, "Fan truss: symmetric reactions");
 
     // By symmetry: outer left and right fans equal
@@ -271,7 +271,7 @@ fn validation_truss_deep_vs_shallow_chord_force() {
         ];
         let sups = vec![(1, 1, "pinned"), (2, 3, "rollerX")];
         let loads = vec![SolverLoad::Nodal(SolverNodalLoad {
-            node_id: 4, fx: 0.0, fy: -p, mz: 0.0,
+            node_id: 4, fx: 0.0, fz: -p, my: 0.0,
         })];
         let input = make_input(nodes, vec![(1, E, 0.3)], vec![(1, A, IZ_T)],
             elems, sups, loads);
@@ -344,7 +344,7 @@ fn validation_truss_missing_diagonal_load_path() {
         }
         let sups = vec![(1, 1, "pinned"), (2, 4, "rollerX")];
         let loads = vec![SolverLoad::Nodal(SolverNodalLoad {
-            node_id: 6, fx: 0.0, fy: -p, mz: 0.0,
+            node_id: 6, fx: 0.0, fz: -p, my: 0.0,
         })];
         let input = make_input(
             nodes.clone(), vec![(1, E, 0.3)], vec![(1, A, IZ_T)],
@@ -423,7 +423,7 @@ fn validation_truss_symmetric_equal_diagonals() {
     let mut loads = Vec::new();
     for i in 0..n_panels {
         loads.push(SolverLoad::Nodal(SolverNodalLoad {
-            node_id: n_panels + 2 + i, fx: 0.0, fy: -p, mz: 0.0,
+            node_id: n_panels + 2 + i, fx: 0.0, fz: -p, my: 0.0,
         }));
     }
 
@@ -432,8 +432,8 @@ fn validation_truss_symmetric_equal_diagonals() {
     let results = linear::solve_2d(&input).unwrap();
 
     // Symmetric reactions
-    let r1 = results.reactions.iter().find(|r| r.node_id == 1).unwrap().ry;
-    let r5 = results.reactions.iter().find(|r| r.node_id == n_panels + 1).unwrap().ry;
+    let r1 = results.reactions.iter().find(|r| r.node_id == 1).unwrap().rz;
+    let r5 = results.reactions.iter().find(|r| r.node_id == n_panels + 1).unwrap().rz;
     assert_close(r1, r5, 0.02, "Symmetric truss: equal reactions");
 
     // The left-most downward diagonal (bot1→top1) and right-most (top4→bot5)
@@ -510,7 +510,7 @@ fn validation_truss_bridge_bottom_chord_tension() {
     let mut loads = Vec::new();
     for i in 1..n_panels {
         loads.push(SolverLoad::Nodal(SolverNodalLoad {
-            node_id: i + 1, fx: 0.0, fy: -p, mz: 0.0,
+            node_id: i + 1, fx: 0.0, fz: -p, my: 0.0,
         }));
     }
 
@@ -534,7 +534,7 @@ fn validation_truss_bridge_bottom_chord_tension() {
 
     // Equilibrium
     let total_load = (n_panels - 1) as f64 * p;
-    let sum_ry: f64 = results.reactions.iter().map(|r| r.ry).sum();
+    let sum_ry: f64 = results.reactions.iter().map(|r| r.rz).sum();
     assert_close(sum_ry, total_load, 0.01, "Bridge truss: ΣRy = total load");
 }
 
@@ -590,7 +590,7 @@ fn validation_truss_long_span_midspan_deflection() {
     let mut loads = Vec::new();
     for i in 0..n_panels {
         loads.push(SolverLoad::Nodal(SolverNodalLoad {
-            node_id: n_panels + 2 + i, fx: 0.0, fy: -p, mz: 0.0,
+            node_id: n_panels + 2 + i, fx: 0.0, fz: -p, my: 0.0,
         }));
     }
 
@@ -601,7 +601,7 @@ fn validation_truss_long_span_midspan_deflection() {
     // Midspan bottom node is node (n_panels/2 + 1)
     let mid_bottom = n_panels / 2 + 1;
     let defl = results.displacements.iter()
-        .find(|d| d.node_id == mid_bottom).unwrap().uy;
+        .find(|d| d.node_id == mid_bottom).unwrap().uz;
 
     assert!(defl < 0.0,
         "Long-span truss: midspan deflects downward: uy={:.6e}", defl);
@@ -614,7 +614,7 @@ fn validation_truss_long_span_midspan_deflection() {
     let mut loads2 = Vec::new();
     for i in 0..n_panels {
         loads2.push(SolverLoad::Nodal(SolverNodalLoad {
-            node_id: n_panels + 2 + i, fx: 0.0, fy: -2.0 * p, mz: 0.0,
+            node_id: n_panels + 2 + i, fx: 0.0, fz: -2.0 * p, my: 0.0,
         }));
     }
     let span = n_panels as f64 * panel_w;
@@ -652,7 +652,7 @@ fn validation_truss_long_span_midspan_deflection() {
         elems2, vec![(1, 1, "pinned"), (2, n_panels + 1, "rollerX")], loads2);
     let results2 = linear::solve_2d(&input2).unwrap();
     let defl2 = results2.displacements.iter()
-        .find(|d| d.node_id == mid_bottom).unwrap().uy;
+        .find(|d| d.node_id == mid_bottom).unwrap().uz;
 
     // Linear: double load → double deflection
     assert_close(defl2 / defl, 2.0, 0.02, "Long-span truss: linear scaling δ ∝ P");

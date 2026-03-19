@@ -18,7 +18,7 @@ fn make_input(
 ) -> SolverInput {
     let mut nodes_map = HashMap::new();
     for (id, x, y) in nodes {
-        nodes_map.insert(id.to_string(), SolverNode { id, x, y });
+        nodes_map.insert(id.to_string(), SolverNode { id, x, z: y });
     }
     let mut mats_map = HashMap::new();
     for (id, e, nu) in mats {
@@ -56,8 +56,8 @@ fn make_input(
                 ky: None,
                 kz: None,
                 dx: None,
-                dy: None,
-                drz: None,
+                dz: None,
+                dry: None,
                 angle: None,
             },
         );
@@ -120,15 +120,15 @@ fn make_frame(n_stories: usize, n_bays: usize) -> SolverInput {
         loads.push(SolverLoad::Nodal(SolverNodalLoad {
             node_id: j * cols + 1,
             fx: 10.0,
-            fy: 0.0,
-            mz: 0.0,
+            fz: 0.0,
+            my: 0.0,
         }));
         for i in 0..=n_bays {
             loads.push(SolverLoad::Nodal(SolverNodalLoad {
                 node_id: j * cols + i + 1,
                 fx: 0.0,
-                fy: -50.0,
-                mz: 0.0,
+                fz: -50.0,
+                my: 0.0,
             }));
         }
     }
@@ -505,7 +505,7 @@ fn make_flat_plate_3d(nx: usize, ny: usize) -> SolverInput3D {
     boundary.dedup();
     for &n in &boundary {
         supports.insert(sid.to_string(), SolverSupport3D {
-            node_id: n, rx: false, ry: false, rz: true,
+            node_id: n, rx: false, rz: false, ry: true,
             rrx: false, rry: false, rrz: false,
             kx: None, ky: None, kz: None,
             krx: None, kry: None, krz: None,
@@ -517,7 +517,7 @@ fn make_flat_plate_3d(nx: usize, ny: usize) -> SolverInput3D {
         sid += 1;
     }
     supports.insert(sid.to_string(), SolverSupport3D {
-        node_id: grid[0][0], rx: true, ry: true, rz: true,
+        node_id: grid[0][0], rx: true, rz: true, ry: true,
         rrx: false, rry: false, rrz: false,
         kx: None, ky: None, kz: None,
         krx: None, kry: None, krz: None,

@@ -55,8 +55,8 @@ fn validation_cantilever_intermediate_load_deflections() {
         vec![SolverLoad::Nodal(SolverNodalLoad {
             node_id: load_node,
             fx: 0.0,
-            fy: p,
-            mz: 0.0,
+            fz: p,
+            my: 0.0,
         })],
     );
 
@@ -65,11 +65,11 @@ fn validation_cantilever_intermediate_load_deflections() {
     // Deflection at load point: δ_a = |P|·a³/(3EI)
     let delta_a_exact = p.abs() * a.powi(3) / (3.0 * e_eff * IZ);
     let d_a = results.displacements.iter().find(|d| d.node_id == load_node).unwrap();
-    let err_a = (d_a.uy.abs() - delta_a_exact).abs() / delta_a_exact;
+    let err_a = (d_a.uz.abs() - delta_a_exact).abs() / delta_a_exact;
     assert!(
         err_a < 0.02,
         "Load-point deflection: δ_a={:.6e}, exact Pa³/(3EI)={:.6e}, err={:.1}%",
-        d_a.uy.abs(),
+        d_a.uz.abs(),
         delta_a_exact,
         err_a * 100.0
     );
@@ -77,11 +77,11 @@ fn validation_cantilever_intermediate_load_deflections() {
     // Deflection at tip: δ_L = |P|·a²·(3L−a)/(6EI)
     let delta_l_exact = p.abs() * a * a * (3.0 * l - a) / (6.0 * e_eff * IZ);
     let d_tip = results.displacements.iter().find(|d| d.node_id == n + 1).unwrap();
-    let err_l = (d_tip.uy.abs() - delta_l_exact).abs() / delta_l_exact;
+    let err_l = (d_tip.uz.abs() - delta_l_exact).abs() / delta_l_exact;
     assert!(
         err_l < 0.02,
         "Tip deflection: δ_L={:.6e}, exact Pa²(3L−a)/(6EI)={:.6e}, err={:.1}%",
-        d_tip.uy.abs(),
+        d_tip.uz.abs(),
         delta_l_exact,
         err_l * 100.0
     );
@@ -122,14 +122,14 @@ fn validation_cantilever_two_loads_superposition() {
             SolverLoad::Nodal(SolverNodalLoad {
                 node_id: node1,
                 fx: 0.0,
-                fy: p1,
-                mz: 0.0,
+                fz: p1,
+                my: 0.0,
             }),
             SolverLoad::Nodal(SolverNodalLoad {
                 node_id: node2,
                 fx: 0.0,
-                fy: p2,
-                mz: 0.0,
+                fz: p2,
+                my: 0.0,
             }),
         ],
     );
@@ -139,7 +139,7 @@ fn validation_cantilever_two_loads_superposition() {
         .iter()
         .find(|d| d.node_id == n + 1)
         .unwrap()
-        .uy;
+        .uz;
 
     // Analytical tip deflection by superposition
     let d1 = p1.abs() * a1 * a1 * (3.0 * l - a1) / (6.0 * e_eff * IZ);
@@ -185,8 +185,8 @@ fn validation_cantilever_length_stiffness_ratio() {
             vec![SolverLoad::Nodal(SolverNodalLoad {
                 node_id: n + 1,
                 fx: 0.0,
-                fy: p,
-                mz: 0.0,
+                fz: p,
+                my: 0.0,
             })],
         );
         let results = linear::solve_2d(&input).unwrap();
@@ -195,7 +195,7 @@ fn validation_cantilever_length_stiffness_ratio() {
             .iter()
             .find(|d| d.node_id == n + 1)
             .unwrap()
-            .uy
+            .uz
             .abs()
     };
 
@@ -252,11 +252,11 @@ fn validation_cantilever_partial_udl() {
 
     // δ_tip = q·a³·(4L − a) / (24EI)
     let delta_exact = q.abs() * a.powi(3) * (4.0 * l - a) / (24.0 * e_eff * IZ);
-    let err = (tip.uy.abs() - delta_exact).abs() / delta_exact;
+    let err = (tip.uz.abs() - delta_exact).abs() / delta_exact;
     assert!(
         err < 0.03,
         "Partial UDL tip deflection: δ={:.6e}, exact={:.6e}, err={:.1}%",
-        tip.uy.abs(),
+        tip.uz.abs(),
         delta_exact,
         err * 100.0
     );
@@ -290,8 +290,8 @@ fn validation_cantilever_end_moment() {
         vec![SolverLoad::Nodal(SolverNodalLoad {
             node_id: n + 1,
             fx: 0.0,
-            fy: 0.0,
-            mz: m,
+            fz: 0.0,
+            my: m,
         })],
     );
     let results = linear::solve_2d(&input).unwrap();
@@ -299,22 +299,22 @@ fn validation_cantilever_end_moment() {
 
     // δ_tip = M·L²/(2EI)
     let delta_exact = m * l * l / (2.0 * e_eff * IZ);
-    let err_d = (tip.uy.abs() - delta_exact).abs() / delta_exact;
+    let err_d = (tip.uz.abs() - delta_exact).abs() / delta_exact;
     assert!(
         err_d < 0.02,
         "End moment tip deflection: δ={:.6e}, exact ML²/(2EI)={:.6e}, err={:.1}%",
-        tip.uy.abs(),
+        tip.uz.abs(),
         delta_exact,
         err_d * 100.0
     );
 
     // θ_tip = M·L/(EI)
     let theta_exact = m * l / (e_eff * IZ);
-    let err_t = (tip.rz.abs() - theta_exact).abs() / theta_exact;
+    let err_t = (tip.ry.abs() - theta_exact).abs() / theta_exact;
     assert!(
         err_t < 0.02,
         "End moment tip rotation: θ={:.6e}, exact ML/(EI)={:.6e}, err={:.1}%",
-        tip.rz.abs(),
+        tip.ry.abs(),
         theta_exact,
         err_t * 100.0
     );
@@ -324,11 +324,11 @@ fn validation_cantilever_end_moment() {
     let x_mid = l / 2.0;
     let delta_mid_exact = m * x_mid * x_mid / (2.0 * e_eff * IZ);
     let d_mid = results.displacements.iter().find(|d| d.node_id == mid).unwrap();
-    let err_m = (d_mid.uy.abs() - delta_mid_exact).abs() / delta_mid_exact;
+    let err_m = (d_mid.uz.abs() - delta_mid_exact).abs() / delta_mid_exact;
     assert!(
         err_m < 0.02,
         "End moment midspan: δ={:.6e}, exact Mx²/(2EI)={:.6e}, err={:.1}%",
-        d_mid.uy.abs(),
+        d_mid.uz.abs(),
         delta_mid_exact,
         err_m * 100.0
     );
@@ -370,14 +370,14 @@ fn validation_double_cantilever_symmetric() {
         SolverLoad::Nodal(SolverNodalLoad {
             node_id: 1,
             fx: 0.0,
-            fy: p,
-            mz: 0.0,
+            fz: p,
+            my: 0.0,
         }),
         SolverLoad::Nodal(SolverNodalLoad {
             node_id: n_total + 1,
             fx: 0.0,
-            fy: p,
-            mz: 0.0,
+            fz: p,
+            my: 0.0,
         }),
     ];
 
@@ -401,19 +401,19 @@ fn validation_double_cantilever_symmetric() {
         .find(|d| d.node_id == n_total + 1)
         .unwrap();
 
-    let err_left = (d_left.uy.abs() - delta_exact).abs() / delta_exact;
-    let err_right = (d_right.uy.abs() - delta_exact).abs() / delta_exact;
+    let err_left = (d_left.uz.abs() - delta_exact).abs() / delta_exact;
+    let err_right = (d_right.uz.abs() - delta_exact).abs() / delta_exact;
     assert!(
         err_left < 0.02,
         "Double cantilever left tip: δ={:.6e}, exact PL³/(3EI)={:.6e}, err={:.1}%",
-        d_left.uy.abs(),
+        d_left.uz.abs(),
         delta_exact,
         err_left * 100.0
     );
     assert!(
         err_right < 0.02,
         "Double cantilever right tip: δ={:.6e}, exact PL³/(3EI)={:.6e}, err={:.1}%",
-        d_right.uy.abs(),
+        d_right.uz.abs(),
         delta_exact,
         err_right * 100.0
     );
@@ -421,11 +421,11 @@ fn validation_double_cantilever_symmetric() {
     // Vertical reaction at center = 2P (upward)
     let r_center = results.reactions.iter().find(|r| r.node_id == mid_node).unwrap();
     let ry_expected = -2.0 * p; // upward = positive when loads are downward (negative)
-    let err_ry = (r_center.ry - ry_expected).abs() / ry_expected.abs();
+    let err_ry = (r_center.rz - ry_expected).abs() / ry_expected.abs();
     assert!(
         err_ry < 0.01,
         "Double cantilever center reaction: Ry={:.4}, expected={:.4}",
-        r_center.ry,
+        r_center.rz,
         ry_expected
     );
 }
@@ -458,8 +458,8 @@ fn validation_cantilever_linear_proportionality() {
             vec![SolverLoad::Nodal(SolverNodalLoad {
                 node_id: n + 1,
                 fx: 0.0,
-                fy: p,
-                mz: 0.0,
+                fz: p,
+                my: 0.0,
             })],
         );
         let results = linear::solve_2d(&input).unwrap();
@@ -468,7 +468,7 @@ fn validation_cantilever_linear_proportionality() {
             .iter()
             .find(|d| d.node_id == n + 1)
             .unwrap()
-            .uy
+            .uz
     };
 
     let d1 = make_tip(p_base);
@@ -522,11 +522,11 @@ fn validation_cantilever_triangular_load_increasing() {
 
     // δ_tip = 11·q_max·L⁴/(120EI)
     let delta_exact = 11.0 * q_max.abs() * l.powi(4) / (120.0 * e_eff * IZ);
-    let err = (tip.uy.abs() - delta_exact).abs() / delta_exact;
+    let err = (tip.uz.abs() - delta_exact).abs() / delta_exact;
     assert!(
         err < 0.03,
         "Increasing triangular: tip={:.6e}, exact 11qL⁴/(120EI)={:.6e}, err={:.1}%",
-        tip.uy.abs(),
+        tip.uz.abs(),
         delta_exact,
         err * 100.0
     );

@@ -78,8 +78,8 @@ fn highway_sign_cantilever_wind() {
     let loads = vec![SolverLoad::Nodal(SolverNodalLoad {
         node_id: arm_tip_node,
         fx: f_wind,
-        fy: 0.0,
-        mz: 0.0,
+        fz: 0.0,
+        my: 0.0,
     })];
 
     let input = make_input(
@@ -99,7 +99,7 @@ fn highway_sign_cantilever_wind() {
     // Base moment: wind creates moment = F_wind * H_post about base
     // (the arm transmits the horizontal force to the top of the post)
     let m_base_expected: f64 = f_wind * h_post;
-    assert_close(r_base.mz.abs(), m_base_expected, 0.05, "Highway sign base moment");
+    assert_close(r_base.my.abs(), m_base_expected, 0.05, "Highway sign base moment");
 
     // Post behaves as a cantilever under point load at top:
     // tip horizontal deflection = F * H^3 / (3EI)
@@ -168,8 +168,8 @@ fn traffic_signal_pole_dead_load() {
     let loads = vec![SolverLoad::Nodal(SolverNodalLoad {
         node_id: tip_node,
         fx: 0.0,
-        fy: w_signal,
-        mz: 0.0,
+        fz: w_signal,
+        my: 0.0,
     })];
 
     let input = make_input(
@@ -184,11 +184,11 @@ fn traffic_signal_pole_dead_load() {
 
     // Vertical equilibrium
     let r_base = results.reactions.iter().find(|r| r.node_id == 1).unwrap();
-    assert_close(r_base.ry.abs(), w_signal.abs(), 0.02, "Traffic signal pole vertical reaction");
+    assert_close(r_base.rz.abs(), w_signal.abs(), 0.02, "Traffic signal pole vertical reaction");
 
     // Base moment from eccentric load: M = W * L_arm
     let m_base_expected: f64 = w_signal.abs() * l_arm;
-    assert_close(r_base.mz.abs(), m_base_expected, 0.05, "Traffic signal pole base moment");
+    assert_close(r_base.my.abs(), m_base_expected, 0.05, "Traffic signal pole base moment");
 
     // Arm tip vertical deflection (cantilever): delta = W*L^3/(3EI)
     let e_eff: f64 = e_steel * 1000.0;
@@ -204,14 +204,14 @@ fn traffic_signal_pole_dead_load() {
     // The total tip deflection includes post-top rotation effect, so it will be larger
     // than the pure arm cantilever deflection. Just verify it is in the right ballpark.
     assert!(
-        disp_tip.uy.abs() >= delta_arm_tip * 0.8,
+        disp_tip.uz.abs() >= delta_arm_tip * 0.8,
         "Arm tip deflection {:.6} >= 0.8 * pure cantilever {:.6}",
-        disp_tip.uy.abs(), delta_arm_tip
+        disp_tip.uz.abs(), delta_arm_tip
     );
     assert!(
-        disp_tip.uy.abs() < delta_arm_tip * 5.0,
+        disp_tip.uz.abs() < delta_arm_tip * 5.0,
         "Arm tip deflection {:.6} < 5 * pure cantilever {:.6} (reasonable upper bound)",
-        disp_tip.uy.abs(), delta_arm_tip
+        disp_tip.uz.abs(), delta_arm_tip
     );
 }
 
@@ -292,7 +292,7 @@ fn flag_pole_distributed_wind() {
 
     // Base moment: M = q * L^2 / 2
     let m_base_expected: f64 = q_wind * l.powi(2) / 2.0;
-    assert_close(r_base.mz.abs(), m_base_expected, 0.05, "Flag pole base moment");
+    assert_close(r_base.my.abs(), m_base_expected, 0.05, "Flag pole base moment");
 
     // Tip deflection: delta = q * L^4 / (8EI)
     let e_eff: f64 = e_aluminum * 1000.0;
@@ -352,8 +352,8 @@ fn antenna_mast_3d_biaxial_wind() {
     let loads = vec![SolverLoad3D::Nodal(SolverNodalLoad3D {
         node_id: tip_node,
         fx: fx_wind,
-        fy: 0.0,
-        fz: fz_wind,
+        fz: 0.0,
+        fy: fz_wind,
         mx: 0.0,
         my: 0.0,
         mz: 0.0,
@@ -443,8 +443,8 @@ fn light_pole_combined_loading() {
         SolverLoad::Nodal(SolverNodalLoad {
             node_id: tip_node,
             fx: f_wind,
-            fy: w_lum,
-            mz: 0.0,
+            fz: w_lum,
+            my: 0.0,
         }),
     ];
 
@@ -469,14 +469,14 @@ fn light_pole_combined_loading() {
 
     // Vertical reaction = luminaire weight
     let r_base = results.reactions.iter().find(|r| r.node_id == 1).unwrap();
-    assert_close(r_base.ry.abs(), w_lum.abs(), 0.02, "Light pole vertical reaction");
+    assert_close(r_base.rz.abs(), w_lum.abs(), 0.02, "Light pole vertical reaction");
 
     // Horizontal reaction = wind
     assert_close(r_base.rx.abs(), f_wind, 0.02, "Light pole horizontal reaction");
 
     // Base moment from wind load: M = F_wind * L
     let m_wind: f64 = f_wind * l;
-    assert_close(r_base.mz.abs(), m_wind, 0.10, "Light pole base moment from wind");
+    assert_close(r_base.my.abs(), m_wind, 0.10, "Light pole base moment from wind");
 }
 
 // ================================================================
@@ -528,9 +528,9 @@ fn billboard_structure_wind_on_panel() {
     let m_overturn: f64 = f_wind * h;
 
     // Total resisting moment = sum of base moments + vertical reaction couple
-    let sum_mz: f64 = r1.mz.abs() + r4.mz.abs();
-    let vert_couple: f64 = (r1.ry - r4.ry).abs() * w / 2.0;
-    let m_resist: f64 = sum_mz + vert_couple;
+    let sum_my: f64 = r1.my.abs() + r4.my.abs();
+    let vert_couple: f64 = (r1.rz - r4.rz).abs() * w / 2.0;
+    let m_resist: f64 = sum_my + vert_couple;
 
     assert_close(m_resist, m_overturn, 0.10, "Billboard moment equilibrium");
 
@@ -597,7 +597,7 @@ fn overhead_gantry_continuous_beam() {
     let total_load: f64 = q.abs() * 3.0 * span;
 
     // Sum of vertical reactions must equal total load
-    let sum_ry: f64 = results.reactions.iter().map(|r| r.ry).sum::<f64>();
+    let sum_ry: f64 = results.reactions.iter().map(|r| r.rz).sum::<f64>();
     assert_close(sum_ry.abs(), total_load, 0.02, "Gantry total vertical reaction");
 
     // For 3-span equal continuous beam under UDL:
@@ -608,18 +608,18 @@ fn overhead_gantry_continuous_beam() {
 
     // Node 1 is end support
     let r1 = results.reactions.iter().find(|r| r.node_id == 1).unwrap();
-    assert_close(r1.ry.abs(), r_end_expected, 0.10, "Gantry end reaction");
+    assert_close(r1.rz.abs(), r_end_expected, 0.10, "Gantry end reaction");
 
     // Interior support (at first interior column, node = n_per_span + 1)
     let int_node = n_per_span + 1;
     let r_int = results.reactions.iter().find(|r| r.node_id == int_node).unwrap();
-    assert_close(r_int.ry.abs(), r_int_expected, 0.10, "Gantry interior reaction");
+    assert_close(r_int.rz.abs(), r_int_expected, 0.10, "Gantry interior reaction");
 
     // Interior reactions should be greater than end reactions (continuous beam behavior)
     assert!(
-        r_int.ry.abs() > r1.ry.abs(),
+        r_int.rz.abs() > r1.rz.abs(),
         "Interior reaction {:.3} > end reaction {:.3}",
-        r_int.ry.abs(), r1.ry.abs()
+        r_int.rz.abs(), r1.rz.abs()
     );
 }
 
@@ -703,7 +703,7 @@ fn monopole_tower_triangular_wind() {
 
     // Base moment: M = q_max * L^2 / 3  (centroid of triangular load at 2L/3 from base)
     let m_base_expected: f64 = q_max * l.powi(2) / 3.0;
-    assert_close(r_base.mz.abs(), m_base_expected, 0.05, "Monopole base moment");
+    assert_close(r_base.my.abs(), m_base_expected, 0.05, "Monopole base moment");
 
     // Tip deflection: delta = 11 * q_max * L^4 / (120 * E * I)
     // (cantilever with triangular load increasing from base to tip)

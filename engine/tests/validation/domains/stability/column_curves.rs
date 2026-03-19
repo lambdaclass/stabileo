@@ -61,16 +61,16 @@ fn make_cantilever_column(
         loads.push(SolverLoad::Nodal(SolverNodalLoad {
             node_id: n_nodes,
             fx: axial_load,
-            fy: 0.0,
-            mz: 0.0,
+            fz: 0.0,
+            my: 0.0,
         }));
     }
     for (nid, fy) in lateral_loads {
         loads.push(SolverLoad::Nodal(SolverNodalLoad {
             node_id: nid,
             fx: 0.0,
-            fy: fy,
-            mz: 0.0,
+            fz: fy,
+            my: 0.0,
         }));
     }
     make_input(
@@ -108,16 +108,16 @@ fn make_column_with_lateral(
         loads.push(SolverLoad::Nodal(SolverNodalLoad {
             node_id: n_nodes,
             fx: axial_load,
-            fy: 0.0,
-            mz: 0.0,
+            fz: 0.0,
+            my: 0.0,
         }));
     }
     for (nid, fy) in lateral_loads {
         loads.push(SolverLoad::Nodal(SolverNodalLoad {
             node_id: nid,
             fx: 0.0,
-            fy: fy,
-            mz: 0.0,
+            fz: fy,
+            my: 0.0,
         }));
     }
     make_input(
@@ -157,7 +157,7 @@ fn validation_column_curves_euler_pinned_amplification() {
     let res_half = pdelta::solve_pdelta_2d(&input_half, 50, 1e-6).unwrap();
     assert!(res_half.converged, "P-delta should converge at 0.5*Pcr");
     let d_half = res_half.results.displacements.iter()
-        .find(|d| d.node_id == midspan).unwrap().uy.abs();
+        .find(|d| d.node_id == midspan).unwrap().uz.abs();
 
     // Case 2: P = 0.9 * Pcr
     let p_nine = 0.9 * pcr;
@@ -167,7 +167,7 @@ fn validation_column_curves_euler_pinned_amplification() {
     let res_nine = pdelta::solve_pdelta_2d(&input_nine, 50, 1e-6).unwrap();
     assert!(res_nine.converged, "P-delta should converge at 0.9*Pcr");
     let d_nine = res_nine.results.displacements.iter()
-        .find(|d| d.node_id == midspan).unwrap().uy.abs();
+        .find(|d| d.node_id == midspan).unwrap().uz.abs();
 
     // d_nine should be much larger than d_half
     assert!(
@@ -219,7 +219,7 @@ fn validation_column_curves_fixed_free_effective_length() {
     let res_cant = pdelta::solve_pdelta_2d(&input_cant, 50, 1e-6).unwrap();
     assert!(res_cant.converged, "Cantilever P-delta should converge");
     let d_cant = res_cant.results.displacements.iter()
-        .find(|d| d.node_id == tip).unwrap().uy.abs();
+        .find(|d| d.node_id == tip).unwrap().uz.abs();
 
     // Pinned-pinned at same absolute load (which is only 0.125*Pcr_pp)
     let midspan_pp = n / 2 + 1;
@@ -229,7 +229,7 @@ fn validation_column_curves_fixed_free_effective_length() {
     let res_pp = pdelta::solve_pdelta_2d(&input_pp, 50, 1e-6).unwrap();
     assert!(res_pp.converged, "Pinned-pinned P-delta should converge");
     let d_pp = res_pp.results.displacements.iter()
-        .find(|d| d.node_id == midspan_pp).unwrap().uy.abs();
+        .find(|d| d.node_id == midspan_pp).unwrap().uz.abs();
 
     // Cantilever should deflect more: same load but Pcr is 4x smaller,
     // so P/Pcr is 4x higher for the cantilever.
@@ -274,7 +274,7 @@ fn validation_column_curves_fixed_fixed_effective_length() {
     let res_pp = pdelta::solve_pdelta_2d(&input_pp, 50, 1e-6).unwrap();
     assert!(res_pp.converged, "Pinned-pinned P-delta should converge");
     let d_pp = res_pp.results.displacements.iter()
-        .find(|d| d.node_id == midspan).unwrap().uy.abs();
+        .find(|d| d.node_id == midspan).unwrap().uz.abs();
 
     // Fixed-fixed: P/Pcr = 0.3/4 = 0.075 (much further from buckling)
     // Use guidedX at tip for fixed-fixed boundary (rotation + transverse restrained)
@@ -284,7 +284,7 @@ fn validation_column_curves_fixed_fixed_effective_length() {
     let res_ff = pdelta::solve_pdelta_2d(&input_ff, 50, 1e-6).unwrap();
     assert!(res_ff.converged, "Fixed-fixed P-delta should converge");
     let d_ff = res_ff.results.displacements.iter()
-        .find(|d| d.node_id == midspan).unwrap().uy.abs();
+        .find(|d| d.node_id == midspan).unwrap().uz.abs();
 
     // Fixed-fixed should deflect significantly less
     assert!(
@@ -324,7 +324,7 @@ fn validation_column_curves_pdelta_amplification_factor() {
     );
     let res_linear = linear::solve_2d(&input_linear).unwrap();
     let d_linear = res_linear.displacements.iter()
-        .find(|d| d.node_id == midspan).unwrap().uy.abs();
+        .find(|d| d.node_id == midspan).unwrap().uz.abs();
 
     // Case 2: P-delta with P = 0.3*Pcr + same lateral
     let p_axial = 0.3 * pcr;
@@ -334,7 +334,7 @@ fn validation_column_curves_pdelta_amplification_factor() {
     let res_pdelta = pdelta::solve_pdelta_2d(&input_pdelta, 50, 1e-6).unwrap();
     assert!(res_pdelta.converged, "P-delta should converge at 0.3*Pcr");
     let d_pdelta = res_pdelta.results.displacements.iter()
-        .find(|d| d.node_id == midspan).unwrap().uy.abs();
+        .find(|d| d.node_id == midspan).unwrap().uz.abs();
 
     // Amplification factor
     let amp = d_pdelta / d_linear;
@@ -378,7 +378,7 @@ fn validation_column_curves_stiffness_reduction() {
     );
     let res_no_axial = linear::solve_2d(&input_no_axial).unwrap();
     let d0 = res_no_axial.displacements.iter()
-        .find(|d| d.node_id == midspan).unwrap().uy.abs();
+        .find(|d| d.node_id == midspan).unwrap().uz.abs();
     let k0 = f_lateral / d0;
 
     // Case 2: Axial P = 0.5*Pcr + same lateral, measure effective stiffness
@@ -389,7 +389,7 @@ fn validation_column_curves_stiffness_reduction() {
     let res_axial = pdelta::solve_pdelta_2d(&input_axial, 50, 1e-6).unwrap();
     assert!(res_axial.converged, "P-delta should converge at 0.5*Pcr");
     let d_axial = res_axial.results.displacements.iter()
-        .find(|d| d.node_id == midspan).unwrap().uy.abs();
+        .find(|d| d.node_id == midspan).unwrap().uz.abs();
     let k_eff = f_lateral / d_axial;
 
     // Stiffness ratio should be approximately 1 - P/Pcr = 0.5
@@ -447,7 +447,7 @@ fn validation_column_curves_short_vs_long_column() {
         );
         let d_lin = linear::solve_2d(&input_lin).unwrap()
             .displacements.iter()
-            .find(|d| d.node_id == midspan).unwrap().uy.abs();
+            .find(|d| d.node_id == midspan).unwrap().uz.abs();
 
         // P-delta: axial + lateral
         let input_pd = make_column_with_lateral(
@@ -455,7 +455,7 @@ fn validation_column_curves_short_vs_long_column() {
         );
         let d_pd = pdelta::solve_pdelta_2d(&input_pd, 50, 1e-6).unwrap()
             .results.displacements.iter()
-            .find(|d| d.node_id == midspan).unwrap().uy.abs();
+            .find(|d| d.node_id == midspan).unwrap().uz.abs();
 
         d_pd / d_lin
     };
@@ -505,7 +505,7 @@ fn validation_column_curves_tension_compression_effect() {
     );
     let d1 = linear::solve_2d(&input_no_axial).unwrap()
         .displacements.iter()
-        .find(|d| d.node_id == midspan).unwrap().uy.abs();
+        .find(|d| d.node_id == midspan).unwrap().uz.abs();
 
     // Case 2: Axial tension (fx > 0 at tip, pulling away from fixed end)
     // For tension, we apply positive fx (tension along X-axis)
@@ -515,7 +515,7 @@ fn validation_column_curves_tension_compression_effect() {
     let res_tension = pdelta::solve_pdelta_2d(&input_tension, 50, 1e-6).unwrap();
     assert!(res_tension.converged, "Tension P-delta should converge");
     let d2 = res_tension.results.displacements.iter()
-        .find(|d| d.node_id == midspan).unwrap().uy.abs();
+        .find(|d| d.node_id == midspan).unwrap().uz.abs();
 
     // Case 3: Axial compression (fx < 0)
     let input_compression = make_column_with_lateral(
@@ -524,7 +524,7 @@ fn validation_column_curves_tension_compression_effect() {
     let res_compression = pdelta::solve_pdelta_2d(&input_compression, 50, 1e-6).unwrap();
     assert!(res_compression.converged, "Compression P-delta should converge");
     let d3 = res_compression.results.displacements.iter()
-        .find(|d| d.node_id == midspan).unwrap().uy.abs();
+        .find(|d| d.node_id == midspan).unwrap().uz.abs();
 
     // Compression softens (larger deflection), tension stiffens (smaller deflection)
     assert!(

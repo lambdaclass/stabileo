@@ -35,7 +35,7 @@ fn validation_ca_ssll101a_ss_beam_point_load() {
 
     // Apply point load as nodal load at midspan node
     let loads = vec![SolverLoad::Nodal(SolverNodalLoad {
-        node_id: mid_node, fx: 0.0, fy: -p, mz: 0.0,
+        node_id: mid_node, fx: 0.0, fz: -p, my: 0.0,
     })];
 
     let input = make_beam(n, l, E, A, IZ, "pinned", Some("rollerX"), loads);
@@ -44,13 +44,13 @@ fn validation_ca_ssll101a_ss_beam_point_load() {
     // Reactions: R_A = R_B = P/2 = 60 kN
     let r1 = results.reactions.iter().find(|r| r.node_id == 1).unwrap();
     let r_end = results.reactions.iter().find(|r| r.node_id == n + 1).unwrap();
-    assert_close(r1.ry, p / 2.0, 0.02, "SSLL101a R_A = P/2");
-    assert_close(r_end.ry, p / 2.0, 0.02, "SSLL101a R_B = P/2");
+    assert_close(r1.rz, p / 2.0, 0.02, "SSLL101a R_A = P/2");
+    assert_close(r_end.rz, p / 2.0, 0.02, "SSLL101a R_B = P/2");
 
     // Midspan deflection: delta = P*L^3 / (48*E*I)
     let delta_expected = p * l.powi(3) / (48.0 * E_EFF * IZ);
     let d_mid = results.displacements.iter().find(|d| d.node_id == mid_node).unwrap();
-    assert_close(d_mid.uy.abs(), delta_expected, 0.02, "SSLL101a midspan deflection = PL^3/(48EI)");
+    assert_close(d_mid.uz.abs(), delta_expected, 0.02, "SSLL101a midspan deflection = PL^3/(48EI)");
 
     // Midspan moment: M_max = P*L/4 = 180 kN.m
     let m_max_expected = p * l / 4.0;
@@ -60,7 +60,7 @@ fn validation_ca_ssll101a_ss_beam_point_load() {
     assert_close(m_max, m_max_expected, 0.02, "SSLL101a M_max = PL/4");
 
     // Equilibrium
-    let sum_ry: f64 = results.reactions.iter().map(|r| r.ry).sum();
+    let sum_ry: f64 = results.reactions.iter().map(|r| r.rz).sum();
     assert_close(sum_ry, p, 0.01, "SSLL101a sum Ry = P");
 }
 
@@ -96,17 +96,17 @@ fn validation_ca_ssll101b_cantilever_udl() {
     let delta_expected = q * l.powi(4) / (8.0 * E_EFF * IZ);
     let tip_node = n + 1;
     let d_tip = results.displacements.iter().find(|d| d.node_id == tip_node).unwrap();
-    assert_close(d_tip.uy.abs(), delta_expected, 0.02, "SSLL101b tip deflection = qL^4/(8EI)");
+    assert_close(d_tip.uz.abs(), delta_expected, 0.02, "SSLL101b tip deflection = qL^4/(8EI)");
 
     // Base reactions
     let r_base = results.reactions.iter().find(|r| r.node_id == 1).unwrap();
 
     // Shear: V_base = q*L = 100 kN
-    assert_close(r_base.ry, q * l, 0.02, "SSLL101b V_base = qL");
+    assert_close(r_base.rz, q * l, 0.02, "SSLL101b V_base = qL");
 
     // Moment: M_base = q*L^2/2 = 250 kN.m
     let m_base_expected = q * l * l / 2.0;
-    assert_close(r_base.mz.abs(), m_base_expected, 0.02, "SSLL101b M_base = qL^2/2");
+    assert_close(r_base.my.abs(), m_base_expected, 0.02, "SSLL101b M_base = qL^2/2");
 }
 
 // ═══════════════════════════════════════════════════════════════
@@ -147,7 +147,7 @@ fn validation_ca_ssll102a_continuous_beam_3span() {
     let total_load = q * 3.0 * span; // 180 kN
 
     // Sum of reactions must equal total load
-    let sum_ry: f64 = results.reactions.iter().map(|r| r.ry).sum();
+    let sum_ry: f64 = results.reactions.iter().map(|r| r.rz).sum();
     assert_close(sum_ry, total_load, 0.02, "SSLL102a sum_R = q*3L");
 
     // Support node IDs
@@ -156,10 +156,10 @@ fn validation_ca_ssll102a_continuous_beam_3span() {
     let node_c = 2 * n_per_span + 1;
     let node_d = 3 * n_per_span + 1;
 
-    let r_a = results.reactions.iter().find(|r| r.node_id == node_a).unwrap().ry;
-    let r_b = results.reactions.iter().find(|r| r.node_id == node_b).unwrap().ry;
-    let r_c = results.reactions.iter().find(|r| r.node_id == node_c).unwrap().ry;
-    let r_d = results.reactions.iter().find(|r| r.node_id == node_d).unwrap().ry;
+    let r_a = results.reactions.iter().find(|r| r.node_id == node_a).unwrap().rz;
+    let r_b = results.reactions.iter().find(|r| r.node_id == node_b).unwrap().rz;
+    let r_c = results.reactions.iter().find(|r| r.node_id == node_c).unwrap().rz;
+    let r_d = results.reactions.iter().find(|r| r.node_id == node_d).unwrap().rz;
 
     let r_end_expected = 0.4 * q * span;   // = 24 kN
     let r_int_expected = 1.1 * q * span;   // = 66 kN
@@ -218,7 +218,7 @@ fn validation_ca_ssll105a_portal_sway() {
     // Moment equilibrium about left base: R4_y * W + M_A + M_D = P * H
     // For a fixed-base portal, the base moments carry part of the overturning,
     // so R_D_y < P*H/W. Verify equilibrium directly:
-    let m_check = r4.ry * w + r1.mz + r4.mz;
+    let m_check = r4.rz * w + r1.my + r4.my;
     assert_close(m_check, p * h, 0.03, "SSLL105a moment equilibrium: R4y*W + MA + MD = P*H");
 
     // Portal drift should be less than single cantilever column drift
@@ -231,8 +231,8 @@ fn validation_ca_ssll105a_portal_sway() {
     assert!(d2.ux.abs() > 0.0, "SSLL105a drift should be nonzero");
 
     // Both base moments should be nonzero (fixed base)
-    assert!(r1.mz.abs() > 1.0, "SSLL105a base moment at A nonzero");
-    assert!(r4.mz.abs() > 1.0, "SSLL105a base moment at D nonzero");
+    assert!(r1.my.abs() > 1.0, "SSLL105a base moment at A nonzero");
+    assert!(r4.my.abs() > 1.0, "SSLL105a base moment at D nonzero");
 }
 
 // ═══════════════════════════════════════════════════════════════
@@ -263,7 +263,7 @@ fn validation_ca_ssll106a_truss() {
     ];
     let sups = vec![(1, 1, "pinned"), (2, 2, "rollerX")];
     let loads = vec![SolverLoad::Nodal(SolverNodalLoad {
-        node_id: 3, fx: 0.0, fy: -p, mz: 0.0,
+        node_id: 3, fx: 0.0, fz: -p, my: 0.0,
     })];
 
     let input = make_input(
@@ -275,8 +275,8 @@ fn validation_ca_ssll106a_truss() {
     // By symmetry: R1_y = R2_y = P/2
     let r1 = results.reactions.iter().find(|r| r.node_id == 1).unwrap();
     let r2 = results.reactions.iter().find(|r| r.node_id == 2).unwrap();
-    assert_close(r1.ry, p / 2.0, 0.02, "SSLL106a R1_y = P/2");
-    assert_close(r2.ry, p / 2.0, 0.02, "SSLL106a R2_y = P/2");
+    assert_close(r1.rz, p / 2.0, 0.02, "SSLL106a R1_y = P/2");
+    assert_close(r2.rz, p / 2.0, 0.02, "SSLL106a R2_y = P/2");
 
     // Diagonal bar forces by method of joints at apex:
     // Bar 1 (1->3): direction (2,3)/sqrt(13)
@@ -319,7 +319,7 @@ fn validation_ca_ssll107a_beam_on_winkler() {
     // Build solver input manually for Winkler
     let mut nodes_map = HashMap::new();
     for i in 0..=n {
-        nodes_map.insert((i + 1).to_string(), SolverNode { id: i + 1, x: i as f64 * dx, y: 0.0 });
+        nodes_map.insert((i + 1).to_string(), SolverNode { id: i + 1, x: i as f64 * dx, z: 0.0 });
     }
     let mut mats_map = HashMap::new();
     mats_map.insert("1".to_string(), SolverMaterial { id: 1, e: E, nu: 0.3 });
@@ -341,15 +341,15 @@ fn validation_ca_ssll107a_beam_on_winkler() {
     let mut sups_map = HashMap::new();
     sups_map.insert("1".to_string(), SolverSupport {
         id: 1, node_id: 1, support_type: "pinned".to_string(),
-        kx: None, ky: None, kz: None, dx: None, dy: None, drz: None, angle: None,
+        kx: None, ky: None, kz: None, dx: None, dz: None, dry: None, angle: None,
     });
     sups_map.insert("2".to_string(), SolverSupport {
         id: 2, node_id: n + 1, support_type: "rollerX".to_string(),
-        kx: None, ky: None, kz: None, dx: None, dy: None, drz: None, angle: None,
+        kx: None, ky: None, kz: None, dx: None, dz: None, dry: None, angle: None,
     });
 
     let loads = vec![SolverLoad::Nodal(SolverNodalLoad {
-        node_id: mid_node, fx: 0.0, fy: -p, mz: 0.0,
+        node_id: mid_node, fx: 0.0, fz: -p, my: 0.0,
     })];
 
     let solver_input = SolverInput {
@@ -375,13 +375,13 @@ fn validation_ca_ssll107a_beam_on_winkler() {
 
     // Solve without foundation (bare beam)
     let bare_loads = vec![SolverLoad::Nodal(SolverNodalLoad {
-        node_id: mid_node, fx: 0.0, fy: -p, mz: 0.0,
+        node_id: mid_node, fx: 0.0, fz: -p, my: 0.0,
     })];
     let input_bare = make_beam(n, l, E, A, IZ, "pinned", Some("rollerX"), bare_loads);
     let res_bare = linear::solve_2d(&input_bare).unwrap();
 
-    let d_winkler = res_winkler.displacements.iter().find(|d| d.node_id == mid_node).unwrap().uy;
-    let d_bare = res_bare.displacements.iter().find(|d| d.node_id == mid_node).unwrap().uy;
+    let d_winkler = res_winkler.displacements.iter().find(|d| d.node_id == mid_node).unwrap().uz;
+    let d_bare = res_bare.displacements.iter().find(|d| d.node_id == mid_node).unwrap().uz;
 
     // Foundation should reduce deflection
     assert!(
@@ -406,9 +406,9 @@ fn validation_ca_ssll107a_beam_on_winkler() {
 
     // Symmetry: deflection profile should be symmetric about midspan
     let d_left = res_winkler.displacements.iter()
-        .find(|d| d.node_id == n / 4 + 1).unwrap().uy;
+        .find(|d| d.node_id == n / 4 + 1).unwrap().uz;
     let d_right = res_winkler.displacements.iter()
-        .find(|d| d.node_id == 3 * n / 4 + 1).unwrap().uy;
+        .find(|d| d.node_id == 3 * n / 4 + 1).unwrap().uz;
     assert_close(d_left.abs(), d_right.abs(), 0.03, "SSLL107a deflection symmetry");
 }
 
@@ -451,8 +451,8 @@ fn validation_ca_ssll110a_thermal_fixed_beam() {
 
     // No transverse deflection for uniform temperature on fixed-fixed
     for d in &res1.displacements {
-        assert!(d.uy.abs() < 1e-8,
-            "SSLL110a uniform: node {} uy={:.2e} should be ~0", d.node_id, d.uy);
+        assert!(d.uz.abs() < 1e-8,
+            "SSLL110a uniform: node {} uy={:.2e} should be ~0", d.node_id, d.uz);
     }
 
     // Case 2: Thermal gradient on fixed-fixed beam
@@ -470,8 +470,8 @@ fn validation_ca_ssll110a_thermal_fixed_beam() {
     // End moments should exist and be equal by symmetry
     let r1 = res2.reactions.iter().find(|r| r.node_id == 1).unwrap();
     let r_end = res2.reactions.iter().find(|r| r.node_id == n + 1).unwrap();
-    assert!(r1.mz.abs() > 1e-6, "SSLL110a gradient: base moment should be nonzero");
-    assert_close(r1.mz.abs(), r_end.mz.abs(), 0.05, "SSLL110a gradient moment symmetry");
+    assert!(r1.my.abs() > 1e-6, "SSLL110a gradient: base moment should be nonzero");
+    assert_close(r1.my.abs(), r_end.my.abs(), 0.05, "SSLL110a gradient moment symmetry");
 
     // No axial force from pure gradient
     for ef in &res2.element_forces {

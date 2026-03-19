@@ -17,7 +17,7 @@ pub fn make_input(
 ) -> SolverInput {
     let mut nodes_map = HashMap::new();
     for (id, x, y) in nodes {
-        nodes_map.insert(id.to_string(), SolverNode { id, x, y });
+        nodes_map.insert(id.to_string(), SolverNode { id, x, z: y });
     }
     let mut mats_map = HashMap::new();
     for (id, e, nu) in mats {
@@ -47,7 +47,7 @@ pub fn make_input(
             node_id: nid,
             support_type: t.to_string(),
             kx: None, ky: None, kz: None,
-            dx: None, dy: None, drz: None, angle: None,
+            dx: None, dz: None, dry: None, angle: None,
         });
     }
     SolverInput { nodes: nodes_map, materials: mats_map, sections: secs_map, elements: elems_map, supports: sups_map, loads, constraints: vec![] , connectors: HashMap::new() }
@@ -85,8 +85,8 @@ pub fn make_column(
         vec![SolverLoad::Nodal(SolverNodalLoad {
             node_id: n_nodes,
             fx: axial_load,
-            fy: 0.0,
-            mz: 0.0,
+            fz: 0.0,
+            my: 0.0,
         })]
     } else {
         vec![]
@@ -155,15 +155,15 @@ pub fn make_portal_frame(
     let mut loads = Vec::new();
     if lateral_load.abs() > 1e-20 {
         loads.push(SolverLoad::Nodal(SolverNodalLoad {
-            node_id: 2, fx: lateral_load, fy: 0.0, mz: 0.0,
+            node_id: 2, fx: lateral_load, fz: 0.0, my: 0.0,
         }));
     }
     if gravity_load.abs() > 1e-20 {
         loads.push(SolverLoad::Nodal(SolverNodalLoad {
-            node_id: 2, fx: 0.0, fy: gravity_load, mz: 0.0,
+            node_id: 2, fx: 0.0, fz: gravity_load, my: 0.0,
         }));
         loads.push(SolverLoad::Nodal(SolverNodalLoad {
-            node_id: 3, fx: 0.0, fy: gravity_load, mz: 0.0,
+            node_id: 3, fx: 0.0, fz: gravity_load, my: 0.0,
         }));
     }
 
@@ -349,8 +349,8 @@ pub fn check_equilibrium(results: &AnalysisResults, loads: &[SolverLoad]) {
         match load {
             SolverLoad::Nodal(nl) => {
                 fx += nl.fx;
-                fy += nl.fy;
-                mz += nl.mz;
+                fy += nl.fz;
+                mz += nl.my;
             }
             SolverLoad::Distributed(_) => {
                 // Distributed loads contribute to equilibrium but need element geometry
@@ -360,8 +360,8 @@ pub fn check_equilibrium(results: &AnalysisResults, loads: &[SolverLoad]) {
         }
     }
     let sum_rx: f64 = results.reactions.iter().map(|r| r.rx).sum();
-    let sum_ry: f64 = results.reactions.iter().map(|r| r.ry).sum();
-    let sum_mz: f64 = results.reactions.iter().map(|r| r.mz).sum();
+    let sum_ry: f64 = results.reactions.iter().map(|r| r.rz).sum();
+    let sum_my: f64 = results.reactions.iter().map(|r| r.my).sum();
 
     assert!(
         (sum_rx + fx).abs() < 1.0,
@@ -377,9 +377,9 @@ pub fn check_equilibrium(results: &AnalysisResults, loads: &[SolverLoad]) {
     }
     if mz.abs() > 1e-10 {
         assert!(
-            (sum_mz + mz).abs() < 1.0,
+            (sum_my + mz).abs() < 1.0,
             "Moment equilibrium violated: ΣMz_react={:.4}, ΣMz_applied={:.4}, residual={:.4}",
-            sum_mz, mz, sum_mz + mz
+            sum_my, mz, sum_my + mz
         );
     }
 }
@@ -403,14 +403,14 @@ pub fn check_moment_equilibrium_2d(
     // Reaction contributions: Mz + (r × F)_z = Mz + x*Ry - y*Rx
     for r in &results.reactions {
         let (x, y) = node_coords[&r.node_id];
-        sum_m += r.mz + x * r.ry - y * r.rx;
+        sum_m += r.my + x * r.rz - y * r.rx;
     }
 
     // Applied load contributions: mz + x*fy - y*fx
     for load in loads {
         if let SolverLoad::Nodal(nl) = load {
             let (x, y) = node_coords[&nl.node_id];
-            sum_m += nl.mz + x * nl.fy - y * nl.fx;
+            sum_m += nl.my + x * nl.fz - y * nl.fx;
         }
     }
 

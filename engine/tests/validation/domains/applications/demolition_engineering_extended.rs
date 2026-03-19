@@ -83,7 +83,7 @@ fn demolition_load_redistribution_column_removal() {
 
     // Middle column reaction before removal
     let r_mid_before: f64 = res_before.reactions.iter()
-        .find(|r| r.node_id == 4).unwrap().ry.abs();
+        .find(|r| r.node_id == 4).unwrap().rz.abs();
 
     // ----- Model AFTER removal: two-span beam on two columns -----
     // Nodes: 1(0,0), 2(0,h), 3(L,h), 4(2L,h), 5(2L,0)
@@ -131,9 +131,9 @@ fn demolition_load_redistribution_column_removal() {
 
     // After removal: total vertical reaction at each base = q * 2L / 2 = q * L
     let r_left_after: f64 = res_after.reactions.iter()
-        .find(|r| r.node_id == 1).unwrap().ry.abs();
+        .find(|r| r.node_id == 1).unwrap().rz.abs();
     let r_right_after: f64 = res_after.reactions.iter()
-        .find(|r| r.node_id == right_base).unwrap().ry.abs();
+        .find(|r| r.node_id == right_base).unwrap().rz.abs();
 
     let total_load: f64 = q.abs() * 2.0 * l;
     let sum_ry_after: f64 = r_left_after + r_right_after;
@@ -224,7 +224,7 @@ fn demolition_temporary_shoring() {
     let total_load: f64 = q.abs() * span;
 
     // Vertical equilibrium
-    let sum_ry: f64 = results.reactions.iter().map(|r| r.ry.abs()).sum::<f64>();
+    let sum_ry: f64 = results.reactions.iter().map(|r| r.rz.abs()).sum::<f64>();
     assert_close(sum_ry, total_load, 0.05, "Total vertical equilibrium with shore");
 
     // Shore carries compressive axial force
@@ -294,7 +294,7 @@ fn demolition_partial_stability_remaining_frame() {
         }),
         // Lateral load at top of exposed face (left side after demolition of right bay)
         SolverLoad::Nodal(SolverNodalLoad {
-            node_id: 2, fx: f_lateral, fy: 0.0, mz: 0.0,
+            node_id: 2, fx: f_lateral, fz: 0.0, my: 0.0,
         }),
     ];
 
@@ -303,7 +303,7 @@ fn demolition_partial_stability_remaining_frame() {
 
     // Total vertical load = q * 2 * bay
     let total_v: f64 = q.abs() * 2.0 * bay;
-    let sum_ry: f64 = results.reactions.iter().map(|r| r.ry).sum::<f64>();
+    let sum_ry: f64 = results.reactions.iter().map(|r| r.rz).sum::<f64>();
     assert_close(sum_ry.abs(), total_v, 0.05, "Vertical equilibrium of remaining frame");
 
     // Total horizontal reaction = f_lateral
@@ -320,8 +320,8 @@ fn demolition_partial_stability_remaining_frame() {
     // All three bases must have non-zero vertical reaction
     for &nid in &[1, 4, 6] {
         let r = results.reactions.iter().find(|r| r.node_id == nid).unwrap();
-        assert!(r.ry.abs() > 1.0,
-            "Base node {} carries vertical load: {:.2} kN", nid, r.ry);
+        assert!(r.rz.abs() > 1.0,
+            "Base node {} carries vertical load: {:.2} kN", nid, r.rz);
     }
 }
 
@@ -371,22 +371,22 @@ fn demolition_cantilever_after_wall_removal() {
 
     let tip_disp = results.displacements.iter()
         .find(|d| d.node_id == n + 1).unwrap();
-    assert_close(tip_disp.uy.abs(), delta_exact, 0.05, "Cantilever tip deflection");
+    assert_close(tip_disp.uz.abs(), delta_exact, 0.05, "Cantilever tip deflection");
 
     // Fixed-end moment: M = qL^2/2
     let m_exact: f64 = q.abs() * l.powi(2) / 2.0;
     let r_fixed = results.reactions.iter().find(|r| r.node_id == 1).unwrap();
-    assert_close(r_fixed.mz.abs(), m_exact, 0.05, "Cantilever fixed-end moment");
+    assert_close(r_fixed.my.abs(), m_exact, 0.05, "Cantilever fixed-end moment");
 
     // Fixed-end shear: V = qL
     let v_exact: f64 = q.abs() * l;
-    assert_close(r_fixed.ry.abs(), v_exact, 0.05, "Cantilever fixed-end shear");
+    assert_close(r_fixed.rz.abs(), v_exact, 0.05, "Cantilever fixed-end shear");
 
     // Check that deflection exceeds L/250 (likely unserviceable — demolition concern)
-    let defl_ratio: f64 = tip_disp.uy.abs() / l;
+    let defl_ratio: f64 = tip_disp.uz.abs() / l;
     // This large cantilever will have noticeable deflection
-    assert!(tip_disp.uy.abs() > 0.0,
-        "Non-zero tip deflection: {:.4} m (L/{:.0})", tip_disp.uy.abs(), 1.0 / defl_ratio);
+    assert!(tip_disp.uz.abs() > 0.0,
+        "Non-zero tip deflection: {:.4} m (L/{:.0})", tip_disp.uz.abs(), 1.0 / defl_ratio);
 }
 
 // ================================================================
@@ -433,12 +433,12 @@ fn demolition_debris_loading() {
     let mid_node = n / 2 + 1;
     let mid_disp = results.displacements.iter()
         .find(|d| d.node_id == mid_node).unwrap();
-    assert_close(mid_disp.uy.abs(), delta_exact, 0.05, "Debris load midspan deflection");
+    assert_close(mid_disp.uz.abs(), delta_exact, 0.05, "Debris load midspan deflection");
 
     // Support reactions: R = qL/2
     let r_exact: f64 = q_total.abs() * l / 2.0;
     let r1 = results.reactions.iter().find(|r| r.node_id == 1).unwrap();
-    assert_close(r1.ry.abs(), r_exact, 0.03, "Debris load support reaction");
+    assert_close(r1.rz.abs(), r_exact, 0.03, "Debris load support reaction");
 
     // Midspan moment: M = qL^2/8
     let m_exact: f64 = q_total.abs() * l.powi(2) / 8.0;
@@ -479,7 +479,7 @@ fn demolition_crane_pad_equipment_load() {
 
     // Point load at midspan
     let loads = vec![SolverLoad::Nodal(SolverNodalLoad {
-        node_id: mid_node, fx: 0.0, fy: -p_machine, mz: 0.0,
+        node_id: mid_node, fx: 0.0, fz: -p_machine, my: 0.0,
     })];
 
     let input = make_beam(n, l, e, a_beam, iz_beam, "pinned", Some("rollerX"), loads);
@@ -491,14 +491,14 @@ fn demolition_crane_pad_equipment_load() {
     let delta_exact: f64 = p_machine * l.powi(3) / (48.0 * e_eff * iz_beam);
     let mid_disp = results.displacements.iter()
         .find(|d| d.node_id == mid_node).unwrap();
-    assert_close(mid_disp.uy.abs(), delta_exact, 0.05, "Crane pad midspan deflection");
+    assert_close(mid_disp.uz.abs(), delta_exact, 0.05, "Crane pad midspan deflection");
 
     // Reactions: R = P/2
     let r_exact: f64 = p_machine / 2.0;
     let r1 = results.reactions.iter().find(|r| r.node_id == 1).unwrap();
     let r_end = results.reactions.iter().find(|r| r.node_id == n + 1).unwrap();
-    assert_close(r1.ry.abs(), r_exact, 0.03, "Left support reaction under crane pad");
-    assert_close(r_end.ry.abs(), r_exact, 0.03, "Right support reaction under crane pad");
+    assert_close(r1.rz.abs(), r_exact, 0.03, "Left support reaction under crane pad");
+    assert_close(r_end.rz.abs(), r_exact, 0.03, "Right support reaction under crane pad");
 
     // Midspan moment: M = PL/4
     let m_exact: f64 = p_machine * l / 4.0;
@@ -509,8 +509,8 @@ fn demolition_crane_pad_equipment_load() {
     // Check: deflection should be small enough that slab is serviceable
     // L/250 = 0.032 m
     let defl_limit: f64 = l / 250.0;
-    assert!(mid_disp.uy.abs() < defl_limit,
-        "Deflection {:.4} m < L/250 = {:.4} m — slab is serviceable", mid_disp.uy.abs(), defl_limit);
+    assert!(mid_disp.uz.abs() < defl_limit,
+        "Deflection {:.4} m < L/250 = {:.4} m — slab is serviceable", mid_disp.uz.abs(), defl_limit);
 }
 
 // ================================================================
@@ -580,7 +580,7 @@ fn demolition_controlled_collapse_mechanism() {
     }
     // Lateral push
     loads_v.push(SolverLoad::Nodal(SolverNodalLoad {
-        node_id: 2, fx: f_lat, fy: 0.0, mz: 0.0,
+        node_id: 2, fx: f_lat, fz: 0.0, my: 0.0,
     }));
 
     let input = make_input(
@@ -605,7 +605,7 @@ fn demolition_controlled_collapse_mechanism() {
 
     // Vertical equilibrium
     let total_v: f64 = q.abs() * w;
-    let sum_ry: f64 = results.reactions.iter().map(|r| r.ry).sum::<f64>();
+    let sum_ry: f64 = results.reactions.iter().map(|r| r.rz).sum::<f64>();
     assert_close(sum_ry.abs(), total_v, 0.05, "Vertical equilibrium in mechanism state");
 
     // Horizontal equilibrium
@@ -686,7 +686,7 @@ fn demolition_remaining_structure_adequacy() {
     }
     // Lateral wind at left column top
     loads.push(SolverLoad::Nodal(SolverNodalLoad {
-        node_id: 2, fx: f_wind, fy: 0.0, mz: 0.0,
+        node_id: 2, fx: f_wind, fz: 0.0, my: 0.0,
     }));
 
     let input = make_input(nodes, mats, secs, elems, sups, loads);
@@ -694,7 +694,7 @@ fn demolition_remaining_structure_adequacy() {
 
     // Vertical equilibrium: total gravity = q_total * w
     let total_grav: f64 = q_total.abs() * w;
-    let sum_ry: f64 = results.reactions.iter().map(|r| r.ry).sum::<f64>();
+    let sum_ry: f64 = results.reactions.iter().map(|r| r.rz).sum::<f64>();
     assert_close(sum_ry.abs(), total_grav, 0.05, "Vertical equilibrium of remaining structure");
 
     // Horizontal equilibrium
@@ -704,10 +704,10 @@ fn demolition_remaining_structure_adequacy() {
     // Both bases must have moment reactions (fixed supports)
     let r_left = results.reactions.iter().find(|r| r.node_id == 1).unwrap();
     let r_right = results.reactions.iter().find(|r| r.node_id == right_base).unwrap();
-    assert!(r_left.mz.abs() > 1.0,
-        "Left base moment: {:.2} kN-m", r_left.mz);
-    assert!(r_right.mz.abs() > 1.0,
-        "Right base moment: {:.2} kN-m", r_right.mz);
+    assert!(r_left.my.abs() > 1.0,
+        "Left base moment: {:.2} kN-m", r_left.my);
+    assert!(r_right.my.abs() > 1.0,
+        "Right base moment: {:.2} kN-m", r_right.my);
 
     // Sway check: roof drift < H/150 (demolition temporary condition)
     let roof_disp = results.displacements.iter()
@@ -719,7 +719,7 @@ fn demolition_remaining_structure_adequacy() {
     // Check that column base moments are bounded:
     // For portal under lateral load: M_base approx F*h / (2 to 4) per column
     let m_base_approx: f64 = f_wind * h;
-    let sum_base_m: f64 = r_left.mz.abs() + r_right.mz.abs();
+    let sum_base_m: f64 = r_left.my.abs() + r_right.my.abs();
     // The sum of base moments should be on the order of F*h (overturning balance)
     assert!(sum_base_m > 0.2 * m_base_approx && sum_base_m < 3.0 * m_base_approx,
         "Base moments {:.2} kN-m in expected range for F*h = {:.2} kN-m", sum_base_m, m_base_approx);

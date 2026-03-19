@@ -91,7 +91,7 @@ fn validation_prz_patch_test_axial() {
     let mut nodes_map = std::collections::HashMap::new();
     for i in 0..n_nodes {
         nodes_map.insert((i + 1).to_string(), SolverNode {
-            id: i + 1, x: i as f64 * elem_len, y: 0.0,
+            id: i + 1, x: i as f64 * elem_len, z: 0.0,
         });
     }
     let mut mats_map = std::collections::HashMap::new();
@@ -111,12 +111,12 @@ fn validation_prz_patch_test_axial() {
     sups_map.insert("1".to_string(), SolverSupport {
         id: 1, node_id: 1, support_type: "fixed".to_string(),
         kx: None, ky: None, kz: None,
-        dx: None, dy: None, drz: None, angle: None,
+        dx: None, dz: None, dry: None, angle: None,
     });
     sups_map.insert("2".to_string(), SolverSupport {
         id: 2, node_id: n_nodes, support_type: "fixed".to_string(),
         kx: None, ky: None, kz: None,
-        dx: Some(delta), dy: Some(0.0), drz: Some(0.0), angle: None,
+        dx: Some(delta), dz: Some(0.0), dry: Some(0.0), angle: None,
     });
 
     let input = SolverInput {
@@ -171,7 +171,7 @@ fn validation_prz_3d_offset_loading() {
 
     // Bending: δy = Fy*L³/(3*E_eff*Iz)
     let dy_expected = fy * l.powi(3) / (3.0 * E_EFF * IZ);
-    assert_close(tip.uy.abs(), dy_expected, 0.02, "PRZ offset δy");
+    assert_close(tip.uz.abs(), dy_expected, 0.02, "PRZ offset δy");
 
     // Torsion: θx = Mx*L/(G*J)
     let theta_x_expected = mx * l / (G * J);
@@ -205,7 +205,7 @@ fn validation_prz_rotated_element() {
     );
     let res_x = linear::solve_3d(&input_x).unwrap();
     let tip_x = res_x.displacements.iter().find(|d| d.node_id == n + 1).unwrap();
-    let delta_x = tip_x.uy.abs();
+    let delta_x = tip_x.uz.abs();
 
     // Cantilever along Y: nodes at (0,0,0) to (0,L,0)
     let elem_len = l / n as f64;

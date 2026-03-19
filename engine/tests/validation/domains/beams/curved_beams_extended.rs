@@ -110,7 +110,7 @@ fn validation_curv_ext_winkler_bach_curved_beam_stress() {
 
     // Downward point load at tip (node n+1 is at top of arc)
     let loads = vec![SolverLoad::Nodal(SolverNodalLoad {
-        node_id: n + 1, fx: 0.0, fy: -p, mz: 0.0,
+        node_id: n + 1, fx: 0.0, fz: -p, my: 0.0,
     })];
 
     let input = make_input(
@@ -127,7 +127,7 @@ fn validation_curv_ext_winkler_bach_curved_beam_stress() {
 
     let r_fixed = results.reactions.iter().find(|r| r.node_id == 1).unwrap();
 
-    assert_close(r_fixed.mz.abs(), m_fixed_expected, 0.03,
+    assert_close(r_fixed.my.abs(), m_fixed_expected, 0.03,
         "Winkler-Bach: fixed-end moment M = P*R");
 
     // Winkler-Bach stress comparison for rectangular section:
@@ -222,10 +222,10 @@ fn validation_curv_ext_circular_ring_diametral_load() {
     // This represents two diametrically opposed forces squeezing the ring
     let loads = vec![
         SolverLoad::Nodal(SolverNodalLoad {
-            node_id: 1, fx: 0.0, fy: -p / 2.0, mz: 0.0,
+            node_id: 1, fx: 0.0, fz: -p / 2.0, my: 0.0,
         }),
         SolverLoad::Nodal(SolverNodalLoad {
-            node_id: n + 1, fx: 0.0, fy: p / 2.0, mz: 0.0,
+            node_id: n + 1, fx: 0.0, fz: p / 2.0, my: 0.0,
         }),
     ];
 
@@ -241,7 +241,7 @@ fn validation_curv_ext_circular_ring_diametral_load() {
 
     let d_top = results.displacements.iter().find(|d| d.node_id == n + 1).unwrap();
     let d_bot = results.displacements.iter().find(|d| d.node_id == 1).unwrap();
-    let delta_computed: f64 = (d_top.uy - d_bot.uy).abs();
+    let delta_computed: f64 = (d_top.uz - d_bot.uz).abs();
 
     // Deflection comparison: allow 5% tolerance due to polygonal approximation
     assert_close(delta_computed, delta_roark, 0.05,
@@ -256,7 +256,7 @@ fn validation_curv_ext_circular_ring_diametral_load() {
         "Ring should ovalize: equator horizontal displacement = {:.6e}", d_mid.ux.abs());
 
     // Verify equilibrium: sum of vertical reactions should equal applied loads
-    let sum_ry: f64 = results.reactions.iter().map(|r| r.ry).sum();
+    let sum_ry: f64 = results.reactions.iter().map(|r| r.rz).sum();
     assert!(sum_ry.abs() < 0.01,
         "Ring equilibrium: sum Ry = {:.6} (should be ~0)", sum_ry);
 }
@@ -332,7 +332,7 @@ fn validation_curv_ext_semicircular_arch_thrust() {
                 (x_coords[i + 1] - x_coords[i - 1]) / 2.0
             };
             SolverLoad::Nodal(SolverNodalLoad {
-                node_id: i + 1, fx: 0.0, fy: -w * trib, mz: 0.0,
+                node_id: i + 1, fx: 0.0, fz: -w * trib, my: 0.0,
             })
         })
         .collect();
@@ -355,9 +355,9 @@ fn validation_curv_ext_semicircular_arch_thrust() {
 
     // Vertical reactions: each = w*L/2
     let rv_expected: f64 = w * l / 2.0;
-    assert_close(r_left.ry, rv_expected, 0.03,
+    assert_close(r_left.rz, rv_expected, 0.03,
         "Circular arch: Rv_left = wL/2");
-    assert_close(r_right.ry, rv_expected, 0.03,
+    assert_close(r_right.rz, rv_expected, 0.03,
         "Circular arch: Rv_right = wL/2");
 
     // Horizontal reactions equal and opposite
@@ -474,7 +474,7 @@ fn validation_curv_ext_stress_ratio_inner_outer() {
         .collect();
 
     let loads = vec![SolverLoad::Nodal(SolverNodalLoad {
-        node_id: n + 1, fx: 0.0, fy: 0.0, mz: m_app,
+        node_id: n + 1, fx: 0.0, fz: 0.0, my: m_app,
     })];
 
     let input = make_input(
@@ -485,7 +485,7 @@ fn validation_curv_ext_stress_ratio_inner_outer() {
 
     // Under pure moment, the reaction moment at the fixed end equals M_app
     let r_fixed = results.reactions.iter().find(|r| r.node_id == 1).unwrap();
-    assert_close(r_fixed.mz.abs(), m_app, 0.02,
+    assert_close(r_fixed.my.abs(), m_app, 0.02,
         "Curved beam pure bending: reaction moment = applied moment");
 }
 
@@ -535,7 +535,7 @@ fn validation_curv_ext_castigliano_curved_deflection() {
 
     // Vertical load P at the free end (top of arc)
     let loads = vec![SolverLoad::Nodal(SolverNodalLoad {
-        node_id: n + 1, fx: 0.0, fy: -p, mz: 0.0,
+        node_id: n + 1, fx: 0.0, fz: -p, my: 0.0,
     })];
 
     let input = make_input(
@@ -558,14 +558,14 @@ fn validation_curv_ext_castigliano_curved_deflection() {
     // Due to axial deformation in frame elements, there will be some
     // deviation from pure bending theory, but for slender arcs it
     // should be within tolerance.
-    assert_close(tip.uy.abs(), delta_v_exact, 0.03,
+    assert_close(tip.uz.abs(), delta_v_exact, 0.03,
         "Castigliano: vertical deflection of quarter-arc");
 
     assert_close(tip.ux.abs(), delta_h_exact, 0.03,
         "Castigliano: horizontal deflection of quarter-arc");
 
     // Verify strain energy: U = 1/2 * P * delta_v (only vertical load does work)
-    let u_external: f64 = 0.5 * p * tip.uy.abs();
+    let u_external: f64 = 0.5 * p * tip.uz.abs();
     let u_analytical: f64 = p * p * r.powi(3) * pi / (8.0 * e_eff * IZ);
 
     assert_close(u_external, u_analytical, 0.03,
@@ -631,7 +631,7 @@ fn validation_curv_ext_ring_stiffness_r_over_h() {
             .collect();
         let sups = vec![(1, 1_usize, "fixed")];
         let loads = vec![SolverLoad::Nodal(SolverNodalLoad {
-            node_id: n + 1, fx: 0.0, fy: -p, mz: 0.0,
+            node_id: n + 1, fx: 0.0, fz: -p, my: 0.0,
         })];
         let input = make_input(
             nodes, vec![(1, E, 0.3)], vec![(1, a_val, iz_val)],
@@ -639,7 +639,7 @@ fn validation_curv_ext_ring_stiffness_r_over_h() {
         );
         let results = linear::solve_2d(&input).unwrap();
         let tip = results.displacements.iter().find(|d| d.node_id == n + 1).unwrap();
-        tip.uy.abs()
+        tip.uz.abs()
     };
 
     let delta_thin = build_semicircle(a_thin, iz_thin);
@@ -718,7 +718,7 @@ fn validation_curv_ext_parabolic_vs_circular_thrust() {
             .map(|i| {
                 let trib = if i == 0 || i == n { dx / 2.0 } else { dx };
                 SolverLoad::Nodal(SolverNodalLoad {
-                    node_id: i + 1, fx: 0.0, fy: -w * trib, mz: 0.0,
+                    node_id: i + 1, fx: 0.0, fz: -w * trib, my: 0.0,
                 })
             })
             .collect()
@@ -782,7 +782,7 @@ fn validation_curv_ext_parabolic_vs_circular_thrust() {
                 (x_coords_circ[i + 1] - x_coords_circ[i - 1]) / 2.0
             };
             SolverLoad::Nodal(SolverNodalLoad {
-                node_id: i + 1, fx: 0.0, fy: -w * trib, mz: 0.0,
+                node_id: i + 1, fx: 0.0, fz: -w * trib, my: 0.0,
             })
         })
         .collect();
@@ -942,7 +942,7 @@ fn validation_curv_ext_neutral_axis_shift() {
         .collect();
 
     let loads = vec![SolverLoad::Nodal(SolverNodalLoad {
-        node_id: n + 1, fx: 0.0, fy: -p, mz: 0.0,
+        node_id: n + 1, fx: 0.0, fz: -p, my: 0.0,
     })];
 
     let input = make_input(
@@ -956,12 +956,12 @@ fn validation_curv_ext_neutral_axis_shift() {
     // Castigliano bending deflection: delta_v = P*R^3*pi/(4EI)
     let delta_v_castigliano: f64 = p * r_fe.powi(3) * pi / (4.0 * e_eff * IZ);
 
-    assert_close(tip.uy.abs(), delta_v_castigliano, 0.03,
+    assert_close(tip.uz.abs(), delta_v_castigliano, 0.03,
         "Neutral axis shift FE: vertical deflection matches Castigliano");
 
     // The moment at the fixed support should equal P * R
     let r_fixed = results.reactions.iter().find(|r| r.node_id == 1).unwrap();
     let m_expected: f64 = p * r_fe;
-    assert_close(r_fixed.mz.abs(), m_expected, 0.02,
+    assert_close(r_fixed.my.abs(), m_expected, 0.02,
         "Neutral axis shift FE: fixed-end moment = P*R");
 }

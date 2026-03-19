@@ -49,7 +49,7 @@ fn validation_joint_rigid_moment_transfer() {
     ];
     let sups = vec![(1, 1, "fixed")];
     let loads = vec![SolverLoad::Nodal(SolverNodalLoad {
-        node_id: 3, fx: 0.0, fy: -p, mz: 0.0,
+        node_id: 3, fx: 0.0, fz: -p, my: 0.0,
     })];
 
     let input = make_input(nodes, vec![(1, E, 0.3)], vec![(1, A, IZ)],
@@ -77,7 +77,7 @@ fn validation_joint_rigid_moment_transfer() {
     );
 
     // Equilibrium: fixed base reactions must equal applied load
-    let sum_ry: f64 = results.reactions.iter().map(|r| r.ry).sum();
+    let sum_ry: f64 = results.reactions.iter().map(|r| r.rz).sum();
     assert_close(sum_ry, p, 0.01, "Rigid joint L-frame: vertical equilibrium");
 }
 
@@ -107,7 +107,7 @@ fn validation_joint_hinged_zero_moment() {
     ];
     let sups = vec![(1, 1, "fixed"), (2, 4, "fixed")];
     let loads = vec![SolverLoad::Nodal(SolverNodalLoad {
-        node_id: 2, fx: p, fy: 0.0, mz: 0.0,
+        node_id: 2, fx: p, fz: 0.0, my: 0.0,
     })];
 
     let input = make_input(nodes, vec![(1, E, 0.3)], vec![(1, A, IZ)],
@@ -162,7 +162,7 @@ fn validation_joint_portal_rigid_vs_hinged_tops() {
     ];
     let sups = vec![(1, 1, "fixed"), (2, 4, "fixed")];
     let loads = vec![SolverLoad::Nodal(SolverNodalLoad {
-        node_id: 2, fx: p, fy: 0.0, mz: 0.0,
+        node_id: 2, fx: p, fz: 0.0, my: 0.0,
     })];
 
     let input_hinged = make_input(nodes, vec![(1, E, 0.3)], vec![(1, A, IZ)],
@@ -216,7 +216,7 @@ fn validation_joint_fixed_vs_pinned_base() {
     ];
     let sups_pinned = vec![(1, 1, "pinned"), (2, 4, "pinned")];
     let loads = vec![SolverLoad::Nodal(SolverNodalLoad {
-        node_id: 2, fx: p, fy: 0.0, mz: 0.0,
+        node_id: 2, fx: p, fz: 0.0, my: 0.0,
     })];
 
     let input_pinned = make_input(nodes, vec![(1, E, 0.3)], vec![(1, A, IZ)],
@@ -280,7 +280,7 @@ fn validation_joint_moment_equilibrium_t_frame() {
     ];
     let sups = vec![(1, 1, "fixed"), (2, 3, "rollerX"), (3, 4, "rollerX")];
     let loads = vec![SolverLoad::Nodal(SolverNodalLoad {
-        node_id: 2, fx: 0.0, fy: -p, mz: 0.0,
+        node_id: 2, fx: 0.0, fz: -p, my: 0.0,
     })];
 
     let input = make_input(nodes, vec![(1, E, 0.3)], vec![(1, A, IZ)],
@@ -302,7 +302,7 @@ fn validation_joint_moment_equilibrium_t_frame() {
     );
 
     // Global vertical equilibrium
-    let sum_ry: f64 = results.reactions.iter().map(|r| r.ry).sum();
+    let sum_ry: f64 = results.reactions.iter().map(|r| r.rz).sum();
     assert_close(sum_ry, p, 0.01, "T-frame: vertical equilibrium");
 }
 
@@ -324,12 +324,12 @@ fn validation_joint_hinge_midspan_deflection() {
 
     // Continuous fixed-fixed beam
     let loads = vec![SolverLoad::Nodal(SolverNodalLoad {
-        node_id: mid_node, fx: 0.0, fy: -p, mz: 0.0,
+        node_id: mid_node, fx: 0.0, fz: -p, my: 0.0,
     })];
     let input_cont = make_beam(n, l, E, A, IZ, "fixed", Some("fixed"), loads.clone());
     let res_cont = linear::solve_2d(&input_cont).unwrap();
     let defl_cont = res_cont.displacements.iter()
-        .find(|d| d.node_id == mid_node).unwrap().uy.abs();
+        .find(|d| d.node_id == mid_node).unwrap().uz.abs();
 
     // Fixed-fixed beam with midspan hinge
     let n_nodes = n + 1;
@@ -351,7 +351,7 @@ fn validation_joint_hinge_midspan_deflection() {
         elems, sups, loads);
     let res_hinge = linear::solve_2d(&input_hinge).unwrap();
     let defl_hinge = res_hinge.displacements.iter()
-        .find(|d| d.node_id == mid_node).unwrap().uy.abs();
+        .find(|d| d.node_id == mid_node).unwrap().uz.abs();
 
     // Hinge reduces stiffness → larger deflection
     assert!(
@@ -402,7 +402,7 @@ fn validation_joint_multi_bay_interior_equilibrium() {
         (1, 1, "fixed"), (2, 2, "fixed"), (3, 3, "fixed"), (4, 4, "fixed"),
     ];
     let loads = vec![SolverLoad::Nodal(SolverNodalLoad {
-        node_id: 5, fx: p, fy: 0.0, mz: 0.0,
+        node_id: 5, fx: p, fz: 0.0, my: 0.0,
     })];
 
     let input = make_input(nodes, vec![(1, E, 0.3)], vec![(1, A, IZ)],
@@ -477,8 +477,8 @@ fn validation_joint_one_hinge_asymmetric() {
     let input_rigid = make_input(nodes.clone(), vec![(1, E, 0.3)], vec![(1, A, IZ)],
         elems_rigid, sups.clone(), loads.clone());
     let res_rigid = linear::solve_2d(&input_rigid).unwrap();
-    let m1_rigid = res_rigid.reactions.iter().find(|r| r.node_id == 1).unwrap().mz.abs();
-    let m4_rigid = res_rigid.reactions.iter().find(|r| r.node_id == 4).unwrap().mz.abs();
+    let m1_rigid = res_rigid.reactions.iter().find(|r| r.node_id == 1).unwrap().my.abs();
+    let m4_rigid = res_rigid.reactions.iter().find(|r| r.node_id == 4).unwrap().my.abs();
 
     // Rigid frame under symmetric UDL must have equal base moments
     assert_close(m1_rigid, m4_rigid, 0.02, "Rigid symmetric: base moments equal");
@@ -492,8 +492,8 @@ fn validation_joint_one_hinge_asymmetric() {
     let input_hinge = make_input(nodes, vec![(1, E, 0.3)], vec![(1, A, IZ)],
         elems_hinge, sups, loads);
     let res_hinge = linear::solve_2d(&input_hinge).unwrap();
-    let m1_hinge = res_hinge.reactions.iter().find(|r| r.node_id == 1).unwrap().mz.abs();
-    let m4_hinge = res_hinge.reactions.iter().find(|r| r.node_id == 4).unwrap().mz.abs();
+    let m1_hinge = res_hinge.reactions.iter().find(|r| r.node_id == 1).unwrap().my.abs();
+    let m4_hinge = res_hinge.reactions.iter().find(|r| r.node_id == 4).unwrap().my.abs();
 
     // With a hinge on one side only, base moments must be asymmetric
     let sym_err = (m1_hinge - m4_hinge).abs() / m4_hinge.max(1e-6);
@@ -513,7 +513,7 @@ fn validation_joint_one_hinge_asymmetric() {
     );
 
     // Global vertical equilibrium must still hold
-    let sum_ry: f64 = res_hinge.reactions.iter().map(|r| r.ry).sum();
+    let sum_ry: f64 = res_hinge.reactions.iter().map(|r| r.rz).sum();
     let total_load = q.abs() * w;
     assert_close(sum_ry, total_load, 0.02, "One-hinge frame: vertical equilibrium");
 }

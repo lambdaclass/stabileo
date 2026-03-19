@@ -30,7 +30,7 @@ fn validation_two_parallel_paths_equal_share() {
         ],
         vec![(1, 1, "pinned"), (2, 2, "rollerX")],
         vec![SolverLoad::Nodal(SolverNodalLoad {
-            node_id: 2, fx: 40.0, fy: 0.0, mz: 0.0,
+            node_id: 2, fx: 40.0, fz: 0.0, my: 0.0,
         })],
     );
     let results = linear::solve_2d(&input).unwrap();
@@ -66,7 +66,7 @@ fn validation_unequal_stiffness_load_distribution() {
         ],
         vec![(1, 1, "pinned"), (2, 2, "rollerX")],
         vec![SolverLoad::Nodal(SolverNodalLoad {
-            node_id: 2, fx: 40.0, fy: 0.0, mz: 0.0,
+            node_id: 2, fx: 40.0, fz: 0.0, my: 0.0,
         })],
     );
     let results = linear::solve_2d(&input).unwrap();
@@ -122,28 +122,28 @@ fn validation_redundant_support_continuous_beam() {
     let results = linear::solve_2d(&input).unwrap();
 
     // Total vertical reaction should equal total load magnitude
-    let sum_ry: f64 = results.reactions.iter().map(|r| r.ry).sum();
+    let sum_ry: f64 = results.reactions.iter().map(|r| r.rz).sum();
     assert_close(sum_ry, 100.0, 0.01, "total vertical reaction = wL");
 
     // Interior support (node 5) should carry nonzero reaction
     let r_interior = results.reactions.iter().find(|r| r.node_id == 5).unwrap();
     assert!(
-        r_interior.ry.abs() > 10.0,
-        "interior reaction should be significant: ry={:.2}", r_interior.ry
+        r_interior.rz.abs() > 10.0,
+        "interior reaction should be significant: ry={:.2}", r_interior.rz
     );
 
     // For a 2-span continuous beam with equal spans and UDL, the exact
     // interior reaction is 5/4 * wL_span = 5/4 * 10 * 5 = 62.5 kN.
     // (Three-moment equation result.)
-    assert_close(r_interior.ry, 62.5, 0.03, "interior reaction 5wL/4");
+    assert_close(r_interior.rz, 62.5, 0.03, "interior reaction 5wL/4");
 
     // End reactions: each = 3/8 * wL_span = 3/8 * 50 = 18.75 kN
     let r_left = results.reactions.iter().find(|r| r.node_id == 1).unwrap();
     let r_right = results.reactions.iter()
         .find(|r| r.node_id == (n_per_span * 2 + 1))
         .unwrap();
-    assert_close(r_left.ry, 18.75, 0.03, "left end reaction 3wL/8");
-    assert_close(r_right.ry, 18.75, 0.03, "right end reaction 3wL/8");
+    assert_close(r_left.rz, 18.75, 0.03, "left end reaction 3wL/8");
+    assert_close(r_right.rz, 18.75, 0.03, "right end reaction 3wL/8");
 }
 
 // ═══════════════════════════════════════════════════════════════
@@ -177,7 +177,7 @@ fn validation_brace_reduces_sway() {
         ],
         vec![(1, 1, "fixed"), (2, 4, "fixed")],
         vec![SolverLoad::Nodal(SolverNodalLoad {
-            node_id: 2, fx: lateral, fy: 0.0, mz: 0.0,
+            node_id: 2, fx: lateral, fz: 0.0, my: 0.0,
         })],
     );
     let results_braced = linear::solve_2d(&input_braced).unwrap();
@@ -234,13 +234,13 @@ fn validation_truss_with_diagonal_equilibrium() {
         ],
         vec![(1, 1, "pinned"), (2, 2, "rollerX")],
         vec![SolverLoad::Nodal(SolverNodalLoad {
-            node_id: 4, fx: 0.0, fy: -20.0, mz: 0.0,
+            node_id: 4, fx: 0.0, fz: -20.0, my: 0.0,
         })],
     );
     let results = linear::solve_2d(&input).unwrap();
 
     // Global equilibrium: sum_ry = 20 (upward to balance -20 downward)
-    let sum_ry: f64 = results.reactions.iter().map(|r| r.ry).sum();
+    let sum_ry: f64 = results.reactions.iter().map(|r| r.rz).sum();
     assert_close(sum_ry, 20.0, 0.01, "truss sum_ry = applied load");
 
     // sum_rx = 0 (no horizontal applied load)
@@ -257,8 +257,8 @@ fn validation_truss_with_diagonal_equilibrium() {
 
     let r1 = results.reactions.iter().find(|r| r.node_id == 1).unwrap();
     let r2 = results.reactions.iter().find(|r| r.node_id == 2).unwrap();
-    assert_close(r1.ry, 20.0, 0.02, "left support carries full vertical load");
-    assert!(r2.ry.abs() < 1.0, "right support vertical ~0: got {:.4}", r2.ry);
+    assert_close(r1.rz, 20.0, 0.02, "left support carries full vertical load");
+    assert!(r2.rz.abs() < 1.0, "right support vertical ~0: got {:.4}", r2.rz);
 
     // Left column element 4 (4→1) should carry the load
     let ef_left = results.element_forces.iter().find(|e| e.element_id == 4).unwrap();
@@ -329,7 +329,7 @@ fn validation_load_redistribution_with_hinge() {
 
     // Fixed-fixed beam: M_end = wL²/12 ≈ 53.33
     let r1_no_hinge = results_no_hinge.reactions.iter().find(|r| r.node_id == 1).unwrap();
-    assert_close(r1_no_hinge.mz.abs(), 10.0 * 64.0 / 12.0, 0.03, "fixed-fixed end moment");
+    assert_close(r1_no_hinge.my.abs(), 10.0 * 64.0 / 12.0, 0.03, "fixed-fixed end moment");
 
     // With hinge: support moment must change (hinge releases interior moment)
     let r1_with_hinge = results_with_hinge.reactions.iter().find(|r| r.node_id == 1).unwrap();
@@ -343,16 +343,16 @@ fn validation_load_redistribution_with_hinge() {
     );
 
     // Support moments should differ between the two cases
-    let diff = (r1_with_hinge.mz.abs() - r1_no_hinge.mz.abs()).abs();
+    let diff = (r1_with_hinge.my.abs() - r1_no_hinge.my.abs()).abs();
     assert!(
         diff > 1.0,
         "hinge should redistribute moments: no_hinge={:.2}, with_hinge={:.2}",
-        r1_no_hinge.mz.abs(), r1_with_hinge.mz.abs()
+        r1_no_hinge.my.abs(), r1_with_hinge.my.abs()
     );
 
     // Total vertical reaction should be the same for both cases (= wL = 80 kN)
-    let sum_ry_no_hinge: f64 = results_no_hinge.reactions.iter().map(|r| r.ry).sum();
-    let sum_ry_with_hinge: f64 = results_with_hinge.reactions.iter().map(|r| r.ry).sum();
+    let sum_ry_no_hinge: f64 = results_no_hinge.reactions.iter().map(|r| r.rz).sum();
+    let sum_ry_with_hinge: f64 = results_with_hinge.reactions.iter().map(|r| r.rz).sum();
     assert_close(sum_ry_no_hinge, 80.0, 0.01, "no-hinge total Ry");
     assert_close(sum_ry_with_hinge, 80.0, 0.01, "with-hinge total Ry");
 }
@@ -372,7 +372,7 @@ fn validation_cantilever_stiffness_vs_length() {
     let input_a = make_beam(
         4, 6.0, E, A, IZ, "fixed", None,
         vec![SolverLoad::Nodal(SolverNodalLoad {
-            node_id: 5, fx: 0.0, fy: p, mz: 0.0,
+            node_id: 5, fx: 0.0, fz: p, my: 0.0,
         })],
     );
     let results_a = linear::solve_2d(&input_a).unwrap();
@@ -381,14 +381,14 @@ fn validation_cantilever_stiffness_vs_length() {
     let input_b = make_beam(
         4, 3.0, E, A, IZ, "fixed", None,
         vec![SolverLoad::Nodal(SolverNodalLoad {
-            node_id: 5, fx: 0.0, fy: p, mz: 0.0,
+            node_id: 5, fx: 0.0, fz: p, my: 0.0,
         })],
     );
     let results_b = linear::solve_2d(&input_b).unwrap();
 
     // Tip deflections
-    let tip_a = results_a.displacements.iter().find(|d| d.node_id == 5).unwrap().uy;
-    let tip_b = results_b.displacements.iter().find(|d| d.node_id == 5).unwrap().uy;
+    let tip_a = results_a.displacements.iter().find(|d| d.node_id == 5).unwrap().uz;
+    let tip_b = results_b.displacements.iter().find(|d| d.node_id == 5).unwrap().uz;
 
     // Both should deflect downward
     assert!(tip_a < 0.0, "beam A tip should deflect down");
@@ -440,7 +440,7 @@ fn validation_two_column_frame_equilibrium_and_shear_distribution() {
         ],
         vec![(1, 1, "fixed"), (2, 4, "fixed")],
         vec![SolverLoad::Nodal(SolverNodalLoad {
-            node_id: 2, fx: lateral, fy: 0.0, mz: 0.0,
+            node_id: 2, fx: lateral, fz: 0.0, my: 0.0,
         })],
     );
     let results = linear::solve_2d(&input).unwrap();
@@ -450,7 +450,7 @@ fn validation_two_column_frame_equilibrium_and_shear_distribution() {
     assert_close(sum_rx, -lateral, 0.01, "horizontal equilibrium sum_rx = -H");
 
     // sum_ry = 0 (no vertical applied load)
-    let sum_ry: f64 = results.reactions.iter().map(|r| r.ry).sum();
+    let sum_ry: f64 = results.reactions.iter().map(|r| r.rz).sum();
     assert!(sum_ry.abs() < 0.5, "vertical equilibrium sum_ry ~0: got {:.4}", sum_ry);
 
     // Moment equilibrium about origin (node 1 at 0,0):
@@ -460,7 +460,7 @@ fn validation_two_column_frame_equilibrium_and_shear_distribution() {
     // Applied H=20 at node 2 (0,4): 0*0 - 4*H = -4*20 = -80
     let r1 = results.reactions.iter().find(|r| r.node_id == 1).unwrap();
     let r4 = results.reactions.iter().find(|r| r.node_id == 4).unwrap();
-    let moment_about_origin = r1.mz + r4.mz + r4.ry * w - lateral * h;
+    let moment_about_origin = r1.my + r4.my + r4.rz * w - lateral * h;
     assert!(
         moment_about_origin.abs() < 1.0,
         "moment equilibrium about origin: {:.4}", moment_about_origin

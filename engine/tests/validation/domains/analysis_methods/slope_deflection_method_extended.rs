@@ -75,7 +75,7 @@ fn validation_sdm_ext_three_span_equal_udl() {
 
     // Global equilibrium check
     let total_load = q.abs() * 3.0 * l;
-    let sum_ry: f64 = results.reactions.iter().map(|r| r.ry).sum();
+    let sum_ry: f64 = results.reactions.iter().map(|r| r.rz).sum();
     assert_close(sum_ry, total_load, 0.01,
         "SDM Ext1: sum(Ry) = q*3L (global equilibrium)");
 }
@@ -135,8 +135,8 @@ fn validation_sdm_ext_fixed_fixed_triangular_load() {
     // Both ends fixed: rotations should be zero
     let d1 = results.displacements.iter().find(|d| d.node_id == 1).unwrap();
     let d_end = results.displacements.iter().find(|d| d.node_id == n + 1).unwrap();
-    assert!(d1.rz.abs() < 1e-10, "SDM Ext2: theta_left = 0 (fixed)");
-    assert!(d_end.rz.abs() < 1e-10, "SDM Ext2: theta_right = 0 (fixed)");
+    assert!(d1.ry.abs() < 1e-10, "SDM Ext2: theta_left = 0 (fixed)");
+    assert!(d_end.ry.abs() < 1e-10, "SDM Ext2: theta_right = 0 (fixed)");
 }
 
 // ================================================================
@@ -172,14 +172,14 @@ fn validation_sdm_ext_propped_cantilever_udl_deflection() {
 
     let r1 = results.reactions.iter().find(|r| r.node_id == 1).unwrap();
     let r_end = results.reactions.iter().find(|r| r.node_id == n + 1).unwrap();
-    assert_close(r1.ry, r_a_exact, 0.02,
+    assert_close(r1.rz, r_a_exact, 0.02,
         "SDM Ext3: R_A = 5qL/8");
-    assert_close(r_end.ry, r_b_exact, 0.02,
+    assert_close(r_end.rz, r_b_exact, 0.02,
         "SDM Ext3: R_B = 3qL/8");
 
     // Fixed-end moment: M_A = qL^2/8
     let m_a_exact: f64 = q.abs() * l * l / 8.0;
-    assert_close(r1.mz.abs(), m_a_exact, 0.02,
+    assert_close(r1.my.abs(), m_a_exact, 0.02,
         "SDM Ext3: M_A = qL^2/8");
 
     // Midspan deflection: delta_mid = qL^4/(192*EI)
@@ -187,7 +187,7 @@ fn validation_sdm_ext_propped_cantilever_udl_deflection() {
     let delta_mid_exact: f64 = q.abs() * l.powi(4) / (192.0 * e_eff * IZ);
     let mid_node = n / 2 + 1;
     let d_mid = results.displacements.iter().find(|d| d.node_id == mid_node).unwrap();
-    assert_close(d_mid.uy.abs(), delta_mid_exact, 0.05,
+    assert_close(d_mid.uz.abs(), delta_mid_exact, 0.05,
         "SDM Ext3: delta_mid = qL^4/(192EI)");
 }
 
@@ -216,10 +216,10 @@ fn validation_sdm_ext_two_span_symmetric_point_loads() {
     let mid2 = n + n / 2 + 1; // midspan of second span
     let loads = vec![
         SolverLoad::Nodal(SolverNodalLoad {
-            node_id: mid1, fx: 0.0, fy: -p, mz: 0.0,
+            node_id: mid1, fx: 0.0, fz: -p, my: 0.0,
         }),
         SolverLoad::Nodal(SolverNodalLoad {
-            node_id: mid2, fx: 0.0, fy: -p, mz: 0.0,
+            node_id: mid2, fx: 0.0, fz: -p, my: 0.0,
         }),
     ];
     let input = make_continuous_beam(&[l, l], n, E, A, IZ, loads);
@@ -235,11 +235,11 @@ fn validation_sdm_ext_two_span_symmetric_point_loads() {
     // By symmetry, rotation at B should be zero
     let d_b = results.displacements.iter()
         .find(|d| d.node_id == n + 1).unwrap();
-    assert!(d_b.rz.abs() < 1e-8,
-        "SDM Ext4: theta_B = 0 by symmetry: {:.6e}", d_b.rz);
+    assert!(d_b.ry.abs() < 1e-8,
+        "SDM Ext4: theta_B = 0 by symmetry: {:.6e}", d_b.ry);
 
     // Global equilibrium: total vertical reaction = 2P
-    let sum_ry: f64 = results.reactions.iter().map(|r| r.ry).sum();
+    let sum_ry: f64 = results.reactions.iter().map(|r| r.rz).sum();
     assert_close(sum_ry, 2.0 * p, 0.01,
         "SDM Ext4: sum(Ry) = 2P");
 }
@@ -282,17 +282,17 @@ fn validation_sdm_ext_portal_frame_gravity() {
         "SDM Ext5: Rx_base4 ~ 0 by symmetry: {:.6}", r4.rx);
 
     // Base moments should be equal in magnitude (symmetry)
-    assert_close(r1.mz.abs(), r4.mz.abs(), 0.02,
+    assert_close(r1.my.abs(), r4.my.abs(), 0.02,
         "SDM Ext5: |M_base1| = |M_base4| by symmetry");
 
     // Top joint rotations should be equal and opposite by symmetry
     let d2 = results.displacements.iter().find(|d| d.node_id == 2).unwrap();
     let d3 = results.displacements.iter().find(|d| d.node_id == 3).unwrap();
-    assert_close(d2.rz.abs(), d3.rz.abs(), 0.02,
+    assert_close(d2.ry.abs(), d3.ry.abs(), 0.02,
         "SDM Ext5: |theta_2| = |theta_3| by symmetry");
 
     // Vertical equilibrium: sum(Ry) = 2P
-    let sum_ry: f64 = results.reactions.iter().map(|r| r.ry).sum();
+    let sum_ry: f64 = results.reactions.iter().map(|r| r.rz).sum();
     assert_close(sum_ry, 2.0 * p, 0.01,
         "SDM Ext5: sum(Ry) = 2P");
 
@@ -338,10 +338,10 @@ fn validation_sdm_ext_fixed_fixed_two_point_loads() {
     let node_right_load = 2 * n / 3 + 1; // node 7
     let loads = vec![
         SolverLoad::Nodal(SolverNodalLoad {
-            node_id: node_left_load, fx: 0.0, fy: -p, mz: 0.0,
+            node_id: node_left_load, fx: 0.0, fz: -p, my: 0.0,
         }),
         SolverLoad::Nodal(SolverNodalLoad {
-            node_id: node_right_load, fx: 0.0, fy: -p, mz: 0.0,
+            node_id: node_right_load, fx: 0.0, fz: -p, my: 0.0,
         }),
     ];
     let input = make_beam(n, l, E, A, IZ, "fixed", Some("fixed"), loads);
@@ -404,25 +404,25 @@ fn validation_sdm_ext_maxwell_reciprocal_three_span() {
     let mid_span3 = 2 * n + n / 2 + 1;
 
     let loads_a = vec![SolverLoad::Nodal(SolverNodalLoad {
-        node_id: mid_span1, fx: 0.0, fy: -p, mz: 0.0,
+        node_id: mid_span1, fx: 0.0, fz: -p, my: 0.0,
     })];
     let input_a = make_continuous_beam(&spans, n, E, A, IZ, loads_a);
     let res_a = linear::solve_2d(&input_a).unwrap();
 
     // Deflection at midspan of span 3 due to load at midspan of span 1
     let delta_a_at_3 = res_a.displacements.iter()
-        .find(|d| d.node_id == mid_span3).unwrap().uy;
+        .find(|d| d.node_id == mid_span3).unwrap().uz;
 
     // Case B: load at midspan of span 3
     let loads_b = vec![SolverLoad::Nodal(SolverNodalLoad {
-        node_id: mid_span3, fx: 0.0, fy: -p, mz: 0.0,
+        node_id: mid_span3, fx: 0.0, fz: -p, my: 0.0,
     })];
     let input_b = make_continuous_beam(&spans, n, E, A, IZ, loads_b);
     let res_b = linear::solve_2d(&input_b).unwrap();
 
     // Deflection at midspan of span 1 due to load at midspan of span 3
     let delta_b_at_1 = res_b.displacements.iter()
-        .find(|d| d.node_id == mid_span1).unwrap().uy;
+        .find(|d| d.node_id == mid_span1).unwrap().uz;
 
     // Maxwell's reciprocal theorem: delta_ij = delta_ji
     assert_close(delta_a_at_3, delta_b_at_1, 0.02,
@@ -483,14 +483,14 @@ fn validation_sdm_ext_antisymmetric_two_span() {
     // Symmetric loading: theta_B = 0
     let d_b_sym = res_sym.displacements.iter()
         .find(|d| d.node_id == n + 1).unwrap();
-    assert!(d_b_sym.rz.abs() < 1e-10,
-        "SDM Ext8: theta_B = 0 for symmetric loading: {:.6e}", d_b_sym.rz);
+    assert!(d_b_sym.ry.abs() < 1e-10,
+        "SDM Ext8: theta_B = 0 for symmetric loading: {:.6e}", d_b_sym.ry);
 
     // Asymmetric loading: theta_B != 0
     let d_b_asym = res_asym.displacements.iter()
         .find(|d| d.node_id == n + 1).unwrap();
-    assert!(d_b_asym.rz.abs() > 1e-8,
-        "SDM Ext8: theta_B != 0 for asymmetric loading: {:.6e}", d_b_asym.rz);
+    assert!(d_b_asym.ry.abs() > 1e-8,
+        "SDM Ext8: theta_B != 0 for asymmetric loading: {:.6e}", d_b_asym.ry);
 
     // Interior support moment for single-span loaded two-span beam:
     // From slope-deflection: M_B = qL^2/16
@@ -509,17 +509,17 @@ fn validation_sdm_ext_antisymmetric_two_span() {
 
     // Global equilibrium: total reaction = qL (only span 1 loaded)
     let total_load: f64 = q * l;
-    let sum_ry: f64 = res_asym.reactions.iter().map(|r| r.ry).sum();
+    let sum_ry: f64 = res_asym.reactions.iter().map(|r| r.rz).sum();
     assert_close(sum_ry, total_load, 0.01,
         "SDM Ext8: sum(Ry) = qL");
 
     // End support C has small but non-zero reaction (load redistribution)
     let r_c = res_asym.reactions.iter()
         .find(|r| r.node_id == 2 * n + 1).unwrap();
-    assert!(r_c.ry.abs() > 0.1,
-        "SDM Ext8: R_C != 0 (load redistribution to unloaded span): {:.4}", r_c.ry);
+    assert!(r_c.rz.abs() > 0.1,
+        "SDM Ext8: R_C != 0 (load redistribution to unloaded span): {:.4}", r_c.rz);
     // R_C should be negative (downward) because the unloaded span pulls down
     // at its far end due to continuity
-    assert!(r_c.ry < 0.0,
-        "SDM Ext8: R_C < 0 (uplift at far end of unloaded span): {:.4}", r_c.ry);
+    assert!(r_c.rz < 0.0,
+        "SDM Ext8: R_C < 0 (uplift at far end of unloaded span): {:.4}", r_c.rz);
 }

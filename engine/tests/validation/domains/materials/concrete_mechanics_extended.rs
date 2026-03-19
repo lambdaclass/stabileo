@@ -46,7 +46,7 @@ use crate::common::*;
 fn validation_conc_mech_ext_whitney_stress_block() {
     // --- Section properties ---
     let as_steel: f64 = 2000.0;   // mm^2
-    let fy: f64 = 420.0;          // MPa
+    let fz: f64 = 420.0;          // MPa
     let fc_prime: f64 = 30.0;     // MPa
     let b: f64 = 350.0;           // mm
     let h: f64 = 600.0;           // mm
@@ -63,7 +63,7 @@ fn validation_conc_mech_ext_whitney_stress_block() {
     assert_close(beta1, beta1_expected, 0.01, "beta1");
 
     // --- Stress block depth ---
-    let a: f64 = as_steel * fy / (0.85 * fc_prime * b);
+    let a: f64 = as_steel * fz / (0.85 * fc_prime * b);
     let a_expected: f64 = 94.12;
     assert_close(a, a_expected, 0.01, "stress block depth a");
 
@@ -77,7 +77,7 @@ fn validation_conc_mech_ext_whitney_stress_block() {
     assert_close(a_from_c, a, 0.001, "a = beta1 * c identity");
 
     // --- Nominal moment ---
-    let mn: f64 = as_steel * fy * (d - a / 2.0) / 1.0e6; // kN*m
+    let mn: f64 = as_steel * fz * (d - a / 2.0) / 1.0e6; // kN*m
     let mn_expected: f64 = 409.87;
     assert_close(mn, mn_expected, 0.01, "nominal moment Mn");
 
@@ -102,8 +102,8 @@ fn validation_conc_mech_ext_whitney_stress_block() {
     let loads = vec![SolverLoad::Nodal(SolverNodalLoad {
         node_id: mid_node,
         fx: 0.0,
-        fy: 0.0,
-        mz: mn, // apply Mn as external moment
+        fz: 0.0,
+        my: mn, // apply Mn as external moment
     })];
     let input = make_beam(n_elem, l, e_conc, a_sec, iz_sec, "pinned", Some("rollerX"), loads);
     let results = linear::solve_2d(&input).unwrap();
@@ -111,7 +111,7 @@ fn validation_conc_mech_ext_whitney_stress_block() {
     // Reactions for moment M at midspan of SS beam: equal and opposite vertical
     // R_A = -M/L, R_B = M/L (with sign depending on convention)
     // Sum of ry should be zero for a pure moment load
-    let sum_ry: f64 = results.reactions.iter().map(|r| r.ry).sum();
+    let sum_ry: f64 = results.reactions.iter().map(|r| r.rz).sum();
     assert_close(sum_ry, 0.0, 0.01, "sum Ry = 0 for pure moment load");
 }
 
@@ -179,7 +179,7 @@ fn validation_conc_mech_ext_modulus_of_rupture() {
     assert_close(expected_mmax, mcr, 0.01, "Mmax = Mcr consistency");
 
     // Verify reactions: R = qL/2
-    let sum_ry: f64 = results.reactions.iter().map(|r| r.ry).sum();
+    let sum_ry: f64 = results.reactions.iter().map(|r| r.rz).sum();
     assert_close(sum_ry, q_target * l, 0.02, "sum Ry = qL");
 }
 
@@ -254,15 +254,15 @@ fn validation_conc_mech_ext_aci_shear_capacity() {
     let loads = vec![SolverLoad::Nodal(SolverNodalLoad {
         node_id: mid_node,
         fx: 0.0,
-        fy: -p_load,
-        mz: 0.0,
+        fz: -p_load,
+        my: 0.0,
     })];
     let input = make_beam(n_elem, l, e_conc, a_sec, iz_sec, "pinned", Some("rollerX"), loads);
     let results = linear::solve_2d(&input).unwrap();
 
     // Each reaction should be P/2 = Vc
     let r1 = results.reactions.iter().find(|r| r.node_id == 1).unwrap();
-    assert_close(r1.ry, p_load / 2.0, 0.01, "reaction = Vc");
+    assert_close(r1.rz, p_load / 2.0, 0.01, "reaction = Vc");
 
     // Element shear at support should match Vc
     let ef1 = results.element_forces.iter().find(|e| e.element_id == 1).unwrap();
@@ -298,7 +298,7 @@ fn validation_conc_mech_ext_aci_shear_capacity() {
 #[test]
 fn validation_conc_mech_ext_development_length() {
     let db: f64 = 19.1;           // mm, #20 bar (metric designation ~19 mm)
-    let fy: f64 = 420.0;          // MPa
+    let fz: f64 = 420.0;          // MPa
     let fc_prime: f64 = 25.0;     // MPa
     let psi_t: f64 = 1.3;         // top bar effect
     let psi_e: f64 = 1.0;         // uncoated
@@ -307,7 +307,7 @@ fn validation_conc_mech_ext_development_length() {
     let lambda: f64 = 1.0;        // normal weight
 
     // --- Straight development length ---
-    let ld_over_db: f64 = (fy * psi_t * psi_e * psi_s * psi_g)
+    let ld_over_db: f64 = (fz * psi_t * psi_e * psi_s * psi_g)
         / (1.1 * lambda * fc_prime.sqrt());
     let ld_over_db_expected: f64 = 99.27;
     assert_close(ld_over_db, ld_over_db_expected, 0.01, "ld/db ratio");
@@ -323,7 +323,7 @@ fn validation_conc_mech_ext_development_length() {
     // --- Hook development length (ACI 318-19 §25.4.3.1) ---
     // ldh = (0.24 * psi_e * psi_r * psi_o * psi_c * fy / (lambda * sqrt(f'c))) * db
     // Using all modification factors = 1.0
-    let ldh: f64 = (0.24 * psi_e * 1.0 * 1.0 * 1.0 * fy / (lambda * fc_prime.sqrt())) * db;
+    let ldh: f64 = (0.24 * psi_e * 1.0 * 1.0 * 1.0 * fz / (lambda * fc_prime.sqrt())) * db;
     let ldh_expected: f64 = 385.1;
     assert_close(ldh, ldh_expected, 0.02, "hook development length ldh");
 
@@ -353,8 +353,8 @@ fn validation_conc_mech_ext_development_length() {
     let loads = vec![SolverLoad::Nodal(SolverNodalLoad {
         node_id: n_elem + 1,
         fx: 0.0,
-        fy: -p,
-        mz: 0.0,
+        fz: -p,
+        my: 0.0,
     })];
     let input = make_beam(n_elem, l_m, e_conc, a_sec, iz_sec, "fixed", None, loads);
     let results = linear::solve_2d(&input).unwrap();
@@ -364,7 +364,7 @@ fn validation_conc_mech_ext_development_length() {
     let ei: f64 = e_conc * 1000.0 * iz_sec;
     let delta_expected: f64 = p * l_m.powi(3) / (3.0 * ei);
     let tip = results.displacements.iter().find(|d| d.node_id == n_elem + 1).unwrap();
-    assert_close(tip.uy.abs(), delta_expected, 0.02, "cantilever tip deflection");
+    assert_close(tip.uz.abs(), delta_expected, 0.02, "cantilever tip deflection");
 }
 
 // ═══════════════════════════════════════════════════════════════
@@ -652,12 +652,12 @@ fn validation_conc_mech_ext_effective_moment_of_inertia() {
         .find(|dd| dd.node_id == n_elem / 2 + 1).unwrap();
 
     // Deflection with Ie should be larger than with Ig (softer section)
-    assert!(mid_ie.uy.abs() > mid_ig.uy.abs(),
+    assert!(mid_ie.uz.abs() > mid_ig.uz.abs(),
         "Ie deflection ({:.6}) must exceed Ig deflection ({:.6})",
-        mid_ie.uy.abs(), mid_ig.uy.abs());
+        mid_ie.uz.abs(), mid_ig.uz.abs());
 
     // Ratio of deflections should approximately equal Ig/Ie
-    let defl_ratio: f64 = mid_ie.uy.abs() / mid_ig.uy.abs();
+    let defl_ratio: f64 = mid_ie.uz.abs() / mid_ig.uz.abs();
     let expected_ratio: f64 = ig / ie;
     assert_close(defl_ratio, expected_ratio, 0.02, "deflection ratio Ig/Ie");
 }
@@ -697,14 +697,14 @@ fn validation_conc_mech_ext_effective_moment_of_inertia() {
 #[test]
 fn validation_conc_mech_ext_biaxial_column_interaction() {
     let fc_prime: f64 = 35.0;     // MPa
-    let fy: f64 = 420.0;          // MPa
+    let fz: f64 = 420.0;          // MPa
     let b_col: f64 = 400.0;       // mm
     let h_col: f64 = 400.0;       // mm
     let ag: f64 = b_col * h_col;  // 160000 mm^2
     let ast: f64 = 4000.0;        // mm^2, total steel area
 
     // --- Nominal axial capacity at zero eccentricity ---
-    let po: f64 = (0.85 * fc_prime * (ag - ast) + ast * fy) / 1000.0; // kN
+    let po: f64 = (0.85 * fc_prime * (ag - ast) + ast * fz) / 1000.0; // kN
     let po_expected: f64 = 6321.0;
     assert_close(po, po_expected, 0.01, "Po axial capacity");
 
@@ -744,8 +744,8 @@ fn validation_conc_mech_ext_biaxial_column_interaction() {
     let loads = vec![SolverLoad::Nodal(SolverNodalLoad {
         node_id: n_elem + 1,
         fx: -pn, // axial compression along column axis
-        fy: 0.0,
-        mz: 0.0,
+        fz: 0.0,
+        my: 0.0,
     })];
     let input = make_beam(n_elem, col_h, e_conc, a_sec, iz_sec, "fixed", None, loads);
     let results = linear::solve_2d(&input).unwrap();

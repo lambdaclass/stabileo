@@ -87,7 +87,7 @@ fn buckling_ext_fixed_free_column() {
         elems,
         vec![(1, 1, "fixed")],
         vec![SolverLoad::Nodal(SolverNodalLoad {
-            node_id: n_elem + 1, fx: -P, fy: 0.0, mz: 0.0,
+            node_id: n_elem + 1, fx: -P, fz: 0.0, my: 0.0,
         })],
     );
 
@@ -134,7 +134,7 @@ fn buckling_ext_fixed_pin_column() {
             (2, n_elem + 1, "rollerX"),
         ],
         vec![SolverLoad::Nodal(SolverNodalLoad {
-            node_id: n_elem + 1, fx: -P, fy: 0.0, mz: 0.0,
+            node_id: n_elem + 1, fx: -P, fz: 0.0, my: 0.0,
         })],
     );
 
@@ -190,7 +190,7 @@ fn buckling_ext_fixed_fixed_column() {
             (2, n_elem + 1, "guidedX"),
         ],
         vec![SolverLoad::Nodal(SolverNodalLoad {
-            node_id: n_elem + 1, fx: -P, fy: 0.0, mz: 0.0,
+            node_id: n_elem + 1, fx: -P, fz: 0.0, my: 0.0,
         })],
     );
 
@@ -245,10 +245,10 @@ fn buckling_ext_portal_frame_sway() {
     let sups = vec![(1, 1, "pinned"), (2, 4, "pinned")];
     let loads = vec![
         SolverLoad::Nodal(SolverNodalLoad {
-            node_id: 2, fx: 0.0, fy: p_gravity, mz: 0.0,
+            node_id: 2, fx: 0.0, fz: p_gravity, my: 0.0,
         }),
         SolverLoad::Nodal(SolverNodalLoad {
-            node_id: 3, fx: 0.0, fy: p_gravity, mz: 0.0,
+            node_id: 3, fx: 0.0, fz: p_gravity, my: 0.0,
         }),
     ];
 
@@ -331,17 +331,17 @@ fn buckling_ext_multistory_frame_sway_mode() {
     let loads = vec![
         // Gravity on floor 1
         SolverLoad::Nodal(SolverNodalLoad {
-            node_id: 2, fx: 0.0, fy: p_gravity, mz: 0.0,
+            node_id: 2, fx: 0.0, fz: p_gravity, my: 0.0,
         }),
         SolverLoad::Nodal(SolverNodalLoad {
-            node_id: 3, fx: 0.0, fy: p_gravity, mz: 0.0,
+            node_id: 3, fx: 0.0, fz: p_gravity, my: 0.0,
         }),
         // Gravity on floor 2
         SolverLoad::Nodal(SolverNodalLoad {
-            node_id: 5, fx: 0.0, fy: p_gravity, mz: 0.0,
+            node_id: 5, fx: 0.0, fz: p_gravity, my: 0.0,
         }),
         SolverLoad::Nodal(SolverNodalLoad {
-            node_id: 6, fx: 0.0, fy: p_gravity, mz: 0.0,
+            node_id: 6, fx: 0.0, fz: p_gravity, my: 0.0,
         }),
     ];
 
@@ -419,10 +419,10 @@ fn buckling_ext_braced_vs_unbraced_frame() {
     ];
     let loads = vec![
         SolverLoad::Nodal(SolverNodalLoad {
-            node_id: 2, fx: 0.0, fy: p_gravity, mz: 0.0,
+            node_id: 2, fx: 0.0, fz: p_gravity, my: 0.0,
         }),
         SolverLoad::Nodal(SolverNodalLoad {
-            node_id: 3, fx: 0.0, fy: p_gravity, mz: 0.0,
+            node_id: 3, fx: 0.0, fz: p_gravity, my: 0.0,
         }),
     ];
 
@@ -516,7 +516,7 @@ fn buckling_ext_variable_section_column() {
             (2, n_total + 1, "rollerX"),
         ],
         vec![SolverLoad::Nodal(SolverNodalLoad {
-            node_id: n_total + 1, fx: -P, fy: 0.0, mz: 0.0,
+            node_id: n_total + 1, fx: -P, fz: 0.0, my: 0.0,
         })],
     );
 

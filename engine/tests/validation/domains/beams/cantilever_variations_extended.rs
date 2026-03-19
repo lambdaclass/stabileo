@@ -60,7 +60,7 @@ fn validation_cantilever_point_on_element_reactions() {
             a: a_local,
             p,
             px: None,
-            mz: None,
+            my: None,
         })],
     );
 
@@ -71,8 +71,8 @@ fn validation_cantilever_point_on_element_reactions() {
     let ry_expected = -p; // counteracts downward load
     let mz_expected = -p * x_load; // positive moment (CCW to resist CW from downward load)
 
-    assert_close(r.ry, ry_expected, 0.01, "Fixed end Ry reaction");
-    assert_close(r.mz, mz_expected, 0.01, "Fixed end Mz reaction");
+    assert_close(r.rz, ry_expected, 0.01, "Fixed end Ry reaction");
+    assert_close(r.my, mz_expected, 0.01, "Fixed end Mz reaction");
 }
 
 // ================================================================
@@ -112,11 +112,11 @@ fn validation_cantilever_full_udl_tip_rotation() {
 
     // delta_tip = |q| * L^4 / (8EI)
     let delta_exact = q.abs() * l.powi(4) / (8.0 * e_eff * IZ);
-    assert_close(tip.uy.abs(), delta_exact, 0.02, "UDL tip deflection");
+    assert_close(tip.uz.abs(), delta_exact, 0.02, "UDL tip deflection");
 
     // theta_tip = |q| * L^3 / (6EI)
     let theta_exact = q.abs() * l.powi(3) / (6.0 * e_eff * IZ);
-    assert_close(tip.rz.abs(), theta_exact, 0.02, "UDL tip rotation");
+    assert_close(tip.ry.abs(), theta_exact, 0.02, "UDL tip rotation");
 }
 
 // ================================================================
@@ -160,7 +160,7 @@ fn validation_cantilever_triangular_load_decreasing() {
 
     // delta_tip = |q_max| * L^4 / (30EI)
     let delta_exact = q_max.abs() * l.powi(4) / (30.0 * e_eff * IZ);
-    assert_close(tip.uy.abs(), delta_exact, 0.05, "Decreasing triangular tip deflection");
+    assert_close(tip.uz.abs(), delta_exact, 0.05, "Decreasing triangular tip deflection");
 }
 
 // ================================================================
@@ -190,8 +190,8 @@ fn validation_cantilever_axial_load_only() {
         vec![SolverLoad::Nodal(SolverNodalLoad {
             node_id: n + 1,
             fx: p_axial,
-            fy: 0.0,
-            mz: 0.0,
+            fz: 0.0,
+            my: 0.0,
         })],
     );
 
@@ -207,8 +207,8 @@ fn validation_cantilever_axial_load_only() {
     assert_close(tip.ux, delta_x_exact, 0.01, "Axial tip displacement");
 
     // No transverse deflection or rotation
-    assert_close(tip.uy, 0.0, 0.001, "No transverse displacement");
-    assert_close(tip.rz, 0.0, 0.001, "No rotation");
+    assert_close(tip.uz, 0.0, 0.001, "No transverse displacement");
+    assert_close(tip.ry, 0.0, 0.001, "No rotation");
 }
 
 // ================================================================
@@ -266,8 +266,8 @@ fn validation_cantilever_stepped_section() {
     let loads = vec![SolverLoad::Nodal(SolverNodalLoad {
         node_id: n_nodes,
         fx: 0.0,
-        fy: p,
-        mz: 0.0,
+        fz: p,
+        my: 0.0,
     })];
 
     let input = make_input(
@@ -310,7 +310,7 @@ fn validation_cantilever_stepped_section() {
     let term2 = l.powi(3) / (24.0 * e_eff * iz2);
     let delta_exact = p_abs * (term1 + term2);
 
-    assert_close(tip.uy.abs(), delta_exact, 0.02, "Stepped cantilever tip deflection");
+    assert_close(tip.uz.abs(), delta_exact, 0.02, "Stepped cantilever tip deflection");
 }
 
 // ================================================================
@@ -345,8 +345,8 @@ fn validation_cantilever_combined_loads_element_forces() {
         vec![SolverLoad::Nodal(SolverNodalLoad {
             node_id: 2,
             fx: p_x,
-            fy: p_y,
-            mz: 0.0,
+            fz: p_y,
+            my: 0.0,
         })],
     );
 
@@ -355,8 +355,8 @@ fn validation_cantilever_combined_loads_element_forces() {
     // Check reactions
     let r = results.reactions.iter().find(|r| r.node_id == 1).unwrap();
     assert_close(r.rx, -p_x, 0.01, "Horizontal reaction Rx");
-    assert_close(r.ry, -p_y, 0.01, "Vertical reaction Ry");
-    assert_close(r.mz, -p_y * l, 0.01, "Moment reaction Mz");
+    assert_close(r.rz, -p_y, 0.01, "Vertical reaction Ry");
+    assert_close(r.my, -p_y * l, 0.01, "Moment reaction Mz");
 
     // Check element forces for element 1
     let ef = results
@@ -424,7 +424,7 @@ fn validation_cantilever_udl_deflection_shape() {
             .unwrap();
 
         assert_close(
-            d.uy.abs(),
+            d.uz.abs(),
             delta_exact,
             0.03,
             &format!("UDL deflection at x/L={:.2}", frac),
@@ -471,8 +471,8 @@ fn validation_cantilever_midspan_moment() {
         vec![SolverLoad::Nodal(SolverNodalLoad {
             node_id: mid_node,
             fx: 0.0,
-            fy: 0.0,
-            mz: m0,
+            fz: 0.0,
+            my: m0,
         })],
     );
 
@@ -486,7 +486,7 @@ fn validation_cantilever_midspan_moment() {
     // delta_tip = M0 * a * (2L - a) / (2EI) where a = L/2
     let delta_exact = m0 * a * (2.0 * l - a) / (2.0 * e_eff * IZ);
     assert_close(
-        tip.uy.abs(),
+        tip.uz.abs(),
         delta_exact,
         0.02,
         "Midspan moment: tip deflection",
@@ -495,7 +495,7 @@ fn validation_cantilever_midspan_moment() {
     // theta_tip = M0 * a / (EI) where a = L/2
     let theta_exact = m0 * a / (e_eff * IZ);
     assert_close(
-        tip.rz.abs(),
+        tip.ry.abs(),
         theta_exact,
         0.02,
         "Midspan moment: tip rotation",
@@ -503,8 +503,8 @@ fn validation_cantilever_midspan_moment() {
 
     // Reaction moment at fixed end = -M0 (equilibrium)
     let r = results.reactions.iter().find(|r| r.node_id == 1).unwrap();
-    assert_close(r.mz, -m0, 0.01, "Midspan moment: fixed end reaction moment");
+    assert_close(r.my, -m0, 0.01, "Midspan moment: fixed end reaction moment");
 
     // No vertical reaction (pure moment, no transverse load)
-    assert_close(r.ry, 0.0, 0.001, "Midspan moment: zero vertical reaction");
+    assert_close(r.rz, 0.0, 0.001, "Midspan moment: zero vertical reaction");
 }

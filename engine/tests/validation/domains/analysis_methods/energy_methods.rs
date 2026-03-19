@@ -41,7 +41,7 @@ fn validation_energy_clapeyron_cantilever() {
 
     let input = make_beam(n, l, E, A, IZ, "fixed", None,
         vec![SolverLoad::Nodal(SolverNodalLoad {
-            node_id: n + 1, fx: 0.0, fy: -p, mz: 0.0,
+            node_id: n + 1, fx: 0.0, fz: -p, my: 0.0,
         })]);
 
     let results = linear::solve_2d(&input).unwrap();
@@ -49,7 +49,7 @@ fn validation_energy_clapeyron_cantilever() {
         .find(|d| d.node_id == n + 1).unwrap();
 
     // External work = ½ P δ
-    let w_ext = 0.5 * p * tip.uy.abs();
+    let w_ext = 0.5 * p * tip.uz.abs();
 
     // Analytical strain energy = P²L³/(6EI)
     let u_exact = p * p * l.powi(3) / (6.0 * e_eff * IZ);
@@ -80,20 +80,20 @@ fn validation_energy_maxwell_betti_beam() {
     // Load case 1: force at node A
     let input1 = make_beam(n, l, E, A, IZ, "pinned", Some("rollerX"),
         vec![SolverLoad::Nodal(SolverNodalLoad {
-            node_id: node_a, fx: 0.0, fy: -p, mz: 0.0,
+            node_id: node_a, fx: 0.0, fz: -p, my: 0.0,
         })]);
     let r1 = linear::solve_2d(&input1).unwrap();
     let delta_12 = r1.displacements.iter()
-        .find(|d| d.node_id == node_b).unwrap().uy;
+        .find(|d| d.node_id == node_b).unwrap().uz;
 
     // Load case 2: force at node B
     let input2 = make_beam(n, l, E, A, IZ, "pinned", Some("rollerX"),
         vec![SolverLoad::Nodal(SolverNodalLoad {
-            node_id: node_b, fx: 0.0, fy: -p, mz: 0.0,
+            node_id: node_b, fx: 0.0, fz: -p, my: 0.0,
         })]);
     let r2 = linear::solve_2d(&input2).unwrap();
     let delta_21 = r2.displacements.iter()
-        .find(|d| d.node_id == node_a).unwrap().uy;
+        .find(|d| d.node_id == node_a).unwrap().uz;
 
     // Maxwell-Betti: δ₁₂ = δ₂₁ (for equal forces)
     let err = (delta_12 - delta_21).abs() / delta_12.abs();
@@ -117,7 +117,7 @@ fn validation_energy_castigliano_cantilever() {
 
     let input = make_beam(n, l, E, A, IZ, "fixed", None,
         vec![SolverLoad::Nodal(SolverNodalLoad {
-            node_id: n + 1, fx: 0.0, fy: -p, mz: 0.0,
+            node_id: n + 1, fx: 0.0, fz: -p, my: 0.0,
         })]);
 
     let results = linear::solve_2d(&input).unwrap();
@@ -126,9 +126,9 @@ fn validation_energy_castigliano_cantilever() {
 
     // By Castigliano's 2nd theorem: δ = ∂U/∂P = PL³/(3EI)
     let delta_castigliano = p * l.powi(3) / (3.0 * e_eff * IZ);
-    let err = (tip.uy.abs() - delta_castigliano).abs() / delta_castigliano;
+    let err = (tip.uz.abs() - delta_castigliano).abs() / delta_castigliano;
     assert!(err < 0.05,
-        "Castigliano: δ_FEM={:.6e}, δ_theory={:.6e}", tip.uy.abs(), delta_castigliano);
+        "Castigliano: δ_FEM={:.6e}, δ_theory={:.6e}", tip.uz.abs(), delta_castigliano);
 }
 
 // ================================================================
@@ -162,7 +162,7 @@ fn validation_energy_maxwell_betti_frame() {
     ];
     let sups = vec![(1, 1, "fixed"), (2, 4, "fixed")];
     let loads = vec![
-        SolverLoad::Nodal(SolverNodalLoad { node_id: 3, fx: p, fy: 0.0, mz: 0.0 }),
+        SolverLoad::Nodal(SolverNodalLoad { node_id: 3, fx: p, fz: 0.0, my: 0.0 }),
     ];
     let input2 = make_input(nodes, vec![(1, E, 0.3)], vec![(1, A, IZ)], elems, sups, loads);
     let r2 = linear::solve_2d(&input2).unwrap();
@@ -196,39 +196,39 @@ fn validation_energy_superposition() {
     // Load case 1
     let input1 = make_beam(n, l, E, A, IZ, "pinned", Some("rollerX"),
         vec![SolverLoad::Nodal(SolverNodalLoad {
-            node_id: node_a, fx: 0.0, fy: -p1, mz: 0.0,
+            node_id: node_a, fx: 0.0, fz: -p1, my: 0.0,
         })]);
     let r1 = linear::solve_2d(&input1).unwrap();
 
     // Load case 2
     let input2 = make_beam(n, l, E, A, IZ, "pinned", Some("rollerX"),
         vec![SolverLoad::Nodal(SolverNodalLoad {
-            node_id: node_b, fx: 0.0, fy: -p2, mz: 0.0,
+            node_id: node_b, fx: 0.0, fz: -p2, my: 0.0,
         })]);
     let r2 = linear::solve_2d(&input2).unwrap();
 
     // Combined
     let input_c = make_beam(n, l, E, A, IZ, "pinned", Some("rollerX"),
         vec![
-            SolverLoad::Nodal(SolverNodalLoad { node_id: node_a, fx: 0.0, fy: -p1, mz: 0.0 }),
-            SolverLoad::Nodal(SolverNodalLoad { node_id: node_b, fx: 0.0, fy: -p2, mz: 0.0 }),
+            SolverLoad::Nodal(SolverNodalLoad { node_id: node_a, fx: 0.0, fz: -p1, my: 0.0 }),
+            SolverLoad::Nodal(SolverNodalLoad { node_id: node_b, fx: 0.0, fz: -p2, my: 0.0 }),
         ]);
     let rc = linear::solve_2d(&input_c).unwrap();
 
     // Check superposition at midspan
     let mid = n / 2 + 1;
-    let d1_mid = r1.displacements.iter().find(|d| d.node_id == mid).unwrap().uy;
-    let d2_mid = r2.displacements.iter().find(|d| d.node_id == mid).unwrap().uy;
-    let dc_mid = rc.displacements.iter().find(|d| d.node_id == mid).unwrap().uy;
+    let d1_mid = r1.displacements.iter().find(|d| d.node_id == mid).unwrap().uz;
+    let d2_mid = r2.displacements.iter().find(|d| d.node_id == mid).unwrap().uz;
+    let dc_mid = rc.displacements.iter().find(|d| d.node_id == mid).unwrap().uz;
 
     let err = ((d1_mid + d2_mid) - dc_mid).abs() / dc_mid.abs();
     assert!(err < 0.01,
         "Superposition: δ₁+δ₂={:.6e}, δ_combined={:.6e}", d1_mid + d2_mid, dc_mid);
 
     // Check superposition of reactions
-    let ra1 = r1.reactions.iter().find(|r| r.node_id == 1).unwrap().ry;
-    let ra2 = r2.reactions.iter().find(|r| r.node_id == 1).unwrap().ry;
-    let rac = rc.reactions.iter().find(|r| r.node_id == 1).unwrap().ry;
+    let ra1 = r1.reactions.iter().find(|r| r.node_id == 1).unwrap().rz;
+    let ra2 = r2.reactions.iter().find(|r| r.node_id == 1).unwrap().rz;
+    let rac = rc.reactions.iter().find(|r| r.node_id == 1).unwrap().rz;
     let err_r = ((ra1 + ra2) - rac).abs() / rac.abs();
     assert!(err_r < 0.01,
         "Superposition reactions: R₁+R₂={:.4}, R_combined={:.4}", ra1 + ra2, rac);
@@ -250,21 +250,21 @@ fn validation_energy_unit_load_method() {
     // Unit load
     let input_unit = make_beam(n, l, E, A, IZ, "pinned", Some("rollerX"),
         vec![SolverLoad::Nodal(SolverNodalLoad {
-            node_id: mid, fx: 0.0, fy: -1.0, mz: 0.0,
+            node_id: mid, fx: 0.0, fz: -1.0, my: 0.0,
         })]);
     let r_unit = linear::solve_2d(&input_unit).unwrap();
     let delta_unit = r_unit.displacements.iter()
-        .find(|d| d.node_id == mid).unwrap().uy;
+        .find(|d| d.node_id == mid).unwrap().uz;
 
     // Actual load P = 25
     let p = 25.0;
     let input_p = make_beam(n, l, E, A, IZ, "pinned", Some("rollerX"),
         vec![SolverLoad::Nodal(SolverNodalLoad {
-            node_id: mid, fx: 0.0, fy: -p, mz: 0.0,
+            node_id: mid, fx: 0.0, fz: -p, my: 0.0,
         })]);
     let r_p = linear::solve_2d(&input_p).unwrap();
     let delta_p = r_p.displacements.iter()
-        .find(|d| d.node_id == mid).unwrap().uy;
+        .find(|d| d.node_id == mid).unwrap().uz;
 
     // By linearity: δ_P = P × δ_unit
     let err = (delta_p - p * delta_unit).abs() / delta_p.abs();
@@ -310,7 +310,7 @@ fn validation_energy_clapeyron_distributed() {
         } else {
             q.abs() * elem_len
         };
-        w_ext += 0.5 * trib * disp.uy.abs();
+        w_ext += 0.5 * trib * disp.uz.abs();
     }
 
     // Analytical strain energy: U = q²L⁵/(40EI)
@@ -348,18 +348,18 @@ fn validation_energy_reciprocal_reactions() {
     // Load case 1: force P at node_a → deflection at node_b
     let input1 = make_beam(n, l, E, A, IZ, "pinned", Some("rollerX"),
         vec![SolverLoad::Nodal(SolverNodalLoad {
-            node_id: node_a, fx: 0.0, fy: -p, mz: 0.0,
+            node_id: node_a, fx: 0.0, fz: -p, my: 0.0,
         })]);
     let r1 = linear::solve_2d(&input1).unwrap();
-    let d_b_1 = r1.displacements.iter().find(|d| d.node_id == node_b).unwrap().uy;
+    let d_b_1 = r1.displacements.iter().find(|d| d.node_id == node_b).unwrap().uz;
 
     // Load case 2: force P at node_b → deflection at node_a
     let input2 = make_beam(n, l, E, A, IZ, "pinned", Some("rollerX"),
         vec![SolverLoad::Nodal(SolverNodalLoad {
-            node_id: node_b, fx: 0.0, fy: -p, mz: 0.0,
+            node_id: node_b, fx: 0.0, fz: -p, my: 0.0,
         })]);
     let r2 = linear::solve_2d(&input2).unwrap();
-    let d_a_2 = r2.displacements.iter().find(|d| d.node_id == node_a).unwrap().uy;
+    let d_a_2 = r2.displacements.iter().find(|d| d.node_id == node_a).unwrap().uz;
 
     // Maxwell-Betti: deflection at B due to load at A = deflection at A due to load at B
     let err = (d_b_1 - d_a_2).abs() / d_b_1.abs();
@@ -368,8 +368,8 @@ fn validation_energy_reciprocal_reactions() {
 
     // Also verify: work done by case 1 loads through case 2 displacements
     // = work done by case 2 loads through case 1 displacements
-    let w_12 = p * r2.displacements.iter().find(|d| d.node_id == node_a).unwrap().uy.abs();
-    let w_21 = p * r1.displacements.iter().find(|d| d.node_id == node_b).unwrap().uy.abs();
+    let w_12 = p * r2.displacements.iter().find(|d| d.node_id == node_a).unwrap().uz.abs();
+    let w_21 = p * r1.displacements.iter().find(|d| d.node_id == node_b).unwrap().uz.abs();
     let err_w = (w_12 - w_21).abs() / w_12;
     assert!(err_w < 0.01,
         "Reciprocal work: W₁₂={:.6e}, W₂₁={:.6e}", w_12, w_21);

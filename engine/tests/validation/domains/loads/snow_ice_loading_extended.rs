@@ -66,18 +66,18 @@ fn snow_ground_to_roof_conversion() {
     // Each reaction = W/2
     let r_expected: f64 = w_total / 2.0;
 
-    let sum_ry: f64 = results.reactions.iter().map(|r| r.ry).sum();
+    let sum_ry: f64 = results.reactions.iter().map(|r| r.rz).sum();
     assert_close(sum_ry, w_total, 0.02, "Total vertical reaction = total snow load");
 
     let r1 = results.reactions.iter().find(|r| r.node_id == 1).unwrap();
-    assert_close(r1.ry, r_expected, 0.02, "Left reaction = W/2");
+    assert_close(r1.rz, r_expected, 0.02, "Left reaction = W/2");
 
     // Verify midspan deflection: delta = 5*q*L^4 / (384*EI)
     let e_eff: f64 = e * 1000.0;  // kN/m^2
     let delta_exact: f64 = 5.0 * q.abs() * l.powi(4) / (384.0 * e_eff * iz);
     let mid_node = n / 2 + 1;
     let mid_d = results.displacements.iter().find(|d| d.node_id == mid_node).unwrap();
-    assert_close(mid_d.uy.abs(), delta_exact, 0.05, "Midspan deflection 5qL^4/(384EI)");
+    assert_close(mid_d.uz.abs(), delta_exact, 0.05, "Midspan deflection 5qL^4/(384EI)");
 }
 
 // ================================================================
@@ -115,17 +115,17 @@ fn snow_flat_roof_balanced() {
     let delta_exact: f64 = q.abs() * l.powi(4) / (384.0 * e_eff * iz);
     let mid_node = n / 2 + 1;
     let mid_d = results.displacements.iter().find(|d| d.node_id == mid_node).unwrap();
-    assert_close(mid_d.uy.abs(), delta_exact, 0.05, "Fixed-fixed midspan deflection");
+    assert_close(mid_d.uz.abs(), delta_exact, 0.05, "Fixed-fixed midspan deflection");
 
     // Each reaction = qL/2
     let r_each: f64 = q.abs() * l / 2.0;
     let r1 = results.reactions.iter().find(|r| r.node_id == 1).unwrap();
-    assert_close(r1.ry, r_each, 0.02, "Fixed end reaction = qL/2");
+    assert_close(r1.rz, r_each, 0.02, "Fixed end reaction = qL/2");
 
     // Fixed-end moment = qL^2/12
     let m_fixed: f64 = q.abs() * l * l / 12.0;
     // Moment reaction at node 1 opposes sagging, so negative in convention
-    assert_close(r1.mz.abs(), m_fixed, 0.05, "Fixed end moment = qL^2/12");
+    assert_close(r1.my.abs(), m_fixed, 0.05, "Fixed end moment = qL^2/12");
 }
 
 // ================================================================
@@ -196,9 +196,9 @@ fn snow_sloped_roof_reduction() {
     // Midspan deflection should be reduced by Cs ratio
     let mid_node = n / 2 + 1;
     let d_sloped = results_sloped.displacements.iter()
-        .find(|d| d.node_id == mid_node).unwrap().uy.abs();
+        .find(|d| d.node_id == mid_node).unwrap().uz.abs();
     let d_flat = results_flat.displacements.iter()
-        .find(|d| d.node_id == mid_node).unwrap().uy.abs();
+        .find(|d| d.node_id == mid_node).unwrap().uz.abs();
 
     let ratio: f64 = d_sloped / d_flat;
     assert_close(ratio, cs, 0.02, "Deflection ratio = Cs");
@@ -274,13 +274,13 @@ fn snow_drift_triangular_surcharge() {
     let r_left_expected: f64 = w_total * 2.0 / 3.0;
     let r_right_expected: f64 = w_total * 1.0 / 3.0;
 
-    let sum_ry: f64 = results.reactions.iter().map(|r| r.ry).sum();
+    let sum_ry: f64 = results.reactions.iter().map(|r| r.rz).sum();
     assert_close(sum_ry, w_total, 0.03, "Sum reactions = total drift load");
 
     let r_left = results.reactions.iter().find(|r| r.node_id == 1).unwrap();
     let r_right = results.reactions.iter().find(|r| r.node_id == n + 1).unwrap();
-    assert_close(r_left.ry, r_left_expected, 0.05, "Left reaction = 2W/3");
-    assert_close(r_right.ry, r_right_expected, 0.05, "Right reaction = W/3");
+    assert_close(r_left.rz, r_left_expected, 0.05, "Left reaction = 2W/3");
+    assert_close(r_right.rz, r_right_expected, 0.05, "Right reaction = W/3");
 }
 
 // ================================================================
@@ -328,10 +328,10 @@ fn snow_unbalanced_gable_frame() {
         vec![(1, 1, "fixed"), (2, 4, "fixed")],
         vec![
             SolverLoad::Nodal(SolverNodalLoad {
-                node_id: 2, fx: 0.0, fy: f_left, mz: 0.0,
+                node_id: 2, fx: 0.0, fz: f_left, my: 0.0,
             }),
             SolverLoad::Nodal(SolverNodalLoad {
-                node_id: 3, fx: 0.0, fy: f_right, mz: 0.0,
+                node_id: 3, fx: 0.0, fz: f_right, my: 0.0,
             }),
         ],
     );
@@ -339,7 +339,7 @@ fn snow_unbalanced_gable_frame() {
 
     // Total vertical load
     let f_total: f64 = (f_left + f_right).abs();
-    let sum_ry: f64 = results.reactions.iter().map(|r| r.ry).sum();
+    let sum_ry: f64 = results.reactions.iter().map(|r| r.rz).sum();
     assert_close(sum_ry, f_total, 0.02, "Total vertical equilibrium");
 
     // Unbalanced load creates asymmetric response:
@@ -348,8 +348,8 @@ fn snow_unbalanced_gable_frame() {
     let r4 = results.reactions.iter().find(|r| r.node_id == 4).unwrap();
 
     // Right column (leeward, heavier) should carry more
-    assert!(r4.ry > r1.ry,
-        "Leeward column Ry={:.3} > windward Ry={:.3}", r4.ry, r1.ry);
+    assert!(r4.rz > r1.rz,
+        "Leeward column Ry={:.3} > windward Ry={:.3}", r4.rz, r1.rz);
 
     // Asymmetry creates horizontal reactions (sway)
     let rx_total: f64 = (r1.rx + r4.rx).abs();
@@ -421,17 +421,17 @@ fn snow_rain_on_snow_surcharge() {
     // Deflections scale linearly: d_ros / d_base = q_ros / q_base = pf_ros / pf
     let mid_node = n / 2 + 1;
     let d_base = results_base.displacements.iter()
-        .find(|d| d.node_id == mid_node).unwrap().uy.abs();
+        .find(|d| d.node_id == mid_node).unwrap().uz.abs();
     let d_ros = results_ros.displacements.iter()
-        .find(|d| d.node_id == mid_node).unwrap().uy.abs();
+        .find(|d| d.node_id == mid_node).unwrap().uz.abs();
 
     let load_ratio: f64 = pf_ros / pf;
     let defl_ratio: f64 = d_ros / d_base;
     assert_close(defl_ratio, load_ratio, 0.02, "Deflection scales with ROS surcharge");
 
     // Verify reactions increase proportionally
-    let r_base: f64 = results_base.reactions.iter().map(|r| r.ry).sum();
-    let r_ros: f64 = results_ros.reactions.iter().map(|r| r.ry).sum();
+    let r_base: f64 = results_base.reactions.iter().map(|r| r.rz).sum();
+    let r_ros: f64 = results_ros.reactions.iter().map(|r| r.rz).sum();
     let react_ratio: f64 = r_ros / r_base;
     assert_close(react_ratio, load_ratio, 0.02, "Reactions scale with ROS surcharge");
 }
@@ -511,12 +511,12 @@ fn snow_ice_loading_radial_accretion() {
     let tip_node = n + 1;
     let tip_d = results_ice.displacements.iter()
         .find(|d| d.node_id == tip_node).unwrap();
-    assert_close(tip_d.uy.abs(), delta_ice_exact, 0.05, "Cantilever tip deflection with ice");
+    assert_close(tip_d.uz.abs(), delta_ice_exact, 0.05, "Cantilever tip deflection with ice");
 
     // Ice increases deflection proportionally
     let tip_self = results_self.displacements.iter()
         .find(|d| d.node_id == tip_node).unwrap();
-    let defl_ratio: f64 = tip_d.uy.abs() / tip_self.uy.abs();
+    let defl_ratio: f64 = tip_d.uz.abs() / tip_self.uz.abs();
     let load_ratio: f64 = q_total.abs() / q_self.abs();
     assert_close(defl_ratio, load_ratio, 0.02, "Deflection ratio = load ratio");
 }
@@ -564,7 +564,7 @@ fn snow_thermal_contraction_forces() {
     let input = make_beam(
         n, l, e, a_sec, iz, "fixed", Some("rollerX"),
         vec![SolverLoad::Nodal(SolverNodalLoad {
-            node_id: n + 1, fx: -f_thermal, fy: 0.0, mz: 0.0,
+            node_id: n + 1, fx: -f_thermal, fz: 0.0, my: 0.0,
         })],
     );
     let results = solve_2d(&input).expect("solve");

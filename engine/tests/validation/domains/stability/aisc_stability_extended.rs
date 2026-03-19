@@ -111,15 +111,15 @@ fn validation_aisc_portal_frame_b2_amplification() {
     let loads = vec![
         // Gravity on left top
         SolverLoad::Nodal(SolverNodalLoad {
-            node_id: left_top, fx: 0.0, fy: -p_grav, mz: 0.0,
+            node_id: left_top, fx: 0.0, fz: -p_grav, my: 0.0,
         }),
         // Gravity on right top
         SolverLoad::Nodal(SolverNodalLoad {
-            node_id: right_top, fx: 0.0, fy: -p_grav, mz: 0.0,
+            node_id: right_top, fx: 0.0, fz: -p_grav, my: 0.0,
         }),
         // Lateral at left top
         SolverLoad::Nodal(SolverNodalLoad {
-            node_id: left_top, fx: h_lat, fy: 0.0, mz: 0.0,
+            node_id: left_top, fx: h_lat, fz: 0.0, my: 0.0,
         }),
     ];
 
@@ -183,7 +183,7 @@ fn validation_aisc_cantilever_effective_length_k2() {
         elems, vec![(1, 1, "fixed")],
         vec![
             SolverLoad::Nodal(SolverNodalLoad {
-                node_id: n + 1, fx: -p_axial, fy: h_lat, mz: 0.0,
+                node_id: n + 1, fx: -p_axial, fz: h_lat, my: 0.0,
             }),
         ],
     );
@@ -193,8 +193,8 @@ fn validation_aisc_cantilever_effective_length_k2() {
     assert!(pd.converged, "Should converge at 0.3*Pe");
     assert!(pd.is_stable, "Should be stable at 0.3*Pe");
 
-    let lin_tip = lin.displacements.iter().find(|d| d.node_id == n + 1).unwrap().uy;
-    let pd_tip = pd.results.displacements.iter().find(|d| d.node_id == n + 1).unwrap().uy;
+    let lin_tip = lin.displacements.iter().find(|d| d.node_id == n + 1).unwrap().uz;
+    let pd_tip = pd.results.displacements.iter().find(|d| d.node_id == n + 1).unwrap().uz;
 
     // Theoretical amplification for cantilever: AF ≈ 1/(1 - P/Pe_cantilever)
     let af_expected = 1.0 / (1.0 - p_axial / pe_cantilever);
@@ -243,12 +243,12 @@ fn validation_aisc_leaner_column_destabilizes() {
         ];
         let mut loads = vec![
             SolverLoad::Nodal(SolverNodalLoad {
-                node_id: 2, fx: h_lat, fy: 0.0, mz: 0.0,
+                node_id: 2, fx: h_lat, fz: 0.0, my: 0.0,
             }),
         ];
         if p_leaner.abs() > 1e-10 {
             loads.push(SolverLoad::Nodal(SolverNodalLoad {
-                node_id: 3, fx: 0.0, fy: -p_leaner, mz: 0.0,
+                node_id: 3, fx: 0.0, fz: -p_leaner, my: 0.0,
             }));
         }
         let input = make_input(
@@ -311,7 +311,7 @@ fn validation_aisc_notional_load_drift() {
 
     let loads = vec![
         SolverLoad::Nodal(SolverNodalLoad {
-            node_id: n + 1, fx: n_notional, fy: 0.0, mz: 0.0,
+            node_id: n + 1, fx: n_notional, fz: 0.0, my: 0.0,
         }),
     ];
 
@@ -362,10 +362,10 @@ fn validation_aisc_pdelta_symmetric_response() {
     // Symmetric UDL on beam + equal gravity at both tops
     let loads = vec![
         SolverLoad::Nodal(SolverNodalLoad {
-            node_id: 2, fx: 0.0, fy: -p_grav, mz: 0.0,
+            node_id: 2, fx: 0.0, fz: -p_grav, my: 0.0,
         }),
         SolverLoad::Nodal(SolverNodalLoad {
-            node_id: 3, fx: 0.0, fy: -p_grav, mz: 0.0,
+            node_id: 3, fx: 0.0, fz: -p_grav, my: 0.0,
         }),
     ];
 
@@ -382,7 +382,7 @@ fn validation_aisc_pdelta_symmetric_response() {
     let r1 = pd.results.reactions.iter().find(|r| r.node_id == 1).unwrap();
     let r4 = pd.results.reactions.iter().find(|r| r.node_id == 4).unwrap();
 
-    assert_close(r1.ry, r4.ry, 0.01,
+    assert_close(r1.rz, r4.rz, 0.01,
         "Symmetric Ry reactions");
     assert_close(r1.rx, -r4.rx, 0.05,
         "Antisymmetric Rx reactions");
@@ -432,7 +432,7 @@ fn validation_aisc_approaching_euler_b2_escalation() {
 
         let mut loads = vec![
             SolverLoad::Nodal(SolverNodalLoad {
-                node_id: n + 1, fx: -p_axial, fy: 0.0, mz: 0.0,
+                node_id: n + 1, fx: -p_axial, fz: 0.0, my: 0.0,
             }),
         ];
         for i in 0..n {
@@ -452,8 +452,8 @@ fn validation_aisc_approaching_euler_b2_escalation() {
         assert!(pd.converged, "Should converge at P/Pe={:.1}", ratio);
 
         let mid = n / 2 + 1;
-        let lin_uy = lin.displacements.iter().find(|d| d.node_id == mid).unwrap().uy;
-        let pd_uy = pd.results.displacements.iter().find(|d| d.node_id == mid).unwrap().uy;
+        let lin_uy = lin.displacements.iter().find(|d| d.node_id == mid).unwrap().uz;
+        let pd_uy = pd.results.displacements.iter().find(|d| d.node_id == mid).unwrap().uz;
         let af = pd_uy.abs() / lin_uy.abs();
 
         // Amplification should be monotonically increasing
@@ -522,15 +522,15 @@ fn validation_aisc_two_story_cumulative_pdelta() {
     let loads = vec![
         // Gravity at roof
         SolverLoad::Nodal(SolverNodalLoad {
-            node_id: top_node, fx: 0.0, fy: -p_upper, mz: 0.0,
+            node_id: top_node, fx: 0.0, fz: -p_upper, my: 0.0,
         }),
         // Additional gravity at 2nd floor
         SolverLoad::Nodal(SolverNodalLoad {
-            node_id: mid_node, fx: 0.0, fy: -p_lower, mz: 0.0,
+            node_id: mid_node, fx: 0.0, fz: -p_lower, my: 0.0,
         }),
         // Lateral at roof
         SolverLoad::Nodal(SolverNodalLoad {
-            node_id: top_node, fx: h_lat, fy: 0.0, mz: 0.0,
+            node_id: top_node, fx: h_lat, fz: 0.0, my: 0.0,
         }),
     ];
 
@@ -598,14 +598,14 @@ fn validation_aisc_cm_single_vs_double_curvature() {
 
         let loads_single = vec![
             SolverLoad::Nodal(SolverNodalLoad {
-                node_id: n + 1, fx: -p_axial, fy: 0.0, mz: 0.0,
+                node_id: n + 1, fx: -p_axial, fz: 0.0, my: 0.0,
             }),
             // Equal moments at both ends → single curvature
             SolverLoad::Nodal(SolverNodalLoad {
-                node_id: 1, fx: 0.0, fy: 0.0, mz: m_end,
+                node_id: 1, fx: 0.0, fz: 0.0, my: m_end,
             }),
             SolverLoad::Nodal(SolverNodalLoad {
-                node_id: n + 1, fx: 0.0, fy: 0.0, mz: m_end,
+                node_id: n + 1, fx: 0.0, fz: 0.0, my: m_end,
             }),
         ];
 
@@ -620,8 +620,8 @@ fn validation_aisc_cm_single_vs_double_curvature() {
         assert!(pd_s.converged, "Single curvature should converge");
 
         let mid = n / 2 + 1;
-        let lin_uy_s = lin_s.displacements.iter().find(|d| d.node_id == mid).unwrap().uy;
-        let pd_uy_s = pd_s.results.displacements.iter().find(|d| d.node_id == mid).unwrap().uy;
+        let lin_uy_s = lin_s.displacements.iter().find(|d| d.node_id == mid).unwrap().uz;
+        let pd_uy_s = pd_s.results.displacements.iter().find(|d| d.node_id == mid).unwrap().uz;
 
         if lin_uy_s.abs() > 1e-10 {
             let af_single = pd_uy_s.abs() / lin_uy_s.abs();
@@ -645,14 +645,14 @@ fn validation_aisc_cm_single_vs_double_curvature() {
 
         let loads_double = vec![
             SolverLoad::Nodal(SolverNodalLoad {
-                node_id: n + 1, fx: -p_axial, fy: 0.0, mz: 0.0,
+                node_id: n + 1, fx: -p_axial, fz: 0.0, my: 0.0,
             }),
             // Opposite moments → double curvature
             SolverLoad::Nodal(SolverNodalLoad {
-                node_id: 1, fx: 0.0, fy: 0.0, mz: m_end,
+                node_id: 1, fx: 0.0, fz: 0.0, my: m_end,
             }),
             SolverLoad::Nodal(SolverNodalLoad {
-                node_id: n + 1, fx: 0.0, fy: 0.0, mz: -m_end,
+                node_id: n + 1, fx: 0.0, fz: 0.0, my: -m_end,
             }),
         ];
 
@@ -670,8 +670,8 @@ fn validation_aisc_cm_single_vs_double_curvature() {
         // so midspan deflection is near zero in first-order analysis.
         // Use a quarter-point node instead to verify amplification.
         let qtr = n / 4 + 1;
-        let lin_uy_d = lin_d.displacements.iter().find(|d| d.node_id == qtr).unwrap().uy;
-        let pd_uy_d = pd_d.results.displacements.iter().find(|d| d.node_id == qtr).unwrap().uy;
+        let lin_uy_d = lin_d.displacements.iter().find(|d| d.node_id == qtr).unwrap().uz;
+        let pd_uy_d = pd_d.results.displacements.iter().find(|d| d.node_id == qtr).unwrap().uz;
 
         if lin_uy_d.abs() > 1e-10 {
             let af_double = pd_uy_d.abs() / lin_uy_d.abs();

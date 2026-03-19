@@ -49,7 +49,7 @@ fn validation_hinge_seq_ss_beam_max_moment_location() {
 
     let input = make_beam(n, l, E, A, IZ, "pinned", Some("rollerX"),
         vec![SolverLoad::Nodal(SolverNodalLoad {
-            node_id: mid, fx: 0.0, fy: -p, mz: 0.0,
+            node_id: mid, fx: 0.0, fz: -p, my: 0.0,
         })]);
     let results = linear::solve_2d(&input).unwrap();
 
@@ -113,9 +113,9 @@ fn validation_hinge_seq_fixed_fixed_udl_ends_first() {
     // Support (end) moments
     let r_start = results.reactions.iter().find(|r| r.node_id == 1).unwrap();
     let r_end = results.reactions.iter().find(|r| r.node_id == n + 1).unwrap();
-    assert_close(r_start.mz.abs(), m_end_exact, 0.02,
+    assert_close(r_start.my.abs(), m_end_exact, 0.02,
         "Fixed-fixed end moment = qL²/12");
-    assert_close(r_end.mz.abs(), m_end_exact, 0.02,
+    assert_close(r_end.my.abs(), m_end_exact, 0.02,
         "Fixed-fixed far end moment = qL²/12");
 
     // Midspan moment (element at center)
@@ -124,12 +124,12 @@ fn validation_hinge_seq_fixed_fixed_udl_ends_first() {
         "Fixed-fixed midspan moment = qL²/24");
 
     // Key hinge sequence check: end moment > midspan moment
-    assert!(r_start.mz.abs() > mid_elem.m_end.abs(),
+    assert!(r_start.my.abs() > mid_elem.m_end.abs(),
         "Fixed-fixed: support moment ({:.4}) > midspan ({:.4}) — ends hinge first",
-        r_start.mz.abs(), mid_elem.m_end.abs());
+        r_start.my.abs(), mid_elem.m_end.abs());
 
     // Ratio should be exactly 2
-    let ratio = r_start.mz.abs() / mid_elem.m_end.abs();
+    let ratio = r_start.my.abs() / mid_elem.m_end.abs();
     assert_close(ratio, 2.0, 0.10,
         "Fixed-fixed: M_end/M_mid = 2 (ends hinge first)");
 }
@@ -167,12 +167,12 @@ fn validation_hinge_seq_propped_cantilever_fixed_end_first() {
 
     // M_A = wL²/8 (largest moment)
     let m_a_exact = w * l * l / 8.0;
-    assert_close(r_a.mz.abs(), m_a_exact, 0.02,
+    assert_close(r_a.my.abs(), m_a_exact, 0.02,
         "Propped cantilever M_A = wL²/8");
 
     // M_B = 0 (roller has no moment)
-    assert!(r_b.mz.abs() < 1e-3,
-        "Propped cantilever: roller end has no moment M_B={:.6e}", r_b.mz);
+    assert!(r_b.my.abs() < 1e-3,
+        "Propped cantilever: roller end has no moment M_B={:.6e}", r_b.my);
 
     // Fixed end has larger moment than any interior point
     let max_interior = results.element_forces.iter()
@@ -184,8 +184,8 @@ fn validation_hinge_seq_propped_cantilever_fixed_end_first() {
         "Fixed end carries largest moment — first hinge location");
 
     // Reactions: R_A = 5wL/8, R_B = 3wL/8
-    assert_close(r_a.ry, 5.0 * w * l / 8.0, 0.02, "Propped cantilever R_A = 5wL/8");
-    assert_close(r_b.ry, 3.0 * w * l / 8.0, 0.02, "Propped cantilever R_B = 3wL/8");
+    assert_close(r_a.rz, 5.0 * w * l / 8.0, 0.02, "Propped cantilever R_A = 5wL/8");
+    assert_close(r_b.rz, 3.0 * w * l / 8.0, 0.02, "Propped cantilever R_B = 3wL/8");
 }
 
 // ================================================================
@@ -215,8 +215,8 @@ fn validation_hinge_seq_portal_base_hinges_first() {
     let r_base_left = results.reactions.iter().find(|r| r.node_id == 1).unwrap();
     let r_base_right = results.reactions.iter().find(|r| r.node_id == 4).unwrap();
 
-    let m_base_left = r_base_left.mz.abs();
-    let m_base_right = r_base_right.mz.abs();
+    let m_base_left = r_base_left.my.abs();
+    let m_base_right = r_base_right.my.abs();
 
     // Both base moments should be significant
     assert!(m_base_left > 0.1 * lateral * h,
@@ -269,7 +269,7 @@ fn validation_hinge_seq_collapse_exceeds_first_yield() {
 
     let input = make_beam(n, l, E, A, IZ, "fixed", Some("fixed"),
         vec![SolverLoad::Nodal(SolverNodalLoad {
-            node_id: mid, fx: 0.0, fy: -p, mz: 0.0,
+            node_id: mid, fx: 0.0, fz: -p, my: 0.0,
         })]);
     let results = linear::solve_2d(&input).unwrap();
 
@@ -279,7 +279,7 @@ fn validation_hinge_seq_collapse_exceeds_first_yield() {
     // But with UDL the ratio is 2:1 (supports:midspan). With midspan point load it's equal.
     let r_start = results.reactions.iter().find(|r| r.node_id == 1).unwrap();
 
-    let m_support = r_start.mz.abs();
+    let m_support = r_start.my.abs();
     let m_mid_exact = p * l / 8.0; // analytical for fixed-fixed, midspan point load
 
     assert_close(m_support, m_mid_exact, 0.05,
@@ -288,7 +288,7 @@ fn validation_hinge_seq_collapse_exceeds_first_yield() {
     // Simply-supported beam for comparison
     let input_ss = make_beam(n, l, E, A, IZ, "pinned", Some("rollerX"),
         vec![SolverLoad::Nodal(SolverNodalLoad {
-            node_id: mid, fx: 0.0, fy: -p, mz: 0.0,
+            node_id: mid, fx: 0.0, fz: -p, my: 0.0,
         })]);
     let results_ss = linear::solve_2d(&input_ss).unwrap();
 
@@ -348,7 +348,7 @@ fn validation_hinge_seq_moment_redistribution_propped() {
 
     // Phase 1: fixed-end moment = wL²/8
     let m_yield = w * l * l / 8.0;
-    assert_close(r_a.mz.abs(), m_yield, 0.02,
+    assert_close(r_a.my.abs(), m_yield, 0.02,
         "Propped cantilever: first yield at M_A = wL²/8");
 
     // After hinge at A, structure is SS with moment = wL²/8 at midspan
@@ -374,7 +374,7 @@ fn validation_hinge_seq_moment_redistribution_propped() {
     // and the collapse load is 2× the first-yield load for this structure
     // (since M_yield = wL²/8 and M_collapse comes from full redistribution)
     let r_b_ss = results_ss.reactions.iter().find(|r| r.node_id == n + 1).unwrap();
-    assert_close(r_b_ss.ry, 0.5 * w * l, 0.02,
+    assert_close(r_b_ss.rz, 0.5 * w * l, 0.02,
         "SS beam: R_B = wL/2 (after redistribution, symmetric loading)");
 }
 
@@ -422,8 +422,8 @@ fn validation_hinge_seq_two_span_interior_support_max() {
     // End moments (nodes 1 and 2*n_per+1) should be zero (simply supported)
     let r_a = results.reactions.iter().find(|r| r.node_id == 1).unwrap();
     let r_c = results.reactions.iter().find(|r| r.node_id == 2 * n_per + 1).unwrap();
-    assert!(r_a.mz.abs() < 1e-3, "Two-span: M_A = 0");
-    assert!(r_c.mz.abs() < 1e-3, "Two-span: M_C = 0");
+    assert!(r_a.my.abs() < 1e-3, "Two-span: M_A = 0");
+    assert!(r_c.my.abs() < 1e-3, "Two-span: M_C = 0");
 
     // Interior support moment is maximum (first hinge location)
     let max_span_moment = results.element_forces.iter()
@@ -475,14 +475,14 @@ fn validation_hinge_seq_mechanism_hinge_count() {
     let m_mid_ss = res_ss.element_forces.iter()
         .find(|e| e.element_id == n / 2).unwrap().m_end.abs();
     let r_ss_a = res_ss.reactions.iter().find(|r| r.node_id == 1).unwrap();
-    assert!(r_ss_a.mz.abs() < 1e-3, "SS: no moment at supports (0 redundancy)");
+    assert!(r_ss_a.my.abs() < 1e-3, "SS: no moment at supports (0 redundancy)");
 
     // Propped cantilever: 1 redundancy. Two hinges → mechanism.
     // Support moment = wL²/8, then redistribution creates midspan hinge.
     let input_pc = make_beam(n, l, E, A, IZ, "fixed", Some("rollerX"), make_loads(n));
     let res_pc = linear::solve_2d(&input_pc).unwrap();
     let r_pc_a = res_pc.reactions.iter().find(|r| r.node_id == 1).unwrap();
-    let m_fixed_pc = r_pc_a.mz.abs();
+    let m_fixed_pc = r_pc_a.my.abs();
     assert!(m_fixed_pc > m_mid_ss * 0.5,
         "Propped cantilever: fixed-end moment ({:.4}) significant", m_fixed_pc);
 
@@ -491,7 +491,7 @@ fn validation_hinge_seq_mechanism_hinge_count() {
     let input_ff = make_beam(n, l, E, A, IZ, "fixed", Some("fixed"), make_loads(n));
     let res_ff = linear::solve_2d(&input_ff).unwrap();
     let r_ff_a = res_ff.reactions.iter().find(|r| r.node_id == 1).unwrap();
-    let m_fixed_ff = r_ff_a.mz.abs();
+    let m_fixed_ff = r_ff_a.my.abs();
 
     // Fixed-fixed has smaller support moment than propped cantilever
     // (constraint distributes load more evenly, but requires 3 hinges for mechanism)

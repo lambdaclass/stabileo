@@ -59,15 +59,15 @@ fn elevator_guide_rail_bending() {
     let loads = vec![SolverLoad::Nodal(SolverNodalLoad {
         node_id: center_mid_node,
         fx: 0.0,
-        fy: -f_guide,
-        mz: 0.0,
+        fz: -f_guide,
+        my: 0.0,
     })];
 
     let input = make_continuous_beam(&spans, n_per_span, e_steel, a_rail, iz_rail, loads);
     let results = solve_2d(&input).expect("solve");
 
     // Total vertical reaction must equal applied load
-    let sum_ry: f64 = results.reactions.iter().map(|r| r.ry).sum::<f64>();
+    let sum_ry: f64 = results.reactions.iter().map(|r| r.rz).sum::<f64>();
     assert_close(sum_ry, f_guide, 0.02, "Guide rail vertical equilibrium");
 
     // For 3-span continuous beam with point load P at center of middle span:
@@ -78,13 +78,13 @@ fn elevator_guide_rail_bending() {
 
     // End reaction should be smaller than internal reaction
     assert!(
-        r_end1.ry.abs() < r_internal1.ry.abs(),
+        r_end1.rz.abs() < r_internal1.rz.abs(),
         "End reaction {:.3} < internal reaction {:.3}",
-        r_end1.ry.abs(), r_internal1.ry.abs()
+        r_end1.rz.abs(), r_internal1.rz.abs()
     );
 
     // Total load equilibrium
-    let total_r: f64 = results.reactions.iter().map(|r| r.ry).sum::<f64>();
+    let total_r: f64 = results.reactions.iter().map(|r| r.rz).sum::<f64>();
     assert_close(total_r, f_guide, 0.02, "Total reaction equals applied guide force");
 
     // Check midspan deflection of center span is within L/1000 (EN 81-20 limit)
@@ -92,9 +92,9 @@ fn elevator_guide_rail_bending() {
         .find(|d| d.node_id == center_mid_node).unwrap();
     let deflection_limit: f64 = bracket_spacing / 1000.0;
     assert!(
-        mid_disp.uy.abs() < deflection_limit,
+        mid_disp.uz.abs() < deflection_limit,
         "Guide rail deflection {:.5} m < L/1000 = {:.5} m",
-        mid_disp.uy.abs(), deflection_limit
+        mid_disp.uz.abs(), deflection_limit
     );
 }
 
@@ -133,8 +133,8 @@ fn elevator_machine_room_beam() {
     let loads = vec![SolverLoad::Nodal(SolverNodalLoad {
         node_id: mid_node,
         fx: 0.0,
-        fy: -p_design,
-        mz: 0.0,
+        fz: -p_design,
+        my: 0.0,
     })];
 
     let input = make_beam(n, l_beam, e_steel, a_beam, iz_beam, "pinned", Some("rollerX"), loads);
@@ -145,8 +145,8 @@ fn elevator_machine_room_beam() {
     let r1 = results.reactions.iter().find(|r| r.node_id == 1).unwrap();
     let r_end = results.reactions.iter().find(|r| r.node_id == n + 1).unwrap();
 
-    assert_close(r1.ry, r_exact, 0.02, "Machine beam left reaction");
-    assert_close(r_end.ry, r_exact, 0.02, "Machine beam right reaction");
+    assert_close(r1.rz, r_exact, 0.02, "Machine beam left reaction");
+    assert_close(r_end.rz, r_exact, 0.02, "Machine beam right reaction");
 
     // Midspan deflection: delta = PL^3/(48EI)
     let e_eff: f64 = e_steel * 1000.0;
@@ -155,7 +155,7 @@ fn elevator_machine_room_beam() {
     let mid_disp = results.displacements.iter()
         .find(|d| d.node_id == mid_node).unwrap();
 
-    assert_close(mid_disp.uy.abs(), delta_exact, 0.05, "Machine beam midspan deflection");
+    assert_close(mid_disp.uz.abs(), delta_exact, 0.05, "Machine beam midspan deflection");
 
     // Midspan moment: M = PL/4
     let m_exact: f64 = p_design * l_beam / 4.0;
@@ -193,8 +193,8 @@ fn elevator_hoistway_bracket() {
     let loads = vec![SolverLoad::Nodal(SolverNodalLoad {
         node_id: n + 1,
         fx: 0.0,
-        fy: -p_bracket,
-        mz: 0.0,
+        fz: -p_bracket,
+        my: 0.0,
     })];
 
     let input = make_beam(n, l_bracket, e_steel, a_bracket, iz_bracket, "fixed", None, loads);
@@ -207,23 +207,23 @@ fn elevator_hoistway_bracket() {
     let tip_disp = results.displacements.iter()
         .find(|d| d.node_id == n + 1).unwrap();
 
-    assert_close(tip_disp.uy.abs(), delta_exact, 0.05, "Bracket tip deflection");
+    assert_close(tip_disp.uz.abs(), delta_exact, 0.05, "Bracket tip deflection");
 
     // EN 81-20: bracket deflection must be < 5 mm
     assert!(
-        tip_disp.uy.abs() < 0.005,
+        tip_disp.uz.abs() < 0.005,
         "Bracket deflection {:.4} m < 5 mm limit",
-        tip_disp.uy.abs()
+        tip_disp.uz.abs()
     );
 
     // Root moment: M = P * L
     let m_exact: f64 = p_bracket * l_bracket;
     let r1 = results.reactions.iter().find(|r| r.node_id == 1).unwrap();
 
-    assert_close(r1.mz.abs(), m_exact, 0.05, "Bracket root moment");
+    assert_close(r1.my.abs(), m_exact, 0.05, "Bracket root moment");
 
     // Root shear: V = P
-    assert_close(r1.ry.abs(), p_bracket, 0.02, "Bracket root shear reaction");
+    assert_close(r1.rz.abs(), p_bracket, 0.02, "Bracket root shear reaction");
 }
 
 // ================================================================
@@ -262,8 +262,8 @@ fn elevator_counterweight_support() {
     let loads = vec![SolverLoad::Nodal(SolverNodalLoad {
         node_id: mid_node,
         fx: 0.0,
-        fy: -p_buffer,
-        mz: 0.0,
+        fz: -p_buffer,
+        my: 0.0,
     })];
 
     let input = make_beam(n, l_beam, e_steel, a_beam, iz_beam, "pinned", Some("rollerX"), loads);
@@ -274,8 +274,8 @@ fn elevator_counterweight_support() {
     let r1 = results.reactions.iter().find(|r| r.node_id == 1).unwrap();
     let r_end = results.reactions.iter().find(|r| r.node_id == n + 1).unwrap();
 
-    assert_close(r1.ry, r_exact, 0.02, "Counterweight beam left reaction");
-    assert_close(r_end.ry, r_exact, 0.02, "Counterweight beam right reaction");
+    assert_close(r1.rz, r_exact, 0.02, "Counterweight beam left reaction");
+    assert_close(r_end.rz, r_exact, 0.02, "Counterweight beam right reaction");
 
     // Midspan moment: M = PL/4
     let m_exact: f64 = p_buffer * l_beam / 4.0;
@@ -291,18 +291,18 @@ fn elevator_counterweight_support() {
     let mid_disp = results.displacements.iter()
         .find(|d| d.node_id == mid_node).unwrap();
 
-    assert_close(mid_disp.uy.abs(), delta_exact, 0.05, "Counterweight beam midspan deflection");
+    assert_close(mid_disp.uz.abs(), delta_exact, 0.05, "Counterweight beam midspan deflection");
 
     // Stress check: sigma = M/S where S = I/(d/2), using approximate d = 0.2 m
     let d_beam: f64 = 0.20; // m, approximate beam depth
     let s_mod: f64 = iz_beam / (d_beam / 2.0);
     let sigma: f64 = m_exact / s_mod; // kN/m^2
     let sigma_mpa: f64 = sigma / 1000.0;
-    let fy: f64 = 250.0; // MPa, Grade 250 steel
+    let fz: f64 = 250.0; // MPa, Grade 250 steel
 
     assert!(
-        sigma_mpa < fy,
-        "Bending stress {:.1} MPa < yield {:.1} MPa", sigma_mpa, fy
+        sigma_mpa < fz,
+        "Bending stress {:.1} MPa < yield {:.1} MPa", sigma_mpa, fz
     );
 }
 
@@ -396,22 +396,22 @@ fn escalator_truss_structure() {
         loads.push(SolverLoad::Nodal(SolverNodalLoad {
             node_id: nb + i + 1,
             fx: 0.0,
-            fy: -p_node,
-            mz: 0.0,
+            fz: -p_node,
+            my: 0.0,
         }));
     }
     // Half loads at end top chord nodes
     loads.push(SolverLoad::Nodal(SolverNodalLoad {
         node_id: nb + 1,
         fx: 0.0,
-        fy: -p_node / 2.0,
-        mz: 0.0,
+        fz: -p_node / 2.0,
+        my: 0.0,
     }));
     loads.push(SolverLoad::Nodal(SolverNodalLoad {
         node_id: nb + n_panels + 1,
         fx: 0.0,
-        fy: -p_node / 2.0,
-        mz: 0.0,
+        fz: -p_node / 2.0,
+        my: 0.0,
     }));
 
     let input = make_input(nodes, mats, secs, elems, sups, loads);
@@ -419,7 +419,7 @@ fn escalator_truss_structure() {
 
     // Total applied load = q * span = 5.0 * 12.0 = 60 kN
     let total_load: f64 = q_passenger * span;
-    let sum_ry: f64 = results.reactions.iter().map(|r| r.ry).sum::<f64>();
+    let sum_ry: f64 = results.reactions.iter().map(|r| r.rz).sum::<f64>();
 
     assert_close(sum_ry, total_load, 0.02, "Escalator truss vertical equilibrium");
 
@@ -429,9 +429,9 @@ fn escalator_truss_structure() {
     let r_end = results.reactions.iter().find(|r| r.node_id == n_panels + 1).unwrap();
 
     // Both reactions should be positive (upward) and roughly share total load
-    assert!(r1.ry > 0.0, "Left support reaction is upward");
-    assert!(r_end.ry > 0.0, "Right support reaction is upward");
-    assert_close(r1.ry + r_end.ry, total_load, 0.02, "Sum of reactions equals total load");
+    assert!(r1.rz > 0.0, "Left support reaction is upward");
+    assert!(r_end.rz > 0.0, "Right support reaction is upward");
+    assert_close(r1.rz + r_end.rz, total_load, 0.02, "Sum of reactions equals total load");
 
     // Bottom chord at midspan should be in tension (positive axial force)
     // Element at midspan of bottom chord
@@ -493,8 +493,8 @@ fn elevator_pit_base_slab() {
     loads.push(SolverLoad::Nodal(SolverNodalLoad {
         node_id: mid_node,
         fx: 0.0,
-        fy: -p_buffer,
-        mz: 0.0,
+        fz: -p_buffer,
+        my: 0.0,
     }));
 
     let input = make_beam(n, l_pit, e_concrete, a_slab, iz_slab, "pinned", Some("rollerX"), loads);
@@ -505,13 +505,13 @@ fn elevator_pit_base_slab() {
     let total_load: f64 = total_sw + p_buffer;
 
     // Total reaction must equal total load
-    let sum_ry: f64 = results.reactions.iter().map(|r| r.ry).sum::<f64>();
+    let sum_ry: f64 = results.reactions.iter().map(|r| r.rz).sum::<f64>();
     assert_close(sum_ry, total_load, 0.02, "Pit slab total vertical equilibrium");
 
     // Reactions are symmetric: R = total_load / 2
     let r_exact: f64 = total_load / 2.0;
     let r1 = results.reactions.iter().find(|r| r.node_id == 1).unwrap();
-    assert_close(r1.ry, r_exact, 0.02, "Pit slab symmetric reaction");
+    assert_close(r1.rz, r_exact, 0.02, "Pit slab symmetric reaction");
 
     // Midspan moment: M_udl + M_point = qL^2/8 + PL/4
     let m_udl: f64 = q_self.abs() * l_pit.powi(2) / 8.0;
@@ -530,7 +530,7 @@ fn elevator_pit_base_slab() {
 
     let mid_disp = results.displacements.iter()
         .find(|d| d.node_id == mid_node).unwrap();
-    assert_close(mid_disp.uy.abs(), delta_total, 0.05, "Pit slab midspan deflection");
+    assert_close(mid_disp.uz.abs(), delta_total, 0.05, "Pit slab midspan deflection");
 }
 
 // ================================================================
@@ -574,8 +574,8 @@ fn elevator_overhead_beam_deflection() {
     let loads = vec![SolverLoad::Nodal(SolverNodalLoad {
         node_id: load_node,
         fx: 0.0,
-        fy: -p_sheave,
-        mz: 0.0,
+        fz: -p_sheave,
+        my: 0.0,
     })];
 
     // Fixed-fixed beam
@@ -592,8 +592,8 @@ fn elevator_overhead_beam_deflection() {
     let r_left = results.reactions.iter().find(|r| r.node_id == 1).unwrap();
     let r_right = results.reactions.iter().find(|r| r.node_id == n + 1).unwrap();
 
-    assert_close(r_left.ry, r_left_exact, 0.05, "Overhead beam left reaction");
-    assert_close(r_right.ry, r_right_exact, 0.05, "Overhead beam right reaction");
+    assert_close(r_left.rz, r_left_exact, 0.05, "Overhead beam left reaction");
+    assert_close(r_right.rz, r_right_exact, 0.05, "Overhead beam right reaction");
 
     // Fixed-end moments:
     // M_left = P*a*b^2/L^2 (hogging at left support)
@@ -602,8 +602,8 @@ fn elevator_overhead_beam_deflection() {
     let m_left_exact: f64 = p_sheave * a_pos * b_pos.powi(2) / l2;
     let m_right_exact: f64 = p_sheave * a_pos.powi(2) * b_pos / l2;
 
-    assert_close(r_left.mz.abs(), m_left_exact, 0.10, "Overhead beam left fixed-end moment");
-    assert_close(r_right.mz.abs(), m_right_exact, 0.10, "Overhead beam right fixed-end moment");
+    assert_close(r_left.my.abs(), m_left_exact, 0.10, "Overhead beam left fixed-end moment");
+    assert_close(r_right.my.abs(), m_right_exact, 0.10, "Overhead beam right fixed-end moment");
 
     // Deflection at load point: delta = Pa^2*b^2/(3EIL)
     // Note: this is approximate for the exact load position
@@ -613,14 +613,14 @@ fn elevator_overhead_beam_deflection() {
     let load_disp = results.displacements.iter()
         .find(|d| d.node_id == load_node).unwrap();
 
-    assert_close(load_disp.uy.abs(), delta_exact, 0.10, "Overhead beam deflection at sheave");
+    assert_close(load_disp.uz.abs(), delta_exact, 0.10, "Overhead beam deflection at sheave");
 
     // Deflection serviceability check: L/500 for machine-supporting beams
     let deflection_limit: f64 = l_beam / 500.0;
     assert!(
-        load_disp.uy.abs() < deflection_limit,
+        load_disp.uz.abs() < deflection_limit,
         "Deflection {:.5} m < L/500 = {:.4} m",
-        load_disp.uy.abs(), deflection_limit
+        load_disp.uz.abs(), deflection_limit
     );
 }
 
@@ -673,8 +673,8 @@ fn elevator_shaft_wall_pressure() {
     let r1 = results.reactions.iter().find(|r| r.node_id == 1).unwrap();
     let r_end = results.reactions.iter().find(|r| r.node_id == n + 1).unwrap();
 
-    assert_close(r1.ry.abs(), r_exact, 0.02, "Shaft wall stud left reaction");
-    assert_close(r_end.ry.abs(), r_exact, 0.02, "Shaft wall stud right reaction");
+    assert_close(r1.rz.abs(), r_exact, 0.02, "Shaft wall stud left reaction");
+    assert_close(r_end.rz.abs(), r_exact, 0.02, "Shaft wall stud right reaction");
 
     // Midspan moment: M = qL^2/8
     let m_exact: f64 = q_stud.abs() * l_stud.powi(2) / 8.0;
@@ -691,26 +691,26 @@ fn elevator_shaft_wall_pressure() {
     let mid_disp = results.displacements.iter()
         .find(|d| d.node_id == mid_node).unwrap();
 
-    assert_close(mid_disp.uy.abs(), delta_exact, 0.05, "Shaft wall stud midspan deflection");
+    assert_close(mid_disp.uz.abs(), delta_exact, 0.05, "Shaft wall stud midspan deflection");
 
     // Stress check: sigma = M / S, where S = I / (d/2)
     let d_stud: f64 = 0.150; // m, channel depth
     let s_mod: f64 = iz_stud / (d_stud / 2.0);
     let sigma: f64 = m_exact / s_mod; // kN/m^2
     let sigma_mpa: f64 = sigma / 1000.0;
-    let fy: f64 = 250.0; // MPa, Grade 250
+    let fz: f64 = 250.0; // MPa, Grade 250
 
     assert!(
-        sigma_mpa < fy,
+        sigma_mpa < fz,
         "Wall stud bending stress {:.1} MPa < yield {:.1} MPa",
-        sigma_mpa, fy
+        sigma_mpa, fz
     );
 
     // Serviceability: deflection < L/360 for walls
     let deflection_limit: f64 = l_stud / 360.0;
     assert!(
-        mid_disp.uy.abs() < deflection_limit,
+        mid_disp.uz.abs() < deflection_limit,
         "Deflection {:.5} m < L/360 = {:.4} m",
-        mid_disp.uy.abs(), deflection_limit
+        mid_disp.uz.abs(), deflection_limit
     );
 }

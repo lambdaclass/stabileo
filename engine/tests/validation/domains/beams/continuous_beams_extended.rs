@@ -42,18 +42,18 @@ fn validation_4span_equal_udl_equilibrium() {
     let results = linear::solve_2d(&input).unwrap();
 
     // Total vertical equilibrium
-    let sum_ry: f64 = results.reactions.iter().map(|r| r.ry).sum();
+    let sum_ry: f64 = results.reactions.iter().map(|r| r.rz).sum();
     assert_close(sum_ry, 4.0 * q * l, 0.01, "4span ΣRy = 4qL");
 
     // Symmetry: R_A = R_E
     let r_a = results.reactions.iter().find(|r| r.node_id == 1).unwrap();
     let r_e = results.reactions.iter().find(|r| r.node_id == 4 * n_per_span + 1).unwrap();
-    assert_close(r_a.ry, r_e.ry, 0.005, "4span symmetry R_A = R_E");
+    assert_close(r_a.rz, r_e.rz, 0.005, "4span symmetry R_A = R_E");
 
     // Symmetry: R_B = R_D
     let r_b = results.reactions.iter().find(|r| r.node_id == n_per_span + 1).unwrap();
     let r_d = results.reactions.iter().find(|r| r.node_id == 3 * n_per_span + 1).unwrap();
-    assert_close(r_b.ry, r_d.ry, 0.005, "4span symmetry R_B = R_D");
+    assert_close(r_b.rz, r_d.rz, 0.005, "4span symmetry R_B = R_D");
 }
 
 // ================================================================
@@ -138,28 +138,28 @@ fn validation_5span_equal_udl_symmetry() {
     let results = linear::solve_2d(&input).unwrap();
 
     // Equilibrium
-    let sum_ry: f64 = results.reactions.iter().map(|r| r.ry).sum();
+    let sum_ry: f64 = results.reactions.iter().map(|r| r.rz).sum();
     assert_close(sum_ry, 5.0 * q * l, 0.01, "5span ΣRy = 5qL");
 
     // Symmetric reactions
     let r_a = results.reactions.iter().find(|r| r.node_id == 1).unwrap();
     let r_f = results.reactions.iter().find(|r| r.node_id == 5 * n_per_span + 1).unwrap();
-    assert_close(r_a.ry, r_f.ry, 0.005, "5span R_A = R_F");
+    assert_close(r_a.rz, r_f.rz, 0.005, "5span R_A = R_F");
 
     let r_b = results.reactions.iter().find(|r| r.node_id == n_per_span + 1).unwrap();
     let r_e = results.reactions.iter().find(|r| r.node_id == 4 * n_per_span + 1).unwrap();
-    assert_close(r_b.ry, r_e.ry, 0.005, "5span R_B = R_E");
+    assert_close(r_b.rz, r_e.rz, 0.005, "5span R_B = R_E");
 
     let r_c = results.reactions.iter().find(|r| r.node_id == 2 * n_per_span + 1).unwrap();
     let r_d = results.reactions.iter().find(|r| r.node_id == 3 * n_per_span + 1).unwrap();
-    assert_close(r_c.ry, r_d.ry, 0.005, "5span R_C = R_D");
+    assert_close(r_c.rz, r_d.rz, 0.005, "5span R_C = R_D");
 
     // Symmetric deflections at midspan of span 1 and span 5
     let mid1 = n_per_span / 2 + 1;
     let mid5 = 4 * n_per_span + n_per_span / 2 + 1;
     let d1 = results.displacements.iter().find(|d| d.node_id == mid1).unwrap();
     let d5 = results.displacements.iter().find(|d| d.node_id == mid5).unwrap();
-    assert_close(d1.uy, d5.uy, 0.005, "5span deflection symmetry span1 = span5");
+    assert_close(d1.uz, d5.uz, 0.005, "5span deflection symmetry span1 = span5");
 }
 
 // ================================================================
@@ -190,7 +190,7 @@ fn validation_2span_checkerboard_loading() {
     let results = linear::solve_2d(&input).unwrap();
 
     // Equilibrium: total load = q*L
-    let sum_ry: f64 = results.reactions.iter().map(|r| r.ry).sum();
+    let sum_ry: f64 = results.reactions.iter().map(|r| r.rz).sum();
     assert_close(sum_ry, q * l, 0.01, "checkerboard ΣRy = qL");
 
     // Interior moment M_B = qL^2/16 = 22.5
@@ -206,8 +206,8 @@ fn validation_2span_checkerboard_loading() {
         .find(|r| r.node_id == 2 * n_per_span + 1).unwrap();
     let r_c_exact = q * l / 16.0;
     // R_C should be negative (beam lifts off at far support of unloaded span)
-    assert!(r_c.ry < 0.5, "checkerboard R_C is small or negative: {:.4}", r_c.ry);
-    assert_close(r_c.ry.abs(), r_c_exact, 0.10,
+    assert!(r_c.rz < 0.5, "checkerboard R_C is small or negative: {:.4}", r_c.rz);
+    assert_close(r_c.rz.abs(), r_c_exact, 0.10,
         "checkerboard |R_C| = qL/16");
 }
 
@@ -241,18 +241,18 @@ fn validation_3span_deflection_pattern() {
     let d_b = results.displacements.iter().find(|d| d.node_id == n_per_span + 1).unwrap();
     let d_c = results.displacements.iter().find(|d| d.node_id == 2 * n_per_span + 1).unwrap();
     let d_d = results.displacements.iter().find(|d| d.node_id == 3 * n_per_span + 1).unwrap();
-    assert!(d_a.uy.abs() < 1e-10, "support A deflection = 0");
-    assert!(d_b.uy.abs() < 1e-10, "support B deflection = 0");
-    assert!(d_c.uy.abs() < 1e-10, "support C deflection = 0");
-    assert!(d_d.uy.abs() < 1e-10, "support D deflection = 0");
+    assert!(d_a.uz.abs() < 1e-10, "support A deflection = 0");
+    assert!(d_b.uz.abs() < 1e-10, "support B deflection = 0");
+    assert!(d_c.uz.abs() < 1e-10, "support C deflection = 0");
+    assert!(d_d.uz.abs() < 1e-10, "support D deflection = 0");
 
     // Midspan deflections
     let mid1 = n_per_span / 2 + 1;
     let mid2 = n_per_span + n_per_span / 2 + 1;
     let mid3 = 2 * n_per_span + n_per_span / 2 + 1;
-    let d_mid1 = results.displacements.iter().find(|d| d.node_id == mid1).unwrap().uy.abs();
-    let d_mid2 = results.displacements.iter().find(|d| d.node_id == mid2).unwrap().uy.abs();
-    let d_mid3 = results.displacements.iter().find(|d| d.node_id == mid3).unwrap().uy.abs();
+    let d_mid1 = results.displacements.iter().find(|d| d.node_id == mid1).unwrap().uz.abs();
+    let d_mid2 = results.displacements.iter().find(|d| d.node_id == mid2).unwrap().uz.abs();
+    let d_mid3 = results.displacements.iter().find(|d| d.node_id == mid3).unwrap().uz.abs();
 
     // By symmetry: end span deflections are equal
     assert_close(d_mid1, d_mid3, 0.005, "3span deflection span1 = span3");
@@ -290,14 +290,14 @@ fn validation_2span_unequal_point_load() {
     // Point load at midspan of span 2
     let load_node = n_per_span + n_per_span / 2 + 1;
     let loads = vec![SolverLoad::Nodal(SolverNodalLoad {
-        node_id: load_node, fx: 0.0, fy: -p, mz: 0.0,
+        node_id: load_node, fx: 0.0, fz: -p, my: 0.0,
     })];
 
     let input = make_continuous_beam(&[l1, l2], n_per_span, E, A, IZ, loads);
     let results = linear::solve_2d(&input).unwrap();
 
     // Total equilibrium
-    let sum_ry: f64 = results.reactions.iter().map(|r| r.ry).sum();
+    let sum_ry: f64 = results.reactions.iter().map(|r| r.rz).sum();
     assert_close(sum_ry, p, 0.01, "2span unequal point ΣRy = P");
 
     // Interior moment at B: M_B = 3*P*L2^2 / (16*(L1+L2))
@@ -311,7 +311,7 @@ fn validation_2span_unequal_point_load() {
     // R_A = M_B / L1 (uplift direction, reaction from continuity moment)
     let r_a = results.reactions.iter().find(|r| r.node_id == 1).unwrap();
     let r_a_expected = m_b_exact / l1;
-    assert_close(r_a.ry.abs(), r_a_expected, 0.05,
+    assert_close(r_a.rz.abs(), r_a_expected, 0.05,
         "2span unequal point |R_A| = M_B / L1");
 }
 
@@ -342,17 +342,17 @@ fn validation_3span_symmetric_unequal() {
 
     // Total equilibrium: q*(L1+L2+L3) = q*14 = 140
     let total_load = q * (l1 + l2 + l3);
-    let sum_ry: f64 = results.reactions.iter().map(|r| r.ry).sum();
+    let sum_ry: f64 = results.reactions.iter().map(|r| r.rz).sum();
     assert_close(sum_ry, total_load, 0.01, "3span unequal ΣRy");
 
     // Symmetric: R_A = R_D, R_B = R_C
     let r_a = results.reactions.iter().find(|r| r.node_id == 1).unwrap();
     let r_d = results.reactions.iter().find(|r| r.node_id == 3 * n_per_span + 1).unwrap();
-    assert_close(r_a.ry, r_d.ry, 0.005, "3span sym R_A = R_D");
+    assert_close(r_a.rz, r_d.rz, 0.005, "3span sym R_A = R_D");
 
     let r_b = results.reactions.iter().find(|r| r.node_id == n_per_span + 1).unwrap();
     let r_c = results.reactions.iter().find(|r| r.node_id == 2 * n_per_span + 1).unwrap();
-    assert_close(r_b.ry, r_c.ry, 0.005, "3span sym R_B = R_C");
+    assert_close(r_b.rz, r_c.rz, 0.005, "3span sym R_B = R_C");
 
     // Symmetric interior moments: M_B = M_C
     let ef_b = results.element_forces.iter()
@@ -367,7 +367,7 @@ fn validation_3span_symmetric_unequal() {
     let mid3 = 2 * n_per_span + n_per_span / 2 + 1;
     let d1 = results.displacements.iter().find(|d| d.node_id == mid1).unwrap();
     let d3 = results.displacements.iter().find(|d| d.node_id == mid3).unwrap();
-    assert_close(d1.uy, d3.uy, 0.005, "3span sym deflection span1 = span3");
+    assert_close(d1.uz, d3.uz, 0.005, "3span sym deflection span1 = span3");
 }
 
 // ================================================================
@@ -404,12 +404,12 @@ fn validation_2span_deflection_vs_simple() {
     // Midspan deflection of first span of continuous beam
     let mid_cont = n_per_span / 2 + 1;
     let d_cont = results_cont.displacements.iter()
-        .find(|d| d.node_id == mid_cont).unwrap().uy.abs();
+        .find(|d| d.node_id == mid_cont).unwrap().uz.abs();
 
     // Midspan deflection of simply-supported beam
     let mid_ss = n_per_span / 2 + 1;
     let d_ss = results_ss.displacements.iter()
-        .find(|d| d.node_id == mid_ss).unwrap().uy.abs();
+        .find(|d| d.node_id == mid_ss).unwrap().uz.abs();
 
     // Continuous beam deflection should be less than SS
     assert!(d_cont < d_ss,

@@ -55,20 +55,20 @@ fn validation_ext_ss_beam_udl_reactions() {
     let r_exact = q.abs() * l / 2.0; // qL/2 = 75.0
 
     // R_A = qL/2
-    assert_close(r_a.ry, r_exact, 0.02, "SS UDL: R_A = qL/2");
+    assert_close(r_a.rz, r_exact, 0.02, "SS UDL: R_A = qL/2");
 
     // R_B = qL/2
-    assert_close(r_b.ry, r_exact, 0.02, "SS UDL: R_B = qL/2");
+    assert_close(r_b.rz, r_exact, 0.02, "SS UDL: R_B = qL/2");
 
     // Symmetry: R_A = R_B
-    assert_close(r_a.ry, r_b.ry, 0.01, "SS UDL: R_A = R_B (symmetry)");
+    assert_close(r_a.rz, r_b.rz, 0.01, "SS UDL: R_A = R_B (symmetry)");
 
     // No moment reactions at pin/roller
-    assert_close(r_a.mz, 0.0, 0.02, "SS UDL: M_A = 0 (pinned)");
-    assert_close(r_b.mz, 0.0, 0.02, "SS UDL: M_B = 0 (roller)");
+    assert_close(r_a.my, 0.0, 0.02, "SS UDL: M_A = 0 (pinned)");
+    assert_close(r_b.my, 0.0, 0.02, "SS UDL: M_B = 0 (roller)");
 
     // Equilibrium
-    assert_close(r_a.ry + r_b.ry, q.abs() * l, 0.02, "SS UDL: R_A + R_B = qL");
+    assert_close(r_a.rz + r_b.rz, q.abs() * l, 0.02, "SS UDL: R_A + R_B = qL");
 }
 
 // ================================================================
@@ -100,23 +100,23 @@ fn validation_ext_fixed_fixed_beam_udl() {
     let m_exact = q.abs() * l * l / 12.0; // qL^2/12 = 120.0
 
     // R_A = qL/2
-    assert_close(r_a.ry, r_exact, 0.02, "Fixed-fixed UDL: R_A = qL/2");
+    assert_close(r_a.rz, r_exact, 0.02, "Fixed-fixed UDL: R_A = qL/2");
 
     // R_B = qL/2
-    assert_close(r_b.ry, r_exact, 0.02, "Fixed-fixed UDL: R_B = qL/2");
+    assert_close(r_b.rz, r_exact, 0.02, "Fixed-fixed UDL: R_B = qL/2");
 
     // Symmetry of vertical reactions
-    assert_close(r_a.ry, r_b.ry, 0.01, "Fixed-fixed UDL: R_A = R_B (symmetry)");
+    assert_close(r_a.rz, r_b.rz, 0.01, "Fixed-fixed UDL: R_A = R_B (symmetry)");
 
     // M_A = qL^2/12 (both moments have same magnitude)
-    assert_close(r_a.mz.abs(), m_exact, 0.03, "Fixed-fixed UDL: |M_A| = qL^2/12");
-    assert_close(r_b.mz.abs(), m_exact, 0.03, "Fixed-fixed UDL: |M_B| = qL^2/12");
+    assert_close(r_a.my.abs(), m_exact, 0.03, "Fixed-fixed UDL: |M_A| = qL^2/12");
+    assert_close(r_b.my.abs(), m_exact, 0.03, "Fixed-fixed UDL: |M_B| = qL^2/12");
 
     // Moment magnitudes are equal by symmetry
-    assert_close(r_a.mz.abs(), r_b.mz.abs(), 0.02, "Fixed-fixed UDL: |M_A| = |M_B|");
+    assert_close(r_a.my.abs(), r_b.my.abs(), 0.02, "Fixed-fixed UDL: |M_A| = |M_B|");
 
     // Equilibrium
-    assert_close(r_a.ry + r_b.ry, q.abs() * l, 0.02, "Fixed-fixed UDL: R_A + R_B = qL");
+    assert_close(r_a.rz + r_b.rz, q.abs() * l, 0.02, "Fixed-fixed UDL: R_A + R_B = qL");
 }
 
 // ================================================================
@@ -146,25 +146,25 @@ fn validation_ext_propped_cantilever_udl() {
 
     // R_B = 3qL/8
     let r_b_exact = 3.0 * q.abs() * l / 8.0; // 45.0
-    assert_close(r_b.ry, r_b_exact, 0.02, "Propped UDL: R_B = 3qL/8");
+    assert_close(r_b.rz, r_b_exact, 0.02, "Propped UDL: R_B = 3qL/8");
 
     // R_A = 5qL/8
     let r_a_exact = 5.0 * q.abs() * l / 8.0; // 75.0
-    assert_close(r_a.ry, r_a_exact, 0.02, "Propped UDL: R_A = 5qL/8");
+    assert_close(r_a.rz, r_a_exact, 0.02, "Propped UDL: R_A = 5qL/8");
 
     // M_A = qL^2/8
     let m_a_exact = q.abs() * l * l / 8.0; // 150.0
-    assert_close(r_a.mz.abs(), m_a_exact, 0.03, "Propped UDL: |M_A| = qL^2/8");
+    assert_close(r_a.my.abs(), m_a_exact, 0.03, "Propped UDL: |M_A| = qL^2/8");
 
     // R_A > R_B (fixed end attracts more load)
-    assert!(r_a.ry > r_b.ry,
-        "Propped UDL: R_A > R_B, got R_A={:.4}, R_B={:.4}", r_a.ry, r_b.ry);
+    assert!(r_a.rz > r_b.rz,
+        "Propped UDL: R_A > R_B, got R_A={:.4}, R_B={:.4}", r_a.rz, r_b.rz);
 
     // No moment at roller
-    assert_close(r_b.mz, 0.0, 0.02, "Propped UDL: M_B = 0 (roller)");
+    assert_close(r_b.my, 0.0, 0.02, "Propped UDL: M_B = 0 (roller)");
 
     // Equilibrium
-    assert_close(r_a.ry + r_b.ry, q.abs() * l, 0.02, "Propped UDL: R_A + R_B = qL");
+    assert_close(r_a.rz + r_b.rz, q.abs() * l, 0.02, "Propped UDL: R_A + R_B = qL");
 }
 
 // ================================================================
@@ -193,11 +193,11 @@ fn validation_ext_cantilever_udl() {
 
     // Vertical reaction R = qL
     let r_exact = q.abs() * l; // 160.0
-    assert_close(r_a.ry, r_exact, 0.02, "Cantilever UDL: Ry = qL");
+    assert_close(r_a.rz, r_exact, 0.02, "Cantilever UDL: Ry = qL");
 
     // Moment reaction M = qL^2/2
     let m_exact = q.abs() * l * l / 2.0; // 640.0
-    assert_close(r_a.mz.abs(), m_exact, 0.02, "Cantilever UDL: |M| = qL^2/2");
+    assert_close(r_a.my.abs(), m_exact, 0.02, "Cantilever UDL: |M| = qL^2/2");
 
     // No horizontal load => Rx = 0
     assert_close(r_a.rx, 0.0, 0.02, "Cantilever UDL: Rx = 0");
@@ -226,10 +226,10 @@ fn validation_ext_ss_beam_two_symmetric_loads() {
 
     let loads = vec![
         SolverLoad::Nodal(SolverNodalLoad {
-            node_id: node_1, fx: 0.0, fy: -p, mz: 0.0,
+            node_id: node_1, fx: 0.0, fz: -p, my: 0.0,
         }),
         SolverLoad::Nodal(SolverNodalLoad {
-            node_id: node_2, fx: 0.0, fy: -p, mz: 0.0,
+            node_id: node_2, fx: 0.0, fz: -p, my: 0.0,
         }),
     ];
     let input = make_beam(n, l, E, A, IZ, "pinned", Some("rollerX"), loads);
@@ -239,18 +239,18 @@ fn validation_ext_ss_beam_two_symmetric_loads() {
     let r_b = results.reactions.iter().find(|r| r.node_id == n + 1).unwrap();
 
     // R_A = R_B = P by symmetry
-    assert_close(r_a.ry, p, 0.02, "SS 2-sym loads: R_A = P");
-    assert_close(r_b.ry, p, 0.02, "SS 2-sym loads: R_B = P");
+    assert_close(r_a.rz, p, 0.02, "SS 2-sym loads: R_A = P");
+    assert_close(r_b.rz, p, 0.02, "SS 2-sym loads: R_B = P");
 
     // Symmetry
-    assert_close(r_a.ry, r_b.ry, 0.01, "SS 2-sym loads: R_A = R_B");
+    assert_close(r_a.rz, r_b.rz, 0.01, "SS 2-sym loads: R_A = R_B");
 
     // No moments at pin/roller
-    assert_close(r_a.mz, 0.0, 0.02, "SS 2-sym loads: M_A = 0");
-    assert_close(r_b.mz, 0.0, 0.02, "SS 2-sym loads: M_B = 0");
+    assert_close(r_a.my, 0.0, 0.02, "SS 2-sym loads: M_A = 0");
+    assert_close(r_b.my, 0.0, 0.02, "SS 2-sym loads: M_B = 0");
 
     // Equilibrium
-    assert_close(r_a.ry + r_b.ry, 2.0 * p, 0.02, "SS 2-sym loads: R_A + R_B = 2P");
+    assert_close(r_a.rz + r_b.rz, 2.0 * p, 0.02, "SS 2-sym loads: R_A + R_B = 2P");
 }
 
 // ================================================================
@@ -287,25 +287,25 @@ fn validation_ext_three_span_udl_reactions() {
 
     // End reactions: R_A = R_D = 0.4*qL
     let r_end_exact = 0.4 * q_abs * span; // 32.0
-    assert_close(r_a.ry, r_end_exact, 0.05, "3-span UDL: R_A = 0.4qL");
-    assert_close(r_d.ry, r_end_exact, 0.05, "3-span UDL: R_D = 0.4qL");
+    assert_close(r_a.rz, r_end_exact, 0.05, "3-span UDL: R_A = 0.4qL");
+    assert_close(r_d.rz, r_end_exact, 0.05, "3-span UDL: R_D = 0.4qL");
 
     // Interior reactions: R_B = R_C = 1.1*qL
     let r_int_exact = 1.1 * q_abs * span; // 88.0
-    assert_close(r_b.ry, r_int_exact, 0.05, "3-span UDL: R_B = 1.1qL");
-    assert_close(r_c.ry, r_int_exact, 0.05, "3-span UDL: R_C = 1.1qL");
+    assert_close(r_b.rz, r_int_exact, 0.05, "3-span UDL: R_B = 1.1qL");
+    assert_close(r_c.rz, r_int_exact, 0.05, "3-span UDL: R_C = 1.1qL");
 
     // Interior > end
-    assert!(r_b.ry > r_a.ry, "3-span UDL: R_B > R_A");
-    assert!(r_c.ry > r_d.ry, "3-span UDL: R_C > R_D");
+    assert!(r_b.rz > r_a.rz, "3-span UDL: R_B > R_A");
+    assert!(r_c.rz > r_d.rz, "3-span UDL: R_C > R_D");
 
     // Symmetry
-    assert_close(r_a.ry, r_d.ry, 0.02, "3-span UDL: R_A = R_D (symmetry)");
-    assert_close(r_b.ry, r_c.ry, 0.02, "3-span UDL: R_B = R_C (symmetry)");
+    assert_close(r_a.rz, r_d.rz, 0.02, "3-span UDL: R_A = R_D (symmetry)");
+    assert_close(r_b.rz, r_c.rz, 0.02, "3-span UDL: R_B = R_C (symmetry)");
 
     // Total equilibrium: sum = q * 3L
     let total_load = q_abs * 3.0 * span;
-    let sum_ry = r_a.ry + r_b.ry + r_c.ry + r_d.ry;
+    let sum_ry = r_a.rz + r_b.rz + r_c.rz + r_d.rz;
     assert_close(sum_ry, total_load, 0.02, "3-span UDL: total Ry = q*3L");
 }
 
@@ -338,15 +338,15 @@ fn validation_ext_portal_frame_lateral_load() {
         "Portal lateral: Rx1 + Rx4 = -H");
 
     // Vertical equilibrium: no net vertical load, so sum Ry = 0
-    let sum_ry = r_1.ry + r_4.ry;
+    let sum_ry = r_1.rz + r_4.rz;
     assert_close(sum_ry, 0.0, 0.02,
         "Portal lateral: Ry1 + Ry4 = 0 (no vertical load)");
 
     // Both base moments should be nonzero (fixed supports develop moments)
-    assert!(r_1.mz.abs() > 1.0,
-        "Portal lateral: M_1 nonzero, got {:.4}", r_1.mz);
-    assert!(r_4.mz.abs() > 1.0,
-        "Portal lateral: M_4 nonzero, got {:.4}", r_4.mz);
+    assert!(r_1.my.abs() > 1.0,
+        "Portal lateral: M_1 nonzero, got {:.4}", r_1.my);
+    assert!(r_4.my.abs() > 1.0,
+        "Portal lateral: M_4 nonzero, got {:.4}", r_4.my);
 
     // Both horizontal reactions should resist the applied load
     // (both act in opposite direction to the applied lateral force)
@@ -364,7 +364,7 @@ fn validation_ext_portal_frame_lateral_load() {
     // Actually, with lateral load pushing right at top, overturning causes
     // node 1 to pull up (tension) and node 4 to push down (compression)
     // or vice versa depending on sign convention. Let's just check the couple.
-    assert!((r_1.ry - r_4.ry).abs() > 1.0,
+    assert!((r_1.rz - r_4.rz).abs() > 1.0,
         "Portal lateral: vertical reactions form a couple");
 }
 
@@ -390,7 +390,7 @@ fn validation_ext_fixed_fixed_applied_moment() {
 
     let mid = n / 2 + 1; // midspan node
     let loads = vec![SolverLoad::Nodal(SolverNodalLoad {
-        node_id: mid, fx: 0.0, fy: 0.0, mz: m0,
+        node_id: mid, fx: 0.0, fz: 0.0, my: m0,
     })];
     let input = make_beam(n, l, E, A, IZ, "fixed", Some("fixed"), loads);
     let results = linear::solve_2d(&input).unwrap();
@@ -400,31 +400,31 @@ fn validation_ext_fixed_fixed_applied_moment() {
 
     // Shear reactions: R_A_y = 3*M0/(2L), R_B_y = -3*M0/(2L)
     let v_exact: f64 = 3.0 * m0 / (2.0 * l); // 15.0
-    assert_close(r_a.ry, v_exact, 0.03,
+    assert_close(r_a.rz, v_exact, 0.03,
         "Fixed-fixed moment: R_A_y = 3M0/(2L)");
-    assert_close(r_b.ry, -v_exact, 0.03,
+    assert_close(r_b.rz, -v_exact, 0.03,
         "Fixed-fixed moment: R_B_y = -3M0/(2L)");
 
     // Vertical equilibrium: R_A + R_B = 0 (no transverse load)
-    assert_close(r_a.ry + r_b.ry, 0.0, 0.02,
+    assert_close(r_a.rz + r_b.rz, 0.0, 0.02,
         "Fixed-fixed moment: R_A + R_B = 0");
 
     // Moment reactions: both M_A and M_B = M0/4
     // In the solver's convention, both fixed-end moment reactions are positive
     // when M0 is applied positive at midspan (a = b = L/2).
     let m_end_exact: f64 = m0 / 4.0; // 25.0
-    assert_close(r_a.mz, m_end_exact, 0.05,
+    assert_close(r_a.my, m_end_exact, 0.05,
         "Fixed-fixed moment: M_A = M0/4");
-    assert_close(r_b.mz, m_end_exact, 0.05,
+    assert_close(r_b.my, m_end_exact, 0.05,
         "Fixed-fixed moment: M_B = M0/4");
 
     // By symmetry of the loading position (midspan), |M_A| = |M_B|
-    assert_close(r_a.mz.abs(), r_b.mz.abs(), 0.02,
+    assert_close(r_a.my.abs(), r_b.my.abs(), 0.02,
         "Fixed-fixed moment: |M_A| = |M_B| (midspan symmetry)");
 
     // Global moment equilibrium about A:
     // M_A + M_B + M0 + R_B*L = 0
-    let moment_sum = r_a.mz + r_b.mz + m0 + r_b.ry * l;
+    let moment_sum = r_a.my + r_b.my + m0 + r_b.rz * l;
     assert_close(moment_sum, 0.0, 0.05,
         "Fixed-fixed moment: global moment equilibrium about A");
 }

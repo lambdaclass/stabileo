@@ -14,9 +14,9 @@ use std::collections::HashMap;
 
 fn make_beam_2d() -> SolverInput {
     let mut nodes = HashMap::new();
-    nodes.insert("1".to_string(), SolverNode { id: 1, x: 0.0, y: 0.0 });
-    nodes.insert("2".to_string(), SolverNode { id: 2, x: 5.0, y: 0.0 });
-    nodes.insert("3".to_string(), SolverNode { id: 3, x: 10.0, y: 0.0 });
+    nodes.insert("1".to_string(), SolverNode { id: 1, x: 0.0, z: 0.0 });
+    nodes.insert("2".to_string(), SolverNode { id: 2, x: 5.0, z: 0.0 });
+    nodes.insert("3".to_string(), SolverNode { id: 3, x: 10.0, z: 0.0 });
 
     let mut materials = HashMap::new();
     materials.insert("1".to_string(), SolverMaterial { id: 1, e: 200e6, nu: 0.3 });
@@ -42,12 +42,12 @@ fn make_beam_2d() -> SolverInput {
     supports.insert("1".to_string(), SolverSupport {
         id: 1, node_id: 1, support_type: "pinned".to_string(),
         kx: None, ky: None, kz: None,
-        dx: None, dy: None, drz: None, angle: None,
+        dx: None, dz: None, dry: None, angle: None,
     });
     supports.insert("2".to_string(), SolverSupport {
         id: 2, node_id: 3, support_type: "rollerX".to_string(),
         kx: None, ky: None, kz: None,
-        dx: None, dy: None, drz: None, angle: None,
+        dx: None, dz: None, dry: None, angle: None,
     });
 
     SolverInput {
@@ -93,7 +93,7 @@ fn make_beam_3d() -> SolverInput3D {
     let mut supports = HashMap::new();
     supports.insert("1".to_string(), SolverSupport3D {
         node_id: 1,
-        rx: true, ry: true, rz: true,
+        rx: true, rz: true, ry: true,
         rrx: true, rry: false, rrz: false,
         kx: None, ky: None, kz: None,
         krx: None, kry: None, krz: None,
@@ -105,7 +105,7 @@ fn make_beam_3d() -> SolverInput3D {
     });
     supports.insert("2".to_string(), SolverSupport3D {
         node_id: 3,
-        rx: false, ry: true, rz: true,
+        rx: false, rz: true, ry: true,
         rrx: true, rry: false, rrz: false,
         kx: None, ky: None, kz: None,
         krx: None, kry: None, krz: None,
@@ -144,7 +144,7 @@ fn load_cases_2d_lrfd_basic() {
                 name: "Live".to_string(),
                 loads: vec![
                     SolverLoad::Nodal(SolverNodalLoad {
-                        node_id: 2, fx: 0.0, fy: -20.0, mz: 0.0,
+                        node_id: 2, fx: 0.0, fz: -20.0, my: 0.0,
                     }),
                 ] },
         ],
@@ -168,9 +168,9 @@ fn load_cases_2d_lrfd_basic() {
 
     // The combined result should have larger forces than either individual case
     let dead_ry = result.case_results[0].results.reactions.iter()
-        .map(|r| r.ry.abs()).fold(0.0_f64, f64::max);
+        .map(|r| r.rz.abs()).fold(0.0_f64, f64::max);
     let combo_ry = result.combination_results[0].results.reactions.iter()
-        .map(|r| r.ry.abs()).fold(0.0_f64, f64::max);
+        .map(|r| r.rz.abs()).fold(0.0_f64, f64::max);
     assert!(combo_ry > dead_ry, "Combined reaction should exceed dead alone");
 }
 
@@ -191,14 +191,14 @@ fn load_cases_2d_multiple_combos() {
                 name: "L".to_string(),
                 loads: vec![
                     SolverLoad::Nodal(SolverNodalLoad {
-                        node_id: 2, fx: 0.0, fy: -15.0, mz: 0.0,
+                        node_id: 2, fx: 0.0, fz: -15.0, my: 0.0,
                     }),
                 ] },
             LoadCase {
                 name: "W".to_string(),
                 loads: vec![
                     SolverLoad::Nodal(SolverNodalLoad {
-                        node_id: 2, fx: 10.0, fy: 0.0, mz: 0.0,
+                        node_id: 2, fx: 10.0, fz: 0.0, my: 0.0,
                     }),
                 ] },
         ],
@@ -305,7 +305,7 @@ fn load_cases_2d_envelope_governs() {
                 name: "L".to_string(),
                 loads: vec![
                     SolverLoad::Nodal(SolverNodalLoad {
-                        node_id: 2, fx: 0.0, fy: -50.0, mz: 0.0,
+                        node_id: 2, fx: 0.0, fz: -50.0, my: 0.0,
                     }),
                 ] },
         ],
@@ -354,14 +354,14 @@ fn load_cases_2d_independent_cases() {
                 name: "Case1".to_string(),
                 loads: vec![
                     SolverLoad::Nodal(SolverNodalLoad {
-                        node_id: 2, fx: 0.0, fy: -10.0, mz: 0.0,
+                        node_id: 2, fx: 0.0, fz: -10.0, my: 0.0,
                     }),
                 ] },
             LoadCase {
                 name: "Case2".to_string(),
                 loads: vec![
                     SolverLoad::Nodal(SolverNodalLoad {
-                        node_id: 2, fx: 0.0, fy: -20.0, mz: 0.0,
+                        node_id: 2, fx: 0.0, fz: -20.0, my: 0.0,
                     }),
                 ] },
         ],
@@ -389,9 +389,9 @@ fn load_cases_2d_independent_cases() {
 
     // Case2 has double the load, so reactions should be double
     let ry_case1 = result.case_results[0].results.reactions.iter()
-        .map(|r| r.ry.abs()).fold(0.0_f64, f64::max);
+        .map(|r| r.rz.abs()).fold(0.0_f64, f64::max);
     let ry_case2 = result.case_results[1].results.reactions.iter()
-        .map(|r| r.ry.abs()).fold(0.0_f64, f64::max);
+        .map(|r| r.rz.abs()).fold(0.0_f64, f64::max);
     assert!((ry_case2 / ry_case1 - 2.0).abs() < 0.01,
         "Case2 reaction should be 2x Case1: {} vs {}", ry_case2, ry_case1);
 }
@@ -406,14 +406,14 @@ fn load_cases_2d_superposition_correct() {
                 name: "A".to_string(),
                 loads: vec![
                     SolverLoad::Nodal(SolverNodalLoad {
-                        node_id: 2, fx: 0.0, fy: -10.0, mz: 0.0,
+                        node_id: 2, fx: 0.0, fz: -10.0, my: 0.0,
                     }),
                 ] },
             LoadCase {
                 name: "B".to_string(),
                 loads: vec![
                     SolverLoad::Nodal(SolverNodalLoad {
-                        node_id: 2, fx: 5.0, fy: 0.0, mz: 0.0,
+                        node_id: 2, fx: 5.0, fz: 0.0, my: 0.0,
                     }),
                 ] },
         ],
@@ -436,9 +436,9 @@ fn load_cases_2d_superposition_correct() {
     let case_b = &result.case_results[1].results;
 
     // Check midspan displacement superposition
-    let uy_a = case_a.displacements.iter().find(|d| d.node_id == 2).unwrap().uy;
-    let uy_b = case_b.displacements.iter().find(|d| d.node_id == 2).unwrap().uy;
-    let uy_combo = combo.displacements.iter().find(|d| d.node_id == 2).unwrap().uy;
+    let uy_a = case_a.displacements.iter().find(|d| d.node_id == 2).unwrap().uz;
+    let uy_b = case_b.displacements.iter().find(|d| d.node_id == 2).unwrap().uz;
+    let uy_combo = combo.displacements.iter().find(|d| d.node_id == 2).unwrap().uz;
     assert!((uy_combo - (uy_a + uy_b)).abs() < 1e-10,
         "Superposition: {} ≈ {} + {} = {}", uy_combo, uy_a, uy_b, uy_a + uy_b);
 }

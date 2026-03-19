@@ -49,8 +49,8 @@ fn validation_symmetry_midspan_slope() {
     let mid = n / 2 + 1;
     let d_mid = results.displacements.iter().find(|d| d.node_id == mid).unwrap();
 
-    assert!(d_mid.rz.abs() < 1e-10,
-        "Symmetric UDL: θ_mid = 0: {:.6e}", d_mid.rz);
+    assert!(d_mid.ry.abs() < 1e-10,
+        "Symmetric UDL: θ_mid = 0: {:.6e}", d_mid.ry);
 }
 
 // ================================================================
@@ -69,8 +69,8 @@ fn validation_symmetry_antisymmetric_load() {
     let mid = n / 2 + 1;
 
     let loads = vec![
-        SolverLoad::Nodal(SolverNodalLoad { node_id: n1, fx: 0.0, fy: -p, mz: 0.0 }),
-        SolverLoad::Nodal(SolverNodalLoad { node_id: n2, fx: 0.0, fy: p, mz: 0.0 }),
+        SolverLoad::Nodal(SolverNodalLoad { node_id: n1, fx: 0.0, fz: -p, my: 0.0 }),
+        SolverLoad::Nodal(SolverNodalLoad { node_id: n2, fx: 0.0, fz: p, my: 0.0 }),
     ];
     let input = make_beam(n, l, E, A, IZ, "pinned", Some("rollerX"), loads);
     let results = linear::solve_2d(&input).unwrap();
@@ -78,12 +78,12 @@ fn validation_symmetry_antisymmetric_load() {
     let d_mid = results.displacements.iter().find(|d| d.node_id == mid).unwrap();
 
     // Antisymmetric → midspan displacement = 0
-    assert!(d_mid.uy.abs() < 1e-10,
-        "Antisymmetric: δ_mid = 0: {:.6e}", d_mid.uy);
+    assert!(d_mid.uz.abs() < 1e-10,
+        "Antisymmetric: δ_mid = 0: {:.6e}", d_mid.uz);
 
     // But slope at midspan should be non-zero (max)
-    assert!(d_mid.rz.abs() > 1e-10,
-        "Antisymmetric: θ_mid ≠ 0: {:.6e}", d_mid.rz);
+    assert!(d_mid.ry.abs() > 1e-10,
+        "Antisymmetric: θ_mid ≠ 0: {:.6e}", d_mid.ry);
 }
 
 // ================================================================
@@ -104,11 +104,11 @@ fn validation_symmetry_portal_gravity() {
     let r4 = results.reactions.iter().find(|r| r.node_id == 4).unwrap();
 
     // Equal vertical reactions
-    assert_close(r1.ry, r4.ry, 0.02,
+    assert_close(r1.rz, r4.rz, 0.02,
         "Symmetric gravity: R1y = R4y");
 
     // Equal base moments (by magnitude)
-    assert_close(r1.mz.abs(), r4.mz.abs(), 0.02,
+    assert_close(r1.my.abs(), r4.my.abs(), 0.02,
         "Symmetric gravity: |M1| = |M4|");
 
     // No horizontal reaction under pure gravity (symmetric)
@@ -133,10 +133,10 @@ fn validation_symmetry_portal_lateral() {
     let r4 = results.reactions.iter().find(|r| r.node_id == 4).unwrap();
 
     // Vertical reactions are antisymmetric (equal magnitude, opposite sign)
-    assert_close(r1.ry.abs(), r4.ry.abs(), 0.02,
+    assert_close(r1.rz.abs(), r4.rz.abs(), 0.02,
         "Lateral: |R1y| = |R4y|");
-    assert!(r1.ry * r4.ry < 0.0,
-        "Lateral: R1y and R4y opposite: {:.4}, {:.4}", r1.ry, r4.ry);
+    assert!(r1.rz * r4.rz < 0.0,
+        "Lateral: R1y and R4y opposite: {:.4}, {:.4}", r1.rz, r4.rz);
 
     // Both columns carry horizontal shear in same direction
     assert_close(r1.rx, r4.rx, 0.05,
@@ -166,9 +166,9 @@ fn validation_symmetry_two_span() {
     let mid2 = n + n / 2 + 1;
 
     let d_mid1 = results.displacements.iter()
-        .find(|d| d.node_id == mid1).unwrap().uy;
+        .find(|d| d.node_id == mid1).unwrap().uz;
     let d_mid2 = results.displacements.iter()
-        .find(|d| d.node_id == mid2).unwrap().uy;
+        .find(|d| d.node_id == mid2).unwrap().uz;
 
     assert_close(d_mid1, d_mid2, 0.02,
         "Two-span symmetry: δ_mid1 = δ_mid2");
@@ -176,8 +176,8 @@ fn validation_symmetry_two_span() {
     // Interior support: δ = 0, θ = 0 (by symmetry)
     let d_int = results.displacements.iter()
         .find(|d| d.node_id == n + 1).unwrap();
-    assert!(d_int.uy.abs() < 1e-10, "Interior: δ = 0");
-    assert!(d_int.rz.abs() < 1e-10, "Interior: θ = 0 (by symmetry)");
+    assert!(d_int.uz.abs() < 1e-10, "Interior: δ = 0");
+    assert!(d_int.ry.abs() < 1e-10, "Interior: θ = 0 (by symmetry)");
 }
 
 // ================================================================
@@ -197,32 +197,32 @@ fn validation_symmetry_decomposition() {
 
     // Original loading
     let loads = vec![
-        SolverLoad::Nodal(SolverNodalLoad { node_id: n1, fx: 0.0, fy: -p1, mz: 0.0 }),
-        SolverLoad::Nodal(SolverNodalLoad { node_id: n2, fx: 0.0, fy: -p2, mz: 0.0 }),
+        SolverLoad::Nodal(SolverNodalLoad { node_id: n1, fx: 0.0, fz: -p1, my: 0.0 }),
+        SolverLoad::Nodal(SolverNodalLoad { node_id: n2, fx: 0.0, fz: -p2, my: 0.0 }),
     ];
     let input = make_beam(n, l, E, A, IZ, "pinned", Some("rollerX"), loads);
     let d_orig = linear::solve_2d(&input).unwrap()
-        .displacements.iter().find(|d| d.node_id == mid).unwrap().uy;
+        .displacements.iter().find(|d| d.node_id == mid).unwrap().uz;
 
     // Symmetric component: (P1+P2)/2 at both points
     let p_sym = (p1 + p2) / 2.0;
     let loads_s = vec![
-        SolverLoad::Nodal(SolverNodalLoad { node_id: n1, fx: 0.0, fy: -p_sym, mz: 0.0 }),
-        SolverLoad::Nodal(SolverNodalLoad { node_id: n2, fx: 0.0, fy: -p_sym, mz: 0.0 }),
+        SolverLoad::Nodal(SolverNodalLoad { node_id: n1, fx: 0.0, fz: -p_sym, my: 0.0 }),
+        SolverLoad::Nodal(SolverNodalLoad { node_id: n2, fx: 0.0, fz: -p_sym, my: 0.0 }),
     ];
     let input_s = make_beam(n, l, E, A, IZ, "pinned", Some("rollerX"), loads_s);
     let d_sym = linear::solve_2d(&input_s).unwrap()
-        .displacements.iter().find(|d| d.node_id == mid).unwrap().uy;
+        .displacements.iter().find(|d| d.node_id == mid).unwrap().uz;
 
     // Antisymmetric component: (P1-P2)/2 at L/4, -(P1-P2)/2 at 3L/4
     let p_anti = (p1 - p2) / 2.0;
     let loads_a = vec![
-        SolverLoad::Nodal(SolverNodalLoad { node_id: n1, fx: 0.0, fy: -p_anti, mz: 0.0 }),
-        SolverLoad::Nodal(SolverNodalLoad { node_id: n2, fx: 0.0, fy: p_anti, mz: 0.0 }),
+        SolverLoad::Nodal(SolverNodalLoad { node_id: n1, fx: 0.0, fz: -p_anti, my: 0.0 }),
+        SolverLoad::Nodal(SolverNodalLoad { node_id: n2, fx: 0.0, fz: p_anti, my: 0.0 }),
     ];
     let input_a = make_beam(n, l, E, A, IZ, "pinned", Some("rollerX"), loads_a);
     let d_anti = linear::solve_2d(&input_a).unwrap()
-        .displacements.iter().find(|d| d.node_id == mid).unwrap().uy;
+        .displacements.iter().find(|d| d.node_id == mid).unwrap().uz;
 
     // Superposition: d_orig = d_sym + d_anti
     assert_close(d_orig, d_sym + d_anti, 0.01,
@@ -272,8 +272,8 @@ fn validation_symmetry_3d_biaxial() {
         .find(|d| d.node_id == n + 1).unwrap();
 
     // No Y deflection for Z load
-    assert!(tip_z.uy.abs() < 1e-10,
-        "Z-load: uy ≈ 0: {:.6e}", tip_z.uy);
+    assert!(tip_z.uz.abs() < 1e-10,
+        "Z-load: uy ≈ 0: {:.6e}", tip_z.uz);
 }
 
 // ================================================================
@@ -298,7 +298,7 @@ fn validation_symmetry_truss_forces() {
         ],
         vec![(1, 1, "pinned"), (2, 2, "rollerX")],
         vec![SolverLoad::Nodal(SolverNodalLoad {
-            node_id: 3, fx: 0.0, fy: -p, mz: 0.0,
+            node_id: 3, fx: 0.0, fz: -p, my: 0.0,
         })],
     );
     let results = linear::solve_2d(&input).unwrap();
@@ -311,8 +311,8 @@ fn validation_symmetry_truss_forces() {
         "Truss symmetry: |F1| = |F2|");
 
     // Equal vertical reactions
-    let r1 = results.reactions.iter().find(|r| r.node_id == 1).unwrap().ry;
-    let r2 = results.reactions.iter().find(|r| r.node_id == 2).unwrap().ry;
+    let r1 = results.reactions.iter().find(|r| r.node_id == 1).unwrap().rz;
+    let r2 = results.reactions.iter().find(|r| r.node_id == 2).unwrap().rz;
     assert_close(r1, r2, 0.02, "Truss symmetry: R1y = R2y");
     assert_close(r1 + r2, p, 0.02, "Truss symmetry: ΣRy = P");
 }

@@ -87,7 +87,7 @@ fn validation_vierendeel_single_panel() {
     // Apply lateral load at top-left node
     let top_left = 3; // node 3 in 1-panel frame (bottom: 1,2; top: 3,4)
     let loads = vec![SolverLoad::Nodal(SolverNodalLoad {
-        node_id: top_left, fx: f, fy: 0.0, mz: 0.0,
+        node_id: top_left, fx: f, fz: 0.0, my: 0.0,
     })];
     let input = make_vierendeel(1, w, h, loads);
     let results = linear::solve_2d(&input).unwrap();
@@ -116,7 +116,7 @@ fn validation_vierendeel_multi_panel() {
     // Bottom: 1,2,3,4; Top: 5,6,7,8
     let top_left = 5;
     let loads = vec![SolverLoad::Nodal(SolverNodalLoad {
-        node_id: top_left, fx: f, fy: 0.0, mz: 0.0,
+        node_id: top_left, fx: f, fz: 0.0, my: 0.0,
     })];
     let input = make_vierendeel(3, w, h, loads);
     let results = linear::solve_2d(&input).unwrap();
@@ -127,7 +127,7 @@ fn validation_vierendeel_multi_panel() {
 
     // Single panel comparison
     let loads1 = vec![SolverLoad::Nodal(SolverNodalLoad {
-        node_id: 3, fx: f, fy: 0.0, mz: 0.0,
+        node_id: 3, fx: f, fz: 0.0, my: 0.0,
     })];
     let input1 = make_vierendeel(1, w, h, loads1);
     let d_single = linear::solve_2d(&input1).unwrap()
@@ -153,7 +153,7 @@ fn validation_vierendeel_contraflexure() {
 
     // 2-panel frame: Bottom 1,2,3; Top 4,5,6
     let loads = vec![SolverLoad::Nodal(SolverNodalLoad {
-        node_id: 4, fx: f, fy: 0.0, mz: 0.0,
+        node_id: 4, fx: f, fz: 0.0, my: 0.0,
     })];
     let input = make_vierendeel(2, w, h, loads);
     let results = linear::solve_2d(&input).unwrap();
@@ -184,7 +184,7 @@ fn validation_vierendeel_symmetry() {
     // 2-panel frame: Bottom 1,2,3; Top 4,5,6
     // Symmetric vertical load on top chord
     let loads = vec![SolverLoad::Nodal(SolverNodalLoad {
-        node_id: 5, fx: 0.0, fy: -p, mz: 0.0,
+        node_id: 5, fx: 0.0, fz: -p, my: 0.0,
     })];
     let input = make_vierendeel(2, w, h, loads);
     let results = linear::solve_2d(&input).unwrap();
@@ -193,13 +193,13 @@ fn validation_vierendeel_symmetry() {
     let r1 = results.reactions.iter().find(|r| r.node_id == 1).unwrap();
     let r3 = results.reactions.iter().find(|r| r.node_id == 3).unwrap();
 
-    assert_close(r1.ry, r3.ry, 0.02, "Symmetry: R_left = R_right");
+    assert_close(r1.rz, r3.rz, 0.02, "Symmetry: R_left = R_right");
 
     // Vertical deflections symmetric about center
     let d4 = results.displacements.iter()
-        .find(|d| d.node_id == 4).unwrap().uy;
+        .find(|d| d.node_id == 4).unwrap().uz;
     let d6 = results.displacements.iter()
-        .find(|d| d.node_id == 6).unwrap().uy;
+        .find(|d| d.node_id == 6).unwrap().uz;
     assert_close(d4, d6, 0.02, "Symmetry: δ_left = δ_right");
 }
 
@@ -217,8 +217,8 @@ fn validation_vierendeel_antisymmetry() {
     // Top-left → right, top-right → right (uniform sway)
     // Bottom: 1,2,3; Top: 4,5,6
     let loads = vec![
-        SolverLoad::Nodal(SolverNodalLoad { node_id: 4, fx: f, fy: 0.0, mz: 0.0 }),
-        SolverLoad::Nodal(SolverNodalLoad { node_id: 6, fx: f, fy: 0.0, mz: 0.0 }),
+        SolverLoad::Nodal(SolverNodalLoad { node_id: 4, fx: f, fz: 0.0, my: 0.0 }),
+        SolverLoad::Nodal(SolverNodalLoad { node_id: 6, fx: f, fz: 0.0, my: 0.0 }),
     ];
     let input = make_vierendeel(2, w, h, loads);
     let results = linear::solve_2d(&input).unwrap();
@@ -246,7 +246,7 @@ fn validation_vierendeel_vs_braced() {
 
     // Unbraced Vierendeel
     let loads_v = vec![SolverLoad::Nodal(SolverNodalLoad {
-        node_id: 3, fx: f, fy: 0.0, mz: 0.0,
+        node_id: 3, fx: f, fz: 0.0, my: 0.0,
     })];
     let input_v = make_vierendeel(1, w, h, loads_v);
     let d_v = linear::solve_2d(&input_v).unwrap()
@@ -263,7 +263,7 @@ fn validation_vierendeel_vs_braced() {
     ];
     let sups = vec![(1, 1, "pinned"), (2, 2, "rollerX")];
     let loads_b = vec![SolverLoad::Nodal(SolverNodalLoad {
-        node_id: 3, fx: f, fy: 0.0, mz: 0.0,
+        node_id: 3, fx: f, fz: 0.0, my: 0.0,
     })];
     let input_b = make_input(nodes, vec![(1, E, 0.3)], vec![(1, A, IZ)], elems, sups, loads_b);
     let d_b = linear::solve_2d(&input_b).unwrap()
@@ -287,7 +287,7 @@ fn validation_vierendeel_chord_forces() {
     // 3-panel Vierendeel with vertical load at top center
     // Bottom: 1,2,3,4; Top: 5,6,7,8
     let loads = vec![SolverLoad::Nodal(SolverNodalLoad {
-        node_id: 6, fx: 0.0, fy: -p, mz: 0.0,
+        node_id: 6, fx: 0.0, fz: -p, my: 0.0,
     })];
     let input = make_vierendeel(3, w, h, loads);
     let results = linear::solve_2d(&input).unwrap();
@@ -299,7 +299,7 @@ fn validation_vierendeel_chord_forces() {
     }
 
     // Total vertical reaction = P
-    let sum_ry: f64 = results.reactions.iter().map(|r| r.ry).sum();
+    let sum_ry: f64 = results.reactions.iter().map(|r| r.rz).sum();
     assert_close(sum_ry, p, 0.02, "Chord equil: ΣRy = P");
 }
 
@@ -316,7 +316,7 @@ fn validation_vierendeel_joint_equilibrium() {
     // 2-panel: Bottom 1,2,3; Top 4,5,6
     // Elements: 1(1-2), 2(2-3), 3(4-5), 4(5-6), 5(1-4), 6(2-5), 7(3-6)
     let loads = vec![SolverLoad::Nodal(SolverNodalLoad {
-        node_id: 4, fx: f, fy: 0.0, mz: 0.0,
+        node_id: 4, fx: f, fz: 0.0, my: 0.0,
     })];
     let input = make_vierendeel(2, w, h, loads);
     let results = linear::solve_2d(&input).unwrap();
@@ -332,7 +332,7 @@ fn validation_vierendeel_joint_equilibrium() {
 
     // Just verify the system solved successfully and reactions balance
     let sum_rx: f64 = results.reactions.iter().map(|r| r.rx).sum();
-    let sum_ry: f64 = results.reactions.iter().map(|r| r.ry).sum();
+    let sum_ry: f64 = results.reactions.iter().map(|r| r.rz).sum();
 
     assert_close(sum_rx, -f, 0.02, "Joint equil: ΣRx = -F");
     assert_close(sum_ry, 0.0, 0.02, "Joint equil: ΣRy = 0");

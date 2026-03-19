@@ -48,10 +48,10 @@ fn validation_effective_length_pinned() {
     let mid = n / 2 + 1;
     let loads = vec![
         SolverLoad::Nodal(SolverNodalLoad {
-            node_id: n + 1, fx: -p_axial, fy: 0.0, mz: 0.0,
+            node_id: n + 1, fx: -p_axial, fz: 0.0, my: 0.0,
         }),
         SolverLoad::Nodal(SolverNodalLoad {
-            node_id: mid, fx: 0.0, fy: -h, mz: 0.0,
+            node_id: mid, fx: 0.0, fz: -h, my: 0.0,
         }),
     ];
     let input = make_beam(n, l, E, A, IZ, "pinned", Some("rollerX"), loads);
@@ -62,9 +62,9 @@ fn validation_effective_length_pinned() {
     // Linear deflection: δ_0 = hL³/(48EI) for center load (approximate)
     // With P-delta, expect amplified deflection
     // Just verify the deflection is finite and nonzero
-    assert!(d_mid.uy.abs() > 0.0,
-        "Pinned column: deflection > 0: {:.6e}", d_mid.uy);
-    assert!(d_mid.uy.is_finite(),
+    assert!(d_mid.uz.abs() > 0.0,
+        "Pinned column: deflection > 0: {:.6e}", d_mid.uz);
+    assert!(d_mid.uz.is_finite(),
         "Pinned column: finite deflection");
 }
 
@@ -82,18 +82,18 @@ fn validation_effective_length_fixed_fixed() {
     // Apply same loads to both and compare deflections
 
     let loads_pp = vec![SolverLoad::Nodal(SolverNodalLoad {
-        node_id: n / 2 + 1, fx: 0.0, fy: -h, mz: 0.0,
+        node_id: n / 2 + 1, fx: 0.0, fz: -h, my: 0.0,
     })];
     let input_pp = make_beam(n, l, E, A, IZ, "pinned", Some("rollerX"), loads_pp);
     let d_pp = linear::solve_2d(&input_pp).unwrap()
-        .displacements.iter().find(|d| d.node_id == n / 2 + 1).unwrap().uy.abs();
+        .displacements.iter().find(|d| d.node_id == n / 2 + 1).unwrap().uz.abs();
 
     let loads_ff = vec![SolverLoad::Nodal(SolverNodalLoad {
-        node_id: n / 2 + 1, fx: 0.0, fy: -h, mz: 0.0,
+        node_id: n / 2 + 1, fx: 0.0, fz: -h, my: 0.0,
     })];
     let input_ff = make_beam(n, l, E, A, IZ, "fixed", Some("fixed"), loads_ff);
     let d_ff = linear::solve_2d(&input_ff).unwrap()
-        .displacements.iter().find(|d| d.node_id == n / 2 + 1).unwrap().uy.abs();
+        .displacements.iter().find(|d| d.node_id == n / 2 + 1).unwrap().uz.abs();
 
     // Fixed-fixed should deflect much less
     // δ_ff/δ_pp = (K_pp/K_ff)² in buckling terms, but for bending: δ_ff = δ_pp/5
@@ -118,20 +118,20 @@ fn validation_effective_length_fixed_pinned() {
 
     // Fixed-pinned (propped cantilever)
     let loads = vec![SolverLoad::Nodal(SolverNodalLoad {
-        node_id: n / 2 + 1, fx: 0.0, fy: -h, mz: 0.0,
+        node_id: n / 2 + 1, fx: 0.0, fz: -h, my: 0.0,
     })];
     let input_fp = make_beam(n, l, E, A, IZ, "fixed", Some("rollerX"), loads);
     let d_fp = linear::solve_2d(&input_fp).unwrap()
-        .displacements.iter().find(|d| d.node_id == n / 2 + 1).unwrap().uy.abs();
+        .displacements.iter().find(|d| d.node_id == n / 2 + 1).unwrap().uz.abs();
 
     // Compare with pinned-pinned
     let input_pp = make_beam(n, l, E, A, IZ, "pinned", Some("rollerX"), vec![
         SolverLoad::Nodal(SolverNodalLoad {
-            node_id: n / 2 + 1, fx: 0.0, fy: -h, mz: 0.0,
+            node_id: n / 2 + 1, fx: 0.0, fz: -h, my: 0.0,
         }),
     ]);
     let d_pp = linear::solve_2d(&input_pp).unwrap()
-        .displacements.iter().find(|d| d.node_id == n / 2 + 1).unwrap().uy.abs();
+        .displacements.iter().find(|d| d.node_id == n / 2 + 1).unwrap().uz.abs();
 
     // Fixed-pinned should be between fixed-fixed and pinned-pinned
     assert!(d_fp < d_pp,
@@ -150,19 +150,19 @@ fn validation_effective_length_cantilever() {
 
     // Cantilever: fixed at base, free at top
     let loads_c = vec![SolverLoad::Nodal(SolverNodalLoad {
-        node_id: n + 1, fx: 0.0, fy: -h, mz: 0.0,
+        node_id: n + 1, fx: 0.0, fz: -h, my: 0.0,
     })];
     let input_c = make_beam(n, l, E, A, IZ, "fixed", None, loads_c);
     let d_c = linear::solve_2d(&input_c).unwrap()
-        .displacements.iter().find(|d| d.node_id == n + 1).unwrap().uy.abs();
+        .displacements.iter().find(|d| d.node_id == n + 1).unwrap().uz.abs();
 
     // Pinned-pinned with load at midspan
     let loads_pp = vec![SolverLoad::Nodal(SolverNodalLoad {
-        node_id: n / 2 + 1, fx: 0.0, fy: -h, mz: 0.0,
+        node_id: n / 2 + 1, fx: 0.0, fz: -h, my: 0.0,
     })];
     let input_pp = make_beam(n, l, E, A, IZ, "pinned", Some("rollerX"), loads_pp);
     let d_pp = linear::solve_2d(&input_pp).unwrap()
-        .displacements.iter().find(|d| d.node_id == n / 2 + 1).unwrap().uy.abs();
+        .displacements.iter().find(|d| d.node_id == n / 2 + 1).unwrap().uz.abs();
 
     // Cantilever tip load gives much more deflection
     // δ_cantilever = PL³/(3EI), δ_SS = PL³/(48EI) → ratio = 16
@@ -189,7 +189,7 @@ fn validation_effective_length_ranking() {
         let input = make_beam(n, l, E, A, IZ, start, end, loads);
         linear::solve_2d(&input).unwrap()
             .displacements.iter()
-            .map(|d| d.uy.abs())
+            .map(|d| d.uz.abs())
             .fold(0.0_f64, f64::max)
     };
 
@@ -222,10 +222,10 @@ fn validation_effective_length_braced() {
 
     // Braced frame: add diagonal truss element
     let mut nodes = std::collections::HashMap::new();
-    nodes.insert("1".to_string(), SolverNode { id: 1, x: 0.0, y: 0.0 });
-    nodes.insert("2".to_string(), SolverNode { id: 2, x: 0.0, y: h });
-    nodes.insert("3".to_string(), SolverNode { id: 3, x: w, y: h });
-    nodes.insert("4".to_string(), SolverNode { id: 4, x: w, y: 0.0 });
+    nodes.insert("1".to_string(), SolverNode { id: 1, x: 0.0, z: 0.0 });
+    nodes.insert("2".to_string(), SolverNode { id: 2, x: 0.0, z: h });
+    nodes.insert("3".to_string(), SolverNode { id: 3, x: w, z: h });
+    nodes.insert("4".to_string(), SolverNode { id: 4, x: w, z: 0.0 });
 
     let mut mats = std::collections::HashMap::new();
     mats.insert("1".to_string(), SolverMaterial { id: 1, e: E, nu: 0.3 });
@@ -253,15 +253,15 @@ fn validation_effective_length_braced() {
     let mut sups = std::collections::HashMap::new();
     sups.insert("1".to_string(), SolverSupport {
         id: 1, node_id: 1, support_type: "fixed".to_string(),
-        kx: None, ky: None, kz: None, dx: None, dy: None, drz: None, angle: None,
+        kx: None, ky: None, kz: None, dx: None, dz: None, dry: None, angle: None,
     });
     sups.insert("2".to_string(), SolverSupport {
         id: 2, node_id: 4, support_type: "fixed".to_string(),
-        kx: None, ky: None, kz: None, dx: None, dy: None, drz: None, angle: None,
+        kx: None, ky: None, kz: None, dx: None, dz: None, dry: None, angle: None,
     });
 
     let loads = vec![SolverLoad::Nodal(SolverNodalLoad {
-        node_id: 2, fx: f_lat, fy: 0.0, mz: 0.0,
+        node_id: 2, fx: f_lat, fz: 0.0, my: 0.0,
     })];
     let input_braced = SolverInput {
         nodes, materials: mats, sections: secs,
@@ -287,11 +287,11 @@ fn validation_effective_length_length_effect() {
     let mut deflections = Vec::new();
     for l in &[3.0, 5.0, 8.0] {
         let loads = vec![SolverLoad::Nodal(SolverNodalLoad {
-            node_id: n + 1, fx: 0.0, fy: -p, mz: 0.0,
+            node_id: n + 1, fx: 0.0, fz: -p, my: 0.0,
         })];
         let input = make_beam(n, *l, E, A, IZ, "fixed", None, loads);
         let d = linear::solve_2d(&input).unwrap()
-            .displacements.iter().find(|d| d.node_id == n + 1).unwrap().uy.abs();
+            .displacements.iter().find(|d| d.node_id == n + 1).unwrap().uz.abs();
         deflections.push(d);
     }
 
@@ -315,19 +315,19 @@ fn validation_effective_length_section_effect() {
 
     // IZ = 1e-4
     let loads1 = vec![SolverLoad::Nodal(SolverNodalLoad {
-        node_id: n + 1, fx: 0.0, fy: -p, mz: 0.0,
+        node_id: n + 1, fx: 0.0, fz: -p, my: 0.0,
     })];
     let input1 = make_beam(n, l, E, A, IZ, "fixed", None, loads1);
     let d1 = linear::solve_2d(&input1).unwrap()
-        .displacements.iter().find(|d| d.node_id == n + 1).unwrap().uy.abs();
+        .displacements.iter().find(|d| d.node_id == n + 1).unwrap().uz.abs();
 
     // IZ = 2e-4
     let loads2 = vec![SolverLoad::Nodal(SolverNodalLoad {
-        node_id: n + 1, fx: 0.0, fy: -p, mz: 0.0,
+        node_id: n + 1, fx: 0.0, fz: -p, my: 0.0,
     })];
     let input2 = make_beam(n, l, E, A, 2.0 * IZ, "fixed", None, loads2);
     let d2 = linear::solve_2d(&input2).unwrap()
-        .displacements.iter().find(|d| d.node_id == n + 1).unwrap().uy.abs();
+        .displacements.iter().find(|d| d.node_id == n + 1).unwrap().uz.abs();
 
     // δ ∝ 1/I → doubling I halves deflection
     assert_close(d1 / d2, 2.0, 0.02,

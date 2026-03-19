@@ -82,14 +82,14 @@ fn validation_approx_cantilever_axial() {
     let rv_rigid = f_lat * h / w;
 
     // One up, one down
-    assert!(r1.ry * r4.ry < 0.0,
+    assert!(r1.rz * r4.rz < 0.0,
         "Cantilever: opposite vertical reactions");
 
     // Actual should be less than or equal to rigid-beam approximation
-    assert!(r1.ry.abs() <= rv_rigid * 1.05,
-        "Cantilever: Rv ≤ Fh/w: {:.4} ≤ {:.4}", r1.ry.abs(), rv_rigid);
-    assert!(r1.ry.abs() > 0.0,
-        "Cantilever: Rv > 0: {:.6e}", r1.ry.abs());
+    assert!(r1.rz.abs() <= rv_rigid * 1.05,
+        "Cantilever: Rv ≤ Fh/w: {:.4} ≤ {:.4}", r1.rz.abs(), rv_rigid);
+    assert!(r1.rz.abs() > 0.0,
+        "Cantilever: Rv > 0: {:.6e}", r1.rz.abs());
 }
 
 // ================================================================
@@ -118,7 +118,7 @@ fn validation_approx_inflection_point() {
     // Left column
     for i in 0..=n_col {
         nodes.insert(node_id.to_string(), SolverNode {
-            id: node_id, x: 0.0, y: i as f64 * h / n_col as f64,
+            id: node_id, x: 0.0, z: i as f64 * h / n_col as f64,
         });
         node_id += 1;
     }
@@ -127,7 +127,7 @@ fn validation_approx_inflection_point() {
     // Beam (skip first node, shared with column top)
     for i in 1..=n_beam {
         nodes.insert(node_id.to_string(), SolverNode {
-            id: node_id, x: i as f64 * w / n_beam as f64, y: h,
+            id: node_id, x: i as f64 * w / n_beam as f64, z: h,
         });
         node_id += 1;
     }
@@ -136,7 +136,7 @@ fn validation_approx_inflection_point() {
     // Right column (downward from top-right)
     for i in 1..=n_col {
         nodes.insert(node_id.to_string(), SolverNode {
-            id: node_id, x: w, y: h - i as f64 * h / n_col as f64,
+            id: node_id, x: w, z: h - i as f64 * h / n_col as f64,
         });
         node_id += 1;
     }
@@ -193,15 +193,15 @@ fn validation_approx_inflection_point() {
     let mut sups = std::collections::HashMap::new();
     sups.insert("1".to_string(), SolverSupport {
         id: 1, node_id: 1, support_type: "fixed".to_string(),
-        kx: None, ky: None, kz: None, dx: None, dy: None, drz: None, angle: None,
+        kx: None, ky: None, kz: None, dx: None, dz: None, dry: None, angle: None,
     });
     sups.insert("2".to_string(), SolverSupport {
         id: 2, node_id: bottom_right, support_type: "fixed".to_string(),
-        kx: None, ky: None, kz: None, dx: None, dy: None, drz: None, angle: None,
+        kx: None, ky: None, kz: None, dx: None, dz: None, dry: None, angle: None,
     });
 
     let loads = vec![SolverLoad::Nodal(SolverNodalLoad {
-        node_id: top_left, fx: f_lat, fy: 0.0, mz: 0.0,
+        node_id: top_left, fx: f_lat, fz: 0.0, my: 0.0,
     })];
 
     let input = SolverInput {
@@ -269,10 +269,10 @@ fn validation_approx_fixed_vs_pinned() {
 
     // Pinned base: build manually
     let mut nodes = std::collections::HashMap::new();
-    nodes.insert("1".to_string(), SolverNode { id: 1, x: 0.0, y: 0.0 });
-    nodes.insert("2".to_string(), SolverNode { id: 2, x: 0.0, y: h });
-    nodes.insert("3".to_string(), SolverNode { id: 3, x: w, y: h });
-    nodes.insert("4".to_string(), SolverNode { id: 4, x: w, y: 0.0 });
+    nodes.insert("1".to_string(), SolverNode { id: 1, x: 0.0, z: 0.0 });
+    nodes.insert("2".to_string(), SolverNode { id: 2, x: 0.0, z: h });
+    nodes.insert("3".to_string(), SolverNode { id: 3, x: w, z: h });
+    nodes.insert("4".to_string(), SolverNode { id: 4, x: w, z: 0.0 });
 
     let mut mats = std::collections::HashMap::new();
     mats.insert("1".to_string(), SolverMaterial { id: 1, e: E, nu: 0.3 });
@@ -296,15 +296,15 @@ fn validation_approx_fixed_vs_pinned() {
     let mut sups = std::collections::HashMap::new();
     sups.insert("1".to_string(), SolverSupport {
         id: 1, node_id: 1, support_type: "pinned".to_string(),
-        kx: None, ky: None, kz: None, dx: None, dy: None, drz: None, angle: None,
+        kx: None, ky: None, kz: None, dx: None, dz: None, dry: None, angle: None,
     });
     sups.insert("2".to_string(), SolverSupport {
         id: 2, node_id: 4, support_type: "pinned".to_string(),
-        kx: None, ky: None, kz: None, dx: None, dy: None, drz: None, angle: None,
+        kx: None, ky: None, kz: None, dx: None, dz: None, dry: None, angle: None,
     });
 
     let loads = vec![SolverLoad::Nodal(SolverNodalLoad {
-        node_id: 2, fx: f_lat, fy: 0.0, mz: 0.0,
+        node_id: 2, fx: f_lat, fz: 0.0, my: 0.0,
     })];
 
     let input_pinned = SolverInput {

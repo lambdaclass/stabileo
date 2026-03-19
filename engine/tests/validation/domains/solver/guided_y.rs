@@ -25,7 +25,7 @@ fn validation_guided_y_cantilever() {
         "fixed",
         Some("guidedY"),
         vec![SolverLoad::Nodal(SolverNodalLoad {
-            node_id: 5, fx: 0.0, fy: -10.0, mz: 0.0,
+            node_id: 5, fx: 0.0, fz: -10.0, my: 0.0,
         })],
     );
 
@@ -35,8 +35,8 @@ fn validation_guided_y_cantilever() {
 
     // uy should be nonzero (free direction)
     assert!(
-        tip.uy.abs() > 1e-8,
-        "guidedY should allow vertical displacement, got uy={:.6e}", tip.uy
+        tip.uz.abs() > 1e-8,
+        "guidedY should allow vertical displacement, got uy={:.6e}", tip.uz
     );
 
     // ux should be zero (restrained)
@@ -47,8 +47,8 @@ fn validation_guided_y_cantilever() {
 
     // rz should be zero (restrained)
     assert!(
-        tip.rz.abs() < 1e-10,
-        "guidedY should fix rz, got rz={:.6e}", tip.rz
+        tip.ry.abs() < 1e-10,
+        "guidedY should fix rz, got rz={:.6e}", tip.ry
     );
 }
 
@@ -68,7 +68,7 @@ fn validation_guided_y_vs_springs() {
         "fixed",
         Some("guidedY"),
         vec![SolverLoad::Nodal(SolverNodalLoad {
-            node_id: 5, fx: 0.0, fy, mz: 0.0,
+            node_id: 5, fx: 0.0, fz: fy, my: 0.0,
         })],
     );
 
@@ -80,7 +80,7 @@ fn validation_guided_y_vs_springs() {
         "fixed",
         None, // No end support initially
         vec![SolverLoad::Nodal(SolverNodalLoad {
-            node_id: 5, fx: 0.0, fy, mz: 0.0,
+            node_id: 5, fx: 0.0, fz: fy, my: 0.0,
         })],
     );
 
@@ -91,7 +91,7 @@ fn validation_guided_y_vs_springs() {
         node_id: 5,
         support_type: "spring".to_string(),
         kx: Some(big_k), ky: Some(0.0), kz: Some(big_k),
-        dx: None, dy: None, drz: None, angle: None,
+        dx: None, dz: None, dry: None, angle: None,
     });
 
     let res_spring = linear::solve_2d(&input_spring).unwrap();
@@ -100,7 +100,7 @@ fn validation_guided_y_vs_springs() {
     let tip_guided = res_guided.displacements.iter().find(|d| d.node_id == 5).unwrap();
     let tip_spring = res_spring.displacements.iter().find(|d| d.node_id == 5).unwrap();
 
-    assert_close(tip_guided.uy, tip_spring.uy, 0.01, "uy comparison");
+    assert_close(tip_guided.uz, tip_spring.uz, 0.01, "uy comparison");
 }
 
 // ================================================================

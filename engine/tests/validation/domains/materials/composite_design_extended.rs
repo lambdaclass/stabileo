@@ -134,12 +134,12 @@ fn validation_comp_des_ext_1_transformed_section() {
         n_elem, l_m, e_s, a_tot_m2, i_tr_m4,
         "pinned", Some("rollerX"),
         vec![SolverLoad::Nodal(SolverNodalLoad {
-            node_id: mid, fx: 0.0, fy: -p_kn, mz: 0.0,
+            node_id: mid, fx: 0.0, fz: -p_kn, my: 0.0,
         })],
     );
     let res = linear::solve_2d(&input).unwrap();
     let delta_fem = res.displacements.iter()
-        .find(|d| d.node_id == mid).unwrap().uy.abs();
+        .find(|d| d.node_id == mid).unwrap().uz.abs();
 
     assert_close(delta_fem, delta_exact, 0.02,
         "Transformed section composite beam midspan deflection");
@@ -245,22 +245,22 @@ fn validation_comp_des_ext_2_effective_width() {
         n_elem, l_m, e_s, a_tot_m2, i_tr_m4,
         "pinned", Some("rollerX"),
         vec![SolverLoad::Nodal(SolverNodalLoad {
-            node_id: mid, fx: 0.0, fy: -p_kn, mz: 0.0,
+            node_id: mid, fx: 0.0, fz: -p_kn, my: 0.0,
         })],
     );
     let delta_comp = linear::solve_2d(&input_comp).unwrap()
-        .displacements.iter().find(|d| d.node_id == mid).unwrap().uy.abs();
+        .displacements.iter().find(|d| d.node_id == mid).unwrap().uz.abs();
 
     // Bare steel beam
     let input_steel = make_beam(
         n_elem, l_m, e_s, a_s_m2, i_s_m4,
         "pinned", Some("rollerX"),
         vec![SolverLoad::Nodal(SolverNodalLoad {
-            node_id: mid, fx: 0.0, fy: -p_kn, mz: 0.0,
+            node_id: mid, fx: 0.0, fz: -p_kn, my: 0.0,
         })],
     );
     let delta_steel = linear::solve_2d(&input_steel).unwrap()
-        .displacements.iter().find(|d| d.node_id == mid).unwrap().uy.abs();
+        .displacements.iter().find(|d| d.node_id == mid).unwrap().uz.abs();
 
     // Composite deflection must be less
     assert!(delta_comp < delta_steel,
@@ -302,7 +302,7 @@ fn validation_comp_des_ext_2_effective_width() {
 #[test]
 fn validation_comp_des_ext_3_full_composite_moment() {
     // Steel section: W21x44
-    let fy: f64 = 350.0;         // MPa
+    let fz: f64 = 350.0;         // MPa
     let a_s: f64 = 8387.0;       // mm^2
     let d: f64 = 525.0;          // mm
     let i_s: f64 = 351.0e6;      // mm^4
@@ -313,7 +313,7 @@ fn validation_comp_des_ext_3_full_composite_moment() {
     let t_slab: f64 = 140.0;     // mm
 
     // Compression force: governed by weaker of steel yield or concrete crush
-    let c_steel: f64 = a_s * fy;
+    let c_steel: f64 = a_s * fz;
     let c_concrete: f64 = 0.85 * fc * b_eff * t_slab;
     let c: f64 = c_steel.min(c_concrete);
 
@@ -352,7 +352,7 @@ fn validation_comp_des_ext_3_full_composite_moment() {
     // M_n must exceed bare steel plastic moment
     // Z_x approx for W21x44: ~1563e3 mm^3
     let zx: f64 = 1563.0e3;
-    let mp_steel: f64 = fy * zx / 1.0e6; // kN-m
+    let mp_steel: f64 = fz * zx / 1.0e6; // kN-m
     assert!(mn_knm > mp_steel,
         "Composite M_n={:.1} must exceed bare steel M_p={:.1}", mn_knm, mp_steel);
 
@@ -385,7 +385,7 @@ fn validation_comp_des_ext_3_full_composite_moment() {
     let input = make_ss_beam_udl(n_elem, l_m, e_s, a_tot_m2, i_tr_m4, q_kn);
     let res = linear::solve_2d(&input).unwrap();
     let delta_fem = res.displacements.iter()
-        .find(|d| d.node_id == mid).unwrap().uy.abs();
+        .find(|d| d.node_id == mid).unwrap().uz.abs();
 
     assert_close(delta_fem, delta_exact, 0.02,
         "Full composite beam UDL deflection");
@@ -444,12 +444,12 @@ fn validation_comp_des_ext_4_partial_interaction() {
             n_elem, l_m, e_s, a_partial, iz_partial,
             "pinned", Some("rollerX"),
             vec![SolverLoad::Nodal(SolverNodalLoad {
-                node_id: mid, fx: 0.0, fy: -p_kn, mz: 0.0,
+                node_id: mid, fx: 0.0, fz: -p_kn, my: 0.0,
             })],
         );
         let res = linear::solve_2d(&input).unwrap();
         let delta = res.displacements.iter()
-            .find(|d| d.node_id == mid).unwrap().uy.abs();
+            .find(|d| d.node_id == mid).unwrap().uz.abs();
         deltas.push(delta);
     }
 
@@ -521,12 +521,12 @@ fn validation_comp_des_ext_5_deflection_comparison() {
     // Solver: non-composite
     let input_steel = make_ss_beam_udl(n_elem, l_m, e_s, a_s, iz_s, q_kn);
     let delta_steel = linear::solve_2d(&input_steel).unwrap()
-        .displacements.iter().find(|d| d.node_id == mid).unwrap().uy.abs();
+        .displacements.iter().find(|d| d.node_id == mid).unwrap().uz.abs();
 
     // Solver: composite
     let input_comp = make_ss_beam_udl(n_elem, l_m, e_s, a_full, iz_comp, q_kn);
     let delta_comp = linear::solve_2d(&input_comp).unwrap()
-        .displacements.iter().find(|d| d.node_id == mid).unwrap().uy.abs();
+        .displacements.iter().find(|d| d.node_id == mid).unwrap().uz.abs();
 
     // Composite must deflect less
     assert!(delta_comp < delta_steel,
@@ -579,7 +579,7 @@ fn validation_comp_des_ext_6_shear_stud_demand() {
 
     // Steel
     let a_s: f64 = 8580.0;    // mm^2
-    let fy: f64 = 345.0;      // MPa
+    let fz: f64 = 345.0;      // MPa
 
     // Concrete slab
     let fc: f64 = 28.0;       // MPa
@@ -588,7 +588,7 @@ fn validation_comp_des_ext_6_shear_stud_demand() {
     let a_c: f64 = b_eff * t_slab;
 
     // Horizontal shear
-    let vh_steel: f64 = a_s * fy;
+    let vh_steel: f64 = a_s * fz;
     let vh_concrete: f64 = 0.85 * fc * a_c;
     let vh: f64 = vh_steel.min(vh_concrete);
 
@@ -657,7 +657,7 @@ fn validation_comp_des_ext_6_shear_stud_demand() {
     let input = make_ss_beam_udl(n_elem, l_m, e_s, a_tot_m2, i_tr_m4, q_kn);
     let res = linear::solve_2d(&input).unwrap();
     let delta_fem = res.displacements.iter()
-        .find(|d| d.node_id == mid).unwrap().uy.abs();
+        .find(|d| d.node_id == mid).unwrap().uz.abs();
     let delta_exact: f64 = 5.0 * q_kn.abs() * l_m.powi(4) / (384.0 * e_eff * i_tr_m4);
 
     assert_close(delta_fem, delta_exact, 0.02,
@@ -723,12 +723,12 @@ fn validation_comp_des_ext_7_construction_stage() {
     // Stage 1: steel only carries dead load
     let input_s1 = make_ss_beam_udl(n_elem, l_m, e_s, a_s, iz_s, w_dl);
     let delta_s1 = linear::solve_2d(&input_s1).unwrap()
-        .displacements.iter().find(|d| d.node_id == mid).unwrap().uy.abs();
+        .displacements.iter().find(|d| d.node_id == mid).unwrap().uz.abs();
 
     // Stage 2: composite carries live load
     let input_s2 = make_ss_beam_udl(n_elem, l_m, e_s, a_full, iz_comp, w_ll);
     let delta_s2 = linear::solve_2d(&input_s2).unwrap()
-        .displacements.iter().find(|d| d.node_id == mid).unwrap().uy.abs();
+        .displacements.iter().find(|d| d.node_id == mid).unwrap().uz.abs();
 
     // Total staged deflection
     let delta_staged: f64 = delta_s1 + delta_s2;
@@ -736,12 +736,12 @@ fn validation_comp_des_ext_7_construction_stage() {
     // Compare: composite carries all load
     let input_all_comp = make_ss_beam_udl(n_elem, l_m, e_s, a_full, iz_comp, w_total);
     let delta_all_comp = linear::solve_2d(&input_all_comp).unwrap()
-        .displacements.iter().find(|d| d.node_id == mid).unwrap().uy.abs();
+        .displacements.iter().find(|d| d.node_id == mid).unwrap().uz.abs();
 
     // Compare: steel carries all load
     let input_all_steel = make_ss_beam_udl(n_elem, l_m, e_s, a_s, iz_s, w_total);
     let delta_all_steel = linear::solve_2d(&input_all_steel).unwrap()
-        .displacements.iter().find(|d| d.node_id == mid).unwrap().uy.abs();
+        .displacements.iter().find(|d| d.node_id == mid).unwrap().uz.abs();
 
     // Staged > fully composite (because DL is on weaker steel section)
     assert!(delta_staged > delta_all_comp,
@@ -834,12 +834,12 @@ fn validation_comp_des_ext_8_modular_ratio() {
             n_elem, l_m, e_s, a_tot, i_tr,
             "pinned", Some("rollerX"),
             vec![SolverLoad::Nodal(SolverNodalLoad {
-                node_id: mid, fx: 0.0, fy: -p_kn, mz: 0.0,
+                node_id: mid, fx: 0.0, fz: -p_kn, my: 0.0,
             })],
         );
         let res = linear::solve_2d(&input).unwrap();
         let delta = res.displacements.iter()
-            .find(|d| d.node_id == mid).unwrap().uy.abs();
+            .find(|d| d.node_id == mid).unwrap().uz.abs();
         deltas.push(delta);
     }
 

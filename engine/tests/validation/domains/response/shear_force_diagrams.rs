@@ -66,7 +66,7 @@ fn validation_sfd_moment_gradient() {
     // SS beam with center load → constant V in each half
     let mid = n / 2 + 1;
     let loads = vec![SolverLoad::Nodal(SolverNodalLoad {
-        node_id: mid, fx: 0.0, fy: -p, mz: 0.0,
+        node_id: mid, fx: 0.0, fz: -p, my: 0.0,
     })];
     let input = make_beam(n, l, E, A, IZ, "pinned", Some("rollerX"), loads);
     let results = linear::solve_2d(&input).unwrap();
@@ -96,7 +96,7 @@ fn validation_sfd_v_discontinuity() {
 
     let mid = n / 2 + 1;
     let loads = vec![SolverLoad::Nodal(SolverNodalLoad {
-        node_id: mid, fx: 0.0, fy: -p, mz: 0.0,
+        node_id: mid, fx: 0.0, fz: -p, my: 0.0,
     })];
     let input = make_beam(n, l, E, A, IZ, "pinned", Some("rollerX"), loads);
     let results = linear::solve_2d(&input).unwrap();
@@ -189,8 +189,8 @@ fn validation_sfd_v_jumps() {
 
     // Two point loads at L/4 and 3L/4
     let loads = vec![
-        SolverLoad::Nodal(SolverNodalLoad { node_id: 4, fx: 0.0, fy: -p1, mz: 0.0 }),
-        SolverLoad::Nodal(SolverNodalLoad { node_id: 10, fx: 0.0, fy: -p2, mz: 0.0 }),
+        SolverLoad::Nodal(SolverNodalLoad { node_id: 4, fx: 0.0, fz: -p1, my: 0.0 }),
+        SolverLoad::Nodal(SolverNodalLoad { node_id: 10, fx: 0.0, fz: -p2, my: 0.0 }),
     ];
     let input = make_beam(n, l, E, A, IZ, "pinned", Some("rollerX"), loads);
     let results = linear::solve_2d(&input).unwrap();
@@ -221,7 +221,7 @@ fn validation_sfd_m_jump() {
     let m_app = 10.0;
 
     let loads = vec![SolverLoad::Nodal(SolverNodalLoad {
-        node_id: 4, fx: 0.0, fy: 0.0, mz: m_app,
+        node_id: 4, fx: 0.0, fz: 0.0, my: m_app,
     })];
     let input = make_beam(n, l, E, A, IZ, "pinned", Some("rollerX"), loads);
     let results = linear::solve_2d(&input).unwrap();
@@ -260,7 +260,7 @@ fn validation_sfd_internal_hinge() {
     }
 
     let loads = vec![SolverLoad::Nodal(SolverNodalLoad {
-        node_id: n / 2 + 1, fx: 0.0, fy: -p, mz: 0.0,
+        node_id: n / 2 + 1, fx: 0.0, fz: -p, my: 0.0,
     })];
 
     let input = make_input(

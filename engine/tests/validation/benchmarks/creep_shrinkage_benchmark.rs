@@ -105,7 +105,7 @@ fn benchmark_cantilever_creep_deflection() {
     let deflections: Vec<f64> = result.steps.iter().map(|s| {
         s.displacements.iter()
             .find(|d| d.node_id == mid_node)
-            .map(|d| d.uy.abs())
+            .map(|d| d.uz.abs())
             .unwrap_or(0.0)
     }).collect();
 
@@ -259,8 +259,8 @@ fn benchmark_creep_effective_modulus_hand_calc() {
     let res_eeff = linear::solve_2d(&input_eeff).expect("E_eff solve failed");
 
     let mid = n_elem / 2 + 1;
-    let d_ec = res_ec.displacements.iter().find(|d| d.node_id == mid).unwrap().uy.abs();
-    let d_eeff = res_eeff.displacements.iter().find(|d| d.node_id == mid).unwrap().uy.abs();
+    let d_ec = res_ec.displacements.iter().find(|d| d.node_id == mid).unwrap().uz.abs();
+    let d_eeff = res_eeff.displacements.iter().find(|d| d.node_id == mid).unwrap().uz.abs();
 
     // E_eff beam should deflect more (softer)
     let ratio = d_eeff / d_ec;
@@ -337,7 +337,7 @@ fn benchmark_creep_time_step_convergence() {
             .displacements.iter()
             .find(|d| d.node_id == mid)
             .unwrap()
-            .uy.abs();
+            .uz.abs();
 
         eprintln!("  {} steps: final deflection = {:.6e}", n_steps, d_final);
         final_deflections.push(d_final);
@@ -442,7 +442,7 @@ fn benchmark_creep_prestressed_beam_losses() {
     let deflections: Vec<f64> = result.steps.iter().map(|s| {
         s.displacements.iter()
             .find(|d| d.node_id == mid_node)
-            .map(|d| d.uy.abs())
+            .map(|d| d.uz.abs())
             .unwrap_or(0.0)
     }).collect();
 

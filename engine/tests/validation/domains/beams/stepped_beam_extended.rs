@@ -71,7 +71,7 @@ fn make_stepped_beam(
     let mut node_id = 1;
     nodes_map.insert(
         node_id.to_string(),
-        SolverNode { id: node_id, x, y: 0.0 },
+        SolverNode { id: node_id, x, z: 0.0 },
     );
     node_id += 1;
 
@@ -81,7 +81,7 @@ fn make_stepped_beam(
             x += elem_len;
             nodes_map.insert(
                 node_id.to_string(),
-                SolverNode { id: node_id, x, y: 0.0 },
+                SolverNode { id: node_id, x, z: 0.0 },
             );
             node_id += 1;
         }
@@ -115,12 +115,12 @@ fn make_stepped_beam(
     let mut sups_map = HashMap::new();
     sups_map.insert("1".to_string(), SolverSupport {
         id: 1, node_id: 1, support_type: sup_left.to_string(),
-        kx: None, ky: None, kz: None, dx: None, dy: None, drz: None, angle: None,
+        kx: None, ky: None, kz: None, dx: None, dz: None, dry: None, angle: None,
     });
     if let Some(sr) = sup_right {
         sups_map.insert("2".to_string(), SolverSupport {
             id: 2, node_id: total_nodes, support_type: sr.to_string(),
-            kx: None, ky: None, kz: None, dx: None, dy: None, drz: None, angle: None,
+            kx: None, ky: None, kz: None, dx: None, dz: None, dry: None, angle: None,
         });
     }
 
@@ -175,9 +175,9 @@ fn validation_stepped_ext_ss_stiffer_half_deflects_less() {
     let right_quarter_node = n_per + n_per / 2 + 1;
 
     let d_left: f64 = results.displacements.iter()
-        .find(|d| d.node_id == left_quarter_node).unwrap().uy.abs();
+        .find(|d| d.node_id == left_quarter_node).unwrap().uz.abs();
     let d_right: f64 = results.displacements.iter()
-        .find(|d| d.node_id == right_quarter_node).unwrap().uy.abs();
+        .find(|d| d.node_id == right_quarter_node).unwrap().uz.abs();
 
     // Stiffer left half deflects less under uniform load
     assert!(
@@ -219,7 +219,7 @@ fn validation_stepped_ext_cantilever_thicker_root_reduces_tip() {
     let tip_node = 2 * n_per + 1;
 
     let loads = vec![SolverLoad::Nodal(SolverNodalLoad {
-        node_id: tip_node, fx: 0.0, fy: -p, mz: 0.0,
+        node_id: tip_node, fx: 0.0, fz: -p, my: 0.0,
     })];
 
     // Case A: Uniform IZ cantilever
@@ -228,7 +228,7 @@ fn validation_stepped_ext_cantilever_thicker_root_reduces_tip() {
     );
     let d_uniform: f64 = linear::solve_2d(&input_uniform).unwrap()
         .displacements.iter()
-        .find(|d| d.node_id == tip_node).unwrap().uy.abs();
+        .find(|d| d.node_id == tip_node).unwrap().uz.abs();
 
     // Case B: Stepped cantilever (3*IZ near root, IZ near tip)
     let input_stepped = make_stepped_beam(
@@ -241,7 +241,7 @@ fn validation_stepped_ext_cantilever_thicker_root_reduces_tip() {
     );
     let d_stepped: f64 = linear::solve_2d(&input_stepped).unwrap()
         .displacements.iter()
-        .find(|d| d.node_id == tip_node).unwrap().uy.abs();
+        .find(|d| d.node_id == tip_node).unwrap().uz.abs();
 
     // Case C: Uniform 3*IZ cantilever (stiffest, lower bound on deflection)
     let input_stiff = make_beam(
@@ -249,7 +249,7 @@ fn validation_stepped_ext_cantilever_thicker_root_reduces_tip() {
     );
     let d_stiff: f64 = linear::solve_2d(&input_stiff).unwrap()
         .displacements.iter()
-        .find(|d| d.node_id == tip_node).unwrap().uy.abs();
+        .find(|d| d.node_id == tip_node).unwrap().uz.abs();
 
     // Stepped deflection: less than uniform IZ, more than uniform 3*IZ
     assert!(
@@ -306,11 +306,11 @@ fn validation_stepped_ext_ss_asymmetric_deflection_curve() {
     let mid_node = n_per + 1;
 
     let d_lq: f64 = results.displacements.iter()
-        .find(|d| d.node_id == left_quarter).unwrap().uy.abs();
+        .find(|d| d.node_id == left_quarter).unwrap().uz.abs();
     let d_rq: f64 = results.displacements.iter()
-        .find(|d| d.node_id == right_quarter).unwrap().uy.abs();
+        .find(|d| d.node_id == right_quarter).unwrap().uz.abs();
     let d_mid: f64 = results.displacements.iter()
-        .find(|d| d.node_id == mid_node).unwrap().uy.abs();
+        .find(|d| d.node_id == mid_node).unwrap().uz.abs();
 
     // The softer left half deflects more than the stiffer right half
     assert!(
@@ -363,9 +363,9 @@ fn validation_stepped_ext_determinate_reactions_independent_of_stiffness() {
     );
     let res_uniform = linear::solve_2d(&input_uniform).unwrap();
     let ra_uniform = res_uniform.reactions.iter()
-        .find(|r| r.node_id == 1).unwrap().ry;
+        .find(|r| r.node_id == 1).unwrap().rz;
     let rb_uniform = res_uniform.reactions.iter()
-        .find(|r| r.node_id == total_nodes).unwrap().ry;
+        .find(|r| r.node_id == total_nodes).unwrap().rz;
 
     // Case B: Stepped beam (left half IZ, right half 5*IZ)
     let input_stepped = make_stepped_beam(
@@ -378,9 +378,9 @@ fn validation_stepped_ext_determinate_reactions_independent_of_stiffness() {
     );
     let res_stepped = linear::solve_2d(&input_stepped).unwrap();
     let ra_stepped = res_stepped.reactions.iter()
-        .find(|r| r.node_id == 1).unwrap().ry;
+        .find(|r| r.node_id == 1).unwrap().rz;
     let rb_stepped = res_stepped.reactions.iter()
-        .find(|r| r.node_id == total_nodes).unwrap().ry;
+        .find(|r| r.node_id == total_nodes).unwrap().rz;
 
     // Case C: Stepped beam (left half 3*IZ, right half IZ)
     let input_stepped2 = make_stepped_beam(
@@ -393,9 +393,9 @@ fn validation_stepped_ext_determinate_reactions_independent_of_stiffness() {
     );
     let res_stepped2 = linear::solve_2d(&input_stepped2).unwrap();
     let ra_stepped2 = res_stepped2.reactions.iter()
-        .find(|r| r.node_id == 1).unwrap().ry;
+        .find(|r| r.node_id == 1).unwrap().rz;
     let rb_stepped2 = res_stepped2.reactions.iter()
-        .find(|r| r.node_id == total_nodes).unwrap().ry;
+        .find(|r| r.node_id == total_nodes).unwrap().rz;
 
     // For a simply-supported beam under symmetric UDL: R_A = R_B = qL/2
     let expected_r: f64 = total_load / 2.0;
@@ -484,7 +484,7 @@ fn validation_stepped_ext_cantilever_tip_superposition() {
                                + p * a.powi(3) / (3.0 * e_eff * i2);
 
     let loads = vec![SolverLoad::Nodal(SolverNodalLoad {
-        node_id: tip_node, fx: 0.0, fy: -p, mz: 0.0,
+        node_id: tip_node, fx: 0.0, fz: -p, my: 0.0,
     })];
 
     let input = make_stepped_beam(
@@ -497,7 +497,7 @@ fn validation_stepped_ext_cantilever_tip_superposition() {
     );
     let d_fem: f64 = linear::solve_2d(&input).unwrap()
         .displacements.iter()
-        .find(|d| d.node_id == tip_node).unwrap().uy.abs();
+        .find(|d| d.node_id == tip_node).unwrap().uz.abs();
 
     // FEM should match analytical within 2% (with 8 elements per segment)
     assert_close(d_fem, delta_analytical, 0.02,
@@ -543,9 +543,9 @@ fn validation_stepped_ext_fixed_fixed_asymmetric_moments() {
 
     // Get end moments (reactions)
     let m_left: f64 = res_stepped.reactions.iter()
-        .find(|r| r.node_id == 1).unwrap().mz.abs();
+        .find(|r| r.node_id == 1).unwrap().my.abs();
     let m_right: f64 = res_stepped.reactions.iter()
-        .find(|r| r.node_id == total_nodes).unwrap().mz.abs();
+        .find(|r| r.node_id == total_nodes).unwrap().my.abs();
 
     // Stiffer left end attracts more moment
     assert!(
@@ -560,9 +560,9 @@ fn validation_stepped_ext_fixed_fixed_asymmetric_moments() {
     );
     let res_uniform = linear::solve_2d(&input_uniform).unwrap();
     let m_left_uniform: f64 = res_uniform.reactions.iter()
-        .find(|r| r.node_id == 1).unwrap().mz.abs();
+        .find(|r| r.node_id == 1).unwrap().my.abs();
     let m_right_uniform: f64 = res_uniform.reactions.iter()
-        .find(|r| r.node_id == total_nodes).unwrap().mz.abs();
+        .find(|r| r.node_id == total_nodes).unwrap().my.abs();
 
     // Uniform beam: both end moments are equal
     let rel_diff_uniform: f64 = (m_left_uniform - m_right_uniform).abs()
@@ -582,7 +582,7 @@ fn validation_stepped_ext_fixed_fixed_asymmetric_moments() {
     );
 
     // Global equilibrium: sum of vertical reactions = total load
-    let sum_ry: f64 = res_stepped.reactions.iter().map(|r| r.ry).sum();
+    let sum_ry: f64 = res_stepped.reactions.iter().map(|r| r.rz).sum();
     assert_close(sum_ry, q.abs() * l, 0.02, "Fixed-fixed stepped: sum Ry = qL");
 }
 
@@ -620,9 +620,9 @@ fn validation_stepped_ext_propped_cantilever_moment_redistribution() {
     );
     let res_uniform = linear::solve_2d(&input_uniform).unwrap();
     let m_a_uniform: f64 = res_uniform.reactions.iter()
-        .find(|r| r.node_id == 1).unwrap().mz.abs();
+        .find(|r| r.node_id == 1).unwrap().my.abs();
     let r_b_uniform: f64 = res_uniform.reactions.iter()
-        .find(|r| r.node_id == total_nodes).unwrap().ry;
+        .find(|r| r.node_id == total_nodes).unwrap().rz;
 
     // Case B: Left half stiffer (3*IZ), right half IZ
     let input_left_stiff = make_stepped_beam(
@@ -635,7 +635,7 @@ fn validation_stepped_ext_propped_cantilever_moment_redistribution() {
     );
     let res_left_stiff = linear::solve_2d(&input_left_stiff).unwrap();
     let m_a_left_stiff: f64 = res_left_stiff.reactions.iter()
-        .find(|r| r.node_id == 1).unwrap().mz.abs();
+        .find(|r| r.node_id == 1).unwrap().my.abs();
 
     // Case C: Right half stiffer (3*IZ), left half IZ
     let input_right_stiff = make_stepped_beam(
@@ -648,9 +648,9 @@ fn validation_stepped_ext_propped_cantilever_moment_redistribution() {
     );
     let res_right_stiff = linear::solve_2d(&input_right_stiff).unwrap();
     let m_a_right_stiff: f64 = res_right_stiff.reactions.iter()
-        .find(|r| r.node_id == 1).unwrap().mz.abs();
+        .find(|r| r.node_id == 1).unwrap().my.abs();
     let r_b_right_stiff: f64 = res_right_stiff.reactions.iter()
-        .find(|r| r.node_id == total_nodes).unwrap().ry;
+        .find(|r| r.node_id == total_nodes).unwrap().rz;
 
     // When right half is stiffer, the roller (right) attracts more load,
     // which increases R_B and reduces the fixed-end moment M_A
@@ -678,7 +678,7 @@ fn validation_stepped_ext_propped_cantilever_moment_redistribution() {
         ("Left stiff", &res_left_stiff),
         ("Right stiff", &res_right_stiff),
     ] {
-        let sum_ry: f64 = res.reactions.iter().map(|r| r.ry).sum();
+        let sum_ry: f64 = res.reactions.iter().map(|r| r.rz).sum();
         assert_close(sum_ry, q.abs() * l, 0.02,
             &format!("{}: sum Ry = qL", label));
     }
@@ -740,12 +740,12 @@ fn validation_stepped_ext_three_section_displacement_continuity() {
 
     // Both transition nodes must have nonzero deflection (beam is loaded)
     assert!(
-        d_trans1.uy.abs() > 1e-10,
-        "Transition 1 has nonzero deflection: uy={:.6e}", d_trans1.uy
+        d_trans1.uz.abs() > 1e-10,
+        "Transition 1 has nonzero deflection: uy={:.6e}", d_trans1.uz
     );
     assert!(
-        d_trans2.uy.abs() > 1e-10,
-        "Transition 2 has nonzero deflection: uy={:.6e}", d_trans2.uy
+        d_trans2.uz.abs() > 1e-10,
+        "Transition 2 has nonzero deflection: uy={:.6e}", d_trans2.uz
     );
 
     // Verify moment continuity at transition nodes
@@ -796,21 +796,21 @@ fn validation_stepped_ext_three_section_displacement_continuity() {
 
     // Symmetric section [IZ, 3*IZ, IZ] under symmetric load: deflections at
     // transition nodes must be equal by symmetry
-    let rel_diff_trans: f64 = (d_trans1.uy - d_trans2.uy).abs()
-        / d_trans1.uy.abs().max(1e-10);
+    let rel_diff_trans: f64 = (d_trans1.uz - d_trans2.uz).abs()
+        / d_trans1.uz.abs().max(1e-10);
     assert!(
         rel_diff_trans < 0.02,
         "Symmetric sections: transition deflections equal: t1={:.6e}, t2={:.6e}",
-        d_trans1.uy, d_trans2.uy
+        d_trans1.uz, d_trans2.uz
     );
 
     // Rotation continuity: rotations at transition nodes must also be continuous.
     // By symmetry, rotation at transition 1 should be equal and opposite to transition 2.
-    let rz_sum: f64 = (d_trans1.rz + d_trans2.rz).abs();
-    let rz_scale: f64 = d_trans1.rz.abs().max(d_trans2.rz.abs()).max(1e-10);
+    let rz_sum: f64 = (d_trans1.ry + d_trans2.ry).abs();
+    let rz_scale: f64 = d_trans1.ry.abs().max(d_trans2.ry.abs()).max(1e-10);
     assert!(
         rz_sum / rz_scale < 0.02,
         "Symmetric sections: rotations antisymmetric: rz1={:.6e}, rz2={:.6e}",
-        d_trans1.rz, d_trans2.rz
+        d_trans1.ry, d_trans2.ry
     );
 }

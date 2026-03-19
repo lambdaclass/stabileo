@@ -72,8 +72,8 @@ fn validation_thermal_ext_1_restrained_bar() {
 
     // No transverse displacement (pure axial problem)
     for d in &results.displacements {
-        assert!(d.uy.abs() < 1e-8,
-            "No transverse displacement: node {} uy={:.6e}", d.node_id, d.uy);
+        assert!(d.uz.abs() < 1e-8,
+            "No transverse displacement: node {} uy={:.6e}", d.node_id, d.uz);
     }
 
     // Equilibrium: sum of horizontal reactions = 0
@@ -125,7 +125,7 @@ fn validation_thermal_ext_2_gradient_cantilever() {
     let d_tip = results.displacements.iter()
         .find(|d| d.node_id == tip_node).unwrap();
 
-    assert_close(d_tip.uy.abs(), delta_tip_expected, 0.05,
+    assert_close(d_tip.uz.abs(), delta_tip_expected, 0.05,
         &format!("Cantilever thermal gradient: tip deflection = {:.6e}", delta_tip_expected));
 
     // No axial force (cantilever is free to expand axially, and dt_uniform=0)
@@ -138,9 +138,9 @@ fn validation_thermal_ext_2_gradient_cantilever() {
     // Fixed end should have zero moment (cantilever with free curvature,
     // no restraint against bending for determinate structure)
     let r_fixed = results.reactions.iter().find(|r| r.node_id == 1).unwrap();
-    assert!(r_fixed.mz.abs() < 1.0,
+    assert!(r_fixed.my.abs() < 1.0,
         "Determinate cantilever: no restraint moment from thermal gradient: Mz={:.6}",
-        r_fixed.mz);
+        r_fixed.my);
 }
 
 // ================================================================
@@ -204,7 +204,7 @@ fn validation_thermal_ext_3_continuous_beam_thermal() {
     let results = linear::solve_2d(&input).unwrap();
 
     // Equilibrium: sum of vertical reactions = 0 (no external vertical loads)
-    let sum_ry: f64 = results.reactions.iter().map(|r| r.ry).sum();
+    let sum_ry: f64 = results.reactions.iter().map(|r| r.rz).sum();
     assert!(sum_ry.abs() < 0.1,
         "Thermal continuous beam: sum_Ry should be ~0: {:.6}", sum_ry);
 
@@ -223,15 +223,15 @@ fn validation_thermal_ext_3_continuous_beam_thermal() {
     let mid_span2_node = n_per_span + 1 + n_per_span / 2;
     let d_mid_span2 = results.displacements.iter()
         .find(|d| d.node_id == mid_span2_node).unwrap();
-    assert!(d_mid_span2.uy.abs() > 1e-8,
+    assert!(d_mid_span2.uz.abs() > 1e-8,
         "Thermal gradient on span 1 induces deflection in span 2: uy={:.6e}",
-        d_mid_span2.uy);
+        d_mid_span2.uz);
 
     // Verify nonzero reaction at interior support
     let r_mid = results.reactions.iter()
         .find(|r| r.node_id == mid_node).unwrap();
-    assert!(r_mid.ry.abs() > 0.01,
-        "Interior support reaction from thermal gradient: Ry={:.6}", r_mid.ry);
+    assert!(r_mid.rz.abs() > 0.01,
+        "Interior support reaction from thermal gradient: Ry={:.6}", r_mid.rz);
 }
 
 // ================================================================
@@ -276,7 +276,7 @@ fn validation_thermal_ext_4_portal_thermal() {
 
     // Equilibrium checks
     let sum_rx: f64 = results.reactions.iter().map(|r| r.rx).sum();
-    let sum_ry: f64 = results.reactions.iter().map(|r| r.ry).sum();
+    let sum_ry: f64 = results.reactions.iter().map(|r| r.rz).sum();
     assert!(sum_rx.abs() < 0.01,
         "Portal thermal: sum_Rx = 0: {:.6}", sum_rx);
     assert!(sum_ry.abs() < 0.01,
@@ -360,17 +360,17 @@ fn validation_thermal_ext_5_settlement_propped() {
     sups_map.insert("1".to_string(), SolverSupport {
         id: 1, node_id: 1, support_type: "fixed".to_string(),
         kx: None, ky: None, kz: None,
-        dx: None, dy: None, drz: None, angle: None,
+        dx: None, dz: None, dry: None, angle: None,
     });
     sups_map.insert("2".to_string(), SolverSupport {
         id: 2, node_id: n_nodes, support_type: "rollerX".to_string(),
         kx: None, ky: None, kz: None,
-        dx: None, dy: Some(-delta), drz: None, angle: None,
+        dx: None, dz: Some(-delta), dry: None, angle: None,
     });
 
     let mut nodes_map = HashMap::new();
     for &(id, x, y) in &nodes {
-        nodes_map.insert(id.to_string(), SolverNode { id, x, y });
+        nodes_map.insert(id.to_string(), SolverNode { id, x, z: y });
     }
     let mut mats_map = HashMap::new();
     mats_map.insert("1".to_string(), SolverMaterial { id: 1, e: E, nu: 0.3 });
@@ -397,21 +397,21 @@ fn validation_thermal_ext_5_settlement_propped() {
 
     let r_left = results.reactions.iter().find(|r| r.node_id == 1).unwrap();
 
-    assert_close(r_left.mz.abs(), m_exact, 0.03,
+    assert_close(r_left.my.abs(), m_exact, 0.03,
         &format!("Propped settlement: M_fixed = 3EI*delta/L^2 = {:.4}", m_exact));
 
     let r_right = results.reactions.iter().find(|r| r.node_id == n_nodes).unwrap();
-    assert_close(r_right.ry.abs(), v_exact, 0.03,
+    assert_close(r_right.rz.abs(), v_exact, 0.03,
         &format!("Propped settlement: R_roller = 3EI*delta/L^3 = {:.4}", v_exact));
 
     // Prescribed displacement check
     let d_right = results.displacements.iter()
         .find(|d| d.node_id == n_nodes).unwrap();
-    assert_close(d_right.uy, -delta, 0.01,
+    assert_close(d_right.uz, -delta, 0.01,
         "Prescribed settlement: uy at roller = -delta");
 
     // Equilibrium: sum Ry = 0
-    let sum_ry: f64 = results.reactions.iter().map(|r| r.ry).sum();
+    let sum_ry: f64 = results.reactions.iter().map(|r| r.rz).sum();
     assert!(sum_ry.abs() < v_exact * 0.01,
         "Settlement equilibrium: sum_Ry={:.6}", sum_ry);
 }
@@ -451,17 +451,17 @@ fn validation_thermal_ext_6_double_settlement() {
     sups_map.insert("1".to_string(), SolverSupport {
         id: 1, node_id: 1, support_type: "fixed".to_string(),
         kx: None, ky: None, kz: None,
-        dx: None, dy: None, drz: None, angle: None,
+        dx: None, dz: None, dry: None, angle: None,
     });
     sups_map.insert("2".to_string(), SolverSupport {
         id: 2, node_id: n_nodes, support_type: "fixed".to_string(),
         kx: None, ky: None, kz: None,
-        dx: None, dy: Some(-delta), drz: None, angle: None,
+        dx: None, dz: Some(-delta), dry: None, angle: None,
     });
 
     let mut nodes_map = HashMap::new();
     for &(id, x, y) in &nodes {
-        nodes_map.insert(id.to_string(), SolverNode { id, x, y });
+        nodes_map.insert(id.to_string(), SolverNode { id, x, z: y });
     }
     let mut mats_map = HashMap::new();
     mats_map.insert("1".to_string(), SolverMaterial { id: 1, e: E, nu: 0.3 });
@@ -490,29 +490,29 @@ fn validation_thermal_ext_6_double_settlement() {
     let r_right = results.reactions.iter().find(|r| r.node_id == n_nodes).unwrap();
 
     // Moments at both ends: equal magnitude = 6EI*delta/L^2
-    assert_close(r_left.mz.abs(), m_exact, 0.03,
+    assert_close(r_left.my.abs(), m_exact, 0.03,
         &format!("Fixed-fixed settlement: |M_left| = 6EI*delta/L^2 = {:.4}", m_exact));
-    assert_close(r_right.mz.abs(), m_exact, 0.03,
+    assert_close(r_right.my.abs(), m_exact, 0.03,
         &format!("Fixed-fixed settlement: |M_right| = 6EI*delta/L^2 = {:.4}", m_exact));
 
     // Both reaction moments have equal magnitude (chord rotation symmetry)
-    let moment_diff = (r_left.mz.abs() - r_right.mz.abs()).abs();
+    let moment_diff = (r_left.my.abs() - r_right.my.abs()).abs();
     assert!(moment_diff < m_exact * 0.03,
         "Fixed-fixed settlement: |M_left| = |M_right|: diff={:.4}", moment_diff);
 
     // Shear = 12*EI*delta/L^3
-    assert_close(r_left.ry.abs(), v_exact, 0.03,
+    assert_close(r_left.rz.abs(), v_exact, 0.03,
         &format!("Fixed-fixed settlement: V = 12EI*delta/L^3 = {:.4}", v_exact));
 
     // Equilibrium
-    let sum_ry: f64 = results.reactions.iter().map(|r| r.ry).sum();
+    let sum_ry: f64 = results.reactions.iter().map(|r| r.rz).sum();
     assert!(sum_ry.abs() < v_exact * 0.01,
         "Settlement equilibrium: sum_Ry={:.6}", sum_ry);
 
     // Prescribed displacement
     let d_right = results.displacements.iter()
         .find(|d| d.node_id == n_nodes).unwrap();
-    assert_close(d_right.uy, -delta, 0.01,
+    assert_close(d_right.uz, -delta, 0.01,
         "Prescribed settlement: uy at right = -delta");
 }
 
@@ -584,7 +584,7 @@ fn validation_thermal_ext_7_thermal_truss() {
 
     // Equilibrium
     let sum_rx: f64 = results.reactions.iter().map(|r| r.rx).sum();
-    let sum_ry: f64 = results.reactions.iter().map(|r| r.ry).sum();
+    let sum_ry: f64 = results.reactions.iter().map(|r| r.rz).sum();
     assert!(sum_rx.abs() < 0.1,
         "Truss thermal: sum_Rx = 0: {:.6}", sum_rx);
     assert!(sum_ry.abs() < 0.1,
@@ -617,8 +617,8 @@ fn validation_thermal_ext_7_thermal_truss() {
     // from thermal effects on the center bar
     let d_top = results.displacements.iter()
         .find(|d| d.node_id == 4).unwrap();
-    assert!(d_top.uy.abs() > 1e-6,
-        "Truss thermal: top joint displaces vertically: uy={:.6e}", d_top.uy);
+    assert!(d_top.uz.abs() > 1e-6,
+        "Truss thermal: top joint displaces vertically: uy={:.6e}", d_top.uz);
 
     // Analytical solution for symmetric 3-bar truss:
     // Compatibility + equilibrium with EA same for all bars, center bar heated.
@@ -664,8 +664,8 @@ fn validation_thermal_ext_8_combined_thermal_mech() {
     let loads_mech = vec![SolverLoad::Nodal(SolverNodalLoad {
         node_id: n + 1,
         fx: 0.0,
-        fy: p,
-        mz: 0.0,
+        fz: p,
+        my: 0.0,
     })];
     let input_mech = make_beam(n, l, E, A, IZ, "fixed", None, loads_mech);
     let res_mech = linear::solve_2d(&input_mech).unwrap();
@@ -686,8 +686,8 @@ fn validation_thermal_ext_8_combined_thermal_mech() {
     let mut loads_combined = vec![SolverLoad::Nodal(SolverNodalLoad {
         node_id: n + 1,
         fx: 0.0,
-        fy: p,
-        mz: 0.0,
+        fz: p,
+        my: 0.0,
     })];
     for i in 1..=n {
         loads_combined.push(SolverLoad::Thermal(SolverThermalLoad {
@@ -702,11 +702,11 @@ fn validation_thermal_ext_8_combined_thermal_mech() {
     // Tip deflections
     let tip = n + 1;
     let d_mech = res_mech.displacements.iter()
-        .find(|d| d.node_id == tip).unwrap().uy;
+        .find(|d| d.node_id == tip).unwrap().uz;
     let d_therm = res_therm.displacements.iter()
-        .find(|d| d.node_id == tip).unwrap().uy;
+        .find(|d| d.node_id == tip).unwrap().uz;
     let d_combined = res_combined.displacements.iter()
-        .find(|d| d.node_id == tip).unwrap().uy;
+        .find(|d| d.node_id == tip).unwrap().uz;
 
     // Verify superposition: combined = mech + therm
     let d_sum = d_mech + d_therm;
@@ -730,15 +730,15 @@ fn validation_thermal_ext_8_combined_thermal_mech() {
     let r_therm = res_therm.reactions.iter().find(|r| r.node_id == 1).unwrap();
     let r_combined = res_combined.reactions.iter().find(|r| r.node_id == 1).unwrap();
 
-    let ry_sum = r_mech.ry + r_therm.ry;
-    let err_ry = (r_combined.ry - ry_sum).abs() / r_combined.ry.abs().max(1e-6);
+    let ry_sum = r_mech.rz + r_therm.rz;
+    let err_ry = (r_combined.rz - ry_sum).abs() / r_combined.rz.abs().max(1e-6);
     assert!(err_ry < 0.02,
         "Reaction superposition Ry: combined={:.6}, sum={:.6}",
-        r_combined.ry, ry_sum);
+        r_combined.rz, ry_sum);
 
-    let mz_sum = r_mech.mz + r_therm.mz;
-    let err_mz = (r_combined.mz - mz_sum).abs() / r_combined.mz.abs().max(1e-6);
+    let mz_sum = r_mech.my + r_therm.my;
+    let err_mz = (r_combined.my - mz_sum).abs() / r_combined.my.abs().max(1e-6);
     assert!(err_mz < 0.02,
         "Reaction superposition Mz: combined={:.6}, sum={:.6}",
-        r_combined.mz, mz_sum);
+        r_combined.my, mz_sum);
 }

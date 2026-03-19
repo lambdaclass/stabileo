@@ -97,9 +97,9 @@ fn sfrc_flexural_strength_fiber_contribution() {
 
     let mid = n / 2 + 1;
     let delta_plain: f64 = res_plain.displacements.iter()
-        .find(|d| d.node_id == mid).unwrap().uy.abs();
+        .find(|d| d.node_id == mid).unwrap().uz.abs();
     let delta_sfrc: f64 = res_sfrc.displacements.iter()
-        .find(|d| d.node_id == mid).unwrap().uy.abs();
+        .find(|d| d.node_id == mid).unwrap().uz.abs();
 
     // SFRC deflects less by the stiffness ratio
     let deflection_ratio: f64 = delta_plain / delta_sfrc;
@@ -160,7 +160,7 @@ fn sfrc_fiber_volume_fraction_effect() {
 
         let mid = n / 2 + 1;
         let delta: f64 = res.displacements.iter()
-            .find(|d| d.node_id == mid).unwrap().uy.abs();
+            .find(|d| d.node_id == mid).unwrap().uz.abs();
         deflections.push(delta);
     }
 
@@ -253,22 +253,22 @@ fn sfrc_residual_strength_fr1_fr3() {
     // Uncracked beam
     let input_plain = make_beam(n, l_beam, ec, a_sec, iz_uncracked, "pinned", Some("rollerX"),
         vec![SolverLoad::Nodal(SolverNodalLoad {
-            node_id: n / 2 + 1, fx: 0.0, fy: p, mz: 0.0,
+            node_id: n / 2 + 1, fx: 0.0, fz: p, my: 0.0,
         })]);
     let res_plain = solve_2d(&input_plain).expect("solve plain");
 
     // SFRC beam
     let input_sfrc = make_beam(n, l_beam, ec, a_sec, iz_sfrc, "pinned", Some("rollerX"),
         vec![SolverLoad::Nodal(SolverNodalLoad {
-            node_id: n / 2 + 1, fx: 0.0, fy: p, mz: 0.0,
+            node_id: n / 2 + 1, fx: 0.0, fz: p, my: 0.0,
         })]);
     let res_sfrc = solve_2d(&input_sfrc).expect("solve sfrc");
 
     let mid = n / 2 + 1;
     let d_plain: f64 = res_plain.displacements.iter()
-        .find(|d| d.node_id == mid).unwrap().uy.abs();
+        .find(|d| d.node_id == mid).unwrap().uz.abs();
     let d_sfrc: f64 = res_sfrc.displacements.iter()
-        .find(|d| d.node_id == mid).unwrap().uy.abs();
+        .find(|d| d.node_id == mid).unwrap().uz.abs();
 
     let ratio_defl: f64 = d_plain / d_sfrc;
     assert_close(ratio_defl, enhancement, 0.05, "deflection ratio matches enhancement");
@@ -348,9 +348,9 @@ fn sfrc_slab_on_grade_thickness_reduction() {
 
     let mid = n / 2 + 1;
     let d_plain: f64 = res_plain.displacements.iter()
-        .find(|d| d.node_id == mid).unwrap().uy.abs();
+        .find(|d| d.node_id == mid).unwrap().uz.abs();
     let d_sfrc: f64 = res_sfrc.displacements.iter()
-        .find(|d| d.node_id == mid).unwrap().uy.abs();
+        .find(|d| d.node_id == mid).unwrap().uz.abs();
 
     // SFRC slab is thinner so deflects more, but moment capacity is equivalent
     // Deflection ratio = Iz_plain / Iz_sfrc = (h_plain/h_sfrc)^3
@@ -433,9 +433,9 @@ fn sfrc_tunnel_segment_ductility() {
 
     let mid = n / 2 + 1;
     let d_plain: f64 = res_plain.displacements.iter()
-        .find(|d| d.node_id == mid).unwrap().uy.abs();
+        .find(|d| d.node_id == mid).unwrap().uz.abs();
     let d_sfrc: f64 = res_sfrc.displacements.iter()
-        .find(|d| d.node_id == mid).unwrap().uy.abs();
+        .find(|d| d.node_id == mid).unwrap().uz.abs();
 
     // SFRC segment deflects less
     assert!(d_sfrc < d_plain, "SFRC segment deflects less than plain");
@@ -449,7 +449,7 @@ fn sfrc_tunnel_segment_ductility() {
     // Actually for fixed-fixed beam, moments depend on EI only through compatibility
     // but for a single uniform beam, the moment distribution is independent of EI.
     let r_plain = &res_plain.reactions;
-    let m_support_plain: f64 = r_plain.iter().map(|r| r.mz.abs()).sum::<f64>() / 2.0;
+    let m_support_plain: f64 = r_plain.iter().map(|r| r.my.abs()).sum::<f64>() / 2.0;
     assert_close(m_support_plain, m_end_exact, 0.05, "support moment qL^2/12");
 }
 
@@ -508,9 +508,9 @@ fn sfrc_beam_vs_conventional_rc_stiffness() {
 
     let mid = n / 2 + 1;
     let d_rc: f64 = res_rc.displacements.iter()
-        .find(|d| d.node_id == mid).unwrap().uy.abs();
+        .find(|d| d.node_id == mid).unwrap().uz.abs();
     let d_sfrc: f64 = res_sfrc.displacements.iter()
-        .find(|d| d.node_id == mid).unwrap().uy.abs();
+        .find(|d| d.node_id == mid).unwrap().uz.abs();
 
     // SFRC deflects less since higher effective Iz
     assert!(d_sfrc < d_rc, "SFRC deflection < RC deflection");
@@ -576,13 +576,13 @@ fn sfrc_fiber_aspect_ratio_pullout() {
 
         let input = make_beam(n, l, ec, a_sec, iz_eff, "pinned", Some("rollerX"),
             vec![SolverLoad::Nodal(SolverNodalLoad {
-                node_id: n / 2 + 1, fx: 0.0, fy: p, mz: 0.0,
+                node_id: n / 2 + 1, fx: 0.0, fz: p, my: 0.0,
             })]);
         let res = solve_2d(&input).expect("solve");
 
         let mid = n / 2 + 1;
         let delta: f64 = res.displacements.iter()
-            .find(|d| d.node_id == mid).unwrap().uy.abs();
+            .find(|d| d.node_id == mid).unwrap().uz.abs();
         deflections.push(delta);
     }
 
@@ -705,9 +705,9 @@ fn sfrc_hybrid_fiber_rebar_capacity() {
 
     let mid = n / 2 + 1;
     let d_full: f64 = res_full.displacements.iter()
-        .find(|d| d.node_id == mid).unwrap().uy.abs();
+        .find(|d| d.node_id == mid).unwrap().uz.abs();
     let d_hybrid: f64 = res_hybrid.displacements.iter()
-        .find(|d| d.node_id == mid).unwrap().uy.abs();
+        .find(|d| d.node_id == mid).unwrap().uz.abs();
 
     // Deflection ratio should match inverse of Iz ratio
     let expected_defl_ratio: f64 = iz_full / iz_hybrid;

@@ -44,11 +44,11 @@ fn validation_fem_udl() {
 
     // FEM = qL²/12
     let fem = q.abs() * l * l / 12.0;
-    assert_close(r1.mz.abs(), fem, 0.02, "FEM UDL: M = qL²/12");
-    assert_close(r_end.mz.abs(), fem, 0.02, "FEM UDL: M_end = qL²/12");
+    assert_close(r1.my.abs(), fem, 0.02, "FEM UDL: M = qL²/12");
+    assert_close(r_end.my.abs(), fem, 0.02, "FEM UDL: M_end = qL²/12");
 
     // Reactions = qL/2
-    assert_close(r1.ry, q.abs() * l / 2.0, 0.02, "FEM UDL: R = qL/2");
+    assert_close(r1.rz, q.abs() * l / 2.0, 0.02, "FEM UDL: R = qL/2");
 }
 
 // ================================================================
@@ -63,7 +63,7 @@ fn validation_fem_midspan_point() {
 
     let mid = n / 2 + 1;
     let loads = vec![SolverLoad::Nodal(SolverNodalLoad {
-        node_id: mid, fx: 0.0, fy: -p, mz: 0.0,
+        node_id: mid, fx: 0.0, fz: -p, my: 0.0,
     })];
     let input = make_beam(n, l, E, A, IZ, "fixed", Some("fixed"), loads);
     let results = linear::solve_2d(&input).unwrap();
@@ -72,10 +72,10 @@ fn validation_fem_midspan_point() {
 
     // FEM = PL/8
     let fem = p * l / 8.0;
-    assert_close(r1.mz.abs(), fem, 0.02, "FEM midspan: M = PL/8");
+    assert_close(r1.my.abs(), fem, 0.02, "FEM midspan: M = PL/8");
 
     // Reactions = P/2 (symmetric)
-    assert_close(r1.ry, p / 2.0, 0.02, "FEM midspan: R = P/2");
+    assert_close(r1.rz, p / 2.0, 0.02, "FEM midspan: R = P/2");
 }
 
 // ================================================================
@@ -94,7 +94,7 @@ fn validation_fem_eccentric_point() {
     // Load at L/4 (node 3 for n=8 elements)
     let load_node = 3;
     let loads = vec![SolverLoad::Nodal(SolverNodalLoad {
-        node_id: load_node, fx: 0.0, fy: -p, mz: 0.0,
+        node_id: load_node, fx: 0.0, fz: -p, my: 0.0,
     })];
     let input = make_beam(n, l, E, A, IZ, "fixed", Some("fixed"), loads);
     let results = linear::solve_2d(&input).unwrap();
@@ -110,8 +110,8 @@ fn validation_fem_eccentric_point() {
     // M_right = P*a²*b/L²
     let m_right = p * a * a * b / (l * l);
 
-    assert_close(r1.mz.abs(), m_left, 0.05, "FEM eccentric: M_left = Pab²/L²");
-    assert_close(r_end.mz.abs(), m_right, 0.05, "FEM eccentric: M_right = Pa²b/L²");
+    assert_close(r1.my.abs(), m_left, 0.05, "FEM eccentric: M_left = Pab²/L²");
+    assert_close(r_end.my.abs(), m_right, 0.05, "FEM eccentric: M_right = Pa²b/L²");
 }
 
 // ================================================================
@@ -150,8 +150,8 @@ fn validation_fem_triangular() {
     // M_right = qL²/20
     let m_right = q.abs() * l * l / 20.0;
 
-    assert_close(r1.mz.abs(), m_left, 0.10, "FEM triangular: M_left ≈ qL²/30");
-    assert_close(r_end.mz.abs(), m_right, 0.10, "FEM triangular: M_right ≈ qL²/20");
+    assert_close(r1.my.abs(), m_left, 0.10, "FEM triangular: M_left ≈ qL²/30");
+    assert_close(r_end.my.abs(), m_right, 0.10, "FEM triangular: M_right ≈ qL²/20");
 }
 
 // ================================================================
@@ -185,7 +185,7 @@ fn validation_fem_carryover() {
     // M at interior = 10. The two spans act as fixed-far-end beams.
     // Moment carryover to each end = 10/2 = 5.
     let loads2 = vec![SolverLoad::Nodal(SolverNodalLoad {
-        node_id: n + 1, fx: 0.0, fy: 0.0, mz: m_applied,
+        node_id: n + 1, fx: 0.0, fz: 0.0, my: m_applied,
     })];
     let input = make_continuous_beam(&[l, l], n, E, A, IZ, loads2);
     let results = linear::solve_2d(&input).unwrap();
@@ -198,7 +198,7 @@ fn validation_fem_carryover() {
     // Moment in each span = 3EI/L × θ = M/2
 
     // Just verify equilibrium and that reactions exist
-    let sum_ry: f64 = results.reactions.iter().map(|r| r.ry).sum();
+    let sum_ry: f64 = results.reactions.iter().map(|r| r.rz).sum();
     assert!(sum_ry.abs() < 0.1,
         "Carryover: ΣRy ≈ 0 for pure moment: {:.6e}", sum_ry);
 }
@@ -228,16 +228,16 @@ fn validation_fem_propped_cantilever() {
 
     // Prop reaction = 3qL/8
     let r_exact = 3.0 * q.abs() * l / 8.0;
-    assert_close(r_end.ry, r_exact, 0.02, "Propped cantilever: R_prop = 3qL/8");
+    assert_close(r_end.rz, r_exact, 0.02, "Propped cantilever: R_prop = 3qL/8");
 
     // Fixed end reaction = 5qL/8
     let r1 = results.reactions.iter().find(|r| r.node_id == 1).unwrap();
     let r1_exact = 5.0 * q.abs() * l / 8.0;
-    assert_close(r1.ry, r1_exact, 0.02, "Propped cantilever: R_fixed = 5qL/8");
+    assert_close(r1.rz, r1_exact, 0.02, "Propped cantilever: R_fixed = 5qL/8");
 
     // Fixed end moment = qL²/8
     let m_exact = q.abs() * l * l / 8.0;
-    assert_close(r1.mz.abs(), m_exact, 0.02, "Propped cantilever: M = qL²/8");
+    assert_close(r1.my.abs(), m_exact, 0.02, "Propped cantilever: M = qL²/8");
 }
 
 // ================================================================
@@ -267,18 +267,18 @@ fn validation_fem_settlement() {
         id: 1, node_id: 1,
         support_type: "fixed".to_string(),
         kx: None, ky: None, kz: None,
-        dx: None, dy: None, drz: None, angle: None,
+        dx: None, dz: None, dry: None, angle: None,
     });
     sups.insert("2".to_string(), SolverSupport {
         id: 2, node_id: n + 1,
         support_type: "fixed".to_string(),
         kx: None, ky: None, kz: None,
-        dx: None, dy: Some(-delta), drz: None, angle: None,
+        dx: None, dz: Some(-delta), dry: None, angle: None,
     });
 
     let mut nodes_map = std::collections::HashMap::new();
     for (id, x, y) in &nodes {
-        nodes_map.insert(id.to_string(), SolverNode { id: *id, x: *x, y: *y });
+        nodes_map.insert(id.to_string(), SolverNode { id: *id, x: *x, z: *y });
     }
     let mut mats = std::collections::HashMap::new();
     mats.insert("1".to_string(), SolverMaterial { id: 1, e: E, nu: 0.3 });
@@ -300,7 +300,7 @@ fn validation_fem_settlement() {
     // M = 6EIδ/L²
     let m_exact = 6.0 * e_eff * IZ * delta / (l * l);
     let r1 = results.reactions.iter().find(|r| r.node_id == 1).unwrap();
-    assert_close(r1.mz.abs(), m_exact, 0.05, "Settlement: M = 6EIδ/L²");
+    assert_close(r1.my.abs(), m_exact, 0.05, "Settlement: M = 6EIδ/L²");
 }
 
 // ================================================================
@@ -321,7 +321,7 @@ fn validation_fem_stiffness_coefficient() {
     // Propped cantilever (fixed at left, rollerX at right)
     // Apply moment at right end
     let loads = vec![SolverLoad::Nodal(SolverNodalLoad {
-        node_id: n + 1, fx: 0.0, fy: 0.0, mz: m_app,
+        node_id: n + 1, fx: 0.0, fz: 0.0, my: m_app,
     })];
     let input = make_beam(n, l, E, A, IZ, "fixed", Some("rollerX"), loads);
     let results = linear::solve_2d(&input).unwrap();
@@ -330,7 +330,7 @@ fn validation_fem_stiffness_coefficient() {
     // θ = M / (3EI/L) = ML / (3EI)
     let theta_exact = m_app * l / (3.0 * e_eff * IZ);
     let theta_actual = results.displacements.iter()
-        .find(|d| d.node_id == n + 1).unwrap().rz;
+        .find(|d| d.node_id == n + 1).unwrap().ry;
 
     assert_close(theta_actual.abs(), theta_exact, 0.05,
         "Stiffness: θ = ML/(3EI) for pinned-far-end");

@@ -52,8 +52,8 @@ fn benchmark_imperfection_pdelta_amplification() {
     ];
     let sups = vec![(1, 1_usize, "fixed"), (2, 4, "fixed")];
     let loads = vec![
-        SolverLoad::Nodal(SolverNodalLoad { node_id: 2, fx: lateral, fy: gravity, mz: 0.0 }),
-        SolverLoad::Nodal(SolverNodalLoad { node_id: 3, fx: 0.0, fy: gravity, mz: 0.0 }),
+        SolverLoad::Nodal(SolverNodalLoad { node_id: 2, fx: lateral, fz: gravity, my: 0.0 }),
+        SolverLoad::Nodal(SolverNodalLoad { node_id: 3, fx: 0.0, fz: gravity, my: 0.0 }),
     ];
 
     // (a) P-delta without imperfection
@@ -140,8 +140,8 @@ fn benchmark_notional_load_equivalence() {
     ];
     let sups = vec![(1, 1_usize, "fixed"), (2, 4, "fixed")];
     let gravity_loads = vec![
-        SolverLoad::Nodal(SolverNodalLoad { node_id: 2, fx: 0.0, fy: gravity, mz: 0.0 }),
-        SolverLoad::Nodal(SolverNodalLoad { node_id: 3, fx: 0.0, fy: gravity, mz: 0.0 }),
+        SolverLoad::Nodal(SolverNodalLoad { node_id: 2, fx: 0.0, fz: gravity, my: 0.0 }),
+        SolverLoad::Nodal(SolverNodalLoad { node_id: 3, fx: 0.0, fz: gravity, my: 0.0 }),
     ];
 
     // (a) Notional load approach: gravity + notional horizontal loads → P-delta
@@ -328,8 +328,8 @@ fn benchmark_imperfection_equilibrium() {
     ];
     let sups = vec![(1, 1_usize, "fixed"), (2, 4, "fixed")];
     let gravity_loads = vec![
-        SolverLoad::Nodal(SolverNodalLoad { node_id: 2, fx: 0.0, fy: gravity, mz: 0.0 }),
-        SolverLoad::Nodal(SolverNodalLoad { node_id: 3, fx: 0.0, fy: gravity, mz: 0.0 }),
+        SolverLoad::Nodal(SolverNodalLoad { node_id: 2, fx: 0.0, fz: gravity, my: 0.0 }),
+        SolverLoad::Nodal(SolverNodalLoad { node_id: 3, fx: 0.0, fz: gravity, my: 0.0 }),
     ];
 
     // Build with gravity first, compute notional loads, then add imperfections
@@ -373,23 +373,23 @@ fn benchmark_imperfection_equilibrium() {
 
     // Sum applied loads
     let mut total_fx = 0.0;
-    let mut total_fy = 0.0;
+    let mut total_fz = 0.0;
     for load in &all_loads {
         if let SolverLoad::Nodal(nl) = load {
             total_fx += nl.fx;
-            total_fy += nl.fy;
+            total_fz += nl.fz;
         }
     }
 
     // Sum reactions
     let sum_rx: f64 = result.reactions.iter().map(|r| r.rx).sum();
-    let sum_ry: f64 = result.reactions.iter().map(|r| r.ry).sum();
+    let sum_ry: f64 = result.reactions.iter().map(|r| r.rz).sum();
 
     // Equilibrium: reactions + loads = 0
     let residual_x = (sum_rx + total_fx).abs();
-    let residual_y = (sum_ry + total_fy).abs();
+    let residual_y = (sum_ry + total_fz).abs();
     let denom_x = total_fx.abs().max(sum_rx.abs()).max(1.0);
-    let denom_y = total_fy.abs().max(sum_ry.abs()).max(1.0);
+    let denom_y = total_fz.abs().max(sum_ry.abs()).max(1.0);
 
     eprintln!(
         "Imperfection equilibrium: Σrx={:.6}, Σfx={:.6}, residual_x={:.2e}",
@@ -397,7 +397,7 @@ fn benchmark_imperfection_equilibrium() {
     );
     eprintln!(
         "  Σry={:.6}, Σfy={:.6}, residual_y={:.2e}",
-        sum_ry, total_fy, residual_y
+        sum_ry, total_fz, residual_y
     );
 
     assert!(

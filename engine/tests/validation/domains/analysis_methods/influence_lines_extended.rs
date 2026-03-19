@@ -51,7 +51,7 @@ fn validation_il_ext_1_ss_midspan_moment() {
     let mut il_m = Vec::new();
     for i in 1..=n + 1 {
         let loads = vec![SolverLoad::Nodal(SolverNodalLoad {
-            node_id: i, fx: 0.0, fy: -1.0, mz: 0.0,
+            node_id: i, fx: 0.0, fz: -1.0, my: 0.0,
         })];
         let input = make_beam(n, l, E, A, IZ, "pinned", Some("rollerX"), loads);
         let results = linear::solve_2d(&input).unwrap();
@@ -106,12 +106,12 @@ fn validation_il_ext_2_continuous_reaction() {
     let mut il_rb = Vec::new();
     for i in 1..=n_per_span + 1 {
         let loads = vec![SolverLoad::Nodal(SolverNodalLoad {
-            node_id: i, fx: 0.0, fy: -1.0, mz: 0.0,
+            node_id: i, fx: 0.0, fz: -1.0, my: 0.0,
         })];
         let input = make_continuous_beam(&[span, span], n_per_span, E, A, IZ, loads);
         let results = linear::solve_2d(&input).unwrap();
         let rb = results.reactions.iter()
-            .find(|r| r.node_id == interior_node).unwrap().ry;
+            .find(|r| r.node_id == interior_node).unwrap().rz;
         il_rb.push(rb);
     }
 
@@ -166,7 +166,7 @@ fn validation_il_ext_3_shear_at_quarter_point() {
     let mut il_v = Vec::new();
     for i in 1..=n + 1 {
         let loads = vec![SolverLoad::Nodal(SolverNodalLoad {
-            node_id: i, fx: 0.0, fy: -1.0, mz: 0.0,
+            node_id: i, fx: 0.0, fz: -1.0, my: 0.0,
         })];
         let input = make_beam(n, l, E, A, IZ, "pinned", Some("rollerX"), loads);
         let results = linear::solve_2d(&input).unwrap();
@@ -224,12 +224,12 @@ fn validation_il_ext_4_muller_breslau_verification() {
     let mut il_ra = Vec::new();
     for i in 1..=n + 1 {
         let loads = vec![SolverLoad::Nodal(SolverNodalLoad {
-            node_id: i, fx: 0.0, fy: -1.0, mz: 0.0,
+            node_id: i, fx: 0.0, fz: -1.0, my: 0.0,
         })];
         let input = make_beam(n, l, E, A, IZ, "pinned", Some("rollerX"), loads);
         let results = linear::solve_2d(&input).unwrap();
         let ra = results.reactions.iter()
-            .find(|r| r.node_id == 1).unwrap().ry;
+            .find(|r| r.node_id == 1).unwrap().rz;
         il_ra.push(ra);
     }
 
@@ -245,12 +245,12 @@ fn validation_il_ext_4_muller_breslau_verification() {
     let mut il_rb = Vec::new();
     for i in 1..=n + 1 {
         let loads = vec![SolverLoad::Nodal(SolverNodalLoad {
-            node_id: i, fx: 0.0, fy: -1.0, mz: 0.0,
+            node_id: i, fx: 0.0, fz: -1.0, my: 0.0,
         })];
         let input = make_beam(n, l, E, A, IZ, "pinned", Some("rollerX"), loads);
         let results = linear::solve_2d(&input).unwrap();
         let rb = results.reactions.iter()
-            .find(|r| r.node_id == n + 1).unwrap().ry;
+            .find(|r| r.node_id == n + 1).unwrap().rz;
         il_rb.push(rb);
     }
 
@@ -299,7 +299,7 @@ fn validation_il_ext_5_moving_load_maximum() {
     let mut il_m = Vec::new();
     for i in 1..=n + 1 {
         let loads = vec![SolverLoad::Nodal(SolverNodalLoad {
-            node_id: i, fx: 0.0, fy: -1.0, mz: 0.0,
+            node_id: i, fx: 0.0, fz: -1.0, my: 0.0,
         })];
         let input = make_beam(n, l, E, A, IZ, "pinned", Some("rollerX"), loads);
         let results = linear::solve_2d(&input).unwrap();
@@ -372,15 +372,15 @@ fn validation_il_ext_6_cantilever_il() {
 
     for i in 1..=n + 1 {
         let loads = vec![SolverLoad::Nodal(SolverNodalLoad {
-            node_id: i, fx: 0.0, fy: -1.0, mz: 0.0,
+            node_id: i, fx: 0.0, fz: -1.0, my: 0.0,
         })];
         let input = make_beam(n, l, E, A, IZ, "fixed", None, loads);
         let results = linear::solve_2d(&input).unwrap();
 
         let ra = results.reactions.iter()
-            .find(|r| r.node_id == 1).unwrap().ry;
+            .find(|r| r.node_id == 1).unwrap().rz;
         let ma = results.reactions.iter()
-            .find(|r| r.node_id == 1).unwrap().mz;
+            .find(|r| r.node_id == 1).unwrap().my;
         il_ra.push(ra);
         il_ma.push(ma);
     }
@@ -406,13 +406,13 @@ fn validation_il_ext_6_cantilever_il() {
     let mut tip_defl = Vec::new();
     for i in 1..=n + 1 {
         let loads = vec![SolverLoad::Nodal(SolverNodalLoad {
-            node_id: i, fx: 0.0, fy: -1.0, mz: 0.0,
+            node_id: i, fx: 0.0, fz: -1.0, my: 0.0,
         })];
         let input = make_beam(n, l, E, A, IZ, "fixed", None, loads);
         let results = linear::solve_2d(&input).unwrap();
         let tip_node = n + 1;
         let uy = results.displacements.iter()
-            .find(|d| d.node_id == tip_node).unwrap().uy;
+            .find(|d| d.node_id == tip_node).unwrap().uz;
         tip_defl.push(uy);
     }
 
@@ -460,15 +460,15 @@ fn validation_il_ext_7_propped_cantilever_moment() {
 
     for i in 1..=n + 1 {
         let loads = vec![SolverLoad::Nodal(SolverNodalLoad {
-            node_id: i, fx: 0.0, fy: -1.0, mz: 0.0,
+            node_id: i, fx: 0.0, fz: -1.0, my: 0.0,
         })];
         let input = make_beam(n, l, E, A, IZ, "fixed", Some("rollerX"), loads);
         let results = linear::solve_2d(&input).unwrap();
 
         let ma = results.reactions.iter()
-            .find(|r| r.node_id == 1).unwrap().mz;
+            .find(|r| r.node_id == 1).unwrap().my;
         let rb = results.reactions.iter()
-            .find(|r| r.node_id == n + 1).unwrap().ry;
+            .find(|r| r.node_id == n + 1).unwrap().rz;
         il_ma.push(ma);
         il_rb.push(rb);
     }
@@ -529,7 +529,7 @@ fn validation_il_ext_8_two_span_negative_moment() {
     let mut il_mb = Vec::new();
     for i in 1..=n_per_span + 1 {
         let loads = vec![SolverLoad::Nodal(SolverNodalLoad {
-            node_id: i, fx: 0.0, fy: -1.0, mz: 0.0,
+            node_id: i, fx: 0.0, fz: -1.0, my: 0.0,
         })];
         let input = make_continuous_beam(&[span, span], n_per_span, E, A, IZ, loads);
         let results = linear::solve_2d(&input).unwrap();

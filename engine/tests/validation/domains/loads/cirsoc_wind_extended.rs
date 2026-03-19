@@ -140,7 +140,7 @@ fn cirsoc_portal_windward_leeward() {
     let m_overturn = total_wind * h / 2.0;
     let r1 = results.reactions.iter().find(|r| r.node_id == 1).unwrap();
     let r2 = results.reactions.iter().find(|r| r.node_id == n_col + 2).unwrap();
-    let m_resist = (r1.mz + r2.mz + r2.ry * w).abs();
+    let m_resist = (r1.my + r2.my + r2.rz * w).abs();
     assert_close(m_resist, m_overturn, 0.05,
         "CIRSOC portal: moment equilibrium about base");
 }
@@ -213,8 +213,8 @@ fn cirsoc_gust_effect_factor() {
         "CIRSOC gust factor: shear ratio = G");
 
     // Also verify moments scale by G
-    let mz_base = res_base.reactions[0].mz.abs();
-    let mz_gust = res_gust.reactions[0].mz.abs();
+    let mz_base = res_base.reactions[0].my.abs();
+    let mz_gust = res_gust.reactions[0].my.abs();
     let m_ratio = mz_gust / mz_base;
     assert_close(m_ratio, g_factor, 0.01,
         "CIRSOC gust factor: moment ratio = G");
@@ -406,7 +406,7 @@ fn cirsoc_wind_truss_roof_uplift() {
 
     // Total uplift = q * span
     let total_uplift = q_uplift * span;
-    let sum_ry: f64 = results.reactions.iter().map(|r| r.ry).sum();
+    let sum_ry: f64 = results.reactions.iter().map(|r| r.rz).sum();
 
     // Reactions should balance the uplift (reactions are downward = negative)
     assert_close(sum_ry.abs(), total_uplift, 0.05,
@@ -415,9 +415,9 @@ fn cirsoc_wind_truss_roof_uplift() {
     // Each reaction should be approximately half the total (symmetric)
     let r1 = results.reactions.iter().find(|r| r.node_id == 1).unwrap();
     let r2 = results.reactions.iter().find(|r| r.node_id == n_panels + 1).unwrap();
-    assert_close(r1.ry.abs(), total_uplift / 2.0, 0.05,
+    assert_close(r1.rz.abs(), total_uplift / 2.0, 0.05,
         "CIRSOC truss uplift: R1 ~ q*L/2");
-    assert_close(r2.ry.abs(), total_uplift / 2.0, 0.05,
+    assert_close(r2.rz.abs(), total_uplift / 2.0, 0.05,
         "CIRSOC truss uplift: R2 ~ q*L/2");
 }
 
@@ -491,8 +491,8 @@ fn cirsoc_height_varying_multistory() {
         SolverLoad::Nodal(SolverNodalLoad {
             node_id: 2 * s + 1,
             fx: f,
-            fy: 0.0,
-            mz: 0.0,
+            fz: 0.0,
+            my: 0.0,
         })
     }).collect();
 
@@ -514,7 +514,7 @@ fn cirsoc_height_varying_multistory() {
     // Check overturning moment equilibrium
     let r1 = results.reactions.iter().find(|r| r.node_id == 1).unwrap();
     let r2 = results.reactions.iter().find(|r| r.node_id == 2).unwrap();
-    let m_resist = (r1.mz + r2.mz + r2.ry * bay).abs();
+    let m_resist = (r1.my + r2.my + r2.rz * bay).abs();
     assert_close(m_resist, total_moment, 0.05,
         "CIRSOC multistory: overturning moment");
 
@@ -609,8 +609,8 @@ fn cirsoc_vortex_shedding_mast() {
     let loads = vec![SolverLoad::Nodal(SolverNodalLoad {
         node_id: n_elem + 1,
         fx: f_tip,
-        fy: 0.0,
-        mz: 0.0,
+        fz: 0.0,
+        my: 0.0,
     })];
 
     let input = make_input(
@@ -629,7 +629,7 @@ fn cirsoc_vortex_shedding_mast() {
         "CIRSOC vortex mast: base shear = F_tip");
 
     // Cantilever moment: M = F * H
-    assert_close(r.mz.abs(), f_tip * h_mast, 0.02,
+    assert_close(r.my.abs(), f_tip * h_mast, 0.02,
         "CIRSOC vortex mast: base moment = F*H");
 
     // Tip deflection should be finite and positive
@@ -711,7 +711,7 @@ fn cirsoc_partial_wind_signboard() {
     // Base moment = w_sign * L_sign * z_centroid (centroid of loaded region above base)
     let z_centroid = (h_sign_start + h_sign_end) / 2.0;
     let expected_moment = w_sign * sign_len * z_centroid;
-    assert_close(r.mz.abs(), expected_moment, 0.02,
+    assert_close(r.my.abs(), expected_moment, 0.02,
         "CIRSOC signboard: base moment = w*L*z_c");
 
     // Tip deflection should be larger than at sign start
@@ -786,8 +786,8 @@ fn cirsoc_interstory_drift_limit() {
         loads.push(SolverLoad::Nodal(SolverNodalLoad {
             node_id: 2 * s + 1,
             fx: f_s,
-            fy: 0.0,
-            mz: 0.0,
+            fz: 0.0,
+            my: 0.0,
         }));
     }
 

@@ -55,8 +55,8 @@ fn frame_e1_leaning_column() -> SolverInput {
     let sups = vec![(1, 1, "fixed"), (2, 4, "pinned")];
 
     let loads = vec![
-        SolverLoad::Nodal(SolverNodalLoad { node_id: 2, fx: h_load, fy: -p, mz: 0.0 }),
-        SolverLoad::Nodal(SolverNodalLoad { node_id: 3, fx: 0.0, fy: -p, mz: 0.0 }),
+        SolverLoad::Nodal(SolverNodalLoad { node_id: 2, fx: h_load, fz: -p, my: 0.0 }),
+        SolverLoad::Nodal(SolverNodalLoad { node_id: 3, fx: 0.0, fz: -p, my: 0.0 }),
     ];
 
     make_input(nodes, vec![(1, E, 0.3)], vec![(1, A, IZ)], elems, sups, loads)
@@ -149,11 +149,11 @@ fn frame_e2_soft_story() -> SolverInput {
 
     let loads = vec![
         // Lateral + gravity at 1st floor
-        SolverLoad::Nodal(SolverNodalLoad { node_id: 3, fx: 15.0, fy: -400.0, mz: 0.0 }),
-        SolverLoad::Nodal(SolverNodalLoad { node_id: 4, fx: 0.0, fy: -400.0, mz: 0.0 }),
+        SolverLoad::Nodal(SolverNodalLoad { node_id: 3, fx: 15.0, fz: -400.0, my: 0.0 }),
+        SolverLoad::Nodal(SolverNodalLoad { node_id: 4, fx: 0.0, fz: -400.0, my: 0.0 }),
         // Lateral + gravity at roof
-        SolverLoad::Nodal(SolverNodalLoad { node_id: 5, fx: 10.0, fy: -250.0, mz: 0.0 }),
-        SolverLoad::Nodal(SolverNodalLoad { node_id: 6, fx: 0.0, fy: -250.0, mz: 0.0 }),
+        SolverLoad::Nodal(SolverNodalLoad { node_id: 5, fx: 10.0, fz: -250.0, my: 0.0 }),
+        SolverLoad::Nodal(SolverNodalLoad { node_id: 6, fx: 0.0, fz: -250.0, my: 0.0 }),
     ];
 
     make_input(nodes, vec![(1, E, 0.3)], vec![(1, A, IZ)], elems, sups, loads)
@@ -232,8 +232,8 @@ fn frame_e3_pinned_base() -> SolverInput {
     ];
     let sups = vec![(1, 1, "pinned"), (2, 4, "pinned")];
     let loads = vec![
-        SolverLoad::Nodal(SolverNodalLoad { node_id: 2, fx: h_load, fy: -p, mz: 0.0 }),
-        SolverLoad::Nodal(SolverNodalLoad { node_id: 3, fx: 0.0, fy: -p, mz: 0.0 }),
+        SolverLoad::Nodal(SolverNodalLoad { node_id: 2, fx: h_load, fz: -p, my: 0.0 }),
+        SolverLoad::Nodal(SolverNodalLoad { node_id: 3, fx: 0.0, fz: -p, my: 0.0 }),
     ];
 
     make_input(nodes, vec![(1, E, 0.3)], vec![(1, A, IZ)], elems, sups, loads)
@@ -323,11 +323,11 @@ fn frame_e4_unequal_bays() -> SolverInput {
         .collect();
 
     let mut loads = vec![SolverLoad::Nodal(SolverNodalLoad {
-        node_id: 2, fx: h_load, fy: 0.0, mz: 0.0,
+        node_id: 2, fx: h_load, fz: 0.0, my: 0.0,
     })];
     for i in 0..n_cols {
         loads.push(SolverLoad::Nodal(SolverNodalLoad {
-            node_id: 2 * i + 2, fx: 0.0, fy: -p, mz: 0.0,
+            node_id: 2 * i + 2, fx: 0.0, fz: -p, my: 0.0,
         }));
     }
 
@@ -355,12 +355,12 @@ fn validation_mastan_e4_unequal_bays_equilibrium() {
         _ => 0.0,
     }).sum();
     let sum_fy_loads: f64 = input.loads.iter().map(|l| match l {
-        SolverLoad::Nodal(n) => n.fy,
+        SolverLoad::Nodal(n) => n.fz,
         _ => 0.0,
     }).sum();
 
     let sum_rx: f64 = results.reactions.iter().map(|r| r.rx).sum();
-    let sum_ry: f64 = results.reactions.iter().map(|r| r.ry).sum();
+    let sum_ry: f64 = results.reactions.iter().map(|r| r.rz).sum();
 
     assert!(
         (sum_rx + sum_fx_loads).abs() < 1.0,
@@ -368,7 +368,7 @@ fn validation_mastan_e4_unequal_bays_equilibrium() {
     );
     assert!(
         (sum_ry + sum_fy_loads).abs() < 1.0,
-        "E4: vertical equilibrium: sum_ry + sum_fy = {:.4}", sum_ry + sum_fy_loads
+        "E4: vertical equilibrium: sum_ry + sum_fz = {:.4}", sum_ry + sum_fy_loads
     );
 }
 
@@ -400,8 +400,8 @@ fn frame_e5_unequal_columns() -> SolverInput {
     let sups = vec![(1, 1, "fixed"), (2, 4, "fixed")];
 
     let loads = vec![
-        SolverLoad::Nodal(SolverNodalLoad { node_id: 2, fx: h_load, fy: -p, mz: 0.0 }),
-        SolverLoad::Nodal(SolverNodalLoad { node_id: 3, fx: 0.0, fy: -p, mz: 0.0 }),
+        SolverLoad::Nodal(SolverNodalLoad { node_id: 2, fx: h_load, fz: -p, my: 0.0 }),
+        SolverLoad::Nodal(SolverNodalLoad { node_id: 3, fx: 0.0, fz: -p, my: 0.0 }),
     ];
 
     make_input(
@@ -433,13 +433,13 @@ fn validation_mastan_e5_asymmetric_moments() {
 
     // The stiffer column (right, 2*Iz) should have a larger base moment
     assert!(
-        r_right.mz.abs() > r_left.mz.abs() * 0.5,
+        r_right.my.abs() > r_left.my.abs() * 0.5,
         "E5: right col base moment ({:.2}) should be significant vs left ({:.2})",
-        r_right.mz.abs(), r_left.mz.abs()
+        r_right.my.abs(), r_left.my.abs()
     );
 
     // Reactions should NOT be equal (asymmetric stiffness)
-    let diff = (r_left.mz.abs() - r_right.mz.abs()).abs();
+    let diff = (r_left.my.abs() - r_right.my.abs()).abs();
     assert!(diff > 0.1, "E5: base moments should differ, diff={:.2}", diff);
 }
 
@@ -492,10 +492,10 @@ fn frame_e6_x_braced() -> SolverInput {
     let mut loads = Vec::new();
     for i in 1..=n_stories {
         loads.push(SolverLoad::Nodal(SolverNodalLoad {
-            node_id: left(i), fx: 10.0, fy: -200.0, mz: 0.0,
+            node_id: left(i), fx: 10.0, fz: -200.0, my: 0.0,
         }));
         loads.push(SolverLoad::Nodal(SolverNodalLoad {
-            node_id: right(i), fx: 0.0, fy: -200.0, mz: 0.0,
+            node_id: right(i), fx: 0.0, fz: -200.0, my: 0.0,
         }));
     }
 
@@ -567,8 +567,8 @@ fn frame_e7_braced_portal() -> SolverInput {
     let sups = vec![(1, 1, "fixed"), (2, 4, "fixed")];
 
     let loads = vec![
-        SolverLoad::Nodal(SolverNodalLoad { node_id: 2, fx: h_load, fy: -p, mz: 0.0 }),
-        SolverLoad::Nodal(SolverNodalLoad { node_id: 3, fx: 0.0, fy: -p, mz: 0.0 }),
+        SolverLoad::Nodal(SolverNodalLoad { node_id: 2, fx: h_load, fz: -p, my: 0.0 }),
+        SolverLoad::Nodal(SolverNodalLoad { node_id: 3, fx: 0.0, fz: -p, my: 0.0 }),
     ];
 
     make_input(
@@ -668,10 +668,10 @@ fn frame_e8_three_story_sway() -> SolverInput {
         // Lateral load (inverted triangular: increases with height)
         let h_factor = i as f64 / n_stories as f64;
         loads.push(SolverLoad::Nodal(SolverNodalLoad {
-            node_id: left(i), fx: 10.0 * h_factor, fy: -300.0, mz: 0.0,
+            node_id: left(i), fx: 10.0 * h_factor, fz: -300.0, my: 0.0,
         }));
         loads.push(SolverLoad::Nodal(SolverNodalLoad {
-            node_id: right(i), fx: 0.0, fy: -300.0, mz: 0.0,
+            node_id: right(i), fx: 0.0, fz: -300.0, my: 0.0,
         }));
     }
 
@@ -733,12 +733,12 @@ fn validation_mastan_e8_pinned_base_zero_base_moment() {
     let r_right = results.reactions.iter().find(|r| r.node_id == 5).unwrap();
 
     assert!(
-        r_left.mz.abs() < 0.01,
-        "E8: left pinned base moment should be ~0, got {:.4}", r_left.mz
+        r_left.my.abs() < 0.01,
+        "E8: left pinned base moment should be ~0, got {:.4}", r_left.my
     );
     assert!(
-        r_right.mz.abs() < 0.01,
-        "E8: right pinned base moment should be ~0, got {:.4}", r_right.mz
+        r_right.my.abs() < 0.01,
+        "E8: right pinned base moment should be ~0, got {:.4}", r_right.my
     );
 }
 
@@ -809,12 +809,12 @@ fn validation_mastan_extended_equilibrium_all() {
             _ => 0.0,
         }).sum();
         let sum_fy_loads: f64 = input.loads.iter().map(|l| match l {
-            SolverLoad::Nodal(n) => n.fy,
+            SolverLoad::Nodal(n) => n.fz,
             _ => 0.0,
         }).sum();
 
         let sum_rx: f64 = results.reactions.iter().map(|r| r.rx).sum();
-        let sum_ry: f64 = results.reactions.iter().map(|r| r.ry).sum();
+        let sum_ry: f64 = results.reactions.iter().map(|r| r.rz).sum();
 
         assert!(
             (sum_rx + sum_fx_loads).abs() < 1.0,

@@ -62,7 +62,7 @@ fn validation_four_members_equal_df_quarter() {
         (4, 5, "fixed"),
     ];
     let loads = vec![SolverLoad::Nodal(SolverNodalLoad {
-        node_id: 2, fx: 0.0, fy: 0.0, mz: 40.0,
+        node_id: 2, fx: 0.0, fz: 0.0, my: 40.0,
     })];
 
     let input = make_input(nodes, mats, secs, elems, sups, loads);
@@ -74,13 +74,13 @@ fn validation_four_members_equal_df_quarter() {
     let r4 = results.reactions.iter().find(|r| r.node_id == 4).unwrap();
     let r5 = results.reactions.iter().find(|r| r.node_id == 5).unwrap();
 
-    assert_close(r1.mz.abs(), 5.0, 0.03, "Carry-over to node 1");
-    assert_close(r3.mz.abs(), 5.0, 0.03, "Carry-over to node 3");
-    assert_close(r4.mz.abs(), 5.0, 0.03, "Carry-over to node 4");
-    assert_close(r5.mz.abs(), 5.0, 0.03, "Carry-over to node 5");
+    assert_close(r1.my.abs(), 5.0, 0.03, "Carry-over to node 1");
+    assert_close(r3.my.abs(), 5.0, 0.03, "Carry-over to node 3");
+    assert_close(r4.my.abs(), 5.0, 0.03, "Carry-over to node 4");
+    assert_close(r5.my.abs(), 5.0, 0.03, "Carry-over to node 5");
 
     // All four carry-over moments should be equal
-    let moments = [r1.mz.abs(), r3.mz.abs(), r4.mz.abs(), r5.mz.abs()];
+    let moments = [r1.my.abs(), r3.my.abs(), r4.my.abs(), r5.my.abs()];
     let m_avg = moments.iter().sum::<f64>() / 4.0;
     let max_dev: f64 = moments.iter().map(|m| (m - m_avg).abs()).fold(0.0_f64, f64::max);
     assert!(
@@ -136,7 +136,7 @@ fn validation_mixed_far_end_two_pinned_one_fixed() {
         (3, 4, "pinned"),
     ];
     let loads = vec![SolverLoad::Nodal(SolverNodalLoad {
-        node_id: 2, fx: 0.0, fy: 0.0, mz: 20.0,
+        node_id: 2, fx: 0.0, fz: 0.0, my: 20.0,
     })];
 
     let input = make_input(nodes, mats, secs, elems, sups, loads);
@@ -144,7 +144,7 @@ fn validation_mixed_far_end_two_pinned_one_fixed() {
 
     // Carry-over to node 1 (fixed) = 0.5 * 8 = 4
     let r1 = results.reactions.iter().find(|r| r.node_id == 1).unwrap();
-    assert_close(r1.mz.abs(), 4.0, 0.04, "Carry-over to fixed far end");
+    assert_close(r1.my.abs(), 4.0, 0.04, "Carry-over to fixed far end");
 
     // Pinned ends: zero moment at element end
     let ef2 = results.element_forces.iter().find(|f| f.element_id == 2).unwrap();
@@ -228,7 +228,7 @@ fn validation_three_span_continuous_beam_interior_moments() {
 
     // Equilibrium check: total reaction = total load = 3*w*L
     let total_load = 3.0 * w * l;
-    let sum_ry: f64 = results.reactions.iter().map(|r| r.ry).sum();
+    let sum_ry: f64 = results.reactions.iter().map(|r| r.rz).sum();
     assert_close(sum_ry, total_load, 0.01, "Global vertical equilibrium");
 }
 
@@ -267,7 +267,7 @@ fn validation_unequal_ei_distribution_factors() {
     ];
     let sups = vec![(1, 1, "fixed"), (2, 3, "fixed")];
     let loads = vec![SolverLoad::Nodal(SolverNodalLoad {
-        node_id: 2, fx: 0.0, fy: 0.0, mz: 20.0,
+        node_id: 2, fx: 0.0, fz: 0.0, my: 20.0,
     })];
 
     let input = make_input(nodes, mats, secs, elems, sups, loads);
@@ -277,11 +277,11 @@ fn validation_unequal_ei_distribution_factors() {
     let r1 = results.reactions.iter().find(|r| r.node_id == 1).unwrap();
     let r3 = results.reactions.iter().find(|r| r.node_id == 3).unwrap();
 
-    assert_close(r1.mz.abs(), 2.5, 0.04, "Carry-over to node 1 (flexible beam)");
-    assert_close(r3.mz.abs(), 7.5, 0.04, "Carry-over to node 3 (stiff beam)");
+    assert_close(r1.my.abs(), 2.5, 0.04, "Carry-over to node 1 (flexible beam)");
+    assert_close(r3.my.abs(), 7.5, 0.04, "Carry-over to node 3 (stiff beam)");
 
     // Ratio of carry-over moments = 3:1
-    let ratio = r3.mz.abs() / r1.mz.abs();
+    let ratio = r3.my.abs() / r1.my.abs();
     assert_close(ratio, 3.0, 0.04, "Carry-over ratio stiff/flexible = 3");
 
     // Joint moments: DF_A = 1/4 -> 5, DF_B = 3/4 -> 15
@@ -382,16 +382,16 @@ fn validation_two_span_udl_one_span_only() {
     let r_c = m_b_expected / l;
 
     let ra = results.reactions.iter().find(|r| r.node_id == 1).unwrap();
-    assert_close(ra.ry, r_a, 0.05, "End reaction R_A");
+    assert_close(ra.rz, r_a, 0.05, "End reaction R_A");
 
     let last_node = 2 * n_per_span + 1;
     let rc = results.reactions.iter().find(|r| r.node_id == last_node).unwrap();
     // R_C is negative (uplift from unloaded span) so compare absolute values
-    assert_close(rc.ry.abs(), r_c, 0.05, "End reaction |R_C|");
+    assert_close(rc.rz.abs(), r_c, 0.05, "End reaction |R_C|");
 
     // Equilibrium: total reactions = total load = wL
     let total_load = w * l;
-    let sum_ry: f64 = results.reactions.iter().map(|r| r.ry).sum();
+    let sum_ry: f64 = results.reactions.iter().map(|r| r.rz).sum();
     assert_close(sum_ry, total_load, 0.01, "Vertical equilibrium");
 }
 
@@ -466,7 +466,7 @@ fn validation_carry_over_pattern_loading_three_span() {
 
     // Equilibrium: total reactions = 2*w*L (two loaded spans)
     let total_load = 2.0 * w * l;
-    let sum_ry: f64 = results.reactions.iter().map(|r| r.ry).sum();
+    let sum_ry: f64 = results.reactions.iter().map(|r| r.rz).sum();
     assert_close(sum_ry, total_load, 0.01, "Vertical equilibrium");
 }
 
@@ -514,7 +514,7 @@ fn validation_propped_cantilever_carry_over() {
     let m_fixed = w * l * l / 8.0;
 
     let r1 = results.reactions.iter().find(|r| r.node_id == 1).unwrap();
-    assert_close(r1.mz.abs(), m_fixed, 0.03, "Propped cantilever fixed end moment wL^2/8");
+    assert_close(r1.my.abs(), m_fixed, 0.03, "Propped cantilever fixed end moment wL^2/8");
 
     // Zero moment at pinned end
     let ef_last = results.element_forces.iter()
@@ -527,14 +527,14 @@ fn validation_propped_cantilever_carry_over() {
     let r_pin = 3.0 * w * l / 8.0;
     let n_nodes = n_elem + 1;
 
-    assert_close(r1.ry, r_fixed, 0.03, "Fixed end reaction = 5wL/8");
+    assert_close(r1.rz, r_fixed, 0.03, "Fixed end reaction = 5wL/8");
 
     let r_end = results.reactions.iter().find(|r| r.node_id == n_nodes).unwrap();
-    assert_close(r_end.ry, r_pin, 0.03, "Pinned end reaction = 3wL/8");
+    assert_close(r_end.rz, r_pin, 0.03, "Pinned end reaction = 3wL/8");
 
     // Equilibrium
     let total_load = w * l;
-    let sum_ry: f64 = results.reactions.iter().map(|r| r.ry).sum();
+    let sum_ry: f64 = results.reactions.iter().map(|r| r.rz).sum();
     assert_close(sum_ry, total_load, 0.01, "Vertical equilibrium");
 }
 
@@ -619,6 +619,6 @@ fn validation_four_span_continuous_beam() {
 
     // Equilibrium
     let total_load = 4.0 * w * l;
-    let sum_ry: f64 = results.reactions.iter().map(|r| r.ry).sum();
+    let sum_ry: f64 = results.reactions.iter().map(|r| r.rz).sum();
     assert_close(sum_ry, total_load, 0.01, "Global vertical equilibrium");
 }

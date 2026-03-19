@@ -639,7 +639,7 @@ pub fn solve_constrained_2d(input: &ConstrainedInput) -> Result<AnalysisResults,
     for sup in input.solver.supports.values() {
         if sup.support_type == "spring" { continue; }
         let prescribed: [(usize, Option<f64>); 3] = [
-            (0, sup.dx), (1, sup.dy), (2, sup.drz),
+            (0, sup.dx), (1, sup.dz), (2, sup.dry),
         ];
         for &(local_dof, val) in &prescribed {
             if let Some(v) = val {
@@ -1023,7 +1023,7 @@ fn get_node_offset(
 ) -> (f64, f64, f64) {
     if let Some(map) = node_by_id_2d {
         if let (Some(m), Some(s)) = (map.get(&master), map.get(&slave)) {
-            return (s.x - m.x, s.y - m.y, 0.0);
+            return (s.x - m.x, s.z - m.z, 0.0);
         }
     }
     if let Some(map) = node_by_id_3d {
@@ -1250,9 +1250,9 @@ mod tests {
     fn make_two_beam_model() -> SolverInput {
         // Two beams: 0--1--2, all frame elements, node 0 fixed, node 2 has load
         let mut nodes = HashMap::new();
-        nodes.insert("0".into(), SolverNode { id: 0, x: 0.0, y: 0.0 });
-        nodes.insert("1".into(), SolverNode { id: 1, x: 5.0, y: 0.0 });
-        nodes.insert("2".into(), SolverNode { id: 2, x: 10.0, y: 0.0 });
+        nodes.insert("0".into(), SolverNode { id: 0, x: 0.0, z: 0.0 });
+        nodes.insert("1".into(), SolverNode { id: 1, x: 5.0, z: 0.0 });
+        nodes.insert("2".into(), SolverNode { id: 2, x: 10.0, z: 0.0 });
 
         let mut materials = HashMap::new();
         materials.insert("1".into(), SolverMaterial { id: 1, e: 200_000.0, nu: 0.3 });
@@ -1276,13 +1276,13 @@ mod tests {
         supports.insert("0".into(), SolverSupport {
             id: 0, node_id: 0, support_type: "fixed".into(),
             kx: None, ky: None, kz: None,
-            dx: None, dy: None, drz: None, angle: None,
+            dx: None, dz: None, dry: None, angle: None,
         });
 
         SolverInput {
             nodes, materials, sections, elements, supports,
             loads: vec![SolverLoad::Nodal(SolverNodalLoad {
-                node_id: 2, fx: 0.0, fy: -10.0, mz: 0.0,
+                node_id: 2, fx: 0.0, fz: -10.0, my: 0.0,
             })],
             constraints: vec![],
             connectors: HashMap::new(),
@@ -1303,8 +1303,8 @@ mod tests {
         // Displacements should match
         for (a, b) in linear_result.displacements.iter().zip(&constrained_result.displacements) {
             assert!((a.ux - b.ux).abs() < 1e-10, "ux mismatch at node {}", a.node_id);
-            assert!((a.uy - b.uy).abs() < 1e-10, "uy mismatch at node {}", a.node_id);
-            assert!((a.rz - b.rz).abs() < 1e-10, "rz mismatch at node {}", a.node_id);
+            assert!((a.uz - b.uz).abs() < 1e-10, "uz mismatch at node {}", a.node_id);
+            assert!((a.ry - b.ry).abs() < 1e-10, "ry mismatch at node {}", a.node_id);
         }
     }
 
@@ -1323,8 +1323,8 @@ mod tests {
         let result = solve_constrained_2d(&input).unwrap();
 
         // Check that uy at node 1 = uy at node 2
-        let uy1 = result.displacements.iter().find(|d| d.node_id == 1).unwrap().uy;
-        let uy2 = result.displacements.iter().find(|d| d.node_id == 2).unwrap().uy;
+        let uy1 = result.displacements.iter().find(|d| d.node_id == 1).unwrap().uz;
+        let uy2 = result.displacements.iter().find(|d| d.node_id == 2).unwrap().uz;
         assert!((uy1 - uy2).abs() < 1e-10, "EqualDOF failed: uy1={} uy2={}", uy1, uy2);
     }
 
@@ -1347,7 +1347,7 @@ mod tests {
 
         // The constraint should produce valid results (no NaN)
         let d2 = result_eq.displacements.iter().find(|d| d.node_id == 2).unwrap();
-        assert!(d2.uy.is_finite(), "EqualDOF uy should be finite: {}", d2.uy);
+        assert!(d2.uz.is_finite(), "EqualDOF uz should be finite: {}", d2.uz);
     }
 
     #[test]
@@ -1370,11 +1370,11 @@ mod tests {
 
         // dx = 5.0 (node 2 at x=10, node 1 at x=5)
         let dx = 5.0;
-        let expected_uy = d1.uy + dx * d1.rz;
+        let expected_uy = d1.uz + dx * d1.ry;
         assert!(
-            (d2.uy - expected_uy).abs() < 1e-8,
-            "RigidLink offset: uy2={} expected={} (uy1={}, rz1={}, dx={})",
-            d2.uy, expected_uy, d1.uy, d1.rz, dx
+            (d2.uz - expected_uy).abs() < 1e-8,
+            "RigidLink offset: uz2={} expected={} (uz1={}, ry1={}, dx={})",
+            d2.uz, expected_uy, d1.uz, d1.ry, dx
         );
     }
 
@@ -1382,10 +1382,10 @@ mod tests {
     fn test_diaphragm_constraint() {
         // 4-node frame: 0 fixed, 1-2-3 at same level, diaphragm couples 2,3 to master 1
         let mut nodes = HashMap::new();
-        nodes.insert("0".into(), SolverNode { id: 0, x: 0.0, y: 0.0 });
-        nodes.insert("1".into(), SolverNode { id: 1, x: 0.0, y: 5.0 });
-        nodes.insert("2".into(), SolverNode { id: 2, x: 5.0, y: 5.0 });
-        nodes.insert("3".into(), SolverNode { id: 3, x: 5.0, y: 0.0 });
+        nodes.insert("0".into(), SolverNode { id: 0, x: 0.0, z: 0.0 });
+        nodes.insert("1".into(), SolverNode { id: 1, x: 0.0, z: 5.0 });
+        nodes.insert("2".into(), SolverNode { id: 2, x: 5.0, z: 5.0 });
+        nodes.insert("3".into(), SolverNode { id: 3, x: 5.0, z: 0.0 });
 
         let mut materials = HashMap::new();
         materials.insert("1".into(), SolverMaterial { id: 1, e: 200_000.0, nu: 0.3 });
@@ -1414,18 +1414,18 @@ mod tests {
         supports.insert("0".into(), SolverSupport {
             id: 0, node_id: 0, support_type: "fixed".into(),
             kx: None, ky: None, kz: None,
-            dx: None, dy: None, drz: None, angle: None,
+            dx: None, dz: None, dry: None, angle: None,
         });
         supports.insert("3".into(), SolverSupport {
             id: 3, node_id: 3, support_type: "fixed".into(),
             kx: None, ky: None, kz: None,
-            dx: None, dy: None, drz: None, angle: None,
+            dx: None, dz: None, dry: None, angle: None,
         });
 
         let solver = SolverInput {
             nodes, materials, sections, elements, supports,
             loads: vec![SolverLoad::Nodal(SolverNodalLoad {
-                node_id: 1, fx: 10.0, fy: 0.0, mz: 0.0,
+                node_id: 1, fx: 10.0, fz: 0.0, my: 0.0,
             })],
             constraints: vec![],
             connectors: HashMap::new(),
@@ -1450,10 +1450,10 @@ mod tests {
         // uy_2 = uy_1 + dx * rz_1, dx = 5
         let dx = 5.0;
         let expected_ux = d1.ux; // dy = 0
-        let expected_uy = d1.uy + dx * d1.rz;
+        let expected_uy = d1.uz + dx * d1.ry;
         assert!((d2.ux - expected_ux).abs() < 1e-8,
             "Diaphragm ux: got {} expected {}", d2.ux, expected_ux);
-        assert!((d2.uy - expected_uy).abs() < 1e-8,
-            "Diaphragm uy: got {} expected {}", d2.uy, expected_uy);
+        assert!((d2.uz - expected_uy).abs() < 1e-8,
+            "Diaphragm uz: got {} expected {}", d2.uz, expected_uy);
     }
 }

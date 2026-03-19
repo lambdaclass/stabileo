@@ -120,7 +120,7 @@ fn nuclear_ext_dba_pressure_wall_strip() {
 
     // Check end moment from solver (at node 1, the fixed support)
     let m_support: f64 = results.reactions.iter()
-        .find(|r| r.node_id == 1).unwrap().mz.abs();
+        .find(|r| r.node_id == 1).unwrap().my.abs();
 
     assert_close(m_support, m_fixed_analytical, 0.02, "Fixed-end moment from DBA pressure");
 
@@ -131,7 +131,7 @@ fn nuclear_ext_dba_pressure_wall_strip() {
     // Midspan node
     let mid_node = n_elem / 2 + 1;
     let delta_fem: f64 = results.displacements.iter()
-        .find(|d| d.node_id == mid_node).unwrap().uy.abs();
+        .find(|d| d.node_id == mid_node).unwrap().uz.abs();
 
     assert_close(delta_fem, delta_analytical, 0.05, "Midspan deflection under DBA pressure");
 }
@@ -333,7 +333,7 @@ fn nuclear_ext_thermal_gradient_wall() {
     // For a fixed-fixed beam under pure thermal gradient (no mechanical load),
     // the end moments should equal the restrained thermal moment.
     let m_end: f64 = results.reactions.iter()
-        .find(|r| r.node_id == 1).unwrap().mz.abs();
+        .find(|r| r.node_id == 1).unwrap().my.abs();
 
     // Solver thermal implementation may differ slightly from the simple formula.
     // Use relaxed tolerance for this thick-section high-gradient case.
@@ -343,7 +343,7 @@ fn nuclear_ext_thermal_gradient_wall() {
     // (uniform curvature is fully restrained)
     let mid_node = n_elem / 2 + 1;
     let delta_mid: f64 = results.displacements.iter()
-        .find(|d| d.node_id == mid_node).unwrap().uy.abs();
+        .find(|d| d.node_id == mid_node).unwrap().uz.abs();
 
     // Deflection should be very small (essentially zero for fixed-fixed)
     assert!(
@@ -414,12 +414,12 @@ fn nuclear_ext_seismic_cantilever_wall() {
 
     // Check base reaction (vertical reaction = shear at base)
     let ry_base: f64 = results.reactions.iter()
-        .find(|r| r.node_id == 1).unwrap().ry.abs();
+        .find(|r| r.node_id == 1).unwrap().rz.abs();
     assert_close(ry_base, v_base_analytical, 0.02, "Seismic base shear");
 
     // Check base moment
     let mz_base: f64 = results.reactions.iter()
-        .find(|r| r.node_id == 1).unwrap().mz.abs();
+        .find(|r| r.node_id == 1).unwrap().my.abs();
     assert_close(mz_base, m_base_analytical, 0.02, "Seismic base moment");
 
     // Analytical tip deflection: delta = q * H^4 / (8 * EI)
@@ -428,7 +428,7 @@ fn nuclear_ext_seismic_cantilever_wall() {
 
     let tip_node = n_elem + 1;
     let delta_tip_fem: f64 = results.displacements.iter()
-        .find(|d| d.node_id == tip_node).unwrap().uy.abs();
+        .find(|d| d.node_id == tip_node).unwrap().uz.abs();
 
     assert_close(delta_tip_fem, delta_tip_analytical, 0.05, "Seismic tip deflection");
 }
@@ -478,26 +478,26 @@ fn nuclear_ext_penetration_reinforcement() {
     let n_elem = 4;
     let mid = n_elem / 2 + 1;
     let load = vec![SolverLoad::Nodal(SolverNodalLoad {
-        node_id: mid, fx: 0.0, fy: -p, mz: 0.0,
+        node_id: mid, fx: 0.0, fz: -p, my: 0.0,
     })];
 
     // Original beam
     let input_orig = make_beam(n_elem, l, e_val, a_orig, iz_orig, "pinned", Some("rollerX"), load.clone());
     let res_orig = solve_2d(&input_orig).expect("solve");
     let delta_orig: f64 = res_orig.displacements.iter()
-        .find(|d| d.node_id == mid).unwrap().uy.abs();
+        .find(|d| d.node_id == mid).unwrap().uz.abs();
 
     // Beam with opening (weaker)
     let input_hole = make_beam(n_elem, l, e_val, a_hole, iz_hole, "pinned", Some("rollerX"), load.clone());
     let res_hole = solve_2d(&input_hole).expect("solve");
     let delta_hole: f64 = res_hole.displacements.iter()
-        .find(|d| d.node_id == mid).unwrap().uy.abs();
+        .find(|d| d.node_id == mid).unwrap().uz.abs();
 
     // Reinforced beam
     let input_reinf = make_beam(n_elem, l, e_val, a_reinf, iz_reinf, "pinned", Some("rollerX"), load.clone());
     let res_reinf = solve_2d(&input_reinf).expect("solve");
     let delta_reinf: f64 = res_reinf.displacements.iter()
-        .find(|d| d.node_id == mid).unwrap().uy.abs();
+        .find(|d| d.node_id == mid).unwrap().uz.abs();
 
     // Opening increases deflection
     assert!(
@@ -571,9 +571,9 @@ fn nuclear_ext_combined_pressure_seismic_thermal() {
     let input_p = make_beam(n_elem, l, e_conc, a_sec, iz_sec, "fixed", Some("fixed"), loads_p);
     let res_p = solve_2d(&input_p).expect("solve pressure");
     let m_p: f64 = res_p.reactions.iter()
-        .find(|r| r.node_id == 1).unwrap().mz;
+        .find(|r| r.node_id == 1).unwrap().my;
     let delta_p: f64 = res_p.displacements.iter()
-        .find(|d| d.node_id == mid).unwrap().uy;
+        .find(|d| d.node_id == mid).unwrap().uz;
 
     // Case 2: Seismic only
     let q_seismic: f64 = 86.4; // kN/m (from test 6 equivalent)
@@ -590,9 +590,9 @@ fn nuclear_ext_combined_pressure_seismic_thermal() {
     let input_s = make_beam(n_elem, l, e_conc, a_sec, iz_sec, "fixed", Some("fixed"), loads_s);
     let res_s = solve_2d(&input_s).expect("solve seismic");
     let m_s: f64 = res_s.reactions.iter()
-        .find(|r| r.node_id == 1).unwrap().mz;
+        .find(|r| r.node_id == 1).unwrap().my;
     let delta_s: f64 = res_s.displacements.iter()
-        .find(|d| d.node_id == mid).unwrap().uy;
+        .find(|d| d.node_id == mid).unwrap().uz;
 
     // Case 3: Thermal gradient only
     let dt_gradient: f64 = 129.0; // degC
@@ -607,9 +607,9 @@ fn nuclear_ext_combined_pressure_seismic_thermal() {
     let input_t = make_beam(n_elem, l, e_conc, a_sec, iz_sec, "fixed", Some("fixed"), loads_t);
     let res_t = solve_2d(&input_t).expect("solve thermal");
     let m_t: f64 = res_t.reactions.iter()
-        .find(|r| r.node_id == 1).unwrap().mz;
+        .find(|r| r.node_id == 1).unwrap().my;
     let delta_t: f64 = res_t.displacements.iter()
-        .find(|d| d.node_id == mid).unwrap().uy;
+        .find(|d| d.node_id == mid).unwrap().uz;
 
     // --- Combined load case ---
     let mut loads_combined = Vec::new();
@@ -630,9 +630,9 @@ fn nuclear_ext_combined_pressure_seismic_thermal() {
     let input_c = make_beam(n_elem, l, e_conc, a_sec, iz_sec, "fixed", Some("fixed"), loads_combined);
     let res_c = solve_2d(&input_c).expect("solve combined");
     let m_c: f64 = res_c.reactions.iter()
-        .find(|r| r.node_id == 1).unwrap().mz;
+        .find(|r| r.node_id == 1).unwrap().my;
     let delta_c: f64 = res_c.displacements.iter()
-        .find(|d| d.node_id == mid).unwrap().uy;
+        .find(|d| d.node_id == mid).unwrap().uz;
 
     // --- Superposition check ---
     // In linear analysis, combined = sum of individual cases

@@ -286,14 +286,14 @@ fn bridge_grillage_load_distribution() {
     // Center girder midspan deflection
     let d_center = results.displacements.iter()
         .find(|d| d.node_id == mid_node_center)
-        .unwrap().uy;
+        .unwrap().uz;
     assert!(d_center < 0.0, "Center girder deflects down: uy={:.6}", d_center);
 
     // Edge girder midspan deflection (girder 0)
     let mid_node_edge = 0 * n_per_girder + 1 + n_elem / 2;
     let d_edge = results.displacements.iter()
         .find(|d| d.node_id == mid_node_edge)
-        .unwrap().uy;
+        .unwrap().uz;
 
     // Transverse distribution: edge girder deflects less than center
     assert!(
@@ -310,7 +310,7 @@ fn bridge_grillage_load_distribution() {
     );
 
     // Vertical equilibrium
-    let sum_ry: f64 = results.reactions.iter().map(|r| r.fy).sum();
+    let sum_ry: f64 = results.reactions.iter().map(|r| r.fz).sum();
     assert_close(sum_ry, p, 0.02, "Grillage equilibrium: sum Ry = P");
 }
 
@@ -516,16 +516,16 @@ fn bridge_composite_deck_transformed_section() {
     // Solve bare steel girder
     let mid = n_elem / 2 + 1;
     let loads = vec![SolverLoad::Nodal(SolverNodalLoad {
-        node_id: mid, fx: 0.0, fy: -p, mz: 0.0,
+        node_id: mid, fx: 0.0, fz: -p, my: 0.0,
     })];
     let input_bare = make_beam(n_elem, l, e_s, a_s, iz_s, "pinned", Some("rollerX"), loads);
     let res_bare = linear::solve_2d(&input_bare).unwrap();
     let d_bare = res_bare.displacements.iter()
-        .find(|d| d.node_id == mid).unwrap().uy;
+        .find(|d| d.node_id == mid).unwrap().uz;
 
     // Solve composite section (use transformed properties with steel E)
     let loads_c = vec![SolverLoad::Nodal(SolverNodalLoad {
-        node_id: mid, fx: 0.0, fy: -p, mz: 0.0,
+        node_id: mid, fx: 0.0, fz: -p, my: 0.0,
     })];
     let input_comp = make_beam(
         n_elem, l, e_s, a_composite, iz_composite,
@@ -533,7 +533,7 @@ fn bridge_composite_deck_transformed_section() {
     );
     let res_comp = linear::solve_2d(&input_comp).unwrap();
     let d_comp = res_comp.displacements.iter()
-        .find(|d| d.node_id == mid).unwrap().uy;
+        .find(|d| d.node_id == mid).unwrap().uz;
 
     // Composite section deflects less (stiffer)
     assert!(
@@ -592,7 +592,7 @@ fn bridge_skew_effect_comparison() {
     );
     let res_normal = linear::solve_3d(&input_normal).unwrap();
     let d_normal = res_normal.displacements.iter()
-        .find(|d| d.node_id == mid_normal).unwrap().uy;
+        .find(|d| d.node_id == mid_normal).unwrap().uz;
 
     // Skew bridge: beam along a 30-degree angle in X-Z plane
     let theta = 30.0_f64.to_radians();
@@ -625,7 +625,7 @@ fn bridge_skew_effect_comparison() {
     );
     let res_skew = linear::solve_3d(&input_skew).unwrap();
     let d_skew = res_skew.displacements.iter()
-        .find(|d| d.node_id == mid_skew).unwrap().uy;
+        .find(|d| d.node_id == mid_skew).unwrap().uz;
 
     // Both beams deflect downward
     assert!(d_normal < 0.0, "Normal bridge deflects down: {:.6}", d_normal);
@@ -710,7 +710,7 @@ fn bridge_temperature_gradient() {
 
     // SS beam under gradient: reactions should be zero (or near-zero)
     let max_ry_ss: f64 = res_ss.reactions.iter()
-        .map(|r| r.ry.abs())
+        .map(|r| r.rz.abs())
         .fold(0.0_f64, f64::max);
     assert!(
         max_ry_ss < 1.0,
@@ -719,9 +719,9 @@ fn bridge_temperature_gradient() {
 
     // SS beam develops curvature (end rotations)
     let rot_start = res_ss.displacements.iter()
-        .find(|d| d.node_id == 1).unwrap().rz;
+        .find(|d| d.node_id == 1).unwrap().ry;
     let rot_end = res_ss.displacements.iter()
-        .find(|d| d.node_id == n + 1).unwrap().rz;
+        .find(|d| d.node_id == n + 1).unwrap().ry;
 
     // End rotations should be nonzero and opposite in sign
     assert!(
@@ -748,9 +748,9 @@ fn bridge_temperature_gradient() {
 
     // Fixed beam: moment reactions at supports
     let mz_start = res_ff.reactions.iter()
-        .find(|r| r.node_id == 1).unwrap().mz;
+        .find(|r| r.node_id == 1).unwrap().my;
     let mz_end = res_ff.reactions.iter()
-        .find(|r| r.node_id == n + 1).unwrap().mz;
+        .find(|r| r.node_id == n + 1).unwrap().my;
 
     // Expected thermal moment: M = E * Iz * alpha * dt_gradient / h
     let e_eff = E_STEEL * 1000.0; // kN/m^2
@@ -777,7 +777,7 @@ fn bridge_temperature_gradient() {
 
     // Fixed beam: no curvature (no end rotation)
     let rot_ff_start = res_ff.displacements.iter()
-        .find(|d| d.node_id == 1).unwrap().rz;
+        .find(|d| d.node_id == 1).unwrap().ry;
     assert!(
         rot_ff_start.abs() < 1e-8,
         "Fixed beam should have zero end rotation: {:.6e}", rot_ff_start

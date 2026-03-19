@@ -50,12 +50,12 @@ fn validation_conjugate_ss_udl() {
 
     // δ_mid = 5qL⁴/(384EI)
     let delta_exact = 5.0 * q.abs() * l * l * l * l / (384.0 * e_eff * IZ);
-    assert_close(d_mid.uy.abs(), delta_exact, 0.02,
+    assert_close(d_mid.uz.abs(), delta_exact, 0.02,
         "Conjugate SS UDL: δ_mid = 5qL⁴/(384EI)");
 
     // Midspan slope = 0 (symmetric)
-    assert!(d_mid.rz.abs() < 1e-10,
-        "Conjugate SS UDL: θ_mid = 0: {:.6e}", d_mid.rz);
+    assert!(d_mid.ry.abs() < 1e-10,
+        "Conjugate SS UDL: θ_mid = 0: {:.6e}", d_mid.ry);
 }
 
 // ================================================================
@@ -74,15 +74,15 @@ fn validation_conjugate_cantilever_integral() {
     let e_eff = E * 1000.0;
 
     let loads = vec![SolverLoad::Nodal(SolverNodalLoad {
-        node_id: n + 1, fx: 0.0, fy: -p, mz: 0.0,
+        node_id: n + 1, fx: 0.0, fz: -p, my: 0.0,
     })];
     let input = make_beam(n, l, E, A, IZ, "fixed", None, loads);
     let results = linear::solve_2d(&input).unwrap();
 
     let tip = results.displacements.iter().find(|d| d.node_id == n + 1).unwrap();
 
-    let delta = tip.uy.abs();
-    let theta = tip.rz.abs();
+    let delta = tip.uz.abs();
+    let theta = tip.ry.abs();
 
     // δ/L should be less than θ (slope increases along beam)
     assert!(delta / l < theta,
@@ -117,14 +117,14 @@ fn validation_conjugate_eccentric_max_deflection() {
 
     let load_node = (a / l * n as f64).round() as usize + 1;
     let loads = vec![SolverLoad::Nodal(SolverNodalLoad {
-        node_id: load_node, fx: 0.0, fy: -p, mz: 0.0,
+        node_id: load_node, fx: 0.0, fz: -p, my: 0.0,
     })];
     let input = make_beam(n, l, E, A, IZ, "pinned", Some("rollerX"), loads);
     let results = linear::solve_2d(&input).unwrap();
 
     // Find node with maximum deflection
     let max_node = results.displacements.iter()
-        .max_by(|a, b| a.uy.abs().partial_cmp(&b.uy.abs()).unwrap())
+        .max_by(|a, b| a.uz.abs().partial_cmp(&b.uz.abs()).unwrap())
         .unwrap();
 
     let x_max = (max_node.node_id - 1) as f64 * l / n as f64;
@@ -143,7 +143,7 @@ fn validation_conjugate_eccentric_max_deflection() {
     // Max deflection should be below midspan
     let mid = n / 2 + 1;
     let d_mid = results.displacements.iter().find(|d| d.node_id == mid).unwrap();
-    assert!(max_node.uy.abs() >= d_mid.uy.abs(),
+    assert!(max_node.uz.abs() >= d_mid.uz.abs(),
         "Max deflection ≥ midspan deflection");
 }
 
@@ -182,11 +182,11 @@ fn validation_conjugate_inflection_point() {
 
     // Second difference ≈ curvature. At inflection point it should be near zero
     let dx = l / n as f64;
-    let curvature_approx = (d_before.rz - 2.0 * d_at.rz + d_after.rz) / (dx * dx);
+    let curvature_approx = (d_before.ry - 2.0 * d_at.ry + d_after.ry) / (dx * dx);
 
     // The curvature should be small near the inflection point
     // (not exactly zero because discrete mesh, but much smaller than at endpoints)
-    let curvature_at_fixed = results.displacements.iter().find(|d| d.node_id == 2).unwrap().rz / dx;
+    let curvature_at_fixed = results.displacements.iter().find(|d| d.node_id == 2).unwrap().ry / dx;
     assert!(curvature_approx.abs() < curvature_at_fixed.abs(),
         "Inflection near L/4: curvature small: {:.6e} vs {:.6e}",
         curvature_approx.abs(), curvature_at_fixed.abs());
@@ -218,12 +218,12 @@ fn validation_conjugate_continuous_slope() {
     let d_int = results.displacements.iter().find(|d| d.node_id == interior).unwrap();
 
     // Deflection at support = 0
-    assert!(d_int.uy.abs() < 1e-10,
-        "Continuous: δ at interior support ≈ 0: {:.6e}", d_int.uy);
+    assert!(d_int.uz.abs() < 1e-10,
+        "Continuous: δ at interior support ≈ 0: {:.6e}", d_int.uz);
 
     // Slope at interior support should be zero by symmetry (equal spans, same load)
-    assert!(d_int.rz.abs() < 1e-10,
-        "Continuous symmetric: θ at interior ≈ 0: {:.6e}", d_int.rz);
+    assert!(d_int.ry.abs() < 1e-10,
+        "Continuous symmetric: θ at interior ≈ 0: {:.6e}", d_int.ry);
 }
 
 // ================================================================
@@ -238,7 +238,7 @@ fn validation_conjugate_cantilever_moment() {
     let e_eff = E * 1000.0;
 
     let loads = vec![SolverLoad::Nodal(SolverNodalLoad {
-        node_id: n + 1, fx: 0.0, fy: 0.0, mz: m,
+        node_id: n + 1, fx: 0.0, fz: 0.0, my: m,
     })];
     let input = make_beam(n, l, E, A, IZ, "fixed", None, loads);
     let results = linear::solve_2d(&input).unwrap();
@@ -247,16 +247,16 @@ fn validation_conjugate_cantilever_moment() {
 
     // θ = ML/(EI) — constant curvature
     let theta_exact = m * l / (e_eff * IZ);
-    assert_close(tip.rz.abs(), theta_exact, 0.02,
+    assert_close(tip.ry.abs(), theta_exact, 0.02,
         "Cantilever moment: θ = ML/(EI)");
 
     // δ = ML²/(2EI) — parabolic deflection
     let delta_exact = m * l * l / (2.0 * e_eff * IZ);
-    assert_close(tip.uy.abs(), delta_exact, 0.02,
+    assert_close(tip.uz.abs(), delta_exact, 0.02,
         "Cantilever moment: δ = ML²/(2EI)");
 
     // δ/θ = L/2 for constant moment (uniform curvature)
-    let ratio = tip.uy.abs() / tip.rz.abs();
+    let ratio = tip.uz.abs() / tip.ry.abs();
     assert_close(ratio, l / 2.0, 0.02, "Cantilever moment: δ/θ = L/2");
 }
 
@@ -275,8 +275,8 @@ fn validation_conjugate_zero_slope_midspan() {
     let n2 = 3 * n / 4 + 1;
 
     let loads = vec![
-        SolverLoad::Nodal(SolverNodalLoad { node_id: n1, fx: 0.0, fy: -p, mz: 0.0 }),
-        SolverLoad::Nodal(SolverNodalLoad { node_id: n2, fx: 0.0, fy: -p, mz: 0.0 }),
+        SolverLoad::Nodal(SolverNodalLoad { node_id: n1, fx: 0.0, fz: -p, my: 0.0 }),
+        SolverLoad::Nodal(SolverNodalLoad { node_id: n2, fx: 0.0, fz: -p, my: 0.0 }),
     ];
     let input = make_beam(n, l, E, A, IZ, "pinned", Some("rollerX"), loads);
     let results = linear::solve_2d(&input).unwrap();
@@ -285,14 +285,14 @@ fn validation_conjugate_zero_slope_midspan() {
     let d_mid = results.displacements.iter().find(|d| d.node_id == mid).unwrap();
 
     // Midspan slope = 0 by symmetry
-    assert!(d_mid.rz.abs() < 1e-10,
-        "Symmetric loads: θ_mid = 0: {:.6e}", d_mid.rz);
+    assert!(d_mid.ry.abs() < 1e-10,
+        "Symmetric loads: θ_mid = 0: {:.6e}", d_mid.ry);
 
     // Deflection at midspan is maximum
     let max_defl = results.displacements.iter()
-        .map(|d| d.uy.abs())
+        .map(|d| d.uz.abs())
         .fold(0.0_f64, f64::max);
-    assert_close(d_mid.uy.abs(), max_defl, 0.01,
+    assert_close(d_mid.uz.abs(), max_defl, 0.01,
         "Symmetric loads: max deflection at midspan");
 }
 
@@ -312,7 +312,7 @@ fn validation_conjugate_deflection_shape() {
     let e_eff = E * 1000.0;
 
     let loads = vec![SolverLoad::Nodal(SolverNodalLoad {
-        node_id: n + 1, fx: 0.0, fy: -p, mz: 0.0,
+        node_id: n + 1, fx: 0.0, fz: -p, my: 0.0,
     })];
     let input = make_beam(n, l, E, A, IZ, "fixed", None, loads);
     let results = linear::solve_2d(&input).unwrap();
@@ -325,7 +325,7 @@ fn validation_conjugate_deflection_shape() {
 
         // y(x) = P/(6EI) × (3Lx² - x³)
         let delta_exact = p / (6.0 * e_eff * IZ) * (3.0 * l * x * x - x * x * x);
-        assert_close(d.uy.abs(), delta_exact, 0.02,
+        assert_close(d.uz.abs(), delta_exact, 0.02,
             &format!("Cubic shape at x={:.2}: δ = P(3Lx²-x³)/(6EI)", x));
     }
 }

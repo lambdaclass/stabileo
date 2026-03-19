@@ -43,7 +43,7 @@ fn validation_ext_superposition_of_loads() {
         1, l, E, A, IZ,
         "fixed", None,
         vec![SolverLoad::Nodal(SolverNodalLoad {
-            node_id: 2, fx: 0.0, fy: -p1, mz: 0.0,
+            node_id: 2, fx: 0.0, fz: -p1, my: 0.0,
         })],
     );
     let res_1 = linear::solve_2d(&input_1).unwrap();
@@ -54,7 +54,7 @@ fn validation_ext_superposition_of_loads() {
         1, l, E, A, IZ,
         "fixed", None,
         vec![SolverLoad::Nodal(SolverNodalLoad {
-            node_id: 2, fx: 0.0, fy: -p2, mz: 0.0,
+            node_id: 2, fx: 0.0, fz: -p2, my: 0.0,
         })],
     );
     let res_2 = linear::solve_2d(&input_2).unwrap();
@@ -65,19 +65,19 @@ fn validation_ext_superposition_of_loads() {
         1, l, E, A, IZ,
         "fixed", None,
         vec![SolverLoad::Nodal(SolverNodalLoad {
-            node_id: 2, fx: 0.0, fy: -(p1 + p2), mz: 0.0,
+            node_id: 2, fx: 0.0, fz: -(p1 + p2), my: 0.0,
         })],
     );
     let res_c = linear::solve_2d(&input_c).unwrap();
     let tip_c = res_c.displacements.iter().find(|d| d.node_id == 2).unwrap();
 
     // Superposition: uy_combined should equal uy_1 + uy_2
-    let sum_uy = tip_1.uy + tip_2.uy;
-    assert_close(tip_c.uy, sum_uy, 0.02, "superposition uy");
+    let sum_uy = tip_1.uz + tip_2.uz;
+    assert_close(tip_c.uz, sum_uy, 0.02, "superposition uy");
 
     // Also check rotation
-    let sum_rz = tip_1.rz + tip_2.rz;
-    assert_close(tip_c.rz, sum_rz, 0.02, "superposition rz");
+    let sum_rz = tip_1.ry + tip_2.ry;
+    assert_close(tip_c.ry, sum_rz, 0.02, "superposition rz");
 }
 
 // ================================================================
@@ -98,7 +98,7 @@ fn validation_ext_cantilever_end_moment() {
         1, l, E, A, IZ,
         "fixed", None,
         vec![SolverLoad::Nodal(SolverNodalLoad {
-            node_id: 2, fx: 0.0, fy: 0.0, mz: m,
+            node_id: 2, fx: 0.0, fz: 0.0, my: m,
         })],
     );
     let results = linear::solve_2d(&input).unwrap();
@@ -107,18 +107,18 @@ fn validation_ext_cantilever_end_moment() {
 
     // delta = M*L^2/(2*E*I) — upward for positive moment
     let expected_delta: f64 = m * l.powi(2) / (2.0 * e_eff * IZ);
-    assert_close(tip.uy.abs(), expected_delta, 0.02, "cantilever end moment delta");
+    assert_close(tip.uz.abs(), expected_delta, 0.02, "cantilever end moment delta");
 
     // theta = M*L/(E*I)
     let expected_theta: f64 = m * l / (e_eff * IZ);
-    assert_close(tip.rz.abs(), expected_theta, 0.02, "cantilever end moment theta");
+    assert_close(tip.ry.abs(), expected_theta, 0.02, "cantilever end moment theta");
 
     // Reaction moment at fixed end: M_fixed = -M (equilibrium)
     let r1 = results.reactions.iter().find(|r| r.node_id == 1).unwrap();
-    assert_close(r1.mz.abs(), m, 0.02, "cantilever end moment reaction Mz");
+    assert_close(r1.my.abs(), m, 0.02, "cantilever end moment reaction Mz");
 
     // No vertical reaction (no transverse force applied)
-    assert!(r1.ry.abs() < 1e-6, "cantilever end moment: Ry should be zero, got {}", r1.ry);
+    assert!(r1.rz.abs() < 1e-6, "cantilever end moment: Ry should be zero, got {}", r1.rz);
 }
 
 // ================================================================
@@ -144,7 +144,7 @@ fn validation_ext_propped_cantilever_midspan_load() {
         2, l, E, A, IZ,
         "fixed", Some("rollerX"),
         vec![SolverLoad::Nodal(SolverNodalLoad {
-            node_id: 2, fx: 0.0, fy: -p, mz: 0.0,
+            node_id: 2, fx: 0.0, fz: -p, my: 0.0,
         })],
     );
     let results = linear::solve_2d(&input).unwrap();
@@ -152,23 +152,23 @@ fn validation_ext_propped_cantilever_midspan_load() {
     // Reaction at roller (node 3): R_B = 5P/16 for midpoint load on propped cantilever
     let r3 = results.reactions.iter().find(|r| r.node_id == 3).unwrap();
     let expected_rb = 5.0 * p / 16.0;
-    assert_close(r3.ry, expected_rb, 0.02, "propped cantilever R_B");
+    assert_close(r3.rz, expected_rb, 0.02, "propped cantilever R_B");
 
     // Reaction at fixed end: R_A = P - R_B = 11P/16
     let r1 = results.reactions.iter().find(|r| r.node_id == 1).unwrap();
     let expected_ra = 11.0 * p / 16.0;
-    assert_close(r1.ry, expected_ra, 0.02, "propped cantilever R_A");
+    assert_close(r1.rz, expected_ra, 0.02, "propped cantilever R_A");
 
     // Fixed-end moment: M_A = 3PL/16
-    assert_close(r1.mz.abs(), 3.0 * p * l / 16.0, 0.02, "propped cantilever M_A");
+    assert_close(r1.my.abs(), 3.0 * p * l / 16.0, 0.02, "propped cantilever M_A");
 
     // Midspan deflection: delta_mid = 7PL^3/(768EI)
     let mid = results.displacements.iter().find(|d| d.node_id == 2).unwrap();
     let expected_delta: f64 = 7.0 * p * l.powi(3) / (768.0 * e_eff * IZ);
-    assert_close(mid.uy.abs(), expected_delta, 0.02, "propped cantilever delta_mid");
+    assert_close(mid.uz.abs(), expected_delta, 0.02, "propped cantilever delta_mid");
 
     // Equilibrium check
-    let sum_ry: f64 = results.reactions.iter().map(|r| r.ry).sum();
+    let sum_ry: f64 = results.reactions.iter().map(|r| r.rz).sum();
     assert_close(sum_ry, p, 0.02, "propped cantilever equilibrium");
 }
 
@@ -192,7 +192,7 @@ fn validation_ext_axial_bending_independence() {
         1, l, E, A, IZ,
         "fixed", None,
         vec![SolverLoad::Nodal(SolverNodalLoad {
-            node_id: 2, fx: p_axial, fy: -p_trans, mz: 0.0,
+            node_id: 2, fx: p_axial, fz: -p_trans, my: 0.0,
         })],
     );
     let res_both = linear::solve_2d(&input_both).unwrap();
@@ -203,7 +203,7 @@ fn validation_ext_axial_bending_independence() {
         1, l, E, A, IZ,
         "fixed", None,
         vec![SolverLoad::Nodal(SolverNodalLoad {
-            node_id: 2, fx: p_axial, fy: 0.0, mz: 0.0,
+            node_id: 2, fx: p_axial, fz: 0.0, my: 0.0,
         })],
     );
     let res_ax = linear::solve_2d(&input_ax).unwrap();
@@ -214,7 +214,7 @@ fn validation_ext_axial_bending_independence() {
         1, l, E, A, IZ,
         "fixed", None,
         vec![SolverLoad::Nodal(SolverNodalLoad {
-            node_id: 2, fx: 0.0, fy: -p_trans, mz: 0.0,
+            node_id: 2, fx: 0.0, fz: -p_trans, my: 0.0,
         })],
     );
     let res_tr = linear::solve_2d(&input_tr).unwrap();
@@ -224,13 +224,13 @@ fn validation_ext_axial_bending_independence() {
     assert_close(tip_both.ux, tip_ax.ux, 0.02, "axial-bending independence: ux");
 
     // uy from combined should equal uy from transverse-only
-    assert_close(tip_both.uy, tip_tr.uy, 0.02, "axial-bending independence: uy");
+    assert_close(tip_both.uz, tip_tr.uz, 0.02, "axial-bending independence: uy");
 
     // rz from combined should equal rz from transverse-only
-    assert_close(tip_both.rz, tip_tr.rz, 0.02, "axial-bending independence: rz");
+    assert_close(tip_both.ry, tip_tr.ry, 0.02, "axial-bending independence: rz");
 
     // Axial displacement should be independent of IZ value
-    assert!(tip_ax.uy.abs() < 1e-10, "axial load should produce no transverse deflection");
+    assert!(tip_ax.uz.abs() < 1e-10, "axial load should produce no transverse deflection");
 }
 
 // ================================================================
@@ -256,16 +256,16 @@ fn validation_ext_ss_beam_udl_midspan_deflection() {
     let mid = results.displacements.iter().find(|d| d.node_id == mid_node_id).unwrap();
 
     let expected_delta: f64 = 5.0 * q * l.powi(4) / (384.0 * e_eff * IZ);
-    assert_close(mid.uy.abs(), expected_delta, 0.02, "SS beam UDL midspan delta");
+    assert_close(mid.uz.abs(), expected_delta, 0.02, "SS beam UDL midspan delta");
 
     // Each reaction should be qL/2
     let r1 = results.reactions.iter().find(|r| r.node_id == 1).unwrap();
     let r_end = results.reactions.iter().find(|r| r.node_id == n + 1).unwrap();
-    assert_close(r1.ry, q * l / 2.0, 0.02, "SS beam UDL R_A");
-    assert_close(r_end.ry, q * l / 2.0, 0.02, "SS beam UDL R_B");
+    assert_close(r1.rz, q * l / 2.0, 0.02, "SS beam UDL R_A");
+    assert_close(r_end.rz, q * l / 2.0, 0.02, "SS beam UDL R_B");
 
     // Global equilibrium
-    let sum_ry: f64 = results.reactions.iter().map(|r| r.ry).sum();
+    let sum_ry: f64 = results.reactions.iter().map(|r| r.rz).sum();
     assert_close(sum_ry, q * l, 0.02, "SS beam UDL equilibrium");
 }
 
@@ -289,7 +289,7 @@ fn validation_ext_stiffness_scales_with_a() {
             1, l, E, area, IZ,
             "fixed", None,
             vec![SolverLoad::Nodal(SolverNodalLoad {
-                node_id: 2, fx: p_axial, fy: 0.0, mz: 0.0,
+                node_id: 2, fx: p_axial, fz: 0.0, my: 0.0,
             })],
         )
     };
@@ -333,10 +333,10 @@ fn validation_ext_antisymmetric_loading() {
         "fixed", Some("fixed"),
         vec![
             SolverLoad::Nodal(SolverNodalLoad {
-                node_id: 2, fx: 0.0, fy: -p, mz: 0.0,
+                node_id: 2, fx: 0.0, fz: -p, my: 0.0,
             }),
             SolverLoad::Nodal(SolverNodalLoad {
-                node_id: 4, fx: 0.0, fy: p, mz: 0.0,
+                node_id: 4, fx: 0.0, fz: p, my: 0.0,
             }),
         ],
     );
@@ -346,23 +346,23 @@ fn validation_ext_antisymmetric_loading() {
     let d4 = results.displacements.iter().find(|d| d.node_id == 4).unwrap();
 
     // Antisymmetry: uy at node 2 and node 4 should be equal in magnitude, opposite in sign
-    assert_close(d2.uy.abs(), d4.uy.abs(), 0.02, "antisymmetric uy magnitudes");
+    assert_close(d2.uz.abs(), d4.uz.abs(), 0.02, "antisymmetric uy magnitudes");
     assert!(
-        d2.uy * d4.uy < 0.0,
-        "antisymmetric uy signs: d2.uy={:.6}, d4.uy={:.6} should have opposite signs",
-        d2.uy, d4.uy
+        d2.uz * d4.uz < 0.0,
+        "antisymmetric uy signs: d2.uz={:.6}, d4.uz={:.6} should have opposite signs",
+        d2.uz, d4.uz
     );
 
     // Midspan node (node 3) should have zero transverse displacement by antisymmetry
     let d3 = results.displacements.iter().find(|d| d.node_id == 3).unwrap();
     assert!(
-        d3.uy.abs() < 1e-6,
+        d3.uz.abs() < 1e-6,
         "antisymmetric midspan uy should be ~0, got {:.6e}",
-        d3.uy
+        d3.uz
     );
 
     // Global vertical equilibrium: reactions must sum to zero (equal and opposite loads)
-    let sum_ry: f64 = results.reactions.iter().map(|r| r.ry).sum();
+    let sum_ry: f64 = results.reactions.iter().map(|r| r.rz).sum();
     assert!(
         sum_ry.abs() < 1e-6,
         "antisymmetric load equilibrium: sum_ry={:.6e}, expected ~0",
@@ -393,22 +393,22 @@ fn validation_ext_maxwell_reciprocal_theorem() {
         3, l, E, A, IZ,
         "pinned", Some("rollerX"),
         vec![SolverLoad::Nodal(SolverNodalLoad {
-            node_id: 2, fx: 0.0, fy: -p, mz: 0.0,
+            node_id: 2, fx: 0.0, fz: -p, my: 0.0,
         })],
     );
     let res_1 = linear::solve_2d(&input_1).unwrap();
-    let d_ab = res_1.displacements.iter().find(|d| d.node_id == 3).unwrap().uy;
+    let d_ab = res_1.displacements.iter().find(|d| d.node_id == 3).unwrap().uz;
 
     // Case 2: load at node 3 (2L/3 from left), measure at node 2 (L/3 from left)
     let input_2 = make_beam(
         3, l, E, A, IZ,
         "pinned", Some("rollerX"),
         vec![SolverLoad::Nodal(SolverNodalLoad {
-            node_id: 3, fx: 0.0, fy: -p, mz: 0.0,
+            node_id: 3, fx: 0.0, fz: -p, my: 0.0,
         })],
     );
     let res_2 = linear::solve_2d(&input_2).unwrap();
-    let d_ba = res_2.displacements.iter().find(|d| d.node_id == 2).unwrap().uy;
+    let d_ba = res_2.displacements.iter().find(|d| d.node_id == 2).unwrap().uz;
 
     // Maxwell's reciprocal theorem: d_ab == d_ba
     assert_close(d_ab, d_ba, 0.02, "Maxwell reciprocal: d_AB vs d_BA");

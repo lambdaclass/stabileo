@@ -52,7 +52,7 @@ fn validation_sap_ext_three_span_continuous_udl() {
 
     // Total load = q * 3L = 360 kN
     let total_load = q * 3.0 * l;
-    let sum_ry: f64 = results.reactions.iter().map(|r| r.ry).sum();
+    let sum_ry: f64 = results.reactions.iter().map(|r| r.rz).sum();
     assert_close(sum_ry, total_load, 0.01, "SAP_EXT1 equilibrium");
 
     // Interior reactions ≈ 1.1qL = 132 kN
@@ -62,8 +62,8 @@ fn validation_sap_ext_three_span_continuous_udl() {
     let node_inner2 = 2 * n_per + 1;
     let r_inner1 = results.reactions.iter().find(|r| r.node_id == node_inner1).unwrap();
     let r_inner2 = results.reactions.iter().find(|r| r.node_id == node_inner2).unwrap();
-    assert_close(r_inner1.ry, r_inner_expected, 0.03, "SAP_EXT1 R_inner1 = 1.1qL");
-    assert_close(r_inner2.ry, r_inner_expected, 0.03, "SAP_EXT1 R_inner2 = 1.1qL");
+    assert_close(r_inner1.rz, r_inner_expected, 0.03, "SAP_EXT1 R_inner1 = 1.1qL");
+    assert_close(r_inner2.rz, r_inner_expected, 0.03, "SAP_EXT1 R_inner2 = 1.1qL");
 
     // Moment at interior supports ≈ -qL²/10 = -72 kN·m
     // The maximum absolute moment near interior support should be close to qL²/10
@@ -77,7 +77,7 @@ fn validation_sap_ext_three_span_continuous_udl() {
     assert_close(ef1.m_end.abs(), m_expected, 0.03, "SAP_EXT1 M_interior ≈ qL²/10");
 
     // Symmetry: interior reactions should be equal
-    assert_close(r_inner1.ry, r_inner2.ry, 0.02, "SAP_EXT1 symmetry interior reactions");
+    assert_close(r_inner1.rz, r_inner2.rz, 0.02, "SAP_EXT1 symmetry interior reactions");
 }
 
 // ═══════════════════════════════════════════════════════════════
@@ -127,15 +127,15 @@ fn validation_sap_ext_two_story_two_bay_frame() {
 
     let loads = vec![
         // Lateral loads at left column joints
-        SolverLoad::Nodal(SolverNodalLoad { node_id: 4, fx: h1, fy: 0.0, mz: 0.0 }),
-        SolverLoad::Nodal(SolverNodalLoad { node_id: 7, fx: h2, fy: 0.0, mz: 0.0 }),
+        SolverLoad::Nodal(SolverNodalLoad { node_id: 4, fx: h1, fz: 0.0, my: 0.0 }),
+        SolverLoad::Nodal(SolverNodalLoad { node_id: 7, fx: h2, fz: 0.0, my: 0.0 }),
         // Gravity at all floor joints
-        SolverLoad::Nodal(SolverNodalLoad { node_id: 4, fx: 0.0, fy: p_grav, mz: 0.0 }),
-        SolverLoad::Nodal(SolverNodalLoad { node_id: 5, fx: 0.0, fy: p_grav, mz: 0.0 }),
-        SolverLoad::Nodal(SolverNodalLoad { node_id: 6, fx: 0.0, fy: p_grav, mz: 0.0 }),
-        SolverLoad::Nodal(SolverNodalLoad { node_id: 7, fx: 0.0, fy: p_grav, mz: 0.0 }),
-        SolverLoad::Nodal(SolverNodalLoad { node_id: 8, fx: 0.0, fy: p_grav, mz: 0.0 }),
-        SolverLoad::Nodal(SolverNodalLoad { node_id: 9, fx: 0.0, fy: p_grav, mz: 0.0 }),
+        SolverLoad::Nodal(SolverNodalLoad { node_id: 4, fx: 0.0, fz: p_grav, my: 0.0 }),
+        SolverLoad::Nodal(SolverNodalLoad { node_id: 5, fx: 0.0, fz: p_grav, my: 0.0 }),
+        SolverLoad::Nodal(SolverNodalLoad { node_id: 6, fx: 0.0, fz: p_grav, my: 0.0 }),
+        SolverLoad::Nodal(SolverNodalLoad { node_id: 7, fx: 0.0, fz: p_grav, my: 0.0 }),
+        SolverLoad::Nodal(SolverNodalLoad { node_id: 8, fx: 0.0, fz: p_grav, my: 0.0 }),
+        SolverLoad::Nodal(SolverNodalLoad { node_id: 9, fx: 0.0, fz: p_grav, my: 0.0 }),
     ];
 
     let input = make_input(
@@ -150,7 +150,7 @@ fn validation_sap_ext_two_story_two_bay_frame() {
     assert_close(sum_rx.abs(), total_lateral, 0.02, "SAP_EXT2 base shear = applied lateral");
 
     // Total vertical reaction = total gravity = 6 * 50 = 300 kN
-    let sum_ry: f64 = results.reactions.iter().map(|r| r.ry).sum();
+    let sum_ry: f64 = results.reactions.iter().map(|r| r.rz).sum();
     let total_gravity = 6.0 * p_grav.abs();
     assert_close(sum_ry, total_gravity, 0.02, "SAP_EXT2 vertical equilibrium");
 
@@ -260,8 +260,8 @@ fn validation_sap_ext_warren_truss() {
         loads.push(SolverLoad::Nodal(SolverNodalLoad {
             node_id: i,
             fx: 0.0,
-            fy: -p,
-            mz: 0.0,
+            fz: -p,
+            my: 0.0,
         }));
     }
 
@@ -275,14 +275,14 @@ fn validation_sap_ext_warren_truss() {
 
     // Total load = 5 * 20 = 100 kN
     let total_load = (n_panels - 1) as f64 * p;
-    let sum_ry: f64 = results.reactions.iter().map(|r| r.ry).sum();
+    let sum_ry: f64 = results.reactions.iter().map(|r| r.rz).sum();
     assert_close(sum_ry, total_load, 0.02, "SAP_EXT3 truss equilibrium");
 
     // Symmetry: reactions should be equal (symmetric loading on symmetric truss)
     let r1 = results.reactions.iter().find(|r| r.node_id == 1).unwrap();
     let r7 = results.reactions.iter().find(|r| r.node_id == n_panels + 1).unwrap();
-    assert_close(r1.ry, r7.ry, 0.02, "SAP_EXT3 symmetric reactions");
-    assert_close(r1.ry, total_load / 2.0, 0.02, "SAP_EXT3 R = P_total/2");
+    assert_close(r1.rz, r7.rz, 0.02, "SAP_EXT3 symmetric reactions");
+    assert_close(r1.rz, total_load / 2.0, 0.02, "SAP_EXT3 R = P_total/2");
 
     // For a Warren truss, maximum diagonal force occurs near supports.
     // Method of sections at first panel:
@@ -416,12 +416,12 @@ fn validation_sap_ext_gerber_beam_intermediate_hinge() {
     //    Span 1 acts as simply supported → R1 = R_interior_from_span1 = qL1/2
     //    Span 2 has no load and zero moment at left end → R at right end = 0
     let total_load = q * l1;
-    let sum_ry: f64 = results.reactions.iter().map(|r| r.ry).sum();
+    let sum_ry: f64 = results.reactions.iter().map(|r| r.rz).sum();
     assert_close(sum_ry, total_load, 0.02, "SAP_EXT4 vertical equilibrium");
 
     // Reactions: R1 ≈ qL1/2 = 60 kN
     let r1 = results.reactions.iter().find(|r| r.node_id == 1).unwrap();
-    assert_close(r1.ry, q * l1 / 2.0, 0.03, "SAP_EXT4 R1 = qL/2");
+    assert_close(r1.rz, q * l1 / 2.0, 0.03, "SAP_EXT4 R1 = qL/2");
 
     // 3. Max midspan moment of span 1 ≈ qL1²/8 = 15*64/8 = 120 kN·m
     let m_max_expected = q * l1 * l1 / 8.0;
@@ -480,19 +480,19 @@ fn validation_sap_ext_3d_l_frame_torsion() {
 
     // 1. Global equilibrium: reaction Fy at base = +10 kN (opposite to applied)
     let r1 = results.reactions.iter().find(|r| r.node_id == 1).unwrap();
-    assert_close(r1.fy, fy_load.abs(), 0.02, "SAP_EXT5 Fy equilibrium");
+    assert_close(r1.fz, fy_load.abs(), 0.02, "SAP_EXT5 Fy equilibrium");
 
     // 2. Tip deflection should be primarily in Y direction
     let tip = results.displacements.iter().find(|d| d.node_id == 3).unwrap();
-    assert!(tip.uy.abs() > 1e-6, "SAP_EXT5: tip should deflect in Y");
-    assert!(tip.uy < 0.0, "SAP_EXT5: tip Y deflection should be negative (downward)");
+    assert!(tip.uz.abs() > 1e-6, "SAP_EXT5: tip should deflect in Y");
+    assert!(tip.uz < 0.0, "SAP_EXT5: tip Y deflection should be negative (downward)");
 
     // 3. The beam applies a moment at the corner = Fy * w = 10 * 5 = 50 kN·m
     // This must be equilibrated by the column torsion + bending at the base.
     // Check moment equilibrium at base: sum of base moments about Z axis passing through node 1
     // My at base should be related to Fy * some arm, but more precisely:
     // The total base moment magnitude should be nonzero and consistent.
-    let base_m_total = (r1.mx.powi(2) + r1.my.powi(2) + r1.mz.powi(2)).sqrt();
+    let base_m_total = (r1.mx.powi(2) + r1.my.powi(2) + r1.my.powi(2)).sqrt();
     assert!(base_m_total > 1.0, "SAP_EXT5: base should have significant moment, got {:.4}", base_m_total);
 
     // 4. Column element should have torsion (mx component)
@@ -697,8 +697,8 @@ fn validation_sap_ext_pdelta_amplified_portal() {
     let lin_r1 = lin.reactions.iter().find(|r| r.node_id == 1).unwrap();
     let pd_r1 = pd.results.reactions.iter().find(|r| r.node_id == 1).unwrap();
 
-    if lin_r1.mz.abs() > 0.1 {
-        let moment_amp = pd_r1.mz.abs() / lin_r1.mz.abs();
+    if lin_r1.my.abs() > 0.1 {
+        let moment_amp = pd_r1.my.abs() / lin_r1.my.abs();
         // Moment amplification should be in the neighborhood of B2
         assert!(
             moment_amp > 1.0 && moment_amp < b2_eigenvalue * 1.5,
@@ -746,7 +746,7 @@ fn validation_sap_ext_beam_settlement() {
             l + (i - n_per) as f64 * elem_len
         };
         nodes_map.insert((i + 1).to_string(), SolverNode {
-            id: i + 1, x, y: 0.0,
+            id: i + 1, x, z: 0.0,
         });
     }
 
@@ -773,19 +773,19 @@ fn validation_sap_ext_beam_settlement() {
     sups_map.insert("1".to_string(), SolverSupport {
         id: 1, node_id: 1, support_type: "fixed".to_string(),
         kx: None, ky: None, kz: None,
-        dx: None, dy: None, drz: None, angle: None,
+        dx: None, dz: None, dry: None, angle: None,
     });
     // Interior roller with settlement
     sups_map.insert("2".to_string(), SolverSupport {
         id: 2, node_id: interior_node, support_type: "rollerX".to_string(),
         kx: None, ky: None, kz: None,
-        dx: None, dy: Some(delta), drz: None, angle: None,
+        dx: None, dz: Some(delta), dry: None, angle: None,
     });
     // Fixed at right end
     sups_map.insert("3".to_string(), SolverSupport {
         id: 3, node_id: n_nodes, support_type: "fixed".to_string(),
         kx: None, ky: None, kz: None,
-        dx: None, dy: None, drz: None, angle: None,
+        dx: None, dz: None, dry: None, angle: None,
     });
 
     let input = SolverInput {
@@ -796,7 +796,7 @@ fn validation_sap_ext_beam_settlement() {
     let results = linear::solve_2d(&input).unwrap();
 
     // 1. No external load → sum of all reactions = 0
-    let sum_ry: f64 = results.reactions.iter().map(|r| r.ry).sum();
+    let sum_ry: f64 = results.reactions.iter().map(|r| r.rz).sum();
     assert!(
         sum_ry.abs() < 0.5,
         "SAP_EXT8: ΣRy={:.4} should ≈ 0 (no external load)", sum_ry
@@ -811,18 +811,18 @@ fn validation_sap_ext_beam_settlement() {
     // 2. Interior support displacement should match prescribed settlement
     let d_int = results.displacements.iter()
         .find(|d| d.node_id == interior_node).unwrap();
-    assert_close(d_int.uy, delta, 0.03, "SAP_EXT8 settlement at interior support");
+    assert_close(d_int.uz, delta, 0.03, "SAP_EXT8 settlement at interior support");
 
     // 3. Settlement induces nonzero moments at supports
     let r1 = results.reactions.iter().find(|r| r.node_id == 1).unwrap();
     let r_end = results.reactions.iter().find(|r| r.node_id == n_nodes).unwrap();
-    assert!(r1.mz.abs() > 0.01, "SAP_EXT8: left end moment should be nonzero");
-    assert!(r_end.mz.abs() > 0.01, "SAP_EXT8: right end moment should be nonzero");
+    assert!(r1.my.abs() > 0.01, "SAP_EXT8: left end moment should be nonzero");
+    assert!(r_end.my.abs() > 0.01, "SAP_EXT8: right end moment should be nonzero");
 
     // 4. Symmetry: both spans are equal, settlement is symmetric about the midpoint
     // Left and right end reactions should be equal in magnitude
-    assert_close(r1.ry.abs(), r_end.ry.abs(), 0.05, "SAP_EXT8 symmetric end reactions");
-    assert_close(r1.mz.abs(), r_end.mz.abs(), 0.05, "SAP_EXT8 symmetric end moments");
+    assert_close(r1.rz.abs(), r_end.rz.abs(), 0.05, "SAP_EXT8 symmetric end reactions");
+    assert_close(r1.my.abs(), r_end.my.abs(), 0.05, "SAP_EXT8 symmetric end moments");
 
     // 5. The induced moment is proportional to EIδ/L²
     // For a fixed-roller-fixed beam with interior settlement:
@@ -830,14 +830,14 @@ fn validation_sap_ext_beam_settlement() {
     let m_theory = 3.0 * E_EFF * IZ * delta.abs() / (l * l);
     // This is approximate; the two-span system redistributes. Allow generous tolerance.
     assert!(
-        r1.mz.abs() > m_theory * 0.3 && r1.mz.abs() < m_theory * 3.0,
-        "SAP_EXT8: M_left={:.4} should be near {:.4} (3EIδ/L²)", r1.mz.abs(), m_theory
+        r1.my.abs() > m_theory * 0.3 && r1.my.abs() < m_theory * 3.0,
+        "SAP_EXT8: M_left={:.4} should be near {:.4} (3EIδ/L²)", r1.my.abs(), m_theory
     );
 
     // 6. Interior reaction should be nonzero (settlement pushes beam up)
     let r_int = results.reactions.iter().find(|r| r.node_id == interior_node).unwrap();
     assert!(
-        r_int.ry.abs() > 0.1,
-        "SAP_EXT8: interior reaction should be nonzero, got {:.4}", r_int.ry
+        r_int.rz.abs() > 0.1,
+        "SAP_EXT8: interior reaction should be nonzero, got {:.4}", r_int.rz
     );
 }

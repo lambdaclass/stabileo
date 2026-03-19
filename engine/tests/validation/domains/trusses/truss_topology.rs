@@ -79,7 +79,7 @@ fn validation_truss_warren_pattern() {
     ];
     let sups = vec![(1, 1, "pinned"), (2, 5, "rollerX")];
     let loads = vec![SolverLoad::Nodal(SolverNodalLoad {
-        node_id: 3, fx: 0.0, fy: -p, mz: 0.0,
+        node_id: 3, fx: 0.0, fz: -p, my: 0.0,
     })];
     let input = make_input(
         nodes, vec![(1, E, 0.3)], vec![(1, A, IZ)], elems, sups, loads,
@@ -97,7 +97,7 @@ fn validation_truss_warren_pattern() {
     assert!(ef_top.n_start < 0.0, "Warren: top chord in compression");
 
     // Global equilibrium
-    let sum_ry: f64 = results.reactions.iter().map(|r| r.ry).sum();
+    let sum_ry: f64 = results.reactions.iter().map(|r| r.rz).sum();
     assert_close(sum_ry, p, 0.01, "Warren: ΣRy = P");
 }
 
@@ -146,8 +146,8 @@ fn validation_truss_pratt_pattern() {
     let sups = vec![(1, 1, "pinned"), (2, 4, "rollerX")];
     // Loads at top chord joints
     let loads = vec![
-        SolverLoad::Nodal(SolverNodalLoad { node_id: 6, fx: 0.0, fy: -p, mz: 0.0 }),
-        SolverLoad::Nodal(SolverNodalLoad { node_id: 7, fx: 0.0, fy: -p, mz: 0.0 }),
+        SolverLoad::Nodal(SolverNodalLoad { node_id: 6, fx: 0.0, fz: -p, my: 0.0 }),
+        SolverLoad::Nodal(SolverNodalLoad { node_id: 7, fx: 0.0, fz: -p, my: 0.0 }),
     ];
     let input = make_input(
         nodes, vec![(1, E, 0.3)], vec![(1, A, IZ)], elems, sups, loads,
@@ -208,8 +208,8 @@ fn validation_truss_howe_pattern() {
     ];
     let sups = vec![(1, 1, "pinned"), (2, 4, "rollerX")];
     let loads = vec![
-        SolverLoad::Nodal(SolverNodalLoad { node_id: 6, fx: 0.0, fy: -p, mz: 0.0 }),
-        SolverLoad::Nodal(SolverNodalLoad { node_id: 7, fx: 0.0, fy: -p, mz: 0.0 }),
+        SolverLoad::Nodal(SolverNodalLoad { node_id: 6, fx: 0.0, fz: -p, my: 0.0 }),
+        SolverLoad::Nodal(SolverNodalLoad { node_id: 7, fx: 0.0, fz: -p, my: 0.0 }),
     ];
     let input = make_input(
         nodes, vec![(1, E, 0.3)], vec![(1, A, IZ)], elems, sups, loads,
@@ -222,7 +222,7 @@ fn validation_truss_howe_pattern() {
     assert!(ef_diag.n_start.abs() > 0.1, "Howe: diagonal carries force");
 
     // Global equilibrium
-    let sum_ry: f64 = results.reactions.iter().map(|r| r.ry).sum();
+    let sum_ry: f64 = results.reactions.iter().map(|r| r.rz).sum();
     assert_close(sum_ry, 2.0 * p, 0.01, "Howe: ΣRy = 2P");
 }
 
@@ -249,7 +249,7 @@ fn validation_truss_method_of_joints() {
     ];
     let sups = vec![(1, 1, "pinned"), (2, 2, "rollerX")];
     let loads = vec![SolverLoad::Nodal(SolverNodalLoad {
-        node_id: 3, fx: 0.0, fy: -p, mz: 0.0,
+        node_id: 3, fx: 0.0, fz: -p, my: 0.0,
     })];
     let input = make_input(
         nodes, vec![(1, E, 0.3)], vec![(1, A, IZ)], elems, sups, loads,
@@ -259,8 +259,8 @@ fn validation_truss_method_of_joints() {
     // Reactions: Ry1 = Ry2 = P/2
     let r1 = results.reactions.iter().find(|r| r.node_id == 1).unwrap();
     let r2 = results.reactions.iter().find(|r| r.node_id == 2).unwrap();
-    assert_close(r1.ry, p / 2.0, 0.01, "Triangle: Ry1 = P/2");
-    assert_close(r2.ry, p / 2.0, 0.01, "Triangle: Ry2 = P/2");
+    assert_close(r1.rz, p / 2.0, 0.01, "Triangle: Ry1 = P/2");
+    assert_close(r2.rz, p / 2.0, 0.01, "Triangle: Ry2 = P/2");
 
     // Member forces by method of joints:
     // At joint 3 (apex): ΣFy = 0: F13*sinα + F23*sinα = P
@@ -326,8 +326,8 @@ fn validation_truss_k_pattern() {
     ];
     let sups = vec![(1, 1, "pinned"), (2, 4, "rollerX")];
     let loads = vec![
-        SolverLoad::Nodal(SolverNodalLoad { node_id: 6, fx: 0.0, fy: -p, mz: 0.0 }),
-        SolverLoad::Nodal(SolverNodalLoad { node_id: 7, fx: 0.0, fy: -p, mz: 0.0 }),
+        SolverLoad::Nodal(SolverNodalLoad { node_id: 6, fx: 0.0, fz: -p, my: 0.0 }),
+        SolverLoad::Nodal(SolverNodalLoad { node_id: 7, fx: 0.0, fz: -p, my: 0.0 }),
     ];
     let input = make_input(
         nodes, vec![(1, E, 0.3)], vec![(1, A, IZ)], elems, sups, loads,
@@ -335,7 +335,7 @@ fn validation_truss_k_pattern() {
     let results = linear::solve_2d(&input).unwrap();
 
     // Global equilibrium
-    let sum_ry: f64 = results.reactions.iter().map(|r| r.ry).sum();
+    let sum_ry: f64 = results.reactions.iter().map(|r| r.rz).sum();
     assert_close(sum_ry, 2.0 * p, 0.01, "Multi-panel truss: ΣRy = 2P");
 
     // Bottom chord should be in tension at center
@@ -378,7 +378,7 @@ fn validation_truss_symmetry() {
     ];
     let sups = vec![(1, 1, "pinned"), (2, 3, "rollerX")];
     let loads = vec![SolverLoad::Nodal(SolverNodalLoad {
-        node_id: 5, fx: 0.0, fy: -p, mz: 0.0,
+        node_id: 5, fx: 0.0, fz: -p, my: 0.0,
     })];
     let input = make_input(
         nodes, vec![(1, E, 0.3)], vec![(1, A, IZ)], elems, sups, loads,
@@ -388,7 +388,7 @@ fn validation_truss_symmetry() {
     // By symmetry: reactions equal
     let r1 = results.reactions.iter().find(|r| r.node_id == 1).unwrap();
     let r3 = results.reactions.iter().find(|r| r.node_id == 3).unwrap();
-    assert_close(r1.ry, r3.ry, 0.01, "Symmetric truss: equal reactions");
+    assert_close(r1.rz, r3.rz, 0.01, "Symmetric truss: equal reactions");
 
     // Symmetric member pairs should have equal force magnitude
     // BC left (1) = BC right (2), TC left (3) = TC right (4)
@@ -421,7 +421,7 @@ fn validation_truss_depth_effect() {
         ];
         let sups = vec![(1, 1, "pinned"), (2, 2, "rollerX")];
         let loads = vec![SolverLoad::Nodal(SolverNodalLoad {
-            node_id: 3, fx: 0.0, fy: -p, mz: 0.0,
+            node_id: 3, fx: 0.0, fz: -p, my: 0.0,
         })];
         let input = make_input(
             nodes, vec![(1, E, 0.3)], vec![(1, A, IZ)], elems, sups, loads,
@@ -481,10 +481,10 @@ fn validation_truss_global_equilibrium() {
     ];
     let sups = vec![(1, 1, "pinned"), (2, 5, "rollerX")];
     let loads = vec![
-        SolverLoad::Nodal(SolverNodalLoad { node_id: 6, fx: 0.0, fy: -10.0, mz: 0.0 }),
-        SolverLoad::Nodal(SolverNodalLoad { node_id: 7, fx: 0.0, fy: -20.0, mz: 0.0 }),
-        SolverLoad::Nodal(SolverNodalLoad { node_id: 8, fx: 0.0, fy: -10.0, mz: 0.0 }),
-        SolverLoad::Nodal(SolverNodalLoad { node_id: 3, fx: 5.0, fy: 0.0, mz: 0.0 }),
+        SolverLoad::Nodal(SolverNodalLoad { node_id: 6, fx: 0.0, fz: -10.0, my: 0.0 }),
+        SolverLoad::Nodal(SolverNodalLoad { node_id: 7, fx: 0.0, fz: -20.0, my: 0.0 }),
+        SolverLoad::Nodal(SolverNodalLoad { node_id: 8, fx: 0.0, fz: -10.0, my: 0.0 }),
+        SolverLoad::Nodal(SolverNodalLoad { node_id: 3, fx: 5.0, fz: 0.0, my: 0.0 }),
     ];
     let input = make_input(
         nodes, vec![(1, E, 0.3)], vec![(1, A, IZ)], elems, sups, loads,
@@ -496,6 +496,6 @@ fn validation_truss_global_equilibrium() {
     assert_close(sum_rx, -5.0, 0.01, "Truss equilibrium: ΣRx = -5");
 
     // ΣFy = 0: Ry_reactions = 40
-    let sum_ry: f64 = results.reactions.iter().map(|r| r.ry).sum();
+    let sum_ry: f64 = results.reactions.iter().map(|r| r.rz).sum();
     assert_close(sum_ry, 40.0, 0.01, "Truss equilibrium: ΣRy = 40");
 }

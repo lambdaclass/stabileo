@@ -66,8 +66,8 @@ fn validation_overhang_ext_tip_deflection_formula() {
     let loads = vec![SolverLoad::Nodal(SolverNodalLoad {
         node_id: 7,
         fx: 0.0,
-        fy: -p,
-        mz: 0.0,
+        fz: -p,
+        my: 0.0,
     })];
 
     let input = make_input(nodes, mats, secs, elems, sups, loads);
@@ -82,8 +82,8 @@ fn validation_overhang_ext_tip_deflection_formula() {
     let delta_expected = p * a.powi(2) * (a + span_l) / (3.0 * ei);
 
     // Tip should deflect downward
-    assert!(d7.uy < 0.0, "Tip should deflect downward, got uy = {}", d7.uy);
-    assert_close(d7.uy.abs(), delta_expected, 0.01, "Overhang tip deflection magnitude");
+    assert!(d7.uz < 0.0, "Tip should deflect downward, got uy = {}", d7.uz);
+    assert_close(d7.uz.abs(), delta_expected, 0.01, "Overhang tip deflection magnitude");
 }
 
 // ================================================================
@@ -125,8 +125,8 @@ fn validation_overhang_ext_shear_discontinuity() {
     let loads = vec![SolverLoad::Nodal(SolverNodalLoad {
         node_id: 5,
         fx: 0.0,
-        fy: -10.0,
-        mz: 0.0,
+        fz: -10.0,
+        my: 0.0,
     })];
 
     let input = make_input(nodes, mats, secs, elems, sups, loads);
@@ -134,7 +134,7 @@ fn validation_overhang_ext_shear_discontinuity() {
 
     let r3 = results.reactions.iter().find(|r| r.node_id == 3).unwrap();
     let r3_expected = 100.0 / 6.0;
-    assert_close(r3.ry, r3_expected, 1e-3, "R3 reaction");
+    assert_close(r3.rz, r3_expected, 1e-3, "R3 reaction");
 
     let ef2 = results.element_forces.iter().find(|e| e.element_id == 2).unwrap();
     let ef3 = results.element_forces.iter().find(|e| e.element_id == 3).unwrap();
@@ -215,11 +215,11 @@ fn validation_overhang_ext_triangular_load() {
     // R_5 * 8 = 24 * 32/3 = 256  =>  R_5 = 32
     // R_1 = 24 - 32 = -8
     let total_load: f64 = 24.0;
-    assert_close(r5.ry, 32.0, 0.02, "R5 reaction (upward)");
-    assert_close(r1.ry, -8.0, 0.02, "R1 reaction (hold-down)");
+    assert_close(r5.rz, 32.0, 0.02, "R5 reaction (upward)");
+    assert_close(r1.rz, -8.0, 0.02, "R1 reaction (hold-down)");
 
     // Equilibrium check
-    let sum_ry: f64 = results.reactions.iter().map(|r| r.ry).sum();
+    let sum_ry: f64 = results.reactions.iter().map(|r| r.rz).sum();
     assert_close(sum_ry, total_load, 0.01, "Vertical equilibrium");
 }
 
@@ -265,8 +265,8 @@ fn validation_overhang_ext_moment_distribution() {
     let loads = vec![SolverLoad::Nodal(SolverNodalLoad {
         node_id: 10,
         fx: 0.0,
-        fy: -p,
-        mz: 0.0,
+        fz: -p,
+        my: 0.0,
     })];
 
     let input = make_input(nodes, mats, secs, elems, sups, loads);
@@ -275,8 +275,8 @@ fn validation_overhang_ext_moment_distribution() {
     // Verify reactions
     let r1 = results.reactions.iter().find(|r| r.node_id == 1).unwrap();
     let r7 = results.reactions.iter().find(|r| r.node_id == 7).unwrap();
-    assert_close(r1.ry, -7.5, 1e-3, "R1 reaction");
-    assert_close(r7.ry, 22.5, 1e-3, "R7 reaction");
+    assert_close(r1.rz, -7.5, 1e-3, "R1 reaction");
+    assert_close(r7.rz, 22.5, 1e-3, "R7 reaction");
 
     // Moment at the interior support (x=6): M = R_1 * 6 = -45 kN*m
     // Element 6 ends at node 7 (x=6)
@@ -358,14 +358,14 @@ fn validation_overhang_ext_unequal_tip_loads() {
         SolverLoad::Nodal(SolverNodalLoad {
             node_id: 1,
             fx: 0.0,
-            fy: -8.0,
-            mz: 0.0,
+            fz: -8.0,
+            my: 0.0,
         }),
         SolverLoad::Nodal(SolverNodalLoad {
             node_id: 7,
             fx: 0.0,
-            fy: -20.0,
-            mz: 0.0,
+            fz: -20.0,
+            my: 0.0,
         }),
     ];
 
@@ -379,15 +379,15 @@ fn validation_overhang_ext_unequal_tip_loads() {
     let r3_expected = 4.0;
     let r5_expected = 24.0;
 
-    assert_close(r5.ry, r5_expected, 1e-3, "R5 reaction (right support)");
-    assert_close(r3.ry, r3_expected, 1e-3, "R3 reaction (left support)");
+    assert_close(r5.rz, r5_expected, 1e-3, "R5 reaction (right support)");
+    assert_close(r3.rz, r3_expected, 1e-3, "R3 reaction (left support)");
 
     // Both reactions should be positive (upward) — the right overhang load
     // dominates but does not cause uplift at the left support in this case.
-    assert!(r3.ry > 0.0, "Left support reaction should be upward: got {}", r3.ry);
+    assert!(r3.rz > 0.0, "Left support reaction should be upward: got {}", r3.rz);
 
     // Equilibrium
-    let sum_ry: f64 = results.reactions.iter().map(|r| r.ry).sum();
+    let sum_ry: f64 = results.reactions.iter().map(|r| r.rz).sum();
     assert_close(sum_ry, 28.0, 1e-3, "Vertical equilibrium: sum Ry = 28 kN");
 }
 
@@ -439,8 +439,8 @@ fn validation_overhang_ext_applied_moment_at_tip() {
     let loads = vec![SolverLoad::Nodal(SolverNodalLoad {
         node_id: 4,
         fx: 0.0,
-        fy: 0.0,
-        mz: m0,
+        fz: 0.0,
+        my: m0,
     })];
 
     let input = make_input(nodes, mats, secs, elems, sups, loads);
@@ -450,11 +450,11 @@ fn validation_overhang_ext_applied_moment_at_tip() {
     let r1 = results.reactions.iter().find(|r| r.node_id == 1).unwrap();
     let r3 = results.reactions.iter().find(|r| r.node_id == 3).unwrap();
 
-    assert_close(r1.ry, 5.0, 1e-3, "R1 reaction (upward)");
-    assert_close(r3.ry, -5.0, 1e-3, "R3 reaction (downward)");
+    assert_close(r1.rz, 5.0, 1e-3, "R1 reaction (upward)");
+    assert_close(r3.rz, -5.0, 1e-3, "R3 reaction (downward)");
 
     // No net vertical load
-    let sum_ry: f64 = results.reactions.iter().map(|r| r.ry).sum();
+    let sum_ry: f64 = results.reactions.iter().map(|r| r.rz).sum();
     assert_close(sum_ry, 0.0, 1e-3, "Sum Ry = 0 (pure couple)");
 
     // Moment at interior support (x=6): M = R1 * 6 = 30
@@ -534,19 +534,19 @@ fn validation_overhang_ext_tip_rotation_udl() {
     let r1 = results.reactions.iter().find(|r| r.node_id == 1).unwrap();
     let r5 = results.reactions.iter().find(|r| r.node_id == 5).unwrap();
 
-    assert_close(r5.ry, 30.0, 1e-3, "R5 reaction");
-    assert_close(r1.ry, -6.0, 1e-3, "R1 reaction (hold-down)");
+    assert_close(r5.rz, 30.0, 1e-3, "R5 reaction");
+    assert_close(r1.rz, -6.0, 1e-3, "R1 reaction (hold-down)");
 
     // Equilibrium
-    let sum_ry: f64 = results.reactions.iter().map(|r| r.ry).sum();
+    let sum_ry: f64 = results.reactions.iter().map(|r| r.rz).sum();
     assert_close(sum_ry, 24.0, 1e-3, "Sum Ry = 24 kN");
 
     // Tip rotation: should be negative (clockwise) since load pushes overhang down
     let d7 = results.displacements.iter().find(|d| d.node_id == 7).unwrap();
-    assert!(d7.rz < 0.0, "Tip rotation should be clockwise (rz < 0): got {}", d7.rz);
+    assert!(d7.ry < 0.0, "Tip rotation should be clockwise (rz < 0): got {}", d7.ry);
 
     // Tip deflection should be downward
-    assert!(d7.uy < 0.0, "Tip deflection should be downward: got {}", d7.uy);
+    assert!(d7.uz < 0.0, "Tip deflection should be downward: got {}", d7.uz);
 
     // Analytical tip rotation for this configuration:
     // theta_tip = -q*a^3/(6*EI) + theta_B (slope at support B from main span bending)
@@ -567,7 +567,7 @@ fn validation_overhang_ext_tip_rotation_udl() {
     let theta_tip_expected = theta_b_span + theta_cantilever;
     // This is approximate since the combined deflection involves the full beam,
     // but the sign should match and order of magnitude should be correct.
-    assert_close(d7.rz, theta_tip_expected, 0.05, "Tip rotation magnitude check");
+    assert_close(d7.ry, theta_tip_expected, 0.05, "Tip rotation magnitude check");
 }
 
 // ================================================================
@@ -599,8 +599,8 @@ fn validation_overhang_ext_maxwell_reciprocal() {
         let loads = vec![SolverLoad::Nodal(SolverNodalLoad {
             node_id: load_node,
             fx: 0.0,
-            fy: -1.0,
-            mz: 0.0,
+            fz: -1.0,
+            my: 0.0,
         })];
         make_input(nodes, mats, secs, elems, sups, loads)
     };
@@ -608,12 +608,12 @@ fn validation_overhang_ext_maxwell_reciprocal() {
     // Case A: load at node 3, measure at node 6
     let input_a = build_model(3);
     let results_a = linear::solve_2d(&input_a).unwrap();
-    let d6_case_a = results_a.displacements.iter().find(|d| d.node_id == 6).unwrap().uy;
+    let d6_case_a = results_a.displacements.iter().find(|d| d.node_id == 6).unwrap().uz;
 
     // Case B: load at node 6, measure at node 3
     let input_b = build_model(6);
     let results_b = linear::solve_2d(&input_b).unwrap();
-    let d3_case_b = results_b.displacements.iter().find(|d| d.node_id == 3).unwrap().uy;
+    let d3_case_b = results_b.displacements.iter().find(|d| d.node_id == 3).unwrap().uz;
 
     // Maxwell's reciprocal theorem: delta_AB = delta_BA
     assert_close(d6_case_a, d3_case_b, 1e-3, "Maxwell reciprocal: delta_AB = delta_BA");

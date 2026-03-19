@@ -38,11 +38,11 @@ fn validation_condensation_cantilever_convergence() {
     // Euler-Bernoulli frame elements should be exact even with 1 element
     for n in &[1, 2, 4, 8, 16] {
         let loads = vec![SolverLoad::Nodal(SolverNodalLoad {
-            node_id: n + 1, fx: 0.0, fy: -p, mz: 0.0,
+            node_id: n + 1, fx: 0.0, fz: -p, my: 0.0,
         })];
         let input = make_beam(*n, l, E, A, IZ, "fixed", None, loads);
         let d = linear::solve_2d(&input).unwrap()
-            .displacements.iter().find(|d| d.node_id == n + 1).unwrap().uy.abs();
+            .displacements.iter().find(|d| d.node_id == n + 1).unwrap().uz.abs();
 
         assert_close(d, delta_exact, 0.02,
             &format!("Convergence cantilever n={}: exact with cubic shape functions", n));
@@ -69,7 +69,7 @@ fn validation_condensation_ss_udl_convergence() {
             .collect();
         let input = make_beam(*n, l, E, A, IZ, "pinned", Some("rollerX"), loads);
         let d = linear::solve_2d(&input).unwrap()
-            .displacements.iter().find(|d| d.node_id == mid).unwrap().uy.abs();
+            .displacements.iter().find(|d| d.node_id == mid).unwrap().uz.abs();
 
         assert_close(d, delta_exact, 0.02,
             &format!("Convergence SS UDL n={}", n));
@@ -88,7 +88,7 @@ fn validation_condensation_single_element() {
 
     // Single element cantilever with tip load
     let loads = vec![SolverLoad::Nodal(SolverNodalLoad {
-        node_id: 2, fx: 0.0, fy: -p, mz: 0.0,
+        node_id: 2, fx: 0.0, fz: -p, my: 0.0,
     })];
     let input = make_beam(1, l, E, A, IZ, "fixed", None, loads);
     let results = linear::solve_2d(&input).unwrap();
@@ -97,15 +97,15 @@ fn validation_condensation_single_element() {
 
     // δ = PL³/(3EI)
     let delta_exact = p * l * l * l / (3.0 * e_eff * IZ);
-    assert_close(tip.uy.abs(), delta_exact, 0.02, "Single elem: δ exact");
+    assert_close(tip.uz.abs(), delta_exact, 0.02, "Single elem: δ exact");
 
     // θ = PL²/(2EI)
     let theta_exact = p * l * l / (2.0 * e_eff * IZ);
-    assert_close(tip.rz.abs(), theta_exact, 0.02, "Single elem: θ exact");
+    assert_close(tip.ry.abs(), theta_exact, 0.02, "Single elem: θ exact");
 
     // Reaction moment = PL
     let r1 = results.reactions.iter().find(|r| r.node_id == 1).unwrap();
-    assert_close(r1.mz.abs(), p * l, 0.02, "Single elem: M_base = PL");
+    assert_close(r1.my.abs(), p * l, 0.02, "Single elem: M_base = PL");
 }
 
 // ================================================================
@@ -124,20 +124,20 @@ fn validation_condensation_dof_count() {
     // Test different support conditions give different tip deflections
     let d_fixed = {
         let loads = vec![SolverLoad::Nodal(SolverNodalLoad {
-            node_id: n + 1, fx: 0.0, fy: -p, mz: 0.0,
+            node_id: n + 1, fx: 0.0, fz: -p, my: 0.0,
         })];
         let input = make_beam(n, l, E, A, IZ, "fixed", None, loads);
         linear::solve_2d(&input).unwrap()
-            .displacements.iter().find(|d| d.node_id == n + 1).unwrap().uy.abs()
+            .displacements.iter().find(|d| d.node_id == n + 1).unwrap().uz.abs()
     };
 
     let d_pinned = {
         let loads = vec![SolverLoad::Nodal(SolverNodalLoad {
-            node_id: n / 2 + 1, fx: 0.0, fy: -p, mz: 0.0,
+            node_id: n / 2 + 1, fx: 0.0, fz: -p, my: 0.0,
         })];
         let input = make_beam(n, l, E, A, IZ, "pinned", Some("rollerX"), loads);
         linear::solve_2d(&input).unwrap()
-            .displacements.iter().find(|d| d.node_id == n / 2 + 1).unwrap().uy.abs()
+            .displacements.iter().find(|d| d.node_id == n / 2 + 1).unwrap().uz.abs()
     };
 
     // Both should be non-zero
@@ -169,10 +169,10 @@ fn validation_condensation_zero_at_support() {
     let d1 = results.displacements.iter().find(|d| d.node_id == 1).unwrap();
     let d_end = results.displacements.iter().find(|d| d.node_id == n + 1).unwrap();
 
-    assert!(d1.uy.abs() < 1e-10, "Fixed left: uy = 0");
-    assert!(d1.rz.abs() < 1e-10, "Fixed left: rz = 0");
-    assert!(d_end.uy.abs() < 1e-10, "Fixed right: uy = 0");
-    assert!(d_end.rz.abs() < 1e-10, "Fixed right: rz = 0");
+    assert!(d1.uz.abs() < 1e-10, "Fixed left: uy = 0");
+    assert!(d1.ry.abs() < 1e-10, "Fixed left: rz = 0");
+    assert!(d_end.uz.abs() < 1e-10, "Fixed right: uy = 0");
+    assert!(d_end.ry.abs() < 1e-10, "Fixed right: rz = 0");
 }
 
 // ================================================================
@@ -190,7 +190,7 @@ fn validation_condensation_prescribed() {
     let mut nodes = std::collections::HashMap::new();
     for i in 0..=n {
         nodes.insert((i + 1).to_string(), SolverNode {
-            id: i + 1, x: i as f64 * l / n as f64, y: 0.0,
+            id: i + 1, x: i as f64 * l / n as f64, z: 0.0,
         });
     }
     let mut mats = std::collections::HashMap::new();
@@ -210,13 +210,13 @@ fn validation_condensation_prescribed() {
         id: 1, node_id: 1,
         support_type: "fixed".to_string(),
         kx: None, ky: None, kz: None,
-        dx: None, dy: None, drz: None, angle: None,
+        dx: None, dz: None, dry: None, angle: None,
     });
     sups.insert("2".to_string(), SolverSupport {
         id: 2, node_id: n + 1,
         support_type: "fixed".to_string(),
         kx: None, ky: None, kz: None,
-        dx: None, dy: Some(-delta), drz: None, angle: None,
+        dx: None, dz: Some(-delta), dry: None, angle: None,
     });
 
     let input = SolverInput {
@@ -227,11 +227,11 @@ fn validation_condensation_prescribed() {
 
     // Reactions should exist (settlement produces forces)
     let r1 = results.reactions.iter().find(|r| r.node_id == 1).unwrap();
-    assert!(r1.ry.abs() > 0.0, "Prescribed: non-zero reaction");
+    assert!(r1.rz.abs() > 0.0, "Prescribed: non-zero reaction");
 
     // M = 6EIδ/L²
     let m_exact = 6.0 * e_eff * IZ * delta / (l * l);
-    assert_close(r1.mz.abs(), m_exact, 0.05,
+    assert_close(r1.my.abs(), m_exact, 0.05,
         "Prescribed: M = 6EIδ/L²");
 }
 
@@ -250,7 +250,7 @@ fn validation_condensation_mixed_supports() {
     let mut nodes = std::collections::HashMap::new();
     for i in 0..=n {
         nodes.insert((i + 1).to_string(), SolverNode {
-            id: i + 1, x: i as f64 * l / n as f64, y: 0.0,
+            id: i + 1, x: i as f64 * l / n as f64, z: 0.0,
         });
     }
     let mut mats = std::collections::HashMap::new();
@@ -270,17 +270,17 @@ fn validation_condensation_mixed_supports() {
         id: 1, node_id: 1,
         support_type: "fixed".to_string(),
         kx: None, ky: None, kz: None,
-        dx: None, dy: None, drz: None, angle: None,
+        dx: None, dz: None, dry: None, angle: None,
     });
     sups.insert("2".to_string(), SolverSupport {
         id: 2, node_id: n + 1,
         support_type: "spring".to_string(),
         kx: None, ky: Some(k_spring), kz: None,
-        dx: None, dy: None, drz: None, angle: None,
+        dx: None, dz: None, dry: None, angle: None,
     });
 
     let loads = vec![SolverLoad::Nodal(SolverNodalLoad {
-        node_id: n / 2 + 1, fx: 0.0, fy: -p, mz: 0.0,
+        node_id: n / 2 + 1, fx: 0.0, fz: -p, my: 0.0,
     })];
 
     let input = SolverInput {
@@ -291,12 +291,12 @@ fn validation_condensation_mixed_supports() {
 
     // Right end should have non-zero deflection (spring compresses)
     let d_end = results.displacements.iter().find(|d| d.node_id == n + 1).unwrap();
-    assert!(d_end.uy.abs() > 0.0,
-        "Spring support: non-zero deflection: {:.6e}", d_end.uy);
+    assert!(d_end.uz.abs() > 0.0,
+        "Spring support: non-zero deflection: {:.6e}", d_end.uz);
 
     // Spring force = k × δ
     let r_end = results.reactions.iter().find(|r| r.node_id == n + 1).unwrap();
-    assert_close(r_end.ry, -k_spring * d_end.uy, 0.02,
+    assert_close(r_end.rz, -k_spring * d_end.uz, 0.02,
         "Spring: R = k×δ");
 }
 
@@ -319,11 +319,11 @@ fn validation_condensation_refinement_consistency() {
     for n in &[2, 4, 8, 16] {
         let mid = n / 2 + 1;
         let loads = vec![SolverLoad::Nodal(SolverNodalLoad {
-            node_id: mid, fx: 0.0, fy: -p, mz: 0.0,
+            node_id: mid, fx: 0.0, fz: -p, my: 0.0,
         })];
         let input = make_beam(*n, l, E, A, IZ, "pinned", Some("rollerX"), loads);
         let d = linear::solve_2d(&input).unwrap()
-            .displacements.iter().find(|d| d.node_id == mid).unwrap().uy.abs();
+            .displacements.iter().find(|d| d.node_id == mid).unwrap().uz.abs();
 
         assert_close(d, delta_exact, 0.02,
             &format!("Refinement n={}: exact PL³/(48EI)", n));

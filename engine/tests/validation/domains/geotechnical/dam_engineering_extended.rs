@@ -76,12 +76,12 @@ fn dam_gravity_sliding_frame_model() {
     let results = linear::solve_2d(&input).expect("solve");
 
     // Total vertical reaction should equal v_net
-    let total_ry: f64 = results.reactions.iter().map(|r| r.ry).sum();
+    let total_ry: f64 = results.reactions.iter().map(|r| r.rz).sum();
     assert_close(total_ry, v_net, 0.01, "Total vertical reaction vs net weight");
 
     // Each support reaction for uniform load on SS beam = v_net / 2
     let r_left = results.reactions.iter().find(|r| r.node_id == 1).unwrap();
-    assert_close(r_left.ry, v_net / 2.0, 0.02, "Left reaction = v_net/2");
+    assert_close(r_left.rz, v_net / 2.0, 0.02, "Left reaction = v_net/2");
 
     // Sliding factor of safety (analytical)
     let phi: f64 = 45.0_f64.to_radians();
@@ -162,11 +162,11 @@ fn dam_overturning_stability() {
     let r_base = results.reactions.iter().find(|r| r.node_id == 1).unwrap();
 
     // The base moment from the solver should match the analytical value
-    assert_close(r_base.mz.abs(), m_base_analytical, 0.02,
+    assert_close(r_base.my.abs(), m_base_analytical, 0.02,
         "Base moment from hydrostatic triangular load");
 
     // Base shear should equal total hydrostatic force
-    assert_close(r_base.ry.abs(), f_hydro, 0.02,
+    assert_close(r_base.rz.abs(), f_hydro, 0.02,
         "Base shear = total hydrostatic force");
 
     // Now compute overturning stability
@@ -230,17 +230,17 @@ fn dam_hydrostatic_pressure_cantilever() {
     let q_max: f64 = gamma_w * h;
     let delta_exact: f64 = q_max * h.powi(4) / (30.0 * e_eff * iz);
 
-    let error: f64 = (tip.uy.abs() - delta_exact).abs() / delta_exact;
+    let error: f64 = (tip.uz.abs() - delta_exact).abs() / delta_exact;
     assert!(
         error < 0.05,
         "Hydrostatic cantilever tip: delta={:.6e}, exact={:.6e}, err={:.1}%",
-        tip.uy.abs(), delta_exact, error * 100.0
+        tip.uz.abs(), delta_exact, error * 100.0
     );
 
     // Also check base reaction: total force = 0.5 * gamma_w * h^2
     let f_total: f64 = 0.5 * gamma_w * h * h;
     let r_base = results.reactions.iter().find(|r| r.node_id == 1).unwrap();
-    assert_close(r_base.ry.abs(), f_total, 0.02, "Base shear = 0.5*gamma_w*h^2");
+    assert_close(r_base.rz.abs(), f_total, 0.02, "Base shear = 0.5*gamma_w*h^2");
 }
 
 // ================================================================
@@ -294,7 +294,7 @@ fn dam_uplift_pressure_base_model() {
     let results = linear::solve_2d(&input).expect("solve");
 
     // Total vertical reaction = net load * base width
-    let total_ry: f64 = results.reactions.iter().map(|r| r.ry).sum();
+    let total_ry: f64 = results.reactions.iter().map(|r| r.rz).sum();
     let expected_ry: f64 = -q_net * b; // reactions oppose applied load
 
     assert_close(total_ry, expected_ry, 0.02,
@@ -305,11 +305,11 @@ fn dam_uplift_pressure_base_model() {
     let mid_d = results.displacements.iter().find(|d| d.node_id == mid_node).unwrap();
     let delta_exact: f64 = 5.0 * q_net.abs() * b.powi(4) / (384.0 * e_eff * iz);
 
-    let error: f64 = (mid_d.uy.abs() - delta_exact).abs() / delta_exact;
+    let error: f64 = (mid_d.uz.abs() - delta_exact).abs() / delta_exact;
     assert!(
         error < 0.05,
         "Midspan deflection with uplift: delta={:.6e}, exact={:.6e}, err={:.1}%",
-        mid_d.uy.abs(), delta_exact, error * 100.0
+        mid_d.uz.abs(), delta_exact, error * 100.0
     );
 
     // Uplift reduces net load: verify reaction is less than no-uplift case
@@ -369,12 +369,12 @@ fn dam_arch_ring_thrust() {
         let theta: f64 = std::f64::consts::PI * i as f64 / n_seg as f64;
         // Radial inward direction: (-cos(theta), -sin(theta))
         let fx: f64 = -p * arc_seg * theta.cos();
-        let fy: f64 = -p * arc_seg * theta.sin();
+        let fz: f64 = -p * arc_seg * theta.sin();
         loads.push(SolverLoad::Nodal(SolverNodalLoad {
             node_id: i + 1,
             fx,
-            fy,
-            mz: 0.0,
+            fz,
+            my: 0.0,
         }));
     }
     // Half-tributary loads at abutment nodes
@@ -382,15 +382,15 @@ fn dam_arch_ring_thrust() {
     loads.push(SolverLoad::Nodal(SolverNodalLoad {
         node_id: 1,
         fx: -p * (arc_seg / 2.0) * theta_0.cos(),
-        fy: -p * (arc_seg / 2.0) * theta_0.sin(),
-        mz: 0.0,
+        fz: -p * (arc_seg / 2.0) * theta_0.sin(),
+        my: 0.0,
     }));
     let theta_n: f64 = std::f64::consts::PI;
     loads.push(SolverLoad::Nodal(SolverNodalLoad {
         node_id: n_nodes,
         fx: -p * (arc_seg / 2.0) * theta_n.cos(),
-        fy: -p * (arc_seg / 2.0) * theta_n.sin(),
-        mz: 0.0,
+        fz: -p * (arc_seg / 2.0) * theta_n.sin(),
+        my: 0.0,
     }));
 
     let input = make_input(
@@ -490,16 +490,16 @@ fn dam_buttress_load_sharing() {
     let total_load: f64 = q_slab.abs() * spacing;
 
     // Total vertical reactions should equal total load
-    let total_ry: f64 = results.reactions.iter().map(|r| r.ry).sum();
+    let total_ry: f64 = results.reactions.iter().map(|r| r.rz).sum();
     assert_close(total_ry, total_load, 0.02,
         "Total vertical reaction = slab load");
 
     // By symmetry, each buttress carries half the load
     let r_left = results.reactions.iter().find(|r| r.node_id == 1).unwrap();
     let r_right = results.reactions.iter().find(|r| r.node_id == 4).unwrap();
-    assert_close(r_left.ry, r_right.ry, 0.02,
+    assert_close(r_left.rz, r_right.rz, 0.02,
         "Symmetric buttress reactions");
-    assert_close(r_left.ry, total_load / 2.0, 0.02,
+    assert_close(r_left.rz, total_load / 2.0, 0.02,
         "Each buttress carries half the load");
 
     // Column axial force should be approximately total_load / 2
@@ -564,8 +564,8 @@ fn dam_spillway_pier_cantilever() {
     loads.push(SolverLoad::Nodal(SolverNodalLoad {
         node_id: hydro_node,
         fx: 0.0,
-        fy: -f_hydrodyn, // transverse
-        mz: 0.0,
+        fz: -f_hydrodyn, // transverse
+        my: 0.0,
     }));
 
     let input = make_beam(n, h, e, a_sec, iz, "fixed", None, loads);
@@ -580,12 +580,12 @@ fn dam_spillway_pier_cantilever() {
     // Solver base moment
     let r_base = results.reactions.iter().find(|r| r.node_id == 1).unwrap();
 
-    assert_close(r_base.mz.abs(), m_total, 0.05,
+    assert_close(r_base.my.abs(), m_total, 0.05,
         "Base moment = hydrostatic + hydrodynamic");
 
     // Base shear = hydrostatic force + hydrodynamic force
     let v_total: f64 = f_hydrostatic + f_hydrodyn;
-    assert_close(r_base.ry.abs(), v_total, 0.03,
+    assert_close(r_base.rz.abs(), v_total, 0.03,
         "Base shear = F_hydrostatic + F_hydrodynamic");
 }
 
@@ -627,8 +627,8 @@ fn dam_seismic_westergaard_added_mass() {
             loads.push(SolverLoad::Nodal(SolverNodalLoad {
                 node_id: i + 1,
                 fx: 0.0,
-                fy: -f_node, // transverse to beam
-                mz: 0.0,
+                fz: -f_node, // transverse to beam
+                my: 0.0,
             }));
         }
     }
@@ -644,7 +644,7 @@ fn dam_seismic_westergaard_added_mass() {
     let r_base = results.reactions.iter().find(|r| r.node_id == 1).unwrap();
 
     // Allow some tolerance due to discrete nodal approximation
-    assert_close(r_base.ry.abs(), f_total_analytical, 0.05,
+    assert_close(r_base.rz.abs(), f_total_analytical, 0.05,
         "Westergaard base shear vs 7/12*rho*a*H^2");
 
     // Analytical base moment:
@@ -661,12 +661,12 @@ fn dam_seismic_westergaard_added_mass() {
     // M = 7/8 * rho_w * a_g * H^3 * 4/15
     let m_analytical: f64 = 7.0 / 8.0 * rho_w * a_g * h.powi(3) * 4.0 / 15.0;
 
-    assert_close(r_base.mz.abs(), m_analytical, 0.10,
+    assert_close(r_base.my.abs(), m_analytical, 0.10,
         "Westergaard base moment");
 
     // The effective application height = M/F
     let y_eff_analytical: f64 = m_analytical / f_total_analytical;
-    let y_eff_solver: f64 = r_base.mz.abs() / r_base.ry.abs();
+    let y_eff_solver: f64 = r_base.my.abs() / r_base.rz.abs();
 
     // Effective height should be around 0.4*H (Westergaard)
     assert_close(y_eff_solver, y_eff_analytical, 0.10,

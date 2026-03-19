@@ -154,8 +154,8 @@ fn validation_pdelta_ext_lean_on_column() {
     ];
     let sups = vec![(1, 1, "fixed"), (2, 4, "fixed")];
     let loads_b = vec![
-        SolverLoad::Nodal(SolverNodalLoad { node_id: 2, fx: f, fy: 0.0, mz: 0.0 }),
-        SolverLoad::Nodal(SolverNodalLoad { node_id: 3, fx: 0.0, fy: -p_total, mz: 0.0 }),
+        SolverLoad::Nodal(SolverNodalLoad { node_id: 2, fx: f, fz: 0.0, my: 0.0 }),
+        SolverLoad::Nodal(SolverNodalLoad { node_id: 3, fx: 0.0, fz: -p_total, my: 0.0 }),
     ];
     let input_b = make_input(nodes, vec![(1, E, 0.3)], vec![(1, A, IZ)], elems, sups, loads_b);
 
@@ -212,10 +212,10 @@ fn validation_pdelta_ext_soft_story() {
     ];
     let sups = vec![(1, 1, "fixed"), (2, 2, "fixed")];
     let loads = vec![
-        SolverLoad::Nodal(SolverNodalLoad { node_id: 3, fx: f, fy: -p, mz: 0.0 }),
-        SolverLoad::Nodal(SolverNodalLoad { node_id: 4, fx: 0.0, fy: -p, mz: 0.0 }),
-        SolverLoad::Nodal(SolverNodalLoad { node_id: 5, fx: f, fy: -p, mz: 0.0 }),
-        SolverLoad::Nodal(SolverNodalLoad { node_id: 6, fx: 0.0, fy: -p, mz: 0.0 }),
+        SolverLoad::Nodal(SolverNodalLoad { node_id: 3, fx: f, fz: -p, my: 0.0 }),
+        SolverLoad::Nodal(SolverNodalLoad { node_id: 4, fx: 0.0, fz: -p, my: 0.0 }),
+        SolverLoad::Nodal(SolverNodalLoad { node_id: 5, fx: f, fz: -p, my: 0.0 }),
+        SolverLoad::Nodal(SolverNodalLoad { node_id: 6, fx: 0.0, fz: -p, my: 0.0 }),
     ];
 
     let input = make_input(
@@ -288,7 +288,7 @@ fn validation_pdelta_ext_distributed_lateral() {
         }));
     }
     loads.push(SolverLoad::Nodal(SolverNodalLoad {
-        node_id: n + 1, fx: 0.0, fy: -p_grav, mz: 0.0,
+        node_id: n + 1, fx: 0.0, fz: -p_grav, my: 0.0,
     }));
 
     let input = make_input(
@@ -312,8 +312,8 @@ fn validation_pdelta_ext_distributed_lateral() {
         "Reasonable amplification: {:.4}", amp);
 
     // P-delta base moment should also be larger
-    let m_base_lin = lin.reactions.iter().find(|r| r.node_id == 1).unwrap().mz.abs();
-    let m_base_pd = pd.results.reactions.iter().find(|r| r.node_id == 1).unwrap().mz.abs();
+    let m_base_lin = lin.reactions.iter().find(|r| r.node_id == 1).unwrap().my.abs();
+    let m_base_pd = pd.results.reactions.iter().find(|r| r.node_id == 1).unwrap().my.abs();
     assert!(m_base_pd > m_base_lin,
         "Base moment amplified: {:.4} > {:.4}", m_base_pd, m_base_lin);
 }
@@ -385,11 +385,11 @@ fn validation_pdelta_ext_reaction_equilibrium() {
 
     // Applied loads: fx=10 at node 2, fy=-120 at nodes 2 and 3
     let applied_fx: f64 = f;
-    let applied_fy: f64 = -p * 2.0; // gravity on both nodes
+    let applied_fz: f64 = -p * 2.0; // gravity on both nodes
 
     // Sum of reactions
     let sum_rx: f64 = results.reactions.iter().map(|r| r.rx).sum();
-    let sum_ry: f64 = results.reactions.iter().map(|r| r.ry).sum();
+    let sum_ry: f64 = results.reactions.iter().map(|r| r.rz).sum();
 
     // Horizontal equilibrium: sum_rx + applied_fx ~ 0
     // In P-delta, geometric stiffness introduces small additional
@@ -400,18 +400,18 @@ fn validation_pdelta_ext_reaction_equilibrium() {
         "Horizontal equilibrium: residual/load = {:.4} (sum_rx={:.4}, applied_fx={:.4})",
         fx_rel, sum_rx, applied_fx);
 
-    // Vertical equilibrium: sum_ry + applied_fy ~ 0
-    let fy_residual: f64 = (sum_ry + applied_fy).abs();
-    let fy_rel: f64 = fy_residual / applied_fy.abs();
+    // Vertical equilibrium: sum_ry + applied_fz ~ 0
+    let fy_residual: f64 = (sum_ry + applied_fz).abs();
+    let fy_rel: f64 = fy_residual / applied_fz.abs();
     assert!(fy_rel < 0.01,
-        "Vertical equilibrium: residual/load = {:.4} (sum_ry={:.4}, applied_fy={:.4})",
-        fy_rel, sum_ry, applied_fy);
+        "Vertical equilibrium: residual/load = {:.4} (sum_ry={:.4}, applied_fz={:.4})",
+        fy_rel, sum_ry, applied_fz);
 
     // Linear results should satisfy equilibrium more tightly
     let lin_sum_rx: f64 = pd.linear_results.reactions.iter().map(|r| r.rx).sum();
-    let lin_sum_ry: f64 = pd.linear_results.reactions.iter().map(|r| r.ry).sum();
+    let lin_sum_ry: f64 = pd.linear_results.reactions.iter().map(|r| r.rz).sum();
     assert!((lin_sum_rx + applied_fx).abs() < 0.1,
         "Linear horizontal equilibrium: {:.6e}", (lin_sum_rx + applied_fx).abs());
-    assert!((lin_sum_ry + applied_fy).abs() < 0.1,
-        "Linear vertical equilibrium: {:.6e}", (lin_sum_ry + applied_fy).abs());
+    assert!((lin_sum_ry + applied_fz).abs() < 0.1,
+        "Linear vertical equilibrium: {:.6e}", (lin_sum_ry + applied_fz).abs());
 }

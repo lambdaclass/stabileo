@@ -49,8 +49,8 @@ fn validation_combo_dead_live() {
         .collect();
     let input_d = make_beam(n, l, E, A, IZ, "pinned", Some("rollerX"), loads_d);
     let rd = linear::solve_2d(&input_d).unwrap();
-    let d_dead = rd.displacements.iter().find(|d| d.node_id == mid).unwrap().uy;
-    let r_dead = rd.reactions.iter().find(|r| r.node_id == 1).unwrap().ry;
+    let d_dead = rd.displacements.iter().find(|d| d.node_id == mid).unwrap().uz;
+    let r_dead = rd.reactions.iter().find(|r| r.node_id == 1).unwrap().rz;
 
     // Live only
     let loads_l: Vec<SolverLoad> = (1..=n)
@@ -60,8 +60,8 @@ fn validation_combo_dead_live() {
         .collect();
     let input_l = make_beam(n, l, E, A, IZ, "pinned", Some("rollerX"), loads_l);
     let rl = linear::solve_2d(&input_l).unwrap();
-    let d_live = rl.displacements.iter().find(|d| d.node_id == mid).unwrap().uy;
-    let r_live = rl.reactions.iter().find(|r| r.node_id == 1).unwrap().ry;
+    let d_live = rl.displacements.iter().find(|d| d.node_id == mid).unwrap().uz;
+    let r_live = rl.reactions.iter().find(|r| r.node_id == 1).unwrap().rz;
 
     // Factored combination: 1.2D + 1.6L
     let q_factored = 1.2 * q_dead + 1.6 * q_live;
@@ -72,8 +72,8 @@ fn validation_combo_dead_live() {
         .collect();
     let input_f = make_beam(n, l, E, A, IZ, "pinned", Some("rollerX"), loads_f);
     let rf = linear::solve_2d(&input_f).unwrap();
-    let d_factored = rf.displacements.iter().find(|d| d.node_id == mid).unwrap().uy;
-    let r_factored = rf.reactions.iter().find(|r| r.node_id == 1).unwrap().ry;
+    let d_factored = rf.displacements.iter().find(|d| d.node_id == mid).unwrap().uz;
+    let r_factored = rf.reactions.iter().find(|r| r.node_id == 1).unwrap().rz;
 
     // Superposition verification
     assert_close(d_factored, 1.2 * d_dead + 1.6 * d_live, 0.001,
@@ -100,19 +100,19 @@ fn validation_combo_dead_wind() {
     let input_d = make_portal_frame(h, w, E, A, IZ, 0.0, g);
     let rd = linear::solve_2d(&input_d).unwrap();
     let drift_d = rd.displacements.iter().find(|d| d.node_id == 2).unwrap().ux;
-    let ry_d = rd.reactions.iter().find(|r| r.node_id == 1).unwrap().ry;
+    let ry_d = rd.reactions.iter().find(|r| r.node_id == 1).unwrap().rz;
 
     // Wind only (lateral)
     let input_w = make_portal_frame(h, w, E, A, IZ, f_wind, 0.0);
     let rw = linear::solve_2d(&input_w).unwrap();
     let drift_w = rw.displacements.iter().find(|d| d.node_id == 2).unwrap().ux;
-    let ry_w = rw.reactions.iter().find(|r| r.node_id == 1).unwrap().ry;
+    let ry_w = rw.reactions.iter().find(|r| r.node_id == 1).unwrap().rz;
 
     // Combined: 1.2D + 1.0W
     let input_c = make_portal_frame(h, w, E, A, IZ, 1.0 * f_wind, 1.2 * g);
     let rc = linear::solve_2d(&input_c).unwrap();
     let drift_c = rc.displacements.iter().find(|d| d.node_id == 2).unwrap().ux;
-    let ry_c = rc.reactions.iter().find(|r| r.node_id == 1).unwrap().ry;
+    let ry_c = rc.reactions.iter().find(|r| r.node_id == 1).unwrap().rz;
 
     // Superposition
     assert_close(drift_c, 1.2 * drift_d + 1.0 * drift_w, 0.01,
@@ -143,7 +143,7 @@ fn validation_combo_envelope() {
         .collect();
     let input1 = make_beam(n, l, E, A, IZ, "pinned", Some("rollerX"), loads1);
     let r1 = linear::solve_2d(&input1).unwrap()
-        .reactions.iter().find(|r| r.node_id == 1).unwrap().ry;
+        .reactions.iter().find(|r| r.node_id == 1).unwrap().rz;
 
     // Case 2: 1.2D + 1.6L
     let q2 = 1.2 * q_dead + 1.6 * q_live;
@@ -154,7 +154,7 @@ fn validation_combo_envelope() {
         .collect();
     let input2 = make_beam(n, l, E, A, IZ, "pinned", Some("rollerX"), loads2);
     let r2 = linear::solve_2d(&input2).unwrap()
-        .reactions.iter().find(|r| r.node_id == 1).unwrap().ry;
+        .reactions.iter().find(|r| r.node_id == 1).unwrap().rz;
 
     // Case 3: 0.9D (minimum gravity, for uplift checks)
     let q3 = 0.9 * q_dead;
@@ -165,7 +165,7 @@ fn validation_combo_envelope() {
         .collect();
     let input3 = make_beam(n, l, E, A, IZ, "pinned", Some("rollerX"), loads3);
     let r3 = linear::solve_2d(&input3).unwrap()
-        .reactions.iter().find(|r| r.node_id == 1).unwrap().ry;
+        .reactions.iter().find(|r| r.node_id == 1).unwrap().rz;
 
     // Envelope: max reaction
     let r_max = r1.max(r2).max(r3);
@@ -200,7 +200,7 @@ fn validation_combo_checkerboard() {
     let input_both = make_continuous_beam(&[span, span], n, E, A, IZ, loads_both);
     let rb = linear::solve_2d(&input_both).unwrap();
     let d_both = rb.displacements.iter()
-        .find(|d| d.node_id == n / 2 + 1).unwrap().uy.abs();
+        .find(|d| d.node_id == n / 2 + 1).unwrap().uz.abs();
 
     // Case B: dead on both + live on span 1 only (pattern loading)
     let mut loads_pattern: Vec<SolverLoad> = (1..=n)
@@ -217,7 +217,7 @@ fn validation_combo_checkerboard() {
     let input_pattern = make_continuous_beam(&[span, span], n, E, A, IZ, loads_pattern);
     let rp = linear::solve_2d(&input_pattern).unwrap();
     let d_pattern = rp.displacements.iter()
-        .find(|d| d.node_id == n / 2 + 1).unwrap().uy.abs();
+        .find(|d| d.node_id == n / 2 + 1).unwrap().uz.abs();
 
     // Pattern loading produces larger midspan deflection in span 1
     assert!(d_pattern > d_both,
@@ -246,7 +246,7 @@ fn validation_combo_alternate_spans() {
     let input_full = make_continuous_beam(&[span, span, span], n, E, A, IZ, loads_full);
     let rf = linear::solve_2d(&input_full).unwrap();
     let r_full_mid = rf.displacements.iter()
-        .find(|d| d.node_id == n + n / 2 + 1).unwrap().uy.abs();
+        .find(|d| d.node_id == n + n / 2 + 1).unwrap().uz.abs();
 
     // Alternate: load spans 1 and 3 only
     let mut loads_alt: Vec<SolverLoad> = (1..=n)
@@ -266,7 +266,7 @@ fn validation_combo_alternate_spans() {
 
     // Middle span deflects upward when adjacent spans are loaded
     let d_mid_alt = ra.displacements.iter()
-        .find(|d| d.node_id == n + n / 2 + 1).unwrap().uy;
+        .find(|d| d.node_id == n + n / 2 + 1).unwrap().uz;
     // When only spans 1&3 loaded, span 2 lifts upward (positive uy)
     assert!(d_mid_alt > 0.0 || d_mid_alt.abs() < r_full_mid,
         "Alternate loading: span 2 deflection reduced/reversed");
@@ -290,11 +290,11 @@ fn validation_combo_factored_superposition() {
 
     // Case 1: point load at L/3
     let loads1 = vec![SolverLoad::Nodal(SolverNodalLoad {
-        node_id: n / 3 + 1, fx: 0.0, fy: -p1, mz: 0.0,
+        node_id: n / 3 + 1, fx: 0.0, fz: -p1, my: 0.0,
     })];
     let input1 = make_beam(n, l, E, A, IZ, "pinned", Some("rollerX"), loads1);
     let r1 = linear::solve_2d(&input1).unwrap();
-    let d1 = r1.displacements.iter().find(|d| d.node_id == mid).unwrap().uy;
+    let d1 = r1.displacements.iter().find(|d| d.node_id == mid).unwrap().uz;
 
     // Case 2: UDL
     let loads2: Vec<SolverLoad> = (1..=n)
@@ -304,11 +304,11 @@ fn validation_combo_factored_superposition() {
         .collect();
     let input2 = make_beam(n, l, E, A, IZ, "pinned", Some("rollerX"), loads2);
     let r2 = linear::solve_2d(&input2).unwrap();
-    let d2 = r2.displacements.iter().find(|d| d.node_id == mid).unwrap().uy;
+    let d2 = r2.displacements.iter().find(|d| d.node_id == mid).unwrap().uz;
 
     // Combined: α*case1 + β*case2
     let mut loads_c: Vec<SolverLoad> = vec![SolverLoad::Nodal(SolverNodalLoad {
-        node_id: n / 3 + 1, fx: 0.0, fy: -alpha * p1, mz: 0.0,
+        node_id: n / 3 + 1, fx: 0.0, fz: -alpha * p1, my: 0.0,
     })];
     let loads_c2: Vec<SolverLoad> = (1..=n)
         .map(|i| SolverLoad::Distributed(SolverDistributedLoad {
@@ -318,7 +318,7 @@ fn validation_combo_factored_superposition() {
     loads_c.extend(loads_c2);
     let input_c = make_beam(n, l, E, A, IZ, "pinned", Some("rollerX"), loads_c);
     let rc = linear::solve_2d(&input_c).unwrap();
-    let dc = rc.displacements.iter().find(|d| d.node_id == mid).unwrap().uy;
+    let dc = rc.displacements.iter().find(|d| d.node_id == mid).unwrap().uz;
 
     assert_close(dc, alpha * d1 + beta * d2, 0.001,
         "Factored superposition: α*δ₁ + β*δ₂");
@@ -341,12 +341,12 @@ fn validation_combo_gravity_vs_lateral() {
     // Gravity only
     let input_g = make_portal_frame(h, w, E, A, IZ, 0.0, g);
     let rg = linear::solve_2d(&input_g).unwrap();
-    let m_grav = rg.reactions.iter().find(|r| r.node_id == 1).unwrap().mz.abs();
+    let m_grav = rg.reactions.iter().find(|r| r.node_id == 1).unwrap().my.abs();
 
     // Lateral only
     let input_l = make_portal_frame(h, w, E, A, IZ, f, 0.0);
     let rl = linear::solve_2d(&input_l).unwrap();
-    let m_lat = rl.reactions.iter().find(|r| r.node_id == 1).unwrap().mz.abs();
+    let m_lat = rl.reactions.iter().find(|r| r.node_id == 1).unwrap().my.abs();
 
     // Both produce non-zero base moments
     assert!(m_grav > 0.0, "Gravity: base moment > 0");
@@ -386,7 +386,7 @@ fn validation_combo_service_vs_ultimate() {
         .collect();
     let input_s = make_beam(n, l, E, A, IZ, "pinned", Some("rollerX"), loads_s);
     let rs = linear::solve_2d(&input_s).unwrap();
-    let d_service = rs.displacements.iter().find(|d| d.node_id == mid).unwrap().uy.abs();
+    let d_service = rs.displacements.iter().find(|d| d.node_id == mid).unwrap().uz.abs();
 
     // Ultimate: 1.2D + 1.6L
     let q_ultimate = 1.2 * q_dead + 1.6 * q_live;
@@ -397,7 +397,7 @@ fn validation_combo_service_vs_ultimate() {
         .collect();
     let input_u = make_beam(n, l, E, A, IZ, "pinned", Some("rollerX"), loads_u);
     let ru = linear::solve_2d(&input_u).unwrap();
-    let d_ultimate = ru.displacements.iter().find(|d| d.node_id == mid).unwrap().uy.abs();
+    let d_ultimate = ru.displacements.iter().find(|d| d.node_id == mid).unwrap().uz.abs();
 
     // Ratio should equal load factor ratio
     let expected_ratio = q_ultimate.abs() / q_service.abs();

@@ -66,7 +66,7 @@ fn validation_two_bay_portal_gravity_equilibrium() {
     let results = linear::solve_2d(&input).unwrap();
 
     // Total vertical reaction must equal total applied gravity: 2*q*w
-    let sum_ry: f64 = results.reactions.iter().map(|r| r.ry).sum();
+    let sum_ry: f64 = results.reactions.iter().map(|r| r.rz).sum();
     assert_close(sum_ry, 2.0 * q * w, 0.01, "two-bay gravity SumRy");
 
     // Horizontal reactions must sum to zero (no lateral load)
@@ -76,8 +76,8 @@ fn validation_two_bay_portal_gravity_equilibrium() {
     // Symmetric structure + symmetric load → outer base reactions equal
     let r1 = results.reactions.iter().find(|r| r.node_id == 1).unwrap();
     let r6 = results.reactions.iter().find(|r| r.node_id == 6).unwrap();
-    assert_close(r1.ry, r6.ry, 0.01, "two-bay symmetry Ry outer");
-    assert_close(r1.mz.abs(), r6.mz.abs(), 0.01, "two-bay symmetry Mz outer");
+    assert_close(r1.rz, r6.rz, 0.01, "two-bay symmetry Ry outer");
+    assert_close(r1.my.abs(), r6.my.abs(), 0.01, "two-bay symmetry Mz outer");
 }
 
 // ================================================================
@@ -113,7 +113,7 @@ fn validation_two_storey_frame_sway() {
         ],
         vec![(1, 1, "fixed"), (2, 4, "fixed")],
         vec![SolverLoad::Nodal(SolverNodalLoad {
-            node_id: 5, fx: lateral, fy: 0.0, mz: 0.0,
+            node_id: 5, fx: lateral, fz: 0.0, my: 0.0,
         })],
     );
     let results = linear::solve_2d(&input).unwrap();
@@ -137,7 +137,7 @@ fn validation_two_storey_frame_sway() {
     );
 
     // SumRy = 0 (no gravity load)
-    let sum_ry: f64 = results.reactions.iter().map(|r| r.ry).sum();
+    let sum_ry: f64 = results.reactions.iter().map(|r| r.rz).sum();
     assert!(sum_ry.abs() < 0.5, "two-storey SumRy={:.4}, expected ~0", sum_ry);
 }
 
@@ -168,7 +168,7 @@ fn validation_l_frame_corner_load() {
         ],
         vec![(1, 1, "fixed")],
         vec![SolverLoad::Nodal(SolverNodalLoad {
-            node_id: 3, fx: 0.0, fy: -p, mz: 0.0,
+            node_id: 3, fx: 0.0, fz: -p, my: 0.0,
         })],
     );
     let results = linear::solve_2d(&input).unwrap();
@@ -177,7 +177,7 @@ fn validation_l_frame_corner_load() {
     let r1 = results.reactions.iter().find(|r| r.node_id == 1).unwrap();
 
     // Ry = P (upward)
-    assert_close(r1.ry, p, 0.01, "L-frame Ry");
+    assert_close(r1.rz, p, 0.01, "L-frame Ry");
 
     // Rx = 0 (no horizontal applied load, but column bending may cause small Rx)
     // Actually with frame elements the column bends, so Rx should be negligible vs P
@@ -185,11 +185,11 @@ fn validation_l_frame_corner_load() {
 
     // Base moment: Mz = P*w (counterclockwise to resist P*w clockwise at base)
     // Sign depends on convention; check magnitude
-    assert_close(r1.mz.abs(), p * w, 0.02, "L-frame base moment Mz");
+    assert_close(r1.my.abs(), p * w, 0.02, "L-frame base moment Mz");
 
     // Tip should deflect downward
     let d3 = results.displacements.iter().find(|d| d.node_id == 3).unwrap();
-    assert!(d3.uy < 0.0, "L-frame tip should deflect down, uy={:.6}", d3.uy);
+    assert!(d3.uz < 0.0, "L-frame tip should deflect down, uy={:.6}", d3.uz);
 }
 
 // ================================================================
@@ -224,7 +224,7 @@ fn validation_portal_unequal_columns() {
         ],
         vec![(1, 1, "fixed"), (2, 4, "fixed")],
         vec![SolverLoad::Nodal(SolverNodalLoad {
-            node_id: 2, fx: lateral, fy: 0.0, mz: 0.0,
+            node_id: 2, fx: lateral, fz: 0.0, my: 0.0,
         })],
     );
     let results = linear::solve_2d(&input).unwrap();
@@ -243,8 +243,8 @@ fn validation_portal_unequal_columns() {
     );
 
     // Both bases should have nonzero moments
-    assert!(r1.mz.abs() > 1.0, "left base moment should be nonzero");
-    assert!(r4.mz.abs() > 1.0, "right base moment should be nonzero");
+    assert!(r1.my.abs() > 1.0, "left base moment should be nonzero");
+    assert!(r4.my.abs() > 1.0, "right base moment should be nonzero");
 }
 
 // ================================================================
@@ -275,7 +275,7 @@ fn validation_fixed_fixed_third_point_load() {
     let input = make_beam(
         n, l, E, A, IZ, "fixed", Some("fixed"),
         vec![SolverLoad::Nodal(SolverNodalLoad {
-            node_id: load_node, fx: 0.0, fy: -p, mz: 0.0,
+            node_id: load_node, fx: 0.0, fz: -p, my: 0.0,
         })],
     );
     let results = linear::solve_2d(&input).unwrap();
@@ -283,19 +283,19 @@ fn validation_fixed_fixed_third_point_load() {
     // R_A = P*b^2*(3a+b)/L^3
     let r_a_exact: f64 = p * b_dist.powi(2) * (3.0 * a_dist + b_dist) / l.powi(3);
     let r1 = results.reactions.iter().find(|r| r.node_id == 1).unwrap();
-    assert_close(r1.ry, r_a_exact, 0.02, "fixed-fixed 1/3 R_A");
+    assert_close(r1.rz, r_a_exact, 0.02, "fixed-fixed 1/3 R_A");
 
     // R_B = P - R_A
     let r_b_exact: f64 = p - r_a_exact;
     let rn = results.reactions.iter().find(|r| r.node_id == n + 1).unwrap();
-    assert_close(rn.ry, r_b_exact, 0.02, "fixed-fixed 1/3 R_B");
+    assert_close(rn.rz, r_b_exact, 0.02, "fixed-fixed 1/3 R_B");
 
     // M_A = P*a*b^2/L^2 (hogging at left support)
     let m_a_exact: f64 = p * a_dist * b_dist.powi(2) / l.powi(2);
-    assert_close(r1.mz.abs(), m_a_exact, 0.03, "fixed-fixed 1/3 M_A");
+    assert_close(r1.my.abs(), m_a_exact, 0.03, "fixed-fixed 1/3 M_A");
 
     // Equilibrium
-    let sum_ry: f64 = results.reactions.iter().map(|r| r.ry).sum();
+    let sum_ry: f64 = results.reactions.iter().map(|r| r.rz).sum();
     assert_close(sum_ry, p, 0.01, "fixed-fixed 1/3 SumRy");
 }
 
@@ -319,7 +319,7 @@ fn validation_propped_cantilever_midpoint_load() {
     let input = make_beam(
         n, l, E, A, IZ, "fixed", Some("rollerX"),
         vec![SolverLoad::Nodal(SolverNodalLoad {
-            node_id: mid_node, fx: 0.0, fy: -p, mz: 0.0,
+            node_id: mid_node, fx: 0.0, fz: -p, my: 0.0,
         })],
     );
     let results = linear::solve_2d(&input).unwrap();
@@ -327,19 +327,19 @@ fn validation_propped_cantilever_midpoint_load() {
     // R_B (roller) = 5P/16
     let r_b_exact: f64 = 5.0 * p / 16.0;
     let rn = results.reactions.iter().find(|r| r.node_id == n + 1).unwrap();
-    assert_close(rn.ry, r_b_exact, 0.02, "propped cant P/2 R_B");
+    assert_close(rn.rz, r_b_exact, 0.02, "propped cant P/2 R_B");
 
     // R_A = 11P/16
     let r_a_exact: f64 = 11.0 * p / 16.0;
     let r1 = results.reactions.iter().find(|r| r.node_id == 1).unwrap();
-    assert_close(r1.ry, r_a_exact, 0.02, "propped cant P/2 R_A");
+    assert_close(r1.rz, r_a_exact, 0.02, "propped cant P/2 R_A");
 
     // M_A = 3PL/16 (fixed end moment)
     let m_a_exact: f64 = 3.0 * p * l / 16.0;
-    assert_close(r1.mz.abs(), m_a_exact, 0.03, "propped cant P/2 M_A");
+    assert_close(r1.my.abs(), m_a_exact, 0.03, "propped cant P/2 M_A");
 
     // Equilibrium
-    let sum_ry: f64 = results.reactions.iter().map(|r| r.ry).sum();
+    let sum_ry: f64 = results.reactions.iter().map(|r| r.rz).sum();
     assert_close(sum_ry, p, 0.01, "propped cant P/2 SumRy");
 }
 
@@ -375,7 +375,7 @@ fn validation_two_bay_portal_lateral_distribution() {
         ],
         vec![(1, 1, "fixed"), (2, 4, "fixed"), (3, 6, "fixed")],
         vec![SolverLoad::Nodal(SolverNodalLoad {
-            node_id: 2, fx: lateral, fy: 0.0, mz: 0.0,
+            node_id: 2, fx: lateral, fz: 0.0, my: 0.0,
         })],
     );
     let results = linear::solve_2d(&input).unwrap();
@@ -385,7 +385,7 @@ fn validation_two_bay_portal_lateral_distribution() {
     assert_close(sum_rx, -lateral, 0.01, "two-bay lateral SumRx");
 
     // SumRy should be ~0 (no gravity)
-    let sum_ry: f64 = results.reactions.iter().map(|r| r.ry).sum();
+    let sum_ry: f64 = results.reactions.iter().map(|r| r.rz).sum();
     assert!(sum_ry.abs() < 1.0, "two-bay lateral SumRy={:.4}, expected ~0", sum_ry);
 
     // Interior column (node 4) should carry more shear than each exterior column
@@ -404,9 +404,9 @@ fn validation_two_bay_portal_lateral_distribution() {
     );
 
     // All three base moments should be nonzero
-    assert!(r1.mz.abs() > 1.0, "left base moment nonzero");
-    assert!(r4.mz.abs() > 1.0, "middle base moment nonzero");
-    assert!(r6.mz.abs() > 1.0, "right base moment nonzero");
+    assert!(r1.my.abs() > 1.0, "left base moment nonzero");
+    assert!(r4.my.abs() > 1.0, "middle base moment nonzero");
+    assert!(r6.my.abs() > 1.0, "right base moment nonzero");
 }
 
 // ================================================================
@@ -445,8 +445,8 @@ fn validation_portal_superposition() {
     let r1_comb = res_comb.reactions.iter().find(|r| r.node_id == 1).unwrap();
 
     assert_close(r1_comb.rx, r1_lat.rx + r1_grav.rx, 0.01, "superposition Rx node 1");
-    assert_close(r1_comb.ry, r1_lat.ry + r1_grav.ry, 0.01, "superposition Ry node 1");
-    assert_close(r1_comb.mz, r1_lat.mz + r1_grav.mz, 0.02, "superposition Mz node 1");
+    assert_close(r1_comb.rz, r1_lat.rz + r1_grav.rz, 0.01, "superposition Ry node 1");
+    assert_close(r1_comb.my, r1_lat.my + r1_grav.my, 0.02, "superposition Mz node 1");
 
     // Check superposition at node 4 (right base)
     let r4_lat = res_lat.reactions.iter().find(|r| r.node_id == 4).unwrap();
@@ -454,8 +454,8 @@ fn validation_portal_superposition() {
     let r4_comb = res_comb.reactions.iter().find(|r| r.node_id == 4).unwrap();
 
     assert_close(r4_comb.rx, r4_lat.rx + r4_grav.rx, 0.01, "superposition Rx node 4");
-    assert_close(r4_comb.ry, r4_lat.ry + r4_grav.ry, 0.01, "superposition Ry node 4");
-    assert_close(r4_comb.mz, r4_lat.mz + r4_grav.mz, 0.02, "superposition Mz node 4");
+    assert_close(r4_comb.rz, r4_lat.rz + r4_grav.rz, 0.01, "superposition Ry node 4");
+    assert_close(r4_comb.my, r4_lat.my + r4_grav.my, 0.02, "superposition Mz node 4");
 
     // Check superposition of displacements at node 2 (top-left)
     let d2_lat = res_lat.displacements.iter().find(|d| d.node_id == 2).unwrap();
@@ -463,5 +463,5 @@ fn validation_portal_superposition() {
     let d2_comb = res_comb.displacements.iter().find(|d| d.node_id == 2).unwrap();
 
     assert_close(d2_comb.ux, d2_lat.ux + d2_grav.ux, 0.01, "superposition ux node 2");
-    assert_close(d2_comb.uy, d2_lat.uy + d2_grav.uy, 0.01, "superposition uy node 2");
+    assert_close(d2_comb.uz, d2_lat.uz + d2_grav.uz, 0.01, "superposition uy node 2");
 }

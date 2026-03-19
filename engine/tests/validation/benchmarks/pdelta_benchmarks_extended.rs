@@ -104,14 +104,14 @@ fn validation_pdelta_monotonic_amplification() {
         let input = make_beam(n, l, E, A, IZ, "fixed", None,
             vec![
                 SolverLoad::Nodal(SolverNodalLoad {
-                    node_id: n + 1, fx: p_axial, fy: -h_force, mz: 0.0,
+                    node_id: n + 1, fx: p_axial, fz: -h_force, my: 0.0,
                 }),
             ]);
 
         let d_linear: f64 = linear::solve_2d(&input).unwrap()
-            .displacements.iter().find(|d| d.node_id == n + 1).unwrap().uy.abs();
+            .displacements.iter().find(|d| d.node_id == n + 1).unwrap().uz.abs();
         let d_pdelta: f64 = pdelta::solve_pdelta_2d(&input, 20, 1e-6).unwrap()
-            .results.displacements.iter().find(|d| d.node_id == n + 1).unwrap().uy.abs();
+            .results.displacements.iter().find(|d| d.node_id == n + 1).unwrap().uz.abs();
 
         let ratio = d_pdelta / d_linear;
         assert!(ratio >= prev_ratio,
@@ -144,15 +144,15 @@ fn validation_pdelta_symmetric_gravity() {
 
     // Both supports should have the same vertical reaction (by symmetry)
     let ry_1 = results.results.reactions.iter()
-        .find(|r| r.node_id == 1).unwrap().ry;
+        .find(|r| r.node_id == 1).unwrap().rz;
     let ry_4 = results.results.reactions.iter()
-        .find(|r| r.node_id == 4).unwrap().ry;
+        .find(|r| r.node_id == 4).unwrap().rz;
 
     assert_close(ry_1, ry_4, 0.01,
         "Symmetric gravity: Ry1 = Ry4");
 
     // Total vertical reaction = 2 * |p_gravity|
-    let sum_ry: f64 = results.results.reactions.iter().map(|r| r.ry).sum();
+    let sum_ry: f64 = results.results.reactions.iter().map(|r| r.rz).sum();
     assert_close(sum_ry, 2.0 * p_gravity.abs(), 0.01,
         "Symmetric gravity: total Ry = total applied");
 
@@ -194,8 +194,8 @@ fn validation_pdelta_leaning_column() {
     ];
     let sups = vec![(1, 1_usize, "fixed"), (2, 4, "fixed")];
     let loads = vec![
-        SolverLoad::Nodal(SolverNodalLoad { node_id: 2, fx: p_lateral, fy: p_gravity, mz: 0.0 }),
-        SolverLoad::Nodal(SolverNodalLoad { node_id: 3, fx: 0.0, fy: p_gravity, mz: 0.0 }),
+        SolverLoad::Nodal(SolverNodalLoad { node_id: 2, fx: p_lateral, fz: p_gravity, my: 0.0 }),
+        SolverLoad::Nodal(SolverNodalLoad { node_id: 3, fx: 0.0, fz: p_gravity, my: 0.0 }),
     ];
     let input_leaning = make_input(nodes, vec![(1, E, 0.3)], vec![(1, A, IZ)], elems, sups, loads);
 
@@ -261,7 +261,7 @@ fn validation_pdelta_element_equilibrium() {
 
     // Global equilibrium
     let sum_rx: f64 = results.results.reactions.iter().map(|r| r.rx).sum();
-    let sum_ry: f64 = results.results.reactions.iter().map(|r| r.ry).sum();
+    let sum_ry: f64 = results.results.reactions.iter().map(|r| r.rz).sum();
     assert_close(sum_rx, -p_lateral, 0.02, "ΣRx = -Px");
     assert_close(sum_ry, 2.0 * p_gravity.abs(), 0.02, "ΣRy = total gravity");
 }
@@ -335,9 +335,9 @@ fn validation_pdelta_two_bay_moment_redistribution() {
         (3, 5, "fixed"),
     ];
     let loads = vec![
-        SolverLoad::Nodal(SolverNodalLoad { node_id: 2, fx: px, fy: py, mz: 0.0 }),
-        SolverLoad::Nodal(SolverNodalLoad { node_id: 4, fx: 0.0, fy: 2.0 * py, mz: 0.0 }),
-        SolverLoad::Nodal(SolverNodalLoad { node_id: 6, fx: 0.0, fy: py, mz: 0.0 }),
+        SolverLoad::Nodal(SolverNodalLoad { node_id: 2, fx: px, fz: py, my: 0.0 }),
+        SolverLoad::Nodal(SolverNodalLoad { node_id: 4, fx: 0.0, fz: 2.0 * py, my: 0.0 }),
+        SolverLoad::Nodal(SolverNodalLoad { node_id: 6, fx: 0.0, fz: py, my: 0.0 }),
     ];
 
     let input = make_input(nodes, vec![(1, E, 0.3)], vec![(1, A, IZ)], elems, sups, loads);
@@ -347,9 +347,9 @@ fn validation_pdelta_two_bay_moment_redistribution() {
 
     // Total base moment magnitude should be amplified by P-delta
     let m_linear_total: f64 = res_linear.reactions.iter()
-        .map(|r| r.mz.abs()).sum();
+        .map(|r| r.my.abs()).sum();
     let m_pdelta_total: f64 = res_pdelta.results.reactions.iter()
-        .map(|r| r.mz.abs()).sum();
+        .map(|r| r.my.abs()).sum();
 
     assert!(m_pdelta_total > m_linear_total,
         "Two-bay: P-delta amplifies total base moments: {:.4} > {:.4}",
@@ -358,7 +358,7 @@ fn validation_pdelta_two_bay_moment_redistribution() {
     // Global equilibrium
     let sum_rx: f64 = res_pdelta.results.reactions.iter().map(|r| r.rx).sum();
     let total_gravity = 4.0 * py.abs(); // py + 2*py + py
-    let sum_ry: f64 = res_pdelta.results.reactions.iter().map(|r| r.ry).sum();
+    let sum_ry: f64 = res_pdelta.results.reactions.iter().map(|r| r.rz).sum();
     assert_close(sum_rx, -px, 0.02, "Two-bay: ΣRx = -Px");
     assert_close(sum_ry, total_gravity, 0.02, "Two-bay: ΣRy = total gravity");
 }
@@ -385,7 +385,7 @@ fn validation_pdelta_cantilever_shear_amplification() {
     let input = make_beam(n, l, E, A, IZ, "fixed", None,
         vec![
             SolverLoad::Nodal(SolverNodalLoad {
-                node_id: n + 1, fx: p_axial, fy: -h_force, mz: 0.0,
+                node_id: n + 1, fx: p_axial, fz: -h_force, my: 0.0,
             }),
         ]);
 
@@ -394,9 +394,9 @@ fn validation_pdelta_cantilever_shear_amplification() {
 
     // Base shear (ry at node 1) should be amplified by P-delta
     let ry_linear: f64 = res_linear.reactions.iter()
-        .find(|r| r.node_id == 1).unwrap().ry;
+        .find(|r| r.node_id == 1).unwrap().rz;
     let ry_pdelta: f64 = res_pdelta.results.reactions.iter()
-        .find(|r| r.node_id == 1).unwrap().ry;
+        .find(|r| r.node_id == 1).unwrap().rz;
 
     // Both should be positive (reaction opposing downward load)
     assert!(ry_linear > 0.0, "Linear: Ry > 0: {:.4}", ry_linear);
@@ -408,9 +408,9 @@ fn validation_pdelta_cantilever_shear_amplification() {
     // P-delta base shear should equal h_force (equilibrium: no other horizontal support)
     // However, the base moment should be amplified
     let mz_linear: f64 = res_linear.reactions.iter()
-        .find(|r| r.node_id == 1).unwrap().mz.abs();
+        .find(|r| r.node_id == 1).unwrap().my.abs();
     let mz_pdelta: f64 = res_pdelta.results.reactions.iter()
-        .find(|r| r.node_id == 1).unwrap().mz.abs();
+        .find(|r| r.node_id == 1).unwrap().my.abs();
 
     // P-delta amplifies base moment: M = H*L + P*delta
     assert!(mz_pdelta > mz_linear,
@@ -419,9 +419,9 @@ fn validation_pdelta_cantilever_shear_amplification() {
 
     // Tip displacement should be amplified
     let uy_linear: f64 = res_linear.displacements.iter()
-        .find(|d| d.node_id == n + 1).unwrap().uy.abs();
+        .find(|d| d.node_id == n + 1).unwrap().uz.abs();
     let uy_pdelta: f64 = res_pdelta.results.displacements.iter()
-        .find(|d| d.node_id == n + 1).unwrap().uy.abs();
+        .find(|d| d.node_id == n + 1).unwrap().uz.abs();
 
     assert!(uy_pdelta > uy_linear,
         "Cantilever: P-delta amplifies tip displacement: {:.6e} > {:.6e}",

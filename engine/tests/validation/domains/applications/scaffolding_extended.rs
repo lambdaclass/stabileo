@@ -59,11 +59,11 @@ fn scaffolding_tube_axial_capacity() {
     // Stress check: σ = P/A
     let sigma: f64 = p_axial.abs() / a_tube; // kN/m² = kPa
     let sigma_mpa: f64 = sigma / 1000.0;
-    let fy: f64 = 235.0; // MPa, yield strength
+    let fz: f64 = 235.0; // MPa, yield strength
 
     assert!(
-        sigma_mpa < fy,
-        "Tube stress {:.1} MPa < yield {:.1} MPa", sigma_mpa, fy
+        sigma_mpa < fz,
+        "Tube stress {:.1} MPa < yield {:.1} MPa", sigma_mpa, fz
     );
 }
 
@@ -109,13 +109,13 @@ fn scaffolding_ledger_beam_platform_load() {
     let mid_disp = results.displacements.iter()
         .find(|d| d.node_id == mid_node).unwrap();
 
-    assert_close(mid_disp.uy.abs(), delta_exact, 0.05, "Ledger midspan deflection");
+    assert_close(mid_disp.uz.abs(), delta_exact, 0.05, "Ledger midspan deflection");
 
     // Reactions: R = qL/2
     let r_exact: f64 = q.abs() * l / 2.0;
     let r1 = results.reactions.iter().find(|r| r.node_id == 1).unwrap();
 
-    assert_close(r1.ry.abs(), r_exact, 0.02, "Ledger support reaction");
+    assert_close(r1.rz.abs(), r_exact, 0.02, "Ledger support reaction");
 }
 
 // ================================================================
@@ -145,10 +145,10 @@ fn scaffolding_standard_column_buckling() {
     let input = make_beam(n, l, e_steel, a_tube, iz_tube, "pinned", Some("rollerX"),
         vec![
             SolverLoad::Nodal(SolverNodalLoad {
-                node_id: n + 1, fx: p_working, fy: 0.0, mz: 0.0,
+                node_id: n + 1, fx: p_working, fz: 0.0, my: 0.0,
             }),
             SolverLoad::Nodal(SolverNodalLoad {
-                node_id: n / 2 + 1, fx: 0.0, fy: p_lateral, mz: 0.0,
+                node_id: n / 2 + 1, fx: 0.0, fz: p_lateral, my: 0.0,
             }),
         ]);
     let results = solve_2d(&input).expect("solve");
@@ -168,8 +168,8 @@ fn scaffolding_standard_column_buckling() {
     // Verify the structure solves and produces finite displacements
     let mid_disp = results.displacements.iter()
         .find(|d| d.node_id == n / 2 + 1).unwrap();
-    assert!(mid_disp.uy.abs() > 0.0, "Non-zero lateral displacement from perturbation");
-    assert!(mid_disp.uy.abs() < 0.01, "Small lateral displacement at working load");
+    assert!(mid_disp.uz.abs() > 0.0, "Non-zero lateral displacement from perturbation");
+    assert!(mid_disp.uz.abs() < 0.01, "Small lateral displacement at working load");
 
     // Slenderness ratio: λ = L/r, r = sqrt(I/A)
     let r_gyration: f64 = (iz_tube / a_tube).sqrt();
@@ -221,11 +221,11 @@ fn scaffolding_tie_force_wind() {
     // Overturning moment at base: M = F * h
     let m_overturning: f64 = f_top * h;
     // Resisting couple: vertical reactions * width
-    let r_vert_diff: f64 = (r1.ry - r4.ry).abs();
+    let r_vert_diff: f64 = (r1.rz - r4.rz).abs();
     let m_resisting: f64 = r_vert_diff * w / 2.0;
 
     // Moment equilibrium: overturning = base moments + vertical couple
-    let sum_base_moments: f64 = r1.mz.abs() + r4.mz.abs();
+    let sum_base_moments: f64 = r1.my.abs() + r4.my.abs();
     let m_total_resist: f64 = sum_base_moments + m_resisting;
 
     assert_close(m_total_resist, m_overturning, 0.10, "Moment equilibrium at base");
@@ -272,7 +272,7 @@ fn scaffolding_bracing_diagonal() {
     ];
     let sups = vec![(1, 1, "pinned"), (2, 2, "pinned")];
     let loads = vec![SolverLoad::Nodal(SolverNodalLoad {
-        node_id: 3, fx: f_lateral, fy: 0.0, mz: 0.0,
+        node_id: 3, fx: f_lateral, fz: 0.0, my: 0.0,
     })];
 
     let input = make_input(nodes, mats, secs, elems, sups, loads);
@@ -356,7 +356,7 @@ fn scaffolding_formwork_pressure_rodin() {
     let mid_disp = results.displacements.iter()
         .find(|d| d.node_id == mid_node).unwrap();
 
-    assert_close(mid_disp.uy.abs(), delta_exact, 0.05, "Formwork panel deflection");
+    assert_close(mid_disp.uz.abs(), delta_exact, 0.05, "Formwork panel deflection");
 
     // Verify Rodin formula values
     assert_close(p_hydrostatic, 96.0, 0.01, "Hydrostatic pressure");
@@ -492,7 +492,7 @@ fn scaffolding_platform_combined_loading() {
     let total_load: f64 = q_total.abs() * total_length;
 
     // Sum of vertical reactions should equal total load
-    let sum_ry: f64 = results.reactions.iter().map(|r| r.ry).sum::<f64>();
+    let sum_ry: f64 = results.reactions.iter().map(|r| r.rz).sum::<f64>();
     assert_close(sum_ry.abs(), total_load, 0.02, "Total vertical reaction equals total load");
 
     // For 2-span continuous beam with equal UDL:
@@ -504,8 +504,8 @@ fn scaffolding_platform_combined_loading() {
     let r_mid = results.reactions.iter().find(|r| r.node_id == mid_node).unwrap();
     let r_end1 = results.reactions.iter().find(|r| r.node_id == 1).unwrap();
 
-    assert_close(r_mid.ry.abs(), r_mid_exact, 0.05, "Internal standard reaction (5qL/4)");
-    assert_close(r_end1.ry.abs(), r_end_exact, 0.05, "End standard reaction (3qL/8)");
+    assert_close(r_mid.rz.abs(), r_mid_exact, 0.05, "Internal standard reaction (5qL/4)");
+    assert_close(r_end1.rz.abs(), r_end_exact, 0.05, "End standard reaction (3qL/8)");
 
     // Deflection should be reasonable (< L/200 serviceability)
     // Check midspan of first bay (node at quarter of total length)
@@ -515,7 +515,7 @@ fn scaffolding_platform_combined_loading() {
 
     let deflection_limit: f64 = bay / 200.0; // 12.5 mm
     assert!(
-        mid_disp.uy.abs() < deflection_limit,
-        "Deflection {:.4} m < L/200 = {:.4} m", mid_disp.uy.abs(), deflection_limit
+        mid_disp.uz.abs() < deflection_limit,
+        "Deflection {:.4} m < L/200 = {:.4} m", mid_disp.uz.abs(), deflection_limit
     );
 }

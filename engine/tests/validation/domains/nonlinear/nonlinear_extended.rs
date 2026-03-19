@@ -65,7 +65,7 @@ fn validation_nonlin_ext_1_williams_toggle_snap() {
     let sups = vec![(1, 1, "pinned"), (2, 3, "pinned")];
 
     let loads_sub = vec![SolverLoad::Nodal(SolverNodalLoad {
-        node_id: 2, fx: 0.0, fy: -p_sub, mz: 0.0,
+        node_id: 2, fx: 0.0, fz: -p_sub, my: 0.0,
     })];
 
     let input_sub = make_input(
@@ -79,13 +79,13 @@ fn validation_nonlin_ext_1_williams_toggle_snap() {
     let apex_sub = result_sub.results.displacements.iter()
         .find(|d| d.node_id == 2).unwrap();
     assert!(
-        apex_sub.uy < 0.0,
-        "Apex should deflect downward, got uy={:.6e}", apex_sub.uy
+        apex_sub.uz < 0.0,
+        "Apex should deflect downward, got uy={:.6e}", apex_sub.uz
     );
     // Deflection should be modest (well below the rise)
     assert!(
-        apex_sub.uy.abs() < rise,
-        "Sub-limit deflection should be < rise: |uy|={:.6e}, rise={}", apex_sub.uy.abs(), rise
+        apex_sub.uz.abs() < rise,
+        "Sub-limit deflection should be < rise: |uy|={:.6e}, rise={}", apex_sub.uz.abs(), rise
     );
 
     // Verify the analytical limit load is positive and finite
@@ -95,7 +95,7 @@ fn validation_nonlin_ext_1_williams_toggle_snap() {
     // Apply load well above the limit -- should either diverge or show very large deflection
     let p_over = 2.0 * p_limit_analytical;
     let loads_over = vec![SolverLoad::Nodal(SolverNodalLoad {
-        node_id: 2, fx: 0.0, fy: -p_over, mz: 0.0,
+        node_id: 2, fx: 0.0, fz: -p_over, my: 0.0,
     })];
     let input_over = make_input(
         nodes, vec![(1, E, 0.3)], vec![(1, a, iz)],
@@ -110,9 +110,9 @@ fn validation_nonlin_ext_1_williams_toggle_snap() {
                     .find(|d| d.node_id == 2).unwrap();
                 // If it converged past the snap, deflection should be much larger
                 assert!(
-                    apex_over.uy.abs() > apex_sub.uy.abs(),
+                    apex_over.uz.abs() > apex_sub.uz.abs(),
                     "Past-limit deflection should exceed sub-limit: over={:.6e}, sub={:.6e}",
-                    apex_over.uy.abs(), apex_sub.uy.abs()
+                    apex_over.uz.abs(), apex_sub.uz.abs()
                 );
             }
         }
@@ -157,7 +157,7 @@ fn validation_nonlin_ext_2_large_rotation_cantilever() {
         nodes, vec![(1, e_mpa, 0.3)], vec![(1, a, iz)],
         elems, vec![(1, 1, "fixed")],
         vec![SolverLoad::Nodal(SolverNodalLoad {
-            node_id: n + 1, fx: 0.0, fy: -p_load, mz: 0.0,
+            node_id: n + 1, fx: 0.0, fz: -p_load, my: 0.0,
         })],
     );
 
@@ -167,7 +167,7 @@ fn validation_nonlin_ext_2_large_rotation_cantilever() {
     let tip = result.results.displacements.iter()
         .find(|d| d.node_id == n + 1).unwrap();
 
-    let v_ratio = tip.uy.abs() / l;
+    let v_ratio = tip.uz.abs() / l;
     let error = (v_ratio - expected_v_ratio).abs() / expected_v_ratio;
     assert_close(v_ratio, expected_v_ratio, 0.10,
         "Elastica alpha=1.0: v_tip/L");
@@ -224,7 +224,7 @@ fn validation_nonlin_ext_3_shallow_arch_buckling() {
     let p2 = 20.0;
 
     let loads1 = vec![SolverLoad::Nodal(SolverNodalLoad {
-        node_id: crown_node, fx: 0.0, fy: -p1, mz: 0.0,
+        node_id: crown_node, fx: 0.0, fz: -p1, my: 0.0,
     })];
     let input1 = make_input(
         nodes.clone(), vec![(1, E, 0.3)], vec![(1, a, iz)],
@@ -234,10 +234,10 @@ fn validation_nonlin_ext_3_shallow_arch_buckling() {
     assert!(res1.converged, "Shallow arch should converge at small load P={}", p1);
     let crown1 = res1.results.displacements.iter()
         .find(|d| d.node_id == crown_node).unwrap();
-    assert!(crown1.uy < 0.0, "Crown should deflect down at P={}", p1);
+    assert!(crown1.uz < 0.0, "Crown should deflect down at P={}", p1);
 
     let loads2 = vec![SolverLoad::Nodal(SolverNodalLoad {
-        node_id: crown_node, fx: 0.0, fy: -p2, mz: 0.0,
+        node_id: crown_node, fx: 0.0, fz: -p2, my: 0.0,
     })];
     let input2 = make_input(
         nodes, vec![(1, E, 0.3)], vec![(1, a, iz)],
@@ -249,17 +249,17 @@ fn validation_nonlin_ext_3_shallow_arch_buckling() {
         Ok(ref r) if r.converged => {
             let crown2 = r.results.displacements.iter()
                 .find(|d| d.node_id == crown_node).unwrap();
-            assert!(crown2.uy < 0.0, "Crown should deflect down at P={}", p2);
+            assert!(crown2.uz < 0.0, "Crown should deflect down at P={}", p2);
             // Higher load -> larger deflection
             assert!(
-                crown2.uy.abs() > crown1.uy.abs(),
+                crown2.uz.abs() > crown1.uz.abs(),
                 "Higher load should give larger deflection: P={}: {:.6e} vs P={}: {:.6e}",
-                p2, crown2.uy.abs(), p1, crown1.uy.abs()
+                p2, crown2.uz.abs(), p1, crown1.uz.abs()
             );
             // For a nonlinear arch, the deflection ratio should exceed the load ratio
             // (geometric softening as the arch flattens). This is the key nonlinear effect.
             let load_ratio = p2 / p1;
-            let defl_ratio = crown2.uy.abs() / crown1.uy.abs();
+            let defl_ratio = crown2.uz.abs() / crown1.uz.abs();
             assert!(
                 defl_ratio > load_ratio * 0.8,
                 "Arch should show near-superlinear response: defl_ratio={:.2}, load_ratio={:.2}",
@@ -314,7 +314,7 @@ fn validation_nonlin_ext_4_two_bar_truss_instability() {
     // Test at 30% of critical load
     let p_test = 0.30 * p_cr;
     let loads = vec![SolverLoad::Nodal(SolverNodalLoad {
-        node_id: 2, fx: 0.0, fy: -p_test, mz: 0.0,
+        node_id: 2, fx: 0.0, fz: -p_test, my: 0.0,
     })];
     let input = make_input(
         nodes.clone(), vec![(1, E, 0.3)], vec![(1, a, iz)],
@@ -326,7 +326,7 @@ fn validation_nonlin_ext_4_two_bar_truss_instability() {
 
     let apex = result.results.displacements.iter()
         .find(|d| d.node_id == 2).unwrap();
-    assert!(apex.uy < 0.0, "Apex should deflect downward, got uy={:.6e}", apex.uy);
+    assert!(apex.uz < 0.0, "Apex should deflect downward, got uy={:.6e}", apex.uz);
 
     // Compare corotational deflection with linear
     let lin_res = linear::solve_2d(&input).unwrap();
@@ -334,16 +334,16 @@ fn validation_nonlin_ext_4_two_bar_truss_instability() {
         .find(|d| d.node_id == 2).unwrap();
 
     // Both should deflect downward
-    assert!(apex_lin.uy < 0.0, "Linear should deflect down, got {:.6e}", apex_lin.uy);
+    assert!(apex_lin.uz < 0.0, "Linear should deflect down, got {:.6e}", apex_lin.uz);
 
     // For a two-bar truss, geometric nonlinearity produces a different (typically stiffer)
     // response compared to linear. The key point is that both produce a downward deflection
     // and that the corotational result differs from linear (nonlinear effect is captured).
-    let ratio = apex.uy / apex_lin.uy;
+    let ratio = apex.uz / apex_lin.uz;
     assert!(
         ratio > 0.0 && ratio < 10.0,
         "Corot/linear ratio should be positive and bounded: ratio={:.4}, corot={:.6e}, lin={:.6e}",
-        ratio, apex.uy, apex_lin.uy
+        ratio, apex.uz, apex_lin.uz
     );
 
     // Verify the analytical P_cr is positive and reasonable
@@ -409,10 +409,10 @@ fn validation_nonlin_ext_5_frame_second_order_moments() {
 
     let loads = vec![
         SolverLoad::Nodal(SolverNodalLoad {
-            node_id: top_left, fx: h_lat, fy: p_grav, mz: 0.0,
+            node_id: top_left, fx: h_lat, fz: p_grav, my: 0.0,
         }),
         SolverLoad::Nodal(SolverNodalLoad {
-            node_id: top_right, fx: 0.0, fy: p_grav, mz: 0.0,
+            node_id: top_right, fx: 0.0, fz: p_grav, my: 0.0,
         }),
     ];
 
@@ -488,7 +488,7 @@ fn validation_nonlin_ext_6_column_large_deflection() {
     // Axial + lateral loads
     let loads = vec![
         SolverLoad::Nodal(SolverNodalLoad {
-            node_id: tip_node, fx: -p_axial, fy: h_lateral, mz: 0.0,
+            node_id: tip_node, fx: -p_axial, fz: h_lateral, my: 0.0,
         }),
     ];
 
@@ -501,14 +501,14 @@ fn validation_nonlin_ext_6_column_large_deflection() {
     // Linear solution (no axial effect)
     let lin_res = linear::solve_2d(&input).unwrap();
     let tip_lin_uy = lin_res.displacements.iter()
-        .find(|d| d.node_id == tip_node).unwrap().uy;
+        .find(|d| d.node_id == tip_node).unwrap().uz;
 
     // Corotational solution
     let corot_res = corotational::solve_corotational_2d(&input, 50, 1e-5, 10, false).unwrap();
     assert!(corot_res.converged, "Column at 30% Pe should converge");
 
     let tip_corot_uy = corot_res.results.displacements.iter()
-        .find(|d| d.node_id == tip_node).unwrap().uy;
+        .find(|d| d.node_id == tip_node).unwrap().uz;
 
     // Analytical B1 amplification factor
     let b1_analytical = 1.0 / (1.0 - p_axial / pe);
@@ -561,7 +561,7 @@ fn validation_nonlin_ext_7_cantilever_follower_moment() {
         nodes, vec![(1, E, 0.3)], vec![(1, a, iz)],
         elems, vec![(1, 1, "fixed")],
         vec![SolverLoad::Nodal(SolverNodalLoad {
-            node_id: n + 1, fx: 0.0, fy: 0.0, mz: m_applied,
+            node_id: n + 1, fx: 0.0, fz: 0.0, my: m_applied,
         })],
     );
 
@@ -577,16 +577,16 @@ fn validation_nonlin_ext_7_cantilever_follower_moment() {
     let exact_ux = -(l - r * theta_target.sin());
 
     // Tip rotation should be close to 30 degrees
-    let rot_error = (tip.rz.abs() - theta_target).abs() / theta_target;
+    let rot_error = (tip.ry.abs() - theta_target).abs() / theta_target;
     assert!(
         rot_error < 0.10,
         "Tip rotation: computed={:.4} rad, expected={:.4} rad, error={:.1}%",
-        tip.rz.abs(), theta_target, rot_error * 100.0
+        tip.ry.abs(), theta_target, rot_error * 100.0
     );
 
     // Lateral deflection comparison
     if exact_uy.abs() > 1e-6 {
-        assert_close(tip.uy.abs(), exact_uy.abs(), 0.15,
+        assert_close(tip.uz.abs(), exact_uy.abs(), 0.15,
             "Cantilever moment: uy");
     }
 
@@ -628,7 +628,7 @@ fn validation_nonlin_ext_8_multi_step_loading() {
         nodes, vec![(1, E, 0.3)], vec![(1, a, iz)],
         elems, vec![(1, 1, "fixed")],
         vec![SolverLoad::Nodal(SolverNodalLoad {
-            node_id: tip_node, fx: 0.0, fy: p, mz: 0.0,
+            node_id: tip_node, fx: 0.0, fz: p, my: 0.0,
         })],
     );
 
@@ -637,21 +637,21 @@ fn validation_nonlin_ext_8_multi_step_loading() {
     assert!(res_5.converged, "5-increment solution should converge");
     let tip_5 = res_5.results.displacements.iter()
         .find(|d| d.node_id == tip_node).unwrap();
-    let uy_5 = tip_5.uy;
+    let uy_5 = tip_5.uz;
 
     // Solve with 20 increments
     let res_20 = corotational::solve_corotational_2d(&input, 50, 1e-6, 20, false).unwrap();
     assert!(res_20.converged, "20-increment solution should converge");
     let tip_20 = res_20.results.displacements.iter()
         .find(|d| d.node_id == tip_node).unwrap();
-    let uy_20 = tip_20.uy;
+    let uy_20 = tip_20.uz;
 
     // Solve with 50 increments (reference)
     let res_50 = corotational::solve_corotational_2d(&input, 50, 1e-6, 50, false).unwrap();
     assert!(res_50.converged, "50-increment solution should converge");
     let tip_50 = res_50.results.displacements.iter()
         .find(|d| d.node_id == tip_node).unwrap();
-    let uy_50 = tip_50.uy;
+    let uy_50 = tip_50.uz;
 
     // All three should give the same direction
     assert!(uy_5 < 0.0 && uy_20 < 0.0 && uy_50 < 0.0,

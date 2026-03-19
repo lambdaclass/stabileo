@@ -26,7 +26,7 @@ fn make_input(
 ) -> SolverInput {
     let mut nodes_map = HashMap::new();
     for (id, x, y) in nodes {
-        nodes_map.insert(id.to_string(), SolverNode { id, x, y });
+        nodes_map.insert(id.to_string(), SolverNode { id, x, z: y });
     }
     let mut mats_map = HashMap::new();
     for (id, e, nu) in mats {
@@ -64,8 +64,8 @@ fn make_input(
                 ky: None,
                 kz: None,
                 dx: None,
-                dy: None,
-                drz: None,
+                dz: None,
+                dry: None,
                 angle: None,
             },
         );
@@ -172,16 +172,16 @@ fn make_frame(n_stories: usize, n_bays: usize) -> SolverInput {
         loads.push(SolverLoad::Nodal(SolverNodalLoad {
             node_id: j * cols + 1,
             fx: 10.0,
-            fy: 0.0,
-            mz: 0.0,
+            fz: 0.0,
+            my: 0.0,
         }));
         // Gravity at each node
         for i in 0..=n_bays {
             loads.push(SolverLoad::Nodal(SolverNodalLoad {
                 node_id: j * cols + i + 1,
                 fx: 0.0,
-                fy: -50.0,
-                mz: 0.0,
+                fz: -50.0,
+                my: 0.0,
             }));
         }
     }
@@ -223,8 +223,8 @@ fn make_column(n_elem: usize) -> SolverInput {
         vec![SolverLoad::Nodal(SolverNodalLoad {
             node_id: n_elem + 1,
             fx: p,
-            fy: 0.0,
-            mz: 0.0,
+            fz: 0.0,
+            my: 0.0,
         })],
     )
 }
@@ -698,8 +698,8 @@ fn bench_cable(c: &mut Criterion) {
             loads.push(SolverLoad::Nodal(SolverNodalLoad {
                 node_id: i + 1,
                 fx: 0.0,
-                fy: -5.0,
-                mz: 0.0,
+                fz: -5.0,
+                my: 0.0,
             }));
         }
         let input = make_input(
@@ -865,8 +865,8 @@ fn bench_corotational(c: &mut Criterion) {
             vec![SolverLoad::Nodal(SolverNodalLoad {
                 node_id: n + 1,
                 fx: 0.0,
-                fy: -50.0,
-                mz: 0.0,
+                fz: -50.0,
+                my: 0.0,
             })],
         );
         group.bench_with_input(BenchmarkId::from_parameter(n), &input, |b, input| {
@@ -951,8 +951,8 @@ fn bench_fiber_nonlinear(c: &mut Criterion) {
             vec![SolverLoad::Nodal(SolverNodalLoad {
                 node_id: n + 1,
                 fx: 0.0,
-                fy: -20.0,
-                mz: 0.0,
+                fz: -20.0,
+                my: 0.0,
             })],
         );
         let section = rectangular_fiber_section(
@@ -1055,7 +1055,7 @@ fn bench_staged(c: &mut Criterion) {
         for i in 0..=n {
             nodes.insert(
                 (i + 1).to_string(),
-                SolverNode { id: i + 1, x: i as f64 * elem_len, y: 0.0 },
+                SolverNode { id: i + 1, x: i as f64 * elem_len, z: 0.0 },
             );
         }
         let mut materials = HashMap::new();
@@ -1086,21 +1086,21 @@ fn bench_staged(c: &mut Criterion) {
             "1".to_string(),
             SolverSupport {
                 id: 1, node_id: 1, support_type: "pinned".to_string(),
-                kx: None, ky: None, kz: None, dx: None, dy: None, drz: None, angle: None,
+                kx: None, ky: None, kz: None, dx: None, dz: None, dry: None, angle: None,
             },
         );
         supports.insert(
             "2".to_string(),
             SolverSupport {
                 id: 2, node_id: half + 1, support_type: "rollerX".to_string(),
-                kx: None, ky: None, kz: None, dx: None, dy: None, drz: None, angle: None,
+                kx: None, ky: None, kz: None, dx: None, dz: None, dry: None, angle: None,
             },
         );
         supports.insert(
             "3".to_string(),
             SolverSupport {
                 id: 3, node_id: n + 1, support_type: "rollerX".to_string(),
-                kx: None, ky: None, kz: None, dx: None, dy: None, drz: None, angle: None,
+                kx: None, ky: None, kz: None, dx: None, dz: None, dry: None, angle: None,
             },
         );
 

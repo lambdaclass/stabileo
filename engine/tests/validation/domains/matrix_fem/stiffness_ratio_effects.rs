@@ -48,7 +48,7 @@ fn validation_stiffness_stiff_beam() {
     ];
     let sups = vec![(1, 1, "fixed"), (2, 4, "fixed")];
     let loads = vec![SolverLoad::Nodal(SolverNodalLoad {
-        node_id: 2, fx: f_lat, fy: 0.0, mz: 0.0,
+        node_id: 2, fx: f_lat, fz: 0.0, my: 0.0,
     })];
     let input = make_input(
         nodes, vec![(1, E, 0.3)],
@@ -88,7 +88,7 @@ fn validation_stiffness_flexible_beam() {
     ];
     let sups = vec![(1, 1, "fixed"), (2, 4, "fixed")];
     let loads = vec![SolverLoad::Nodal(SolverNodalLoad {
-        node_id: 2, fx: f_lat, fy: 0.0, mz: 0.0,
+        node_id: 2, fx: f_lat, fz: 0.0, my: 0.0,
     })];
     let input = make_input(
         nodes, vec![(1, E, 0.3)],
@@ -99,7 +99,7 @@ fn validation_stiffness_flexible_beam() {
 
     // With very flexible beam: joint rotation at loaded node is larger
     // (beam provides no rotational restraint → cantilever-like behavior)
-    let rz2 = results.displacements.iter().find(|d| d.node_id == 2).unwrap().rz.abs();
+    let rz2 = results.displacements.iter().find(|d| d.node_id == 2).unwrap().ry.abs();
 
     // Compare with stiff-beam case
     let iz_stiff = IZ * 1000.0;
@@ -111,7 +111,7 @@ fn validation_stiffness_flexible_beam() {
     ];
     let sups_s = vec![(1, 1, "fixed"), (2, 4, "fixed")];
     let loads_s = vec![SolverLoad::Nodal(SolverNodalLoad {
-        node_id: 2, fx: f_lat, fy: 0.0, mz: 0.0,
+        node_id: 2, fx: f_lat, fz: 0.0, my: 0.0,
     })];
     let input_s = make_input(
         nodes_s, vec![(1, E, 0.3)],
@@ -119,7 +119,7 @@ fn validation_stiffness_flexible_beam() {
         elems_s, sups_s, loads_s,
     );
     let res_s = linear::solve_2d(&input_s).unwrap();
-    let rz2_stiff = res_s.displacements.iter().find(|d| d.node_id == 2).unwrap().rz.abs();
+    let rz2_stiff = res_s.displacements.iter().find(|d| d.node_id == 2).unwrap().ry.abs();
 
     // Flexible beam → larger joint rotation
     assert!(rz2 > rz2_stiff * 1.5,
@@ -171,7 +171,7 @@ fn validation_stiffness_distribution() {
         (2, n1 + 1 + n2, "fixed"),
     ];
     let loads = vec![SolverLoad::Nodal(SolverNodalLoad {
-        node_id: n1 + 1, fx: 0.0, fy: 0.0, mz: m,
+        node_id: n1 + 1, fx: 0.0, fz: 0.0, my: m,
     })];
     let input = make_input(
         nodes, vec![(1, E, 0.3)],
@@ -232,7 +232,7 @@ fn validation_stiffness_rigid_floor() {
     ];
     let sups = vec![(1, 1, "fixed"), (2, 4, "fixed"), (3, 6, "fixed")];
     let loads = vec![SolverLoad::Nodal(SolverNodalLoad {
-        node_id: 2, fx: f, fy: 0.0, mz: 0.0,
+        node_id: 2, fx: f, fz: 0.0, my: 0.0,
     })];
     let input = make_input(
         nodes, vec![(1, E, 0.3)],
@@ -273,16 +273,16 @@ fn validation_stiffness_parallel_springs() {
         id: 1, node_id: 1,
         support_type: "pinned".to_string(),
         kx: None, ky: None, kz: None,
-        dx: None, dy: None, drz: None, angle: None,
+        dx: None, dz: None, dry: None, angle: None,
     });
     sups_map.insert("2".to_string(), SolverSupport {
         id: 2, node_id: n + 1,
         support_type: "rollerX".to_string(),
         kx: None, ky: None, kz: None,
-        dx: None, dy: None, drz: None, angle: None,
+        dx: None, dz: None, dry: None, angle: None,
     });
     let loads = vec![SolverLoad::Nodal(SolverNodalLoad {
-        node_id: n / 2 + 1, fx: 0.0, fy: -p, mz: 0.0,
+        node_id: n / 2 + 1, fx: 0.0, fz: -p, my: 0.0,
     })];
     let mut mats_map = std::collections::HashMap::new();
     mats_map.insert("1".to_string(), SolverMaterial { id: 1, e: E, nu: 0.3 });
@@ -291,7 +291,7 @@ fn validation_stiffness_parallel_springs() {
 
     let mut nodes_map = std::collections::HashMap::new();
     for (id, x, y) in &nodes {
-        nodes_map.insert(id.to_string(), SolverNode { id: *id, x: *x, y: *y });
+        nodes_map.insert(id.to_string(), SolverNode { id: *id, x: *x, z: *y });
     }
     let mut elems_map = std::collections::HashMap::new();
     for (id, t, ni, nj, mi, si, hs, he) in &elems {
@@ -312,7 +312,7 @@ fn validation_stiffness_parallel_springs() {
     // Both supports have reactions
     let r1 = results.reactions.iter().find(|r| r.node_id == 1).unwrap();
     let r_end = results.reactions.iter().find(|r| r.node_id == n + 1).unwrap();
-    assert_close(r1.ry + r_end.ry, p, 0.01,
+    assert_close(r1.rz + r_end.rz, p, 0.01,
         "Parallel supports: ΣRy = P");
 }
 
@@ -339,22 +339,22 @@ fn validation_stiffness_spring_effect() {
             id: 1, node_id: 1,
             support_type: "fixed".to_string(),
             kx: None, ky: None, kz: None,
-            dx: None, dy: None, drz: None, angle: None,
+            dx: None, dz: None, dry: None, angle: None,
         });
         sups_map.insert("2".to_string(), SolverSupport {
             id: 2, node_id: n + 1,
             support_type: "free".to_string(),
             kx: None, ky: Some(ky), kz: None,
-            dx: None, dy: None, drz: None, angle: None,
+            dx: None, dz: None, dry: None, angle: None,
         });
 
         let loads = vec![SolverLoad::Nodal(SolverNodalLoad {
-            node_id: n + 1, fx: 0.0, fy: -p, mz: 0.0,
+            node_id: n + 1, fx: 0.0, fz: -p, my: 0.0,
         })];
 
         let mut nodes_map = std::collections::HashMap::new();
         for (id, x, y) in &nodes {
-            nodes_map.insert(id.to_string(), SolverNode { id: *id, x: *x, y: *y });
+            nodes_map.insert(id.to_string(), SolverNode { id: *id, x: *x, z: *y });
         }
         let mut elems_map = std::collections::HashMap::new();
         for (id, t, ni, nj, mi, si, hs, he) in &elems {
@@ -375,7 +375,7 @@ fn validation_stiffness_spring_effect() {
             elements: elems_map, supports: sups_map, loads, constraints: vec![],
             connectors: std::collections::HashMap::new(), };
         let results = linear::solve_2d(&input).unwrap();
-        results.displacements.iter().find(|d| d.node_id == n + 1).unwrap().uy.abs()
+        results.displacements.iter().find(|d| d.node_id == n + 1).unwrap().uz.abs()
     };
 
     let d_soft = solve_with_spring(100.0);   // soft spring
@@ -402,7 +402,7 @@ fn validation_stiffness_axial_vs_flexural() {
 
     // Axial load
     let loads_axial = vec![SolverLoad::Nodal(SolverNodalLoad {
-        node_id: n + 1, fx: p, fy: 0.0, mz: 0.0,
+        node_id: n + 1, fx: p, fz: 0.0, my: 0.0,
     })];
     let input_axial = make_beam(n, l, E, A, IZ, "pinned", Some("rollerX"), loads_axial);
     let res_axial = linear::solve_2d(&input_axial).unwrap();
@@ -410,7 +410,7 @@ fn validation_stiffness_axial_vs_flexural() {
     // Lateral load
     let mid = n / 2 + 1;
     let loads_lateral = vec![SolverLoad::Nodal(SolverNodalLoad {
-        node_id: mid, fx: 0.0, fy: -p, mz: 0.0,
+        node_id: mid, fx: 0.0, fz: -p, my: 0.0,
     })];
     let input_lateral = make_beam(n, l, E, A, IZ, "pinned", Some("rollerX"), loads_lateral);
     let res_lateral = linear::solve_2d(&input_lateral).unwrap();
@@ -418,7 +418,7 @@ fn validation_stiffness_axial_vs_flexural() {
     let d_axial = res_axial.displacements.iter()
         .find(|d| d.node_id == n + 1).unwrap().ux.abs();
     let d_lateral = res_lateral.displacements.iter()
-        .find(|d| d.node_id == mid).unwrap().uy.abs();
+        .find(|d| d.node_id == mid).unwrap().uz.abs();
 
     // Axial: δ = PL/(EA); Lateral: δ = PL³/(48EI)
     // Ratio: δ_lat/δ_axial = EA*L²/(48*I) which is >> 1 for slender beams
@@ -446,7 +446,7 @@ fn validation_stiffness_beam_on_sidesway() {
         ];
         let sups = vec![(1, 1, "fixed"), (2, 4, "fixed")];
         let loads = vec![SolverLoad::Nodal(SolverNodalLoad {
-            node_id: 2, fx: f_lat, fy: 0.0, mz: 0.0,
+            node_id: 2, fx: f_lat, fz: 0.0, my: 0.0,
         })];
         let input = make_input(
             nodes, vec![(1, E, 0.3)],

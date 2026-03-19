@@ -74,14 +74,14 @@ fn validation_aisc_h1_1_interaction_ratio() {
         SolverLoad::Nodal(SolverNodalLoad {
             node_id: n + 1,
             fx: -pu,
-            fy: 0.0,
-            mz: 0.0,
+            fz: 0.0,
+            my: 0.0,
         }),
         SolverLoad::Nodal(SolverNodalLoad {
             node_id: mid,
             fx: 0.0,
-            fy: -p_lateral,
-            mz: 0.0,
+            fz: -p_lateral,
+            my: 0.0,
         }),
     ];
     let input = make_beam(n, l, E, W14_A, W14_IZ, "pinned", Some("rollerX"), loads);
@@ -151,8 +151,8 @@ fn validation_beam_column_pm_linear_vs_pdelta() {
     let mut loads = vec![SolverLoad::Nodal(SolverNodalLoad {
         node_id: n + 1,
         fx: -p_axial,
-        fy: 0.0,
-        mz: 0.0,
+        fz: 0.0,
+        my: 0.0,
     })];
     for i in 0..n {
         loads.push(SolverLoad::Distributed(SolverDistributedLoad {
@@ -181,9 +181,9 @@ fn validation_beam_column_pm_linear_vs_pdelta() {
     // Compare midspan displacement amplification
     let mid = n / 2 + 1;
     let lin_uy = lin.displacements.iter()
-        .find(|d| d.node_id == mid).unwrap().uy;
+        .find(|d| d.node_id == mid).unwrap().uz;
     let pd_uy = pd.results.displacements.iter()
-        .find(|d| d.node_id == mid).unwrap().uy;
+        .find(|d| d.node_id == mid).unwrap().uz;
 
     // Expected B1 = 1/(1 - P/Pe) = 1/(1 - 0.25) = 1.333
     let b1_expected = 1.0 / (1.0 - p_axial / pe);
@@ -261,7 +261,7 @@ fn validation_combined_axial_biaxial_3d() {
 
     // Y-deflection: delta_y = Fy*L^3/(3*E*Iz)
     let dy_expected = fy * l.powi(3) / (3.0 * E_EFF * iz);
-    assert_close(tip.uy.abs(), dy_expected, 0.03,
+    assert_close(tip.uz.abs(), dy_expected, 0.03,
         "3D biaxial: delta_y = Fy*L^3/(3EIz)");
 
     // Z-deflection: delta_z = Fz*L^3/(3*E*Iy)
@@ -270,7 +270,7 @@ fn validation_combined_axial_biaxial_3d() {
         "3D biaxial: delta_z = Fz*L^3/(3EIy)");
 
     // Resultant transverse deflection
-    let delta_trans = (tip.uy.powi(2) + tip.uz.powi(2)).sqrt();
+    let delta_trans = (tip.uz.powi(2) + tip.uz.powi(2)).sqrt();
     let delta_trans_expected = (dy_expected.powi(2) + dz_expected.powi(2)).sqrt();
     assert_close(delta_trans, delta_trans_expected, 0.03,
         "3D biaxial: resultant transverse deflection");
@@ -330,8 +330,8 @@ fn validation_slenderness_ratio_kl_r() {
         let mut loads = vec![SolverLoad::Nodal(SolverNodalLoad {
             node_id: n + 1,
             fx: -p_safe,
-            fy: 0.0,
-            mz: 0.0,
+            fz: 0.0,
+            my: 0.0,
         })];
         for i in 0..n {
             loads.push(SolverLoad::Distributed(SolverDistributedLoad {
@@ -520,7 +520,7 @@ fn validation_serviceability_deflection_limits() {
 
     let mid = n / 2 + 1;
     let delta_live = res_live.displacements.iter()
-        .find(|d| d.node_id == mid).unwrap().uy.abs();
+        .find(|d| d.node_id == mid).unwrap().uz.abs();
 
     // Live load deflection should be within L/360 (with our 10% margin)
     assert!(
@@ -545,7 +545,7 @@ fn validation_serviceability_deflection_limits() {
     let res_total = linear::solve_2d(&input_total).unwrap();
 
     let delta_total = res_total.displacements.iter()
-        .find(|d| d.node_id == mid).unwrap().uy.abs();
+        .find(|d| d.node_id == mid).unwrap().uz.abs();
 
     // Total deflection should be within L/240
     assert!(
@@ -592,8 +592,8 @@ fn validation_connection_bolt_group_resultant() {
     let loads = vec![SolverLoad::Nodal(SolverNodalLoad {
         node_id: mid,
         fx: 0.0,
-        fy: -p,
-        mz: 0.0,
+        fz: -p,
+        my: 0.0,
     })];
     let input = make_beam(n, l, E, W14_A, W14_IZ, "pinned", Some("rollerX"), loads);
     let results = linear::solve_2d(&input).unwrap();
@@ -601,7 +601,7 @@ fn validation_connection_bolt_group_resultant() {
     // End reaction at node 1 (pinned support)
     let r_left = results.reactions.iter()
         .find(|r| r.node_id == 1).unwrap();
-    let v_connection = r_left.ry.abs();
+    let v_connection = r_left.rz.abs();
 
     // For symmetric loading: each reaction = P/2
     assert_close(v_connection, p / 2.0, 0.02,
@@ -709,14 +709,14 @@ fn validation_strong_column_weak_beam() {
         SolverLoad::Nodal(SolverNodalLoad {
             node_id: 2,
             fx: f_lateral,
-            fy: f_gravity,
-            mz: 0.0,
+            fz: f_gravity,
+            my: 0.0,
         }),
         SolverLoad::Nodal(SolverNodalLoad {
             node_id: 3,
             fx: 0.0,
-            fy: f_gravity,
-            mz: 0.0,
+            fz: f_gravity,
+            my: 0.0,
         }),
     ];
 
@@ -791,7 +791,7 @@ fn validation_strong_column_weak_beam() {
 
     // Global equilibrium check
     let sum_rx: f64 = results.reactions.iter().map(|r| r.rx).sum();
-    let sum_ry: f64 = results.reactions.iter().map(|r| r.ry).sum();
+    let sum_ry: f64 = results.reactions.iter().map(|r| r.rz).sum();
     assert_close(sum_rx, -f_lateral, 0.02,
         "SCWB frame: horizontal equilibrium");
     assert_close(sum_ry, -2.0 * f_gravity, 0.02,

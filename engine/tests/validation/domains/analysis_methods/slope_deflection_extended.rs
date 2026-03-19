@@ -80,8 +80,8 @@ fn validation_sde_fixed_end_beam_fem() {
     let d1 = results.displacements.iter().find(|d| d.node_id == 1).unwrap();
     let d_end = results.displacements.iter()
         .find(|d| d.node_id == n + 1).unwrap();
-    assert!(d1.rz.abs() < 1e-10, "SDE1: theta_left = 0 (fixed)");
-    assert!(d_end.rz.abs() < 1e-10, "SDE1: theta_right = 0 (fixed)");
+    assert!(d1.ry.abs() < 1e-10, "SDE1: theta_left = 0 (fixed)");
+    assert!(d_end.ry.abs() < 1e-10, "SDE1: theta_right = 0 (fixed)");
 }
 
 // ================================================================
@@ -118,29 +118,29 @@ fn validation_sde_propped_cantilever_modified_stiffness() {
     // Fixed end moment: M_A = qL²/8
     let m_a_exact: f64 = q.abs() * l * l / 8.0;
     let r1 = results.reactions.iter().find(|r| r.node_id == 1).unwrap();
-    assert_close(r1.mz.abs(), m_a_exact, 0.03,
+    assert_close(r1.my.abs(), m_a_exact, 0.03,
         "SDE2: M_A = qL^2/8 for propped cantilever");
 
     // Reactions: R_A = 5qL/8 (fixed end), R_B = 3qL/8 (roller end)
     let ra_exact: f64 = 5.0 * q.abs() * l / 8.0;
     let rb_exact: f64 = 3.0 * q.abs() * l / 8.0;
-    assert_close(r1.ry, ra_exact, 0.03,
+    assert_close(r1.rz, ra_exact, 0.03,
         "SDE2: R_A = 5qL/8");
     let r_end = results.reactions.iter()
         .find(|r| r.node_id == n + 1).unwrap();
-    assert_close(r_end.ry, rb_exact, 0.03,
+    assert_close(r_end.rz, rb_exact, 0.03,
         "SDE2: R_B = 3qL/8");
 
     // Roller end rotation: θ_B = qL³/(48EI)
     let theta_exact: f64 = q.abs() * l.powi(3) / (48.0 * e_eff * IZ);
     let d_end = results.displacements.iter()
         .find(|d| d.node_id == n + 1).unwrap();
-    assert_close(d_end.rz.abs(), theta_exact, 0.05,
+    assert_close(d_end.ry.abs(), theta_exact, 0.05,
         "SDE2: theta_B = qL^3/(48EI)");
 
     // Fixed end rotation must be zero
     let d1 = results.displacements.iter().find(|d| d.node_id == 1).unwrap();
-    assert!(d1.rz.abs() < 1e-10, "SDE2: theta_A = 0 (fixed)");
+    assert!(d1.ry.abs() < 1e-10, "SDE2: theta_A = 0 (fixed)");
 }
 
 // ================================================================
@@ -193,8 +193,8 @@ fn validation_sde_two_span_interior_moment() {
     // By symmetry: θ_B = 0 at the interior support
     let d_int = results.displacements.iter()
         .find(|d| d.node_id == n + 1).unwrap();
-    assert!(d_int.rz.abs() < 1e-10,
-        "SDE3: theta_B = 0 by symmetry: {:.6e}", d_int.rz);
+    assert!(d_int.ry.abs() < 1e-10,
+        "SDE3: theta_B = 0 by symmetry: {:.6e}", d_int.ry);
 
     // End reactions: R_end = 3wL/8 each, interior R_B = 10wL/8
     let r_end_exact: f64 = 3.0 * w * l / 8.0;
@@ -202,9 +202,9 @@ fn validation_sde_two_span_interior_moment() {
     let ra = results.reactions.iter().find(|r| r.node_id == 1).unwrap();
     let rb = results.reactions.iter()
         .find(|r| r.node_id == n + 1).unwrap();
-    assert_close(ra.ry, r_end_exact, 0.03,
+    assert_close(ra.rz, r_end_exact, 0.03,
         "SDE3: R_A = 3wL/8");
-    assert_close(rb.ry, r_int_exact, 0.03,
+    assert_close(rb.rz, r_int_exact, 0.03,
         "SDE3: R_B = 10wL/8");
 }
 
@@ -259,8 +259,8 @@ fn validation_sde_portal_sway_shear_equilibrium() {
         "SDE4: actual sway >= 50% of rigid-beam estimate");
 
     // Base moments should be comparable (symmetric frame under lateral load)
-    let m_base_left: f64 = r1.mz.abs();
-    let m_base_right: f64 = r4.mz.abs();
+    let m_base_left: f64 = r1.my.abs();
+    let m_base_right: f64 = r4.my.abs();
     let ratio: f64 = m_base_left / m_base_right;
     assert!(ratio > 0.5 && ratio < 2.0,
         "SDE4: base moments comparable: left={:.4}, right={:.4}", m_base_left, m_base_right);
@@ -291,7 +291,7 @@ fn validation_sde_settlement_induced_moments() {
     for i in 0..=n {
         nodes_map.insert(
             (i + 1).to_string(),
-            SolverNode { id: i + 1, x: i as f64 * l / n as f64, y: 0.0 },
+            SolverNode { id: i + 1, x: i as f64 * l / n as f64, z: 0.0 },
         );
     }
     let mut mats = std::collections::HashMap::new();
@@ -313,11 +313,11 @@ fn validation_sde_settlement_induced_moments() {
     let mut sups = std::collections::HashMap::new();
     sups.insert("1".to_string(), SolverSupport {
         id: 1, node_id: 1, support_type: "fixed".to_string(),
-        kx: None, ky: None, kz: None, dx: None, dy: None, drz: None, angle: None,
+        kx: None, ky: None, kz: None, dx: None, dz: None, dry: None, angle: None,
     });
     sups.insert("2".to_string(), SolverSupport {
         id: 2, node_id: n + 1, support_type: "fixed".to_string(),
-        kx: None, ky: None, kz: None, dx: None, dy: Some(delta), drz: None, angle: None,
+        kx: None, ky: None, kz: None, dx: None, dz: Some(delta), dry: None, angle: None,
     });
 
     let input = SolverInput {
@@ -332,18 +332,18 @@ fn validation_sde_settlement_induced_moments() {
     let r1 = results.reactions.iter().find(|r| r.node_id == 1).unwrap();
     let r2 = results.reactions.iter().find(|r| r.node_id == n + 1).unwrap();
 
-    assert_close(r1.mz.abs(), m_exact, 0.05,
+    assert_close(r1.my.abs(), m_exact, 0.05,
         "SDE5: |M_A| = 6EI*delta/L^2");
-    assert_close(r2.mz.abs(), m_exact, 0.05,
+    assert_close(r2.my.abs(), m_exact, 0.05,
         "SDE5: |M_B| = 6EI*delta/L^2");
 
     // V = 12EIΔ/L³
     let v_exact: f64 = 12.0 * e_eff * IZ * delta.abs() / l.powi(3);
-    assert_close(r1.ry.abs(), v_exact, 0.05,
+    assert_close(r1.rz.abs(), v_exact, 0.05,
         "SDE5: |V| = 12EI*delta/L^3");
 
     // Vertical equilibrium: sum of reactions = 0 (no external loads)
-    let sum_ry: f64 = results.reactions.iter().map(|r| r.ry).sum();
+    let sum_ry: f64 = results.reactions.iter().map(|r| r.rz).sum();
     assert!(sum_ry.abs() < 0.01, "SDE5: vertical equilibrium: sum_ry = {:.6}", sum_ry);
 }
 
@@ -371,33 +371,33 @@ fn validation_sde_carry_over_factor() {
     // Propped cantilever: fixed at left, roller at right
     // Apply moment at roller end
     let loads = vec![SolverLoad::Nodal(SolverNodalLoad {
-        node_id: n + 1, fx: 0.0, fy: 0.0, mz: m_applied,
+        node_id: n + 1, fx: 0.0, fz: 0.0, my: m_applied,
     })];
     let input = make_beam(n, l, E, A, IZ, "fixed", Some("rollerX"), loads);
     let results = solve_2d(&input).expect("solve");
 
     // Far-end (fixed) reaction moment = M_applied / 2 (carry-over factor)
     let r1 = results.reactions.iter().find(|r| r.node_id == 1).unwrap();
-    assert_close(r1.mz.abs(), m_applied / 2.0, 0.05,
+    assert_close(r1.my.abs(), m_applied / 2.0, 0.05,
         "SDE6: carry-over M_far = M_applied/2");
 
     // The ratio of far-end to near-end moment is exactly 0.5
     // Near-end moment = M_applied (the applied moment at the roller)
-    let cof: f64 = r1.mz.abs() / m_applied;
+    let cof: f64 = r1.my.abs() / m_applied;
     assert_close(cof, 0.5, 0.05,
         "SDE6: carry-over factor = 0.5");
 
     // The roller end should have a non-zero rotation
     let d_roller = results.displacements.iter()
         .find(|d| d.node_id == n + 1).unwrap();
-    assert!(d_roller.rz.abs() > 0.0,
-        "SDE6: theta_roller != 0: {:.6e}", d_roller.rz);
+    assert!(d_roller.ry.abs() > 0.0,
+        "SDE6: theta_roller != 0: {:.6e}", d_roller.ry);
 
     // Verify global vertical equilibrium: sum of vertical reactions = 0
     // (only moment loads, no vertical forces applied)
     let r_roller = results.reactions.iter()
         .find(|r| r.node_id == n + 1).unwrap();
-    let sum_ry: f64 = (r1.ry + r_roller.ry).abs();
+    let sum_ry: f64 = (r1.rz + r_roller.rz).abs();
     assert!(sum_ry < 0.01,
         "SDE6: vertical equilibrium: sum_ry = {:.6}", sum_ry);
 }
@@ -439,7 +439,7 @@ fn validation_sde_non_sway_unequal_distribution() {
     let sups = vec![(1, 1, "fixed"), (2, 3, "fixed")];
     let m_total: f64 = 16.0;
     let loads = vec![SolverLoad::Nodal(SolverNodalLoad {
-        node_id: 2, fx: 0.0, fy: 0.0, mz: m_total,
+        node_id: 2, fx: 0.0, fz: 0.0, my: m_total,
     })];
 
     let input = make_input(nodes, mats, secs, elems, sups, loads);
@@ -478,13 +478,13 @@ fn validation_sde_non_sway_unequal_distribution() {
     let co_a_expected: f64 = 0.5 * m_total * df_a; // = 0.5 * 16 * 5/8 = 5
     let co_b_expected: f64 = 0.5 * m_total * df_b; // = 0.5 * 16 * 3/8 = 3
 
-    assert_close(r1.mz.abs(), co_a_expected, 0.05,
+    assert_close(r1.my.abs(), co_a_expected, 0.05,
         "SDE7: carry-over to node 1 (short beam)");
-    assert_close(r3.mz.abs(), co_b_expected, 0.05,
+    assert_close(r3.my.abs(), co_b_expected, 0.05,
         "SDE7: carry-over to node 3 (long beam)");
 
     // Ratio of carry-over moments = DF_A / DF_B = 5/3
-    let co_ratio: f64 = r1.mz.abs() / r3.mz.abs();
+    let co_ratio: f64 = r1.my.abs() / r3.my.abs();
     assert_close(co_ratio, df_a / df_b, 0.05,
         "SDE7: carry-over ratio = DF_A/DF_B");
 }
@@ -542,11 +542,11 @@ fn validation_sde_symmetric_frame_no_sway() {
     // Column base moments should be equal by symmetry
     let r1 = results.reactions.iter().find(|r| r.node_id == 1).unwrap();
     let r4 = results.reactions.iter().find(|r| r.node_id == 4).unwrap();
-    assert_close(r1.mz.abs(), r4.mz.abs(), 0.02,
+    assert_close(r1.my.abs(), r4.my.abs(), 0.02,
         "SDE8: symmetric base moments");
 
     // Column base vertical reactions should be equal
-    assert_close(r1.ry.abs(), r4.ry.abs(), 0.02,
+    assert_close(r1.rz.abs(), r4.rz.abs(), 0.02,
         "SDE8: symmetric vertical reactions");
 
     // Horizontal reactions at the two bases should be equal and opposite
@@ -560,7 +560,7 @@ fn validation_sde_symmetric_frame_no_sway() {
 
     // Total vertical reaction = total load = |q| * w
     let total_load: f64 = q.abs() * w;
-    let sum_ry: f64 = results.reactions.iter().map(|r| r.ry).sum();
+    let sum_ry: f64 = results.reactions.iter().map(|r| r.rz).sum();
     assert_close(sum_ry, total_load, 0.02,
         "SDE8: total vertical reaction = total load");
 }

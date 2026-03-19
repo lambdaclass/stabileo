@@ -57,10 +57,10 @@ fn validation_bc_ext_two_bay_portal_equilibrium() {
         (1, 1, "fixed"), (2, 4, "fixed"), (3, 6, "fixed"),
     ];
     let loads = vec![
-        SolverLoad::Nodal(SolverNodalLoad { node_id: 2, fx: f_lat, fy: 0.0, mz: 0.0 }),
-        SolverLoad::Nodal(SolverNodalLoad { node_id: 2, fx: 0.0, fy: f_grav, mz: 0.0 }),
-        SolverLoad::Nodal(SolverNodalLoad { node_id: 3, fx: 0.0, fy: f_grav, mz: 0.0 }),
-        SolverLoad::Nodal(SolverNodalLoad { node_id: 5, fx: 0.0, fy: f_grav, mz: 0.0 }),
+        SolverLoad::Nodal(SolverNodalLoad { node_id: 2, fx: f_lat, fz: 0.0, my: 0.0 }),
+        SolverLoad::Nodal(SolverNodalLoad { node_id: 2, fx: 0.0, fz: f_grav, my: 0.0 }),
+        SolverLoad::Nodal(SolverNodalLoad { node_id: 3, fx: 0.0, fz: f_grav, my: 0.0 }),
+        SolverLoad::Nodal(SolverNodalLoad { node_id: 5, fx: 0.0, fz: f_grav, my: 0.0 }),
     ];
 
     let input = make_input(nodes, vec![(1, E, 0.3)], vec![(1, A, IZ)], elems, sups, loads);
@@ -68,7 +68,7 @@ fn validation_bc_ext_two_bay_portal_equilibrium() {
 
     // Global force equilibrium
     let sum_rx: f64 = results.reactions.iter().map(|r| r.rx).sum();
-    let sum_ry: f64 = results.reactions.iter().map(|r| r.ry).sum();
+    let sum_ry: f64 = results.reactions.iter().map(|r| r.rz).sum();
 
     assert_close(sum_rx, -f_lat, 0.02, "Two-bay portal: sum Rx = -F_lat");
     assert_close(sum_ry, -3.0 * f_grav, 0.02, "Two-bay portal: sum Ry = 3*|F_grav|");
@@ -117,7 +117,7 @@ fn validation_bc_ext_propped_cantilever_combined() {
 
     // Bending-only case: midspan downward load on propped cantilever
     let loads_bend = vec![SolverLoad::Nodal(SolverNodalLoad {
-        node_id: mid, fx: 0.0, fy: -p_trans, mz: 0.0,
+        node_id: mid, fx: 0.0, fz: -p_trans, my: 0.0,
     })];
     let input_bend = make_beam(n, l, E, A, IZ, "fixed", Some("rollerX"), loads_bend);
     let res_bend = linear::solve_2d(&input_bend).unwrap();
@@ -135,20 +135,20 @@ fn validation_bc_ext_propped_cantilever_combined() {
     let r_fixed = res_bend.reactions.iter().find(|r| r.node_id == 1).unwrap();
     let r_roller = res_bend.reactions.iter().find(|r| r.node_id == n + 1).unwrap();
 
-    assert_close(r_roller.ry, r_roller_expected, 0.02,
+    assert_close(r_roller.rz, r_roller_expected, 0.02,
         "Propped cantilever: R_roller = 5P/16");
-    assert_close(r_fixed.ry, r_fixed_y_expected, 0.02,
+    assert_close(r_fixed.rz, r_fixed_y_expected, 0.02,
         "Propped cantilever: R_fixed_y = 11P/16");
-    assert_close(r_fixed.mz.abs(), m_fixed_expected, 0.05,
+    assert_close(r_fixed.my.abs(), m_fixed_expected, 0.05,
         "Propped cantilever: M_fixed = 3PL/16");
 
     // Combined case: add axial tension at right end
     let loads_combined = vec![
         SolverLoad::Nodal(SolverNodalLoad {
-            node_id: mid, fx: 0.0, fy: -p_trans, mz: 0.0,
+            node_id: mid, fx: 0.0, fz: -p_trans, my: 0.0,
         }),
         SolverLoad::Nodal(SolverNodalLoad {
-            node_id: n + 1, fx: p_axial, fy: 0.0, mz: 0.0,
+            node_id: n + 1, fx: p_axial, fz: 0.0, my: 0.0,
         }),
     ];
     let input_combined = make_beam(n, l, E, A, IZ, "fixed", Some("rollerX"), loads_combined);
@@ -158,9 +158,9 @@ fn validation_bc_ext_propped_cantilever_combined() {
     let r_fixed_c = res_combined.reactions.iter().find(|r| r.node_id == 1).unwrap();
     let r_roller_c = res_combined.reactions.iter().find(|r| r.node_id == n + 1).unwrap();
 
-    assert_close(r_roller_c.ry, r_roller.ry, 0.02,
+    assert_close(r_roller_c.rz, r_roller.rz, 0.02,
         "Propped cantilever combined: Ry_roller unchanged by axial");
-    assert_close(r_fixed_c.ry, r_fixed.ry, 0.02,
+    assert_close(r_fixed_c.rz, r_fixed.rz, 0.02,
         "Propped cantilever combined: Ry_fixed unchanged by axial");
 
     // Axial force should be constant across all elements (= p_axial)
@@ -202,7 +202,7 @@ fn validation_bc_ext_truss_triangle_joints() {
         ],
         vec![(1, 1, "pinned"), (2, 2, "rollerX")],
         vec![SolverLoad::Nodal(SolverNodalLoad {
-            node_id: 3, fx: 0.0, fy: -p, mz: 0.0,
+            node_id: 3, fx: 0.0, fz: -p, my: 0.0,
         })],
     );
 
@@ -212,8 +212,8 @@ fn validation_bc_ext_truss_triangle_joints() {
     let r1 = results.reactions.iter().find(|r| r.node_id == 1).unwrap();
     let r2 = results.reactions.iter().find(|r| r.node_id == 2).unwrap();
 
-    assert_close(r1.ry, p / 2.0, 0.02, "Truss triangle: R1y = P/2");
-    assert_close(r2.ry, p / 2.0, 0.02, "Truss triangle: R2y = P/2");
+    assert_close(r1.rz, p / 2.0, 0.02, "Truss triangle: R1y = P/2");
+    assert_close(r2.rz, p / 2.0, 0.02, "Truss triangle: R2y = P/2");
     assert_close(r1.rx, 0.0, 0.02, "Truss triangle: R1x = 0");
 
     // Member forces: equilateral triangle, angle = 60°
@@ -304,7 +304,7 @@ fn validation_bc_ext_stepped_column() {
 
     let sups = vec![(1, 1, "fixed")];
     let loads = vec![SolverLoad::Nodal(SolverNodalLoad {
-        node_id: total_nodes, fx: p_axial, fy: -p_lateral, mz: 0.0,
+        node_id: total_nodes, fx: p_axial, fz: -p_lateral, my: 0.0,
     })];
 
     let input = make_input(
@@ -343,13 +343,13 @@ fn validation_bc_ext_stepped_column() {
     let half_l_cubed: f64 = half_l.powi(3);
     let l_cubed: f64 = l.powi(3);
     let dy_expected = p_lateral * ((l_cubed - half_l_cubed) / (3.0 * ei1) + half_l_cubed / (3.0 * ei2));
-    assert_close(tip.uy.abs(), dy_expected, 0.05,
+    assert_close(tip.uz.abs(), dy_expected, 0.05,
         "Stepped column: tip deflection from virtual work");
 
     // Global equilibrium
     let r = results.reactions.iter().find(|r| r.node_id == 1).unwrap();
     assert_close(r.rx, -p_axial, 0.02, "Stepped column: Rx = -P_axial");
-    assert_close(r.ry, p_lateral, 0.02, "Stepped column: Ry = P_lateral");
+    assert_close(r.rz, p_lateral, 0.02, "Stepped column: Ry = P_lateral");
 }
 
 // ================================================================
@@ -374,7 +374,7 @@ fn validation_bc_ext_moment_axial_superposition() {
 
     // Case A: moment only
     let loads_a = vec![SolverLoad::Nodal(SolverNodalLoad {
-        node_id: tip_id, fx: 0.0, fy: 0.0, mz: m_app,
+        node_id: tip_id, fx: 0.0, fz: 0.0, my: m_app,
     })];
     let input_a = make_beam(n, l, E, A, IZ, "fixed", None, loads_a);
     let res_a = linear::solve_2d(&input_a).unwrap();
@@ -382,7 +382,7 @@ fn validation_bc_ext_moment_axial_superposition() {
 
     // Case B: axial only
     let loads_b = vec![SolverLoad::Nodal(SolverNodalLoad {
-        node_id: tip_id, fx: p_axial, fy: 0.0, mz: 0.0,
+        node_id: tip_id, fx: p_axial, fz: 0.0, my: 0.0,
     })];
     let input_b = make_beam(n, l, E, A, IZ, "fixed", None, loads_b);
     let res_b = linear::solve_2d(&input_b).unwrap();
@@ -390,7 +390,7 @@ fn validation_bc_ext_moment_axial_superposition() {
 
     // Case C: combined
     let loads_c = vec![SolverLoad::Nodal(SolverNodalLoad {
-        node_id: tip_id, fx: p_axial, fy: 0.0, mz: m_app,
+        node_id: tip_id, fx: p_axial, fz: 0.0, my: m_app,
     })];
     let input_c = make_beam(n, l, E, A, IZ, "fixed", None, loads_c);
     let res_c = linear::solve_2d(&input_c).unwrap();
@@ -399,9 +399,9 @@ fn validation_bc_ext_moment_axial_superposition() {
     // Analytical results for case A:
     let theta_expected = m_app * l / (e_eff * IZ);
     let dy_expected = m_app * l * l / (2.0 * e_eff * IZ);
-    assert_close(tip_a.rz, theta_expected, 0.02,
+    assert_close(tip_a.ry, theta_expected, 0.02,
         "Moment only: theta = ML/(EI)");
-    assert_close(tip_a.uy.abs(), dy_expected, 0.02,
+    assert_close(tip_a.uz.abs(), dy_expected, 0.02,
         "Moment only: delta_y = ML^2/(2EI)");
 
     // Analytical results for case B:
@@ -412,9 +412,9 @@ fn validation_bc_ext_moment_axial_superposition() {
     // Superposition: combined = sum of individual cases
     assert_close(tip_c.ux, tip_b.ux, 0.01,
         "Superposition: ux_combined = ux_axial");
-    assert_close(tip_c.uy, tip_a.uy, 0.01,
+    assert_close(tip_c.uz, tip_a.uz, 0.01,
         "Superposition: uy_combined = uy_moment");
-    assert_close(tip_c.rz, tip_a.rz, 0.01,
+    assert_close(tip_c.ry, tip_a.ry, 0.01,
         "Superposition: rz_combined = rz_moment");
 
     // Element forces at base: M_base = M_app (constant for pure moment)
@@ -483,7 +483,7 @@ fn validation_bc_ext_l_frame_knee() {
     let sups = vec![(1, 1, "fixed")];
     let tip_node = total_nodes;
     let loads = vec![SolverLoad::Nodal(SolverNodalLoad {
-        node_id: tip_node, fx: f_horiz, fy: p_vert, mz: 0.0,
+        node_id: tip_node, fx: f_horiz, fz: p_vert, my: 0.0,
     })];
 
     let input = make_input(nodes, vec![(1, E, 0.3)], vec![(1, A, IZ)], elems, sups, loads);
@@ -492,13 +492,13 @@ fn validation_bc_ext_l_frame_knee() {
     // Base reactions: equilibrium
     let r_base = results.reactions.iter().find(|r| r.node_id == 1).unwrap();
     assert_close(r_base.rx, -f_horiz, 0.02, "L-frame: Rx = -F_horiz");
-    assert_close(r_base.ry, -p_vert, 0.02, "L-frame: Ry = -P_vert (upward)");
+    assert_close(r_base.rz, -p_vert, 0.02, "L-frame: Ry = -P_vert (upward)");
 
     // Base moment: M_base = P_vert_abs * W + F_horiz * H
     let p_abs: f64 = p_vert.abs();
     let m_base_expected = p_abs * w + f_horiz * h;
     // The sign depends on convention; check magnitude
-    assert_close(r_base.mz.abs(), m_base_expected, 0.05,
+    assert_close(r_base.my.abs(), m_base_expected, 0.05,
         "L-frame: M_base = |P|*W + F*H");
 
     // Column base element (elem 1): carries combined axial + bending
@@ -553,7 +553,7 @@ fn validation_bc_ext_two_span_axial_udl() {
     let mut loads_combined = loads_udl;
     let last_node = total_elems + 1;
     loads_combined.push(SolverLoad::Nodal(SolverNodalLoad {
-        node_id: last_node, fx: p_axial, fy: 0.0, mz: 0.0,
+        node_id: last_node, fx: p_axial, fz: 0.0, my: 0.0,
     }));
     let input2 = make_continuous_beam(
         &[l_span, l_span], n_per, E, A, IZ, loads_combined,
@@ -570,25 +570,25 @@ fn validation_bc_ext_two_span_axial_udl() {
     let r1_center = res1.reactions.iter().find(|r| r.node_id == center_node).unwrap();
     let r1_right = res1.reactions.iter().find(|r| r.node_id == last_node).unwrap();
 
-    assert_close(r1_left.ry, r_end_expected, 0.02,
+    assert_close(r1_left.rz, r_end_expected, 0.02,
         "Two-span UDL: R_left = 3qL/8");
-    assert_close(r1_center.ry, r_center_expected, 0.02,
+    assert_close(r1_center.rz, r_center_expected, 0.02,
         "Two-span UDL: R_center = 10qL/8");
-    assert_close(r1_right.ry, r_end_expected, 0.02,
+    assert_close(r1_right.rz, r_end_expected, 0.02,
         "Two-span UDL: R_right = 3qL/8");
 
     // Verify total vertical reaction = total load
     let total_load = q_abs * 2.0 * l_span;
-    let sum_ry: f64 = res1.reactions.iter().map(|r| r.ry).sum();
+    let sum_ry: f64 = res1.reactions.iter().map(|r| r.rz).sum();
     assert_close(sum_ry, total_load, 0.02, "Two-span: sum Ry = q * 2L");
 
     // Adding axial should not change vertical reactions (linear analysis)
     let r2_left = res2.reactions.iter().find(|r| r.node_id == 1).unwrap();
     let r2_center = res2.reactions.iter().find(|r| r.node_id == center_node).unwrap();
 
-    assert_close(r2_left.ry, r1_left.ry, 0.01,
+    assert_close(r2_left.rz, r1_left.rz, 0.01,
         "Two-span combined: Ry_left unchanged by axial");
-    assert_close(r2_center.ry, r1_center.ry, 0.01,
+    assert_close(r2_center.rz, r1_center.rz, 0.01,
         "Two-span combined: Ry_center unchanged by axial");
 }
 
@@ -631,7 +631,7 @@ fn validation_bc_ext_inclined_beam_gravity() {
 
     let mid = n / 2 + 1;
     let loads = vec![SolverLoad::Nodal(SolverNodalLoad {
-        node_id: mid, fx: 0.0, fy: -p, mz: 0.0,
+        node_id: mid, fx: 0.0, fz: -p, my: 0.0,
     })];
 
     let input = make_input(
@@ -641,7 +641,7 @@ fn validation_bc_ext_inclined_beam_gravity() {
     let results = linear::solve_2d(&input).unwrap();
 
     // Global equilibrium: sum Ry = P
-    let sum_ry: f64 = results.reactions.iter().map(|r| r.ry).sum();
+    let sum_ry: f64 = results.reactions.iter().map(|r| r.rz).sum();
     assert_close(sum_ry, p, 0.02, "Inclined beam: sum Ry = P");
 
     // Sum Rx = 0 (no horizontal applied loads)
@@ -651,8 +651,8 @@ fn validation_bc_ext_inclined_beam_gravity() {
     // Midspan vertical deflection should be downward
     let d_mid = results.displacements.iter()
         .find(|d| d.node_id == mid).unwrap();
-    assert!(d_mid.uy < 0.0,
-        "Inclined beam: midspan deflects downward, got uy={:.6e}", d_mid.uy);
+    assert!(d_mid.uz < 0.0,
+        "Inclined beam: midspan deflects downward, got uy={:.6e}", d_mid.uz);
 
     // The inclined member carries axial force (due to angle).
     // For a simply-supported inclined beam with midspan vertical load P,
@@ -677,8 +677,8 @@ fn validation_bc_ext_inclined_beam_gravity() {
     // R2y * lx = P * lx/2  => R2y = P/2
     // (Because the load is at midspan and rollerX provides vertical reaction)
     let r2 = results.reactions.iter().find(|r| r.node_id == n + 1).unwrap();
-    assert_close(r1.ry, p / 2.0, 0.05,
+    assert_close(r1.rz, p / 2.0, 0.05,
         "Inclined beam: R1y = P/2 (symmetric midspan load)");
-    assert_close(r2.ry, p / 2.0, 0.05,
+    assert_close(r2.rz, p / 2.0, 0.05,
         "Inclined beam: R2y = P/2 (symmetric midspan load)");
 }

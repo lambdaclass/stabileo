@@ -60,8 +60,8 @@ fn validation_bc_ext_aisc_h1_1_interaction() {
     let loads = vec![SolverLoad::Nodal(SolverNodalLoad {
         node_id: n + 1,
         fx: -p_axial,
-        fy: -p_lateral,
-        mz: 0.0,
+        fz: -p_lateral,
+        my: 0.0,
     })];
     let input = make_beam(n, l, E, a, iz, "fixed", None, loads);
     let results = linear::solve_2d(&input).unwrap();
@@ -81,8 +81,8 @@ fn validation_bc_ext_aisc_h1_1_interaction() {
 
     // Compute interaction ratio (H1-1b since Pr/Pc < 0.2)
     // Using Pe as capacity proxy; Mc = plastic moment capacity (use Fy*Zx)
-    let fy: f64 = 345.0; // MPa = 345e3 kN/m²
-    let fy_eff: f64 = fy * 1000.0; // kN/m²
+    let fz: f64 = 345.0; // MPa = 345e3 kN/m²
+    let fy_eff: f64 = fz * 1000.0; // kN/m²
     // Plastic section modulus for W14x48 ≈ 7.84e-4 m³
     let zx: f64 = 7.84e-4;
     let mc: f64 = fy_eff * zx; // Plastic moment capacity (kN·m)
@@ -160,8 +160,8 @@ fn validation_bc_ext_moment_amplification_cm() {
     let loads = vec![SolverLoad::Nodal(SolverNodalLoad {
         node_id: n + 1,
         fx: 0.0,
-        fy: 0.0,
-        mz: m_end,
+        fz: 0.0,
+        my: m_end,
     })];
     let input = make_beam(n, l, E, a, iz, "fixed", None, loads);
     let results = linear::solve_2d(&input).unwrap();
@@ -170,7 +170,7 @@ fn validation_bc_ext_moment_amplification_cm() {
     let tip = results.displacements.iter()
         .find(|d| d.node_id == n + 1).unwrap();
     let theta_exact: f64 = m_end * l / (E_EFF * iz);
-    assert_close(tip.rz.abs(), theta_exact, 0.02,
+    assert_close(tip.ry.abs(), theta_exact, 0.02,
         "Cm test: tip rotation theta = M*L/(EI)");
 
     // Verify the Cm analytical values
@@ -235,14 +235,14 @@ fn validation_bc_ext_secant_formula() {
         SolverLoad::Nodal(SolverNodalLoad {
             node_id: 1,
             fx: 0.0,
-            fy: 0.0,
-            mz: m_ecc,
+            fz: 0.0,
+            my: m_ecc,
         }),
         SolverLoad::Nodal(SolverNodalLoad {
             node_id: n + 1,
             fx: 0.0,
-            fy: 0.0,
-            mz: -m_ecc,
+            fz: 0.0,
+            my: -m_ecc,
         }),
     ];
     let input = make_beam(n, l, E, a, iz, "pinned", Some("rollerX"), loads);
@@ -254,7 +254,7 @@ fn validation_bc_ext_secant_formula() {
     let mid_disp = results.displacements.iter()
         .find(|d| d.node_id == mid_node).unwrap();
     let delta_1st_exact: f64 = m_ecc * l * l / (8.0 * E_EFF * iz);
-    assert_close(mid_disp.uy.abs(), delta_1st_exact, 0.03,
+    assert_close(mid_disp.uz.abs(), delta_1st_exact, 0.03,
         "Secant: first-order midspan deflection");
 
     // The secant formula amplification factor vs first-order
@@ -351,14 +351,14 @@ fn validation_bc_ext_perry_robertson() {
         SolverLoad::Nodal(SolverNodalLoad {
             node_id: n + 1,
             fx: -p_applied,
-            fy: 0.0,
-            mz: 0.0,
+            fz: 0.0,
+            my: 0.0,
         }),
         SolverLoad::Nodal(SolverNodalLoad {
             node_id: mid_node,
             fx: 0.0,
-            fy: f_pert,
-            mz: 0.0,
+            fz: f_pert,
+            my: 0.0,
         }),
     ];
     let input = make_beam(n, l, E, a, iz, "pinned", Some("rollerX"), loads);
@@ -366,7 +366,7 @@ fn validation_bc_ext_perry_robertson() {
 
     // Verify equilibrium: reactions should balance
     let sum_rx: f64 = results.reactions.iter().map(|r| r.rx).sum();
-    let sum_ry: f64 = results.reactions.iter().map(|r| r.ry).sum();
+    let sum_ry: f64 = results.reactions.iter().map(|r| r.rz).sum();
     assert_close(sum_rx, p_applied, 0.02, "Perry-Robertson: ΣRx = P_applied");
     assert_close(sum_ry, -f_pert, 0.02, "Perry-Robertson: ΣRy = -F_pert");
 }
@@ -448,8 +448,8 @@ fn validation_bc_ext_ec3_interaction() {
     let loads = vec![SolverLoad::Nodal(SolverNodalLoad {
         node_id: n + 1,
         fx: -n_ed,
-        fy: 0.0,
-        mz: my_ed,
+        fz: 0.0,
+        my: my_ed,
     })];
     let input = make_beam(n, l, E, a, iz, "fixed", None, loads);
     let results = linear::solve_2d(&input).unwrap();
@@ -467,7 +467,7 @@ fn validation_bc_ext_ec3_interaction() {
     let tip = results.displacements.iter()
         .find(|d| d.node_id == n + 1).unwrap();
     let theta_expected: f64 = my_ed * l / (E_EFF * iz);
-    assert_close(tip.rz.abs(), theta_expected, 0.03,
+    assert_close(tip.ry.abs(), theta_expected, 0.03,
         "EC3: tip rotation from applied moment");
 }
 
@@ -531,8 +531,8 @@ fn validation_bc_ext_biaxial_bending() {
     let loads = vec![SolverLoad::Nodal(SolverNodalLoad {
         node_id: n + 1,
         fx: -n_ed,
-        fy: 0.0,
-        mz: m_applied,
+        fz: 0.0,
+        my: m_applied,
     })];
     let input = make_beam(n, l, E, a, iz, "fixed", None, loads);
     let results = linear::solve_2d(&input).unwrap();
@@ -552,7 +552,7 @@ fn validation_bc_ext_biaxial_bending() {
     let tip = results.displacements.iter()
         .find(|d| d.node_id == n + 1).unwrap();
     let delta_expected: f64 = m_applied * l * l / (2.0 * E_EFF * iz);
-    assert_close(tip.uy.abs(), delta_expected, 0.03,
+    assert_close(tip.uz.abs(), delta_expected, 0.03,
         "Biaxial: tip deflection from moment");
 }
 
@@ -675,14 +675,14 @@ fn validation_bc_ext_column_intermediate_load() {
         SolverLoad::Nodal(SolverNodalLoad {
             node_id: n + 1,
             fx: -p_axial,
-            fy: 0.0,
-            mz: 0.0,
+            fz: 0.0,
+            my: 0.0,
         }),
         SolverLoad::Nodal(SolverNodalLoad {
             node_id: mid,
             fx: 0.0,
-            fy: -q_lateral,
-            mz: 0.0,
+            fz: -q_lateral,
+            my: 0.0,
         }),
     ];
     let input = make_beam(n, l, E, a, iz, "pinned", Some("rollerX"), loads);
@@ -708,7 +708,7 @@ fn validation_bc_ext_column_intermediate_load() {
     let delta_lat: f64 = q_lateral * l.powi(3) / (48.0 * E_EFF * iz);
     let mid_disp = results.displacements.iter()
         .find(|d| d.node_id == mid).unwrap();
-    assert_close(mid_disp.uy.abs(), delta_lat, 0.03,
+    assert_close(mid_disp.uz.abs(), delta_lat, 0.03,
         "Intermediate: midspan deflection = Q*L³/(48EI)");
 
     // Combined stress check (analytical)
@@ -725,7 +725,7 @@ fn validation_bc_ext_column_intermediate_load() {
         "Intermediate: sigma_total = sigma_axial + sigma_bending");
 
     // Verify reactions: ΣRy = Q_lateral (upward), ΣRx = P_axial (pinned end reacts)
-    let sum_ry: f64 = results.reactions.iter().map(|r| r.ry).sum();
+    let sum_ry: f64 = results.reactions.iter().map(|r| r.rz).sum();
     let sum_rx: f64 = results.reactions.iter().map(|r| r.rx).sum();
     assert_close(sum_ry, q_lateral, 0.02,
         "Intermediate: ΣRy = Q_lateral");

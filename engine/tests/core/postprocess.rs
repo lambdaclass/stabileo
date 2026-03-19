@@ -61,7 +61,7 @@ fn test_cantilever_point_load_linear_moment() {
         vec![(1, 0.15, 0.003125)],
         vec![(1, "frame", 1, 2, 1, 1, false, false)],
         vec![(1, 1, "fixed")],
-        vec![SolverLoad::Nodal(SolverNodalLoad { node_id: 2, fx: 0.0, fy: -50.0, mz: 0.0 })],
+        vec![SolverLoad::Nodal(SolverNodalLoad { node_id: 2, fx: 0.0, fz: -50.0, my: 0.0 })],
     );
     let results = solve_2d(&input).unwrap();
     let ef = &results.element_forces[0];
@@ -110,7 +110,7 @@ fn test_combination_two_cases() {
         vec![(1, 0.15, 0.003125)],
         vec![(1, "frame", 1, 2, 1, 1, false, false)],
         vec![(1, 1, "pinned"), (2, 2, "rollerX")],
-        vec![SolverLoad::Nodal(SolverNodalLoad { node_id: 2, fx: 0.0, fy: -10.0, mz: 0.0 })],
+        vec![SolverLoad::Nodal(SolverNodalLoad { node_id: 2, fx: 0.0, fz: -10.0, my: 0.0 })],
     );
     let r1 = solve_2d(&input1).unwrap();
 
@@ -145,10 +145,10 @@ fn test_combination_two_cases() {
     let d2 = r2.displacements.iter().find(|d| d.node_id == 2).unwrap();
     let dc = combined.displacements.iter().find(|d| d.node_id == 2).unwrap();
 
-    let expected_uy = 1.35 * d1.uy + 1.50 * d2.uy;
+    let expected_uy = 1.35 * d1.uz + 1.50 * d2.uz;
     assert!(
-        (dc.uy - expected_uy).abs() < 1e-6,
-        "Combined uy should be {}, got {}", expected_uy, dc.uy
+        (dc.uz - expected_uy).abs() < 1e-6,
+        "Combined uy should be {}, got {}", expected_uy, dc.uz
     );
 }
 
@@ -160,7 +160,7 @@ fn test_envelope_min_max() {
         vec![(1, 0.15, 0.003125)],
         vec![(1, "frame", 1, 2, 1, 1, false, false)],
         vec![(1, 1, "pinned"), (2, 2, "rollerX")],
-        vec![SolverLoad::Nodal(SolverNodalLoad { node_id: 2, fx: 0.0, fy: -10.0, mz: 0.0 })],
+        vec![SolverLoad::Nodal(SolverNodalLoad { node_id: 2, fx: 0.0, fz: -10.0, my: 0.0 })],
     );
     let r1 = solve_2d(&input1).unwrap();
 

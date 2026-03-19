@@ -87,7 +87,7 @@ fn validation_frame_two_bay_load_sharing() {
         (1, 1, "fixed"), (2, 3, "fixed"), (3, 5, "fixed"),
     ];
     let loads = vec![SolverLoad::Nodal(SolverNodalLoad {
-        node_id: 2, fx: p, fy: 0.0, mz: 0.0,
+        node_id: 2, fx: p, fz: 0.0, my: 0.0,
     })];
 
     let input = make_input(nodes, vec![(1, E, 0.3)], vec![(1, A, IZ)],
@@ -132,8 +132,8 @@ fn validation_frame_symmetric_gravity_no_sway() {
         "Node 3 sway should be 0 by symmetry: ux={:.6e}", sway_3);
 
     // Vertical reactions should be equal
-    let r1 = results.reactions.iter().find(|r| r.node_id == 1).unwrap().ry;
-    let r4 = results.reactions.iter().find(|r| r.node_id == 4).unwrap().ry;
+    let r1 = results.reactions.iter().find(|r| r.node_id == 1).unwrap().rz;
+    let r4 = results.reactions.iter().find(|r| r.node_id == 4).unwrap().rz;
     let err = (r1 - r4).abs() / r1.abs().max(1e-12);
     assert!(err < 0.01,
         "Symmetric reactions: R1={:.4}, R4={:.4}", r1, r4);
@@ -174,7 +174,7 @@ fn validation_frame_two_story_stiffness() {
     ];
     let sups = vec![(1, 1, "fixed"), (2, 4, "fixed")];
     let loads = vec![SolverLoad::Nodal(SolverNodalLoad {
-        node_id: 3, fx: p, fy: 0.0, mz: 0.0,
+        node_id: 3, fx: p, fz: 0.0, my: 0.0,
     })];
 
     let input_2 = make_input(nodes, vec![(1, E, 0.3)], vec![(1, A, IZ)],
@@ -205,10 +205,10 @@ fn validation_frame_beam_internal_hinge() {
     // Continuous beam (no hinge)
     let input_cont = make_beam(n, l, E, A, IZ, "pinned", Some("rollerX"),
         vec![SolverLoad::Nodal(SolverNodalLoad {
-            node_id: 2, fx: 0.0, fy: -p, mz: 0.0,
+            node_id: 2, fx: 0.0, fz: -p, my: 0.0,
         })]);
     let res_cont = linear::solve_2d(&input_cont).unwrap();
-    let mid_cont = res_cont.displacements.iter().find(|d| d.node_id == 2).unwrap().uy.abs();
+    let mid_cont = res_cont.displacements.iter().find(|d| d.node_id == 2).unwrap().uz.abs();
 
     // Beam with hinge at node 2 (elements 1 and 2 both release end moment)
     let nodes = vec![(1, 0.0, 0.0), (2, l / 2.0, 0.0), (3, l, 0.0)];
@@ -218,13 +218,13 @@ fn validation_frame_beam_internal_hinge() {
     ];
     let sups = vec![(1, 1, "pinned"), (2, 3, "rollerX")];
     let loads = vec![SolverLoad::Nodal(SolverNodalLoad {
-        node_id: 2, fx: 0.0, fy: -p, mz: 0.0,
+        node_id: 2, fx: 0.0, fz: -p, my: 0.0,
     })];
 
     let input_hinge = make_input(nodes, vec![(1, E, 0.3)], vec![(1, A, IZ)],
         elems, sups, loads);
     let res_hinge = linear::solve_2d(&input_hinge).unwrap();
-    let mid_hinge = res_hinge.displacements.iter().find(|d| d.node_id == 2).unwrap().uy.abs();
+    let mid_hinge = res_hinge.displacements.iter().find(|d| d.node_id == 2).unwrap().uz.abs();
 
     // With hinge, beam is a mechanism for moment → much larger deflection
     // Actually SS beam with midspan hinge + point load at hinge = mechanism.
@@ -256,8 +256,8 @@ fn validation_frame_antisymmetric_sway() {
     ];
     let sups = vec![(1, 1, "fixed"), (2, 4, "fixed")];
     let loads = vec![
-        SolverLoad::Nodal(SolverNodalLoad { node_id: 2, fx: p, fy: 0.0, mz: 0.0 }),
-        SolverLoad::Nodal(SolverNodalLoad { node_id: 3, fx: p, fy: 0.0, mz: 0.0 }),
+        SolverLoad::Nodal(SolverNodalLoad { node_id: 2, fx: p, fz: 0.0, my: 0.0 }),
+        SolverLoad::Nodal(SolverNodalLoad { node_id: 3, fx: p, fz: 0.0, my: 0.0 }),
     ];
 
     let input = make_input(nodes, vec![(1, E, 0.3)], vec![(1, A, IZ)],
@@ -305,7 +305,7 @@ fn validation_frame_unequal_columns() {
     ];
     let sups = vec![(1, 1, "fixed"), (2, 3, "fixed")];
     let loads = vec![SolverLoad::Nodal(SolverNodalLoad {
-        node_id: 2, fx: p, fy: 0.0, mz: 0.0,
+        node_id: 2, fx: p, fz: 0.0, my: 0.0,
     })];
 
     let input = make_input(nodes, vec![(1, E, 0.3)], vec![(1, A, IZ)],
@@ -343,22 +343,22 @@ fn validation_frame_stiffness_ratio() {
     // Cantilever
     let input_cant = make_beam(n, l, E, A, IZ, "fixed", None,
         vec![SolverLoad::Nodal(SolverNodalLoad {
-            node_id: n + 1, fx: 0.0, fy: -p, mz: 0.0,
+            node_id: n + 1, fx: 0.0, fz: -p, my: 0.0,
         })]);
     let res_cant = linear::solve_2d(&input_cant).unwrap();
     let defl_cant = res_cant.displacements.iter()
-        .find(|d| d.node_id == n + 1).unwrap().uy.abs();
+        .find(|d| d.node_id == n + 1).unwrap().uz.abs();
     let k_cant = p / defl_cant;
 
     // Fixed-fixed with center load
     let mid = n / 2 + 1;
     let input_ff = make_beam(n, l, E, A, IZ, "fixed", Some("fixed"),
         vec![SolverLoad::Nodal(SolverNodalLoad {
-            node_id: mid, fx: 0.0, fy: -p, mz: 0.0,
+            node_id: mid, fx: 0.0, fz: -p, my: 0.0,
         })]);
     let res_ff = linear::solve_2d(&input_ff).unwrap();
     let defl_ff = res_ff.displacements.iter()
-        .find(|d| d.node_id == mid).unwrap().uy.abs();
+        .find(|d| d.node_id == mid).unwrap().uz.abs();
     let k_ff = p / defl_ff;
 
     // k_ff / k_cant = (192EI/L³) / (3EI/L³) = 64

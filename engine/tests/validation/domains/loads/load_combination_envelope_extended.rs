@@ -44,12 +44,12 @@ fn validation_ext_triple_superposition() {
     // Case 1: point load at midspan
     let p1 = 12.0;
     let loads1 = vec![SolverLoad::Nodal(SolverNodalLoad {
-        node_id: mid, fx: 0.0, fy: -p1, mz: 0.0,
+        node_id: mid, fx: 0.0, fz: -p1, my: 0.0,
     })];
     let input1 = make_beam(n, l, E, A, IZ, "pinned", Some("rollerX"), loads1);
     let r1 = linear::solve_2d(&input1).unwrap();
-    let d1 = r1.displacements.iter().find(|d| d.node_id == mid).unwrap().uy;
-    let ry1 = r1.reactions.iter().find(|r| r.node_id == 1).unwrap().ry;
+    let d1 = r1.displacements.iter().find(|d| d.node_id == mid).unwrap().uz;
+    let ry1 = r1.reactions.iter().find(|r| r.node_id == 1).unwrap().rz;
 
     // Case 2: UDL over entire span
     let q2: f64 = -4.0;
@@ -60,27 +60,27 @@ fn validation_ext_triple_superposition() {
         .collect();
     let input2 = make_beam(n, l, E, A, IZ, "pinned", Some("rollerX"), loads2);
     let r2 = linear::solve_2d(&input2).unwrap();
-    let d2 = r2.displacements.iter().find(|d| d.node_id == mid).unwrap().uy;
-    let ry2 = r2.reactions.iter().find(|r| r.node_id == 1).unwrap().ry;
+    let d2 = r2.displacements.iter().find(|d| d.node_id == mid).unwrap().uz;
+    let ry2 = r2.reactions.iter().find(|r| r.node_id == 1).unwrap().rz;
 
     // Case 3: point load at quarter-span
     let p3 = 8.0;
     let qtr_node = n / 4 + 1;
     let loads3 = vec![SolverLoad::Nodal(SolverNodalLoad {
-        node_id: qtr_node, fx: 0.0, fy: -p3, mz: 0.0,
+        node_id: qtr_node, fx: 0.0, fz: -p3, my: 0.0,
     })];
     let input3 = make_beam(n, l, E, A, IZ, "pinned", Some("rollerX"), loads3);
     let r3 = linear::solve_2d(&input3).unwrap();
-    let d3 = r3.displacements.iter().find(|d| d.node_id == mid).unwrap().uy;
-    let ry3 = r3.reactions.iter().find(|r| r.node_id == 1).unwrap().ry;
+    let d3 = r3.displacements.iter().find(|d| d.node_id == mid).unwrap().uz;
+    let ry3 = r3.reactions.iter().find(|r| r.node_id == 1).unwrap().rz;
 
     // Combined: α*case1 + β*case2 + γ*case3
     let mut loads_c: Vec<SolverLoad> = vec![
         SolverLoad::Nodal(SolverNodalLoad {
-            node_id: mid, fx: 0.0, fy: -alpha * p1, mz: 0.0,
+            node_id: mid, fx: 0.0, fz: -alpha * p1, my: 0.0,
         }),
         SolverLoad::Nodal(SolverNodalLoad {
-            node_id: qtr_node, fx: 0.0, fy: -gamma * p3, mz: 0.0,
+            node_id: qtr_node, fx: 0.0, fz: -gamma * p3, my: 0.0,
         }),
     ];
     let loads_c_udl: Vec<SolverLoad> = (1..=n)
@@ -91,8 +91,8 @@ fn validation_ext_triple_superposition() {
     loads_c.extend(loads_c_udl);
     let input_c = make_beam(n, l, E, A, IZ, "pinned", Some("rollerX"), loads_c);
     let rc = linear::solve_2d(&input_c).unwrap();
-    let dc = rc.displacements.iter().find(|d| d.node_id == mid).unwrap().uy;
-    let ryc = rc.reactions.iter().find(|r| r.node_id == 1).unwrap().ry;
+    let dc = rc.displacements.iter().find(|d| d.node_id == mid).unwrap().uz;
+    let ryc = rc.reactions.iter().find(|r| r.node_id == 1).unwrap().rz;
 
     let expected_d = alpha * d1 + beta * d2 + gamma * d3;
     let expected_ry = alpha * ry1 + beta * ry2 + gamma * ry3;
@@ -132,9 +132,9 @@ fn validation_ext_symmetric_vs_asymmetric() {
     let rs = linear::solve_2d(&input_sym).unwrap();
     // Interior support node is at n+1
     let r_sym_interior = rs.reactions.iter()
-        .find(|r| r.node_id == n + 1).unwrap().ry;
+        .find(|r| r.node_id == n + 1).unwrap().rz;
     let d_sym_span1 = rs.displacements.iter()
-        .find(|d| d.node_id == n / 2 + 1).unwrap().uy.abs();
+        .find(|d| d.node_id == n / 2 + 1).unwrap().uz.abs();
 
     // Asymmetric case: heavy on span 1, light on span 2
     let mut loads_asym: Vec<SolverLoad> = (1..=n)
@@ -151,7 +151,7 @@ fn validation_ext_symmetric_vs_asymmetric() {
     let input_asym = make_continuous_beam(&[span, span], n, E, A, IZ, loads_asym);
     let ra = linear::solve_2d(&input_asym).unwrap();
     let d_asym_span1 = ra.displacements.iter()
-        .find(|d| d.node_id == n / 2 + 1).unwrap().uy.abs();
+        .find(|d| d.node_id == n / 2 + 1).unwrap().uz.abs();
 
     // Average load is the same ((-12 + -4)/2 = -8), but asymmetric loading
     // produces larger deflection in the heavily loaded span
@@ -186,12 +186,12 @@ fn validation_ext_moving_load_envelope() {
     // Apply point load at each interior node and track max midspan deflection
     for load_node in 2..=n {
         let loads = vec![SolverLoad::Nodal(SolverNodalLoad {
-            node_id: load_node, fx: 0.0, fy: p, mz: 0.0,
+            node_id: load_node, fx: 0.0, fz: p, my: 0.0,
         })];
         let input = make_beam(n, l, E, A, IZ, "pinned", Some("rollerX"), loads);
         let result = linear::solve_2d(&input).unwrap();
         let d_mid = result.displacements.iter()
-            .find(|d| d.node_id == mid).unwrap().uy.abs();
+            .find(|d| d.node_id == mid).unwrap().uz.abs();
 
         if d_mid > max_deflection {
             max_deflection = d_mid;
@@ -236,7 +236,7 @@ fn validation_ext_uplift_check() {
         .collect();
     let input_d = make_beam(n, l, E, A, IZ, "pinned", Some("rollerX"), loads_d);
     let rd = linear::solve_2d(&input_d).unwrap();
-    let d_dead = rd.displacements.iter().find(|d| d.node_id == mid).unwrap().uy;
+    let d_dead = rd.displacements.iter().find(|d| d.node_id == mid).unwrap().uz;
 
     // Wind only (upward)
     let loads_w: Vec<SolverLoad> = (1..=n)
@@ -246,7 +246,7 @@ fn validation_ext_uplift_check() {
         .collect();
     let input_w = make_beam(n, l, E, A, IZ, "pinned", Some("rollerX"), loads_w);
     let rw = linear::solve_2d(&input_w).unwrap();
-    let d_wind = rw.displacements.iter().find(|d| d.node_id == mid).unwrap().uy;
+    let d_wind = rw.displacements.iter().find(|d| d.node_id == mid).unwrap().uz;
 
     // 0.9D + 1.0W combination
     let q_combo = 0.9 * q_dead + 1.0 * q_wind;
@@ -257,7 +257,7 @@ fn validation_ext_uplift_check() {
         .collect();
     let input_c = make_beam(n, l, E, A, IZ, "pinned", Some("rollerX"), loads_c);
     let rc = linear::solve_2d(&input_c).unwrap();
-    let d_combo = rc.displacements.iter().find(|d| d.node_id == mid).unwrap().uy;
+    let d_combo = rc.displacements.iter().find(|d| d.node_id == mid).unwrap().uz;
 
     // Dead load deflects downward (negative uy)
     assert!(d_dead < 0.0,
@@ -301,7 +301,7 @@ fn validation_ext_four_span_pattern() {
     let input_full = make_continuous_beam(&[span, span, span, span], n, E, A, IZ, loads_full);
     let rf = linear::solve_2d(&input_full).unwrap();
     let d_full_span1 = rf.displacements.iter()
-        .find(|d| d.node_id == n / 2 + 1).unwrap().uy.abs();
+        .find(|d| d.node_id == n / 2 + 1).unwrap().uz.abs();
 
     // Pattern A: load spans 1 & 3 only
     let mut loads_a: Vec<SolverLoad> = Vec::new();
@@ -318,7 +318,7 @@ fn validation_ext_four_span_pattern() {
     let input_a = make_continuous_beam(&[span, span, span, span], n, E, A, IZ, loads_a);
     let ra = linear::solve_2d(&input_a).unwrap();
     let d_pattern_a_span1 = ra.displacements.iter()
-        .find(|d| d.node_id == n / 2 + 1).unwrap().uy.abs();
+        .find(|d| d.node_id == n / 2 + 1).unwrap().uz.abs();
 
     // Pattern B: load spans 2 & 4 only
     let mut loads_b: Vec<SolverLoad> = Vec::new();
@@ -335,7 +335,7 @@ fn validation_ext_four_span_pattern() {
     let input_b = make_continuous_beam(&[span, span, span, span], n, E, A, IZ, loads_b);
     let rb = linear::solve_2d(&input_b).unwrap();
     let d_pattern_b_span1 = rb.displacements.iter()
-        .find(|d| d.node_id == n / 2 + 1).unwrap().uy.abs();
+        .find(|d| d.node_id == n / 2 + 1).unwrap().uz.abs();
 
     // Pattern A (loaded spans 1 & 3) produces larger span-1 deflection
     // than full load (because adjacent unloaded spans allow more rotation)
@@ -372,8 +372,8 @@ fn validation_ext_load_scaling() {
         .collect();
     let input_base = make_beam(n, l, E, A, IZ, "pinned", Some("rollerX"), loads_base);
     let rb = linear::solve_2d(&input_base).unwrap();
-    let d_base = rb.displacements.iter().find(|d| d.node_id == mid).unwrap().uy;
-    let r_base = rb.reactions.iter().find(|r| r.node_id == 1).unwrap().ry;
+    let d_base = rb.displacements.iter().find(|d| d.node_id == mid).unwrap().uz;
+    let r_base = rb.reactions.iter().find(|r| r.node_id == 1).unwrap().rz;
 
     // Test scale factors: 2, 3, 0.5
     let factors = [2.0_f64, 3.0, 0.5];
@@ -386,8 +386,8 @@ fn validation_ext_load_scaling() {
             .collect();
         let input_scaled = make_beam(n, l, E, A, IZ, "pinned", Some("rollerX"), loads_scaled);
         let rs = linear::solve_2d(&input_scaled).unwrap();
-        let d_scaled = rs.displacements.iter().find(|d| d.node_id == mid).unwrap().uy;
-        let r_scaled = rs.reactions.iter().find(|r| r.node_id == 1).unwrap().ry;
+        let d_scaled = rs.displacements.iter().find(|d| d.node_id == mid).unwrap().uz;
+        let r_scaled = rs.reactions.iter().find(|r| r.node_id == 1).unwrap().rz;
 
         assert_close(d_scaled, factor * d_base, 0.001,
             &format!("Scaling {:.1}x: deflection", factor));
@@ -473,13 +473,13 @@ fn validation_ext_continuity_effect_reactions() {
     let r2 = linear::solve_2d(&input_2).unwrap();
 
     let total_load_2span: f64 = q.abs() * 2.0 * span;
-    let sum_ry_2: f64 = r2.reactions.iter().map(|r| r.ry).sum();
+    let sum_ry_2: f64 = r2.reactions.iter().map(|r| r.rz).sum();
     assert_close(sum_ry_2, total_load_2span, 0.01,
         "2-span: sum of reactions = total load");
 
     // Interior support reaction for 2-span (node n+1)
     let r2_interior = r2.reactions.iter()
-        .find(|r| r.node_id == n + 1).unwrap().ry;
+        .find(|r| r.node_id == n + 1).unwrap().rz;
 
     // 3-span beam under full UDL
     let loads_3span: Vec<SolverLoad> = (1..=(3 * n))
@@ -491,13 +491,13 @@ fn validation_ext_continuity_effect_reactions() {
     let r3 = linear::solve_2d(&input_3).unwrap();
 
     let total_load_3span: f64 = q.abs() * 3.0 * span;
-    let sum_ry_3: f64 = r3.reactions.iter().map(|r| r.ry).sum();
+    let sum_ry_3: f64 = r3.reactions.iter().map(|r| r.rz).sum();
     assert_close(sum_ry_3, total_load_3span, 0.01,
         "3-span: sum of reactions = total load");
 
     // First interior support for 3-span (node n+1)
     let r3_interior1 = r3.reactions.iter()
-        .find(|r| r.node_id == n + 1).unwrap().ry;
+        .find(|r| r.node_id == n + 1).unwrap().rz;
 
     // The interior support reactions differ between 2-span and 3-span
     // because continuity effects redistribute forces differently.

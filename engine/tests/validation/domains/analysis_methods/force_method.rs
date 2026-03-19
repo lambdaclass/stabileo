@@ -41,27 +41,27 @@ fn validation_force_method_propped_midpoint() {
     let mid = n / 2 + 1;
 
     let loads = vec![SolverLoad::Nodal(SolverNodalLoad {
-        node_id: mid, fx: 0.0, fy: -p, mz: 0.0,
+        node_id: mid, fx: 0.0, fz: -p, my: 0.0,
     })];
     let input = make_beam(n, l, E, A, IZ, "fixed", Some("rollerX"), loads);
     let results = linear::solve_2d(&input).unwrap();
 
     // Roller reaction = 5P/16
     let r_roller = results.reactions.iter()
-        .find(|r| r.node_id == n + 1).unwrap().ry;
+        .find(|r| r.node_id == n + 1).unwrap().rz;
     let r_exact = 5.0 * p / 16.0;
     assert_close(r_roller, r_exact, 0.02,
         "Propped midpoint: R_roller = 5P/16");
 
     // Fixed support vertical: R_fix = P - 5P/16 = 11P/16
     let r_fix = results.reactions.iter()
-        .find(|r| r.node_id == 1).unwrap().ry;
+        .find(|r| r.node_id == 1).unwrap().rz;
     assert_close(r_fix, p - r_exact, 0.02,
         "Propped midpoint: R_fix = 11P/16");
 
     // Fixed-end moment = 3PL/16
     let m_fix = results.reactions.iter()
-        .find(|r| r.node_id == 1).unwrap().mz;
+        .find(|r| r.node_id == 1).unwrap().my;
     let m_exact = 3.0 * p * l / 16.0;
     assert_close(m_fix.abs(), m_exact, 0.02,
         "Propped midpoint: M_fix = 3PL/16");
@@ -82,7 +82,7 @@ fn validation_force_method_fixed_midpoint() {
     let mid = n / 2 + 1;
 
     let loads = vec![SolverLoad::Nodal(SolverNodalLoad {
-        node_id: mid, fx: 0.0, fy: -p, mz: 0.0,
+        node_id: mid, fx: 0.0, fz: -p, my: 0.0,
     })];
     let input = make_beam(n, l, E, A, IZ, "fixed", Some("fixed"), loads);
     let results = linear::solve_2d(&input).unwrap();
@@ -91,13 +91,13 @@ fn validation_force_method_fixed_midpoint() {
     let r2 = results.reactions.iter().find(|r| r.node_id == n + 1).unwrap();
 
     // Symmetric reactions
-    assert_close(r1.ry, r2.ry, 0.02, "Fixed-fixed: R1 = R2");
-    assert_close(r1.ry, p / 2.0, 0.02, "Fixed-fixed: R = P/2");
+    assert_close(r1.rz, r2.rz, 0.02, "Fixed-fixed: R1 = R2");
+    assert_close(r1.rz, p / 2.0, 0.02, "Fixed-fixed: R = P/2");
 
     // End moments = PL/8
-    assert_close(r1.mz.abs(), p * l / 8.0, 0.02,
+    assert_close(r1.my.abs(), p * l / 8.0, 0.02,
         "Fixed-fixed: |M| = PL/8");
-    assert_close(r1.mz.abs(), r2.mz.abs(), 0.02,
+    assert_close(r1.my.abs(), r2.my.abs(), 0.02,
         "Fixed-fixed: |M1| = |M2|");
 }
 
@@ -124,7 +124,7 @@ fn validation_force_method_two_span_udl() {
 
     // Interior support reaction (node n+1)
     let r_int = results.reactions.iter()
-        .find(|r| r.node_id == n + 1).unwrap().ry;
+        .find(|r| r.node_id == n + 1).unwrap().rz;
 
     // For two equal spans with UDL:
     // R_int = 10qL/8 = 5qL/4
@@ -134,7 +134,7 @@ fn validation_force_method_two_span_udl() {
 
     // End reactions = 3qL/8
     let r_end = results.reactions.iter()
-        .find(|r| r.node_id == 1).unwrap().ry;
+        .find(|r| r.node_id == 1).unwrap().rz;
     let r_end_exact = 3.0 * q.abs() * span / 8.0;
     assert_close(r_end, r_end_exact, 0.02,
         "Two-span UDL: R_end = 3qL/8");
@@ -164,8 +164,8 @@ fn validation_force_method_portal_thrust() {
         "Portal gravity: Rx ≈ 0: {:.6e}", r1.rx);
 
     // Equal vertical reactions
-    assert_close(r1.ry, r4.ry, 0.02, "Portal gravity: R1y = R4y");
-    assert_close(r1.ry + r4.ry, 2.0 * p, 0.01,
+    assert_close(r1.rz, r4.rz, 0.02, "Portal gravity: R1y = R4y");
+    assert_close(r1.rz + r4.rz, 2.0 * p, 0.01,
         "Portal gravity: ΣRy = 2P");
 }
 
@@ -188,7 +188,7 @@ fn validation_force_method_three_support() {
     for i in 0..=n {
         nodes_map.insert(
             (i + 1).to_string(),
-            SolverNode { id: i + 1, x: i as f64 * l / n as f64, y: 0.0 },
+            SolverNode { id: i + 1, x: i as f64 * l / n as f64, z: 0.0 },
         );
     }
     let mut mats = std::collections::HashMap::new();
@@ -210,15 +210,15 @@ fn validation_force_method_three_support() {
     let mut sups = std::collections::HashMap::new();
     sups.insert("1".to_string(), SolverSupport {
         id: 1, node_id: 1, support_type: "pinned".to_string(),
-        kx: None, ky: None, kz: None, dx: None, dy: None, drz: None, angle: None,
+        kx: None, ky: None, kz: None, dx: None, dz: None, dry: None, angle: None,
     });
     sups.insert("2".to_string(), SolverSupport {
         id: 2, node_id: mid, support_type: "rollerX".to_string(),
-        kx: None, ky: None, kz: None, dx: None, dy: None, drz: None, angle: None,
+        kx: None, ky: None, kz: None, dx: None, dz: None, dry: None, angle: None,
     });
     sups.insert("3".to_string(), SolverSupport {
         id: 3, node_id: n + 1, support_type: "rollerX".to_string(),
-        kx: None, ky: None, kz: None, dx: None, dy: None, drz: None, angle: None,
+        kx: None, ky: None, kz: None, dx: None, dz: None, dry: None, angle: None,
     });
 
     let loads: Vec<SolverLoad> = (1..=n)
@@ -234,7 +234,7 @@ fn validation_force_method_three_support() {
     let results = linear::solve_2d(&input).unwrap();
 
     let r_mid = results.reactions.iter()
-        .find(|r| r.node_id == mid).unwrap().ry;
+        .find(|r| r.node_id == mid).unwrap().rz;
     let span = l / 2.0;
     let r_mid_exact = 5.0 * q.abs() * span / 4.0;
 
@@ -266,13 +266,13 @@ fn validation_force_method_fixed_udl() {
     let r2 = results.reactions.iter().find(|r| r.node_id == n + 1).unwrap();
 
     let m_exact = q.abs() * l * l / 12.0;
-    assert_close(r1.mz.abs(), m_exact, 0.02,
+    assert_close(r1.my.abs(), m_exact, 0.02,
         "Fixed UDL: |M_A| = qL²/12");
-    assert_close(r2.mz.abs(), m_exact, 0.02,
+    assert_close(r2.my.abs(), m_exact, 0.02,
         "Fixed UDL: |M_B| = qL²/12");
 
     // Reactions = qL/2 each (symmetric)
-    assert_close(r1.ry, q.abs() * l / 2.0, 0.02,
+    assert_close(r1.rz, q.abs() * l / 2.0, 0.02,
         "Fixed UDL: R = qL/2");
 }
 
@@ -298,20 +298,20 @@ fn validation_force_method_propped_udl() {
     let results = linear::solve_2d(&input).unwrap();
 
     let r_roller = results.reactions.iter()
-        .find(|r| r.node_id == n + 1).unwrap().ry;
+        .find(|r| r.node_id == n + 1).unwrap().rz;
     let r_exact = 3.0 * q.abs() * l / 8.0;
     assert_close(r_roller, r_exact, 0.02,
         "Propped UDL: R_roller = 3qL/8");
 
     // Fixed end: R = 5qL/8
     let r_fix = results.reactions.iter()
-        .find(|r| r.node_id == 1).unwrap().ry;
+        .find(|r| r.node_id == 1).unwrap().rz;
     assert_close(r_fix, 5.0 * q.abs() * l / 8.0, 0.02,
         "Propped UDL: R_fix = 5qL/8");
 
     // Fixed end moment = qL²/8
     let m_fix = results.reactions.iter()
-        .find(|r| r.node_id == 1).unwrap().mz.abs();
+        .find(|r| r.node_id == 1).unwrap().my.abs();
     assert_close(m_fix, q.abs() * l * l / 8.0, 0.02,
         "Propped UDL: M_fix = qL²/8");
 }
@@ -334,22 +334,22 @@ fn validation_force_method_load_position() {
     let a1 = l / 4.0;
     let node1 = n / 4 + 1;
     let loads1 = vec![SolverLoad::Nodal(SolverNodalLoad {
-        node_id: node1, fx: 0.0, fy: -p, mz: 0.0,
+        node_id: node1, fx: 0.0, fz: -p, my: 0.0,
     })];
     let input1 = make_beam(n, l, E, A, IZ, "fixed", Some("rollerX"), loads1);
     let r1 = linear::solve_2d(&input1).unwrap()
-        .reactions.iter().find(|r| r.node_id == n + 1).unwrap().ry;
+        .reactions.iter().find(|r| r.node_id == n + 1).unwrap().rz;
     let r1_exact = p * a1 * a1 * (3.0 * l - a1) / (2.0 * l * l * l);
 
     // Load at 3L/4
     let a2 = 3.0 * l / 4.0;
     let node2 = 3 * n / 4 + 1;
     let loads2 = vec![SolverLoad::Nodal(SolverNodalLoad {
-        node_id: node2, fx: 0.0, fy: -p, mz: 0.0,
+        node_id: node2, fx: 0.0, fz: -p, my: 0.0,
     })];
     let input2 = make_beam(n, l, E, A, IZ, "fixed", Some("rollerX"), loads2);
     let r2 = linear::solve_2d(&input2).unwrap()
-        .reactions.iter().find(|r| r.node_id == n + 1).unwrap().ry;
+        .reactions.iter().find(|r| r.node_id == n + 1).unwrap().rz;
     let r2_exact = p * a2 * a2 * (3.0 * l - a2) / (2.0 * l * l * l);
 
     assert_close(r1, r1_exact, 0.03,

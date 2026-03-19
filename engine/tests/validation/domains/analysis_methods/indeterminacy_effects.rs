@@ -37,7 +37,7 @@ fn validation_indet_determinate_vs_indeterminate_moment() {
     let input_ss = make_beam(
         n, l, E, A, IZ, "pinned", Some("rollerX"),
         vec![SolverLoad::Nodal(SolverNodalLoad {
-            node_id: mid, fx: 0.0, fy: -p, mz: 0.0,
+            node_id: mid, fx: 0.0, fz: -p, my: 0.0,
         })],
     );
     let res_ss = linear::solve_2d(&input_ss).unwrap();
@@ -46,7 +46,7 @@ fn validation_indet_determinate_vs_indeterminate_moment() {
     let input_ff = make_beam(
         n, l, E, A, IZ, "fixed", Some("fixed"),
         vec![SolverLoad::Nodal(SolverNodalLoad {
-            node_id: mid, fx: 0.0, fy: -p, mz: 0.0,
+            node_id: mid, fx: 0.0, fz: -p, my: 0.0,
         })],
     );
     let res_ff = linear::solve_2d(&input_ff).unwrap();
@@ -58,25 +58,25 @@ fn validation_indet_determinate_vs_indeterminate_moment() {
 
     // Check midspan moment for SS via reaction check: R = P/2, M_mid = R * L/2
     let r1_ss = res_ss.reactions.iter().find(|r| r.node_id == 1).unwrap();
-    assert_close(r1_ss.ry, p / 2.0, 0.01, "SS beam reaction");
+    assert_close(r1_ss.rz, p / 2.0, 0.01, "SS beam reaction");
 
     // Fixed-fixed: support reaction
     let r1_ff = res_ff.reactions.iter().find(|r| r.node_id == 1).unwrap();
-    assert_close(r1_ff.ry, p / 2.0, 0.01, "FF beam vertical reaction");
+    assert_close(r1_ff.rz, p / 2.0, 0.01, "FF beam vertical reaction");
 
     // The fixed-fixed beam should have non-zero end moments (indeterminacy effect)
     assert!(
-        r1_ff.mz.abs() > 1.0,
-        "Fixed-fixed beam must have non-zero end moment, got mz={:.4}", r1_ff.mz
+        r1_ff.my.abs() > 1.0,
+        "Fixed-fixed beam must have non-zero end moment, got mz={:.4}", r1_ff.my
     );
 
     // Midspan deflection: FF beam deflects less than SS beam
     let d_ss = res_ss.displacements.iter().find(|d| d.node_id == mid).unwrap();
     let d_ff = res_ff.displacements.iter().find(|d| d.node_id == mid).unwrap();
     assert!(
-        d_ff.uy.abs() < d_ss.uy.abs(),
+        d_ff.uz.abs() < d_ss.uz.abs(),
         "FF beam must deflect less than SS: FF={:.6e}, SS={:.6e}",
-        d_ff.uy.abs(), d_ss.uy.abs()
+        d_ff.uz.abs(), d_ss.uz.abs()
     );
 
     // Confirm analytical midspan moment values are distinct
@@ -124,8 +124,8 @@ fn validation_indet_higher_redundancy_smaller_deflection() {
     let res_ss = linear::solve_2d(&input_ss).unwrap();
     let res_ff = linear::solve_2d(&input_ff).unwrap();
 
-    let d_ss = res_ss.displacements.iter().find(|d| d.node_id == mid).unwrap().uy.abs();
-    let d_ff = res_ff.displacements.iter().find(|d| d.node_id == mid).unwrap().uy.abs();
+    let d_ss = res_ss.displacements.iter().find(|d| d.node_id == mid).unwrap().uz.abs();
+    let d_ff = res_ff.displacements.iter().find(|d| d.node_id == mid).unwrap().uz.abs();
 
     // Fixed-fixed deflection should be much less than SS
     assert!(
@@ -176,8 +176,8 @@ fn validation_indet_removing_restraint_increases_deflection() {
     let res_propped = linear::solve_2d(&input_propped).unwrap();
     let res_ss = linear::solve_2d(&input_ss).unwrap();
 
-    let d_propped = res_propped.displacements.iter().find(|d| d.node_id == mid).unwrap().uy.abs();
-    let d_ss = res_ss.displacements.iter().find(|d| d.node_id == mid).unwrap().uy.abs();
+    let d_propped = res_propped.displacements.iter().find(|d| d.node_id == mid).unwrap().uz.abs();
+    let d_ss = res_ss.displacements.iter().find(|d| d.node_id == mid).unwrap().uz.abs();
 
     assert!(
         d_ss > d_propped,
@@ -223,14 +223,14 @@ fn validation_indet_propped_vs_cantilever_moment() {
 
     // Base moment for cantilever under UDL: M = qL²/2
     let r_cant = res_cant.reactions.iter().find(|r| r.node_id == 1).unwrap();
-    assert_close(r_cant.mz.abs(), q.abs() * l * l / 2.0, 0.02, "Cantilever UDL base moment = qL²/2");
+    assert_close(r_cant.my.abs(), q.abs() * l * l / 2.0, 0.02, "Cantilever UDL base moment = qL²/2");
 
     // Base moment for propped cantilever under UDL: M = qL²/8
     let r_prop = res_prop.reactions.iter().find(|r| r.node_id == 1).unwrap();
-    assert_close(r_prop.mz.abs(), q.abs() * l * l / 8.0, 0.02, "Propped cantilever UDL base moment = qL²/8");
+    assert_close(r_prop.my.abs(), q.abs() * l * l / 8.0, 0.02, "Propped cantilever UDL base moment = qL²/8");
 
     // Propping reduces base moment (ratio = 4x)
-    let moment_ratio = r_cant.mz.abs() / r_prop.mz.abs();
+    let moment_ratio = r_cant.my.abs() / r_prop.my.abs();
     assert_close(moment_ratio, 4.0, 0.05, "Propping reduces base moment by factor 4");
 }
 
@@ -272,8 +272,8 @@ fn validation_indet_ss_vs_ff_deflection_ratio_five() {
     let res_ss = linear::solve_2d(&input_ss).unwrap();
     let res_ff = linear::solve_2d(&input_ff).unwrap();
 
-    let d_ss = res_ss.displacements.iter().find(|d| d.node_id == mid).unwrap().uy.abs();
-    let d_ff = res_ff.displacements.iter().find(|d| d.node_id == mid).unwrap().uy.abs();
+    let d_ss = res_ss.displacements.iter().find(|d| d.node_id == mid).unwrap().uz.abs();
+    let d_ff = res_ff.displacements.iter().find(|d| d.node_id == mid).unwrap().uz.abs();
 
     // Verify against analytical values
     let d_ss_exact = 5.0 * q.abs() * l.powi(4) / (384.0 * ei);
@@ -312,7 +312,7 @@ fn validation_indet_intermediate_support_reduces_moment() {
 
     // Max deflection in single-span SS beam
     let d_ss_max = res_ss.displacements.iter()
-        .map(|d| d.uy.abs())
+        .map(|d| d.uz.abs())
         .fold(0.0_f64, |a, b| a.max(b));
 
     // Two-span continuous beam (add intermediate support at midspan)
@@ -344,7 +344,7 @@ fn validation_indet_intermediate_support_reduces_moment() {
     // Max deflection in continuous beam (excludes support nodes)
     let d_cont_max = res_cont.displacements.iter()
         .filter(|d| d.node_id != 1 && d.node_id != mid_node && d.node_id != n + 1)
-        .map(|d| d.uy.abs())
+        .map(|d| d.uz.abs())
         .fold(0.0_f64, |a, b| a.max(b));
 
     assert!(
@@ -393,18 +393,18 @@ fn validation_indet_redundancy_reaction_count() {
     // SS: end moments must be zero (pinned and roller)
     let r_ss_1 = res_ss.reactions.iter().find(|r| r.node_id == 1).unwrap();
     let r_ss_end = res_ss.reactions.iter().find(|r| r.node_id == n + 1).unwrap();
-    assert!(r_ss_1.mz.abs() < 1e-6, "SS pinned end: mz must be 0, got {:.6e}", r_ss_1.mz);
-    assert!(r_ss_end.mz.abs() < 1e-6, "SS roller end: mz must be 0, got {:.6e}", r_ss_end.mz);
+    assert!(r_ss_1.my.abs() < 1e-6, "SS pinned end: mz must be 0, got {:.6e}", r_ss_1.my);
+    assert!(r_ss_end.my.abs() < 1e-6, "SS roller end: mz must be 0, got {:.6e}", r_ss_end.my);
 
     // FF: both ends must have non-zero moment reactions
     let r_ff_1 = res_ff.reactions.iter().find(|r| r.node_id == 1).unwrap();
     let r_ff_end = res_ff.reactions.iter().find(|r| r.node_id == n + 1).unwrap();
-    assert!(r_ff_1.mz.abs() > 0.1, "FF fixed start: mz must be non-zero");
-    assert!(r_ff_end.mz.abs() > 0.1, "FF fixed end: mz must be non-zero");
+    assert!(r_ff_1.my.abs() > 0.1, "FF fixed start: mz must be non-zero");
+    assert!(r_ff_end.my.abs() > 0.1, "FF fixed end: mz must be non-zero");
 
     // Both must satisfy vertical equilibrium
-    let sum_ry_ss: f64 = res_ss.reactions.iter().map(|r| r.ry).sum();
-    let sum_ry_ff: f64 = res_ff.reactions.iter().map(|r| r.ry).sum();
+    let sum_ry_ss: f64 = res_ss.reactions.iter().map(|r| r.rz).sum();
+    let sum_ry_ff: f64 = res_ff.reactions.iter().map(|r| r.rz).sum();
     let total_load = q.abs() * l;
     assert_close(sum_ry_ss, total_load, 0.01, "SS ΣRy = qL");
     assert_close(sum_ry_ff, total_load, 0.01, "FF ΣRy = qL");
@@ -432,13 +432,13 @@ fn validation_indet_overconstrained_equilibrium() {
     let input = make_beam(
         n, l, E, A, IZ, "fixed", Some("fixed"),
         vec![SolverLoad::Nodal(SolverNodalLoad {
-            node_id: load_node, fx: 0.0, fy: -p, mz: 0.0,
+            node_id: load_node, fx: 0.0, fz: -p, my: 0.0,
         })],
     );
     let results = linear::solve_2d(&input).unwrap();
 
     // Equilibrium: ΣFy = 0
-    let sum_ry: f64 = results.reactions.iter().map(|r| r.ry).sum();
+    let sum_ry: f64 = results.reactions.iter().map(|r| r.rz).sum();
     assert_close(sum_ry, p, 0.01, "Over-constrained: ΣRy = P");
 
     // Equilibrium: ΣFx = 0
@@ -448,13 +448,13 @@ fn validation_indet_overconstrained_equilibrium() {
     // Both ends have non-zero moment reactions (redundants activated)
     let r1 = results.reactions.iter().find(|r| r.node_id == 1).unwrap();
     let rn = results.reactions.iter().find(|r| r.node_id == n + 1).unwrap();
-    assert!(r1.mz.abs() > 0.1, "Left fixed end must have moment reaction");
-    assert!(rn.mz.abs() > 0.1, "Right fixed end must have moment reaction");
+    assert!(r1.my.abs() > 0.1, "Left fixed end must have moment reaction");
+    assert!(rn.my.abs() > 0.1, "Right fixed end must have moment reaction");
 
     // Analytical: R_A = P*b²(3a+b)/L³, R_B = P*a²(a+3b)/L³ where a=L/3, b=2L/3
     let b_dist = l - a_dist;
     let r_a_exact = p * b_dist * b_dist * (3.0 * a_dist + b_dist) / l.powi(3);
     let r_b_exact = p * a_dist * a_dist * (a_dist + 3.0 * b_dist) / l.powi(3);
-    assert_close(r1.ry, r_a_exact, 0.02, "Fixed-fixed: R_A exact");
-    assert_close(rn.ry, r_b_exact, 0.02, "Fixed-fixed: R_B exact");
+    assert_close(r1.rz, r_a_exact, 0.02, "Fixed-fixed: R_A exact");
+    assert_close(rn.rz, r_b_exact, 0.02, "Fixed-fixed: R_B exact");
 }

@@ -103,7 +103,7 @@ fn validation_sr_cantilever_point_load_constant_shear_linear_moment() {
     let n: usize = 8;
 
     let loads = vec![SolverLoad::Nodal(SolverNodalLoad {
-        node_id: n + 1, fx: 0.0, fy: -p, mz: 0.0,
+        node_id: n + 1, fx: 0.0, fz: -p, my: 0.0,
     })];
     let input = make_beam(n, l, E, A, IZ, "fixed", None, loads);
     let results = linear::solve_2d(&input).unwrap();
@@ -161,7 +161,7 @@ fn validation_sr_ss_beam_midspan_point_load_shear_jump() {
     let n: usize = 12;
 
     let loads = vec![SolverLoad::Nodal(SolverNodalLoad {
-        node_id: n / 2 + 1, fx: 0.0, fy: -p, mz: 0.0,
+        node_id: n / 2 + 1, fx: 0.0, fz: -p, my: 0.0,
     })];
     let input = make_beam(n, l, E, A, IZ, "pinned", Some("rollerX"), loads);
     let results = linear::solve_2d(&input).unwrap();
@@ -330,7 +330,7 @@ fn validation_sr_axial_loaded_column_constant_n() {
     // Horizontal member, pinned at left (node 1), rollerX at right (node 7).
     // Apply axial load Fx at right end.
     let loads = vec![SolverLoad::Nodal(SolverNodalLoad {
-        node_id: n + 1, fx: p_axial, fy: 0.0, mz: 0.0,
+        node_id: n + 1, fx: p_axial, fz: 0.0, my: 0.0,
     })];
     let input = make_beam(n, l, E, A, IZ, "pinned", Some("rollerX"), loads);
     let results = linear::solve_2d(&input).unwrap();
@@ -433,7 +433,7 @@ fn validation_sr_portal_frame_column_simultaneous_nvm() {
 
     // Global equilibrium check: sum of vertical reactions = total gravity
     let total_gravity: f64 = 2.0 * g_load.abs(); // two gravity loads (nodes 2 and 3)
-    let sum_ry: f64 = results.reactions.iter().map(|r| r.ry).sum();
+    let sum_ry: f64 = results.reactions.iter().map(|r| r.rz).sum();
     assert_close(sum_ry, total_gravity, 0.02, "Portal SR: sum Ry = total gravity");
 
     // Column axial forces should approximately share the gravity load

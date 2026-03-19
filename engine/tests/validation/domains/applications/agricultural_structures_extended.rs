@@ -90,7 +90,7 @@ fn grain_bin_wall_hoop_tension() {
         n, l_span, e_steel, a_wall, iz_wall,
         "pinned", Some("rollerX"),
         vec![SolverLoad::Nodal(SolverNodalLoad {
-            node_id: n + 1, fx: f_hoop, fy: 0.0, mz: 0.0,
+            node_id: n + 1, fx: f_hoop, fz: 0.0, my: 0.0,
         })],
     );
     let results = solve_2d(&input).expect("solve");
@@ -149,7 +149,7 @@ fn barn_rigid_frame_wind_and_gravity() {
     assert_close((sum_rx + f_wind).abs(), 0.0, 0.02, "Barn frame horizontal equilibrium");
 
     // Check vertical equilibrium: sum Ry + 2*gravity = 0
-    let sum_ry: f64 = results.reactions.iter().map(|r| r.ry).sum();
+    let sum_ry: f64 = results.reactions.iter().map(|r| r.rz).sum();
     assert_close((sum_ry + 2.0 * f_gravity).abs(), 0.0, 0.02, "Barn frame vertical equilibrium");
 
     // Overturning: vertical reactions should reflect moment from wind
@@ -158,7 +158,7 @@ fn barn_rigid_frame_wind_and_gravity() {
 
     // Net vertical uplift/compression from wind overturning
     // M_overturn = H * h; couple = delta_Ry * w
-    let delta_ry: f64 = (r1.ry - r4.ry).abs();
+    let delta_ry: f64 = (r1.rz - r4.rz).abs();
     let m_overturn_approx: f64 = delta_ry * w / 2.0;
     let m_wind: f64 = f_wind * h;
     // Base moments absorb part of the overturning, so m_overturn_approx < m_wind
@@ -168,8 +168,8 @@ fn barn_rigid_frame_wind_and_gravity() {
     );
 
     // Column base moments should be non-zero (rigid frame behavior)
-    assert!(r1.mz.abs() > 1.0, "Left column base moment is significant");
-    assert!(r4.mz.abs() > 1.0, "Right column base moment is significant");
+    assert!(r1.my.abs() > 1.0, "Left column base moment is significant");
+    assert!(r4.my.abs() > 1.0, "Right column base moment is significant");
 
     // Beam element should carry significant bending
     let ef_beam = results.element_forces.iter().find(|e| e.element_id == 2).unwrap();
@@ -231,7 +231,7 @@ fn greenhouse_arch_snow_load() {
     for i in 1..n_segs {
         let f_node: f64 = -w_snow * dx; // kN, downward
         loads.push(SolverLoad::Nodal(SolverNodalLoad {
-            node_id: i + 1, fx: 0.0, fy: f_node, mz: 0.0,
+            node_id: i + 1, fx: 0.0, fz: f_node, my: 0.0,
         }));
     }
 
@@ -244,7 +244,7 @@ fn greenhouse_arch_snow_load() {
     // Each support takes half the vertical load (symmetry)
     let r_v_exact: f64 = total_v / 2.0;
     let r1 = results.reactions.iter().find(|r| r.node_id == 1).unwrap();
-    assert_close(r1.ry.abs(), r_v_exact, 0.05, "Greenhouse arch vertical reaction");
+    assert_close(r1.rz.abs(), r_v_exact, 0.05, "Greenhouse arch vertical reaction");
 
     // Horizontal thrust: H = w_total * L / (8 * f) for parabolic arch
     // with nodal loads approximation, use: H = M0 / f
@@ -266,11 +266,11 @@ fn greenhouse_arch_snow_load() {
 
     // Crown node displacement should be downward and small
     let crown = results.displacements.iter().find(|d| d.node_id == 3).unwrap();
-    assert!(crown.uy < 0.0, "Crown deflects downward under snow");
+    assert!(crown.uz < 0.0, "Crown deflects downward under snow");
     let deflection_limit: f64 = l_span / 200.0; // 40 mm serviceability
     assert!(
-        crown.uy.abs() < deflection_limit,
-        "Crown deflection {:.4} m < L/200 = {:.4} m", crown.uy.abs(), deflection_limit
+        crown.uz.abs() < deflection_limit,
+        "Crown deflection {:.4} m < L/200 = {:.4} m", crown.uz.abs(), deflection_limit
     );
 }
 
@@ -342,17 +342,17 @@ fn feed_bunker_wall_silage_pressure() {
 
     // Base reaction shear = total resultant force
     let r1 = results.reactions.iter().find(|r| r.node_id == 1).unwrap();
-    assert_close(r1.ry.abs(), p_resultant, 0.05, "Bunker wall base shear");
+    assert_close(r1.rz.abs(), p_resultant, 0.05, "Bunker wall base shear");
 
     // Base moment
-    assert_close(r1.mz.abs(), m_base_exact, 0.05, "Bunker wall base moment");
+    assert_close(r1.my.abs(), m_base_exact, 0.05, "Bunker wall base moment");
 
     // Tip deflection of cantilever under triangular load:
     // delta_tip = p_base * H^4 / (30 * E * I) for triangular load
     let e_eff: f64 = e_conc * 1000.0;
     let delta_exact: f64 = p_base * h_wall.powi(4) / (30.0 * e_eff * iz_wall);
     let tip = results.displacements.iter().find(|d| d.node_id == n + 1).unwrap();
-    assert_close(tip.uy.abs(), delta_exact, 0.10, "Bunker wall tip deflection");
+    assert_close(tip.uz.abs(), delta_exact, 0.10, "Bunker wall tip deflection");
 }
 
 // ================================================================
@@ -411,12 +411,12 @@ fn manure_lagoon_liner_hydrostatic() {
 
     // Check reactions
     let r1 = results.reactions.iter().find(|r| r.node_id == 1).unwrap();
-    assert_close(r1.ry.abs(), r_exact, 0.02, "Lagoon liner support reaction");
+    assert_close(r1.rz.abs(), r_exact, 0.02, "Lagoon liner support reaction");
 
     // Check midspan deflection
     let mid_node = n / 2 + 1;
     let mid_disp = results.displacements.iter().find(|d| d.node_id == mid_node).unwrap();
-    assert_close(mid_disp.uy.abs(), delta_exact, 0.05, "Lagoon liner midspan deflection");
+    assert_close(mid_disp.uz.abs(), delta_exact, 0.05, "Lagoon liner midspan deflection");
 
     // Check midspan moment via element forces near midspan
     let mid_elem = n / 2;
@@ -425,7 +425,7 @@ fn manure_lagoon_liner_hydrostatic() {
     assert_close(ef_mid.m_end.abs(), m_max_exact, 0.10, "Lagoon liner midspan moment");
 
     // Verify total reaction equals total load
-    let sum_ry: f64 = results.reactions.iter().map(|r| r.ry).sum::<f64>();
+    let sum_ry: f64 = results.reactions.iter().map(|r| r.rz).sum::<f64>();
     assert_close(sum_ry.abs(), q.abs() * l_span, 0.02, "Lagoon liner total vertical equilibrium");
 }
 
@@ -485,7 +485,7 @@ fn silo_discharge_funnel_hopper() {
     let m_max_exact: f64 = q_n.abs() * l_incl.powi(2) / 8.0;
 
     let r1 = results.reactions.iter().find(|r| r.node_id == 1).unwrap();
-    assert_close(r1.ry.abs(), r_exact, 0.03, "Hopper wall support reaction");
+    assert_close(r1.rz.abs(), r_exact, 0.03, "Hopper wall support reaction");
 
     // Midspan moment
     let mid_elem = n / 2;
@@ -497,7 +497,7 @@ fn silo_discharge_funnel_hopper() {
     let delta_exact: f64 = 5.0 * q_n.abs() * l_incl.powi(4) / (384.0 * e_eff * iz_plate);
     let mid_node = n / 2 + 1;
     let mid_disp = results.displacements.iter().find(|d| d.node_id == mid_node).unwrap();
-    assert_close(mid_disp.uy.abs(), delta_exact, 0.05, "Hopper wall midspan deflection");
+    assert_close(mid_disp.uz.abs(), delta_exact, 0.05, "Hopper wall midspan deflection");
 
     // Verify hopper geometry
     let _angle_check: f64 = hopper_angle; // suppress unused
@@ -595,7 +595,7 @@ fn hay_storage_truss_howe() {
     let mut loads = Vec::new();
     for i in 1..n_panels { // interior top chord nodes (7, 8, 9)
         loads.push(SolverLoad::Nodal(SolverNodalLoad {
-            node_id: i + n_panels + 2, fx: 0.0, fy: p_node, mz: 0.0,
+            node_id: i + n_panels + 2, fx: 0.0, fz: p_node, my: 0.0,
         }));
     }
 
@@ -609,11 +609,11 @@ fn hay_storage_truss_howe() {
     // Check reactions
     let r1 = results.reactions.iter().find(|r| r.node_id == 1).unwrap();
     let r5 = results.reactions.iter().find(|r| r.node_id == n_panels + 1).unwrap();
-    assert_close(r1.ry.abs(), r_exact, 0.05, "Hay truss left reaction");
-    assert_close(r5.ry.abs(), r_exact, 0.05, "Hay truss right reaction");
+    assert_close(r1.rz.abs(), r_exact, 0.05, "Hay truss left reaction");
+    assert_close(r5.rz.abs(), r_exact, 0.05, "Hay truss right reaction");
 
     // Vertical equilibrium
-    let sum_ry: f64 = results.reactions.iter().map(|r| r.ry).sum::<f64>();
+    let sum_ry: f64 = results.reactions.iter().map(|r| r.rz).sum::<f64>();
     assert_close(sum_ry.abs(), total_w, 0.02, "Hay truss vertical equilibrium");
 
     // Midspan bottom chord tension: T = M_ss / depth
@@ -671,14 +671,14 @@ fn equipment_shed_portal_frame() {
     let mut loads = Vec::new();
     // Wind at eave (node 2, back column top)
     loads.push(SolverLoad::Nodal(SolverNodalLoad {
-        node_id: 2, fx: f_wind, fy: 0.0, mz: 0.0,
+        node_id: 2, fx: f_wind, fz: 0.0, my: 0.0,
     }));
     // Gravity at both eave nodes
     loads.push(SolverLoad::Nodal(SolverNodalLoad {
-        node_id: 2, fx: 0.0, fy: f_grav, mz: 0.0,
+        node_id: 2, fx: 0.0, fz: f_grav, my: 0.0,
     }));
     loads.push(SolverLoad::Nodal(SolverNodalLoad {
-        node_id: 3, fx: 0.0, fy: f_grav, mz: 0.0,
+        node_id: 3, fx: 0.0, fz: f_grav, my: 0.0,
     }));
 
     let input = make_input(
@@ -694,15 +694,15 @@ fn equipment_shed_portal_frame() {
     assert_close((sum_rx + f_wind).abs(), 0.0, 0.02, "Shed horizontal equilibrium");
 
     // Vertical equilibrium: sum Ry = -2*f_grav
-    let sum_ry: f64 = results.reactions.iter().map(|r| r.ry).sum();
+    let sum_ry: f64 = results.reactions.iter().map(|r| r.rz).sum();
     let total_grav: f64 = 2.0 * f_grav;
     assert_close((sum_ry + total_grav).abs(), 0.0, 0.02, "Shed vertical equilibrium");
 
     // Fixed base (node 1) should have a moment reaction; pinned (node 4) should not
     let r1 = results.reactions.iter().find(|r| r.node_id == 1).unwrap();
     let r4 = results.reactions.iter().find(|r| r.node_id == 4).unwrap();
-    assert!(r1.mz.abs() > 5.0, "Fixed base has significant moment: {:.2} kN-m", r1.mz);
-    assert_close(r4.mz, 0.0, 0.01, "Pinned base has zero moment");
+    assert!(r1.my.abs() > 5.0, "Fixed base has significant moment: {:.2} kN-m", r1.my);
+    assert_close(r4.my, 0.0, 0.01, "Pinned base has zero moment");
 
     // The fixed column base carries more horizontal reaction than the pinned base
     // (stiffer column attracts more lateral force)

@@ -79,7 +79,7 @@ fn validation_portal_equal_shear() {
 
     // Single-story portal with lateral load
     let loads = vec![SolverLoad::Nodal(SolverNodalLoad {
-        node_id: 3, fx: f, fy: 0.0, mz: 0.0,
+        node_id: 3, fx: f, fz: 0.0, my: 0.0,
     })];
     let input = make_multi_story_frame(1, w, h, loads);
     let results = linear::solve_2d(&input).unwrap();
@@ -120,7 +120,7 @@ fn validation_portal_interior_double() {
         (5, "frame", 5, 6, 1, 1, false, false), // right beam
     ];
     let loads = vec![SolverLoad::Nodal(SolverNodalLoad {
-        node_id: 4, fx: f, fy: 0.0, mz: 0.0,
+        node_id: 4, fx: f, fz: 0.0, my: 0.0,
     })];
     let input = make_input(nodes, vec![(1, E, 0.3)], vec![(1, A, IZ)], elems,
         vec![(1, 1, "fixed"), (2, 2, "fixed"), (3, 3, "fixed")], loads);
@@ -151,7 +151,7 @@ fn validation_cantilever_overturning() {
 
     // Single story with lateral load at top
     let loads = vec![SolverLoad::Nodal(SolverNodalLoad {
-        node_id: 3, fx: f, fy: 0.0, mz: 0.0,
+        node_id: 3, fx: f, fz: 0.0, my: 0.0,
     })];
     let input = make_multi_story_frame(1, w, h, loads);
     let results = linear::solve_2d(&input).unwrap();
@@ -165,7 +165,7 @@ fn validation_cantilever_overturning() {
     // Global moment equilibrium about left base (node 1):
     // F×h = R2_y × w + M1_z + M2_z
     // where M1_z and M2_z are base moment reactions
-    let m_resist = r2.ry * w + r1.mz + r2.mz;
+    let m_resist = r2.rz * w + r1.my + r2.my;
     assert_close(m_resist.abs(), (f * h).abs(), 0.05,
         "Cantilever: moment equilibrium F×h");
 }
@@ -188,7 +188,7 @@ fn validation_portal_drift_cubic() {
         for s in 1..=*n_stories {
             let left = 2 * s + 1;
             loads.push(SolverLoad::Nodal(SolverNodalLoad {
-                node_id: left, fx: f, fy: 0.0, mz: 0.0,
+                node_id: left, fx: f, fz: 0.0, my: 0.0,
             }));
         }
         let input = make_multi_story_frame(*n_stories, w, h, loads);
@@ -218,8 +218,8 @@ fn validation_portal_multi_story_shear() {
 
     // 3-story frame with lateral loads at each floor
     let loads = vec![
-        SolverLoad::Nodal(SolverNodalLoad { node_id: 5, fx: f, fy: 0.0, mz: 0.0 }),  // top (3rd)
-        SolverLoad::Nodal(SolverNodalLoad { node_id: 7, fx: f, fy: 0.0, mz: 0.0 }),  // roof
+        SolverLoad::Nodal(SolverNodalLoad { node_id: 5, fx: f, fz: 0.0, my: 0.0 }),  // top (3rd)
+        SolverLoad::Nodal(SolverNodalLoad { node_id: 7, fx: f, fz: 0.0, my: 0.0 }),  // roof
     ];
     let input = make_multi_story_frame(3, w, h, loads);
     let results = linear::solve_2d(&input).unwrap();
@@ -252,7 +252,7 @@ fn validation_portal_column_inflection() {
         (5, "frame", 3, 6, 1, 1, false, false),
     ];
     let loads = vec![SolverLoad::Nodal(SolverNodalLoad {
-        node_id: 3, fx: f, fy: 0.0, mz: 0.0,
+        node_id: 3, fx: f, fz: 0.0, my: 0.0,
     })];
     let input = make_input(nodes, vec![(1, E, 0.3)], vec![(1, A, IZ)], elems,
         vec![(1, 1, "fixed"), (2, 4, "fixed")], loads);
@@ -293,7 +293,7 @@ fn validation_portal_beam_inflection() {
         (4, "frame", 5, 4, 1, 1, false, false),
     ];
     let loads = vec![SolverLoad::Nodal(SolverNodalLoad {
-        node_id: 2, fx: f, fy: 0.0, mz: 0.0,
+        node_id: 2, fx: f, fz: 0.0, my: 0.0,
     })];
     let input = make_input(nodes, vec![(1, E, 0.3)], vec![(1, A, IZ)], elems,
         vec![(1, 1, "fixed"), (2, 5, "fixed")], loads);
@@ -335,9 +335,9 @@ fn validation_portal_story_shear_accumulation() {
 
     // Nodes: base (1,2), floor1 (3,4), floor2 (5,6), floor3 (7,8)
     let loads = vec![
-        SolverLoad::Nodal(SolverNodalLoad { node_id: 3, fx: f1, fy: 0.0, mz: 0.0 }),
-        SolverLoad::Nodal(SolverNodalLoad { node_id: 5, fx: f2, fy: 0.0, mz: 0.0 }),
-        SolverLoad::Nodal(SolverNodalLoad { node_id: 7, fx: f3, fy: 0.0, mz: 0.0 }),
+        SolverLoad::Nodal(SolverNodalLoad { node_id: 3, fx: f1, fz: 0.0, my: 0.0 }),
+        SolverLoad::Nodal(SolverNodalLoad { node_id: 5, fx: f2, fz: 0.0, my: 0.0 }),
+        SolverLoad::Nodal(SolverNodalLoad { node_id: 7, fx: f3, fz: 0.0, my: 0.0 }),
     ];
     let input = make_multi_story_frame(3, w, h, loads);
     let results = linear::solve_2d(&input).unwrap();
@@ -356,7 +356,7 @@ fn validation_portal_story_shear_accumulation() {
     // Resisting moment from reactions (vertical couple + base moments)
     let r1 = results.reactions.iter().find(|r| r.node_id == 1).unwrap();
     let r2 = results.reactions.iter().find(|r| r.node_id == 2).unwrap();
-    let m_resist = r2.ry * w - r1.ry * 0.0 + r1.mz + r2.mz;
+    let m_resist = r2.rz * w - r1.rz * 0.0 + r1.my + r2.my;
 
     // Should balance (moment equilibrium)
     assert_close(m_resist.abs(), m_overturn, 0.05,

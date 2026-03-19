@@ -38,7 +38,7 @@ fn validation_castigliano_ss_center() {
 
     let mid = n / 2 + 1;
     let loads = vec![SolverLoad::Nodal(SolverNodalLoad {
-        node_id: mid, fx: 0.0, fy: -p, mz: 0.0,
+        node_id: mid, fx: 0.0, fz: -p, my: 0.0,
     })];
     let input = make_beam(n, l, E, A, IZ, "pinned", Some("rollerX"), loads);
     let results = linear::solve_2d(&input).unwrap();
@@ -47,7 +47,7 @@ fn validation_castigliano_ss_center() {
 
     // Castigliano: δ = ∂U/∂P = PL³/(48EI)
     let delta_exact = p * l * l * l / (48.0 * e_eff * IZ);
-    assert_close(d_mid.uy.abs(), delta_exact, 0.02,
+    assert_close(d_mid.uz.abs(), delta_exact, 0.02,
         "Castigliano: SS center δ = PL³/(48EI)");
 }
 
@@ -63,7 +63,7 @@ fn validation_castigliano_cantilever() {
     let e_eff = E * 1000.0;
 
     let loads = vec![SolverLoad::Nodal(SolverNodalLoad {
-        node_id: n + 1, fx: 0.0, fy: -p, mz: 0.0,
+        node_id: n + 1, fx: 0.0, fz: -p, my: 0.0,
     })];
     let input = make_beam(n, l, E, A, IZ, "fixed", None, loads);
     let results = linear::solve_2d(&input).unwrap();
@@ -71,7 +71,7 @@ fn validation_castigliano_cantilever() {
     let tip = results.displacements.iter().find(|d| d.node_id == n + 1).unwrap();
 
     let delta_exact = p * l * l * l / (3.0 * e_eff * IZ);
-    assert_close(tip.uy.abs(), delta_exact, 0.02,
+    assert_close(tip.uz.abs(), delta_exact, 0.02,
         "Castigliano: cantilever δ = PL³/(3EI)");
 }
 
@@ -90,12 +90,12 @@ fn validation_castigliano_strain_energy() {
 
     let mid = n / 2 + 1;
     let loads = vec![SolverLoad::Nodal(SolverNodalLoad {
-        node_id: mid, fx: 0.0, fy: -p, mz: 0.0,
+        node_id: mid, fx: 0.0, fz: -p, my: 0.0,
     })];
     let input = make_beam(n, l, E, A, IZ, "pinned", Some("rollerX"), loads);
     let results = linear::solve_2d(&input).unwrap();
 
-    let delta = results.displacements.iter().find(|d| d.node_id == mid).unwrap().uy.abs();
+    let delta = results.displacements.iter().find(|d| d.node_id == mid).unwrap().uz.abs();
 
     // U = ½PΔ
     let u_external = 0.5 * p * delta;
@@ -137,7 +137,7 @@ fn validation_castigliano_truss_energy() {
         ],
         vec![(1, 1, "pinned"), (2, 2, "rollerX")],
         vec![SolverLoad::Nodal(SolverNodalLoad {
-            node_id: 3, fx: 0.0, fy: -p, mz: 0.0,
+            node_id: 3, fx: 0.0, fz: -p, my: 0.0,
         })],
     );
     let results = linear::solve_2d(&input).unwrap();
@@ -154,7 +154,7 @@ fn validation_castigliano_truss_energy() {
     let u_total = u_diag + u_bottom;
 
     // U = ½ × P × δ_vertical
-    let u_external = 0.5 * p * d3.uy.abs();
+    let u_external = 0.5 * p * d3.uz.abs();
 
     assert_close(u_external, u_total, 0.02,
         "Truss energy: ½Pδ = Σ N²L/(2EA)");
@@ -213,7 +213,7 @@ fn validation_castigliano_udl_energy() {
         .filter(|d| d.node_id >= 1 && d.node_id <= n + 1)
         .map(|d| {
             let weight = if d.node_id == 1 || d.node_id == n + 1 { 0.5 } else { 1.0 };
-            0.5 * q.abs() * d.uy.abs() * dx * weight
+            0.5 * q.abs() * d.uz.abs() * dx * weight
         })
         .sum();
 
@@ -239,7 +239,7 @@ fn validation_castigliano_rotation() {
     let e_eff = E * 1000.0;
 
     let loads = vec![SolverLoad::Nodal(SolverNodalLoad {
-        node_id: n + 1, fx: 0.0, fy: 0.0, mz: m,
+        node_id: n + 1, fx: 0.0, fz: 0.0, my: m,
     })];
     let input = make_beam(n, l, E, A, IZ, "fixed", None, loads);
     let results = linear::solve_2d(&input).unwrap();
@@ -248,11 +248,11 @@ fn validation_castigliano_rotation() {
 
     // θ = ML/(EI)
     let theta_exact = m * l / (e_eff * IZ);
-    assert_close(tip.rz.abs(), theta_exact, 0.02,
+    assert_close(tip.ry.abs(), theta_exact, 0.02,
         "Castigliano rotation: θ = ML/(EI)");
 
     // Verify U = ½Mθ = M²L/(2EI)
-    let u = 0.5 * m * tip.rz.abs();
+    let u = 0.5 * m * tip.ry.abs();
     let u_exact = m * m * l / (2.0 * e_eff * IZ);
     assert_close(u, u_exact, 0.02,
         "Castigliano rotation: U = M²L/(2EI)");
@@ -271,18 +271,18 @@ fn validation_castigliano_energy_additivity() {
 
     // Cantilever with both axial and transverse loads
     let loads_both = vec![SolverLoad::Nodal(SolverNodalLoad {
-        node_id: n + 1, fx: p_ax, fy: -p_tr, mz: 0.0,
+        node_id: n + 1, fx: p_ax, fz: -p_tr, my: 0.0,
     })];
     let input_both = make_beam(n, l, E, A, IZ, "fixed", None, loads_both);
     let res_both = linear::solve_2d(&input_both).unwrap();
     let tip_both = res_both.displacements.iter().find(|d| d.node_id == n + 1).unwrap();
 
     // Combined external work
-    let u_combined = 0.5 * (p_ax * tip_both.ux + p_tr * tip_both.uy.abs());
+    let u_combined = 0.5 * (p_ax * tip_both.ux + p_tr * tip_both.uz.abs());
 
     // Axial only
     let loads_ax = vec![SolverLoad::Nodal(SolverNodalLoad {
-        node_id: n + 1, fx: p_ax, fy: 0.0, mz: 0.0,
+        node_id: n + 1, fx: p_ax, fz: 0.0, my: 0.0,
     })];
     let input_ax = make_beam(n, l, E, A, IZ, "fixed", None, loads_ax);
     let tip_ax = linear::solve_2d(&input_ax).unwrap()
@@ -291,11 +291,11 @@ fn validation_castigliano_energy_additivity() {
 
     // Transverse only
     let loads_tr = vec![SolverLoad::Nodal(SolverNodalLoad {
-        node_id: n + 1, fx: 0.0, fy: -p_tr, mz: 0.0,
+        node_id: n + 1, fx: 0.0, fz: -p_tr, my: 0.0,
     })];
     let input_tr = make_beam(n, l, E, A, IZ, "fixed", None, loads_tr);
     let tip_tr = linear::solve_2d(&input_tr).unwrap()
-        .displacements.iter().find(|d| d.node_id == n + 1).unwrap().uy;
+        .displacements.iter().find(|d| d.node_id == n + 1).unwrap().uz;
     let u_tr = 0.5 * p_tr * tip_tr.abs();
 
     // U_combined = U_axial + U_bending (for linear uncoupled systems)

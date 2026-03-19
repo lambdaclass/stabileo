@@ -76,12 +76,12 @@ fn validation_approx_triangular_load_ss_beam() {
     let analytical_ra = w * l / 6.0; // = 18.0
     let analytical_rb = w * l / 3.0; // = 36.0
 
-    assert_close(r_a.ry, analytical_ra, 0.02, "triangular load R_A = qL/6");
-    assert_close(r_b.ry, analytical_rb, 0.02, "triangular load R_B = qL/3");
+    assert_close(r_a.rz, analytical_ra, 0.02, "triangular load R_A = qL/6");
+    assert_close(r_b.rz, analytical_rb, 0.02, "triangular load R_B = qL/3");
 
     // Equilibrium: R_A + R_B = total load = q_max * L / 2 = 54
     let total_load = w * l / 2.0;
-    let sum_ry: f64 = results.reactions.iter().map(|r| r.ry).sum();
+    let sum_ry: f64 = results.reactions.iter().map(|r| r.rz).sum();
     assert_close(sum_ry, total_load, 0.01, "triangular load equilibrium");
 
     // Maximum moment location: x = L / sqrt(3) ~ 5.196 m
@@ -192,8 +192,8 @@ fn validation_approx_three_span_beam_moments() {
         .unwrap();
     let analytical_r_end = 0.4 * w * l; // = 24.0
 
-    assert_close(r_a.ry, analytical_r_end, 0.05, "three-span R_A = 0.4wL");
-    assert_close(r_d.ry, analytical_r_end, 0.05, "three-span R_D = 0.4wL");
+    assert_close(r_a.rz, analytical_r_end, 0.05, "three-span R_A = 0.4wL");
+    assert_close(r_d.rz, analytical_r_end, 0.05, "three-span R_D = 0.4wL");
 
     // Interior support reactions: R_B = R_C = 1.1 * w * L = 66 kN
     let r_b = results
@@ -208,8 +208,8 @@ fn validation_approx_three_span_beam_moments() {
         .unwrap();
     let analytical_r_int = 1.1 * w * l; // = 66.0
 
-    assert_close(r_b.ry, analytical_r_int, 0.05, "three-span R_B = 1.1wL");
-    assert_close(r_c.ry, analytical_r_int, 0.05, "three-span R_C = 1.1wL");
+    assert_close(r_b.rz, analytical_r_int, 0.05, "three-span R_B = 1.1wL");
+    assert_close(r_c.rz, analytical_r_int, 0.05, "three-span R_C = 1.1wL");
 }
 
 // ================================================================
@@ -235,14 +235,14 @@ fn validation_approx_superposition_two_point_loads() {
         SolverLoad::Nodal(SolverNodalLoad {
             node_id: 3,
             fx: 0.0,
-            fy: -p1,
-            mz: 0.0,
+            fz: -p1,
+            my: 0.0,
         }),
         SolverLoad::Nodal(SolverNodalLoad {
             node_id: 5,
             fx: 0.0,
-            fy: -p2,
-            mz: 0.0,
+            fz: -p2,
+            my: 0.0,
         }),
     ];
     let input_combined = make_beam(n, l, E, A, IZ, "pinned", Some("rollerX"), loads_combined);
@@ -252,8 +252,8 @@ fn validation_approx_superposition_two_point_loads() {
     let loads_p1 = vec![SolverLoad::Nodal(SolverNodalLoad {
         node_id: 3,
         fx: 0.0,
-        fy: -p1,
-        mz: 0.0,
+        fz: -p1,
+        my: 0.0,
     })];
     let input_p1 = make_beam(n, l, E, A, IZ, "pinned", Some("rollerX"), loads_p1);
     let results_p1 = linear::solve_2d(&input_p1).unwrap();
@@ -261,8 +261,8 @@ fn validation_approx_superposition_two_point_loads() {
     let loads_p2 = vec![SolverLoad::Nodal(SolverNodalLoad {
         node_id: 5,
         fx: 0.0,
-        fy: -p2,
-        mz: 0.0,
+        fz: -p2,
+        my: 0.0,
     })];
     let input_p2 = make_beam(n, l, E, A, IZ, "pinned", Some("rollerX"), loads_p2);
     let results_p2 = linear::solve_2d(&input_p2).unwrap();
@@ -282,8 +282,8 @@ fn validation_approx_superposition_two_point_loads() {
         .find(|r| r.node_id == n + 1)
         .unwrap();
 
-    assert_close(ra_combined.ry, ra_analytical, 0.01, "superposition R_A");
-    assert_close(rb_combined.ry, rb_analytical, 0.01, "superposition R_B");
+    assert_close(ra_combined.rz, ra_analytical, 0.01, "superposition R_A");
+    assert_close(rb_combined.rz, rb_analytical, 0.01, "superposition R_B");
 
     // Verify superposition principle: combined displacements = sum of individual
     for node_id in 1..=(n + 1) {
@@ -303,9 +303,9 @@ fn validation_approx_superposition_two_point_loads() {
             .find(|d| d.node_id == node_id)
             .unwrap();
 
-        let superposed_uy = d_p1.uy + d_p2.uy;
+        let superposed_uy = d_p1.uz + d_p2.uz;
         assert_close(
-            d_comb.uy,
+            d_comb.uz,
             superposed_uy,
             0.001,
             &format!("superposition uy at node {}", node_id),
@@ -355,8 +355,8 @@ fn validation_approx_portal_method_2bay() {
     let loads = vec![SolverLoad::Nodal(SolverNodalLoad {
         node_id: 4,
         fx: f_lat,
-        fy: 0.0,
-        mz: 0.0,
+        fz: 0.0,
+        my: 0.0,
     })];
 
     let input = make_input(
@@ -514,28 +514,28 @@ fn validation_approx_gravity_moment_distribution_frame() {
     let r2 = results.reactions.iter().find(|r| r.node_id == 2).unwrap();
 
     assert!(
-        r1.mz.abs() > 1.0,
+        r1.my.abs() > 1.0,
         "Left column base moment should be non-zero: {:.4}",
-        r1.mz,
+        r1.my,
     );
     assert!(
-        r2.mz.abs() > 1.0,
+        r2.my.abs() > 1.0,
         "Right column base moment should be non-zero: {:.4}",
-        r2.mz,
+        r2.my,
     );
 
     // By symmetry, column base moments should be equal in magnitude
     assert_close(
-        r1.mz.abs(),
-        r2.mz.abs(),
+        r1.my.abs(),
+        r2.my.abs(),
         0.05,
         "symmetric frame: equal column base moments",
     );
 
     // Vertical reactions should each be wL/2 = 60 kN (symmetric gravity)
     let analytical_rv = w * span / 2.0;
-    assert_close(r1.ry, analytical_rv, 0.05, "frame R_A_y = wL/2");
-    assert_close(r2.ry, analytical_rv, 0.05, "frame R_B_y = wL/2");
+    assert_close(r1.rz, analytical_rv, 0.05, "frame R_A_y = wL/2");
+    assert_close(r2.rz, analytical_rv, 0.05, "frame R_B_y = wL/2");
 
     // Beam end moment (at left beam-column joint) from the first beam element
     let ef_beam_start = results
@@ -599,8 +599,8 @@ fn validation_approx_effective_length_sway() {
     let loads_a = vec![SolverLoad::Nodal(SolverNodalLoad {
         node_id: 2,
         fx: f_lat,
-        fy: 0.0,
-        mz: 0.0,
+        fz: 0.0,
+        my: 0.0,
     })];
     let input_a = make_input(
         nodes_a,
@@ -719,7 +719,7 @@ fn validation_approx_unequal_two_span() {
     // Actually: R_A * L1 = w*L1^2/2 - |M_B|, so R_A = w*L1/2 - |M_B|/L1
     let analytical_ra = w * l1 / 2.0 - analytical_mb / l1; // 30 - 5.833 = 24.167
 
-    assert_close(r_a.ry, analytical_ra, 0.05, "unequal spans R_A");
+    assert_close(r_a.rz, analytical_ra, 0.05, "unequal spans R_A");
 
     // Reaction at support C (end of span 2)
     let end_node = 2 * n_per_span + 1;
@@ -731,7 +731,7 @@ fn validation_approx_unequal_two_span() {
     // R_C = wL2/2 - |M_B|/L2 = 20 - 8.75 = 11.25
     let analytical_rc = w * l2 / 2.0 - analytical_mb / l2;
 
-    assert_close(r_c.ry, analytical_rc, 0.05, "unequal spans R_C");
+    assert_close(r_c.rz, analytical_rc, 0.05, "unequal spans R_C");
 
     // Interior support reaction from equilibrium: R_B = total - R_A - R_C
     let total_load = w * (l1 + l2);
@@ -743,7 +743,7 @@ fn validation_approx_unequal_two_span() {
         .unwrap();
     let analytical_rb = total_load - analytical_ra - analytical_rc;
 
-    assert_close(r_b.ry, analytical_rb, 0.05, "unequal spans R_B");
+    assert_close(r_b.rz, analytical_rb, 0.05, "unequal spans R_B");
 }
 
 // ================================================================
@@ -786,8 +786,8 @@ fn validation_approx_carry_over_factor() {
     let loads = vec![SolverLoad::Nodal(SolverNodalLoad {
         node_id: 1,
         fx: 0.0,
-        fy: 0.0,
-        mz: m0,
+        fz: 0.0,
+        my: m0,
     })];
 
     let input = make_input(
@@ -808,7 +808,7 @@ fn validation_approx_carry_over_factor() {
         .unwrap();
 
     // Far-end reaction moment magnitude = M0/2
-    let far_end_moment = r_far.mz.abs();
+    let far_end_moment = r_far.my.abs();
     let expected_far = m0 / 2.0; // = 50.0
 
     assert_close(
@@ -823,7 +823,7 @@ fn validation_approx_carry_over_factor() {
     assert_close(carry_over, 0.5, 0.02, "carry-over factor = 0.5");
 
     // Vertical equilibrium: sum of vertical reactions = 0 (no transverse loads)
-    let sum_ry: f64 = results.reactions.iter().map(|r| r.ry).sum();
+    let sum_ry: f64 = results.reactions.iter().map(|r| r.rz).sum();
     assert!(
         sum_ry.abs() < 1e-6,
         "carry-over: vertical equilibrium, sum Ry = {:.6e}",
@@ -833,7 +833,7 @@ fn validation_approx_carry_over_factor() {
     // Shear = 3*M0/(2*L) from moment equilibrium about each support
     let shear_expected = 3.0 * m0 / (2.0 * l); // = 18.75
     assert_close(
-        r_near.ry.abs(),
+        r_near.rz.abs(),
         shear_expected,
         0.02,
         "carry-over: shear = 3M0/(2L)",

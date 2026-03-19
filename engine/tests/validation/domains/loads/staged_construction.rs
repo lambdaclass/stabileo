@@ -53,7 +53,7 @@ fn assert_close(actual: f64, expected: f64, rel_tol: f64, label: &str) {
 fn make_nodes(coords: &[(usize, f64, f64)]) -> HashMap<String, SolverNode> {
     let mut map = HashMap::new();
     for &(id, x, y) in coords {
-        map.insert(id.to_string(), SolverNode { id, x, y });
+        map.insert(id.to_string(), SolverNode { id, x, z: y });
     }
     map
 }
@@ -87,7 +87,7 @@ fn make_supports(sups: &[(usize, usize, &str)]) -> HashMap<String, SolverSupport
         map.insert(id.to_string(), SolverSupport {
             id, node_id, support_type: stype.into(),
             kx: None, ky: None, kz: None,
-            dx: None, dy: None, drz: None, angle: None,
+            dx: None, dz: None, dry: None, angle: None,
         });
     }
     map
@@ -178,9 +178,9 @@ fn validation_staged_1_two_phase_beam() {
 
     // The midspan deflection at node 2 should differ between staged and single-stage.
     let staged_uy2 = staged_results.final_results.displacements.iter()
-        .find(|d| d.node_id == 2).unwrap().uy;
+        .find(|d| d.node_id == 2).unwrap().uz;
     let single_uy2 = single_results.final_results.displacements.iter()
-        .find(|d| d.node_id == 2).unwrap().uy;
+        .find(|d| d.node_id == 2).unwrap().uz;
 
     // They must NOT be equal — staged construction produces different results
     let diff = (staged_uy2 - single_uy2).abs();
@@ -195,7 +195,7 @@ fn validation_staged_1_two_phase_beam() {
     let e_kn = E * 1000.0;
     let cantilever_tip = q * l.powi(4) / (8.0 * e_kn * IZ);
     let stage1_uy2 = staged_results.stages[0].results.displacements.iter()
-        .find(|d| d.node_id == 2).unwrap().uy;
+        .find(|d| d.node_id == 2).unwrap().uz;
 
     assert_close(stage1_uy2, cantilever_tip, REL_TOL,
         "Stage 1 cantilever tip deflection");
@@ -230,7 +230,7 @@ fn validation_staged_2_support_addition() {
 
     let loads = vec![
         SolverLoad::Nodal(SolverNodalLoad {
-            node_id: 2, fx: 0.0, fy: p, mz: 0.0,
+            node_id: 2, fx: 0.0, fz: p, my: 0.0,
         }),
     ];
 
@@ -267,9 +267,9 @@ fn validation_staged_2_support_addition() {
     // Check that the stage 2 cumulative result still has the stage 1
     // deflection at node 2.
     let s1_uy2 = results.stages[0].results.displacements.iter()
-        .find(|d| d.node_id == 2).unwrap().uy;
+        .find(|d| d.node_id == 2).unwrap().uz;
     let s2_uy2 = results.stages[1].results.displacements.iter()
-        .find(|d| d.node_id == 2).unwrap().uy;
+        .find(|d| d.node_id == 2).unwrap().uz;
 
     // The cumulative displacement at node 2 should be unchanged
     // (support was added with no new load, so no incremental deformation).
@@ -331,7 +331,7 @@ fn validation_staged_3_element_activation() {
 
     let loads = vec![
         SolverLoad::Nodal(SolverNodalLoad {
-            node_id: 2, fx: p_lateral, fy: 0.0, mz: 0.0,
+            node_id: 2, fx: p_lateral, fz: 0.0, my: 0.0,
         }),
     ];
 
@@ -454,11 +454,11 @@ fn validation_staged_4_support_removal() {
     let loads = vec![
         // Stage 1: load on complete structure
         SolverLoad::Nodal(SolverNodalLoad {
-            node_id: 2, fx: 0.0, fy: p, mz: 0.0,
+            node_id: 2, fx: 0.0, fz: p, my: 0.0,
         }),
         // Stage 3: load on cantilever
         SolverLoad::Nodal(SolverNodalLoad {
-            node_id: 2, fx: 0.0, fy: p, mz: 0.0,
+            node_id: 2, fx: 0.0, fz: p, my: 0.0,
         }),
     ];
 
@@ -503,7 +503,7 @@ fn validation_staged_4_support_removal() {
 
     // Stage 1: full two-span beam with load at node 2. Node 2 deflects.
     let s1_uy2 = results.stages[0].results.displacements.iter()
-        .find(|d| d.node_id == 2).unwrap().uy;
+        .find(|d| d.node_id == 2).unwrap().uz;
     assert!(
         s1_uy2 < 0.0,
         "Stage 1: node 2 should deflect downward, got uy={}",
@@ -532,7 +532,7 @@ fn validation_staged_4_support_removal() {
     // Stage 3: load applied to cantilever structure. Node 2 should
     // deflect further downward.
     let s3_uy2 = results.stages[2].results.displacements.iter()
-        .find(|d| d.node_id == 2).unwrap().uy;
+        .find(|d| d.node_id == 2).unwrap().uz;
     assert!(
         s3_uy2 < s1_uy2,
         "Stage 3: cantilever tip should deflect more than two-span: s3={:.6}, s1={:.6}",
@@ -645,9 +645,9 @@ fn validation_staged_5_staged_loading() {
 
     // Compare midspan deflection
     let staged_uy2 = staged_results.final_results.displacements.iter()
-        .find(|d| d.node_id == 2).unwrap().uy;
+        .find(|d| d.node_id == 2).unwrap().uz;
     let single_uy2 = single_results.final_results.displacements.iter()
-        .find(|d| d.node_id == 2).unwrap().uy;
+        .find(|d| d.node_id == 2).unwrap().uz;
 
     assert_close(staged_uy2, single_uy2, 1e-10,
         "Linearity: staged vs single midspan deflection");
@@ -670,9 +670,9 @@ fn validation_staged_5_staged_loading() {
     for (sr, er) in staged_results.final_results.reactions.iter()
         .zip(single_results.final_results.reactions.iter())
     {
-        assert_close(sr.ry, er.ry, 1e-10,
+        assert_close(sr.rz, er.rz, 1e-10,
             &format!("Linearity: node {} reaction ry", sr.node_id));
-        assert_close(sr.mz, er.mz, 1e-10,
+        assert_close(sr.my, er.my, 1e-10,
             &format!("Linearity: node {} reaction mz", sr.node_id));
     }
 }
@@ -789,9 +789,9 @@ fn validation_staged_6_self_weight() {
 
     // Stage 1 tip deflection should match the reference cantilever.
     let s1_uy2 = results.stages[0].results.displacements.iter()
-        .find(|d| d.node_id == 2).unwrap().uy;
+        .find(|d| d.node_id == 2).unwrap().uz;
     let ref_uy2 = ref_results.final_results.displacements.iter()
-        .find(|d| d.node_id == 2).unwrap().uy;
+        .find(|d| d.node_id == 2).unwrap().uz;
     assert_close(s1_uy2, ref_uy2, REL_TOL,
         "Stage 1 tip deflection matches 3m cantilever");
 
@@ -809,7 +809,7 @@ fn validation_staged_6_self_weight() {
 
     // Tip deflection at node 2 should also increase after extension.
     let s2_uy2 = results.stages[1].results.displacements.iter()
-        .find(|d| d.node_id == 2).unwrap().uy;
+        .find(|d| d.node_id == 2).unwrap().uz;
     assert!(
         s2_uy2 < s1_uy2,
         "Extension should increase deflection at node 2: stage1={:.6}, stage2={:.6}",
@@ -871,7 +871,7 @@ fn validation_staged_7_frame_erection() {
 
     let loads = vec![
         SolverLoad::Nodal(SolverNodalLoad {
-            node_id: 5, fx: p_lateral, fy: 0.0, mz: 0.0,
+            node_id: 5, fx: p_lateral, fz: 0.0, my: 0.0,
         }),
     ];
 
@@ -943,16 +943,16 @@ fn validation_staged_7_frame_erection() {
     // Verify that stages 1 and 2 have zero displacements (no loads applied).
     for d in &staged_results.stages[0].results.displacements {
         assert!(
-            d.ux.abs() < ABS_TOL && d.uy.abs() < ABS_TOL,
+            d.ux.abs() < ABS_TOL && d.uz.abs() < ABS_TOL,
             "Stage 1 should have zero displacement at node {}: ux={}, uy={}",
-            d.node_id, d.ux, d.uy
+            d.node_id, d.ux, d.uz
         );
     }
     for d in &staged_results.stages[1].results.displacements {
         assert!(
-            d.ux.abs() < ABS_TOL && d.uy.abs() < ABS_TOL,
+            d.ux.abs() < ABS_TOL && d.uz.abs() < ABS_TOL,
             "Stage 2 should have zero displacement at node {}: ux={}, uy={}",
-            d.node_id, d.ux, d.uy
+            d.node_id, d.ux, d.uz
         );
     }
 
@@ -1006,15 +1006,15 @@ fn validation_staged_8_equilibrium_each_stage() {
     let loads = vec![
         // Stage 1: Point load at node 2
         SolverLoad::Nodal(SolverNodalLoad {
-            node_id: 2, fx: 0.0, fy: -40.0, mz: 0.0,
+            node_id: 2, fx: 0.0, fz: -40.0, my: 0.0,
         }),
         // Stage 2: Additional point load at node 2
         SolverLoad::Nodal(SolverNodalLoad {
-            node_id: 2, fx: 0.0, fy: -60.0, mz: 0.0,
+            node_id: 2, fx: 0.0, fz: -60.0, my: 0.0,
         }),
         // Stage 3: Lateral load at node 2
         SolverLoad::Nodal(SolverNodalLoad {
-            node_id: 2, fx: 25.0, fy: -50.0, mz: 0.0,
+            node_id: 2, fx: 25.0, fz: -50.0, my: 0.0,
         }),
     ];
 
@@ -1061,17 +1061,17 @@ fn validation_staged_8_equilibrium_each_stage() {
     // Stage 1: Fy = -40 kN, Fx = 0
     // Stage 2: Fy = -40 + -60 = -100 kN, Fx = 0
     // Stage 3: Fy = -100 + -50 = -150 kN, Fx = 0 + 25 = 25 kN
-    let cumulative_fy: [f64; 3] = [-40.0, -100.0, -150.0];
+    let cumulative_fz: [f64; 3] = [-40.0, -100.0, -150.0];
     let cumulative_fx: [f64; 3] = [0.0, 0.0, 25.0];
 
     for stage_idx in 0..3 {
         let stage_result = &results.stages[stage_idx].results;
 
         // Sum of vertical reactions
-        let sum_ry: f64 = stage_result.reactions.iter().map(|r| r.ry).sum();
-        assert_close(sum_ry, -cumulative_fy[stage_idx], REL_TOL,
+        let sum_ry: f64 = stage_result.reactions.iter().map(|r| r.rz).sum();
+        assert_close(sum_ry, -cumulative_fz[stage_idx], REL_TOL,
             &format!("Stage {} vertical equilibrium: SumRy = {:.4}, expected {:.4}",
-                stage_idx + 1, sum_ry, -cumulative_fy[stage_idx]));
+                stage_idx + 1, sum_ry, -cumulative_fz[stage_idx]));
 
         // Sum of horizontal reactions
         let sum_rx: f64 = stage_result.reactions.iter().map(|r| r.rx).sum();
@@ -1107,7 +1107,7 @@ fn validation_staged_8_equilibrium_each_stage() {
                 3 => 2.0 * l,
                 _ => 0.0,
             };
-            sum_m += r.ry * x + r.mz;
+            sum_m += r.rz * x + r.my;
         }
 
         // Equilibrium: reaction_moment + applied_moment = 0
@@ -1123,7 +1123,7 @@ fn validation_staged_8_equilibrium_each_stage() {
     // Verify displacements increase monotonically (cumulative loads increase).
     let uy_values: Vec<f64> = results.stages.iter().map(|s| {
         s.results.displacements.iter()
-            .find(|d| d.node_id == 2).unwrap().uy
+            .find(|d| d.node_id == 2).unwrap().uz
     }).collect();
 
     for i in 1..uy_values.len() {

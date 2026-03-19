@@ -39,8 +39,8 @@ fn validation_shear_ss_point_load_jump() {
     let loads = vec![SolverLoad::Nodal(SolverNodalLoad {
         node_id: mid_node,
         fx: 0.0,
-        fy: -p,
-        mz: 0.0,
+        fz: -p,
+        my: 0.0,
     })];
     let input = make_beam(n, l, E, A, IZ, "pinned", Some("rollerX"), loads);
     let results = linear::solve_2d(&input).unwrap();
@@ -167,8 +167,8 @@ fn validation_shear_cantilever_tip_load_constant() {
     let loads = vec![SolverLoad::Nodal(SolverNodalLoad {
         node_id: n + 1,
         fx: 0.0,
-        fy: -p,
-        mz: 0.0,
+        fz: -p,
+        my: 0.0,
     })];
     let input = make_beam(n, l, E, A, IZ, "fixed", None, loads);
     let results = linear::solve_2d(&input).unwrap();
@@ -286,8 +286,8 @@ fn validation_shear_fixed_fixed_center_point_load() {
     let loads = vec![SolverLoad::Nodal(SolverNodalLoad {
         node_id: mid_node,
         fx: 0.0,
-        fy: -p,
-        mz: 0.0,
+        fz: -p,
+        my: 0.0,
     })];
     let input = make_beam(n, l, E, A, IZ, "fixed", Some("fixed"), loads);
     let results = linear::solve_2d(&input).unwrap();
@@ -465,8 +465,8 @@ fn validation_shear_at_support_equals_reaction() {
     let loads = vec![SolverLoad::Nodal(SolverNodalLoad {
         node_id: load_node,
         fx: 0.0,
-        fy: -p,
-        mz: 0.0,
+        fz: -p,
+        my: 0.0,
     })];
     let input = make_beam(n, l, E, A, IZ, "pinned", Some("rollerX"), loads);
     let results = linear::solve_2d(&input).unwrap();
@@ -489,7 +489,7 @@ fn validation_shear_at_support_equals_reaction() {
         .unwrap();
 
     assert_close(
-        reaction_a.ry,
+        reaction_a.rz,
         r_a_expected,
         0.02,
         "R_A = P*b/L",
@@ -497,7 +497,7 @@ fn validation_shear_at_support_equals_reaction() {
 
     assert_close(
         ef_first.v_start,
-        reaction_a.ry,
+        reaction_a.rz,
         0.02,
         "Shear at left support = R_A: v_start of elem 1 equals reaction Ry",
     );
@@ -516,7 +516,7 @@ fn validation_shear_at_support_equals_reaction() {
         .unwrap();
 
     assert_close(
-        reaction_b.ry,
+        reaction_b.rz,
         r_b_expected,
         0.02,
         "R_B = P*a/L",
@@ -524,7 +524,7 @@ fn validation_shear_at_support_equals_reaction() {
 
     assert_close(
         ef_last.v_end.abs(),
-        reaction_b.ry,
+        reaction_b.rz,
         0.02,
         "Shear at right support = R_B: |v_end| of last elem equals reaction Ry",
     );

@@ -59,7 +59,7 @@ fn validation_multistory_two_story_drift_ratio() {
     ];
     let sups = vec![(1, 1, "fixed"), (2, 2, "fixed")];
     let loads = vec![
-        SolverLoad::Nodal(SolverNodalLoad { node_id: 5, fx: p_roof, fy: 0.0, mz: 0.0 }),
+        SolverLoad::Nodal(SolverNodalLoad { node_id: 5, fx: p_roof, fz: 0.0, my: 0.0 }),
     ];
 
     let input = make_input(nodes, vec![(1, E, 0.3)], vec![(1, A, IZ)], elems, sups, loads);
@@ -127,9 +127,9 @@ fn validation_multistory_three_story_shear_distribution() {
     ];
     let sups = vec![(1, 1, "fixed"), (2, 2, "fixed")];
     let loads = vec![
-        SolverLoad::Nodal(SolverNodalLoad { node_id: 3, fx: f1, fy: 0.0, mz: 0.0 }),
-        SolverLoad::Nodal(SolverNodalLoad { node_id: 5, fx: f2, fy: 0.0, mz: 0.0 }),
-        SolverLoad::Nodal(SolverNodalLoad { node_id: 7, fx: f3, fy: 0.0, mz: 0.0 }),
+        SolverLoad::Nodal(SolverNodalLoad { node_id: 3, fx: f1, fz: 0.0, my: 0.0 }),
+        SolverLoad::Nodal(SolverNodalLoad { node_id: 5, fx: f2, fz: 0.0, my: 0.0 }),
+        SolverLoad::Nodal(SolverNodalLoad { node_id: 7, fx: f3, fz: 0.0, my: 0.0 }),
     ];
 
     let input = make_input(nodes, vec![(1, E, 0.3)], vec![(1, A, IZ)], elems, sups, loads);
@@ -186,12 +186,12 @@ fn validation_multistory_cumulative_gravity_load() {
     let sups = vec![(1, 1, "fixed"), (2, 2, "fixed")];
     // Apply equal gravity loads at both sides of each floor level
     let loads = vec![
-        SolverLoad::Nodal(SolverNodalLoad { node_id: 3, fx: 0.0, fy: q_floor, mz: 0.0 }),
-        SolverLoad::Nodal(SolverNodalLoad { node_id: 4, fx: 0.0, fy: q_floor, mz: 0.0 }),
-        SolverLoad::Nodal(SolverNodalLoad { node_id: 5, fx: 0.0, fy: q_floor, mz: 0.0 }),
-        SolverLoad::Nodal(SolverNodalLoad { node_id: 6, fx: 0.0, fy: q_floor, mz: 0.0 }),
-        SolverLoad::Nodal(SolverNodalLoad { node_id: 7, fx: 0.0, fy: q_floor, mz: 0.0 }),
-        SolverLoad::Nodal(SolverNodalLoad { node_id: 8, fx: 0.0, fy: q_floor, mz: 0.0 }),
+        SolverLoad::Nodal(SolverNodalLoad { node_id: 3, fx: 0.0, fz: q_floor, my: 0.0 }),
+        SolverLoad::Nodal(SolverNodalLoad { node_id: 4, fx: 0.0, fz: q_floor, my: 0.0 }),
+        SolverLoad::Nodal(SolverNodalLoad { node_id: 5, fx: 0.0, fz: q_floor, my: 0.0 }),
+        SolverLoad::Nodal(SolverNodalLoad { node_id: 6, fx: 0.0, fz: q_floor, my: 0.0 }),
+        SolverLoad::Nodal(SolverNodalLoad { node_id: 7, fx: 0.0, fz: q_floor, my: 0.0 }),
+        SolverLoad::Nodal(SolverNodalLoad { node_id: 8, fx: 0.0, fz: q_floor, my: 0.0 }),
     ];
 
     let input = make_input(nodes, vec![(1, E, 0.3)], vec![(1, A, IZ)], elems, sups, loads);
@@ -199,15 +199,15 @@ fn validation_multistory_cumulative_gravity_load() {
 
     // Total applied gravity = 6 × |q_floor|
     let total_gravity = 6.0 * q_floor.abs();
-    let sum_ry: f64 = results.reactions.iter().map(|r| r.ry).sum();
+    let sum_ry: f64 = results.reactions.iter().map(|r| r.rz).sum();
     assert_close(sum_ry, total_gravity, 0.01, "cumulative gravity total ΣRy");
 
     // Each base support carries approximately half the total gravity (symmetric)
     let r1 = results.reactions.iter().find(|r| r.node_id == 1).unwrap();
     let r2 = results.reactions.iter().find(|r| r.node_id == 2).unwrap();
     let half = total_gravity / 2.0;
-    assert_close(r1.ry, half, 0.05, "left base: half of total gravity");
-    assert_close(r2.ry, half, 0.05, "right base: half of total gravity");
+    assert_close(r1.rz, half, 0.05, "left base: half of total gravity");
+    assert_close(r2.rz, half, 0.05, "right base: half of total gravity");
 }
 
 // ================================================================
@@ -246,7 +246,7 @@ fn validation_multistory_soft_story_effect() {
     ];
     let sups = vec![(1, 1, "fixed"), (2, 2, "fixed")];
     let loads = vec![
-        SolverLoad::Nodal(SolverNodalLoad { node_id: 5, fx: p, fy: 0.0, mz: 0.0 }),
+        SolverLoad::Nodal(SolverNodalLoad { node_id: 5, fx: p, fz: 0.0, my: 0.0 }),
     ];
 
     let input = make_input(
@@ -307,10 +307,10 @@ fn validation_multistory_lateral_vs_gravity_column_axial() {
 
     // Case A: gravity load only (symmetric)
     let loads_grav = vec![
-        SolverLoad::Nodal(SolverNodalLoad { node_id: 3, fx: 0.0, fy: -30.0, mz: 0.0 }),
-        SolverLoad::Nodal(SolverNodalLoad { node_id: 4, fx: 0.0, fy: -30.0, mz: 0.0 }),
-        SolverLoad::Nodal(SolverNodalLoad { node_id: 5, fx: 0.0, fy: -30.0, mz: 0.0 }),
-        SolverLoad::Nodal(SolverNodalLoad { node_id: 6, fx: 0.0, fy: -30.0, mz: 0.0 }),
+        SolverLoad::Nodal(SolverNodalLoad { node_id: 3, fx: 0.0, fz: -30.0, my: 0.0 }),
+        SolverLoad::Nodal(SolverNodalLoad { node_id: 4, fx: 0.0, fz: -30.0, my: 0.0 }),
+        SolverLoad::Nodal(SolverNodalLoad { node_id: 5, fx: 0.0, fz: -30.0, my: 0.0 }),
+        SolverLoad::Nodal(SolverNodalLoad { node_id: 6, fx: 0.0, fz: -30.0, my: 0.0 }),
     ];
     let input_grav = make_input(
         nodes.clone(), vec![(1, E, 0.3)], vec![(1, A, IZ)],
@@ -325,8 +325,8 @@ fn validation_multistory_lateral_vs_gravity_column_axial() {
 
     // Case B: lateral load only
     let loads_lat = vec![
-        SolverLoad::Nodal(SolverNodalLoad { node_id: 3, fx: 20.0, fy: 0.0, mz: 0.0 }),
-        SolverLoad::Nodal(SolverNodalLoad { node_id: 5, fx: 30.0, fy: 0.0, mz: 0.0 }),
+        SolverLoad::Nodal(SolverNodalLoad { node_id: 3, fx: 20.0, fz: 0.0, my: 0.0 }),
+        SolverLoad::Nodal(SolverNodalLoad { node_id: 5, fx: 30.0, fz: 0.0, my: 0.0 }),
     ];
     let input_lat = make_input(
         nodes, vec![(1, E, 0.3)], vec![(1, A, IZ)],
@@ -339,9 +339,9 @@ fn validation_multistory_lateral_vs_gravity_column_axial() {
     let r1_lat = res_lat.reactions.iter().find(|r| r.node_id == 1).unwrap();
     let r2_lat = res_lat.reactions.iter().find(|r| r.node_id == 2).unwrap();
     // Vertical reactions must have opposite signs (uplift on windward, compression on leeward)
-    assert!(r1_lat.ry * r2_lat.ry < 0.0,
+    assert!(r1_lat.rz * r2_lat.rz < 0.0,
         "Lateral load should create differential Ry: R1={:.4}, R2={:.4}",
-        r1_lat.ry, r2_lat.ry);
+        r1_lat.rz, r2_lat.rz);
 }
 
 // ================================================================
@@ -382,7 +382,7 @@ fn validation_multistory_setback_frame() {
     ];
     let sups = vec![(1, 1, "fixed"), (2, 2, "fixed")];
     let loads = vec![
-        SolverLoad::Nodal(SolverNodalLoad { node_id: 5, fx: p, fy: 0.0, mz: 0.0 }),
+        SolverLoad::Nodal(SolverNodalLoad { node_id: 5, fx: p, fz: 0.0, my: 0.0 }),
     ];
 
     let input = make_input(nodes, vec![(1, E, 0.3)], vec![(1, A, IZ)], elems, sups, loads);
@@ -401,7 +401,7 @@ fn validation_multistory_setback_frame() {
     // Base moments should be non-zero (fixed base)
     let r1 = results.reactions.iter().find(|r| r.node_id == 1).unwrap();
     let r2 = results.reactions.iter().find(|r| r.node_id == 2).unwrap();
-    assert!(r1.mz.abs() + r2.mz.abs() > 1.0,
+    assert!(r1.my.abs() + r2.my.abs() > 1.0,
         "Fixed bases must develop moments under lateral load");
 }
 
@@ -437,10 +437,10 @@ fn validation_multistory_column_axial_increase_downward() {
     ];
     let sups = vec![(1, 1, "fixed"), (2, 2, "fixed")];
     let loads = vec![
-        SolverLoad::Nodal(SolverNodalLoad { node_id: 3, fx: 0.0, fy: q_floor, mz: 0.0 }),
-        SolverLoad::Nodal(SolverNodalLoad { node_id: 4, fx: 0.0, fy: q_floor, mz: 0.0 }),
-        SolverLoad::Nodal(SolverNodalLoad { node_id: 5, fx: 0.0, fy: q_roof, mz: 0.0 }),
-        SolverLoad::Nodal(SolverNodalLoad { node_id: 6, fx: 0.0, fy: q_roof, mz: 0.0 }),
+        SolverLoad::Nodal(SolverNodalLoad { node_id: 3, fx: 0.0, fz: q_floor, my: 0.0 }),
+        SolverLoad::Nodal(SolverNodalLoad { node_id: 4, fx: 0.0, fz: q_floor, my: 0.0 }),
+        SolverLoad::Nodal(SolverNodalLoad { node_id: 5, fx: 0.0, fz: q_roof, my: 0.0 }),
+        SolverLoad::Nodal(SolverNodalLoad { node_id: 6, fx: 0.0, fz: q_roof, my: 0.0 }),
     ];
 
     let input = make_input(nodes, vec![(1, E, 0.3)], vec![(1, A, IZ)], elems, sups, loads);
@@ -494,7 +494,7 @@ fn validation_multistory_portal_method_check() {
     ];
     let sups = vec![(1, 1, "fixed"), (2, 2, "fixed"), (3, 3, "fixed")];
     let loads = vec![
-        SolverLoad::Nodal(SolverNodalLoad { node_id: 4, fx: p, fy: 0.0, mz: 0.0 }),
+        SolverLoad::Nodal(SolverNodalLoad { node_id: 4, fx: p, fz: 0.0, my: 0.0 }),
     ];
 
     let input = make_input(nodes, vec![(1, E, 0.3)], vec![(1, A, IZ)], elems, sups, loads);

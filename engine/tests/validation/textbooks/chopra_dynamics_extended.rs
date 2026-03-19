@@ -166,12 +166,12 @@ fn validation_chopra_rectangular_pulse_response() {
     let static_input = make_beam(
         n, length, E, A, IZ, "fixed", None,
         vec![SolverLoad::Nodal(SolverNodalLoad {
-            node_id: n_nodes, fx: 0.0, fy: p, mz: 0.0,
+            node_id: n_nodes, fx: 0.0, fz: p, my: 0.0,
         })],
     );
     let static_res = linear::solve_2d(&static_input).unwrap();
     let u_static = static_res.displacements.iter()
-        .find(|d| d.node_id == n_nodes).unwrap().uy;
+        .find(|d| d.node_id == n_nodes).unwrap().uz;
 
     // Get natural period
     let solver = make_beam(n, length, E, A, IZ, "fixed", None, vec![]);
@@ -192,7 +192,7 @@ fn validation_chopra_rectangular_pulse_response() {
         let fy = if t <= t_d { p } else { 0.0 };
         force_history.push(TimeForceRecord {
             time: t,
-            loads: vec![SolverNodalLoad { node_id: n_nodes, fx: 0.0, fy, mz: 0.0 }] });
+            loads: vec![SolverNodalLoad { node_id: n_nodes, fx: 0.0, fz: fy, my: 0.0 }] });
     }
 
     let input = TimeHistoryInput {
@@ -215,7 +215,7 @@ fn validation_chopra_rectangular_pulse_response() {
     let result = time_integration::solve_time_history_2d(&input).unwrap();
 
     let tip = result.node_histories.iter().find(|h| h.node_id == n_nodes).unwrap();
-    let u_max = tip.uy.iter().cloned().fold(0.0_f64, |a, b| a.max(b.abs()));
+    let u_max = tip.uz.iter().cloned().fold(0.0_f64, |a, b| a.max(b.abs()));
     let dlf = u_max / u_static.abs();
 
     // For t_d = T/4: theoretical DLF = 2*sin(pi * 0.25) = sqrt(2) ~ 1.414
@@ -449,7 +449,7 @@ fn validation_chopra_logarithmic_decrement() {
         let fy = if i < pulse_steps { -300.0 } else { 0.0 };
         force_history.push(TimeForceRecord {
             time: t,
-            loads: vec![SolverNodalLoad { node_id: n_nodes, fx: 0.0, fy, mz: 0.0 }] });
+            loads: vec![SolverNodalLoad { node_id: n_nodes, fx: 0.0, fz: fy, my: 0.0 }] });
     }
 
     let input = TimeHistoryInput {
@@ -472,7 +472,7 @@ fn validation_chopra_logarithmic_decrement() {
     let result = time_integration::solve_time_history_2d(&input).unwrap();
 
     let tip = result.node_histories.iter().find(|h| h.node_id == n_nodes).unwrap();
-    let uy = &tip.uy;
+    let uy = &tip.uz;
 
     // Find positive peaks (local maxima where uy < 0 since load is -Y)
     let start_idx = (pulse_steps + 10).min(uy.len() - 1);
