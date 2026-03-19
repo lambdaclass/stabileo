@@ -1077,7 +1077,7 @@ export function generateIrregularSetbackTower3D(store: ModelStore, p: IrregularS
       for (let ix = 0; ix < roof[iz].length; ix++) {
         const node = roof[iz][ix];
         const torsionFactor = ix < roof[iz].length / 2 ? 1.15 : 0.85;
-        store.addNodalLoad3D(node, p.windLoad * torsionFactor, 0, p.windLoad * 0.28, 0, 0, 0, 3);
+        store.addNodalLoad3D(node, p.windLoad * torsionFactor, p.windLoad * 0.28, 0, 0, 0, 0, 3);
       }
     }
   });

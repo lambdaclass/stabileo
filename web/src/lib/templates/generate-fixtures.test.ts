@@ -368,6 +368,75 @@ describe('Generate JSON fixtures', () => {
     }
   });
 
+  // ─── Z-up gravity-direction contract ────────────────────────────
+  // For pure-gravity generators (no wind/seismic), assert that dead-load
+  // forces are overwhelmingly in fz/qZ, not accidentally in fy/qY.
+  // This catches the class of bug where a Y-up→Z-up migration moves
+  // gravity loads to the wrong axis.
+
+  describe('gravity loads point in Z, not Y', () => {
+    /** Generators whose only loads are gravity (dead + live). */
+    const gravityOnlyGenerators: Array<{ name: string; gen: () => JSONModel }> = [
+      { name: 'space-frame', gen: () => { const m = createRecordingMock(); generateSpaceFrame3D(m.api as any, { nBaysX: 2, nBaysY: 2, nFloors: 2, bayWidth: 6, storyHeight: 3.6, q: -16 }); return m.toJSON(); } },
+      { name: 'grid-beams', gen: () => { const m = createRecordingMock(); generateGridBeams(m.api as any, { Lx: 8, Lz: 8, nDivX: 4, nDivZ: 4, q: -20 }); return m.toJSON(); } },
+      { name: 'hinged-arch-3d', gen: () => { const m = createRecordingMock(); generate3DHingedArch(m.api as any, { span: 12, rise: 4, nSegments: 12, q: -8 }); return m.toJSON(); } },
+      { name: 'geodesic-dome', gen: () => { const m = createRecordingMock(); generateGeodesicDome3D(m.api as any, { radius: 20, frequency: 4, hemisphere: true, selfWeightLoad: -5 }); return m.toJSON(); } },
+      { name: 'mat-foundation', gen: () => { const m = createRecordingMock(); generateMatFoundation3D(m.api as any, { Lx: 18, Lz: 14, nX: 4, nZ: 3, subgradeKy: 90000 }); return m.toJSON(); } },
+    ];
+
+    /** Generators that have gravity + lateral loads in separate cases. Check dead load case only. */
+    const multiCaseGenerators: Array<{ name: string; gen: () => JSONModel }> = [
+      { name: 'torre-irregular', gen: () => { const m = createRecordingMock(); generateIrregularSetbackTower3D(m.api as any, { storyH: 3.8, levels: 6, baysX: 4, baysZ: 3, bayX: 8, bayZ: 7, setbackAt: [4], windLoad: 18 }); return m.toJSON(); } },
+      { name: 'rc-design-frame', gen: () => { const m = createRecordingMock(); generateRcDesignFrame3D(m.api as any, { baysX: 2, baysZ: 2, bayX: 7.5, bayZ: 6.5, stories: 3, storyH: 3.4, windLoad: 12 }); return m.toJSON(); } },
+      { name: 'pipe-rack', gen: () => { const m = createRecordingMock(); generatePipeRack3D(m.api as any, { bays: 3, bayLength: 9, width: 10, levels: 2, levelHeight: 4.5, lateralLoad: 9 }); return m.toJSON(); } },
+    ];
+
+    for (const { name, gen } of gravityOnlyGenerators) {
+      it(`${name}: nodal loads have |ΣFy| ≪ |ΣFz|`, () => {
+        const model = gen();
+        const nodalLoads = model.loads.filter(l => l.type === 'nodal3d');
+        let sumFy = 0, sumFz = 0;
+        for (const l of nodalLoads) {
+          sumFy += Math.abs(l.data.fy as number);
+          sumFz += Math.abs(l.data.fz as number);
+        }
+        if (sumFz > 0) {
+          expect(sumFy / sumFz, `${name}: |ΣFy|/|ΣFz| should be < 0.01`).toBeLessThan(0.01);
+        }
+      });
+
+      it(`${name}: distributed loads have |ΣqY| ≪ |ΣqZ|`, () => {
+        const model = gen();
+        const distLoads = model.loads.filter(l => l.type === 'distributed3d');
+        let sumQy = 0, sumQz = 0;
+        for (const l of distLoads) {
+          sumQy += Math.abs(l.data.qYI as number) + Math.abs(l.data.qYJ as number);
+          sumQz += Math.abs(l.data.qZI as number) + Math.abs(l.data.qZJ as number);
+        }
+        if (sumQz > 0) {
+          expect(sumQy / sumQz, `${name}: |ΣqY|/|ΣqZ| should be < 0.05`).toBeLessThan(0.05);
+        }
+      });
+    }
+
+    for (const { name, gen } of multiCaseGenerators) {
+      it(`${name}: dead-load case (1) distributed loads have |ΣqY| ≪ |ΣqZ|`, () => {
+        const model = gen();
+        const deadDistLoads = model.loads.filter(l =>
+          l.type === 'distributed3d' && (l.data.caseId === 1 || l.data.caseId === undefined),
+        );
+        let sumQy = 0, sumQz = 0;
+        for (const l of deadDistLoads) {
+          sumQy += Math.abs(l.data.qYI as number) + Math.abs(l.data.qYJ as number);
+          sumQz += Math.abs(l.data.qZI as number) + Math.abs(l.data.qZJ as number);
+        }
+        if (sumQz > 0) {
+          expect(sumQy / sumQz, `${name}: dead-load |ΣqY|/|ΣqZ| should be < 0.01`).toBeLessThan(0.01);
+        }
+      });
+    }
+  });
+
   // Template catalog 3D (with default params from getTemplateCatalog3D)
   it('space-frame', () => {
     const { api, toJSON } = createRecordingMock();
