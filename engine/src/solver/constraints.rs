@@ -170,10 +170,12 @@ fn collect_dependent_dofs(
             }
         }
         Constraint::Diaphragm(dia) => {
+            let is_3d = dof_num.dofs_per_node > 3;
             let (d0, d1, dr) = match dia.plane.as_str() {
-                "XZ" => (0usize, 2usize, 4usize),
-                "YZ" => (1, 2, 3),
-                _ => (0, 1, 2),
+                "XZ" => (0usize, 2usize, 4usize),  // ux, uz, ry
+                "YZ" => (1, 2, 3),                   // uy, uz, rx
+                _ if is_3d => (0, 1, 5),             // 3D XY: ux, uy, rz
+                _ => (0, 1, 2),                      // 2D XY: ux, uz, ry
             };
             for &slave_id in &dia.slave_nodes {
                 for &dof in &[d0, d1] {
@@ -366,10 +368,12 @@ pub fn build_constraint_transform(
             Constraint::Diaphragm(dia) => {
                 // Diaphragm: in-plane rigid body motion
                 // All slave nodes share master's in-plane translation + rotation
+                let is_3d = dof_num.dofs_per_node > 3;
                 let (d0, d1, dr) = match dia.plane.as_str() {
                     "XZ" => (0usize, 2usize, 4usize), // ux, uz, ry
                     "YZ" => (1, 2, 3),                  // uy, uz, rx
-                    _ => (0, 1, 2),                      // XY: ux, uy, rz (2D default)
+                    _ if is_3d => (0, 1, 5),            // 3D XY: ux, uy, rz
+                    _ => (0, 1, 2),                      // 2D XY: ux, uz, ry
                 };
 
                 for &slave_id in &dia.slave_nodes {
@@ -1455,5 +1459,103 @@ mod tests {
             "Diaphragm ux: got {} expected {}", d2.ux, expected_ux);
         assert!((d2.uz - expected_uy).abs() < 1e-8,
             "Diaphragm uz: got {} expected {}", d2.uz, expected_uy);
+    }
+
+    #[test]
+    fn test_diaphragm_3d_xy_plane_couples_rz_not_uz() {
+        // 3D cantilever beam along X with lateral load at tip.
+        // Diaphragm in XY plane at tip should couple ux, uy, rz (DOF 0,1,5),
+        // NOT ux, uy, uz (DOF 0,1,2).
+        //
+        // If the bug is present (dr=2=uz), the slave node's in-plane displacement
+        // will be coupled to the master's vertical translation instead of its
+        // torsional rotation — producing wrong results.
+
+        let mut nodes = HashMap::new();
+        nodes.insert("0".into(), SolverNode3D { id: 0, x: 0.0, y: 0.0, z: 0.0 });
+        nodes.insert("1".into(), SolverNode3D { id: 1, x: 5.0, y: 0.0, z: 0.0 }); // master tip
+        nodes.insert("2".into(), SolverNode3D { id: 2, x: 5.0, y: 2.0, z: 0.0 }); // slave, offset in Y
+
+        let mut materials = HashMap::new();
+        materials.insert("1".into(), SolverMaterial { id: 1, e: 200_000.0, nu: 0.3 });
+
+        let mut sections = HashMap::new();
+        sections.insert("1".into(), SolverSection3D {
+            id: 1, name: None, a: 0.01, iy: 1e-4, iz: 1e-4, j: 2e-4,
+            cw: None, as_y: None, as_z: None,
+        });
+
+        let mut elements = HashMap::new();
+        elements.insert("1".into(), SolverElement3D {
+            id: 1, elem_type: "frame".into(), node_i: 0, node_j: 1,
+            material_id: 1, section_id: 1,
+            hinge_start: false, hinge_end: false,
+            local_yx: None, local_yy: None, local_yz: None, roll_angle: None,
+        });
+        elements.insert("2".into(), SolverElement3D {
+            id: 2, elem_type: "frame".into(), node_i: 0, node_j: 2,
+            material_id: 1, section_id: 1,
+            hinge_start: false, hinge_end: false,
+            local_yx: None, local_yy: None, local_yz: None, roll_angle: None,
+        });
+
+        let mut supports = HashMap::new();
+        supports.insert("0".into(), SolverSupport3D {
+            node_id: 0,
+            rx: true, ry: true, rz: true, rrx: true, rry: true, rrz: true,
+            kx: None, ky: None, kz: None, krx: None, kry: None, krz: None,
+            dx: None, dy: None, dz: None, drx: None, dry: None, drz: None,
+            normal_x: None, normal_y: None, normal_z: None, is_inclined: None,
+            rw: None, kw: None,
+        });
+
+        let loads = vec![SolverLoad3D::Nodal(SolverNodalLoad3D {
+            node_id: 1, fx: 0.0, fy: 10.0, fz: 0.0,
+            mx: 0.0, my: 0.0, mz: 5.0, bw: None,
+        })];
+
+        let solver = SolverInput3D {
+            nodes, materials, sections, elements, supports, loads,
+            constraints: vec![], left_hand: None,
+            plates: HashMap::new(), quads: HashMap::new(), quad9s: HashMap::new(),
+            solid_shells: HashMap::new(), curved_beams: vec![],
+            curved_shells: HashMap::new(), connectors: HashMap::new(),
+        };
+        let input_no_dia = ConstrainedInput3D {
+            solver: solver.clone(),
+            constraints: vec![],
+        };
+        let input_with_dia = ConstrainedInput3D {
+            solver,
+            constraints: vec![Constraint::Diaphragm(DiaphragmConstraint {
+                master_node: 1,
+                slave_nodes: vec![2],
+                plane: "XY".into(),
+            })],
+        };
+
+        let res_free = solve_constrained_3d(&input_no_dia).unwrap();
+        let res_dia = solve_constrained_3d(&input_with_dia).unwrap();
+
+        let d1_dia = res_dia.displacements.iter().find(|d| d.node_id == 1).unwrap();
+        let d2_dia = res_dia.displacements.iter().find(|d| d.node_id == 2).unwrap();
+        let d2_free = res_free.displacements.iter().find(|d| d.node_id == 2).unwrap();
+
+        // Master should have non-zero rz (torsion from mz load)
+        assert!(d1_dia.rz.abs() > 1e-10,
+            "Master should have non-zero rz rotation, got {}", d1_dia.rz);
+
+        // Key check: with XY diaphragm, slave's ux should be coupled to master's rz.
+        // ux_slave = ux_master - dy * rz_master (dy = 2.0)
+        let dy = 2.0;
+        let expected_ux = d1_dia.ux - dy * d1_dia.rz;
+        assert!((d2_dia.ux - expected_ux).abs() < 1e-6,
+            "3D XY diaphragm: ux_slave should follow rz coupling.\n\
+             got ux_slave={:.6e}, expected={:.6e} (ux_m={:.6e}, rz_m={:.6e}, dy={})",
+            d2_dia.ux, expected_ux, d1_dia.ux, d1_dia.rz, dy);
+
+        // The diaphragm should change the slave's displacement compared to free
+        assert!((d2_dia.ux - d2_free.ux).abs() > 1e-10,
+            "Diaphragm should actually constrain the slave node's motion");
     }
 }
