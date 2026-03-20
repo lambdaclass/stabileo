@@ -7,8 +7,8 @@
 /// Element forces (n_start, v_start, m_start, etc.) are compared directly AND via
 /// diagram evaluation at interior points for maximum coverage.
 ///
-/// Run fixture generation first: cd web && npx vitest run generate-fixtures
-/// Then: cd engine && cargo test --test differential_fuzz
+/// Fixtures are pre-generated JSON files in web/src/lib/templates/fixtures/.
+/// Run: cd engine && cargo test --test differential_fuzz
 
 use dedaliano_engine::postprocess::combinations::*;
 use dedaliano_engine::postprocess::diagrams::compute_diagram_value_at;

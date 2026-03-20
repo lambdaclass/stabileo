@@ -81,7 +81,7 @@ Originally built for structural engineering courses at [FIUBA](http://www.fi.uba
 
 ### Validation
 
-Benchmarked against NAFEMS, ANSYS Verification Manual, Code_Aster, SAP2000, OpenSees, Robot, STAAD.Pro, and textbook solutions. See [BENCHMARKS.md](BENCHMARKS.md) for full coverage.
+Benchmarked against NAFEMS, ANSYS Verification Manual, Code_Aster, SAP2000, OpenSees, Robot, STAAD.Pro, and textbook solutions. See [BENCHMARKS.md](docs/BENCHMARKS.md) for full coverage.
 
 ---
 
@@ -115,9 +115,9 @@ Requires Node.js >= 18.
 | [PRODUCT_ROADMAP.md](docs/roadmap/PRODUCT_ROADMAP.md) | App, workflow, and market sequencing |
 | [INFRASTRUCTURE_ROADMAP.md](docs/roadmap/INFRASTRUCTURE_ROADMAP.md) | Backend, deployment, auth, persistence, and operational sequencing |
 | [AI_ROADMAP.md](docs/roadmap/AI_ROADMAP.md) | AI capability sequencing, safety rules, and prerequisites |
-| [BENCHMARKS.md](BENCHMARKS.md) | Validation coverage and benchmark status |
-| [VERIFICATION.md](VERIFICATION.md) | Testing philosophy, fuzzing, invariants |
-| [POSITIONING.md](POSITIONING.md) | Market framing and competitive strategy |
+| [BENCHMARKS.md](docs/BENCHMARKS.md) | Validation coverage and benchmark status |
+| [VERIFICATION.md](docs/VERIFICATION.md) | Testing philosophy, fuzzing, invariants |
+| [POSITIONING.md](docs/POSITIONING.md) | Market framing and competitive strategy |
 | [engine/README.md](engine/README.md) | Rust solver engine API and analysis types |
 | [CHANGELOG.md](CHANGELOG.md) | Milestone updates |
 | [docs/research/](docs/research/) | Shell-family research, competitor comparisons, numerical methods |
