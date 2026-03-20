@@ -40,4 +40,7 @@ export default defineConfig({
   optimizeDeps: {
     exclude: ['dedaliano-engine', 'web-ifc'],
   },
+  test: {
+    setupFiles: ['./vitest.setup.ts'],
+  },
 });

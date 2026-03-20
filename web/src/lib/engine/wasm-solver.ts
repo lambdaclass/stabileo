@@ -142,7 +142,17 @@ export async function initSolver(): Promise<void> {
   wasmInitPromise = (async () => {
     // Let Vite track and rewrite the generated WASM glue module for production.
     const wasm = await import('../wasm/dedaliano_engine.js');
-    await wasm.default();
+    // In Node.js (vitest), fetch is not available for local file:// URLs.
+    // Use initSync with a file buffer instead.
+    if (typeof process !== 'undefined' && process.versions?.node) {
+      const { readFileSync } = await import('fs');
+      const { fileURLToPath } = await import('url');
+      const wasmUrl = new URL('../wasm/dedaliano_engine_bg.wasm', import.meta.url);
+      const wasmBytes = readFileSync(fileURLToPath(wasmUrl));
+      wasm.initSync({ module: wasmBytes });
+    } else {
+      await wasm.default();
+    }
     wasmSolve2d = wasm.solve_2d;
     wasmSolve3d = wasm.solve_3d;
     wasmSolvePdelta2d = wasm.solve_pdelta_2d;
