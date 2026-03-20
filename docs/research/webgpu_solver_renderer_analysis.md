@@ -1,8 +1,8 @@
 # WebGPU for Dedaliano: Solver vs Renderer
 
 Read next:
-- solver priorities: [SOLVER_ROADMAP.md](/Users/unbalancedparen/projects/dedaliano/SOLVER_ROADMAP.md)
-- product execution: [PRODUCT_ROADMAP.md](/Users/unbalancedparen/projects/dedaliano/PRODUCT_ROADMAP.md)
+- solver priorities: [SOLVER_ROADMAP.md](/Users/unbalancedparen/projects/dedaliano/docs/roadmap/SOLVER_ROADMAP.md)
+- product execution: [PRODUCT_ROADMAP.md](/Users/unbalancedparen/projects/dedaliano/docs/roadmap/PRODUCT_ROADMAP.md)
 
 This note analyzes where WebGPU is a good fit for Dedaliano and where it is not.
 

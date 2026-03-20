@@ -5,11 +5,11 @@
 This is the infrastructure roadmap: backend services, deployment, runtime environments, auth, persistence, observability, reproducibility, and operational tooling. It is not the solver mechanics roadmap or the product UX roadmap.
 
 See also:
-- [`SOLVER_ROADMAP.md`](/Users/unbalancedparen/projects/dedaliano/SOLVER_ROADMAP.md)
-- [`PRODUCT_ROADMAP.md`](/Users/unbalancedparen/projects/dedaliano/PRODUCT_ROADMAP.md)
-- [`AI_ROADMAP.md`](/Users/unbalancedparen/projects/dedaliano/AI_ROADMAP.md)
-- [`research/ai_provider_architecture.md`](/Users/unbalancedparen/projects/dedaliano/research/ai_provider_architecture.md)
-- [`research/open_source_vs_hosted_ai_boundary.md`](/Users/unbalancedparen/projects/dedaliano/research/open_source_vs_hosted_ai_boundary.md)
+- [`SOLVER_ROADMAP.md`](SOLVER_ROADMAP.md)
+- [`PRODUCT_ROADMAP.md`](PRODUCT_ROADMAP.md)
+- [`AI_ROADMAP.md`](AI_ROADMAP.md)
+- [`research/ai_provider_architecture.md`](../research/ai_provider_architecture.md)
+- [`research/open_source_vs_hosted_ai_boundary.md`](../research/open_source_vs_hosted_ai_boundary.md)
 
 ## Principles
 
@@ -505,7 +505,7 @@ Current status: PARTIALLY DONE. The backend AI service is real and tested, but r
 - capability-level evals and traces
 
 AI capability order, build-model scope, and capability-specific product behavior live in:
-- [`AI_ROADMAP.md`](/Users/unbalancedparen/projects/dedaliano/AI_ROADMAP.md)
+- [`AI_ROADMAP.md`](AI_ROADMAP.md)
 
 **Done when:**
 - capabilities remain distinct contracts, not prompt modes hidden behind one endpoint

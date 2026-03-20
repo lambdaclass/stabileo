@@ -1,9 +1,9 @@
 # Beyond the Roadmap: Research-Backed Opportunities
 
 Read next:
-- solver priorities: [SOLVER_ROADMAP.md](/Users/unbalancedparen/projects/dedaliano/SOLVER_ROADMAP.md)
-- product execution: [PRODUCT_ROADMAP.md](/Users/unbalancedparen/projects/dedaliano/PRODUCT_ROADMAP.md)
-- WebGPU analysis: [webgpu_solver_renderer_analysis.md](/Users/unbalancedparen/projects/dedaliano/research/webgpu_solver_renderer_analysis.md)
+- solver priorities: [SOLVER_ROADMAP.md](SOLVER_ROADMAP.md)
+- product execution: [PRODUCT_ROADMAP.md](PRODUCT_ROADMAP.md)
+- WebGPU analysis: [webgpu_solver_renderer_analysis.md](../research/webgpu_solver_renderer_analysis.md)
 
 This document surveys advances in structural/civil engineering research (2016-2026, emphasis on 2021-2026) and identifies opportunities beyond the current solver roadmap. Research conducted March 2026.
 

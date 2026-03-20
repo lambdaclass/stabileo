@@ -11,11 +11,11 @@ It is not:
 - a research dump
 
 See also:
-- [`SOLVER_ROADMAP.md`](/Users/unbalancedparen/projects/dedaliano/SOLVER_ROADMAP.md)
-- [`PRODUCT_ROADMAP.md`](/Users/unbalancedparen/projects/dedaliano/PRODUCT_ROADMAP.md)
-- [`INFRASTRUCTURE_ROADMAP.md`](/Users/unbalancedparen/projects/dedaliano/INFRASTRUCTURE_ROADMAP.md)
-- [`research/ai_provider_architecture.md`](/Users/unbalancedparen/projects/dedaliano/research/ai_provider_architecture.md)
-- [`research/open_source_vs_hosted_ai_boundary.md`](/Users/unbalancedparen/projects/dedaliano/research/open_source_vs_hosted_ai_boundary.md)
+- [`SOLVER_ROADMAP.md`](SOLVER_ROADMAP.md)
+- [`PRODUCT_ROADMAP.md`](PRODUCT_ROADMAP.md)
+- [`INFRASTRUCTURE_ROADMAP.md`](INFRASTRUCTURE_ROADMAP.md)
+- [`research/ai_provider_architecture.md`](../research/ai_provider_architecture.md)
+- [`research/open_source_vs_hosted_ai_boundary.md`](../research/open_source_vs_hosted_ai_boundary.md)
 
 ## Principles
 

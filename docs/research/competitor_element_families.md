@@ -8,7 +8,7 @@ This note focuses on `shell / plate / solid-related` element families and behavi
 
 This is not a full product comparison.
 For the broader open-source solver comparison, see:
-- [open_source_solver_comparison.md](/Users/unbalancedparen/projects/dedaliano/research/open_source_solver_comparison.md)
+- [open_source_solver_comparison.md](open_source_solver_comparison.md)
 
 ## Scope
 

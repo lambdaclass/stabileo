@@ -7,7 +7,7 @@ use super::sections::{
 };
 use crate::error::AppError;
 
-// ---- Builder state (port of web/src/lib/templates/generators.ts) ----
+// ---- Builder state (structural model builder for AI capabilities) ----
 
 struct Builder {
     node_id: u32,

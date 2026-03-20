@@ -1,10 +1,10 @@
 # Automation Gap Analysis — From Analysis Tool to Design Platform
 
 Read next:
-- product roadmap: [PRODUCT_ROADMAP.md](/Users/unbalancedparen/projects/dedaliano/PRODUCT_ROADMAP.md)
-- solver roadmap: [SOLVER_ROADMAP.md](/Users/unbalancedparen/projects/dedaliano/SOLVER_ROADMAP.md)
-- competitor context: [research/competitive_displacement_by_step.md](/Users/unbalancedparen/projects/dedaliano/research/competitive_displacement_by_step.md)
-- post-roadmap stack: [research/post_roadmap_software_stack.md](/Users/unbalancedparen/projects/dedaliano/research/post_roadmap_software_stack.md)
+- product roadmap: [PRODUCT_ROADMAP.md](/Users/unbalancedparen/projects/dedaliano/docs/roadmap/PRODUCT_ROADMAP.md)
+- solver roadmap: [SOLVER_ROADMAP.md](/Users/unbalancedparen/projects/dedaliano/docs/roadmap/SOLVER_ROADMAP.md)
+- competitor context: [competitive_displacement_by_step.md](competitive_displacement_by_step.md)
+- post-roadmap stack: [post_roadmap_software_stack.md](post_roadmap_software_stack.md)
 
 This document maps the full automation landscape for Stabileo/Dedaliano: what is already automated, what engineers still do by hand, where competitors sit, and which gaps have the highest ROI to close first.
 
@@ -168,7 +168,7 @@ Most competitors automate code checks and reports reasonably well. What they do 
 5. **Generative layout** — no competitor generates structural systems from architectural constraints; they all check one user-authored scheme.
 6. **Transparent solver** — no competitor exposes enough of the solver internals for engineers to trace a result from input to output. Stabileo can build a verification story no commercial tool can match.
 
-The CYPECAD angle is worth noting separately: CYPECAD has strong RC reinforcement automation (bar selection, BBS, local code depth for Spain, Portugal, and Latin America) that no other competitor has matched for those markets. See `research/cypecad_competitive_gap_and_parity_plan.md` for the full audit. Stabileo can close this gap at the engine level because the beam station extraction for RC design is already implemented — the missing pieces are the bar selection logic, schedule formatting, and local code databases, not solver mechanics.
+The CYPECAD angle is worth noting separately: CYPECAD has strong RC reinforcement automation (bar selection, BBS, local code depth for Spain, Portugal, and Latin America) that no other competitor has matched for those markets. See `cypecad_competitive_gap_and_parity_plan.md` for the full audit. Stabileo can close this gap at the engine level because the beam station extraction for RC design is already implemented — the missing pieces are the bar selection logic, schedule formatting, and local code databases, not solver mechanics.
 
 ---
 
@@ -189,11 +189,11 @@ Derived from the priority matrix and the product roadmap sequence:
 
 ## Related Documents
 
-- `PRODUCT_ROADMAP.md` — product sequencing and step definitions
-- `SOLVER_ROADMAP.md` — solver mechanics roadmap, Steps 1–23
-- `research/rc_design_and_bbs.md` — RC design and BBS research
-- `research/cypecad_competitive_gap_and_parity_plan.md` — unified CYPECAD competitive gap analysis and phased parity plan
-- `research/competitive_displacement_by_step.md` — which competitors each step displaces and estimated savings
-- `research/post_roadmap_software_stack.md` — software products to build on top of the solver moat
-- `AI_ROADMAP.md` — AI feature roadmap and what needs deep solver depth vs what can ship early
-- `research/beyond_roadmap_opportunities.md` — frontier opportunities beyond the core roadmap
+- `../roadmap/PRODUCT_ROADMAP.md` — product sequencing and step definitions
+- `../roadmap/SOLVER_ROADMAP.md` — solver mechanics roadmap, Steps 1–23
+- `rc_design_and_bbs.md` — RC design and BBS research
+- `cypecad_competitive_gap_and_parity_plan.md` — unified CYPECAD competitive gap analysis and phased parity plan
+- `competitive_displacement_by_step.md` — which competitors each step displaces and estimated savings
+- `post_roadmap_software_stack.md` — software products to build on top of the solver moat
+- `../roadmap/AI_ROADMAP.md` — AI feature roadmap and what needs deep solver depth vs what can ship early
+- `../roadmap/beyond_roadmap_opportunities.md` — frontier opportunities beyond the core roadmap

@@ -6,11 +6,11 @@ This document explains how Dedaliano should build solver trust.
 
 It is not the benchmark ledger and it is not the product roadmap.
 
-- Use [`BENCHMARKS.md`](/Users/unbalancedparen/projects/dedaliano/BENCHMARKS.md) for benchmark status and solver maturity.
-- Use [`SOLVER_ROADMAP.md`](/Users/unbalancedparen/projects/dedaliano/SOLVER_ROADMAP.md) for solver sequencing and implementation order.
-- Use [`PRODUCT_ROADMAP.md`](/Users/unbalancedparen/projects/dedaliano/PRODUCT_ROADMAP.md) for app and workflow sequencing.
-- Use [`POSITIONING.md`](/Users/unbalancedparen/projects/dedaliano/POSITIONING.md) for the business meaning of solver trust.
-- Use [`research/lean_formal_verification.md`](/Users/unbalancedparen/projects/dedaliano/research/lean_formal_verification.md) for the Lean-specific formal-verification research plan and ROI ranking.
+- Use [`BENCHMARKS.md`](/Users/unbalancedparen/projects/dedaliano/docs/BENCHMARKS.md) for benchmark status and solver maturity.
+- Use [`SOLVER_ROADMAP.md`](/Users/unbalancedparen/projects/dedaliano/docs/roadmap/SOLVER_ROADMAP.md) for solver sequencing and implementation order.
+- Use [`PRODUCT_ROADMAP.md`](/Users/unbalancedparen/projects/dedaliano/docs/roadmap/PRODUCT_ROADMAP.md) for app and workflow sequencing.
+- Use [`POSITIONING.md`](/Users/unbalancedparen/projects/dedaliano/docs/POSITIONING.md) for the business meaning of solver trust.
+- Use [`research/lean_formal_verification.md`](/Users/unbalancedparen/projects/dedaliano/docs/research/lean_formal_verification.md) for the Lean-specific formal-verification research plan and ROI ranking.
 
 ## Goal
 
@@ -136,7 +136,7 @@ Good candidates:
 - assembly invariants
 - compact state-transition kernels
 
-For the current Lean-oriented research plan, theorem ladder, and recommended proof scope, see [`research/lean_formal_verification.md`](/Users/unbalancedparen/projects/dedaliano/research/lean_formal_verification.md).
+For the current Lean-oriented research plan, theorem ladder, and recommended proof scope, see [`research/lean_formal_verification.md`](/Users/unbalancedparen/projects/dedaliano/docs/research/lean_formal_verification.md).
 
 Bad candidates:
 

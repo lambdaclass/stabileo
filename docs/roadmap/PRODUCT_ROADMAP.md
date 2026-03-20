@@ -4,7 +4,7 @@
 
 This is the product roadmap: app features, market sequencing, design/reporting layers, and distribution strategy. It is not the solver mechanics roadmap — for that, see `SOLVER_ROADMAP.md`. Historical progress belongs in `CHANGELOG.md`. This document should stay forward-looking.
 
-For the expanding AI track, see [`AI_ROADMAP.md`](/Users/unbalancedparen/projects/dedaliano/AI_ROADMAP.md).
+For the expanding AI track, see [`AI_ROADMAP.md`](AI_ROADMAP.md).
 
 ## Vision
 
@@ -186,7 +186,7 @@ not artificial crippling of the core engineering product.
 
 ## The Automation Gap
 
-> Full analysis: [research/automation_gaps.md](research/automation_gaps.md)
+> Full analysis: [automation_gaps.md](../research/automation_gaps.md)
 
 The biggest remaining product gap is not "more analysis categories." It is automating the work engineers still do manually after the solver has already produced correct forces.
 
@@ -676,7 +676,7 @@ Do not prioritize these before the core product is clearly trusted:
 - `README.md` — repo entry point and document map
 - `SOLVER_ROADMAP.md` — solver mechanics and validation sequencing
 - `POSITIONING.md` — market framing and competitive wedge
-- `research/rc_design_and_bbs.md` — RC design and BBS research
-- `research/beyond_roadmap_opportunities.md` — GNN surrogates, digital twins, UQ, advanced research opportunities
-- `research/cypecad_competitive_gap_and_parity_plan.md` — unified CYPECAD competitive gap analysis and parity plan
-- `research/post_roadmap_software_stack.md` — platform adjacencies after roadmap execution
+- `../research/rc_design_and_bbs.md` — RC design and BBS research
+- `beyond_roadmap_opportunities.md` — GNN surrogates, digital twins, UQ, advanced research opportunities
+- `../research/cypecad_competitive_gap_and_parity_plan.md` — unified CYPECAD competitive gap analysis and parity plan
+- `../research/post_roadmap_software_stack.md` — platform adjacencies after roadmap execution

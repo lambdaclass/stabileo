@@ -2,7 +2,7 @@
 
 This note collects the safety and correctness hardening work that should sit around the solver core so the product does not silently return wrong answers, partial results, or fragile payloads.
 
-It is not a replacement for [`SOLVER_ROADMAP.md`](/Users/unbalancedparen/projects/dedaliano/SOLVER_ROADMAP.md). It is the implementation-oriented research note behind the roadmap's immediate hardening and trust priorities.
+It is not a replacement for [`SOLVER_ROADMAP.md`](/Users/unbalancedparen/projects/dedaliano/docs/roadmap/SOLVER_ROADMAP.md). It is the implementation-oriented research note behind the roadmap's immediate hardening and trust priorities.
 
 ## Why This Matters
 

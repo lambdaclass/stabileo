@@ -5,15 +5,15 @@ High-performance 2D/3D structural analysis engine in Rust, implementing the Dire
 ## Document scope
 
 Read next:
-- solver roadmap: [`../SOLVER_ROADMAP.md`](/Users/unbalancedparen/projects/dedaliano/SOLVER_ROADMAP.md)
-- detailed proof and benchmark status: [`../BENCHMARKS.md`](/Users/unbalancedparen/projects/dedaliano/BENCHMARKS.md)
+- solver roadmap: [`../docs/roadmap/SOLVER_ROADMAP.md`](/Users/unbalancedparen/projects/dedaliano/docs/roadmap/SOLVER_ROADMAP.md)
+- detailed proof and benchmark status: [`../docs/BENCHMARKS.md`](/Users/unbalancedparen/projects/dedaliano/docs/BENCHMARKS.md)
 
 This file is the engine-facing overview.
 
-- For full benchmark status and solver gap tracking, see [`../BENCHMARKS.md`](/Users/unbalancedparen/projects/dedaliano/BENCHMARKS.md).
-- For repo-level solver priorities, see [`../SOLVER_ROADMAP.md`](/Users/unbalancedparen/projects/dedaliano/SOLVER_ROADMAP.md).
-- For app and workflow priorities, see [`../PRODUCT_ROADMAP.md`](/Users/unbalancedparen/projects/dedaliano/PRODUCT_ROADMAP.md).
-- For business framing and market position, see [`../POSITIONING.md`](/Users/unbalancedparen/projects/dedaliano/POSITIONING.md).
+- For full benchmark status and solver gap tracking, see [`../docs/BENCHMARKS.md`](/Users/unbalancedparen/projects/dedaliano/docs/BENCHMARKS.md).
+- For repo-level solver priorities, see [`../docs/roadmap/SOLVER_ROADMAP.md`](/Users/unbalancedparen/projects/dedaliano/docs/roadmap/SOLVER_ROADMAP.md).
+- For app and workflow priorities, see [`../docs/roadmap/PRODUCT_ROADMAP.md`](/Users/unbalancedparen/projects/dedaliano/docs/roadmap/PRODUCT_ROADMAP.md).
+- For business framing and market position, see [`../docs/POSITIONING.md`](/Users/unbalancedparen/projects/dedaliano/docs/POSITIONING.md).
 
 This document should stay focused on the engine surface, analysis families, and engine-facing validation summary.
 
@@ -72,7 +72,7 @@ The engine is backed by:
 - benchmark-gate suites for constraints, contact, shells, reduction, sparse / conditioning paths, and sparse 3D parity
 - explicit CI gate stages for shell benchmarks, shell acceptance models, and constraint benchmarks
 
-See [`../BENCHMARKS.md`](/Users/unbalancedparen/projects/dedaliano/BENCHMARKS.md) for detailed status of each benchmark family and current maturity.
+See [`../BENCHMARKS.md`](/Users/unbalancedparen/projects/dedaliano/docs/BENCHMARKS.md) for detailed status of each benchmark family and current maturity.
 
 ### Industry Standards and Design Codes
 
@@ -165,7 +165,7 @@ Phase 2 is complete — constraint unification, contact refinement, connector el
 - CI hardening and release-grade benchmark gates
 - long-tail nonlinear and solver-path consistency hardening
 
-For the detailed gap inventory and benchmark status, use [`../BENCHMARKS.md`](/Users/unbalancedparen/projects/dedaliano/BENCHMARKS.md).
+For the detailed gap inventory and benchmark status, use [`../BENCHMARKS.md`](/Users/unbalancedparen/projects/dedaliano/docs/BENCHMARKS.md).
 
 ## Differential Fuzz Tests
 

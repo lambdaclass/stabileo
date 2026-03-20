@@ -1,9 +1,9 @@
 # RC Design, Reinforcement Schedules, and BBS
 
 Read next:
-- product priorities: [PRODUCT_ROADMAP.md](/Users/unbalancedparen/projects/dedaliano/PRODUCT_ROADMAP.md)
-- solver priorities: [SOLVER_ROADMAP.md](/Users/unbalancedparen/projects/dedaliano/SOLVER_ROADMAP.md)
-- benchmarks: [BENCHMARKS.md](/Users/unbalancedparen/projects/dedaliano/BENCHMARKS.md)
+- product priorities: [PRODUCT_ROADMAP.md](/Users/unbalancedparen/projects/dedaliano/docs/roadmap/PRODUCT_ROADMAP.md)
+- solver priorities: [SOLVER_ROADMAP.md](/Users/unbalancedparen/projects/dedaliano/docs/roadmap/SOLVER_ROADMAP.md)
+- benchmarks: [BENCHMARKS.md](/Users/unbalancedparen/projects/dedaliano/docs/BENCHMARKS.md)
 
 This note captures why `reinforced-concrete member design`, `reinforcement schedules`, and later `bar bending schedule (BBS)` generation are important enough to be explicit priorities.
 

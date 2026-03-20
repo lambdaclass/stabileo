@@ -4,8 +4,8 @@
 
 This is the solver roadmap for mechanics, numerical robustness, validation sequencing, verification strategy, and performance/scale work. It is not the product, market, or revenue roadmap — for that, see `PRODUCT_ROADMAP.md`. For current capability and validation status, see `BENCHMARKS.md`. Historical progress belongs in `CHANGELOG.md`.
 
-For the cross-cutting AI track that depends on these solver outputs and contracts, see [`AI_ROADMAP.md`](/Users/unbalancedparen/projects/dedaliano/AI_ROADMAP.md).
-For the deeper solver safety and validation hardening architecture behind the near-term trust work, see `research/solver_safety_and_validation_hardening.md`.
+For the cross-cutting AI track that depends on these solver outputs and contracts, see [`AI_ROADMAP.md`](AI_ROADMAP.md).
+For the deeper solver safety and validation hardening architecture behind the near-term trust work, see `../research/solver_safety_and_validation_hardening.md`.
 
 ## Where We Are
 
@@ -29,7 +29,7 @@ Before broadening the solver into more design-code and advanced-analysis depth, 
 6. `Keep solver trust visible` — ONGOING. Every hardening change above should add proof, not only code: CI gates, contract tests, analytical/reference checks, or reproducible artifacts.
 7. `Lock the 3D coordinate convention explicitly` — NEW. The solver/generator side must match the `Z-up` product/runtime convention now, and any future compatibility work must be treated as a deliberate platform migration rather than ad hoc drift.
 
-See also: `research/solver_safety_and_validation_hardening.md` for the fuller defense-layer architecture around validation, convergence safeguards, post-solve verification, diagnostics, and frontend mutation guards.
+See also: `../research/solver_safety_and_validation_hardening.md` for the fuller defense-layer architecture around validation, convergence safeguards, post-solve verification, diagnostics, and frontend mutation guards.
 
 ## What Still Separates Dedaliano From The Strongest Open Solvers
 
@@ -89,7 +89,7 @@ Trust rule:
 
 ## The Automation Gap The Solver Must Close
 
-> Full analysis: [research/automation_gaps.md](research/automation_gaps.md)
+> Full analysis: [automation_gaps.md](../research/automation_gaps.md)
 
 The most important remaining solver-adjacent gap is not "one more analysis method." It is enabling the product to automate the decisions engineers still make manually after the solve.
 
@@ -112,8 +112,8 @@ Without this layer, the product can analyze structures but still cannot automate
 - Shell breadth is no longer the open gap; the remaining shell work is hardening, guidance, and performance across the multi-family stack
 
 Decision support:
-- Use `research/shell_family_selection.md` for current family-choice rules and default-selection logic
-- Use `research/competitor_element_families.md` to justify why layered shells, axisymmetric workflows, and deeper nonlinear shell depth are the highest-value shell-adjacent additions
+- Use `../research/shell_family_selection.md` for current family-choice rules and default-selection logic
+- Use `../research/competitor_element_families.md` to justify why layered shells, axisymmetric workflows, and deeper nonlinear shell depth are the highest-value shell-adjacent additions
 
 Recommended shell order:
 1. Keep the shell-family selection guidance and frontier gates current
@@ -140,7 +140,7 @@ Recommended shell order:
 15. Supernodal Cholesky — Step 15
 16. WebGPU compute shaders — Step 15
 
-See `research/numerical_methods_gap_analysis.md`.
+See `../research/numerical_methods_gap_analysis.md`.
 
 ## Immediate Solver Priority For Automation
 
@@ -1059,8 +1059,8 @@ Phase 3c workflow measurements (20x20 MITC4, nf=2564):
 - `VERIFICATION.md` — verification philosophy and testing stack
 - `PRODUCT_ROADMAP.md` — app, workflow, market, and product sequencing
 - `CHANGELOG.md` — historical progress
-- `research/shell_family_selection.md` — shell-family selection notes
-- `research/competitor_element_families.md` — competitor shell-family comparison
-- `research/numerical_methods_gap_analysis.md` — numerical-methods gap analysis
-- `research/rc_design_and_bbs.md` — RC design/BBS research
-- `research/post_roadmap_software_stack.md` — post-core software stack
+- `../research/shell_family_selection.md` — shell-family selection notes
+- `../research/competitor_element_families.md` — competitor shell-family comparison
+- `../research/numerical_methods_gap_analysis.md` — numerical-methods gap analysis
+- `../research/rc_design_and_bbs.md` — RC design/BBS research
+- `../research/post_roadmap_software_stack.md` — post-core software stack

@@ -1,9 +1,9 @@
 # CHOLMOD + NVIDIA GPU Research
 
 Read next:
-- [SOLVER_ROADMAP.md](/Users/unbalancedparen/projects/dedaliano/SOLVER_ROADMAP.md)
-- [research/numerical_methods_gap_analysis.md](/Users/unbalancedparen/projects/dedaliano/research/numerical_methods_gap_analysis.md)
-- [research/webgpu_solver_renderer_analysis.md](/Users/unbalancedparen/projects/dedaliano/research/webgpu_solver_renderer_analysis.md)
+- [SOLVER_ROADMAP.md](/Users/unbalancedparen/projects/dedaliano/docs/roadmap/SOLVER_ROADMAP.md)
+- [numerical_methods_gap_analysis.md](numerical_methods_gap_analysis.md)
+- [webgpu_solver_renderer_analysis.md](webgpu_solver_renderer_analysis.md)
 
 This note evaluates whether Dedaliano should use `CHOLMOD` with NVIDIA GPU acceleration, and if so, in what architecture.
 
@@ -79,7 +79,7 @@ The current codebase already has a strong sparse CPU path:
 
 Relevant local evidence:
 
-- [`BENCHMARKS.md`](/Users/unbalancedparen/projects/dedaliano/BENCHMARKS.md)
+- [`BENCHMARKS.md`](/Users/unbalancedparen/projects/dedaliano/docs/BENCHMARKS.md)
   current measured sparse wins:
   - `4.5x` at ~700 DOFs
   - `22x` at ~2600 DOFs

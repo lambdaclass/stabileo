@@ -111,10 +111,10 @@ Requires Node.js >= 18.
 
 | Document | Contents |
 |----------|----------|
-| [SOLVER_ROADMAP.md](SOLVER_ROADMAP.md) | Solver status, sequencing, performance, and validation |
-| [PRODUCT_ROADMAP.md](PRODUCT_ROADMAP.md) | App, workflow, and market sequencing |
-| [INFRASTRUCTURE_ROADMAP.md](INFRASTRUCTURE_ROADMAP.md) | Backend, deployment, auth, persistence, and operational sequencing |
-| [AI_ROADMAP.md](AI_ROADMAP.md) | AI capability sequencing, safety rules, and prerequisites |
+| [SOLVER_ROADMAP.md](docs/roadmap/SOLVER_ROADMAP.md) | Solver status, sequencing, performance, and validation |
+| [PRODUCT_ROADMAP.md](docs/roadmap/PRODUCT_ROADMAP.md) | App, workflow, and market sequencing |
+| [INFRASTRUCTURE_ROADMAP.md](docs/roadmap/INFRASTRUCTURE_ROADMAP.md) | Backend, deployment, auth, persistence, and operational sequencing |
+| [AI_ROADMAP.md](docs/roadmap/AI_ROADMAP.md) | AI capability sequencing, safety rules, and prerequisites |
 | [BENCHMARKS.md](BENCHMARKS.md) | Validation coverage and benchmark status |
 | [VERIFICATION.md](VERIFICATION.md) | Testing philosophy, fuzzing, invariants |
 | [POSITIONING.md](POSITIONING.md) | Market framing and competitive strategy |

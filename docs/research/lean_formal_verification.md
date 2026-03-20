@@ -9,8 +9,8 @@ It is a research plan for where Lean makes technical sense and how to sequence t
 
 Read with:
 
-- [`VERIFICATION.md`](/Users/unbalancedparen/projects/dedaliano/VERIFICATION.md)
-- [`SOLVER_ROADMAP.md`](/Users/unbalancedparen/projects/dedaliano/SOLVER_ROADMAP.md)
+- [`VERIFICATION.md`](/Users/unbalancedparen/projects/dedaliano/docs/VERIFICATION.md)
+- [`SOLVER_ROADMAP.md`](/Users/unbalancedparen/projects/dedaliano/docs/roadmap/SOLVER_ROADMAP.md)
 - [`engine/src/solver/dof.rs`](/Users/unbalancedparen/projects/dedaliano/engine/src/solver/dof.rs)
 - [`engine/src/solver/constraints.rs`](/Users/unbalancedparen/projects/dedaliano/engine/src/solver/constraints.rs)
 - [`engine/src/solver/assembly.rs`](/Users/unbalancedparen/projects/dedaliano/engine/src/solver/assembly.rs)
