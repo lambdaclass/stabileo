@@ -7,8 +7,8 @@ import type { MovingLoadEnvelope } from '../moving-loads';
 function makeSimpleBeam(L = 10): SolverInput {
   return {
     nodes: new Map([
-      [1, { id: 1, x: 0, y: 0 }],
-      [2, { id: 2, x: L, y: 0 }],
+      [1, { id: 1, x: 0, z: 0 }],
+      [2, { id: 2, x: L, z: 0 }],
     ]),
     elements: new Map([
       [1, { id: 1, type: 'frame' as const, nodeI: 1, nodeJ: 2, materialId: 1, sectionId: 1, hingeStart: false, hingeEnd: false }],

@@ -54,7 +54,7 @@ function getReaction(results: ReturnType<typeof solve>, nodeId: number) {
  */
 function combineReaction(
   nodeId: number,
-  component: 'rx' | 'ry' | 'mz',
+  component: 'rx' | 'rz' | 'my',
   factors: Array<{ caseId: number; factor: number }>,
   perCase: Map<number, ReturnType<typeof solve>>,
 ): number {
@@ -94,8 +94,8 @@ describe('Load case combination: simple beam D + L', () => {
     });
     resultD = solve(input);
     // Total: 10*6 = 60 kN → Ry each = 30 kN
-    expect(getReaction(resultD, 1)!.ry).toBeCloseTo(30, 2);
-    expect(getReaction(resultD, 2)!.ry).toBeCloseTo(30, 2);
+    expect(getReaction(resultD, 1)!.rz).toBeCloseTo(30, 2);
+    expect(getReaction(resultD, 2)!.rz).toBeCloseTo(30, 2);
   });
 
   it('solves L case independently', () => {
@@ -105,8 +105,8 @@ describe('Load case combination: simple beam D + L', () => {
     });
     resultL = solve(input);
     // Total: 5*6 = 30 kN → Ry each = 15 kN
-    expect(getReaction(resultL, 1)!.ry).toBeCloseTo(15, 2);
-    expect(getReaction(resultL, 2)!.ry).toBeCloseTo(15, 2);
+    expect(getReaction(resultL, 1)!.rz).toBeCloseTo(15, 2);
+    expect(getReaction(resultL, 2)!.rz).toBeCloseTo(15, 2);
   });
 
   it('1.2D + 1.6L combination via superposition matches direct solve', () => {
@@ -122,16 +122,16 @@ describe('Load case combination: simple beam D + L', () => {
     perCase.set(2, resultL);
 
     const factors = [{ caseId: 1, factor: 1.2 }, { caseId: 2, factor: 1.6 }];
-    const combinedRy1 = combineReaction(1, 'ry', factors, perCase);
-    const combinedRy2 = combineReaction(2, 'ry', factors, perCase);
+    const combinedRz1 = combineReaction(1, 'rz', factors, perCase);
+    const combinedRz2 = combineReaction(2, 'rz', factors, perCase);
 
     // Superposition: 1.2*30 + 1.6*15 = 36 + 24 = 60
-    expect(combinedRy1).toBeCloseTo(60, 2);
-    expect(combinedRy2).toBeCloseTo(60, 2);
+    expect(combinedRz1).toBeCloseTo(60, 2);
+    expect(combinedRz2).toBeCloseTo(60, 2);
 
     // Should match direct solve
-    expect(combinedRy1).toBeCloseTo(getReaction(resultAll, 1)!.ry, 2);
-    expect(combinedRy2).toBeCloseTo(getReaction(resultAll, 2)!.ry, 2);
+    expect(combinedRz1).toBeCloseTo(getReaction(resultAll, 1)!.rz, 2);
+    expect(combinedRz2).toBeCloseTo(getReaction(resultAll, 2)!.rz, 2);
   });
 
   it('1.4D combination', () => {
@@ -140,10 +140,10 @@ describe('Load case combination: simple beam D + L', () => {
     perCase.set(2, resultL);
 
     const factors = [{ caseId: 1, factor: 1.4 }];
-    const combinedRy1 = combineReaction(1, 'ry', factors, perCase);
+    const combinedRz1 = combineReaction(1, 'rz', factors, perCase);
 
     // 1.4 * 30 = 42
-    expect(combinedRy1).toBeCloseTo(42, 2);
+    expect(combinedRz1).toBeCloseTo(42, 2);
   });
 });
 
@@ -182,11 +182,11 @@ describe('Load case combination: portal frame D + L + W', () => {
     });
     resultD = solve(input);
     // Total vertical: 10*6 = 60 kN
-    const totalRy = resultD.reactions!.reduce((s, r) => s + r.ry, 0);
-    expect(totalRy).toBeCloseTo(60, 0);
+    const totalRz = resultD.reactions!.reduce((s, r) => s + r.rz, 0);
+    expect(totalRz).toBeCloseTo(60, 0);
     // Symmetric: each support takes 30 kN
-    expect(getReaction(resultD, 1)!.ry).toBeCloseTo(30, 0);
-    expect(getReaction(resultD, 4)!.ry).toBeCloseTo(30, 0);
+    expect(getReaction(resultD, 1)!.rz).toBeCloseTo(30, 0);
+    expect(getReaction(resultD, 4)!.rz).toBeCloseTo(30, 0);
   });
 
   it('solves L (live load on beam)', () => {
@@ -195,8 +195,8 @@ describe('Load case combination: portal frame D + L + W', () => {
       loads: [{ type: 'distributed', data: { elementId: 2, qI: -5, qJ: -5 } }],
     });
     resultL = solve(input);
-    const totalRy = resultL.reactions!.reduce((s, r) => s + r.ry, 0);
-    expect(totalRy).toBeCloseTo(30, 0);
+    const totalRz = resultL.reactions!.reduce((s, r) => s + r.rz, 0);
+    expect(totalRz).toBeCloseTo(30, 0);
   });
 
   it('solves W (wind lateral load)', () => {
@@ -223,11 +223,11 @@ describe('Load case combination: portal frame D + L + W', () => {
     ];
 
     // Vertical at node 1: 1.2*30 + 1.0*15 = 51 (W has no vertical at node 1 for symmetric)
-    const ryNode1 = combineReaction(1, 'ry', factors, perCase);
-    const ryNode4 = combineReaction(4, 'ry', factors, perCase);
+    const rzNode1 = combineReaction(1, 'rz', factors, perCase);
+    const rzNode4 = combineReaction(4, 'rz', factors, perCase);
 
     // Total vertical: 1.2*60 + 1.0*30 = 102 (W adds no vertical load)
-    expect(ryNode1 + ryNode4).toBeCloseTo(102, 0);
+    expect(rzNode1 + rzNode4).toBeCloseTo(102, 0);
 
     // Horizontal: 1.6 * (-10) = -16 total
     const rxNode1 = combineReaction(1, 'rx', factors, perCase);
@@ -245,11 +245,11 @@ describe('Load case combination: portal frame D + L + W', () => {
       { caseId: 3, factor: 1.6 },
     ];
 
-    const ryNode1 = combineReaction(1, 'ry', factors, perCase);
-    const ryNode4 = combineReaction(4, 'ry', factors, perCase);
+    const rzNode1 = combineReaction(1, 'rz', factors, perCase);
+    const rzNode4 = combineReaction(4, 'rz', factors, perCase);
 
     // 0.9 * 60 = 54 total vertical
-    expect(ryNode1 + ryNode4).toBeCloseTo(54, 0);
+    expect(rzNode1 + rzNode4).toBeCloseTo(54, 0);
   });
 });
 
@@ -283,14 +283,14 @@ describe('Envelope: max/min across combinations', () => {
     perCase.set(2, resultL);
 
     // Combination 1: 1.4D → Ry1 = 1.4*30 = 42
-    const combo1Ry = combineReaction(1, 'ry', [{ caseId: 1, factor: 1.4 }], perCase);
+    const combo1Rz = combineReaction(1, 'rz', [{ caseId: 1, factor: 1.4 }], perCase);
     // Combination 2: 1.2D + 1.6L → Ry1 = 1.2*30 + 1.6*15 = 60
-    const combo2Ry = combineReaction(1, 'ry', [{ caseId: 1, factor: 1.2 }, { caseId: 2, factor: 1.6 }], perCase);
+    const combo2Rz = combineReaction(1, 'rz', [{ caseId: 1, factor: 1.2 }, { caseId: 2, factor: 1.6 }], perCase);
     // Combination 3: 0.9D → Ry1 = 0.9*30 = 27
-    const combo3Ry = combineReaction(1, 'ry', [{ caseId: 1, factor: 0.9 }], perCase);
+    const combo3Rz = combineReaction(1, 'rz', [{ caseId: 1, factor: 0.9 }], perCase);
 
     // Envelope max = 60 (combo 2), min = 27 (combo 3)
-    const allRy = [combo1Ry, combo2Ry, combo3Ry];
+    const allRy = [combo1Rz, combo2Rz, combo3Rz];
     expect(Math.max(...allRy)).toBeCloseTo(60, 0);
     expect(Math.min(...allRy)).toBeCloseTo(27, 0);
   });
@@ -332,16 +332,16 @@ describe('Multiple loads on same element, different cases', () => {
     }));
 
     // D+L direct = 15 kN/m → Ry1 = 45
-    expect(getReaction(resultBoth, 1)!.ry).toBeCloseTo(45, 2);
+    expect(getReaction(resultBoth, 1)!.rz).toBeCloseTo(45, 2);
 
     // Superposition: D Ry1 + L Ry1 = 30 + 15 = 45
-    expect(getReaction(resultD, 1)!.ry + getReaction(resultL, 1)!.ry).toBeCloseTo(45, 2);
+    expect(getReaction(resultD, 1)!.rz + getReaction(resultL, 1)!.rz).toBeCloseTo(45, 2);
 
     // Superposition equals direct solve
     expect(
-      getReaction(resultD, 1)!.ry + getReaction(resultL, 1)!.ry
+      getReaction(resultD, 1)!.rz + getReaction(resultL, 1)!.rz
     ).toBeCloseTo(
-      getReaction(resultBoth, 1)!.ry, 4
+      getReaction(resultBoth, 1)!.rz, 4
     );
   });
 
@@ -369,15 +369,15 @@ describe('Multiple loads on same element, different cases', () => {
 
     // D reactions: 30, 30
     // E reactions: 10, 10
-    expect(getReaction(resultD, 1)!.ry).toBeCloseTo(30, 2);
-    expect(getReaction(resultE, 1)!.ry).toBeCloseTo(10, 2);
+    expect(getReaction(resultD, 1)!.rz).toBeCloseTo(30, 2);
+    expect(getReaction(resultE, 1)!.rz).toBeCloseTo(10, 2);
 
     // 1.2D + E: Ry1 = 1.2*30 + 1.0*10 = 46
     const perCase = new Map<number, ReturnType<typeof solve>>();
     perCase.set(1, resultD);
     perCase.set(4, resultE);
 
-    const combined = combineReaction(1, 'ry',
+    const combined = combineReaction(1, 'rz',
       [{ caseId: 1, factor: 1.2 }, { caseId: 4, factor: 1.0 }],
       perCase
     );

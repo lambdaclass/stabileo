@@ -498,15 +498,15 @@ describe('Per-element analysis — DOF breakdown', () => {
     expect(uxLine.sources[0].label).toContain('Node 1');
     expect(uxLine.sources[0].viaElems).toEqual([]);
 
-    // uy: from empotramiento at node 1
-    const uyLine = bd.lines.find(l => l.dof === 'uy')!;
-    expect(uyLine.sources).toHaveLength(1);
-    expect(uyLine.sources[0].label).toContain('Fixed support');
+    // uz: from empotramiento at node 1
+    const uzLine = bd.lines.find(l => l.dof === 'uz')!;
+    expect(uzLine.sources).toHaveLength(1);
+    expect(uzLine.sources[0].label).toContain('Fixed support');
 
-    // θz: from empotramiento at node 1
-    const tzLine = bd.lines.find(l => l.dof === 'θz')!;
-    expect(tzLine.sources).toHaveLength(1);
-    expect(tzLine.sources[0].label).toContain('Fixed support');
+    // θy: from empotramiento at node 1
+    const tyLine = bd.lines.find(l => l.dof === 'θy')!;
+    expect(tyLine.sources).toHaveLength(1);
+    expect(tyLine.sources[0].label).toContain('Fixed support');
 
     expect(bd.summary).toContain('isostatic');
   });
@@ -527,21 +527,21 @@ describe('Per-element analysis — DOF breakdown', () => {
     expect(uxLine.sources).toHaveLength(1);
     expect(uxLine.sources[0].label).toContain('Pin support');
 
-    // uy: from pinned at node 1 + roller at node 2 (2 sources)
-    const uyLine = bd.lines.find(l => l.dof === 'uy')!;
-    expect(uyLine.sources).toHaveLength(2);
-    const uyLabels = uyLine.sources.map(s => s.label);
-    expect(uyLabels.some(l => l.includes('Pin support'))).toBe(true);
-    expect(uyLabels.some(l => l.includes('Horizontal roller'))).toBe(true);
+    // uz: from pinned at node 1 + roller at node 2 (2 sources)
+    const uzLine = bd.lines.find(l => l.dof === 'uz')!;
+    expect(uzLine.sources).toHaveLength(2);
+    const uzLabels = uzLine.sources.map(s => s.label);
+    expect(uzLabels.some(l => l.includes('Pin support'))).toBe(true);
+    expect(uzLabels.some(l => l.includes('Horizontal roller'))).toBe(true);
 
-    // θz: should be implicit couple (no direct θz source, but uy at both ends)
+    // θy: should be implicit couple (no direct θy source, but uz at both ends)
     // The force couple between the pin at node 1 and roller at node 2 prevents rotation.
-    const tzLine = bd.lines.find(l => l.dof === 'θz')!;
-    expect(tzLine.sources.length).toBeGreaterThanOrEqual(1);
-    expect(tzLine.sources.some(s => s.implicit === true)).toBe(true);
-    expect(tzLine.displayText).toContain('Couple');
-    expect(tzLine.displayText).toContain('Pin support');
-    expect(tzLine.displayText).toContain('Horizontal roller');
+    const tyLine = bd.lines.find(l => l.dof === 'θy')!;
+    expect(tyLine.sources.length).toBeGreaterThanOrEqual(1);
+    expect(tyLine.sources.some(s => s.implicit === true)).toBe(true);
+    expect(tyLine.displayText).toContain('Couple');
+    expect(tyLine.displayText).toContain('Pin support');
+    expect(tyLine.displayText).toContain('Horizontal roller');
   });
 
   it('Cantilever chain (3 segments): DOFs flow via chain with element IDs', () => {
@@ -588,9 +588,9 @@ describe('Per-element analysis — DOF breakdown', () => {
     const ux2 = bd2.lines.find(l => l.dof === 'ux')!;
     expect(ux2.sources.length).toBeGreaterThanOrEqual(1);
 
-    // θz should NOT have a direct/virtual source from the chain (hinge blocks it)
-    const tz2 = bd2.lines.find(l => l.dof === 'θz')!;
-    const nonImplicitSources = tz2.sources.filter(s => !s.implicit);
+    // θy should NOT have a direct/virtual source from the chain (hinge blocks it)
+    const ty2 = bd2.lines.find(l => l.dof === 'θy')!;
+    const nonImplicitSources = ty2.sources.filter(s => !s.implicit);
     expect(nonImplicitSources).toHaveLength(0);
   });
 
@@ -604,9 +604,9 @@ describe('Per-element analysis — DOF breakdown', () => {
     const ea = getElemAnalysis(report, 1);
     const bd = ea.dofBreakdown;
 
-    // uy should have 2 sources (fixed + roller)
-    const uyLine = bd.lines.find(l => l.dof === 'uy')!;
-    expect(uyLine.sources).toHaveLength(2);
+    // uz should have 2 sources (fixed + roller)
+    const uzLine = bd.lines.find(l => l.dof === 'uz')!;
+    expect(uzLine.sources).toHaveLength(2);
 
     // Total should be more than needed
     expect(bd.totalConstraints).toBeGreaterThan(bd.needed);
@@ -642,7 +642,7 @@ describe('Per-element analysis — DOF breakdown', () => {
     const ea2 = getElemAnalysis(report, 2);
     const bd2 = ea2.dofBreakdown;
     expect(bd2.lines).toHaveLength(2); // only ux and uy
-    expect(bd2.lines.map(l => l.dof)).toEqual(['ux', 'uy']);
+    expect(bd2.lines.map(l => l.dof)).toEqual(['ux', 'uz']);
     expect(bd2.needed).toBe(2);
   });
 });

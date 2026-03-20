@@ -586,6 +586,12 @@ function convertWasmNA(na: { y1: number; z1: number; y2: number; z2: number } | 
 
 /** Adapt WASM 3D result to TS SectionStressResult3D interface. */
 function adaptWasm3DResult(r: any): SectionStressResult3D {
+  // WASM serde camelCase converts ratio_vm → ratioVm, but TS uses ratioVM
+  const failure = r.failure;
+  if (failure && 'ratioVm' in failure) {
+    failure.ratioVM = failure.ratioVm;
+    delete failure.ratioVm;
+  }
   return {
     N: r.N, Vy: r.Vy, Vz: r.Vz, Mx: r.Mx, My: r.My, Mz: r.Mz,
     resolved: r.resolved,
@@ -599,7 +605,7 @@ function adaptWasm3DResult(r: any): SectionStressResult3D {
     tauTotal: r.tauTotal,
     neutralAxis: convertWasmNA(r.neutralAxis),
     mohr: r.mohr,
-    failure: r.failure,
+    failure,
   };
 }
 
@@ -617,18 +623,8 @@ export function analyzeSectionStress3D(
   yFiber?: number,
   zFiber?: number,
 ): SectionStressResult3D {
-  if (isWasmReady()) {
-    const raw = computeSectionStress3D({
-      elementForces: ef,
-      section: sec,
-      fy: fy ?? null,
-      t,
-      yFiber: yFiber ?? null,
-      zFiber: zFiber ?? null,
-    });
-    return adaptWasm3DResult(raw);
-  }
-
+  // Always use TS fallback for section stress — avoids My/Mz convention
+  // mismatch between TS (My = vertical bending) and Rust (My = about Y axis).
   const { N, Vy, Vz, Mx, My, Mz } = interpolateForces3D(ef, t);
   return analyzeSectionStressFromForcesTS(N, Vy, Vz, Mx, My, Mz, sec, fy, yFiber, zFiber);
 }
@@ -646,17 +642,7 @@ export function analyzeSectionStressFromForces(
   yFiber?: number,
   zFiber?: number,
 ): SectionStressResult3D {
-  if (isWasmReady()) {
-    const raw = computeSectionStress3DFromForces({
-      N, Vy, Vz, Mx, My, Mz,
-      section: sec,
-      fy: fy ?? null,
-      yFiber: yFiber ?? null,
-      zFiber: zFiber ?? null,
-    });
-    return adaptWasm3DResult(raw);
-  }
-
+  // Always use TS fallback — see analyzeSectionStress3D comment.
   return analyzeSectionStressFromForcesTS(N, Vy, Vz, Mx, My, Mz, sec, fy, yFiber, zFiber);
 }
 

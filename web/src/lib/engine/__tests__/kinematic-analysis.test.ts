@@ -479,7 +479,7 @@ describe('Classification and diagnosis messages', () => {
     });
     const result = analyzeKinematics(input);
     expect(result.classification).toBe('isostatic');
-    expect(result.diagnosis).toMatch(/isostatic/i);
+    expect(result.diagnosis).toMatch(/isost[aá]tic/i);
   });
 
   it('27. Hyperstatic → classification = hyperstatic, diagnosis contains degree', () => {
@@ -494,7 +494,7 @@ describe('Classification and diagnosis messages', () => {
     });
     const result = analyzeKinematics(input);
     expect(result.classification).toBe('hyperstatic');
-    expect(result.diagnosis).toMatch(/hyperstatic/i);
+    expect(result.diagnosis).toMatch(/hyperst[aá]tic|hiperest[aá]tic/i);
     expect(result.diagnosis).toContain('3');
   });
 
@@ -507,7 +507,7 @@ describe('Classification and diagnosis messages', () => {
     });
     const result = analyzeKinematics(input);
     expect(result.classification).toBe('hypostatic');
-    expect(result.diagnosis).toMatch(/[Mm]echanism|[Hh]ypostatic/);
+    expect(result.diagnosis).toMatch(/[Mm]ecanismo|[Mm]echanism|[Hh]ypostatic/);
     expect(result.mechanismNodes.length).toBeGreaterThan(0);
   });
 
@@ -582,8 +582,8 @@ describe('Integration with solve()', () => {
     const result = solve(input);
     expect(result).toBeTruthy();
     // Verify equilibrium
-    const sumRy = result.reactions.reduce((s, r) => s + r.ry, 0);
-    expect(Math.abs(sumRy - 70)).toBeLessThan(0.1);
+    const sumRz = result.reactions.reduce((s, r) => s + r.rz, 0);
+    expect(Math.abs(sumRz - 70)).toBeLessThan(0.1);
   });
 
   it('33. All 544 existing tests pass (validated by test suite)', () => {

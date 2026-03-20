@@ -45,6 +45,7 @@ const rectSection: Section = {
   j: 3.0e-6,
   b: 0.100,
   h: 0.200,
+  shape: 'rect',
 };
 
 /** IPN-200-like I section */
@@ -456,7 +457,7 @@ describe('computePerpNADistribution', () => {
 
 describe('3D analysis uses resolved Iy and J', () => {
   it('IPE 200 via catalog: resolves about-Y from profile', () => {
-    const sec: Section = { id: 1, name: 'IPE 200', a: 28.5e-4, iz: 142e-8, shape: 'I' };
+    const sec: Section = { id: 1, name: 'IPE 200', a: 28.5e-4, iz: 142e-8, iy: 1943e-8, shape: 'I', h: 0.200, b: 0.100, tw: 0.0056, tf: 0.0085 };
     const ef = makeEF({ mzStart: 50, mzEnd: -30, myStart: 10, myEnd: -10 });
     const r = analyzeSectionStress3D(ef, sec, 355, 0.5);
     // r.Iz = resolved.iz = sec.iz (about Z vertical) = 142e-8 m⁴
@@ -466,7 +467,7 @@ describe('3D analysis uses resolved Iy and J', () => {
   });
 
   it('user-provided sec.iy takes priority over catalog', () => {
-    const sec: Section = { id: 1, name: 'IPE 200', a: 28.5e-4, iz: 142e-8, shape: 'I', iy: 500e-8 };
+    const sec: Section = { id: 1, name: 'IPE 200', a: 28.5e-4, iz: 142e-8, shape: 'I', iy: 500e-8, h: 0.200, b: 0.100, tw: 0.0056, tf: 0.0085 };
     const ef = makeEF({ mzStart: 50, mzEnd: -30 });
     const r = analyzeSectionStress3D(ef, sec, 355, 0);
     // sec.iy (about Y, user-provided) → resolved.iy = 500e-8 (overrides catalog 1943e-8)
@@ -476,7 +477,7 @@ describe('3D analysis uses resolved Iy and J', () => {
   });
 
   it('Rankine is present in 3D failure check', () => {
-    const sec: Section = { id: 1, name: 'IPE 200', a: 28.5e-4, iz: 142e-8, shape: 'I' };
+    const sec: Section = { id: 1, name: 'IPE 200', a: 28.5e-4, iz: 142e-8, iy: 1943e-8, shape: 'I', h: 0.200, b: 0.100, tw: 0.0056, tf: 0.0085 };
     const ef = makeEF({ nStart: 100, mzStart: 50 });
     const r = analyzeSectionStress3D(ef, sec, 355, 0);
     expect(r.failure.rankine).toBeGreaterThan(0);

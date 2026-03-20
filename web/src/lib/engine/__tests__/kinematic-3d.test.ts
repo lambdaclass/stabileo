@@ -806,7 +806,7 @@ describe('Classification and diagnosis messages (3D)', () => {
     const result = analyzeKinematics3D(input);
     expect(result.classification).toBe('isostatic');
     expect(result.degree).toBe(0);
-    expect(result.diagnosis).toMatch(/isostatic/i);
+    expect(result.diagnosis).toMatch(/isost[aá]tic/i);
   });
 
   it('32. Hyperstatic classification with correct degree', () => {
@@ -826,7 +826,7 @@ describe('Classification and diagnosis messages (3D)', () => {
     const result = analyzeKinematics3D(input);
     expect(result.classification).toBe('hyperstatic');
     expect(result.degree).toBe(6);
-    expect(result.diagnosis).toMatch(/hyperstatic/i);
+    expect(result.diagnosis).toMatch(/hyperst[aá]tic|hiperest[aá]tic/i);
     expect(result.diagnosis).toContain('6');
   });
 
@@ -849,7 +849,7 @@ describe('Classification and diagnosis messages (3D)', () => {
     });
     const result = analyzeKinematics3D(input);
     // Diagnosis should mention mechanism or hypostatic
-    expect(result.diagnosis).toMatch(/[Mm]echanism|[Hh]ypostatic/);
+    expect(result.diagnosis).toMatch(/[Mm]ecanismo|[Mm]echanism|[Hh]ypostatic/);
   });
 
   it('35. Diagnosis message for valid structure', () => {

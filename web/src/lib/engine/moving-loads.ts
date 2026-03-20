@@ -118,7 +118,7 @@ function buildPath(input: SolverInput, pathElementIds?: number[]): PathSegment[]
       const ni = input.nodes.get(elem.nodeI)!;
       const nj = input.nodes.get(elem.nodeJ)!;
       const dx = nj.x - ni.x;
-      const dy = nj.y - ni.y;
+      const dy = nj.z - ni.z;
       const L = Math.sqrt(dx * dx + dy * dy);
       segments.push({ elementId: eid, nodeI: elem.nodeI, nodeJ: elem.nodeJ, length: L, cumStart: cumDist, dx, dy });
       cumDist += L;
@@ -169,7 +169,7 @@ function buildPath(input: SolverInput, pathElementIds?: number[]): PathSegment[]
     const ni = input.nodes.get(current)!;
     const nj = input.nodes.get(best.otherNode)!;
     const dx = nj.x - ni.x;
-    const dy = nj.y - ni.y;
+    const dy = nj.z - ni.z;
     const L = Math.sqrt(dx * dx + dy * dy);
 
     segments.push({

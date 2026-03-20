@@ -75,7 +75,7 @@ describe('Fixture-loaded tower vs generator-loaded tower', () => {
 
     const result = solve3D(input!);
     expect(typeof result).not.toBe('string');
-    
+
     const res = result as any;
     let maxUx = 0, maxUy = 0, maxUz = 0;
     for (const d of res.displacements) {
@@ -85,7 +85,7 @@ describe('Fixture-loaded tower vs generator-loaded tower', () => {
     }
     const maxDisp = Math.max(maxUx, maxUy, maxUz);
     console.log(`Fixture-loaded: maxUx=${(maxUx*1000).toFixed(1)}mm, maxUy=${(maxUy*1000).toFixed(1)}mm, maxUz=${(maxUz*1000).toFixed(1)}mm`);
-    
+
     expect(maxDisp).toBeLessThan(0.06); // < 60mm (SAP2000 convention slightly changes axis engagement)
   });
 });

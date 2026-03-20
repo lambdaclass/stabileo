@@ -692,13 +692,19 @@ export function analyzeSectionStress(
   yFiber?: number,
 ): SectionStressResult {
   if (isWasmReady()) {
-    return computeSectionStress2D({
+    const raw = computeSectionStress2D({
       elementForces: ef,
       section: sec,
       fy: fy ?? null,
       t,
       yFiber: yFiber ?? null,
     });
+    // WASM serde camelCase converts ratio_vm → ratioVm, but TS uses ratioVM
+    if (raw.failure) {
+      const f = raw.failure;
+      if ('ratioVm' in f) { f.ratioVM = f.ratioVm; delete f.ratioVm; }
+    }
+    return raw;
   }
 
   // TS fallback
