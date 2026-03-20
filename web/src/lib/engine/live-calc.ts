@@ -13,6 +13,7 @@
 import { modelStore, resultsStore, uiStore } from '../store';
 import { t } from '../i18n';
 import { initSolver, isWasmReady } from './wasm-solver';
+import { computeGoverning2D, computeGoverning3D } from './governing-case';
 
 // ─── Helpers ──────────────────────────────────────────────────────────────
 
@@ -120,6 +121,9 @@ function liveCalc2D(): void {
     const combo = modelStore.solveCombinations(uiStore.includeSelfWeight);
     if (combo && typeof combo !== 'string') {
       resultsStore.setCombinationResults(combo.perCase, combo.perCombo, combo.envelope);
+      const comboNames = new Map<number, string>();
+      for (const c of modelStore.model.combinations) comboNames.set(c.id, c.name);
+      resultsStore.setGoverning2D(computeGoverning2D(combo.perCombo, comboNames));
     }
   }
 }
@@ -213,6 +217,11 @@ async function globalSolve3D(): Promise<void> {
     resultsStore.setResults3D(firstCaseResult);
     resultsStore.setCombinationResults3D(comboResult.perCase, comboResult.perCombo, comboResult.envelope);
 
+    // Compute governing combo per element
+    const comboNames = new Map<number, string>();
+    for (const c of modelStore.model.combinations) comboNames.set(c.id, c.name);
+    resultsStore.setGoverning3D(computeGoverning3D(comboResult.perCombo, comboNames));
+
     if (uiStore.isMobile) uiStore.mobileResultsPanelOpen = true;
     const elapsed = performance.now() - t0;
     const timeStr = elapsed >= 1000 ? (elapsed / 1000).toFixed(2) + ' s' : elapsed.toFixed(0) + ' ms';
@@ -298,6 +307,9 @@ function globalSolve2D(): void {
     const comboResult = modelStore.solveCombinations(uiStore.includeSelfWeight);
     if (comboResult && typeof comboResult !== 'string') {
       resultsStore.setCombinationResults(comboResult.perCase, comboResult.perCombo, comboResult.envelope);
+      const comboNames = new Map<number, string>();
+      for (const c of modelStore.model.combinations) comboNames.set(c.id, c.name);
+      resultsStore.setGoverning2D(computeGoverning2D(comboResult.perCombo, comboNames));
       comboText = ` + ${comboResult.perCombo.size} ${t('results.combinations')}`;
     }
   }

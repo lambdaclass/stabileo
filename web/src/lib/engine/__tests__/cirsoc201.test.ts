@@ -179,12 +179,17 @@ describe('CIRSOC 201 Verification', () => {
   });
 
   describe('classifyElement', () => {
-    it('should classify vertical element as column', () => {
+    // Convention: Z is the vertical (gravity) axis — Z-up, matching the project's canonical 3D convention
+    it('should classify vertical (Z-up) element as column', () => {
       expect(classifyElement(0, 0, 0, 0, 0, 3)).toBe('column');
     });
 
-    it('should classify horizontal element as beam', () => {
+    it('should classify horizontal X element as beam', () => {
       expect(classifyElement(0, 0, 0, 5, 0, 0)).toBe('beam');
+    });
+
+    it('should classify horizontal Y element as beam', () => {
+      expect(classifyElement(0, 0, 0, 0, 6, 0)).toBe('beam');
     });
 
     it('should classify mostly-horizontal as beam', () => {

@@ -3,8 +3,9 @@
   import type { SolverDiagnostic } from '../../lib/engine/types';
   import { verifyElement, classifyElement, REBAR_DB, computeJointPsiFromModel } from '../../lib/engine/codes/argentina/cirsoc201';
   import type { ElementVerification, VerificationInput } from '../../lib/engine/codes/argentina/cirsoc201';
-  import { generateCrossSectionSvg, generateBeamElevationSvg, generateColumnElevationSvg, generateJointDetailSvg, generateSlabReinforcementSvg, designSlabReinforcement } from '../../lib/engine/reinforcement-svg';
-  import type { SlabDesignResult } from '../../lib/engine/reinforcement-svg';
+  import { generateCrossSectionSvg, generateBeamElevationSvg, generateColumnElevationSvg, generateJointDetailSvg, generateSlabReinforcementSvg, designSlabReinforcement, generateFrameLineElevationSvg } from '../../lib/engine/reinforcement-svg';
+  import type { SlabDesignResult, FramingContext, FrameLineElevationOpts } from '../../lib/engine/reinforcement-svg';
+  import { buildStructuralGraph, getElementFramingContext, type StructuralGraph } from '../../lib/engine/structural-graph';
   import { checkCrackWidth, checkDeflection } from '../../lib/engine/codes/argentina/serviceability';
   import type { CrackResult, DeflectionResult } from '../../lib/engine/codes/argentina/serviceability';
   import { computeQuantities } from '../../lib/engine/quantity-takeoff';
@@ -15,18 +16,22 @@
   import type { DiagramParams } from '../../lib/engine/codes/argentina/interaction-diagram';
   import { isDesignCheckAvailable, checkSteelMembers, checkRcMembers, checkEc2Members, checkEc3Members, checkTimberMembers, checkMasonryMembers, checkCfsMembers, checkBoltGroups, checkWeldGroups, checkSpreadFootings } from '../../lib/engine/wasm-solver';
   import { t } from '../../lib/i18n';
+  import * as XLSX from 'xlsx';
 
   /** Normative code options for design checks */
   type NormativeCode = 'cirsoc' | 'aci-aisc' | 'eurocode' | 'nds' | 'masonry' | 'cfs';
 
-  const normativeOptions: { value: NormativeCode; label: string; wasmKeys: string[] }[] = [
+  const normativeOptionsDefs: { value: NormativeCode; label?: string; labelKey?: string; wasmKeys: string[] }[] = [
     { value: 'cirsoc', label: 'CIRSOC 201/301', wasmKeys: [] },
     { value: 'aci-aisc', label: 'ACI 318 / AISC 360', wasmKeys: ['rcMembers', 'steelMembers'] },
     { value: 'eurocode', label: 'Eurocode 2/3', wasmKeys: ['ec2Members', 'ec3Members'] },
-    { value: 'nds', label: 'NDS (Madera)', wasmKeys: ['timberMembers'] },
-    { value: 'masonry', label: 'Mampostería', wasmKeys: ['masonryMembers'] },
-    { value: 'cfs', label: 'CFS (Conformado en frío)', wasmKeys: ['cfsMembers'] },
+    { value: 'nds', labelKey: 'pro.codeTimber', wasmKeys: ['timberMembers'] },
+    { value: 'masonry', labelKey: 'pro.codeMasonry', wasmKeys: ['masonryMembers'] },
+    { value: 'cfs', labelKey: 'pro.codeCfs', wasmKeys: ['cfsMembers'] },
   ];
+  function normLabel(def: typeof normativeOptionsDefs[number]): string {
+    return def.labelKey ? t(def.labelKey) : def.label!;
+  }
 
   let { verifications = $bindable([]) }: { verifications: ElementVerification[] } = $props();
   let expandedId = $state<number | null>(null);
@@ -41,7 +46,8 @@
   // ── Code mixing: per-category code selection ──
   let mixCodes = $state(false);
   type CheckCategory = 'rc' | 'steel' | 'seismic';
-  const categoryLabels: Record<CheckCategory, string> = { rc: 'H° Armado', steel: 'Acero', seismic: 'Sísmica' };
+  const categoryLabelKeys: Record<CheckCategory, string> = { rc: 'pro.catRc', steel: 'pro.catSteel', seismic: 'pro.catSeismic' };
+  function catLabel(cat: CheckCategory): string { return t(categoryLabelKeys[cat]); }
   const codesForCategory: Record<CheckCategory, NormativeCode[]> = {
     rc: ['cirsoc', 'aci-aisc', 'eurocode'],
     steel: ['cirsoc', 'aci-aisc', 'eurocode', 'cfs'],
@@ -54,7 +60,7 @@
 
   /** Whether the selected normative code has its WASM checks compiled */
   const selectedNormativeAvailable = $derived(() => {
-    const opt = normativeOptions.find(o => o.value === selectedNormative);
+    const opt = normativeOptionsDefs.find(o => o.value === selectedNormative);
     if (!opt || opt.wasmKeys.length === 0) return true; // CIRSOC uses JS, always available
     return opt.wasmKeys.every(k => isDesignCheckAvailable(k));
   });
@@ -65,6 +71,59 @@
   let crackResults = $state<Map<number, CrackResult>>(new Map());
   let deflectionResults = $state<Map<number, DeflectionResult>>(new Map());
   let quantities = $state<QuantitySummary | null>(null);
+
+  // ── Manual reinforcement overrides (session-local) ──
+  interface RebarOverride { barCount: number; barDia: number }
+  let overrides = $state<Map<number, RebarOverride>>(new Map());
+  const overrideCount = $derived(overrides.size);
+
+  function setOverride(elemId: number, barCount: number, barDia: number) {
+    const next = new Map(overrides);
+    next.set(elemId, { barCount, barDia });
+    overrides = next;
+  }
+  function clearOverride(elemId: number) {
+    const next = new Map(overrides);
+    next.delete(elemId);
+    overrides = next;
+  }
+  function clearAllOverrides() { overrides = new Map(); }
+
+  /** Effective main bars string for an element, considering overrides */
+  function effectiveBars(v: ElementVerification): string {
+    const ov = overrides.get(v.elementId);
+    if (ov) return `${ov.barCount} Ø${ov.barDia}`;
+    return v.column ? v.column.bars : v.flexure.bars;
+  }
+  /** Effective AsProv (cm²) for an element, considering overrides */
+  function effectiveAs(v: ElementVerification): number {
+    const ov = overrides.get(v.elementId);
+    if (ov) {
+      const rebar = REBAR_DB.find(r => r.diameter === ov.barDia);
+      return rebar ? ov.barCount * rebar.area : 0;
+    }
+    return v.column ? v.column.AsProv : v.flexure.AsProv;
+  }
+
+  /** Quantities adjusted for active overrides (longitudinal rebar only) */
+  const effectiveQuantities = $derived.by((): QuantitySummary | null => {
+    if (!quantities) return null;
+    if (overrides.size === 0) return quantities;
+    const STEEL_DENSITY = 7850;
+    const elements = quantities.elements.map(eq => {
+      const v = verifications.find(vv => vv.elementId === eq.elementId);
+      if (!v || !overrides.has(eq.elementId)) return eq;
+      const ovAs = effectiveAs(v); // cm²
+      const rebarWeight = ovAs * 1e-4 * eq.length * STEEL_DENSITY;
+      return { ...eq, rebarWeight, totalSteelWeight: rebarWeight + eq.stirrupWeight };
+    });
+    const totalConcreteVolume = elements.reduce((s, e) => s + e.concreteVolume, 0);
+    const totalRebarWeight = elements.reduce((s, e) => s + e.rebarWeight, 0);
+    const totalStirrupWeight = elements.reduce((s, e) => s + e.stirrupWeight, 0);
+    const totalSteelWeight = totalRebarWeight + totalStirrupWeight;
+    const steelRatio = totalConcreteVolume > 0 ? totalSteelWeight / totalConcreteVolume : 0;
+    return { elements, totalConcreteVolume, totalRebarWeight, totalStirrupWeight, totalSteelWeight, steelRatio };
+  });
 
   // Steel verification results (CIRSOC 301)
   let steelVerifications = $state<SteelVerification[]>([]);
@@ -181,13 +240,14 @@
           try {
             const r = runWasmCheck(code, payload);
             if (r && Array.isArray(r.members)) {
-              const label = normativeOptions.find(o => o.value === code)?.label ?? code;
-              wasmResults.push(...r.members.map((m: any) => ({ ...m, _source: `${categoryLabels[cat]} (${label})` })));
+              const found = normativeOptionsDefs.find(o => o.value === code);
+              const label = found ? normLabel(found) : code;
+              wasmResults.push(...r.members.map((m: any) => ({ ...m, _source: `${catLabel(cat)} (${label})` })));
             } else if (r) {
               wasmResults.push(r);
             }
           } catch (e: any) {
-            verifyError = `${categoryLabels[cat]}: ${e.message}`;
+            verifyError = `${catLabel(cat)}: ${e.message}`;
           }
         }
       }
@@ -697,14 +757,17 @@
     mainBars: string;
     stirrups: string;
     totalAsPerElem: number; // cm² per element
+    hasOverride: boolean;
   }
   const rebarSchedule = $derived.by(() => {
     const groups = new Map<string, RebarScheduleEntry>();
     for (const v of verifications) {
-      const mainBars = v.column ? v.column.bars : v.flexure.bars;
+      const isOv = overrides.has(v.elementId);
+      const mainBars = effectiveBars(v);
+      const asProv = effectiveAs(v);
       const stirrups = `eØ${v.shear.stirrupDia} c/${(v.shear.spacing * 100).toFixed(0)}`;
-      // Group by identical reinforcement: same type + dimensions + bars + stirrups
-      const key = `${v.elementType}_${(v.b*100).toFixed(0)}x${(v.h*100).toFixed(0)}_${mainBars}_${stirrups}`;
+      // Group by identical reinforcement: same type + dimensions + bars + stirrups + override status
+      const key = `${v.elementType}_${(v.b*100).toFixed(0)}x${(v.h*100).toFixed(0)}_${mainBars}_${stirrups}_${isOv ? 'ov' : 'auto'}`;
       const existing = groups.get(key);
       if (existing) {
         existing.elementIds.push(v.elementId);
@@ -719,20 +782,59 @@
           b: v.b, h: v.h,
           mainBars,
           stirrups,
-          totalAsPerElem: v.column ? v.column.AsProv : v.flexure.AsProv,
+          totalAsPerElem: asProv,
+          hasOverride: isOv,
         });
       }
     }
-    return Array.from(groups.values());
+    // Sort: type (column → beam → wall), then dimensions (largest first), then first element ID
+    const typeOrder: Record<string, number> = { column: 0, beam: 1, wall: 2 };
+    return Array.from(groups.values()).sort((a, b) => {
+      const t = (typeOrder[a.elementType] ?? 9) - (typeOrder[b.elementType] ?? 9);
+      if (t !== 0) return t;
+      const area = (b.b * b.h) - (a.b * a.h); // larger sections first
+      if (Math.abs(area) > 1e-6) return area;
+      return (a.elementIds[0] ?? 0) - (b.elementIds[0] ?? 0);
+    });
   });
 
-  // Find a beam-column joint pair for the joint detail drawing
-  const jointDetail = $derived.by(() => {
-    const beams = verifications.filter(v => v.elementType === 'beam');
-    const cols = verifications.filter(v => v.elementType === 'column' || v.elementType === 'wall');
-    if (beams.length === 0 || cols.length === 0) return null;
-    const beam = beams[0];
-    const col = cols[0];
+  // ─── Structural connectivity graph ───
+  const structGraph = $derived.by((): StructuralGraph | null => {
+    if (modelStore.elements.size === 0 || modelStore.nodes.size === 0) return null;
+    const graphNodes = new Map<number, { id: number; x: number; y: number; z: number }>();
+    for (const [id, n] of modelStore.nodes) graphNodes.set(id, { id, x: n.x, y: n.y, z: n.z ?? 0 });
+    const graphElements = new Map<number, { id: number; nodeI: number; nodeJ: number; sectionId: number; type: string }>();
+    for (const [id, e] of modelStore.elements) graphElements.set(id, { id, nodeI: e.nodeI, nodeJ: e.nodeJ, sectionId: e.sectionId, type: e.type });
+    const graphSections = new Map<number, { id: number; b?: number; h?: number }>();
+    for (const [id, s] of modelStore.sections) graphSections.set(id, { id, b: s.b, h: s.h });
+    const graphSupports = new Map<number, { nodeId: number; type: string }>();
+    for (const [, s] of modelStore.supports) graphSupports.set(s.nodeId, { nodeId: s.nodeId, type: s.type });
+    return buildStructuralGraph(graphNodes, graphElements, graphSections, graphSupports);
+  });
+
+  /** Derive joint details from the structural graph. */
+  const jointDetails = $derived.by(() => {
+    if (!structGraph || structGraph.joints.length === 0) return [];
+    const verifMap = new Map<number, ElementVerification>();
+    for (const v of verifications) verifMap.set(v.elementId, v);
+
+    // Collect unique joint types (by beam-section + col-section pair)
+    const seen = new Set<string>();
+    const result: Array<ReturnType<typeof makeJointOpts>> = [];
+    for (const joint of structGraph.joints) {
+      const beam = joint.beamIds.map(id => verifMap.get(id)).find(v => v && v.elementType === 'beam');
+      const col = joint.columnIds.map(id => verifMap.get(id)).find(v => v && (v.elementType === 'column' || v.elementType === 'wall'));
+      if (!beam || !col) continue;
+      const key = `${beam.b}_${beam.h}_${col.b}_${col.h}`;
+      if (seen.has(key)) continue;
+      seen.add(key);
+      result.push(makeJointOpts(joint.nodeId, beam, col));
+      if (result.length >= 8) break;
+    }
+    return result;
+  });
+
+  function makeJointOpts(nodeId: number, beam: ElementVerification, col: ElementVerification) {
     return {
       beamB: beam.b, beamH: beam.h,
       colB: col.b, colH: col.h,
@@ -741,13 +843,155 @@
       colBars: col.column?.bars ?? `${col.flexure.barCount} Ø${col.flexure.barDia}`,
       stirrupDia: col.shear.stirrupDia,
       stirrupSpacing: col.shear.spacing,
+      beamDetailing: beam.detailing,
+      colDetailing: col.detailing,
+      nodeId,
+      labels: {
+        title: t('pro.jointDetail'),
+        beam: t('pro.beam'),
+        column: t('pro.column'),
+        joint: t('pro.jointWord') !== 'pro.jointWord' ? t('pro.jointWord') : 'joint',
+        splice: t('pro.lapSplice'),
+      },
     };
+  }
+
+  // Backward compat: single jointDetail for report/existing code
+  const jointDetail = $derived(jointDetails.length > 0 ? jointDetails[0] : null);
+
+  /** Beam frame-line continuity data for continuous elevation drawings. */
+  const beamFrameLines = $derived.by((): FrameLineElevationOpts[] => {
+    if (!structGraph) return [];
+    const verifMap = new Map<number, ElementVerification>();
+    for (const v of verifications) verifMap.set(v.elementId, v);
+
+    const result: FrameLineElevationOpts[] = [];
+    for (const fl of structGraph.frameLines) {
+      if (fl.direction !== 'horizontal' || fl.elementIds.length < 2) continue;
+      // Check that we have verification data for at least some spans
+      const spanData = fl.elementIds.map(eid => {
+        const v = verifMap.get(eid);
+        const len = elementLengthMap.get(eid);
+        return v && len ? { v, len } : null;
+      });
+      if (spanData.filter(Boolean).length < 2) continue;
+
+      const spans = fl.elementIds.map((eid, i) => {
+        const sd = spanData[i];
+        if (!sd) return { length: 1, bottomBars: '?', topBars: '2 Ø10', hasCompSteel: false, stirrupSpacing: 0.2, stirrupDia: 8 };
+        const v = sd.v;
+        const hasComp = v.flexure.isDoublyReinforced && !!v.flexure.barCountComp;
+        return {
+          length: sd.len,
+          bottomBars: v.flexure.bars,
+          topBars: hasComp ? (v.flexure.barsComp ?? '2 Ø10') : '2 Ø10',
+          hasCompSteel: hasComp,
+          stirrupSpacing: v.shear.spacing,
+          stirrupDia: v.shear.stirrupDia,
+          detailing: v.detailing,
+        };
+      });
+
+      const flNodes = fl.nodeIds.map(nid => {
+        const conn = structGraph.nodes.get(nid);
+        return {
+          hasColumn: (conn?.columns.length ?? 0) > 0,
+          hasSupport: !!conn?.support,
+          supportType: conn?.support,
+        };
+      });
+
+      result.push({ spans, nodes: flNodes, labels: { splice: t('pro.lapSplice') } });
+      if (result.length >= 4) break;
+    }
+    return result;
   });
 
   // Grouped schedule entries by element type
   const beamEntries = $derived(rebarSchedule.filter(e => e.elementType === 'beam'));
   const colEntries = $derived(rebarSchedule.filter(e => e.elementType === 'column'));
   const wallEntries = $derived(rebarSchedule.filter(e => e.elementType === 'wall'));
+
+  /** Export rebar schedule + quantities to XLSX */
+  function exportRebarSchedule() {
+    if (rebarSchedule.length === 0) return;
+    const wb = XLSX.utils.book_new();
+
+    // Sheet 1: Grouped rebar schedule
+    const typeLabel = (et: string) => et === 'beam' ? t('pro.elemTypeBeam') : et === 'wall' ? t('pro.elemTypeWall') : t('pro.elemTypeColumn');
+    const schedHeaders = [
+      t('pro.thSectionName'), t('pro.thType'), t('pro.thElements'),
+      'b×h (cm)', t('pro.thMainBars'), t('pro.thStirrups'),
+      `${t('pro.thAsPerElem')} (cm²)`, t('pro.overrideSource'),
+    ];
+    const schedData: (string | number)[][] = [schedHeaders];
+    for (const entry of rebarSchedule) {
+      schedData.push([
+        entry.sectionName,
+        typeLabel(entry.elementType),
+        entry.elementIds.join(', '),
+        `${(entry.b * 100).toFixed(0)}×${(entry.h * 100).toFixed(0)}`,
+        entry.mainBars,
+        entry.stirrups,
+        Number(entry.totalAsPerElem.toFixed(1)),
+        entry.hasOverride ? t('pro.overrideManual') : t('pro.overrideAuto'),
+      ]);
+    }
+    const wsSchedule = XLSX.utils.aoa_to_sheet(schedData);
+    wsSchedule['!cols'] = [{ wch: 18 }, { wch: 10 }, { wch: 28 }, { wch: 10 }, { wch: 14 }, { wch: 14 }, { wch: 12 }, { wch: 10 }];
+    XLSX.utils.book_append_sheet(wb, wsSchedule, t('pro.scheduleTab'));
+
+    // Sheet 2: Per-element quantities (override-aware for longitudinal rebar)
+    const effQty = effectiveQuantities ?? quantities;
+    if (effQty) {
+      const qtyHeaders = [
+        'ID', t('pro.thType'), `L (m)`,
+        `${t('pro.totalConcrete')} (m³)`,
+        `${t('pro.exportRebarWeight')} (kg)`,
+        `${t('pro.exportStirrupWeight')} (kg)`,
+        `${t('pro.totalSteel')} (kg)`,
+      ];
+      const qtyData: (string | number)[][] = [qtyHeaders];
+      const typeOrd: Record<string, number> = { column: 0, beam: 1, wall: 2 };
+      const sortedElems = [...effQty.elements].sort((a, b) => {
+        const diff = (typeOrd[a.elementType] ?? 9) - (typeOrd[b.elementType] ?? 9);
+        return diff !== 0 ? diff : a.elementId - b.elementId;
+      });
+      for (const eq of sortedElems) {
+        qtyData.push([
+          eq.elementId,
+          typeLabel(eq.elementType),
+          Number(eq.length.toFixed(3)),
+          Number(eq.concreteVolume.toFixed(4)),
+          Number(eq.rebarWeight.toFixed(1)),
+          Number(eq.stirrupWeight.toFixed(1)),
+          Number(eq.totalSteelWeight.toFixed(1)),
+        ]);
+      }
+      // Summary row
+      qtyData.push([]);
+      qtyData.push([
+        t('excel.total'), '', '',
+        Number(effQty.totalConcreteVolume.toFixed(2)),
+        Number(effQty.totalRebarWeight.toFixed(0)),
+        Number(effQty.totalStirrupWeight.toFixed(0)),
+        Number(effQty.totalSteelWeight.toFixed(0)),
+      ]);
+      qtyData.push([
+        t('pro.globalRatio'), '', '', '', '', '',
+        `${effQty.steelRatio.toFixed(1)} kg/m³`,
+      ]);
+      if (overrideCount > 0) {
+        qtyData.push([]);
+        qtyData.push([t('pro.qtyOverrideNote')]);
+      }
+      const wsQty = XLSX.utils.aoa_to_sheet(qtyData);
+      wsQty['!cols'] = [{ wch: 8 }, { wch: 10 }, { wch: 8 }, { wch: 16 }, { wch: 14 }, { wch: 14 }, { wch: 14 }];
+      XLSX.utils.book_append_sheet(wb, wsQty, t('pro.materialsSummary'));
+    }
+
+    XLSX.writeFile(wb, `planilla-hierros-${modelStore.model.name || 'modelo'}.xlsx`);
+  }
 
   /** Get support type for an element end node */
   function getSupportType(nodeId: number): 'fixed' | 'pinned' | 'free' {
@@ -756,6 +1000,12 @@
     if (sup.type === 'fixed') return 'fixed';
     return 'pinned';
   }
+
+  /** Framing context from the structural graph (replaces ad-hoc per-call scanning). */
+  function getFramingContext(elementId: number): FramingContext | undefined {
+    if (!structGraph) return undefined;
+    return getElementFramingContext(structGraph, elementId, modelStore.elements as any) as FramingContext | undefined;
+  }
 </script>
 
 <div class="pro-verif">
@@ -763,11 +1013,11 @@
     <div class="pro-verif-title-row">
       <div class="pro-verif-title">{t('pro.normativeVerif')}</div>
       <select bind:value={selectedNormative} class="pro-sel normative-sel" disabled={mixCodes}>
-        {#each normativeOptions as opt}
-          <option value={opt.value}>{opt.label}</option>
+        {#each normativeOptionsDefs as opt}
+          <option value={opt.value}>{normLabel(opt)}</option>
         {/each}
       </select>
-      <label class="mix-toggle" title="Combinar diferentes códigos por categoría">
+      <label class="mix-toggle" title={t('pro.mixCodesTooltip')}>
         <input type="checkbox" bind:checked={mixCodes} />
         <span>Mix</span>
       </label>
@@ -776,10 +1026,11 @@
       <div class="mix-codes-row">
         {#each Object.entries(codesForCategory) as [cat, codes]}
           <label class="mix-code-item">
-            <span class="mix-cat-label">{categoryLabels[cat as CheckCategory]}:</span>
+            <span class="mix-cat-label">{catLabel(cat as CheckCategory)}:</span>
             <select bind:value={mixedCodes[cat as CheckCategory]} class="pro-sel mix-sel">
               {#each codes as code}
-                <option value={code}>{normativeOptions.find(o => o.value === code)?.label}</option>
+                {@const def = normativeOptionsDefs.find(o => o.value === code)}
+                <option value={code}>{def ? normLabel(def) : code}</option>
               {/each}
             </select>
           </label>
@@ -788,7 +1039,7 @@
     {/if}
     {#if !isCirsocSelected && !selectedNormativeAvailable()}
       <div class="pro-wasm-notice">
-        {t('pro.wasmNotice').replace('{code}', normativeOptions.find(o => o.value === selectedNormative)?.label ?? '')}
+        {t('pro.wasmNotice').replace('{code}', (() => { const d = normativeOptionsDefs.find(o => o.value === selectedNormative); return d ? normLabel(d) : ''; })())}
       </div>
     {/if}
     <div class="pro-verif-params">
@@ -836,9 +1087,10 @@
       <span class="status-ok">{countOk} ✓</span>
       <span class="status-warn">{countWarn} ⚠</span>
       <span class="status-fail">{countFail} ✗</span>
-      {#if quantities}
-        <span class="qty-badge">H°: {quantities.totalConcreteVolume.toFixed(2)} m³</span>
-        <span class="qty-badge">Acero: {quantities.totalSteelWeight.toFixed(0)} kg ({quantities.steelRatio.toFixed(0)} kg/m³)</span>
+      {#if effectiveQuantities}
+        <span class="qty-badge">{t('pro.qtyConcreteBadge')}: {effectiveQuantities.totalConcreteVolume.toFixed(2)} m³</span>
+        <span class="qty-badge">{t('pro.qtySteelBadge')}: {effectiveQuantities.totalSteelWeight.toFixed(0)} kg ({effectiveQuantities.steelRatio.toFixed(0)} kg/m³)</span>
+        {#if overrideCount > 0}<span class="override-mark" title={t('pro.qtyOverrideNote')}>*</span>{/if}
       {/if}
       <button class="pro-show-model-btn" onclick={showOnModel} title={t('pro.showOnModel')}>
         {t('pro.showOnModel')}
@@ -870,13 +1122,13 @@
           <thead>
             <tr>
               <th>Elem</th>
-              <th>Tipo</th>
+              <th>{t('pro.thType')}</th>
               <th>Mu</th>
               <th>Vu</th>
               <th>Nu</th>
               <th>As req</th>
               <th>As prov</th>
-              <th>Estribos</th>
+              <th>{t('pro.thStirrups')}</th>
               <th></th>
             </tr>
           </thead>
@@ -885,11 +1137,11 @@
               <tr class={statusClass(v.overallStatus)} onclick={() => { toggleExpand(v.elementId); selectElementInViewport(v.elementId); }} style="cursor:pointer">
                 <td class="col-id">{v.elementId}</td>
                 <td class="col-type">{v.elementType === 'beam' ? t('pro.beam') : v.elementType === 'wall' ? t('pro.wall') : t('pro.column')}</td>
-                <td class="col-num">{fmtNum(v.Mu)}</td>
-                <td class="col-num">{fmtNum(v.Vu)}</td>
-                <td class="col-num">{fmtNum(v.Nu)}</td>
+                <td class="col-num">{fmtNum(v.Mu)}{#if v.governingCombos?.flexure}<br><span class="governing-label">{v.governingCombos.flexure.comboName}</span>{/if}</td>
+                <td class="col-num">{fmtNum(v.Vu)}{#if v.governingCombos?.shear && v.governingCombos.shear.comboId !== v.governingCombos?.flexure?.comboId}<br><span class="governing-label">{v.governingCombos.shear.comboName}</span>{/if}</td>
+                <td class="col-num">{fmtNum(v.Nu)}{#if v.governingCombos?.axial && v.governingCombos.axial.comboId !== v.governingCombos?.flexure?.comboId}<br><span class="governing-label">{v.governingCombos.axial.comboName}</span>{/if}</td>
                 <td class="col-num">{v.column ? v.column.AsTotal.toFixed(1) : v.flexure.AsReq.toFixed(1)}</td>
-                <td class="col-num">{v.column ? v.column.AsProv.toFixed(1) : v.flexure.AsProv.toFixed(1)}{#if !v.column && v.flexure.isDoublyReinforced && v.flexure.AsComp}<br><span style="font-size:0.65rem;color:#4a90d9">+{v.flexure.AsComp.toFixed(1)} A's</span>{/if}</td>
+                <td class="col-num">{#if overrides.has(v.elementId)}<span class="override-mark" title={t('pro.overrideActive')}>{effectiveAs(v).toFixed(1)}</span>{:else}{v.column ? v.column.AsProv.toFixed(1) : v.flexure.AsProv.toFixed(1)}{#if !v.column && v.flexure.isDoublyReinforced && v.flexure.AsComp}<br><span style="font-size:0.65rem;color:#4a90d9">+{v.flexure.AsComp.toFixed(1)} A's</span>{/if}{/if}</td>
                 <td class="col-stirrup">eØ{v.shear.stirrupDia} c/{(v.shear.spacing * 100).toFixed(0)}</td>
                 <td class="col-status"><span class={statusClass(v.overallStatus)}>{statusIcon(v.overallStatus)}</span></td>
               </tr>
@@ -897,48 +1149,105 @@
                 <tr class="detail-row">
                   <td colspan="9">
                     <div class="detail-panel">
-                      <!-- Cross section SVG -->
-                      <div class="detail-svg">
-                        {@html generateCrossSectionSvg({
-                          b: v.b, h: v.h, cover: v.cover,
-                          flexure: v.flexure, shear: v.shear,
-                          column: v.column, isColumn: v.elementType === 'column' || v.elementType === 'wall',
-                        })}
-                      </div>
+                      <!-- Cross section + elevation + interaction SVGs (override-aware) -->
+                      {#if true}
+                        {@const ov = overrides.get(v.elementId)}
+                        {@const effFlexure = ov
+                          ? { ...v.flexure, barCount: ov.barCount, barDia: ov.barDia, bars: `${ov.barCount} Ø${ov.barDia}`, AsProv: effectiveAs(v) }
+                          : v.flexure}
+                        {@const effColumn = v.column
+                          ? (ov ? { ...v.column, barCount: ov.barCount, barDia: ov.barDia, bars: `${ov.barCount} Ø${ov.barDia}`, AsProv: effectiveAs(v) } : v.column)
+                          : undefined}
 
-                      <!-- Elevation SVG -->
-                      {#if v.elementType === 'beam'}
-                        {@const elemLen = elementLengthMap.get(v.elementId) ?? 3}
-                        {@const elem = modelStore.elements.get(v.elementId)}
                         <div class="detail-svg">
-                          {@html generateBeamElevationSvg({
-                            length: elemLen, h: v.h, cover: v.cover,
-                            flexure: v.flexure, shear: v.shear,
-                            supportI: elem ? getSupportType(elem.nodeI) : 'pinned',
-                            supportJ: elem ? getSupportType(elem.nodeJ) : 'pinned',
+                          {@html generateCrossSectionSvg({
+                            b: v.b, h: v.h, cover: v.cover,
+                            flexure: effFlexure, shear: v.shear,
+                            column: effColumn, isColumn: v.elementType === 'column' || v.elementType === 'wall',
+                            layerWord: t('pro.layerWord'),
                           })}
                         </div>
-                      {:else if v.column && (v.elementType === 'column' || v.elementType === 'wall')}
-                        {@const elemLen = elementLengthMap.get(v.elementId) ?? 3}
-                        <div class="detail-svg">
-                          {@html generateColumnElevationSvg({
-                            height: elemLen, b: v.b, h: v.h, cover: v.cover,
-                            column: v.column, shear: v.shear,
-                          })}
-                        </div>
+
+                        {#if v.elementType === 'beam'}
+                          {@const elemLen = elementLengthMap.get(v.elementId) ?? 3}
+                          {@const elem = modelStore.elements.get(v.elementId)}
+                          <div class="detail-svg">
+                            {@html generateBeamElevationSvg({
+                              length: elemLen, b: v.b, h: v.h, cover: v.cover,
+                              flexure: effFlexure, shear: v.shear,
+                              supportI: elem ? getSupportType(elem.nodeI) : 'pinned',
+                              supportJ: elem ? getSupportType(elem.nodeJ) : 'pinned',
+                              detailing: v.detailing,
+                              context: getFramingContext(v.elementId),
+                              spliceLabel: t('pro.lapSplice'),
+                            })}
+                          </div>
+                        {:else if effColumn && (v.elementType === 'column' || v.elementType === 'wall')}
+                          {@const elemLen = elementLengthMap.get(v.elementId) ?? 3}
+                          <div class="detail-svg">
+                            {@html generateColumnElevationSvg({
+                              height: elemLen, b: v.b, h: v.h, cover: v.cover,
+                              column: effColumn, shear: v.shear,
+                              detailing: v.detailing,
+                              context: getFramingContext(v.elementId),
+                              spliceLabel: t('pro.lapSplice'),
+                            })}
+                          </div>
+                        {/if}
+
+                        {#if effColumn}
+                          {@const effBarDia = ov ? ov.barDia : v.flexure.barDia}
+                          {@const diagParams = {
+                            b: v.b, h: v.h, fc: v.fc, fy: rebarFy,
+                            cover: v.cover + stirrupDia / 2000 + effBarDia / 2000,
+                            AsProv: effColumn.AsProv,
+                            barCount: effColumn.barCount,
+                            barDia: effBarDia,
+                          } satisfies DiagramParams}
+                          {@const diagram = generateInteractionDiagram(diagParams)}
+                          <div class="detail-svg interaction-diagram">
+                            {@html generateInteractionSvg(diagram, { Nu: v.Nu, Mu: v.Mu }, 280, 350)}
+                          </div>
+                        {/if}
                       {/if}
 
-                      {#if v.column}
-                        {@const diagParams = {
-                          b: v.b, h: v.h, fc: v.fc, fy: rebarFy,
-                          cover: v.cover + stirrupDia / 2000 + v.flexure.barDia / 2000,
-                          AsProv: v.column.AsProv ?? v.flexure.AsProv,
-                          barCount: v.column.barCount ?? v.flexure.barCount,
-                          barDia: v.flexure.barDia,
-                        } satisfies DiagramParams}
-                        {@const diagram = generateInteractionDiagram(diagParams)}
-                        <div class="detail-svg interaction-diagram">
-                          {@html generateInteractionSvg(diagram, { Nu: v.Nu, Mu: v.Mu }, 280, 350)}
+                      <!-- Override control -->
+                      {#if true}
+                        {@const curOv = overrides.get(v.elementId)}
+                        {@const autoBarCount = v.column ? v.column.barCount : v.flexure.barCount}
+                        {@const autoBarDia = v.column ? (v.column.barDia ?? v.flexure.barDia) : v.flexure.barDia}
+                        {@const ovBarCount = curOv?.barCount ?? autoBarCount}
+                        {@const ovBarDia = curOv?.barDia ?? autoBarDia}
+                        <div class="override-card">
+                          <div class="override-header">
+                            <span class="override-title">{t('pro.overrideTitle')}</span>
+                            {#if curOv}
+                              <button class="override-revert" onclick={() => clearOverride(v.elementId)}>{t('pro.overrideRevert')}</button>
+                            {/if}
+                          </div>
+                          <div class="override-auto">
+                            <span class="override-label">{t('pro.overrideAutoDesign')}:</span>
+                            <span class="override-val">{v.column ? v.column.bars : v.flexure.bars} ({(v.column ? v.column.AsProv : v.flexure.AsProv).toFixed(1)} cm²)</span>
+                          </div>
+                          <div class="override-controls">
+                            <label class="override-label">{t('pro.overrideBarCount')}</label>
+                            <input type="number" class="override-input" min="2" max="40" value={ovBarCount}
+                              oninput={(e: Event) => { const val = parseInt((e.target as HTMLInputElement).value); if (!isNaN(val) && val >= 2 && val <= 40) setOverride(v.elementId, val, ovBarDia); }} />
+                            <label class="override-label">Ø</label>
+                            <select class="override-input" value={ovBarDia}
+                              onchange={(e: Event) => { const dia = parseInt((e.target as HTMLSelectElement).value); setOverride(v.elementId, ovBarCount, dia); }}>
+                              {#each REBAR_DB.filter(r => r.diameter >= 10) as rb}
+                                <option value={rb.diameter}>{rb.diameter}</option>
+                              {/each}
+                            </select>
+                          </div>
+                          {#if curOv}
+                            {@const ovAs = effectiveAs(v)}
+                            {@const reqAs = v.column ? v.column.AsTotal : v.flexure.AsReq}
+                            <div class="override-result" class:override-under={ovAs < reqAs}>
+                              As = {ovAs.toFixed(1)} cm² {ovAs < reqAs ? `< As,req ${reqAs.toFixed(1)}` : `>= As,req ${reqAs.toFixed(1)}`}
+                            </div>
+                          {/if}
                         </div>
                       {/if}
 
@@ -989,6 +1298,16 @@
                             {#each dr.steps as step}<div class="memo-step">{step}</div>{/each}
                           </div>
                         {/if}
+                        {#if v.detailing}
+                          <div class="memo-section">
+                            <div class="memo-title">{t('pro.detailing')}</div>
+                            <div class="memo-step" style="color:#888;font-style:italic">{t('pro.detailingSubtitle')}</div>
+                            {#each v.detailing.bars as bar}
+                              <div class="memo-step">Ø{bar.diameter}: {t('pro.devLength')} = {(bar.ld * 100).toFixed(0)} cm · {t('pro.hookedDev')} = {(bar.ldh * 100).toFixed(0)} cm · {t('pro.lapSplice')} = {(bar.lapSplice * 100).toFixed(0)} cm</div>
+                            {/each}
+                            <div class="memo-step">{t('pro.minSpacing')}: {(v.detailing.minClearSpacing * 1000).toFixed(0)} mm · {t('pro.stirrupHook')}: {v.detailing.stirrupHook}</div>
+                          </div>
+                        {/if}
                       </div>
                     </div>
                   </td>
@@ -1037,6 +1356,40 @@
     <!-- ═══ DETAILING TAB ═══ -->
     {:else if activeSection === 'detailing'}
       <div class="detailing-content">
+        <!-- Joint details first — most important context for understanding reinforcement -->
+        {#if jointDetails.length > 0}
+          <div class="pro-section-label">{t('pro.jointDetail')}</div>
+          <div class="detailing-gallery">
+            {#each jointDetails as jd}
+              <div class="gallery-item">
+                <div class="detail-svg">
+                  {@html generateJointDetailSvg(jd)}
+                </div>
+                <div class="joint-notes">
+                  <div class="memo-step">{t('pro.jointAnchor')}{#if jd.beamDetailing} — ldh = {(Math.max(...jd.beamDetailing.bars.map(b => b.ldh)) * 100).toFixed(0)} cm{/if}</div>
+                  <div class="memo-step">{t('pro.jointStirrup')} eØ{jd.stirrupDia} c/{(jd.stirrupSpacing * 100).toFixed(0)} (CIRSOC 201 §21.5)</div>
+                  {#if jd.colDetailing}<div class="memo-step">{t('pro.lapSplice')}: {(Math.max(...jd.colDetailing.bars.map(b => b.lapSplice)) * 100).toFixed(0)} cm</div>{/if}
+                  <div class="memo-step">{t('pro.jointConfined')}</div>
+                </div>
+              </div>
+            {/each}
+          </div>
+        {/if}
+
+        <!-- Beam continuity elevations (frame-line reinforcement flow) -->
+        {#if beamFrameLines.length > 0}
+          <div class="pro-section-label">{t('pro.beamContinuity') !== 'pro.beamContinuity' ? t('pro.beamContinuity') : 'Beam Continuity'}</div>
+          <div class="detailing-gallery">
+            {#each beamFrameLines as fl, idx}
+              <div class="gallery-item" style="max-width:100%">
+                <div class="detail-svg" style="overflow-x:auto">
+                  {@html generateFrameLineElevationSvg(fl)}
+                </div>
+              </div>
+            {/each}
+          </div>
+        {/if}
+
         {#if beamEntries.length > 0}
           <div class="pro-section-label">{t('pro.beamsLabel')}</div>
           <div class="detailing-gallery">
@@ -1046,20 +1399,24 @@
                 {@const elemLen = elementLengthMap.get(rep.elementId) ?? 3}
                 {@const elem = modelStore.elements.get(rep.elementId)}
                 <div class="gallery-item">
-                  <div class="gallery-title">{entry.sectionName} — Elementos {entry.elementIds.join(', ')}</div>
+                  <div class="gallery-title">{entry.sectionName} — {t('data.elements')} {entry.elementIds.join(', ')}</div>
                   <div class="detail-svg">
                     {@html generateCrossSectionSvg({
                       b: rep.b, h: rep.h, cover: rep.cover,
                       flexure: rep.flexure, shear: rep.shear,
                       column: rep.column, isColumn: false,
+                      layerWord: t('pro.layerWord'),
                     })}
                   </div>
                   <div class="detail-svg">
                     {@html generateBeamElevationSvg({
-                      length: elemLen, h: rep.h, cover: rep.cover,
+                      length: elemLen, b: rep.b, h: rep.h, cover: rep.cover,
                       flexure: rep.flexure, shear: rep.shear,
                       supportI: elem ? getSupportType(elem.nodeI) : 'pinned',
                       supportJ: elem ? getSupportType(elem.nodeJ) : 'pinned',
+                      detailing: rep.detailing,
+                      context: getFramingContext(rep.elementId),
+                      spliceLabel: t('pro.lapSplice'),
                     })}
                   </div>
                 </div>
@@ -1076,18 +1433,22 @@
               {#if rep && rep.column}
                 {@const elemLen = elementLengthMap.get(rep.elementId) ?? 3}
                 <div class="gallery-item">
-                  <div class="gallery-title">{entry.sectionName} — Elementos {entry.elementIds.join(', ')}</div>
+                  <div class="gallery-title">{entry.sectionName} — {t('data.elements')} {entry.elementIds.join(', ')}</div>
                   <div class="detail-svg">
                     {@html generateCrossSectionSvg({
                       b: rep.b, h: rep.h, cover: rep.cover,
                       flexure: rep.flexure, shear: rep.shear,
                       column: rep.column, isColumn: true,
+                      layerWord: t('pro.layerWord'),
                     })}
                   </div>
                   <div class="detail-svg">
                     {@html generateColumnElevationSvg({
                       height: elemLen, b: rep.b, h: rep.h, cover: rep.cover,
                       column: rep.column, shear: rep.shear,
+                      detailing: rep.detailing,
+                      context: getFramingContext(rep.elementId),
+                      spliceLabel: t('pro.lapSplice'),
                     })}
                   </div>
                 </div>
@@ -1104,18 +1465,22 @@
               {#if rep && rep.column}
                 {@const elemLen = elementLengthMap.get(rep.elementId) ?? 3}
                 <div class="gallery-item">
-                  <div class="gallery-title">{entry.sectionName} — Elementos {entry.elementIds.join(', ')}</div>
+                  <div class="gallery-title">{entry.sectionName} — {t('data.elements')} {entry.elementIds.join(', ')}</div>
                   <div class="detail-svg">
                     {@html generateCrossSectionSvg({
                       b: rep.b, h: rep.h, cover: rep.cover,
                       flexure: rep.flexure, shear: rep.shear,
                       column: rep.column, isColumn: true,
+                      layerWord: t('pro.layerWord'),
                     })}
                   </div>
                   <div class="detail-svg">
                     {@html generateColumnElevationSvg({
                       height: elemLen, b: rep.b, h: rep.h, cover: rep.cover,
                       column: rep.column, shear: rep.shear,
+                      detailing: rep.detailing,
+                      context: getFramingContext(rep.elementId),
+                      spliceLabel: t('pro.lapSplice'),
                     })}
                   </div>
                 </div>
@@ -1124,28 +1489,23 @@
           </div>
         {/if}
 
-        <!-- Joint detail -->
-        {#if jointDetail}
-          <div class="pro-section-label">{t('pro.jointDetail')}</div>
-          <div class="detailing-gallery">
-            <div class="gallery-item">
-              <div class="detail-svg">
-                {@html generateJointDetailSvg(jointDetail)}
-              </div>
-              <div class="joint-notes">
-                <div class="memo-step">{t('pro.jointAnchor')}</div>
-                <div class="memo-step">{t('pro.jointStirrup')} eØ{jointDetail.stirrupDia} c/{(jointDetail.stirrupSpacing * 100).toFixed(0)} (CIRSOC 201 §21.5)</div>
-                <div class="memo-step">{t('pro.jointLd')}</div>
-                <div class="memo-step">{t('pro.jointConfined')}</div>
-              </div>
-            </div>
-          </div>
-        {/if}
       </div>
 
     <!-- ═══ SCHEDULE TAB ═══ -->
     {:else if activeSection === 'schedule'}
-      <div class="pro-section-label">{t('pro.scheduleTitle')}</div>
+      <div class="pro-section-label schedule-header">
+        <span>{t('pro.scheduleTitle')}</span>
+        <span class="schedule-actions">
+          {#if overrideCount > 0}
+            <button class="pro-export-btn" onclick={clearAllOverrides} title={t('pro.overrideClearAllTooltip')}>
+              {t('pro.overrideClearAll')} ({overrideCount})
+            </button>
+          {/if}
+          <button class="pro-export-btn" disabled={rebarSchedule.length === 0} onclick={exportRebarSchedule} title={t('pro.exportScheduleTooltip')}>
+            {t('pro.exportSchedule')}
+          </button>
+        </span>
+      </div>
       <div class="pro-verif-table-wrap">
         <table class="pro-verif-table">
           <thead>
@@ -1161,12 +1521,12 @@
           </thead>
           <tbody>
             {#each rebarSchedule as entry}
-              <tr>
+              <tr class:schedule-override={entry.hasOverride}>
                 <td style="color:#4ecdc4">{entry.sectionName}</td>
                 <td class="col-type">{entry.elementType === 'beam' ? t('pro.elemTypeBeam') : entry.elementType === 'wall' ? t('pro.elemTypeWall') : t('pro.elemTypeColumn')}</td>
                 <td class="col-elems" title={entry.elementIds.join(', ')}>{entry.elementIds.length === 1 ? entry.elementIds[0] : `${entry.elementIds.length} elem. (${entry.elementIds.join(', ')})`}</td>
                 <td class="col-num">{(entry.b * 100).toFixed(0)}×{(entry.h * 100).toFixed(0)}</td>
-                <td class="col-stirrup">{entry.mainBars}</td>
+                <td class="col-stirrup">{entry.mainBars}{#if entry.hasOverride} <span class="override-mark" title={t('pro.overrideActive')}>*</span>{/if}</td>
                 <td class="col-stirrup">{entry.stirrups}</td>
                 <td class="col-num">{entry.totalAsPerElem.toFixed(1)} cm²</td>
               </tr>
@@ -1175,21 +1535,26 @@
         </table>
       </div>
 
-      {#if quantities}
-        <div class="pro-section-label">{t('pro.materialsSummary')}</div>
+      {#if effectiveQuantities}
+        <div class="pro-section-label">{t('pro.materialsSummary')}{#if overrideCount > 0} <span class="override-mark">*</span>{/if}</div>
         <div class="schedule-summary">
           <div class="schedule-item">
             <span class="schedule-label">{t('pro.totalConcrete')}</span>
-            <span class="schedule-value">{quantities.totalConcreteVolume.toFixed(2)} m³</span>
+            <span class="schedule-value">{effectiveQuantities.totalConcreteVolume.toFixed(2)} m³</span>
           </div>
           <div class="schedule-item">
             <span class="schedule-label">{t('pro.totalSteel')}</span>
-            <span class="schedule-value">{quantities.totalSteelWeight.toFixed(0)} kg</span>
+            <span class="schedule-value">{effectiveQuantities.totalSteelWeight.toFixed(0)} kg</span>
           </div>
           <div class="schedule-item">
             <span class="schedule-label">{t('pro.globalRatio')}</span>
-            <span class="schedule-value">{quantities.steelRatio.toFixed(1)} kg/m³</span>
+            <span class="schedule-value">{effectiveQuantities.steelRatio.toFixed(1)} kg/m³</span>
           </div>
+          {#if overrideCount > 0}
+            <div class="schedule-item">
+              <span class="schedule-label override-mark">{t('pro.qtyOverrideNote')}</span>
+            </div>
+          {/if}
           {#if slabDesigns.length > 0}
             {@const totalSlabArea = slabDesigns.reduce((s, d) => s + d.spanX * d.spanZ, 0)}
             {@const totalSlabVol = slabDesigns.reduce((s, d) => s + d.spanX * d.spanZ * d.thickness, 0)}
@@ -1254,7 +1619,7 @@
         <table class="pro-verif-table">
           <thead>
             <tr>
-              <th>Nivel (m)</th>
+              <th>{t('pro.driftLevel')}</th>
               <th>h piso (m)</th>
               <th>Δx (mm)</th>
               <th>Δz (mm)</th>
@@ -1279,7 +1644,7 @@
         </table>
       </div>
       {#if storyDrifts.length === 0}
-        <div class="pro-empty">No se detectaron pisos con desplazamientos laterales.</div>
+        <div class="pro-empty">{t('pro.driftNone')}</div>
       {/if}
 
     {:else if activeSection === 'connections'}
@@ -1372,7 +1737,7 @@
       {#if hasResults}
         {t('pro.verifyPrompt')}
       {:else}
-        Primero resolvé la estructura (pestaña Resultados)
+        {t('pro.solveFirst')}
       {/if}
     </div>
   {/if}
@@ -1545,6 +1910,7 @@
   .col-id { width: 30px; color: #666; font-family: monospace; text-align: center; }
   .col-type { font-size: 0.62rem; }
   .col-num { font-family: monospace; text-align: right; font-size: 0.65rem; }
+  .governing-label { font-size: 0.55rem; color: #4a90d9; font-family: sans-serif; font-style: italic; }
   .col-stirrup { font-family: monospace; font-size: 0.6rem; white-space: nowrap; }
   .col-elems { font-size: 0.58rem; color: #888; max-width: 140px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .col-status { text-align: center; font-size: 0.85rem; }
@@ -1705,6 +2071,106 @@
   }
   .schedule-label { color: #888; }
   .schedule-value { color: #4ecdc4; font-family: monospace; font-weight: 600; }
+
+  .pro-export-btn {
+    padding: 3px 10px;
+    font-size: 0.62rem;
+    background: rgba(78, 205, 196, 0.1);
+    color: #4ecdc4;
+    border: 1px solid rgba(78, 205, 196, 0.3);
+    border-radius: 3px;
+    cursor: pointer;
+    white-space: nowrap;
+  }
+  .pro-export-btn:hover:not(:disabled) { background: rgba(78, 205, 196, 0.2); }
+  .pro-export-btn:disabled { opacity: 0.4; cursor: default; }
+
+  /* ─── Schedule header ─── */
+  .schedule-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 6px;
+  }
+  .schedule-actions {
+    display: flex;
+    gap: 4px;
+    align-items: center;
+  }
+
+  /* ─── Override controls ─── */
+  .override-card {
+    flex-shrink: 0;
+    width: 190px;
+    background: #0f1a30;
+    border: 1px solid #1a3050;
+    border-radius: 4px;
+    padding: 8px;
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+  }
+  .override-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+  .override-title {
+    font-size: 0.6rem;
+    font-weight: 600;
+    color: #4ecdc4;
+    text-transform: uppercase;
+  }
+  .override-revert {
+    font-size: 0.55rem;
+    padding: 1px 6px;
+    background: rgba(233, 69, 96, 0.15);
+    color: #e94560;
+    border: 1px solid rgba(233, 69, 96, 0.3);
+    border-radius: 2px;
+    cursor: pointer;
+  }
+  .override-revert:hover { background: rgba(233, 69, 96, 0.3); }
+  .override-auto {
+    font-size: 0.58rem;
+    color: #777;
+  }
+  .override-auto .override-val {
+    font-family: monospace;
+    color: #999;
+  }
+  .override-controls {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    font-size: 0.6rem;
+  }
+  .override-label { color: #888; font-size: 0.58rem; white-space: nowrap; }
+  .override-input {
+    width: 48px;
+    padding: 2px 4px;
+    font-size: 0.6rem;
+    font-family: monospace;
+    background: #0a1628;
+    color: #ccc;
+    border: 1px solid #1a3050;
+    border-radius: 2px;
+  }
+  select.override-input { width: 52px; }
+  .override-result {
+    font-size: 0.58rem;
+    font-family: monospace;
+    color: #4ecdc4;
+    padding: 2px 4px;
+    background: rgba(78, 205, 196, 0.08);
+    border-radius: 2px;
+  }
+  .override-under { color: #e94560; background: rgba(233, 69, 96, 0.08); }
+
+  /* ─── Override marks ─── */
+  .override-mark { color: #f0a500; font-weight: 600; }
+  .schedule-override { background: rgba(240, 165, 0, 0.04); }
+  .schedule-override td { border-bottom-color: rgba(240, 165, 0, 0.15); }
 
   /* ─── Slab cards ─── */
   .slab-card {
