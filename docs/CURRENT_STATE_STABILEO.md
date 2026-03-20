@@ -1,18 +1,19 @@
 # Stabileo — Current Implementation State
 
 > Snapshot for resuming after PR restructuring.
-> Written from branch `feat/a2-ai-access-config`.
+> Updated after restack to stacked PR model.
 
 ## Working Branch
 
-- **Branch**: `feat/a2-ai-access-config`
-- **Ahead of origin/main**: ~21 commits (merges from origin/main, pr/pro-verification-qa, pr/showcase-examples, pr/bombonera-update)
-- **Uncommitted local work**: 14 modified files + 3 new files (Steps A through E)
-- **Build status**: `npm run build` passes (11.4s)
+- **Branch**: `pr/2-pro-rc-deliverable-workflow` (top of the PR stack)
+- **Stack**: PR [1] `pr/1-bombonera-fixture` → `main`, PR [2] → PR [1]
+- **Based on**: latest `origin/main` (includes repo reorganization, generators removal, Z-up fixes)
+- **Build status**: `npm run build` passes
+- **Generators.ts**: DELETED on main. Bombonera is fixture-only (no generator needed).
 
 ## Source of Truth
 
-The current working tree on `feat/a2-ai-access-config` is the single source of truth. All implementation work lives as uncommitted changes on top of the committed merge base. There is no second branch to track.
+The branch `pr/2-pro-rc-deliverable-workflow` is the single source of truth. All product work is committed. The old `feat/a2-ai-access-config` branch is historical and should not be used for new work.
 
 ## What Has Been Implemented (Uncommitted)
 
