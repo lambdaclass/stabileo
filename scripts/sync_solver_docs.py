@@ -33,7 +33,7 @@ def clean_worktree() -> bool:
         "README.md",
         "engine/README.md",
         "scripts/",
-        "automation/",
+        "docs/",
     )
     for line in status.splitlines():
         path = line[3:]

@@ -23,12 +23,12 @@
 </p>
 
 <p align="center">
-  <img src="screenshots/3d-deformed.jpg" alt="3D industrial warehouse showing deformed shape under load" width="100%" />
+  <img src="docs/screenshots/3d-deformed.jpg" alt="3D industrial warehouse showing deformed shape under load" width="100%" />
 </p>
 <p align="center"><sub>3D industrial warehouse with Pratt roof trusses and crane bridge. Orange overlay shows the deformed shape under load. 216 nodes, 538 elements, 30 supports.</sub></p>
 
 <p align="center">
-  <img src="screenshots/3d-colormap.jpg" alt="Same structure with stress utilization color map" width="100%" />
+  <img src="docs/screenshots/3d-colormap.jpg" alt="Same structure with stress utilization color map" width="100%" />
 </p>
 <p align="center"><sub>Same structure with stress utilization color map (σ/fy). Blue = lightly loaded, yellow = moderate, red = approaching yield.</sub></p>
 
@@ -120,7 +120,7 @@ Requires Node.js >= 18.
 | [POSITIONING.md](POSITIONING.md) | Market framing and competitive strategy |
 | [engine/README.md](engine/README.md) | Rust solver engine API and analysis types |
 | [CHANGELOG.md](CHANGELOG.md) | Milestone updates |
-| [research/](research/) | Shell-family research, competitor comparisons, numerical methods |
+| [docs/research/](docs/research/) | Shell-family research, competitor comparisons, numerical methods |
 
 ---
 

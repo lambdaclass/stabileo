@@ -257,9 +257,6 @@ Key test patterns:
 ## Data
 
 - `src/lib/data/steel-profiles.ts` — 100+ European steel profiles (IPE, HEB, HEA, UPN, L, RHS, CHS)
-- `src/lib/templates/generators.ts` — Parametric structure generators
-- `src/lib/store/model-examples-2d.ts` — 2D example structures (8 templates)
-- `src/lib/store/model-examples-3d.ts` — 3D example structures (8 templates)
 
 ## Stress Analysis
 
