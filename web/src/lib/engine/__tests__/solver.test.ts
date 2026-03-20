@@ -707,10 +707,7 @@ describe('12. Beam on spring support', () => {
 });
 
 // ─── 13. Prescribed displacement — support settlement ─────────
-// BUG: Prescribed displacements on fully-restrained structures (all nodes fixed)
-// cause "No free DOFs" error. The solver rejects the model before processing
-// prescribed displacements. Skipped until the solver bug is fixed.
-describe.skip('13. Prescribed displacement (support settlement)', () => {
+describe('13. Prescribed displacement (support settlement)', () => {
   const L = 6;
   const delta = -0.01;
   const EI = STEEL_E * 1000 * STD_IZ; // kN·m²

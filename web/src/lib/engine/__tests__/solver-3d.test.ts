@@ -1413,7 +1413,8 @@ describe('3D Solver — Frame with hinge: M=0 at hinged end', () => {
     { id: 2, x: L, y: 0, z: 0 },
   ];
 
-  // BUG: 2-node fixed-fixed → WASM reports "No free DOFs" (all DOFs restrained)
+  // BUG: hinge+fixed at same node with nf==0: force recovery uses uncondensed FEF,
+  // so the hinge effect is lost. Needs condensed FEF in compute_internal_forces_3d.
   it.skip('hingeStart → moment at start is zero', () => {
     const elements: SolverElement3D[] = [
       { id: 1, type: 'frame', nodeI: 1, nodeJ: 2, materialId: 1, sectionId: 1, hingeStart: true, hingeEnd: false },
@@ -1431,7 +1432,7 @@ describe('3D Solver — Frame with hinge: M=0 at hinged end', () => {
     expect(Math.abs(ef.mzEnd)).toBeGreaterThan(0.1);
   });
 
-  // BUG: 2-node fixed-fixed → WASM reports "No free DOFs" (all DOFs restrained)
+  // BUG: hinge+fixed at same node with nf==0: force recovery uses uncondensed FEF.
   it.skip('hingeEnd → moment at end is zero', () => {
     const elements: SolverElement3D[] = [
       { id: 1, type: 'frame', nodeI: 1, nodeJ: 2, materialId: 1, sectionId: 1, hingeStart: false, hingeEnd: true },
@@ -1587,8 +1588,7 @@ describe('3D Solver — Fixed-fixed beam with uniform load (gravity)', () => {
     { type: 'distributed', data: { elementId: 1, qYI: -q, qYJ: -q, qZI: 0, qZJ: 0 } },
   ];
 
-  // BUG: 2-node fixed-fixed → WASM reports "No free DOFs" (all DOFs restrained)
-  it.skip('end moments = qL²/12 (Mz in SAP2000 for gravity)', () => {
+  it('end moments = qL²/12 (Mz in SAP2000 for gravity)', () => {
     const input = buildInput(nodes, elements, supports, loads);
     const result = solve3D(input);
     assertSuccess(result);
@@ -1600,8 +1600,7 @@ describe('3D Solver — Fixed-fixed beam with uniform load (gravity)', () => {
     expect(Math.abs(ef.mzEnd)).toBeCloseTo(expectedM, 2);
   });
 
-  // BUG: 2-node fixed-fixed → WASM reports "No free DOFs" (all DOFs restrained)
-  it.skip('reactions = qL/2 at each support', () => {
+  it('reactions = qL/2 at each support', () => {
     const input = buildInput(nodes, elements, supports, loads);
     const result = solve3D(input);
     assertSuccess(result);
@@ -1614,8 +1613,7 @@ describe('3D Solver — Fixed-fixed beam with uniform load (gravity)', () => {
     expect(Math.abs(r2.fy)).toBeCloseTo(expectedR, 2);
   });
 
-  // BUG: 2-node fixed-fixed → WASM reports "No free DOFs" (all DOFs restrained)
-  it.skip('global equilibrium', () => {
+  it('global equilibrium', () => {
     const input = buildInput(nodes, elements, supports, loads);
     const result = solve3D(input);
     assertSuccess(result);
@@ -1650,8 +1648,7 @@ describe('3D Solver — Thermal loads', () => {
     expect(tipDisp.ux).toBeCloseTo(expected, 6);
   });
 
-  // BUG: 2-node fixed-fixed → WASM reports "No free DOFs" (all DOFs restrained)
-  it.skip('fixed-fixed thermal → zero displacement, non-zero reactions', () => {
+  it('fixed-fixed thermal → zero displacement, non-zero reactions', () => {
     const nodes: SolverNode3D[] = [
       { id: 1, x: 0, y: 0, z: 0 },
       { id: 2, x: L, y: 0, z: 0 },

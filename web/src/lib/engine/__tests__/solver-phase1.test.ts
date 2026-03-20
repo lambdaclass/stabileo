@@ -824,8 +824,7 @@ describe('1.3 — Analytical benchmarks', () => {
     });
   });
 
-  // BUG: WASM solver rejects fully-restrained structures (0 free DOFs on 2-node fixed-fixed beam)
-  describe.skip('Fixed-fixed beam — uniform load', () => {
+  describe('Fixed-fixed beam — uniform load', () => {
     const L = 5, w = 12;
     const input = makeInput({
       nodes: [[1, 0, 0], [2, L, 0]],
@@ -1236,8 +1235,7 @@ describe('1.4 — Stability and edge cases', () => {
     expect(eq.pass).toBe(true);
   });
 
-  // BUG: WASM solver rejects fully-restrained structures (0 free DOFs on 2-node fixed-fixed beam)
-  it.skip('structure with only prescribed displacement (no loads)', () => {
+  it('structure with only prescribed displacement (no loads)', () => {
     const L = 4;
     const delta = -0.005;
     const input = makeInput({
@@ -1279,21 +1277,22 @@ describe('1.4 — Stability and edge cases', () => {
     expect(true).toBe(true); // passes to document behavior
   });
 
-  it('single node with no elements → error or throw', () => {
+  it('single node with no elements → succeeds with zero results (fully restrained)', () => {
     const input = makeInput({
       nodes: [[1, 0, 0]],
       elements: [],
       supports: [[1, 1, 'fixed']],
       loads: [],
     });
-    let isError = false;
-    try {
-      const result = solve(input);
-      isError = typeof result === 'string';
-    } catch {
-      isError = true;
+    // A single fixed node with no elements is a valid fully-restrained model:
+    // zero displacements, zero reactions, no element forces.
+    const result = solve(input);
+    expect(typeof result).not.toBe('string');
+    if (typeof result !== 'string') {
+      expect(result.displacements).toHaveLength(1);
+      expect(result.displacements[0].ux).toBeCloseTo(0);
+      expect(result.displacements[0].uz).toBeCloseTo(0);
     }
-    expect(isError).toBe(true);
   });
 });
 

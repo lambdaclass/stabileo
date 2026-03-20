@@ -418,8 +418,7 @@ describe('2. Hyperstatic 2D structures', () => {
     expectClose(Math.abs(getReaction(r, 1).my), (-q) * L * L / 8, 0.01, '|MA| = qL²/8');
   });
 
-  // BUG: 2-node fixed-fixed beam has 0 free DOFs — WASM solver rejects it
-  it.skip('Fixed-fixed beam + UDL: R=qL/2, M_end=qL²/12', () => {
+  it('Fixed-fixed beam + UDL: R=qL/2, M_end=qL²/12', () => {
     const L = 6, q = -20;
     const input = makeInput({
       nodes: [[1, 0, 0], [2, L, 0]],
@@ -441,8 +440,7 @@ describe('2. Hyperstatic 2D structures', () => {
     expectClose(Math.abs(mMid), w * L * L / 24, 0.02, '|M_mid| = wL²/24');
   });
 
-  // BUG: 2-node fixed-fixed beam has 0 free DOFs — WASM solver rejects it
-  it.skip('Fixed-fixed beam + central point load: M_ends=PL/8', () => {
+  it('Fixed-fixed beam + central point load: M_ends=PL/8', () => {
     const L = 8, P = -40;
     const input = makeInput({
       nodes: [[1, 0, 0], [2, L, 0]],
@@ -624,8 +622,7 @@ describe('3. Articulations & internal hinges', () => {
 
 describe('4. Complex loads', () => {
 
-  // BUG: 2-node fixed-fixed beam has 0 free DOFs — WASM solver rejects it
-  it.skip('Thermal load on fixed-fixed beam: N=EAαΔT, no vertical displacement', () => {
+  it('Thermal load on fixed-fixed beam: N=EAαΔT, no vertical displacement', () => {
     const L = 6, dt = 30; // °C
     const alpha = 1.2e-5; // /°C
     const E = STEEL_E, A = STD_A;
@@ -1337,8 +1334,7 @@ describe('7. Edge cases — Special supports', () => {
     expectClose(rSpring.rz, -k * dSpring.uz, 0.01, 'R_spring = -k*u');
   });
 
-  // BUG: WASM solver does not handle prescribed displacements on 2-node fixed-fixed beams (0 free DOFs)
-  it.skip('Prescribed displacement: known settlement', () => {
+  it('Prescribed displacement: known settlement', () => {
     const L = 6, settlement = -0.01; // 10mm downward
     const input = makeInput({
       nodes: [[1, 0, 0], [2, L, 0]],

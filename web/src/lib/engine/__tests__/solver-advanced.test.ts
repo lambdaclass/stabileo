@@ -582,8 +582,7 @@ describe('Thermal loads — uniform temperature change', () => {
   const L = 5;
   const DT = 30; // °C
 
-  // BUG: WASM solver rejects 2-node fixed-fixed beams (0 free DOFs)
-  it.skip('fixed-fixed bar with ΔT: |N| = E·A·α·ΔT (restrained expansion)', () => {
+  it('fixed-fixed bar with ΔT: |N| = E·A·α·ΔT (restrained expansion)', () => {
     // Both ends fixed → full restraint → |N| = E*A*α*ΔT
     const input = makeInput({
       nodes: [[1, 0, 0], [2, L, 0]],
@@ -619,8 +618,7 @@ describe('Thermal loads — uniform temperature change', () => {
     expectClose(Math.abs(d2.ux), expectedDelta, 'Thermal expansion magnitude at free end');
   });
 
-  // BUG: WASM solver rejects 2-node fixed-fixed beams (0 free DOFs)
-  it.skip('fixed-fixed bar with ΔT: zero displacement at both ends', () => {
+  it('fixed-fixed bar with ΔT: zero displacement at both ends', () => {
     const input = makeInput({
       nodes: [[1, 0, 0], [2, L, 0]],
       elements: [[1, 1, 2, 'frame']],
@@ -645,8 +643,7 @@ describe('Thermal loads — temperature gradient', () => {
   const L = 5;
   const DTg = 20; // °C gradient (top - bottom)
 
-  // BUG: WASM solver rejects 2-node fixed-fixed beams (0 free DOFs)
-  it.skip('fixed-fixed beam with ΔTg: M = E·I·α·ΔTg/h at both ends', () => {
+  it('fixed-fixed beam with ΔTg: M = E·I·α·ΔTg/h at both ends', () => {
     const input = makeInput({
       nodes: [[1, 0, 0], [2, L, 0]],
       elements: [[1, 1, 2, 'frame']],
@@ -890,8 +887,7 @@ describe('Model serialization round-trip via solver input', () => {
     }
   });
 
-  // BUG: WASM solver rejects 2-node fixed-fixed beams (0 free DOFs)
-  it.skip('solver handles mixed load types on same structure', () => {
+  it('solver handles mixed load types on same structure', () => {
     const input = makeInput({
       nodes: [[1, 0, 0], [2, 5, 0]],
       elements: [[1, 1, 2, 'frame']],
@@ -913,8 +909,7 @@ describe('Model serialization round-trip via solver input', () => {
     expectClose(totalRz, totalVertLoad, 'Vertical equilibrium with mixed loads');
   });
 
-  // BUG: WASM solver rejects 2-node fixed-fixed beams (0 free DOFs)
-  it.skip('thermal + mechanical loads superpose correctly', () => {
+  it('thermal + mechanical loads superpose correctly', () => {
     // Solve with just mechanical, just thermal, and combined — verify superposition
     const base = {
       nodes: [[1, 0, 0], [2, 5, 0]] as Array<[number, number, number]>,
@@ -1119,8 +1114,7 @@ describe('Moving loads on inclined and vertical bars', () => {
     expect(a.weight).toBe(100);
   });
 
-  // BUG: WASM solver rejects 2-node fixed-fixed beams (0 free DOFs)
-  it.skip('computeAxleWorldPositions returns cosTheta≈0, sinTheta≈1 for vertical bar', () => {
+  it('computeAxleWorldPositions returns cosTheta≈0, sinTheta≈1 for vertical bar', () => {
     const result = solveMovingLoads(verticalInput, {
       train: { name: 'test', axles: [{ offset: 0, weight: 100 }] },
       step: 1.0,
@@ -1140,8 +1134,7 @@ describe('Moving loads on inclined and vertical bars', () => {
     expect(a.sinTheta).toBeCloseTo(1, 6);
   });
 
-  // BUG: WASM solver rejects 2-node fixed-fixed beams (0 free DOFs)
-  it.skip('inclined bar with proper supports: transverse load produces bending', () => {
+  it('inclined bar with proper supports: transverse load produces bending', () => {
     // Pinned + rollerX on a 45° bar is unstable for transverse loads (slides freely)
     // Use fixed-fixed supports instead to see bending
     const inclinedFixed = makeInput({
@@ -1167,8 +1160,7 @@ describe('Moving loads on inclined and vertical bars', () => {
     expect(maxMom).toBeGreaterThan(1); // There should be significant bending
   });
 
-  // BUG: WASM solver rejects 2-node fixed-fixed beams (0 free DOFs)
-  it.skip('vertical bar: gravitational load is purely axial, zero transverse bending', () => {
+  it('vertical bar: gravitational load is purely axial, zero transverse bending', () => {
     // On a vertical bar, perpendicular component = weight × cos(90°) = 0
     // All load is axial → V and M from the load should be zero
     const result = solveMovingLoads(verticalInput, {

@@ -44,10 +44,6 @@ pub fn solve_2d(input: &SolverInput) -> Result<AnalysisResults, String> {
     let dof_num = DofNumbering::build_2d(input);
     let pre_solve_diags = super::pre_solve_gates::run_pre_solve_gates_2d(input);
 
-    if dof_num.n_free == 0 {
-        return Err("No free DOFs — all nodes are fully restrained".into());
-    }
-
     let asm = assemble_2d(input, &dof_num);
     let n = dof_num.n_total;
     let nf = dof_num.n_free;
@@ -71,6 +67,65 @@ pub fn solve_2d(input: &SolverInput) -> Result<AnalysisResults, String> {
                 }
             }
         }
+    }
+
+    // Fully restrained: all DOFs are restrained, no solve needed.
+    // u_full = u_r, reactions = K_rr * u_r - F_r, element forces from K*u - FEF.
+    if nf == 0 {
+        let mut u_full = vec![0.0; n];
+        for i in 0..nr {
+            u_full[i] = u_r[i]; // nf==0, so restrained DOFs start at index 0
+        }
+
+        // Reactions = K * u_r - F  (all DOFs are restrained, so K_rr = K, F_r = F)
+        let f_r: Vec<f64> = asm.f.clone();
+        let k_rr_ur = if u_r.iter().any(|v| v.abs() > 1e-15) {
+            // K * u_r via dense matvec
+            let mut ku = vec![0.0; n];
+            for i in 0..n {
+                for j in 0..n {
+                    ku[i] += asm.k[i * n + j] * u_full[j];
+                }
+            }
+            ku
+        } else {
+            vec![0.0; n]
+        };
+        let mut reactions_vec = vec![0.0; nr];
+        for i in 0..nr {
+            reactions_vec[i] = k_rr_ur[i] - f_r[i];
+        }
+
+        let displacements = build_displacements_2d(&dof_num, &u_full);
+        let mut reactions = build_reactions_2d(input, &dof_num, &reactions_vec, &f_r, nf, &u_full);
+        reactions.sort_by_key(|r| r.node_id);
+        let mut element_forces = compute_internal_forces_2d(input, &dof_num, &u_full);
+        element_forces.sort_by_key(|ef| ef.element_id);
+
+        let equilibrium = compute_equilibrium_summary_2d(&asm.f, &reactions_vec, &dof_num, 0.0);
+
+        let mut structured = Vec::new();
+        structured.extend(pre_solve_diags);
+        structured.push(StructuredDiagnostic::global(
+            DiagnosticCode::ResidualOk,
+            Severity::Info,
+            format!("Fully restrained model (0 free DOFs, {} restrained)", nr),
+        ).with_phase("solve"));
+
+        let mut results = AnalysisResults {
+            displacements,
+            reactions,
+            element_forces,
+            constraint_forces: vec![],
+            diagnostics: asm.diagnostics,
+            solver_diagnostics: vec![],
+            structured_diagnostics: structured,
+            equilibrium: Some(equilibrium),
+            result_summary: None,
+            solver_run_meta: Some(SolverRunMeta::new("fully_restrained", nf, input.elements.len(), input.nodes.len())),
+        };
+        results.result_summary = Some(crate::postprocess::result_summary::compute_result_summary_2d(&results));
+        return Ok(results);
     }
 
     // Extract Kff and Ff, modify Ff for prescribed displacement coupling
@@ -271,10 +326,6 @@ pub fn solve_3d(input: &SolverInput3D) -> Result<AnalysisResults3D, String> {
     let dof_num = DofNumbering::build_3d(input);
     let pre_solve_diags = super::pre_solve_gates::run_pre_solve_gates_3d(input);
 
-    if dof_num.n_free == 0 {
-        return Err("No free DOFs — all nodes are fully restrained".into());
-    }
-
     let n = dof_num.n_total;
     let nf = dof_num.n_free;
     let nr = n - nf;
@@ -294,6 +345,74 @@ pub fn solve_3d(input: &SolverInput3D) -> Result<AnalysisResults3D, String> {
                 }
             }
         }
+    }
+
+    // Fully restrained: all DOFs are restrained, no solve needed.
+    if nf == 0 {
+        let asm = assemble_3d(input, &dof_num);
+        let mut u_full = vec![0.0; n];
+        for i in 0..nr {
+            u_full[i] = u_r[i];
+        }
+
+        // Reactions = K * u_r - F  (all DOFs restrained)
+        let f_r: Vec<f64> = asm.f.clone();
+        let k_rr_ur = if u_r.iter().any(|v| v.abs() > 1e-15) {
+            let mut ku = vec![0.0; n];
+            for i in 0..n {
+                for j in 0..n {
+                    ku[i] += asm.k[i * n + j] * u_full[j];
+                }
+            }
+            ku
+        } else {
+            vec![0.0; n]
+        };
+        let mut reactions_vec = vec![0.0; nr];
+        for i in 0..nr {
+            reactions_vec[i] = k_rr_ur[i] - f_r[i];
+        }
+
+        let displacements = build_displacements_3d(&dof_num, &u_full);
+        let mut reactions = build_reactions_3d_inclined(
+            input, &dof_num, &reactions_vec, &f_r, nf, &u_full, &asm.inclined_transforms,
+        );
+        reactions.sort_by_key(|r| r.node_id);
+        let mut element_forces = compute_internal_forces_3d(input, &dof_num, &u_full);
+        element_forces.sort_by_key(|ef| ef.element_id);
+        let plate_stresses = compute_plate_stresses(input, &dof_num, &u_full);
+        let quad_stresses = compute_quad_stresses(input, &dof_num, &u_full);
+
+        let equilibrium = compute_equilibrium_summary_3d(&asm.f, &reactions_vec, &dof_num, 0.0);
+
+        let mut structured = Vec::new();
+        structured.extend(pre_solve_diags);
+        structured.push(StructuredDiagnostic::global(
+            DiagnosticCode::ResidualOk,
+            Severity::Info,
+            format!("Fully restrained model (0 free DOFs, {} restrained)", nr),
+        ).with_phase("solve"));
+
+        let mut results = AnalysisResults3D {
+            displacements,
+            reactions,
+            element_forces,
+            plate_stresses,
+            quad_stresses,
+            quad_nodal_stresses: compute_quad_nodal_stresses(input, &dof_num, &u_full),
+            constraint_forces: vec![],
+            diagnostics: asm.diagnostics,
+            solver_diagnostics: vec![],
+            structured_diagnostics: structured,
+            equilibrium: Some(equilibrium),
+            timings: None,
+            result_summary: None,
+            solver_run_meta: Some(SolverRunMeta::new(
+                "fully_restrained", nf, n_elements, n_nodes,
+            )),
+        };
+        results.result_summary = Some(crate::postprocess::result_summary::compute_result_summary_3d(&results));
+        return Ok(results);
     }
 
     if nf >= SPARSE_THRESHOLD {
