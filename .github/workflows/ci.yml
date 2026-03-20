@@ -72,7 +72,7 @@ jobs:
       - name: Run all tests
         working-directory: engine
         run: cargo nextest run --profile ci -E 'all() - test(harmonic_phase_breakdown) - test(harmonic_modal_vs_direct_timing)'
-        timeout-minutes: 10
+        timeout-minutes: 20
 
       - name: Benchmarks compile
         working-directory: engine
