@@ -623,8 +623,13 @@ export function analyzeSectionStress3D(
   yFiber?: number,
   zFiber?: number,
 ): SectionStressResult3D {
-  // Always use TS fallback for section stress — avoids My/Mz convention
-  // mismatch between TS (My = vertical bending) and Rust (My = about Y axis).
+  // TODO: The TS codebase uses a non-standard My/Mz convention:
+  //   TS:       My = moment causing vertical (y) bending, Mz = moment causing horizontal (z) bending
+  //   Standard: My = moment about Y axis (z-bending), Mz = moment about Z axis (y-bending)
+  // The WASM section-stress uses standard convention, so passing TS-convention
+  // ElementForces3D directly produces wrong results. Fix requires swapping My↔Mz
+  // at the wasm-solver 3D result boundary (affects all 3D consumers).
+  // Until then, use TS fallback to avoid silently wrong stress values.
   const { N, Vy, Vz, Mx, My, Mz } = interpolateForces3D(ef, t);
   return analyzeSectionStressFromForcesTS(N, Vy, Vz, Mx, My, Mz, sec, fy, yFiber, zFiber);
 }
@@ -633,7 +638,6 @@ export function analyzeSectionStress3D(
  * Biaxial stress analysis from raw internal forces (no ElementForces3D needed).
  * Used for 2D sections with rotation: M and V are decomposed by the caller
  * into biaxial components (My, Mz, Vy, Vz) before calling this.
- * Delegates to WASM solver.
  */
 export function analyzeSectionStressFromForces(
   N: number, Vy: number, Vz: number, Mx: number, My: number, Mz: number,
@@ -642,7 +646,7 @@ export function analyzeSectionStressFromForces(
   yFiber?: number,
   zFiber?: number,
 ): SectionStressResult3D {
-  // Always use TS fallback — see analyzeSectionStress3D comment.
+  // See convention mismatch TODO in analyzeSectionStress3D above.
   return analyzeSectionStressFromForcesTS(N, Vy, Vz, Mx, My, Mz, sec, fy, yFiber, zFiber);
 }
 
