@@ -1256,8 +1256,7 @@ describe('7. Edge cases — Mechanisms & errors', () => {
     }
   });
 
-  // BUG: WASM solver does not throw for zero-length elements — it silently produces results
-  it.skip('Zero-length element → error', () => {
+  it('Zero-length element → error', () => {
     const input = makeInput({
       nodes: [[1, 0, 0], [2, 0, 0]], // same position!
       elements: [[1, 1, 2, 'frame']],
@@ -1277,8 +1276,7 @@ describe('7. Edge cases — Mechanisms & errors', () => {
       a: 0,
     });
 
-    // WASM solver throws "Singular stiffness matrix" instead of a specific area error
-    expect(() => solve(input)).toThrow(/singular|mechanism/i);
+    expect(() => solve(input)).toThrow(/area A must be > 0/);
   });
 
   it('Section with Iz=0 → error', () => {
@@ -1290,8 +1288,7 @@ describe('7. Edge cases — Mechanisms & errors', () => {
       iz: 0,
     });
 
-    // WASM solver throws "Singular stiffness matrix" instead of a specific inertia error
-    expect(() => solve(input)).toThrow(/singular|mechanism/i);
+    expect(() => solve(input)).toThrow(/inertia must be > 0/);
   });
 
   it('No loads on structure → zero displacements', () => {
@@ -1621,8 +1618,7 @@ describe('9. Real-world structural configurations', () => {
 
 describe('10. Material property validation', () => {
 
-  // BUG: WASM solver does not validate negative section area — it produces results instead of throwing
-  it.skip('Negative section area → error', () => {
+  it('Negative section area → error', () => {
     const input = makeInput({
       nodes: [[1, 0, 0], [2, 5, 0]],
       elements: [[1, 1, 2, 'frame']],
@@ -1634,8 +1630,7 @@ describe('10. Material property validation', () => {
     expect(() => solve(input)).toThrow();
   });
 
-  // BUG: WASM solver does not validate negative inertia — it produces results instead of throwing
-  it.skip('Negative inertia → error', () => {
+  it('Negative inertia → error', () => {
     const input = makeInput({
       nodes: [[1, 0, 0], [2, 5, 0]],
       elements: [[1, 1, 2, 'frame']],
@@ -1675,8 +1670,7 @@ describe('10. Material property validation', () => {
       [zeroIySection],
     );
 
-    // WASM solver throws instead of returning error string
-    expect(() => solve3D(input)).toThrow(/singular|mechanism/i);
+    expect(() => solve3D(input)).toThrow(/inertia must be > 0/);
   });
 });
 

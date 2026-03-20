@@ -44,6 +44,9 @@ pub fn solve_2d(input: &SolverInput) -> Result<AnalysisResults, String> {
     let dof_num = DofNumbering::build_2d(input);
     let pre_solve_diags = super::pre_solve_gates::run_pre_solve_gates_2d(input);
 
+    // ── Input validation (before assembly) ──
+    validate_input_2d(input)?;
+
     let asm = assemble_2d(input, &dof_num);
     let n = dof_num.n_total;
     let nf = dof_num.n_free;
@@ -53,15 +56,145 @@ pub fn solve_2d(input: &SolverInput) -> Result<AnalysisResults, String> {
     let mut u_r = vec![0.0; nr];
     for sup in input.supports.values() {
         if sup.support_type == "spring" { continue; } // spring DOFs are free
-        let prescribed: [(usize, Option<f64>); 3] = [
-            (0, sup.dx), (1, sup.dz), (2, sup.dry),
-        ];
-        for &(local_dof, val) in &prescribed {
-            if let Some(v) = val {
+
+        if sup.support_type == "inclinedRoller" {
+            // For inclined rollers, prescribed displacements (dx, dz) are given
+            // in global coords. We need to rotate them to the local frame
+            // (where local_dof=1 is the restrained normal direction).
+            if let Some(theta) = sup.angle {
+                let c = theta.cos();
+                let s = theta.sin();
+                let glob_dx = sup.dx.unwrap_or(0.0);
+                let glob_dz = sup.dz.unwrap_or(0.0);
+                // u_local_normal = c * dx + s * dz  (this is the restrained DOF = local_dof 1 after rotation)
+                // But in our scheme, local_dof 0 = rotated-x = normal, local_dof 1 = rotated-z = tangent...
+                // Wait: the rotation matrix R maps global to local: u_local = R * u_global
+                // R = [[c, s], [-s, c]]
+                // local_0 (mapped to ux DOF) = c*dx + s*dz  → this is the normal (restrained, local_dof=0 maps to global DOF for ux)
+                // But in DOF numbering, inclinedRoller restrains local_dof=1 (uz).
+                // After rotation, local_dof=0 (ux row) becomes the normal direction.
+                // Hmm, we need to be careful. Let me re-think.
+                //
+                // DOF numbering: inclinedRoller restrains local_dof=1 (the uz slot).
+                // The rotation R transforms so that: rotated_ux = c*ux + s*uz (= normal direction)
+                //                                    rotated_uz = -s*ux + c*uz (= tangent direction)
+                // But we restrain local_dof=1 which is the uz slot.
+                // After rotation, the uz slot corresponds to the tangent direction, not normal!
+                //
+                // Actually: the apply_inclined_transform_2d rotates the matrix so that
+                // the rotated frame's DOF 0 = normal, DOF 1 = tangent.
+                // But we restrain DOF 1 (uz slot). That means we're restraining the tangent direction!
+                // That's wrong. We should restrain DOF 0 (the normal direction).
+                //
+                // Let me reconsider. Looking at the 3D implementation:
+                // - is_dof_restrained_3d for inclined supports: local_dof 0 is restrained (normal)
+                // - DOF numbering puts local_dof 0 as restrained
+                //
+                // For 2D, inclinedRoller restrains local_dof=1, which after the transform
+                // should map to... Let me think about this differently.
+                //
+                // The rotation is applied to the stiffness matrix at the (ux,uz) DOFs.
+                // After rotation: row 0 = normal equation, row 1 = tangent equation.
+                // We want to restrain the normal direction = row 0 = the ux DOF slot.
+                // So inclinedRoller should restrain local_dof=0, not local_dof=1!
+                //
+                // But current code restrains local_dof=1 for inclinedRoller.
+                // Let me check what happens: if we restrain local_dof=1 (uz slot),
+                // after rotation that's the tangent direction. That would mean
+                // the roller restrains the tangent (free sliding) direction, which is wrong.
+                //
+                // I need to fix this: inclinedRoller with angle should restrain local_dof=0.
+                // But without angle (or angle=0), inclinedRoller = rollerX = restrain uz = local_dof=1.
+                // Hmm, at angle=0 the rotation is identity, so DOF 0 = normal = x direction.
+                // Restraining DOF 0 at angle=0 means restraining x direction = rollerZ behavior.
+                // But inclinedRoller at angle=0 should be rollerX (restrain z, free x).
+                //
+                // The convention: angle θ is measured from X axis, and the support
+                // restrains the direction at angle θ.
+                // At θ=0: restrain X direction → rollerZ behavior (free in Z)
+                //   Wait no: "restrain displacement in the direction at angle θ"
+                //   At θ=0: restrain along X → that's rollerZ behavior
+                //
+                // But the test says: "inclined roller at 0° matches rollerX behavior"
+                // rollerX = restrain uz (vertical), free ux (horizontal)
+                //
+                // So at θ=0: the support restrains the Z (vertical) direction.
+                // This means θ is the angle of the surface normal from Z axis,
+                // or equivalently: the restrained direction is at angle (θ + π/2) from X? No...
+                //
+                // From the test at line 224:
+                //   uPerp = ux * sin(θ) + uz * cos(θ)
+                // This is the component along direction (sin θ, cos θ).
+                // At θ=0: uPerp = uz → perpendicular to surface = Z direction (vertical)
+                // At θ=π/2: uPerp = ux → perpendicular = X direction (horizontal)
+                // So the restrained direction has unit vector (sin θ, cos θ).
+                //
+                // Our rotation matrix should make the restrained DOF slot correspond to
+                // this direction. Let's define:
+                //   restrained direction = (sin θ, cos θ)
+                //   free direction = (-cos θ, sin θ)  (perpendicular, 90° CCW)
+                //
+                // R should map global to local where local[0] = restrained direction:
+                //   R = [[sin θ, cos θ],
+                //        [-cos θ, sin θ]]
+                //
+                // Then local_dof=0 (ux slot) = restrained = sin θ * ux + cos θ * uz
+                //
+                // If we restrain local_dof=1 (uz slot) instead:
+                //   R = [[-cos θ, sin θ],
+                //        [sin θ, cos θ]]
+                //   local_dof=1 = sin θ * ux + cos θ * uz = restrained
+                //
+                // Let me use this second form so inclinedRoller keeps restraining local_dof=1.
+
+                // The restrained direction is (sin θ, cos θ).
+                // In the rotated frame, local_dof=1 should be this direction:
+                // u_local[1] = sin θ * ux + cos θ * uz
+                // u_local[0] = -cos θ * ux + sin θ * uz (free tangent)
+                //
+                // Prescribed displacement in the restrained direction:
+                let u_normal = glob_dx * s + glob_dz * c;
+                if u_normal.abs() > 1e-15 {
+                    // local_dof=1 is restrained
+                    if let Some(&d) = dof_num.map.get(&(sup.node_id, 1)) {
+                        if d >= nf {
+                            u_r[d - nf] = u_normal;
+                        }
+                    }
+                }
+            } else {
+                // No angle: treat as rollerX (restrain uz)
+                if let Some(v) = sup.dz {
+                    if v.abs() > 1e-15 {
+                        if let Some(&d) = dof_num.map.get(&(sup.node_id, 1)) {
+                            if d >= nf {
+                                u_r[d - nf] = v;
+                            }
+                        }
+                    }
+                }
+            }
+            // Rotational prescribed displacement
+            if let Some(v) = sup.dry {
                 if v.abs() > 1e-15 {
-                    if let Some(&d) = dof_num.map.get(&(sup.node_id, local_dof)) {
+                    if let Some(&d) = dof_num.map.get(&(sup.node_id, 2)) {
                         if d >= nf {
                             u_r[d - nf] = v;
+                        }
+                    }
+                }
+            }
+        } else {
+            let prescribed: [(usize, Option<f64>); 3] = [
+                (0, sup.dx), (1, sup.dz), (2, sup.dry),
+            ];
+            for &(local_dof, val) in &prescribed {
+                if let Some(v) = val {
+                    if v.abs() > 1e-15 {
+                        if let Some(&d) = dof_num.map.get(&(sup.node_id, local_dof)) {
+                            if d >= nf {
+                                u_r[d - nf] = v;
+                            }
                         }
                     }
                 }
@@ -96,8 +229,15 @@ pub fn solve_2d(input: &SolverInput) -> Result<AnalysisResults, String> {
             reactions_vec[i] = k_rr_ur[i] - f_r[i];
         }
 
+        // Reverse inclined transforms on displacements
+        for it in &asm.inclined_transforms_2d {
+            reverse_inclined_transform_2d(&mut u_full, &it.dofs, &it.r);
+        }
+
         let displacements = build_displacements_2d(&dof_num, &u_full);
-        let mut reactions = build_reactions_2d(input, &dof_num, &reactions_vec, &f_r, nf, &u_full);
+        let mut reactions = build_reactions_2d_inclined(
+            input, &dof_num, &reactions_vec, &f_r, nf, &u_full, &asm.inclined_transforms_2d,
+        );
         reactions.sort_by_key(|r| r.node_id);
         let mut element_forces = compute_internal_forces_2d(input, &dof_num, &u_full);
         element_forces.sort_by_key(|ef| ef.element_id);
@@ -194,6 +334,12 @@ pub fn solve_2d(input: &SolverInput) -> Result<AnalysisResults, String> {
         }
     }
 
+    // NaN/Inf guard: numerical blow-up means singular matrix
+    let has_nan_inf = u_f.iter().any(|v| v.is_nan() || v.is_infinite());
+    if has_nan_inf {
+        return Err("Singular stiffness matrix — structure is a mechanism".to_string());
+    }
+
     // Compute reactions: R = K_rf * u_f + K_rr * u_r - F_r
     let k_rf = extract_submatrix(&asm.k, n, &rest_idx, &free_idx);
     let k_rr = extract_submatrix(&asm.k, n, &rest_idx, &rest_idx);
@@ -205,9 +351,16 @@ pub fn solve_2d(input: &SolverInput) -> Result<AnalysisResults, String> {
         reactions_vec[i] = k_rf_uf[i] + k_rr_ur[i] - f_r[i];
     }
 
+    // Reverse inclined transforms on displacements before building results
+    for it in &asm.inclined_transforms_2d {
+        reverse_inclined_transform_2d(&mut u_full, &it.dofs, &it.r);
+    }
+
     // Build results
     let displacements = build_displacements_2d(&dof_num, &u_full);
-    let mut reactions = build_reactions_2d(input, &dof_num, &reactions_vec, &f_r, nf, &u_full);
+    let mut reactions = build_reactions_2d_inclined(
+        input, &dof_num, &reactions_vec, &f_r, nf, &u_full, &asm.inclined_transforms_2d,
+    );
     reactions.sort_by_key(|r| r.node_id);
     let mut element_forces = compute_internal_forces_2d(input, &dof_num, &u_full);
     element_forces.sort_by_key(|ef| ef.element_id);
@@ -325,6 +478,9 @@ pub fn solve_3d(input: &SolverInput3D) -> Result<AnalysisResults3D, String> {
         + input.curved_shells.len();
     let dof_num = DofNumbering::build_3d(input);
     let pre_solve_diags = super::pre_solve_gates::run_pre_solve_gates_3d(input);
+
+    // ── Input validation (before assembly) ──
+    validate_input_3d(input)?;
 
     let n = dof_num.n_total;
     let nf = dof_num.n_free;
@@ -1157,6 +1313,30 @@ pub(crate) fn build_reactions_2d(
     reactions
 }
 
+fn build_reactions_2d_inclined(
+    input: &SolverInput,
+    dof_num: &DofNumbering,
+    reactions_vec: &[f64],
+    f_r: &[f64],
+    nf: usize,
+    u_full: &[f64],
+    inclined_transforms: &[InclinedTransformData2D],
+) -> Vec<Reaction> {
+    let mut reactions = build_reactions_2d(input, dof_num, reactions_vec, f_r, nf, u_full);
+
+    // Back-transform inclined support reactions from rotated to global frame
+    for it in inclined_transforms {
+        if let Some(r) = reactions.iter_mut().find(|r| r.node_id == it.node_id) {
+            let rotated = [r.rx, r.rz];
+            // r_global = R^T * r_rotated
+            r.rx = it.r[0][0] * rotated[0] + it.r[1][0] * rotated[1];
+            r.rz = it.r[0][1] * rotated[0] + it.r[1][1] * rotated[1];
+        }
+    }
+
+    reactions
+}
+
 pub(crate) fn build_reactions_3d(
     input: &SolverInput3D,
     dof_num: &DofNumbering,
@@ -1252,6 +1432,124 @@ fn build_reactions_3d_inclined(
     }
 
     reactions
+}
+
+// ── Input validation helpers ──
+
+fn validate_input_2d(input: &SolverInput) -> Result<(), String> {
+    let node_map: std::collections::HashMap<usize, &SolverNode> =
+        input.nodes.values().map(|n| (n.id, n)).collect();
+
+    // 1. Zero-length elements
+    for elem in input.elements.values() {
+        if let (Some(ni), Some(nj)) = (node_map.get(&elem.node_i), node_map.get(&elem.node_j)) {
+            let dx = nj.x - ni.x;
+            let dz = nj.z - ni.z;
+            let l = (dx * dx + dz * dz).sqrt();
+            if l < 1e-10 {
+                return Err(format!("Element {} has zero length", elem.id));
+            }
+        }
+    }
+
+    // 2. Section area <= 0
+    for sec in input.sections.values() {
+        if sec.a <= 0.0 {
+            return Err(format!("Section {}: area A must be > 0", sec.id));
+        }
+    }
+
+    // 3. Section inertia <= 0 (only for sections used by bending elements)
+    // Frame elements with both ends hinged act as trusses — no bending stiffness needed.
+    let bending_section_ids: std::collections::HashSet<usize> = input.elements.values()
+        .filter(|e| e.elem_type == "frame" && !(e.hinge_start && e.hinge_end))
+        .map(|e| e.section_id)
+        .collect();
+    for sec in input.sections.values() {
+        if bending_section_ids.contains(&sec.id) && sec.iz <= 0.0 {
+            return Err(format!("Section {}: inertia must be > 0", sec.id));
+        }
+    }
+
+    // 4. Point load position validation
+    for load in &input.loads {
+        if let SolverLoad::PointOnElement(pl) = load {
+            if let Some(elem) = input.elements.values().find(|e| e.id == pl.element_id) {
+                if let (Some(ni), Some(nj)) = (node_map.get(&elem.node_i), node_map.get(&elem.node_j)) {
+                    let dx = nj.x - ni.x;
+                    let dz = nj.z - ni.z;
+                    let l = (dx * dx + dz * dz).sqrt();
+                    if pl.a < -1e-10 || pl.a > l + 1e-10 {
+                        return Err(format!(
+                            "Element {}: point load position a={:.4} out of range [0, L={:.4}]",
+                            elem.id, pl.a, l
+                        ));
+                    }
+                }
+            }
+        }
+    }
+
+    Ok(())
+}
+
+fn validate_input_3d(input: &SolverInput3D) -> Result<(), String> {
+    let node_map: std::collections::HashMap<usize, &SolverNode3D> =
+        input.nodes.values().map(|n| (n.id, n)).collect();
+
+    // 1. Zero-length elements
+    for elem in input.elements.values() {
+        if let (Some(ni), Some(nj)) = (node_map.get(&elem.node_i), node_map.get(&elem.node_j)) {
+            let dx = nj.x - ni.x;
+            let dy = nj.y - ni.y;
+            let dz = nj.z - ni.z;
+            let l = (dx * dx + dy * dy + dz * dz).sqrt();
+            if l < 1e-10 {
+                return Err(format!("Element {} has zero length", elem.id));
+            }
+        }
+    }
+
+    // 2. Section area <= 0
+    for sec in input.sections.values() {
+        if sec.a <= 0.0 {
+            return Err(format!("Section {}: area A must be > 0", sec.id));
+        }
+    }
+
+    // 3. Section inertia <= 0 (only for sections used by bending elements)
+    // Frame elements with both ends hinged act as trusses — no bending stiffness needed.
+    let bending_section_ids: std::collections::HashSet<usize> = input.elements.values()
+        .filter(|e| e.elem_type == "frame" && !(e.hinge_start && e.hinge_end))
+        .map(|e| e.section_id)
+        .collect();
+    for sec in input.sections.values() {
+        if bending_section_ids.contains(&sec.id) && (sec.iy <= 0.0 || sec.iz <= 0.0) {
+            return Err(format!("Section {}: inertia must be > 0", sec.id));
+        }
+    }
+
+    // 4. Point load position validation
+    for load in &input.loads {
+        if let SolverLoad3D::PointOnElement(pl) = load {
+            if let Some(elem) = input.elements.values().find(|e| e.id == pl.element_id) {
+                if let (Some(ni), Some(nj)) = (node_map.get(&elem.node_i), node_map.get(&elem.node_j)) {
+                    let dx = nj.x - ni.x;
+                    let dy = nj.y - ni.y;
+                    let dz = nj.z - ni.z;
+                    let l = (dx * dx + dy * dy + dz * dz).sqrt();
+                    if pl.a < -1e-10 || pl.a > l + 1e-10 {
+                        return Err(format!(
+                            "Element {}: point load position a={:.4} out of range [0, L={:.4}]",
+                            elem.id, pl.a, l
+                        ));
+                    }
+                }
+            }
+        }
+    }
+
+    Ok(())
 }
 
 pub(crate) fn compute_internal_forces_2d(
@@ -1462,7 +1760,21 @@ pub(crate) fn compute_internal_forces_3d(
                 dof_num.global_dof(elem.node_j, i).map(|d| u[d]).unwrap_or(0.0)
             }).collect();
             let delta: f64 = (0..3).map(|i| (uj[i] - ui[i]) * dir[i]).sum();
-            let n_axial = e * sec.a / l * delta;
+            let mut n_axial = e * sec.a / l * delta;
+
+            // Subtract thermal FEF for truss: f = K*u - FEF
+            // Local thermal FEF at node I (axial) = -EAαΔT, at node J = +EAαΔT
+            // f_local_axial = EA/L * delta - (-EAαΔT) = EA/L * delta + EAαΔT
+            // n = -f_local_axial (sign convention) → n = -(EA/L * delta + EAαΔT)
+            // Equivalently: subtract EAαΔT from n_axial before the sign convention is applied
+            for load in &input.loads {
+                if let SolverLoad3D::Thermal(tl) = load {
+                    if tl.element_id == elem.id {
+                        let alpha = 12e-6;
+                        n_axial -= e * sec.a * alpha * tl.dt_uniform;
+                    }
+                }
+            }
 
             forces.push(ElementForces3D {
                 element_id: elem.id, length: l,
@@ -1585,11 +1897,12 @@ pub(crate) fn compute_internal_forces_3d(
                     let a_param = dl.a.unwrap_or(0.0);
                     let b_param = dl.b.unwrap_or(l);
                     let is_full_fef = (a_param.abs() < 1e-12) && ((b_param - l).abs() < 1e-12);
-                    let fef12 = if is_full_fef {
+                    let mut fef12 = if is_full_fef {
                         element::fef_distributed_3d(dl.q_yi, dl.q_yj, dl.q_zi, dl.q_zj, l)
                     } else {
                         element::fef_partial_distributed_3d(dl.q_yi, dl.q_yj, dl.q_zi, dl.q_zj, a_param, b_param, l)
                     };
+                    element::adjust_fef_for_hinges_3d(&mut fef12, l, elem.hinge_start, elem.hinge_end);
                     if ndof_elem == 14 {
                         let fef14 = element::expand_fef_12_to_14(&fef12);
                         for i in 0..14 {
@@ -1614,25 +1927,20 @@ pub(crate) fn compute_internal_forces_3d(
                 }
                 SolverLoad3D::PointOnElement(pl) if pl.element_id == elem.id => {
                     let fef_y = element::fef_point_load_2d(pl.py, 0.0, 0.0, pl.a, l);
+                    let fef_z = element::fef_point_load_2d(pl.pz, 0.0, 0.0, pl.a, l);
+                    let mut fef12 = [0.0; 12];
+                    fef12[1] = fef_y[1]; fef12[5] = fef_y[2];
+                    fef12[7] = fef_y[4]; fef12[11] = fef_y[5];
+                    fef12[2] = fef_z[1]; fef12[4] = -fef_z[2];
+                    fef12[8] = fef_z[4]; fef12[10] = -fef_z[5];
+                    element::adjust_fef_for_hinges_3d(&mut fef12, l, elem.hinge_start, elem.hinge_end);
                     if ndof_elem == 14 {
-                        let mut fef12 = [0.0; 12];
-                        fef12[1] = fef_y[1]; fef12[5] = fef_y[2];
-                        fef12[7] = fef_y[4]; fef12[11] = fef_y[5];
-                        let fef_z = element::fef_point_load_2d(pl.pz, 0.0, 0.0, pl.a, l);
-                        fef12[2] = fef_z[1]; fef12[4] = -fef_z[2];
-                        fef12[8] = fef_z[4]; fef12[10] = -fef_z[5];
                         let fef14 = element::expand_fef_12_to_14(&fef12);
                         for i in 0..14 { f_local[i] -= fef14[i]; }
                     } else {
-                        f_local[1] -= fef_y[1];
-                        f_local[5] -= fef_y[2];
-                        f_local[7] -= fef_y[4];
-                        f_local[11] -= fef_y[5];
-                        let fef_z = element::fef_point_load_2d(pl.pz, 0.0, 0.0, pl.a, l);
-                        f_local[2] -= fef_z[1];
-                        f_local[4] += fef_z[2];
-                        f_local[8] -= fef_z[4];
-                        f_local[10] += fef_z[5];
+                        for i in 0..12 {
+                            f_local[i] -= fef12[i];
+                        }
                     }
 
                     pt_loads_y.push(PointLoadInfo3D { a: pl.a, p: pl.py });
@@ -1642,11 +1950,12 @@ pub(crate) fn compute_internal_forces_3d(
                     let alpha = 12e-6;
                     let hy = if sec.a > 1e-15 { (12.0 * sec.iz / sec.a).sqrt() } else { 0.1 };
                     let hz = if sec.a > 1e-15 { (12.0 * sec.iy / sec.a).sqrt() } else { 0.1 };
-                    let fef12 = element::fef_thermal_3d(
+                    let mut fef12 = element::fef_thermal_3d(
                         e, sec.a, sec.iy, sec.iz, l,
                         tl.dt_uniform, tl.dt_gradient_y, tl.dt_gradient_z,
                         alpha, hy, hz,
                     );
+                    element::adjust_fef_for_hinges_3d(&mut fef12, l, elem.hinge_start, elem.hinge_end);
                     if ndof_elem == 14 {
                         let fef14 = element::expand_fef_12_to_14(&fef12);
                         for i in 0..14 {

@@ -590,10 +590,7 @@ describe('solve3D — Validation', () => {
     expect(() => solve3D(input)).toThrow(/singular|mechanism/i);
   });
 
-  // Skipped: WASM solver does not reject zero-length elements — it produces
-  // a result with zero-length bars. Pre-solve validation should catch this
-  // before calling the solver. See SOLVER_ROADMAP.md Step 3.
-  it.skip('returns error for zero-length element', () => {
+  it('returns error for zero-length element', () => {
     const input = buildInput3D({
       nodes: [
         { id: 1, x: 0, y: 0, z: 0 },

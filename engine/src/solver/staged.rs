@@ -506,6 +506,7 @@ fn assemble_staged_2d(
         max_diag_k: max_diag,
         artificial_dofs,
         inclined_transforms: vec![],
+        inclined_transforms_2d: vec![],
         diagnostics: vec![],
     }
 }

@@ -986,8 +986,7 @@ describe('3D Solver — Validation errors', () => {
     expect(() => solve3D(input)).toThrow();
   });
 
-  // WASM solver does not reject zero-length elements (returns a result instead of throwing)
-  it.skip('error for zero-length element', () => {
+  it('error for zero-length element', () => {
     const input = buildInput(
       [{ id: 1, x: 0, y: 0, z: 0 }, { id: 2, x: 0, y: 0, z: 0 }],
       [{ id: 1, type: 'frame', nodeI: 1, nodeJ: 2, materialId: 1, sectionId: 1, hingeStart: false, hingeEnd: false }],
@@ -1413,9 +1412,7 @@ describe('3D Solver — Frame with hinge: M=0 at hinged end', () => {
     { id: 2, x: L, y: 0, z: 0 },
   ];
 
-  // BUG: hinge+fixed at same node with nf==0: force recovery uses uncondensed FEF,
-  // so the hinge effect is lost. Needs condensed FEF in compute_internal_forces_3d.
-  it.skip('hingeStart → moment at start is zero', () => {
+  it('hingeStart → moment at start is zero', () => {
     const elements: SolverElement3D[] = [
       { id: 1, type: 'frame', nodeI: 1, nodeJ: 2, materialId: 1, sectionId: 1, hingeStart: true, hingeEnd: false },
     ];
@@ -1432,8 +1429,7 @@ describe('3D Solver — Frame with hinge: M=0 at hinged end', () => {
     expect(Math.abs(ef.mzEnd)).toBeGreaterThan(0.1);
   });
 
-  // BUG: hinge+fixed at same node with nf==0: force recovery uses uncondensed FEF.
-  it.skip('hingeEnd → moment at end is zero', () => {
+  it('hingeEnd → moment at end is zero', () => {
     const elements: SolverElement3D[] = [
       { id: 1, type: 'frame', nodeI: 1, nodeJ: 2, materialId: 1, sectionId: 1, hingeStart: false, hingeEnd: true },
     ];
@@ -1626,8 +1622,7 @@ describe('3D Solver — Thermal loads', () => {
   const dT = 50; // °C
   const alpha = 1.2e-5; // /°C (hardcoded in solver)
 
-  // BUG: WASM solver returns negative ux (-0.0018) for positive thermal expansion; sign convention issue
-  it.skip('free-end axial displacement = α × ΔT × L', () => {
+  it('free-end axial displacement = α × ΔT × L', () => {
     const nodes: SolverNode3D[] = [
       { id: 1, x: 0, y: 0, z: 0 },
       { id: 2, x: L, y: 0, z: 0 },

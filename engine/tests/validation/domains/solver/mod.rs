@@ -21,3 +21,4 @@ mod point_on_element;
 mod reduction;
 mod winkler_extended;
 mod winkler_foundation;
+mod inclined_supports_2d;

@@ -13,15 +13,106 @@ pub struct AssemblyResult {
     pub f: Vec<f64>,       // n_total force vector
     pub max_diag_k: f64,   // Maximum diagonal element (for artificial stiffness)
     pub artificial_dofs: Vec<usize>, // DOFs with artificial stiffness added
-    pub inclined_transforms: Vec<InclinedTransformData>, // Data for reversing inclined support rotations
+    pub inclined_transforms: Vec<InclinedTransformData>, // Data for reversing 3D inclined support rotations
+    pub inclined_transforms_2d: Vec<InclinedTransformData2D>, // Data for reversing 2D inclined support rotations
     pub diagnostics: Vec<crate::types::AssemblyDiagnostic>, // Element quality warnings
 }
 
-/// Data needed to reverse the inclined support rotation after solving.
+/// Data needed to reverse the inclined support rotation after solving (3D).
 pub struct InclinedTransformData {
     pub node_id: usize,
     pub dofs: [usize; 3],        // Global DOF indices for ux, uy, uz
     pub r: [[f64; 3]; 3],        // Rotation matrix (rows = local axes)
+}
+
+/// Data needed to reverse the 2D inclined support rotation after solving.
+pub struct InclinedTransformData2D {
+    pub node_id: usize,
+    pub dofs: [usize; 2],        // Global DOF indices for ux, uz
+    pub r: [[f64; 2]; 2],        // 2×2 rotation matrix
+}
+
+/// Build 2×2 rotation matrix for 2D inclined support at angle θ.
+///
+/// Convention: θ is measured from the Z axis toward the X axis.
+/// The restrained (normal) direction has unit vector (sin θ, cos θ) in global (x, z).
+///   At θ=0: restrained direction = (0, 1) = Z → rollerX behavior (free in X)
+///   At θ=π/2: restrained direction = (1, 0) = X → rollerZ behavior (free in Z)
+///
+/// The rotation maps global (x, z) to local (tangent, normal):
+///   local[0] = tangent (free)   = -cos(θ) * x + sin(θ) * z
+///   local[1] = normal (restrained) = sin(θ) * x + cos(θ) * z
+///
+/// This ensures DOF local_dof=1 (uz slot, restrained for inclinedRoller) corresponds
+/// to the normal direction.
+///
+/// R = [[-cos θ,  sin θ],
+///      [ sin θ,  cos θ]]
+pub fn inclined_rotation_matrix_2d(theta: f64) -> [[f64; 2]; 2] {
+    let c = theta.cos();
+    let s = theta.sin();
+    [[-c, s], [s, c]]
+}
+
+/// Apply 2D inclined support rotation to K and F at the given translational DOFs.
+/// Rotates rows/columns of K and entries of F using 2×2 R.
+fn apply_inclined_transform_2d(k: &mut [f64], f: &mut [f64], n: usize,
+                               dofs: &[usize; 2], r: &[[f64; 2]; 2]) {
+    // Rotate columns: for each row i, K[i, dofs] = K[i, dofs_orig] * R^T
+    for i in 0..n {
+        let mut vals = [0.0; 2];
+        for a in 0..2 {
+            vals[a] = k[i * n + dofs[a]];
+        }
+        for a in 0..2 {
+            let mut sum = 0.0;
+            for b in 0..2 {
+                sum += vals[b] * r[a][b]; // R^T[b][a] = R[a][b]
+            }
+            k[i * n + dofs[a]] = sum;
+        }
+    }
+    // Rotate rows: for each col j, K[dofs, j] = R * K[dofs_orig, j]
+    for j in 0..n {
+        let mut vals = [0.0; 2];
+        for a in 0..2 {
+            vals[a] = k[dofs[a] * n + j];
+        }
+        for a in 0..2 {
+            let mut sum = 0.0;
+            for b in 0..2 {
+                sum += r[a][b] * vals[b];
+            }
+            k[dofs[a] * n + j] = sum;
+        }
+    }
+    // Rotate force: F[dofs] = R * F[dofs_orig]
+    let mut fv = [0.0; 2];
+    for a in 0..2 {
+        fv[a] = f[dofs[a]];
+    }
+    for a in 0..2 {
+        let mut sum = 0.0;
+        for b in 0..2 {
+            sum += r[a][b] * fv[b];
+        }
+        f[dofs[a]] = sum;
+    }
+}
+
+/// Reverse 2D inclined rotation on displacement vector: u_global = R^T * u_rotated
+pub fn reverse_inclined_transform_2d(u: &mut [f64], dofs: &[usize; 2], r: &[[f64; 2]; 2]) {
+    let mut vals = [0.0; 2];
+    for a in 0..2 {
+        vals[a] = u[dofs[a]];
+    }
+    for a in 0..2 {
+        let mut sum = 0.0;
+        for b in 0..2 {
+            sum += r[b][a] * vals[b]; // R^T[a][b] = R[b][a]
+        }
+        u[dofs[a]] = sum;
+    }
 }
 
 /// Build rotation matrix that maps global to local frame where ê₁ = normal.
@@ -205,27 +296,74 @@ pub fn assemble_2d(input: &SolverInput, dof_num: &DofNumbering) -> AssemblyResul
         }
     }
 
-    // Add spring stiffness to diagonal
+    // Add spring stiffness (with rotation support for springs with angle)
     for sup in input.supports.values() {
-        if let Some(kx) = sup.kx {
-            if kx > 0.0 {
+        let kx_val = sup.kx.unwrap_or(0.0);
+        let ky_val = sup.ky.unwrap_or(0.0);  // ky maps to vertical (uz) in 2D
+        let kz_val = sup.kz.unwrap_or(0.0);  // rotational spring
+
+        if sup.support_type == "spring" {
+            if let Some(angle) = sup.angle {
+                if angle.abs() > 1e-15 && (kx_val > 0.0 || ky_val > 0.0) {
+                    // Rotated spring: K_global = R^T * diag(kx, ky) * R
+                    let c = angle.cos();
+                    let s = angle.sin();
+                    let k_xx = kx_val * c * c + ky_val * s * s;
+                    let k_zz = kx_val * s * s + ky_val * c * c;
+                    let k_xz = (kx_val - ky_val) * s * c;
+
+                    if let (Some(&dx), Some(&dz)) = (
+                        dof_num.map.get(&(sup.node_id, 0)),
+                        dof_num.map.get(&(sup.node_id, 1)),
+                    ) {
+                        k_global[dx * n + dx] += k_xx;
+                        k_global[dz * n + dz] += k_zz;
+                        k_global[dx * n + dz] += k_xz;
+                        k_global[dz * n + dx] += k_xz;
+                    }
+                } else {
+                    // No rotation or zero angle: standard diagonal assembly
+                    if kx_val > 0.0 {
+                        if let Some(&d) = dof_num.map.get(&(sup.node_id, 0)) {
+                            k_global[d * n + d] += kx_val;
+                        }
+                    }
+                    if ky_val > 0.0 {
+                        if let Some(&d) = dof_num.map.get(&(sup.node_id, 1)) {
+                            k_global[d * n + d] += ky_val;
+                        }
+                    }
+                }
+            } else {
+                // No angle: standard diagonal assembly
+                if kx_val > 0.0 {
+                    if let Some(&d) = dof_num.map.get(&(sup.node_id, 0)) {
+                        k_global[d * n + d] += kx_val;
+                    }
+                }
+                if ky_val > 0.0 {
+                    if let Some(&d) = dof_num.map.get(&(sup.node_id, 1)) {
+                        k_global[d * n + d] += ky_val;
+                    }
+                }
+            }
+        } else {
+            // Non-spring supports: standard diagonal assembly
+            if kx_val > 0.0 {
                 if let Some(&d) = dof_num.map.get(&(sup.node_id, 0)) {
-                    k_global[d * n + d] += kx;
+                    k_global[d * n + d] += kx_val;
                 }
             }
-        }
-        if let Some(ky) = sup.ky {
-            if ky > 0.0 {
+            if ky_val > 0.0 {
                 if let Some(&d) = dof_num.map.get(&(sup.node_id, 1)) {
-                    k_global[d * n + d] += ky;
+                    k_global[d * n + d] += ky_val;
                 }
             }
         }
-        if let Some(kz) = sup.kz {
-            if kz > 0.0 && dof_num.dofs_per_node >= 3 {
-                if let Some(&d) = dof_num.map.get(&(sup.node_id, 2)) {
-                    k_global[d * n + d] += kz;
-                }
+        // Rotational spring stiffness (kz in 2D SolverSupport = rotational ry stiffness)
+        if kz_val > 0.0 && dof_num.dofs_per_node >= 3 {
+            if let Some(&d) = dof_num.map.get(&(sup.node_id, 2)) {
+                k_global[d * n + d] += kz_val;
             }
         }
     }
@@ -282,12 +420,40 @@ pub fn assemble_2d(input: &SolverInput, dof_num: &DofNumbering) -> AssemblyResul
         }
     }
 
+    // Apply 2D inclined support transformations
+    let mut inclined_transforms_2d = Vec::new();
+    for sup in input.supports.values() {
+        if sup.support_type == "inclinedRoller" {
+            if let Some(theta) = sup.angle {
+                // Only apply transform for non-trivial angles
+                // At angle=0, inclinedRoller already behaves as rollerX (restrain uz)
+                // because the DOF numbering restrains local_dof=1 (uz).
+                // But we still need the transform for any angle, including 0,
+                // to ensure the "restrained uz" is in the rotated frame.
+                let r = inclined_rotation_matrix_2d(theta);
+                if let (Some(&d0), Some(&d1)) = (
+                    dof_num.map.get(&(sup.node_id, 0)),
+                    dof_num.map.get(&(sup.node_id, 1)),
+                ) {
+                    let dofs = [d0, d1];
+                    apply_inclined_transform_2d(&mut k_global, &mut f_global, n, &dofs, &r);
+                    inclined_transforms_2d.push(InclinedTransformData2D {
+                        node_id: sup.node_id,
+                        dofs,
+                        r,
+                    });
+                }
+            }
+        }
+    }
+
     AssemblyResult {
         k: k_global,
         f: f_global,
         max_diag_k: max_diag,
         artificial_dofs,
         inclined_transforms: Vec::new(),
+        inclined_transforms_2d,
         diagnostics: Vec::new(),
     }
 }
@@ -401,6 +567,22 @@ pub fn assemble_3d(input: &SolverInput3D, dof_num: &DofNumbering) -> AssemblyRes
             let ea_l = e * sec.a / l;
             let dir = [dx / l, dy / l, dz / l];
             scatter_truss_3d(&mut k_global, n, ea_l, &dir, elem.node_i, elem.node_j, &dof_num.map);
+
+            // Assemble thermal FEF for truss elements
+            let dpn = dof_num.dofs_per_node;
+            for load in &input.loads {
+                if let SolverLoad3D::Thermal(tl) = load {
+                    if tl.element_id == elem.id {
+                        let alpha = 12e-6; // Steel default
+                        let fx = e * sec.a * alpha * tl.dt_uniform;
+                        // Equivalent nodal loads: node I ← -fx along axis, node J ← +fx along axis
+                        for k in 0..3 {
+                            f_global[elem_dofs[k]]       += -fx * dir[k]; // node I
+                            f_global[elem_dofs[dpn + k]] +=  fx * dir[k]; // node J
+                        }
+                    }
+                }
+            }
         } else {
             // 3D frame element
             let (ex, ey, ez) = compute_local_axes_3d(
@@ -1114,6 +1296,7 @@ pub fn assemble_3d(input: &SolverInput3D, dof_num: &DofNumbering) -> AssemblyRes
         max_diag_k: max_diag,
         artificial_dofs: artificial_dofs_3d,
         inclined_transforms,
+        inclined_transforms_2d: Vec::new(),
         diagnostics,
     }
 }
@@ -1652,6 +1835,23 @@ pub fn assemble_sparse_3d(input: &SolverInput3D, dof_num: &DofNumbering, build_k
                                     trip_rows.push(da); trip_cols.push(db); trip_vals.push(val);
                                 }
                                 if da == db && da < nf { diag_vals[da] += sign * ea_l * dir[i] * dir[j]; }
+                            }
+                        }
+                    }
+                }
+            }
+            // Assemble thermal FEF for truss elements
+            for load in &input.loads {
+                if let SolverLoad3D::Thermal(tl) = load {
+                    if tl.element_id == elem.id {
+                        let alpha = 12e-6;
+                        let fx = e * sec.a * alpha * tl.dt_uniform;
+                        for k in 0..3 {
+                            if let Some(&d) = dof_num.map.get(&(elem.node_i, k)) {
+                                f_global[d] += -fx * dir[k];
+                            }
+                            if let Some(&d) = dof_num.map.get(&(elem.node_j, k)) {
+                                f_global[d] += fx * dir[k];
                             }
                         }
                     }

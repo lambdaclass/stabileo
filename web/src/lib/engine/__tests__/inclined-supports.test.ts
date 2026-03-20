@@ -59,8 +59,7 @@ function distLoad(elementId: number, qI: number, qJ: number): SolverLoad {
 // ─── Inclined Roller: Basic Behavior ─────────────────────────────────
 
 describe('Inclined Roller - Basic Behavior', () => {
-  // WASM solver does not support inclined/rotated supports
-  it.skip('45° inclined roller: reaction has equal horizontal and vertical components', () => {
+  it('45° inclined roller: reaction has equal horizontal and vertical components', () => {
     // Horizontal beam: node 1 (0,0) pinned, node 2 (5,0) with 45° inclined roller
     // Vertical load -10 kN at node 2
     // 45° roller restrains perpendicular to 45° surface → restrains at 45° from horizontal
@@ -121,8 +120,8 @@ describe('Inclined Roller - Basic Behavior', () => {
     expect(Math.abs(getRx(resB, 2))).toBeLessThan(0.1);
   });
 
-  // WASM solver does not support inclined/rotated supports
-  it.skip('inclined roller at 90° matches rollerY behavior', () => {
+
+  it('inclined roller at 90° matches rollerY behavior', () => {
     const inputRollerY = makeInput({
       nodes: [{ id: 1, x: 0, y: 0 }, { id: 2, x: 4, y: 0 }],
       elements: [{ id: 1, nodeI: 1, nodeJ: 2 }],
@@ -272,8 +271,8 @@ describe('Inclined Bars with Inclined Supports', () => {
     expect(totalFz).toBeCloseTo(10, 1);
   });
 
-  // WASM solver does not support inclined/rotated supports
-  it.skip('triangular truss with inclined roller: correct member forces', () => {
+
+  it('triangular truss with inclined roller: correct member forces', () => {
     // Triangle: nodes at (0,0), (4,0), (2,3)
     // Pinned at node 1, inclined roller at 30° at node 2
     // Vertical load at node 3
@@ -362,8 +361,8 @@ describe('Rotated Spring Supports', () => {
     expect(Math.abs(d2.ux)).toBeLessThan(Math.abs(d2.uz));
   });
 
-  // WASM solver does not support inclined/rotated supports
-  it.skip('spring at 90° rotation: kx acts vertically, ky acts horizontally', () => {
+
+  it('spring at 90° rotation: kx acts vertically, ky acts horizontally', () => {
     // Spring with kx=5000, ky=0 rotated 90° should act like ky=5000 vertically
     const inputNormal = makeInput({
       nodes: [{ id: 1, x: 0, y: 0 }, { id: 2, x: 4, y: 0 }],
@@ -395,8 +394,8 @@ describe('Rotated Spring Supports', () => {
     expect(d2rotated.uz).toBeCloseTo(d2normal.uz, 4);
   });
 
-  // WASM solver does not support inclined/rotated supports
-  it.skip('spring at 45°: stiffness couples both directions', () => {
+
+  it('spring at 45°: stiffness couples both directions', () => {
     // Spring with kx=10000, ky=0 at 45° should add equal stiffness to both x and y
     // and cross-coupling terms
     const input = makeInput({
@@ -417,8 +416,8 @@ describe('Rotated Spring Supports', () => {
     expect(Math.abs(d2.ux)).toBeGreaterThan(1e-6); // coupling produces horizontal displacement
   });
 
-  // WASM solver does not support inclined/rotated supports
-  it.skip('rotated spring: equilibrium is satisfied', () => {
+
+  it('rotated spring: equilibrium is satisfied', () => {
     const input = makeInput({
       nodes: [{ id: 1, x: 0, y: 0 }, { id: 2, x: 3, y: 0 }],
       elements: [{ id: 1, nodeI: 1, nodeJ: 2 }],
@@ -457,8 +456,8 @@ describe('Prescribed Displacement on Inclined Rollers', () => {
     expect(d2.uz).toBeCloseTo(-0.01, 4);
   });
 
-  // WASM solver does not support inclined/rotated supports
-  it.skip('inclined roller at 45° with prescribed di: displacement in restrained direction', () => {
+
+  it('inclined roller at 45° with prescribed di: displacement in restrained direction', () => {
     // Inclined roller at 45° with di = 0.005m
     // Restrained direction: 45° from horizontal
     // Prescribed: u_perp = di = 0.005
@@ -630,8 +629,8 @@ describe('Mixed: Inclined Bars + Loads + Supports', () => {
     expect(result.elementForces.length).toBe(1);
   });
 
-  // WASM solver does not support inclined/rotated supports
-  it.skip('complex structure: frame with inclined members and inclined rollers', () => {
+
+  it('complex structure: frame with inclined members and inclined rollers', () => {
     // 3-bar structure with various angles
     const input = makeInput({
       nodes: [

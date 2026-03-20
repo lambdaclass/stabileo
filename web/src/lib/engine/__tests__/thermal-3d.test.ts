@@ -505,9 +505,7 @@ describe('3D Thermal Loads — Combined and Multi-Element', () => {
   });
 });
 
-// Truss thermal tests skipped: WASM 3D assembly does not apply thermal FEF to truss elements.
-// The truss branch in assemble_3d skips load assembly (only stiffness is assembled).
-describe.skip('3D Thermal Loads — Truss', () => {
+describe('3D Thermal Loads — Truss', () => {
   it('10. uniform temperature on fixed-fixed truss → axial force', () => {
     const DT = 30;
     const input = buildInput(
