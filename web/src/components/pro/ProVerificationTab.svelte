@@ -860,52 +860,86 @@
   const jointDetail = $derived(jointDetails.length > 0 ? jointDetails[0] : null);
 
   /** Beam frame-line continuity data for continuous elevation drawings. */
-  const beamFrameLines = $derived.by((): FrameLineElevationOpts[] => {
+  /** Beam frame lines organized by floor level and axis. */
+  interface FloorBeamGroup {
+    z: number;
+    label: string;
+    xLines: FrameLineElevationOpts[];
+    yLines: FrameLineElevationOpts[];
+    otherLines: FrameLineElevationOpts[];
+  }
+
+  const beamFloorGroups = $derived.by((): FloorBeamGroup[] => {
     if (!structGraph) return [];
     const verifMap = new Map<number, ElementVerification>();
     for (const v of verifications) verifMap.set(v.elementId, v);
 
-    const result: FrameLineElevationOpts[] = [];
+    // Build all beam frame lines (no flat cap)
+    const allLines: Array<{ opts: FrameLineElevationOpts; z: number }> = [];
     for (const fl of structGraph.frameLines) {
       if (fl.direction !== 'horizontal' || fl.elementIds.length < 2) continue;
-      // Check that we have verification data for at least some spans
       const spanData = fl.elementIds.map(eid => {
-        const v = verifMap.get(eid);
-        const len = elementLengthMap.get(eid);
+        const v = verifMap.get(eid); const len = elementLengthMap.get(eid);
         return v && len ? { v, len } : null;
       });
       if (spanData.filter(Boolean).length < 2) continue;
 
-      const spans = fl.elementIds.map((eid, i) => {
+      const spans = fl.elementIds.map((_, i) => {
         const sd = spanData[i];
         if (!sd) return { length: 1, bottomBars: '?', topBars: '2 Ø10', hasCompSteel: false, stirrupSpacing: 0.2, stirrupDia: 8 };
         const v = sd.v;
         const hasComp = v.flexure.isDoublyReinforced && !!v.flexure.barCountComp;
-        return {
-          length: sd.len,
-          bottomBars: v.flexure.bars,
-          topBars: hasComp ? (v.flexure.barsComp ?? '2 Ø10') : '2 Ø10',
-          hasCompSteel: hasComp,
-          stirrupSpacing: v.shear.spacing,
-          stirrupDia: v.shear.stirrupDia,
-          detailing: v.detailing,
-        };
+        return { length: sd.len, bottomBars: v.flexure.bars, topBars: hasComp ? (v.flexure.barsComp ?? '2 Ø10') : '2 Ø10', hasCompSteel: hasComp, stirrupSpacing: v.shear.spacing, stirrupDia: v.shear.stirrupDia, detailing: v.detailing };
       });
 
       const flNodes = fl.nodeIds.map(nid => {
         const conn = structGraph.nodes.get(nid);
-        return {
-          hasColumn: (conn?.columns.length ?? 0) > 0,
-          hasSupport: !!conn?.support,
-          supportType: conn?.support,
-        };
+        return { hasColumn: (conn?.columns.length ?? 0) > 0, hasSupport: !!conn?.support, supportType: conn?.support };
       });
 
-      result.push({ spans, nodes: flNodes, labels: { splice: t('pro.lapSplice') }, axis: fl.axis });
-      if (result.length >= 4) break;
+      // Determine floor Z from the first node's Z coordinate
+      const firstNodeId = fl.nodeIds[0];
+      const firstNode = modelStore.nodes.get(firstNodeId);
+      const z = firstNode ? Math.round((firstNode.z ?? 0) * 10) / 10 : 0;
+
+      allLines.push({ opts: { spans, nodes: flNodes, labels: { splice: t('pro.lapSplice') }, axis: fl.axis }, z });
     }
-    return result;
+
+    // Group by floor Z
+    const floorMap = new Map<number, { x: FrameLineElevationOpts[]; y: FrameLineElevationOpts[]; other: FrameLineElevationOpts[] }>();
+    for (const { opts, z } of allLines) {
+      let group = floorMap.get(z);
+      if (!group) { group = { x: [], y: [], other: [] }; floorMap.set(z, group); }
+      if (opts.axis === 'X') group.x.push(opts);
+      else if (opts.axis === 'Y') group.y.push(opts);
+      else group.other.push(opts);
+    }
+
+    // Sort floors top-to-bottom (roof first — typical engineering reading)
+    const floors = [...floorMap.entries()]
+      .sort((a, b) => b[0] - a[0])
+      .map(([z, g]) => ({
+        z,
+        label: `Z = ${z.toFixed(1)} m`,
+        xLines: g.x.slice(0, 4),
+        yLines: g.y.slice(0, 4),
+        otherLines: g.other.slice(0, 2),
+      }));
+
+    // Cap: show up to 4 representative floors (top, bottom, 2 middle)
+    if (floors.length > 4) {
+      const top = floors[0];
+      const bottom = floors[floors.length - 1];
+      const mid1 = floors[Math.floor(floors.length / 3)];
+      const mid2 = floors[Math.floor(2 * floors.length / 3)];
+      const selected = [top, mid1, mid2, bottom].filter((f, i, arr) => arr.indexOf(f) === i);
+      return selected;
+    }
+    return floors;
   });
+
+  // Flat list for report compatibility
+  const beamFrameLines = $derived(beamFloorGroups.flatMap(fg => [...fg.xLines, ...fg.yLines, ...fg.otherLines]));
 
   /** Column stack continuity data for vertical frame-line drawings. */
   const columnStackLines = $derived.by((): ColumnStackElevationOpts[] => {
@@ -1458,44 +1492,40 @@
           </div>
         {/if}
 
-        <!-- Beam continuity elevations — grouped by axis -->
-        {#if beamFrameLines.length > 0}
-          {#if beamFrameLines.some(fl => fl.axis === 'X')}
-            <div class="pro-section-label">{t('pro.beamContinuity')} — X</div>
-            <div class="detailing-gallery">
-              {#each beamFrameLines.filter(fl => fl.axis === 'X') as fl}
-                <div class="gallery-item" style="max-width:100%">
-                  <div class="detail-svg" style="overflow-x:auto">
-                    {@html generateFrameLineElevationSvg(fl)}
+        <!-- Beam continuity elevations — organized by floor and axis -->
+        {#if beamFloorGroups.length > 0}
+          {#each beamFloorGroups as fg}
+            {#if fg.xLines.length > 0}
+              <div class="pro-section-label">{t('pro.beamContinuity')} — X · {fg.label}</div>
+              <div class="detailing-gallery">
+                {#each fg.xLines as fl}
+                  <div class="gallery-item" style="max-width:100%">
+                    <div class="detail-svg" style="overflow-x:auto">{@html generateFrameLineElevationSvg(fl)}</div>
                   </div>
-                </div>
-              {/each}
-            </div>
-          {/if}
-          {#if beamFrameLines.some(fl => fl.axis === 'Y')}
-            <div class="pro-section-label">{t('pro.beamContinuity')} — Y</div>
-            <div class="detailing-gallery">
-              {#each beamFrameLines.filter(fl => fl.axis === 'Y') as fl}
-                <div class="gallery-item" style="max-width:100%">
-                  <div class="detail-svg" style="overflow-x:auto">
-                    {@html generateFrameLineElevationSvg(fl)}
+                {/each}
+              </div>
+            {/if}
+            {#if fg.yLines.length > 0}
+              <div class="pro-section-label">{t('pro.beamContinuity')} — Y · {fg.label}</div>
+              <div class="detailing-gallery">
+                {#each fg.yLines as fl}
+                  <div class="gallery-item" style="max-width:100%">
+                    <div class="detail-svg" style="overflow-x:auto">{@html generateFrameLineElevationSvg(fl)}</div>
                   </div>
-                </div>
-              {/each}
-            </div>
-          {/if}
-          {#if beamFrameLines.some(fl => fl.axis === 'other')}
-            <div class="pro-section-label">{t('pro.beamContinuity')}</div>
-            <div class="detailing-gallery">
-              {#each beamFrameLines.filter(fl => fl.axis === 'other') as fl}
-                <div class="gallery-item" style="max-width:100%">
-                  <div class="detail-svg" style="overflow-x:auto">
-                    {@html generateFrameLineElevationSvg(fl)}
+                {/each}
+              </div>
+            {/if}
+            {#if fg.otherLines.length > 0}
+              <div class="pro-section-label">{t('pro.beamContinuity')} · {fg.label}</div>
+              <div class="detailing-gallery">
+                {#each fg.otherLines as fl}
+                  <div class="gallery-item" style="max-width:100%">
+                    <div class="detail-svg" style="overflow-x:auto">{@html generateFrameLineElevationSvg(fl)}</div>
                   </div>
-                </div>
-              {/each}
-            </div>
-          {/if}
+                {/each}
+              </div>
+            {/if}
+          {/each}
         {/if}
 
         <!-- Column continuity elevations -->
