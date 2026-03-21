@@ -1145,6 +1145,7 @@
               <th>As req</th>
               <th>As prov</th>
               <th>{t('pro.thStirrups')}</th>
+              <th>SLS</th>
               <th></th>
             </tr>
           </thead>
@@ -1159,14 +1160,15 @@
                 <td class="col-num">{v.column ? v.column.AsTotal.toFixed(1) : v.flexure.AsReq.toFixed(1)}</td>
                 <td class="col-num">{#if overrides.has(v.elementId)}<span class="override-mark" title={t('pro.overrideActive')}>{effectiveAs(v).toFixed(1)}</span>{:else}{v.column ? v.column.AsProv.toFixed(1) : v.flexure.AsProv.toFixed(1)}{#if !v.column && v.flexure.isDoublyReinforced && v.flexure.AsComp}<br><span style="font-size:0.65rem;color:#4a90d9">+{v.flexure.AsComp.toFixed(1)} A's</span>{/if}{/if}</td>
                 <td class="col-stirrup">eØ{v.shear.stirrupDia} c/{(v.shear.spacing * 100).toFixed(0)}</td>
+                <td class="col-sls">{#if crackResults.has(v.elementId) || deflectionResults.has(v.elementId)}{@const cr = crackResults.get(v.elementId)}{@const dr = deflectionResults.get(v.elementId)}{#if cr}<span class={statusClass(cr.status)} title="w_k={cr.wk.toFixed(2)}mm / {cr.wLimit.toFixed(2)}mm">{cr.wk.toFixed(2)}</span>{/if}{#if cr && dr}<br>{/if}{#if dr}<span class={statusClass(dr.status)} title="L/{Math.round(1/dr.ratio)} vs L/{Math.round(1/dr.limit)}">L/{Math.round(1/dr.ratio)}</span>{/if}{:else}<span class="dim-text">—</span>{/if}</td>
                 <td class="col-status">
                   <span class={statusClass(v.overallStatus)}>{statusIcon(v.overallStatus)}</span>
-                  {#if v.slender}<br><span class="slender-badge" title="k·Lu/r={v.slender.klu_r.toFixed(1)}, δns={v.slender.delta_ns.toFixed(2)}">{v.slender.isSlender ? 'δ=' + v.slender.delta_ns.toFixed(2) : ''}</span>{/if}
+                  {#if v.slender && v.slender.isSlender}<br><span class="slender-badge" title="k·Lu/r={v.slender.klu_r.toFixed(1)}, δns={v.slender.delta_ns.toFixed(2)}">δ={v.slender.delta_ns.toFixed(2)}</span>{/if}
                 </td>
               </tr>
               {#if expandedId === v.elementId}
                 <tr class="detail-row">
-                  <td colspan="9">
+                  <td colspan="10">
                     <div class="detail-panel">
                       <!-- Cross section + elevation + interaction SVGs (override-aware) -->
                       {#if true}
@@ -1300,6 +1302,20 @@
                         {#if v.slender}
                           <div class="memo-section">
                             <div class="memo-title">{t('pro.slenderness')} {v.slender.isSlender ? t('pro.slenderCol') : t('pro.shortCol')}</div>
+                            <div class="slender-factors">
+                              <span>k = {v.slender.k.toFixed(2)}</span>
+                              <span>Lu = {v.slender.lu.toFixed(2)} m</span>
+                              <span>r = {(v.slender.r * 100).toFixed(1)} cm</span>
+                              <span>k·Lu/r = {v.slender.klu_r.toFixed(1)}</span>
+                              <span>λ_lim = {v.slender.lambda_lim.toFixed(0)}</span>
+                              {#if v.slender.isSlender}
+                                <span class="slender-highlight">δ_ns = {v.slender.delta_ns.toFixed(3)}</span>
+                                <span>C_m = {v.slender.Cm.toFixed(3)}</span>
+                                <span>M_c = {v.slender.Mc.toFixed(1)} kN·m</span>
+                              {/if}
+                              {#if v.slender.psiA != null}<span>Ψ_A = {v.slender.psiA.toFixed(2)}</span>{/if}
+                              {#if v.slender.psiB != null}<span>Ψ_B = {v.slender.psiB.toFixed(2)}</span>{/if}
+                            </div>
                             {#each v.slender.steps as step}<div class="memo-step">{step}</div>{/each}
                           </div>
                         {/if}
@@ -1935,6 +1951,11 @@
   .col-status { text-align: center; font-size: 0.85rem; }
   .slender-badge { font-size: 0.55rem; color: #f0a500; font-family: monospace; }
   .svc-badge { font-size: 0.68rem; color: #aaa; margin-right: 10px; }
+  .col-sls { font-family: monospace; font-size: 0.6rem; text-align: center; white-space: nowrap; }
+  .dim-text { color: #444; }
+  .slender-factors { display: flex; flex-wrap: wrap; gap: 6px 14px; padding: 4px 0 6px; font-size: 0.65rem; font-family: monospace; color: #aaa; }
+  .slender-factors span { white-space: nowrap; }
+  .slender-highlight { color: #f0a500; font-weight: 600; }
 
   .status-ok { color: #4ecdc4; }
   .status-fail { color: #e94560; }
