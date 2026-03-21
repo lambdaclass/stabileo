@@ -7,6 +7,7 @@
   import type { ElementVerification } from '../../lib/engine/codes/argentina/cirsoc201';
   import { autoVerifyFromResults } from '../../lib/engine/auto-verify';
   import { computeQuantities } from '../../lib/engine/quantity-takeoff';
+  import { checkCrackWidth, checkDeflection } from '../../lib/engine/codes/argentina/serviceability';
   import { runGlobalSolve } from '../../lib/engine/live-calc';
   import ProReportDialog from './ProReportDialog.svelte';
   import ProNodesTab from './ProNodesTab.svelte';
@@ -390,6 +391,19 @@
         : undefined,
       advancedResults: Object.keys(advancedResultsRef).length > 0 ? advancedResultsRef : undefined,
       diagnostics: resultsStore.diagnostics3D.length > 0 ? resultsStore.diagnostics3D : undefined,
+      serviceability: verificationsRef.length > 0 ? verificationsRef.map(v => {
+        const Ms = v.Mu / 1.4;
+        const crack = (v.elementType === 'beam' && v.flexure.AsProv > 0)
+          ? checkCrackWidth(v.fc, v.fy, v.b, v.h, v.cover, v.flexure.AsProv, Ms)
+          : undefined;
+        const elem = modelStore.elements.get(v.elementId);
+        const nI = elem ? modelStore.nodes.get(elem.nodeI) : undefined;
+        const nJ = elem ? modelStore.nodes.get(elem.nodeJ) : undefined;
+        const L = (nI && nJ) ? Math.sqrt((nJ.x - nI.x) ** 2 + (nJ.y - nI.y) ** 2 + ((nJ.z ?? 0) - (nI.z ?? 0)) ** 2) : 0;
+        const maxDisp = results.displacements.reduce((mx, d) => Math.max(mx, Math.abs(d.uz)), 0);
+        const defl = (L > 0 && v.elementType === 'beam') ? checkDeflection(L, maxDisp) : undefined;
+        return { elementId: v.elementId, elementType: v.elementType, crack: crack ? { wk: crack.wk, wkLimit: crack.wkLimit, status: crack.status } : undefined, deflection: defl ? { ratio: defl.ratio, limit: defl.limit, status: defl.status } : undefined };
+      }).filter(s => s.crack || s.deflection) : undefined,
       screenshot,
       t,
       config,

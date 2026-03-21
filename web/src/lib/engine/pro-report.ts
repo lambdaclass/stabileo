@@ -75,6 +75,8 @@ export interface ReportData {
   }>;
   // Load combination definitions (for reference table + governing combo column)
   combinations?: Array<{ id: number; name: string; factors: Array<{ caseName: string; factor: number }> }>;
+  // Serviceability check results
+  serviceability?: Array<{ elementId: number; elementType: string; crack?: { wk: number; wkLimit: number; status: string }; deflection?: { ratio: number; limit: number; status: string } }>;
   // Diagnostics
   diagnostics?: SolverDiagnostic[];
   // Viewport screenshot (data URL)
@@ -924,6 +926,25 @@ export function generateReportHtml(data: ReportData): string {
         }
         html.push(`</tbody></table>`);
         html.push(`<p>${escHtml(tr('report.minSpacing'))}: ${(minSpacing * 1000).toFixed(0)} mm · ${escHtml(tr('report.stirrupHook'))}: ${escHtml(stirrupHook)}</p>`);
+      }
+    }
+
+    // Serviceability checks
+    if (data.serviceability && data.serviceability.length > 0) {
+      const svcItems = data.serviceability.filter(s => s.crack || s.deflection);
+      if (svcItems.length > 0) {
+        html.push(`<h2>3.${data.quads && data.quads.length > 0 ? '7' : colGroup ? '6' : '5'} ${escHtml(tr('report.serviceability') || 'Serviceability')}</h2>`);
+        html.push(`<table><thead><tr><th>Elem</th><th>${escHtml(tr('report.type'))}</th><th>${escHtml(tr('report.crackWidth') || 'Crack w_k')} (mm)</th><th>${escHtml(tr('report.crackLimit') || 'Limit')} (mm)</th><th>${escHtml(tr('report.deflRatio') || 'Defl. ratio')}</th><th>${escHtml(tr('report.deflLimit') || 'Limit')}</th><th>${escHtml(tr('report.status'))}</th></tr></thead><tbody>`);
+        for (const s of svcItems) {
+          const crackWk = s.crack ? s.crack.wk.toFixed(2) : '—';
+          const crackLim = s.crack ? s.crack.wkLimit.toFixed(2) : '—';
+          const deflR = s.deflection ? `1/${Math.round(1 / s.deflection.ratio)}` : '—';
+          const deflLim = s.deflection ? `1/${Math.round(1 / s.deflection.limit)}` : '—';
+          const worst = [s.crack?.status, s.deflection?.status].includes('fail') ? 'fail' : [s.crack?.status, s.deflection?.status].includes('warn') ? 'warn' : 'ok';
+          const cls = worst === 'fail' ? 'status-fail' : worst === 'warn' ? 'status-warn' : 'status-ok';
+          html.push(`<tr><td>${s.elementId}</td><td>${typeLabel(s.elementType as any, tr)}</td><td class="num">${crackWk}</td><td class="num">${crackLim}</td><td class="num">${deflR}</td><td class="num">${deflLim}</td><td class="${cls}">${worst === 'ok' ? '✓' : worst === 'fail' ? '✗' : '⚠'}</td></tr>`);
+        }
+        html.push(`</tbody></table>`);
       }
     }
 

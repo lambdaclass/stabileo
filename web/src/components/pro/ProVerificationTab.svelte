@@ -1097,6 +1097,22 @@
       </button>
     </div>
 
+    <!-- Serviceability summary badges -->
+    {#if crackResults.size > 0 || deflectionResults.size > 0}
+      <div class="pro-verif-summary" style="margin-top:4px">
+        {#if crackResults.size > 0}
+          {@const crackOk = [...crackResults.values()].filter(c => c.status === 'ok').length}
+          {@const crackFail = [...crackResults.values()].filter(c => c.status === 'fail').length}
+          <span class="svc-badge">{t('pro.cracking')}: <span class="status-ok">{crackOk} ✓</span>{#if crackFail > 0} <span class="status-fail">{crackFail} ✗</span>{/if}</span>
+        {/if}
+        {#if deflectionResults.size > 0}
+          {@const deflOk = [...deflectionResults.values()].filter(d => d.status === 'ok').length}
+          {@const deflFail = [...deflectionResults.values()].filter(d => d.status === 'fail').length}
+          <span class="svc-badge">{t('pro.deflection')}: <span class="status-ok">{deflOk} ✓</span>{#if deflFail > 0} <span class="status-fail">{deflFail} ✗</span>{/if}</span>
+        {/if}
+      </div>
+    {/if}
+
     <!-- Section tabs -->
     <div class="section-tabs">
       <button class:active={activeSection === 'verification'} onclick={() => activeSection = 'verification'}>{t('pro.verificationTab')}</button>
@@ -1143,7 +1159,10 @@
                 <td class="col-num">{v.column ? v.column.AsTotal.toFixed(1) : v.flexure.AsReq.toFixed(1)}</td>
                 <td class="col-num">{#if overrides.has(v.elementId)}<span class="override-mark" title={t('pro.overrideActive')}>{effectiveAs(v).toFixed(1)}</span>{:else}{v.column ? v.column.AsProv.toFixed(1) : v.flexure.AsProv.toFixed(1)}{#if !v.column && v.flexure.isDoublyReinforced && v.flexure.AsComp}<br><span style="font-size:0.65rem;color:#4a90d9">+{v.flexure.AsComp.toFixed(1)} A's</span>{/if}{/if}</td>
                 <td class="col-stirrup">eØ{v.shear.stirrupDia} c/{(v.shear.spacing * 100).toFixed(0)}</td>
-                <td class="col-status"><span class={statusClass(v.overallStatus)}>{statusIcon(v.overallStatus)}</span></td>
+                <td class="col-status">
+                  <span class={statusClass(v.overallStatus)}>{statusIcon(v.overallStatus)}</span>
+                  {#if v.slender}<br><span class="slender-badge" title="k·Lu/r={v.slender.klu_r.toFixed(1)}, δns={v.slender.delta_ns.toFixed(2)}">{v.slender.isSlender ? 'δ=' + v.slender.delta_ns.toFixed(2) : ''}</span>{/if}
+                </td>
               </tr>
               {#if expandedId === v.elementId}
                 <tr class="detail-row">
@@ -1914,6 +1933,8 @@
   .col-stirrup { font-family: monospace; font-size: 0.6rem; white-space: nowrap; }
   .col-elems { font-size: 0.58rem; color: #888; max-width: 140px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .col-status { text-align: center; font-size: 0.85rem; }
+  .slender-badge { font-size: 0.55rem; color: #f0a500; font-family: monospace; }
+  .svc-badge { font-size: 0.68rem; color: #aaa; margin-right: 10px; }
 
   .status-ok { color: #4ecdc4; }
   .status-fail { color: #e94560; }
