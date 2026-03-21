@@ -3,6 +3,7 @@
 import type { AnalysisResults, InfluenceLineResult, Section, Material } from './model.svelte';
 import type { ElementForces, FullEnvelope, ConstraintForce, SolverDiagnostic, SolveTimings } from '../engine/types';
 import type { AnalysisResults3D, Displacement3D, Reaction3D, ElementForces3D, FullEnvelope3D } from '../engine/types-3d';
+import type { GoverningPerElement, GoverningPerElement3D } from '../engine/governing-case';
 import type { MovingLoadEnvelope } from '../engine/moving-loads';
 import type { PDeltaResult, PDeltaResult3D, ModalResult, ModalResult3D, BucklingResult, BucklingResult3D, PlasticResult, SpectralResult, SpectralResult3D } from '../engine/result-types';
 
@@ -137,6 +138,10 @@ function createResultsStore() {
   let perCase3D = $state<Map<number, AnalysisResults3D>>(new Map());
   let perCombo3D = $state<Map<number, AnalysisResults3D>>(new Map());
   let envelope3D = $state<FullEnvelope3D | null>(null);
+
+  // Governing-case provenance (which combo governs each element per force component)
+  let governing2D = $state<Map<number, GoverningPerElement>>(new Map());
+  let governing3D = $state<Map<number, GoverningPerElement3D>>(new Map());
 
   // Diagnostics (2D + 3D parallel)
   let diagnostics2D = $state<SolverDiagnostic[]>([]);
@@ -559,6 +564,8 @@ function createResultsStore() {
       perCase3D = new Map();
       perCombo3D = new Map();
       envelope3D = null;
+      governing2D = new Map();
+      governing3D = new Map();
       diagnostics2D = [];
       constraintForces2D = [];
       diagnostics3DArr = [];
@@ -597,6 +604,7 @@ function createResultsStore() {
       perCase3D = new Map();
       perCombo3D = new Map();
       envelope3D = null;
+      governing3D = new Map();
       // Extract diagnostics and constraint forces from results
       diagnostics3DArr = [];
       constraintForces3DArr = r.constraintForces ?? [];
@@ -609,6 +617,7 @@ function createResultsStore() {
       perCase3D = new Map();
       perCombo3D = new Map();
       envelope3D = null;
+      governing3D = new Map();
       diagnostics3DArr = [];
       constraintForces3DArr = [];
       solveTimings3D = null;
@@ -629,6 +638,12 @@ function createResultsStore() {
     get envelope3D() { return envelope3D; },
     get hasCombinations3D() { return perCombo3D.size > 0; },
     get fullEnvelope3D() { return envelope3D; },
+
+    // Governing-case provenance
+    get governing2D() { return governing2D; },
+    get governing3D() { return governing3D; },
+    setGoverning2D(g: Map<number, GoverningPerElement>) { governing2D = g; },
+    setGoverning3D(g: Map<number, GoverningPerElement3D>) { governing3D = g; },
 
     setCombinationResults3D(pc: Map<number, AnalysisResults3D>, pco: Map<number, AnalysisResults3D>, env: FullEnvelope3D) {
       perCase3D = pc;

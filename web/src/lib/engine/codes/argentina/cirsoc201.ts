@@ -158,6 +158,30 @@ export interface ElementVerification {
   slender?: SlenderResult;
   overallStatus: VerifStatus;
   diagnostics?: SolverDiagnostic[];
+  /** Governing combination per force component (from combo-driven verification). */
+  governingCombos?: {
+    flexure?: { comboId: number; comboName: string };
+    shear?: { comboId: number; comboName: string };
+    axial?: { comboId: number; comboName: string };
+  };
+  /** RC detailing rules per CIRSOC 201 Ch. 12 */
+  detailing?: DetailingResult;
+}
+
+export interface DetailingResult {
+  /** Per bar diameter used in this element */
+  bars: Array<{
+    diameter: number;   // mm
+    ld: number;         // straight development length (m)
+    ldh: number;        // hooked development length (m)
+    lapSplice: number;  // Class B splice = 1.3 × ld (m)
+  }>;
+  /** Minimum clear spacing between longitudinal bars (m) */
+  minClearSpacing: number;
+  /** Stirrup hook description */
+  stirrupHook: string;
+  /** Cover used (m) */
+  cover: number;
 }
 
 // ─── CIRSOC 201 Constants ───────────────────────────────────────
@@ -1128,6 +1152,46 @@ export interface VerificationInput {
   PuL?: number;   // kN — factored live load for βdns
 }
 
+// ─── Detailing Rules (CIRSOC 201 Ch. 12) ────────────────────
+
+/**
+ * Compute development/anchorage lengths per CIRSOC 201 Chapter 12.
+ * v1: α=β=λ=1.0 (no epoxy, no lightweight, no top-bar factor).
+ */
+function computeDetailingRules(fc: number, fy: number, cover: number, stirrupDia: number, barDiameters: number[]): DetailingResult {
+  const sqrtFc = Math.sqrt(fc);
+  const uniqueDias = [...new Set(barDiameters)].sort((a, b) => a - b);
+
+  const bars = uniqueDias.map(db => {
+    const dbM = db / 1000; // mm → m
+    // ld per CIRSOC 201 12.2.3 simplified: ld = (fy × db) / (4 × 0.8 × √f'c)
+    const ldCalc = (fy * dbM) / (4 * 0.8 * sqrtFc);
+    const ld = Math.max(ldCalc, 0.3); // minimum 300mm per 12.2.1
+    // ldh per CIRSOC 201 12.5: ldh = (0.24 × fy × db) / √f'c
+    const ldhCalc = (0.24 * fy * dbM) / sqrtFc;
+    const ldh = Math.max(ldhCalc, 8 * dbM, 0.15); // min 8db or 150mm per 12.5.1
+    // Lap splice Class B = 1.3 × ld (CIRSOC 201 12.15.1)
+    const lapSplice = 1.3 * ld;
+
+    return {
+      diameter: db,
+      ld: Math.round(ld * 100) / 100,
+      ldh: Math.round(ldh * 100) / 100,
+      lapSplice: Math.round(lapSplice * 100) / 100,
+    };
+  });
+
+  // Min clear spacing per CIRSOC 201 7.6.1: max(db, 25mm, 4/3 × dagg)
+  const maxDb = Math.max(...uniqueDias) / 1000;
+  const minClearSpacing = Math.max(maxDb, 0.025, (4 / 3) * 0.019);
+
+  // Stirrup hook per CIRSOC 201 7.1.3
+  const extension = stirrupDia <= 16 ? 6 * stirrupDia : 8 * stirrupDia;
+  const stirrupHook = `135° + ${extension}mm (${stirrupDia <= 16 ? 6 : 8}db)`;
+
+  return { bars, minClearSpacing: Math.round(minClearSpacing * 1000) / 1000, stirrupHook, cover };
+}
+
 export function verifyElement(input: VerificationInput): ElementVerification {
   const params: ConcreteDesignParams = {
     fc: input.fc,
@@ -1250,13 +1314,20 @@ export function verifyElement(input: VerificationInput): ElementVerification {
     slender,
     overallStatus,
     diagnostics: diags.length > 0 ? diags : undefined,
+    detailing: computeDetailingRules(
+      input.fc, input.fy, input.cover, input.stirrupDia,
+      column
+        ? [column.barDia, flexure.barDia].filter(d => d > 0)
+        : [flexure.barDia],
+    ),
   };
 }
 
 // ─── Classify element as beam or column ─────────────────────────
 
 /** Heuristic: if element is more vertical than horizontal, it's a column.
- *  If it's vertical AND the section has high aspect ratio (b/h > 3 or h/b > 3), it's a wall. */
+ *  If it's vertical AND the section has high aspect ratio (b/h > 3 or h/b > 3), it's a wall.
+ *  Convention: Z is the vertical (gravity) axis — Z-up, matching the project's canonical 3D convention. */
 export function classifyElement(
   x1: number, y1: number, z1: number,
   x2: number, y2: number, z2: number,
@@ -1266,7 +1337,7 @@ export function classifyElement(
   const dy = Math.abs(y2 - y1);
   const dz = Math.abs(z2 - z1);
   const horizontal = Math.sqrt(dx * dx + dy * dy);
-  // If vertical component dominates, it's a column or wall
+  // If vertical (Z) component dominates, it's a column or wall
   if (dz > horizontal) {
     // Detect wall: vertical element with high section aspect ratio
     if (sectionB && sectionH) {

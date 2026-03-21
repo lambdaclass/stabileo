@@ -73,6 +73,8 @@ export interface ReportData {
     ratioX: number; ratioZ: number;
     status: 'ok' | 'warn' | 'fail';
   }>;
+  // Load combination definitions (for reference table + governing combo column)
+  combinations?: Array<{ id: number; name: string; factors: Array<{ caseName: string; factor: number }> }>;
   // Diagnostics
   diagnostics?: SolverDiagnostic[];
   // Viewport screenshot (data URL)
@@ -555,6 +557,20 @@ export function generateReportHtml(data: ReportData): string {
     html.push(`<p>${escHtml(interp(tr('report.slabTotalArea'), { area: totalLosaArea.toFixed(1), vol: totalLosaVol.toFixed(2) }))}</p>`);
     html.push(`<p>${escHtml(interp(tr('report.wallTotalArea'), { area: totalTabArea.toFixed(1), vol: totalTabVol.toFixed(2) }))}</p>`);
   }
+  // Load combinations reference table (inside modelData section)
+  if (showSection('modelData') && data.combinations && data.combinations.length > 0) {
+    html.push(`<h2>1.8 ${escHtml(tr('report.loadCombinations') || 'Load Combinations')} (${data.combinations.length})</h2>`);
+    html.push(`<table><thead><tr><th>#</th><th>${escHtml(tr('report.name') || 'Name')}</th><th>${escHtml(tr('report.factors') || 'Factors')}</th></tr></thead><tbody>`);
+    for (const c of data.combinations) {
+      const factorStr = c.factors
+        .filter(f => f.factor !== 0)
+        .map(f => `${f.factor !== 1 ? f.factor.toFixed(1) : ''}${f.caseName}`)
+        .join(' + ') || '—';
+      html.push(`<tr><td>${c.id}</td><td>${escHtml(c.name)}</td><td>${escHtml(factorStr)}</td></tr>`);
+    }
+    html.push(`</tbody></table>`);
+  }
+
   } // end showSection('modelData')
 
   // ─── Results ────────────────────────────────────────────
@@ -608,8 +624,9 @@ export function generateReportHtml(data: ReportData): string {
     html.push(`<p><span class="status-ok">${escHtml(interp(tr('report.statusOk'), { n: ok }))}</span> · <span class="status-warn">${escHtml(interp(tr('report.statusWarn'), { n: warn }))}</span> · <span class="status-fail">${escHtml(interp(tr('report.statusFail'), { n: fail }))}</span></p>`);
 
     // Summary table
+    const hasCombos = data.combinations && data.combinations.length > 0;
     html.push(`<h2>3.1 ${escHtml(tr('report.summary'))}</h2>`);
-    html.push(`<table><thead><tr><th>Elem</th><th>${escHtml(tr('report.type'))}</th><th>${km('M_u')} (kN·m)</th><th>${km('V_u')} (kN)</th><th>${km('N_u')} (kN)</th><th>${km('A_{s,req}')} (cm²)</th><th>${km('A_{s,prov}')} (cm²)</th><th>${escHtml(tr('report.reinforcement'))}</th><th>${escHtml(tr('report.stirrups'))}</th><th>${escHtml(tr('report.status'))}</th></tr></thead><tbody>`);
+    html.push(`<table><thead><tr><th>Elem</th><th>${escHtml(tr('report.type'))}</th><th>${km('M_u')} (kN·m)</th><th>${km('V_u')} (kN)</th><th>${km('N_u')} (kN)</th>${hasCombos ? '<th>Combo</th>' : ''}<th>${km('A_{s,req}')} (cm²)</th><th>${km('A_{s,prov}')} (cm²)</th><th>${escHtml(tr('report.reinforcement'))}</th><th>${escHtml(tr('report.stirrups'))}</th><th>${escHtml(tr('report.status'))}</th></tr></thead><tbody>`);
     for (const v of verifications) {
       const statusCls = v.overallStatus === 'ok' ? 'status-ok' : v.overallStatus === 'fail' ? 'status-fail' : 'status-warn';
       const statusTxt = v.overallStatus === 'ok' ? '✓' : v.overallStatus === 'fail' ? '✗' : '⚠';
@@ -620,7 +637,8 @@ export function generateReportHtml(data: ReportData): string {
       const compNote = (!v.column && v.flexure.isDoublyReinforced && v.flexure.barsComp)
         ? ` + ${v.flexure.barsComp} (A's)`
         : '';
-      html.push(`<tr><td>${v.elementId}</td><td>${typeLabel(v.elementType, tr)}</td><td class="num">${fmtNum(v.Mu)}</td><td class="num">${fmtNum(v.Vu)}</td><td class="num">${fmtNum(v.Nu)}</td><td class="num">${asReq.toFixed(1)}</td><td class="num">${asProv.toFixed(1)}</td><td>${bars}${compNote}</td><td>eØ${v.shear.stirrupDia} c/${(v.shear.spacing * 100).toFixed(0)}</td><td class="${statusCls}">${statusTxt}</td></tr>`);
+      const comboCol = hasCombos ? `<td style="font-size:8px;max-width:100px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${escHtml(v.governingCombos?.flexure?.comboName ?? '—')}</td>` : '';
+      html.push(`<tr><td>${v.elementId}</td><td>${typeLabel(v.elementType, tr)}</td><td class="num">${fmtNum(v.Mu)}</td><td class="num">${fmtNum(v.Vu)}</td><td class="num">${fmtNum(v.Nu)}</td>${comboCol}<td class="num">${asReq.toFixed(1)}</td><td class="num">${asProv.toFixed(1)}</td><td>${bars}${compNote}</td><td>eØ${v.shear.stirrupDia} c/${(v.shear.spacing * 100).toFixed(0)}</td><td class="${statusCls}">${statusTxt}</td></tr>`);
     }
     html.push(`</tbody></table>`);
 
@@ -765,6 +783,7 @@ export function generateReportHtml(data: ReportData): string {
         html.push(`<h3>${lbl} ${secStr} cm — ${escHtml(tr('report.longitudinalView'))}</h3>`);
         const elevSvg = generateBeamElevationSvg({
           length: elemLen,
+          b: v.b,
           h: v.h,
           cover: v.cover,
           flexure: v.flexure,
@@ -881,6 +900,30 @@ export function generateReportHtml(data: ReportData): string {
           });
           html.push(`<div class="svg-container">${slabSvg}</div>`);
         }
+      }
+    }
+
+    // Detailing summary (anchorage / splice / spacing)
+    if (verifications.some(v => v.detailing)) {
+      html.push(`<h2>3.${data.quads && data.quads.length > 0 ? '6' : colGroup ? '5' : '4'} ${escHtml(tr('report.detailing'))}</h2>`);
+      const allBars = new Map<number, { ld: number; ldh: number; lapSplice: number }>();
+      let minSpacing = 0;
+      let stirrupHook = '';
+      for (const v of verifications) {
+        if (!v.detailing) continue;
+        for (const b of v.detailing.bars) {
+          if (!allBars.has(b.diameter)) allBars.set(b.diameter, { ld: b.ld, ldh: b.ldh, lapSplice: b.lapSplice });
+        }
+        if (v.detailing.minClearSpacing > minSpacing) minSpacing = v.detailing.minClearSpacing;
+        if (!stirrupHook) stirrupHook = v.detailing.stirrupHook;
+      }
+      if (allBars.size > 0) {
+        html.push(`<table><thead><tr><th>${escHtml(tr('report.bar'))}</th><th>${escHtml(tr('report.devLength'))} (cm)</th><th>${escHtml(tr('report.hookedDev'))} (cm)</th><th>${escHtml(tr('report.splice'))} (cm)</th></tr></thead><tbody>`);
+        for (const [dia, vals] of [...allBars.entries()].sort((a, b) => a[0] - b[0])) {
+          html.push(`<tr><td>Ø${dia}</td><td class="num">${(vals.ld * 100).toFixed(0)}</td><td class="num">${(vals.ldh * 100).toFixed(0)}</td><td class="num">${(vals.lapSplice * 100).toFixed(0)}</td></tr>`);
+        }
+        html.push(`</tbody></table>`);
+        html.push(`<p>${escHtml(tr('report.minSpacing'))}: ${(minSpacing * 1000).toFixed(0)} mm · ${escHtml(tr('report.stirrupHook'))}: ${escHtml(stirrupHook)}</p>`);
       }
     }
 

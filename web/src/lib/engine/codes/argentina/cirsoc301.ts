@@ -110,6 +110,12 @@ export interface SteelVerification {
   overallStatus: VerifStatus;
   diagnostics?: SolverDiagnostic[];
   steps: string[];
+  /** Governing combination per force component (from combo-driven verification). */
+  governingCombos?: {
+    flexure?: { comboId: number; comboName: string };
+    shear?: { comboId: number; comboName: string };
+    axial?: { comboId: number; comboName: string };
+  };
 }
 
 // ---------------------------------------------------------------------------

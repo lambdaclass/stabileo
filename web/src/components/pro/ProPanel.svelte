@@ -4,8 +4,8 @@
   import { modelStore, resultsStore, uiStore, verificationStore, tabManager } from '../../lib/store';
   import { openReport } from '../../lib/engine/pro-report';
   import type { ReportData, ReportConfig } from '../../lib/engine/pro-report';
-  import { verifyElement, classifyElement, computeJointPsiFromModel } from '../../lib/engine/codes/argentina/cirsoc201';
-  import type { ElementVerification, VerificationInput } from '../../lib/engine/codes/argentina/cirsoc201';
+  import type { ElementVerification } from '../../lib/engine/codes/argentina/cirsoc201';
+  import { autoVerifyFromResults } from '../../lib/engine/auto-verify';
   import { computeQuantities } from '../../lib/engine/quantity-takeoff';
   import { runGlobalSolve } from '../../lib/engine/live-calc';
   import ProReportDialog from './ProReportDialog.svelte';
@@ -91,6 +91,7 @@
     tags: string[];
     stats: { nodes: string; members: string; shells?: string };
     preset?: ExamplePreset;
+    featured?: boolean;
     load: () => void;
   }
 
@@ -190,20 +191,9 @@
       descKey: 'ex.fullStadium3D.desc',
       purposeKey: 'ex.fullStadium3D.purpose',
       tags: ['pro.tagRoof', 'pro.tagBowl'],
-      stats: { nodes: '312', members: '690', shells: '48' },
+      stats: { nodes: '360', members: '876', shells: '48' },
       preset: 'clean-shell',
       load: () => modelStore.loadExample('full-stadium'),
-    },
-    {
-      group: 'xl',
-      groupKey: 'pro.examples.groupXL',
-      nameKey: 'ex.xlDiagridTower3D',
-      descKey: 'ex.xlDiagridTower3D.desc',
-      purposeKey: 'ex.xlDiagridTower3D.purpose',
-      tags: ['pro.tagScale', 'pro.tagDrift'],
-      stats: { nodes: '1262', members: '5013' },
-      preset: 'xl',
-      load: () => modelStore.loadExample('xl-diagrid-tower'),
     },
     {
       group: 'xl',
@@ -225,8 +215,21 @@
       tags: ['pro.tagBowl', 'pro.tagScale'],
       stats: { nodes: '1005', members: '2476', shells: '120' },
       preset: 'clean-shell',
+      featured: true,
       load: () => modelStore.loadExample('la-bombonera'),
     },
+    {
+      group: 'xl',
+      groupKey: 'pro.examples.groupXL',
+      nameKey: 'ex.xlDiagridTower3D',
+      descKey: 'ex.xlDiagridTower3D.desc',
+      purposeKey: 'ex.xlDiagridTower3D.purpose',
+      tags: ['pro.tagScale', 'pro.tagDrift'],
+      stats: { nodes: '1262', members: '5013' },
+      preset: 'xl',
+      load: () => modelStore.loadExample('xl-diagrid-tower'),
+    },
+    // Sagrada Familia removed upstream — fixture no longer available
   ];
   const proExampleGroups = $derived.by(() => {
     const order: ExampleGroup[] = ['buildings', 'industrial', 'foundations', 'longspan', 'xl'];
@@ -307,72 +310,16 @@
   const elemCount = $derived(modelStore.elements.size);
   const loadCount = $derived(modelStore.loads.length);
 
-  /** Auto-run CIRSOC verification on current results */
+  /** Auto-run CIRSOC verification on current results (delegates to extracted utility) */
   function autoVerify(): ElementVerification[] {
     const results = resultsStore.results3D;
     if (!results) return [];
-    const verifs: ElementVerification[] = [];
-    const rebarFy = 420, cover = 0.025, stirrupDia = 8;
-
-    for (const ef of results.elementForces) {
-      const elem = modelStore.elements.get(ef.elementId);
-      if (!elem) continue;
-      const nodeI = modelStore.nodes.get(elem.nodeI);
-      const nodeJ = modelStore.nodes.get(elem.nodeJ);
-      if (!nodeI || !nodeJ) continue;
-      const section = modelStore.sections.get(elem.sectionId);
-      const material = modelStore.materials.get(elem.materialId);
-      if (!section || !material) continue;
-      if (!section.b || !section.h) continue;
-      const fc = material.fy;
-      if (!fc || fc > 80) continue;
-
-      const dx = nodeJ.x - nodeI.x, dy = nodeJ.y - nodeI.y, dz = (nodeJ.z ?? 0) - (nodeI.z ?? 0);
-      const L = Math.sqrt(dx * dx + dy * dy + dz * dz);
-      const elemType = classifyElement(nodeI.x, nodeI.y, nodeI.z ?? 0, nodeJ.x, nodeJ.y, nodeJ.z ?? 0, section.b, section.h);
-      const MuMax = Math.max(Math.abs(ef.mzStart), Math.abs(ef.mzEnd));
-      const VuMax = Math.max(Math.abs(ef.vyStart), Math.abs(ef.vyEnd));
-      const NuMax = Math.max(Math.abs(ef.nStart), Math.abs(ef.nEnd));
-      const MuyMax = Math.max(Math.abs(ef.myStart), Math.abs(ef.myEnd));
-      const VzMax = Math.max(Math.abs(ef.vzStart), Math.abs(ef.vzEnd));
-      const TuMax = Math.max(Math.abs(ef.mxStart), Math.abs(ef.mxEnd));
-      const isVertical = elemType === 'column' || elemType === 'wall';
-
-      let M1: number | undefined, M2: number | undefined;
-      if (isVertical) {
-        if (Math.abs(ef.mzStart) >= Math.abs(ef.mzEnd)) {
-          M2 = Math.abs(ef.mzStart);
-          M1 = Math.sign(ef.mzStart) === Math.sign(ef.mzEnd) ? Math.abs(ef.mzEnd) : -Math.abs(ef.mzEnd);
-        } else {
-          M2 = Math.abs(ef.mzEnd);
-          M1 = Math.sign(ef.mzStart) === Math.sign(ef.mzEnd) ? Math.abs(ef.mzStart) : -Math.abs(ef.mzStart);
-        }
-      }
-
-      let psiA: number | undefined, psiB: number | undefined;
-      if (isVertical) {
-        const psi = computeJointPsiFromModel(
-          ef.elementId,
-          modelStore.nodes as any, modelStore.elements as any,
-          modelStore.sections as any, modelStore.materials as any,
-          modelStore.supports as any,
-        );
-        psiA = psi.psiA;
-        psiB = psi.psiB;
-      }
-
-      const input: VerificationInput = {
-        elementId: ef.elementId, elementType: elemType,
-        Mu: MuMax, Vu: VuMax, Nu: NuMax,
-        b: section.b, h: section.h, fc, fy: rebarFy, cover, stirrupDia,
-        Muy: isVertical ? MuyMax : undefined,
-        Vz: VzMax > 0.01 ? VzMax : undefined,
-        Tu: TuMax > 0.001 ? TuMax : undefined,
-        Lu: isVertical ? L : undefined, M1, M2, psiA, psiB,
-      };
-      verifs.push(verifyElement(input));
-    }
-    return verifs;
+    const { concrete } = autoVerifyFromResults(
+      results,
+      { elements: modelStore.elements, nodes: modelStore.nodes, sections: modelStore.sections, materials: modelStore.materials, supports: modelStore.supports },
+      resultsStore.governing3D.size > 0 ? resultsStore.governing3D : null,
+    );
+    return concrete;
   }
 
   /** Serialize loads for the report */
@@ -433,6 +380,14 @@
       loads: serializeLoads(),
       results,
       verifications: verificationsRef,
+      combinations: modelStore.model.combinations.length > 0
+        ? modelStore.model.combinations.map(c => ({
+            id: c.id, name: c.name,
+            factors: c.factors
+              .map(f => { const lc = modelStore.model.loadCases.find(lc2 => lc2.id === f.caseId); return lc ? { caseName: lc.name, factor: f.factor } : null; })
+              .filter((f): f is { caseName: string; factor: number } => f !== null),
+          }))
+        : undefined,
       advancedResults: Object.keys(advancedResultsRef).length > 0 ? advancedResultsRef : undefined,
       diagnostics: resultsStore.diagnostics3D.length > 0 ? resultsStore.diagnostics3D : undefined,
       screenshot,
@@ -640,7 +595,7 @@
         <div class="pro-example-group-title">{group.title}</div>
         <div class="pro-example-grid">
           {#each group.examples as ex}
-            <button class="pro-example-item" onclick={() => loadProExample(ex)}>
+            <button class="pro-example-item" class:pro-example-featured={ex.featured} onclick={() => loadProExample(ex)}>
               <div class="pro-example-topline">
                 <span class="pro-example-name">{t(ex.nameKey)}</span>
                 <span class="pro-example-purpose">{t(ex.purposeKey)}</span>
@@ -656,6 +611,9 @@
                 <span>{ex.stats.members} {t('pro.stats.members')}</span>
                 {#if ex.stats.shells}
                   <span>{ex.stats.shells} {t('pro.stats.shells')}</span>
+                {/if}
+                {#if Number(ex.stats.nodes) >= 1000}
+                  <span class="pro-example-heavy">{t('pro.stats.heavy')}</span>
                 {/if}
               </div>
             </button>
@@ -859,6 +817,18 @@
     margin-top: auto;
     font-size: 0.58rem;
     color: #7f97bc;
+  }
+
+  .pro-example-heavy {
+    color: #a08050;
+    font-style: italic;
+  }
+
+  .pro-example-featured {
+    border-color: #f0a50044;
+  }
+  .pro-example-featured:hover {
+    border-color: #f0a500aa;
   }
 
   .pro-solve-btn {
