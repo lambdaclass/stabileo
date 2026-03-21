@@ -8,6 +8,9 @@
   import { autoVerifyFromResults } from '../../lib/engine/auto-verify';
   import { computeQuantities } from '../../lib/engine/quantity-takeoff';
   import { checkCrackWidth, checkDeflection } from '../../lib/engine/codes/argentina/serviceability';
+  import { classifyElement } from '../../lib/engine/codes/argentina/cirsoc201';
+  import { buildStructuralGraph } from '../../lib/engine/structural-graph';
+  import type { FrameLineElevationOpts } from '../../lib/engine/reinforcement-svg';
   import { runGlobalSolve } from '../../lib/engine/live-calc';
   import ProReportDialog from './ProReportDialog.svelte';
   import ProNodesTab from './ProNodesTab.svelte';
@@ -408,6 +411,76 @@
       t,
       config,
     };
+
+    // ── Assemble upgraded joint details for report ──
+    if (verificationsRef.length > 0) {
+      const verifMap = new Map(verificationsRef.map(v => [v.elementId, v]));
+      // Build structural graph for joint/frame-line discovery
+      const graphNodes = new Map<number, { id: number; x: number; y: number; z: number }>();
+      for (const [id, n] of modelStore.nodes) graphNodes.set(id, { id, x: n.x, y: n.y, z: n.z ?? 0 });
+      const graphElements = new Map<number, { id: number; nodeI: number; nodeJ: number; sectionId: number; type: string }>();
+      for (const [id, e] of modelStore.elements) graphElements.set(id, { id, nodeI: e.nodeI, nodeJ: e.nodeJ, sectionId: e.sectionId, type: e.type });
+      const graphSections = new Map<number, { id: number; b?: number; h?: number }>();
+      for (const [id, s] of modelStore.sections) graphSections.set(id, { id, b: s.b, h: s.h });
+      const graphSupports = new Map<number, { nodeId: number; type: string }>();
+      for (const [, s] of modelStore.supports) graphSupports.set(s.nodeId, { nodeId: s.nodeId, type: s.type });
+      const graph = buildStructuralGraph(graphNodes, graphElements, graphSections, graphSupports);
+
+      // Joint details (up to 4 for report)
+      const seen = new Set<string>();
+      const jOpts: typeof data.jointDetailOpts = [];
+      for (const joint of graph.joints) {
+        const beam = joint.beamIds.map(id => verifMap.get(id)).find(v => v && v.elementType === 'beam');
+        const col = joint.columnIds.map(id => verifMap.get(id)).find(v => v && (v.elementType === 'column' || v.elementType === 'wall'));
+        if (!beam || !col) continue;
+        const key = `${beam.b}_${beam.h}_${col.b}_${col.h}`;
+        if (seen.has(key)) continue;
+        seen.add(key);
+        jOpts.push({
+          beamB: beam.b, beamH: beam.h, colB: col.b, colH: col.h, cover: beam.cover,
+          beamBars: beam.flexure.bars, colBars: col.column?.bars ?? `${col.flexure.barCount} Ø${col.flexure.barDia}`,
+          stirrupDia: col.shear.stirrupDia, stirrupSpacing: col.shear.spacing,
+          beamDetailing: beam.detailing, colDetailing: col.detailing, nodeId: joint.nodeId,
+          labels: { title: t('pro.jointDetail'), beam: t('pro.beam'), column: t('pro.column'), joint: t('pro.jointWord') !== 'pro.jointWord' ? t('pro.jointWord') : 'joint', splice: t('pro.lapSplice') },
+        });
+        if (jOpts.length >= 4) break;
+      }
+      if (jOpts.length > 0) data.jointDetailOpts = jOpts;
+
+      // Beam continuity frame lines (up to 3 for report)
+      const elemLengths = new Map<number, number>();
+      for (const v of verificationsRef) {
+        const elem = modelStore.elements.get(v.elementId);
+        if (elem) {
+          const nI = modelStore.nodes.get(elem.nodeI);
+          const nJ = modelStore.nodes.get(elem.nodeJ);
+          if (nI && nJ) elemLengths.set(v.elementId, Math.sqrt((nJ.x - nI.x) ** 2 + (nJ.y - nI.y) ** 2 + ((nJ.z ?? 0) - (nI.z ?? 0)) ** 2));
+        }
+      }
+      const flOpts: FrameLineElevationOpts[] = [];
+      for (const fl of graph.frameLines) {
+        if (fl.direction !== 'horizontal' || fl.elementIds.length < 2) continue;
+        const spans = fl.elementIds.map(eid => {
+          const v = verifMap.get(eid); const len = elemLengths.get(eid);
+          if (!v || !len) return null;
+          const hasComp = v.flexure.isDoublyReinforced && !!v.flexure.barCountComp;
+          return { length: len, bottomBars: v.flexure.bars, topBars: hasComp ? (v.flexure.barsComp ?? '2 Ø10') : '2 Ø10', hasCompSteel: hasComp, stirrupSpacing: v.shear.spacing, stirrupDia: v.shear.stirrupDia, detailing: v.detailing };
+        });
+        if (spans.filter(Boolean).length < 2) continue;
+        const nodes = fl.nodeIds.map(nid => { const c = graph.nodes.get(nid); return { hasColumn: (c?.columns.length ?? 0) > 0, hasSupport: !!c?.support, supportType: c?.support }; });
+        flOpts.push({ spans: spans.map(s => s ?? { length: 1, bottomBars: '?', topBars: '2 Ø10', hasCompSteel: false, stirrupSpacing: 0.2, stirrupDia: 8 }), nodes, labels: { splice: t('pro.lapSplice') } });
+        if (flOpts.length >= 3) break;
+      }
+      if (flOpts.length > 0) data.beamContinuityOpts = flOpts;
+
+      // Slender column summary
+      const slenderData = verificationsRef.filter(v => v.slender).map(v => ({
+        elementId: v.elementId, k: v.slender!.k, lu: v.slender!.lu, r: v.slender!.r,
+        klu_r: v.slender!.klu_r, lambda_lim: v.slender!.lambda_lim, isSlender: v.slender!.isSlender,
+        delta_ns: v.slender!.delta_ns, Cm: v.slender!.Cm, Mc: v.slender!.Mc,
+      }));
+      if (slenderData.length > 0) data.slenderSummary = slenderData;
+    }
 
     if (verificationsRef.length > 0) {
       const elemLengths = new Map<number, number>();

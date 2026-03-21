@@ -7,7 +7,8 @@ import katex from 'katex';
 import type { Node, Material, Section, Element, Support, Quad } from '../store/model.svelte';
 import type { AnalysisResults3D } from './types-3d';
 import type { ElementVerification } from './codes/argentina/cirsoc201';
-import { generateCrossSectionSvg, generateBeamElevationSvg, generateColumnElevationSvg, generateJointDetailSvg, generateSlabReinforcementSvg, designSlabReinforcement } from './reinforcement-svg';
+import { generateCrossSectionSvg, generateBeamElevationSvg, generateColumnElevationSvg, generateJointDetailSvg, generateSlabReinforcementSvg, designSlabReinforcement, generateFrameLineElevationSvg } from './reinforcement-svg';
+import type { JointDetailSvgOpts, FrameLineElevationOpts } from './reinforcement-svg';
 import { generateInteractionDiagram, generateInteractionSvg } from './codes/argentina/interaction-diagram';
 import type { QuantitySummary } from './quantity-takeoff';
 import type { SolverDiagnostic } from './types';
@@ -77,6 +78,12 @@ export interface ReportData {
   combinations?: Array<{ id: number; name: string; factors: Array<{ caseName: string; factor: number }> }>;
   // Serviceability check results
   serviceability?: Array<{ elementId: number; elementType: string; crack?: { wk: number; wkLimit: number; status: string }; deflection?: { ratio: number; limit: number; status: string } }>;
+  // Upgraded joint detail opts (detailing-aware, multiple types)
+  jointDetailOpts?: JointDetailSvgOpts[];
+  // Beam continuity frame-line elevation opts
+  beamContinuityOpts?: FrameLineElevationOpts[];
+  // Slender column summary
+  slenderSummary?: Array<{ elementId: number; k: number; lu: number; r: number; klu_r: number; lambda_lim: number; isSlender: boolean; delta_ns: number; Cm: number; Mc: number }>;
   // Diagnostics
   diagnostics?: SolverDiagnostic[];
   // Viewport screenshot (data URL)
@@ -808,26 +815,42 @@ export function generateReportHtml(data: ReportData): string {
       }
     }
 
-    // ─── Joint details ──────────────────────────────────────
-    // Find beam-column connections and generate joint details
-    const beamGroup = groups.find(g => g.representative.elementType === 'beam');
-    const colGroup = groups.find(g => g.representative.elementType === 'column');
-    if (beamGroup && colGroup) {
+    // ─── Joint details (upgraded: detailing-aware, multiple types) ──
+    if (data.jointDetailOpts && data.jointDetailOpts.length > 0) {
       html.push(`<h2>3.4 ${escHtml(tr('report.jointDetails'))}</h2>`);
-      const bv = beamGroup.representative;
-      const cv = colGroup.representative;
-      const jointSvg = generateJointDetailSvg({
-        beamB: bv.b,
-        beamH: bv.h,
-        colB: cv.b,
-        colH: cv.h,
-        cover: bv.cover,
-        beamBars: bv.flexure.bars,
-        colBars: cv.column?.bars ?? cv.flexure.bars,
-        stirrupDia: cv.shear.stirrupDia,
-        stirrupSpacing: cv.shear.spacing,
-      });
-      html.push(`<div class="svg-container">${jointSvg}</div>`);
+      for (const jd of data.jointDetailOpts.slice(0, 4)) {
+        html.push(`<div class="svg-container">${generateJointDetailSvg(jd)}</div>`);
+      }
+    } else {
+      // Fallback: old single-representative joint
+      const beamGroup = groups.find(g => g.representative.elementType === 'beam');
+      const colGroup = groups.find(g => g.representative.elementType === 'column');
+      if (beamGroup && colGroup) {
+        html.push(`<h2>3.4 ${escHtml(tr('report.jointDetails'))}</h2>`);
+        const bv = beamGroup.representative;
+        const cv = colGroup.representative;
+        html.push(`<div class="svg-container">${generateJointDetailSvg({ beamB: bv.b, beamH: bv.h, colB: cv.b, colH: cv.h, cover: bv.cover, beamBars: bv.flexure.bars, colBars: cv.column?.bars ?? cv.flexure.bars, stirrupDia: cv.shear.stirrupDia, stirrupSpacing: cv.shear.spacing })}</div>`);
+      }
+    }
+
+    // ─── Beam continuity elevations ──────────────────────────
+    if (data.beamContinuityOpts && data.beamContinuityOpts.length > 0) {
+      html.push(`<h2>3.5 ${escHtml(tr('report.beamContinuity') || 'Beam Continuity')}</h2>`);
+      for (const fl of data.beamContinuityOpts.slice(0, 3)) {
+        html.push(`<div class="svg-container" style="overflow-x:auto">${generateFrameLineElevationSvg(fl)}</div>`);
+      }
+    }
+
+    // ─── Slender column summary ──────────────────────────────
+    if (data.slenderSummary && data.slenderSummary.length > 0) {
+      html.push(`<h2>3.6 ${escHtml(tr('report.slenderSummary') || 'Slender Column Summary')}</h2>`);
+      html.push(`<table><thead><tr><th>Elem</th><th>k</th><th>Lu (m)</th><th>k·Lu/r</th><th>λ lim</th><th>${escHtml(tr('report.slenderClass') || 'Class')}</th><th>δ_ns</th><th>C_m</th><th>Mc (kN·m)</th></tr></thead><tbody>`);
+      for (const s of data.slenderSummary) {
+        const cls = s.isSlender ? 'status-warn' : 'status-ok';
+        const label = s.isSlender ? tr('pro.slenderCol') || 'Slender' : tr('pro.shortCol') || 'Short';
+        html.push(`<tr><td>${s.elementId}</td><td class="num">${s.k.toFixed(2)}</td><td class="num">${s.lu.toFixed(2)}</td><td class="num">${s.klu_r.toFixed(1)}</td><td class="num">${s.lambda_lim.toFixed(0)}</td><td class="${cls}">${label}</td><td class="num">${s.isSlender ? s.delta_ns.toFixed(3) : '—'}</td><td class="num">${s.isSlender ? s.Cm.toFixed(3) : '—'}</td><td class="num">${s.isSlender ? s.Mc.toFixed(1) : '—'}</td></tr>`);
+      }
+      html.push(`</tbody></table>`);
     }
 
     // ─── Slab reinforcement ─────────────────────────────────
