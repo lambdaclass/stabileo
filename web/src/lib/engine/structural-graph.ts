@@ -54,6 +54,8 @@ export interface FrameLine {
   elementIds: number[];
   nodeIds: number[];
   direction: 'horizontal' | 'vertical';
+  /** Principal plan axis for horizontal frame lines: 'X', 'Y', or 'other'. */
+  axis?: 'X' | 'Y' | 'other';
 }
 
 export interface StructuralGraph {
@@ -116,12 +118,27 @@ export function buildStructuralGraph(
     }
   }
 
-  // 3. Build frame lines (sequences of same-direction elements sharing nodes)
+  // 3. Build frame lines (sequences of same-direction, same-axis elements sharing nodes)
   const frameLines: FrameLine[] = [];
   const visited = new Set<number>();
 
-  // Helper: trace a chain of elements in one direction from a starting element
-  const traceChain = (startId: number, direction: 'horizontal' | 'vertical'): FrameLine | null => {
+  // Compute the principal plan axis of a horizontal element
+  function getElementAxis(elemId: number): 'X' | 'Y' | 'other' {
+    const elem = elements.get(elemId);
+    if (!elem) return 'other';
+    const nI = nodes.get(elem.nodeI);
+    const nJ = nodes.get(elem.nodeJ);
+    if (!nI || !nJ) return 'other';
+    const dx = Math.abs(nJ.x - nI.x);
+    const dy = Math.abs(nJ.y - nI.y);
+    // X-dominant: |dx| > 3 * |dy|; Y-dominant: |dy| > 3 * |dx|
+    if (dx > 3 * dy) return 'X';
+    if (dy > 3 * dx) return 'Y';
+    return 'other';
+  }
+
+  // Helper: trace a chain of elements in one direction, enforcing axis collinearity for beams
+  const traceChain = (startId: number, direction: 'horizontal' | 'vertical', requiredAxis?: 'X' | 'Y' | 'other'): FrameLine | null => {
     if (visited.has(startId)) return null;
 
     const chain: number[] = [startId];
@@ -136,7 +153,14 @@ export function buildStructuralGraph(
       const conn = nodeConn.get(currentNode);
       if (!conn) break;
       const candidates = direction === 'horizontal' ? conn.beams : conn.columns;
-      const next = candidates.find(id => !visited.has(id));
+      // For horizontal: only follow beams with matching axis
+      const next = candidates.find(id => {
+        if (visited.has(id)) return false;
+        if (requiredAxis && direction === 'horizontal') {
+          return getElementAxis(id) === requiredAxis;
+        }
+        return true;
+      });
       if (!next) break;
       visited.add(next);
       chain.push(next);
@@ -152,7 +176,13 @@ export function buildStructuralGraph(
       const conn = nodeConn.get(currentNode);
       if (!conn) break;
       const candidates = direction === 'horizontal' ? conn.beams : conn.columns;
-      const next = candidates.find(id => !visited.has(id));
+      const next = candidates.find(id => {
+        if (visited.has(id)) return false;
+        if (requiredAxis && direction === 'horizontal') {
+          return getElementAxis(id) === requiredAxis;
+        }
+        return true;
+      });
       if (!next) break;
       visited.add(next);
       chain.unshift(next);
@@ -163,18 +193,20 @@ export function buildStructuralGraph(
     }
 
     if (chain.length < 1) return null;
-    return { elementIds: chain, nodeIds: orderedNodes, direction };
+    const axis = direction === 'horizontal' ? (requiredAxis ?? 'other') : undefined;
+    return { elementIds: chain, nodeIds: orderedNodes, direction, axis };
   };
 
-  // Trace all beam frame lines
+  // Trace all beam frame lines — axis-aware to prevent X/Y mixing at grid nodes
   for (const [id, cls] of elemClass) {
     if (cls === 'beam' && !visited.has(id)) {
-      const line = traceChain(id, 'horizontal');
+      const axis = getElementAxis(id);
+      const line = traceChain(id, 'horizontal', axis);
       if (line) frameLines.push(line);
     }
   }
 
-  // Trace all column frame lines
+  // Trace all column frame lines (vertical — no axis issue)
   visited.clear();
   for (const [id, cls] of elemClass) {
     if ((cls === 'column' || cls === 'wall') && !visited.has(id)) {

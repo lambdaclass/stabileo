@@ -621,6 +621,8 @@ export interface FrameLineElevationOpts {
   spans: FrameLineSpan[];
   nodes: FrameLineNode[];
   labels?: { splice?: string };
+  /** Principal axis label for grouping (X / Y / other). */
+  axis?: 'X' | 'Y' | 'other';
 }
 
 export function generateFrameLineElevationSvg(opts: FrameLineElevationOpts): string {

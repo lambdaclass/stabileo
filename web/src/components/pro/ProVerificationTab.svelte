@@ -901,7 +901,7 @@
         };
       });
 
-      result.push({ spans, nodes: flNodes, labels: { splice: t('pro.lapSplice') } });
+      result.push({ spans, nodes: flNodes, labels: { splice: t('pro.lapSplice') }, axis: fl.axis });
       if (result.length >= 4) break;
     }
     return result;
@@ -1458,18 +1458,44 @@
           </div>
         {/if}
 
-        <!-- Beam continuity elevations (frame-line reinforcement flow) -->
+        <!-- Beam continuity elevations — grouped by axis -->
         {#if beamFrameLines.length > 0}
-          <div class="pro-section-label">{t('pro.beamContinuity') !== 'pro.beamContinuity' ? t('pro.beamContinuity') : 'Beam Continuity'}</div>
-          <div class="detailing-gallery">
-            {#each beamFrameLines as fl, idx}
-              <div class="gallery-item" style="max-width:100%">
-                <div class="detail-svg" style="overflow-x:auto">
-                  {@html generateFrameLineElevationSvg(fl)}
+          {#if beamFrameLines.some(fl => fl.axis === 'X')}
+            <div class="pro-section-label">{t('pro.beamContinuity')} — X</div>
+            <div class="detailing-gallery">
+              {#each beamFrameLines.filter(fl => fl.axis === 'X') as fl}
+                <div class="gallery-item" style="max-width:100%">
+                  <div class="detail-svg" style="overflow-x:auto">
+                    {@html generateFrameLineElevationSvg(fl)}
+                  </div>
                 </div>
-              </div>
-            {/each}
-          </div>
+              {/each}
+            </div>
+          {/if}
+          {#if beamFrameLines.some(fl => fl.axis === 'Y')}
+            <div class="pro-section-label">{t('pro.beamContinuity')} — Y</div>
+            <div class="detailing-gallery">
+              {#each beamFrameLines.filter(fl => fl.axis === 'Y') as fl}
+                <div class="gallery-item" style="max-width:100%">
+                  <div class="detail-svg" style="overflow-x:auto">
+                    {@html generateFrameLineElevationSvg(fl)}
+                  </div>
+                </div>
+              {/each}
+            </div>
+          {/if}
+          {#if beamFrameLines.some(fl => fl.axis === 'other')}
+            <div class="pro-section-label">{t('pro.beamContinuity')}</div>
+            <div class="detailing-gallery">
+              {#each beamFrameLines.filter(fl => fl.axis === 'other') as fl}
+                <div class="gallery-item" style="max-width:100%">
+                  <div class="detail-svg" style="overflow-x:auto">
+                    {@html generateFrameLineElevationSvg(fl)}
+                  </div>
+                </div>
+              {/each}
+            </div>
+          {/if}
         {/if}
 
         <!-- Column continuity elevations -->
