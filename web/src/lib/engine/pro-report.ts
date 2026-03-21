@@ -7,8 +7,8 @@ import katex from 'katex';
 import type { Node, Material, Section, Element, Support, Quad } from '../store/model.svelte';
 import type { AnalysisResults3D } from './types-3d';
 import type { ElementVerification } from './codes/argentina/cirsoc201';
-import { generateCrossSectionSvg, generateBeamElevationSvg, generateColumnElevationSvg, generateJointDetailSvg, generateSlabReinforcementSvg, designSlabReinforcement, generateFrameLineElevationSvg } from './reinforcement-svg';
-import type { JointDetailSvgOpts, FrameLineElevationOpts } from './reinforcement-svg';
+import { generateCrossSectionSvg, generateBeamElevationSvg, generateColumnElevationSvg, generateJointDetailSvg, generateSlabReinforcementSvg, designSlabReinforcement, generateFrameLineElevationSvg, generateColumnStackElevationSvg } from './reinforcement-svg';
+import type { JointDetailSvgOpts, FrameLineElevationOpts, ColumnStackElevationOpts } from './reinforcement-svg';
 import { generateInteractionDiagram, generateInteractionSvg } from './codes/argentina/interaction-diagram';
 import type { QuantitySummary } from './quantity-takeoff';
 import type { SolverDiagnostic } from './types';
@@ -82,6 +82,8 @@ export interface ReportData {
   jointDetailOpts?: JointDetailSvgOpts[];
   // Beam continuity frame-line elevation opts
   beamContinuityOpts?: FrameLineElevationOpts[];
+  // Column stack continuity elevation opts
+  columnStackOpts?: ColumnStackElevationOpts[];
   // Slender column summary
   slenderSummary?: Array<{ elementId: number; k: number; lu: number; r: number; klu_r: number; lambda_lim: number; isSlender: boolean; delta_ns: number; Cm: number; Mc: number }>;
   // Diagnostics
@@ -838,6 +840,14 @@ export function generateReportHtml(data: ReportData): string {
       html.push(`<h2>3.5 ${escHtml(tr('report.beamContinuity') || 'Beam Continuity')}</h2>`);
       for (const fl of data.beamContinuityOpts.slice(0, 3)) {
         html.push(`<div class="svg-container" style="overflow-x:auto">${generateFrameLineElevationSvg(fl)}</div>`);
+      }
+    }
+
+    // ─── Column continuity elevations ──────────────────────────
+    if (data.columnStackOpts && data.columnStackOpts.length > 0) {
+      html.push(`<h2>3.6 ${escHtml(tr('report.columnContinuity') || 'Column Continuity')}</h2>`);
+      for (const cs of data.columnStackOpts.slice(0, 3)) {
+        html.push(`<div class="svg-container">${generateColumnStackElevationSvg(cs)}</div>`);
       }
     }
 

@@ -3,8 +3,8 @@
   import type { SolverDiagnostic } from '../../lib/engine/types';
   import { verifyElement, classifyElement, REBAR_DB, computeJointPsiFromModel } from '../../lib/engine/codes/argentina/cirsoc201';
   import type { ElementVerification, VerificationInput } from '../../lib/engine/codes/argentina/cirsoc201';
-  import { generateCrossSectionSvg, generateBeamElevationSvg, generateColumnElevationSvg, generateJointDetailSvg, generateSlabReinforcementSvg, designSlabReinforcement, generateFrameLineElevationSvg } from '../../lib/engine/reinforcement-svg';
-  import type { SlabDesignResult, FramingContext, FrameLineElevationOpts } from '../../lib/engine/reinforcement-svg';
+  import { generateCrossSectionSvg, generateBeamElevationSvg, generateColumnElevationSvg, generateJointDetailSvg, generateSlabReinforcementSvg, designSlabReinforcement, generateFrameLineElevationSvg, generateColumnStackElevationSvg } from '../../lib/engine/reinforcement-svg';
+  import type { SlabDesignResult, FramingContext, FrameLineElevationOpts, ColumnStackElevationOpts } from '../../lib/engine/reinforcement-svg';
   import { buildStructuralGraph, getElementFramingContext, type StructuralGraph } from '../../lib/engine/structural-graph';
   import { checkCrackWidth, checkDeflection } from '../../lib/engine/codes/argentina/serviceability';
   import type { CrackResult, DeflectionResult } from '../../lib/engine/codes/argentina/serviceability';
@@ -907,6 +907,53 @@
     return result;
   });
 
+  /** Column stack continuity data for vertical frame-line drawings. */
+  const columnStackLines = $derived.by((): ColumnStackElevationOpts[] => {
+    if (!structGraph) return [];
+    const verifMap = new Map<number, ElementVerification>();
+    for (const v of verifications) verifMap.set(v.elementId, v);
+
+    const result: ColumnStackElevationOpts[] = [];
+    for (const fl of structGraph.frameLines) {
+      if (fl.direction !== 'vertical' || fl.elementIds.length < 2) continue;
+      const segData = fl.elementIds.map(eid => {
+        const v = verifMap.get(eid);
+        const len = elementLengthMap.get(eid);
+        return v && len && v.column ? { v, len } : null;
+      });
+      if (segData.filter(Boolean).length < 2) continue;
+
+      const firstValid = segData.find(Boolean)!;
+      const segments = fl.elementIds.map((_, i) => {
+        const sd = segData[i];
+        if (!sd) return { height: 3, bars: '?', barCount: 4, barDia: 16, stirrupSpacing: 0.2, stirrupDia: 8 };
+        const v = sd.v;
+        return {
+          height: sd.len,
+          bars: v.column?.bars ?? v.flexure.bars,
+          barCount: v.column?.barCount ?? v.flexure.barCount,
+          barDia: v.column?.barDia ?? v.flexure.barDia,
+          stirrupSpacing: v.shear.spacing,
+          stirrupDia: v.shear.stirrupDia,
+          detailing: v.detailing,
+        };
+      });
+
+      const flNodes = fl.nodeIds.map(nid => {
+        const conn = structGraph.nodes.get(nid);
+        return { hasBeam: (conn?.beams.length ?? 0) > 0, hasSupport: !!conn?.support, supportType: conn?.support };
+      });
+
+      result.push({
+        segments, nodes: flNodes,
+        sectionB: firstValid.v.b, sectionH: firstValid.v.h, cover: firstValid.v.cover,
+        labels: { splice: t('pro.lapSplice') },
+      });
+      if (result.length >= 4) break;
+    }
+    return result;
+  });
+
   // Grouped schedule entries by element type
   const beamEntries = $derived(rebarSchedule.filter(e => e.elementType === 'beam'));
   const colEntries = $derived(rebarSchedule.filter(e => e.elementType === 'column'));
@@ -1419,6 +1466,20 @@
               <div class="gallery-item" style="max-width:100%">
                 <div class="detail-svg" style="overflow-x:auto">
                   {@html generateFrameLineElevationSvg(fl)}
+                </div>
+              </div>
+            {/each}
+          </div>
+        {/if}
+
+        <!-- Column continuity elevations -->
+        {#if columnStackLines.length > 0}
+          <div class="pro-section-label">{t('pro.columnContinuity') !== 'pro.columnContinuity' ? t('pro.columnContinuity') : 'Column Continuity'}</div>
+          <div class="detailing-gallery">
+            {#each columnStackLines as cs}
+              <div class="gallery-item">
+                <div class="detail-svg">
+                  {@html generateColumnStackElevationSvg(cs)}
                 </div>
               </div>
             {/each}

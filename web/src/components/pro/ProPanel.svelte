@@ -473,6 +473,24 @@
       }
       if (flOpts.length > 0) data.beamContinuityOpts = flOpts;
 
+      // Column stack continuity (up to 3 for report)
+      const csOpts: import('../../lib/engine/reinforcement-svg').ColumnStackElevationOpts[] = [];
+      for (const fl of graph.frameLines) {
+        if (fl.direction !== 'vertical' || fl.elementIds.length < 2) continue;
+        const segData = fl.elementIds.map(eid => { const v = verifMap.get(eid); const len = elemLengths.get(eid); return v && len && v.column ? { v, len } : null; });
+        if (segData.filter(Boolean).length < 2) continue;
+        const firstValid = segData.find(Boolean)!;
+        const segments = fl.elementIds.map((_, i) => {
+          const sd = segData[i];
+          if (!sd) return { height: 3, bars: '?', barCount: 4, barDia: 16, stirrupSpacing: 0.2, stirrupDia: 8 };
+          return { height: sd.len, bars: sd.v.column?.bars ?? sd.v.flexure.bars, barCount: sd.v.column?.barCount ?? sd.v.flexure.barCount, barDia: sd.v.column?.barDia ?? sd.v.flexure.barDia, stirrupSpacing: sd.v.shear.spacing, stirrupDia: sd.v.shear.stirrupDia, detailing: sd.v.detailing };
+        });
+        const flNodes = fl.nodeIds.map(nid => { const c = graph.nodes.get(nid); return { hasBeam: (c?.beams.length ?? 0) > 0, hasSupport: !!c?.support, supportType: c?.support }; });
+        csOpts.push({ segments, nodes: flNodes, sectionB: firstValid.v.b, sectionH: firstValid.v.h, cover: firstValid.v.cover, labels: { splice: t('pro.lapSplice') } });
+        if (csOpts.length >= 3) break;
+      }
+      if (csOpts.length > 0) data.columnStackOpts = csOpts;
+
       // Slender column summary
       const slenderData = verificationsRef.filter(v => v.slender).map(v => ({
         elementId: v.elementId, k: v.slender!.k, lu: v.slender!.lu, r: v.slender!.r,

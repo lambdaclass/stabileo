@@ -804,6 +804,180 @@ export function generateFrameLineElevationSvg(opts: FrameLineElevationOpts): str
   return lines.join('\n');
 }
 
+// ─── Column Stack Continuity Elevation ────────────────────────────
+
+export interface ColumnStackSegment {
+  height: number;
+  bars: string;
+  barCount: number;
+  barDia: number;
+  stirrupSpacing: number;
+  stirrupDia: number;
+  detailing?: DetailingResult;
+}
+
+export interface ColumnStackNode {
+  hasBeam: boolean;
+  hasSupport: boolean;
+  supportType?: string;
+}
+
+export interface ColumnStackElevationOpts {
+  segments: ColumnStackSegment[];
+  nodes: ColumnStackNode[];
+  sectionB: number;
+  sectionH: number;
+  cover: number;
+  labels?: { splice?: string };
+}
+
+export function generateColumnStackElevationSvg(opts: ColumnStackElevationOpts): string {
+  const { segments, nodes, sectionB, cover, labels } = opts;
+  if (segments.length === 0) return '';
+  const spliceWord = labels?.splice ?? 'splice';
+
+  const maxSegs = Math.min(segments.length, 8);
+  const drawnSegs = segments.slice(0, maxSegs);
+  const drawnNodes = nodes.slice(0, maxSegs + 1);
+  const truncated = maxSegs < segments.length;
+  const totalH = drawnSegs.reduce((s, seg) => s + seg.height, 0);
+
+  const scaleY = Math.min(400 / totalH, 80);
+  const colW = 50; // px width of column outline
+  const pad = 40;
+  const anchorPad = 20;
+  const W = colW + 200; // room for labels and dimensions
+  const H = totalH * scaleY + 2 * pad + anchorPad;
+  const ox = 80; // left margin for dimension labels
+  const oy = pad;
+
+  const lines: string[] = [];
+  lines.push(`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${W} ${H}" width="${W}" height="${H}">`);
+  lines.push(`<style>
+    text { font-family: monospace; fill: #ccc; }
+    .dim { font-size: 8px; fill: #888; }
+    .bar-label { font-size: 8px; fill: #f0a500; }
+    .detail-dim { font-size: 7px; fill: #5a9; }
+    .level-label { font-size: 7px; fill: #556; }
+  </style>`);
+
+  // Accumulate Y positions for each node (top = oy, bottom = oy + totalH*scaleY)
+  const nodeY: number[] = [oy];
+  for (let i = 0; i < drawnSegs.length; i++) {
+    nodeY.push(nodeY[i] + drawnSegs[i].height * scaleY);
+  }
+  const colTop = nodeY[0];
+  const colBot = nodeY[nodeY.length - 1];
+
+  // ── Beam stubs at floor levels (behind column) ──
+  const beamStubW = 30;
+  const beamStubH = 8;
+  for (let i = 0; i < drawnNodes.length; i++) {
+    if (drawnNodes[i].hasBeam && i > 0 && i < drawnNodes.length - 1) {
+      // Beam stubs on both sides
+      lines.push(`<rect x="${ox - beamStubW}" y="${nodeY[i] - beamStubH / 2}" width="${beamStubW}" height="${beamStubH}" fill="#222e44" stroke="#3a4a6a" stroke-width="0.6" rx="1"/>`);
+      lines.push(`<rect x="${ox + colW}" y="${nodeY[i] - beamStubH / 2}" width="${beamStubW}" height="${beamStubH}" fill="#222e44" stroke="#3a4a6a" stroke-width="0.6" rx="1"/>`);
+    }
+  }
+
+  // ── Column concrete outline ──
+  lines.push(`<rect x="${ox}" y="${colTop}" width="${colW}" height="${colBot - colTop}" fill="#1a2a40" stroke="#4ecdc4" stroke-width="1.2"/>`);
+
+  // ── Floor level lines ──
+  for (let i = 1; i < drawnNodes.length - 1; i++) {
+    lines.push(`<line x1="${ox - 5}" y1="${nodeY[i]}" x2="${ox + colW + 5}" y2="${nodeY[i]}" stroke="#4ecdc4" stroke-width="0.5" opacity="0.5"/>`);
+  }
+
+  // ── Foundation at base ──
+  if (drawnNodes[drawnNodes.length - 1].hasSupport) {
+    lines.push(`<line x1="${ox - 12}" y1="${colBot}" x2="${ox + colW + 12}" y2="${colBot}" stroke="#4ecdc4" stroke-width="2"/>`);
+    for (let i = -12; i <= colW + 8; i += 5) {
+      lines.push(`<line x1="${ox + i}" y1="${colBot}" x2="${ox + i - 4}" y2="${colBot + 6}" stroke="#4ecdc4" stroke-width="0.5"/>`);
+    }
+  }
+
+  // ── Continuous vertical bars ──
+  const coverPx = Math.max(cover / sectionB * colW, 3);
+  const barR = 2;
+  const xL = ox + coverPx + barR;
+  const xR = ox + colW - coverPx - barR;
+
+  // Main bars — full height
+  lines.push(`<line x1="${xL}" y1="${colTop + 3}" x2="${xL}" y2="${colBot - 3}" stroke="#e94560" stroke-width="2"/>`);
+  lines.push(`<line x1="${xR}" y1="${colTop + 3}" x2="${xR}" y2="${colBot - 3}" stroke="#e94560" stroke-width="2"/>`);
+
+  // Foundation anchorage tails (dashed below base)
+  const baseDetailing = drawnSegs[drawnSegs.length - 1]?.detailing;
+  if (baseDetailing && drawnNodes[drawnNodes.length - 1].hasSupport) {
+    const ld = Math.max(...baseDetailing.bars.map(b => b.ld));
+    const ldPx = Math.min(ld * scaleY, anchorPad - 2);
+    lines.push(`<line x1="${xL}" y1="${colBot}" x2="${xL}" y2="${colBot + ldPx}" stroke="#e94560" stroke-width="1.5" stroke-dasharray="4,3" opacity="0.7"/>`);
+    lines.push(`<line x1="${xR}" y1="${colBot}" x2="${xR}" y2="${colBot + ldPx}" stroke="#e94560" stroke-width="1.5" stroke-dasharray="4,3" opacity="0.7"/>`);
+    // ld dimension
+    const dimX = ox + colW + 8;
+    lines.push(`<line x1="${dimX}" y1="${colBot}" x2="${dimX}" y2="${colBot + ldPx}" stroke="#5a9" stroke-width="0.4"/>`);
+    lines.push(`<line x1="${dimX - 2}" y1="${colBot}" x2="${dimX + 2}" y2="${colBot}" stroke="#5a9" stroke-width="0.4"/>`);
+    lines.push(`<line x1="${dimX - 2}" y1="${colBot + ldPx}" x2="${dimX + 2}" y2="${colBot + ldPx}" stroke="#5a9" stroke-width="0.4"/>`);
+    lines.push(`<text x="${dimX + 4}" y="${colBot + ldPx / 2}" dominant-baseline="middle" class="detail-dim">ld=${(ld * 100).toFixed(0)}</text>`);
+  }
+
+  // ── Splice zones above each floor level ──
+  for (let i = 1; i < drawnNodes.length - 1; i++) {
+    const seg = drawnSegs[i]; // segment above this floor
+    if (!seg || !seg.detailing) continue;
+    const maxSplice = Math.max(...seg.detailing.bars.map(b => b.lapSplice));
+    const splicePx = Math.min(maxSplice * scaleY, (nodeY[i + 1] - nodeY[i]) * 0.4);
+    if (splicePx < 4) continue;
+    const spliceTop = nodeY[i];
+    lines.push(`<rect x="${ox + 1}" y="${spliceTop}" width="${colW - 2}" height="${splicePx}" fill="#5a9" opacity="0.1" rx="2"/>`);
+    lines.push(`<line x1="${ox}" y1="${spliceTop + splicePx}" x2="${ox + colW}" y2="${spliceTop + splicePx}" stroke="#5a9" stroke-width="0.5" stroke-dasharray="3,2"/>`);
+    // Only label first splice
+    if (i === 1) {
+      lines.push(`<text x="${ox + colW + 8}" y="${spliceTop + splicePx / 2}" dominant-baseline="middle" class="detail-dim">${spliceWord}=${(maxSplice * 100).toFixed(0)}</text>`);
+    }
+  }
+
+  // ── Ties per segment ──
+  for (let i = 0; i < drawnSegs.length; i++) {
+    const seg = drawnSegs[i];
+    const segTop = nodeY[i];
+    const segBot = nodeY[i + 1];
+    const segH = segBot - segTop;
+    const nTies = Math.min(Math.floor(seg.height / seg.stirrupSpacing), Math.floor(segH / 6));
+    const step = segH / (nTies + 1);
+    for (let j = 1; j <= nTies; j++) {
+      const ty = segTop + j * step;
+      lines.push(`<line x1="${ox + coverPx}" y1="${ty}" x2="${ox + colW - coverPx}" y2="${ty}" stroke="#f0a500" stroke-width="0.6" opacity="0.4"/>`);
+    }
+  }
+
+  // ── Labels ──
+  // Bar description (use first segment)
+  lines.push(`<text x="${ox + colW + 8}" y="${colTop + 15}" class="bar-label">${drawnSegs[0].bars}</text>`);
+  // Stirrup description
+  lines.push(`<text x="${ox + colW + 8}" y="${colTop + 27}" class="dim">eØ${drawnSegs[0].stirrupDia} c/${(drawnSegs[0].stirrupSpacing * 100).toFixed(0)}</text>`);
+  // Section dimension
+  lines.push(`<text x="${ox + colW / 2}" y="${colTop - 6}" text-anchor="middle" class="dim">${(opts.sectionB * 100).toFixed(0)}×${(opts.sectionH * 100).toFixed(0)}</text>`);
+
+  // ── Story height dimensions ──
+  for (let i = 0; i < drawnSegs.length; i++) {
+    const yTop = nodeY[i];
+    const yBot = nodeY[i + 1];
+    const dimX = ox - 20;
+    lines.push(`<line x1="${dimX}" y1="${yTop}" x2="${dimX}" y2="${yBot}" stroke="#666" stroke-width="0.4"/>`);
+    lines.push(`<line x1="${dimX - 2}" y1="${yTop}" x2="${dimX + 2}" y2="${yTop}" stroke="#666" stroke-width="0.4"/>`);
+    lines.push(`<line x1="${dimX - 2}" y1="${yBot}" x2="${dimX + 2}" y2="${yBot}" stroke="#666" stroke-width="0.4"/>`);
+    lines.push(`<text x="${dimX - 4}" y="${(yTop + yBot) / 2}" text-anchor="end" dominant-baseline="middle" class="dim">${drawnSegs[i].height.toFixed(2)}</text>`);
+  }
+
+  if (truncated) {
+    lines.push(`<text x="${ox + colW / 2}" y="${colTop - 14}" text-anchor="middle" class="dim">...</text>`);
+  }
+
+  lines.push(`</svg>`);
+  return lines.join('\n');
+}
+
 // ─── Beam-Column Joint Detail ───────────────────────────────────
 
 export interface JointDetailSvgOpts {
