@@ -739,10 +739,13 @@ export function generateFrameLineElevationSvg(opts: FrameLineElevationOpts): str
 
       const spanLeft = nodeX[i];
       const spanPx = nodeX[i + 1] - spanLeft;
-      const threshold = 0.05 * Math.max(...ms.posM, ...ms.negM); // 5% of max
+      // Independent thresholds: 15% of each side's maximum across the span
+      const maxPos = Math.max(...ms.posM);
+      const maxNeg = Math.max(...ms.negM);
+      const botThreshold = 0.15 * maxPos;
+      const topThreshold = 0.15 * maxNeg;
 
-      // Find zones: positive-moment (bottom bars) and negative-moment (top bars)
-      // and inflection points (where dominant moment changes sign)
+      // Draw demand bars independently — both can coexist in the same region
       for (let j = 0; j < ms.t.length - 1; j++) {
         const t0 = ms.t[j], t1 = ms.t[j + 1];
         const x0 = spanLeft + t0 * spanPx;
@@ -750,44 +753,40 @@ export function generateFrameLineElevationSvg(opts: FrameLineElevationOpts): str
         const posAvg = (ms.posM[j] + ms.posM[j + 1]) / 2;
         const negAvg = (ms.negM[j] + ms.negM[j + 1]) / 2;
 
-        if (posAvg > threshold && posAvg >= negAvg) {
-          // Positive moment dominant → bottom demand bar
+        // Bottom demand bar: where positive moment exceeds its own threshold
+        if (posAvg > botThreshold) {
           lines.push(`<line x1="${x0}" y1="${botBarY}" x2="${x1}" y2="${botBarY}" stroke="#e94560" stroke-width="2.5"/>`);
         }
-        if (negAvg > threshold && negAvg > posAvg) {
-          // Negative moment dominant → top demand bar
+        // Top demand bar: where negative moment exceeds its own threshold
+        if (negAvg > topThreshold) {
           lines.push(`<line x1="${x0}" y1="${topBarY}" x2="${x1}" y2="${topBarY}" stroke="#4a90d9" stroke-width="2"/>`);
         }
       }
 
-      // Find inflection points (where posM and negM cross dominance)
-      for (let j = 0; j < ms.t.length - 1; j++) {
-        const posDom0 = ms.posM[j] > ms.negM[j];
-        const posDom1 = ms.posM[j + 1] > ms.negM[j + 1];
-        if (posDom0 !== posDom1) {
-          // Interpolate the crossing position
-          const diff0 = ms.posM[j] - ms.negM[j];
-          const diff1 = ms.posM[j + 1] - ms.negM[j + 1];
-          const frac = Math.abs(diff0) / (Math.abs(diff0) + Math.abs(diff1));
-          const tInfl = ms.t[j] + frac * (ms.t[j + 1] - ms.t[j]);
-          const xInfl = spanLeft + tInfl * spanPx;
+      // Find low-demand splice zones (where both posM and negM are below their thresholds)
+      let bestSpliceT = -1;
+      let bestSpliceDemand = Infinity;
+      for (let j = 0; j < ms.t.length; j++) {
+        const combinedDemand = (maxPos > 0 ? ms.posM[j] / maxPos : 0) + (maxNeg > 0 ? ms.negM[j] / maxNeg : 0);
+        if (combinedDemand < bestSpliceDemand) {
+          bestSpliceDemand = combinedDemand;
+          bestSpliceT = ms.t[j];
+        }
+      }
 
-          // Inflection point marker
-          lines.push(`<circle cx="${xInfl}" cy="${oy + beamH / 2}" r="2.5" fill="none" stroke="#5a9" stroke-width="0.8"/>`);
-          lines.push(`<line x1="${xInfl}" y1="${oy + 2}" x2="${xInfl}" y2="${oy + beamH - 2}" stroke="#5a9" stroke-width="0.4" stroke-dasharray="2,2" opacity="0.5"/>`);
-
-          // Splice at inflection point (low-demand zone)
-          if (sp.detailing) {
-            const maxSplice = Math.max(...sp.detailing.bars.map(b => b.lapSplice));
-            const splicePx = Math.min(maxSplice * scaleX, spanPx * 0.15);
-            if (splicePx >= 4) {
-              const spliceX = xInfl - splicePx / 2;
-              lines.push(`<rect x="${spliceX}" y="${botBarY - 4}" width="${splicePx}" height="5" fill="#5a9" opacity="0.15" rx="1"/>`);
-              if (!firstSpliceLabeled) {
-                lines.push(`<text x="${xInfl}" y="${botBarY - 7}" text-anchor="middle" class="detail-dim">${spliceWord}=${(maxSplice * 100).toFixed(0)}</text>`);
-                firstSpliceLabeled = true;
-              }
-            }
+      // Draw splice at the lowest-demand station
+      if (bestSpliceT >= 0.1 && bestSpliceT <= 0.9 && sp.detailing) {
+        const xSplice = spanLeft + bestSpliceT * spanPx;
+        const maxSplice = Math.max(...sp.detailing.bars.map(b => b.lapSplice));
+        const splicePx = Math.min(maxSplice * scaleX, spanPx * 0.15);
+        if (splicePx >= 4) {
+          // Splice indicator
+          lines.push(`<rect x="${xSplice - splicePx / 2}" y="${botBarY - 4}" width="${splicePx}" height="5" fill="#5a9" opacity="0.15" rx="1"/>`);
+          // Low-demand marker
+          lines.push(`<circle cx="${xSplice}" cy="${oy + beamH / 2}" r="2" fill="none" stroke="#5a9" stroke-width="0.6"/>`);
+          if (!firstSpliceLabeled) {
+            lines.push(`<text x="${xSplice}" y="${botBarY - 7}" text-anchor="middle" class="detail-dim">${spliceWord}=${(maxSplice * 100).toFixed(0)}</text>`);
+            firstSpliceLabeled = true;
           }
         }
       }
