@@ -739,66 +739,73 @@ export function generateFrameLineElevationSvg(opts: FrameLineElevationOpts): str
 
       const spanLeft = nodeX[i];
       const spanPx = nodeX[i + 1] - spanLeft;
-      const maxPos = Math.max(...ms.posM);
-      const maxNeg = Math.max(...ms.negM);
-      const botThreshold = 0.15 * maxPos;
-      const topThreshold = 0.15 * maxNeg;
 
-      // Extract contiguous demand zones with gap merging (not per-segment)
-      const extractZones = (values: number[], threshold: number): Array<{ tStart: number; tEnd: number }> => {
-        if (threshold <= 0) return [];
-        const zones: Array<{ tStart: number; tEnd: number }> = [];
-        let zoneStart = -1;
-        let gapCount = 0;
-        const maxGap = 2; // merge gaps of up to 2 stations (~10% of span)
-        for (let j = 0; j < values.length; j++) {
-          if (values[j] > threshold) {
-            if (zoneStart < 0) zoneStart = j;
-            gapCount = 0;
-          } else if (zoneStart >= 0) {
-            gapCount++;
-            if (gapCount > maxGap) {
-              // Close zone at the station before the gap
-              zones.push({ tStart: ms.t[zoneStart], tEnd: ms.t[j - gapCount] });
-              zoneStart = -1;
-              gapCount = 0;
-            }
-          }
-        }
-        if (zoneStart >= 0) {
-          zones.push({ tStart: ms.t[zoneStart], tEnd: ms.t[values.length - 1] });
-        }
-        return zones;
-      };
+      // ── Support-anchored three-zone model ──
+      // Find inflection points from envelope: where posM first exceeds negM (left→right)
+      // and where posM last exceeds negM (right→left)
+      const leftHasCol = drawnNodes[i].hasColumn || drawnNodes[i].hasSupport;
+      const rightHasCol = drawnNodes[i + 1].hasColumn || drawnNodes[i + 1].hasSupport;
 
-      // Bottom demand zones and top demand zones — independent, can overlap
-      const botZones = extractZones(ms.posM, botThreshold);
-      const topZones = extractZones(ms.negM, topThreshold);
-
-      for (const z of botZones) {
-        const x0 = spanLeft + z.tStart * spanPx;
-        const x1 = spanLeft + z.tEnd * spanPx;
-        lines.push(`<line x1="${x0}" y1="${botBarY}" x2="${x1}" y2="${botBarY}" stroke="#e94560" stroke-width="2.5"/>`);
-      }
-      for (const z of topZones) {
-        const x0 = spanLeft + z.tStart * spanPx;
-        const x1 = spanLeft + z.tEnd * spanPx;
-        lines.push(`<line x1="${x0}" y1="${topBarY}" x2="${x1}" y2="${topBarY}" stroke="#4a90d9" stroke-width="2"/>`);
-      }
-
-      // Find low-demand splice zones (where both posM and negM are below their thresholds)
-      let bestSpliceT = -1;
-      let bestSpliceDemand = Infinity;
+      // Scan for left inflection (first station where pos > neg, scanning from left)
+      let tInflL = 0.25; // default for interior spans
       for (let j = 0; j < ms.t.length; j++) {
-        const combinedDemand = (maxPos > 0 ? ms.posM[j] / maxPos : 0) + (maxNeg > 0 ? ms.negM[j] / maxNeg : 0);
-        if (combinedDemand < bestSpliceDemand) {
-          bestSpliceDemand = combinedDemand;
-          bestSpliceT = ms.t[j];
+        if (ms.posM[j] > ms.negM[j] * 1.2) { // pos clearly dominates (20% margin)
+          tInflL = ms.t[j];
+          break;
+        }
+      }
+      // Scan for right inflection (first station where pos > neg, scanning from right)
+      let tInflR = 0.75;
+      for (let j = ms.t.length - 1; j >= 0; j--) {
+        if (ms.posM[j] > ms.negM[j] * 1.2) {
+          tInflR = ms.t[j];
+          break;
         }
       }
 
-      // Draw splice at the lowest-demand station
-      if (bestSpliceT >= 0.1 && bestSpliceT <= 0.9 && sp.detailing) {
+      // Clamp: inflection points must be at least 0.15L from supports
+      tInflL = Math.max(tInflL, 0.15);
+      tInflR = Math.min(tInflR, 0.85);
+      // Ensure left < right
+      if (tInflL >= tInflR) { tInflL = 0.3; tInflR = 0.7; }
+
+      const overlap = 0.08; // bottom bars extend 8% of span into support zones
+
+      // Left support zone: top bar from t=0 to tInflL (if support/column exists)
+      if (leftHasCol) {
+        const x0 = spanLeft;
+        const x1 = spanLeft + tInflL * spanPx;
+        lines.push(`<line x1="${x0 + 2}" y1="${topBarY}" x2="${x1}" y2="${topBarY}" stroke="#4a90d9" stroke-width="2"/>`);
+      }
+
+      // Right support zone: top bar from tInflR to t=1 (if support/column exists)
+      if (rightHasCol) {
+        const x0 = spanLeft + tInflR * spanPx;
+        const x1 = spanLeft + spanPx;
+        lines.push(`<line x1="${x0}" y1="${topBarY}" x2="${x1 - 2}" y2="${topBarY}" stroke="#4a90d9" stroke-width="2"/>`);
+      }
+
+      // Midspan zone: bottom bar with overlap into support zones
+      const botStart = leftHasCol ? Math.max(0, tInflL - overlap) : 0;
+      const botEnd = rightHasCol ? Math.min(1, tInflR + overlap) : 1;
+      const bx0 = spanLeft + botStart * spanPx;
+      const bx1 = spanLeft + botEnd * spanPx;
+      lines.push(`<line x1="${bx0 + 2}" y1="${botBarY}" x2="${bx1 - 2}" y2="${botBarY}" stroke="#e94560" stroke-width="2.5"/>`);
+
+      // Splice at the transition zone (best location: average of inflection points)
+      const spliceT = (tInflL + tInflR) / 2; // midway between transitions ≈ midspan low-demand
+      // Find actual lowest-demand station near midspan for splice placement
+      let bestSpliceT = spliceT;
+      let bestSpliceDemand = Infinity;
+      const maxPos = Math.max(...ms.posM, 1);
+      const maxNeg = Math.max(...ms.negM, 1);
+      for (let j = 0; j < ms.t.length; j++) {
+        if (ms.t[j] < 0.15 || ms.t[j] > 0.85) continue;
+        const d = ms.posM[j] / maxPos + ms.negM[j] / maxNeg;
+        if (d < bestSpliceDemand) { bestSpliceDemand = d; bestSpliceT = ms.t[j]; }
+      }
+
+      if (bestSpliceT >= 0.15 && bestSpliceT <= 0.85 && sp.detailing) {
         const xSplice = spanLeft + bestSpliceT * spanPx;
         const maxSplice = Math.max(...sp.detailing.bars.map(b => b.lapSplice));
         const splicePx = Math.min(maxSplice * scaleX, spanPx * 0.15);
