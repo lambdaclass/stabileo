@@ -820,19 +820,17 @@ export function generateFrameLineElevationSvg(opts: FrameLineElevationOpts): str
       // Ensure left < right
       if (tInflL >= tInflR) { tInflL = 0.3; tInflR = 0.7; }
 
-      const overlap = 0.08; // bottom bars extend 8% of span into support zones
+      // Development-length extension for bar anchorage past transition zones
+      // Use ld from detailing if available, otherwise 15% of span
+      const detBars = sp.detailing?.bars;
+      const ldM = detBars && detBars.length > 0 ? Math.max(...detBars.map(b => b.ld)) : sp.length * 0.15;
+      const ldExt = Math.min(ldM * scaleX, spanPx * 0.2); // cap at 20% of span visually
 
-      // Fabrication-style path helpers
-      const hookH = Math.min(beamH * 0.35, 10); // px — hook drop/rise height
-      const bendH = Math.min(beamH * 0.4, 12);  // px — 45° bend rise height
-      const bendDx = bendH; // 45° → dx = dy
-
-      // Left support zone: top bar with hook at midspan end
+      // Left support zone: top bar extending past inflection by ld
       if (leftHasCol) {
         const x0 = spanLeft + 2;
-        const x1 = spanLeft + tInflL * spanPx;
-        // Horizontal run from support, then 90° hook downward at termination
-        lines.push(`<polyline points="${x0},${topBarY} ${x1},${topBarY} ${x1},${topBarY + hookH}" fill="none" stroke="#4a90d9" stroke-width="2" stroke-linejoin="round"/>`);
+        const x1 = spanLeft + tInflL * spanPx + ldExt; // extend past inflection
+        lines.push(`<line x1="${x0}" y1="${topBarY}" x2="${Math.min(x1, spanLeft + spanPx - 2)}" y2="${topBarY}" stroke="#4a90d9" stroke-width="2"/>`);
         if (!firstTopZoneLabeled) {
           const topLabel = sp.hasCompSteel ? sp.topBars : '2Ø10 min';
           lines.push(`<text x="${x0 + 2}" y="${topBarY - 4}" class="bar-label" style="fill:#4a90d9;font-size:7px">${topLabel}</text>`);
@@ -840,11 +838,11 @@ export function generateFrameLineElevationSvg(opts: FrameLineElevationOpts): str
         }
       }
 
-      // Right support zone: top bar with hook at midspan end
+      // Right support zone: top bar extending past inflection by ld
       if (rightHasCol) {
-        const x0 = spanLeft + tInflR * spanPx;
+        const x0 = spanLeft + tInflR * spanPx - ldExt; // extend past inflection
         const x1 = spanLeft + spanPx - 2;
-        lines.push(`<polyline points="${x0},${topBarY + hookH} ${x0},${topBarY} ${x1},${topBarY}" fill="none" stroke="#4a90d9" stroke-width="2" stroke-linejoin="round"/>`);
+        lines.push(`<line x1="${Math.max(x0, spanLeft + 2)}" y1="${topBarY}" x2="${x1}" y2="${topBarY}" stroke="#4a90d9" stroke-width="2"/>`);
         if (!firstTopZoneLabeled) {
           const topLabel = sp.hasCompSteel ? sp.topBars : '2Ø10 min';
           lines.push(`<text x="${x1 - 2}" y="${topBarY - 4}" text-anchor="end" class="bar-label" style="fill:#4a90d9;font-size:7px">${topLabel}</text>`);
@@ -852,42 +850,15 @@ export function generateFrameLineElevationSvg(opts: FrameLineElevationOpts): str
         }
       }
 
-      // Midspan zone: complementary bottom bars with fabrication terminations
-      const botStart = leftHasCol ? Math.max(0, tInflL - overlap) : 0;
-      const botEnd = rightHasCol ? Math.min(1, tInflR + overlap) : 1;
-      const bx0 = spanLeft + botStart * spanPx;
-      const bx1 = spanLeft + botEnd * spanPx;
+      // Midspan zone: bottom demand bars extending past transition by ld
+      const botStartT = leftHasCol ? Math.max(0, tInflL - ldM / sp.length) : 0;
+      const botEndT = rightHasCol ? Math.min(1, tInflR + ldM / sp.length) : 1;
+      const bx0 = spanLeft + botStartT * spanPx;
+      const bx1 = spanLeft + botEndT * spanPx;
       if (nExtraBot > 0) {
-        // Decide termination style at each end:
-        // bent-up if inflection is within 0.35L of a support, otherwise hook
-        const leftBend = leftHasCol && tInflL <= 0.35;
-        const rightBend = rightHasCol && tInflR >= 0.65;
-
-        // Build polyline points for the complementary bar path
-        const pts: string[] = [];
-        // Left termination
-        if (leftBend) {
-          pts.push(`${bx0 - bendDx},${botBarY - bendH}`); // bent-up start
-          pts.push(`${bx0},${botBarY}`);                    // transition to horizontal
-        } else if (leftHasCol) {
-          pts.push(`${bx0},${botBarY - hookH}`);            // hook up
-          pts.push(`${bx0},${botBarY}`);
-        } else {
-          pts.push(`${bx0 + 2},${botBarY}`);
-        }
-        // Horizontal run
-        pts.push(`${bx1},${botBarY}`);
-        // Right termination
-        if (rightBend) {
-          pts.push(`${bx1 + bendDx},${botBarY - bendH}`);
-        } else if (rightHasCol) {
-          pts.push(`${bx1},${botBarY - hookH}`);
-        }
-
-        lines.push(`<polyline points="${pts.join(' ')}" fill="none" stroke="#e94560" stroke-width="2.5" stroke-linejoin="round"/>`);
+        lines.push(`<line x1="${Math.max(bx0, spanLeft + 2)}" y1="${botBarY}" x2="${Math.min(bx1, spanLeft + spanPx - 2)}" y2="${botBarY}" stroke="#e94560" stroke-width="2.5"/>`);
       } else {
-        // All bars are continuous minimum — reinforce the continuous line
-        lines.push(`<line x1="${bx0 + 2}" y1="${botBarY}" x2="${bx1 - 2}" y2="${botBarY}" stroke="#e94560" stroke-width="1.8"/>`);
+        lines.push(`<line x1="${Math.max(bx0, spanLeft + 2)}" y1="${botBarY}" x2="${Math.min(bx1, spanLeft + spanPx - 2)}" y2="${botBarY}" stroke="#e94560" stroke-width="1.8"/>`);
       }
 
       // Splice at the transition zone (best location: average of inflection points)
