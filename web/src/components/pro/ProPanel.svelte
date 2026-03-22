@@ -502,7 +502,7 @@
 
       // Bar marks
       const marks = computeBarMarks(verificationsRef, elemLengths);
-      if (marks.length > 0) data.barMarks = marks.map(m => ({ mark: m.mark, diameter: m.diameter, shape: m.shape, cuttingLength: m.cuttingLength, count: m.count, totalLength: m.totalLength, weight: m.weight, overStock: m.overStock }));
+      if (marks.length > 0) data.barMarks = marks.map(m => ({ mark: m.mark, diameter: m.diameter, shape: m.shape, cuttingLength: m.cuttingLength, count: m.count, totalLength: m.totalLength, weight: m.weight, overStock: m.overStock, stockLength: m.stockLength, needsStockSplice: m.needsStockSplice, nStockSplices: m.nStockSplices }));
     }
 
     if (verificationsRef.length > 0) {

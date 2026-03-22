@@ -1096,6 +1096,7 @@
         t('pro.bmMark') || 'Mark', `Ø (mm)`, t('pro.bmShape') || 'Shape',
         `${t('pro.bmCutLen') || 'Cut. L'} (m)`, t('pro.bmCount') || 'Count',
         `${t('pro.bmTotalLen') || 'Total L'} (m)`, `${t('pro.bmWeight') || 'Weight'} (kg)`,
+        'Stock (m)', 'Splices',
         t('pro.bmNote') || 'Note',
       ];
       const bmData: (string | number)[][] = [bmHeaders];
@@ -1104,6 +1105,8 @@
           m.mark, m.diameter, shapeLabel(m.shape),
           m.cuttingLength, m.count,
           Number(m.totalLength.toFixed(1)), Number(m.weight.toFixed(1)),
+          m.shape !== 'stirrup' ? m.stockLength : '',
+          m.needsStockSplice ? m.nStockSplices : '',
           m.overStock ? '>12m' : '',
         ]);
       }
@@ -1781,6 +1784,7 @@
                 <th>{t('pro.bmCount') || 'Count'}</th>
                 <th>{t('pro.bmTotalLen') || 'Total L'} (m)</th>
                 <th>{t('pro.bmWeight') || 'Weight'} (kg)</th>
+                <th>Stock</th>
                 <th></th>
               </tr>
             </thead>
@@ -1794,6 +1798,7 @@
                   <td class="col-num">{m.count}</td>
                   <td class="col-num">{m.totalLength.toFixed(1)}</td>
                   <td class="col-num">{m.weight.toFixed(1)}</td>
+                  <td class="col-num" style="font-size:0.6rem">{m.shape !== 'stirrup' ? `${m.stockLength}m` : ''}{#if m.needsStockSplice}<br><span class="status-warn">{m.nStockSplices}sp</span>{/if}</td>
                   <td>{#if m.overStock}<span class="status-warn" title=">12m stock">⚠</span>{/if}</td>
                 </tr>
               {/each}
@@ -1801,7 +1806,7 @@
                 <td colspan="5"></td>
                 <td class="col-num">{barMarks.reduce((s, m) => s + m.totalLength, 0).toFixed(1)}</td>
                 <td class="col-num">{barMarks.reduce((s, m) => s + m.weight, 0).toFixed(1)}</td>
-                <td></td>
+                <td></td><td></td>
               </tr>
             </tbody>
           </table>

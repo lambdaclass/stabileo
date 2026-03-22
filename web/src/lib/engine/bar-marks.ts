@@ -17,6 +17,13 @@ export interface BarMark {
   totalLength: number;     // m
   weight: number;          // kg
   overStock: boolean;      // cutting length > 12m
+  stockLength: number;     // m — assumed stock length (6m for ≤Ø12, 12m for >Ø12)
+  needsStockSplice: boolean;
+  nStockSplices: number;   // mandatory splices per bar due to stock length
+}
+
+function getStockLength(diameter: number): number {
+  return diameter <= 12 ? 6 : 12;
 }
 
 const STEEL_DENSITY = 7850; // kg/m³
@@ -90,6 +97,7 @@ export function computeBarMarks(
       mainShape = 'hooked';
     }
 
+    const mainStock = getStockLength(mainBarDia);
     marks.push({
       mark: `${prefix}${idx}`,
       diameter: mainBarDia,
@@ -100,6 +108,9 @@ export function computeBarMarks(
       totalLength: Math.round(mainCutLen * mainBarCount * g.elementIds.length * 100) / 100,
       weight: Math.round(mainCutLen * mainBarCount * g.elementIds.length * barArea(mainBarDia) * STEEL_DENSITY * 10) / 10,
       overStock: mainCutLen > 12,
+      stockLength: mainStock,
+      needsStockSplice: mainCutLen > mainStock,
+      nStockSplices: mainCutLen > mainStock ? Math.floor(mainCutLen / mainStock) : 0,
     });
 
     // ── Top/compression bars (beams only, if doubly reinforced) ──
@@ -109,6 +120,7 @@ export function computeBarMarks(
       const topDetBar = det?.bars.find(b => b.diameter === topDia);
       const topLdh = topDetBar?.ldh ?? 0.3;
       const topCutLen = g.avgLength + 2 * topLdh;
+      const topStock = getStockLength(topDia);
       marks.push({
         mark: `${prefix}${idx}t`,
         diameter: topDia,
@@ -119,6 +131,9 @@ export function computeBarMarks(
         totalLength: Math.round(topCutLen * topCount * g.elementIds.length * 100) / 100,
         weight: Math.round(topCutLen * topCount * g.elementIds.length * barArea(topDia) * STEEL_DENSITY * 10) / 10,
         overStock: topCutLen > 12,
+        stockLength: topStock,
+        needsStockSplice: topCutLen > topStock,
+        nStockSplices: topCutLen > topStock ? Math.floor(topCutLen / topStock) : 0,
       });
     }
 
@@ -139,7 +154,10 @@ export function computeBarMarks(
       elementsUsing: [...g.elementIds],
       totalLength: Math.round(perimeter * nStirrups * 100) / 100,
       weight: Math.round(perimeter * nStirrups * barArea(stDia) * STEEL_DENSITY * 10) / 10,
-      overStock: false, // stirrups never exceed stock length
+      overStock: false,
+      stockLength: getStockLength(stDia),
+      needsStockSplice: false,
+      nStockSplices: 0,
     });
   }
 
