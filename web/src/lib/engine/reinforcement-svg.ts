@@ -349,14 +349,25 @@ export function generateBeamElevationSvg(opts: ElevationSvgOpts): string {
     }
   }
 
-  // ── Top bars (compression steel or minimum continuous) — always visible ──
+  // ── Top bars (compression steel or minimum continuous) — multi-row aware ──
   const hasCompSteel = flexure.isDoublyReinforced && flexure.barCountComp && flexure.barDiaComp;
-  const topY = oy + (h - topBarY_m) * (hPx / h); // near SVG top
+  const topY = oy + (h - topBarY_m) * (hPx / h); // near SVG top (first row)
   if (hasCompSteel) {
-    // Compression steel: solid, blue, thinner than bottom
-    lines.push(`<line x1="${ox + 5}" y1="${topY}" x2="${ox + lPx - 5}" y2="${topY}" stroke="#4a90d9" stroke-width="1.8"/>`);
+    const topDia_m = flexure.barDiaComp! / 1000;
+    const topBarR_m = topDia_m / 2;
+    const topMinGap_m = Math.max(topDia_m, 0.025);
+    const topAvailW_m = b - 2 * cover - 2 * stThick_m - 2 * topBarR_m;
+    const topMaxPerRow = Math.max(1, topAvailW_m > 0 ? Math.floor((topAvailW_m + topMinGap_m) / (topDia_m + topMinGap_m)) : 1);
+    const topRowGap_m = topDia_m + topMinGap_m;
+    const topNRows = Math.min(Math.ceil(flexure.barCountComp! / topMaxPerRow), Math.max(1, Math.floor((topBarY_m - botBarY_m) / topRowGap_m)));
+    for (let row = 0; row < topNRows; row++) {
+      const yRow_m = topBarY_m - row * topRowGap_m; // stack downward from top face
+      const yPx = oy + (h - yRow_m) * (hPx / h);
+      const sw = row === 0 ? 1.8 : 1.4;
+      lines.push(`<line x1="${ox + 5}" y1="${yPx}" x2="${ox + lPx - 5}" y2="${yPx}" stroke="#4a90d9" stroke-width="${sw}"/>`);
+    }
   } else {
-    // Minimum continuous top bars (2 Ø10): solid thin line, lighter color — always shown
+    // Minimum continuous top bars (2 Ø10): solid thin line, lighter color
     lines.push(`<line x1="${ox + 5}" y1="${topY}" x2="${ox + lPx - 5}" y2="${topY}" stroke="#7a8a9a" stroke-width="1.2"/>`);
   }
 
@@ -767,6 +778,7 @@ export function generateFrameLineElevationSvg(opts: FrameLineElevationOpts): str
 
     // Per-span: draw demand bars and find inflection points
     let firstSpliceLabeled = false;
+    let firstTopZoneLabeled = false;
     for (let i = 0; i < drawnSpans.length; i++) {
       const sp = drawnSpans[i];
       const ms = sp.momentStations;
@@ -815,6 +827,11 @@ export function generateFrameLineElevationSvg(opts: FrameLineElevationOpts): str
         const x0 = spanLeft;
         const x1 = spanLeft + tInflL * spanPx;
         lines.push(`<line x1="${x0 + 2}" y1="${topBarY}" x2="${x1}" y2="${topBarY}" stroke="#4a90d9" stroke-width="2"/>`);
+        if (!firstTopZoneLabeled) {
+          const topLabel = sp.hasCompSteel ? sp.topBars : '2Ø10 min';
+          lines.push(`<text x="${x0 + 4}" y="${topBarY - 4}" class="bar-label" style="fill:#4a90d9;font-size:7px">${topLabel}</text>`);
+          firstTopZoneLabeled = true;
+        }
       }
 
       // Right support zone: top bar from tInflR to t=1 (if support/column exists)
@@ -822,6 +839,11 @@ export function generateFrameLineElevationSvg(opts: FrameLineElevationOpts): str
         const x0 = spanLeft + tInflR * spanPx;
         const x1 = spanLeft + spanPx;
         lines.push(`<line x1="${x0}" y1="${topBarY}" x2="${x1 - 2}" y2="${topBarY}" stroke="#4a90d9" stroke-width="2"/>`);
+        if (!firstTopZoneLabeled) {
+          const topLabel = sp.hasCompSteel ? sp.topBars : '2Ø10 min';
+          lines.push(`<text x="${x1 - 4}" y="${topBarY - 4}" text-anchor="end" class="bar-label" style="fill:#4a90d9;font-size:7px">${topLabel}</text>`);
+          firstTopZoneLabeled = true;
+        }
       }
 
       // Midspan zone: complementary bottom bars with overlap into support zones
@@ -893,10 +915,7 @@ export function generateFrameLineElevationSvg(opts: FrameLineElevationOpts): str
     } else {
       lines.push(`<text x="${beamLeft + 5}" y="${botBarY + 12}" class="bar-label">${drawnSpans[0].bottomBars} cont.</text>`);
     }
-    if (drawnNodes.length > 2) {
-      const topLabel = drawnSpans[0].hasCompSteel ? drawnSpans[0].topBars : '2Ø10 min';
-      lines.push(`<text x="${nodeX[1]}" y="${topBarY - 5}" text-anchor="middle" class="bar-label" style="fill:#4a90d9">${topLabel}</text>`);
-    }
+    // Top label is now placed at the first drawn top-demand zone (above)
 
   } else {
     // ══════ SCHEMATIC FALLBACK (no envelope data) ══════
