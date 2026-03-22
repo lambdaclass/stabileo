@@ -739,28 +739,51 @@ export function generateFrameLineElevationSvg(opts: FrameLineElevationOpts): str
 
       const spanLeft = nodeX[i];
       const spanPx = nodeX[i + 1] - spanLeft;
-      // Independent thresholds: 15% of each side's maximum across the span
       const maxPos = Math.max(...ms.posM);
       const maxNeg = Math.max(...ms.negM);
       const botThreshold = 0.15 * maxPos;
       const topThreshold = 0.15 * maxNeg;
 
-      // Draw demand bars independently — both can coexist in the same region
-      for (let j = 0; j < ms.t.length - 1; j++) {
-        const t0 = ms.t[j], t1 = ms.t[j + 1];
-        const x0 = spanLeft + t0 * spanPx;
-        const x1 = spanLeft + t1 * spanPx;
-        const posAvg = (ms.posM[j] + ms.posM[j + 1]) / 2;
-        const negAvg = (ms.negM[j] + ms.negM[j + 1]) / 2;
+      // Extract contiguous demand zones with gap merging (not per-segment)
+      const extractZones = (values: number[], threshold: number): Array<{ tStart: number; tEnd: number }> => {
+        if (threshold <= 0) return [];
+        const zones: Array<{ tStart: number; tEnd: number }> = [];
+        let zoneStart = -1;
+        let gapCount = 0;
+        const maxGap = 2; // merge gaps of up to 2 stations (~10% of span)
+        for (let j = 0; j < values.length; j++) {
+          if (values[j] > threshold) {
+            if (zoneStart < 0) zoneStart = j;
+            gapCount = 0;
+          } else if (zoneStart >= 0) {
+            gapCount++;
+            if (gapCount > maxGap) {
+              // Close zone at the station before the gap
+              zones.push({ tStart: ms.t[zoneStart], tEnd: ms.t[j - gapCount] });
+              zoneStart = -1;
+              gapCount = 0;
+            }
+          }
+        }
+        if (zoneStart >= 0) {
+          zones.push({ tStart: ms.t[zoneStart], tEnd: ms.t[values.length - 1] });
+        }
+        return zones;
+      };
 
-        // Bottom demand bar: where positive moment exceeds its own threshold
-        if (posAvg > botThreshold) {
-          lines.push(`<line x1="${x0}" y1="${botBarY}" x2="${x1}" y2="${botBarY}" stroke="#e94560" stroke-width="2.5"/>`);
-        }
-        // Top demand bar: where negative moment exceeds its own threshold
-        if (negAvg > topThreshold) {
-          lines.push(`<line x1="${x0}" y1="${topBarY}" x2="${x1}" y2="${topBarY}" stroke="#4a90d9" stroke-width="2"/>`);
-        }
+      // Bottom demand zones and top demand zones — independent, can overlap
+      const botZones = extractZones(ms.posM, botThreshold);
+      const topZones = extractZones(ms.negM, topThreshold);
+
+      for (const z of botZones) {
+        const x0 = spanLeft + z.tStart * spanPx;
+        const x1 = spanLeft + z.tEnd * spanPx;
+        lines.push(`<line x1="${x0}" y1="${botBarY}" x2="${x1}" y2="${botBarY}" stroke="#e94560" stroke-width="2.5"/>`);
+      }
+      for (const z of topZones) {
+        const x0 = spanLeft + z.tStart * spanPx;
+        const x1 = spanLeft + z.tEnd * spanPx;
+        lines.push(`<line x1="${x0}" y1="${topBarY}" x2="${x1}" y2="${topBarY}" stroke="#4a90d9" stroke-width="2"/>`);
       }
 
       // Find low-demand splice zones (where both posM and negM are below their thresholds)
