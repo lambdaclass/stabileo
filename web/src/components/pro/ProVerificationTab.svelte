@@ -885,12 +885,26 @@
       });
       if (spanData.filter(Boolean).length < 2) continue;
 
-      const spans = fl.elementIds.map((_, i) => {
+      // Read moment envelope data if available
+      const envMomentZ = resultsStore.envelope3D?.momentZ;
+      const envMap = new Map<number, { t: number[]; posM: number[]; negM: number[] }>();
+      if (envMomentZ) {
+        for (const ed of envMomentZ.elements) {
+          envMap.set(ed.elementId, {
+            t: ed.tPositions,
+            posM: ed.posValues,
+            negM: ed.negValues.map(v => Math.abs(v)), // stored as negative; take abs
+          });
+        }
+      }
+
+      const spans = fl.elementIds.map((eid, i) => {
         const sd = spanData[i];
         if (!sd) return { length: 1, bottomBars: '?', topBars: '2 Ø10', hasCompSteel: false, stirrupSpacing: 0.2, stirrupDia: 8 };
         const v = sd.v;
         const hasComp = v.flexure.isDoublyReinforced && !!v.flexure.barCountComp;
-        return { length: sd.len, bottomBars: v.flexure.bars, topBars: hasComp ? (v.flexure.barsComp ?? '2 Ø10') : '2 Ø10', hasCompSteel: hasComp, stirrupSpacing: v.shear.spacing, stirrupDia: v.shear.stirrupDia, detailing: v.detailing };
+        const momentStations = envMap.get(eid);
+        return { length: sd.len, bottomBars: v.flexure.bars, topBars: hasComp ? (v.flexure.barsComp ?? '2 Ø10') : '2 Ø10', hasCompSteel: hasComp, stirrupSpacing: v.shear.spacing, stirrupDia: v.shear.stirrupDia, detailing: v.detailing, momentStations };
       });
 
       const flNodes = fl.nodeIds.map(nid => {

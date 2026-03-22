@@ -609,6 +609,12 @@ export interface FrameLineSpan {
   stirrupSpacing: number;
   stirrupDia: number;
   detailing?: DetailingResult;
+  /** Signed moment envelope at stations along this span. */
+  momentStations?: {
+    t: number[];       // normalized positions 0..1 along span
+    posM: number[];    // max positive moment (sagging / bottom tension) at each station
+    negM: number[];    // max |negative moment| (hogging / top tension) at each station
+  };
 }
 
 export interface FrameLineNode {
@@ -706,40 +712,144 @@ export function generateFrameLineElevationSvg(opts: FrameLineElevationOpts): str
   }
 
   // Bar Y positions within the beam outline
-  const botBarY = oy + beamH - 6; // near bottom face
-  const topBarY = oy + 6;          // near top face
+  const botBarY = oy + beamH - 6;
+  const topBarY = oy + 6;
 
-  // ── Bottom continuous bars (solid, red, through all spans) ──
-  lines.push(`<line x1="${beamLeft + 3}" y1="${botBarY}" x2="${beamRight - 3}" y2="${botBarY}" stroke="#e94560" stroke-width="2.5"/>`);
+  // Check if envelope moment data is available for any span
+  const hasEnvelopeData = drawnSpans.some(sp => sp.momentStations && sp.momentStations.t.length > 0);
 
-  // End anchorage tails (dashed)
-  const firstDetailing = drawnSpans[0]?.detailing;
-  const lastDetailing = drawnSpans[drawnSpans.length - 1]?.detailing;
-  if (firstDetailing && drawnNodes[0].hasSupport) {
-    const ld = Math.max(...firstDetailing.bars.map(b => b.ld));
-    const ldPx = Math.min(ld * scaleX, anchorPad - 2);
-    lines.push(`<line x1="${beamLeft - ldPx}" y1="${botBarY}" x2="${beamLeft + 3}" y2="${botBarY}" stroke="#e94560" stroke-width="1.5" stroke-dasharray="4,3" opacity="0.7"/>`);
-    lines.push(`<text x="${beamLeft - ldPx / 2}" y="${botBarY + 11}" text-anchor="middle" class="detail-dim">ld=${(ld * 100).toFixed(0)}</text>`);
-  }
-  if (lastDetailing && drawnNodes[drawnNodes.length - 1].hasSupport) {
-    const ld = Math.max(...lastDetailing.bars.map(b => b.ld));
-    const ldPx = Math.min(ld * scaleX, anchorPad - 2);
-    lines.push(`<line x1="${beamRight - 3}" y1="${botBarY}" x2="${beamRight + ldPx}" y2="${botBarY}" stroke="#e94560" stroke-width="1.5" stroke-dasharray="4,3" opacity="0.7"/>`);
-    lines.push(`<text x="${beamRight + ldPx / 2}" y="${botBarY + 11}" text-anchor="middle" class="detail-dim">ld=${(ld * 100).toFixed(0)}</text>`);
-  }
+  if (hasEnvelopeData) {
+    // ══════ MOMENT-ENVELOPE-AWARE BAR PLACEMENT ══════
 
-  // ── Top bars over internal supports (support-region reinforcement) ──
-  for (let i = 1; i < drawnNodes.length - 1; i++) {
-    // Extend 0.25L into each adjacent span
-    const leftSpan = drawnSpans[i - 1];
-    const rightSpan = drawnSpans[i];
-    const extL = leftSpan.length * 0.25 * scaleX;
-    const extR = rightSpan.length * 0.25 * scaleX;
-    const x1 = nodeX[i] - extL;
-    const x2 = nodeX[i] + extR;
-    const topColor = leftSpan.hasCompSteel ? '#4a90d9' : '#7a8a9a';
-    const topWidth = leftSpan.hasCompSteel ? 1.8 : 1.2;
-    lines.push(`<line x1="${x1}" y1="${topBarY}" x2="${x2}" y2="${topBarY}" stroke="${topColor}" stroke-width="${topWidth}"/>`);
+    // Continuous minimum bar set: thin line at bottom through all spans
+    lines.push(`<line x1="${beamLeft + 3}" y1="${botBarY}" x2="${beamRight - 3}" y2="${botBarY}" stroke="#e94560" stroke-width="1" opacity="0.5"/>`);
+    // Continuous minimum bar set: thin line at top through all spans
+    lines.push(`<line x1="${beamLeft + 3}" y1="${topBarY}" x2="${beamRight - 3}" y2="${topBarY}" stroke="#7a8a9a" stroke-width="0.8" opacity="0.4"/>`);
+
+    // Per-span: draw demand bars and find inflection points
+    let firstSpliceLabeled = false;
+    for (let i = 0; i < drawnSpans.length; i++) {
+      const sp = drawnSpans[i];
+      const ms = sp.momentStations;
+      if (!ms || ms.t.length === 0) {
+        // Fallback: full-span bottom bar
+        lines.push(`<line x1="${nodeX[i] + 3}" y1="${botBarY}" x2="${nodeX[i + 1] - 3}" y2="${botBarY}" stroke="#e94560" stroke-width="2.5"/>`);
+        continue;
+      }
+
+      const spanLeft = nodeX[i];
+      const spanPx = nodeX[i + 1] - spanLeft;
+      const threshold = 0.05 * Math.max(...ms.posM, ...ms.negM); // 5% of max
+
+      // Find zones: positive-moment (bottom bars) and negative-moment (top bars)
+      // and inflection points (where dominant moment changes sign)
+      for (let j = 0; j < ms.t.length - 1; j++) {
+        const t0 = ms.t[j], t1 = ms.t[j + 1];
+        const x0 = spanLeft + t0 * spanPx;
+        const x1 = spanLeft + t1 * spanPx;
+        const posAvg = (ms.posM[j] + ms.posM[j + 1]) / 2;
+        const negAvg = (ms.negM[j] + ms.negM[j + 1]) / 2;
+
+        if (posAvg > threshold && posAvg >= negAvg) {
+          // Positive moment dominant → bottom demand bar
+          lines.push(`<line x1="${x0}" y1="${botBarY}" x2="${x1}" y2="${botBarY}" stroke="#e94560" stroke-width="2.5"/>`);
+        }
+        if (negAvg > threshold && negAvg > posAvg) {
+          // Negative moment dominant → top demand bar
+          lines.push(`<line x1="${x0}" y1="${topBarY}" x2="${x1}" y2="${topBarY}" stroke="#4a90d9" stroke-width="2"/>`);
+        }
+      }
+
+      // Find inflection points (where posM and negM cross dominance)
+      for (let j = 0; j < ms.t.length - 1; j++) {
+        const posDom0 = ms.posM[j] > ms.negM[j];
+        const posDom1 = ms.posM[j + 1] > ms.negM[j + 1];
+        if (posDom0 !== posDom1) {
+          // Interpolate the crossing position
+          const diff0 = ms.posM[j] - ms.negM[j];
+          const diff1 = ms.posM[j + 1] - ms.negM[j + 1];
+          const frac = Math.abs(diff0) / (Math.abs(diff0) + Math.abs(diff1));
+          const tInfl = ms.t[j] + frac * (ms.t[j + 1] - ms.t[j]);
+          const xInfl = spanLeft + tInfl * spanPx;
+
+          // Inflection point marker
+          lines.push(`<circle cx="${xInfl}" cy="${oy + beamH / 2}" r="2.5" fill="none" stroke="#5a9" stroke-width="0.8"/>`);
+          lines.push(`<line x1="${xInfl}" y1="${oy + 2}" x2="${xInfl}" y2="${oy + beamH - 2}" stroke="#5a9" stroke-width="0.4" stroke-dasharray="2,2" opacity="0.5"/>`);
+
+          // Splice at inflection point (low-demand zone)
+          if (sp.detailing) {
+            const maxSplice = Math.max(...sp.detailing.bars.map(b => b.lapSplice));
+            const splicePx = Math.min(maxSplice * scaleX, spanPx * 0.15);
+            if (splicePx >= 4) {
+              const spliceX = xInfl - splicePx / 2;
+              lines.push(`<rect x="${spliceX}" y="${botBarY - 4}" width="${splicePx}" height="5" fill="#5a9" opacity="0.15" rx="1"/>`);
+              if (!firstSpliceLabeled) {
+                lines.push(`<text x="${xInfl}" y="${botBarY - 7}" text-anchor="middle" class="detail-dim">${spliceWord}=${(maxSplice * 100).toFixed(0)}</text>`);
+                firstSpliceLabeled = true;
+              }
+            }
+          }
+        }
+      }
+    }
+
+    // End anchorage tails
+    const firstDet = drawnSpans[0]?.detailing;
+    const lastDet = drawnSpans[drawnSpans.length - 1]?.detailing;
+    if (firstDet && drawnNodes[0].hasSupport) {
+      const ld = Math.max(...firstDet.bars.map(b => b.ld));
+      const ldPx = Math.min(ld * scaleX, anchorPad - 2);
+      lines.push(`<line x1="${beamLeft - ldPx}" y1="${botBarY}" x2="${beamLeft + 3}" y2="${botBarY}" stroke="#e94560" stroke-width="1.5" stroke-dasharray="4,3" opacity="0.7"/>`);
+      lines.push(`<text x="${beamLeft - ldPx / 2}" y="${botBarY + 11}" text-anchor="middle" class="detail-dim">ld=${(ld * 100).toFixed(0)}</text>`);
+    }
+    if (lastDet && drawnNodes[drawnNodes.length - 1].hasSupport) {
+      const ld = Math.max(...lastDet.bars.map(b => b.ld));
+      const ldPx = Math.min(ld * scaleX, anchorPad - 2);
+      lines.push(`<line x1="${beamRight - 3}" y1="${botBarY}" x2="${beamRight + ldPx}" y2="${botBarY}" stroke="#e94560" stroke-width="1.5" stroke-dasharray="4,3" opacity="0.7"/>`);
+      lines.push(`<text x="${beamRight + ldPx / 2}" y="${botBarY + 11}" text-anchor="middle" class="detail-dim">ld=${(ld * 100).toFixed(0)}</text>`);
+    }
+
+    // Labels
+    lines.push(`<text x="${beamLeft + 5}" y="${botBarY + 12}" class="bar-label">${drawnSpans[0].bottomBars} (As+)</text>`);
+    if (drawnNodes.length > 2) {
+      lines.push(`<text x="${nodeX[1]}" y="${topBarY - 5}" text-anchor="middle" class="bar-label" style="fill:#4a90d9">${drawnSpans[0].topBars} (As-)</text>`);
+    }
+
+  } else {
+    // ══════ SCHEMATIC FALLBACK (no envelope data) ══════
+
+    // Bottom continuous bars
+    lines.push(`<line x1="${beamLeft + 3}" y1="${botBarY}" x2="${beamRight - 3}" y2="${botBarY}" stroke="#e94560" stroke-width="2.5"/>`);
+
+    // End anchorage tails
+    const firstDetailing = drawnSpans[0]?.detailing;
+    const lastDetailing = drawnSpans[drawnSpans.length - 1]?.detailing;
+    if (firstDetailing && drawnNodes[0].hasSupport) {
+      const ld = Math.max(...firstDetailing.bars.map(b => b.ld));
+      const ldPx = Math.min(ld * scaleX, anchorPad - 2);
+      lines.push(`<line x1="${beamLeft - ldPx}" y1="${botBarY}" x2="${beamLeft + 3}" y2="${botBarY}" stroke="#e94560" stroke-width="1.5" stroke-dasharray="4,3" opacity="0.7"/>`);
+    }
+    if (lastDetailing && drawnNodes[drawnNodes.length - 1].hasSupport) {
+      const ld = Math.max(...lastDetailing.bars.map(b => b.ld));
+      const ldPx = Math.min(ld * scaleX, anchorPad - 2);
+      lines.push(`<line x1="${beamRight - 3}" y1="${botBarY}" x2="${beamRight + ldPx}" y2="${botBarY}" stroke="#e94560" stroke-width="1.5" stroke-dasharray="4,3" opacity="0.7"/>`);
+    }
+
+    // Top bars over internal supports (schematic 0.25L)
+    for (let i = 1; i < drawnNodes.length - 1; i++) {
+      const leftSpan = drawnSpans[i - 1];
+      const rightSpan = drawnSpans[i];
+      const extL = leftSpan.length * 0.25 * scaleX;
+      const extR = rightSpan.length * 0.25 * scaleX;
+      lines.push(`<line x1="${nodeX[i] - extL}" y1="${topBarY}" x2="${nodeX[i] + extR}" y2="${topBarY}" stroke="#7a8a9a" stroke-width="1.2"/>`);
+    }
+
+    // Labels
+    lines.push(`<text x="${beamLeft + 5}" y="${botBarY + 12}" class="bar-label">${drawnSpans[0].bottomBars} (As)</text>`);
+    if (drawnNodes.length > 2) {
+      const topLabel = drawnSpans[0].hasCompSteel ? `${drawnSpans[0].topBars} (A's)` : drawnSpans[0].topBars + ' min';
+      lines.push(`<text x="${nodeX[1]}" y="${topBarY - 5}" text-anchor="middle" class="bar-label" style="fill:#7a8a9a">${topLabel}</text>`);
+    }
   }
 
   // ── Stirrups (representative per span) ──
@@ -756,33 +866,22 @@ export function generateFrameLineElevationSvg(opts: FrameLineElevationOpts): str
     }
   }
 
-  // ── Splice zones (one per span at ~0.25L from left support) ──
-  for (let i = 0; i < drawnSpans.length; i++) {
-    const sp = drawnSpans[i];
-    if (!sp.detailing) continue;
-    const maxSplice = Math.max(...sp.detailing.bars.map(b => b.lapSplice));
-    const spanLeft = nodeX[i];
-    const spanPx = nodeX[i + 1] - spanLeft;
-    const splicePx = Math.min(maxSplice * scaleX, spanPx * 0.2);
-    if (splicePx < 5) continue;
-    const spliceX = spanLeft + spanPx * 0.25 - splicePx / 2;
-    lines.push(`<rect x="${spliceX}" y="${botBarY - 4}" width="${splicePx}" height="5" fill="#5a9" opacity="0.15" rx="1"/>`);
-    lines.push(`<line x1="${spliceX}" y1="${botBarY - 4}" x2="${spliceX}" y2="${botBarY + 1}" stroke="#5a9" stroke-width="0.4"/>`);
-    lines.push(`<line x1="${spliceX + splicePx}" y1="${botBarY - 4}" x2="${spliceX + splicePx}" y2="${botBarY + 1}" stroke="#5a9" stroke-width="0.4"/>`);
-    // Only label first splice to avoid clutter
-    if (i === 0) {
-      lines.push(`<text x="${spliceX + splicePx / 2}" y="${botBarY - 7}" text-anchor="middle" class="detail-dim">${spliceWord}=${(maxSplice * 100).toFixed(0)}</text>`);
+  // ── Splice zones (schematic fallback only — moment-aware path handles splices above) ──
+  if (!hasEnvelopeData) {
+    for (let i = 0; i < drawnSpans.length; i++) {
+      const sp = drawnSpans[i];
+      if (!sp.detailing) continue;
+      const maxSplice = Math.max(...sp.detailing.bars.map(b => b.lapSplice));
+      const spanLeft = nodeX[i];
+      const spanPx = nodeX[i + 1] - spanLeft;
+      const splicePx = Math.min(maxSplice * scaleX, spanPx * 0.2);
+      if (splicePx < 5) continue;
+      const spliceX = spanLeft + spanPx * 0.25 - splicePx / 2;
+      lines.push(`<rect x="${spliceX}" y="${botBarY - 4}" width="${splicePx}" height="5" fill="#5a9" opacity="0.15" rx="1"/>`);
+      if (i === 0) {
+        lines.push(`<text x="${spliceX + splicePx / 2}" y="${botBarY - 7}" text-anchor="middle" class="detail-dim">${spliceWord}=${(maxSplice * 100).toFixed(0)}</text>`);
+      }
     }
-  }
-
-  // ── Labels ──
-  // Bottom bar label (use first span's description)
-  lines.push(`<text x="${beamLeft + 5}" y="${botBarY + 12}" class="bar-label">${drawnSpans[0].bottomBars} (As)</text>`);
-  // Top bar label at first internal support
-  if (drawnNodes.length > 2) {
-    const topLabel = drawnSpans[0].hasCompSteel ? `${drawnSpans[0].topBars} (A's)` : drawnSpans[0].topBars + ' min';
-    const topColor = drawnSpans[0].hasCompSteel ? '#4a90d9' : '#7a8a9a';
-    lines.push(`<text x="${nodeX[1]}" y="${topBarY - 5}" text-anchor="middle" class="bar-label" style="fill:${topColor}">${topLabel}</text>`);
   }
 
   // ── Span dimensions ──
