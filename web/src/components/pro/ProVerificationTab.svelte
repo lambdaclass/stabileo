@@ -6,6 +6,7 @@
   import { generateCrossSectionSvg, generateBeamElevationSvg, generateColumnElevationSvg, generateJointDetailSvg, generateSlabReinforcementSvg, designSlabReinforcement, generateFrameLineElevationSvg, generateColumnStackElevationSvg } from '../../lib/engine/reinforcement-svg';
   import type { SlabDesignResult, FramingContext, FrameLineElevationOpts, ColumnStackElevationOpts } from '../../lib/engine/reinforcement-svg';
   import { buildStructuralGraph, getElementFramingContext, type StructuralGraph } from '../../lib/engine/structural-graph';
+  import { computeBarMarks, type BarMark } from '../../lib/engine/bar-marks';
   import { checkCrackWidth, checkDeflection } from '../../lib/engine/codes/argentina/serviceability';
   import type { CrackResult, DeflectionResult } from '../../lib/engine/codes/argentina/serviceability';
   import { computeQuantities } from '../../lib/engine/quantity-takeoff';
@@ -993,6 +994,9 @@
   const colEntries = $derived(rebarSchedule.filter(e => e.elementType === 'column'));
   const wallEntries = $derived(rebarSchedule.filter(e => e.elementType === 'wall'));
 
+  /** Bar marks with cutting lengths */
+  const barMarks = $derived(verifications.length > 0 ? computeBarMarks(verifications, elementLengthMap) : []);
+
   /** Export rebar schedule + quantities to XLSX */
   function exportRebarSchedule() {
     if (rebarSchedule.length === 0) return;
@@ -1069,6 +1073,33 @@
       const wsQty = XLSX.utils.aoa_to_sheet(qtyData);
       wsQty['!cols'] = [{ wch: 8 }, { wch: 10 }, { wch: 8 }, { wch: 16 }, { wch: 14 }, { wch: 14 }, { wch: 14 }];
       XLSX.utils.book_append_sheet(wb, wsQty, t('pro.materialsSummary'));
+    }
+
+    // Sheet 3: Bar marks
+    if (barMarks.length > 0) {
+      const shapeLabel = (s: string) => s === 'stirrup' ? t('pro.bmStirrup') || 'Stirrup' : s === 'hooked' ? t('pro.bmHooked') || 'Hooked' : t('pro.bmStraight') || 'Straight';
+      const bmHeaders = [
+        t('pro.bmMark') || 'Mark', `Ø (mm)`, t('pro.bmShape') || 'Shape',
+        `${t('pro.bmCutLen') || 'Cut. L'} (m)`, t('pro.bmCount') || 'Count',
+        `${t('pro.bmTotalLen') || 'Total L'} (m)`, `${t('pro.bmWeight') || 'Weight'} (kg)`,
+        t('pro.bmNote') || 'Note',
+      ];
+      const bmData: (string | number)[][] = [bmHeaders];
+      for (const m of barMarks) {
+        bmData.push([
+          m.mark, m.diameter, shapeLabel(m.shape),
+          m.cuttingLength, m.count,
+          Number(m.totalLength.toFixed(1)), Number(m.weight.toFixed(1)),
+          m.overStock ? '>12m' : '',
+        ]);
+      }
+      // Totals row
+      const totalWeight = barMarks.reduce((s, m) => s + m.weight, 0);
+      const totalLen = barMarks.reduce((s, m) => s + m.totalLength, 0);
+      bmData.push(['', '', '', '', '', Number(totalLen.toFixed(1)), Number(totalWeight.toFixed(1)), '']);
+      const wsBM = XLSX.utils.aoa_to_sheet(bmData);
+      wsBM['!cols'] = [{ wch: 8 }, { wch: 8 }, { wch: 10 }, { wch: 10 }, { wch: 8 }, { wch: 10 }, { wch: 10 }, { wch: 8 }];
+      XLSX.utils.book_append_sheet(wb, wsBM, t('pro.bmSheet') || 'Bar Marks');
     }
 
     XLSX.writeFile(wb, `planilla-hierros-${modelStore.model.name || 'modelo'}.xlsx`);
@@ -1719,6 +1750,47 @@
               <span class="schedule-value">{totalSlabVol.toFixed(2)} m³</span>
             </div>
           {/if}
+        </div>
+      {/if}
+
+      <!-- Bar marks table -->
+      {#if barMarks.length > 0}
+        <div class="pro-section-label" style="margin-top:12px">{t('pro.bmTitle') || 'Bar Marks — Estimated Cutting Lengths'}</div>
+        <div class="pro-verif-table-wrap">
+          <table class="pro-verif-table">
+            <thead>
+              <tr>
+                <th>{t('pro.bmMark') || 'Mark'}</th>
+                <th>Ø</th>
+                <th>{t('pro.bmShape') || 'Shape'}</th>
+                <th>{t('pro.bmCutLen') || 'Cut. L'} (m)</th>
+                <th>{t('pro.bmCount') || 'Count'}</th>
+                <th>{t('pro.bmTotalLen') || 'Total L'} (m)</th>
+                <th>{t('pro.bmWeight') || 'Weight'} (kg)</th>
+                <th></th>
+              </tr>
+            </thead>
+            <tbody>
+              {#each barMarks as m}
+                <tr class={m.overStock ? 'status-warn' : ''}>
+                  <td style="font-weight:600">{m.mark}</td>
+                  <td class="col-num">{m.diameter}</td>
+                  <td style="font-size:0.65rem">{m.shape === 'stirrup' ? (t('pro.bmStirrup') || 'Stirrup') : m.shape === 'hooked' ? (t('pro.bmHooked') || 'Hooked') : (t('pro.bmStraight') || 'Straight')}</td>
+                  <td class="col-num">{m.cuttingLength.toFixed(2)}</td>
+                  <td class="col-num">{m.count}</td>
+                  <td class="col-num">{m.totalLength.toFixed(1)}</td>
+                  <td class="col-num">{m.weight.toFixed(1)}</td>
+                  <td>{#if m.overStock}<span class="status-warn" title=">12m stock">⚠</span>{/if}</td>
+                </tr>
+              {/each}
+              <tr style="font-weight:600;border-top:2px solid #334">
+                <td colspan="5"></td>
+                <td class="col-num">{barMarks.reduce((s, m) => s + m.totalLength, 0).toFixed(1)}</td>
+                <td class="col-num">{barMarks.reduce((s, m) => s + m.weight, 0).toFixed(1)}</td>
+                <td></td>
+              </tr>
+            </tbody>
+          </table>
         </div>
       {/if}
 

@@ -9,6 +9,7 @@
   import { computeQuantities } from '../../lib/engine/quantity-takeoff';
   import { checkCrackWidth, checkDeflection } from '../../lib/engine/codes/argentina/serviceability';
   import { classifyElement } from '../../lib/engine/codes/argentina/cirsoc201';
+  import { computeBarMarks } from '../../lib/engine/bar-marks';
   import { buildStructuralGraph } from '../../lib/engine/structural-graph';
   import type { FrameLineElevationOpts } from '../../lib/engine/reinforcement-svg';
   import { runGlobalSolve } from '../../lib/engine/live-calc';
@@ -498,6 +499,10 @@
         delta_ns: v.slender!.delta_ns, Cm: v.slender!.Cm, Mc: v.slender!.Mc,
       }));
       if (slenderData.length > 0) data.slenderSummary = slenderData;
+
+      // Bar marks
+      const marks = computeBarMarks(verificationsRef, elemLengths);
+      if (marks.length > 0) data.barMarks = marks.map(m => ({ mark: m.mark, diameter: m.diameter, shape: m.shape, cuttingLength: m.cuttingLength, count: m.count, totalLength: m.totalLength, weight: m.weight, overStock: m.overStock }));
     }
 
     if (verificationsRef.length > 0) {

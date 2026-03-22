@@ -86,6 +86,8 @@ export interface ReportData {
   columnStackOpts?: ColumnStackElevationOpts[];
   // Slender column summary
   slenderSummary?: Array<{ elementId: number; k: number; lu: number; r: number; klu_r: number; lambda_lim: number; isSlender: boolean; delta_ns: number; Cm: number; Mc: number }>;
+  // Bar marks
+  barMarks?: Array<{ mark: string; diameter: number; shape: string; cuttingLength: number; count: number; totalLength: number; weight: number; overStock: boolean }>;
   // Diagnostics
   diagnostics?: SolverDiagnostic[];
   // Viewport screenshot (data URL)
@@ -1002,6 +1004,21 @@ export function generateReportHtml(data: ReportData): string {
       }
     }
     html.push(`</tbody></table>`);
+
+    // Bar marks table
+    if (data.barMarks && data.barMarks.length > 0) {
+      html.push(`<h3>${escHtml(tr('report.barMarks') || 'Bar Marks — Estimated Cutting Lengths')}</h3>`);
+      const shapeL = (s: string) => s === 'stirrup' ? (tr('report.bmStirrup') || 'Stirrup') : s === 'hooked' ? (tr('report.bmHooked') || 'Hooked') : (tr('report.bmStraight') || 'Straight');
+      html.push(`<table><thead><tr><th>${escHtml(tr('report.bmMark') || 'Mark')}</th><th>Ø (mm)</th><th>${escHtml(tr('report.bmShape') || 'Shape')}</th><th>${escHtml(tr('report.bmCutLen') || 'Cut. L')} (m)</th><th>${escHtml(tr('report.bmCount') || 'Count')}</th><th>${escHtml(tr('report.bmTotalLen') || 'Total L')} (m)</th><th>${escHtml(tr('report.bmWeight') || 'Weight')} (kg)</th></tr></thead><tbody>`);
+      for (const m of data.barMarks) {
+        const note = m.overStock ? ' <span style="color:#f0a500">⚠ &gt;12m</span>' : '';
+        html.push(`<tr><td><strong>${escHtml(m.mark)}</strong></td><td class="num">${m.diameter}</td><td>${escHtml(shapeL(m.shape))}</td><td class="num">${m.cuttingLength.toFixed(2)}</td><td class="num">${m.count}</td><td class="num">${m.totalLength.toFixed(1)}</td><td class="num">${m.weight.toFixed(1)}${note}</td></tr>`);
+      }
+      const tw = data.barMarks.reduce((s, m) => s + m.weight, 0);
+      const tl = data.barMarks.reduce((s, m) => s + m.totalLength, 0);
+      html.push(`<tr style="font-weight:bold;border-top:2px solid #444"><td colspan="5"></td><td class="num">${tl.toFixed(1)}</td><td class="num">${tw.toFixed(1)}</td></tr>`);
+      html.push(`</tbody></table>`);
+    }
 
     // Quantities section
     if (quantities) {
