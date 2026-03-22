@@ -1,7 +1,7 @@
 // SVG generators for reinforcement drawings
 // Produces technical-style cross-section and elevation views
 
-import type { FlexureResult, ShearResult, ColumnResult, DetailingResult } from './codes/argentina/cirsoc201';
+import { REBAR_DB, type FlexureResult, type ShearResult, type ColumnResult, type DetailingResult } from './codes/argentina/cirsoc201';
 
 // ─── Cross-Section Drawing ──────────────────────────────────────
 
@@ -729,15 +729,31 @@ export function generateFrameLineElevationSvg(opts: FrameLineElevationOpts): str
   if (hasEnvelopeData) {
     // ══════ MOMENT-ENVELOPE-AWARE BAR PLACEMENT ══════
 
-    // Compute continuous vs complementary split from first span with data
+    // Compute continuous vs complementary split with mixed-diameter support
     const refSpan = drawnSpans.find(sp => sp.barCount && sp.barDia && sp.asMin);
-    const barArea = refSpan?.barDia ? Math.PI * (refSpan.barDia / 2000) ** 2 * 1e4 : 0; // cm²
-    const nMinBot = refSpan && barArea > 0 ? Math.max(2, Math.ceil(refSpan.asMin! / barArea)) : 2;
+    const demandDia = refSpan?.barDia ?? 16;
     const nTotalBot = refSpan?.barCount ?? 4;
+    const asMin = refSpan?.asMin ?? 0;
+
+    // Find the smallest REBAR_DB diameter that can provide AsMin with ≤ nTotalBot bars (min 2)
+    let contDia = demandDia; // fallback: same as demand
+    let nMinBot = 2;
+    if (asMin > 0) {
+      for (const rb of REBAR_DB) {
+        if (rb.diameter < 10) continue; // skip Ø6, Ø8 for longitudinal
+        const nNeeded = Math.max(2, Math.ceil(asMin / rb.area));
+        if (nNeeded <= nTotalBot && rb.diameter <= demandDia) {
+          contDia = rb.diameter;
+          nMinBot = nNeeded;
+          break; // smallest diameter that works
+        }
+      }
+    }
     const nExtraBot = Math.max(0, nTotalBot - nMinBot);
-    const dia = refSpan?.barDia ?? 16;
+    const isMixedDia = contDia !== demandDia && nExtraBot > 0;
+
     const hasMultiRowBot = refSpan?.sectionB && refSpan.cover
-      ? nTotalBot > Math.max(1, Math.floor(((refSpan.sectionB - 2 * refSpan.cover - 2 * 0.008) + Math.max(dia / 1000, 0.025)) / (dia / 1000 + Math.max(dia / 1000, 0.025))))
+      ? nTotalBot > Math.max(1, Math.floor(((refSpan.sectionB - 2 * refSpan.cover - 2 * 0.008) + Math.max(demandDia / 1000, 0.025)) / (demandDia / 1000 + Math.max(demandDia / 1000, 0.025))))
       : false;
 
     // Continuous minimum bottom bars: thin line through all spans
@@ -867,9 +883,13 @@ export function generateFrameLineElevationSvg(opts: FrameLineElevationOpts): str
       lines.push(`<text x="${beamRight + ldPx / 2}" y="${botBarY + 11}" text-anchor="middle" class="detail-dim">ld=${(ld * 100).toFixed(0)}</text>`);
     }
 
-    // Labels — show continuous/complementary split
-    if (nExtraBot > 0 && dia > 0) {
-      lines.push(`<text x="${beamLeft + 5}" y="${botBarY + 12}" class="bar-label">${nMinBot}Ø${dia} cont. + ${nExtraBot}Ø${dia}</text>`);
+    // Labels — show continuous/complementary split with mixed diameters
+    if (nExtraBot > 0) {
+      if (isMixedDia) {
+        lines.push(`<text x="${beamLeft + 5}" y="${botBarY + 12}" class="bar-label">${nMinBot}Ø${contDia} cont. + ${nExtraBot}Ø${demandDia}</text>`);
+      } else {
+        lines.push(`<text x="${beamLeft + 5}" y="${botBarY + 12}" class="bar-label">${nMinBot}Ø${demandDia} cont. + ${nExtraBot}Ø${demandDia}</text>`);
+      }
     } else {
       lines.push(`<text x="${beamLeft + 5}" y="${botBarY + 12}" class="bar-label">${drawnSpans[0].bottomBars} cont.</text>`);
     }
