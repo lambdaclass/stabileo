@@ -822,40 +822,71 @@ export function generateFrameLineElevationSvg(opts: FrameLineElevationOpts): str
 
       const overlap = 0.08; // bottom bars extend 8% of span into support zones
 
-      // Left support zone: top bar from t=0 to tInflL (if support/column exists)
+      // Fabrication-style path helpers
+      const hookH = Math.min(beamH * 0.35, 10); // px — hook drop/rise height
+      const bendH = Math.min(beamH * 0.4, 12);  // px — 45° bend rise height
+      const bendDx = bendH; // 45° → dx = dy
+
+      // Left support zone: top bar with hook at midspan end
       if (leftHasCol) {
-        const x0 = spanLeft;
+        const x0 = spanLeft + 2;
         const x1 = spanLeft + tInflL * spanPx;
-        lines.push(`<line x1="${x0 + 2}" y1="${topBarY}" x2="${x1}" y2="${topBarY}" stroke="#4a90d9" stroke-width="2"/>`);
+        // Horizontal run from support, then 90° hook downward at termination
+        lines.push(`<polyline points="${x0},${topBarY} ${x1},${topBarY} ${x1},${topBarY + hookH}" fill="none" stroke="#4a90d9" stroke-width="2" stroke-linejoin="round"/>`);
         if (!firstTopZoneLabeled) {
           const topLabel = sp.hasCompSteel ? sp.topBars : '2Ø10 min';
-          lines.push(`<text x="${x0 + 4}" y="${topBarY - 4}" class="bar-label" style="fill:#4a90d9;font-size:7px">${topLabel}</text>`);
+          lines.push(`<text x="${x0 + 2}" y="${topBarY - 4}" class="bar-label" style="fill:#4a90d9;font-size:7px">${topLabel}</text>`);
           firstTopZoneLabeled = true;
         }
       }
 
-      // Right support zone: top bar from tInflR to t=1 (if support/column exists)
+      // Right support zone: top bar with hook at midspan end
       if (rightHasCol) {
         const x0 = spanLeft + tInflR * spanPx;
-        const x1 = spanLeft + spanPx;
-        lines.push(`<line x1="${x0}" y1="${topBarY}" x2="${x1 - 2}" y2="${topBarY}" stroke="#4a90d9" stroke-width="2"/>`);
+        const x1 = spanLeft + spanPx - 2;
+        lines.push(`<polyline points="${x0},${topBarY + hookH} ${x0},${topBarY} ${x1},${topBarY}" fill="none" stroke="#4a90d9" stroke-width="2" stroke-linejoin="round"/>`);
         if (!firstTopZoneLabeled) {
           const topLabel = sp.hasCompSteel ? sp.topBars : '2Ø10 min';
-          lines.push(`<text x="${x1 - 4}" y="${topBarY - 4}" text-anchor="end" class="bar-label" style="fill:#4a90d9;font-size:7px">${topLabel}</text>`);
+          lines.push(`<text x="${x1 - 2}" y="${topBarY - 4}" text-anchor="end" class="bar-label" style="fill:#4a90d9;font-size:7px">${topLabel}</text>`);
           firstTopZoneLabeled = true;
         }
       }
 
-      // Midspan zone: complementary bottom bars with overlap into support zones
+      // Midspan zone: complementary bottom bars with fabrication terminations
       const botStart = leftHasCol ? Math.max(0, tInflL - overlap) : 0;
       const botEnd = rightHasCol ? Math.min(1, tInflR + overlap) : 1;
       const bx0 = spanLeft + botStart * spanPx;
       const bx1 = spanLeft + botEnd * spanPx;
       if (nExtraBot > 0) {
-        // Complementary bars: thicker, drawn slightly offset to show as distinct layer
-        lines.push(`<line x1="${bx0 + 2}" y1="${botBarY}" x2="${bx1 - 2}" y2="${botBarY}" stroke="#e94560" stroke-width="2.5"/>`);
+        // Decide termination style at each end:
+        // bent-up if inflection is within 0.35L of a support, otherwise hook
+        const leftBend = leftHasCol && tInflL <= 0.35;
+        const rightBend = rightHasCol && tInflR >= 0.65;
+
+        // Build polyline points for the complementary bar path
+        const pts: string[] = [];
+        // Left termination
+        if (leftBend) {
+          pts.push(`${bx0 - bendDx},${botBarY - bendH}`); // bent-up start
+          pts.push(`${bx0},${botBarY}`);                    // transition to horizontal
+        } else if (leftHasCol) {
+          pts.push(`${bx0},${botBarY - hookH}`);            // hook up
+          pts.push(`${bx0},${botBarY}`);
+        } else {
+          pts.push(`${bx0 + 2},${botBarY}`);
+        }
+        // Horizontal run
+        pts.push(`${bx1},${botBarY}`);
+        // Right termination
+        if (rightBend) {
+          pts.push(`${bx1 + bendDx},${botBarY - bendH}`);
+        } else if (rightHasCol) {
+          pts.push(`${bx1},${botBarY - hookH}`);
+        }
+
+        lines.push(`<polyline points="${pts.join(' ')}" fill="none" stroke="#e94560" stroke-width="2.5" stroke-linejoin="round"/>`);
       } else {
-        // All bars are continuous minimum — just reinforce the continuous line in the midspan zone
+        // All bars are continuous minimum — reinforce the continuous line
         lines.push(`<line x1="${bx0 + 2}" y1="${botBarY}" x2="${bx1 - 2}" y2="${botBarY}" stroke="#e94560" stroke-width="1.8"/>`);
       }
 
