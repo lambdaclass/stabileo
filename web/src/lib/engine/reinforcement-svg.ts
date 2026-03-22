@@ -611,10 +611,18 @@ export interface FrameLineSpan {
   detailing?: DetailingResult;
   /** Signed moment envelope at stations along this span. */
   momentStations?: {
-    t: number[];       // normalized positions 0..1 along span
-    posM: number[];    // max positive moment (sagging / bottom tension) at each station
-    negM: number[];    // max |negative moment| (hogging / top tension) at each station
+    t: number[];
+    posM: number[];
+    negM: number[];
   };
+  /** Bar count data for continuous vs complementary split. */
+  barCount?: number;       // total bottom bars
+  barDia?: number;         // mm
+  asMin?: number;          // cm² — minimum continuous reinforcement
+  topBarCount?: number;    // total top bars (compression or demand)
+  topBarDia?: number;      // mm
+  sectionB?: number;       // m — section width (for row calculation)
+  cover?: number;          // m
 }
 
 export interface FrameLineNode {
@@ -721,9 +729,24 @@ export function generateFrameLineElevationSvg(opts: FrameLineElevationOpts): str
   if (hasEnvelopeData) {
     // ══════ MOMENT-ENVELOPE-AWARE BAR PLACEMENT ══════
 
-    // Continuous minimum bar set: thin line at bottom through all spans
-    lines.push(`<line x1="${beamLeft + 3}" y1="${botBarY}" x2="${beamRight - 3}" y2="${botBarY}" stroke="#e94560" stroke-width="1" opacity="0.5"/>`);
-    // Continuous minimum bar set: thin line at top through all spans
+    // Compute continuous vs complementary split from first span with data
+    const refSpan = drawnSpans.find(sp => sp.barCount && sp.barDia && sp.asMin);
+    const barArea = refSpan?.barDia ? Math.PI * (refSpan.barDia / 2000) ** 2 * 1e4 : 0; // cm²
+    const nMinBot = refSpan && barArea > 0 ? Math.max(2, Math.ceil(refSpan.asMin! / barArea)) : 2;
+    const nTotalBot = refSpan?.barCount ?? 4;
+    const nExtraBot = Math.max(0, nTotalBot - nMinBot);
+    const dia = refSpan?.barDia ?? 16;
+    const hasMultiRowBot = refSpan?.sectionB && refSpan.cover
+      ? nTotalBot > Math.max(1, Math.floor(((refSpan.sectionB - 2 * refSpan.cover - 2 * 0.008) + Math.max(dia / 1000, 0.025)) / (dia / 1000 + Math.max(dia / 1000, 0.025))))
+      : false;
+
+    // Continuous minimum bottom bars: thin line through all spans
+    lines.push(`<line x1="${beamLeft + 3}" y1="${botBarY}" x2="${beamRight - 3}" y2="${botBarY}" stroke="#e94560" stroke-width="1.2"/>`);
+    // Multi-row hint: faint second line if multiple rows needed
+    if (hasMultiRowBot) {
+      lines.push(`<line x1="${beamLeft + 3}" y1="${botBarY - 3}" x2="${beamRight - 3}" y2="${botBarY - 3}" stroke="#e94560" stroke-width="0.6" opacity="0.3"/>`);
+    }
+    // Continuous minimum top bars: thin line through all spans
     lines.push(`<line x1="${beamLeft + 3}" y1="${topBarY}" x2="${beamRight - 3}" y2="${topBarY}" stroke="#7a8a9a" stroke-width="0.8" opacity="0.4"/>`);
 
     // Per-span: draw demand bars and find inflection points
@@ -785,12 +808,18 @@ export function generateFrameLineElevationSvg(opts: FrameLineElevationOpts): str
         lines.push(`<line x1="${x0}" y1="${topBarY}" x2="${x1 - 2}" y2="${topBarY}" stroke="#4a90d9" stroke-width="2"/>`);
       }
 
-      // Midspan zone: bottom bar with overlap into support zones
+      // Midspan zone: complementary bottom bars with overlap into support zones
       const botStart = leftHasCol ? Math.max(0, tInflL - overlap) : 0;
       const botEnd = rightHasCol ? Math.min(1, tInflR + overlap) : 1;
       const bx0 = spanLeft + botStart * spanPx;
       const bx1 = spanLeft + botEnd * spanPx;
-      lines.push(`<line x1="${bx0 + 2}" y1="${botBarY}" x2="${bx1 - 2}" y2="${botBarY}" stroke="#e94560" stroke-width="2.5"/>`);
+      if (nExtraBot > 0) {
+        // Complementary bars: thicker, drawn slightly offset to show as distinct layer
+        lines.push(`<line x1="${bx0 + 2}" y1="${botBarY}" x2="${bx1 - 2}" y2="${botBarY}" stroke="#e94560" stroke-width="2.5"/>`);
+      } else {
+        // All bars are continuous minimum — just reinforce the continuous line in the midspan zone
+        lines.push(`<line x1="${bx0 + 2}" y1="${botBarY}" x2="${bx1 - 2}" y2="${botBarY}" stroke="#e94560" stroke-width="1.8"/>`);
+      }
 
       // Splice at the transition zone (best location: average of inflection points)
       const spliceT = (tInflL + tInflR) / 2; // midway between transitions ≈ midspan low-demand
@@ -838,10 +867,15 @@ export function generateFrameLineElevationSvg(opts: FrameLineElevationOpts): str
       lines.push(`<text x="${beamRight + ldPx / 2}" y="${botBarY + 11}" text-anchor="middle" class="detail-dim">ld=${(ld * 100).toFixed(0)}</text>`);
     }
 
-    // Labels
-    lines.push(`<text x="${beamLeft + 5}" y="${botBarY + 12}" class="bar-label">${drawnSpans[0].bottomBars} (As+)</text>`);
+    // Labels — show continuous/complementary split
+    if (nExtraBot > 0 && dia > 0) {
+      lines.push(`<text x="${beamLeft + 5}" y="${botBarY + 12}" class="bar-label">${nMinBot}Ø${dia} cont. + ${nExtraBot}Ø${dia}</text>`);
+    } else {
+      lines.push(`<text x="${beamLeft + 5}" y="${botBarY + 12}" class="bar-label">${drawnSpans[0].bottomBars} cont.</text>`);
+    }
     if (drawnNodes.length > 2) {
-      lines.push(`<text x="${nodeX[1]}" y="${topBarY - 5}" text-anchor="middle" class="bar-label" style="fill:#4a90d9">${drawnSpans[0].topBars} (As-)</text>`);
+      const topLabel = drawnSpans[0].hasCompSteel ? drawnSpans[0].topBars : '2Ø10 min';
+      lines.push(`<text x="${nodeX[1]}" y="${topBarY - 5}" text-anchor="middle" class="bar-label" style="fill:#4a90d9">${topLabel}</text>`);
     }
 
   } else {
