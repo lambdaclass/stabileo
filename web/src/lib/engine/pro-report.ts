@@ -4,6 +4,7 @@
 // Groups identical element designs to reduce report length
 
 import katex from 'katex';
+import katexCss from 'katex/dist/katex.min.css?raw';
 import type { Node, Material, Section, Element, Support, Quad } from '../store/model.svelte';
 import type { AnalysisResults3D } from './types-3d';
 import type { ElementVerification } from './codes/argentina/cirsoc201';
@@ -351,15 +352,12 @@ export function generateReportHtml(data: ReportData): string {
     : tr('report.printBtn') === 'Print / PDF' ? 'en'
     : 'en';
 
-  // Get KaTeX CSS URL from the installed package
-  const katexCssUrl = 'https://cdn.jsdelivr.net/npm/katex@0.16.28/dist/katex.min.css';
-
   html.push(`<!DOCTYPE html>
 <html lang="${langCode}">
 <head>
 <meta charset="UTF-8">
 <title>${escHtml(interp(tr('report.docTitle'), { name: projectName }))}</title>
-<link rel="stylesheet" href="${katexCssUrl}">
+<style>${katexCss}</style>
 <style>${REPORT_CSS}</style>
 </head>
 <body>
@@ -640,7 +638,13 @@ export function generateReportHtml(data: ReportData): string {
     const hasCombos = data.combinations && data.combinations.length > 0;
     html.push(`<h2>3.1 ${escHtml(tr('report.summary'))}</h2>`);
     html.push(`<table><thead><tr><th>Elem</th><th>${escHtml(tr('report.type'))}</th><th>${km('M_u')} (kN·m)</th><th>${km('V_u')} (kN)</th><th>${km('N_u')} (kN)</th>${hasCombos ? '<th>Combo</th>' : ''}<th>${km('A_{s,req}')} (cm²)</th><th>${km('A_{s,prov}')} (cm²)</th><th>${escHtml(tr('report.reinforcement'))}</th><th>${escHtml(tr('report.stirrups'))}</th><th>${escHtml(tr('report.status'))}</th></tr></thead><tbody>`);
-    for (const v of verifications) {
+    // Sort: columns first, then beams, then walls; within each type by element ID
+    const typeOrd: Record<string, number> = { column: 0, wall: 1, beam: 2 };
+    const sortedVerifs = [...verifications].sort((a, b) => {
+      const t = (typeOrd[a.elementType] ?? 9) - (typeOrd[b.elementType] ?? 9);
+      return t !== 0 ? t : a.elementId - b.elementId;
+    });
+    for (const v of sortedVerifs) {
       const statusCls = v.overallStatus === 'ok' ? 'status-ok' : v.overallStatus === 'fail' ? 'status-fail' : 'status-warn';
       const statusTxt = v.overallStatus === 'ok' ? '✓' : v.overallStatus === 'fail' ? '✗' : '⚠';
       const asReq = v.column ? v.column.AsTotal : v.flexure.AsReq;
@@ -736,6 +740,7 @@ export function generateReportHtml(data: ReportData): string {
               const svgDiag = generateInteractionSvg(diagram, { Nu: v.Nu, Mu: v.Mu });
               html.push(`<h4>${escHtml(tr('report.interactionDiagram') || 'Diagrama de Interacción P-M')}</h4>`);
               html.push(`<div class="interaction-container">${svgDiag}</div>`);
+              html.push(`<p class="dim" style="font-size:8px;color:#888;margin-top:2px">${escHtml(tr('report.envelopePoint') || 'Point shown is envelope maximum (conservative — Nu and Mu may come from different combinations)')}</p>`);
             }
           }
         } catch { /* diagram generation is optional */ }
