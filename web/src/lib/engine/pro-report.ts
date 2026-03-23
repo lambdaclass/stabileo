@@ -89,6 +89,8 @@ export interface ReportData {
   slenderSummary?: Array<{ elementId: number; k: number; lu: number; r: number; klu_r: number; lambda_lim: number; isSlender: boolean; delta_ns: number; Cm: number; Mc: number }>;
   // Bar marks
   barMarks?: Array<{ mark: string; diameter: number; shape: string; cuttingLength: number; count: number; totalLength: number; weight: number; overStock: boolean; stockLength: number; needsStockSplice: boolean; nStockSplices: number }>;
+  // Per-element per-combo forces for detailed report
+  comboForces?: Map<number, Array<{ comboId: number; comboName: string; Mu: number; Vu: number; Nu: number }>>;
   // Diagnostics
   diagnostics?: SolverDiagnostic[];
   // Viewport screenshot (data URL)
@@ -634,30 +636,50 @@ export function generateReportHtml(data: ReportData): string {
     const warn = verifications.filter(v => v.overallStatus === 'warn').length;
     html.push(`<p><span class="status-ok">${escHtml(interp(tr('report.statusOk'), { n: ok }))}</span> · <span class="status-warn">${escHtml(interp(tr('report.statusWarn'), { n: warn }))}</span> · <span class="status-fail">${escHtml(interp(tr('report.statusFail'), { n: fail }))}</span></p>`);
 
-    // Summary table
+    // Summary table — grouped by element with per-combo force rows
     const hasCombos = data.combinations && data.combinations.length > 0;
-    html.push(`<h2>3.1 ${escHtml(tr('report.summary'))}</h2>`);
-    html.push(`<table><thead><tr><th>Elem</th><th>${escHtml(tr('report.type'))}</th><th>${km('M_u')} (kN·m)</th><th>${km('V_u')} (kN)</th><th>${km('N_u')} (kN)</th>${hasCombos ? '<th>Combo</th>' : ''}<th>${km('A_{s,req}')} (cm²)</th><th>${km('A_{s,prov}')} (cm²)</th><th>${escHtml(tr('report.reinforcement'))}</th><th>${escHtml(tr('report.stirrups'))}</th><th>${escHtml(tr('report.status'))}</th></tr></thead><tbody>`);
-    // Sort: columns first, then beams, then walls; within each type by element ID
+    const comboForces = data.comboForces;
     const typeOrd: Record<string, number> = { column: 0, wall: 1, beam: 2 };
     const sortedVerifs = [...verifications].sort((a, b) => {
       const t = (typeOrd[a.elementType] ?? 9) - (typeOrd[b.elementType] ?? 9);
       return t !== 0 ? t : a.elementId - b.elementId;
     });
+
+    html.push(`<h2>3.1 ${escHtml(tr('report.summary'))}</h2>`);
+
     for (const v of sortedVerifs) {
       const statusCls = v.overallStatus === 'ok' ? 'status-ok' : v.overallStatus === 'fail' ? 'status-fail' : 'status-warn';
       const statusTxt = v.overallStatus === 'ok' ? '✓' : v.overallStatus === 'fail' ? '✗' : '⚠';
       const asReq = v.column ? v.column.AsTotal : v.flexure.AsReq;
       const asProv = v.column ? v.column.AsProv : v.flexure.AsProv;
       const bars = v.column ? v.column.bars : v.flexure.bars;
-      // Show compression steel indicator for doubly reinforced beams
-      const compNote = (!v.column && v.flexure.isDoublyReinforced && v.flexure.barsComp)
-        ? ` + ${v.flexure.barsComp} (A's)`
-        : '';
-      const comboCol = hasCombos ? `<td style="font-size:8px;max-width:100px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${escHtml(v.governingCombos?.flexure?.comboName ?? '—')}</td>` : '';
-      html.push(`<tr><td>${v.elementId}</td><td>${typeLabel(v.elementType, tr)}</td><td class="num">${fmtNum(v.Mu)}</td><td class="num">${fmtNum(v.Vu)}</td><td class="num">${fmtNum(v.Nu)}</td>${comboCol}<td class="num">${asReq.toFixed(1)}</td><td class="num">${asProv.toFixed(1)}</td><td>${bars}${compNote}</td><td>eØ${v.shear.stirrupDia} c/${(v.shear.spacing * 100).toFixed(0)}</td><td class="${statusCls}">${statusTxt}</td></tr>`);
+      const compNote = (!v.column && v.flexure.isDoublyReinforced && v.flexure.barsComp) ? ` + ${v.flexure.barsComp} (A's)` : '';
+      const secStr = `${(v.b * 100).toFixed(0)}×${(v.h * 100).toFixed(0)}`;
+      const govComboId = v.governingCombos?.flexure?.comboId;
+
+      // Element header
+      html.push(`<div style="margin-top:10px;padding:4px 6px;background:#1a2a40;border:1px solid #333;border-radius:3px">`);
+      html.push(`<strong>${typeLabel(v.elementType, tr)} ${v.elementId}</strong> — ${secStr} cm — <span class="${statusCls}">${statusTxt} ${v.overallStatus.toUpperCase()}</span>`);
+      html.push(`</div>`);
+
+      // Per-combo force rows
+      const elemCombos = comboForces?.get(v.elementId);
+      if (elemCombos && elemCombos.length > 0) {
+        html.push(`<table style="margin:0;font-size:9px"><thead><tr><th style="width:40%">${escHtml(tr('report.combination') || 'Combination')}</th><th>${km('M_u')} (kN·m)</th><th>${km('V_u')} (kN)</th><th>${km('N_u')} (kN)</th></tr></thead><tbody>`);
+        for (const cf of elemCombos) {
+          const isGov = cf.comboId === govComboId;
+          const style = isGov ? 'font-weight:600;background:rgba(78,205,196,0.08)' : '';
+          const marker = isGov ? ' ◄' : '';
+          html.push(`<tr style="${style}"><td>${escHtml(cf.comboName)}${marker}</td><td class="num">${fmtNum(cf.Mu)}</td><td class="num">${fmtNum(cf.Vu)}</td><td class="num">${fmtNum(cf.Nu)}</td></tr>`);
+        }
+        html.push(`</tbody></table>`);
+      }
+
+      // Reinforcement / design summary (from envelope/governing verification)
+      html.push(`<div style="padding:3px 6px;font-size:9px;color:#aaa;border-bottom:1px solid #222">`);
+      html.push(`${escHtml(tr('report.designResult') || 'Design (envelope)')}: ${km('A_{s,req}')} = ${asReq.toFixed(1)} cm² → ${bars}${compNote} (${asProv.toFixed(1)} cm²) · eØ${v.shear.stirrupDia} c/${(v.shear.spacing * 100).toFixed(0)}`);
+      html.push(`</div>`);
     }
-    html.push(`</tbody></table>`);
 
     // ─── Grouped detail ──────────────────────────────────
     html.push(`<h2>3.2 ${escHtml(tr('report.detailByType'))}</h2>`);

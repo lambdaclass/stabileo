@@ -513,6 +513,27 @@
       // Bar marks
       const marks = computeBarMarks(verificationsRef, elemLengths);
       if (marks.length > 0) data.barMarks = marks.map(m => ({ mark: m.mark, diameter: m.diameter, shape: m.shape, cuttingLength: m.cuttingLength, count: m.count, totalLength: m.totalLength, weight: m.weight, overStock: m.overStock, stockLength: m.stockLength, needsStockSplice: m.needsStockSplice, nStockSplices: m.nStockSplices }));
+
+      // Per-element per-combo forces for detailed report
+      if (resultsStore.perCombo3D.size > 0 && modelStore.model.combinations.length > 0) {
+        const cfMap = new Map<number, Array<{ comboId: number; comboName: string; Mu: number; Vu: number; Nu: number }>>();
+        for (const combo of modelStore.model.combinations) {
+          const comboResults = resultsStore.perCombo3D.get(combo.id);
+          if (!comboResults) continue;
+          for (const ef of comboResults.elementForces) {
+            let arr = cfMap.get(ef.elementId);
+            if (!arr) { arr = []; cfMap.set(ef.elementId, arr); }
+            arr.push({
+              comboId: combo.id,
+              comboName: combo.name,
+              Mu: Math.max(Math.abs(ef.mzStart), Math.abs(ef.mzEnd)),
+              Vu: Math.max(Math.abs(ef.vyStart), Math.abs(ef.vyEnd)),
+              Nu: Math.max(Math.abs(ef.nStart), Math.abs(ef.nEnd)),
+            });
+          }
+        }
+        if (cfMap.size > 0) data.comboForces = cfMap;
+      }
     }
 
     if (verificationsRef.length > 0) {
