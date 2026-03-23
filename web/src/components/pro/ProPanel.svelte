@@ -458,6 +458,15 @@
           if (nI && nJ) elemLengths.set(v.elementId, Math.sqrt((nJ.x - nI.x) ** 2 + (nJ.y - nI.y) ** 2 + ((nJ.z ?? 0) - (nI.z ?? 0)) ** 2));
         }
       }
+      // Read moment envelope for report parity with UI
+      const envMomentZ = resultsStore.envelope3D?.momentZ;
+      const envMap = new Map<number, { t: number[]; posM: number[]; negM: number[] }>();
+      if (envMomentZ) {
+        for (const ed of envMomentZ.elements) {
+          envMap.set(ed.elementId, { t: ed.tPositions, posM: ed.posValues, negM: ed.negValues.map(v => Math.abs(v)) });
+        }
+      }
+
       const flOpts: FrameLineElevationOpts[] = [];
       for (const fl of graph.frameLines) {
         if (fl.direction !== 'horizontal' || fl.elementIds.length < 2) continue;
@@ -465,11 +474,12 @@
           const v = verifMap.get(eid); const len = elemLengths.get(eid);
           if (!v || !len) return null;
           const hasComp = v.flexure.isDoublyReinforced && !!v.flexure.barCountComp;
-          return { length: len, bottomBars: v.flexure.bars, topBars: hasComp ? (v.flexure.barsComp ?? '2 Ø10') : '2 Ø10', hasCompSteel: hasComp, stirrupSpacing: v.shear.spacing, stirrupDia: v.shear.stirrupDia, detailing: v.detailing };
+          const momentStations = envMap.get(eid);
+          return { length: len, bottomBars: v.flexure.bars, topBars: hasComp ? (v.flexure.barsComp ?? '2 Ø10') : '2 Ø10', hasCompSteel: hasComp, stirrupSpacing: v.shear.spacing, stirrupDia: v.shear.stirrupDia, detailing: v.detailing, momentStations, barCount: v.flexure.barCount, barDia: v.flexure.barDia, asMin: v.flexure.AsMin, topBarCount: hasComp ? v.flexure.barCountComp : undefined, topBarDia: hasComp ? v.flexure.barDiaComp : undefined, sectionB: v.b, cover: v.cover };
         });
         if (spans.filter(Boolean).length < 2) continue;
         const nodes = fl.nodeIds.map(nid => { const c = graph.nodes.get(nid); return { hasColumn: (c?.columns.length ?? 0) > 0, hasSupport: !!c?.support, supportType: c?.support }; });
-        flOpts.push({ spans: spans.map(s => s ?? { length: 1, bottomBars: '?', topBars: '2 Ø10', hasCompSteel: false, stirrupSpacing: 0.2, stirrupDia: 8 }), nodes, labels: { splice: t('pro.lapSplice') } });
+        flOpts.push({ spans: spans.map(s => s ?? { length: 1, bottomBars: '?', topBars: '2 Ø10', hasCompSteel: false, stirrupSpacing: 0.2, stirrupDia: 8 }), nodes, labels: { splice: t('pro.lapSplice') }, axis: fl.axis });
         if (flOpts.length >= 3) break;
       }
       if (flOpts.length > 0) data.beamContinuityOpts = flOpts;
