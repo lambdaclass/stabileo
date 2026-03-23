@@ -398,7 +398,7 @@
       serviceability: verificationsRef.length > 0 ? verificationsRef.map(v => {
         const Ms = v.Mu / 1.4;
         const crack = (v.elementType === 'beam' && v.flexure.AsProv > 0)
-          ? checkCrackWidth(v.fc, v.fy, v.b, v.h, v.cover, v.flexure.AsProv, Ms)
+          ? checkCrackWidth(v.b, v.h, v.flexure.d, v.flexure.AsProv, Ms, v.cover, v.flexure.barDia, v.flexure.barCount)
           : undefined;
         const elem = modelStore.elements.get(v.elementId);
         const nI = elem ? modelStore.nodes.get(elem.nodeI) : undefined;
@@ -406,7 +406,7 @@
         const L = (nI && nJ) ? Math.sqrt((nJ.x - nI.x) ** 2 + (nJ.y - nI.y) ** 2 + ((nJ.z ?? 0) - (nI.z ?? 0)) ** 2) : 0;
         const maxDisp = results.displacements.reduce((mx, d) => Math.max(mx, Math.abs(d.uz)), 0);
         const defl = (L > 0 && v.elementType === 'beam') ? checkDeflection(L, maxDisp) : undefined;
-        return { elementId: v.elementId, elementType: v.elementType, crack: crack ? { wk: crack.wk, wkLimit: crack.wkLimit, status: crack.status } : undefined, deflection: defl ? { ratio: defl.ratio, limit: defl.limit, status: defl.status } : undefined };
+        return { elementId: v.elementId, elementType: v.elementType, crack: crack ? { wk: crack.wk, wkLimit: crack.wLimit, status: crack.status } : undefined, deflection: defl ? { ratio: defl.ratio, limit: defl.limit, status: defl.status } : undefined };
       }).filter(s => s.crack || s.deflection) : undefined,
       screenshot,
       t,
