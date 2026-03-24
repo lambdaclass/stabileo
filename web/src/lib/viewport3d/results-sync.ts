@@ -16,6 +16,7 @@ import { createReactionArrow, createConstraintForceArrow } from '../three/create
 import type { Diagram3DKind } from '../engine/diagrams-3d';
 import type { Displacement3D } from '../engine/types-3d';
 import { sampleElementValues, createHeatmapCylinder, orientHeatmapMesh, applyShellVertexColors, type HeatmapVariable } from '../three/stress-heatmap';
+import { projectNodeToScene, shouldProjectModelToXZ } from '../geometry/coordinate-system';
 
 export const DIAGRAM_3D_TYPES: Set<string> = new Set(['momentY', 'momentZ', 'shearY', 'shearZ', 'axial', 'torsion']);
 
@@ -684,10 +685,19 @@ export function syncLabels3D(ctx: ResultsSyncContext): void {
     ctx.lengthLabelsGroup = null;
   }
 
+  const project2D = shouldProjectModelToXZ({
+    nodes: modelStore.nodes.values(),
+    supports: modelStore.supports.values(),
+    loads: modelStore.loads,
+    plateCount: modelStore.plates.size,
+    quadCount: modelStore.quads.size,
+  });
+
   // Compute model size for sprite scaling
   const box = new THREE.Box3();
   for (const [, node] of modelStore.nodes) {
-    box.expandByPoint(new THREE.Vector3(node.x, node.y, node.z ?? 0));
+    const pos = projectNodeToScene(node, project2D);
+    box.expandByPoint(new THREE.Vector3(pos.x, pos.y, pos.z));
   }
   const size = box.getSize(new THREE.Vector3());
   const modelSize = Math.max(size.x, size.y, size.z, 1);
@@ -699,11 +709,12 @@ export function syncLabels3D(ctx: ResultsSyncContext): void {
     ctx.nodeLabelsGroup.name = 'nodeLabels';
 
     for (const [id, node] of modelStore.nodes) {
+      const pos = projectNodeToScene(node, project2D);
       const sprite = createTextSprite(String(id), '#ffffff', 28);
       sprite.position.set(
-        node.x + spriteScale * 0.3,
-        node.y + spriteScale * 0.5,
-        (node.z ?? 0),
+        pos.x + spriteScale * 0.3,
+        pos.y + spriteScale * 0.5,
+        pos.z,
       );
       sprite.scale.set(spriteScale, spriteScale, 1);
       ctx.nodeLabelsGroup.add(sprite);
@@ -722,9 +733,11 @@ export function syncLabels3D(ctx: ResultsSyncContext): void {
       if (!nI || !nJ) continue;
 
       // Midpoint
-      const mx = (nI.x + nJ.x) / 2;
-      const my = (nI.y + nJ.y) / 2;
-      const mz = ((nI.z ?? 0) + (nJ.z ?? 0)) / 2;
+      const sceneI = projectNodeToScene(nI, project2D);
+      const sceneJ = projectNodeToScene(nJ, project2D);
+      const mx = (sceneI.x + sceneJ.x) / 2;
+      const my = (sceneI.y + sceneJ.y) / 2;
+      const mz = (sceneI.z + sceneJ.z) / 2;
 
       const sprite = createTextSprite(String(id), '#88ccff', 24);
       sprite.position.set(mx, my + spriteScale * 0.3, mz);
@@ -744,14 +757,16 @@ export function syncLabels3D(ctx: ResultsSyncContext): void {
       const nJ = modelStore.nodes.get(elem.nodeJ);
       if (!nI || !nJ) continue;
 
-      const dx = nJ.x - nI.x;
-      const dy = nJ.y - nI.y;
-      const dz = (nJ.z ?? 0) - (nI.z ?? 0);
+      const sceneI = projectNodeToScene(nI, project2D);
+      const sceneJ = projectNodeToScene(nJ, project2D);
+      const dx = sceneJ.x - sceneI.x;
+      const dy = sceneJ.y - sceneI.y;
+      const dz = sceneJ.z - sceneI.z;
       const len = Math.sqrt(dx * dx + dy * dy + dz * dz);
 
-      const mx = (nI.x + nJ.x) / 2;
-      const my = (nI.y + nJ.y) / 2 - spriteScale * 0.3;
-      const mz = ((nI.z ?? 0) + (nJ.z ?? 0)) / 2;
+      const mx = (sceneI.x + sceneJ.x) / 2;
+      const my = (sceneI.y + sceneJ.y) / 2 - spriteScale * 0.3;
+      const mz = (sceneI.z + sceneJ.z) / 2;
 
       const sprite = createTextSprite(`${len.toFixed(2)} m`, '#88cc88', 22);
       sprite.position.set(mx, my, mz);
