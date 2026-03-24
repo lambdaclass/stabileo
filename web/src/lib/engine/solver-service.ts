@@ -941,8 +941,8 @@ function buildSolverLoads3D(model: ModelData, loads: Load[], includeSelfWeight: 
       const w = mat.rho * sec.a;
       const totalWeight = w * L;
       solverLoads.push(
-        { type: 'nodal', data: { nodeId: elem.nodeI, fx: 0, fy: -totalWeight / 2, fz: 0, mx: 0, my: 0, mz: 0 } },
-        { type: 'nodal', data: { nodeId: elem.nodeJ, fx: 0, fy: -totalWeight / 2, fz: 0, mx: 0, my: 0, mz: 0 } },
+        { type: 'nodal', data: { nodeId: elem.nodeI, fx: 0, fy: 0, fz: -totalWeight / 2, mx: 0, my: 0, mz: 0 } },
+        { type: 'nodal', data: { nodeId: elem.nodeJ, fx: 0, fy: 0, fz: -totalWeight / 2, mx: 0, my: 0, mz: 0 } },
       );
     }
     if (model.plates?.size) {
