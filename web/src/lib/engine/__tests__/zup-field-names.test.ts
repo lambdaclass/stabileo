@@ -95,6 +95,31 @@ describe('Bug 1: 2D Displacement uses uz/ry (not uy/rz)', () => {
     expect(selectedEntityPanel).not.toContain('title={t(\'float.loadGlobalYDir\')}>Y</button>');
   });
 
+  it('2D load editors and summaries should use canonical fz/my helpers, not raw fy/mz aliases', () => {
+    const selectedEntityPanel = readFileSync(new URL('../../../components/floating-tools/SelectedEntityPanel.svelte', import.meta.url), 'utf8');
+    const nodeDetails = readFileSync(new URL('../../../components/property/NodeDetails.svelte', import.meta.url), 'utf8');
+    const loadsTable = readFileSync(new URL('../../../components/tables/LoadsTable.svelte', import.meta.url), 'utf8');
+    const whatIfPanel = readFileSync(new URL('../../../components/WhatIfPanel.svelte', import.meta.url), 'utf8');
+    const proPanel = readFileSync(new URL('../../../components/pro/ProPanel.svelte', import.meta.url), 'utf8');
+    const drawLoads = readFileSync(new URL('../../canvas/draw-loads.ts', import.meta.url), 'utf8');
+    const sceneSync = readFileSync(new URL('../../viewport3d/scene-sync.ts', import.meta.url), 'utf8');
+
+    for (const [label, text] of [
+      ['SelectedEntityPanel.svelte', selectedEntityPanel],
+      ['NodeDetails.svelte', nodeDetails],
+      ['LoadsTable.svelte', loadsTable],
+      ['WhatIfPanel.svelte', whatIfPanel],
+      ['ProPanel.svelte', proPanel],
+      ['scene-sync.ts', sceneSync],
+    ] as const) {
+      expect(text, `${label} should use shared 2D nodal-load vertical helper`).toContain('get2DDisplayNodalLoadVertical');
+      expect(text, `${label} should use shared 2D nodal-load moment helper`).toContain('get2DDisplayNodalLoadMoment');
+    }
+
+    expect(drawLoads, 'draw-loads.ts should accept canonical 2D point moments as my').toContain('load.my ?? load.mz');
+    expect(drawLoads, 'draw-loads.ts should label 2D point moments as My').toContain('My=');
+  });
+
   it('manual solve buttons should validate 2D results via shared Z-up helpers', () => {
     const toolbarResults = readFileSync(new URL('../../../components/toolbar/ToolbarResults.svelte', import.meta.url), 'utf8');
     const toolbar = readFileSync(new URL('../../../components/Toolbar.svelte', import.meta.url), 'utf8');
@@ -120,6 +145,21 @@ describe('Bug 1: 2D Displacement uses uz/ry (not uy/rz)', () => {
     expect(coordSystem, 'get2DDisplayRotation should prefer ry').toContain('disp.ry ?? disp.rz');
     expect(resultsStore, 'results store maxDisplacement should use the shared 2D vertical helper').toContain('get2DDisplayDisplacementVertical(d)');
     expect(resultsStore, 'results store maxDisplacement should not use stale 2D uy magnitude').not.toContain('Math.sqrt(d.ux ** 2 + d.uy ** 2)');
+  });
+
+  it('3D nodal load updates should keep fy/fz and my/mz on their own axes', () => {
+    const modelStore = readFileSync(new URL('../../store/model.svelte.ts', import.meta.url), 'utf8');
+    const nodal3dBranch = modelStore.match(
+      /else if \(load\.type === 'nodal3d'\) \{[\s\S]*?\n      \} else if \(load\.type === 'distributed3d'\)/,
+    )?.[0];
+
+    expect(nodal3dBranch, 'model.svelte.ts should have a dedicated nodal3d update branch').toBeTruthy();
+
+    expect(nodal3dBranch, 'nodal3d updates should write fy to d.fy').toContain("if (data.fy !== undefined) d.fy = data.fy as number;");
+    expect(nodal3dBranch, 'nodal3d updates should write fz to d.fz').toContain("if (data.fz !== undefined) d.fz = data.fz as number;");
+    expect(nodal3dBranch, 'nodal3d updates should write my to d.my').toContain("if (data.my !== undefined) d.my = data.my as number;");
+    expect(nodal3dBranch, 'nodal3d updates should write mz to d.mz').toContain("if (data.mz !== undefined) d.mz = data.mz as number;");
+    expect(nodal3dBranch, 'nodal3d updates must not alias fy into fz').not.toContain("if (data.fz !== undefined || data.fy !== undefined) d.fz = (data.fz ?? data.fy) as number;");
   });
 
   it('AI artifact builder should use 2D reaction field names (rx/rz), not fy/fz', () => {
@@ -282,6 +322,65 @@ describe('Bug 2: 3D self-weight must apply gravity to fz (not fy)', () => {
     for (const load of nodalLoads) {
       expect(load.data.fy).toBe(0);
       expect(load.data.fz).toBeLessThan(0);
+    }
+  });
+
+  it('flat 2D models must embed into the 3D solver on XZ with Z-up loads and Y bending', () => {
+    const model = {
+      nodes: new Map([
+        [1, { id: 1, x: 0, y: 0 }],
+        [2, { id: 2, x: 5, y: 3 }],
+      ]),
+      elements: new Map([[1, {
+        id: 1,
+        type: 'frame' as const,
+        nodeI: 1,
+        nodeJ: 2,
+        materialId: 1,
+        sectionId: 1,
+        hingeStart: false,
+        hingeEnd: false,
+      }]]),
+      supports: new Map([[1, { id: 1, nodeId: 1, type: 'pinned' as const }]]),
+      loads: [
+        { type: 'nodal' as const, data: { id: 1, nodeId: 2, fx: 4, fz: -10, my: 6 } },
+      ],
+      materials: new Map([[1, { id: 1, e: 200000, nu: 0.3, rho: 78.5, fy: 250 }]]),
+      sections: new Map([[1, { id: 1, a: 0.01, iz: 4.16e-6, iy: 8.33e-6, j: 1e-5, b: 0.2, h: 0.3 }]]),
+    };
+
+    const input = buildSolverInput3D(model as any, false, false);
+    expect(input).not.toBeNull();
+
+    const tip = input!.nodes.get(2)!;
+    expect(tip).toMatchObject({ x: 5, y: 0, z: 3 });
+
+    const load = input!.loads.find(
+      (item): item is Extract<SolverInput3D['loads'][number], { type: 'nodal' }> => item.type === 'nodal',
+    )!;
+    expect(load.data.fx).toBe(4);
+    expect(load.data.fy).toBe(0);
+    expect(load.data.fz).toBe(-10);
+    expect(load.data.my).toBe(6);
+    expect(load.data.mz).toBe(0);
+
+    const support = input!.supports.get(1)!;
+    expect(support.rx).toBe(true);
+    expect(support.ry).toBe(true);
+    expect(support.rz).toBe(true);
+    expect(support.rrx).toBe(true);
+    expect(support.rry).toBe(false);
+    expect(support.rrz).toBe(true);
+  });
+
+  it('all 3D solve entry points must ensure WASM is ready before calling solve3D', () => {
+    const toolbarResults = readFileSync(new URL('../../../components/toolbar/ToolbarResults.svelte', import.meta.url), 'utf8');
+    const toolbar = readFileSync(new URL('../../../components/Toolbar.svelte', import.meta.url), 'utf8');
+
+    // Both toolbar solve buttons must await WASM initialization before solve3D
+    for (const [label, text] of [['ToolbarResults.svelte', toolbarResults], ['Toolbar.svelte', toolbar]] as const) {
+      expect(text, `${label} must call ensureWasmReady or initSolver before solve3D`).toMatch(/ensureWasmReady|initSolver/);
+      expect(text, `${label} handleSolve3D must be async`).toMatch(/async\s+function\s+handleSolve3D|handleSolve3D\s*=\s*async/);
     }
   });
 

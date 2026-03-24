@@ -25,6 +25,7 @@ interface PointLoadOnElemInfo {
   a: number; // distance from node I (m)
   p: number; // kN (perpendicular, local coords)
   px?: number; // kN (axial, local coords)
+  my?: number; // kN·m (moment at position a)
   mz?: number; // kN·m (moment at position a)
   angle?: number;     // degrees, rotation from base direction (default 0)
   isGlobal?: boolean; // false=local coords (default), true=global coords
@@ -439,16 +440,16 @@ export function drawPointLoadsOnElements(
       );
     }
 
-    // 3) Draw moment (mz)
-    const mz = load.mz ?? 0;
-    if (Math.abs(mz) > 1e-10) {
-      drawMomentSymbol(ctx, base.x, base.y, mz, ptColor);
+    // 3) Draw moment (My in the Z-up 2D contract; keep mz as legacy alias)
+    const my = load.my ?? load.mz ?? 0;
+    if (Math.abs(my) > 1e-10) {
+      drawMomentSymbol(ctx, base.x, base.y, my, ptColor);
 
       ctx.font = '12px sans-serif';
       ctx.fillStyle = ptColor;
       const yOff = (Math.abs(load.p) > 1e-10 ? 14 : 0) + (Math.abs(px) > 1e-10 ? 14 : 0);
       ctx.fillText(
-        `${ptCasePrefix}Mz=${Math.abs(mz).toFixed(1)} kN·m`,
+        `${ptCasePrefix}My=${Math.abs(my).toFixed(1)} kN·m`,
         base.x + 18,
         base.y - 18 + ptYOff + yOff,
       );

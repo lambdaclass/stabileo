@@ -804,8 +804,8 @@ function createModelStore() {
       if (load.type === 'nodal') {
         const d = load.data as NodalLoad;
         if (data.fx !== undefined) d.fx = data.fx as number;
-        if (data.fz !== undefined || data.fy !== undefined) d.fz = (data.fz ?? data.fy) as number;
-        if (data.my !== undefined || data.mz !== undefined) d.my = (data.my ?? data.mz) as number;
+        if (data.fz !== undefined) d.fz = data.fz as number;
+        if (data.my !== undefined) d.my = data.my as number;
       } else if (load.type === 'distributed') {
         const d = load.data as DistributedLoad;
         if (data.qI !== undefined) d.qI = data.qI as number;
@@ -826,7 +826,7 @@ function createModelStore() {
         if (data.a !== undefined) d.a = data.a as number;
         if (data.p !== undefined) d.p = data.p as number;
         if (data.px !== undefined) d.px = (data.px as number) || undefined;
-        if (data.my !== undefined || data.mz !== undefined) d.my = ((data.my ?? data.mz) as number) || undefined;
+        if (data.my !== undefined) d.my = (data.my as number) || undefined;
         if (data.angle !== undefined) d.angle = data.angle as number;
         if (data.isGlobal !== undefined) d.isGlobal = data.isGlobal as boolean;
       } else if (load.type === 'thermal') {

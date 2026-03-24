@@ -14,6 +14,12 @@ import {
 } from './solver-shells';
 import { initPool, isPoolReady, solveParallel } from './solver-pool';
 import { t } from '../i18n';
+import {
+  get2DDisplayNodalLoadMoment,
+  get2DDisplayNodalLoadVertical,
+  projectNodeToScene,
+  shouldProjectModelToXZ,
+} from '../geometry/coordinate-system';
 
 import type {
   Node, Element, Support, Load, Material, Section,
@@ -34,6 +40,25 @@ export interface ModelData {
   plates?: Map<number, { id: number; nodes: [number, number, number]; materialId: number; thickness: number }>;
   quads?: Map<number, { id: number; nodes: [number, number, number, number]; materialId: number; thickness: number }>;
   constraints?: Constraint3D[];
+}
+
+function shouldEmbedFlat2DModelIn3D(model: ModelData): boolean {
+  return shouldProjectModelToXZ({
+    nodes: model.nodes.values(),
+    supports: model.supports.values(),
+    loads: model.loads,
+    plateCount: model.plates?.size ?? 0,
+    quadCount: model.quads?.size ?? 0,
+  });
+}
+
+function mapModelNodeToSolver3D(node: Node, project2DToXZ: boolean): { id: number; x: number; y: number; z: number } {
+  const pos = projectNodeToScene(node, project2DToXZ);
+  return { id: node.id, x: pos.x, y: pos.y, z: pos.z };
+}
+
+function is2DSupportType(type: Support['type']): boolean {
+  return type === 'fixed' || type === 'pinned' || type === 'rollerX' || type === 'rollerY' || type === 'rollerZ' || type === 'spring';
 }
 
 // ─── Internal helpers ─────────────────────────────────────────────
@@ -750,12 +775,17 @@ export function solveCombinations2D(
 /** Build only the loads array for a 3D solver input (avoids rebuilding all structural Maps per case). */
 function buildSolverLoads3D(model: ModelData, loads: Load[], includeSelfWeight: boolean, leftHand: boolean): SolverLoad3D[] {
   const solverLoads: SolverLoad3D[] = [];
+  const project2DToXZ = shouldEmbedFlat2DModelIn3D(model);
 
   for (const l of loads) {
     if (l.type === 'nodal') {
+      const vertical = get2DDisplayNodalLoadVertical(l.data);
+      const moment = get2DDisplayNodalLoadMoment(l.data);
       solverLoads.push({
         type: 'nodal',
-        data: { nodeId: l.data.nodeId, fx: l.data.fx, fy: l.data.fy, fz: 0, mx: 0, my: 0, mz: l.data.mz },
+        data: project2DToXZ
+          ? { nodeId: l.data.nodeId, fx: l.data.fx, fy: 0, fz: vertical, mx: 0, my: moment, mz: 0 }
+          : { nodeId: l.data.nodeId, fx: l.data.fx, fy: vertical, fz: 0, mx: 0, my: 0, mz: moment },
       });
     } else if (l.type === 'nodal3d') {
       const d = l.data as NodalLoad3D;
@@ -773,14 +803,15 @@ function buildSolverLoads3D(model: ModelData, loads: Load[], includeSelfWeight: 
       const ni = model.nodes.get(elem.nodeI);
       const nj = model.nodes.get(elem.nodeJ);
       if (!ni || !nj) continue;
-      const edx = nj.x - ni.x, edy = nj.y - ni.y;
-      const L2d = Math.sqrt(edx * edx + edy * edy);
+      const niSolver = mapModelNodeToSolver3D(ni, project2DToXZ);
+      const njSolver = mapModelNodeToSolver3D(nj, project2DToXZ);
+      const edx = njSolver.x - niSolver.x;
+      const edPlan = project2DToXZ ? (njSolver.z - niSolver.z) : (njSolver.y - niSolver.y);
+      const L2d = Math.sqrt(edx * edx + edPlan * edPlan);
       if (L2d < 1e-10) continue;
-      const cosTheta = edx / L2d, sinTheta = edy / L2d;
+      const cosTheta = edx / L2d, sinTheta = edPlan / L2d;
       const angleRad = angle * Math.PI / 180;
 
-      const niSolver = { id: elem.nodeI, x: ni.x, y: ni.y, z: ni.z ?? 0 };
-      const njSolver = { id: elem.nodeJ, x: nj.x, y: nj.y, z: nj.z ?? 0 };
       const elemLocalY = (elem.localYx !== undefined && elem.localYy !== undefined && elem.localYz !== undefined)
         ? { x: elem.localYx, y: elem.localYy, z: elem.localYz } : undefined;
       const secRot1 = model.sections.get(elem.sectionId)?.rotation ?? 0;
@@ -791,14 +822,14 @@ function buildSolverLoads3D(model: ModelData, loads: Load[], includeSelfWeight: 
         let dirX: number, dirY: number, dirZ: number;
         if (isGlobal) {
           dirX = Math.sin(angleRad);
-          dirY = Math.cos(angleRad);
-          dirZ = 0;
+          dirY = project2DToXZ ? 0 : Math.cos(angleRad);
+          dirZ = project2DToXZ ? Math.cos(angleRad) : 0;
         } else {
           const perpFactor = Math.cos(angleRad);
           const axialFactor = Math.sin(angleRad);
           dirX = perpFactor * (-sinTheta) + axialFactor * cosTheta;
-          dirY = perpFactor * cosTheta + axialFactor * sinTheta;
-          dirZ = 0;
+          dirY = project2DToXZ ? 0 : (perpFactor * cosTheta + axialFactor * sinTheta);
+          dirZ = project2DToXZ ? (perpFactor * cosTheta + axialFactor * sinTheta) : 0;
         }
         const projY = dirX * axes.ey[0] + dirY * axes.ey[1] + dirZ * axes.ey[2];
         const projZ = dirX * axes.ez[0] + dirY * axes.ez[1] + dirZ * axes.ez[2];
@@ -818,8 +849,10 @@ function buildSolverLoads3D(model: ModelData, loads: Load[], includeSelfWeight: 
       }
 
       if (Math.abs(projI.qAxial) > 1e-10 || Math.abs(projJ.qAxial) > 1e-10) {
-        const dz3d = (nj.z ?? 0) - (ni.z ?? 0);
-        const L3d = Math.sqrt(edx * edx + edy * edy + dz3d * dz3d);
+        const dx3d = njSolver.x - niSolver.x;
+        const dy3d = njSolver.y - niSolver.y;
+        const dz3d = njSolver.z - niSolver.z;
+        const L3d = Math.sqrt(dx3d * dx3d + dy3d * dy3d + dz3d * dz3d);
         const loadA = d.a ?? 0;
         const loadB = d.b ?? L3d;
         const loadSpan = loadB - loadA;
@@ -851,14 +884,15 @@ function buildSolverLoads3D(model: ModelData, loads: Load[], includeSelfWeight: 
       const ni = model.nodes.get(elem.nodeI);
       const nj = model.nodes.get(elem.nodeJ);
       if (!ni || !nj) continue;
-      const edx = nj.x - ni.x, edy = nj.y - ni.y;
-      const L2d = Math.sqrt(edx * edx + edy * edy);
+      const niSolver = mapModelNodeToSolver3D(ni, project2DToXZ);
+      const njSolver = mapModelNodeToSolver3D(nj, project2DToXZ);
+      const edx = njSolver.x - niSolver.x;
+      const edPlan = project2DToXZ ? (njSolver.z - niSolver.z) : (njSolver.y - niSolver.y);
+      const L2d = Math.sqrt(edx * edx + edPlan * edPlan);
       if (L2d < 1e-10) continue;
-      const cosTheta = edx / L2d, sinTheta = edy / L2d;
+      const cosTheta = edx / L2d, sinTheta = edPlan / L2d;
       const angleRad = angle * Math.PI / 180;
 
-      const niSolver = { id: elem.nodeI, x: ni.x, y: ni.y, z: ni.z ?? 0 };
-      const njSolver = { id: elem.nodeJ, x: nj.x, y: nj.y, z: nj.z ?? 0 };
       const elemLocalY2 = (elem.localYx !== undefined && elem.localYy !== undefined && elem.localYz !== undefined)
         ? { x: elem.localYx, y: elem.localYy, z: elem.localYz } : undefined;
       const secRot2 = model.sections.get(elem.sectionId)?.rotation ?? 0;
@@ -867,14 +901,14 @@ function buildSolverLoads3D(model: ModelData, loads: Load[], includeSelfWeight: 
       let dirX: number, dirY: number, dirZ: number;
       if (isGlobal) {
         dirX = Math.sin(angleRad);
-        dirY = Math.cos(angleRad);
-        dirZ = 0;
+        dirY = project2DToXZ ? 0 : Math.cos(angleRad);
+        dirZ = project2DToXZ ? Math.cos(angleRad) : 0;
       } else {
         const perpFactor = Math.cos(angleRad);
         const axialFactor = Math.sin(angleRad);
         dirX = perpFactor * (-sinTheta) + axialFactor * cosTheta;
-        dirY = perpFactor * cosTheta + axialFactor * sinTheta;
-        dirZ = 0;
+        dirY = project2DToXZ ? 0 : (perpFactor * cosTheta + axialFactor * sinTheta);
+        dirZ = project2DToXZ ? (perpFactor * cosTheta + axialFactor * sinTheta) : 0;
       }
 
       const projY = (dirX * axes.ey[0] + dirY * axes.ey[1] + dirZ * axes.ey[2]) * d.p;
@@ -889,8 +923,10 @@ function buildSolverLoads3D(model: ModelData, loads: Load[], includeSelfWeight: 
       }
 
       if (Math.abs(projAxial) > 1e-10) {
-        const dz3d = (nj.z ?? 0) - (ni.z ?? 0);
-        const L3d = Math.sqrt(edx * edx + edy * edy + dz3d * dz3d);
+        const dx3d = njSolver.x - niSolver.x;
+        const dy3d = njSolver.y - niSolver.y;
+        const dz3d = njSolver.z - niSolver.z;
+        const L3d = Math.sqrt(dx3d * dx3d + dy3d * dy3d + dz3d * dz3d);
         const tFrac = d.a / L3d;
         const fI = projAxial * (1 - tFrac);
         const fJ = projAxial * tFrac;
@@ -916,8 +952,8 @@ function buildSolverLoads3D(model: ModelData, loads: Load[], includeSelfWeight: 
         data: {
           elementId: d.elementId,
           dtUniform: d.dtUniform,
-          dtGradientY: 0,
-          dtGradientZ: d.dtGradient,
+          dtGradientY: project2DToXZ ? d.dtGradient : 0,
+          dtGradientZ: project2DToXZ ? 0 : d.dtGradient,
         },
       });
     } else if (l.type === 'thermalQuad3d') {
@@ -933,9 +969,11 @@ function buildSolverLoads3D(model: ModelData, loads: Load[], includeSelfWeight: 
       const ni = model.nodes.get(elem.nodeI);
       const nj = model.nodes.get(elem.nodeJ);
       if (!mat || !sec || !ni || !nj) continue;
-      const dx = nj.x - ni.x;
-      const dy = nj.y - ni.y;
-      const dz = (nj.z ?? 0) - (ni.z ?? 0);
+      const niSolver = mapModelNodeToSolver3D(ni, project2DToXZ);
+      const njSolver = mapModelNodeToSolver3D(nj, project2DToXZ);
+      const dx = njSolver.x - niSolver.x;
+      const dy = njSolver.y - niSolver.y;
+      const dz = njSolver.z - niSolver.z;
       const L = Math.sqrt(dx * dx + dy * dy + dz * dz);
       if (L < 1e-10) continue;
       const w = mat.rho * sec.a;
@@ -959,10 +997,27 @@ function buildSolverLoads3D(model: ModelData, loads: Load[], includeSelfWeight: 
 export function buildSolverInput3D(model: ModelData, includeSelfWeight = false, leftHand = false): SolverInput3D | null {
   if (model.nodes.size < 2 || model.elements.size < 1 || model.supports.size < 1) return null;
 
+  const project2DToXZ = shouldEmbedFlat2DModelIn3D(model);
   const solverLoads = buildSolverLoads3D(model, model.loads, includeSelfWeight, leftHand);
 
   // Convert support types to SolverSupport3D booleans
   const supportTo3D = (s: Support): { rx: boolean; ry: boolean; rz: boolean; rrx: boolean; rry: boolean; rrz: boolean } => {
+    if (project2DToXZ && is2DSupportType(s.type)) {
+      switch (s.type) {
+        case 'fixed':
+          return { rx: true, ry: true, rz: true, rrx: true, rry: true, rrz: true };
+        case 'pinned':
+          return { rx: true, ry: true, rz: true, rrx: true, rry: false, rrz: true };
+        case 'rollerX':
+          return { rx: false, ry: true, rz: true, rrx: true, rry: false, rrz: true };
+        case 'rollerY':
+        case 'rollerZ':
+          return { rx: true, ry: true, rz: false, rrx: true, rry: false, rrz: true };
+        case 'spring':
+          return { rx: false, ry: true, rz: false, rrx: true, rry: false, rrz: true };
+      }
+    }
+
     switch (s.type) {
       case 'fixed':
       case 'fixed3d':
@@ -992,9 +1047,19 @@ export function buildSolverInput3D(model: ModelData, includeSelfWeight = false, 
   };
 
   return {
-    nodes: new Map(Array.from(model.nodes.entries()).map(([id, n]) => [id, { id: n.id, x: n.x, y: n.y, z: n.z ?? 0 }])),
+    nodes: new Map(Array.from(model.nodes.entries()).map(([id, n]) => [id, mapModelNodeToSolver3D(n, project2DToXZ)])),
     materials: new Map(Array.from(model.materials.entries()).map(([id, m]) => [id, { id: m.id, e: m.e, nu: m.nu }])),
     sections: new Map(Array.from(model.sections.entries()).map(([id, s]) => {
+      if (project2DToXZ) {
+        const inPlaneIy = effectiveBendingInertia(s);
+        const outOfPlaneIz = s.iy ?? s.iz;
+        return [id, {
+          id: s.id, name: s.name, a: s.a,
+          iy: inPlaneIy,
+          iz: outOfPlaneIz,
+          j: s.j ?? outOfPlaneIz * 0.001,
+        }];
+      }
       // s.iy = about Y-axis (horizontal), s.iz = about Z-axis (vertical)
       // Solver convention: iy controls bending about Y (w, θy DOFs), iz controls bending about Z (v, θz DOFs)
       const aboutY = s.iy ?? (s.b && s.h ? (s.b * s.h ** 3) / 12 : s.iz);  // Iy: about Y horizontal
@@ -1028,14 +1093,24 @@ export function buildSolverInput3D(model: ModelData, includeSelfWeight = false, 
       } else {
         dofs = supportTo3D(s);
       }
+      const supportDz = s.dz ?? s.dy;
+      const supportDry = s.dry ?? s.drz;
+      const embedded2D = project2DToXZ && !s.dofRestraints && is2DSupportType(s.type);
       return [s.nodeId, {
         nodeId: s.nodeId,
         ...dofs,
-        kx: s.kx, ky: s.ky,
-        kz: (s.type === 'spring3d' || s.type === 'spring') ? undefined : undefined,
-        krx: s.krx, kry: s.kry, krz: s.krz ?? s.kz,
-        dx: s.dx, dy: s.dy, dz: s.dz,
-        drx: s.drx, dry: s.dry, drz: s.drz,
+        kx: s.kx,
+        ky: embedded2D ? undefined : s.ky,
+        kz: embedded2D ? s.ky : undefined,
+        krx: embedded2D ? undefined : s.krx,
+        kry: embedded2D ? (s.kry ?? s.kz) : s.kry,
+        krz: embedded2D ? s.krz : (s.krz ?? s.kz),
+        dx: s.dx,
+        dy: embedded2D ? undefined : s.dy,
+        dz: embedded2D ? supportDz : s.dz,
+        drx: embedded2D ? undefined : s.drx,
+        dry: embedded2D ? supportDry : s.dry,
+        drz: embedded2D ? undefined : s.drz,
         normalX: s.normalX, normalY: s.normalY, normalZ: s.normalZ,
         isInclined: s.isInclined,
       }];

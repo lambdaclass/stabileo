@@ -129,15 +129,18 @@ describe('Support type mapping to 3D', () => {
       case 'fixed3d':
         return { rx: true, ry: true, rz: true, rrx: true, rry: true, rrz: true };
       case 'pinned':
+        return { rx: true, ry: true, rz: true, rrx: true, rry: false, rrz: true };
       case 'pinned3d':
         return { rx: true, ry: true, rz: true, rrx: false, rry: false, rrz: false };
       case 'rollerX':
-        return { rx: false, ry: true, rz: true, rrx: false, rry: false, rrz: false };
+        return { rx: false, ry: true, rz: true, rrx: true, rry: false, rrz: true };
       case 'rollerY':
-        return { rx: true, ry: false, rz: true, rrx: false, rry: false, rrz: false };
+      case 'rollerZ':
+        return { rx: true, ry: true, rz: false, rrx: true, rry: false, rrz: true };
       case 'rollerXZ':
         return { rx: false, ry: true, rz: false, rrx: false, rry: false, rrz: false };
       case 'spring':
+        return { rx: false, ry: true, rz: false, rrx: true, rry: false, rrz: true };
       case 'spring3d':
         return { rx: false, ry: false, rz: false, rrx: false, rry: false, rrz: false };
       default:
@@ -182,11 +185,14 @@ describe('Support type mapping to 3D', () => {
     expect(dofs).toEqual({ rx: true, ry: true, rz: true, rrx: true, rry: true, rrz: true });
   });
 
-  it('2D pinned → maps to 3 translations restrained in 3D', () => {
+  it('2D pinned → keeps in-plane ry free while clamping out-of-plane DOFs', () => {
     const dofs = mapSupportTo3D('pinned');
     expect(dofs.rx).toBe(true);
     expect(dofs.ry).toBe(true);
     expect(dofs.rz).toBe(true);
+    expect(dofs.rrx).toBe(true);
+    expect(dofs.rry).toBe(false);
+    expect(dofs.rrz).toBe(true);
   });
 });
 
