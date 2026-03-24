@@ -548,9 +548,11 @@
           <EducativePanel />
         </aside>
       {:else if uiStore.appMode === 'basico'}
-        <button class="sidebar-toggle-btn right-toggle" class:sidebar-closed={!uiStore.rightSidebarOpen} onclick={() => uiStore.rightSidebarOpen = !uiStore.rightSidebarOpen} title={uiStore.rightSidebarOpen ? t('app.hideRightPanel') : t('app.showRightPanel')}>
-          {uiStore.rightSidebarOpen ? '▸' : '◂'}
-        </button>
+        {#if !uiStore.aiDrawerOpen}
+          <button class="sidebar-toggle-btn right-toggle" class:sidebar-closed={!uiStore.rightSidebarOpen} onclick={() => uiStore.rightSidebarOpen = !uiStore.rightSidebarOpen} title={uiStore.rightSidebarOpen ? t('app.hideRightPanel') : t('app.showRightPanel')}>
+            {uiStore.rightSidebarOpen ? '▸' : '◂'}
+          </button>
+        {/if}
         {#if uiStore.rightSidebarOpen}
           <aside class="sidebar right" data-tour="right-sidebar" class:wizard-open={dsmStepsStore.isOpen}>
             {#if dsmStepsStore.isOpen}
@@ -593,7 +595,11 @@
   {#if uiStore.isMobile && uiStore.rightDrawerOpen}
     <div class="drawer-backdrop" onclick={() => uiStore.rightDrawerOpen = false}></div>
     <aside class="drawer drawer-right" data-tour="right-sidebar">
-      {#if dsmStepsStore.isOpen}
+      {#if uiStore.appMode === 'pro'}
+        <ProPanel />
+      {:else if uiStore.appMode === 'educativo'}
+        <EducativePanel />
+      {:else if dsmStepsStore.isOpen}
         <StepWizard />
       {:else}
         <PropertyPanel {showResults} />
@@ -612,12 +618,18 @@
   <!-- Mobile bottom bar -->
   {#if uiStore.isMobile}
     <nav class="mobile-bottom-bar">
-      <button class="mobile-bar-btn" onclick={() => uiStore.leftDrawerOpen = !uiStore.leftDrawerOpen} title={t('app.tools')}>
-        ☰
-      </button>
-      <button class="mobile-bar-btn" onclick={() => uiStore.rightDrawerOpen = !uiStore.rightDrawerOpen} title={t('app.properties')}>
-        ⚙
-      </button>
+      {#if uiStore.appMode === 'basico'}
+        <button class="mobile-bar-btn" onclick={() => uiStore.leftDrawerOpen = !uiStore.leftDrawerOpen} title={t('app.tools')}>
+          ☰
+        </button>
+        <button class="mobile-bar-btn" onclick={() => uiStore.rightDrawerOpen = !uiStore.rightDrawerOpen} title={t('app.properties')}>
+          ⚙
+        </button>
+      {:else}
+        <button class="mobile-bar-btn" onclick={() => uiStore.rightDrawerOpen = !uiStore.rightDrawerOpen} title={uiStore.appMode === 'pro' ? 'PRO' : t('app.properties')}>
+          {uiStore.appMode === 'pro' ? '\u26A1' : '\uD83D\uDCD0'}
+        </button>
+      {/if}
     </nav>
   {/if}
 </div>
