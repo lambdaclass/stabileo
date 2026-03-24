@@ -94,6 +94,38 @@ describe('Bug 1: 2D Displacement uses uz/ry (not uy/rz)', () => {
     expect(selectedEntityPanel).toContain('>Z</button>');
     expect(selectedEntityPanel).not.toContain('title={t(\'float.loadGlobalYDir\')}>Y</button>');
   });
+
+  it('manual solve buttons should validate 2D results with uz/ry, not uy/rz', () => {
+    const toolbarResults = readFileSync(new URL('../../../components/toolbar/ToolbarResults.svelte', import.meta.url), 'utf8');
+    const toolbar = readFileSync(new URL('../../../components/Toolbar.svelte', import.meta.url), 'utf8');
+
+    for (const [label, text] of [['ToolbarResults.svelte', toolbarResults], ['Toolbar.svelte', toolbar]] as const) {
+      expect(text, `${label} should validate 2D solves with uz`).toContain('!isFinite(d.uz)');
+      expect(text, `${label} should validate 2D solves with ry`).toContain('!isFinite(d.ry)');
+      expect(text, `${label} should not validate 2D solves with legacy uy`).not.toContain('const hasNaN = results.displacements.some(d => !isFinite(d.ux) || !isFinite(d.uy)');
+      expect(text, `${label} should not validate 2D solves with legacy rz`).not.toContain('!isFinite(d.rz)');
+    }
+  });
+
+  it('shared live-calc/manual-solve helpers should keep 2D fallback compatibility during migration', () => {
+    const liveCalc = readFileSync(new URL('../live-calc.ts', import.meta.url), 'utf8');
+    const resultsStore = readFileSync(new URL('../../store/results.svelte.ts', import.meta.url), 'utf8');
+
+    expect(liveCalc, 'live-calc should prefer uz but fall back to uy').toContain('d.uz ?? d.uy ?? 0');
+    expect(liveCalc, 'live-calc should prefer ry but fall back to rz').toContain('d.ry ?? d.rz ?? 0');
+    expect(resultsStore, 'results store maxDisplacement should use the shared 2D vertical helper').toContain('get2DDisplayDisplacementVertical(d)');
+    expect(resultsStore, 'results store maxDisplacement should not use stale 2D uy magnitude').not.toContain('Math.sqrt(d.ux ** 2 + d.uy ** 2)');
+  });
+
+  it('AI artifact builder should use 2D reaction field names (rx/rz), not fy/fz', () => {
+    const aiClient = readFileSync(new URL('../../ai/client.ts', import.meta.url), 'utf8');
+
+    // maxReact must handle 2D reactions (rx/rz) — not just 3D (fx/fz)
+    expect(aiClient, 'ai/client.ts should read rx for horizontal reaction').toContain('r.rx ?? r.fx');
+    expect(aiClient, 'ai/client.ts should read rz for vertical reaction').toContain('r.rz ?? r.fz');
+    // maxDisp should use uz directly, not fall back through uy
+    expect(aiClient, 'ai/client.ts should not use stale d.uy fallback').not.toContain('d.uz ?? d.uy');
+  });
 });
 
 // ─── Bug 2: 3D self-weight loads use wrong axis ────────────────
