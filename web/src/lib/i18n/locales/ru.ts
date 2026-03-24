@@ -961,10 +961,10 @@ const ru: Translations = {
   'float.supportRestrainRx': 'Ограничить вращение X',
   'float.supportRestrainRy': 'Ограничить вращение Y',
   'float.supportRestrainRz': 'Ограничить вращение Z',
-  'float.supportGlobalAxes': 'Глобальные оси: kx горизонтально, ky вертикально',
+  'float.supportGlobalAxes': 'Глобальные оси: kx горизонтально (X), ky вертикально (Z)',
   'float.supportLocalAxes': 'Местные оси: kx вдоль стержня, ky перпендикулярно',
-  'float.rollerRestrictsYGlobal': 'Ограничивает вертикальное перемещение (реакция Y). Свободна по X.',
-  'float.rollerRestrictsXGlobal': 'Ограничивает горизонтальное перемещение (реакция X). Свободна по Y.',
+  'float.rollerRestrictsYGlobal': 'Ограничивает вертикальное перемещение (реакция Z). Свободна по X.',
+  'float.rollerRestrictsXGlobal': 'Ограничивает горизонтальное перемещение (реакция X). Свободна по Z.',
   'float.rollerRestrictsJLocal': 'Ограничивает перемещение перпендикулярно стержню (ось j). Свободна по i.',
   'float.rollerRestrictsILocal': 'Ограничивает перемещение вдоль стержня (ось i). Свободна по j.',
   'float.rollerGlobalLabel': 'Глобальные оси: X горизонтально, Y вертикально',
@@ -1387,7 +1387,7 @@ const ru: Translations = {
 
   // ─── Support Details Tooltips ───
   'prop.imposedDispRollerTitle': 'Заданное перемещение в ограниченном направлении подвижной опоры',
-  'prop.globalAxesTitle': 'Глобальные оси: kx горизонтально, ky вертикально',
+  'prop.globalAxesTitle': 'Глобальные оси: kx горизонтально (X), ky вертикально (Z)',
   'prop.localAxesTitle': 'Локальные оси: kx вдоль стержня, ky перпендикулярно',
   'prop.imposedDxTitle': 'Заданное горизонтальное перемещение (положительное = вправо)',
   'prop.imposedDyTitle': 'Заданное вертикальное перемещение (положительное = вверх)',

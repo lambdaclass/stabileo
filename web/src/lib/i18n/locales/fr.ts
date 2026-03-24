@@ -961,10 +961,10 @@ const fr: Translations = {
   'float.supportRestrainRx': 'Empêcher la rotation X',
   'float.supportRestrainRy': 'Empêcher la rotation Y',
   'float.supportRestrainRz': 'Empêcher la rotation Z',
-  'float.supportGlobalAxes': 'Axes globaux : kx horizontal, ky vertical',
+  'float.supportGlobalAxes': 'Axes globaux : kx horizontal (X), ky vertical (Z)',
   'float.supportLocalAxes': 'Axes locaux : kx le long de la barre, ky perpendiculaire',
-  'float.rollerRestrictsYGlobal': 'Empêche le déplacement vertical (réaction Y). Libre en X.',
-  'float.rollerRestrictsXGlobal': 'Empêche le déplacement horizontal (réaction X). Libre en Y.',
+  'float.rollerRestrictsYGlobal': 'Empêche le déplacement vertical (réaction Z). Libre en X.',
+  'float.rollerRestrictsXGlobal': 'Empêche le déplacement horizontal (réaction X). Libre en Z.',
   'float.rollerRestrictsJLocal': 'Empêche le déplacement perpendiculaire à la barre (axe j). Libre en i.',
   'float.rollerRestrictsILocal': 'Empêche le déplacement le long de la barre (axe i). Libre en j.',
   'float.rollerGlobalLabel': 'Axes globaux : X horizontal, Y vertical',
@@ -1387,7 +1387,7 @@ const fr: Translations = {
 
   // ─── Support Details Tooltips ───
   'prop.imposedDispRollerTitle': 'Déplacement imposé dans la direction empêchée du rouleau',
-  'prop.globalAxesTitle': 'Axes globaux : kx horizontal, ky vertical',
+  'prop.globalAxesTitle': 'Axes globaux : kx horizontal (X), ky vertical (Z)',
   'prop.localAxesTitle': 'Axes locaux : kx le long de la barre, ky perpendiculaire',
   'prop.imposedDxTitle': 'Déplacement horizontal imposé (positif = vers la droite)',
   'prop.imposedDyTitle': 'Déplacement vertical imposé (positif = vers le haut)',

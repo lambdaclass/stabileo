@@ -961,10 +961,10 @@ const de: Translations = {
   'float.supportRestrainRx': 'Verdrehung X halten',
   'float.supportRestrainRy': 'Verdrehung Y halten',
   'float.supportRestrainRz': 'Verdrehung Z halten',
-  'float.supportGlobalAxes': 'Globale Achsen: kx horizontal, ky vertikal',
+  'float.supportGlobalAxes': 'Globale Achsen: kx horizontal (X), ky vertikal (Z)',
   'float.supportLocalAxes': 'Lokale Achsen: kx entlang Stab, ky senkrecht',
-  'float.rollerRestrictsYGlobal': 'Hält vertikale Verschiebung (Y-Reaktion). Frei in X.',
-  'float.rollerRestrictsXGlobal': 'Hält horizontale Verschiebung (X-Reaktion). Frei in Y.',
+  'float.rollerRestrictsYGlobal': 'Hält vertikale Verschiebung (Z-Reaktion). Frei in X.',
+  'float.rollerRestrictsXGlobal': 'Hält horizontale Verschiebung (X-Reaktion). Frei in Z.',
   'float.rollerRestrictsJLocal': 'Hält Verschiebung senkrecht zum Stab (j-Achse). Frei in i.',
   'float.rollerRestrictsILocal': 'Hält Verschiebung entlang des Stabs (i-Achse). Frei in j.',
   'float.rollerGlobalLabel': 'Globale Achsen: X horizontal, Y vertikal',
@@ -1387,7 +1387,7 @@ const de: Translations = {
 
   // ─── Support Details Tooltips ───
   'prop.imposedDispRollerTitle': 'Vorgeschriebene Verschiebung in der gehaltenen Richtung des Rollenlagers',
-  'prop.globalAxesTitle': 'Globale Achsen: kx horizontal, ky vertikal',
+  'prop.globalAxesTitle': 'Globale Achsen: kx horizontal (X), ky vertikal (Z)',
   'prop.localAxesTitle': 'Lokale Achsen: kx entlang des Elements, ky senkrecht dazu',
   'prop.imposedDxTitle': 'Vorgeschriebene horizontale Verschiebung (positiv = nach rechts)',
   'prop.imposedDyTitle': 'Vorgeschriebene vertikale Verschiebung (positiv = nach oben)',

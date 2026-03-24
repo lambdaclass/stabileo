@@ -961,10 +961,10 @@ const it: Translations = {
   'float.supportRestrainRx': 'Vincola rotazione X',
   'float.supportRestrainRy': 'Vincola rotazione Y',
   'float.supportRestrainRz': 'Vincola rotazione Z',
-  'float.supportGlobalAxes': 'Assi globali: kx orizzontale, ky verticale',
+  'float.supportGlobalAxes': 'Assi globali: kx orizzontale (X), ky verticale (Z)',
   'float.supportLocalAxes': 'Assi locali: kx lungo l\'asta, ky perpendicolare',
-  'float.rollerRestrictsYGlobal': 'Vincola lo spostamento verticale (reazione Y). Libero in X.',
-  'float.rollerRestrictsXGlobal': 'Vincola lo spostamento orizzontale (reazione X). Libero in Y.',
+  'float.rollerRestrictsYGlobal': 'Vincola lo spostamento verticale (reazione Z). Libero in X.',
+  'float.rollerRestrictsXGlobal': 'Vincola lo spostamento orizzontale (reazione X). Libero in Z.',
   'float.rollerRestrictsJLocal': 'Vincola lo spostamento perpendicolare all\'asta (asse j). Libero in i.',
   'float.rollerRestrictsILocal': 'Vincola lo spostamento lungo l\'asta (asse i). Libero in j.',
   'float.rollerGlobalLabel': 'Assi globali: X orizzontale, Y verticale',
@@ -1387,7 +1387,7 @@ const it: Translations = {
 
   // ─── Support Details Tooltips ───
   'prop.imposedDispRollerTitle': 'Spostamento imposto nella direzione vincolata del carrello',
-  'prop.globalAxesTitle': 'Assi globali: kx orizzontale, ky verticale',
+  'prop.globalAxesTitle': 'Assi globali: kx orizzontale (X), ky verticale (Z)',
   'prop.localAxesTitle': 'Assi locali: kx lungo l\'asta, ky perpendicolare',
   'prop.imposedDxTitle': 'Spostamento orizzontale imposto (positivo = verso destra)',
   'prop.imposedDyTitle': 'Spostamento verticale imposto (positivo = verso l\'alto)',

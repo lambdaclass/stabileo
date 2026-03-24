@@ -961,10 +961,10 @@ const tr: Translations = {
   'float.supportRestrainRx': 'X dönmesini engelle',
   'float.supportRestrainRy': 'Y dönmesini engelle',
   'float.supportRestrainRz': 'Z dönmesini engelle',
-  'float.supportGlobalAxes': 'Global eksenler: kx yatay, ky düşey',
+  'float.supportGlobalAxes': 'Global eksenler: kx yatay (X), ky düşey (Z)',
   'float.supportLocalAxes': 'Yerel eksenler: kx eleman boyunca, ky dik',
-  'float.rollerRestrictsYGlobal': 'Düşey yer değiştirmeyi engeller (Y tepkisi). X\'te serbest.',
-  'float.rollerRestrictsXGlobal': 'Yatay yer değiştirmeyi engeller (X tepkisi). Y\'de serbest.',
+  'float.rollerRestrictsYGlobal': 'Düşey yer değiştirmeyi engeller (Z tepkisi). X\'te serbest.',
+  'float.rollerRestrictsXGlobal': 'Yatay yer değiştirmeyi engeller (X tepkisi). Z\'de serbest.',
   'float.rollerRestrictsJLocal': 'Elemana dik yer değiştirmeyi engeller (j ekseni). i\'de serbest.',
   'float.rollerRestrictsILocal': 'Eleman boyunca yer değiştirmeyi engeller (i ekseni). j\'de serbest.',
   'float.rollerGlobalLabel': 'Global eksenler: X yatay, Y düşey',
@@ -1387,7 +1387,7 @@ const tr: Translations = {
 
   // ─── Support Details Tooltips ───
   'prop.imposedDispRollerTitle': 'Hareketli mesnetin engelli yönünde zorunlu yer değiştirme',
-  'prop.globalAxesTitle': 'Global eksenler: kx yatay, ky düşey',
+  'prop.globalAxesTitle': 'Global eksenler: kx yatay (X), ky düşey (Z)',
   'prop.localAxesTitle': 'Yerel eksenler: kx eleman boyunca, ky dik',
   'prop.imposedDxTitle': 'Zorunlu yatay yer değiştirme (pozitif = sağa)',
   'prop.imposedDyTitle': 'Zorunlu düşey yer değiştirme (pozitif = yukarı)',

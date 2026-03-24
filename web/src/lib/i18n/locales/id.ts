@@ -967,10 +967,10 @@ const id: Translations = {
   'float.supportRestrainRx': 'Batasi rotasi X',
   'float.supportRestrainRy': 'Batasi rotasi Y',
   'float.supportRestrainRz': 'Batasi rotasi Z',
-  'float.supportGlobalAxes': 'Sumbu global: kx horizontal, ky vertikal',
+  'float.supportGlobalAxes': 'Sumbu global: kx horizontal (X), ky vertikal (Z)',
   'float.supportLocalAxes': 'Sumbu lokal: kx sepanjang batang, ky tegak lurus',
-  'float.rollerRestrictsYGlobal': 'Membatasi perpindahan vertikal (reaksi Y). Bebas di X.',
-  'float.rollerRestrictsXGlobal': 'Membatasi perpindahan horizontal (reaksi X). Bebas di Y.',
+  'float.rollerRestrictsYGlobal': 'Membatasi perpindahan vertikal (reaksi Z). Bebas di X.',
+  'float.rollerRestrictsXGlobal': 'Membatasi perpindahan horizontal (reaksi X). Bebas di Z.',
   'float.rollerRestrictsJLocal': 'Membatasi perpindahan tegak lurus terhadap batang (sumbu j). Bebas di i.',
   'float.rollerRestrictsILocal': 'Membatasi perpindahan sepanjang batang (sumbu i). Bebas di j.',
   'float.rollerGlobalLabel': 'Sumbu global: X horizontal, Y vertikal',
@@ -1393,7 +1393,7 @@ const id: Translations = {
 
   // ─── Support Details Tooltips ───
   'prop.imposedDispRollerTitle': 'Perpindahan tetapan dalam arah terbatas tumpuan rol',
-  'prop.globalAxesTitle': 'Sumbu global: kx di horizontal, ky di vertikal',
+  'prop.globalAxesTitle': 'Sumbu global: kx di horizontal (X), ky di vertikal (Z)',
   'prop.localAxesTitle': 'Sumbu lokal: kx sejajar batang, ky tegak lurus',
   'prop.imposedDxTitle': 'Perpindahan horizontal tetapan (positif = ke kanan)',
   'prop.imposedDyTitle': 'Perpindahan vertikal tetapan (positif = ke atas)',

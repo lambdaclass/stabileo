@@ -95,24 +95,29 @@ describe('Bug 1: 2D Displacement uses uz/ry (not uy/rz)', () => {
     expect(selectedEntityPanel).not.toContain('title={t(\'float.loadGlobalYDir\')}>Y</button>');
   });
 
-  it('manual solve buttons should validate 2D results with uz/ry, not uy/rz', () => {
+  it('manual solve buttons should validate 2D results via shared Z-up helpers', () => {
     const toolbarResults = readFileSync(new URL('../../../components/toolbar/ToolbarResults.svelte', import.meta.url), 'utf8');
     const toolbar = readFileSync(new URL('../../../components/Toolbar.svelte', import.meta.url), 'utf8');
+    const coordSystem = readFileSync(new URL('../../geometry/coordinate-system.ts', import.meta.url), 'utf8');
 
+    // Validation must use the shared hasInvalid2DDisplacements helper (which reads uz/ry via fallback)
     for (const [label, text] of [['ToolbarResults.svelte', toolbarResults], ['Toolbar.svelte', toolbar]] as const) {
-      expect(text, `${label} should validate 2D solves with uz`).toContain('!isFinite(d.uz)');
-      expect(text, `${label} should validate 2D solves with ry`).toContain('!isFinite(d.ry)');
-      expect(text, `${label} should not validate 2D solves with legacy uy`).not.toContain('const hasNaN = results.displacements.some(d => !isFinite(d.ux) || !isFinite(d.uy)');
-      expect(text, `${label} should not validate 2D solves with legacy rz`).not.toContain('!isFinite(d.rz)');
+      expect(text, `${label} should use shared hasInvalid2DDisplacements`).toContain('hasInvalid2DDisplacements');
+      expect(text, `${label} should not validate 2D solves with legacy inline uy`).not.toContain('!isFinite(d.uy)');
+      expect(text, `${label} should not validate 2D solves with legacy inline rz`).not.toContain('!isFinite(d.rz)');
     }
+
+    // The shared helper must use get2DDisplayDisplacementVertical (uz ?? uy fallback)
+    expect(coordSystem, 'hasInvalid2DDisplacements should use get2DDisplayDisplacementVertical').toContain('get2DDisplayDisplacementVertical');
   });
 
-  it('shared live-calc/manual-solve helpers should keep 2D fallback compatibility during migration', () => {
-    const liveCalc = readFileSync(new URL('../live-calc.ts', import.meta.url), 'utf8');
+  it('shared displacement helpers should prefer Z-up fields with Y-up fallback', () => {
+    const coordSystem = readFileSync(new URL('../../geometry/coordinate-system.ts', import.meta.url), 'utf8');
     const resultsStore = readFileSync(new URL('../../store/results.svelte.ts', import.meta.url), 'utf8');
 
-    expect(liveCalc, 'live-calc should prefer uz but fall back to uy').toContain('d.uz ?? d.uy ?? 0');
-    expect(liveCalc, 'live-calc should prefer ry but fall back to rz').toContain('d.ry ?? d.rz ?? 0');
+    // Z-up fallback helpers
+    expect(coordSystem, 'get2DDisplayDisplacementVertical should prefer uz').toContain('disp.uz ?? disp.uy');
+    expect(coordSystem, 'get2DDisplayRotation should prefer ry').toContain('disp.ry ?? disp.rz');
     expect(resultsStore, 'results store maxDisplacement should use the shared 2D vertical helper').toContain('get2DDisplayDisplacementVertical(d)');
     expect(resultsStore, 'results store maxDisplacement should not use stale 2D uy magnitude').not.toContain('Math.sqrt(d.ux ** 2 + d.uy ** 2)');
   });

@@ -836,11 +836,11 @@ function createModelStore() {
       } else if (load.type === 'nodal3d') {
         const d = load.data as NodalLoad3D;
         if (data.fx !== undefined) d.fx = data.fx as number;
-        if (data.fz !== undefined || data.fy !== undefined) d.fz = (data.fz ?? data.fy) as number;
+        if (data.fy !== undefined) d.fy = data.fy as number;
         if (data.fz !== undefined) d.fz = data.fz as number;
         if (data.mx !== undefined) d.mx = data.mx as number;
         if (data.my !== undefined) d.my = data.my as number;
-        if (data.my !== undefined || data.mz !== undefined) d.my = (data.my ?? data.mz) as number;
+        if (data.mz !== undefined) d.mz = data.mz as number;
       } else if (load.type === 'distributed3d') {
         const d = load.data as DistributedLoad3D;
         if (data.qYI !== undefined) d.qYI = data.qYI as number;

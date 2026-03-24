@@ -36,8 +36,8 @@ interface PointLoadOnElemInfo {
 /**
  * Compute the world-space direction vector for a load with angle/isGlobal settings.
  * Returns the unit direction in which the force acts (world coords).
- * - Local angle=0: perpendicular to element (+Y local = (-sinTheta, cosTheta))
- * - Global angle=0: +Y global = (0, 1)
+ * - Local angle=0: perpendicular to element (screen-up for horizontal beams = (-sinθ, cosθ))
+ * - Global angle=0: +Z global (vertical up) = screen (0, 1)
  * - With angle: rotate from base direction by angle degrees CCW
  */
 function computeLoadDirection(
@@ -49,13 +49,13 @@ function computeLoadDirection(
   const angleRad = angle * Math.PI / 180;
 
   if (isGlobal) {
-    // Global: angle=0 → +Y global (0, 1); rotate CCW
+    // Global: angle=0 → +Z global vertical-up = screen (0, 1); rotate CCW
     return {
       dx: Math.sin(angleRad),
       dy: Math.cos(angleRad),
     };
   } else {
-    // Local: angle=0 → +Y local (-sinTheta, cosTheta); rotate CCW in local frame
+    // Local: angle=0 → element-perpendicular (-sinθ, cosθ); rotate CCW in local frame
     const localPerpDx = -sinTheta;
     const localPerpDy = cosTheta;
     const localAxialDx = cosTheta;
@@ -599,7 +599,7 @@ const AXLE_LABEL_COLOR = '#ffcc44';
 /**
  * Draw moving load axles as amber arrows perpendicular to their host element.
  * The arrow represents the transverse component of the gravitational load
- * (weight × cos θ), drawn perpendicular to the element in local +y direction.
+ * (weight × cos θ), drawn perpendicular to the element (toward +Z for horizontal beams).
  * For purely axial loads on vertical bars, arrows are not drawn.
  */
 export function drawMovingLoadAxles(
@@ -620,9 +620,9 @@ export function drawMovingLoadAxles(
 
     const base = dc.worldToScreen(axle.x, axle.y);
 
-    // Perpendicular direction in world coords: (-sinθ, cosθ) is local +y
+    // Perpendicular direction in world coords: (-sinθ, cosθ) is element-perpendicular
     // Arrow should point toward the element (like gravity pressing on it)
-    // For a horizontal beam, local +y is up, arrow points down (toward beam)
+    // For a horizontal beam, perpendicular is +Z (up), arrow points down (toward beam)
     // So arrow goes FROM offset position TO base (application point)
     const perpWx = -axle.sinTheta;
     const perpWy = axle.cosTheta;

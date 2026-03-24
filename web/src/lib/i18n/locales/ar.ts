@@ -967,10 +967,10 @@ const ar: Translations = {
   'float.supportRestrainRx': 'تقييد الدوران X',
   'float.supportRestrainRy': 'تقييد الدوران Y',
   'float.supportRestrainRz': 'تقييد الدوران Z',
-  'float.supportGlobalAxes': 'المحاور الشاملة: kx أفقي، ky عمودي',
+  'float.supportGlobalAxes': 'المحاور الشاملة: kx أفقي (X)، ky عمودي (Z)',
   'float.supportLocalAxes': 'المحاور المحلية: kx على طول العنصر، ky عمودي عليه',
-  'float.rollerRestrictsYGlobal': 'يقيّد الإزاحة العمودية (ردة فعل Y). حر في X.',
-  'float.rollerRestrictsXGlobal': 'يقيّد الإزاحة الأفقية (ردة فعل X). حر في Y.',
+  'float.rollerRestrictsYGlobal': 'يقيّد الإزاحة العمودية (ردة فعل Z). حر في X.',
+  'float.rollerRestrictsXGlobal': 'يقيّد الإزاحة الأفقية (ردة فعل X). حر في Z.',
   'float.rollerRestrictsJLocal': 'يقيّد الإزاحة العمودية على العنصر (المحور j). حر في i.',
   'float.rollerRestrictsILocal': 'يقيّد الإزاحة على طول العنصر (المحور i). حر في j.',
   'float.rollerGlobalLabel': 'المحاور الشاملة: X أفقي، Y عمودي',
@@ -1395,7 +1395,7 @@ const ar: Translations = {
 
   // ─── Support Details Tooltips ───
   'prop.imposedDispRollerTitle': 'إزاحة مفروضة في اتجاه القيد للمسند المتحرك',
-  'prop.globalAxesTitle': 'المحاور الشاملة: kx أفقي، ky عمودي',
+  'prop.globalAxesTitle': 'المحاور الشاملة: kx أفقي (X)، ky عمودي (Z)',
   'prop.localAxesTitle': 'المحاور المحلية: kx موازٍ للعنصر، ky عمودي عليه',
   'prop.imposedDxTitle': 'إزاحة أفقية مفروضة (موجب = نحو اليمين)',
   'prop.imposedDyTitle': 'إزاحة عمودية مفروضة (موجب = نحو الأعلى)',

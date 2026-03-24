@@ -967,10 +967,10 @@ const ko: Translations = {
   'float.supportRestrainRx': 'X방향 회전 구속',
   'float.supportRestrainRy': 'Y방향 회전 구속',
   'float.supportRestrainRz': 'Z방향 회전 구속',
-  'float.supportGlobalAxes': '전체 축: kx 수평, ky 수직',
+  'float.supportGlobalAxes': '전체 축: kx 수평 (X), ky 수직 (Z)',
   'float.supportLocalAxes': '국부 축: kx 부재 방향, ky 수직 방향',
-  'float.rollerRestrictsYGlobal': '수직 변위를 구속합니다 (Y방향 반력). X방향 자유.',
-  'float.rollerRestrictsXGlobal': '수평 변위를 구속합니다 (X방향 반력). Y방향 자유.',
+  'float.rollerRestrictsYGlobal': '수직 변위를 구속합니다 (Z방향 반력). X방향 자유.',
+  'float.rollerRestrictsXGlobal': '수평 변위를 구속합니다 (X방향 반력). Z방향 자유.',
   'float.rollerRestrictsJLocal': '부재에 수직인 변위를 구속합니다 (j축). i방향 자유.',
   'float.rollerRestrictsILocal': '부재 방향 변위를 구속합니다 (i축). j방향 자유.',
   'float.rollerGlobalLabel': '전체 축: X 수평, Y 수직',
@@ -1393,7 +1393,7 @@ const ko: Translations = {
 
   // ─── Support Details Tooltips ───
   'prop.imposedDispRollerTitle': '이동단의 구속 방향 강제 변위',
-  'prop.globalAxesTitle': '전체 축: kx 수평, ky 수직',
+  'prop.globalAxesTitle': '전체 축: kx 수평 (X), ky 수직 (Z)',
   'prop.localAxesTitle': '국부 축: kx 부재 방향, ky 수직',
   'prop.imposedDxTitle': '수평 강제 변위 (양수 = 오른쪽)',
   'prop.imposedDyTitle': '수직 강제 변위 (양수 = 위쪽)',

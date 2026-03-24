@@ -961,10 +961,10 @@ const pt: Translations = {
   'float.supportRestrainRx': 'Restringir rotação X',
   'float.supportRestrainRy': 'Restringir rotação Y',
   'float.supportRestrainRz': 'Restringir rotação Z',
-  'float.supportGlobalAxes': 'Eixos globais: kx horizontal, ky vertical',
+  'float.supportGlobalAxes': 'Eixos globais: kx horizontal (X), ky vertical (Z)',
   'float.supportLocalAxes': 'Eixos locais: kx ao longo da barra, ky perpendicular',
-  'float.rollerRestrictsYGlobal': 'Restringe deslocamento vertical (reação Y). Livre em X.',
-  'float.rollerRestrictsXGlobal': 'Restringe deslocamento horizontal (reação X). Livre em Y.',
+  'float.rollerRestrictsYGlobal': 'Restringe deslocamento vertical (reação Z). Livre em X.',
+  'float.rollerRestrictsXGlobal': 'Restringe deslocamento horizontal (reação X). Livre em Z.',
   'float.rollerRestrictsJLocal': 'Restringe deslocamento perpendicular à barra (eixo j). Livre em i.',
   'float.rollerRestrictsILocal': 'Restringe deslocamento ao longo da barra (eixo i). Livre em j.',
   'float.rollerGlobalLabel': 'Eixos globais: X horizontal, Y vertical',
@@ -1387,7 +1387,7 @@ const pt: Translations = {
 
   // ─── Support Details Tooltips ───
   'prop.imposedDispRollerTitle': 'Deslocamento imposto na direção restringida do rolete',
-  'prop.globalAxesTitle': 'Eixos globais: kx horizontal, ky vertical',
+  'prop.globalAxesTitle': 'Eixos globais: kx horizontal (X), ky vertical (Z)',
   'prop.localAxesTitle': 'Eixos locais: kx ao longo da barra, ky perpendicular',
   'prop.imposedDxTitle': 'Deslocamento horizontal imposto (positivo = para direita)',
   'prop.imposedDyTitle': 'Deslocamento vertical imposto (positivo = para cima)',

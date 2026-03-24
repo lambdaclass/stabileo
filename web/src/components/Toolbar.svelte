@@ -3,6 +3,7 @@
   import { saveProject, loadFile, saveSession } from '../lib/store/file';
   import type { ClipboardData } from '../lib/store/ui.svelte.ts';
   import { t } from '../lib/i18n';
+  import { hasInvalid2DDisplacements, hasInvalid3DDisplacements } from '../lib/geometry/coordinate-system';
 
   import ToolbarResults from './toolbar/ToolbarResults.svelte';
   import ToolbarAdvanced from './toolbar/ToolbarAdvanced.svelte';
@@ -34,7 +35,7 @@
       uiStore.toast(results, 'error');
     } else if (results) {
       // Validate results aren't degenerate
-      const hasNaN = results.displacements.some(d => !isFinite(d.ux) || !isFinite(d.uz) || !isFinite(d.ry));
+      const hasNaN = hasInvalid2DDisplacements(results.displacements);
       if (hasNaN) {
         uiStore.toast(t('results.numericError'), 'error');
         return;
@@ -86,9 +87,7 @@
       uiStore.toast(results, 'error');
     } else if (results) {
       // Validate results aren't degenerate
-      const hasNaN = results.displacements.some(
-        (d: { ux: number; uy: number; uz: number }) => !isFinite(d.ux) || !isFinite(d.uy) || !isFinite(d.uz)
-      );
+      const hasNaN = hasInvalid3DDisplacements(results.displacements as Array<{ ux: number; uy: number; uz: number }>);
       if (hasNaN) {
         uiStore.toast(t('results.numericError3d'), 'error');
         return;

@@ -1019,10 +1019,10 @@ const en: Record<string, string> = {
   'float.supportRestrainRx': 'Restrain rotation X',
   'float.supportRestrainRy': 'Restrain rotation Y',
   'float.supportRestrainRz': 'Restrain rotation Z',
-  'float.supportGlobalAxes': 'Global axes: kx horizontal, ky vertical',
+  'float.supportGlobalAxes': 'Global axes: kx horizontal (X), ky vertical (Z)',
   'float.supportLocalAxes': 'Local axes: kx along member, ky perpendicular',
-  'float.rollerRestrictsYGlobal': 'Restrains vertical displacement (Y reaction). Free in X.',
-  'float.rollerRestrictsXGlobal': 'Restrains horizontal displacement (X reaction). Free in Y.',
+  'float.rollerRestrictsYGlobal': 'Restrains vertical displacement (Z reaction). Free in X.',
+  'float.rollerRestrictsXGlobal': 'Restrains horizontal displacement (X reaction). Free in Z.',
   'float.rollerRestrictsJLocal': 'Restrains displacement perpendicular to member (j axis). Free in i.',
   'float.rollerRestrictsILocal': 'Restrains displacement along member (i axis). Free in j.',
   'float.rollerGlobalLabel': 'Global axes: X horizontal, Y vertical',
@@ -1445,7 +1445,7 @@ const en: Record<string, string> = {
 
   // ─── Support Details Tooltips ───
   'prop.imposedDispRollerTitle': 'Imposed displacement in the restrained direction of the roller',
-  'prop.globalAxesTitle': 'Global axes: kx horizontal, ky vertical',
+  'prop.globalAxesTitle': 'Global axes: kx horizontal (X), ky vertical (Z)',
   'prop.localAxesTitle': 'Local axes: kx along member, ky perpendicular',
   'prop.imposedDxTitle': 'Imposed horizontal displacement (positive = rightward)',
   'prop.imposedDyTitle': 'Imposed vertical displacement (positive = upward)',

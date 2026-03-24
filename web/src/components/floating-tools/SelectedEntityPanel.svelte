@@ -2,6 +2,7 @@
   import { uiStore, resultsStore, modelStore } from '../../lib/store';
   import { t } from '../../lib/i18n';
   import type { NodalLoad, DistributedLoad, PointLoadOnElement, NodalLoad3D, DistributedLoad3D } from '../../lib/store/model.svelte.ts';
+  import { get2DDisplayNodalLoadMoment, get2DDisplayNodalLoadVertical } from '../../lib/geometry/coordinate-system';
 
   function updateLoadField(loadId: number, field: string, val: string | boolean) {
     if (typeof val === 'boolean') {
@@ -127,12 +128,12 @@
       </label>
       <label class="ft-input-group">
         <span>Fz:</span>
-        <input type="number" step="1" value={nl.fy} onchange={(e) => updateLoadField(nl.id, 'fy', e.currentTarget.value)} />
+        <input type="number" step="1" value={get2DDisplayNodalLoadVertical(nl)} onchange={(e) => updateLoadField(nl.id, 'fz', e.currentTarget.value)} />
         <span class="ft-unit">kN</span>
       </label>
       <label class="ft-input-group">
         <span>My:</span>
-        <input type="number" step="1" value={nl.mz} onchange={(e) => updateLoadField(nl.id, 'mz', e.currentTarget.value)} />
+        <input type="number" step="1" value={get2DDisplayNodalLoadMoment(nl)} onchange={(e) => updateLoadField(nl.id, 'my', e.currentTarget.value)} />
         <span class="ft-unit">kN·m</span>
       </label>
     {:else if selectedLoad.type === 'distributed'}
@@ -186,7 +187,7 @@
       </label>
       <label class="ft-input-group">
         <span>My:</span>
-        <input type="number" step="1" value={pl.mz ?? 0} onchange={(e) => updateLoadField(pl.id, 'mz', e.currentTarget.value)} />
+        <input type="number" step="1" value={get2DDisplayNodalLoadMoment(pl)} onchange={(e) => updateLoadField(pl.id, 'my', e.currentTarget.value)} />
         <span class="ft-unit">kN·m</span>
       </label>
       <span class="ft-sep">|</span>

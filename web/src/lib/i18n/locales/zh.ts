@@ -961,10 +961,10 @@ const zh: Translations = {
   'float.supportRestrainRx': '约束 X 转动',
   'float.supportRestrainRy': '约束 Y 转动',
   'float.supportRestrainRz': '约束 Z 转动',
-  'float.supportGlobalAxes': '全局坐标轴：kx 水平, ky 竖向',
+  'float.supportGlobalAxes': '全局坐标轴：kx 水平 (X), ky 竖向 (Z)',
   'float.supportLocalAxes': '局部坐标轴：kx 沿杆件方向, ky 垂直于杆件',
-  'float.rollerRestrictsYGlobal': '约束竖向位移（Y 方向反力）。X 方向自由。',
-  'float.rollerRestrictsXGlobal': '约束水平位移（X 方向反力）。Y 方向自由。',
+  'float.rollerRestrictsYGlobal': '约束竖向位移（Z 方向反力）。X 方向自由。',
+  'float.rollerRestrictsXGlobal': '约束水平位移（X 方向反力）。Z 方向自由。',
   'float.rollerRestrictsJLocal': '约束杆件垂直方向位移（j 轴）。i 方向自由。',
   'float.rollerRestrictsILocal': '约束杆件轴向位移（i 轴）。j 方向自由。',
   'float.rollerGlobalLabel': '全局坐标轴：X 水平, Y 竖向',
@@ -1387,7 +1387,7 @@ const zh: Translations = {
 
   // ─── Support Details Tooltips ───
   'prop.imposedDispRollerTitle': '滚动支座约束方向的强制位移',
-  'prop.globalAxesTitle': '全局坐标轴：kx 水平，ky 竖向',
+  'prop.globalAxesTitle': '全局坐标轴：kx 水平 (X)，ky 竖向 (Z)',
   'prop.localAxesTitle': '局部坐标轴：kx 平行于杆件，ky 垂直于杆件',
   'prop.imposedDxTitle': '水平强制位移（正值 = 向右）',
   'prop.imposedDyTitle': '竖向强制位移（正值 = 向上）',

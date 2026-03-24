@@ -961,10 +961,10 @@ const hi: Translations = {
   'float.supportRestrainRx': 'घूर्णन X प्रतिबंधित करें',
   'float.supportRestrainRy': 'घूर्णन Y प्रतिबंधित करें',
   'float.supportRestrainRz': 'घूर्णन Z प्रतिबंधित करें',
-  'float.supportGlobalAxes': 'वैश्विक अक्ष: kx क्षैतिज, ky ऊर्ध्वाधर',
+  'float.supportGlobalAxes': 'वैश्विक अक्ष: kx क्षैतिज (X), ky ऊर्ध्वाधर (Z)',
   'float.supportLocalAxes': 'स्थानीय अक्ष: kx सदस्य के साथ, ky लम्बवत',
-  'float.rollerRestrictsYGlobal': 'ऊर्ध्वाधर विस्थापन प्रतिबंधित करता है (Y प्रतिक्रिया)। X में मुक्त।',
-  'float.rollerRestrictsXGlobal': 'क्षैतिज विस्थापन प्रतिबंधित करता है (X प्रतिक्रिया)। Y में मुक्त।',
+  'float.rollerRestrictsYGlobal': 'ऊर्ध्वाधर विस्थापन प्रतिबंधित करता है (Z प्रतिक्रिया)। X में मुक्त।',
+  'float.rollerRestrictsXGlobal': 'क्षैतिज विस्थापन प्रतिबंधित करता है (X प्रतिक्रिया)। Z में मुक्त।',
   'float.rollerRestrictsJLocal': 'सदस्य के लम्बवत विस्थापन प्रतिबंधित करता है (j अक्ष)। i में मुक्त।',
   'float.rollerRestrictsILocal': 'सदस्य के साथ विस्थापन प्रतिबंधित करता है (i अक्ष)। j में मुक्त।',
   'float.rollerGlobalLabel': 'वैश्विक अक्ष: X क्षैतिज, Y ऊर्ध्वाधर',
@@ -1387,7 +1387,7 @@ const hi: Translations = {
 
   // ─── Support Details Tooltips ───
   'prop.imposedDispRollerTitle': 'रोलर की प्रतिबंधित दिशा में आरोपित विस्थापन',
-  'prop.globalAxesTitle': 'वैश्विक अक्ष: kx क्षैतिज, ky ऊर्ध्वाधर',
+  'prop.globalAxesTitle': 'वैश्विक अक्ष: kx क्षैतिज (X), ky ऊर्ध्वाधर (Z)',
   'prop.localAxesTitle': 'स्थानीय अक्ष: kx सदस्य के साथ, ky लम्बवत',
   'prop.imposedDxTitle': 'आरोपित क्षैतिज विस्थापन (धनात्मक = दाईं ओर)',
   'prop.imposedDyTitle': 'आरोपित ऊर्ध्वाधर विस्थापन (धनात्मक = ऊपर)',

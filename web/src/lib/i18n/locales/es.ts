@@ -1019,10 +1019,10 @@ const es: Record<string, string> = {
   'float.supportRestrainRx': 'Restringir rotación X',
   'float.supportRestrainRy': 'Restringir rotación Y',
   'float.supportRestrainRz': 'Restringir rotación Z',
-  'float.supportGlobalAxes': 'Ejes globales: kx horizontal, ky vertical',
+  'float.supportGlobalAxes': 'Ejes globales: kx horizontal (X), ky vertical (Z)',
   'float.supportLocalAxes': 'Ejes locales: kx a lo largo de la barra, ky perpendicular',
-  'float.rollerRestrictsYGlobal': 'Restringe desplazamiento vertical (reacción Y). Libre en X.',
-  'float.rollerRestrictsXGlobal': 'Restringe desplazamiento horizontal (reacción X). Libre en Y.',
+  'float.rollerRestrictsYGlobal': 'Restringe desplazamiento vertical (reacción Z). Libre en X.',
+  'float.rollerRestrictsXGlobal': 'Restringe desplazamiento horizontal (reacción X). Libre en Z.',
   'float.rollerRestrictsJLocal': 'Restringe desplazamiento perpendicular a la barra (eje j). Libre en i.',
   'float.rollerRestrictsILocal': 'Restringe desplazamiento a lo largo de la barra (eje i). Libre en j.',
   'float.rollerGlobalLabel': 'Ejes globales: X horizontal, Y vertical',
@@ -1445,7 +1445,7 @@ const es: Record<string, string> = {
 
   // ─── Support Details Tooltips ───
   'prop.imposedDispRollerTitle': 'Desplazamiento impuesto en la dirección restringida del apoyo móvil',
-  'prop.globalAxesTitle': 'Ejes globales: kx en horizontal, ky en vertical',
+  'prop.globalAxesTitle': 'Ejes globales: kx horizontal (X), ky vertical (Z)',
   'prop.localAxesTitle': 'Ejes locales: kx paralelo a la barra, ky perpendicular',
   'prop.imposedDxTitle': 'Desplazamiento horizontal impuesto (positivo = hacia la derecha)',
   'prop.imposedDyTitle': 'Desplazamiento vertical impuesto (positivo = hacia arriba)',
