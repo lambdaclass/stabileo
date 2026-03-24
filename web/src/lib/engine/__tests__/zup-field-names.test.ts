@@ -10,6 +10,7 @@
  */
 
 import { describe, it, expect } from 'vitest';
+import { readFileSync } from 'node:fs';
 import { solve, solve3D } from '../wasm-solver';
 import type { SolverInput, SolverLoad } from '../types';
 import type {
@@ -17,6 +18,7 @@ import type {
   SolverSupport3D, AnalysisResults3D,
 } from '../types-3d';
 import type { SolverMaterial } from '../types';
+import { buildSolverInput3D } from '../solver-service';
 import { plateSelfWeightLoads, quadSelfWeightLoads, convertSurfaceLoad } from '../solver-shells';
 
 // ─── Bug 1: 2D Displacement field names ────────────────────────
@@ -50,7 +52,7 @@ describe('Bug 1: 2D Displacement uses uz/ry (not uy/rz)', () => {
     expect(Math.abs(tipDisp.uz)).toBeGreaterThan(1e-10);
     expect(Math.abs(tipDisp.ry)).toBeGreaterThan(1e-10);
 
-    // Old Y-up fields must NOT exist
+    // Legacy uy/rz aliases must NOT exist
     expect(tipDisp).not.toHaveProperty('uy');
     expect(tipDisp).not.toHaveProperty('rz');
   });
@@ -66,6 +68,31 @@ describe('Bug 1: 2D Displacement uses uz/ry (not uy/rz)', () => {
     expect(asAny.rz).toBeUndefined();
     expect(Math.abs(tipDisp.uz)).toBeGreaterThan(1e-6);
     expect(Math.abs(tipDisp.ry)).toBeGreaterThan(1e-6);
+  });
+
+  it('2D canvas renderers must not read legacy uy/rz fields', () => {
+    const drawDeformed = readFileSync(new URL('../../canvas/draw-deformed.ts', import.meta.url), 'utf8');
+    const drawModes = readFileSync(new URL('../../canvas/draw-modes.ts', import.meta.url), 'utf8');
+
+    for (const [label, text] of [['draw-deformed.ts', drawDeformed], ['draw-modes.ts', drawModes]] as const) {
+      expect(text, `${label} should not read legacy .uy`).not.toMatch(/\.uy\b/);
+      expect(text, `${label} should not read legacy .rz`).not.toMatch(/\.rz\b/);
+      expect(text, `${label} should read canonical .uz`).toMatch(/\.uz\b/);
+    }
+
+    expect(drawDeformed, 'draw-deformed.ts should read canonical .ry').toMatch(/\.ry\b/);
+  });
+
+  it('2D load UI should label the global vertical direction as Z', () => {
+    const toolLoadOptions = readFileSync(new URL('../../../components/floating-tools/ToolLoadOptions.svelte', import.meta.url), 'utf8');
+    const selectedEntityPanel = readFileSync(new URL('../../../components/floating-tools/SelectedEntityPanel.svelte', import.meta.url), 'utf8');
+
+    expect(toolLoadOptions).toMatch(/float\.loadForceYGlobal/);
+    expect(toolLoadOptions).toContain('>Z</button>');
+    expect(toolLoadOptions).not.toContain('title={t(\'float.loadGlobalYDir\')}>Y</button>');
+
+    expect(selectedEntityPanel).toContain('>Z</button>');
+    expect(selectedEntityPanel).not.toContain('title={t(\'float.loadGlobalYDir\')}>Y</button>');
   });
 });
 
@@ -183,5 +210,41 @@ describe('Bug 2: 3D self-weight must apply gravity to fz (not fy)', () => {
     // Gravity in Z → deflection in Z, not Y
     expect(Math.abs(tipDisp.uz)).toBeGreaterThan(1e-6);
     expect(Math.abs(tipDisp.uy)).toBeLessThan(1e-10);
+  });
+
+  it('buildSolverInput3D(includeSelfWeight=true) emits self-weight in fz, not fy', () => {
+    const model = {
+      nodes: new Map([
+        [1, { id: 1, x: 0, y: 0, z: 0 }],
+        [2, { id: 2, x: 5, y: 0, z: 0 }],
+      ]),
+      elements: new Map([[1, {
+        id: 1,
+        type: 'frame' as const,
+        nodeI: 1,
+        nodeJ: 2,
+        materialId: 1,
+        sectionId: 1,
+        hingeStart: false,
+        hingeEnd: false,
+      }]]),
+      supports: new Map([[1, { id: 1, nodeId: 1, type: 'fixed3d' as const }]]),
+      loads: [],
+      materials: new Map([[1, { id: 1, e: 200000, nu: 0.3, rho: 78.5, fy: 250 }]]),
+      sections: new Map([[1, { id: 1, a: 0.01, iy: 8.33e-6, iz: 4.16e-6, j: 1e-5, b: 0.2, h: 0.3 }]]),
+    };
+
+    const input = buildSolverInput3D(model as any, true, false);
+    expect(input).not.toBeNull();
+
+    const nodalLoads = input!.loads.filter(
+      (load): load is Extract<SolverInput3D['loads'][number], { type: 'nodal' }> => load.type === 'nodal',
+    );
+
+    expect(nodalLoads).toHaveLength(2);
+    for (const load of nodalLoads) {
+      expect(load.data.fy).toBe(0);
+      expect(load.data.fz).toBeLessThan(0);
+    }
   });
 });

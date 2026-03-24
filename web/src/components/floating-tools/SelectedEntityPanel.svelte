@@ -159,7 +159,7 @@
         <span class="ft-unit">m</span>
       </label>
       <span class="ft-sep">|</span>
-      <button class="ft-opt-btn ft-coord-btn" class:active={dl.isGlobal === true} onclick={() => updateLoadField(dl.id, 'isGlobal', true)} title={t('float.loadGlobalYDir')}>Y</button>
+      <button class="ft-opt-btn ft-coord-btn" class:active={dl.isGlobal === true} onclick={() => updateLoadField(dl.id, 'isGlobal', true)} title={t('float.loadGlobalYDir')}>Z</button>
       <button class="ft-opt-btn ft-coord-btn" class:active={!dl.isGlobal} onclick={() => updateLoadField(dl.id, 'isGlobal', false)} title={t('float.loadPerpDir')}>⊥</button>
       <label class="ft-input-group">
         <span>α:</span>
@@ -190,7 +190,7 @@
         <span class="ft-unit">kN·m</span>
       </label>
       <span class="ft-sep">|</span>
-      <button class="ft-opt-btn ft-coord-btn" class:active={pl.isGlobal === true} onclick={() => updateLoadField(pl.id, 'isGlobal', true)} title={t('float.loadGlobalYDir')}>Y</button>
+      <button class="ft-opt-btn ft-coord-btn" class:active={pl.isGlobal === true} onclick={() => updateLoadField(pl.id, 'isGlobal', true)} title={t('float.loadGlobalYDir')}>Z</button>
       <button class="ft-opt-btn ft-coord-btn" class:active={!pl.isGlobal} onclick={() => updateLoadField(pl.id, 'isGlobal', false)} title={t('float.loadPerpDir')}>⊥</button>
       <label class="ft-input-group">
         <span>α:</span>

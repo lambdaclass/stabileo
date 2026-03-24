@@ -422,8 +422,8 @@ describe('3D load types', () => {
 
     const result = assertSuccess(solve3D(input));
 
-    // Sum of vertical (global Y in 3D) reactions should equal total downward load
-    // SAP2000: ey=(0,1,0), qY=-10 → -10*4=40kN downward → fy reactions = +40
+    // Sum of reactions in global Y should equal the local-qY resultant for this +X member orientation
+    // SAP2000: ey=(0,1,0), qY=-10 → -10*4=40kN along -globalY → fy reactions = +40
     const totalLoad = Math.abs(qY) * L;
     const totalReaction = result.reactions.reduce((sum, r) => sum + r.fy, 0);
     expect(totalReaction).toBeCloseTo(totalLoad, 4);
@@ -433,7 +433,7 @@ describe('3D load types', () => {
     const L = 6;
     const py = -5; // kN in local Y at midspan
     // SAP2000: beam +X → ey=(0,1,0). local py=-5 → global force = (0,-5,0)
-    // So py loads the Y-plane (Mz/Vy, uses Iz) and displacement is in global Y
+    // So py loads the Y-plane (Mz/Vy, uses Iz) and displacement is along global Y
 
     const input = buildInput3D({
       nodes: [
@@ -453,16 +453,16 @@ describe('3D load types', () => {
     const result = assertSuccess(solve3D(input));
     const d2 = result.displacements.find(d => d.nodeId === 2)!;
 
-    // SAP2000: py loads Y-plane → displacement in global Y (via ey=(0,1,0)), no global Z displacement
+    // SAP2000: py loads Y-plane → displacement along global Y (via ey=(0,1,0)), no global Z displacement
     expect(d2.uy).not.toBe(0);
     expect(Math.abs(d2.uz)).toBeLessThan(1e-10);
   });
 });
 
-// ─── Vertical column test ──────────────────────────────────
+// ─── Column aligned with global Y ──────────────────────────
 
-describe('solve3D — Vertical column', () => {
-  it('vertical column with lateral load at top', () => {
+describe('solve3D — Column along global Y', () => {
+  it('column along global Y with lateral load at top', () => {
     const H = 4; // height
     const Fx = 10; // kN lateral
 

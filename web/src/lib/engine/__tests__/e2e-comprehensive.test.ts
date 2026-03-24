@@ -980,7 +980,7 @@ describe('5. Extreme values — Dimension combinations', () => {
 describe('6. 3D — Cantilevers', () => {
 
   it('3D cantilever + tip load in Y: δ=PL³/(3EIz), reactions correct', () => {
-    // SAP2000 convention: beam along X, ey = Y (up), ez = Z
+    // SAP2000 convention: beam along X, ey = Y, ez = Z
     // Load in global Y → local Y direction → bending about local Z → uses Iz
     const L = 4, P = -10;
     const E = 200000;

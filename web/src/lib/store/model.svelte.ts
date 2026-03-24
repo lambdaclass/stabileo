@@ -172,7 +172,7 @@ export interface PointLoadOnElement3D {
 export interface SurfaceLoad3D {
   id: number;
   quadId: number;
-  q: number;    // kN/m² (positive = downward, applied as -Y global)
+  q: number;    // kN/m² (positive = downward, applied as -Z global)
   caseId?: number;
 }
 

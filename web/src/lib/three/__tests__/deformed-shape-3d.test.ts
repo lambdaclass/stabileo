@@ -88,9 +88,9 @@ function frameElement(id: number, nodeI: number, nodeJ: number): SolverElement3D
 describe('computeDeformedShape3D', () => {
   describe('Cantilever beam along X with point load Fy', () => {
     // Cantilever: fixed at node 1 (x=0), free at node 2 (x=L)
-    // Load: Fy = -P at free end (downward in global Y)
+    // Load: Fy = -P at free end (along -globalY)
     // SAP2000: beam +X → ey=(0,1,0), ez=(0,0,1). Global Fy projects to Y-plane (uses Iz).
-    // Expected tip deflection: δ = PL³/(3EIz) (downward in global Y via ey)
+    // Expected tip deflection: δ = PL³/(3EIz) (along -globalY via ey)
     const P = 10; // kN
 
     it('tip deflection matches PL³/(3EIz) within 1%', () => {
@@ -118,8 +118,8 @@ describe('computeDeformedShape3D', () => {
 
       // Tip (last point) should match analytical deflection
       const tipPoint = points[points.length - 1];
-      // SAP2000: Fy goes into Y-plane (uses Iz), deflection in global Y via ey=(0,1,0)
-      const expected = -P * L * L * L / (3 * EIz_kN); // downward (negative Y)
+      // SAP2000: Fy goes into the Y-plane (uses Iz), deflection follows global Y via ey=(0,1,0)
+      const expected = -P * L * L * L / (3 * EIz_kN); // along -globalY
 
       // tip Y displacement
       const tipDy = tipPoint.y - 0; // baseY at tip = 0 + 0 (scale=1, so tipPoint.y ≈ displacement)
