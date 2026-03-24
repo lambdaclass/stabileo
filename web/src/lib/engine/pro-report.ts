@@ -130,6 +130,17 @@ function km(expr: string, display = false): string {
 function renderStep(step: string): string {
   let tex = step;
 
+  // ── Normalize accented Spanish chars to ASCII (before any LaTeX conversion) ──
+  // These appear mid-equation in terms like mín, máx, compresión, flexión, etc.
+  // KaTeX decomposes accented chars in math mode into broken glyphs (e.g. í → ıˊ)
+  tex = tex.replace(/á/g, 'a');
+  tex = tex.replace(/é/g, 'e');
+  tex = tex.replace(/í/g, 'i');
+  tex = tex.replace(/ó/g, 'o');
+  tex = tex.replace(/ú/g, 'u');
+  tex = tex.replace(/ñ/g, 'n');
+  tex = tex.replace(/ü/g, 'u');
+
   // ── Named substitutions (do these BEFORE symbol replacements) ──
   tex = tex.replace(/As,req/g, 'A_{s,req}');
   tex = tex.replace(/As,min/g, 'A_{s,min}');
@@ -164,11 +175,17 @@ function renderStep(step: string): string {
   tex = tex.replace(/Pn(?=[·\s=)])/g, 'P_{n}');
   tex = tex.replace(/Lu/g, 'L_{u}');
   tex = tex.replace(/δns/g, '\\delta_{ns}');
+  tex = tex.replace(/βdns/g, '\\beta_{dns}');
   tex = tex.replace(/f'c/g, "f'_{c}");
   tex = tex.replace(/bw/g, 'b_{w}');
   tex = tex.replace(/ρ_min/g, '\\rho_{min}');
   tex = tex.replace(/ρ_max/g, '\\rho_{max}');
   tex = tex.replace(/ρ_b/g, '\\rho_{b}');
+  tex = tex.replace(/λm,lim/g, '\\lambda_{m,lim}');
+  tex = tex.replace(/EI,eff/g, 'EI_{eff}');
+  tex = tex.replace(/M2C/g, 'M_{2C}');
+  tex = tex.replace(/M2,min/g, 'M_{2,min}');
+  tex = tex.replace(/M1\/M2/g, 'M_1/M_2');
 
   // ── √ handling: match √ followed by a "token" (letters/digits/'/_ until · or space or = or )) ──
   // e.g. "√f'c" → "\sqrt{f'_{c}}", "√(d² - X)" → "\sqrt{(d² - X)}"
@@ -180,31 +197,44 @@ function renderStep(step: string): string {
   tex = tex.replace(/φ/g, '\\phi ');
   tex = tex.replace(/ρ/g, '\\rho ');
   tex = tex.replace(/θ/g, '\\theta ');
+  tex = tex.replace(/ε/g, '\\varepsilon ');
+  tex = tex.replace(/Δ/g, '\\Delta ');
+  tex = tex.replace(/β/g, '\\beta ');
+  tex = tex.replace(/δ/g, '\\delta ');
+  tex = tex.replace(/λ/g, '\\lambda ');
+  tex = tex.replace(/Ψ/g, '\\Psi ');
+  tex = tex.replace(/π/g, '\\pi ');
   tex = tex.replace(/²/g, '^{2}');
   tex = tex.replace(/³/g, '^{3}');
   tex = tex.replace(/⁴/g, '^{4}');
   tex = tex.replace(/≥/g, '\\geq ');
   tex = tex.replace(/≤/g, '\\leq ');
+  tex = tex.replace(/≈/g, '\\approx ');
   tex = tex.replace(/→/g, '\\rightarrow ');
   tex = tex.replace(/⚠/g, '\\triangle\\!');
   tex = tex.replace(/×/g, '\\times ');
   tex = tex.replace(/Ø/g, '\\varnothing');
+  tex = tex.replace(/‰/g, '\\text{\\u2030}');
+  tex = tex.replace(/°/g, '^{\\circ}');
+  tex = tex.replace(/—/g, '\\text{---}');
 
   // ── Units at end of expression → \text{} ──
-  // Unit patterns (after · → \cdot replacement, ² → ^{2})
-  tex = tex.replace(/\s+kN\s*\\cdot\s*m\s*$/, ' \\text{ kN·m}');
-  tex = tex.replace(/\s+cm\^{2}\/m\s*$/, ' \\text{ cm²/m}');
-  tex = tex.replace(/\s+m\^{2}\/m\s*$/, ' \\text{ m²/m}');
-  tex = tex.replace(/\s+cm\^{2}\s*$/, ' \\text{ cm²}');
-  tex = tex.replace(/\s+m\^{2}\s*$/, ' \\text{ m²}');
+  // Use \text{kN}\cdot\text{m} to avoid literal · inside \text{} (causes \cdotp leak)
+  tex = tex.replace(/\s+kN\s*\\cdot\s*m\s*$/, ' \\text{ kN}{\\cdot}\\text{m}');
+  tex = tex.replace(/\s+kN\s*\\cdot\s*m\^{2}\s*$/, ' \\text{ kN}{\\cdot}\\text{m}^{2}');
+  tex = tex.replace(/\s+cm\^{2}\/m\s*$/, ' \\text{ cm}^{2}\\text{/m}');
+  tex = tex.replace(/\s+m\^{2}\/m\s*$/, ' \\text{ m}^{2}\\text{/m}');
+  tex = tex.replace(/\s+cm\^{2}\s*$/, ' \\text{ cm}^{2}');
+  tex = tex.replace(/\s+m\^{2}\s*$/, ' \\text{ m}^{2}');
   tex = tex.replace(/\s+(kN|MPa|cm|mm|m|rad)\s*$/, ' \\text{ $1}');
   tex = tex.replace(/\s+(%)\s*$/, ' \\text{$1}');
 
   // ── Wrap text fragments (Armadura propuesta:, Estribos:, etc.) ──
-  // Detect lines that are descriptive text, not equations (no "=" sign, or start with ⚠/Armadura/Estribos/etc.)
-  const isTextLine = /^⚠/.test(step) || /^(Armadura|Estribos|Momento|Sección|Columna|No se)/.test(step);
+  // Detect lines that are descriptive text, not equations
+  const isTextLine = /^(Armadura|Estribos|Momento|Seccion|Columna|No se|zona |compresion |Ratio )/.test(tex)
+    || (/^[A-Za-z]/.test(tex) && !tex.includes('=') && !tex.includes('\\'));
   if (isTextLine) {
-    tex = `\\text{${escHtml(step).replace(/Ø/g, 'ø')}}`;
+    tex = `\\text{${escHtml(step.replace(/á/g,'a').replace(/é/g,'e').replace(/í/g,'i').replace(/ó/g,'o').replace(/ú/g,'u').replace(/ñ/g,'n').replace(/Ø/g, 'ø'))}}`;
   }
 
   return `<div class="memo-step">${km(tex)}</div>`;
@@ -359,7 +389,7 @@ export function generateReportHtml(data: ReportData): string {
 <head>
 <meta charset="UTF-8">
 <title>${escHtml(interp(tr('report.docTitle'), { name: projectName }))}</title>
-<style>${katexCss}</style>
+<style>${katexCss.replace(/url\(fonts\//g, 'url(https://cdn.jsdelivr.net/npm/katex@0.16.28/dist/fonts/')}</style>
 <style>${REPORT_CSS}</style>
 </head>
 <body>
@@ -657,27 +687,27 @@ export function generateReportHtml(data: ReportData): string {
       const secStr = `${(v.b * 100).toFixed(0)}×${(v.h * 100).toFixed(0)}`;
       const govComboId = v.governingCombos?.flexure?.comboId;
 
-      // Element header
-      html.push(`<div style="margin-top:10px;padding:4px 6px;background:#1a2a40;border:1px solid #333;border-radius:3px">`);
-      html.push(`<strong>${typeLabel(v.elementType, tr)} ${v.elementId}</strong> — ${secStr} cm — <span class="${statusCls}">${statusTxt} ${v.overallStatus.toUpperCase()}</span>`);
+      // Element header — print-friendly light background
+      html.push(`<div style="margin-top:12px;padding:5px 8px;background:#eef3f9;border:1px solid #ccc;border-radius:3px;color:#222">`);
+      html.push(`<strong>${typeLabel(v.elementType, tr)} ${v.elementId}</strong> — ${secStr} cm — <span class="${statusCls}" style="font-weight:700">${statusTxt} ${v.overallStatus.toUpperCase()}</span>`);
       html.push(`</div>`);
 
       // Per-combo force rows
       const elemCombos = comboForces?.get(v.elementId);
       if (elemCombos && elemCombos.length > 0) {
-        html.push(`<table style="margin:0;font-size:9px"><thead><tr><th style="width:40%">${escHtml(tr('report.combination') || 'Combination')}</th><th>${km('M_u')} (kN·m)</th><th>${km('V_u')} (kN)</th><th>${km('N_u')} (kN)</th></tr></thead><tbody>`);
+        html.push(`<table style="margin:0;font-size:9px;width:100%;border-collapse:collapse"><thead><tr><th style="text-align:left;padding:2px 4px;width:40%">Combination</th><th style="text-align:right;padding:2px 4px">${km('M_u')} (kN·m)</th><th style="text-align:right;padding:2px 4px">${km('V_u')} (kN)</th><th style="text-align:right;padding:2px 4px">${km('N_u')} (kN)</th></tr></thead><tbody>`);
         for (const cf of elemCombos) {
           const isGov = cf.comboId === govComboId;
-          const style = isGov ? 'font-weight:600;background:rgba(78,205,196,0.08)' : '';
+          const rowBg = isGov ? 'background:#e8f5f3;font-weight:600' : '';
           const marker = isGov ? ' ◄' : '';
-          html.push(`<tr style="${style}"><td>${escHtml(cf.comboName)}${marker}</td><td class="num">${fmtNum(cf.Mu)}</td><td class="num">${fmtNum(cf.Vu)}</td><td class="num">${fmtNum(cf.Nu)}</td></tr>`);
+          html.push(`<tr style="${rowBg}"><td style="padding:1px 4px">${escHtml(cf.comboName)}${marker}</td><td class="num" style="padding:1px 4px">${fmtNum(cf.Mu)}</td><td class="num" style="padding:1px 4px">${fmtNum(cf.Vu)}</td><td class="num" style="padding:1px 4px">${fmtNum(cf.Nu)}</td></tr>`);
         }
         html.push(`</tbody></table>`);
       }
 
       // Reinforcement / design summary (from envelope/governing verification)
-      html.push(`<div style="padding:3px 6px;font-size:9px;color:#aaa;border-bottom:1px solid #222">`);
-      html.push(`${escHtml(tr('report.designResult') || 'Design (envelope)')}: ${km('A_{s,req}')} = ${asReq.toFixed(1)} cm² → ${bars}${compNote} (${asProv.toFixed(1)} cm²) · eØ${v.shear.stirrupDia} c/${(v.shear.spacing * 100).toFixed(0)}`);
+      html.push(`<div style="padding:3px 8px;font-size:9px;color:#555;border-bottom:1px solid #ddd;background:#fafafa">`);
+      html.push(`Design (envelope): ${km('A_{s,req}')} = ${asReq.toFixed(1)} cm² → ${bars}${compNote} (${asProv.toFixed(1)} cm²) · eØ${v.shear.stirrupDia} c/${(v.shear.spacing * 100).toFixed(0)}`);
       html.push(`</div>`);
     }
 
@@ -685,6 +715,7 @@ export function generateReportHtml(data: ReportData): string {
     html.push(`<h2>3.2 ${escHtml(tr('report.detailByType'))}</h2>`);
 
     const groups = groupVerifications(verifications);
+    const colGroup = groups.find(g => g.representative.elementType === 'column');
 
     for (const group of groups) {
       const v = group.representative;
@@ -762,7 +793,7 @@ export function generateReportHtml(data: ReportData): string {
               const svgDiag = generateInteractionSvg(diagram, { Nu: v.Nu, Mu: v.Mu });
               html.push(`<h4>${escHtml(tr('report.interactionDiagram') || 'Diagrama de Interacción P-M')}</h4>`);
               html.push(`<div class="interaction-container">${svgDiag}</div>`);
-              html.push(`<p class="dim" style="font-size:8px;color:#888;margin-top:2px">${escHtml(tr('report.envelopePoint') || 'Point shown is envelope maximum (conservative — Nu and Mu may come from different combinations)')}</p>`);
+              html.push(`<p class="dim" style="font-size:8px;color:#888;margin-top:2px">Point shown is envelope maximum (conservative — Nu and Mu may come from different combinations)</p>`);
             }
           }
         } catch { /* diagram generation is optional */ }
@@ -855,7 +886,6 @@ export function generateReportHtml(data: ReportData): string {
     } else {
       // Fallback: old single-representative joint
       const beamGroup = groups.find(g => g.representative.elementType === 'beam');
-      const colGroup = groups.find(g => g.representative.elementType === 'column');
       if (beamGroup && colGroup) {
         html.push(`<h2>3.4 ${escHtml(tr('report.jointDetails'))}</h2>`);
         const bv = beamGroup.representative;
@@ -1166,11 +1196,14 @@ export function generateReportHtml(data: ReportData): string {
   return html.join('\n');
 }
 
-/** Open the report in a new window for printing */
+/** Open the report in a new window for printing.
+ *  Uses a Blob URL instead of document.write() to avoid all browser-specific
+ *  document lifecycle timing issues that caused first-run blank reports. */
 export function openReport(data: ReportData): void {
   const htmlContent = generateReportHtml(data);
-  const win = window.open('', '_blank');
-  if (!win) return;
-  win.document.write(htmlContent);
-  win.document.close();
+  const blob = new Blob([htmlContent], { type: 'text/html;charset=utf-8' });
+  const url = URL.createObjectURL(blob);
+  const win = window.open(url, '_blank');
+  if (win) setTimeout(() => URL.revokeObjectURL(url), 120_000);
+  else URL.revokeObjectURL(url);
 }

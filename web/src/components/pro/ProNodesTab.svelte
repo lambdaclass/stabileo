@@ -14,22 +14,24 @@
   let pasteError = $state<string | null>(null);
   let selectedRowIdx = $state<number | null>(null);
 
-  // Sync rows from modelStore on mount and when nodes change
+  // Sync rows from modelStore on mount and when nodes change.
+  // Preserve unsaved rows (id === null) so Add → type → commit works.
   $effect(() => {
     const storeNodes = [...modelStore.nodes.values()];
+    const savedRows = rows.filter(r => r.id !== null);
+    const unsavedRows = rows.filter(r => r.id === null);
     const storeIds = storeNodes.map(n => n.id).join(',');
-    const rowIds = rows.filter(r => r.id !== null).map(r => r.id).join(',');
-    if (storeNodes.length === 0) {
-      if (rows.length > 0) rows = [];
-      return;
-    }
-    if (storeIds !== rowIds || storeNodes.length !== rows.filter(r => r.id !== null).length) {
-      rows = storeNodes.map(n => ({
-        id: n.id,
-        x: String(n.x),
-        y: String(n.y),
-        z: String(n.z ?? 0),
-      }));
+    const rowIds = savedRows.map(r => r.id).join(',');
+    if (storeIds !== rowIds || storeNodes.length !== savedRows.length) {
+      rows = [
+        ...storeNodes.map(n => ({
+          id: n.id,
+          x: String(n.x),
+          y: String(n.y),
+          z: String(n.z ?? 0),
+        })),
+        ...unsavedRows,
+      ];
     }
   });
 
@@ -41,14 +43,14 @@
   }
 
   function addEmptyRow() {
-    rows = [...rows, { id: null, x: '', y: '', z: '0' }];
+    rows = [...rows, { id: null, x: '', y: '', z: '' }];
   }
 
   function commitRow(idx: number) {
     const row = rows[idx];
     const x = parseNumber(row.x);
     const y = parseNumber(row.y);
-    const z = parseNumber(row.z);
+    const z = row.z.trim() === '' ? 0 : parseNumber(row.z);
     if (x === null || y === null || z === null) return;
 
     if (row.id === null) {
@@ -189,7 +191,7 @@
         <tr>
           <th class="col-id">ID</th>
           <th class="col-coord">X (m)</th>
-          <th class="col-coord">{uiStore.analysisMode === '3d' ? 'Y' : TWO_D_VERTICAL_AXIS_LABEL} (m)</th>
+          <th class="col-coord">{uiStore.analysisMode === '3d' || uiStore.analysisMode === 'pro' ? 'Y' : TWO_D_VERTICAL_AXIS_LABEL} (m)</th>
           <th class="col-coord">Z (m)</th>
           <th class="col-actions"></th>
         </tr>

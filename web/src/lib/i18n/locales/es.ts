@@ -2421,6 +2421,10 @@ const es: Record<string, string> = {
   'report.level': 'Nivel',
   'report.fail': 'Falla',
   'report.attention': 'Atención',
+  'report.storyDrift': 'Drift de Entrepiso',
+  'report.loadCombinations': 'Combinaciones de Carga',
+  'report.factors': 'Factores',
+  'report.interactionDiagram': 'Diagrama de Interacción P-M',
 
   // ─── Education Mode ───
   'edu.title': 'Modo Educativo',

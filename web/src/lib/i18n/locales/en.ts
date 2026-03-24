@@ -2421,6 +2421,10 @@ const en: Record<string, string> = {
   'report.level': 'Level',
   'report.fail': 'Fail',
   'report.attention': 'Warning',
+  'report.storyDrift': 'Story Drift',
+  'report.loadCombinations': 'Load Combinations',
+  'report.factors': 'Factors',
+  'report.interactionDiagram': 'Interaction Diagram P-M',
 
   // ─── Education Mode ───
   'edu.title': 'Educational Mode',

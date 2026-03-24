@@ -73,7 +73,8 @@
     },
   ]);
 
-  let activeTab = $state<ProTab>('nodes');
+  // activeTab is shared via uiStore.proActiveTab so App.svelte can render the nav strip
+  const activeTab = $derived(uiStore.proActiveTab as ProTab);
   let verificationsRef = $state<ElementVerification[]>([]);
   let advancedResultsRef = $state<Record<string, any>>({});
   let tabError = $state<string | null>(null);
@@ -84,6 +85,14 @@
   let exampleButtonEl = $state<HTMLButtonElement | null>(null);
   let exampleMenuStyle = $state('');
   const hasModel = $derived(modelStore.nodes.size > 0 && modelStore.elements.size > 0);
+
+  // Expose action handlers for App.svelte's top strip via bind:this
+  export function solve() { handleSolve(); }
+  export function report() { handleOpenReportDialog(); }
+  export function examples(btnEl: HTMLButtonElement) { exampleButtonEl = btnEl; toggleExampleMenu(); }
+  export function isSolving() { return solving; }
+  export function canSolve() { return hasModel && !solving; }
+  export function canReport() { return modelStore.nodes.size > 0; }
 
   type ExampleGroup = 'buildings' | 'industrial' | 'foundations' | 'longspan' | 'xl';
   type ExamplePreset = 'default' | 'xl' | 'clean-shell' | 'bridge';
@@ -274,7 +283,7 @@
         return;
       }
       // Combinations are already solved inside runGlobalSolve for PRO mode
-      activeTab = 'results';
+      uiStore.proActiveTab = 'results';
     } catch (e: any) {
       console.error('PRO solve error:', e);
       solveError = e?.message || String(e) || t('pro.unknownError');
@@ -636,51 +645,9 @@
 <svelte:window onresize={updateExampleMenuPosition} onscroll={updateExampleMenuPosition} />
 
 <div class="pro-panel">
-  <!-- Action bar -->
-  <div class="pro-actions">
-    <div class="pro-example-wrap">
-      <button bind:this={exampleButtonEl} class="pro-example-btn" onclick={toggleExampleMenu} title={t('pro.exampleTitle')}>
-        {t('pro.exampleBtn')}
-      </button>
-    </div>
-    <button class="pro-solve-btn" onclick={handleSolve} disabled={!hasModel || solving}>
-      {solving ? t('pro.solving') : t('pro.solve')}
-    </button>
-    <button class="pro-report-btn" onclick={handleOpenReportDialog} disabled={modelStore.nodes.size === 0} title={t('pro.reportTitle')}>
-      {t('pro.reportBtn')}
-    </button>
-  </div>
   {#if solveError}
     <div class="pro-solve-error">{solveError}</div>
   {/if}
-
-  <!-- Grouped tab navigation -->
-  <nav class="pro-nav">
-    {#each tabGroups as group}
-      <div class="tab-group">
-        <span class="tab-group-label">{group.label}</span>
-        <div class="tab-group-buttons">
-          {#each group.tabs as tab}
-            <button
-              class="pro-tab"
-              class:active={activeTab === tab.id}
-              onclick={() => { tabError = null; activeTab = tab.id; }}
-            >
-              {tab.label}
-              {#if tab.id === 'diagnostics' && diagCount > 0}
-                <span class="badge badge-error">{diagCount}</span>
-              {:else}
-                {@const count = getTabCount(tab.id)}
-                {#if count}
-                  <span class="badge badge-count">{count}</span>
-                {/if}
-              {/if}
-            </button>
-          {/each}
-        </div>
-      </div>
-    {/each}
-  </nav>
 
   <!-- Tab content -->
   <div class="pro-content">
@@ -688,7 +655,7 @@
       <div class="pro-tab-error">
         <p>{t('pro.errorInTab').replace('{tab}', activeTab)}</p>
         <pre>{tabError}</pre>
-        <button onclick={() => { tabError = null; activeTab = 'nodes'; }}>{t('pro.backToNodes')}</button>
+        <button onclick={() => { tabError = null; uiStore.proActiveTab = 'nodes'; }}>{t('pro.backToNodes')}</button>
       </div>
     {:else}
       <svelte:boundary onerror={(e) => { tabError = String(e); console.error('ProPanel tab error:', e); }}>
@@ -1013,89 +980,6 @@
     color: #ff8a9e;
     background: rgba(233, 69, 96, 0.1);
     border-bottom: 1px solid #1a3a5a;
-  }
-
-  /* ─── Grouped tab navigation ─── */
-  .pro-nav {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 0;
-    padding: 4px 4px 0;
-    background: #0a1a30;
-    border-bottom: 1px solid #1a4a7a;
-    flex-shrink: 0;
-  }
-
-  .tab-group {
-    display: flex;
-    align-items: center;
-    gap: 1px;
-    padding: 2px 3px;
-    min-width: 0;
-  }
-
-  .tab-group-label {
-    font-size: 0.5rem;
-    font-weight: 600;
-    color: #556;
-    text-transform: uppercase;
-    letter-spacing: 0.04em;
-    padding: 0 3px 0 1px;
-    white-space: nowrap;
-    writing-mode: horizontal-tb;
-  }
-
-  .tab-group-buttons {
-    display: flex;
-    gap: 1px;
-  }
-
-  .pro-tab {
-    padding: 4px 7px;
-    font-size: 0.7rem;
-    font-weight: 500;
-    color: #778;
-    background: #0f2840;
-    border: none;
-    border-radius: 3px 3px 0 0;
-    cursor: pointer;
-    transition: all 0.15s;
-    white-space: nowrap;
-    position: relative;
-  }
-
-  .pro-tab:hover {
-    color: #ccc;
-    background: #1a3860;
-  }
-
-  .pro-tab.active {
-    color: #fff;
-    background: #16213e;
-    border-bottom: 2px solid #e94560;
-  }
-
-  .badge {
-    display: inline-block;
-    margin-left: 3px;
-    padding: 0 4px;
-    font-size: 0.55rem;
-    font-weight: 700;
-    border-radius: 6px;
-    min-width: 12px;
-    text-align: center;
-    line-height: 13px;
-    vertical-align: middle;
-  }
-
-  .badge-error {
-    background: #e94560;
-    color: #fff;
-  }
-
-  .badge-count {
-    background: #1a4a7a;
-    color: #8ab;
   }
 
   /* ─── Content area ─── */

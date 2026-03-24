@@ -139,13 +139,17 @@ export function toSceneVector(point: ScenePoint): THREE.Vector3 {
   return new THREE.Vector3(point.x, point.y, point.z);
 }
 
+
 export function shouldProjectModelToXZ(params: {
   nodes: Iterable<CoordinateNode>;
   supports?: Iterable<TypedSupportLike>;
   loads?: Iterable<TypedLoadLike>;
   plateCount?: number;
   quadCount?: number;
+  analysisMode?: string;
 }): boolean {
+  // PRO and 3D modes always use direct 3D coordinates — never project to XZ
+  if (params.analysisMode === 'pro' || params.analysisMode === '3d') return false;
   if ((params.plateCount ?? 0) > 0 || (params.quadCount ?? 0) > 0) return false;
 
   let hasNodes = false;

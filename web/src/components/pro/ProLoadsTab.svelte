@@ -166,6 +166,35 @@
     tqQuadId = ''; tqDtUniform = ''; tqDtGradient = '';
   }
 
+  function addNodalLoadToSelection() {
+    const fx = parseFloat(nlFx) || 0, fy = parseFloat(nlFy) || 0, fz = parseFloat(nlFz) || 0;
+    const mx = parseFloat(nlMx) || 0, my = parseFloat(nlMy) || 0, mz = parseFloat(nlMz) || 0;
+    if (fx === 0 && fy === 0 && fz === 0 && mx === 0 && my === 0 && mz === 0) return;
+    for (const nodeId of uiStore.selectedNodes) {
+      if (modelStore.nodes.has(nodeId)) modelStore.addNodalLoad3D(nodeId, fx, fy, fz, mx, my, mz, activeCaseId);
+    }
+    nlFx = ''; nlFy = ''; nlFz = ''; nlMx = ''; nlMy = ''; nlMz = '';
+  }
+
+  function addDistLoadToSelection() {
+    const qyI = parseFloat(dlQyI) || 0, qyJ = parseFloat(dlQyJ) || qyI;
+    const qzI = parseFloat(dlQzI) || 0, qzJ = parseFloat(dlQzJ) || qzI;
+    if (qyI === 0 && qyJ === 0 && qzI === 0 && qzJ === 0) return;
+    for (const elemId of uiStore.selectedElements) {
+      if (modelStore.elements.has(elemId)) modelStore.addDistributedLoad3D(elemId, qyI, qyJ, qzI, qzJ, undefined, undefined, activeCaseId);
+    }
+    dlQyI = ''; dlQyJ = ''; dlQzI = ''; dlQzJ = '';
+  }
+
+  function addPointLoadToSelection() {
+    const a = parseFloat(plA), py = parseFloat(plPy) || 0, pz = parseFloat(plPz) || 0;
+    if (isNaN(a) || a < 0 || (py === 0 && pz === 0)) return;
+    for (const elemId of uiStore.selectedElements) {
+      if (modelStore.elements.has(elemId)) modelStore.addPointLoadOnElement3D(elemId, a, py, pz, activeCaseId);
+    }
+    plA = ''; plPy = ''; plPz = '';
+  }
+
   function removeLoad(loadId: number) {
     modelStore.removeLoad(loadId);
   }
@@ -253,11 +282,11 @@
     <button class="pro-vis-btn" onclick={hideAllCases} title={t('pro.hideAll')}>{t('pro.hideAll')}</button>
   </div>
 
-  <!-- Load Cases Management -->
+  <!-- Load Cases Management (collapsible) -->
   <div class="pro-cases-section">
-    <div class="pro-cases-header">
-      <span class="pro-section-label">{t('pro.loadCases')}</span>
-    </div>
+    <details open>
+      <summary class="pro-section-label">{t('pro.loadCases')} ({loadCases.length})</summary>
+    <div class="pro-section-content">
     <div class="pro-cases-tabs">
       {#each loadCases as lc}
         <button
@@ -289,6 +318,8 @@
       </select>
       <button class="pro-btn-sm" onclick={addLoadCase}>+</button>
     </div>
+    </div>
+    </details>
   </div>
 
   <!-- Combinations -->
@@ -320,9 +351,11 @@
     </details>
   </div>
 
-  <div class="pro-loads-header">
-    <span class="pro-loads-count">{t('pro.loadsInCase').replace('{n}', String(caseLoads.length)).replace('{name}', loadCases.find(c => c.id === activeCaseId)?.name ?? '?').replace('{total}', String(loads.length))}</span>
-  </div>
+  <!-- Add Load (collapsible) -->
+  <div class="pro-addload-section">
+    <details open>
+      <summary class="pro-section-label">{t('pro.addLoadSection') !== 'pro.addLoadSection' ? t('pro.addLoadSection') : 'Add Load'} ({caseLoads.length} in {loadCases.find(c => c.id === activeCaseId)?.name ?? '?'})</summary>
+  <div class="pro-section-content">
 
   <!-- Load kind selector -->
   <div class="pro-loads-form">
@@ -337,9 +370,6 @@
     {#if loadKind === 'nodal'}
       <div class="pro-load-inputs">
         <div class="pro-load-row">
-          <label>Nodo: <input type="text" bind:value={nlNodeId} placeholder="ID" class="inp-sm" /></label>
-        </div>
-        <div class="pro-load-row">
           <label>Fx: <input type="text" bind:value={nlFx} placeholder="kN" class="inp-num" /></label>
           <label>Fy: <input type="text" bind:value={nlFy} placeholder="kN" class="inp-num" /></label>
           <label>Fz: <input type="text" bind:value={nlFz} placeholder="kN" class="inp-num" /></label>
@@ -349,13 +379,20 @@
           <label>My: <input type="text" bind:value={nlMy} placeholder="kN·m" class="inp-num" /></label>
           <label>Mz: <input type="text" bind:value={nlMz} placeholder="kN·m" class="inp-num" /></label>
         </div>
-        <button class="pro-btn" onclick={addNodalLoad}>{t('pro.addNodalLoad')}</button>
+        <div class="pro-load-target">
+          <div class="target-byid">
+            <label>{t('pro.thNode')}: <input type="text" bind:value={nlNodeId} placeholder="ID" class="inp-sm" /></label>
+            <button class="pro-btn" onclick={addNodalLoad}>{t('pro.addNodalLoad')}</button>
+          </div>
+          {#if uiStore.selectedNodes.size > 0}
+            <div class="target-sel">
+              <button class="pro-btn pro-btn-sel" onclick={addNodalLoadToSelection}>{uiStore.selectedNodes.size} selected nodes</button>
+            </div>
+          {/if}
+        </div>
       </div>
     {:else if loadKind === 'distributed'}
       <div class="pro-load-inputs">
-        <div class="pro-load-row">
-          <label>Elemento: <input type="text" bind:value={dlElemId} placeholder="ID" class="inp-sm" /></label>
-        </div>
         <div class="pro-load-row">
           <label>qY_i: <input type="text" bind:value={dlQyI} placeholder="kN/m" class="inp-num" /></label>
           <label>qY_j: <input type="text" bind:value={dlQyJ} placeholder="kN/m" class="inp-num" /></label>
@@ -364,19 +401,36 @@
           <label>qZ_i: <input type="text" bind:value={dlQzI} placeholder="kN/m" class="inp-num" /></label>
           <label>qZ_j: <input type="text" bind:value={dlQzJ} placeholder="kN/m" class="inp-num" /></label>
         </div>
-        <button class="pro-btn" onclick={addDistLoad}>{t('pro.addDistLoad')}</button>
+        <div class="pro-load-target">
+          <div class="target-byid">
+            <label>{t('pro.thElements')}: <input type="text" bind:value={dlElemId} placeholder="ID" class="inp-sm" /></label>
+            <button class="pro-btn" onclick={addDistLoad}>{t('pro.addDistLoad')}</button>
+          </div>
+          {#if uiStore.selectedElements.size > 0}
+            <div class="target-sel">
+              <button class="pro-btn pro-btn-sel" onclick={addDistLoadToSelection}>{uiStore.selectedElements.size} selected elements</button>
+            </div>
+          {/if}
+        </div>
       </div>
     {:else if loadKind === 'point'}
       <div class="pro-load-inputs">
         <div class="pro-load-row">
-          <label>Elemento: <input type="text" bind:value={plElemId} placeholder="ID" class="inp-sm" /></label>
           <label>a (m): <input type="text" bind:value={plA} placeholder="dist." class="inp-num" /></label>
-        </div>
-        <div class="pro-load-row">
           <label>Py: <input type="text" bind:value={plPy} placeholder="kN" class="inp-num" /></label>
           <label>Pz: <input type="text" bind:value={plPz} placeholder="kN" class="inp-num" /></label>
         </div>
-        <button class="pro-btn" onclick={addPointLoad}>{t('pro.addPointLoad')}</button>
+        <div class="pro-load-target">
+          <div class="target-byid">
+            <label>{t('pro.thElements')}: <input type="text" bind:value={plElemId} placeholder="ID" class="inp-sm" /></label>
+            <button class="pro-btn" onclick={addPointLoad}>{t('pro.addPointLoad')}</button>
+          </div>
+          {#if uiStore.selectedElements.size > 0}
+            <div class="target-sel">
+              <button class="pro-btn pro-btn-sel" onclick={addPointLoadToSelection}>{uiStore.selectedElements.size} selected elements</button>
+            </div>
+          {/if}
+        </div>
       </div>
     {:else if loadKind === 'surface'}
       <div class="pro-load-inputs">
@@ -398,6 +452,9 @@
         <button class="pro-btn" onclick={addThermalQuadLoad}>{t('pro.addThermalQuadLoad')}</button>
       </div>
     {/if}
+  </div>
+  </div>
+    </details>
   </div>
 
   <!-- Loads table for active case -->
@@ -546,9 +603,9 @@
   .pro-btn-autogen:hover { background: #3dbdb4; }
 
   /* Load Cases */
-  .pro-cases-section { border-bottom: 1px solid #1a3050; }
-  .pro-cases-header { padding: 8px 12px; }
-  .pro-section-label { font-size: 0.78rem; color: #4ecdc4; font-weight: 600; cursor: pointer; }
+  .pro-cases-section { border-bottom: 1px solid #1a3050; padding: 6px 10px; }
+  .pro-section-label { font-size: 0.78rem; color: #4ecdc4; font-weight: 600; cursor: pointer; padding: 2px 0; }
+  .pro-section-content { padding: 6px 0 2px; }
 
   .pro-cases-tabs {
     display: flex; flex-wrap: wrap; gap: 4px; padding: 0 10px 8px;
@@ -613,7 +670,8 @@
   .pro-loads-header { padding: 8px 12px; border-bottom: 1px solid #1a3050; }
   .pro-loads-count { font-size: 0.78rem; color: #4ecdc4; font-weight: 600; }
 
-  .pro-loads-form { padding: 10px 12px; border-bottom: 1px solid #1a3050; }
+  .pro-addload-section { border-bottom: 1px solid #1a3050; padding: 6px 10px; }
+  .pro-loads-form { padding: 6px 0 4px; }
   .pro-kind-row { display: flex; gap: 5px; margin-bottom: 10px; }
   .pro-type-btn {
     padding: 5px 10px; font-size: 0.75rem; font-weight: 500; color: #888;
@@ -630,6 +688,24 @@
   .inp-sm:focus, .inp-num:focus { border-color: #1a4a7a; outline: none; }
   .pro-btn { align-self: flex-start; padding: 5px 14px; font-size: 0.75rem; color: #ccc; background: #0f3460; border: 1px solid #1a4a7a; border-radius: 4px; cursor: pointer; }
   .pro-btn:hover { background: #1a4a7a; color: #fff; }
+  .pro-load-target {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    padding-top: 4px;
+    border-top: 1px solid #1a3050;
+    margin-top: 4px;
+  }
+  .target-byid {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+  .target-byid label { font-size: 0.75rem; color: #888; display: flex; align-items: center; gap: 4px; }
+  .target-sel {  }
+  .pro-btn-sel { font-size: 0.72rem; color: #4ecdc4; border-color: #2a5a6a; background: #0a2a40; padding: 5px 14px; border-radius: 4px; border: 1px solid #2a5a6a; cursor: pointer; }
+  .pro-btn-sel:hover { background: #1a4a6a; color: #fff; }
+  .pro-btn-sel::before { content: '\u2714 '; }
 
   .pro-loads-table-wrap { }
   .pro-load-section-title { padding: 6px 12px; font-size: 0.72rem; font-weight: 600; color: #4ecdc4; text-transform: uppercase; background: #0a1a30; border-bottom: 1px solid #1a3050; }
