@@ -443,8 +443,10 @@
 <div class="app-container" class:embed-mode={uiStore.embedMode} class:hidden-behind-landing={showLanding}>
   <header class="app-header">
     <div class="logo">
-      <span class="logo-icon">△</span>
-      <span class="logo-text">Stabileo</span>
+      <button class="logo-home" onclick={() => { showLanding = true; history.pushState(null, '', '/'); }} title="Back to home">
+        <span class="logo-icon">△</span>
+        <span class="logo-text">Stabileo</span>
+      </button>
       <div class="mode-toggle" data-tour="mode-toggle">
         <button class:active={uiStore.appMode === 'basico'} onclick={() => switchAppMode('basico')}>
           {t('app.modeBasic')}
@@ -784,6 +786,19 @@
     gap: 0.5rem;
     flex-shrink: 0;
   }
+
+  .logo-home {
+    display: flex;
+    align-items: center;
+    gap: 0.3rem;
+    background: none;
+    border: none;
+    padding: 0;
+    cursor: pointer;
+    color: inherit;
+  }
+  .logo-home:hover .logo-text { color: #fff; }
+  .logo-home:hover .logo-icon { color: #ff5a75; }
 
   .logo-icon {
     font-size: 1.5rem;
