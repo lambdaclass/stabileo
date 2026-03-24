@@ -1085,36 +1085,53 @@ export function buildSolverInput3D(model: ModelData, includeSelfWeight = false, 
       if (effectiveRoll !== 0) { elem.rollAngle = effectiveRoll; }
       return [id, elem];
     })),
-    supports: new Map(Array.from(model.supports.entries()).map(([_id, s]) => {
-      let dofs: { rx: boolean; ry: boolean; rz: boolean; rrx: boolean; rry: boolean; rrz: boolean };
-      if (s.dofRestraints) {
-        const r = s.dofRestraints;
-        dofs = { rx: r.tx, ry: r.ty, rz: r.tz, rrx: r.rx, rry: r.ry, rrz: r.rz };
-      } else {
-        dofs = supportTo3D(s);
+    supports: (() => {
+      const supMap = new Map(Array.from(model.supports.entries()).map(([_id, s]) => {
+        let dofs: { rx: boolean; ry: boolean; rz: boolean; rrx: boolean; rry: boolean; rrz: boolean };
+        if (s.dofRestraints) {
+          const r = s.dofRestraints;
+          dofs = { rx: r.tx, ry: r.ty, rz: r.tz, rrx: r.rx, rry: r.ry, rrz: r.rz };
+        } else {
+          dofs = supportTo3D(s);
+        }
+        const supportDz = s.dz ?? s.dy;
+        const supportDry = s.dry ?? s.drz;
+        const embedded2D = project2DToXZ && !s.dofRestraints && is2DSupportType(s.type);
+        return [s.nodeId, {
+          nodeId: s.nodeId,
+          ...dofs,
+          kx: s.kx,
+          ky: embedded2D ? undefined : s.ky,
+          kz: embedded2D ? s.ky : undefined,
+          krx: embedded2D ? undefined : s.krx,
+          kry: embedded2D ? (s.kry ?? s.kz) : s.kry,
+          krz: embedded2D ? s.krz : (s.krz ?? s.kz),
+          dx: s.dx,
+          dy: embedded2D ? undefined : s.dy,
+          dz: embedded2D ? supportDz : s.dz,
+          drx: embedded2D ? undefined : s.drx,
+          dry: embedded2D ? supportDry : s.dry,
+          drz: embedded2D ? undefined : s.drz,
+          normalX: s.normalX, normalY: s.normalY, normalZ: s.normalZ,
+          isInclined: s.isInclined,
+        }] as [number, any];
+      }));
+      // For embedded 2D models, restrain out-of-plane DOFs (uy, rx, rz) at ALL nodes.
+      // Without this, hinges and trusses create out-of-plane mechanisms because the
+      // 3D solver has 6 DOF/node but the 2D model only provides in-plane stiffness.
+      if (project2DToXZ) {
+        for (const [nodeId] of model.nodes) {
+          if (!supMap.has(nodeId)) {
+            supMap.set(nodeId, {
+              nodeId,
+              rx: false, ry: true, rz: false,   // restrain only Y translation (out-of-plane)
+              rrx: true, rry: false, rrz: true,  // restrain X and Z rotations (out-of-plane)
+            });
+          }
+        }
       }
-      const supportDz = s.dz ?? s.dy;
-      const supportDry = s.dry ?? s.drz;
-      const embedded2D = project2DToXZ && !s.dofRestraints && is2DSupportType(s.type);
-      return [s.nodeId, {
-        nodeId: s.nodeId,
-        ...dofs,
-        kx: s.kx,
-        ky: embedded2D ? undefined : s.ky,
-        kz: embedded2D ? s.ky : undefined,
-        krx: embedded2D ? undefined : s.krx,
-        kry: embedded2D ? (s.kry ?? s.kz) : s.kry,
-        krz: embedded2D ? s.krz : (s.krz ?? s.kz),
-        dx: s.dx,
-        dy: embedded2D ? undefined : s.dy,
-        dz: embedded2D ? supportDz : s.dz,
-        drx: embedded2D ? undefined : s.drx,
-        dry: embedded2D ? supportDry : s.dry,
-        drz: embedded2D ? undefined : s.drz,
-        normalX: s.normalX, normalY: s.normalY, normalZ: s.normalZ,
-        isInclined: s.isInclined,
-      }];
-    })),
+      return supMap;
+    })(),
     loads: solverLoads,
     plates: model.plates ? new Map(Array.from(model.plates.entries()).map(([id, p]) => [id, { id: p.id, nodes: p.nodes, materialId: p.materialId, thickness: p.thickness }])) : new Map(),
     quads: model.quads ? new Map(Array.from(model.quads.entries()).map(([id, q]) => [id, { id: q.id, nodes: q.nodes, materialId: q.materialId, thickness: q.thickness }])) : new Map(),
