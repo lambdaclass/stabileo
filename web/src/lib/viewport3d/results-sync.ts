@@ -158,9 +158,25 @@ export function syncDeformed(ctx: ResultsSyncContext, scaleOverride?: number): v
     }
   }
 
+  // Project node positions to scene coordinates so baselines align with solver/displacement space.
+  // Without this, embedded 2D models have baselines in model-Y but displacements in scene-Z.
+  const project2D = shouldProjectModelToXZ({
+    analysisMode: uiStore.analysisMode,
+    nodes: modelStore.nodes.values(),
+    supports: modelStore.supports.values(),
+    loads: modelStore.loads,
+    plateCount: modelStore.plates.size,
+    quadCount: modelStore.quads.size,
+  });
+  const projectedNodes = new Map<number, { id: number; x: number; y: number; z?: number }>();
+  for (const [id, n] of modelStore.nodes) {
+    const p = projectNodeToScene(n, project2D);
+    projectedNodes.set(id, { id, x: p.x, y: p.y, z: p.z });
+  }
+
   ctx.deformedGroup = createDeformedLines(
     modelStore.elements,
-    modelStore.nodes,
+    projectedNodes,
     displacements,
     dt === 'deformed' && r3d ? r3d.elementForces : [],
     scale,
