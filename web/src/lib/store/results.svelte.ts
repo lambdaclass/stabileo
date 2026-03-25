@@ -654,14 +654,14 @@ function createResultsStore() {
       showConstraintForces = false;
       activeCaseId = null;
       activeComboId = pco.keys().next().value ?? null;
-      // Default: show first combination if available (avoids nonsensical
-      // all-loads-combined view when contradictory cases exist, e.g. wind ±X)
-      if (activeComboId !== null && pco.has(activeComboId)) {
-        results3D = pco.get(activeComboId)!;
-        activeView = 'combo';
-      } else if (singleResults3D) {
+      // Default: show the simple (all loads combined) view so the user sees
+      // the full structural response. They can switch to combo/envelope later.
+      if (singleResults3D) {
         results3D = singleResults3D;
         activeView = 'single';
+      } else if (activeComboId !== null && pco.has(activeComboId)) {
+        results3D = pco.get(activeComboId)!;
+        activeView = 'combo';
       } else {
         results3D = env.maxAbsResults3D;
         activeView = 'envelope';
