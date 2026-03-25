@@ -28,6 +28,7 @@
   import ProDiagnosticsTab from './ProDiagnosticsTab.svelte';
   import ProConnectionsTab from './ProConnectionsTab.svelte';
   import { checkModel } from '../../lib/engine/model-diagnostics';
+  import { get2DDisplayNodalLoadMoment, get2DDisplayNodalLoadVertical } from '../../lib/geometry/coordinate-system';
 
   type ProTab = 'nodes' | 'elements' | 'shells' | 'materials' | 'sections' | 'supports' | 'constraints' | 'loads' | 'advanced' | 'results' | 'verification' | 'connections' | 'diagnostics';
 
@@ -342,7 +343,7 @@
     for (const load of modelStore.model.loads) {
       let tipo = '', destino = '', valores = '';
       switch (load.type) {
-        case 'nodal': { const d = load.data; tipo = t('file.loadNodal'); destino = `Nodo ${d.nodeId}`; valores = `Fx=${d.fx} kN, Fy=${d.fy} kN, Mz=${d.mz} kN·m`; break; }
+        case 'nodal': { const d = load.data; tipo = t('file.loadNodal'); destino = `Nodo ${d.nodeId}`; valores = `Fx=${d.fx} kN, Fz=${get2DDisplayNodalLoadVertical(d)} kN, My=${get2DDisplayNodalLoadMoment(d)} kN·m`; break; }
         case 'distributed': { const d = load.data; tipo = t('file.loadDistributed'); destino = `Elem ${d.elementId}`; valores = d.qI === d.qJ ? `q=${d.qI} kN/m` : `qI=${d.qI}, qJ=${d.qJ} kN/m`; break; }
         case 'pointOnElement': { const d = load.data; tipo = t('file.loadPointOnElement'); destino = `Elem ${d.elementId}`; valores = `P=${d.p} kN, a=${d.a} m`; break; }
         case 'thermal': { const d = load.data; tipo = t('file.loadThermal'); destino = `Elem ${d.elementId}`; valores = `ΔT=${d.dtUniform} °C, ΔTg=${d.dtGradient} °C`; break; }

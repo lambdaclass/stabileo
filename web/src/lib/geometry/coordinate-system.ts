@@ -86,12 +86,36 @@ export function get2DDisplayRotation<T extends { ry?: number; rz?: number }>(dis
   return disp.ry ?? disp.rz ?? 0;
 }
 
+export function hasInvalid2DDisplacements(
+  displacements: Array<{ ux: number; uz?: number; uy?: number; ry?: number; rz?: number }>,
+): boolean {
+  return displacements.some(d =>
+    !isFinite(d.ux) ||
+    !isFinite(get2DDisplayDisplacementVertical(d)) ||
+    !isFinite(get2DDisplayRotation(d)),
+  );
+}
+
+export function hasInvalid3DDisplacements(
+  displacements: Array<{ ux: number; uy: number; uz: number }>,
+): boolean {
+  return displacements.some(d => !isFinite(d.ux) || !isFinite(d.uy) || !isFinite(d.uz));
+}
+
 export function get2DDisplayReactionVertical<T extends { rz?: number; ry?: number }>(reaction: T): number {
   return reaction.rz ?? reaction.ry ?? 0;
 }
 
 export function get2DDisplayMoment<T extends { my?: number; mz?: number }>(reaction: T): number {
   return reaction.my ?? reaction.mz ?? 0;
+}
+
+export function get2DDisplayNodalLoadVertical<T extends { fz?: number; fy?: number }>(load: T): number {
+  return load.fz ?? load.fy ?? 0;
+}
+
+export function get2DDisplayNodalLoadMoment<T extends { my?: number; mz?: number }>(load: T): number {
+  return load.my ?? load.mz ?? 0;
 }
 
 export function isHorizontalPlane(plane: WorkingPlane3D): boolean {

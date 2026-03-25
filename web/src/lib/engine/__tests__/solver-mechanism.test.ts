@@ -102,7 +102,7 @@ describe('Mechanism detection — structures that must be detected as unstable',
     expectMechanism(input);
   });
 
-  // WASM solver doesn't throw on mechanism structures (returns results instead)
+  // TODO: needs pre-solve kinematic check — solver produces results with large displacements
   it.skip('portal frame with pinned bases + double-hinged beam → mechanism', () => {
     // Columns: pinned at base, beam hinged at both connections
     // Zero moment transfer anywhere → mechanism
@@ -159,7 +159,7 @@ describe('Mechanism detection — structures that must be detected as unstable',
     expectMechanism(input);
   });
 
-  // WASM solver doesn't throw on mechanism structures (returns results instead)
+  // TODO: needs pre-solve kinematic check — artificial DOF doesn't trigger mechanism error
   it.skip('overhinged node: double-hinged elem + single-hinged elem at same node → mechanism', () => {
     // Node 2: elem 1 (double-hinged, only axial) + elem 2 (hinged at start)
     // All elements hinged at node 2, one is double-hinged → zero flexural + reduced transverse

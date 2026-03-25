@@ -125,7 +125,7 @@ function drawSingleDiagram(
 
   // Element direction and perpendicular (terna derecha)
   // Perpendicular = 90° CCW from element direction = LEFT of i→j
-  // For horizontal beam going right: perpendicular points UP (world +y)
+  // For horizontal beam going right: perpendicular points UP (world +Z in Z-up convention)
   // All diagrams drawn consistently: positive values on +perp side
   const dx = nodeJ.x - nodeI.x;
   const dy = nodeJ.y - nodeI.y;

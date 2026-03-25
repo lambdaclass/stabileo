@@ -677,6 +677,23 @@ pub fn assemble_sparse_3d_parallel(input: &SolverInput3D, dof_num: &DofNumbering
                             }
                         }
                     }
+                    // Assemble thermal FEF for truss elements
+                    if let Some(elem_loads) = load_index.get(&elem.id) {
+                        for load in elem_loads {
+                            if let SolverLoad3D::Thermal(tl) = load {
+                                let alpha = 12e-6;
+                                let fx = e * sec.a * alpha * tl.dt_uniform;
+                                for k in 0..3 {
+                                    if let Some(&d) = dof_num.map.get(&(elem.node_i, k)) {
+                                        forces.push((d, -fx * dir[k]));
+                                    }
+                                    if let Some(&d) = dof_num.map.get(&(elem.node_j, k)) {
+                                        forces.push((d, fx * dir[k]));
+                                    }
+                                }
+                            }
+                        }
+                    }
                 } else {
                     let (ex, ey, ez) = compute_local_axes_3d(
                         node_i.x, node_i.y, node_i.z, node_j.x, node_j.y, node_j.z,

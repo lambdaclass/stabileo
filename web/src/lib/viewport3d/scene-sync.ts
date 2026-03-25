@@ -15,7 +15,12 @@ import { COLORS, setMeshColor, setGroupColor, disposeObject } from '../three/sel
 import { createPlateMesh, createQuadMesh } from '../three/create-shell-mesh';
 import { computeLocalAxes3D } from '../engine/local-axes-3d';
 import type { SolverNode3D } from '../engine/types-3d';
-import { projectNodeToScene, shouldProjectModelToXZ } from '../geometry/coordinate-system';
+import {
+  get2DDisplayNodalLoadMoment,
+  get2DDisplayNodalLoadVertical,
+  projectNodeToScene,
+  shouldProjectModelToXZ,
+} from '../geometry/coordinate-system';
 
 /**
  * Mutable context holding Three.js scene graph references.
@@ -279,7 +284,7 @@ export function syncLoads(ctx: SceneSyncContext): void {
   for (const load of loads) {
     if (load.type === 'nodal') {
       const d = load.data;
-      maxForce = Math.max(maxForce, Math.abs(d.fx), Math.abs(d.fy), Math.abs(d.mz));
+      maxForce = Math.max(maxForce, Math.abs(d.fx), Math.abs(get2DDisplayNodalLoadVertical(d)), Math.abs(get2DDisplayNodalLoadMoment(d)));
     } else if (load.type === 'nodal3d') {
       const d = load.data;
       maxForce = Math.max(maxForce, Math.abs(d.fx), Math.abs(d.fy), Math.abs(d.fz));
@@ -317,10 +322,12 @@ export function syncLoads(ctx: SceneSyncContext): void {
       const node = modelStore.nodes.get(load.data.nodeId);
       if (!node) continue;
       const pos = projectNodeToScene(node, project2D);
+      const vertical = get2DDisplayNodalLoadVertical(load.data);
+      const moment = get2DDisplayNodalLoadMoment(load.data);
       const arrow = createNodalLoadArrow(
         pos,
-        load.data.fx, 0, load.data.fy,
-        0, load.data.mz, 0,
+        load.data.fx, project2D ? 0 : vertical, project2D ? vertical : 0,
+        0, project2D ? moment : 0, project2D ? 0 : moment,
         maxForce, i,
         uiStore.momentStyle3D,
         cc,

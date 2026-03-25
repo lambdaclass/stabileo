@@ -14,20 +14,9 @@ import { modelStore, resultsStore, uiStore } from '../store';
 import { t } from '../i18n';
 import { initSolver, isWasmReady } from './wasm-solver';
 import { computeGoverning2D, computeGoverning3D } from './governing-case';
+import { hasInvalid2DDisplacements, hasInvalid3DDisplacements } from '../geometry/coordinate-system';
 
 // ─── Helpers ──────────────────────────────────────────────────────────────
-
-function hasNaN2D(displacements: { ux: number; uz?: number; uy?: number; ry?: number; rz?: number }[]): boolean {
-  return displacements.some(d =>
-    !isFinite(d.ux) ||
-    !isFinite(d.uz ?? d.uy ?? 0) ||
-    !isFinite(d.ry ?? d.rz ?? 0),
-  );
-}
-
-function hasNaN3D(displacements: { ux: number; uy: number; uz: number }[]): boolean {
-  return displacements.some(d => !isFinite(d.ux) || !isFinite(d.uy) || !isFinite(d.uz));
-}
 
 function formatSolveTiming(timings: any): string {
   if (!timings) return '';
@@ -93,7 +82,7 @@ function liveCalc3D(axisConvention: string): void {
   }
   if (!r) return;
 
-  if (hasNaN3D(r.displacements as any)) {
+  if (hasInvalid3DDisplacements(r.displacements as Array<{ ux: number; uy: number; uz: number }>)) {
     uiStore.liveCalcError = t('results.numericError3d');
     return;
   }
@@ -109,7 +98,7 @@ function liveCalc2D(): void {
   }
   if (!r) return;
 
-  if (hasNaN2D(r.displacements as any)) {
+  if (hasInvalid2DDisplacements(r.displacements as Array<{ ux: number; uz?: number; uy?: number; ry?: number; rz?: number }>)) {
     uiStore.liveCalcError = t('results.numericError');
     return;
   }
@@ -287,7 +276,7 @@ function globalSolve2D(): void {
     return;
   }
 
-  if (hasNaN2D(r.displacements as any)) {
+  if (hasInvalid2DDisplacements(r.displacements as Array<{ ux: number; uz?: number; uy?: number; ry?: number; rz?: number }>)) {
     uiStore.toast(t('results.numericError'), 'error', 'kinematic');
     return;
   }

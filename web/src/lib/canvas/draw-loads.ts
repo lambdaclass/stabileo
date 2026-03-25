@@ -25,6 +25,7 @@ interface PointLoadOnElemInfo {
   a: number; // distance from node I (m)
   p: number; // kN (perpendicular, local coords)
   px?: number; // kN (axial, local coords)
+  my?: number; // kN·m (moment at position a)
   mz?: number; // kN·m (moment at position a)
   angle?: number;     // degrees, rotation from base direction (default 0)
   isGlobal?: boolean; // false=local coords (default), true=global coords
@@ -36,8 +37,8 @@ interface PointLoadOnElemInfo {
 /**
  * Compute the world-space direction vector for a load with angle/isGlobal settings.
  * Returns the unit direction in which the force acts (world coords).
- * - Local angle=0: perpendicular to element (+Y local = (-sinTheta, cosTheta))
- * - Global angle=0: +Y global = (0, 1)
+ * - Local angle=0: perpendicular to element (screen-up for horizontal beams = (-sinθ, cosθ))
+ * - Global angle=0: +Z global (vertical up) = screen (0, 1)
  * - With angle: rotate from base direction by angle degrees CCW
  */
 function computeLoadDirection(
@@ -49,13 +50,13 @@ function computeLoadDirection(
   const angleRad = angle * Math.PI / 180;
 
   if (isGlobal) {
-    // Global: angle=0 → +Y global (0, 1); rotate CCW
+    // Global: angle=0 → +Z global vertical-up = screen (0, 1); rotate CCW
     return {
       dx: Math.sin(angleRad),
       dy: Math.cos(angleRad),
     };
   } else {
-    // Local: angle=0 → +Y local (-sinTheta, cosTheta); rotate CCW in local frame
+    // Local: angle=0 → element-perpendicular (-sinθ, cosθ); rotate CCW in local frame
     const localPerpDx = -sinTheta;
     const localPerpDy = cosTheta;
     const localAxialDx = cosTheta;
@@ -439,16 +440,16 @@ export function drawPointLoadsOnElements(
       );
     }
 
-    // 3) Draw moment (mz)
-    const mz = load.mz ?? 0;
-    if (Math.abs(mz) > 1e-10) {
-      drawMomentSymbol(ctx, base.x, base.y, mz, ptColor);
+    // 3) Draw moment (My in the Z-up 2D contract; keep mz as legacy alias)
+    const my = load.my ?? load.mz ?? 0;
+    if (Math.abs(my) > 1e-10) {
+      drawMomentSymbol(ctx, base.x, base.y, my, ptColor);
 
       ctx.font = '12px sans-serif';
       ctx.fillStyle = ptColor;
       const yOff = (Math.abs(load.p) > 1e-10 ? 14 : 0) + (Math.abs(px) > 1e-10 ? 14 : 0);
       ctx.fillText(
-        `${ptCasePrefix}Mz=${Math.abs(mz).toFixed(1)} kN·m`,
+        `${ptCasePrefix}My=${Math.abs(my).toFixed(1)} kN·m`,
         base.x + 18,
         base.y - 18 + ptYOff + yOff,
       );
@@ -599,7 +600,7 @@ const AXLE_LABEL_COLOR = '#ffcc44';
 /**
  * Draw moving load axles as amber arrows perpendicular to their host element.
  * The arrow represents the transverse component of the gravitational load
- * (weight × cos θ), drawn perpendicular to the element in local +y direction.
+ * (weight × cos θ), drawn perpendicular to the element (toward +Z for horizontal beams).
  * For purely axial loads on vertical bars, arrows are not drawn.
  */
 export function drawMovingLoadAxles(
@@ -620,9 +621,9 @@ export function drawMovingLoadAxles(
 
     const base = dc.worldToScreen(axle.x, axle.y);
 
-    // Perpendicular direction in world coords: (-sinθ, cosθ) is local +y
+    // Perpendicular direction in world coords: (-sinθ, cosθ) is element-perpendicular
     // Arrow should point toward the element (like gravity pressing on it)
-    // For a horizontal beam, local +y is up, arrow points down (toward beam)
+    // For a horizontal beam, perpendicular is +Z (up), arrow points down (toward beam)
     // So arrow goes FROM offset position TO base (application point)
     const perpWx = -axle.sinTheta;
     const perpWy = axle.cosTheta;

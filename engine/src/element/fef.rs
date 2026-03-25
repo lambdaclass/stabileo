@@ -140,13 +140,15 @@ pub fn fef_thermal_2d(
     alpha: f64,
     h: f64,
 ) -> [f64; 6] {
-    let fx = e * a * alpha * dt_uniform; // Thermal equivalent nodal load (matching TS convention)
+    let fx = e * a * alpha * dt_uniform;
     let mz = if h > 1e-12 {
         e * iz * alpha * dt_gradient / h
     } else {
         0.0
     };
 
+    // Convention: these values are ADDED to f_global in assembly (not subtracted).
+    // TS solver uses the same convention: +fx at node I, -fx at node J.
     [fx, 0.0, mz, -fx, 0.0, -mz]
 }
 
@@ -181,6 +183,72 @@ pub fn adjust_fef_for_hinges(fef: &mut [f64; 6], l: f64, hinge_start: bool, hing
         fef[2] = mi - 0.5 * mj;
         fef[4] = vj + (3.0 / (2.0 * l)) * mj;
         fef[5] = 0.0;
+    }
+}
+
+/// Adjust fixed-end forces for hinges (3D).
+/// Applies static condensation independently to each bending plane:
+///   - Y-bending plane: fy (indices 1,7) and mz (indices 5,11)
+///   - Z-bending plane: fz (indices 2,8) and my (indices 4,10)
+/// FEF layout: [fx_i, fy_i, fz_i, mx_i, my_i, mz_i, fx_j, fy_j, fz_j, mx_j, my_j, mz_j]
+pub fn adjust_fef_for_hinges_3d(fef: &mut [f64; 12], l: f64, hinge_start: bool, hinge_end: bool) {
+    if !hinge_start && !hinge_end {
+        return;
+    }
+
+    // --- Y-bending plane (shear-y / moment-z) ---
+    {
+        let vy_i = fef[1];
+        let mz_i = fef[5];
+        let vy_j = fef[7];
+        let mz_j = fef[11];
+
+        if hinge_start && hinge_end {
+            fef[1] = vy_i - (mz_i + mz_j) / l;
+            fef[5] = 0.0;
+            fef[7] = vy_j + (mz_i + mz_j) / l;
+            fef[11] = 0.0;
+        } else if hinge_start {
+            fef[1] = vy_i - (3.0 / (2.0 * l)) * mz_i;
+            fef[5] = 0.0;
+            fef[7] = vy_j + (3.0 / (2.0 * l)) * mz_i;
+            fef[11] = mz_j - 0.5 * mz_i;
+        } else {
+            // hinge_end
+            fef[1] = vy_i - (3.0 / (2.0 * l)) * mz_j;
+            fef[5] = mz_i - 0.5 * mz_j;
+            fef[7] = vy_j + (3.0 / (2.0 * l)) * mz_j;
+            fef[11] = 0.0;
+        }
+    }
+
+    // --- Z-bending plane (shear-z / moment-y) ---
+    // Note: my has opposite sign convention (θy = -dw/dx), but the condensation
+    // algebra is the same — we condense the moment at the hinge end to zero
+    // and redistribute the shear.
+    {
+        let vz_i = fef[2];
+        let my_i = fef[4];
+        let vz_j = fef[8];
+        let my_j = fef[10];
+
+        if hinge_start && hinge_end {
+            fef[2] = vz_i - (my_i + my_j) / l;
+            fef[4] = 0.0;
+            fef[8] = vz_j + (my_i + my_j) / l;
+            fef[10] = 0.0;
+        } else if hinge_start {
+            fef[2] = vz_i - (3.0 / (2.0 * l)) * my_i;
+            fef[4] = 0.0;
+            fef[8] = vz_j + (3.0 / (2.0 * l)) * my_i;
+            fef[10] = my_j - 0.5 * my_i;
+        } else {
+            // hinge_end
+            fef[2] = vz_i - (3.0 / (2.0 * l)) * my_j;
+            fef[4] = my_i - 0.5 * my_j;
+            fef[8] = vz_j + (3.0 / (2.0 * l)) * my_j;
+            fef[10] = 0.0;
+        }
     }
 }
 
@@ -259,8 +327,10 @@ pub fn fef_thermal_3d(
         0.0
     };
 
+    // Thermal expansion: element wants to grow → equivalent nodal loads push outward
+    // Node I gets -fx (pushed in -x), Node J gets +fx (pushed in +x)
     // [fx_i, fy_i, fz_i, mx_i, my_i, mz_i, fx_j, fy_j, fz_j, mx_j, my_j, mz_j]
-    [fx, 0.0, 0.0, 0.0, my, mz, -fx, 0.0, 0.0, 0.0, -my, -mz]
+    [-fx, 0.0, 0.0, 0.0, -my, -mz, fx, 0.0, 0.0, 0.0, my, mz]
 }
 
 /// Fixed-end forces for distributed torsion on a warping element (14-DOF).

@@ -6,6 +6,7 @@ import type { AnalysisResults3D, Displacement3D, Reaction3D, ElementForces3D, Fu
 import type { GoverningPerElement, GoverningPerElement3D } from '../engine/governing-case';
 import type { MovingLoadEnvelope } from '../engine/moving-loads';
 import type { PDeltaResult, PDeltaResult3D, ModalResult, ModalResult3D, BucklingResult, BucklingResult3D, PlasticResult, SpectralResult, SpectralResult3D } from '../engine/result-types';
+import { get2DDisplayDisplacementVertical } from '../geometry/coordinate-system';
 
 export type DiagramType = 'none' | 'moment' | 'shear' | 'axial' | 'deformed' | 'colorMap' | 'axialColor' | 'verification' | 'influenceLine' | 'modeShape' | 'bucklingMode' | 'plasticHinges'
   // 3D-specific diagram types
@@ -776,7 +777,7 @@ function createResultsStore() {
     get maxDisplacement(): number {
       if (!results) return 0;
       return Math.max(...results.displacements.map(d =>
-        Math.sqrt(d.ux ** 2 + d.uy ** 2)
+        Math.sqrt(d.ux ** 2 + get2DDisplayDisplacementVertical(d) ** 2)
       ));
     },
   };
