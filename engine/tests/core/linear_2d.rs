@@ -362,3 +362,66 @@ fn json_roundtrip_solve() {
     let r1 = results_back.reactions.iter().find(|r| r.node_id == 1).unwrap();
     assert_close(r1.rz, 50.0, 0.01, "JSON roundtrip Ry");
 }
+
+// ─── Fully Restrained (nf==0) ───────────────────────────────
+
+#[test]
+fn fully_restrained_2node_beam_udl() {
+    // Two-node fixed-fixed beam: all 6 DOFs restrained → nf == 0.
+    // Should return zero displacements, reactions = -FEF, element forces = -FEF.
+    // q=10 kN/m, L=6m → R_each = qL/2 = 30 kN, M_each = qL²/12 = 30 kN·m
+    let q = 10.0;
+    let l = 6.0;
+    let input = make_input(
+        vec![(1, 0.0, 0.0), (2, l, 0.0)],
+        vec![(1, E, 0.3)],
+        vec![(1, A, IZ)],
+        vec![(1, "frame", 1, 2, 1, 1, false, false)],
+        vec![(1, 1, "fixed"), (2, 2, "fixed")],
+        vec![SolverLoad::Distributed(SolverDistributedLoad {
+            element_id: 1, q_i: -q, q_j: -q, a: None, b: None,
+        })],
+    );
+    let results = linear::solve_2d(&input).unwrap();
+
+    // All displacements must be zero
+    for d in &results.displacements {
+        assert_close(d.ux, 0.0, 0.01, &format!("node {} ux", d.node_id));
+        assert_close(d.uz, 0.0, 0.01, &format!("node {} uz", d.node_id));
+        assert_close(d.ry, 0.0, 0.01, &format!("node {} ry", d.node_id));
+    }
+
+    // Reactions: each end carries qL/2 vertical, qL²/12 moment
+    let r1 = results.reactions.iter().find(|r| r.node_id == 1).unwrap();
+    let r2 = results.reactions.iter().find(|r| r.node_id == 2).unwrap();
+    assert_close(r1.rz, q * l / 2.0, 0.02, "R1z");
+    assert_close(r2.rz, q * l / 2.0, 0.02, "R2z");
+    assert_close(r1.my.abs(), q * l * l / 12.0, 0.02, "M1");
+    assert_close(r2.my.abs(), q * l * l / 12.0, 0.02, "M2");
+}
+
+#[test]
+fn fully_restrained_2node_beam_no_load() {
+    // Two-node fixed-fixed beam with no loads → all zeros.
+    let l = 4.0;
+    let input = make_input(
+        vec![(1, 0.0, 0.0), (2, l, 0.0)],
+        vec![(1, E, 0.3)],
+        vec![(1, A, IZ)],
+        vec![(1, "frame", 1, 2, 1, 1, false, false)],
+        vec![(1, 1, "fixed"), (2, 2, "fixed")],
+        vec![],
+    );
+    let results = linear::solve_2d(&input).unwrap();
+
+    for d in &results.displacements {
+        assert_close(d.ux, 0.0, 0.01, &format!("node {} ux", d.node_id));
+        assert_close(d.uz, 0.0, 0.01, &format!("node {} uz", d.node_id));
+        assert_close(d.ry, 0.0, 0.01, &format!("node {} ry", d.node_id));
+    }
+    for r in &results.reactions {
+        assert_close(r.rx, 0.0, 0.01, &format!("node {} rx", r.node_id));
+        assert_close(r.rz, 0.0, 0.01, &format!("node {} rz", r.node_id));
+        assert_close(r.my, 0.0, 0.01, &format!("node {} my", r.node_id));
+    }
+}

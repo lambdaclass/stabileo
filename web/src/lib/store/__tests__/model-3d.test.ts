@@ -129,15 +129,18 @@ describe('Support type mapping to 3D', () => {
       case 'fixed3d':
         return { rx: true, ry: true, rz: true, rrx: true, rry: true, rrz: true };
       case 'pinned':
+        return { rx: true, ry: true, rz: true, rrx: true, rry: false, rrz: true };
       case 'pinned3d':
         return { rx: true, ry: true, rz: true, rrx: false, rry: false, rrz: false };
       case 'rollerX':
-        return { rx: false, ry: true, rz: true, rrx: false, rry: false, rrz: false };
+        return { rx: false, ry: true, rz: true, rrx: true, rry: false, rrz: true };
       case 'rollerY':
-        return { rx: true, ry: false, rz: true, rrx: false, rry: false, rrz: false };
+      case 'rollerZ':
+        return { rx: true, ry: true, rz: false, rrx: true, rry: false, rrz: true };
       case 'rollerXZ':
         return { rx: false, ry: true, rz: false, rrx: false, rry: false, rrz: false };
       case 'spring':
+        return { rx: false, ry: true, rz: false, rrx: true, rry: false, rrz: true };
       case 'spring3d':
         return { rx: false, ry: false, rz: false, rrx: false, rry: false, rrz: false };
       default:
@@ -182,11 +185,14 @@ describe('Support type mapping to 3D', () => {
     expect(dofs).toEqual({ rx: true, ry: true, rz: true, rrx: true, rry: true, rrz: true });
   });
 
-  it('2D pinned → maps to 3 translations restrained in 3D', () => {
+  it('2D pinned → keeps in-plane ry free while clamping out-of-plane DOFs', () => {
     const dofs = mapSupportTo3D('pinned');
     expect(dofs.rx).toBe(true);
     expect(dofs.ry).toBe(true);
     expect(dofs.rz).toBe(true);
+    expect(dofs.rrx).toBe(true);
+    expect(dofs.rry).toBe(false);
+    expect(dofs.rrz).toBe(true);
   });
 });
 
@@ -422,8 +428,8 @@ describe('3D load types', () => {
 
     const result = assertSuccess(solve3D(input));
 
-    // Sum of vertical (global Y in 3D) reactions should equal total downward load
-    // SAP2000: ey=(0,1,0), qY=-10 → -10*4=40kN downward → fy reactions = +40
+    // Sum of reactions in global Y should equal the local-qY resultant for this +X member orientation
+    // SAP2000: ey=(0,1,0), qY=-10 → -10*4=40kN along -globalY → fy reactions = +40
     const totalLoad = Math.abs(qY) * L;
     const totalReaction = result.reactions.reduce((sum, r) => sum + r.fy, 0);
     expect(totalReaction).toBeCloseTo(totalLoad, 4);
@@ -433,7 +439,7 @@ describe('3D load types', () => {
     const L = 6;
     const py = -5; // kN in local Y at midspan
     // SAP2000: beam +X → ey=(0,1,0). local py=-5 → global force = (0,-5,0)
-    // So py loads the Y-plane (Mz/Vy, uses Iz) and displacement is in global Y
+    // So py loads the Y-plane (Mz/Vy, uses Iz) and displacement is along global Y
 
     const input = buildInput3D({
       nodes: [
@@ -453,16 +459,16 @@ describe('3D load types', () => {
     const result = assertSuccess(solve3D(input));
     const d2 = result.displacements.find(d => d.nodeId === 2)!;
 
-    // SAP2000: py loads Y-plane → displacement in global Y (via ey=(0,1,0)), no global Z displacement
+    // SAP2000: py loads Y-plane → displacement along global Y (via ey=(0,1,0)), no global Z displacement
     expect(d2.uy).not.toBe(0);
     expect(Math.abs(d2.uz)).toBeLessThan(1e-10);
   });
 });
 
-// ─── Vertical column test ──────────────────────────────────
+// ─── Column aligned with global Y ──────────────────────────
 
-describe('solve3D — Vertical column', () => {
-  it('vertical column with lateral load at top', () => {
+describe('solve3D — Column along global Y', () => {
+  it('column along global Y with lateral load at top', () => {
     const H = 4; // height
     const Fx = 10; // kN lateral
 
@@ -590,10 +596,7 @@ describe('solve3D — Validation', () => {
     expect(() => solve3D(input)).toThrow(/singular|mechanism/i);
   });
 
-  // Skipped: WASM solver does not reject zero-length elements — it produces
-  // a result with zero-length bars. Pre-solve validation should catch this
-  // before calling the solver. See SOLVER_ROADMAP.md Step 3.
-  it.skip('returns error for zero-length element', () => {
+  it('returns error for zero-length element', () => {
     const input = buildInput3D({
       nodes: [
         { id: 1, x: 0, y: 0, z: 0 },

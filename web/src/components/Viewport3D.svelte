@@ -96,6 +96,16 @@
       quadCount: modelStore.quads.size,
     });
   }
+
+  function syncResultsProjection(): void {
+    if (!resultsParent) return;
+    resultsParent.position.set(0, 0, 0);
+    resultsParent.rotation.set(0, 0, 0);
+    if (shouldProject2DModel()) {
+      // Keep result overlays in the same upright XZ presentation as flat 2D models.
+      resultsParent.rotation.x = Math.PI / 2;
+    }
+  }
   const diagramLegend = $derived.by(() => {
     const dt = resultsStore.diagramType;
     if (dt === 'none' || dt === 'axialColor' || dt === 'colorMap' || dt === 'verification') return null;
@@ -173,6 +183,7 @@
     shellsParent = new THREE.Group();
     shellsParent.name = 'shells';
     scene.add(elementsParent, nodesParent, supportsParent, loadsParent, resultsParent, shellsParent);
+    syncResultsProjection();
 
     // Camera — isometric-ish view looking at origin
     perspCamera = new THREE.PerspectiveCamera(50, 1, 0.1, 1000);
@@ -521,6 +532,12 @@
   $effect(() => {
     uiStore.renderMode3D;
     syncElements();
+  });
+
+  $effect(() => {
+    modelStore.modelVersion;
+    uiStore.analysisMode;
+    syncResultsProjection();
   });
 
   $effect(() => {

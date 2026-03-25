@@ -97,8 +97,8 @@ describe('3D Superposition: simply supported beam D + L', () => {
   let resultD: AnalysisResults3D;
   let resultL: AnalysisResults3D;
 
-  it('solves D case: qY = -10 kN/m (gravity downward)', () => {
-    // SAP2000 convention: beam along +X → ey=(0,1,0), so qY=-10 = downward
+  it('solves D case: qY = -10 kN/m in local Y', () => {
+    // SAP2000 convention: beam along +X → ey=(0,1,0), so qY=-10 projects to -globalY
     const input = buildInput(nodes, elements, supports, [
       { type: 'distributed', data: { elementId: 1, qYI: -10, qYJ: -10, qZI: 0, qZJ: 0 } },
     ]);
@@ -106,12 +106,12 @@ describe('3D Superposition: simply supported beam D + L', () => {
     assertSuccess(res);
     resultD = res;
 
-    // Total load = 10*6 = 60 kN downward → sum of fy reactions = +60
+    // Total load = 10*6 = 60 kN along -globalY → sum of fy reactions = +60
     const totalFy = res.reactions.reduce((s, r) => s + r.fy, 0);
     expect(totalFy).toBeCloseTo(60, 1);
   });
 
-  it('solves L case: qY = -5 kN/m (gravity downward)', () => {
+  it('solves L case: qY = -5 kN/m in local Y', () => {
     const input = buildInput(nodes, elements, supports, [
       { type: 'distributed', data: { elementId: 1, qYI: -5, qYJ: -5, qZI: 0, qZJ: 0 } },
     ]);
@@ -124,7 +124,7 @@ describe('3D Superposition: simply supported beam D + L', () => {
   });
 
   it('1.2D + 1.6L: superposition of reactions matches direct solve', () => {
-    // Direct solve with combined load: q = 1.2*10 + 1.6*5 = 20 kN/m in local Y (downward)
+    // Direct solve with combined load: q = 1.2*10 + 1.6*5 = 20 kN/m in local Y
     const inputCombined = buildInput(nodes, elements, supports, [
       { type: 'distributed', data: { elementId: 1, qYI: -20, qYJ: -20, qZI: 0, qZJ: 0 } },
     ]);
@@ -148,7 +148,7 @@ describe('3D Superposition: simply supported beam D + L', () => {
   });
 
   it('element forces combine linearly (Mz, Vy)', () => {
-    // SAP2000: gravity in local Y → Mz/Vy forces
+    // SAP2000: qY loading acts in the local Y plane → Mz/Vy forces
     const fD = getForces(resultD, 1)!;
     const fL = getForces(resultL, 1)!;
 
@@ -205,8 +205,8 @@ describe('3D Superposition: portal frame D + W', () => {
   let resultW: AnalysisResults3D;
 
   it('solves D: distributed on beam element 2', () => {
-    // Portal: columns are vertical (1→2, 3→4), beam is horizontal (2→3 along +X at y=4)
-    // SAP2000: beam along +X → ey=(0,1,0), qY=-10 = downward
+    // Portal: side members are aligned with global Y (1→2, 3→4), beam is along +X at y=4
+    // SAP2000: beam along +X → ey=(0,1,0), qY=-10 projects to -globalY
     const input = buildInput(nodes, elements, supports, [
       { type: 'distributed', data: { elementId: 2, qYI: -10, qYJ: -10, qZI: 0, qZJ: 0 } },
     ]);
@@ -237,7 +237,7 @@ describe('3D Superposition: portal frame D + W', () => {
 
     const factors = [{ caseId: 1, factor: 1.2 }, { caseId: 2, factor: 1.6 }];
 
-    // Total vertical: 1.2*60 = 72
+    // Total global-Y reaction: 1.2*60 = 72
     const totalFy = combineReaction(1, 'fy', factors, perCase) +
                     combineReaction(4, 'fy', factors, perCase);
     expect(totalFy).toBeCloseTo(72, 0);
@@ -262,8 +262,8 @@ describe('3D Superposition: bidirectional distributed loads', () => {
   let resultY: AnalysisResults3D;
   let resultZ: AnalysisResults3D;
 
-  it('solves case 1: gravity qY=-10 (downward in global Y)', () => {
-    // SAP2000: beam +X → ey=(0,1,0), qY=-10 = downward (−globalY)
+  it('solves case 1: qY=-10 projected through local Y', () => {
+    // SAP2000: beam +X → ey=(0,1,0), qY=-10 projects to -globalY
     const input = buildInput(nodes, elements, supports, [
       { type: 'distributed', data: { elementId: 1, qYI: -10, qYJ: -10, qZI: 0, qZJ: 0 } },
     ]);
@@ -271,7 +271,7 @@ describe('3D Superposition: bidirectional distributed loads', () => {
     assertSuccess(res);
     resultY = res;
 
-    // Reactions in global Y balance 60 kN downward
+    // Reactions in global Y balance 60 kN applied along -globalY
     const totalFy = res.reactions.reduce((s, r) => s + r.fy, 0);
     expect(totalFy).toBeCloseTo(60, 0);
   });
@@ -297,7 +297,7 @@ describe('3D Superposition: bidirectional distributed loads', () => {
 
     const factors = [{ caseId: 1, factor: 1.4 }, { caseId: 2, factor: 1.0 }];
 
-    // Global Y direction (gravity): 1.4*60 = 84
+    // Global Y direction: 1.4*60 = 84
     const totalFy = combineReaction(1, 'fy', factors, perCase) +
                     combineReaction(2, 'fy', factors, perCase);
     expect(totalFy).toBeCloseTo(84, 0);

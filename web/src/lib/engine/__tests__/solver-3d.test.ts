@@ -178,7 +178,7 @@ describe('3D Solver — computeLocalAxes3D (SAP2000 convention)', () => {
     expect(axes.ez[2]).toBeCloseTo(-1);
   });
 
-  it('+Y (vertical) bar: ex=(0,1,0), ey=(0,0,1), ez=(1,0,0)', () => {
+  it('+Y bar: ex=(0,1,0), ey=(0,0,1), ez=(1,0,0)', () => {
     const nI: SolverNode3D = { id: 1, x: 0, y: 0, z: 0 };
     const nJ: SolverNode3D = { id: 2, x: 0, y: 5, z: 0 };
     const axes = computeLocalAxes3D(nI, nJ);
@@ -320,7 +320,7 @@ describe('3D Solver — WASM-backed stiffness verification (replaces frameLocalS
 
 describe('3D Solver — Cantilever, load in Y', () => {
   // Horizontal bar along X, fixed at node 1, free at node 2.
-  // Point load Fy = -10 kN at node 2 (downward).
+  // Point load Fy = -10 kN at node 2.
   //
   // SAP2000 convention: ey=(0,1,0), ez=(0,0,1) for +X beam
   // Global Fy maps to local Y (ey·(0,Fy,0) = Fy) → uses Iz in stiffness
@@ -328,7 +328,7 @@ describe('3D Solver — Cantilever, load in Y', () => {
   // Internal forces: Vy and Mz (not Vz and My)
 
   const L = 5;
-  const P = -10; // kN (downward in Y)
+  const P = -10; // kN applied along global Y
 
   const input = buildInput(
     [{ id: 1, x: 0, y: 0, z: 0 }, { id: 2, x: L, y: 0, z: 0 }],
@@ -372,7 +372,7 @@ describe('3D Solver — Cantilever, load in Y', () => {
     assertSuccess(result);
 
     const ef = result.elementForces[0];
-    // SAP2000: gravity (Fy) goes to local Y plane → Vy and Mz
+    // SAP2000: Fy goes to the local Y plane → Vy and Mz
     expect(Math.abs(ef.vyStart)).toBeCloseTo(Math.abs(P), 4);
     // Moment at fixed end: |Mz| = |P|*L = 50
     expect(Math.abs(ef.mzStart)).toBeCloseTo(Math.abs(P) * L, 4);
@@ -480,19 +480,19 @@ describe('3D Solver — Cantilever, torque', () => {
   });
 });
 
-describe('3D Solver — Simply supported, uniform load (gravity)', () => {
+describe('3D Solver — Simply supported, uniform load in local Y', () => {
   // Beam along X, supports at both ends.
   // In 3D, a "pinned" support with all rotations free leaves the torsion DOF unconstrained.
   // We need to restrain torsion (rrx) at least at one end for stability.
   //
-  // SAP2000 convention: for +X beam, ey=(0,1,0). Gravity (downward) = negative qY.
-  // q = 10 kN/m downward → qYI = -10, qYJ = -10 (ey points up, negative qY = downward)
+  // SAP2000 convention: for +X beam, ey=(0,1,0). Negative qY projects to -globalY.
+  // q = 10 kN/m magnitude → qYI = -10, qYJ = -10
   //
   // Analytical:
-  //   R_A = R_B = q*L/2 = 50 kN (upward)
+  //   R_A = R_B = q*L/2 = 50 kN along +globalY
 
   const L = 5;
-  const q = 10; // kN/m magnitude (downward)
+  const q = 10; // kN/m magnitude
 
   const input = buildInput(
     [{ id: 1, x: 0, y: 0, z: 0 }, { id: 2, x: L, y: 0, z: 0 }],
@@ -509,8 +509,8 @@ describe('3D Solver — Simply supported, uniform load (gravity)', () => {
     const r2 = result.reactions.find(r => r.nodeId === 2)!;
 
     // qY=-10 in local Y (ey=(0,1,0)) → global Fy = ey[1]*qY*L = -10*5 = -50 total
-    // Each reaction: fy = 50/2 = 25 kN upward
-    expect(r1.fy).toBeCloseTo(q * L / 2, 4); // 25 kN upward
+    // Each reaction: fy = 50/2 = 25 kN along +globalY
+    expect(r1.fy).toBeCloseTo(q * L / 2, 4); // 25 kN along +globalY
     expect(r2.fy).toBeCloseTo(q * L / 2, 4);
     expect(r1.fx).toBeCloseTo(0, 6);
     expect(r2.fx).toBeCloseTo(0, 6);
@@ -521,7 +521,7 @@ describe('3D Solver — Simply supported, uniform load (gravity)', () => {
     assertSuccess(result);
 
     const ef = result.elementForces[0];
-    // SAP2000: gravity load in local Y plane → Mz (not My)
+    // SAP2000: qY load in the local Y plane → Mz (not My)
     expect(ef.mzStart).toBeCloseTo(0, 4);
     expect(ef.mzEnd).toBeCloseTo(0, 4);
     // Shear at start = qL/2 (Vy, not Vz)
@@ -535,8 +535,8 @@ describe('3D Solver — Simply supported, uniform load (gravity)', () => {
   });
 });
 
-describe('3D Solver — Vertical column (axis transformation test)', () => {
-  // Column along global Y (vertical).
+describe('3D Solver — Column along global Y (axis transformation test)', () => {
+  // Column along global Y.
   // Fixed at bottom (node 1 at y=0), free at top (node 2 at y=5).
   // Horizontal force Fx = 10 kN at top.
 
@@ -559,7 +559,7 @@ describe('3D Solver — Vertical column (axis transformation test)', () => {
     const result = solve3D(input);
     assertSuccess(result);
 
-    // For vertical element: ex=[0,1,0], ref=globalZ=[0,0,1]
+    // For an element aligned with global Y: ex=[0,1,0], ref=globalZ=[0,0,1]
     // ez = ex × ref = [0,1,0] × [0,0,1] = [1,0,0]
     // Force in global X = force in local Z → uses EIy
     const ux_expected = Px * L * L * L / (3 * E * Iy);
@@ -708,10 +708,10 @@ describe('3D Solver — Space truss (tetrahedron)', () => {
 });
 
 describe('3D Solver — 2D↔3D equivalence', () => {
-  // SAP2000: gravity on +X beam → qY (local Y = (0,1,0) = upward, negative = downward)
-  // q = 10 kN/m downward → qYI = -10, qYJ = -10
+  // SAP2000: on a +X beam, qY acts through local ey=(0,1,0)
+  // q = 10 kN/m magnitude → qYI = -10, qYJ = -10
   const L = 6;
-  const q = 10; // kN/m downward magnitude
+  const q = 10; // kN/m magnitude
 
   const input = buildInput(
     [{ id: 1, x: 0, y: 0, z: 0 }, { id: 2, x: L, y: 0, z: 0 }],
@@ -724,7 +724,7 @@ describe('3D Solver — 2D↔3D equivalence', () => {
     const result = solve3D(input);
     assertSuccess(result);
 
-    // Gravity load: total = q*L = 60 kN downward. Each reaction = 30 kN upward.
+    // Total applied load = q*L = 60 kN along -globalY. Each reaction = 30 kN along +globalY.
     const R_expected = q * L / 2;
     const r1 = result.reactions.find(r => r.nodeId === 1)!;
     const r2 = result.reactions.find(r => r.nodeId === 2)!;
@@ -733,15 +733,15 @@ describe('3D Solver — 2D↔3D equivalence', () => {
     expect(r2.fy).toBeCloseTo(R_expected, 4);
   });
 
-  it('end rotation uses Iz (gravity goes through local Y plane)', () => {
+  it('end rotation uses Iz (qY goes through local Y plane)', () => {
     const result = solve3D(input);
     assertSuccess(result);
 
-    // SAP2000: gravity in local Y plane → uses Iz, produces θz (local)
+    // SAP2000: qY in the local Y plane → uses Iz, produces θz (local)
     // For +X beam with SAP2000: ey=(0,1,0), ez=(0,0,1)
     // rz_global = R^T[2,:] · [θx, θy, θz]_local = ex[2]*θx + ey[2]*θy + ez[2]*θz
     //           = 0*θx + 0*θy + 1*θz = θz_local
-    // So rz_global = θz_local, and θz_local = q*L³/(24*E*Iz) for qY<0 (downward).
+    // So rz_global = θz_local, and θz_local = q*L³/(24*E*Iz) for qY<0.
     const theta_mag = q * L * L * L / (24 * E * Iz);
 
     const d1 = result.displacements.find(d => d.nodeId === 1)!;
@@ -940,11 +940,11 @@ describe('3D Solver — Distributed load in Z-global on cantilever', () => {
   });
 });
 
-describe('3D Solver — Point load on element (gravity)', () => {
-  // SAP2000: for +X beam, to apply downward force, use py negative (local Y = (0,1,0) = upward)
-  // py = -12 means 12 kN downward. Reaction fy = 12 kN upward.
+describe('3D Solver — Point load on element in local Y', () => {
+  // SAP2000: for a +X beam, local py acts through ey=(0,1,0)
+  // py = -12 means 12 kN along -globalY. Reaction fy = 12 kN along +globalY.
   const L = 6;
-  const Py = -12; // kN in local Y direction (= 12 kN downward in SAP2000)
+  const Py = -12; // kN in local Y direction
   const a = 3;
 
   const input = buildInput(
@@ -959,12 +959,12 @@ describe('3D Solver — Point load on element (gravity)', () => {
     assertSuccess(result);
   });
 
-  it('reaction Fy = |Py| at fixed end (upward reaction for downward load)', () => {
+  it('reaction Fy = |Py| at fixed end', () => {
     const result = solve3D(input);
     assertSuccess(result);
 
     const r1 = result.reactions.find(r => r.nodeId === 1)!;
-    // py=-12 in local Y = (0,1,0) → 12 kN downward → reaction fy = 12 kN upward
+    // py=-12 in local Y = (0,1,0) → 12 kN along -globalY → reaction fy = 12 kN along +globalY
     expect(r1.fy).toBeCloseTo(-Py, 4);
   });
 
@@ -986,8 +986,7 @@ describe('3D Solver — Validation errors', () => {
     expect(() => solve3D(input)).toThrow();
   });
 
-  // WASM solver does not reject zero-length elements (returns a result instead of throwing)
-  it.skip('error for zero-length element', () => {
+  it('error for zero-length element', () => {
     const input = buildInput(
       [{ id: 1, x: 0, y: 0, z: 0 }, { id: 2, x: 0, y: 0, z: 0 }],
       [{ id: 1, type: 'frame', nodeI: 1, nodeJ: 2, materialId: 1, sectionId: 1, hingeStart: false, hingeEnd: false }],
@@ -1070,7 +1069,7 @@ describe('3D Solver — Transformation matrix orthogonality', () => {
     const magH = Math.sqrt(dH.ux ** 2 + dH.uy ** 2 + dH.uz ** 2);
 
     // Angled cantilever: beam along direction (3, 4, 0), length = 5
-    // Load perpendicular to beam axis, in the local Y plane (global Y component)
+    // Load perpendicular to beam axis, in the local Y plane (with a global Y component)
     // For a beam in XY plane, local ey = (-4/5, 3/5, 0), so a load of P in local Y
     // maps to global: fx = P * (-4/5), fy = P * (3/5)
     const inputA = buildInput(
@@ -1276,7 +1275,7 @@ describe('3D Solver — Moment equilibrium at interior node', () => {
 });
 
 describe('3D Solver — Cantilever IPN 200 with realistic properties', () => {
-  // Cantilever beam L=3m, P=10kN at tip in -Y direction (downward)
+  // Cantilever beam L=3m, P=10kN at tip in -globalY
   // SAP2000: Fy goes through local Y plane → uses Iz
   // δ = PL³/(3EIz) = 10 × 27 / (3 × 200e6 × 2.14e-5)
   const L = 3;
@@ -1293,7 +1292,7 @@ describe('3D Solver — Cantilever IPN 200 with realistic properties', () => {
     { type: 'nodal', data: { nodeId: 2, fx: 0, fy: -P, fz: 0, mx: 0, my: 0, mz: 0 } },
   ];
 
-  it('tip deflection matches PL³/(3EIz) (gravity goes through local Y)', () => {
+  it('tip deflection matches PL³/(3EIz) (load goes through local Y)', () => {
     const input = buildInput(nodes, elements, supports, loads, [steelMat], [ipn200Section]);
     const result = solve3D(input);
     assertSuccess(result);
@@ -1413,8 +1412,7 @@ describe('3D Solver — Frame with hinge: M=0 at hinged end', () => {
     { id: 2, x: L, y: 0, z: 0 },
   ];
 
-  // BUG: 2-node fixed-fixed → WASM reports "No free DOFs" (all DOFs restrained)
-  it.skip('hingeStart → moment at start is zero', () => {
+  it('hingeStart → moment at start is zero', () => {
     const elements: SolverElement3D[] = [
       { id: 1, type: 'frame', nodeI: 1, nodeJ: 2, materialId: 1, sectionId: 1, hingeStart: true, hingeEnd: false },
     ];
@@ -1431,8 +1429,7 @@ describe('3D Solver — Frame with hinge: M=0 at hinged end', () => {
     expect(Math.abs(ef.mzEnd)).toBeGreaterThan(0.1);
   });
 
-  // BUG: 2-node fixed-fixed → WASM reports "No free DOFs" (all DOFs restrained)
-  it.skip('hingeEnd → moment at end is zero', () => {
+  it('hingeEnd → moment at end is zero', () => {
     const elements: SolverElement3D[] = [
       { id: 1, type: 'frame', nodeI: 1, nodeJ: 2, materialId: 1, sectionId: 1, hingeStart: false, hingeEnd: true },
     ];
@@ -1530,11 +1527,11 @@ describe('3D Solver — Displacement compatibility at shared node', () => {
   });
 });
 
-describe('3D Solver — Simply supported beam with qY (gravity, Iz)', () => {
-  // SAP2000: local Y on +X beam = (0,1,0) = upward.
-  // qY = -8 means 8 kN/m downward → reactions in global fy (vertical).
+describe('3D Solver — Simply supported beam with qY (Iz)', () => {
+  // SAP2000: local Y on a +X beam is ey=(0,1,0).
+  // qY = -8 means 8 kN/m along -globalY → reactions in global fy.
   const L = 5;
-  const qMag = 8; // kN/m magnitude (downward)
+  const qMag = 8; // kN/m magnitude
   const nodes: SolverNode3D[] = [
     { id: 1, x: 0, y: 0, z: 0 },
     { id: 2, x: L, y: 0, z: 0 },
@@ -1550,7 +1547,7 @@ describe('3D Solver — Simply supported beam with qY (gravity, Iz)', () => {
     { type: 'distributed', data: { elementId: 1, qYI: -qMag, qYJ: -qMag, qZI: 0, qZJ: 0 } },
   ];
 
-  it('total Y reaction = q × L (gravity loads produce vertical reactions)', () => {
+  it('total Y reaction = q × L', () => {
     const input = buildInput(nodes, elements, supports, loads);
     const result = solve3D(input);
     assertSuccess(result);
@@ -1558,7 +1555,7 @@ describe('3D Solver — Simply supported beam with qY (gravity, Iz)', () => {
     const expected = qMag * L; // 40 kN total
     let totalFy = 0;
     for (const r of result.reactions) totalFy += Math.abs(r.fy);
-    // SAP2000: qY on +X beam acts vertically → reactions are in fy
+    // SAP2000: qY on a +X beam projects onto global Y → reactions are in fy
     expect(totalFy).toBeCloseTo(expected, 1);
   });
 
@@ -1570,9 +1567,9 @@ describe('3D Solver — Simply supported beam with qY (gravity, Iz)', () => {
   });
 });
 
-describe('3D Solver — Fixed-fixed beam with uniform load (gravity)', () => {
-  // SAP2000: for +X beam, gravity = negative qY (local Y = (0,1,0) = upward)
-  // q = 12 kN/m downward → qYI = -12, qYJ = -12
+describe('3D Solver — Fixed-fixed beam with uniform load in local Y', () => {
+  // SAP2000: for a +X beam, negative qY projects to -globalY through local ey=(0,1,0)
+  // q = 12 kN/m magnitude → qYI = -12, qYJ = -12
   const L = 4;
   const q = 12; // kN/m magnitude
   const nodes: SolverNode3D[] = [
@@ -1587,21 +1584,19 @@ describe('3D Solver — Fixed-fixed beam with uniform load (gravity)', () => {
     { type: 'distributed', data: { elementId: 1, qYI: -q, qYJ: -q, qZI: 0, qZJ: 0 } },
   ];
 
-  // BUG: 2-node fixed-fixed → WASM reports "No free DOFs" (all DOFs restrained)
-  it.skip('end moments = qL²/12 (Mz in SAP2000 for gravity)', () => {
+  it('end moments = qL²/12 (Mz for qY loading)', () => {
     const input = buildInput(nodes, elements, supports, loads);
     const result = solve3D(input);
     assertSuccess(result);
 
     const ef = result.elementForces.find(f => f.elementId === 1)!;
     const expectedM = q * L ** 2 / 12;
-    // SAP2000: gravity in local Y plane → Mz (not My)
+    // SAP2000: qY loading in the local Y plane → Mz (not My)
     expect(Math.abs(ef.mzStart)).toBeCloseTo(expectedM, 2);
     expect(Math.abs(ef.mzEnd)).toBeCloseTo(expectedM, 2);
   });
 
-  // BUG: 2-node fixed-fixed → WASM reports "No free DOFs" (all DOFs restrained)
-  it.skip('reactions = qL/2 at each support', () => {
+  it('reactions = qL/2 at each support', () => {
     const input = buildInput(nodes, elements, supports, loads);
     const result = solve3D(input);
     assertSuccess(result);
@@ -1614,8 +1609,7 @@ describe('3D Solver — Fixed-fixed beam with uniform load (gravity)', () => {
     expect(Math.abs(r2.fy)).toBeCloseTo(expectedR, 2);
   });
 
-  // BUG: 2-node fixed-fixed → WASM reports "No free DOFs" (all DOFs restrained)
-  it.skip('global equilibrium', () => {
+  it('global equilibrium', () => {
     const input = buildInput(nodes, elements, supports, loads);
     const result = solve3D(input);
     assertSuccess(result);
@@ -1628,8 +1622,7 @@ describe('3D Solver — Thermal loads', () => {
   const dT = 50; // °C
   const alpha = 1.2e-5; // /°C (hardcoded in solver)
 
-  // BUG: WASM solver returns negative ux (-0.0018) for positive thermal expansion; sign convention issue
-  it.skip('free-end axial displacement = α × ΔT × L', () => {
+  it('free-end axial displacement = α × ΔT × L', () => {
     const nodes: SolverNode3D[] = [
       { id: 1, x: 0, y: 0, z: 0 },
       { id: 2, x: L, y: 0, z: 0 },
@@ -1650,8 +1643,7 @@ describe('3D Solver — Thermal loads', () => {
     expect(tipDisp.ux).toBeCloseTo(expected, 6);
   });
 
-  // BUG: 2-node fixed-fixed → WASM reports "No free DOFs" (all DOFs restrained)
-  it.skip('fixed-fixed thermal → zero displacement, non-zero reactions', () => {
+  it('fixed-fixed thermal → zero displacement, non-zero reactions', () => {
     const nodes: SolverNode3D[] = [
       { id: 1, x: 0, y: 0, z: 0 },
       { id: 2, x: L, y: 0, z: 0 },

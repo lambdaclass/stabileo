@@ -54,12 +54,12 @@ export function convertSurfaceLoad(
   const [p0, p1, p2, p3] = ns as [Node, Node, Node, Node];
 
   const area = triArea3D(p0, p1, p2) + triArea3D(p0, p2, p3);
-  const F = -load.q * area / 4; // negative Y = downward
+  const F = -load.q * area / 4; // negative Z = downward (Z-up convention)
 
   for (const nid of quad.nodes) {
     out.push({
       type: 'nodal',
-      data: { nodeId: nid, fx: 0, fy: F, fz: 0, mx: 0, my: 0, mz: 0 },
+      data: { nodeId: nid, fx: 0, fy: 0, fz: F, mx: 0, my: 0, mz: 0 },
     });
   }
   return out;
@@ -92,7 +92,7 @@ export function plateSelfWeightLoads(
     for (const nid of plate.nodes) {
       out.push({
         type: 'nodal',
-        data: { nodeId: nid, fx: 0, fy: wPerNode, fz: 0, mx: 0, my: 0, mz: 0 },
+        data: { nodeId: nid, fx: 0, fy: 0, fz: wPerNode, mx: 0, my: 0, mz: 0 },
       });
     }
   }
@@ -118,7 +118,7 @@ export function quadSelfWeightLoads(
     for (const nid of quad.nodes) {
       out.push({
         type: 'nodal',
-        data: { nodeId: nid, fx: 0, fy: wPerNode, fz: 0, mx: 0, my: 0, mz: 0 },
+        data: { nodeId: nid, fx: 0, fy: 0, fz: wPerNode, mx: 0, my: 0, mz: 0 },
       });
     }
   }
