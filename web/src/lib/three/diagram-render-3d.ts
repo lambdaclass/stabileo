@@ -15,6 +15,57 @@ import {
 } from '../engine/diagrams-3d';
 import { createTextSprite } from './selection-helpers';
 
+// ─── Shared display-direction helper ────────────────────────────
+// Centralised so that createDiagramGroup3D and createEnvelopeDiagramGroup3D
+// always agree on how to orient diagram offsets for horizontal beams.
+
+export interface DiagramDisplayDirection {
+  perpVec: THREE.Vector3;  // unit vector for diagram offset (global coords)
+  sign: number;            // +1 or −1 to apply to solver values before offset
+}
+
+/**
+ * Compute the display perpendicular direction for a 3D diagram element.
+ *
+ * For horizontal beams (|ex.z| < 0.5) we project global Z onto the plane
+ * perpendicular to `ex` so that diagrams always render "upward" in the
+ * viewport regardless of the solver's internal local-axis convention.
+ *
+ * @param axes  Local axes from `computeLocalAxes3D`
+ * @param perpDir  Whether the diagram lives in the local 'y' or 'z' plane
+ */
+export function computeDiagramDisplayDirection(
+  axes: { ex: [number, number, number]; ey: [number, number, number]; ez: [number, number, number] },
+  perpDir: 'y' | 'z',
+): DiagramDisplayDirection {
+  const solverPerp = perpDir === 'y'
+    ? new THREE.Vector3(axes.ey[0], axes.ey[1], axes.ey[2])
+    : new THREE.Vector3(axes.ez[0], axes.ez[1], axes.ez[2]);
+
+  let perpVec: THREE.Vector3;
+  let displayFlipped = false;
+  const exVertical = Math.abs(axes.ex[2]);
+  if (exVertical < 0.5) {
+    // Horizontal beam: project global Z onto plane perpendicular to ex
+    const exV = new THREE.Vector3(axes.ex[0], axes.ex[1], axes.ex[2]);
+    const projZ = new THREE.Vector3(0, 0, 1).sub(exV.clone().multiplyScalar(axes.ex[2]));
+    const projLen = projZ.length();
+    if (projLen > 0.01) {
+      perpVec = projZ.divideScalar(projLen);
+      displayFlipped = solverPerp.dot(perpVec) < 0;
+    } else {
+      perpVec = solverPerp;
+    }
+  } else {
+    perpVec = solverPerp;
+  }
+
+  const baseSign = perpDir === 'z' ? -1 : 1;
+  const sign = displayFlipped ? -baseSign : baseSign;
+
+  return { perpVec, sign };
+}
+
 // Colors for different diagram types
 const DIAGRAM_COLORS: Record<Diagram3DKind, { fill: number; line: number; text: string }> = {
   momentZ: { fill: 0x4169E1, line: 0x6495ED, text: '#6495ED' },   // Blue
@@ -103,31 +154,7 @@ export function createDiagramGroup3D(
     // Compute diagram values
     const diagram = computeDiagram3D(ef, kind);
 
-    // Perpendicular direction vector (in global coords)
-    // For horizontal beams, force diagrams to display vertically (Z-up) for
-    // visual consistency, regardless of the solver's local axis convention.
-    const solverPerp = perpDir === 'y'
-      ? new THREE.Vector3(axes.ey[0], axes.ey[1], axes.ey[2])
-      : new THREE.Vector3(axes.ez[0], axes.ez[1], axes.ez[2]);
-
-    let perpVec: THREE.Vector3;
-    let displayFlipped = false; // track if display direction disagrees with solver
-    const exVertical = Math.abs(axes.ex[2]); // how vertical is the element
-    if (exVertical < 0.5) {
-      // Horizontal beam: project global Z onto plane perpendicular to ex
-      const exV = new THREE.Vector3(axes.ex[0], axes.ex[1], axes.ex[2]);
-      const projZ = new THREE.Vector3(0, 0, 1).sub(exV.clone().multiplyScalar(axes.ex[2]));
-      const projLen = projZ.length();
-      if (projLen > 0.01) {
-        perpVec = projZ.divideScalar(projLen);
-        // Check if display direction agrees with solver direction
-        displayFlipped = solverPerp.dot(perpVec) < 0;
-      } else {
-        perpVec = solverPerp;
-      }
-    } else {
-      perpVec = solverPerp;
-    }
+    const { perpVec, sign } = computeDiagramDisplayDirection(axes, perpDir);
 
     // Build mesh: triangle strip between baseline and diagram curve
     const positions: number[] = [];
@@ -144,12 +171,6 @@ export function createDiagramGroup3D(
       const by = nI.y + t * (nJ.y - nI.y);
       const bz = (nI.z ?? 0) + t * ((nJ.z ?? 0) - (nI.z ?? 0));
 
-      // Diagram point (offset perpendicular to element)
-      // Negate for ez plane: the solver convention θy=-dw/dx inverts Mz/Vy
-      // signs relative to the visual direction. Negating corrects this.
-      // Also flip if display direction disagrees with solver direction.
-      const baseSign = perpDir === 'z' ? -1 : 1;
-      const sign = displayFlipped ? -baseSign : baseSign;
       const offset = sign * pt.value * scale;
       const dx = bx + perpVec.x * offset;
       const dy = by + perpVec.y * offset;
@@ -337,11 +358,7 @@ export function createEnvelopeDiagramGroup3D(
       continue;
     }
 
-    const perpVec = perpDir === 'y'
-      ? new THREE.Vector3(axes.ey[0], axes.ey[1], axes.ey[2])
-      : new THREE.Vector3(axes.ez[0], axes.ez[1], axes.ez[2]);
-
-    const sign = perpDir === 'z' ? -1 : 1;
+    const { perpVec, sign } = computeDiagramDisplayDirection(axes, perpDir);
 
     // Draw both positive and negative envelope curves
     for (const curveType of ['pos', 'neg'] as const) {
