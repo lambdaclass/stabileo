@@ -566,10 +566,10 @@
     if (resultsCtx) resultsCtx.lastDeformedAnimScale = null;
     // Mode shapes and buckling modes always animate from the render loop
     if (dt === 'modeShape' || dt === 'bucklingMode') return;
-    // When animation is active, let the render loop handle syncDeformed with oscillating scale
-    if (!animating) {
-      syncDeformed();
-    }
+    // Always sync deformed to clean up old geometry when diagram type changes.
+    // When animation is active AND we're still showing deformed, the render
+    // loop will keep updating — but syncDeformed is idempotent (removes + recreates).
+    syncDeformed();
   });
 
   $effect(() => {

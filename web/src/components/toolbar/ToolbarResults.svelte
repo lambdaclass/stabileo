@@ -272,7 +272,7 @@
           </select>
         </div>
       {/if}
-      {#if resultsStore.hasCombinations && (resultsStore.diagramType === 'moment' || resultsStore.diagramType === 'shear' || resultsStore.diagramType === 'axial' || resultsStore.diagramType === 'momentY' || resultsStore.diagramType === 'momentZ' || resultsStore.diagramType === 'shearY' || resultsStore.diagramType === 'shearZ' || resultsStore.diagramType === 'torsion')}
+      {#if resultsStore.hasCombinations && (resultsStore.diagramType === 'moment' || resultsStore.diagramType === 'shear' || resultsStore.diagramType === 'axial' || resultsStore.diagramType === 'momentY' || resultsStore.diagramType === 'momentZ' || resultsStore.diagramType === 'shearY' || resultsStore.diagramType === 'shearZ' || resultsStore.diagramType === 'torsion' || resultsStore.diagramType === 'deformed' || resultsStore.diagramType === 'axialColor')}
         {@const is3D = uiStore.analysisMode === '3d'}
         {@const caseKeys = is3D ? [...resultsStore.perCase3D.keys()] : [...resultsStore.perCase.keys()]}
         {@const comboKeys = is3D ? [...resultsStore.perCombo3D.keys()] : [...resultsStore.perCombo.keys()]}
@@ -321,7 +321,7 @@
                   <option value="envelope">{t('results.envelope')}</option>
                 </select>
               </div>
-              {#if uiStore.showSecondarySelector}
+              {#if uiStore.showSecondarySelector && resultsStore.diagramType !== 'deformed' && resultsStore.diagramType !== 'axialColor'}
                 <div class="input-group">
                   <label>{t('results.compare')}:</label>
                   <select onchange={(e) => {
