@@ -1,4 +1,10 @@
-// Create Three.js gizmos for structural supports
+// Create Three.js gizmos for structural supports.
+// All gizmos are authored in Z-up convention (camera.up = (0,0,1)):
+//   Z = vertical (up), XY = ground plane.
+//   Gizmo extends downward from the node in the -Z direction.
+//   Three.js ConeGeometry has its axis along Y by default.
+//   To point the cone along Z: rotate -π/2 around X.
+
 import * as THREE from 'three';
 import { COLORS } from './selection-helpers';
 
@@ -16,10 +22,6 @@ export interface CreateSupportOpts {
   dofRestraints?: { tx: boolean; ty: boolean; tz: boolean; rx: boolean; ry: boolean; rz: boolean };
 }
 
-/**
- * Create a visual gizmo for a support at the given position.
- * The gizmo sits below the node in the -Z direction.
- */
 export function createSupportGizmo(
   pos: { x: number; y: number; z: number },
   opts: CreateSupportOpts,
@@ -41,21 +43,21 @@ export function createSupportGizmo(
       break;
     case 'rollerX':
     case 'rollerXZ':
-      addRollerGizmo(group, color, false);
+      // Free to slide along X; rollers sit on XZ plane, aligned with X axis
+      addRollerGizmo(group, color, 'X');
       break;
     case 'rollerZ':
     case 'rollerY':
-      addRollerGizmo(group, color, true);
+      // Free to slide along Y; rollers sit on XY plane, aligned with Y axis
+      addRollerGizmo(group, color, 'Y');
       break;
     case 'rollerXY':
-      // Free in XY, restrain Z — roller oriented along Z axis
-      addRollerGizmo(group, color, false);
-      group.rotation.x = Math.PI / 2;
+      // Restrain Z, free in XY; rollers on XY ground plane
+      addRollerGizmo(group, color, 'XY');
       break;
     case 'rollerYZ':
-      // Free in YZ, restrain X — roller oriented along X axis
-      addRollerGizmo(group, color, false);
-      group.rotation.z = -Math.PI / 2;
+      // Restrain X, free in YZ; rollers aligned along Y axis
+      addRollerGizmo(group, color, 'Y');
       break;
     case 'spring':
     case 'spring3d':
@@ -71,90 +73,132 @@ export function createSupportGizmo(
   return group;
 }
 
-/** Fixed support (empotrado): solid block with hash lines in both directions */
+// ─── Helpers ────────────────────────────────────────────────
+
+/** Create a square-base pyramid with vertex at (0,0,0) and base at Z=-height.
+ *  Built directly in Z-up coordinates — NO rotations needed.
+ *  Vertex = apex = node contact point at Z=0.
+ *  Base = 4 corners at Z=-height, radius away from center. */
+function createPyramid(radius: number, height: number, color: number): THREE.Mesh {
+  const r = radius;
+  const h = -height; // base Z position (negative = below node)
+  // 4 base corners at 45° diagonals for a square base
+  const d = r * Math.SQRT1_2; // r / √2
+  const apex = [0, 0, 0];
+  const b0 = [ d,  d, h]; // +X +Y
+  const b1 = [-d,  d, h]; // -X +Y
+  const b2 = [-d, -d, h]; // -X -Y
+  const b3 = [ d, -d, h]; // +X -Y
+
+  // 4 triangular faces: apex → base edge → next base edge
+  const verts = new Float32Array([
+    ...apex, ...b0, ...b1,  // face 0
+    ...apex, ...b1, ...b2,  // face 1
+    ...apex, ...b2, ...b3,  // face 2
+    ...apex, ...b3, ...b0,  // face 3
+    // base (2 triangles)
+    ...b0, ...b2, ...b1,
+    ...b0, ...b3, ...b2,
+  ]);
+
+  const geo = new THREE.BufferGeometry();
+  geo.setAttribute('position', new THREE.BufferAttribute(verts, 3));
+  geo.computeVertexNormals();
+
+  const mat = new THREE.MeshStandardMaterial({ color, roughness: 0.5 });
+  return new THREE.Mesh(geo, mat);
+}
+
+/** Ground line cross at a given Z level in the XY plane */
+function addGroundCross(group: THREE.Group, z: number = -0.35): void {
+  const mat = new THREE.LineBasicMaterial({ color: 0x556677 });
+  const half = 0.25;
+  group.add(new THREE.Line(
+    new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(-half, 0, z), new THREE.Vector3(half, 0, z)]),
+    mat,
+  ));
+  group.add(new THREE.Line(
+    new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(0, -half, z), new THREE.Vector3(0, half, z)]),
+    mat,
+  ));
+}
+
+/** Single ground line at a given Z level */
+function addGroundLine(group: THREE.Group, z: number = -0.35): void {
+  const mat = new THREE.LineBasicMaterial({ color: 0x556677 });
+  group.add(new THREE.Line(
+    new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(-0.25, 0, z), new THREE.Vector3(0.25, 0, z)]),
+    mat,
+  ));
+}
+
+// ─── Support types ──────────────────────────────────────────
+
+/** Fixed support: flat block in XY plane at -Z, with hash lines below */
 function addFixedGizmo(group: THREE.Group, color: number): void {
-  const geo = new THREE.BoxGeometry(0.5, 0.15, 0.5);
+  // Flat block: wide in X and Y, thin in Z
+  const geo = new THREE.BoxGeometry(0.5, 0.5, 0.12);
   const mat = new THREE.MeshStandardMaterial({ color, roughness: 0.6 });
   const box = new THREE.Mesh(geo, mat);
-  box.position.set(0, 0, -0.075);
+  box.position.set(0, 0, -0.06); // half-thickness below node
   group.add(box);
 
-  // Hash lines below block (in both X and Y directions for 3D)
+  // Hash lines below the block
   const linesMat = new THREE.LineBasicMaterial({ color: 0x556677 });
   for (let i = -1; i <= 1; i++) {
-    // Hash along X direction
-    const ptsX = [
-      new THREE.Vector3(-0.25 + i * 0.15, 0, -0.15),
-      new THREE.Vector3(-0.1 + i * 0.15, 0, -0.3),
-    ];
-    group.add(new THREE.Line(new THREE.BufferGeometry().setFromPoints(ptsX), linesMat));
-    // Hash along Y direction
-    const ptsY = [
-      new THREE.Vector3(0, -0.25 + i * 0.15, -0.15),
-      new THREE.Vector3(0, -0.1 + i * 0.15, -0.3),
-    ];
-    group.add(new THREE.Line(new THREE.BufferGeometry().setFromPoints(ptsY), linesMat));
+    // Diagonal hatch in XZ plane
+    group.add(new THREE.Line(new THREE.BufferGeometry().setFromPoints([
+      new THREE.Vector3(-0.25 + i * 0.15, 0, -0.12),
+      new THREE.Vector3(-0.1 + i * 0.15, 0, -0.28),
+    ]), linesMat));
+    // Diagonal hatch in YZ plane
+    group.add(new THREE.Line(new THREE.BufferGeometry().setFromPoints([
+      new THREE.Vector3(0, -0.25 + i * 0.15, -0.12),
+      new THREE.Vector3(0, -0.1 + i * 0.15, -0.28),
+    ]), linesMat));
   }
 }
 
-/** Pinned support (apoyo fijo): square-base pyramid, vertex touching the node */
+/** Pinned support: pyramid vertex at node, base below, ground cross at base */
 function addPinnedGizmo(group: THREE.Group, color: number): void {
-  // ConeGeometry with 4 radial segments = square-base pyramid
-  // Default: vertex at +height/2, base at -height/2
-  const geo = new THREE.ConeGeometry(0.18, 0.35, 4);
-  const mat = new THREE.MeshStandardMaterial({ color, roughness: 0.5 });
-  const cone = new THREE.Mesh(geo, mat);
-  // Rotate to point along +Z, then align square base edges with world X/Y axes.
-  cone.rotation.x = Math.PI / 2;
-  cone.rotation.z = Math.PI / 4;
-  // Center at -height/2 so vertex lands at z=0 (node) and base at z=-0.35.
-  cone.position.set(0, 0, -0.175);
-  group.add(cone);
-
-  // Ground cross (X + Y lines)
-  addGroundCross(group);
+  group.add(createPyramid(0.18, 0.35, color));
+  addGroundCross(group, -0.35);
 }
 
-/** Roller support (apoyo móvil): inverted pyramid + 4 small spheres as wheels */
-function addRollerGizmo(group: THREE.Group, color: number, vertical: boolean): void {
-  // Pyramid (same as pinned but slightly smaller)
-  // Default: vertex at +0.15, base at -0.15
-  const coneGeo = new THREE.ConeGeometry(0.16, 0.3, 4);
-  const mat = new THREE.MeshStandardMaterial({ color, roughness: 0.5 });
-  const cone = new THREE.Mesh(coneGeo, mat);
-  cone.rotation.x = Math.PI / 2;
-  cone.rotation.z = Math.PI / 4;
-  // Center at -0.15 so vertex at z=0 (node), base at z=-0.3
-  cone.position.set(0, 0, -0.15);
-  group.add(cone);
+/** Roller support: pyramid + spheres below, all extending downward in -Z.
+ *  The `rollAxis` param controls which direction the rollers are arranged:
+ *  - 'X': 2 rollers along X (rolls in X direction)
+ *  - 'Y': 2 rollers along Y (rolls in Y direction)
+ *  - 'XY': 4 rollers in XY grid (rolls in any horizontal direction) */
+function addRollerGizmo(group: THREE.Group, color: number, rollAxis: 'X' | 'Y' | 'XY'): void {
+  // Pyramid
+  group.add(createPyramid(0.16, 0.3, color));
 
-  // 4 small spheres (wheels) below the pyramid base
+  // Roller spheres below pyramid base
   const sphereGeo = new THREE.SphereGeometry(0.04, 8, 8);
   const sphereMat = new THREE.MeshStandardMaterial({ color, roughness: 0.4 });
-  const baseZ = -0.34; // just below pyramid base
-  const spread = 0.1;  // distance from center to each wheel
-  const wheelPositions: [number, number, number][] = [
-    [-spread, -spread, baseZ],
-    [ spread, -spread, baseZ],
-    [-spread,  spread, baseZ],
-    [ spread,  spread, baseZ],
-  ];
-  for (const [wx, wy, wz] of wheelPositions) {
+  const baseZ = -0.34;
+  const s = 0.1;
+
+  let positions: [number, number, number][];
+  if (rollAxis === 'X') {
+    positions = [[-s, 0, baseZ], [s, 0, baseZ]];
+  } else if (rollAxis === 'Y') {
+    positions = [[0, -s, baseZ], [0, s, baseZ]];
+  } else {
+    positions = [[-s, -s, baseZ], [s, -s, baseZ], [-s, s, baseZ], [s, s, baseZ]];
+  }
+
+  for (const [px, py, pz] of positions) {
     const sphere = new THREE.Mesh(sphereGeo, sphereMat);
-    sphere.position.set(wx, wy, wz);
+    sphere.position.set(px, py, pz);
     group.add(sphere);
   }
 
-  // Ground cross below wheels
   addGroundCross(group, -0.42);
-
-  if (vertical) {
-    // Rotate entire gizmo 90° around Y so the roller aligns with the in-plane vertical axis.
-    group.rotation.y = Math.PI / 2;
-  }
 }
 
-/** Spring support: zigzag line */
+/** Spring support: zigzag line extending downward in -Z */
 function addSpringGizmo(group: THREE.Group, color: number): void {
   const points: THREE.Vector3[] = [];
   const coils = 4;
@@ -178,27 +222,7 @@ function addSpringGizmo(group: THREE.Group, color: number): void {
   addGroundLine(group, -height - 0.1);
 }
 
-/** Ground cross (X + Y lines) below support — used by pinned and roller */
-function addGroundCross(group: THREE.Group, z: number = -0.35): void {
-  const lineMat = new THREE.LineBasicMaterial({ color: 0x556677 });
-  // Line along X
-  const ptsX = [
-    new THREE.Vector3(-0.25, 0, z),
-    new THREE.Vector3(0.25, 0, z),
-  ];
-  group.add(new THREE.Line(new THREE.BufferGeometry().setFromPoints(ptsX), lineMat));
-  // Line along Y
-  const ptsY = [
-    new THREE.Vector3(0, -0.25, z),
-    new THREE.Vector3(0, 0.25, z),
-  ];
-  group.add(new THREE.Line(new THREE.BufferGeometry().setFromPoints(ptsY), lineMat));
-}
-
-/** Custom 3D support: shows per-DOF indicators.
- *  Restrained translations → short bars along axis
- *  Restrained rotations → small arcs around axis
- */
+/** Custom 3D support: per-DOF restraint indicators */
 function addCustom3DGizmo(
   group: THREE.Group,
   _color: number,
@@ -207,7 +231,7 @@ function addCustom3DGizmo(
   const r = dofRestraints ?? { tx: true, ty: true, tz: true, rx: false, ry: false, rz: false };
   const barLen = 0.25;
 
-  // Translation restraints: short cylinders along axes
+  // Translation restraints: cylinders along axes
   const transAxes: [boolean, THREE.Vector3, number][] = [
     [r.tx, new THREE.Vector3(1, 0, 0), 0xff4444],
     [r.ty, new THREE.Vector3(0, 1, 0), 0x44ff44],
@@ -215,18 +239,18 @@ function addCustom3DGizmo(
   ];
   for (const [fixed, axis, axisColor] of transAxes) {
     if (!fixed) continue;
+    // CylinderGeometry axis is Y. Rotate to align with the target axis.
     const geo = new THREE.CylinderGeometry(0.025, 0.025, barLen, 6);
     const mat = new THREE.MeshStandardMaterial({ color: axisColor, roughness: 0.5 });
     const mesh = new THREE.Mesh(geo, mat);
-    // Rotate cylinder to align with axis
-    if (axis.x > 0) mesh.rotation.z = -Math.PI / 2;
-    else if (axis.z > 0) mesh.rotation.x = Math.PI / 2;
-    // Position below node
+    if (axis.x > 0) mesh.rotation.z = -Math.PI / 2;       // Y → X
+    else if (axis.z > 0) mesh.rotation.x = -Math.PI / 2;   // Y → Z
+    // else axis.y: no rotation needed
     mesh.position.set(0, 0, -0.2);
     group.add(mesh);
   }
 
-  // Rotation restraints: small torus arcs around axes
+  // Rotation restraints: torus arcs
   const rotAxes: [boolean, THREE.Vector3, number][] = [
     [r.rx, new THREE.Vector3(1, 0, 0), 0xff8844],
     [r.ry, new THREE.Vector3(0, 1, 0), 0x88ff44],
@@ -237,7 +261,6 @@ function addCustom3DGizmo(
     const torus = new THREE.TorusGeometry(0.12, 0.015, 6, 12, Math.PI);
     const mat = new THREE.MeshBasicMaterial({ color: axisColor });
     const mesh = new THREE.Mesh(torus, mat);
-    // Orient arc perpendicular to the rotation axis
     const quat = new THREE.Quaternion();
     quat.setFromUnitVectors(new THREE.Vector3(0, 0, 1), axis);
     mesh.quaternion.copy(quat);
@@ -245,17 +268,5 @@ function addCustom3DGizmo(
     group.add(mesh);
   }
 
-  // Ground cross
   addGroundCross(group, -0.35);
-}
-
-/** Horizontal ground line below support — used by spring */
-function addGroundLine(group: THREE.Group, z: number = -0.35): void {
-  const pts = [
-    new THREE.Vector3(-0.25, 0, z),
-    new THREE.Vector3(0.25, 0, z),
-  ];
-  const geo = new THREE.BufferGeometry().setFromPoints(pts);
-  const mat = new THREE.LineBasicMaterial({ color: 0x556677 });
-  group.add(new THREE.Line(geo, mat));
 }

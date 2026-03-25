@@ -4,10 +4,12 @@
 // Groups identical element designs to reduce report length
 
 import katex from 'katex';
+import katexCss from 'katex/dist/katex.min.css?raw';
 import type { Node, Material, Section, Element, Support, Quad } from '../store/model.svelte';
 import type { AnalysisResults3D } from './types-3d';
 import type { ElementVerification } from './codes/argentina/cirsoc201';
-import { generateCrossSectionSvg, generateBeamElevationSvg, generateColumnElevationSvg, generateJointDetailSvg, generateSlabReinforcementSvg, designSlabReinforcement } from './reinforcement-svg';
+import { generateCrossSectionSvg, generateBeamElevationSvg, generateColumnElevationSvg, generateJointDetailSvg, generateSlabReinforcementSvg, designSlabReinforcement, generateFrameLineElevationSvg, generateColumnStackElevationSvg } from './reinforcement-svg';
+import type { JointDetailSvgOpts, FrameLineElevationOpts, ColumnStackElevationOpts } from './reinforcement-svg';
 import { generateInteractionDiagram, generateInteractionSvg } from './codes/argentina/interaction-diagram';
 import type { QuantitySummary } from './quantity-takeoff';
 import type { SolverDiagnostic } from './types';
@@ -75,6 +77,20 @@ export interface ReportData {
   }>;
   // Load combination definitions (for reference table + governing combo column)
   combinations?: Array<{ id: number; name: string; factors: Array<{ caseName: string; factor: number }> }>;
+  // Serviceability check results
+  serviceability?: Array<{ elementId: number; elementType: string; crack?: { wk: number; wkLimit: number; status: string }; deflection?: { ratio: number; limit: number; status: string } }>;
+  // Upgraded joint detail opts (detailing-aware, multiple types)
+  jointDetailOpts?: JointDetailSvgOpts[];
+  // Beam continuity frame-line elevation opts
+  beamContinuityOpts?: FrameLineElevationOpts[];
+  // Column stack continuity elevation opts
+  columnStackOpts?: ColumnStackElevationOpts[];
+  // Slender column summary
+  slenderSummary?: Array<{ elementId: number; k: number; lu: number; r: number; klu_r: number; lambda_lim: number; isSlender: boolean; delta_ns: number; Cm: number; Mc: number }>;
+  // Bar marks
+  barMarks?: Array<{ mark: string; diameter: number; shape: string; cuttingLength: number; count: number; totalLength: number; weight: number; overStock: boolean; stockLength: number; needsStockSplice: boolean; nStockSplices: number }>;
+  // Per-element per-combo forces for detailed report
+  comboForces?: Map<number, Array<{ comboId: number; comboName: string; Mu: number; Vu: number; Nu: number }>>;
   // Diagnostics
   diagnostics?: SolverDiagnostic[];
   // Viewport screenshot (data URL)
@@ -114,6 +130,17 @@ function km(expr: string, display = false): string {
 function renderStep(step: string): string {
   let tex = step;
 
+  // ── Normalize accented Spanish chars to ASCII (before any LaTeX conversion) ──
+  // These appear mid-equation in terms like mín, máx, compresión, flexión, etc.
+  // KaTeX decomposes accented chars in math mode into broken glyphs (e.g. í → ıˊ)
+  tex = tex.replace(/á/g, 'a');
+  tex = tex.replace(/é/g, 'e');
+  tex = tex.replace(/í/g, 'i');
+  tex = tex.replace(/ó/g, 'o');
+  tex = tex.replace(/ú/g, 'u');
+  tex = tex.replace(/ñ/g, 'n');
+  tex = tex.replace(/ü/g, 'u');
+
   // ── Named substitutions (do these BEFORE symbol replacements) ──
   tex = tex.replace(/As,req/g, 'A_{s,req}');
   tex = tex.replace(/As,min/g, 'A_{s,min}');
@@ -148,11 +175,17 @@ function renderStep(step: string): string {
   tex = tex.replace(/Pn(?=[·\s=)])/g, 'P_{n}');
   tex = tex.replace(/Lu/g, 'L_{u}');
   tex = tex.replace(/δns/g, '\\delta_{ns}');
+  tex = tex.replace(/βdns/g, '\\beta_{dns}');
   tex = tex.replace(/f'c/g, "f'_{c}");
   tex = tex.replace(/bw/g, 'b_{w}');
   tex = tex.replace(/ρ_min/g, '\\rho_{min}');
   tex = tex.replace(/ρ_max/g, '\\rho_{max}');
   tex = tex.replace(/ρ_b/g, '\\rho_{b}');
+  tex = tex.replace(/λm,lim/g, '\\lambda_{m,lim}');
+  tex = tex.replace(/EI,eff/g, 'EI_{eff}');
+  tex = tex.replace(/M2C/g, 'M_{2C}');
+  tex = tex.replace(/M2,min/g, 'M_{2,min}');
+  tex = tex.replace(/M1\/M2/g, 'M_1/M_2');
 
   // ── √ handling: match √ followed by a "token" (letters/digits/'/_ until · or space or = or )) ──
   // e.g. "√f'c" → "\sqrt{f'_{c}}", "√(d² - X)" → "\sqrt{(d² - X)}"
@@ -164,31 +197,44 @@ function renderStep(step: string): string {
   tex = tex.replace(/φ/g, '\\phi ');
   tex = tex.replace(/ρ/g, '\\rho ');
   tex = tex.replace(/θ/g, '\\theta ');
+  tex = tex.replace(/ε/g, '\\varepsilon ');
+  tex = tex.replace(/Δ/g, '\\Delta ');
+  tex = tex.replace(/β/g, '\\beta ');
+  tex = tex.replace(/δ/g, '\\delta ');
+  tex = tex.replace(/λ/g, '\\lambda ');
+  tex = tex.replace(/Ψ/g, '\\Psi ');
+  tex = tex.replace(/π/g, '\\pi ');
   tex = tex.replace(/²/g, '^{2}');
   tex = tex.replace(/³/g, '^{3}');
   tex = tex.replace(/⁴/g, '^{4}');
   tex = tex.replace(/≥/g, '\\geq ');
   tex = tex.replace(/≤/g, '\\leq ');
+  tex = tex.replace(/≈/g, '\\approx ');
   tex = tex.replace(/→/g, '\\rightarrow ');
   tex = tex.replace(/⚠/g, '\\triangle\\!');
   tex = tex.replace(/×/g, '\\times ');
   tex = tex.replace(/Ø/g, '\\varnothing');
+  tex = tex.replace(/‰/g, '\\text{\\u2030}');
+  tex = tex.replace(/°/g, '^{\\circ}');
+  tex = tex.replace(/—/g, '\\text{---}');
 
   // ── Units at end of expression → \text{} ──
-  // Unit patterns (after · → \cdot replacement, ² → ^{2})
-  tex = tex.replace(/\s+kN\s*\\cdot\s*m\s*$/, ' \\text{ kN·m}');
-  tex = tex.replace(/\s+cm\^{2}\/m\s*$/, ' \\text{ cm²/m}');
-  tex = tex.replace(/\s+m\^{2}\/m\s*$/, ' \\text{ m²/m}');
-  tex = tex.replace(/\s+cm\^{2}\s*$/, ' \\text{ cm²}');
-  tex = tex.replace(/\s+m\^{2}\s*$/, ' \\text{ m²}');
+  // Use \text{kN}\cdot\text{m} to avoid literal · inside \text{} (causes \cdotp leak)
+  tex = tex.replace(/\s+kN\s*\\cdot\s*m\s*$/, ' \\text{ kN}{\\cdot}\\text{m}');
+  tex = tex.replace(/\s+kN\s*\\cdot\s*m\^{2}\s*$/, ' \\text{ kN}{\\cdot}\\text{m}^{2}');
+  tex = tex.replace(/\s+cm\^{2}\/m\s*$/, ' \\text{ cm}^{2}\\text{/m}');
+  tex = tex.replace(/\s+m\^{2}\/m\s*$/, ' \\text{ m}^{2}\\text{/m}');
+  tex = tex.replace(/\s+cm\^{2}\s*$/, ' \\text{ cm}^{2}');
+  tex = tex.replace(/\s+m\^{2}\s*$/, ' \\text{ m}^{2}');
   tex = tex.replace(/\s+(kN|MPa|cm|mm|m|rad)\s*$/, ' \\text{ $1}');
   tex = tex.replace(/\s+(%)\s*$/, ' \\text{$1}');
 
   // ── Wrap text fragments (Armadura propuesta:, Estribos:, etc.) ──
-  // Detect lines that are descriptive text, not equations (no "=" sign, or start with ⚠/Armadura/Estribos/etc.)
-  const isTextLine = /^⚠/.test(step) || /^(Armadura|Estribos|Momento|Sección|Columna|No se)/.test(step);
+  // Detect lines that are descriptive text, not equations
+  const isTextLine = /^(Armadura|Estribos|Momento|Seccion|Columna|No se|zona |compresion |Ratio )/.test(tex)
+    || (/^[A-Za-z]/.test(tex) && !tex.includes('=') && !tex.includes('\\'));
   if (isTextLine) {
-    tex = `\\text{${escHtml(step).replace(/Ø/g, 'ø')}}`;
+    tex = `\\text{${escHtml(step.replace(/á/g,'a').replace(/é/g,'e').replace(/í/g,'i').replace(/ó/g,'o').replace(/ú/g,'u').replace(/ñ/g,'n').replace(/Ø/g, 'ø'))}}`;
   }
 
   return `<div class="memo-step">${km(tex)}</div>`;
@@ -338,15 +384,12 @@ export function generateReportHtml(data: ReportData): string {
     : tr('report.printBtn') === 'Print / PDF' ? 'en'
     : 'en';
 
-  // Get KaTeX CSS URL from the installed package
-  const katexCssUrl = 'https://cdn.jsdelivr.net/npm/katex@0.16.28/dist/katex.min.css';
-
   html.push(`<!DOCTYPE html>
 <html lang="${langCode}">
 <head>
 <meta charset="UTF-8">
 <title>${escHtml(interp(tr('report.docTitle'), { name: projectName }))}</title>
-<link rel="stylesheet" href="${katexCssUrl}">
+<style>${katexCss.replace(/url\(fonts\//g, 'url(https://cdn.jsdelivr.net/npm/katex@0.16.28/dist/fonts/')}</style>
 <style>${REPORT_CSS}</style>
 </head>
 <body>
@@ -623,29 +666,56 @@ export function generateReportHtml(data: ReportData): string {
     const warn = verifications.filter(v => v.overallStatus === 'warn').length;
     html.push(`<p><span class="status-ok">${escHtml(interp(tr('report.statusOk'), { n: ok }))}</span> · <span class="status-warn">${escHtml(interp(tr('report.statusWarn'), { n: warn }))}</span> · <span class="status-fail">${escHtml(interp(tr('report.statusFail'), { n: fail }))}</span></p>`);
 
-    // Summary table
+    // Summary table — grouped by element with per-combo force rows
     const hasCombos = data.combinations && data.combinations.length > 0;
+    const comboForces = data.comboForces;
+    const typeOrd: Record<string, number> = { column: 0, wall: 1, beam: 2 };
+    const sortedVerifs = [...verifications].sort((a, b) => {
+      const t = (typeOrd[a.elementType] ?? 9) - (typeOrd[b.elementType] ?? 9);
+      return t !== 0 ? t : a.elementId - b.elementId;
+    });
+
     html.push(`<h2>3.1 ${escHtml(tr('report.summary'))}</h2>`);
-    html.push(`<table><thead><tr><th>Elem</th><th>${escHtml(tr('report.type'))}</th><th>${km('M_u')} (kN·m)</th><th>${km('V_u')} (kN)</th><th>${km('N_u')} (kN)</th>${hasCombos ? '<th>Combo</th>' : ''}<th>${km('A_{s,req}')} (cm²)</th><th>${km('A_{s,prov}')} (cm²)</th><th>${escHtml(tr('report.reinforcement'))}</th><th>${escHtml(tr('report.stirrups'))}</th><th>${escHtml(tr('report.status'))}</th></tr></thead><tbody>`);
-    for (const v of verifications) {
+
+    for (const v of sortedVerifs) {
       const statusCls = v.overallStatus === 'ok' ? 'status-ok' : v.overallStatus === 'fail' ? 'status-fail' : 'status-warn';
       const statusTxt = v.overallStatus === 'ok' ? '✓' : v.overallStatus === 'fail' ? '✗' : '⚠';
       const asReq = v.column ? v.column.AsTotal : v.flexure.AsReq;
       const asProv = v.column ? v.column.AsProv : v.flexure.AsProv;
       const bars = v.column ? v.column.bars : v.flexure.bars;
-      // Show compression steel indicator for doubly reinforced beams
-      const compNote = (!v.column && v.flexure.isDoublyReinforced && v.flexure.barsComp)
-        ? ` + ${v.flexure.barsComp} (A's)`
-        : '';
-      const comboCol = hasCombos ? `<td style="font-size:8px;max-width:100px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${escHtml(v.governingCombos?.flexure?.comboName ?? '—')}</td>` : '';
-      html.push(`<tr><td>${v.elementId}</td><td>${typeLabel(v.elementType, tr)}</td><td class="num">${fmtNum(v.Mu)}</td><td class="num">${fmtNum(v.Vu)}</td><td class="num">${fmtNum(v.Nu)}</td>${comboCol}<td class="num">${asReq.toFixed(1)}</td><td class="num">${asProv.toFixed(1)}</td><td>${bars}${compNote}</td><td>eØ${v.shear.stirrupDia} c/${(v.shear.spacing * 100).toFixed(0)}</td><td class="${statusCls}">${statusTxt}</td></tr>`);
+      const compNote = (!v.column && v.flexure.isDoublyReinforced && v.flexure.barsComp) ? ` + ${v.flexure.barsComp} (A's)` : '';
+      const secStr = `${(v.b * 100).toFixed(0)}×${(v.h * 100).toFixed(0)}`;
+      const govComboId = v.governingCombos?.flexure?.comboId;
+
+      // Element header — print-friendly light background
+      html.push(`<div style="margin-top:12px;padding:5px 8px;background:#eef3f9;border:1px solid #ccc;border-radius:3px;color:#222">`);
+      html.push(`<strong>${typeLabel(v.elementType, tr)} ${v.elementId}</strong> — ${secStr} cm — <span class="${statusCls}" style="font-weight:700">${statusTxt} ${v.overallStatus.toUpperCase()}</span>`);
+      html.push(`</div>`);
+
+      // Per-combo force rows
+      const elemCombos = comboForces?.get(v.elementId);
+      if (elemCombos && elemCombos.length > 0) {
+        html.push(`<table style="margin:0;font-size:9px;width:100%;border-collapse:collapse"><thead><tr><th style="text-align:left;padding:2px 4px;width:40%">Combination</th><th style="text-align:right;padding:2px 4px">${km('M_u')} (kN·m)</th><th style="text-align:right;padding:2px 4px">${km('V_u')} (kN)</th><th style="text-align:right;padding:2px 4px">${km('N_u')} (kN)</th></tr></thead><tbody>`);
+        for (const cf of elemCombos) {
+          const isGov = cf.comboId === govComboId;
+          const rowBg = isGov ? 'background:#e8f5f3;font-weight:600' : '';
+          const marker = isGov ? ' ◄' : '';
+          html.push(`<tr style="${rowBg}"><td style="padding:1px 4px">${escHtml(cf.comboName)}${marker}</td><td class="num" style="padding:1px 4px">${fmtNum(cf.Mu)}</td><td class="num" style="padding:1px 4px">${fmtNum(cf.Vu)}</td><td class="num" style="padding:1px 4px">${fmtNum(cf.Nu)}</td></tr>`);
+        }
+        html.push(`</tbody></table>`);
+      }
+
+      // Reinforcement / design summary (from envelope/governing verification)
+      html.push(`<div style="padding:3px 8px;font-size:9px;color:#555;border-bottom:1px solid #ddd;background:#fafafa">`);
+      html.push(`Design (envelope): ${km('A_{s,req}')} = ${asReq.toFixed(1)} cm² → ${bars}${compNote} (${asProv.toFixed(1)} cm²) · eØ${v.shear.stirrupDia} c/${(v.shear.spacing * 100).toFixed(0)}`);
+      html.push(`</div>`);
     }
-    html.push(`</tbody></table>`);
 
     // ─── Grouped detail ──────────────────────────────────
     html.push(`<h2>3.2 ${escHtml(tr('report.detailByType'))}</h2>`);
 
     const groups = groupVerifications(verifications);
+    const colGroup = groups.find(g => g.representative.elementType === 'column');
 
     for (const group of groups) {
       const v = group.representative;
@@ -723,6 +793,7 @@ export function generateReportHtml(data: ReportData): string {
               const svgDiag = generateInteractionSvg(diagram, { Nu: v.Nu, Mu: v.Mu });
               html.push(`<h4>${escHtml(tr('report.interactionDiagram') || 'Diagrama de Interacción P-M')}</h4>`);
               html.push(`<div class="interaction-container">${svgDiag}</div>`);
+              html.push(`<p class="dim" style="font-size:8px;color:#888;margin-top:2px">Point shown is envelope maximum (conservative — Nu and Mu may come from different combinations)</p>`);
             }
           }
         } catch { /* diagram generation is optional */ }
@@ -806,26 +877,49 @@ export function generateReportHtml(data: ReportData): string {
       }
     }
 
-    // ─── Joint details ──────────────────────────────────────
-    // Find beam-column connections and generate joint details
-    const beamGroup = groups.find(g => g.representative.elementType === 'beam');
-    const colGroup = groups.find(g => g.representative.elementType === 'column');
-    if (beamGroup && colGroup) {
+    // ─── Joint details (upgraded: detailing-aware, multiple types) ──
+    if (data.jointDetailOpts && data.jointDetailOpts.length > 0) {
       html.push(`<h2>3.4 ${escHtml(tr('report.jointDetails'))}</h2>`);
-      const bv = beamGroup.representative;
-      const cv = colGroup.representative;
-      const jointSvg = generateJointDetailSvg({
-        beamB: bv.b,
-        beamH: bv.h,
-        colB: cv.b,
-        colH: cv.h,
-        cover: bv.cover,
-        beamBars: bv.flexure.bars,
-        colBars: cv.column?.bars ?? cv.flexure.bars,
-        stirrupDia: cv.shear.stirrupDia,
-        stirrupSpacing: cv.shear.spacing,
-      });
-      html.push(`<div class="svg-container">${jointSvg}</div>`);
+      for (const jd of data.jointDetailOpts.slice(0, 4)) {
+        html.push(`<div class="svg-container">${generateJointDetailSvg(jd)}</div>`);
+      }
+    } else {
+      // Fallback: old single-representative joint
+      const beamGroup = groups.find(g => g.representative.elementType === 'beam');
+      if (beamGroup && colGroup) {
+        html.push(`<h2>3.4 ${escHtml(tr('report.jointDetails'))}</h2>`);
+        const bv = beamGroup.representative;
+        const cv = colGroup.representative;
+        html.push(`<div class="svg-container">${generateJointDetailSvg({ beamB: bv.b, beamH: bv.h, colB: cv.b, colH: cv.h, cover: bv.cover, beamBars: bv.flexure.bars, colBars: cv.column?.bars ?? cv.flexure.bars, stirrupDia: cv.shear.stirrupDia, stirrupSpacing: cv.shear.spacing })}</div>`);
+      }
+    }
+
+    // ─── Beam continuity elevations ──────────────────────────
+    if (data.beamContinuityOpts && data.beamContinuityOpts.length > 0) {
+      html.push(`<h2>3.5 ${escHtml(tr('report.beamContinuity') || 'Beam Continuity')}</h2>`);
+      for (const fl of data.beamContinuityOpts.slice(0, 3)) {
+        html.push(`<div class="svg-container" style="overflow-x:auto">${generateFrameLineElevationSvg(fl)}</div>`);
+      }
+    }
+
+    // ─── Column continuity elevations ──────────────────────────
+    if (data.columnStackOpts && data.columnStackOpts.length > 0) {
+      html.push(`<h2>3.6 ${escHtml(tr('report.columnContinuity') || 'Column Continuity')}</h2>`);
+      for (const cs of data.columnStackOpts.slice(0, 3)) {
+        html.push(`<div class="svg-container">${generateColumnStackElevationSvg(cs)}</div>`);
+      }
+    }
+
+    // ─── Slender column summary ──────────────────────────────
+    if (data.slenderSummary && data.slenderSummary.length > 0) {
+      html.push(`<h2>3.6 ${escHtml(tr('report.slenderSummary') || 'Slender Column Summary')}</h2>`);
+      html.push(`<table><thead><tr><th>Elem</th><th>k</th><th>Lu (m)</th><th>k·Lu/r</th><th>λ lim</th><th>${escHtml(tr('report.slenderClass') || 'Class')}</th><th>δ_ns</th><th>C_m</th><th>Mc (kN·m)</th></tr></thead><tbody>`);
+      for (const s of data.slenderSummary) {
+        const cls = s.isSlender ? 'status-warn' : 'status-ok';
+        const label = s.isSlender ? tr('pro.slenderCol') || 'Slender' : tr('pro.shortCol') || 'Short';
+        html.push(`<tr><td>${s.elementId}</td><td class="num">${s.k.toFixed(2)}</td><td class="num">${s.lu.toFixed(2)}</td><td class="num">${s.klu_r.toFixed(1)}</td><td class="num">${s.lambda_lim.toFixed(0)}</td><td class="${cls}">${label}</td><td class="num">${s.isSlender ? s.delta_ns.toFixed(3) : '—'}</td><td class="num">${s.isSlender ? s.Cm.toFixed(3) : '—'}</td><td class="num">${s.isSlender ? s.Mc.toFixed(1) : '—'}</td></tr>`);
+      }
+      html.push(`</tbody></table>`);
     }
 
     // ─── Slab reinforcement ─────────────────────────────────
@@ -927,6 +1021,25 @@ export function generateReportHtml(data: ReportData): string {
       }
     }
 
+    // Serviceability checks
+    if (data.serviceability && data.serviceability.length > 0) {
+      const svcItems = data.serviceability.filter(s => s.crack || s.deflection);
+      if (svcItems.length > 0) {
+        html.push(`<h2>3.${data.quads && data.quads.length > 0 ? '7' : colGroup ? '6' : '5'} ${escHtml(tr('report.serviceability') || 'Serviceability')}</h2>`);
+        html.push(`<table><thead><tr><th>Elem</th><th>${escHtml(tr('report.type'))}</th><th>${escHtml(tr('report.crackWidth') || 'Crack w_k')} (mm)</th><th>${escHtml(tr('report.crackLimit') || 'Limit')} (mm)</th><th>${escHtml(tr('report.deflRatio') || 'Defl. ratio')}</th><th>${escHtml(tr('report.deflLimit') || 'Limit')}</th><th>${escHtml(tr('report.status'))}</th></tr></thead><tbody>`);
+        for (const s of svcItems) {
+          const crackWk = s.crack ? s.crack.wk.toFixed(2) : '—';
+          const crackLim = s.crack ? s.crack.wkLimit.toFixed(2) : '—';
+          const deflR = s.deflection ? `1/${Math.round(1 / s.deflection.ratio)}` : '—';
+          const deflLim = s.deflection ? `1/${Math.round(1 / s.deflection.limit)}` : '—';
+          const worst = [s.crack?.status, s.deflection?.status].includes('fail') ? 'fail' : [s.crack?.status, s.deflection?.status].includes('warn') ? 'warn' : 'ok';
+          const cls = worst === 'fail' ? 'status-fail' : worst === 'warn' ? 'status-warn' : 'status-ok';
+          html.push(`<tr><td>${s.elementId}</td><td>${typeLabel(s.elementType as any, tr)}</td><td class="num">${crackWk}</td><td class="num">${crackLim}</td><td class="num">${deflR}</td><td class="num">${deflLim}</td><td class="${cls}">${worst === 'ok' ? '✓' : worst === 'fail' ? '✗' : '⚠'}</td></tr>`);
+        }
+        html.push(`</tbody></table>`);
+      }
+    }
+
     // Rebar schedule (grouped)
     html.push(`<div class="page-break"></div>`);
     html.push(`<h2>3.${data.quads && data.quads.length > 0 ? '6' : colGroup ? '5' : '4'} ${escHtml(tr('report.rebarSchedule'))}</h2>`);
@@ -948,6 +1061,22 @@ export function generateReportHtml(data: ReportData): string {
       }
     }
     html.push(`</tbody></table>`);
+
+    // Bar marks table
+    if (data.barMarks && data.barMarks.length > 0) {
+      html.push(`<h3>${escHtml(tr('report.barMarks') || 'Bar Marks — Estimated Cutting Lengths')}</h3>`);
+      const shapeL = (s: string) => s === 'stirrup' ? (tr('report.bmStirrup') || 'Stirrup') : s === 'hooked' ? (tr('report.bmHooked') || 'Hooked') : (tr('report.bmStraight') || 'Straight');
+      html.push(`<table><thead><tr><th>${escHtml(tr('report.bmMark') || 'Mark')}</th><th>Ø (mm)</th><th>${escHtml(tr('report.bmShape') || 'Shape')}</th><th>${escHtml(tr('report.bmCutLen') || 'Cut. L')} (m)</th><th>${escHtml(tr('report.bmCount') || 'Count')}</th><th>${escHtml(tr('report.bmTotalLen') || 'Total L')} (m)</th><th>${escHtml(tr('report.bmWeight') || 'Weight')} (kg)</th><th>Stock</th></tr></thead><tbody>`);
+      for (const m of data.barMarks) {
+        const note = m.overStock ? ' <span style="color:#f0a500">⚠ &gt;12m</span>' : '';
+        const stockNote = m.needsStockSplice ? `${m.stockLength}m (${m.nStockSplices}sp)` : m.shape !== 'stirrup' ? `${m.stockLength}m` : '';
+        html.push(`<tr><td><strong>${escHtml(m.mark)}</strong></td><td class="num">${m.diameter}</td><td>${escHtml(shapeL(m.shape))}</td><td class="num">${m.cuttingLength.toFixed(2)}</td><td class="num">${m.count}</td><td class="num">${m.totalLength.toFixed(1)}</td><td class="num">${m.weight.toFixed(1)}${note}</td><td class="num">${stockNote}</td></tr>`);
+      }
+      const tw = data.barMarks.reduce((s, m) => s + m.weight, 0);
+      const tl = data.barMarks.reduce((s, m) => s + m.totalLength, 0);
+      html.push(`<tr style="font-weight:bold;border-top:2px solid #444"><td colspan="5"></td><td class="num">${tl.toFixed(1)}</td><td class="num">${tw.toFixed(1)}</td><td></td></tr>`);
+      html.push(`</tbody></table>`);
+    }
 
     // Quantities section
     if (quantities) {
@@ -1067,11 +1196,14 @@ export function generateReportHtml(data: ReportData): string {
   return html.join('\n');
 }
 
-/** Open the report in a new window for printing */
+/** Open the report in a new window for printing.
+ *  Uses a Blob URL instead of document.write() to avoid all browser-specific
+ *  document lifecycle timing issues that caused first-run blank reports. */
 export function openReport(data: ReportData): void {
   const htmlContent = generateReportHtml(data);
-  const win = window.open('', '_blank');
-  if (!win) return;
-  win.document.write(htmlContent);
-  win.document.close();
+  const blob = new Blob([htmlContent], { type: 'text/html;charset=utf-8' });
+  const url = URL.createObjectURL(blob);
+  const win = window.open(url, '_blank');
+  if (win) setTimeout(() => URL.revokeObjectURL(url), 120_000);
+  else URL.revokeObjectURL(url);
 }

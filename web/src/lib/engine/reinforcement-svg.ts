@@ -1,7 +1,7 @@
 // SVG generators for reinforcement drawings
 // Produces technical-style cross-section and elevation views
 
-import type { FlexureResult, ShearResult, ColumnResult, DetailingResult } from './codes/argentina/cirsoc201';
+import { REBAR_DB, type FlexureResult, type ShearResult, type ColumnResult, type DetailingResult } from './codes/argentina/cirsoc201';
 
 // ─── Cross-Section Drawing ──────────────────────────────────────
 
@@ -349,14 +349,25 @@ export function generateBeamElevationSvg(opts: ElevationSvgOpts): string {
     }
   }
 
-  // ── Top bars (compression steel or minimum continuous) — always visible ──
+  // ── Top bars (compression steel or minimum continuous) — multi-row aware ──
   const hasCompSteel = flexure.isDoublyReinforced && flexure.barCountComp && flexure.barDiaComp;
-  const topY = oy + (h - topBarY_m) * (hPx / h); // near SVG top
+  const topY = oy + (h - topBarY_m) * (hPx / h); // near SVG top (first row)
   if (hasCompSteel) {
-    // Compression steel: solid, blue, thinner than bottom
-    lines.push(`<line x1="${ox + 5}" y1="${topY}" x2="${ox + lPx - 5}" y2="${topY}" stroke="#4a90d9" stroke-width="1.8"/>`);
+    const topDia_m = flexure.barDiaComp! / 1000;
+    const topBarR_m = topDia_m / 2;
+    const topMinGap_m = Math.max(topDia_m, 0.025);
+    const topAvailW_m = b - 2 * cover - 2 * stThick_m - 2 * topBarR_m;
+    const topMaxPerRow = Math.max(1, topAvailW_m > 0 ? Math.floor((topAvailW_m + topMinGap_m) / (topDia_m + topMinGap_m)) : 1);
+    const topRowGap_m = topDia_m + topMinGap_m;
+    const topNRows = Math.min(Math.ceil(flexure.barCountComp! / topMaxPerRow), Math.max(1, Math.floor((topBarY_m - botBarY_m) / topRowGap_m)));
+    for (let row = 0; row < topNRows; row++) {
+      const yRow_m = topBarY_m - row * topRowGap_m; // stack downward from top face
+      const yPx = oy + (h - yRow_m) * (hPx / h);
+      const sw = row === 0 ? 1.8 : 1.4;
+      lines.push(`<line x1="${ox + 5}" y1="${yPx}" x2="${ox + lPx - 5}" y2="${yPx}" stroke="#4a90d9" stroke-width="${sw}"/>`);
+    }
   } else {
-    // Minimum continuous top bars (2 Ø10): solid thin line, lighter color — always shown
+    // Minimum continuous top bars (2 Ø10): solid thin line, lighter color
     lines.push(`<line x1="${ox + 5}" y1="${topY}" x2="${ox + lPx - 5}" y2="${topY}" stroke="#7a8a9a" stroke-width="1.2"/>`);
   }
 
@@ -609,6 +620,20 @@ export interface FrameLineSpan {
   stirrupSpacing: number;
   stirrupDia: number;
   detailing?: DetailingResult;
+  /** Signed moment envelope at stations along this span. */
+  momentStations?: {
+    t: number[];
+    posM: number[];
+    negM: number[];
+  };
+  /** Bar count data for continuous vs complementary split. */
+  barCount?: number;       // total bottom bars
+  barDia?: number;         // mm
+  asMin?: number;          // cm² — minimum continuous reinforcement
+  topBarCount?: number;    // total top bars (compression or demand)
+  topBarDia?: number;      // mm
+  sectionB?: number;       // m — section width (for row calculation)
+  cover?: number;          // m
 }
 
 export interface FrameLineNode {
@@ -621,6 +646,8 @@ export interface FrameLineElevationOpts {
   spans: FrameLineSpan[];
   nodes: FrameLineNode[];
   labels?: { splice?: string };
+  /** Principal axis label for grouping (X / Y / other). */
+  axis?: 'X' | 'Y' | 'other';
 }
 
 export function generateFrameLineElevationSvg(opts: FrameLineElevationOpts): string {
@@ -704,40 +731,229 @@ export function generateFrameLineElevationSvg(opts: FrameLineElevationOpts): str
   }
 
   // Bar Y positions within the beam outline
-  const botBarY = oy + beamH - 6; // near bottom face
-  const topBarY = oy + 6;          // near top face
+  const botBarY = oy + beamH - 6;
+  const topBarY = oy + 6;
 
-  // ── Bottom continuous bars (solid, red, through all spans) ──
-  lines.push(`<line x1="${beamLeft + 3}" y1="${botBarY}" x2="${beamRight - 3}" y2="${botBarY}" stroke="#e94560" stroke-width="2.5"/>`);
+  // Check if envelope moment data is available for any span
+  const hasEnvelopeData = drawnSpans.some(sp => sp.momentStations && sp.momentStations.t.length > 0);
 
-  // End anchorage tails (dashed)
-  const firstDetailing = drawnSpans[0]?.detailing;
-  const lastDetailing = drawnSpans[drawnSpans.length - 1]?.detailing;
-  if (firstDetailing && drawnNodes[0].hasSupport) {
-    const ld = Math.max(...firstDetailing.bars.map(b => b.ld));
-    const ldPx = Math.min(ld * scaleX, anchorPad - 2);
-    lines.push(`<line x1="${beamLeft - ldPx}" y1="${botBarY}" x2="${beamLeft + 3}" y2="${botBarY}" stroke="#e94560" stroke-width="1.5" stroke-dasharray="4,3" opacity="0.7"/>`);
-    lines.push(`<text x="${beamLeft - ldPx / 2}" y="${botBarY + 11}" text-anchor="middle" class="detail-dim">ld=${(ld * 100).toFixed(0)}</text>`);
-  }
-  if (lastDetailing && drawnNodes[drawnNodes.length - 1].hasSupport) {
-    const ld = Math.max(...lastDetailing.bars.map(b => b.ld));
-    const ldPx = Math.min(ld * scaleX, anchorPad - 2);
-    lines.push(`<line x1="${beamRight - 3}" y1="${botBarY}" x2="${beamRight + ldPx}" y2="${botBarY}" stroke="#e94560" stroke-width="1.5" stroke-dasharray="4,3" opacity="0.7"/>`);
-    lines.push(`<text x="${beamRight + ldPx / 2}" y="${botBarY + 11}" text-anchor="middle" class="detail-dim">ld=${(ld * 100).toFixed(0)}</text>`);
-  }
+  if (hasEnvelopeData) {
+    // ══════ MOMENT-ENVELOPE-AWARE BAR PLACEMENT ══════
 
-  // ── Top bars over internal supports (support-region reinforcement) ──
-  for (let i = 1; i < drawnNodes.length - 1; i++) {
-    // Extend 0.25L into each adjacent span
-    const leftSpan = drawnSpans[i - 1];
-    const rightSpan = drawnSpans[i];
-    const extL = leftSpan.length * 0.25 * scaleX;
-    const extR = rightSpan.length * 0.25 * scaleX;
-    const x1 = nodeX[i] - extL;
-    const x2 = nodeX[i] + extR;
-    const topColor = leftSpan.hasCompSteel ? '#4a90d9' : '#7a8a9a';
-    const topWidth = leftSpan.hasCompSteel ? 1.8 : 1.2;
-    lines.push(`<line x1="${x1}" y1="${topBarY}" x2="${x2}" y2="${topBarY}" stroke="${topColor}" stroke-width="${topWidth}"/>`);
+    // Compute continuous vs complementary split with mixed-diameter support
+    const refSpan = drawnSpans.find(sp => sp.barCount && sp.barDia && sp.asMin);
+    const demandDia = refSpan?.barDia ?? 16;
+    const nTotalBot = refSpan?.barCount ?? 4;
+    const asMin = refSpan?.asMin ?? 0;
+
+    // Find the smallest REBAR_DB diameter that can provide AsMin with ≤ nTotalBot bars (min 2)
+    let contDia = demandDia; // fallback: same as demand
+    let nMinBot = 2;
+    if (asMin > 0) {
+      for (const rb of REBAR_DB) {
+        if (rb.diameter < 10) continue; // skip Ø6, Ø8 for longitudinal
+        const nNeeded = Math.max(2, Math.ceil(asMin / rb.area));
+        if (nNeeded <= nTotalBot && rb.diameter <= demandDia) {
+          contDia = rb.diameter;
+          nMinBot = nNeeded;
+          break; // smallest diameter that works
+        }
+      }
+    }
+    const nExtraBot = Math.max(0, nTotalBot - nMinBot);
+    const isMixedDia = contDia !== demandDia && nExtraBot > 0;
+
+    const hasMultiRowBot = refSpan?.sectionB && refSpan.cover
+      ? nTotalBot > Math.max(1, Math.floor(((refSpan.sectionB - 2 * refSpan.cover - 2 * 0.008) + Math.max(demandDia / 1000, 0.025)) / (demandDia / 1000 + Math.max(demandDia / 1000, 0.025))))
+      : false;
+
+    // Continuous minimum bottom bars: thin line through all spans
+    lines.push(`<line x1="${beamLeft + 3}" y1="${botBarY}" x2="${beamRight - 3}" y2="${botBarY}" stroke="#e94560" stroke-width="1.2"/>`);
+    // Multi-row hint: faint second line if multiple rows needed
+    if (hasMultiRowBot) {
+      lines.push(`<line x1="${beamLeft + 3}" y1="${botBarY - 3}" x2="${beamRight - 3}" y2="${botBarY - 3}" stroke="#e94560" stroke-width="0.6" opacity="0.3"/>`);
+    }
+    // Continuous minimum top bars: thin line through all spans
+    lines.push(`<line x1="${beamLeft + 3}" y1="${topBarY}" x2="${beamRight - 3}" y2="${topBarY}" stroke="#7a8a9a" stroke-width="0.8" opacity="0.4"/>`);
+
+    // Per-span: draw demand bars and find inflection points
+    let firstSpliceLabeled = false;
+    let firstTopZoneLabeled = false;
+    for (let i = 0; i < drawnSpans.length; i++) {
+      const sp = drawnSpans[i];
+      const ms = sp.momentStations;
+      if (!ms || ms.t.length === 0) {
+        // Fallback: full-span bottom bar
+        lines.push(`<line x1="${nodeX[i] + 3}" y1="${botBarY}" x2="${nodeX[i + 1] - 3}" y2="${botBarY}" stroke="#e94560" stroke-width="2.5"/>`);
+        continue;
+      }
+
+      const spanLeft = nodeX[i];
+      const spanPx = nodeX[i + 1] - spanLeft;
+
+      // ── Support-anchored three-zone model ──
+      // Find inflection points from envelope: where posM first exceeds negM (left→right)
+      // and where posM last exceeds negM (right→left)
+      const leftHasCol = drawnNodes[i].hasColumn || drawnNodes[i].hasSupport;
+      const rightHasCol = drawnNodes[i + 1].hasColumn || drawnNodes[i + 1].hasSupport;
+
+      // Scan for left inflection (first station where pos > neg, scanning from left)
+      let tInflL = 0.25; // default for interior spans
+      for (let j = 0; j < ms.t.length; j++) {
+        if (ms.posM[j] > ms.negM[j] * 1.2) { // pos clearly dominates (20% margin)
+          tInflL = ms.t[j];
+          break;
+        }
+      }
+      // Scan for right inflection (first station where pos > neg, scanning from right)
+      let tInflR = 0.75;
+      for (let j = ms.t.length - 1; j >= 0; j--) {
+        if (ms.posM[j] > ms.negM[j] * 1.2) {
+          tInflR = ms.t[j];
+          break;
+        }
+      }
+
+      // Clamp: inflection points must be at least 0.15L from supports
+      tInflL = Math.max(tInflL, 0.15);
+      tInflR = Math.min(tInflR, 0.85);
+      // Ensure left < right
+      if (tInflL >= tInflR) { tInflL = 0.3; tInflR = 0.7; }
+
+      // Development-length extension for bar anchorage past transition zones
+      // Use ld from detailing if available, otherwise 15% of span
+      const detBars = sp.detailing?.bars;
+      const ldM = detBars && detBars.length > 0 ? Math.max(...detBars.map(b => b.ld)) : sp.length * 0.15;
+      const ldExt = Math.min(ldM * scaleX, spanPx * 0.2); // cap at 20% of span visually
+
+      // Left support zone: top bar extending past inflection by ld
+      if (leftHasCol) {
+        const x0 = spanLeft + 2;
+        const x1 = spanLeft + tInflL * spanPx + ldExt; // extend past inflection
+        lines.push(`<line x1="${x0}" y1="${topBarY}" x2="${Math.min(x1, spanLeft + spanPx - 2)}" y2="${topBarY}" stroke="#4a90d9" stroke-width="2"/>`);
+        if (!firstTopZoneLabeled) {
+          const topLabel = sp.hasCompSteel ? sp.topBars : '2Ø10 min';
+          lines.push(`<text x="${x0 + 2}" y="${topBarY - 4}" class="bar-label" style="fill:#4a90d9;font-size:7px">${topLabel}</text>`);
+          firstTopZoneLabeled = true;
+        }
+      }
+
+      // Right support zone: top bar extending past inflection by ld
+      if (rightHasCol) {
+        const x0 = spanLeft + tInflR * spanPx - ldExt; // extend past inflection
+        const x1 = spanLeft + spanPx - 2;
+        lines.push(`<line x1="${Math.max(x0, spanLeft + 2)}" y1="${topBarY}" x2="${x1}" y2="${topBarY}" stroke="#4a90d9" stroke-width="2"/>`);
+        if (!firstTopZoneLabeled) {
+          const topLabel = sp.hasCompSteel ? sp.topBars : '2Ø10 min';
+          lines.push(`<text x="${x1 - 2}" y="${topBarY - 4}" text-anchor="end" class="bar-label" style="fill:#4a90d9;font-size:7px">${topLabel}</text>`);
+          firstTopZoneLabeled = true;
+        }
+      }
+
+      // Midspan zone: bottom demand bars extending past transition by ld
+      const botStartT = leftHasCol ? Math.max(0, tInflL - ldM / sp.length) : 0;
+      const botEndT = rightHasCol ? Math.min(1, tInflR + ldM / sp.length) : 1;
+      const bx0 = spanLeft + botStartT * spanPx;
+      const bx1 = spanLeft + botEndT * spanPx;
+      if (nExtraBot > 0) {
+        lines.push(`<line x1="${Math.max(bx0, spanLeft + 2)}" y1="${botBarY}" x2="${Math.min(bx1, spanLeft + spanPx - 2)}" y2="${botBarY}" stroke="#e94560" stroke-width="2.5"/>`);
+      } else {
+        lines.push(`<line x1="${Math.max(bx0, spanLeft + 2)}" y1="${botBarY}" x2="${Math.min(bx1, spanLeft + spanPx - 2)}" y2="${botBarY}" stroke="#e94560" stroke-width="1.8"/>`);
+      }
+
+      // Splice at the transition zone (best location: average of inflection points)
+      const spliceT = (tInflL + tInflR) / 2; // midway between transitions ≈ midspan low-demand
+      // Find actual lowest-demand station near midspan for splice placement
+      let bestSpliceT = spliceT;
+      let bestSpliceDemand = Infinity;
+      const maxPos = Math.max(...ms.posM, 1);
+      const maxNeg = Math.max(...ms.negM, 1);
+      for (let j = 0; j < ms.t.length; j++) {
+        if (ms.t[j] < 0.15 || ms.t[j] > 0.85) continue;
+        const d = ms.posM[j] / maxPos + ms.negM[j] / maxNeg;
+        if (d < bestSpliceDemand) { bestSpliceDemand = d; bestSpliceT = ms.t[j]; }
+      }
+
+      if (bestSpliceT >= 0.15 && bestSpliceT <= 0.85 && sp.detailing) {
+        const xSplice = spanLeft + bestSpliceT * spanPx;
+        const maxSplice = Math.max(...sp.detailing.bars.map(b => b.lapSplice));
+        const splicePx = Math.min(maxSplice * scaleX, spanPx * 0.15);
+        if (splicePx >= 4) {
+          // Splice indicator
+          lines.push(`<rect x="${xSplice - splicePx / 2}" y="${botBarY - 4}" width="${splicePx}" height="5" fill="#5a9" opacity="0.15" rx="1"/>`);
+          // Low-demand marker
+          lines.push(`<circle cx="${xSplice}" cy="${oy + beamH / 2}" r="2" fill="none" stroke="#5a9" stroke-width="0.6"/>`);
+          if (!firstSpliceLabeled) {
+            lines.push(`<text x="${xSplice}" y="${botBarY - 7}" text-anchor="middle" class="detail-dim">${spliceWord}=${(maxSplice * 100).toFixed(0)}</text>`);
+            firstSpliceLabeled = true;
+          }
+        }
+      }
+    }
+
+    // End anchorage tails
+    const firstDet = drawnSpans[0]?.detailing;
+    const lastDet = drawnSpans[drawnSpans.length - 1]?.detailing;
+    if (firstDet && drawnNodes[0].hasSupport) {
+      const ld = Math.max(...firstDet.bars.map(b => b.ld));
+      const ldPx = Math.min(ld * scaleX, anchorPad - 2);
+      lines.push(`<line x1="${beamLeft - ldPx}" y1="${botBarY}" x2="${beamLeft + 3}" y2="${botBarY}" stroke="#e94560" stroke-width="1.5" stroke-dasharray="4,3" opacity="0.7"/>`);
+      lines.push(`<text x="${beamLeft - ldPx / 2}" y="${botBarY + 11}" text-anchor="middle" class="detail-dim">ld=${(ld * 100).toFixed(0)}</text>`);
+    }
+    if (lastDet && drawnNodes[drawnNodes.length - 1].hasSupport) {
+      const ld = Math.max(...lastDet.bars.map(b => b.ld));
+      const ldPx = Math.min(ld * scaleX, anchorPad - 2);
+      lines.push(`<line x1="${beamRight - 3}" y1="${botBarY}" x2="${beamRight + ldPx}" y2="${botBarY}" stroke="#e94560" stroke-width="1.5" stroke-dasharray="4,3" opacity="0.7"/>`);
+      lines.push(`<text x="${beamRight + ldPx / 2}" y="${botBarY + 11}" text-anchor="middle" class="detail-dim">ld=${(ld * 100).toFixed(0)}</text>`);
+    }
+
+    // Labels — show continuous/complementary split with mixed diameters
+    if (nExtraBot > 0) {
+      if (isMixedDia) {
+        lines.push(`<text x="${beamLeft + 5}" y="${botBarY + 12}" class="bar-label">${nMinBot}Ø${contDia} cont. + ${nExtraBot}Ø${demandDia}</text>`);
+      } else {
+        lines.push(`<text x="${beamLeft + 5}" y="${botBarY + 12}" class="bar-label">${nMinBot}Ø${demandDia} cont. + ${nExtraBot}Ø${demandDia}</text>`);
+      }
+    } else {
+      lines.push(`<text x="${beamLeft + 5}" y="${botBarY + 12}" class="bar-label">${drawnSpans[0].bottomBars} cont.</text>`);
+    }
+    // Top label is now placed at the first drawn top-demand zone (above)
+
+  } else {
+    // ══════ SCHEMATIC FALLBACK (no envelope data) ══════
+
+    // Bottom continuous bars
+    lines.push(`<line x1="${beamLeft + 3}" y1="${botBarY}" x2="${beamRight - 3}" y2="${botBarY}" stroke="#e94560" stroke-width="2.5"/>`);
+
+    // End anchorage tails
+    const firstDetailing = drawnSpans[0]?.detailing;
+    const lastDetailing = drawnSpans[drawnSpans.length - 1]?.detailing;
+    if (firstDetailing && drawnNodes[0].hasSupport) {
+      const ld = Math.max(...firstDetailing.bars.map(b => b.ld));
+      const ldPx = Math.min(ld * scaleX, anchorPad - 2);
+      lines.push(`<line x1="${beamLeft - ldPx}" y1="${botBarY}" x2="${beamLeft + 3}" y2="${botBarY}" stroke="#e94560" stroke-width="1.5" stroke-dasharray="4,3" opacity="0.7"/>`);
+    }
+    if (lastDetailing && drawnNodes[drawnNodes.length - 1].hasSupport) {
+      const ld = Math.max(...lastDetailing.bars.map(b => b.ld));
+      const ldPx = Math.min(ld * scaleX, anchorPad - 2);
+      lines.push(`<line x1="${beamRight - 3}" y1="${botBarY}" x2="${beamRight + ldPx}" y2="${botBarY}" stroke="#e94560" stroke-width="1.5" stroke-dasharray="4,3" opacity="0.7"/>`);
+    }
+
+    // Top bars over internal supports (schematic 0.25L)
+    for (let i = 1; i < drawnNodes.length - 1; i++) {
+      const leftSpan = drawnSpans[i - 1];
+      const rightSpan = drawnSpans[i];
+      const extL = leftSpan.length * 0.25 * scaleX;
+      const extR = rightSpan.length * 0.25 * scaleX;
+      lines.push(`<line x1="${nodeX[i] - extL}" y1="${topBarY}" x2="${nodeX[i] + extR}" y2="${topBarY}" stroke="#7a8a9a" stroke-width="1.2"/>`);
+    }
+
+    // Labels
+    lines.push(`<text x="${beamLeft + 5}" y="${botBarY + 12}" class="bar-label">${drawnSpans[0].bottomBars} (As)</text>`);
+    if (drawnNodes.length > 2) {
+      const topLabel = drawnSpans[0].hasCompSteel ? `${drawnSpans[0].topBars} (A's)` : drawnSpans[0].topBars + ' min';
+      lines.push(`<text x="${nodeX[1]}" y="${topBarY - 5}" text-anchor="middle" class="bar-label" style="fill:#7a8a9a">${topLabel}</text>`);
+    }
   }
 
   // ── Stirrups (representative per span) ──
@@ -754,33 +970,22 @@ export function generateFrameLineElevationSvg(opts: FrameLineElevationOpts): str
     }
   }
 
-  // ── Splice zones (one per span at ~0.25L from left support) ──
-  for (let i = 0; i < drawnSpans.length; i++) {
-    const sp = drawnSpans[i];
-    if (!sp.detailing) continue;
-    const maxSplice = Math.max(...sp.detailing.bars.map(b => b.lapSplice));
-    const spanLeft = nodeX[i];
-    const spanPx = nodeX[i + 1] - spanLeft;
-    const splicePx = Math.min(maxSplice * scaleX, spanPx * 0.2);
-    if (splicePx < 5) continue;
-    const spliceX = spanLeft + spanPx * 0.25 - splicePx / 2;
-    lines.push(`<rect x="${spliceX}" y="${botBarY - 4}" width="${splicePx}" height="5" fill="#5a9" opacity="0.15" rx="1"/>`);
-    lines.push(`<line x1="${spliceX}" y1="${botBarY - 4}" x2="${spliceX}" y2="${botBarY + 1}" stroke="#5a9" stroke-width="0.4"/>`);
-    lines.push(`<line x1="${spliceX + splicePx}" y1="${botBarY - 4}" x2="${spliceX + splicePx}" y2="${botBarY + 1}" stroke="#5a9" stroke-width="0.4"/>`);
-    // Only label first splice to avoid clutter
-    if (i === 0) {
-      lines.push(`<text x="${spliceX + splicePx / 2}" y="${botBarY - 7}" text-anchor="middle" class="detail-dim">${spliceWord}=${(maxSplice * 100).toFixed(0)}</text>`);
+  // ── Splice zones (schematic fallback only — moment-aware path handles splices above) ──
+  if (!hasEnvelopeData) {
+    for (let i = 0; i < drawnSpans.length; i++) {
+      const sp = drawnSpans[i];
+      if (!sp.detailing) continue;
+      const maxSplice = Math.max(...sp.detailing.bars.map(b => b.lapSplice));
+      const spanLeft = nodeX[i];
+      const spanPx = nodeX[i + 1] - spanLeft;
+      const splicePx = Math.min(maxSplice * scaleX, spanPx * 0.2);
+      if (splicePx < 5) continue;
+      const spliceX = spanLeft + spanPx * 0.25 - splicePx / 2;
+      lines.push(`<rect x="${spliceX}" y="${botBarY - 4}" width="${splicePx}" height="5" fill="#5a9" opacity="0.15" rx="1"/>`);
+      if (i === 0) {
+        lines.push(`<text x="${spliceX + splicePx / 2}" y="${botBarY - 7}" text-anchor="middle" class="detail-dim">${spliceWord}=${(maxSplice * 100).toFixed(0)}</text>`);
+      }
     }
-  }
-
-  // ── Labels ──
-  // Bottom bar label (use first span's description)
-  lines.push(`<text x="${beamLeft + 5}" y="${botBarY + 12}" class="bar-label">${drawnSpans[0].bottomBars} (As)</text>`);
-  // Top bar label at first internal support
-  if (drawnNodes.length > 2) {
-    const topLabel = drawnSpans[0].hasCompSteel ? `${drawnSpans[0].topBars} (A's)` : drawnSpans[0].topBars + ' min';
-    const topColor = drawnSpans[0].hasCompSteel ? '#4a90d9' : '#7a8a9a';
-    lines.push(`<text x="${nodeX[1]}" y="${topBarY - 5}" text-anchor="middle" class="bar-label" style="fill:${topColor}">${topLabel}</text>`);
   }
 
   // ── Span dimensions ──
@@ -798,6 +1003,180 @@ export function generateFrameLineElevationSvg(opts: FrameLineElevationOpts): str
   // Truncation indicator
   if (truncated) {
     lines.push(`<text x="${beamRight + 8}" y="${oy + beamH / 2}" dominant-baseline="middle" class="dim">...</text>`);
+  }
+
+  lines.push(`</svg>`);
+  return lines.join('\n');
+}
+
+// ─── Column Stack Continuity Elevation ────────────────────────────
+
+export interface ColumnStackSegment {
+  height: number;
+  bars: string;
+  barCount: number;
+  barDia: number;
+  stirrupSpacing: number;
+  stirrupDia: number;
+  detailing?: DetailingResult;
+}
+
+export interface ColumnStackNode {
+  hasBeam: boolean;
+  hasSupport: boolean;
+  supportType?: string;
+}
+
+export interface ColumnStackElevationOpts {
+  segments: ColumnStackSegment[];
+  nodes: ColumnStackNode[];
+  sectionB: number;
+  sectionH: number;
+  cover: number;
+  labels?: { splice?: string };
+}
+
+export function generateColumnStackElevationSvg(opts: ColumnStackElevationOpts): string {
+  const { segments, nodes, sectionB, cover, labels } = opts;
+  if (segments.length === 0) return '';
+  const spliceWord = labels?.splice ?? 'splice';
+
+  const maxSegs = Math.min(segments.length, 8);
+  const drawnSegs = segments.slice(0, maxSegs);
+  const drawnNodes = nodes.slice(0, maxSegs + 1);
+  const truncated = maxSegs < segments.length;
+  const totalH = drawnSegs.reduce((s, seg) => s + seg.height, 0);
+
+  const scaleY = Math.min(400 / totalH, 80);
+  const colW = 50; // px width of column outline
+  const pad = 40;
+  const anchorPad = 20;
+  const W = colW + 200; // room for labels and dimensions
+  const H = totalH * scaleY + 2 * pad + anchorPad;
+  const ox = 80; // left margin for dimension labels
+  const oy = pad;
+
+  const lines: string[] = [];
+  lines.push(`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${W} ${H}" width="${W}" height="${H}">`);
+  lines.push(`<style>
+    text { font-family: monospace; fill: #ccc; }
+    .dim { font-size: 8px; fill: #888; }
+    .bar-label { font-size: 8px; fill: #f0a500; }
+    .detail-dim { font-size: 7px; fill: #5a9; }
+    .level-label { font-size: 7px; fill: #556; }
+  </style>`);
+
+  // Accumulate Y positions for each node (top = oy, bottom = oy + totalH*scaleY)
+  const nodeY: number[] = [oy];
+  for (let i = 0; i < drawnSegs.length; i++) {
+    nodeY.push(nodeY[i] + drawnSegs[i].height * scaleY);
+  }
+  const colTop = nodeY[0];
+  const colBot = nodeY[nodeY.length - 1];
+
+  // ── Beam stubs at floor levels (behind column) ──
+  const beamStubW = 30;
+  const beamStubH = 8;
+  for (let i = 0; i < drawnNodes.length; i++) {
+    if (drawnNodes[i].hasBeam && i > 0 && i < drawnNodes.length - 1) {
+      // Beam stubs on both sides
+      lines.push(`<rect x="${ox - beamStubW}" y="${nodeY[i] - beamStubH / 2}" width="${beamStubW}" height="${beamStubH}" fill="#222e44" stroke="#3a4a6a" stroke-width="0.6" rx="1"/>`);
+      lines.push(`<rect x="${ox + colW}" y="${nodeY[i] - beamStubH / 2}" width="${beamStubW}" height="${beamStubH}" fill="#222e44" stroke="#3a4a6a" stroke-width="0.6" rx="1"/>`);
+    }
+  }
+
+  // ── Column concrete outline ──
+  lines.push(`<rect x="${ox}" y="${colTop}" width="${colW}" height="${colBot - colTop}" fill="#1a2a40" stroke="#4ecdc4" stroke-width="1.2"/>`);
+
+  // ── Floor level lines ──
+  for (let i = 1; i < drawnNodes.length - 1; i++) {
+    lines.push(`<line x1="${ox - 5}" y1="${nodeY[i]}" x2="${ox + colW + 5}" y2="${nodeY[i]}" stroke="#4ecdc4" stroke-width="0.5" opacity="0.5"/>`);
+  }
+
+  // ── Foundation at base ──
+  if (drawnNodes[drawnNodes.length - 1].hasSupport) {
+    lines.push(`<line x1="${ox - 12}" y1="${colBot}" x2="${ox + colW + 12}" y2="${colBot}" stroke="#4ecdc4" stroke-width="2"/>`);
+    for (let i = -12; i <= colW + 8; i += 5) {
+      lines.push(`<line x1="${ox + i}" y1="${colBot}" x2="${ox + i - 4}" y2="${colBot + 6}" stroke="#4ecdc4" stroke-width="0.5"/>`);
+    }
+  }
+
+  // ── Continuous vertical bars ──
+  const coverPx = Math.max(cover / sectionB * colW, 3);
+  const barR = 2;
+  const xL = ox + coverPx + barR;
+  const xR = ox + colW - coverPx - barR;
+
+  // Main bars — full height
+  lines.push(`<line x1="${xL}" y1="${colTop + 3}" x2="${xL}" y2="${colBot - 3}" stroke="#e94560" stroke-width="2"/>`);
+  lines.push(`<line x1="${xR}" y1="${colTop + 3}" x2="${xR}" y2="${colBot - 3}" stroke="#e94560" stroke-width="2"/>`);
+
+  // Foundation anchorage tails (dashed below base)
+  const baseDetailing = drawnSegs[drawnSegs.length - 1]?.detailing;
+  if (baseDetailing && drawnNodes[drawnNodes.length - 1].hasSupport) {
+    const ld = Math.max(...baseDetailing.bars.map(b => b.ld));
+    const ldPx = Math.min(ld * scaleY, anchorPad - 2);
+    lines.push(`<line x1="${xL}" y1="${colBot}" x2="${xL}" y2="${colBot + ldPx}" stroke="#e94560" stroke-width="1.5" stroke-dasharray="4,3" opacity="0.7"/>`);
+    lines.push(`<line x1="${xR}" y1="${colBot}" x2="${xR}" y2="${colBot + ldPx}" stroke="#e94560" stroke-width="1.5" stroke-dasharray="4,3" opacity="0.7"/>`);
+    // ld dimension
+    const dimX = ox + colW + 8;
+    lines.push(`<line x1="${dimX}" y1="${colBot}" x2="${dimX}" y2="${colBot + ldPx}" stroke="#5a9" stroke-width="0.4"/>`);
+    lines.push(`<line x1="${dimX - 2}" y1="${colBot}" x2="${dimX + 2}" y2="${colBot}" stroke="#5a9" stroke-width="0.4"/>`);
+    lines.push(`<line x1="${dimX - 2}" y1="${colBot + ldPx}" x2="${dimX + 2}" y2="${colBot + ldPx}" stroke="#5a9" stroke-width="0.4"/>`);
+    lines.push(`<text x="${dimX + 4}" y="${colBot + ldPx / 2}" dominant-baseline="middle" class="detail-dim">ld=${(ld * 100).toFixed(0)}</text>`);
+  }
+
+  // ── Splice zones above each floor level ──
+  for (let i = 1; i < drawnNodes.length - 1; i++) {
+    const seg = drawnSegs[i]; // segment above this floor
+    if (!seg || !seg.detailing) continue;
+    const maxSplice = Math.max(...seg.detailing.bars.map(b => b.lapSplice));
+    const splicePx = Math.min(maxSplice * scaleY, (nodeY[i + 1] - nodeY[i]) * 0.4);
+    if (splicePx < 4) continue;
+    const spliceTop = nodeY[i];
+    lines.push(`<rect x="${ox + 1}" y="${spliceTop}" width="${colW - 2}" height="${splicePx}" fill="#5a9" opacity="0.1" rx="2"/>`);
+    lines.push(`<line x1="${ox}" y1="${spliceTop + splicePx}" x2="${ox + colW}" y2="${spliceTop + splicePx}" stroke="#5a9" stroke-width="0.5" stroke-dasharray="3,2"/>`);
+    // Only label first splice
+    if (i === 1) {
+      lines.push(`<text x="${ox + colW + 8}" y="${spliceTop + splicePx / 2}" dominant-baseline="middle" class="detail-dim">${spliceWord}=${(maxSplice * 100).toFixed(0)}</text>`);
+    }
+  }
+
+  // ── Ties per segment ──
+  for (let i = 0; i < drawnSegs.length; i++) {
+    const seg = drawnSegs[i];
+    const segTop = nodeY[i];
+    const segBot = nodeY[i + 1];
+    const segH = segBot - segTop;
+    const nTies = Math.min(Math.floor(seg.height / seg.stirrupSpacing), Math.floor(segH / 6));
+    const step = segH / (nTies + 1);
+    for (let j = 1; j <= nTies; j++) {
+      const ty = segTop + j * step;
+      lines.push(`<line x1="${ox + coverPx}" y1="${ty}" x2="${ox + colW - coverPx}" y2="${ty}" stroke="#f0a500" stroke-width="0.6" opacity="0.4"/>`);
+    }
+  }
+
+  // ── Labels ──
+  // Bar description (use first segment)
+  lines.push(`<text x="${ox + colW + 8}" y="${colTop + 15}" class="bar-label">${drawnSegs[0].bars}</text>`);
+  // Stirrup description
+  lines.push(`<text x="${ox + colW + 8}" y="${colTop + 27}" class="dim">eØ${drawnSegs[0].stirrupDia} c/${(drawnSegs[0].stirrupSpacing * 100).toFixed(0)}</text>`);
+  // Section dimension
+  lines.push(`<text x="${ox + colW / 2}" y="${colTop - 6}" text-anchor="middle" class="dim">${(opts.sectionB * 100).toFixed(0)}×${(opts.sectionH * 100).toFixed(0)}</text>`);
+
+  // ── Story height dimensions ──
+  for (let i = 0; i < drawnSegs.length; i++) {
+    const yTop = nodeY[i];
+    const yBot = nodeY[i + 1];
+    const dimX = ox - 20;
+    lines.push(`<line x1="${dimX}" y1="${yTop}" x2="${dimX}" y2="${yBot}" stroke="#666" stroke-width="0.4"/>`);
+    lines.push(`<line x1="${dimX - 2}" y1="${yTop}" x2="${dimX + 2}" y2="${yTop}" stroke="#666" stroke-width="0.4"/>`);
+    lines.push(`<line x1="${dimX - 2}" y1="${yBot}" x2="${dimX + 2}" y2="${yBot}" stroke="#666" stroke-width="0.4"/>`);
+    lines.push(`<text x="${dimX - 4}" y="${(yTop + yBot) / 2}" text-anchor="end" dominant-baseline="middle" class="dim">${drawnSegs[i].height.toFixed(2)}</text>`);
+  }
+
+  if (truncated) {
+    lines.push(`<text x="${ox + colW / 2}" y="${colTop - 14}" text-anchor="middle" class="dim">...</text>`);
   }
 
   lines.push(`</svg>`);

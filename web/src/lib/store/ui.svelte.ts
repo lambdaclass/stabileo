@@ -197,6 +197,11 @@ function createUIStore() {
   // Desktop sidebar toggles
   let rightSidebarOpen = $state(false);
   let leftSidebarOpen = $state(true);
+  let proPanelVisible = $state(true);
+  let proPanelWidth = $state(540);
+
+  // PRO panel active tab (shared so App.svelte can render the nav strip)
+  let proActiveTab = $state('nodes');
 
   // AI drawer
   let aiDrawerOpen = $state(false);
@@ -529,6 +534,12 @@ function createUIStore() {
     set rightSidebarOpen(v: boolean) { rightSidebarOpen = v; },
     get leftSidebarOpen() { return leftSidebarOpen; },
     set leftSidebarOpen(v: boolean) { leftSidebarOpen = v; },
+    get proPanelVisible() { return proPanelVisible; },
+    set proPanelVisible(v: boolean) { proPanelVisible = v; },
+    get proPanelWidth() { return proPanelWidth; },
+    set proPanelWidth(v: number) { proPanelWidth = v; },
+    get proActiveTab() { return proActiveTab; },
+    set proActiveTab(v: string) { proActiveTab = v; },
     get aiDrawerOpen() { return aiDrawerOpen; },
     set aiDrawerOpen(v: boolean) { aiDrawerOpen = v; },
 

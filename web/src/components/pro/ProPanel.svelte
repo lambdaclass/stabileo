@@ -7,6 +7,11 @@
   import type { ElementVerification } from '../../lib/engine/codes/argentina/cirsoc201';
   import { autoVerifyFromResults } from '../../lib/engine/auto-verify';
   import { computeQuantities } from '../../lib/engine/quantity-takeoff';
+  import { checkCrackWidth, checkDeflection } from '../../lib/engine/codes/argentina/serviceability';
+  import { classifyElement } from '../../lib/engine/codes/argentina/cirsoc201';
+  import { computeBarMarks } from '../../lib/engine/bar-marks';
+  import { buildStructuralGraph } from '../../lib/engine/structural-graph';
+  import type { FrameLineElevationOpts } from '../../lib/engine/reinforcement-svg';
   import { runGlobalSolve } from '../../lib/engine/live-calc';
   import ProReportDialog from './ProReportDialog.svelte';
   import ProNodesTab from './ProNodesTab.svelte';
@@ -69,7 +74,8 @@
     },
   ]);
 
-  let activeTab = $state<ProTab>('nodes');
+  // activeTab is shared via uiStore.proActiveTab so App.svelte can render the nav strip
+  const activeTab = $derived(uiStore.proActiveTab as ProTab);
   let verificationsRef = $state<ElementVerification[]>([]);
   let advancedResultsRef = $state<Record<string, any>>({});
   let tabError = $state<string | null>(null);
@@ -80,6 +86,14 @@
   let exampleButtonEl = $state<HTMLButtonElement | null>(null);
   let exampleMenuStyle = $state('');
   const hasModel = $derived(modelStore.nodes.size > 0 && modelStore.elements.size > 0);
+
+  // Expose action handlers for App.svelte's top strip via bind:this
+  export function solve() { handleSolve(); }
+  export function report() { handleOpenReportDialog(); }
+  export function examples(btnEl: HTMLButtonElement) { exampleButtonEl = btnEl; toggleExampleMenu(); }
+  export function isSolving() { return solving; }
+  export function canSolve() { return hasModel && !solving; }
+  export function canReport() { return modelStore.nodes.size > 0; }
 
   type ExampleGroup = 'buildings' | 'industrial' | 'foundations' | 'longspan' | 'xl';
   type ExamplePreset = 'default' | 'xl' | 'clean-shell' | 'bridge';
@@ -270,7 +284,7 @@
         return;
       }
       // Combinations are already solved inside runGlobalSolve for PRO mode
-      activeTab = 'results';
+      uiStore.proActiveTab = 'results';
     } catch (e: any) {
       console.error('PRO solve error:', e);
       solveError = e?.message || String(e) || t('pro.unknownError');
@@ -391,10 +405,146 @@
         : undefined,
       advancedResults: Object.keys(advancedResultsRef).length > 0 ? advancedResultsRef : undefined,
       diagnostics: resultsStore.diagnostics3D.length > 0 ? resultsStore.diagnostics3D : undefined,
+      serviceability: verificationsRef.length > 0 ? verificationsRef.map(v => {
+        const Ms = v.Mu / 1.4;
+        const crack = (v.elementType === 'beam' && v.flexure.AsProv > 0)
+          ? checkCrackWidth(v.b, v.h, v.flexure.d, v.flexure.AsProv, Ms, v.cover, v.flexure.barDia, v.flexure.barCount)
+          : undefined;
+        const elem = modelStore.elements.get(v.elementId);
+        const nI = elem ? modelStore.nodes.get(elem.nodeI) : undefined;
+        const nJ = elem ? modelStore.nodes.get(elem.nodeJ) : undefined;
+        const L = (nI && nJ) ? Math.sqrt((nJ.x - nI.x) ** 2 + (nJ.y - nI.y) ** 2 + ((nJ.z ?? 0) - (nI.z ?? 0)) ** 2) : 0;
+        const maxDisp = results.displacements.reduce((mx, d) => Math.max(mx, Math.abs(d.uz)), 0);
+        const defl = (L > 0 && v.elementType === 'beam') ? checkDeflection(L, maxDisp) : undefined;
+        return { elementId: v.elementId, elementType: v.elementType, crack: crack ? { wk: crack.wk, wkLimit: crack.wLimit, status: crack.status } : undefined, deflection: defl ? { ratio: defl.ratio, limit: defl.limit, status: defl.status } : undefined };
+      }).filter(s => s.crack || s.deflection) : undefined,
       screenshot,
       t,
       config,
     };
+
+    // ── Assemble upgraded joint details for report ──
+    if (verificationsRef.length > 0) {
+      const verifMap = new Map(verificationsRef.map(v => [v.elementId, v]));
+      // Build structural graph for joint/frame-line discovery
+      const graphNodes = new Map<number, { id: number; x: number; y: number; z: number }>();
+      for (const [id, n] of modelStore.nodes) graphNodes.set(id, { id, x: n.x, y: n.y, z: n.z ?? 0 });
+      const graphElements = new Map<number, { id: number; nodeI: number; nodeJ: number; sectionId: number; type: string }>();
+      for (const [id, e] of modelStore.elements) graphElements.set(id, { id, nodeI: e.nodeI, nodeJ: e.nodeJ, sectionId: e.sectionId, type: e.type });
+      const graphSections = new Map<number, { id: number; b?: number; h?: number }>();
+      for (const [id, s] of modelStore.sections) graphSections.set(id, { id, b: s.b, h: s.h });
+      const graphSupports = new Map<number, { nodeId: number; type: string }>();
+      for (const [, s] of modelStore.supports) graphSupports.set(s.nodeId, { nodeId: s.nodeId, type: s.type });
+      const graph = buildStructuralGraph(graphNodes, graphElements, graphSections, graphSupports);
+
+      // Joint details (up to 4 for report)
+      const seen = new Set<string>();
+      const jOpts: typeof data.jointDetailOpts = [];
+      for (const joint of graph.joints) {
+        const beam = joint.beamIds.map(id => verifMap.get(id)).find(v => v && v.elementType === 'beam');
+        const col = joint.columnIds.map(id => verifMap.get(id)).find(v => v && (v.elementType === 'column' || v.elementType === 'wall'));
+        if (!beam || !col) continue;
+        const key = `${beam.b}_${beam.h}_${col.b}_${col.h}`;
+        if (seen.has(key)) continue;
+        seen.add(key);
+        jOpts.push({
+          beamB: beam.b, beamH: beam.h, colB: col.b, colH: col.h, cover: beam.cover,
+          beamBars: beam.flexure.bars, colBars: col.column?.bars ?? `${col.flexure.barCount} Ø${col.flexure.barDia}`,
+          stirrupDia: col.shear.stirrupDia, stirrupSpacing: col.shear.spacing,
+          beamDetailing: beam.detailing, colDetailing: col.detailing, nodeId: joint.nodeId,
+          labels: { title: t('pro.jointDetail'), beam: t('pro.beam'), column: t('pro.column'), joint: t('pro.jointWord') !== 'pro.jointWord' ? t('pro.jointWord') : 'joint', splice: t('pro.lapSplice') },
+        });
+        if (jOpts.length >= 4) break;
+      }
+      if (jOpts.length > 0) data.jointDetailOpts = jOpts;
+
+      // Beam continuity frame lines (up to 3 for report)
+      const elemLengths = new Map<number, number>();
+      for (const v of verificationsRef) {
+        const elem = modelStore.elements.get(v.elementId);
+        if (elem) {
+          const nI = modelStore.nodes.get(elem.nodeI);
+          const nJ = modelStore.nodes.get(elem.nodeJ);
+          if (nI && nJ) elemLengths.set(v.elementId, Math.sqrt((nJ.x - nI.x) ** 2 + (nJ.y - nI.y) ** 2 + ((nJ.z ?? 0) - (nI.z ?? 0)) ** 2));
+        }
+      }
+      // Read moment envelope for report parity with UI
+      const envMomentZ = resultsStore.envelope3D?.momentZ;
+      const envMap = new Map<number, { t: number[]; posM: number[]; negM: number[] }>();
+      if (envMomentZ) {
+        for (const ed of envMomentZ.elements) {
+          envMap.set(ed.elementId, { t: ed.tPositions, posM: ed.posValues, negM: ed.negValues.map(v => Math.abs(v)) });
+        }
+      }
+
+      const flOpts: FrameLineElevationOpts[] = [];
+      for (const fl of graph.frameLines) {
+        if (fl.direction !== 'horizontal' || fl.elementIds.length < 2) continue;
+        const spans = fl.elementIds.map(eid => {
+          const v = verifMap.get(eid); const len = elemLengths.get(eid);
+          if (!v || !len) return null;
+          const hasComp = v.flexure.isDoublyReinforced && !!v.flexure.barCountComp;
+          const momentStations = envMap.get(eid);
+          return { length: len, bottomBars: v.flexure.bars, topBars: hasComp ? (v.flexure.barsComp ?? '2 Ø10') : '2 Ø10', hasCompSteel: hasComp, stirrupSpacing: v.shear.spacing, stirrupDia: v.shear.stirrupDia, detailing: v.detailing, momentStations, barCount: v.flexure.barCount, barDia: v.flexure.barDia, asMin: v.flexure.AsMin, topBarCount: hasComp ? v.flexure.barCountComp : undefined, topBarDia: hasComp ? v.flexure.barDiaComp : undefined, sectionB: v.b, cover: v.cover };
+        });
+        if (spans.filter(Boolean).length < 2) continue;
+        const nodes = fl.nodeIds.map(nid => { const c = graph.nodes.get(nid); return { hasColumn: (c?.columns.length ?? 0) > 0, hasSupport: !!c?.support, supportType: c?.support }; });
+        flOpts.push({ spans: spans.map(s => s ?? { length: 1, bottomBars: '?', topBars: '2 Ø10', hasCompSteel: false, stirrupSpacing: 0.2, stirrupDia: 8 }), nodes, labels: { splice: t('pro.lapSplice') }, axis: fl.axis });
+        if (flOpts.length >= 3) break;
+      }
+      if (flOpts.length > 0) data.beamContinuityOpts = flOpts;
+
+      // Column stack continuity (up to 3 for report)
+      const csOpts: import('../../lib/engine/reinforcement-svg').ColumnStackElevationOpts[] = [];
+      for (const fl of graph.frameLines) {
+        if (fl.direction !== 'vertical' || fl.elementIds.length < 2) continue;
+        const segData = fl.elementIds.map(eid => { const v = verifMap.get(eid); const len = elemLengths.get(eid); return v && len && v.column ? { v, len } : null; });
+        if (segData.filter(Boolean).length < 2) continue;
+        const firstValid = segData.find(Boolean)!;
+        const segments = fl.elementIds.map((_, i) => {
+          const sd = segData[i];
+          if (!sd) return { height: 3, bars: '?', barCount: 4, barDia: 16, stirrupSpacing: 0.2, stirrupDia: 8 };
+          return { height: sd.len, bars: sd.v.column?.bars ?? sd.v.flexure.bars, barCount: sd.v.column?.barCount ?? sd.v.flexure.barCount, barDia: sd.v.column?.barDia ?? sd.v.flexure.barDia, stirrupSpacing: sd.v.shear.spacing, stirrupDia: sd.v.shear.stirrupDia, detailing: sd.v.detailing };
+        });
+        const flNodes = fl.nodeIds.map(nid => { const c = graph.nodes.get(nid); return { hasBeam: (c?.beams.length ?? 0) > 0, hasSupport: !!c?.support, supportType: c?.support }; });
+        csOpts.push({ segments, nodes: flNodes, sectionB: firstValid.v.b, sectionH: firstValid.v.h, cover: firstValid.v.cover, labels: { splice: t('pro.lapSplice') } });
+        if (csOpts.length >= 3) break;
+      }
+      if (csOpts.length > 0) data.columnStackOpts = csOpts;
+
+      // Slender column summary
+      const slenderData = verificationsRef.filter(v => v.slender).map(v => ({
+        elementId: v.elementId, k: v.slender!.k, lu: v.slender!.lu, r: v.slender!.r,
+        klu_r: v.slender!.klu_r, lambda_lim: v.slender!.lambda_lim, isSlender: v.slender!.isSlender,
+        delta_ns: v.slender!.delta_ns, Cm: v.slender!.Cm, Mc: v.slender!.Mc,
+      }));
+      if (slenderData.length > 0) data.slenderSummary = slenderData;
+
+      // Bar marks
+      const marks = computeBarMarks(verificationsRef, elemLengths);
+      if (marks.length > 0) data.barMarks = marks.map(m => ({ mark: m.mark, diameter: m.diameter, shape: m.shape, cuttingLength: m.cuttingLength, count: m.count, totalLength: m.totalLength, weight: m.weight, overStock: m.overStock, stockLength: m.stockLength, needsStockSplice: m.needsStockSplice, nStockSplices: m.nStockSplices }));
+
+      // Per-element per-combo forces for detailed report
+      if (resultsStore.perCombo3D.size > 0 && modelStore.model.combinations.length > 0) {
+        const cfMap = new Map<number, Array<{ comboId: number; comboName: string; Mu: number; Vu: number; Nu: number }>>();
+        for (const combo of modelStore.model.combinations) {
+          const comboResults = resultsStore.perCombo3D.get(combo.id);
+          if (!comboResults) continue;
+          for (const ef of comboResults.elementForces) {
+            let arr = cfMap.get(ef.elementId);
+            if (!arr) { arr = []; cfMap.set(ef.elementId, arr); }
+            arr.push({
+              comboId: combo.id,
+              comboName: combo.name,
+              Mu: Math.max(Math.abs(ef.mzStart), Math.abs(ef.mzEnd)),
+              Vu: Math.max(Math.abs(ef.vyStart), Math.abs(ef.vyEnd)),
+              Nu: Math.max(Math.abs(ef.nStart), Math.abs(ef.nEnd)),
+            });
+          }
+        }
+        if (cfMap.size > 0) data.comboForces = cfMap;
+      }
+    }
 
     if (verificationsRef.length > 0) {
       const elemLengths = new Map<number, number>();
@@ -496,51 +646,9 @@
 <svelte:window onresize={updateExampleMenuPosition} onscroll={updateExampleMenuPosition} />
 
 <div class="pro-panel">
-  <!-- Action bar -->
-  <div class="pro-actions">
-    <div class="pro-example-wrap">
-      <button bind:this={exampleButtonEl} class="pro-example-btn" onclick={toggleExampleMenu} title={t('pro.exampleTitle')}>
-        {t('pro.exampleBtn')}
-      </button>
-    </div>
-    <button class="pro-solve-btn" onclick={handleSolve} disabled={!hasModel || solving}>
-      {solving ? t('pro.solving') : t('pro.solve')}
-    </button>
-    <button class="pro-report-btn" onclick={handleOpenReportDialog} disabled={modelStore.nodes.size === 0} title={t('pro.reportTitle')}>
-      {t('pro.reportBtn')}
-    </button>
-  </div>
   {#if solveError}
     <div class="pro-solve-error">{solveError}</div>
   {/if}
-
-  <!-- Grouped tab navigation -->
-  <nav class="pro-nav">
-    {#each tabGroups as group}
-      <div class="tab-group">
-        <span class="tab-group-label">{group.label}</span>
-        <div class="tab-group-buttons">
-          {#each group.tabs as tab}
-            <button
-              class="pro-tab"
-              class:active={activeTab === tab.id}
-              onclick={() => { tabError = null; activeTab = tab.id; }}
-            >
-              {tab.label}
-              {#if tab.id === 'diagnostics' && diagCount > 0}
-                <span class="badge badge-error">{diagCount}</span>
-              {:else}
-                {@const count = getTabCount(tab.id)}
-                {#if count}
-                  <span class="badge badge-count">{count}</span>
-                {/if}
-              {/if}
-            </button>
-          {/each}
-        </div>
-      </div>
-    {/each}
-  </nav>
 
   <!-- Tab content -->
   <div class="pro-content">
@@ -548,7 +656,7 @@
       <div class="pro-tab-error">
         <p>{t('pro.errorInTab').replace('{tab}', activeTab)}</p>
         <pre>{tabError}</pre>
-        <button onclick={() => { tabError = null; activeTab = 'nodes'; }}>{t('pro.backToNodes')}</button>
+        <button onclick={() => { tabError = null; uiStore.proActiveTab = 'nodes'; }}>{t('pro.backToNodes')}</button>
       </div>
     {:else}
       <svelte:boundary onerror={(e) => { tabError = String(e); console.error('ProPanel tab error:', e); }}>
@@ -873,89 +981,6 @@
     color: #ff8a9e;
     background: rgba(233, 69, 96, 0.1);
     border-bottom: 1px solid #1a3a5a;
-  }
-
-  /* ─── Grouped tab navigation ─── */
-  .pro-nav {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 0;
-    padding: 4px 4px 0;
-    background: #0a1a30;
-    border-bottom: 1px solid #1a4a7a;
-    flex-shrink: 0;
-  }
-
-  .tab-group {
-    display: flex;
-    align-items: center;
-    gap: 1px;
-    padding: 2px 3px;
-    min-width: 0;
-  }
-
-  .tab-group-label {
-    font-size: 0.5rem;
-    font-weight: 600;
-    color: #556;
-    text-transform: uppercase;
-    letter-spacing: 0.04em;
-    padding: 0 3px 0 1px;
-    white-space: nowrap;
-    writing-mode: horizontal-tb;
-  }
-
-  .tab-group-buttons {
-    display: flex;
-    gap: 1px;
-  }
-
-  .pro-tab {
-    padding: 4px 7px;
-    font-size: 0.7rem;
-    font-weight: 500;
-    color: #778;
-    background: #0f2840;
-    border: none;
-    border-radius: 3px 3px 0 0;
-    cursor: pointer;
-    transition: all 0.15s;
-    white-space: nowrap;
-    position: relative;
-  }
-
-  .pro-tab:hover {
-    color: #ccc;
-    background: #1a3860;
-  }
-
-  .pro-tab.active {
-    color: #fff;
-    background: #16213e;
-    border-bottom: 2px solid #e94560;
-  }
-
-  .badge {
-    display: inline-block;
-    margin-left: 3px;
-    padding: 0 4px;
-    font-size: 0.55rem;
-    font-weight: 700;
-    border-radius: 6px;
-    min-width: 12px;
-    text-align: center;
-    line-height: 13px;
-    vertical-align: middle;
-  }
-
-  .badge-error {
-    background: #e94560;
-    color: #fff;
-  }
-
-  .badge-count {
-    background: #1a4a7a;
-    color: #8ab;
   }
 
   /* ─── Content area ─── */

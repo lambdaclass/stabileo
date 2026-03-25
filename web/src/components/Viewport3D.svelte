@@ -89,6 +89,7 @@
 
   function shouldProject2DModel(): boolean {
     return shouldProjectModelToXZ({
+      analysisMode: uiStore.analysisMode,
       nodes: modelStore.nodes.values(),
       supports: modelStore.supports.values(),
       loads: modelStore.loads,

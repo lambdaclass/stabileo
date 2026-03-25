@@ -18,25 +18,26 @@
   let drawMode = $state(false);
   let drawNodeI = $state<number | null>(null);
 
-  // Sync rows from store on mount
+  // Sync rows from store on mount. Preserve unsaved rows (id === null).
   $effect(() => {
     const storeElems = [...modelStore.elements.values()];
+    const savedRows = rows.filter(r => r.id !== null);
+    const unsavedRows = rows.filter(r => r.id === null);
     const storeIds = storeElems.map(e => e.id).join(',');
-    const rowIds = rows.filter(r => r.id !== null).map(r => r.id).join(',');
-    if (storeElems.length === 0) {
-      if (rows.length > 0) rows = [];
-      return;
-    }
-    if (storeIds !== rowIds || storeElems.length !== rows.filter(r => r.id !== null).length) {
-      rows = storeElems.map(e => ({
-        id: e.id,
-        nodeI: String(e.nodeI),
-        nodeJ: String(e.nodeJ),
-        materialId: e.materialId,
-        sectionId: e.sectionId,
-        hingeI: e.hingeStart ?? false,
-        hingeJ: e.hingeEnd ?? false,
-      }));
+    const rowIds = savedRows.map(r => r.id).join(',');
+    if (storeIds !== rowIds || storeElems.length !== savedRows.length) {
+      rows = [
+        ...storeElems.map(e => ({
+          id: e.id,
+          nodeI: String(e.nodeI),
+          nodeJ: String(e.nodeJ),
+          materialId: e.materialId,
+          sectionId: e.sectionId,
+          hingeI: e.hingeStart ?? false,
+          hingeJ: e.hingeEnd ?? false,
+        })),
+        ...unsavedRows,
+      ];
     }
   });
 

@@ -3,9 +3,10 @@
   import type { SolverDiagnostic } from '../../lib/engine/types';
   import { verifyElement, classifyElement, REBAR_DB, computeJointPsiFromModel } from '../../lib/engine/codes/argentina/cirsoc201';
   import type { ElementVerification, VerificationInput } from '../../lib/engine/codes/argentina/cirsoc201';
-  import { generateCrossSectionSvg, generateBeamElevationSvg, generateColumnElevationSvg, generateJointDetailSvg, generateSlabReinforcementSvg, designSlabReinforcement, generateFrameLineElevationSvg } from '../../lib/engine/reinforcement-svg';
-  import type { SlabDesignResult, FramingContext, FrameLineElevationOpts } from '../../lib/engine/reinforcement-svg';
+  import { generateCrossSectionSvg, generateBeamElevationSvg, generateColumnElevationSvg, generateJointDetailSvg, generateSlabReinforcementSvg, designSlabReinforcement, generateFrameLineElevationSvg, generateColumnStackElevationSvg } from '../../lib/engine/reinforcement-svg';
+  import type { SlabDesignResult, FramingContext, FrameLineElevationOpts, ColumnStackElevationOpts } from '../../lib/engine/reinforcement-svg';
   import { buildStructuralGraph, getElementFramingContext, type StructuralGraph } from '../../lib/engine/structural-graph';
+  import { computeBarMarks, type BarMark } from '../../lib/engine/bar-marks';
   import { checkCrackWidth, checkDeflection } from '../../lib/engine/codes/argentina/serviceability';
   import type { CrackResult, DeflectionResult } from '../../lib/engine/codes/argentina/serviceability';
   import { computeQuantities } from '../../lib/engine/quantity-takeoff';
@@ -860,32 +861,127 @@
   const jointDetail = $derived(jointDetails.length > 0 ? jointDetails[0] : null);
 
   /** Beam frame-line continuity data for continuous elevation drawings. */
-  const beamFrameLines = $derived.by((): FrameLineElevationOpts[] => {
+  /** Beam frame lines organized by floor level and axis. */
+  interface FloorBeamGroup {
+    z: number;
+    label: string;
+    xLines: FrameLineElevationOpts[];
+    yLines: FrameLineElevationOpts[];
+    otherLines: FrameLineElevationOpts[];
+  }
+
+  const beamFloorGroups = $derived.by((): FloorBeamGroup[] => {
     if (!structGraph) return [];
     const verifMap = new Map<number, ElementVerification>();
     for (const v of verifications) verifMap.set(v.elementId, v);
 
-    const result: FrameLineElevationOpts[] = [];
+    // Build all beam frame lines (no flat cap)
+    const allLines: Array<{ opts: FrameLineElevationOpts; z: number }> = [];
     for (const fl of structGraph.frameLines) {
       if (fl.direction !== 'horizontal' || fl.elementIds.length < 2) continue;
-      // Check that we have verification data for at least some spans
       const spanData = fl.elementIds.map(eid => {
-        const v = verifMap.get(eid);
-        const len = elementLengthMap.get(eid);
+        const v = verifMap.get(eid); const len = elementLengthMap.get(eid);
         return v && len ? { v, len } : null;
       });
       if (spanData.filter(Boolean).length < 2) continue;
+
+      // Read moment envelope data if available
+      const envMomentZ = resultsStore.envelope3D?.momentZ;
+      const envMap = new Map<number, { t: number[]; posM: number[]; negM: number[] }>();
+      if (envMomentZ) {
+        for (const ed of envMomentZ.elements) {
+          envMap.set(ed.elementId, {
+            t: ed.tPositions,
+            posM: ed.posValues,
+            negM: ed.negValues.map(v => Math.abs(v)), // stored as negative; take abs
+          });
+        }
+      }
 
       const spans = fl.elementIds.map((eid, i) => {
         const sd = spanData[i];
         if (!sd) return { length: 1, bottomBars: '?', topBars: '2 Ø10', hasCompSteel: false, stirrupSpacing: 0.2, stirrupDia: 8 };
         const v = sd.v;
         const hasComp = v.flexure.isDoublyReinforced && !!v.flexure.barCountComp;
+        const momentStations = envMap.get(eid);
+        return { length: sd.len, bottomBars: v.flexure.bars, topBars: hasComp ? (v.flexure.barsComp ?? '2 Ø10') : '2 Ø10', hasCompSteel: hasComp, stirrupSpacing: v.shear.spacing, stirrupDia: v.shear.stirrupDia, detailing: v.detailing, momentStations, barCount: v.flexure.barCount, barDia: v.flexure.barDia, asMin: v.flexure.AsMin, topBarCount: hasComp ? v.flexure.barCountComp : undefined, topBarDia: hasComp ? v.flexure.barDiaComp : undefined, sectionB: v.b, cover: v.cover };
+      });
+
+      const flNodes = fl.nodeIds.map(nid => {
+        const conn = structGraph.nodes.get(nid);
+        return { hasColumn: (conn?.columns.length ?? 0) > 0, hasSupport: !!conn?.support, supportType: conn?.support };
+      });
+
+      // Determine floor Z from the first node's Z coordinate
+      const firstNodeId = fl.nodeIds[0];
+      const firstNode = modelStore.nodes.get(firstNodeId);
+      const z = firstNode ? Math.round((firstNode.z ?? 0) * 10) / 10 : 0;
+
+      allLines.push({ opts: { spans, nodes: flNodes, labels: { splice: t('pro.lapSplice') }, axis: fl.axis }, z });
+    }
+
+    // Group by floor Z
+    const floorMap = new Map<number, { x: FrameLineElevationOpts[]; y: FrameLineElevationOpts[]; other: FrameLineElevationOpts[] }>();
+    for (const { opts, z } of allLines) {
+      let group = floorMap.get(z);
+      if (!group) { group = { x: [], y: [], other: [] }; floorMap.set(z, group); }
+      if (opts.axis === 'X') group.x.push(opts);
+      else if (opts.axis === 'Y') group.y.push(opts);
+      else group.other.push(opts);
+    }
+
+    // Sort floors top-to-bottom (roof first — typical engineering reading)
+    const floors = [...floorMap.entries()]
+      .sort((a, b) => b[0] - a[0])
+      .map(([z, g]) => ({
+        z,
+        label: `Z = ${z.toFixed(1)} m`,
+        xLines: g.x.slice(0, 4),
+        yLines: g.y.slice(0, 4),
+        otherLines: g.other.slice(0, 2),
+      }));
+
+    // Cap: show up to 4 representative floors (top, bottom, 2 middle)
+    if (floors.length > 4) {
+      const top = floors[0];
+      const bottom = floors[floors.length - 1];
+      const mid1 = floors[Math.floor(floors.length / 3)];
+      const mid2 = floors[Math.floor(2 * floors.length / 3)];
+      const selected = [top, mid1, mid2, bottom].filter((f, i, arr) => arr.indexOf(f) === i);
+      return selected;
+    }
+    return floors;
+  });
+
+  // Flat list for report compatibility
+  const beamFrameLines = $derived(beamFloorGroups.flatMap(fg => [...fg.xLines, ...fg.yLines, ...fg.otherLines]));
+
+  /** Column stack continuity data for vertical frame-line drawings. */
+  const columnStackLines = $derived.by((): ColumnStackElevationOpts[] => {
+    if (!structGraph) return [];
+    const verifMap = new Map<number, ElementVerification>();
+    for (const v of verifications) verifMap.set(v.elementId, v);
+
+    const result: ColumnStackElevationOpts[] = [];
+    for (const fl of structGraph.frameLines) {
+      if (fl.direction !== 'vertical' || fl.elementIds.length < 2) continue;
+      const segData = fl.elementIds.map(eid => {
+        const v = verifMap.get(eid);
+        const len = elementLengthMap.get(eid);
+        return v && len && v.column ? { v, len } : null;
+      });
+      if (segData.filter(Boolean).length < 2) continue;
+
+      const firstValid = segData.find(Boolean)!;
+      const segments = fl.elementIds.map((_, i) => {
+        const sd = segData[i];
+        if (!sd) return { height: 3, bars: '?', barCount: 4, barDia: 16, stirrupSpacing: 0.2, stirrupDia: 8 };
+        const v = sd.v;
         return {
-          length: sd.len,
-          bottomBars: v.flexure.bars,
-          topBars: hasComp ? (v.flexure.barsComp ?? '2 Ø10') : '2 Ø10',
-          hasCompSteel: hasComp,
+          height: sd.len,
+          bars: v.column?.bars ?? v.flexure.bars,
+          barCount: v.column?.barCount ?? v.flexure.barCount,
+          barDia: v.column?.barDia ?? v.flexure.barDia,
           stirrupSpacing: v.shear.spacing,
           stirrupDia: v.shear.stirrupDia,
           detailing: v.detailing,
@@ -894,14 +990,14 @@
 
       const flNodes = fl.nodeIds.map(nid => {
         const conn = structGraph.nodes.get(nid);
-        return {
-          hasColumn: (conn?.columns.length ?? 0) > 0,
-          hasSupport: !!conn?.support,
-          supportType: conn?.support,
-        };
+        return { hasBeam: (conn?.beams.length ?? 0) > 0, hasSupport: !!conn?.support, supportType: conn?.support };
       });
 
-      result.push({ spans, nodes: flNodes, labels: { splice: t('pro.lapSplice') } });
+      result.push({
+        segments, nodes: flNodes,
+        sectionB: firstValid.v.b, sectionH: firstValid.v.h, cover: firstValid.v.cover,
+        labels: { splice: t('pro.lapSplice') },
+      });
       if (result.length >= 4) break;
     }
     return result;
@@ -911,6 +1007,9 @@
   const beamEntries = $derived(rebarSchedule.filter(e => e.elementType === 'beam'));
   const colEntries = $derived(rebarSchedule.filter(e => e.elementType === 'column'));
   const wallEntries = $derived(rebarSchedule.filter(e => e.elementType === 'wall'));
+
+  /** Bar marks with cutting lengths */
+  const barMarks = $derived(verifications.length > 0 ? computeBarMarks(verifications, elementLengthMap) : []);
 
   /** Export rebar schedule + quantities to XLSX */
   function exportRebarSchedule() {
@@ -988,6 +1087,36 @@
       const wsQty = XLSX.utils.aoa_to_sheet(qtyData);
       wsQty['!cols'] = [{ wch: 8 }, { wch: 10 }, { wch: 8 }, { wch: 16 }, { wch: 14 }, { wch: 14 }, { wch: 14 }];
       XLSX.utils.book_append_sheet(wb, wsQty, t('pro.materialsSummary'));
+    }
+
+    // Sheet 3: Bar marks
+    if (barMarks.length > 0) {
+      const shapeLabel = (s: string) => s === 'stirrup' ? t('pro.bmStirrup') || 'Stirrup' : s === 'hooked' ? t('pro.bmHooked') || 'Hooked' : t('pro.bmStraight') || 'Straight';
+      const bmHeaders = [
+        t('pro.bmMark') || 'Mark', `Ø (mm)`, t('pro.bmShape') || 'Shape',
+        `${t('pro.bmCutLen') || 'Cut. L'} (m)`, t('pro.bmCount') || 'Count',
+        `${t('pro.bmTotalLen') || 'Total L'} (m)`, `${t('pro.bmWeight') || 'Weight'} (kg)`,
+        'Stock (m)', 'Splices',
+        t('pro.bmNote') || 'Note',
+      ];
+      const bmData: (string | number)[][] = [bmHeaders];
+      for (const m of barMarks) {
+        bmData.push([
+          m.mark, m.diameter, shapeLabel(m.shape),
+          m.cuttingLength, m.count,
+          Number(m.totalLength.toFixed(1)), Number(m.weight.toFixed(1)),
+          m.shape !== 'stirrup' ? m.stockLength : '',
+          m.needsStockSplice ? m.nStockSplices : '',
+          m.overStock ? '>12m' : '',
+        ]);
+      }
+      // Totals row
+      const totalWeight = barMarks.reduce((s, m) => s + m.weight, 0);
+      const totalLen = barMarks.reduce((s, m) => s + m.totalLength, 0);
+      bmData.push(['', '', '', '', '', Number(totalLen.toFixed(1)), Number(totalWeight.toFixed(1)), '']);
+      const wsBM = XLSX.utils.aoa_to_sheet(bmData);
+      wsBM['!cols'] = [{ wch: 8 }, { wch: 8 }, { wch: 10 }, { wch: 10 }, { wch: 8 }, { wch: 10 }, { wch: 10 }, { wch: 8 }];
+      XLSX.utils.book_append_sheet(wb, wsBM, t('pro.bmSheet') || 'Bar Marks');
     }
 
     XLSX.writeFile(wb, `planilla-hierros-${modelStore.model.name || 'modelo'}.xlsx`);
@@ -1097,6 +1226,22 @@
       </button>
     </div>
 
+    <!-- Serviceability summary badges -->
+    {#if crackResults.size > 0 || deflectionResults.size > 0}
+      <div class="pro-verif-summary" style="margin-top:4px">
+        {#if crackResults.size > 0}
+          {@const crackOk = [...crackResults.values()].filter(c => c.status === 'ok').length}
+          {@const crackFail = [...crackResults.values()].filter(c => c.status === 'fail').length}
+          <span class="svc-badge">{t('pro.cracking')}: <span class="status-ok">{crackOk} ✓</span>{#if crackFail > 0} <span class="status-fail">{crackFail} ✗</span>{/if}</span>
+        {/if}
+        {#if deflectionResults.size > 0}
+          {@const deflOk = [...deflectionResults.values()].filter(d => d.status === 'ok').length}
+          {@const deflFail = [...deflectionResults.values()].filter(d => d.status === 'fail').length}
+          <span class="svc-badge">{t('pro.deflection')}: <span class="status-ok">{deflOk} ✓</span>{#if deflFail > 0} <span class="status-fail">{deflFail} ✗</span>{/if}</span>
+        {/if}
+      </div>
+    {/if}
+
     <!-- Section tabs -->
     <div class="section-tabs">
       <button class:active={activeSection === 'verification'} onclick={() => activeSection = 'verification'}>{t('pro.verificationTab')}</button>
@@ -1129,6 +1274,7 @@
               <th>As req</th>
               <th>As prov</th>
               <th>{t('pro.thStirrups')}</th>
+              <th>SLS</th>
               <th></th>
             </tr>
           </thead>
@@ -1143,11 +1289,15 @@
                 <td class="col-num">{v.column ? v.column.AsTotal.toFixed(1) : v.flexure.AsReq.toFixed(1)}</td>
                 <td class="col-num">{#if overrides.has(v.elementId)}<span class="override-mark" title={t('pro.overrideActive')}>{effectiveAs(v).toFixed(1)}</span>{:else}{v.column ? v.column.AsProv.toFixed(1) : v.flexure.AsProv.toFixed(1)}{#if !v.column && v.flexure.isDoublyReinforced && v.flexure.AsComp}<br><span style="font-size:0.65rem;color:#4a90d9">+{v.flexure.AsComp.toFixed(1)} A's</span>{/if}{/if}</td>
                 <td class="col-stirrup">eØ{v.shear.stirrupDia} c/{(v.shear.spacing * 100).toFixed(0)}</td>
-                <td class="col-status"><span class={statusClass(v.overallStatus)}>{statusIcon(v.overallStatus)}</span></td>
+                <td class="col-sls">{#if crackResults.has(v.elementId) || deflectionResults.has(v.elementId)}{@const cr = crackResults.get(v.elementId)}{@const dr = deflectionResults.get(v.elementId)}{#if cr}<span class={statusClass(cr.status)} title="w_k={cr.wk.toFixed(2)}mm / {cr.wLimit.toFixed(2)}mm">{cr.wk.toFixed(2)}</span>{/if}{#if cr && dr}<br>{/if}{#if dr}<span class={statusClass(dr.status)} title="L/{Math.round(1/dr.ratio)} vs L/{Math.round(1/dr.limit)}">L/{Math.round(1/dr.ratio)}</span>{/if}{:else}<span class="dim-text">—</span>{/if}</td>
+                <td class="col-status">
+                  <span class={statusClass(v.overallStatus)}>{statusIcon(v.overallStatus)}</span>
+                  {#if v.slender && v.slender.isSlender}<br><span class="slender-badge" title="k·Lu/r={v.slender.klu_r.toFixed(1)}, δns={v.slender.delta_ns.toFixed(2)}">δ={v.slender.delta_ns.toFixed(2)}</span>{/if}
+                </td>
               </tr>
               {#if expandedId === v.elementId}
                 <tr class="detail-row">
-                  <td colspan="9">
+                  <td colspan="10">
                     <div class="detail-panel">
                       <!-- Cross section + elevation + interaction SVGs (override-aware) -->
                       {#if true}
@@ -1281,6 +1431,20 @@
                         {#if v.slender}
                           <div class="memo-section">
                             <div class="memo-title">{t('pro.slenderness')} {v.slender.isSlender ? t('pro.slenderCol') : t('pro.shortCol')}</div>
+                            <div class="slender-factors">
+                              <span>k = {v.slender.k.toFixed(2)}</span>
+                              <span>Lu = {v.slender.lu.toFixed(2)} m</span>
+                              <span>r = {(v.slender.r * 100).toFixed(1)} cm</span>
+                              <span>k·Lu/r = {v.slender.klu_r.toFixed(1)}</span>
+                              <span>λ_lim = {v.slender.lambda_lim.toFixed(0)}</span>
+                              {#if v.slender.isSlender}
+                                <span class="slender-highlight">δ_ns = {v.slender.delta_ns.toFixed(3)}</span>
+                                <span>C_m = {v.slender.Cm.toFixed(3)}</span>
+                                <span>M_c = {v.slender.Mc.toFixed(1)} kN·m</span>
+                              {/if}
+                              {#if v.slender.psiA != null}<span>Ψ_A = {v.slender.psiA.toFixed(2)}</span>{/if}
+                              {#if v.slender.psiB != null}<span>Ψ_B = {v.slender.psiB.toFixed(2)}</span>{/if}
+                            </div>
                             {#each v.slender.steps as step}<div class="memo-step">{step}</div>{/each}
                           </div>
                         {/if}
@@ -1376,14 +1540,50 @@
           </div>
         {/if}
 
-        <!-- Beam continuity elevations (frame-line reinforcement flow) -->
-        {#if beamFrameLines.length > 0}
-          <div class="pro-section-label">{t('pro.beamContinuity') !== 'pro.beamContinuity' ? t('pro.beamContinuity') : 'Beam Continuity'}</div>
+        <!-- Beam continuity elevations — organized by floor and axis -->
+        {#if beamFloorGroups.length > 0}
+          {#each beamFloorGroups as fg}
+            {#if fg.xLines.length > 0}
+              <div class="pro-section-label">{t('pro.beamContinuity')} — X · {fg.label}</div>
+              <div class="detailing-gallery">
+                {#each fg.xLines as fl}
+                  <div class="gallery-item" style="max-width:100%">
+                    <div class="detail-svg" style="overflow-x:auto">{@html generateFrameLineElevationSvg(fl)}</div>
+                  </div>
+                {/each}
+              </div>
+            {/if}
+            {#if fg.yLines.length > 0}
+              <div class="pro-section-label">{t('pro.beamContinuity')} — Y · {fg.label}</div>
+              <div class="detailing-gallery">
+                {#each fg.yLines as fl}
+                  <div class="gallery-item" style="max-width:100%">
+                    <div class="detail-svg" style="overflow-x:auto">{@html generateFrameLineElevationSvg(fl)}</div>
+                  </div>
+                {/each}
+              </div>
+            {/if}
+            {#if fg.otherLines.length > 0}
+              <div class="pro-section-label">{t('pro.beamContinuity')} · {fg.label}</div>
+              <div class="detailing-gallery">
+                {#each fg.otherLines as fl}
+                  <div class="gallery-item" style="max-width:100%">
+                    <div class="detail-svg" style="overflow-x:auto">{@html generateFrameLineElevationSvg(fl)}</div>
+                  </div>
+                {/each}
+              </div>
+            {/if}
+          {/each}
+        {/if}
+
+        <!-- Column continuity elevations -->
+        {#if columnStackLines.length > 0}
+          <div class="pro-section-label">{t('pro.columnContinuity') !== 'pro.columnContinuity' ? t('pro.columnContinuity') : 'Column Continuity'}</div>
           <div class="detailing-gallery">
-            {#each beamFrameLines as fl, idx}
-              <div class="gallery-item" style="max-width:100%">
-                <div class="detail-svg" style="overflow-x:auto">
-                  {@html generateFrameLineElevationSvg(fl)}
+            {#each columnStackLines as cs}
+              <div class="gallery-item">
+                <div class="detail-svg">
+                  {@html generateColumnStackElevationSvg(cs)}
                 </div>
               </div>
             {/each}
@@ -1567,6 +1767,49 @@
               <span class="schedule-value">{totalSlabVol.toFixed(2)} m³</span>
             </div>
           {/if}
+        </div>
+      {/if}
+
+      <!-- Bar marks table -->
+      {#if barMarks.length > 0}
+        <div class="pro-section-label" style="margin-top:12px">{t('pro.bmTitle') || 'Bar Marks — Estimated Cutting Lengths'}</div>
+        <div class="pro-verif-table-wrap">
+          <table class="pro-verif-table">
+            <thead>
+              <tr>
+                <th>{t('pro.bmMark') || 'Mark'}</th>
+                <th>Ø</th>
+                <th>{t('pro.bmShape') || 'Shape'}</th>
+                <th>{t('pro.bmCutLen') || 'Cut. L'} (m)</th>
+                <th>{t('pro.bmCount') || 'Count'}</th>
+                <th>{t('pro.bmTotalLen') || 'Total L'} (m)</th>
+                <th>{t('pro.bmWeight') || 'Weight'} (kg)</th>
+                <th>Stock</th>
+                <th></th>
+              </tr>
+            </thead>
+            <tbody>
+              {#each barMarks as m}
+                <tr class={m.overStock ? 'status-warn' : ''}>
+                  <td style="font-weight:600">{m.mark}</td>
+                  <td class="col-num">{m.diameter}</td>
+                  <td style="font-size:0.65rem">{m.shape === 'stirrup' ? (t('pro.bmStirrup') || 'Stirrup') : m.shape === 'hooked' ? (t('pro.bmHooked') || 'Hooked') : (t('pro.bmStraight') || 'Straight')}</td>
+                  <td class="col-num">{m.cuttingLength.toFixed(2)}</td>
+                  <td class="col-num">{m.count}</td>
+                  <td class="col-num">{m.totalLength.toFixed(1)}</td>
+                  <td class="col-num">{m.weight.toFixed(1)}</td>
+                  <td class="col-num" style="font-size:0.6rem">{m.shape !== 'stirrup' ? `${m.stockLength}m` : ''}{#if m.needsStockSplice}<br><span class="status-warn">{m.nStockSplices}sp</span>{/if}</td>
+                  <td>{#if m.overStock}<span class="status-warn" title=">12m stock">⚠</span>{/if}</td>
+                </tr>
+              {/each}
+              <tr style="font-weight:600;border-top:2px solid #334">
+                <td colspan="5"></td>
+                <td class="col-num">{barMarks.reduce((s, m) => s + m.totalLength, 0).toFixed(1)}</td>
+                <td class="col-num">{barMarks.reduce((s, m) => s + m.weight, 0).toFixed(1)}</td>
+                <td></td><td></td>
+              </tr>
+            </tbody>
+          </table>
         </div>
       {/if}
 
@@ -1914,6 +2157,13 @@
   .col-stirrup { font-family: monospace; font-size: 0.6rem; white-space: nowrap; }
   .col-elems { font-size: 0.58rem; color: #888; max-width: 140px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .col-status { text-align: center; font-size: 0.85rem; }
+  .slender-badge { font-size: 0.55rem; color: #f0a500; font-family: monospace; }
+  .svc-badge { font-size: 0.68rem; color: #aaa; margin-right: 10px; }
+  .col-sls { font-family: monospace; font-size: 0.6rem; text-align: center; white-space: nowrap; }
+  .dim-text { color: #444; }
+  .slender-factors { display: flex; flex-wrap: wrap; gap: 6px 14px; padding: 4px 0 6px; font-size: 0.65rem; font-family: monospace; color: #aaa; }
+  .slender-factors span { white-space: nowrap; }
+  .slender-highlight { color: #f0a500; font-weight: 600; }
 
   .status-ok { color: #4ecdc4; }
   .status-fail { color: #e94560; }

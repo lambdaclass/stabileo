@@ -143,6 +143,8 @@
     resultsStore.clear();
     resultsStore.diagramType = 'none';
     historyStore.clear();
+    uiStore.proPanelVisible = true;
+    uiStore.proPanelWidth = 540;
     // Restore target mode's model or start empty
     const saved = modeSnapshots.get(target);
     if (saved) {
@@ -396,6 +398,42 @@
       }
     });
   });
+
+  // ─── PRO panel drag-resize ────────────────────────────────────────
+  let proPanelRef: any = $state(null);
+  let proExBtnEl = $state<HTMLButtonElement | undefined>(undefined);
+
+  function startProResize(e: MouseEvent) {
+    e.preventDefault();
+    const startX = e.clientX;
+    const startWidth = uiStore.proPanelWidth;
+    const maxW = window.innerWidth - 200;
+    let rafId = 0;
+    let lastX = startX;
+
+    function onMove(ev: MouseEvent) {
+      lastX = ev.clientX;
+      if (!rafId) {
+        rafId = requestAnimationFrame(() => {
+          rafId = 0;
+          const delta = startX - lastX;
+          uiStore.proPanelWidth = Math.max(360, Math.min(maxW, startWidth + delta));
+        });
+      }
+    }
+    function onUp() {
+      if (rafId) cancelAnimationFrame(rafId);
+      window.removeEventListener('mousemove', onMove);
+      window.removeEventListener('mouseup', onUp);
+      document.body.style.cursor = '';
+      document.body.style.userSelect = '';
+      window.dispatchEvent(new Event('resize'));
+    }
+    document.body.style.cursor = 'col-resize';
+    document.body.style.userSelect = 'none';
+    window.addEventListener('mousemove', onMove);
+    window.addEventListener('mouseup', onUp);
+  }
 </script>
 
 {#if showLanding}
@@ -448,7 +486,7 @@
     </div>
   {/if}
 
-  <div class="app-body">
+  <div class="app-body" class:app-body-pro={uiStore.appMode === 'pro'}>
     {#if uiStore.appMode === 'basico'}
       {#if !uiStore.isMobile}
         {#if uiStore.leftSidebarOpen}
@@ -461,6 +499,25 @@
         </button>
       {/if}
     {/if}
+
+    {#if uiStore.appMode === 'pro' && !uiStore.isMobile}
+      <nav class="pro-nav-strip">
+        <div class="pro-nav-groups">
+          <div class="pn-group"><span class="pn-label">{t('pro.groupGeometry')}</span><button class="pn-tab" class:active={uiStore.proActiveTab === 'nodes'} onclick={() => { uiStore.proActiveTab = 'nodes'; }}>{t('pro.tabNodes')}</button><button class="pn-tab" class:active={uiStore.proActiveTab === 'elements'} onclick={() => { uiStore.proActiveTab = 'elements'; }}>{t('pro.tabElements')}</button><button class="pn-tab" class:active={uiStore.proActiveTab === 'shells'} onclick={() => { uiStore.proActiveTab = 'shells'; }}>{t('pro.tabShells')}</button></div>
+          <div class="pn-group"><span class="pn-label">{t('pro.groupProperties')}</span><button class="pn-tab" class:active={uiStore.proActiveTab === 'materials'} onclick={() => { uiStore.proActiveTab = 'materials'; }}>{t('pro.tabMaterials')}</button><button class="pn-tab" class:active={uiStore.proActiveTab === 'sections'} onclick={() => { uiStore.proActiveTab = 'sections'; }}>{t('pro.tabSections')}</button></div>
+          <div class="pn-group"><span class="pn-label">{t('pro.groupConditions')}</span><button class="pn-tab" class:active={uiStore.proActiveTab === 'supports'} onclick={() => { uiStore.proActiveTab = 'supports'; }}>{t('pro.tabSupports')}</button><button class="pn-tab" class:active={uiStore.proActiveTab === 'constraints'} onclick={() => { uiStore.proActiveTab = 'constraints'; }}>{t('pro.tabConstraints')}</button><button class="pn-tab" class:active={uiStore.proActiveTab === 'loads'} onclick={() => { uiStore.proActiveTab = 'loads'; }}>{t('pro.tabLoads')}</button></div>
+          <div class="pn-group"><span class="pn-label">{t('pro.groupAnalysis')}</span><button class="pn-tab" class:active={uiStore.proActiveTab === 'advanced'} onclick={() => { uiStore.proActiveTab = 'advanced'; }}>{t('pro.tabAdvanced')}</button><button class="pn-tab" class:active={uiStore.proActiveTab === 'results'} onclick={() => { uiStore.proActiveTab = 'results'; }}>{t('pro.tabResults')}</button><button class="pn-tab" class:active={uiStore.proActiveTab === 'verification'} onclick={() => { uiStore.proActiveTab = 'verification'; }}>{t('pro.tabVerification')}</button><button class="pn-tab" class:active={uiStore.proActiveTab === 'connections'} onclick={() => { uiStore.proActiveTab = 'connections'; }}>{t('pro.tabConnections')}</button><button class="pn-tab" class:active={uiStore.proActiveTab === 'diagnostics'} onclick={() => { uiStore.proActiveTab = 'diagnostics'; }}>{t('pro.tabDiagnostics')}</button></div>
+        </div>
+        <div class="pn-actions">
+          <button class="pn-action pn-example" bind:this={proExBtnEl} onclick={() => proPanelRef?.examples(proExBtnEl)}>{t('pro.exampleBtn')}</button>
+          <button class="pn-action pn-solve" onclick={() => proPanelRef?.solve()} disabled={!proPanelRef?.canSolve()}>{proPanelRef?.isSolving() ? t('pro.solving') : t('pro.solve')}</button>
+          <button class="pn-action pn-report" onclick={() => proPanelRef?.report()} disabled={!proPanelRef?.canReport()}>{t('pro.reportBtn')}</button>
+        </div>
+        <button class="pn-toggle" onclick={() => { uiStore.proPanelVisible = !uiStore.proPanelVisible; setTimeout(() => window.dispatchEvent(new Event('resize')), 50); }} title={uiStore.proPanelVisible ? 'Hide panel' : 'Show panel'}>{uiStore.proPanelVisible ? '\u25E5' : '\u25E3'}</button>
+      </nav>
+    {/if}
+
+    <div class="pro-body-row">
 
     <div class="main-area">
       <main class="viewport-container">
@@ -480,15 +537,17 @@
     </div>
 
     {#if !uiStore.isMobile}
-      {#if uiStore.appMode === 'pro'}
-        <aside class="sidebar right pro-sidebar">
-          <ProPanel />
+      {#if uiStore.appMode === 'pro' && uiStore.proPanelVisible}
+        <aside class="sidebar right pro-sidebar" style:width="{uiStore.proPanelWidth}px" style:overflow="visible">
+          <!-- svelte-ignore a11y_no_static_element_interactions -->
+          <div class="pro-resize-handle" onmousedown={(e) => startProResize(e)}></div>
+          <ProPanel bind:this={proPanelRef} />
         </aside>
       {:else if uiStore.appMode === 'educativo'}
         <aside class="sidebar right edu-sidebar">
           <EducativePanel />
         </aside>
-      {:else}
+      {:else if uiStore.appMode === 'basico'}
         <button class="sidebar-toggle-btn right-toggle" class:sidebar-closed={!uiStore.rightSidebarOpen} onclick={() => uiStore.rightSidebarOpen = !uiStore.rightSidebarOpen} title={uiStore.rightSidebarOpen ? t('app.hideRightPanel') : t('app.showRightPanel')}>
           {uiStore.rightSidebarOpen ? '▸' : '◂'}
         </button>
@@ -510,6 +569,8 @@
         {/if}
       {/if}
     {/if}
+
+    </div><!-- /pro-body-row -->
 
     {#if !uiStore.isMobile && uiStore.aiDrawerOpen}
       <AiDrawer />
@@ -804,12 +865,108 @@
   }
 
   .pro-sidebar {
-    width: 540px;
-    min-width: 540px;
-    max-width: 540px;
     overflow: visible;
     position: relative;
     z-index: 40;
+    flex-shrink: 0;
+  }
+
+  /* ─── PRO top navigation strip ─── */
+  .pro-nav-strip {
+    display: flex;
+    align-items: center;
+    background: #0a1a30;
+    border-bottom: 1px solid #1a4a7a;
+    padding: 3px 6px 0;
+    flex-shrink: 0;
+    width: 100%;
+  }
+  .pro-nav-groups {
+    display: flex;
+    flex-wrap: wrap;
+    flex: 1;
+    gap: 0;
+  }
+  .pn-group {
+    display: flex;
+    align-items: center;
+    gap: 1px;
+    padding: 2px 4px;
+  }
+  .pn-label {
+    font-size: 0.5rem;
+    font-weight: 600;
+    color: #556;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    padding-right: 3px;
+    white-space: nowrap;
+  }
+  .pn-tab {
+    padding: 4px 8px;
+    font-size: 0.72rem;
+    font-weight: 500;
+    color: #778;
+    background: #0f2840;
+    border: none;
+    border-radius: 3px 3px 0 0;
+    cursor: pointer;
+    transition: all 0.15s;
+    white-space: nowrap;
+  }
+  .pn-tab:hover { color: #ccc; background: #1a3860; }
+  .pn-tab.active { color: #fff; background: #16213e; border-bottom: 2px solid #e94560; }
+  .pn-toggle {
+    padding: 4px 8px;
+    font-size: 0.9rem;
+    line-height: 1;
+    color: #aaa;
+    background: transparent;
+    border: 1px solid #334;
+    border-radius: 4px;
+    cursor: pointer;
+    flex-shrink: 0;
+    margin-left: 6px;
+  }
+  .pn-toggle:hover { color: #fff; border-color: #4ecdc4; }
+
+  .pn-actions {
+    display: flex;
+    gap: 4px;
+    margin-left: auto;
+    align-items: center;
+    flex-shrink: 0;
+  }
+  .pn-action {
+    padding: 3px 10px;
+    font-size: 0.7rem;
+    font-weight: 600;
+    border: 1px solid transparent;
+    border-radius: 3px;
+    cursor: pointer;
+    white-space: nowrap;
+  }
+  .pn-action:disabled { opacity: 0.35; cursor: not-allowed; }
+  .pn-example { color: #fff; background: linear-gradient(135deg, #f0a500, #d99200); border-color: #f0a500; }
+  .pn-example:hover { background: linear-gradient(135deg, #ffb820, #f0a500); }
+  .pn-solve { color: #fff; background: linear-gradient(135deg, #4ecdc4, #3ab8b0); border-color: #4ecdc4; }
+  .pn-solve:hover { background: linear-gradient(135deg, #5fe0d7, #4ecdc4); }
+  .pn-report { color: #fff; background: linear-gradient(135deg, #e94560, #c73e54); border-color: #e94560; }
+  .pn-report:hover { background: linear-gradient(135deg, #ff5a75, #e94560); }
+
+  .pro-resize-handle {
+    position: absolute;
+    left: 0;
+    top: 0;
+    bottom: 0;
+    width: 6px;
+    cursor: col-resize;
+    background: transparent;
+    z-index: 100;
+    touch-action: none;
+  }
+  .pro-resize-handle:hover, .pro-resize-handle:active {
+    background: rgba(78, 205, 196, 0.5);
   }
 
   .edu-sidebar {
@@ -1018,6 +1175,14 @@
     flex: 1;
     overflow: hidden;
     position: relative;
+  }
+  .app-body.app-body-pro {
+    flex-direction: column;
+  }
+  .pro-body-row {
+    display: flex;
+    flex: 1;
+    overflow: hidden;
   }
 
   .sidebar {
