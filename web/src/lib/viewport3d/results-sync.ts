@@ -129,6 +129,18 @@ export function syncDeformed(ctx: ResultsSyncContext, scaleOverride?: number): v
     const r3d = resultsStore.results3D;
     if (!r3d) return;
     displacements = r3d.displacements;
+
+    // Auto-scale: when user scale is 1 (default), compute a sensible scale based on
+    // max displacement vs structure size, similar to the 2D canvas auto-scale.
+    if (scale === 1 && displacements.length > 0) {
+      let maxDisp = 0;
+      for (const d of displacements) maxDisp = Math.max(maxDisp, Math.abs(d.ux), Math.abs(d.uy), Math.abs(d.uz));
+      if (maxDisp > 1e-10) {
+        const structSize = computeStructureBBox();
+        // Target: max displacement visually = ~10% of structure size
+        scale = Math.min((structSize * 0.1) / maxDisp, 200);
+      }
+    }
   } else if (dt === 'modeShape') {
     const modal = resultsStore.modalResult3D;
     if (!modal || !modal.modes.length) return;
