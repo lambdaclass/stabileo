@@ -5,6 +5,7 @@ import { LineMaterial } from 'three/addons/lines/LineMaterial.js';
 import { LineGeometry } from 'three/addons/lines/LineGeometry.js';
 import { COLORS } from './selection-helpers';
 import { createSectionShape } from './section-profiles';
+import { GLOBAL_Z, THREEJS_CYLINDER_AXIS } from '../geometry/coordinate-system';
 import type { Section } from '../store/model.svelte';
 
 /** Shared resolution vector for LineMaterial (screen-space line widths). */
@@ -108,15 +109,14 @@ export function createElementGroup(
         // Position at nI
         mesh.position.set(nI.x, nI.y, nI.z);
 
-        // Orient: default extrusion is along +Z.
+        // Orient: Three.js ExtrudeGeometry extrudes along +Z by default.
         // We need +Z to point from nI to nJ.
         const dir = new THREE.Vector3(dx, dy, dz).normalize();
-        const zAxis = new THREE.Vector3(0, 0, 1);
-        const quat = new THREE.Quaternion().setFromUnitVectors(zAxis, dir);
+        const quat = new THREE.Quaternion().setFromUnitVectors(GLOBAL_Z, dir);
         // Apply combined rotation (element β + section θ) around the beam axis
         const secRot = (opts.elementRollAngle ?? 0) + (opts.sectionRotation ?? 0);
         if (Math.abs(secRot) > 1e-10) {
-          const rollQuat = new THREE.Quaternion().setFromAxisAngle(zAxis, secRot * Math.PI / 180);
+          const rollQuat = new THREE.Quaternion().setFromAxisAngle(GLOBAL_Z, secRot * Math.PI / 180);
           quat.multiply(rollQuat);
         }
         mesh.quaternion.copy(quat);
@@ -190,18 +190,15 @@ function addCylinder(
   group.add(cyl);
 }
 
-/** Orient a cylinder (Y-aligned by default) to span from pI to pJ */
+/** Orient a cylinder (Three.js Y-aligned by default) to span from pI to pJ */
 function orientCylinder(
   cyl: THREE.Mesh,
   pI: { x: number; y: number; z: number },
   pJ: { x: number; y: number; z: number },
 ): void {
   const dir = new THREE.Vector3(pJ.x - pI.x, pJ.y - pI.y, pJ.z - pI.z).normalize();
-  const yAxis = new THREE.Vector3(0, 1, 0);
-
-  // Quaternion that rotates Y → dir
   const quat = new THREE.Quaternion();
-  quat.setFromUnitVectors(yAxis, dir);
+  quat.setFromUnitVectors(THREEJS_CYLINDER_AXIS, dir);
   cyl.quaternion.copy(quat);
 }
 

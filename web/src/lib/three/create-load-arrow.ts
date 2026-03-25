@@ -1,6 +1,11 @@
 // Create Three.js arrow helpers for structural loads
 import * as THREE from 'three';
 import { COLORS, createTextSprite } from './selection-helpers';
+import {
+  GLOBAL_X, GLOBAL_Y, GLOBAL_Z,
+  GRAVITY_VECTOR_3D, UP_VECTOR,
+  THREEJS_CYLINDER_AXIS,
+} from '../geometry/coordinate-system';
 
 const ARROW_SCALE_MAX = 2.5;
 const ARROW_HEAD_LENGTH = 0.12;
@@ -79,11 +84,11 @@ export function createNodalLoadArrow(
   const forceColor = caseColor ?? COLORS.load;
   const labelHex = '#' + new THREE.Color(forceColor).getHexString();
 
-  // Force arrows
+  // Force arrows — directions match global axes (Z-up)
   const forces = [
-    { val: fx, dir: new THREE.Vector3(1, 0, 0), label: 'Fx' },
-    { val: fy, dir: new THREE.Vector3(0, 1, 0), label: 'Fy' },
-    { val: fz, dir: new THREE.Vector3(0, 0, 1), label: 'Fz' },
+    { val: fx, dir: GLOBAL_X.clone(), label: 'Fx' },
+    { val: fy, dir: GLOBAL_Y.clone(), label: 'Fy' },
+    { val: fz, dir: GLOBAL_Z.clone(), label: 'Fz' },
   ];
 
   for (const f of forces) {
@@ -106,11 +111,11 @@ export function createNodalLoadArrow(
     group.add(label);
   }
 
-  // Moment indicators
+  // Moment indicators — axes match global axes (Z-up)
   const moments = [
-    { val: mx, axis: new THREE.Vector3(1, 0, 0), label: 'Mx' },
-    { val: my, axis: new THREE.Vector3(0, 1, 0), label: 'My' },
-    { val: mz, axis: new THREE.Vector3(0, 0, 1), label: 'Mz' },
+    { val: mx, axis: GLOBAL_X.clone(), label: 'Mx' },
+    { val: my, axis: GLOBAL_Y.clone(), label: 'My' },
+    { val: mz, axis: GLOBAL_Z.clone(), label: 'Mz' },
   ];
 
   for (const m of moments) {
@@ -132,7 +137,7 @@ export function createNodalLoadArrow(
       mesh.position.copy(origin);
       // Orient the torus so its normal aligns with the moment axis
       const quat = new THREE.Quaternion();
-      quat.setFromUnitVectors(new THREE.Vector3(0, 0, 1), m.axis);
+      quat.setFromUnitVectors(GLOBAL_Z, m.axis);
       mesh.quaternion.copy(quat);
       group.add(mesh);
 
@@ -167,7 +172,7 @@ export function createNodalLoadArrow(
       coneMesh.position.copy(tipWorld);
       // Orient cone: default cone points along +Y, we want it along tangent
       const coneQuat = new THREE.Quaternion();
-      coneQuat.setFromUnitVectors(new THREE.Vector3(0, 1, 0), tangentWorld);
+      coneQuat.setFromUnitVectors(THREEJS_CYLINDER_AXIS, tangentWorld);
       coneMesh.quaternion.copy(coneQuat);
       group.add(coneMesh);
     }
@@ -220,8 +225,8 @@ export function createDistributedLoadGroup(
   } else {
     // Global-axis fallback when no local axis is provided.
     loadDir = axis === 'Z'
-      ? new THREE.Vector3(0, 0, sign)
-      : new THREE.Vector3(0, sign, 0);
+      ? GLOBAL_Z.clone().multiplyScalar(sign)
+      : GLOBAL_Y.clone().multiplyScalar(sign);
   }
 
   // Color: use case color if provided, otherwise red for Y / orange for Z
@@ -304,7 +309,7 @@ export function createSurfaceLoadGroup(
   }
 
   // Load direction: positive q = gravity (downward = -Z global)
-  const loadDir = new THREE.Vector3(0, 0, q > 0 ? -1 : 1);
+  const loadDir = q > 0 ? GRAVITY_VECTOR_3D.clone() : UP_VECTOR.clone();
 
   const arrowColor = caseColor ?? COLORS.load;
   const N = 3; // 3×3 grid of arrows
@@ -377,9 +382,9 @@ export function createReactionArrow(
   const origin = new THREE.Vector3(pos.x, pos.y, pos.z);
 
   const forces = [
-    { val: fx, dir: new THREE.Vector3(1, 0, 0) },
-    { val: fy, dir: new THREE.Vector3(0, 1, 0) },
-    { val: fz, dir: new THREE.Vector3(0, 0, 1) },
+    { val: fx, dir: GLOBAL_X.clone() },
+    { val: fy, dir: GLOBAL_Y.clone() },
+    { val: fz, dir: GLOBAL_Z.clone() },
   ];
 
   for (const f of forces) {
@@ -405,9 +410,9 @@ export function createReactionArrow(
 
   // Moment reactions (simplified labels)
   const moments = [
-    { val: mx, axis: new THREE.Vector3(1, 0, 0), name: 'Mx' },
-    { val: my, axis: new THREE.Vector3(0, 1, 0), name: 'My' },
-    { val: mz, axis: new THREE.Vector3(0, 0, 1), name: 'Mz' },
+    { val: mx, axis: GLOBAL_X.clone(), name: 'Mx' },
+    { val: my, axis: GLOBAL_Y.clone(), name: 'My' },
+    { val: mz, axis: GLOBAL_Z.clone(), name: 'Mz' },
   ];
 
   for (const m of moments) {
@@ -423,14 +428,9 @@ export function createReactionArrow(
 const CONSTRAINT_COLOR = 0xf0a500;
 
 const DOF_DIR: Record<string, THREE.Vector3> = {
-  ux: new THREE.Vector3(1, 0, 0),
-  uy: new THREE.Vector3(0, 1, 0),
-  uz: new THREE.Vector3(0, 0, 1),
-  rx: new THREE.Vector3(1, 0, 0),
-  ry: new THREE.Vector3(0, 1, 0),
-  rz: new THREE.Vector3(0, 0, 1),
-  my: new THREE.Vector3(0, 1, 0),
-  mz: new THREE.Vector3(0, 0, 1),
+  ux: GLOBAL_X, uy: GLOBAL_Y, uz: GLOBAL_Z,
+  rx: GLOBAL_X, ry: GLOBAL_Y, rz: GLOBAL_Z,
+  my: GLOBAL_Y, mz: GLOBAL_Z,
 };
 
 /**

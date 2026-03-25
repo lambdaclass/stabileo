@@ -45,3 +45,46 @@ describe('coordinate contract grep gate', () => {
     }
   });
 });
+
+// ─── Inline axis-literal gate ─────────────────────────────────────
+// These files must use named constants (GLOBAL_X/Y/Z, UP_VECTOR,
+// GRAVITY_VECTOR_3D, THREEJS_CYLINDER_AXIS) instead of raw
+// new THREE.Vector3(1,0,0) / (0,1,0) / (0,0,1) / (0,0,-1).
+// coordinate-system.ts is excluded because that's where the constants
+// are defined.
+
+const axisLiteralGuardedFiles = [
+  'web/src/lib/three/create-load-arrow.ts',
+  'web/src/lib/three/create-element-mesh.ts',
+  'web/src/lib/three/create-support-gizmo.ts',
+  'web/src/lib/three/stress-heatmap.ts',
+  'web/src/lib/three/diagram-render-3d.ts',
+  'web/src/lib/three/deformed-shape-3d.ts',
+  'web/src/components/Viewport3D.svelte',
+];
+
+const axisLiteralPatterns: Array<[RegExp, string]> = [
+  [/new THREE\.Vector3\(\s*1\s*,\s*0\s*,\s*0\s*\)/, 'inline (1,0,0) — use GLOBAL_X'],
+  [/new THREE\.Vector3\(\s*0\s*,\s*1\s*,\s*0\s*\)/, 'inline (0,1,0) — use GLOBAL_Y or THREEJS_CYLINDER_AXIS'],
+  [/new THREE\.Vector3\(\s*0\s*,\s*0\s*,\s*1\s*\)/, 'inline (0,0,1) — use GLOBAL_Z'],
+  [/new THREE\.Vector3\(\s*0\s*,\s*0\s*,\s*-1\s*\)/, 'inline (0,0,-1) — use GRAVITY_VECTOR_3D'],
+  [/new THREE\.Vector3\(\s*0\s*,\s*-1\s*,\s*0\s*\)/, 'inline (0,-1,0) — suspicious Y-down vector'],
+  [/new THREE\.Vector3\(\s*-1\s*,\s*0\s*,\s*0\s*\)/, 'inline (-1,0,0) — use GLOBAL_X.clone().negate()'],
+];
+
+describe('inline axis-literal gate', () => {
+  it('forbids raw axis vectors in rendering files (use named constants from coordinate-system.ts)', () => {
+    const violations: string[] = [];
+    for (const rel of axisLiteralGuardedFiles) {
+      const abs = resolve(ROOT, rel);
+      let text: string;
+      try { text = readFileSync(abs, 'utf8'); } catch { continue; }
+      for (const [pattern, label] of axisLiteralPatterns) {
+        if (pattern.test(text)) {
+          violations.push(`${rel}: ${label}`);
+        }
+      }
+    }
+    expect(violations, 'Inline axis literals found — import from coordinate-system.ts instead:\n' + violations.join('\n')).toHaveLength(0);
+  });
+});

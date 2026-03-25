@@ -7,6 +7,7 @@
 
 import * as THREE from 'three';
 import { COLORS } from './selection-helpers';
+import { GLOBAL_X, GLOBAL_Y, GLOBAL_Z } from '../geometry/coordinate-system';
 
 export type SupportGizmoType =
   | 'fixed' | 'fixed3d'
@@ -233,9 +234,9 @@ function addCustom3DGizmo(
 
   // Translation restraints: cylinders along axes
   const transAxes: [boolean, THREE.Vector3, number][] = [
-    [r.tx, new THREE.Vector3(1, 0, 0), 0xff4444],
-    [r.ty, new THREE.Vector3(0, 1, 0), 0x44ff44],
-    [r.tz, new THREE.Vector3(0, 0, 1), 0x4488ff],
+    [r.tx, GLOBAL_X, 0xff4444],
+    [r.ty, GLOBAL_Y, 0x44ff44],
+    [r.tz, GLOBAL_Z, 0x4488ff],
   ];
   for (const [fixed, axis, axisColor] of transAxes) {
     if (!fixed) continue;
@@ -252,9 +253,9 @@ function addCustom3DGizmo(
 
   // Rotation restraints: torus arcs
   const rotAxes: [boolean, THREE.Vector3, number][] = [
-    [r.rx, new THREE.Vector3(1, 0, 0), 0xff8844],
-    [r.ry, new THREE.Vector3(0, 1, 0), 0x88ff44],
-    [r.rz, new THREE.Vector3(0, 0, 1), 0x4488ff],
+    [r.rx, GLOBAL_X, 0xff8844],
+    [r.ry, GLOBAL_Y, 0x88ff44],
+    [r.rz, GLOBAL_Z, 0x4488ff],
   ];
   for (const [fixed, axis, axisColor] of rotAxes) {
     if (!fixed) continue;
@@ -262,7 +263,7 @@ function addCustom3DGizmo(
     const mat = new THREE.MeshBasicMaterial({ color: axisColor });
     const mesh = new THREE.Mesh(torus, mat);
     const quat = new THREE.Quaternion();
-    quat.setFromUnitVectors(new THREE.Vector3(0, 0, 1), axis);
+    quat.setFromUnitVectors(GLOBAL_Z, axis);
     mesh.quaternion.copy(quat);
     mesh.position.set(0, 0, -0.2);
     group.add(mesh);

@@ -14,6 +14,7 @@ import {
   type Diagram3DKind,
 } from '../engine/diagrams-3d';
 import { createTextSprite } from './selection-helpers';
+import { GLOBAL_Z } from '../geometry/coordinate-system';
 
 // ─── Shared display-direction helper ────────────────────────────
 // Centralised so that createDiagramGroup3D and createEnvelopeDiagramGroup3D
@@ -48,7 +49,7 @@ export function computeDiagramDisplayDirection(
   if (exVertical < 0.5) {
     // Horizontal beam: project global Z onto plane perpendicular to ex
     const exV = new THREE.Vector3(axes.ex[0], axes.ex[1], axes.ex[2]);
-    const projZ = new THREE.Vector3(0, 0, 1).sub(exV.clone().multiplyScalar(axes.ex[2]));
+    const projZ = GLOBAL_Z.clone().sub(exV.clone().multiplyScalar(axes.ex[2]));
     const projLen = projZ.length();
     if (projLen > 0.01) {
       perpVec = projZ.divideScalar(projLen);

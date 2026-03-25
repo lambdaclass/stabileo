@@ -6,6 +6,7 @@ import { evaluateDiagramAt } from '../engine/diagrams-3d';
 import { computeSectionStress } from '../engine/section-stress-3d';
 import type { ElementForces3D } from '../engine/types-3d';
 import { heatmapColor } from './selection-helpers';
+import { THREEJS_CYLINDER_AXIS } from '../geometry/coordinate-system';
 
 const HEATMAP_SEGMENTS = 16; // Number of segments along each element
 const HEATMAP_RADIUS = 0.07; // Slightly larger than default cylinder (0.06)
@@ -139,8 +140,7 @@ export function orientHeatmapMesh(
   mesh.position.set(mx, my, mz);
 
   const dir = new THREE.Vector3(nJ.x - nI.x, nJ.y - nI.y, nJ.z - nI.z).normalize();
-  const yAxis = new THREE.Vector3(0, 1, 0);
-  mesh.quaternion.setFromUnitVectors(yAxis, dir);
+  mesh.quaternion.setFromUnitVectors(THREEJS_CYLINDER_AXIS, dir);
 }
 
 /**

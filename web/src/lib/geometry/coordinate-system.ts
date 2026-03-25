@@ -11,9 +11,26 @@ export type TypedLoadLike = { type: string };
 export const VERTICAL_AXIS: VerticalAxis = 'z';
 export const DEFAULT_WORKING_PLANE: WorkingPlane3D = 'XY';
 export const HORIZONTAL_PLANE: WorkingPlane3D = 'XY';
-export const UP_VECTOR = new THREE.Vector3(0, 0, 1);
-export const GRAVITY_VECTOR_3D = new THREE.Vector3(0, 0, -1);
-export const TOP_VIEW_UP_VECTOR = new THREE.Vector3(0, 1, 0);
+
+/**
+ * Global axis unit vectors (Z-up convention).
+ * Frozen to prevent accidental mutation — always .clone() before modifying.
+ */
+export const GLOBAL_X: Readonly<THREE.Vector3> = Object.freeze(new THREE.Vector3(1, 0, 0));
+export const GLOBAL_Y: Readonly<THREE.Vector3> = Object.freeze(new THREE.Vector3(0, 1, 0));
+export const GLOBAL_Z: Readonly<THREE.Vector3> = Object.freeze(new THREE.Vector3(0, 0, 1));
+
+export const UP_VECTOR: Readonly<THREE.Vector3> = GLOBAL_Z;
+export const GRAVITY_VECTOR_3D: Readonly<THREE.Vector3> = Object.freeze(new THREE.Vector3(0, 0, -1));
+export const TOP_VIEW_UP_VECTOR: Readonly<THREE.Vector3> = GLOBAL_Y;
+
+/**
+ * Three.js CylinderGeometry and ConeGeometry are Y-aligned by default.
+ * This is a Three.js geometry convention, not our Z-up app convention.
+ * Use this constant when orienting cylinders/cones to avoid confusion
+ * with GLOBAL_Y (which is the app's Y axis, not "up").
+ */
+export const THREEJS_CYLINDER_AXIS: Readonly<THREE.Vector3> = GLOBAL_Y;
 export const TWO_D_HORIZONTAL_AXIS_LABEL = 'X';
 export const TWO_D_VERTICAL_AXIS_LABEL = 'Z';
 export const TWO_D_DISPLACEMENT_LABELS = {
@@ -132,9 +149,9 @@ export function planeLevelAxis(plane: WorkingPlane3D): AnalysisAxis {
 
 export function planeNormal(plane: WorkingPlane3D): THREE.Vector3 {
   switch (plane) {
-    case 'XY': return new THREE.Vector3(0, 0, 1);
-    case 'XZ': return new THREE.Vector3(0, 1, 0);
-    case 'YZ': return new THREE.Vector3(1, 0, 0);
+    case 'XY': return GLOBAL_Z.clone();
+    case 'XZ': return GLOBAL_Y.clone();
+    case 'YZ': return GLOBAL_X.clone();
   }
 }
 
