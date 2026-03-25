@@ -2281,6 +2281,7 @@
       "id": 24,
       "type": "frame",
       "nodeI": 9,
+      "nodeJ": 16,
       "materialId": 1,
       "sectionId": 1,
       "hingeStart": false,

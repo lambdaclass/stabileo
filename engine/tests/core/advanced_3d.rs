@@ -491,3 +491,74 @@ fn pdelta_3d_includes_linear_results() {
     assert!(!pdelta.linear_results.reactions.is_empty());
     assert!(!pdelta.linear_results.element_forces.is_empty());
 }
+
+// ─── Fully Restrained 3D (nf==0) ───────────────────────────
+
+#[test]
+fn fully_restrained_3d_beam_udl() {
+    // 2-node beam along X, both ends fully fixed → 12 DOFs, 12 restrained, 0 free.
+    // UDL q=10 kN/m along -Z → reactions = qL/2 per end, moments = qL²/12.
+    let q = 10.0;
+    let l = 6.0;
+    let input = make_3d_input(
+        vec![(1, 0.0, 0.0, 0.0), (2, l, 0.0, 0.0)],
+        vec![(1, E, NU)],
+        vec![(1, A, IY, IZ, J)],
+        vec![(1, "frame", 1, 2, 1, 1)],
+        vec![
+            (1, 1, true, true, true, true, true, true),
+            (2, 2, true, true, true, true, true, true),
+        ],
+        vec![SolverLoad3D::Distributed(SolverDistributedLoad3D {
+            element_id: 1,
+            q_yi: 0.0, q_yj: 0.0,
+            q_zi: -q, q_zj: -q,
+            a: None, b: None,
+        })],
+    );
+    let results = dedaliano_engine::solver::linear::solve_3d(&input).unwrap();
+
+    // All displacements zero
+    for d in &results.displacements {
+        assert!(d.ux.abs() < 1e-10, "node {} ux non-zero: {}", d.node_id, d.ux);
+        assert!(d.uy.abs() < 1e-10, "node {} uy non-zero: {}", d.node_id, d.uy);
+        assert!(d.uz.abs() < 1e-10, "node {} uz non-zero: {}", d.node_id, d.uz);
+    }
+
+    // Reactions: each end gets qL/2 in Z, moment qL²/12 about Y
+    let r1 = results.reactions.iter().find(|r| r.node_id == 1).unwrap();
+    let r2 = results.reactions.iter().find(|r| r.node_id == 2).unwrap();
+    let expected_fz = q * l / 2.0;
+    let expected_my = q * l * l / 12.0;
+    assert!((r1.fz - expected_fz).abs() / expected_fz < 0.02, "R1z: {} vs {}", r1.fz, expected_fz);
+    assert!((r2.fz - expected_fz).abs() / expected_fz < 0.02, "R2z: {} vs {}", r2.fz, expected_fz);
+    assert!((r1.my.abs() - expected_my).abs() / expected_my < 0.02, "M1y: {} vs {}", r1.my, expected_my);
+    assert!((r2.my.abs() - expected_my).abs() / expected_my < 0.02, "M2y: {} vs {}", r2.my, expected_my);
+}
+
+#[test]
+fn fully_restrained_3d_beam_no_load() {
+    let l = 4.0;
+    let input = make_3d_input(
+        vec![(1, 0.0, 0.0, 0.0), (2, l, 0.0, 0.0)],
+        vec![(1, E, NU)],
+        vec![(1, A, IY, IZ, J)],
+        vec![(1, "frame", 1, 2, 1, 1)],
+        vec![
+            (1, 1, true, true, true, true, true, true),
+            (2, 2, true, true, true, true, true, true),
+        ],
+        vec![],
+    );
+    let results = dedaliano_engine::solver::linear::solve_3d(&input).unwrap();
+
+    for d in &results.displacements {
+        assert!(d.ux.abs() < 1e-10, "node {} ux", d.node_id);
+        assert!(d.uz.abs() < 1e-10, "node {} uz", d.node_id);
+    }
+    for r in &results.reactions {
+        assert!(r.fx.abs() < 1e-10, "node {} fx", r.node_id);
+        assert!(r.fz.abs() < 1e-10, "node {} fz", r.node_id);
+        assert!(r.my.abs() < 1e-10, "node {} my", r.node_id);
+    }
+}

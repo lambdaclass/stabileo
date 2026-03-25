@@ -707,10 +707,7 @@ describe('12. Beam on spring support', () => {
 });
 
 // ─── 13. Prescribed displacement — support settlement ─────────
-// BUG: Prescribed displacements on fully-restrained structures (all nodes fixed)
-// cause "No free DOFs" error. The solver rejects the model before processing
-// prescribed displacements. Skipped until the solver bug is fixed.
-describe.skip('13. Prescribed displacement (support settlement)', () => {
+describe('13. Prescribed displacement (support settlement)', () => {
   const L = 6;
   const delta = -0.01;
   const EI = STEEL_E * 1000 * STD_IZ; // kN·m²
@@ -1116,9 +1113,7 @@ describe('Hinge: hingeStart and hingeEnd initialized as false work correctly', (
 // ═══════════════════════════════════════════════════════════════════
 
 describe('Input validation', () => {
-  // WASM solver lacks input validation that the JS solver had — it either produces
-  // singular matrix errors or silently handles degenerate inputs.
-  it.skip('throws on zero-length element', () => {
+  it('throws on zero-length element', () => {
     const input = makeInput({
       nodes: [[1, 0, 0], [2, 0, 0]],
       elements: [[1, 1, 2, 'frame']],
@@ -1127,27 +1122,27 @@ describe('Input validation', () => {
     expect(() => solve(input)).toThrow(/zero length/);
   });
 
-  it('throws on zero section area (singular matrix)', () => {
+  it('throws on zero section area', () => {
     const input = makeInput({
       nodes: [[1, 0, 0], [2, 5, 0]],
       elements: [[1, 1, 2, 'frame']],
       supports: [[1, 1, 'fixed'], [2, 2, 'rollerX']],
       a: 0,
     });
-    expect(() => solve(input)).toThrow(/Singular stiffness matrix/);
+    expect(() => solve(input)).toThrow(/area A must be > 0/);
   });
 
-  it('throws on zero section inertia (singular matrix)', () => {
+  it('throws on zero section inertia', () => {
     const input = makeInput({
       nodes: [[1, 0, 0], [2, 5, 0]],
       elements: [[1, 1, 2, 'frame']],
       supports: [[1, 1, 'fixed'], [2, 2, 'rollerX']],
       iz: 0,
     });
-    expect(() => solve(input)).toThrow(/Singular stiffness matrix/);
+    expect(() => solve(input)).toThrow(/inertia must be > 0/);
   });
 
-  it.skip('throws on negative section area', () => {
+  it('throws on negative section area', () => {
     const input = makeInput({
       nodes: [[1, 0, 0], [2, 5, 0]],
       elements: [[1, 1, 2, 'frame']],
@@ -1157,7 +1152,7 @@ describe('Input validation', () => {
     expect(() => solve(input)).toThrow(/area A must be > 0/);
   });
 
-  it.skip('throws on point load position a < 0', () => {
+  it('throws on point load position a < 0', () => {
     const input = makeInput({
       nodes: [[1, 0, 0], [2, 5, 0]],
       elements: [[1, 1, 2, 'frame']],
@@ -1167,7 +1162,7 @@ describe('Input validation', () => {
     expect(() => solve(input)).toThrow(/position a=.*out of range/);
   });
 
-  it.skip('throws on point load position a > L', () => {
+  it('throws on point load position a > L', () => {
     const input = makeInput({
       nodes: [[1, 0, 0], [2, 5, 0]],
       elements: [[1, 1, 2, 'frame']],

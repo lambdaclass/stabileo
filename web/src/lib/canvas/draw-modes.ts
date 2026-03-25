@@ -14,7 +14,7 @@ interface DrawContext {
  * Renders the deformed shape with animated sinusoidal scaling.
  */
 export function drawModeShape(
-  displacements: Array<{ nodeId: number; ux: number; uy: number; rz: number }>,
+  displacements: Array<{ nodeId: number; ux: number; uz: number; ry: number }>,
   dc: DrawContext,
   _zoom: number,
   scale: number,
@@ -23,9 +23,9 @@ export function drawModeShape(
   const { ctx, worldToScreen, nodes, elements } = dc;
 
   // Build displacement lookup
-  const dispMap = new Map<number, { ux: number; uy: number }>();
+  const dispMap = new Map<number, { ux: number; uz: number }>();
   for (const d of displacements) {
-    dispMap.set(d.nodeId, { ux: d.ux, uy: d.uy });
+    dispMap.set(d.nodeId, { ux: d.ux, uz: d.uz });
   }
 
   // Draw deformed elements
@@ -38,8 +38,8 @@ export function drawModeShape(
     const nj = nodes.get(elem.nodeJ);
     if (!ni || !nj) continue;
 
-    const di = dispMap.get(elem.nodeI) ?? { ux: 0, uy: 0 };
-    const dj = dispMap.get(elem.nodeJ) ?? { ux: 0, uy: 0 };
+    const di = dispMap.get(elem.nodeI) ?? { ux: 0, uz: 0 };
+    const dj = dispMap.get(elem.nodeJ) ?? { ux: 0, uz: 0 };
 
     // Interpolate with cubic shape functions for smooth curves
     const nPts = 20;
@@ -56,10 +56,10 @@ export function drawModeShape(
       const h2 = 3 * t * t - 2 * t * t * t;
 
       const ux = h1 * di.ux + h2 * dj.ux;
-      const uy = h1 * di.uy + h2 * dj.uy;
+      const uz = h1 * di.uz + h2 * dj.uz;
 
       const wx = bx + ux * scale;
-      const wy = by + uy * scale;
+      const wy = by + uz * scale;
       const s = worldToScreen(wx, wy);
 
       if (k === 0) ctx.moveTo(s.x, s.y);
@@ -71,9 +71,9 @@ export function drawModeShape(
   // Draw node positions
   ctx.fillStyle = color;
   for (const [nodeId, node] of nodes) {
-    const d = dispMap.get(nodeId) ?? { ux: 0, uy: 0 };
+    const d = dispMap.get(nodeId) ?? { ux: 0, uz: 0 };
     const wx = node.x + d.ux * scale;
-    const wy = node.y + d.uy * scale;
+    const wy = node.y + d.uz * scale;
     const s = worldToScreen(wx, wy);
     ctx.beginPath();
     ctx.arc(s.x, s.y, 3, 0, Math.PI * 2);
@@ -95,15 +95,15 @@ export function drawPlasticHinges(
   if (!step) return;
 
   // Draw the deformed shape for this step
-  const dispMap = new Map<number, { ux: number; uy: number }>();
+  const dispMap = new Map<number, { ux: number; uz: number }>();
   for (const d of step.results.displacements) {
-    dispMap.set(d.nodeId, { ux: d.ux, uy: d.uy });
+    dispMap.set(d.nodeId, { ux: d.ux, uz: d.uz });
   }
 
   // Determine auto-scale from max displacement
   let maxDisp = 0;
   for (const d of step.results.displacements) {
-    const mag = Math.sqrt(d.ux * d.ux + d.uy * d.uy);
+    const mag = Math.sqrt(d.ux * d.ux + d.uz * d.uz);
     if (mag > maxDisp) maxDisp = mag;
   }
   const autoScale = maxDisp > 0 ? Math.min(50 / zoom / maxDisp, 200) : 1;
@@ -115,11 +115,11 @@ export function drawPlasticHinges(
     const ni = nodes.get(elem.nodeI);
     const nj = nodes.get(elem.nodeJ);
     if (!ni || !nj) continue;
-    const di = dispMap.get(elem.nodeI) ?? { ux: 0, uy: 0 };
-    const dj = dispMap.get(elem.nodeJ) ?? { ux: 0, uy: 0 };
+    const di = dispMap.get(elem.nodeI) ?? { ux: 0, uz: 0 };
+    const dj = dispMap.get(elem.nodeJ) ?? { ux: 0, uz: 0 };
 
-    const si = worldToScreen(ni.x + di.ux * autoScale, ni.y + di.uy * autoScale);
-    const sj = worldToScreen(nj.x + dj.ux * autoScale, nj.y + dj.uy * autoScale);
+    const si = worldToScreen(ni.x + di.ux * autoScale, ni.y + di.uz * autoScale);
+    const sj = worldToScreen(nj.x + dj.ux * autoScale, nj.y + dj.uz * autoScale);
     ctx.beginPath();
     ctx.moveTo(si.x, si.y);
     ctx.lineTo(sj.x, sj.y);
@@ -138,11 +138,11 @@ export function drawPlasticHinges(
     const pos = hinge.position ?? (hinge.end === 'start' ? 0 : 1);
     const wx = ni.x + (nj.x - ni.x) * pos;
     const wy = ni.y + (nj.y - ni.y) * pos;
-    const di = dispMap.get(elem.nodeI) ?? { ux: 0, uy: 0 };
-    const dj = dispMap.get(elem.nodeJ) ?? { ux: 0, uy: 0 };
+    const di = dispMap.get(elem.nodeI) ?? { ux: 0, uz: 0 };
+    const dj = dispMap.get(elem.nodeJ) ?? { ux: 0, uz: 0 };
     const dux = di.ux + (dj.ux - di.ux) * pos;
-    const duy = di.uy + (dj.uy - di.uy) * pos;
-    const s = worldToScreen(wx + dux * autoScale, wy + duy * autoScale);
+    const duz = di.uz + (dj.uz - di.uz) * pos;
+    const s = worldToScreen(wx + dux * autoScale, wy + duz * autoScale);
 
     // Draw hinge circle
     const r = 8;

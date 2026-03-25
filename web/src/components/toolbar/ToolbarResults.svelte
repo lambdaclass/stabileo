@@ -1,6 +1,8 @@
 <script lang="ts">
   import { uiStore, resultsStore, modelStore } from '../../lib/store';
   import { t } from '../../lib/i18n';
+  import { hasInvalid2DDisplacements, hasInvalid3DDisplacements } from '../../lib/geometry/coordinate-system';
+  import { initSolver, isWasmReady } from '../../lib/engine/wasm-solver';
 
   // ─── Educational Tooltips (subset used by Results) ─────────────
   const HELP_TEXTS: Record<string, { title: string; desc: string }> = {
@@ -88,7 +90,7 @@
       uiStore.toast(results, 'error');
     } else if (results) {
       // Validate results aren't degenerate
-      const hasNaN = results.displacements.some(d => !isFinite(d.ux) || !isFinite(d.uy) || !isFinite(d.rz));
+      const hasNaN = hasInvalid2DDisplacements(results.displacements);
       if (hasNaN) {
         uiStore.toast(t('results.numericError'), 'error');
         return;
@@ -129,16 +131,20 @@
     }
   }
 
-  function handleSolve3D() {
+  async function handleSolve3D() {
+    if (!isWasmReady()) {
+      try { await initSolver(); } catch (e: any) {
+        uiStore.toast(e?.message || 'WASM solver initialization failed', 'error');
+        return;
+      }
+    }
     const isPro = uiStore.analysisMode === 'pro';
     const results = modelStore.solve3D(uiStore.includeSelfWeight, uiStore.axisConvention3D === 'leftHand', isPro);
     if (typeof results === 'string') {
       uiStore.toast(results, 'error');
     } else if (results) {
       // Validate results aren't degenerate
-      const hasNaN = results.displacements.some(
-        (d: { ux: number; uy: number; uz: number }) => !isFinite(d.ux) || !isFinite(d.uy) || !isFinite(d.uz)
-      );
+      const hasNaN = hasInvalid3DDisplacements(results.displacements as Array<{ ux: number; uy: number; uz: number }>);
       if (hasNaN) {
         uiStore.toast(t('results.numericError3d'), 'error');
         return;

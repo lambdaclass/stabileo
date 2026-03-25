@@ -6,7 +6,13 @@ import { describe, expect, it } from 'vitest';
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '../../../../..');
 const seamFiles = [
   'web/src/lib/ai/client.ts',
+  'web/src/lib/store/model.svelte.ts',
+  'web/src/lib/store/ui.svelte.ts',
   'web/src/lib/geometry/coordinate-system.ts',
+  'web/src/lib/engine/solver-service.ts',
+  'web/src/lib/engine/solver-shells.ts',
+  'web/src/components/floating-tools/ToolLoadOptions.svelte',
+  'web/src/components/floating-tools/SelectedEntityPanel.svelte',
   'web/src/lib/viewport3d/camera.ts',
   'web/src/lib/viewport3d/grid.ts',
   'web/src/lib/viewport3d/picking.ts',
@@ -19,6 +25,11 @@ const seamFiles = [
 
 const forbiddenPatterns: Array<[RegExp, string]> = [
   [/global Y (axis )?(is )?vertical/i, 'Y-up wording in contract files'],
+  [/global Y in 3D/i, 'Y-up wording in contract files'],
+  [/applied as -Y global/i, 'Y-down gravity wording in contract files'],
+  [/negative Y\s*=\s*downward/i, 'Y-down gravity wording in contract files'],
+  [/downward in global Y/i, 'Y-down gravity wording in contract files'],
+  [/title=\{t\('float\.loadGlobalYDir'\)\}>Y<\/button>/, 'global vertical UI button still labeled Y'],
   [/verticalAxis\s*===\s*['"]z['"]/, 'inline vertical-axis branching instead of shared helpers'],
   [/node\.y[^\n]{0,40}(elevation|floor|story)/i, 'raw node.y treated as elevation'],
   [/new THREE\.Vector3\(0,\s*-1,\s*0\)/, 'Y-down gravity vector in 3D contract files'],

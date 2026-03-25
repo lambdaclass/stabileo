@@ -418,8 +418,7 @@ describe('2. Hyperstatic 2D structures', () => {
     expectClose(Math.abs(getReaction(r, 1).my), (-q) * L * L / 8, 0.01, '|MA| = qL²/8');
   });
 
-  // BUG: 2-node fixed-fixed beam has 0 free DOFs — WASM solver rejects it
-  it.skip('Fixed-fixed beam + UDL: R=qL/2, M_end=qL²/12', () => {
+  it('Fixed-fixed beam + UDL: R=qL/2, M_end=qL²/12', () => {
     const L = 6, q = -20;
     const input = makeInput({
       nodes: [[1, 0, 0], [2, L, 0]],
@@ -441,8 +440,7 @@ describe('2. Hyperstatic 2D structures', () => {
     expectClose(Math.abs(mMid), w * L * L / 24, 0.02, '|M_mid| = wL²/24');
   });
 
-  // BUG: 2-node fixed-fixed beam has 0 free DOFs — WASM solver rejects it
-  it.skip('Fixed-fixed beam + central point load: M_ends=PL/8', () => {
+  it('Fixed-fixed beam + central point load: M_ends=PL/8', () => {
     const L = 8, P = -40;
     const input = makeInput({
       nodes: [[1, 0, 0], [2, L, 0]],
@@ -624,8 +622,7 @@ describe('3. Articulations & internal hinges', () => {
 
 describe('4. Complex loads', () => {
 
-  // BUG: 2-node fixed-fixed beam has 0 free DOFs — WASM solver rejects it
-  it.skip('Thermal load on fixed-fixed beam: N=EAαΔT, no vertical displacement', () => {
+  it('Thermal load on fixed-fixed beam: N=EAαΔT, no vertical displacement', () => {
     const L = 6, dt = 30; // °C
     const alpha = 1.2e-5; // /°C
     const E = STEEL_E, A = STD_A;
@@ -983,7 +980,7 @@ describe('5. Extreme values — Dimension combinations', () => {
 describe('6. 3D — Cantilevers', () => {
 
   it('3D cantilever + tip load in Y: δ=PL³/(3EIz), reactions correct', () => {
-    // SAP2000 convention: beam along X, ey = Y (up), ez = Z
+    // SAP2000 convention: beam along X, ey = Y, ez = Z
     // Load in global Y → local Y direction → bending about local Z → uses Iz
     const L = 4, P = -10;
     const E = 200000;
@@ -1259,8 +1256,7 @@ describe('7. Edge cases — Mechanisms & errors', () => {
     }
   });
 
-  // BUG: WASM solver does not throw for zero-length elements — it silently produces results
-  it.skip('Zero-length element → error', () => {
+  it('Zero-length element → error', () => {
     const input = makeInput({
       nodes: [[1, 0, 0], [2, 0, 0]], // same position!
       elements: [[1, 1, 2, 'frame']],
@@ -1280,8 +1276,7 @@ describe('7. Edge cases — Mechanisms & errors', () => {
       a: 0,
     });
 
-    // WASM solver throws "Singular stiffness matrix" instead of a specific area error
-    expect(() => solve(input)).toThrow(/singular|mechanism/i);
+    expect(() => solve(input)).toThrow(/area A must be > 0/);
   });
 
   it('Section with Iz=0 → error', () => {
@@ -1293,8 +1288,7 @@ describe('7. Edge cases — Mechanisms & errors', () => {
       iz: 0,
     });
 
-    // WASM solver throws "Singular stiffness matrix" instead of a specific inertia error
-    expect(() => solve(input)).toThrow(/singular|mechanism/i);
+    expect(() => solve(input)).toThrow(/inertia must be > 0/);
   });
 
   it('No loads on structure → zero displacements', () => {
@@ -1337,8 +1331,7 @@ describe('7. Edge cases — Special supports', () => {
     expectClose(rSpring.rz, -k * dSpring.uz, 0.01, 'R_spring = -k*u');
   });
 
-  // BUG: WASM solver does not handle prescribed displacements on 2-node fixed-fixed beams (0 free DOFs)
-  it.skip('Prescribed displacement: known settlement', () => {
+  it('Prescribed displacement: known settlement', () => {
     const L = 6, settlement = -0.01; // 10mm downward
     const input = makeInput({
       nodes: [[1, 0, 0], [2, L, 0]],
@@ -1625,8 +1618,7 @@ describe('9. Real-world structural configurations', () => {
 
 describe('10. Material property validation', () => {
 
-  // BUG: WASM solver does not validate negative section area — it produces results instead of throwing
-  it.skip('Negative section area → error', () => {
+  it('Negative section area → error', () => {
     const input = makeInput({
       nodes: [[1, 0, 0], [2, 5, 0]],
       elements: [[1, 1, 2, 'frame']],
@@ -1638,8 +1630,7 @@ describe('10. Material property validation', () => {
     expect(() => solve(input)).toThrow();
   });
 
-  // BUG: WASM solver does not validate negative inertia — it produces results instead of throwing
-  it.skip('Negative inertia → error', () => {
+  it('Negative inertia → error', () => {
     const input = makeInput({
       nodes: [[1, 0, 0], [2, 5, 0]],
       elements: [[1, 1, 2, 'frame']],
@@ -1679,8 +1670,7 @@ describe('10. Material property validation', () => {
       [zeroIySection],
     );
 
-    // WASM solver throws instead of returning error string
-    expect(() => solve3D(input)).toThrow(/singular|mechanism/i);
+    expect(() => solve3D(input)).toThrow(/inertia must be > 0/);
   });
 });
 

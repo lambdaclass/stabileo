@@ -10,6 +10,8 @@
     TWO_D_REACTION_LABELS,
     TWO_D_VERTICAL_AXIS_LABEL,
     get2DDisplayDisplacementVertical,
+    get2DDisplayNodalLoadMoment,
+    get2DDisplayNodalLoadVertical,
     get2DDisplayMoment,
     get2DDisplayReactionVertical,
     get2DDisplayRotation,
@@ -178,12 +180,12 @@
           </div>
           <div class="property-row">
             <span>{TWO_D_NODAL_LOAD_LABELS.vertical}:</span>
-            <input type="number" step="1" value={nl.fy} class="prop-input" onchange={(e) => updateLoadField(nl.id, 'fy', e.currentTarget.value)} />
+            <input type="number" step="1" value={get2DDisplayNodalLoadVertical(nl)} class="prop-input" onchange={(e) => updateLoadField(nl.id, 'fz', e.currentTarget.value)} />
             <span>kN</span>
           </div>
           <div class="property-row">
             <span>{TWO_D_NODAL_LOAD_LABELS.moment}:</span>
-            <input type="number" step="1" value={nl.mz} class="prop-input" onchange={(e) => updateLoadField(nl.id, 'mz', e.currentTarget.value)} />
+            <input type="number" step="1" value={get2DDisplayNodalLoadMoment(nl)} class="prop-input" onchange={(e) => updateLoadField(nl.id, 'my', e.currentTarget.value)} />
             <span>kN·m</span>
           </div>
         {/each}

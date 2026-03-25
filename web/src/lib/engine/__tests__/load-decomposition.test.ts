@@ -10,9 +10,6 @@
  * - DistributedLoad with angle/isGlobal → SolverDistributedLoad (perp) + SolverNodalLoads (axial)
  */
 
-// BUG: All tests in this file use 2-node fixed-fixed beams which the WASM solver
-// rejects (0 free DOFs). All describe blocks are skipped until the solver handles
-// fully-restrained structures by returning FEF-based results.
 import { describe, it, expect } from 'vitest';
 import { solve } from '../wasm-solver';
 import type { SolverInput, SolverLoad, AnalysisResults } from '../types';
@@ -145,7 +142,7 @@ function decomposeDistLoad(
 
 // ─── Tests ──────────────────────────────────────────────────────
 
-describe.skip('Point Load Decomposition', () => {
+describe('Point Load Decomposition', () => {
   // Horizontal beam: fixed-fixed, L=6m
   const horizontalBeam = () => makeInput({
     nodes: [[1, 0, 0], [2, 6, 0]],
@@ -302,7 +299,7 @@ describe.skip('Point Load Decomposition', () => {
   });
 });
 
-describe.skip('Distributed Load Decomposition', () => {
+describe('Distributed Load Decomposition', () => {
   const horizontalBeam = () => makeInput({
     nodes: [[1, 0, 0], [2, 6, 0]],
     elements: [[1, 1, 2, 'frame']],
@@ -392,7 +389,7 @@ describe.skip('Distributed Load Decomposition', () => {
   });
 });
 
-describe.skip('Global Equilibrium Verification', () => {
+describe('Global Equilibrium Verification', () => {
   it('point load: sum of reactions equals applied load (all configurations)', () => {
     const configs: Array<{ angle: number; isGlobal: boolean; nodeI: any; nodeJ: any; beam: () => SolverInput }> = [
       // Horizontal beam, various angles
@@ -481,7 +478,7 @@ describe.skip('Global Equilibrium Verification', () => {
   });
 });
 
-describe.skip('Backward Compatibility', () => {
+describe('Backward Compatibility', () => {
   it('loads without angle/isGlobal produce identical results', () => {
     const input = makeInput({
       nodes: [[1, 0, 0], [2, 6, 0]],
@@ -563,7 +560,7 @@ function expectedGlobalForce(
   }
 }
 
-describe.skip('Principio: Equilibrio global — barras a múltiples ángulos con cargas puntuales', () => {
+describe('Principio: Equilibrio global — barras a múltiples ángulos con cargas puntuales', () => {
   // El principio: ΣReacciones + ΣFuerzasAplicadas = 0 (Newton)
   // Esto DEBE cumplirse para cualquier combinación de ángulo de barra,
   // ángulo de carga, y sistema de coordenadas.
@@ -599,7 +596,7 @@ describe.skip('Principio: Equilibrio global — barras a múltiples ángulos con
   }
 });
 
-describe.skip('Principio: Equilibrio global — barras a múltiples ángulos con cargas distribuidas', () => {
+describe('Principio: Equilibrio global — barras a múltiples ángulos con cargas distribuidas', () => {
   const barAngles = [0, 10, 30, 45, 60, 75, 90, 135];
   const loadAngles = [0, 30, 45, 90, -45];
   const q = -8; // kN/m uniform
@@ -631,7 +628,7 @@ describe.skip('Principio: Equilibrio global — barras a múltiples ángulos con
   }
 });
 
-describe.skip('Principio: Equilibrio global — cargas trapezoidales en barras oblicuas', () => {
+describe('Principio: Equilibrio global — cargas trapezoidales en barras oblicuas', () => {
   const barAngles = [10, 30, 60, 75];
   const qI = -12, qJ = -4; // trapezoidal
 
@@ -661,7 +658,7 @@ describe.skip('Principio: Equilibrio global — cargas trapezoidales en barras o
   }
 });
 
-describe.skip('Principio: Coherencia Global↔Local', () => {
+describe('Principio: Coherencia Global↔Local', () => {
   // Una carga vertical global (angle=0, isGlobal=true) en cualquier barra
   // debe producir exactamente las mismas reacciones que su descomposición
   // manual en coordenadas locales (perpendicular + axial).
@@ -718,7 +715,7 @@ describe.skip('Principio: Coherencia Global↔Local', () => {
   }
 });
 
-describe.skip('Principio: Carga local angle=0 en barra oblicua ≡ carga perpendicular directa', () => {
+describe('Principio: Carga local angle=0 en barra oblicua ≡ carga perpendicular directa', () => {
   // Cuando angle=0 e isGlobal=false, la descomposición debe producir
   // EXACTAMENTE el mismo resultado que una carga perpendicular directa
   // sin descomposición (p puro). Esto verifica que el caso "default"
@@ -749,7 +746,7 @@ describe.skip('Principio: Carga local angle=0 en barra oblicua ≡ carga perpend
   }
 });
 
-describe.skip('Principio: Carga a 0° y 180° son opuestas (superposición)', () => {
+describe('Principio: Carga a 0° y 180° son opuestas (superposición)', () => {
   // P con angle=α y P con angle=α+180° deben cancelarse.
   // Si sumo las reacciones de ambos, el resultado neto debe ser cero.
 
@@ -790,7 +787,7 @@ describe.skip('Principio: Carga a 0° y 180° son opuestas (superposición)', ()
   }
 });
 
-describe.skip('Principio: Carga puramente axial no genera flexión', () => {
+describe('Principio: Carga puramente axial no genera flexión', () => {
   // Cuando angle=90° en coordenadas locales, la carga es puramente axial.
   // En una barra empotrada-empotrada, esto NO debe generar momentos de empotramiento.
   // Esto debe cumplirse para CUALQUIER ángulo de barra.
@@ -816,7 +813,7 @@ describe.skip('Principio: Carga puramente axial no genera flexión', () => {
   }
 });
 
-describe.skip('Principio: Distribuida axial pura no genera flexión', () => {
+describe('Principio: Distribuida axial pura no genera flexión', () => {
   const barAngles = [0, 10, 30, 45, 60, 75, 90, 135];
   const q = -5;
 
@@ -836,7 +833,7 @@ describe.skip('Principio: Distribuida axial pura no genera flexión', () => {
   }
 });
 
-describe.skip('Principio: Carga en posición simétrica → reacciones simétricas', () => {
+describe('Principio: Carga en posición simétrica → reacciones simétricas', () => {
   // Carga puntual en el medio de una barra empotrada-empotrada
   // debe producir |Mz1| = |Mz2| y Ry1 + Ry2 en la dirección correcta.
   // Esto verifica que la distribución de fuerzas es físicamente coherente.

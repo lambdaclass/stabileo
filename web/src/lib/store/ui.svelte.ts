@@ -66,7 +66,7 @@ function createUIStore() {
 
   // Load angle & coordinate system
   let loadAngle = $state<number>(0);       // degrees, default 0
-  let loadIsGlobal = $state<boolean>(false); // false = local/perpendicular (default), true = global Y
+  let loadIsGlobal = $state<boolean>(false); // false = local/perpendicular (default), true = displayed global Z
 
   // Roller support configuration
   let supportIsGlobal = $state<boolean>(true); // true = ejes globales (default)

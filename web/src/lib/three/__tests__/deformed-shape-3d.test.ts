@@ -88,9 +88,9 @@ function frameElement(id: number, nodeI: number, nodeJ: number): SolverElement3D
 describe('computeDeformedShape3D', () => {
   describe('Cantilever beam along X with point load Fy', () => {
     // Cantilever: fixed at node 1 (x=0), free at node 2 (x=L)
-    // Load: Fy = -P at free end (downward in global Y)
+    // Load: Fy = -P at free end (along -globalY)
     // SAP2000: beam +X → ey=(0,1,0), ez=(0,0,1). Global Fy projects to Y-plane (uses Iz).
-    // Expected tip deflection: δ = PL³/(3EIz) (downward in global Y via ey)
+    // Expected tip deflection: δ = PL³/(3EIz) (along -globalY via ey)
     const P = 10; // kN
 
     it('tip deflection matches PL³/(3EIz) within 1%', () => {
@@ -118,8 +118,8 @@ describe('computeDeformedShape3D', () => {
 
       // Tip (last point) should match analytical deflection
       const tipPoint = points[points.length - 1];
-      // SAP2000: Fy goes into Y-plane (uses Iz), deflection in global Y via ey=(0,1,0)
-      const expected = -P * L * L * L / (3 * EIz_kN); // downward (negative Y)
+      // SAP2000: Fy goes into the Y-plane (uses Iz), deflection follows global Y via ey=(0,1,0)
+      const expected = -P * L * L * L / (3 * EIz_kN); // along -globalY
 
       // tip Y displacement
       const tipDy = tipPoint.y - 0; // baseY at tip = 0 + 0 (scale=1, so tipPoint.y ≈ displacement)
@@ -243,8 +243,7 @@ describe('computeDeformedShape3D', () => {
     // SAP2000: local Y → globalY for beam along +X
     const q = 10; // kN/m
 
-    // BUG: 2-node fixed-fixed beam has zero free DOFs, WASM solver rejects it
-    it.skip('midspan deflection matches qL⁴/(384EIz) within 2%', () => {
+    it('midspan deflection matches qL⁴/(384EIz) within 2%', () => {
       const input = buildInput(
         [{ id: 1, x: 0, y: 0, z: 0 }, { id: 2, x: L, y: 0, z: 0 }],
         [frameElement(1, 1, 2)],
@@ -280,8 +279,7 @@ describe('computeDeformedShape3D', () => {
       expect(midPoint.y).toBeCloseTo(expected, 5);
     });
 
-    // BUG: 2-node fixed-fixed beam has zero free DOFs, WASM solver rejects it
-    it.skip('without EI data, fixed-fixed beam shows zero deflection (linear only)', () => {
+    it('without EI data, fixed-fixed beam shows zero deflection (linear only)', () => {
       const input = buildInput(
         [{ id: 1, x: 0, y: 0, z: 0 }, { id: 2, x: L, y: 0, z: 0 }],
         [frameElement(1, 1, 2)],
@@ -319,8 +317,7 @@ describe('computeDeformedShape3D', () => {
     // qZI = -q → force in −localZ = −globalZ. Deflection in globalZ via ez.
     const q = 10; // kN/m in local Z direction
 
-    // BUG: 2-node fixed-fixed beam has zero free DOFs, WASM solver rejects it
-    it.skip('midspan Z deflection matches qL⁴/(384EIy) within 2%', () => {
+    it('midspan Z deflection matches qL⁴/(384EIy) within 2%', () => {
       const input = buildInput(
         [{ id: 1, x: 0, y: 0, z: 0 }, { id: 2, x: L, y: 0, z: 0 }],
         [frameElement(1, 1, 2)],
@@ -493,7 +490,7 @@ describe('computeDeformedShape3D', () => {
     // Cantilever-ish: fixed at node 1, hinge at node 2, node 3 free
     // This tests that hinge corrections work in 3D
 
-    // SKIP: WASM solver reports "Singular stiffness matrix — structure is a mechanism" on hinge models
+    // TODO: 3D solver produces mechanism error for valid hinge structure (collinear nodes + all-hinged)
     it.skip('produces correct curvature at hinged connection', () => {
       const input = buildInput(
         [
