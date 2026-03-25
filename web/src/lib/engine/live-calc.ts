@@ -46,6 +46,8 @@ const VALID_3D_DIAGRAMS = ['deformed', 'momentY', 'momentZ', 'shearY', 'shearZ',
  * @param prevDiagram  Diagram type the user was viewing before clear() — restored after solve
  */
 export function runLiveCalc(analysisMode: string, axisConvention3D: string, prevDiagram?: string): void {
+  // Skip if model is incomplete (e.g., mid-example-load after clear but before fixture applied)
+  if (modelStore.nodes.size < 2 || modelStore.elements.size < 1) return;
   try {
     if (analysisMode === '3d' || analysisMode === 'pro') {
       liveCalc3D(axisConvention3D);

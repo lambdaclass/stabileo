@@ -443,8 +443,10 @@
 <div class="app-container" class:embed-mode={uiStore.embedMode} class:hidden-behind-landing={showLanding}>
   <header class="app-header">
     <div class="logo">
-      <span class="logo-icon">△</span>
-      <span class="logo-text">Stabileo</span>
+      <button class="logo-home" onclick={() => { showLanding = true; history.pushState(null, '', '/'); }} title="Back to home">
+        <span class="logo-icon">△</span>
+        <span class="logo-text">Stabileo</span>
+      </button>
       <div class="mode-toggle" data-tour="mode-toggle">
         <button class:active={uiStore.appMode === 'basico'} onclick={() => switchAppMode('basico')}>
           {t('app.modeBasic')}
@@ -517,7 +519,7 @@
       </nav>
     {/if}
 
-    <div class="pro-body-row">
+    <div class="app-body-inner" class:pro-body-row={uiStore.appMode === 'pro'}>
 
     <div class="main-area">
       <main class="viewport-container">
@@ -548,9 +550,11 @@
           <EducativePanel />
         </aside>
       {:else if uiStore.appMode === 'basico'}
-        <button class="sidebar-toggle-btn right-toggle" class:sidebar-closed={!uiStore.rightSidebarOpen} onclick={() => uiStore.rightSidebarOpen = !uiStore.rightSidebarOpen} title={uiStore.rightSidebarOpen ? t('app.hideRightPanel') : t('app.showRightPanel')}>
-          {uiStore.rightSidebarOpen ? '▸' : '◂'}
-        </button>
+        {#if !uiStore.aiDrawerOpen}
+          <button class="sidebar-toggle-btn right-toggle" class:sidebar-closed={!uiStore.rightSidebarOpen} onclick={() => uiStore.rightSidebarOpen = !uiStore.rightSidebarOpen} title={uiStore.rightSidebarOpen ? t('app.hideRightPanel') : t('app.showRightPanel')}>
+            {uiStore.rightSidebarOpen ? '▸' : '◂'}
+          </button>
+        {/if}
         {#if uiStore.rightSidebarOpen}
           <aside class="sidebar right" data-tour="right-sidebar" class:wizard-open={dsmStepsStore.isOpen}>
             {#if dsmStepsStore.isOpen}
@@ -570,7 +574,7 @@
       {/if}
     {/if}
 
-    </div><!-- /pro-body-row -->
+    </div><!-- /pro-body-row (class only applied in PRO) -->
 
     {#if !uiStore.isMobile && uiStore.aiDrawerOpen}
       <AiDrawer />
@@ -593,7 +597,11 @@
   {#if uiStore.isMobile && uiStore.rightDrawerOpen}
     <div class="drawer-backdrop" onclick={() => uiStore.rightDrawerOpen = false}></div>
     <aside class="drawer drawer-right" data-tour="right-sidebar">
-      {#if dsmStepsStore.isOpen}
+      {#if uiStore.appMode === 'pro'}
+        <ProPanel />
+      {:else if uiStore.appMode === 'educativo'}
+        <EducativePanel />
+      {:else if dsmStepsStore.isOpen}
         <StepWizard />
       {:else}
         <PropertyPanel {showResults} />
@@ -612,12 +620,18 @@
   <!-- Mobile bottom bar -->
   {#if uiStore.isMobile}
     <nav class="mobile-bottom-bar">
-      <button class="mobile-bar-btn" onclick={() => uiStore.leftDrawerOpen = !uiStore.leftDrawerOpen} title={t('app.tools')}>
-        ☰
-      </button>
-      <button class="mobile-bar-btn" onclick={() => uiStore.rightDrawerOpen = !uiStore.rightDrawerOpen} title={t('app.properties')}>
-        ⚙
-      </button>
+      {#if uiStore.appMode === 'basico'}
+        <button class="mobile-bar-btn" onclick={() => uiStore.leftDrawerOpen = !uiStore.leftDrawerOpen} title={t('app.tools')}>
+          ☰
+        </button>
+        <button class="mobile-bar-btn" onclick={() => uiStore.rightDrawerOpen = !uiStore.rightDrawerOpen} title={t('app.properties')}>
+          ⚙
+        </button>
+      {:else}
+        <button class="mobile-bar-btn" onclick={() => uiStore.rightDrawerOpen = !uiStore.rightDrawerOpen} title={uiStore.appMode === 'pro' ? 'PRO' : t('app.properties')}>
+          {uiStore.appMode === 'pro' ? '\u26A1' : '\uD83D\uDCD0'}
+        </button>
+      {/if}
     </nav>
   {/if}
 </div>
@@ -772,6 +786,19 @@
     gap: 0.5rem;
     flex-shrink: 0;
   }
+
+  .logo-home {
+    display: flex;
+    align-items: center;
+    gap: 0.3rem;
+    background: none;
+    border: none;
+    padding: 0;
+    cursor: pointer;
+    color: inherit;
+  }
+  .logo-home:hover .logo-text { color: #fff; }
+  .logo-home:hover .logo-icon { color: #ff5a75; }
 
   .logo-icon {
     font-size: 1.5rem;
@@ -1179,7 +1206,10 @@
   .app-body.app-body-pro {
     flex-direction: column;
   }
-  .pro-body-row {
+  .app-body-inner {
+    display: contents;
+  }
+  .app-body-inner.pro-body-row {
     display: flex;
     flex: 1;
     overflow: hidden;

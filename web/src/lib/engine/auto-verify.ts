@@ -65,11 +65,18 @@ export function autoVerifyFromResults(
     const dx = nodeJ.x - nodeI.x, dy = nodeJ.y - nodeI.y, dz = (nodeJ.z ?? 0) - (nodeI.z ?? 0);
     const L = Math.sqrt(dx * dx + dy * dy + dz * dz);
     const elemType = classifyElement(nodeI.x, nodeI.y, nodeI.z ?? 0, nodeJ.x, nodeJ.y, nodeJ.z ?? 0, section.b, section.h);
-    const MuMax = Math.max(Math.abs(ef.mzStart), Math.abs(ef.mzEnd));
-    const VuMax = Math.max(Math.abs(ef.vyStart), Math.abs(ef.vyEnd));
-    const NuMax = Math.max(Math.abs(ef.nStart), Math.abs(ef.nEnd));
-    const MuyMax = Math.max(Math.abs(ef.myStart), Math.abs(ef.myEnd));
+    // Take the dominant bending/shear from both local planes.
+    // Under the current local-axis convention, gravity on a +X beam produces My+Vz,
+    // while on a +Y beam it produces Mz+Vy. Reading only one plane misses the other.
+    const MzMax = Math.max(Math.abs(ef.mzStart), Math.abs(ef.mzEnd));
+    const MyMax = Math.max(Math.abs(ef.myStart), Math.abs(ef.myEnd));
+    const VyMax = Math.max(Math.abs(ef.vyStart), Math.abs(ef.vyEnd));
     const VzMax = Math.max(Math.abs(ef.vzStart), Math.abs(ef.vzEnd));
+    const MuMax = Math.max(MzMax, MyMax);
+    const VuMax = Math.max(VyMax, VzMax);
+    const NuMax = Math.max(Math.abs(ef.nStart), Math.abs(ef.nEnd));
+    // For biaxial column check: the secondary moment is the lesser plane
+    const MuyMax = Math.min(MzMax, MyMax);
     const TuMax = Math.max(Math.abs(ef.mxStart), Math.abs(ef.mxEnd));
     const isVertical = elemType === 'column' || elemType === 'wall';
 
