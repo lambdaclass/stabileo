@@ -5,9 +5,13 @@ import {
   TWO_D_REACTION_LABELS,
   TWO_D_VERTICAL_AXIS_LABEL,
   get2DDisplayDisplacementVertical,
+  get2DDisplayNodalLoadMoment,
+  get2DDisplayNodalLoadVertical,
   get2DDisplayMoment,
   get2DDisplayReactionVertical,
   get2DDisplayedVertical,
+  hasInvalid2DDisplacements,
+  hasInvalid3DDisplacements,
   getElevation,
   isHorizontalPlane,
   planeLevelAxis,
@@ -52,6 +56,15 @@ describe('coordinate-system contract', () => {
     expect(get2DDisplayDisplacementVertical({ uy: -0.02 })).toBe(-0.02);
     expect(get2DDisplayReactionVertical({ ry: 12 })).toBe(12);
     expect(get2DDisplayMoment({ mz: 7 })).toBe(7);
+    expect(get2DDisplayNodalLoadVertical({ fy: -15 })).toBe(-15);
+    expect(get2DDisplayNodalLoadMoment({ mz: 3 })).toBe(3);
+  });
+
+  it('shares finite-displacement validation across all solve entry points', () => {
+    expect(hasInvalid2DDisplacements([{ ux: 0, uz: 1, ry: 2 }])).toBe(false);
+    expect(hasInvalid2DDisplacements([{ ux: 0, uy: Number.NaN, rz: 0 }])).toBe(true);
+    expect(hasInvalid3DDisplacements([{ ux: 0, uy: 1, uz: 2 }])).toBe(false);
+    expect(hasInvalid3DDisplacements([{ ux: 0, uy: Number.POSITIVE_INFINITY, uz: 2 }])).toBe(true);
   });
 
   it('projects flat 2D models upright onto XZ in the 3D scene', () => {

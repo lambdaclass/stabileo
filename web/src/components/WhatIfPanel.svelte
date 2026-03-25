@@ -3,6 +3,7 @@
   import { solve } from '../lib/engine/wasm-solver';
   import type { ModelSnapshot } from '../lib/store/history.svelte';
   import { t } from '../lib/i18n';
+  import { get2DDisplayNodalLoadMoment, get2DDisplayNodalLoadVertical } from '../lib/geometry/coordinate-system';
 
   let baseline: ModelSnapshot | null = $state(null);
   let debounceTimer: number | undefined;
@@ -53,12 +54,12 @@
         const f = loadFactors[i] ?? 1.0;
         const l = loads[i];
         if (l.type === 'nodal') {
-          const d = l.data as { fx: number; fy: number; mz: number };
-          const baseLoads = baseline!.loads[i]?.data as { fx: number; fy: number; mz: number };
+          const d = l.data as { fx: number; fz?: number; fy?: number; my?: number; mz?: number };
+          const baseLoads = baseline!.loads[i]?.data as typeof d;
           if (baseLoads) {
             d.fx = baseLoads.fx * f;
-            d.fy = baseLoads.fy * f;
-            d.mz = baseLoads.mz * f;
+            d.fz = get2DDisplayNodalLoadVertical(baseLoads) * f;
+            d.my = get2DDisplayNodalLoadMoment(baseLoads) * f;
           }
         } else if (l.type === 'distributed') {
           const d = l.data as { qI: number; qJ: number };
@@ -173,11 +174,11 @@
     const l = baseline?.loads[i];
     if (!l) return t('whatif.loadFallback').replace('{n}', String(i + 1));
     if (l.type === 'nodal') {
-      const d = l.data as { fx: number; fy: number; mz: number };
+      const d = l.data as { fx: number; fz?: number; fy?: number; my?: number; mz?: number };
       const parts: string[] = [];
       if (d.fx) parts.push(`Fx=${d.fx}`);
-      if (d.fy) parts.push(`Fy=${d.fy}`);
-      if (d.mz) parts.push(`Mz=${d.mz}`);
+      if (get2DDisplayNodalLoadVertical(d)) parts.push(`Fz=${get2DDisplayNodalLoadVertical(d)}`);
+      if (get2DDisplayNodalLoadMoment(d)) parts.push(`My=${get2DDisplayNodalLoadMoment(d)}`);
       return parts.join(', ') || `Nodal ${i + 1}`;
     }
     if (l.type === 'distributed') {

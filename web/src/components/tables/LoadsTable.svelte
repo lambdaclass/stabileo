@@ -2,6 +2,7 @@
   import { modelStore, uiStore, historyStore, resultsStore } from '../../lib/store';
   import { t } from '../../lib/i18n';
   import type { DistributedLoad, PointLoadOnElement, NodalLoad, ThermalLoad, NodalLoad3D, DistributedLoad3D } from '../../lib/store/model.svelte.ts';
+  import { get2DDisplayNodalLoadMoment, get2DDisplayNodalLoadVertical } from '../../lib/geometry/coordinate-system';
 
   const nodesArr = $derived([...modelStore.nodes.values()]);
   const elementsArr = $derived([...modelStore.elements.values()]);
@@ -85,8 +86,8 @@
           {#if load.type === 'nodal'}
             {@const d = load.data as NodalLoad}
             <span class="load-field">Fx<input type="number" step="1" value={d.fx} onchange={(e) => updateLoadField(d.id, 'fx', e.currentTarget.value)} /></span>
-            <span class="load-field">Fz<input type="number" step="1" value={d.fy} onchange={(e) => updateLoadField(d.id, 'fy', e.currentTarget.value)} /></span>
-            <span class="load-field">My<input type="number" step="1" value={d.mz} onchange={(e) => updateLoadField(d.id, 'mz', e.currentTarget.value)} /></span>
+            <span class="load-field">Fz<input type="number" step="1" value={get2DDisplayNodalLoadVertical(d)} onchange={(e) => updateLoadField(d.id, 'fz', e.currentTarget.value)} /></span>
+            <span class="load-field">My<input type="number" step="1" value={get2DDisplayNodalLoadMoment(d)} onchange={(e) => updateLoadField(d.id, 'my', e.currentTarget.value)} /></span>
           {:else if load.type === 'nodal3d'}
             {@const d = load.data as NodalLoad3D}
             <span class="load-field">Fx<input type="number" step="1" value={d.fx} onchange={(e) => updateLoadField(d.id, 'fx', e.currentTarget.value)} /></span>

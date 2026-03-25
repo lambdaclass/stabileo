@@ -201,7 +201,8 @@ interface SolverDiagnostic {
 
 interface AnalysisResultsLike {
   displacements: Array<{ ux: number; uy?: number; uz?: number; ry?: number; rz?: number }>;
-  reactions: Array<{ fx: number; fy?: number; fz?: number; my?: number; mz?: number }>;
+  // 2D Reaction has rx/rz/my; 3D has fx/fy/fz/mx/my/mz — accept both
+  reactions: Array<{ rx?: number; rz?: number; fx?: number; fy?: number; fz?: number; my?: number; mz?: number }>;
   elementForces: Array<Record<string, unknown>>;
   solverDiagnostics?: SolverDiagnostic[];
   timings?: { solverType?: string; nFree?: number };
@@ -225,13 +226,15 @@ export function buildArtifact(
   }));
 
   const maxDisp = results.displacements.reduce((max, d) => {
-    const v = Math.max(Math.abs(d.ux), Math.abs(d.uz ?? d.uy ?? 0), Math.abs(d.ry ?? d.rz ?? 0));
+    const v = Math.max(Math.abs(d.ux), Math.abs(d.uz ?? 0), Math.abs(d.ry ?? 0));
     return v > max ? v : max;
   }, 0);
 
   const maxReact = results.reactions.reduce((max, r) => {
-    const vertical = r.fz ?? r.fy ?? 0;
-    const v = Math.sqrt(r.fx * r.fx + vertical * vertical);
+    // 2D reactions: rx/rz/my; 3D reactions: fx/fy/fz
+    const horizontal = r.rx ?? r.fx ?? 0;
+    const vertical = r.rz ?? r.fz ?? 0;
+    const v = Math.sqrt(horizontal * horizontal + vertical * vertical);
     return v > max ? v : max;
   }, 0);
 

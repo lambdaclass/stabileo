@@ -183,7 +183,7 @@ describe('Hinge at supported node (Gerber beam pattern)', () => {
 
 describe('Mechanism detection with hinges', () => {
 
-  // WASM solver doesn't throw on mechanism structures
+  // TODO: needs pre-solve kinematic check — solver produces results instead of mechanism error
   it.skip('double hinge at unsupported collinear node: mechanism', () => {
     const input = makeInput({
       nodes: [
@@ -205,7 +205,7 @@ describe('Mechanism detection with hinges', () => {
     expect(() => solve(input)).toThrow(/[Mm]echanism/);
   });
 
-  // WASM solver doesn't throw on mechanism structures
+  // TODO: needs pre-solve kinematic check — solver produces results instead of mechanism error
   it.skip('single hinge at internal collinear node of simply-supported beam: mechanism', () => {
     // pinned + rollerX = 3 DOF restrained, 3 nodes × 3 = 9, 2 frame elements
     // degree = 6 + 3 - 9 - 1 = -1 → mechanism

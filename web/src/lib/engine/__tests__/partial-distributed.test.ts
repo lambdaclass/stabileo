@@ -315,9 +315,7 @@ describe('Diagram values with partial load', () => {
 // 7. FIXED-FIXED BEAM WITH PARTIAL LOAD
 // ═══════════════════════════════════════════════════════════════════
 
-// BUG: WASM solver rejects fully-restrained structures (0 free DOFs).
-// Fixed-fixed 2-node beam has all DOFs restrained. Solver should return FEF-based results.
-describe.skip('Fixed-fixed beam with partial load', () => {
+describe('Fixed-fixed beam with partial load', () => {
   // L = 10m, q = -10 kN/m from a=5 to b=10
   const L = 10;
   const q = -10;

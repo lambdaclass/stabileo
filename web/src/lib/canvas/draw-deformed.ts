@@ -28,7 +28,7 @@ export function drawDeformed(
   const { ctx } = dc;
 
   // Build displacement lookup
-  const dispMap = new Map<number, { ux: number; uy: number; rz: number }>();
+  const dispMap = new Map<number, { ux: number; uz: number; ry: number }>();
   for (const d of results.displacements) {
     dispMap.set(d.nodeId, d);
   }
@@ -58,8 +58,8 @@ export function drawDeformed(
 
     const points = computeDeformedShape(
       nodeI.x, nodeI.y, nodeJ.x, nodeJ.y,
-      dI.ux, dI.uy, dI.rz,
-      dJ.ux, dJ.uy, dJ.rz,
+      dI.ux, dI.uz, dI.ry,
+      dJ.ux, dJ.uz, dJ.ry,
       scale, ef.length,
       ef.hingeStart, ef.hingeEnd,
       EI,
@@ -89,7 +89,7 @@ export function drawDeformed(
     if (!node) continue;
 
     const defX = node.x + d.ux * scale;
-    const defY = node.y + d.uy * scale;
+    const defY = node.y + d.uz * scale;
     const s = dc.worldToScreen(defX, defY);
 
     ctx.beginPath();

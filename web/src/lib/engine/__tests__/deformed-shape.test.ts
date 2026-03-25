@@ -183,8 +183,7 @@ describe('Deformed shape: fixed support tangent', () => {
     expect(Math.abs(dI.ry)).toBeLessThan(1e-10);
   });
 
-  // BUG: WASM solver rejects 2-node fixed-fixed beams (0 free DOFs)
-  it.skip('fixed-fixed beam: both ends have zero slope', () => {
+  it('fixed-fixed beam: both ends have zero slope', () => {
     const L = 10;
     const input = makeInput({
       nodes: [[1, 0, 0], [2, L, 0]],
@@ -241,8 +240,7 @@ describe('Deformed shape: symmetry', () => {
     }
   });
 
-  // BUG: WASM solver rejects 2-node fixed-fixed beams (0 free DOFs)
-  it.skip('fixed-fixed beam with centered point load: symmetric deformation', () => {
+  it('fixed-fixed beam with centered point load: symmetric deformation', () => {
     const L = 8;
     const input = makeInput({
       nodes: [[1, 0, 0], [2, L, 0]],
@@ -540,8 +538,7 @@ describe('Deformed shape: analytical verification', () => {
     expect(dJ.ry).toBeCloseTo(-theta_exact, 5);
   });
 
-  // BUG: WASM solver rejects 2-node fixed-fixed beams (0 free DOFs)
-  it.skip('fixed-fixed beam uniform load: particular solution shows correct midspan deflection', () => {
+  it('fixed-fixed beam uniform load: particular solution shows correct midspan deflection', () => {
     const L = 8;
     const q = -10; // kN/m
     const input = makeInput({
