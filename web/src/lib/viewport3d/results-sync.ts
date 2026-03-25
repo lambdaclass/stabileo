@@ -20,6 +20,24 @@ import { projectNodeToScene, shouldProjectModelToXZ } from '../geometry/coordina
 
 export const DIAGRAM_3D_TYPES: Set<string> = new Set(['momentY', 'momentZ', 'shearY', 'shearZ', 'axial', 'torsion']);
 
+/** Build a node map projected to scene coordinates (handles 2D→XZ swap for embedded models). */
+function getProjectedNodes(): Map<number, { id: number; x: number; y: number; z?: number }> {
+  const project2D = shouldProjectModelToXZ({
+    analysisMode: uiStore.analysisMode,
+    nodes: modelStore.nodes.values(),
+    supports: modelStore.supports.values(),
+    loads: modelStore.loads,
+    plateCount: modelStore.plates.size,
+    quadCount: modelStore.quads.size,
+  });
+  const projected = new Map<number, { id: number; x: number; y: number; z?: number }>();
+  for (const [id, n] of modelStore.nodes) {
+    const p = projectNodeToScene(n, project2D);
+    projected.set(id, { id, x: p.x, y: p.y, z: p.z });
+  }
+  return projected;
+}
+
 /**
  * Mutable context for results visualization.
  * Created once in Viewport3D.svelte, passed to all sync functions.
@@ -158,25 +176,9 @@ export function syncDeformed(ctx: ResultsSyncContext, scaleOverride?: number): v
     }
   }
 
-  // Project node positions to scene coordinates so baselines align with solver/displacement space.
-  // Without this, embedded 2D models have baselines in model-Y but displacements in scene-Z.
-  const project2D = shouldProjectModelToXZ({
-    analysisMode: uiStore.analysisMode,
-    nodes: modelStore.nodes.values(),
-    supports: modelStore.supports.values(),
-    loads: modelStore.loads,
-    plateCount: modelStore.plates.size,
-    quadCount: modelStore.quads.size,
-  });
-  const projectedNodes = new Map<number, { id: number; x: number; y: number; z?: number }>();
-  for (const [id, n] of modelStore.nodes) {
-    const p = projectNodeToScene(n, project2D);
-    projectedNodes.set(id, { id, x: p.x, y: p.y, z: p.z });
-  }
-
   ctx.deformedGroup = createDeformedLines(
     modelStore.elements,
-    projectedNodes,
+    getProjectedNodes(),
     displacements,
     dt === 'deformed' && r3d ? r3d.elementForces : [],
     scale,
@@ -225,6 +227,7 @@ export function syncDiagrams3D(ctx: ResultsSyncContext): void {
 
   const leftHand = uiStore.axisConvention3D === 'leftHand';
   const kind = dt as Diagram3DKind;
+  const projectedNodes = getProjectedNodes();
 
   // Check if envelope dual curves should be rendered
   const isEnvelope = resultsStore.isEnvelopeActive && resultsStore.fullEnvelope3D;
@@ -234,7 +237,7 @@ export function syncDiagrams3D(ctx: ResultsSyncContext): void {
     if (envDiagram && 'elements' in envDiagram) {
       ctx.diagramGroup = createEnvelopeDiagramGroup3D(
         modelStore.elements,
-        modelStore.nodes,
+        projectedNodes,
         envDiagram,
         kind,
         resultsStore.diagramScale,
@@ -248,7 +251,7 @@ export function syncDiagrams3D(ctx: ResultsSyncContext): void {
     // Normal single diagram
     ctx.diagramGroup = createDiagramGroup3D(
       modelStore.elements,
-      modelStore.nodes,
+      projectedNodes,
       r3d.elementForces,
       kind,
       resultsStore.diagramScale,
@@ -263,7 +266,7 @@ export function syncDiagrams3D(ctx: ResultsSyncContext): void {
     if (overlay3D) {
       ctx.overlayDiagramGroup = createDiagramGroup3D(
         modelStore.elements,
-        modelStore.nodes,
+        projectedNodes,
         overlay3D.elementForces,
         kind,
         resultsStore.diagramScale,
