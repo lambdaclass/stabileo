@@ -100,12 +100,10 @@
 
   function syncResultsProjection(): void {
     if (!resultsParent) return;
+    // Results are built in projected scene coordinates (getProjectedNodes handles
+    // the 2D→XZ swap), so no parent-level rotation is needed.
     resultsParent.position.set(0, 0, 0);
     resultsParent.rotation.set(0, 0, 0);
-    if (shouldProject2DModel()) {
-      // Keep result overlays in the same upright XZ presentation as flat 2D models.
-      resultsParent.rotation.x = Math.PI / 2;
-    }
   }
   const diagramLegend = $derived.by(() => {
     const dt = resultsStore.diagramType;
