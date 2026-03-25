@@ -519,7 +519,7 @@
       </nav>
     {/if}
 
-    <div class="pro-body-row">
+    <div class="app-body-inner" class:pro-body-row={uiStore.appMode === 'pro'}>
 
     <div class="main-area">
       <main class="viewport-container">
@@ -574,7 +574,7 @@
       {/if}
     {/if}
 
-    </div><!-- /pro-body-row -->
+    </div><!-- /pro-body-row (class only applied in PRO) -->
 
     {#if !uiStore.isMobile && uiStore.aiDrawerOpen}
       <AiDrawer />
@@ -1206,7 +1206,10 @@
   .app-body.app-body-pro {
     flex-direction: column;
   }
-  .pro-body-row {
+  .app-body-inner {
+    display: contents;
+  }
+  .app-body-inner.pro-body-row {
     display: flex;
     flex: 1;
     overflow: hidden;
