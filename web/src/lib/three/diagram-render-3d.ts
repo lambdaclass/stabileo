@@ -104,9 +104,30 @@ export function createDiagramGroup3D(
     const diagram = computeDiagram3D(ef, kind);
 
     // Perpendicular direction vector (in global coords)
-    const perpVec = perpDir === 'y'
+    // For horizontal beams, force diagrams to display vertically (Z-up) for
+    // visual consistency, regardless of the solver's local axis convention.
+    const solverPerp = perpDir === 'y'
       ? new THREE.Vector3(axes.ey[0], axes.ey[1], axes.ey[2])
       : new THREE.Vector3(axes.ez[0], axes.ez[1], axes.ez[2]);
+
+    let perpVec: THREE.Vector3;
+    let displayFlipped = false; // track if display direction disagrees with solver
+    const exVertical = Math.abs(axes.ex[2]); // how vertical is the element
+    if (exVertical < 0.5) {
+      // Horizontal beam: project global Z onto plane perpendicular to ex
+      const exV = new THREE.Vector3(axes.ex[0], axes.ex[1], axes.ex[2]);
+      const projZ = new THREE.Vector3(0, 0, 1).sub(exV.clone().multiplyScalar(axes.ex[2]));
+      const projLen = projZ.length();
+      if (projLen > 0.01) {
+        perpVec = projZ.divideScalar(projLen);
+        // Check if display direction agrees with solver direction
+        displayFlipped = solverPerp.dot(perpVec) < 0;
+      } else {
+        perpVec = solverPerp;
+      }
+    } else {
+      perpVec = solverPerp;
+    }
 
     // Build mesh: triangle strip between baseline and diagram curve
     const positions: number[] = [];
@@ -126,7 +147,9 @@ export function createDiagramGroup3D(
       // Diagram point (offset perpendicular to element)
       // Negate for ez plane: the solver convention θy=-dw/dx inverts Mz/Vy
       // signs relative to the visual direction. Negating corrects this.
-      const sign = perpDir === 'z' ? -1 : 1;
+      // Also flip if display direction disagrees with solver direction.
+      const baseSign = perpDir === 'z' ? -1 : 1;
+      const sign = displayFlipped ? -baseSign : baseSign;
       const offset = sign * pt.value * scale;
       const dx = bx + perpVec.x * offset;
       const dy = by + perpVec.y * offset;
