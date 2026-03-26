@@ -589,4 +589,199 @@ describe('2D vs 3D embedded: solver parity', () => {
     const res3D = solve3D(input3D);
     compare2Dvs3D(res2D, res3D, 1e-4, 'truss');
   });
+
+  it('thermal gradient mapping: dtGradientZ → My (XZ-plane bending), dtGradientY → Mz', () => {
+    // For a horizontal beam along X in the XZ plane:
+    //   dtGradientZ (gradient across Z) → bending about Y → My, uz deflection
+    //   dtGradientY (gradient across Y) → bending about Z → Mz, uy deflection
+    // For embedded 2D models (XZ plane), the 2D dtGradient maps to dtGradientZ (not Y).
+    const L = 5;
+    const halfL = L / 2;
+    const DTg = 50; // °C gradient
+
+    // Test 1: dtGradientZ should produce My (in-plane for XZ models)
+    const inputZ: SolverInput3D = {
+      nodes: new Map([
+        [1, { id: 1, x: 0, y: 0, z: 0 }],
+        [3, { id: 3, x: halfL, y: 0, z: 0 }],
+        [2, { id: 2, x: L, y: 0, z: 0 }],
+      ]),
+      materials: new Map([[1, steel]]),
+      sections: new Map([[1, ipe300_3d]]),
+      elements: new Map([
+        [1, { id: 1, type: 'frame', nodeI: 1, nodeJ: 3, materialId: 1, sectionId: 1, hingeStart: false, hingeEnd: false }],
+        [2, { id: 2, type: 'frame', nodeI: 3, nodeJ: 2, materialId: 1, sectionId: 1, hingeStart: false, hingeEnd: false }],
+      ]),
+      supports: addOutOfPlaneRestraints(
+        new Map([
+          [1, embed2DSupport({ id: 1, nodeId: 1, type: 'fixed' })],
+          [2, embed2DSupport({ id: 2, nodeId: 2, type: 'fixed' })],
+        ]),
+        [1, 2, 3],
+      ),
+      loads: [
+        { type: 'thermal', data: { elementId: 1, dtUniform: 0, dtGradientY: 0, dtGradientZ: DTg } },
+        { type: 'thermal', data: { elementId: 2, dtUniform: 0, dtGradientY: 0, dtGradientZ: DTg } },
+      ],
+    };
+
+    const resZ = solve3D(inputZ);
+    const forcesZ = resZ.elementForces.find(f => f.elementId === 1)!;
+
+    // dtGradientZ → bending about Y → My (in XZ plane)
+    expect(Math.abs(forcesZ.myStart)).toBeGreaterThan(1e-3, 'dtGradientZ should produce My');
+    expect(Math.abs(forcesZ.mzStart)).toBeLessThan(1e-10, 'dtGradientZ should NOT produce Mz');
+
+    // Test 2: dtGradientY should produce Mz (out-of-plane for XZ models)
+    const inputY: SolverInput3D = {
+      ...inputZ,
+      loads: [
+        { type: 'thermal', data: { elementId: 1, dtUniform: 0, dtGradientY: DTg, dtGradientZ: 0 } },
+        { type: 'thermal', data: { elementId: 2, dtUniform: 0, dtGradientY: DTg, dtGradientZ: 0 } },
+      ],
+    };
+
+    const resY = solve3D(inputY);
+    const forcesY = resY.elementForces.find(f => f.elementId === 1)!;
+
+    // dtGradientY → bending about Z → Mz (out-of-plane for XZ models)
+    expect(Math.abs(forcesY.mzStart)).toBeGreaterThan(1e-3, 'dtGradientY should produce Mz');
+    expect(Math.abs(forcesY.myStart)).toBeLessThan(1e-10, 'dtGradientY should NOT produce My');
+
+    // No out-of-plane displacements in either case (everything is restrained)
+    const midZ = resZ.displacements.find(d => d.nodeId === 3)!;
+    expect(Math.abs(midZ.uy)).toBeLessThan(1e-10, 'no Y displacement for Z-gradient');
+  });
+
+  it('spring on kz resists vertical deflection (not ky)', () => {
+    const L = 5;
+    const kSpring = 500; // kN/m vertical spring
+
+    // 3D cantilever with spring at tip on kz (Z-up vertical)
+    const withSpring: SolverInput3D = {
+      nodes: new Map([[1, { id: 1, x: 0, y: 0, z: 0 }], [2, { id: 2, x: L, y: 0, z: 0 }]]),
+      materials: new Map([[1, steel]]),
+      sections: new Map([[1, ipe300_3d]]),
+      elements: new Map([[1, { id: 1, type: 'frame', nodeI: 1, nodeJ: 2, materialId: 1, sectionId: 1, hingeStart: false, hingeEnd: false }]]),
+      supports: addOutOfPlaneRestraints(
+        new Map([
+          [1, embed2DSupport({ id: 1, nodeId: 1, type: 'fixed' })],
+          [2, { nodeId: 2, rx: false, ry: true, rz: false, rrx: true, rry: false, rrz: true, kz: kSpring }],
+        ]),
+        [1, 2],
+      ),
+      loads: [{ type: 'nodal', data: { nodeId: 2, fx: 0, fy: 0, fz: -10, mx: 0, my: 0, mz: 0 } }],
+    };
+
+    // Same model WITHOUT spring (pure cantilever)
+    const noSpring: SolverInput3D = {
+      nodes: new Map([[1, { id: 1, x: 0, y: 0, z: 0 }], [2, { id: 2, x: L, y: 0, z: 0 }]]),
+      materials: new Map([[1, steel]]),
+      sections: new Map([[1, ipe300_3d]]),
+      elements: new Map([[1, { id: 1, type: 'frame', nodeI: 1, nodeJ: 2, materialId: 1, sectionId: 1, hingeStart: false, hingeEnd: false }]]),
+      supports: addOutOfPlaneRestraints(
+        new Map([[1, embed2DSupport({ id: 1, nodeId: 1, type: 'fixed' })]]),
+        [1, 2],
+      ),
+      loads: [{ type: 'nodal', data: { nodeId: 2, fx: 0, fy: 0, fz: -10, mx: 0, my: 0, mz: 0 } }],
+    };
+
+    const resSpring = solve3D(withSpring);
+    const resNaked = solve3D(noSpring);
+    const tipSpring = resSpring.displacements.find(d => d.nodeId === 2)!;
+    const tipNaked = resNaked.displacements.find(d => d.nodeId === 2)!;
+
+    // Spring should resist Z deflection (not Y)
+    expect(Math.abs(tipSpring.uz)).toBeGreaterThan(1e-6, 'tip should deflect in Z');
+    expect(Math.abs(tipSpring.uy)).toBeLessThan(1e-10, 'no Y deflection expected');
+    // Spring should reduce deflection vs naked cantilever
+    expect(Math.abs(tipSpring.uz)).toBeLessThan(Math.abs(tipNaked.uz) * 0.99, 'kz spring should reduce Z deflection');
+  });
+
+  it('cantilever with prescribed displacement maps dy→dz for embedded 2D', () => {
+    const L = 5;
+    const prescribedDz = -0.01; // 10mm downward prescribed displacement
+
+    // 2D: prescribed vertical displacement at support
+    const input2D: SolverInput = {
+      nodes: new Map([[1, { id: 1, x: 0, z: 0 }], [2, { id: 2, x: L, z: 0 }]]),
+      materials: new Map([[1, steel]]),
+      sections: new Map([[1, ipe300]]),
+      elements: new Map([[1, { id: 1, type: 'frame', nodeI: 1, nodeJ: 2, materialId: 1, sectionId: 1, hingeStart: false, hingeEnd: false }]]),
+      supports: new Map([
+        [0, { id: 1, nodeId: 1, type: 'fixed', dz: prescribedDz }],
+        [1, { id: 2, nodeId: 2, type: 'rollerX' }],
+      ]),
+      loads: [],
+    };
+
+    // 3D: prescribed displacement on Z axis (not Y)
+    const input3D: SolverInput3D = {
+      nodes: new Map([[1, { id: 1, x: 0, y: 0, z: 0 }], [2, { id: 2, x: L, y: 0, z: 0 }]]),
+      materials: new Map([[1, steel]]),
+      sections: new Map([[1, ipe300_3d]]),
+      elements: new Map([[1, { id: 1, type: 'frame', nodeI: 1, nodeJ: 2, materialId: 1, sectionId: 1, hingeStart: false, hingeEnd: false }]]),
+      supports: addOutOfPlaneRestraints(
+        new Map([
+          [1, { ...embed2DSupport({ id: 1, nodeId: 1, type: 'fixed' }), dz: prescribedDz }],
+          [2, embed2DSupport({ id: 2, nodeId: 2, type: 'rollerX' })],
+        ]),
+        [1, 2],
+      ),
+      loads: [],
+    };
+
+    const res2D = solve2D(input2D);
+    const res3D = solve3D(input3D);
+
+    // Node 1 should have the prescribed Z displacement, zero Y
+    const sup3D = res3D.displacements.find(d => d.nodeId === 1)!;
+    expect(sup3D.uz).toBeCloseTo(prescribedDz, 6, 'prescribed Z displacement should be applied');
+    expect(Math.abs(sup3D.uy)).toBeLessThan(1e-10, 'no Y displacement expected');
+
+    compare2Dvs3D(res2D, res3D, 1e-4, 'prescribed displacement');
+  });
+
+  it('inclined load on cantilever tip decomposes in XZ plane (not XY)', () => {
+    const L = 5;
+    const P = 10; // kN
+    const angle = 30; // degrees from vertical
+
+    // Inclined load: Fx = P*sin(30°), Fz = P*cos(30°)
+    const fx = P * Math.sin(angle * Math.PI / 180);
+    const fz = P * Math.cos(angle * Math.PI / 180);
+
+    // 2D: cantilever with inclined load at free tip
+    const input2D: SolverInput = {
+      nodes: new Map([[1, { id: 1, x: 0, z: 0 }], [2, { id: 2, x: L, z: 0 }]]),
+      materials: new Map([[1, steel]]),
+      sections: new Map([[1, ipe300]]),
+      elements: new Map([[1, { id: 1, type: 'frame', nodeI: 1, nodeJ: 2, materialId: 1, sectionId: 1, hingeStart: false, hingeEnd: false }]]),
+      supports: new Map([[0, { id: 1, nodeId: 1, type: 'fixed' }]]),
+      loads: [{ type: 'nodal', data: { nodeId: 2, fx, fz, my: 0 } }],
+    };
+
+    // 3D: inclined load in XZ plane (fz component, not fy)
+    const input3D: SolverInput3D = {
+      nodes: new Map([[1, { id: 1, x: 0, y: 0, z: 0 }], [2, { id: 2, x: L, y: 0, z: 0 }]]),
+      materials: new Map([[1, steel]]),
+      sections: new Map([[1, ipe300_3d]]),
+      elements: new Map([[1, { id: 1, type: 'frame', nodeI: 1, nodeJ: 2, materialId: 1, sectionId: 1, hingeStart: false, hingeEnd: false }]]),
+      supports: addOutOfPlaneRestraints(
+        new Map([[1, embed2DSupport({ id: 1, nodeId: 1, type: 'fixed' })]]),
+        [1, 2],
+      ),
+      loads: [{ type: 'nodal', data: { nodeId: 2, fx, fy: 0, fz, mx: 0, my: 0, mz: 0 } }],
+    };
+
+    const res2D = solve2D(input2D);
+    const res3D = solve3D(input3D);
+
+    // Free tip should displace in XZ plane only
+    const tip3D = res3D.displacements.find(d => d.nodeId === 2)!;
+    expect(Math.abs(tip3D.uy)).toBeLessThan(1e-10, 'inclined load should NOT produce Y displacement');
+    expect(Math.abs(tip3D.ux) + Math.abs(tip3D.uz)).toBeGreaterThan(1e-6, 'should have XZ displacement');
+
+    compare2Dvs3D(res2D, res3D, 1e-4, 'inclined load');
+  });
 });
