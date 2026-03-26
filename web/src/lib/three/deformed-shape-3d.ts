@@ -356,22 +356,44 @@ export function createDeformedLines(
     if (!dI || !dJ) continue;
 
     let points: THREE.Vector3[];
-    // In 3D whole-structure views, exact beam-curvature rendering makes tall
-    // building deformed shapes unreadable because every loaded floor beam
-    // becomes a visible cubic curve. Use straight nodal interpolation here so
-    // the viewport emphasizes global drift/torsion. The exact per-member 3D
-    // curve routine remains available via computeDeformedShape3D() for focused
-    // element-level tools/tests.
-    points = [];
-    for (let i = 0; i <= SEGMENTS_PER_ELEMENT; i++) {
-      const t = i / SEGMENTS_PER_ELEMENT;
-      const ox = nI.x + (nJ.x - nI.x) * t;
-      const oy = nI.y + (nJ.y - nI.y) * t;
-      const oz = (nI.z ?? 0) + ((nJ.z ?? 0) - (nI.z ?? 0)) * t;
-      const ux = dI.ux + (dJ.ux - dI.ux) * t;
-      const uy = dI.uy + (dJ.uy - dI.uy) * t;
-      const uz = dI.uz + (dJ.uz - dI.uz) * t;
-      points.push(new THREE.Vector3(ox + ux * scale, oy + uy * scale, oz + uz * scale));
+    const ef = forcesMap.get(elem.id);
+    const eiEntry = _eiMap?.get(elem.id);
+
+    // Use full Hermite + particular solution when element forces and EI are
+    // available — this shows mid-span bending for single-span beams where
+    // both ends have zero displacement (e.g. simply supported beam).
+    // Fall back to linear interpolation when forces are missing.
+    if (ef && eiEntry) {
+      const localY = (elem.localYx !== undefined && elem.localYy !== undefined && elem.localYz !== undefined)
+        ? { x: elem.localYx, y: elem.localYy, z: elem.localYz } : undefined;
+      const rollAngle = elem.rollAngle;
+      try {
+        points = computeDeformedShape3D(
+          { id: elem.nodeI, x: nI.x, y: nI.y, z: nI.z ?? 0 },
+          { id: elem.nodeJ, x: nJ.x, y: nJ.y, z: nJ.z ?? 0 },
+          dI, dJ, ef, eiEntry, scale, SEGMENTS_PER_ELEMENT,
+          localY, rollAngle, _leftHand,
+        );
+      } catch {
+        // Fall back to linear if Hermite fails (zero-length, etc.)
+        points = [];
+      }
+    } else {
+      points = [];
+    }
+
+    // Linear fallback when Hermite not available
+    if (points.length === 0) {
+      for (let i = 0; i <= SEGMENTS_PER_ELEMENT; i++) {
+        const t = i / SEGMENTS_PER_ELEMENT;
+        const ox = nI.x + (nJ.x - nI.x) * t;
+        const oy = nI.y + (nJ.y - nI.y) * t;
+        const oz = (nI.z ?? 0) + ((nJ.z ?? 0) - (nI.z ?? 0)) * t;
+        const ux = dI.ux + (dJ.ux - dI.ux) * t;
+        const uy = dI.uy + (dJ.uy - dI.uy) * t;
+        const uz = dI.uz + (dJ.uz - dI.uz) * t;
+        points.push(new THREE.Vector3(ox + ux * scale, oy + uy * scale, oz + uz * scale));
+      }
     }
 
     if (points.length < 2) continue;

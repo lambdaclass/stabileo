@@ -74,7 +74,13 @@ export function zoomToFit(
   if (!camera || !controls) return;
   const { center, maxDim } = getModelBounds(nodes);
   const dist = maxDim * 1.5;
-  camera.position.set(center.x + dist, center.y + dist, center.z + dist * 0.6);
+  const project2D = shouldProjectModelToXZ({ analysisMode: uiStore.analysisMode, nodes: nodes.values() });
+  if (project2D) {
+    // Front view for flat 2D models: camera on +Y axis, X→right, Z→up
+    camera.position.set(center.x, center.y + dist, center.z);
+  } else {
+    camera.position.set(center.x + dist, center.y + dist, center.z + dist * 0.6);
+  }
   setCameraUp(camera);
   controls.target.copy(center);
   controls.update();
