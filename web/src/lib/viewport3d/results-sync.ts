@@ -130,15 +130,39 @@ export function syncDeformed(ctx: ResultsSyncContext, scaleOverride?: number): v
     if (!r3d) return;
     displacements = r3d.displacements;
 
-    // Auto-scale: when user scale is 1 (default), compute a sensible scale based on
-    // max displacement vs structure size, similar to the 2D canvas auto-scale.
-    if (scale === 1 && displacements.length > 0) {
+    // Auto-scale: compute a sensible scale so deformed shape is clearly visible.
+    // Consider both nodal displacements AND estimated within-element deflection
+    // (important for single-span beams where nodes are at supports with ~zero disp).
+    if (scale <= 1 && displacements.length > 0) {
       let maxDisp = 0;
       for (const d of displacements) maxDisp = Math.max(maxDisp, Math.abs(d.ux), Math.abs(d.uy), Math.abs(d.uz));
+      // Estimate max within-element deflection from distributed loads: δ ≈ 5qL⁴/(384EI)
+      if (r3d.elementForces) {
+        for (const ef of r3d.elementForces) {
+          const elem = modelStore.elements.get(ef.elementId);
+          if (!elem) continue;
+          const mat = modelStore.materials.get(elem.materialId);
+          const sec = modelStore.sections.get(elem.sectionId);
+          if (!mat || !sec) continue;
+          const E = mat.e * 1000; // MPa → kN/m²
+          const I = Math.max(sec.iz, sec.iy ?? sec.iz);
+          const EI = E * I;
+          if (EI < 1e-6) continue;
+          const L = ef.length;
+          // Check both Y and Z distributed loads
+          for (const dl of [...(ef.distributedLoadsZ ?? []), ...(ef.distributedLoadsY ?? [])]) {
+            const q = Math.max(Math.abs(dl.qI), Math.abs(dl.qJ));
+            if (q > 0) {
+              const span = (dl.b ?? L) - (dl.a ?? 0);
+              const delta = 5 * q * Math.pow(span, 4) / (384 * EI);
+              maxDisp = Math.max(maxDisp, delta);
+            }
+          }
+        }
+      }
       if (maxDisp > 1e-10) {
         const structSize = computeStructureBBox();
-        // Target: max displacement visually = ~10% of structure size
-        scale = Math.min((structSize * 0.1) / maxDisp, 200);
+        scale = Math.min((structSize * 0.1) / maxDisp, 500);
       }
     }
   } else if (dt === 'modeShape') {

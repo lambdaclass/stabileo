@@ -76,8 +76,9 @@ export function zoomToFit(
   const dist = maxDim * 1.5;
   const project2D = shouldProjectModelToXZ({ analysisMode: uiStore.analysisMode, nodes: nodes.values() });
   if (project2D) {
-    // Front view for flat 2D models: camera on +Y axis, X→right, Z→up
-    camera.position.set(center.x, center.y + dist, center.z);
+    // Slightly angled view for flat 2D models in 3D:
+    // Y away from viewer, X reading right, Z up, slight elevation for depth
+    camera.position.set(center.x - dist * 0.15, center.y + dist, center.z + dist * 0.3);
   } else {
     camera.position.set(center.x + dist, center.y + dist, center.z + dist * 0.6);
   }

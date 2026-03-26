@@ -371,11 +371,10 @@ export function createDeformedLines(
         points = computeDeformedShape3D(
           { id: elem.nodeI, x: nI.x, y: nI.y, z: nI.z ?? 0 },
           { id: elem.nodeJ, x: nJ.x, y: nJ.y, z: nJ.z ?? 0 },
-          dI, dJ, ef, eiEntry, scale, SEGMENTS_PER_ELEMENT,
+          dI, dJ, ef, scale, eiEntry,
           localY, rollAngle, _leftHand,
         );
       } catch {
-        // Fall back to linear if Hermite fails (zero-length, etc.)
         points = [];
       }
     } else {
