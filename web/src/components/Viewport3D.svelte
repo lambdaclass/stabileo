@@ -288,6 +288,9 @@
     syncLoads();
     syncShells();
 
+    // Set initial camera to match model type (flat 2D → front view, 3D → isometric)
+    if (modelStore.nodes.size > 0) zoomToFit();
+
     // Render loop
     const _panVec = new THREE.Vector3();
     const _orbitSpherical = new THREE.Spherical();
