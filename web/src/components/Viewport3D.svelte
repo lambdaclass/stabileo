@@ -635,11 +635,15 @@
     updateGrid();
   });
 
-  // Reactive axes visibility
+  // Reactive axes visibility: world axes only in PRO/3D modes, gizmo controlled by setting
   $effect(() => {
-    const visible = uiStore.showAxes3D;
-    if (axesHelper) axesHelper.visible = visible;
-    for (const s of axisLabelSprites) s.visible = visible;
+    const show = uiStore.showAxes3D;
+    const isBasic = uiStore.analysisMode === '3d';
+    // Hide world-origin axes in Basic 3D mode (gizmo replaces them)
+    if (axesHelper) axesHelper.visible = show && !isBasic;
+    for (const s of axisLabelSprites) s.visible = show && !isBasic;
+    // Gizmo visibility follows the setting
+    if (gizmoCanvas) gizmoCanvas.style.display = show ? 'block' : 'none';
   });
 
   // Cancel pending element when tool changes
@@ -1616,8 +1620,8 @@
     const s = gizmoCanvas.width;
     gc.clearRect(0, 0, s, s);
 
-    // Get camera rotation to project world axes onto screen
-    const viewMatrix = camera.matrixWorldInverse;
+    // Use camera quaternion (rotation only, no translation/scale) to project axes
+    const invQuat = camera.quaternion.clone().invert();
     const axes = [
       { label: 'X', color: '#ff4444', dir: new THREE.Vector3(1, 0, 0) },
       { label: 'Y', color: '#44ff44', dir: new THREE.Vector3(0, 1, 0) },
@@ -1625,9 +1629,8 @@
     ];
 
     const cx = s / 2, cy = s / 2, len = s * 0.35;
-    // Sort by depth (draw far axes first)
     const projected = axes.map(a => {
-      const d = a.dir.clone().applyMatrix4(viewMatrix);
+      const d = a.dir.clone().applyQuaternion(invQuat);
       return { ...a, sx: d.x * len, sy: -d.y * len, depth: d.z };
     }).sort((a, b) => a.depth - b.depth);
 

@@ -94,7 +94,7 @@
   </button>
   {#if showExamples}
     <div class="examples-list">
-      {#each examples.filter(ex => !['truss','warren-truss','howe-truss'].includes(ex.id)) as ex}
+      {#each examples as ex}
         <button class="example-item" onclick={async () => { await modelStore.loadExample(ex.id); resultsStore.clear(); resultsStore.clear3D(); if (uiStore.isMobile) uiStore.leftDrawerOpen = false; setTimeout(() => window.dispatchEvent(new Event('stabileo-zoom-to-fit')), 50); }}>
           <span class="example-name">{t(ex.nameKey)}</span>
           <span class="example-desc">{t(ex.descKey)}</span>
