@@ -377,6 +377,7 @@
       }
 
       renderer.render(scene, camera);
+      drawAxisGizmo();
     }
     animate();
 
@@ -1605,6 +1606,46 @@
     _setView(view, camera, controls, modelStore.nodes);
   }
 
+  // ─── 3D Axis gizmo (bottom-left corner) ────────────────────
+  let gizmoCanvas: HTMLCanvasElement | null = null;
+
+  function drawAxisGizmo() {
+    if (!gizmoCanvas || !camera) return;
+    const gc = gizmoCanvas.getContext('2d');
+    if (!gc) return;
+    const s = gizmoCanvas.width;
+    gc.clearRect(0, 0, s, s);
+
+    // Get camera rotation to project world axes onto screen
+    const viewMatrix = camera.matrixWorldInverse;
+    const axes = [
+      { label: 'X', color: '#ff4444', dir: new THREE.Vector3(1, 0, 0) },
+      { label: 'Y', color: '#44ff44', dir: new THREE.Vector3(0, 1, 0) },
+      { label: 'Z', color: '#4488ff', dir: new THREE.Vector3(0, 0, 1) },
+    ];
+
+    const cx = s / 2, cy = s / 2, len = s * 0.35;
+    // Sort by depth (draw far axes first)
+    const projected = axes.map(a => {
+      const d = a.dir.clone().applyMatrix4(viewMatrix);
+      return { ...a, sx: d.x * len, sy: -d.y * len, depth: d.z };
+    }).sort((a, b) => a.depth - b.depth);
+
+    for (const ax of projected) {
+      gc.strokeStyle = ax.color;
+      gc.lineWidth = 2;
+      gc.globalAlpha = ax.depth > 0 ? 1 : 0.3;
+      gc.beginPath();
+      gc.moveTo(cx, cy);
+      gc.lineTo(cx + ax.sx, cy + ax.sy);
+      gc.stroke();
+      gc.globalAlpha = 1;
+      gc.fillStyle = ax.color;
+      gc.font = 'bold 12px sans-serif';
+      gc.fillText(ax.label, cx + ax.sx * 1.2 - 4, cy + ax.sy * 1.2 + 4);
+    }
+  }
+
   function toggleCameraMode() {
     if (!camera || !controls || !renderer) return;
     const isPersp = uiStore.cameraMode3D === 'perspective';
@@ -1829,6 +1870,12 @@
       {hoverTooltip.text}
     </div>
   {/if}
+  <canvas
+    bind:this={gizmoCanvas}
+    class="axis-gizmo"
+    width="80"
+    height="80"
+  ></canvas>
 </div>
 
 <style>
@@ -1839,10 +1886,19 @@
     overflow: hidden;
   }
 
-  .viewport3d-wrapper :global(canvas) {
+  .viewport3d-wrapper :global(canvas:not(.axis-gizmo)) {
     display: block;
     width: 100% !important;
     height: 100% !important;
+  }
+  .axis-gizmo {
+    position: absolute;
+    bottom: 8px;
+    left: 8px;
+    width: 80px !important;
+    height: 80px !important;
+    pointer-events: none;
+    z-index: 10;
   }
 
   .camera-controls {

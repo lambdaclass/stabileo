@@ -89,6 +89,20 @@ export function drawAxes(
   ctx.moveTo(axisX, 0);
   ctx.lineTo(axisX, height);
   ctx.stroke();
+
+  // Corner axis indicator (bottom-left)
+  const cx = 40, cy = height - 40, len = 25;
+  ctx.lineWidth = 2;
+  // X axis (red, right)
+  ctx.strokeStyle = '#ff4444';
+  ctx.beginPath(); ctx.moveTo(cx, cy); ctx.lineTo(cx + len, cy); ctx.stroke();
+  ctx.fillStyle = '#ff4444'; ctx.font = '11px sans-serif';
+  ctx.fillText('X', cx + len + 3, cy + 4);
+  // Z axis (blue, up)
+  ctx.strokeStyle = '#4488ff';
+  ctx.beginPath(); ctx.moveTo(cx, cy); ctx.lineTo(cx, cy - len); ctx.stroke();
+  ctx.fillStyle = '#4488ff';
+  ctx.fillText('Z', cx - 4, cy - len - 5);
 }
 
 // ── Nodes ────────────────────────────────────────────────────────────
