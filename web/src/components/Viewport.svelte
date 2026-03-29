@@ -107,12 +107,20 @@
     }
   });
 
+  /** Project a 3D node to the selected 2D drawing plane. */
+  function project2DNode(node: { id: number; x: number; y: number; z?: number }): { id: number; x: number; y: number; z?: number } {
+    const plane = uiStore.drawPlane2D;
+    if (plane === 'xz') return { ...node, x: node.x, y: node.z ?? 0 };
+    if (plane === 'yz') return { ...node, x: node.y, y: node.z ?? 0 };
+    return node; // 'xy' — default, no transform
+  }
+
   // Draw context helper for canvas renderers
   function makeDrawContext() {
     return {
       ctx: ctx!,
       worldToScreen: (wx: number, wy: number) => uiStore.worldToScreen(wx, wy),
-      getNode: (id: number) => modelStore.getNode(id),
+      getNode: (id: number) => { const n = modelStore.getNode(id); return n ? project2DNode(n) : undefined; },
       getElement: (id: number) => {
         const elem = modelStore.elements.get(id);
         return elem ? { nodeI: elem.nodeI, nodeJ: elem.nodeJ, materialId: elem.materialId, sectionId: elem.sectionId } : undefined;
@@ -473,7 +481,8 @@
           const d = load.data as { nodeId: number };
           const node = modelStore.getNode(d.nodeId);
           if (!node) continue;
-          hx = node.x; hy = node.y;
+          const pn = project2DNode(node);
+          hx = pn.x; hy = pn.y;
         } else {
           const d = load.data as { elementId: number; a?: number };
           const elem = modelStore.elements.get(d.elementId);
@@ -506,9 +515,9 @@
       }
     }
 
-    // Draw nodes
+    // Draw nodes (projected to current 2D drawing plane)
     for (const node of modelStore.nodes.values()) {
-      drawNode(node);
+      drawNode(project2DNode(node));
     }
 
     // Draw snap highlight when using tools that target nodes/elements
@@ -981,14 +990,16 @@
   function drawSupport(sup: { id: number; nodeId: number; type: string; dx?: number; dz?: number; dry?: number; dy?: number; drz?: number; angle?: number; isGlobal?: boolean }) {
     const node = modelStore.getNode(sup.nodeId);
     if (!node) return;
-    const screen = uiStore.worldToScreen(node.x, node.y);
+    const pn = project2DNode(node);
+    const screen = uiStore.worldToScreen(pn.x, pn.y);
     _drawSupport(ctx!, sup, screen, uiStore.selectedSupports.has(sup.id), (nid) => modelStore.getElementAngleAtNode(nid));
   }
 
   function drawNodalLoad(load: { type: string; data: any }, caseColor?: string, caseName?: string, labelYOffset?: number) {
     const node = modelStore.getNode(load.data.nodeId);
     if (!node) return;
-    const screen = uiStore.worldToScreen(node.x, node.y);
+    const pn = project2DNode(node);
+    const screen = uiStore.worldToScreen(pn.x, pn.y);
     _drawNodalLoad(ctx!, screen, load.data, caseColor, caseName, labelYOffset);
   }
 
@@ -997,7 +1008,8 @@
     _drawReactions(ctx!, resultsStore.results.reactions as ReactionData[], (nodeId) => {
       const node = modelStore.getNode(nodeId);
       if (!node) return null;
-      return uiStore.worldToScreen(node.x, node.y);
+      const pn = project2DNode(node);
+      return uiStore.worldToScreen(pn.x, pn.y);
     });
   }
 
@@ -1007,7 +1019,8 @@
     _drawConstraintForces(ctx!, forces as ConstraintForceData[], (nodeId) => {
       const node = modelStore.getNode(nodeId);
       if (!node) return null;
-      return uiStore.worldToScreen(node.x, node.y);
+      const pn = project2DNode(node);
+      return uiStore.worldToScreen(pn.x, pn.y);
     });
   }
 
@@ -1552,7 +1565,8 @@
 
         // Nodes: always selected by containment (both modes)
         for (const node of modelStore.nodes.values()) {
-          const s = uiStore.worldToScreen(node.x, node.y);
+          const pn = project2DNode(node);
+          const s = uiStore.worldToScreen(pn.x, pn.y);
           if (s.x >= x1 && s.x <= x2 && s.y >= y1 && s.y <= y2) {
             newNodes.add(node.id);
           }

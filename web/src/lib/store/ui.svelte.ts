@@ -224,6 +224,12 @@ function createUIStore() {
   // Analysis mode: 2D, 3D, PRO or EDU (educational)
   let analysisMode = $state<'2d' | '3d' | 'pro' | 'edu'>('2d');
 
+  // 2D drawing plane: controls which 3D plane is shown in 2D mode.
+  // 'xy' = default 2D convention (X horizontal, Y vertical)
+  // 'xz' = X horizontal, Z vertical (e.g. for models built in the XZ plane)
+  // 'yz' = Y horizontal, Z vertical
+  let drawPlane2D = $state<'xy' | 'xz' | 'yz'>('xy');
+
   // === 3D-specific state ===
   // 3D load direction (6 DOF)
   let nodalLoadDir3D = $state<NodalLoadDir3D>('fy');
@@ -583,6 +589,8 @@ function createUIStore() {
 
     get analysisMode() { return analysisMode; },
     set analysisMode(v: '2d' | '3d' | 'pro' | 'edu') { analysisMode = v; },
+    get drawPlane2D() { return drawPlane2D; },
+    set drawPlane2D(v: 'xy' | 'xz' | 'yz') { drawPlane2D = v; },
 
     /** Top-level app mode derived from analysisMode */
     get appMode(): 'basico' | 'educativo' | 'pro' {

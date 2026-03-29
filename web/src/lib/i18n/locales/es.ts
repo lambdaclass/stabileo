@@ -183,6 +183,14 @@ const es: Record<string, string> = {
   'toolbar.support': 'Apoyo',
   'toolbar.load': 'Carga',
 
+  'toolbar.planeModal.title': 'Cambiar a vista 2D',
+  'toolbar.planeModal.description': 'Este modelo tiene geometría 3D que no se puede analizar directamente en 2D. Elegí un plano de dibujo:',
+  'toolbar.planeModal.xy': 'X horiz, Y vert',
+  'toolbar.planeModal.xz': 'X horiz, Z vert',
+  'toolbar.planeModal.yz': 'Y horiz, Z vert',
+  'toolbar.planeModal.modelAnyway': 'Continuar con XY (por defecto)',
+  'toolbar.planeModal.stay3d': 'Seguir en 3D',
+
   // ─── ToolbarResults.svelte ───
   'results.solve': 'Calcular',
   'results.solve3d': 'Calcular 3D',

@@ -183,6 +183,14 @@ const en: Record<string, string> = {
   'toolbar.support': 'Support',
   'toolbar.load': 'Load',
 
+  'toolbar.planeModal.title': 'Switch to 2D view',
+  'toolbar.planeModal.description': 'This model has 3D geometry that does not map directly to 2D analysis. Choose a drawing plane:',
+  'toolbar.planeModal.xy': 'X horiz, Y vert',
+  'toolbar.planeModal.xz': 'X horiz, Z vert',
+  'toolbar.planeModal.yz': 'Y horiz, Z vert',
+  'toolbar.planeModal.modelAnyway': 'Continue with XY (default)',
+  'toolbar.planeModal.stay3d': 'Stay in 3D',
+
   // ─── ToolbarResults.svelte ───
   'results.solve': 'Solve',
   'results.solve3d': 'Solve 3D',
