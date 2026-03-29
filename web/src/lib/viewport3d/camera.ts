@@ -10,7 +10,7 @@ import * as THREE from 'three';
 import type { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { setLineResolution } from '../three/create-element-mesh';
 import { projectNodeToScene, setCameraUp, shouldProjectModelToXZ, TOP_VIEW_UP_VECTOR } from '../geometry/coordinate-system';
-import { uiStore } from '../store';
+import { uiStore, modelStore } from '../store';
 
 // ─── Types ──────────────────────────────────────────────────
 
@@ -26,7 +26,12 @@ export interface NodePosition {
 export function getModelBounds(
   nodes: Map<number, NodePosition>,
 ): { center: THREE.Vector3; size: THREE.Vector3; maxDim: number } {
-  const project2D = shouldProjectModelToXZ({ analysisMode: uiStore.analysisMode, nodes: nodes.values() });
+  const project2D = shouldProjectModelToXZ({
+    analysisMode: uiStore.analysisMode,
+    nodes: nodes.values(),
+    supports: modelStore.supports.values(),
+    loads: modelStore.loads,
+  });
   const box = new THREE.Box3();
   for (const [, node] of nodes) {
     const pos = projectNodeToScene(node, project2D);
@@ -74,14 +79,21 @@ export function zoomToFit(
   if (!camera || !controls) return;
   const { center, maxDim } = getModelBounds(nodes);
   const dist = maxDim * 1.5;
-  const project2D = shouldProjectModelToXZ({ analysisMode: uiStore.analysisMode, nodes: nodes.values() });
+  const project2D = shouldProjectModelToXZ({
+    analysisMode: uiStore.analysisMode,
+    nodes: nodes.values(),
+    supports: modelStore.supports.values(),
+    loads: modelStore.loads,
+  });
   if (project2D) {
-    // Angled view for flat 2D models in 3D: camera on -Y side looking toward +Y.
+    // Angled front view for flat 2D models in 3D: camera on -Y side looking toward +Y.
     // Screen right = +X, screen up = +Z, Y goes away from viewer.
-    // Shift target slightly below model center so the top toolbar doesn't obscure upper loads.
-    camera.position.set(center.x + dist * 0.1, center.y - dist, center.z + dist * 0.25);
+    // Use extra distance (×1.8) and shift target below center (15% of model height)
+    // so the top floating toolbar doesn't obscure upper loads.
+    const dist2D = maxDim * 1.8;
+    camera.position.set(center.x + dist2D * 0.1, center.y - dist2D, center.z + dist2D * 0.25);
     setCameraUp(camera);
-    controls.target.set(center.x, center.y, center.z - maxDim * 0.08);
+    controls.target.set(center.x, center.y, center.z - maxDim * 0.15);
   } else {
     camera.position.set(center.x + dist, center.y + dist, center.z + dist * 0.6);
     setCameraUp(camera);

@@ -613,21 +613,10 @@
   }
 
   function applyExamplePreset(preset: ExamplePreset = 'default') {
-    uiStore.showGrid3D = false;
-    uiStore.showAxes3D = false;
+    // Only configure label/display preferences — grid and axes stay user-controlled
     uiStore.showLengths3D = false;
     uiStore.showNodeLabels3D = false;
     uiStore.showElementLabels3D = false;
-    if (preset === 'default') {
-      uiStore.showElementLabels3D = false;
-    } else if (preset === 'clean-shell') {
-      uiStore.showGrid3D = false;
-    } else if (preset === 'bridge') {
-      uiStore.showAxes3D = false;
-    } else if (preset === 'xl') {
-      uiStore.showGrid3D = false;
-      uiStore.showAxes3D = false;
-    }
   }
 
   async function loadProExample(ex: ProExample) {
