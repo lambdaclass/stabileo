@@ -78,12 +78,15 @@ export function zoomToFit(
   if (project2D) {
     // Angled view for flat 2D models in 3D: camera on -Y side looking toward +Y.
     // Screen right = +X, screen up = +Z, Y goes away from viewer.
+    // Shift target slightly below model center so the top toolbar doesn't obscure upper loads.
     camera.position.set(center.x + dist * 0.1, center.y - dist, center.z + dist * 0.25);
+    setCameraUp(camera);
+    controls.target.set(center.x, center.y, center.z - maxDim * 0.08);
   } else {
     camera.position.set(center.x + dist, center.y + dist, center.z + dist * 0.6);
+    setCameraUp(camera);
+    controls.target.copy(center);
   }
-  setCameraUp(camera);
-  controls.target.copy(center);
   controls.update();
   // Adjust clip planes so large models (bridges, stadiums) aren't clipped
   if ((camera as THREE.PerspectiveCamera).isPerspectiveCamera) {
