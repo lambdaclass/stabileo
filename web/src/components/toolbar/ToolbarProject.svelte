@@ -1,8 +1,11 @@
 <script lang="ts">
   import { uiStore, resultsStore, tabManager } from '../../lib/store';
-  import { saveProject, loadFile, saveSession, downloadResultsCSV, downloadDXF, downloadSVG, downloadExcel, openPDFReport } from '../../lib/store/file';
+  import { saveProject, loadFile, saveSession, downloadResultsCSV, downloadDXF, downloadSVG, downloadExcel } from '../../lib/store/file';
+
+  let showCalcReport = $state(false);
   import { generateShareURL, loadFromShareLink, MAX_URL_SAFE } from '../../lib/utils/url-sharing';
   import { t } from '../../lib/i18n';
+  import CalcReportDialog from '../CalcReportDialog.svelte';
 
   let fileInput: HTMLInputElement;
 
@@ -105,7 +108,7 @@
         >
           Excel
         </button>
-        <button class="file-btn" onclick={openPDFReport} title={t('project.exportPdfTooltip')}>
+        <button class="file-btn" onclick={() => showCalcReport = true} title={t('project.exportPdfTooltip')}>
           PDF
         </button>
         <button class="file-btn" onclick={downloadDXF} disabled={uiStore.analysisMode === '3d'} title={uiStore.analysisMode === '3d' ? t('project.inDev3d') : t('project.exportDxfTooltip')}>
@@ -162,6 +165,8 @@
   style="display:none"
   onchange={handleLoadFile}
 />
+
+<CalcReportDialog bind:open={showCalcReport} />
 
 <style>
   .toolbar-section {

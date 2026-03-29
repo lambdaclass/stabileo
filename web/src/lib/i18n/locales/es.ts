@@ -631,6 +631,17 @@ const es: Record<string, string> = {
   // ─── Extra tooltips (ToolbarProject, ToolbarConfig) ───
   'project.exportExcelTooltip': 'Exportar reporte Excel con todas las hojas (modelo + resultados)',
   'project.exportPdfTooltip': 'Generar reporte PDF imprimible',
+
+  // ─── CalcReportDialog ───
+  'calcReport.title': 'Generar memoria de cálculo',
+  'calcReport.projectName': 'Nombre del proyecto',
+  'calcReport.engineerName': 'Ingeniero',
+  'calcReport.companyName': 'Empresa',
+  'calcReport.notes': 'Notas / hipótesis',
+  'calcReport.optional': 'Opcional',
+  'calcReport.cancel': 'Cancelar',
+  'calcReport.generate': 'Generar Reporte',
+
   'project.exportDxfTooltip': 'Exportar a AutoCAD DXF con diagramas',
   'project.exportSvgTooltip': 'Exportar gráfico vectorial SVG',
   'project.exportPngTooltip': 'Exportar captura de pantalla PNG',
