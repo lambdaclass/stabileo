@@ -115,6 +115,12 @@
     return node; // 'xy' — default, no transform
   }
 
+  /** Get a node projected to the current 2D drawing plane. */
+  function getProjectedNode(id: number) {
+    const n = modelStore.getNode(id);
+    return n ? project2DNode(n) : undefined;
+  }
+
   // Draw context helper for canvas renderers
   function makeDrawContext() {
     return {
@@ -155,7 +161,8 @@
     // Listen for zoom-to-fit events (same mechanism as Viewport3D)
     const handleZoomToFitEvent = () => {
       if (modelStore.nodes.size === 0) return;
-      uiStore.zoomToFit(modelStore.nodes.values(), canvas.width, canvas.height);
+      const projected = [...modelStore.nodes.values()].map(n => project2DNode(n));
+      uiStore.zoomToFit(projected, canvas.width, canvas.height);
     };
     window.addEventListener('stabileo-zoom-to-fit', handleZoomToFitEvent);
 
@@ -305,8 +312,8 @@
       for (const ef of resultsStore.results.elementForces) {
         const elem = modelStore.elements.get(ef.elementId);
         if (!elem) continue;
-        const ni = modelStore.getNode(elem.nodeI);
-        const nj = modelStore.getNode(elem.nodeJ);
+        const ni = getProjectedNode(elem.nodeI);
+        const nj = getProjectedNode(elem.nodeJ);
         if (!ni || !nj) continue;
         const si = uiStore.worldToScreen(ni.x, ni.y);
         const sj = uiStore.worldToScreen(nj.x, nj.y);
@@ -487,8 +494,8 @@
           const d = load.data as { elementId: number; a?: number };
           const elem = modelStore.elements.get(d.elementId);
           if (!elem) continue;
-          const ni = modelStore.getNode(elem.nodeI);
-          const nj = modelStore.getNode(elem.nodeJ);
+          const ni = getProjectedNode(elem.nodeI);
+          const nj = getProjectedNode(elem.nodeJ);
           if (!ni || !nj) continue;
           if (load.type === 'pointOnElement' && d.a != null) {
             const L = Math.sqrt((nj.x - ni.x) ** 2 + (nj.y - ni.y) ** 2);
@@ -569,8 +576,8 @@
         // Hovering over a bar: golden indicator at cut point
         const nearElem = findNearestElement(uiStore.worldX, uiStore.worldY, 0.5);
         if (nearElem) {
-          const ni = modelStore.getNode(nearElem.nodeI);
-          const nj = modelStore.getNode(nearElem.nodeJ);
+          const ni = getProjectedNode(nearElem.nodeI);
+          const nj = getProjectedNode(nearElem.nodeJ);
           if (ni && nj) {
             const edx = nj.x - ni.x;
             const edy = nj.y - ni.y;
@@ -970,9 +977,11 @@
   }
 
   function drawElement(elem: { id: number; type: string; nodeI: number; nodeJ: number; materialId: number; sectionId: number; hingeStart?: boolean; hingeEnd?: boolean }, colorOverride?: string, nodeBarCount?: Map<number, number>) {
-    const ni = modelStore.getNode(elem.nodeI);
-    const nj = modelStore.getNode(elem.nodeJ);
-    if (!ni || !nj) return;
+    const niRaw = modelStore.getNode(elem.nodeI);
+    const njRaw = modelStore.getNode(elem.nodeJ);
+    if (!niRaw || !njRaw) return;
+    const ni = project2DNode(niRaw);
+    const nj = project2DNode(njRaw);
 
     const opts: DrawElementOpts = {
       worldToScreen: (wx, wy) => uiStore.worldToScreen(wx, wy),
@@ -1434,8 +1443,8 @@
       if (dt === 'moment' || dt === 'shear' || dt === 'axial' || dt === 'deformed' || dt === 'colorMap') {
         const nearElem = findNearestElement(world.x, world.y, 0.5);
         if (nearElem) {
-          const ni = modelStore.getNode(nearElem.nodeI);
-          const nj = modelStore.getNode(nearElem.nodeJ);
+          const ni = getProjectedNode(nearElem.nodeI);
+          const nj = getProjectedNode(nearElem.nodeJ);
           if (ni && nj) {
             const edx = nj.x - ni.x;
             const edy = nj.y - ni.y;
@@ -1826,20 +1835,29 @@
     return _findNearestNode(x, y, maxDist, modelStore.nodes);
   }
 
+  /** Build a projected node map for hit testing / picking in the current 2D plane. */
+  function getProjectedNodes(): Map<number, { id: number; x: number; y: number }> {
+    const map = new Map<number, { id: number; x: number; y: number }>();
+    for (const node of modelStore.nodes.values()) {
+      map.set(node.id, project2DNode(node));
+    }
+    return map;
+  }
+
   function findNearestElement(x: number, y: number, maxDist: number) {
-    return _findNearestElement(x, y, maxDist, modelStore.elements, modelStore.nodes);
+    return _findNearestElement(x, y, maxDist, modelStore.elements, getProjectedNodes());
   }
 
   function findNearestSupport(x: number, y: number, maxDist: number) {
-    return _findNearestSupport(x, y, maxDist, modelStore.supports, modelStore.nodes);
+    return _findNearestSupport(x, y, maxDist, modelStore.supports, getProjectedNodes());
   }
 
   function findNearestMidpoint(x: number, y: number, maxDist: number) {
-    return _findNearestMidpoint(x, y, maxDist, modelStore.elements, modelStore.nodes);
+    return _findNearestMidpoint(x, y, maxDist, modelStore.elements, getProjectedNodes());
   }
 
   function snapWithMidpoint(worldX: number, worldY: number): { x: number; y: number } {
-    return _snapWithMidpoint(worldX, worldY, (x, y) => uiStore.snapWorld(x, y), modelStore.nodes, modelStore.elements);
+    return _snapWithMidpoint(worldX, worldY, (x, y) => uiStore.snapWorld(x, y), getProjectedNodes(), modelStore.elements);
   }
 
   function findAllLoadsNear(wx: number, wy: number, maxDist: number): number[] {
