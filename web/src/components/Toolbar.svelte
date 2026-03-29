@@ -4,7 +4,7 @@
   import type { ClipboardData } from '../lib/store/ui.svelte.ts';
   import { t } from '../lib/i18n';
   import { hasInvalid2DDisplacements, hasInvalid3DDisplacements } from '../lib/geometry/coordinate-system';
-  import { countCollapsedElements, type DrawPlane } from '../lib/geometry/plane-projection';
+  import { countCollapsedElements, buildSimplified2DModel, type DrawPlane } from '../lib/geometry/plane-projection';
   import { initSolver, isWasmReady } from '../lib/engine/wasm-solver';
 
   import ToolbarResults from './toolbar/ToolbarResults.svelte';
@@ -57,16 +57,60 @@
     }
   }
 
-  function selectPlane(plane: 'xy' | 'xz' | 'yz') {
+  // Backup of original 3D model for restoration when exiting simplified mode
+  let original3DBackup: { nodes: Map<number, any>; elements: Map<number, any>; supports: Map<number, any>; loads: any[] } | null = null;
+
+  function selectPlane(plane: DrawPlane) {
+    const result = buildSimplified2DModel(
+      plane,
+      modelStore.nodes.values(),
+      modelStore.elements.values(),
+      modelStore.supports.values(),
+      modelStore.loads,
+      modelStore.materials,
+      modelStore.sections,
+    );
+    if (!result.ok) {
+      uiStore.toast(result.error, 'error');
+      return;
+    }
+
+    // Backup original 3D model
+    original3DBackup = {
+      nodes: new Map(modelStore.nodes),
+      elements: new Map(modelStore.elements),
+      supports: new Map(modelStore.supports),
+      loads: [...modelStore.loads],
+    };
+
+    // Replace model with simplified version
+    const m = result.model;
+    modelStore.replaceModelData(m.nodes, m.elements, m.supports, m.loads);
+
     uiStore.drawPlane2D = plane;
+    uiStore.simplified2DMode = true;
+    uiStore.simplified2DStats = m.stats;
     uiStore.analysisMode = '2d';
+    resultsStore.clear();
     show2DPlaneModal = false;
   }
 
-  function modelAnyway() {
+  // Restore original 3D model when switching back
+  function exitSimplified2D() {
+    if (original3DBackup) {
+      modelStore.replaceModelData(
+        original3DBackup.nodes,
+        original3DBackup.elements,
+        original3DBackup.supports,
+        original3DBackup.loads,
+      );
+      original3DBackup = null;
+    }
+    uiStore.simplified2DMode = false;
+    uiStore.simplified2DStats = null;
     uiStore.drawPlane2D = 'xy';
-    uiStore.analysisMode = '2d';
-    show2DPlaneModal = false;
+    uiStore.analysisMode = '3d';
+    resultsStore.clear();
   }
 
   const tools = [
@@ -516,7 +560,7 @@
     <div class="toolbar-section dim-toggle-section">
       <div class="dim-toggle">
         <button class:active={uiStore.analysisMode === '2d'} onclick={handleSwitchTo2D}>2D</button>
-        <button class:active={uiStore.analysisMode === '3d'} onclick={() => uiStore.analysisMode = '3d'}>3D</button>
+        <button class:active={uiStore.analysisMode === '3d'} onclick={() => { if (uiStore.simplified2DMode) exitSimplified2D(); else uiStore.analysisMode = '3d'; }}>3D</button>
       </div>
     </div>
   {/if}
@@ -550,9 +594,9 @@
     <div class="plane-options">
       {#each [['xy', 'XY', t('toolbar.planeModal.xy')], ['xz', 'XZ', t('toolbar.planeModal.xz')], ['yz', 'YZ', t('toolbar.planeModal.yz')]] as [id, label, desc]}
         {@const n = planeCollapsed[id as DrawPlane]}
-        <button class="plane-btn" class:plane-btn-disabled={n > 0}
-          onclick={() => { if (n === 0) selectPlane(id as DrawPlane); }}
-          title={n > 0 ? `${n} elements collapse` : ''}>
+        <button class="plane-btn" class:plane-btn-warn={n > 0}
+          onclick={() => selectPlane(id as DrawPlane)}
+          title={n > 0 ? `${n} elements will be removed` : ''}>
           <span class="plane-label">{label}</span>
           <span class="plane-desc">{n > 0 ? `${n} ${t('toolbar.planeModal.collapse')}` : desc}</span>
         </button>
@@ -775,18 +819,7 @@
     color: #888;
   }
   .plane-btn:hover .plane-desc { color: #bbb; }
-  .plane-btn-disabled {
-    opacity: 0.35;
-    cursor: not-allowed;
-    border-color: #333 !important;
-  }
-  .plane-btn-disabled:hover {
-    background: #0f3460;
-    color: #ccc;
-    border-color: #333 !important;
-  }
-  .plane-btn-disabled .plane-label { color: #666; }
-  .plane-btn-disabled .plane-desc { color: #e94560; font-weight: 500; }
+  .plane-btn-warn .plane-desc { color: #e9a045; font-weight: 500; }
   .plane-modal-footer {
     display: flex;
     justify-content: center;

@@ -981,6 +981,14 @@ function createModelStore() {
       lastKinematicResult = null;
     },
 
+    /** Replace model geometry data in-place (for simplified 2D model swap). No undo. */
+    replaceModelData(nodes: Map<number, any>, elements: Map<number, any>, supports: Map<number, any>, loads: any[]): void {
+      model.nodes = nodes;
+      model.elements = elements;
+      model.supports = supports;
+      model.loads = loads;
+    },
+
     updateNode(id: number, x: number, y: number, z?: number): void {
       const node = model.nodes.get(id);
       if (node) {

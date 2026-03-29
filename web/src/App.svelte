@@ -536,6 +536,18 @@
         {:else}
           <Viewport3D />
         {/if}
+        {#if uiStore.simplified2DMode}
+          <div class="simplified-banner">
+            <span>{t('app.simplified2d.banner')}</span>
+            {#if uiStore.simplified2DStats}
+              <span class="simplified-stats">
+                {uiStore.simplified2DStats.mergedNodes > 0 ? `${uiStore.simplified2DStats.mergedNodes} ${t('app.simplified2d.merged')}` : ''}
+                {uiStore.simplified2DStats.removedElements > 0 ? ` · ${uiStore.simplified2DStats.removedElements} ${t('app.simplified2d.removed')}` : ''}
+                {uiStore.simplified2DStats.duplicateElements > 0 ? ` · ${uiStore.simplified2DStats.duplicateElements} ${t('app.simplified2d.duplicates')}` : ''}
+              </span>
+            {/if}
+          </div>
+        {/if}
         {#if uiStore.appMode === 'basico'}
           <FloatingTools />
         {/if}
@@ -966,6 +978,24 @@
   }
   .pn-toggle:hover { color: #fff; border-color: #4ecdc4; }
   .pn-settings-gear { font-size: 1rem; }
+  .simplified-banner {
+    position: absolute;
+    top: 4px;
+    left: 50%;
+    transform: translateX(-50%);
+    z-index: 90;
+    background: rgba(233, 69, 96, 0.9);
+    color: white;
+    padding: 3px 12px;
+    border-radius: 4px;
+    font-size: 0.7rem;
+    font-weight: 600;
+    display: flex;
+    gap: 0.5rem;
+    align-items: center;
+    pointer-events: none;
+  }
+  .simplified-stats { font-weight: 400; opacity: 0.85; }
   .pro-settings-dropdown {
     position: absolute;
     top: 100%;

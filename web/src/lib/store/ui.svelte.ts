@@ -230,6 +230,10 @@ function createUIStore() {
   // 'yz' = Y horizontal, Z vertical
   let drawPlane2D = $state<'xy' | 'xz' | 'yz'>('xy');
 
+  // Simplified 2D model mode — when a 3D model is projected to 2D, editing is disabled
+  let simplified2DMode = $state(false);
+  let simplified2DStats = $state<{ mergedNodes: number; removedElements: number; duplicateElements: number } | null>(null);
+
   // === 3D-specific state ===
   // 3D load direction (6 DOF)
   let nodalLoadDir3D = $state<NodalLoadDir3D>('fy');
@@ -591,6 +595,10 @@ function createUIStore() {
     set analysisMode(v: '2d' | '3d' | 'pro' | 'edu') { analysisMode = v; },
     get drawPlane2D() { return drawPlane2D; },
     set drawPlane2D(v: 'xy' | 'xz' | 'yz') { drawPlane2D = v; },
+    get simplified2DMode() { return simplified2DMode; },
+    set simplified2DMode(v: boolean) { simplified2DMode = v; },
+    get simplified2DStats() { return simplified2DStats; },
+    set simplified2DStats(v: typeof simplified2DStats) { simplified2DStats = v; },
 
     /** Top-level app mode derived from analysisMode */
     get appMode(): 'basico' | 'educativo' | 'pro' {

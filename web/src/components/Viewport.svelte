@@ -1049,6 +1049,12 @@
       return;
     }
 
+    // Block creation/mutation tools in simplified 2D mode
+    if (uiStore.simplified2DMode && uiStore.currentTool !== 'select' && uiStore.currentTool !== 'pan') {
+      uiStore.toast(t('viewport.simplifiedReadOnly'), 'info');
+      return;
+    }
+
     if (uiStore.currentTool === 'node') {
       if (uiStore.nodeMode === 'hinge') {
         // Hinge mode: click on node → select + show hinges; click on bar → split + hinge
@@ -1406,6 +1412,13 @@
       uiStore.panY += my - panStartY;
       panStartX = mx;
       panStartY = my;
+      return;
+    }
+
+    // Block dragging in simplified 2D mode
+    if (uiStore.simplified2DMode && draggedNodeId !== null) {
+      draggedNodeId = null;
+      dragStartWorld = null;
       return;
     }
 

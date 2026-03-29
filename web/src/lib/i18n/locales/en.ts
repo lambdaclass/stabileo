@@ -149,6 +149,11 @@ const en: Record<string, string> = {
 
   // ─── App.svelte ───
   'app.hideLeftPanel': 'Hide left panel',
+  'app.simplified2d.banner': 'Simplified 2D model',
+  'app.simplified2d.merged': 'nodes merged',
+  'app.simplified2d.removed': 'elements removed',
+  'app.simplified2d.duplicates': 'duplicates dropped',
+  'viewport.simplifiedReadOnly': 'Editing is disabled in simplified 2D mode. Switch back to 3D to edit.',
   'app.showLeftPanel': 'Show left panel',
   'app.hideRightPanel': 'Hide right panel',
   'app.showRightPanel': 'Show right panel',
