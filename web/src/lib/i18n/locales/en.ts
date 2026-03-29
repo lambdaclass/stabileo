@@ -197,6 +197,7 @@ const en: Record<string, string> = {
   'toolbar.planeModal.stay3d': 'Stay in 3D',
   'toolbar.planeModal.collapse': 'elements collapse',
   'toolbar.planeModal.tooComplex': 'Too 3D for this plane',
+  'toolbar.planeModal.simplified': 'elements simplified',
   'toolbar.planeModal.eraseAndSwitch': 'Erase model and switch to 2D',
 
   // ─── ToolbarResults.svelte ───
