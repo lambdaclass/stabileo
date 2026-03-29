@@ -196,6 +196,7 @@ const es: Record<string, string> = {
   'toolbar.planeModal.modelAnyway': 'Continuar con XY (por defecto)',
   'toolbar.planeModal.stay3d': 'Seguir en 3D',
   'toolbar.planeModal.collapse': 'elementos colapsan',
+  'toolbar.planeModal.tooComplex': 'Muy 3D para este plano',
 
   // ─── ToolbarResults.svelte ───
   'results.solve': 'Calcular',

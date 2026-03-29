@@ -34,17 +34,18 @@
     return true;
   }
 
+  let planeErrors = $state<Record<DrawPlane, string>>({ xy: '', xz: '', yz: '' });
+
   function computePlaneValidity() {
-    const nodes = modelStore.nodes.values();
-    const elems = modelStore.elements.values();
-    // Need to collect into arrays since iterators are consumed once
     const nodeArr = [...modelStore.nodes.values()];
     const elemArr = [...modelStore.elements.values()];
-    planeCollapsed = {
-      xy: countCollapsedElements('xy', nodeArr, elemArr),
-      xz: countCollapsedElements('xz', nodeArr, elemArr),
-      yz: countCollapsedElements('yz', nodeArr, elemArr),
-    };
+    const supArr = [...modelStore.supports.values()];
+    // Dry-run the builder for each plane to get accurate rejection status
+    for (const plane of ['xy', 'xz', 'yz'] as DrawPlane[]) {
+      const result = buildSimplified2DModel(plane, nodeArr, elemArr, supArr, modelStore.loads, modelStore.materials, modelStore.sections);
+      planeCollapsed[plane] = result.ok ? 0 : 1; // 0 = valid, >0 = invalid
+      planeErrors[plane] = result.ok ? '' : result.error;
+    }
   }
 
   function handleSwitchTo2D() {
@@ -593,12 +594,13 @@
     <p>{t('toolbar.planeModal.description')}</p>
     <div class="plane-options">
       {#each [['xy', 'XY', t('toolbar.planeModal.xy')], ['xz', 'XZ', t('toolbar.planeModal.xz')], ['yz', 'YZ', t('toolbar.planeModal.yz')]] as [id, label, desc]}
-        {@const n = planeCollapsed[id as DrawPlane]}
-        <button class="plane-btn" class:plane-btn-warn={n > 0}
-          onclick={() => selectPlane(id as DrawPlane)}
-          title={n > 0 ? `${n} elements will be removed` : ''}>
+        {@const rejected = planeCollapsed[id as DrawPlane] > 0}
+        {@const err = planeErrors[id as DrawPlane]}
+        <button class="plane-btn" class:plane-btn-disabled={rejected}
+          onclick={() => { if (!rejected) selectPlane(id as DrawPlane); }}
+          title={rejected ? err : ''}>
           <span class="plane-label">{label}</span>
-          <span class="plane-desc">{n > 0 ? `${n} ${t('toolbar.planeModal.collapse')}` : desc}</span>
+          <span class="plane-desc">{rejected ? t('toolbar.planeModal.tooComplex') : desc}</span>
         </button>
       {/each}
     </div>
@@ -819,7 +821,17 @@
     color: #888;
   }
   .plane-btn:hover .plane-desc { color: #bbb; }
-  .plane-btn-warn .plane-desc { color: #e9a045; font-weight: 500; }
+  .plane-btn-disabled {
+    opacity: 0.35;
+    cursor: not-allowed;
+    border-color: #333 !important;
+  }
+  .plane-btn-disabled:hover {
+    background: #0f3460;
+    border-color: #333 !important;
+  }
+  .plane-btn-disabled .plane-label { color: #666; }
+  .plane-btn-disabled .plane-desc { color: #e94560; font-weight: 500; }
   .plane-modal-footer {
     display: flex;
     justify-content: center;

@@ -168,6 +168,16 @@ export function buildSimplified2DModel(
     outElements.set(e.id, { ...e, nodeI: nI, nodeJ: nJ });
   }
 
+  // Reject if too many elements were lost (duplicates + collapsed > 30% of total).
+  // A high loss ratio means the structure is genuinely 3D and the reduction is misleading.
+  const totalLost = removedElements + duplicateElements;
+  const lossRatio = elemArr.length > 0 ? totalLost / elemArr.length : 0;
+  if (lossRatio > 0.30 && totalLost > 3) {
+    const planeLabel = plane.toUpperCase();
+    const pct = Math.round(lossRatio * 100);
+    return { ok: false, error: `This model is too 3D for a ${planeLabel} reduction: ${pct}% of elements (${totalLost}/${elemArr.length}) are lost. Use 3D mode for accurate analysis.` };
+  }
+
   if (outElements.size === 0) {
     return { ok: false, error: 'All elements collapse or are duplicates in this projection. Use 3D mode.' };
   }
