@@ -1626,9 +1626,9 @@
     camera.updateMatrixWorld();
     const viewMat = camera.matrixWorldInverse;
     const axes = [
-      { label: 'X', color: '#ff4444', dir: new THREE.Vector3(1, 0, 0) },
-      { label: 'Y', color: '#44ff44', dir: new THREE.Vector3(0, 1, 0) },
-      { label: 'Z', color: '#4488ff', dir: new THREE.Vector3(0, 0, 1) },
+      { label: 'X', color: '#ff4444', dir: GLOBAL_X.clone() },
+      { label: 'Y', color: '#44ff44', dir: GLOBAL_Y.clone() },
+      { label: 'Z', color: '#4488ff', dir: GLOBAL_Z.clone() },
     ];
 
     const cx = s / 2, cy = s / 2, len = s * 0.35;
