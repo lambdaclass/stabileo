@@ -9,6 +9,7 @@ import { inferLoadCaseType } from '../engine/combinations-service';
 import { t } from '../i18n';
 import { validateAndSolve2D, buildSolverInput2D, validateAndSolve3D, buildSolverInput3D as buildSolverInput3DFn, solveCombinations2D, solveCombinations3D as solveCombinations3DFn, solveCombinations3DParallel as solveCombinations3DParallelFn } from '../engine/solver-service';
 import { computeInfluenceLine as computeInfluenceLineFn } from '../engine/influence-service';
+import { to2D, remapNodalLoad2D, remapMoment2D, type DrawPlane } from '../geometry/plane-projection';
 
 export interface Node {
   id: number;
@@ -294,6 +295,42 @@ function createModelStore() {
 
   let lastKinematicResult = $state<KinematicResult | null>(null);
   let modelVersion = $state(0);
+
+  /**
+   * Create a remapped model view where node coordinates and loads are projected
+   * into the 2D convention (x=horizontal, y=vertical) for the given plane.
+   * The returned object is a shallow copy safe for passing to solver functions.
+   */
+  function remapModelForPlane(plane: DrawPlane) {
+    if (plane === 'xy') {
+      return { nodes: model.nodes, elements: model.elements, supports: model.supports,
+        loads: model.loads, materials: model.materials, sections: model.sections };
+    }
+    // Remap nodes
+    const remappedNodes = new Map<number, Node>();
+    for (const [id, node] of model.nodes) {
+      const p = to2D(plane, node.x, node.y, node.z ?? 0);
+      remappedNodes.set(id, { ...node, x: p.x, y: p.y });
+    }
+    // Remap nodal loads
+    const remappedLoads = model.loads.map(l => {
+      if (l.type === 'nodal') {
+        const d = l.data as any;
+        const f = remapNodalLoad2D(plane, d.fx ?? 0, d.fz ?? d.fy ?? 0, 0);
+        const m = remapMoment2D(plane, 0, 0, d.my ?? d.mz ?? 0);
+        return { ...l, data: { ...d, fx: f.fx, fz: f.fy, my: m } };
+      }
+      if (l.type === 'nodal3d') {
+        const d = l.data as any;
+        const f = remapNodalLoad2D(plane, d.fx ?? 0, d.fy ?? 0, d.fz ?? 0);
+        const m = remapMoment2D(plane, d.mx ?? 0, d.my ?? 0, d.mz ?? 0);
+        return { type: 'nodal' as const, data: { id: d.id, nodeId: d.nodeId, fx: f.fx, fz: f.fy, my: m, caseId: d.caseId } };
+      }
+      return l;
+    });
+    return { nodes: remappedNodes, elements: model.elements, supports: model.supports,
+      loads: remappedLoads, materials: model.materials, sections: model.sections };
+  }
 
   let nextId = $state({
     node: 1,
@@ -1304,20 +1341,18 @@ function createModelStore() {
       model.nodes = new Map(model.nodes);
     },
 
-    solve(includeSelfWeight = false): AnalysisResults | string | null {
+    solve(includeSelfWeight = false, drawPlane: DrawPlane = 'xy'): AnalysisResults | string | null {
       return validateAndSolve2D(
-        { nodes: model.nodes, elements: model.elements, supports: model.supports,
-          loads: model.loads, materials: model.materials, sections: model.sections },
+        remapModelForPlane(drawPlane),
         includeSelfWeight,
         (k) => { lastKinematicResult = k; },
       );
     },
 
     /** Build a SolverInput from the current model state (no validation). Returns null if model is empty. */
-    buildSolverInput(includeSelfWeight = false): SolverInput | null {
+    buildSolverInput(includeSelfWeight = false, drawPlane: DrawPlane = 'xy'): SolverInput | null {
       return buildSolverInput2D(
-        { nodes: model.nodes, elements: model.elements, supports: model.supports,
-          loads: model.loads, materials: model.materials, sections: model.sections },
+        remapModelForPlane(drawPlane),
         includeSelfWeight,
       );
     },
@@ -1403,10 +1438,9 @@ function createModelStore() {
     },
 
     /** Solve all load cases and combine. Returns per-case + per-combo + envelope results. */
-    solveCombinations(includeSelfWeight = false): { perCase: Map<number, AnalysisResults>; perCombo: Map<number, AnalysisResults>; envelope: FullEnvelope } | string | null {
+    solveCombinations(includeSelfWeight = false, drawPlane: DrawPlane = 'xy'): { perCase: Map<number, AnalysisResults>; perCombo: Map<number, AnalysisResults>; envelope: FullEnvelope } | string | null {
       return solveCombinations2D(
-        { nodes: model.nodes, elements: model.elements, supports: model.supports,
-          loads: model.loads, materials: model.materials, sections: model.sections },
+        remapModelForPlane(drawPlane),
         model.loadCases, model.combinations, includeSelfWeight,
       );
     },

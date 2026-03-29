@@ -93,7 +93,7 @@ function liveCalc3D(axisConvention: string): void {
 }
 
 function liveCalc2D(): void {
-  const r = modelStore.solve(uiStore.includeSelfWeight);
+  const r = modelStore.solve(uiStore.includeSelfWeight, uiStore.drawPlane2D);
   if (typeof r === 'string') {
     uiStore.liveCalcError = r;
     return;
@@ -109,7 +109,7 @@ function liveCalc2D(): void {
 
   // Auto-solve combinations if defined
   if (modelStore.model.combinations.length > 0) {
-    const combo = modelStore.solveCombinations(uiStore.includeSelfWeight);
+    const combo = modelStore.solveCombinations(uiStore.includeSelfWeight, uiStore.drawPlane2D);
     if (combo && typeof combo !== 'string') {
       resultsStore.setCombinationResults(combo.perCase, combo.perCombo, combo.envelope);
       const comboNames = new Map<number, string>();

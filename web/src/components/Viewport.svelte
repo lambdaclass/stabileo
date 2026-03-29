@@ -3,6 +3,7 @@
   import { t } from '../lib/i18n';
   import { modelStore, uiStore, resultsStore, historyStore, dsmStepsStore } from '../lib/store';
   import { TWO_D_VERTICAL_AXIS_LABEL, TWO_D_DISPLACEMENT_LABELS, get2DDisplayDisplacementVertical, get2DDisplayedVertical } from '../lib/geometry/coordinate-system';
+  import { projectNode, to3D } from '../lib/geometry/plane-projection';
   import { drawDiagrams, drawEnvelopeDiagrams, computeDiagramGlobalMax, setDiagramUnitSystem, type DiagramKind } from '../lib/canvas/draw-diagrams';
   import { computeDiagramValueAt, computeDisplacementAt } from '../lib/engine/diagrams';
   import { effectiveBendingInertia } from '../lib/engine/solver-service';
@@ -107,12 +108,9 @@
     }
   });
 
-  /** Project a 3D node to the selected 2D drawing plane. */
+  /** Project a 3D node to the selected 2D drawing plane using central helpers. */
   function project2DNode(node: { id: number; x: number; y: number; z?: number }): { id: number; x: number; y: number; z?: number } {
-    const plane = uiStore.drawPlane2D;
-    if (plane === 'xz') return { ...node, x: node.x, y: node.z ?? 0 };
-    if (plane === 'yz') return { ...node, x: node.y, y: node.z ?? 0 };
-    return node; // 'xy' — default, no transform
+    return projectNode(uiStore.drawPlane2D, node);
   }
 
   /** Get a node projected to the current 2D drawing plane. */
@@ -1097,7 +1095,8 @@
       } else {
         // Create node mode (default)
         const ms = snapWithMidpoint(world.x, world.y);
-        modelStore.addNode(ms.x, ms.y);
+        const p3d = to3D(uiStore.drawPlane2D, ms.x, ms.y, { x: 0, y: 0, z: 0 });
+        modelStore.addNode(p3d.x, p3d.y, p3d.z || undefined);
       }
     } else if (uiStore.currentTool === 'element') {
       // For element tool: snap to existing node, or midpoint (create node there), or grid
@@ -1109,7 +1108,8 @@
           const existing = findNearestNode(mid.x, mid.y, 0.01);
           if (existing) return existing;
           // Create a new node at midpoint
-          const id = modelStore.addNode(mid.x, mid.y);
+          const mid3d = to3D(uiStore.drawPlane2D, mid.x, mid.y, { x: 0, y: 0, z: 0 });
+          const id = modelStore.addNode(mid3d.x, mid3d.y, mid3d.z || undefined);
           return modelStore.getNode(id) ?? null;
         }
         return null;
@@ -1415,15 +1415,19 @@
       const dy = snapped.y - dragStartWorld.y;
 
       if (uiStore.selectedNodes.size > 1 && uiStore.selectedNodes.has(draggedNodeId)) {
-        // Move all selected nodes by delta
+        // Move all selected nodes by delta (back-projected to 3D)
         for (const nodeId of uiStore.selectedNodes) {
           const node = modelStore.getNode(nodeId);
           if (node) {
-            modelStore.updateNode(nodeId, node.x + dx, node.y + dy);
+            const projected = project2DNode(node);
+            const moved = to3D(uiStore.drawPlane2D, projected.x + dx, projected.y + dy, node);
+            modelStore.updateNode(nodeId, moved.x, moved.y, moved.z || undefined);
           }
         }
       } else {
-        modelStore.updateNode(draggedNodeId, snapped.x, snapped.y);
+        const orig = modelStore.getNode(draggedNodeId);
+        const moved = to3D(uiStore.drawPlane2D, snapped.x, snapped.y, orig ?? { x: 0, y: 0, z: 0 });
+        modelStore.updateNode(draggedNodeId, moved.x, moved.y, moved.z || undefined);
       }
 
       dragStartWorld = { x: snapped.x, y: snapped.y };
