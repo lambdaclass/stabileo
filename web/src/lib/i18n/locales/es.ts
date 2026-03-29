@@ -457,6 +457,7 @@ const es: Record<string, string> = {
   'config.snapGrid': 'Snap grilla nodos',
   'config.gridSize': 'Grilla',
   'config.gridSizeXZ': 'Grilla xz (m)',
+  'config.gridExtent': 'Extensión de grilla',
   'config.nodeIds': 'IDs de nodos',
   'config.elementIds': 'IDs de elementos',
   'config.lengths': 'Longitudes',

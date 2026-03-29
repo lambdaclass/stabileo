@@ -3,6 +3,9 @@
   import { unitLabel } from '../../lib/utils/units';
   import { t } from '../../lib/i18n';
 
+  /** When true, skip outer toggle and show content directly (used in PRO dropdown). */
+  let { inline = false }: { inline?: boolean } = $props();
+
   let showConfig = $state(false);
   let showGridSub = $state(false);
   let showStructureSub = $state(false);
@@ -25,16 +28,18 @@
 </script>
 
 <div class="toolbar-section" data-tour="config-section">
+  {#if !inline}
   <button class="section-toggle" onclick={() => showConfig = !showConfig}>
     {showConfig ? '▾' : '▸'} {t('config.title')}
   </button>
-  {#if showConfig}
+  {/if}
+  {#if showConfig || inline}
   <div class="config-children">
     <button class="sub-toggle" onclick={() => showGridSub = !showGridSub}>
       {showGridSub ? '▾' : '▸'} {t('config.grid')}
     </button>
     {#if showGridSub}
-      {@const is3D = uiStore.analysisMode === '3d'}
+      {@const is3D = uiStore.analysisMode === '3d' || uiStore.analysisMode === 'pro'}
       {@const gridVisible = is3D ? uiStore.showGrid3D : uiStore.showGrid}
       <div class="sub-content">
         <label class="checkbox-item">
@@ -63,6 +68,19 @@
               step="0.1"
             />
           </div>
+          {#if is3D}
+            <div class="input-group" style="flex-direction: column; align-items: stretch;">
+              <label>{t('config.gridExtent')}: {uiStore.gridExtent3D}×{uiStore.gridExtent3D} m</label>
+              <input
+                type="range"
+                min="20"
+                max="100"
+                step="10"
+                value={uiStore.gridExtent3D}
+                oninput={(e) => { uiStore.gridExtent3D = parseInt(e.currentTarget.value); }}
+              />
+            </div>
+          {/if}
         </div>
       </div>
     {/if}
@@ -71,7 +89,7 @@
       {showStructureSub ? '▾' : '▸'} {t('config.model')}
     </button>
     {#if showStructureSub}
-      {@const is3Dm = uiStore.analysisMode === '3d'}
+      {@const is3Dm = uiStore.analysisMode === '3d' || uiStore.analysisMode === 'pro'}
       <div class="sub-content">
         <label class="checkbox-item">
           <input type="checkbox" checked={is3Dm ? uiStore.showNodeLabels3D : uiStore.showNodeLabels}
@@ -169,11 +187,13 @@
       </div>
     {/if}
 
+    {#if !inline}
     <button class="config-action-btn live-calc-btn" class:live-calc-active={uiStore.liveCalc}
       onclick={() => uiStore.liveCalc = !uiStore.liveCalc}
       title={t('config.liveCalcTooltip')}>
       {t('config.liveCalc')} — {uiStore.liveCalc ? t('config.liveCalcOn') : t('config.liveCalcOff')}
     </button>
+    {/if}
   </div>
   {/if}
 </div>

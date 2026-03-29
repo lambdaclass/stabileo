@@ -28,6 +28,7 @@
   import TabBar from './components/TabBar.svelte';
   import MobileResultsPanel from './components/MobileResultsPanel.svelte';
   import ProPanel from './components/pro/ProPanel.svelte';
+  import ToolbarConfig from './components/toolbar/ToolbarConfig.svelte';
   import EducativePanel from './components/edu/EducativePanel.svelte';
   import TourOverlay from './components/TourOverlay.svelte';
   import HelpOverlay from './components/HelpOverlay.svelte';
@@ -402,6 +403,7 @@
   // ─── PRO panel drag-resize ────────────────────────────────────────
   let proPanelRef: any = $state(null);
   let proExBtnEl = $state<HTMLButtonElement | undefined>(undefined);
+  let proSettingsOpen = $state(false);
 
   function startProResize(e: MouseEvent) {
     e.preventDefault();
@@ -516,6 +518,12 @@
           <button class="pn-action pn-report" onclick={() => proPanelRef?.report()} disabled={!proPanelRef?.canReport()}>{t('pro.reportBtn')}</button>
         </div>
         <button class="pn-toggle" onclick={() => { uiStore.proPanelVisible = !uiStore.proPanelVisible; setTimeout(() => window.dispatchEvent(new Event('resize')), 50); }} title={uiStore.proPanelVisible ? 'Hide panel' : 'Show panel'}>{uiStore.proPanelVisible ? '\u25E5' : '\u25E3'}</button>
+        <button class="pn-toggle pn-settings-gear" onclick={() => proSettingsOpen = !proSettingsOpen} title={t('config.title')}>&#9881;</button>
+        {#if proSettingsOpen}
+          <div class="pro-settings-dropdown">
+            <ToolbarConfig inline={true} />
+          </div>
+        {/if}
       </nav>
     {/if}
 
@@ -900,6 +908,7 @@
 
   /* ─── PRO top navigation strip ─── */
   .pro-nav-strip {
+    position: relative;
     display: flex;
     align-items: center;
     background: #0a1a30;
@@ -956,6 +965,21 @@
     margin-left: 6px;
   }
   .pn-toggle:hover { color: #fff; border-color: #4ecdc4; }
+  .pn-settings-gear { font-size: 1rem; }
+  .pro-settings-dropdown {
+    position: absolute;
+    top: 100%;
+    right: 6px;
+    z-index: 200;
+    width: 260px;
+    max-height: 70vh;
+    overflow-y: auto;
+    background: #0d1b2e;
+    border: 1px solid #1a4a7a;
+    border-radius: 6px;
+    padding: 0.5rem;
+    box-shadow: 0 4px 20px rgba(0,0,0,0.5);
+  }
 
   .pn-actions {
     display: flex;

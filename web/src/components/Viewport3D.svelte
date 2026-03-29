@@ -631,17 +631,19 @@
     uiStore.workingPlane;
     uiStore.nodeCreateZ;
     uiStore.gridSize3D;
+    uiStore.gridExtent3D;
     uiStore.showGrid3D;
     updateGrid();
   });
 
-  // Reactive axes visibility: world axes only in PRO/3D modes, gizmo controlled by setting
+  // Reactive axes visibility: gizmo replaces world-origin axes in Basic 3D and PRO
   $effect(() => {
     const show = uiStore.showAxes3D;
-    const isBasic = uiStore.analysisMode === '3d';
-    // Hide world-origin axes in Basic 3D mode (gizmo replaces them)
-    if (axesHelper) axesHelper.visible = show && !isBasic;
-    for (const s of axisLabelSprites) s.visible = show && !isBasic;
+    const mode = uiStore.analysisMode;
+    // Hide world-origin axes in Basic 3D and PRO (gizmo replaces them)
+    const hideWorldAxes = mode === '3d' || mode === 'pro';
+    if (axesHelper) axesHelper.visible = show && !hideWorldAxes;
+    for (const s of axisLabelSprites) s.visible = show && !hideWorldAxes;
     // Gizmo visibility follows the setting
     if (gizmoCanvas) gizmoCanvas.style.display = show ? 'block' : 'none';
   });
@@ -1620,8 +1622,9 @@
     const s = gizmoCanvas.width;
     gc.clearRect(0, 0, s, s);
 
-    // Use camera quaternion (rotation only, no translation/scale) to project axes
-    const invQuat = camera.quaternion.clone().invert();
+    // Use the rotation part of the view matrix to project world axes to screen
+    camera.updateMatrixWorld();
+    const viewMat = camera.matrixWorldInverse;
     const axes = [
       { label: 'X', color: '#ff4444', dir: new THREE.Vector3(1, 0, 0) },
       { label: 'Y', color: '#44ff44', dir: new THREE.Vector3(0, 1, 0) },
@@ -1630,7 +1633,7 @@
 
     const cx = s / 2, cy = s / 2, len = s * 0.35;
     const projected = axes.map(a => {
-      const d = a.dir.clone().applyQuaternion(invQuat);
+      const d = a.dir.clone().transformDirection(viewMat);
       return { ...a, sx: d.x * len, sy: -d.y * len, depth: d.z };
     }).sort((a, b) => a.depth - b.depth);
 
@@ -1707,7 +1710,7 @@
 
   function updateGrid() {
     if (!scene) return;
-    gridGroup = _updateGrid(scene, gridGroup, uiStore.showGrid3D, uiStore.gridSize3D, uiStore.workingPlane, uiStore.nodeCreateZ);
+    gridGroup = _updateGrid(scene, gridGroup, uiStore.showGrid3D, uiStore.gridSize3D, uiStore.gridExtent3D, uiStore.workingPlane, uiStore.nodeCreateZ);
   }
 
   function createFatAxes(): THREE.Group {

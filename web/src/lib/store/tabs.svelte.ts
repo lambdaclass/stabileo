@@ -54,6 +54,7 @@ export interface TabState {
   cameraMode3D: 'perspective' | 'orthographic';
   showGrid3D: boolean;
   gridSize3D: number;
+  gridExtent3D: number;
   snapToGrid3D: boolean;
   showNodeLabels3D: boolean;
   showElementLabels3D: boolean;
@@ -131,6 +132,7 @@ function createTabManager() {
       cameraMode3D: uiStore.cameraMode3D,
       showGrid3D: uiStore.showGrid3D,
       gridSize3D: uiStore.gridSize3D,
+      gridExtent3D: uiStore.gridExtent3D,
       snapToGrid3D: uiStore.snapToGrid3D,
       showNodeLabels3D: uiStore.showNodeLabels3D,
       showElementLabels3D: uiStore.showElementLabels3D,
@@ -207,6 +209,7 @@ function createTabManager() {
       uiStore.cameraMode3D = state.cameraMode3D;
       uiStore.showGrid3D = state.showGrid3D;
       uiStore.gridSize3D = state.gridSize3D;
+      uiStore.gridExtent3D = state.gridExtent3D ?? 50;
       uiStore.snapToGrid3D = state.snapToGrid3D;
       uiStore.showNodeLabels3D = state.showNodeLabels3D;
       uiStore.showElementLabels3D = state.showElementLabels3D;

@@ -209,14 +209,13 @@ describe('2D fixture validation', () => {
 
 // ─── 3D fixture tests ───────────────────────────────────────────
 
-// Planar arch in 3D is a mechanism (no out-of-plane restraint at hinges)
+// Planar arch in 3D is a mechanism (no artificial rotational springs at all-hinged nodes in WASM solver)
 const known3DMechanisms = new Set(['hinged-arch-3d']);
 
 describe('3D fixture validation', { timeout: 30_000 }, () => {
   it.each(fixtures3D)('%s — loads and solves correctly', (name) => {
     if (known3DMechanisms.has(name)) {
-      // Known mechanism — skip but document why
-      return; // planar three-hinge arch is unstable in 3D without lateral bracing
+      return; // solver-side fix needed — skip
     }
     const json = loadFixtureFile(name);
 

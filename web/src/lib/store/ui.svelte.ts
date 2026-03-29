@@ -116,11 +116,13 @@ function createUIStore() {
   let showPrimarySelector = $state<boolean>(true);
   let showSecondarySelector = $state<boolean>(true);
 
-  // 3D rendering mode
-  let renderMode3D = $state<'wireframe' | 'solid' | 'sections'>('wireframe');
+  // 3D rendering mode — per-mode
+  let renderMode3D_basic = $state<'wireframe' | 'solid' | 'sections'>('wireframe');
+  let renderMode3D_pro = $state<'wireframe' | 'solid' | 'sections'>('wireframe');
 
-  // 3D moment visualization style
-  let momentStyle3D = $state<'double-arrow' | 'curved'>('curved');
+  // 3D moment visualization style — per-mode
+  let momentStyle3D_basic = $state<'double-arrow' | 'curved'>('curved');
+  let momentStyle3D_pro = $state<'double-arrow' | 'curved'>('curved');
 
   // 3D camera mode
   let cameraMode3D = $state<'perspective' | 'orthographic'>('perspective');
@@ -267,16 +269,29 @@ function createUIStore() {
   // Show axes (2D)
   let showAxes = $state<boolean>(true);
 
-  // Independent 3D visualization config
-  let showGrid3D = $state<boolean>(true);
-  let snapToGrid3D = $state<boolean>(true);
-  let gridSize3D = $state<number>(1);
-  let showNodeLabels3D = $state<boolean>(true);
-  let showElementLabels3D = $state<boolean>(false);
-  let showLengths3D = $state<boolean>(false);
-  let showLoads3D = $state<boolean>(true);
-  let visibleLoadCases3D = $state<number[] | null>(null);
-  let showAxes3D = $state<boolean>(true);
+  // Independent 3D visualization config — Basic 3D mode
+  let showGrid3D_basic = $state<boolean>(true);
+  let snapToGrid3D_basic = $state<boolean>(true);
+  let gridSize3D_basic = $state<number>(1);
+  let gridExtent3D_basic = $state<number>(50);
+  let showNodeLabels3D_basic = $state<boolean>(true);
+  let showElementLabels3D_basic = $state<boolean>(false);
+  let showLengths3D_basic = $state<boolean>(false);
+  let showLoads3D_basic = $state<boolean>(true);
+  let visibleLoadCases3D_basic = $state<number[] | null>(null);
+  let showAxes3D_basic = $state<boolean>(true);
+
+  // Independent 3D visualization config — PRO mode
+  let showGrid3D_pro = $state<boolean>(true);
+  let snapToGrid3D_pro = $state<boolean>(true);
+  let gridSize3D_pro = $state<number>(1);
+  let gridExtent3D_pro = $state<number>(50);
+  let showNodeLabels3D_pro = $state<boolean>(true);
+  let showElementLabels3D_pro = $state<boolean>(false);
+  let showLengths3D_pro = $state<boolean>(false);
+  let showLoads3D_pro = $state<boolean>(true);
+  let visibleLoadCases3D_pro = $state<number[] | null>(null);
+  let showAxes3D_pro = $state<boolean>(true);
 
   // 3D axis convention: terna derecha (right-hand, default) or terna izquierda (left-hand)
   let axisConvention3D = $state<'rightHand' | 'leftHand'>('rightHand');
@@ -397,8 +412,10 @@ function createUIStore() {
 
     /** Snap world coordinates to 3D grid */
     snapWorld3D(wx: number, wy: number, wz: number): { x: number; y: number; z: number } {
-      if (!snapToGrid3D || !showGrid3D) return { x: wx, y: wy, z: wz };
-      const g = gridSize3D;
+      const snap = analysisMode === 'pro' ? snapToGrid3D_pro : snapToGrid3D_basic;
+      const grid = analysisMode === 'pro' ? showGrid3D_pro : showGrid3D_basic;
+      const g = analysisMode === 'pro' ? gridSize3D_pro : gridSize3D_basic;
+      if (!snap || !grid) return { x: wx, y: wy, z: wz };
       return {
         x: Math.round(wx / g) * g,
         y: Math.round(wy / g) * g,
@@ -429,11 +446,11 @@ function createUIStore() {
     get showSecondarySelector() { return showSecondarySelector; },
     set showSecondarySelector(v: boolean) { showSecondarySelector = v; },
 
-    get renderMode3D() { return renderMode3D; },
-    set renderMode3D(v: 'wireframe' | 'solid' | 'sections') { renderMode3D = v; },
+    get renderMode3D() { return analysisMode === 'pro' ? renderMode3D_pro : renderMode3D_basic; },
+    set renderMode3D(v: 'wireframe' | 'solid' | 'sections') { if (analysisMode === 'pro') renderMode3D_pro = v; else renderMode3D_basic = v; },
 
-    get momentStyle3D() { return momentStyle3D; },
-    set momentStyle3D(v: 'double-arrow' | 'curved') { momentStyle3D = v; },
+    get momentStyle3D() { return analysisMode === 'pro' ? momentStyle3D_pro : momentStyle3D_basic; },
+    set momentStyle3D(v: 'double-arrow' | 'curved') { if (analysisMode === 'pro') momentStyle3D_pro = v; else momentStyle3D_basic = v; },
 
     get cameraMode3D() { return cameraMode3D; },
     set cameraMode3D(v: 'perspective' | 'orthographic') { cameraMode3D = v; },
@@ -646,25 +663,27 @@ function createUIStore() {
     get showAxes() { return showAxes; },
     set showAxes(v: boolean) { showAxes = v; },
 
-    // Independent 3D visualization config
-    get showGrid3D() { return showGrid3D; },
-    set showGrid3D(v: boolean) { showGrid3D = v; },
-    get snapToGrid3D() { return snapToGrid3D; },
-    set snapToGrid3D(v: boolean) { snapToGrid3D = v; },
-    get gridSize3D() { return gridSize3D; },
-    set gridSize3D(v: number) { gridSize3D = v; },
-    get showNodeLabels3D() { return showNodeLabels3D; },
-    set showNodeLabels3D(v: boolean) { showNodeLabels3D = v; },
-    get showElementLabels3D() { return showElementLabels3D; },
-    set showElementLabels3D(v: boolean) { showElementLabels3D = v; },
-    get showLengths3D() { return showLengths3D; },
-    set showLengths3D(v: boolean) { showLengths3D = v; },
-    get showLoads3D() { return showLoads3D; },
-    set showLoads3D(v: boolean) { showLoads3D = v; },
-    get visibleLoadCases3D() { return visibleLoadCases3D; },
-    set visibleLoadCases3D(v: number[] | null) { visibleLoadCases3D = v; },
-    get showAxes3D() { return showAxes3D; },
-    set showAxes3D(v: boolean) { showAxes3D = v; },
+    // Independent 3D visualization config — mode-aware getters route to Basic or PRO backing state
+    get showGrid3D() { return analysisMode === 'pro' ? showGrid3D_pro : showGrid3D_basic; },
+    set showGrid3D(v: boolean) { if (analysisMode === 'pro') showGrid3D_pro = v; else showGrid3D_basic = v; },
+    get snapToGrid3D() { return analysisMode === 'pro' ? snapToGrid3D_pro : snapToGrid3D_basic; },
+    set snapToGrid3D(v: boolean) { if (analysisMode === 'pro') snapToGrid3D_pro = v; else snapToGrid3D_basic = v; },
+    get gridSize3D() { return analysisMode === 'pro' ? gridSize3D_pro : gridSize3D_basic; },
+    set gridSize3D(v: number) { if (analysisMode === 'pro') gridSize3D_pro = v; else gridSize3D_basic = v; },
+    get gridExtent3D() { return analysisMode === 'pro' ? gridExtent3D_pro : gridExtent3D_basic; },
+    set gridExtent3D(v: number) { if (analysisMode === 'pro') gridExtent3D_pro = v; else gridExtent3D_basic = v; },
+    get showNodeLabels3D() { return analysisMode === 'pro' ? showNodeLabels3D_pro : showNodeLabels3D_basic; },
+    set showNodeLabels3D(v: boolean) { if (analysisMode === 'pro') showNodeLabels3D_pro = v; else showNodeLabels3D_basic = v; },
+    get showElementLabels3D() { return analysisMode === 'pro' ? showElementLabels3D_pro : showElementLabels3D_basic; },
+    set showElementLabels3D(v: boolean) { if (analysisMode === 'pro') showElementLabels3D_pro = v; else showElementLabels3D_basic = v; },
+    get showLengths3D() { return analysisMode === 'pro' ? showLengths3D_pro : showLengths3D_basic; },
+    set showLengths3D(v: boolean) { if (analysisMode === 'pro') showLengths3D_pro = v; else showLengths3D_basic = v; },
+    get showLoads3D() { return analysisMode === 'pro' ? showLoads3D_pro : showLoads3D_basic; },
+    set showLoads3D(v: boolean) { if (analysisMode === 'pro') showLoads3D_pro = v; else showLoads3D_basic = v; },
+    get visibleLoadCases3D() { return analysisMode === 'pro' ? visibleLoadCases3D_pro : visibleLoadCases3D_basic; },
+    set visibleLoadCases3D(v: number[] | null) { if (analysisMode === 'pro') visibleLoadCases3D_pro = v; else visibleLoadCases3D_basic = v; },
+    get showAxes3D() { return analysisMode === 'pro' ? showAxes3D_pro : showAxes3D_basic; },
+    set showAxes3D(v: boolean) { if (analysisMode === 'pro') showAxes3D_pro = v; else showAxes3D_basic = v; },
 
     get axisConvention3D() { return axisConvention3D; },
     set axisConvention3D(v: 'rightHand' | 'leftHand') { axisConvention3D = v; },
