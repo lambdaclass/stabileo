@@ -104,7 +104,7 @@ export function zoomToFit(
     const toolbarWorld = (toolbarPx / viewH) * 2 * dist2D * Math.tan(fovRad / 2);
     camera.position.set(center.x, center.y - dist2D, center.z);
     setCameraUp(camera);
-    controls.target.set(center.x, center.y, center.z - toolbarWorld * 0.5);
+    controls.target.set(center.x, center.y, center.z + toolbarWorld * 0.5);
   } else {
     camera.position.set(center.x + dist, center.y + dist, center.z + dist * 0.6);
     setCameraUp(camera);
