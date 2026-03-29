@@ -88,12 +88,23 @@ export function zoomToFit(
   if (project2D) {
     // Angled front view for flat 2D models in 3D: camera on -Y side looking toward +Y.
     // Screen right = +X, screen up = +Z, Y goes away from viewer.
-    // Use extra distance (×1.8) and shift target below center (15% of model height)
-    // so the top floating toolbar doesn't obscure upper loads.
-    const dist2D = maxDim * 1.8;
-    camera.position.set(center.x + dist2D * 0.1, center.y - dist2D, center.z + dist2D * 0.25);
+    //
+    // Toolbar-aware framing: the floating toolbar covers ~60px at the top of the viewport.
+    // We compute the camera distance so the model fits in the remaining safe area, then
+    // shift the orbit target downward so the model appears centered in the safe zone
+    // (below the toolbar) rather than centered in the full viewport.
+    const toolbarPx = 60;
+    const viewH = container?.clientHeight ?? 800;
+    const safeRatio = 1 - toolbarPx / viewH;           // fraction of viewport below toolbar
+    const fovRad = (camera as THREE.PerspectiveCamera).isPerspectiveCamera
+      ? ((camera as THREE.PerspectiveCamera).fov * Math.PI / 180) : (50 * Math.PI / 180);
+    // Distance so model fills 85% of the SAFE vertical extent
+    const dist2D = (maxDim / 2) / (Math.tan(fovRad / 2) * safeRatio * 0.85);
+    // Shift target downward by half the toolbar's world-space height
+    const toolbarWorld = (toolbarPx / viewH) * 2 * dist2D * Math.tan(fovRad / 2);
+    camera.position.set(center.x, center.y - dist2D, center.z);
     setCameraUp(camera);
-    controls.target.set(center.x, center.y, center.z - maxDim * 0.15);
+    controls.target.set(center.x, center.y, center.z - toolbarWorld * 0.5);
   } else {
     camera.position.set(center.x + dist, center.y + dist, center.z + dist * 0.6);
     setCameraUp(camera);
