@@ -190,6 +190,7 @@ const en: Record<string, string> = {
   'toolbar.planeModal.yz': 'Y horiz, Z vert',
   'toolbar.planeModal.modelAnyway': 'Continue with XY (default)',
   'toolbar.planeModal.stay3d': 'Stay in 3D',
+  'toolbar.planeModal.collapse': 'elements collapse',
 
   // ─── ToolbarResults.svelte ───
   'results.solve': 'Solve',

@@ -4,6 +4,7 @@
   import type { ClipboardData } from '../lib/store/ui.svelte.ts';
   import { t } from '../lib/i18n';
   import { hasInvalid2DDisplacements, hasInvalid3DDisplacements } from '../lib/geometry/coordinate-system';
+  import { countCollapsedElements, type DrawPlane } from '../lib/geometry/plane-projection';
   import { initSolver, isWasmReady } from '../lib/engine/wasm-solver';
 
   import ToolbarResults from './toolbar/ToolbarResults.svelte';
@@ -16,9 +17,9 @@
 
   // ─── 3D→2D plane-selection modal ──────────────────────────────
   let show2DPlaneModal = $state(false);
+  let planeCollapsed = $state<Record<DrawPlane, number>>({ xy: 0, xz: 0, yz: 0 });
 
   function isModelNative2D(): boolean {
-    // A model is native 2D if all nodes have z ≈ 0 and there are no 3D-only supports/loads
     for (const node of modelStore.nodes.values()) {
       if (Math.abs(node.z ?? 0) > 1e-9) return false;
     }
@@ -33,11 +34,25 @@
     return true;
   }
 
+  function computePlaneValidity() {
+    const nodes = modelStore.nodes.values();
+    const elems = modelStore.elements.values();
+    // Need to collect into arrays since iterators are consumed once
+    const nodeArr = [...modelStore.nodes.values()];
+    const elemArr = [...modelStore.elements.values()];
+    planeCollapsed = {
+      xy: countCollapsedElements('xy', nodeArr, elemArr),
+      xz: countCollapsedElements('xz', nodeArr, elemArr),
+      yz: countCollapsedElements('yz', nodeArr, elemArr),
+    };
+  }
+
   function handleSwitchTo2D() {
     if (modelStore.nodes.size === 0 || isModelNative2D()) {
       uiStore.drawPlane2D = 'xy';
       uiStore.analysisMode = '2d';
     } else {
+      computePlaneValidity();
       show2DPlaneModal = true;
     }
   }
@@ -533,18 +548,15 @@
     <h3>{t('toolbar.planeModal.title')}</h3>
     <p>{t('toolbar.planeModal.description')}</p>
     <div class="plane-options">
-      <button class="plane-btn" onclick={() => selectPlane('xy')}>
-        <span class="plane-label">XY</span>
-        <span class="plane-desc">{t('toolbar.planeModal.xy')}</span>
-      </button>
-      <button class="plane-btn" onclick={() => selectPlane('xz')}>
-        <span class="plane-label">XZ</span>
-        <span class="plane-desc">{t('toolbar.planeModal.xz')}</span>
-      </button>
-      <button class="plane-btn" onclick={() => selectPlane('yz')}>
-        <span class="plane-label">YZ</span>
-        <span class="plane-desc">{t('toolbar.planeModal.yz')}</span>
-      </button>
+      {#each [['xy', 'XY', t('toolbar.planeModal.xy')], ['xz', 'XZ', t('toolbar.planeModal.xz')], ['yz', 'YZ', t('toolbar.planeModal.yz')]] as [id, label, desc]}
+        {@const n = planeCollapsed[id as DrawPlane]}
+        <button class="plane-btn" class:plane-btn-disabled={n > 0}
+          onclick={() => { if (n === 0) selectPlane(id as DrawPlane); }}
+          title={n > 0 ? `${n} elements collapse` : ''}>
+          <span class="plane-label">{label}</span>
+          <span class="plane-desc">{n > 0 ? `${n} ${t('toolbar.planeModal.collapse')}` : desc}</span>
+        </button>
+      {/each}
     </div>
     <div class="plane-modal-footer">
       <button class="plane-btn plane-btn-secondary" onclick={() => show2DPlaneModal = false}>
@@ -763,6 +775,18 @@
     color: #888;
   }
   .plane-btn:hover .plane-desc { color: #bbb; }
+  .plane-btn-disabled {
+    opacity: 0.35;
+    cursor: not-allowed;
+    border-color: #333 !important;
+  }
+  .plane-btn-disabled:hover {
+    background: #0f3460;
+    color: #ccc;
+    border-color: #333 !important;
+  }
+  .plane-btn-disabled .plane-label { color: #666; }
+  .plane-btn-disabled .plane-desc { color: #e94560; font-weight: 500; }
   .plane-modal-footer {
     display: flex;
     justify-content: center;

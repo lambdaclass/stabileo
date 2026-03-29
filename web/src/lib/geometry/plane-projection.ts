@@ -80,3 +80,27 @@ export function remapDisplacement3D(plane: DrawPlane, ux2d: number, uy2d: number
     default:   return { ux: ux2d, uy: uy2d, uz: 0, ry: rz2d };
   }
 }
+
+/**
+ * Check whether projecting a model onto a plane would collapse any elements.
+ * Returns the number of elements that would become zero-length.
+ */
+export function countCollapsedElements(
+  plane: DrawPlane,
+  nodes: Iterable<{ id: number; x: number; y: number; z?: number }>,
+  elements: Iterable<{ nodeI: number; nodeJ: number }>,
+): number {
+  const nodeMap = new Map<number, { x: number; y: number }>();
+  for (const n of nodes) {
+    const p = to2D(plane, n.x, n.y, n.z ?? 0);
+    nodeMap.set(n.id, p);
+  }
+  let collapsed = 0;
+  for (const e of elements) {
+    const ni = nodeMap.get(e.nodeI), nj = nodeMap.get(e.nodeJ);
+    if (!ni || !nj) continue;
+    const L = Math.sqrt((nj.x - ni.x) ** 2 + (nj.y - ni.y) ** 2);
+    if (L < 1e-8) collapsed++;
+  }
+  return collapsed;
+}
