@@ -85,7 +85,7 @@
       handleSolve3D();
       return;
     }
-    const results = modelStore.solve(uiStore.includeSelfWeight);
+    const results = modelStore.solve(uiStore.includeSelfWeight, uiStore.drawPlane2D);
     if (typeof results === 'string') {
       uiStore.toast(results, 'error');
     } else if (results) {
@@ -106,7 +106,7 @@
       // Auto-solve combinations if they exist
       let comboText = '';
       if (modelStore.model.combinations.length > 0) {
-        const comboResult = modelStore.solveCombinations(uiStore.includeSelfWeight);
+        const comboResult = modelStore.solveCombinations(uiStore.includeSelfWeight, uiStore.drawPlane2D);
         if (comboResult && typeof comboResult !== 'string') {
           resultsStore.setCombinationResults(comboResult.perCase, comboResult.perCombo, comboResult.envelope);
           comboText = t('toast.plusCombinations').replace('{n}', String(comboResult.perCombo.size));

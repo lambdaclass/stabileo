@@ -268,7 +268,7 @@ async function globalSolve3D(): Promise<void> {
 }
 
 function globalSolve2D(): void {
-  const r = modelStore.solve(uiStore.includeSelfWeight);
+  const r = modelStore.solve(uiStore.includeSelfWeight, uiStore.drawPlane2D);
   if (typeof r === 'string') {
     uiStore.toast(r, 'error', isMechanismError(r) ? 'kinematic' : undefined);
     return;
@@ -295,7 +295,7 @@ function globalSolve2D(): void {
   // Auto-solve combinations if defined
   let comboText = '';
   if (modelStore.model.combinations.length > 0) {
-    const comboResult = modelStore.solveCombinations(uiStore.includeSelfWeight);
+    const comboResult = modelStore.solveCombinations(uiStore.includeSelfWeight, uiStore.drawPlane2D);
     if (comboResult && typeof comboResult !== 'string') {
       resultsStore.setCombinationResults(comboResult.perCase, comboResult.perCombo, comboResult.envelope);
       const comboNames = new Map<number, string>();

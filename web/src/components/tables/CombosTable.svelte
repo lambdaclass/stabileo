@@ -75,7 +75,7 @@
           uiStore.toast(t('combos.solved3d'), 'success');
         }
       } else {
-        const result = modelStore.solveCombinations(uiStore.includeSelfWeight);
+        const result = modelStore.solveCombinations(uiStore.includeSelfWeight, uiStore.drawPlane2D);
         if (typeof result === 'string') {
           uiStore.toast(result, 'error');
         } else if (result) {
