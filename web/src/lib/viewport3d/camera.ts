@@ -93,13 +93,13 @@ export function zoomToFit(
     // We compute the camera distance so the model fits in the remaining safe area, then
     // shift the orbit target downward so the model appears centered in the safe zone
     // (below the toolbar) rather than centered in the full viewport.
-    const toolbarPx = 60;
+    const toolbarPx = 90; // generous allowance for floating toolbar + sub-tool options
     const viewH = container?.clientHeight ?? 800;
     const safeRatio = 1 - toolbarPx / viewH;           // fraction of viewport below toolbar
     const fovRad = (camera as THREE.PerspectiveCamera).isPerspectiveCamera
       ? ((camera as THREE.PerspectiveCamera).fov * Math.PI / 180) : (50 * Math.PI / 180);
-    // Distance so model fills 85% of the SAFE vertical extent
-    const dist2D = (maxDim / 2) / (Math.tan(fovRad / 2) * safeRatio * 0.85);
+    // Distance so model fills 80% of the SAFE vertical extent
+    const dist2D = (maxDim / 2) / (Math.tan(fovRad / 2) * safeRatio * 0.80);
     // Shift target downward by half the toolbar's world-space height
     const toolbarWorld = (toolbarPx / viewH) * 2 * dist2D * Math.tan(fovRad / 2);
     camera.position.set(center.x, center.y - dist2D, center.z);
