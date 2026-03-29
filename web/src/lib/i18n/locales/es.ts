@@ -2023,6 +2023,7 @@ const es: Record<string, string> = {
   'svc.zeroLengthElement': 'Elemento {n} tiene longitud cero (nodos {ni} y {nj} coinciden).',
   'svc.model3dSupport': 'Este modelo usa apoyos 3D ({n}) que no son compatibles con el an\u00E1lisis 2D. Cambie a Stabileo 3D para analizarlo.',
   'svc.model3dZCoords': 'Este modelo tiene nodos con coordenada Z (geometr\u00EDa 3D). Cambie a Stabileo 3D para analizarlo.',
+  'svc.planeCollapse': 'El elemento {elem} colapsa a longitud cero al proyectarlo al plano {plane}. Elija otro plano o use el modo 3D.',
   'svc.hypostaticDofs': 'Estructura hipost\u00E1tica: solo {n} grados de libertad restringidos (m\u00EDnimo 3 para equilibrio en 2D). Es un mecanismo.',
   'svc.hypostaticNoHoriz': 'Estructura hipost\u00E1tica (mecanismo): no hay restricci\u00F3n horizontal en ning\u00FAn apoyo.',
   'svc.hypostaticNoVert': 'Estructura hipost\u00E1tica (mecanismo): no hay restricci\u00F3n vertical en ning\u00FAn apoyo.',

@@ -2023,6 +2023,7 @@ const en: Record<string, string> = {
   'svc.zeroLengthElement': 'Element {n} has zero length (nodes {ni} and {nj} coincide).',
   'svc.model3dSupport': 'This model uses 3D supports ({n}) that are not compatible with 2D analysis. Switch to Stabileo 3D to analyze it.',
   'svc.model3dZCoords': 'This model has nodes with Z coordinates (3D geometry). Switch to Stabileo 3D to analyze it.',
+  'svc.planeCollapse': 'Element {elem} collapses to zero length when projected to the {plane} plane. Choose a different plane or use 3D mode.',
   'svc.hypostaticDofs': 'Hypostatic structure: only {n} constrained DOFs (minimum 3 for 2D equilibrium). It is a mechanism.',
   'svc.hypostaticNoHoriz': 'Hypostatic structure (mechanism): no horizontal restraint at any support.',
   'svc.hypostaticNoVert': 'Hypostatic structure (mechanism): no vertical restraint at any support.',
