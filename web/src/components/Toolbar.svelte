@@ -608,6 +608,9 @@
       <button class="plane-btn plane-btn-secondary" onclick={() => show2DPlaneModal = false}>
         {t('toolbar.planeModal.stay3d')}
       </button>
+      <button class="plane-btn plane-btn-destructive" onclick={() => { modelStore.clear(); uiStore.simplified2DMode = false; uiStore.simplified2DStats = null; uiStore.drawPlane2D = 'xy'; uiStore.analysisMode = '2d'; resultsStore.clear(); show2DPlaneModal = false; }}>
+        {t('toolbar.planeModal.eraseAndSwitch')}
+      </button>
     </div>
   </div>
 </div>
@@ -832,6 +835,17 @@
   }
   .plane-btn-disabled .plane-label { color: #666; }
   .plane-btn-disabled .plane-desc { color: #e94560; font-weight: 500; }
+  .plane-btn-destructive {
+    background: #2a1520;
+    border-color: #e94560;
+    color: #e94560;
+    font-size: 0.68rem;
+    flex: unset;
+  }
+  .plane-btn-destructive:hover {
+    background: #e94560;
+    color: white;
+  }
   .plane-modal-footer {
     display: flex;
     justify-content: center;

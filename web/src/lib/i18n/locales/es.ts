@@ -197,6 +197,7 @@ const es: Record<string, string> = {
   'toolbar.planeModal.stay3d': 'Seguir en 3D',
   'toolbar.planeModal.collapse': 'elementos colapsan',
   'toolbar.planeModal.tooComplex': 'Muy 3D para este plano',
+  'toolbar.planeModal.eraseAndSwitch': 'Borrar modelo y pasar a 2D',
 
   // ─── ToolbarResults.svelte ───
   'results.solve': 'Calcular',
