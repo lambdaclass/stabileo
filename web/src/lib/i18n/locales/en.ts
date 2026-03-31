@@ -2282,6 +2282,7 @@ const en: Record<string, string> = {
   'pro.tabLoads': 'Loads',
   'pro.tabAdvanced': 'Advanced',
   'pro.tabResults': 'Results',
+  'pro.tabDesign': 'Design',
   'pro.tabVerification': 'Verification',
   'pro.tabConnections': 'Conn.',
   'pro.tabDiagnostics': 'Diag.',

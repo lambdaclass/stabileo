@@ -22,6 +22,7 @@
   import ProLoadsTab from './ProLoadsTab.svelte';
   import ProResultsTab from './ProResultsTab.svelte';
   import ProVerificationTab from './ProVerificationTab.svelte';
+  import ProDesignTab from './ProDesignTab.svelte';
   import ProShellTab from './ProShellTab.svelte';
   import ProConstraintsTab from './ProConstraintsTab.svelte';
   import ProAdvancedTab from './ProAdvancedTab.svelte';
@@ -30,7 +31,7 @@
   import { checkModel } from '../../lib/engine/model-diagnostics';
   import { get2DDisplayNodalLoadMoment, get2DDisplayNodalLoadVertical } from '../../lib/geometry/coordinate-system';
 
-  type ProTab = 'nodes' | 'elements' | 'shells' | 'materials' | 'sections' | 'supports' | 'constraints' | 'loads' | 'advanced' | 'results' | 'verification' | 'connections' | 'diagnostics';
+  type ProTab = 'nodes' | 'elements' | 'shells' | 'materials' | 'sections' | 'supports' | 'constraints' | 'loads' | 'advanced' | 'results' | 'design' | 'verification' | 'connections' | 'diagnostics';
 
   // Group tabs into logical categories
   interface TabGroup {
@@ -67,6 +68,7 @@
       tabs: [
         { id: 'advanced' as ProTab, label: t('pro.tabAdvanced') },
         { id: 'results' as ProTab, label: t('pro.tabResults') },
+        { id: 'design' as ProTab, label: t('pro.tabDesign') },
         { id: 'verification' as ProTab, label: t('pro.tabVerification') },
         { id: 'connections' as ProTab, label: t('pro.tabConnections') },
         { id: 'diagnostics' as ProTab, label: t('pro.tabDiagnostics') },
@@ -689,6 +691,8 @@
           <ProAdvancedTab bind:advancedResults={advancedResultsRef} />
         {:else if activeTab === 'results'}
           <ProResultsTab />
+        {:else if activeTab === 'design'}
+          <ProDesignTab />
         {:else if activeTab === 'verification'}
           <ProVerificationTab bind:verifications={verificationsRef} />
         {:else if activeTab === 'connections'}
