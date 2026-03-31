@@ -10,7 +10,7 @@ import * as THREE from 'three';
 import type { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { setLineResolution } from '../three/create-element-mesh';
 import { projectNodeToScene, setCameraUp, shouldProjectModelToXZ, TOP_VIEW_UP_VECTOR } from '../geometry/coordinate-system';
-import { uiStore } from '../store';
+import { uiStore, modelStore } from '../store';
 
 // ─── Types ──────────────────────────────────────────────────
 
@@ -26,7 +26,12 @@ export interface NodePosition {
 export function getModelBounds(
   nodes: Map<number, NodePosition>,
 ): { center: THREE.Vector3; size: THREE.Vector3; maxDim: number } {
-  const project2D = shouldProjectModelToXZ({ analysisMode: uiStore.analysisMode, nodes: nodes.values() });
+  const project2D = shouldProjectModelToXZ({
+    analysisMode: uiStore.analysisMode,
+    nodes: nodes.values(),
+    supports: modelStore.supports.values(),
+    loads: modelStore.loads,
+  });
   const box = new THREE.Box3();
   for (const [, node] of nodes) {
     const pos = projectNodeToScene(node, project2D);
@@ -74,9 +79,37 @@ export function zoomToFit(
   if (!camera || !controls) return;
   const { center, maxDim } = getModelBounds(nodes);
   const dist = maxDim * 1.5;
-  camera.position.set(center.x + dist, center.y + dist, center.z + dist * 0.6);
-  setCameraUp(camera);
-  controls.target.copy(center);
+  const project2D = shouldProjectModelToXZ({
+    analysisMode: uiStore.analysisMode,
+    nodes: nodes.values(),
+    supports: modelStore.supports.values(),
+    loads: modelStore.loads,
+  });
+  if (project2D) {
+    // Angled front view for flat 2D models in 3D: camera on -Y side looking toward +Y.
+    // Screen right = +X, screen up = +Z, Y goes away from viewer.
+    //
+    // Toolbar-aware framing: the floating toolbar covers ~60px at the top of the viewport.
+    // We compute the camera distance so the model fits in the remaining safe area, then
+    // shift the orbit target downward so the model appears centered in the safe zone
+    // (below the toolbar) rather than centered in the full viewport.
+    const toolbarPx = 90; // generous allowance for floating toolbar + sub-tool options
+    const viewH = container?.clientHeight ?? 800;
+    const safeRatio = 1 - toolbarPx / viewH;           // fraction of viewport below toolbar
+    const fovRad = (camera as THREE.PerspectiveCamera).isPerspectiveCamera
+      ? ((camera as THREE.PerspectiveCamera).fov * Math.PI / 180) : (50 * Math.PI / 180);
+    // Distance so model fills 80% of the SAFE vertical extent
+    const dist2D = (maxDim / 2) / (Math.tan(fovRad / 2) * safeRatio * 0.80);
+    // Shift target downward by half the toolbar's world-space height
+    const toolbarWorld = (toolbarPx / viewH) * 2 * dist2D * Math.tan(fovRad / 2);
+    camera.position.set(center.x, center.y - dist2D, center.z);
+    setCameraUp(camera);
+    controls.target.set(center.x, center.y, center.z + toolbarWorld * 0.5);
+  } else {
+    camera.position.set(center.x + dist, center.y + dist, center.z + dist * 0.6);
+    setCameraUp(camera);
+    controls.target.copy(center);
+  }
   controls.update();
   // Adjust clip planes so large models (bridges, stadiums) aren't clipped
   if ((camera as THREE.PerspectiveCamera).isPerspectiveCamera) {

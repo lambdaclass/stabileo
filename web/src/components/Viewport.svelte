@@ -3,6 +3,7 @@
   import { t } from '../lib/i18n';
   import { modelStore, uiStore, resultsStore, historyStore, dsmStepsStore } from '../lib/store';
   import { TWO_D_VERTICAL_AXIS_LABEL, TWO_D_DISPLACEMENT_LABELS, get2DDisplayDisplacementVertical, get2DDisplayedVertical } from '../lib/geometry/coordinate-system';
+  import { projectNode, to3D } from '../lib/geometry/plane-projection';
   import { drawDiagrams, drawEnvelopeDiagrams, computeDiagramGlobalMax, setDiagramUnitSystem, type DiagramKind } from '../lib/canvas/draw-diagrams';
   import { computeDiagramValueAt, computeDisplacementAt } from '../lib/engine/diagrams';
   import { effectiveBendingInertia } from '../lib/engine/solver-service';
@@ -107,12 +108,23 @@
     }
   });
 
+  /** Project a 3D node to the selected 2D drawing plane using central helpers. */
+  function project2DNode(node: { id: number; x: number; y: number; z?: number }): { id: number; x: number; y: number; z?: number } {
+    return projectNode(uiStore.drawPlane2D, node);
+  }
+
+  /** Get a node projected to the current 2D drawing plane. */
+  function getProjectedNode(id: number) {
+    const n = modelStore.getNode(id);
+    return n ? project2DNode(n) : undefined;
+  }
+
   // Draw context helper for canvas renderers
   function makeDrawContext() {
     return {
       ctx: ctx!,
       worldToScreen: (wx: number, wy: number) => uiStore.worldToScreen(wx, wy),
-      getNode: (id: number) => modelStore.getNode(id),
+      getNode: (id: number) => { const n = modelStore.getNode(id); return n ? project2DNode(n) : undefined; },
       getElement: (id: number) => {
         const elem = modelStore.elements.get(id);
         return elem ? { nodeI: elem.nodeI, nodeJ: elem.nodeJ, materialId: elem.materialId, sectionId: elem.sectionId } : undefined;
@@ -147,7 +159,8 @@
     // Listen for zoom-to-fit events (same mechanism as Viewport3D)
     const handleZoomToFitEvent = () => {
       if (modelStore.nodes.size === 0) return;
-      uiStore.zoomToFit(modelStore.nodes.values(), canvas.width, canvas.height);
+      const projected = [...modelStore.nodes.values()].map(n => project2DNode(n));
+      uiStore.zoomToFit(projected, canvas.width, canvas.height);
     };
     window.addEventListener('stabileo-zoom-to-fit', handleZoomToFitEvent);
 
@@ -297,8 +310,8 @@
       for (const ef of resultsStore.results.elementForces) {
         const elem = modelStore.elements.get(ef.elementId);
         if (!elem) continue;
-        const ni = modelStore.getNode(elem.nodeI);
-        const nj = modelStore.getNode(elem.nodeJ);
+        const ni = getProjectedNode(elem.nodeI);
+        const nj = getProjectedNode(elem.nodeJ);
         if (!ni || !nj) continue;
         const si = uiStore.worldToScreen(ni.x, ni.y);
         const sj = uiStore.worldToScreen(nj.x, nj.y);
@@ -473,13 +486,14 @@
           const d = load.data as { nodeId: number };
           const node = modelStore.getNode(d.nodeId);
           if (!node) continue;
-          hx = node.x; hy = node.y;
+          const pn = project2DNode(node);
+          hx = pn.x; hy = pn.y;
         } else {
           const d = load.data as { elementId: number; a?: number };
           const elem = modelStore.elements.get(d.elementId);
           if (!elem) continue;
-          const ni = modelStore.getNode(elem.nodeI);
-          const nj = modelStore.getNode(elem.nodeJ);
+          const ni = getProjectedNode(elem.nodeI);
+          const nj = getProjectedNode(elem.nodeJ);
           if (!ni || !nj) continue;
           if (load.type === 'pointOnElement' && d.a != null) {
             const L = Math.sqrt((nj.x - ni.x) ** 2 + (nj.y - ni.y) ** 2);
@@ -506,9 +520,9 @@
       }
     }
 
-    // Draw nodes
+    // Draw nodes (projected to current 2D drawing plane)
     for (const node of modelStore.nodes.values()) {
-      drawNode(node);
+      drawNode(project2DNode(node));
     }
 
     // Draw snap highlight when using tools that target nodes/elements
@@ -560,8 +574,8 @@
         // Hovering over a bar: golden indicator at cut point
         const nearElem = findNearestElement(uiStore.worldX, uiStore.worldY, 0.5);
         if (nearElem) {
-          const ni = modelStore.getNode(nearElem.nodeI);
-          const nj = modelStore.getNode(nearElem.nodeJ);
+          const ni = getProjectedNode(nearElem.nodeI);
+          const nj = getProjectedNode(nearElem.nodeJ);
           if (ni && nj) {
             const edx = nj.x - ni.x;
             const edy = nj.y - ni.y;
@@ -961,9 +975,11 @@
   }
 
   function drawElement(elem: { id: number; type: string; nodeI: number; nodeJ: number; materialId: number; sectionId: number; hingeStart?: boolean; hingeEnd?: boolean }, colorOverride?: string, nodeBarCount?: Map<number, number>) {
-    const ni = modelStore.getNode(elem.nodeI);
-    const nj = modelStore.getNode(elem.nodeJ);
-    if (!ni || !nj) return;
+    const niRaw = modelStore.getNode(elem.nodeI);
+    const njRaw = modelStore.getNode(elem.nodeJ);
+    if (!niRaw || !njRaw) return;
+    const ni = project2DNode(niRaw);
+    const nj = project2DNode(njRaw);
 
     const opts: DrawElementOpts = {
       worldToScreen: (wx, wy) => uiStore.worldToScreen(wx, wy),
@@ -981,14 +997,16 @@
   function drawSupport(sup: { id: number; nodeId: number; type: string; dx?: number; dz?: number; dry?: number; dy?: number; drz?: number; angle?: number; isGlobal?: boolean }) {
     const node = modelStore.getNode(sup.nodeId);
     if (!node) return;
-    const screen = uiStore.worldToScreen(node.x, node.y);
+    const pn = project2DNode(node);
+    const screen = uiStore.worldToScreen(pn.x, pn.y);
     _drawSupport(ctx!, sup, screen, uiStore.selectedSupports.has(sup.id), (nid) => modelStore.getElementAngleAtNode(nid));
   }
 
   function drawNodalLoad(load: { type: string; data: any }, caseColor?: string, caseName?: string, labelYOffset?: number) {
     const node = modelStore.getNode(load.data.nodeId);
     if (!node) return;
-    const screen = uiStore.worldToScreen(node.x, node.y);
+    const pn = project2DNode(node);
+    const screen = uiStore.worldToScreen(pn.x, pn.y);
     _drawNodalLoad(ctx!, screen, load.data, caseColor, caseName, labelYOffset);
   }
 
@@ -997,7 +1015,8 @@
     _drawReactions(ctx!, resultsStore.results.reactions as ReactionData[], (nodeId) => {
       const node = modelStore.getNode(nodeId);
       if (!node) return null;
-      return uiStore.worldToScreen(node.x, node.y);
+      const pn = project2DNode(node);
+      return uiStore.worldToScreen(pn.x, pn.y);
     });
   }
 
@@ -1007,7 +1026,8 @@
     _drawConstraintForces(ctx!, forces as ConstraintForceData[], (nodeId) => {
       const node = modelStore.getNode(nodeId);
       if (!node) return null;
-      return uiStore.worldToScreen(node.x, node.y);
+      const pn = project2DNode(node);
+      return uiStore.worldToScreen(pn.x, pn.y);
     });
   }
 
@@ -1026,6 +1046,12 @@
       isPanning = true;
       panStartX = mx;
       panStartY = my;
+      return;
+    }
+
+    // Block creation/mutation tools in simplified 2D mode
+    if (uiStore.simplified2DMode && uiStore.currentTool !== 'select' && uiStore.currentTool !== 'pan') {
+      uiStore.toast(t('viewport.simplifiedReadOnly'), 'info');
       return;
     }
 
@@ -1075,7 +1101,8 @@
       } else {
         // Create node mode (default)
         const ms = snapWithMidpoint(world.x, world.y);
-        modelStore.addNode(ms.x, ms.y);
+        const p3d = to3D(uiStore.drawPlane2D, ms.x, ms.y, { x: 0, y: 0, z: 0 });
+        modelStore.addNode(p3d.x, p3d.y, p3d.z || undefined);
       }
     } else if (uiStore.currentTool === 'element') {
       // For element tool: snap to existing node, or midpoint (create node there), or grid
@@ -1087,7 +1114,8 @@
           const existing = findNearestNode(mid.x, mid.y, 0.01);
           if (existing) return existing;
           // Create a new node at midpoint
-          const id = modelStore.addNode(mid.x, mid.y);
+          const mid3d = to3D(uiStore.drawPlane2D, mid.x, mid.y, { x: 0, y: 0, z: 0 });
+          const id = modelStore.addNode(mid3d.x, mid3d.y, mid3d.z || undefined);
           return modelStore.getNode(id) ?? null;
         }
         return null;
@@ -1387,21 +1415,32 @@
       return;
     }
 
+    // Block dragging in simplified 2D mode
+    if (uiStore.simplified2DMode && draggedNodeId !== null) {
+      draggedNodeId = null;
+      dragStartWorld = null;
+      return;
+    }
+
     // Node dragging (multi-node support)
     if (draggedNodeId !== null && dragStartWorld) {
       const dx = snapped.x - dragStartWorld.x;
       const dy = snapped.y - dragStartWorld.y;
 
       if (uiStore.selectedNodes.size > 1 && uiStore.selectedNodes.has(draggedNodeId)) {
-        // Move all selected nodes by delta
+        // Move all selected nodes by delta (back-projected to 3D)
         for (const nodeId of uiStore.selectedNodes) {
           const node = modelStore.getNode(nodeId);
           if (node) {
-            modelStore.updateNode(nodeId, node.x + dx, node.y + dy);
+            const projected = project2DNode(node);
+            const moved = to3D(uiStore.drawPlane2D, projected.x + dx, projected.y + dy, node);
+            modelStore.updateNode(nodeId, moved.x, moved.y, moved.z || undefined);
           }
         }
       } else {
-        modelStore.updateNode(draggedNodeId, snapped.x, snapped.y);
+        const orig = modelStore.getNode(draggedNodeId);
+        const moved = to3D(uiStore.drawPlane2D, snapped.x, snapped.y, orig ?? { x: 0, y: 0, z: 0 });
+        modelStore.updateNode(draggedNodeId, moved.x, moved.y, moved.z || undefined);
       }
 
       dragStartWorld = { x: snapped.x, y: snapped.y };
@@ -1421,8 +1460,8 @@
       if (dt === 'moment' || dt === 'shear' || dt === 'axial' || dt === 'deformed' || dt === 'colorMap') {
         const nearElem = findNearestElement(world.x, world.y, 0.5);
         if (nearElem) {
-          const ni = modelStore.getNode(nearElem.nodeI);
-          const nj = modelStore.getNode(nearElem.nodeJ);
+          const ni = getProjectedNode(nearElem.nodeI);
+          const nj = getProjectedNode(nearElem.nodeJ);
           if (ni && nj) {
             const edx = nj.x - ni.x;
             const edy = nj.y - ni.y;
@@ -1552,7 +1591,8 @@
 
         // Nodes: always selected by containment (both modes)
         for (const node of modelStore.nodes.values()) {
-          const s = uiStore.worldToScreen(node.x, node.y);
+          const pn = project2DNode(node);
+          const s = uiStore.worldToScreen(pn.x, pn.y);
           if (s.x >= x1 && s.x <= x2 && s.y >= y1 && s.y <= y2) {
             newNodes.add(node.id);
           }
@@ -1812,20 +1852,29 @@
     return _findNearestNode(x, y, maxDist, modelStore.nodes);
   }
 
+  /** Build a projected node map for hit testing / picking in the current 2D plane. */
+  function getProjectedNodes(): Map<number, { id: number; x: number; y: number }> {
+    const map = new Map<number, { id: number; x: number; y: number }>();
+    for (const node of modelStore.nodes.values()) {
+      map.set(node.id, project2DNode(node));
+    }
+    return map;
+  }
+
   function findNearestElement(x: number, y: number, maxDist: number) {
-    return _findNearestElement(x, y, maxDist, modelStore.elements, modelStore.nodes);
+    return _findNearestElement(x, y, maxDist, modelStore.elements, getProjectedNodes());
   }
 
   function findNearestSupport(x: number, y: number, maxDist: number) {
-    return _findNearestSupport(x, y, maxDist, modelStore.supports, modelStore.nodes);
+    return _findNearestSupport(x, y, maxDist, modelStore.supports, getProjectedNodes());
   }
 
   function findNearestMidpoint(x: number, y: number, maxDist: number) {
-    return _findNearestMidpoint(x, y, maxDist, modelStore.elements, modelStore.nodes);
+    return _findNearestMidpoint(x, y, maxDist, modelStore.elements, getProjectedNodes());
   }
 
   function snapWithMidpoint(worldX: number, worldY: number): { x: number; y: number } {
-    return _snapWithMidpoint(worldX, worldY, (x, y) => uiStore.snapWorld(x, y), modelStore.nodes, modelStore.elements);
+    return _snapWithMidpoint(worldX, worldY, (x, y) => uiStore.snapWorld(x, y), getProjectedNodes(), modelStore.elements);
   }
 
   function findAllLoadsNear(wx: number, wy: number, maxDist: number): number[] {

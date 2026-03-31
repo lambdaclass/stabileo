@@ -28,6 +28,7 @@
   import TabBar from './components/TabBar.svelte';
   import MobileResultsPanel from './components/MobileResultsPanel.svelte';
   import ProPanel from './components/pro/ProPanel.svelte';
+  import ToolbarConfig from './components/toolbar/ToolbarConfig.svelte';
   import EducativePanel from './components/edu/EducativePanel.svelte';
   import TourOverlay from './components/TourOverlay.svelte';
   import HelpOverlay from './components/HelpOverlay.svelte';
@@ -402,6 +403,7 @@
   // ─── PRO panel drag-resize ────────────────────────────────────────
   let proPanelRef: any = $state(null);
   let proExBtnEl = $state<HTMLButtonElement | undefined>(undefined);
+  let proSettingsOpen = $state(false);
 
   function startProResize(e: MouseEvent) {
     e.preventDefault();
@@ -443,8 +445,10 @@
 <div class="app-container" class:embed-mode={uiStore.embedMode} class:hidden-behind-landing={showLanding}>
   <header class="app-header">
     <div class="logo">
-      <span class="logo-icon">△</span>
-      <span class="logo-text">Stabileo</span>
+      <button class="logo-home" onclick={() => { showLanding = true; history.pushState(null, '', '/'); }} title="Back to home">
+        <span class="logo-icon">△</span>
+        <span class="logo-text">Stabileo</span>
+      </button>
       <div class="mode-toggle" data-tour="mode-toggle">
         <button class:active={uiStore.appMode === 'basico'} onclick={() => switchAppMode('basico')}>
           {t('app.modeBasic')}
@@ -514,10 +518,16 @@
           <button class="pn-action pn-report" onclick={() => proPanelRef?.report()} disabled={!proPanelRef?.canReport()}>{t('pro.reportBtn')}</button>
         </div>
         <button class="pn-toggle" onclick={() => { uiStore.proPanelVisible = !uiStore.proPanelVisible; setTimeout(() => window.dispatchEvent(new Event('resize')), 50); }} title={uiStore.proPanelVisible ? 'Hide panel' : 'Show panel'}>{uiStore.proPanelVisible ? '\u25E5' : '\u25E3'}</button>
+        <button class="pn-toggle pn-settings-gear" onclick={() => proSettingsOpen = !proSettingsOpen} title={t('config.title')}>&#9881;</button>
+        {#if proSettingsOpen}
+          <div class="pro-settings-dropdown">
+            <ToolbarConfig inline={true} />
+          </div>
+        {/if}
       </nav>
     {/if}
 
-    <div class="pro-body-row">
+    <div class="app-body-inner" class:pro-body-row={uiStore.appMode === 'pro'}>
 
     <div class="main-area">
       <main class="viewport-container">
@@ -525,6 +535,18 @@
           <Viewport />
         {:else}
           <Viewport3D />
+        {/if}
+        {#if uiStore.simplified2DMode}
+          <div class="simplified-banner">
+            <span>{t('app.simplified2d.banner')}</span>
+            {#if uiStore.simplified2DStats}
+              <span class="simplified-stats">
+                {uiStore.simplified2DStats.mergedNodes > 0 ? `${uiStore.simplified2DStats.mergedNodes} ${t('app.simplified2d.merged')}` : ''}
+                {uiStore.simplified2DStats.removedElements > 0 ? ` · ${uiStore.simplified2DStats.removedElements} ${t('app.simplified2d.removed')}` : ''}
+                {uiStore.simplified2DStats.duplicateElements > 0 ? ` · ${uiStore.simplified2DStats.duplicateElements} ${t('app.simplified2d.duplicates')}` : ''}
+              </span>
+            {/if}
+          </div>
         {/if}
         {#if uiStore.appMode === 'basico'}
           <FloatingTools />
@@ -548,9 +570,11 @@
           <EducativePanel />
         </aside>
       {:else if uiStore.appMode === 'basico'}
-        <button class="sidebar-toggle-btn right-toggle" class:sidebar-closed={!uiStore.rightSidebarOpen} onclick={() => uiStore.rightSidebarOpen = !uiStore.rightSidebarOpen} title={uiStore.rightSidebarOpen ? t('app.hideRightPanel') : t('app.showRightPanel')}>
-          {uiStore.rightSidebarOpen ? '▸' : '◂'}
-        </button>
+        {#if !uiStore.aiDrawerOpen}
+          <button class="sidebar-toggle-btn right-toggle" class:sidebar-closed={!uiStore.rightSidebarOpen} onclick={() => uiStore.rightSidebarOpen = !uiStore.rightSidebarOpen} title={uiStore.rightSidebarOpen ? t('app.hideRightPanel') : t('app.showRightPanel')}>
+            {uiStore.rightSidebarOpen ? '▸' : '◂'}
+          </button>
+        {/if}
         {#if uiStore.rightSidebarOpen}
           <aside class="sidebar right" data-tour="right-sidebar" class:wizard-open={dsmStepsStore.isOpen}>
             {#if dsmStepsStore.isOpen}
@@ -570,7 +594,7 @@
       {/if}
     {/if}
 
-    </div><!-- /pro-body-row -->
+    </div><!-- /pro-body-row (class only applied in PRO) -->
 
     {#if !uiStore.isMobile && uiStore.aiDrawerOpen}
       <AiDrawer />
@@ -593,7 +617,11 @@
   {#if uiStore.isMobile && uiStore.rightDrawerOpen}
     <div class="drawer-backdrop" onclick={() => uiStore.rightDrawerOpen = false}></div>
     <aside class="drawer drawer-right" data-tour="right-sidebar">
-      {#if dsmStepsStore.isOpen}
+      {#if uiStore.appMode === 'pro'}
+        <ProPanel />
+      {:else if uiStore.appMode === 'educativo'}
+        <EducativePanel />
+      {:else if dsmStepsStore.isOpen}
         <StepWizard />
       {:else}
         <PropertyPanel {showResults} />
@@ -612,12 +640,18 @@
   <!-- Mobile bottom bar -->
   {#if uiStore.isMobile}
     <nav class="mobile-bottom-bar">
-      <button class="mobile-bar-btn" onclick={() => uiStore.leftDrawerOpen = !uiStore.leftDrawerOpen} title={t('app.tools')}>
-        ☰
-      </button>
-      <button class="mobile-bar-btn" onclick={() => uiStore.rightDrawerOpen = !uiStore.rightDrawerOpen} title={t('app.properties')}>
-        ⚙
-      </button>
+      {#if uiStore.appMode === 'basico'}
+        <button class="mobile-bar-btn" onclick={() => uiStore.leftDrawerOpen = !uiStore.leftDrawerOpen} title={t('app.tools')}>
+          ☰
+        </button>
+        <button class="mobile-bar-btn" onclick={() => uiStore.rightDrawerOpen = !uiStore.rightDrawerOpen} title={t('app.properties')}>
+          ⚙
+        </button>
+      {:else}
+        <button class="mobile-bar-btn" onclick={() => uiStore.rightDrawerOpen = !uiStore.rightDrawerOpen} title={uiStore.appMode === 'pro' ? 'PRO' : t('app.properties')}>
+          {uiStore.appMode === 'pro' ? '\u26A1' : '\uD83D\uDCD0'}
+        </button>
+      {/if}
     </nav>
   {/if}
 </div>
@@ -773,6 +807,19 @@
     flex-shrink: 0;
   }
 
+  .logo-home {
+    display: flex;
+    align-items: center;
+    gap: 0.3rem;
+    background: none;
+    border: none;
+    padding: 0;
+    cursor: pointer;
+    color: inherit;
+  }
+  .logo-home:hover .logo-text { color: #fff; }
+  .logo-home:hover .logo-icon { color: #ff5a75; }
+
   .logo-icon {
     font-size: 1.5rem;
     color: #e94560;
@@ -873,6 +920,7 @@
 
   /* ─── PRO top navigation strip ─── */
   .pro-nav-strip {
+    position: relative;
     display: flex;
     align-items: center;
     background: #0a1a30;
@@ -929,6 +977,39 @@
     margin-left: 6px;
   }
   .pn-toggle:hover { color: #fff; border-color: #4ecdc4; }
+  .pn-settings-gear { font-size: 1rem; }
+  .simplified-banner {
+    position: absolute;
+    top: 4px;
+    left: 50%;
+    transform: translateX(-50%);
+    z-index: 90;
+    background: rgba(233, 69, 96, 0.9);
+    color: white;
+    padding: 3px 12px;
+    border-radius: 4px;
+    font-size: 0.7rem;
+    font-weight: 600;
+    display: flex;
+    gap: 0.5rem;
+    align-items: center;
+    pointer-events: none;
+  }
+  .simplified-stats { font-weight: 400; opacity: 0.85; }
+  .pro-settings-dropdown {
+    position: absolute;
+    top: 100%;
+    right: 6px;
+    z-index: 200;
+    width: 260px;
+    max-height: 70vh;
+    overflow-y: auto;
+    background: #0d1b2e;
+    border: 1px solid #1a4a7a;
+    border-radius: 6px;
+    padding: 0.5rem;
+    box-shadow: 0 4px 20px rgba(0,0,0,0.5);
+  }
 
   .pn-actions {
     display: flex;
@@ -1179,7 +1260,10 @@
   .app-body.app-body-pro {
     flex-direction: column;
   }
-  .pro-body-row {
+  .app-body-inner {
+    display: contents;
+  }
+  .app-body-inner.pro-body-row {
     display: flex;
     flex: 1;
     overflow: hidden;

@@ -385,11 +385,10 @@ describe('Bug 2: 3D self-weight must apply gravity to fz (not fy)', () => {
   });
 
   it('3D viewport should keep projected 2D result overlays in the same XZ plane as the model', () => {
-    const viewport3D = readFileSync(new URL('../../../components/Viewport3D.svelte', import.meta.url), 'utf8');
     const resultsSync = readFileSync(new URL('../../viewport3d/results-sync.ts', import.meta.url), 'utf8');
 
-    expect(viewport3D, 'Viewport3D should rotate resultsParent when showing projected flat 2D models').toContain('resultsParent.rotation.x = Math.PI / 2');
-    expect(viewport3D, 'Viewport3D should gate overlay projection through shouldProject2DModel').toContain('if (shouldProject2DModel())');
+    // Architecture: projection is done per-node via projectNodeToScene/shouldProjectModelToXZ
+    // in results-sync, NOT via resultsParent.rotation (which is now identity).
     expect(resultsSync, 'results-sync labels should use shared scene projection helpers').toContain('projectNodeToScene');
     expect(resultsSync, 'results-sync labels should use the flat-model projection contract').toContain('shouldProjectModelToXZ');
   });

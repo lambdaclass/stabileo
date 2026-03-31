@@ -100,12 +100,10 @@
 
   function syncResultsProjection(): void {
     if (!resultsParent) return;
+    // Results are built in projected scene coordinates (getProjectedNodes handles
+    // the 2D→XZ swap), so no parent-level rotation is needed.
     resultsParent.position.set(0, 0, 0);
     resultsParent.rotation.set(0, 0, 0);
-    if (shouldProject2DModel()) {
-      // Keep result overlays in the same upright XZ presentation as flat 2D models.
-      resultsParent.rotation.x = Math.PI / 2;
-    }
   }
   const diagramLegend = $derived.by(() => {
     const dt = resultsStore.diagramType;
@@ -290,6 +288,9 @@
     syncLoads();
     syncShells();
 
+    // Set initial camera to match model type (flat 2D → front view, 3D → isometric)
+    if (modelStore.nodes.size > 0) zoomToFit();
+
     // Render loop
     const _panVec = new THREE.Vector3();
     const _orbitSpherical = new THREE.Spherical();
@@ -376,6 +377,7 @@
       }
 
       renderer.render(scene, camera);
+      drawAxisGizmo();
     }
     animate();
 
@@ -568,10 +570,10 @@
     if (resultsCtx) resultsCtx.lastDeformedAnimScale = null;
     // Mode shapes and buckling modes always animate from the render loop
     if (dt === 'modeShape' || dt === 'bucklingMode') return;
-    // When animation is active, let the render loop handle syncDeformed with oscillating scale
-    if (!animating) {
-      syncDeformed();
-    }
+    // Always sync deformed to clean up old geometry when diagram type changes.
+    // When animation is active AND we're still showing deformed, the render
+    // loop will keep updating — but syncDeformed is idempotent (removes + recreates).
+    syncDeformed();
   });
 
   $effect(() => {
@@ -629,15 +631,21 @@
     uiStore.workingPlane;
     uiStore.nodeCreateZ;
     uiStore.gridSize3D;
+    uiStore.gridExtent3D;
     uiStore.showGrid3D;
     updateGrid();
   });
 
-  // Reactive axes visibility
+  // Reactive axes visibility: gizmo replaces world-origin axes in Basic 3D and PRO
   $effect(() => {
-    const visible = uiStore.showAxes3D;
-    if (axesHelper) axesHelper.visible = visible;
-    for (const s of axisLabelSprites) s.visible = visible;
+    const show = uiStore.showAxes3D;
+    const mode = uiStore.analysisMode;
+    // Hide world-origin axes in Basic 3D and PRO (gizmo replaces them)
+    const hideWorldAxes = mode === '3d' || mode === 'pro';
+    if (axesHelper) axesHelper.visible = show && !hideWorldAxes;
+    for (const s of axisLabelSprites) s.visible = show && !hideWorldAxes;
+    // Gizmo visibility follows the setting
+    if (gizmoCanvas) gizmoCanvas.style.display = show ? 'block' : 'none';
   });
 
   // Cancel pending element when tool changes
@@ -1604,6 +1612,46 @@
     _setView(view, camera, controls, modelStore.nodes);
   }
 
+  // ─── 3D Axis gizmo (bottom-left corner) ────────────────────
+  let gizmoCanvas: HTMLCanvasElement | null = null;
+
+  function drawAxisGizmo() {
+    if (!gizmoCanvas || !camera) return;
+    const gc = gizmoCanvas.getContext('2d');
+    if (!gc) return;
+    const s = gizmoCanvas.width;
+    gc.clearRect(0, 0, s, s);
+
+    // Use the rotation part of the view matrix to project world axes to screen
+    camera.updateMatrixWorld();
+    const viewMat = camera.matrixWorldInverse;
+    const axes = [
+      { label: 'X', color: '#ff4444', dir: GLOBAL_X.clone() },
+      { label: 'Y', color: '#44ff44', dir: GLOBAL_Y.clone() },
+      { label: 'Z', color: '#4488ff', dir: GLOBAL_Z.clone() },
+    ];
+
+    const cx = s / 2, cy = s / 2, len = s * 0.35;
+    const projected = axes.map(a => {
+      const d = a.dir.clone().transformDirection(viewMat);
+      return { ...a, sx: d.x * len, sy: -d.y * len, depth: d.z };
+    }).sort((a, b) => a.depth - b.depth);
+
+    for (const ax of projected) {
+      gc.strokeStyle = ax.color;
+      gc.lineWidth = 2;
+      gc.globalAlpha = ax.depth > 0 ? 1 : 0.3;
+      gc.beginPath();
+      gc.moveTo(cx, cy);
+      gc.lineTo(cx + ax.sx, cy + ax.sy);
+      gc.stroke();
+      gc.globalAlpha = 1;
+      gc.fillStyle = ax.color;
+      gc.font = 'bold 12px sans-serif';
+      gc.fillText(ax.label, cx + ax.sx * 1.2 - 4, cy + ax.sy * 1.2 + 4);
+    }
+  }
+
   function toggleCameraMode() {
     if (!camera || !controls || !renderer) return;
     const isPersp = uiStore.cameraMode3D === 'perspective';
@@ -1662,7 +1710,7 @@
 
   function updateGrid() {
     if (!scene) return;
-    gridGroup = _updateGrid(scene, gridGroup, uiStore.showGrid3D, uiStore.gridSize3D, uiStore.workingPlane, uiStore.nodeCreateZ);
+    gridGroup = _updateGrid(scene, gridGroup, uiStore.showGrid3D, uiStore.gridSize3D, uiStore.gridExtent3D, uiStore.workingPlane, uiStore.nodeCreateZ);
   }
 
   function createFatAxes(): THREE.Group {
@@ -1828,6 +1876,12 @@
       {hoverTooltip.text}
     </div>
   {/if}
+  <canvas
+    bind:this={gizmoCanvas}
+    class="axis-gizmo"
+    width="80"
+    height="80"
+  ></canvas>
 </div>
 
 <style>
@@ -1838,10 +1892,19 @@
     overflow: hidden;
   }
 
-  .viewport3d-wrapper :global(canvas) {
+  .viewport3d-wrapper :global(canvas:not(.axis-gizmo)) {
     display: block;
     width: 100% !important;
     height: 100% !important;
+  }
+  .axis-gizmo {
+    position: absolute;
+    bottom: 8px;
+    left: 8px;
+    width: 80px !important;
+    height: 80px !important;
+    pointer-events: none;
+    z-index: 10;
   }
 
   .camera-controls {

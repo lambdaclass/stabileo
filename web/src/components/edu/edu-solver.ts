@@ -37,7 +37,7 @@ export function solveForEdu(): void {
     }
     r = pdResult.results;
   } else {
-    r = modelStore.solve(uiStore.includeSelfWeight);
+    r = modelStore.solve(uiStore.includeSelfWeight, uiStore.drawPlane2D);
   }
 
   if (typeof r === 'string') {

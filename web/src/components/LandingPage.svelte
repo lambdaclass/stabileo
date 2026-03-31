@@ -416,25 +416,28 @@
   <section class="pricing reveal" id="pricing">
     <div class="section-inner">
       <h2>{t('landing.pricingTitle')}</h2>
-      <div class="pricing-grid">
-        <div class="price-card">
+      <div class="pricing-grid pricing-grid-2">
+        <div class="price-card featured">
           <h3>{t('landing.priceFreeTitle')}</h3>
           <div class="price-amount">$0</div>
           <p class="price-period">{t('landing.priceForever')}</p>
-          <ul><li>{t('landing.priceFree1')}</li><li>{t('landing.priceFree2')}</li><li>{t('landing.priceFree3')}</li><li>{t('landing.priceFree4')}</li><li>{t('landing.priceFree5')}</li><li>{t('landing.priceFree6')}</li></ul>
+          <ul>
+            <li>{t('landing.priceFree1')}</li>
+            <li>{t('landing.priceFree2')}</li>
+            <li>{t('landing.priceFree3')}</li>
+            <li>{t('landing.priceFree4')}</li>
+            <li>{t('landing.priceFree5')}</li>
+            <li>{t('landing.priceFree6')}</li>
+            <li>{t('landing.priceFreeEdu1')}</li>
+            <li>{t('landing.priceFreeEdu2')}</li>
+            <li>{t('landing.priceFreeEdu3')}</li>
+          </ul>
           <button class="btn-primary card-cta" onclick={() => enterApp()}>{t('landing.tryApp')}</button>
-        </div>
-        <div class="price-card featured">
-          <div class="price-ribbon">{t('landing.comingSoon')}</div>
-          <h3>{t('landing.priceEduTitle')}</h3>
-          <div class="price-amount">$10<span>{t('landing.perMonth')}</span></div>
-          <p class="price-period">{t('landing.priceEduPeriod')}</p>
-          <ul><li>{t('landing.priceEdu1')}</li><li>{t('landing.priceEdu2')}</li><li>{t('landing.priceEdu3')}</li><li>{t('landing.priceEdu4')}</li><li>{t('landing.priceEdu5')}</li><li>{t('landing.priceEdu6')}</li></ul>
         </div>
         <div class="price-card">
           <div class="price-ribbon">{t('landing.comingSoon')}</div>
           <h3>{t('landing.priceProTitle')}</h3>
-          <div class="price-amount">$50<span>{t('landing.perMonth')}</span></div>
+          <div class="price-amount">$100<span>{t('landing.perMonth')}</span></div>
           <p class="price-period">{t('landing.priceProPeriod')}</p>
           <ul><li>{t('landing.pricePro1')}</li><li>{t('landing.pricePro2')}</li><li>{t('landing.pricePro3')}</li><li>{t('landing.pricePro4')}</li><li>{t('landing.pricePro5')}</li><li class="ai-highlight">{t('landing.pricePro6')}</li><li>{t('landing.priceProExtra')}</li></ul>
         </div>
@@ -689,6 +692,7 @@
   /* ═══ PRICING ═══ */
   .pricing { padding: 5rem 0; background: rgba(28,33,51,0.35); }
   .pricing-grid { display: grid; grid-template-columns: repeat(3,1fr); gap: 1rem; margin-top: 3rem; }
+  .pricing-grid-2 { grid-template-columns: repeat(2,1fr); max-width: 800px; margin-left: auto; margin-right: auto; }
   .price-card { background: #1c2133; border: 1px solid #2a3048; border-radius: 10px; padding: 2rem 1.5rem; text-align: center; position: relative; transition: all 0.25s; display: flex; flex-direction: column; }
   .price-card:hover { border-color: #3a4260; box-shadow: 0 12px 36px rgba(0,0,0,0.2); }
   .price-card.featured { border-color: rgba(233,69,96,0.4); background: linear-gradient(180deg, rgba(233,69,96,0.06) 0%, #1c2133 50%); box-shadow: 0 0 40px rgba(233,69,96,0.06); }
@@ -739,7 +743,7 @@
     .feature-text { max-width: none; }
     .edu-pair { flex-direction: row; max-width: 500px; }
     .cards-grid { grid-template-columns: repeat(2,1fr); }
-    .pricing-grid { grid-template-columns: 1fr; max-width: 400px; margin-left: auto; margin-right: auto; }
+    .pricing-grid, .pricing-grid-2 { grid-template-columns: 1fr; max-width: 400px; margin-left: auto; margin-right: auto; }
   }
   @media (max-width: 640px) {
     .nav-links { display: none; }

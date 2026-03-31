@@ -14,6 +14,7 @@ export function updateGrid(
   oldGridGroup: THREE.Object3D | null,
   showGrid: boolean,
   gridSize3D: number,
+  gridExtent: number,
   workingPlane: WorkingPlane3D,
   nodeCreateZ: number,
 ): THREE.Object3D | null {
@@ -25,9 +26,8 @@ export function updateGrid(
 
   if (!showGrid) return null;
 
-  const gridSize = 20;
-  const divisions = Math.round(gridSize / gridSize3D);
-  const grid = new THREE.GridHelper(gridSize, divisions, 0x1a4a7a, 0x0f3460);
+  const divisions = Math.max(1, Math.round(gridExtent / gridSize3D));
+  const grid = new THREE.GridHelper(gridExtent, divisions, 0x1a4a7a, 0x0f3460);
 
   setPlaneOffset(grid, workingPlane, nodeCreateZ);
 

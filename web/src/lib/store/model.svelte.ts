@@ -9,6 +9,7 @@ import { inferLoadCaseType } from '../engine/combinations-service';
 import { t } from '../i18n';
 import { validateAndSolve2D, buildSolverInput2D, validateAndSolve3D, buildSolverInput3D as buildSolverInput3DFn, solveCombinations2D, solveCombinations3D as solveCombinations3DFn, solveCombinations3DParallel as solveCombinations3DParallelFn } from '../engine/solver-service';
 import { computeInfluenceLine as computeInfluenceLineFn } from '../engine/influence-service';
+import { to2D, remapNodalLoad2D, remapMoment2D, type DrawPlane } from '../geometry/plane-projection';
 
 export interface Node {
   id: number;
@@ -294,6 +295,82 @@ function createModelStore() {
 
   let lastKinematicResult = $state<KinematicResult | null>(null);
   let modelVersion = $state(0);
+
+  /**
+   * Create a remapped model view where node coordinates and loads are projected
+   * into the 2D convention (x=horizontal, y=vertical) for the given plane.
+   * The returned object is a shallow copy safe for passing to solver functions.
+   */
+  function remapModelForPlane(plane: DrawPlane): { nodes: Map<number, Node>; elements: typeof model.elements; supports: typeof model.supports; loads: typeof model.loads; materials: typeof model.materials; sections: typeof model.sections } | string {
+    if (plane === 'xy') {
+      return { nodes: model.nodes, elements: model.elements, supports: model.supports,
+        loads: model.loads, materials: model.materials, sections: model.sections };
+    }
+
+    // Remap nodes into the selected 2D plane
+    const remappedNodes = new Map<number, Node>();
+    for (const [id, node] of model.nodes) {
+      const p = to2D(plane, node.x, node.y, node.z ?? 0);
+      remappedNodes.set(id, { ...node, x: p.x, y: p.y, z: undefined });
+    }
+
+    // Validate: check for zero-length elements after projection
+    for (const elem of model.elements.values()) {
+      const ni = remappedNodes.get(elem.nodeI);
+      const nj = remappedNodes.get(elem.nodeJ);
+      if (ni && nj) {
+        const dx = nj.x - ni.x, dy = nj.y - ni.y;
+        const L = Math.sqrt(dx * dx + dy * dy);
+        if (L < 1e-8) {
+          const planeLabel = plane.toUpperCase();
+          return t('svc.planeCollapse')
+            .replace('{elem}', String(elem.id))
+            .replace('{plane}', planeLabel);
+        }
+      }
+    }
+
+    // Remap 3D supports to 2D equivalents
+    const sup3dTo2d: Record<string, string> = {
+      'fixed3d': 'fixed', 'pinned3d': 'pinned', 'spring3d': 'spring',
+      'rollerXZ': 'rollerX', 'rollerXY': 'rollerX', 'rollerYZ': 'rollerX',
+      'custom3d': 'pinned',
+    };
+    const remappedSupports = new Map<number, any>();
+    for (const [id, sup] of model.supports) {
+      const type2d = sup3dTo2d[sup.type] ?? sup.type;
+      remappedSupports.set(id, { ...sup, type: type2d });
+    }
+
+    // Remap loads: nodal3d → nodal, distributed3d → distributed
+    const remappedLoads = model.loads.map(l => {
+      if (l.type === 'nodal') {
+        const d = l.data as any;
+        const f = remapNodalLoad2D(plane, d.fx ?? 0, d.fz ?? d.fy ?? 0, 0);
+        const m = remapMoment2D(plane, 0, 0, d.my ?? d.mz ?? 0);
+        return { ...l, data: { ...d, fx: f.fx, fz: f.fy, my: m } };
+      }
+      if (l.type === 'nodal3d') {
+        const d = l.data as any;
+        const f = remapNodalLoad2D(plane, d.fx ?? 0, d.fy ?? 0, d.fz ?? 0);
+        const m = remapMoment2D(plane, d.mx ?? 0, d.my ?? 0, d.mz ?? 0);
+        return { type: 'nodal' as const, data: { id: d.id, nodeId: d.nodeId, fx: f.fx, fz: f.fy, my: m, caseId: d.caseId } };
+      }
+      if (l.type === 'distributed3d') {
+        // Map 3D distributed loads to 2D: use the component in the selected plane's vertical axis
+        const d = l.data as any;
+        let qI = 0, qJ = 0;
+        if (plane === 'xz') { qI = d.qZI ?? 0; qJ = d.qZJ ?? 0; }
+        else if (plane === 'yz') { qI = d.qZI ?? 0; qJ = d.qZJ ?? 0; }
+        else { qI = d.qYI ?? 0; qJ = d.qYJ ?? 0; }
+        return { type: 'distributed' as const, data: { id: d.id, elementId: d.elementId, qI, qJ, caseId: d.caseId } };
+      }
+      return l;
+    });
+
+    return { nodes: remappedNodes, elements: model.elements, supports: remappedSupports,
+      loads: remappedLoads, materials: model.materials, sections: model.sections };
+  }
 
   let nextId = $state({
     node: 1,
@@ -904,6 +981,14 @@ function createModelStore() {
       lastKinematicResult = null;
     },
 
+    /** Replace model geometry data in-place (for simplified 2D model swap). No undo. */
+    replaceModelData(nodes: Map<number, any>, elements: Map<number, any>, supports: Map<number, any>, loads: any[]): void {
+      model.nodes = nodes;
+      model.elements = elements;
+      model.supports = supports;
+      model.loads = loads;
+    },
+
     updateNode(id: number, x: number, y: number, z?: number): void {
       const node = model.nodes.get(id);
       if (node) {
@@ -1304,22 +1389,17 @@ function createModelStore() {
       model.nodes = new Map(model.nodes);
     },
 
-    solve(includeSelfWeight = false): AnalysisResults | string | null {
-      return validateAndSolve2D(
-        { nodes: model.nodes, elements: model.elements, supports: model.supports,
-          loads: model.loads, materials: model.materials, sections: model.sections },
-        includeSelfWeight,
-        (k) => { lastKinematicResult = k; },
-      );
+    solve(includeSelfWeight = false, drawPlane: DrawPlane = 'xy'): AnalysisResults | string | null {
+      const mapped = remapModelForPlane(drawPlane);
+      if (typeof mapped === 'string') return mapped;
+      return validateAndSolve2D(mapped, includeSelfWeight, (k) => { lastKinematicResult = k; });
     },
 
     /** Build a SolverInput from the current model state (no validation). Returns null if model is empty. */
-    buildSolverInput(includeSelfWeight = false): SolverInput | null {
-      return buildSolverInput2D(
-        { nodes: model.nodes, elements: model.elements, supports: model.supports,
-          loads: model.loads, materials: model.materials, sections: model.sections },
-        includeSelfWeight,
-      );
+    buildSolverInput(includeSelfWeight = false, drawPlane: DrawPlane = 'xy'): SolverInput | null {
+      const mapped = remapModelForPlane(drawPlane);
+      if (typeof mapped === 'string') return null;
+      return buildSolverInput2D(mapped, includeSelfWeight);
     },
 
     // ─── Load Case Colors ───
@@ -1403,12 +1483,10 @@ function createModelStore() {
     },
 
     /** Solve all load cases and combine. Returns per-case + per-combo + envelope results. */
-    solveCombinations(includeSelfWeight = false): { perCase: Map<number, AnalysisResults>; perCombo: Map<number, AnalysisResults>; envelope: FullEnvelope } | string | null {
-      return solveCombinations2D(
-        { nodes: model.nodes, elements: model.elements, supports: model.supports,
-          loads: model.loads, materials: model.materials, sections: model.sections },
-        model.loadCases, model.combinations, includeSelfWeight,
-      );
+    solveCombinations(includeSelfWeight = false, drawPlane: DrawPlane = 'xy'): { perCase: Map<number, AnalysisResults>; perCombo: Map<number, AnalysisResults>; envelope: FullEnvelope } | string | null {
+      const mapped = remapModelForPlane(drawPlane);
+      if (typeof mapped === 'string') return mapped;
+      return solveCombinations2D(mapped, model.loadCases, model.combinations, includeSelfWeight);
     },
 
     // ─── 3D Analysis ──────────────────────────────────────────────

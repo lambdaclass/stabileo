@@ -357,7 +357,7 @@
       }
       return;
     }
-    const result = modelStore.solveCombinations(uiStore.includeSelfWeight);
+    const result = modelStore.solveCombinations(uiStore.includeSelfWeight, uiStore.drawPlane2D);
     if (typeof result === 'string') {
       uiStore.toast(result, 'error');
     } else if (result) {
@@ -420,7 +420,7 @@
           } else {
             if (resultsStore.pdeltaResult) {
               resultsStore.clearPDelta();
-              const r = modelStore.solve(uiStore.includeSelfWeight);
+              const r = modelStore.solve(uiStore.includeSelfWeight, uiStore.drawPlane2D);
               if (r && typeof r !== 'string') resultsStore.setResults(r);
             } else { handlePDelta(); }
           }
@@ -478,7 +478,7 @@
         onclick={() => {
           if (resultsStore.plasticResult) {
             resultsStore.clearPlastic();
-            const r = modelStore.solve(uiStore.includeSelfWeight);
+            const r = modelStore.solve(uiStore.includeSelfWeight, uiStore.drawPlane2D);
             if (r && typeof r !== 'string') resultsStore.setResults(r);
           } else { handlePlastic(); }
         }}>{t('advanced.plasticCollapse')}</button>
@@ -517,7 +517,7 @@
         onclick={() => {
           if (resultsStore.movingLoadEnvelope) {
             resultsStore.clearMovingLoad();
-            const r = modelStore.solve(uiStore.includeSelfWeight);
+            const r = modelStore.solve(uiStore.includeSelfWeight, uiStore.drawPlane2D);
             if (r && typeof r !== 'string') resultsStore.setResults(r);
             showTrainPanel = false;
           } else { showTrainPanel = !showTrainPanel; }

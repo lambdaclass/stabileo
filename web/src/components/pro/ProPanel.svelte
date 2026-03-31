@@ -536,8 +536,8 @@
             arr.push({
               comboId: combo.id,
               comboName: combo.name,
-              Mu: Math.max(Math.abs(ef.mzStart), Math.abs(ef.mzEnd)),
-              Vu: Math.max(Math.abs(ef.vyStart), Math.abs(ef.vyEnd)),
+              Mu: Math.max(Math.abs(ef.mzStart), Math.abs(ef.mzEnd), Math.abs(ef.myStart), Math.abs(ef.myEnd)),
+              Vu: Math.max(Math.abs(ef.vyStart), Math.abs(ef.vyEnd), Math.abs(ef.vzStart), Math.abs(ef.vzEnd)),
               Nu: Math.max(Math.abs(ef.nStart), Math.abs(ef.nEnd)),
             });
           }
@@ -613,21 +613,10 @@
   }
 
   function applyExamplePreset(preset: ExamplePreset = 'default') {
-    uiStore.showGrid3D = false;
-    uiStore.showAxes3D = false;
+    // Only configure label/display preferences — grid and axes stay user-controlled
     uiStore.showLengths3D = false;
     uiStore.showNodeLabels3D = false;
     uiStore.showElementLabels3D = false;
-    if (preset === 'default') {
-      uiStore.showElementLabels3D = false;
-    } else if (preset === 'clean-shell') {
-      uiStore.showGrid3D = false;
-    } else if (preset === 'bridge') {
-      uiStore.showAxes3D = false;
-    } else if (preset === 'xl') {
-      uiStore.showGrid3D = false;
-      uiStore.showAxes3D = false;
-    }
   }
 
   async function loadProExample(ex: ProExample) {
@@ -646,6 +635,26 @@
 <svelte:window onresize={updateExampleMenuPosition} onscroll={updateExampleMenuPosition} />
 
 <div class="pro-panel">
+  {#if uiStore.isMobile}
+    <!-- Mobile-only PRO navigation and actions -->
+    <div class="pro-mobile-nav">
+      <div class="pro-mobile-actions">
+        <button class="pm-action pm-example" onclick={toggleExampleMenu}>{t('pro.exampleBtn')}</button>
+        <button class="pm-action pm-solve" onclick={handleSolve} disabled={!hasModel || solving}>{solving ? t('pro.solving') : t('pro.solve')}</button>
+        <button class="pm-action pm-report" onclick={handleOpenReportDialog} disabled={modelStore.nodes.size === 0}>{t('pro.reportBtn')}</button>
+      </div>
+      <select class="pm-tab-select" value={activeTab} onchange={(e) => { tabError = null; uiStore.proActiveTab = e.currentTarget.value; }}>
+        {#each tabGroups as group}
+          <optgroup label={group.label}>
+            {#each group.tabs as tab}
+              <option value={tab.id}>{tab.label}</option>
+            {/each}
+          </optgroup>
+        {/each}
+      </select>
+    </div>
+  {/if}
+
   {#if solveError}
     <div class="pro-solve-error">{solveError}</div>
   {/if}
@@ -746,6 +755,51 @@
 />
 
 <style>
+  /* ─── Mobile PRO navigation ─── */
+  .pro-mobile-nav {
+    padding: 8px 10px;
+    border-bottom: 1px solid #1a4a7a;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    flex-shrink: 0;
+    background: #0a1a30;
+  }
+  .pro-mobile-actions {
+    display: flex;
+    gap: 4px;
+  }
+  .pm-action {
+    flex: 1;
+    padding: 8px 4px;
+    font-size: 0.72rem;
+    font-weight: 600;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+    color: #fff;
+  }
+  .pm-action:disabled { opacity: 0.35; }
+  .pm-example { background: linear-gradient(135deg, #f0a500, #d99200); }
+  .pm-solve { background: linear-gradient(135deg, #4ecdc4, #3ab8b0); }
+  .pm-report { background: linear-gradient(135deg, #e94560, #c73e54); }
+  .pm-tab-select {
+    width: 100%;
+    padding: 8px 10px;
+    background: #0f2840;
+    border: 1px solid #1a4a7a;
+    border-radius: 4px;
+    color: #ddd;
+    font-size: 0.82rem;
+    cursor: pointer;
+    -webkit-appearance: none;
+    appearance: none;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%23888' d='M2 4l4 4 4-4'/%3E%3C/svg%3E");
+    background-repeat: no-repeat;
+    background-position: right 10px center;
+  }
+  .pm-tab-select:focus { border-color: #4ecdc4; outline: none; }
+
   .pro-panel {
     display: flex;
     flex-direction: column;

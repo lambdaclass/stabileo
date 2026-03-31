@@ -36,3 +36,4 @@ result-*
 .doc-sync.launchd.out
 .doc-sync.launchd.err
 .cache/
+.vite/

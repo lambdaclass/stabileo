@@ -46,6 +46,8 @@ const VALID_3D_DIAGRAMS = ['deformed', 'momentY', 'momentZ', 'shearY', 'shearZ',
  * @param prevDiagram  Diagram type the user was viewing before clear() — restored after solve
  */
 export function runLiveCalc(analysisMode: string, axisConvention3D: string, prevDiagram?: string): void {
+  // Skip if model is incomplete (e.g., mid-example-load after clear but before fixture applied)
+  if (modelStore.nodes.size < 2 || modelStore.elements.size < 1) return;
   try {
     if (analysisMode === '3d' || analysisMode === 'pro') {
       liveCalc3D(axisConvention3D);
@@ -91,7 +93,7 @@ function liveCalc3D(axisConvention: string): void {
 }
 
 function liveCalc2D(): void {
-  const r = modelStore.solve(uiStore.includeSelfWeight);
+  const r = modelStore.solve(uiStore.includeSelfWeight, uiStore.drawPlane2D);
   if (typeof r === 'string') {
     uiStore.liveCalcError = r;
     return;
@@ -107,7 +109,7 @@ function liveCalc2D(): void {
 
   // Auto-solve combinations if defined
   if (modelStore.model.combinations.length > 0) {
-    const combo = modelStore.solveCombinations(uiStore.includeSelfWeight);
+    const combo = modelStore.solveCombinations(uiStore.includeSelfWeight, uiStore.drawPlane2D);
     if (combo && typeof combo !== 'string') {
       resultsStore.setCombinationResults(combo.perCase, combo.perCombo, combo.envelope);
       const comboNames = new Map<number, string>();
@@ -266,7 +268,7 @@ async function globalSolve3D(): Promise<void> {
 }
 
 function globalSolve2D(): void {
-  const r = modelStore.solve(uiStore.includeSelfWeight);
+  const r = modelStore.solve(uiStore.includeSelfWeight, uiStore.drawPlane2D);
   if (typeof r === 'string') {
     uiStore.toast(r, 'error', isMechanismError(r) ? 'kinematic' : undefined);
     return;
@@ -293,7 +295,7 @@ function globalSolve2D(): void {
   // Auto-solve combinations if defined
   let comboText = '';
   if (modelStore.model.combinations.length > 0) {
-    const comboResult = modelStore.solveCombinations(uiStore.includeSelfWeight);
+    const comboResult = modelStore.solveCombinations(uiStore.includeSelfWeight, uiStore.drawPlane2D);
     if (comboResult && typeof comboResult !== 'string') {
       resultsStore.setCombinationResults(comboResult.perCase, comboResult.perCombo, comboResult.envelope);
       const comboNames = new Map<number, string>();
