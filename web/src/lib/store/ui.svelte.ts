@@ -580,7 +580,11 @@ function createUIStore() {
       setTimeout(() => {
         const idx = toasts.findIndex(t => t.id === id);
         if (idx >= 0) toasts.splice(idx, 1);
-      }, actionId ? 8000 : 4000); // Longer timeout when there's an action button
+      }, actionId ? 8000 : 4000);
+    },
+    dismissToast(id: number) {
+      const idx = toasts.findIndex(t => t.id === id);
+      if (idx >= 0) toasts.splice(idx, 1);
     },
 
     get liveCalc() { return liveCalc; },

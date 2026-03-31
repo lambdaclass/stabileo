@@ -668,10 +668,11 @@
       <div class="toast toast-{toast.type}">
         <span>{toast.message}</span>
         {#if toast.actionId === 'kinematic'}
-          <button class="toast-action" onclick={() => { uiStore.showKinematicPanel = true; const idx = uiStore.toasts.findIndex(tt => tt.id === toast.id); if (idx >= 0) uiStore.toasts.splice(idx, 1); }}>
+          <button class="toast-action" onclick={() => { uiStore.showKinematicPanel = true; uiStore.dismissToast(toast.id); }}>
             {t('app.viewKinematic')}
           </button>
         {/if}
+        <button class="toast-dismiss" onclick={() => uiStore.dismissToast(toast.id)} title="Dismiss">&times;</button>
       </div>
     {/each}
   </div>
@@ -1385,7 +1386,8 @@
   }
 
   .toast {
-    padding: 0.6rem 1rem;
+    position: relative;
+    padding: 0.6rem 2rem 0.6rem 1rem;
     border-radius: 6px;
     font-size: 0.85rem;
     box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
@@ -1395,6 +1397,20 @@
     flex-direction: column;
     gap: 0.4rem;
   }
+  .toast-dismiss {
+    position: absolute;
+    top: 4px;
+    right: 6px;
+    background: none;
+    border: none;
+    color: inherit;
+    opacity: 0.5;
+    font-size: 1rem;
+    line-height: 1;
+    cursor: pointer;
+    padding: 0 2px;
+  }
+  .toast-dismiss:hover { opacity: 1; }
 
   .toast-action {
     align-self: flex-end;
