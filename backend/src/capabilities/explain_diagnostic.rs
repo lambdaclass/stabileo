@@ -71,6 +71,7 @@ pub async fn explain_diagnostic(
         max_tokens: 1024,
         temperature: 0.1,
         tools: vec![],
+        images: vec![],
     };
 
     let ai_resp: AiResponse = provider.complete(ai_req).await?;

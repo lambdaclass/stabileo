@@ -799,11 +799,11 @@
       {/if}
     {/if}
 
-    </div><!-- /pro-body-row (class only applied in PRO) -->
-
     {#if !uiStore.isMobile && uiStore.aiDrawerOpen}
       <AiDrawer />
     {/if}
+
+    </div><!-- /pro-body-row (class only applied in PRO) -->
   </div>
 
   {#if !uiStore.isMobile}

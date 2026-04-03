@@ -339,6 +339,13 @@ export interface SolverDiagnosticMsg {
   message: string;
 }
 
+export interface ImageAttachmentInput {
+  /** Base64-encoded image data (no data-URI prefix). */
+  data: string;
+  /** MIME type, e.g. "image/png", "image/jpeg". */
+  mediaType: string;
+}
+
 export async function buildModel(
   description: string,
   locale?: string,
@@ -348,6 +355,7 @@ export async function buildModel(
   messages?: ConversationMessage[],
   solverDiagnostics?: SolverDiagnosticMsg[],
   signal?: AbortSignal,
+  images?: ImageAttachmentInput[],
 ): Promise<BuildModelResponse> {
   const body: Record<string, unknown> = {
     description,
@@ -358,6 +366,7 @@ export async function buildModel(
   if (currentSnapshot) body.currentSnapshot = currentSnapshot;
   if (messages && messages.length > 0) body.messages = messages;
   if (solverDiagnostics && solverDiagnostics.length > 0) body.solverDiagnostics = solverDiagnostics;
+  if (images && images.length > 0) body.images = images;
 
   const raw: any = await post('/api/ai/build-model', body, signal);
   // Normalize: old backend returns { snapshot, interpretation }, new returns { snapshot, message }

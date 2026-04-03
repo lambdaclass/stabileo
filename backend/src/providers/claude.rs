@@ -4,7 +4,7 @@ use serde_json::Value;
 use std::time::Instant;
 
 use crate::error::ProviderError;
-use super::traits::{AiRequest, AiResponse, AiRole, ToolCall};
+use super::traits::{AiRequest, AiResponse, AiRole, ImageAttachment, ToolCall};
 
 pub struct ClaudeProvider {
     client: Client,
@@ -24,38 +24,60 @@ impl ClaudeProvider {
     pub async fn complete(&self, req: AiRequest) -> Result<AiResponse, ProviderError> {
         let start = Instant::now();
 
-        let tools: Option<Vec<ClaudeTool>> = if req.tools.is_empty() {
+
+        let messages: Vec<MessageOwned> = if req.messages.is_empty() {
+            vec![build_user_message(&req.user_message, &req.images)]
+        } else {
+            let mut msgs: Vec<MessageOwned> = req.messages.iter().map(|m| MessageOwned {
+                role: match m.role {
+                    AiRole::User => "user".into(),
+                    AiRole::Assistant => "assistant".into(),
+                },
+                content: MessageContent::Text(m.content.clone()),
+            }).collect();
+            // Attach images to the last user message if present
+            if !req.images.is_empty() {
+                if let Some(last_user) = msgs.iter_mut().rev().find(|m| m.role == "user") {
+                    let text = match &last_user.content {
+                        MessageContent::Text(t) => t.clone(),
+                        MessageContent::Blocks(blocks) => blocks.iter()
+                            .filter_map(|b| if let ContentBlockOut::Text { text } = b { Some(text.as_str()) } else { None })
+                            .collect::<Vec<_>>().join(""),
+                    };
+                    let mut blocks = Vec::new();
+                    for img in &req.images {
+                        blocks.push(ContentBlockOut::Image {
+                            source: ImageSource {
+                                r#type: "base64".into(),
+                                media_type: img.media_type.clone(),
+                                data: img.data.clone(),
+                            },
+                        });
+                    }
+                    blocks.push(ContentBlockOut::Text { text });
+                    last_user.content = MessageContent::Blocks(blocks);
+                }
+            }
+            msgs
+        };
+
+        let tools_owned: Option<Vec<ClaudeToolOwned>> = if req.tools.is_empty() {
             None
         } else {
-            Some(req.tools.iter().map(|t| ClaudeTool {
-                name: &t.name,
-                description: &t.description,
-                input_schema: &t.parameters,
+            Some(req.tools.iter().map(|t| ClaudeToolOwned {
+                name: t.name.clone(),
+                description: t.description.clone(),
+                input_schema: t.parameters.clone(),
             }).collect())
         };
 
-        let messages = if req.messages.is_empty() {
-            vec![Message {
-                role: "user",
-                content: &req.user_message,
-            }]
-        } else {
-            req.messages.iter().map(|m| Message {
-                role: match m.role {
-                    AiRole::User => "user",
-                    AiRole::Assistant => "assistant",
-                },
-                content: &m.content,
-            }).collect()
-        };
-
         let body = AnthropicRequest {
-            model: &self.model,
+            model: self.model.clone(),
             max_tokens: req.max_tokens,
             temperature: req.temperature,
-            system: &req.system_prompt,
+            system: req.system_prompt.clone(),
             messages,
-            tools,
+            tools: tools_owned,
         };
 
         let resp = self
@@ -112,30 +134,79 @@ impl ClaudeProvider {
     }
 }
 
+// ─── Multimodal message builder ───────────────────────────────
+
+fn build_user_message(text: &str, images: &[ImageAttachment]) -> MessageOwned {
+    if images.is_empty() {
+        return MessageOwned {
+            role: "user".into(),
+            content: MessageContent::Text(text.into()),
+        };
+    }
+    let mut blocks = Vec::new();
+    for img in images {
+        blocks.push(ContentBlockOut::Image {
+            source: ImageSource {
+                r#type: "base64".into(),
+                media_type: img.media_type.clone(),
+                data: img.data.clone(),
+            },
+        });
+    }
+    blocks.push(ContentBlockOut::Text { text: text.into() });
+    MessageOwned {
+        role: "user".into(),
+        content: MessageContent::Blocks(blocks),
+    }
+}
+
 // ─── Request types ─────────────────────────────────────────────
 
 #[derive(Serialize)]
-struct AnthropicRequest<'a> {
-    model: &'a str,
+struct AnthropicRequest {
+    model: String,
     max_tokens: u32,
     temperature: f32,
-    system: &'a str,
-    messages: Vec<Message<'a>>,
+    system: String,
+    messages: Vec<MessageOwned>,
     #[serde(skip_serializing_if = "Option::is_none")]
-    tools: Option<Vec<ClaudeTool<'a>>>,
+    tools: Option<Vec<ClaudeToolOwned>>,
 }
 
 #[derive(Serialize)]
-struct Message<'a> {
-    role: &'a str,
-    content: &'a str,
+struct MessageOwned {
+    role: String,
+    content: MessageContent,
 }
 
 #[derive(Serialize)]
-struct ClaudeTool<'a> {
-    name: &'a str,
-    description: &'a str,
-    input_schema: &'a Value,
+#[serde(untagged)]
+enum MessageContent {
+    Text(String),
+    Blocks(Vec<ContentBlockOut>),
+}
+
+#[derive(Serialize)]
+#[serde(tag = "type")]
+enum ContentBlockOut {
+    #[serde(rename = "text")]
+    Text { text: String },
+    #[serde(rename = "image")]
+    Image { source: ImageSource },
+}
+
+#[derive(Serialize)]
+struct ImageSource {
+    r#type: String,
+    media_type: String,
+    data: String,
+}
+
+#[derive(Serialize)]
+struct ClaudeToolOwned {
+    name: String,
+    description: String,
+    input_schema: Value,
 }
 
 // ─── Response types ────────────────────────────────────────────

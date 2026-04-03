@@ -39,6 +39,15 @@ pub struct ToolCall {
 
 // ─── Request / Response ────────────────────────────────────────
 
+/// A base64-encoded image to include in the user message.
+#[derive(Clone, Debug)]
+pub struct ImageAttachment {
+    /// Base64-encoded image data (no data-URI prefix).
+    pub data: String,
+    /// MIME type, e.g. "image/png", "image/jpeg".
+    pub media_type: String,
+}
+
 pub struct AiRequest {
     pub system_prompt: String,
     pub user_message: String,
@@ -50,6 +59,9 @@ pub struct AiRequest {
     /// When non-empty, the LLM may call one of these tools instead of
     /// replying with plain text.
     pub tools: Vec<ToolDef>,
+    /// Reference images attached to the user's current message.
+    /// Only used by providers that support multimodal input (e.g. Claude).
+    pub images: Vec<ImageAttachment>,
 }
 
 pub struct AiResponse {

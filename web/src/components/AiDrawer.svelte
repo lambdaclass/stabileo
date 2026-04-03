@@ -1,7 +1,7 @@
 <script lang="ts">
   import { resultsStore, modelStore, uiStore, historyStore } from '../lib/store';
   import { t, i18n } from '../lib/i18n';
-  import { reviewModel, buildArtifact, buildModel, buildModelContext, type ReviewModelResponse, type ReviewFinding, type BuildModelResponse, type ConversationMessage, type SolverDiagnosticMsg } from '../lib/ai/client';
+  import { reviewModel, buildArtifact, buildModel, buildModelContext, type ReviewModelResponse, type ReviewFinding, type BuildModelResponse, type ConversationMessage, type SolverDiagnosticMsg, type ImageAttachmentInput } from '../lib/ai/client';
   import { runGlobalSolve } from '../lib/engine/live-calc';
   import type { ModelSnapshot } from '../lib/store/history.svelte';
 
@@ -53,6 +53,30 @@
   let conversationHistory = $state<ConversationMessage[]>([]);
   /** Solver diagnostics from the last solve, available for "Fix issues". */
   let lastSolverDiagnostics = $state<SolverDiagnosticMsg[]>([]);
+  /** Attached reference images for multimodal build. */
+  let attachedImages = $state<ImageAttachmentInput[]>([]);
+  let imageFileInput: HTMLInputElement;
+
+  function handleImageUpload(e: Event) {
+    const input = e.target as HTMLInputElement;
+    if (!input.files) return;
+    for (const file of input.files) {
+      if (!file.type.startsWith('image/')) continue;
+      const reader = new FileReader();
+      reader.onload = () => {
+        const dataUrl = reader.result as string;
+        // Strip the "data:image/...;base64," prefix
+        const base64 = dataUrl.split(',')[1];
+        attachedImages = [...attachedImages, { data: base64, mediaType: file.type }];
+      };
+      reader.readAsDataURL(file);
+    }
+    input.value = ''; // reset so same file can be re-selected
+  }
+
+  function removeImage(idx: number) {
+    attachedImages = attachedImages.filter((_, i) => i !== idx);
+  }
 
   function scrollChatToBottom() {
     if (chatContainer) {
@@ -185,10 +209,12 @@
     abortController = ac;
 
     try {
-      const mode = uiStore.analysisMode === '3d' ? '3d' : '2d';
+      const mode = (uiStore.analysisMode === '3d' || uiStore.analysisMode === 'pro') ? '3d' : '2d';
       const ctx = hasModelOnCanvas ? buildModelContext(modelStore) : undefined;
       const currentSnap = hasModelOnCanvas ? ($state.snapshot(modelStore.snapshot()) as Record<string, unknown>) : undefined;
-      const resp = await buildModel(text, i18n.locale, mode, ctx, currentSnap, conversationHistory.length > 0 ? conversationHistory : undefined, undefined, ac.signal);
+      const imgsCopy = attachedImages.length > 0 ? [...attachedImages] : undefined;
+      attachedImages = []; // Clear after sending
+      const resp = await buildModel(text, i18n.locale, mode, ctx, currentSnap, conversationHistory.length > 0 ? conversationHistory : undefined, undefined, ac.signal, imgsCopy);
 
       // Remove building indicator
       chatMessages = chatMessages.filter(m => !m.isBuilding);
@@ -684,8 +710,22 @@
         </div>
       {/if}
 
+      <!-- Image attachments preview -->
+      {#if attachedImages.length > 0}
+        <div class="img-preview-row">
+          {#each attachedImages as img, i}
+            <div class="img-thumb">
+              <img src="data:{img.mediaType};base64,{img.data}" alt="ref {i+1}" />
+              <button class="img-remove" onclick={() => removeImage(i)}>×</button>
+            </div>
+          {/each}
+        </div>
+      {/if}
+
       <!-- Chat input -->
       <div class="chat-input-row">
+        <button class="chat-attach" onclick={() => imageFileInput.click()} title="Attach reference image" disabled={buildLoading || !!pendingDraft}>📎</button>
+        <input type="file" accept="image/*" multiple bind:this={imageFileInput} onchange={handleImageUpload} style="display:none" />
         <textarea
           class="chat-input"
           placeholder={hasModelOnCanvas ? "Describe a change or new structure..." : "Describe what to build..."}
@@ -697,7 +737,7 @@
         {#if buildLoading}
           <button class="chat-send stop-btn" onclick={handleAbortBuild} title="Stop">■</button>
         {:else}
-          <button class="chat-send" onclick={() => handleBuildSend()} disabled={!chatInput.trim() || !!pendingDraft}>→</button>
+          <button class="chat-send" onclick={() => handleBuildSend()} disabled={!chatInput.trim() && attachedImages.length === 0 || !!pendingDraft}>→</button>
         {/if}
       </div>
     </div>
@@ -1177,6 +1217,31 @@
     border-color: rgba(240, 165, 0, 0.5);
   }
   .fix-issues-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+
+  .img-preview-row {
+    display: flex; gap: 6px; padding: 4px 10px; flex-wrap: wrap;
+    border-top: 1px solid #0f3460; flex-shrink: 0;
+  }
+  .img-thumb {
+    position: relative; width: 48px; height: 48px; border-radius: 4px;
+    overflow: hidden; border: 1px solid #1a4a7a;
+  }
+  .img-thumb img { width: 100%; height: 100%; object-fit: cover; }
+  .img-remove {
+    position: absolute; top: -2px; right: -2px;
+    width: 16px; height: 16px; border-radius: 50%;
+    background: #e94560; border: none; color: #fff;
+    font-size: 0.6rem; cursor: pointer; line-height: 1;
+    display: flex; align-items: center; justify-content: center;
+  }
+  .chat-attach {
+    background: none; border: none; font-size: 1rem;
+    cursor: pointer; color: #778; padding: 4px;
+    border-radius: 4px; transition: color 0.12s;
+    flex-shrink: 0;
+  }
+  .chat-attach:hover:not(:disabled) { color: #4ecdc4; }
+  .chat-attach:disabled { opacity: 0.3; cursor: not-allowed; }
 
   .chat-input-row {
     display: flex;

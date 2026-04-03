@@ -8,7 +8,7 @@ use super::generators::execute_action;
 use super::registry;
 use super::validate_snapshot;
 use crate::error::AppError;
-use crate::providers::traits::{AiMessage, AiRequest, AiResponse, AiRole, Provider};
+use crate::providers::traits::{AiMessage, AiRequest, AiResponse, AiRole, ImageAttachment, Provider};
 
 #[derive(Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -28,6 +28,18 @@ pub struct BuildModelRequest {
     /// Solver diagnostics from a previous run, for the AI to fix.
     #[serde(default)]
     pub solver_diagnostics: Option<Vec<SolverDiagnostic>>,
+    /// Reference images (base64-encoded) for multimodal build requests.
+    #[serde(default)]
+    pub images: Option<Vec<ImageInput>>,
+}
+
+#[derive(Debug, Deserialize, Serialize, Clone)]
+#[serde(rename_all = "camelCase")]
+pub struct ImageInput {
+    /// Base64-encoded image data (no data-URI prefix).
+    pub data: String,
+    /// MIME type, e.g. "image/png", "image/jpeg".
+    pub media_type: String,
 }
 
 #[derive(Debug, Deserialize, Serialize, Clone)]
@@ -119,6 +131,13 @@ pub async fn build_model(
         req.solver_diagnostics.as_deref(),
     );
 
+    let images: Vec<ImageAttachment> = req.images.as_ref()
+        .map(|imgs| imgs.iter().map(|i| ImageAttachment {
+            data: i.data.clone(),
+            media_type: i.media_type.clone(),
+        }).collect())
+        .unwrap_or_default();
+
     let ai_req = AiRequest {
         system_prompt,
         user_message: req.description.clone(),
@@ -126,6 +145,7 @@ pub async fn build_model(
         max_tokens: 8192,
         temperature: 0.1,
         tools,
+        images,
     };
 
     let ai_resp: AiResponse = provider.complete(ai_req).await?;
