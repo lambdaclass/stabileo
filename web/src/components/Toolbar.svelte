@@ -471,18 +471,40 @@
         return;
       }
       if (uiStore.selectedLoads.size > 0) {
-        const loadsToDelete = [...uiStore.selectedLoads];
+        // selectedLoads stores array indices into modelStore.loads.
+        // Delete in reverse order so earlier indices remain valid.
+        const indices = [...uiStore.selectedLoads].sort((a, b) => b - a);
         modelStore.batch(() => {
-          for (const loadId of loadsToDelete) modelStore.removeLoad(loadId);
+          for (const idx of indices) {
+            const load = modelStore.loads[idx];
+            if (load) modelStore.removeLoad(load.data.id);
+          }
         });
         uiStore.clearSelectedLoads();
         resultsStore.clear();
       } else if (uiStore.selectedNodes.size > 0 || uiStore.selectedElements.size > 0) {
         const nodesToDelete = [...uiStore.selectedNodes];
         const elemsToDelete = [...uiStore.selectedElements];
+        const shellMode = uiStore.selectMode === 'shells';
         modelStore.batch(() => {
           for (const nodeId of nodesToDelete) modelStore.removeNode(nodeId);
-          for (const elemId of elemsToDelete) modelStore.removeElement(elemId);
+          for (const elemId of elemsToDelete) {
+            const isShell = modelStore.plates.has(elemId) || modelStore.quads.has(elemId);
+            const isElem = modelStore.elements.has(elemId);
+            if (isShell && isElem) {
+              if (shellMode) {
+                if (modelStore.plates.has(elemId)) modelStore.removePlate(elemId);
+                else modelStore.removeQuad(elemId);
+              } else {
+                modelStore.removeElement(elemId);
+              }
+            } else if (isShell) {
+              if (modelStore.plates.has(elemId)) modelStore.removePlate(elemId);
+              else modelStore.removeQuad(elemId);
+            } else if (isElem) {
+              modelStore.removeElement(elemId);
+            }
+          }
         });
         uiStore.clearSelection();
         resultsStore.clear();

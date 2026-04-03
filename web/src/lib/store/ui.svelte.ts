@@ -8,7 +8,7 @@ export type ILQuantity = 'Rz' | 'Ry' | 'Rx' | 'My' | 'Mz' | 'V' | 'M';
 export type SupportTool = 'fixed' | 'pinned' | 'roller' | 'spring';
 export type LoadTool = 'nodal' | 'distributed' | 'thermal';
 export type NodalLoadDir = 'fz' | 'fx' | 'my';
-export type SelectMode = 'nodes' | 'elements' | 'loads' | 'stress' | 'supports';
+export type SelectMode = 'nodes' | 'elements' | 'shells' | 'loads' | 'stress' | 'supports';
 export type ElementMode = 'create' | 'hinge';
 export type NodeMode = 'create' | 'hinge';
 export type ElementColorMode = 'uniform' | 'byMaterial' | 'bySection';
@@ -566,7 +566,16 @@ function createUIStore() {
     get proPanelWidth() { return proPanelWidth; },
     set proPanelWidth(v: number) { proPanelWidth = v; },
     get proActiveTab() { return proActiveTab; },
-    set proActiveTab(v: string) { proActiveTab = v; },
+    set proActiveTab(v: string) {
+      proActiveTab = v;
+      // Auto-align selectMode when entering a geometry subsection so that
+      // row-click selection targets the correct entity class.
+      if (v === 'nodes') selectMode = 'nodes';
+      else if (v === 'elements') selectMode = 'elements';
+      else if (v === 'shells') selectMode = 'shells';
+      else if (v === 'supports') selectMode = 'supports';
+      else if (v === 'loads') selectMode = 'loads';
+    },
     get aiDrawerOpen() { return aiDrawerOpen; },
     set aiDrawerOpen(v: boolean) { aiDrawerOpen = v; },
 

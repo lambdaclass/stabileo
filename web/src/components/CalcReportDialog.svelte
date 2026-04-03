@@ -1,6 +1,6 @@
 <script lang="ts">
-  import { modelStore, resultsStore, uiStore } from '../lib/store';
-  import { openCalcReport, type CalcReportData, type CalcReportConfig } from '../lib/engine/calc-report';
+  import { modelStore, resultsStore, uiStore, verificationStore } from '../lib/store';
+  import { openCalcReport, type CalcReportData, type CalcReportConfig, type ResultProvenance, type AnalysisModeLabel } from '../lib/engine/calc-report';
   import { t } from '../lib/i18n';
 
   let { open = $bindable(false) }: { open: boolean } = $props();
@@ -10,8 +10,29 @@
   let companyName = $state('');
   let notes = $state('');
 
+  const is3D = $derived(uiStore.analysisMode === '3d' || uiStore.analysisMode === 'pro');
+  const hasResults = $derived(is3D ? resultsStore.results3D !== null : resultsStore.results !== null);
+  const modeLabel = $derived<AnalysisModeLabel>(uiStore.analysisMode === 'pro' ? 'PRO' : uiStore.analysisMode === '3d' ? '3D' : '2D');
+
+  function deriveProvenance(): ResultProvenance {
+    const view = resultsStore.activeView;
+    if (view === 'envelope') {
+      return { kind: 'envelope' };
+    }
+    if (view === 'combo') {
+      const comboId = resultsStore.activeComboId;
+      const combo = comboId !== null
+        ? modelStore.model.combinations.find(c => c.id === comboId)
+        : undefined;
+      return { kind: 'combo', comboName: combo?.name ?? `Combination ${comboId}` };
+    }
+    const caseId = resultsStore.activeCaseId;
+    const caseName = caseId !== null ? modelStore.getLoadCaseName(caseId) : undefined;
+    return { kind: 'single', caseName: caseName || undefined };
+  }
+
   function generateReport() {
-    const is3D = uiStore.analysisMode === '3d' || uiStore.analysisMode === 'pro';
+    if (!hasResults) return;
     const config: CalcReportConfig = {
       projectName,
       engineerName,
@@ -59,6 +80,9 @@
     const data: CalcReportData = {
       config,
       is3D,
+      analysisMode: modeLabel,
+      provenance: deriveProvenance(),
+      hasDesignChecks: verificationStore.hasResults,
       nodes: [...modelStore.nodes.values()],
       elements: [...modelStore.elements.values()],
       materials: [...modelStore.materials.values()],
@@ -100,9 +124,12 @@
         <textarea bind:value={notes} rows="2" placeholder={t('calcReport.optional')}></textarea>
       </label>
     </div>
+    {#if !hasResults}
+      <div class="no-results-warning">{t('calcReport.noResults')}</div>
+    {/if}
     <div class="actions">
       <button class="btn-secondary" onclick={() => open = false}>{t('calcReport.cancel')}</button>
-      <button class="btn-primary" onclick={generateReport}>{t('calcReport.generate')}</button>
+      <button class="btn-primary" onclick={generateReport} disabled={!hasResults}>{t('calcReport.generate')}</button>
     </div>
   </div>
 </div>
@@ -183,5 +210,15 @@
     font-size: 0.8rem;
     font-weight: 600;
   }
-  .btn-primary:hover { background: #2a6ab0; }
+  .btn-primary:hover:not(:disabled) { background: #2a6ab0; }
+  .btn-primary:disabled { opacity: 0.4; cursor: not-allowed; }
+  .no-results-warning {
+    font-size: 0.8rem;
+    color: #e8a040;
+    background: rgba(232, 160, 64, 0.1);
+    border: 1px solid rgba(232, 160, 64, 0.3);
+    border-radius: 4px;
+    padding: 0.5rem 0.7rem;
+    text-align: center;
+  }
 </style>

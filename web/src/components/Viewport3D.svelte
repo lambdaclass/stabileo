@@ -614,6 +614,7 @@
     uiStore.selectedNodes;
     uiStore.selectedElements;
     uiStore.selectedSupports;
+    uiStore.selectedLoads;
     syncSelection();
   });
 
@@ -765,7 +766,10 @@
 
       // In select/pan tool: check for node drag or box select initiation
       if (tool === 'select' || tool === 'pan') {
-        const nodeId = findNodeHit(e);
+        const sm = uiStore.selectMode;
+        // Node drag is only available in nodes/elements mode (not in shells/supports/loads)
+        const allowNodeDrag = sm === 'nodes' || sm === 'elements' || sm === 'stress';
+        const nodeId = allowNodeDrag ? findNodeHit(e) : null;
 
         if (nodeId !== null && tool === 'select') {
           // Start dragging this node
@@ -781,7 +785,7 @@
           } else if (!uiStore.selectedNodes.has(nodeId) && e.shiftKey) {
             uiStore.selectNode(nodeId, true);
           }
-        } else if (nodeId === null && tool === 'select') {
+        } else if (tool === 'select') {
           // Always start box select candidate — distinguish click vs drag in mouseUp
           const rect = container.getBoundingClientRect();
           const mx = e.clientX - rect.left;
@@ -1037,21 +1041,46 @@
 
     let worldPoint: THREE.Vector3 | null = null;
 
-    // Check proximity to any node in world space (within 0.5 units)
-    const planeHit = getGroundIntersection(e);
-    if (planeHit) {
-      const nearNodeId = findNearestNode3D(planeHit, 0.5);
-      if (nearNodeId !== null) {
-        const n = modelStore.nodes.get(nearNodeId);
+    // First: try direct raycast against node meshes (works at any elevation)
+    const nodeHits = raycaster.intersectObjects(nodesParent.children, true);
+    for (const hit of nodeHits) {
+      const ud = findUserData(hit.object);
+      if (ud?.type === 'node') {
+        const n = modelStore.nodes.get(ud.id);
         if (n) {
           worldPoint = new THREE.Vector3(n.x, n.y, n.z ?? 0);
+          break;
         }
       }
     }
 
-    // If no node snap, use working plane intersection
+    // Second: screen-space nearest-node snap (catches nodes near the cursor
+    // even when the raycast misses the sphere, e.g. behind load glyphs)
     if (!worldPoint) {
-      worldPoint = planeHit;
+      const rect = container.getBoundingClientRect();
+      const mx = e.clientX - rect.left;
+      const my = e.clientY - rect.top;
+      const snapPx = 20; // pixel threshold
+      let bestDist = snapPx;
+      let bestNode: { x: number; y: number; z: number } | null = null;
+      const project2D = shouldProject2DModel();
+      for (const node of modelStore.nodes.values()) {
+        const pos = projectNodeToScene(node, project2D);
+        const s = projectToScreen(pos.x, pos.y, pos.z);
+        const d = Math.sqrt((s.x - mx) ** 2 + (s.y - my) ** 2);
+        if (d < bestDist) {
+          bestDist = d;
+          bestNode = { x: node.x, y: node.y, z: node.z ?? 0 };
+        }
+      }
+      if (bestNode) {
+        worldPoint = new THREE.Vector3(bestNode.x, bestNode.y, bestNode.z);
+      }
+    }
+
+    // Third: ground plane fallback (no node nearby)
+    if (!worldPoint) {
+      worldPoint = getGroundIntersection(e);
     }
 
     if (!worldPoint) return;
@@ -1172,42 +1201,127 @@
 
       // Only count as box select if dragged at least a few pixels
       if (x2 - x1 > 3 || y2 - y1 > 3) {
-        // Collect new selection items
+        const sm = uiStore.selectMode;
+        const project2D = shouldProject2DModel();
+        const inRect = (s: { x: number; y: number }) => s.x >= x1 && s.x <= x2 && s.y >= y1 && s.y <= y2;
+
+        // Collect new selection items filtered by selectMode
         const newNodes = additive ? new Set(uiStore.selectedNodes) : new Set<number>();
         const newElems = additive ? new Set(uiStore.selectedElements) : new Set<number>();
 
-        // Nodes: project to screen, check containment
-        const project2D = shouldProject2DModel();
-        for (const node of modelStore.nodes.values()) {
-          const pos = projectNodeToScene(node, project2D);
-          const s = projectToScreen(pos.x, pos.y, pos.z);
-          if (s.x >= x1 && s.x <= x2 && s.y >= y1 && s.y <= y2) {
-            newNodes.add(node.id);
+        if (sm === 'nodes') {
+          for (const node of modelStore.nodes.values()) {
+            const pos = projectNodeToScene(node, project2D);
+            if (inRect(projectToScreen(pos.x, pos.y, pos.z))) newNodes.add(node.id);
           }
-        }
-        // Elements: project both endpoints
-        for (const elem of modelStore.elements.values()) {
-          const ni = modelStore.getNode(elem.nodeI);
-          const nj = modelStore.getNode(elem.nodeJ);
-          if (!ni || !nj) continue;
-          const siPos = projectNodeToScene(ni, project2D);
-          const sjPos = projectNodeToScene(nj, project2D);
-          const si = projectToScreen(siPos.x, siPos.y, siPos.z);
-          const sj = projectToScreen(sjPos.x, sjPos.y, sjPos.z);
-          const iIn = si.x >= x1 && si.x <= x2 && si.y >= y1 && si.y <= y2;
-          const jIn = sj.x >= x1 && sj.x <= x2 && sj.y >= y1 && sj.y <= y2;
-
-          if (isWindow) {
-            if (iIn && jIn) newElems.add(elem.id);
-          } else {
-            if ((iIn || jIn) || segmentIntersectsRect2D(si.x, si.y, sj.x, sj.y, x1, y1, x2, y2)) {
-              newElems.add(elem.id);
+        } else if (sm === 'elements') {
+          for (const elem of modelStore.elements.values()) {
+            const ni = modelStore.getNode(elem.nodeI);
+            const nj = modelStore.getNode(elem.nodeJ);
+            if (!ni || !nj) continue;
+            const piPos = projectNodeToScene(ni, project2D);
+            const pjPos = projectNodeToScene(nj, project2D);
+            const si = projectToScreen(piPos.x, piPos.y, piPos.z);
+            const sj = projectToScreen(pjPos.x, pjPos.y, pjPos.z);
+            if (isWindow) {
+              if (inRect(si) && inRect(sj)) newElems.add(elem.id);
+            } else {
+              if (inRect(si) || inRect(sj) || segmentIntersectsRect2D(si.x, si.y, sj.x, sj.y, x1, y1, x2, y2)) newElems.add(elem.id);
+            }
+          }
+        } else if (sm === 'shells') {
+          // Clear previous selection if non-additive, then add shells individually
+          if (!additive) { uiStore.clearSelection(); }
+          // Helper: check shell by projecting all vertices
+          const checkShell = (nodes: any[], id: number) => {
+            const pts = nodes.map((n: any) => {
+              const p = projectNodeToScene(n, project2D);
+              return projectToScreen(p.x, p.y, p.z);
+            });
+            if (isWindow) {
+              // Window: ALL vertices must be inside
+              if (pts.every(inRect)) uiStore.selectElement(id, true);
+            } else {
+              // Crossing: ANY vertex inside OR any edge crosses the rect
+              if (pts.some(inRect)) { uiStore.selectElement(id, true); return; }
+              for (let i = 0; i < pts.length; i++) {
+                const a = pts[i], b = pts[(i + 1) % pts.length];
+                if (segmentIntersectsRect2D(a.x, a.y, b.x, b.y, x1, y1, x2, y2)) {
+                  uiStore.selectElement(id, true); return;
+                }
+              }
+            }
+          };
+          for (const [id, plate] of modelStore.plates) {
+            const ns = plate.nodes.map((nid: number) => modelStore.getNode(nid)).filter(Boolean);
+            if (ns.length >= 3) checkShell(ns, id);
+          }
+          for (const [id, quad] of modelStore.quads) {
+            const ns = quad.nodes.map((nid: number) => modelStore.getNode(nid)).filter(Boolean);
+            if (ns.length >= 4) checkShell(ns, id);
+          }
+        } else if (sm === 'supports') {
+          // Clear previous support selection if non-additive
+          if (!additive) { uiStore.clearSelection(); }
+          for (const sup of modelStore.supports.values()) {
+            const node = modelStore.getNode(sup.nodeId);
+            if (!node) continue;
+            const pos = projectNodeToScene(node, project2D);
+            if (inRect(projectToScreen(pos.x, pos.y, pos.z))) {
+              uiStore.selectSupport(sup.id, true);
+            }
+          }
+        } else if (sm === 'loads') {
+          // Clear previous load selection if non-additive
+          if (!additive) { uiStore.clearSelection(); }
+          for (let i = 0; i < modelStore.loads.length; i++) {
+            const load = modelStore.loads[i];
+            const d = load.data as any;
+            if (d.nodeId != null) {
+              // Nodal load: single point check
+              const n = modelStore.getNode(d.nodeId);
+              if (n) {
+                const pos = projectNodeToScene(n, project2D);
+                if (inRect(projectToScreen(pos.x, pos.y, pos.z))) uiStore.selectLoad(i, true);
+              }
+            } else if (d.elementId != null) {
+              // Element load: check both element endpoints for window/crossing
+              const elem = modelStore.elements.get(d.elementId);
+              if (elem) {
+                const ni = modelStore.getNode(elem.nodeI);
+                const nj = modelStore.getNode(elem.nodeJ);
+                if (ni && nj) {
+                  const piPos = projectNodeToScene(ni, project2D);
+                  const pjPos = projectNodeToScene(nj, project2D);
+                  const si = projectToScreen(piPos.x, piPos.y, piPos.z);
+                  const sj = projectToScreen(pjPos.x, pjPos.y, pjPos.z);
+                  if (isWindow) {
+                    if (inRect(si) && inRect(sj)) uiStore.selectLoad(i, true);
+                  } else {
+                    if (inRect(si) || inRect(sj) || segmentIntersectsRect2D(si.x, si.y, sj.x, sj.y, x1, y1, x2, y2)) uiStore.selectLoad(i, true);
+                  }
+                }
+              }
+            } else if (d.quadId != null) {
+              // Surface load on quad: check quad centroid
+              const quad = modelStore.quads.get(d.quadId);
+              if (quad) {
+                const ns = quad.nodes.map((nid: number) => modelStore.getNode(nid)).filter(Boolean);
+                if (ns.length >= 4) {
+                  const cx = ns.reduce((s: number, n: any) => s + n.x, 0) / ns.length;
+                  const cy = ns.reduce((s: number, n: any) => s + n.y, 0) / ns.length;
+                  const cz = ns.reduce((s: number, n: any) => s + (n.z ?? 0), 0) / ns.length;
+                  if (inRect(projectToScreen(cx, cy, cz))) uiStore.selectLoad(i, true);
+                }
+              }
             }
           }
         }
 
-        // Reassign sets to trigger Svelte reactivity
-        uiStore.setSelection(newNodes, newElems);
+        // Reassign sets to trigger Svelte reactivity (for nodes/elements modes)
+        if (sm === 'nodes' || sm === 'elements') {
+          uiStore.setSelection(newNodes, newElems);
+        }
       } else {
         // Small drag = click → delegate to normal click selection
         boxSelect3D = null;
@@ -1297,38 +1411,51 @@
       return;
     }
 
-    // Raycast against model objects (nodes first, then elements, then supports)
-    const nodeHits = raycaster.intersectObjects(nodesParent.children, true);
-    const elemHits = raycaster.intersectObjects(elementsParent.children, true);
-    const supHits = raycaster.intersectObjects(supportsParent.children, true);
-
+    // Raycast against model objects, filtered by selectMode
+    const sm = uiStore.selectMode;
     const addToSel = e.shiftKey;
 
-    // Priority: node > element > support
-    for (const hit of nodeHits) {
-      const ud = findUserData(hit.object);
-      if (ud?.type === 'node') {
-        uiStore.selectNode(ud.id, addToSel);
-        return;
+    if (sm === 'nodes') {
+      for (const hit of raycaster.intersectObjects(nodesParent.children, true)) {
+        const ud = findUserData(hit.object);
+        if (ud?.type === 'node') { uiStore.selectNode(ud.id, addToSel); return; }
       }
-    }
-
-    for (const hit of elemHits) {
-      const ud = findUserData(hit.object);
-      if (ud?.type === 'element') {
-        uiStore.selectElement(ud.id, addToSel);
-        // Sync with DSM Matrix Explorer if wizard is open
-        if (dsmStepsStore.isOpen) dsmStepsStore.selectElement(ud.id);
-        return;
+    } else if (sm === 'elements') {
+      for (const hit of raycaster.intersectObjects(elementsParent.children, true)) {
+        const ud = findUserData(hit.object);
+        if (ud?.type === 'element') {
+          uiStore.selectElement(ud.id, addToSel);
+          if (dsmStepsStore.isOpen) dsmStepsStore.selectElement(ud.id);
+          return;
+        }
       }
-    }
-
-    for (const hit of supHits) {
-      const ud = findUserData(hit.object);
-      if (ud?.type === 'support') {
-        uiStore.selectSupport(ud.id, addToSel);
-        return;
+    } else if (sm === 'shells') {
+      for (const hit of raycaster.intersectObjects(shellsParent.children, true)) {
+        const ud = findUserData(hit.object);
+        if (ud?.type === 'plate' || ud?.type === 'quad') {
+          // Select shells via element selection for now (shell entities use element-level selection)
+          uiStore.selectElement(ud.id, addToSel);
+          return;
+        }
       }
+    } else if (sm === 'supports') {
+      for (const hit of raycaster.intersectObjects(supportsParent.children, true)) {
+        const ud = findUserData(hit.object);
+        if (ud?.type === 'support') { uiStore.selectSupport(ud.id, addToSel); return; }
+      }
+    } else if (sm === 'loads') {
+      // Widen line picking threshold so ArrowHelper shafts are clickable
+      const prevThreshold = raycaster.params.Line.threshold;
+      raycaster.params.Line.threshold = 0.15;
+      for (const hit of raycaster.intersectObjects(loadsParent.children, true)) {
+        const ud = findUserData(hit.object);
+        if (ud?.type === 'load') {
+          raycaster.params.Line.threshold = prevThreshold;
+          uiStore.selectLoad(ud.id, addToSel);
+          return;
+        }
+      }
+      raycaster.params.Line.threshold = prevThreshold;
     }
 
     // Clicked on empty space → clear selection
@@ -1359,9 +1486,24 @@
       uiStore.setMouse(e.clientX - rect.left, e.clientY - rect.top, worldPt.x, worldPt.y);
     }
 
-    // Check hover on nodes + elements
-    const allPickable = [...nodesParent.children, ...elementsParent.children, ...supportsParent.children];
-    const hits = raycaster.intersectObjects(allPickable, true);
+    // Check hover — pick targets depend on selectMode
+    const sm = uiStore.selectMode;
+    let hoverPickable: THREE.Object3D[];
+    if (sm === 'shells') {
+      hoverPickable = [...shellsParent.children];
+    } else if (sm === 'loads') {
+      raycaster.params.Line.threshold = 0.15;
+      hoverPickable = [...loadsParent.children];
+    } else if (sm === 'nodes') {
+      hoverPickable = [...nodesParent.children];
+    } else if (sm === 'supports') {
+      hoverPickable = [...supportsParent.children];
+    } else {
+      hoverPickable = [...nodesParent.children, ...elementsParent.children, ...supportsParent.children];
+    }
+    const hits = raycaster.intersectObjects(hoverPickable, true);
+    // Reset line threshold after loads hover
+    if (sm === 'loads') raycaster.params.Line.threshold = 1;
 
     let newHover: { type: string; id: number } | null = null;
     for (const hit of hits) {
@@ -1393,6 +1535,13 @@
       } else if (newHover.type === 'support') {
         const s = modelStore.supports.get(newHover.id);
         if (s) tooltipText = t('viewport3d.supportTooltip').replace('{id}', String(s.id)).replace('{type}', s.type);
+      } else if (newHover.type === 'plate') {
+        tooltipText = `Plate ${newHover.id}`;
+      } else if (newHover.type === 'quad') {
+        tooltipText = `Quad ${newHover.id}`;
+      } else if (newHover.type === 'load') {
+        const load = modelStore.loads[newHover.id];
+        if (load) tooltipText = `Load ${newHover.id + 1} [${load.type}]`;
       }
       if (tooltipText) {
         hoverTooltip = { text: tooltipText, x: e.clientX - rect.left + 15, y: e.clientY - rect.top - 10 };
@@ -1577,6 +1726,28 @@
         const selected = uiStore.selectedSupports.has(data.id);
         setGroupColor(gizmo, selected ? COLORS.elementSelected : COLORS.support);
       }
+    } else if (data.type === 'plate' || data.type === 'quad') {
+      const key = (data.type === 'plate' ? 'p' : 'q') + data.id;
+      const group = sceneCtx?.shellGroups.get(key);
+      if (group) {
+        const selected = uiStore.selectedElements.has(data.id);
+        setGroupColor(group, selected ? COLORS.elementSelected : 0x4ecdc4);
+        group.traverse((child: THREE.Object3D) => {
+          if (child instanceof THREE.Mesh && child.material instanceof THREE.MeshStandardMaterial) {
+            child.material.opacity = selected ? 0.85 : 0.45;
+            child.material.needsUpdate = true;
+          }
+        });
+      }
+    } else if (data.type === 'load') {
+      const loadGroup = loadsParent.children[0] as THREE.Group | undefined;
+      if (loadGroup) {
+        const child = loadGroup.children.find(c => c.userData?.type === 'load' && c.userData?.id === data.id);
+        if (child instanceof THREE.Group) {
+          const selected = uiStore.selectedLoads.has(data.id);
+          setGroupColor(child, selected ? COLORS.elementSelected : COLORS.load);
+        }
+      }
     }
   }
 
@@ -1596,6 +1767,24 @@
     } else if (data.type === 'support') {
       const gizmo = supportGizmos.get(data.id);
       if (gizmo) setGroupColor(gizmo, COLORS.elementHovered);
+    } else if (data.type === 'plate' || data.type === 'quad') {
+      const key = (data.type === 'plate' ? 'p' : 'q') + data.id;
+      const group = sceneCtx?.shellGroups.get(key);
+      if (group) {
+        setGroupColor(group, COLORS.elementHovered);
+        group.traverse((child: THREE.Object3D) => {
+          if (child instanceof THREE.Mesh && child.material instanceof THREE.MeshStandardMaterial) {
+            child.material.opacity = 0.75;
+            child.material.needsUpdate = true;
+          }
+        });
+      }
+    } else if (data.type === 'load') {
+      const loadGroup = loadsParent.children[0] as THREE.Group | undefined;
+      if (loadGroup) {
+        const child = loadGroup.children.find(c => c.userData?.type === 'load' && c.userData?.id === data.id);
+        if (child instanceof THREE.Group) setGroupColor(child, COLORS.elementHovered);
+      }
     }
   }
 

@@ -136,7 +136,7 @@
     selectedRowIdx = idx;
     const row = rows[idx];
     if (row.id !== null) {
-      // Select node in viewport
+      uiStore.selectMode = 'nodes';
       uiStore.setSelection(new Set([row.id]), new Set());
     }
   }
@@ -360,12 +360,18 @@
     border-bottom: 1px solid #0f2030;
   }
 
-  .pro-nodes-table tr:hover {
-    background: rgba(78, 205, 196, 0.04);
+  .pro-nodes-table tbody tr {
+    cursor: pointer;
+    transition: background 0.1s;
+  }
+
+  .pro-nodes-table tbody tr:hover {
+    background: rgba(78, 205, 196, 0.08);
   }
 
   .pro-nodes-table tr.selected {
-    background: rgba(78, 205, 196, 0.1);
+    background: rgba(78, 205, 196, 0.18);
+    box-shadow: inset 3px 0 0 #4ecdc4;
   }
 
   .pro-nodes-table tr.unsaved td {

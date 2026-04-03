@@ -20,9 +20,19 @@ export interface CalcReportConfig {
   notes: string;
 }
 
+export type ResultProvenance =
+  | { kind: 'single'; caseName?: string }
+  | { kind: 'combo'; comboName: string }
+  | { kind: 'envelope' };
+
+export type AnalysisModeLabel = '2D' | '3D' | 'PRO';
+
 export interface CalcReportData {
   config: CalcReportConfig;
   is3D: boolean;
+  analysisMode: AnalysisModeLabel;
+  provenance: ResultProvenance;
+  hasDesignChecks: boolean;
   // Model
   nodes: Node[];
   elements: Element[];
@@ -94,6 +104,15 @@ const CALC_REPORT_CSS = `
   /* Governing highlight */
   .governing { background: #fff8e0; font-weight: 600; }
 
+  /* Report metadata block */
+  .report-meta { border: 1px solid #c0cdd8; border-radius: 6px; margin: 0 0 16px; overflow: hidden; }
+  .report-meta table { margin: 0; border: none; font-size: 9pt; }
+  .report-meta th { background: #f0f4f8; border: none; border-bottom: 1px solid #ddd; width: 140px; font-size: 8pt; text-transform: uppercase; letter-spacing: 0.04em; color: #666; vertical-align: top; padding: 6px 12px; }
+  .report-meta td { border: none; border-bottom: 1px solid #eee; padding: 6px 12px; color: #222; }
+  .report-meta tr:last-child th, .report-meta tr:last-child td { border-bottom: none; }
+  .report-meta .meta-note { font-size: 7.5pt; color: #888; margin-top: 2px; }
+  .report-meta .meta-warn { font-size: 7.5pt; color: #a05020; font-weight: 600; margin-top: 2px; }
+
   /* TOC */
   .toc a { color: #1a4a7a; text-decoration: none; }
   .toc a:hover { text-decoration: underline; }
@@ -104,6 +123,38 @@ const CALC_REPORT_CSS = `
   .eq-ok { background: #e6f9e6; color: #2a7a2a; }
   .eq-warn { background: #fff3cd; color: #856404; }
 `;
+
+// ─── Report Metadata Block ────────────────────────────────────────
+
+function buildReportMetadata(data: CalcReportData): string {
+  // Result basis
+  let basisLabel: string;
+  let basisNote: string;
+  const prov = data.provenance;
+  if (prov.kind === 'envelope') {
+    basisLabel = 'Envelope of all load combinations';
+    basisNote = 'Peak absolute values across all combinations. They do not necessarily occur simultaneously. Do not use envelope values directly for member design without checking the governing combination.';
+  } else if (prov.kind === 'combo') {
+    basisLabel = esc(prov.comboName);
+    basisNote = 'Results correspond to a single load combination. Other combinations may govern for different members or checks.';
+  } else {
+    basisLabel = prov.caseName ? esc(prov.caseName) : 'Single analysis';
+    basisNote = 'Results without load combination factors. These are not design values.';
+  }
+
+  // Report type — always "Analysis Only" until design-check tables are
+  // actually rendered in the report body.  hasDesignChecks is kept in the
+  // data interface so this gate can flip once that section exists.
+  const reportType = 'Analysis Only';
+  const typeNote = 'This report does not include design code checks. The absence of design checks does not imply that members are adequate.';
+  const typeNoteClass = 'meta-warn';
+
+  const h: string[] = ['<div class="report-meta"><table>'];
+  h.push(`<tr><th>Report type</th><td>${reportType}<div class="${typeNoteClass}">${typeNote}</div></td></tr>`);
+  h.push(`<tr><th>Result basis</th><td>${basisLabel}<div class="meta-note">${basisNote}</div></td></tr>`);
+  h.push('</table></div>');
+  return h.join('\n');
+}
 
 // ─── Table of Contents ───────────────────────────────────────────
 
@@ -118,12 +169,12 @@ function buildTOC(sections: Array<{ num: string; title: string; anchor: string }
 
 // ─── Section: Cover ──────────────────────────────────────────────
 
-function buildCover(cfg: CalcReportConfig, is3D: boolean, nodeCount: number, elemCount: number): string {
+function buildCover(cfg: CalcReportConfig, modeLabel: AnalysisModeLabel, nodeCount: number, elemCount: number): string {
   const h: string[] = ['<div class="page cover">'];
   if (cfg.companyName) h.push(`<div style="font-size:11pt;color:#555;letter-spacing:2px;text-transform:uppercase;margin-bottom:24px">${esc(cfg.companyName)}</div>`);
   h.push(`<h1 style="border:none;font-size:24pt">${esc(cfg.projectName || 'Structural Analysis')}</h1>`);
   h.push(`<div class="subtitle">Structural Calculation Report</div>`);
-  h.push(`<div class="subtitle">${is3D ? '3D' : '2D'} Analysis &mdash; ${nodeCount} nodes, ${elemCount} elements</div>`);
+  h.push(`<div class="subtitle">${modeLabel} Analysis &mdash; ${nodeCount} nodes, ${elemCount} elements</div>`);
   h.push('<div class="meta">');
   if (cfg.engineerName) h.push(`<div>Engineer: ${esc(cfg.engineerName)}</div>`);
   h.push(`<div>Date: ${esc(cfg.date)}</div>`);
@@ -431,8 +482,11 @@ export function generateCalcReportHtml(data: CalcReportData): string {
 <button class="print-btn no-print" onclick="window.print()">Print / PDF</button>
 `);
 
-  html.push(buildCover(data.config, data.is3D, data.nodes.length, data.elements.length));
+  html.push(buildCover(data.config, data.analysisMode, data.nodes.length, data.elements.length));
   html.push(buildTOC(sections));
+  html.push('<div class="page">');
+  html.push(buildReportMetadata(data));
+  html.push('</div>');
   html.push(buildModelSection(data));
   html.push(buildLoadsSection(data));
   html.push(buildReactionsSection(data));

@@ -458,13 +458,16 @@ export function syncSelection(ctx: SceneSyncContext): void {
     setMeshColor(mesh, color);
   }
 
-  // Elements
+  // Elements — disambiguate overlapping IDs between frame/truss and shell entities.
   const wireframe = uiStore.renderMode3D === 'wireframe';
+  const shellMode = uiStore.selectMode === 'shells';
   for (const [id, group] of ctx.elementGroups) {
-    const selected = uiStore.selectedElements.has(id);
     const elem = modelStore.elements.get(id);
+    const inSelSet = uiStore.selectedElements.has(id);
+    // If the ID exists in both elements and plates/quads, use selectMode to disambiguate.
+    const isAlsoShell = modelStore.plates.has(id) || modelStore.quads.has(id);
+    const selected = inSelSet && !(isAlsoShell && shellMode);
     const isTruss = elem?.type === 'truss';
-    // Use brightened colors in wireframe mode for grid contrast
     const baseColor = wireframe
       ? (isTruss ? 0xf0b848 : 0x6cb4ff)
       : (isTruss ? COLORS.truss : COLORS.frame);
@@ -477,6 +480,33 @@ export function syncSelection(ctx: SceneSyncContext): void {
     const selected = uiStore.selectedSupports.has(id);
     const color = selected ? COLORS.elementSelected : COLORS.support;
     setGroupColor(gizmo, color);
+  }
+
+  // Shells (plates + quads) — boost opacity when selected for legibility
+  for (const [key, group] of ctx.shellGroups) {
+    const numId = parseInt(key.slice(1), 10);
+    const inSelSet = uiStore.selectedElements.has(numId);
+    const isAlsoElem = modelStore.elements.has(numId);
+    const selected = inSelSet && !(isAlsoElem && !shellMode);
+    setGroupColor(group, selected ? COLORS.elementSelected : 0x4ecdc4);
+    group.traverse((child) => {
+      if (child instanceof THREE.Mesh && child.material instanceof THREE.MeshStandardMaterial) {
+        child.material.opacity = selected ? 0.85 : 0.45;
+        child.material.needsUpdate = true;
+      }
+    });
+  }
+
+  // Loads — use userData.id (model array index) for matching, not visual child index
+  const loadGroup = ctx.loadsParent.children[0] as THREE.Group | undefined;
+  if (loadGroup) {
+    for (const child of loadGroup.children) {
+      if (child instanceof THREE.Group && child.userData?.type === 'load') {
+        const modelIdx = child.userData.id as number;
+        const selected = uiStore.selectedLoads.has(modelIdx);
+        setGroupColor(child, selected ? COLORS.elementSelected : COLORS.load);
+      }
+    }
   }
 
   // Re-apply color map if active (syncSelection overwrites element colors)

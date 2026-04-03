@@ -27,6 +27,9 @@ export interface DedalFile {
   name: string;
   timestamp: string;
   snapshot: ModelSnapshot;
+  /** App mode the project was saved in ('basico' | 'educativo' | 'pro').
+   *  Absent in legacy saves — treat as 'basico' for safe restore. */
+  appMode?: 'basico' | 'educativo' | 'pro';
 }
 
 export interface DedalSessionFile {
@@ -63,6 +66,7 @@ export function serializeProject(): string {
     name: modelStore.model.name,
     timestamp: new Date().toISOString(),
     snapshot: modelStore.snapshot(),
+    appMode: uiStore.appMode,
   };
   return JSON.stringify(data, null, 2);
 }

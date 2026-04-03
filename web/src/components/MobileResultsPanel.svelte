@@ -2,7 +2,7 @@
   import { uiStore, resultsStore, modelStore } from '../lib/store';
   import { t } from '../lib/i18n';
 
-  const is3D = $derived(uiStore.analysisMode === '3d');
+  const is3D = $derived(uiStore.analysisMode === '3d' || uiStore.analysisMode === 'pro');
   const hasResults = $derived(resultsStore.results !== null || resultsStore.results3D !== null);
   const hasModel = $derived(modelStore.nodes.size > 0);
 
@@ -29,8 +29,8 @@
   }
 </script>
 
-<!-- Toggle button — always visible on mobile when panel is closed -->
-{#if uiStore.isMobile && !uiStore.mobileResultsPanelOpen}
+<!-- Toggle button — visible on mobile in Basic mode only (PRO has its own toolbar button) -->
+{#if uiStore.isMobile && !uiStore.mobileResultsPanelOpen && uiStore.appMode === 'basico'}
   <button
     class="mrp-reopen"
     style="top: {uiStore.floatingToolsTopOffset}px"
@@ -44,9 +44,9 @@
   </button>
 {/if}
 
-<!-- Floating results panel -->
-{#if uiStore.isMobile && uiStore.mobileResultsPanelOpen}
-  <div class="mrp-panel" style="top: {uiStore.floatingToolsTopOffset}px">
+<!-- Floating results panel — Basic and PRO mobile -->
+{#if uiStore.isMobile && uiStore.mobileResultsPanelOpen && (uiStore.appMode === 'basico' || uiStore.appMode === 'pro')}
+  <div class="mrp-panel" class:mrp-pro={uiStore.appMode === 'pro'} style="top: {uiStore.appMode === 'pro' ? 4 : uiStore.floatingToolsTopOffset}px">
     <div class="mrp-header">
       <span class="mrp-title">{t('mobile.results')}</span>
       <button class="mrp-close" onclick={() => uiStore.mobileResultsPanelOpen = false}>&times;</button>
@@ -54,7 +54,7 @@
     <div class="mrp-body">
       <!-- Solve button — always present -->
       <button class="mrp-solve" onclick={handleSolve} disabled={!hasModel}>
-        {is3D ? t('results.solve3d') : t('results.solve')}
+        {uiStore.appMode === 'pro' ? t('pro.solve') : is3D ? t('results.solve3d') : t('results.solve')}
       </button>
 
       {#if hasResults}
@@ -77,6 +77,9 @@
             <button class="mrp-btn" class:active={resultsStore.diagramType === 'torsion'} onclick={() => resultsStore.diagramType = 'torsion'}>{t('results.torsion')}</button>
             <button class="mrp-btn" class:active={resultsStore.diagramType === 'axialColor'} onclick={() => resultsStore.diagramType = 'axialColor'}>{t('results.axialColors')}</button>
             <button class="mrp-btn" class:active={resultsStore.diagramType === 'colorMap'} onclick={() => resultsStore.diagramType = 'colorMap'}>{t('results.colorMap')}</button>
+            {#if uiStore.appMode === 'pro'}
+              <button class="mrp-btn" class:active={resultsStore.diagramType === 'verification'} onclick={() => resultsStore.diagramType = 'verification'}>{t('results.verification') !== 'results.verification' ? t('results.verification') : 'Verification'}</button>
+            {/if}
           {/if}
         </div>
 
@@ -180,6 +183,11 @@
     flex-direction: column;
     overflow: hidden;
     animation: mrp-slide-in 0.2s ease;
+  }
+
+  /* PRO mode: tight upper-left anchoring under the PRO mobile toolbar */
+  .mrp-panel.mrp-pro {
+    left: 4px;
   }
 
   @keyframes mrp-slide-in {

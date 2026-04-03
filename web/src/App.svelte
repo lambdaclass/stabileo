@@ -133,7 +133,7 @@
   // the target mode's model (or start empty if first visit to that mode).
   import type { ModelSnapshot } from './lib/store/history.svelte';
   const modeSnapshots = new Map<AppMode, ModelSnapshot>();
-  let currentAppMode: AppMode = typeof window !== 'undefined' ? pathToMode(location.pathname) : 'basico';
+  let currentAppMode = $state<AppMode>(typeof window !== 'undefined' ? pathToMode(location.pathname) : 'basico');
 
   function switchAppMode(target: AppMode) {
     const prev = currentAppMode;
@@ -162,6 +162,7 @@
       resultsStore.showReactions = false;
     } else {
       uiStore.analysisMode = 'pro';
+      uiStore.includeSelfWeight = true;
       resultsStore.showReactions = false;
       resultsStore.showConstraintForces = false;
     }
@@ -178,22 +179,26 @@
 
   // Derive showResults from whether results exist — no manual management needed
   const showResults = $derived(resultsStore.results !== null || resultsStore.results3D !== null);
-  let showAutosaveBanner = $state(false);
   let showImportDialog = $state(false);
   let importText = $state('');
   let autosaveData = $state<ReturnType<typeof loadFromLocalStorage>>(null);
+  /** True once the user has explicitly Restored or Discarded the pending save. */
+  let autosaveDismissed = $state(false);
   let autosaveInterval: ReturnType<typeof setInterval> | null = null;
+
+  /** Banner visibility: autosave exists, mode matches, user hasn't dismissed,
+   *  and the user hasn't started editing a different project. */
+  const showAutosaveBanner = $derived.by(() => {
+    if (!autosaveData || autosaveDismissed) return false;
+    const savedMode = autosaveData.appMode ?? 'basico';
+    if (savedMode !== currentAppMode) return false;
+    if (modelStore.nodes.size > 0 && modelStore.model.name !== autosaveData.name) return false;
+    return true;
+  });
 
   // Keep <html lang> in sync with selected locale
   $effect(() => {
     document.documentElement.lang = t('file.htmlLang');
-  });
-
-  $effect(() => {
-    if (!showAutosaveBanner || !autosaveData) return;
-    if (modelStore.nodes.size > 0 && modelStore.model.name !== autosaveData.name) {
-      showAutosaveBanner = false;
-    }
   });
 
   function restoreAutosave() {
@@ -202,12 +207,12 @@
       modelStore.model.name = autosaveData.name;
       resultsStore.clear();
     }
-    showAutosaveBanner = false;
+    autosaveDismissed = true;
   }
 
   function discardAutosave() {
     clearLocalStorage();
-    showAutosaveBanner = false;
+    autosaveDismissed = true;
   }
 
 
@@ -235,6 +240,78 @@
     importText = '';
   }
 
+  function handleProKeydown(e: KeyboardEvent) {
+    if (uiStore.appMode !== 'pro') return;
+    // Skip if focus is in an input/textarea/select
+    const tag = (e.target as HTMLElement)?.tagName;
+    if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') return;
+
+    // Ctrl/Cmd+Z: Undo
+    const key = e.key.toUpperCase();
+    if ((e.ctrlKey || e.metaKey) && key === 'Z' && !e.shiftKey) {
+      e.preventDefault();
+      historyStore.undo();
+      return;
+    }
+    // Ctrl/Cmd+Y or Ctrl/Cmd+Shift+Z: Redo
+    if ((e.ctrlKey || e.metaKey) && (key === 'Y' || (key === 'Z' && e.shiftKey))) {
+      e.preventDefault();
+      historyStore.redo();
+      return;
+    }
+
+    if (e.key === 'Delete' || e.key === 'Backspace') {
+      if (uiStore.selectedSupports.size > 0) {
+        const sups = [...uiStore.selectedSupports];
+        modelStore.batch(() => { for (const id of sups) modelStore.removeSupport(id); });
+        uiStore.clearSelectedSupports();
+        resultsStore.clear();
+        return;
+      }
+      if (uiStore.selectedLoads.size > 0) {
+        const indices = [...uiStore.selectedLoads].sort((a, b) => b - a);
+        modelStore.batch(() => {
+          for (const idx of indices) {
+            const load = modelStore.loads[idx];
+            if (load) modelStore.removeLoad(load.data.id);
+          }
+        });
+        uiStore.clearSelectedLoads();
+        resultsStore.clear();
+        return;
+      }
+      if (uiStore.selectedNodes.size > 0 || uiStore.selectedElements.size > 0) {
+        const nodes = [...uiStore.selectedNodes];
+        const elems = [...uiStore.selectedElements];
+        const shellMode = uiStore.selectMode === 'shells';
+        modelStore.batch(() => {
+          for (const id of nodes) modelStore.removeNode(id);
+          for (const id of elems) {
+            const isShell = modelStore.plates.has(id) || modelStore.quads.has(id);
+            const isElem = modelStore.elements.has(id);
+            if (isShell && isElem) {
+              // Ambiguous ID — use selectMode to decide
+              if (shellMode) {
+                if (modelStore.plates.has(id)) modelStore.removePlate(id);
+                else modelStore.removeQuad(id);
+              } else {
+                modelStore.removeElement(id);
+              }
+            } else if (isShell) {
+              if (modelStore.plates.has(id)) modelStore.removePlate(id);
+              else modelStore.removeQuad(id);
+            } else if (isElem) {
+              modelStore.removeElement(id);
+            }
+          }
+        });
+        uiStore.clearSelection();
+        resultsStore.clear();
+        return;
+      }
+    }
+  }
+
   function handleExportPNG() {
     const canvas = document.querySelector('.viewport-container canvas') as HTMLCanvasElement | null;
     if (canvas) downloadCanvasPNG(canvas);
@@ -246,6 +323,7 @@
       uiStore.analysisMode = 'edu';
     } else if (currentAppMode === 'pro') {
       uiStore.analysisMode = 'pro';
+      uiStore.includeSelfWeight = true;
     } else {
       uiStore.analysisMode = '2d';
     }
@@ -310,12 +388,16 @@
         currentAppMode = uiStore.appMode;
         replaceAppUrl(currentAppMode, modelStore.model.name);
         autosaveData = null;
-        showAutosaveBanner = false;
       }
 
-      autosaveData = loadFromLocalStorage();
-      if (!savedWorkspace && autosaveData && autosaveData.snapshot.nodes.length > 0) {
-        showAutosaveBanner = true;
+      // Load autosave data if no workspace was restored.
+      // Banner visibility is derived — it checks mode match, dismiss state,
+      // and whether the user has started editing a different project.
+      if (!savedWorkspace) {
+        const loaded = loadFromLocalStorage();
+        if (loaded && loaded.snapshot.nodes.length > 0) {
+          autosaveData = loaded;
+        }
       }
     }
 
@@ -405,6 +487,21 @@
   let proExBtnEl = $state<HTMLButtonElement | undefined>(undefined);
   let proSettingsOpen = $state(false);
 
+  // PRO toolbar dropdown state
+  type ProDropdown = null | 'select' | 'geometry' | 'properties' | 'conditions' | 'analysis';
+  let openDropdown = $state<ProDropdown>(null);
+
+  function toggleDropdown(dd: ProDropdown) {
+    openDropdown = openDropdown === dd ? null : dd;
+  }
+
+  /** Close dropdown when clicking outside the toolbar. */
+  function handleProBarClickOutside(e: MouseEvent) {
+    if (openDropdown && !(e.target as HTMLElement)?.closest('.pro-bar')) {
+      openDropdown = null;
+    }
+  }
+
   function startProResize(e: MouseEvent) {
     e.preventDefault();
     const startX = e.clientX;
@@ -438,6 +535,8 @@
   }
 </script>
 
+<svelte:window onkeydown={handleProKeydown} onclick={handleProBarClickOutside} />
+
 {#if showLanding}
   <LandingPage />
 {/if}
@@ -449,13 +548,21 @@
         <span class="logo-icon">△</span>
         <span class="logo-text">Stabileo</span>
       </button>
-      <div class="mode-toggle" data-tour="mode-toggle">
-        <button class:active={uiStore.appMode === 'basico'} onclick={() => switchAppMode('basico')}>
-          {t('app.modeBasic')}
-        </button>
-        <button class:active={uiStore.appMode === 'educativo'} class="edu-mode-btn" onclick={() => switchAppMode('educativo')}>{t('app.modeEdu')}<span class="demo-badge">Beta</span></button>
-        <button class:active={uiStore.appMode === 'pro'} class="pro-mode-btn" onclick={() => switchAppMode('pro')}>{t('app.modePro')}<span class="demo-badge">Beta</span></button>
-      </div>
+      {#if uiStore.isMobile}
+        <select class="mode-select-mobile" value={uiStore.appMode} onchange={(e) => switchAppMode(e.currentTarget.value as AppMode)}>
+          <option value="basico">{t('app.modeBasic')}</option>
+          <option value="educativo">{t('app.modeEdu')} (Beta)</option>
+          <option value="pro">{t('app.modePro')} (Beta)</option>
+        </select>
+      {:else}
+        <div class="mode-toggle" data-tour="mode-toggle">
+          <button class:active={uiStore.appMode === 'basico'} onclick={() => switchAppMode('basico')}>
+            {t('app.modeBasic')}
+          </button>
+          <button class:active={uiStore.appMode === 'educativo'} class="edu-mode-btn" onclick={() => switchAppMode('educativo')}>{t('app.modeEdu')}<span class="demo-badge">Beta</span></button>
+          <button class:active={uiStore.appMode === 'pro'} class="pro-mode-btn" onclick={() => switchAppMode('pro')}>{t('app.modePro')}<span class="demo-badge">Beta</span></button>
+        </div>
+      {/if}
     </div>
     <span class="separator">|</span>
     <TabBar />
@@ -505,18 +612,90 @@
     {/if}
 
     {#if uiStore.appMode === 'pro' && !uiStore.isMobile}
-      <nav class="pro-nav-strip">
-        <div class="pro-nav-groups">
-          <div class="pn-group"><span class="pn-label">{t('pro.groupGeometry')}</span><button class="pn-tab" class:active={uiStore.proActiveTab === 'nodes'} onclick={() => { uiStore.proActiveTab = 'nodes'; }}>{t('pro.tabNodes')}</button><button class="pn-tab" class:active={uiStore.proActiveTab === 'elements'} onclick={() => { uiStore.proActiveTab = 'elements'; }}>{t('pro.tabElements')}</button><button class="pn-tab" class:active={uiStore.proActiveTab === 'shells'} onclick={() => { uiStore.proActiveTab = 'shells'; }}>{t('pro.tabShells')}</button></div>
-          <div class="pn-group"><span class="pn-label">{t('pro.groupProperties')}</span><button class="pn-tab" class:active={uiStore.proActiveTab === 'materials'} onclick={() => { uiStore.proActiveTab = 'materials'; }}>{t('pro.tabMaterials')}</button><button class="pn-tab" class:active={uiStore.proActiveTab === 'sections'} onclick={() => { uiStore.proActiveTab = 'sections'; }}>{t('pro.tabSections')}</button></div>
-          <div class="pn-group"><span class="pn-label">{t('pro.groupConditions')}</span><button class="pn-tab" class:active={uiStore.proActiveTab === 'supports'} onclick={() => { uiStore.proActiveTab = 'supports'; }}>{t('pro.tabSupports')}</button><button class="pn-tab" class:active={uiStore.proActiveTab === 'constraints'} onclick={() => { uiStore.proActiveTab = 'constraints'; }}>{t('pro.tabConstraints')}</button><button class="pn-tab" class:active={uiStore.proActiveTab === 'loads'} onclick={() => { uiStore.proActiveTab = 'loads'; }}>{t('pro.tabLoads')}</button></div>
-          <div class="pn-group"><span class="pn-label">{t('pro.groupAnalysis')}</span><button class="pn-tab" class:active={uiStore.proActiveTab === 'advanced'} onclick={() => { uiStore.proActiveTab = 'advanced'; }}>{t('pro.tabAdvanced')}</button><button class="pn-tab" class:active={uiStore.proActiveTab === 'results'} onclick={() => { uiStore.proActiveTab = 'results'; }}>{t('pro.tabResults')}</button><button class="pn-tab" class:active={uiStore.proActiveTab === 'design'} onclick={() => { uiStore.proActiveTab = 'design'; }}>{t('pro.tabDesign')}</button><button class="pn-tab" class:active={uiStore.proActiveTab === 'verification'} onclick={() => { uiStore.proActiveTab = 'verification'; }}>{t('pro.tabVerification')}</button><button class="pn-tab" class:active={uiStore.proActiveTab === 'connections'} onclick={() => { uiStore.proActiveTab = 'connections'; }}>{t('pro.tabConnections')}</button><button class="pn-tab" class:active={uiStore.proActiveTab === 'diagnostics'} onclick={() => { uiStore.proActiveTab = 'diagnostics'; }}>{t('pro.tabDiagnostics')}</button></div>
+      <!-- svelte-ignore a11y_no_static_element_interactions -->
+      <nav class="pro-bar" onclick={(e) => e.stopPropagation()}>
+        <!-- Pan -->
+        <button class="pb-tool" class:active={uiStore.currentTool === 'pan'} onclick={() => { uiStore.currentTool = 'pan'; openDropdown = null; }} title="{t('float.pan')} (H)">✋</button>
+        <!-- Select with dropdown -->
+        <!-- Undo / Redo -->
+        <button class="pb-undo" onclick={() => historyStore.undo()} disabled={!historyStore.canUndo} title="{t('toolbar.undo')} ({navigator?.platform?.includes('Mac') ? '⌘' : 'Ctrl'}+Z)">↶</button>
+        <button class="pb-undo" onclick={() => historyStore.redo()} disabled={!historyStore.canRedo} title="{t('toolbar.redo')} ({navigator?.platform?.includes('Mac') ? '⌘' : 'Ctrl'}+Y)">↷</button>
+        <div class="pb-dd-wrap">
+          <button class="pb-tool" class:active={uiStore.currentTool === 'select'} onclick={() => { uiStore.currentTool = 'select'; toggleDropdown('select'); }}>↖ <span class="pb-caret">▾</span></button>
+          {#if openDropdown === 'select'}
+            <div class="pb-dropdown">
+              {#each [
+                { id: 'nodes', key: 'float.selectNodes' },
+                { id: 'elements', key: 'float.selectElements' },
+                { id: 'shells', key: 'float.selectShells' },
+                { id: 'supports', key: 'float.selectSupports' },
+                { id: 'loads', key: 'float.selectLoads' },
+              ] as const as sm}
+                <button class="pb-dd-item" class:active={uiStore.selectMode === sm.id} onclick={() => { uiStore.selectMode = sm.id; openDropdown = null; }}>{t(sm.key)}</button>
+              {/each}
+            </div>
+          {/if}
         </div>
-        <div class="pn-actions">
-          <button class="pn-action pn-example" bind:this={proExBtnEl} onclick={() => proPanelRef?.examples(proExBtnEl)}>{t('pro.exampleBtn')}</button>
-          <button class="pn-action pn-solve" onclick={() => proPanelRef?.solve()} disabled={!proPanelRef?.canSolve()}>{proPanelRef?.isSolving() ? t('pro.solving') : t('pro.solve')}</button>
-          <button class="pn-action pn-report" onclick={() => proPanelRef?.report()} disabled={!proPanelRef?.canReport()}>{t('pro.reportBtn')}</button>
+
+        <span class="pb-divider"></span>
+
+        <!-- Geometry -->
+        <div class="pb-dd-wrap">
+          <button class="pb-group" class:group-active={['nodes','elements','shells'].includes(uiStore.proActiveTab)} onclick={() => toggleDropdown('geometry')}>{t('pro.groupGeometry')} <span class="pb-caret">▾</span></button>
+          {#if openDropdown === 'geometry'}
+            <div class="pb-dropdown">
+              <button class="pb-dd-item" class:active={uiStore.proActiveTab === 'nodes'} onclick={() => { uiStore.proActiveTab = 'nodes'; openDropdown = null; }}>{t('pro.tabNodes')}</button>
+              <button class="pb-dd-item" class:active={uiStore.proActiveTab === 'elements'} onclick={() => { uiStore.proActiveTab = 'elements'; openDropdown = null; }}>{t('pro.tabElements')}</button>
+              <button class="pb-dd-item" class:active={uiStore.proActiveTab === 'shells'} onclick={() => { uiStore.proActiveTab = 'shells'; openDropdown = null; }}>{t('pro.tabShells')}</button>
+            </div>
+          {/if}
         </div>
+        <!-- Properties -->
+        <div class="pb-dd-wrap">
+          <button class="pb-group" class:group-active={['materials','sections'].includes(uiStore.proActiveTab)} onclick={() => toggleDropdown('properties')}>{t('pro.groupProperties')} <span class="pb-caret">▾</span></button>
+          {#if openDropdown === 'properties'}
+            <div class="pb-dropdown">
+              <button class="pb-dd-item" class:active={uiStore.proActiveTab === 'materials'} onclick={() => { uiStore.proActiveTab = 'materials'; openDropdown = null; }}>{t('pro.tabMaterials')}</button>
+              <button class="pb-dd-item" class:active={uiStore.proActiveTab === 'sections'} onclick={() => { uiStore.proActiveTab = 'sections'; openDropdown = null; }}>{t('pro.tabSections')}</button>
+            </div>
+          {/if}
+        </div>
+        <!-- Conditions -->
+        <div class="pb-dd-wrap">
+          <button class="pb-group" class:group-active={['supports','constraints','loads'].includes(uiStore.proActiveTab)} onclick={() => toggleDropdown('conditions')}>{t('pro.groupConditions')} <span class="pb-caret">▾</span></button>
+          {#if openDropdown === 'conditions'}
+            <div class="pb-dropdown">
+              <button class="pb-dd-item" class:active={uiStore.proActiveTab === 'supports'} onclick={() => { uiStore.proActiveTab = 'supports'; openDropdown = null; }}>{t('pro.tabSupports')}</button>
+              <button class="pb-dd-item" class:active={uiStore.proActiveTab === 'constraints'} onclick={() => { uiStore.proActiveTab = 'constraints'; openDropdown = null; }}>{t('pro.tabConstraints')}</button>
+              <button class="pb-dd-item" class:active={uiStore.proActiveTab === 'loads'} onclick={() => { uiStore.proActiveTab = 'loads'; openDropdown = null; }}>{t('pro.tabLoads')}</button>
+            </div>
+          {/if}
+        </div>
+        <!-- Analysis -->
+        <div class="pb-dd-wrap">
+          <button class="pb-group" class:group-active={['advanced','results','design','verification','connections','diagnostics'].includes(uiStore.proActiveTab)} onclick={() => toggleDropdown('analysis')}>{t('pro.groupAnalysis')} <span class="pb-caret">▾</span></button>
+          {#if openDropdown === 'analysis'}
+            <div class="pb-dropdown">
+              <button class="pb-dd-item" class:active={uiStore.proActiveTab === 'advanced'} onclick={() => { uiStore.proActiveTab = 'advanced'; openDropdown = null; }}>{t('pro.tabAdvanced')}</button>
+              <button class="pb-dd-item" class:active={uiStore.proActiveTab === 'results'} onclick={() => { uiStore.proActiveTab = 'results'; openDropdown = null; }}>{t('pro.tabResults')}</button>
+              <button class="pb-dd-item" class:active={uiStore.proActiveTab === 'design'} onclick={() => { uiStore.proActiveTab = 'design'; openDropdown = null; }}>{t('pro.tabDesign')}</button>
+              <button class="pb-dd-item" class:active={uiStore.proActiveTab === 'verification'} onclick={() => { uiStore.proActiveTab = 'verification'; openDropdown = null; }}>{t('pro.tabVerification')}</button>
+              <button class="pb-dd-item" class:active={uiStore.proActiveTab === 'connections'} onclick={() => { uiStore.proActiveTab = 'connections'; openDropdown = null; }}>{t('pro.tabConnections')}</button>
+              <button class="pb-dd-item" class:active={uiStore.proActiveTab === 'diagnostics'} onclick={() => { uiStore.proActiveTab = 'diagnostics'; openDropdown = null; }}>{t('pro.tabDiagnostics')}</button>
+            </div>
+          {/if}
+        </div>
+
+        <span class="pb-divider"></span>
+
+        <!-- Actions -->
+        <button class="pn-action pn-example" bind:this={proExBtnEl} onclick={() => proPanelRef?.examples(proExBtnEl)}>{t('pro.exampleBtn')}</button>
+        <button class="pn-action pn-solve" onclick={() => proPanelRef?.solve()} disabled={!proPanelRef?.canSolve()}>{proPanelRef?.isSolving() ? t('pro.solving') : t('pro.solve')}</button>
+        <button class="pn-action pn-report" onclick={() => proPanelRef?.report()} disabled={!proPanelRef?.canReport()}>{t('pro.reportBtn')}</button>
+
+        <span class="pb-spacer"></span>
+
+        <!-- Controls -->
         <button class="pn-toggle" onclick={() => { uiStore.proPanelVisible = !uiStore.proPanelVisible; setTimeout(() => window.dispatchEvent(new Event('resize')), 50); }} title={uiStore.proPanelVisible ? 'Hide panel' : 'Show panel'}>{uiStore.proPanelVisible ? '\u25E5' : '\u25E3'}</button>
         <button class="pn-toggle pn-settings-gear" onclick={() => proSettingsOpen = !proSettingsOpen} title={t('config.title')}>&#9881;</button>
         {#if proSettingsOpen}
@@ -525,6 +704,32 @@
           </div>
         {/if}
       </nav>
+    {/if}
+
+    {#if uiStore.appMode === 'pro' && uiStore.isMobile}
+      <div class="pro-mobile-toolbar">
+        <button class="pmt-btn" class:active={uiStore.currentTool === 'pan'} onclick={() => uiStore.currentTool = 'pan'}>✋</button>
+        <button class="pmt-btn pmt-undo" onclick={() => historyStore.undo()} disabled={!historyStore.canUndo}>↶</button>
+        <button class="pmt-btn pmt-undo" onclick={() => historyStore.redo()} disabled={!historyStore.canRedo}>↷</button>
+        <button class="pmt-btn pmt-results" class:active={uiStore.mobileResultsPanelOpen} onclick={() => uiStore.mobileResultsPanelOpen = !uiStore.mobileResultsPanelOpen} title="Results & Solve">
+          <svg viewBox="0 0 24 24" width="16" height="16" fill="none">
+            <line x1="2" y1="17" x2="22" y2="17" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"/>
+            <path d="M2,17 Q7,5 12,17 Q17,5 22,17" stroke="#e94560" stroke-width="1.8" fill="none"/>
+          </svg>
+        </button>
+        <button class="pmt-btn" class:active={uiStore.currentTool === 'select'} onclick={() => uiStore.currentTool = 'select'}>↖</button>
+        {#if uiStore.currentTool === 'select'}
+          {#each [
+            { id: 'nodes', key: 'float.selectNodes' },
+            { id: 'elements', key: 'float.selectElements' },
+            { id: 'shells', key: 'float.selectShells' },
+            { id: 'supports', key: 'float.selectSupports' },
+            { id: 'loads', key: 'float.selectLoads' },
+          ] as const as sm}
+            <button class="pmt-sel" class:active={uiStore.selectMode === sm.id} onclick={() => uiStore.selectMode = sm.id}>{t(sm.key)}</button>
+          {/each}
+        {/if}
+      </div>
     {/if}
 
     <div class="app-body-inner" class:pro-body-row={uiStore.appMode === 'pro'}>
@@ -919,52 +1124,92 @@
     flex-shrink: 0;
   }
 
-  /* ─── PRO top navigation strip ─── */
-  .pro-nav-strip {
+  /* ─── PRO command bar with dropdowns ─── */
+  .pro-bar {
     position: relative;
     display: flex;
     align-items: center;
+    gap: 3px;
     background: #0a1a30;
     border-bottom: 1px solid #1a4a7a;
-    padding: 3px 6px 0;
+    padding: 5px 10px;
     flex-shrink: 0;
     width: 100%;
   }
-  .pro-nav-groups {
-    display: flex;
-    flex-wrap: wrap;
-    flex: 1;
-    gap: 0;
-  }
-  .pn-group {
-    display: flex;
-    align-items: center;
-    gap: 1px;
-    padding: 2px 4px;
-  }
-  .pn-label {
-    font-size: 0.5rem;
-    font-weight: 600;
-    color: #556;
-    text-transform: uppercase;
-    letter-spacing: 0.04em;
-    padding-right: 3px;
-    white-space: nowrap;
-  }
-  .pn-tab {
-    padding: 4px 8px;
-    font-size: 0.72rem;
-    font-weight: 500;
-    color: #778;
-    background: #0f2840;
-    border: none;
-    border-radius: 3px 3px 0 0;
+  .pb-tool {
+    display: flex; align-items: center; justify-content: center; gap: 2px;
+    height: 30px; min-width: 30px; padding: 0 6px;
+    font-size: 0.88rem;
+    color: #899;
+    background: transparent;
+    border: 1px solid transparent;
+    border-radius: 5px;
     cursor: pointer;
-    transition: all 0.15s;
-    white-space: nowrap;
+    transition: all 0.12s;
   }
-  .pn-tab:hover { color: #ccc; background: #1a3860; }
-  .pn-tab.active { color: #fff; background: #16213e; border-bottom: 2px solid #e94560; }
+  .pb-tool:hover { color: #ddd; background: rgba(26, 74, 122, 0.4); }
+  .pb-tool.active { color: #fff; background: #e94560; border-color: #ff6b6b; }
+  .pb-group {
+    display: flex; align-items: center; gap: 3px;
+    height: 30px; padding: 0 10px;
+    font-size: 0.7rem; font-weight: 600;
+    color: #8899aa;
+    background: transparent;
+    border: 1px solid #152a45;
+    border-radius: 5px;
+    cursor: pointer;
+    transition: all 0.12s;
+    white-space: nowrap;
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
+  }
+  .pb-group:hover { color: #cde; background: rgba(26, 74, 122, 0.3); border-color: #1e4570; }
+  .pb-group.group-active { color: #fff; border-color: #e94560; background: rgba(233, 69, 96, 0.12); }
+  .pb-caret { font-size: 0.55rem; opacity: 0.6; }
+  .pb-undo {
+    display: flex; align-items: center; justify-content: center;
+    width: 28px; height: 30px;
+    font-size: 0.9rem;
+    color: #899;
+    background: transparent;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+    transition: all 0.12s;
+  }
+  .pb-undo:hover:not(:disabled) { color: #ddd; background: rgba(26, 74, 122, 0.4); }
+  .pb-undo:disabled { opacity: 0.25; cursor: not-allowed; }
+  .pb-divider { width: 1px; height: 20px; background: #1a3050; margin: 0 4px; flex-shrink: 0; }
+  .pb-spacer { flex: 1; }
+  /* Dropdown */
+  .pb-dd-wrap { position: relative; }
+  .pb-dropdown {
+    position: absolute;
+    top: calc(100% + 2px);
+    left: 0;
+    z-index: 300;
+    min-width: 150px;
+    background: #0d1b2e;
+    border: 1px solid #1a4a7a;
+    border-radius: 6px;
+    padding: 3px 0;
+    box-shadow: 0 8px 28px rgba(0,0,0,0.55);
+  }
+  .pb-dd-item {
+    display: block; width: 100%;
+    padding: 7px 14px;
+    font-size: 0.72rem; font-weight: 500;
+    color: #aab;
+    background: transparent;
+    border: none;
+    text-align: left;
+    cursor: pointer;
+    transition: all 0.1s;
+  }
+  .pb-dd-item:hover { color: #fff; background: rgba(26, 74, 122, 0.4); }
+  .pb-dd-item.active { color: #fff; background: #e94560; }
+  .pb-dd-item:first-child { border-radius: 4px 4px 0 0; }
+  .pb-dd-item:last-child { border-radius: 0 0 4px 4px; }
   .pn-toggle {
     padding: 4px 8px;
     font-size: 0.9rem;
@@ -1641,6 +1886,66 @@
     background: #1a4a7a;
     color: white;
   }
+
+  /* ─── Mobile PRO upper toolbar ─── */
+  .pro-mobile-toolbar {
+    display: flex;
+    align-items: center;
+    gap: 3px;
+    padding: 4px 8px;
+    background: #0a1a30;
+    border-bottom: 1px solid #1a4a7a;
+    flex-shrink: 0;
+    flex-wrap: wrap;
+  }
+  .pmt-btn {
+    width: 36px; height: 34px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 1rem;
+    color: #899;
+    background: #0f2840;
+    border: 1px solid #1a3050;
+    border-radius: 6px;
+    cursor: pointer;
+  }
+  .pmt-btn:hover { color: #ddd; }
+  .pmt-btn.active { color: #fff; background: #e94560; border-color: #ff6b6b; }
+  .pmt-btn.pmt-undo { font-size: 0.9rem; width: 34px; }
+  .pmt-btn.pmt-undo:disabled { opacity: 0.2; cursor: not-allowed; }
+  .pmt-btn.pmt-results { padding: 0 8px; }
+  .pmt-btn.pmt-results.active { background: rgba(233, 69, 96, 0.2); border-color: #e94560; }
+  .pmt-sel {
+    padding: 4px 8px;
+    font-size: 0.7rem;
+    color: #aab;
+    background: #0f3460;
+    border: 1px solid #1a4a7a;
+    border-radius: 4px;
+    cursor: pointer;
+  }
+  .pmt-sel.active { color: #fff; background: #e94560; border-color: #ff6b6b; }
+
+  /* ─── Mobile mode selector ─── */
+  .mode-select-mobile {
+    padding: 5px 24px 5px 8px;
+    font-size: 0.75rem;
+    font-weight: 700;
+    letter-spacing: 0.02em;
+    color: #e0e8f0;
+    background: linear-gradient(135deg, #0f3460, #162a50);
+    border: 1px solid #2a5a90;
+    border-radius: 6px;
+    cursor: pointer;
+    -webkit-appearance: none;
+    appearance: none;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='8' height='5'%3E%3Cpath d='M0 0l4 5 4-5z' fill='%234ecdc4'/%3E%3C/svg%3E");
+    background-repeat: no-repeat;
+    background-position: right 8px center;
+    box-shadow: 0 1px 4px rgba(0,0,0,0.3), inset 0 1px 0 rgba(255,255,255,0.05);
+    text-shadow: 0 1px 2px rgba(0,0,0,0.4);
+  }
+  .mode-select-mobile:focus { border-color: #4ecdc4; outline: none; box-shadow: 0 0 0 2px rgba(78, 205, 196, 0.25); }
+  .mode-select-mobile option { background: #0d1b2e; color: #ccc; font-weight: 500; padding: 6px; }
 
   /* ===== Mobile Responsive ===== */
   @media (max-width: 767px) {

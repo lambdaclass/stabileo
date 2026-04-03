@@ -786,6 +786,15 @@ function createModelStore() {
       model.plates = new Map(model.plates);
     },
 
+    updatePlate(id: number, data: Partial<{ materialId: number; thickness: number }>): void {
+      if (!_undoBatching) _pushUndo?.();
+      const plate = model.plates.get(id);
+      if (!plate) return;
+      if (data.materialId !== undefined) plate.materialId = data.materialId;
+      if (data.thickness !== undefined) plate.thickness = data.thickness;
+      model.plates = new Map(model.plates);
+    },
+
     addQuad(nodes: [number, number, number, number], materialId: number, thickness: number): number {
       if (!_undoBatching) _pushUndo?.();
       const id = nextId.quad++;
@@ -797,6 +806,15 @@ function createModelStore() {
     removeQuad(id: number): void {
       if (!_undoBatching) _pushUndo?.();
       model.quads.delete(id);
+      model.quads = new Map(model.quads);
+    },
+
+    updateQuad(id: number, data: Partial<{ materialId: number; thickness: number }>): void {
+      if (!_undoBatching) _pushUndo?.();
+      const quad = model.quads.get(id);
+      if (!quad) return;
+      if (data.materialId !== undefined) quad.materialId = data.materialId;
+      if (data.thickness !== undefined) quad.thickness = data.thickness;
       model.quads = new Map(model.quads);
     },
 
@@ -938,6 +956,13 @@ function createModelStore() {
         if (data.a !== undefined) d.a = data.a as number;
         if (data.py !== undefined) d.py = data.py as number;
         if (data.pz !== undefined) d.pz = data.pz as number;
+      } else if (load.type === 'surface3d') {
+        const d = load.data as SurfaceLoad3D;
+        if (data.q !== undefined) d.q = data.q as number;
+      } else if (load.type === 'thermalQuad3d') {
+        const d = load.data as ThermalLoadQuad3D;
+        if (data.dtUniform !== undefined) d.dtUniform = data.dtUniform as number;
+        if (data.dtGradient !== undefined) d.dtGradient = data.dtGradient as number;
       }
       // Reassign array to trigger Svelte 5 reactivity after in-place mutation
       model.loads = [...model.loads];

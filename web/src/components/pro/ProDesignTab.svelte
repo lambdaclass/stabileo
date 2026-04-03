@@ -246,7 +246,7 @@
         </thead>
         <tbody>
           {#each filteredResults as r (r.elementId)}
-            <tr class={statusClass(r.status)}>
+            <tr class={statusClass(r.status)} onclick={() => { uiStore.selectMode = 'elements'; uiStore.selectElement(r.elementId, false); }} style="cursor:pointer">
               <td class="col-id">{r.elementId}</td>
               <td class="col-type">{r.elementType}</td>
               <td class="col-section">{r.sectionName}</td>

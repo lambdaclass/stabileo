@@ -220,7 +220,7 @@
             </thead>
             <tbody>
               {#each results.reactions as r}
-                <tr>
+                <tr onclick={() => { uiStore.selectMode = 'nodes'; uiStore.selectNode(r.nodeId, false); }} style="cursor:pointer">
                   <td class="col-id">{r.nodeId}</td>
                   <td class="col-num">{fmtNum(r.fx)}</td>
                   <td class="col-num">{fmtNum(r.fy)}</td>
@@ -253,7 +253,7 @@
             </thead>
             <tbody>
               {#each results.elementForces as ef}
-                <tr>
+                <tr onclick={() => { uiStore.selectMode = 'elements'; uiStore.selectElement(ef.elementId, false); }} style="cursor:pointer">
                   <td class="col-id" rowspan="2">{ef.elementId}</td>
                   <td class="col-end">i</td>
                   <td class="col-num">{fmtNum(ef.nStart)}</td>
@@ -295,7 +295,7 @@
             </thead>
             <tbody>
               {#each results.displacements as d}
-                <tr>
+                <tr onclick={() => { uiStore.selectMode = 'nodes'; uiStore.selectNode(d.nodeId, false); }} style="cursor:pointer">
                   <td class="col-id">{d.nodeId}</td>
                   <td class="col-num">{fmtNum(d.ux)}</td>
                   <td class="col-num">{fmtNum(d.uy)}</td>
@@ -322,7 +322,7 @@
                 </tr></thead>
                 <tbody>
                   {#each results.plateStresses as ps}
-                    <tr>
+                    <tr onclick={() => { uiStore.selectMode = 'shells'; uiStore.selectElement(ps.elementId, false); }} style="cursor:pointer">
                       <td class="col-id">{ps.elementId}</td>
                       <td class="col-num">{fmtNum(ps.sigmaXx)}</td>
                       <td class="col-num">{fmtNum(ps.sigmaYy)}</td>
@@ -344,7 +344,7 @@
                 </tr></thead>
                 <tbody>
                   {#each results.quadStresses as qs}
-                    <tr>
+                    <tr onclick={() => { uiStore.selectMode = 'shells'; uiStore.selectElement(qs.elementId, false); }} style="cursor:pointer">
                       <td class="col-id">{qs.elementId}</td>
                       <td class="col-num">{fmtNum(qs.sigmaXx)}</td>
                       <td class="col-num">{fmtNum(qs.sigmaYy)}</td>
@@ -383,7 +383,7 @@
                   {@const quadDef = modelStore.quads.get(qs.elementId)}
                   {@const vmMin = Math.min(...nvm)}
                   {@const vmMax = Math.max(...nvm)}
-                  <tr>
+                  <tr onclick={() => { uiStore.selectMode = 'shells'; uiStore.selectElement(qs.elementId, false); }} style="cursor:pointer">
                     <td class="col-id">{qs.elementId}</td>
                     {#each nvm as vm, i}
                       <td class="col-num" title="{quadDef ? t('pro.nodeLabel') + ' ' + quadDef.nodes[i] : ''}">
@@ -425,7 +425,7 @@
               </tr></thead>
               <tbody>
                 {#each cForces as cf}
-                  <tr>
+                  <tr onclick={() => { uiStore.selectMode = 'nodes'; uiStore.selectNode(cf.nodeId, false); }} style="cursor:pointer">
                     <td class="col-id">{cf.nodeId}</td>
                     <td>{cf.dof}</td>
                     <td class="col-num">{fmtNum(cf.force)}</td>
@@ -447,7 +447,7 @@
               </tr></thead>
               <tbody>
                 {#each results.diagnostics as diag}
-                  <tr>
+                  <tr onclick={() => { uiStore.selectMode = 'elements'; uiStore.selectElement(diag.elementId, false); }} style="cursor:pointer">
                     <td class="col-id">{diag.elementId}</td>
                     <td>{diag.metric}</td>
                     <td class="col-num">{fmtNum(diag.value)}</td>
