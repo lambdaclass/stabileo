@@ -10,7 +10,13 @@
 import { getElevation, hasElevation, VERTICAL_AXIS, type CoordinateNode } from '../geometry/coordinate-system';
 
 const BACKEND_URL = import.meta.env.VITE_AI_BACKEND_URL || 'http://localhost:3001';
-const API_KEY = import.meta.env.VITE_AI_API_KEY || '';
+// In local dev (localhost), fall back to the well-known dev token so the AI
+// drawer works without manual env configuration. Production deploys must set
+// VITE_AI_API_KEY explicitly.
+const isLocalDev = typeof window !== 'undefined' && (
+  window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1'
+);
+const API_KEY = import.meta.env.VITE_AI_API_KEY || (isLocalDev ? 'dev' : '');
 
 // ─── Types ─────────────────────────────────────────────────────
 
@@ -266,7 +272,7 @@ export function buildArtifact(
 
 async function post<T>(path: string, body: unknown, signal?: AbortSignal): Promise<T> {
   if (!API_KEY) {
-    throw new Error('AI backend API key not configured (VITE_AI_API_KEY)');
+    throw new Error('AI backend not configured. Set VITE_AI_API_KEY in your environment, or run locally on localhost for dev mode.');
   }
 
   const resp = await fetch(`${BACKEND_URL}${path}`, {

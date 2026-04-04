@@ -29,7 +29,7 @@ impl Config {
         let addr: SocketAddr = format!("{host}:{port}").parse().expect("valid address");
 
         let allowed_origins = std::env::var("ALLOWED_ORIGINS")
-            .unwrap_or_else(|_| "https://stabileo.com,https://dedaliano.com".into())
+            .unwrap_or_else(|_| "https://stabileo.com,https://dedaliano.com,http://localhost:4000,http://127.0.0.1:4000".into())
             .split(',')
             .map(|s| s.trim().to_string())
             .collect();
@@ -49,7 +49,10 @@ impl Config {
 
         Self {
             dedaliano_api_key: std::env::var("DEDALIANO_API_KEY")
-                .expect("DEDALIANO_API_KEY must be set"),
+                .unwrap_or_else(|_| {
+                    tracing::warn!("DEDALIANO_API_KEY not set — using default 'dev' token (local dev only)");
+                    "dev".into()
+                }),
             provider,
             provider_timeout_secs,
             addr,
