@@ -327,6 +327,11 @@ const REPORT_CSS = `
   .cover-page .date { font-size: 13px; color: #888; margin-top: 40px; }
   .cover-page .logo { font-size: 11px; color: #aaa; margin-top: 80px; letter-spacing: 3px; text-transform: uppercase; }
   .screenshot { max-width: 100%; border: 1px solid #ddd; margin: 10px 0; }
+  .summary-status-bar { display: flex; gap: 24px; margin: 16px 0 20px; padding: 12px 16px; background: #f4f7fb; border-radius: 6px; border: 1px solid #e0e8f0; }
+  .summary-stat { display: flex; align-items: baseline; gap: 6px; font-size: 14px; }
+  .summary-stat span:first-child { font-size: 22px; font-weight: 700; }
+  .summary-stat-label { font-size: 11px; color: #666; text-transform: uppercase; letter-spacing: 0.03em; }
+  .design-code-ref { font-size: 11px; color: #555; margin: 8px 0 16px; }
   .status-ok { color: #0a7a0a; font-weight: 700; }
   .status-fail { color: #c00; font-weight: 700; }
   .status-warn { color: #b86e00; font-weight: 700; }
@@ -434,10 +439,95 @@ export function generateReportHtml(data: ReportData): string {
   if (showSection('storyDrift') && data.storyDrifts && data.storyDrifts.length > 0) tocEntries.push({ label: '5. ' + (tr('report.storyDrift') || 'Story Drift'), anchor: 'sec-drift' });
   if (showSection('diagnostics') && data.diagnostics && data.diagnostics.length > 0) tocEntries.push({ label: '6. ' + (tr('report.diagnostics') || 'Diagnostics'), anchor: 'sec-diagnostics' });
   if (showSection('quantities') && quantities) tocEntries.push({ label: '7. ' + (tr('report.quantities') || 'Quantities'), anchor: 'sec-quantities' });
+  // Insert Design Summary into TOC if verification data exists
+  if (verifications.length > 0) {
+    tocEntries.unshift({ label: tr('report.designSummary') || 'Design Summary', anchor: 'sec-design-summary' });
+    // Renumber all subsequent entries
+    for (let i = 1; i < tocEntries.length; i++) {
+      const old = tocEntries[i].label;
+      const dotIdx = old.indexOf('.');
+      if (dotIdx > 0) tocEntries[i].label = `${i + 1}${old.substring(dotIdx)}`;
+    }
+    tocEntries[0].label = `1. ${tr('report.designSummary') || 'Design Summary'}`;
+  }
+
   for (const entry of tocEntries) {
     html.push(`<div class="toc-entry"><a href="#${entry.anchor}">${escHtml(entry.label)}</a><span class="toc-dots"></span></div>`);
   }
   html.push(`</div>`);
+
+  // ─── Design Summary (when verification data exists) ───
+  if (verifications.length > 0) {
+    html.push(`<div class="page-break"></div>`);
+    html.push(`<h1 id="sec-design-summary">${escHtml(tr('report.designSummary') || 'Design Summary')}</h1>`);
+
+    // Overall status counts
+    const okCount = verifications.filter(v => v.overallStatus === 'ok').length;
+    const warnCount = verifications.filter(v => v.overallStatus === 'warn').length;
+    const failCount = verifications.filter(v => v.overallStatus === 'fail').length;
+    const total = verifications.length;
+
+    html.push(`<div class="summary-status-bar">`);
+    html.push(`<div class="summary-stat"><span class="status-ok">${okCount}</span> <span class="summary-stat-label">${escHtml(tr('report.pass') || 'Pass')}</span></div>`);
+    if (warnCount > 0) html.push(`<div class="summary-stat"><span class="status-warn">${warnCount}</span> <span class="summary-stat-label">${escHtml(tr('report.warning') || 'Warning')}</span></div>`);
+    if (failCount > 0) html.push(`<div class="summary-stat"><span class="status-fail">${failCount}</span> <span class="summary-stat-label">${escHtml(tr('report.fail') || 'Fail')}</span></div>`);
+    html.push(`<div class="summary-stat"><span>${total}</span> <span class="summary-stat-label">${escHtml(tr('report.totalElements') || 'Total elements checked')}</span></div>`);
+    html.push(`</div>`);
+
+    // Design code reference
+    html.push(`<p class="design-code-ref">${escHtml(tr('report.designCodeRef') || 'Design code')}: <strong>${escHtml(tr('report.coverCode'))}</strong></p>`);
+
+    // Utilization summary table
+    html.push(`<h2>${escHtml(tr('report.utilizationSummary') || 'Member Utilization Summary')}</h2>`);
+    html.push(`<table><thead><tr>`);
+    html.push(`<th>${escHtml(tr('report.elemLabel') || 'Element')}</th>`);
+    html.push(`<th>${escHtml(tr('report.typeLabel') || 'Type')}</th>`);
+    html.push(`<th>${escHtml(tr('report.sectionLabel') || 'Section')}</th>`);
+    html.push(`<th>${escHtml(tr('report.governingCheck') || 'Governing Check')}</th>`);
+    html.push(`<th>${escHtml(tr('report.utilizationLabel') || 'Utilization')}</th>`);
+    html.push(`<th>${escHtml(tr('report.statusLabel') || 'Status')}</th>`);
+    html.push(`</tr></thead><tbody>`);
+
+    // Sort by utilization descending (most critical first)
+    const sorted = [...verifications].sort((a, b) => {
+      const ua = Math.max(a.flexure.ratio ?? 0, a.shear.ratio ?? 0, a.column?.ratio ?? 0);
+      const ub = Math.max(b.flexure.ratio ?? 0, b.shear.ratio ?? 0, b.column?.ratio ?? 0);
+      return ub - ua;
+    });
+
+    for (const v of sorted) {
+      const utilization = Math.max(v.flexure.ratio ?? 0, v.shear.ratio ?? 0, v.column?.ratio ?? 0);
+      const govCheck = (v.column?.ratio ?? 0) >= (v.flexure.ratio ?? 0) && (v.column?.ratio ?? 0) >= (v.shear.ratio ?? 0)
+        ? (tr('report.axialFlexure') || 'Axial+Flexure')
+        : (v.flexure.ratio ?? 0) >= (v.shear.ratio ?? 0)
+          ? (tr('report.flexure') || 'Flexure')
+          : (tr('report.shear') || 'Shear');
+      const section = data.sections.find(s => {
+        const elem = data.elements.find(e => e.id === v.elementId);
+        return elem && s.id === elem.sectionId;
+      });
+      const statusCls = v.overallStatus === 'ok' ? 'status-ok' : v.overallStatus === 'fail' ? 'status-fail' : 'status-warn';
+      const statusIcon = v.overallStatus === 'ok' ? '✓' : v.overallStatus === 'fail' ? '✗' : '⚠';
+      const typeLabel = v.elementType === 'beam' ? (tr('report.beam') || 'Beam')
+        : v.elementType === 'column' ? (tr('report.column') || 'Column')
+        : v.elementType === 'wall' ? (tr('report.wall') || 'Wall') : v.elementType;
+
+      html.push(`<tr>`);
+      html.push(`<td style="text-align:center">${v.elementId}</td>`);
+      html.push(`<td>${escHtml(typeLabel)}</td>`);
+      html.push(`<td>${escHtml(section?.name ?? '—')}</td>`);
+      html.push(`<td>${escHtml(govCheck)}</td>`);
+      html.push(`<td style="text-align:right"><strong>${(utilization * 100).toFixed(0)}%</strong></td>`);
+      html.push(`<td class="${statusCls}" style="text-align:center;font-weight:bold">${statusIcon}</td>`);
+      html.push(`</tr>`);
+    }
+    html.push(`</tbody></table>`);
+
+    // Governing combination note
+    if (data.combinations && data.combinations.length > 0) {
+      html.push(`<p style="font-size:10px;color:#888;margin-top:8px">${escHtml(tr('report.combosUsed') || 'Load combinations checked')}: ${data.combinations.map(c => escHtml(c.name)).join(', ')}</p>`);
+    }
+  }
 
   // ─── Model Data ─────────────────────────────────────────
   if (showSection('modelData')) {
