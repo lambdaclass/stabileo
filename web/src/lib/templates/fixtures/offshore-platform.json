@@ -1299,42 +1299,6 @@
       "x": 26,
       "y": -10,
       "z": 92
-    },
-    {
-      "id": 198,
-      "x": 42,
-      "y": -16,
-      "z": 96
-    },
-    {
-      "id": 199,
-      "x": 58,
-      "y": -22,
-      "z": 100
-    },
-    {
-      "id": 200,
-      "x": -13,
-      "y": 13,
-      "z": 97
-    },
-    {
-      "id": 201,
-      "x": -13,
-      "y": 13,
-      "z": 105
-    },
-    {
-      "id": 202,
-      "x": -22,
-      "y": 13,
-      "z": 105
-    },
-    {
-      "id": 203,
-      "x": -35,
-      "y": 13,
-      "z": 103
     }
   ],
   "elements": [
@@ -8727,96 +8691,6 @@
       "sectionId": 8,
       "hingeStart": false,
       "hingeEnd": false
-    },
-    {
-      "id": 740,
-      "type": "frame",
-      "nodeI": 197,
-      "nodeJ": 198,
-      "materialId": 1,
-      "sectionId": 8,
-      "hingeStart": false,
-      "hingeEnd": false
-    },
-    {
-      "id": 741,
-      "type": "frame",
-      "nodeI": 198,
-      "nodeJ": 199,
-      "materialId": 1,
-      "sectionId": 8,
-      "hingeStart": false,
-      "hingeEnd": false
-    },
-    {
-      "id": 742,
-      "type": "truss",
-      "nodeI": 162,
-      "nodeJ": 197,
-      "materialId": 2,
-      "sectionId": 8,
-      "hingeStart": false,
-      "hingeEnd": false
-    },
-    {
-      "id": 743,
-      "type": "truss",
-      "nodeI": 174,
-      "nodeJ": 198,
-      "materialId": 2,
-      "sectionId": 8,
-      "hingeStart": false,
-      "hingeEnd": false
-    },
-    {
-      "id": 744,
-      "type": "frame",
-      "nodeI": 200,
-      "nodeJ": 201,
-      "materialId": 1,
-      "sectionId": 8,
-      "hingeStart": false,
-      "hingeEnd": false
-    },
-    {
-      "id": 745,
-      "type": "frame",
-      "nodeI": 201,
-      "nodeJ": 202,
-      "materialId": 1,
-      "sectionId": 8,
-      "hingeStart": false,
-      "hingeEnd": false
-    },
-    {
-      "id": 746,
-      "type": "frame",
-      "nodeI": 202,
-      "nodeJ": 203,
-      "materialId": 2,
-      "sectionId": 8,
-      "hingeStart": false,
-      "hingeEnd": false
-    },
-    {
-      "id": 747,
-      "type": "truss",
-      "nodeI": 200,
-      "nodeJ": 202,
-      "materialId": 2,
-      "sectionId": 7,
-      "hingeStart": false,
-      "hingeEnd": false
-    },
-    {
-      "id": 748,
-      "type": "frame",
-      "nodeI": 180,
-      "nodeJ": 200,
-      "materialId": 1,
-      "sectionId": 6,
-      "hingeStart": false,
-      "hingeEnd": false
     }
   ],
   "supports": [
@@ -9942,20 +9816,6 @@
         "my": 0,
         "mz": 0,
         "caseId": 3
-      }
-    },
-    {
-      "type": "nodal3d",
-      "data": {
-        "id": 74,
-        "nodeId": 203,
-        "fx": 0,
-        "fy": 0,
-        "fz": -200,
-        "mx": 0,
-        "my": 0,
-        "mz": 0,
-        "caseId": 2
       }
     }
   ],
