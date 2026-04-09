@@ -81,16 +81,15 @@
     },
     {
       "id": 6,
-      "name": "Deck Beam — W24×68",
-      "a": 0.0129,
-      "iy": 0.000762,
-      "iz": 0.0000346,
-      "j": 0.0000015,
-      "shape": "I",
-      "b": 0.228,
-      "h": 0.603,
-      "tw": 0.0107,
-      "tf": 0.015
+      "name": "Deck Beam — RHS 500×300×16",
+      "a": 0.02368,
+      "iy": 0.000962,
+      "iz": 0.000445,
+      "j": 0.000906,
+      "shape": "RHS",
+      "b": 0.3,
+      "h": 0.5,
+      "t": 0.016
     },
     {
       "id": 7,
@@ -7278,7 +7277,7 @@
     },
     {
       "id": 599,
-      "type": "frame",
+      "type": "truss",
       "nodeI": 121,
       "nodeJ": 122,
       "materialId": 2,
@@ -7288,7 +7287,7 @@
     },
     {
       "id": 600,
-      "type": "frame",
+      "type": "truss",
       "nodeI": 122,
       "nodeJ": 123,
       "materialId": 2,
@@ -7298,7 +7297,7 @@
     },
     {
       "id": 601,
-      "type": "frame",
+      "type": "truss",
       "nodeI": 123,
       "nodeJ": 124,
       "materialId": 2,
@@ -7308,7 +7307,7 @@
     },
     {
       "id": 602,
-      "type": "frame",
+      "type": "truss",
       "nodeI": 124,
       "nodeJ": 121,
       "materialId": 2,
@@ -7338,7 +7337,7 @@
     },
     {
       "id": 605,
-      "type": "frame",
+      "type": "truss",
       "nodeI": 129,
       "nodeJ": 130,
       "materialId": 2,
@@ -7348,7 +7347,7 @@
     },
     {
       "id": 606,
-      "type": "frame",
+      "type": "truss",
       "nodeI": 130,
       "nodeJ": 131,
       "materialId": 2,
@@ -7358,7 +7357,7 @@
     },
     {
       "id": 607,
-      "type": "frame",
+      "type": "truss",
       "nodeI": 131,
       "nodeJ": 132,
       "materialId": 2,
@@ -7368,7 +7367,7 @@
     },
     {
       "id": 608,
-      "type": "frame",
+      "type": "truss",
       "nodeI": 132,
       "nodeJ": 129,
       "materialId": 2,
@@ -7398,7 +7397,7 @@
     },
     {
       "id": 611,
-      "type": "frame",
+      "type": "truss",
       "nodeI": 137,
       "nodeJ": 138,
       "materialId": 2,
@@ -7408,7 +7407,7 @@
     },
     {
       "id": 612,
-      "type": "frame",
+      "type": "truss",
       "nodeI": 138,
       "nodeJ": 139,
       "materialId": 2,
@@ -7418,7 +7417,7 @@
     },
     {
       "id": 613,
-      "type": "frame",
+      "type": "truss",
       "nodeI": 139,
       "nodeJ": 140,
       "materialId": 2,
@@ -7428,7 +7427,7 @@
     },
     {
       "id": 614,
-      "type": "frame",
+      "type": "truss",
       "nodeI": 140,
       "nodeJ": 137,
       "materialId": 2,
@@ -7458,7 +7457,7 @@
     },
     {
       "id": 617,
-      "type": "frame",
+      "type": "truss",
       "nodeI": 145,
       "nodeJ": 146,
       "materialId": 2,
@@ -7468,7 +7467,7 @@
     },
     {
       "id": 618,
-      "type": "frame",
+      "type": "truss",
       "nodeI": 146,
       "nodeJ": 147,
       "materialId": 2,
@@ -7478,7 +7477,7 @@
     },
     {
       "id": 619,
-      "type": "frame",
+      "type": "truss",
       "nodeI": 147,
       "nodeJ": 148,
       "materialId": 2,
@@ -7488,7 +7487,7 @@
     },
     {
       "id": 620,
-      "type": "frame",
+      "type": "truss",
       "nodeI": 148,
       "nodeJ": 145,
       "materialId": 2,
@@ -7518,7 +7517,7 @@
     },
     {
       "id": 623,
-      "type": "frame",
+      "type": "truss",
       "nodeI": 153,
       "nodeJ": 154,
       "materialId": 2,
@@ -7528,7 +7527,7 @@
     },
     {
       "id": 624,
-      "type": "frame",
+      "type": "truss",
       "nodeI": 154,
       "nodeJ": 155,
       "materialId": 2,
@@ -7538,7 +7537,7 @@
     },
     {
       "id": 625,
-      "type": "frame",
+      "type": "truss",
       "nodeI": 155,
       "nodeJ": 156,
       "materialId": 2,
@@ -7548,7 +7547,7 @@
     },
     {
       "id": 626,
-      "type": "frame",
+      "type": "truss",
       "nodeI": 156,
       "nodeJ": 153,
       "materialId": 2,
@@ -8478,7 +8477,7 @@
     },
     {
       "id": 719,
-      "type": "frame",
+      "type": "truss",
       "nodeI": 185,
       "nodeJ": 188,
       "materialId": 2,
@@ -8488,7 +8487,7 @@
     },
     {
       "id": 720,
-      "type": "frame",
+      "type": "truss",
       "nodeI": 186,
       "nodeJ": 189,
       "materialId": 2,
@@ -8498,7 +8497,7 @@
     },
     {
       "id": 721,
-      "type": "frame",
+      "type": "truss",
       "nodeI": 187,
       "nodeJ": 190,
       "materialId": 2,
@@ -8508,7 +8507,7 @@
     },
     {
       "id": 722,
-      "type": "frame",
+      "type": "truss",
       "nodeI": 188,
       "nodeJ": 191,
       "materialId": 2,
@@ -8518,7 +8517,7 @@
     },
     {
       "id": 723,
-      "type": "frame",
+      "type": "truss",
       "nodeI": 189,
       "nodeJ": 192,
       "materialId": 2,
@@ -8528,7 +8527,7 @@
     },
     {
       "id": 724,
-      "type": "frame",
+      "type": "truss",
       "nodeI": 190,
       "nodeJ": 193,
       "materialId": 2,
@@ -8538,7 +8537,7 @@
     },
     {
       "id": 725,
-      "type": "frame",
+      "type": "truss",
       "nodeI": 191,
       "nodeJ": 194,
       "materialId": 2,
@@ -8548,7 +8547,7 @@
     },
     {
       "id": 726,
-      "type": "frame",
+      "type": "truss",
       "nodeI": 192,
       "nodeJ": 195,
       "materialId": 2,
@@ -8558,7 +8557,7 @@
     },
     {
       "id": 727,
-      "type": "frame",
+      "type": "truss",
       "nodeI": 193,
       "nodeJ": 196,
       "materialId": 2,
@@ -8568,7 +8567,7 @@
     },
     {
       "id": 728,
-      "type": "frame",
+      "type": "truss",
       "nodeI": 194,
       "nodeJ": 185,
       "materialId": 2,
@@ -8578,7 +8577,7 @@
     },
     {
       "id": 729,
-      "type": "frame",
+      "type": "truss",
       "nodeI": 195,
       "nodeJ": 186,
       "materialId": 2,
@@ -8588,7 +8587,7 @@
     },
     {
       "id": 730,
-      "type": "frame",
+      "type": "truss",
       "nodeI": 196,
       "nodeJ": 187,
       "materialId": 2,
@@ -8881,8 +8880,8 @@
       "type": "frame",
       "nodeI": 185,
       "nodeJ": 181,
-      "materialId": 2,
-      "sectionId": 7,
+      "materialId": 1,
+      "sectionId": 3,
       "hingeStart": false,
       "hingeEnd": false
     },
@@ -8891,8 +8890,8 @@
       "type": "frame",
       "nodeI": 188,
       "nodeJ": 181,
-      "materialId": 2,
-      "sectionId": 7,
+      "materialId": 1,
+      "sectionId": 3,
       "hingeStart": false,
       "hingeEnd": false
     },
@@ -8901,8 +8900,8 @@
       "type": "frame",
       "nodeI": 191,
       "nodeJ": 182,
-      "materialId": 2,
-      "sectionId": 7,
+      "materialId": 1,
+      "sectionId": 3,
       "hingeStart": false,
       "hingeEnd": false
     },
@@ -8911,8 +8910,8 @@
       "type": "frame",
       "nodeI": 194,
       "nodeJ": 183,
-      "materialId": 2,
-      "sectionId": 7,
+      "materialId": 1,
+      "sectionId": 3,
       "hingeStart": false,
       "hingeEnd": false
     }
@@ -9361,8 +9360,8 @@
       "data": {
         "id": 25,
         "nodeId": 177,
-        "fx": 120,
-        "fy": 40,
+        "fx": 50,
+        "fy": 20,
         "fz": 0,
         "mx": 0,
         "my": 0,
@@ -9375,8 +9374,8 @@
       "data": {
         "id": 26,
         "nodeId": 178,
-        "fx": 120,
-        "fy": 40,
+        "fx": 50,
+        "fy": 20,
         "fz": 0,
         "mx": 0,
         "my": 0,
@@ -9389,8 +9388,8 @@
       "data": {
         "id": 27,
         "nodeId": 179,
-        "fx": 120,
-        "fy": 40,
+        "fx": 50,
+        "fy": 20,
         "fz": 0,
         "mx": 0,
         "my": 0,
@@ -9403,8 +9402,8 @@
       "data": {
         "id": 28,
         "nodeId": 180,
-        "fx": 120,
-        "fy": 40,
+        "fx": 50,
+        "fy": 20,
         "fz": 0,
         "mx": 0,
         "my": 0,
@@ -9417,8 +9416,8 @@
       "data": {
         "id": 29,
         "nodeId": 181,
-        "fx": 120,
-        "fy": 40,
+        "fx": 50,
+        "fy": 20,
         "fz": 0,
         "mx": 0,
         "my": 0,
@@ -9431,8 +9430,8 @@
       "data": {
         "id": 30,
         "nodeId": 182,
-        "fx": 120,
-        "fy": 40,
+        "fx": 50,
+        "fy": 20,
         "fz": 0,
         "mx": 0,
         "my": 0,
@@ -9445,8 +9444,8 @@
       "data": {
         "id": 31,
         "nodeId": 183,
-        "fx": 120,
-        "fy": 40,
+        "fx": 50,
+        "fy": 20,
         "fz": 0,
         "mx": 0,
         "my": 0,
@@ -9459,8 +9458,8 @@
       "data": {
         "id": 32,
         "nodeId": 184,
-        "fx": 120,
-        "fy": 40,
+        "fx": 50,
+        "fy": 20,
         "fz": 0,
         "mx": 0,
         "my": 0,
@@ -9473,8 +9472,8 @@
       "data": {
         "id": 33,
         "nodeId": 13,
-        "fx": 60,
-        "fy": 30,
+        "fx": 30,
+        "fy": 15,
         "fz": 0,
         "mx": 0,
         "my": 0,
@@ -9487,8 +9486,8 @@
       "data": {
         "id": 34,
         "nodeId": 14,
-        "fx": 60,
-        "fy": 30,
+        "fx": 30,
+        "fy": 15,
         "fz": 0,
         "mx": 0,
         "my": 0,
@@ -9501,8 +9500,8 @@
       "data": {
         "id": 35,
         "nodeId": 15,
-        "fx": 60,
-        "fy": 30,
+        "fx": 30,
+        "fy": 15,
         "fz": 0,
         "mx": 0,
         "my": 0,
@@ -9515,8 +9514,8 @@
       "data": {
         "id": 36,
         "nodeId": 16,
-        "fx": 60,
-        "fy": 30,
+        "fx": 30,
+        "fy": 15,
         "fz": 0,
         "mx": 0,
         "my": 0,
@@ -9529,8 +9528,8 @@
       "data": {
         "id": 37,
         "nodeId": 25,
-        "fx": 60,
-        "fy": 30,
+        "fx": 30,
+        "fy": 15,
         "fz": 0,
         "mx": 0,
         "my": 0,
@@ -9543,8 +9542,8 @@
       "data": {
         "id": 38,
         "nodeId": 26,
-        "fx": 60,
-        "fy": 30,
+        "fx": 30,
+        "fy": 15,
         "fz": 0,
         "mx": 0,
         "my": 0,
@@ -9557,8 +9556,8 @@
       "data": {
         "id": 39,
         "nodeId": 27,
-        "fx": 60,
-        "fy": 30,
+        "fx": 30,
+        "fy": 15,
         "fz": 0,
         "mx": 0,
         "my": 0,
@@ -9571,8 +9570,8 @@
       "data": {
         "id": 40,
         "nodeId": 28,
-        "fx": 60,
-        "fy": 30,
+        "fx": 30,
+        "fy": 15,
         "fz": 0,
         "mx": 0,
         "my": 0,
@@ -9585,8 +9584,8 @@
       "data": {
         "id": 41,
         "nodeId": 37,
-        "fx": 60,
-        "fy": 30,
+        "fx": 30,
+        "fy": 15,
         "fz": 0,
         "mx": 0,
         "my": 0,
@@ -9599,8 +9598,8 @@
       "data": {
         "id": 42,
         "nodeId": 38,
-        "fx": 60,
-        "fy": 30,
+        "fx": 30,
+        "fy": 15,
         "fz": 0,
         "mx": 0,
         "my": 0,
@@ -9613,8 +9612,8 @@
       "data": {
         "id": 43,
         "nodeId": 39,
-        "fx": 60,
-        "fy": 30,
+        "fx": 30,
+        "fy": 15,
         "fz": 0,
         "mx": 0,
         "my": 0,
@@ -9627,8 +9626,8 @@
       "data": {
         "id": 44,
         "nodeId": 40,
-        "fx": 60,
-        "fy": 30,
+        "fx": 30,
+        "fy": 15,
         "fz": 0,
         "mx": 0,
         "my": 0,
@@ -9641,8 +9640,8 @@
       "data": {
         "id": 45,
         "nodeId": 49,
-        "fx": 60,
-        "fy": 30,
+        "fx": 30,
+        "fy": 15,
         "fz": 0,
         "mx": 0,
         "my": 0,
@@ -9655,8 +9654,8 @@
       "data": {
         "id": 46,
         "nodeId": 50,
-        "fx": 60,
-        "fy": 30,
+        "fx": 30,
+        "fy": 15,
         "fz": 0,
         "mx": 0,
         "my": 0,
@@ -9669,8 +9668,8 @@
       "data": {
         "id": 47,
         "nodeId": 51,
-        "fx": 60,
-        "fy": 30,
+        "fx": 30,
+        "fy": 15,
         "fz": 0,
         "mx": 0,
         "my": 0,
@@ -9683,8 +9682,8 @@
       "data": {
         "id": 48,
         "nodeId": 52,
-        "fx": 60,
-        "fy": 30,
+        "fx": 30,
+        "fy": 15,
         "fz": 0,
         "mx": 0,
         "my": 0,
@@ -9697,8 +9696,8 @@
       "data": {
         "id": 49,
         "nodeId": 61,
-        "fx": 60,
-        "fy": 30,
+        "fx": 30,
+        "fy": 15,
         "fz": 0,
         "mx": 0,
         "my": 0,
@@ -9711,8 +9710,8 @@
       "data": {
         "id": 50,
         "nodeId": 62,
-        "fx": 60,
-        "fy": 30,
+        "fx": 30,
+        "fy": 15,
         "fz": 0,
         "mx": 0,
         "my": 0,
@@ -9725,8 +9724,8 @@
       "data": {
         "id": 51,
         "nodeId": 63,
-        "fx": 60,
-        "fy": 30,
+        "fx": 30,
+        "fy": 15,
         "fz": 0,
         "mx": 0,
         "my": 0,
@@ -9739,8 +9738,8 @@
       "data": {
         "id": 52,
         "nodeId": 64,
-        "fx": 60,
-        "fy": 30,
+        "fx": 30,
+        "fy": 15,
         "fz": 0,
         "mx": 0,
         "my": 0,
@@ -9752,289 +9751,9 @@
       "type": "nodal3d",
       "data": {
         "id": 53,
-        "nodeId": 17,
-        "fx": 40,
-        "fy": 20,
-        "fz": 0,
-        "mx": 0,
-        "my": 0,
-        "mz": 0,
-        "caseId": 4
-      }
-    },
-    {
-      "type": "nodal3d",
-      "data": {
-        "id": 54,
-        "nodeId": 19,
-        "fx": 40,
-        "fy": 20,
-        "fz": 0,
-        "mx": 0,
-        "my": 0,
-        "mz": 0,
-        "caseId": 4
-      }
-    },
-    {
-      "type": "nodal3d",
-      "data": {
-        "id": 55,
-        "nodeId": 21,
-        "fx": 40,
-        "fy": 20,
-        "fz": 0,
-        "mx": 0,
-        "my": 0,
-        "mz": 0,
-        "caseId": 4
-      }
-    },
-    {
-      "type": "nodal3d",
-      "data": {
-        "id": 56,
-        "nodeId": 23,
-        "fx": 40,
-        "fy": 20,
-        "fz": 0,
-        "mx": 0,
-        "my": 0,
-        "mz": 0,
-        "caseId": 4
-      }
-    },
-    {
-      "type": "nodal3d",
-      "data": {
-        "id": 57,
-        "nodeId": 29,
-        "fx": 40,
-        "fy": 20,
-        "fz": 0,
-        "mx": 0,
-        "my": 0,
-        "mz": 0,
-        "caseId": 4
-      }
-    },
-    {
-      "type": "nodal3d",
-      "data": {
-        "id": 58,
-        "nodeId": 31,
-        "fx": 40,
-        "fy": 20,
-        "fz": 0,
-        "mx": 0,
-        "my": 0,
-        "mz": 0,
-        "caseId": 4
-      }
-    },
-    {
-      "type": "nodal3d",
-      "data": {
-        "id": 59,
-        "nodeId": 33,
-        "fx": 40,
-        "fy": 20,
-        "fz": 0,
-        "mx": 0,
-        "my": 0,
-        "mz": 0,
-        "caseId": 4
-      }
-    },
-    {
-      "type": "nodal3d",
-      "data": {
-        "id": 60,
-        "nodeId": 35,
-        "fx": 40,
-        "fy": 20,
-        "fz": 0,
-        "mx": 0,
-        "my": 0,
-        "mz": 0,
-        "caseId": 4
-      }
-    },
-    {
-      "type": "nodal3d",
-      "data": {
-        "id": 61,
-        "nodeId": 41,
-        "fx": 40,
-        "fy": 20,
-        "fz": 0,
-        "mx": 0,
-        "my": 0,
-        "mz": 0,
-        "caseId": 4
-      }
-    },
-    {
-      "type": "nodal3d",
-      "data": {
-        "id": 62,
-        "nodeId": 43,
-        "fx": 40,
-        "fy": 20,
-        "fz": 0,
-        "mx": 0,
-        "my": 0,
-        "mz": 0,
-        "caseId": 4
-      }
-    },
-    {
-      "type": "nodal3d",
-      "data": {
-        "id": 63,
-        "nodeId": 45,
-        "fx": 40,
-        "fy": 20,
-        "fz": 0,
-        "mx": 0,
-        "my": 0,
-        "mz": 0,
-        "caseId": 4
-      }
-    },
-    {
-      "type": "nodal3d",
-      "data": {
-        "id": 64,
-        "nodeId": 47,
-        "fx": 40,
-        "fy": 20,
-        "fz": 0,
-        "mx": 0,
-        "my": 0,
-        "mz": 0,
-        "caseId": 4
-      }
-    },
-    {
-      "type": "nodal3d",
-      "data": {
-        "id": 65,
-        "nodeId": 53,
-        "fx": 40,
-        "fy": 20,
-        "fz": 0,
-        "mx": 0,
-        "my": 0,
-        "mz": 0,
-        "caseId": 4
-      }
-    },
-    {
-      "type": "nodal3d",
-      "data": {
-        "id": 66,
-        "nodeId": 55,
-        "fx": 40,
-        "fy": 20,
-        "fz": 0,
-        "mx": 0,
-        "my": 0,
-        "mz": 0,
-        "caseId": 4
-      }
-    },
-    {
-      "type": "nodal3d",
-      "data": {
-        "id": 67,
-        "nodeId": 57,
-        "fx": 40,
-        "fy": 20,
-        "fz": 0,
-        "mx": 0,
-        "my": 0,
-        "mz": 0,
-        "caseId": 4
-      }
-    },
-    {
-      "type": "nodal3d",
-      "data": {
-        "id": 68,
-        "nodeId": 59,
-        "fx": 40,
-        "fy": 20,
-        "fz": 0,
-        "mx": 0,
-        "my": 0,
-        "mz": 0,
-        "caseId": 4
-      }
-    },
-    {
-      "type": "nodal3d",
-      "data": {
-        "id": 69,
-        "nodeId": 65,
-        "fx": 40,
-        "fy": 20,
-        "fz": 0,
-        "mx": 0,
-        "my": 0,
-        "mz": 0,
-        "caseId": 4
-      }
-    },
-    {
-      "type": "nodal3d",
-      "data": {
-        "id": 70,
-        "nodeId": 67,
-        "fx": 40,
-        "fy": 20,
-        "fz": 0,
-        "mx": 0,
-        "my": 0,
-        "mz": 0,
-        "caseId": 4
-      }
-    },
-    {
-      "type": "nodal3d",
-      "data": {
-        "id": 71,
-        "nodeId": 69,
-        "fx": 40,
-        "fy": 20,
-        "fz": 0,
-        "mx": 0,
-        "my": 0,
-        "mz": 0,
-        "caseId": 4
-      }
-    },
-    {
-      "type": "nodal3d",
-      "data": {
-        "id": 72,
-        "nodeId": 71,
-        "fx": 40,
-        "fy": 20,
-        "fz": 0,
-        "mx": 0,
-        "my": 0,
-        "mz": 0,
-        "caseId": 4
-      }
-    },
-    {
-      "type": "nodal3d",
-      "data": {
-        "id": 73,
         "nodeId": 187,
-        "fx": 40,
-        "fy": 25,
+        "fx": 50,
+        "fy": 20,
         "fz": 0,
         "mx": 0,
         "my": 0,
