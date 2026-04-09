@@ -261,7 +261,7 @@
     // Sagrada Familia removed upstream — fixture no longer available
   ];
   const proExampleGroups = $derived.by(() => {
-    const order: ExampleGroup[] = ['buildings', 'industrial', 'foundations', 'longspan', 'xl'];
+    const order: ExampleGroup[] = ['buildings', 'industrial', 'energy', 'foundations', 'longspan', 'xl'];
     return order.map(group => ({
       group,
       title: t(proExamples.find(ex => ex.group === group)?.groupKey ?? ''),
