@@ -175,7 +175,7 @@
       descKey: 'ex.offshorePlatform.desc',
       purposeKey: 'ex.offshorePlatform.purpose',
       tags: ['pro.tagSteel', 'pro.tagOffshore'],
-      stats: { nodes: '46', members: '121' },
+      stats: { nodes: '103', members: '316' },
       preset: 'default',
       featured: true,
       load: () => modelStore.loadExample('offshore-platform'),
