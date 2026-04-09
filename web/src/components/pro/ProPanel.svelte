@@ -97,7 +97,7 @@
   export function canSolve() { return hasModel && !solving; }
   export function canReport() { return modelStore.nodes.size > 0; }
 
-  type ExampleGroup = 'buildings' | 'industrial' | 'foundations' | 'longspan' | 'xl';
+  type ExampleGroup = 'buildings' | 'industrial' | 'foundations' | 'longspan' | 'energy' | 'xl';
   type ExamplePreset = 'default' | 'xl' | 'clean-shell' | 'bridge';
   interface ProExample {
     nameKey: string;
@@ -167,6 +167,18 @@
       stats: { nodes: '90', members: '173' },
       preset: 'default',
       load: () => modelStore.loadExample('pipe-rack'),
+    },
+    {
+      group: 'energy',
+      groupKey: 'pro.examples.groupEnergy',
+      nameKey: 'ex.offshorePlatform',
+      descKey: 'ex.offshorePlatform.desc',
+      purposeKey: 'ex.offshorePlatform.purpose',
+      tags: ['pro.tagSteel', 'pro.tagOffshore'],
+      stats: { nodes: '46', members: '121' },
+      preset: 'default',
+      featured: true,
+      load: () => modelStore.loadExample('offshore-platform'),
     },
     {
       group: 'foundations',
