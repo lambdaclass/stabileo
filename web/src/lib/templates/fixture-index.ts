@@ -49,6 +49,7 @@ const fixtures3D: Record<string, FixtureLoader> = {
   'mat-foundation': () => import('./fixtures/mat-foundation.json'),
   'suspension-bridge': () => import('./fixtures/suspension-bridge.json'),
   'cable-stayed-bridge': () => import('./fixtures/cable-stayed-bridge.json'),
+  'offshore-platform': () => import('./fixtures/offshore-platform.json'),
   'full-stadium': () => import('./fixtures/full-stadium.json'),
   'xl-diagrid-tower': () => import('./fixtures/xl-diagrid-tower.json'),
   'geodesic-dome': () => import('./fixtures/geodesic-dome.json'),
