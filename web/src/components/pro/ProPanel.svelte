@@ -296,8 +296,39 @@
     exampleMenuStyle = `left:${left}px;top:${top}px;width:${width}px;max-height:${maxHeight}px;`;
   }
 
+  /** Pre-solve model quality check — returns error diagnostics if any. */
+  function getModelErrors(): import('../../lib/engine/types').SolverDiagnostic[] {
+    return checkModel({
+      nodes: modelStore.nodes,
+      elements: modelStore.elements,
+      materials: modelStore.materials,
+      sections: modelStore.sections,
+      supports: modelStore.supports,
+      loads: modelStore.loads as any,
+      loadCases: modelStore.model.loadCases,
+      plates: modelStore.model.plates,
+      quads: modelStore.model.quads,
+    }).filter(d => d.severity === 'error');
+  }
+
+  /** Reactive count of blocking model errors (for UI state). */
+  const modelErrorCount = $derived.by(() => {
+    // Touch reactive deps
+    void(modelStore.nodes.size + modelStore.elements.size + modelStore.supports.size + modelStore.loads.length);
+    return getModelErrors().length;
+  });
+
   async function handleSolve() {
     solveError = null;
+
+    // ─── Pre-solve quality gate ─────────────────────────
+    const errors = getModelErrors();
+    if (errors.length > 0) {
+      solveError = `${errors.length} ${t('pro.modelErrorsBlock')} — ${t('pro.seeDiagnostics')}`;
+      uiStore.proActiveTab = 'diagnostics';
+      return;
+    }
+
     solving = true;
     try {
       await runGlobalSolve();
@@ -680,6 +711,17 @@
 
   {#if solveError}
     <div class="pro-solve-error">{solveError}</div>
+  {/if}
+
+  <!-- Pre-solve quality gate banner -->
+  {#if modelErrorCount > 0 && activeTab !== 'diagnostics'}
+    <!-- svelte-ignore a11y_click_events_have_key_events -->
+    <!-- svelte-ignore a11y_no_static_element_interactions -->
+    <div class="pro-quality-gate" onclick={() => uiStore.proActiveTab = 'diagnostics'}>
+      <span class="qg-icon">⚠</span>
+      <span class="qg-text"><strong>{modelErrorCount}</strong> {t('pro.errorsFound')} — {t('pro.fixBeforeSolve')}</span>
+      <span class="qg-arrow">→</span>
+    </div>
   {/if}
 
   <!-- Tab content -->
@@ -1104,6 +1146,20 @@
     background: rgba(233, 69, 96, 0.1);
     border-bottom: 1px solid #1a3a5a;
   }
+
+  .pro-quality-gate {
+    display: flex; align-items: center; gap: 8px;
+    padding: 6px 12px; cursor: pointer;
+    background: rgba(233, 160, 0, 0.08);
+    border-bottom: 1px solid rgba(233, 160, 0, 0.2);
+    font-size: 0.72rem; color: #f0a500;
+    transition: background 0.15s;
+  }
+  .pro-quality-gate:hover { background: rgba(233, 160, 0, 0.15); }
+  .qg-icon { font-size: 0.85rem; }
+  .qg-text { flex: 1; }
+  .qg-text strong { color: #ffb820; }
+  .qg-arrow { font-size: 0.8rem; opacity: 0.6; }
 
   /* ─── Content area ─── */
   .pro-content {
