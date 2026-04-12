@@ -248,9 +248,37 @@
     newComboName = '';
   }
 
-  /** Generate LRFD ultimate combinations from existing load-case types.
-   *  Based on ASCE 7-22 / CIRSOC 101 basic LRFD load combinations. */
-  function generateLRFDCombinations() {
+  // ─── LRFD Combination Generator with Review Modal ─────
+
+  interface CandidateCombo {
+    name: string;
+    factors: Array<{caseId: number; factor: number}>;
+    exists: boolean;
+    selected: boolean;
+  }
+
+  let showComboModal = $state(false);
+  let candidateCombos = $state<CandidateCombo[]>([]);
+
+  /** Check if a candidate combination is equivalent to any existing one.
+   *  Equivalence: same non-zero factors on the same load cases (ignores name). */
+  function comboExists(factors: Array<{caseId: number; factor: number}>): boolean {
+    const sig = comboSignature(factors);
+    return combinations.some(c => comboSignature(c.factors) === sig);
+  }
+
+  /** Produce a canonical string signature from factors for equivalence comparison.
+   *  Only includes non-zero factors, sorted by caseId, rounded to 2 decimals. */
+  function comboSignature(factors: Array<{caseId: number; factor: number}>): string {
+    return factors
+      .filter(f => Math.abs(f.factor) > 1e-9)
+      .sort((a, b) => a.caseId - b.caseId)
+      .map(f => `${f.caseId}:${f.factor.toFixed(2)}`)
+      .join('|');
+  }
+
+  /** Build the list of candidate LRFD combinations from current load-case types. */
+  function buildCandidates(): CandidateCombo[] {
     const cases = modelStore.model.loadCases;
     const byType: Record<string, number[]> = {};
     for (const lc of cases) {
@@ -258,93 +286,86 @@
       if (!byType[t2]) byType[t2] = [];
       byType[t2].push(lc.id);
     }
+    const D = byType['D'] ?? [], L = byType['L'] ?? [], Lr = byType['LR'] ?? [];
+    const S2 = byType['S'] ?? [], W = byType['W'] ?? [], E2 = byType['E'] ?? [];
 
-    const D = byType['D'] ?? [];
-    const L = byType['L'] ?? [];
-    const Lr = byType['LR'] ?? [];
-    const S = byType['S'] ?? [];
-    const W = byType['W'] ?? [];
-    const E = byType['E'] ?? [];
-
-    if (D.length === 0) {
-      uiStore.toast(t('pro.needDeadCase'), 'error');
-      return;
-    }
-
-    // Helper: build factors array from {caseId, factor} pairs, filling missing cases with 0
     function mkFactors(pairs: Array<[number, number]>): Array<{caseId: number; factor: number}> {
       return cases.map(lc => {
         const match = pairs.find(([id]) => id === lc.id);
         return { caseId: lc.id, factor: match ? match[1] : 0 };
       });
     }
+    function mk(name: string, pairs: Array<[number, number]>): CandidateCombo {
+      const factors = mkFactors(pairs);
+      return { name, factors, exists: comboExists(factors), selected: false };
+    }
 
+    const out: CandidateCombo[] = [];
+    if (D.length === 0) return out;
+
+    // 1. 1.4D
+    out.push(mk('1.4D', D.map(id => [id, 1.4])));
+
+    // 2. 1.2D + 1.6L + 0.5(Lr or S)
+    if (L.length > 0) {
+      const base: Array<[number, number]> = [...D.map(id => [id, 1.2] as [number, number]), ...L.map(id => [id, 1.6] as [number, number])];
+      if (Lr.length > 0) out.push(mk('1.2D + 1.6L + 0.5Lr', [...base, ...Lr.map(id => [id, 0.5] as [number, number])]));
+      else if (S2.length > 0) out.push(mk('1.2D + 1.6L + 0.5S', [...base, ...S2.map(id => [id, 0.5] as [number, number])]));
+      else out.push(mk('1.2D + 1.6L', base));
+    }
+
+    // 3. 1.2D + 1.6(Lr or S) + L
+    if (Lr.length > 0) {
+      const base: Array<[number, number]> = [...D.map(id => [id, 1.2] as [number, number]), ...Lr.map(id => [id, 1.6] as [number, number])];
+      out.push(mk(L.length > 0 ? '1.2D + 1.6Lr + L' : '1.2D + 1.6Lr', L.length > 0 ? [...base, ...L.map(id => [id, 1.0] as [number, number])] : base));
+    } else if (S2.length > 0) {
+      const base: Array<[number, number]> = [...D.map(id => [id, 1.2] as [number, number]), ...S2.map(id => [id, 1.6] as [number, number])];
+      out.push(mk(L.length > 0 ? '1.2D + 1.6S + L' : '1.2D + 1.6S', L.length > 0 ? [...base, ...L.map(id => [id, 1.0] as [number, number])] : base));
+    }
+
+    // 4-7: per wind/seismic case
+    for (const wId of W) {
+      const sn = (cases.find(c => c.id === wId)?.name ?? '').replace(/^W\s*[—–-]\s*/, '') || `W${wId}`;
+      const base4: Array<[number, number]> = [...D.map(id => [id, 1.2] as [number, number]), [wId, 1.6]];
+      if (L.length > 0) base4.push(...L.map(id => [id, 1.0] as [number, number]));
+      if (Lr.length > 0) base4.push(...Lr.map(id => [id, 0.5] as [number, number]));
+      out.push(mk(`1.2D + 1.6${sn} + L`, base4));
+      out.push(mk(`0.9D + 1.6${sn}`, [...D.map(id => [id, 0.9] as [number, number]), [wId, 1.6]]));
+    }
+    for (const eId of E2) {
+      const sn = (cases.find(c => c.id === eId)?.name ?? '').replace(/^E\s*[—–-]\s*/, '') || `E${eId}`;
+      const base5: Array<[number, number]> = [...D.map(id => [id, 1.2] as [number, number]), [eId, 1.0]];
+      if (L.length > 0) base5.push(...L.map(id => [id, 1.0] as [number, number]));
+      out.push(mk(`1.2D + ${sn} + L`, base5));
+      out.push(mk(`0.9D + ${sn}`, [...D.map(id => [id, 0.9] as [number, number]), [eId, 1.0]]));
+    }
+
+    // Default selection: check only those that don't already exist
+    for (const c of out) c.selected = !c.exists;
+    return out;
+  }
+
+  function openComboGenerator() {
+    if ((modelStore.model.loadCases.find(c => (c.type || '').toUpperCase() === 'D')) == null) {
+      uiStore.toast(t('pro.needDeadCase'), 'error');
+      return;
+    }
+    candidateCombos = buildCandidates();
+    showComboModal = true;
+  }
+
+  function applySelectedCombos() {
+    const toAdd = candidateCombos.filter(c => c.selected);
+    if (toAdd.length === 0) { showComboModal = false; return; }
     let n = combinations.length;
-    const add = (name: string, pairs: Array<[number, number]>) => {
-      n++;
-      modelStore.addCombination(`U${n}: ${name}`, mkFactors(pairs));
-    };
-
     modelStore.batch(() => {
-      // 1. 1.4D
-      const dPairs: Array<[number, number]> = D.map(id => [id, 1.4]);
-      add('1.4D', dPairs);
-
-      // 2. 1.2D + 1.6L + 0.5Lr (or 0.5S)
-      if (L.length > 0) {
-        const base: Array<[number, number]> = [...D.map(id => [id, 1.2] as [number, number]), ...L.map(id => [id, 1.6] as [number, number])];
-        if (Lr.length > 0) add('1.2D + 1.6L + 0.5Lr', [...base, ...Lr.map(id => [id, 0.5] as [number, number])]);
-        else if (S.length > 0) add('1.2D + 1.6L + 0.5S', [...base, ...S.map(id => [id, 0.5] as [number, number])]);
-        else add('1.2D + 1.6L', base);
-      }
-
-      // 3. 1.2D + 1.6Lr + L (or 1.2D + 1.6S + L)
-      if (Lr.length > 0) {
-        const base: Array<[number, number]> = [...D.map(id => [id, 1.2] as [number, number]), ...Lr.map(id => [id, 1.6] as [number, number])];
-        if (L.length > 0) add('1.2D + 1.6Lr + L', [...base, ...L.map(id => [id, 1.0] as [number, number])]);
-        else add('1.2D + 1.6Lr', base);
-      }
-      if (S.length > 0 && Lr.length === 0) {
-        const base: Array<[number, number]> = [...D.map(id => [id, 1.2] as [number, number]), ...S.map(id => [id, 1.6] as [number, number])];
-        if (L.length > 0) add('1.2D + 1.6S + L', [...base, ...L.map(id => [id, 1.0] as [number, number])]);
-        else add('1.2D + 1.6S', base);
-      }
-
-      // 4. 1.2D + 1.6W + L + 0.5Lr (for each wind case)
-      for (const wId of W) {
-        const wName = cases.find(c => c.id === wId)?.name ?? `W${wId}`;
-        const shortW = wName.replace(/^W\s*[—–-]\s*/, '');
-        const base: Array<[number, number]> = [...D.map(id => [id, 1.2] as [number, number]), [wId, 1.6]];
-        if (L.length > 0) base.push(...L.map(id => [id, 1.0] as [number, number]));
-        if (Lr.length > 0) base.push(...Lr.map(id => [id, 0.5] as [number, number]));
-        add(`1.2D + 1.6${shortW} + L`, base);
-      }
-
-      // 5. 1.2D + E + L (for each seismic case)
-      for (const eId of E) {
-        const eName = cases.find(c => c.id === eId)?.name ?? `E${eId}`;
-        const shortE = eName.replace(/^E\s*[—–-]\s*/, '');
-        const base: Array<[number, number]> = [...D.map(id => [id, 1.2] as [number, number]), [eId, 1.0]];
-        if (L.length > 0) base.push(...L.map(id => [id, 1.0] as [number, number]));
-        add(`1.2D + ${shortE} + L`, base);
-      }
-
-      // 6. 0.9D + 1.6W (for each wind case)
-      for (const wId of W) {
-        const wName = cases.find(c => c.id === wId)?.name ?? `W${wId}`;
-        const shortW = wName.replace(/^W\s*[—–-]\s*/, '');
-        add(`0.9D + 1.6${shortW}`, [...D.map(id => [id, 0.9] as [number, number]), [wId, 1.6]]);
-      }
-
-      // 7. 0.9D + E (for each seismic case)
-      for (const eId of E) {
-        const eName = cases.find(c => c.id === eId)?.name ?? `E${eId}`;
-        const shortE = eName.replace(/^E\s*[—–-]\s*/, '');
-        add(`0.9D + ${shortE}`, [...D.map(id => [id, 0.9] as [number, number]), [eId, 1.0]]);
+      for (const c of toAdd) {
+        n++;
+        modelStore.addCombination(`U${n}: ${c.name}`, c.factors);
       }
     });
-
-    uiStore.toast(t('pro.combosGenerated'), 'success');
+    showComboModal = false;
+    uiStore.toast(`${toAdd.length} ${t('pro.combosGenerated')}`, 'success');
   }
 
   function removeCombination(id: number) {
@@ -483,7 +504,7 @@
           <button class="pro-btn-sm" onclick={addCombination}>{t('pro.addCombo')}</button>
         </div>
         <div class="pro-combo-generate">
-          <button class="pro-btn pro-btn-accent" onclick={generateLRFDCombinations} title={t('pro.generateLRFDHint')}>
+          <button class="pro-btn pro-btn-accent" onclick={openComboGenerator} title={t('pro.generateLRFDHint')}>
             ⚡ {t('pro.generateLRFD')}
           </button>
           <span class="pro-combo-gen-hint">{t('pro.generateLRFDDesc')}</span>
@@ -702,6 +723,43 @@
   </div>
 </div>
 
+<!-- LRFD Combination Generator Modal -->
+{#if showComboModal}
+  <!-- svelte-ignore a11y_no_static_element_interactions -->
+  <div class="combo-modal-backdrop" onclick={() => showComboModal = false}>
+    <!-- svelte-ignore a11y_no_static_element_interactions -->
+    <div class="combo-modal" onclick={(e) => e.stopPropagation()}>
+      <div class="combo-modal-header">
+        <h3>{t('pro.generateLRFD')}</h3>
+        <span class="combo-modal-sub">ASCE 7 / CIRSOC 101</span>
+        <button class="combo-modal-close" onclick={() => showComboModal = false}>×</button>
+      </div>
+      <div class="combo-modal-body">
+        {#each candidateCombos as cand, i}
+          <label class="combo-cand-row" class:combo-exists={cand.exists}>
+            <input type="checkbox" bind:checked={candidateCombos[i].selected} />
+            <span class="combo-cand-name">{cand.name}</span>
+            <span class="combo-cand-factors">
+              {cand.factors.filter(f => Math.abs(f.factor) > 1e-9).map(f => {
+                const lc = loadCases.find(c => c.id === f.caseId);
+                return `${f.factor}×${lc?.name ?? f.caseId}`;
+              }).join(' + ')}
+            </span>
+            {#if cand.exists}
+              <span class="combo-exists-badge">{t('pro.comboAlreadyExists')}</span>
+            {/if}
+          </label>
+        {/each}
+      </div>
+      <div class="combo-modal-footer">
+        <span class="combo-modal-count">{candidateCombos.filter(c => c.selected).length} / {candidateCombos.length} {t('pro.selected')}</span>
+        <button class="pro-btn" onclick={() => showComboModal = false}>{t('calcReport.cancel')}</button>
+        <button class="pro-btn pro-btn-accent" onclick={applySelectedCombos} disabled={candidateCombos.filter(c => c.selected).length === 0}>{t('pro.generateSelected')}</button>
+      </div>
+    </div>
+  </div>
+{/if}
+
 <style>
   .pro-loads { display: flex; flex-direction: column; }
   .pro-sw-bar {
@@ -838,6 +896,25 @@
   .pro-combo-add { display: flex; gap: 6px; align-items: center; padding-top: 6px; }
   .pro-combo-generate { display: flex; gap: 8px; align-items: center; padding-top: 8px; border-top: 1px solid #12253d; margin-top: 8px; }
   .pro-combo-gen-hint { font-size: 0.65rem; color: #556; font-style: italic; }
+
+  /* LRFD Generator Modal */
+  .combo-modal-backdrop { position: fixed; inset: 0; z-index: 500; background: rgba(0,0,0,0.6); display: flex; align-items: center; justify-content: center; }
+  .combo-modal { background: #0d1b2e; border: 1px solid #1a4a7a; border-radius: 10px; width: min(520px, calc(100vw - 40px)); max-height: 80vh; display: flex; flex-direction: column; box-shadow: 0 12px 40px rgba(0,0,0,0.5); }
+  .combo-modal-header { padding: 14px 18px; border-bottom: 1px solid #1a3050; display: flex; align-items: center; gap: 10px; }
+  .combo-modal-header h3 { font-size: 0.85rem; color: #eee; font-weight: 700; margin: 0; }
+  .combo-modal-sub { font-size: 0.62rem; color: #4ecdc4; background: rgba(78,205,196,0.1); padding: 2px 6px; border-radius: 3px; }
+  .combo-modal-close { margin-left: auto; background: none; border: none; color: #666; font-size: 1.1rem; cursor: pointer; }
+  .combo-modal-close:hover { color: #e94560; }
+  .combo-modal-body { flex: 1; overflow-y: auto; padding: 8px 12px; }
+  .combo-cand-row { display: flex; align-items: center; gap: 8px; padding: 6px 8px; border-radius: 5px; cursor: pointer; font-size: 0.75rem; color: #ccc; transition: background 0.1s; }
+  .combo-cand-row:hover { background: rgba(78,205,196,0.06); }
+  .combo-cand-row.combo-exists { opacity: 0.5; }
+  .combo-cand-row input[type="checkbox"] { accent-color: #4ecdc4; cursor: pointer; }
+  .combo-cand-name { font-weight: 600; min-width: 120px; color: #ddd; }
+  .combo-cand-factors { font-size: 0.65rem; color: #778; flex: 1; }
+  .combo-exists-badge { font-size: 0.58rem; color: #f0a500; background: rgba(240,165,0,0.1); padding: 1px 6px; border-radius: 3px; white-space: nowrap; }
+  .combo-modal-footer { padding: 10px 18px; border-top: 1px solid #1a3050; display: flex; align-items: center; gap: 8px; }
+  .combo-modal-count { flex: 1; font-size: 0.68rem; color: #667; }
 
   .pro-loads-header { padding: 8px 12px; border-bottom: 1px solid #1a3050; }
   .pro-loads-count { font-size: 0.78rem; color: #4ecdc4; font-weight: 600; }
