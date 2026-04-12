@@ -2565,6 +2565,7 @@ const es: Record<string, string> = {
   'report.column': 'Columna',
   'report.wall': 'Muro',
   'report.designCodeRef': 'Norma de diseño',
+  'report.governingCombo': 'Combinación Gobernante',
   'report.combosUsed': 'Combinaciones verificadas',
   'report.storyDrift': 'Drift de Entrepiso',
   'report.loadCombinations': 'Combinaciones de Carga',

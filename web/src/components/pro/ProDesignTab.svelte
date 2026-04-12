@@ -16,6 +16,7 @@
   let running = $state(false);
   let error = $state<string | null>(null);
   let statusFilter = $state<'all' | CheckStatus>('all');
+  let expandedElemId = $state<number | null>(null);
 
   const results3D = $derived(resultsStore.results3D);
   const hasResults = $derived(results3D !== null);
@@ -246,7 +247,7 @@
         </thead>
         <tbody>
           {#each filteredResults as r (r.elementId)}
-            <tr class={statusClass(r.status)} onclick={() => { uiStore.selectMode = 'elements'; uiStore.selectElement(r.elementId, false); }} style="cursor:pointer">
+            <tr class={statusClass(r.status)} onclick={() => { uiStore.selectMode = 'elements'; uiStore.selectElement(r.elementId, false); expandedElemId = expandedElemId === r.elementId ? null : r.elementId; }} style="cursor:pointer">
               <td class="col-id">{r.elementId}</td>
               <td class="col-type">{r.elementType}</td>
               <td class="col-section">{r.sectionName}</td>
@@ -262,6 +263,27 @@
               <td class="col-status"><span class="status-badge {statusClass(r.status)}">{statusIcon(r.status)}</span></td>
               <td class="col-combo">{r.comboName ?? '—'}</td>
             </tr>
+            {#if expandedElemId === r.elementId && r.checks.length > 0}
+              <tr class="check-detail-row">
+                <td colspan="7">
+                  <table class="check-detail-table">
+                    <thead><tr><th>Check</th><th>Demand</th><th>Capacity</th><th>Ratio</th><th>Status</th><th>Combo</th></tr></thead>
+                    <tbody>
+                      {#each r.checks as ck}
+                        <tr class={statusClass(ck.status)}>
+                          <td>{ck.name}</td>
+                          <td class="num">{ck.demand.toFixed(1)} {ck.unit}</td>
+                          <td class="num">{ck.capacity.toFixed(1)} {ck.unit}</td>
+                          <td class="num" style="font-weight:600">{fmtRatio(ck.ratio)}</td>
+                          <td><span class="status-badge {statusClass(ck.status)}">{statusIcon(ck.status)}</span></td>
+                          <td class="combo-ref">{ck.comboName ?? '—'}</td>
+                        </tr>
+                      {/each}
+                    </tbody>
+                  </table>
+                </td>
+              </tr>
+            {/if}
           {/each}
         </tbody>
       </table>
@@ -309,6 +331,13 @@
   .col-ratio { width: 130px; }
   .col-status { width: 40px; text-align: center; }
   .col-combo { width: 100px; font-size: 0.65rem; color: #888; }
+
+  .check-detail-row td { padding: 0; }
+  .check-detail-table { width: 100%; border-collapse: collapse; font-size: 0.68rem; background: #0a1828; }
+  .check-detail-table th { padding: 3px 6px; font-size: 0.6rem; font-weight: 600; color: #556; text-transform: uppercase; text-align: left; border-bottom: 1px solid #12253d; }
+  .check-detail-table td { padding: 3px 6px; border-bottom: 1px solid #0f1e30; color: #aab; }
+  .check-detail-table .num { text-align: right; font-family: monospace; font-variant-numeric: tabular-nums; }
+  .check-detail-table .combo-ref { font-size: 0.6rem; color: #667; max-width: 100px; overflow: hidden; text-overflow: ellipsis; }
 
   .ratio-cell { display: flex; align-items: center; gap: 6px; }
   .ratio-value { width: 32px; text-align: right; font-variant-numeric: tabular-nums; font-weight: 600; }

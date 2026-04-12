@@ -484,6 +484,7 @@ export function generateReportHtml(data: ReportData): string {
     html.push(`<th>${escHtml(tr('report.typeLabel') || 'Type')}</th>`);
     html.push(`<th>${escHtml(tr('report.sectionLabel') || 'Section')}</th>`);
     html.push(`<th>${escHtml(tr('report.governingCheck') || 'Governing Check')}</th>`);
+    html.push(`<th>${escHtml(tr('report.governingCombo') || 'Governing Combo')}</th>`);
     html.push(`<th>${escHtml(tr('report.utilizationLabel') || 'Utilization')}</th>`);
     html.push(`<th>${escHtml(tr('report.statusLabel') || 'Status')}</th>`);
     html.push(`</tr></thead><tbody>`);
@@ -517,6 +518,13 @@ export function generateReportHtml(data: ReportData): string {
       html.push(`<td>${escHtml(typeLabel)}</td>`);
       html.push(`<td>${escHtml(section?.name ?? '—')}</td>`);
       html.push(`<td>${escHtml(govCheck)}</td>`);
+      // Governing combo — pick from the check type that governs
+      const govComboName = govCheck === (tr('report.shear') || 'Shear')
+        ? (v.governingCombos?.shear?.comboName ?? '—')
+        : govCheck === (tr('report.axialFlexure') || 'Axial+Flexure')
+          ? (v.governingCombos?.axial?.comboName ?? v.governingCombos?.flexure?.comboName ?? '—')
+          : (v.governingCombos?.flexure?.comboName ?? '—');
+      html.push(`<td style="font-size:9px">${escHtml(govComboName)}</td>`);
       html.push(`<td style="text-align:right"><strong>${(utilization * 100).toFixed(0)}%</strong></td>`);
       html.push(`<td class="${statusCls}" style="text-align:center;font-weight:bold">${statusIcon}</td>`);
       html.push(`</tr>`);
