@@ -11142,12 +11142,12 @@
     {
       "id": 1,
       "type": "D",
-      "name": "Dead load"
+      "name": "Dead Load"
     },
     {
       "id": 2,
       "type": "Lr",
-      "name": "Live load"
+      "name": "Live Load"
     },
     {
       "id": 3,

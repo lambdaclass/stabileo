@@ -323,20 +323,30 @@
       out.push(mk(L.length > 0 ? '1.2D + 1.6S + L' : '1.2D + 1.6S', L.length > 0 ? [...base, ...L.map(id => [id, 1.0] as [number, number])] : base));
     }
 
-    // 4-7: per wind/seismic case
+    // 4. 1.2D + L + 1.6W (per wind direction)
     for (const wId of W) {
       const sn = (cases.find(c => c.id === wId)?.name ?? '').replace(/^W\s*[—–-]\s*/, '') || `W${wId}`;
-      const base4: Array<[number, number]> = [...D.map(id => [id, 1.2] as [number, number]), [wId, 1.6]];
-      if (L.length > 0) base4.push(...L.map(id => [id, 1.0] as [number, number]));
-      if (Lr.length > 0) base4.push(...Lr.map(id => [id, 0.5] as [number, number]));
-      out.push(mk(`1.2D + 1.6${sn} + L`, base4));
-      out.push(mk(`0.9D + 1.6${sn}`, [...D.map(id => [id, 0.9] as [number, number]), [wId, 1.6]]));
+      const pairs: Array<[number, number]> = [...D.map(id => [id, 1.2] as [number, number])];
+      if (L.length > 0) pairs.push(...L.map(id => [id, 1.0] as [number, number]));
+      pairs.push([wId, 1.6]);
+      out.push(mk(`1.2D + L + 1.6${sn}`, pairs));
     }
+    // 5. 1.2D + L + E (per seismic direction)
     for (const eId of E2) {
       const sn = (cases.find(c => c.id === eId)?.name ?? '').replace(/^E\s*[—–-]\s*/, '') || `E${eId}`;
-      const base5: Array<[number, number]> = [...D.map(id => [id, 1.2] as [number, number]), [eId, 1.0]];
-      if (L.length > 0) base5.push(...L.map(id => [id, 1.0] as [number, number]));
-      out.push(mk(`1.2D + ${sn} + L`, base5));
+      const pairs: Array<[number, number]> = [...D.map(id => [id, 1.2] as [number, number])];
+      if (L.length > 0) pairs.push(...L.map(id => [id, 1.0] as [number, number]));
+      pairs.push([eId, 1.0]);
+      out.push(mk(`1.2D + L + ${sn}`, pairs));
+    }
+    // 6. 0.9D + 1.6W (per wind direction)
+    for (const wId of W) {
+      const sn = (cases.find(c => c.id === wId)?.name ?? '').replace(/^W\s*[—–-]\s*/, '') || `W${wId}`;
+      out.push(mk(`0.9D + 1.6${sn}`, [...D.map(id => [id, 0.9] as [number, number]), [wId, 1.6]]));
+    }
+    // 7. 0.9D + E (per seismic direction)
+    for (const eId of E2) {
+      const sn = (cases.find(c => c.id === eId)?.name ?? '').replace(/^E\s*[—–-]\s*/, '') || `E${eId}`;
       out.push(mk(`0.9D + ${sn}`, [...D.map(id => [id, 0.9] as [number, number]), [eId, 1.0]]));
     }
 
@@ -740,7 +750,17 @@
             <input type="checkbox" bind:checked={candidateCombos[i].selected} />
             <span class="combo-cand-name">{cand.name}</span>
             <span class="combo-cand-factors">
-              {cand.factors.filter(f => Math.abs(f.factor) > 1e-9).map(f => {
+              {cand.factors.filter(f => Math.abs(f.factor) > 1e-9).sort((a, b) => {
+                // Sort by type priority: D=0, L=1, Lr=2, S=3, W=4, E=5, other=6
+                const typePri = (id: number) => {
+                  const lc = loadCases.find(c => c.id === id);
+                  const tp = (lc?.type || '').toUpperCase();
+                  if (tp === 'D') return 0; if (tp === 'L') return 1; if (tp === 'LR') return 2;
+                  if (tp === 'S') return 3; if (tp === 'W') return 4; if (tp === 'E') return 5;
+                  return 6;
+                };
+                return typePri(a.caseId) - typePri(b.caseId) || a.caseId - b.caseId;
+              }).map(f => {
                 const lc = loadCases.find(c => c.id === f.caseId);
                 return `${f.factor}×${lc?.name ?? f.caseId}`;
               }).join(' + ')}
