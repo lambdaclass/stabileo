@@ -434,8 +434,10 @@
   function applySelectedCombos() {
     const toAdd = candidateCombos.filter(c => c.selected);
     if (toAdd.length === 0) { showComboModal = false; return; }
-    let n = combinations.length;
     const prefix = activeTemplate === 'service' ? 'S' : 'U';
+    // Count only combos with matching prefix for independent numbering
+    const pattern = new RegExp(`^${prefix}\\d+:`);
+    let n = combinations.filter(c => pattern.test(c.name)).length;
     modelStore.batch(() => {
       for (const c of toAdd) {
         n++;
@@ -825,21 +827,20 @@
           <label class="combo-cand-row" class:combo-exists={cand.exists}>
             <input type="checkbox" bind:checked={candidateCombos[i].selected} />
             <span class="combo-cand-name">{cand.name}</span>
+            {@const nonZero = cand.factors.filter(f => Math.abs(f.factor) > 1e-9).sort((a, b) => {
+              const typePri = (id: number) => {
+                const lc2 = loadCases.find(c => c.id === id);
+                const tp = (lc2?.type || '').toUpperCase();
+                if (tp === 'D') return 0; if (tp === 'L') return 1; if (tp === 'LR') return 2;
+                if (tp === 'S') return 3; if (tp === 'W') return 4; if (tp === 'E') return 5; return 6;
+              };
+              return typePri(a.caseId) - typePri(b.caseId) || a.caseId - b.caseId;
+            })}
             <span class="combo-cand-factors">
-              {cand.factors.filter(f => Math.abs(f.factor) > 1e-9).sort((a, b) => {
-                // Sort by type priority: D=0, L=1, Lr=2, S=3, W=4, E=5, other=6
-                const typePri = (id: number) => {
-                  const lc = loadCases.find(c => c.id === id);
-                  const tp = (lc?.type || '').toUpperCase();
-                  if (tp === 'D') return 0; if (tp === 'L') return 1; if (tp === 'LR') return 2;
-                  if (tp === 'S') return 3; if (tp === 'W') return 4; if (tp === 'E') return 5;
-                  return 6;
-                };
-                return typePri(a.caseId) - typePri(b.caseId) || a.caseId - b.caseId;
-              }).map(f => {
-                const lc = loadCases.find(c => c.id === f.caseId);
-                return `${f.factor}×${lc?.name ?? f.caseId}`;
-              }).join(' + ')}
+              {#each nonZero as f}
+                {@const lc3 = loadCases.find(c => c.id === f.caseId)}
+                <span class="cand-factor-row"><span class="cand-f-val">{f.factor}</span> <span class="cand-f-type">{lc3?.type || '?'}</span> <span class="cand-f-name">{lc3?.name ?? f.caseId}</span></span>
+              {/each}
             </span>
             {#if cand.exists}
               <span class="combo-exists-badge">{t('pro.comboAlreadyExists')}</span>
@@ -1011,7 +1012,11 @@
   .combo-cand-row.combo-exists { opacity: 0.5; }
   .combo-cand-row input[type="checkbox"] { accent-color: #4ecdc4; cursor: pointer; }
   .combo-cand-name { font-weight: 600; min-width: 120px; color: #ddd; }
-  .combo-cand-factors { font-size: 0.65rem; color: #778; flex: 1; }
+  .combo-cand-factors { font-size: 0.62rem; color: #778; flex: 1; display: flex; flex-direction: column; gap: 1px; }
+  .cand-factor-row { display: flex; gap: 4px; align-items: baseline; }
+  .cand-f-val { font-family: monospace; min-width: 28px; text-align: right; color: #99a; }
+  .cand-f-type { font-weight: 600; color: #556; min-width: 16px; }
+  .cand-f-name { color: #667; }
   .combo-exists-badge { font-size: 0.58rem; color: #f0a500; background: rgba(240,165,0,0.1); padding: 1px 6px; border-radius: 3px; white-space: nowrap; }
   .combo-modal-footer { padding: 10px 18px; border-top: 1px solid #1a3050; display: flex; align-items: center; gap: 8px; }
   .combo-modal-count { flex: 1; font-size: 0.68rem; color: #667; }
