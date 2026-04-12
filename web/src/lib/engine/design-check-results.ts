@@ -108,6 +108,7 @@ export function normalizeCirsoc201(verifs: ElementVerification[], sectionNames: 
         ratio: v.torsion.ratio,
         unit: 'kN·m',
         status: v.torsion.status as CheckStatus,
+        comboName: v.governingCombos?.torsion?.comboName,
       });
     }
 
@@ -119,6 +120,7 @@ export function normalizeCirsoc201(verifs: ElementVerification[], sectionNames: 
         ratio: v.biaxial.ratio,
         unit: 'kN',
         status: v.biaxial.status as CheckStatus,
+        comboName: v.governingCombos?.axial?.comboName,
       });
     }
 
