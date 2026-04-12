@@ -264,10 +264,15 @@
               <td class="col-combo">{r.comboName ?? '—'}</td>
             </tr>
             {#if expandedElemId === r.elementId && r.checks.length > 0}
+              {@const uniqueCombos = new Set(r.checks.map(c => c.comboName).filter(Boolean))}
+              {@const multiCombo = uniqueCombos.size > 1}
               <tr class="check-detail-row">
                 <td colspan="7">
+                  {#if multiCombo}
+                    <div class="multi-combo-note">Different checks governed by different combinations</div>
+                  {/if}
                   <table class="check-detail-table">
-                    <thead><tr><th>Check</th><th>Demand</th><th>Capacity</th><th>Ratio</th><th>Status</th><th>Combo</th></tr></thead>
+                    <thead><tr><th>Check</th><th>Demand</th><th>Capacity</th><th>Ratio</th><th>Status</th><th>Governing Combo</th></tr></thead>
                     <tbody>
                       {#each r.checks as ck}
                         <tr class={statusClass(ck.status)}>
@@ -276,7 +281,7 @@
                           <td class="num">{ck.capacity.toFixed(1)} {ck.unit}</td>
                           <td class="num" style="font-weight:600">{fmtRatio(ck.ratio)}</td>
                           <td><span class="status-badge {statusClass(ck.status)}">{statusIcon(ck.status)}</span></td>
-                          <td class="combo-ref">{ck.comboName ?? '—'}</td>
+                          <td class="combo-ref" class:combo-highlight={multiCombo && ck.comboName}>{ck.comboName ?? '—'}</td>
                         </tr>
                       {/each}
                     </tbody>
@@ -337,7 +342,9 @@
   .check-detail-table th { padding: 3px 6px; font-size: 0.6rem; font-weight: 600; color: #556; text-transform: uppercase; text-align: left; border-bottom: 1px solid #12253d; }
   .check-detail-table td { padding: 3px 6px; border-bottom: 1px solid #0f1e30; color: #aab; }
   .check-detail-table .num { text-align: right; font-family: monospace; font-variant-numeric: tabular-nums; }
-  .check-detail-table .combo-ref { font-size: 0.6rem; color: #667; max-width: 100px; overflow: hidden; text-overflow: ellipsis; }
+  .check-detail-table .combo-ref { font-size: 0.6rem; color: #667; max-width: 120px; overflow: hidden; text-overflow: ellipsis; }
+  .check-detail-table .combo-highlight { color: #4ecdc4; font-weight: 600; }
+  .multi-combo-note { font-size: 0.6rem; color: #f0a500; padding: 4px 8px; background: rgba(240,165,0,0.06); border-bottom: 1px solid rgba(240,165,0,0.15); font-style: italic; }
 
   .ratio-cell { display: flex; align-items: center; gap: 6px; }
   .ratio-value { width: 32px; text-align: right; font-variant-numeric: tabular-nums; font-weight: 600; }

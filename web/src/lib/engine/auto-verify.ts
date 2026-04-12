@@ -116,13 +116,16 @@ export function autoVerifyFromResults(
 
     const v = verifyElement(input);
 
-    // Attach governing combo metadata if available
+    // Attach governing combo metadata if available — all force components
     const gov = governing?.get(ef.elementId);
     if (gov) {
       v.governingCombos = {};
       if (gov.momentZ) v.governingCombos.flexure = { comboId: gov.momentZ.comboId, comboName: gov.momentZ.comboName };
       if (gov.shearY) v.governingCombos.shear = { comboId: gov.shearY.comboId, comboName: gov.shearY.comboName };
       if (gov.axial) v.governingCombos.axial = { comboId: gov.axial.comboId, comboName: gov.axial.comboName };
+      if (gov.momentY) v.governingCombos.momentY = { comboId: gov.momentY.comboId, comboName: gov.momentY.comboName };
+      if (gov.shearZ) v.governingCombos.shearZ = { comboId: gov.shearZ.comboId, comboName: gov.shearZ.comboName };
+      if (gov.torsion) v.governingCombos.torsion = { comboId: gov.torsion.comboId, comboName: gov.torsion.comboName };
     }
 
     verifs.push(v);

@@ -524,16 +524,24 @@ export function generateReportHtml(data: ReportData): string {
         : govCheck === (tr('report.axialFlexure') || 'Axial+Flexure')
           ? (v.governingCombos?.axial?.comboName ?? v.governingCombos?.flexure?.comboName ?? '—')
           : (v.governingCombos?.flexure?.comboName ?? '—');
-      html.push(`<td style="font-size:9px">${escHtml(govComboName)}</td>`);
+      // Show if different checks have different governing combos
+      const allCombos = new Set([
+        v.governingCombos?.flexure?.comboName,
+        v.governingCombos?.shear?.comboName,
+        v.governingCombos?.axial?.comboName,
+      ].filter(Boolean));
+      const multiGov = allCombos.size > 1;
+      html.push(`<td style="font-size:9px${multiGov ? ';color:#d09030;font-weight:600' : ''}">${escHtml(govComboName)}${multiGov ? ' *' : ''}</td>`);
       html.push(`<td style="text-align:right"><strong>${(utilization * 100).toFixed(0)}%</strong></td>`);
       html.push(`<td class="${statusCls}" style="text-align:center;font-weight:bold">${statusIcon}</td>`);
       html.push(`</tr>`);
     }
     html.push(`</tbody></table>`);
 
-    // Governing combination note
+    // Footnotes
+    html.push(`<p style="font-size:9px;color:#888;margin-top:6px">* ${escHtml(tr('report.multiGovNote') || 'Different checks (flexure/shear/axial) governed by different combinations — see detailed verification for full breakdown')}</p>`);
     if (data.combinations && data.combinations.length > 0) {
-      html.push(`<p style="font-size:10px;color:#888;margin-top:8px">${escHtml(tr('report.combosUsed') || 'Load combinations checked')}: ${data.combinations.map(c => escHtml(c.name)).join(', ')}</p>`);
+      html.push(`<p style="font-size:9px;color:#888;margin-top:4px">${escHtml(tr('report.combosUsed') || 'Load combinations checked')}: ${data.combinations.map(c => escHtml(c.name)).join(', ')}</p>`);
     }
   }
 

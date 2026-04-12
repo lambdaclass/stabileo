@@ -2566,6 +2566,7 @@ const es: Record<string, string> = {
   'report.wall': 'Muro',
   'report.designCodeRef': 'Norma de diseño',
   'report.governingCombo': 'Combinación Gobernante',
+  'report.multiGovNote': 'Verificaciones distintas (flexión/corte/axial) gobernadas por diferentes combinaciones — ver verificación detallada para desglose completo',
   'report.combosUsed': 'Combinaciones verificadas',
   'report.storyDrift': 'Drift de Entrepiso',
   'report.loadCombinations': 'Combinaciones de Carga',

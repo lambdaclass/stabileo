@@ -2566,6 +2566,7 @@ const en: Record<string, string> = {
   'report.wall': 'Wall',
   'report.designCodeRef': 'Design code',
   'report.governingCombo': 'Governing Combo',
+  'report.multiGovNote': 'Different checks (flexure/shear/axial) governed by different combinations — see detailed verification for full breakdown',
   'report.combosUsed': 'Load combinations checked',
   'report.storyDrift': 'Story Drift',
   'report.loadCombinations': 'Load Combinations',
