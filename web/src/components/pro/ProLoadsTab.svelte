@@ -248,6 +248,105 @@
     newComboName = '';
   }
 
+  /** Generate LRFD ultimate combinations from existing load-case types.
+   *  Based on ASCE 7-22 / CIRSOC 101 basic LRFD load combinations. */
+  function generateLRFDCombinations() {
+    const cases = modelStore.model.loadCases;
+    const byType: Record<string, number[]> = {};
+    for (const lc of cases) {
+      const t2 = (lc.type || '').toUpperCase();
+      if (!byType[t2]) byType[t2] = [];
+      byType[t2].push(lc.id);
+    }
+
+    const D = byType['D'] ?? [];
+    const L = byType['L'] ?? [];
+    const Lr = byType['LR'] ?? [];
+    const S = byType['S'] ?? [];
+    const W = byType['W'] ?? [];
+    const E = byType['E'] ?? [];
+
+    if (D.length === 0) {
+      uiStore.toast(t('pro.needDeadCase'), 'error');
+      return;
+    }
+
+    // Helper: build factors array from {caseId, factor} pairs, filling missing cases with 0
+    function mkFactors(pairs: Array<[number, number]>): Array<{caseId: number; factor: number}> {
+      return cases.map(lc => {
+        const match = pairs.find(([id]) => id === lc.id);
+        return { caseId: lc.id, factor: match ? match[1] : 0 };
+      });
+    }
+
+    let n = combinations.length;
+    const add = (name: string, pairs: Array<[number, number]>) => {
+      n++;
+      modelStore.addCombination(`U${n}: ${name}`, mkFactors(pairs));
+    };
+
+    modelStore.batch(() => {
+      // 1. 1.4D
+      const dPairs: Array<[number, number]> = D.map(id => [id, 1.4]);
+      add('1.4D', dPairs);
+
+      // 2. 1.2D + 1.6L + 0.5Lr (or 0.5S)
+      if (L.length > 0) {
+        const base: Array<[number, number]> = [...D.map(id => [id, 1.2] as [number, number]), ...L.map(id => [id, 1.6] as [number, number])];
+        if (Lr.length > 0) add('1.2D + 1.6L + 0.5Lr', [...base, ...Lr.map(id => [id, 0.5] as [number, number])]);
+        else if (S.length > 0) add('1.2D + 1.6L + 0.5S', [...base, ...S.map(id => [id, 0.5] as [number, number])]);
+        else add('1.2D + 1.6L', base);
+      }
+
+      // 3. 1.2D + 1.6Lr + L (or 1.2D + 1.6S + L)
+      if (Lr.length > 0) {
+        const base: Array<[number, number]> = [...D.map(id => [id, 1.2] as [number, number]), ...Lr.map(id => [id, 1.6] as [number, number])];
+        if (L.length > 0) add('1.2D + 1.6Lr + L', [...base, ...L.map(id => [id, 1.0] as [number, number])]);
+        else add('1.2D + 1.6Lr', base);
+      }
+      if (S.length > 0 && Lr.length === 0) {
+        const base: Array<[number, number]> = [...D.map(id => [id, 1.2] as [number, number]), ...S.map(id => [id, 1.6] as [number, number])];
+        if (L.length > 0) add('1.2D + 1.6S + L', [...base, ...L.map(id => [id, 1.0] as [number, number])]);
+        else add('1.2D + 1.6S', base);
+      }
+
+      // 4. 1.2D + 1.6W + L + 0.5Lr (for each wind case)
+      for (const wId of W) {
+        const wName = cases.find(c => c.id === wId)?.name ?? `W${wId}`;
+        const shortW = wName.replace(/^W\s*[—–-]\s*/, '');
+        const base: Array<[number, number]> = [...D.map(id => [id, 1.2] as [number, number]), [wId, 1.6]];
+        if (L.length > 0) base.push(...L.map(id => [id, 1.0] as [number, number]));
+        if (Lr.length > 0) base.push(...Lr.map(id => [id, 0.5] as [number, number]));
+        add(`1.2D + 1.6${shortW} + L`, base);
+      }
+
+      // 5. 1.2D + E + L (for each seismic case)
+      for (const eId of E) {
+        const eName = cases.find(c => c.id === eId)?.name ?? `E${eId}`;
+        const shortE = eName.replace(/^E\s*[—–-]\s*/, '');
+        const base: Array<[number, number]> = [...D.map(id => [id, 1.2] as [number, number]), [eId, 1.0]];
+        if (L.length > 0) base.push(...L.map(id => [id, 1.0] as [number, number]));
+        add(`1.2D + ${shortE} + L`, base);
+      }
+
+      // 6. 0.9D + 1.6W (for each wind case)
+      for (const wId of W) {
+        const wName = cases.find(c => c.id === wId)?.name ?? `W${wId}`;
+        const shortW = wName.replace(/^W\s*[—–-]\s*/, '');
+        add(`0.9D + 1.6${shortW}`, [...D.map(id => [id, 0.9] as [number, number]), [wId, 1.6]]);
+      }
+
+      // 7. 0.9D + E (for each seismic case)
+      for (const eId of E) {
+        const eName = cases.find(c => c.id === eId)?.name ?? `E${eId}`;
+        const shortE = eName.replace(/^E\s*[—–-]\s*/, '');
+        add(`0.9D + ${shortE}`, [...D.map(id => [id, 0.9] as [number, number]), [eId, 1.0]]);
+      }
+    });
+
+    uiStore.toast(t('pro.combosGenerated'), 'success');
+  }
+
   function removeCombination(id: number) {
     modelStore.removeCombination(id);
   }
@@ -382,6 +481,12 @@
         <div class="pro-combo-add">
           <input type="text" bind:value={newComboName} placeholder={t('pro.comboPlaceholder')} class="inp-case" />
           <button class="pro-btn-sm" onclick={addCombination}>{t('pro.addCombo')}</button>
+        </div>
+        <div class="pro-combo-generate">
+          <button class="pro-btn pro-btn-accent" onclick={generateLRFDCombinations} title={t('pro.generateLRFDHint')}>
+            ⚡ {t('pro.generateLRFD')}
+          </button>
+          <span class="pro-combo-gen-hint">{t('pro.generateLRFDDesc')}</span>
         </div>
       </div>
     </details>
@@ -731,6 +836,8 @@
   }
   .inp-factor:focus { border-color: #1a4a7a; outline: none; }
   .pro-combo-add { display: flex; gap: 6px; align-items: center; padding-top: 6px; }
+  .pro-combo-generate { display: flex; gap: 8px; align-items: center; padding-top: 8px; border-top: 1px solid #12253d; margin-top: 8px; }
+  .pro-combo-gen-hint { font-size: 0.65rem; color: #556; font-style: italic; }
 
   .pro-loads-header { padding: 8px 12px; border-bottom: 1px solid #1a3050; }
   .pro-loads-count { font-size: 0.78rem; color: #4ecdc4; font-weight: 600; }
