@@ -824,18 +824,18 @@
       </div>
       <div class="combo-modal-body">
         {#each candidateCombos as cand, i}
+          {@const nonZero = cand.factors.filter(f => Math.abs(f.factor) > 1e-9).sort((a, b) => {
+            const typePri = (id: number) => {
+              const lc2 = loadCases.find(c => c.id === id);
+              const tp = (lc2?.type || '').toUpperCase();
+              if (tp === 'D') return 0; if (tp === 'L') return 1; if (tp === 'LR') return 2;
+              if (tp === 'S') return 3; if (tp === 'W') return 4; if (tp === 'E') return 5; return 6;
+            };
+            return typePri(a.caseId) - typePri(b.caseId) || a.caseId - b.caseId;
+          })}
           <label class="combo-cand-row" class:combo-exists={cand.exists}>
             <input type="checkbox" bind:checked={candidateCombos[i].selected} />
             <span class="combo-cand-name">{cand.name}</span>
-            {@const nonZero = cand.factors.filter(f => Math.abs(f.factor) > 1e-9).sort((a, b) => {
-              const typePri = (id: number) => {
-                const lc2 = loadCases.find(c => c.id === id);
-                const tp = (lc2?.type || '').toUpperCase();
-                if (tp === 'D') return 0; if (tp === 'L') return 1; if (tp === 'LR') return 2;
-                if (tp === 'S') return 3; if (tp === 'W') return 4; if (tp === 'E') return 5; return 6;
-              };
-              return typePri(a.caseId) - typePri(b.caseId) || a.caseId - b.caseId;
-            })}
             <span class="combo-cand-factors">
               {#each nonZero as f}
                 {@const lc3 = loadCases.find(c => c.id === f.caseId)}
