@@ -9769,22 +9769,22 @@
     {
       "id": 1,
       "type": "D",
-      "name": "D — Dead Load + Equipment"
+      "name": "Dead Load + Equipment"
     },
     {
       "id": 2,
       "type": "L",
-      "name": "L — Operating + Crane"
+      "name": "Operating + Crane"
     },
     {
       "id": 3,
       "type": "W",
-      "name": "W — Wind (100-yr)"
+      "name": "Wind (100-yr)"
     },
     {
       "id": 4,
       "type": "E",
-      "name": "E — Wave + Current (100-yr)"
+      "name": "Wave + Current (100-yr)"
     }
   ],
   "combinations": [

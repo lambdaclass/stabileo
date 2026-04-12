@@ -248,27 +248,27 @@
     newComboName = '';
   }
 
-  // ─── LRFD Combination Generator with Review Modal ─────
+  // ─── Combination Generator with Review Modal ──────────
+
+  type ComboTemplate = 'lrfd' | 'service';
 
   interface CandidateCombo {
     name: string;
     factors: Array<{caseId: number; factor: number}>;
     exists: boolean;
     selected: boolean;
+    template: ComboTemplate;
   }
 
   let showComboModal = $state(false);
   let candidateCombos = $state<CandidateCombo[]>([]);
+  let activeTemplate = $state<ComboTemplate>('lrfd');
 
-  /** Check if a candidate combination is equivalent to any existing one.
-   *  Equivalence: same non-zero factors on the same load cases (ignores name). */
   function comboExists(factors: Array<{caseId: number; factor: number}>): boolean {
     const sig = comboSignature(factors);
     return combinations.some(c => comboSignature(c.factors) === sig);
   }
 
-  /** Produce a canonical string signature from factors for equivalence comparison.
-   *  Only includes non-zero factors, sorted by caseId, rounded to 2 decimals. */
   function comboSignature(factors: Array<{caseId: number; factor: number}>): string {
     return factors
       .filter(f => Math.abs(f.factor) > 1e-9)
@@ -277,8 +277,74 @@
       .join('|');
   }
 
-  /** Build the list of candidate LRFD combinations from current load-case types. */
-  function buildCandidates(): CandidateCombo[] {
+  function buildCandidates(template: ComboTemplate): CandidateCombo[] {
+    if (template === 'service') return buildServiceCandidates();
+    return buildLRFDCandidates();
+  }
+
+  /** Build service/ASD combination candidates (ASCE 7-22 §2.4). */
+  function buildServiceCandidates(): CandidateCombo[] {
+    const cases = modelStore.model.loadCases;
+    const byType: Record<string, number[]> = {};
+    for (const lc of cases) { const t2 = (lc.type || '').toUpperCase(); if (!byType[t2]) byType[t2] = []; byType[t2].push(lc.id); }
+    const D = byType['D'] ?? [], L = byType['L'] ?? [], Lr = byType['LR'] ?? [];
+    const S2 = byType['S'] ?? [], W = byType['W'] ?? [], E2 = byType['E'] ?? [];
+    function mkF(pairs: Array<[number, number]>): Array<{caseId: number; factor: number}> {
+      return cases.map(lc => { const m = pairs.find(([id]) => id === lc.id); return { caseId: lc.id, factor: m ? m[1] : 0 }; });
+    }
+    function mk(name: string, pairs: Array<[number, number]>): CandidateCombo {
+      const factors = mkF(pairs); return { name, factors, exists: comboExists(factors), selected: false, template: 'service' };
+    }
+    const out: CandidateCombo[] = [];
+    if (D.length === 0) return out;
+    // S1: D
+    out.push(mk('D', D.map(id => [id, 1.0])));
+    // S2: D + L
+    if (L.length > 0) out.push(mk('D + L', [...D.map(id => [id, 1.0] as [number, number]), ...L.map(id => [id, 1.0] as [number, number])]));
+    // S3: D + Lr (or S)
+    if (Lr.length > 0) out.push(mk('D + Lr', [...D.map(id => [id, 1.0] as [number, number]), ...Lr.map(id => [id, 1.0] as [number, number])]));
+    else if (S2.length > 0) out.push(mk('D + S', [...D.map(id => [id, 1.0] as [number, number]), ...S2.map(id => [id, 1.0] as [number, number])]));
+    // S4: D + 0.75L + 0.75Lr (or S)
+    if (L.length > 0 && (Lr.length > 0 || S2.length > 0)) {
+      const pairs: Array<[number, number]> = [...D.map(id => [id, 1.0] as [number, number]), ...L.map(id => [id, 0.75] as [number, number])];
+      if (Lr.length > 0) pairs.push(...Lr.map(id => [id, 0.75] as [number, number]));
+      else pairs.push(...S2.map(id => [id, 0.75] as [number, number]));
+      out.push(mk('D + 0.75L + 0.75' + (Lr.length > 0 ? 'Lr' : 'S'), pairs));
+    }
+    // S5: D + W (per wind direction)
+    for (const wId of W) {
+      const sn = (cases.find(c => c.id === wId)?.name ?? '') || `W${wId}`;
+      out.push(mk(`D + ${sn}`, [...D.map(id => [id, 1.0] as [number, number]), [wId, 1.0]]));
+    }
+    // S6: D + 0.7E (per seismic direction)
+    for (const eId of E2) {
+      const sn = (cases.find(c => c.id === eId)?.name ?? '') || `E${eId}`;
+      out.push(mk(`D + 0.7${sn}`, [...D.map(id => [id, 1.0] as [number, number]), [eId, 0.7]]));
+    }
+    // S7: D + 0.75L + 0.75W (per wind direction)
+    for (const wId of W) {
+      const sn = (cases.find(c => c.id === wId)?.name ?? '') || `W${wId}`;
+      const pairs: Array<[number, number]> = [...D.map(id => [id, 1.0] as [number, number])];
+      if (L.length > 0) pairs.push(...L.map(id => [id, 0.75] as [number, number]));
+      pairs.push([wId, 0.75]);
+      out.push(mk(`D + 0.75L + 0.75${sn}`, pairs));
+    }
+    // S8: 0.6D + W (per wind direction)
+    for (const wId of W) {
+      const sn = (cases.find(c => c.id === wId)?.name ?? '') || `W${wId}`;
+      out.push(mk(`0.6D + ${sn}`, [...D.map(id => [id, 0.6] as [number, number]), [wId, 1.0]]));
+    }
+    // S9: 0.6D + 0.7E (per seismic direction)
+    for (const eId of E2) {
+      const sn = (cases.find(c => c.id === eId)?.name ?? '') || `E${eId}`;
+      out.push(mk(`0.6D + 0.7${sn}`, [...D.map(id => [id, 0.6] as [number, number]), [eId, 0.7]]));
+    }
+    for (const c of out) c.selected = !c.exists;
+    return out;
+  }
+
+  /** Build LRFD ultimate combination candidates (ASCE 7-22 §2.3). */
+  function buildLRFDCandidates(): CandidateCombo[] {
     const cases = modelStore.model.loadCases;
     const byType: Record<string, number[]> = {};
     for (const lc of cases) {
@@ -297,7 +363,7 @@
     }
     function mk(name: string, pairs: Array<[number, number]>): CandidateCombo {
       const factors = mkFactors(pairs);
-      return { name, factors, exists: comboExists(factors), selected: false };
+      return { name, factors, exists: comboExists(factors), selected: false, template: 'lrfd' as ComboTemplate };
     }
 
     const out: CandidateCombo[] = [];
@@ -355,12 +421,13 @@
     return out;
   }
 
-  function openComboGenerator() {
+  function openComboGenerator(template: ComboTemplate) {
     if ((modelStore.model.loadCases.find(c => (c.type || '').toUpperCase() === 'D')) == null) {
       uiStore.toast(t('pro.needDeadCase'), 'error');
       return;
     }
-    candidateCombos = buildCandidates();
+    activeTemplate = template;
+    candidateCombos = buildCandidates(template);
     showComboModal = true;
   }
 
@@ -368,14 +435,16 @@
     const toAdd = candidateCombos.filter(c => c.selected);
     if (toAdd.length === 0) { showComboModal = false; return; }
     let n = combinations.length;
+    const prefix = activeTemplate === 'service' ? 'S' : 'U';
     modelStore.batch(() => {
       for (const c of toAdd) {
         n++;
-        modelStore.addCombination(`U${n}: ${c.name}`, c.factors);
+        modelStore.addCombination(`${prefix}${n}: ${c.name}`, c.factors);
       }
     });
     showComboModal = false;
-    uiStore.toast(`${toAdd.length} ${t('pro.combosGenerated')}`, 'success');
+    const label = activeTemplate === 'service' ? t('pro.serviceCombosGenerated') : t('pro.combosGenerated');
+    uiStore.toast(`${toAdd.length} ${label}`, 'success');
   }
 
   function removeCombination(id: number) {
@@ -484,6 +553,11 @@
           <div class="pro-combo-card">
             <div class="combo-header">
               <span class="combo-name">{combo.name}</span>
+              {#if /^U\d+:/.test(combo.name)}
+                <span class="combo-prov-badge combo-prov-lrfd">LRFD</span>
+              {:else if /^S\d+:/.test(combo.name)}
+                <span class="combo-prov-badge combo-prov-svc">SVC</span>
+              {/if}
               <button class="pro-delete-btn" onclick={() => removeCombination(combo.id)}>×</button>
             </div>
             <table class="combo-factor-table">
@@ -514,10 +588,12 @@
           <button class="pro-btn-sm" onclick={addCombination}>{t('pro.addCombo')}</button>
         </div>
         <div class="pro-combo-generate">
-          <button class="pro-btn pro-btn-accent" onclick={openComboGenerator} title={t('pro.generateLRFDHint')}>
-            ⚡ {t('pro.generateLRFD')}
+          <button class="pro-btn pro-btn-accent" onclick={() => openComboGenerator('lrfd')} title={t('pro.generateLRFDHint')}>
+            {t('pro.generateLRFD')}
           </button>
-          <span class="pro-combo-gen-hint">{t('pro.generateLRFDDesc')}</span>
+          <button class="pro-btn" onclick={() => openComboGenerator('service')} title={t('pro.generateServiceHint')}>
+            {t('pro.generateService')}
+          </button>
         </div>
       </div>
     </details>
@@ -740,8 +816,8 @@
     <!-- svelte-ignore a11y_no_static_element_interactions -->
     <div class="combo-modal" onclick={(e) => e.stopPropagation()}>
       <div class="combo-modal-header">
-        <h3>{t('pro.generateLRFD')}</h3>
-        <span class="combo-modal-sub">ASCE 7 / CIRSOC 101</span>
+        <h3>{activeTemplate === 'service' ? t('pro.generateService') : t('pro.generateLRFD')}</h3>
+        <span class="combo-modal-sub">{activeTemplate === 'service' ? 'ASCE 7 §2.4 / CIRSOC 101 ASD' : 'ASCE 7 §2.3 / CIRSOC 101 LRFD'}</span>
         <button class="combo-modal-close" onclick={() => showComboModal = false}>×</button>
       </div>
       <div class="combo-modal-body">
@@ -901,7 +977,11 @@
     background: #0a1828; border: 1px solid #12253d; border-radius: 5px;
     padding: 6px 10px; margin-bottom: 6px;
   }
-  .combo-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 4px; }
+  .combo-header { display: flex; align-items: center; gap: 6px; margin-bottom: 4px; }
+  .combo-header .pro-delete-btn { margin-left: auto; }
+  .combo-prov-badge { font-size: 0.52rem; font-weight: 700; padding: 1px 5px; border-radius: 3px; text-transform: uppercase; letter-spacing: 0.05em; }
+  .combo-prov-lrfd { color: #e94560; background: rgba(233,69,96,0.1); border: 1px solid rgba(233,69,96,0.2); }
+  .combo-prov-svc { color: #4ecdc4; background: rgba(78,205,196,0.1); border: 1px solid rgba(78,205,196,0.2); }
   .combo-name { font-size: 0.75rem; color: #ccc; font-weight: 600; }
   .combo-factor-table { border-collapse: collapse; width: 100%; }
   .combo-factor-table td { padding: 2px 4px; font-size: 0.7rem; color: #aaa; }
