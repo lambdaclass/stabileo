@@ -9,6 +9,7 @@
     type MemberDesignResult, type DesignCheckSummary, type CheckStatus,
   } from '../../lib/engine/design-check-results';
   import { autoVerifyFromResults } from '../../lib/engine/auto-verify';
+  import { extractElementStations, extractGoverningDemands, type ElementDesignDemands } from '../../lib/engine/station-design-forces';
   import { checkSteelMembers, checkRcMembers, checkEc2Members, checkEc3Members, checkTimberMembers, checkMasonryMembers, checkCfsMembers } from '../../lib/engine/wasm-solver';
 
   // ─── State ──────────────────────────────────────────────────────
@@ -17,6 +18,19 @@
   let error = $state<string | null>(null);
   let statusFilter = $state<'all' | CheckStatus>('all');
   let expandedElemId = $state<number | null>(null);
+
+  /** Station-based governing demands for the currently expanded element. */
+  const expandedDemands = $derived.by((): ElementDesignDemands | null => {
+    if (expandedElemId === null) return null;
+    if (!resultsStore.hasCombinations3D) return null;
+    const perCombo = resultsStore.perCombo3D;
+    if (perCombo.size === 0) return null;
+    const comboNames = new Map<number, string>();
+    for (const c of modelStore.model.combinations) comboNames.set(c.id, c.name);
+    const esr = extractElementStations(expandedElemId, perCombo, comboNames);
+    if (!esr) return null;
+    return extractGoverningDemands(esr);
+  });
 
   const results3D = $derived(resultsStore.results3D);
   const hasResults = $derived(results3D !== null);
@@ -272,7 +286,7 @@
                     <div class="multi-combo-note">Different checks governed by different combinations</div>
                   {/if}
                   <table class="check-detail-table">
-                    <thead><tr><th>Check</th><th>Demand</th><th>Capacity</th><th>Ratio</th><th>Status</th><th>Governing Combo</th></tr></thead>
+                    <thead><tr><th>Check</th><th>Demand</th><th>Capacity</th><th>Ratio</th><th>Status</th><th>Gov. Combo</th></tr></thead>
                     <tbody>
                       {#each r.checks as ck}
                         <tr class={statusClass(ck.status)}>
@@ -286,6 +300,27 @@
                       {/each}
                     </tbody>
                   </table>
+                  {#if expandedDemands && expandedDemands.demands.length > 0}
+                    <div class="station-demands-section">
+                      <div class="station-demands-header">Station-Based Governing Demands <span class="station-demands-note">(sign-aware, per-combo, interior stations)</span></div>
+                      <table class="station-demands-table">
+                        <thead><tr><th>Category</th><th>Value</th><th>Station</th><th>Combo</th><th>N</th><th>Vy</th><th>Mz</th></tr></thead>
+                        <tbody>
+                          {#each expandedDemands.demands as d}
+                            <tr>
+                              <td class="cat-label">{d.category}</td>
+                              <td class="num" style="font-weight:600">{d.value.toFixed(1)}</td>
+                              <td class="num">x={d.stationX.toFixed(2)}m <span class="t-label">(t={d.stationT.toFixed(2)})</span></td>
+                              <td class="combo-ref">{d.comboName}</td>
+                              <td class="num">{d.forces.n.toFixed(1)}</td>
+                              <td class="num">{d.forces.vy.toFixed(1)}</td>
+                              <td class="num">{d.forces.mz.toFixed(1)}</td>
+                            </tr>
+                          {/each}
+                        </tbody>
+                      </table>
+                    </div>
+                  {/if}
                 </td>
               </tr>
             {/if}
@@ -345,6 +380,17 @@
   .check-detail-table .combo-ref { font-size: 0.6rem; color: #667; max-width: 120px; overflow: hidden; text-overflow: ellipsis; }
   .check-detail-table .combo-highlight { color: #4ecdc4; font-weight: 600; }
   .multi-combo-note { font-size: 0.6rem; color: #f0a500; padding: 4px 8px; background: rgba(240,165,0,0.06); border-bottom: 1px solid rgba(240,165,0,0.15); font-style: italic; }
+
+  .station-demands-section { margin-top: 6px; border-top: 1px solid #1a3050; padding-top: 6px; }
+  .station-demands-header { font-size: 0.65rem; font-weight: 700; color: #4ecdc4; margin-bottom: 4px; }
+  .station-demands-note { font-weight: 400; color: #556; font-style: italic; }
+  .station-demands-table { width: 100%; border-collapse: collapse; font-size: 0.65rem; }
+  .station-demands-table th { padding: 2px 5px; font-size: 0.58rem; font-weight: 600; color: #445; text-transform: uppercase; text-align: left; border-bottom: 1px solid #12253d; }
+  .station-demands-table td { padding: 2px 5px; border-bottom: 1px solid #0f1e30; color: #99a; }
+  .station-demands-table .cat-label { font-weight: 600; color: #ccc; white-space: nowrap; }
+  .station-demands-table .num { text-align: right; font-family: monospace; font-variant-numeric: tabular-nums; }
+  .station-demands-table .combo-ref { font-size: 0.58rem; color: #667; max-width: 100px; overflow: hidden; text-overflow: ellipsis; }
+  .station-demands-table .t-label { font-size: 0.52rem; color: #445; }
 
   .ratio-cell { display: flex; align-items: center; gap: 6px; }
   .ratio-value { width: 32px; text-align: right; font-variant-numeric: tabular-nums; font-weight: 600; }
