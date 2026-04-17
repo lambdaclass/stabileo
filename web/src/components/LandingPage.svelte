@@ -2,24 +2,36 @@
   import { onMount } from 'svelte';
   import { t, i18n, setLocale } from '../lib/i18n';
 
-  /** Called when the user clicks "Try Demo" — dispatches event for parent to handle */
+  const repoUrl = 'https://github.com/lambdaclass/stabileo';
+
+  /** Called when the user clicks a CTA that should enter the main app shell. */
   function enterApp() {
     window.dispatchEvent(new CustomEvent('stabileo-enter-app'));
   }
 
   let landingEl: HTMLDivElement;
   let demoLoaded = $state(false);
+  let prefersReducedMotion = false;
 
-  // ─── Slideshow engine ───
-  // Each slideshow has: images[], current index, interval handle, paused flag
-  type Slideshow = { images: string[]; idx: number; paused: boolean; iv: ReturnType<typeof setInterval> | null };
+  type Slideshow = {
+    images: string[];
+    idx: number;
+    paused: boolean;
+    iv: ReturnType<typeof setInterval> | null;
+  };
 
   function createSlideshow(images: string[]): Slideshow {
     return { images, idx: 0, paused: false, iv: null };
   }
 
-  function startSlideshow(ss: Slideshow, ms = 4000) {
+  function clearSlideshow(ss: Slideshow) {
     if (ss.iv) clearInterval(ss.iv);
+    ss.iv = null;
+  }
+
+  function startSlideshow(ss: Slideshow, ms = 4000) {
+    clearSlideshow(ss);
+    if (prefersReducedMotion || ss.images.length < 2) return;
     ss.iv = setInterval(() => {
       if (!ss.paused) ss.idx = (ss.idx + 1) % ss.images.length;
     }, ms);
@@ -28,131 +40,196 @@
   function goToSlide(ss: Slideshow, i: number) {
     ss.idx = i;
     ss.paused = true;
-    // Resume after 10s of inactivity
-    if (ss.iv) clearInterval(ss.iv);
+    clearSlideshow(ss);
+    if (prefersReducedMotion || ss.images.length < 2) return;
     ss.iv = setInterval(() => {
-      if (ss.paused) { ss.paused = false; return; }
+      if (ss.paused) {
+        ss.paused = false;
+        return;
+      }
       ss.idx = (ss.idx + 1) % ss.images.length;
-    }, 4000);
+    }, 4500);
   }
 
-  // Hero slideshow — best images from all sections
+  function restartSlideshows() {
+    startSlideshow(hero, 4200);
+    startSlideshow(ss2d, 5200);
+    startSlideshow(ss3d, 5200);
+    startSlideshow(ssPro, 5600);
+  }
+
   let hero = $state(createSlideshow([
-    '/screenshots/2d-loads.png',
-    '/screenshots/2d-moments.png',
     '/screenshots/3d-industrial.png',
+    '/screenshots/2d-moments.png',
     '/screenshots/pro-verification.png',
   ]));
 
-  // Feature mini-slideshows
   let ss2d = $state(createSlideshow([
     '/screenshots/2d-loads.png',
     '/screenshots/2d-moments.png',
     '/screenshots/2d-section-analysis.png',
   ]));
+
   let ss3d = $state(createSlideshow([
     '/screenshots/3d-loads.png',
     '/screenshots/3d-section-analysis.png',
     '/screenshots/3d-industrial.png',
   ]));
-  // Education: portrait images, displayed side by side (no slideshow)
+
   let ssPro = $state(createSlideshow([
     '/screenshots/pro-features.png',
     '/screenshots/pro-verification.png',
   ]));
 
-  // Scroll progress
   let scrollPct = $state(0);
 
-  // Animated counters
-  let countTests = $state(0);
-  let countLanguages = $state(0);
-  let countersStarted = false;
+  const depthTiles = [
+    {
+      code: '02',
+      image: '/screenshots/2d-loads.png',
+      tone: 'amber',
+      titleKey: 'landing.capGrid2Title',
+      descKey: 'landing.capGrid2Desc',
+    },
+    {
+      code: '03',
+      image: '/screenshots/3d-section-analysis.png',
+      tone: 'plum',
+      titleKey: 'landing.capGrid3Title',
+      descKey: 'landing.capGrid3Desc',
+    },
+    {
+      code: '04',
+      image: '/screenshots/3d-loads.png',
+      tone: 'ink',
+      titleKey: 'landing.capGrid4Title',
+      descKey: 'landing.capGrid4Desc',
+    },
+    {
+      code: '07',
+      image: '/screenshots/pro-verification.png',
+      tone: 'paper',
+      titleKey: 'landing.capGrid7Title',
+      descKey: 'landing.capGrid7Desc',
+    },
+  ];
 
-  function animateCounters() {
-    if (countersStarted) return;
-    countersStarted = true;
-    const dur = 1400, steps = 40, dt = dur / steps;
-    let step = 0;
-    const iv = setInterval(() => {
-      step++;
-      const ease = 1 - Math.pow(1 - step / steps, 3);
-      countTests = Math.round(1117 * ease);
-      countLanguages = Math.round(14 * ease);
-      if (step >= steps) clearInterval(iv);
-    }, dt);
+  const releaseCards = [
+    { date: 'Feb 2026', key: 'landing.cl202602', tone: 'amber' },
+    { date: 'Jan 2026', key: 'landing.cl202601', tone: 'plum' },
+    { date: 'Dec 2025', key: 'landing.cl202512', tone: 'ink' },
+  ];
+
+  function scrollTo(id: string) {
+    document.getElementById(id)?.scrollIntoView({ behavior: 'smooth', block: 'start' });
   }
 
   onMount(() => {
-    startSlideshow(hero, 4000);
-    startSlideshow(ss2d, 5000);
-    startSlideshow(ss3d, 5000);
-    startSlideshow(ssPro, 5000);
-
-    // Scroll progress
     const onScroll = () => {
       const el = landingEl;
       if (!el) return;
-      scrollPct = el.scrollTop / (el.scrollHeight - el.clientHeight) * 100;
+      const denom = Math.max(1, el.scrollHeight - el.clientHeight);
+      scrollPct = (el.scrollTop / denom) * 100;
     };
-    landingEl?.addEventListener('scroll', onScroll, { passive: true });
 
-    // Reveal observer
     const observer = new IntersectionObserver((entries) => {
       for (const entry of entries) {
-        if (entry.isIntersecting) {
-          entry.target.classList.add('visible');
-          if (entry.target.classList.contains('metrics')) animateCounters();
-        }
+        if (entry.isIntersecting) entry.target.classList.add('visible');
       }
-    }, { threshold: 0.1, root: landingEl });
+    }, { threshold: 0.12, root: landingEl });
+
+    const motionQuery = window.matchMedia('(prefers-reduced-motion: reduce)');
+    const onMotionChange = (e: MediaQueryListEvent) => {
+      prefersReducedMotion = e.matches;
+      clearSlideshow(hero);
+      clearSlideshow(ss2d);
+      clearSlideshow(ss3d);
+      clearSlideshow(ssPro);
+      if (!prefersReducedMotion) restartSlideshows();
+    };
+
+    prefersReducedMotion = motionQuery.matches;
+    if (motionQuery.addEventListener) motionQuery.addEventListener('change', onMotionChange);
+    else motionQuery.addListener(onMotionChange);
+
+    if (!prefersReducedMotion) restartSlideshows();
+
+    landingEl?.addEventListener('scroll', onScroll, { passive: true });
+    onScroll();
+
     for (const el of landingEl.querySelectorAll('.reveal')) observer.observe(el);
 
-    // Listen for demo iframe tour completion → enter full app
     const onMessage = (e: MessageEvent) => {
       if (e.data === 'stabileo-enter-app') enterApp();
     };
     window.addEventListener('message', onMessage);
 
     return () => {
+      clearSlideshow(hero);
+      clearSlideshow(ss2d);
+      clearSlideshow(ss3d);
+      clearSlideshow(ssPro);
       observer.disconnect();
-      if (hero.iv) clearInterval(hero.iv);
-      if (ss2d.iv) clearInterval(ss2d.iv);
-      if (ss3d.iv) clearInterval(ss3d.iv);
-      if (ssPro.iv) clearInterval(ssPro.iv);
       landingEl?.removeEventListener('scroll', onScroll);
       window.removeEventListener('message', onMessage);
+      if (motionQuery.removeEventListener) motionQuery.removeEventListener('change', onMotionChange);
+      else motionQuery.removeListener(onMotionChange);
     };
   });
-
-  function scrollTo(id: string) { document.getElementById(id)?.scrollIntoView({ behavior: 'smooth' }); }
 </script>
 
-<!-- Google Fonts -->
 <svelte:head>
+  <title>Stabileo — Browser-Based Structural Analysis</title>
+  <meta
+    name="description"
+    content="Browser-based 2D and 3D structural analysis with diagrams, stresses, deformed shapes, IFC import, and an interactive demo. No install required."
+  />
+  <meta name="theme-color" content="#f4efe6" />
+  <meta property="og:type" content="website" />
+  <meta property="og:title" content="Stabileo — Browser-Based Structural Analysis" />
+  <meta
+    property="og:description"
+    content="Model, solve, inspect, and share structural analysis directly in the browser."
+  />
+  <meta property="og:image" content="/screenshots/3d-industrial.png" />
+  <meta name="twitter:card" content="summary_large_image" />
+  <meta name="twitter:title" content="Stabileo — Browser-Based Structural Analysis" />
+  <meta
+    name="twitter:description"
+    content="Professional-grade 2D and 3D structural analysis directly in the browser."
+  />
+  <meta name="twitter:image" content="/screenshots/3d-industrial.png" />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="anonymous" />
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+  <link
+    href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=Sora:wght@500;600;700;800&display=swap"
+    rel="stylesheet"
+  />
 </svelte:head>
 
 <div class="landing" bind:this={landingEl}>
-  <!-- Scroll progress bar -->
+  <div class="page-orb orb-a"></div>
+  <div class="page-orb orb-b"></div>
+  <div class="noise"></div>
   <div class="scroll-progress" style="width:{scrollPct}%"></div>
 
-  <!-- ═══ NAVBAR ═══ -->
   <nav class="nav">
     <div class="nav-inner">
-      <div class="nav-brand">
+      <button class="nav-brand" onclick={() => scrollTo('top')} aria-label="Back to top">
         <span class="nav-logo">△</span>
         <span class="nav-name">Stabileo</span>
-      </div>
+      </button>
+
       <div class="nav-links">
         <button onclick={() => scrollTo('features')}>{t('landing.features')}</button>
         <button onclick={() => scrollTo('demo')}>{t('landing.demo')}</button>
+        <button onclick={() => scrollTo('roadmap')}>{t('landing.roadmap')}</button>
         <button onclick={() => scrollTo('pricing')}>{t('landing.pricing')}</button>
       </div>
+
       <div class="nav-actions">
-        <select class="nav-lang" value={i18n.locale} onchange={(e) => setLocale((e.currentTarget as HTMLSelectElement).value)}>
+        <a class="nav-ghost" href={repoUrl} target="_blank" rel="noreferrer">{t('landing.viewOnGithub')}</a>
+        <select class="nav-lang" value={i18n.locale} onchange={(e) => setLocale((e.currentTarget as HTMLSelectElement).value)} aria-label="Select language">
           <option value="en">English</option>
           <option value="es">Español</option>
           <option value="pt">Português</option>
@@ -173,661 +250,2362 @@
     </div>
   </nav>
 
-  <!-- ═══ HERO ═══ -->
-  <section class="hero">
-    <div class="hero-bg"></div>
-    <div class="noise"></div>
-    <div class="hero-content">
-      <div class="hero-badge">{t('landing.metricBrowser')} — {t('landing.metricFree')}</div>
-      <h1>{t('landing.heroTitle1')} <em>{t('landing.heroTitle2')}</em></h1>
-      <p class="hero-sub">{t('landing.heroSub')}</p>
-      <div class="hero-ctas">
-        <button class="btn-primary" onclick={() => enterApp()}>{t('landing.tryApp')}</button>
-        <button class="btn-secondary" onclick={() => scrollTo('features')}>{t('landing.features')} ↓</button>
-      </div>
-      <p class="hero-status">{t('landing.statusNote')}</p>
-    </div>
+  <section class="hero" id="top">
+    <div class="section-inner hero-grid">
+      <div class="hero-copy">
+        <div class="eyebrow">{t('landing.metricBrowser')} · {t('landing.compNoInstall')}</div>
+        <h1>{t('landing.heroTitle1')} <em>{t('landing.heroTitle2')}</em></h1>
+        <p class="hero-sub">{t('landing.heroSub')}</p>
 
-    <div class="hero-visual">
-      <div class="img-frame hero-frame">
-        <div class="img-content slideshow">
-          {#each hero.images as src, i}
-            <img {src} alt="Stabileo" class="slide" class:active={i === hero.idx} />
-          {/each}
+        <div class="hero-pills">
+          <span>{t('landing.modeBasicBadge')}</span>
+          <span>2D + 3D</span>
+          <span>{t('landing.openSource')}</span>
         </div>
-        <div class="slideshow-dots">
-          {#each hero.images as _, i}
-            <button
-              class="ss-dot"
-              class:active={i === hero.idx}
-              onclick={() => goToSlide(hero, i)}
-              aria-label="Slide {i + 1}"
-            ></button>
-          {/each}
+
+        <div class="hero-ctas">
+          <button class="btn-primary" onclick={() => enterApp()}>{t('landing.tryApp')}</button>
+          <button class="btn-secondary" onclick={() => scrollTo('demo')}>{t('landing.interactiveDemo')}</button>
+          <a class="btn-tertiary" href={repoUrl} target="_blank" rel="noreferrer">{t('landing.viewOnGithub')}</a>
+        </div>
+
+        <p class="hero-status">{t('landing.statusNote')}</p>
+      </div>
+
+      <div class="hero-visual reveal">
+        <div class="hero-stage">
+          <div class="hero-frame main-frame">
+            <div class="frame-topline">
+              <span class="frame-chip">Live workspace</span>
+              <span class="frame-chip muted">{t('landing.modeBasicBadge')}</span>
+            </div>
+            <div class="frame-image hero-shot">
+              <img
+                src={hero.images[hero.idx]}
+                alt="Stabileo workspace"
+                loading="eager"
+                fetchpriority="high"
+              />
+            </div>
+            <div class="slide-controls">
+              {#each hero.images as _, i}
+                <button
+                  class="ss-dot"
+                  class:active={i === hero.idx}
+                  onclick={() => goToSlide(hero, i)}
+                  aria-label="Hero slide {i + 1}"
+                ></button>
+              {/each}
+            </div>
+          </div>
+
+          <div class="signal-grid">
+            <a class="signal-card" href={repoUrl} target="_blank" rel="noreferrer">
+              <span class="signal-label">{t('landing.openSource')}</span>
+              <strong>{t('landing.viewOnGithub')}</strong>
+              <p>{t('landing.openSourceDesc')}</p>
+            </a>
+
+            <button class="signal-card" onclick={() => scrollTo('demo')}>
+              <span class="signal-label">{t('landing.interactiveDemo')}</span>
+              <strong>{t('landing.tryDemo')}</strong>
+              <p>{t('landing.interactiveDemoDesc')}</p>
+            </button>
+
+            <div class="signal-card">
+              <span class="signal-label">{t('landing.metricLanguages')}</span>
+              <strong>14</strong>
+              <p>{t('landing.capGrid8Desc')}</p>
+            </div>
+          </div>
         </div>
       </div>
-      <div class="hero-glow"></div>
     </div>
   </section>
 
-  <!-- ═══ METRICS ═══ -->
-  <section class="metrics reveal">
-    <div class="metric"><span class="metric-num">{countTests}+</span><span class="metric-label">{t('landing.metricTests')}</span></div>
-    <div class="metric"><span class="metric-num">2D + 3D</span><span class="metric-label">{t('landing.metricAnalysis')}</span></div>
-    <div class="metric"><span class="metric-num">{countLanguages}</span><span class="metric-label">{t('landing.metricLanguages')}</span></div>
-    <div class="metric"><span class="metric-num">$0</span><span class="metric-label">{t('landing.metricFree')}</span></div>
-  </section>
-
-  <!-- ═══ FEATURES ═══ -->
-  <section class="features" id="features">
+  <section class="today-section" id="features">
     <div class="section-inner">
-
-      <!-- ── MODO BÁSICO ── -->
-      <div class="mode-header reveal">
-        <div class="mode-badge mode-badge-basic">{t('landing.modeBasicBadge')}</div>
-        <h2>{t('landing.modeBasicTitle')}</h2>
-        <p class="section-sub">{t('landing.modeBasicSub')}</p>
+      <div class="section-heading reveal">
+        <div class="eyebrow">{t('landing.modeBasicBadge')}</div>
+        <h2>{t('landing.todayTitle')}</h2>
+        <p class="section-sub">{t('landing.todaySub')}</p>
       </div>
 
-      <!-- 2D Analysis -->
-      <div class="feature-row reveal">
-        <div class="feature-img-wrap">
-          <div class="img-frame compact">
-            <div class="img-content slideshow">
-              {#each ss2d.images as src, i}
-                <img {src} alt={t('landing.basic2dTitle')} class="slide" class:active={i === ss2d.idx} loading="lazy" />
-              {/each}
+      <div class="today-bands">
+        <article class="feature-band band-warm reveal">
+          <div class="band-copy">
+            <div class="eyebrow">{t('landing.tagAnalysis2D')}</div>
+            <h3 class="band-title">{t('landing.basic2dTitle')}</h3>
+            <p class="band-sub">{t('landing.basic2dDesc')}</p>
+            <ul class="feature-list band-list">
+              <li>{t('landing.basic2d1')}</li>
+              <li>{t('landing.basic2d2')}</li>
+              <li>{t('landing.basic2d3')}</li>
+              <li>{t('landing.basic2d4')}</li>
+              <li>{t('landing.basic2d5')}</li>
+            </ul>
+            <div class="band-actions">
+              <button class="btn-primary" onclick={() => enterApp()}>{t('landing.tryApp')}</button>
             </div>
-            <div class="slideshow-dots">
+          </div>
+
+          <div class="band-visual">
+            <div class="band-canvas">
+              <img src={ss2d.images[ss2d.idx]} alt={t('landing.basic2dTitle')} loading="lazy" />
+            </div>
+            <div class="band-float-card">
+              <img src="/screenshots/2d-section-analysis.png" alt={t('landing.basic2dTitle')} loading="lazy" />
+            </div>
+            <div class="slide-controls band-dots">
               {#each ss2d.images as _, i}
-                <button class="ss-dot" class:active={i === ss2d.idx} onclick={() => goToSlide(ss2d, i)} aria-label="Slide {i + 1}"></button>
+                <button
+                  class="ss-dot"
+                  class:active={i === ss2d.idx}
+                  onclick={() => goToSlide(ss2d, i)}
+                  aria-label="2D slide {i + 1}"
+                ></button>
               {/each}
             </div>
           </div>
-        </div>
-        <div class="feature-text">
-          <div class="feature-tag">{t('landing.tagAnalysis2D')}</div>
-          <h3>{t('landing.basic2dTitle')}</h3>
-          <p>{t('landing.basic2dDesc')}</p>
-          <ul class="feature-list">
-            <li>{t('landing.basic2d1')}</li>
-            <li>{t('landing.basic2d2')}</li>
-            <li>{t('landing.basic2d3')}</li>
-            <li>{t('landing.basic2d4')}</li>
-            <li>{t('landing.basic2d5')}</li>
-          </ul>
-        </div>
-      </div>
+        </article>
 
-      <div class="feature-cta reveal"><button class="btn-primary" onclick={() => enterApp()}>{t('landing.tryApp')}</button></div>
-
-      <!-- 3D Analysis -->
-      <div class="feature-row reverse reveal">
-        <div class="feature-img-wrap">
-          <div class="img-frame compact">
-            <div class="img-content slideshow">
-              {#each ss3d.images as src, i}
-                <img {src} alt={t('landing.basic3dTitle')} class="slide" class:active={i === ss3d.idx} loading="lazy" />
-              {/each}
+        <article class="feature-band band-flame reverse reveal">
+          <div class="band-copy">
+            <div class="eyebrow">{t('landing.tagAnalysis3D')}</div>
+            <h3 class="band-title">{t('landing.basic3dTitle')}</h3>
+            <p class="band-sub">{t('landing.basic3dDesc')}</p>
+            <ul class="feature-list band-list">
+              <li>{t('landing.basic3d1')}</li>
+              <li>{t('landing.basic3d2')}</li>
+              <li>{t('landing.basic3d3')}</li>
+              <li>{t('landing.basic3d4')}</li>
+            </ul>
+            <div class="band-actions">
+              <a class="btn-secondary" href="/demo">{t('landing.tryTour')}</a>
             </div>
-            <div class="slideshow-dots">
+          </div>
+
+          <div class="band-visual">
+            <div class="band-canvas dark-canvas">
+              <img src={ss3d.images[ss3d.idx]} alt={t('landing.basic3dTitle')} loading="lazy" />
+            </div>
+            <div class="band-float-card dark-float">
+              <img src="/screenshots/3d-section-analysis.png" alt={t('landing.basic3dTitle')} loading="lazy" />
+            </div>
+            <div class="slide-controls band-dots">
               {#each ss3d.images as _, i}
-                <button class="ss-dot" class:active={i === ss3d.idx} onclick={() => goToSlide(ss3d, i)} aria-label="Slide {i + 1}"></button>
+                <button
+                  class="ss-dot"
+                  class:active={i === ss3d.idx}
+                  onclick={() => goToSlide(ss3d, i)}
+                  aria-label="3D slide {i + 1}"
+                ></button>
               {/each}
             </div>
           </div>
-        </div>
-        <div class="feature-text">
-          <div class="feature-tag teal">{t('landing.tagAnalysis3D')}</div>
-          <h3>{t('landing.basic3dTitle')}</h3>
-          <p>{t('landing.basic3dDesc')}</p>
-          <ul class="feature-list">
-            <li>{t('landing.basic3d1')}</li>
-            <li>{t('landing.basic3d2')}</li>
-            <li>{t('landing.basic3d3')}</li>
-            <li>{t('landing.basic3d4')}</li>
-          </ul>
+        </article>
+      </div>
+    </div>
+  </section>
+
+  <section class="demo-section reveal" id="demo">
+    <div class="section-inner demo-layout">
+      <div class="demo-copy">
+        <div class="eyebrow">{t('landing.interactiveDemo')}</div>
+        <h2>{t('landing.demoCardTitle')}</h2>
+        <p class="section-sub left">{t('landing.demoCardDesc')}</p>
+
+        <ul class="feature-list compact">
+          <li>{t('landing.interactiveDemoDesc')}</li>
+          <li>{t('landing.openSourceDesc')}</li>
+          <li>{t('landing.ctaSub')}</li>
+        </ul>
+
+        <div class="demo-copy-actions">
+          <button class="btn-primary" onclick={() => enterApp()}>{t('landing.tryApp')}</button>
+          <a class="btn-tertiary" href="/demo">{t('landing.tryTour')}</a>
         </div>
       </div>
 
-      <div class="feature-cta reveal"><button class="btn-primary" onclick={() => enterApp()}>{t('landing.tryApp')}</button></div>
+      <div class="demo-browser-clean">
+        <div class="demo-iframe-wrap">
+          {#if demoLoaded}
+            <iframe src="/demo?embed" title="Stabileo Demo" class="demo-iframe"></iframe>
+          {:else}
+            <button class="demo-placeholder" onclick={() => demoLoaded = true}>
+              <img src="/screenshots/2d-moments.png" alt="Stabileo Demo" class="demo-thumb" loading="lazy" />
+              <div class="demo-play">
+                <svg viewBox="0 0 24 24" fill="currentColor" width="48" height="48"><path d="M8 5v14l11-7z"/></svg>
+                <span>{t('landing.tryDemo')}</span>
+              </div>
+            </button>
+          {/if}
+        </div>
+      </div>
+    </div>
+  </section>
 
-      <!-- ── MODO EDUCATIVO ── -->
-      <div class="mode-header reveal">
-        <div class="mode-badge mode-badge-edu">{t('landing.modeEduBadge')}</div>
-        <h2>{t('landing.modeEduTitle')}</h2>
-        <p class="section-sub">{t('landing.modeEduSub')}</p>
+  <section class="roadmap-section reveal" id="roadmap">
+    <div class="section-inner">
+      <div class="section-heading">
+        <div class="eyebrow">{t('landing.comingSoon')}</div>
+        <h2>{t('landing.roadmapTitle')}</h2>
+        <p class="section-sub">{t('landing.roadmapSub')}</p>
       </div>
 
-      <div class="feature-row-edu reveal">
-        <div class="edu-pair">
-          <div class="img-frame compact edu-frame">
-            <div class="img-content edu-img"><img src="/screenshots/edu-panel.png" alt={t('landing.modeEduTitle')} loading="lazy" /></div>
+      <div class="roadmap-grid">
+        <article class="roadmap-card roadmap-edu">
+          <div class="mode-badge mode-badge-edu">{t('landing.modeEduBadge')}</div>
+          <h3>{t('landing.modeEduTitle')}</h3>
+          <p>{t('landing.modeEduSub')}</p>
+
+          <div class="roadmap-block">
+            <span class="roadmap-label">{t('landing.eduNowTitle')}</span>
+            <ul class="feature-list compact">
+              <li>{t('landing.eduNow1')}</li>
+              <li>{t('landing.eduNow2')}</li>
+              <li>{t('landing.eduNow3')}</li>
+            </ul>
           </div>
-          <div class="img-frame compact edu-frame">
-            <div class="img-content edu-img"><img src="/screenshots/edu-exercise-new.png" alt={t('landing.modeEduTitle')} loading="lazy" /></div>
+
+          <div class="roadmap-block muted-block">
+            <span class="roadmap-label">{t('landing.eduSoonTitle')}</span>
+            <ul class="feature-list compact">
+              <li>{t('landing.eduSoon1')}</li>
+              <li>{t('landing.eduSoon2')}</li>
+              <li>{t('landing.eduSoon3')}</li>
+            </ul>
           </div>
-        </div>
-        <div class="feature-text edu-text">
-          <div class="feature-tag green">{t('landing.tagEdu')}</div>
-          <h3>{t('landing.eduNowTitle')}</h3>
-          <p>{t('landing.eduNowDesc')}</p>
-          <ul class="feature-list">
-            <li>{t('landing.eduNow1')}</li>
-            <li>{t('landing.eduNow2')}</li>
-            <li>{t('landing.eduNow3')}</li>
-          </ul>
-          <h3 class="coming-soon-h3">{t('landing.eduSoonTitle')}</h3>
-          <ul class="feature-list coming-soon-list">
-            <li>{t('landing.eduSoon1')}</li>
-            <li>{t('landing.eduSoon2')}</li>
-            <li>{t('landing.eduSoon3')}</li>
-          </ul>
-        </div>
-      </div>
+        </article>
 
-      <!-- ── MODO PRO ── -->
-      <div class="mode-header reveal">
-        <div class="mode-badge mode-badge-pro">{t('landing.modeProBadge')}</div>
-        <h2>{t('landing.modeProTitle')}</h2>
-        <p class="section-sub">{t('landing.modeProSub')}</p>
-      </div>
+        <article class="roadmap-card roadmap-pro">
+          <div class="mode-badge mode-badge-pro">{t('landing.modeProBadge')}</div>
+          <h3>{t('landing.modeProTitle')}</h3>
+          <p>{t('landing.modeProSub')}</p>
 
-      <div class="feature-row reverse reveal">
-        <div class="feature-img-wrap">
-          <div class="img-frame compact">
-            <div class="img-content slideshow">
-              {#each ssPro.images as src, i}
-                <img {src} alt={t('landing.modeProTitle')} class="slide" class:active={i === ssPro.idx} loading="lazy" />
-              {/each}
+          <div class="card-media small-pro-media">
+            <div class="frame-topline">
+              <span class="frame-chip plum">{t('landing.tagPro')}</span>
+              <span class="frame-chip muted">{t('landing.comingSoon')}</span>
             </div>
-            <div class="slideshow-dots">
+            <div class="frame-image compact-image feature-shot">
+              <img src={ssPro.images[ssPro.idx]} alt={t('landing.modeProTitle')} loading="lazy" />
+            </div>
+            <div class="slide-controls">
               {#each ssPro.images as _, i}
-                <button class="ss-dot" class:active={i === ssPro.idx} onclick={() => goToSlide(ssPro, i)} aria-label="Slide {i + 1}"></button>
+                <button
+                  class="ss-dot"
+                  class:active={i === ssPro.idx}
+                  onclick={() => goToSlide(ssPro, i)}
+                  aria-label="Pro slide {i + 1}"
+                ></button>
               {/each}
             </div>
           </div>
-        </div>
-        <div class="feature-text">
-          <div class="feature-tag pro-tag">{t('landing.tagPro')}</div>
-          <h3>{t('landing.proTitle')}</h3>
-          <p>{t('landing.proDesc')}</p>
-          <ul class="feature-list">
+
+          <ul class="feature-list compact">
             <li>{t('landing.pro1')}</li>
             <li>{t('landing.pro2')}</li>
             <li>{t('landing.pro3')}</li>
             <li>{t('landing.pro4')}</li>
             <li>{t('landing.pro5')}</li>
           </ul>
-        </div>
-      </div>
 
+          <p class="roadmap-note">{t('landing.pricingPlanned')}</p>
+        </article>
+      </div>
     </div>
   </section>
 
-  <!-- ═══ CAPABILITIES GRID ═══ -->
   <section class="capabilities reveal">
     <div class="section-inner">
-      <h2>{t('landing.capabilitiesTitle')}</h2>
-      <div class="cap-grid">
-        <div class="cap-card">
-          <div class="cap-icon ci-teal"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18M9 3v18"/></svg></div>
-          <h4>{t('landing.capGrid1Title')}</h4>
-          <p>{t('landing.capGrid1Desc')}</p>
-        </div>
-        <div class="cap-card">
-          <div class="cap-icon ci-red"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2v20M2 12h20"/><circle cx="12" cy="12" r="4"/></svg></div>
-          <h4>{t('landing.capGrid2Title')}</h4>
-          <p>{t('landing.capGrid2Desc')}</p>
-        </div>
-        <div class="cap-card">
-          <div class="cap-icon ci-yellow"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2L2 22h20L12 2z"/></svg></div>
-          <h4>{t('landing.capGrid3Title')}</h4>
-          <p>{t('landing.capGrid3Desc')}</p>
-        </div>
-        <div class="cap-card">
-          <div class="cap-icon ci-purple"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M2 12c0-4 4-8 10-8s10 4 10 8-4 8-10 8-10-4-10-8z"/><path d="M12 8v8"/></svg></div>
-          <h4>{t('landing.capGrid4Title')}</h4>
-          <p>{t('landing.capGrid4Desc')}</p>
-        </div>
-        <div class="cap-card">
-          <div class="cap-icon ci-green"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 12h14M12 5l7 7-7 7"/></svg></div>
-          <h4>{t('landing.capGrid5Title')}</h4>
-          <p>{t('landing.capGrid5Desc')}</p>
-        </div>
-        <div class="cap-card">
-          <div class="cap-icon ci-red"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg></div>
-          <h4>{t('landing.capGrid6Title')}</h4>
-          <p>{t('landing.capGrid6Desc')}</p>
-        </div>
-        <div class="cap-card">
-          <div class="cap-icon ci-teal"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14"/><rect x="3" y="3" width="18" height="18" rx="2"/></svg></div>
-          <h4>{t('landing.capGrid7Title')}</h4>
-          <p>{t('landing.capGrid7Desc')}</p>
-        </div>
-        <div class="cap-card">
-          <div class="cap-icon ci-yellow"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M2 12h20M12 2a15.3 15.3 0 014 10 15.3 15.3 0 01-4 10 15.3 15.3 0 01-4-10A15.3 15.3 0 0112 2z"/></svg></div>
-          <h4>{t('landing.capGrid8Title')}</h4>
-          <p>{t('landing.capGrid8Desc')}</p>
-        </div>
-        <div class="cap-card">
-          <div class="cap-icon ci-purple"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2v10l4.5 4.5"/><circle cx="12" cy="12" r="10"/></svg></div>
-          <h4>{t('landing.capGrid9Title')}</h4>
-          <p>{t('landing.capGrid9Desc')}</p>
-        </div>
+      <div class="section-heading">
+        <div class="eyebrow">{t('landing.coreDepth')}</div>
+        <h2>{t('landing.capabilitiesTitle')}</h2>
+        <p class="section-sub">{t('landing.coreDepthSub')}</p>
       </div>
-      <div class="feature-cta"><button class="btn-primary" onclick={() => enterApp()}>{t('landing.tryApp')}</button></div>
-    </div>
-  </section>
 
-  <!-- ═══ INTERACTIVE DEMO ═══ -->
-  <section class="demo-section reveal" id="demo">
-    <div class="section-inner">
-      <h2>{t('landing.interactiveDemo')}</h2>
-      <p class="section-sub">{t('landing.interactiveDemoDesc')}</p>
-      <!-- Desktop: embedded iframe demo -->
-      <div class="demo-frame-wrap demo-desktop">
-        <div class="demo-browser-clean">
-          <div class="demo-iframe-wrap">
-            {#if demoLoaded}
-              <iframe src="/demo?embed" title="Stabileo Demo" class="demo-iframe"></iframe>
-            {:else}
-              <button class="demo-placeholder" onclick={() => demoLoaded = true}>
-                <img src="/screenshots/2d-moments.png" alt="Stabileo Demo" class="demo-thumb" />
-                <div class="demo-play">
-                  <svg viewBox="0 0 24 24" fill="currentColor" width="48" height="48"><path d="M8 5v14l11-7z"/></svg>
-                  <span>{t('landing.tryDemo')}</span>
-                </div>
-              </button>
-            {/if}
+      <div class="depth-grid">
+        <article class="depth-hero-panel">
+          <div class="depth-hero-copy">
+            <div class="eyebrow depth-proof">{t('landing.depthHeroEyebrow')}</div>
+            <h3>{t('landing.depthHeroTitle')}</h3>
+            <p>{t('landing.depthHeroDesc')}</p>
+            <ul class="feature-list depth-bullets">
+              <li>{t('landing.depthHero1')}</li>
+              <li>{t('landing.depthHero2')}</li>
+              <li>{t('landing.depthHero3')}</li>
+              <li>{t('landing.depthHero4')}</li>
+            </ul>
           </div>
-        </div>
-      </div>
-      <!-- Mobile: simple button linking to /demo -->
 
-      <div class="demo-mobile-cta">
-        <a href="/demo" class="btn-primary large">{t('landing.tryTour')}</a>
+          <div class="depth-hero-stage">
+            <div class="depth-main-shot">
+              <img src="/screenshots/3d-industrial.png" alt={t('landing.depthHeroTitle')} loading="lazy" />
+            </div>
+            <div class="depth-float depth-float-a">
+              <img src="/screenshots/3d-section-analysis.png" alt={t('landing.capGrid3Title')} loading="lazy" />
+            </div>
+            <div class="depth-float depth-float-b">
+              <img src="/screenshots/2d-moments.png" alt={t('landing.capGrid1Title')} loading="lazy" />
+            </div>
+          </div>
+        </article>
+
+        {#each depthTiles as tile}
+          <article class="depth-tile" data-tone={tile.tone}>
+            <div class="depth-tile-media">
+              <img src={tile.image} alt={t(tile.titleKey)} loading="lazy" />
+            </div>
+            <div class="depth-tile-copy">
+              <span class="cap-code">{tile.code}</span>
+              <h4>{t(tile.titleKey)}</h4>
+              <p>{t(tile.descKey)}</p>
+            </div>
+          </article>
+        {/each}
       </div>
     </div>
   </section>
 
-  <!-- ═══ COMPARISON ═══ -->
-  <section class="comparison reveal">
-    <div class="section-inner">
-      <h2>{t('landing.comparisonTitle')}</h2>
-      <div class="table-wrap">
-        <table>
-          <thead><tr><th></th><th class="hl">Stabileo</th><th>SkyCiv</th><th>Ftool</th><th>SAP2000</th><th>STAAD</th></tr></thead>
-          <tbody>
-            <tr><td>{t('landing.compBrowser')}</td><td class="hl yes">✓</td><td class="yes">✓</td><td class="no">✗</td><td class="no">✗</td><td class="no">✗</td></tr>
-            <tr><td>{t('landing.compFree')}</td><td class="hl yes">✓</td><td class="no">{t('landing.trialOnly')}</td><td class="partial">~</td><td class="no">✗</td><td class="no">✗</td></tr>
-            <tr><td>2D + 3D</td><td class="hl yes">✓</td><td class="yes">✓</td><td class="no">2D</td><td class="yes">✓</td><td class="yes">✓</td></tr>
-            <tr><td>{t('landing.compEducational')}</td><td class="hl yes">✓</td><td class="no">✗</td><td class="no">✗</td><td class="no">✗</td><td class="no">✗</td></tr>
-            <tr><td>{t('landing.compNoInstall')}</td><td class="hl yes">✓</td><td class="yes">✓</td><td class="no">✗</td><td class="no">✗</td><td class="no">✗</td></tr>
-            <tr><td>{t('landing.compMultilang')}</td><td class="hl yes">14</td><td class="partial">3</td><td class="partial">2</td><td class="partial">~</td><td class="partial">~</td></tr>
-          </tbody>
-        </table>
-      </div>
-    </div>
-  </section>
-
-  <!-- ═══ PRICING ═══ -->
   <section class="pricing reveal" id="pricing">
     <div class="section-inner">
-      <h2>{t('landing.pricingTitle')}</h2>
-      <div class="pricing-grid pricing-grid-2">
-        <div class="price-card featured">
-          <h3>{t('landing.priceFreeTitle')}</h3>
-          <div class="price-amount">$0</div>
-          <p class="price-period">{t('landing.priceForever')}</p>
-          <ul>
+      <div class="section-heading access-heading">
+        <div class="eyebrow">{t('landing.pricing')}</div>
+        <h2>{t('landing.accessTitle')}</h2>
+        <p class="section-sub">{t('landing.accessSub')}</p>
+      </div>
+
+      <div class="access-grid">
+        <article class="price-card featured free-card access-main">
+          <div class="access-topline">
+            <div class="mode-badge mode-badge-basic">{t('landing.priceFreeTitle')}</div>
+            <div class="price-amount">$0</div>
+          </div>
+          <h3>{t('landing.accessFreeTitle')}</h3>
+          <p class="access-lead">{t('landing.accessFreeDesc')}</p>
+          <ul class="access-list">
             <li>{t('landing.priceFree1')}</li>
             <li>{t('landing.priceFree2')}</li>
             <li>{t('landing.priceFree3')}</li>
             <li>{t('landing.priceFree4')}</li>
             <li>{t('landing.priceFree5')}</li>
             <li>{t('landing.priceFree6')}</li>
-            <li>{t('landing.priceFreeEdu1')}</li>
-            <li>{t('landing.priceFreeEdu2')}</li>
-            <li>{t('landing.priceFreeEdu3')}</li>
           </ul>
+          <div class="access-stamps">
+            <span>{t('landing.metricBrowser')}</span>
+            <span>2D + 3D</span>
+            <span>{t('landing.openSource')}</span>
+          </div>
           <button class="btn-primary card-cta" onclick={() => enterApp()}>{t('landing.tryApp')}</button>
-        </div>
-        <div class="price-card">
+        </article>
+
+        <article class="price-card pilot-card access-side">
           <div class="price-ribbon">{t('landing.comingSoon')}</div>
-          <h3>{t('landing.priceProTitle')}</h3>
-          <div class="price-amount">$100<span>{t('landing.perMonth')}</span></div>
-          <p class="price-period">{t('landing.priceProPeriod')}</p>
-          <ul><li>{t('landing.pricePro1')}</li><li>{t('landing.pricePro2')}</li><li>{t('landing.pricePro3')}</li><li>{t('landing.pricePro4')}</li><li>{t('landing.pricePro5')}</li><li class="ai-highlight">{t('landing.pricePro6')}</li><li>{t('landing.priceProExtra')}</li></ul>
-        </div>
+          <div class="access-side-media">
+            <img src={ssPro.images[ssPro.idx]} alt={t('landing.priceProTitle')} loading="lazy" />
+          </div>
+          <div class="mode-badge mode-badge-pro">{t('landing.priceProTitle')}</div>
+          <h3>{t('landing.accessPilotTitle')}</h3>
+          <p class="access-lead">{t('landing.accessPilotDesc')}</p>
+          <ul>
+            <li>{t('landing.pricePro1')}</li>
+            <li>{t('landing.pricePro2')}</li>
+            <li>{t('landing.pricePro3')}</li>
+            <li>{t('landing.pricePro4')}</li>
+            <li>{t('landing.pricePro5')}</li>
+            <li class="ai-highlight">{t('landing.pricePro6')}</li>
+            <li>{t('landing.priceProExtra')}</li>
+          </ul>
+          <a class="btn-secondary card-link" href={repoUrl} target="_blank" rel="noreferrer">{t('landing.viewOnGithub')}</a>
+        </article>
       </div>
     </div>
   </section>
 
-  <!-- ═══ CHANGELOG ═══ -->
   <section class="changelog-section reveal">
     <div class="section-inner">
-      <h2>{t('landing.changelog')}</h2>
-      <p class="section-sub">{t('landing.changelogDesc')}</p>
-      <div class="changelog-timeline">
-        <div class="cl-item">
-          <div class="cl-dot"></div>
+      <div class="section-heading">
+        <div class="eyebrow">{t('landing.changelog')}</div>
+        <h2>{t('landing.changelog')}</h2>
+        <p class="section-sub">{t('landing.changelogDesc')}</p>
+      </div>
+
+      <div class="build-grid">
+        <article class="build-feature">
           <div class="cl-date">Mar 2026</div>
-          <div class="cl-text">{t('landing.cl202603')}</div>
-        </div>
-        <div class="cl-item">
-          <div class="cl-dot"></div>
-          <div class="cl-date">Feb 2026</div>
-          <div class="cl-text">{t('landing.cl202602')}</div>
-        </div>
-        <div class="cl-item">
-          <div class="cl-dot"></div>
-          <div class="cl-date">Jan 2026</div>
-          <div class="cl-text">{t('landing.cl202601')}</div>
-        </div>
-        <div class="cl-item">
-          <div class="cl-dot"></div>
-          <div class="cl-date">Dec 2025</div>
-          <div class="cl-text">{t('landing.cl202512')}</div>
+          <h3>{t('landing.buildFeatureTitle')}</h3>
+          <p class="build-feature-text">{t('landing.cl202603')}</p>
+          <div class="build-actions">
+            <button class="btn-primary" onclick={() => enterApp()}>{t('landing.tryApp')}</button>
+            <a class="btn-tertiary" href={repoUrl} target="_blank" rel="noreferrer">{t('landing.viewOnGithub')}</a>
+          </div>
+        </article>
+
+        <div class="build-stack">
+          {#each releaseCards as item}
+            <article class="build-card" data-tone={item.tone}>
+              <div class="cl-date">{item.date}</div>
+              <div class="cl-text">{t(item.key)}</div>
+            </article>
+          {/each}
         </div>
       </div>
     </div>
   </section>
 
-  <!-- ═══ FINAL CTA ═══ -->
   <section class="final-cta reveal">
-    <div class="section-inner">
-      <h2>{t('landing.ctaTitle')}</h2>
-      <p>{t('landing.ctaSub')}</p>
-      <button class="btn-primary large" onclick={() => enterApp()}>{t('landing.tryApp')}</button>
+    <div class="section-inner final-cta-inner">
+      <div>
+        <div class="eyebrow">{t('landing.tryItNow')}</div>
+        <h2>{t('landing.ctaTitle')}</h2>
+        <p>{t('landing.ctaSub')}</p>
+      </div>
+      <div class="final-actions">
+        <button class="btn-primary large" onclick={() => enterApp()}>{t('landing.tryApp')}</button>
+        <a class="btn-tertiary" href={repoUrl} target="_blank" rel="noreferrer">{t('landing.viewOnGithub')}</a>
+      </div>
     </div>
   </section>
 
-  <!-- ═══ FOOTER ═══ -->
   <footer class="lp-footer">
-    <div class="footer-inner">
+    <div class="section-inner footer-inner">
       <div class="footer-top">
-        <div class="footer-brand"><span class="nav-logo">△</span> Stabileo</div>
-        <div class="footer-alt">
-          <span class="footer-alt-label">{t('landing.footerAlt')}:</span>
-          <span>SAP2000</span><span>STAAD.Pro</span><span>SkyCiv</span><span>Ftool</span><span>RISA</span><span>Robot Structural</span>
+        <div class="footer-brand">
+          <span class="nav-logo">△</span>
+          <span>Stabileo</span>
+        </div>
+        <div class="footer-links">
+          <a href={repoUrl} target="_blank" rel="noreferrer">{t('landing.viewOnGithub')}</a>
+          <a href="/demo">{t('landing.tryTour')}</a>
+          <button onclick={() => enterApp()}>{t('landing.tryApp')}</button>
         </div>
       </div>
+      <p class="footer-desc">{t('landing.openSourceDesc')}</p>
       <p class="footer-copy">&copy; {new Date().getFullYear()} Stabileo. {t('landing.footerRights')}</p>
     </div>
   </footer>
 
-  <!-- Mobile sticky CTA -->
   <div class="mobile-sticky">
     <button class="btn-primary" onclick={() => enterApp()}>{t('landing.tryApp')}</button>
   </div>
 </div>
 
 <style>
-  /* ═══ BASE — Refined dark palette (Rayon-inspired) ═══
-   * Background: deep navy (#0c0f1a) with warmer elevated surfaces (#161b2e).
-   * Text: crisp white (#f0f2f7) headings, warm silver (#a8b2c8) body.
-   * Primary: warm amber (#f59e0b) — energetic, premium.
-   * Secondary: cool blue (#60a5fa) — trust, clarity.
-   * Accent: soft violet (#a78bfa) — for highlights and AI features.
-   */
-  .landing {
-    position: fixed; inset: 0; z-index: 10000;
-    overflow-y: auto; overflow-x: hidden;
-    overflow-anchor: none;
-    background: #0c0f1a; color: #a8b2c8;
-    font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  :global(:root) {
+    --landing-bg: #f4efe6;
+    --landing-paper: #fffaf2;
+    --landing-ink: #11151d;
+    --landing-muted: #677083;
+    --landing-line: rgba(17, 21, 29, 0.12);
+    --landing-orange: #c7642a;
+    --landing-orange-soft: rgba(199, 100, 42, 0.12);
+    --landing-steel: #1f4f79;
+    --landing-steel-soft: rgba(31, 79, 121, 0.11);
+    --landing-green: #2f7f61;
+    --landing-green-soft: rgba(47, 127, 97, 0.12);
+    --landing-plum: #6d4ea2;
+    --landing-plum-soft: rgba(109, 78, 162, 0.11);
+    --landing-shadow: 0 22px 70px rgba(17, 21, 29, 0.08);
   }
-  .section-inner { max-width: 1200px; margin: 0 auto; padding: 0 2rem; }
-  .section-sub { text-align: center; color: #7b879e; margin-bottom: 3rem; font-size: 1rem; line-height: 1.7; max-width: 600px; margin-left: auto; margin-right: auto; }
 
-  /* Noise overlay */
+  .landing {
+    position: fixed;
+    inset: 0;
+    z-index: 10000;
+    overflow-y: auto;
+    overflow-x: hidden;
+    background:
+      radial-gradient(circle at top left, rgba(199, 100, 42, 0.16), transparent 24%),
+      radial-gradient(circle at top right, rgba(31, 79, 121, 0.1), transparent 28%),
+      linear-gradient(180deg, #f4efe6 0%, #efe7db 100%);
+    color: var(--landing-ink);
+    font-family: 'IBM Plex Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  }
+
+  .section-inner {
+    max-width: 1280px;
+    margin: 0 auto;
+    padding: 0 2rem;
+  }
+
+  .page-orb {
+    position: fixed;
+    border-radius: 999px;
+    filter: blur(70px);
+    pointer-events: none;
+    opacity: 0.5;
+  }
+
+  .orb-a {
+    width: 260px;
+    height: 260px;
+    top: 100px;
+    left: -90px;
+    background: rgba(199, 100, 42, 0.18);
+  }
+
+  .orb-b {
+    width: 280px;
+    height: 280px;
+    top: 28%;
+    right: -110px;
+    background: rgba(31, 79, 121, 0.14);
+  }
+
   .noise {
-    position: fixed; inset: 0; pointer-events: none; z-index: 0; opacity: 0.02;
+    position: fixed;
+    inset: 0;
+    pointer-events: none;
+    opacity: 0.035;
     background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
     background-size: 256px 256px;
   }
 
-  /* Scroll progress */
   .scroll-progress {
-    position: fixed; top: 0; left: 0; height: 2px; z-index: 200;
-    background: linear-gradient(90deg, #f59e0b, #60a5fa); transition: width 0.1s linear;
+    position: fixed;
+    top: 0;
+    left: 0;
+    height: 3px;
+    z-index: 250;
+    background: linear-gradient(90deg, var(--landing-orange), var(--landing-steel));
+    transition: width 0.1s linear;
   }
 
-  /* ═══ ANIMATIONS ═══ */
-  .reveal { opacity: 0; transform: translateY(24px); transition: opacity 0.7s cubic-bezier(0.16, 1, 0.3, 1), transform 0.7s cubic-bezier(0.16, 1, 0.3, 1); }
-  .reveal:global(.visible) { opacity: 1; transform: translateY(0); }
-
-  /* ═══ NAVBAR ═══ */
-  .nav { position: fixed; top: 0; left: 0; right: 0; z-index: 100; background: rgba(12,15,26,0.85); backdrop-filter: blur(24px) saturate(1.6); border-bottom: 1px solid rgba(255,255,255,0.06); }
-  .nav-inner { max-width: 1200px; margin: 0 auto; padding: 0 2rem; height: 60px; display: flex; align-items: center; gap: 1.5rem; }
-  .nav-brand { display: flex; align-items: center; gap: 0.5rem; }
-  .nav-logo { color: #f59e0b; font-size: 1.5rem; font-weight: 700; }
-  .nav-name { color: #f0f2f7; font-weight: 700; font-size: 1.1rem; letter-spacing: 0.02em; }
-  .nav-links { display: flex; gap: 0.25rem; margin-left: auto; }
-  .nav-links button { background: none; border: none; color: #7b879e; font-size: 0.85rem; cursor: pointer; padding: 0.45rem 0.8rem; border-radius: 6px; transition: color 0.2s, background 0.2s; font-family: inherit; }
-  .nav-links button:hover { color: #f0f2f7; background: rgba(255,255,255,0.05); }
-  .nav-actions { display: flex; align-items: center; gap: 0.75rem; }
-  .nav-lang { background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.08); color: #7b879e; font-size: 0.72rem; padding: 0.25rem 0.5rem; border-radius: 4px; cursor: pointer; font-family: inherit; min-width: 120px; }
-
-  /* ═══ BUTTONS ═══ */
-  .btn-primary { background: #f59e0b; color: #0c0f1a; border: none; padding: 0.7rem 1.8rem; font-size: 0.9rem; font-weight: 700; border-radius: 8px; cursor: pointer; transition: all 0.25s; letter-spacing: 0.01em; font-family: inherit; }
-  .btn-primary:hover { background: #fbbf24; transform: translateY(-2px); box-shadow: 0 8px 32px rgba(245,158,11,0.3); }
-  .btn-primary.sm { padding: 0.35rem 0.9rem; font-size: 0.78rem; }
-  .btn-primary.large { padding: 0.9rem 3rem; font-size: 1.05rem; }
-  .btn-primary.card-cta { width: 100%; margin-top: auto; padding-top: 0.65rem; padding-bottom: 0.65rem; }
-  .btn-secondary { background: none; border: 1px solid #2a3150; color: #a8b2c8; padding: 0.7rem 1.8rem; font-size: 0.9rem; border-radius: 8px; cursor: pointer; transition: all 0.25s; font-family: inherit; }
-  .btn-secondary:hover { border-color: #60a5fa; color: #60a5fa; }
-
-  /* ═══ HERO ═══ */
-  .hero { min-height: 100vh; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 7rem 2rem 4rem; position: relative; overflow: hidden; }
-  .hero-bg { position: absolute; inset: 0; background: radial-gradient(ellipse 80% 60% at 50% -5%, rgba(245,158,11,0.07) 0%, transparent 60%), radial-gradient(ellipse 50% 50% at 80% 55%, rgba(96,165,250,0.05) 0%, transparent 60%), radial-gradient(ellipse 45% 45% at 15% 65%, rgba(167,139,250,0.04) 0%, transparent 55%); }
-  .hero-content { position: relative; text-align: center; max-width: 760px; margin-bottom: 3.5rem; z-index: 1; }
-  .hero-badge { display: inline-block; font-size: 0.7rem; color: #60a5fa; background: rgba(96,165,250,0.08); border: 1px solid rgba(96,165,250,0.18); padding: 0.35rem 1rem; border-radius: 20px; margin-bottom: 1.8rem; letter-spacing: 0.05em; text-transform: uppercase; font-weight: 500; }
-  .hero h1 { font-size: clamp(2.8rem,6vw,4.2rem); font-weight: 800; line-height: 1.08; margin: 0 0 1.3rem; color: #f0f2f7; }
-  .hero h1 :global(em) { font-style: italic; background: linear-gradient(135deg, #f59e0b 0%, #fbbf24 100%); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text; }
-  .hero-sub { font-size: clamp(1rem,2vw,1.2rem); color: #7b879e; line-height: 1.7; margin: 0 0 2.5rem; }
-  .hero-ctas { display: flex; gap: 1rem; justify-content: center; flex-wrap: wrap; }
-  .hero-status { color: #4e5770; font-size: 0.78rem; margin-top: 1.5rem; line-height: 1.5; }
-
-  /* ═══ IMAGE FRAMES ═══ */
-  .hero-visual { position: relative; width: 100%; max-width: 1100px; z-index: 1; }
-  .img-frame { background: #161b2e; border: 1px solid #232943; border-radius: 12px; overflow: hidden; box-shadow: 0 40px 100px -20px rgba(0,0,0,0.6), 0 0 0 1px rgba(255,255,255,0.03); transition: transform 0.4s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.4s ease; }
-  .img-frame.compact { border-radius: 10px; }
-  .img-frame.compact:hover { transform: scale(1.015); box-shadow: 0 40px 100px -20px rgba(0,0,0,0.65), 0 0 60px rgba(245,158,11,0.04); }
-  .img-content { position: relative; aspect-ratio: 2182/1292; background: #0c0f1a; }
-  .img-content img { display: block; width: 100%; height: 100%; object-fit: contain; }
-  .hero-glow { position: absolute; bottom: -60px; left: 5%; right: 5%; height: 160px; background: radial-gradient(ellipse at center, rgba(245,158,11,0.08) 0%, rgba(96,165,250,0.04) 50%, transparent 70%); filter: blur(60px); pointer-events: none; }
-  .hero-frame { border-radius: 12px; }
-
-  /* Clean demo frame */
-  .demo-browser-clean { background: #0c0f1a; border: 1px solid #232943; border-radius: 12px; overflow: hidden; box-shadow: 0 40px 100px -20px rgba(0,0,0,0.6), 0 0 0 1px rgba(255,255,255,0.03); }
-
-  /* Slideshow */
-  .slideshow { position: relative; aspect-ratio: 2182/1292; background: #0c0f1a; }
-  .slide { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: contain; opacity: 0; transition: opacity 0.8s ease; will-change: opacity; }
-  .slide.active { opacity: 1; }
-
-  /* Slideshow dots */
-  .slideshow-dots {
-    display: flex; justify-content: center; gap: 8px;
-    padding: 10px 0; background: rgba(12, 15, 26, 0.8);
+  .reveal {
+    opacity: 0;
+    transform: translateY(24px);
+    transition:
+      opacity 0.7s cubic-bezier(0.16, 1, 0.3, 1),
+      transform 0.7s cubic-bezier(0.16, 1, 0.3, 1);
   }
+
+  .reveal:global(.visible) {
+    opacity: 1;
+    transform: translateY(0);
+  }
+
+  .eyebrow {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.45rem;
+    padding: 0.4rem 0.75rem;
+    border-radius: 999px;
+    background: rgba(255, 255, 255, 0.7);
+    border: 1px solid var(--landing-line);
+    color: var(--landing-steel);
+    font-size: 0.76rem;
+    font-weight: 600;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+  }
+
+  h1,
+  h2,
+  h3,
+  h4,
+  .nav-name,
+  .price-amount {
+    font-family: 'Sora', 'IBM Plex Sans', sans-serif;
+  }
+
+  .nav {
+    position: sticky;
+    top: 0;
+    z-index: 200;
+    background: rgba(16, 14, 29, 0.92);
+    border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+    backdrop-filter: blur(18px) saturate(1.15);
+    box-shadow: 0 8px 28px rgba(0, 0, 0, 0.2);
+  }
+
+  .nav-inner {
+    max-width: 1220px;
+    margin: 0 auto;
+    padding: 0 2rem;
+    height: 72px;
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+  }
+
+  .nav-brand {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.65rem;
+    background: none;
+    border: none;
+    padding: 0;
+    cursor: pointer;
+  }
+
+  .nav-logo {
+    color: #f4b14c;
+    font-size: 1.4rem;
+    font-weight: 800;
+  }
+
+  .nav-name {
+    color: #fff7ef;
+    font-size: 1.02rem;
+    font-weight: 700;
+    letter-spacing: 0.02em;
+  }
+
+  .nav-links {
+    margin-left: auto;
+    display: flex;
+    gap: 0.25rem;
+  }
+
+  .nav-links button {
+    background: none;
+    border: none;
+    color: rgba(255, 247, 239, 0.68);
+    cursor: pointer;
+    font: inherit;
+  }
+
+  .nav-links button {
+    padding: 0.45rem 0.75rem;
+    border-radius: 999px;
+    transition: background 0.2s ease, color 0.2s ease;
+  }
+
+  .nav-links button:hover,
+  .nav-links button:focus-visible {
+    background: rgba(255, 255, 255, 0.06);
+    color: #fff7ef;
+  }
+
+  .footer-links button {
+    background: none;
+    border: none;
+    color: var(--landing-steel);
+    cursor: pointer;
+    font: inherit;
+    font-weight: 600;
+  }
+
+  .nav-actions {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+  }
+
+  .nav-ghost,
+  .btn-tertiary,
+  .footer-links a {
+    color: var(--landing-steel);
+    text-decoration: none;
+    font-weight: 600;
+  }
+
+  .nav-ghost {
+    color: rgba(255, 247, 239, 0.82);
+    font-size: 0.88rem;
+  }
+
+  .nav-lang {
+    background: rgba(255, 255, 255, 0.06);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    color: rgba(255, 247, 239, 0.82);
+    border-radius: 999px;
+    padding: 0.45rem 0.9rem;
+    font: inherit;
+    min-width: 126px;
+    cursor: pointer;
+  }
+
+  .btn-primary,
+  .btn-secondary,
+  .btn-tertiary {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 999px;
+    padding: 0.85rem 1.35rem;
+    font-size: 0.92rem;
+    font-weight: 700;
+    text-decoration: none;
+    transition:
+      transform 0.2s ease,
+      box-shadow 0.2s ease,
+      background 0.2s ease,
+      color 0.2s ease,
+      border-color 0.2s ease;
+  }
+
+  .btn-primary {
+    border: none;
+    background: var(--landing-ink);
+    color: #f7f1e8;
+    cursor: pointer;
+    box-shadow: 0 12px 30px rgba(17, 21, 29, 0.12);
+  }
+
+  .btn-primary:hover,
+  .btn-secondary:hover,
+  .btn-tertiary:hover {
+    transform: translateY(-1px);
+  }
+
+  .btn-primary.sm {
+    padding: 0.62rem 1rem;
+    font-size: 0.84rem;
+  }
+
+  .nav-actions .btn-primary {
+    background: #fff0cf;
+    color: #12101f;
+    box-shadow: none;
+  }
+
+  .btn-primary.large {
+    padding-inline: 1.7rem;
+  }
+
+  .btn-secondary {
+    background: rgba(255, 255, 255, 0.7);
+    color: var(--landing-ink);
+    border: 1px solid var(--landing-line);
+  }
+
+  .btn-tertiary {
+    padding: 0;
+    color: var(--landing-steel);
+    font-weight: 700;
+  }
+
+  .hero {
+    position: relative;
+    padding: 4.8rem 0 4.2rem;
+    overflow: clip;
+    isolation: isolate;
+  }
+
+  .hero::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    z-index: -2;
+    background:
+      radial-gradient(circle at top left, rgba(243, 170, 82, 0.18), transparent 22%),
+      radial-gradient(circle at 78% 16%, rgba(31, 79, 121, 0.08), transparent 18%),
+      linear-gradient(180deg, #f7f0de 0%, #f4ebd8 100%);
+  }
+
+  .hero::after {
+    content: '';
+    position: absolute;
+    right: clamp(-120px, -8vw, -20px);
+    top: 3rem;
+    width: clamp(320px, 44vw, 680px);
+    height: clamp(320px, 42vw, 620px);
+    border-radius: 56px;
+    background: linear-gradient(135deg, #1b172d 0%, #110f1d 100%);
+    box-shadow: 0 30px 90px rgba(17, 21, 29, 0.16);
+    z-index: -1;
+  }
+
+  .hero-grid {
+    display: grid;
+    grid-template-columns: minmax(0, 0.84fr) minmax(0, 1.16fr);
+    gap: 2.8rem;
+    align-items: start;
+  }
+
+  .hero-copy {
+    position: relative;
+    z-index: 1;
+    padding-top: 2.2rem;
+    max-width: 580px;
+  }
+
+  .hero-copy h1 {
+    margin: 1.2rem 0 1rem;
+    font-size: clamp(3rem, 6vw, 5.4rem);
+    line-height: 0.98;
+    letter-spacing: -0.05em;
+    max-width: 560px;
+  }
+
+  .hero-copy h1 :global(em) {
+    font-style: normal;
+    color: var(--landing-orange);
+  }
+
+  .hero-sub {
+    max-width: 520px;
+    font-size: 1.12rem;
+    line-height: 1.7;
+    color: rgba(17, 21, 29, 0.68);
+  }
+
+  .hero-pills,
+  .frame-topline,
+  .band-actions,
+  .demo-copy-actions,
+  .final-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.75rem;
+  }
+
+  .hero-pills {
+    margin: 1.5rem 0 1.7rem;
+  }
+
+  .hero-pills span,
+  .frame-chip {
+    display: inline-flex;
+    align-items: center;
+    padding: 0.38rem 0.72rem;
+    border-radius: 999px;
+    border: 1px solid var(--landing-line);
+    background: rgba(255, 255, 255, 0.72);
+    color: var(--landing-ink);
+    font-size: 0.78rem;
+    font-weight: 600;
+  }
+
+  .frame-chip.muted {
+    color: var(--landing-muted);
+  }
+
+  .frame-chip.plum {
+    color: var(--landing-plum);
+    background: var(--landing-plum-soft);
+    border-color: rgba(109, 78, 162, 0.18);
+  }
+
+  .hero-ctas {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.9rem;
+    align-items: center;
+  }
+
+  .hero-status {
+    margin-top: 1.4rem;
+    max-width: 520px;
+    color: rgba(17, 21, 29, 0.72);
+    font-size: 0.92rem;
+    line-height: 1.65;
+  }
+
+  .hero-visual {
+    position: relative;
+    padding: 2rem 0 0 1rem;
+  }
+
+  .hero-visual::before {
+    content: '';
+    position: absolute;
+    inset: 2.2rem 1rem 1.8rem 4rem;
+    border-radius: 38px;
+    background:
+      linear-gradient(135deg, rgba(243, 90, 39, 0.9), rgba(241, 138, 44, 0.88));
+    opacity: 0.96;
+    z-index: 0;
+  }
+
+  .hero-visual::after {
+    content: '';
+    position: absolute;
+    inset: 3.2rem 2.4rem 3.2rem 6rem;
+    border-radius: 34px;
+    background-image:
+      linear-gradient(rgba(255, 255, 255, 0.08) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(255, 255, 255, 0.08) 1px, transparent 1px);
+    background-size: 44px 44px;
+    opacity: 0.26;
+    z-index: 0;
+  }
+
+  .hero-stage,
+  .signal-card,
+  .depth-hero-panel,
+  .depth-tile,
+  .price-card,
+  .roadmap-card,
+  .build-card,
+  .build-feature,
+  .demo-browser-clean {
+    border: 1px solid var(--landing-line);
+    background: rgba(255, 250, 242, 0.82);
+    backdrop-filter: blur(8px);
+    box-shadow: var(--landing-shadow);
+  }
+
+  .hero-stage {
+    position: relative;
+    z-index: 1;
+    border-radius: 28px;
+    padding: 1.25rem;
+    background:
+      linear-gradient(180deg, rgba(255, 255, 255, 0.08), rgba(18, 14, 31, 0.3)),
+      linear-gradient(135deg, rgba(255, 255, 255, 0.08), rgba(242, 90, 39, 0.08));
+    border-color: rgba(255, 255, 255, 0.08);
+    box-shadow: 0 26px 84px rgba(10, 8, 22, 0.34);
+  }
+
+  .hero-frame,
+  .card-media,
+  .demo-browser-clean {
+    border-radius: 20px;
+    background: #fffdf8;
+  }
+
+  .hero-frame,
+  .card-media {
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    overflow: hidden;
+  }
+
+  .main-frame {
+    margin-bottom: 1rem;
+  }
+
+  .frame-topline {
+    padding: 0.85rem 0.9rem 0;
+    background: rgba(17, 21, 29, 0.06);
+  }
+
+  .frame-image {
+    aspect-ratio: 2182 / 1292;
+    padding: 0.7rem;
+    background: linear-gradient(180deg, rgba(17, 21, 29, 0.02), rgba(17, 21, 29, 0.045));
+  }
+
+  .frame-image img,
+  .demo-thumb {
+    width: 100%;
+    height: 100%;
+    display: block;
+    border-radius: 14px;
+    object-fit: cover;
+    object-position: center top;
+    box-shadow: 0 12px 36px rgba(17, 21, 29, 0.12);
+  }
+
+  .compact-image {
+    padding-top: 0.5rem;
+  }
+
+  .hero-shot {
+    min-height: 400px;
+  }
+
+  .feature-shot {
+    min-height: 310px;
+  }
+
+  .slide-controls {
+    display: flex;
+    gap: 0.55rem;
+    justify-content: center;
+    padding: 0.95rem 1rem 1rem;
+  }
+
   .ss-dot {
-    width: 8px; height: 8px; border-radius: 50%; border: none; padding: 0;
-    background: rgba(255,255,255,0.2); cursor: pointer;
-    transition: all 0.3s ease;
-  }
-  .ss-dot:hover { background: rgba(255,255,255,0.45); }
-  .ss-dot.active { width: 28px; border-radius: 4px; background: #f59e0b; }
-
-  /* ═══ METRICS ═══ */
-  .metrics { display: flex; justify-content: center; gap: 4rem; padding: 3.5rem 2rem; border-top: 1px solid rgba(255,255,255,0.04); border-bottom: 1px solid rgba(255,255,255,0.04); flex-wrap: wrap; background: rgba(22,27,46,0.6); }
-  .metric { text-align: center; min-width: 100px; }
-  .metric-num { display: block; font-size: 2rem; font-weight: 800; color: #f0f2f7; line-height: 1.3; }
-  .metric-label { font-size: 0.72rem; color: #4e5770; text-transform: uppercase; letter-spacing: 0.08em; font-weight: 500; margin-top: 0.2rem; }
-
-  /* ═══ FEATURES ═══ */
-  .features { padding: 7rem 0; background: #0c0f1a; }
-  .section-header { text-align: center; margin-bottom: 5rem; }
-  h2 { font-size: clamp(1.8rem,3.5vw,2.5rem); color: #f0f2f7; font-weight: 800; margin: 0 0 0.6rem; text-align: center; line-height: 1.15; }
-  .feature-row { display: grid; grid-template-columns: 3fr 2fr; gap: 4rem; align-items: center; margin-bottom: 2rem; }
-  .feature-row.reverse { grid-template-columns: 3fr 2fr; direction: rtl; }
-  .feature-row.reverse > * { direction: ltr; }
-  .feature-text { max-width: 480px; }
-  .feature-cta { text-align: center; margin-bottom: 5rem; }
-
-  /* Education: portrait images side by side + text below */
-  .feature-row-edu { display: flex; flex-direction: column; align-items: center; gap: 2.5rem; margin-bottom: 5rem; }
-  .edu-pair { display: flex; gap: 1.5rem; justify-content: center; width: 100%; max-width: 720px; }
-  .edu-frame { flex: 1; min-width: 0; }
-  .edu-img { aspect-ratio: 826/1292; background: #0c0f1a; }
-  .edu-img img { display: block; width: 100%; height: 100%; object-fit: contain; }
-  .edu-text { max-width: 600px; text-align: center; }
-  .edu-text .feature-list { text-align: left; display: inline-block; }
-  .feature-tag { display: inline-block; font-size: 0.65rem; font-weight: 600; color: #f59e0b; background: rgba(245,158,11,0.08); border: 1px solid rgba(245,158,11,0.18); padding: 0.25rem 0.65rem; border-radius: 4px; margin-bottom: 0.8rem; text-transform: uppercase; letter-spacing: 0.06em; }
-  .feature-tag.teal { color: #60a5fa; background: rgba(96,165,250,0.08); border-color: rgba(96,165,250,0.18); }
-  .feature-tag.yellow { color: #fbbf24; background: rgba(251,191,36,0.08); border-color: rgba(251,191,36,0.15); }
-  .feature-tag.green { color: #34d399; background: rgba(52,211,153,0.08); border-color: rgba(52,211,153,0.18); }
-  .feature-tag.pro-tag { color: #a78bfa; background: rgba(167,139,250,0.08); border-color: rgba(167,139,250,0.18); }
-  .mode-header { text-align: center; margin-bottom: 3rem; margin-top: 3rem; }
-  .mode-badge { display: inline-block; font-size: 0.62rem; font-weight: 700; padding: 0.3rem 0.9rem; border-radius: 20px; margin-bottom: 1rem; letter-spacing: 0.07em; text-transform: uppercase; }
-  .mode-badge-basic { color: #f59e0b; background: rgba(245,158,11,0.08); border: 1px solid rgba(245,158,11,0.22); }
-  .mode-badge-edu { color: #34d399; background: rgba(52,211,153,0.08); border: 1px solid rgba(52,211,153,0.22); }
-  .mode-badge-pro { color: #a78bfa; background: rgba(167,139,250,0.08); border: 1px solid rgba(167,139,250,0.22); }
-  .coming-soon-h3 { margin-top: 1.2rem !important; color: #7b879e !important; font-size: 1rem !important; }
-  .coming-soon-list li { color: #4e5770; }
-  .coming-soon-list li::before { color: #4e5770; content: '◇'; }
-  .dev-note { display: inline-block; font-size: 0.65rem; color: #4e5770; background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.06); padding: 0.2rem 0.6rem; border-radius: 4px; margin-top: 0.5rem; }
-  .feature-text h3 { color: #f0f2f7; font-size: 1.5rem; font-weight: 700; margin: 0 0 0.7rem; line-height: 1.25; }
-  .feature-text p { color: #7b879e; font-size: 0.9rem; line-height: 1.65; margin: 0 0 1.1rem; }
-  .feature-list { list-style: none; padding: 0; margin: 0; }
-  .feature-list li { color: #a8b2c8; font-size: 0.85rem; padding: 0.35rem 0 0.35rem 1.3rem; position: relative; line-height: 1.55; }
-  .feature-list li::before { content: '→'; position: absolute; left: 0; color: #f59e0b; font-size: 0.8rem; }
-
-  /* ═══ CAPABILITIES GRID ═══ */
-  .capabilities { padding: 7rem 0; background: linear-gradient(180deg, rgba(22,27,46,0.5) 0%, #0c0f1a 100%); }
-  .cap-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 1.25rem; margin-top: 3rem; }
-  .cap-card { background: #161b2e; border: 1px solid #232943; border-radius: 12px; padding: 1.8rem; transition: all 0.3s ease; }
-  .cap-card:hover { border-color: #333d5a; transform: translateY(-3px); box-shadow: 0 16px 48px rgba(0,0,0,0.3); }
-  .cap-icon { width: 40px; height: 40px; margin-bottom: 1rem; }
-  .cap-icon svg { width: 100%; height: 100%; }
-  .ci-teal { color: #60a5fa; } .ci-red { color: #f59e0b; } .ci-yellow { color: #fbbf24; }
-  .ci-green { color: #34d399; } .ci-purple { color: #a78bfa; } .ci-white { color: #7b879e; }
-  .cap-card h4 { color: #f0f2f7; font-size: 1rem; font-weight: 600; margin: 0 0 0.5rem; }
-  .cap-card p { color: #7b879e; font-size: 0.82rem; line-height: 1.6; margin: 0; }
-
-  /* ═══ INTERACTIVE DEMO ═══ */
-  .demo-section { padding: 7rem 0; background: rgba(22,27,46,0.4); }
-  .demo-frame-wrap { max-width: 1100px; margin: 0 auto; }
-  .demo-mobile-cta { display: none; text-align: center; }
-  .demo-iframe-wrap { position: relative; width: 100%; aspect-ratio: 16/9; }
-  .demo-iframe { width: 100%; height: 100%; border: none; background: #0c0f1a; }
-  .demo-placeholder { position: relative; width: 100%; height: 100%; border: none; background: none; cursor: pointer; padding: 0; display: block; }
-  .demo-thumb { width: 100%; height: 100%; object-fit: cover; filter: brightness(0.45); transition: filter 0.3s; }
-  .demo-placeholder:hover .demo-thumb { filter: brightness(0.3); }
-  .demo-play { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 0.75rem; color: white; }
-  .demo-play svg { width: 72px; height: 72px; filter: drop-shadow(0 4px 12px rgba(0,0,0,0.5)); transition: transform 0.3s; }
-  .demo-placeholder:hover .demo-play svg { transform: scale(1.12); }
-  .demo-play span { font-size: 1.05rem; font-weight: 600; letter-spacing: 0.03em; text-shadow: 0 2px 10px rgba(0,0,0,0.5); }
-
-  /* ═══ COMPARISON ═══ */
-  .comparison { padding: 7rem 0; background: #0c0f1a; }
-  .table-wrap { overflow-x: auto; margin-top: 3rem; background: #161b2e; border-radius: 12px; border: 1px solid #232943; }
-  table { width: 100%; border-collapse: collapse; font-size: 0.85rem; }
-  th, td { padding: 0.85rem 1.1rem; text-align: center; border-bottom: 1px solid rgba(255,255,255,0.04); }
-  th { color: #4e5770; font-weight: 600; font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.05em; }
-  th.hl { color: #f59e0b; }
-  td:first-child { text-align: left; color: #a8b2c8; font-weight: 500; }
-  td.hl { background: rgba(245,158,11,0.03); }
-  td.yes { color: #34d399; font-weight: 600; }
-  td.no { color: #333d5a; }
-  td.partial { color: #fbbf24; }
-  tbody tr:last-child td { border-bottom: none; }
-
-  /* ═══ PRICING ═══ */
-  .pricing { padding: 7rem 0; background: rgba(22,27,46,0.4); }
-  .pricing-grid { display: grid; grid-template-columns: repeat(3,1fr); gap: 1.25rem; margin-top: 3rem; }
-  .pricing-grid-2 { grid-template-columns: repeat(2,1fr); max-width: 800px; margin-left: auto; margin-right: auto; }
-  .price-card { background: #161b2e; border: 1px solid #232943; border-radius: 12px; padding: 2.2rem 1.8rem; text-align: center; position: relative; transition: all 0.3s; display: flex; flex-direction: column; }
-  .price-card:hover { border-color: #333d5a; box-shadow: 0 16px 48px rgba(0,0,0,0.25); }
-  .price-card.featured { border-color: rgba(245,158,11,0.4); background: linear-gradient(180deg, rgba(245,158,11,0.06) 0%, #161b2e 50%); box-shadow: 0 0 48px rgba(245,158,11,0.06); }
-  .price-ribbon { position: absolute; top: -1px; right: 1.5rem; background: #a78bfa; color: white; font-size: 0.58rem; font-weight: 600; padding: 0.2rem 0.6rem; border-radius: 0 0 5px 5px; letter-spacing: 0.04em; }
-  .price-card h3 { color: #f0f2f7; font-size: 1.15rem; margin: 0 0 0.5rem; }
-  .price-amount { font-size: 2.8rem; font-weight: 800; color: #f0f2f7; line-height: 1.2; }
-  .price-amount span { font-size: 0.9rem; color: #4e5770; font-weight: 400; }
-  .price-period { color: #4e5770; font-size: 0.78rem; margin: 0.25rem 0 1.8rem; }
-  .price-card ul { list-style: none; padding: 0; text-align: left; margin-bottom: 1.2rem; }
-  .price-card li { color: #7b879e; font-size: 0.82rem; padding: 0.35rem 0 0.35rem 1.3rem; position: relative; }
-  .price-card li::before { content: '✓'; position: absolute; left: 0; color: #34d399; font-size: 0.75rem; }
-  .price-card li.ai-highlight { color: #f0f2f7; font-weight: 600; background: linear-gradient(90deg, rgba(167,139,250,0.1), transparent); border-radius: 4px; padding-top: 0.4rem; padding-bottom: 0.4rem; margin: 0.2rem 0; }
-  .price-card li.ai-highlight::before { content: '✦'; color: #a78bfa; }
-
-  /* ═══ CHANGELOG ═══ */
-  .changelog-section { padding: 7rem 0; background: #0c0f1a; }
-  .changelog-timeline { max-width: 560px; margin: 0 auto; position: relative; padding-left: 2rem; }
-  .changelog-timeline::before { content: ''; position: absolute; left: 7px; top: 0; bottom: 0; width: 2px; background: #232943; }
-  .cl-item { position: relative; margin-bottom: 1.8rem; }
-  .cl-dot { position: absolute; left: -2rem; top: 3px; width: 12px; height: 12px; border-radius: 50%; background: #161b2e; border: 2px solid #60a5fa; }
-  .cl-item:first-child .cl-dot { background: #60a5fa; }
-  .cl-date { font-size: 0.72rem; color: #4e5770; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 0.25rem; }
-  .cl-text { color: #a8b2c8; font-size: 0.88rem; line-height: 1.55; }
-
-  /* ═══ FINAL CTA ═══ */
-  .final-cta { text-align: center; padding: 8rem 2rem; background: linear-gradient(180deg, transparent, rgba(245,158,11,0.04)); }
-  .final-cta h2 { margin-bottom: 0.8rem; }
-  .final-cta p { color: #7b879e; margin-bottom: 2.5rem; font-size: 1rem; }
-
-  /* ═══ FOOTER ═══ */
-  .lp-footer { border-top: 1px solid rgba(255,255,255,0.04); padding: 2rem 2rem; background: rgba(22,27,46,0.5); }
-  .footer-inner { max-width: 1200px; margin: 0 auto; }
-  .footer-top { display: flex; align-items: center; justify-content: space-between; margin-bottom: 1rem; }
-  .footer-brand { color: #f0f2f7; font-weight: 700; font-size: 0.95rem; display: flex; align-items: center; gap: 0.5rem; }
-  .footer-alt { display: flex; align-items: center; gap: 0.6rem; flex-wrap: wrap; }
-  .footer-alt-label { color: #4e5770; font-size: 0.72rem; font-weight: 500; }
-  .footer-alt span { color: #4e5770; font-size: 0.72rem; }
-  .footer-alt span:not(.footer-alt-label)::before { content: '·'; margin-right: 0.6rem; color: #333d5a; }
-  .footer-alt span:first-of-type::before { content: none; }
-  .footer-copy { color: #4e5770; font-size: 0.72rem; }
-
-  /* ═══ MOBILE STICKY CTA ═══ */
-  .mobile-sticky { display: none; }
-
-  /* ═══ SECTION SEPARATORS ═══ */
-  .features::before, .demo-section::before, .pricing::before {
-    content: ''; display: block; height: 1px; max-width: 400px; margin: 0 auto 5rem;
-    background: linear-gradient(90deg, transparent, rgba(96,165,250,0.1), transparent);
+    width: 10px;
+    height: 10px;
+    border-radius: 999px;
+    border: none;
+    background: rgba(17, 21, 29, 0.18);
+    cursor: pointer;
+    transition: all 0.2s ease;
   }
 
-  /* ═══ RESPONSIVE ═══ */
-  @media (max-width: 900px) {
-    .feature-row, .feature-row.reverse { grid-template-columns: 1fr; gap: 2rem; direction: ltr; }
-    .feature-text { max-width: none; }
-    .edu-pair { flex-direction: row; max-width: 500px; }
-    .cap-grid { grid-template-columns: repeat(2,1fr); }
-    .pricing-grid, .pricing-grid-2 { grid-template-columns: 1fr; max-width: 400px; margin-left: auto; margin-right: auto; }
+  .ss-dot.active {
+    width: 30px;
+    background: var(--landing-orange);
   }
-  @media (max-width: 640px) {
-    .nav-links { display: none; }
-    .hero { padding: 5.5rem 1rem 2.5rem; }
-    .hero-content { margin-bottom: 2rem; }
-    .metrics { gap: 1.5rem; padding: 2.5rem 1rem; }
-    .metric-num { font-size: 1.5rem; }
-    .cap-grid { grid-template-columns: 1fr; }
-    .features { padding: 5rem 0; }
-    .feature-row { margin-bottom: 2rem; }
-    .feature-cta { margin-bottom: 3rem; }
-    .footer-inner { text-align: center; }
-    .footer-top { flex-direction: column; gap: 0.75rem; }
-    .footer-alt { justify-content: center; }
-    .demo-desktop { display: none; }
-    .demo-mobile-cta { display: block; }
-    .mobile-sticky {
-      display: flex; position: fixed; bottom: 0; left: 0; right: 0; z-index: 150;
-      padding: 0.75rem 1rem; background: rgba(12,15,26,0.95); backdrop-filter: blur(12px);
-      border-top: 1px solid rgba(255,255,255,0.05); justify-content: center;
+
+  .signal-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 1rem;
+  }
+
+  .signal-card {
+    border-radius: 18px;
+    padding: 1rem 1.05rem;
+    text-align: left;
+    color: inherit;
+    text-decoration: none;
+    background: rgba(255, 248, 240, 0.96);
+    min-height: 126px;
+  }
+
+  .signal-card strong {
+    display: block;
+    margin: 0.35rem 0 0.5rem;
+    font-family: 'Sora', sans-serif;
+    font-size: 1rem;
+  }
+
+  .signal-card p {
+    margin: 0;
+    color: var(--landing-muted);
+    font-size: 0.88rem;
+    line-height: 1.6;
+  }
+
+  .signal-label {
+    display: block;
+    color: var(--landing-steel);
+    font-size: 0.73rem;
+    font-weight: 700;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+  }
+
+  .today-section,
+  .demo-section,
+  .roadmap-section,
+  .capabilities,
+  .pricing,
+  .changelog-section,
+  .final-cta {
+    padding: 1.6rem 0 4.5rem;
+  }
+
+  .today-section {
+    padding-top: 2.7rem;
+  }
+
+  .pricing {
+    background: linear-gradient(180deg, rgba(255, 255, 255, 0.14) 0%, rgba(247, 237, 187, 0.42) 100%);
+  }
+
+  .changelog-section {
+    background: linear-gradient(180deg, rgba(255, 255, 255, 0) 0%, rgba(255, 250, 242, 0.5) 100%);
+  }
+
+  .section-heading {
+    text-align: center;
+    margin-bottom: 1.9rem;
+  }
+
+  .section-heading h2 {
+    margin: 1rem 0 0.85rem;
+    font-size: clamp(2.1rem, 4vw, 3.2rem);
+    line-height: 1.02;
+    letter-spacing: -0.04em;
+  }
+
+  .section-sub {
+    max-width: 760px;
+    margin: 0 auto;
+    color: var(--landing-muted);
+    font-size: 1rem;
+    line-height: 1.75;
+  }
+
+  .section-sub.left {
+    text-align: left;
+    margin-left: 0;
+  }
+
+  .roadmap-grid,
+  .access-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 1.35rem;
+  }
+
+  .roadmap-card,
+  .price-card {
+    border-radius: 24px;
+    padding: 1.1rem;
+  }
+
+  .today-bands {
+    display: flex;
+    flex-direction: column;
+    gap: 1.15rem;
+  }
+
+  .feature-band {
+    display: grid;
+    grid-template-columns: minmax(0, 0.46fr) minmax(0, 0.54fr);
+    align-items: center;
+    gap: 0;
+    min-height: 540px;
+    border-radius: 30px;
+    overflow: hidden;
+    border: 1px solid rgba(17, 21, 29, 0.08);
+    box-shadow: 0 24px 64px rgba(17, 21, 29, 0.1);
+    position: relative;
+  }
+
+  .feature-band.reverse {
+    grid-template-columns: minmax(0, 0.54fr) minmax(0, 0.46fr);
+  }
+
+  .feature-band.reverse .band-copy {
+    order: 2;
+  }
+
+  .feature-band.reverse .band-visual {
+    order: 1;
+  }
+
+  .band-warm {
+    background:
+      radial-gradient(circle at top right, rgba(255, 255, 255, 0.42), transparent 24%),
+      linear-gradient(180deg, #f4e780 0%, #f7efb8 100%);
+  }
+
+  .band-flame {
+    background:
+      radial-gradient(circle at top left, rgba(255, 220, 185, 0.16), transparent 22%),
+      linear-gradient(180deg, #eb7240 0%, #e66734 100%);
+    color: #fff7ef;
+  }
+
+  .band-copy {
+    padding: clamp(1.8rem, 3vw, 3rem);
+  }
+
+  .band-title {
+    margin: 0.85rem 0 0.7rem;
+    font-size: clamp(2.35rem, 4vw, 3.85rem);
+    line-height: 0.92;
+    letter-spacing: -0.05em;
+  }
+
+  .band-sub {
+    max-width: 470px;
+    margin-bottom: 1rem;
+    font-size: 0.98rem;
+    line-height: 1.65;
+  }
+
+  .band-list li {
+    max-width: 470px;
+    margin-bottom: 0.48rem;
+    font-size: 0.92rem;
+    line-height: 1.52;
+  }
+
+  .band-visual {
+    position: relative;
+    min-height: 420px;
+    padding: 1.35rem 1.35rem 1rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    overflow: hidden;
+  }
+
+  .band-visual::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background-image:
+      linear-gradient(rgba(17, 21, 29, 0.08) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(17, 21, 29, 0.08) 1px, transparent 1px);
+    background-size: 44px 44px;
+    opacity: 0.38;
+  }
+
+  .band-visual::after {
+    content: '';
+    position: absolute;
+    width: 38%;
+    aspect-ratio: 1;
+    border-radius: 28px;
+    background: rgba(17, 21, 29, 0.08);
+    right: -10%;
+    top: -10%;
+    transform: rotate(12deg);
+  }
+
+  .band-flame .band-visual::before {
+    background-image:
+      linear-gradient(rgba(255, 255, 255, 0.08) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(255, 255, 255, 0.08) 1px, transparent 1px);
+    opacity: 0.3;
+  }
+
+  .band-flame .band-visual::after {
+    width: 50%;
+    border-radius: 32px;
+    background: rgba(13, 10, 28, 0.42);
+    right: -8%;
+    top: -6%;
+  }
+
+  .band-canvas {
+    width: 100%;
+    min-height: 330px;
+    border-radius: 22px;
+    overflow: hidden;
+    background: rgba(255, 255, 255, 0.92);
+    border: 1px solid rgba(17, 21, 29, 0.1);
+    box-shadow: 0 22px 54px rgba(17, 21, 29, 0.14);
+    position: relative;
+    z-index: 2;
+  }
+
+  .band-canvas img {
+    width: 100%;
+    height: 100%;
+    display: block;
+    object-fit: cover;
+    object-position: center top;
+  }
+
+  .dark-canvas {
+    background: rgba(14, 16, 30, 0.85);
+    border-color: rgba(255, 255, 255, 0.12);
+  }
+
+  .band-float-card {
+    position: absolute;
+    right: 0.85rem;
+    bottom: 2.3rem;
+    width: min(31%, 210px);
+    border-radius: 16px;
+    overflow: hidden;
+    background: rgba(255, 255, 255, 0.96);
+    border: 1px solid rgba(17, 21, 29, 0.08);
+    box-shadow: 0 14px 38px rgba(17, 21, 29, 0.15);
+    z-index: 3;
+  }
+
+  .band-float-card img {
+    width: 100%;
+    display: block;
+    aspect-ratio: 1.12;
+    object-fit: cover;
+    object-position: center top;
+  }
+
+  .dark-float {
+    background: rgba(17, 21, 29, 0.9);
+    border-color: rgba(255, 255, 255, 0.1);
+  }
+
+  .band-dots {
+    position: absolute;
+    left: 1.35rem;
+    bottom: 0.6rem;
+    justify-content: flex-start;
+    padding-inline: 0;
+    z-index: 4;
+  }
+
+  .band-flame .eyebrow {
+    background: rgba(255, 255, 255, 0.12);
+    border-color: rgba(255, 255, 255, 0.14);
+    color: #fff7ef;
+  }
+
+  .band-flame .band-sub,
+  .band-flame .feature-list li {
+    color: rgba(255, 247, 239, 0.86);
+  }
+
+  .band-flame .feature-list li::before {
+    color: #fff4d4;
+  }
+
+  .band-flame .btn-secondary {
+    background: rgba(255, 255, 255, 0.12);
+    color: #fff7ef;
+    border-color: rgba(255, 255, 255, 0.18);
+  }
+
+  .mode-badge,
+  .roadmap-label,
+  .cap-code,
+  .price-ribbon {
+    display: inline-flex;
+    align-items: center;
+    width: fit-content;
+  }
+
+  .mode-badge,
+  .roadmap-label {
+    border-radius: 999px;
+    padding: 0.35rem 0.72rem;
+    font-size: 0.74rem;
+    font-weight: 700;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+  }
+
+  .mode-badge-edu {
+    background: var(--landing-green-soft);
+    color: var(--landing-green);
+  }
+
+  .mode-badge-basic {
+    background: var(--landing-orange-soft);
+    color: var(--landing-orange);
+  }
+
+  .mode-badge-pro {
+    background: var(--landing-plum-soft);
+    color: var(--landing-plum);
+  }
+
+  .roadmap-card h3,
+  .price-card h3 {
+    margin: 0.8rem 0 0.6rem;
+    font-size: 1.5rem;
+    line-height: 1.2;
+  }
+
+  .roadmap-card p,
+  .price-card p,
+  .footer-desc,
+  .cl-text,
+  .depth-tile p,
+  .depth-hero-panel p {
+    color: var(--landing-muted);
+    line-height: 1.7;
+  }
+
+  .feature-list {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+  }
+
+  .feature-list li,
+  .price-card li {
+    position: relative;
+    padding-left: 1.15rem;
+    margin-bottom: 0.55rem;
+    line-height: 1.58;
+  }
+
+  .feature-list li::before,
+  .price-card li::before {
+    content: '•';
+    position: absolute;
+    left: 0;
+    color: var(--landing-orange);
+    font-weight: 700;
+  }
+
+  .feature-list.compact li,
+  .price-card li {
+    font-size: 0.92rem;
+  }
+
+  .demo-section {
+    margin: 1rem 0;
+    background:
+      radial-gradient(circle at top right, rgba(199, 100, 42, 0.18), transparent 24%),
+      linear-gradient(180deg, #121823 0%, #171f2d 100%);
+    color: #f5efe7;
+  }
+
+  .demo-section .section-sub,
+  .demo-section .feature-list li,
+  .demo-section .demo-copy p {
+    color: rgba(245, 239, 231, 0.78);
+  }
+
+  .demo-section .feature-list li::before {
+    color: #f0a266;
+  }
+
+  .demo-section .eyebrow {
+    background: rgba(255, 255, 255, 0.08);
+    border-color: rgba(255, 255, 255, 0.12);
+    color: #d8dfef;
+  }
+
+  .demo-section h2,
+  .demo-section .btn-tertiary {
+    color: #f7f2eb;
+  }
+
+  .demo-section .btn-primary {
+    background: #f2ebe2;
+    color: #121823;
+  }
+
+  .demo-layout {
+    display: grid;
+    grid-template-columns: minmax(0, 0.42fr) minmax(0, 0.58fr);
+    gap: 1.5rem;
+    align-items: stretch;
+    position: relative;
+    padding: 1.25rem;
+    border-radius: 30px;
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    background: linear-gradient(135deg, rgba(255, 255, 255, 0.03), rgba(255, 255, 255, 0.01));
+    overflow: hidden;
+    box-shadow: 0 22px 60px rgba(0, 0, 0, 0.18);
+  }
+
+  .demo-layout::before {
+    content: '';
+    position: absolute;
+    width: 34%;
+    aspect-ratio: 1;
+    right: -6%;
+    top: -14%;
+    border-radius: 28px;
+    transform: rotate(12deg);
+    background: rgba(240, 162, 102, 0.12);
+  }
+
+  .demo-copy {
+    position: relative;
+    z-index: 1;
+    padding: 0.8rem 0.4rem 0.8rem 0.5rem;
+  }
+
+  .demo-copy h2 {
+    margin: 0.9rem 0 0.8rem;
+    font-size: clamp(2rem, 3.2vw, 2.95rem);
+    line-height: 0.98;
+    letter-spacing: -0.05em;
+  }
+
+  .demo-copy .feature-list {
+    max-width: 520px;
+    margin-top: 1rem;
+  }
+
+  .demo-browser-clean {
+    position: relative;
+    z-index: 1;
+    border-radius: 24px;
+    overflow: hidden;
+    background: rgba(8, 11, 18, 0.72);
+    border-color: rgba(255, 255, 255, 0.08);
+    box-shadow: 0 24px 70px rgba(0, 0, 0, 0.32);
+  }
+
+  .demo-iframe-wrap {
+    position: relative;
+    aspect-ratio: 16 / 10;
+    background: #0d121c;
+  }
+
+  .demo-iframe {
+    width: 100%;
+    height: 100%;
+    border: none;
+    background: #0d121c;
+  }
+
+  .demo-placeholder {
+    position: relative;
+    width: 100%;
+    height: 100%;
+    border: none;
+    padding: 0;
+    background: none;
+    cursor: pointer;
+  }
+
+  .demo-thumb {
+    object-fit: cover;
+    filter: saturate(0.9) contrast(0.96);
+  }
+
+  .demo-play {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 0.7rem;
+    color: white;
+    background: linear-gradient(180deg, rgba(17, 21, 29, 0.14), rgba(17, 21, 29, 0.38));
+  }
+
+  .demo-play svg {
+    width: 70px;
+    height: 70px;
+    filter: drop-shadow(0 8px 22px rgba(0, 0, 0, 0.28));
+  }
+
+  .demo-play span {
+    font-size: 1.02rem;
+    font-weight: 700;
+  }
+
+  .roadmap-section {
+    padding-top: 2.4rem;
+    background:
+      linear-gradient(180deg, #f5efe3 0%, #f3ecde 100%);
+  }
+
+  .roadmap-block {
+    margin-top: 1.25rem;
+    padding-top: 1rem;
+    border-top: 1px solid rgba(17, 21, 29, 0.08);
+  }
+
+  .muted-block {
+    opacity: 0.82;
+  }
+
+  .roadmap-label {
+    background: rgba(255, 255, 255, 0.72);
+    border: 1px solid rgba(17, 21, 29, 0.09);
+    color: var(--landing-ink);
+    margin-bottom: 0.75rem;
+  }
+
+  .small-pro-media {
+    margin: 1rem 0 1.1rem;
+  }
+
+  .roadmap-note {
+    margin-top: 0.8rem;
+    font-size: 0.92rem;
+    font-weight: 600;
+    color: var(--landing-steel);
+  }
+
+  .roadmap-card {
+    min-height: 100%;
+  }
+
+  .roadmap-edu {
+    background:
+      radial-gradient(circle at top right, rgba(255, 255, 255, 0.44), transparent 22%),
+      linear-gradient(180deg, #f7e97c 0%, #f7f0b0 100%);
+    border-top: 4px solid rgba(47, 127, 97, 0.45);
+  }
+
+  .roadmap-pro {
+    background:
+      radial-gradient(circle at top left, rgba(245, 174, 124, 0.14), transparent 20%),
+      linear-gradient(180deg, #171326 0%, #120f20 100%);
+    border-color: rgba(255, 255, 255, 0.08);
+    border-top: 4px solid rgba(109, 78, 162, 0.55);
+    color: #f8f2ea;
+  }
+
+  .roadmap-pro p,
+  .roadmap-pro .feature-list li,
+  .roadmap-pro .roadmap-note {
+    color: rgba(248, 242, 234, 0.78);
+  }
+
+  .roadmap-pro .feature-list li::before {
+    color: #f0a266;
+  }
+
+  .roadmap-pro .frame-topline {
+    background: rgba(255, 255, 255, 0.03);
+  }
+
+  .capabilities {
+    padding: 2.5rem 0 4.6rem;
+    background:
+      linear-gradient(180deg, #13111f 0%, #171326 100%);
+    color: #f8f2ea;
+    position: relative;
+    overflow: clip;
+  }
+
+  .capabilities::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background-image:
+      linear-gradient(rgba(255, 255, 255, 0.05) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(255, 255, 255, 0.05) 1px, transparent 1px);
+    background-size: 52px 52px;
+    opacity: 0.26;
+    pointer-events: none;
+  }
+
+  .capabilities .eyebrow {
+    background: rgba(255, 255, 255, 0.08);
+    border-color: rgba(255, 255, 255, 0.12);
+    color: #f8f2ea;
+  }
+
+  .capabilities h2,
+  .capabilities .section-sub {
+    color: #f8f2ea;
+  }
+
+  .capabilities .section-sub {
+    color: rgba(248, 242, 234, 0.74);
+  }
+
+  .depth-grid {
+    display: grid;
+    grid-template-columns: minmax(0, 1.08fr) minmax(0, 0.92fr) minmax(0, 0.8fr);
+    gap: 0.9rem;
+    position: relative;
+    z-index: 1;
+  }
+
+  .depth-hero-panel {
+    grid-column: 1 / span 2;
+    grid-row: 1 / span 2;
+    min-height: 560px;
+    display: grid;
+    grid-template-columns: minmax(0, 0.72fr) minmax(0, 1.28fr);
+    border-radius: 28px;
+    overflow: hidden;
+    position: relative;
+    background: linear-gradient(135deg, #1a162b 0%, #0f0c1b 100%);
+    border-color: rgba(255, 255, 255, 0.08);
+    box-shadow: 0 22px 72px rgba(0, 0, 0, 0.28);
+  }
+
+  .depth-hero-panel::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background-image:
+      linear-gradient(rgba(255, 255, 255, 0.045) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(255, 255, 255, 0.045) 1px, transparent 1px);
+    background-size: 38px 38px;
+    opacity: 0.34;
+    pointer-events: none;
+  }
+
+  .depth-hero-copy {
+    position: relative;
+    z-index: 1;
+    padding: clamp(1.7rem, 3vw, 2.4rem);
+    color: #f8f2ea;
+  }
+
+  .depth-proof {
+    background: rgba(255, 255, 255, 0.08);
+    border-color: rgba(255, 255, 255, 0.12);
+    color: #f8f2ea;
+  }
+
+  .depth-hero-copy h3 {
+    max-width: 420px;
+    margin: 0.85rem 0 0.8rem;
+    font-size: clamp(2rem, 3.4vw, 3.15rem);
+    line-height: 0.92;
+    letter-spacing: -0.05em;
+  }
+
+  .depth-hero-copy p {
+    max-width: 380px;
+    font-size: 0.96rem;
+    line-height: 1.65;
+    color: rgba(248, 242, 234, 0.78);
+  }
+
+  .depth-bullets {
+    margin-top: 1rem;
+  }
+
+  .depth-bullets li {
+    max-width: 400px;
+    margin-bottom: 0.5rem;
+    font-size: 0.93rem;
+    line-height: 1.52;
+    color: rgba(248, 242, 234, 0.84);
+  }
+
+  .depth-bullets li::before {
+    color: #f0a266;
+  }
+
+  .depth-hero-stage {
+    position: relative;
+    min-height: 100%;
+    padding: 1.3rem 1.3rem 1.4rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .depth-main-shot {
+    position: relative;
+    z-index: 1;
+    width: 100%;
+    height: 100%;
+    min-height: 360px;
+    border-radius: 22px;
+    overflow: hidden;
+    background: rgba(14, 16, 30, 0.88);
+    border-color: rgba(255, 255, 255, 0.08);
+    box-shadow: 0 22px 72px rgba(0, 0, 0, 0.28);
+  }
+
+  .depth-main-shot img {
+    width: 100%;
+    height: 100%;
+    display: block;
+    object-fit: cover;
+    object-position: center top;
+  }
+
+  .depth-float {
+    position: absolute;
+    z-index: 2;
+    width: min(32%, 200px);
+    border-radius: 16px;
+    overflow: hidden;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    box-shadow: 0 16px 40px rgba(0, 0, 0, 0.28);
+  }
+
+  .depth-float img {
+    width: 100%;
+    display: block;
+    aspect-ratio: 1.18;
+    object-fit: cover;
+    object-position: center top;
+  }
+
+  .depth-float-a {
+    right: 0.6rem;
+    top: 1.25rem;
+  }
+
+  .depth-float-b {
+    left: 0;
+    bottom: 1.2rem;
+  }
+
+  .cap-code {
+    margin-bottom: 0.85rem;
+    border-radius: 999px;
+    padding: 0.3rem 0.62rem;
+    background: rgba(17, 21, 29, 0.08);
+    color: rgba(17, 21, 29, 0.68);
+    font-size: 0.78rem;
+    font-weight: 700;
+    letter-spacing: 0.06em;
+  }
+
+  .depth-tile {
+    border-radius: 22px;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+    min-height: 260px;
+  }
+
+  .depth-tile[data-tone='amber'] {
+    background: linear-gradient(180deg, #f5df67 0%, #f6edab 100%);
+  }
+
+  .depth-tile[data-tone='plum'] {
+    background: linear-gradient(180deg, #231c38 0%, #171126 100%);
+    border-color: rgba(255, 255, 255, 0.08);
+  }
+
+  .depth-tile[data-tone='ink'] {
+    background: linear-gradient(180deg, #111728 0%, #0d1220 100%);
+    border-color: rgba(255, 255, 255, 0.08);
+  }
+
+  .depth-tile[data-tone='paper'] {
+    background: linear-gradient(180deg, rgba(255, 255, 255, 0.92), rgba(255, 250, 242, 0.92));
+  }
+
+  .depth-tile-media {
+    aspect-ratio: 16 / 10;
+    padding: 0.72rem 0.72rem 0;
+  }
+
+  .depth-tile-media img {
+    width: 100%;
+    height: 100%;
+    display: block;
+    border-radius: 18px;
+    object-fit: cover;
+    object-position: center top;
+  }
+
+  .depth-tile-copy {
+    padding: 0.9rem 1rem 1.05rem;
+  }
+
+  .depth-tile h4 {
+    margin: 0 0 0.4rem;
+    font-size: 1rem;
+    line-height: 1.25;
+  }
+
+  .depth-tile[data-tone='plum'] h4,
+  .depth-tile[data-tone='ink'] h4 {
+    color: #f8f2ea;
+  }
+
+  .depth-tile[data-tone='plum'] p,
+  .depth-tile[data-tone='ink'] p {
+    color: rgba(248, 242, 234, 0.74);
+  }
+
+  .depth-tile[data-tone='plum'] .cap-code,
+  .depth-tile[data-tone='ink'] .cap-code {
+    background: rgba(255, 255, 255, 0.08);
+    color: rgba(248, 242, 234, 0.72);
+  }
+
+  .access-heading {
+    max-width: 760px;
+    margin-inline: auto;
+  }
+
+  .access-grid {
+    align-items: stretch;
+  }
+
+  .price-card {
+    display: flex;
+    flex-direction: column;
+  }
+
+  .price-card.featured {
+    background: linear-gradient(180deg, #171326 0%, #120f20 100%);
+    border-color: rgba(255, 255, 255, 0.08);
+    color: #f8f2ea;
+  }
+
+  .price-card:not(.featured) {
+    background:
+      radial-gradient(circle at top right, rgba(255, 255, 255, 0.52), transparent 24%),
+      linear-gradient(180deg, #f5e36f 0%, #f6edaa 100%);
+    border-color: rgba(17, 21, 29, 0.08);
+  }
+
+  .free-card li,
+  .free-card p {
+    color: rgba(248, 242, 234, 0.76);
+  }
+
+  .free-card li::before {
+    color: #f0a266;
+  }
+
+  .free-card .btn-primary {
+    background: #f4efe6;
+    color: #171326;
+    box-shadow: none;
+  }
+
+  .access-main,
+  .access-side {
+    min-height: 520px;
+  }
+
+  .access-main {
+    padding: 1.5rem;
+    justify-content: space-between;
+  }
+
+  .access-topline {
+    display: flex;
+    justify-content: space-between;
+    align-items: start;
+    gap: 1rem;
+  }
+
+  .access-main h3,
+  .access-side h3 {
+    margin-top: 1rem;
+    font-size: clamp(2rem, 3vw, 2.9rem);
+    line-height: 0.96;
+    letter-spacing: -0.05em;
+  }
+
+  .access-lead {
+    max-width: 560px;
+    margin-bottom: 1.2rem;
+    font-size: 1rem;
+    line-height: 1.75;
+  }
+
+  .access-list {
+    columns: 2;
+    column-gap: 1.4rem;
+    margin-bottom: 1.25rem;
+  }
+
+  .access-list li {
+    break-inside: avoid;
+  }
+
+  .access-stamps {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.65rem;
+    margin-bottom: 1rem;
+  }
+
+  .access-stamps span {
+    display: inline-flex;
+    align-items: center;
+    padding: 0.42rem 0.78rem;
+    border-radius: 999px;
+    background: rgba(255, 255, 255, 0.08);
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    color: rgba(248, 242, 234, 0.78);
+    font-size: 0.8rem;
+    font-weight: 600;
+  }
+
+  .access-side {
+    position: relative;
+    padding: 1rem;
+    justify-content: flex-start;
+  }
+
+  .access-side-media {
+    margin-bottom: 1rem;
+    border-radius: 20px;
+    overflow: hidden;
+    background: rgba(17, 21, 29, 0.18);
+    border: 1px solid rgba(17, 21, 29, 0.08);
+    box-shadow: 0 16px 40px rgba(17, 21, 29, 0.12);
+  }
+
+  .access-side-media img {
+    width: 100%;
+    display: block;
+    aspect-ratio: 16 / 10;
+    object-fit: cover;
+    object-position: center top;
+  }
+
+  .price-ribbon {
+    position: absolute;
+    top: 1rem;
+    right: 1rem;
+    border-radius: 999px;
+    padding: 0.3rem 0.62rem;
+    background: var(--landing-plum-soft);
+    color: var(--landing-plum);
+    font-size: 0.72rem;
+    font-weight: 700;
+    letter-spacing: 0.04em;
+  }
+
+  .price-amount {
+    margin-top: 0.35rem;
+    font-size: 3rem;
+    font-weight: 800;
+    letter-spacing: -0.05em;
+  }
+
+  .price-card ul {
+    list-style: none;
+    padding: 0;
+    margin: 0 0 1.2rem;
+  }
+
+  .price-card li.ai-highlight {
+    color: var(--landing-ink);
+    font-weight: 600;
+  }
+
+  .pilot-card li.ai-highlight {
+    color: #171326;
+  }
+
+  .card-cta,
+  .card-link {
+    margin-top: auto;
+  }
+
+  .build-grid {
+    display: grid;
+    grid-template-columns: minmax(0, 1.08fr) minmax(0, 0.92fr);
+    gap: 1rem;
+  }
+
+  .build-feature {
+    border-radius: 28px;
+    padding: 1.6rem;
+    min-height: 340px;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    background:
+      radial-gradient(circle at top right, rgba(243, 90, 39, 0.24), transparent 24%),
+      linear-gradient(135deg, #131922 0%, #171f2a 100%);
+    border-color: rgba(255, 255, 255, 0.08);
+    color: #f5efe7;
+  }
+
+  .build-feature h3 {
+    margin: 0.7rem 0 0.8rem;
+    font-size: clamp(2rem, 3vw, 2.9rem);
+    line-height: 0.98;
+    letter-spacing: -0.05em;
+  }
+
+  .build-feature-text {
+    max-width: 560px;
+    color: rgba(245, 239, 231, 0.78);
+    line-height: 1.72;
+  }
+
+  .build-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.75rem;
+    margin-top: 1.1rem;
+  }
+
+  .build-feature .cl-date {
+    color: rgba(240, 225, 204, 0.72);
+  }
+
+  .build-feature .btn-primary {
+    background: #f3eadf;
+    color: #131922;
+    box-shadow: none;
+  }
+
+  .build-feature .btn-tertiary {
+    color: #f3eadf;
+  }
+
+  .build-stack {
+    display: grid;
+    gap: 1rem;
+  }
+
+  .build-card {
+    border-radius: 22px;
+    padding: 1.2rem;
+    min-height: 104px;
+    background:
+      linear-gradient(180deg, rgba(255, 255, 255, 0.78), rgba(255, 250, 242, 0.88)),
+      linear-gradient(135deg, rgba(199, 100, 42, 0.03), rgba(31, 79, 121, 0.03));
+  }
+
+  .build-card[data-tone='amber'] {
+    background: linear-gradient(180deg, #f5df67 0%, #f6edab 100%);
+  }
+
+  .build-card[data-tone='plum'] {
+    background: linear-gradient(180deg, #231c38 0%, #171126 100%);
+    border-color: rgba(255, 255, 255, 0.08);
+  }
+
+  .build-card[data-tone='ink'] {
+    background: linear-gradient(180deg, #111728 0%, #0d1220 100%);
+    border-color: rgba(255, 255, 255, 0.08);
+  }
+
+  .build-card[data-tone='plum'] .cl-date,
+  .build-card[data-tone='ink'] .cl-date {
+    color: rgba(248, 242, 234, 0.64);
+  }
+
+  .build-card[data-tone='plum'] .cl-text,
+  .build-card[data-tone='ink'] .cl-text {
+    color: rgba(248, 242, 234, 0.78);
+  }
+
+  .cl-date {
+    color: var(--landing-steel);
+    font-size: 0.8rem;
+    font-weight: 700;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+  }
+
+  .cl-text {
+    margin-top: 0.55rem;
+    font-size: 0.94rem;
+  }
+
+  .final-cta-inner {
+    display: grid;
+    grid-template-columns: minmax(0, 1.1fr) auto;
+    gap: 2rem;
+    align-items: center;
+    padding: 2.6rem;
+    border-radius: 34px;
+    border: 1px solid rgba(17, 21, 29, 0.08);
+    background:
+      radial-gradient(circle at top right, rgba(255, 255, 255, 0.44), transparent 24%),
+      linear-gradient(135deg, #f25a27 0%, #f39a2f 100%);
+    box-shadow: 0 26px 80px rgba(17, 21, 29, 0.14);
+  }
+
+  .final-cta h2 {
+    margin: 1rem 0 0.75rem;
+    font-size: clamp(2rem, 3.8vw, 3rem);
+    line-height: 1.05;
+    letter-spacing: -0.04em;
+  }
+
+  .final-cta p {
+    max-width: 560px;
+    color: rgba(17, 21, 29, 0.72);
+    line-height: 1.75;
+  }
+
+  .final-cta h2,
+  .final-cta .btn-tertiary {
+    color: #11151d;
+  }
+
+  .final-cta .eyebrow {
+    background: rgba(255, 255, 255, 0.42);
+    border-color: rgba(17, 21, 29, 0.08);
+    color: #11151d;
+  }
+
+  .final-cta .btn-primary {
+    background: #11151d;
+    color: #f6eee5;
+    box-shadow: none;
+  }
+
+  .lp-footer {
+    padding: 0 0 5.2rem;
+    background: #11101d;
+  }
+
+  .footer-inner {
+    padding-top: 1.4rem;
+    border-top: 1px solid rgba(255, 255, 255, 0.08);
+  }
+
+  .footer-top {
+    display: flex;
+    justify-content: space-between;
+    gap: 1rem;
+    align-items: center;
+    margin-bottom: 0.7rem;
+  }
+
+  .footer-brand {
+    display: flex;
+    align-items: center;
+    gap: 0.55rem;
+    font-family: 'Sora', sans-serif;
+    font-weight: 700;
+    color: #f4efe6;
+  }
+
+  .footer-links {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 1rem;
+    align-items: center;
+  }
+
+  .footer-desc {
+    max-width: 620px;
+    margin: 0 0 0.9rem;
+    color: rgba(244, 239, 230, 0.72);
+  }
+
+  .footer-copy {
+    color: rgba(244, 239, 230, 0.52);
+    font-size: 0.85rem;
+  }
+
+  .lp-footer .footer-links a,
+  .lp-footer .footer-links button {
+    color: rgba(244, 239, 230, 0.84);
+  }
+
+  .mobile-sticky {
+    display: none;
+  }
+
+  @media (max-width: 1100px) {
+    .hero-grid,
+    .demo-layout,
+    .roadmap-grid,
+    .access-grid,
+    .build-grid,
+    .depth-grid {
+      grid-template-columns: 1fr;
     }
-    .mobile-sticky .btn-primary { width: 100%; max-width: 400px; text-align: center; }
-    .lp-footer { padding-bottom: 5rem; }
+
+    .hero {
+      padding-top: 4rem;
+    }
+
+    .hero::after {
+      right: 2rem;
+      left: 2rem;
+      width: auto;
+      height: 56%;
+      top: auto;
+      bottom: 2rem;
+    }
+
+    .hero-copy {
+      padding-top: 0;
+      max-width: none;
+    }
+
+    .hero-visual {
+      padding: 1rem 0 0;
+    }
+
+    .hero-visual::before {
+      inset: 1.2rem 0.4rem 1rem 2rem;
+    }
+
+    .hero-visual::after {
+      inset: 2rem 1.2rem 2rem 3rem;
+    }
+
+    .depth-hero-panel {
+      grid-column: auto;
+      grid-row: auto;
+      grid-template-columns: 1fr;
+      min-height: auto;
+    }
+
+    .feature-band,
+    .feature-band.reverse {
+      grid-template-columns: 1fr;
+      min-height: auto;
+    }
+
+    .feature-band.reverse .band-copy,
+    .feature-band.reverse .band-visual {
+      order: initial;
+    }
+
+    .signal-grid {
+      grid-template-columns: 1fr;
+    }
+
+    .final-cta-inner {
+      grid-template-columns: 1fr;
+    }
+
+    .access-list {
+      columns: 1;
+    }
+  }
+
+  @media (max-width: 760px) {
+    .section-inner,
+    .nav-inner {
+      padding-inline: 1rem;
+    }
+
+    .nav-inner {
+      height: 64px;
+    }
+
+    .nav-links,
+    .nav-ghost {
+      display: none;
+    }
+
+    .hero {
+      padding-top: 2.5rem;
+    }
+
+    .hero-copy h1 {
+      font-size: clamp(2.35rem, 13vw, 3.4rem);
+    }
+
+    .band-title {
+      font-size: clamp(2.2rem, 12vw, 3.4rem);
+    }
+
+    .band-visual {
+      min-height: 380px;
+      padding: 1rem;
+    }
+
+    .band-canvas {
+      min-height: 300px;
+    }
+
+    .band-float-card {
+      width: 42%;
+      right: 0.4rem;
+      bottom: 2.8rem;
+    }
+
+    .band-dots {
+      left: 1rem;
+    }
+
+    .depth-hero-stage {
+      padding: 1rem;
+      min-height: 360px;
+    }
+
+    .depth-main-shot {
+      min-height: 280px;
+    }
+
+    .depth-float {
+      width: 42%;
+    }
+
+    .roadmap-card,
+    .price-card,
+    .hero-stage,
+    .demo-browser-clean,
+    .depth-hero-panel,
+    .depth-tile,
+    .build-feature,
+    .build-card {
+      border-radius: 20px;
+    }
+
+    .footer-top {
+      flex-direction: column;
+      align-items: flex-start;
+    }
+
+    .mobile-sticky {
+      display: flex;
+      position: fixed;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      z-index: 220;
+      padding: 0.75rem 1rem;
+      border-top: 1px solid rgba(17, 21, 29, 0.08);
+      background: rgba(244, 239, 230, 0.92);
+      backdrop-filter: blur(18px);
+    }
+
+    .mobile-sticky .btn-primary {
+      width: 100%;
+    }
+
+    .lp-footer {
+      padding-bottom: 6rem;
+    }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .reveal,
+    .scroll-progress,
+    .btn-primary,
+    .btn-secondary,
+    .btn-tertiary,
+    .ss-dot,
+    .nav-links button {
+      transition: none !important;
+    }
+
+    .reveal {
+      opacity: 1;
+      transform: none;
+    }
   }
 </style>
