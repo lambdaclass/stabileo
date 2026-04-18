@@ -1342,7 +1342,7 @@ const de: Translations = {
   'stress.forces3dHelp': '3D-Schnittgrößen an diesem Schnitt.\nN = Normalkraft (+ Zug, - Druck)\nVy = Querkraft in XY-Ebene (erzeugt Mz)\nVz = Querkraft in XZ-Ebene (erzeugt My)',
   'stress.moments3dHelp': 'Mx = Torsionsmoment\nMy = Biegemoment (XZ-Ebene, schwache Achse)\nMz = Biegemoment (XY-Ebene, starke Achse)\nVorzeichenkonvention: + = Feldzustand (Zug an Unterkante)',
   'stress.rotDecompHelp': 'Querschnittsdrehung ({angle}°).\nVy, Vz = Querkraftkomponenten in gedrehten lokalen Achsen',
-  'stress.rotMomentHelp': 'Momentenzerlegung M durch Querschnittsdrehung.\nMy = M·cos(α) (starke Achse)\nMz = M·sin(α) (schwache Achse)\nα = {angle}°',
+  'stress.rotMomentHelp': 'Momentenzerlegung M durch Querschnittsdrehung.\nMy = M·cos(α) (schwache Achse)\nMz = M·sin(α) (starke Achse)\nα = {angle}°',
   'stress.forces2dHelp': 'Schnittgrößen an diesem Elementschnitt.\nN = Normalkraft (+ Zug, - Druck)\nV = Querkraft\nM = Biegemoment (+ Feldzustand, Zug an Unterkante)',
   'stress.criticalSections': 'Kritische Schnitte',
   'stress.criticalSectionsHelp': 'Positionen entlang des Elements, an denen Spannungen geprüft werden sollten.\n\nBeinhaltet Punkte maximalen Moments (V=0), Auflager, Einzellasten und Zwischenpunkte.\nKlicken Sie auf jeden Chip, um zu diesem Schnitt zu navigieren.',

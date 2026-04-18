@@ -1342,7 +1342,7 @@ const fr: Translations = {
   'stress.forces3dHelp': 'Efforts internes 3D à cette section.\nN = normal (+ traction, - compression)\nVy = effort tranchant dans le plan XY (produit Mz)\nVz = effort tranchant dans le plan XZ (produit My)',
   'stress.moments3dHelp': 'Mx = moment de torsion\nMy = moment fléchissant (plan XZ, axe faible)\nMz = moment fléchissant (plan XY, axe fort)\nConvention : + = sagging (traction en fibre inférieure)',
   'stress.rotDecompHelp': 'Décomposition de la rotation de la section ({angle}°).\nVy, Vz = composantes de cisaillement dans les axes locaux tournés',
-  'stress.rotMomentHelp': 'Décomposition du moment M par rotation de section.\nMy = M·cos(α) (axe fort)\nMz = M·sin(α) (axe faible)\nα = {angle}°',
+  'stress.rotMomentHelp': 'Décomposition du moment M par rotation de section.\nMy = M·cos(α) (axe faible)\nMz = M·sin(α) (axe fort)\nα = {angle}°',
   'stress.forces2dHelp': 'Efforts internes à cette section de l\'élément.\nN = normal (+ traction, - compression)\nV = effort tranchant transversal\nM = moment fléchissant (+ sagging, traction en fibre inférieure)',
   'stress.criticalSections': 'Sections critiques',
   'stress.criticalSectionsHelp': 'Positions le long de l\'élément où les contraintes doivent être vérifiées.\n\nInclut les points de moment maximal (V=0), les appuis, les charges ponctuelles et les points intermédiaires.\nCliquez sur chaque pastille pour naviguer vers cette section.',

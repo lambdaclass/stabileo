@@ -1342,7 +1342,7 @@ const tr: Translations = {
   'stress.forces3dHelp': 'Bu kesitteki 3B iç kuvvetler.\\nN = normal (+ çekme, - basınç)\\nVy = XY düzleminde kesme (Mz oluşturur)\\nVz = XZ düzleminde kesme (My oluşturur)',
   'stress.moments3dHelp': 'Mx = burulma momenti\\nMy = eğilme momenti (XZ düzlemi, zayıf eksen)\\nMz = eğilme momenti (XY düzlemi, güçlü eksen)\\nKuralı: + = pozitif eğilme (alt lifte çekme)',
   'stress.rotDecompHelp': 'Kesit dönme ayrışması ({angle}°).\\nVy, Vz = döndürülmüş yerel eksenlerdeki kesme bileşenleri',
-  'stress.rotMomentHelp': 'Kesit dönmesiyle moment M ayrışması.\\nMy = M·cos(α) (güçlü eksen)\\nMz = M·sin(α) (zayıf eksen)\\nα = {angle}°',
+  'stress.rotMomentHelp': 'Kesit dönmesiyle moment M ayrışması.\\nMy = M·cos(α) (zayıf eksen)\\nMz = M·sin(α) (güçlü eksen)\\nα = {angle}°',
   'stress.forces2dHelp': 'Bu eleman kesitindeki iç kuvvetler.\\nN = normal (+ çekme, - basınç)\\nV = enine kesme\\nM = eğilme momenti (+ pozitif eğilme, alt lifte çekme)',
   'stress.criticalSections': 'Kritik kesitler',
   'stress.criticalSectionsHelp': 'Eleman boyunca gerilmelerin kontrol edilmesi gereken konumlar.\\n\\nMaksimum moment (V=0), mesnetler, tekil yükler ve ara noktalar dahildir.\\nO kesite gitmek için her etikete tıklayın.',

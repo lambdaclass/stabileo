@@ -1478,7 +1478,7 @@ const en: Record<string, string> = {
   'stress.forces3dHelp': '3D internal forces at this section.\nN = normal (+ tension, - compression)\nVy = shear in XY plane (produces Mz)\nVz = shear in XZ plane (produces My)',
   'stress.moments3dHelp': 'Mx = torsional moment\nMy = bending moment (XZ plane, weak axis)\nMz = bending moment (XY plane, strong axis)\nConvention: + = sagging (tension at bottom fiber)',
   'stress.rotDecompHelp': 'Section rotation decomposition ({angle}\u00B0).\nVy, Vz = shear components in rotated local axes',
-  'stress.rotMomentHelp': 'Moment M decomposition by section rotation.\nMy = M\u00B7cos(\u03B1) (strong axis)\nMz = M\u00B7sin(\u03B1) (weak axis)\n\u03B1 = {angle}\u00B0',
+  'stress.rotMomentHelp': 'Moment M decomposition by section rotation.\nMy = M\u00B7cos(\u03B1) (weak axis)\nMz = M\u00B7sin(\u03B1) (strong axis)\n\u03B1 = {angle}\u00B0',
   'stress.forces2dHelp': 'Internal forces at this element section.\nN = normal (+ tension, - compression)\nV = transverse shear\nM = bending moment (+ sagging, tension at bottom)',
   'stress.criticalSections': 'Critical sections',
   'stress.criticalSectionsHelp': 'Positions along the element where stresses should be checked.\n\nIncludes points of maximum moment (V=0), supports, point loads and intermediate points.\nClick each chip to navigate to that section.',

@@ -1342,7 +1342,7 @@ const zh: Translations = {
   'stress.forces3dHelp': '此截面的 3D 内力。\nN = 轴力（+ 拉力，- 压力）\nVy = XY 平面剪力（产生 Mz）\nVz = XZ 平面剪力（产生 My）',
   'stress.moments3dHelp': 'Mx = 扭矩\nMy = 弯矩（XZ 平面，弱轴）\nMz = 弯矩（XY 平面，强轴）\n惯例：+ = 下凸（底部纤维受拉）',
   'stress.rotDecompHelp': '按截面旋转角 ({angle}°) 进行的分解。\nVy, Vz = 旋转局部轴上的剪力分量',
-  'stress.rotMomentHelp': '按截面旋转角分解弯矩 M。\nMy = M·cos(α)（强轴）\nMz = M·sin(α)（弱轴）\nα = {angle}°',
+  'stress.rotMomentHelp': '按截面旋转角分解弯矩 M。\nMy = M·cos(α)（弱轴）\nMz = M·sin(α)（强轴）\nα = {angle}°',
   'stress.forces2dHelp': '此截面的内力。\nN = 轴力（+ 拉力，- 压力）\nV = 横向剪力\nM = 弯矩（+ 下凸，底部受拉）',
   'stress.criticalSections': '临界截面',
   'stress.criticalSectionsHelp': '沿单元应校核应力的位置。\n\n包括最大弯矩点 (V=0)、支座、集中荷载点和中间点。\n点击各标签可导航到该截面。',

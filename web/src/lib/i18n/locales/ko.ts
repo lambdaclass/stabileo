@@ -1348,7 +1348,7 @@ const ko: Translations = {
   'stress.forces3dHelp': '이 단면의 3D 내력.\nN = 축력 (+ 인장, - 압축)\nVy = XY 평면 전단력 (Mz 발생)\nVz = XZ 평면 전단력 (My 발생)',
   'stress.moments3dHelp': 'Mx = 비틀림 모멘트\nMy = 휨모멘트 (XZ 평면, 약축)\nMz = 휨모멘트 (XY 평면, 강축)\n부호 규약: + = 새깅 (하부 섬유 인장)',
   'stress.rotDecompHelp': '단면 회전에 의한 분해 ({angle}°).\nVy, Vz = 회전된 국부 축의 전단력 성분',
-  'stress.rotMomentHelp': '단면 회전에 의한 모멘트 M 분해.\nMy = M·cos(α) (강축)\nMz = M·sin(α) (약축)\nα = {angle}°',
+  'stress.rotMomentHelp': '단면 회전에 의한 모멘트 M 분해.\nMy = M·cos(α) (약축)\nMz = M·sin(α) (강축)\nα = {angle}°',
   'stress.forces2dHelp': '이 요소 단면의 내력.\nN = 축력 (+ 인장, - 압축)\nV = 횡방향 전단력\nM = 휨모멘트 (+ 새깅, 하부 인장)',
   'stress.criticalSections': '임계 단면',
   'stress.criticalSectionsHelp': '응력 확인이 필요한 요소 내 위치.\n\n최대 모멘트(V=0), 지점, 집중하중 위치, 중간점을 포함합니다.\n각 칩을 클릭하여 해당 단면으로 이동합니다.',

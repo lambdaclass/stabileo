@@ -1342,7 +1342,7 @@ const pt: Translations = {
   'stress.forces3dHelp': 'Esforços internos 3D nesta seção.\nN = normal (+ tração, - compressão)\nVy = cortante no plano XY (produz Mz)\nVz = cortante no plano XZ (produz My)',
   'stress.moments3dHelp': 'Mx = momento torsor\nMy = momento fletor (plano XZ, eixo fraco)\nMz = momento fletor (plano XY, eixo forte)\nConvenção: + = positivo (tração na fibra inferior)',
   'stress.rotDecompHelp': 'Decomposição da rotação da seção ({angle}°).\nVy, Vz = componentes de cortante nos eixos locais rotacionados',
-  'stress.rotMomentHelp': 'Decomposição do momento M pela rotação da seção.\nMy = M·cos(α) (eixo forte)\nMz = M·sin(α) (eixo fraco)\nα = {angle}°',
+  'stress.rotMomentHelp': 'Decomposição do momento M pela rotação da seção.\nMy = M·cos(α) (eixo fraco)\nMz = M·sin(α) (eixo forte)\nα = {angle}°',
   'stress.forces2dHelp': 'Esforços internos nesta seção do elemento.\nN = normal (+ tração, - compressão)\nV = cortante transversal\nM = momento fletor (+ positivo, tração na fibra inferior)',
   'stress.criticalSections': 'Seções críticas',
   'stress.criticalSectionsHelp': 'Posições ao longo do elemento onde as tensões devem ser verificadas.\n\nInclui pontos de momento máximo (V=0), apoios, cargas pontuais e pontos intermediários.\nClique em cada chip para navegar até essa seção.',

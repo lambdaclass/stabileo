@@ -1350,7 +1350,7 @@ const ja: Translations = {
   'stress.forces3dHelp': 'この断面の3D内力。\nN = 軸力（+ 引張、- 圧縮）\nVy = XY面のせん断力（Mzを生成）\nVz = XZ面のせん断力（Myを生成）',
   'stress.moments3dHelp': 'Mx = ねじりモーメント\nMy = 曲げモーメント（XZ面、弱軸）\nMz = 曲げモーメント（XY面、強軸）\n符号規約：+ = サギング（下端繊維に引張）',
   'stress.rotDecompHelp': '断面回転（{angle}°）による分解。\nVy, Vz = 回転局所軸でのせん断力成分',
-  'stress.rotMomentHelp': '断面回転によるモーメントMの分解。\nMy = M·cos(α)（強軸）\nMz = M·sin(α)（弱軸）\nα = {angle}°',
+  'stress.rotMomentHelp': '断面回転によるモーメントMの分解。\nMy = M·cos(α)（弱軸）\nMz = M·sin(α)（強軸）\nα = {angle}°',
   'stress.forces2dHelp': 'この断面の内力。\nN = 軸力（+ 引張、- 圧縮）\nV = せん断力\nM = 曲げモーメント（+ サギング、下端に引張）',
   'stress.criticalSections': '臨界断面',
   'stress.criticalSectionsHelp': '要素に沿って応力を検証すべき位置。\n\n最大モーメント（V=0）の点、支点、集中荷重点、中間点を含みます。\n各チップをクリックしてその断面に移動します。',

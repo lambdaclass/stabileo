@@ -1342,7 +1342,7 @@ const it: Translations = {
   'stress.forces3dHelp': 'Sollecitazioni interne 3D in questa sezione.\\nN = sforzo normale (+ trazione, - compressione)\\nVy = taglio nel piano XY (produce Mz)\\nVz = taglio nel piano XZ (produce My)',
   'stress.moments3dHelp': 'Mx = momento torcente\\nMy = momento flettente (piano XZ, asse debole)\\nMz = momento flettente (piano XY, asse forte)\\nConvenzione: + = inarcamento positivo (trazione alla fibra inferiore)',
   'stress.rotDecompHelp': 'Decomposizione della rotazione della sezione ({angle}°).\\nVy, Vz = componenti di taglio negli assi locali ruotati',
-  'stress.rotMomentHelp': 'Decomposizione del momento M per rotazione della sezione.\\nMy = M·cos(α) (asse forte)\\nMz = M·sin(α) (asse debole)\\nα = {angle}°',
+  'stress.rotMomentHelp': 'Decomposizione del momento M per rotazione della sezione.\\nMy = M·cos(α) (asse debole)\\nMz = M·sin(α) (asse forte)\\nα = {angle}°',
   'stress.forces2dHelp': 'Sollecitazioni interne in questa sezione dell\'elemento.\\nN = sforzo normale (+ trazione, - compressione)\\nV = taglio trasversale\\nM = momento flettente (+ inarcamento positivo, trazione in basso)',
   'stress.criticalSections': 'Sezioni critiche',
   'stress.criticalSectionsHelp': 'Posizioni lungo l\'elemento in cui verificare le tensioni.\\n\\nInclude punti di momento massimo (V=0), vincoli, carichi concentrati e punti intermedi.\\nClicca ogni etichetta per navigare a quella sezione.',

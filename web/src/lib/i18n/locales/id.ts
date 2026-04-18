@@ -1348,7 +1348,7 @@ const id: Translations = {
   'stress.forces3dHelp': 'Gaya dalam 3D pada penampang ini.\nN = normal (+ tarik, - tekan)\nVy = geser dalam bidang XY (menghasilkan Mz)\nVz = geser dalam bidang XZ (menghasilkan My)',
   'stress.moments3dHelp': 'Mx = momen torsi\nMy = momen lentur (bidang XZ, sumbu lemah)\nMz = momen lentur (bidang XY, sumbu kuat)\nKonvensi: + = sagging (tarik di serat bawah)',
   'stress.rotDecompHelp': 'Dekomposisi oleh rotasi penampang ({angle}°).\nVy, Vz = komponen geser pada sumbu lokal terputar',
-  'stress.rotMomentHelp': 'Dekomposisi momen M oleh rotasi penampang.\nMy = M·cos(α) (sumbu kuat)\nMz = M·sin(α) (sumbu lemah)\nα = {angle}°',
+  'stress.rotMomentHelp': 'Dekomposisi momen M oleh rotasi penampang.\nMy = M·cos(α) (sumbu lemah)\nMz = M·sin(α) (sumbu kuat)\nα = {angle}°',
   'stress.forces2dHelp': 'Gaya dalam pada penampang elemen ini.\nN = normal (+ tarik, - tekan)\nV = geser melintang\nM = momen lentur (+ sagging, tarik di bawah)',
   'stress.criticalSections': 'Penampang kritis',
   'stress.criticalSectionsHelp': 'Posisi sepanjang elemen di mana perlu diperiksa tegangan.\n\nTermasuk titik momen maksimum (V=0), tumpuan, beban terpusat, dan titik tengah.\nKlik setiap chip untuk navigasi ke penampang tersebut.',
