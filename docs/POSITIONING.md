@@ -1,13 +1,13 @@
-# Dedaliano Positioning
+# Stabileo Positioning
 
 Read next:
 - entry point: [`README.md`](/Users/unbalancedparen/projects/dedaliano/README.md)
 - solver roadmap: [`SOLVER_ROADMAP.md`](/Users/unbalancedparen/projects/dedaliano/docs/roadmap/SOLVER_ROADMAP.md)
 - product execution: [`PRODUCT_ROADMAP.md`](/Users/unbalancedparen/projects/dedaliano/docs/roadmap/PRODUCT_ROADMAP.md)
 
-## What Dedaliano Is
+## What Stabileo Is
 
-Dedaliano is an `open-source structural solver` and an emerging `structural engineering platform`.
+Stabileo is an `open-source structural solver` and an emerging `structural engineering platform`.
 
 Today the strongest identity is:
 
@@ -18,11 +18,11 @@ Today the strongest identity is:
 
 The cleanest short description is:
 
-`Dedaliano is an open-source structural analysis and structural mechanics platform for structural engineering.`
+`Stabileo is an open-source structural analysis and structural mechanics platform for structural engineering.`
 
 The stronger current claim is:
 
-`Dedaliano is becoming one of the strongest open structural solvers, with a broader product surface than most solver-first projects.`
+`Stabileo is becoming one of the strongest open structural solvers, with a broader product surface than most solver-first projects.`
 
 That claim is now supported by more than raw category count:
 
@@ -33,7 +33,7 @@ That claim is now supported by more than raw category count:
 
 ## What It Is Not
 
-Dedaliano is not:
+Stabileo is not:
 
 - a general-purpose multiphysics platform like Abaqus, ANSYS, or Code_Aster at large
 - a generic CAD/BIM replacement
@@ -68,6 +68,28 @@ The strongest current differentiators are:
   The repo already has an unusually large public benchmark surface for this class of product.
 - `Platform leverage`
   The same solver can support the web app, APIs, future plugins, single-purpose tools, and design workflows.
+- `Structured surface for AI`
+  The same structured model and solver surface can be driven by engineers directly or by AI build/review workflows without turning the LLM into the source of truth for mechanics.
+
+## AI-Ready Positioning
+
+The right AI positioning is:
+
+`Stabileo gives humans and AI agents the same structured structural model and deterministic solver.`
+
+The wrong AI positioning is:
+
+- "AI designs your structure for you"
+- "chat is the product"
+- "the LLM is the solver"
+
+The correct claim is narrower and stronger:
+
+- AI can generate or edit structured model input
+- the solver computes the mechanics
+- AI can review, explain, and help iterate on top of solver output
+
+That is a much more defensible wedge than generic AI language.
 
 The next differentiators are less about adding whole new solver categories and more about:
 

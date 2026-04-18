@@ -3,6 +3,10 @@
   import { t, i18n, setLocale } from '../lib/i18n';
 
   const repoUrl = 'https://github.com/lambdaclass/stabileo';
+  const docsHubUrl = `${repoUrl}/blob/main/docs/README.md`;
+  const quickStartUrl = `${repoUrl}/blob/main/docs/QUICKSTART.md`;
+  const aiWorkflowUrl = `${repoUrl}/blob/main/docs/AI_MODELING_WORKFLOW.md`;
+  const solverRefUrl = `${repoUrl}/blob/main/docs/SOLVER_REFERENCE.md`;
 
   /** Called when the user clicks a CTA that should enter the main app shell. */
   function enterApp() {
@@ -182,27 +186,27 @@
   <title>Stabileo — Browser-Based Structural Analysis</title>
   <meta
     name="description"
-    content="Browser-based 2D and 3D structural analysis with diagrams, stresses, deformed shapes, IFC import, and an interactive demo. No install required."
+    content="Browser-native 2D and 3D structural analysis with a structured model format, real solver outputs, AI-ready build/review workflows, and no install required."
   />
   <meta name="theme-color" content="#0a0a0b" />
   <meta property="og:type" content="website" />
   <meta property="og:title" content="Stabileo — Browser-Based Structural Analysis" />
   <meta
     property="og:description"
-    content="Model, solve, inspect, and share structural analysis directly in the browser."
+    content="Model, solve, inspect, and share structural analysis directly in the browser, with structured-model docs and AI-ready workflows."
   />
   <meta property="og:image" content="/screenshots/3d-industrial.png" />
   <meta name="twitter:card" content="summary_large_image" />
   <meta name="twitter:title" content="Stabileo — Browser-Based Structural Analysis" />
   <meta
     name="twitter:description"
-    content="Professional-grade 2D and 3D structural analysis directly in the browser."
+    content="Professional-grade 2D and 3D structural analysis directly in the browser, with a structured solver humans and AI can both use."
   />
   <meta name="twitter:image" content="/screenshots/3d-industrial.png" />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="anonymous" />
   <link
-    href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700&family=Instrument+Serif:ital@0;1&display=swap"
+    href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@500;600&family=IBM+Plex+Sans:wght@400;500;600;700&family=Space+Grotesk:wght@500;600;700&display=swap"
     rel="stylesheet"
   />
 </svelte:head>
@@ -220,6 +224,7 @@
 
       <div class="nav-links">
         <button onclick={() => scrollTo('features')}>{t('landing.features')}</button>
+        <button onclick={() => scrollTo('docs')}>{t('landing.docs')}</button>
         <button onclick={() => scrollTo('demo')}>{t('landing.demo')}</button>
         <button onclick={() => scrollTo('roadmap')}>{t('landing.roadmap')}</button>
         <button onclick={() => scrollTo('pricing')}>{t('landing.pricing')}</button>
@@ -264,8 +269,8 @@
 
         <div class="hero-meta">
           <span class="meta-pill">{t('landing.openSource')}</span>
+          <span class="meta-pill">{t('landing.metricStructured')}</span>
           <span class="meta-pill">2D + 3D</span>
-          <span class="meta-pill">14 {t('landing.metricLanguages').toLowerCase()}</span>
         </div>
       </div>
 
@@ -302,8 +307,8 @@
           </div>
 
           <div class="hero-callout hero-callout-b">
-            <span class="hero-callout-label">{t('landing.tagPro')}</span>
-            <strong>CIRSOC · IFC · PDF</strong>
+            <span class="hero-callout-label">{t('landing.heroCalloutStructuredLabel')}</span>
+            <strong>{t('landing.heroCalloutStructuredValue')}</strong>
           </div>
         </div>
       </div>
@@ -324,6 +329,13 @@
           <span>{t('landing.interactiveDemoDesc')}</span>
         </div>
       </button>
+      <a class="signal" href={docsHubUrl} target="_blank" rel="noreferrer">
+        <div class="signal-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" width="20" height="20"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></svg></div>
+        <div class="signal-text">
+          <strong>{t('landing.signalDocsTitle')}</strong>
+          <span>{t('landing.signalDocsDesc')}</span>
+        </div>
+      </a>
       <div class="signal">
         <div class="signal-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" width="20" height="20"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg></div>
         <div class="signal-text">
@@ -412,6 +424,122 @@
             <a class="btn-ghost" href="/demo">{t('landing.tryTour')}</a>
           </div>
         </article>
+      </div>
+    </div>
+  </section>
+
+  <!-- ─── AI-READY ─── -->
+  <section class="ai-section reveal" id="ai">
+    <div class="section-inner">
+      <div class="section-head">
+        <span class="tag tag-ai">{t('landing.aiTag')}</span>
+        <h2>{t('landing.aiTitle')}</h2>
+        <p class="section-sub">{t('landing.aiSub')}</p>
+      </div>
+
+      <div class="ai-pipeline">
+        <div class="ai-pipeline-label">{t('landing.aiHow')}</div>
+        <div class="ai-steps">
+          <div class="ai-step">
+            <div class="ai-step-num">1</div>
+            <div class="ai-step-body">
+              <strong>{t('landing.aiStep1title')}</strong>
+              <p>{t('landing.aiStep1')}</p>
+            </div>
+          </div>
+          <div class="ai-step-arrow"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" width="20" height="20"><path d="M5 12h14M13 6l6 6-6 6"/></svg></div>
+          <div class="ai-step">
+            <div class="ai-step-num">2</div>
+            <div class="ai-step-body">
+              <strong>{t('landing.aiStep2title')}</strong>
+              <p>{t('landing.aiStep2')}</p>
+            </div>
+          </div>
+          <div class="ai-step-arrow"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" width="20" height="20"><path d="M5 12h14M13 6l6 6-6 6"/></svg></div>
+          <div class="ai-step">
+            <div class="ai-step-num">3</div>
+            <div class="ai-step-body">
+              <strong>{t('landing.aiStep3title')}</strong>
+              <p>{t('landing.aiStep3')}</p>
+            </div>
+          </div>
+          <div class="ai-step-arrow"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" width="20" height="20"><path d="M5 12h14M13 6l6 6-6 6"/></svg></div>
+          <div class="ai-step">
+            <div class="ai-step-num">4</div>
+            <div class="ai-step-body">
+              <strong>{t('landing.aiStep4title')}</strong>
+              <p>{t('landing.aiStep4')}</p>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="ai-why">
+        <h3>{t('landing.aiWhy')}</h3>
+        <div class="ai-points">
+          <div class="ai-point">
+            <div class="ai-point-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" width="20" height="20"><path d="M16 18l2-2-2-2"/><path d="M8 6L6 8l2 2"/><path d="M14.5 4l-5 16"/></svg></div>
+            <p>{t('landing.aiPoint1')}</p>
+          </div>
+          <div class="ai-point">
+            <div class="ai-point-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" width="20" height="20"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg></div>
+            <p>{t('landing.aiPoint2')}</p>
+          </div>
+          <div class="ai-point">
+            <div class="ai-point-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" width="20" height="20"><path d="M3 3v18h18"/><path d="M7 16l4-8 4 5 5-9"/></svg></div>
+            <p>{t('landing.aiPoint3')}</p>
+          </div>
+          <div class="ai-point">
+            <div class="ai-point-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" width="20" height="20"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg></div>
+            <p>{t('landing.aiPoint4')}</p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ─── DOCS ─── -->
+  <section class="docs-section reveal" id="docs">
+    <div class="section-inner">
+      <div class="section-head">
+        <span class="tag">{t('landing.docsTag')}</span>
+        <h2>{t('landing.docsTitle')}</h2>
+        <p class="section-sub">{t('landing.docsSub')}</p>
+      </div>
+
+      <div class="docs-grid">
+        <a class="docs-card" data-tone="amber" href={quickStartUrl} target="_blank" rel="noreferrer">
+          <span class="docs-kicker">{t('landing.docsQuickKicker')}</span>
+          <h3>{t('landing.docsQuickTitle')}</h3>
+          <p>{t('landing.docsQuickDesc')}</p>
+          <ul>
+            <li>{t('landing.docsQuick1')}</li>
+            <li>{t('landing.docsQuick2')}</li>
+          </ul>
+          <span class="docs-open">{t('landing.docsOpen')}</span>
+        </a>
+
+        <a class="docs-card" data-tone="plum" href={aiWorkflowUrl} target="_blank" rel="noreferrer">
+          <span class="docs-kicker">{t('landing.docsAiKicker')}</span>
+          <h3>{t('landing.docsAiTitle')}</h3>
+          <p>{t('landing.docsAiDesc')}</p>
+          <ul>
+            <li>{t('landing.docsAi1')}</li>
+            <li>{t('landing.docsAi2')}</li>
+          </ul>
+          <span class="docs-open">{t('landing.docsOpen')}</span>
+        </a>
+
+        <a class="docs-card" data-tone="ink" href={solverRefUrl} target="_blank" rel="noreferrer">
+          <span class="docs-kicker">{t('landing.docsRefKicker')}</span>
+          <h3>{t('landing.docsRefTitle')}</h3>
+          <p>{t('landing.docsRefDesc')}</p>
+          <ul>
+            <li>{t('landing.docsRef1')}</li>
+            <li>{t('landing.docsRef2')}</li>
+          </ul>
+          <span class="docs-open">{t('landing.docsOpen')}</span>
+        </a>
       </div>
     </div>
   </section>
@@ -681,6 +809,7 @@
           <span>Stabileo</span>
         </div>
         <div class="footer-links">
+          <a href={docsHubUrl} target="_blank" rel="noreferrer">{t('landing.docs')}</a>
           <a href={repoUrl} target="_blank" rel="noreferrer">{t('landing.viewOnGithub')}</a>
           <a href="/demo">{t('landing.tryTour')}</a>
           <button onclick={() => enterApp()}>{t('landing.tryApp')}</button>
@@ -731,7 +860,7 @@
       radial-gradient(circle at 100% 38%, rgba(46, 57, 84, 0.14), transparent 24%),
       linear-gradient(180deg, #0f0c12 0%, #0c0b10 38%, #09090c 100%);
     color: var(--lp-text);
-    font-family: 'DM Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    font-family: 'IBM Plex Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
     font-size: 15px;
     line-height: 1.6;
     -webkit-font-smoothing: antialiased;
@@ -767,16 +896,16 @@
   }
 
   /* ─── TYPOGRAPHY ─── */
-  h1, h2, h3, h4, .nav-name, .price-amount {
-    font-family: 'Instrument Serif', Georgia, serif;
-    font-weight: 400;
-    letter-spacing: -0.02em;
+  h1, h2, h3, h4, .nav-name, .price-amount, .footer-brand {
+    font-family: 'Space Grotesk', 'IBM Plex Sans', sans-serif;
+    font-weight: 600;
+    letter-spacing: -0.045em;
   }
 
   h2 {
     font-size: clamp(2.4rem, 5vw, 3.8rem);
     line-height: 1.05;
-    letter-spacing: -0.03em;
+    letter-spacing: -0.05em;
   }
 
   h3 {
@@ -793,7 +922,8 @@
     border: 1px solid var(--lp-border-2);
     background: var(--lp-surface);
     color: var(--lp-text-2);
-    font-size: 0.72rem;
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 0.7rem;
     font-weight: 600;
     letter-spacing: 0.06em;
     text-transform: uppercase;
@@ -927,14 +1057,14 @@
     border-radius: 8px;
     background: var(--lp-accent);
     color: #fff;
-    font-family: 'Instrument Serif', serif;
-    font-size: 1rem;
-    font-weight: 400;
+    font-family: 'Space Grotesk', sans-serif;
+    font-size: 0.95rem;
+    font-weight: 700;
   }
 
   .nav-name {
     color: var(--lp-text);
-    font-size: 1.05rem;
+    font-size: 1rem;
   }
 
   .nav-links {
@@ -1030,7 +1160,8 @@
     border: 1px solid var(--lp-border-2);
     background: var(--lp-surface);
     color: var(--lp-text-2);
-    font-size: 0.74rem;
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 0.72rem;
     font-weight: 600;
     letter-spacing: 0.04em;
     text-transform: uppercase;
@@ -1038,11 +1169,10 @@
   }
 
   .hero-copy h1 {
-    font-family: 'DM Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
     font-size: clamp(3.35rem, 6.2vw, 5.35rem);
     font-weight: 700;
-    line-height: 0.92;
-    letter-spacing: -0.065em;
+    line-height: 0.9;
+    letter-spacing: -0.075em;
     margin: 0 0 1.2rem;
   }
 
@@ -1054,18 +1184,18 @@
   .hero-copy h1 em {
     display: block;
     margin-top: 0.1rem;
-    font-family: 'Instrument Serif', Georgia, serif;
-    font-weight: 400;
-    font-style: italic;
+    font-family: 'Space Grotesk', 'IBM Plex Sans', sans-serif;
+    font-weight: 600;
+    font-style: normal;
     color: var(--lp-accent);
-    letter-spacing: -0.03em;
+    letter-spacing: -0.055em;
   }
 
   .hero-sub {
     max-width: 470px;
     font-size: 1.04rem;
     line-height: 1.72;
-    color: rgba(240, 236, 228, 0.78);
+    color: rgba(240, 236, 228, 0.86);
     margin-bottom: 1.55rem;
   }
 
@@ -1087,8 +1217,9 @@
     border-radius: 999px;
     border: 1px solid var(--lp-border-2);
     background: rgba(255, 255, 255, 0.03);
-    color: rgba(240, 236, 228, 0.58);
-    font-size: 0.75rem;
+    color: rgba(240, 236, 228, 0.7);
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 0.72rem;
     font-weight: 600;
   }
 
@@ -1151,7 +1282,8 @@
     flex: 1;
     text-align: center;
     color: var(--lp-text-3);
-    font-size: 0.78rem;
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 0.75rem;
     font-weight: 500;
   }
 
@@ -1185,7 +1317,8 @@
 
   .hero-callout-label {
     color: var(--lp-text-3);
-    font-size: 0.66rem;
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 0.65rem;
     font-weight: 700;
     letter-spacing: 0.06em;
     text-transform: uppercase;
@@ -1213,7 +1346,7 @@
   /* Hero signals bar */
   .hero-signals {
     display: grid;
-    grid-template-columns: repeat(3, 1fr);
+    grid-template-columns: repeat(4, 1fr);
     gap: 0.95rem;
     margin-top: 1.05rem;
     padding-bottom: 0.2rem;
@@ -1267,15 +1400,15 @@
 
   .signal-text strong {
     display: block;
-    font-size: 0.86rem;
+    font-size: 0.84rem;
     font-weight: 700;
     margin-bottom: 0.2rem;
   }
 
   .signal-text span {
     display: block;
-    font-size: 0.79rem;
-    color: rgba(240, 236, 228, 0.68);
+    font-size: 0.78rem;
+    color: rgba(240, 236, 228, 0.72);
     line-height: 1.48;
   }
 
@@ -1340,7 +1473,7 @@
   .fcard-body h3 {
     margin: 0.55rem 0 0.55rem;
     font-size: clamp(1.8rem, 2.45vw, 2.5rem);
-    line-height: 1;
+    line-height: 0.98;
   }
 
   .fcard-body > p {
@@ -1452,6 +1585,275 @@
   .fcard-light .fcard-body .tag-sm {
     background: var(--lp-accent-soft);
     border-color: rgba(232, 133, 61, 0.2);
+    color: var(--lp-accent);
+  }
+
+  /* ─── AI SECTION ─── */
+  .ai-section {
+    padding: 5rem 0;
+    background: linear-gradient(180deg, var(--lp-surface) 0%, var(--lp-bg) 100%);
+    position: relative;
+    overflow: hidden;
+  }
+
+  .ai-section::before {
+    content: '';
+    position: absolute;
+    width: 500px;
+    height: 500px;
+    top: -120px;
+    right: -80px;
+    background: radial-gradient(circle, rgba(155, 122, 216, 0.08) 0%, transparent 70%);
+    pointer-events: none;
+  }
+
+  .tag-ai {
+    background: linear-gradient(135deg, var(--lp-plum-soft), rgba(223, 138, 73, 0.1));
+    border-color: rgba(155, 122, 216, 0.2);
+    color: var(--lp-plum);
+  }
+
+  .ai-pipeline {
+    border-radius: var(--lp-radius-xl);
+    border: 1px solid var(--lp-border-2);
+    background: linear-gradient(135deg, rgba(155, 122, 216, 0.04), rgba(223, 138, 73, 0.02));
+    padding: 2rem;
+    margin-bottom: 2rem;
+    position: relative;
+  }
+
+  .ai-pipeline-label {
+    position: absolute;
+    top: -0.7rem;
+    left: 2rem;
+    padding: 0.2rem 0.7rem;
+    background: var(--lp-surface);
+    border: 1px solid var(--lp-border-2);
+    border-radius: 999px;
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 0.68rem;
+    font-weight: 700;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--lp-text-3);
+  }
+
+  .ai-steps {
+    display: flex;
+    align-items: flex-start;
+    gap: 0.5rem;
+  }
+
+  .ai-step {
+    flex: 1;
+    display: flex;
+    gap: 0.75rem;
+    padding: 1rem;
+    border-radius: var(--lp-radius);
+    background: rgba(255, 255, 255, 0.02);
+    border: 1px solid var(--lp-border);
+    transition: border-color 0.2s, background 0.2s;
+  }
+
+  .ai-step:hover {
+    border-color: var(--lp-border-2);
+    background: rgba(255, 255, 255, 0.04);
+  }
+
+  .ai-step-num {
+    flex-shrink: 0;
+    width: 28px;
+    height: 28px;
+    border-radius: 8px;
+    background: var(--lp-plum-soft);
+    color: var(--lp-plum);
+    font-size: 0.8rem;
+    font-weight: 700;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .ai-step-body strong {
+    display: block;
+    font-size: 0.88rem;
+    margin-bottom: 0.3rem;
+  }
+
+  .ai-step-body p {
+    color: var(--lp-text-2);
+    font-size: 0.82rem;
+    line-height: 1.5;
+    margin: 0;
+  }
+
+  .ai-step-arrow {
+    flex-shrink: 0;
+    display: flex;
+    align-items: center;
+    padding-top: 1rem;
+    color: var(--lp-text-3);
+  }
+
+  .ai-why {
+    border-radius: var(--lp-radius-lg);
+    border: 1px solid var(--lp-border);
+    background: var(--lp-surface);
+    padding: 1.8rem;
+  }
+
+  .ai-why h3 {
+    font-size: 1.25rem;
+    margin: 0 0 1.2rem;
+  }
+
+  .ai-points {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 1rem;
+  }
+
+  .ai-point {
+    display: flex;
+    gap: 0.75rem;
+    align-items: flex-start;
+  }
+
+  .ai-point-icon {
+    flex-shrink: 0;
+    width: 36px;
+    height: 36px;
+    border-radius: 10px;
+    background: var(--lp-accent-soft);
+    color: var(--lp-accent);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .ai-point p {
+    margin: 0;
+    font-size: 0.88rem;
+    line-height: 1.55;
+    color: var(--lp-text-2);
+  }
+
+  /* ─── DOCS SECTION ─── */
+  .docs-section {
+    padding: 4.2rem 0 4.6rem;
+    background:
+      radial-gradient(circle at top center, rgba(223, 138, 73, 0.07), transparent 34%),
+      linear-gradient(180deg, rgba(18, 16, 22, 0.98) 0%, rgba(13, 11, 17, 0.98) 100%);
+  }
+
+  .docs-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 1rem;
+  }
+
+  .docs-card {
+    min-height: 290px;
+    display: flex;
+    flex-direction: column;
+    border-radius: var(--lp-radius-lg);
+    border: 1px solid var(--lp-border);
+    padding: 1.35rem;
+    text-decoration: none;
+    color: inherit;
+    box-shadow: 0 18px 40px rgba(0, 0, 0, 0.18);
+    transition: transform 0.2s, border-color 0.2s, background 0.2s;
+  }
+
+  .docs-card:hover {
+    transform: translateY(-2px);
+    border-color: var(--lp-border-2);
+  }
+
+  .docs-card[data-tone="amber"] {
+    background: linear-gradient(180deg, rgba(37, 28, 21, 0.98) 0%, rgba(25, 20, 17, 0.98) 100%);
+    border-top: 2px solid var(--lp-accent);
+  }
+
+  .docs-card[data-tone="plum"] {
+    background: linear-gradient(180deg, rgba(25, 20, 34, 0.98) 0%, rgba(18, 16, 24, 0.98) 100%);
+    border-top: 2px solid var(--lp-plum);
+  }
+
+  .docs-card[data-tone="ink"] {
+    background: linear-gradient(180deg, rgba(16, 20, 29, 0.98) 0%, rgba(13, 16, 22, 0.98) 100%);
+    border-top: 2px solid rgba(130, 166, 255, 0.4);
+  }
+
+  .docs-kicker,
+  .docs-open,
+  .rm-badge,
+  .rm-label,
+  .cap-num {
+    font-family: 'IBM Plex Mono', monospace;
+  }
+
+  .docs-kicker {
+    color: var(--lp-text-3);
+    font-size: 0.68rem;
+    font-weight: 600;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+  }
+
+  .docs-card h3 {
+    margin: 0.65rem 0 0.55rem;
+    font-size: 1.55rem;
+    line-height: 1.02;
+  }
+
+  .docs-card p {
+    color: var(--lp-text-2);
+    font-size: 0.9rem;
+    line-height: 1.62;
+    margin: 0 0 0.9rem;
+  }
+
+  .docs-card ul {
+    list-style: none;
+    padding: 0;
+    margin: 0 0 1rem;
+  }
+
+  .docs-card li {
+    position: relative;
+    padding-left: 1rem;
+    margin-bottom: 0.4rem;
+    font-size: 0.82rem;
+    line-height: 1.5;
+    color: var(--lp-text-2);
+  }
+
+  .docs-card li::before {
+    content: '';
+    position: absolute;
+    left: 0;
+    top: 0.55em;
+    width: 5px;
+    height: 5px;
+    border-radius: 999px;
+    background: var(--lp-accent);
+  }
+
+  .docs-open {
+    margin-top: auto;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    color: var(--lp-text);
+    font-size: 0.74rem;
+    font-weight: 600;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+  }
+
+  .docs-open::after {
+    content: '→';
     color: var(--lp-accent);
   }
 
@@ -1876,7 +2278,6 @@
   .cap-tile h4 {
     font-size: 0.95rem;
     margin: 0 0 0.35rem;
-    font-family: 'DM Sans', sans-serif;
     font-weight: 600;
   }
 
@@ -2163,7 +2564,6 @@
     display: flex;
     align-items: center;
     gap: 0.55rem;
-    font-family: 'Instrument Serif', serif;
     font-size: 1.05rem;
     color: var(--lp-text);
   }
@@ -2224,7 +2624,7 @@
     }
 
     .hero-signals {
-      grid-template-columns: 1fr;
+      grid-template-columns: repeat(2, 1fr);
     }
 
     .hero-callout-a {
@@ -2241,7 +2641,26 @@
       grid-template-columns: repeat(2, 1fr);
     }
 
+    .docs-grid {
+      grid-template-columns: 1fr;
+    }
+
     .fcard, .fcard-dark {
+      grid-template-columns: 1fr;
+    }
+
+    .ai-steps {
+      flex-direction: column;
+    }
+
+    .ai-step-arrow {
+      transform: rotate(90deg);
+      padding-top: 0;
+      justify-content: center;
+      width: 100%;
+    }
+
+    .ai-points {
       grid-template-columns: 1fr;
     }
 
@@ -2283,6 +2702,7 @@
 
     .hero-signals {
       gap: 0.7rem;
+      grid-template-columns: 1fr;
     }
 
     .cap-grid {

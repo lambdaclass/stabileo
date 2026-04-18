@@ -5,8 +5,8 @@
 <h1 align="center">Stabileo</h1>
 
 <p align="center">
-  <strong>Open-source structural engineering for the browser.</strong><br>
-  Analyze frames, shells, and nonlinear structures in 2D and 3D. Rust solver compiled to WASM. No installation required.
+  <strong>Open-source structural solver and browser workspace.</strong><br>
+  Model, solve, inspect, and share 2D and 3D structures in the browser. The same structured model and solver can be used directly by engineers or driven through AI build/review workflows. Rust solver compiled to WASM. No installation required.
 </p>
 
 <p align="center">
@@ -14,7 +14,7 @@
   <a href="#why-stabileo">Why it exists</a> ·
   <a href="#features">Features</a> ·
   <a href="#getting-started">Getting started</a> ·
-  <a href="#documentation">Docs</a>
+  <a href="docs/README.md">Docs</a>
 </p>
 
 <p align="center">
@@ -43,12 +43,31 @@ Stabileo is different:
 - **Browser-native.** Open [stabileo.com](https://stabileo.com) and start. No download, no license key, no account.
 - **Real solver.** Rust engine compiled to WebAssembly — linear, nonlinear, dynamic, shells, staged construction, contact, fiber beams, and more.
 - **Real-time.** The solver runs on every edit. Move a node, change a load, resize a section — results update instantly.
+- **Structured model surface.** The browser UI, backend APIs, and AI workflows all target the same model/snapshot contract instead of hidden prompt magic.
+- **AI-ready, but deterministic.** AI can help generate, edit, review, and explain models; the solver remains the source of truth for mechanics.
 - **Open source.** Read the solver, trace the math, submit improvements.
 - **Transparent.** Interactive step-by-step wizard shows every stage of the Direct Stiffness Method with [KaTeX](https://katex.org)-rendered matrices.
 
 **Tech stack:** Svelte 5 frontend, Rust solver engine via WASM, Three.js 3D visualization.
 
 Originally built for structural engineering courses at [FIUBA](http://www.fi.uba.ar/) (University of Buenos Aires). Named after [Daedalus](https://en.wikipedia.org/wiki/Daedalus), the architect who built wings to escape the labyrinth.
+
+---
+
+## Humans and AI use the same solver
+
+Stabileo's strongest technical wedge is not "AI chat" by itself. It is a `structured structural model` and a `deterministic solver` that humans and AI can both operate.
+
+- Engineers can model directly in the browser and inspect diagrams, stresses, reactions, and diagnostics.
+- AI workflows can build or edit the same structured model snapshot, then hand it to the same solver for real analysis.
+- Review and explanation tools sit on top of solver artifacts and diagnostics instead of inventing mechanics.
+
+Start here:
+
+- [Docs hub](docs/README.md)
+- [Quick start](docs/QUICKSTART.md)
+- [AI modeling workflow](docs/AI_MODELING_WORKFLOW.md)
+- [Solver reference](docs/SOLVER_REFERENCE.md)
 
 ---
 
@@ -111,6 +130,10 @@ Requires Node.js >= 18.
 
 | Document | Contents |
 |----------|----------|
+| [docs/README.md](docs/README.md) | Docs hub: quick start, AI workflow, solver reference, and roadmap entry points |
+| [QUICKSTART.md](docs/QUICKSTART.md) | First model tutorial: build, solve, inspect, and share a 2D beam |
+| [AI_MODELING_WORKFLOW.md](docs/AI_MODELING_WORKFLOW.md) | How AI build/review flows use the structured model + solver loop |
+| [SOLVER_REFERENCE.md](docs/SOLVER_REFERENCE.md) | Coordinate conventions, model objects, outputs, and execution surfaces |
 | [SOLVER_ROADMAP.md](docs/roadmap/SOLVER_ROADMAP.md) | Solver status, sequencing, performance, and validation |
 | [PRODUCT_ROADMAP.md](docs/roadmap/PRODUCT_ROADMAP.md) | App, workflow, and market sequencing |
 | [INFRASTRUCTURE_ROADMAP.md](docs/roadmap/INFRASTRUCTURE_ROADMAP.md) | Backend, deployment, auth, persistence, and operational sequencing |
