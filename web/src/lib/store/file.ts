@@ -556,8 +556,8 @@ export function generateReportHTML(): string {
     } else {
       const parts: string[] = [];
       if (sup.dx) parts.push(`dx=${fmtNum(sup.dx)} m`);
-      if (sup.dy) parts.push(`dz=${fmtNum(sup.dy)} m`);
-      if (sup.drz) parts.push(`dθy=${fmtNum(sup.drz)} rad`);
+      if (sup.dz) parts.push(`dz=${fmtNum(sup.dz)} m`);
+      if (sup.dry) parts.push(`dθy=${fmtNum(sup.dry)} rad`);
       details = parts.length > 0 ? parts.join(', ') : '-';
     }
     html += `<tr><td>${sup.id}</td><td>${sup.nodeId}</td><td>${supportLabel(sup.type)}</td><td style="text-align:left">${details}</td></tr>`;

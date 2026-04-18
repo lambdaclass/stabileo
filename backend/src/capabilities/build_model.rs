@@ -67,12 +67,12 @@ pub struct ModelContext {
 pub struct Bounds {
     pub x_min: f64,
     pub x_max: f64,
-    pub y_min: f64,
-    pub y_max: f64,
+    pub z_min: f64,
+    pub z_max: f64,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub z_min: Option<f64>,
+    pub y_min: Option<f64>,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub z_max: Option<f64>,
+    pub y_max: Option<f64>,
 }
 
 #[derive(Debug, Deserialize, Serialize)]
@@ -199,7 +199,7 @@ fn build_system_prompt(locale: &str, analysis_mode: &str, ctx: Option<&ModelCont
 
 The user has an existing model on canvas:
 - {nodes} nodes, {elems} elements, {sups} supports, {loads} loads
-- Bounds: X [{x0}, {x1}], Y [{y0}, {y1}]{z_bounds}
+- Bounds: X [{x0}, {x1}]{y_bounds}, Z (vertical) [{z0}, {z1}]
 - 3D contract: vertical axis = {vertical_axis}, horizontal plane = {horizontal_plane}, gravity = {gravity:?}
 - Sections: {secs}
 - Support types: {stypes}
@@ -212,9 +212,9 @@ Use create tools when the user wants something entirely different."#,
             nodes = c.node_count, elems = c.element_count,
             sups = c.support_count, loads = c.load_count,
             x0 = c.bounds.x_min, x1 = c.bounds.x_max,
-            y0 = c.bounds.y_min, y1 = c.bounds.y_max,
-            z_bounds = match (c.bounds.z_min, c.bounds.z_max) {
-                (Some(z0), Some(z1)) => format!(", Z (elevation) [{z0}, {z1}]"),
+            z0 = c.bounds.z_min, z1 = c.bounds.z_max,
+            y_bounds = match (c.bounds.y_min, c.bounds.y_max) {
+                (Some(y0), Some(y1)) => format!(", Y (depth) [{y0}, {y1}]"),
                 _ => String::new(),
             },
             vertical_axis = match c.vertical_axis { VerticalAxis::Y => "y", VerticalAxis::Z => VERTICAL_AXIS_3D },
@@ -244,7 +244,7 @@ Rules for create_model:
 - At least one support is required for stability
 - Default material: Steel A36 (E=200000, nu=0.3, rho=78.5, fy=250)
 - Section properties: pick from the available sections list, or use reasonable custom values (a in m², iz in m⁴)
-- For 2D: nodes have x, z where z = vertical (up). Gravity = negative z. Downward loads use negative fz.
+- For 2D: nodes have x, y where y = vertical (up). Nodal loads use fx/fz/my (Z-up convention). Gravity = negative fz. Downward loads use negative fz.
 - For 3D: nodes have x, y, z where z = elevation (up). Gravity = negative z. Downward loads use negative fz.
 - Generate DETAILED structures with realistic geometry: use 20-60 nodes for complex structures like stadiums, bridges, towers. Don't oversimplify — a stadium needs columns, tiers, roof trusses with diagonals. A bridge needs deck, piers, cables or trusses.
 - Use realistic dimensions in meters (e.g. stadium ~60-100m wide, bridge ~30-80m span, tower ~20-50m tall)

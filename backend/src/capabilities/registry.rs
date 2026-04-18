@@ -531,8 +531,8 @@ pub fn tool_definitions(analysis_mode: &str, has_model: bool) -> Vec<ToolDef> {
                         "properties": {
                             "id": { "type": "integer" },
                             "x": { "type": "number" },
-                            "y": { "type": "number", "description": "Plan depth in 3D, elevation in legacy 2D snapshots" },
-                            "z": { "type": "number", "description": "Elevation in 3D and canonical 2D/XZ snapshots" }
+                            "y": { "type": "number", "description": "Vertical coordinate in 2D, plan depth (Y-axis) in 3D" },
+                            "z": { "type": "number", "description": "Elevation (Z-up) in 3D models only" }
                         },
                         "required": ["id", "x", "y"]
                     }

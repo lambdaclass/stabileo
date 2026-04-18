@@ -313,19 +313,19 @@
         if (forward.lengthSq() > 0) {
           // Transform pan vector from camera-local to world space
           forward.applyQuaternion(camera.quaternion);
-          forward.y = 0; // keep horizontal
+          forward.z = 0; // keep horizontal
           controls.target.add(forward);
           camera.position.add(forward);
         }
 
         // Q/E — vertical movement
         if (keysPressed.has('q')) {
-          controls.target.y -= panSpeed;
-          camera.position.y -= panSpeed;
+          controls.target.z -= panSpeed;
+          camera.position.z -= panSpeed;
         }
         if (keysPressed.has('e')) {
-          controls.target.y += panSpeed;
-          camera.position.y += panSpeed;
+          controls.target.z += panSpeed;
+          camera.position.z += panSpeed;
         }
 
         // Arrow keys — orbit around target
@@ -1121,7 +1121,7 @@
       const spriteScale = modelSize * 0.04;
 
       const label = createTextSprite(`${dist.toFixed(3)} m`, '#ff4444', 32);
-      label.position.set(mx, my + spriteScale * 0.5, mz);
+      label.position.set(mx, my, mz + spriteScale * 0.5);
       label.scale.set(spriteScale, spriteScale, 1);
       label.renderOrder = 1000;
       measureGroup.add(label);

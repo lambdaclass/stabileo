@@ -308,7 +308,7 @@ describe('2D ↔ 3D equivalence', () => {
       supports: new Map([
         [1, { id: 1, nodeId: 1, type: 'fixed' }],
       ]),
-      loads: [{ type: 'nodal', data: { nodeId: 2, fx: 0, fy: P, mz: 0 } }],
+      loads: [{ type: 'nodal', data: { nodeId: 2, fx: 0, fz: P, my: 0 } }],
     };
 
     // Build equivalent 3D input (z=0 everywhere)
@@ -350,7 +350,7 @@ describe('2D ↔ 3D equivalence', () => {
       sections: new Map([[1, { id: 1, a: A, iz: Iz }]]),
       elements: new Map([[1, { id: 1, type: 'frame', nodeI: 1, nodeJ: 2, materialId: 1, sectionId: 1, hingeStart: false, hingeEnd: false }]]),
       supports: new Map([[1, { id: 1, nodeId: 1, type: 'fixed' }]]),
-      loads: [{ type: 'nodal', data: { nodeId: 2, fx: 0, fy: P, mz: 0 } }],
+      loads: [{ type: 'nodal', data: { nodeId: 2, fx: 0, fz: P, my: 0 } }],
     };
 
     const input3D = buildInput3D({
@@ -674,17 +674,17 @@ describe('solve3D — Self-weight', () => {
       ],
       loads: [
         // Self-weight as nodal loads (what buildSolverInput3D produces)
-        { type: 'nodal', data: { nodeId: 1, fx: 0, fy: -w * L / 2, fz: 0, mx: 0, my: 0, mz: 0 } },
-        { type: 'nodal', data: { nodeId: 2, fx: 0, fy: -w * L / 2, fz: 0, mx: 0, my: 0, mz: 0 } },
+        { type: 'nodal', data: { nodeId: 1, fx: 0, fy: 0, fz: -w * L / 2, mx: 0, my: 0, mz: 0 } },
+        { type: 'nodal', data: { nodeId: 2, fx: 0, fy: 0, fz: -w * L / 2, mx: 0, my: 0, mz: 0 } },
       ],
     });
 
     const result = assertSuccess(solve3D(input));
 
-    // Total reaction Fy should equal total weight
+    // Total reaction Fz should equal total weight
     const totalWeight = w * L;
-    const totalRy = result.reactions.reduce((s, r) => s + r.fy, 0);
-    expect(totalRy).toBeCloseTo(totalWeight, 4);
+    const totalRz = result.reactions.reduce((s, r) => s + r.fz, 0);
+    expect(totalRz).toBeCloseTo(totalWeight, 4);
   });
 });
 

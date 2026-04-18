@@ -5,6 +5,68 @@
 
 import { describe, it, expect } from 'vitest';
 import { mapIfcToModel, type IfcMember } from '../ifc-mapper';
+import { ifcToZup, ifcDirToZup } from '../ifc-parser';
+
+// ─── Y-up → Z-up coordinate remapping ───────────────────────────
+
+describe('ifcToZup (IFC Y-up → app Z-up)', () => {
+  it('maps IFC origin to app origin', () => {
+    const result = ifcToZup(0, 0, 0);
+    expect(result.x).toBeCloseTo(0);
+    expect(result.y).toBeCloseTo(0);
+    expect(result.z).toBeCloseTo(0);
+  });
+
+  it('remaps IFC +Y (vertical) to app +Z', () => {
+    // In IFC, Y is up. A point at (0, 5, 0) is 5m above ground.
+    // In app, Z is up. So this should become (0, 0, 5).
+    const result = ifcToZup(0, 5, 0);
+    expect(result.x).toBeCloseTo(0);
+    expect(result.y).toBeCloseTo(0);
+    expect(result.z).toBeCloseTo(5);
+  });
+
+  it('remaps IFC +Z (depth) to app -Y (preserving right-handedness)', () => {
+    // IFC Z goes "into screen" in Y-up; to preserve right-hand rule,
+    // app_y = -ifc_z.
+    const result = ifcToZup(0, 0, 3);
+    expect(result.x).toBeCloseTo(0);
+    expect(result.y).toBeCloseTo(-3);
+    expect(result.z).toBeCloseTo(0);
+  });
+
+  it('preserves IFC X as app X', () => {
+    const result = ifcToZup(7, 0, 0);
+    expect(result.x).toBeCloseTo(7);
+    expect(result.y).toBeCloseTo(0);
+    expect(result.z).toBeCloseTo(0);
+  });
+
+  it('handles a general 3D point', () => {
+    // IFC point (2, 10, -4):
+    //   app_x = 2, app_y = -(-4) = 4, app_z = 10
+    const result = ifcToZup(2, 10, -4);
+    expect(result.x).toBeCloseTo(2);
+    expect(result.y).toBeCloseTo(4);
+    expect(result.z).toBeCloseTo(10);
+  });
+});
+
+describe('ifcDirToZup (IFC direction Y-up → app Z-up)', () => {
+  it('maps IFC vertical direction (0,1,0) to app (0,0,1)', () => {
+    const result = ifcDirToZup(0, 1, 0);
+    expect(result.dx).toBeCloseTo(0);
+    expect(result.dy).toBeCloseTo(0);
+    expect(result.dz).toBeCloseTo(1);
+  });
+
+  it('maps IFC depth direction (0,0,1) to app (0,-1,0)', () => {
+    const result = ifcDirToZup(0, 0, 1);
+    expect(result.dx).toBeCloseTo(0);
+    expect(result.dy).toBeCloseTo(-1);
+    expect(result.dz).toBeCloseTo(0);
+  });
+});
 
 describe('mapIfcToModel', () => {
   it('maps 3 members (2 columns + 1 beam) to 4 nodes and 3 elements', () => {

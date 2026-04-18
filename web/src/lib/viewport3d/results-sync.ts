@@ -75,11 +75,19 @@ export interface ResultsSyncContext {
 function computeStructureBBox(): number {
   let minX = Infinity, minY = Infinity, minZ = Infinity;
   let maxX = -Infinity, maxY = -Infinity, maxZ = -Infinity;
+  const project2D = shouldProjectModelToXZ({
+    analysisMode: uiStore.analysisMode,
+    nodes: modelStore.nodes.values(),
+    supports: modelStore.supports.values(),
+    loads: modelStore.loads,
+    plateCount: modelStore.plates.size,
+    quadCount: modelStore.quads.size,
+  });
   for (const n of modelStore.nodes.values()) {
-    if (n.x < minX) minX = n.x; if (n.x > maxX) maxX = n.x;
-    if (n.y < minY) minY = n.y; if (n.y > maxY) maxY = n.y;
-    const z = n.z ?? 0;
-    if (z < minZ) minZ = z; if (z > maxZ) maxZ = z;
+    const p = projectNodeToScene(n, project2D);
+    if (p.x < minX) minX = p.x; if (p.x > maxX) maxX = p.x;
+    if (p.y < minY) minY = p.y; if (p.y > maxY) maxY = p.y;
+    if (p.z < minZ) minZ = p.z; if (p.z > maxZ) maxZ = p.z;
   }
   const dx = maxX - minX, dy = maxY - minY, dz = maxZ - minZ;
   return Math.sqrt(dx * dx + dy * dy + dz * dz) || 1;
@@ -383,6 +391,15 @@ export function syncVerificationLabels(ctx: ResultsSyncContext): void {
 
   if (resultsStore.diagramType !== 'verification' || !verificationStore.hasResults) return;
 
+  const project2D = shouldProjectModelToXZ({
+    analysisMode: uiStore.analysisMode,
+    nodes: modelStore.nodes.values(),
+    supports: modelStore.supports.values(),
+    loads: modelStore.loads,
+    plateCount: modelStore.plates.size,
+    quadCount: modelStore.quads.size,
+  });
+
   const group = new THREE.Group();
   group.name = 'verification-labels';
 
@@ -396,10 +413,12 @@ export function syncVerificationLabels(ctx: ResultsSyncContext): void {
     const nJ = modelStore.nodes.get(elem.nodeJ);
     if (!nI || !nJ) continue;
 
-    // Position at element midpoint
-    const mx = (nI.x + nJ.x) / 2;
-    const my = (nI.y + nJ.y) / 2;
-    const mz = ((nI.z ?? 0) + (nJ.z ?? 0)) / 2;
+    // Position at element midpoint (projected to scene coordinates)
+    const sceneI = projectNodeToScene(nI, project2D);
+    const sceneJ = projectNodeToScene(nJ, project2D);
+    const mx = (sceneI.x + sceneJ.x) / 2;
+    const my = (sceneI.y + sceneJ.y) / 2;
+    const mz = (sceneI.z + sceneJ.z) / 2;
 
     // Color based on status
     const status = verificationStore.getStatus(id);
@@ -488,6 +507,15 @@ function applyFrameHeatmap(
   // Remove old heatmap meshes first
   clearHeatmapMeshes(ctx);
 
+  const project2D = shouldProjectModelToXZ({
+    analysisMode: uiStore.analysisMode,
+    nodes: modelStore.nodes.values(),
+    supports: modelStore.supports.values(),
+    loads: modelStore.loads,
+    plateCount: modelStore.plates.size,
+    quadCount: modelStore.quads.size,
+  });
+
   // Pass 1: sample values for all elements and find global max
   const elemSamples = new Map<number, number[]>();
   let globalMax = 0;
@@ -534,11 +562,9 @@ function applyFrameHeatmap(
     showOriginalMeshes(group, false);
 
     const heatMesh = createHeatmapCylinder(ef.length, values, globalMax);
-    // Node.z is optional (undefined when z===0), must default to 0
-    orientHeatmapMesh(heatMesh,
-      { x: nI.x, y: nI.y, z: nI.z ?? 0 },
-      { x: nJ.x, y: nJ.y, z: nJ.z ?? 0 },
-    );
+    const sceneI = projectNodeToScene(nI, project2D);
+    const sceneJ = projectNodeToScene(nJ, project2D);
+    orientHeatmapMesh(heatMesh, sceneI, sceneJ);
     heatMesh.renderOrder = 2;
     group.add(heatMesh);
   }
@@ -611,6 +637,15 @@ export function syncReactions(ctx: ResultsSyncContext): void {
   const r3d = resultsStore.results3D;
   if (!r3d || !resultsStore.showReactions) return;
 
+  const project2D = shouldProjectModelToXZ({
+    analysisMode: uiStore.analysisMode,
+    nodes: modelStore.nodes.values(),
+    supports: modelStore.supports.values(),
+    loads: modelStore.loads,
+    plateCount: modelStore.plates.size,
+    quadCount: modelStore.quads.size,
+  });
+
   ctx.reactionGroup = new THREE.Group();
   ctx.reactionGroup.name = 'reactions';
 
@@ -624,8 +659,9 @@ export function syncReactions(ctx: ResultsSyncContext): void {
   for (const r of r3d.reactions) {
     const node = modelStore.nodes.get(r.nodeId);
     if (!node) continue;
+    const pos = projectNodeToScene(node, project2D);
     const arrow = createReactionArrow(
-      { x: node.x, y: node.y, z: node.z ?? 0 },
+      pos,
       r.fx, r.fy, r.fz,
       r.mx, r.my, r.mz,
       maxR,
@@ -650,6 +686,15 @@ export function syncConstraintForces(ctx: ResultsSyncContext): void {
   const forces = resultsStore.constraintForces3D;
   if (!forces || forces.length === 0 || !resultsStore.showConstraintForces) return;
 
+  const project2D = shouldProjectModelToXZ({
+    analysisMode: uiStore.analysisMode,
+    nodes: modelStore.nodes.values(),
+    supports: modelStore.supports.values(),
+    loads: modelStore.loads,
+    plateCount: modelStore.plates.size,
+    quadCount: modelStore.quads.size,
+  });
+
   ctx.constraintForcesGroup = new THREE.Group();
   ctx.constraintForcesGroup.name = 'constraintForces';
 
@@ -673,7 +718,7 @@ export function syncConstraintForces(ctx: ResultsSyncContext): void {
   for (const [nodeId, cfs] of byNode) {
     const node = modelStore.nodes.get(nodeId);
     if (!node) continue;
-    const pos = { x: node.x, y: node.y, z: node.z ?? 0 };
+    const pos = projectNodeToScene(node, project2D);
 
     for (const cf of cfs) {
       const arrow = createConstraintForceArrow(pos, cf.dof, cf.force, maxF);

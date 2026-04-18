@@ -43,8 +43,8 @@ pub fn apply_edit(action: &BuildAction, snapshot: &Value) -> Result<Value, AppEr
         BuildAction::AddDistributedLoad { element_id, q } => {
             add_distributed_load(&mut snap, *element_id, *q)?;
         }
-        BuildAction::AddNodalLoad { node_id, fx, fy, mz } => {
-            add_nodal_load(&mut snap, *node_id, *fx, *fy, *mz)?;
+        BuildAction::AddNodalLoad { node_id, fx, fz, my } => {
+            add_nodal_load(&mut snap, *node_id, *fx, *fz, *my)?;
         }
         BuildAction::DeleteElement { element_id } => {
             delete_element(&mut snap, *element_id)?;
@@ -84,10 +84,7 @@ fn get_node_coords(snap: &Value, node_id: u32) -> Option<NodeCoord> {
 }
 
 fn is_3d_snapshot(snap: &Value) -> bool {
-    snap["nodes"]
-        .as_array()
-        .map(|nodes| nodes.iter().any(|n| n[1].get("z").is_some()))
-        .unwrap_or(false)
+    snap["analysisMode"].as_str() == Some("3d")
 }
 
 /// Extract all distinct X values (column lines) sorted ascending.
@@ -701,7 +698,7 @@ fn add_lateral_loads(snap: &mut Value, h: f64) -> Result<(), AppError> {
                 let load_id = next_id(snap, "load");
                 let load = json!({
                     "type": "nodal",
-                    "data": {"id": load_id, "nodeId": node_id, "fx": h, "fy": 0, "mz": 0}
+                    "data": {"id": load_id, "nodeId": node_id, "fx": h, "fz": 0, "my": 0}
                 });
                 snap["loads"].as_array_mut().unwrap().push(load);
             }
@@ -734,8 +731,8 @@ fn add_nodal_load(
     snap: &mut Value,
     node_id: u32,
     fx: Option<f64>,
-    fy: Option<f64>,
-    mz: Option<f64>,
+    fz: Option<f64>,
+    my: Option<f64>,
 ) -> Result<(), AppError> {
     let exists = snap["nodes"]
         .as_array()
@@ -757,11 +754,11 @@ fn add_nodal_load(
                 "id": load_id,
                 "nodeId": node_id,
                 "fx": fx.unwrap_or(0.0),
-                "fy": fy.unwrap_or(0.0),
-                "fz": 0.0,
+                "fy": 0.0,
+                "fz": fz.unwrap_or(0.0),
                 "mx": 0.0,
-                "my": 0.0,
-                "mz": mz.unwrap_or(0.0),
+                "my": my.unwrap_or(0.0),
+                "mz": 0.0,
             }
         })
     } else {
@@ -771,8 +768,8 @@ fn add_nodal_load(
                 "id": load_id,
                 "nodeId": node_id,
                 "fx": fx.unwrap_or(0.0),
-                "fy": fy.unwrap_or(0.0),
-                "mz": mz.unwrap_or(0.0),
+                "fz": fz.unwrap_or(0.0),
+                "my": my.unwrap_or(0.0),
             }
         })
     };
