@@ -27,6 +27,13 @@ export interface DedalFile {
   name: string;
   timestamp: string;
   snapshot: ModelSnapshot;
+  analysisMode?: '2d' | '3d' | 'pro' | 'edu';
+  axisConvention3D?: 'rightHand' | 'leftHand';
+}
+
+/** Returns true when the given analysis mode uses the 3D solver / export paths */
+export function isMode3D(mode: string): boolean {
+  return mode === '3d' || mode === 'pro';
 }
 
 export interface DedalSessionFile {
@@ -63,6 +70,8 @@ export function serializeProject(): string {
     name: modelStore.model.name,
     timestamp: new Date().toISOString(),
     snapshot: modelStore.snapshot(),
+    analysisMode: uiStore.analysisMode,
+    axisConvention3D: uiStore.axisConvention3D,
   };
   return JSON.stringify(data, null, 2);
 }
@@ -97,6 +106,34 @@ function validateDedalFile(data: unknown): data is DedalFile {
   return true;
 }
 
+/**
+ * Axis safety validation for loaded files.
+ * Checks that 2D snapshots don't contain mixed z coordinates that would indicate
+ * a 3D model was saved with the wrong analysisMode.
+ */
+function validateAxisSafety(data: DedalFile): void {
+  const mode = data.analysisMode ?? '2d';
+  if (isMode3D(mode)) return; // 3D/PRO files can have any coordinates
+
+  const nodes = data.snapshot.nodes as Array<[number, { x: number; y: number; z?: number }]>;
+  if (nodes.length === 0) return;
+
+  let hasNonZeroZ = false;
+  for (const [, node] of nodes) {
+    if (node.z !== undefined && node.z !== 0) {
+      hasNonZeroZ = true;
+      break;
+    }
+  }
+
+  // If a 2D file has non-zero z coordinates, upgrade it to 3D mode
+  // to prevent the model from being silently flattened
+  if (hasNonZeroZ) {
+    uiStore.analysisMode = '3d';
+    console.warn('[Dedaliano] File loaded as 2D but contains non-zero Z coordinates — upgraded to 3D mode');
+  }
+}
+
 // ─── Save / Load ────────────────────────────────────────────────
 
 export function saveProject(): void {
@@ -121,6 +158,11 @@ export async function loadProject(file: File): Promise<void> {
   historyStore.pushState();
   modelStore.restore(data.snapshot);
   modelStore.model.name = data.name;
+  // Restore analysis mode and axis convention from file (default to 2d / rightHand for legacy files)
+  if (data.analysisMode) uiStore.analysisMode = data.analysisMode;
+  if (data.axisConvention3D) uiStore.axisConvention3D = data.axisConvention3D;
+  // Validate axis safety: 2D snapshots should not have mixed z coordinates
+  validateAxisSafety(data);
   resultsStore.clear();
 }
 
@@ -166,6 +208,11 @@ export async function loadFile(file: File): Promise<{ type: 'tab' | 'session'; c
     historyStore.pushState();
     modelStore.restore(data.snapshot);
     modelStore.model.name = data.name;
+    // Restore analysis mode and axis convention from file (default to 2d / rightHand for legacy files)
+    if (data.analysisMode) uiStore.analysisMode = data.analysisMode;
+    if (data.axisConvention3D) uiStore.axisConvention3D = data.axisConvention3D;
+    // Validate axis safety: 2D snapshots should not have mixed z coordinates
+    validateAxisSafety(data);
     resultsStore.clear();
     return { type: 'tab', count: 1 };
   } else {
@@ -176,7 +223,7 @@ export async function loadFile(file: File): Promise<{ type: 'tab' | 'session'; c
 // ─── Export Results CSV ─────────────────────────────────────────
 
 export function exportResultsCSV(): string {
-  const is3D = uiStore.analysisMode === '3d';
+  const is3D = isMode3D(uiStore.analysisMode);
   const r3d = resultsStore.results3D;
   const r2d = resultsStore.results;
 
@@ -497,7 +544,7 @@ export function generateReportHTML(): string {
   }
 
   // Nodes table
-  const is3D = uiStore.analysisMode === '3d';
+  const is3D = isMode3D(uiStore.analysisMode);
   html += `<h2>${t('file.geometry')}</h2>`;
   if (is3D) {
     html += `<h3>${t('file.nodes')}</h3>

@@ -1,6 +1,6 @@
 <script lang="ts">
   import { uiStore, resultsStore, tabManager } from '../../lib/store';
-  import { saveProject, loadFile, saveSession, downloadResultsCSV, downloadDXF, downloadSVG, downloadExcel, openPDFReport } from '../../lib/store/file';
+  import { saveProject, loadFile, saveSession, downloadResultsCSV, downloadDXF, downloadSVG, downloadExcel, openPDFReport, isMode3D } from '../../lib/store/file';
   import { generateShareURL, loadFromShareLink, MAX_URL_SAFE } from '../../lib/utils/url-sharing';
   import { t } from '../../lib/i18n';
 
@@ -108,10 +108,10 @@
         <button class="file-btn" onclick={openPDFReport} title={t('project.exportPdfTooltip')}>
           PDF
         </button>
-        <button class="file-btn" onclick={downloadDXF} disabled={uiStore.analysisMode === '3d'} title={uiStore.analysisMode === '3d' ? t('project.inDev3d') : t('project.exportDxfTooltip')}>
+        <button class="file-btn" onclick={downloadDXF} disabled={isMode3D(uiStore.analysisMode)} title={isMode3D(uiStore.analysisMode) ? t('project.inDev3d') : t('project.exportDxfTooltip')}>
           DXF
         </button>
-        <button class="file-btn" onclick={downloadSVG} disabled={uiStore.analysisMode === '3d'} title={uiStore.analysisMode === '3d' ? t('project.inDev3d') : t('project.exportSvgTooltip')}>
+        <button class="file-btn" onclick={downloadSVG} disabled={isMode3D(uiStore.analysisMode)} title={isMode3D(uiStore.analysisMode) ? t('project.inDev3d') : t('project.exportSvgTooltip')}>
           SVG
         </button>
         <button class="file-btn" onclick={handleExportPNG} title={t('project.exportPngTooltip')}>
@@ -131,7 +131,7 @@
         <button class="file-btn" onclick={() => fileInput?.click()} title={t('project.openDedTooltip')}>
           {t('project.openDed')}
         </button>
-        <button class="file-btn" onclick={() => window.dispatchEvent(new Event('stabileo-import-dxf'))} disabled={uiStore.analysisMode === '3d'} title={uiStore.analysisMode === '3d' ? t('project.inDev3d') : t('project.openDxfTooltip')}>
+        <button class="file-btn" onclick={() => window.dispatchEvent(new Event('stabileo-import-dxf'))} disabled={isMode3D(uiStore.analysisMode)} title={isMode3D(uiStore.analysisMode) ? t('project.inDev3d') : t('project.openDxfTooltip')}>
           {t('project.openDxf')}
         </button>
         <button class="file-btn" onclick={() => window.dispatchEvent(new Event('stabileo-import-ifc'))} title={t('project.openIfcTooltip')}>

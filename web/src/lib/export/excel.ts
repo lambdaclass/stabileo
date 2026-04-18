@@ -14,6 +14,7 @@
 
 import * as XLSX from 'xlsx';
 import { modelStore, resultsStore, uiStore } from '../store';
+import { isMode3D } from '../store/file';
 import { t } from '../i18n';
 import {
   TWO_D_DISPLACEMENT_LABELS,
@@ -33,7 +34,7 @@ interface ExcelExportOptions {
 
 
 function createSummarySheet(): XLSX.WorkSheet {
-  const is3D = uiStore.analysisMode === '3d';
+  const is3D = isMode3D(uiStore.analysisMode);
   const r3d = resultsStore.results3D;
   const r2d = resultsStore.results;
   const data: (string | number)[][] = [];
@@ -115,7 +116,7 @@ function createSummarySheet(): XLSX.WorkSheet {
 }
 
 function createElementsSheet(): XLSX.WorkSheet {
-  const is3D = uiStore.analysisMode === '3d';
+  const is3D = isMode3D(uiStore.analysisMode);
   const r3d = resultsStore.results3D;
   const r2d = resultsStore.results;
   const hasResults = is3D ? !!r3d : !!r2d;
@@ -203,7 +204,7 @@ function createElementsSheet(): XLSX.WorkSheet {
 }
 
 function createNodesSheet(): XLSX.WorkSheet {
-  const is3D = uiStore.analysisMode === '3d';
+  const is3D = isMode3D(uiStore.analysisMode);
   const r3d = resultsStore.results3D;
   const r2d = resultsStore.results;
   const hasResults = is3D ? !!r3d : !!r2d;
@@ -260,7 +261,7 @@ function createNodesSheet(): XLSX.WorkSheet {
 }
 
 function createReactionsSheet(): XLSX.WorkSheet {
-  const is3D = uiStore.analysisMode === '3d';
+  const is3D = isMode3D(uiStore.analysisMode);
   const r3d = resultsStore.results3D;
   const r2d = resultsStore.results;
 
@@ -343,7 +344,7 @@ function createMaterialsSheet(): XLSX.WorkSheet {
 }
 
 function createSectionsSheet(): XLSX.WorkSheet {
-  const is3D = uiStore.analysisMode === '3d';
+  const is3D = isMode3D(uiStore.analysisMode);
   const headers = ['ID', t('excel.name'), t('excel.shape'), 'A (m²)', 'Iy (m⁴)'];
   if (is3D) headers.push('Iz (m⁴)', 'J (m⁴)');
   headers.push('b (m)', 'h (m)', 'tw (m)', 'tf (m)');
@@ -368,7 +369,7 @@ export function exportToExcel(options: ExcelExportOptions = {}): void {
     includeResults = true,
   } = options;
 
-  const is3D = uiStore.analysisMode === '3d';
+  const is3D = isMode3D(uiStore.analysisMode);
   const hasResults = is3D ? !!resultsStore.results3D : !!resultsStore.results;
 
   const wb = XLSX.utils.book_new();

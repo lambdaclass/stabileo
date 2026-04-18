@@ -189,8 +189,9 @@ export function shouldProjectModelToXZ(params: {
   quadCount?: number;
   analysisMode?: string;
 }): boolean {
-  // PRO mode always uses direct 3D coordinates — never project to XZ
-  if (params.analysisMode === 'pro') return false;
+  // 3D and PRO modes always use direct 3D coordinates — never project to XZ.
+  // Projection is only for 2D models viewed in the 3D viewport.
+  if (params.analysisMode === '3d' || params.analysisMode === 'pro') return false;
   if ((params.plateCount ?? 0) > 0 || (params.quadCount ?? 0) > 0) return false;
 
   let hasNodes = false;

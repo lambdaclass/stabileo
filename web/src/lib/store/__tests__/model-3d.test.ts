@@ -288,6 +288,79 @@ describe('solve3D — Cantilever with load in Z', () => {
   });
 });
 
+// ─── Z-up contract: 2D vertical = 3D Z ──────────────────────
+
+describe('Z-up contract: 2D↔3D equivalence must use fz/uz/ry (not fy/uy/rz)', () => {
+  const L = 6;
+  const E = 200000;
+  const nu = 0.3;
+  const A = 0.01;
+  const Iz = 0.0001;
+  const P = -15;
+
+  it('3D vertical load fz produces uz displacement matching 2D uz', () => {
+    const input2D: SolverInput = {
+      nodes: new Map([[1, { id: 1, x: 0, y: 0 }], [2, { id: 2, x: L, y: 0 }]]),
+      materials: new Map([[1, { id: 1, e: E, nu }]]),
+      sections: new Map([[1, { id: 1, a: A, iz: Iz }]]),
+      elements: new Map([[1, { id: 1, type: 'frame', nodeI: 1, nodeJ: 2, materialId: 1, sectionId: 1, hingeStart: false, hingeEnd: false }]]),
+      supports: new Map([[1, { id: 1, nodeId: 1, type: 'fixed' }]]),
+      loads: [{ type: 'nodal', data: { nodeId: 2, fx: 0, fz: P, my: 0 } }],
+    };
+
+    // Z-up: vertical load is fz, not fy
+    const input3D = buildInput3D({
+      nodes: [{ id: 1, x: 0, y: 0, z: 0 }, { id: 2, x: L, y: 0, z: 0 }],
+      elements: [{ id: 1, type: 'frame', nodeI: 1, nodeJ: 2 }],
+      supports: [{ nodeId: 1, rx: true, ry: true, rz: true, rrx: true, rry: true, rrz: true }],
+      loads: [{ type: 'nodal', data: { nodeId: 2, fx: 0, fy: 0, fz: P, mx: 0, my: 0, mz: 0 } }],
+    });
+
+    const r2d = solve(input2D) as any;
+    const r3d = assertSuccess(solve3D(input3D));
+
+    const d2d = r2d.displacements.find((d: any) => d.nodeId === 2)!;
+    const d3d = r3d.displacements.find(d => d.nodeId === 2)!;
+
+    // Z-up: 3D uz must match 2D uz (vertical displacement)
+    expect(d3d.uz).toBeCloseTo(d2d.uz, 6);
+    // Z-up: 3D |ry| must match 2D |ry| (in-plane rotation; sign convention may differ)
+    expect(Math.abs(d3d.ry)).toBeCloseTo(Math.abs(d2d.ry), 6);
+    // Out-of-plane (Y) must be zero
+    expect(Math.abs(d3d.uy)).toBeLessThan(1e-10);
+  });
+
+  it('3D vertical reaction fz matches 2D rz for Z-up', () => {
+    const input2D: SolverInput = {
+      nodes: new Map([[1, { id: 1, x: 0, y: 0 }], [2, { id: 2, x: L, y: 0 }]]),
+      materials: new Map([[1, { id: 1, e: E, nu }]]),
+      sections: new Map([[1, { id: 1, a: A, iz: Iz }]]),
+      elements: new Map([[1, { id: 1, type: 'frame', nodeI: 1, nodeJ: 2, materialId: 1, sectionId: 1, hingeStart: false, hingeEnd: false }]]),
+      supports: new Map([[1, { id: 1, nodeId: 1, type: 'fixed' }]]),
+      loads: [{ type: 'nodal', data: { nodeId: 2, fx: 0, fz: P, my: 0 } }],
+    };
+
+    const input3D = buildInput3D({
+      nodes: [{ id: 1, x: 0, y: 0, z: 0 }, { id: 2, x: L, y: 0, z: 0 }],
+      elements: [{ id: 1, type: 'frame', nodeI: 1, nodeJ: 2 }],
+      supports: [{ nodeId: 1, rx: true, ry: true, rz: true, rrx: true, rry: true, rrz: true }],
+      loads: [{ type: 'nodal', data: { nodeId: 2, fx: 0, fy: 0, fz: P, mx: 0, my: 0, mz: 0 } }],
+    });
+
+    const r2d = solve(input2D) as any;
+    const r3d = assertSuccess(solve3D(input3D));
+
+    const react2d = r2d.reactions.find((r: any) => r.nodeId === 1)!;
+    const react3d = r3d.reactions.find(r => r.nodeId === 1)!;
+
+    // Z-up: 3D fz matches 2D rz (vertical reaction)
+    expect(react3d.fz).toBeCloseTo(react2d.rz, 4);
+    expect(react3d.fx).toBeCloseTo(react2d.rx, 4);
+    // Z-up: 3D my matches 2D my (in-plane moment)
+    expect(Math.abs(react3d.my)).toBeCloseTo(Math.abs(react2d.my), 4);
+  });
+});
+
 // ─── 2D ↔ 3D equivalence ──────────────────────────────────
 
 describe('2D ↔ 3D equivalence', () => {
@@ -321,7 +394,7 @@ describe('2D ↔ 3D equivalence', () => {
       supports: [
         { nodeId: 1, rx: true, ry: true, rz: true, rrx: true, rry: true, rrz: true },
       ],
-      loads: [{ type: 'nodal', data: { nodeId: 2, fx: 0, fy: P, fz: 0, mx: 0, my: 0, mz: 0 } }],
+      loads: [{ type: 'nodal', data: { nodeId: 2, fx: 0, fy: 0, fz: P, mx: 0, my: 0, mz: 0 } }],
     });
 
     const result2D = solve(input2D);
@@ -335,12 +408,12 @@ describe('2D ↔ 3D equivalence', () => {
     const d3d = result3D.displacements.find(d => d.nodeId === 2)!;
 
     expect(d3d.ux).toBeCloseTo(d2d.ux, 6);
-    expect(d3d.uy).toBeCloseTo(d2d.uz, 6);
-    expect(d3d.rz).toBeCloseTo(d2d.ry, 6);
-    // 3D should have zero out-of-plane
-    expect(Math.abs(d3d.uz)).toBeLessThan(1e-10);
+    expect(d3d.uz).toBeCloseTo(d2d.uz, 6);
+    expect(Math.abs(d3d.ry)).toBeCloseTo(Math.abs(d2d.ry), 6);
+    // 3D should have zero out-of-plane (Y direction)
+    expect(Math.abs(d3d.uy)).toBeLessThan(1e-10);
     expect(Math.abs(d3d.rx)).toBeLessThan(1e-10);
-    expect(Math.abs(d3d.ry)).toBeLessThan(1e-10);
+    expect(Math.abs(d3d.rz)).toBeLessThan(1e-10);
   });
 
   it('reactions match between 2D and 3D solvers', () => {
@@ -357,7 +430,7 @@ describe('2D ↔ 3D equivalence', () => {
       nodes: [{ id: 1, x: 0, y: 0, z: 0 }, { id: 2, x: L, y: 0, z: 0 }],
       elements: [{ id: 1, type: 'frame', nodeI: 1, nodeJ: 2 }],
       supports: [{ nodeId: 1, rx: true, ry: true, rz: true, rrx: true, rry: true, rrz: true }],
-      loads: [{ type: 'nodal', data: { nodeId: 2, fx: 0, fy: P, fz: 0, mx: 0, my: 0, mz: 0 } }],
+      loads: [{ type: 'nodal', data: { nodeId: 2, fx: 0, fy: 0, fz: P, mx: 0, my: 0, mz: 0 } }],
     });
 
     const r2d = solve(input2D) as any;
@@ -366,9 +439,9 @@ describe('2D ↔ 3D equivalence', () => {
     const react2d = r2d.reactions.find((r: any) => r.nodeId === 1)!;
     const react3d = r3d.reactions.find(r => r.nodeId === 1)!;
 
-    expect(react3d.fy).toBeCloseTo(react2d.rz, 4);
+    expect(react3d.fz).toBeCloseTo(react2d.rz, 4);
     expect(react3d.fx).toBeCloseTo(react2d.rx, 4);
-    expect(Math.abs(react3d.mz)).toBeCloseTo(Math.abs(react2d.my), 4);
+    expect(Math.abs(react3d.my)).toBeCloseTo(Math.abs(react2d.my), 4);
   });
 });
 

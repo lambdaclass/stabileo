@@ -200,6 +200,9 @@
     if (autosaveData) {
       modelStore.restore(autosaveData.snapshot);
       modelStore.model.name = autosaveData.name;
+      // Restore analysis mode and axis convention from autosave
+      if (autosaveData.analysisMode) uiStore.analysisMode = autosaveData.analysisMode;
+      if (autosaveData.axisConvention3D) uiStore.axisConvention3D = autosaveData.axisConvention3D;
       resultsStore.clear();
     }
     showAutosaveBanner = false;
