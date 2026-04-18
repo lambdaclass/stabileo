@@ -170,10 +170,10 @@
     if (!envForces) return null;
 
     return {
-      Mu: Math.max(Math.abs(envForces.mzStart), Math.abs(envForces.mzEnd), Math.abs(envForces.myStart), Math.abs(envForces.myEnd)),
-      Vu: Math.max(Math.abs(envForces.vyStart), Math.abs(envForces.vyEnd), Math.abs(envForces.vzStart), Math.abs(envForces.vzEnd)),
+      Mu: Math.max(Math.abs(envForces.mzStart), Math.abs(envForces.mzEnd)),
+      Vu: Math.max(Math.abs(envForces.vyStart), Math.abs(envForces.vyEnd)),
       Nu: Math.max(Math.abs(envForces.nStart), Math.abs(envForces.nEnd)),
-      Muy: Math.min(Math.max(Math.abs(envForces.mzStart), Math.abs(envForces.mzEnd)), Math.max(Math.abs(envForces.myStart), Math.abs(envForces.myEnd))),
+      Muy: Math.max(Math.abs(envForces.myStart), Math.abs(envForces.myEnd)),
       Vz: Math.max(Math.abs(envForces.vzStart), Math.abs(envForces.vzEnd)),
       Tu: Math.max(Math.abs(envForces.mxStart), Math.abs(envForces.mxEnd)),
     };
@@ -327,10 +327,10 @@
       } else {
         const _mzMax = Math.max(Math.abs(ef.mzStart), Math.abs(ef.mzEnd));
         const _myMax = Math.max(Math.abs(ef.myStart), Math.abs(ef.myEnd));
-        MuMax = Math.max(_mzMax, _myMax);
-        VuMax = Math.max(Math.abs(ef.vyStart), Math.abs(ef.vyEnd), Math.abs(ef.vzStart), Math.abs(ef.vzEnd));
+        MuMax = _mzMax;
+        VuMax = Math.max(Math.abs(ef.vyStart), Math.abs(ef.vyEnd));
         NuMax = Math.max(Math.abs(ef.nStart), Math.abs(ef.nEnd));
-        MuyMax = Math.min(_mzMax, _myMax);
+        MuyMax = _myMax;
         VzMax = Math.max(Math.abs(ef.vzStart), Math.abs(ef.vzEnd));
         TuMax = Math.max(Math.abs(ef.mxStart), Math.abs(ef.mxEnd));
       }
@@ -426,13 +426,13 @@
         NuMax = envSol.Nu;
         MuzMax = envSol.Mu;
         MuyMax = envSol.Muy;
-        VuMax = envSol.Vu;
+        VuMax = Math.max(envSol.Vu, envSol.Vz);
       } else {
         NuMax = Math.max(Math.abs(ef.nStart), Math.abs(ef.nEnd));
         const _mzM = Math.max(Math.abs(ef.mzStart), Math.abs(ef.mzEnd));
         const _myM = Math.max(Math.abs(ef.myStart), Math.abs(ef.myEnd));
-        MuzMax = Math.max(_mzM, _myM);
-        MuyMax = Math.min(_mzM, _myM);
+        MuzMax = _mzM;
+        MuyMax = _myM;
         VuMax = Math.max(Math.abs(ef.vyStart), Math.abs(ef.vyEnd), Math.abs(ef.vzStart), Math.abs(ef.vzEnd));
       }
 

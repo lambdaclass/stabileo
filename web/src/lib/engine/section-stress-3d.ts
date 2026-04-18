@@ -1,7 +1,7 @@
 // 3D Section Stress Analysis — Complete
-// Biaxial bending: σ(y,z) = N/A - My·y/Iz + Mz·z/Iy
+// Biaxial bending: σ(y,z) = N/A + Mz·y/Iz - My·z/Iy
 // y = section vertical (up), z = section horizontal (right)
-// My = strong-axis moment (θy = -dw/dx), Mz = weak-axis moment (θz = +dv/dx)
+// My = weak-axis moment about Y, Mz = strong-axis moment about Z
 // Jourawsky shear: τ_Vy(y) = Vy·Q_z(y)/(Iz·b(y)), τ_Vz(z) = Vz·Q_y(z)/(Iy·h_w(z))
 // Torsion: τ_T (Bredt for closed, Saint-Venant for open sections)
 // Von Mises: σ_vm = √(σ² + 3·(τ_xy² + τ_xz²))
@@ -97,7 +97,7 @@ export interface SectionStressResult3D {
 
   // Resolved geometry
   resolved: ResolvedSection;
-  /** Iy in Navier notation = about Z-axis (vertical) = resolved.iz = sec.iz (m⁴) */
+  /** Iz in Navier notation = about Z-axis (vertical) = resolved.iz = sec.iz (m⁴) */
   Iz: number;
 
   // Stress distributions along section height (eje y, z=0)
@@ -125,17 +125,13 @@ export interface SectionStressResult3D {
 // ─── Normal stress — Navier biaxial ─────────────────────────────────
 
 /**
- * σ_x(y,z) = N/A - My·y/Iz + Mz·z/Iy
+ * σ_x(y,z) = N/A + Mz·y/Iz - My·z/Iy
  *
  * Section coordinates: y = vertical (up), z = horizontal (right).
- * Solver moments: My = about Y horizontal (vertical bending, θy = -dw/dx),
- *                 Mz = about Z vertical (horizontal bending, θz = +dv/dx).
- * In Navier's formula, "Iz" pairs with My·y (vertical stress variation, uses Iy_model = resolved.iy).
- * Similarly, "Iy" pairs with Mz·z (horizontal stress variation, uses Iz_model = resolved.iz).
- * Note: param names (Iz, Iy) follow Navier notation, NOT model naming convention.
- *
- * My negative sign: θy = -dw/dx convention inverts My relative to standard M.
- * Mz positive sign: θz = +dv/dx, same convention as 2D.
+ * Solver moments: My = about Y horizontal (lateral bending, weak axis),
+ *                 Mz = about Z vertical (vertical bending, strong axis).
+ * In Navier's formula, "Iz" pairs with Mz·y (stress varying with y),
+ * and "Iy" pairs with My·z (stress varying with z).
  *
  * All forces in kN, geometry in m → result in MPa (÷1000)
  */
@@ -146,12 +142,8 @@ function normalStress3D(
 ): number {
   let sigma = 0;
   if (A > 1e-15) sigma += N / A;
-  // My (about Y horiz) → stress varies with y (vertical) → Iz param = resolved.iy (about Y horiz).
-  // Negative sign from θy = -dw/dx convention.
-  if (Iz > 1e-15) sigma -= My * y / Iz;
-  // Mz (about Z vert) → stress varies with z (horizontal) → Iy param = resolved.iz (about Z vert).
-  // Same sign convention as 2D (θz = +dv/dx).
-  if (Iy > 1e-15) sigma += Mz * z / Iy;
+  if (Iz > 1e-15) sigma += Mz * y / Iz;
+  if (Iy > 1e-15) sigma -= My * z / Iy;
   return sigma / 1000; // kN/m² → MPa
 }
 
@@ -301,10 +293,10 @@ function torsionShearStress(Mx: number, rs: ResolvedSection, J: number): number 
 
 /**
  * Compute the combined neutral axis for biaxial bending + axial.
- * σ(y,z) = 0 → N/A - My·y/Iz + Mz·z/Iy = 0
+ * σ(y,z) = 0 → N/A + Mz·y/Iz - My·z/Iy = 0
  *
- * When My ≠ 0: y = (N·Iz)/(A·My) + (Mz·Iz)/(Iy·My)·z
- * When My = 0, Mz ≠ 0: z = -(N·Iy)/(A·Mz)  (vertical line)
+ * When Mz ≠ 0: y = -(N·Iz)/(A·Mz) + (My·Iz)/(Iy·Mz)·z
+ * When Mz = 0, My ≠ 0: z = (N·Iy)/(A·My)  (vertical line)
  */
 function computeNeutralAxis(
   N: number, Mz: number, My: number,
@@ -318,26 +310,26 @@ function computeNeutralAxis(
     return { exists: false, slope: 0, intercept: 0, angle: 0 };
   }
 
-  if (hasMy) {
+  if (hasMz) {
     // y = intercept + slope · z
-    const intercept = A > 1e-15 ? (N * Iz) / (A * My) : 0;
-    const slope = hasMz && Iy > 1e-20 ? (Mz * Iz) / (Iy * My) : 0;
+    const intercept = A > 1e-15 ? -(N * Iz) / (A * Mz) : 0;
+    const slope = hasMy && Iy > 1e-20 ? (My * Iz) / (Iy * Mz) : 0;
     const angle = Math.atan(slope);
     return { exists: true, slope, intercept, angle };
   }
 
-  // My = 0, Mz ≠ 0: neutral axis is vertical (z = const)
-  // Mz·z/Iy = -N/A → z = -(N·Iy)/(A·Mz)
-  const zIntercept = A > 1e-15 ? -(N * Iy) / (A * Mz) : 0;
+  // Mz = 0, My ≠ 0: neutral axis is vertical (z = const)
+  // -My·z/Iy = -N/A → z = (N·Iy)/(A·My)
+  const zIntercept = A > 1e-15 ? (N * Iy) / (A * My) : 0;
   return { exists: true, slope: Infinity, intercept: zIntercept, angle: Math.PI / 2 };
 }
 
 /**
  * Compute neutral axis considering bending moments only (N=0).
- * σ = -My·y/Iz + Mz·z/Iy = 0
- * When My ≠ 0: y = (Mz·Iz)/(Iy·My)·z  (passes through centroid)
- * Uniaxial My only: horizontal NA (y=0)
- * Uniaxial Mz only: vertical NA (z=0)
+ * σ = Mz·y/Iz - My·z/Iy = 0
+ * When Mz ≠ 0: y = (My·Iz)/(Iy·Mz)·z  (passes through centroid)
+ * Uniaxial Mz only: horizontal NA (y=0)
+ * Uniaxial My only: vertical NA (z=0)
  */
 export function computeNeutralAxisMomentsOnly(
   Mz: number, My: number,
@@ -350,14 +342,14 @@ export function computeNeutralAxisMomentsOnly(
     return { exists: false, slope: 0, intercept: 0, angle: 0 };
   }
 
-  if (hasMy) {
+  if (hasMz) {
     // y = slope · z (intercept = 0 since N=0 → passes through centroid)
-    const slope = hasMz && Iy > 1e-20 ? (Mz * Iz) / (Iy * My) : 0;
+    const slope = hasMy && Iy > 1e-20 ? (My * Iz) / (Iy * Mz) : 0;
     const angle = Math.atan(slope);
     return { exists: true, slope, intercept: 0, angle };
   }
 
-  // My = 0, Mz ≠ 0: NA is vertical through centroid (z = 0)
+  // Mz = 0, My ≠ 0: NA is vertical through centroid (z = 0)
   return { exists: true, slope: Infinity, intercept: 0, angle: Math.PI / 2 };
 }
 
@@ -618,7 +610,6 @@ function adaptWasm3DResult(r: any): SectionStressResult3D {
 
 /**
  * Full 3D section stress analysis at position t along element.
- * Delegates to WASM solver.
  */
 export function analyzeSectionStress3D(
   ef: ElementForces3D,
@@ -628,14 +619,17 @@ export function analyzeSectionStress3D(
   yFiber?: number,
   zFiber?: number,
 ): SectionStressResult3D {
-  // Convention note: The TS detailed-path normalStress3D uses a non-standard
-  // My/Mz convention (My = vertical bending, Mz = horizontal bending), while the
-  // WASM solver outputs standard convention (My = about Y axis, Mz = about Z axis).
-  // The TS fallback (analyzeSectionStressFromForcesTS) is self-consistent with
-  // its own convention and produces correct results for the detailed stress panel.
-  // The quick path (computeSectionStress) has been fixed to use standard convention
-  // matching the WASM solver output, so the stress heatmap is correct.
-  // Using TS fallback here to keep the detailed stress panel consistent.
+  if (isWasmReady()) {
+    return adaptWasm3DResult(computeSectionStress3D({
+      elementForces: ef,
+      section: sec,
+      fy: fy ?? null,
+      t,
+      yFiber: yFiber ?? null,
+      zFiber: zFiber ?? null,
+    }));
+  }
+
   const { N, Vy, Vz, Mx, My, Mz } = interpolateForces3D(ef, t);
   return analyzeSectionStressFromForcesTS(N, Vy, Vz, Mx, My, Mz, sec, fy, yFiber, zFiber);
 }
@@ -652,7 +646,16 @@ export function analyzeSectionStressFromForces(
   yFiber?: number,
   zFiber?: number,
 ): SectionStressResult3D {
-  // See convention note in analyzeSectionStress3D above.
+  if (isWasmReady()) {
+    return adaptWasm3DResult(computeSectionStress3DFromForces({
+      N, Vy, Vz, Mx, My, Mz,
+      section: sec,
+      fy: fy ?? null,
+      yFiber: yFiber ?? null,
+      zFiber: zFiber ?? null,
+    }));
+  }
+
   return analyzeSectionStressFromForcesTS(N, Vy, Vz, Mx, My, Mz, sec, fy, yFiber, zFiber);
 }
 
@@ -667,7 +670,8 @@ function analyzeSectionStressFromForcesTS(
   const resolved = resolveSectionGeometry(sec);
   const halfH = resolved.h / 2;
 
-  const Iy = resolved.iz;
+  const Iz = resolved.iz;
+  const Iy = resolved.iy;
   const J = resolved.j;
 
   const yF = yFiber ?? halfH;
@@ -675,7 +679,7 @@ function analyzeSectionStressFromForcesTS(
 
   const yPositions = buildSamplingY(resolved);
   const distributionY: StressPoint3D[] = yPositions.map(y => {
-    const sigma = normalStress3D(N, Mz, My, resolved.a, resolved.iy, Iy, y, 0);
+    const sigma = normalStress3D(N, Mz, My, resolved.a, Iz, Iy, y, 0);
     const tauVy = shearStress(Vy, y, resolved);
     const tauVz = 0;
     const tauT = torsionShearStress(Mx, resolved, J);
@@ -686,7 +690,7 @@ function analyzeSectionStressFromForcesTS(
 
   const zPositions = buildSamplingZ(resolved);
   const distributionZ: StressPoint3D[] = zPositions.map(z => {
-    const sigma = normalStress3D(N, Mz, My, resolved.a, resolved.iy, Iy, 0, z);
+    const sigma = normalStress3D(N, Mz, My, resolved.a, Iz, Iy, 0, z);
     const tauVy = 0;
     const tauVz = shearStressWeakAxis(Vz, z, resolved, Iy);
     const tauT = torsionShearStress(Mx, resolved, J);
@@ -695,13 +699,13 @@ function analyzeSectionStressFromForcesTS(
     return { y: 0, z, sigma, tauVy, tauVz, tauT, vonMises: vm };
   });
 
-  const sigmaAtFiber = normalStress3D(N, Mz, My, resolved.a, resolved.iy, Iy, yF, zF);
+  const sigmaAtFiber = normalStress3D(N, Mz, My, resolved.a, Iz, Iy, yF, zF);
   const tauVyAtFiber = shearStress(Vy, yF, resolved);
   const tauVzAtFiber = shearStressWeakAxis(Vz, zF, resolved, Iy);
   const tauTorsion = torsionShearStress(Mx, resolved, J);
   const tauTotal = Math.sqrt(tauVyAtFiber ** 2 + tauVzAtFiber ** 2 + tauTorsion ** 2);
 
-  const neutralAxis = computeNeutralAxis(N, Mz, My, resolved.a, resolved.iy, Iy);
+  const neutralAxis = computeNeutralAxis(N, Mz, My, resolved.a, Iz, Iy);
 
   const mohr = computeMohrCircle(sigmaAtFiber, tauTotal);
   const failure = checkFailure(sigmaAtFiber, tauTotal, fy ?? undefined);
@@ -709,7 +713,7 @@ function analyzeSectionStressFromForcesTS(
   return {
     N, Vy, Vz, Mx, My, Mz,
     resolved,
-    Iz: Iy,
+    Iz,
     distributionY,
     distributionZ,
     sigmaAtFiber,

@@ -1478,7 +1478,7 @@ const es: Record<string, string> = {
   'stress.forces3dHelp': 'Esfuerzos internos 3D en esta sección.\nN = normal (+ tracción, - compresión)\nVy = corte en plano XY (produce Mz)\nVz = corte en plano XZ (produce My)',
   'stress.moments3dHelp': 'Mx = momento torsor\nMy = momento flector (plano XZ, eje débil)\nMz = momento flector (plano XY, eje fuerte)\nConvención: + = sagging (tracción en fibra inferior)',
   'stress.rotDecompHelp': 'Descomposición por rotación de sección ({angle}°).\nVy, Vz = componentes del corte en ejes locales rotados',
-  'stress.rotMomentHelp': 'Descomposición del momento M por rotación de sección.\nMy = M·cos(α) (eje débil)\nMz = M·sin(α) (eje fuerte)\nα = {angle}°',
+  'stress.rotMomentHelp': 'Descomposición del momento M por rotación de sección.\nMz = M·cos(α) (eje fuerte)\nMy = M·sin(α) (eje débil)\nα = {angle}°',
   'stress.forces2dHelp': 'Esfuerzos internos en esta sección del elemento.\nN = normal (+ tracción, - compresión)\nV = corte transversal\nM = momento flector (+ sagging, tracciona abajo)',
   'stress.criticalSections': 'Secciones criticas',
   'stress.criticalSectionsHelp': 'Posiciones a lo largo del elemento donde conviene verificar tensiones.\n\nIncluye puntos de momento maximo (V=0), apoyos, cargas puntuales y puntos intermedios.\nClick en cada chip para navegar a esa seccion.',
