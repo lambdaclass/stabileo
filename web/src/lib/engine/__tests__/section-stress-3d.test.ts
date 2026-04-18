@@ -5,6 +5,7 @@ import {
   interpolateForces3D,
   suggestCriticalSections3D,
   computePerpNADistribution,
+  computeSectionStress,
   type NeutralAxisInfo,
 } from '../section-stress-3d';
 import { effectiveBendingInertia } from '../solver-service';
@@ -692,5 +693,118 @@ describe('analyzeSectionStressFromForces', () => {
     // ratio = σ90/σ0 = (b/2·Iy) / (h/2·Iz)
     const expectedRatio = (iSection.b! / 2 * iSection.iy!) / (iSection.h! / 2 * iSection.iz!);
     expect(maxSigma90 / maxSigma0).toBeCloseTo(expectedRatio, 1);
+  });
+});
+
+// ═══════════════════════════════════════════════════════════════
+// Bug #6: Quick-path stress uses standard My/Mz convention
+// The quick path (computeSectionStress) used by stress-heatmap
+// must use the standard convention matching the WASM solver output:
+//   My = moment about Y-axis (lateral bending) → stress varies with z → uses Iy
+//   Mz = moment about Z-axis (vertical bending) → stress varies with y → uses Iz
+// ═══════════════════════════════════════════════════════════════
+
+describe('Bug #6: quick-path standard My/Mz convention', () => {
+  // Rect section: h=0.200 (vertical), b=0.100 (horizontal)
+  // sec.iz = 1.667e-5 (about Z vertical, "small" for this section)
+  // sec.iy = 6.667e-5 (about Y horizontal, "large" for this section)
+
+  it('pure My (about Y, lateral bending): stress uses b/2 and Iy', () => {
+    // My = moment about Y horizontal → bending in X-Z plane → stress varies with z (horizontal)
+    // σ_My = |My| * (b/2) / Iy = 10 * 0.05 / 6.667e-5 = 7500 kN/m²
+    const My = 10;
+    const quick = computeSectionStress(
+      0, 0, 0, 0, My, 0,
+      rectSection.a, rectSection.iz, rectSection.iy!,
+      rectSection.h!, rectSection.b!, 355_000,
+    );
+    const expected = Math.abs(My) * (rectSection.b! / 2) / rectSection.iy!;
+    expect(quick.sigmaMax).toBeCloseTo(expected, -1);
+  });
+
+  it('pure Mz (about Z, vertical bending): stress uses h/2 and Iz', () => {
+    // Mz = moment about Z vertical → bending in Y-Z plane → stress varies with y (vertical)
+    // σ_Mz = |Mz| * (h/2) / Iz = 5 * 0.1 / 1.667e-5 = 30000 kN/m²
+    const Mz = 5;
+    const quick = computeSectionStress(
+      0, 0, 0, 0, 0, Mz,
+      rectSection.a, rectSection.iz, rectSection.iy!,
+      rectSection.h!, rectSection.b!, 355_000,
+    );
+    const expected = Math.abs(Mz) * (rectSection.h! / 2) / rectSection.iz;
+    expect(quick.sigmaMax).toBeCloseTo(expected, -1);
+  });
+
+  it('biaxial My + Mz on asymmetric rect matches analytical envelope', () => {
+    const My = 15, Mz = 8;
+    const quick = computeSectionStress(
+      0, 0, 0, 0, My, Mz,
+      rectSection.a, rectSection.iz, rectSection.iy!,
+      rectSection.h!, rectSection.b!, 355_000,
+    );
+    // Analytical: sigmaMax = |Mz|*(h/2)/Iz + |My|*(b/2)/Iy
+    const expected = Math.abs(Mz) * (rectSection.h! / 2) / rectSection.iz
+                   + Math.abs(My) * (rectSection.b! / 2) / rectSection.iy!;
+    expect(quick.sigmaMax).toBeCloseTo(expected, -1);
+  });
+
+  it('I-section: Mz (strong axis) produces larger stress than My (weak axis) for equal moments', () => {
+    // For IPN 200 with Y=up (standard orientation):
+    //   Mz about Z → strong-axis vertical bending → large stress (h/2 is large, Iz is small)
+    //   My about Y → weak-axis lateral bending → smaller stress (b/2 is small, Iy is large)
+    const M = 10;
+    const quickMz = computeSectionStress(
+      0, 0, 0, 0, 0, M,
+      iSection.a, iSection.iz, iSection.iy!,
+      iSection.h!, iSection.b!, 355_000,
+    );
+    const quickMy = computeSectionStress(
+      0, 0, 0, 0, M, 0,
+      iSection.a, iSection.iz, iSection.iy!,
+      iSection.h!, iSection.b!, 355_000,
+    );
+
+    // σ_Mz = M * (h/2) / Iz = 10 * 0.1 / 1.17e-6 = 854701 kN/m²
+    // σ_My = M * (b/2) / Iy = 10 * 0.045 / 2.14e-5 = 21028 kN/m²
+    // Mz stress should be much larger (strong axis)
+    expect(quickMz.sigmaMax).toBeGreaterThan(quickMy.sigmaMax * 10);
+
+    // Verify exact values
+    const expectedMz = M * (iSection.h! / 2) / iSection.iz;
+    const expectedMy = M * (iSection.b! / 2) / iSection.iy!;
+    expect(quickMz.sigmaMax).toBeCloseTo(expectedMz, -2);
+    expect(quickMy.sigmaMax).toBeCloseTo(expectedMy, -2);
+  });
+
+  it('symmetric section (CHS): My and Mz produce equal stress', () => {
+    // CHS has h = b and iz = iy, so My and Mz should produce equal stress
+    const M = 10;
+    const quickMz = computeSectionStress(
+      0, 0, 0, 0, 0, M,
+      chsSection.a, chsSection.iz, chsSection.iy!,
+      chsSection.h!, chsSection.b!, 355_000,
+    );
+    const quickMy = computeSectionStress(
+      0, 0, 0, 0, M, 0,
+      chsSection.a, chsSection.iz, chsSection.iy!,
+      chsSection.h!, chsSection.b!, 355_000,
+    );
+    expect(quickMz.sigmaMax).toBeCloseTo(quickMy.sigmaMax, 0);
+  });
+
+  it('combined N + Vy + Vz + My + Mz: vonMises is non-trivial', () => {
+    const N = 50, Vy = 20, Vz = 10, My = 15, Mz = 8;
+    const quick = computeSectionStress(
+      N, Vy, Vz, 0, My, Mz,
+      rectSection.a, rectSection.iz, rectSection.iy!,
+      rectSection.h!, rectSection.b!, 355_000,
+    );
+    expect(quick.vonMises).toBeGreaterThan(0);
+    expect(quick.ratio).toBeGreaterThan(0);
+    // sigmaMax = |N/A| + |Mz|*(h/2)/Iz + |My|*(b/2)/Iy
+    const expectedSigma = Math.abs(N) / rectSection.a
+      + Math.abs(Mz) * (rectSection.h! / 2) / rectSection.iz
+      + Math.abs(My) * (rectSection.b! / 2) / rectSection.iy!;
+    expect(quick.sigmaMax).toBeCloseTo(expectedSigma, -1);
   });
 });

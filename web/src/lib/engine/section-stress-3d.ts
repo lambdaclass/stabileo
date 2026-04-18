@@ -36,9 +36,14 @@ export function computeSectionStress(
   h: number = 0, b: number = 0,
   fy: number = 355_000,
 ): SectionStress3D {
-  // UBA convention: local Y = horizontal (width b), local Z = vertical/down (height h)
-  const yMax = b > 0 ? b / 2 : Math.sqrt(Iz / A) * 2;
-  const zMax = h > 0 ? h / 2 : Math.sqrt(Iy / A) * 2;
+  // Standard convention (matches WASM solver output):
+  //   My = moment about Y-axis (horizontal) → bending in X-Z plane (lateral)
+  //        → stress varies with z (horizontal) → max at b/2 → uses Iy (about Y).
+  //   Mz = moment about Z-axis (vertical) → bending in Y-Z plane (vertical)
+  //        → stress varies with y (vertical) → max at h/2 → uses Iz (about Z).
+  // Callers pass Iz = sec.iz (about Z vertical), Iy = sec.iy (about Y horizontal).
+  const yMax = h > 0 ? h / 2 : (A > 1e-15 ? Math.sqrt(Iz / A) * 2 : 0);
+  const zMax = b > 0 ? b / 2 : (A > 1e-15 ? Math.sqrt(Iy / A) * 2 : 0);
   const sigmaN = A > 0 ? N / A : 0;
   const sigmaMz = Iz > 0 ? Math.abs(Mz) * yMax / Iz : 0;
   const sigmaMy = Iy > 0 ? Math.abs(My) * zMax / Iy : 0;
@@ -623,13 +628,14 @@ export function analyzeSectionStress3D(
   yFiber?: number,
   zFiber?: number,
 ): SectionStressResult3D {
-  // TODO: The TS codebase uses a non-standard My/Mz convention:
-  //   TS:       My = moment causing vertical (y) bending, Mz = moment causing horizontal (z) bending
-  //   Standard: My = moment about Y axis (z-bending), Mz = moment about Z axis (y-bending)
-  // The WASM section-stress uses standard convention, so passing TS-convention
-  // ElementForces3D directly produces wrong results. Fix requires swapping My↔Mz
-  // at the wasm-solver 3D result boundary (affects all 3D consumers).
-  // Until then, use TS fallback to avoid silently wrong stress values.
+  // Convention note: The TS detailed-path normalStress3D uses a non-standard
+  // My/Mz convention (My = vertical bending, Mz = horizontal bending), while the
+  // WASM solver outputs standard convention (My = about Y axis, Mz = about Z axis).
+  // The TS fallback (analyzeSectionStressFromForcesTS) is self-consistent with
+  // its own convention and produces correct results for the detailed stress panel.
+  // The quick path (computeSectionStress) has been fixed to use standard convention
+  // matching the WASM solver output, so the stress heatmap is correct.
+  // Using TS fallback here to keep the detailed stress panel consistent.
   const { N, Vy, Vz, Mx, My, Mz } = interpolateForces3D(ef, t);
   return analyzeSectionStressFromForcesTS(N, Vy, Vz, Mx, My, Mz, sec, fy, yFiber, zFiber);
 }
@@ -646,7 +652,7 @@ export function analyzeSectionStressFromForces(
   yFiber?: number,
   zFiber?: number,
 ): SectionStressResult3D {
-  // See convention mismatch TODO in analyzeSectionStress3D above.
+  // See convention note in analyzeSectionStress3D above.
   return analyzeSectionStressFromForcesTS(N, Vy, Vz, Mx, My, Mz, sec, fy, yFiber, zFiber);
 }
 
