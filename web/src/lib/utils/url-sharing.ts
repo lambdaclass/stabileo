@@ -260,7 +260,7 @@ function toCompact(snapshot: ModelSnapshot, meta?: ShareMeta): Record<string, un
 
 function fromCompact(c: Record<string, unknown>): ModelSnapshot {
   const snapshot: ModelSnapshot = {
-    analysisMode: c.m as '2d' | '3d' | undefined,
+    analysisMode: c.m as '2d' | '3d' | 'pro' | 'edu' | undefined,
     name: c.nm as string | undefined,
 
     // Nodes
@@ -496,7 +496,7 @@ export function generateShareURL(): { url: string; length: number } | null {
   if (snapshot.nodes.length === 0) return null;
 
   const mode = uiStore.analysisMode;
-  snapshot.analysisMode = (mode === '2d' || mode === '3d') ? mode : undefined;
+  snapshot.analysisMode = (mode === '2d' || mode === '3d' || mode === 'pro') ? mode : undefined;
   const meta = buildShareMeta(true);
 
   const compressed = compressV2(snapshot, meta);
@@ -512,7 +512,7 @@ export function generateEmbedURL(): { url: string; length: number } | null {
   if (snapshot.nodes.length === 0) return null;
 
   const mode = uiStore.analysisMode;
-  snapshot.analysisMode = (mode === '2d' || mode === '3d') ? mode : undefined;
+  snapshot.analysisMode = (mode === '2d' || mode === '3d' || mode === 'pro') ? mode : undefined;
   const meta = buildShareMeta(false);
 
   const compressed = compressV2(snapshot, meta);

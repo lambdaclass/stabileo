@@ -164,7 +164,7 @@ function toCompact(snapshot: ModelSnapshot): Record<string, unknown> {
 
 function fromCompact(c: Record<string, unknown>): ModelSnapshot {
   return {
-    analysisMode: c.m as '2d' | '3d' | undefined,
+    analysisMode: c.m as '2d' | '3d' | 'pro' | 'edu' | undefined,
     name: c.nm as string | undefined,
     nodes: (c.n as number[][]).map(a => [a[0], { id: a[0], x: a[1], y: a[2], ...(a[3] !== undefined ? { z: a[3] } : {}) }]),
     materials: (c.mt as (string | number)[][]).map(a => [
@@ -412,7 +412,7 @@ describe('URL sharing v2', () => {
 
   it('PRO model with plates, quads, constraints, and full 3D supports roundtrips correctly', () => {
     const snapshot: ModelSnapshot = {
-      analysisMode: '3d',
+      analysisMode: 'pro',
       name: 'PRO Shell Model',
       nodes: [
         [1, { id: 1, x: 0, y: 0, z: 0 }],
@@ -458,7 +458,7 @@ describe('URL sharing v2', () => {
     const restored = fromCompact(compact);
 
     // analysisMode preserved
-    expect(restored.analysisMode).toBe('3d');
+    expect(restored.analysisMode).toBe('pro');
 
     // Plates survived
     expect(restored.plates).toBeDefined();
@@ -528,7 +528,7 @@ describe('URL sharing v2', () => {
 
   it('full end-to-end v2 compress/decompress preserves PRO model', () => {
     const snapshot: ModelSnapshot = {
-      analysisMode: '3d',
+      analysisMode: 'pro',
       name: 'E2E PRO',
       nodes: [
         [1, { id: 1, x: 0, y: 0, z: 0 }],
@@ -561,7 +561,7 @@ describe('URL sharing v2', () => {
     const decoded = new TextDecoder().decode(inflated);
     const restored = fromCompact(JSON.parse(decoded));
 
-    expect(restored.analysisMode).toBe('3d');
+    expect(restored.analysisMode).toBe('pro');
     expect(restored.plates!.length).toBe(1);
     expect(restored.plates![0][1].thickness).toBe(0.1);
     expect(restored.constraints!.length).toBe(1);

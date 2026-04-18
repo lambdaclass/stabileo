@@ -47,7 +47,7 @@
   let showCentralCoreInfo = $state(false);     // NC details section (closed by default)
   let useGlobalScale = $state(true);           // Local/global stress scaling toggle (global by default)
 
-  const is3D = $derived(uiStore.analysisMode === '3d');
+  const is3D = $derived(uiStore.analysisMode === '3d' || uiStore.analysisMode === 'pro');
   const query = $derived(resultsStore.stressQuery);
   const querySec = $derived.by(() => {
     if (!query) return null;

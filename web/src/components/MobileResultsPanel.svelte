@@ -2,7 +2,7 @@
   import { uiStore, resultsStore, modelStore } from '../lib/store';
   import { t } from '../lib/i18n';
 
-  const is3D = $derived(uiStore.analysisMode === '3d');
+  const is3D = $derived(uiStore.analysisMode === '3d' || uiStore.analysisMode === 'pro');
   const hasResults = $derived(resultsStore.results !== null || resultsStore.results3D !== null);
   const hasModel = $derived(modelStore.nodes.size > 0);
 
