@@ -169,6 +169,8 @@ export interface ElementVerification {
   };
   /** RC detailing rules per CIRSOC 201 Ch. 12 */
   detailing?: DetailingResult;
+  /** Station-based design demands (when available from station-design-forces.ts) */
+  stationDemands?: import('../../station-design-forces').ElementDesignDemands;
 }
 
 export interface DetailingResult {
