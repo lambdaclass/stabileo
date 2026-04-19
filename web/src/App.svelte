@@ -350,7 +350,8 @@
     window.addEventListener('stabileo-import-ifc', handleIfcImportEvent);
 
     // Global solve event — always mounted (mobile bottom bar dispatches this)
-    const handleGlobalSolve = () => runGlobalSolve();
+    // Cancel any pending debounced live calc so the manual solve supersedes it.
+    const handleGlobalSolve = () => { cancelPendingLiveCalc(); runGlobalSolve(); };
     window.addEventListener('stabileo-solve', handleGlobalSolve);
 
     return () => {
@@ -372,9 +373,19 @@
     replaceAppUrl(uiStore.appMode, modelStore.model.name);
   });
 
-  // Reactive auto-clear results + live calculation on model changes
+  // Reactive auto-clear results + debounced live calculation on model changes
   let prevModelVersion = -1;
   let prevAnalysisMode = '';
+  let liveCalcTimer: ReturnType<typeof setTimeout> | null = null;
+
+  /** Cancel any pending debounced live calc (e.g. when manual solve supersedes it). */
+  function cancelPendingLiveCalc(): void {
+    if (liveCalcTimer) {
+      clearTimeout(liveCalcTimer);
+      liveCalcTimer = null;
+    }
+  }
+
   $effect(() => {
     const _v = modelStore.modelVersion;
     const _lc = uiStore.liveCalc;
@@ -397,11 +408,21 @@
         }
       }
 
-      // If live calc is ON, auto-solve (skip in PRO/EDU mode — manual solve only)
+      // If live calc is ON, debounce the auto-solve to avoid firing on every
+      // tiny model mutation while the user is dragging or typing.
+      // Manual solve (runGlobalSolve) remains immediate and cancels any pending debounce.
       if (_lc && _mode !== 'pro' && _mode !== 'edu') {
-        runLiveCalc(_mode, uiStore.axisConvention3D, prevDiagram);
+        cancelPendingLiveCalc();
+        const delay = (_mode === '2d') ? 120 : 200;
+        liveCalcTimer = setTimeout(() => {
+          liveCalcTimer = null;
+          runLiveCalc(_mode, uiStore.axisConvention3D, prevDiagram);
+        }, delay);
       }
     });
+
+    // Cleanup: cancel pending timer when effect re-runs or component unmounts
+    return () => { cancelPendingLiveCalc(); };
   });
 
   // ─── PRO panel drag-resize ────────────────────────────────────────

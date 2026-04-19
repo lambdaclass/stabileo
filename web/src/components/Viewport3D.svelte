@@ -24,6 +24,11 @@
   let animFrameId: number;
   let initialized = false;
 
+  // ─── Invalidation-based rendering ───────────────────────────
+  // Declared here so $effect blocks can call invalidate() from outside onMount.
+  // The actual implementation is assigned inside onMount once the renderer exists.
+  let invalidate: () => void = () => {};
+
   // ─── Scene graph maps (reconciled with store) ────────────────
   let nodeMeshes = new Map<number, THREE.Mesh>();
   let elementGroups = new Map<number, THREE.Group>();
@@ -223,8 +228,11 @@
       if (e.key === 'Shift') navShiftHeld = true;
       const k = e.key.toLowerCase();
       if ('wasdqe'.includes(k) || e.key.startsWith('Arrow')) {
+        const wasEmpty = keysPressed.size === 0;
         keysPressed.add(k.startsWith('arrow') ? e.key : k);
         e.preventDefault();
+        // Start continuous rendering while navigation keys are held
+        if (wasEmpty) invalidate();
       }
       // Disable OrbitControls' shift-pan while select tool is active
       if (e.key === 'Shift' && uiStore.currentTool === 'select') {
@@ -243,6 +251,7 @@
     // Sync camera state to uiStore on orbit change (throttled)
     let cameraSyncTimer: ReturnType<typeof setTimeout> | null = null;
     controls.addEventListener('change', () => {
+      invalidate(); // Re-render on orbit/pan/zoom via OrbitControls
       if (cameraSyncTimer) return; // throttle
       cameraSyncTimer = setTimeout(() => {
         cameraSyncTimer = null;
@@ -272,7 +281,7 @@
     addAxisLabels();
 
     // Handle resize
-    const ro = new ResizeObserver(() => handleResize());
+    const ro = new ResizeObserver(() => { handleResize(); invalidate(); });
     ro.observe(container);
     handleResize();
 
@@ -292,63 +301,101 @@
     // Set initial camera to match model type (flat 2D → front view, 3D → isometric)
     if (modelStore.nodes.size > 0) zoomToFit();
 
-    // Render loop
+    // ── Invalidation-based render loop ──
+    // Instead of running requestAnimationFrame every frame, we only render when
+    // the scene is dirty (needsRender=true) or continuous rendering is required
+    // (animations, keyboard navigation, or the user override flag).
+    let needsRender = true;
+    let dampingFrames = 0; // extra frames for OrbitControls damping to settle
+
+    /** Check if any animation is currently active that requires continuous rendering */
+    function isAnimating(): boolean {
+      const dt = resultsStore.diagramType;
+      const animDeformed = resultsStore.animateDeformed && dt === 'deformed' && !!resultsStore.results3D;
+      const animMode = dt === 'modeShape' && !!resultsStore.modalResult3D;
+      const animBuckling = dt === 'bucklingMode' && !!resultsStore.bucklingResult3D;
+      return animDeformed || animMode || animBuckling;
+    }
+
+    /** Whether we need to keep the render loop running continuously */
+    function needsContinuous(): boolean {
+      return uiStore.continuousRendering || keysPressed.size > 0 || isAnimating() || dampingFrames > 0;
+    }
+
+    /** Mark the scene as needing a re-render. Schedules a frame if one isn't pending. */
+    function _invalidate() {
+      if (!needsRender) {
+        needsRender = true;
+        animFrameId = requestAnimationFrame(renderOnce);
+      }
+    }
+    // Expose invalidate to the outer scope for use in $effect blocks
+    invalidate = _invalidate;
+
     const _panVec = new THREE.Vector3();
     const _orbitSpherical = new THREE.Spherical();
-    function animate() {
-      animFrameId = requestAnimationFrame(animate);
+
+    function handleKeyboardCamera() {
+      if (keysPressed.size === 0) return;
+      const dist = camera.position.distanceTo(controls.target);
+      const boost = navShiftHeld ? 3 : 1;
+      const panSpeed = dist * 0.012 * boost;   // scale with zoom level
+      const orbitSpeed = 0.02 * boost;          // radians per frame
+
+      // WASD — pan relative to camera orientation
+      const forward = _panVec.set(0, 0, 0);
+      if (keysPressed.has('w')) forward.z -= panSpeed;
+      if (keysPressed.has('s')) forward.z += panSpeed;
+      if (keysPressed.has('a')) forward.x -= panSpeed;
+      if (keysPressed.has('d')) forward.x += panSpeed;
+      if (forward.lengthSq() > 0) {
+        // Transform pan vector from camera-local to world space
+        forward.applyQuaternion(camera.quaternion);
+        forward.z = 0; // keep horizontal
+        controls.target.add(forward);
+        camera.position.add(forward);
+      }
+
+      // Q/E — vertical movement
+      if (keysPressed.has('q')) {
+        controls.target.z -= panSpeed;
+        camera.position.z -= panSpeed;
+      }
+      if (keysPressed.has('e')) {
+        controls.target.z += panSpeed;
+        camera.position.z += panSpeed;
+      }
+
+      // Arrow keys — orbit around target
+      _orbitSpherical.setFromVector3(
+        camera.position.clone().sub(controls.target)
+      );
+      if (keysPressed.has('ArrowLeft')) _orbitSpherical.theta -= orbitSpeed;
+      if (keysPressed.has('ArrowRight')) _orbitSpherical.theta += orbitSpeed;
+      if (keysPressed.has('ArrowUp')) _orbitSpherical.phi = Math.max(0.1, _orbitSpherical.phi - orbitSpeed);
+      if (keysPressed.has('ArrowDown')) _orbitSpherical.phi = Math.min(Math.PI - 0.1, _orbitSpherical.phi + orbitSpeed);
+      if (keysPressed.has('ArrowLeft') || keysPressed.has('ArrowRight') || keysPressed.has('ArrowUp') || keysPressed.has('ArrowDown')) {
+        camera.position.copy(controls.target).add(
+          _panVec.setFromSpherical(_orbitSpherical)
+        );
+      }
+    }
+
+    function renderOnce() {
+      if (!needsRender && !needsContinuous()) return;
+      needsRender = false;
 
       // Keyboard camera movement
-      if (keysPressed.size > 0) {
-        const dist = camera.position.distanceTo(controls.target);
-        const boost = navShiftHeld ? 3 : 1;
-        const panSpeed = dist * 0.012 * boost;   // scale with zoom level
-        const orbitSpeed = 0.02 * boost;          // radians per frame
-
-        // WASD — pan relative to camera orientation
-        const forward = _panVec.set(0, 0, 0);
-        if (keysPressed.has('w')) forward.z -= panSpeed;
-        if (keysPressed.has('s')) forward.z += panSpeed;
-        if (keysPressed.has('a')) forward.x -= panSpeed;
-        if (keysPressed.has('d')) forward.x += panSpeed;
-        if (forward.lengthSq() > 0) {
-          // Transform pan vector from camera-local to world space
-          forward.applyQuaternion(camera.quaternion);
-          forward.z = 0; // keep horizontal
-          controls.target.add(forward);
-          camera.position.add(forward);
-        }
-
-        // Q/E — vertical movement
-        if (keysPressed.has('q')) {
-          controls.target.z -= panSpeed;
-          camera.position.z -= panSpeed;
-        }
-        if (keysPressed.has('e')) {
-          controls.target.z += panSpeed;
-          camera.position.z += panSpeed;
-        }
-
-        // Arrow keys — orbit around target
-        _orbitSpherical.setFromVector3(
-          camera.position.clone().sub(controls.target)
-        );
-        if (keysPressed.has('ArrowLeft')) _orbitSpherical.theta -= orbitSpeed;
-        if (keysPressed.has('ArrowRight')) _orbitSpherical.theta += orbitSpeed;
-        if (keysPressed.has('ArrowUp')) _orbitSpherical.phi = Math.max(0.1, _orbitSpherical.phi - orbitSpeed);
-        if (keysPressed.has('ArrowDown')) _orbitSpherical.phi = Math.min(Math.PI - 0.1, _orbitSpherical.phi + orbitSpeed);
-        if (keysPressed.has('ArrowLeft') || keysPressed.has('ArrowRight') || keysPressed.has('ArrowUp') || keysPressed.has('ArrowDown')) {
-          camera.position.copy(controls.target).add(
-            _panVec.setFromSpherical(_orbitSpherical)
-          );
-        }
-      }
+      handleKeyboardCamera();
 
       controls.update();
       // Keep ortho frustum synced when using orthographic camera
       if (camera === orthoCamera) syncOrthoFrustum();
       // Update clipping plane
       updateClippingPlane();
+
+      // Tick down damping frames (OrbitControls damping settles over ~15-20 frames)
+      if (dampingFrames > 0) dampingFrames--;
 
       // Animate deformed shape (oscillating scale like 2D viewport)
       const _dt = resultsStore.diagramType;
@@ -379,11 +426,21 @@
 
       renderer.render(scene, camera);
       drawAxisGizmo();
+
+      // Keep looping if continuous rendering is needed
+      if (needsContinuous() || needsRender) {
+        animFrameId = requestAnimationFrame(renderOnce);
+      }
     }
-    animate();
+    // Kick off the first frame
+    animFrameId = requestAnimationFrame(renderOnce);
+
+    // When OrbitControls interaction ends, allow damping frames to settle
+    controls.addEventListener('start', () => { dampingFrames = 0; });
+    controls.addEventListener('end', () => { dampingFrames = 20; invalidate(); });
 
     // Listen for global zoom-to-fit event (dispatched by F key from Toolbar)
-    const handleZoomToFitEvent = () => zoomToFit();
+    const handleZoomToFitEvent = () => { zoomToFit(); }; // zoomToFit() calls invalidate() internally
     window.addEventListener('stabileo-zoom-to-fit', handleZoomToFitEvent);
 
     // Listen for camera restore event (dispatched on tab switch)
@@ -394,6 +451,7 @@
       camera.position.set(pos.x, pos.y, pos.z);
       controls.target.set(tgt.x, tgt.y, tgt.z);
       controls.update();
+      invalidate();
     };
     window.addEventListener('stabileo-restore-camera-3d', handleRestoreCamera);
 
@@ -519,34 +577,40 @@
     syncSupports();
     syncLoads();
     syncShells(); // shells depend on node positions
+    invalidate();
   });
 
   $effect(() => {
     modelStore.elements;
     syncElements();
     syncLoads(); // loads reference elements
+    invalidate();
   });
 
   $effect(() => {
     modelStore.plates;
     modelStore.quads;
     syncShells();
+    invalidate();
   });
 
   $effect(() => {
     uiStore.renderMode3D;
     syncElements();
+    invalidate();
   });
 
   $effect(() => {
     modelStore.modelVersion;
     uiStore.analysisMode;
     syncResultsProjection();
+    invalidate();
   });
 
   $effect(() => {
     modelStore.supports;
     syncSupports();
+    invalidate();
   });
 
   $effect(() => {
@@ -556,6 +620,7 @@
     uiStore.momentStyle3D;
     resultsStore.diagramType;
     syncLoads();
+    invalidate();
   });
 
   $effect(() => {
@@ -570,11 +635,19 @@
     const dt = resultsStore.diagramType;
     if (resultsCtx) resultsCtx.lastDeformedAnimScale = null;
     // Mode shapes and buckling modes always animate from the render loop
-    if (dt === 'modeShape' || dt === 'bucklingMode') return;
+    if (dt === 'modeShape' || dt === 'bucklingMode') { invalidate(); return; }
     // Always sync deformed to clean up old geometry when diagram type changes.
     // When animation is active AND we're still showing deformed, the render
     // loop will keep updating — but syncDeformed is idempotent (removes + recreates).
     syncDeformed();
+    invalidate();
+  });
+
+  // When animation state changes, kick the render loop
+  $effect(() => {
+    resultsStore.animateDeformed;
+    resultsStore.animSpeed;
+    invalidate();
   });
 
   $effect(() => {
@@ -586,6 +659,7 @@
     resultsStore.isEnvelopeActive;
     resultsStore.fullEnvelope3D;
     syncDiagrams3D();
+    invalidate();
   });
 
   $effect(() => {
@@ -597,18 +671,21 @@
     verificationStore.steel;
     syncColorMap3D();
     syncVerificationLabels();
+    invalidate();
   });
 
   $effect(() => {
     resultsStore.results3D;
     resultsStore.showReactions;
     syncReactions();
+    invalidate();
   });
 
   $effect(() => {
     resultsStore.constraintForces3D;
     resultsStore.showConstraintForces;
     syncConstraintForces();
+    invalidate();
   });
 
   $effect(() => {
@@ -616,6 +693,7 @@
     uiStore.selectedElements;
     uiStore.selectedSupports;
     syncSelection();
+    invalidate();
   });
 
   $effect(() => {
@@ -625,6 +703,7 @@
     uiStore.showElementLabels3D;
     uiStore.showLengths3D;
     syncLabels3D();
+    invalidate();
   });
 
   // Reactive grid: update when working plane, grid size, nodeCreateZ change
@@ -635,6 +714,7 @@
     uiStore.gridExtent3D;
     uiStore.showGrid3D;
     updateGrid();
+    invalidate();
   });
 
   // Reactive axes visibility: gizmo replaces world-origin axes in Basic 3D and PRO
@@ -647,6 +727,15 @@
     for (const s of axisLabelSprites) s.visible = show && !hideWorldAxes;
     // Gizmo visibility follows the setting
     if (gizmoCanvas) gizmoCanvas.style.display = show ? 'block' : 'none';
+    invalidate();
+  });
+
+  // Reactive clipping plane: invalidate when clipping settings change
+  $effect(() => {
+    uiStore.clippingEnabled;
+    uiStore.clippingAxis;
+    uiStore.clippingPosition;
+    invalidate();
   });
 
   // Cancel pending element when tool changes
@@ -707,12 +796,14 @@
     stressMarkerGroup.add(label);
 
     resultsParent.add(stressMarkerGroup);
+    invalidate();
   });
 
   // Clean up measurement visuals when measureMode is toggled off
   $effect(() => {
     if (!uiStore.measureMode) {
       clearMeasureVisuals();
+      invalidate();
     }
   });
 
@@ -861,10 +952,12 @@
   }
 
   function cancelPendingElement() {
+    let changed = false;
     if (pendingElementNodeI !== null) {
       // Restore node color
       const mesh = nodeMeshes.get(pendingElementNodeI);
       if (mesh) setMeshColor(mesh, COLORS.node);
+      changed = true;
     }
     pendingElementNodeI = null;
     if (pendingLine) {
@@ -872,7 +965,9 @@
       pendingLine.geometry?.dispose();
       (pendingLine.material as THREE.Material)?.dispose();
       pendingLine = null;
+      changed = true;
     }
+    if (changed) invalidate();
   }
 
   function handleSupportTool(e: MouseEvent) {
@@ -1130,6 +1225,7 @@
       // Toast with distance
       uiStore.toast(t('viewport3d.distance').replace('{dist}', dist.toFixed(3)), 'info');
     }
+    invalidate();
   }
 
   // ─── Helper: project a 3D world point to screen coords ────
@@ -1450,6 +1546,8 @@
       }
     }
 
+    // Invalidate if hover state changed (material colors were modified)
+    if (hoveredData !== newHover) invalidate();
     hoveredData = newHover;
     hoveredNodeId3D = (newHover?.type === 'node') ? newHover.id : null;
 
@@ -1525,6 +1623,7 @@
           pendingLine.renderOrder = 999;
           scene.add(pendingLine);
         }
+        invalidate();
       }
     }
   }
@@ -1533,6 +1632,7 @@
     if (hoveredData) {
       restoreColor(hoveredData);
       hoveredData = null;
+      invalidate();
     }
     hoverTooltip = null;
     hoveredNodeId3D = null;
@@ -1607,10 +1707,12 @@
 
   function zoomToFit() {
     _zoomToFit(camera, controls, modelStore.nodes, orthoCamera, container);
+    invalidate();
   }
 
   function setView(view: 'top' | 'front' | 'side' | 'iso') {
     _setView(view, camera, controls, modelStore.nodes);
+    invalidate();
   }
 
   // ─── 3D Axis gizmo (bottom-left corner) ────────────────────
@@ -1677,6 +1779,7 @@
     }
 
     uiStore.cameraMode3D = newMode;
+    invalidate();
   }
 
   // ─── Utils ──────────────────────────────────────────────────

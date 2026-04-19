@@ -325,6 +325,9 @@ function createUIStore() {
   // Pending auto-solve from URL sharing (stores the diagramType to restore after solve)
   let pendingSolveFromURL = $state<string | null>(null);
 
+  // Continuous rendering override (forces requestAnimationFrame loop like old behavior)
+  let continuousRendering = $state<boolean>(false);
+
   return {
     get currentTool() { return currentTool; },
     set currentTool(v: Tool) { currentTool = v; },
@@ -731,6 +734,9 @@ function createUIStore() {
 
     get pendingSolveFromURL() { return pendingSolveFromURL; },
     set pendingSolveFromURL(v: string | null) { pendingSolveFromURL = v; },
+
+    get continuousRendering() { return continuousRendering; },
+    set continuousRendering(v: boolean) { continuousRendering = v; },
 
     setMouse(mx: number, my: number, wx: number, wy: number) {
       mouseX = mx;
