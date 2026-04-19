@@ -22,7 +22,13 @@ let initPromise: Promise<void> | null = null;
 let nextId = 0;
 
 /** Maximum number of workers to create */
-const MAX_WORKERS = Math.min(navigator.hardwareConcurrency ?? 4, 8);
+const DEFAULT_WORKER_COUNT = 4;
+const MAX_WORKERS = Math.min(
+  typeof navigator !== 'undefined'
+    ? (navigator.hardwareConcurrency ?? DEFAULT_WORKER_COUNT)
+    : DEFAULT_WORKER_COUNT,
+  8,
+);
 
 /** Fetch the WASM binary once for sharing with workers. */
 async function fetchWasmBytes(): Promise<ArrayBuffer> {

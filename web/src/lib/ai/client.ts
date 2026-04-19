@@ -4,7 +4,7 @@
  * Talks to the Rust/Axum backend at /api/ai/*.
  * Configuration is via environment variables:
  *   VITE_AI_BACKEND_URL — base URL (default http://localhost:3001)
- *   VITE_AI_API_KEY     — bearer token
+ *   VITE_AI_API_KEY     — optional bearer token
  */
 
 import { getElevation, hasElevation, VERTICAL_AXIS, type CoordinateNode } from '../geometry/coordinate-system';
@@ -271,16 +271,16 @@ export function buildArtifact(
 // ─── API calls ─────────────────────────────────────────────────
 
 async function post<T>(path: string, body: unknown, signal?: AbortSignal): Promise<T> {
-  if (!API_KEY) {
-    throw new Error('AI backend API key not configured (VITE_AI_API_KEY)');
+  const headers: Record<string, string> = {
+    'Content-Type': 'application/json',
+  };
+  if (API_KEY) {
+    headers['Authorization'] = `Bearer ${API_KEY}`;
   }
 
   const resp = await fetch(`${BACKEND_URL}${path}`, {
     method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'Authorization': `Bearer ${API_KEY}`,
-    },
+    headers,
     body: JSON.stringify(body),
     signal,
   });
