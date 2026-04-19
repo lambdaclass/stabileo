@@ -1050,6 +1050,92 @@ pub fn quad9_edge_load(
     f
 }
 
+// ==================== Quality Metrics ====================
+
+/// Quality metrics for a Quad9 element, derived from corner geometry and 3×3 Gauss Jacobian.
+pub struct Quad9QualityMetrics {
+    /// max_edge / min_edge among the 4 corner edges.
+    pub aspect_ratio: f64,
+    /// Maximum skew = |corner_angle − 90°| in degrees.
+    pub max_skew: f64,
+    /// Warping factor: max corner distance from best-fit plane / diagonal length.
+    pub warping: f64,
+    /// min(|det J|) / max(|det J|) over 3×3 Gauss points.  Ideal = 1.0.
+    pub jacobian_ratio: f64,
+}
+
+/// Compute mesh-quality metrics for a Quad9 element.
+///
+/// Corner geometry (nodes 0-3) is used for aspect ratio, skew, and warping.
+/// The Jacobian ratio is evaluated at all 9 Gauss points using the full
+/// quadratic mapping.
+pub fn quad9_quality_metrics(coords: &[[f64; 3]; 9]) -> Quad9QualityMetrics {
+    let corners = [coords[0], coords[1], coords[2], coords[3]];
+
+    // Edge lengths (corner edges)
+    let edges = [
+        norm3(&sub3(&corners[1], &corners[0])),
+        norm3(&sub3(&corners[2], &corners[1])),
+        norm3(&sub3(&corners[3], &corners[2])),
+        norm3(&sub3(&corners[0], &corners[3])),
+    ];
+    let max_edge = edges.iter().cloned().fold(0.0_f64, f64::max);
+    let min_edge = edges.iter().cloned().fold(f64::INFINITY, f64::min);
+    let aspect_ratio = if min_edge > 1e-15 { max_edge / min_edge } else { f64::INFINITY };
+
+    // Skew: deviation from 90° at each corner
+    let mut max_skew = 0.0_f64;
+    for i in 0..4 {
+        let prev = (i + 3) % 4;
+        let next = (i + 1) % 4;
+        let v1 = sub3(&corners[prev], &corners[i]);
+        let v2 = sub3(&corners[next], &corners[i]);
+        let l1 = norm3(&v1);
+        let l2 = norm3(&v2);
+        if l1 > 1e-15 && l2 > 1e-15 {
+            let cos_a = dot3(&v1, &v2) / (l1 * l2);
+            let angle = cos_a.clamp(-1.0, 1.0).acos().to_degrees();
+            max_skew = max_skew.max((angle - 90.0).abs());
+        }
+    }
+
+    // Warping: max corner distance from best-fit plane / diagonal
+    let (_, _, ez) = quad9_local_axes(coords);
+    let center = [
+        0.25 * (corners[0][0] + corners[1][0] + corners[2][0] + corners[3][0]),
+        0.25 * (corners[0][1] + corners[1][1] + corners[2][1] + corners[3][1]),
+        0.25 * (corners[0][2] + corners[1][2] + corners[2][2] + corners[3][2]),
+    ];
+    let mut max_dist = 0.0_f64;
+    for c in &corners {
+        let d = sub3(c, &center);
+        max_dist = max_dist.max(dot3(&d, &ez).abs());
+    }
+    let diag = norm3(&sub3(&corners[2], &corners[0]));
+    let warping = if diag > 1e-15 { max_dist / diag } else { 0.0 };
+
+    // Jacobian ratio from 3×3 Gauss points (full quadratic mapping)
+    let (ex, ey, _) = quad9_local_axes(coords);
+    let pts = project_to_2d_9(coords, &ex, &ey);
+    let gauss = gauss_3x3();
+    let mut min_det = f64::INFINITY;
+    let mut max_det = 0.0_f64;
+    for &((xi, eta), _) in &gauss {
+        let (_, _, det_j) = jacobian_2d_9(&pts, xi, eta);
+        let d = det_j.abs();
+        min_det = min_det.min(d);
+        max_det = max_det.max(d);
+    }
+    let jacobian_ratio = if max_det > 1e-15 { min_det / max_det } else { 0.0 };
+
+    Quad9QualityMetrics {
+        aspect_ratio,
+        max_skew,
+        warping,
+        jacobian_ratio,
+    }
+}
+
 // ==================== Jacobian Check ====================
 
 /// Check Jacobian determinant over all 3×3 Gauss points.

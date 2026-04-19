@@ -610,6 +610,56 @@ pub fn solid_shell_self_weight_load(
 
 // ==================== Quality Check ====================
 
+/// Quality metrics for an 8-node hex (solid-shell) element.
+pub struct HexQualityMetrics {
+    /// max_edge / min_edge across all 12 hex edges.
+    pub aspect_ratio: f64,
+    /// min(|det J|) / max(|det J|) over 2×2×2 Gauss points. Ideal = 1.0.
+    pub jacobian_ratio: f64,
+}
+
+/// Compute mesh-quality metrics for an 8-node hex element.
+///
+/// Aspect ratio is the ratio of the longest to shortest of the 12 edges.
+/// Jacobian ratio is min/max |det J| over the 8 Gauss points.
+pub fn solid_shell_quality_metrics(coords: &[[f64; 3]; 8]) -> HexQualityMetrics {
+    // 12 edges of a hex: bottom(0-1,1-2,2-3,3-0), top(4-5,5-6,6-7,7-4), verticals(0-4,1-5,2-6,3-7)
+    let edge_pairs: [(usize, usize); 12] = [
+        (0, 1), (1, 2), (2, 3), (3, 0),
+        (4, 5), (5, 6), (6, 7), (7, 4),
+        (0, 4), (1, 5), (2, 6), (3, 7),
+    ];
+    let mut max_edge = 0.0_f64;
+    let mut min_edge = f64::INFINITY;
+    for &(a, b) in &edge_pairs {
+        let dx = coords[b][0] - coords[a][0];
+        let dy = coords[b][1] - coords[a][1];
+        let dz = coords[b][2] - coords[a][2];
+        let len = (dx * dx + dy * dy + dz * dz).sqrt();
+        max_edge = max_edge.max(len);
+        min_edge = min_edge.min(len);
+    }
+    let aspect_ratio = if min_edge > 1e-15 { max_edge / min_edge } else { f64::INFINITY };
+
+    // Jacobian ratio from 2×2×2 Gauss
+    let gauss = gauss_2x2x2();
+    let mut min_det = f64::INFINITY;
+    let mut max_det = 0.0_f64;
+    for &(xi, eta, zeta, _) in &gauss {
+        let dn = shape_derivatives_hex8(xi, eta, zeta);
+        let (_, _, det_j) = jacobian_3d(coords, &dn);
+        let d = det_j.abs();
+        min_det = min_det.min(d);
+        max_det = max_det.max(d);
+    }
+    let jacobian_ratio = if max_det > 1e-15 { min_det / max_det } else { 0.0 };
+
+    HexQualityMetrics {
+        aspect_ratio,
+        jacobian_ratio,
+    }
+}
+
 /// Check Jacobian quality at all 8 Gauss points.
 /// Returns (min_det, max_det, all_positive).
 pub fn solid_shell_check_jacobian(coords: &[[f64; 3]; 8]) -> (f64, f64, bool) {
