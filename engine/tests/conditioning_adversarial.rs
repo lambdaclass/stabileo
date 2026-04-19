@@ -53,14 +53,9 @@ mod near_singular {
     fn roller_missing_horizontal_restraint() {
         // CONTRACT: A single frame element with only rollerX at each end
         // leaves the horizontal DOF unconstrained (mechanism in X).
-        // The solver should return an error or, if it uses LU fallback and
-        // happens to find a solution, the horizontal displacement should be
-        // indeterminate. We accept: error, fallback diagnostic, or finite
-        // results (the vertical problem is well-posed).
-        //
-        // KNOWN GAP: The solver's LU fallback can solve this because the
-        // vertical sub-problem is decoupled. The horizontal DOF gets an
-        // arbitrary (zero) solution. The solver does not flag the mechanism.
+        // The solver should either return an error, or return results with
+        // at least one instability diagnostic (ExcessiveDisplacement,
+        // ResidualHigh, or CholeskyFailedLuFallback).
         let input = make_input(
             vec![(1, 0.0, 0.0), (2, 5.0, 0.0)],
             vec![(1, 200_000.0, 0.3)],
@@ -77,12 +72,22 @@ mod near_singular {
                 // Solver correctly refused the mechanism — ideal behavior.
             }
             Ok(r) => {
-                // KNOWN GAP: The solver may succeed via LU fallback without
-                // flagging the horizontal mechanism. At minimum, results
-                // must not contain NaN.
+                // Solver returned a result despite the mechanism. It must not
+                // contain NaN, and must emit at least one instability warning.
                 assert!(
                     !results_contain_nan_2d(&r),
                     "Roller-only model should not produce NaN"
+                );
+                let has_instability_warning = r.structured_diagnostics.iter().any(|d| {
+                    matches!(d.code,
+                        DiagnosticCode::CholeskyFailedLuFallback
+                        | DiagnosticCode::ExcessiveDisplacement
+                        | DiagnosticCode::ResidualHigh
+                    )
+                });
+                assert!(
+                    has_instability_warning,
+                    "Mechanism model must emit at least one instability diagnostic"
                 );
             }
         }

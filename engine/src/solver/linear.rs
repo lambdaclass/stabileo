@@ -285,13 +285,14 @@ pub fn solve_2d(input: &SolverInput) -> Result<AnalysisResults, String> {
     let cond_report = super::conditioning::check_conditioning(&k_ff, nf);
 
     // Solve Kff * u_f = Ff_modified
+    let mut cholesky_failed = false;
     let (u_f, used_sparse) = if nf >= SPARSE_THRESHOLD {
         // Sparse path
         let k_ff_sparse = CscMatrix::from_dense_symmetric(&k_ff, nf);
         match sparse_cholesky_solve_full(&k_ff_sparse, &f_f) {
             Some(u) => (u, true),
             None => {
-                // Fallback to dense LU
+                cholesky_failed = true;
                 let mut k_work = k_ff.clone();
                 let mut f_work = f_f.clone();
                 let u = lu_solve(&mut k_work, &mut f_work, nf)
@@ -304,6 +305,7 @@ pub fn solve_2d(input: &SolverInput) -> Result<AnalysisResults, String> {
         match cholesky_solve(&mut k_work, &f_f, nf) {
             Some(u) => (u, false),
             None => {
+                cholesky_failed = true;
                 let mut k_work = k_ff.clone();
                 let mut f_work = f_f.clone();
                 let u = lu_solve(&mut k_work, &mut f_work, nf)
@@ -393,6 +395,42 @@ pub fn solve_2d(input: &SolverInput) -> Result<AnalysisResults, String> {
         Severity::Info,
         format!("{} solver ({} free DOFs)", if used_sparse { "Sparse Cholesky" } else { "Dense" }, nf),
     ).with_phase("solve"));
+
+    // LU fallback warning
+    if cholesky_failed {
+        structured.push(StructuredDiagnostic::global(
+            DiagnosticCode::CholeskyFailedLuFallback,
+            Severity::Warning,
+            "Cholesky factorization failed — LU fallback succeeded but model may be unstable (not positive-definite)".to_string(),
+        ).with_phase("solve"));
+    }
+
+    // Displacement sanity check
+    let max_disp = u_f.iter().map(|v| v.abs()).fold(0.0f64, f64::max);
+    let char_length = {
+        let mut min_x = f64::MAX;
+        let mut max_x = f64::MIN;
+        let mut min_z = f64::MAX;
+        let mut max_z = f64::MIN;
+        for node in input.nodes.values() {
+            min_x = min_x.min(node.x);
+            max_x = max_x.max(node.x);
+            min_z = min_z.min(node.z);
+            max_z = max_z.max(node.z);
+        }
+        let span = ((max_x - min_x).powi(2) + (max_z - min_z).powi(2)).sqrt();
+        span.max(1.0) // floor at 1.0 to avoid division issues for single-node models
+    };
+    if max_disp > 1000.0 * char_length {
+        structured.push(StructuredDiagnostic::global(
+            DiagnosticCode::ExcessiveDisplacement,
+            Severity::Warning,
+            format!(
+                "Maximum displacement {:.2e} exceeds 1000× characteristic length {:.2e} — likely mechanism or instability",
+                max_disp, char_length
+            ),
+        ).with_value(max_disp, 1000.0 * char_length).with_phase("solve"));
+    }
 
     // Conditioning
     let cond = cond_report.diagonal_ratio;
@@ -746,6 +784,37 @@ pub fn solve_3d(input: &SolverInput3D) -> Result<AnalysisResults3D, String> {
                         format!("Sparse Cholesky failed, fell back to dense LU ({} free DOFs)", nf),
                     ).with_phase("solve"));
 
+                    // LU fallback stability warning
+                    structured.push(StructuredDiagnostic::global(
+                        DiagnosticCode::CholeskyFailedLuFallback,
+                        Severity::Warning,
+                        "Cholesky factorization failed — LU fallback succeeded but model may be unstable (not positive-definite)".to_string(),
+                    ).with_phase("solve"));
+
+                    // Displacement sanity check
+                    let max_disp = u_fb.iter().map(|v| v.abs()).fold(0.0f64, f64::max);
+                    let char_length = {
+                        let (mut mn_x, mut mx_x) = (f64::MAX, f64::MIN);
+                        let (mut mn_y, mut mx_y) = (f64::MAX, f64::MIN);
+                        let (mut mn_z, mut mx_z) = (f64::MAX, f64::MIN);
+                        for node in input.nodes.values() {
+                            mn_x = mn_x.min(node.x); mx_x = mx_x.max(node.x);
+                            mn_y = mn_y.min(node.y); mx_y = mx_y.max(node.y);
+                            mn_z = mn_z.min(node.z); mx_z = mx_z.max(node.z);
+                        }
+                        ((mx_x - mn_x).powi(2) + (mx_y - mn_y).powi(2) + (mx_z - mn_z).powi(2)).sqrt().max(1.0)
+                    };
+                    if max_disp > 1000.0 * char_length {
+                        structured.push(StructuredDiagnostic::global(
+                            DiagnosticCode::ExcessiveDisplacement,
+                            Severity::Warning,
+                            format!(
+                                "Maximum displacement {:.2e} exceeds 1000× characteristic length {:.2e} — likely mechanism or instability",
+                                max_disp, char_length
+                            ),
+                        ).with_value(max_disp, 1000.0 * char_length).with_phase("solve"));
+                    }
+
                     if cond > 1e12 {
                         structured.push(StructuredDiagnostic::global(
                             DiagnosticCode::ExtremelyHighDiagonalRatio,
@@ -974,6 +1043,30 @@ pub fn solve_3d(input: &SolverInput3D) -> Result<AnalysisResults3D, String> {
             ).with_value(max_perturbation_val, 0.0).with_phase("factorization"));
         }
 
+        // Displacement sanity check
+        let max_disp = u_f.iter().map(|v| v.abs()).fold(0.0f64, f64::max);
+        let char_length = {
+            let (mut mn_x, mut mx_x) = (f64::MAX, f64::MIN);
+            let (mut mn_y, mut mx_y) = (f64::MAX, f64::MIN);
+            let (mut mn_z, mut mx_z) = (f64::MAX, f64::MIN);
+            for node in input.nodes.values() {
+                mn_x = mn_x.min(node.x); mx_x = mx_x.max(node.x);
+                mn_y = mn_y.min(node.y); mx_y = mx_y.max(node.y);
+                mn_z = mn_z.min(node.z); mx_z = mx_z.max(node.z);
+            }
+            ((mx_x - mn_x).powi(2) + (mx_y - mn_y).powi(2) + (mx_z - mn_z).powi(2)).sqrt().max(1.0)
+        };
+        if max_disp > 1000.0 * char_length {
+            structured.push(StructuredDiagnostic::global(
+                DiagnosticCode::ExcessiveDisplacement,
+                Severity::Warning,
+                format!(
+                    "Maximum displacement {:.2e} exceeds 1000× characteristic length {:.2e} — likely mechanism or instability",
+                    max_disp, char_length
+                ),
+            ).with_value(max_disp, 1000.0 * char_length).with_phase("solve"));
+        }
+
         // Residual diagnostic — describes the returned solution, not any rejected attempt
         let solver_label = if used_residual_fallback { "Dense LU fallback" } else { "Sparse Cholesky" };
         structured.push(if rel_residual < 1e-6 {
@@ -1039,11 +1132,13 @@ pub fn solve_3d(input: &SolverInput3D) -> Result<AnalysisResults3D, String> {
         let k_fr_ur = mat_vec_rect(&k_fr, &u_r, nf, nr);
         for i in 0..nf { f_f[i] -= k_fr_ur[i]; }
 
+        let mut cholesky_failed_3d = false;
         let u_f = {
             let mut k_work = k_ff.clone();
             match cholesky_solve(&mut k_work, &f_f, nf) {
                 Some(u) => u,
                 None => {
+                    cholesky_failed_3d = true;
                     let mut k_work = k_ff.clone();
                     let mut f_work = f_f.clone();
                     lu_solve(&mut k_work, &mut f_work, nf)
@@ -1117,6 +1212,39 @@ pub fn solve_3d(input: &SolverInput3D) -> Result<AnalysisResults3D, String> {
             Severity::Info,
             format!("Dense solver ({} free DOFs)", nf),
         ).with_phase("solve"));
+
+        // LU fallback warning
+        if cholesky_failed_3d {
+            structured.push(StructuredDiagnostic::global(
+                DiagnosticCode::CholeskyFailedLuFallback,
+                Severity::Warning,
+                "Cholesky factorization failed — LU fallback succeeded but model may be unstable (not positive-definite)".to_string(),
+            ).with_phase("solve"));
+        }
+
+        // Displacement sanity check
+        let max_disp = u_f.iter().map(|v| v.abs()).fold(0.0f64, f64::max);
+        let char_length = {
+            let (mut mn_x, mut mx_x) = (f64::MAX, f64::MIN);
+            let (mut mn_y, mut mx_y) = (f64::MAX, f64::MIN);
+            let (mut mn_z, mut mx_z) = (f64::MAX, f64::MIN);
+            for node in input.nodes.values() {
+                mn_x = mn_x.min(node.x); mx_x = mx_x.max(node.x);
+                mn_y = mn_y.min(node.y); mx_y = mx_y.max(node.y);
+                mn_z = mn_z.min(node.z); mx_z = mx_z.max(node.z);
+            }
+            ((mx_x - mn_x).powi(2) + (mx_y - mn_y).powi(2) + (mx_z - mn_z).powi(2)).sqrt().max(1.0)
+        };
+        if max_disp > 1000.0 * char_length {
+            structured.push(StructuredDiagnostic::global(
+                DiagnosticCode::ExcessiveDisplacement,
+                Severity::Warning,
+                format!(
+                    "Maximum displacement {:.2e} exceeds 1000× characteristic length {:.2e} — likely mechanism or instability",
+                    max_disp, char_length
+                ),
+            ).with_value(max_disp, 1000.0 * char_length).with_phase("solve"));
+        }
 
         // Conditioning
         let cond = cond_report.diagonal_ratio;
