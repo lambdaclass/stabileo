@@ -6,6 +6,7 @@
   import type { ReportData, ReportConfig } from '../../lib/engine/pro-report';
   import type { ElementVerification } from '../../lib/engine/codes/argentina/cirsoc201';
   import { autoVerifyFromResults } from '../../lib/engine/auto-verify';
+  import { extractElementStations, extractGoverningDemands, type ElementDesignDemands } from '../../lib/engine/station-design-forces';
   import { computeQuantities } from '../../lib/engine/quantity-takeoff';
   import { checkCrackWidth, checkDeflection } from '../../lib/engine/codes/argentina/serviceability';
   import { classifyElement } from '../../lib/engine/codes/argentina/cirsoc201';
@@ -21,8 +22,8 @@
   import ProSupportsTab from './ProSupportsTab.svelte';
   import ProLoadsTab from './ProLoadsTab.svelte';
   import ProResultsTab from './ProResultsTab.svelte';
-  import ProVerificationTab from './ProVerificationTab.svelte';
   import ProDesignTab from './ProDesignTab.svelte';
+  import ProRcWorkflowTab from './ProRcWorkflowTab.svelte';
   import ProShellTab from './ProShellTab.svelte';
   import ProConstraintsTab from './ProConstraintsTab.svelte';
   import ProAdvancedTab from './ProAdvancedTab.svelte';
@@ -31,7 +32,7 @@
   import { checkModel } from '../../lib/engine/model-diagnostics';
   import { get2DDisplayNodalLoadMoment, get2DDisplayNodalLoadVertical } from '../../lib/geometry/coordinate-system';
 
-  type ProTab = 'nodes' | 'elements' | 'shells' | 'materials' | 'sections' | 'supports' | 'constraints' | 'loads' | 'advanced' | 'results' | 'design' | 'verification' | 'connections' | 'diagnostics';
+  type ProTab = 'nodes' | 'elements' | 'shells' | 'materials' | 'sections' | 'supports' | 'constraints' | 'loads' | 'advanced' | 'results' | 'design' | 'connections' | 'diagnostics';
 
   // Group tabs into logical categories
   interface TabGroup {
@@ -68,8 +69,7 @@
       tabs: [
         { id: 'advanced' as ProTab, label: t('pro.tabAdvanced') },
         { id: 'results' as ProTab, label: t('pro.tabResults') },
-        { id: 'design' as ProTab, label: t('pro.tabDesign') },
-        { id: 'verification' as ProTab, label: t('pro.tabVerification') },
+        { id: 'design' as ProTab, label: 'RC Design' },
         { id: 'connections' as ProTab, label: t('pro.tabConnections') },
         { id: 'diagnostics' as ProTab, label: t('pro.tabDiagnostics') },
       ],
@@ -145,6 +145,17 @@
       stats: { nodes: '180', members: '344' },
       preset: 'default',
       load: () => modelStore.loadExample('rc-design-frame'),
+    },
+    {
+      group: 'buildings',
+      groupKey: 'pro.examples.groupBuildings',
+      nameKey: 'ex.rc-qa-diagnostic',
+      descKey: 'ex.rc-qa-diagnostic.desc',
+      purposeKey: 'ex.rc-qa-diagnostic.purpose',
+      tags: ['pro.tagDesign', 'pro.tagRC'],
+      stats: { nodes: '18', members: '26' },
+      preset: 'default',
+      load: () => modelStore.loadExample('rc-qa-diagnostic'),
     },
     {
       group: 'industrial',
@@ -379,14 +390,34 @@
   const elemCount = $derived(modelStore.elements.size);
   const loadCount = $derived(modelStore.loads.length);
 
+  /** Compute station-based demands for all elements (when per-combo data available) */
+  function computeStationDemands(): Map<number, ElementDesignDemands> {
+    const result = new Map<number, ElementDesignDemands>();
+    if (!resultsStore.hasCombinations3D) return result;
+    const perCombo = resultsStore.perCombo3D;
+    if (perCombo.size === 0) return result;
+    const comboNames = new Map<number, string>();
+    for (const c of modelStore.model.combinations) comboNames.set(c.id, c.name);
+    const firstCombo = perCombo.values().next().value;
+    if (!firstCombo) return result;
+    for (const ef of firstCombo.elementForces) {
+      const esr = extractElementStations(ef.elementId, perCombo, comboNames);
+      if (esr) result.set(ef.elementId, extractGoverningDemands(esr));
+    }
+    return result;
+  }
+
   /** Auto-run CIRSOC verification on current results (delegates to extracted utility) */
   function autoVerify(): ElementVerification[] {
     const results = resultsStore.results3D;
     if (!results) return [];
+    const stationDemands = computeStationDemands();
     const { concrete } = autoVerifyFromResults(
       results,
       { elements: modelStore.elements, nodes: modelStore.nodes, sections: modelStore.sections, materials: modelStore.materials, supports: modelStore.supports },
       resultsStore.governing3D.size > 0 ? resultsStore.governing3D : null,
+      undefined,
+      stationDemands.size > 0 ? stationDemands : undefined,
     );
     return concrete;
   }
@@ -755,9 +786,7 @@
         {:else if activeTab === 'results'}
           <ProResultsTab />
         {:else if activeTab === 'design'}
-          <ProDesignTab />
-        {:else if activeTab === 'verification'}
-          <ProVerificationTab bind:verifications={verificationsRef} />
+          <ProRcWorkflowTab bind:verifications={verificationsRef} />
         {:else if activeTab === 'connections'}
           <ProConnectionsTab />
         {:else if activeTab === 'diagnostics'}

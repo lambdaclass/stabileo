@@ -37,6 +37,28 @@
   let { verifications = $bindable([]) }: { verifications: ElementVerification[] } = $props();
   let expandedId = $state<number | null>(null);
   let expandedSteelId = $state<number | null>(null);
+
+  // On first render, inherit context from design tab:
+  // 1. Auto-expand the selected element
+  // 2. Auto-run verification if design has been done
+  let didInitFromDesign = false;
+  $effect(() => {
+    if (didInitFromDesign) return;
+    didInitFromDesign = true;
+    // Inherit selected element
+    const sel = uiStore.selectedElements;
+    if (sel.size === 1) {
+      const elemId = sel.values().next().value;
+      if (elemId != null && modelStore.elements.get(elemId)?.reinforcement) {
+        expandedId = elemId;
+      }
+    }
+    // Auto-run verification if results exist and elements have been designed
+    if (resultsStore.results3D && designedCount > 0 && verifications.length === 0) {
+      // Use queueMicrotask so the UI renders first, then verification runs
+      queueMicrotask(() => runVerification());
+    }
+  });
   let rebarFy = $state(420);    // MPa — default ADN 420
   let cover = $state(0.025);    // m — default 2.5cm
   let stirrupDia = $state(8);   // mm
@@ -155,6 +177,13 @@
   const results = $derived(resultsStore.results3D);
   const hasResults = $derived(results !== null);
   const hasEnvelope = $derived(resultsStore.hasCombinations3D);
+
+  /** Count of elements with provided reinforcement (designed in RC Design tab). */
+  const designedCount = $derived.by(() => {
+    let n = 0;
+    for (const [, elem] of modelStore.elements) { if (elem.reinforcement) n++; }
+    return n;
+  });
 
   interface EnvelopeSolicitations {
     Mu: number; Vu: number; Nu: number;
@@ -1143,6 +1172,11 @@
 </script>
 
 <div class="pro-verif">
+  {#if designedCount > 0}
+    <div class="design-context-banner">
+      Continuing from RC Design — {designedCount} element{designedCount > 1 ? 's' : ''} with provided reinforcement
+    </div>
+  {/if}
   <div class="pro-verif-header">
     <div class="pro-verif-title-row">
       <div class="pro-verif-title">{t('pro.normativeVerif')}</div>
@@ -1206,7 +1240,7 @@
       </label>
     </div>
     <button class="pro-verify-btn" onclick={runVerification} disabled={!hasResults || (!isCirsocSelected && !selectedNormativeAvailable())}>
-      {t('pro.verifyElements')}
+      {designedCount > 0 ? `Verify ${designedCount} designed element${designedCount > 1 ? 's' : ''}` : t('pro.verifyElements')}
     </button>
     {#if hasEnvelope}
       <span class="pro-env-badge">{t('pro.envelopeActive')}</span>
@@ -1993,6 +2027,16 @@
 
 <style>
   .pro-verif { display: flex; flex-direction: column; height: 100%; }
+
+  .design-context-banner {
+    padding: 4px 10px;
+    font-size: 0.65rem;
+    color: #4ecdc4;
+    background: #0a2a40;
+    border-bottom: 1px solid #1a4a7a;
+    font-weight: 600;
+    letter-spacing: 0.02em;
+  }
 
   .pro-verif-header {
     padding: 8px 10px;
