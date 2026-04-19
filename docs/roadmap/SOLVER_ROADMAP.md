@@ -15,7 +15,7 @@ The live near-term blockers are now:
 - final Step 3 trust work: pre-solve shell distortion / Jacobian gating and suspicious local-axis detection
 - constraint-system maturity and sparse/runtime hardening on real workflows
 - keeping verification/trust signals visible as contracts and CI gates evolve
-- immediate 3D coordinate-system alignment with the `Z-up` product/runtime convention so generators, solver contracts, and viewport interpretation do not drift
+- ~~immediate 3D coordinate-system alignment with the `Z-up` product/runtime convention~~ — SUBSTANTIALLY RESOLVED (2026-04-18): comprehensive audit and 60+ fixes across viewport, store, exports, backend AI, IFC, stress, and locales; see Coordinate Convention section below for remaining items
 
 ## ASAP Hardening Work
 
@@ -27,7 +27,7 @@ Before broadening the solver into more design-code and advanced-analysis depth, 
 4. `Move wall-clock timing checks out of normal pass/fail tests` — DONE. Timing-sensitive sparse-vs-dense assertions have been moved into ignored perf paths or relaxed where appropriate.
 5. `Close current sparse reduction/runtime gaps` — STILL OPEN. Keep removing avoidable densification where applicable, add broader buckling/runtime/fill gates, and enforce no-`k_full`-overbuild expectations where they truly apply.
 6. `Keep solver trust visible` — ONGOING. Every hardening change above should add proof, not only code: CI gates, contract tests, analytical/reference checks, or reproducible artifacts.
-7. `Lock the 3D coordinate convention explicitly` — NEW. The solver/generator side must match the `Z-up` product/runtime convention now, and any future compatibility work must be treated as a deliberate platform migration rather than ad hoc drift.
+7. `Lock the 3D coordinate convention explicitly` — SUBSTANTIALLY DONE (2026-04-18). Comprehensive Z-up audit fixed 60+ inconsistencies: viewport rendering (WASD, distributed loads, results-sync projections), store operations (splitElement, mirror, rotate Z preservation), file persistence (analysisMode/axisConvention3D in .ded files and share links), exports (PRO mode via `isMode3D()` in CSV/HTML/Excel), IFC import (Y-up→Z-up remapping), backend AI contracts (fz/my canonical fields, bounds), section-stress (My/Mz yMax/zMax swap), locale labels (rotMomentHelp), and basic 3D node creation (`shouldProjectModelToXZ` excluding '3d' mode). Remaining: watch for regressions and ensure new 3D features follow the convention.
 
 See also: `../research/solver_safety_and_validation_hardening.md` for the fuller defense-layer architecture around validation, convergence safeguards, post-solve verification, diagnostics, and frontend mutation guards.
 
@@ -72,20 +72,28 @@ If the product roadmap succeeds, the solver becomes the foundation for more soft
 
 ## 3D Coordinate Convention
 
-This must be explicit across the solver, generators, and product runtime.
+**Status: substantially resolved (2026-04-18).** A comprehensive codebase-wide audit identified and fixed 60+ Z-up/Y-up inconsistencies across 30+ files. The convention is now enforced end-to-end from model creation through solve, rendering, export, and file persistence.
 
 Current operational rule:
-- the product/runtime convention is `Z-up`
-- short-term solver/generator work must match that convention
-- no new 3D generator or solver-facing contract should silently reintroduce `Y-up` assumptions into 3D workflows
+- the product/runtime convention is `Z-up` — this is now consistently implemented
+- all 3D generators, solver contracts, and viewport paths follow Z-up
+- the `coordinate-system.ts` module is the single source of truth for axis constants, projection, and plane logic
 
-Migration rule:
-- the frontend/runtime migration to `Z-up` should stay staged and explicit
-- any remaining compatibility work must be treated as planned migration work, not as isolated generator/viewer tweaks
+What was fixed (2026-04-18):
+- viewport: WASD pan (forward.z not forward.y), Q/E vertical movement, distributed load axis, results-sync projection (5 functions), measurement label offsets
+- store: splitElementAtPoint, mirrorNodes, rotateNodes now preserve Z for 3D models; addNode accepts z parameter
+- file I/O: .ded files persist analysisMode and axisConvention3D; share links serialize plates/quads/constraints for PRO models; HTML reports use dz/dry not dy/drz
+- exports: `isMode3D()` helper ensures PRO mode uses 3D code paths in CSV, HTML, and Excel exports
+- IFC import: ifcToZup/ifcDirToZup remapping with parent placement hierarchy composition
+- backend AI: fz/my as canonical 2D load fields (fy/mz as serde aliases); bounds contract uses z_min/z_max
+- stress: section-stress-3d quick-path fixed My/Mz ↔ yMax/zMax pairing per Navier formula
+- locales: rotMomentHelp corrected across all 14 locales (My = weak axis, Mz = strong axis)
+- basic 3D mode: shouldProjectModelToXZ now excludes '3d' mode (was only excluding 'pro')
 
-Trust rule:
-- mixed coordinate conventions are a correctness bug, not a style preference
-- this is therefore a near-term trust/alignment task, not optional cleanup
+Remaining vigilance:
+- new 3D features must follow the convention — no silent Y-up reintroduction
+- mixed coordinate conventions remain a correctness bug, not a style preference
+- watch for regressions in IFC import and any new external format integrations
 
 ## The Automation Gap The Solver Must Close
 
