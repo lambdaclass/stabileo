@@ -3,13 +3,15 @@ import type { KinematicResult } from '../engine/kinematic-2d';
 import type { SolverInput, FullEnvelope, AnalysisResults } from '../engine/types';
 import type { SolverInput3D, AnalysisResults3D, FullEnvelope3D, Constraint3D } from '../engine/types-3d';
 import type { ModelSnapshot } from './history.svelte';
-import { getFixture, is3DFixture } from '../templates/fixture-index';
+import { getFixture, is2DFixture, is3DFixture } from '../templates/fixture-index';
 import { loadFixture } from '../templates/load-fixture';
 import { inferLoadCaseType } from '../engine/combinations-service';
 import { t } from '../i18n';
 import { validateAndSolve2D, buildSolverInput2D, validateAndSolve3D, buildSolverInput3D as buildSolverInput3DFn, solveCombinations2D, solveCombinations3D as solveCombinations3DFn, solveCombinations3DParallel as solveCombinations3DParallelFn } from '../engine/solver-service';
 import { computeInfluenceLine as computeInfluenceLineFn } from '../engine/influence-service';
 import { to2D, remapNodalLoad2D, remapMoment2D, type DrawPlane } from '../geometry/plane-projection';
+import { pickElement3DMetadata, type Element3DMetadata } from '../model/element-3d-metadata';
+import { uiStore } from './ui.svelte';
 
 export interface Node {
   id: number;
@@ -44,7 +46,7 @@ export interface Section {
   rotation?: number;  // degrees — rotation of section profile around bar axis (0-360)
 }
 
-export interface Element {
+export interface Element extends Element3DMetadata {
   id: number;
   type: 'frame' | 'truss';
   nodeI: number;
@@ -53,12 +55,6 @@ export interface Element {
   sectionId: number;
   hingeStart: boolean;
   hingeEnd: boolean;
-  // Optional orientation vector for local Y axis (3D only)
-  localYx?: number;
-  localYy?: number;
-  localYz?: number;
-  // Roll angle: rotation of local Y/Z around local X (degrees, 3D only)
-  rollAngle?: number;
 }
 
 export type SupportType = 'fixed' | 'pinned' | 'rollerX' | 'rollerY' | 'rollerZ' | 'spring'
@@ -580,6 +576,11 @@ function createModelStore() {
       if (z !== undefined && z !== 0) node.z = z;
       model.nodes.set(id, node);
       model.nodes = new Map(model.nodes);
+      if (!_undoBatching) {
+        if (uiStore.analysisMode === '3d' || uiStore.analysisMode === 'pro') {
+          uiStore.useNative3DPresentation();
+        }
+      }
       return id;
     },
 
@@ -979,6 +980,7 @@ function createModelStore() {
       nextId.plate = 1;
       nextId.quad = 1;
       lastKinematicResult = null;
+      uiStore.useNative3DPresentation();
     },
 
     /** Replace model geometry data in-place (for simplified 2D model swap). No undo. */
@@ -1061,11 +1063,7 @@ function createModelStore() {
       );
 
       // 3D properties to inherit on new sub-elements
-      const inherited3D: Record<string, unknown> = {};
-      if (elem.rollAngle != null) inherited3D.rollAngle = elem.rollAngle;
-      if ((elem as any).localYx != null) inherited3D.localYx = (elem as any).localYx;
-      if ((elem as any).localYy != null) inherited3D.localYy = (elem as any).localYy;
-      if ((elem as any).localYz != null) inherited3D.localYz = (elem as any).localYz;
+      const inherited3D = pickElement3DMetadata(elem);
 
       // Preserve original element as first segment
       const origHingeEnd = elem.hingeEnd ?? false;
@@ -1119,20 +1117,12 @@ function createModelStore() {
       if (!_undoBatching) _pushUndo?.();
       const elem = model.elements.get(elementId);
       if (!elem) return;
-      // Build a fully explicit plain object — no proxy spreading, no JSON, no snapshot
-      // Read each property individually through the proxy's get trap
+      // Preserve 3D metadata (local axes, roll angle, future element fields) when toggling hinge state.
+      const plain = $state.snapshot(elem) as Element;
       const wasStart = elem.hingeStart === true;
       const wasEnd = elem.hingeEnd === true;
-      const plain: Element = {
-        id: elem.id,
-        type: elem.type,
-        nodeI: elem.nodeI,
-        nodeJ: elem.nodeJ,
-        materialId: elem.materialId,
-        sectionId: elem.sectionId,
-        hingeStart: end === 'start' ? !wasStart : wasStart,
-        hingeEnd: end === 'end' ? !wasEnd : wasEnd,
-      };
+      plain.hingeStart = end === 'start' ? !wasStart : wasStart;
+      plain.hingeEnd = end === 'end' ? !wasEnd : wasEnd;
       model.elements.set(elementId, plain);
       model.elements = new Map(model.elements);
     },
@@ -1212,6 +1202,7 @@ function createModelStore() {
       const origType = elem.type;
       const origMatId = elem.materialId;
       const origSecId = elem.sectionId;
+      const inherited3D = pickElement3DMetadata(elem);
 
       // Remove original element and its loads
       model.elements.delete(elementId);
@@ -1233,6 +1224,7 @@ function createModelStore() {
         sectionId: origSecId,
         hingeStart: origHingeStart,
         hingeEnd: false,
+        ...inherited3D,
       });
 
       const elemBId = nextId.element++;
@@ -1245,6 +1237,7 @@ function createModelStore() {
         sectionId: origSecId,
         hingeStart: false,
         hingeEnd: origHingeEnd,
+        ...inherited3D,
       });
 
       // Redistribute distributed loads (interpolate for trapezoidal, handle partial a/b)
@@ -1594,10 +1587,15 @@ function createModelStore() {
 
       loadFixture(json as any, api as any);
 
+      if (is2DFixture(name) && (uiStore.analysisMode === '3d' || uiStore.analysisMode === 'pro')) {
+        uiStore.useUpright2DIn3DPresentation();
+      } else {
+        uiStore.useNative3DPresentation();
+      }
+
       // Switch to plain 3D mode only when the current app mode is the basic app.
       // PRO and EDU use 3D fixtures too, but loading them should not downgrade the app.
       if (is3DFixture(name)) {
-        const { uiStore } = await import('./index');
         if (uiStore.analysisMode !== 'pro' && uiStore.analysisMode !== 'edu') {
           uiStore.analysisMode = '3d';
         }
@@ -1746,7 +1744,8 @@ function createModelStore() {
       const ni = model.nodes.get(elem.nodeI);
       const nj = model.nodes.get(elem.nodeJ);
       if (!ni || !nj) return 0;
-      return Math.sqrt((nj.x - ni.x) ** 2 + (nj.y - ni.y) ** 2);
+      const dz = (nj.z ?? 0) - (ni.z ?? 0);
+      return Math.sqrt((nj.x - ni.x) ** 2 + (nj.y - ni.y) ** 2 + dz ** 2);
     },
 
     /** Get angle (radians) of element connected to node. If multiple, returns average.

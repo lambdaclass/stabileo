@@ -21,6 +21,7 @@
   const us = $derived(uiStore.unitSystem);
   const ul = (q: import('../../lib/utils/units').Quantity) => unitLabel(q, us);
   const dv = (v: number, q: import('../../lib/utils/units').Quantity) => toDisplay(v, q, us);
+  const is3DMode = $derived(uiStore.analysisMode === '3d' || uiStore.analysisMode === 'pro');
 
   let { showResults = false } = $props();
 
@@ -58,10 +59,10 @@
         <span>{dv(node.x, 'length').toFixed(3)} {ul('length')}</span>
       </div>
       <div class="property-row">
-        <span>{uiStore.analysisMode === '3d' ? 'Y' : TWO_D_VERTICAL_AXIS_LABEL}:</span>
-        <span>{dv(uiStore.analysisMode === '3d' ? node.y : get2DDisplayedVertical(node), 'length').toFixed(3)} {ul('length')}</span>
+        <span>{is3DMode ? 'Y' : TWO_D_VERTICAL_AXIS_LABEL}:</span>
+        <span>{dv(is3DMode ? node.y : get2DDisplayedVertical(node), 'length').toFixed(3)} {ul('length')}</span>
       </div>
-      {#if uiStore.analysisMode === '3d'}
+      {#if is3DMode}
         <div class="property-row">
           <span>Z:</span>
           <span>{dv(node.z ?? 0, 'length').toFixed(3)} {ul('length')}</span>
@@ -69,7 +70,7 @@
       {/if}
 
       {#if showResults}
-        {#if uiStore.analysisMode === '3d' && resultsStore.results3D}
+        {#if is3DMode && resultsStore.results3D}
           {@const disp3D = resultsStore.getDisplacement3D(nodeId)}
           {#if disp3D}
             <h4>{t('prop.displacements3d')}</h4>

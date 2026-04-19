@@ -90,6 +90,7 @@
   function shouldProject2DModel(): boolean {
     return shouldProjectModelToXZ({
       analysisMode: uiStore.analysisMode,
+      viewportPresentation3D: uiStore.viewportPresentation3D,
       nodes: modelStore.nodes.values(),
       supports: modelStore.supports.values(),
       loads: modelStore.loads,
@@ -878,7 +879,7 @@
     const nodeId = findNodeHit(e);
     if (nodeId === null) return;
 
-    const is3D = uiStore.analysisMode === '3d';
+    const is3D = uiStore.analysisMode === '3d' || uiStore.analysisMode === 'pro';
 
     historyStore.pushState();
 
@@ -942,7 +943,7 @@
   }
 
   function handleLoadTool(e: MouseEvent) {
-    const is3D = uiStore.analysisMode === '3d';
+    const is3D = uiStore.analysisMode === '3d' || uiStore.analysisMode === 'pro';
 
     if (uiStore.loadType === 'nodal') {
       const nodeId = findNodeHit(e);

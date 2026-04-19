@@ -3,6 +3,7 @@ import * as THREE from 'three';
 export type AnalysisAxis = 'x' | 'y' | 'z';
 export type VerticalAxis = 'z';
 export type WorkingPlane3D = 'XY' | 'XZ' | 'YZ';
+export type ViewportPresentation3D = 'native3d' | 'upright2dIn3d';
 export type CoordinateNode = { x: number; y: number; z?: number };
 export type ScenePoint = { x: number; y: number; z: number };
 export type TypedSupportLike = { type: string };
@@ -188,10 +189,12 @@ export function shouldProjectModelToXZ(params: {
   plateCount?: number;
   quadCount?: number;
   analysisMode?: string;
+  viewportPresentation3D?: ViewportPresentation3D;
 }): boolean {
   // 3D and PRO modes always use direct 3D coordinates — never project to XZ.
-  // Projection is only for 2D models viewed in the 3D viewport.
-  if (params.analysisMode === '3d' || params.analysisMode === 'pro') return false;
+  // Projection in 3D/PRO is only allowed when the viewport is explicitly showing
+  // a flat 2D model upright inside the 3D workspace.
+  if ((params.analysisMode === '3d' || params.analysisMode === 'pro') && params.viewportPresentation3D !== 'upright2dIn3d') return false;
   if ((params.plateCount ?? 0) > 0 || (params.quadCount ?? 0) > 0) return false;
 
   let hasNodes = false;

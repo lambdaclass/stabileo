@@ -1,7 +1,8 @@
 // UI state store
 
-import { DEFAULT_WORKING_PLANE, VERTICAL_AXIS } from '../geometry/coordinate-system';
+import { DEFAULT_WORKING_PLANE, VERTICAL_AXIS, type ViewportPresentation3D } from '../geometry/coordinate-system';
 import type { UnitSystem } from '../utils/units';
+import type { Element3DMetadata } from '../model/element-3d-metadata';
 
 export type Tool = 'select' | 'node' | 'element' | 'support' | 'load' | 'pan' | 'influenceLine';
 export type ILQuantity = 'Rz' | 'Ry' | 'Rx' | 'My' | 'Mz' | 'V' | 'M';
@@ -20,7 +21,15 @@ export type SupportTool3D = 'fixed3d' | 'pinned3d' | 'rollerXZ' | 'rollerXY' | '
 
 export interface ClipboardData {
   nodes: Array<{ origId: number; x: number; y: number; z?: number }>;
-  elements: Array<{ origNodeI: number; origNodeJ: number; type: 'frame' | 'truss'; materialId: number; sectionId: number; hingeStart?: boolean; hingeEnd?: boolean }>;
+  elements: Array<{
+    origNodeI: number;
+    origNodeJ: number;
+    type: 'frame' | 'truss';
+    materialId: number;
+    sectionId: number;
+    hingeStart?: boolean;
+    hingeEnd?: boolean;
+  } & Element3DMetadata>;
   supports: Array<{ origNodeId: number; type: SupportType }>;
 }
 
@@ -233,6 +242,9 @@ function createUIStore() {
   // Simplified 2D model mode — when a 3D model is projected to 2D, editing is disabled
   let simplified2DMode = $state(false);
   let simplified2DStats = $state<{ mergedNodes: number; removedElements: number; duplicateElements: number } | null>(null);
+  // Explicit 3D viewport presentation mode.
+  // `upright2dIn3d` is only for flat 2D models intentionally shown standing up on XZ.
+  let viewportPresentation3D = $state<ViewportPresentation3D>('native3d');
 
   // === 3D-specific state ===
   // 3D load direction (6 DOF)
@@ -592,13 +604,20 @@ function createUIStore() {
     set liveCalcError(v: string | null) { liveCalcError = v; },
 
     get analysisMode() { return analysisMode; },
-    set analysisMode(v: '2d' | '3d' | 'pro' | 'edu') { analysisMode = v; },
+    set analysisMode(v: '2d' | '3d' | 'pro' | 'edu') {
+      analysisMode = v;
+      viewportPresentation3D = 'native3d';
+    },
     get drawPlane2D() { return drawPlane2D; },
     set drawPlane2D(v: 'xy' | 'xz' | 'yz') { drawPlane2D = v; },
     get simplified2DMode() { return simplified2DMode; },
     set simplified2DMode(v: boolean) { simplified2DMode = v; },
     get simplified2DStats() { return simplified2DStats; },
     set simplified2DStats(v: typeof simplified2DStats) { simplified2DStats = v; },
+    get viewportPresentation3D() { return viewportPresentation3D; },
+    set viewportPresentation3D(v: ViewportPresentation3D) { viewportPresentation3D = v; },
+    useNative3DPresentation() { viewportPresentation3D = 'native3d'; },
+    useUpright2DIn3DPresentation() { viewportPresentation3D = 'upright2dIn3d'; },
 
     /** Top-level app mode derived from analysisMode */
     get appMode(): 'basico' | 'educativo' | 'pro' {

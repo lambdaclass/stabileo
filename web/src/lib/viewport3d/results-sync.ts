@@ -24,6 +24,7 @@ export const DIAGRAM_3D_TYPES: Set<string> = new Set(['momentY', 'momentZ', 'she
 function getProjectedNodes(): Map<number, { id: number; x: number; y: number; z?: number }> {
   const project2D = shouldProjectModelToXZ({
     analysisMode: uiStore.analysisMode,
+    viewportPresentation3D: uiStore.viewportPresentation3D,
     nodes: modelStore.nodes.values(),
     supports: modelStore.supports.values(),
     loads: modelStore.loads,
@@ -77,6 +78,7 @@ function computeStructureBBox(): number {
   let maxX = -Infinity, maxY = -Infinity, maxZ = -Infinity;
   const project2D = shouldProjectModelToXZ({
     analysisMode: uiStore.analysisMode,
+    viewportPresentation3D: uiStore.viewportPresentation3D,
     nodes: modelStore.nodes.values(),
     supports: modelStore.supports.values(),
     loads: modelStore.loads,
@@ -393,6 +395,7 @@ export function syncVerificationLabels(ctx: ResultsSyncContext): void {
 
   const project2D = shouldProjectModelToXZ({
     analysisMode: uiStore.analysisMode,
+    viewportPresentation3D: uiStore.viewportPresentation3D,
     nodes: modelStore.nodes.values(),
     supports: modelStore.supports.values(),
     loads: modelStore.loads,
@@ -509,6 +512,7 @@ function applyFrameHeatmap(
 
   const project2D = shouldProjectModelToXZ({
     analysisMode: uiStore.analysisMode,
+    viewportPresentation3D: uiStore.viewportPresentation3D,
     nodes: modelStore.nodes.values(),
     supports: modelStore.supports.values(),
     loads: modelStore.loads,
@@ -639,6 +643,7 @@ export function syncReactions(ctx: ResultsSyncContext): void {
 
   const project2D = shouldProjectModelToXZ({
     analysisMode: uiStore.analysisMode,
+    viewportPresentation3D: uiStore.viewportPresentation3D,
     nodes: modelStore.nodes.values(),
     supports: modelStore.supports.values(),
     loads: modelStore.loads,
@@ -688,6 +693,7 @@ export function syncConstraintForces(ctx: ResultsSyncContext): void {
 
   const project2D = shouldProjectModelToXZ({
     analysisMode: uiStore.analysisMode,
+    viewportPresentation3D: uiStore.viewportPresentation3D,
     nodes: modelStore.nodes.values(),
     supports: modelStore.supports.values(),
     loads: modelStore.loads,
@@ -752,6 +758,8 @@ export function syncLabels3D(ctx: ResultsSyncContext): void {
   }
 
   const project2D = shouldProjectModelToXZ({
+    analysisMode: uiStore.analysisMode,
+    viewportPresentation3D: uiStore.viewportPresentation3D,
     nodes: modelStore.nodes.values(),
     supports: modelStore.supports.values(),
     loads: modelStore.loads,

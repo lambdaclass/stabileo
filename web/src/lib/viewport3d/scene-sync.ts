@@ -59,6 +59,7 @@ export function syncNodes(ctx: SceneSyncContext): void {
   const storeNodes = modelStore.nodes;
   const project2D = shouldProjectModelToXZ({
     analysisMode: uiStore.analysisMode,
+    viewportPresentation3D: uiStore.viewportPresentation3D,
     nodes: storeNodes.values(),
     supports: modelStore.supports.values(),
     loads: modelStore.loads,
@@ -96,6 +97,7 @@ export function syncElements(ctx: SceneSyncContext): void {
   const storeElements = modelStore.elements;
   const project2D = shouldProjectModelToXZ({
     analysisMode: uiStore.analysisMode,
+    viewportPresentation3D: uiStore.viewportPresentation3D,
     nodes: modelStore.nodes.values(),
     supports: modelStore.supports.values(),
     loads: modelStore.loads,
@@ -154,6 +156,7 @@ export function syncSupports(ctx: SceneSyncContext): void {
   const storeSupports = modelStore.supports;
   const project2D = shouldProjectModelToXZ({
     analysisMode: uiStore.analysisMode,
+    viewportPresentation3D: uiStore.viewportPresentation3D,
     nodes: modelStore.nodes.values(),
     supports: storeSupports.values(),
     loads: modelStore.loads,
@@ -208,6 +211,7 @@ export function syncShells(ctx: SceneSyncContext): void {
 
   const project2D = shouldProjectModelToXZ({
     analysisMode: uiStore.analysisMode,
+    viewportPresentation3D: uiStore.viewportPresentation3D,
     nodes: modelStore.nodes.values(),
     supports: modelStore.supports.values(),
     loads: modelStore.loads,
@@ -254,6 +258,7 @@ export function syncLoads(ctx: SceneSyncContext): void {
   if (!ctx.initialized) return;
   const project2D = shouldProjectModelToXZ({
     analysisMode: uiStore.analysisMode,
+    viewportPresentation3D: uiStore.viewportPresentation3D,
     nodes: modelStore.nodes.values(),
     supports: modelStore.supports.values(),
     loads: modelStore.loads,
