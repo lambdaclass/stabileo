@@ -1606,7 +1606,7 @@ pub(crate) fn validate_input_2d(input: &SolverInput) -> Result<(), String> {
         if !sec_ids.contains(&elem.section_id) {
             return Err(format!("Element {}: section {} does not exist", elem.id, elem.section_id));
         }
-        if elem.elem_type != "frame" && elem.elem_type != "truss" {
+        if elem.elem_type != "frame" && elem.elem_type != "truss" && elem.elem_type != "cable" {
             return Err(format!("Element {}: unknown type '{}'", elem.id, elem.elem_type));
         }
     }
@@ -1746,7 +1746,7 @@ pub(crate) fn validate_input_3d(input: &SolverInput3D) -> Result<(), String> {
         if !sec_ids.contains(&elem.section_id) {
             return Err(format!("Element {}: section {} does not exist", elem.id, elem.section_id));
         }
-        if elem.elem_type != "frame" && elem.elem_type != "truss" {
+        if elem.elem_type != "frame" && elem.elem_type != "truss" && elem.elem_type != "cable" {
             return Err(format!("Element {}: unknown type '{}'", elem.id, elem.elem_type));
         }
     }
@@ -2000,7 +2000,7 @@ pub(crate) fn compute_internal_forces_2d(
                             crate::element::fef_partial_distributed_2d(dl.q_i, dl.q_j, a, b, l)
                         };
 
-                        crate::element::adjust_fef_for_hinges(&mut fef, l, elem.hinge_start, elem.hinge_end);
+                        crate::element::adjust_fef_for_hinges(&mut fef, l, elem.hinge_start, elem.hinge_end, 0.0);
 
                         for i in 0..6 {
                             f_local[i] -= fef[i];
@@ -2021,7 +2021,7 @@ pub(crate) fn compute_internal_forces_2d(
                         let px = pl.px.unwrap_or(0.0);
                         let mz = pl.my.unwrap_or(0.0);
                         let mut fef = crate::element::fef_point_load_2d(pl.p, px, mz, pl.a, l);
-                        crate::element::adjust_fef_for_hinges(&mut fef, l, elem.hinge_start, elem.hinge_end);
+                        crate::element::adjust_fef_for_hinges(&mut fef, l, elem.hinge_start, elem.hinge_end, 0.0);
                         for i in 0..6 {
                             f_local[i] -= fef[i];
                         }
@@ -2039,7 +2039,7 @@ pub(crate) fn compute_internal_forces_2d(
                             e, sec.a, sec.iz, l,
                             tl.dt_uniform, tl.dt_gradient, alpha, h,
                         );
-                        crate::element::adjust_fef_for_hinges(&mut fef, l, elem.hinge_start, elem.hinge_end);
+                        crate::element::adjust_fef_for_hinges(&mut fef, l, elem.hinge_start, elem.hinge_end, 0.0);
                         for i in 0..6 {
                             f_local[i] -= fef[i];
                         }
@@ -2250,7 +2250,7 @@ pub(crate) fn compute_internal_forces_3d(
                     } else {
                         element::fef_partial_distributed_3d(dl.q_yi, dl.q_yj, dl.q_zi, dl.q_zj, a_param, b_param, l)
                     };
-                    element::adjust_fef_for_hinges_3d(&mut fef12, l, elem.hinge_start, elem.hinge_end);
+                    element::adjust_fef_for_hinges_3d(&mut fef12, l, elem.hinge_start, elem.hinge_end, phi_y, phi_z);
                     if ndof_elem == 14 {
                         let fef14 = element::expand_fef_12_to_14(&fef12);
                         for i in 0..14 {
@@ -2281,7 +2281,7 @@ pub(crate) fn compute_internal_forces_3d(
                     fef12[7] = fef_y[4]; fef12[11] = fef_y[5];
                     fef12[2] = fef_z[1]; fef12[4] = -fef_z[2];
                     fef12[8] = fef_z[4]; fef12[10] = -fef_z[5];
-                    element::adjust_fef_for_hinges_3d(&mut fef12, l, elem.hinge_start, elem.hinge_end);
+                    element::adjust_fef_for_hinges_3d(&mut fef12, l, elem.hinge_start, elem.hinge_end, phi_y, phi_z);
                     if ndof_elem == 14 {
                         let fef14 = element::expand_fef_12_to_14(&fef12);
                         for i in 0..14 { f_local[i] -= fef14[i]; }
@@ -2303,7 +2303,7 @@ pub(crate) fn compute_internal_forces_3d(
                         tl.dt_uniform, tl.dt_gradient_y, tl.dt_gradient_z,
                         alpha, hy, hz,
                     );
-                    element::adjust_fef_for_hinges_3d(&mut fef12, l, elem.hinge_start, elem.hinge_end);
+                    element::adjust_fef_for_hinges_3d(&mut fef12, l, elem.hinge_start, elem.hinge_end, phi_y, phi_z);
                     if ndof_elem == 14 {
                         let fef14 = element::expand_fef_12_to_14(&fef12);
                         for i in 0..14 {

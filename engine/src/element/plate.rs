@@ -223,24 +223,6 @@ fn dkt_b_matrix(
 ) -> [f64; 27] {
     let _zeta = 1.0 - xi - eta;
 
-    // Pre-compute edge parameters a_k, b_k, c_k, d_k, e_k  (k = 4,5,6 in
-    // Batoz notation; here indexed 0,1,2 for edges 01, 12, 20).
-    let mut ak = [0.0; 3];
-    let mut bk = [0.0; 3];
-    let mut ck = [0.0; 3];
-    let mut dk = [0.0; 3];
-    let mut ek = [0.0; 3];
-    for k in 0..3 {
-        let xk = g.xij[k];
-        let yk = g.yij[k];
-        let l2 = g.lij_sq[k];
-        ak[k] = -xk * yk / l2;
-        bk[k] = (xk * xk - yk * yk) / (2.0 * l2);  // Note: some refs use full formula
-        ck[k] = -yk / l2;
-        dk[k] = xk / l2;
-        ek[k] = -(xk * xk) / l2;
-    }
-
     // P_k, q_k, r_k, t_k  — additional intermediaries.
     let mut pk = [0.0; 3];
     let mut qk = [0.0; 3];

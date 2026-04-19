@@ -1418,7 +1418,7 @@ fn assemble_element_loads_3d_warping(
                 } else {
                     fef_partial_distributed_3d(dl.q_yi, dl.q_yj, dl.q_zi, dl.q_zj, a, b, l)
                 };
-                adjust_fef_for_hinges_3d(&mut fef12, l, elem.hinge_start, elem.hinge_end);
+                adjust_fef_for_hinges_3d(&mut fef12, l, elem.hinge_start, elem.hinge_end, phi_y, phi_z);
                 let fef14 = expand_fef_12_to_14(&fef12);
                 let fef_global = transform_force(&fef14, t14, 14);
                 for (i, &dof) in elem_dofs.iter().enumerate() {
@@ -1433,7 +1433,7 @@ fn assemble_element_loads_3d_warping(
                 let fef_z = fef_point_load_2d(pl.pz, 0.0, 0.0, pl.a, l);
                 fef12[2] = fef_z[1]; fef12[4] = -fef_z[2];
                 fef12[8] = fef_z[4]; fef12[10] = -fef_z[5];
-                adjust_fef_for_hinges_3d(&mut fef12, l, elem.hinge_start, elem.hinge_end);
+                adjust_fef_for_hinges_3d(&mut fef12, l, elem.hinge_start, elem.hinge_end, phi_y, phi_z);
                 let fef14 = expand_fef_12_to_14(&fef12);
                 let fef_global = transform_force(&fef14, t14, 14);
                 for (i, &dof) in elem_dofs.iter().enumerate() {
@@ -1449,7 +1449,7 @@ fn assemble_element_loads_3d_warping(
                     tl.dt_uniform, tl.dt_gradient_y, tl.dt_gradient_z,
                     alpha, hy, hz,
                 );
-                adjust_fef_for_hinges_3d(&mut fef12, l, elem.hinge_start, elem.hinge_end);
+                adjust_fef_for_hinges_3d(&mut fef12, l, elem.hinge_start, elem.hinge_end, phi_y, phi_z);
                 let fef14 = expand_fef_12_to_14(&fef12);
                 let fef_global = transform_force(&fef14, t14, 14);
                 for (i, &dof) in elem_dofs.iter().enumerate() {

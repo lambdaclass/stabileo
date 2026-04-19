@@ -473,7 +473,7 @@ fn subtract_element_fef(
                 } else {
                     fef_partial_distributed_2d(dl.q_i, dl.q_j, a_dist, b_dist, l)
                 };
-                adjust_fef_for_hinges(&mut fef, l, elem.hinge_start, elem.hinge_end);
+                adjust_fef_for_hinges(&mut fef, l, elem.hinge_start, elem.hinge_end, 0.0);
 
                 for i in 0..6 {
                     f_local[i] -= fef[i];
@@ -483,7 +483,7 @@ fn subtract_element_fef(
                 let px = pl.px.unwrap_or(0.0);
                 let mz = pl.my.unwrap_or(0.0);
                 let mut fef = fef_point_load_2d(pl.p, px, mz, pl.a, l);
-                adjust_fef_for_hinges(&mut fef, l, elem.hinge_start, elem.hinge_end);
+                adjust_fef_for_hinges(&mut fef, l, elem.hinge_start, elem.hinge_end, 0.0);
 
                 for i in 0..6 {
                     f_local[i] -= fef[i];
@@ -500,7 +500,7 @@ fn subtract_element_fef(
                     e, sec.a, sec.iz, l,
                     tl.dt_uniform, tl.dt_gradient, alpha, h,
                 );
-                adjust_fef_for_hinges(&mut fef, l, elem.hinge_start, elem.hinge_end);
+                adjust_fef_for_hinges(&mut fef, l, elem.hinge_start, elem.hinge_end, 0.0);
 
                 for i in 0..6 {
                     f_local[i] -= fef[i];
