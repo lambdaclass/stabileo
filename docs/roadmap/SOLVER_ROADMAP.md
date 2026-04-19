@@ -73,13 +73,13 @@ See also: `../research/solver_safety_and_validation_hardening.md` for the fuller
 - WASM vs native parity tests — Step 5
 - Mutation testing (`cargo-mutants`) — Step 5
 - Real-model regression suite from messy/realistic models — Step 5
+- Pre-solve shell distortion / Jacobian gating — Step 3
+- Equilibrium summary incorrect for inclined supports — Step 3
+- Performance regression CI gates — Step 4
 - Broader shell + nonlinear invariant coverage — Step 6
 - Constraint system depth (chained, eccentric, cross-solver parity) — Step 6
 - Free-slave → restrained-master prescribed displacement gives wrong results — Step 6
 - Circular constraint detection only finds depth-2 cycles — Step 6
-- Equilibrium summary incorrect for inclined supports — Step 3
-- Performance regression CI gates — Step 4
-- Pre-solve shell distortion / Jacobian gating — Step 3
 
 ### Contract change protocol
 
@@ -411,8 +411,7 @@ Make the solver easier to trust before and after a run, and make diagnostics str
 - Expose pivot perturbation counts, fill ratios, and solve phase breakdowns in the UI
 - Make solver-path selection and fallback behavior transparent
 - Query-ready summaries for maxima/minima/governing cases are now in place; keep them stable so product-level result Q&A and AI explanation do not drift back toward table scraping
-- Strengthen equilibrium and trust oracles in the validation helpers so distributed loads, moment balance, and constrained-force behavior are checked consistently instead of only by weak ad hoc helpers
-- **Fix equilibrium summary for inclined supports:** the equilibrium summary diagnostic reports incorrect reaction totals when inclined (rotated) supports are present, because it sums reactions in global axes without accounting for the support rotation. Diagnostic-only — does not affect the solve itself, but misleads users inspecting the equilibrium check.
+- Strengthen equilibrium and trust oracles in the validation helpers so distributed loads, moment balance, and constrained-force behavior are checked consistently instead of only by weak ad hoc helpers. **Known gap:** equilibrium summary reports incorrect reaction totals for inclined (rotated) supports — sums reactions in global axes without accounting for support rotation. Diagnostic-only, does not affect the solve.
 - Tighten tolerance policy by test type: analytical/reference tests should be much stricter than benchmark-comparison tolerances, and regression tests should not inherit permissive benchmark tolerances by default
 
 **Done when:**
@@ -511,9 +510,7 @@ Stop ugly mixed workflows from being the place where mature solvers obviously ou
 - Add quasi-Newton methods (BFGS, L-BFGS, Broyden)
 - Add PCG with Jacobi preconditioning; add IC(0) / SSOR if justified by measurements
 - Add GMRES / MINRES for indefinite systems
-- Finish constraint-system maturity: consistent reuse of constrained reductions across solver families, chained constraints, connector depth, eccentric workflow polish, cross-solver parity in forces and outputs. Real structural models rely heavily on diaphragms, rigid links, MPCs, and eccentric connectivity — inconsistent constrained behavior destroys trust.
-- **Fix free-slave → restrained-master prescribed displacement:** when a slave node is free and its master has a prescribed displacement, the constraint transformation gives wrong results because the prescribed value is applied before the slave's DOFs are condensed. Identified in `constraints.rs` (lines ~745-763). Medium severity — affects any model combining constraints with imposed displacements.
-- **Deepen circular constraint detection:** the current `detect_circular_constraints` only finds depth-2 cycles (A→B→A). Longer chains (A→B→C→A) are not detected and silently produce wrong results. Low severity — rare in practice but dangerous when it occurs.
+- Finish constraint-system maturity: consistent reuse of constrained reductions across solver families, chained constraints, connector depth, eccentric workflow polish, cross-solver parity in forces and outputs. Real structural models rely heavily on diaphragms, rigid links, MPCs, and eccentric connectivity — inconsistent constrained behavior destroys trust. **Known bugs:** (1) free-slave → restrained-master with prescribed displacement gives wrong results — constraint transformation applies the prescribed value before the slave DOFs are condensed (`constraints.rs` ~L745-763, medium severity); (2) circular constraint detection only finds depth-2 cycles (A→B→A), longer chains silently produce wrong results (low severity, rare in practice).
 
 **Done when:**
 - Named regressions exist for hard mixed workflows and stay green
