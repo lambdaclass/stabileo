@@ -670,7 +670,7 @@ fn build_final_results(
 }
 
 /// Compute element internal forces using the co-rotational formulation.
-fn compute_corotational_forces(
+pub fn compute_corotational_forces(
     input: &SolverInput,
     dof_num: &DofNumbering,
     u_full: &[f64],
@@ -841,6 +841,21 @@ pub fn solve_corotational_3d(
     n_increments: usize,
     modified_nr: bool,
 ) -> Result<CorotationalResult3D, String> {
+    // Input validation and pre-solve gates
+    super::linear::validate_input_3d(input)?;
+    let pre_solve_diags = super::pre_solve_gates::run_pre_solve_gates_3d(input);
+
+    // Corotational 3D only handles frame elements — reject models with shells
+    let has_shells = !input.plates.is_empty()
+        || !input.quads.is_empty()
+        || !input.quad9s.is_empty()
+        || !input.solid_shells.is_empty()
+        || !input.curved_shells.is_empty();
+    if has_shells {
+        return Err("Corotational 3D solver does not support shell elements. \
+            Use the linear solver for models with plates, quads, or shells.".into());
+    }
+
     let dof_num = DofNumbering::build_3d(input);
 
     if dof_num.n_free == 0 {
@@ -963,7 +978,7 @@ pub fn solve_corotational_3d(
     }
 
     let max_displacement = compute_max_displacement_3d(&dof_num, &u_full);
-    let results = build_final_results_3d(input, &dof_num, &u_full, left_hand, &cs)?;
+    let results = build_final_results_3d(input, &dof_num, &u_full, left_hand, &cs, pre_solve_diags)?;
 
     Ok(CorotationalResult3D {
         results,
@@ -1373,6 +1388,7 @@ fn build_final_results_3d(
     u_full: &[f64],
     left_hand: bool,
     cs: &Option<FreeConstraintSystem>,
+    pre_solve_diags: Vec<StructuredDiagnostic>,
 ) -> Result<AnalysisResults3D, String> {
     let n = dof_num.n_total;
     let nf = dof_num.n_free;
@@ -1429,7 +1445,7 @@ fn build_final_results_3d(
         constraint_forces,
         diagnostics: vec![],
         solver_diagnostics: vec![],
-        structured_diagnostics: vec![],
+        structured_diagnostics: pre_solve_diags,
         equilibrium: None,
         timings: None,
         result_summary: None, solver_run_meta: None,

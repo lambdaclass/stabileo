@@ -1489,31 +1489,20 @@ pub(crate) fn build_reactions_3d(
     for sup in input.supports.values() {
         let mut vals = [0.0f64; 6];
 
-        // Check if this is a spring support (all DOFs free with spring stiffness)
+        // Handle each DOF individually: restrained DOFs from reactions_vec,
+        // spring DOFs (free with stiffness) from R = -k * u
         let spring_stiffs = [sup.kx, sup.ky, sup.kz, sup.krx, sup.kry, sup.krz];
-        let is_spring = spring_stiffs.iter().any(|k| k.map_or(false, |v| v > 0.0))
-            && !(0..6.min(dof_num.dofs_per_node)).any(|i| {
-                let restrained = match i {
-                    0 => sup.rx, 1 => sup.ry, 2 => sup.rz,
-                    3 => sup.rrx, 4 => sup.rry, 5 => sup.rrz,
-                    _ => false,
-                };
-                restrained
-            });
-
-        if is_spring {
-            // Spring reaction: R = -k * u
-            for i in 0..6.min(dof_num.dofs_per_node) {
-                let u = dof_num.global_dof(sup.node_id, i).map(|d| u_full[d]).unwrap_or(0.0);
-                let k = spring_stiffs[i].unwrap_or(0.0);
-                vals[i] = -k * u;
-            }
-        } else {
-            for i in 0..6.min(dof_num.dofs_per_node) {
-                if let Some(&d) = dof_num.map.get(&(sup.node_id, i)) {
-                    if d >= nf {
-                        let idx = d - nf;
-                        vals[i] = reactions_vec[idx];
+        let restrained_flags = [sup.rx, sup.ry, sup.rz, sup.rrx, sup.rry, sup.rrz];
+        for i in 0..6.min(dof_num.dofs_per_node) {
+            if let Some(&d) = dof_num.map.get(&(sup.node_id, i)) {
+                if d >= nf {
+                    // Restrained DOF: reaction from solve
+                    vals[i] = reactions_vec[d - nf];
+                } else if !restrained_flags[i] {
+                    // Free DOF: check for spring stiffness
+                    let k = spring_stiffs[i].unwrap_or(0.0);
+                    if k > 0.0 {
+                        vals[i] = -k * u_full[d];
                     }
                 }
             }
@@ -1524,12 +1513,13 @@ pub(crate) fn build_reactions_3d(
             if let Some(&d) = dof_num.map.get(&(sup.node_id, 6)) {
                 if d >= nf {
                     Some(reactions_vec[d - nf])
-                } else if is_spring {
-                    let u = dof_num.global_dof(sup.node_id, 6).map(|d| u_full[d]).unwrap_or(0.0);
-                    let kw = sup.kw.unwrap_or(0.0);
-                    Some(-kw * u)
                 } else {
-                    None
+                    let kw = sup.kw.unwrap_or(0.0);
+                    if kw > 0.0 {
+                        Some(-kw * u_full[d])
+                    } else {
+                        None
+                    }
                 }
             } else {
                 None
@@ -1938,7 +1928,17 @@ pub(crate) fn compute_internal_forces_2d(
                 dof_num.global_dof(elem.node_j, 1).map(|d| u[d]).unwrap_or(0.0),
             ];
             let delta = (uj[0] - ui[0]) * cos + (uj[1] - ui[1]) * sin;
-            let n_axial = e * sec.a / l * delta;
+            let mut n_axial = e * sec.a / l * delta;
+
+            // Subtract thermal FEF for truss: f = K*u - FEF (matches 3D truss path)
+            for load in &input.loads {
+                if let SolverLoad::Thermal(tl) = load {
+                    if tl.element_id == elem.id {
+                        let alpha = 12e-6;
+                        n_axial -= e * sec.a * alpha * tl.dt_uniform;
+                    }
+                }
+            }
 
             forces.push(ElementForces {
                 element_id: elem.id,

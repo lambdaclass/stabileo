@@ -48,11 +48,13 @@ pub struct ConstrainedInput3D {
     pub constraints: Vec<Constraint>,
 }
 
-/// Validate that all node IDs referenced by constraints exist in the model.
-/// Returns Err if any constraint references a non-existent node.
+/// Validate that all node IDs referenced by constraints exist in the model,
+/// and that DOF indices are within the valid range for the analysis type.
+/// `max_dofs_per_node`: 3 for 2D, 6 for 3D.
 pub fn validate_constraint_refs(
     constraints: &[Constraint],
     node_ids: &HashSet<usize>,
+    max_dofs_per_node: usize,
 ) -> Result<(), String> {
     for (i, constraint) in constraints.iter().enumerate() {
         match constraint {
@@ -62,6 +64,14 @@ pub fn validate_constraint_refs(
                 }
                 if !node_ids.contains(&rl.slave_node) {
                     return Err(format!("Constraint {}: RigidLink slave node {} does not exist", i, rl.slave_node));
+                }
+                for &dof in &rl.dofs {
+                    if dof >= max_dofs_per_node {
+                        return Err(format!(
+                            "Constraint {}: RigidLink references DOF {} but max is {} (0..{})",
+                            i, dof, max_dofs_per_node - 1, max_dofs_per_node - 1
+                        ));
+                    }
                 }
             }
             Constraint::Diaphragm(dia) => {
@@ -81,6 +91,14 @@ pub fn validate_constraint_refs(
                 if !node_ids.contains(&eq.slave_node) {
                     return Err(format!("Constraint {}: EqualDOF slave node {} does not exist", i, eq.slave_node));
                 }
+                for &dof in &eq.dofs {
+                    if dof >= max_dofs_per_node {
+                        return Err(format!(
+                            "Constraint {}: EqualDOF references DOF {} but max is {} (0..{})",
+                            i, dof, max_dofs_per_node - 1, max_dofs_per_node - 1
+                        ));
+                    }
+                }
             }
             Constraint::EccentricConnection(ec) => {
                 if !node_ids.contains(&ec.master_node) {
@@ -94,6 +112,12 @@ pub fn validate_constraint_refs(
                 for term in &mpc.terms {
                     if !node_ids.contains(&term.node_id) {
                         return Err(format!("Constraint {}: LinearMPC references non-existent node {}", i, term.node_id));
+                    }
+                    if term.dof >= max_dofs_per_node {
+                        return Err(format!(
+                            "Constraint {}: LinearMPC term references DOF {} but max is {} (0..{})",
+                            i, term.dof, max_dofs_per_node - 1, max_dofs_per_node - 1
+                        ));
                     }
                 }
             }
@@ -376,32 +400,30 @@ pub fn build_constraint_transform(
                             }
                             match dof {
                                 0 => {
-                                    // ux_s = ux_m + 0 - dz*ωy + dy*ωz
-                                    // actually: u_s = u_m + ω×r where r = (dx,dy,dz)
-                                    // ux_s = ux_m - dz*ry_m + dy*rz_m  (for small rotations, ω×r)
+                                    // ux_s = ux_m + (ω×r)_x = ux_m + θy*dz - θz*dy
                                     if let Some(&ry) = dof_num.map.get(&(rl.master_node, 4)) {
-                                        if dz.abs() > 1e-15 { terms.push((ry, -dz)); }
+                                        if dz.abs() > 1e-15 { terms.push((ry, dz)); }
                                     }
                                     if let Some(&rz) = dof_num.map.get(&(rl.master_node, 5)) {
-                                        if dy.abs() > 1e-15 { terms.push((rz, dy)); }
+                                        if dy.abs() > 1e-15 { terms.push((rz, -dy)); }
                                     }
                                 }
                                 1 => {
-                                    // uy_s = uy_m + dz*rx_m - dx*rz_m
+                                    // uy_s = uy_m + (ω×r)_y = uy_m + θz*dx - θx*dz
                                     if let Some(&rx) = dof_num.map.get(&(rl.master_node, 3)) {
-                                        if dz.abs() > 1e-15 { terms.push((rx, dz)); }
+                                        if dz.abs() > 1e-15 { terms.push((rx, -dz)); }
                                     }
                                     if let Some(&rz) = dof_num.map.get(&(rl.master_node, 5)) {
-                                        if dx.abs() > 1e-15 { terms.push((rz, -dx)); }
+                                        if dx.abs() > 1e-15 { terms.push((rz, dx)); }
                                     }
                                 }
                                 2 => {
-                                    // uz_s = uz_m - dy*rx_m + dx*ry_m
+                                    // uz_s = uz_m + (ω×r)_z = uz_m + θx*dy - θy*dx
                                     if let Some(&rx) = dof_num.map.get(&(rl.master_node, 3)) {
-                                        if dy.abs() > 1e-15 { terms.push((rx, -dy)); }
+                                        if dy.abs() > 1e-15 { terms.push((rx, dy)); }
                                     }
                                     if let Some(&ry) = dof_num.map.get(&(rl.master_node, 4)) {
-                                        if dx.abs() > 1e-15 { terms.push((ry, dx)); }
+                                        if dx.abs() > 1e-15 { terms.push((ry, -dx)); }
                                     }
                                 }
                                 3 | 4 | 5 => {
@@ -521,27 +543,30 @@ pub fn build_constraint_transform(
                             }
                             match dof {
                                 0 => {
+                                    // ux_s = ux_m + θy*dz - θz*dy
                                     if let Some(&ry) = dof_num.map.get(&(ec.master_node, 4)) {
-                                        if dz.abs() > 1e-15 { terms.push((ry, -dz)); }
+                                        if dz.abs() > 1e-15 { terms.push((ry, dz)); }
                                     }
                                     if let Some(&rz) = dof_num.map.get(&(ec.master_node, 5)) {
-                                        if dy.abs() > 1e-15 { terms.push((rz, dy)); }
+                                        if dy.abs() > 1e-15 { terms.push((rz, -dy)); }
                                     }
                                 }
                                 1 => {
+                                    // uy_s = uy_m + θz*dx - θx*dz
                                     if let Some(&rx) = dof_num.map.get(&(ec.master_node, 3)) {
-                                        if dz.abs() > 1e-15 { terms.push((rx, dz)); }
+                                        if dz.abs() > 1e-15 { terms.push((rx, -dz)); }
                                     }
                                     if let Some(&rz) = dof_num.map.get(&(ec.master_node, 5)) {
-                                        if dx.abs() > 1e-15 { terms.push((rz, -dx)); }
+                                        if dx.abs() > 1e-15 { terms.push((rz, dx)); }
                                     }
                                 }
                                 2 => {
+                                    // uz_s = uz_m + θx*dy - θy*dx
                                     if let Some(&rx) = dof_num.map.get(&(ec.master_node, 3)) {
-                                        if dy.abs() > 1e-15 { terms.push((rx, -dy)); }
+                                        if dy.abs() > 1e-15 { terms.push((rx, dy)); }
                                     }
                                     if let Some(&ry) = dof_num.map.get(&(ec.master_node, 4)) {
-                                        if dx.abs() > 1e-15 { terms.push((ry, dx)); }
+                                        if dx.abs() > 1e-15 { terms.push((ry, -dx)); }
                                     }
                                 }
                                 3 | 4 | 5 => {
@@ -656,7 +681,7 @@ pub(super) fn map_dof_forces_to_constraint_forces(
         reverse.insert(global_dof, (node_id, local_dof));
     }
 
-    let dof_names_2d = ["ux", "uy", "rz"];
+    let dof_names_2d = ["ux", "uz", "ry"];
     let dof_names_3d = ["ux", "uy", "uz", "rx", "ry", "rz", "warping"];
 
     raw.iter().filter_map(|&(gdof, force)| {
@@ -685,7 +710,7 @@ pub fn solve_constrained_2d(input: &ConstrainedInput) -> Result<AnalysisResults,
 
     // Constraint referential integrity
     let node_ids: HashSet<usize> = input.solver.nodes.values().map(|n| n.id).collect();
-    validate_constraint_refs(&input.constraints, &node_ids)?;
+    validate_constraint_refs(&input.constraints, &node_ids, 3)?;
 
     let dof_num = DofNumbering::build_2d(&input.solver);
     if dof_num.n_free == 0 {
@@ -887,7 +912,7 @@ pub fn solve_constrained_3d(input: &ConstrainedInput3D) -> Result<AnalysisResult
 
     // Constraint referential integrity
     let node_ids: HashSet<usize> = input.solver.nodes.values().map(|n| n.id).collect();
-    validate_constraint_refs(&input.constraints, &node_ids)?;
+    validate_constraint_refs(&input.constraints, &node_ids, 6)?;
 
     let dof_num = DofNumbering::build_3d(&input.solver);
     if dof_num.n_free == 0 {

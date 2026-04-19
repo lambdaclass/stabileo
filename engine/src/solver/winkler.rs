@@ -156,6 +156,9 @@ pub fn solve_winkler_2d(input: &WinklerInput) -> Result<AnalysisResults, String>
 // ==================== 3D Winkler Solver ====================
 
 pub fn solve_winkler_3d(input: &WinklerInput3D) -> Result<AnalysisResults3D, String> {
+    super::linear::validate_input_3d(&input.solver)?;
+    let pre_solve_diags = super::pre_solve_gates::run_pre_solve_gates_3d(&input.solver);
+
     let dof_num = DofNumbering::build_3d(&input.solver);
     let nf = dof_num.n_free;
     let n = dof_num.n_total;
@@ -266,7 +269,7 @@ pub fn solve_winkler_3d(input: &WinklerInput3D) -> Result<AnalysisResults3D, Str
         constraint_forces,
         diagnostics: vec![],
         solver_diagnostics: vec![],
-        structured_diagnostics: vec![],
+        structured_diagnostics: pre_solve_diags,
         equilibrium: None,
         timings: None,
         result_summary: None, solver_run_meta: None,

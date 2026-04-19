@@ -776,6 +776,8 @@ struct ElementState3D {
 pub fn solve_nonlinear_material_3d(
     input: &NonlinearMaterialInput3D,
 ) -> Result<NonlinearMaterialResult3D, String> {
+    super::linear::validate_input_3d(&input.solver)?;
+    let pre_solve_diags = super::pre_solve_gates::run_pre_solve_gates_3d(&input.solver);
     let solver = &input.solver;
     let dof_num = DofNumbering::build_3d(solver);
 
@@ -945,7 +947,7 @@ pub fn solve_nonlinear_material_3d(
             constraint_forces,
             diagnostics: vec![],
             solver_diagnostics: vec![],
-            structured_diagnostics: vec![],
+            structured_diagnostics: pre_solve_diags,
             equilibrium: None,
             timings: None,
             result_summary: None, solver_run_meta: None,

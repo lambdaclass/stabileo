@@ -147,9 +147,10 @@ pub fn fef_thermal_2d(
         0.0
     };
 
-    // Convention: these values are ADDED to f_global in assembly (not subtracted).
-    // TS solver uses the same convention: +fx at node I, -fx at node J.
-    [fx, 0.0, mz, -fx, 0.0, -mz]
+    // Thermal expansion: element wants to grow → equivalent nodal loads push outward
+    // Node I gets -fx (pushed in -x), Node J gets +fx (pushed in +x)
+    // Matches 3D convention. Note: TS solver has the opposite sign (known divergence).
+    [-fx, 0.0, -mz, fx, 0.0, mz]
 }
 
 /// Adjust fixed-end forces for hinges (2D).
@@ -223,9 +224,9 @@ pub fn adjust_fef_for_hinges_3d(fef: &mut [f64; 12], l: f64, hinge_start: bool, 
     }
 
     // --- Z-bending plane (shear-z / moment-y) ---
-    // Note: my has opposite sign convention (θy = -dw/dx), but the condensation
-    // algebra is the same — we condense the moment at the hinge end to zero
-    // and redistribute the shear.
+    // Due to θy = -dw/dx, the Vz-θy coupling in the stiffness matrix is
+    // negated vs the Y-plane (K[Vz,θy] = -6EI/L²), so the shear
+    // redistribution signs are opposite to the Y-bending plane.
     {
         let vz_i = fef[2];
         let my_i = fef[4];
@@ -233,20 +234,20 @@ pub fn adjust_fef_for_hinges_3d(fef: &mut [f64; 12], l: f64, hinge_start: bool, 
         let my_j = fef[10];
 
         if hinge_start && hinge_end {
-            fef[2] = vz_i - (my_i + my_j) / l;
+            fef[2] = vz_i + (my_i + my_j) / l;
             fef[4] = 0.0;
-            fef[8] = vz_j + (my_i + my_j) / l;
+            fef[8] = vz_j - (my_i + my_j) / l;
             fef[10] = 0.0;
         } else if hinge_start {
-            fef[2] = vz_i - (3.0 / (2.0 * l)) * my_i;
+            fef[2] = vz_i + (3.0 / (2.0 * l)) * my_i;
             fef[4] = 0.0;
-            fef[8] = vz_j + (3.0 / (2.0 * l)) * my_i;
+            fef[8] = vz_j - (3.0 / (2.0 * l)) * my_i;
             fef[10] = my_j - 0.5 * my_i;
         } else {
             // hinge_end
-            fef[2] = vz_i - (3.0 / (2.0 * l)) * my_j;
+            fef[2] = vz_i + (3.0 / (2.0 * l)) * my_j;
             fef[4] = my_i - 0.5 * my_j;
-            fef[8] = vz_j + (3.0 / (2.0 * l)) * my_j;
+            fef[8] = vz_j - (3.0 / (2.0 * l)) * my_j;
             fef[10] = 0.0;
         }
     }
