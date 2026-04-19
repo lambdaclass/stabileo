@@ -154,9 +154,14 @@ pub fn fef_thermal_2d(
 }
 
 /// Adjust fixed-end forces for hinges (2D).
-/// Uses explicit condensation formulas matching the TS solver.
+/// Static condensation of FEF for hinges (2D), with Timoshenko correction.
+///
+/// Condensation ratios from K[V,θ]/K[θ,θ] = 6/(L(4+φ)) and
+/// K[θ_j,θ_i]/K[θ_i,θ_i] = (2-φ)/(4+φ). For φ=0 these reduce to
+/// 3/(2L) and 0.5 (Euler-Bernoulli). Both-hinges case is φ-independent.
+///
 /// FEF layout: [fx_i, fy_i, mz_i, fx_j, fy_j, mz_j]
-pub fn adjust_fef_for_hinges(fef: &mut [f64; 6], l: f64, hinge_start: bool, hinge_end: bool) {
+pub fn adjust_fef_for_hinges(fef: &mut [f64; 6], l: f64, hinge_start: bool, hinge_end: bool, phi: f64) {
     if !hinge_start && !hinge_end {
         return;
     }
@@ -167,32 +172,37 @@ pub fn adjust_fef_for_hinges(fef: &mut [f64; 6], l: f64, hinge_start: bool, hing
     let mj = fef[5];
 
     if hinge_start && hinge_end {
-        // Both hinged (simply supported): moments zero, shears redistribute
+        // Both hinged (simply supported): φ cancels out
         fef[1] = vi - (mi + mj) / l;
         fef[2] = 0.0;
         fef[4] = vj + (mi + mj) / l;
         fef[5] = 0.0;
     } else if hinge_start {
-        // Release moment at start using condensation ratios
-        fef[1] = vi - (3.0 / (2.0 * l)) * mi;
+        let sv = 6.0 / (l * (4.0 + phi));
+        let sm = (2.0 - phi) / (4.0 + phi);
+        fef[1] = vi - sv * mi;
         fef[2] = 0.0;
-        fef[4] = vj + (3.0 / (2.0 * l)) * mi;
-        fef[5] = mj - 0.5 * mi;
+        fef[4] = vj + sv * mi;
+        fef[5] = mj - sm * mi;
     } else {
         // hinge_end only
-        fef[1] = vi - (3.0 / (2.0 * l)) * mj;
-        fef[2] = mi - 0.5 * mj;
-        fef[4] = vj + (3.0 / (2.0 * l)) * mj;
+        let sv = 6.0 / (l * (4.0 + phi));
+        let sm = (2.0 - phi) / (4.0 + phi);
+        fef[1] = vi - sv * mj;
+        fef[2] = mi - sm * mj;
+        fef[4] = vj + sv * mj;
         fef[5] = 0.0;
     }
 }
 
-/// Adjust fixed-end forces for hinges (3D).
-/// Applies static condensation independently to each bending plane:
-///   - Y-bending plane: fy (indices 1,7) and mz (indices 5,11)
-///   - Z-bending plane: fz (indices 2,8) and my (indices 4,10)
+/// Static condensation of FEF for hinges (3D), with Timoshenko correction.
+///
+/// Each bending plane uses its own φ:
+///   - Y-bending (Vy, Mz): phi_z = 12EIz/(G·As_z·L²)
+///   - Z-bending (Vz, My): phi_y = 12EIy/(G·As_y·L²)
+///
 /// FEF layout: [fx_i, fy_i, fz_i, mx_i, my_i, mz_i, fx_j, fy_j, fz_j, mx_j, my_j, mz_j]
-pub fn adjust_fef_for_hinges_3d(fef: &mut [f64; 12], l: f64, hinge_start: bool, hinge_end: bool) {
+pub fn adjust_fef_for_hinges_3d(fef: &mut [f64; 12], l: f64, hinge_start: bool, hinge_end: bool, phi_y: f64, phi_z: f64) {
     if !hinge_start && !hinge_end {
         return;
     }
@@ -210,22 +220,24 @@ pub fn adjust_fef_for_hinges_3d(fef: &mut [f64; 12], l: f64, hinge_start: bool, 
             fef[7] = vy_j + (mz_i + mz_j) / l;
             fef[11] = 0.0;
         } else if hinge_start {
-            fef[1] = vy_i - (3.0 / (2.0 * l)) * mz_i;
+            let sv = 6.0 / (l * (4.0 + phi_z));
+            let sm = (2.0 - phi_z) / (4.0 + phi_z);
+            fef[1] = vy_i - sv * mz_i;
             fef[5] = 0.0;
-            fef[7] = vy_j + (3.0 / (2.0 * l)) * mz_i;
-            fef[11] = mz_j - 0.5 * mz_i;
+            fef[7] = vy_j + sv * mz_i;
+            fef[11] = mz_j - sm * mz_i;
         } else {
-            // hinge_end
-            fef[1] = vy_i - (3.0 / (2.0 * l)) * mz_j;
-            fef[5] = mz_i - 0.5 * mz_j;
-            fef[7] = vy_j + (3.0 / (2.0 * l)) * mz_j;
+            let sv = 6.0 / (l * (4.0 + phi_z));
+            let sm = (2.0 - phi_z) / (4.0 + phi_z);
+            fef[1] = vy_i - sv * mz_j;
+            fef[5] = mz_i - sm * mz_j;
+            fef[7] = vy_j + sv * mz_j;
             fef[11] = 0.0;
         }
     }
 
     // --- Z-bending plane (shear-z / moment-y) ---
-    // Due to θy = -dw/dx, the Vz-θy coupling in the stiffness matrix is
-    // negated vs the Y-plane (K[Vz,θy] = -6EI/L²), so the shear
+    // Due to θy = -dw/dx, K[Vz,θy] = -6EI/(L²(1+φ)), so shear
     // redistribution signs are opposite to the Y-bending plane.
     {
         let vz_i = fef[2];
@@ -239,15 +251,18 @@ pub fn adjust_fef_for_hinges_3d(fef: &mut [f64; 12], l: f64, hinge_start: bool, 
             fef[8] = vz_j - (my_i + my_j) / l;
             fef[10] = 0.0;
         } else if hinge_start {
-            fef[2] = vz_i + (3.0 / (2.0 * l)) * my_i;
+            let sv = 6.0 / (l * (4.0 + phi_y));
+            let sm = (2.0 - phi_y) / (4.0 + phi_y);
+            fef[2] = vz_i + sv * my_i;
             fef[4] = 0.0;
-            fef[8] = vz_j - (3.0 / (2.0 * l)) * my_i;
-            fef[10] = my_j - 0.5 * my_i;
+            fef[8] = vz_j - sv * my_i;
+            fef[10] = my_j - sm * my_i;
         } else {
-            // hinge_end
-            fef[2] = vz_i + (3.0 / (2.0 * l)) * my_j;
-            fef[4] = my_i - 0.5 * my_j;
-            fef[8] = vz_j - (3.0 / (2.0 * l)) * my_j;
+            let sv = 6.0 / (l * (4.0 + phi_y));
+            let sm = (2.0 - phi_y) / (4.0 + phi_y);
+            fef[2] = vz_i + sv * my_j;
+            fef[4] = my_i - sm * my_j;
+            fef[8] = vz_j - sv * my_j;
             fef[10] = 0.0;
         }
     }
