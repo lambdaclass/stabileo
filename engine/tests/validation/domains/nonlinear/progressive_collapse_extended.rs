@@ -864,7 +864,7 @@ fn progressive_collapse_redundancy_quantification() {
     // Effectively merge spans 2 and 3 into one 2L span
     // Model as 3-span: [L, 2L, L]
     let spans_damaged = [l, 2.0 * l, l];
-    let n_total_dam = (n_per_span + 2 * n_per_span + n_per_span) as usize;
+    let n_total_dam = n_per_span * spans_damaged.len(); // make_continuous_beam: n_per_span * n_spans
     let loads_dam: Vec<SolverLoad> = (1..=n_total_dam)
         .map(|i| SolverLoad::Distributed(SolverDistributedLoad {
             element_id: i,

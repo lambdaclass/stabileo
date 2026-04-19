@@ -261,9 +261,7 @@ mod degenerate_geometry {
 
     #[test]
     fn zero_length_3d_element() {
-        // KNOWN GAP: zero-length 3D element produces NaN in local axis computation.
-        // This test documents the current behavior. A pre-solve gate should catch this.
-        // CONTRACT: Should return error or diagnostic, never valid-looking NaN results.
+        // CONTRACT: must reject — zero-length element caught by validate_input_3d before assembly.
         let input = make_3d_input(
             vec![
                 (1, 0.0, 0.0, 0.0),
@@ -285,28 +283,10 @@ mod degenerate_geometry {
                 mx: 0.0, my: 0.0, mz: 0.0, bw: None,
             })],
         );
-        // KNOWN GAP: solver panics on zero-length 3D element. Should return error instead.
-        let result = std::panic::catch_unwind(|| linear::solve_3d(&input));
-        match result {
-            Err(_) => {
-                // Expected: the solver panics on zero-length element.
-                // This is a known gap — should be caught by a pre-solve gate.
-            }
-            Ok(Ok(r)) => {
-                // If it somehow succeeds, results must not contain NaN
-                if results_contain_nan_3d(&r) {
-                    // KNOWN GAP: NaN propagation from zero-length element
-                    // This is acceptable as a documented gap but should eventually
-                    // be caught before assembly.
-                } else {
-                    // Unexpected success without NaN — still check diagnostics
-                    let _ = &r.structured_diagnostics;
-                }
-            }
-            Ok(Err(_msg)) => {
-                // Solver returned an error string — this is the ideal behavior.
-            }
-        }
+        let result = linear::solve_3d(&input);
+        assert!(result.is_err(), "Zero-length element must be rejected");
+        let msg = result.unwrap_err();
+        assert!(msg.contains("zero length"), "Error must mention zero length: {}", msg);
     }
 
     #[test]

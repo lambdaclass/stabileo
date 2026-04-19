@@ -627,6 +627,8 @@ pub fn solve_constrained_2d(input: &ConstrainedInput) -> Result<AnalysisResults,
         return linear::solve_2d(&input.solver);
     }
 
+    linear::validate_input_2d(&input.solver)?;
+
     let dof_num = DofNumbering::build_2d(&input.solver);
     if dof_num.n_free == 0 {
         return Err("No free DOFs".into());
@@ -822,6 +824,8 @@ pub fn solve_constrained_3d(input: &ConstrainedInput3D) -> Result<AnalysisResult
     if input.constraints.is_empty() {
         return linear::solve_3d(&input.solver);
     }
+
+    linear::validate_input_3d(&input.solver)?;
 
     let dof_num = DofNumbering::build_3d(&input.solver);
     if dof_num.n_free == 0 {

@@ -1436,31 +1436,100 @@ fn build_reactions_3d_inclined(
 
 // ── Input validation helpers ──
 
-fn validate_input_2d(input: &SolverInput) -> Result<(), String> {
+pub(crate) fn validate_input_2d(input: &SolverInput) -> Result<(), String> {
+    let node_ids: std::collections::HashSet<usize> =
+        input.nodes.values().map(|n| n.id).collect();
+    let mat_ids: std::collections::HashSet<usize> =
+        input.materials.values().map(|m| m.id).collect();
+    let sec_ids: std::collections::HashSet<usize> =
+        input.sections.values().map(|s| s.id).collect();
+    let elem_ids: std::collections::HashSet<usize> =
+        input.elements.values().map(|e| e.id).collect();
     let node_map: std::collections::HashMap<usize, &SolverNode> =
         input.nodes.values().map(|n| (n.id, n)).collect();
 
-    // 1. Zero-length elements
+    // 1. Referential integrity — element → node, material, section
     for elem in input.elements.values() {
-        if let (Some(ni), Some(nj)) = (node_map.get(&elem.node_i), node_map.get(&elem.node_j)) {
-            let dx = nj.x - ni.x;
-            let dz = nj.z - ni.z;
-            let l = (dx * dx + dz * dz).sqrt();
-            if l < 1e-10 {
-                return Err(format!("Element {} has zero length", elem.id));
+        if !node_ids.contains(&elem.node_i) {
+            return Err(format!("Element {}: node_i {} does not exist", elem.id, elem.node_i));
+        }
+        if !node_ids.contains(&elem.node_j) {
+            return Err(format!("Element {}: node_j {} does not exist", elem.id, elem.node_j));
+        }
+        if !mat_ids.contains(&elem.material_id) {
+            return Err(format!("Element {}: material {} does not exist", elem.id, elem.material_id));
+        }
+        if !sec_ids.contains(&elem.section_id) {
+            return Err(format!("Element {}: section {} does not exist", elem.id, elem.section_id));
+        }
+        if elem.elem_type != "frame" && elem.elem_type != "truss" {
+            return Err(format!("Element {}: unknown type '{}'", elem.id, elem.elem_type));
+        }
+    }
+
+    // 2. Referential integrity — support → node
+    for sup in input.supports.values() {
+        if !node_ids.contains(&sup.node_id) {
+            return Err(format!("Support {}: node {} does not exist", sup.id, sup.node_id));
+        }
+    }
+
+    // 3. Referential integrity — load → node/element
+    for load in &input.loads {
+        match load {
+            SolverLoad::Nodal(l) => {
+                if !node_ids.contains(&l.node_id) {
+                    return Err(format!("Nodal load: node {} does not exist", l.node_id));
+                }
+            }
+            SolverLoad::Distributed(l) => {
+                if !elem_ids.contains(&l.element_id) {
+                    return Err(format!("Distributed load: element {} does not exist", l.element_id));
+                }
+            }
+            SolverLoad::PointOnElement(l) => {
+                if !elem_ids.contains(&l.element_id) {
+                    return Err(format!("Point load: element {} does not exist", l.element_id));
+                }
+            }
+            SolverLoad::Thermal(l) => {
+                if !elem_ids.contains(&l.element_id) {
+                    return Err(format!("Thermal load: element {} does not exist", l.element_id));
+                }
             }
         }
     }
 
-    // 2. Section area <= 0
+    // 4. Material properties
+    for mat in input.materials.values() {
+        if mat.e <= 0.0 {
+            return Err(format!("Material {}: E must be > 0 (got {})", mat.id, mat.e));
+        }
+        if mat.nu <= -1.0 || mat.nu >= 0.5 {
+            return Err(format!("Material {}: Poisson ratio must be in (-1, 0.5) (got {})", mat.id, mat.nu));
+        }
+    }
+
+    // 5. Zero-length elements
+    for elem in input.elements.values() {
+        let ni = &node_map[&elem.node_i];
+        let nj = &node_map[&elem.node_j];
+        let dx = nj.x - ni.x;
+        let dz = nj.z - ni.z;
+        let l = (dx * dx + dz * dz).sqrt();
+        if l < 1e-10 {
+            return Err(format!("Element {} has zero length", elem.id));
+        }
+    }
+
+    // 6. Section area <= 0
     for sec in input.sections.values() {
         if sec.a <= 0.0 {
             return Err(format!("Section {}: area A must be > 0", sec.id));
         }
     }
 
-    // 3. Section inertia <= 0 (only for sections used by bending elements)
-    // Frame elements with both ends hinged act as trusses — no bending stiffness needed.
+    // 7. Section inertia <= 0 (only for sections used by bending elements)
     let bending_section_ids: std::collections::HashSet<usize> = input.elements.values()
         .filter(|e| e.elem_type == "frame" && !(e.hinge_start && e.hinge_end))
         .map(|e| e.section_id)
@@ -1471,20 +1540,20 @@ fn validate_input_2d(input: &SolverInput) -> Result<(), String> {
         }
     }
 
-    // 4. Point load position validation
+    // 8. Point load position validation
     for load in &input.loads {
         if let SolverLoad::PointOnElement(pl) = load {
             if let Some(elem) = input.elements.values().find(|e| e.id == pl.element_id) {
-                if let (Some(ni), Some(nj)) = (node_map.get(&elem.node_i), node_map.get(&elem.node_j)) {
-                    let dx = nj.x - ni.x;
-                    let dz = nj.z - ni.z;
-                    let l = (dx * dx + dz * dz).sqrt();
-                    if pl.a < -1e-10 || pl.a > l + 1e-10 {
-                        return Err(format!(
-                            "Element {}: point load position a={:.4} out of range [0, L={:.4}]",
-                            elem.id, pl.a, l
-                        ));
-                    }
+                let ni = &node_map[&elem.node_i];
+                let nj = &node_map[&elem.node_j];
+                let dx = nj.x - ni.x;
+                let dz = nj.z - ni.z;
+                let l = (dx * dx + dz * dz).sqrt();
+                if pl.a < -1e-10 || pl.a > l + 1e-10 {
+                    return Err(format!(
+                        "Element {}: point load position a={:.4} out of range [0, L={:.4}]",
+                        elem.id, pl.a, l
+                    ));
                 }
             }
         }
@@ -1493,32 +1562,109 @@ fn validate_input_2d(input: &SolverInput) -> Result<(), String> {
     Ok(())
 }
 
-fn validate_input_3d(input: &SolverInput3D) -> Result<(), String> {
+pub(crate) fn validate_input_3d(input: &SolverInput3D) -> Result<(), String> {
+    let node_ids: std::collections::HashSet<usize> =
+        input.nodes.values().map(|n| n.id).collect();
+    let mat_ids: std::collections::HashSet<usize> =
+        input.materials.values().map(|m| m.id).collect();
+    let sec_ids: std::collections::HashSet<usize> =
+        input.sections.values().map(|s| s.id).collect();
+    let elem_ids: std::collections::HashSet<usize> =
+        input.elements.values().map(|e| e.id).collect();
     let node_map: std::collections::HashMap<usize, &SolverNode3D> =
         input.nodes.values().map(|n| (n.id, n)).collect();
 
-    // 1. Zero-length elements
+    // 1. Referential integrity — element → node, material, section
     for elem in input.elements.values() {
-        if let (Some(ni), Some(nj)) = (node_map.get(&elem.node_i), node_map.get(&elem.node_j)) {
-            let dx = nj.x - ni.x;
-            let dy = nj.y - ni.y;
-            let dz = nj.z - ni.z;
-            let l = (dx * dx + dy * dy + dz * dz).sqrt();
-            if l < 1e-10 {
-                return Err(format!("Element {} has zero length", elem.id));
-            }
+        if !node_ids.contains(&elem.node_i) {
+            return Err(format!("Element {}: node_i {} does not exist", elem.id, elem.node_i));
+        }
+        if !node_ids.contains(&elem.node_j) {
+            return Err(format!("Element {}: node_j {} does not exist", elem.id, elem.node_j));
+        }
+        if !mat_ids.contains(&elem.material_id) {
+            return Err(format!("Element {}: material {} does not exist", elem.id, elem.material_id));
+        }
+        if !sec_ids.contains(&elem.section_id) {
+            return Err(format!("Element {}: section {} does not exist", elem.id, elem.section_id));
+        }
+        if elem.elem_type != "frame" && elem.elem_type != "truss" {
+            return Err(format!("Element {}: unknown type '{}'", elem.id, elem.elem_type));
         }
     }
 
-    // 2. Section area <= 0
+    // 2. Referential integrity — support → node
+    for sup in input.supports.values() {
+        if !node_ids.contains(&sup.node_id) {
+            return Err(format!("Support on node {}: node does not exist", sup.node_id));
+        }
+    }
+
+    // 3. Referential integrity — load → node/element (check nodal and element-based loads)
+    for load in &input.loads {
+        match load {
+            SolverLoad3D::Nodal(l) => {
+                if !node_ids.contains(&l.node_id) {
+                    return Err(format!("Nodal load: node {} does not exist", l.node_id));
+                }
+            }
+            SolverLoad3D::Distributed(l) => {
+                if !elem_ids.contains(&l.element_id) {
+                    return Err(format!("Distributed load: element {} does not exist", l.element_id));
+                }
+            }
+            SolverLoad3D::PointOnElement(l) => {
+                if !elem_ids.contains(&l.element_id) {
+                    return Err(format!("Point load: element {} does not exist", l.element_id));
+                }
+            }
+            SolverLoad3D::Thermal(l) => {
+                if !elem_ids.contains(&l.element_id) {
+                    return Err(format!("Thermal load: element {} does not exist", l.element_id));
+                }
+            }
+            SolverLoad3D::Bimoment(l) => {
+                if !node_ids.contains(&l.node_id) {
+                    return Err(format!("Bimoment load: node {} does not exist", l.node_id));
+                }
+            }
+            // Plate/quad/shell loads reference element IDs that live in separate maps;
+            // skip validation here — those maps are checked during assembly.
+            _ => {}
+        }
+    }
+
+    // 4. Material properties
+    for mat in input.materials.values() {
+        if mat.e <= 0.0 {
+            return Err(format!("Material {}: E must be > 0 (got {})", mat.id, mat.e));
+        }
+        if mat.nu <= -1.0 || mat.nu >= 0.5 {
+            return Err(format!("Material {}: Poisson ratio must be in (-1, 0.5) (got {})", mat.id, mat.nu));
+        }
+    }
+
+    // 5. Zero-length elements
+    for elem in input.elements.values() {
+        let ni = &node_map[&elem.node_i];
+        let nj = &node_map[&elem.node_j];
+        let dx = nj.x - ni.x;
+        let dy = nj.y - ni.y;
+        let dz = nj.z - ni.z;
+        let l = (dx * dx + dy * dy + dz * dz).sqrt();
+        if l < 1e-10 {
+            return Err(format!("Element {} has zero length", elem.id));
+        }
+    }
+
+    // 6. Section area <= 0
     for sec in input.sections.values() {
         if sec.a <= 0.0 {
             return Err(format!("Section {}: area A must be > 0", sec.id));
         }
     }
 
-    // 3. Section inertia <= 0 (only for sections used by bending elements)
-    // Frame elements with both ends hinged act as trusses — no bending stiffness needed.
+    // 7. Section inertia <= 0 (only for sections used by bending elements)
     let bending_section_ids: std::collections::HashSet<usize> = input.elements.values()
         .filter(|e| e.elem_type == "frame" && !(e.hinge_start && e.hinge_end))
         .map(|e| e.section_id)
@@ -1529,21 +1675,21 @@ fn validate_input_3d(input: &SolverInput3D) -> Result<(), String> {
         }
     }
 
-    // 4. Point load position validation
+    // 8. Point load position validation
     for load in &input.loads {
         if let SolverLoad3D::PointOnElement(pl) = load {
             if let Some(elem) = input.elements.values().find(|e| e.id == pl.element_id) {
-                if let (Some(ni), Some(nj)) = (node_map.get(&elem.node_i), node_map.get(&elem.node_j)) {
-                    let dx = nj.x - ni.x;
-                    let dy = nj.y - ni.y;
-                    let dz = nj.z - ni.z;
-                    let l = (dx * dx + dy * dy + dz * dz).sqrt();
-                    if pl.a < -1e-10 || pl.a > l + 1e-10 {
-                        return Err(format!(
-                            "Element {}: point load position a={:.4} out of range [0, L={:.4}]",
-                            elem.id, pl.a, l
-                        ));
-                    }
+                let ni = &node_map[&elem.node_i];
+                let nj = &node_map[&elem.node_j];
+                let dx = nj.x - ni.x;
+                let dy = nj.y - ni.y;
+                let dz = nj.z - ni.z;
+                let l = (dx * dx + dy * dy + dz * dz).sqrt();
+                if pl.a < -1e-10 || pl.a > l + 1e-10 {
+                    return Err(format!(
+                        "Element {}: point load position a={:.4} out of range [0, L={:.4}]",
+                        elem.id, pl.a, l
+                    ));
                 }
             }
         }

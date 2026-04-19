@@ -106,112 +106,78 @@ describe('Category 1: Malformed JSON / type confusion', () => {
   }, 5000);
 
   it('element references non-existent node ID (nodeI: 999)', () => {
-    // CONTRACT: must throw or return error -- element->node referential integrity
-    // OBSERVED: Rust panics at assembly.rs ("no entry found for key") -- throws as expected
+    // CONTRACT: must reject — referential integrity validated before assembly
     const input = makeValid2D();
     input.elements.set(1, {
       id: 1, type: 'frame', nodeI: 999, nodeJ: 2,
       materialId: 1, sectionId: 1, hingeStart: false, hingeEnd: false,
     });
-    const { result, error } = trySolve2D(input);
-    if (result) {
-      // NOTE: solver silently accepts non-existent node reference -- this is a gap, not an intentional feature
-      expect(result).toBeTruthy();
-    } else {
-      expect(error).toBeTruthy();
-    }
+    const { error } = trySolve2D(input);
+    expect(error).toBeTruthy();
+    expect(String(error)).toMatch(/node.*999.*does not exist/i);
   }, 5000);
 
   it('element references non-existent material ID', () => {
-    // CONTRACT: must throw or return error -- element->material referential integrity
-    // OBSERVED: Rust panics at assembly.rs ("no entry found for key") -- throws as expected
+    // CONTRACT: must reject — referential integrity validated before assembly
     const input = makeValid2D();
     input.elements.set(1, {
       id: 1, type: 'frame', nodeI: 1, nodeJ: 2,
       materialId: 999, sectionId: 1, hingeStart: false, hingeEnd: false,
     });
-    const { result, error } = trySolve2D(input);
-    if (result) {
-      // NOTE: solver silently accepts non-existent material reference -- this is a gap
-      expect(result).toBeTruthy();
-    } else {
-      expect(error).toBeTruthy();
-    }
+    const { error } = trySolve2D(input);
+    expect(error).toBeTruthy();
+    expect(String(error)).toMatch(/material.*999.*does not exist/i);
   }, 5000);
 
   it('element references non-existent section ID', () => {
-    // CONTRACT: must throw or return error -- element->section referential integrity
-    // OBSERVED: Rust panics at assembly.rs ("no entry found for key") -- throws as expected
+    // CONTRACT: must reject — referential integrity validated before assembly
     const input = makeValid2D();
     input.elements.set(1, {
       id: 1, type: 'frame', nodeI: 1, nodeJ: 2,
       materialId: 1, sectionId: 999, hingeStart: false, hingeEnd: false,
     });
-    const { result, error } = trySolve2D(input);
-    if (result) {
-      // NOTE: solver silently accepts non-existent section reference -- this is a gap
-      expect(result).toBeTruthy();
-    } else {
-      expect(error).toBeTruthy();
-    }
+    const { error } = trySolve2D(input);
+    expect(error).toBeTruthy();
+    expect(String(error)).toMatch(/section.*999.*does not exist/i);
   }, 5000);
 
   it('support references non-existent node ID', () => {
-    // CONTRACT: must throw or return error -- support->node referential integrity
+    // CONTRACT: must reject — referential integrity validated before assembly
     const input = makeValid2D();
     input.supports = new Map([[1, { id: 1, nodeId: 999, type: 'fixed' as const }]]);
-    const { result, error } = trySolve2D(input);
-    if (result) {
-      // NOTE: solver silently accepts support on non-existent node -- this is a gap
-      expect(result).toBeTruthy();
-    } else {
-      expect(error).toBeTruthy();
-    }
+    const { error } = trySolve2D(input);
+    expect(error).toBeTruthy();
+    expect(String(error)).toMatch(/node.*999.*does not exist/i);
   }, 5000);
 
   it('load references non-existent node ID', () => {
-    // CONTRACT: must throw or return error -- load->node referential integrity
+    // CONTRACT: must reject — referential integrity validated before assembly
     const input = makeValid2D();
     input.loads = [{ type: 'nodal', data: { nodeId: 999, fx: 0, fz: -10, my: 0 } }];
-    const { result, error } = trySolve2D(input);
-    if (result) {
-      // NOTE: solver silently accepts load on non-existent node -- this is a gap
-      expect(result).toBeTruthy();
-    } else {
-      expect(error).toBeTruthy();
-    }
+    const { error } = trySolve2D(input);
+    expect(error).toBeTruthy();
+    expect(String(error)).toMatch(/node.*999.*does not exist/i);
   }, 5000);
 
   it('invalid element type string', () => {
-    // CONTRACT: must throw serde error for unknown element type discriminator
-    // OBSERVED: serde accepts unknown type, Rust panics at linalg/dense.rs (index out of bounds)
-    // -- throws but via panic, not a clean serde rejection
+    // CONTRACT: must reject — only "frame" and "truss" are valid element types
     const input = makeValid2D();
     input.elements.set(1, {
       id: 1, type: 'beam' as any, nodeI: 1, nodeJ: 2,
       materialId: 1, sectionId: 1, hingeStart: false, hingeEnd: false,
     });
-    const { result, error } = trySolve2D(input);
-    if (result) {
-      // NOTE: solver silently accepts unknown element type -- this is a gap
-      expect(result).toBeTruthy();
-    } else {
-      expect(error).toBeTruthy();
-    }
+    const { error } = trySolve2D(input);
+    expect(error).toBeTruthy();
+    expect(String(error)).toMatch(/unknown type/i);
   }, 5000);
 
   it('negative material property (E = -200000)', () => {
-    // CONTRACT: must throw or return error -- negative stiffness is not physically meaningful
+    // CONTRACT: must reject — E must be > 0
     const input = makeValid2D();
     input.materials.set(1, { id: 1, e: -200_000, nu: 0.3 });
-    const { result, error } = trySolve2D(input);
-    // Negative E makes matrix not positive definite; solver should detect this
-    if (result) {
-      // NOTE: solver silently accepts negative E -- this is a gap
-      expect(result).toBeTruthy();
-    } else {
-      expect(error).toBeTruthy();
-    }
+    const { error } = trySolve2D(input);
+    expect(error).toBeTruthy();
+    expect(String(error)).toMatch(/E must be > 0/i);
   }, 5000);
 });
 
