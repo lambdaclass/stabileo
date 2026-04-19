@@ -12,8 +12,9 @@ For the deeper solver safety and validation hardening architecture behind the ne
 Sparse direct solver, deterministic assembly, multi-family shell stack (MITC4+EAS-7, MITC9, SHB8-ANS, curved shell), sparse eigensolver paths for modal/buckling/harmonic, beam station extraction for RC design, grouped/member-level 3D extraction, design-demand bridging for RC/steel checks, Modified Newton-Raphson, the WASM production path, TypeScript solver retirement, AMD default ordering, sparse 2D/3D buckling, sparse 3D reduction block extraction, and the first sparse buckling runtime gate are all done. See `BENCHMARKS.md` for the full snapshot and measured benchmark data.
 
 The live near-term blockers are now:
-- final Step 3 trust work: pre-solve shell distortion / Jacobian gating and suspicious local-axis detection
-- constraint-system maturity and sparse/runtime hardening on real workflows
+- final Step 3 trust work: solver-run artifact capture, inclined-support equilibrium reporting correctness, and keeping trust/provenance signals stable across all solver paths
+- constraint-system maturity: prescribed-displacement semantics through constrained chains and deeper circular-dependency detection
+- sparse/runtime hardening on real workflows
 - keeping verification/trust signals visible as contracts and CI gates evolve
 - ~~immediate 3D coordinate-system alignment with the `Z-up` product/runtime convention~~ — SUBSTANTIALLY RESOLVED (2026-04-18): comprehensive audit and 60+ fixes across viewport, store, exports, backend AI, IFC, stress, and locales; see Coordinate Convention section below for remaining items
 
@@ -69,17 +70,29 @@ See also: `../research/solver_safety_and_validation_hardening.md` for the fuller
 
 ### What remains open
 
-- Property-based fuzz testing (10,000+ random models, crash-free) — Step 5
-- WASM vs native parity tests — Step 5
-- Mutation testing (`cargo-mutants`) — Step 5
-- Real-model regression suite from messy/realistic models — Step 5
-- Pre-solve shell distortion / Jacobian gating — Step 3
-- Equilibrium summary incorrect for inclined supports — Step 3
-- Performance regression CI gates — Step 4
-- Broader shell + nonlinear invariant coverage — Step 6
-- Constraint system depth (chained, eccentric, cross-solver parity) — Step 6
-- Free-slave → restrained-master prescribed displacement gives wrong results — Step 6
-- Circular constraint detection only finds depth-2 cycles — Step 6
+**Step 3 — diagnostics / reporting contract**
+- `Equilibrium summary for inclined supports`
+  - Type: diagnostics/reporting fix
+  - Status: deferred because solver outputs are already correct; only the summary contract is wrong
+  - Done when: the roadmap/docs define whether summaries are global, support-local, or both, and rotated-support reporting tests stay green
+
+**Step 5 — verification moat**
+- `Property-based fuzz testing (10,000+ random models, crash-free)`
+- `WASM vs native parity tests`
+- `Mutation testing (cargo-mutants)`
+- `Real-model regression suite from messy/realistic models`
+
+**Step 6 — constraint maturity / solver-path consistency**
+- `Broader shell + nonlinear invariant coverage`
+- `Constraint system depth (chained, eccentric, cross-solver parity)`
+- `Free-slave -> restrained-master prescribed displacement`
+  - Type: contract decision + implementation
+  - Status: deferred because the correct semantics need to be chosen before coding
+  - Done when: one semantic rule is documented and every affected solver path follows it
+- `Circular constraint detection beyond depth 2`
+  - Type: algorithm extension
+  - Status: deferred because the current pairwise check must be replaced with graph-level cycle detection
+  - Done when: arbitrary-depth cycles are rejected and long valid chains still pass
 
 ### Contract change protocol
 
@@ -401,7 +414,7 @@ The core extraction bridge is in place and done for the current Step 2 scope: 2D
 Make the solver easier to trust before and after a run, and make diagnostics structured enough for AI-assisted review, collaboration, and automated guidance. A solver becomes dramatically more valuable when failures are reproducible and results are auditable instead of opaque.
 
 **What:**
-- **Pre-solve model quality gates:** disconnected-node / isolated-component checks and duplicate/near-duplicate nodes are now in place for 2D and 3D; initial instability-risk checks exist for 2D truss-only cases; poor/conflicting constraint diagnostics already exist. Remaining gate work is shell distortion / Jacobian risk before assembly plus suspicious local-axis detection.
+- **Pre-solve model quality gates:** disconnected-node / isolated-component checks, duplicate/near-duplicate nodes, shell distortion / Jacobian risk, suspicious local-axis detection, and poor/conflicting constraint diagnostics are now in place. The remaining Step 3 work is no longer “add the gates”; it is making the trust outputs complete, accurate, and reusable across all solver paths and product surfaces.
 - **Machine-readable warning codes** — stable enum-based codes that AI and review UIs can match on without brittle string parsing
 - **Stable severity levels** — error / warning / info with consistent semantics across all solver paths
 - **Element/member/node references in every diagnostic** — annotation-ready references for comments, review flows, and AI suggestions
@@ -411,7 +424,10 @@ Make the solver easier to trust before and after a run, and make diagnostics str
 - Expose pivot perturbation counts, fill ratios, and solve phase breakdowns in the UI
 - Make solver-path selection and fallback behavior transparent
 - Query-ready summaries for maxima/minima/governing cases are now in place; keep them stable so product-level result Q&A and AI explanation do not drift back toward table scraping
-- Strengthen equilibrium and trust oracles in the validation helpers so distributed loads, moment balance, and constrained-force behavior are checked consistently instead of only by weak ad hoc helpers. **Known gap:** equilibrium summary reports incorrect reaction totals for inclined (rotated) supports — sums reactions in global axes without accounting for support rotation. Diagnostic-only, does not affect the solve.
+- Strengthen equilibrium and trust oracles in the validation helpers so distributed loads, moment balance, and constrained-force behavior are checked consistently instead of only by weak ad hoc helpers.
+- **Open diagnostic backlog — inclined supports:** equilibrium summary still reports incorrect reaction totals for inclined (rotated) supports because it sums reactions in global axes without resolving the support-aligned interpretation. This is reporting-only and does not affect the solve.
+  - **Why it is still open:** solver outputs are already correct; the missing work is deciding and documenting the summary contract (global totals, support-local totals, or both) and then aligning the reporting layer with it.
+  - **Done means:** one explicit equilibrium-summary contract is chosen and documented, inclined-support summaries match that contract, solver outputs stay unchanged, and reporting tests cover rotated-support cases.
 - Tighten tolerance policy by test type: analytical/reference tests should be much stricter than benchmark-comparison tolerances, and regression tests should not inherit permissive benchmark tolerances by default
 
 **Done when:**
@@ -421,6 +437,7 @@ Make the solver easier to trust before and after a run, and make diagnostics str
 - Solver-run artifacts can be attached to bug reports and replayed locally
 - At least one AI/review consumer uses structured codes, not string parsing
 - Result-query consumers can answer governing-case questions from structured payloads instead of ad hoc UI recomputation
+- Inclined-support equilibrium summaries use a documented and tested reporting contract
 
 ### Step 4 — Runtime and Scale Dominance
 
@@ -510,13 +527,21 @@ Stop ugly mixed workflows from being the place where mature solvers obviously ou
 - Add quasi-Newton methods (BFGS, L-BFGS, Broyden)
 - Add PCG with Jacobi preconditioning; add IC(0) / SSOR if justified by measurements
 - Add GMRES / MINRES for indefinite systems
-- Finish constraint-system maturity: consistent reuse of constrained reductions across solver families, chained constraints, connector depth, eccentric workflow polish, cross-solver parity in forces and outputs. Real structural models rely heavily on diaphragms, rigid links, MPCs, and eccentric connectivity — inconsistent constrained behavior destroys trust. **Known bugs:** (1) free-slave → restrained-master with prescribed displacement gives wrong results — constraint transformation applies the prescribed value before the slave DOFs are condensed (`constraints.rs` ~L745-763, medium severity); (2) circular constraint detection only finds depth-2 cycles (A→B→A), longer chains silently produce wrong results (low severity, rare in practice).
+- Finish constraint-system maturity: consistent reuse of constrained reductions across solver families, chained constraints, connector depth, eccentric workflow polish, cross-solver parity in forces and outputs. Real structural models rely heavily on diaphragms, rigid links, MPCs, and eccentric connectivity — inconsistent constrained behavior destroys trust.
+- **Open constraint backlog — prescribed displacement semantics:** free-slave → restrained-master with prescribed displacement still gives wrong results because the transformation applies the prescribed value before the slave DOFs are condensed.
+  - **Why it is still open:** this is not a safe micro-fix; it needs an explicit semantic rule for how prescribed support motion should propagate through constrained master/slave chains.
+  - **Done means:** one semantic contract is chosen and documented, all affected solver paths implement the same rule, and regression tests cover rigid links / equal-DOF / diaphragm chains with prescribed displacement.
+- **Open constraint backlog — circular detection depth:** circular constraint detection still only catches depth-2 cycles (A→B→A). Longer cycles can still slip through.
+  - **Why it is still open:** the current detection is pairwise; fixing it requires a proper graph traversal / SCC-style check, not another special case.
+  - **Done means:** arbitrary-depth cycles are detected before solve, valid long chains remain accepted, and tests cover depth-2, depth-3, and longer non-circular chains.
 
 **Done when:**
 - Named regressions exist for hard mixed workflows and stay green
 - Parity expectations are encoded for representative dense vs sparse and constrained vs unconstrained cases
 - Solver-path-specific result divergences are treated as regressions, not expected quirks
 - Known nonlinear edge cases have acceptance coverage instead of only anecdotal reproduction
+- Prescribed-displacement behavior through constrained chains is explicitly documented and regression-tested
+- Circular constraint detection is graph-complete rather than depth-2 only
 
 ### Step 7 — Shell Workflow Maturity and Breadth
 
