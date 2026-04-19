@@ -495,25 +495,28 @@ pub fn mitc9_local_stiffness(
 
 // ==================== Transformation ====================
 
-/// Build 54×54 rotation matrix from local to global for the quad9 element.
+/// Build 54×54 rotation matrix (global → local) for the quad9 element.
+/// Rows are [ex^T, ey^T, ez^T] so that u_local = T · u_global.
+/// Same convention as plate_transform_3d, compatible with transform_stiffness (T^T*K*T).
 pub fn quad9_transform_3d(coords: &[[f64; 3]; 9]) -> Vec<f64> {
     let (ex, ey, ez) = quad9_local_axes(coords);
-
-    let r = [
-        [ex[0], ey[0], ez[0]],
-        [ex[1], ey[1], ez[1]],
-        [ex[2], ey[2], ez[2]],
-    ];
 
     let mut t = vec![0.0; 54 * 54];
     for node in 0..9 {
         for block in 0..2 {
             let offset = node * 6 + block * 3;
-            for i in 0..3 {
-                for j in 0..3 {
-                    t[(offset + i) * 54 + (offset + j)] = r[i][j];
-                }
-            }
+            // Row 0 → ex
+            t[(offset + 0) * 54 + (offset + 0)] = ex[0];
+            t[(offset + 0) * 54 + (offset + 1)] = ex[1];
+            t[(offset + 0) * 54 + (offset + 2)] = ex[2];
+            // Row 1 → ey
+            t[(offset + 1) * 54 + (offset + 0)] = ey[0];
+            t[(offset + 1) * 54 + (offset + 1)] = ey[1];
+            t[(offset + 1) * 54 + (offset + 2)] = ey[2];
+            // Row 2 → ez
+            t[(offset + 2) * 54 + (offset + 0)] = ez[0];
+            t[(offset + 2) * 54 + (offset + 1)] = ez[1];
+            t[(offset + 2) * 54 + (offset + 2)] = ez[2];
         }
     }
     t
@@ -938,15 +941,9 @@ pub fn quad9_thermal_load(
         }
     }
 
-    // Transform from local to global
+    // Transform from local to global: f_global = T^T * f_local
     let t_mat = quad9_transform_3d(coords);
-    let mut f_global = vec![0.0; ndof];
-    for i in 0..ndof {
-        for j in 0..ndof {
-            f_global[i] += t_mat[i * ndof + j] * f[j];
-        }
-    }
-    f_global
+    crate::linalg::transform_force(&f, &t_mat, ndof)
 }
 
 /// Consistent body force (self-weight) load vector for quad9 element (54-DOF).

@@ -165,6 +165,11 @@ pub enum DiagnosticCode {
     /// Sparse fill ratio (nnz(L) / nnz(K_ff)).
     SparseFillRatio,
 
+    /// Cholesky failed, LU fallback succeeded — model may be unstable.
+    CholeskyFailedLuFallback,
+    /// Post-solve displacement exceeds sanity threshold — likely mechanism or instability.
+    ExcessiveDisplacement,
+
     // ---- Conditioning ----
     /// Diagonal ratio > 1e8 (moderate conditioning concern).
     HighDiagonalRatio,
@@ -309,12 +314,12 @@ impl From<&StructuredDiagnostic> for SolverDiagnostic {
     fn from(sd: &StructuredDiagnostic) -> Self {
         let category = match sd.code {
             DiagnosticCode::SparseCholesky | DiagnosticCode::DenseLu => "solver_path",
-            DiagnosticCode::SparseFallbackDenseLu | DiagnosticCode::DiagonalRegularization => "fallback",
+            DiagnosticCode::SparseFallbackDenseLu | DiagnosticCode::DiagonalRegularization | DiagnosticCode::CholeskyFailedLuFallback => "fallback",
             DiagnosticCode::SparseFillRatio => "performance",
             DiagnosticCode::HighDiagonalRatio | DiagnosticCode::ExtremelyHighDiagonalRatio | DiagnosticCode::NearZeroDiagonal => "conditioning",
             DiagnosticCode::ResidualOk | DiagnosticCode::ResidualHigh | DiagnosticCode::EquilibriumOk | DiagnosticCode::EquilibriumViolation => "residual",
             DiagnosticCode::HighAspectRatio | DiagnosticCode::NegativeJacobian | DiagnosticCode::HighWarping | DiagnosticCode::PoorJacobianRatio | DiagnosticCode::SmallMinAngle => "element_quality",
-            DiagnosticCode::NoFreeDofs | DiagnosticCode::LocalMechanism | DiagnosticCode::SingularMatrix | DiagnosticCode::DisconnectedNode | DiagnosticCode::NearDuplicateNodes | DiagnosticCode::InstabilityRisk | DiagnosticCode::ShellDistortion | DiagnosticCode::SuspiciousLocalAxis => "model_quality",
+            DiagnosticCode::NoFreeDofs | DiagnosticCode::LocalMechanism | DiagnosticCode::SingularMatrix | DiagnosticCode::DisconnectedNode | DiagnosticCode::NearDuplicateNodes | DiagnosticCode::InstabilityRisk | DiagnosticCode::ShellDistortion | DiagnosticCode::SuspiciousLocalAxis | DiagnosticCode::ExcessiveDisplacement => "model_quality",
             DiagnosticCode::ConflictingConstraints | DiagnosticCode::CircularConstraint | DiagnosticCode::OverConstrainedDof => "constraints",
         };
         let severity = match sd.severity {

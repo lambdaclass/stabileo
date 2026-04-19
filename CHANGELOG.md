@@ -9,6 +9,27 @@ It should capture what changed, not what should be built next.
 
 ## Unreleased
 
+### Fixed
+
+#### Comprehensive Z-up coordinate convention enforcement (2026-04-18)
+
+Audited and fixed 60+ Z-up/Y-up axis convention inconsistencies across 30+ files:
+
+- **viewport 3D rendering**: WASD pan uses forward.z (not forward.y), Q/E vertical movement on Z axis, distributed load axis fixed, 5 results-sync functions now use `projectNodeToScene()` (computeStructureBBox, syncVerificationLabels, applyFrameHeatmap, syncReactions, syncConstraintForces), measurement label offset corrected
+- **store operations**: `splitElementAtPoint`, `mirrorNodes`, `rotateNodes` now preserve Z coordinate for 3D models
+- **file persistence**: `.ded` files now persist `analysisMode` and `axisConvention3D`; share links serialize plates, quads, and constraints for PRO models; HTML report uses `dz`/`dry` instead of `dy`/`drz`
+- **exports**: added `isMode3D()` helper so PRO mode uses 3D code paths in CSV, HTML, and Excel exports (6 instances in excel.ts, 3 in toolbar)
+- **fixture loading**: separated spring stiffness keys from support opts in `load-fixture.ts`
+- **IFC import**: added `ifcToZup()`/`ifcDirToZup()` remapping with parent placement hierarchy composition
+- **backend AI**: `fz`/`my` as canonical 2D nodal load fields (`fy`/`mz` as serde aliases for backward compat); bounds contract uses `z_min`/`z_max` always-present, `y_min`/`y_max` optional for 3D
+- **section stress**: quick-path `computeSectionStress` in `section-stress-3d.ts` fixed My/Mz ↔ yMax/zMax pairing per Navier formula (`σ = N/A + Mz·y/Iz + My·z/Iy`)
+- **locale labels**: `rotMomentHelp` corrected across all 14 locales — My is weak-axis bending, Mz is strong-axis
+- **basic 3D node creation**: `shouldProjectModelToXZ()` now excludes `'3d'` mode (was only excluding `'pro'`), fixing Y/Z swap in basic 3D mode node placement
+- **axis validation**: added `validateAxisSafety()` to detect 2D files with non-zero Z coordinates on load
+- **autosave**: `restoreAutosave()` now restores `analysisMode` and `axisConvention3D`
+
+New tests: 39 tests across 4 new test files (model-zcoord, zup-results-sync-projection, fixture-support-metadata, file-save-load). All 1946 web tests and 5919 engine tests pass.
+
 ### Added
 
 #### Extraction contracts, structured diagnostics, and solver-run artifacts

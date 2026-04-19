@@ -69,6 +69,18 @@ jobs:
         working-directory: engine
         run: cargo nextest run --profile ci --test sparse_shell_gates
 
+      - name: Solver invariants gate
+        working-directory: engine
+        run: cargo nextest run --profile ci --test solver_invariants
+
+      - name: Solver CI coverage gate
+        working-directory: engine
+        run: cargo nextest run --profile ci --test solver_ci_coverage
+
+      - name: Conditioning adversarial gate
+        working-directory: engine
+        run: cargo nextest run --profile ci --test conditioning_adversarial
+
       - name: Run all tests
         working-directory: engine
         run: cargo nextest run --profile ci -E 'all() - test(harmonic_phase_breakdown) - test(harmonic_modal_vs_direct_timing)'
@@ -107,3 +119,7 @@ jobs:
       - name: Build
         working-directory: web
         run: npm run build
+
+      - name: Run web tests
+        working-directory: web
+        run: npm run test

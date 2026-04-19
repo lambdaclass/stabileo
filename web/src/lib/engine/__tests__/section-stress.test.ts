@@ -1075,15 +1075,15 @@ describe('Pressure center sign convention (2D)', () => {
 describe('Pressure center sign convention (3D)', () => {
   // σ = N/A + Mz·y/Iyy - My·z/Izz
   // With eccentric N: Mz = N·ey → ey = Mz/N (= yCP)
-  //                   -My = N·ez → ez = -My/N (= zCP)
+  //                   My = N·ez → ez = My/N (= zCP)
 
-  it('yCP = Mz/N, zCP = -My/N (correct signs)', () => {
+  it('yCP = Mz/N, zCP = My/N (correct signs)', () => {
     const N = -100, Mz = -10, My = 5;
     const yCP = Mz / N;   // = -10/(-100) = +0.1 m
-    const zCP = -My / N;  // = -5/(-100) = +0.05 m
+    const zCP = My / N;   // = 5/(-100) = -0.05 m
 
     expect(yCP).toBeCloseTo(0.1, 10);
-    expect(zCP).toBeCloseTo(0.05, 10);
+    expect(zCP).toBeCloseTo(-0.05, 10);
   });
 
   it('CP on opposite side from EN along y-axis for biaxial bending', () => {
@@ -1119,13 +1119,13 @@ describe('Pressure center sign convention (3D)', () => {
     expect(yEN1 * yCP1).toBeCloseTo(-Iyy / A, 10);
 
     // Pure My case (EN is vertical, slope=∞, but for z-axis version):
-    // zEN = -N·Izz/(A·(-My)) = N·Izz/(A·My)
-    // zCP = -My/N
-    // Product: zEN·zCP = N·Izz/(A·My)·(-My/N) = -Izz/A
+    // zEN = N·Izz/(A·My)
+    // zCP = My/N
+    // Product: zEN·zCP = N·Izz/(A·My)·(My/N) = Izz/A
     const N2 = -50, My2 = 5;
     const zEN2 = N2 * Izz / (A * My2);
-    const zCP2 = -My2 / N2;
-    expect(zEN2 * zCP2).toBeCloseTo(-Izz / A, 10);
+    const zCP2 = My2 / N2;
+    expect(zEN2 * zCP2).toBeCloseTo(Izz / A, 10);
   });
 });
 

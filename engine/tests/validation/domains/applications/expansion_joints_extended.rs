@@ -186,7 +186,7 @@ fn validation_gap_sizing() {
         .find(|d| d.node_id == n + 1).unwrap().ux;
 
     // Total movement range (absolute value)
-    // Solver convention: positive dT -> negative ux, negative dT -> positive ux
+    // Physical convention: positive dT -> positive ux (expansion), negative dT -> negative ux
     let total_movement: f64 = (ux_hot - ux_cold).abs();
 
     // Expected total: alpha * |dt_hot - dt_cold| * L = alpha * 60 * L
@@ -199,9 +199,9 @@ fn validation_gap_sizing() {
     assert_close(ux_hot.abs(), ux_cold.abs(), 0.02,
         "gap sizing: symmetric expansion/contraction");
 
-    // Solver sign convention: positive dT -> negative ux, negative dT -> positive ux
-    assert!(ux_hot < 0.0, "hot case: ux should be negative (solver convention): ux={}", ux_hot);
-    assert!(ux_cold > 0.0, "cold case: ux should be positive (solver convention): ux={}", ux_cold);
+    // Physical convention: positive dT -> expansion -> positive ux at free end
+    assert!(ux_hot > 0.0, "hot case: ux should be positive (expansion): ux={}", ux_hot);
+    assert!(ux_cold < 0.0, "cold case: ux should be negative (contraction): ux={}", ux_cold);
 }
 
 // ================================================================

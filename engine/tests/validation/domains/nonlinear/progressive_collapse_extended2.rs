@@ -837,14 +837,15 @@ fn progressive_collapse_redundancy_analysis_multispan() {
         .fold(0.0_f64, f64::max);
 
     // 3-span damaged: remove second support -> spans become [2L, L]
-    let n3_dam = (2 * n_per_span + n_per_span) as usize;
+    let spans_3_dam = [2.0 * l, l];
+    let n3_dam = n_per_span * spans_3_dam.len(); // make_continuous_beam: n_per_span * n_spans
     let loads_3_dam: Vec<SolverLoad> = (1..=n3_dam)
         .map(|i| SolverLoad::Distributed(SolverDistributedLoad {
             element_id: i, q_i: q, q_j: q, a: None, b: None,
         }))
         .collect();
     let input_3_damaged = make_continuous_beam(
-        &[2.0 * l, l], n_per_span, E, A_BEAM, IZ_BEAM, loads_3_dam,
+        &spans_3_dam, n_per_span, E, A_BEAM, IZ_BEAM, loads_3_dam,
     );
     let res_3_damaged = linear::solve_2d(&input_3_damaged).unwrap();
     let max_uy_3_damaged: f64 = res_3_damaged.displacements.iter()
@@ -870,14 +871,15 @@ fn progressive_collapse_redundancy_analysis_multispan() {
         .fold(0.0_f64, f64::max);
 
     // 5-span damaged: remove second support -> spans become [2L, L, L, L]
-    let n5_dam = (2 * n_per_span + 3 * n_per_span) as usize;
+    let spans_5_dam = [2.0 * l, l, l, l];
+    let n5_dam = n_per_span * spans_5_dam.len(); // make_continuous_beam: n_per_span * n_spans
     let loads_5_dam: Vec<SolverLoad> = (1..=n5_dam)
         .map(|i| SolverLoad::Distributed(SolverDistributedLoad {
             element_id: i, q_i: q, q_j: q, a: None, b: None,
         }))
         .collect();
     let input_5_damaged = make_continuous_beam(
-        &[2.0 * l, l, l, l], n_per_span, E, A_BEAM, IZ_BEAM, loads_5_dam,
+        &spans_5_dam, n_per_span, E, A_BEAM, IZ_BEAM, loads_5_dam,
     );
     let res_5_damaged = linear::solve_2d(&input_5_damaged).unwrap();
     let max_uy_5_damaged: f64 = res_5_damaged.displacements.iter()

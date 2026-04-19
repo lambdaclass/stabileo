@@ -285,13 +285,14 @@ pub fn solve_2d(input: &SolverInput) -> Result<AnalysisResults, String> {
     let cond_report = super::conditioning::check_conditioning(&k_ff, nf);
 
     // Solve Kff * u_f = Ff_modified
+    let mut cholesky_failed = false;
     let (u_f, used_sparse) = if nf >= SPARSE_THRESHOLD {
         // Sparse path
         let k_ff_sparse = CscMatrix::from_dense_symmetric(&k_ff, nf);
         match sparse_cholesky_solve_full(&k_ff_sparse, &f_f) {
             Some(u) => (u, true),
             None => {
-                // Fallback to dense LU
+                cholesky_failed = true;
                 let mut k_work = k_ff.clone();
                 let mut f_work = f_f.clone();
                 let u = lu_solve(&mut k_work, &mut f_work, nf)
@@ -304,6 +305,7 @@ pub fn solve_2d(input: &SolverInput) -> Result<AnalysisResults, String> {
         match cholesky_solve(&mut k_work, &f_f, nf) {
             Some(u) => (u, false),
             None => {
+                cholesky_failed = true;
                 let mut k_work = k_ff.clone();
                 let mut f_work = f_f.clone();
                 let u = lu_solve(&mut k_work, &mut f_work, nf)
@@ -393,6 +395,45 @@ pub fn solve_2d(input: &SolverInput) -> Result<AnalysisResults, String> {
         Severity::Info,
         format!("{} solver ({} free DOFs)", if used_sparse { "Sparse Cholesky" } else { "Dense" }, nf),
     ).with_phase("solve"));
+
+    // LU fallback warning
+    if cholesky_failed {
+        structured.push(StructuredDiagnostic::global(
+            DiagnosticCode::CholeskyFailedLuFallback,
+            Severity::Warning,
+            "Cholesky factorization failed — LU fallback succeeded but model may be unstable (not positive-definite)".to_string(),
+        ).with_phase("solve"));
+    }
+
+    // Displacement sanity check — translational DOFs only (rotations are in radians, not length units)
+    let max_disp = dof_num.map.iter()
+        .filter(|&(&(_node, local_dof), &global)| local_dof < 2 && global < nf)
+        .map(|(&_, &global)| u_f[global].abs())
+        .fold(0.0f64, f64::max);
+    let char_length = {
+        let mut min_x = f64::MAX;
+        let mut max_x = f64::MIN;
+        let mut min_z = f64::MAX;
+        let mut max_z = f64::MIN;
+        for node in input.nodes.values() {
+            min_x = min_x.min(node.x);
+            max_x = max_x.max(node.x);
+            min_z = min_z.min(node.z);
+            max_z = max_z.max(node.z);
+        }
+        let span = ((max_x - min_x).powi(2) + (max_z - min_z).powi(2)).sqrt();
+        span.max(1.0)
+    };
+    if max_disp > 1000.0 * char_length {
+        structured.push(StructuredDiagnostic::global(
+            DiagnosticCode::ExcessiveDisplacement,
+            Severity::Warning,
+            format!(
+                "Maximum displacement {:.2e} exceeds 1000× characteristic length {:.2e} — likely mechanism or instability",
+                max_disp, char_length
+            ),
+        ).with_value(max_disp, 1000.0 * char_length).with_phase("solve"));
+    }
 
     // Conditioning
     let cond = cond_report.diagonal_ratio;
@@ -746,6 +787,40 @@ pub fn solve_3d(input: &SolverInput3D) -> Result<AnalysisResults3D, String> {
                         format!("Sparse Cholesky failed, fell back to dense LU ({} free DOFs)", nf),
                     ).with_phase("solve"));
 
+                    // LU fallback stability warning
+                    structured.push(StructuredDiagnostic::global(
+                        DiagnosticCode::CholeskyFailedLuFallback,
+                        Severity::Warning,
+                        "Cholesky factorization failed — LU fallback succeeded but model may be unstable (not positive-definite)".to_string(),
+                    ).with_phase("solve"));
+
+                    // Displacement sanity check — translational DOFs only
+                    let max_disp = dof_num.map.iter()
+                        .filter(|&(&(_node, local_dof), &global)| local_dof < 3 && global < nf)
+                        .map(|(&_, &global)| u_fb[global].abs())
+                        .fold(0.0f64, f64::max);
+                    let char_length = {
+                        let (mut mn_x, mut mx_x) = (f64::MAX, f64::MIN);
+                        let (mut mn_y, mut mx_y) = (f64::MAX, f64::MIN);
+                        let (mut mn_z, mut mx_z) = (f64::MAX, f64::MIN);
+                        for node in input.nodes.values() {
+                            mn_x = mn_x.min(node.x); mx_x = mx_x.max(node.x);
+                            mn_y = mn_y.min(node.y); mx_y = mx_y.max(node.y);
+                            mn_z = mn_z.min(node.z); mx_z = mx_z.max(node.z);
+                        }
+                        ((mx_x - mn_x).powi(2) + (mx_y - mn_y).powi(2) + (mx_z - mn_z).powi(2)).sqrt().max(1.0)
+                    };
+                    if max_disp > 1000.0 * char_length {
+                        structured.push(StructuredDiagnostic::global(
+                            DiagnosticCode::ExcessiveDisplacement,
+                            Severity::Warning,
+                            format!(
+                                "Maximum displacement {:.2e} exceeds 1000× characteristic length {:.2e} — likely mechanism or instability",
+                                max_disp, char_length
+                            ),
+                        ).with_value(max_disp, 1000.0 * char_length).with_phase("solve"));
+                    }
+
                     if cond > 1e12 {
                         structured.push(StructuredDiagnostic::global(
                             DiagnosticCode::ExtremelyHighDiagonalRatio,
@@ -974,6 +1049,33 @@ pub fn solve_3d(input: &SolverInput3D) -> Result<AnalysisResults3D, String> {
             ).with_value(max_perturbation_val, 0.0).with_phase("factorization"));
         }
 
+        // Displacement sanity check — translational DOFs only
+        let max_disp = dof_num.map.iter()
+            .filter(|&(&(_node, local_dof), &global)| local_dof < 3 && global < nf)
+            .map(|(&_, &global)| u_f[global].abs())
+            .fold(0.0f64, f64::max);
+        let char_length = {
+            let (mut mn_x, mut mx_x) = (f64::MAX, f64::MIN);
+            let (mut mn_y, mut mx_y) = (f64::MAX, f64::MIN);
+            let (mut mn_z, mut mx_z) = (f64::MAX, f64::MIN);
+            for node in input.nodes.values() {
+                mn_x = mn_x.min(node.x); mx_x = mx_x.max(node.x);
+                mn_y = mn_y.min(node.y); mx_y = mx_y.max(node.y);
+                mn_z = mn_z.min(node.z); mx_z = mx_z.max(node.z);
+            }
+            ((mx_x - mn_x).powi(2) + (mx_y - mn_y).powi(2) + (mx_z - mn_z).powi(2)).sqrt().max(1.0)
+        };
+        if max_disp > 1000.0 * char_length {
+            structured.push(StructuredDiagnostic::global(
+                DiagnosticCode::ExcessiveDisplacement,
+                Severity::Warning,
+                format!(
+                    "Maximum displacement {:.2e} exceeds 1000× characteristic length {:.2e} — likely mechanism or instability",
+                    max_disp, char_length
+                ),
+            ).with_value(max_disp, 1000.0 * char_length).with_phase("solve"));
+        }
+
         // Residual diagnostic — describes the returned solution, not any rejected attempt
         let solver_label = if used_residual_fallback { "Dense LU fallback" } else { "Sparse Cholesky" };
         structured.push(if rel_residual < 1e-6 {
@@ -1039,11 +1141,13 @@ pub fn solve_3d(input: &SolverInput3D) -> Result<AnalysisResults3D, String> {
         let k_fr_ur = mat_vec_rect(&k_fr, &u_r, nf, nr);
         for i in 0..nf { f_f[i] -= k_fr_ur[i]; }
 
+        let mut cholesky_failed_3d = false;
         let u_f = {
             let mut k_work = k_ff.clone();
             match cholesky_solve(&mut k_work, &f_f, nf) {
                 Some(u) => u,
                 None => {
+                    cholesky_failed_3d = true;
                     let mut k_work = k_ff.clone();
                     let mut f_work = f_f.clone();
                     lu_solve(&mut k_work, &mut f_work, nf)
@@ -1117,6 +1221,42 @@ pub fn solve_3d(input: &SolverInput3D) -> Result<AnalysisResults3D, String> {
             Severity::Info,
             format!("Dense solver ({} free DOFs)", nf),
         ).with_phase("solve"));
+
+        // LU fallback warning
+        if cholesky_failed_3d {
+            structured.push(StructuredDiagnostic::global(
+                DiagnosticCode::CholeskyFailedLuFallback,
+                Severity::Warning,
+                "Cholesky factorization failed — LU fallback succeeded but model may be unstable (not positive-definite)".to_string(),
+            ).with_phase("solve"));
+        }
+
+        // Displacement sanity check — translational DOFs only
+        let max_disp = dof_num.map.iter()
+            .filter(|&(&(_node, local_dof), &global)| local_dof < 3 && global < nf)
+            .map(|(&_, &global)| u_f[global].abs())
+            .fold(0.0f64, f64::max);
+        let char_length = {
+            let (mut mn_x, mut mx_x) = (f64::MAX, f64::MIN);
+            let (mut mn_y, mut mx_y) = (f64::MAX, f64::MIN);
+            let (mut mn_z, mut mx_z) = (f64::MAX, f64::MIN);
+            for node in input.nodes.values() {
+                mn_x = mn_x.min(node.x); mx_x = mx_x.max(node.x);
+                mn_y = mn_y.min(node.y); mx_y = mx_y.max(node.y);
+                mn_z = mn_z.min(node.z); mx_z = mx_z.max(node.z);
+            }
+            ((mx_x - mn_x).powi(2) + (mx_y - mn_y).powi(2) + (mx_z - mn_z).powi(2)).sqrt().max(1.0)
+        };
+        if max_disp > 1000.0 * char_length {
+            structured.push(StructuredDiagnostic::global(
+                DiagnosticCode::ExcessiveDisplacement,
+                Severity::Warning,
+                format!(
+                    "Maximum displacement {:.2e} exceeds 1000× characteristic length {:.2e} — likely mechanism or instability",
+                    max_disp, char_length
+                ),
+            ).with_value(max_disp, 1000.0 * char_length).with_phase("solve"));
+        }
 
         // Conditioning
         let cond = cond_report.diagonal_ratio;
@@ -1349,31 +1489,20 @@ pub(crate) fn build_reactions_3d(
     for sup in input.supports.values() {
         let mut vals = [0.0f64; 6];
 
-        // Check if this is a spring support (all DOFs free with spring stiffness)
+        // Handle each DOF individually: restrained DOFs from reactions_vec,
+        // spring DOFs (free with stiffness) from R = -k * u
         let spring_stiffs = [sup.kx, sup.ky, sup.kz, sup.krx, sup.kry, sup.krz];
-        let is_spring = spring_stiffs.iter().any(|k| k.map_or(false, |v| v > 0.0))
-            && !(0..6.min(dof_num.dofs_per_node)).any(|i| {
-                let restrained = match i {
-                    0 => sup.rx, 1 => sup.ry, 2 => sup.rz,
-                    3 => sup.rrx, 4 => sup.rry, 5 => sup.rrz,
-                    _ => false,
-                };
-                restrained
-            });
-
-        if is_spring {
-            // Spring reaction: R = -k * u
-            for i in 0..6.min(dof_num.dofs_per_node) {
-                let u = dof_num.global_dof(sup.node_id, i).map(|d| u_full[d]).unwrap_or(0.0);
-                let k = spring_stiffs[i].unwrap_or(0.0);
-                vals[i] = -k * u;
-            }
-        } else {
-            for i in 0..6.min(dof_num.dofs_per_node) {
-                if let Some(&d) = dof_num.map.get(&(sup.node_id, i)) {
-                    if d >= nf {
-                        let idx = d - nf;
-                        vals[i] = reactions_vec[idx];
+        let restrained_flags = [sup.rx, sup.ry, sup.rz, sup.rrx, sup.rry, sup.rrz];
+        for i in 0..6.min(dof_num.dofs_per_node) {
+            if let Some(&d) = dof_num.map.get(&(sup.node_id, i)) {
+                if d >= nf {
+                    // Restrained DOF: reaction from solve
+                    vals[i] = reactions_vec[d - nf];
+                } else if !restrained_flags[i] {
+                    // Free DOF: check for spring stiffness
+                    let k = spring_stiffs[i].unwrap_or(0.0);
+                    if k > 0.0 {
+                        vals[i] = -k * u_full[d];
                     }
                 }
             }
@@ -1384,12 +1513,13 @@ pub(crate) fn build_reactions_3d(
             if let Some(&d) = dof_num.map.get(&(sup.node_id, 6)) {
                 if d >= nf {
                     Some(reactions_vec[d - nf])
-                } else if is_spring {
-                    let u = dof_num.global_dof(sup.node_id, 6).map(|d| u_full[d]).unwrap_or(0.0);
-                    let kw = sup.kw.unwrap_or(0.0);
-                    Some(-kw * u)
                 } else {
-                    None
+                    let kw = sup.kw.unwrap_or(0.0);
+                    if kw > 0.0 {
+                        Some(-kw * u_full[d])
+                    } else {
+                        None
+                    }
                 }
             } else {
                 None
@@ -1436,31 +1566,114 @@ fn build_reactions_3d_inclined(
 
 // ── Input validation helpers ──
 
-fn validate_input_2d(input: &SolverInput) -> Result<(), String> {
+pub(crate) fn validate_input_2d(input: &SolverInput) -> Result<(), String> {
+    let node_ids: std::collections::HashSet<usize> =
+        input.nodes.values().map(|n| n.id).collect();
+    let mat_ids: std::collections::HashSet<usize> =
+        input.materials.values().map(|m| m.id).collect();
+    let sec_ids: std::collections::HashSet<usize> =
+        input.sections.values().map(|s| s.id).collect();
+    let elem_ids: std::collections::HashSet<usize> =
+        input.elements.values().map(|e| e.id).collect();
     let node_map: std::collections::HashMap<usize, &SolverNode> =
         input.nodes.values().map(|n| (n.id, n)).collect();
 
-    // 1. Zero-length elements
+    // 0. Duplicate ID detection
+    if node_ids.len() != input.nodes.len() {
+        return Err("Duplicate node IDs detected".to_string());
+    }
+    if elem_ids.len() != input.elements.len() {
+        return Err("Duplicate element IDs detected".to_string());
+    }
+    if mat_ids.len() != input.materials.len() {
+        return Err("Duplicate material IDs detected".to_string());
+    }
+    if sec_ids.len() != input.sections.len() {
+        return Err("Duplicate section IDs detected".to_string());
+    }
+
+    // 1. Referential integrity — element → node, material, section
     for elem in input.elements.values() {
-        if let (Some(ni), Some(nj)) = (node_map.get(&elem.node_i), node_map.get(&elem.node_j)) {
-            let dx = nj.x - ni.x;
-            let dz = nj.z - ni.z;
-            let l = (dx * dx + dz * dz).sqrt();
-            if l < 1e-10 {
-                return Err(format!("Element {} has zero length", elem.id));
+        if !node_ids.contains(&elem.node_i) {
+            return Err(format!("Element {}: node_i {} does not exist", elem.id, elem.node_i));
+        }
+        if !node_ids.contains(&elem.node_j) {
+            return Err(format!("Element {}: node_j {} does not exist", elem.id, elem.node_j));
+        }
+        if !mat_ids.contains(&elem.material_id) {
+            return Err(format!("Element {}: material {} does not exist", elem.id, elem.material_id));
+        }
+        if !sec_ids.contains(&elem.section_id) {
+            return Err(format!("Element {}: section {} does not exist", elem.id, elem.section_id));
+        }
+        if elem.elem_type != "frame" && elem.elem_type != "truss" && elem.elem_type != "cable" {
+            return Err(format!("Element {}: unknown type '{}'", elem.id, elem.elem_type));
+        }
+    }
+
+    // 2. Referential integrity — support → node
+    for sup in input.supports.values() {
+        if !node_ids.contains(&sup.node_id) {
+            return Err(format!("Support {}: node {} does not exist", sup.id, sup.node_id));
+        }
+    }
+
+    // 3. Referential integrity — load → node/element
+    for load in &input.loads {
+        match load {
+            SolverLoad::Nodal(l) => {
+                if !node_ids.contains(&l.node_id) {
+                    return Err(format!("Nodal load: node {} does not exist", l.node_id));
+                }
+            }
+            SolverLoad::Distributed(l) => {
+                if !elem_ids.contains(&l.element_id) {
+                    return Err(format!("Distributed load: element {} does not exist", l.element_id));
+                }
+            }
+            SolverLoad::PointOnElement(l) => {
+                if !elem_ids.contains(&l.element_id) {
+                    return Err(format!("Point load: element {} does not exist", l.element_id));
+                }
+            }
+            SolverLoad::Thermal(l) => {
+                if !elem_ids.contains(&l.element_id) {
+                    return Err(format!("Thermal load: element {} does not exist", l.element_id));
+                }
             }
         }
     }
 
-    // 2. Section area <= 0
+    // 4. Material properties
+    for mat in input.materials.values() {
+        if mat.e <= 0.0 {
+            return Err(format!("Material {}: E must be > 0 (got {})", mat.id, mat.e));
+        }
+        if mat.nu <= -1.0 || mat.nu >= 0.5 {
+            return Err(format!("Material {}: Poisson ratio must be in (-1, 0.5) (got {})", mat.id, mat.nu));
+        }
+    }
+
+    // 5. Zero-length elements
+    for elem in input.elements.values() {
+        let ni = &node_map[&elem.node_i];
+        let nj = &node_map[&elem.node_j];
+        let dx = nj.x - ni.x;
+        let dz = nj.z - ni.z;
+        let l = (dx * dx + dz * dz).sqrt();
+        if l < 1e-10 {
+            return Err(format!("Element {} has zero length", elem.id));
+        }
+    }
+
+    // 6. Section area <= 0
     for sec in input.sections.values() {
         if sec.a <= 0.0 {
             return Err(format!("Section {}: area A must be > 0", sec.id));
         }
     }
 
-    // 3. Section inertia <= 0 (only for sections used by bending elements)
-    // Frame elements with both ends hinged act as trusses — no bending stiffness needed.
+    // 7. Section inertia <= 0 (only for sections used by bending elements)
     let bending_section_ids: std::collections::HashSet<usize> = input.elements.values()
         .filter(|e| e.elem_type == "frame" && !(e.hinge_start && e.hinge_end))
         .map(|e| e.section_id)
@@ -1471,20 +1684,20 @@ fn validate_input_2d(input: &SolverInput) -> Result<(), String> {
         }
     }
 
-    // 4. Point load position validation
+    // 8. Point load position validation
     for load in &input.loads {
         if let SolverLoad::PointOnElement(pl) = load {
             if let Some(elem) = input.elements.values().find(|e| e.id == pl.element_id) {
-                if let (Some(ni), Some(nj)) = (node_map.get(&elem.node_i), node_map.get(&elem.node_j)) {
-                    let dx = nj.x - ni.x;
-                    let dz = nj.z - ni.z;
-                    let l = (dx * dx + dz * dz).sqrt();
-                    if pl.a < -1e-10 || pl.a > l + 1e-10 {
-                        return Err(format!(
-                            "Element {}: point load position a={:.4} out of range [0, L={:.4}]",
-                            elem.id, pl.a, l
-                        ));
-                    }
+                let ni = &node_map[&elem.node_i];
+                let nj = &node_map[&elem.node_j];
+                let dx = nj.x - ni.x;
+                let dz = nj.z - ni.z;
+                let l = (dx * dx + dz * dz).sqrt();
+                if pl.a < -1e-10 || pl.a > l + 1e-10 {
+                    return Err(format!(
+                        "Element {}: point load position a={:.4} out of range [0, L={:.4}]",
+                        elem.id, pl.a, l
+                    ));
                 }
             }
         }
@@ -1493,32 +1706,157 @@ fn validate_input_2d(input: &SolverInput) -> Result<(), String> {
     Ok(())
 }
 
-fn validate_input_3d(input: &SolverInput3D) -> Result<(), String> {
+pub(crate) fn validate_input_3d(input: &SolverInput3D) -> Result<(), String> {
+    let node_ids: std::collections::HashSet<usize> =
+        input.nodes.values().map(|n| n.id).collect();
+    let mat_ids: std::collections::HashSet<usize> =
+        input.materials.values().map(|m| m.id).collect();
+    let sec_ids: std::collections::HashSet<usize> =
+        input.sections.values().map(|s| s.id).collect();
+    let elem_ids: std::collections::HashSet<usize> =
+        input.elements.values().map(|e| e.id).collect();
     let node_map: std::collections::HashMap<usize, &SolverNode3D> =
         input.nodes.values().map(|n| (n.id, n)).collect();
 
-    // 1. Zero-length elements
+    // 0. Duplicate ID detection
+    if node_ids.len() != input.nodes.len() {
+        return Err("Duplicate node IDs detected".to_string());
+    }
+    if elem_ids.len() != input.elements.len() {
+        return Err("Duplicate element IDs detected".to_string());
+    }
+    if mat_ids.len() != input.materials.len() {
+        return Err("Duplicate material IDs detected".to_string());
+    }
+    if sec_ids.len() != input.sections.len() {
+        return Err("Duplicate section IDs detected".to_string());
+    }
+
+    // 1. Referential integrity — element → node, material, section
     for elem in input.elements.values() {
-        if let (Some(ni), Some(nj)) = (node_map.get(&elem.node_i), node_map.get(&elem.node_j)) {
-            let dx = nj.x - ni.x;
-            let dy = nj.y - ni.y;
-            let dz = nj.z - ni.z;
-            let l = (dx * dx + dy * dy + dz * dz).sqrt();
-            if l < 1e-10 {
-                return Err(format!("Element {} has zero length", elem.id));
-            }
+        if !node_ids.contains(&elem.node_i) {
+            return Err(format!("Element {}: node_i {} does not exist", elem.id, elem.node_i));
+        }
+        if !node_ids.contains(&elem.node_j) {
+            return Err(format!("Element {}: node_j {} does not exist", elem.id, elem.node_j));
+        }
+        if !mat_ids.contains(&elem.material_id) {
+            return Err(format!("Element {}: material {} does not exist", elem.id, elem.material_id));
+        }
+        if !sec_ids.contains(&elem.section_id) {
+            return Err(format!("Element {}: section {} does not exist", elem.id, elem.section_id));
+        }
+        if elem.elem_type != "frame" && elem.elem_type != "truss" && elem.elem_type != "cable" {
+            return Err(format!("Element {}: unknown type '{}'", elem.id, elem.elem_type));
         }
     }
 
-    // 2. Section area <= 0
+    // 2. Referential integrity — support → node
+    for sup in input.supports.values() {
+        if !node_ids.contains(&sup.node_id) {
+            return Err(format!("Support on node {}: node does not exist", sup.node_id));
+        }
+    }
+
+    // 3. Referential integrity — load → node/element (check nodal and element-based loads)
+    for load in &input.loads {
+        match load {
+            SolverLoad3D::Nodal(l) => {
+                if !node_ids.contains(&l.node_id) {
+                    return Err(format!("Nodal load: node {} does not exist", l.node_id));
+                }
+            }
+            SolverLoad3D::Distributed(l) => {
+                if !elem_ids.contains(&l.element_id) {
+                    return Err(format!("Distributed load: element {} does not exist", l.element_id));
+                }
+            }
+            SolverLoad3D::PointOnElement(l) => {
+                if !elem_ids.contains(&l.element_id) {
+                    return Err(format!("Point load: element {} does not exist", l.element_id));
+                }
+            }
+            SolverLoad3D::Thermal(l) => {
+                if !elem_ids.contains(&l.element_id) {
+                    return Err(format!("Thermal load: element {} does not exist", l.element_id));
+                }
+            }
+            SolverLoad3D::Bimoment(l) => {
+                if !node_ids.contains(&l.node_id) {
+                    return Err(format!("Bimoment load: node {} does not exist", l.node_id));
+                }
+            }
+            // Shell/plate/quad loads — validated below with their respective element maps
+            _ => {}
+        }
+    }
+
+    // Shell/plate/quad load referential integrity
+    let plate_ids: std::collections::HashSet<usize> = input.plates.values().map(|p| p.id).collect();
+    let quad_ids: std::collections::HashSet<usize> = input.quads.values().map(|q| q.id).collect();
+    let quad9_ids: std::collections::HashSet<usize> = input.quad9s.values().map(|q| q.id).collect();
+    let solid_shell_ids: std::collections::HashSet<usize> = input.solid_shells.values().map(|s| s.id).collect();
+    let curved_shell_ids: std::collections::HashSet<usize> = input.curved_shells.values().map(|c| c.id).collect();
+    for load in &input.loads {
+        let (kind, eid) = match load {
+            SolverLoad3D::Pressure(l) => ("Plate pressure", l.element_id),
+            SolverLoad3D::PlateThermal(l) => ("Plate thermal", l.element_id),
+            SolverLoad3D::QuadPressure(l) => ("Quad pressure", l.element_id),
+            SolverLoad3D::QuadThermal(l) => ("Quad thermal", l.element_id),
+            SolverLoad3D::QuadEdge(l) => ("Quad edge", l.element_id),
+            SolverLoad3D::QuadSelfWeight(l) => ("Quad self-weight", l.element_id),
+            SolverLoad3D::Quad9Pressure(l) => ("Quad9 pressure", l.element_id),
+            SolverLoad3D::Quad9Thermal(l) => ("Quad9 thermal", l.element_id),
+            SolverLoad3D::Quad9Edge(l) => ("Quad9 edge", l.element_id),
+            SolverLoad3D::Quad9SelfWeight(l) => ("Quad9 self-weight", l.element_id),
+            SolverLoad3D::SolidShellPressure(l) => ("Solid shell pressure", l.element_id),
+            SolverLoad3D::SolidShellSelfWeight(l) => ("Solid shell self-weight", l.element_id),
+            SolverLoad3D::CurvedShellPressure(l) => ("Curved shell pressure", l.element_id),
+            SolverLoad3D::CurvedShellThermal(l) => ("Curved shell thermal", l.element_id),
+            SolverLoad3D::CurvedShellEdge(l) => ("Curved shell edge", l.element_id),
+            _ => continue,
+        };
+        let found = plate_ids.contains(&eid)
+            || quad_ids.contains(&eid)
+            || quad9_ids.contains(&eid)
+            || solid_shell_ids.contains(&eid)
+            || curved_shell_ids.contains(&eid);
+        if !found {
+            return Err(format!("{} load: element {} does not exist", kind, eid));
+        }
+    }
+
+    // 4. Material properties
+    for mat in input.materials.values() {
+        if mat.e <= 0.0 {
+            return Err(format!("Material {}: E must be > 0 (got {})", mat.id, mat.e));
+        }
+        if mat.nu <= -1.0 || mat.nu >= 0.5 {
+            return Err(format!("Material {}: Poisson ratio must be in (-1, 0.5) (got {})", mat.id, mat.nu));
+        }
+    }
+
+    // 5. Zero-length elements
+    for elem in input.elements.values() {
+        let ni = &node_map[&elem.node_i];
+        let nj = &node_map[&elem.node_j];
+        let dx = nj.x - ni.x;
+        let dy = nj.y - ni.y;
+        let dz = nj.z - ni.z;
+        let l = (dx * dx + dy * dy + dz * dz).sqrt();
+        if l < 1e-10 {
+            return Err(format!("Element {} has zero length", elem.id));
+        }
+    }
+
+    // 6. Section area <= 0
     for sec in input.sections.values() {
         if sec.a <= 0.0 {
             return Err(format!("Section {}: area A must be > 0", sec.id));
         }
     }
 
-    // 3. Section inertia <= 0 (only for sections used by bending elements)
-    // Frame elements with both ends hinged act as trusses — no bending stiffness needed.
+    // 7. Section inertia <= 0 (only for sections used by bending elements)
     let bending_section_ids: std::collections::HashSet<usize> = input.elements.values()
         .filter(|e| e.elem_type == "frame" && !(e.hinge_start && e.hinge_end))
         .map(|e| e.section_id)
@@ -1529,21 +1867,21 @@ fn validate_input_3d(input: &SolverInput3D) -> Result<(), String> {
         }
     }
 
-    // 4. Point load position validation
+    // 8. Point load position validation
     for load in &input.loads {
         if let SolverLoad3D::PointOnElement(pl) = load {
             if let Some(elem) = input.elements.values().find(|e| e.id == pl.element_id) {
-                if let (Some(ni), Some(nj)) = (node_map.get(&elem.node_i), node_map.get(&elem.node_j)) {
-                    let dx = nj.x - ni.x;
-                    let dy = nj.y - ni.y;
-                    let dz = nj.z - ni.z;
-                    let l = (dx * dx + dy * dy + dz * dz).sqrt();
-                    if pl.a < -1e-10 || pl.a > l + 1e-10 {
-                        return Err(format!(
-                            "Element {}: point load position a={:.4} out of range [0, L={:.4}]",
-                            elem.id, pl.a, l
-                        ));
-                    }
+                let ni = &node_map[&elem.node_i];
+                let nj = &node_map[&elem.node_j];
+                let dx = nj.x - ni.x;
+                let dy = nj.y - ni.y;
+                let dz = nj.z - ni.z;
+                let l = (dx * dx + dy * dy + dz * dz).sqrt();
+                if pl.a < -1e-10 || pl.a > l + 1e-10 {
+                    return Err(format!(
+                        "Element {}: point load position a={:.4} out of range [0, L={:.4}]",
+                        elem.id, pl.a, l
+                    ));
                 }
             }
         }
@@ -1590,7 +1928,17 @@ pub(crate) fn compute_internal_forces_2d(
                 dof_num.global_dof(elem.node_j, 1).map(|d| u[d]).unwrap_or(0.0),
             ];
             let delta = (uj[0] - ui[0]) * cos + (uj[1] - ui[1]) * sin;
-            let n_axial = e * sec.a / l * delta;
+            let mut n_axial = e * sec.a / l * delta;
+
+            // Subtract thermal FEF for truss: f = K*u - FEF (matches 3D truss path)
+            for load in &input.loads {
+                if let SolverLoad::Thermal(tl) = load {
+                    if tl.element_id == elem.id {
+                        let alpha = 12e-6;
+                        n_axial -= e * sec.a * alpha * tl.dt_uniform;
+                    }
+                }
+            }
 
             forces.push(ElementForces {
                 element_id: elem.id,
@@ -1652,7 +2000,7 @@ pub(crate) fn compute_internal_forces_2d(
                             crate::element::fef_partial_distributed_2d(dl.q_i, dl.q_j, a, b, l)
                         };
 
-                        crate::element::adjust_fef_for_hinges(&mut fef, l, elem.hinge_start, elem.hinge_end);
+                        crate::element::adjust_fef_for_hinges(&mut fef, l, elem.hinge_start, elem.hinge_end, 0.0);
 
                         for i in 0..6 {
                             f_local[i] -= fef[i];
@@ -1673,7 +2021,7 @@ pub(crate) fn compute_internal_forces_2d(
                         let px = pl.px.unwrap_or(0.0);
                         let mz = pl.my.unwrap_or(0.0);
                         let mut fef = crate::element::fef_point_load_2d(pl.p, px, mz, pl.a, l);
-                        crate::element::adjust_fef_for_hinges(&mut fef, l, elem.hinge_start, elem.hinge_end);
+                        crate::element::adjust_fef_for_hinges(&mut fef, l, elem.hinge_start, elem.hinge_end, 0.0);
                         for i in 0..6 {
                             f_local[i] -= fef[i];
                         }
@@ -1691,7 +2039,7 @@ pub(crate) fn compute_internal_forces_2d(
                             e, sec.a, sec.iz, l,
                             tl.dt_uniform, tl.dt_gradient, alpha, h,
                         );
-                        crate::element::adjust_fef_for_hinges(&mut fef, l, elem.hinge_start, elem.hinge_end);
+                        crate::element::adjust_fef_for_hinges(&mut fef, l, elem.hinge_start, elem.hinge_end, 0.0);
                         for i in 0..6 {
                             f_local[i] -= fef[i];
                         }
@@ -1902,7 +2250,7 @@ pub(crate) fn compute_internal_forces_3d(
                     } else {
                         element::fef_partial_distributed_3d(dl.q_yi, dl.q_yj, dl.q_zi, dl.q_zj, a_param, b_param, l)
                     };
-                    element::adjust_fef_for_hinges_3d(&mut fef12, l, elem.hinge_start, elem.hinge_end);
+                    element::adjust_fef_for_hinges_3d(&mut fef12, l, elem.hinge_start, elem.hinge_end, phi_y, phi_z);
                     if ndof_elem == 14 {
                         let fef14 = element::expand_fef_12_to_14(&fef12);
                         for i in 0..14 {
@@ -1933,7 +2281,7 @@ pub(crate) fn compute_internal_forces_3d(
                     fef12[7] = fef_y[4]; fef12[11] = fef_y[5];
                     fef12[2] = fef_z[1]; fef12[4] = -fef_z[2];
                     fef12[8] = fef_z[4]; fef12[10] = -fef_z[5];
-                    element::adjust_fef_for_hinges_3d(&mut fef12, l, elem.hinge_start, elem.hinge_end);
+                    element::adjust_fef_for_hinges_3d(&mut fef12, l, elem.hinge_start, elem.hinge_end, phi_y, phi_z);
                     if ndof_elem == 14 {
                         let fef14 = element::expand_fef_12_to_14(&fef12);
                         for i in 0..14 { f_local[i] -= fef14[i]; }
@@ -1955,7 +2303,7 @@ pub(crate) fn compute_internal_forces_3d(
                         tl.dt_uniform, tl.dt_gradient_y, tl.dt_gradient_z,
                         alpha, hy, hz,
                     );
-                    element::adjust_fef_for_hinges_3d(&mut fef12, l, elem.hinge_start, elem.hinge_end);
+                    element::adjust_fef_for_hinges_3d(&mut fef12, l, elem.hinge_start, elem.hinge_end, phi_y, phi_z);
                     if ndof_elem == 14 {
                         let fef14 = element::expand_fef_12_to_14(&fef12);
                         for i in 0..14 {

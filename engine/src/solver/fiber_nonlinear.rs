@@ -540,6 +540,9 @@ pub struct FiberNonlinearResult3D {
 
 /// Solve a 3D fiber nonlinear problem.
 pub fn solve_fiber_nonlinear_3d(input: &FiberNonlinearInput3D) -> Result<FiberNonlinearResult3D, String> {
+    super::linear::validate_input_3d(&input.solver)?;
+    let pre_solve_diags = super::pre_solve_gates::run_pre_solve_gates_3d(&input.solver);
+
     let dof_num = DofNumbering::build_3d(&input.solver);
     if dof_num.n_free == 0 {
         return Err("No free DOFs".into());
@@ -757,7 +760,7 @@ pub fn solve_fiber_nonlinear_3d(input: &FiberNonlinearInput3D) -> Result<FiberNo
             constraint_forces,
             diagnostics: vec![],
             solver_diagnostics: vec![],
-            structured_diagnostics: vec![],
+            structured_diagnostics: pre_solve_diags,
             equilibrium: None,
             timings: None,
             result_summary: None, solver_run_meta: None,

@@ -122,8 +122,6 @@ fn steel_bilinear_response(
 
     if sigma_trial.abs() <= fy {
         // Elastic
-        state.stress = sigma_trial + state.back_stress;
-        // Actually: stress = E * (strain - plastic_strain)
         state.stress = e * (strain - state.plastic_strain);
         state.tangent = e;
     } else {
@@ -161,19 +159,17 @@ fn concrete_hognestad_response(
         state.max_compression_strain = state.max_compression_strain.min(strain);
 
         if eps <= eps_c0 {
-            // Hognestad parabola: σ = fc * [2(ε/ε₀) - (ε/ε₀)²]
+            // Hognestad parabola: σ = -fc * [2(ε/ε₀) - (ε/ε₀)²]
+            // dσ/dε = fc*(2 - 2r)/ε₀ (positive: ascending branch, σ and ε both decrease)
             let r = eps / eps_c0;
             state.stress = -fc * (2.0 * r - r * r);
-            state.tangent = -fc / eps_c0 * (2.0 - 2.0 * r); // -fc/eps_c0 * 2*(1-r)
-            // Tangent should be negative since we're in compression
-            // Actually, dσ/dε: with ε negative, σ negative
-            state.tangent = fc * (2.0 - 2.0 * r) / eps_c0; // positive tangent modulus
+            state.tangent = fc * (2.0 - 2.0 * r) / eps_c0;
         } else {
             // Linear descending branch
-            let slope = fc / (eps_cu - eps_c0);
             let sigma = fc * (1.0 - (eps - eps_c0) / (eps_cu - eps_c0));
             state.stress = -sigma.max(0.0);
-            state.tangent = slope;
+            // Tangent is negative: stress magnitude decreases with increasing compression
+            state.tangent = -(fc / (eps_cu - eps_c0));
         }
     } else {
         // Tension
@@ -543,11 +539,11 @@ fn b_matrix_3d(x: f64, l: f64) -> [f64; 36] {
 
     // Row 1: Curvature κy = d²w/dx² (bending about Y via w and θy)
     // w(x) uses Hermite cubics: w1, θy1, w2, θy2 → DOFs 2, 4, 8, 10
-    // Note: θy = dw/dx with appropriate sign convention
+    // Note: θy = -dw/dx convention — the coupling signs for θy are negated
     b[12 + 2] = (12.0 * xi - 6.0) / (l * l);      // ∂κy/∂w1
-    b[12 + 4] = (6.0 * xi - 4.0) / l;               // ∂κy/∂θy1
+    b[12 + 4] = -(6.0 * xi - 4.0) / l;              // ∂κy/∂θy1 (negated: θy = -dw/dx)
     b[12 + 8] = (-12.0 * xi + 6.0) / (l * l);       // ∂κy/∂w2
-    b[12 + 10] = (6.0 * xi - 2.0) / l;              // ∂κy/∂θy2
+    b[12 + 10] = -(6.0 * xi - 2.0) / l;             // ∂κy/∂θy2 (negated: θy = -dw/dx)
 
     // Row 2: Curvature κz = d²v/dx² (bending about Z via v and θz)
     // v(x) uses Hermite cubics: v1, θz1, v2, θz2 → DOFs 1, 5, 7, 11

@@ -76,10 +76,9 @@ fn validation_three_moment_unequal_spans() {
     let n = 10;
     let q: f64 = -10.0;
 
-    let n1 = n; // elements in span 1
-    let n2 = (n as f64 * l2 / l1).round() as usize; // proportional elements
+    let n_spans = 2;
+    let total_elems = n * n_spans; // make_continuous_beam creates n_per_span * n_spans elements
 
-    let total_elems = n1 + n2;
     let loads: Vec<SolverLoad> = (1..=total_elems)
         .map(|i| SolverLoad::Distributed(SolverDistributedLoad {
             element_id: i, q_i: q, q_j: q, a: None, b: None,
@@ -258,11 +257,12 @@ fn validation_three_moment_span_ratio() {
     let q: f64 = -10.0;
 
     let mut moments = Vec::new();
+    let n_spans = 2;
     for l2_ratio in &[0.5, 1.0, 2.0] {
         let l2 = l1 * l2_ratio;
-        let total = n + (n as f64 * l2 / l1).round() as usize;
+        let total_elems = n * n_spans; // make_continuous_beam creates n_per_span * n_spans elements
 
-        let loads: Vec<SolverLoad> = (1..=total)
+        let loads: Vec<SolverLoad> = (1..=total_elems)
             .map(|i| SolverLoad::Distributed(SolverDistributedLoad {
                 element_id: i, q_i: q, q_j: q, a: None, b: None,
             }))
