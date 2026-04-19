@@ -405,8 +405,11 @@ pub fn solve_2d(input: &SolverInput) -> Result<AnalysisResults, String> {
         ).with_phase("solve"));
     }
 
-    // Displacement sanity check
-    let max_disp = u_f.iter().map(|v| v.abs()).fold(0.0f64, f64::max);
+    // Displacement sanity check — translational DOFs only (rotations are in radians, not length units)
+    let max_disp = dof_num.map.iter()
+        .filter(|&(&(_node, local_dof), &global)| local_dof < 2 && global < nf)
+        .map(|(&_, &global)| u_f[global].abs())
+        .fold(0.0f64, f64::max);
     let char_length = {
         let mut min_x = f64::MAX;
         let mut max_x = f64::MIN;
@@ -419,7 +422,7 @@ pub fn solve_2d(input: &SolverInput) -> Result<AnalysisResults, String> {
             max_z = max_z.max(node.z);
         }
         let span = ((max_x - min_x).powi(2) + (max_z - min_z).powi(2)).sqrt();
-        span.max(1.0) // floor at 1.0 to avoid division issues for single-node models
+        span.max(1.0)
     };
     if max_disp > 1000.0 * char_length {
         structured.push(StructuredDiagnostic::global(
@@ -791,8 +794,11 @@ pub fn solve_3d(input: &SolverInput3D) -> Result<AnalysisResults3D, String> {
                         "Cholesky factorization failed — LU fallback succeeded but model may be unstable (not positive-definite)".to_string(),
                     ).with_phase("solve"));
 
-                    // Displacement sanity check
-                    let max_disp = u_fb.iter().map(|v| v.abs()).fold(0.0f64, f64::max);
+                    // Displacement sanity check — translational DOFs only
+                    let max_disp = dof_num.map.iter()
+                        .filter(|&(&(_node, local_dof), &global)| local_dof < 3 && global < nf)
+                        .map(|(&_, &global)| u_fb[global].abs())
+                        .fold(0.0f64, f64::max);
                     let char_length = {
                         let (mut mn_x, mut mx_x) = (f64::MAX, f64::MIN);
                         let (mut mn_y, mut mx_y) = (f64::MAX, f64::MIN);
@@ -1043,8 +1049,11 @@ pub fn solve_3d(input: &SolverInput3D) -> Result<AnalysisResults3D, String> {
             ).with_value(max_perturbation_val, 0.0).with_phase("factorization"));
         }
 
-        // Displacement sanity check
-        let max_disp = u_f.iter().map(|v| v.abs()).fold(0.0f64, f64::max);
+        // Displacement sanity check — translational DOFs only
+        let max_disp = dof_num.map.iter()
+            .filter(|&(&(_node, local_dof), &global)| local_dof < 3 && global < nf)
+            .map(|(&_, &global)| u_f[global].abs())
+            .fold(0.0f64, f64::max);
         let char_length = {
             let (mut mn_x, mut mx_x) = (f64::MAX, f64::MIN);
             let (mut mn_y, mut mx_y) = (f64::MAX, f64::MIN);
@@ -1222,8 +1231,11 @@ pub fn solve_3d(input: &SolverInput3D) -> Result<AnalysisResults3D, String> {
             ).with_phase("solve"));
         }
 
-        // Displacement sanity check
-        let max_disp = u_f.iter().map(|v| v.abs()).fold(0.0f64, f64::max);
+        // Displacement sanity check — translational DOFs only
+        let max_disp = dof_num.map.iter()
+            .filter(|&(&(_node, local_dof), &global)| local_dof < 3 && global < nf)
+            .map(|(&_, &global)| u_f[global].abs())
+            .fold(0.0f64, f64::max);
         let char_length = {
             let (mut mn_x, mut mx_x) = (f64::MAX, f64::MIN);
             let (mut mn_y, mut mx_y) = (f64::MAX, f64::MIN);
@@ -1576,6 +1588,20 @@ pub(crate) fn validate_input_2d(input: &SolverInput) -> Result<(), String> {
     let node_map: std::collections::HashMap<usize, &SolverNode> =
         input.nodes.values().map(|n| (n.id, n)).collect();
 
+    // 0. Duplicate ID detection
+    if node_ids.len() != input.nodes.len() {
+        return Err("Duplicate node IDs detected".to_string());
+    }
+    if elem_ids.len() != input.elements.len() {
+        return Err("Duplicate element IDs detected".to_string());
+    }
+    if mat_ids.len() != input.materials.len() {
+        return Err("Duplicate material IDs detected".to_string());
+    }
+    if sec_ids.len() != input.sections.len() {
+        return Err("Duplicate section IDs detected".to_string());
+    }
+
     // 1. Referential integrity — element → node, material, section
     for elem in input.elements.values() {
         if !node_ids.contains(&elem.node_i) {
@@ -1702,6 +1728,20 @@ pub(crate) fn validate_input_3d(input: &SolverInput3D) -> Result<(), String> {
     let node_map: std::collections::HashMap<usize, &SolverNode3D> =
         input.nodes.values().map(|n| (n.id, n)).collect();
 
+    // 0. Duplicate ID detection
+    if node_ids.len() != input.nodes.len() {
+        return Err("Duplicate node IDs detected".to_string());
+    }
+    if elem_ids.len() != input.elements.len() {
+        return Err("Duplicate element IDs detected".to_string());
+    }
+    if mat_ids.len() != input.materials.len() {
+        return Err("Duplicate material IDs detected".to_string());
+    }
+    if sec_ids.len() != input.sections.len() {
+        return Err("Duplicate section IDs detected".to_string());
+    }
+
     // 1. Referential integrity — element → node, material, section
     for elem in input.elements.values() {
         if !node_ids.contains(&elem.node_i) {
@@ -1756,9 +1796,43 @@ pub(crate) fn validate_input_3d(input: &SolverInput3D) -> Result<(), String> {
                     return Err(format!("Bimoment load: node {} does not exist", l.node_id));
                 }
             }
-            // Plate/quad/shell loads reference element IDs that live in separate maps;
-            // skip validation here — those maps are checked during assembly.
+            // Shell/plate/quad loads — validated below with their respective element maps
             _ => {}
+        }
+    }
+
+    // Shell/plate/quad load referential integrity
+    let plate_ids: std::collections::HashSet<usize> = input.plates.values().map(|p| p.id).collect();
+    let quad_ids: std::collections::HashSet<usize> = input.quads.values().map(|q| q.id).collect();
+    let quad9_ids: std::collections::HashSet<usize> = input.quad9s.values().map(|q| q.id).collect();
+    let solid_shell_ids: std::collections::HashSet<usize> = input.solid_shells.values().map(|s| s.id).collect();
+    let curved_shell_ids: std::collections::HashSet<usize> = input.curved_shells.values().map(|c| c.id).collect();
+    for load in &input.loads {
+        let (kind, eid) = match load {
+            SolverLoad3D::Pressure(l) => ("Plate pressure", l.element_id),
+            SolverLoad3D::PlateThermal(l) => ("Plate thermal", l.element_id),
+            SolverLoad3D::QuadPressure(l) => ("Quad pressure", l.element_id),
+            SolverLoad3D::QuadThermal(l) => ("Quad thermal", l.element_id),
+            SolverLoad3D::QuadEdge(l) => ("Quad edge", l.element_id),
+            SolverLoad3D::QuadSelfWeight(l) => ("Quad self-weight", l.element_id),
+            SolverLoad3D::Quad9Pressure(l) => ("Quad9 pressure", l.element_id),
+            SolverLoad3D::Quad9Thermal(l) => ("Quad9 thermal", l.element_id),
+            SolverLoad3D::Quad9Edge(l) => ("Quad9 edge", l.element_id),
+            SolverLoad3D::Quad9SelfWeight(l) => ("Quad9 self-weight", l.element_id),
+            SolverLoad3D::SolidShellPressure(l) => ("Solid shell pressure", l.element_id),
+            SolverLoad3D::SolidShellSelfWeight(l) => ("Solid shell self-weight", l.element_id),
+            SolverLoad3D::CurvedShellPressure(l) => ("Curved shell pressure", l.element_id),
+            SolverLoad3D::CurvedShellThermal(l) => ("Curved shell thermal", l.element_id),
+            SolverLoad3D::CurvedShellEdge(l) => ("Curved shell edge", l.element_id),
+            _ => continue,
+        };
+        let found = plate_ids.contains(&eid)
+            || quad_ids.contains(&eid)
+            || quad9_ids.contains(&eid)
+            || solid_shell_ids.contains(&eid)
+            || curved_shell_ids.contains(&eid);
+        if !found {
+            return Err(format!("{} load: element {} does not exist", kind, eid));
         }
     }
 

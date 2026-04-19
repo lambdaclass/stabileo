@@ -1420,8 +1420,11 @@ fn build_final_results_3d(
         displacements,
         reactions,
         element_forces,
-        plate_stresses: super::linear::compute_plate_stresses(input, dof_num, u_full),
-        quad_stresses: super::linear::compute_quad_stresses(input, dof_num, u_full),
+        // Shell stresses are not computed in corotational mode because the NR loop
+        // only assembles frame/truss elements — shell tangent stiffness and internal
+        // forces are never updated, so displacements at shell DOFs are incorrect.
+        plate_stresses: vec![],
+        quad_stresses: vec![],
         quad_nodal_stresses: vec![],
         constraint_forces,
         diagnostics: vec![],

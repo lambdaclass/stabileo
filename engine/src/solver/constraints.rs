@@ -48,6 +48,60 @@ pub struct ConstrainedInput3D {
     pub constraints: Vec<Constraint>,
 }
 
+/// Validate that all node IDs referenced by constraints exist in the model.
+/// Returns Err if any constraint references a non-existent node.
+pub fn validate_constraint_refs(
+    constraints: &[Constraint],
+    node_ids: &HashSet<usize>,
+) -> Result<(), String> {
+    for (i, constraint) in constraints.iter().enumerate() {
+        match constraint {
+            Constraint::RigidLink(rl) => {
+                if !node_ids.contains(&rl.master_node) {
+                    return Err(format!("Constraint {}: RigidLink master node {} does not exist", i, rl.master_node));
+                }
+                if !node_ids.contains(&rl.slave_node) {
+                    return Err(format!("Constraint {}: RigidLink slave node {} does not exist", i, rl.slave_node));
+                }
+            }
+            Constraint::Diaphragm(dia) => {
+                if !node_ids.contains(&dia.master_node) {
+                    return Err(format!("Constraint {}: Diaphragm master node {} does not exist", i, dia.master_node));
+                }
+                for &slave in &dia.slave_nodes {
+                    if !node_ids.contains(&slave) {
+                        return Err(format!("Constraint {}: Diaphragm slave node {} does not exist", i, slave));
+                    }
+                }
+            }
+            Constraint::EqualDOF(eq) => {
+                if !node_ids.contains(&eq.master_node) {
+                    return Err(format!("Constraint {}: EqualDOF master node {} does not exist", i, eq.master_node));
+                }
+                if !node_ids.contains(&eq.slave_node) {
+                    return Err(format!("Constraint {}: EqualDOF slave node {} does not exist", i, eq.slave_node));
+                }
+            }
+            Constraint::EccentricConnection(ec) => {
+                if !node_ids.contains(&ec.master_node) {
+                    return Err(format!("Constraint {}: EccentricConnection master node {} does not exist", i, ec.master_node));
+                }
+                if !node_ids.contains(&ec.slave_node) {
+                    return Err(format!("Constraint {}: EccentricConnection slave node {} does not exist", i, ec.slave_node));
+                }
+            }
+            Constraint::LinearMPC(mpc) => {
+                for term in &mpc.terms {
+                    if !node_ids.contains(&term.node_id) {
+                        return Err(format!("Constraint {}: LinearMPC references non-existent node {}", i, term.node_id));
+                    }
+                }
+            }
+        }
+    }
+    Ok(())
+}
+
 /// Pre-solve constraint validation.
 ///
 /// Detects conflicting, circular, or over-constrained configurations and
@@ -629,6 +683,10 @@ pub fn solve_constrained_2d(input: &ConstrainedInput) -> Result<AnalysisResults,
 
     linear::validate_input_2d(&input.solver)?;
 
+    // Constraint referential integrity
+    let node_ids: HashSet<usize> = input.solver.nodes.values().map(|n| n.id).collect();
+    validate_constraint_refs(&input.constraints, &node_ids)?;
+
     let dof_num = DofNumbering::build_2d(&input.solver);
     if dof_num.n_free == 0 {
         return Err("No free DOFs".into());
@@ -826,6 +884,10 @@ pub fn solve_constrained_3d(input: &ConstrainedInput3D) -> Result<AnalysisResult
     }
 
     linear::validate_input_3d(&input.solver)?;
+
+    // Constraint referential integrity
+    let node_ids: HashSet<usize> = input.solver.nodes.values().map(|n| n.id).collect();
+    validate_constraint_refs(&input.constraints, &node_ids)?;
 
     let dof_num = DofNumbering::build_3d(&input.solver);
     if dof_num.n_free == 0 {
