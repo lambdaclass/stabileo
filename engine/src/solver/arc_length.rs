@@ -146,7 +146,8 @@ pub fn solve_arc_length(input: &ArcLengthInput) -> Result<ArcLengthResult, Strin
     let mut prev_delta_u = vec![0.0; nf];
     let mut prev_delta_lambda = 1.0_f64;
 
-    for step in 0..input.max_steps {
+    let mut step = 0;
+    while step < input.max_steps {
         // Predictor: solve K_T * δu_hat = f_ref
         let mut f_int = vec![0.0; n];
         let mut k_t = vec![0.0; n * n];
@@ -262,17 +263,8 @@ pub fn solve_arc_length(input: &ArcLengthInput) -> Result<ArcLengthResult, Strin
             delta_lambda += d_lambda;
         }
 
-        // Record step
-        steps.push(EquilibriumStep {
-            step: step + 1,
-            load_factor: lambda,
-            control_displacement: u_full.get(0).copied().unwrap_or(0.0),
-            converged: step_converged,
-            iterations: step_iters,
-        });
-
         if !step_converged {
-            // Halve arc-length and retry
+            // Halve arc-length and retry (don't consume step budget)
             ds *= 0.5;
             if ds < input.min_ds {
                 overall_converged = false;
@@ -286,6 +278,16 @@ pub fn solve_arc_length(input: &ArcLengthInput) -> Result<ArcLengthResult, Strin
             continue;
         }
 
+        // Record converged step
+        step += 1;
+        steps.push(EquilibriumStep {
+            step,
+            load_factor: lambda,
+            control_displacement: u_full.get(0).copied().unwrap_or(0.0),
+            converged: true,
+            iterations: step_iters,
+        });
+
         // Save direction for next step
         prev_delta_u = delta_u;
         prev_delta_lambda = delta_lambda;
@@ -298,15 +300,19 @@ pub fn solve_arc_length(input: &ArcLengthInput) -> Result<ArcLengthResult, Strin
         }
     }
 
-    // Build final results
+    // Build final results using corotational forces (not linear)
     let displacements = super::linear::build_displacements_2d(&dof_num, &u_full);
-    let element_forces = super::linear::compute_internal_forces_2d(&input.solver, &dof_num, &u_full);
+    let element_forces = super::corotational::compute_corotational_forces(&input.solver, &dof_num, &u_full);
 
-    // Compute constraint forces if constraints are active
+    // Compute constraint forces using final tangent stiffness
     let constraint_forces = if let Some(ref fcs) = cs {
+        let mut f_int_final = vec![0.0; n];
+        let mut k_t_final = vec![0.0; n * n];
+        assemble_corotational_public(&input.solver, &dof_num, &u_full, &mut f_int_final, &mut k_t_final);
+        add_spring_stiffness(&input.solver, &dof_num, &u_full, &mut f_int_final, &mut k_t_final);
         let free_idx: Vec<usize> = (0..nf).collect();
-        let k_ff = extract_submatrix(&asm.k, n, &free_idx, &free_idx);
-        let raw = fcs.compute_constraint_forces(&k_ff, &u_full[..nf], &asm.f[..nf]);
+        let k_ff = extract_submatrix(&k_t_final, n, &free_idx, &free_idx);
+        let raw = fcs.compute_constraint_forces(&k_ff, &u_full[..nf], &f_int_final[..nf]);
         super::constraints::map_dof_forces_to_constraint_forces(&raw, &dof_num)
     } else {
         vec![]
@@ -447,13 +453,17 @@ pub fn solve_displacement_control(input: &DisplacementControlInput) -> Result<Di
     }
 
     let displacements = super::linear::build_displacements_2d(&dof_num, &u_full);
-    let element_forces = super::linear::compute_internal_forces_2d(&input.solver, &dof_num, &u_full);
+    let element_forces = super::corotational::compute_corotational_forces(&input.solver, &dof_num, &u_full);
 
-    // Compute constraint forces if constraints are active
+    // Compute constraint forces using final tangent stiffness
     let constraint_forces = if let Some(ref fcs) = cs_dc {
+        let mut f_int_final = vec![0.0; n];
+        let mut k_t_final = vec![0.0; n * n];
+        assemble_corotational_public(&input.solver, &dof_num, &u_full, &mut f_int_final, &mut k_t_final);
+        add_spring_stiffness(&input.solver, &dof_num, &u_full, &mut f_int_final, &mut k_t_final);
         let free_idx: Vec<usize> = (0..nf).collect();
-        let k_ff = extract_submatrix(&asm.k, n, &free_idx, &free_idx);
-        let raw = fcs.compute_constraint_forces(&k_ff, &u_full[..nf], &asm.f[..nf]);
+        let k_ff = extract_submatrix(&k_t_final, n, &free_idx, &free_idx);
+        let raw = fcs.compute_constraint_forces(&k_ff, &u_full[..nf], &f_int_final[..nf]);
         super::constraints::map_dof_forces_to_constraint_forces(&raw, &dof_num)
     } else {
         vec![]

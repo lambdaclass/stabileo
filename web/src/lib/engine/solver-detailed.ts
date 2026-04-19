@@ -541,16 +541,18 @@ export function solveDetailed(input: SolverInput): DSMStepData {
       };
       if (Math.abs(tLoad.dtUniform) > 1e-10) {
         const nTherm = eKn * sec.a * alpha * tLoad.dtUniform;
-        addLC(elem.nodeI, 0, nTherm * c, `${desc} ΔT, nodo I Fx`);
-        addLC(elem.nodeI, 1, nTherm * s, `${desc} ΔT, nodo I Fy`);
-        addLC(elem.nodeJ, 0, -nTherm * c, `${desc} ΔT, nodo J Fx`);
-        addLC(elem.nodeJ, 1, -nTherm * s, `${desc} ΔT, nodo J Fy`);
+        // Thermal expansion: element wants to grow → equivalent nodal loads push outward
+        // Node I gets -fx (pushed in -x), Node J gets +fx (pushed in +x)
+        addLC(elem.nodeI, 0, -nTherm * c, `${desc} ΔT, nodo I Fx`);
+        addLC(elem.nodeI, 1, -nTherm * s, `${desc} ΔT, nodo I Fy`);
+        addLC(elem.nodeJ, 0, nTherm * c, `${desc} ΔT, nodo J Fx`);
+        addLC(elem.nodeJ, 1, nTherm * s, `${desc} ΔT, nodo J Fy`);
       }
       if (Math.abs(tLoad.dtGradient) > 1e-10 && elem.type === 'frame') {
         const h = Math.sqrt(12 * sec.iz / sec.a);
         const mTherm = eKn * sec.iz * alpha * tLoad.dtGradient / h;
-        addLC(elem.nodeI, 2, mTherm, `${desc} ΔTg, nodo I Mz`);
-        addLC(elem.nodeJ, 2, -mTherm, `${desc} ΔTg, nodo J Mz`);
+        addLC(elem.nodeI, 2, -mTherm, `${desc} ΔTg, nodo I Mz`);
+        addLC(elem.nodeJ, 2, mTherm, `${desc} ΔTg, nodo J Mz`);
       }
     }
   }

@@ -30,6 +30,8 @@ interface SectionProps {
 function sampleValue(ef: ElementForces3D, variable: HeatmapVariable, t: number, sec: SectionProps): number {
   switch (variable) {
     case 'moment': {
+      // Intentional: max of both axes for color intensity, NOT axis assignment.
+      // This is an envelope metric for visualization, not a design check.
       const my = Math.abs(evaluateDiagramAt(ef, 'momentY', t));
       const mz = Math.abs(evaluateDiagramAt(ef, 'momentZ', t));
       return Math.max(my, mz);

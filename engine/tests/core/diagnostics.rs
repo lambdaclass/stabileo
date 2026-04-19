@@ -815,14 +815,15 @@ fn pre_solve_shell_distortion_inverted_quad() {
     });
 
     let diags = check_shell_distortion_3d(&input);
-    let shell_diags: Vec<_> = diags.iter()
-        .filter(|d| d.code == DiagnosticCode::ShellDistortion)
+    // Should detect negative Jacobian (specific code, replaces generic ShellDistortion)
+    let neg_j: Vec<_> = diags.iter()
+        .filter(|d| d.code == DiagnosticCode::NegativeJacobian)
         .collect();
-    assert!(!shell_diags.is_empty(),
-        "should detect shell distortion on inverted quad, got: {:?}", diags);
+    assert!(!neg_j.is_empty(),
+        "should detect negative Jacobian on inverted quad, got: {:?}", diags);
 
-    // At least one should be Error severity (negative Jacobian)
-    let has_error = shell_diags.iter().any(|d| d.severity == Severity::Error);
+    // Must be Error severity
+    let has_error = neg_j.iter().any(|d| d.severity == Severity::Error);
     assert!(has_error, "inverted quad should produce Error severity diagnostic");
 }
 
@@ -847,8 +848,9 @@ fn pre_solve_shell_distortion_high_aspect_ratio() {
     });
 
     let diags = check_shell_distortion_3d(&input);
+    // Should detect high aspect ratio (specific code, replaces generic ShellDistortion)
     let aspect_diag = diags.iter().find(|d|
-        d.code == DiagnosticCode::ShellDistortion && d.message.contains("aspect ratio")
+        d.code == DiagnosticCode::HighAspectRatio && d.message.contains("aspect ratio")
     );
     assert!(aspect_diag.is_some(),
         "should detect high aspect ratio, got: {:?}", diags.iter().map(|d| &d.message).collect::<Vec<_>>());
@@ -875,12 +877,20 @@ fn pre_solve_shell_distortion_clean_quad() {
     });
 
     let diags = check_shell_distortion_3d(&input);
-    let shell_diags: Vec<_> = diags.iter()
-        .filter(|d| d.code == DiagnosticCode::ShellDistortion)
+    // No element quality diagnostics should be emitted for a clean quad
+    let quality_diags: Vec<_> = diags.iter()
+        .filter(|d| matches!(d.code,
+            DiagnosticCode::NegativeJacobian |
+            DiagnosticCode::PoorJacobianRatio |
+            DiagnosticCode::HighAspectRatio |
+            DiagnosticCode::SmallMinAngle |
+            DiagnosticCode::HighWarping |
+            DiagnosticCode::ShellDistortion
+        ))
         .collect();
-    assert!(shell_diags.is_empty(),
-        "clean quad should have no distortion diagnostics, got: {:?}",
-        shell_diags.iter().map(|d| &d.message).collect::<Vec<_>>());
+    assert!(quality_diags.is_empty(),
+        "clean quad should have no quality diagnostics, got: {:?}",
+        quality_diags.iter().map(|d| &d.message).collect::<Vec<_>>());
 }
 
 #[test]

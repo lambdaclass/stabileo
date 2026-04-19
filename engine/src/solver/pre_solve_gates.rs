@@ -7,6 +7,7 @@
 use std::collections::HashSet;
 
 use crate::element::quad::{quad_quality_metrics, quad_check_jacobian};
+use crate::element::plate::plate_element_quality;
 use crate::types::{SolverInput, SolverInput3D, DiagnosticCode, Severity, StructuredDiagnostic};
 
 // ---------------------------------------------------------------------------
@@ -280,16 +281,58 @@ pub fn check_instability_risk_2d(input: &SolverInput) -> Vec<StructuredDiagnosti
 }
 
 // ---------------------------------------------------------------------------
-// Gate 6: Shell distortion (3D only)
+// Gate 6: Shell mesh quality (3D only)
 // ---------------------------------------------------------------------------
 
+/// Aspect ratio threshold for warning.
+const ASPECT_RATIO_THRESHOLD: f64 = 20.0;
+/// Minimum interior angle threshold (degrees) for warning.
+const MIN_ANGLE_THRESHOLD: f64 = 10.0;
+/// Jacobian ratio threshold for poor quality warning.
+const JACOBIAN_RATIO_THRESHOLD: f64 = 0.1;
+/// Warping threshold for warning.
+const WARPING_THRESHOLD: f64 = 0.1;
+
+/// Compute the minimum interior angle (in degrees) across all 4 corners of a quad.
+fn quad_min_interior_angle(coords: &[[f64; 3]; 4]) -> f64 {
+    let mut min_angle = f64::INFINITY;
+    for i in 0..4 {
+        let prev = (i + 3) % 4;
+        let next = (i + 1) % 4;
+        let v1 = [
+            coords[prev][0] - coords[i][0],
+            coords[prev][1] - coords[i][1],
+            coords[prev][2] - coords[i][2],
+        ];
+        let v2 = [
+            coords[next][0] - coords[i][0],
+            coords[next][1] - coords[i][1],
+            coords[next][2] - coords[i][2],
+        ];
+        let l1 = (v1[0] * v1[0] + v1[1] * v1[1] + v1[2] * v1[2]).sqrt();
+        let l2 = (v2[0] * v2[0] + v2[1] * v2[1] + v2[2] * v2[2]).sqrt();
+        if l1 > 1e-15 && l2 > 1e-15 {
+            let cos_a = (v1[0] * v2[0] + v1[1] * v2[1] + v1[2] * v2[2]) / (l1 * l2);
+            let angle = cos_a.clamp(-1.0, 1.0).acos().to_degrees();
+            min_angle = min_angle.min(angle);
+        }
+    }
+    min_angle
+}
+
 /// Pre-solve shell geometry screening (3D only).
-/// Checks quad elements for poor aspect ratio, negative Jacobian, excessive warping.
+///
+/// Checks both quad (MITC4) and triangular plate (DKT) elements for:
+/// - Negative Jacobian determinant (inverted element) → `NegativeJacobian` Error
+/// - Poor Jacobian ratio (near-zero det relative to typical) → `PoorJacobianRatio` Warning
+/// - High aspect ratio (max_edge / min_edge > threshold) → `HighAspectRatio` Warning
+/// - Small minimum angle (< threshold degrees) → `SmallMinAngle` Warning
+/// - High warping (quads only) → `HighWarping` Warning
 pub fn check_shell_distortion_3d(input: &SolverInput3D) -> Vec<StructuredDiagnostic> {
     let mut diags = Vec::new();
 
+    // ── Quad (MITC4) elements ──
     for q in input.quads.values() {
-        // Look up node coordinates
         let coords: Option<[[f64; 3]; 4]> = (|| {
             let mut c = [[0.0; 3]; 4];
             for (i, &nid) in q.nodes.iter().enumerate() {
@@ -303,10 +346,11 @@ pub fn check_shell_distortion_3d(input: &SolverInput3D) -> Vec<StructuredDiagnos
             let qm = quad_quality_metrics(&coords);
             let (_, _, has_negative) = quad_check_jacobian(&coords);
 
+            // Negative Jacobian → Error (inverted element, solve will produce garbage)
             if has_negative {
                 diags.push(
                     StructuredDiagnostic::global(
-                        DiagnosticCode::ShellDistortion,
+                        DiagnosticCode::NegativeJacobian,
                         Severity::Error,
                         format!("Quad {} has negative Jacobian — element is inverted", q.id),
                     )
@@ -314,46 +358,176 @@ pub fn check_shell_distortion_3d(input: &SolverInput3D) -> Vec<StructuredDiagnos
                     .with_value(qm.jacobian_ratio, 0.0)
                     .with_phase("pre_solve"),
                 );
-            } else if qm.jacobian_ratio < 0.1 {
+            } else if qm.jacobian_ratio < JACOBIAN_RATIO_THRESHOLD {
+                // Poor Jacobian ratio → Warning
                 diags.push(
                     StructuredDiagnostic::global(
-                        DiagnosticCode::ShellDistortion,
+                        DiagnosticCode::PoorJacobianRatio,
                         Severity::Warning,
-                        format!("Quad {} has poor Jacobian ratio {:.3} (threshold 0.1)", q.id, qm.jacobian_ratio),
+                        format!(
+                            "Quad {} has poor Jacobian ratio {:.3} (threshold {:.1})",
+                            q.id, qm.jacobian_ratio, JACOBIAN_RATIO_THRESHOLD
+                        ),
                     )
                     .with_elements(vec![q.id])
-                    .with_value(qm.jacobian_ratio, 0.1)
+                    .with_value(qm.jacobian_ratio, JACOBIAN_RATIO_THRESHOLD)
                     .with_phase("pre_solve"),
                 );
             }
 
-            if qm.aspect_ratio > 10.0 {
+            // High aspect ratio → Warning
+            if qm.aspect_ratio > ASPECT_RATIO_THRESHOLD {
                 diags.push(
                     StructuredDiagnostic::global(
-                        DiagnosticCode::ShellDistortion,
+                        DiagnosticCode::HighAspectRatio,
                         Severity::Warning,
-                        format!("Quad {} has high aspect ratio {:.1} (threshold 10)", q.id, qm.aspect_ratio),
+                        format!(
+                            "Quad {} has high aspect ratio {:.1} (threshold {:.0})",
+                            q.id, qm.aspect_ratio, ASPECT_RATIO_THRESHOLD
+                        ),
                     )
                     .with_elements(vec![q.id])
-                    .with_value(qm.aspect_ratio, 10.0)
+                    .with_value(qm.aspect_ratio, ASPECT_RATIO_THRESHOLD)
                     .with_phase("pre_solve"),
                 );
             }
 
-            if qm.warping > 0.1 {
+            // Small minimum angle → Warning
+            // Compute the actual minimum interior angle at quad corners.
+            // A quad with a nearly-0° or nearly-180° corner is badly distorted.
+            // We flag when any corner angle falls below the threshold.
+            let min_angle = quad_min_interior_angle(&coords);
+            if min_angle < MIN_ANGLE_THRESHOLD {
                 diags.push(
                     StructuredDiagnostic::global(
-                        DiagnosticCode::ShellDistortion,
+                        DiagnosticCode::SmallMinAngle,
                         Severity::Warning,
-                        format!("Quad {} has high warping {:.3} (threshold 0.1)", q.id, qm.warping),
+                        format!(
+                            "Quad {} has small minimum angle {:.1}° (threshold {:.0}°)",
+                            q.id, min_angle, MIN_ANGLE_THRESHOLD
+                        ),
                     )
                     .with_elements(vec![q.id])
-                    .with_value(qm.warping, 0.1)
+                    .with_value(min_angle, MIN_ANGLE_THRESHOLD)
+                    .with_phase("pre_solve"),
+                );
+            }
+
+            // High warping → Warning
+            if qm.warping > WARPING_THRESHOLD {
+                diags.push(
+                    StructuredDiagnostic::global(
+                        DiagnosticCode::HighWarping,
+                        Severity::Warning,
+                        format!(
+                            "Quad {} has high warping {:.3} (threshold {:.1})",
+                            q.id, qm.warping, WARPING_THRESHOLD
+                        ),
+                    )
+                    .with_elements(vec![q.id])
+                    .with_value(qm.warping, WARPING_THRESHOLD)
                     .with_phase("pre_solve"),
                 );
             }
         }
     }
+
+    // ── Triangular plate (DKT) elements ──
+    for pl in input.plates.values() {
+        let coords: Option<[[f64; 3]; 3]> = (|| {
+            let mut c = [[0.0; 3]; 3];
+            for (i, &nid) in pl.nodes.iter().enumerate() {
+                let node = input.nodes.values().find(|n| n.id == nid)?;
+                c[i] = [node.x, node.y, node.z];
+            }
+            Some(c)
+        })();
+
+        if let Some(coords) = coords {
+            let (aspect_ratio, _skew_angle, min_angle) = plate_element_quality(&coords);
+
+            // For triangles, check if the element is degenerate (near-zero area).
+            // Area = 0.5 * |cross(edge01, edge02)|
+            let e01 = [
+                coords[1][0] - coords[0][0],
+                coords[1][1] - coords[0][1],
+                coords[1][2] - coords[0][2],
+            ];
+            let e02 = [
+                coords[2][0] - coords[0][0],
+                coords[2][1] - coords[0][1],
+                coords[2][2] - coords[0][2],
+            ];
+            let cx = e01[1] * e02[2] - e01[2] * e02[1];
+            let cy = e01[2] * e02[0] - e01[0] * e02[2];
+            let cz = e01[0] * e02[1] - e01[1] * e02[0];
+            let twice_area = (cx * cx + cy * cy + cz * cz).sqrt();
+
+            // Characteristic length = max edge length
+            let edge_lengths = [
+                (e01[0] * e01[0] + e01[1] * e01[1] + e01[2] * e01[2]).sqrt(),
+                ((coords[2][0] - coords[1][0]).powi(2)
+                    + (coords[2][1] - coords[1][1]).powi(2)
+                    + (coords[2][2] - coords[1][2]).powi(2))
+                .sqrt(),
+                (e02[0] * e02[0] + e02[1] * e02[1] + e02[2] * e02[2]).sqrt(),
+            ];
+            let max_edge = edge_lengths.iter().cloned().fold(0.0_f64, f64::max);
+
+            // Degenerate triangle: area ~ 0 relative to edge length squared
+            // This is the triangle equivalent of a negative Jacobian
+            if max_edge > 1e-15 && twice_area < 1e-10 * max_edge * max_edge {
+                diags.push(
+                    StructuredDiagnostic::global(
+                        DiagnosticCode::NegativeJacobian,
+                        Severity::Error,
+                        format!(
+                            "Plate {} has degenerate geometry (near-zero area) — element is collapsed",
+                            pl.id
+                        ),
+                    )
+                    .with_elements(vec![pl.id])
+                    .with_value(twice_area * 0.5, 0.0)
+                    .with_phase("pre_solve"),
+                );
+            }
+
+            // High aspect ratio → Warning
+            if aspect_ratio > ASPECT_RATIO_THRESHOLD {
+                diags.push(
+                    StructuredDiagnostic::global(
+                        DiagnosticCode::HighAspectRatio,
+                        Severity::Warning,
+                        format!(
+                            "Plate {} has high aspect ratio {:.1} (threshold {:.0})",
+                            pl.id, aspect_ratio, ASPECT_RATIO_THRESHOLD
+                        ),
+                    )
+                    .with_elements(vec![pl.id])
+                    .with_value(aspect_ratio, ASPECT_RATIO_THRESHOLD)
+                    .with_phase("pre_solve"),
+                );
+            }
+
+            // Small minimum angle → Warning
+            if min_angle < MIN_ANGLE_THRESHOLD {
+                diags.push(
+                    StructuredDiagnostic::global(
+                        DiagnosticCode::SmallMinAngle,
+                        Severity::Warning,
+                        format!(
+                            "Plate {} has small minimum angle {:.1}° (threshold {:.0}°)",
+                            pl.id, min_angle, MIN_ANGLE_THRESHOLD
+                        ),
+                    )
+                    .with_elements(vec![pl.id])
+                    .with_value(min_angle, MIN_ANGLE_THRESHOLD)
+                    .with_phase("pre_solve"),
+                );
+            }
+        }
+    }
+
     diags
 }
 
@@ -362,19 +536,23 @@ pub fn check_shell_distortion_3d(input: &SolverInput3D) -> Vec<StructuredDiagnos
 // ---------------------------------------------------------------------------
 
 /// Check for suspicious local-axis definitions on 3D frame elements.
-/// Flags elements where the specified orientation vector is nearly parallel
-/// to the element axis (which makes the local y/z axes ill-defined).
+///
+/// Two classes of degeneracy are detected:
+///
+/// 1. **Custom orientation**: the user-specified orientation vector is nearly
+///    parallel to the element axis (dot product > 0.999, i.e. < 2.6 degrees).
+///    Severity: **Error** — the cross product degenerates, producing garbage.
+///
+/// 2. **Default orientation on near-vertical elements**: when no custom
+///    orientation is provided, the solver uses global Y `[0,1,0]` as the
+///    reference.  For nearly-vertical elements the code silently switches to
+///    global Z, but the transition zone is narrow.  Elements whose axis is
+///    within ~5.7 degrees of global Y (`|ex·Y| > 0.995`) get a **Warning** so
+///    the user knows the default rule is operating near its switching threshold.
 pub fn check_suspicious_local_axes_3d(input: &SolverInput3D) -> Vec<StructuredDiagnostic> {
     let mut diags = Vec::new();
 
     for el in input.elements.values() {
-        // Only check elements that specify a custom orientation
-        let (yx, yy, yz) = match (el.local_yx, el.local_yy, el.local_yz) {
-            (Some(x), Some(y), Some(z)) => (x, y, z),
-            _ => continue, // No custom axis — skip
-        };
-
-        // Get element axis direction
         let ni = match input.nodes.values().find(|n| n.id == el.node_i) {
             Some(n) => n,
             None => continue,
@@ -388,43 +566,88 @@ pub fn check_suspicious_local_axes_3d(input: &SolverInput3D) -> Vec<StructuredDi
         let dy = nj.y - ni.y;
         let dz = nj.z - ni.z;
         let len = (dx * dx + dy * dy + dz * dz).sqrt();
-        if len < 1e-15 { continue; }
 
-        // Normalize element axis
-        let ex = [dx / len, dy / len, dz / len];
-
-        // Normalize orientation vector
-        let olen = (yx * yx + yy * yy + yz * yz).sqrt();
-        if olen < 1e-15 {
+        if len < 1e-15 {
             diags.push(
                 StructuredDiagnostic::global(
                     DiagnosticCode::SuspiciousLocalAxis,
-                    Severity::Warning,
-                    format!("Element {} has zero-length local axis orientation vector", el.id),
+                    Severity::Error,
+                    format!(
+                        "Element {} has zero length (nodes {} and {} coincide) — local axes undefined",
+                        el.id, el.node_i, el.node_j,
+                    ),
                 )
                 .with_elements(vec![el.id])
+                .with_nodes(vec![el.node_i, el.node_j])
                 .with_phase("pre_solve"),
             );
             continue;
         }
-        let ov = [yx / olen, yy / olen, yz / olen];
 
-        // Check parallelism: |dot(ex, ov)| close to 1.0 means nearly parallel
-        let dot = ex[0] * ov[0] + ex[1] * ov[1] + ex[2] * ov[2];
-        if dot.abs() > 0.999 {
-            diags.push(
-                StructuredDiagnostic::global(
-                    DiagnosticCode::SuspiciousLocalAxis,
-                    Severity::Warning,
-                    format!(
-                        "Element {} orientation vector is nearly parallel to element axis (|cos|={:.4}) — local y/z axes are ill-defined",
-                        el.id, dot.abs()
-                    ),
-                )
-                .with_elements(vec![el.id])
-                .with_value(dot.abs(), 0.999)
-                .with_phase("pre_solve"),
+        let ex = [dx / len, dy / len, dz / len];
+
+        let has_custom = matches!(
+            (el.local_yx, el.local_yy, el.local_yz),
+            (Some(_), Some(_), Some(_))
+        );
+
+        if has_custom {
+            let (yx, yy, yz) = (
+                el.local_yx.unwrap(),
+                el.local_yy.unwrap(),
+                el.local_yz.unwrap(),
             );
+            let olen = (yx * yx + yy * yy + yz * yz).sqrt();
+            if olen < 1e-15 {
+                diags.push(
+                    StructuredDiagnostic::global(
+                        DiagnosticCode::SuspiciousLocalAxis,
+                        Severity::Error,
+                        format!("Element {} has zero-length local axis orientation vector", el.id),
+                    )
+                    .with_elements(vec![el.id])
+                    .with_phase("pre_solve"),
+                );
+                continue;
+            }
+            let ov = [yx / olen, yy / olen, yz / olen];
+
+            let dot = (ex[0] * ov[0] + ex[1] * ov[1] + ex[2] * ov[2]).abs();
+            if dot > 0.999 {
+                diags.push(
+                    StructuredDiagnostic::global(
+                        DiagnosticCode::SuspiciousLocalAxis,
+                        Severity::Error,
+                        format!(
+                            "Element {} orientation vector is nearly parallel to element axis \
+                             (|cos|={:.6}) — local y/z axes are ill-defined",
+                            el.id, dot,
+                        ),
+                    )
+                    .with_elements(vec![el.id])
+                    .with_value(dot, 0.999)
+                    .with_phase("pre_solve"),
+                );
+            }
+        } else {
+            let dot_y = ex[1].abs();
+            if dot_y > 0.995 {
+                diags.push(
+                    StructuredDiagnostic::global(
+                        DiagnosticCode::SuspiciousLocalAxis,
+                        Severity::Warning,
+                        format!(
+                            "Element {} is nearly vertical (|cos|={:.6}) and uses default \
+                             orientation — local y/z axes are near the switching threshold; \
+                             consider specifying an explicit orientation vector",
+                            el.id, dot_y,
+                        ),
+                    )
+                    .with_elements(vec![el.id])
+                    .with_value(dot_y, 0.995)
+                    .with_phase("pre_solve"),
+                );
+            }
         }
     }
     diags
