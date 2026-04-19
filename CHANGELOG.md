@@ -11,6 +11,33 @@ It should capture what changed, not what should be built next.
 
 ### Fixed
 
+#### Trust hardening — 25+ correctness fixes (2026-04-19)
+
+Systematic audit and fix of solver correctness issues across elements, constraints, and diagnostics:
+
+- **Timoshenko hinge FEF condensation**: correct shear/moment redistribution ratios derived from stiffness matrix — `sv = 6/(L(4+φ))`, `sm = (2-φ)/(4+φ)`. Both 2D (φ=0) and 3D (φ_y, φ_z) call sites updated across `assembly.rs`, `sparse_assembly.rs`, `linear.rs`, `corotational.rs`
+- **Pre-solve gates**: `run_pre_solve_gates_3d` wired into all advanced solvers (corotational, material_nonlinear, fiber_nonlinear, winkler) — shell distortion, suspicious local axes, isolated/duplicate nodes
+- **Shell distortion / Jacobian gating**: quality metrics for Quad9 (MITC9), SolidShell (SHB8-ANS), and CurvedShell — aspect ratio, skew, warping, Jacobian ratio at integration points. 24 shell mesh quality gate tests
+- **RigidLink DOF validation**: `validate_constraint_refs` now checks RigidLink DOF indices against `max_dofs_per_node` (3 for 2D, 6 for 3D)
+- **Inclined support equilibrium summary**: reactions transformed from support-local to global before summing, fixing incorrect totals. 2D + 3D tests
+- **Hognestad tangent**: removed contradictory dead code in pre-peak ascending branch
+- **Cable validation**: cable elements now pass input validation (were rejected as unknown type)
+- **Dead DKT code**: removed unused `ak/bk/ck/dk/ek` arrays from plate.rs
+
+### Added
+
+#### Step 4 runtime gates and CI improvements (2026-04-19)
+
+- **Runtime regression gates** (`perf_regression_advanced.rs` — 11 tests): timing bounds for modal, buckling, harmonic, Guyan, Craig-Bampton on representative plate models; sub-cubic scaling verification; sparse path efficiency checks
+- **k_full overbuild gates** (`kfull_overbuild_gates.rs` — 15 tests): audit confirmed all solver paths correct (no unnecessary k_full construction); gate tests lock down the contract; fill-ratio gates for frame, shell, and modal paths
+- **CI pipeline**: named gates for perf regression, advanced perf, and k_full overbuild; quick criterion benchmark run with HTML artifact upload (30-day retention)
+
+#### Frontend performance optimizations (2026-04-19)
+
+- **Invalidation-based viewport rendering**: both 2D (Canvas) and 3D (Three.js) viewports now render on-demand instead of continuous 60fps loops. Continuous rendering only for active animations, keyboard navigation, and orbit damping. Idle CPU drops to near-zero
+- **Live calc debounce**: 120ms for 2D, 200ms for 3D — prevents solver spam during drag/type operations. Manual solve remains immediate
+- **Continuous rendering flag**: `uiStore.continuousRendering` toggle to opt-in to old always-render behavior
+
 #### Comprehensive Z-up coordinate convention enforcement (2026-04-18)
 
 Audited and fixed 60+ Z-up/Y-up axis convention inconsistencies across 30+ files:

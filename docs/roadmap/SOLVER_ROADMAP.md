@@ -70,11 +70,14 @@ See also: `../research/solver_safety_and_validation_hardening.md` for the fuller
 
 ### What remains open
 
-**Step 3 — diagnostics / reporting contract**
-- `Equilibrium summary for inclined supports`
-  - Type: diagnostics/reporting fix
-  - Status: deferred because solver outputs are already correct; only the summary contract is wrong
-  - Done when: the roadmap/docs define whether summaries are global, support-local, or both, and rotated-support reporting tests stay green
+**Step 4 — runtime and scale (partially done)**
+- Measure Guyan/CB runtime after factorization reuse
+- Measure harmonic bottlenecks after modal-response acceleration
+- Deeper sparse eigensolver integration in reduction workflows
+- Broader sparse shift-invert support
+- Browser memory ceiling / worker startup measurement
+- Iterative refinement before expensive fallback paths
+- Headless batch-run ergonomics
 
 **Step 5 — verification moat**
 - `Property-based fuzz testing (10,000+ random models, crash-free)`
@@ -443,20 +446,28 @@ Make the solver easier to trust before and after a run, and make diagnostics str
 
 Turn the sparse infrastructure into a clearly dominant runtime story across all measured bottlenecks. A solver is not elite if it only works well on small clean examples.
 
-Current status: AMD is already the default fill-reducing ordering, so the old "Phase 4a" ordering change is done. All 8 element families are parallelized through a unified `AnyElement3D` work pool. Memory benchmarks show 11-22x reduction on representative 10x10 to 15x15 shell models. Criterion benchmarks cover flat-plate (up to 50x50 = 2500 quads) and mixed frame+slab models (up to 8-storey, 8x8 slab). Sparse 3D Guyan/Craig-Bampton no-constraint paths now extract `K_bb/K_bi/K_ib/K_ii` directly from sparse `K_ff`, Guyan reaction recovery extracts `K_rf` directly from sparse `k_full`, and a 10x10 plate sparse buckling runtime gate is in place. The next live work here is constraint-system maturity plus broader runtime/fill measurement on real workflows.
+Current status: AMD is already the default fill-reducing ordering, so the old "Phase 4a" ordering change is done. All 8 element families are parallelized through a unified `AnyElement3D` work pool. Memory benchmarks show 11-22x reduction on representative 10x10 to 15x15 shell models. Criterion benchmarks cover flat-plate (up to 50x50 = 2500 quads) and mixed frame+slab models (up to 8-storey, 8x8 slab). Sparse 3D Guyan/Craig-Bampton no-constraint paths now extract `K_bb/K_bi/K_ib/K_ii` directly from sparse `K_ff`, Guyan reaction recovery extracts `K_rf` directly from sparse `k_full`, and a 10x10 plate sparse buckling runtime gate is in place.
+
+**Done (2026-04-19):**
+- Runtime regression gates for all advanced solver paths: modal, buckling, harmonic, Guyan, Craig-Bampton — timing bounds, sub-cubic scaling, and sparse path verification (11 tests in `perf_regression_advanced.rs`)
+- k_full overbuild audit: all solver paths confirmed correct (no unnecessary k_full construction); gate tests lock down the contract for modal/buckling/harmonic/CB skip and linear/Guyan-reactions build; fill-ratio gates for frame, shell, and modal paths (15 tests in `kfull_overbuild_gates.rs`)
+- CI pipeline: named gates for perf regression, advanced perf, and k_full overbuild; quick criterion benchmark run with HTML artifact upload (30-day retention)
+- Frontend performance: invalidation-based viewport rendering (2D + 3D) replaces continuous 60fps loops; live calc debounced (120ms 2D, 200ms 3D); `continuousRendering` flag for opt-in old behavior
+
+The next live work here is constraint-system maturity plus broader runtime/fill measurement on real workflows.
 
 **What:**
 - Measure Guyan and Craig-Bampton runtime after factorization reuse
 - Measure remaining harmonic bottlenecks after modal-response acceleration
 - Deepen sparse eigensolver integration in reduction workflows — reduction internals should not densify `K_ff` unnecessarily
 - Add broader sparse shift-invert support
-- Add runtime gates for modal, buckling, harmonic, Guyan, and Craig-Bampton
-- Add no-`k_full`-overbuild gates everywhere they apply
-- Add stronger fill-ratio and determinism gates on the sparse path
+- ~~Add runtime gates for modal, buckling, harmonic, Guyan, and Craig-Bampton~~ — DONE (2026-04-19)
+- ~~Add no-`k_full`-overbuild gates everywhere they apply~~ — DONE (2026-04-19), audit confirmed all paths already correct
+- ~~Add stronger fill-ratio and determinism gates on the sparse path~~ — DONE (2026-04-19), frame/shell/modal fill-ratio gates added
 - Track workflow-level timing and memory, not only kernel-level factorization timing
 - Measure representative browser memory ceilings and worker startup overhead
 - Add iterative refinement before any remaining expensive fallback path
-- **Performance regression CI:** runtime benchmarks must be re-checked on every merge, not measured once and forgotten. Add CI gates that fail if key benchmarks regress beyond a tolerance (e.g. sparse factorization time, end-to-end solve time on representative models). Track trends, not just pass/fail.
+- ~~**Performance regression CI:** runtime benchmarks must be re-checked on every merge, not measured once and forgotten. Add CI gates that fail if key benchmarks regress beyond a tolerance~~ — DONE (2026-04-19), named CI gates for perf_regression_gates, perf_regression_advanced, and kfull_overbuild_gates; criterion HTML reports uploaded as artifacts
 - Add headless batch-run ergonomics for optimization and comparison workflows so runtime wins are usable outside the interactive UI
 - Move wall-clock-sensitive sparse-vs-dense timing assertions out of normal default tests and into benchmark/explicit-perf gate paths so correctness CI is not flaky
 
