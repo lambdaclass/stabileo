@@ -5,6 +5,12 @@
  * empty/minimal models, extreme value combinations, and field name contracts.
  * The solver (WASM) must either produce a meaningful result, return an error
  * string, or throw — it must never hang.
+ *
+ * CONTRACT TESTS: Section 5 (field name contracts) is a stability contract.
+ * The field names tested there are the public WASM API surface — changing
+ * them breaks every downstream consumer (UI, exports, AI review, reports).
+ * Do not rename fields without updating all consumers and the trust baseline
+ * in SOLVER_ROADMAP.md.
  */
 
 import { describe, it, expect } from 'vitest';

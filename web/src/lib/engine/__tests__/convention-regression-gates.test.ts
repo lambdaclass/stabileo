@@ -6,6 +6,12 @@
  * The bugs they prevent were NOT solver math errors -- they were seam bugs
  * where different parts of the codebase used different conventions for the
  * same concept.
+ *
+ * CONTRACT TESTS: Seams 1, 3, 4, and 6 are stability contracts.
+ * Changing their assertions requires explicit justification — they encode
+ * invariants that prevented real production bugs (Z-up drift, My/Mz swap,
+ * missing PRO fields in share links). Do not weaken tolerances or remove
+ * assertions without updating the trust baseline in SOLVER_ROADMAP.md.
  */
 
 import { describe, it, expect } from 'vitest';

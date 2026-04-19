@@ -1,13 +1,17 @@
 //! Solver invariant tests: physical and numerical properties that must hold
 //! for any correctly solved structural model.
 //!
-//! Tests cover:
+//! CONTRACT TESTS — all 6 categories are stability contracts:
 //! 1. Equilibrium preservation (reactions balance applied loads)
 //! 2. Stiffness matrix symmetry (K[i][j] == K[j][i])
 //! 3. Energy bounds (non-negative strain energy, work-energy theorem)
 //! 4. Zero-load zero-displacement
 //! 5. Deterministic solve (bitwise reproducibility)
 //! 6. Reaction count matches constrained DOFs
+//!
+//! These encode physical laws and numerical guarantees, not implementation
+//! details. A failure here means the solver is producing wrong results.
+//! Do not weaken tolerances without updating SOLVER_ROADMAP.md baseline.
 
 #[path = "common/mod.rs"]
 mod common;

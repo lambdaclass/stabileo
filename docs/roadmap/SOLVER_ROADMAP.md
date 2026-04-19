@@ -26,10 +26,89 @@ Before broadening the solver into more design-code and advanced-analysis depth, 
 3. `Strengthen test oracles` — MOSTLY DONE. Equilibrium checks now cover distributed loads and moment balance better; the remaining work is to codify tolerance policy by test type so regression tests do not inherit benchmark-grade looseness.
 4. `Move wall-clock timing checks out of normal pass/fail tests` — DONE. Timing-sensitive sparse-vs-dense assertions have been moved into ignored perf paths or relaxed where appropriate.
 5. `Close current sparse reduction/runtime gaps` — STILL OPEN. Keep removing avoidable densification where applicable, add broader buckling/runtime/fill gates, and enforce no-`k_full`-overbuild expectations where they truly apply.
-6. `Keep solver trust visible` — ONGOING. Every hardening change above should add proof, not only code: CI gates, contract tests, analytical/reference checks, or reproducible artifacts.
+6. `Keep solver trust visible` — ONGOING. Every hardening change above should add proof, not only code: CI gates, contract tests, analytical/reference checks, or reproducible artifacts. Wave 1 trust hardening (2026-04-19) landed 102 contract tests across 4 suites, all required in CI — see baseline section below.
 7. `Lock the 3D coordinate convention explicitly` — SUBSTANTIALLY DONE (2026-04-18). Comprehensive Z-up audit fixed 60+ inconsistencies: viewport rendering (WASD, distributed loads, results-sync projections), store operations (splitElement, mirror, rotate Z preservation), file persistence (analysisMode/axisConvention3D in .ded files and share links), exports (PRO mode via `isMode3D()` in CSV/HTML/Excel), IFC import (Y-up→Z-up remapping), backend AI contracts (fz/my canonical fields, bounds), section-stress (My/Mz yMax/zMax swap), locale labels (rotMomentHelp), and basic 3D node creation (`shouldProjectModelToXZ` excluding '3d' mode). Remaining: watch for regressions and ensure new 3D features follow the convention.
 
 See also: `../research/solver_safety_and_validation_hardening.md` for the fuller defense-layer architecture around validation, convergence safeguards, post-solve verification, diagnostics, and frontend mutation guards.
+
+## Wave 1 Trust Hardening — Baseline (2026-04-19)
+
+102 new tests across 4 test suites, all required in CI. These are contract tests — weakening them requires explicit justification and a roadmap update.
+
+### What is now enforced
+
+**Solver invariants** (`engine/tests/solver_invariants.rs` — 21 tests, contract):
+- Equilibrium preservation: reactions balance applied loads on 2D/3D cantilever, SS beam, portal (5 models + parametric)
+- Stiffness matrix symmetry: dense K and sparse K_ff on 2D/3D single-element and multi-element (4 models + parametric)
+- Energy bounds: non-negative strain energy, work-energy theorem on cantilever (2 models + parametric)
+- Zero-load → zero-displacement (2D + 3D)
+- Deterministic solve: bitwise f64 reproducibility (2D + 3D)
+- Reaction count matches constrained DOFs (2D + 3D)
+
+**Solver CI coverage** (`engine/tests/solver_ci_coverage.rs` — 11 tests, contract):
+- Modal analytical: SS beam f₁ and cantilever f₁ within 2% of Euler beam theory
+- Buckling analytical: pinned-pinned and cantilever Euler P_cr within 2%
+- Sparse/dense parity: bitwise determinism + 1e-10 residual parity on 3D portal
+- Constraint smoke: RigidLink, Diaphragm, EqualDOF equilibrium and behavior
+- Sparse infrastructure: 10x10 MITC4 fill ratio ≤ 8.0, 0 perturbations, deterministic
+
+**Convention regression gates** (`web/.../convention-regression-gates.test.ts` — 27 tests, contract seams 1/3/4/6):
+- SEAM 1: 2D output bans Y-up fields; 3D output has canonical 3D field names; backend uses fz/my
+- SEAM 2: PRO mode handled as 3D everywhere; no raw `=== '3d'` checks outside isMode3D
+- SEAM 3: My/Mz axis identity preserved in auto-verify, ProVerification, ProPanel, Navier formula, stress heatmap
+- SEAM 4: File persistence writes analysisMode/axisConvention3D; share links serialize plates/quads/constraints
+- SEAM 5: Locale wording correct for rotMomentHelp and moments3dHelp in EN/ES
+- SEAM 6: Z-up constants (VERTICAL_AXIS, UP_VECTOR, GRAVITY_VECTOR_3D, projectNodeToScene)
+
+**WASM boundary robustness** (`web/.../solver-boundary-robustness.test.ts` — 43 tests, contract section 5):
+- NaN/Inf handling: 2D + 3D solvers throw or return finite (never hang) on bad coordinates, materials, sections, loads
+- Degenerate geometry: zero-length, 1e12, 1e-12 elements handled gracefully
+- Empty/minimal models: no-elements, no-loads, no-supports, single-element PL³/3EI check
+- Extreme values: stiff/flexible, long/short, large loads, zero E, zero A, negative E
+- Field name contract: 2D displacements ux/uz/ry, reactions rx/rz/my, forces n/v/mStart/End; 3D full 6-DOF field names
+
+### What remains open
+
+- Property-based fuzz testing (10,000+ random models, crash-free) — Step 5
+- WASM vs native parity tests — Step 5
+- Mutation testing (`cargo-mutants`) — Step 5
+- Real-model regression suite from messy/realistic models — Step 5
+- Broader shell + nonlinear invariant coverage — Step 6
+- Constraint system depth (chained, eccentric, cross-solver parity) — Step 6
+- Performance regression CI gates — Step 4
+- Pre-solve shell distortion / Jacobian gating — Step 3
+
+### Contract change protocol
+
+If a contract test needs to change, update all three together:
+1. **The contract test itself** — with a comment explaining why the old assertion no longer holds
+2. **The runtime code / docs** — whatever made the old contract true must be updated to match
+3. **This baseline** — update the enforced-invariants list so the roadmap stays accurate
+
+A contract weakening (looser tolerance, removed assertion, skipped test) requires explicit justification in the commit message. A contract strengthening (tighter tolerance, new assertion) is always welcome.
+
+### CI gate structure
+
+Rust test job runs these named gates before the full suite:
+1. Shell benchmarks gate
+2. Shell acceptance gate
+3. Constraint benchmarks gate
+4. Sparse shell gates
+5. **Solver invariants gate** ← new
+6. **Solver CI coverage gate** ← new
+7. All tests (catch-all)
+
+Web test job:
+8. **Web tests** (includes convention gates + boundary robustness) ← new, was not run in CI before
+
+### Branch protection (not yet enabled)
+
+Main has no branch protection. When enabled, require these status checks:
+- `lint` — clippy
+- `test` — all Rust gates + catch-all
+- `web` — WASM build + web tests
+
+This would prevent direct pushes to main. Enable when the team is ready to work through PRs.
 
 ## What Still Separates Dedaliano From The Strongest Open Solvers
 

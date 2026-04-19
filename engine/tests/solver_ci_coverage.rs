@@ -1,5 +1,9 @@
 //! CI-grade smoke and parity tests for advanced solver paths.
 //!
+//! CONTRACT TESTS: sparse/dense parity and fill-ratio gates are contracts.
+//! Modal/buckling analytical checks are contracts against known solutions.
+//! Constraint smoke tests protect the constraint system from silent rot.
+//!
 //! Tolerance policy:
 //!   - Analytical reference (Euler beam theory, modal freq.):  2% relative
 //!   - Sparse vs dense parity:                                 1e-10 relative
