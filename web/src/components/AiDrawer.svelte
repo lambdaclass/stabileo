@@ -18,8 +18,10 @@
   let reviewResponse = $state<ReviewModelResponse | null>(null);
   let expandedFinding = $state<number | null>(null);
 
+  const is3DMode = $derived(uiStore.analysisMode === '3d' || uiStore.analysisMode === 'pro');
+  const aiAnalysisMode = $derived(is3DMode ? '3d' : '2d');
   const hasResults = $derived(
-    uiStore.analysisMode === '3d'
+    is3DMode
       ? resultsStore.results3D !== null
       : resultsStore.results !== null
   );
@@ -185,7 +187,7 @@
     abortController = ac;
 
     try {
-      const mode = uiStore.analysisMode === '3d' ? '3d' : '2d';
+      const mode = aiAnalysisMode;
       const ctx = hasModelOnCanvas ? buildModelContext(modelStore) : undefined;
       const currentSnap = hasModelOnCanvas ? ($state.snapshot(modelStore.snapshot()) as Record<string, unknown>) : undefined;
       const resp = await buildModel(text, i18n.locale, mode, ctx, currentSnap, conversationHistory.length > 0 ? conversationHistory : undefined, undefined, ac.signal);
@@ -286,7 +288,7 @@
     justApplied = true;
 
     // Capture solver diagnostics for potential "Fix issues"
-    const is3D = uiStore.analysisMode === '3d';
+    const is3D = is3DMode;
     const results = is3D ? resultsStore.results3D : resultsStore.results;
     const solverDiags = (results as any)?.solverDiagnostics ?? [];
     lastSolverDiagnostics = solverDiags
@@ -333,7 +335,7 @@
     scrollChatToBottom();
 
     try {
-      const mode = uiStore.analysisMode === '3d' ? '3d' : '2d';
+      const mode = aiAnalysisMode;
       const ctx = hasModelOnCanvas ? buildModelContext(modelStore) : undefined;
       const currentSnap = hasModelOnCanvas ? ($state.snapshot(modelStore.snapshot()) as Record<string, unknown>) : undefined;
       const resp = await buildModel(
@@ -407,9 +409,10 @@
   function fastRebuild(snapshot: ModelSnapshot) {
     // Switch analysis mode if snapshot specifies it
     const snapshotMode = (snapshot as any).analysisMode;
-    if (snapshotMode === '3d' && uiStore.analysisMode !== '3d') {
-      uiStore.analysisMode = '3d';
-    } else if (snapshotMode === '2d' && uiStore.analysisMode === '3d') {
+    const snapshotIs3D = snapshotMode === '3d' || snapshotMode === 'pro';
+    if (snapshotIs3D && !is3DMode) {
+      uiStore.analysisMode = uiStore.appMode === 'pro' ? 'pro' : '3d';
+    } else if (snapshotMode === '2d' && is3DMode) {
       uiStore.analysisMode = '2d';
     }
 
@@ -452,7 +455,7 @@
     reviewError = null;
 
     try {
-      const is3D = uiStore.analysisMode === '3d';
+      const is3D = is3DMode;
       const results = is3D ? resultsStore.results3D : resultsStore.results;
       if (!results) {
         reviewError = t('ai.noResults');

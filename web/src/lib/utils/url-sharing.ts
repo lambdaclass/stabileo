@@ -210,10 +210,33 @@ function toCompact(snapshot: ModelSnapshot, meta?: ShareMeta): Record<string, un
   // Combinations
   if (snapshot.combinations?.length) c.co = snapshot.combinations;
 
-  // NextId: [node, mat, sec, elem, sup, load, loadCase?, combination?]
+  // Plates: [[id, [n1,n2,n3], matId, thickness, shellFamily?], ...]
+  if (snapshot.plates?.length) {
+    c.pl = snapshot.plates.map(([, v]) => {
+      const arr: unknown[] = [v.id, v.nodes, v.materialId, r(v.thickness)];
+      if ((v as any).shellFamily) arr.push((v as any).shellFamily);
+      return arr;
+    });
+  }
+
+  // Quads: [[id, [n1,n2,n3,n4], matId, thickness, shellFamily?], ...]
+  if (snapshot.quads?.length) {
+    c.qu = snapshot.quads.map(([, v]) => {
+      const arr: unknown[] = [v.id, v.nodes, v.materialId, r(v.thickness)];
+      if ((v as any).shellFamily) arr.push((v as any).shellFamily);
+      return arr;
+    });
+  }
+
+  // Constraints: kept as-is (already compact, type+data varies by variant)
+  if (snapshot.constraints?.length) {
+    c.cn = snapshot.constraints;
+  }
+
+  // NextId: [node, mat, sec, elem, sup, load, loadCase?, combination?, plate?, quad?]
   const nid = snapshot.nextId;
   c.ni = [nid.node, nid.material, nid.section, nid.element, nid.support, nid.load,
-    nid.loadCase ?? 3, nid.combination ?? 1];
+    nid.loadCase ?? 3, nid.combination ?? 1, nid.plate ?? 1, nid.quad ?? 1];
 
   // ShareMeta: only non-default values
   if (meta) {
@@ -237,7 +260,7 @@ function toCompact(snapshot: ModelSnapshot, meta?: ShareMeta): Record<string, un
 
 function fromCompact(c: Record<string, unknown>): ModelSnapshot {
   const snapshot: ModelSnapshot = {
-    analysisMode: c.m as '2d' | '3d' | undefined,
+    analysisMode: c.m as '2d' | '3d' | 'pro' | 'edu' | undefined,
     name: c.nm as string | undefined,
 
     // Nodes
@@ -323,10 +346,25 @@ function fromCompact(c: Record<string, unknown>): ModelSnapshot {
     loadCases: c.lc as ModelSnapshot['loadCases'],
     combinations: c.co as ModelSnapshot['combinations'],
 
+    // Plates
+    plates: (c.pl as any[] | undefined)?.map((a: any) => [a[0], {
+      id: a[0], nodes: a[1], materialId: a[2], thickness: a[3],
+      ...(a[4] ? { shellFamily: a[4] } : {}),
+    }]) as ModelSnapshot['plates'],
+
+    // Quads
+    quads: (c.qu as any[] | undefined)?.map((a: any) => [a[0], {
+      id: a[0], nodes: a[1], materialId: a[2], thickness: a[3],
+      ...(a[4] ? { shellFamily: a[4] } : {}),
+    }]) as ModelSnapshot['quads'],
+
+    // Constraints
+    constraints: c.cn as ModelSnapshot['constraints'],
+
     // NextId
     nextId: (() => {
       const a = c.ni as number[];
-      return { node: a[0], material: a[1], section: a[2], element: a[3], support: a[4], load: a[5], loadCase: a[6], combination: a[7] };
+      return { node: a[0], material: a[1], section: a[2], element: a[3], support: a[4], load: a[5], loadCase: a[6], combination: a[7], plate: a[8] ?? 1, quad: a[9] ?? 1 };
     })(),
   };
 
@@ -458,7 +496,7 @@ export function generateShareURL(): { url: string; length: number } | null {
   if (snapshot.nodes.length === 0) return null;
 
   const mode = uiStore.analysisMode;
-  snapshot.analysisMode = (mode === '2d' || mode === '3d') ? mode : undefined;
+  snapshot.analysisMode = (mode === '2d' || mode === '3d' || mode === 'pro') ? mode : undefined;
   const meta = buildShareMeta(true);
 
   const compressed = compressV2(snapshot, meta);
@@ -474,7 +512,7 @@ export function generateEmbedURL(): { url: string; length: number } | null {
   if (snapshot.nodes.length === 0) return null;
 
   const mode = uiStore.analysisMode;
-  snapshot.analysisMode = (mode === '2d' || mode === '3d') ? mode : undefined;
+  snapshot.analysisMode = (mode === '2d' || mode === '3d' || mode === 'pro') ? mode : undefined;
   const meta = buildShareMeta(false);
 
   const compressed = compressV2(snapshot, meta);

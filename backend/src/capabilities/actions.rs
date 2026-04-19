@@ -158,11 +158,11 @@ pub enum BuildAction {
         #[serde(default)]
         fx: Option<f64>,
         #[serde(default)]
-        #[serde(alias = "fz")]
-        fy: Option<f64>,
+        #[serde(alias = "fy")]
+        fz: Option<f64>,
         #[serde(default)]
-        #[serde(alias = "my")]
-        mz: Option<f64>,
+        #[serde(alias = "mz")]
+        my: Option<f64>,
     },
     /// Delete an element by ID.
     DeleteElement {

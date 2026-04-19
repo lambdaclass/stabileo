@@ -4,6 +4,28 @@
 import type { IfcMember } from './ifc-mapper';
 import { t } from '../i18n';
 
+// ─── IFC Y-up → App Z-up coordinate remapping ───────────────────
+// IFC (buildingSMART) uses Y-up convention; this app uses Z-up
+// (structural engineering convention where Z is vertical).
+// The right-hand-preserving transform is:
+//   app_x =  ifc_x
+//   app_y = -ifc_z
+//   app_z =  ifc_y
+
+/** Remap an IFC Y-up position to the app's Z-up convention. */
+export function ifcToZup(
+  ifc_x: number, ifc_y: number, ifc_z: number,
+): { x: number; y: number; z: number } {
+  return { x: ifc_x, y: -ifc_z, z: ifc_y };
+}
+
+/** Remap an IFC Y-up direction vector to the app's Z-up convention. */
+export function ifcDirToZup(
+  ifc_dx: number, ifc_dy: number, ifc_dz: number,
+): { dx: number; dy: number; dz: number } {
+  return { dx: ifc_dx, dy: -ifc_dz, dz: ifc_dy };
+}
+
 // IFC entity type constants
 const IFCBEAM = 753729222;
 const IFCCOLUMN = 3999819293;
@@ -31,28 +53,44 @@ export async function parseIfc(data: ArrayBuffer): Promise<IfcParseResult> {
   const members: IfcMember[] = [];
   let nextId = 1;
 
-  // Helper: extract placement matrix (simplified — gets translation)
+  // Helper: extract placement origin, composing the IfcLocalPlacement hierarchy.
+  // IFC objects can have nested local coordinate systems via IfcLocalPlacement.
+  // Each placement has a PlacementRelTo (parent) that must be composed
+  // to obtain world coordinates. The result is remapped from IFC Y-up to app Z-up.
   function getPlacementOrigin(placementId: number): { x: number; y: number; z: number } | null {
     try {
-      const placement = api.GetLine(modelID, placementId);
-      if (!placement) return null;
+      // Accumulate translations up the placement hierarchy (IFC Y-up space)
+      let totalX = 0, totalY = 0, totalZ = 0;
+      let currentId: number | null = placementId;
+      const visited = new Set<number>(); // guard against circular references
 
-      // Try to get the relative placement
-      const relPlacement = placement.RelativePlacement;
-      if (!relPlacement) return null;
+      while (currentId !== null) {
+        if (visited.has(currentId)) break;
+        visited.add(currentId);
 
-      const relObj = api.GetLine(modelID, relPlacement.value);
-      if (!relObj || !relObj.Location) return null;
+        const placement = api.GetLine(modelID, currentId);
+        if (!placement) break;
 
-      const locObj = api.GetLine(modelID, relObj.Location.value);
-      if (!locObj || !locObj.Coordinates) return null;
+        // Extract this level's translation
+        const relPlacement = placement.RelativePlacement;
+        if (relPlacement) {
+          const relObj = api.GetLine(modelID, relPlacement.value);
+          if (relObj?.Location) {
+            const locObj = api.GetLine(modelID, relObj.Location.value);
+            if (locObj?.Coordinates) {
+              totalX += locObj.Coordinates[0]?.value ?? 0;
+              totalY += locObj.Coordinates[1]?.value ?? 0;
+              totalZ += locObj.Coordinates[2]?.value ?? 0;
+            }
+          }
+        }
 
-      const coords = locObj.Coordinates;
-      return {
-        x: coords[0]?.value ?? 0,
-        y: coords[1]?.value ?? 0,
-        z: coords[2]?.value ?? 0,
-      };
+        // Walk up to parent placement (IfcLocalPlacement.PlacementRelTo)
+        currentId = placement.PlacementRelTo?.value ?? null;
+      }
+
+      // Remap from IFC Y-up to app Z-up
+      return ifcToZup(totalX, totalY, totalZ);
     } catch {
       return null;
     }
@@ -82,23 +120,25 @@ export async function parseIfc(data: ArrayBuffer): Promise<IfcParseResult> {
                 if (item && item.Depth) {
                   // ExtrudedAreaSolid — Depth is the length
                   const length = item.Depth.value;
-                  // ExtrudedDirection
-                  let dx = 0, dy = 0, dz = 1; // default Z direction
+                  // ExtrudedDirection — read in IFC Y-up space, then remap
+                  let ifc_dx = 0, ifc_dy = 0, ifc_dz = 1; // default: IFC Z direction
                   if (item.ExtrudedDirection) {
                     const dirObj = api.GetLine(modelID, item.ExtrudedDirection.value);
                     if (dirObj && dirObj.DirectionRatios) {
-                      dx = dirObj.DirectionRatios[0]?.value ?? 0;
-                      dy = dirObj.DirectionRatios[1]?.value ?? 0;
-                      dz = dirObj.DirectionRatios[2]?.value ?? 1;
+                      ifc_dx = dirObj.DirectionRatios[0]?.value ?? 0;
+                      ifc_dy = dirObj.DirectionRatios[1]?.value ?? 0;
+                      ifc_dz = dirObj.DirectionRatios[2]?.value ?? 1;
                     }
                   }
-                  const mag = Math.sqrt(dx * dx + dy * dy + dz * dz) || 1;
+                  // Remap extrusion direction from IFC Y-up to app Z-up
+                  const dir = ifcDirToZup(ifc_dx, ifc_dy, ifc_dz);
+                  const mag = Math.sqrt(dir.dx * dir.dx + dir.dy * dir.dy + dir.dz * dir.dz) || 1;
                   return {
                     start,
                     end: {
-                      x: start.x + (dx / mag) * length,
-                      y: start.y + (dy / mag) * length,
-                      z: start.z + (dz / mag) * length,
+                      x: start.x + (dir.dx / mag) * length,
+                      y: start.y + (dir.dy / mag) * length,
+                      z: start.z + (dir.dz / mag) * length,
                     },
                   };
                 }

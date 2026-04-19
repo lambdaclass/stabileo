@@ -2,24 +2,40 @@
   import { onMount } from 'svelte';
   import { t, i18n, setLocale } from '../lib/i18n';
 
-  /** Called when the user clicks "Try Demo" — dispatches event for parent to handle */
+  const repoUrl = 'https://github.com/lambdaclass/stabileo';
+  const docsHubUrl = `${repoUrl}/blob/main/docs/README.md`;
+  const quickStartUrl = `${repoUrl}/blob/main/docs/QUICKSTART.md`;
+  const aiWorkflowUrl = `${repoUrl}/blob/main/docs/AI_MODELING_WORKFLOW.md`;
+  const solverRefUrl = `${repoUrl}/blob/main/docs/SOLVER_REFERENCE.md`;
+
+  /** Called when the user clicks a CTA that should enter the main app shell. */
   function enterApp() {
     window.dispatchEvent(new CustomEvent('stabileo-enter-app'));
   }
 
   let landingEl: HTMLDivElement;
   let demoLoaded = $state(false);
+  let prefersReducedMotion = false;
 
-  // ─── Slideshow engine ───
-  // Each slideshow has: images[], current index, interval handle, paused flag
-  type Slideshow = { images: string[]; idx: number; paused: boolean; iv: ReturnType<typeof setInterval> | null };
+  type Slideshow = {
+    images: string[];
+    idx: number;
+    paused: boolean;
+    iv: ReturnType<typeof setInterval> | null;
+  };
 
   function createSlideshow(images: string[]): Slideshow {
     return { images, idx: 0, paused: false, iv: null };
   }
 
-  function startSlideshow(ss: Slideshow, ms = 4000) {
+  function clearSlideshow(ss: Slideshow) {
     if (ss.iv) clearInterval(ss.iv);
+    ss.iv = null;
+  }
+
+  function startSlideshow(ss: Slideshow, ms = 4000) {
+    clearSlideshow(ss);
+    if (prefersReducedMotion || ss.images.length < 2) return;
     ss.iv = setInterval(() => {
       if (!ss.paused) ss.idx = (ss.idx + 1) % ss.images.length;
     }, ms);
@@ -28,131 +44,195 @@
   function goToSlide(ss: Slideshow, i: number) {
     ss.idx = i;
     ss.paused = true;
-    // Resume after 10s of inactivity
-    if (ss.iv) clearInterval(ss.iv);
+    clearSlideshow(ss);
+    if (prefersReducedMotion || ss.images.length < 2) return;
     ss.iv = setInterval(() => {
-      if (ss.paused) { ss.paused = false; return; }
+      if (ss.paused) {
+        ss.paused = false;
+        return;
+      }
       ss.idx = (ss.idx + 1) % ss.images.length;
-    }, 4000);
+    }, 4500);
   }
 
-  // Hero slideshow — best images from all sections
+  function restartSlideshows() {
+    startSlideshow(hero, 4200);
+    startSlideshow(ss2d, 5200);
+    startSlideshow(ss3d, 5200);
+    startSlideshow(ssPro, 5600);
+  }
+
   let hero = $state(createSlideshow([
-    '/screenshots/2d-loads.png',
-    '/screenshots/2d-moments.png',
     '/screenshots/3d-industrial.png',
+    '/screenshots/2d-moments.png',
     '/screenshots/pro-verification.png',
   ]));
 
-  // Feature mini-slideshows
   let ss2d = $state(createSlideshow([
     '/screenshots/2d-loads.png',
     '/screenshots/2d-moments.png',
     '/screenshots/2d-section-analysis.png',
   ]));
+
   let ss3d = $state(createSlideshow([
     '/screenshots/3d-loads.png',
     '/screenshots/3d-section-analysis.png',
     '/screenshots/3d-industrial.png',
   ]));
-  // Education: portrait images, displayed side by side (no slideshow)
+
   let ssPro = $state(createSlideshow([
     '/screenshots/pro-features.png',
     '/screenshots/pro-verification.png',
   ]));
 
-  // Scroll progress
   let scrollPct = $state(0);
 
-  // Animated counters
-  let countTests = $state(0);
-  let countLanguages = $state(0);
-  let countersStarted = false;
+  const depthTiles = [
+    {
+      code: '02',
+      image: '/screenshots/2d-loads.png',
+      tone: 'amber',
+      titleKey: 'landing.capGrid2Title',
+      descKey: 'landing.capGrid2Desc',
+    },
+    {
+      code: '03',
+      image: '/screenshots/3d-section-analysis.png',
+      tone: 'plum',
+      titleKey: 'landing.capGrid3Title',
+      descKey: 'landing.capGrid3Desc',
+    },
+    {
+      code: '04',
+      image: '/screenshots/3d-loads.png',
+      tone: 'ink',
+      titleKey: 'landing.capGrid4Title',
+      descKey: 'landing.capGrid4Desc',
+    },
+    {
+      code: '07',
+      image: '/screenshots/pro-verification.png',
+      tone: 'paper',
+      titleKey: 'landing.capGrid7Title',
+      descKey: 'landing.capGrid7Desc',
+    },
+  ];
 
-  function animateCounters() {
-    if (countersStarted) return;
-    countersStarted = true;
-    const dur = 1400, steps = 40, dt = dur / steps;
-    let step = 0;
-    const iv = setInterval(() => {
-      step++;
-      const ease = 1 - Math.pow(1 - step / steps, 3);
-      countTests = Math.round(1117 * ease);
-      countLanguages = Math.round(14 * ease);
-      if (step >= steps) clearInterval(iv);
-    }, dt);
+  const releaseCards = [
+    { date: 'Feb 2026', key: 'landing.cl202602', tone: 'amber' },
+    { date: 'Jan 2026', key: 'landing.cl202601', tone: 'plum' },
+    { date: 'Dec 2025', key: 'landing.cl202512', tone: 'ink' },
+  ];
+
+  function scrollTo(id: string) {
+    document.getElementById(id)?.scrollIntoView({ behavior: 'smooth', block: 'start' });
   }
 
   onMount(() => {
-    startSlideshow(hero, 4000);
-    startSlideshow(ss2d, 5000);
-    startSlideshow(ss3d, 5000);
-    startSlideshow(ssPro, 5000);
-
-    // Scroll progress
     const onScroll = () => {
       const el = landingEl;
       if (!el) return;
-      scrollPct = el.scrollTop / (el.scrollHeight - el.clientHeight) * 100;
+      const denom = Math.max(1, el.scrollHeight - el.clientHeight);
+      scrollPct = (el.scrollTop / denom) * 100;
     };
-    landingEl?.addEventListener('scroll', onScroll, { passive: true });
 
-    // Reveal observer
     const observer = new IntersectionObserver((entries) => {
       for (const entry of entries) {
-        if (entry.isIntersecting) {
-          entry.target.classList.add('visible');
-          if (entry.target.classList.contains('metrics')) animateCounters();
-        }
+        if (entry.isIntersecting) entry.target.classList.add('visible');
       }
-    }, { threshold: 0.1, root: landingEl });
+    }, { threshold: 0.12, root: landingEl });
+
+    const motionQuery = window.matchMedia('(prefers-reduced-motion: reduce)');
+    const onMotionChange = (e: MediaQueryListEvent) => {
+      prefersReducedMotion = e.matches;
+      clearSlideshow(hero);
+      clearSlideshow(ss2d);
+      clearSlideshow(ss3d);
+      clearSlideshow(ssPro);
+      if (!prefersReducedMotion) restartSlideshows();
+    };
+
+    prefersReducedMotion = motionQuery.matches;
+    if (motionQuery.addEventListener) motionQuery.addEventListener('change', onMotionChange);
+    else motionQuery.addListener(onMotionChange);
+
+    if (!prefersReducedMotion) restartSlideshows();
+
+    landingEl?.addEventListener('scroll', onScroll, { passive: true });
+    onScroll();
+
     for (const el of landingEl.querySelectorAll('.reveal')) observer.observe(el);
 
-    // Listen for demo iframe tour completion → enter full app
     const onMessage = (e: MessageEvent) => {
       if (e.data === 'stabileo-enter-app') enterApp();
     };
     window.addEventListener('message', onMessage);
 
     return () => {
+      clearSlideshow(hero);
+      clearSlideshow(ss2d);
+      clearSlideshow(ss3d);
+      clearSlideshow(ssPro);
       observer.disconnect();
-      if (hero.iv) clearInterval(hero.iv);
-      if (ss2d.iv) clearInterval(ss2d.iv);
-      if (ss3d.iv) clearInterval(ss3d.iv);
-      if (ssPro.iv) clearInterval(ssPro.iv);
       landingEl?.removeEventListener('scroll', onScroll);
       window.removeEventListener('message', onMessage);
+      if (motionQuery.removeEventListener) motionQuery.removeEventListener('change', onMotionChange);
+      else motionQuery.removeListener(onMotionChange);
     };
   });
-
-  function scrollTo(id: string) { document.getElementById(id)?.scrollIntoView({ behavior: 'smooth' }); }
 </script>
 
-<!-- Google Fonts -->
 <svelte:head>
+  <title>Stabileo — Browser-Based Structural Analysis</title>
+  <meta
+    name="description"
+    content="Browser-native 2D and 3D structural analysis with a structured model format, real solver outputs, AI-ready build/review workflows, and no install required."
+  />
+  <meta name="theme-color" content="#0a0a0b" />
+  <meta property="og:type" content="website" />
+  <meta property="og:title" content="Stabileo — Browser-Based Structural Analysis" />
+  <meta
+    property="og:description"
+    content="Model, solve, inspect, and share structural analysis directly in the browser, with structured-model docs and AI-ready workflows."
+  />
+  <meta property="og:image" content="/screenshots/3d-industrial.png" />
+  <meta name="twitter:card" content="summary_large_image" />
+  <meta name="twitter:title" content="Stabileo — Browser-Based Structural Analysis" />
+  <meta
+    name="twitter:description"
+    content="Professional-grade 2D and 3D structural analysis directly in the browser, with a structured solver humans and AI can both use."
+  />
+  <meta name="twitter:image" content="/screenshots/3d-industrial.png" />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="anonymous" />
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+  <link
+    href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@500;600&family=IBM+Plex+Sans:wght@400;500;600;700&family=Space+Grotesk:wght@500;600;700&display=swap"
+    rel="stylesheet"
+  />
 </svelte:head>
 
 <div class="landing" bind:this={landingEl}>
-  <!-- Scroll progress bar -->
   <div class="scroll-progress" style="width:{scrollPct}%"></div>
 
-  <!-- ═══ NAVBAR ═══ -->
+  <!-- ─── NAV ─── -->
   <nav class="nav">
     <div class="nav-inner">
-      <div class="nav-brand">
-        <span class="nav-logo">△</span>
+      <button class="nav-brand" onclick={() => scrollTo('top')} aria-label="Back to top">
+        <span class="nav-logo">S</span>
         <span class="nav-name">Stabileo</span>
-      </div>
+      </button>
+
       <div class="nav-links">
         <button onclick={() => scrollTo('features')}>{t('landing.features')}</button>
+        <button onclick={() => scrollTo('docs')}>{t('landing.docs')}</button>
         <button onclick={() => scrollTo('demo')}>{t('landing.demo')}</button>
+        <button onclick={() => scrollTo('roadmap')}>{t('landing.roadmap')}</button>
         <button onclick={() => scrollTo('pricing')}>{t('landing.pricing')}</button>
       </div>
+
       <div class="nav-actions">
-        <select class="nav-lang" value={i18n.locale} onchange={(e) => setLocale((e.currentTarget as HTMLSelectElement).value)}>
+        <a class="nav-ghost" href={repoUrl} target="_blank" rel="noreferrer">{t('landing.viewOnGithub')}</a>
+        <select class="nav-lang" value={i18n.locale} onchange={(e) => setLocale((e.currentTarget as HTMLSelectElement).value)} aria-label="Select language">
           <option value="en">English</option>
           <option value="es">Español</option>
           <option value="pt">Português</option>
@@ -173,210 +253,326 @@
     </div>
   </nav>
 
-  <!-- ═══ HERO ═══ -->
-  <section class="hero">
-    <div class="hero-bg"></div>
-    <div class="noise"></div>
-    <div class="hero-content">
-      <div class="hero-badge">{t('landing.metricBrowser')} — {t('landing.metricFree')}</div>
-      <h1>{t('landing.heroTitle')}</h1>
-      <p class="hero-sub">{t('landing.heroSub')}</p>
-      <div class="hero-ctas">
-        <button class="btn-primary" onclick={() => enterApp()}>{t('landing.tryApp')}</button>
-        <button class="btn-secondary" onclick={() => scrollTo('features')}>{t('landing.features')} ↓</button>
+  <!-- ─── HERO ─── -->
+  <section class="hero" id="top">
+    <div class="hero-glow"></div>
+    <div class="section-inner hero-layout">
+      <div class="hero-copy">
+        <div class="hero-badge">{t('landing.metricBrowser')} &middot; {t('landing.compNoInstall')}</div>
+        <h1><span class="hero-line1">{t('landing.heroTitle1')}</span> <em>{t('landing.heroTitle2')}</em></h1>
+        <p class="hero-sub">{t('landing.heroSub')}</p>
+
+        <div class="hero-ctas">
+          <button class="btn-primary" onclick={() => enterApp()}>{t('landing.tryApp')}</button>
+          <button class="btn-ghost" onclick={() => scrollTo('demo')}>{t('landing.interactiveDemo')}</button>
+        </div>
+
+        <div class="hero-meta">
+          <span class="meta-pill">{t('landing.openSource')}</span>
+          <span class="meta-pill">{t('landing.metricStructured')}</span>
+          <span class="meta-pill">2D + 3D</span>
+        </div>
       </div>
-      <p class="hero-status">{t('landing.statusNote')}</p>
+
+      <div class="hero-visual reveal">
+        <div class="hero-browser-wrap">
+          <div class="hero-browser">
+            <div class="browser-bar">
+              <div class="browser-dots"><span></span><span></span><span></span></div>
+              <div class="browser-url">stabileo.com</div>
+            </div>
+            <div class="browser-viewport">
+              <img
+                src={hero.images[hero.idx]}
+                alt="Stabileo workspace"
+                loading="eager"
+                fetchpriority="high"
+              />
+            </div>
+            <div class="slide-dots">
+              {#each hero.images as _, i}
+                <button
+                  class="dot"
+                  class:active={i === hero.idx}
+                  onclick={() => goToSlide(hero, i)}
+                  aria-label="Hero slide {i + 1}"
+                ></button>
+              {/each}
+            </div>
+          </div>
+
+          <div class="hero-callout hero-callout-a">
+            <span class="hero-callout-label">{t('landing.tagAnalysis3D')}</span>
+            <strong>My · Mz · Vy · Vz</strong>
+          </div>
+
+          <div class="hero-callout hero-callout-b">
+            <span class="hero-callout-label">{t('landing.heroCalloutStructuredLabel')}</span>
+            <strong>{t('landing.heroCalloutStructuredValue')}</strong>
+          </div>
+        </div>
+      </div>
     </div>
 
-    <div class="hero-visual">
-      <div class="img-frame hero-frame">
-        <div class="img-content slideshow">
-          {#each hero.images as src, i}
-            <img {src} alt="Stabileo" class="slide" class:active={i === hero.idx} />
-          {/each}
+    <div class="section-inner hero-signals">
+      <a class="signal" href={repoUrl} target="_blank" rel="noreferrer">
+        <div class="signal-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" width="20" height="20"><path d="M9 19c-5 1.5-5-2.5-7-3m14 6v-3.87a3.37 3.37 0 0 0-.94-2.61c3.14-.35 6.44-1.54 6.44-7A5.44 5.44 0 0 0 20 4.77 5.07 5.07 0 0 0 19.91 1S18.73.65 16 2.48a13.38 13.38 0 0 0-7 0C6.27.65 5.09 1 5.09 1A5.07 5.07 0 0 0 5 4.77a5.44 5.44 0 0 0-1.5 3.78c0 5.42 3.3 6.61 6.44 7A3.37 3.37 0 0 0 9 18.13V22"/></svg></div>
+        <div class="signal-text">
+          <strong>{t('landing.openSource')}</strong>
+          <span>{t('landing.openSourceDesc')}</span>
         </div>
-        <div class="slideshow-dots">
-          {#each hero.images as _, i}
-            <button
-              class="ss-dot"
-              class:active={i === hero.idx}
-              onclick={() => goToSlide(hero, i)}
-              aria-label="Slide {i + 1}"
-            ></button>
-          {/each}
+      </a>
+      <button class="signal" onclick={() => scrollTo('demo')}>
+        <div class="signal-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" width="20" height="20"><polygon points="5 3 19 12 5 21 5 3"/></svg></div>
+        <div class="signal-text">
+          <strong>{t('landing.interactiveDemo')}</strong>
+          <span>{t('landing.interactiveDemoDesc')}</span>
+        </div>
+      </button>
+      <a class="signal" href={docsHubUrl} target="_blank" rel="noreferrer">
+        <div class="signal-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" width="20" height="20"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></svg></div>
+        <div class="signal-text">
+          <strong>{t('landing.signalDocsTitle')}</strong>
+          <span>{t('landing.signalDocsDesc')}</span>
+        </div>
+      </a>
+      <div class="signal">
+        <div class="signal-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" width="20" height="20"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg></div>
+        <div class="signal-text">
+          <strong>14 {t('landing.metricLanguages')}</strong>
+          <span>{t('landing.capGrid8Desc')}</span>
         </div>
       </div>
-      <div class="hero-glow"></div>
     </div>
   </section>
 
-  <!-- ═══ METRICS ═══ -->
-  <section class="metrics reveal">
-    <div class="metric"><span class="metric-num">{countTests}+</span><span class="metric-label">{t('landing.metricTests')}</span></div>
-    <div class="metric"><span class="metric-num">2D + 3D</span><span class="metric-label">{t('landing.metricAnalysis')}</span></div>
-    <div class="metric"><span class="metric-num">{countLanguages}</span><span class="metric-label">{t('landing.metricLanguages')}</span></div>
-    <div class="metric"><span class="metric-num">$0</span><span class="metric-label">{t('landing.metricFree')}</span></div>
-  </section>
-
-  <!-- ═══ FEATURES ═══ -->
-  <section class="features" id="features">
+  <!-- ─── FEATURES: 2D + 3D ─── -->
+  <section class="features-section" id="features">
     <div class="section-inner">
-
-      <!-- ── MODO BÁSICO ── -->
-      <div class="mode-header reveal">
-        <div class="mode-badge mode-badge-basic">{t('landing.modeBasicBadge')}</div>
-        <h2>{t('landing.modeBasicTitle')}</h2>
-        <p class="section-sub">{t('landing.modeBasicSub')}</p>
+      <div class="section-head reveal">
+        <span class="tag">{t('landing.modeBasicBadge')}</span>
+        <h2>{t('landing.todayTitle')}</h2>
+        <p class="section-sub">{t('landing.todaySub')}</p>
       </div>
 
-      <!-- 2D Analysis -->
-      <div class="feature-row reveal">
-        <div class="feature-img-wrap">
-          <div class="img-frame compact">
-            <div class="img-content slideshow">
-              {#each ss2d.images as src, i}
-                <img {src} alt={t('landing.basic2dTitle')} class="slide" class:active={i === ss2d.idx} loading="lazy" />
-              {/each}
+      <div class="feature-cards">
+        <!-- 2D card -->
+        <article class="fcard fcard-light reveal">
+          <div class="fcard-body">
+            <span class="tag tag-sm">{t('landing.tagAnalysis2D')}</span>
+            <h3>{t('landing.basic2dTitle')}</h3>
+            <p>{t('landing.basic2dDesc')}</p>
+            <ul>
+              <li>{t('landing.basic2d1')}</li>
+              <li>{t('landing.basic2d2')}</li>
+              <li>{t('landing.basic2d3')}</li>
+              <li>{t('landing.basic2d4')}</li>
+              <li>{t('landing.basic2d5')}</li>
+            </ul>
+            <button class="btn-primary" onclick={() => enterApp()}>{t('landing.tryApp')}</button>
+          </div>
+          <div class="fcard-media">
+            <div class="fcard-screen">
+              <img src={ss2d.images[ss2d.idx]} alt={t('landing.basic2dTitle')} loading="lazy" />
             </div>
-            <div class="slideshow-dots">
+            <div class="fcard-float">
+              <img src="/screenshots/2d-section-analysis.png" alt={t('landing.basic2dTitle')} loading="lazy" />
+            </div>
+            <div class="slide-dots">
               {#each ss2d.images as _, i}
-                <button class="ss-dot" class:active={i === ss2d.idx} onclick={() => goToSlide(ss2d, i)} aria-label="Slide {i + 1}"></button>
+                <button
+                  class="dot"
+                  class:active={i === ss2d.idx}
+                  onclick={() => goToSlide(ss2d, i)}
+                  aria-label="2D slide {i + 1}"
+                ></button>
               {/each}
             </div>
           </div>
-        </div>
-        <div class="feature-text">
-          <div class="feature-tag">{t('landing.tagAnalysis2D')}</div>
-          <h3>{t('landing.basic2dTitle')}</h3>
-          <p>{t('landing.basic2dDesc')}</p>
-          <ul class="feature-list">
-            <li>{t('landing.basic2d1')}</li>
-            <li>{t('landing.basic2d2')}</li>
-            <li>{t('landing.basic2d3')}</li>
-            <li>{t('landing.basic2d4')}</li>
-            <li>{t('landing.basic2d5')}</li>
-          </ul>
-        </div>
-      </div>
+        </article>
 
-      <!-- 3D Analysis -->
-      <div class="feature-row reverse reveal">
-        <div class="feature-img-wrap">
-          <div class="img-frame compact">
-            <div class="img-content slideshow">
-              {#each ss3d.images as src, i}
-                <img {src} alt={t('landing.basic3dTitle')} class="slide" class:active={i === ss3d.idx} loading="lazy" />
-              {/each}
+        <!-- 3D card -->
+        <article class="fcard fcard-dark reveal">
+          <div class="fcard-media">
+            <div class="fcard-screen">
+              <img src={ss3d.images[ss3d.idx]} alt={t('landing.basic3dTitle')} loading="lazy" />
             </div>
-            <div class="slideshow-dots">
+            <div class="fcard-float fcard-float-left">
+              <img src="/screenshots/3d-section-analysis.png" alt={t('landing.basic3dTitle')} loading="lazy" />
+            </div>
+            <div class="slide-dots">
               {#each ss3d.images as _, i}
-                <button class="ss-dot" class:active={i === ss3d.idx} onclick={() => goToSlide(ss3d, i)} aria-label="Slide {i + 1}"></button>
+                <button
+                  class="dot"
+                  class:active={i === ss3d.idx}
+                  onclick={() => goToSlide(ss3d, i)}
+                  aria-label="3D slide {i + 1}"
+                ></button>
               {/each}
             </div>
           </div>
-        </div>
-        <div class="feature-text">
-          <div class="feature-tag teal">{t('landing.tagAnalysis3D')}</div>
-          <h3>{t('landing.basic3dTitle')}</h3>
-          <p>{t('landing.basic3dDesc')}</p>
-          <ul class="feature-list">
-            <li>{t('landing.basic3d1')}</li>
-            <li>{t('landing.basic3d2')}</li>
-            <li>{t('landing.basic3d3')}</li>
-            <li>{t('landing.basic3d4')}</li>
-          </ul>
-        </div>
-      </div>
-
-      <!-- ── MODO EDUCATIVO ── -->
-      <div class="mode-header reveal">
-        <div class="mode-badge mode-badge-edu">{t('landing.modeEduBadge')}</div>
-        <h2>{t('landing.modeEduTitle')}</h2>
-        <p class="section-sub">{t('landing.modeEduSub')}</p>
-      </div>
-
-      <div class="feature-row-edu reveal">
-        <div class="edu-pair">
-          <div class="img-frame compact edu-frame">
-            <div class="img-content edu-img"><img src="/screenshots/edu-panel.png" alt={t('landing.modeEduTitle')} loading="lazy" /></div>
+          <div class="fcard-body">
+            <span class="tag tag-sm">{t('landing.tagAnalysis3D')}</span>
+            <h3>{t('landing.basic3dTitle')}</h3>
+            <p>{t('landing.basic3dDesc')}</p>
+            <ul>
+              <li>{t('landing.basic3d1')}</li>
+              <li>{t('landing.basic3d2')}</li>
+              <li>{t('landing.basic3d3')}</li>
+              <li>{t('landing.basic3d4')}</li>
+            </ul>
+            <a class="btn-ghost" href="/demo">{t('landing.tryTour')}</a>
           </div>
-          <div class="img-frame compact edu-frame">
-            <div class="img-content edu-img"><img src="/screenshots/edu-exercise-new.png" alt={t('landing.modeEduTitle')} loading="lazy" /></div>
-          </div>
-        </div>
-        <div class="feature-text edu-text">
-          <div class="feature-tag green">{t('landing.tagEdu')}</div>
-          <h3>{t('landing.eduNowTitle')}</h3>
-          <p>{t('landing.eduNowDesc')}</p>
-          <ul class="feature-list">
-            <li>{t('landing.eduNow1')}</li>
-            <li>{t('landing.eduNow2')}</li>
-            <li>{t('landing.eduNow3')}</li>
-          </ul>
-          <h3 class="coming-soon-h3">{t('landing.eduSoonTitle')}</h3>
-          <ul class="feature-list coming-soon-list">
-            <li>{t('landing.eduSoon1')}</li>
-            <li>{t('landing.eduSoon2')}</li>
-            <li>{t('landing.eduSoon3')}</li>
-          </ul>
-        </div>
+        </article>
       </div>
-
-      <!-- ── MODO PRO ── -->
-      <div class="mode-header reveal">
-        <div class="mode-badge mode-badge-pro">{t('landing.modeProBadge')}</div>
-        <h2>{t('landing.modeProTitle')}</h2>
-        <p class="section-sub">{t('landing.modeProSub')}</p>
-      </div>
-
-      <div class="feature-row reverse reveal">
-        <div class="feature-img-wrap">
-          <div class="img-frame compact">
-            <div class="img-content slideshow">
-              {#each ssPro.images as src, i}
-                <img {src} alt={t('landing.modeProTitle')} class="slide" class:active={i === ssPro.idx} loading="lazy" />
-              {/each}
-            </div>
-            <div class="slideshow-dots">
-              {#each ssPro.images as _, i}
-                <button class="ss-dot" class:active={i === ssPro.idx} onclick={() => goToSlide(ssPro, i)} aria-label="Slide {i + 1}"></button>
-              {/each}
-            </div>
-          </div>
-        </div>
-        <div class="feature-text">
-          <div class="feature-tag pro-tag">{t('landing.tagPro')}</div>
-          <h3>{t('landing.proTitle')}</h3>
-          <p>{t('landing.proDesc')}</p>
-          <ul class="feature-list">
-            <li>{t('landing.pro1')}</li>
-            <li>{t('landing.pro2')}</li>
-            <li>{t('landing.pro3')}</li>
-            <li>{t('landing.pro4')}</li>
-            <li>{t('landing.pro5')}</li>
-          </ul>
-        </div>
-      </div>
-
     </div>
   </section>
 
-  <!-- ═══ INTERACTIVE DEMO ═══ -->
+  <!-- ─── AI-READY ─── -->
+  <section class="ai-section reveal" id="ai">
+    <div class="section-inner">
+      <div class="section-head">
+        <span class="tag tag-ai">{t('landing.aiTag')}</span>
+        <h2>{t('landing.aiTitle')}</h2>
+        <p class="section-sub">{t('landing.aiSub')}</p>
+      </div>
+
+      <div class="ai-pipeline">
+        <div class="ai-pipeline-label">{t('landing.aiHow')}</div>
+        <div class="ai-steps">
+          <div class="ai-step">
+            <div class="ai-step-num">1</div>
+            <div class="ai-step-body">
+              <strong>{t('landing.aiStep1title')}</strong>
+              <p>{t('landing.aiStep1')}</p>
+            </div>
+          </div>
+          <div class="ai-step-arrow"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" width="20" height="20"><path d="M5 12h14M13 6l6 6-6 6"/></svg></div>
+          <div class="ai-step">
+            <div class="ai-step-num">2</div>
+            <div class="ai-step-body">
+              <strong>{t('landing.aiStep2title')}</strong>
+              <p>{t('landing.aiStep2')}</p>
+            </div>
+          </div>
+          <div class="ai-step-arrow"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" width="20" height="20"><path d="M5 12h14M13 6l6 6-6 6"/></svg></div>
+          <div class="ai-step">
+            <div class="ai-step-num">3</div>
+            <div class="ai-step-body">
+              <strong>{t('landing.aiStep3title')}</strong>
+              <p>{t('landing.aiStep3')}</p>
+            </div>
+          </div>
+          <div class="ai-step-arrow"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" width="20" height="20"><path d="M5 12h14M13 6l6 6-6 6"/></svg></div>
+          <div class="ai-step">
+            <div class="ai-step-num">4</div>
+            <div class="ai-step-body">
+              <strong>{t('landing.aiStep4title')}</strong>
+              <p>{t('landing.aiStep4')}</p>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="ai-why">
+        <h3>{t('landing.aiWhy')}</h3>
+        <div class="ai-points">
+          <div class="ai-point">
+            <div class="ai-point-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" width="20" height="20"><path d="M16 18l2-2-2-2"/><path d="M8 6L6 8l2 2"/><path d="M14.5 4l-5 16"/></svg></div>
+            <p>{t('landing.aiPoint1')}</p>
+          </div>
+          <div class="ai-point">
+            <div class="ai-point-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" width="20" height="20"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg></div>
+            <p>{t('landing.aiPoint2')}</p>
+          </div>
+          <div class="ai-point">
+            <div class="ai-point-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" width="20" height="20"><path d="M3 3v18h18"/><path d="M7 16l4-8 4 5 5-9"/></svg></div>
+            <p>{t('landing.aiPoint3')}</p>
+          </div>
+          <div class="ai-point">
+            <div class="ai-point-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" width="20" height="20"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg></div>
+            <p>{t('landing.aiPoint4')}</p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ─── DOCS ─── -->
+  <section class="docs-section reveal" id="docs">
+    <div class="section-inner">
+      <div class="section-head">
+        <span class="tag">{t('landing.docsTag')}</span>
+        <h2>{t('landing.docsTitle')}</h2>
+        <p class="section-sub">{t('landing.docsSub')}</p>
+      </div>
+
+      <div class="docs-grid">
+        <a class="docs-card" data-tone="amber" href={quickStartUrl} target="_blank" rel="noreferrer">
+          <span class="docs-kicker">{t('landing.docsQuickKicker')}</span>
+          <h3>{t('landing.docsQuickTitle')}</h3>
+          <p>{t('landing.docsQuickDesc')}</p>
+          <ul>
+            <li>{t('landing.docsQuick1')}</li>
+            <li>{t('landing.docsQuick2')}</li>
+          </ul>
+          <span class="docs-open">{t('landing.docsOpen')}</span>
+        </a>
+
+        <a class="docs-card" data-tone="plum" href={aiWorkflowUrl} target="_blank" rel="noreferrer">
+          <span class="docs-kicker">{t('landing.docsAiKicker')}</span>
+          <h3>{t('landing.docsAiTitle')}</h3>
+          <p>{t('landing.docsAiDesc')}</p>
+          <ul>
+            <li>{t('landing.docsAi1')}</li>
+            <li>{t('landing.docsAi2')}</li>
+          </ul>
+          <span class="docs-open">{t('landing.docsOpen')}</span>
+        </a>
+
+        <a class="docs-card" data-tone="ink" href={solverRefUrl} target="_blank" rel="noreferrer">
+          <span class="docs-kicker">{t('landing.docsRefKicker')}</span>
+          <h3>{t('landing.docsRefTitle')}</h3>
+          <p>{t('landing.docsRefDesc')}</p>
+          <ul>
+            <li>{t('landing.docsRef1')}</li>
+            <li>{t('landing.docsRef2')}</li>
+          </ul>
+          <span class="docs-open">{t('landing.docsOpen')}</span>
+        </a>
+      </div>
+    </div>
+  </section>
+
+  <!-- ─── DEMO ─── -->
   <section class="demo-section reveal" id="demo">
     <div class="section-inner">
-      <h2>{t('landing.interactiveDemo')}</h2>
-      <p class="section-sub">{t('landing.interactiveDemoDesc')}</p>
-      <!-- Desktop: embedded iframe demo -->
-      <div class="demo-frame-wrap demo-desktop">
-        <div class="demo-browser-clean">
-          <div class="demo-iframe-wrap">
+      <div class="demo-panel">
+        <div class="demo-copy">
+          <span class="tag">{t('landing.interactiveDemo')}</span>
+          <h2>{t('landing.demoCardTitle')}</h2>
+          <p>{t('landing.demoCardDesc')}</p>
+          <ul>
+            <li>{t('landing.interactiveDemoDesc')}</li>
+            <li>{t('landing.openSourceDesc')}</li>
+            <li>{t('landing.ctaSub')}</li>
+          </ul>
+          <div class="demo-actions">
+            <button class="btn-primary" onclick={() => enterApp()}>{t('landing.tryApp')}</button>
+            <a class="btn-link" href="/demo">{t('landing.tryTour')}</a>
+          </div>
+        </div>
+        <div class="demo-viewport">
+          <div class="demo-browser">
             {#if demoLoaded}
               <iframe src="/demo?embed" title="Stabileo Demo" class="demo-iframe"></iframe>
             {:else}
               <button class="demo-placeholder" onclick={() => demoLoaded = true}>
-                <img src="/screenshots/2d-moments.png" alt="Stabileo Demo" class="demo-thumb" />
-                <div class="demo-play">
-                  <svg viewBox="0 0 24 24" fill="currentColor" width="48" height="48"><path d="M8 5v14l11-7z"/></svg>
+                <img src="/screenshots/2d-moments.png" alt="Stabileo Demo" class="demo-thumb" loading="lazy" />
+                <div class="demo-overlay">
+                  <div class="play-btn">
+                    <svg viewBox="0 0 24 24" fill="currentColor" width="32" height="32"><path d="M8 5v14l11-7z"/></svg>
+                  </div>
                   <span>{t('landing.tryDemo')}</span>
                 </div>
               </button>
@@ -384,388 +580,2174 @@
           </div>
         </div>
       </div>
-      <!-- Mobile: simple button linking to /demo -->
-
-      <div class="demo-mobile-cta">
-        <a href="/demo" class="btn-primary large">{t('landing.tryTour')}</a>
-      </div>
     </div>
   </section>
 
-  <!-- ═══ COMPARISON ═══ -->
-  <section class="comparison reveal">
+  <!-- ─── ROADMAP ─── -->
+  <section class="roadmap-section reveal" id="roadmap">
     <div class="section-inner">
-      <h2>{t('landing.comparisonTitle')}</h2>
-      <div class="table-wrap">
-        <table>
-          <thead><tr><th></th><th class="hl">Stabileo</th><th>SkyCiv</th><th>Ftool</th><th>SAP2000</th><th>STAAD</th></tr></thead>
-          <tbody>
-            <tr><td>{t('landing.compBrowser')}</td><td class="hl yes">✓</td><td class="yes">✓</td><td class="no">✗</td><td class="no">✗</td><td class="no">✗</td></tr>
-            <tr><td>{t('landing.compFree')}</td><td class="hl yes">✓</td><td class="no">{t('landing.trialOnly')}</td><td class="partial">~</td><td class="no">✗</td><td class="no">✗</td></tr>
-            <tr><td>2D + 3D</td><td class="hl yes">✓</td><td class="yes">✓</td><td class="no">2D</td><td class="yes">✓</td><td class="yes">✓</td></tr>
-            <tr><td>{t('landing.compEducational')}</td><td class="hl yes">✓</td><td class="no">✗</td><td class="no">✗</td><td class="no">✗</td><td class="no">✗</td></tr>
-            <tr><td>{t('landing.compNoInstall')}</td><td class="hl yes">✓</td><td class="yes">✓</td><td class="no">✗</td><td class="no">✗</td><td class="no">✗</td></tr>
-            <tr><td>{t('landing.compMultilang')}</td><td class="hl yes">14</td><td class="partial">3</td><td class="partial">2</td><td class="partial">~</td><td class="partial">~</td></tr>
-          </tbody>
-        </table>
+      <div class="section-head">
+        <span class="tag">{t('landing.comingSoon')}</span>
+        <h2>{t('landing.roadmapTitle')}</h2>
+        <p class="section-sub">{t('landing.roadmapSub')}</p>
       </div>
-    </div>
-  </section>
 
-  <!-- ═══ PRICING ═══ -->
-  <section class="pricing reveal" id="pricing">
-    <div class="section-inner">
-      <h2>{t('landing.pricingTitle')}</h2>
-      <div class="pricing-grid pricing-grid-2">
-        <div class="price-card featured">
-          <h3>{t('landing.priceFreeTitle')}</h3>
-          <div class="price-amount">$0</div>
-          <p class="price-period">{t('landing.priceForever')}</p>
+      <div class="roadmap-grid">
+        <article class="rm-card rm-edu">
+          <div class="rm-badge rm-badge-edu">{t('landing.modeEduBadge')}</div>
+          <h3>{t('landing.modeEduTitle')}</h3>
+          <p>{t('landing.modeEduSub')}</p>
+
+          <div class="rm-block">
+            <span class="rm-label">{t('landing.eduNowTitle')}</span>
+            <ul>
+              <li>{t('landing.eduNow1')}</li>
+              <li>{t('landing.eduNow2')}</li>
+              <li>{t('landing.eduNow3')}</li>
+            </ul>
+          </div>
+
+          <div class="rm-block rm-muted">
+            <span class="rm-label">{t('landing.eduSoonTitle')}</span>
+            <ul>
+              <li>{t('landing.eduSoon1')}</li>
+              <li>{t('landing.eduSoon2')}</li>
+              <li>{t('landing.eduSoon3')}</li>
+            </ul>
+          </div>
+        </article>
+
+        <article class="rm-card rm-pro">
+          <div class="rm-badge rm-badge-pro">{t('landing.modeProBadge')}</div>
+          <h3>{t('landing.modeProTitle')}</h3>
+          <p>{t('landing.modeProSub')}</p>
+
+          <div class="rm-media">
+            <img src={ssPro.images[ssPro.idx]} alt={t('landing.modeProTitle')} loading="lazy" />
+            <div class="slide-dots">
+              {#each ssPro.images as _, i}
+                <button
+                  class="dot"
+                  class:active={i === ssPro.idx}
+                  onclick={() => goToSlide(ssPro, i)}
+                  aria-label="Pro slide {i + 1}"
+                ></button>
+              {/each}
+            </div>
+          </div>
+
           <ul>
+            <li>{t('landing.pro1')}</li>
+            <li>{t('landing.pro2')}</li>
+            <li>{t('landing.pro3')}</li>
+            <li>{t('landing.pro4')}</li>
+            <li>{t('landing.pro5')}</li>
+          </ul>
+
+          <p class="rm-note">{t('landing.pricingPlanned')}</p>
+        </article>
+      </div>
+    </div>
+  </section>
+
+  <!-- ─── CAPABILITIES ─── -->
+  <section class="cap-section reveal">
+    <div class="section-inner">
+      <div class="section-head">
+        <span class="tag">{t('landing.coreDepth')}</span>
+        <h2>{t('landing.capabilitiesTitle')}</h2>
+        <p class="section-sub">{t('landing.coreDepthSub')}</p>
+      </div>
+
+      <div class="cap-hero">
+        <div class="cap-hero-copy">
+          <span class="tag tag-sm">{t('landing.depthHeroEyebrow')}</span>
+          <h3>{t('landing.depthHeroTitle')}</h3>
+          <p>{t('landing.depthHeroDesc')}</p>
+          <ul>
+            <li>{t('landing.depthHero1')}</li>
+            <li>{t('landing.depthHero2')}</li>
+            <li>{t('landing.depthHero3')}</li>
+            <li>{t('landing.depthHero4')}</li>
+          </ul>
+        </div>
+        <div class="cap-hero-visual">
+          <img class="cap-main-img" src="/screenshots/3d-industrial.png" alt={t('landing.depthHeroTitle')} loading="lazy" />
+          <img class="cap-float cap-float-a" src="/screenshots/3d-section-analysis.png" alt={t('landing.capGrid3Title')} loading="lazy" />
+          <img class="cap-float cap-float-b" src="/screenshots/2d-moments.png" alt={t('landing.capGrid1Title')} loading="lazy" />
+        </div>
+      </div>
+
+      <div class="cap-grid">
+        {#each depthTiles as tile}
+          <article class="cap-tile" data-tone={tile.tone}>
+            <div class="cap-tile-img">
+              <img src={tile.image} alt={t(tile.titleKey)} loading="lazy" />
+            </div>
+            <div class="cap-tile-body">
+              <span class="cap-num">{tile.code}</span>
+              <h4>{t(tile.titleKey)}</h4>
+              <p>{t(tile.descKey)}</p>
+            </div>
+          </article>
+        {/each}
+      </div>
+    </div>
+  </section>
+
+  <!-- ─── PRICING ─── -->
+  <section class="pricing-section reveal" id="pricing">
+    <div class="section-inner">
+      <div class="section-head">
+        <span class="tag">{t('landing.pricing')}</span>
+        <h2>{t('landing.accessTitle')}</h2>
+        <p class="section-sub">{t('landing.accessSub')}</p>
+      </div>
+
+      <div class="price-grid">
+        <article class="price-card price-free">
+          <div class="price-top">
+            <div class="rm-badge rm-badge-free">{t('landing.priceFreeTitle')}</div>
+            <div class="price-amount">$0</div>
+          </div>
+          <h3>{t('landing.accessFreeTitle')}</h3>
+          <p class="price-lead">{t('landing.accessFreeDesc')}</p>
+          <ul class="price-features">
             <li>{t('landing.priceFree1')}</li>
             <li>{t('landing.priceFree2')}</li>
             <li>{t('landing.priceFree3')}</li>
             <li>{t('landing.priceFree4')}</li>
             <li>{t('landing.priceFree5')}</li>
             <li>{t('landing.priceFree6')}</li>
-            <li>{t('landing.priceFreeEdu1')}</li>
-            <li>{t('landing.priceFreeEdu2')}</li>
-            <li>{t('landing.priceFreeEdu3')}</li>
           </ul>
-          <button class="btn-primary card-cta" onclick={() => enterApp()}>{t('landing.tryApp')}</button>
-        </div>
-        <div class="price-card">
+          <div class="price-pills">
+            <span>{t('landing.metricBrowser')}</span>
+            <span>2D + 3D</span>
+            <span>{t('landing.openSource')}</span>
+          </div>
+          <button class="btn-primary price-cta" onclick={() => enterApp()}>{t('landing.tryApp')}</button>
+        </article>
+
+        <article class="price-card price-pro">
           <div class="price-ribbon">{t('landing.comingSoon')}</div>
-          <h3>{t('landing.priceProTitle')}</h3>
-          <div class="price-amount">$100<span>{t('landing.perMonth')}</span></div>
-          <p class="price-period">{t('landing.priceProPeriod')}</p>
-          <ul><li>{t('landing.pricePro1')}</li><li>{t('landing.pricePro2')}</li><li>{t('landing.pricePro3')}</li><li>{t('landing.pricePro4')}</li><li>{t('landing.pricePro5')}</li><li class="ai-highlight">{t('landing.pricePro6')}</li><li>{t('landing.priceProExtra')}</li></ul>
-        </div>
+          <div class="price-pro-img">
+            <img src={ssPro.images[ssPro.idx]} alt={t('landing.priceProTitle')} loading="lazy" />
+          </div>
+          <div class="rm-badge rm-badge-pro">{t('landing.priceProTitle')}</div>
+          <h3>{t('landing.accessPilotTitle')}</h3>
+          <p class="price-lead">{t('landing.accessPilotDesc')}</p>
+          <ul>
+            <li>{t('landing.pricePro1')}</li>
+            <li>{t('landing.pricePro2')}</li>
+            <li>{t('landing.pricePro3')}</li>
+            <li>{t('landing.pricePro4')}</li>
+            <li>{t('landing.pricePro5')}</li>
+            <li class="ai-row">{t('landing.pricePro6')}</li>
+            <li>{t('landing.priceProExtra')}</li>
+          </ul>
+          <a class="btn-ghost price-cta" href={repoUrl} target="_blank" rel="noreferrer">{t('landing.viewOnGithub')}</a>
+        </article>
       </div>
     </div>
   </section>
 
-  <!-- ═══ CHANGELOG ═══ -->
+  <!-- ─── CHANGELOG ─── -->
   <section class="changelog-section reveal">
     <div class="section-inner">
-      <h2>{t('landing.changelog')}</h2>
-      <p class="section-sub">{t('landing.changelogDesc')}</p>
-      <div class="changelog-timeline">
-        <div class="cl-item">
-          <div class="cl-dot"></div>
-          <div class="cl-date">Mar 2026</div>
-          <div class="cl-text">{t('landing.cl202603')}</div>
-        </div>
-        <div class="cl-item">
-          <div class="cl-dot"></div>
-          <div class="cl-date">Feb 2026</div>
-          <div class="cl-text">{t('landing.cl202602')}</div>
-        </div>
-        <div class="cl-item">
-          <div class="cl-dot"></div>
-          <div class="cl-date">Jan 2026</div>
-          <div class="cl-text">{t('landing.cl202601')}</div>
-        </div>
-        <div class="cl-item">
-          <div class="cl-dot"></div>
-          <div class="cl-date">Dec 2025</div>
-          <div class="cl-text">{t('landing.cl202512')}</div>
+      <div class="section-head">
+        <span class="tag">{t('landing.changelog')}</span>
+        <h2>{t('landing.changelog')}</h2>
+        <p class="section-sub">{t('landing.changelogDesc')}</p>
+      </div>
+
+      <div class="cl-grid">
+        <article class="cl-featured">
+          <span class="cl-date">Mar 2026</span>
+          <h3>{t('landing.buildFeatureTitle')}</h3>
+          <p>{t('landing.cl202603')}</p>
+          <div class="cl-actions">
+            <button class="btn-primary" onclick={() => enterApp()}>{t('landing.tryApp')}</button>
+            <a class="btn-link" href={repoUrl} target="_blank" rel="noreferrer">{t('landing.viewOnGithub')}</a>
+          </div>
+        </article>
+
+        <div class="cl-stack">
+          {#each releaseCards as item}
+            <article class="cl-card" data-tone={item.tone}>
+              <span class="cl-date">{item.date}</span>
+              <p>{t(item.key)}</p>
+            </article>
+          {/each}
         </div>
       </div>
     </div>
   </section>
 
-  <!-- ═══ FINAL CTA ═══ -->
-  <section class="final-cta reveal">
+  <!-- ─── FINAL CTA ─── -->
+  <section class="cta-section reveal">
     <div class="section-inner">
-      <h2>{t('landing.ctaTitle')}</h2>
-      <p>{t('landing.ctaSub')}</p>
-      <button class="btn-primary large" onclick={() => enterApp()}>{t('landing.tryApp')}</button>
+      <div class="cta-block">
+        <div class="cta-copy">
+          <span class="tag">{t('landing.tryItNow')}</span>
+          <h2>{t('landing.ctaTitle')}</h2>
+          <p>{t('landing.ctaSub')}</p>
+        </div>
+        <div class="cta-actions">
+          <button class="btn-primary lg" onclick={() => enterApp()}>{t('landing.tryApp')}</button>
+          <a class="btn-link" href={repoUrl} target="_blank" rel="noreferrer">{t('landing.viewOnGithub')}</a>
+        </div>
+      </div>
     </div>
   </section>
 
-  <!-- ═══ FOOTER ═══ -->
+  <!-- ─── FOOTER ─── -->
   <footer class="lp-footer">
-    <div class="footer-inner">
-      <div class="footer-brand"><span class="nav-logo">△</span> Stabileo</div>
+    <div class="section-inner footer-inner">
+      <div class="footer-row">
+        <div class="footer-brand">
+          <span class="nav-logo">S</span>
+          <span>Stabileo</span>
+        </div>
+        <div class="footer-links">
+          <a href={docsHubUrl} target="_blank" rel="noreferrer">{t('landing.docs')}</a>
+          <a href={repoUrl} target="_blank" rel="noreferrer">{t('landing.viewOnGithub')}</a>
+          <a href="/demo">{t('landing.tryTour')}</a>
+          <button onclick={() => enterApp()}>{t('landing.tryApp')}</button>
+        </div>
+      </div>
+      <p class="footer-desc">{t('landing.openSourceDesc')}</p>
       <p class="footer-copy">&copy; {new Date().getFullYear()} Stabileo. {t('landing.footerRights')}</p>
     </div>
   </footer>
 
-  <!-- Mobile sticky CTA -->
   <div class="mobile-sticky">
     <button class="btn-primary" onclick={() => enterApp()}>{t('landing.tryApp')}</button>
   </div>
 </div>
 
 <style>
-  /* ═══ BASE — Warm slate dark ═══
-   * Palette: deep blue-slate base (#151923) with warm elevated surfaces (#1c2133).
-   * Text: warm off-white (#d4d8e3) body, bright (#eef0f6) headings.
-   * Accents: coral-red (#e94560) primary, soft teal (#5eeadb) secondary.
-   * Personality: subtle warm undertones, generous glow effects, soft purple hints.
-   */
+  /* ─── FOUNDATIONS ─── */
+  :global(:root) {
+    --lp-bg: #0d0b10;
+    --lp-surface: #151219;
+    --lp-surface-2: #1d1821;
+    --lp-border: rgba(243, 235, 225, 0.08);
+    --lp-border-2: rgba(243, 235, 225, 0.13);
+    --lp-text: #f3ede5;
+    --lp-text-2: rgba(243, 237, 229, 0.7);
+    --lp-text-3: rgba(243, 237, 229, 0.46);
+    --lp-accent: #df8a49;
+    --lp-accent-soft: rgba(223, 138, 73, 0.14);
+    --lp-accent-mid: rgba(223, 138, 73, 0.28);
+    --lp-green: #3daa7f;
+    --lp-green-soft: rgba(61, 170, 127, 0.12);
+    --lp-plum: #9b7ad8;
+    --lp-plum-soft: rgba(155, 122, 216, 0.12);
+    --lp-radius: 16px;
+    --lp-radius-lg: 24px;
+    --lp-radius-xl: 32px;
+  }
+
   .landing {
-    position: fixed; inset: 0; z-index: 10000;
-    overflow-y: auto; overflow-x: hidden;
-    overflow-anchor: none;
-    background: #151923; color: #b0b8ca;
-    font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    position: fixed;
+    inset: 0;
+    z-index: 10000;
+    overflow-y: auto;
+    overflow-x: hidden;
+    background:
+      radial-gradient(circle at 50% -6%, rgba(223, 138, 73, 0.12), transparent 24%),
+      radial-gradient(circle at 0% 28%, rgba(88, 63, 39, 0.18), transparent 28%),
+      radial-gradient(circle at 100% 38%, rgba(46, 57, 84, 0.14), transparent 24%),
+      linear-gradient(180deg, #0f0c12 0%, #0c0b10 38%, #09090c 100%);
+    color: var(--lp-text);
+    font-family: 'IBM Plex Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    font-size: 15px;
+    line-height: 1.6;
+    -webkit-font-smoothing: antialiased;
   }
-  .section-inner { max-width: 1320px; margin: 0 auto; padding: 0 1.5rem; }
-  .section-sub { text-align: center; color: #8891a5; margin-bottom: 2.5rem; font-size: 0.95rem; line-height: 1.6; }
 
-  /* Noise overlay */
-  .noise {
-    position: fixed; inset: 0; pointer-events: none; z-index: 0; opacity: 0.025;
-    background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
-    background-size: 256px 256px;
+  .section-inner {
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 0 2rem;
   }
 
-  /* Scroll progress */
+  /* ─── SCROLL PROGRESS ─── */
   .scroll-progress {
-    position: fixed; top: 0; left: 0; height: 2px; z-index: 200;
-    background: linear-gradient(90deg, #e94560, #5eeadb); transition: width 0.1s linear;
+    position: fixed;
+    top: 0;
+    left: 0;
+    height: 2px;
+    z-index: 300;
+    background: var(--lp-accent);
+    transition: width 0.12s linear;
   }
 
-  /* ═══ ANIMATIONS ═══ */
-  .reveal { opacity: 0; transform: translateY(16px); transition: opacity 0.6s ease, transform 0.6s ease; }
-  .reveal:global(.visible) { opacity: 1; transform: translateY(0); }
-
-  /* ═══ NAVBAR ═══ */
-  .nav { position: fixed; top: 0; left: 0; right: 0; z-index: 100; background: rgba(21,25,35,0.8); backdrop-filter: blur(20px) saturate(1.5); border-bottom: 1px solid rgba(255,255,255,0.06); }
-  .nav-inner { max-width: 1320px; margin: 0 auto; padding: 0 1.5rem; height: 56px; display: flex; align-items: center; gap: 1.5rem; }
-  .nav-brand { display: flex; align-items: center; gap: 0.5rem; }
-  .nav-logo { color: #e94560; font-size: 1.4rem; font-weight: 700; }
-  .nav-name { color: #eef0f6; font-weight: 700; font-size: 1.05rem; letter-spacing: 0.02em; }
-  .nav-links { display: flex; gap: 0.25rem; margin-left: auto; }
-  .nav-links button { background: none; border: none; color: #8891a5; font-size: 0.82rem; cursor: pointer; padding: 0.4rem 0.7rem; border-radius: 6px; transition: color 0.2s, background 0.2s; font-family: inherit; }
-  .nav-links button:hover { color: #d4d8e3; background: rgba(255,255,255,0.05); }
-  .nav-actions { display: flex; align-items: center; gap: 0.75rem; }
-  .nav-lang { background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.08); color: #8891a5; font-size: 0.72rem; padding: 0.25rem 0.5rem; border-radius: 4px; cursor: pointer; font-family: inherit; min-width: 120px; }
-
-  /* ═══ BUTTONS ═══ */
-  .btn-primary { background: #e94560; color: white; border: none; padding: 0.65rem 1.6rem; font-size: 0.9rem; font-weight: 600; border-radius: 8px; cursor: pointer; transition: all 0.2s; letter-spacing: 0.01em; font-family: inherit; }
-  .btn-primary:hover { background: #f25a73; transform: translateY(-1px); box-shadow: 0 6px 28px rgba(233,69,96,0.3); }
-  .btn-primary.sm { padding: 0.35rem 0.9rem; font-size: 0.78rem; }
-  .btn-primary.large { padding: 0.85rem 2.8rem; font-size: 1rem; }
-  .btn-primary.card-cta { width: 100%; margin-top: auto; padding-top: 0.6rem; padding-bottom: 0.6rem; }
-  .btn-secondary { background: none; border: 1px solid #333a4f; color: #b0b8ca; padding: 0.65rem 1.6rem; font-size: 0.9rem; border-radius: 8px; cursor: pointer; transition: all 0.2s; font-family: inherit; }
-  .btn-secondary:hover { border-color: #5eeadb; color: #5eeadb; }
-
-  /* ═══ HERO ═══ */
-  .hero { min-height: 100vh; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 6rem 1.5rem 3rem; position: relative; overflow: hidden; }
-  .hero-bg { position: absolute; inset: 0; background: radial-gradient(ellipse 70% 55% at 50% 0%, rgba(233,69,96,0.08) 0%, transparent 65%), radial-gradient(ellipse 45% 45% at 80% 60%, rgba(94,234,219,0.05) 0%, transparent 65%), radial-gradient(ellipse 40% 40% at 20% 70%, rgba(139,92,246,0.04) 0%, transparent 60%); }
-  .hero-content { position: relative; text-align: center; max-width: 680px; margin-bottom: 3rem; z-index: 1; }
-  .hero-badge { display: inline-block; font-size: 0.68rem; color: #5eeadb; background: rgba(94,234,219,0.07); border: 1px solid rgba(94,234,219,0.15); padding: 0.3rem 0.85rem; border-radius: 20px; margin-bottom: 1.5rem; letter-spacing: 0.05em; text-transform: uppercase; font-weight: 500; }
-  .hero h1 { font-size: clamp(2.4rem,5vw,3.6rem); font-weight: 800; line-height: 1.1; margin: 0 0 1.1rem; background: linear-gradient(135deg, #ffffff 0%, #c0c6d4 100%); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text; }
-  .hero-sub { font-size: clamp(0.95rem,2vw,1.1rem); color: #8891a5; line-height: 1.65; margin: 0 0 2rem; }
-  .hero-ctas { display: flex; gap: 0.75rem; justify-content: center; flex-wrap: wrap; }
-  .hero-status { color: #5c6480; font-size: 0.78rem; margin-top: 1.2rem; line-height: 1.5; }
-
-  /* ═══ IMAGE FRAMES ═══ */
-  .hero-visual { position: relative; width: 100%; max-width: 1200px; z-index: 1; }
-  .img-frame { background: #1c2133; border: 1px solid #2a3048; border-radius: 0; overflow: hidden; box-shadow: 0 32px 80px -12px rgba(0,0,0,0.5), 0 0 0 1px rgba(255,255,255,0.03); transition: transform 0.3s ease, box-shadow 0.3s ease; }
-  .img-frame.compact { border-radius: 0; }
-  .img-frame.compact:hover { transform: scale(1.012); box-shadow: 0 32px 80px -12px rgba(0,0,0,0.55), 0 0 48px rgba(94,234,219,0.04); }
-  .img-content { position: relative; aspect-ratio: 2182/1292; background: #151923; }
-  .img-content img { display: block; width: 100%; height: 100%; object-fit: contain; }
-  .hero-glow { position: absolute; bottom: -50px; left: 5%; right: 5%; height: 140px; background: radial-gradient(ellipse at center, rgba(233,69,96,0.1) 0%, rgba(94,234,219,0.04) 50%, transparent 70%); filter: blur(50px); pointer-events: none; }
-
-  /* Browser frame (legacy, kept for reference) */
-  .browser-frame { background: #1c2133; border: 1px solid #2a3048; border-radius: 12px; overflow: hidden; box-shadow: 0 32px 80px -12px rgba(0,0,0,0.5), 0 0 0 1px rgba(255,255,255,0.03); }
-  /* Clean demo frame — no browser chrome */
-  .demo-browser-clean { background: #151923; border: 1px solid #2a3048; border-radius: 0; overflow: hidden; box-shadow: 0 32px 80px -12px rgba(0,0,0,0.5), 0 0 0 1px rgba(255,255,255,0.03); }
-  .browser-bar { display: flex; align-items: center; gap: 10px; padding: 10px 16px; background: #1a1f30; border-bottom: 1px solid #2a3048; }
-  .browser-dots { display: flex; gap: 6px; }
-  .dot { width: 10px; height: 10px; border-radius: 50%; }
-  .dot.r { background: #ef4444; } .dot.y { background: #eab308; } .dot.g { background: #22c55e; }
-  .browser-url { display: flex; align-items: center; gap: 6px; background: rgba(255,255,255,0.04); border-radius: 6px; padding: 4px 12px; flex: 1; max-width: 300px; margin: 0 auto; }
-  .browser-url span { color: #5c6480; font-size: 0.72rem; }
-
-  /* Slideshow */
-  .slideshow { position: relative; aspect-ratio: 2182/1292; background: #151923; }
-  .slide { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: contain; opacity: 0; transition: opacity 0.8s ease; will-change: opacity; }
-  .slide.active { opacity: 1; }
-
-  /* Slideshow dots */
-  .slideshow-dots {
-    display: flex; justify-content: center; gap: 8px;
-    padding: 8px 0; background: rgba(21, 25, 35, 0.7);
+  /* ─── REVEAL ─── */
+  .reveal {
+    opacity: 0;
+    transform: translateY(32px);
+    transition: opacity 0.8s cubic-bezier(0.16, 1, 0.3, 1), transform 0.8s cubic-bezier(0.16, 1, 0.3, 1);
   }
-  .ss-dot {
-    width: 8px; height: 8px; border-radius: 50%; border: none; padding: 0;
-    background: rgba(255,255,255,0.25); cursor: pointer;
+
+  .reveal:global(.visible) {
+    opacity: 1;
+    transform: translateY(0);
+  }
+
+  /* ─── TYPOGRAPHY ─── */
+  h1, h2, h3, h4, .nav-name, .price-amount, .footer-brand {
+    font-family: 'Space Grotesk', 'IBM Plex Sans', sans-serif;
+    font-weight: 600;
+    letter-spacing: -0.045em;
+  }
+
+  h2 {
+    font-size: clamp(2.4rem, 5vw, 3.8rem);
+    line-height: 1.05;
+    letter-spacing: -0.05em;
+  }
+
+  h3 {
+    font-size: clamp(1.5rem, 3vw, 2.2rem);
+    line-height: 1.1;
+  }
+
+  /* ─── TAGS ─── */
+  .tag {
+    display: inline-flex;
+    align-items: center;
+    padding: 0.35rem 0.8rem;
+    border-radius: 999px;
+    border: 1px solid var(--lp-border-2);
+    background: var(--lp-surface);
+    color: var(--lp-text-2);
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 0.7rem;
+    font-weight: 600;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+  }
+
+  .tag-sm {
+    padding: 0.28rem 0.6rem;
+    font-size: 0.68rem;
+  }
+
+  /* ─── BUTTONS ─── */
+  .btn-primary, .btn-ghost, .btn-link {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 999px;
+    font-size: 0.88rem;
+    font-weight: 600;
+    text-decoration: none;
+    cursor: pointer;
+    transition: all 0.2s ease;
+  }
+
+  .btn-primary {
+    padding: 0.75rem 1.5rem;
+    border: none;
+    background: var(--lp-accent);
+    color: #fff;
+    box-shadow: 0 0 0 0 rgba(232, 133, 61, 0), 0 4px 16px rgba(232, 133, 61, 0.2);
+  }
+
+  .btn-primary:hover {
+    box-shadow: 0 0 0 4px rgba(232, 133, 61, 0.15), 0 8px 24px rgba(232, 133, 61, 0.3);
+    transform: translateY(-1px);
+  }
+
+  .btn-primary.sm {
+    padding: 0.55rem 1rem;
+    font-size: 0.82rem;
+  }
+
+  .btn-primary.lg {
+    padding: 0.9rem 2rem;
+    font-size: 0.95rem;
+  }
+
+  .btn-ghost {
+    padding: 0.75rem 1.5rem;
+    background: transparent;
+    color: var(--lp-text);
+    border: 1px solid var(--lp-border-2);
+  }
+
+  .btn-ghost:hover {
+    background: rgba(255, 255, 255, 0.04);
+    border-color: rgba(255, 255, 255, 0.2);
+  }
+
+  .btn-link {
+    padding: 0;
+    background: none;
+    border: none;
+    color: var(--lp-text-2);
+    font-weight: 600;
+  }
+
+  .btn-link:hover {
+    color: var(--lp-text);
+  }
+
+  /* ─── SLIDE DOTS ─── */
+  .slide-dots {
+    display: flex;
+    gap: 6px;
+    justify-content: center;
+    padding: 0.75rem 0;
+  }
+
+  .dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 999px;
+    border: none;
+    background: rgba(255, 255, 255, 0.2);
+    cursor: pointer;
     transition: all 0.25s ease;
-  }
-  .ss-dot:hover { background: rgba(255,255,255,0.5); }
-  .ss-dot.active { width: 24px; border-radius: 4px; background: #5eeadb; }
-
-  /* ═══ METRICS ═══ */
-  .metrics { display: flex; justify-content: center; gap: 3.5rem; padding: 3rem 1.5rem; border-top: 1px solid rgba(255,255,255,0.04); border-bottom: 1px solid rgba(255,255,255,0.04); flex-wrap: wrap; background: rgba(28,33,51,0.5); }
-  .metric { text-align: center; min-width: 90px; }
-  .metric-num { display: block; font-size: 1.8rem; font-weight: 800; color: #eef0f6; line-height: 1.3; }
-  .metric-label { font-size: 0.7rem; color: #5c6480; text-transform: uppercase; letter-spacing: 0.07em; font-weight: 500; }
-
-  /* ═══ FEATURES ═══ */
-  .features { padding: 6rem 0; background: rgba(21,25,35,1); }
-  .section-header { text-align: center; margin-bottom: 4rem; }
-  h2 { font-size: clamp(1.6rem,3vw,2.1rem); color: #eef0f6; font-weight: 700; margin: 0 0 0.5rem; text-align: center; }
-  .feature-row { display: grid; grid-template-columns: 3fr 2fr; gap: 3rem; align-items: center; margin-bottom: 5rem; }
-  .feature-row.reverse { grid-template-columns: 3fr 2fr; direction: rtl; }
-  .feature-row.reverse > * { direction: ltr; }
-  .feature-text { max-width: 480px; }
-
-  /* Education: portrait images side by side + text below */
-  .feature-row-edu { display: flex; flex-direction: column; align-items: center; gap: 2.5rem; margin-bottom: 5rem; }
-  .edu-pair { display: flex; gap: 1.5rem; justify-content: center; width: 100%; max-width: 720px; }
-  .edu-frame { flex: 1; min-width: 0; }
-  .edu-img { aspect-ratio: 826/1292; background: #151923; }
-  .edu-img img { display: block; width: 100%; height: 100%; object-fit: contain; }
-  .edu-text { max-width: 600px; text-align: center; }
-  .edu-text .feature-list { text-align: left; display: inline-block; }
-  .feature-tag { display: inline-block; font-size: 0.65rem; font-weight: 600; color: #e94560; background: rgba(233,69,96,0.08); border: 1px solid rgba(233,69,96,0.15); padding: 0.2rem 0.6rem; border-radius: 4px; margin-bottom: 0.75rem; text-transform: uppercase; letter-spacing: 0.06em; }
-  .feature-tag.teal { color: #5eeadb; background: rgba(94,234,219,0.07); border-color: rgba(94,234,219,0.15); }
-  .feature-tag.yellow { color: #fbbf24; background: rgba(251,191,36,0.07); border-color: rgba(251,191,36,0.12); }
-  .feature-tag.green { color: #34d399; background: rgba(52,211,153,0.07); border-color: rgba(52,211,153,0.15); }
-  .feature-tag.pro-tag { color: #f0a500; background: rgba(240,165,0,0.08); border-color: rgba(240,165,0,0.15); }
-  .mode-header { text-align: center; margin-bottom: 2.5rem; margin-top: 2rem; }
-  .mode-badge { display: inline-block; font-size: 0.62rem; font-weight: 700; padding: 0.25rem 0.8rem; border-radius: 20px; margin-bottom: 1rem; letter-spacing: 0.07em; text-transform: uppercase; }
-  .mode-badge-basic { color: #e94560; background: rgba(233,69,96,0.08); border: 1px solid rgba(233,69,96,0.2); }
-  .mode-badge-edu { color: #34d399; background: rgba(52,211,153,0.08); border: 1px solid rgba(52,211,153,0.2); }
-  .mode-badge-pro { color: #f0a500; background: rgba(240,165,0,0.08); border: 1px solid rgba(240,165,0,0.2); }
-  .coming-soon-h3 { margin-top: 1.2rem !important; color: #8891a5 !important; font-size: 1rem !important; }
-  .coming-soon-list li { color: #5c6480; }
-  .coming-soon-list li::before { color: #5c6480; content: '◇'; }
-  .dev-note { display: inline-block; font-size: 0.65rem; color: #5c6480; background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.06); padding: 0.2rem 0.6rem; border-radius: 4px; margin-top: 0.5rem; }
-  .feature-text h3 { color: #eef0f6; font-size: 1.4rem; font-weight: 700; margin: 0 0 0.6rem; line-height: 1.25; }
-  .feature-text p { color: #8891a5; font-size: 0.88rem; line-height: 1.6; margin: 0 0 1rem; }
-  .feature-list { list-style: none; padding: 0; margin: 0; }
-  .feature-list li { color: #b0b8ca; font-size: 0.82rem; padding: 0.3rem 0 0.3rem 1.2rem; position: relative; line-height: 1.5; }
-  .feature-list li::before { content: '→'; position: absolute; left: 0; color: #5eeadb; font-size: 0.78rem; }
-
-  /* ═══ CARDS ═══ */
-  .cards-section { padding: 2rem 0 6rem; }
-  .cards-grid { display: grid; grid-template-columns: repeat(3,1fr); gap: 1rem; }
-  .card { background: #1c2133; border: 1px solid #2a3048; border-radius: 10px; padding: 1.5rem; transition: all 0.25s ease; }
-  .card:hover { border-color: #3a4260; transform: translateY(-2px); box-shadow: 0 12px 36px rgba(0,0,0,0.25); }
-  .card-icon { width: 36px; height: 36px; margin-bottom: 0.75rem; }
-  .card-icon svg { width: 100%; height: 100%; }
-  .ci-teal { color: #5eeadb; } .ci-red { color: #e94560; } .ci-yellow { color: #fbbf24; }
-  .ci-green { color: #34d399; } .ci-purple { color: #a78bfa; } .ci-white { color: #8891a5; }
-  .card h4 { color: #eef0f6; font-size: 0.95rem; font-weight: 600; margin: 0 0 0.4rem; }
-  .card p { color: #8891a5; font-size: 0.78rem; line-height: 1.55; margin: 0; }
-  .oss-card { border-color: rgba(167,139,250,0.15); }
-  .card-link { display: inline-block; margin-top: 0.6rem; color: #8891a5; font-size: 0.78rem; text-decoration: none; transition: color 0.2s; }
-  .card-link:hover { color: #eef0f6; }
-  .card-badge { display: inline-block; font-size: 0.55rem; font-weight: 600; color: #fbbf24; background: rgba(251,191,36,0.08); padding: 0.1rem 0.4rem; border-radius: 3px; margin-bottom: 0.3rem; text-transform: uppercase; letter-spacing: 0.04em; }
-
-  /* ═══ INTERACTIVE DEMO ═══ */
-  .demo-section { padding: 5rem 0; background: rgba(28,33,51,0.35); }
-  .demo-frame-wrap { max-width: 1200px; margin: 0 auto; }
-  .demo-mobile-cta { display: none; text-align: center; }
-  .demo-browser { box-shadow: 0 32px 80px -12px rgba(0,0,0,0.5); }
-  .demo-iframe-wrap { position: relative; width: 100%; aspect-ratio: 16/9; }
-  .demo-iframe { width: 100%; height: 100%; border: none; background: #151923; }
-  .demo-placeholder { position: relative; width: 100%; height: 100%; border: none; background: none; cursor: pointer; padding: 0; display: block; }
-  .demo-thumb { width: 100%; height: 100%; object-fit: cover; filter: brightness(0.5); transition: filter 0.3s; }
-  .demo-placeholder:hover .demo-thumb { filter: brightness(0.35); }
-  .demo-play { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 0.75rem; color: white; }
-  .demo-play svg { width: 64px; height: 64px; filter: drop-shadow(0 2px 8px rgba(0,0,0,0.5)); transition: transform 0.2s; }
-  .demo-placeholder:hover .demo-play svg { transform: scale(1.15); }
-  .demo-play span { font-size: 1rem; font-weight: 600; letter-spacing: 0.03em; text-shadow: 0 2px 8px rgba(0,0,0,0.5); }
-
-  /* ═══ COMPARISON ═══ */
-  .comparison { padding: 5rem 0; background: rgba(21,25,35,1); }
-  .table-wrap { overflow-x: auto; margin-top: 2.5rem; background: #1c2133; border-radius: 10px; border: 1px solid #2a3048; }
-  table { width: 100%; border-collapse: collapse; font-size: 0.82rem; }
-  th, td { padding: 0.75rem 1rem; text-align: center; border-bottom: 1px solid rgba(255,255,255,0.04); }
-  th { color: #5c6480; font-weight: 600; font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.05em; }
-  th.hl { color: #5eeadb; }
-  td:first-child { text-align: left; color: #b0b8ca; font-weight: 500; }
-  td.hl { background: rgba(94,234,219,0.03); }
-  td.yes { color: #34d399; font-weight: 600; }
-  td.no { color: #3a4260; }
-  td.partial { color: #fbbf24; }
-  tbody tr:last-child td { border-bottom: none; }
-
-  /* ═══ PRICING ═══ */
-  .pricing { padding: 5rem 0; background: rgba(28,33,51,0.35); }
-  .pricing-grid { display: grid; grid-template-columns: repeat(3,1fr); gap: 1rem; margin-top: 3rem; }
-  .pricing-grid-2 { grid-template-columns: repeat(2,1fr); max-width: 800px; margin-left: auto; margin-right: auto; }
-  .price-card { background: #1c2133; border: 1px solid #2a3048; border-radius: 10px; padding: 2rem 1.5rem; text-align: center; position: relative; transition: all 0.25s; display: flex; flex-direction: column; }
-  .price-card:hover { border-color: #3a4260; box-shadow: 0 12px 36px rgba(0,0,0,0.2); }
-  .price-card.featured { border-color: rgba(233,69,96,0.4); background: linear-gradient(180deg, rgba(233,69,96,0.06) 0%, #1c2133 50%); box-shadow: 0 0 40px rgba(233,69,96,0.06); }
-  .price-ribbon { position: absolute; top: -1px; right: 1.5rem; background: #e94560; color: white; font-size: 0.58rem; font-weight: 600; padding: 0.2rem 0.6rem; border-radius: 0 0 5px 5px; letter-spacing: 0.04em; }
-  .price-card h3 { color: #eef0f6; font-size: 1.1rem; margin: 0 0 0.5rem; }
-  .price-amount { font-size: 2.5rem; font-weight: 800; color: #eef0f6; line-height: 1.2; }
-  .price-amount span { font-size: 0.9rem; color: #5c6480; font-weight: 400; }
-  .price-period { color: #5c6480; font-size: 0.78rem; margin: 0.25rem 0 1.5rem; }
-  .price-card ul { list-style: none; padding: 0; text-align: left; margin-bottom: 1rem; }
-  .price-card li { color: #8891a5; font-size: 0.8rem; padding: 0.3rem 0 0.3rem 1.2rem; position: relative; }
-  .price-card li::before { content: '✓'; position: absolute; left: 0; color: #5eeadb; font-size: 0.75rem; }
-  .price-card li.ai-highlight { color: #eef0f6; font-weight: 600; background: linear-gradient(90deg, rgba(167,139,250,0.1), transparent); border-radius: 4px; padding-top: 0.4rem; padding-bottom: 0.4rem; margin: 0.2rem 0; }
-  .price-card li.ai-highlight::before { content: '✦'; color: #a78bfa; }
-
-  /* ═══ CHANGELOG ═══ */
-  .changelog-section { padding: 5rem 0; background: rgba(21,25,35,1); }
-  .changelog-timeline { max-width: 560px; margin: 0 auto; position: relative; padding-left: 2rem; }
-  .changelog-timeline::before { content: ''; position: absolute; left: 7px; top: 0; bottom: 0; width: 2px; background: #2a3048; }
-  .cl-item { position: relative; margin-bottom: 1.5rem; }
-  .cl-dot { position: absolute; left: -2rem; top: 3px; width: 12px; height: 12px; border-radius: 50%; background: #1c2133; border: 2px solid #5eeadb; }
-  .cl-item:first-child .cl-dot { background: #5eeadb; }
-  .cl-date { font-size: 0.72rem; color: #5c6480; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 0.2rem; }
-  .cl-text { color: #b0b8ca; font-size: 0.85rem; line-height: 1.5; }
-
-  /* ═══ FINAL CTA ═══ */
-  .final-cta { text-align: center; padding: 6rem 1.5rem; background: linear-gradient(180deg, transparent, rgba(233,69,96,0.04)); }
-  .final-cta h2 { margin-bottom: 0.6rem; }
-  .final-cta p { color: #8891a5; margin-bottom: 2rem; font-size: 0.95rem; }
-
-  /* ═══ FOOTER ═══ */
-  .lp-footer { border-top: 1px solid rgba(255,255,255,0.04); padding: 1.5rem; background: rgba(28,33,51,0.4); }
-  .footer-inner { max-width: 1120px; margin: 0 auto; display: flex; align-items: center; justify-content: space-between; }
-  .footer-brand { color: #eef0f6; font-weight: 700; font-size: 0.9rem; display: flex; align-items: center; gap: 0.5rem; }
-  .footer-copy { color: #5c6480; font-size: 0.72rem; }
-
-  /* ═══ MOBILE STICKY CTA ═══ */
-  .mobile-sticky { display: none; }
-
-  /* ═══ SECTION SEPARATORS ═══ */
-  .features::before, .demo-section::before, .pricing::before {
-    content: ''; display: block; height: 1px; max-width: 400px; margin: 0 auto 4rem;
-    background: linear-gradient(90deg, transparent, rgba(94,234,219,0.12), transparent);
+    padding: 0;
   }
 
-  /* ═══ RESPONSIVE ═══ */
-  @media (max-width: 900px) {
-    .feature-row, .feature-row.reverse { grid-template-columns: 1fr; gap: 2rem; direction: ltr; }
-    .feature-text { max-width: none; }
-    .edu-pair { flex-direction: row; max-width: 500px; }
-    .cards-grid { grid-template-columns: repeat(2,1fr); }
-    .pricing-grid, .pricing-grid-2 { grid-template-columns: 1fr; max-width: 400px; margin-left: auto; margin-right: auto; }
+  .dot.active {
+    width: 24px;
+    background: var(--lp-accent);
   }
-  @media (max-width: 640px) {
-    .nav-links { display: none; }
-    .hero { padding: 5rem 1rem 2rem; }
-    .hero-content { margin-bottom: 2rem; }
-    .metrics { gap: 1.5rem; padding: 2rem 1rem; }
-    .metric-num { font-size: 1.4rem; }
-    .cards-grid { grid-template-columns: 1fr; }
-    .features { padding: 4rem 0; }
-    .feature-row { margin-bottom: 3.5rem; }
-    .footer-inner { flex-direction: column; gap: 0.5rem; text-align: center; }
-    .browser-bar { padding: 6px 10px; }
-    .dot { width: 8px; height: 8px; }
-    .browser-url { display: none; }
-    .demo-desktop { display: none; }
-    .demo-mobile-cta { display: block; }
-    .mobile-sticky {
-      display: flex; position: fixed; bottom: 0; left: 0; right: 0; z-index: 150;
-      padding: 0.75rem 1rem; background: rgba(21,25,35,0.95); backdrop-filter: blur(12px);
-      border-top: 1px solid rgba(255,255,255,0.05); justify-content: center;
+
+  /* ─── NAV ─── */
+  .nav {
+    position: sticky;
+    top: 0;
+    z-index: 200;
+    background: rgba(14, 11, 16, 0.82);
+    border-bottom: 1px solid var(--lp-border);
+    backdrop-filter: blur(20px) saturate(1.2);
+  }
+
+  .nav-inner {
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 0 2rem;
+    height: 64px;
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+  }
+
+  .nav-brand {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.6rem;
+    background: none;
+    border: none;
+    padding: 0;
+    cursor: pointer;
+  }
+
+  .nav-logo {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 28px;
+    height: 28px;
+    border-radius: 8px;
+    background: var(--lp-accent);
+    color: #fff;
+    font-family: 'Space Grotesk', sans-serif;
+    font-size: 0.95rem;
+    font-weight: 700;
+  }
+
+  .nav-name {
+    color: var(--lp-text);
+    font-size: 1rem;
+  }
+
+  .nav-links {
+    margin-left: auto;
+    display: flex;
+    gap: 0.15rem;
+  }
+
+  .nav-links button {
+    background: none;
+    border: none;
+    color: var(--lp-text-2);
+    cursor: pointer;
+    font: inherit;
+    padding: 0.4rem 0.7rem;
+    border-radius: 8px;
+    font-size: 0.85rem;
+    transition: color 0.15s, background 0.15s;
+  }
+
+  .nav-links button:hover {
+    color: var(--lp-text);
+    background: rgba(255, 255, 255, 0.04);
+  }
+
+  .nav-actions {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+  }
+
+  .nav-ghost {
+    color: var(--lp-text-2);
+    text-decoration: none;
+    font-size: 0.85rem;
+    font-weight: 500;
+    transition: color 0.15s;
+  }
+
+  .nav-ghost:hover {
+    color: var(--lp-text);
+  }
+
+  .nav-lang {
+    background: var(--lp-surface);
+    border: 1px solid var(--lp-border);
+    color: var(--lp-text-2);
+    border-radius: 8px;
+    padding: 0.4rem 0.7rem;
+    font: inherit;
+    font-size: 0.82rem;
+    min-width: 118px;
+    cursor: pointer;
+  }
+
+  /* ─── HERO ─── */
+  .hero {
+    position: relative;
+    padding: 5rem 0 1.7rem;
+    overflow: hidden;
+  }
+
+  .hero-glow {
+    position: absolute;
+    width: 720px;
+    height: 720px;
+    top: -250px;
+    left: 50%;
+    transform: translateX(-50%);
+    background: radial-gradient(circle, rgba(223, 138, 73, 0.16) 0%, transparent 68%);
+    pointer-events: none;
+  }
+
+  .hero-layout {
+    display: grid;
+    grid-template-columns: minmax(0, 0.92fr) minmax(0, 1.08fr);
+    gap: 3.4rem;
+    align-items: center;
+  }
+
+  .hero-copy {
+    position: relative;
+    z-index: 1;
+    max-width: 520px;
+  }
+
+  .hero-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+    padding: 0.38rem 0.85rem;
+    border-radius: 999px;
+    border: 1px solid var(--lp-border-2);
+    background: var(--lp-surface);
+    color: var(--lp-text-2);
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 0.72rem;
+    font-weight: 600;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    margin-bottom: 1.5rem;
+  }
+
+  .hero-copy h1 {
+    font-size: clamp(3.35rem, 6.2vw, 5.35rem);
+    font-weight: 700;
+    line-height: 0.9;
+    letter-spacing: -0.075em;
+    margin: 0 0 1.2rem;
+  }
+
+  .hero-line1 {
+    display: block;
+    max-width: 7ch;
+  }
+
+  .hero-copy h1 em {
+    display: block;
+    margin-top: 0.1rem;
+    font-family: 'Space Grotesk', 'IBM Plex Sans', sans-serif;
+    font-weight: 600;
+    font-style: normal;
+    color: var(--lp-accent);
+    letter-spacing: -0.055em;
+  }
+
+  .hero-sub {
+    max-width: 470px;
+    font-size: 1.04rem;
+    line-height: 1.72;
+    color: rgba(240, 236, 228, 0.86);
+    margin-bottom: 1.55rem;
+  }
+
+  .hero-ctas {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.75rem;
+    margin-bottom: 1.15rem;
+  }
+
+  .hero-meta {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.6rem;
+  }
+
+  .meta-pill {
+    padding: 0.36rem 0.72rem;
+    border-radius: 999px;
+    border: 1px solid var(--lp-border-2);
+    background: rgba(255, 255, 255, 0.03);
+    color: rgba(240, 236, 228, 0.7);
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 0.72rem;
+    font-weight: 600;
+  }
+
+  /* Hero browser mockup */
+  .hero-visual {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+  }
+
+  .hero-browser-wrap {
+    position: relative;
+    padding: 0.2rem 0 0;
+  }
+
+  .hero-browser-wrap::before {
+    content: '';
+    position: absolute;
+    inset: 2rem 1rem -1rem 2.2rem;
+    border-radius: 36px;
+    background: linear-gradient(135deg, rgba(223, 138, 73, 0.22), rgba(98, 78, 146, 0.06));
+    filter: blur(22px);
+    opacity: 0.85;
+    pointer-events: none;
+  }
+
+  .hero-browser {
+    position: relative;
+    z-index: 1;
+    border-radius: var(--lp-radius-lg);
+    overflow: hidden;
+    border: 1px solid var(--lp-border-2);
+    background: var(--lp-surface);
+    box-shadow: 0 32px 80px rgba(0, 0, 0, 0.5), 0 0 0 1px rgba(255, 255, 255, 0.03);
+  }
+
+  .browser-bar {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    padding: 0.7rem 1rem;
+    background: var(--lp-surface-2);
+    border-bottom: 1px solid var(--lp-border);
+  }
+
+  .browser-dots {
+    display: flex;
+    gap: 5px;
+  }
+
+  .browser-dots span {
+    width: 10px;
+    height: 10px;
+    border-radius: 999px;
+    background: rgba(255, 255, 255, 0.08);
+  }
+
+  .browser-url {
+    flex: 1;
+    text-align: center;
+    color: var(--lp-text-3);
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 0.75rem;
+    font-weight: 500;
+  }
+
+  .browser-viewport {
+    aspect-ratio: 16 / 10;
+    overflow: hidden;
+  }
+
+  .browser-viewport img {
+    width: 100%;
+    height: 100%;
+    display: block;
+    object-fit: cover;
+    object-position: 55% top;
+  }
+
+  .hero-callout {
+    position: absolute;
+    z-index: 2;
+    display: flex;
+    flex-direction: column;
+    gap: 0.28rem;
+    min-width: 168px;
+    padding: 0.72rem 0.82rem 0.8rem;
+    border-radius: 16px;
+    border: 1px solid rgba(243, 235, 225, 0.12);
+    background: linear-gradient(180deg, rgba(19, 16, 22, 0.95), rgba(14, 12, 18, 0.95));
+    box-shadow: 0 18px 44px rgba(0, 0, 0, 0.34);
+    backdrop-filter: blur(12px);
+  }
+
+  .hero-callout-label {
+    color: var(--lp-text-3);
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 0.65rem;
+    font-weight: 700;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+  }
+
+  .hero-callout strong {
+    color: var(--lp-text);
+    font-size: 0.86rem;
+    font-weight: 700;
+    letter-spacing: -0.02em;
+  }
+
+  .hero-callout-a {
+    right: -0.85rem;
+    top: 1.7rem;
+    border-color: rgba(223, 138, 73, 0.22);
+  }
+
+  .hero-callout-b {
+    left: -1rem;
+    bottom: 1.7rem;
+    border-color: rgba(155, 122, 216, 0.22);
+  }
+
+  /* Hero signals bar */
+  .hero-signals {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 0.95rem;
+    margin-top: 1.05rem;
+    padding-bottom: 0.2rem;
+  }
+
+  .signal {
+    display: flex;
+    align-items: flex-start;
+    gap: 0.8rem;
+    padding: 0.95rem 1rem;
+    border-radius: var(--lp-radius);
+    border: 1px solid var(--lp-border);
+    background: linear-gradient(180deg, rgba(255, 255, 255, 0.035), rgba(255, 255, 255, 0.02));
+    box-shadow: 0 14px 32px rgba(0, 0, 0, 0.18);
+    color: inherit;
+    text-decoration: none;
+    text-align: left;
+    cursor: default;
+    transition: border-color 0.2s, background 0.2s, transform 0.2s;
+  }
+
+  a.signal, button.signal {
+    cursor: pointer;
+  }
+
+  a.signal:hover, button.signal:hover {
+    border-color: var(--lp-border-2);
+    background: rgba(255, 255, 255, 0.05);
+    transform: translateY(-1px);
+  }
+
+  button.signal {
+    font: inherit;
+  }
+
+  .signal-icon {
+    flex-shrink: 0;
+    width: 34px;
+    height: 34px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 10px;
+    background: var(--lp-accent-soft);
+    color: var(--lp-accent);
+  }
+
+  .signal-text {
+    min-width: 0;
+  }
+
+  .signal-text strong {
+    display: block;
+    font-size: 0.84rem;
+    font-weight: 700;
+    margin-bottom: 0.2rem;
+  }
+
+  .signal-text span {
+    display: block;
+    font-size: 0.78rem;
+    color: rgba(240, 236, 228, 0.72);
+    line-height: 1.48;
+  }
+
+  /* ─── SECTION HEADS ─── */
+  .section-head {
+    text-align: center;
+    margin-bottom: 1.6rem;
+  }
+
+  .section-head h2 {
+    margin: 1rem 0 0.8rem;
+  }
+
+  .section-sub {
+    max-width: 640px;
+    margin: 0 auto;
+    color: var(--lp-text-2);
+    font-size: 0.98rem;
+    line-height: 1.68;
+  }
+
+  /* ─── FEATURES SECTION ─── */
+  .features-section {
+    padding: 2.5rem 0 3.9rem;
+  }
+
+  .feature-cards {
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+  }
+
+  .fcard {
+    display: grid;
+    grid-template-columns: minmax(0, 0.45fr) minmax(0, 0.55fr);
+    border-radius: var(--lp-radius-xl);
+    overflow: hidden;
+    min-height: 424px;
+    border: 1px solid var(--lp-border);
+    box-shadow: 0 20px 48px rgba(0, 0, 0, 0.18);
+  }
+
+  .fcard-light {
+    background:
+      radial-gradient(circle at top left, rgba(223, 138, 73, 0.16), transparent 24%),
+      linear-gradient(135deg, #181412 0%, #131014 100%);
+  }
+
+  .fcard-dark {
+    background:
+      radial-gradient(circle at top right, rgba(91, 109, 164, 0.14), transparent 24%),
+      linear-gradient(135deg, #10131a 0%, #0c0f15 100%);
+  }
+
+  .fcard-body {
+    padding: clamp(1.35rem, 2.35vw, 2rem);
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+  }
+
+  .fcard-body h3 {
+    margin: 0.55rem 0 0.55rem;
+    font-size: clamp(1.8rem, 2.45vw, 2.5rem);
+    line-height: 0.98;
+  }
+
+  .fcard-body > p {
+    color: var(--lp-text-2);
+    max-width: 440px;
+    font-size: 0.9rem;
+    line-height: 1.58;
+    margin-bottom: 0.8rem;
+  }
+
+  .fcard-body ul {
+    list-style: none;
+    padding: 0;
+    margin: 0 0 0.85rem;
+  }
+
+  .fcard-body li {
+    position: relative;
+    padding-left: 1.1rem;
+    margin-bottom: 0.32rem;
+    font-size: 0.83rem;
+    color: var(--lp-text-2);
+    line-height: 1.46;
+  }
+
+  .fcard-body li::before {
+    content: '';
+    position: absolute;
+    left: 0;
+    top: 0.6em;
+    width: 5px;
+    height: 5px;
+    border-radius: 999px;
+    background: var(--lp-accent);
+  }
+
+  .fcard-media {
+    position: relative;
+    padding: 1rem 1rem 0.82rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    overflow: hidden;
+  }
+
+  .fcard-screen {
+    position: relative;
+    z-index: 1;
+    width: 100%;
+    border-radius: var(--lp-radius);
+    overflow: hidden;
+    border: 1px solid var(--lp-border-2);
+    box-shadow: 0 18px 52px rgba(0, 0, 0, 0.34);
+  }
+
+  .fcard-screen img {
+    width: 100%;
+    display: block;
+    aspect-ratio: 16 / 10;
+    object-fit: cover;
+    object-position: center top;
+  }
+
+  .fcard-float {
+    position: absolute;
+    z-index: 2;
+    right: 0.8rem;
+    bottom: 1.55rem;
+    width: min(27%, 156px);
+    border-radius: 12px;
+    overflow: hidden;
+    border: 1px solid var(--lp-border-2);
+    box-shadow: 0 16px 40px rgba(0, 0, 0, 0.5);
+  }
+
+  .fcard-float-left {
+    right: auto;
+    left: 0.8rem;
+  }
+
+  .fcard-float img {
+    width: 100%;
+    display: block;
+    aspect-ratio: 1.15;
+    object-fit: cover;
+    object-position: center top;
+  }
+
+  .fcard-media .slide-dots {
+    position: absolute;
+    bottom: 0.1rem;
+    left: 50%;
+    transform: translateX(-50%);
+    z-index: 3;
+  }
+
+  .fcard-body .btn-primary,
+  .fcard-body .btn-ghost {
+    align-self: flex-start;
+    min-width: 156px;
+    padding: 0.7rem 1rem;
+    box-shadow: none;
+  }
+
+  .fcard-body .btn-ghost {
+    background: rgba(255, 255, 255, 0.03);
+  }
+
+  .fcard-light .fcard-body .tag-sm {
+    background: var(--lp-accent-soft);
+    border-color: rgba(232, 133, 61, 0.2);
+    color: var(--lp-accent);
+  }
+
+  /* ─── AI SECTION ─── */
+  .ai-section {
+    padding: 5rem 0;
+    background: linear-gradient(180deg, var(--lp-surface) 0%, var(--lp-bg) 100%);
+    position: relative;
+    overflow: hidden;
+  }
+
+  .ai-section::before {
+    content: '';
+    position: absolute;
+    width: 500px;
+    height: 500px;
+    top: -120px;
+    right: -80px;
+    background: radial-gradient(circle, rgba(155, 122, 216, 0.08) 0%, transparent 70%);
+    pointer-events: none;
+  }
+
+  .tag-ai {
+    background: linear-gradient(135deg, var(--lp-plum-soft), rgba(223, 138, 73, 0.1));
+    border-color: rgba(155, 122, 216, 0.2);
+    color: var(--lp-plum);
+  }
+
+  .ai-pipeline {
+    border-radius: var(--lp-radius-xl);
+    border: 1px solid var(--lp-border-2);
+    background: linear-gradient(135deg, rgba(155, 122, 216, 0.04), rgba(223, 138, 73, 0.02));
+    padding: 2rem;
+    margin-bottom: 2rem;
+    position: relative;
+  }
+
+  .ai-pipeline-label {
+    position: absolute;
+    top: -0.7rem;
+    left: 2rem;
+    padding: 0.2rem 0.7rem;
+    background: var(--lp-surface);
+    border: 1px solid var(--lp-border-2);
+    border-radius: 999px;
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 0.68rem;
+    font-weight: 700;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--lp-text-3);
+  }
+
+  .ai-steps {
+    display: flex;
+    align-items: flex-start;
+    gap: 0.5rem;
+  }
+
+  .ai-step {
+    flex: 1;
+    display: flex;
+    gap: 0.75rem;
+    padding: 1rem;
+    border-radius: var(--lp-radius);
+    background: rgba(255, 255, 255, 0.02);
+    border: 1px solid var(--lp-border);
+    transition: border-color 0.2s, background 0.2s;
+  }
+
+  .ai-step:hover {
+    border-color: var(--lp-border-2);
+    background: rgba(255, 255, 255, 0.04);
+  }
+
+  .ai-step-num {
+    flex-shrink: 0;
+    width: 28px;
+    height: 28px;
+    border-radius: 8px;
+    background: var(--lp-plum-soft);
+    color: var(--lp-plum);
+    font-size: 0.8rem;
+    font-weight: 700;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .ai-step-body strong {
+    display: block;
+    font-size: 0.88rem;
+    margin-bottom: 0.3rem;
+  }
+
+  .ai-step-body p {
+    color: var(--lp-text-2);
+    font-size: 0.82rem;
+    line-height: 1.5;
+    margin: 0;
+  }
+
+  .ai-step-arrow {
+    flex-shrink: 0;
+    display: flex;
+    align-items: center;
+    padding-top: 1rem;
+    color: var(--lp-text-3);
+  }
+
+  .ai-why {
+    border-radius: var(--lp-radius-lg);
+    border: 1px solid var(--lp-border);
+    background: var(--lp-surface);
+    padding: 1.8rem;
+  }
+
+  .ai-why h3 {
+    font-size: 1.25rem;
+    margin: 0 0 1.2rem;
+  }
+
+  .ai-points {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 1rem;
+  }
+
+  .ai-point {
+    display: flex;
+    gap: 0.75rem;
+    align-items: flex-start;
+  }
+
+  .ai-point-icon {
+    flex-shrink: 0;
+    width: 36px;
+    height: 36px;
+    border-radius: 10px;
+    background: var(--lp-accent-soft);
+    color: var(--lp-accent);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .ai-point p {
+    margin: 0;
+    font-size: 0.88rem;
+    line-height: 1.55;
+    color: var(--lp-text-2);
+  }
+
+  /* ─── DOCS SECTION ─── */
+  .docs-section {
+    padding: 4.2rem 0 4.6rem;
+    background:
+      radial-gradient(circle at top center, rgba(223, 138, 73, 0.07), transparent 34%),
+      linear-gradient(180deg, rgba(18, 16, 22, 0.98) 0%, rgba(13, 11, 17, 0.98) 100%);
+  }
+
+  .docs-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 1rem;
+  }
+
+  .docs-card {
+    min-height: 290px;
+    display: flex;
+    flex-direction: column;
+    border-radius: var(--lp-radius-lg);
+    border: 1px solid var(--lp-border);
+    padding: 1.35rem;
+    text-decoration: none;
+    color: inherit;
+    box-shadow: 0 18px 40px rgba(0, 0, 0, 0.18);
+    transition: transform 0.2s, border-color 0.2s, background 0.2s;
+  }
+
+  .docs-card:hover {
+    transform: translateY(-2px);
+    border-color: var(--lp-border-2);
+  }
+
+  .docs-card[data-tone="amber"] {
+    background: linear-gradient(180deg, rgba(37, 28, 21, 0.98) 0%, rgba(25, 20, 17, 0.98) 100%);
+    border-top: 2px solid var(--lp-accent);
+  }
+
+  .docs-card[data-tone="plum"] {
+    background: linear-gradient(180deg, rgba(25, 20, 34, 0.98) 0%, rgba(18, 16, 24, 0.98) 100%);
+    border-top: 2px solid var(--lp-plum);
+  }
+
+  .docs-card[data-tone="ink"] {
+    background: linear-gradient(180deg, rgba(16, 20, 29, 0.98) 0%, rgba(13, 16, 22, 0.98) 100%);
+    border-top: 2px solid rgba(130, 166, 255, 0.4);
+  }
+
+  .docs-kicker,
+  .docs-open,
+  .rm-badge,
+  .rm-label,
+  .cap-num {
+    font-family: 'IBM Plex Mono', monospace;
+  }
+
+  .docs-kicker {
+    color: var(--lp-text-3);
+    font-size: 0.68rem;
+    font-weight: 600;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+  }
+
+  .docs-card h3 {
+    margin: 0.65rem 0 0.55rem;
+    font-size: 1.55rem;
+    line-height: 1.02;
+  }
+
+  .docs-card p {
+    color: var(--lp-text-2);
+    font-size: 0.9rem;
+    line-height: 1.62;
+    margin: 0 0 0.9rem;
+  }
+
+  .docs-card ul {
+    list-style: none;
+    padding: 0;
+    margin: 0 0 1rem;
+  }
+
+  .docs-card li {
+    position: relative;
+    padding-left: 1rem;
+    margin-bottom: 0.4rem;
+    font-size: 0.82rem;
+    line-height: 1.5;
+    color: var(--lp-text-2);
+  }
+
+  .docs-card li::before {
+    content: '';
+    position: absolute;
+    left: 0;
+    top: 0.55em;
+    width: 5px;
+    height: 5px;
+    border-radius: 999px;
+    background: var(--lp-accent);
+  }
+
+  .docs-open {
+    margin-top: auto;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    color: var(--lp-text);
+    font-size: 0.74rem;
+    font-weight: 600;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+  }
+
+  .docs-open::after {
+    content: '→';
+    color: var(--lp-accent);
+  }
+
+  /* ─── DEMO SECTION ─── */
+  .demo-section {
+    padding: 3rem 0 5rem;
+  }
+
+  .demo-panel {
+    display: grid;
+    grid-template-columns: minmax(0, 0.42fr) minmax(0, 0.58fr);
+    gap: 2rem;
+    border-radius: var(--lp-radius-xl);
+    border: 1px solid var(--lp-border);
+    background: var(--lp-surface);
+    padding: 1.5rem;
+    align-items: center;
+  }
+
+  .demo-copy {
+    padding: 0.5rem;
+  }
+
+  .demo-copy h2 {
+    margin: 0.8rem 0 0.7rem;
+    font-size: clamp(1.8rem, 3vw, 2.6rem);
+  }
+
+  .demo-copy > p {
+    color: var(--lp-text-2);
+    font-size: 0.95rem;
+    line-height: 1.7;
+    margin-bottom: 1rem;
+  }
+
+  .demo-copy ul {
+    list-style: none;
+    padding: 0;
+    margin: 0 0 1.5rem;
+  }
+
+  .demo-copy li {
+    position: relative;
+    padding-left: 1.1rem;
+    margin-bottom: 0.4rem;
+    font-size: 0.88rem;
+    color: var(--lp-text-2);
+    line-height: 1.55;
+  }
+
+  .demo-copy li::before {
+    content: '';
+    position: absolute;
+    left: 0;
+    top: 0.6em;
+    width: 5px;
+    height: 5px;
+    border-radius: 999px;
+    background: var(--lp-accent);
+  }
+
+  .demo-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 1rem;
+    align-items: center;
+  }
+
+  .demo-browser {
+    border-radius: var(--lp-radius-lg);
+    overflow: hidden;
+    background: #000;
+    border: 1px solid var(--lp-border);
+    aspect-ratio: 16 / 10;
+  }
+
+  .demo-iframe {
+    width: 100%;
+    height: 100%;
+    border: none;
+  }
+
+  .demo-placeholder {
+    position: relative;
+    width: 100%;
+    height: 100%;
+    border: none;
+    padding: 0;
+    background: none;
+    cursor: pointer;
+    display: block;
+  }
+
+  .demo-thumb {
+    width: 100%;
+    height: 100%;
+    display: block;
+    object-fit: cover;
+    filter: brightness(0.7);
+  }
+
+  .demo-overlay {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 0.75rem;
+    color: #fff;
+  }
+
+  .play-btn {
+    width: 64px;
+    height: 64px;
+    border-radius: 999px;
+    background: rgba(255, 255, 255, 0.12);
+    backdrop-filter: blur(12px);
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: background 0.2s;
+  }
+
+  .demo-placeholder:hover .play-btn {
+    background: rgba(255, 255, 255, 0.2);
+  }
+
+  .demo-overlay span {
+    font-size: 0.88rem;
+    font-weight: 600;
+    opacity: 0.9;
+  }
+
+  /* ─── ROADMAP ─── */
+  .roadmap-section {
+    padding: 5rem 0;
+  }
+
+  .roadmap-grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 1.25rem;
+  }
+
+  .rm-card {
+    border-radius: var(--lp-radius-lg);
+    padding: 1.5rem;
+    border: 1px solid var(--lp-border);
+  }
+
+  .rm-edu {
+    background: linear-gradient(180deg, #111712 0%, var(--lp-surface) 100%);
+    border-top: 2px solid var(--lp-green);
+  }
+
+  .rm-pro {
+    background: linear-gradient(180deg, #14111e 0%, var(--lp-surface) 100%);
+    border-top: 2px solid var(--lp-plum);
+  }
+
+  .rm-badge {
+    display: inline-flex;
+    padding: 0.3rem 0.65rem;
+    border-radius: 999px;
+    font-size: 0.7rem;
+    font-weight: 700;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+  }
+
+  .rm-badge-edu {
+    background: var(--lp-green-soft);
+    color: var(--lp-green);
+  }
+
+  .rm-badge-pro {
+    background: var(--lp-plum-soft);
+    color: var(--lp-plum);
+  }
+
+  .rm-badge-free {
+    background: var(--lp-accent-soft);
+    color: var(--lp-accent);
+  }
+
+  .rm-card h3 {
+    margin: 0.8rem 0 0.5rem;
+  }
+
+  .rm-card > p {
+    color: var(--lp-text-2);
+    font-size: 0.92rem;
+    line-height: 1.65;
+  }
+
+  .rm-card ul {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+  }
+
+  .rm-card li {
+    position: relative;
+    padding-left: 1.1rem;
+    margin-bottom: 0.4rem;
+    font-size: 0.88rem;
+    color: var(--lp-text-2);
+    line-height: 1.55;
+  }
+
+  .rm-card li::before {
+    content: '';
+    position: absolute;
+    left: 0;
+    top: 0.6em;
+    width: 5px;
+    height: 5px;
+    border-radius: 999px;
+    background: var(--lp-accent);
+  }
+
+  .rm-block {
+    margin-top: 1.2rem;
+    padding-top: 1rem;
+    border-top: 1px solid var(--lp-border);
+  }
+
+  .rm-muted {
+    opacity: 0.7;
+  }
+
+  .rm-label {
+    display: inline-flex;
+    padding: 0.25rem 0.6rem;
+    border-radius: 999px;
+    border: 1px solid var(--lp-border);
+    background: var(--lp-surface-2);
+    color: var(--lp-text-2);
+    font-size: 0.7rem;
+    font-weight: 700;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    margin-bottom: 0.7rem;
+  }
+
+  .rm-media {
+    margin: 1.2rem 0;
+    border-radius: var(--lp-radius);
+    overflow: hidden;
+    border: 1px solid var(--lp-border);
+    background: var(--lp-surface-2);
+  }
+
+  .rm-media img {
+    width: 100%;
+    display: block;
+    aspect-ratio: 16 / 10;
+    object-fit: cover;
+    object-position: center top;
+  }
+
+  .rm-note {
+    margin-top: 0.8rem;
+    font-size: 0.85rem;
+    font-weight: 600;
+    color: var(--lp-plum);
+  }
+
+  /* ─── CAPABILITIES ─── */
+  .cap-section {
+    padding: 5rem 0;
+    background: var(--lp-surface);
+  }
+
+  .cap-hero {
+    display: grid;
+    grid-template-columns: minmax(0, 0.45fr) minmax(0, 0.55fr);
+    gap: 2rem;
+    border-radius: var(--lp-radius-xl);
+    border: 1px solid var(--lp-border);
+    background: linear-gradient(135deg, #12101e 0%, #0c0a14 100%);
+    overflow: hidden;
+    margin-bottom: 1.5rem;
+    min-height: 480px;
+  }
+
+  .cap-hero-copy {
+    padding: clamp(1.8rem, 3vw, 2.5rem);
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+  }
+
+  .cap-hero-copy h3 {
+    margin: 0.8rem 0 0.7rem;
+    font-size: clamp(1.8rem, 3vw, 2.6rem);
+  }
+
+  .cap-hero-copy > p {
+    color: var(--lp-text-2);
+    font-size: 0.95rem;
+    line-height: 1.7;
+    margin-bottom: 1rem;
+  }
+
+  .cap-hero-copy ul {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+  }
+
+  .cap-hero-copy li {
+    position: relative;
+    padding-left: 1.1rem;
+    margin-bottom: 0.45rem;
+    font-size: 0.88rem;
+    color: var(--lp-text-2);
+    line-height: 1.55;
+  }
+
+  .cap-hero-copy li::before {
+    content: '';
+    position: absolute;
+    left: 0;
+    top: 0.6em;
+    width: 5px;
+    height: 5px;
+    border-radius: 999px;
+    background: var(--lp-accent);
+  }
+
+  .cap-hero-visual {
+    position: relative;
+    padding: 1.5rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .cap-main-img {
+    width: 100%;
+    height: 100%;
+    display: block;
+    object-fit: cover;
+    object-position: center top;
+    border-radius: var(--lp-radius);
+    border: 1px solid var(--lp-border);
+    box-shadow: 0 24px 64px rgba(0, 0, 0, 0.4);
+  }
+
+  .cap-float {
+    position: absolute;
+    z-index: 2;
+    width: min(35%, 180px);
+    border-radius: 12px;
+    border: 1px solid var(--lp-border-2);
+    box-shadow: 0 16px 40px rgba(0, 0, 0, 0.5);
+    object-fit: cover;
+    object-position: center top;
+    aspect-ratio: 1.15;
+  }
+
+  .cap-float-a {
+    right: 0.6rem;
+    top: 1rem;
+  }
+
+  .cap-float-b {
+    left: 0.5rem;
+    bottom: 1rem;
+  }
+
+  .cap-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 1rem;
+  }
+
+  .cap-tile {
+    border-radius: var(--lp-radius);
+    overflow: hidden;
+    border: 1px solid var(--lp-border);
+    background: var(--lp-bg);
+    transition: border-color 0.2s;
+  }
+
+  .cap-tile:hover {
+    border-color: var(--lp-border-2);
+  }
+
+  .cap-tile-img {
+    aspect-ratio: 16 / 10;
+    overflow: hidden;
+  }
+
+  .cap-tile-img img {
+    width: 100%;
+    height: 100%;
+    display: block;
+    object-fit: cover;
+    object-position: center top;
+  }
+
+  .cap-tile-body {
+    padding: 0.9rem 1rem;
+  }
+
+  .cap-num {
+    display: inline-flex;
+    padding: 0.2rem 0.5rem;
+    border-radius: 999px;
+    background: var(--lp-accent-soft);
+    color: var(--lp-accent);
+    font-size: 0.7rem;
+    font-weight: 700;
+    letter-spacing: 0.06em;
+    margin-bottom: 0.5rem;
+  }
+
+  .cap-tile h4 {
+    font-size: 0.95rem;
+    margin: 0 0 0.35rem;
+    font-weight: 600;
+  }
+
+  .cap-tile p {
+    color: var(--lp-text-2);
+    font-size: 0.82rem;
+    line-height: 1.55;
+  }
+
+  /* ─── PRICING ─── */
+  .pricing-section {
+    padding: 5rem 0;
+  }
+
+  .price-grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 1.25rem;
+  }
+
+  .price-card {
+    border-radius: var(--lp-radius-lg);
+    padding: 1.5rem;
+    border: 1px solid var(--lp-border);
+    display: flex;
+    flex-direction: column;
+  }
+
+  .price-free {
+    background: linear-gradient(180deg, #14120a 0%, var(--lp-surface) 100%);
+    border-top: 2px solid var(--lp-accent);
+  }
+
+  .price-pro {
+    position: relative;
+    background: linear-gradient(180deg, #14111e 0%, var(--lp-surface) 100%);
+    border-top: 2px solid var(--lp-plum);
+  }
+
+  .price-top {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+  }
+
+  .price-amount {
+    font-size: 3rem;
+    letter-spacing: -0.04em;
+    color: var(--lp-text);
+  }
+
+  .price-card h3 {
+    margin: 0.8rem 0 0.5rem;
+  }
+
+  .price-lead {
+    color: var(--lp-text-2);
+    font-size: 0.92rem;
+    line-height: 1.7;
+    margin-bottom: 1rem;
+  }
+
+  .price-features {
+    columns: 2;
+    column-gap: 1rem;
+    margin-bottom: 1rem;
+  }
+
+  .price-card ul {
+    list-style: none;
+    padding: 0;
+    margin: 0 0 1.2rem;
+  }
+
+  .price-card li {
+    position: relative;
+    padding-left: 1.1rem;
+    margin-bottom: 0.4rem;
+    font-size: 0.85rem;
+    color: var(--lp-text-2);
+    line-height: 1.55;
+    break-inside: avoid;
+  }
+
+  .price-card li::before {
+    content: '';
+    position: absolute;
+    left: 0;
+    top: 0.6em;
+    width: 5px;
+    height: 5px;
+    border-radius: 999px;
+    background: var(--lp-accent);
+  }
+
+  .price-card li.ai-row {
+    color: var(--lp-text);
+    font-weight: 600;
+  }
+
+  .price-pills {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+    margin-bottom: 1.2rem;
+  }
+
+  .price-pills span {
+    padding: 0.3rem 0.6rem;
+    border-radius: 999px;
+    border: 1px solid var(--lp-border);
+    color: var(--lp-text-3);
+    font-size: 0.74rem;
+    font-weight: 500;
+  }
+
+  .price-ribbon {
+    position: absolute;
+    top: 1rem;
+    right: 1rem;
+    padding: 0.25rem 0.6rem;
+    border-radius: 999px;
+    background: var(--lp-plum-soft);
+    color: var(--lp-plum);
+    font-size: 0.68rem;
+    font-weight: 700;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+  }
+
+  .price-pro-img {
+    margin-bottom: 1rem;
+    border-radius: var(--lp-radius);
+    overflow: hidden;
+    border: 1px solid var(--lp-border);
+  }
+
+  .price-pro-img img {
+    width: 100%;
+    display: block;
+    aspect-ratio: 16 / 10;
+    object-fit: cover;
+    object-position: center top;
+  }
+
+  .price-cta {
+    margin-top: auto;
+  }
+
+  /* ─── CHANGELOG ─── */
+  .changelog-section {
+    padding: 5rem 0;
+    background: var(--lp-surface);
+  }
+
+  .cl-grid {
+    display: grid;
+    grid-template-columns: minmax(0, 1.1fr) minmax(0, 0.9fr);
+    gap: 1rem;
+  }
+
+  .cl-featured {
+    border-radius: var(--lp-radius-lg);
+    padding: 1.8rem;
+    border: 1px solid var(--lp-border);
+    background: linear-gradient(135deg, #12101e 0%, var(--lp-surface-2) 100%);
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    min-height: 320px;
+  }
+
+  .cl-featured h3 {
+    margin: 0.7rem 0 0.6rem;
+  }
+
+  .cl-featured > p {
+    color: var(--lp-text-2);
+    line-height: 1.7;
+  }
+
+  .cl-date {
+    color: var(--lp-text-3);
+    font-size: 0.75rem;
+    font-weight: 700;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+  }
+
+  .cl-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 1rem;
+    align-items: center;
+    margin-top: 1rem;
+  }
+
+  .cl-stack {
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+  }
+
+  .cl-card {
+    border-radius: var(--lp-radius);
+    padding: 1.1rem 1.2rem;
+    border: 1px solid var(--lp-border);
+    background: var(--lp-bg);
+  }
+
+  .cl-card p {
+    margin-top: 0.4rem;
+    color: var(--lp-text-2);
+    font-size: 0.88rem;
+    line-height: 1.6;
+  }
+
+  .cl-card[data-tone='amber'] {
+    border-left: 3px solid var(--lp-accent);
+  }
+
+  .cl-card[data-tone='plum'] {
+    border-left: 3px solid var(--lp-plum);
+  }
+
+  .cl-card[data-tone='ink'] {
+    border-left: 3px solid var(--lp-text-3);
+  }
+
+  /* ─── FINAL CTA ─── */
+  .cta-section {
+    padding: 3rem 0 5rem;
+  }
+
+  .cta-block {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 2rem;
+    padding: 2.5rem;
+    border-radius: var(--lp-radius-xl);
+    border: 1px solid rgba(232, 133, 61, 0.2);
+    background: linear-gradient(135deg, rgba(232, 133, 61, 0.06) 0%, rgba(232, 133, 61, 0.02) 100%);
+  }
+
+  .cta-copy h2 {
+    margin: 0.8rem 0 0.5rem;
+  }
+
+  .cta-copy p {
+    color: var(--lp-text-2);
+    max-width: 520px;
+    line-height: 1.7;
+  }
+
+  .cta-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 1rem;
+    align-items: center;
+    flex-shrink: 0;
+  }
+
+  /* ─── FOOTER ─── */
+  .lp-footer {
+    padding: 0 0 5rem;
+    background: var(--lp-bg);
+  }
+
+  .footer-inner {
+    padding-top: 1.5rem;
+    border-top: 1px solid var(--lp-border);
+  }
+
+  .footer-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 1rem;
+    margin-bottom: 1rem;
+  }
+
+  .footer-brand {
+    display: flex;
+    align-items: center;
+    gap: 0.55rem;
+    font-size: 1.05rem;
+    color: var(--lp-text);
+  }
+
+  .footer-links {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 1.2rem;
+    align-items: center;
+  }
+
+  .footer-links a, .footer-links button {
+    color: var(--lp-text-2);
+    text-decoration: none;
+    font-size: 0.88rem;
+    font-weight: 500;
+    background: none;
+    border: none;
+    cursor: pointer;
+    font: inherit;
+    transition: color 0.15s;
+  }
+
+  .footer-links a:hover, .footer-links button:hover {
+    color: var(--lp-text);
+  }
+
+  .footer-desc {
+    color: var(--lp-text-3);
+    font-size: 0.88rem;
+    line-height: 1.6;
+    margin-bottom: 0.5rem;
+  }
+
+  .footer-copy {
+    color: var(--lp-text-3);
+    font-size: 0.8rem;
+  }
+
+  /* ─── MOBILE STICKY ─── */
+  .mobile-sticky {
+    display: none;
+  }
+
+  /* ─── RESPONSIVE ─── */
+  @media (max-width: 1100px) {
+    .hero-layout,
+    .demo-panel,
+    .roadmap-grid,
+    .price-grid,
+    .cl-grid,
+    .cap-hero {
+      grid-template-columns: 1fr;
     }
-    .mobile-sticky .btn-primary { width: 100%; max-width: 400px; text-align: center; }
-    .lp-footer { padding-bottom: 5rem; }
+
+    .hero {
+      padding-top: 4rem;
+    }
+
+    .hero-signals {
+      grid-template-columns: repeat(2, 1fr);
+    }
+
+    .hero-callout-a {
+      right: 0.6rem;
+      top: 1rem;
+    }
+
+    .hero-callout-b {
+      left: 0.6rem;
+      bottom: 1rem;
+    }
+
+    .cap-grid {
+      grid-template-columns: repeat(2, 1fr);
+    }
+
+    .docs-grid {
+      grid-template-columns: 1fr;
+    }
+
+    .fcard, .fcard-dark {
+      grid-template-columns: 1fr;
+    }
+
+    .ai-steps {
+      flex-direction: column;
+    }
+
+    .ai-step-arrow {
+      transform: rotate(90deg);
+      padding-top: 0;
+      justify-content: center;
+      width: 100%;
+    }
+
+    .ai-points {
+      grid-template-columns: 1fr;
+    }
+
+    .cta-block {
+      flex-direction: column;
+      text-align: center;
+      align-items: center;
+    }
+
+    .price-features {
+      columns: 1;
+    }
+  }
+
+  @media (max-width: 760px) {
+    .section-inner, .nav-inner {
+      padding-inline: 1rem;
+    }
+
+    .nav-inner {
+      height: 56px;
+    }
+
+    .nav-links, .nav-ghost {
+      display: none;
+    }
+
+    .hero {
+      padding-top: 2.5rem;
+    }
+
+    .hero-copy h1 {
+      font-size: clamp(2.6rem, 11vw, 3.6rem);
+    }
+
+    .hero-callout {
+      display: none;
+    }
+
+    .hero-signals {
+      gap: 0.7rem;
+      grid-template-columns: 1fr;
+    }
+
+    .cap-grid {
+      grid-template-columns: 1fr;
+    }
+
+    .fcard-media {
+      min-height: 300px;
+    }
+
+    .footer-row {
+      flex-direction: column;
+      align-items: flex-start;
+    }
+
+    .mobile-sticky {
+      display: flex;
+      position: fixed;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      z-index: 220;
+      padding: 0.75rem 1rem;
+      border-top: 1px solid var(--lp-border);
+      background: rgba(10, 10, 11, 0.92);
+      backdrop-filter: blur(16px);
+    }
+
+    .mobile-sticky .btn-primary {
+      width: 100%;
+    }
+
+    .lp-footer {
+      padding-bottom: 6rem;
+    }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .reveal, .scroll-progress, .btn-primary, .btn-ghost, .dot, .nav-links button {
+      transition: none !important;
+    }
+
+    .reveal {
+      opacity: 1;
+      transform: none;
+    }
   }
 </style>

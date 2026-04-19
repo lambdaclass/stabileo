@@ -131,12 +131,12 @@ impl Builder {
         }
     }
 
-    fn add_nodal_load_2d(&mut self, node_id: u32, fx: f64, fy: f64) {
+    fn add_nodal_load_2d(&mut self, node_id: u32, fx: f64, fz: f64) {
         let id = self.load_id;
         self.load_id += 1;
         self.loads.push(json!({
             "type": "nodal",
-            "data": {"id": id, "nodeId": node_id, "fx": fx, "fy": fy, "mz": 0}
+            "data": {"id": id, "nodeId": node_id, "fx": fx, "fz": fz, "my": 0}
         }));
     }
 

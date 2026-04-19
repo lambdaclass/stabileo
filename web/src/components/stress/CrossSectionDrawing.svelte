@@ -204,14 +204,14 @@
         {#if showSigma && !showPerpNA}
         <!-- 3D: σ(y) distribution along Y axis (RIGHT side) — signed bars -->
         {@const xBaseR = rs.b / 2 * sc + 4}
-        <!-- Compute moment-only stresses for σ(y) — My·y/Iy term from Navier biaxial -->
-        {@const sigmasMzY = analysis3D.distributionY.map(pt => rs.iy > 1e-20 ? -analysis3D.My * pt.y / rs.iy / 1000 : 0)}
+        <!-- Compute moment-only stresses for σ(y) — Mz·y/Iz term from Navier biaxial -->
+        {@const sigmasMzY = analysis3D.distributionY.map(pt => analysis3D.Iz > 1e-20 ? analysis3D.Mz * pt.y / analysis3D.Iz / 1000 : 0)}
         {@const maxBendingY = Math.max(...sigmasMzY.map(s => Math.abs(s)), 1e-6)}
         <!-- Use max of (moment-only max, total max) so both modes share the same visual scale -->
         {@const maxTotalY = showTotalSigma ? Math.max(...analysis3D.distributionY.map(p => Math.abs(p.sigma)), 1e-6) : maxBendingY}
         {@const scaleY = useGlobalScale && globalScales ? Math.max(globalScales.maxSigmaY, globalScales.maxSigmaZ) : Math.max(maxBendingY, maxTotalY)}
         {#if showTotalSigma}
-          <!-- Total mode: σ = N/A - My·y/Iy — signed bars -->
+          <!-- Total mode: σ = N/A + Mz·y/Iz — signed bars -->
           <!-- Baseline (σ = 0) -->
           <line x1={xBaseR} y1={-rs.h / 2 * sc} x2={xBaseR} y2={rs.h / 2 * sc}
             stroke="#ccc" stroke-width="0.4" opacity="0.3" />
@@ -246,9 +246,9 @@
             {/if}
           {/each}
           <!-- Label with max stress values -->
-          <text x={xBaseR} y={-rs.h / 2 * sc - 7} fill="#ccc" font-size="4" text-anchor="start">σ = N/A − M·y/I</text>
+          <text x={xBaseR} y={-rs.h / 2 * sc - 7} fill="#ccc" font-size="4" text-anchor="start">σ = N/A + Mz·y/Iz</text>
         {:else}
-          <!-- Default: solo -My·y/Iy (sin N/A) — signed bars -->
+          <!-- Default: solo Mz·y/Iz (sin N/A) — signed bars -->
           <line x1={xBaseR} y1={-rs.h / 2 * sc} x2={xBaseR} y2={rs.h / 2 * sc}
             stroke="#ccc" stroke-width="0.4" opacity="0.3" />
           {#each analysis3D.distributionY as pt, i}
@@ -306,13 +306,13 @@
 
         <!-- 3D: σ(z) distribution along Z axis (BOTTOM) — signed bars -->
         {@const yBaseBot = rs.h / 2 * sc + 4}
-        <!-- Compute moment-only stresses for σ(z) — Mz·z/Iz term from Navier biaxial -->
-        {@const sigmasMyZ = analysis3D.distributionZ.map(pt => analysis3D.Iz > 1e-20 ? analysis3D.Mz * pt.z / analysis3D.Iz / 1000 : 0)}
+        <!-- Compute moment-only stresses for σ(z) — -My·z/Iy term from Navier biaxial -->
+        {@const sigmasMyZ = analysis3D.distributionZ.map(pt => rs.iy > 1e-20 ? -analysis3D.My * pt.z / rs.iy / 1000 : 0)}
         {@const maxBendingZ = Math.max(...sigmasMyZ.map(s => Math.abs(s)), 1e-6)}
         {@const maxTotalZ = showTotalSigma ? Math.max(...analysis3D.distributionZ.map(p => Math.abs(p.sigma)), 1e-6) : maxBendingZ}
         {@const scaleZ = useGlobalScale && globalScales ? Math.max(globalScales.maxSigmaY, globalScales.maxSigmaZ) : Math.max(maxBendingZ, maxTotalZ)}
         {#if showTotalSigma}
-          <!-- Total mode: σ = N/A + Mz·z/Iz — signed bars (+ down, − up) -->
+          <!-- Total mode: σ = N/A - My·z/Iy — signed bars (+ down, − up) -->
           <!-- Baseline -->
           <line x1={-rs.b / 2 * sc} y1={yBaseBot} x2={rs.b / 2 * sc} y2={yBaseBot}
             stroke="#ccc" stroke-width="0.4" opacity="0.3" />
@@ -347,7 +347,7 @@
             {/if}
           {/each}
         {:else}
-          <!-- Default: solo Mz·z/Iz (sin N/A) — signed bars -->
+          <!-- Default: solo -My·z/Iy (sin N/A) — signed bars -->
           <!-- Baseline -->
           <line x1={-rs.b / 2 * sc} y1={yBaseBot} x2={rs.b / 2 * sc} y2={yBaseBot}
             stroke="#ccc" stroke-width="0.4" opacity="0.3" />

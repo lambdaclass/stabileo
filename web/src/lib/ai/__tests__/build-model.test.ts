@@ -96,7 +96,7 @@ describe('buildModelContext', () => {
     expect(ctx.supportCount).toBe(3);
     expect(ctx.loadCount).toBe(6);
 
-    expect(ctx.bounds).toEqual({ xMin: 0, xMax: 12, yMin: 0, yMax: 9 });
+    expect(ctx.bounds).toEqual({ xMin: 0, xMax: 12, zMin: 0, zMax: 9 });
     expect(ctx.verticalAxis).toBe('z');
     expect(ctx.sections).toEqual([
       { id: 1, name: 'IPE 300' },
@@ -117,7 +117,7 @@ describe('buildModelContext', () => {
 
     expect(ctx.nodeCount).toBe(2);
     expect(ctx.elementCount).toBe(1);
-    expect(ctx.bounds).toEqual({ xMin: 0, xMax: 6, yMin: 0, yMax: 0 });
+    expect(ctx.bounds).toEqual({ xMin: 0, xMax: 6, zMin: 0, zMax: 0 });
     expect(ctx.verticalAxis).toBe('z');
     expect(ctx.supportTypes).toContain('pinned');
     expect(ctx.supportTypes).toContain('rollerX');
@@ -162,7 +162,7 @@ describe('buildModelContext', () => {
 
     const ctx = buildModelContext(store);
 
-    expect(ctx.bounds).toEqual({ xMin: 0, xMax: 6, yMin: 0, yMax: 4, zMin: 0, zMax: 3 });
+    expect(ctx.bounds).toEqual({ xMin: 0, xMax: 6, zMin: 0, zMax: 3, yMin: 0, yMax: 4 });
     expect(ctx.verticalAxis).toBe('z');
     expect(ctx.floorHeights).toEqual([0, 3]);
   });
@@ -196,7 +196,7 @@ describe('buildModelContext', () => {
 
     expect(ctx.verticalAxis).toBe('z');
     expect(ctx.floorHeights).toEqual([0, 3]);
-    expect(ctx.bounds).toEqual({ xMin: 0, xMax: 6, yMin: 0, yMax: 5, zMin: 0, zMax: 3 });
+    expect(ctx.bounds).toEqual({ xMin: 0, xMax: 6, zMin: 0, zMax: 3, yMin: 0, yMax: 5 });
   });
 });
 

@@ -358,7 +358,7 @@ export function syncLoads(ctx: SceneSyncContext): void {
         posI,
         posJ,
         load.data.qI, load.data.qJ,
-        maxQ, i, project2D ? 'Z' : 'Y', undefined, cc,
+        maxQ, i, 'Z', undefined, cc,
       );
       loadGrp.add(grp);
     } else if (load.type === 'distributed3d') {

@@ -171,6 +171,41 @@ describe('Bug 1: 2D Displacement uses uz/ry (not uy/rz)', () => {
     // maxDisp should use uz directly, not fall back through uy
     expect(aiClient, 'ai/client.ts should not use stale d.uy fallback').not.toContain('d.uz ?? d.uy');
   });
+
+  it('PRO UI seams should treat pro mode as a 3D result/modeling path', () => {
+    const aiDrawer = readFileSync(new URL('../../../components/AiDrawer.svelte', import.meta.url), 'utf8');
+    const mobileResults = readFileSync(new URL('../../../components/MobileResultsPanel.svelte', import.meta.url), 'utf8');
+    const sectionStress = readFileSync(new URL('../../../components/SectionStressPanel.svelte', import.meta.url), 'utf8');
+    const aiReview = readFileSync(new URL('../../../components/toolbar/ToolbarAiReview.svelte', import.meta.url), 'utf8');
+
+    expect(aiDrawer, 'AiDrawer.svelte should treat pro as 3D').toContain("uiStore.analysisMode === '3d' || uiStore.analysisMode === 'pro'");
+    expect(aiDrawer, 'AiDrawer.svelte should send canonical 3D mode to the AI backend').toContain("const aiAnalysisMode = $derived(is3DMode ? '3d' : '2d');");
+    expect(mobileResults, 'MobileResultsPanel.svelte should treat pro as 3D').toContain("uiStore.analysisMode === '3d' || uiStore.analysisMode === 'pro'");
+    expect(sectionStress, 'SectionStressPanel.svelte should treat pro as 3D').toContain("uiStore.analysisMode === '3d' || uiStore.analysisMode === 'pro'");
+    expect(aiReview, 'ToolbarAiReview.svelte should treat pro as 3D').toContain("uiStore.analysisMode === '3d' || uiStore.analysisMode === 'pro'");
+  });
+
+  it('3D section-stress and verification seams should preserve standard My/Mz identity', () => {
+    const sectionStress3D = readFileSync(new URL('../section-stress-3d.ts', import.meta.url), 'utf8');
+    const verificationTab = readFileSync(new URL('../../../components/pro/ProVerificationTab.svelte', import.meta.url), 'utf8');
+    const autoVerify = readFileSync(new URL('../auto-verify.ts', import.meta.url), 'utf8');
+    const proPanel = readFileSync(new URL('../../../components/pro/ProPanel.svelte', import.meta.url), 'utf8');
+
+    expect(sectionStress3D, 'section-stress-3d.ts should use the standard 3D Navier formula').toContain('σ(y,z) = N/A + Mz·y/Iz - My·z/Iy');
+    expect(sectionStress3D, 'section-stress-3d.ts should add Mz on the y/Iz term').toContain('sigma += Mz * y / Iz');
+    expect(sectionStress3D, 'section-stress-3d.ts should subtract My on the z/Iy term').toContain('sigma -= My * z / Iy');
+    expect(sectionStress3D, 'section-stress-3d.ts must not keep the old swapped formula').not.toContain('σ(y,z) = N/A - My·y/Iz + Mz·z/Iy');
+
+    expect(verificationTab, 'ProVerificationTab.svelte should keep Mu on the strong-axis mz envelope').toContain('MuMax = _mzMax');
+    expect(verificationTab, 'ProVerificationTab.svelte should keep Muy on the weak-axis my envelope').toContain('MuyMax = _myMax');
+    expect(verificationTab, 'ProVerificationTab.svelte should keep steel Muz on mz').toContain('MuzMax = _mzM');
+    expect(verificationTab, 'ProVerificationTab.svelte should not sort My/Mz by magnitude').not.toContain('MuMax = Math.max(_mzMax, _myMax)');
+    expect(verificationTab, 'ProVerificationTab.svelte should not sort steel My/Mz by magnitude').not.toContain('MuzMax = Math.max(_mzM, _myM)');
+
+    expect(autoVerify, 'auto-verify.ts should preserve Mz as Mu').toContain('const MuMax = MzMax;');
+    expect(autoVerify, 'auto-verify.ts should preserve My as Muy').toContain('const MuyMax = MyMax;');
+    expect(proPanel, 'ProPanel.svelte combo summary should report strong-axis Mu').toContain('Mu: Math.max(Math.abs(ef.mzStart), Math.abs(ef.mzEnd))');
+  });
 });
 
 // ─── Bug 2: 3D self-weight loads use wrong axis ────────────────

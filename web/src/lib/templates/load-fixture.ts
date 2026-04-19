@@ -139,11 +139,20 @@ export function loadFixture(json: JSONModel, api: FixtureLoader): void {
     if (e.hingeEnd && api.toggleHinge) api.toggleHinge(newId, 'end');
   }
 
-  // Supports
+  // Supports — separate spring stiffness keys from opts (settlements, angles, 3D DOF)
+  const springKeys = new Set(['kx', 'ky', 'kz', 'krx', 'kry', 'krz']);
   for (const s of json.supports) {
     const nodeId = nodeMap.get(s.nodeId)!;
     const { id: _id, nodeId: _nid, type, ...rest } = s;
-    api.addSupport(nodeId, type, rest as any);
+    const springs: Record<string, number> = {};
+    const opts: Record<string, unknown> = {};
+    for (const [k, v] of Object.entries(rest)) {
+      if (springKeys.has(k)) springs[k] = v as number;
+      else opts[k] = v;
+    }
+    const hasSpring = Object.keys(springs).length > 0 ? springs : undefined;
+    const hasOpts = Object.keys(opts).length > 0 ? opts : undefined;
+    api.addSupport(nodeId, type, hasSpring, hasOpts);
   }
 
   // Loads

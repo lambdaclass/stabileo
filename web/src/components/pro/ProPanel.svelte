@@ -547,8 +547,8 @@
             arr.push({
               comboId: combo.id,
               comboName: combo.name,
-              Mu: Math.max(Math.abs(ef.mzStart), Math.abs(ef.mzEnd), Math.abs(ef.myStart), Math.abs(ef.myEnd)),
-              Vu: Math.max(Math.abs(ef.vyStart), Math.abs(ef.vyEnd), Math.abs(ef.vzStart), Math.abs(ef.vzEnd)),
+              Mu: Math.max(Math.abs(ef.mzStart), Math.abs(ef.mzEnd)),
+              Vu: Math.max(Math.abs(ef.vyStart), Math.abs(ef.vyEnd)),
               Nu: Math.max(Math.abs(ef.nStart), Math.abs(ef.nEnd)),
             });
           }

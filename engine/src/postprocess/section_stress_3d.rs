@@ -78,12 +78,17 @@ const NUM_POINTS_3D: usize = 31;
 
 // ==================== 3D Normal Stress (Biaxial Navier) ====================
 
-/// σ(y,z) = N/A + Mz*y/Iz + My*z/Iy  (result in MPa)
+/// σ(y,z) = N/A + Mz*y/Iz - My*z/Iy  (result in MPa)
+///
+/// Section coordinates: y = vertical (height), z = horizontal (width).
+/// Mz = moment about Z-axis (vertical) → bending in Y-Z plane (vertical) → stress varies with y → uses Iz.
+/// My = moment about Y-axis (horizontal) → bending in X-Z plane (lateral) → stress varies with z → uses Iy.
+/// Sign: My negative from θy = -dw/dx convention; Mz positive (θz = +dv/dx, same as 2D).
 fn biaxial_normal_stress(n: f64, my: f64, mz: f64, a: f64, iy: f64, iz: f64, y: f64, z: f64) -> f64 {
     let mut sigma = 0.0;
     if a > 1e-15 { sigma += n / a; }
-    if iz > 1e-15 { sigma += mz * y / iz; }
-    if iy > 1e-15 { sigma -= my * z / iy; }  // negative from θy = -dw/dx
+    if iz > 1e-15 { sigma += mz * y / iz; }  // Mz about Z-vert → stress varies with y (vertical)
+    if iy > 1e-15 { sigma -= my * z / iy; }  // My about Y-horiz → stress varies with z (horizontal)
     sigma / 1000.0
 }
 
@@ -363,18 +368,15 @@ fn compute_neutral_axis_3d(n: f64, my: f64, mz: f64, rs: &ResolvedSection) -> Op
 
     let (y1, z1, y2, z2);
     if mz.abs() > 1e-10 {
-        // Express y = f(z)
-        // y = -(N*Iz)/(A*Mz) + (My*Iz)/(Iy*Mz) * z
-        let _y_at_z0 = if rs.a > 1e-15 { -(n * rs.iz) / (rs.a * mz) / 1000.0 * 1000.0 } else { 0.0 };
-        // Actually: N/A + Mz*y/Iz - My*z/Iy = 0  → y = (-N/A + My*z/Iy) * Iz / Mz
+        // Express y = f(z): y = (-N/A + My*z/Iy) * Iz / Mz
         // At z=z_min and z=z_max
         let za = rs.z_min;
         let zb = rs.z_max;
         let n_over_a = if rs.a > 1e-15 { n / rs.a } else { 0.0 };
-        let ya = if mz.abs() > 1e-10 && rs.iz > 1e-15 {
+        let ya = if rs.iz > 1e-15 {
             (-n_over_a + if rs.iy > 1e-15 { my * za / rs.iy } else { 0.0 }) * rs.iz / mz
         } else { 0.0 };
-        let yb = if mz.abs() > 1e-10 && rs.iz > 1e-15 {
+        let yb = if rs.iz > 1e-15 {
             (-n_over_a + if rs.iy > 1e-15 { my * zb / rs.iy } else { 0.0 }) * rs.iz / mz
         } else { 0.0 };
         y1 = ya; z1 = za; y2 = yb; z2 = zb;

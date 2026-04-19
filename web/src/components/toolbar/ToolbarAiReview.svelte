@@ -9,11 +9,8 @@
   let response = $state<ReviewModelResponse | null>(null);
   let expandedFinding = $state<number | null>(null);
 
-  const hasResults = $derived(
-    uiStore.analysisMode === '3d'
-      ? resultsStore.results3D !== null
-      : resultsStore.results !== null
-  );
+  const is3D = $derived(uiStore.analysisMode === '3d' || uiStore.analysisMode === 'pro');
+  const hasResults = $derived(is3D ? resultsStore.results3D !== null : resultsStore.results !== null);
 
   async function handleReview() {
     loading = true;
@@ -21,7 +18,6 @@
     response = null;
 
     try {
-      const is3D = uiStore.analysisMode === '3d';
       const results = is3D ? resultsStore.results3D : resultsStore.results;
       if (!results) {
         error = t('ai.noResults');

@@ -16,6 +16,8 @@ const seamFiles = [
   'web/src/lib/viewport3d/camera.ts',
   'web/src/lib/viewport3d/grid.ts',
   'web/src/lib/viewport3d/picking.ts',
+  'web/src/lib/viewport3d/scene-sync.ts',
+  'web/src/lib/viewport3d/results-sync.ts',
   'web/src/components/Viewport3D.svelte',
   'web/src/components/floating-tools/ToolNodeOptions.svelte',
   'backend/src/capabilities/build_model.rs',
@@ -60,6 +62,7 @@ const axisLiteralGuardedFiles = [
   'web/src/lib/three/stress-heatmap.ts',
   'web/src/lib/three/diagram-render-3d.ts',
   'web/src/lib/three/deformed-shape-3d.ts',
+  'web/src/lib/viewport3d/grid.ts',
   'web/src/components/Viewport3D.svelte',
 ];
 

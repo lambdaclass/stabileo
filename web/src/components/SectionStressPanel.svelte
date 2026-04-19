@@ -40,14 +40,14 @@
   // SVG overlay toggles
   let showSigma = $state(true);               // Master σ toggle (ON by default — controls all sigma visuals)
   let showShearOnDrawing = $state(false);     // τ diagram on section SVG (OFF by default)
-  let showTotalSigma = $state(false); // false = solo momento (default), true = σ total (N/A + M·y/I)
+  let showTotalSigma = $state(false); // false = solo momento (default), true = σ total (N/A + biaxial M/I)
   let showPerpNA = $state(false);              // σ perpendicular to neutral axis (3D biaxial, OFF)
   let showCentralCore = $state(false);          // NC: núcleo central overlay
   let showPressureCenter = $state(false);      // CP: centro de presiones overlay
   let showCentralCoreInfo = $state(false);     // NC details section (closed by default)
   let useGlobalScale = $state(true);           // Local/global stress scaling toggle (global by default)
 
-  const is3D = $derived(uiStore.analysisMode === '3d');
+  const is3D = $derived(uiStore.analysisMode === '3d' || uiStore.analysisMode === 'pro');
   const query = $derived(resultsStore.stressQuery);
   const querySec = $derived.by(() => {
     if (!query) return null;
@@ -121,14 +121,14 @@
     const V_2d = computeDiagramValueAt('shear', query.t, ef);
     const N_2d = computeDiagramValueAt('axial', query.t, ef);
 
-    // Decompose into section's rotated local axes
-    // My causes σ(y) = -My·y/Iy, so My = -M·cos(α) gives σ = M·cos(α)·y/Iy
-    // Mz causes σ(z) = Mz·z/Iz, so Mz = M·sin(α) gives σ = M·sin(α)·z/Iz
+    // Decompose 2D bending into the section's rotated local axes.
+    // At α = 0° the 2D moment acts entirely about local Z (Mz, strong axis).
+    // At α = 90° it acts entirely about local Y (My, weak axis).
     const alpha = (sec.rotation ?? 0) * Math.PI / 180;
     const cosA = Math.cos(alpha);
     const sinA = Math.sin(alpha);
-    const My = -M_2d * cosA;
-    const Mz =  M_2d * sinA;
+    const Mz = M_2d * cosA;
+    const My = M_2d * sinA;
     const Vy =  V_2d * cosA;
     const Vz =  V_2d * sinA;
 
@@ -164,7 +164,7 @@
 
   // Neutral axis for ⊥ distribution: moments-only or full (with N) depending on showTotalSigma
   // When showTotalSigma is off: NA passes through centroid (N=0), classic moment-only view
-  // When showTotalSigma is on: NA shifts by (N·Iz)/(A·My), shows combined effect
+  // When showTotalSigma is on: NA shifts by axial eccentricity, shows combined effect
   const perpNA = $derived.by(() => {
     if (!showPerpNA || !uses3DPath || !analysis3D) return null;
     if (Math.abs(analysis3D.My) < 0.01 && Math.abs(analysis3D.Mz) < 0.01) return null;
@@ -175,19 +175,19 @@
     // Moments-only NA (passes through centroid)
     return computeNeutralAxisMomentsOnly(
       analysis3D.Mz, analysis3D.My,
-      analysis3D.resolved.iy, analysis3D.Iz,
+      analysis3D.Iz, analysis3D.resolved.iy,
     );
   });
 
   // Perpendicular-to-NA stress distribution
-  // When showTotalSigma: σ = N/A - My·y/Iz + Mz·z/Iy (full, with axial)
-  // Otherwise: σ = -My·y/Iz + Mz·z/Iy (moments only, N=0)
+  // When showTotalSigma: σ = N/A + Mz·y/Iz - My·z/Iy (full, with axial)
+  // Otherwise: σ = Mz·y/Iz - My·z/Iy (moments only, N=0)
   const perpNADist = $derived.by((): PerpNAPoint[] => {
     if (!perpNA || !perpNA.exists || !analysis3D) return [];
     return computePerpNADistribution(
       showTotalSigma ? analysis3D.N : 0,
       analysis3D.Mz, analysis3D.My,
-      analysis3D.resolved.a, analysis3D.resolved.iy, analysis3D.Iz,
+      analysis3D.resolved.a, analysis3D.Iz, analysis3D.resolved.iy,
       perpNA, analysis3D.resolved,
     );
   });
@@ -199,16 +199,17 @@
   });
 
   // Pressure center (centro de presiones):
-  // From σ = N/A - My·y/Iz + Mz·z/Iy, matching eccentric N formula σ = N/A + N·ey·y/Iz + N·ez·z/Iy:
-  //   N·ey = -My → ey = -My/N   (y_CP = -My/N)
-  //   N·ez = Mz  → ez = Mz/N    (z_CP = Mz/N)
+  // From σ = N/A + Mz·y/Iz - My·z/Iy, matching eccentric N formula
+  // σ = N/A + N·ey·y/Iz - N·ez·z/Iy:
+  //   N·ey = Mz → ey = Mz/N   (y_CP = Mz/N)
+  //   N·ez = My → ez = My/N   (z_CP = My/N)
   // Only exists when N ≠ 0 (if N=0, CP is at infinity)
   const pressureCenter = $derived.by((): { y: number; z: number; insideCore: boolean } | null => {
     if (!showPressureCenter) return null;
     if (uses3DPath && analysis3D) {
       if (Math.abs(analysis3D.N) < 0.01) return null; // N ≈ 0 → CP at infinity
-      const yCP = -analysis3D.My / analysis3D.N;   // meters — ey = -My/N
-      const zCP = analysis3D.Mz / analysis3D.N;    // meters — ez = Mz/N
+      const yCP = analysis3D.Mz / analysis3D.N;   // meters — ey = Mz/N
+      const zCP = analysis3D.My / analysis3D.N;   // meters — ez = My/N
       const insideCore = centralCore
         ? isPointInConvexPolygon(zCP, yCP, centralCore.vertices)
         : false;

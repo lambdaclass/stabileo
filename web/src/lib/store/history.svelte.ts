@@ -3,7 +3,7 @@ import { modelStore } from './model.svelte';
 
 export interface ModelSnapshot {
   name?: string;
-  analysisMode?: '2d' | '3d';
+  analysisMode?: '2d' | '3d' | 'pro' | 'edu';
   nodes: Array<[number, { id: number; x: number; y: number; z?: number }]>;
   materials: Array<[number, { id: number; name: string; e: number; nu: number; rho: number }]>;
   sections: Array<[number, { id: number; name: string; a: number; iz: number; b?: number; h?: number; shape?: string; tw?: number; tf?: number; t?: number; iy?: number; j?: number }]>;

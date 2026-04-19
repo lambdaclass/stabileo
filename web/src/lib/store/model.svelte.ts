@@ -1199,22 +1199,25 @@ function createModelStore() {
       // Compute new node position
       const px = ni.x + t * (nj.x - ni.x);
       const py = ni.y + t * (nj.y - ni.y);
+      const hasZ = ni.z !== undefined || nj.z !== undefined;
+      const pz = (ni.z ?? 0) + t * ((nj.z ?? 0) - (ni.z ?? 0));
 
       // Check if a node already exists at this position (within tolerance)
       let newNodeId: number | null = null;
       for (const node of model.nodes.values()) {
-        if (Math.abs(node.x - px) < 0.01 && Math.abs(node.y - py) < 0.01) {
+        if (Math.abs(node.x - px) < 0.01 && Math.abs(node.y - py) < 0.01 && Math.abs((node.z ?? 0) - pz) < 0.01) {
           newNodeId = node.id;
           break;
         }
       }
       if (newNodeId === null) {
         newNodeId = nextId.node++;
-        model.nodes.set(newNodeId, { id: newNodeId, x: px, y: py });
+        model.nodes.set(newNodeId, { id: newNodeId, x: px, y: py, ...(hasZ ? { z: pz } : {}) });
       }
 
       // Compute element length for load redistribution
-      const L = Math.sqrt((nj.x - ni.x) ** 2 + (nj.y - ni.y) ** 2);
+      const dz = (nj.z ?? 0) - (ni.z ?? 0);
+      const L = Math.sqrt((nj.x - ni.x) ** 2 + (nj.y - ni.y) ** 2 + dz * dz);
       const LA = L * t;
 
       // Collect loads on this element
@@ -1382,9 +1385,9 @@ function createModelStore() {
         const n = model.nodes.get(id);
         if (!n) continue;
         if (axis === 'x') {
-          model.nodes.set(id, { id: n.id, x: 2 * cx - n.x, y: n.y });
+          model.nodes.set(id, { id: n.id, x: 2 * cx - n.x, y: n.y, ...(n.z !== undefined ? { z: n.z } : {}) });
         } else {
-          model.nodes.set(id, { id: n.id, x: n.x, y: 2 * cy - n.y });
+          model.nodes.set(id, { id: n.id, x: n.x, y: 2 * cy - n.y, ...(n.z !== undefined ? { z: n.z } : {}) });
         }
       }
       model.nodes = new Map(model.nodes);
@@ -1409,7 +1412,7 @@ function createModelStore() {
         if (!n) continue;
         const dx = n.x - cx;
         const dy = n.y - cy;
-        model.nodes.set(id, { id: n.id, x: cx + dx * cosA - dy * sinA, y: cy + dx * sinA + dy * cosA });
+        model.nodes.set(id, { id: n.id, x: cx + dx * cosA - dy * sinA, y: cy + dx * sinA + dy * cosA, ...(n.z !== undefined ? { z: n.z } : {}) });
       }
       model.nodes = new Map(model.nodes);
     },
