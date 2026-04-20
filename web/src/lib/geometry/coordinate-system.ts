@@ -182,6 +182,25 @@ export function toSceneVector(point: ScenePoint): THREE.Vector3 {
 }
 
 
+/** Cache for shouldProjectModelToXZ, keyed on (modelVersion, analysisMode, presentation).
+ *  Sync functions in Viewport3D call shouldProjectModelToXZ once per pass and the
+ *  model iterables are expensive on large fixtures. getCachedProjectModelToXZ reads
+ *  the stores itself and reuses the last result until any key changes. */
+let _projectCache: { key: string; value: boolean } | null = null;
+
+export function getCachedProjectModelToXZ(
+  modelVersion: number,
+  analysisMode: string,
+  viewportPresentation3D: ViewportPresentation3D,
+  compute: () => boolean,
+): boolean {
+  const key = `${modelVersion}|${analysisMode}|${viewportPresentation3D}`;
+  if (_projectCache && _projectCache.key === key) return _projectCache.value;
+  const value = compute();
+  _projectCache = { key, value };
+  return value;
+}
+
 export function shouldProjectModelToXZ(params: {
   nodes: Iterable<CoordinateNode>;
   supports?: Iterable<TypedSupportLike>;

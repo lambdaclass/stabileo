@@ -418,6 +418,13 @@ function createModelStore() {
   let _undoBatching = false;
   // Results invalidation callback — set externally by store/index.ts to clear stale results
   let _onMutation: (() => void) | null = null;
+  // Bulk mutation mode: during loadExample (and other wholesale mutations) we
+  // want a single reactive commit instead of one per entity. Add/update methods
+  // skip their per-call Map / array reassignment while this flag is true;
+  // bulkMutate() reassigns everything once at the end.
+  let _bulkMutating = false;
+  let _bulkLoadBuffer: Load[] | null = null;
+  let _bulkConstraintBuffer: Constraint3D[] | null = null;
 
   return {
     _setHistoryPush(fn: () => void) {
@@ -435,6 +442,41 @@ function createModelStore() {
       _pushUndo?.();
       _undoBatching = true;
       try { fn(); } finally { _undoBatching = false; }
+    },
+
+    /** Run a batch of structural mutations as a single reactive commit + undo step.
+     *  Skips per-call Map/array reassignment; reassigns everything once at the end
+     *  so the viewport syncs and `$effect`s re-run only once for the whole batch. */
+    bulkMutate(fn: () => void): void {
+      if (_bulkMutating) { fn(); return; }
+      if (!_undoBatching) _pushUndo?.();
+      const ownUndoBatch = !_undoBatching;
+      if (ownUndoBatch) _undoBatching = true;
+      _bulkMutating = true;
+      _bulkLoadBuffer = [...model.loads];
+      _bulkConstraintBuffer = [...model.constraints];
+      try {
+        fn();
+      } finally {
+        const commitLoads = _bulkLoadBuffer!;
+        const commitConstraints = _bulkConstraintBuffer!;
+        _bulkLoadBuffer = null;
+        _bulkConstraintBuffer = null;
+        _bulkMutating = false;
+        if (ownUndoBatch) _undoBatching = false;
+        // Single reactive commit — one bump, one scene sync pass
+        model.nodes = new Map(model.nodes);
+        model.elements = new Map(model.elements);
+        model.supports = new Map(model.supports);
+        model.materials = new Map(model.materials);
+        model.sections = new Map(model.sections);
+        model.plates = new Map(model.plates);
+        model.quads = new Map(model.quads);
+        model.loads = commitLoads;
+        model.constraints = commitConstraints;
+        modelVersion++;
+        _onMutation?.();
+      }
     },
 
     get modelVersion() { return modelVersion; },
@@ -575,7 +617,7 @@ function createModelStore() {
       const node: Node = { id, x, y };
       if (z !== undefined && z !== 0) node.z = z;
       model.nodes.set(id, node);
-      model.nodes = new Map(model.nodes);
+      if (!_bulkMutating) model.nodes = new Map(model.nodes);
       if (!_undoBatching) {
         if (uiStore.analysisMode === '3d' || uiStore.analysisMode === 'pro') {
           uiStore.useNative3DPresentation();
@@ -606,7 +648,7 @@ function createModelStore() {
         hingeStart: false,
         hingeEnd: false,
       });
-      model.elements = new Map(model.elements);
+      if (!_bulkMutating) model.elements = new Map(model.elements);
       return id;
     },
 
@@ -643,7 +685,7 @@ function createModelStore() {
       if (opts?.dofFrame) sup.dofFrame = opts.dofFrame;
       if (opts?.dofLocalElementId !== undefined) sup.dofLocalElementId = opts.dofLocalElementId;
       model.supports.set(id, sup);
-      model.supports = new Map(model.supports);
+      if (!_bulkMutating) model.supports = new Map(model.supports);
       return id;
     },
 
@@ -652,7 +694,9 @@ function createModelStore() {
       const id = nextId.load++;
       const data: NodalLoad = { id, nodeId, fx, fz, my };
       if (caseId !== undefined) data.caseId = caseId;
-      model.loads = [...model.loads, { type: 'nodal', data }];
+      const entry = { type: 'nodal' as const, data };
+      if (_bulkLoadBuffer) _bulkLoadBuffer.push(entry);
+      else model.loads = [...model.loads, entry];
       return id;
     },
 
@@ -665,7 +709,9 @@ function createModelStore() {
       if (caseId !== undefined) data.caseId = caseId;
       if (a !== undefined && a > 0) data.a = a;
       if (b !== undefined) data.b = b;
-      model.loads = [...model.loads, { type: 'distributed', data }];
+      const entry = { type: 'distributed' as const, data };
+      if (_bulkLoadBuffer) _bulkLoadBuffer.push(entry);
+      else model.loads = [...model.loads, entry];
       return id;
     },
 
@@ -679,7 +725,9 @@ function createModelStore() {
       if (opts?.angle !== undefined && opts.angle !== 0) data.angle = opts.angle;
       if (opts?.isGlobal) data.isGlobal = true;
       if (opts?.caseId !== undefined) data.caseId = opts.caseId;
-      model.loads = [...model.loads, { type: 'pointOnElement', data }];
+      const entry = { type: 'pointOnElement' as const, data };
+      if (_bulkLoadBuffer) _bulkLoadBuffer.push(entry);
+      else model.loads = [...model.loads, entry];
       return id;
     },
 
@@ -688,7 +736,9 @@ function createModelStore() {
       const id = nextId.load++;
       const data: ThermalLoad = { id, elementId, dtUniform, dtGradient };
       if (caseId !== undefined) data.caseId = caseId;
-      model.loads = [...model.loads, { type: 'thermal', data }];
+      const entry = { type: 'thermal' as const, data };
+      if (_bulkLoadBuffer) _bulkLoadBuffer.push(entry);
+      else model.loads = [...model.loads, entry];
       return id;
     },
 
@@ -699,7 +749,9 @@ function createModelStore() {
       const id = nextId.load++;
       const data: NodalLoad3D = { id, nodeId, fx, fy, fz, mx, my, mz };
       if (caseId !== undefined) data.caseId = caseId;
-      model.loads = [...model.loads, { type: 'nodal3d', data }];
+      const entry = { type: 'nodal3d' as const, data };
+      if (_bulkLoadBuffer) _bulkLoadBuffer.push(entry);
+      else model.loads = [...model.loads, entry];
       return id;
     },
 
@@ -710,7 +762,9 @@ function createModelStore() {
       if (a !== undefined && a > 0) data.a = a;
       if (b !== undefined) data.b = b;
       if (caseId !== undefined) data.caseId = caseId;
-      model.loads = [...model.loads, { type: 'distributed3d', data }];
+      const entry = { type: 'distributed3d' as const, data };
+      if (_bulkLoadBuffer) _bulkLoadBuffer.push(entry);
+      else model.loads = [...model.loads, entry];
       return id;
     },
 
@@ -719,7 +773,9 @@ function createModelStore() {
       const id = nextId.load++;
       const data: PointLoadOnElement3D = { id, elementId, a, py, pz };
       if (caseId !== undefined) data.caseId = caseId;
-      model.loads = [...model.loads, { type: 'pointOnElement3d', data }];
+      const entry = { type: 'pointOnElement3d' as const, data };
+      if (_bulkLoadBuffer) _bulkLoadBuffer.push(entry);
+      else model.loads = [...model.loads, entry];
       return id;
     },
 
@@ -728,7 +784,9 @@ function createModelStore() {
       const id = nextId.load++;
       const data: SurfaceLoad3D = { id, quadId, q };
       if (caseId !== undefined) data.caseId = caseId;
-      model.loads = [...model.loads, { type: 'surface3d', data }];
+      const entry = { type: 'surface3d' as const, data };
+      if (_bulkLoadBuffer) _bulkLoadBuffer.push(entry);
+      else model.loads = [...model.loads, entry];
       return id;
     },
 
@@ -737,7 +795,9 @@ function createModelStore() {
       const id = nextId.load++;
       const data: ThermalLoadQuad3D = { id, quadId, dtUniform, dtGradient };
       if (caseId !== undefined) data.caseId = caseId;
-      model.loads = [...model.loads, { type: 'thermalQuad3d', data }];
+      const entry = { type: 'thermalQuad3d' as const, data };
+      if (_bulkLoadBuffer) _bulkLoadBuffer.push(entry);
+      else model.loads = [...model.loads, entry];
       return id;
     },
 
@@ -777,7 +837,7 @@ function createModelStore() {
       if (!_undoBatching) _pushUndo?.();
       const id = nextId.plate++;
       model.plates.set(id, { id, nodes, materialId, thickness });
-      model.plates = new Map(model.plates);
+      if (!_bulkMutating) model.plates = new Map(model.plates);
       return id;
     },
 
@@ -791,7 +851,7 @@ function createModelStore() {
       if (!_undoBatching) _pushUndo?.();
       const id = nextId.quad++;
       model.quads.set(id, { id, nodes, materialId, thickness });
-      model.quads = new Map(model.quads);
+      if (!_bulkMutating) model.quads = new Map(model.quads);
       return id;
     },
 
@@ -803,7 +863,8 @@ function createModelStore() {
 
     addConstraint(c: Constraint3D): void {
       if (!_undoBatching) _pushUndo?.();
-      model.constraints = [...model.constraints, { ...c }];
+      if (_bulkConstraintBuffer) _bulkConstraintBuffer.push({ ...c });
+      else model.constraints = [...model.constraints, { ...c }];
     },
 
     removeConstraint(index: number): void {
@@ -868,7 +929,7 @@ function createModelStore() {
         normalZ: sup.normalZ,
         isInclined: sup.isInclined,
       });
-      model.supports = new Map(model.supports);
+      if (!_bulkMutating) model.supports = new Map(model.supports);
     },
 
     updateLoad(loadId: number, data: Record<string, number | boolean | undefined>): void {
@@ -1124,7 +1185,7 @@ function createModelStore() {
       plain.hingeStart = end === 'start' ? !wasStart : wasStart;
       plain.hingeEnd = end === 'end' ? !wasEnd : wasEnd;
       model.elements.set(elementId, plain);
-      model.elements = new Map(model.elements);
+      if (!_bulkMutating) model.elements = new Map(model.elements);
     },
 
     /** Get all elements connected to a node, annotated with which end touches the node */
@@ -1585,7 +1646,9 @@ function createModelStore() {
         nextId,
       };
 
-      loadFixture(json as any, api as any);
+      this.bulkMutate(() => {
+        loadFixture(json as any, api as any);
+      });
 
       if (is2DFixture(name) && (uiStore.analysisMode === '3d' || uiStore.analysisMode === 'pro')) {
         uiStore.useUpright2DIn3DPresentation();
@@ -1611,9 +1674,13 @@ function createModelStore() {
     addMaterial(data: Omit<Material, 'id'>): number {
       if (!_undoBatching) _pushUndo?.();
       const id = nextId.material++;
-      const m = new Map(model.materials);
-      m.set(id, { id, ...data });
-      model.materials = m;
+      if (_bulkMutating) {
+        model.materials.set(id, { id, ...data });
+      } else {
+        const m = new Map(model.materials);
+        m.set(id, { id, ...data });
+        model.materials = m;
+      }
       return id;
     },
 
@@ -1642,9 +1709,13 @@ function createModelStore() {
     addSection(data: Omit<Section, 'id'>): number {
       if (!_undoBatching) _pushUndo?.();
       const id = nextId.section++;
-      const m = new Map(model.sections);
-      m.set(id, { id, ...data });
-      model.sections = m;
+      if (_bulkMutating) {
+        model.sections.set(id, { id, ...data });
+      } else {
+        const m = new Map(model.sections);
+        m.set(id, { id, ...data });
+        model.sections = m;
+      }
       return id;
     },
 
@@ -1695,8 +1766,10 @@ function createModelStore() {
       const plain = $state.snapshot(elem) as Element;
       plain.materialId = materialId;
       model.elements.set(elemId, plain);
-      model.elements = new Map(model.elements);
-      this.bumpModelVersion();
+      if (!_bulkMutating) {
+        model.elements = new Map(model.elements);
+        this.bumpModelVersion();
+      }
     },
 
     updateElementSection(elemId: number, sectionId: number): void {
@@ -1706,8 +1779,10 @@ function createModelStore() {
       const plain = $state.snapshot(elem) as Element;
       plain.sectionId = sectionId;
       model.elements.set(elemId, plain);
-      model.elements = new Map(model.elements);
-      this.bumpModelVersion();
+      if (!_bulkMutating) {
+        model.elements = new Map(model.elements);
+        this.bumpModelVersion();
+      }
     },
 
     updateElementLocalY(elemId: number, lx: number | undefined, ly: number | undefined, lz: number | undefined): void {

@@ -18,9 +18,28 @@ import type { SolverNode3D } from '../engine/types-3d';
 import {
   get2DDisplayNodalLoadMoment,
   get2DDisplayNodalLoadVertical,
+  getCachedProjectModelToXZ,
   projectNodeToScene,
   shouldProjectModelToXZ,
 } from '../geometry/coordinate-system';
+
+/** Compute shouldProjectModelToXZ with per-pass caching keyed on modelVersion. */
+function projectFlag(): boolean {
+  return getCachedProjectModelToXZ(
+    modelStore.modelVersion,
+    uiStore.analysisMode,
+    uiStore.viewportPresentation3D,
+    () => shouldProjectModelToXZ({
+      analysisMode: uiStore.analysisMode,
+      viewportPresentation3D: uiStore.viewportPresentation3D,
+      nodes: modelStore.nodes.values(),
+      supports: modelStore.supports.values(),
+      loads: modelStore.loads,
+      plateCount: modelStore.plates.size,
+      quadCount: modelStore.quads.size,
+    }),
+  );
+}
 
 /**
  * Mutable context holding Three.js scene graph references.
@@ -57,15 +76,7 @@ export interface SceneSyncContext {
 export function syncNodes(ctx: SceneSyncContext): void {
   if (!ctx.initialized) return;
   const storeNodes = modelStore.nodes;
-  const project2D = shouldProjectModelToXZ({
-    analysisMode: uiStore.analysisMode,
-    viewportPresentation3D: uiStore.viewportPresentation3D,
-    nodes: storeNodes.values(),
-    supports: modelStore.supports.values(),
-    loads: modelStore.loads,
-    plateCount: modelStore.plates.size,
-    quadCount: modelStore.quads.size,
-  });
+  const project2D = projectFlag();
 
   // Remove nodes no longer in store
   for (const [id, mesh] of ctx.nodeMeshes) {
@@ -95,15 +106,7 @@ export function syncNodes(ctx: SceneSyncContext): void {
 export function syncElements(ctx: SceneSyncContext): void {
   if (!ctx.initialized) return;
   const storeElements = modelStore.elements;
-  const project2D = shouldProjectModelToXZ({
-    analysisMode: uiStore.analysisMode,
-    viewportPresentation3D: uiStore.viewportPresentation3D,
-    nodes: modelStore.nodes.values(),
-    supports: modelStore.supports.values(),
-    loads: modelStore.loads,
-    plateCount: modelStore.plates.size,
-    quadCount: modelStore.quads.size,
-  });
+  const project2D = projectFlag();
 
   // Remove stale
   for (const [id, group] of ctx.elementGroups) {
@@ -114,22 +117,31 @@ export function syncElements(ctx: SceneSyncContext): void {
     }
   }
 
-  // Recreate all (simpler than diffing positions/types; elements rarely change individually)
+  const renderMode = uiStore.renderMode3D;
+
+  // Signature captures everything that forces a rebuild of the element mesh:
+  // endpoint positions, type, hinges, section geometry, roll, render mode.
   for (const [id, elem] of storeElements) {
     const nI = modelStore.nodes.get(elem.nodeI);
     const nJ = modelStore.nodes.get(elem.nodeJ);
     if (!nI || !nJ) continue;
 
-    // Remove old and recreate
-    const old = ctx.elementGroups.get(id);
-    if (old) {
-      ctx.elementsParent.remove(old);
-      disposeObject(old);
-    }
-
     const sec = modelStore.sections.get(elem.sectionId);
     const posI = projectNodeToScene(nI, project2D);
     const posJ = projectNodeToScene(nJ, project2D);
+    const signature =
+      `${renderMode}|${elem.type}|${elem.hingeStart ? 1 : 0}${elem.hingeEnd ? 1 : 0}` +
+      `|${posI.x}:${posI.y}:${posI.z}|${posJ.x}:${posJ.y}:${posJ.z}` +
+      `|${elem.sectionId}:${sec?.shape ?? ''}:${sec?.a ?? ''}:${sec?.b ?? ''}:${sec?.h ?? ''}:${sec?.rotation ?? ''}` +
+      `|${elem.rollAngle ?? ''}`;
+
+    const existing = ctx.elementGroups.get(id);
+    if (existing && existing.userData.elementSig === signature) continue;
+    if (existing) {
+      ctx.elementsParent.remove(existing);
+      disposeObject(existing);
+    }
+
     const group = createElementGroup(
       posI,
       posJ,
@@ -141,9 +153,10 @@ export function syncElements(ctx: SceneSyncContext): void {
         section: sec,
         sectionRotation: sec?.rotation,
         elementRollAngle: elem.rollAngle,
-        renderMode: uiStore.renderMode3D,
+        renderMode,
       },
     );
+    group.userData.elementSig = signature;
     ctx.elementsParent.add(group);
     ctx.elementGroups.set(id, group);
   }
@@ -154,15 +167,7 @@ export function syncElements(ctx: SceneSyncContext): void {
 export function syncSupports(ctx: SceneSyncContext): void {
   if (!ctx.initialized) return;
   const storeSupports = modelStore.supports;
-  const project2D = shouldProjectModelToXZ({
-    analysisMode: uiStore.analysisMode,
-    viewportPresentation3D: uiStore.viewportPresentation3D,
-    nodes: modelStore.nodes.values(),
-    supports: storeSupports.values(),
-    loads: modelStore.loads,
-    plateCount: modelStore.plates.size,
-    quadCount: modelStore.quads.size,
-  });
+  const project2D = projectFlag();
 
   // Remove stale
   for (const [id, gizmo] of ctx.supportGizmos) {
@@ -209,46 +214,80 @@ export function syncSupports(ctx: SceneSyncContext): void {
 export function syncShells(ctx: SceneSyncContext): void {
   if (!ctx.initialized) return;
 
-  const project2D = shouldProjectModelToXZ({
-    analysisMode: uiStore.analysisMode,
-    viewportPresentation3D: uiStore.viewportPresentation3D,
-    nodes: modelStore.nodes.values(),
-    supports: modelStore.supports.values(),
-    loads: modelStore.loads,
-    plateCount: modelStore.plates.size,
-    quadCount: modelStore.quads.size,
-  });
+  const project2D = projectFlag();
 
   const getNode = (id: number) => {
     const n = modelStore.nodes.get(id);
     return n ? projectNodeToScene(n, project2D) : null;
   };
 
-  // Clear all existing shell meshes (simple rebuild, like elements)
-  for (const [, group] of ctx.shellGroups) {
-    ctx.shellsParent.remove(group);
-    disposeObject(group);
-  }
-  ctx.shellGroups.clear();
+  // Signature of a shell: node ids + positions + project flag.
+  // Rebuild the mesh only when the signature changes.
+  const sig = (project: boolean, pts: Array<{ x: number; y: number; z: number }>, ids: number[]): string => {
+    let s = project ? '1' : '0';
+    for (let i = 0; i < ids.length; i++) {
+      const p = pts[i];
+      s += `|${ids[i]}:${p.x}:${p.y}:${p.z}`;
+    }
+    return s;
+  };
+
+  const seen = new Set<string>();
 
   // Plates (triangular DKT)
   for (const [id, plate] of modelStore.plates) {
-    const [n0, n1, n2] = plate.nodes.map(nid => getNode(nid));
-    if (!n0 || !n1 || !n2) continue;
+    const key = `p${id}`;
+    const nodes = plate.nodes.map(nid => getNode(nid));
+    if (nodes.some(n => !n)) continue;
+    const [n0, n1, n2] = nodes as Array<{ x: number; y: number; z: number }>;
+    const signature = sig(project2D, [n0, n1, n2], [...plate.nodes]);
 
+    const existing = ctx.shellGroups.get(key);
+    if (existing && existing.userData.shellSig === signature) {
+      seen.add(key);
+      continue;
+    }
+    if (existing) {
+      ctx.shellsParent.remove(existing);
+      disposeObject(existing);
+    }
     const group = createPlateMesh(n0, n1, n2, id);
+    group.userData.shellSig = signature;
     ctx.shellsParent.add(group);
-    ctx.shellGroups.set(`p${id}`, group);
+    ctx.shellGroups.set(key, group);
+    seen.add(key);
   }
 
   // Quads (MITC4)
   for (const [id, quad] of modelStore.quads) {
-    const [n0, n1, n2, n3] = quad.nodes.map(nid => getNode(nid));
-    if (!n0 || !n1 || !n2 || !n3) continue;
+    const key = `q${id}`;
+    const nodes = quad.nodes.map(nid => getNode(nid));
+    if (nodes.some(n => !n)) continue;
+    const [n0, n1, n2, n3] = nodes as Array<{ x: number; y: number; z: number }>;
+    const signature = sig(project2D, [n0, n1, n2, n3], [...quad.nodes]);
 
+    const existing = ctx.shellGroups.get(key);
+    if (existing && existing.userData.shellSig === signature) {
+      seen.add(key);
+      continue;
+    }
+    if (existing) {
+      ctx.shellsParent.remove(existing);
+      disposeObject(existing);
+    }
     const group = createQuadMesh(n0, n1, n2, n3, id);
+    group.userData.shellSig = signature;
     ctx.shellsParent.add(group);
-    ctx.shellGroups.set(`q${id}`, group);
+    ctx.shellGroups.set(key, group);
+    seen.add(key);
+  }
+
+  // Remove shell groups whose backing plate/quad no longer exists
+  for (const [key, group] of ctx.shellGroups) {
+    if (seen.has(key)) continue;
+    ctx.shellsParent.remove(group);
+    disposeObject(group);
+    ctx.shellGroups.delete(key);
   }
 }
 
@@ -256,15 +295,7 @@ export function syncShells(ctx: SceneSyncContext): void {
 
 export function syncLoads(ctx: SceneSyncContext): void {
   if (!ctx.initialized) return;
-  const project2D = shouldProjectModelToXZ({
-    analysisMode: uiStore.analysisMode,
-    viewportPresentation3D: uiStore.viewportPresentation3D,
-    nodes: modelStore.nodes.values(),
-    supports: modelStore.supports.values(),
-    loads: modelStore.loads,
-    plateCount: modelStore.plates.size,
-    quadCount: modelStore.quads.size,
-  });
+  const project2D = projectFlag();
 
   // Clear all load visuals
   if (ctx.loadGroup) {

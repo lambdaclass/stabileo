@@ -16,21 +16,32 @@ import { createReactionArrow, createConstraintForceArrow } from '../three/create
 import type { Diagram3DKind } from '../engine/diagrams-3d';
 import type { Displacement3D } from '../engine/types-3d';
 import { sampleElementValues, createHeatmapCylinder, orientHeatmapMesh, applyShellVertexColors, type HeatmapVariable } from '../three/stress-heatmap';
-import { projectNodeToScene, shouldProjectModelToXZ } from '../geometry/coordinate-system';
+import { ensureOwnShellMaterial } from '../three/create-shell-mesh';
+import { getCachedProjectModelToXZ, projectNodeToScene, shouldProjectModelToXZ } from '../geometry/coordinate-system';
+
+/** Cached shouldProjectModelToXZ, keyed on modelVersion + analysisMode + presentation. */
+function projectFlag(): boolean {
+  return getCachedProjectModelToXZ(
+    modelStore.modelVersion,
+    uiStore.analysisMode,
+    uiStore.viewportPresentation3D,
+    () => shouldProjectModelToXZ({
+      analysisMode: uiStore.analysisMode,
+      viewportPresentation3D: uiStore.viewportPresentation3D,
+      nodes: modelStore.nodes.values(),
+      supports: modelStore.supports.values(),
+      loads: modelStore.loads,
+      plateCount: modelStore.plates.size,
+      quadCount: modelStore.quads.size,
+    }),
+  );
+}
 
 export const DIAGRAM_3D_TYPES: Set<string> = new Set(['momentY', 'momentZ', 'shearY', 'shearZ', 'axial', 'torsion']);
 
 /** Build a node map projected to scene coordinates (handles 2D→XZ swap for embedded models). */
 function getProjectedNodes(): Map<number, { id: number; x: number; y: number; z?: number }> {
-  const project2D = shouldProjectModelToXZ({
-    analysisMode: uiStore.analysisMode,
-    viewportPresentation3D: uiStore.viewportPresentation3D,
-    nodes: modelStore.nodes.values(),
-    supports: modelStore.supports.values(),
-    loads: modelStore.loads,
-    plateCount: modelStore.plates.size,
-    quadCount: modelStore.quads.size,
-  });
+  const project2D = projectFlag();
   const projected = new Map<number, { id: number; x: number; y: number; z?: number }>();
   for (const [id, n] of modelStore.nodes) {
     const p = projectNodeToScene(n, project2D);
@@ -76,15 +87,7 @@ export interface ResultsSyncContext {
 function computeStructureBBox(): number {
   let minX = Infinity, minY = Infinity, minZ = Infinity;
   let maxX = -Infinity, maxY = -Infinity, maxZ = -Infinity;
-  const project2D = shouldProjectModelToXZ({
-    analysisMode: uiStore.analysisMode,
-    viewportPresentation3D: uiStore.viewportPresentation3D,
-    nodes: modelStore.nodes.values(),
-    supports: modelStore.supports.values(),
-    loads: modelStore.loads,
-    plateCount: modelStore.plates.size,
-    quadCount: modelStore.quads.size,
-  });
+  const project2D = projectFlag();
   for (const n of modelStore.nodes.values()) {
     const p = projectNodeToScene(n, project2D);
     if (p.x < minX) minX = p.x; if (p.x > maxX) maxX = p.x;
@@ -393,15 +396,7 @@ export function syncVerificationLabels(ctx: ResultsSyncContext): void {
 
   if (resultsStore.diagramType !== 'verification' || !verificationStore.hasResults) return;
 
-  const project2D = shouldProjectModelToXZ({
-    analysisMode: uiStore.analysisMode,
-    viewportPresentation3D: uiStore.viewportPresentation3D,
-    nodes: modelStore.nodes.values(),
-    supports: modelStore.supports.values(),
-    loads: modelStore.loads,
-    plateCount: modelStore.plates.size,
-    quadCount: modelStore.quads.size,
-  });
+  const project2D = projectFlag();
 
   const group = new THREE.Group();
   group.name = 'verification-labels';
@@ -472,10 +467,14 @@ function resetShellColors(ctx: ResultsSyncContext): void {
       if (child instanceof THREE.Mesh) {
         const geo = child.geometry;
         if (geo.hasAttribute('color')) geo.deleteAttribute('color');
-        const mat = child.material as THREE.MeshStandardMaterial;
-        mat.vertexColors = false;
-        mat.color.setHex(SHELL_DEFAULT_COLOR);
-        mat.needsUpdate = true;
+        // Only mutate per-mesh material if it was already owned — otherwise the
+        // mesh still points at the shared default material, which is already teal.
+        if (child.userData.ownShellMaterial) {
+          const mat = child.material as THREE.MeshStandardMaterial;
+          mat.vertexColors = false;
+          mat.color.setHex(SHELL_DEFAULT_COLOR);
+          mat.needsUpdate = true;
+        }
       }
     });
   }
@@ -510,15 +509,7 @@ function applyFrameHeatmap(
   // Remove old heatmap meshes first
   clearHeatmapMeshes(ctx);
 
-  const project2D = shouldProjectModelToXZ({
-    analysisMode: uiStore.analysisMode,
-    viewportPresentation3D: uiStore.viewportPresentation3D,
-    nodes: modelStore.nodes.values(),
-    supports: modelStore.supports.values(),
-    loads: modelStore.loads,
-    plateCount: modelStore.plates.size,
-    quadCount: modelStore.quads.size,
-  });
+  const project2D = projectFlag();
 
   // Pass 1: sample values for all elements and find global max
   const elemSamples = new Map<number, number[]>();
@@ -603,7 +594,7 @@ function applyShellHeatmap(
     for (const [, group] of ctx.shellGroups) {
       group.traverse((child) => {
         if (child instanceof THREE.Mesh) {
-          const mat = child.material as THREE.MeshStandardMaterial;
+          const mat = ensureOwnShellMaterial(child);
           mat.vertexColors = false;
           mat.color.setHex(0x888888);
           mat.needsUpdate = true;
@@ -641,15 +632,7 @@ export function syncReactions(ctx: ResultsSyncContext): void {
   const r3d = resultsStore.results3D;
   if (!r3d || !resultsStore.showReactions) return;
 
-  const project2D = shouldProjectModelToXZ({
-    analysisMode: uiStore.analysisMode,
-    viewportPresentation3D: uiStore.viewportPresentation3D,
-    nodes: modelStore.nodes.values(),
-    supports: modelStore.supports.values(),
-    loads: modelStore.loads,
-    plateCount: modelStore.plates.size,
-    quadCount: modelStore.quads.size,
-  });
+  const project2D = projectFlag();
 
   ctx.reactionGroup = new THREE.Group();
   ctx.reactionGroup.name = 'reactions';
@@ -691,15 +674,7 @@ export function syncConstraintForces(ctx: ResultsSyncContext): void {
   const forces = resultsStore.constraintForces3D;
   if (!forces || forces.length === 0 || !resultsStore.showConstraintForces) return;
 
-  const project2D = shouldProjectModelToXZ({
-    analysisMode: uiStore.analysisMode,
-    viewportPresentation3D: uiStore.viewportPresentation3D,
-    nodes: modelStore.nodes.values(),
-    supports: modelStore.supports.values(),
-    loads: modelStore.loads,
-    plateCount: modelStore.plates.size,
-    quadCount: modelStore.quads.size,
-  });
+  const project2D = projectFlag();
 
   ctx.constraintForcesGroup = new THREE.Group();
   ctx.constraintForcesGroup.name = 'constraintForces';
@@ -757,15 +732,7 @@ export function syncLabels3D(ctx: ResultsSyncContext): void {
     ctx.lengthLabelsGroup = null;
   }
 
-  const project2D = shouldProjectModelToXZ({
-    analysisMode: uiStore.analysisMode,
-    viewportPresentation3D: uiStore.viewportPresentation3D,
-    nodes: modelStore.nodes.values(),
-    supports: modelStore.supports.values(),
-    loads: modelStore.loads,
-    plateCount: modelStore.plates.size,
-    quadCount: modelStore.quads.size,
-  });
+  const project2D = projectFlag();
 
   // Compute model size for sprite scaling
   const box = new THREE.Box3();
