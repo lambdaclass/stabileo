@@ -226,6 +226,9 @@ function addPickingHelper(
   orientCylinder(cyl, nI, nJ);
   cyl.renderOrder = -1; // render behind everything
   cyl.userData.pickingHelper = true;
+  // Hide from render pipeline entirely — one less draw call per wireframe/truss
+  // element. Raycaster ignores `visible` by default, so picking still works.
+  cyl.visible = false;
   group.add(cyl);
 }
 

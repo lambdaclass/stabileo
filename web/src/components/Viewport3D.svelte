@@ -445,8 +445,22 @@
     animFrameId = requestAnimationFrame(renderOnce);
 
     // When OrbitControls interaction ends, allow damping frames to settle
-    controls.addEventListener('start', () => { isOrbiting = true; dampingFrames = 0; });
-    controls.addEventListener('end', () => { isOrbiting = false; dampingFrames = 20; invalidate(); });
+    // During camera manipulation, drop to pixelRatio=1 so the GPU pushes ~4× fewer
+    // pixels on retina displays. Restore on 'end' so the idle frame is crisp.
+    // Slight aliasing during drag is acceptable — users perceive smoothness more
+    // than pixel fidelity while rotating.
+    const idlePixelRatio = window.devicePixelRatio;
+    controls.addEventListener('start', () => {
+      isOrbiting = true;
+      dampingFrames = 0;
+      renderer.setPixelRatio(1);
+    });
+    controls.addEventListener('end', () => {
+      isOrbiting = false;
+      dampingFrames = 20;
+      renderer.setPixelRatio(idlePixelRatio);
+      invalidate();
+    });
 
     // Listen for global zoom-to-fit event (dispatched by F key from Toolbar)
     const handleZoomToFitEvent = () => { zoomToFit(); }; // zoomToFit() calls invalidate() internally
