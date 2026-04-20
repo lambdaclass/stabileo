@@ -286,8 +286,19 @@
         modelStore.loadExample(exampleId).then(() => {
           resultsStore.clear();
           resultsStore.clear3D();
-          window.dispatchEvent(new Event('stabileo-zoom-to-fit'));
           window.dispatchEvent(new Event('stabileo-solve'));
+          // Fire zoom-to-fit repeatedly until the canvas has non-zero size:
+          // inside an iframe the canvas is 0×0 during first paint, so a single
+          // event lands before the viewport is ready.
+          const tryFit = (attempt: number) => {
+            const canvas = document.querySelector('.viewport-container canvas') as HTMLCanvasElement | null;
+            if (canvas && canvas.width > 0 && canvas.height > 0) {
+              window.dispatchEvent(new Event('stabileo-zoom-to-fit'));
+              return;
+            }
+            if (attempt < 40) setTimeout(() => tryFit(attempt + 1), 60);
+          };
+          tryFit(0);
         }).catch(() => {
           // Silently ignore unknown example ids
         });

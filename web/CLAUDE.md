@@ -5,32 +5,25 @@ Educational tool with step-by-step solver visualization for civil/structural eng
 
 ## URLs
 
-- **Producción**: https://stabileo.com (y https://stabileo.pages.dev — mismo deploy)
+- **Producción**: https://stabileo.com (dominio custom sobre GitHub Pages)
 - **Dev local**: http://localhost:4000 (`npm run dev`)
-- **Repo**: https://github.com/Batuis/dedaliano (privado)
+- **Repo**: https://github.com/lambdaclass/stabileo (público)
 
 ## Deploy & Hosting
 
-- **Hosting**: Cloudflare Pages (plan gratuito)
+- **Hosting**: GitHub Pages (dominio custom `stabileo.com` con CNAME en `web/public/`)
 - **CI/CD**: GitHub Actions — cada push a `main` dispara build + deploy automático
-- **Workflow**: `.github/workflows/deploy.yml` usa `cloudflare/wrangler-action@v3`
-- **Secrets requeridos en GitHub**: `CLOUDFLARE_API_TOKEN`, `CLOUDFLARE_ACCOUNT_ID`
-- **Límite**: 500 deploys/mes (plan gratuito, se renueva el día 1 de cada mes)
-
-### Tracking de deploys
-
-| Mes | Deploys usados | Deploys restantes | Notas |
-|-----|---------------|-------------------|-------|
-| Feb 2026 | 3 | 497 | Migración inicial desde GitHub Pages |
+- **Workflow**: `.github/workflows/deploy-gh-pages.yml` usa `actions/deploy-pages@v4`
+- **CI adicional**: `.github/workflows/ci.yml` corre tests en cada push y PR
+- **Sin límite mensual de deploys** (GitHub Pages no tiene cuota de builds dura)
 
 ### Política de deploy
 
 - **NO pushear a main sin permiso explícito del usuario**. Solo pushear cuando él lo indique.
 - Si hay cambios acumulados importantes o algo roto en producción, pedir permiso antes de pushear.
 - Usar `localhost:4000` para desarrollo y previsualización de cambios. (Puerto 3000 reservado para otra app)
-- Cada push a `main` = 1 deploy consumido. Agrupar cambios para minimizar deploys innecesarios.
-- Antes de pushear, considerar: ¿vale la pena gastar un deploy por este cambio, o conviene acumular más?
-- Recomendar al usuario si conviene pushear o esperar según la magnitud de los cambios.
+- Cada push a `main` dispara un build + deploy automático (~2–3 min).
+- El workflow valida rutas de asset root-relative (`/assets/...`) para que el dominio custom sirva los JS/CSS bien.
 
 ## Tech Stack
 

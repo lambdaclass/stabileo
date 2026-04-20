@@ -213,7 +213,7 @@ const en: Record<string, string> = {
   'landing.aiPoint4': 'Share results via URL — the AI and the engineer see the same model',
   'landing.docsTag': 'Start here',
   'landing.docsTitle': 'Docs that explain the solver, not just the product',
-  'landing.docsSub': 'Use the docs the same way CadQuery users do: quick start first, then workflow guides, then reference.',
+  'landing.docsSub': 'Quick start first, then workflow guides, then reference. Written for engineers who want to know what the solver actually does.',
   'landing.docsQuickKicker': 'Quick start',
   'landing.docsQuickTitle': 'Build and solve a first beam in minutes',
   'landing.docsQuickDesc': 'The shortest path from empty canvas to solved structure, with the coordinate contract explained up front.',

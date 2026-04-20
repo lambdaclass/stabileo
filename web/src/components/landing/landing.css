@@ -903,18 +903,31 @@
 .landing .fcard-float {
   position: absolute;
   z-index: 2;
-  right: 0.8rem;
-  bottom: 1.55rem;
-  width: min(27%, 156px);
-  border-radius: 12px;
+  right: 1rem;
+  bottom: 1.2rem;
+  width: min(30%, 170px);
+  border-radius: 14px;
   overflow: hidden;
-  border: 1px solid var(--lp-border-2);
-  box-shadow: 0 16px 40px rgba(0, 0, 0, 0.5);
+  border: 1px solid rgba(255, 180, 107, 0.28);
+  box-shadow:
+    0 22px 48px rgba(0, 0, 0, 0.55),
+    0 0 0 1px rgba(255, 255, 255, 0.04);
+  transform: rotate(-2.5deg);
+  transition: transform 0.4s ease;
+}
+
+.landing .fcard:hover .fcard-float {
+  transform: rotate(0deg) translateY(-3px);
 }
 
 .landing .fcard-float-left {
   right: auto;
-  left: 0.8rem;
+  left: 1rem;
+  transform: rotate(2.5deg);
+}
+
+.landing .fcard:hover .fcard-float-left {
+  transform: rotate(0deg) translateY(-3px);
 }
 
 .landing .fcard-float img {
