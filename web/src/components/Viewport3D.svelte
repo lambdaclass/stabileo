@@ -3,6 +3,9 @@
   import { t } from '../lib/i18n';
   import * as THREE from 'three';
   import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+  import { LineSegments2 } from 'three/addons/lines/LineSegments2.js';
+  import { LineSegmentsGeometry } from 'three/addons/lines/LineSegmentsGeometry.js';
+  import { LineMaterial } from 'three/addons/lines/LineMaterial.js';
   import { modelStore, uiStore, resultsStore, historyStore, dsmStepsStore, verificationStore } from '../lib/store';
   import { fatLineResolution } from '../lib/three/create-element-mesh';
   import { COLORS, setMeshColor, setGroupColor, findUserData, disposeObject, createTextSprite } from '../lib/three/selection-helpers';
@@ -450,16 +453,60 @@
     // Slight aliasing during drag is acceptable — users perceive smoothness more
     // than pixel fidelity while rotating.
     const idlePixelRatio = window.devicePixelRatio;
-    // Level-of-detail during orbit: hide decorative parents so the frame is a
-    // few hundred draw calls instead of thousands. Users read the structure
-    // from the elements themselves; node dots, support gizmos, load arrows,
-    // diagram overlays, and shell translucency can return on release.
+    // Level-of-detail during orbit: hide decorative parents AND swap the
+    // per-element meshes for a single batched LineSegments2 proxy. On
+    // la-bombonera this collapses ~3500 draw calls down to ~5.
+    let elementsProxy: LineSegments2 | null = null;
+    let elementsProxyVersion = -1;
+    function ensureElementsProxy(): void {
+      const currentVersion = modelStore.modelVersion;
+      if (elementsProxy && elementsProxyVersion === currentVersion) return;
+      // Rebuild from the current model. Pair of xyz per segment.
+      const positions: number[] = [];
+      for (const el of modelStore.elements.values()) {
+        const ni = modelStore.getNode(el.nodeI);
+        const nj = modelStore.getNode(el.nodeJ);
+        if (!ni || !nj) continue;
+        positions.push(ni.x, ni.y, ni.z ?? 0, nj.x, nj.y, nj.z ?? 0);
+      }
+      if (elementsProxy) {
+        elementsProxy.geometry.dispose();
+        (elementsProxy.material as LineMaterial).dispose();
+        scene.remove(elementsProxy);
+        elementsProxy = null;
+      }
+      if (positions.length === 0) {
+        elementsProxyVersion = currentVersion;
+        return;
+      }
+      const geo = new LineSegmentsGeometry();
+      geo.setPositions(positions);
+      const mat = new LineMaterial({
+        color: COLORS.frame,
+        linewidth: 3,
+        worldUnits: false,
+        resolution: fatLineResolution,
+      });
+      elementsProxy = new LineSegments2(geo, mat);
+      elementsProxy.raycast = () => {}; // never picked — only visible during orbit
+      elementsProxy.visible = false;
+      scene.add(elementsProxy);
+      elementsProxyVersion = currentVersion;
+    }
     function setLowDetail(on: boolean): void {
       if (nodesParent) nodesParent.visible = !on;
       if (supportsParent) supportsParent.visible = !on;
       if (loadsParent) loadsParent.visible = !on;
       if (resultsParent) resultsParent.visible = !on;
       if (shellsParent) shellsParent.visible = !on;
+      if (on) {
+        ensureElementsProxy();
+        if (elementsParent) elementsParent.visible = false;
+        if (elementsProxy) elementsProxy.visible = true;
+      } else {
+        if (elementsParent) elementsParent.visible = true;
+        if (elementsProxy) elementsProxy.visible = false;
+      }
     }
     controls.addEventListener('start', () => {
       isOrbiting = true;
