@@ -450,15 +450,28 @@
     // Slight aliasing during drag is acceptable — users perceive smoothness more
     // than pixel fidelity while rotating.
     const idlePixelRatio = window.devicePixelRatio;
+    // Level-of-detail during orbit: hide decorative parents so the frame is a
+    // few hundred draw calls instead of thousands. Users read the structure
+    // from the elements themselves; node dots, support gizmos, load arrows,
+    // diagram overlays, and shell translucency can return on release.
+    function setLowDetail(on: boolean): void {
+      if (nodesParent) nodesParent.visible = !on;
+      if (supportsParent) supportsParent.visible = !on;
+      if (loadsParent) loadsParent.visible = !on;
+      if (resultsParent) resultsParent.visible = !on;
+      if (shellsParent) shellsParent.visible = !on;
+    }
     controls.addEventListener('start', () => {
       isOrbiting = true;
       dampingFrames = 0;
       renderer.setPixelRatio(1);
+      setLowDetail(true);
     });
     controls.addEventListener('end', () => {
       isOrbiting = false;
       dampingFrames = 20;
       renderer.setPixelRatio(idlePixelRatio);
+      setLowDetail(false);
       invalidate();
     });
 
