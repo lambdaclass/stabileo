@@ -274,8 +274,24 @@
 
     // Check for URL hash (shared model link or embed)
     const hashMode = loadFromURLHash();
-    if (hashMode === 'embed') {
+    const queryParams = new URLSearchParams(location.search);
+    if (hashMode === 'embed' || queryParams.has('embed')) {
       uiStore.embedMode = true;
+    }
+
+    // Landing demo iframe uses ?example=<id> to pre-load a sample structure
+    const exampleId = queryParams.get('example');
+    if (exampleId) {
+      setTimeout(() => {
+        modelStore.loadExample(exampleId).then(() => {
+          resultsStore.clear();
+          resultsStore.clear3D();
+          window.dispatchEvent(new Event('stabileo-zoom-to-fit'));
+          window.dispatchEvent(new Event('stabileo-solve'));
+        }).catch(() => {
+          // Silently ignore unknown example ids
+        });
+      }, 80);
     }
     // Auto zoom-to-fit when loading from shared link
     if (hashMode) {
