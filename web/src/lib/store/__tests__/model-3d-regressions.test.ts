@@ -44,6 +44,19 @@ describe('3D store regressions', () => {
     expect(uiStore.viewportPresentation3D).toBe('upright2dIn3d');
   });
 
+  it('uses upright XZ presentation when toggling to 3D with a flat 2D model loaded', async () => {
+    // Start in 2D and load a flat 2D fixture
+    uiStore.analysisMode = '2d';
+    await modelStore.loadExample('cantilever');
+    expect(uiStore.analysisMode).toBe('2d');
+
+    // User clicks the 3D tab — the model is still flat 2D, so it should
+    // land upright in the XZ plane, not lying flat in XY.
+    uiStore.analysisMode = '3d';
+
+    expect(uiStore.viewportPresentation3D).toBe('upright2dIn3d');
+  });
+
   it('clears the upright-display hint for native 3D fixtures', async () => {
     uiStore.analysisMode = '3d';
     await modelStore.loadExample('cantilever');

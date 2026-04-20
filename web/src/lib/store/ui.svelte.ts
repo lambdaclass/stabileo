@@ -246,6 +246,9 @@ function createUIStore() {
   // `upright2dIn3d` is only for flat 2D models intentionally shown standing up on XZ.
   let viewportPresentation3D = $state<ViewportPresentation3D>('native3d');
 
+  // Injected by store/index.ts to avoid a circular import with modelStore.
+  let _isModelFlat2D: (() => boolean) | null = null;
+
   // === 3D-specific state ===
   // 3D load direction (6 DOF)
   let nodalLoadDir3D = $state<NodalLoadDir3D>('fy');
@@ -609,8 +612,15 @@ function createUIStore() {
     get analysisMode() { return analysisMode; },
     set analysisMode(v: '2d' | '3d' | 'pro' | 'edu') {
       analysisMode = v;
-      viewportPresentation3D = 'native3d';
+      // When switching into a 3D-capable mode with a flat 2D model already loaded,
+      // keep the model upright in the XZ plane instead of dropping it flat on XY.
+      if ((v === '3d' || v === 'pro') && _isModelFlat2D?.() === true) {
+        viewportPresentation3D = 'upright2dIn3d';
+      } else {
+        viewportPresentation3D = 'native3d';
+      }
     },
+    _setModelFlatnessProvider(fn: () => boolean) { _isModelFlat2D = fn; },
     get drawPlane2D() { return drawPlane2D; },
     set drawPlane2D(v: 'xy' | 'xz' | 'yz') { drawPlane2D = v; },
     get simplified2DMode() { return simplified2DMode; },
