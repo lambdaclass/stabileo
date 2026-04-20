@@ -262,8 +262,8 @@
     };
     window.addEventListener('stabileo-zoom-to-fit', handleZoomToFitEvent);
 
-    // Initial draw (invalidation-based — no continuous loop unless animating)
-    invalidate();
+    // Initial draw — needsRedraw is already true, so schedule the first frame directly
+    rafId = requestAnimationFrame(drawOnce);
 
     return () => {
       if (rafId !== null) cancelAnimationFrame(rafId);
